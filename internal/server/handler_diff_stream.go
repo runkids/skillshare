@@ -113,6 +113,7 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 	// Surface collision/validation stats so the UI can show why skills were skipped
 	dt.CollisionCount = len(resolution.Collisions)
 	dt.SkippedCount = len(filtered) - len(resolution.Skills)
+	dt.NamingSkippedCount = len(resolution.Warnings)
 	validNames := resolution.ValidTargetNames()
 	manifest, _ := ssync.ReadManifest(sc.Path)
 	legacyNames := resolution.LegacyNames(mode, sc.Path, manifest)

@@ -294,7 +294,7 @@ target_naming: flat
 |-------|----------|
 | `flat` | 중첩된 skill이 `__` 구분자로 평탄화됨 (예: `frontend__dev`). **(기본값)** |
 | `standard` | SKILL.md의 `name` 필드를 그대로 사용 (예: `dev`). [Agent Skills spec](https://agentskills.io/specification)을 따름. |
-| `prefixed` | Copy mode 전용. `standard`와 같지만 tracked repo 안의 skill은 `<repo>-<name>`으로 이름이 지정되며, 복사본의 폴더 이름과 `name:` 모두 해당됩니다(예: `_mattpocock-skills`의 `prototype` → `mattpocock-skills-prototype`). 다른 skill은 이름을 그대로 유지합니다. [Target Naming](/docs/understand/sync-modes#target-naming) 참고. |
+| `prefixed` | Copy mode 전용. `standard`와 같지만(`name:`이 폴더 이름과 같을 필요는 없음) tracked repo 안의 skill은 `<repo>-<name>`으로 이름이 지정되며, 복사본의 폴더 이름과 `name:` 모두 해당됩니다(예: `_mattpocock-skills`의 `prototype` → `mattpocock-skills-prototype`). 다른 skill은 이름을 그대로 유지합니다. [Target Naming](/docs/understand/sync-modes#target-naming) 참고. |
 
 merge 또는 symlink mode에서 `prefixed`로 결정되는 target은 검증에 실패하며 sync에서 건너뛰어집니다. 링크는 source를 가리키고, 그곳의 `name:`은 바꿀 수 없기 때문입니다.
 

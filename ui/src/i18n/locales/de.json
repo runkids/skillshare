@@ -1969,6 +1969,8 @@
   "sync.skipped.one": "{count} Skill in {name} übersprungen",
   "sync.skipped.other": "{count} Skills in {name} übersprungen",
   "sync.skipped.hint": "weil zwei Ordner gleich enden. Stelle {name} auf flat-Benennung um, um beide zu behalten.",
+  "sync.skipped.hintNaming": "weil ihr SKILL.md-Name ungültig ist oder nicht zum Ordner passt. Stelle {name} auf flat-Benennung um, um sie zu behalten.",
+  "sync.skipped.hintMixed": "wegen ungültiger SKILL.md-Namen und Ordnern, die gleich enden. Stelle {name} auf flat-Benennung um, um sie zu behalten.",
   "sync.skipped.open": "Ziel öffnen",
   "sync.local.one": "{count} Eintrag existiert nur in einem Ziel",
   "sync.local.other": "{count} Einträge existieren nur in einem Ziel",

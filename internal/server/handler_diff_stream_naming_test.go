@@ -118,3 +118,25 @@ func TestComputeTargetDiff_MergeModeCopyModeCopyIsReplacedWithLink(t *testing.T)
 		t.Fatalf("items = %+v, want one update replacing the copy with a link", dt.Items)
 	}
 }
+
+func TestComputeTargetDiff_CountsNamingSkipsApartFromCollisions(t *testing.T) {
+	source, target := t.TempDir(), t.TempDir()
+	skills := map[string]string{"a/dev": "dev", "b/dev": "dev", "odd": "not-odd"}
+	for dir, name := range skills {
+		if err := os.MkdirAll(filepath.Join(source, dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(source, dir, "SKILL.md"), []byte("---\nname: "+name+"\n---\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	discovered, err := ssync.DiscoverSourceSkills(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dt := (&Server{}).computeTargetDiff("claude", config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: target, Mode: "copy", TargetNaming: "standard"}}, discovered, "merge", source, nil)
+	if dt.SkippedCount != 3 || dt.CollisionCount != 1 || dt.NamingSkippedCount != 1 {
+		t.Fatalf("skipped = %d, collisions = %d, naming = %d; want 3, 1, 1", dt.SkippedCount, dt.CollisionCount, dt.NamingSkippedCount)
+	}
+}

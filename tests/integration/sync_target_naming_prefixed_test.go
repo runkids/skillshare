@@ -92,6 +92,23 @@ func TestSync_TargetNamingPrefixed_KeepsSameNamedSkillsFromTwoRepos(t *testing.T
 	}
 }
 
+func TestSync_TargetNamingPrefixed_KeepsSkillNamedApartFromItsFolder(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	// A tracked repo that is itself a skill lives in _ooux, so its name: never
+	// matches the folder.
+	sb.CreateSkill("_ooux", map[string]string{"SKILL.md": "---\nname: ooux\n---\n# OOUX"})
+	sb.CreateNestedSkill("_vercel/skills/react-best-practices", map[string]string{
+		"SKILL.md": "---\nname: vercel-react-best-practices\n---\n# React",
+	})
+	targetPath := sb.CreateTarget("claude")
+	writeNamingConfig(sb, targetPath, "prefixed", "copy")
+
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	assertEntries(t, sb, targetPath, "ooux", "vercel-react-best-practices")
+}
+
 func TestSync_TargetNamingPrefixed_RejectedOutsideCopyMode(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

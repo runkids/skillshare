@@ -1969,6 +1969,8 @@
   "sync.skipped.one": "{name} 中跳过 {count} 个 skill",
   "sync.skipped.other": "{name} 中跳过 {count} 个 skill",
   "sync.skipped.hint": "因为有两个文件夹名称结尾相同。将 {name} 改为 flat 命名即可保留两者。",
+  "sync.skipped.hintNaming": "因为 SKILL.md 的名称不合规则，或与文件夹名称不同。将 {name} 改为 flat 命名即可保留。",
+  "sync.skipped.hintMixed": "因为有 SKILL.md 名称不合规则，也有文件夹名称结尾相同。将 {name} 改为 flat 命名即可保留。",
   "sync.skipped.open": "打开目标",
   "sync.local.one": "{count} 项只存在于目标中",
   "sync.local.other": "{count} 项只存在于目标中",

@@ -14,7 +14,7 @@ import { useToast } from '../components/Toast';
 import { hookLabel, hookMessage, rootName } from '../components/hooks/hooksView';
 import MCPNotices from '../components/mcp/MCPNotices';
 import { describeMessage, mcpClient, targetLabel } from '../components/mcp/mcpView';
-import { changeSets, countChanges, countEdited, discardable, receivesSkill, tally, extraGroups, groupByFolder, groupInSync, HOOKS_CHANGED, hooksGroups, MCP_CHANGED, mcpGroups, otherWarnings, resourceGroups, runSync, type ChangeGroup, type Part, type RowIcon, type SyncFailure } from '../components/sync/syncView';
+import { changeSets, countChanges, countEdited, discardable, receivesSkill, tally, extraGroups, groupByFolder, groupInSync, HOOKS_CHANGED, hooksGroups, MCP_CHANGED, mcpGroups, otherWarnings, resourceGroups, runSync, skippedHintKey, type ChangeGroup, type Part, type RowIcon, type SyncFailure } from '../components/sync/syncView';
 import FolderConflictNotice from '../components/sync/FolderConflictNotice';
 import SyncResult from '../components/sync/SyncResult';
 import UnmatchedNotices from '../components/sync/UnmatchedNotices';
@@ -459,7 +459,7 @@ export default function SyncPage() {
                   <TriangleAlert size={15} className="ml-6 shrink-0 text-warn" />
                   <span className="min-w-0 flex-1">
                     <b>{t(plural('sync.skipped', d.skippedCount ?? 0), { count: d.skippedCount ?? 0, name: d.target })}</b>{' '}
-                    <span className="text-ink-2">{t('sync.skipped.hint', { name: d.target })}</span>
+                    <span className="text-ink-2">{t(skippedHintKey(d), { name: d.target })}</span>
                   </span>
                   <Link to={`/targets/${encodeURIComponent(d.target)}`} className="shrink-0 font-semibold">{t('sync.skipped.open')}</Link>
                 </div>

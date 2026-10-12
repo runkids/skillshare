@@ -294,7 +294,7 @@ target_naming: flat
 |-------|----------|
 | `flat` | 嵌套 Skill 用 `__` 分隔符扁平化（例如 `frontend__dev`）。**（默认）** |
 | `standard` | 直接使用 SKILL.md 的 `name` 字段（例如 `dev`）。遵循 [Agent Skills 规范](https://agentskills.io/specification)。 |
-| `prefixed` | 仅限 copy 模式。与 `standard` 类似，但 tracked repo 内的 Skill 会命名为 `<repo>-<name>`，副本的文件夹名和 `name:` 都是如此（例如 `_mattpocock-skills` 中的 `prototype` → `mattpocock-skills-prototype`）。其他 Skill 保持原名。见 [Target 命名](/docs/understand/sync-modes#target-naming)。 |
+| `prefixed` | 仅限 copy 模式。与 `standard` 类似，但 `name:` 不必与文件夹名称相同，且 tracked repo 内的 Skill 会命名为 `<repo>-<name>`，副本的文件夹名和 `name:` 都是如此（例如 `_mattpocock-skills` 中的 `prototype` → `mattpocock-skills-prototype`）。其他 Skill 保持原名。见 [Target 命名](/docs/understand/sync-modes#target-naming)。 |
 
 在 merge 或 symlink 模式下解析为 `prefixed` 的 target 会校验失败，并被 sync 跳过，因为链接指向 source，而 source 中的 `name:` 不能被修改。
 

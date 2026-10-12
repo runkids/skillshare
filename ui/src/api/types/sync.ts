@@ -107,4 +107,6 @@ export interface DiffTarget {
   items: { skill: string; action: string; reason?: string; kind?: 'skill' | 'agent' }[];
   skippedCount?: number;
   collisionCount?: number;
+  /** How many of skippedCount break naming rules rather than collide */
+  namingSkippedCount?: number;
 }

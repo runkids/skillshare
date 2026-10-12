@@ -1969,6 +1969,8 @@
   "sync.skipped.one": "{count} skill در {name} رد شد",
   "sync.skipped.other": "{count} skill در {name} رد شد",
   "sync.skipped.hint": "چون نام دو پوشه یکسان تمام می‌شود. برای نگه‌داشتن هر دو، {name} را به نام‌گذاری flat تغییر دهید.",
+  "sync.skipped.hintNaming": "چون نام SKILL.md آن‌ها نامعتبر است یا با نام پوشه یکی نیست. برای نگه‌داشتن آن‌ها، {name} را به نام‌گذاری flat تغییر دهید.",
+  "sync.skipped.hintMixed": "چون نام‌های نامعتبر در SKILL.md و پوشه‌هایی با پایان نام یکسان وجود دارد. برای نگه‌داشتن آن‌ها، {name} را به نام‌گذاری flat تغییر دهید.",
   "sync.skipped.open": "باز کردن هدف",
   "sync.local.one": "{count} مورد فقط در یک هدف وجود دارد",
   "sync.local.other": "{count} مورد فقط در یک هدف وجود دارند",

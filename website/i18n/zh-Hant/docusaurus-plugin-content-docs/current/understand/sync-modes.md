@@ -240,7 +240,7 @@ targets:
 |--------|----------|
 | `flat`（預設） | 巢狀 skills 以 `__` 分隔符扁平化：`frontend/dev` → `frontend__dev` |
 | `standard` | 使用 SKILL.md 的 `name` 欄位：`frontend/dev` → `dev` |
-| `prefixed` | 僅限 copy mode。在 `standard` 的基礎上，前面加上 tracked repo 名稱：`_mattpocock-skills/skills/prototype` → `mattpocock-skills-prototype` |
+| `prefixed` | 僅限 copy mode。遵循 `standard` 的命名規則（但 `name:` 不必與資料夾名稱相同），前面再加上 tracked repo 名稱：`_mattpocock-skills/skills/prototype` → `mattpocock-skills-prototype` |
 
 可全域設定或依 target 個別設定：
 
@@ -265,7 +265,7 @@ skillshare sync
 
 - 名稱已經以 repo 名稱開頭時，不會重複加前綴：`_bmad/skills/bmad-ux` 仍是 `bmad-ux`。
 - 不在 tracked repo 內的 skill 維持原名。
-- source skill 必須先通過 `standard` 檢查。加上前綴後的名稱超過 64 個字元時會顯示警告並被略過，仍然衝突的名稱與 `standard` 一樣被略過。tracked skill 無法在 `SKILL.md` 中改名，因此 sync 會建議重新命名另一個 skill，或以 `--name` 重新 track 該 repo。
+- source skill 的 `name:` 必須符合 `standard` 的命名規則，但不必與資料夾名稱相同，因為複本的 `name:` 會被改寫：本身就是 skill 的 tracked repo（`_ooux`，`name: ooux`）會以 `ooux` 同步。sync 會列出以這種方式命名的 skill。加上前綴後的名稱超過 64 個字元時會顯示警告並被略過，仍然衝突的名稱與 `standard` 一樣被略過。tracked skill 無法在 `SKILL.md` 中改名，因此 sync 會建議重新命名另一個 skill，或以 `--name` 重新 track 該 repo。
 - 想要更短的前綴，可以用較短的名稱 track repo：`skillshare install <repo> --track --name mp` 會得到 `mp-prototype`。
 - 指向同層 skill 的相對連結（`../other-skill/`）不會被改寫，與 copy mode 下的 `flat` 相同。
 - 該名稱就是工具中顯示的名稱；在 Claude Code 中它是 slash command，例如 `/mattpocock-skills-prototype`。
@@ -280,7 +280,7 @@ targets:
       target_naming: prefixed
 ```
 
-**Migration（遷移）**：在 `flat`、`standard` 與 `prefixed` 之間切換時，會就地重新命名既有的受管理項目。在 copy mode 下，manifest 會記錄每個複本是由哪種命名方式產生的，因此即使 source 沒有變動，被重新命名的複本也會重新複製，使其 `name:` 與新的命名方式一致。如果某個本機 skill 已佔用新名稱，原本的受管理項目會被保留。
+**Migration（遷移）**：在 `flat`、`standard` 與 `prefixed` 之間切換時，會就地重新命名既有的受管理項目。在 copy mode 下，manifest 會記錄每個複本是由哪種命名方式產生的，因此即使 source 沒有變動，被重新命名的複本也會重新複製，使其 `name:` 與新的命名方式一致。如果某個本機 skill 已佔用新名稱，原本的受管理項目會被保留。從 `prefixed` 切換出去時，`name:` 與資料夾名稱不同的 skill 會以新名稱重新複製，舊複本會被刪除。
 
 **Symlink mode**：`flat` 和 `standard` 會被忽略 — 整個目錄會原封不動地被連結。`prefixed` 則如上所述會驗證失敗。
 
