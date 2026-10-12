@@ -436,6 +436,16 @@ func TestOpenCodeSwitchWithoutTheGlobalServerWarns(t *testing.T) {
 	}
 }
 
+// The dashboard's preview of a project under mcp.projects shows what sync writes.
+func TestPreviewOfAnOpenCodeSwitchCarriesTheGlobalEndpoint(t *testing.T) {
+	s, tmp := projectsService(t, "mcp:\n  servers:\n    docs:\n      command: tool\n      targets: [opencode]\n  projects:\n    $TMP/p1:\n      servers: {}\n")
+	s.ProjectRoot = filepath.Join(tmp, "p1")
+	got := s.RenderNative("docs", Server{Disabled: true, Targets: []string{"opencode"}})
+	if len(got) != 1 || got[0].Error != "" || !strings.Contains(got[0].Content, `"command"`) {
+		t.Fatalf("preview %+v", got)
+	}
+}
+
 // Earlier releases wrote the global server's command next to the switch. Pi reads that entry
 // as a project server, and turning it on in Pi's /mcp starts it without args or env, so the
 // next sync rewrites it as the override.

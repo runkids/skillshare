@@ -193,6 +193,10 @@ func (s *Service) RenderNative(name string, server Server) []Rendered {
 	// An unreadable config has no accounts.
 	if source, err := LoadSource(s.ConfigPath); err == nil {
 		s = s.withAccounts(source.Accounts)
+		// A switch under mcp.projects follows the global server of the same name, as in sync.
+		if shared, ok := source.Servers[name]; ok && server.Disabled && s.ProjectRoot != "" && s.configProjectRoot() == "" {
+			server.global = &shared
+		}
 	}
 	out := make([]Rendered, 0, len(server.Targets))
 	for _, target := range server.Targets {
