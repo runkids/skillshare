@@ -399,8 +399,11 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 			if old.ID != b.ID {
 				return nil, fmt.Errorf("package already manages a different plugin")
 			}
+			// An import follows what is installed; a source binding keeps the version Skillshare reviewed.
+			if old.Source == "" {
+				old.Version = installed.Version
+			}
 			b = old
-			b.Version = installed.Version
 		}
 		change := Change{Name: name, Target: r.From, ID: b.ID, Binding: b, Action: "import", Message: "Record the existing native installation; leave its content and enabled state unchanged."}
 		if installed.Filtered {

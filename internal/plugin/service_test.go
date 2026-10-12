@@ -874,6 +874,18 @@ func TestImportAgainRecordsTheInstalledVersion(t *testing.T) {
 	}
 }
 
+// A binding added from a source keeps the version Skillshare reviewed when imported again.
+func TestImportAgainKeepsTheReviewedVersion(t *testing.T) {
+	agents := &fakeAgents{version: "1.0.0"}
+	s := agents.service(t)
+	applyPluginRequest(t, s, Request{Action: "add", Source: fixture(t), Targets: []string{"claude"}})
+	agents.installed["claude"][0].Version = "native-1"
+	applyPluginRequest(t, s, Request{Action: "import", From: "claude", Plugin: agents.installed["claude"][0].ID, Name: "demo"})
+	if b := loadBinding(t, s); b.Version != "1.0.0" {
+		t.Fatalf("binding: %+v", b)
+	}
+}
+
 // A skipped update stays pending, so a later sync still knows the plugin is behind.
 func TestSkippedUpdateStaysPending(t *testing.T) {
 	agents := &fakeAgents{version: "1.0.0"}
