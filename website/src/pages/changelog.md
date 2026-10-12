@@ -9,6 +9,23 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.25.6] - 2026-10-12
+
+
+### New Features
+
+* **memory:** add host-owned review and verification workflows ([#539](https://github.com/runkids/skillshare/issues/539)) ([b9563ea](https://github.com/runkids/skillshare/commit/b9563ea4e8879c43d1b67fc974947b0fcc397f42))
+* **plugins:** update a batch of plugins over one stream ([#534](https://github.com/runkids/skillshare/issues/534)) ([99c7911](https://github.com/runkids/skillshare/commit/99c7911bf3209a915cdfc7545d1a8a268f17adb2))
+* **ui:** make shared memory easier to find and read ([#537](https://github.com/runkids/skillshare/issues/537)) ([8213a4a](https://github.com/runkids/skillshare/commit/8213a4a385d0006136e7e254469e2981b99e310c))
+
+
+### Bug Fixes
+
+* **mcp:** turn off a global server in OpenCode 2 projects ([#541](https://github.com/runkids/skillshare/issues/541)) ([f540daf](https://github.com/runkids/skillshare/commit/f540daf601d04709dcc14631bda85592e1734848)), closes [#538](https://github.com/runkids/skillshare/issues/538)
+* **plugin:** let an imported Claude plugin update to what its marketplace holds ([#536](https://github.com/runkids/skillshare/issues/536)) ([19cdc1c](https://github.com/runkids/skillshare/commit/19cdc1c72e4eb46fe59f254e14ba3a8fd9b1e520)), closes [#535](https://github.com/runkids/skillshare/issues/535)
+* **sync:** let prefixed naming keep skills whose name differs from their folder ([#531](https://github.com/runkids/skillshare/issues/531)) ([111dd71](https://github.com/runkids/skillshare/commit/111dd71a531584b7c50b6eac5067b874ef7ad274)), closes [#530](https://github.com/runkids/skillshare/issues/530)
+* **ui:** show post-update sync only for pending changes ([#533](https://github.com/runkids/skillshare/issues/533)) ([925dd98](https://github.com/runkids/skillshare/commit/925dd98312ccca429b89bce178c6636e01325bcc))
+
 ## [0.25.5] - 2026-10-11
 
 ### New Features
