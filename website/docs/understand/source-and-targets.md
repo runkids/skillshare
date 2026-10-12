@@ -56,20 +56,20 @@ flowchart TD
 
 ## Why Sync is a Separate Step {#why-sync-is-a-separate-step}
 
-Operations like `install`, `update`, and `uninstall` only modify the **source** directory. A separate `sync` step propagates changes to all targets. This two-phase design is intentional:
+Operations like `install`, `update`, and `uninstall` only modify the **source** directory. A separate `sync` step maintains target links and refreshes managed copies. This two-phase design is intentional:
 
 **Preview before propagating** — Run `sync --dry-run` to review what will change across all targets before applying. Especially useful after `uninstall` or `--force` operations.
 
 **Batch multiple changes** — Install 5 skills, then sync once. Without separation, each install would trigger a full scan and symlink update across all targets.
 
-**Safe by default** — Source changes are staged, not immediately live. You stay in control of when targets update. Additionally, `uninstall` moves skills to a trash directory (kept 7 days) instead of permanently deleting them, so accidental removals are recoverable.
+**Recoverable removal** — `uninstall` moves skills to a trash directory (kept 7 days) instead of permanently deleting them, so accidental removals are recoverable.
 
 :::tip Exception: pull
 `pull` automatically runs sync after `git pull`. Since its intent is "bring everything up to date from remote," auto-syncing matches the expected behavior.
 :::
 
 :::info When sync is NOT needed
-Editing an existing skill doesn't require sync — symlinks mean changes are instantly visible in all targets. You only need sync when the set of skills changes (add, remove, rename) or when targets/modes change.
+Editing or updating existing skill content doesn't require sync for targets that already symlink to it: they read the updated source immediately. Run sync when links need to be added, removed, or renamed, when copied content changes, or when target paths, filters, or modes change.
 :::
 
 ---

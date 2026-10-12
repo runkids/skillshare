@@ -53,7 +53,7 @@ skillshare sync
 ```
 
 :::tip 为什么 sync 是独立的一步？
-Sync 被有意设计为与 install/update/uninstall 解耦。这样你可以批量处理多个变更（例如：先安装 3 个 Skill → 再统一 sync 一次），也可以在同步前用 `--dry-run` 预览，并完全掌控 Target 更新的时机。详见 [Source & Targets: Why Sync is a Separate Step](/docs/understand/source-and-targets#why-sync-is-a-separate-step)。
+Sync 被有意设计为与 install/update/uninstall 解耦。这样你可以批量处理多个变更（例如：先安装 3 个 Skill → 再统一 sync 一次），也可以在应用前用 `--dry-run` 预览 Target 链接与副本的变更。现有 symlink 仍会立即反映 Source 内容的修改。详见 [Source & Targets: Why Sync is a Separate Step](/docs/understand/source-and-targets#why-sync-is-a-separate-step)。
 :::
 
 ### 先预览
