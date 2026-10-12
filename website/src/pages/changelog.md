@@ -11,11 +11,15 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ## [0.25.7] - 2026-10-12
 
-
 ### Bug Fixes
 
-* **plugin:** accept OMP 18.6.1 and later instead of exactly 18.6.1 ([#543](https://github.com/runkids/skillshare/issues/543)) ([12dd041](https://github.com/runkids/skillshare/commit/12dd041288adf10ac1242a271e1c9502c0893b52))
-* **ui:** prevent plugin update rows from squeezing names ([8cb6fa2](https://github.com/runkids/skillshare/commit/8cb6fa2e44ca83115879f6fafac2b5ea324ab7a0))
+#### Plugins
+
+- **Oh My Pi plugins install on OMP releases after 18.6.1** — Skillshare required exactly OMP 18.6.1, so on any newer release the dashboard refused to install with `Installation requires OMP 18.6.1, a reviewed source and a verified cache root`, and plugin removal and standalone extension selection were read-only. Any OMP 18.6.1 or later is now accepted. The OMP sources these features rely on (plugin cache, registry, `omp plugin` output, project anchor, extension loading and the native file lock) are unchanged from 18.6.1 through 18.10.2, and install and removal were run against a real OMP 18.8.7. Older, prerelease and unrecognized versions stay blocked. Refs: #543.
+
+#### Dashboard
+
+- **Plugin update rows keep long names readable** — in the **Update N** dialog, a plugin installed to several Agents squeezed its name next to the Agent labels and versions. The name now has its own line, Agent labels and `old → new` versions wrap, and the row status no longer pushes them aside.
 
 ## [0.25.6] - 2026-10-12
 
