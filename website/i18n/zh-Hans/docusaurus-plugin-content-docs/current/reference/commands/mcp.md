@@ -177,7 +177,7 @@ skillshare mcp edit docs --target claude   # 把它加回来
 | Codex | `~/.codex/config.toml` | `.codex/config.toml` | `mcp_servers` |
 | Cursor | `~/.cursor/mcp.json` | `.cursor/mcp.json` | `mcpServers` |
 | VS Code | 用户级 `mcp.json`（如下） | `.vscode/mcp.json` | `servers` |
-| OpenCode | `~/.config/opencode/opencode.json` | `opencode.json` | `mcp` |
+| OpenCode | `~/.config/opencode/opencode.json` | `opencode.json` | `mcp`；导入时也会读取 OpenCode 2 的 `mcp.servers` |
 | Kilo Code | `~/.config/kilo/kilo.jsonc` | `kilo.jsonc` | `mcp` |
 | Grok CLI | `~/.grok/config.toml` | `.grok/config.toml` | `mcp_servers` |
 | Antigravity (AGY) | `~/.gemini/config/mcp_config.json` | `.agents/mcp_config.json` | `mcpServers` |
@@ -362,14 +362,14 @@ mcp:
 | Client | 是否支持 | Skillshare 写入的内容 |
 |---|---|---|
 | Claude Code | 是 | `~/.claude.json`：在此项目的 `disabledMcpServers` 列表中写入名称 |
-| OpenCode | 是 | `opencode.json`：`"NAME": {"enabled": false}` |
+| OpenCode | 是 | `opencode.json`：`"NAME": {"type": "local", "command": ["EXECUTABLE"], "enabled": false}`，远程服务器则写 URL，见下文 |
 | Kilo Code | 是 | `kilo.jsonc`：`"NAME": {"enabled": false}` |
 | Pi | 是，Pi 1.0.1 起 | `.pi/mcp.json`: `"NAME": {"enabled": false}`，见下文 |
 | Oh My Pi | 是 | `.omp/mcp.json`：`"NAME": {"enabled": false}` 会遮蔽同名的用户条目 |
 | Codex | 否 | 见下文 |
 | 其他所有 client | 否 | 选择其中任何一个都会报错；不会写入任何内容 |
 
-只会写入这个开关。OpenCode、Kilo Code 和 Pi 仍会使用 global 条目中的 command 或 URL；
+除 OpenCode 外，只会写入这个开关。Kilo Code 和 Pi 仍会使用 global 条目中的 command 或 URL；
 OMP 会在按名称去重之前排除这个已关闭的 project 条目，因此同名的用户条目无法连接。
 其他 client 之所以被拒绝，是因为它们会用 project 条目整体替换 global 条目，
 或者没有 project 文件，因此单独一个开关会破坏
@@ -406,6 +406,11 @@ mcp:
       disabled: true
       targets: [opencode, kilocode]
 ```
+
+OpenCode 2 会用同名的 project 条目整个取代 global 服务器，并丢弃缺少 `type` 以及 `command` 或 `url` 的条目，所以只写开关会让服务器保持开启。当 `mcp.projects` 所在的 global config 定义了该服务器时，Skillshare 会把它的 type 和可执行文件，或去掉查询字符串的 URL，与 `"enabled": false` 一起写入。OpenCode 1 也读取同样的条目。args、env、headers 和查询字符串不会写进可能被提交的 project 文件。已经带有这些字段的开关，在服务器之后离开 global config 时会保留不变。
+
+- 如果在 OpenCode 中重新开启该服务器，由于 project 条目会取代 global 条目，它只会带着可执行文件或 URL 启动。请改为从 `mcp.projects` 中该项目下移除 `disabled` 条目，再执行 sync。
+- 在 project 模式下，或 global config 没有定义该服务器时，Skillshare 只能写入 `{"enabled": false}`。OpenCode 1 会合并它，OpenCode 2 会忽略它，sync 会给出提示。这种情况下请在 OpenCode 的 global config 中关闭该服务器。
 
 ### Claude Code
 

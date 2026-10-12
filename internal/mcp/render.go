@@ -2,14 +2,24 @@ package mcp
 
 import (
 	"fmt"
+	"net/url"
 	"sort"
 )
 
-// renderDisabled writes only the switch. That works where the Agent merges its project
-// file over its global one field by field, so the global command or url survives. Agents
+// renderDisabled writes the switch, alone where the Agent merges its project file over its
+// global one field by field, so the global command or url survives. Agents
 // that replace the whole entry, or reject one without a transport, would break instead.
 func renderDisabled(target string, s Server) (map[string]any, error) {
 	switch {
+	case target == "opencode" && s.global != nil:
+		// OpenCode 2 replaces the global server and drops an entry without type and command or url.
+		// A disabled server never starts, so secrets in args, env, headers or the query stay out.
+		if s.global.Command != "" {
+			return map[string]any{"type": "local", "command": []string{s.global.Command}, "enabled": false}, nil
+		}
+		u, _ := url.Parse(s.global.URL) // validated by Server.validate
+		u.RawQuery = ""
+		return map[string]any{"type": "remote", "url": u.String(), "enabled": false}, nil
 	case openCodeFormat(target):
 		return map[string]any{"enabled": false}, nil
 	case target == "omp":

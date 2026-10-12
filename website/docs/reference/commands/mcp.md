@@ -179,7 +179,7 @@ Names such as `company-docs` work across all supported clients.
 | Codex | `~/.codex/config.toml` | `.codex/config.toml` | `mcp_servers` |
 | Cursor | `~/.cursor/mcp.json` | `.cursor/mcp.json` | `mcpServers` |
 | VS Code | User `mcp.json` (below) | `.vscode/mcp.json` | `servers` |
-| OpenCode | `~/.config/opencode/opencode.json` | `opencode.json` | `mcp` |
+| OpenCode | `~/.config/opencode/opencode.json` | `opencode.json` | `mcp`; import also reads OpenCode 2's `mcp.servers` |
 | Kilo Code | `~/.config/kilo/kilo.jsonc` | `kilo.jsonc` | `mcp` |
 | Grok CLI | `~/.grok/config.toml` | `.grok/config.toml` | `mcp_servers` |
 | Antigravity (AGY) | `~/.gemini/config/mcp_config.json` | `.agents/mcp_config.json` | `mcpServers` |
@@ -374,14 +374,14 @@ This works with five clients only:
 | Client | Supported | What Skillshare writes |
 |---|---|---|
 | Claude Code | Yes | `~/.claude.json`: the name, in this project's `disabledMcpServers` list |
-| OpenCode | Yes | `opencode.json`: `"NAME": {"enabled": false}` |
+| OpenCode | Yes | `opencode.json`: `"NAME": {"type": "local", "command": ["EXECUTABLE"], "enabled": false}`, or the URL for a remote server, see below |
 | Kilo Code | Yes | `kilo.jsonc`: `"NAME": {"enabled": false}` |
 | Pi | Yes, Pi 1.0.1 and later | `.pi/mcp.json`: `"NAME": {"enabled": false}`, see below |
 | Oh My Pi | Yes | `.omp/mcp.json`: `"NAME": {"enabled": false}` shadows the same-named user entry |
 | Codex | No | See below |
 | Every other client | No | Selecting one is an error; nothing is written |
 
-Only the switch is written. OpenCode, Kilo Code and Pi keep the command or URL from
+Only the switch is written, except for OpenCode. Kilo Code and Pi keep the command or URL from
 the global entry; OMP suppresses the disabled project entry before name deduplication,
 so the same-named user entry cannot connect. The other clients are refused because they replace the whole global entry
 with the project one, or have no project file, so a lone switch would break the
@@ -420,6 +420,21 @@ mcp:
       disabled: true
       targets: [opencode, kilocode]
 ```
+
+OpenCode 2 replaces a global server with the project entry of the same name, and drops
+an entry without its `type` and `command` or `url`, so a lone switch would leave the
+server on. When the global config under `mcp.projects` defines the server, Skillshare
+writes its type and executable, or its URL without the query string, next to
+`"enabled": false`. OpenCode 1 reads the same entry. Args, env, headers and the query
+stay out of the project file, which may be committed. A switch that already carries
+them keeps them if the server later leaves the global config.
+
+- If you turn the server back on in OpenCode, it starts with only the executable or URL
+  from the project file, because that entry replaces the global one. Remove the
+  `disabled` entry from the project under `mcp.projects` instead, then sync.
+- In project mode, or when the global config does not define the server, Skillshare can
+  only write `{"enabled": false}`. OpenCode 1 merges it; OpenCode 2 ignores it, and sync
+  says so. Turn the server off in OpenCode's global config there.
 
 ### Claude Code
 

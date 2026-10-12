@@ -224,6 +224,7 @@ describe('mcpNotice', () => {
 
   it('words the plan notices with UI keys, keeping the servers they name', () => {
     expect(mcpNotice(t, "Pi's built-in MCP needs Pi 0.99.0 or later; on older Pi these servers stop loading until Pi is updated. If pi-mcp-adapter or pi-mcp-extension is still installed in Pi, remove it, because it can take the place of Pi's built-in MCP")).toBe('[mcp.notice.piBuiltin]');
+    expect(mcpNotice(t, "OpenCode 2 ignores a project entry that only turns a server off, so the server stays on there. Skillshare writes the server's type and command or url only when its global config defines the server; add it there, or turn it off in OpenCode's global config")).toBe('[mcp.notice.openCodeSwitch]');
     expect(mcpNotice(t, 'Pi now uses its built-in MCP; the next sync updates the config: docs, local (shop)')).toBe('[mcp.notice.piExtension {"names":"docs, local (shop)"}]');
     expect(mcpNotice(t, "Pi's built-in MCP does not read idleTimeout, lifecycle; the next sync removes them: docs")).toBe('[mcp.notice.adapterOptions {"fields":"idleTimeout, lifecycle","names":"docs"}]');
     expect(mcpNotice(t, 'tool policy not applied for opencode: allow (lists)')).toBe('[mcp.notice.toolPolicy {"agent":"OpenCode","parts":"[mcp.tools.gap.allow]","names":"lists"}]');

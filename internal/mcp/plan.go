@@ -39,6 +39,10 @@ func switchOnly(target string, entry map[string]any) bool {
 		// Before Pi 1.0.1 support, the switch also carried the global server's command or url.
 		return entry["enabled"] == false && (len(entry) == 1 || len(entry) == 2 && (entry["command"] != nil || entry["url"] != nil))
 	}
+	if target == "opencode" && len(entry) == 3 && entry["type"] != nil && (entry["command"] != nil || entry["url"] != nil) {
+		// OpenCode's switch carries the global server's type and command or url; see renderDisabled.
+		return entry["enabled"] == false
+	}
 	return len(entry) == 1 && (entry["enabled"] == false || entry["disabled"] == true)
 }
 
@@ -99,6 +103,10 @@ type ledger struct {
 // registers /mcp replaces the built-in support; pi-mcp-extension, and pi-mcp-adapter
 // before 3.0.0, read mcp.json too. The dashboard matches the text, so change both together.
 const PiBuiltinNotice = "Pi's built-in MCP needs Pi 0.99.0 or later; on older Pi these servers stop loading until Pi is updated. If pi-mcp-adapter or pi-mcp-extension is still installed in Pi, remove it, because it can take the place of Pi's built-in MCP"
+
+// OpenCodeSwitchNotice explains a switch that names no endpoint, which OpenCode 2 ignores. The
+// dashboard matches the text, so change both together.
+const OpenCodeSwitchNotice = "OpenCode 2 ignores a project entry that only turns a server off, so the server stays on there. Skillshare writes the server's type and command or url only when its global config defines the server; add it there, or turn it off in OpenCode's global config"
 
 // piExtensionEntry reports an entry Skillshare wrote for pi-mcp-adapter or pi-mcp-extension
 // before 0.23.0: one in the adapter's own file, or one with the transport field only
@@ -283,6 +291,7 @@ func followingSwitches(servers map[string]Server, defaults []string, global *Sou
 		var reached []string
 		if global != nil {
 			if shared, ok := global.Servers[name]; ok {
+				server.global = &shared
 				if reached = shared.Targets; reached == nil {
 					reached = global.Targets
 				}
@@ -588,6 +597,7 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 	}
 	projectRoots := sortedKeys(source.Projects)
 	piMoves := source.piExtensionSettings
+	endpointless := false
 	keys := make([]fileKey, 0, len(desired))
 	for key := range desired {
 		keys = append(keys, key)
@@ -629,6 +639,11 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 			current := native.Entries[name]
 			currentHash := entryHash(managedEntry(target, current))
 			want := desired[fk][name]
+			// Once the global server leaves this config, a switch still carrying its endpoint keeps it:
+			// OpenCode may still define the server, and OpenCode 2 ignores the bare switch.
+			if target == "opencode" && len(want) == 1 && len(current) == 3 && switchOnly(target, want) && switchOnly(target, current) && managed && owned.Owner == source.ConfigPath && currentHash == owned.Hash {
+				want = current
+			}
 			wantHash := entryHash(managedEntry(target, want))
 			prune := map[string]bool{}
 			pruneConflict := false
@@ -752,6 +767,9 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 			if (change.Action == "remove" || change.Action == "update") && piExtensionEntry(target, path, current) {
 				piMoves = true
 			}
+			if target == "opencode" && change.Switch && len(want) == 1 {
+				endpointless = true
+			}
 			change.Fields = changedFieldNames(current, f.changes[name], change.Action)
 			if change.Action == "conflict" {
 				p.Blocked = true
@@ -769,6 +787,9 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 	p.Revision = digest([]byte(revision))
 	if piMoves {
 		p.Notices = append(p.Notices, PiBuiltinNotice)
+	}
+	if endpointless {
+		p.Notices = append(p.Notices, OpenCodeSwitchNotice)
 	}
 	for _, found := range matched {
 		if !found {

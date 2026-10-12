@@ -174,7 +174,7 @@ client에서 동작합니다.
 | Codex | `~/.codex/config.toml` | `.codex/config.toml` | `mcp_servers` |
 | Cursor | `~/.cursor/mcp.json` | `.cursor/mcp.json` | `mcpServers` |
 | VS Code | User `mcp.json` (below) | `.vscode/mcp.json` | `servers` |
-| OpenCode | `~/.config/opencode/opencode.json` | `opencode.json` | `mcp` |
+| OpenCode | `~/.config/opencode/opencode.json` | `opencode.json` | `mcp`; import는 OpenCode 2의 `mcp.servers`도 읽습니다 |
 | Kilo Code | `~/.config/kilo/kilo.jsonc` | `kilo.jsonc` | `mcp` |
 | Grok CLI | `~/.grok/config.toml` | `.grok/config.toml` | `mcp_servers` |
 | Antigravity (AGY) | `~/.gemini/config/mcp_config.json` | `.agents/mcp_config.json` | `mcpServers` |
@@ -360,14 +360,14 @@ Agent는 자체 global MCP 파일과 프로젝트 파일을 함께 읽습니다.
 | Client | Supported | What Skillshare writes |
 |---|---|---|
 | Claude Code | 예 | `~/.claude.json`: 이름을 이 프로젝트의 `disabledMcpServers` 목록에 추가 |
-| OpenCode | 예 | `opencode.json`: `"NAME": {"enabled": false}` |
+| OpenCode | 예 | `opencode.json`: `"NAME": {"type": "local", "command": ["EXECUTABLE"], "enabled": false}`, 원격 서버는 URL, 아래 참고 |
 | Kilo Code | 예 | `kilo.jsonc`: `"NAME": {"enabled": false}` |
 | Pi | 예, Pi 1.0.1부터 | `.pi/mcp.json`: `"NAME": {"enabled": false}`, 아래 참조 |
 | Oh My Pi | 예 | `.omp/mcp.json`: `"NAME": {"enabled": false}`가 같은 이름의 사용자 항목을 가림 |
 | Codex | 아니요 | 아래 참고 |
 | Every other client | 아니요 | 하나를 선택하면 오류가 발생하며 아무것도 작성되지 않음 |
 
-스위치만 작성됩니다. OpenCode, Kilo Code, Pi는 global 항목의 command나 URL을 그대로 유지합니다.
+OpenCode를 제외하면 스위치만 작성됩니다. Kilo Code, Pi는 global 항목의 command나 URL을 그대로 유지합니다.
 OMP는 이름 중복 제거 전에 비활성화된 project 항목을 억제하므로 같은 이름의 사용자 항목이
 연결되지 않습니다. 다른
 client는 전체 global 항목을 프로젝트 항목으로 대체하거나 프로젝트 파일이 없기
@@ -406,6 +406,11 @@ mcp:
       disabled: true
       targets: [opencode, kilocode]
 ```
+
+OpenCode 2는 global 서버를 같은 이름의 project 항목으로 교체하고, `type`과 `command` 또는 `url`이 없는 항목은 버립니다. 그래서 스위치만으로는 서버가 계속 켜져 있습니다. `mcp.projects`의 global config가 그 서버를 정의하면 Skillshare는 서버의 type과 실행 파일, 또는 쿼리 문자열을 뺀 URL을 `"enabled": false`와 함께 작성합니다. OpenCode 1도 같은 항목을 읽습니다. args, env, headers와 쿼리는 커밋될 수 있는 project 파일에 들어가지 않습니다. 이미 이 값을 가진 스위치는 나중에 서버가 global config에서 빠져도 그대로 유지됩니다.
+
+- OpenCode에서 서버를 다시 켜면 project 파일의 항목이 global 항목을 교체하므로, 실행 파일이나 URL만으로 시작됩니다. 대신 `mcp.projects`의 프로젝트에서 `disabled` 항목을 제거하고 sync하세요.
+- project 모드이거나 global config가 서버를 정의하지 않으면 Skillshare는 `{"enabled": false}`만 작성할 수 있습니다. OpenCode 1은 이를 병합하지만 OpenCode 2는 무시하며, sync가 이를 알려 줍니다. 그 경우 OpenCode의 global config에서 서버를 끄세요.
 
 ### Claude Code
 

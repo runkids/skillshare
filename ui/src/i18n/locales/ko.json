@@ -1627,6 +1627,7 @@
   "mcp.syncDialog.subtitle": "이 변경 사항을 MCP 설정 파일에 기록합니다. 각 파일의 백업을 남깁니다.",
   "mcp.syncDialog.done": "MCP 설정 파일에 기록했습니다.",
   "mcp.notice.piBuiltin": "Pi 내장 MCP에는 Pi 0.99.0 이상이 필요합니다. 이전 Pi에서는 업데이트할 때까지 이 서버들이 로드되지 않습니다. Pi에 pi-mcp-adapter나 pi-mcp-extension이 아직 설치되어 있다면 제거하세요. Pi 내장 MCP를 대신할 수 있습니다.",
+  "mcp.notice.openCodeSwitch": "OpenCode 2는 서버를 끄기만 하는 프로젝트 항목을 무시하므로 그곳에서 서버가 계속 켜져 있습니다. Skillshare는 전역 설정이 서버를 정의할 때만 서버의 type과 command 또는 URL을 작성할 수 있습니다. 그곳에 추가하거나 OpenCode 전역 설정에서 끄세요.",
   "mcp.notice.piExtension": "Pi는 이제 내장 MCP를 사용합니다. 다음 sync에서 설정을 업데이트합니다: {names}",
   "mcp.notice.piOptionsPrune": "piOptionsPrune은 더 이상 사용되지 않습니다. 다음 sync에서 제거합니다: {names}",
   "mcp.notice.adapterOptions": "Pi 내장 MCP는 {fields}을(를) 읽지 않습니다. 다음 sync에서 제거합니다: {names}",

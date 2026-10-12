@@ -1627,6 +1627,7 @@
   "mcp.syncDialog.subtitle": "これらの変更を MCP の設定ファイルに書き込みます。各ファイルのバックアップを残します。",
   "mcp.syncDialog.done": "MCP の設定ファイルに書き込みました。",
   "mcp.notice.piBuiltin": "Pi の内蔵 MCP には Pi 0.99.0 以降が必要です。古い Pi では、更新するまでこれらのサーバーは読み込まれません。pi-mcp-adapter または pi-mcp-extension が Pi にまだ入っている場合は削除してください。Pi の内蔵 MCP の代わりに動くことがあります。",
+  "mcp.notice.openCodeSwitch": "OpenCode 2 はサーバーをオフにするだけのプロジェクトエントリを無視するため、そこではサーバーがオンのままです。Skillshare がサーバーの type と command または URL を書き込めるのは、グローバル設定でそのサーバーが定義されている場合だけです。そこに追加するか、OpenCode のグローバル設定でオフにしてください。",
   "mcp.notice.piExtension": "Pi は内蔵 MCP を使うようになりました。次の sync で config を更新します: {names}",
   "mcp.notice.piOptionsPrune": "piOptionsPrune は使われなくなりました。次の sync で削除します: {names}",
   "mcp.notice.adapterOptions": "Pi の内蔵 MCP は {fields} を読みません。次の sync で削除します: {names}",

@@ -362,6 +362,76 @@ func TestPiSwitchIsAnOverride(t *testing.T) {
 	}
 }
 
+// OpenCode 2 drops a project entry without its type and command or url, so the switch carries
+// the global server's executable or its url without the query, and nothing else.
+func TestOpenCodeSwitchCarriesTheGlobalEndpoint(t *testing.T) {
+	s, tmp := projectsService(t, "mcp:\n  servers:\n    docs:\n      command: tool\n      args: [--port, \"3000\"]\n      env: {TOKEN: {fromEnv: TOKEN}}\n      targets: [opencode]\n    web:\n      url: https://example.com/mcp?key=secret\n      headers: {Authorization: {fromEnv: AUTH}}\n      targets: [opencode]\n  projects:\n    $TMP/p1:\n      targets: [opencode]\n      servers:\n        docs:\n          disabled: true\n        web:\n          disabled: true\n")
+	plan := applyProjects(t, s)
+	for _, c := range plan.Changes {
+		if c.Root == filepath.Join(tmp, "p1") && !c.Switch {
+			t.Fatalf("not a switch: %+v", c)
+		}
+	}
+	if slices.Contains(plan.Notices, OpenCodeSwitchNotice) {
+		t.Fatalf("notice for a switch with its endpoint: %v", plan.Notices)
+	}
+	data, err := os.ReadFile(filepath.Join(tmp, "p1", "opencode.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var file struct{ MCP map[string]map[string]any }
+	if err := json.Unmarshal(data, &file); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]map[string]any{
+		"docs": {"type": "local", "command": []any{"tool"}, "enabled": false},
+		"web":  {"type": "remote", "url": "https://example.com/mcp", "enabled": false},
+	}
+	if !reflect.DeepEqual(file.MCP, want) {
+		t.Fatalf("project opencode.json: %s", data)
+	}
+	if plan, err := s.Preview(); err != nil || slices.ContainsFunc(plan.Changes, func(c Change) bool { return c.Action != "unchanged" }) {
+		t.Fatalf("not idempotent: %+v %v", plan, err)
+	}
+}
+
+// The global server may leave this config while OpenCode still defines it, so a switch that
+// carries its endpoint keeps it rather than falling back to the switch OpenCode 2 ignores.
+// One edited since sync is no longer the switch sync wrote, so it is a conflict.
+func TestOpenCodeSwitchKeepsItsEndpointWithoutTheGlobalServer(t *testing.T) {
+	s, tmp := projectsService(t, "mcp:\n  servers:\n    docs:\n      command: tool\n      targets: [opencode]\n  projects:\n    $TMP/p1:\n      targets: [opencode]\n      servers:\n        docs:\n          disabled: true\n")
+	applyProjects(t, s)
+	project := filepath.Join(tmp, "p1", "opencode.json")
+	written, _ := os.ReadFile(project)
+	if err := os.WriteFile(s.ConfigPath, []byte(strings.ReplaceAll("mcp:\n  servers: {}\n  projects:\n    $TMP/p1:\n      targets: [opencode]\n      servers:\n        docs:\n          disabled: true\n", "$TMP", tmp)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := s.Preview()
+	if c := changeFor(plan, project, "docs"); err != nil || c == nil || c.Action != "unchanged" || slices.Contains(plan.Notices, OpenCodeSwitchNotice) {
+		t.Fatalf("kept switch: %+v %v", plan, err)
+	}
+	if err := os.WriteFile(project, []byte(strings.Replace(string(written), `"tool"`, `"tool", "--edited"`, 1)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if plan, err = s.Preview(); err != nil || changeFor(plan, project, "docs").Action != "conflict" {
+		t.Fatalf("edited switch: %+v %v", plan, err)
+	}
+}
+
+// Without the global server there is no endpoint to write, so the switch stays alone, which
+// OpenCode 1 merges and OpenCode 2 ignores; the plan says so.
+func TestOpenCodeSwitchWithoutTheGlobalServerWarns(t *testing.T) {
+	s := testService(t)
+	s.ProjectRoot = filepath.Join(s.Home, "project")
+	if err := os.WriteFile(s.ConfigPath, []byte("mcp:\n  servers:\n    docs:\n      disabled: true\n      targets: [opencode]\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := s.Preview()
+	if err != nil || !slices.Contains(plan.Notices, OpenCodeSwitchNotice) {
+		t.Fatalf("notices: %v %v", plan, err)
+	}
+}
+
 // Earlier releases wrote the global server's command next to the switch. Pi reads that entry
 // as a project server, and turning it on in Pi's /mcp starts it without args or env, so the
 // next sync rewrites it as the override.

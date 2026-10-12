@@ -368,6 +368,7 @@ export const backupTime = (id: string) => new Date(Number(id.split('-')[0]) / 1e
 // other is shown as sent. A legacy notice ends in ": <servers>", a tool policy one in " (<servers>)".
 const noticeKeys: Record<string, string> = {
   "Pi's built-in MCP needs Pi 0.99.0 or later; on older Pi these servers stop loading until Pi is updated. If pi-mcp-adapter or pi-mcp-extension is still installed in Pi, remove it, because it can take the place of Pi's built-in MCP": 'mcp.notice.piBuiltin',
+  "OpenCode 2 ignores a project entry that only turns a server off, so the server stays on there. Skillshare writes the server's type and command or url only when its global config defines the server; add it there, or turn it off in OpenCode's global config": 'mcp.notice.openCodeSwitch',
 };
 const legacyNoticeKeys: Record<string, string> = {
   'Pi now uses its built-in MCP; the next sync updates the config': 'mcp.notice.piExtension',

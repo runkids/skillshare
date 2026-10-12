@@ -282,3 +282,33 @@ func TestAdditionalClientImportRejectsDisabled(t *testing.T) {
 		}
 	}
 }
+
+// OpenCode 2 nests its servers under mcp.servers, as its own mcp add writes them.
+func TestImportReadsOpenCodeServersSection(t *testing.T) {
+	items, err := Import("opencode", []byte(`{"mcp":{"servers":{"docs":{"type":"local","command":["tool","--x"],"environment":{"KEY":"{env:KEY}"}}},"flat":{"type":"remote","url":"https://example.com/mcp"}}}`), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]Server{}
+	for _, item := range items {
+		if len(item.Problems) > 0 {
+			t.Fatalf("%s: %v", item.Name, item.Problems)
+		}
+		got[item.Name] = item.Server
+	}
+	docs := got["docs"]
+	if len(got) != 2 || docs.Command != "tool" || !slices.Equal(docs.Args, []string{"--x"}) || docs.Env["KEY"].FromEnv != "KEY" || got["flat"].URL != "https://example.com/mcp" {
+		t.Fatalf("candidates: %+v", got)
+	}
+}
+
+// A server named servers is still a server: only a section of objects is OpenCode 2's.
+func TestImportKeepsAnOpenCodeServerNamedServers(t *testing.T) {
+	items, err := Import("opencode", []byte(`{"mcp":{"servers":{"enabled":false},"other":{"type":"local","command":["x"]}}}`), "")
+	if err != nil || len(items) != 2 || items[1].Name != "servers" || len(items[1].Problems) == 0 {
+		t.Fatalf("candidates: %+v %v", items, err)
+	}
+	if _, err := Import("opencode", []byte(`{"mcp":{"servers":{"docs":{"type":"local","command":["a"]}},"docs":{"type":"local","command":["b"]}}}`), ""); err == nil || !strings.Contains(err.Error(), "docs") {
+		t.Fatalf("same name in both places: %v", err)
+	}
+}

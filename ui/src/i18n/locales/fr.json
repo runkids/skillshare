@@ -1627,6 +1627,7 @@
   "mcp.syncDialog.subtitle": "Ces modifications sont écrites dans les fichiers de configuration MCP. Une sauvegarde de chaque fichier est conservée.",
   "mcp.syncDialog.done": "Les fichiers de configuration MCP ont été écrits.",
   "mcp.notice.piBuiltin": "Le MCP intégré de Pi nécessite Pi 0.99.0 ou plus récent. Avec un Pi plus ancien, ces serveurs ne se chargent plus tant que Pi n'est pas mis à jour. Si pi-mcp-adapter ou pi-mcp-extension est encore installé dans Pi, supprimez-le, car il peut prendre la place du MCP intégré de Pi.",
+  "mcp.notice.openCodeSwitch": "OpenCode 2 ignore une entrée de projet qui ne fait que désactiver un serveur, donc le serveur reste actif. Skillshare ne peut écrire le type et la commande ou l'URL du serveur que si sa configuration globale définit ce serveur. Ajoutez-le là, ou désactivez-le dans la configuration globale d'OpenCode.",
   "mcp.notice.piExtension": "Pi utilise désormais son MCP intégré ; la prochaine synchronisation met à jour la configuration : {names}",
   "mcp.notice.piOptionsPrune": "piOptionsPrune n'est plus utilisé ; la prochaine synchronisation le supprime : {names}",
   "mcp.notice.adapterOptions": "Le MCP intégré de Pi ne lit pas {fields} ; la prochaine synchronisation les supprime : {names}",

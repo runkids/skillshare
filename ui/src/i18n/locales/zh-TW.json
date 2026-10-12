@@ -1627,6 +1627,7 @@
   "mcp.syncDialog.subtitle": "這些變更會寫入 MCP 設定檔，每個檔案都會保留備份。",
   "mcp.syncDialog.done": "已寫入 MCP 設定檔。",
   "mcp.notice.piBuiltin": "Pi 內建 MCP 需要 Pi 0.99.0 以上。舊版 Pi 在更新前不會載入這些 server。如果 Pi 還裝著 pi-mcp-adapter 或 pi-mcp-extension，請把它移除，因為它可能取代 Pi 內建 MCP。",
+  "mcp.notice.openCodeSwitch": "OpenCode 2 會忽略只關閉伺服器的專案項目，所以伺服器在那裡仍會開啟。只有全域設定定義了該伺服器時，Skillshare 才能寫入它的 type 以及 command 或 URL。請在那裡加入它，或在 OpenCode 的全域設定中關閉它。",
   "mcp.notice.piExtension": "Pi 現在使用內建 MCP，下次同步會更新設定：{names}",
   "mcp.notice.piOptionsPrune": "piOptionsPrune 已不再使用，下次同步會移除：{names}",
   "mcp.notice.adapterOptions": "Pi 內建 MCP 不會讀取 {fields}，下次同步會移除：{names}",
