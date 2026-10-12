@@ -1969,6 +1969,8 @@
   "sync.skipped.one": "{name}에서 skill {count}개 건너뜀",
   "sync.skipped.other": "{name}에서 skill {count}개 건너뜀",
   "sync.skipped.hint": "두 폴더의 이름 끝이 같기 때문입니다. 둘 다 유지하려면 {name}을(를) flat 이름 방식으로 바꾸세요.",
+  "sync.skipped.hintNaming": "SKILL.md 이름이 규칙에 맞지 않거나 폴더 이름과 다르기 때문입니다. 유지하려면 {name}을(를) flat 이름 방식으로 바꾸세요.",
+  "sync.skipped.hintMixed": "규칙에 맞지 않는 SKILL.md 이름과 이름 끝이 같은 폴더가 있기 때문입니다. 유지하려면 {name}을(를) flat 이름 방식으로 바꾸세요.",
   "sync.skipped.open": "대상 열기",
   "sync.local.one": "항목 {count}개는 대상에만 있습니다",
   "sync.local.other": "항목 {count}개는 대상에만 있습니다",

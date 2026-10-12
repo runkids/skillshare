@@ -296,7 +296,7 @@ target_naming: flat
 |-------|----------|
 | `flat` | ネストされた Skill が `__` セパレータでフラット化される（例: `frontend__dev`）。**（デフォルト）** |
 | `standard` | SKILL.md の `name` フィールドをそのまま使う（例: `dev`）。[Agent Skills spec](https://agentskills.io/specification) に準拠。 |
-| `prefixed` | copy mode 専用。`standard` と同じだが、tracked repo 内の Skill は `<repo>-<name>` という名前になり、コピー先のフォルダー名と `name:` の両方に反映される（例: `_mattpocock-skills` の `prototype` → `mattpocock-skills-prototype`）。それ以外の Skill は名前をそのまま保つ。[Target の命名規則](/docs/understand/sync-modes#target-naming) を参照。 |
+| `prefixed` | copy mode 専用。`standard` と同じだが（`name:` はフォルダー名と一致しなくてよい）、tracked repo 内の Skill は `<repo>-<name>` という名前になり、コピー先のフォルダー名と `name:` の両方に反映される（例: `_mattpocock-skills` の `prototype` → `mattpocock-skills-prototype`）。それ以外の Skill は名前をそのまま保つ。[Target の命名規則](/docs/understand/sync-modes#target-naming) を参照。 |
 
 merge mode または symlink mode で `prefixed` に解決される Target は、バリデーションに失敗し、sync でスキップされます。リンクは source を指しており、そこでは `name:` を変更できないためです。
 

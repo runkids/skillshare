@@ -1969,6 +1969,8 @@
   "sync.skipped.one": "{count} skill dilewati di {name}",
   "sync.skipped.other": "{count} skill dilewati di {name}",
   "sync.skipped.hint": "karena dua folder berakhiran nama yang sama. Ubah {name} ke penamaan flat agar keduanya tetap ada.",
+  "sync.skipped.hintNaming": "karena nama SKILL.md-nya tidak valid atau tidak sama dengan nama foldernya. Ubah {name} ke penamaan flat agar tetap ada.",
+  "sync.skipped.hintMixed": "karena ada nama SKILL.md yang tidak valid dan folder yang berakhiran nama yang sama. Ubah {name} ke penamaan flat agar tetap ada.",
   "sync.skipped.open": "Buka target",
   "sync.local.one": "{count} item hanya ada di target",
   "sync.local.other": "{count} item hanya ada di target",

@@ -241,7 +241,7 @@ merge mode または copy mode を使うとき、target 内で Skill ディレ�
 |--------|------|
 | `flat`(デフォルト) | ネストした Skill は `__` 区切りでフラット化される: `frontend/dev` → `frontend__dev` |
 | `standard` | SKILL.md の `name` フィールドを使う: `frontend/dev` → `dev` |
-| `prefixed` | copy mode 専用。`standard` に tracked repo 名を前置する: `_mattpocock-skills/skills/prototype` → `mattpocock-skills-prototype` |
+| `prefixed` | copy mode 専用。`standard` の命名規則に従い（ただし `name:` はフォルダー名と一致しなくてよい）、tracked repo 名を前置する: `_mattpocock-skills/skills/prototype` → `mattpocock-skills-prototype` |
 
 グローバルまたは target ごとに設定します。
 
@@ -266,7 +266,7 @@ skillshare sync
 
 - 名前がすでに repo 名で始まっている場合は、再度プレフィックスを付けません: `_bmad/skills/bmad-ux` は `bmad-ux` のままです。
 - tracked repo の外にある Skill は名前をそのまま保ちます。
-- source の Skill は、まず `standard` のチェックを通過する必要があります。prefixed 名が 64 文字を超える場合は警告付きでスキップされ、それでも名前が衝突する場合は `standard` と同様にスキップされます。tracked Skill は `SKILL.md` で名前を変更できないため、sync はもう一方の Skill の名前を変えるか、`--name` で repo を再度 track することを提案します。
+- source の Skill の `name:` は `standard` の命名規則に従う必要がありますが、コピーの `name:` は書き換えられるため、フォルダー名と一致する必要はありません。それ自体が Skill である tracked repo（`name: ooux` の `_ooux`）は `ooux` として sync されます。このように命名された Skill は sync が一覧表示します。prefixed 名が 64 文字を超える場合は警告付きでスキップされ、それでも名前が衝突する場合は `standard` と同様にスキップされます。tracked Skill は `SKILL.md` で名前を変更できないため、sync はもう一方の Skill の名前を変えるか、`--name` で repo を再度 track することを提案します。
 - より短いプレフィックスにしたい場合は、repo を短い名前で track します: `skillshare install <repo> --track --name mp` は `mp-prototype` になります。
 - 兄弟 Skill への相対リンク（`../other-skill/`）は書き換えられません。これは copy mode の `flat` と同じです。
 - この名前がツールに表示される名前になります。Claude Code ではスラッシュコマンドになります。例: `/mattpocock-skills-prototype`。
@@ -281,7 +281,7 @@ targets:
       target_naming: prefixed
 ```
 
-**移行**: `flat`、`standard`、`prefixed` の間で切り替えると、既存の管理対象エントリはその場でリネームされます。copy mode では manifest が各コピーを作成した naming を記録しているため、source が変更されていなくても、リネームされたコピーは再度コピーされ、その `name:` は新しい naming に一致します。ローカル Skill が既に新しい名前を占有している場合、古い管理対象エントリは保持されます。
+**移行**: `flat`、`standard`、`prefixed` の間で切り替えると、既存の管理対象エントリはその場でリネームされます。copy mode では manifest が各コピーを作成した naming を記録しているため、source が変更されていなくても、リネームされたコピーは再度コピーされ、その `name:` は新しい naming に一致します。ローカル Skill が既に新しい名前を占有している場合、古い管理対象エントリは保持されます。`prefixed` から切り替える場合、`name:` がフォルダー名と異なる Skill は新しい名前で再コピーされ、古いコピーは削除されます。
 
 **Symlink mode**: `flat` と `standard` は無視されます — ディレクトリ全体がそのままリンクされます。`prefixed` は上記のとおり検証エラーになります。
 

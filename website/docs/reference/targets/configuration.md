@@ -294,7 +294,7 @@ target_naming: flat
 |-------|----------|
 | `flat` | Nested skills flattened with `__` separators (e.g. `frontend__dev`). **(default)** |
 | `standard` | Uses the SKILL.md `name` field directly (e.g. `dev`). Follows the [Agent Skills spec](https://agentskills.io/specification). |
-| `prefixed` | Copy mode only. Like `standard`, but a skill inside a tracked repo is named `<repo>-<name>`, both its folder and `name:` in the copy (e.g. `prototype` from `_mattpocock-skills` → `mattpocock-skills-prototype`). Other skills keep their name. See [Target Naming](/docs/understand/sync-modes#target-naming). |
+| `prefixed` | Copy mode only. Like `standard`, but `name:` need not match the folder, and a skill inside a tracked repo is named `<repo>-<name>`, both its folder and `name:` in the copy (e.g. `prototype` from `_mattpocock-skills` → `mattpocock-skills-prototype`). Other skills keep their name. See [Target Naming](/docs/understand/sync-modes#target-naming). |
 
 A target that resolves to `prefixed` in merge or symlink mode fails validation and is skipped by sync, because a link points at the source, where `name:` must not change.
 

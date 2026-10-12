@@ -1969,6 +1969,8 @@
   "sync.skipped.one": "{count} skill ignoré dans {name}",
   "sync.skipped.other": "{count} skills ignorés dans {name}",
   "sync.skipped.hint": "car deux dossiers se terminent par le même nom. Passez {name} en nommage flat pour garder les deux.",
+  "sync.skipped.hintNaming": "car leur nom dans SKILL.md est invalide ou ne correspond pas à leur dossier. Passez {name} en nommage flat pour les garder.",
+  "sync.skipped.hintMixed": "à cause de noms SKILL.md invalides et de dossiers qui se terminent par le même nom. Passez {name} en nommage flat pour les garder.",
   "sync.skipped.open": "Ouvrir la cible",
   "sync.local.one": "{count} élément n'existe que dans une cible",
   "sync.local.other": "{count} éléments n'existent que dans une cible",

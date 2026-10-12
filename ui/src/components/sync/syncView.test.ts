@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, type DiffTarget, type Target } from '../../api/client';
 import { hooksApi, type HookPlan } from '../../api/hooks';
 import { mcpApi, type MCPPlan } from '../../api/mcp';
-import { changeSets, countChanges, countEdited, discardable, extraGroups, failureExplanation, groupByFolder, groupInSync, HOOKS_CHANGED, hooksGroups, MCP_CHANGED, mcpGroups, otherWarnings, pendingCount, resourceGroups, runSync, type SyncFailure } from './syncView';
+import { changeSets, countChanges, countEdited, discardable, extraGroups, failureExplanation, groupByFolder, groupInSync, HOOKS_CHANGED, hooksGroups, MCP_CHANGED, mcpGroups, otherWarnings, pendingCount, resourceGroups, runSync, skippedHintKey, type SyncFailure } from './syncView';
 
 vi.mock('../../api/client', async (load) => ({ ...await load<typeof import('../../api/client')>(), api: { sync: vi.fn(), syncExtras: vi.fn() } }));
 vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { preview: vi.fn(), configure: vi.fn() } }));
@@ -299,5 +299,15 @@ describe('failureExplanation', () => {
       vi.mocked(hooksApi.preview).mockResolvedValue({ ...reviewed, changes: [{ ...hookChange, root: '/work/app', action: 'conflict' }] });
       await expect(runSync({ resources: null, extras: false, mcp: null, hooks: reviewed, force: false, project: { root: '~/work/app', path: '/work/app' } })).rejects.toThrow(HOOKS_CHANGED);
     });
+  });
+});
+
+describe('skippedHintKey', () => {
+  it.each([
+    [{ collisionCount: 1 }, 'sync.skipped.hint'],
+    [{ namingSkippedCount: 1 }, 'sync.skipped.hintNaming'],
+    [{ collisionCount: 1, namingSkippedCount: 1 }, 'sync.skipped.hintMixed'],
+  ])('explains %o with %s', (counts, key) => {
+    expect(skippedHintKey({ target: 'codex', items: [], ...counts })).toBe(key);
   });
 });

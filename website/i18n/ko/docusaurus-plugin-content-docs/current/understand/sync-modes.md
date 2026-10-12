@@ -240,7 +240,7 @@ merge나 copy mode를 사용할 때 target에서 skill 디렉터리 이름을 �
 |--------|--------|
 | `flat` (기본값) | 중첩된 skill이 `__` 구분자로 평탄화됨: `frontend/dev` → `frontend__dev` |
 | `standard` | SKILL.md의 `name` 필드를 사용: `frontend/dev` → `dev` |
-| `prefixed` | Copy mode 전용. `standard`에 tracked repo 이름을 앞에 붙임: `_mattpocock-skills/skills/prototype` → `mattpocock-skills-prototype` |
+| `prefixed` | Copy mode 전용. `standard` 이름 규칙을 따르되(`name:`이 폴더 이름과 같을 필요는 없음) tracked repo 이름을 앞에 붙임: `_mattpocock-skills/skills/prototype` → `mattpocock-skills-prototype` |
 
 전역 또는 target별로 설정합니다:
 
@@ -265,7 +265,7 @@ skillshare sync
 
 - 이름이 이미 repo 이름으로 시작하면 접두사를 다시 붙이지 않습니다: `_bmad/skills/bmad-ux`는 `bmad-ux`로 유지됩니다.
 - tracked repo 밖의 skill은 이름을 그대로 유지합니다.
-- source skill은 먼저 `standard` 검사를 통과해야 합니다. 접두사가 붙은 이름이 64자를 넘으면 경고와 함께 건너뛰어지고, 그래도 이름이 충돌하면 `standard`와 같이 건너뛰어집니다. tracked skill은 `SKILL.md`에서 이름을 바꿀 수 없으므로 sync는 다른 skill의 이름을 바꾸거나 `--name`으로 repo를 다시 track하도록 안내합니다.
+- source skill의 `name:`은 `standard` 이름 규칙을 따라야 하지만, 복사본의 `name:`이 다시 쓰이므로 폴더 이름과 같을 필요는 없습니다. 그 자체가 skill인 tracked repo(`name: ooux`인 `_ooux`)는 `ooux`로 sync됩니다. 이렇게 이름이 정해진 skill은 sync가 목록으로 보여 줍니다. 접두사가 붙은 이름이 64자를 넘으면 경고와 함께 건너뛰어지고, 그래도 이름이 충돌하면 `standard`와 같이 건너뛰어집니다. tracked skill은 `SKILL.md`에서 이름을 바꿀 수 없으므로 sync는 다른 skill의 이름을 바꾸거나 `--name`으로 repo를 다시 track하도록 안내합니다.
 - 더 짧은 접두사가 필요하면 repo를 짧은 이름으로 track하세요: `skillshare install <repo> --track --name mp`는 `mp-prototype`을 만듭니다.
 - 형제 skill로의 상대 링크(`../other-skill/`)는 다시 쓰이지 않으며, 이는 copy mode의 `flat`과 같습니다.
 - 이 이름이 도구에 표시되는 이름이 됩니다. Claude Code에서는 slash command이며, 예: `/mattpocock-skills-prototype`.
@@ -280,7 +280,7 @@ targets:
       target_naming: prefixed
 ```
 
-**마이그레이션**: `flat`, `standard`, `prefixed` 사이를 전환하면 기존에 관리되던 항목의 이름이 그 자리에서 변경됩니다. copy mode에서는 manifest가 각 복사본을 만든 naming을 기록하므로, source가 바뀌지 않았더라도 이름이 바뀐 복사본은 다시 복사되어 `name:`이 새 naming과 일치합니다. 로컬 skill이 이미 새 이름을 차지하고 있다면 기존 관리 항목이 보존됩니다.
+**마이그레이션**: `flat`, `standard`, `prefixed` 사이를 전환하면 기존에 관리되던 항목의 이름이 그 자리에서 변경됩니다. copy mode에서는 manifest가 각 복사본을 만든 naming을 기록하므로, source가 바뀌지 않았더라도 이름이 바뀐 복사본은 다시 복사되어 `name:`이 새 naming과 일치합니다. 로컬 skill이 이미 새 이름을 차지하고 있다면 기존 관리 항목이 보존됩니다. `prefixed`에서 다른 방식으로 전환하면 `name:`이 폴더 이름과 다른 skill은 새 이름으로 다시 복사되고 기존 복사본은 삭제됩니다.
 
 **Symlink mode**: `flat`과 `standard`는 무시됩니다 — 디렉터리 전체가 그대로 연결됩니다. `prefixed`는 위에서 설명한 대로 검증에 실패합니다.
 

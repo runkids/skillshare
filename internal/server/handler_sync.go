@@ -609,6 +609,8 @@ type diffTarget struct {
 	Items          []diffItem `json:"items"`
 	SkippedCount   int        `json:"skippedCount,omitempty"`
 	CollisionCount int        `json:"collisionCount,omitempty"`
+	// NamingSkippedCount is how many of SkippedCount break naming rules rather than collide.
+	NamingSkippedCount int `json:"namingSkippedCount,omitempty"`
 }
 
 func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {

@@ -1,6 +1,8 @@
 package sync
 
 import (
+	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -66,6 +68,7 @@ func TestResolveTargetSkillsForTarget_PrefixedNaming(t *testing.T) {
 		createTempSkill(t, dir, "my-skill", "my-skill"),
 		inRepo(createTempSkill(t, dir, "_"+longRepo+"/"+longName, longName), "_"+longRepo),
 		inRepo(createTempSkill(t, dir, "_emil-design/skills/odd", "not-odd"), "_emil-design"),
+		inRepo(createTempSkill(t, dir, "_ooux", "ooux"), "_ooux"),
 	}
 
 	resolution, err := ResolveTargetSkillsForTarget("claude", config.ResourceTargetConfig{TargetNaming: "prefixed"}, skills)
@@ -77,16 +80,51 @@ func TestResolveTargetSkillsForTarget_PrefixedNaming(t *testing.T) {
 	for _, s := range resolution.Skills {
 		got = append(got, s.TargetName)
 	}
-	want := []string{"emil-design-prototype", "mattpocock-skills-prototype", "bmad-ux", "my-skill"}
+	// name: need not match the folder: the copy's name: is rewritten anyway.
+	want := []string{"emil-design-prototype", "mattpocock-skills-prototype", "bmad-ux", "my-skill", "emil-design-not-odd", "ooux"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("TargetNames = %v, want %v", got, want)
 	}
-	if len(resolution.Warnings) != 2 {
-		t.Fatalf("Warnings = %v, want the over-long and the name/folder mismatch", resolution.Warnings)
+	if len(resolution.Warnings) != 1 {
+		t.Fatalf("Warnings = %v, want only the over-long name", resolution.Warnings)
 	}
 	if !strings.Contains(resolution.Warnings[0], "longer than 64") {
 		t.Errorf("over-long warning = %q", resolution.Warnings[0])
 	}
+}
+
+func TestPrintResolutionSummary_ListsSkillsNamedApartFromFolder(t *testing.T) {
+	dir := t.TempDir()
+	var skills []DiscoveredSkill
+	for i := range 7 {
+		skills = append(skills, createTempSkill(t, dir, fmt.Sprintf("dir-%d", i), fmt.Sprintf("name-%d", i)))
+	}
+	summary := func(naming string) string {
+		var out bytes.Buffer
+		prev := DiagOutput
+		DiagOutput = &out
+		defer func() { DiagOutput = prev }()
+		resolution, err := ResolveTargetSkillsForTarget("claude", config.ResourceTargetConfig{TargetNaming: naming}, skills)
+		if err != nil {
+			t.Fatal(err)
+		}
+		printResolutionSummary(resolution)
+		return out.String()
+	}
+
+	t.Run("prefixed lists the first few", func(t *testing.T) {
+		want := "  7 skill(s) use their SKILL.md name instead of their folder name:\n" +
+			"    dir-0 → name-0\n    dir-1 → name-1\n    dir-2 → name-2\n    dir-3 → name-3\n    dir-4 → name-4\n" +
+			"    ... and 2 more\n"
+		if got := summary("prefixed"); got != want {
+			t.Fatalf("summary =\n%s\nwant\n%s", got, want)
+		}
+	})
+	t.Run("standard skips them instead", func(t *testing.T) {
+		if got := summary("standard"); strings.Contains(got, "instead of their folder name") {
+			t.Fatalf("standard listed skills it skips:\n%s", got)
+		}
+	})
 }
 
 func TestResolveTargetSkillsForTarget_PrefixedNamingSkipsRemainingCollisions(t *testing.T) {

@@ -1969,6 +1969,8 @@
   "sync.skipped.one": "{count} skill omitido en {name}",
   "sync.skipped.other": "{count} skills omitidos en {name}",
   "sync.skipped.hint": "porque dos carpetas terminan con el mismo nombre. Cambia {name} a nombres flat para conservar ambos.",
+  "sync.skipped.hintNaming": "porque su nombre en SKILL.md no es válido o no coincide con su carpeta. Cambia {name} a nombres flat para conservarlos.",
+  "sync.skipped.hintMixed": "por nombres de SKILL.md no válidos y carpetas que terminan con el mismo nombre. Cambia {name} a nombres flat para conservarlos.",
   "sync.skipped.open": "Abrir destino",
   "sync.local.one": "{count} elemento existe solo en un destino",
   "sync.local.other": "{count} elementos existen solo en un destino",

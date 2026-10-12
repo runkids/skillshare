@@ -21,6 +21,9 @@ type ResolvedTargetSkill struct {
 	Skill      DiscoveredSkill
 	TargetName string
 	SkillName  string
+	// NameNotFolder is set under prefixed naming when SkillName differs from
+	// the source folder, which only standard naming forbids.
+	NameNotFolder bool
 }
 
 // TargetSkillResolution contains the resolved target-visible skills for one
@@ -97,14 +100,22 @@ func ResolveTargetSkillsForTarget(targetName string, sc config.ResourceTargetCon
 			continue
 		}
 
-		if reason := validateStandardTargetSkill(skill, skillName); reason != "" {
+		// A prefixed copy gets name: rewritten to its entry name, so only
+		// standard needs name: to match the source folder.
+		prefixed := naming == "prefixed"
+		folder := filepath.Base(filepath.Clean(skill.SourcePath))
+		nameNotFolder := prefixed && skillName != folder
+		if nameNotFolder {
+			folder = skillName
+		}
+		if reason := skillpkg.ValidateName(skillName, folder); reason != "" {
 			result.Warnings = append(result.Warnings,
 				fmt.Sprintf("Target '%s': skipped %s because %s", targetName, skill.RelPath, reason))
 			continue
 		}
 
 		entryName := skillName
-		if naming == "prefixed" {
+		if prefixed {
 			entryName = PrefixedTargetName(skill, skillName)
 			if reason := skillpkg.ValidateName(entryName, entryName); reason != "" {
 				result.Warnings = append(result.Warnings,
@@ -114,9 +125,10 @@ func ResolveTargetSkillsForTarget(targetName string, sc config.ResourceTargetCon
 		}
 
 		candidates = append(candidates, ResolvedTargetSkill{
-			Skill:      skill,
-			TargetName: entryName,
-			SkillName:  skillName,
+			Skill:         skill,
+			TargetName:    entryName,
+			SkillName:     skillName,
+			NameNotFolder: nameNotFolder,
 		})
 		collisionMap[entryName] = append(collisionMap[entryName], skill.RelPath)
 	}
@@ -194,21 +206,35 @@ func (r *TargetSkillResolution) LegacyNames(mode, targetPath string, manifest *M
 // maxListed caps how many names a summary line spells out.
 const maxListed = 5
 
-// printResolutionSummary reports skipped skills and collisions. It names only
-// the first few skipped skills, so a source with thousands of invalid names
-// does not flood the output.
+// printResolutionSummary reports skipped skills, collisions, and prefixed
+// skills named apart from their folder. It names only the first few of each, so
+// a source with thousands of invalid names does not flood the output.
 func printResolutionSummary(r *TargetSkillResolution) {
 	if n := len(r.Warnings); n > 0 {
-		fmt.Fprintf(DiagOutput, "  %d skill(s) skipped (naming validation)\n", n)
-		for _, w := range r.Warnings[:min(n, maxListed)] {
-			fmt.Fprintf(DiagOutput, "    %s\n", w)
-		}
-		if n > maxListed {
-			fmt.Fprintf(DiagOutput, "    ... and %d more\n", n-maxListed)
-		}
+		printListed(fmt.Sprintf("%d skill(s) skipped (naming validation)", n), r.Warnings)
 	}
 	if n := len(r.Collisions); n > 0 {
 		fmt.Fprintf(DiagOutput, "  %d name collision(s) excluded\n", n)
+	}
+	var renamed []string
+	for _, s := range r.Skills {
+		if s.NameNotFolder {
+			renamed = append(renamed, s.Skill.RelPath+" → "+s.TargetName)
+		}
+	}
+	if n := len(renamed); n > 0 {
+		printListed(fmt.Sprintf("%d skill(s) use their SKILL.md name instead of their folder name:", n), renamed)
+	}
+}
+
+// printListed prints header and up to maxListed of lines beneath it.
+func printListed(header string, lines []string) {
+	fmt.Fprintf(DiagOutput, "  %s\n", header)
+	for _, line := range lines[:min(len(lines), maxListed)] {
+		fmt.Fprintf(DiagOutput, "    %s\n", line)
+	}
+	if n := len(lines) - maxListed; n > 0 {
+		fmt.Fprintf(DiagOutput, "    ... and %d more\n", n)
 	}
 }
 
@@ -255,7 +281,9 @@ type namedTarget struct{ naming, name string }
 // targetNameCandidates returns the entry name a skill gets under each target
 // naming, in the order a manifest without naming records is checked. The
 // standard and prefixed names come from the folder name, which standard naming
-// requires name: to match, so no SKILL.md has to be read.
+// requires name: to match, so no SKILL.md has to be read. A prefixed skill whose
+// name: differs from its folder is missed here; prune removes its old copy and
+// sync copies it again under the new name.
 func targetNameCandidates(skill DiscoveredSkill) []namedTarget {
 	base := filepath.Base(filepath.Clean(skill.SourcePath))
 	return []namedTarget{
@@ -292,8 +320,4 @@ func normalizeSpecName(s string) string {
 	}, strings.ToLower(norm.NFKC.String(s)))
 	parts := strings.FieldsFunc(mapped, func(r rune) bool { return r == '-' })
 	return strings.Join(parts, "-")
-}
-
-func validateStandardTargetSkill(skill DiscoveredSkill, skillName string) string {
-	return skillpkg.ValidateName(skillName, filepath.Base(filepath.Clean(skill.SourcePath)))
 }

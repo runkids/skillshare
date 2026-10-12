@@ -240,7 +240,7 @@ Controls how skill directories are named in targets when using merge or copy mod
 |--------|----------|
 | `flat` (default) | Nested skills flattened with `__` separators: `frontend/dev` → `frontend__dev` |
 | `standard` | Uses the SKILL.md `name` field: `frontend/dev` → `dev` |
-| `prefixed` | Copy mode only. `standard`, plus the tracked repo name in front: `_mattpocock-skills/skills/prototype` → `mattpocock-skills-prototype` |
+| `prefixed` | Copy mode only. `standard` rules, except that `name:` need not match the folder, plus the tracked repo name in front: `_mattpocock-skills/skills/prototype` → `mattpocock-skills-prototype` |
 
 Set globally or per-target:
 
@@ -265,7 +265,7 @@ skillshare sync
 
 - A name that already starts with the repo name is not prefixed again: `_bmad/skills/bmad-ux` stays `bmad-ux`.
 - Skills outside tracked repos keep their name.
-- The source skill must pass the `standard` checks first. A prefixed name longer than 64 characters is skipped with a warning, and names that still collide are skipped as in `standard`. A tracked skill cannot be renamed in `SKILL.md`, so sync then suggests renaming the other skill or re-tracking the repo with `--name`.
+- The source skill's `name:` must follow the `standard` naming rules, but it does not have to match its folder, since the copy's `name:` is rewritten: a tracked repo that is itself a skill (`_ooux` with `name: ooux`) syncs as `ooux`. Sync lists the skills named this way. A prefixed name longer than 64 characters is skipped with a warning, and names that still collide are skipped as in `standard`. A tracked skill cannot be renamed in `SKILL.md`, so sync then suggests renaming the other skill or re-tracking the repo with `--name`.
 - For a shorter prefix, track the repo under a short name: `skillshare install <repo> --track --name mp` gives `mp-prototype`.
 - Relative links to sibling skills (`../other-skill/`) are not rewritten, the same as `flat` in copy mode.
 - The name becomes what the tool shows; in Claude Code it is the slash command, e.g. `/mattpocock-skills-prototype`.
@@ -280,7 +280,7 @@ targets:
       target_naming: prefixed
 ```
 
-**Migration**: Switching between `flat`, `standard` and `prefixed` renames existing managed entries in place. In copy mode the manifest records which naming made each copy, so a renamed copy is copied again and its `name:` matches the new naming, even when the source did not change. If a local skill already occupies the new name, the old managed entry is preserved.
+**Migration**: Switching between `flat`, `standard` and `prefixed` renames existing managed entries in place. In copy mode the manifest records which naming made each copy, so a renamed copy is copied again and its `name:` matches the new naming, even when the source did not change. If a local skill already occupies the new name, the old managed entry is preserved. When you switch away from `prefixed`, a skill whose `name:` differs from its folder is copied again under its new name and its old copy is removed.
 
 **Symlink mode**: `flat` and `standard` are ignored — the entire directory is linked as-is. `prefixed` fails validation, as above.
 
