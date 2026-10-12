@@ -145,7 +145,8 @@ func importNative(target string, data []byte, singleName string, adapter, piProj
 	if err != nil {
 		return nil, err
 	}
-	// OpenCode 2 nests its servers under mcp.servers; one server named servers has other fields.
+	// OpenCode 2 nests its servers under mcp.servers, next to defaults in mcp.timeout; one server
+	// named servers has other fields.
 	nested := native.Entries["servers"]
 	section := target == "opencode" && len(nested) > 0
 	for _, value := range nested {
@@ -153,6 +154,7 @@ func importNative(target string, data []byte, singleName string, adapter, piProj
 	}
 	if section {
 		delete(native.Entries, "servers")
+		delete(native.Entries, "timeout")
 		for name, entry := range nested {
 			if _, both := native.Entries[name]; both {
 				return nil, fmt.Errorf("MCP server %s is in both mcp and mcp.servers; keep one", name)

@@ -285,7 +285,7 @@ func TestAdditionalClientImportRejectsDisabled(t *testing.T) {
 
 // OpenCode 2 nests its servers under mcp.servers, as its own mcp add writes them.
 func TestImportReadsOpenCodeServersSection(t *testing.T) {
-	items, err := Import("opencode", []byte(`{"mcp":{"servers":{"docs":{"type":"local","command":["tool","--x"],"environment":{"KEY":"{env:KEY}"}}},"flat":{"type":"remote","url":"https://example.com/mcp"}}}`), "")
+	items, err := Import("opencode", []byte(`{"mcp":{"servers":{"docs":{"type":"local","command":["tool","--x"],"environment":{"KEY":"{env:KEY}"}}},"flat":{"type":"remote","url":"https://example.com/mcp"},"timeout":{"startup":45000}}}`), "")
 	if err != nil {
 		t.Fatal(err)
 	}
