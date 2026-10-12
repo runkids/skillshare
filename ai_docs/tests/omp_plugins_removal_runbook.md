@@ -2,7 +2,7 @@
 
 ## Scope
 
-Use native OMP 18.6.1 and an inert plugin to verify scoped removal, retained
+Use native OMP 18.6.1 or later and an inert plugin to verify scoped removal, retained
 shared cache used by an invisible project, and reinstall into a new cache
 identity. No Agent session, extension code or real user configuration is used.
 

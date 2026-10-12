@@ -34,16 +34,23 @@ only the opposite scope visible from the current directory is also insufficient.
 
 The adapter therefore does not provide a complete OMP plugin lifecycle:
 
-- Reviewed local/Git marketplace installation is allowed only for OMP 18.6.1,
-  a verified cache root, a previously absent cache identity and an absent runtime
+- Reviewed local/Git marketplace installation is allowed for OMP 18.6.1 or later
+  (`ompMinVersion`), a verified cache root, a previously absent cache identity and an absent runtime
   destination in the selected scope. The reviewed source establishes the runtime
   package name; preview binds the destination and apply rechecks it before native
   installation, which otherwise recursively removes that destination.
-- An unknown root/version/source or unreadable/linked/non-directory destination
-  blocks installation. Reinstall picks a fresh marketplace/cache identity when
+- An unknown root/source, an unparsable, prerelease or pre-18.6.1 version, or an
+  unreadable/linked/non-directory destination blocks installation. Reinstall picks a fresh marketplace/cache identity when
   retained cache exists; old content and shared registrations are never replaced.
   Cached install paths from old registrations are not trusted as the next destination.
 - Native update/uninstall commands are not invoked. Update remains blocked.
+- The minimum replaced an exact 18.6.1 pin after the sources this boundary relies on
+  were compared across every tag from v18.6.1 to v18.10.2: `marketplace/cache.ts`,
+  `manager.ts`, `types.ts`, `cli/plugin-cli.ts`, `extensions/loader.ts`,
+  `pi-natives/src/file_lock/mod.rs` and `resolveActiveProjectRegistryPath` in
+  `discovery/helpers.ts` are unchanged. Native 18.8.7 install and scoped removal
+  passed in an isolated HOME. Later releases are accepted without that comparison;
+  repeat it when OMP changes its plugin cache, registry or CLI output.
 - Scoped removal uses `omp_remove.go`: delete only the verified scope's registry
   entry, runtime selection and link, retaining all cache, marketplaces and plugin
   settings. The plugin is genuinely uninstalled in that scope, not disabled.

@@ -2,14 +2,14 @@
 
 ## Scope
 
-Exercise the real dashboard API with an installed OMP 18.6.1 package: discover a
+Exercise the real dashboard API with an installed OMP 18.6.1 or later package: discover a
 standalone extension, preview and apply a disable, reject a stale preview, and
 verify preservation of unrelated YAML and non-execution of extension code.
 
 ## Environment
 
 Run inside the devcontainer in an isolated `ssenv`. Build `ui/dist` first. Put the
-real OMP 18.6.1 npm/Bun launcher on `PATH`; a wrapper or standalone binary without
+real OMP 18.6.1 or later npm/Bun launcher on `PATH`; a wrapper or standalone binary without
 verifiable package metadata is intentionally read-only. The runbook never invokes
 OMP or imports its extensions. Port 19431 must be free. Keep the environment and
 report for inspection; no real Agent configuration is used.
