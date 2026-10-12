@@ -154,17 +154,15 @@ func Read(root, rel string) (Note, error) {
 	return note, nil
 }
 
-func List(root, query string) ([]Note, error) {
-	notes := []Note{}
-	query = strings.ToLower(strings.TrimSpace(query))
+func walkNotes(root string, visit func(string, fs.DirEntry) error) error {
 	walkRoot, err := filepath.EvalSymlinks(root)
 	if os.IsNotExist(err) {
-		return notes, nil
+		return nil
 	}
 	if err != nil {
-		return notes, err
+		return err
 	}
-	err = filepath.WalkDir(walkRoot, func(path string, entry fs.DirEntry, err error) error {
+	return filepath.WalkDir(walkRoot, func(path string, entry fs.DirEntry, err error) error {
 		if os.IsNotExist(err) && path == walkRoot {
 			return nil
 		}
@@ -193,12 +191,20 @@ func List(root, query string) ([]Note, error) {
 		if err != nil {
 			return err
 		}
-		note, err := Read(root, filepath.ToSlash(rel))
+		return visit(filepath.ToSlash(rel), entry)
+	})
+}
+
+func List(root, query string) ([]Note, error) {
+	notes := []Note{}
+	query = strings.ToLower(strings.TrimSpace(query))
+	err := walkNotes(root, func(rel string, entry fs.DirEntry) error {
+		note, err := Read(root, rel)
 		if err != nil {
 			if os.IsNotExist(err) {
 				return nil
 			}
-			note = Note{Path: filepath.ToSlash(rel), Title: strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name())), Invalid: err.Error()}
+			note = Note{Path: rel, Title: strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name())), Invalid: err.Error()}
 		}
 		if query == "" || strings.Contains(strings.ToLower(note.Path+"\n"+note.Content), query) {
 			note.Content = ""

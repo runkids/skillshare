@@ -74,6 +74,7 @@ export const queryKeys = {
   extensions: ['extensions'] as const,
   memory: {
     all: ['memory'] as const,
+    overview: ['memory', 'overview'] as const,
     list: (search: string) => ['memory', 'notes', search] as const,
     content: (path: string) => ['memory', 'content', path] as const,
     guidance: ['memory', 'guidance'] as const,

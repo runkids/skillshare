@@ -43,7 +43,7 @@ const events = {
   targetFileRemoved: (target: string): InvalidateQueryFilters[] => [{ queryKey: k.targetFiles.list(target), exact: true }],
 
   // Config
-  configSaved: () => keys(k.config, k.mcp, k.overview, k.targets.all, k.skills.all, k.extras, k.extrasDiff(), k.diff(), k.syncMatrix(), k.doctor, k.instructions.all),
+  configSaved: () => keys(k.config, k.mcp, k.overview, k.targets.all, k.skills.all, k.extras, k.extrasDiff(), k.diff(), k.syncMatrix(), k.doctor, k.instructions.all, k.memory.all),
   settingsSaved: () => keys(k.config),
   skillignoreSaved: () => keys(k.skillignore, ...ignoreFile),
   agentignoreSaved: () => keys(k.agentignore, ...ignoreFile),
@@ -51,8 +51,8 @@ const events = {
   auditRulesChanged: () => keys(k.audit.rules, k.audit.compiled),
 
   // Extras, instructions and memory
-  extrasChanged: () => keys(k.extras, k.extrasDiff(), k.config, k.overview),
-  instructionsChanged: () => keys(k.instructions.all, k.extras, k.extrasDiff(), k.config),
+  extrasChanged: () => keys(k.extras, k.extrasDiff(), k.config, k.overview, k.memory.all),
+  instructionsChanged: () => keys(k.instructions.all, k.extras, k.extrasDiff(), k.config, k.memory.all),
   managedFilesChanged: () => keys(k.fileBackups.all, k.instructions.all, k.memory.all),
   memoryNotesChanged: () => keys(k.memory.all, k.extras, k.fileBackups.all),
   memoryRefreshed: () => keys(k.memory.all),

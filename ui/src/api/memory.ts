@@ -51,7 +51,14 @@ export interface MemoryNotesResponse {
   index?: MemoryIndex;
 }
 
+export interface MemoryOverviewResponse {
+  count: number;
+  initialized: boolean;
+  notes: MemoryNote[];
+}
+
 export const memoryApi = {
+  getMemoryOverview: () => apiFetch<MemoryOverviewResponse>('/extras/memory/recent'),
   listMemoryNotes: (search = '') => apiFetch<MemoryNotesResponse>(`/extras/memory/notes?search=${encodeURIComponent(search)}`),
   initMemory: () => apiFetch<{ success: boolean; root: string }>('/extras/memory/init', { method: 'POST' }),
   getMemoryGuidance: () => apiFetch<MemoryGuidance>('/extras/memory/guidance'),

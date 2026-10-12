@@ -63,6 +63,24 @@ func (s *Server) handleMemoryNotes(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"root": root, "initialized": initialized, "notes": notes, "instructions": s.memoryInstructionsByMode(root), "index": memory.InspectIndex(root, all)})
 }
 
+func (s *Server) handleMemoryRecent(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	root, err := s.memoryRoot()
+	if err != nil {
+		writeMemoryError(w, err)
+		return
+	}
+	result, err := memory.Recent(root)
+	if err != nil {
+		writeMemoryError(w, err)
+		return
+	}
+	_, configured, _ := memory.Extra(s.extrasConfig())
+	result.Initialized = result.Initialized && configured
+	writeJSON(w, result)
+}
+
 func (s *Server) handleMemoryIndex(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	var body struct {

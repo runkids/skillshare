@@ -30,6 +30,9 @@ and each edited note shows its own update time.
 The dashboard hides this section when no memory extra is configured.
 Existing notes remain visible if a starter file is missing. **Create memory**
 restores missing starters without replacing existing notes.
+The dashboard counts files from metadata and reads only the starters and up to
+four recent candidates. In the Memory browser, **Expand/Collapse** is remembered
+in this browser across notes and page reloads; collapsed previews allow 360 px.
 
 Open **Extras → Memory** and click **Create memory**.
 

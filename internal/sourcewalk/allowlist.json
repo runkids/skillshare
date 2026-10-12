@@ -585,11 +585,11 @@
   },
   {
     "file": "internal/memory/store.go",
-    "function": "List",
+    "function": "walkNotes",
     "callee": "filepath.WalkDir",
     "root": "walkRoot",
     "reason": "memory",
-    "note": "List shared memory notes"
+    "note": "Discover shared memory notes for full listing and the bounded recent overview"
   },
   {
     "file": "internal/plugin/files.go",

@@ -238,3 +238,27 @@ The overview is mounted only for a configured folder memory extra. Unconfigured
 memory stays out of the dashboard; initial setup remains in Extras. Missing
 starter files after setup still allow opening existing notes and restoring
 starters from the overview.
+
+### PR follow-up: bounded overview and preview preference
+
+The dashboard now uses a separate recent-notes endpoint. It counts eligible
+Markdown entries from metadata, reads only two starters and up to four recent
+candidates, and retains the same hidden-folder and source-link exclusions as
+the full list. The API is shared by global and project scopes. Regression
+coverage checks total counts, candidate order, starter/incomplete states and
+the six-read bound, plus cache invalidation for the overview.
+
+Preview expansion is remembered in browser storage across notes and reloads.
+Collapsed previews allow 360 px instead of 230 px. Storage failure keeps the
+control usable for the current page.
+
+Configuration, extras and instruction changes invalidate the memory caches so
+counts and guidance follow the current source. The three corresponding cache
+regressions failed before the fix; a Go overlay that read all candidates also
+made the six-read regression fail while leaving its four output rows intact.
+Final devcontainer `make check`, 84 scoped UI tests, ESLint, UI and website builds,
+React Doctor, context-router and whitespace checks passed. Browser assertions
+confirmed expansion and collapse survive reloads, expansion follows note
+selection, collapsed height is 360 px, and the dashboard uses the recent endpoint
+without requesting the full notes list. React Doctor retains one maintainability
+warning about overview component complexity.

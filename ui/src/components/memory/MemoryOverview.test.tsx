@@ -10,11 +10,11 @@ import MemoryOverview from './MemoryOverview';
 
 vi.mock('../../api/client', async (load) => {
   const actual = await load<typeof import('../../api/client')>();
-  return { ...actual, api: { ...actual.api, listMemoryNotes: vi.fn(), getMemoryGuidance: vi.fn(), initMemory: vi.fn() } };
+  return { ...actual, api: { ...actual.api, getMemoryOverview: vi.fn(), getMemoryGuidance: vi.fn(), initMemory: vi.fn() } };
 });
 
 const instructions = { passive: '', active: '' };
-const empty = { root: '/shared/memory', initialized: false, notes: [], instructions };
+const empty = { count: 0, initialized: false, notes: [] };
 const renderOverview = () => render(
   <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <I18nProvider><ToastProvider><MemoryRouter><MemoryOverview /></MemoryRouter></ToastProvider></I18nProvider>
@@ -30,12 +30,12 @@ beforeEach(() => {
 
 it.each([
   { state: 'empty', initial: empty },
-  { state: 'missing starters', initial: { ...empty, notes: [{ path: 'decisions.md', title: 'Decisions', version: 'v', modified_at: '2026-10-12T08:00:00Z' }] } },
+  { state: 'missing starters', initial: { ...empty, count: 1, notes: [{ path: 'decisions.md', title: 'Decisions', version: 'v', modified_at: '2026-10-12T08:00:00Z' }] } },
 ])('keeps initialization available after a failure and refreshes after success ($state)', async ({ initial }) => {
-  vi.mocked(api.listMemoryNotes).mockResolvedValue(initial);
+  vi.mocked(api.getMemoryOverview).mockResolvedValue(initial);
   vi.mocked(api.initMemory).mockRejectedValueOnce(new Error('Cannot create notes')).mockImplementationOnce(async () => {
-    vi.mocked(api.listMemoryNotes).mockResolvedValue({ ...initial, initialized: true });
-    return { success: true, root: empty.root };
+    vi.mocked(api.getMemoryOverview).mockResolvedValue({ ...initial, initialized: true });
+    return { success: true, root: '/shared/memory' };
   });
   const user = userEvent.setup();
   renderOverview();
@@ -44,5 +44,5 @@ it.each([
   await user.click(screen.getByRole('button', { name: 'Create memory' }));
   await waitFor(() => expect(screen.queryByRole('button', { name: 'Create memory' })).not.toBeInTheDocument());
   expect(api.initMemory).toHaveBeenCalledTimes(2);
-  expect(api.listMemoryNotes).toHaveBeenCalledTimes(2);
+  expect(api.getMemoryOverview).toHaveBeenCalledTimes(2);
 });

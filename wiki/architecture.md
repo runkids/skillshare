@@ -59,6 +59,10 @@ replacement/removal; new notes use exclusive creation to reject concurrent creat
 exactly matches an untouched built-in starter. The dashboard lists up to four
 recently modified readable non-starter notes and links to the existing Memory
 browser; its summary uses the unfiltered notes even while searching.
+The dashboard uses `/api/extras/memory/recent`: it counts entries from metadata
+and reads at most the two starters and four recent candidates. The full list and
+content APIs remain available to the Memory browser. Preview expansion is a
+browser preference shared across notes; collapsed previews allow 360 px.
 
 `handler_memory_guidance.go` only resolves existing target read chains and
 instruction assignments into `memory.GuidanceInput` (including which file

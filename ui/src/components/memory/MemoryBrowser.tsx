@@ -18,8 +18,8 @@ import { SkillContextMenu } from '../TargetMenu';
 import { useToast } from '../Toast';
 import { BoxHeader } from '../instructions/ViewTabs';
 
-// Same as a shared AGENTS.md file: longer notes open collapsed.
 const PREVIEW_LINES = 8;
+const EXPANDED_KEY = 'skillshare:memory-preview-expanded';
 
 /**
  * Laid out like a shared AGENTS.md file: the note tree (with the search box on
@@ -46,8 +46,14 @@ export default function MemoryBrowser({ notes, root, busy, onEdit, onMove, onDel
   const picked = params.get('note') ?? '';
   const [view, setView] = useState<'preview' | 'source'>('preview');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  // Keyed by path, so another note opens collapsed again.
-  const [expandedPath, setExpandedPath] = useState('');
+  const [expanded, setExpanded] = useState(() => {
+    try { return localStorage.getItem(EXPANDED_KEY) === '1'; } catch { return false; }
+  });
+  const toggleExpanded = () => {
+    const next = !expanded;
+    setExpanded(next);
+    try { localStorage.setItem(EXPANDED_KEY, next ? '1' : '0'); } catch { /* storage unavailable */ }
+  };
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -88,7 +94,6 @@ export default function MemoryBrowser({ notes, root, busy, onEdit, onMove, onDel
   const unavailable = busy || !!invalid || !file.data || file.isFetching;
   const content = invalid || file.error ? undefined : file.data?.content;
   const notePath = `${root}/${selected}`;
-  const expanded = expandedPath === selected;
   const long = (content ?? '').replace(/\n$/, '').split('\n').length > PREVIEW_LINES;
   const copyPath = async () => {
     try {
@@ -148,13 +153,13 @@ export default function MemoryBrowser({ notes, root, busy, onEdit, onMove, onDel
               { value: 'source', label: t('instructions.target.view.source') },
             ]}>
               {long && (
-                <Button variant="ghost" size="sm" aria-expanded={expanded} onClick={() => setExpandedPath(expanded ? '' : selected)}>
+                <Button variant="ghost" size="sm" aria-expanded={expanded} onClick={toggleExpanded}>
                   {t(expanded ? 'instructions.preview.collapse' : 'instructions.preview.expand')}
                   {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </Button>
               )}
             </BoxHeader>
-            <div className={`px-6 py-5 ${long && !expanded ? 'max-h-[230px] overflow-y-auto' : ''}`}>
+            <div className={`px-6 py-5 ${long && !expanded ? 'max-h-[360px] overflow-y-auto' : ''}`}>
               {invalid ? <div className="ss-note warn"><span>{invalid}<br />{t('memory.invalidHint')}</span></div>
                 : file.error ? <div className="ss-note bad">{file.error.message}</div>
                 : !file.data ? <div className="grid min-h-[200px] place-items-center"><Spinner /></div>
