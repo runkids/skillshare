@@ -11,20 +11,53 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ## [0.25.6] - 2026-10-12
 
-
 ### New Features
 
-* **memory:** add host-owned review and verification workflows ([#539](https://github.com/runkids/skillshare/issues/539)) ([b9563ea](https://github.com/runkids/skillshare/commit/b9563ea4e8879c43d1b67fc974947b0fcc397f42))
-* **plugins:** update a batch of plugins over one stream ([#534](https://github.com/runkids/skillshare/issues/534)) ([99c7911](https://github.com/runkids/skillshare/commit/99c7911bf3209a915cdfc7545d1a8a268f17adb2))
-* **ui:** make shared memory easier to find and read ([#537](https://github.com/runkids/skillshare/issues/537)) ([8213a4a](https://github.com/runkids/skillshare/commit/8213a4a385d0006136e7e254469e2981b99e310c))
+#### Dashboard
 
+- **Faster batch plugin updates** — the Plugins page's **Update N** dialog now hands the picks to the server in one run: each plugin is previewed once and that plan is applied, plugins from the same source share one read of it, and the config reloads once at the end. **Stop after this one** lets the plugin under way finish and starts no other, and closing the page no longer cuts an install short. Rows show `old → new` per Agent, a row an interrupted run never finished is marked failed, and when everything is current the dialog lists each plugin with its Agent and version.
+  - An Agent whose source moved since the check, or that the check did not show, installs nothing. An npm package in Pi is the exception, since Pi installs whatever npm names latest, and it is no longer flagged as moved on every update.
+- **Shared memory on the dashboard** — once memory is created in **Extras → Memory**, the **Dashboard → Memory** section shows up to four recently updated notes; click one to open it. Update times come from the note file, so edits made outside Skillshare count too, and untouched starter notes are shown apart. The Memory tab shows the note count and latest update, and the browser remembers **Expand/Collapse** across notes and reloads. **Create memory** restores missing starter notes without replacing existing ones.
+
+#### Memory
+
+- **Memory tools: try, review and dream** — **Use with agents → Memory tools**, also opened from the dashboard Memory section, copies prompts for your own agent to run:
+  - **Try across sessions** writes a test line to `INDEX.md`, checks from a fresh conversation that the note is read, then removes the line.
+  - **Review this session** proposes reusable lessons from the corrections and repeated mistakes in the current conversation, checks existing project docs and checks first, and ranks proposals by impact.
+  - **Dream** compares saved notes across sessions for recurring patterns and for duplicate, stale, contradictory or broken-link notes.
+
+  Every change is proposed with paths and before/after text and waits for your approval; writes go through version-checked Skillshare CLI commands with backups. The tools stay disabled until the memory source is confirmed. With the updated built-in skill, you can also ask your agent to review the session or dream directly. Skillshare never runs, launches or schedules an agent, and never reads private conversation history.
 
 ### Bug Fixes
 
-* **mcp:** turn off a global server in OpenCode 2 projects ([#541](https://github.com/runkids/skillshare/issues/541)) ([f540daf](https://github.com/runkids/skillshare/commit/f540daf601d04709dcc14631bda85592e1734848)), closes [#538](https://github.com/runkids/skillshare/issues/538)
-* **plugin:** let an imported Claude plugin update to what its marketplace holds ([#536](https://github.com/runkids/skillshare/issues/536)) ([19cdc1c](https://github.com/runkids/skillshare/commit/19cdc1c72e4eb46fe59f254e14ba3a8fd9b1e520)), closes [#535](https://github.com/runkids/skillshare/issues/535)
-* **sync:** let prefixed naming keep skills whose name differs from their folder ([#531](https://github.com/runkids/skillshare/issues/531)) ([111dd71](https://github.com/runkids/skillshare/commit/111dd71a531584b7c50b6eac5067b874ef7ad274)), closes [#530](https://github.com/runkids/skillshare/issues/530)
-* **ui:** show post-update sync only for pending changes ([#533](https://github.com/runkids/skillshare/issues/533)) ([925dd98](https://github.com/runkids/skillshare/commit/925dd98312ccca429b89bce178c6636e01325bcc))
+#### MCP
+
+- **Turning off a global server in one project works in OpenCode 2** — OpenCode 2 replaces a global server with the project entry of the same name and drops an entry without its `type` and `command` or `url`, so the `{"enabled": false}` Skillshare wrote for a `disabled` server under `mcp.projects` left the server on. The project entry now also carries the global server's `type` and executable name, or its URL's scheme and host, which OpenCode 1 and 2 both read as off. Args, env, headers and the rest of the URL stay out of the project file. Refs: #538.
+  ```yaml
+  mcp:
+    projects:
+      ~/work/app:
+        servers:
+          company-docs:
+            disabled: true
+            targets: [opencode]
+  ```
+  - In project mode, or when the global config does not define the server, only the switch can be written, and `sync` says OpenCode 2 ignores it.
+  - To turn the server back on, remove the `disabled` entry and sync: re-enabling it inside OpenCode starts it with only what the project file holds.
+- **Importing an OpenCode 2 config reads `mcp.servers`** — import listed `servers` as one broken server. It now imports each server in that section and skips the `mcp.timeout` defaults.
+
+#### Plugins
+
+- **Plugins sync to OpenCode 2** — OpenCode 2 prints `opencode v2.0.27` for `--version`, which Skillshare did not recognize, so plugin sync to OpenCode 2 was blocked and imported OpenCode plugins were never updated.
+- **An imported Claude plugin updates to what its marketplace holds** — updating a plugin imported from Claude failed with `native update returned version 1.7.1; expected 1.7.0`, because the check expected the version recorded at import. The marketplace decides that version, so the update now records what was installed. A plugin added from a reviewed source is still checked against the reviewed version. Refs: #535.
+
+#### Sync
+
+- **Prefixed naming keeps skills whose `name:` differs from their folder** — `target_naming: prefixed` rewrites `name:` in every copy, yet sync skipped a skill whose `name:` did not match its folder, so a tracked repo that is itself a skill could never sync. Only `standard` naming requires the match now; name format rules still apply. Switching away from `prefixed` copies such a skill again under its new name and removes the old copy. The dashboard's skipped-skills hint now says whether skills were skipped for their name or for a folder collision. Refs: #530.
+
+#### Dashboard
+
+- **Sync Now after an update only when there is something to sync** — after a successful update on the Updates tab, the dashboard always offered **Sync Now**, although existing symlinks already read the updated source. It now checks for pending sync changes of that kind and offers **Sync Now** only when there are some; a failed check shows the error with **Retry** instead of saying everything is up to date.
 
 ## [0.25.5] - 2026-10-11
 
