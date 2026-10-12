@@ -48,7 +48,12 @@ func acquireRef(ctx context.Context, source, ref string) (string, string, func()
 			return "", "", cleanup, fmt.Errorf("source ref requires a remote Git source")
 		}
 		p, err := filepath.Abs(source)
-		return p, p, cleanup, err
+		if err != nil {
+			return "", "", cleanup, err
+		}
+		// Read from the real location: a linked parent (macOS /var -> /private/var) is not plugin content.
+		root, err := filepath.EvalSymlinks(p)
+		return root, p, cleanup, err
 	}
 	if isNpmSource(source) {
 		return "", "", cleanup, fmt.Errorf("npm packages can't be previewed: Pi downloads them when it installs them. Add one to a Pi target with: skillshare plugin add %s --target pi", source)
@@ -65,6 +70,11 @@ func acquireRef(ctx context.Context, source, ref string) (string, string, func()
 		return "", "", cleanup, err
 	}
 	cleanup = func() { _ = os.RemoveAll(root) }
+	clone, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		cleanup()
+		return "", "", func() {}, err
+	}
 	_, err = runCommand(ctx, "", nil, "git", "-c", "core.hooksPath=/dev/null", "clone", "--depth", "1", "--", source, root)
 	if err != nil {
 		cleanup()
@@ -79,7 +89,7 @@ func acquireRef(ctx context.Context, source, ref string) (string, string, func()
 			return "", "", func() {}, fmt.Errorf("resolve source ref: %w", err)
 		}
 	}
-	return root, source, cleanup, nil
+	return clone, source, cleanup, nil
 }
 
 // treeDigest includes safe relative links, leaves out unsafe ones and rejects special files.

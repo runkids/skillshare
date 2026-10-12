@@ -181,6 +181,21 @@ func TestOMPAddInstallsFromTheSnapshotMarketplace(t *testing.T) {
 	}
 }
 
+// macOS temp clones live under /var, a link to /private/var; the source location is not an OMP path.
+func TestOMPAddReadsSourceBehindLinkedDirectory(t *testing.T) {
+	agents := &fakeAgents{version: "1.0.0"}
+	s := agents.service(t)
+	source := fixture(t)
+	link := filepath.Join(t.TempDir(), "linked")
+	if err := os.Symlink(filepath.Dir(source), link); err != nil {
+		t.Fatal(err)
+	}
+	p, err := s.Preview(context.Background(), Request{Action: "add", Source: filepath.Join(link, filepath.Base(source)), Targets: []string{"omp"}})
+	if err != nil || len(p.Changes) != 1 || p.Changes[0].Action != "install" {
+		t.Fatalf("source behind a linked directory was not installable: %+v %v", p, err)
+	}
+}
+
 // omp deletes a plugin's cache folder on uninstall and replaces it on upgrade, checking only the
 // registries visible from its working directory. A project elsewhere that installed the same
 // identity is invisible, so Skillshare never runs those commands. Scoped removal uses
