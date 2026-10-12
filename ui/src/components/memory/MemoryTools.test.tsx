@@ -73,7 +73,7 @@ it('does not disclose the trial value in the fresh-session read prompt', async (
   renderTools();
   await waitFor(() => expect(screen.getByRole('button', { name: 'Memory tools' })).toBeEnabled());
   await user.click(screen.getByRole('button', { name: 'Memory tools' }));
-  const buttons = screen.getAllByRole('button', { name: 'Copy for agent' });
+  const buttons = screen.getAllByRole('button', { name: /^Copy for agent:/ });
   await user.click(buttons[0]); await user.click(buttons[1]); await user.click(buttons[2]);
   const [save, read, cleanup] = write.mock.calls.slice(-3).map(([prompt]) => prompt);
   const marker = save.match(/ss-\d+-\d+/)?.[0];

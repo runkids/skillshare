@@ -16,7 +16,7 @@ export default function MemoryTools({ root, disabled }: { root: string; disabled
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<'trial' | 'organize' | 'dream'>('trial');
   const [showPrompt, setShowPrompt] = useState(false);
-  const copy = (value: string, primary = false) => <CopyButton value={value} title={t('memory.copyPrompt')} label={t('memory.copyPrompt')}
+  const copy = (value: string, primary = false, title = t('memory.copyPrompt')) => <CopyButton value={value} title={title} label={t('memory.copyPrompt')}
     copiedLabel={t('memory.copied')} errorMessage={t('memory.copyFailed')} unstyled className={primary ? 'ss-btn pri sm' : 'ss-btn ghost sm'} />;
   const close = () => setOpen(false);
   const steps = mode === 'trial' ? (['save', 'read', 'cleanup'] as const).map((step) => ({
@@ -52,7 +52,7 @@ export default function MemoryTools({ root, disabled }: { root: string; disabled
               <h3 className="text-[14px] font-semibold leading-snug">{step.title}</h3>
               {step.hint && <p className="mt-1 text-[13px] leading-relaxed text-ink-2">{step.hint}</p>}
             </div>
-            {step.prompt && copy(step.prompt)}
+            {step.prompt && copy(step.prompt, false, `${t('memory.copyPrompt')}: ${step.title}`)}
           </li>)}
         </ol>
         {showPrompt && <div id={promptId} className="ss-code whitespace-pre-wrap break-words max-h-72 !overflow-y-auto">{prompt}</div>}
