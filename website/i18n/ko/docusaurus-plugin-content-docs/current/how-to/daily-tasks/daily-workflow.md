@@ -53,7 +53,7 @@ skillshare sync
 ```
 
 :::tip Sync가 별도 단계인 이유는?
-Sync는 install/update/uninstall과 의도적으로 분리되어 있습니다. 이를 통해 여러 변경 사항을 일괄 처리하고(예: skill 3개 install → sync 한 번), 전파 전에 `--dry-run`으로 미리 보고, target이 언제 업데이트되는지 완전히 통제할 수 있습니다. 자세한 내용은 [Source & Targets: Sync가 별도 단계인 이유](/docs/understand/source-and-targets#why-sync-is-a-separate-step)를 참고하세요.
+Sync는 install/update/uninstall과 의도적으로 분리되어 있습니다. 이를 통해 여러 변경 사항을 일괄 처리하고(예: skill 3개 install → sync 한 번), 적용 전에 `--dry-run`으로 target의 링크와 복사본 변경 사항을 검토할 수 있습니다. 기존 symlink에서는 source 내용의 변경 사항이 즉시 반영됩니다. 자세한 내용은 [Source & Targets: Sync가 별도 단계인 이유](/docs/understand/source-and-targets#why-sync-is-a-separate-step)를 참고하세요.
 :::
 
 ### 먼저 미리보기

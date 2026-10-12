@@ -16,7 +16,7 @@ const ignoreFile = [k.diff(), k.overview, k.skills.all, k.doctor];
  */
 const events = {
   // Skills and agents
-  skillsChanged: () => keys(k.skills.all, k.overview),
+  skillsChanged: () => keys(k.skills.all, k.overview, k.diff()),
   skillEdited: (name: string) => keys(k.skills.detail(name)),
   installDialogClosed: () => keys(k.skills.all),
   reposChanged: () => keys(k.overview, k.skills.all, k.trash),

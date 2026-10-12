@@ -56,20 +56,20 @@ flowchart TD
 
 ## 为什么 Sync 是独立的一步 {#why-sync-is-a-separate-step}
 
-像 `install`、`update` 和 `uninstall` 这样的操作只会修改 **source** 目录。单独的 `sync` 步骤会将变更传播到所有 target。这种两阶段设计是刻意为之：
+像 `install`、`update` 和 `uninstall` 这样的操作只会修改 **source** 目录。单独的 `sync` 步骤会维护 target 链接并更新受管理的副本。这种两阶段设计是刻意为之：
 
 **在传播前先预览** — 运行 `sync --dry-run`，可以在应用之前查看所有 target 上将会发生的变更。这在 `uninstall` 或 `--force` 操作之后尤其有用。
 
 **批量处理多个变更** — 安装 5 个 skill，然后只 sync 一次。如果没有这种分离，每次 install 都会在所有 target 上触发一次完整扫描和 symlink 更新。
 
-**默认安全** — Source 的变更会先暂存，而不是立即生效。你可以自主掌控 target 何时更新。此外，`uninstall` 会把 skill 移动到 trash 目录（保留 7 天）而不是永久删除，因此误删是可以恢复的。
+**移除后可恢复** — `uninstall` 会把 skill 移动到 trash 目录（保留 7 天）而不是永久删除，因此误删是可以恢复的。
 
 :::tip 例外情况：pull
 `pull` 在 `git pull` 之后会自动运行 sync。因为它的目的就是"把一切从远端更新到最新"，所以自动 sync 符合预期行为。
 :::
 
 :::info 什么时候不需要 sync
-编辑现有 skill 不需要 sync — 由于是 symlink，变更会立即在所有 target 中可见。只有当 skill 的集合发生变化（新增、移除、重命名）或者 target/mode 发生变化时，才需要 sync。
+编辑或更新现有 skill 的内容时，已通过 symlink 链接的 target 不需要 sync：它们会立即读取更新后的 source。当链接需要新增、移除或重命名、副本内容改变，或 target 路径、filters、mode 改变时，才需要运行 sync。
 :::
 
 ---
