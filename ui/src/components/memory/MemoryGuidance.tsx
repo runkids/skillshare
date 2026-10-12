@@ -146,7 +146,7 @@ export default function MemoryGuidance({ initialized, instructions, root }: { in
       </div>}
       {initialized && guidance.data?.targets.length === 0 && <p className="text-[13px] text-ink-3">{t('memory.noTargets')}</p>}
       <p className="pl-1 text-[12.5px] leading-relaxed text-ink-3">
-        {t('memory.connectionHint')} <Link to="?tab=instructions" className="ss-more">{t('memory.openInstructions')}</Link>
+        {t('memory.connectionHint', { tools: t('memory.tools'), trial: t('memory.trial') })} <Link to="?tab=instructions" className="ss-more">{t('memory.openInstructions')}</Link>
       </p>
       <DialogShell open={open} onClose={close} preventClose={busy} padding="none" maxWidth={plan ? "4xl" : "lg"} ariaLabel={t('memory.connect')}>
         <div className="dh"><h2 className="ss-h2">{t(plan ? 'memory.reviewConnections' : 'memory.connect')}</h2></div>
