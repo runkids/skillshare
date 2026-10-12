@@ -9,6 +9,14 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.25.7] - 2026-10-12
+
+
+### Bug Fixes
+
+* **plugin:** accept OMP 18.6.1 and later instead of exactly 18.6.1 ([#543](https://github.com/runkids/skillshare/issues/543)) ([12dd041](https://github.com/runkids/skillshare/commit/12dd041288adf10ac1242a271e1c9502c0893b52))
+* **ui:** prevent plugin update rows from squeezing names ([8cb6fa2](https://github.com/runkids/skillshare/commit/8cb6fa2e44ca83115879f6fafac2b5ea324ab7a0))
+
 ## [0.25.6] - 2026-10-12
 
 ### New Features
