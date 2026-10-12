@@ -128,7 +128,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 		}
 		b := d.packages[c.Name].Bindings[c.Target]
 		c.piRestores = piRestores
-		applyErr := s.applyChange(ctx, c, b)
+		applyErr := s.applyChange(ctx, c, &b)
 		outcome := Outcome{Name: c.Name, Target: c.Target, Status: "installed", Message: "Native installation recorded. Reload the Agent and complete any required login or hook trust."}
 		if applyErr != nil {
 			outcome.Status = "failed"

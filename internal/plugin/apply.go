@@ -132,13 +132,14 @@ func (s *Service) materialize(ctx context.Context, b Binding, target string) (st
 	return expected, nil
 }
 
-func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultErr error) {
+// applyChange records in b the version an imported plugin's update installed.
+func (s *Service) applyChange(ctx context.Context, c Change, b *Binding) (resultErr error) {
 	if b.Source != "" && (c.Action == "install" || c.Action == "update") {
-		if _, err := os.Stat(s.snapshotPath(b, c.Target) + ".previous"); err == nil {
+		if _, err := os.Stat(s.snapshotPath(*b, c.Target) + ".previous"); err == nil {
 			return fmt.Errorf("unfinished snapshot replacement; inspect previous snapshot before retrying")
 		}
 		defer func() {
-			path := s.snapshotPath(b, c.Target)
+			path := s.snapshotPath(*b, c.Target)
 			backup := path + ".previous"
 			if _, err := os.Stat(backup); err != nil {
 				return
@@ -172,7 +173,7 @@ func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultE
 	}
 	agent := s.agentOf(c.Target)
 	if !marketplaceAgent(agent) {
-		return s.applyAdditional(ctx, c, b)
+		return s.applyAdditional(ctx, c, *b)
 	}
 	if agent == "omp" && c.Action == "install" {
 		if err := ompEmptyRuntime(c.ompRuntimePath); err != nil {
@@ -180,7 +181,7 @@ func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultE
 		}
 	}
 	if (c.Action == "install" || c.Action == "update") && b.Source != "" {
-		path, err := s.materialize(ctx, b, c.Target)
+		path, err := s.materialize(ctx, *b, c.Target)
 		if err != nil {
 			return err
 		}
@@ -221,7 +222,7 @@ func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultE
 	if (c.Action == "remove" || c.Action == "uninstall") && b.Source != "" {
 		// Removed natively already: only the marketplace Skillshare registered is left.
 		if h := s.host(ctx, c.Target); h.Error == "" && !slices.ContainsFunc(h.Installed, func(i Installed) bool { return i.ID == b.ID }) {
-			return s.removeMarketplace(ctx, c.Target, b)
+			return s.removeMarketplace(ctx, c.Target, *b)
 		}
 	}
 	args, err := s.nativeArgs(c.Target, c.Action, b.ID)
@@ -256,15 +257,17 @@ func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultE
 			if c.Action == "disable" && item.Enabled {
 				return fmt.Errorf("plugin is still enabled")
 			}
-			// An upgraded marketplace sets its own version, which Skillshare never reviewed.
-			if c.Action == "update" && !upgrade && b.Version != "" && item.Version != b.Version {
+			// An import updates to whatever its native marketplace holds, which Skillshare never reviewed.
+			if c.Action == "update" && b.Source == "" {
+				b.Version = item.Version
+			} else if c.Action == "update" && b.Version != "" && item.Version != b.Version {
 				return fmt.Errorf("native update returned version %s; expected %s", item.Version, b.Version)
 			}
 			return nil
 		}
 	}
 	if c.Action == "remove" || c.Action == "uninstall" {
-		return s.removeMarketplace(ctx, c.Target, b)
+		return s.removeMarketplace(ctx, c.Target, *b)
 	}
 	return fmt.Errorf("native operation completed but plugin was not found; inspect the native client before retrying")
 }

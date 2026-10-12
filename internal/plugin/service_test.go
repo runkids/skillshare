@@ -805,6 +805,75 @@ func TestCodexUpdateOfAnImportUpgradesItsMarketplace(t *testing.T) {
 	}
 }
 
+// importedDemo imports demo@team from Claude into a package that also has a source, as when
+// another Agent was added from it, and leaves the Claude update pending at 1.0.0.
+func importedDemo(t *testing.T) (*Service, *fakeAgents) {
+	t.Helper()
+	agents := &fakeAgents{version: "2.0.0", installed: map[string][]Installed{"claude": {{ID: "demo@team", PluginID: "demo@team", Installed: true, Enabled: true, Version: "1.0.0", Scope: "user"}}}, markets: map[string]map[string]string{"claude": {"team": "/team"}}}
+	s := agents.service(t)
+	applyPluginRequest(t, s, Request{Action: "import", From: "claude", Plugin: "demo@team"})
+	cfg, err := s.load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pack := cfg.packages["demo"]
+	pack.Source = "https://example.com/demo"
+	b := pack.Bindings["claude"]
+	b.Pending = "update"
+	pack.Bindings["claude"] = b
+	cfg.packages["demo"] = pack
+	if err := s.save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	return s, agents
+}
+
+func loadBinding(t *testing.T, s *Service) Binding {
+	t.Helper()
+	cfg, err := s.load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cfg.packages["demo"].Bindings["claude"]
+}
+
+// An imported plugin updates to whatever its native marketplace now holds, and records it.
+func TestClaudeUpdateOfAnImportRecordsTheVersionItInstalled(t *testing.T) {
+	s, _ := importedDemo(t)
+	applyPluginRequest(t, s, Request{Action: "update", Name: "demo", Targets: []string{"claude"}})
+	if b := loadBinding(t, s); b.Version != "2.0.0" || b.Pending != "" {
+		t.Fatalf("binding: %+v", b)
+	}
+}
+
+// The dashboard's batch update takes the same path for an import.
+func TestBatchUpdateOfAnImportRecordsTheVersionItInstalled(t *testing.T) {
+	s, _ := importedDemo(t)
+	unlock, err := s.Lock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unlock()
+	if _, err := updateDemo(s, map[string]Seen{"claude": {Version: "1.0.0"}}); err != nil {
+		t.Fatal(err)
+	}
+	if b := loadBinding(t, s); b.Version != "2.0.0" {
+		t.Fatalf("binding: %+v", b)
+	}
+}
+
+// Importing again records the version the native client has now, not the one first imported.
+func TestImportAgainRecordsTheInstalledVersion(t *testing.T) {
+	agents := &fakeAgents{installed: map[string][]Installed{"claude": {{ID: "demo@team", PluginID: "demo@team", Installed: true, Enabled: true, Version: "1.0.0", Scope: "user"}}}, markets: map[string]map[string]string{"claude": {"team": "/team"}}}
+	s := agents.service(t)
+	applyPluginRequest(t, s, Request{Action: "import", From: "claude", Plugin: "demo@team"})
+	agents.installed["claude"][0].Version = "2.0.0"
+	applyPluginRequest(t, s, Request{Action: "import", From: "claude", Plugin: "demo@team"})
+	if cfg, _ := s.load(); cfg.packages["demo"].Bindings["claude"].Version != "2.0.0" {
+		t.Fatalf("binding: %+v", cfg.packages["demo"].Bindings["claude"])
+	}
+}
+
 // A skipped update stays pending, so a later sync still knows the plugin is behind.
 func TestSkippedUpdateStaysPending(t *testing.T) {
 	agents := &fakeAgents{version: "1.0.0"}
