@@ -334,10 +334,13 @@ CLI `instructions [--update-mode passive|active]` only prints the same block. Pr
 are relative to the project root, regardless of the instruction file's location;
 external overrides and global sources use absolute paths.
 
-A configured tool has the current guidance; this does not prove a read. Use a
-fresh session and **Copy verification prompt** to request `INDEX.md` and a relevant
-note, its full path, and a temporary verification value you added. Inspect the
-actual file read event manually. There is no guaranteed read telemetry.
+A configured tool has the current guidance; this does not prove a read. In
+**Memory tools → Try across sessions**, copy the save, fresh-session read, and
+cleanup prompts. The read prompt omits the temporary verification value. Inspect
+the actual read event, full path, and returned value manually. There is no
+guaranteed read telemetry. For session retrospectives or Dreaming over saved
+notes, read [memory-review.md](memory-review.md); the host agent performs the
+review and applies approved edits, never Skillshare.
 
 **New note** offers **Link from INDEX.md**, default checked with a readable index.
 It appends a link at EOF with a version check and backup; a failed link leaves

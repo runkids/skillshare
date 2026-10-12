@@ -47,7 +47,7 @@ project 為 `.skillshare/extras/memory/`；沿用既有 extras source 覆寫設�
 
 使用 **Connect to agents** 選取工具並為每個工具選擇更新模式（`passive` 或 `active`），再 **Review changes** → **Apply changes**。讀取同一個檔案的工具共用一個區塊，會一起切換模式；已設定工具的模式也能透過同一個預覽變更。此流程將 scope/hash 標記區塊加入或更新至既有 instructions 或共用來源，保留其他內容與指派。可檢查變更、其他讀取工具與已知字元上限。既有檔案會備份，過期預覽會被拒絕。完整但過期的區塊可經檢查後更新；手動修改或格式有誤的區塊會保留。未同步或無法讀取的 instructions 檔案會略過。
 
-**Configured** 僅表示讀取鏈已有目前的指引，不代表已讀取。**Copy verification prompt** 用於新 session，要求 Agent 讀取 `INDEX.md` 與相關筆記、回報完整路徑及使用者加入的臨時驗證值。請手動檢查實際 read tool event；沒有保證可用的讀取 telemetry。
+**Configured** 僅表示讀取鏈已有目前的指引，不代表已讀取。在 **Memory tools → Try across sessions** 複製保存、新對話讀取與清理提示。讀取提示不含臨時驗證值。請手動檢查實際讀取事件、完整路徑與回傳值；沒有保證可用的讀取 telemetry。
 
 **Copy guidance** 是手動貼上的替代方式，選擇模式後貼上即可；**Open AGENTS.md** 可編輯 instructions。Project 內的來源路徑相對於 **project root**，不依 instructions 檔案位置；外部或 global 來源用絕對路徑，移動後須重新產生。CLI `instructions` 也輸出相同的 scope/hash 區塊。不啟用 native automatic memory、自動學習或 Obsidian 整合。
 

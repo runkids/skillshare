@@ -103,11 +103,7 @@ It backs up existing files and rejects stale plans. Intact outdated blocks can b
 updated after review; manually modified or malformed blocks are preserved.
 Unsynced or unreadable instruction files are skipped.
 
-**Configured** reports current guidance in a tool's reading chain; it does not
-report a read. **Copy verification prompt** supplies a prompt for a fresh agent
-session: read `INDEX.md` and a relevant note, report the full path and a temporary
-verification value added by the user. Inspect the actual read tool event manually;
-there is no guaranteed read telemetry.
+**Configured** reports current guidance in a tool’s reading chain; it does not report a read. In **Memory tools → Try across sessions**, copy the save, fresh-session read, and cleanup prompts. The read prompt omits the temporary verification value. Inspect the actual file read event, full path, and returned value manually; there is no guaranteed read telemetry.
 
 **Copy guidance** is the manual fallback. Choose a mode and paste the block into an
 instruction file the agent reads; **Open AGENTS.md** provides the existing editor.

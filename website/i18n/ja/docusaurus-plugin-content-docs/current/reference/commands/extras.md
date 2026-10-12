@@ -47,7 +47,7 @@ Project は `.skillshare/extras/memory/` です。既存の extras source 設定
 
 **Connect to agents** でツールとそれぞれの更新モード（`passive` または `active`）を選び、**Review changes** → **Apply changes** を実行します。同じファイルを読むツールは 1 つのブロックを共有し、モードも一緒に切り替わります。設定済みツールのモードも同じレビューで変更できます。既存の指示ファイルまたは共有 source に scope/hash マーカー付きブロックを追加・更新し、他の内容と割り当ては保持します。変更、他の読み取りツール、既知の文字数制限を確認できます。既存ファイルをバックアップし、古いプランを拒否します。変更されていない古いブロックはレビュー後に更新でき、手動変更済みや不正なブロックは保持します。未同期または読めない指示ファイルはスキップします。
 
-**Configured** は現在の指示が読み取り経路にある状態で、読み取り済みを意味しません。**Copy verification prompt** を新しいセッションで使い、`INDEX.md` と関連ノートを読み、完全なパスとユーザーが加えた一時的な検証値を報告させます。実際の読み取りイベントを手動で確認してください。読み取り telemetry は保証しません。
+**Configured** は現在の指示が読み取り経路にある状態で、読み取り済みを意味しません。**Memory tools → Try across sessions** で保存、新しい会話での読み取り、削除用プロンプトをコピーします。読み取り用には一時的な検証値を含めません。実際の読み取りイベント、完全なパス、返された値を手動で確認してください。読み取り telemetry は保証しません。
 
 **Copy guidance** は手動貼り付けの代替手段で、モードを選んでコピーします。**Open AGENTS.md** から編集できます。Project 内の source は指示ファイルの場所に関係なく **project root** からの相対パス、Project 外や global の source は絶対パスです。移動後は再生成してください。CLI の `instructions` も同じ scope/hash ブロックを出力します。Native automatic memory、自動学習、Obsidian 連携は有効になりません。
 

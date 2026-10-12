@@ -262,3 +262,106 @@ confirmed expansion and collapse survive reloads, expansion follows note
 selection, collapsed height is 360 px, and the dashboard uses the recent endpoint
 without requesting the full notes list. React Doctor retains one maintainability
 warning about overview component complexity.
+
+
+## 2026-10-12: Memory feedback, trial and organization
+
+Both guidance modes now ask for decision/lesson dates, reasons and available
+sources or evidence, distinguish assumptions, and report only successful writes
+with the saved content, project/shared scope and file path. Existing intact
+blocks become reviewable updates; user-modified blocks and real notes are not
+silently changed. The editor also shows a provenance hint.
+
+**Memory tools** in the existing agent-guidance section copies a three-step
+cross-session trial: append a temporary INDEX.md value, retrieve it in a fresh
+conversation, and remove only that line. The retrieval prompt contains the
+current source but never the test value. Values survive dialog reopening and
+page reloads per source in browser session storage; unavailable storage falls
+back to the open page. The organization prompt reviews accessible indexed
+notes for duplicates, contradictions, outdated claims, broken links and missing
+provenance, and asks for path/evidence/before-after proposals before approval.
+It also reviews current conversation/tool evidence and user-provided session
+logs for reusable lessons, checks existing docs/guardrails before suggesting
+new ones, and prioritizes automatic checks for mechanical errors. Approved
+writes stay in the memory source; project checks/guidance need separate consent.
+Dashboard reuses the same dialog and its recent response carries the resolved
+root. Missing roots disable the trigger. Both global and project root
+regressions failed before the response included the path.
+The previous standalone verification-copy action is folded into the trial's
+read step, leaving one entry point for verification and organization. Skillshare
+does not execute these prompts or claim agent-read telemetry.
+
+Verification passed devcontainer `make check`, 24 scoped UI tests, full ESLint
+(with existing warnings), scoped ESLint, TypeScript/UI build and all five
+website locale builds. All eleven dashboard locales include the tools and
+editor hint. React Doctor changed-scope comparison against HEAD, including the
+untracked new component, found no new issues (91/100); the full-repository scan
+still reports pre-existing findings. Context-router and whitespace checks pass.
+Browser checks with synthetic notes verified the copied read prompt excludes
+the value, save/cleanup values match, reload persistence, approval-first
+organization, denied-storage fallback and editor guidance. Both tool views
+were inspected in Clean/Playful light/dark at 1280x900 and Playful dark at
+390x844, including scrolling to cleanup without dialog horizontal overflow.
+No real notes or tool guidance files were modified. A real fresh-agent trial
+and Windows browser behavior were not exercised.
+
+
+Follow-up verification for the retro prompt and dashboard trigger passed
+`make check`, 26 scoped UI tests, scoped ESLint, UI build and all five website
+locale builds. React Doctor reports no new issues (91/100). API regressions
+verify the recent response's root in global and project scopes without extra
+note reads. Live preview checks verified both entry points resolve the source,
+trial values match and stay out of the read prompt, organization copy succeeds,
+and missing-root responses disable the trigger. Clean/Playful light/dark were
+inspected at 1280x900; Clean dark at 390x844 has no dialog horizontal overflow.
+The preview backend was rebuilt to include the new response field.
+
+## 2026-10-12: Host-owned retrospectives and Dreaming
+
+The built-in Skillshare skill now routes session retrospectives and Dreaming to
+`references/memory-review.md`. Retrospectives use the current conversation and
+explicitly supplied evidence. Dreaming can compare saved lessons with provenance
+from multiple sessions; private history scans, a transcript archive, and new
+journals are unnecessary. Reviews propose exact paths and edits before approval,
+check the resolved project/shared source, preserve intervening changes, and use
+versioned CLI writes with backups. Scheduled host reviews return proposals only.
+Ordinary passive/active saves retain their existing authorization. Updated
+reading guidance suggests useful review opportunities once without starting one.
+
+The shared dashboard/Memory dialog now has three inline modes with concise steps,
+clear copy actions, and complete scoped prompts folded by default. Expanded
+prompts scroll within a bounded area. All eleven UI locales and all five website
+locales describe the workflows. The former standalone verification-copy action
+is documented as part of the cross-session trial.
+
+Verification passed devcontainer `make check`, 30 scoped UI/i18n tests, scoped
+ESLint, TypeScript/UI build, and all five website builds. React Doctor's changed
+scope including untracked files reports no issues (91/100). Isolated CLI checks
+confirmed local skill installation and Claude/Codex synchronization include the
+new reference, global/project roots match, stdin writes work, stale updates
+preserve saved content, and both guidance modes retain their write policy.
+Browser checks covered both entry points, Clean/Playful light/dark, desktop and
+390 px layouts. Context-router and whitespace checks passed. The live preview
+uses an isolated demo source and the rebuilt backend. No real user notes or tool
+guidance were changed, and no commit, push, or deployment was performed.
+Fresh-agent adherence to the review skill and Windows behavior were not tested.
+
+### Review fixes: confirmed scope and consistent write safeguards
+
+The shared Memory tools trigger now waits for confirmed overview metadata;
+loading, failed requests, and project responses without a project directory
+cannot expose a copied prompt with a guessed global scope. It reuses the existing
+overview query cache for both entry points. Regression tests exercise the real
+AppProvider and pending, failed, and incomplete overview responses.
+
+All eleven retrospective prompt translations now require version-checked CLI
+writes with backups, a matching resolved source, and stopping on unavailable CLI
+or conflicts. They also require reporting partial failures, matching the Dreaming
+prompt and built-in skill. All five website locales describe these safeguards.
+
+Verification passed devcontainer `make check`, 34 scoped UI/i18n tests, scoped
+ESLint, TypeScript/UI build, and all five website builds. React Doctor reports no
+issues in the changed scope including untracked files (91/100). The live preview
+confirmed the resolved scope and localized safeguards in the full prompt.
+Context-router and whitespace checks passed. Actual agent writes and Windows
+behavior were not tested; no commit or push was performed.

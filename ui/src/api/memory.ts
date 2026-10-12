@@ -52,6 +52,7 @@ export interface MemoryNotesResponse {
 }
 
 export interface MemoryOverviewResponse {
+  root: string;
   count: number;
   initialized: boolean;
   notes: MemoryNote[];

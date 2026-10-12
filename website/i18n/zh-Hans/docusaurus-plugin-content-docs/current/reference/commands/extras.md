@@ -47,7 +47,7 @@ project 为 `.skillshare/extras/memory/`；沿用现有 extras source 覆盖设�
 
 使用 **Connect to agents** 选择工具并为每个工具选择更新模式（`passive` 或 `active`），再 **Review changes** → **Apply changes**。读取同一个文件的工具共用一个块，会一起切换模式；已配置工具的模式也能通过同一个预览更改。此流程将 scope/hash 标记块添加或更新至现有 instructions 或共享来源，保留其他内容与分配。可检查更改、其他读取工具与已知字符上限。现有文件会备份，过期预览会被拒绝。完整但过期的块可经检查后更新；手动修改或格式错误的块会保留。未同步或无法读取的 instructions 文件会跳过。
 
-**Configured** 仅表示读取链已有当前指引，不代表已读取。**Copy verification prompt** 用于新会话，要求 Agent 读取 `INDEX.md` 与相关笔记、报告完整路径及用户加入的临时验证值。请手动检查实际 read tool event；没有保证可用的读取 telemetry。
+**Configured** 仅表示读取链已有当前指引，不代表已读取。在 **Memory tools → Try across sessions** 复制保存、新对话读取与清理提示。读取提示不含临时验证值。请手动检查实际读取事件、完整路径与返回值；没有保证可用的读取 telemetry。
 
 **Copy guidance** 是手动粘贴的替代方式，选择模式后粘贴即可；**Open AGENTS.md** 可编辑 instructions。Project 内的来源路径相对于 **project root**，不依 instructions 文件位置；外部或 global 来源用绝对路径，移动后须重新生成。CLI `instructions` 也输出相同的 scope/hash 块。不启用 native automatic memory、自动学习或 Obsidian 集成。
 

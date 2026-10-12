@@ -9,13 +9,12 @@ import { queryKeys } from '../../lib/queryKeys';
 import { shortenHome } from '../../lib/paths';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
-import CopyButton from '../CopyButton';
 import DialogShell from '../DialogShell';
 import { lineDiff } from '../instructions/instructionsView';
 import type { DiffLine } from '../instructions/instructionsView';
 import { useToast } from '../Toast';
-import Tooltip from '../Tooltip';
 import { invalidate } from '../../lib/queryEvents';
+import MemoryTools from './MemoryTools';
 
 const MODES: MemoryUpdateMode[] = ['passive', 'active'];
 
@@ -83,7 +82,7 @@ function ChangeDiff({ path, before, after }: { path: string; before: string; aft
   );
 }
 
-export default function MemoryGuidance({ initialized, instructions }: { initialized: boolean; instructions: MemoryInstructions }) {
+export default function MemoryGuidance({ initialized, instructions, root }: { initialized: boolean; instructions: MemoryInstructions; root: string }) {
   const t = useT();
   const client = useQueryClient();
   // States follow assignments and files that other tabs and the CLI change, so never trust a cached copy.
@@ -123,7 +122,6 @@ export default function MemoryGuidance({ initialized, instructions }: { initiali
     } catch (err) { setPlan(null); setError(err instanceof ApiError && err.code === 'memory_guidance_stale' ? t('memory.guidanceStale') : (err as Error).message); }
     finally { setBusy(false); }
   };
-  const prompt = t('memory.checkPrompt');
   // The specific reason beats the generic state; it must be readable without hovering.
   const statusText = (target: (typeof targets)[number]) => target.detail ? t(`memory.connectionDetail.${target.detail}`, undefined, target.detail) : t(`memory.connection.${target.state}`);
   return (
@@ -133,9 +131,7 @@ export default function MemoryGuidance({ initialized, instructions }: { initiali
         {!!targets.length && <span className="text-[12.5px] text-ink-3">{t('memory.connectedCount', { count: targets.filter((target) => target.state === 'configured').length, total: targets.length })}</span>}
         <span className="flex-1" />
         <CopyGuidanceMenu instructions={instructions} />
-        <Tooltip content={<span className="block whitespace-pre-wrap break-words font-mono">{prompt}</span>}>
-          <CopyButton value={prompt} title={t('memory.check')} label={t('memory.check')} copiedLabel={t('memory.copied')} errorMessage={t('memory.copyFailed')} unstyled className="ss-btn ghost sm" />
-        </Tooltip>
+        <MemoryTools root={root} disabled={!initialized} />
         <Button variant="secondary" size="sm" disabled={!initialized || !targets.length} onClick={() => { void guidance.refetch(); setSelected([]); setModes({}); setPlan(null); setOpen(true); }}>{t('memory.connect')}</Button>
       </div>
       {guidance.error && <div className="ss-note bad">{guidance.error.message}</div>}

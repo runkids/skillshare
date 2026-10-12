@@ -13,7 +13,7 @@ vi.mock('../../api/client', async (load) => {
   return { ...actual, api: { ...actual.api, getMemoryGuidance: vi.fn(), planMemoryGuidance: vi.fn(), applyMemoryGuidance: vi.fn() } };
 });
 const renderGuidance = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-  <I18nProvider><ToastProvider><MemoryRouter><MemoryGuidance initialized instructions={{ passive: 'Read the notes', active: 'Save lasting facts' }} /></MemoryRouter></ToastProvider></I18nProvider>
+  <I18nProvider><ToastProvider><MemoryRouter><MemoryGuidance initialized root="/notes" instructions={{ passive: 'Read the notes', active: 'Save lasting facts' }} /></MemoryRouter></ToastProvider></I18nProvider>
 </QueryClientProvider>);
 
 beforeEach(() => {

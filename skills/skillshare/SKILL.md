@@ -3,7 +3,8 @@ name: skillshare
 description: |
   Manage skills, agents, extras, hooks, plugins, and MCP connection settings with the Skillshare CLI.
   Use when the user asks to configure or run Skillshare, install or sync resources
-  across AI tools, manage shared memory notes, import MCP settings, manage targets, audit skills, recover backups,
+  across AI tools, manage shared memory notes, review a session for lessons or dream over saved memories,
+  import MCP settings, manage targets, audit skills, recover backups,
   or troubleshoot Skillshare configuration and sync. Covers global and project modes,
   noninteractive automation, and guidance for the terminal UI.
 argument-hint: "[command] [target] [--json] [--dry-run] [-p|-g]"
@@ -29,6 +30,9 @@ Check `skillshare <command> --help` if the installed version differs from these 
 - Shared memory notes live in the `memory` extra. Use `extras memory` to manage Markdown
   notes and reading guidance; nested paths such as `wiki/architecture.md` are supported.
   Read [extras.md](references/extras.md) for scope, version checks, and agent setup.
+  For a session retrospective or Dreaming across saved notes, read
+  [memory-review.md](references/memory-review.md). The host agent performs the review;
+  Skillshare never launches or schedules an agent.
 - MCP uses its own receiving targets and source definitions. Read [mcp.md](references/mcp.md)
   before editing MCP settings or importing native configurations. Its Agent notes cover
   what is specific to Claude Code, Codex, OpenCode and Pi: scopes and files, names and
@@ -185,5 +189,6 @@ references for a single task.
 | Operation log | [log.md](references/log.md) |
 | Targets | [targets.md](references/targets.md) |
 | Extras (rules/commands/prompts) | [extras.md](references/extras.md) |
+| Session retrospectives and Dreaming over saved notes | [memory-review.md](references/memory-review.md) |
 | Backup/restore | [backup.md](references/backup.md) |
 | Troubleshooting | [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) |

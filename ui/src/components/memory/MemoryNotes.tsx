@@ -91,7 +91,7 @@ export default function MemoryNotes({ creating, setCreating }: { creating: boole
   if (isPending) return <PageSkeleton />;
   if (error) return <div className="ss-note bad"><span className="flex-1">{errorMessage(error)}</span></div>;
   if (!data) return null;
-  const guidance = <MemoryGuidance initialized={data.initialized} instructions={data.instructions} />;
+  const guidance = <MemoryGuidance initialized={data.initialized} instructions={data.instructions} root={data.root} />;
 
   return (
     <section className="@container flex flex-col gap-6" aria-label={t('memory.title')}>

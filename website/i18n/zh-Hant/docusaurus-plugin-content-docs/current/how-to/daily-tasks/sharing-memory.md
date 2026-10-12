@@ -91,17 +91,32 @@ Update notes when the user asks you to remember a decision.
 
 ![wiki/workflow-check.md 的英文 Backup Files 還原預覽](/img/memory-restore-demo.png)
 
-## 5. 在新 Agent session 中驗證
+## 試用與整理記憶
 
-在相關筆記加入臨時值，例如 `memory-check: demo-7429`，並儲存。在已連接的工具開啟新 session。**Copy verification prompt** 提供以下提示：
+在 **Use with agents → 記憶工具** 選擇 **跨對話試用**：
 
-將滑鼠移到 **Copy verification prompt** 上，可在複製前預覽完整內容。
+1. 將第一段提示貼到目前對話，請 Agent 在這個來源的 `INDEX.md` 加入臨時 `memory-check` 行，保留其他內容。
+2. 在同一個或另一個已連線工具開新對話，貼上第二段提示。它只有來源路徑，不包含驗證值。檢查實際檔案讀取事件、完整路徑，並將回傳值與步驟 1 比對。
+3. 貼上清理提示，只移除該測試行。此瀏覽器分頁會在重新開啟對話框或重新整理時保留測試值。若瀏覽器儲存空間無法使用，請保留此頁直到清理完成。
 
-![English verification prompt tooltip](/img/memory-verification-demo.png)
+按鈕只複製提示，Skillshare 不會執行 Agent 或將試用標示為通過。明確讀取只能驗證取回資料，不代表 native automatic loading。
 
-> 請讀取 instructions 指定的共用記憶 INDEX.md，以及與本次任務相關的筆記。回報筆記的完整路徑及我加入的臨時驗證值。請使用檔案讀取工具，讓我能檢查讀取事件。
+選擇 **回顧本次** 可複製檢視提示，尋找重複、矛盾、過期資訊、失效索引連結與缺少日期、原因或來源的決策。Agent 先提出檔案路徑、證據與修改前後內容。你在對話中確認具體修改後，才寫入、移動或刪除筆記。不明日期與無法取得的證據會明確標示。
 
-檢查實際 read tool event，核對完整路徑與臨時值。在另一個已連接工具重複驗證，再移除臨時值。這是手動驗證，Skillshare 沒有保證可用的讀取 telemetry。Agent 自稱讀過或顯示 **Configured** 都不足以證明讀取。
+Dashboard 的 Memory 區塊也能開啟同一個 **記憶工具** 彈窗。將整理提示貼到你想回顧的對話；Agent 只使用目前對話、可取得的工具結果及你提供的 session 紀錄，從糾正與反覆錯誤中提取可重用的教訓。參考 [retro 流程](https://github.com/mattpocock/skills/blob/main/skills/engineering/retro/SKILL.md)，先檢查既有文件與檢查機制，機械性的錯誤優先建議自動檢查，並依影響排序。核准後的記憶修改僅限畫面顯示的記憶來源；專案檢查或指引修改需另外同意。Skillshare 不會取得私人對話歷史或執行這次回顧。
+
+選擇 **做夢**，比較跨對話保存的筆記與教訓、找出反覆出現的模式，並提出重複、過期、矛盾或失效連結的整理建議。筆記若有跨對話來源即可支持歸納，不強制保存原始 transcript；證據不足時必須說明結論的限制。參考 [Agent Memory Repo](https://cognition.com/agent-memory-repo)，由你使用的 Agent 執行。
+
+三個分頁皆為 inline，完整提示預設收合，可按 **查看完整提示** 展開；**複製給 Agent** 會複製包含來源路徑與專案／共用範圍的完整提示。若 Agent 已安裝更新的內建 Skillshare skill，也可直接請它回顧本次或對指定筆記做夢。Skill 會核對解析後的來源、提出具體路徑與修改供確認，再透過版本檢查及備份寫入。不需要新的 journal 或強制 transcript archive；由宿主排程的回顧只提出建議。
+
+記憶工具會停用直到來源範圍確認；專案模式也需要專案路徑。回顧與做夢提示都要求使用有版本檢查及備份的 Skillshare CLI，來源不符、CLI 無法使用或發生衝突時停止寫入。
+
+更新的讀取指引會在反覆糾正或矛盾筆記出現時，以一行建議回顧或做夢，同一對話只提醒一次，不自行開始。Skillshare 不會啟動或排程 Agent。
+
+兩種更新模式都會要求決策與經驗附日期、原因及可取得的來源或證據，成功寫入後以一行回報存入內容、專案／共用範圍與檔案路徑。例如：「已記住：此專案用 devcontainer 跑測試。專案記憶：testing.md。」沿用普通 Markdown，不強制 metadata schema。編輯器也會顯示來源提示。
+
+既有工具透過 **Connect to agents → Review changes → Apply changes** 更新指引。完整但過期的區塊可檢視更新；已手動修改的區塊仍保留。Skillshare 不會默默更新工具或既有筆記。
+
 
 需要記錄經驗時，請要求 Agent 更新 `LEARNED.md` 的背景、結論與證據。兩種模式都會在每個 task 開始時讀 `INDEX.md`。筆記由使用者管理：`passive` 指引讓 Agent 提出值得記的事實、只在使用者要求時更新；`active` 指引則讓 Agent 依上述規則把這類事實存在這裡，而不是工具自己的記憶：一兩句話說得完的事實，直接作為 `INDEX.md` 中 `## Notes` 下的一個項目，較長的筆記才另建檔案。本功能不啟用 native automatic memory、自動學習或 Obsidian 整合。
 

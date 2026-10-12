@@ -14,7 +14,7 @@ vi.mock('../../api/client', async (load) => {
 });
 
 const instructions = { passive: '', active: '' };
-const empty = { count: 0, initialized: false, notes: [] };
+const empty = { root: '/shared/memory', count: 0, initialized: false, notes: [] };
 const renderOverview = () => render(
   <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <I18nProvider><ToastProvider><MemoryRouter><MemoryOverview /></MemoryRouter></ToastProvider></I18nProvider>

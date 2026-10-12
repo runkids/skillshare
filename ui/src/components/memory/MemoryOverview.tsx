@@ -12,6 +12,7 @@ import EmptyState from '../EmptyState';
 import Skeleton from '../Skeleton';
 import { useToast } from '../Toast';
 import { updatedNotes } from './memoryView';
+import MemoryTools from './MemoryTools';
 
 export function MemorySummary({ data }: { data: MemoryNotesResponse }) {
   const t = useT();
@@ -45,6 +46,7 @@ export default function MemoryOverview() {
     <div className="ss-sec">
       <h2>{t('memory.title')}</h2>
       {data && <span className="text-[13px] text-ink-3">{t(plural('memory.noteCount', data.count), { count: data.count })}</span>}
+      {data?.initialized && <MemoryTools root={data.root} disabled={false} />}
       <Link to="/extras?tab=memory" className="more">{t('memory.open')}</Link>
     </div>
     {isPending ? <Skeleton variant="card" /> : error ? <div className="ss-note bad">{error.message}</div> : data && <>

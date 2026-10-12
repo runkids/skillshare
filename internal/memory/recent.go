@@ -7,6 +7,7 @@ import (
 )
 
 type Overview struct {
+	Root        string `json:"root"`
 	Count       int    `json:"count"`
 	Initialized bool   `json:"initialized"`
 	Notes       []Note `json:"notes"`
@@ -18,7 +19,7 @@ func Recent(root string) (Overview, error) {
 }
 
 func recent(root string, read func(string, string) (Note, error)) (Overview, error) {
-	result := Overview{Initialized: true, Notes: []Note{}}
+	result := Overview{Root: root, Initialized: true, Notes: []Note{}}
 	starters := map[string]Note{}
 	for _, starter := range starterNotes {
 		note, err := read(root, starter.path)

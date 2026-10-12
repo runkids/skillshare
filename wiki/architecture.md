@@ -92,6 +92,25 @@ cap, and known character limits are review warnings. Guidance paths inside a pro
 external sources remain absolute. GET reports file-based configuration state,
 never agent reads. Fresh-session read events provide manual verification only.
 
+Memory tools copy a three-step cross-session trial (save, read, cleanup), a
+session retrospective, and a Dreaming prompt for the current source. Dashboard and Memory
+share the same dialog; the recent endpoint includes the resolved source root
+without extra note reads. Retrospectives review available session evidence
+for durable lessons and separate memory proposals from project-check advice.
+Dreaming can synthesize saved lessons with multi-session provenance; no private
+history scan or transcript archive is required. Three inline modes show concise
+steps with full scoped prompts collapsed by default. Tools stay disabled until
+the overview confirms global/project scope and, for projects, the project root.
+Both review prompts require versioned CLI writes and stop on a source mismatch,
+unavailable CLI, or conflict. The built-in skill routes
+to `references/memory-review.md` for host-owned review and approved versioned
+writes. Reading guidance suggests review opportunities once, without starting
+one. The read prompt omits the test value. Both guidance modes request
+decision/lesson provenance and
+successful-write reports naming the content, scope and file path. Existing
+blocks update only through the reviewed guidance flow. Prompts do not execute
+agents or provide read telemetry.
+
 The Memory tab uses the shared tree/Markdown editor. Conflicts retain drafts,
 display latest saved content, and require confirmation before a version-checked,
 backed-up replacement. History/restore links filter Backup Files by absolute

@@ -160,24 +160,31 @@ a deleted note.
 
 ![English Backup Files restore preview for wiki/workflow-check.md](/img/memory-restore-demo.png)
 
-## 5. Verify in a fresh agent session
+## Try and organize memory
 
-Add a temporary value such as `memory-check: demo-7429` to your relevant note and
-save it. Start a fresh session in a connected tool. **Copy verification prompt**
-provides this prompt:
+In **Use with agents → Memory tools**, choose **Try across sessions**:
 
-Hover over **Copy verification prompt** to preview its content before copying.
+1. Copy the first prompt into the current conversation. It asks the agent to add a temporary `memory-check` line to this source's `INDEX.md`, preserving other content.
+2. Open a fresh conversation, in the same or another connected tool, and copy the second prompt. It contains the source path but not the verification value. Check the actual file read event, full path, and returned value against step 1.
+3. Copy the cleanup prompt to remove only that test line. The dialog keeps the test value across reopening and page reloads in this browser tab. If browser storage is unavailable, keep the page open until cleanup is done.
 
-![English verification prompt tooltip](/img/memory-verification-demo.png)
+These buttons copy prompts; Skillshare does not run the agent or label the trial as passed. An explicit read verifies retrieval, not automatic native loading.
 
-> Read the shared memory INDEX.md named in your instructions and a note relevant
-> to this task. Report the note's full path and the temporary verification value
-> I added to it. Use a file read tool so I can inspect the read event.
+Choose **Review this session** to copy a review prompt for duplicate or contradictory notes, outdated claims, broken index links, and missing dates, reasons, or sources. The agent proposes file paths, evidence, and before/after text. Approve specific changes in the conversation before it writes, moves, or deletes notes. Unknown dates and unavailable evidence stay marked as unknown.
 
-Inspect the actual read tool event and check both the full path and temporary
-value. Repeat in another connected tool, then remove the value. This is manual
-verification: Skillshare has no guaranteed read telemetry. A claimed read or a
-**Configured** label alone is insufficient evidence.
+The same **Memory tools** dialog also opens from the dashboard Memory section. Paste the organization prompt into the conversation you want to review. It uses the current conversation, available tool results and only session logs you provide to propose reusable lessons from corrections or repeated mistakes. Following the [retro workflow](https://github.com/mattpocock/skills/blob/main/skills/engineering/retro/SKILL.md), it checks existing project docs and checks before recommending new rules, prefers automatic checks for mechanical mistakes, and ranks proposals by impact. Approved memory changes stay in the displayed memory source; project checks or guidance need separate approval. Skillshare does not fetch private conversation history or run this review.
+
+Choose **Dream** to compare saved notes and lessons across sessions, find recurring patterns, and propose duplicate, stale, contradictory, or broken-link cleanup. Saved notes with multi-session provenance are enough; raw transcripts are optional. Missing evidence limits the conclusions and must be reported. Inspired by [Agent Memory Repo](https://cognition.com/agent-memory-repo), this workflow keeps execution in your host agent.
+
+All three tabs are inline. Full prompts are collapsed by default; **View full prompt** opens them. **Copy for agent** copies the complete prompt, including the source path and project/shared scope. With the updated built-in Skillshare skill installed in your host, you can instead ask it to review this session or dream over the selected notes directly. The skill checks the resolved source, proposes exact paths and edits for approval, and uses versioned writes and backups. It needs no new journal or mandatory transcript archive; host-scheduled reviews return proposals only.
+
+Memory tools remain disabled until the source scope is confirmed; project mode also needs the project directory. Both review prompts require version-checked Skillshare CLI writes with backups and stop on a source mismatch, unavailable CLI, or conflict.
+
+Updated reading guidance suggests a useful retrospective or Dreaming opportunity once when repeated corrections or conflicting notes appear. It does not start a review. Skillshare never launches or schedules agents.
+
+Both update modes now request the date, reason, and available source or evidence for decisions and lessons, plus a one-line report of the saved content, project/shared scope, and file path after a successful write. For example: “Saved: run this project's tests in the devcontainer. Project memory: testing.md.” Use ordinary Markdown; no metadata schema is required. The editor shows the same provenance hint.
+
+Existing tools receive the updated guidance through **Connect to agents → Review changes → Apply changes**. Outdated intact blocks can be reviewed; modified blocks remain preserved. Skillshare does not silently update connected tools or existing notes.
 
 To save a lesson, ask the agent to update `LEARNED.md` with its context,
 conclusion, and evidence. Both modes read `INDEX.md` at the start of each task. Notes are user-owned:

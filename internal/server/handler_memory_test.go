@@ -113,6 +113,9 @@ func TestMemoryAPI_RecentScopes(t *testing.T) {
 			}
 			rr := serveJSON(t, s, http.MethodGet, "/api/extras/memory/recent", "")
 			result := decodeBody[memory.Overview](t, rr)
+			if result.Root != root {
+				t.Fatalf("recent root: %q, want %q", result.Root, root)
+			}
 			if rr.Code != http.StatusOK || !result.Initialized || result.Count != 10 || len(result.Notes) != 4 {
 				t.Fatalf("recent: %d %+v", rr.Code, result)
 			}
