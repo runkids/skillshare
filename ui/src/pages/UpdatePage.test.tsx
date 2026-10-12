@@ -7,6 +7,7 @@ import { I18nProvider } from '../i18n';
 import { ToastProvider } from '../components/Toast';
 import UpdatePage, { countUpdates, isForceRetryable, updateUnits } from './UpdatePage';
 import { api } from '../api/client';
+import { queryKeys } from '../lib/queryKeys';
 
 vi.mock('../api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/client')>();
@@ -21,21 +22,21 @@ vi.mock('../api/client', async (importOriginal) => {
       installFromConfig: vi.fn(),
       batchUninstall: vi.fn(),
       sync: vi.fn().mockResolvedValue({ results: [] }),
+      diff: vi.fn(),
+      listTargets: vi.fn(),
     },
   };
 });
 
-function renderUpdatePage() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-
+function renderUpdatePage(kind: 'skill' | 'agent' = 'skill', queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false } },
+})) {
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
         <I18nProvider>
           <ToastProvider>
-            <UpdatePage kind="skill" />
+            <UpdatePage kind={kind} />
           </ToastProvider>
         </I18nProvider>
       </MemoryRouter>
@@ -57,12 +58,15 @@ function cacheStatus(name: string, status: string) {
 }
 
 const noResults = { results: [], summary: { updated: 0, upToDate: 0, blocked: 0, errors: 0, skipped: 0 } };
+const emptyDiff = { diffs: [], ignored_count: 0, ignored_skills: [], ignore_root: '', ignore_repos: [] };
 
 describe('UpdatePage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
     vi.mocked(api.missingConfigEntries).mockResolvedValue({ entries: [], file: '.metadata.json' });
+    vi.mocked(api.diff).mockResolvedValue(emptyDiff);
+    vi.mocked(api.listTargets).mockResolvedValue({ targets: [{ name: 'claude', path: '/targets/claude', mode: 'merge', targetNaming: 'flat', status: 'merged', linkedCount: 1, localCount: 0, include: [], exclude: [], expectedSkillCount: 1, skillsEnabled: true }], sourceSkillCount: 1 });
   });
 
   const nestedSkill = {
@@ -121,6 +125,55 @@ describe('UpdatePage', () => {
     await user.click(await screen.findByRole('button', { name: /update all/i }));
 
     expect(vi.mocked(api.updateAllStream).mock.calls[0][4]).toEqual({ names: ['_team'], force: false });
+  });
+
+  it.each(['skill', 'agent'] as const)('does not offer a %s sync write when the fresh diff only changes the other kind', async (kind) => {
+    vi.mocked(api.listSkills).mockResolvedValue({ resources: [{ ...nestedSkill, kind }] });
+    const result = { name: nestedSkill.relPath, action: 'updated' as const, isRepo: false };
+    vi.mocked(api.updateAllStream).mockImplementation((_onStart, onResult, onDone) => {
+      queueMicrotask(() => {
+        onResult(result);
+        onDone({ results: [result], summary: { ...noResults.summary, updated: 1 } });
+      });
+      return { close: vi.fn() } as unknown as EventSource;
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    queryClient.setQueryData(queryKeys.diff(), { ...emptyDiff, diffs: [{ target: 'claude', items: [{ skill: 'old', kind, action: 'link', reason: 'source only' }] }] });
+    vi.mocked(api.diff).mockResolvedValue({ ...emptyDiff, diffs: [{ target: 'claude', items: [{ skill: 'other', kind: kind === 'skill' ? 'agent' : 'skill', action: 'link', reason: 'source only' }] }] });
+
+    const user = userEvent.setup();
+    renderUpdatePage(kind, queryClient);
+    await user.click(await screen.findByRole('button', { name: /update all/i }));
+
+    await waitFor(() => expect(api.diff).toHaveBeenCalled());
+    await screen.findByText('Everything is up to date. No sync needed.');
+    expect(screen.queryByRole('button', { name: 'Sync Now' })).not.toBeInTheDocument();
+    expect(api.sync).not.toHaveBeenCalled();
+  });
+
+  it('previews pending changes before writing only the updated kind', async () => {
+    vi.mocked(api.listSkills).mockResolvedValue({ resources: [nestedSkill] });
+    vi.mocked(api.diff).mockResolvedValue({ ...emptyDiff, diffs: [{ target: 'claude', items: [{ skill: 'tools__agent-browser', kind: 'skill', action: 'link', reason: 'source only' }] }] });
+    const result = { name: nestedSkill.relPath, action: 'updated' as const, isRepo: false };
+    vi.mocked(api.updateAllStream).mockImplementation((_onStart, onResult, onDone) => {
+      queueMicrotask(() => {
+        onResult(result);
+        onDone({ results: [result], summary: { ...noResults.summary, updated: 1 } });
+      });
+      return { close: vi.fn() } as unknown as EventSource;
+    });
+
+    const user = userEvent.setup();
+    renderUpdatePage();
+    await user.click(await screen.findByRole('button', { name: /update all/i }));
+    await user.click(await screen.findByRole('button', { name: 'Sync Now' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Sync skills' });
+    expect(api.sync).not.toHaveBeenCalled();
+    vi.mocked(api.diff).mockResolvedValue(emptyDiff);
+    await user.click(await within(dialog).findByRole('button', { name: 'Sync Now' }));
+    await waitFor(() => expect(api.sync).toHaveBeenCalledWith({ dryRun: false, kind: 'skill' }));
+    await user.click(await within(dialog).findByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Sync Now' })).not.toBeInTheDocument());
   });
 
   it('installs entries missing on disk from config (issue #212)', async () => {

@@ -56,20 +56,20 @@ flowchart TD
 
 ## Sync가 별도 단계인 이유 {#why-sync-is-a-separate-step}
 
-`install`, `update`, `uninstall` 같은 작업은 **source** 디렉터리만 수정합니다. 별도의 `sync` 단계가 모든 target에 변경 사항을 전파합니다. 이 2단계 설계는 의도적입니다:
+`install`, `update`, `uninstall` 같은 작업은 **source** 디렉터리만 수정합니다. 별도의 `sync` 단계가 target의 링크를 관리하고 관리 대상 복사본을 갱신합니다. 이 2단계 설계는 의도적입니다:
 
 **전파 전 미리보기** — `sync --dry-run`을 실행하면 모든 target에 적용되기 전에 무엇이 변경될지 검토할 수 있습니다. 특히 `uninstall`이나 `--force` 작업 이후에 유용합니다.
 
 **여러 변경 사항을 일괄 처리** — skill 5개를 설치한 다음 한 번만 sync하세요. 분리되어 있지 않다면 각 설치마다 모든 target에서 전체 스캔과 symlink 업데이트가 트리거됩니다.
 
-**기본적으로 안전함** — source의 변경 사항은 즉시 반영되지 않고 대기 상태로 유지됩니다. target이 언제 업데이트될지 사용자가 직접 제어합니다. 또한 `uninstall`은 skill을 영구 삭제하는 대신 trash 디렉터리로 이동시키므로(7일간 보관), 실수로 제거해도 복구할 수 있습니다.
+**삭제 후 복구 가능** — `uninstall`은 skill을 영구 삭제하는 대신 trash 디렉터리로 이동시키므로(7일간 보관), 실수로 제거해도 복구할 수 있습니다.
 
 :::tip 예외: pull
 `pull`은 `git pull` 이후 자동으로 sync를 실행합니다. "원격에서 모든 것을 최신 상태로 가져온다"는 의도이므로, 자동 sync가 기대되는 동작과 일치합니다.
 :::
 
 :::info sync가 필요하지 않은 경우
-기존 skill을 편집하는 것은 sync가 필요하지 않습니다 — symlink 덕분에 변경 사항이 모든 target에 즉시 반영됩니다. skill 집합이 변경되거나(추가, 제거, 이름 변경), target이나 mode가 변경될 때만 sync가 필요합니다.
+기존 skill의 내용을 편집하거나 업데이트해도 이미 symlink로 참조하는 target에는 sync가 필요하지 않습니다. 갱신된 source를 즉시 읽습니다. 링크를 추가·제거하거나 이름을 바꿔야 할 때, 복사된 내용이 변경될 때, target의 경로·필터·mode가 변경될 때 sync를 실행하세요.
 :::
 
 ---

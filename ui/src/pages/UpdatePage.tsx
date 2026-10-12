@@ -15,7 +15,8 @@ import { Checkbox } from '../components/Checkbox';
 import EmptyState from '../components/EmptyState';
 import SyncPreviewModal from '../components/SyncPreviewModal';
 import { useToast } from '../components/Toast';
-import { useSkillsQuery } from '../hooks/useSharedQueries';
+import { useDiffQuery, useSkillsQuery } from '../hooks/useSharedQueries';
+import { countChanges, resourceGroups } from '../components/sync/syncView';
 import { invalidate } from '../lib/queryEvents';
 import { useInstallFromConfig } from '../hooks/useInstallFromConfig';
 
@@ -404,6 +405,12 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
   // Once a run ends, failures leave the list for their own section so their messages have room;
   // one retried from there stays put to show how the retry went.
   const showDone = finished && !running && run.size > 0;
+  const checkSync = showDone && tally.success > 0;
+  // Always recheck after an update; the cached preview may describe the previous source.
+  const diff = useDiffQuery({ enabled: checkSync, staleTime: 0 });
+  const syncChecking = checkSync && (diff.isPending || diff.isFetching);
+  const syncFirst = checkSync && diff.isSuccess && !diff.isFetching
+    && countChanges(resourceGroups(diff.data.diffs, [], new Set([kind]), false).groups) > 0;
   const isTrouble = (name: string) => {
     const s = run.get(name)?.status;
     return s === 'blocked' || s === 'error' || retried.has(name);
@@ -503,7 +510,9 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
       icon: troubled ? <CircleAlert size={20} /> : <Check size={20} strokeWidth={2.6} className="ss-pop" />,
       tone: troubled ? 'warn' : 'ok',
       title: <>{t('update.done.subtitle')} {tallyText}</>,
-      sub: tally.success > 0 ? t('update.done.syncHint') : t('update.tab.audited'),
+      sub: !checkSync || diff.isError ? t('update.tab.audited')
+        : syncChecking ? t('sync.checking')
+        : syncFirst ? t('update.done.syncHint') : t('syncPreview.allUpToDate'),
     };
   } else {
     const summary = lastChecked ? t('update.check.checkedAt', { time: formatRelativeTime(lastChecked, locale) }) : '';
@@ -514,7 +523,6 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
       sub: `${summary} ${t('update.tab.audited')}`.trim(),
     };
   }
-  const syncFirst = showDone && tally.success > 0;
 
   return (
     <>
@@ -540,13 +548,20 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
               {syncFirst ? (
                 <Button variant="primary" onClick={() => setSyncOpen(true)}><RefreshCw size={15} />{t('syncPreview.syncNowButton')}</Button>
               ) : (
-                <Button variant="primary" disabled={busy} onClick={() => startUpdate(units.map((u) => u.name), force)}>
+                <Button variant="primary" disabled={busy || syncChecking} onClick={() => startUpdate(units.map((u) => u.name), force)}>
                   <CircleArrowUp size={15} />
                   {t('update.tab.updateAll')}
                 </Button>
               )}
             </div>
           </div>
+          {checkSync && diff.isError && (
+            <div className="ss-note bad">
+              <CircleAlert size={16} />
+              <span className="flex-1">{diff.error.message}</span>
+              <Button variant="secondary" size="sm" onClick={() => void diff.refetch()}>{t('syncPreview.retryButton')}</Button>
+            </div>
+          )}
           {busy && (
             <div className={`ss-bar ${checking ? 'indet' : ''}`} role="progressbar" aria-valuemin={0} aria-valuemax={run.size} aria-valuenow={checking ? undefined : runDone}>
               <span style={checking ? undefined : { width: `${run.size ? (runDone / run.size) * 100 : 0}%` }} />

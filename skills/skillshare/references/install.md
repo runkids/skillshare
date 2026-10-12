@@ -168,7 +168,7 @@ even with `--force`; update them by name instead.
 Explicit `--force` can discard local changes and override audit blocking;
 `--skip-audit` skips scanning. Review findings before selecting either override.
 
-**After update:** `skillshare sync`
+**After update:** `skillshare sync` applies remaining target changes. Existing symlinks already read updated source content; managed copies and added, removed, or renamed links may still need sync. The dashboard's Updates tab checks that kind's pending changes before offering **Sync Now**, reports when no sync is needed, and offers **Retry** if the check fails.
 
 ## uninstall
 

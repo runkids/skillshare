@@ -68,7 +68,7 @@ const SM: Label[] = ['syncMatrix', 'syncMatrixClaude'];
 const TARGETS: Label[] = [...T, 'projects', 'config', 'overview', 'diff', 'syncMatrix'];
 
 const stale: Record<QueryEvent, Label[] | { args: string[]; stale: Label[] }> = {
-  skillsChanged: [...S, 'overview'],
+  skillsChanged: [...S, 'overview', 'diff'],
   skillEdited: { args: ['a'], stale: ['skill'] },
   installDialogClosed: S,
   reposChanged: [...S, 'overview', 'trash'],

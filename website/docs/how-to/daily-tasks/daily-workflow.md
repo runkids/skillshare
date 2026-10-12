@@ -53,7 +53,7 @@ skillshare sync
 ```
 
 :::tip Why is sync a separate step?
-Sync is intentionally decoupled from install/update/uninstall. This lets you batch multiple changes (e.g., install 3 skills → sync once), preview with `--dry-run` before propagating, and keep full control of when targets update. See [Source & Targets: Why Sync is a Separate Step](/docs/understand/source-and-targets#why-sync-is-a-separate-step) for details.
+Sync is intentionally decoupled from install/update/uninstall. This lets you batch multiple changes (e.g., install 3 skills → sync once), preview with `--dry-run` before propagating, and review target link and copy changes. Existing symlinks still expose source content changes immediately. See [Source & Targets: Why Sync is a Separate Step](/docs/understand/source-and-targets#why-sync-is-a-separate-step) for details.
 :::
 
 ### Preview first
