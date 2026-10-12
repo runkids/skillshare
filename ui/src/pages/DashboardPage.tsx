@@ -38,6 +38,7 @@ import { useAppContext } from '../context/AppContext';
 import { useRepoUpdate } from '../hooks/useRepoUpdate';
 import { useHooksQuery, useMcpQuery, useOverviewQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
+import MemoryOverview from '../components/memory/MemoryOverview';
 
 const STAR_CTA_DISMISSED_KEY = 'skillshare.dashboard.starCta.dismissed';
 
@@ -191,6 +192,8 @@ export default function DashboardPage() {
           <TargetBoard data={data} targets={targets} healths={healths} counts={counts} />
         </div>
       </div>
+
+      {extrasData?.extras.some((extra) => extra.name.toLowerCase() === 'memory' && !extra.file) && <MemoryOverview />}
 
       <div className="grid grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] gap-10">
         <NeedsAttention targets={targets} healths={healths} />

@@ -3422,5 +3422,13 @@
   "memory.overwriteMessage": "最新の保存内容を下書きで置き換えますか？置換前に保存バージョンを再確認し、バックアップします。",
   "backup.files.reason.delete": "ノート削除前。",
   "memory.invalidHint": "「Copy path」でパスをコピーし、エディターやファイルマネージャーでこの未対応のファイルを修正または削除してください。",
-  "memory.guidanceStale": "プレビュー後に指示ファイルが変更されました。適用前に変更を再確認してください。"
+  "memory.guidanceStale": "プレビュー後に指示ファイルが変更されました。適用前に変更を再確認してください。",
+  "memory.open": "メモリを開く",
+  "memory.noteCount.one": "ノート 1 件",
+  "memory.noteCount.other": "ノート {count} 件",
+  "memory.startHint": "好み、決定事項、検証済みの知見をセッション間で保存します。",
+  "memory.starterHint": "初期ノートを用意しました。好み、決定事項、検証済みの知見を追加してください。",
+  "memory.recentlyUpdated": "最近の更新",
+  "memory.updated": "更新：{time}",
+  "memory.configuredHint": "設定済みは指示ファイルがここを指していることを示し、エージェントが読んだことを意味しません。"
 }

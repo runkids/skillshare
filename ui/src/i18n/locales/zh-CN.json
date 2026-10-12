@@ -3422,5 +3422,13 @@
   "memory.overwriteMessage": "要用草稿替换最新保存内容吗？替换前会再次检查并备份已保存版本。",
   "backup.files.reason.delete": "删除笔记前。",
   "memory.invalidHint": "使用“复制路径”，通过编辑器或文件管理器修复或移除这个不支持的文件。",
-  "memory.guidanceStale": "instructions 文件已在预览后更改。应用前请重新检查更改。"
+  "memory.guidanceStale": "instructions 文件已在预览后更改。应用前请重新检查更改。",
+  "memory.open": "打开记忆",
+  "memory.noteCount.one": "1 条笔记",
+  "memory.noteCount.other": "{count} 条笔记",
+  "memory.startHint": "保存偏好、决策和已验证的经验，供以后的会话使用。",
+  "memory.starterHint": "初始笔记已准备好。添加一项偏好、决策或已验证的经验。",
+  "memory.recentlyUpdated": "最近更新",
+  "memory.updated": "更新时间：{time}",
+  "memory.configuredHint": "已配置表示指令文件已指向这里，不代表 agent 已读取。"
 }

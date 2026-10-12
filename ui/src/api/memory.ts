@@ -6,6 +6,8 @@ export interface MemoryNote {
   version: string;
   content?: string;
   invalid?: string;
+  modified_at?: string;
+  starter?: boolean;
 }
 
 export interface MemoryIndex {

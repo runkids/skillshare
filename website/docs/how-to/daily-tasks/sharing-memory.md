@@ -20,6 +20,17 @@ home under `/tmp/skillshare-memory-docs`; the fresh setup screenshots use
 
 ## 1. Create memory
 
+After creating memory in **Extras → Memory**, the **Dashboard → Memory** section
+shows up to four recently updated readable notes. Click a note
+to open it directly in **Extras → Memory**. Update times come from the note's
+file modification time, including edits made outside Skillshare; they do not
+indicate agent activity. Untouched starter notes are shown separately from
+recent updates. The Memory tab also shows the note count and latest update,
+and each edited note shows its own update time.
+The dashboard hides this section when no memory extra is configured.
+Existing notes remain visible if a starter file is missing. **Create memory**
+restores missing starters without replacing existing notes.
+
 Open **Extras → Memory** and click **Create memory**.
 
 ![English Memory tab before initialization](/img/memory-empty-demo.png)

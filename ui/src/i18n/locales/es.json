@@ -3422,5 +3422,13 @@
   "memory.overwriteMessage": "¿Sustituir el último contenido guardado por tu borrador? La versión guardada se comprobará de nuevo y se respaldará antes de sustituirla.",
   "backup.files.reason.delete": "Antes de eliminar la nota.",
   "memory.invalidHint": "Usa Copiar ruta para reparar o eliminar este archivo no compatible con tu editor o gestor de archivos.",
-  "memory.guidanceStale": "Los archivos de instrucciones cambiaron desde la vista previa. Revisa los cambios de nuevo antes de aplicarlos."
+  "memory.guidanceStale": "Los archivos de instrucciones cambiaron desde la vista previa. Revisa los cambios de nuevo antes de aplicarlos.",
+  "memory.open": "Abrir memoria",
+  "memory.noteCount.one": "1 nota",
+  "memory.noteCount.other": "{count} notas",
+  "memory.startHint": "Conserva preferencias, decisiones y lecciones verificadas entre sesiones.",
+  "memory.starterHint": "Las notas iniciales están listas. Añade una preferencia, decisión o lección verificada.",
+  "memory.recentlyUpdated": "Actualizadas recientemente",
+  "memory.updated": "Actualizada {time}",
+  "memory.configuredHint": "Configurado significa que el archivo de instrucciones apunta aquí, no que un agente lo haya leído."
 }

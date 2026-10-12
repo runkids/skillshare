@@ -3422,5 +3422,13 @@
   "memory.overwriteMessage": "Remplacer le dernier contenu enregistré par votre brouillon ? La version enregistrée sera vérifiée à nouveau et sauvegardée avant son remplacement.",
   "backup.files.reason.delete": "Avant la suppression de la note.",
   "memory.invalidHint": "Utilisez Copier le chemin pour corriger ou supprimer ce fichier non pris en charge avec votre éditeur ou gestionnaire de fichiers.",
-  "memory.guidanceStale": "Les fichiers d’instructions ont changé depuis l’aperçu. Vérifiez à nouveau les modifications avant de les appliquer."
+  "memory.guidanceStale": "Les fichiers d’instructions ont changé depuis l’aperçu. Vérifiez à nouveau les modifications avant de les appliquer.",
+  "memory.open": "Ouvrir la mémoire",
+  "memory.noteCount.one": "1 note",
+  "memory.noteCount.other": "{count} notes",
+  "memory.startHint": "Conservez vos préférences, décisions et leçons vérifiées entre les sessions.",
+  "memory.starterHint": "Les notes initiales sont prêtes. Ajoutez une préférence, une décision ou une leçon vérifiée.",
+  "memory.recentlyUpdated": "Mises à jour récentes",
+  "memory.updated": "Mise à jour {time}",
+  "memory.configuredHint": "Configuré signifie que le fichier d’instructions pointe ici, pas qu’un agent l’a lu."
 }

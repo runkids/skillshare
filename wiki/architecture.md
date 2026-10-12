@@ -55,6 +55,11 @@ note. Broken links are reported without rewriting user-owned index sections.
 Prepared writes and deletions recheck the version after backup immediately before
 replacement/removal; new notes use exclusive creation to reject concurrent creates.
 
+`Note` includes the file's UTC `modified_at` and a `starter` flag for content that
+exactly matches an untouched built-in starter. The dashboard lists up to four
+recently modified readable non-starter notes and links to the existing Memory
+browser; its summary uses the unfiltered notes even while searching.
+
 `handler_memory_guidance.go` only resolves existing target read chains and
 instruction assignments into `memory.GuidanceInput` (including which file
 receives a new block) and converts results to JSON;

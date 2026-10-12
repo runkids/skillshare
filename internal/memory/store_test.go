@@ -6,9 +6,36 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	syncpkg "skillshare/internal/sync"
 )
+
+func TestNoteMetadataTracksExternalEditsAndStarters(t *testing.T) {
+	root := t.TempDir()
+	if err := Init(root); err != nil {
+		t.Fatal(err)
+	}
+	index, err := Read(root, "INDEX.md")
+	if err != nil || !index.Starter {
+		t.Fatalf("expected untouched starter: %+v, %v", index, err)
+	}
+	path := filepath.Join(root, "INDEX.md")
+	if err := os.WriteFile(path, []byte("# Project decisions\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	modified := time.Date(2026, 10, 12, 8, 0, 0, 0, time.UTC)
+	if err := os.Chtimes(path, modified, modified); err != nil {
+		t.Fatal(err)
+	}
+	notes, err := List(root, "decisions")
+	if err != nil || len(notes) != 1 {
+		t.Fatalf("list: %+v, %v", notes, err)
+	}
+	if notes[0].Starter || notes[0].ModifiedAt != modified.Format(time.RFC3339Nano) {
+		t.Fatalf("external edit metadata missing: %+v", notes[0])
+	}
+}
 
 func TestStoreNotesAndExternalEdit(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "memory")

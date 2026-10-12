@@ -17,6 +17,7 @@ import InstructionsEditorDialog from '../instructions/InstructionsEditorDialog';
 import { instructionsErrorMessage } from '../instructions/instructionsView';
 import MemoryBrowser from './MemoryBrowser';
 import MemoryGuidance from './MemoryGuidance';
+import { MemorySummary } from './MemoryOverview';
 import { Checkbox } from '../Checkbox';
 import { invalidate } from '../../lib/queryEvents';
 
@@ -39,6 +40,7 @@ export default function MemoryNotes({ creating, setCreating }: { creating: boole
   const { data, isPending, error } = useQuery({
     placeholderData: keepPreviousData, queryKey: queryKeys.memory.list(search), queryFn: () => api.listMemoryNotes(search), staleTime: staleTimes.extras,
   });
+  const { data: allNotes } = useQuery({ queryKey: queryKeys.memory.list(''), queryFn: () => api.listMemoryNotes(), enabled: !!search, staleTime: staleTimes.extras });
   const errorMessage = (error: unknown) => error instanceof ApiError && error.code === 'memory_conflict' ? t('memory.conflict')
     : error instanceof ApiError && error.code === 'memory_destination_exists' ? t('memory.destinationExists')
     : instructionsErrorMessage(error, t);
@@ -92,7 +94,9 @@ export default function MemoryNotes({ creating, setCreating }: { creating: boole
   const guidance = <MemoryGuidance initialized={data.initialized} instructions={data.instructions} />;
 
   return (
-    <section className="flex flex-col gap-6" aria-label={t('memory.title')}>
+    <section className="@container flex flex-col gap-6" aria-label={t('memory.title')}>
+      <MemorySummary data={search && allNotes ? allNotes : data} />
+      {data.initialized && data.notes.length > 0 && data.notes.every((note) => note.starter) && !search && <div className="ss-note inf">{t('memory.starterHint')}</div>}
       {notice && <div role="status" className="ss-note warn">{notice}</div>}
       {backupPath && <Link className="ss-more" to={`/backup?tab=files&path=${encodeURIComponent(backupPath)}`}>{t('memory.restoreNote')}</Link>}
       {(data.index?.broken_links.length ?? 0) > 0 && <div className="ss-note warn"><span>{t('memory.brokenLinks', { paths: data.index!.broken_links.join(', ') })}</span></div>}

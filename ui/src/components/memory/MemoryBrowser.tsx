@@ -6,7 +6,7 @@ import type { Components } from 'react-markdown';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import type { MemoryNote, MemoryIndex } from '../../api/memory';
-import { useT } from '../../i18n';
+import { formatDateTime, formatRelativeTime, useI18n, useT } from '../../i18n';
 import { fileTree } from '../../lib/fileTree';
 import { shortenHome } from '../../lib/paths';
 import { queryKeys, staleTimes } from '../../lib/queryKeys';
@@ -41,6 +41,7 @@ export default function MemoryBrowser({ notes, root, busy, onEdit, onMove, onDel
   footer?: ReactNode;
 }) {
   const t = useT();
+  const { locale } = useI18n();
   const [params, setParams] = useSearchParams();
   const picked = params.get('note') ?? '';
   const [view, setView] = useState<'preview' | 'source'>('preview');
@@ -98,8 +99,8 @@ export default function MemoryBrowser({ notes, root, busy, onEdit, onMove, onDel
     }
   };
   return (
-    <div className="grid grid-cols-[220px_minmax(0,1fr)] items-start gap-6">
-      <div className="sticky top-6 flex max-h-[calc(100dvh-48px)] min-w-0 flex-col gap-2.5">
+    <div className="grid grid-cols-1 @min-[700px]:grid-cols-[220px_minmax(0,1fr)] items-start gap-6">
+      <div className="@min-[700px]:sticky top-6 flex max-h-[240px] @min-[700px]:max-h-[calc(100dvh-48px)] min-w-0 flex-col gap-2.5">
         {search}
         <nav className="ss-list min-h-0 !overflow-y-auto flex flex-col gap-0.5 p-1.5" aria-label={t('memory.title')}>
           {fileTree(paths).filter((row) => !Array.from(collapsed).some((path) => row.path.startsWith(`${path}/`))).map((row) => {
@@ -129,6 +130,7 @@ export default function MemoryBrowser({ notes, root, busy, onEdit, onMove, onDel
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               <h2 className="truncate font-mono text-[20px] font-bold">{selected}</h2>
               <span className="truncate font-mono text-[12px] text-ink-3" title={notePath}>{shortenHome(notePath)}</span>
+              {!file.data?.starter && file.data?.modified_at && <time dateTime={file.data.modified_at} title={formatDateTime(file.data.modified_at, locale)} className="text-[12px] text-ink-3">{t('memory.updated', { time: formatRelativeTime(file.data.modified_at, locale) })}</time>}
             </div>
             <Button variant="secondary" size="sm" disabled={unavailable} onClick={() => file.data && onEdit(file.data)}>{t('instructions.edit')}</Button>
             <button type="button" className="ss-ib" aria-label={t('instructions.shared.more')} aria-haspopup="menu" aria-expanded={menu !== null}

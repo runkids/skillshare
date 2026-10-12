@@ -3422,5 +3422,13 @@
   "memory.overwriteMessage": "Replace the latest saved content with your draft? The saved version will be checked again and backed up before replacement.",
   "backup.files.reason.delete": "Before deleting the note.",
   "memory.invalidHint": "Use Copy path to repair or remove this unsupported file with your editor or file manager.",
-  "memory.guidanceStale": "Instruction files changed since the preview. Review the changes again before applying."
+  "memory.guidanceStale": "Instruction files changed since the preview. Review the changes again before applying.",
+  "memory.open": "Open Memory",
+  "memory.noteCount.one": "1 note",
+  "memory.noteCount.other": "{count} notes",
+  "memory.startHint": "Keep preferences, decisions, and verified lessons across sessions.",
+  "memory.starterHint": "Your starter notes are ready. Add a preference, decision, or verified lesson.",
+  "memory.recentlyUpdated": "Recently updated",
+  "memory.updated": "Updated {time}",
+  "memory.configuredHint": "Configured means the instruction file points here, not that an agent has read it."
 }

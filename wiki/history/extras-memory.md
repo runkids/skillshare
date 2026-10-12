@@ -200,3 +200,41 @@ the memory extra is deleted, with rejection decided under the restore write
 lock and external content preserved. It failed against the earlier unlocked
 validation. FileBackups API tests pass with the race detector; devcontainer
 `make check`, context-router and whitespace checks pass. No UI code changed.
+
+## 2026-10-12: Memory presence on the dashboard
+
+The dashboard shows configured Memory and up to four recently updated readable
+notes, linking directly to the existing note browser. Untouched built-in
+starters have a separate introductory state. Counts, file update times and
+configured-target counts appear without extra guidance shortcuts; configuration
+does not imply an agent has read a note. Updates use disk modification times,
+including external edits. All eleven UI locales include the new copy.
+
+The Memory tab keeps its full note count while searching, shows update times,
+and stacks the tree above the content when available space is narrow. Existing
+editing, recovery and reviewed agent-guidance flows remain in place.
+
+Metadata and initialization recovery tests, 29 scoped UI tests, devcontainer
+`make check`, scoped ESLint, UI and documentation-site builds, React Doctor,
+context-router and whitespace checks passed. Browser checks covered Clean and
+Playful in light and dark modes, narrow layout, and empty/starter states using
+synthetic Memory responses without changing actual notes. Requested design
+source files were removed after implementation. No commit, push or deployment
+was performed.
+
+### Review fix: existing notes with missing starters
+
+The dashboard now shows existing notes even when setup is incomplete because
+`INDEX.md` or `LEARNED.md` is missing. The initialization action remains available
+in the list footer. A browser check reproduced the hidden-note state before the
+fix and verified the note link and initialization action afterward with mocked
+responses. Initialization recovery coverage includes both empty and populated
+incomplete setups; existing starter-preservation tests also pass.
+Devcontainer `make check`, scoped UI tests and ESLint, UI and documentation-site
+builds, React Doctor, context-router and whitespace checks passed. The partial
+setup was inspected in Playful light at 1280 px and Clean dark at 700 px.
+
+The overview is mounted only for a configured folder memory extra. Unconfigured
+memory stays out of the dashboard; initial setup remains in Extras. Missing
+starter files after setup still allow opening existing notes and restoring
+starters from the overview.

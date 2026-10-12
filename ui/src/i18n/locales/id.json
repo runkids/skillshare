@@ -3422,5 +3422,13 @@
   "memory.overwriteMessage": "Ganti konten terakhir yang disimpan dengan draf Anda? Versi yang disimpan akan diperiksa kembali dan dicadangkan sebelum diganti.",
   "backup.files.reason.delete": "Sebelum menghapus catatan.",
   "memory.invalidHint": "Gunakan Salin jalur untuk memperbaiki atau menghapus berkas yang tidak didukung ini melalui editor atau pengelola berkas.",
-  "memory.guidanceStale": "Berkas instruksi berubah sejak pratinjau. Tinjau kembali perubahan sebelum menerapkannya."
+  "memory.guidanceStale": "Berkas instruksi berubah sejak pratinjau. Tinjau kembali perubahan sebelum menerapkannya.",
+  "memory.open": "Buka memori",
+  "memory.noteCount.one": "1 catatan",
+  "memory.noteCount.other": "{count} catatan",
+  "memory.startHint": "Simpan preferensi, keputusan, dan pelajaran terverifikasi untuk sesi berikutnya.",
+  "memory.starterHint": "Catatan awal sudah siap. Tambahkan preferensi, keputusan, atau pelajaran terverifikasi.",
+  "memory.recentlyUpdated": "Baru diperbarui",
+  "memory.updated": "Diperbarui {time}",
+  "memory.configuredHint": "Dikonfigurasi berarti berkas instruksi mengarah ke sini, bukan berarti agen sudah membacanya."
 }

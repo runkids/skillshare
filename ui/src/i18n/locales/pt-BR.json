@@ -3422,5 +3422,13 @@
   "memory.overwriteMessage": "Substituir o último conteúdo salvo pelo seu rascunho? A versão salva será verificada novamente e terá um backup antes da substituição.",
   "backup.files.reason.delete": "Antes de excluir a nota.",
   "memory.invalidHint": "Use Copiar caminho para corrigir ou remover este arquivo não compatível com seu editor ou gerenciador de arquivos.",
-  "memory.guidanceStale": "Os arquivos de instruções mudaram desde a prévia. Revise as alterações novamente antes de aplicar."
+  "memory.guidanceStale": "Os arquivos de instruções mudaram desde a prévia. Revise as alterações novamente antes de aplicar.",
+  "memory.open": "Abrir memória",
+  "memory.noteCount.one": "1 nota",
+  "memory.noteCount.other": "{count} notas",
+  "memory.startHint": "Guarde preferências, decisões e lições verificadas entre sessões.",
+  "memory.starterHint": "As notas iniciais estão prontas. Adicione uma preferência, decisão ou lição verificada.",
+  "memory.recentlyUpdated": "Atualizadas recentemente",
+  "memory.updated": "Atualizada {time}",
+  "memory.configuredHint": "Configurado significa que o arquivo de instruções aponta para cá, não que um agente o tenha lido."
 }

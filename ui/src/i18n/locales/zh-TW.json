@@ -3422,5 +3422,13 @@
   "memory.overwriteMessage": "要以草稿取代最新儲存內容嗎？取代前會再次檢查並備份已儲存版本。",
   "backup.files.reason.delete": "刪除筆記前。",
   "memory.invalidHint": "使用「複製路徑」，透過編輯器或檔案管理員修復或移除這個不支援的檔案。",
-  "memory.guidanceStale": "instructions 檔案已在預覽後變更。套用前請重新檢查變更。"
+  "memory.guidanceStale": "instructions 檔案已在預覽後變更。套用前請重新檢查變更。",
+  "memory.open": "開啟記憶",
+  "memory.noteCount.one": "1 則筆記",
+  "memory.noteCount.other": "{count} 則筆記",
+  "memory.startHint": "保存偏好、決策與已驗證的經驗，供之後的工作階段使用。",
+  "memory.starterHint": "起始筆記已備妥。加入一項偏好、決策或已驗證的經驗。",
+  "memory.recentlyUpdated": "最近更新",
+  "memory.updated": "更新時間：{time}",
+  "memory.configuredHint": "已設定表示指令檔已指向這裡，不代表 agent 已經讀過。"
 }

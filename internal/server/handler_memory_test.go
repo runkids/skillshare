@@ -47,6 +47,9 @@ func TestMemoryAPI_ScopesAndConflict(t *testing.T) {
 			}
 			var note memory.Note
 			json.Unmarshal(rr.Body.Bytes(), &note)
+			if note.ModifiedAt == "" || note.Starter {
+				t.Fatalf("written note metadata: %+v", note)
+			}
 			os.WriteFile(filepath.Join(root, "build.md"), []byte("# External"), 0644)
 			encoded, _ := json.Marshal(map[string]string{"path": "build.md", "content": "# Lost", "version": note.Version})
 			rr = request("PUT", "/api/extras/memory/notes/content", string(encoded))

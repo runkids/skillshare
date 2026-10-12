@@ -3422,5 +3422,13 @@
   "memory.overwriteMessage": "Zuletzt gespeicherten Inhalt durch deinen Entwurf ersetzen? Die gespeicherte Version wird erneut geprüft und vor dem Ersetzen gesichert.",
   "backup.files.reason.delete": "Vor dem Löschen der Notiz.",
   "memory.invalidHint": "Kopiere den Pfad, um diese nicht unterstützte Datei mit deinem Editor oder Dateimanager zu reparieren oder zu entfernen.",
-  "memory.guidanceStale": "Anweisungsdateien wurden seit der Vorschau geändert. Prüfe die Änderungen vor dem Anwenden erneut."
+  "memory.guidanceStale": "Anweisungsdateien wurden seit der Vorschau geändert. Prüfe die Änderungen vor dem Anwenden erneut.",
+  "memory.open": "Speicher öffnen",
+  "memory.noteCount.one": "1 Notiz",
+  "memory.noteCount.other": "{count} Notizen",
+  "memory.startHint": "Bewahre Vorlieben, Entscheidungen und bestätigte Erkenntnisse über Sitzungen hinweg auf.",
+  "memory.starterHint": "Die Startnotizen sind bereit. Ergänze eine Vorliebe, Entscheidung oder bestätigte Erkenntnis.",
+  "memory.recentlyUpdated": "Zuletzt aktualisiert",
+  "memory.updated": "Aktualisiert: {time}",
+  "memory.configuredHint": "Konfiguriert bedeutet, dass die Anweisungsdatei hierher verweist, nicht dass ein Agent sie gelesen hat."
 }
