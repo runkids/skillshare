@@ -641,8 +641,8 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 			want := desired[fk][name]
 			// Once the global server leaves this config, a switch still carrying its endpoint keeps it:
 			// OpenCode may still define the server, and OpenCode 2 ignores the bare switch.
-			if target == "opencode" && len(want) == 1 && len(current) == 3 && switchOnly(target, want) && switchOnly(target, current) && managed && owned.Owner == source.ConfigPath && currentHash == owned.Hash {
-				want = current
+			if kept := managedEntry(target, current); target == "opencode" && len(want) == 1 && len(kept) == 3 && switchOnly(target, want) && switchOnly(target, kept) && managed && owned.Owner == source.ConfigPath && currentHash == owned.Hash {
+				want = kept
 			}
 			wantHash := entryHash(managedEntry(target, want))
 			prune := map[string]bool{}

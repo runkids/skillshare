@@ -403,6 +403,10 @@ func TestOpenCodeSwitchKeepsItsEndpointWithoutTheGlobalServer(t *testing.T) {
 	applyProjects(t, s)
 	project := filepath.Join(tmp, "p1", "opencode.json")
 	written, _ := os.ReadFile(project)
+	// OpenCode's own per-server timeout sits next to the switch.
+	if err := os.WriteFile(project, []byte(strings.Replace(string(written), `"enabled"`, `"timeout": {"startup": 1000}, "enabled"`, 1)), 0600); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(s.ConfigPath, []byte(strings.ReplaceAll("mcp:\n  servers: {}\n  projects:\n    $TMP/p1:\n      targets: [opencode]\n      servers:\n        docs:\n          disabled: true\n", "$TMP", tmp)), 0600); err != nil {
 		t.Fatal(err)
 	}
