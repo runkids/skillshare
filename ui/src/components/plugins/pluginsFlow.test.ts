@@ -180,12 +180,18 @@ describe('plugins flow', () => {
     expect([now().updates.driver, now().failure]).toEqual([undefined, 'offline']);
   });
 
-  it('leaves a plugin the batch never finished as not updated, after a stop or a broken stream', async () => {
+  it('fails a plugin a broken stream never finished, with why and its Agents to retry', async () => {
     vi.mocked(pluginsApi.update).mockImplementation(async (_items, on) => { on({ event: 'start', name: 'demo' }); throw new Error('stream closed'); });
     const { now } = flow();
     await act(() => now().updateMany([{ name: 'demo', targets: ['codex'] }, { name: 'other', targets: ['codex'] }]));
-    expect(now().batch?.map((i) => i.status)).toEqual(['skipped', 'skipped']);
-    expect(now().failure).toBe('stream closed');
+    expect(now().batch?.map(({ status, note, failed }) => ({ status, note, failed }))).toEqual([{ status: 'failed', note: 'stream closed', failed: ['codex'] }, { status: 'failed', note: 'stream closed', failed: ['codex'] }]);
+  });
+
+  it('skips a plugin a stopped batch never started', async () => {
+    streams({ name: 'demo', plan: plan('u', { action: 'update' }), ...ok, stale: false });
+    const { now } = flow();
+    await act(() => now().updateMany([{ name: 'demo', targets: ['codex'] }, { name: 'other', targets: ['codex'] }]));
+    expect(now().batch?.map((i) => i.status)).toEqual(['done', 'skipped']);
   });
 
   it('keeps the failed Agents when a retry of them fails again, so the next retry still sends only those', async () => {

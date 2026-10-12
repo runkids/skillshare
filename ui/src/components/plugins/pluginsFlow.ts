@@ -177,6 +177,7 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
       else if (skipped.length) set(e.name, { status: 'skipped', note: skipped.filter((r) => r.message).map((r) => keyedMessage(t, r)).join(' ') || undefined, failed: skipped.map((r) => r.target) });
       else set(e.name, { status: 'done', note: undefined, failed: undefined });
     };
+    let broken = '';
     try {
       await pluginsApi.update(picks.map((p) => ({ ...p, seen: updates[p.name] })), (e) => {
         if (e.event === 'start') set(e.name, { status: 'running' });
@@ -185,9 +186,10 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
         else if (e.event === 'result') finish(e);
         else if (e.failure) setFailure(e.failure);
       });
-    } catch (e) { setFailure((e as Error).message); }
-    // A plugin the stream never finished, because it was stopped or broke off, was not updated here.
-    setBatch((prev) => prev && prev.map((i) => (i.status === 'waiting' || i.status === 'running' ? { ...i, status: 'skipped' as const } : i)));
+    } catch (e) { broken = (e as Error).message; setFailure(broken); }
+    // A plugin the stream never finished was not updated here: a stop skips it, a stream that broke off fails it with why.
+    const unfinished = (i: BatchItem): BatchItem => (broken ? { ...i, status: 'failed', note: broken, failed: picks.find((p) => p.name === i.name)?.targets } : { ...i, status: 'skipped' });
+    setBatch((prev) => prev && prev.map((i) => (i.status === 'waiting' || i.status === 'running' ? unfinished(i) : i)));
     setBusy(false); refresh();
     // A source that moved is offered again only by a fresh check; the user started this, so its failure shows.
     if (staleSeen) void check();
