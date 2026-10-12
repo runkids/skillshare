@@ -6,7 +6,7 @@ import { pluginsApi, type PluginInventory } from '../api/plugins';
 import { ToastProvider } from '../components/Toast';
 import { MemoryRouter } from 'react-router-dom';
 
-vi.mock('../api/plugins', async (importOriginal) => ({ ...await importOriginal<typeof import('../api/plugins')>(), pluginsApi: { list: vi.fn(), files: vi.fn(), file: vi.fn(), discover: vi.fn(), preview: vi.fn(), apply: vi.fn() } }));
+vi.mock('../api/plugins', async (importOriginal) => ({ ...await importOriginal<typeof import('../api/plugins')>(), pluginsApi: { list: vi.fn(), files: vi.fn(), file: vi.fn(), discover: vi.fn(), preview: vi.fn(), apply: vi.fn(), update: vi.fn(), stopUpdate: vi.fn() } }));
 vi.mock('../i18n', async (importOriginal) => ({ ...await importOriginal<typeof import('../i18n')>(), useT: () => (key: string) => key }));
 vi.mock('../context/AppContext', () => ({ useAppContext: () => ({ isProjectMode: false }) }));
 vi.mock('../components/plugins/PluginAddDialog', () => ({ default: ({ initialTargets }: { initialTargets?: string[] }) => <div role="dialog" aria-label="add">{initialTargets?.join(',')}</div> }));
@@ -22,6 +22,7 @@ describe('PluginsPage', () => {
     vi.mocked(pluginsApi.list).mockResolvedValue({ targetDefinitions: [{target:'codex',label:'Codex',project:false,operations:['add','sync','import']}], packages: { demo: { bindings: { codex: { id: 'demo@market' } } } }, hosts: [{ target: 'codex', version: '0.154', status: 'ready', installed: [{ id: 'demo@market', enabled: false }] }] });
     vi.mocked(pluginsApi.preview).mockResolvedValue({ revision: 'reviewed', blocked: false, changes: [{ name: 'demo', target: 'codex', id: 'demo@market', action: 'selection' }] });
     vi.mocked(pluginsApi.apply).mockResolvedValue({ result: { results: [] }, failure: '' });
+    vi.mocked(pluginsApi.update).mockImplementation(async (_items, on) => { on({ event: 'done', failure: '' }); });
   });
   it('adds an imported registration to the managed count only after the reviewed import', async () => {
     let imported = false;
@@ -72,21 +73,23 @@ describe('PluginsPage', () => {
       packages: { driver: { bindings: { pi: { id: 'npm:driver' } } }, tail: { bindings: { pi: { id: 'npm:tail' }, codex: { id: 'tail@market' } } } },
       hosts: [{ target: 'pi', version: '0.99.2', status: 'ready', installed: [{ id: 'npm:driver', version: '1.0.0', enabled: true }, { id: 'npm:tail', version: '2.0.0', enabled: true }] }],
     });
-    // The check the page runs on its own; every update after it is a plan with nothing to say.
+    // The check the page runs on its own.
     vi.mocked(pluginsApi.preview).mockResolvedValueOnce({ revision: 'r', blocked: false, changes: [
       { name: 'driver', target: 'pi', id: 'npm:driver', action: 'update-available', binding: { id: 'npm:driver', version: '1.1.0' } },
       { name: 'tail', target: 'pi', id: 'npm:tail', action: 'update-available', binding: { id: 'npm:tail', version: '2.1.0' } },
       { name: 'tail', target: 'codex', id: 'tail@market', action: 'update-available', binding: { id: 'tail@market', version: '2.1.0' } },
-    ] }).mockResolvedValue({ revision: 'u', blocked: false, changes: [] });
+    ] });
   };
-  it('checks for updates on its own and applies every plugin ticked, one after another', async () => {
+  it('checks for updates on its own and sends every plugin ticked in one batch', async () => {
     twoBehind();
     mount();
     fireEvent.click(await screen.findByRole('button', { name: 'plugins.updateCount.other' }));
     fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'plugins.updateDialog.updateSelected.other' }));
-    await waitFor(() => expect(pluginsApi.apply).toHaveBeenCalledTimes(2));
-    expect(vi.mocked(pluginsApi.preview).mock.calls.slice(1).map((c) => c[0])).toEqual([{ action: 'update', name: 'driver', targets: ['pi'] }, { action: 'update', name: 'tail', targets: ['pi', 'codex'] }]);
-    expect(pluginsApi.apply).toHaveBeenCalledWith({ action: 'update', name: 'tail', targets: ['pi', 'codex'] }, 'u');
+    await waitFor(() => expect(pluginsApi.update).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(pluginsApi.update).mock.calls[0][0]).toEqual([
+      { name: 'driver', targets: ['pi'], seen: { pi: { version: '1.1.0' } } },
+      { name: 'tail', targets: ['pi', 'codex'], seen: { pi: { version: '2.1.0' }, codex: { version: '2.1.0' } } },
+    ]);
   });
   it('leaves out a plugin unticked and an Agent unticked under its plugin', async () => {
     twoBehind();
@@ -96,8 +99,8 @@ describe('PluginsPage', () => {
     fireEvent.click(within(dialog).getByRole('checkbox', { name: 'driver' }));
     fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Codex' }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'plugins.updateDialog.updateSelected.one' }));
-    await waitFor(() => expect(pluginsApi.apply).toHaveBeenCalledTimes(1));
-    expect(pluginsApi.apply).toHaveBeenCalledWith({ action: 'update', name: 'tail', targets: ['pi'] }, 'u');
+    await waitFor(() => expect(pluginsApi.update).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(pluginsApi.update).mock.calls[0][0].map(({ name, targets }) => ({ name, targets }))).toEqual([{ name: 'tail', targets: ['pi'] }]);
   });
   it('saves sync selection independently of native enabled state', async () => {
     mount();
