@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.8](https://github.com/runkids/skillshare/compare/v0.25.7...v0.25.8) (2026-10-12)
+
+
+### Bug Fixes
+
+* **plugin:** read plugin sources through their real path on macOS ([#544](https://github.com/runkids/skillshare/issues/544)) ([fd18cda](https://github.com/runkids/skillshare/commit/fd18cda6554e6ea6262d4ff0684bf8c122a3ec24))
+
 ## [0.25.7] - 2026-10-12
 
 ### Bug Fixes
