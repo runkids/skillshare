@@ -63,7 +63,7 @@ export const fieldDocs: Record<string, FieldDoc> = {
     description: 'HTTP or HTTPS MCP endpoint. The client connects to this service. Do not put credentials in the URL.',
     type: 'string', example: 'url: https://example.com/mcp',
   },
-  'mcp.servers.disabled': { description: 'Project mode only. Turns off a server that the Agent\'s own global config defines, by writing only the switch. Use it alone with targets. Works with claude, opencode and kilocode.', type: 'boolean', allowedValues: ['true'], example: 'disabled: true' },
+  'mcp.servers.disabled': { description: 'Project mode only. Turns off a server that the Agent\'s own global config defines, by writing only the switch; for opencode it also writes the global server\'s type and executable name or URL origin, because OpenCode 2 ignores a bare switch. Use it alone with targets. Works with claude, opencode and kilocode.', type: 'boolean', allowedValues: ['true'], example: 'disabled: true' },
   'mcp.servers.transport': {
     description: 'Optional transport. Inferred from command (stdio) or url (streamable-http).',
     type: 'string', allowedValues: ['stdio', 'streamable-http'], example: 'transport: stdio',

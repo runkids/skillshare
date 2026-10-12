@@ -302,6 +302,12 @@ func TestImportReadsOpenCodeServersSection(t *testing.T) {
 	}
 }
 
+func TestImportReadsAnEmptyOpenCodeServersSection(t *testing.T) {
+	if items, err := Import("opencode", []byte(`{"mcp":{"servers":{},"timeout":{"startup":45000}}}`), ""); err == nil {
+		t.Fatalf("candidates: %+v", items)
+	}
+}
+
 // A server named servers is still a server: only a section of objects is OpenCode 2's.
 func TestImportKeepsAnOpenCodeServerNamedServers(t *testing.T) {
 	items, err := Import("opencode", []byte(`{"mcp":{"servers":{"enabled":false},"other":{"type":"local","command":["x"]}}}`), "")

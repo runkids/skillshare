@@ -147,8 +147,8 @@ func importNative(target string, data []byte, singleName string, adapter, piProj
 	}
 	// OpenCode 2 nests its servers under mcp.servers, next to defaults in mcp.timeout; one server
 	// named servers has other fields.
-	nested := native.Entries["servers"]
-	section := target == "opencode" && len(nested) > 0
+	nested, section := native.Entries["servers"]
+	section = section && target == "opencode"
 	for _, value := range nested {
 		section = section && isObject(value)
 	}
