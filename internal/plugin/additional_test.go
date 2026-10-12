@@ -139,7 +139,8 @@ func TestAntigravityProjectIsolation(t *testing.T) {
 }
 
 func TestOpenCodeConfigPreservesOtherEntries(t *testing.T) {
-	for _, version := range []string{"1.18.31", "2.0.0"} {
+	// OpenCode 2 prints its name before the version.
+	for _, version := range []string{"1.18.31", "2.0.0", "opencode v2.0.27"} {
 		t.Run(version, func(t *testing.T) {
 			home := t.TempDir()
 			t.Setenv("HOME", home)

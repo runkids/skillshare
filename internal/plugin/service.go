@@ -169,7 +169,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		}
 		// pi update has no project scope, and OpenCode v1 has no update command. omp's upgrade
 		// would reinstall whatever the native marketplace holds, which Skillshare never reviewed.
-		if c.Action == "update" && c.Binding.Source == "" && (s.ProjectRoot != "" && agent == "pi" || agent == "omp") || c.Action == "update" && c.Binding.Source == "" && agent == "opencode" && (s.ProjectRoot != "" || !strings.HasPrefix(strings.TrimPrefix(h.Version, "v"), "2.")) {
+		if c.Action == "update" && c.Binding.Source == "" && (s.ProjectRoot != "" && agent == "pi" || agent == "omp") || c.Action == "update" && c.Binding.Source == "" && agent == "opencode" && (s.ProjectRoot != "" || !openCode2(h.Version)) {
 			skip("plugins.skip.imported", "Update imported packages in the native client; Skillshare updates reviewed source snapshots only.", nil)
 		}
 		if c.Action == "update" && agent == "opencode" && c.Binding.Source == "" {

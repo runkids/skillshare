@@ -175,8 +175,17 @@ func (s *Service) openCodeConfigPath() (string, error) {
 	return filepath.Join(dir, "opencode.json"), nil
 }
 
+func openCode2(version string) bool {
+	key, _ := openCodeKey(version)
+	return key == "plugins"
+}
+
+// openCodeKey reads `opencode --version`: OpenCode 1 prints 1.x, OpenCode 2 "opencode v2.x".
 func openCodeKey(version string) (string, error) {
-	v := strings.TrimPrefix(strings.TrimSpace(version), "v")
+	v := ""
+	if fields := strings.Fields(version); len(fields) > 0 {
+		v = strings.TrimPrefix(fields[len(fields)-1], "v")
+	}
 	if strings.HasPrefix(v, "1.") {
 		return "plugin", nil
 	}
