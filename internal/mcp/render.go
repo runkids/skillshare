@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"sort"
+	"strings"
 )
 
 // renderDisabled writes the switch, alone where the Agent merges its project file over its
@@ -13,13 +14,13 @@ func renderDisabled(target string, s Server) (map[string]any, error) {
 	switch {
 	case target == "opencode" && s.global != nil:
 		// OpenCode 2 replaces the global server and drops an entry without type and command or url.
-		// A disabled server never starts, so secrets in args, env, headers or the query stay out.
-		if s.global.Command != "" {
-			return map[string]any{"type": "local", "command": []string{s.global.Command}, "enabled": false}, nil
+		// A disabled server never starts, so the committed file gets only the executable's name or
+		// the url's origin: args, env, headers, a home path and a key in the url's path stay out.
+		if command := s.global.Command; command != "" {
+			return map[string]any{"type": "local", "command": []string{command[strings.LastIndexAny(command, `/\`)+1:]}, "enabled": false}, nil
 		}
 		u, _ := url.Parse(s.global.URL) // validated by Server.validate
-		u.RawQuery = ""
-		return map[string]any{"type": "remote", "url": u.String(), "enabled": false}, nil
+		return map[string]any{"type": "remote", "url": u.Scheme + "://" + u.Host, "enabled": false}, nil
 	case openCodeFormat(target):
 		return map[string]any{"enabled": false}, nil
 	case target == "omp":

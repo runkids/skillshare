@@ -424,13 +424,13 @@ mcp:
 OpenCode 2 replaces a global server with the project entry of the same name, and drops
 an entry without its `type` and `command` or `url`, so a lone switch would leave the
 server on. When the global config under `mcp.projects` defines the server, Skillshare
-writes its type and executable, or its URL without the query string, next to
-`"enabled": false`. OpenCode 1 reads the same entry. Args, env, headers and the query
-stay out of the project file, which may be committed. A switch that already carries
+writes its type and executable name, or only its URL's scheme and host, next to
+`"enabled": false`. OpenCode 1 reads the same entry. Args, env, headers, the executable's
+directory and the URL's path and query stay out of the project file, which may be committed. A switch that already carries
 them keeps them if the server later leaves the global config.
 
-- If you turn the server back on in OpenCode, it starts with only the executable or URL
-  from the project file, because that entry replaces the global one. Remove the
+- If you turn the server back on in OpenCode, it starts with only the executable name or URL
+  origin from the project file, because that entry replaces the global one. Remove the
   `disabled` entry from the project under `mcp.projects` instead, then sync.
 - In project mode, or when the global config does not define the server, Skillshare can
   only write `{"enabled": false}`. OpenCode 1 merges it; OpenCode 2 ignores it, and sync

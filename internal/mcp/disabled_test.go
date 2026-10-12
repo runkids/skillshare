@@ -363,9 +363,9 @@ func TestPiSwitchIsAnOverride(t *testing.T) {
 }
 
 // OpenCode 2 drops a project entry without its type and command or url, so the switch carries
-// the global server's executable or its url without the query, and nothing else.
+// the global server's executable name or its url's origin, and nothing that may hold a secret.
 func TestOpenCodeSwitchCarriesTheGlobalEndpoint(t *testing.T) {
-	s, tmp := projectsService(t, "mcp:\n  servers:\n    docs:\n      command: tool\n      args: [--port, \"3000\"]\n      env: {TOKEN: {fromEnv: TOKEN}}\n      targets: [opencode]\n    web:\n      url: https://example.com/mcp?key=secret\n      headers: {Authorization: {fromEnv: AUTH}}\n      targets: [opencode]\n  projects:\n    $TMP/p1:\n      targets: [opencode]\n      servers:\n        docs:\n          disabled: true\n        web:\n          disabled: true\n")
+	s, tmp := projectsService(t, "mcp:\n  servers:\n    docs:\n      command: /home/me/bin/tool\n      args: [--port, \"3000\"]\n      env: {TOKEN: {fromEnv: TOKEN}}\n      targets: [opencode]\n    web:\n      url: https://example.com/secret-key/mcp?key=secret\n      headers: {Authorization: {fromEnv: AUTH}}\n      targets: [opencode]\n  projects:\n    $TMP/p1:\n      targets: [opencode]\n      servers:\n        docs:\n          disabled: true\n        web:\n          disabled: true\n")
 	plan := applyProjects(t, s)
 	for _, c := range plan.Changes {
 		if c.Root == filepath.Join(tmp, "p1") && !c.Switch {
@@ -385,7 +385,7 @@ func TestOpenCodeSwitchCarriesTheGlobalEndpoint(t *testing.T) {
 	}
 	want := map[string]map[string]any{
 		"docs": {"type": "local", "command": []any{"tool"}, "enabled": false},
-		"web":  {"type": "remote", "url": "https://example.com/mcp", "enabled": false},
+		"web":  {"type": "remote", "url": "https://example.com", "enabled": false},
 	}
 	if !reflect.DeepEqual(file.MCP, want) {
 		t.Fatalf("project opencode.json: %s", data)

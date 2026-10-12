@@ -364,7 +364,7 @@ Skillshare does not check that it exists there.
 | Target | Supported | Written |
 |---|---|---|
 | `claude` | Yes | name added to this project's `disabledMcpServers` in `~/.claude.json` (per machine) |
-| `opencode` | Yes | Under `mcp.projects`: the global server's `type` and executable, or URL without query, with `"enabled": false` (OpenCode 2 drops a bare switch). Otherwise `{"enabled": false}`, which OpenCode 2 ignores |
+| `opencode` | Yes | Under `mcp.projects`: the global server's `type` and executable name, or URL scheme and host, with `"enabled": false` (OpenCode 2 drops a bare switch). Otherwise `{"enabled": false}`, which OpenCode 2 ignores |
 | `kilocode` | Yes | `{"enabled": false}` |
 | `pi` | Pi 1.0.1+ | `{"enabled": false}`, Pi's project override |
 | `omp` | Yes | `{"enabled": false}`, suppresses the same-named user entry |

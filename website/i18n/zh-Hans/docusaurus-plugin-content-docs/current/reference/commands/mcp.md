@@ -407,9 +407,9 @@ mcp:
       targets: [opencode, kilocode]
 ```
 
-OpenCode 2 会用同名的 project 条目整个取代 global 服务器，并丢弃缺少 `type` 以及 `command` 或 `url` 的条目，所以只写开关会让服务器保持开启。当 `mcp.projects` 所在的 global config 定义了该服务器时，Skillshare 会把它的 type 和可执行文件，或去掉查询字符串的 URL，与 `"enabled": false` 一起写入。OpenCode 1 也读取同样的条目。args、env、headers 和查询字符串不会写进可能被提交的 project 文件。已经带有这些字段的开关，在服务器之后离开 global config 时会保留不变。
+OpenCode 2 会用同名的 project 条目整个取代 global 服务器，并丢弃缺少 `type` 以及 `command` 或 `url` 的条目，所以只写开关会让服务器保持开启。当 `mcp.projects` 所在的 global config 定义了该服务器时，Skillshare 会把它的 type 和可执行文件名，或只含 scheme 与 host 的 URL，与 `"enabled": false` 一起写入。OpenCode 1 也读取同样的条目。args、env、headers、可执行文件所在目录以及 URL 的路径和查询字符串都不会写进可能被提交的 project 文件。已经带有这些字段的开关，在服务器之后离开 global config 时会保留不变。
 
-- 如果在 OpenCode 中重新开启该服务器，由于 project 条目会取代 global 条目，它只会带着可执行文件或 URL 启动。请改为从 `mcp.projects` 中该项目下移除 `disabled` 条目，再执行 sync。
+- 如果在 OpenCode 中重新开启该服务器，由于 project 条目会取代 global 条目，它只会带着可执行文件名或 URL 的 origin 启动。请改为从 `mcp.projects` 中该项目下移除 `disabled` 条目，再执行 sync。
 - 在 project 模式下，或 global config 没有定义该服务器时，Skillshare 只能写入 `{"enabled": false}`。OpenCode 1 会合并它，OpenCode 2 会忽略它，sync 会给出提示。这种情况下请在 OpenCode 的 global config 中关闭该服务器。
 
 ### Claude Code

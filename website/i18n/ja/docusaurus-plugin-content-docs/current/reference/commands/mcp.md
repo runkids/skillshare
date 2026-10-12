@@ -311,9 +311,9 @@ mcp:
       targets: [opencode, kilocode]
 ```
 
-OpenCode 2 は global サーバーを同名の project エントリで置き換え、`type` と `command` または `url` を持たないエントリを破棄します。そのためスイッチだけではサーバーはオンのままです。`mcp.projects` の global config がそのサーバーを定義している場合、Skillshare はその type と実行ファイル、またはクエリ文字列を除いた URL を `"enabled": false` と並べて書き込みます。OpenCode 1 も同じエントリを読み込みます。args、env、headers、クエリはコミットされる可能性のある project ファイルに書き込まれません。すでにこれらを持つスイッチは、後でサーバーが global config から外れてもそのまま保持されます。
+OpenCode 2 は global サーバーを同名の project エントリで置き換え、`type` と `command` または `url` を持たないエントリを破棄します。そのためスイッチだけではサーバーはオンのままです。`mcp.projects` の global config がそのサーバーを定義している場合、Skillshare はその type と実行ファイル名、または URL のスキームとホストだけを `"enabled": false` と並べて書き込みます。OpenCode 1 も同じエントリを読み込みます。args、env、headers、実行ファイルのディレクトリ、URL のパスとクエリはコミットされる可能性のある project ファイルに書き込まれません。すでにこれらを持つスイッチは、後でサーバーが global config から外れてもそのまま保持されます。
 
-- OpenCode でサーバーを再びオンにすると、project ファイルのエントリが global のものを置き換えるため、実行ファイルまたは URL だけで起動します。代わりに `mcp.projects` のプロジェクトから `disabled` エントリを削除して sync してください。
+- OpenCode でサーバーを再びオンにすると、project ファイルのエントリが global のものを置き換えるため、実行ファイル名または URL のオリジンだけで起動します。代わりに `mcp.projects` のプロジェクトから `disabled` エントリを削除して sync してください。
 - project モードの場合、または global config がサーバーを定義していない場合、Skillshare が書き込めるのは `{"enabled": false}` だけです。OpenCode 1 はこれをマージしますが、OpenCode 2 は無視し、sync がその旨を表示します。その場合は OpenCode の global config でサーバーをオフにしてください。
 
 ### Claude Code

@@ -407,9 +407,9 @@ mcp:
       targets: [opencode, kilocode]
 ```
 
-OpenCode 2는 global 서버를 같은 이름의 project 항목으로 교체하고, `type`과 `command` 또는 `url`이 없는 항목은 버립니다. 그래서 스위치만으로는 서버가 계속 켜져 있습니다. `mcp.projects`의 global config가 그 서버를 정의하면 Skillshare는 서버의 type과 실행 파일, 또는 쿼리 문자열을 뺀 URL을 `"enabled": false`와 함께 작성합니다. OpenCode 1도 같은 항목을 읽습니다. args, env, headers와 쿼리는 커밋될 수 있는 project 파일에 들어가지 않습니다. 이미 이 값을 가진 스위치는 나중에 서버가 global config에서 빠져도 그대로 유지됩니다.
+OpenCode 2는 global 서버를 같은 이름의 project 항목으로 교체하고, `type`과 `command` 또는 `url`이 없는 항목은 버립니다. 그래서 스위치만으로는 서버가 계속 켜져 있습니다. `mcp.projects`의 global config가 그 서버를 정의하면 Skillshare는 서버의 type과 실행 파일 이름, 또는 URL의 scheme과 host만 `"enabled": false`와 함께 작성합니다. OpenCode 1도 같은 항목을 읽습니다. args, env, headers, 실행 파일의 디렉터리, URL의 경로와 쿼리는 커밋될 수 있는 project 파일에 들어가지 않습니다. 이미 이 값을 가진 스위치는 나중에 서버가 global config에서 빠져도 그대로 유지됩니다.
 
-- OpenCode에서 서버를 다시 켜면 project 파일의 항목이 global 항목을 교체하므로, 실행 파일이나 URL만으로 시작됩니다. 대신 `mcp.projects`의 프로젝트에서 `disabled` 항목을 제거하고 sync하세요.
+- OpenCode에서 서버를 다시 켜면 project 파일의 항목이 global 항목을 교체하므로, 실행 파일 이름이나 URL origin만으로 시작됩니다. 대신 `mcp.projects`의 프로젝트에서 `disabled` 항목을 제거하고 sync하세요.
 - project 모드이거나 global config가 서버를 정의하지 않으면 Skillshare는 `{"enabled": false}`만 작성할 수 있습니다. OpenCode 1은 이를 병합하지만 OpenCode 2는 무시하며, sync가 이를 알려 줍니다. 그 경우 OpenCode의 global config에서 서버를 끄세요.
 
 ### Claude Code
