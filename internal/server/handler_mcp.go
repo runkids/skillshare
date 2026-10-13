@@ -88,18 +88,19 @@ func (s *Server) handleMCPList(w http.ResponseWriter, r *http.Request) {
 	}
 	slices.Sort(ownConfig)
 	detected := service.DetectedClients(paths)
-	// A client can be detected before its file exists; only an existing file can be opened.
-	existing := []string{}
+	// A client can be detected before its file exists, and handleMCPOpen refuses a viewer on
+	// another machine, so list only the files this viewer can open.
+	openable := []string{}
 	for target, path := range paths {
-		if _, err := os.Stat(path); err == nil {
-			existing = append(existing, target)
+		if _, err := os.Stat(path); err == nil && requestFromLoopback(r) {
+			openable = append(openable, target)
 		}
 	}
-	slices.Sort(existing)
+	slices.Sort(openable)
 	if !s.IsProjectMode() {
 		detected = append(detected, mcp.DetectedAccounts(source.Accounts)...)
 	}
-	writeJSON(w, map[string]any{"source": source, "paths": paths, "importSources": service.ImportSources(source), "detected": detected, "existing": existing, "plan": p, "previewError": message, "backups": backups, "projectConfigs": ownConfig, "unmanaged": service.FindUnmanaged(source)})
+	writeJSON(w, map[string]any{"source": source, "paths": paths, "importSources": service.ImportSources(source), "detected": detected, "openable": openable, "plan": p, "previewError": message, "backups": backups, "projectConfigs": ownConfig, "unmanaged": service.FindUnmanaged(source)})
 }
 
 func (s *Server) handleMCPPreview(w http.ResponseWriter, r *http.Request) {

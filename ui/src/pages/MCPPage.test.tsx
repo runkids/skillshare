@@ -16,7 +16,7 @@ describe('MCP page', () => {
     const user = userEvent.setup();
     vi.mocked(mcpApi.list).mockResolvedValue({
       source: { path: '', configPath: '', targets: ['claude'], servers: {} },
-      projectConfigs: [], paths: { claude: '/.claude.json' }, detected: ['claude'], existing: ['claude'], previewError: '', backups: [], unmanaged: [], plan: null,
+      projectConfigs: [], paths: { claude: '/.claude.json' }, detected: ['claude'], openable: ['claude'], previewError: '', backups: [], unmanaged: [], plan: null,
     } as Awaited<ReturnType<typeof mcpApi.list>>);
     render(<MemoryRouter><QueryClientProvider client={new QueryClient()}><I18nProvider><ToastProvider><MCPPage /></ToastProvider></I18nProvider></QueryClientProvider></MemoryRouter>);
     await user.click(await screen.findByRole('button', { name: /^Open in editor · Claude/ }));
@@ -27,7 +27,7 @@ describe('MCP page', () => {
     const user = userEvent.setup();
     vi.mocked(mcpApi.list).mockResolvedValue({
       source: { path: '', configPath: '', targets: ['claude'], servers: {}, projects: { '/work/app': { targets: ['cursor'], servers: { docs: { command: 'npx' } } } } },
-      projectConfigs: [], paths: { claude: '/.claude.json', cursor: '/.cursor/mcp.json' }, detected: ['claude', 'cursor'], existing: [], previewError: '', backups: [], unmanaged: [],
+      projectConfigs: [], paths: { claude: '/.claude.json', cursor: '/.cursor/mcp.json' }, detected: ['claude', 'cursor'], openable: [], previewError: '', backups: [], unmanaged: [],
       plan: { revision: '', sourcePath: '', blocked: true, changes: [{ target: 'cursor', path: '/work/app/.cursor/mcp.json', name: 'docs', root: '/work/app', action: 'conflict', message: 'existing entry is not managed; import it to explicitly adopt it' }] },
     } as Awaited<ReturnType<typeof mcpApi.list>>);
     render(<MemoryRouter><QueryClientProvider client={new QueryClient()}><I18nProvider><ToastProvider><MCPPage /></ToastProvider></I18nProvider></QueryClientProvider></MemoryRouter>);
@@ -40,7 +40,7 @@ describe('MCP page', () => {
     const user = userEvent.setup();
     vi.mocked(mcpApi.list).mockResolvedValue({
       source: { path: '', configPath: '', targets: ['claude'], servers: { a: { command: 'npx' }, b: { command: 'npx' } } },
-      projectConfigs: [], paths: { claude: '/.claude.json' }, detected: ['claude'], existing: ['claude'], previewError: '', backups: [], unmanaged: [], plan: null,
+      projectConfigs: [], paths: { claude: '/.claude.json' }, detected: ['claude'], openable: ['claude'], previewError: '', backups: [], unmanaged: [], plan: null,
     } as Awaited<ReturnType<typeof mcpApi.list>>);
     vi.mocked(mcpApi.save).mockReturnValue(new Promise(() => {}));
     render(<MemoryRouter><QueryClientProvider client={new QueryClient()}><I18nProvider><ToastProvider><MCPPage /></ToastProvider></I18nProvider></QueryClientProvider></MemoryRouter>);

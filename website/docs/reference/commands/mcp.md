@@ -220,8 +220,10 @@ detected when its MCP file exists, or when the folder that client keeps its sett
 exists, so a fresh install with no MCP file yet still appears. In project mode a client
 is listed when the project has its MCP file or the client is detected globally.
 Each detected client shows the name of its MCP file, and **Copy path** copies its full
-path. Once the file exists, **Open in editor** opens it on the machine running the
-dashboard, in the same editor a skill's **Open in editor** uses.
+path. Once the file exists, **Open in editor** opens it in the same editor a skill's
+**Open in editor** uses. The editor starts on the machine running the dashboard, so the
+button appears only when the browser runs there too, at `localhost` or through SSH port
+forwarding, not through a LAN address.
 
 Additional client details:
 

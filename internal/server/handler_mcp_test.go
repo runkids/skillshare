@@ -276,6 +276,15 @@ func TestMCPOpenOnlyListedConfigFiles(t *testing.T) {
 	if rec := open("192.168.1.9:1", `{"target":"claude"}`); rec.Code != 403 {
 		t.Fatalf("LAN viewer: %d", rec.Code)
 	}
+	for remote, want := range map[string]string{"127.0.0.1:1": `"openable":["claude"]`, "192.168.1.9:1": `"openable":[]`} {
+		req := httptest.NewRequest(http.MethodGet, "/api/mcp", nil)
+		req.RemoteAddr = remote
+		list := httptest.NewRecorder()
+		s.handleMCPList(list, req)
+		if !strings.Contains(list.Body.String(), want) {
+			t.Fatalf("%s list: %s", remote, list.Body)
+		}
+	}
 	rec := open("127.0.0.1:1", `{"target":"claude"}`)
 	var resp openInEditorResponse
 	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &resp) != nil || resp.Editor != "true" || resp.Path != path {

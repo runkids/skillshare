@@ -91,7 +91,7 @@ function MCPFilesRail({ data, model, allFiles, onShowAll }: { data: MCPList; mod
           <RailRow key={target} target={target} label={targetLabel(target)} right={<>
             <span className="max-w-[130px] truncate font-mono text-xs text-ink-3" title={data.paths[target]}>{data.paths[target].split(/[\\/]/).pop()}</span>
             <span className="flex">
-              {data.existing.includes(target) && <button type="button" className="ss-ib" aria-label={`${t('resourceDetail.actions.openInEditor')} · ${targetLabel(target)}`} onClick={() => mcpApi.open(target).then((r) => toast(t('resourceDetail.toast.openedIn', { editor: r.editor }), 'info'), (e) => toast(describeError(t, (e as Error).message), 'error'))}><ExternalLink size={14} /></button>}
+              {data.openable.includes(target) && <button type="button" className="ss-ib" aria-label={`${t('resourceDetail.actions.openInEditor')} · ${targetLabel(target)}`} onClick={() => mcpApi.open(target).then((r) => toast(t('resourceDetail.toast.openedIn', { editor: r.editor }), 'info'), (e) => toast(describeError(t, (e as Error).message), 'error'))}><ExternalLink size={14} /></button>}
               <button type="button" className="ss-ib" aria-label={`${t('mcp.copyPath')} · ${targetLabel(target)}`} onClick={() => { copy(data.paths[target]); toast(t('mcp.copied'), 'success'); }}><Copy size={14} /></button>
             </span>
           </>} />

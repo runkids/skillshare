@@ -66,8 +66,8 @@ export const mcpApi = {
     /** Project roots that also have their own .skillshare/config.yaml. */
     projectConfigs: string[];
     paths: Record<string, string>; detected: string[];
-    /** Targets whose file in `paths` exists, so it can be opened. */
-    existing: string[]; plan: MCPPlan | null; previewError: string;
+    /** Targets whose file in `paths` exists and this browser, on the dashboard's machine, can open. */
+    openable: string[]; plan: MCPPlan | null; previewError: string;
     /** Native import files by scope: the empty key is this config, others are project roots. */
     importSources?: Record<string, MCPImportSource[]>;
     backups: MCPBackup[];
