@@ -12,7 +12,7 @@ skillshare backup claude       # Backup specific target
 skillshare backup agents       # Backup all agent targets
 skillshare backup --all        # Backup skills + agents
 skillshare backup --list       # List all backups
-skillshare backup --cleanup    # Remove old backups
+skillshare backup --cleanup    # 오래된 스냅샷과 방치된 미완성 디렉터리 제거
 skillshare backup --delete 2026-01-19_10-00-00  # Delete one backup
 skillshare backup files        # Versions of single files skillshare rewrote
 ```
@@ -21,7 +21,7 @@ skillshare backup files        # Versions of single files skillshare rewrote
 
 - 위험한 변경 전에 수동 백업을 생성할 때
 - 복구 옵션을 확인하기 위해 기존 백업 목록을 조회할 때
-- 오래된 백업을 정리하거나 더 이상 필요 없는 백업 하나를 삭제할 때
+- 오래된 스냅샷과 방치된 미완성 디렉터리를 정리하거나 더 이상 필요 없는 백업 하나를 삭제할 때
 - `AGENTS.md`나 `CLAUDE.md` 같은 파일의 이전 버전을 되돌릴 때
 
 ## 자동 백업
@@ -66,11 +66,11 @@ Next
 ### 오래된 백업 정리
 
 ```bash
-skillshare backup --cleanup           # Remove old backups
+skillshare backup --cleanup           # 오래된 스냅샷과 방치된 미완성 디렉터리 제거
 skillshare backup --cleanup --dry-run # Preview cleanup
 ```
 
-기본 정리 정책:
+완료된 스냅샷의 기본 보존 정책:
 - 최근 10개 백업 유지
 - 30일보다 오래된 백업 제거
 - 총 크기를 500 MB로 제한
@@ -166,7 +166,7 @@ project mode에서는 이 페이지가 프로젝트만 다룹니다. `.skillshar
 | `--project, -p` | project mode 사용(`.skillshare/backups/`); **agent 전용** |
 | `--global, -g` | global mode 사용(skill의 기본값) |
 | `--list, -l` | 모든 백업 목록 조회 (`-p`는 프로젝트 백업) |
-| `--cleanup, -c` | 오래된 백업 제거 (`-p`는 프로젝트 백업) |
+| `--cleanup, -c` | 오래된 스냅샷과 방치된 미완성 디렉터리 제거 (`-p`는 프로젝트 백업) |
 | `--delete <timestamp>` | 백업 하나를 삭제. `-p`와 함께 사용하면 `.skillshare/backups/`에서 삭제 |
 | `--target, -t <name>` | 특정 백업 대상 지정(위치 인자의 대안) |
 | `--dry-run, -n` | 변경 없이 미리보기 |
@@ -224,7 +224,7 @@ symlink된 skill은 따라가지 않으므로, source skill 안에 있는 무거
 ```bash
 du -sh ~/.local/share/skillshare/backups   # Total size on disk
 skillshare backup --list                   # Per-snapshot sizes
-skillshare backup --cleanup --dry-run      # Preview what retention would remove
+skillshare backup --cleanup --dry-run      # 방치된 미완성 디렉터리를 포함하여 정리 미리 보기
 ```
 
 copy-mode target은 스냅샷이 여전히 커질 수 있는 유일한 경우입니다: 실제 파일이므로 skill 디렉터리 아래의 모든 것이 복사됩니다. 런타임 캐시와 대용량 아티팩트를 skill 트리 밖에 두거나, `ignore:`로 제외하여 애초에 target에 도달하지 않도록 하세요.

@@ -12,7 +12,7 @@ skillshare backup claude         # Specific target
 skillshare backup agents         # Agent targets
 skillshare backup --all          # Skills + agents
 skillshare backup --list [-p]    # List existing backups (-p: the project's)
-skillshare backup --cleanup [-p] # Remove old backups
+skillshare backup --cleanup [-p] # Remove old snapshots and abandoned incomplete directories
 skillshare backup --delete <timestamp> [-p] [--dry-run]  # Delete one backup (timestamp from --list)
 ```
 

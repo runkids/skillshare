@@ -520,7 +520,7 @@ Backup 会在 `sync` 和 `target remove` 之前**自动**创建。
 skillshare backup              # 备份所有 Target
 skillshare backup claude       # 备份指定 Target
 skillshare backup --list       # 列出所有 Backup
-skillshare backup --cleanup    # 移除旧的 Backup
+skillshare backup --cleanup    # 移除旧快照和遗留的不完整目录
 skillshare backup --dry-run    # 预览
 ```
 

@@ -12,7 +12,7 @@ skillshare backup claude       # Backup specific target
 skillshare backup agents       # Backup all agent targets
 skillshare backup --all        # Backup skills + agents
 skillshare backup --list       # List all backups
-skillshare backup --cleanup    # Remove old backups
+skillshare backup --cleanup    # Remove old snapshots and abandoned incomplete directories
 skillshare backup --delete 2026-01-19_10-00-00  # Delete one backup
 skillshare backup files        # Versions of single files skillshare rewrote
 ```
@@ -21,7 +21,7 @@ skillshare backup files        # Versions of single files skillshare rewrote
 
 - Create a manual backup before risky changes
 - List existing backups to check recovery options
-- Clean up old backups, or delete one you no longer need
+- Clean up old snapshots and abandoned incomplete directories, or delete a backup you no longer need
 - Get back an earlier version of a file such as `AGENTS.md` or `CLAUDE.md`
 
 ## Automatic Backups
@@ -66,11 +66,11 @@ Next
 ### Cleanup Old Backups
 
 ```bash
-skillshare backup --cleanup           # Remove old backups
+skillshare backup --cleanup           # Remove old snapshots and abandoned incomplete directories
 skillshare backup --cleanup --dry-run # Preview cleanup
 ```
 
-Default cleanup policy:
+Default retention policy for completed snapshots:
 - Keep last 10 backups
 - Remove backups older than 30 days
 - Cap total size at 500 MB
@@ -166,7 +166,7 @@ In project mode the page covers only the project: its agent snapshots in `.skill
 | `--project, -p` | Use project mode (`.skillshare/backups/`); **agents only** |
 | `--global, -g` | Use global mode (default for skills) |
 | `--list, -l` | List all backups; with `-p`, the project's |
-| `--cleanup, -c` | Remove old backups; with `-p`, the project's |
+| `--cleanup, -c` | Remove old snapshots and abandoned incomplete directories; with `-p`, the project's |
 | `--delete <timestamp>` | Delete one backup; with `-p`, from `.skillshare/backups/` |
 | `--target, -t <name>` | Target specific backup (alternative to positional arg) |
 | `--dry-run, -n` | Preview without making changes |
@@ -224,7 +224,7 @@ Retention runs automatically after every `sync`, using the default policy below.
 ```bash
 du -sh ~/.local/share/skillshare/backups   # Total size on disk
 skillshare backup --list                   # Per-snapshot sizes
-skillshare backup --cleanup --dry-run      # Preview what retention would remove
+skillshare backup --cleanup --dry-run      # Preview cleanup, including abandoned incomplete directories
 ```
 
 Copy-mode targets are the one case where snapshots can still grow: those are real files, so anything under a skill directory is copied. Keep runtime caches and large artifacts outside the skill tree, or exclude them with `ignore:` so they never reach the target in the first place.

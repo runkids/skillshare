@@ -493,7 +493,7 @@ skillshare sync  # 변경 사항 적용
 skillshare backup              # 모든 target을 backup
 skillshare backup claude       # 특정 target을 backup
 skillshare backup --list       # 모든 backup을 나열
-skillshare backup --cleanup    # 오래된 backup을 제거
+skillshare backup --cleanup    # 오래된 스냅샷과 방치된 미완성 디렉터리 제거
 skillshare backup --dry-run    # 미리보기
 ```
 

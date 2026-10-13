@@ -492,7 +492,7 @@ skillshare sync  # 套用變更
 skillshare backup              # 備份所有 targets
 skillshare backup claude       # 備份特定 target
 skillshare backup --list       # 列出所有備份
-skillshare backup --cleanup    # 移除舊備份
+skillshare backup --cleanup    # 移除舊快照和遺留的不完整目錄
 skillshare backup --dry-run    # 預覽
 ```
 

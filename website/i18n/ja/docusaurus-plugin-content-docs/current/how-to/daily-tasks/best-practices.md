@@ -246,7 +246,7 @@ team-skills/
 # 毎週
 skillshare update --all     # Tracked repos を更新
 skillshare doctor           # 問題をチェック
-skillshare backup --cleanup # 古いバックアップを削除
+skillshare backup --cleanup # 古いスナップショットと放置された未完成ディレクトリを削除
 
 # 毎月
 skillshare list             # インストール済みの Skill を見直す
