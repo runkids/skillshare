@@ -194,4 +194,12 @@ describe('Pi target Extensions tab', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Pi uses it only if it trusts this project');
   });
 
+  it('names the exact rule Skillshare can not evaluate', async () => {
+    const base = global().packages[0];
+    show(global({ packages: [{ ...base, rules: ['-~/pkgs/tools/extensions/a.ts'], rows: [
+      { path: 'extensions/a.ts', file: 'present', selection: 'unknown', origin: 'rule', rule: '-~/pkgs/tools/extensions/a.ts', editable: false },
+    ] }] }));
+    expect(await screen.findByText("Decided by a pattern Skillshare can't evaluate: -~/pkgs/tools/extensions/a.ts. Change it with pi config.")).toBeInTheDocument();
+  });
+
 });

@@ -2,6 +2,8 @@ package plugin
 
 import (
 	"path"
+	"regexp"
+	"runtime"
 	"strings"
 	"unicode/utf8"
 )
@@ -49,10 +51,11 @@ func triAnd(a, b piTri) piTri {
 // piGlobSupported reports whether a non-exact Pi pattern is in the grammar this
 // package reproduces: '/'-separated segments of literals with '*' and '?' only,
 // as minimatch 10 matches them without options (dot files need a literal dot).
-// Globstars, braces, classes, extglobs, escapes, comments, negation and '.' or
-// '..' segments are left to Pi. The golden test checks this against Pi's minimatch.
+// Globstars, braces, classes, extglobs, escapes, comments, negation, paths Pi
+// rewrites and '.' or '..' segments are left to Pi. The golden test checks this against
+// Pi's minimatch.
 func piGlobSupported(pattern string) bool {
-	if pattern == "" || strings.ContainsAny(pattern, "[]{}()|\\") || strings.Contains(pattern, "**") ||
+	if pattern == "" || piRewrittenPattern(pattern, runtime.GOOS) || strings.ContainsAny(pattern, "[]{}()|\\") || strings.Contains(pattern, "**") ||
 		strings.HasPrefix(pattern, "#") || strings.HasPrefix(pattern, "!") {
 		return false
 	}
@@ -120,10 +123,60 @@ func piGlobMatches(pattern, rel, abs string) piTri {
 	return result
 }
 
-// piExactMatches is Pi's matchesAnyExactPattern: a plain comparison after
-// dropping a leading "./".
+// piShellDrive is the Git Bash, MSYS, Cygwin and WSL drive path that Pi's
+// normalizeWindowsShellPath turns into a Windows drive path.
+var piShellDrive = regexp.MustCompile(`(?i)^/(?:mnt/|cygdrive/)?[a-z](?:/.*)?$`)
+
+// piRewrittenPattern reports a pattern Pi 1.2.0 and later rewrites with
+// normalizePath before matching while older Pi compares it as written: a home
+// path, a file:// URL, and on Windows a ~\ home path or a shell drive path. Its
+// match depends on the Pi version, so Skillshare leaves it unknown.
+func piRewrittenPattern(pattern, goos string) bool {
+	switch {
+	case pattern == "~" || strings.HasPrefix(pattern, "~/") || strings.HasPrefix(pattern, "file://"):
+		return true
+	case goos != "windows":
+		return false
+	}
+	return strings.HasPrefix(pattern, `~\`) ||
+		!strings.HasPrefix(pattern, "//") && !strings.Contains(pattern, `\`) && piShellDrive.MatchString(pattern)
+}
+
+// piExactState is piExactMatches as a selection: unknown for a pattern Pi
+// rewrites after dropping a leading "./" or ".\".
+func piExactState(pattern, rel, abs string) piTri {
+	switch {
+	case piRewrittenPattern(piDropDot(pattern), runtime.GOOS):
+		return piUnknown
+	case piExactMatches(pattern, rel, abs):
+		return piOn
+	}
+	return piOff
+}
+
+// piDropDot drops the leading "./" or ".\" that Pi's normalizeExactPattern drops
+// on every platform.
+func piDropDot(pattern string) string {
+	if strings.HasPrefix(pattern, "./") || strings.HasPrefix(pattern, `.\`) {
+		return pattern[2:]
+	}
+	return pattern
+}
+
+// piExactPattern is Pi's normalizeExactPattern before 1.2.0: the leading dot
+// dropped, then toPosixPath, which turns "\" into "/" only on Windows.
+func piExactPattern(pattern, goos string) string {
+	pattern = piDropDot(pattern)
+	if goos == "windows" {
+		pattern = strings.ReplaceAll(pattern, `\`, "/")
+	}
+	return pattern
+}
+
+// piExactMatches is Pi's matchesAnyExactPattern: a plain comparison with the
+// normalized pattern.
 func piExactMatches(pattern, rel, abs string) bool {
-	pattern = strings.TrimPrefix(pattern, "./")
+	pattern = piExactPattern(pattern, runtime.GOOS)
 	return pattern == rel || pattern == abs
 }
 
@@ -135,7 +188,7 @@ func piExactRule(rule, rel, abs string) bool {
 
 type piEvaluation struct {
 	state piTri
-	exact string   // the last exact rule that decided the file, if any
+	exact string   // the last exact rule that decided the file, or a rewritten rule that may
 	globs []string // the include and ! rules that match it, or may
 }
 
@@ -146,15 +199,22 @@ func piEvaluate(rules []string, rel, abs string) piEvaluation {
 	included, hasInclude := piOff, false
 	excluded := piOff
 	forceOn, forceOff := false, false
+	rewrittenOn, rewrittenOff := "", "" // the last rewritten rule that may force the file
 	for _, rule := range rules {
 		switch {
 		case strings.HasPrefix(rule, "+"):
-			if piExactMatches(rule[1:], rel, abs) {
+			switch piExactState(rule[1:], rel, abs) {
+			case piOn:
 				forceOn, e.exact = true, rule
+			case piUnknown:
+				rewrittenOn = rule
 			}
 		case strings.HasPrefix(rule, "-"):
-			if piExactMatches(rule[1:], rel, abs) {
+			switch piExactState(rule[1:], rel, abs) {
+			case piOn:
 				forceOff, e.exact = true, rule
+			case piUnknown:
+				rewrittenOff = rule
 			}
 		case strings.HasPrefix(rule, "!"):
 			if m := piGlobMatches(rule[1:], rel, abs); m != piOff {
@@ -179,6 +239,8 @@ func piEvaluate(rules []string, rel, abs string) piEvaluation {
 	e.state = triAnd(included, triNot(excluded))
 	if forceOn {
 		e.state = piOn
+	} else if rewrittenOn != "" && e.state != piOn {
+		e.state, e.exact = piUnknown, rewrittenOn
 	}
 	if forceOff {
 		e.state = piOff
@@ -188,6 +250,8 @@ func piEvaluate(rules []string, rel, abs string) piEvaluation {
 				e.exact = rule
 			}
 		}
+	} else if rewrittenOff != "" && e.state != piOff {
+		e.state, e.exact = piUnknown, rewrittenOff
 	}
 	return e
 }
@@ -208,10 +272,7 @@ func piEvaluateDelta(rules []string, rel, abs string) (state piTri, named bool, 
 		}
 		var m piTri
 		if exact {
-			m = piOff
-			if piExactMatches(target, rel, abs) {
-				m = piOn
-			}
+			m = piExactState(target, rel, abs)
 		} else {
 			m = piGlobMatches(target, rel, abs)
 		}

@@ -333,7 +333,8 @@ function RowOrigin({ row, action, canRemove, onDefault, onKeep, t }: { row: PiEx
   if (action) return <span>{t('targetDetail.piExtensions.origin.pendingRule', { rule: `${action === 'select' ? '+' : '-'}${row.path}` })}</span>;
   // Skillshare can't say what an undecidable rule selects; it says why and where to change it.
   if (row.selection === 'unknown') {
-    return <span>{row.globs?.length ? t('targetDetail.piExtensions.unknown.glob', { globs: row.globs.join(' ') }) : t('targetDetail.piExtensions.unknown.rule')}</span>;
+    const undecided = row.globs?.length ? row.globs.join(' ') : row.rule;
+    return <span>{undecided ? t('targetDetail.piExtensions.unknown.glob', { globs: undecided }) : t('targetDetail.piExtensions.unknown.rule')}</span>;
   }
   return (
     <>

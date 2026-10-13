@@ -445,7 +445,7 @@ func (p *piPackage) evaluate(object, hasRules bool, rules []string) []piRowState
 		if !strings.HasPrefix(rule, "+") && !strings.HasPrefix(rule, "-") {
 			continue
 		}
-		target := strings.TrimPrefix(rule[1:], "./")
+		target := piExactPattern(rule[1:], runtime.GOOS)
 		if slices.ContainsFunc(rows, func(r piRowState) bool { return r.rel == target || path.Join(p.abs, r.rel) == target }) {
 			continue
 		}
@@ -761,7 +761,7 @@ func piDeltaStates(rules []string, p *piPackage, inherited []piRowState, hasBase
 		if !strings.HasPrefix(rule, "+") && !strings.HasPrefix(rule, "-") {
 			continue
 		}
-		target := strings.TrimPrefix(rule[1:], "./")
+		target := piExactPattern(rule[1:], runtime.GOOS)
 		if slices.ContainsFunc(rows, func(r piRowState) bool { return r.rel == target || path.Join(p.abs, r.rel) == target }) {
 			continue
 		}

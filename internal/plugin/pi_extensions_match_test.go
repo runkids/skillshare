@@ -77,6 +77,17 @@ func TestPiEvaluateFollowsPiPatternOrder(t *testing.T) {
 		{"+ beats !, - beats +", []string{"!extensions/*.ts", "+extensions/a.ts", "+extensions/b.ts", "-extensions/b.ts"}, []piTri{piOn, piOff, piOff}},
 		{"unsupported glob is unknown unless an exact rule decides", []string{"!extensions/**", "+extensions/a.ts", "-extensions/b.ts"}, []piTri{piOn, piOff, piUnknown}},
 		{"./ prefix on exact rules", []string{"-./extensions/c.ts"}, []piTri{piOn, piOn, piOff}},
+		{".\\ prefix on exact rules", []string{`-.\extensions/c.ts`}, []piTri{piOn, piOn, piOff}},
+		// Pi 1.2.0 rewrites these rules with normalizePath; older Pi compares them as written.
+		{"~ exact exclude is unknown", []string{"-~/pkg/extensions/a.ts"}, []piTri{piUnknown, piUnknown, piUnknown}},
+		{"~ exact include is unknown unless already on", []string{"!extensions/a.ts", "+~/pkg/extensions/a.ts"}, []piTri{piUnknown, piOn, piOn}},
+		{"~ glob exclude is unknown", []string{"!~/pkg/extensions/*.ts"}, []piTri{piUnknown, piUnknown, piUnknown}},
+		{"a known exact exclude still decides over ~", []string{"-~/pkg/extensions/a.ts", "-extensions/a.ts"}, []piTri{piOff, piUnknown, piUnknown}},
+		{"bare ~ is a home path", []string{"-~"}, []piTri{piUnknown, piUnknown, piUnknown}},
+		{"./~ is a home path", []string{"-./~/pkg/extensions/a.ts"}, []piTri{piUnknown, piUnknown, piUnknown}},
+		{"~name stays literal", []string{"-~a.ts"}, []piTri{piOn, piOn, piOn}},
+		{"~ include glob is unknown", []string{"~/pkg/extensions/*.ts"}, []piTri{piUnknown, piUnknown, piUnknown}},
+		{"file:// exact is unknown", []string{"-file:///pkg/extensions/a.ts"}, []piTri{piUnknown, piUnknown, piUnknown}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -86,5 +97,59 @@ func TestPiEvaluateFollowsPiPatternOrder(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestPiEvaluateDeltaLeavesHomeRulesUnknown(t *testing.T) {
+	if state, named, _ := piEvaluateDelta([]string{"-~/pkg/extensions/a.ts"}, "extensions/a.ts", "/pkg/extensions/a.ts"); state != piUnknown || !named {
+		t.Errorf("got %v named=%v, want unknown and named", state, named)
+	}
+}
+
+func TestPiEvaluateNamesTheHomeRuleItLeavesUnknown(t *testing.T) {
+	if got := piEvaluate([]string{"-~/pkg/extensions/a.ts"}, "extensions/a.ts", "/pkg/extensions/a.ts").exact; got != "-~/pkg/extensions/a.ts" {
+		t.Errorf("exact = %q, want the home rule", got)
+	}
+}
+
+func TestPiRewrittenPatternFollowsPiNormalizePath(t *testing.T) {
+	cases := []struct {
+		pattern, goos string
+		want          bool
+	}{
+		{"~", "linux", true},
+		{"~/x.ts", "linux", true},
+		{"file:///pkg/x.ts", "linux", true},
+		{`~\x.ts`, "linux", false},
+		{"/c/Users/me/x.ts", "linux", false},
+		{`~\x.ts`, "windows", true},
+		{"/c/Users/me/x.ts", "windows", true},
+		{"/mnt/d/x.ts", "windows", true},
+		{"/cygdrive/C", "windows", true},
+		{"//server/share/x.ts", "windows", false},
+		{"/pkg/x.ts", "windows", false},
+		{"~x.ts", "windows", false},
+		{"extensions/x.ts", "windows", false},
+	}
+	for _, c := range cases {
+		if got := piRewrittenPattern(c.pattern, c.goos); got != c.want {
+			t.Errorf("piRewrittenPattern(%q, %s) = %v, want %v", c.pattern, c.goos, got, c.want)
+		}
+	}
+}
+
+func TestPiExactPatternFollowsPiNormalizeExactPattern(t *testing.T) {
+	cases := []struct{ pattern, goos, want string }{
+		{"./extensions/a.ts", "linux", "extensions/a.ts"},
+		{`.\extensions/a.ts`, "linux", "extensions/a.ts"},
+		{`extensions\a.ts`, "linux", `extensions\a.ts`},
+		{`.\extensions\a.ts`, "windows", "extensions/a.ts"},
+		{`C:\pkg\extensions\a.ts`, "windows", "C:/pkg/extensions/a.ts"},
+		{"././a.ts", "windows", "./a.ts"},
+	}
+	for _, c := range cases {
+		if got := piExactPattern(c.pattern, c.goos); got != c.want {
+			t.Errorf("piExactPattern(%q, %s) = %q, want %q", c.pattern, c.goos, got, c.want)
+		}
 	}
 }
