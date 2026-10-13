@@ -9,6 +9,21 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.25.11] - 2026-10-13
+
+
+### New Features
+
+* **mcp:** pin tool definitions in mcp check --live and warn when they change ([#560](https://github.com/runkids/skillshare/issues/560)) ([6cc7909](https://github.com/runkids/skillshare/commit/6cc790965a1addc86716bf52e7ac68c91bd26779))
+* **mcp:** warn when a local server runs an unpinned package or image ([#559](https://github.com/runkids/skillshare/issues/559)) ([4382a8c](https://github.com/runkids/skillshare/commit/4382a8c8c80b0a7f1b063f0d948978cbcd32d474))
+
+
+### Bug Fixes
+
+* **backup:** reclaim abandoned staging directories safely ([#558](https://github.com/runkids/skillshare/issues/558)) ([cf5783e](https://github.com/runkids/skillshare/commit/cf5783ee888a0defd3519509ea4274dee4c6f8b6))
+* **list:** show every target sync placed a skill or agent in ([#562](https://github.com/runkids/skillshare/issues/562)) ([ac1d4b4](https://github.com/runkids/skillshare/commit/ac1d4b4387a1dd667aae916a693dcd29451bcb88))
+* **skills:** let code review use the running tool's subagent model ([d8909fa](https://github.com/runkids/skillshare/commit/d8909faef40d4d4ab3b79c62fab8a99ae748ba9c))
+
 ## [0.25.10] - 2026-10-13
 
 ### New Features
