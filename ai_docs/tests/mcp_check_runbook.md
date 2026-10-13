@@ -16,6 +16,9 @@ metadata, and an unreachable HTTP URL. They check that no server starts without
 `--live`, the `live` JSON object, the human output, the 401 warning, the timeout and
 that it leaves no process behind, and that values are redacted.
 
+Step 14 uses a third config to cover the static `pin` check: unpinned `npx`, `uvx` and
+`docker run` lines, a repeated npx `--package`, and an image tag without a digest.
+
 ## Environment
 
 Run inside the devcontainer with a fresh ssenv HOME:
@@ -417,9 +420,49 @@ Expected:
 - jq: .crash.level == "error" and (.crash.message | contains("exit status 3")) and (.crash.message | endswith("stderr: fatal: token [redacted] rejected"))
 - jq: .skip == {"level": "info", "check": "live", "target": "", "message": "not probed live: fix the errors above first"}
 
+### Step 14: Unpinned packages and images are warnings, a tag without a digest is info
+
+A separate config, so the counts of Steps 1–7 stay as they are. Every server keeps
+`targets: []`. The `pin` check reads only `command` and `args`; the launchers are stub
+scripts on `PATH` so the `command` check passes without npx, uvx or docker installed.
+
+```bash
+set -eu
+cd "$HOME"
+CASE="$HOME/mcp-check-pin"
+rm -rf "$CASE"
+mkdir -p "$CASE/skills" "$CASE/bin"
+for launcher in npx uvx docker; do printf '#!/bin/sh\nexit 0\n' > "$CASE/bin/$launcher"; chmod +x "$CASE/bin/$launcher"; done
+export PATH="$CASE/bin:$PATH"
+export SKILLSHARE_CONFIG="$CASE/config.yaml"
+cat > "$SKILLSHARE_CONFIG" <<YAML
+source: $CASE/skills
+targets: {}
+mcp:
+  servers:
+    npx-loose: { command: npx, args: [-y, "@scope/server"], targets: [] }
+    npx-two: { command: npx, args: [--package=lodash@4.17.21, --package=cowsay, cowsay], targets: [] }
+    npx-pinned: { command: npx, args: [-y, "@scope/server@1.2.3"], targets: [] }
+    uvx-loose: { command: uvx, args: [mcp-server-git], targets: [] }
+    docker-latest: { command: docker, args: [run, -i, --rm, --cap-drop, ALL, "org/server:latest"], targets: [] }
+    docker-tag: { command: docker, args: [run, -i, --rm, "org/server:1.4"], targets: [] }
+    docker-digest: { command: docker, args: [run, -i, --rm, "org/server:1.4@sha256:abc123"], targets: [] }
+YAML
+ss mcp check --json --no-dns -g > "$CASE/pin.json"
+jq -c '{summary, pin: [.servers[] | {name, f: [.findings[] | select(.check == "pin") | [.level, .subject]]}] | map(select(.f != []))}' "$CASE/pin.json"
+```
+
+Expected:
+- exit_code: 0
+- jq: .summary.errors == 0
+- jq: .pin | map(.name) | sort == ["docker-latest", "docker-tag", "npx-loose", "npx-two", "uvx-loose"]
+- jq: (.pin[] | select(.name == "npx-two") | .f) == [["warning", "cowsay"]]
+- jq: (.pin[] | select(.name == "docker-latest") | .f) == [["warning", "org/server"]]
+- jq: (.pin[] | select(.name == "docker-tag") | .f) == [["info", "org/server"]]
+
 ## Pass Criteria
 
-- Steps 1–13 pass.
+- Steps 1–14 pass.
 - Errors exit 1 and warnings alone exit 0.
 - `project` appears only on the `mcp.projects` server and holds the expanded root.
 - No step prints the value of `SS_E2E_CHECK_TOKEN` or `SS_E2E_LIVE_TOKEN`.

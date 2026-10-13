@@ -87,6 +87,8 @@
   "mcp.check.finding.command": "コマンド {subject} が見つかりません。インストールされ、PATH にあるか確認してください。",
   "mcp.check.finding.dns": "{subject} を名前解決できません。ネットワークか URL が間違っている可能性があります。",
   "mcp.check.finding.notSynced": "まだ同期されていません。「MCP を同期」を押すと書き込まれます。",
+  "mcp.check.finding.pinVersion": "{subject} をバージョン固定なしで実行しています。気づかないうちに更新で変わらないよう、バージョンを固定してください。",
+  "mcp.check.finding.pinTag": "イメージ {subject} をバージョンタグなしで実行しています。タグかダイジェストを固定してください。",
   "mcp.check.tag.error": "{count} error",
   "mcp.check.tag.warning": "{count} warning",
   "mcp.transport": "トランスポート",

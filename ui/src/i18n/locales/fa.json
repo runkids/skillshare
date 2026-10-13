@@ -87,6 +87,8 @@
   "mcp.check.finding.command": "دستور {subject} پیدا نشد. مطمئن شوید نصب شده و در PATH است.",
   "mcp.check.finding.dns": "{subject} قابل resolve نیست. شاید شبکه یا نشانی اشتباه باشد.",
   "mcp.check.finding.notSynced": "هنوز همگام‌سازی نشده است. بعد از زدن «همگام‌سازی MCP» نوشته می‌شود.",
+  "mcp.check.finding.pinVersion": "{subject} بدون نسخهٔ ثابت اجرا می‌شود. نسخه را ثابت کنید تا به‌روزرسانی بی‌خبر آن را تغییر ندهد.",
+  "mcp.check.finding.pinTag": "ایمیج {subject} بدون برچسب نسخه اجرا می‌شود. یک برچسب یا digest را ثابت کنید.",
   "mcp.check.tag.error": "{count} error",
   "mcp.check.tag.warning": "{count} warning",
   "mcp.transport": "انتقال",

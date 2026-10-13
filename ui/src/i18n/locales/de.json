@@ -87,6 +87,8 @@
   "mcp.check.finding.command": "Befehl {subject} wurde nicht gefunden. Prüfe, ob er installiert ist und im PATH liegt.",
   "mcp.check.finding.dns": "{subject} konnte nicht aufgelöst werden. Netzwerk oder URL sind eventuell falsch.",
   "mcp.check.finding.notSynced": "Noch nicht synchronisiert. Wird geschrieben, sobald du „MCP synchronisieren“ drückst.",
+  "mcp.check.finding.pinVersion": "Führt {subject} ohne feste Version aus. Lege eine Version fest, damit ein Update sie nicht unbemerkt ändert.",
+  "mcp.check.finding.pinTag": "Führt das Image {subject} ohne Versions-Tag aus. Lege einen Tag oder Digest fest.",
   "mcp.check.tag.error": "{count} error",
   "mcp.check.tag.warning": "{count} warning",
   "mcp.transport": "Transport",

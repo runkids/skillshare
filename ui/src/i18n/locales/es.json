@@ -87,6 +87,8 @@
   "mcp.check.finding.command": "No se encontró el comando {subject}. Comprueba que está instalado y en el PATH.",
   "mcp.check.finding.dns": "No se pudo resolver {subject}. Puede que la red o la URL sean incorrectas.",
   "mcp.check.finding.notSynced": "Aún no está sincronizado. Se escribe al pulsar Sincronizar MCP.",
+  "mcp.check.finding.pinVersion": "Ejecuta {subject} sin una versión fijada. Fija una versión para que una actualización no la cambie sin que lo notes.",
+  "mcp.check.finding.pinTag": "Ejecuta la imagen {subject} sin etiqueta de versión. Fija una etiqueta o un digest.",
   "mcp.check.tag.error": "{count} error",
   "mcp.check.tag.warning": "{count} warning",
   "mcp.transport": "Transporte",

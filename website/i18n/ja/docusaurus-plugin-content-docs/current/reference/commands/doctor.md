@@ -215,7 +215,7 @@ Extras が設定されている場合、以下を検証します。
 - 各 Extras の Source ディレクトリが存在すること
 - Target ディレクトリに到達可能であること
 - ディレクトリ Target 内の壊れたシンボリックリンク（error）
-- Source と一致しないファイル。判定は `skillshare diff` と同じです（warning）。`flatten` または `extension` を設定した Target は比較しません。
+- Source と一致しないファイル。判定は `skillshare diff` と同じです。`flatten` または `extension` を設定した Target は比較しません。
 
 ```text
 ✗ rules     → ~/.claude/rules: broken symlink gone.md
@@ -224,7 +224,7 @@ Extras が設定されている場合、以下を検証します。
 
 ### MCP
 
-[`mcp check`](./mcp.md) の静的チェックを実行します。参照している環境変数が設定されていること、`command` が `PATH` で見つかること、クライアントのルールがサーバーを受け入れること、各エントリが同期済みであることを確認します。Doctor はホストを解決せず、サーバーも起動しません。必要な場合は `skillshare mcp check` または `skillshare mcp check --live` を実行してください。サーバーが設定されていない場合は `info` を表示します。
+[`mcp check`](./mcp.md) の静的チェックを実行します。参照している環境変数が設定されていること、`command` が `PATH` で見つかること、`npx`・`uvx`・`pipx run`・`docker run`・`podman run` で起動するパッケージやイメージのバージョンが固定されていること、クライアントのルールがサーバーを受け入れること、各エントリが同期済みであることを確認します。Doctor はホストを解決せず、サーバーも起動しません。必要な場合は `skillshare mcp check` または `skillshare mcp check --live` を実行してください。サーバーが設定されていない場合は `info` を表示します。
 
 ```text
 ✗ MCP          docs: command no-such-mcp-binary was not found on PATH

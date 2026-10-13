@@ -215,7 +215,7 @@ extras가 구성된 경우 다음을 검증합니다:
 - 각 extra에 대한 source 디렉터리 존재 여부
 - target 디렉터리 접근 가능 여부
 - 디렉터리 target 안의 깨진 심볼릭 링크(error)
-- source와 다른 파일. `skillshare diff`와 같은 방식으로 판단합니다(warning). `flatten` 또는 `extension`을 설정한 target은 비교하지 않습니다.
+- source와 다른 파일. `skillshare diff`와 같은 방식으로 판단합니다. `flatten` 또는 `extension`을 설정한 target은 비교하지 않습니다.
 
 ```text
 ✗ rules     → ~/.claude/rules: broken symlink gone.md
@@ -224,7 +224,7 @@ extras가 구성된 경우 다음을 검증합니다:
 
 ### MCP
 
-[`mcp check`](./mcp.md)의 정적 검사를 실행합니다. 참조된 환경 변수가 설정되어 있는지, `command`를 `PATH`에서 찾을 수 있는지, 클라이언트 규칙이 서버를 허용하는지, 모든 항목이 동기화되었는지 확인합니다. Doctor는 호스트를 확인하거나 서버를 시작하지 않습니다. 필요하면 `skillshare mcp check` 또는 `skillshare mcp check --live`를 실행하세요. 구성된 서버가 없으면 `info`로 표시합니다.
+[`mcp check`](./mcp.md)의 정적 검사를 실행합니다. 참조된 환경 변수가 설정되어 있는지, `command`를 `PATH`에서 찾을 수 있는지, `npx`·`uvx`·`pipx run`·`docker run`·`podman run`으로 실행하는 패키지나 이미지의 버전이 고정되어 있는지, 클라이언트 규칙이 서버를 허용하는지, 모든 항목이 동기화되었는지 확인합니다. Doctor는 호스트를 확인하거나 서버를 시작하지 않습니다. 필요하면 `skillshare mcp check` 또는 `skillshare mcp check --live`를 실행하세요. 구성된 서버가 없으면 `info`로 표시합니다.
 
 ```text
 ✗ MCP          docs: command no-such-mcp-binary was not found on PATH

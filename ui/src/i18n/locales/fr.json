@@ -87,6 +87,8 @@
   "mcp.check.finding.command": "La commande {subject} est introuvable. Vérifiez qu’elle est installée et dans le PATH.",
   "mcp.check.finding.dns": "Impossible de résoudre {subject}. Le réseau ou l’URL est peut-être incorrect.",
   "mcp.check.finding.notSynced": "Pas encore synchronisé. L’écriture se fait quand vous appuyez sur Synchroniser MCP.",
+  "mcp.check.finding.pinVersion": "Lance {subject} sans version figée. Figez une version pour qu’une mise à jour ne la change pas à votre insu.",
+  "mcp.check.finding.pinTag": "Lance l’image {subject} sans tag de version. Figez un tag ou un digest.",
   "mcp.check.tag.error": "{count} error",
   "mcp.check.tag.warning": "{count} warning",
   "mcp.transport": "Transport",

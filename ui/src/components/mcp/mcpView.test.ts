@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { MCPPlan } from '../../api/mcp';
-import { buildMatrix, denyRemovesAll, describeError, describeMessage, canImportConflict, groupByFile, isResolvable, joinCommand, projectFileTargets, mcpClient, mcpNotice, parsePiOptions, parseToolNotice, serverCount, setToolChecked, splitCommand, switchTargets, targetLabel, toolRules, toolSummary } from './mcpView';
+import { buildMatrix, denyRemovesAll, describeError, describeMessage, canImportConflict, groupByFile, isResolvable, joinCommand, projectFileTargets, mcpClient, mcpNotice, parsePiOptions, parseToolNotice, pinFindingKey, serverCount, setToolChecked, splitCommand, switchTargets, targetLabel, toolRules, toolSummary } from './mcpView';
 import { mcpTargets } from '../../api/mcp';
 
 const change = (name: string, target: string, action: string, message?: string) => ({ name, target, action, message, path: `/${target}.json` });
 
 describe('MCP view helpers', () => {
+  it('words a pin finding by what is unpinned, even for a package named image', () => {
+    expect(pinFindingKey({ subject: 'mcp-server', message: 'npx runs mcp-server without a pinned version; pin it, e.g. mcp-server@<version>' })).toBe('mcp.check.finding.pinVersion');
+    expect(pinFindingKey({ subject: 'image', message: 'npx runs image without a pinned version; pin it, e.g. image@<version>' })).toBe('mcp.check.finding.pinVersion');
+    expect(pinFindingKey({ subject: 'org/server', message: 'podman runs image org/server without a version tag; pin it, e.g. org/server:<tag>' })).toBe('mcp.check.finding.pinTag');
+  });
+
   it('gives the agy skills target the MCP file it shares with Antigravity', () => {
     expect(mcpClient('antigravity-cli')).toBe('antigravity');
   });

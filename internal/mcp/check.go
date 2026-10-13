@@ -279,18 +279,21 @@ func checkPin(server Server) []CheckFinding {
 	args := server.Args
 	switch launcher {
 	case "npx":
-		pkg := pinTarget(args, []string{"-p", "--package"}, nil)
-		if !remote(pkg) {
-			return nil
+		// npx accepts --package more than once; each one is fetched.
+		var out []CheckFinding
+		for _, pkg := range pinTargets(args, []string{"-p", "--package"}, nil) {
+			if !remote(pkg) {
+				continue
+			}
+			name, version := pkg, ""
+			if i := strings.LastIndex(pkg, "@"); i > 0 { // i == 0 is only the scope
+				name, version = pkg[:i], pkg[i+1:]
+			}
+			if version == "" || version == "latest" {
+				out = append(out, finding("warning", name, fmt.Sprintf("npx runs %s without a pinned version; pin it, e.g. %s@<version>", name, name))...)
+			}
 		}
-		name, version := pkg, ""
-		if i := strings.LastIndex(pkg, "@"); i > 0 { // i == 0 is only the scope
-			name, version = pkg[:i], pkg[i+1:]
-		}
-		if version != "" && version != "latest" {
-			return nil
-		}
-		return finding("warning", name, fmt.Sprintf("npx runs %s without a pinned version; pin it, e.g. %s@<version>", name, name))
+		return out
 	case "uvx", "pipx":
 		if launcher == "pipx" {
 			if len(args) == 0 || args[0] != "run" {
@@ -298,7 +301,7 @@ func checkPin(server Server) []CheckFinding {
 			}
 			args = args[1:]
 		}
-		spec := pinTarget(args, []string{"--from", "--spec"}, uvxValueFlags)
+		spec := first(pinTargets(args, []string{"--from", "--spec"}, uvxValueFlags))
 		if !remote(spec) || strings.Contains(spec, "==") || (strings.Contains(spec, "@") && !strings.HasSuffix(spec, "@latest")) {
 			return nil
 		}
@@ -311,7 +314,7 @@ func checkPin(server Server) []CheckFinding {
 		if len(args) == 0 || args[0] != "run" {
 			return nil
 		}
-		image := pinTarget(args[1:], nil, dockerValueFlags)
+		image := first(pinTargets(args[1:], nil, dockerValueFlags))
 		if image == "" || strings.Contains(image, "@") {
 			return nil
 		}
@@ -326,27 +329,36 @@ func checkPin(server Server) []CheckFinding {
 	}
 }
 
-// pinTarget is the package or image a launcher runs: the value of one of pkgFlags, else the
-// first argument that is not a flag. valueFlags take a separate value, which is skipped.
-func pinTarget(args, pkgFlags, valueFlags []string) string {
+// pinTargets is what a launcher runs: every value of pkgFlags, else the first argument that is
+// not a flag. valueFlags take a separate value, which is skipped.
+func pinTargets(args, pkgFlags, valueFlags []string) []string {
+	var pkgs []string
 	for i := 0; i < len(args); i++ {
 		name, value, joined := strings.Cut(args[i], "=")
 		switch {
 		case slices.Contains(pkgFlags, name):
-			if joined {
-				return value
+			if !joined && i+1 < len(args) {
+				i++
+				value = args[i]
 			}
-			if i+1 < len(args) {
-				return args[i+1]
-			}
-			return ""
+			pkgs = append(pkgs, value)
 		case slices.Contains(valueFlags, name) && !joined:
 			i++
 		case !strings.HasPrefix(args[i], "-"):
-			return args[i]
+			if len(pkgs) == 0 {
+				return []string{args[i]}
+			}
+			return pkgs
 		}
 	}
-	return ""
+	return pkgs
+}
+
+func first(values []string) string {
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
 }
 
 // checkClientRules renders the server alone, once per target, so a rule an Agent enforces

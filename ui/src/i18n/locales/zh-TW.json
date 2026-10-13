@@ -87,6 +87,8 @@
   "mcp.check.finding.command": "找不到指令 {subject}，請確認已安裝，而且在 PATH 裡。",
   "mcp.check.finding.dns": "無法解析 {subject}，可能是網路或網址有誤。",
   "mcp.check.finding.notSynced": "尚未同步，按「同步 MCP」後才會寫入。",
+  "mcp.check.finding.pinVersion": "執行 {subject} 時沒有鎖定版本。請鎖定版本，以免更新在你不知情下改變它。",
+  "mcp.check.finding.pinTag": "執行映像檔 {subject} 時沒有版本標籤。請鎖定標籤或摘要。",
   "mcp.check.tag.error": "{count} error",
   "mcp.check.tag.warning": "{count} warning",
   "mcp.transport": "傳輸方式",

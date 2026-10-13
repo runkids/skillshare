@@ -87,6 +87,8 @@
   "mcp.check.finding.command": "找不到命令 {subject}，请确认已安装，并且在 PATH 中。",
   "mcp.check.finding.dns": "无法解析 {subject}，可能是网络或网址有误。",
   "mcp.check.finding.notSynced": "尚未同步，点击“同步 MCP”后才会写入。",
+  "mcp.check.finding.pinVersion": "运行 {subject} 时没有锁定版本。请锁定版本，以免更新在你不知情时改变它。",
+  "mcp.check.finding.pinTag": "运行镜像 {subject} 时没有版本标签。请锁定标签或摘要。",
   "mcp.check.tag.error": "{count} error",
   "mcp.check.tag.warning": "{count} warning",
   "mcp.transport": "传输方式",

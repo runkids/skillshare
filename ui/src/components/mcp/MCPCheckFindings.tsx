@@ -2,7 +2,7 @@ import { CircleX, TriangleAlert } from 'lucide-react';
 import type { MCPCheckFinding } from '../../api/mcpCheck';
 import AgentIcon from '../AgentIcon';
 import { useT } from '../../i18n';
-import { describeMessage, parseToolNotice, toolGapKey } from './mcpView';
+import { describeMessage, parseToolNotice, pinFindingKey, toolGapKey } from './mcpView';
 
 const notSynced = 'not synced yet; run skillshare sync mcp';
 
@@ -10,6 +10,7 @@ const notSynced = 'not synced yet; run skillshare sync mcp';
 function useFindingText() {
   const t = useT();
   return (f: MCPCheckFinding) => {
+    if (f.check === 'pin' && f.subject) return t(pinFindingKey(f), { subject: f.subject });
     if (f.subject && (f.check === 'env' || f.check === 'command' || f.check === 'dns')) return t(`mcp.check.finding.${f.check}`, { subject: f.subject });
     if (f.check === 'sync' && f.message === notSynced) return t('mcp.check.finding.notSynced');
     const tools = f.check === 'tools' ? parseToolNotice(f.message) : undefined;

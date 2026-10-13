@@ -215,7 +215,7 @@ opencode skips ~/.claude/skills: OPENCODE_DISABLE_CLAUDE_CODE_SKILLS is set in t
 - 每個 extra 的 source 目錄存在
 - Target 目錄可以連通
 - 目錄型 target 裡的失效符號連結（error）
-- 與 source 不一致的檔案，判斷方式同 `skillshare diff`（warning）。設定了 `flatten` 或 `extension` 的 target 不做比對。
+- 與 source 不一致的檔案，判斷方式同 `skillshare diff`。設定了 `flatten` 或 `extension` 的 target 不做比對。
 
 ```text
 ✗ rules     → ~/.claude/rules: broken symlink gone.md
@@ -224,7 +224,7 @@ opencode skips ~/.claude/skills: OPENCODE_DISABLE_CLAUDE_CODE_SKILLS is set in t
 
 ### MCP
 
-執行 [`mcp check`](./mcp.md) 的靜態檢查：引用的環境變數有設定、`command` 能在 `PATH` 找到、client 規則接受這個 server，以及每個項目都已同步。Doctor 不解析 host，也不啟動 server；需要時請執行 `skillshare mcp check` 或 `skillshare mcp check --live`。沒有設定任何 server 時顯示 `info`。
+執行 [`mcp check`](./mcp.md) 的靜態檢查：引用的環境變數有設定、`command` 能在 `PATH` 找到、`npx`、`uvx`、`pipx run`、`docker run`、`podman run` 啟動的套件或映像檔已鎖定版本、client 規則接受這個 server，以及每個項目都已同步。Doctor 不解析 host，也不啟動 server；需要時請執行 `skillshare mcp check` 或 `skillshare mcp check --live`。沒有設定任何 server 時顯示 `info`。
 
 ```text
 ✗ MCP          docs: command no-such-mcp-binary was not found on PATH

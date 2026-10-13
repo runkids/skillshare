@@ -301,6 +301,8 @@ func TestCheckPin(t *testing.T) {
 		{"npx scoped pinned", "npx", []string{"-y", "@scope/pkg@1.2.3"}, "", ""},
 		{"npx -p unversioned", "npx", []string{"-p", "mcp-server", "mcp-bin"}, "warning", "mcp-server"},
 		{"npx -p pinned", "npx", []string{"-p", "mcp-server@2.0.0", "mcp-bin"}, "", ""},
+		{"npx repeated -p, later unversioned", "npx", []string{"--package=lodash@4.17.21", "--package=cowsay", "cowsay", "hi"}, "warning", "cowsay"},
+		{"npx repeated -p pinned", "npx", []string{"-p", "lodash@4.17.21", "-p", "cowsay@1.6.0", "cowsay"}, "", ""},
 		{"npx local path", "npx", []string{"./local-server"}, "", ""},
 		{"uvx unversioned", "uvx", []string{"mcp-server-git"}, "warning", "mcp-server-git"},
 		{"uvx @latest", "uvx", []string{"mcp-server-git@latest"}, "warning", "mcp-server-git"},

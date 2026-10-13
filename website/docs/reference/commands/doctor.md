@@ -215,7 +215,7 @@ When extras are configured, verifies:
 - Source directory exists for each extra
 - Target directories are reachable
 - Broken symlinks in each directory target (error)
-- Files that differ from the source, as `skillshare diff` reports them (warning). Targets with `flatten` or `extension` are not compared.
+- Files that differ from the source, as `skillshare diff` reports them. Targets with `flatten` or `extension` are not compared.
 
 ```text
 ✗ rules     → ~/.claude/rules: broken symlink gone.md
@@ -224,7 +224,7 @@ When extras are configured, verifies:
 
 ### MCP
 
-Runs the static part of [`mcp check`](./mcp.md): referenced environment variables are set, `command` resolves on `PATH`, client rules accept the server, and every entry is synced. Doctor does not resolve hosts or start servers; run `skillshare mcp check` or `skillshare mcp check --live` for that. Shows `info` when no server is configured.
+Runs the static part of [`mcp check`](./mcp.md): referenced environment variables are set, `command` resolves on `PATH`, a package or image launched by `npx`, `uvx`, `pipx run`, `docker run` or `podman run` has a pinned version, client rules accept the server, and every entry is synced. Doctor does not resolve hosts or start servers; run `skillshare mcp check` or `skillshare mcp check --live` for that. Shows `info` when no server is configured.
 
 ```text
 ✗ MCP          docs: command no-such-mcp-binary was not found on PATH

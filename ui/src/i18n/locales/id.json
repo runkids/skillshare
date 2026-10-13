@@ -87,6 +87,8 @@
   "mcp.check.finding.command": "Perintah {subject} tidak ditemukan. Pastikan sudah terpasang dan ada di PATH.",
   "mcp.check.finding.dns": "Tidak dapat me-resolve {subject}. Jaringan atau URL mungkin salah.",
   "mcp.check.finding.notSynced": "Belum disinkronkan. Akan ditulis setelah Anda menekan Sinkronkan MCP.",
+  "mcp.check.finding.pinVersion": "Menjalankan {subject} tanpa versi yang dikunci. Kunci versinya agar pembaruan tidak mengubahnya tanpa Anda sadari.",
+  "mcp.check.finding.pinTag": "Menjalankan image {subject} tanpa tag versi. Kunci tag atau digest.",
   "mcp.check.tag.error": "{count} error",
   "mcp.check.tag.warning": "{count} warning",
   "mcp.transport": "Transport",

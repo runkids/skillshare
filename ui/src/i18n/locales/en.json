@@ -87,6 +87,8 @@
   "mcp.check.finding.command": "Command {subject} was not found. Make sure it is installed and on PATH.",
   "mcp.check.finding.dns": "Could not resolve {subject}. The network or the URL may be wrong.",
   "mcp.check.finding.notSynced": "Not synced yet. It is written after you press Sync MCP.",
+  "mcp.check.finding.pinVersion": "Runs {subject} without a pinned version. Pin a version so an update cannot change it unnoticed.",
+  "mcp.check.finding.pinTag": "Runs image {subject} without a version tag. Pin a tag or digest.",
   "mcp.check.tag.error": "{count} error",
   "mcp.check.tag.warning": "{count} warning",
   "mcp.transport": "Transport",

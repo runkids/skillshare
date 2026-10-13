@@ -89,6 +89,10 @@ const conflictKeys: Record<string, string> = {
 
 const conflictPrefix = (message: string) => Object.keys(conflictKeys).find((k) => message.startsWith(k)) ?? '';
 
+/** The sentence for a pin warning: an image without a tag, or a package without a version. */
+export const pinFindingKey = (f: { message: string; subject?: string }) =>
+  f.message.includes(` runs image ${f.subject} `) ? 'mcp.check.finding.pinTag' : 'mcp.check.finding.pinVersion';
+
 export const describeMessage = (t: (key: string) => string, message = '') => {
   const start = conflictPrefix(message);
   return start ? t(conflictKeys[start]) + message.slice(start.length) : message;
