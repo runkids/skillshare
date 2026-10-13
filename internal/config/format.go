@@ -2,6 +2,7 @@ package config
 
 import (
 	"bytes"
+	"cmp"
 	"errors"
 	"os"
 	"reflect"
@@ -86,8 +87,8 @@ func marshalConfigFile(path string, v any, header []byte) ([]byte, error) {
 // comment is dropped: one on a key that was removed moves in front of the next
 // key that is still present, or to the end of its section. Comments m already
 // carries (raw sections such as hooks) win, and the schema directive is
-// dropped, since marshalConfig writes its own header. Anchors and aliases are
-// restored the same way, by relinkAliases.
+// dropped, since marshalConfig writes its own header. Anchors, aliases and
+// merge keys are restored the same way, by relinkAliases.
 func keepComments(m *yaml.Node, existing []byte) {
 	var old yaml.Node
 	if yaml.Unmarshal(existing, &old) != nil || len(old.Content) == 0 || old.Content[0].Kind != yaml.MappingNode {
@@ -99,15 +100,25 @@ func keepComments(m *yaml.Node, existing []byte) {
 		top.Content[i].HeadComment = withoutSchemaDirective(top.Content[i].HeadComment)
 	}
 	top.FootComment = joinComments(top.FootComment, old.FootComment)
-	pairs := map[*yaml.Node]*yaml.Node{}
-	copyComments(top, m, pairs)
-	relinkAliases(m, pairs)
+	l := &links{pairs: map[*yaml.Node]*yaml.Node{}}
+	copyComments(top, m, l)
+	relinkAliases(m, l)
 }
 
+// links records how the nodes of the replaced file map onto the new ones.
+type links struct {
+	pairs  map[*yaml.Node]*yaml.Node // old node -> the node that replaced it
+	merges []mergeEntry              // merge keys of the old file, for relinkMerge
+}
+
+// mergeEntry is a merge key (`<<: *base`) of an old mapping and the mapping
+// that replaced it, which has the merged keys written out.
+type mergeEntry struct{ old, cur, key, val *yaml.Node }
+
 // copyComments copies the comments of old onto cur and records every old node
-// with the node that replaced it in pairs.
-func copyComments(old, cur *yaml.Node, pairs map[*yaml.Node]*yaml.Node) {
-	pairs[old] = cur
+// with the node that replaced it in l.
+func copyComments(old, cur *yaml.Node, l *links) {
+	l.pairs[old] = cur
 	// A target that changed between `- claude` and `- name: claude` keeps its
 	// line comment on the name, the only place a block mapping can show one.
 	if old.Kind != cur.Kind {
@@ -137,11 +148,16 @@ func copyComments(old, cur *yaml.Node, pairs map[*yaml.Node]*yaml.Node) {
 				}
 			}
 			if j+1 >= len(cur.Content) {
+				if old.Content[i].Tag == "!!merge" {
+					// relinkMerge writes it back with its comments, or hands them on.
+					l.merges = append(l.merges, mergeEntry{old, cur, old.Content[i], old.Content[i+1]})
+					continue
+				}
 				orphaned = joinComments(orphaned, pairComments(old.Content[i], old.Content[i+1]))
 				continue
 			}
-			copyComments(old.Content[i], cur.Content[j], pairs)
-			copyComments(old.Content[i+1], cur.Content[j+1], pairs)
+			copyComments(old.Content[i], cur.Content[j], l)
+			copyComments(old.Content[i+1], cur.Content[j+1], l)
 			cur.Content[j].HeadComment = joinComments(orphaned, cur.Content[j].HeadComment)
 			orphaned = ""
 		}
@@ -159,7 +175,7 @@ func copyComments(old, cur *yaml.Node, pairs map[*yaml.Node]*yaml.Node) {
 				continue
 			}
 			used[j] = true
-			copyComments(item, cur.Content[j], pairs)
+			copyComments(item, cur.Content[j], l)
 			cur.Content[j].HeadComment = joinComments(orphaned, cur.Content[j].HeadComment)
 			orphaned = ""
 		}
@@ -189,17 +205,31 @@ type aliasGroup struct {
 	first *yaml.Node // the group's first node in document order, which gets the anchor
 }
 
+// aliasGroups maps each node of a group to it, the anchored node included.
+type aliasGroups map[*yaml.Node]*aliasGroup
+
+// add makes n show the value of src, creating src's group on first use.
+func (m aliasGroups) add(src, n *yaml.Node, name string) {
+	g := m[src]
+	if g == nil {
+		g = &aliasGroup{name: name, src: src}
+		m[src] = g
+	}
+	m[n] = g
+}
+
 // relinkAliases restores the anchors and aliases the struct encoding expanded.
 // An anchored node keeps its anchor. An alias stays an alias while its value is
 // the anchor's old value or equals the anchor's current one, so editing an
 // anchored node reaches its aliases, as the file said it should; an alias
 // whose value was edited to something else keeps its own copy. When the
 // anchored node was removed, its aliases keep their own copies. An anchor
-// stays where its node survives even if no alias is left, and a merge key
-// (`<<: *base`) is not restored: the merged keys are written out.
-func relinkAliases(cur *yaml.Node, pairs map[*yaml.Node]*yaml.Node) {
-	members := map[*yaml.Node]*aliasGroup{}
-	for old, c := range pairs {
+// stays where its node survives even if no alias is left. A merge key
+// (`<<: *base`) is restored by relinkMerge, which follows the same rules.
+func relinkAliases(cur *yaml.Node, l *links) {
+	l.pairAnchoredMerges()
+	members := aliasGroups{}
+	for old, c := range l.pairs {
 		if c.Kind == yaml.AliasNode {
 			continue
 		}
@@ -209,16 +239,14 @@ func relinkAliases(cur *yaml.Node, pairs map[*yaml.Node]*yaml.Node) {
 		if old.Kind != yaml.AliasNode {
 			continue
 		}
-		src := pairs[old.Alias]
+		src := l.pairs[old.Alias]
 		if src == nil || !(sameValue(old.Alias, c) || sameValue(src, c)) {
 			continue
 		}
-		g := members[src]
-		if g == nil {
-			g = &aliasGroup{name: old.Value, src: src}
-			members[src] = g
-		}
-		members[c] = g
+		members.add(src, c, old.Value)
+	}
+	for _, e := range l.merges {
+		l.relinkMerge(e, members)
 	}
 	var place func(n *yaml.Node)
 	place = func(n *yaml.Node) {
@@ -230,6 +258,36 @@ func relinkAliases(cur *yaml.Node, pairs map[*yaml.Node]*yaml.Node) {
 		}
 	}
 	place(cur)
+}
+
+// pairAnchoredMerges pairs every mapping that carries an anchor on a merge key
+// (`<<: &base {…}`, where an earlier write put it) with the node of an alias of
+// it: the first one still showing its value, or if every one was edited, the
+// first in the file. The mapping has no key of its own to pair by, and that
+// alias is where the anchor was written before it moved.
+func (l *links) pairAnchoredMerges() {
+	for _, e := range l.merges {
+		for _, n := range mergeItems(e.val) {
+			if n.Anchor == "" || n.Kind != yaml.MappingNode {
+				continue
+			}
+			var best *yaml.Node
+			bestSame := false
+			for old, c := range l.pairs {
+				if old.Alias != n || c.Kind != yaml.MappingNode {
+					continue
+				}
+				same := sameValue(n, c)
+				first := best != nil && cmp.Or(cmp.Compare(old.Line, best.Line), cmp.Compare(old.Column, best.Column)) < 0
+				if best == nil || same && !bestSame || same == bestSame && first {
+					best, bestSame = old, same
+				}
+			}
+			if best != nil {
+				l.pairs[n] = l.pairs[best]
+			}
+		}
+	}
 }
 
 // place makes n the group's anchor if it is the first node reached, and an
@@ -248,6 +306,130 @@ func (g *aliasGroup) place(n *yaml.Node) {
 		n.Anchor = g.name
 	}
 	n.HeadComment, n.LineComment, n.FootComment = head, line, foot
+}
+
+// relinkMerge writes the merge key of e.old back onto e.cur in place of the
+// merged keys the struct encoding expanded, so what is written decodes to the
+// same data as e.cur does:
+//   - a key the old mapping set itself stays written out, even when it equals
+//     the merged value;
+//   - a key whose value is the one its merge source gives it is dropped, and so
+//     is one still holding the old merged value while the same source was
+//     edited, so editing an anchored mapping reaches the mappings merging it;
+//   - any other key stays written out and replaces the merged value as a whole,
+//     since merges are shallow;
+//   - a source that was removed, or that holds a key e.cur no longer has, is not
+//     merged: its keys stay written out, because a merge could not drop them.
+//
+// Decoded data cannot tell a key the command left alone from one it set to the
+// old merged value, so an edit that does both to the same key reads as left alone.
+func (l *links) relinkMerge(e mergeEntry, groups aliasGroups) {
+	items := mergeItems(e.val)
+	oldData, curData := mapData(e.old), mapData(e.cur)
+	local := map[string]bool{}
+	for i := 0; i+1 < len(e.old.Content); i += 2 {
+		local[e.old.Content[i].Value] = true
+	}
+	type source struct {
+		item int
+		node *yaml.Node
+		data map[string]any
+	}
+	var used []source
+	oldFrom := map[string]int{} // key -> first merge item that gave it before
+	for i, item := range items {
+		for k := range mapData(item) {
+			if _, seen := oldFrom[k]; !seen {
+				oldFrom[k] = i
+			}
+		}
+		src := item
+		if item.Kind == yaml.AliasNode {
+			src = item.Alias
+		}
+		node := l.pairs[src]
+		if node == nil || node.Kind != yaml.MappingNode || curData == nil {
+			continue
+		}
+		if d := mapData(node); d != nil && hasKeys(curData, d) {
+			used = append(used, source{i, node, d})
+		}
+	}
+	if len(used) == 0 {
+		comments := pairComments(e.key, e.val)
+		if len(e.cur.Content) > 0 {
+			e.cur.Content[0].HeadComment = joinComments(comments, e.cur.Content[0].HeadComment)
+		} else {
+			e.cur.FootComment = joinComments(e.cur.FootComment, comments)
+		}
+		return
+	}
+	// A key is merged when the first source that has it gives its value.
+	covered := func(k string) bool {
+		if local[k] {
+			return false
+		}
+		for _, s := range used {
+			v, ok := s.data[k]
+			if !ok {
+				continue
+			}
+			first, seen := oldFrom[k]
+			return reflect.DeepEqual(curData[k], v) ||
+				seen && first == s.item && reflect.DeepEqual(curData[k], oldData[k])
+		}
+		return false
+	}
+	// Every used node has its anchor by now: relinkAliases set it from the old file.
+	aliases := make([]*yaml.Node, len(used))
+	for n, s := range used {
+		aliases[n] = &yaml.Node{Kind: yaml.AliasNode, Value: s.node.Anchor, Alias: s.node}
+		groups.add(s.node, aliases[n], s.node.Anchor)
+	}
+	val := aliases[0]
+	if e.val.Kind == yaml.SequenceNode {
+		val = &yaml.Node{Kind: yaml.SequenceNode, Style: yaml.FlowStyle, Content: aliases}
+	}
+	val.HeadComment, val.LineComment, val.FootComment = e.val.HeadComment, e.val.LineComment, e.val.FootComment
+	// yaml.v3 prints a parsed merge key with its !!merge tag; the untagged
+	// `<<` is the same key.
+	key := *e.key
+	key.Tag = ""
+	content := []*yaml.Node{&key, val}
+	for i := 0; i+1 < len(e.cur.Content); i += 2 {
+		if !covered(e.cur.Content[i].Value) {
+			content = append(content, e.cur.Content[i], e.cur.Content[i+1])
+		}
+	}
+	e.cur.Content = content
+}
+
+// mergeItems lists the sources of a merge key: its value, or the items of a list.
+func mergeItems(val *yaml.Node) []*yaml.Node {
+	if val.Kind == yaml.SequenceNode {
+		return val.Content
+	}
+	return []*yaml.Node{val}
+}
+
+// mapData decodes a mapping node, with aliases and merges resolved. It is nil
+// for any other node.
+func mapData(n *yaml.Node) map[string]any {
+	var m map[string]any
+	if n.Decode(&m) != nil {
+		return nil
+	}
+	return m
+}
+
+// hasKeys reports whether every key of sub is a key of m.
+func hasKeys(m, sub map[string]any) bool {
+	for k := range sub {
+		if _, ok := m[k]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // sameValue reports whether two nodes decode to the same data, with aliases

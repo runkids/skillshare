@@ -3,13 +3,14 @@
 Verifies that commands which write `config.yaml` keep every comment in it:
 head, inline and trailing comments, comments with odd spacing or no space
 after `#`, comments on nested keys and list items, and comments on a key the
-command removed. It also checks that YAML anchors and aliases survive.
+command removed. It also checks that YAML anchors, aliases and merge keys
+(`<<: *base`) survive.
 
 **Origin**: [#525](https://github.com/runkids/skillshare/issues/525) — on
 0.25.4 `target --mode copy --target-naming prefixed` dropped marker comments
 a user's script relied on. [#546](https://github.com/runkids/skillshare/issues/546)
 — on 0.25.5 the same write expanded `&anchor` / `*alias` pairs under `targets`
-and `projects`.
+and `projects`. Merge keys were expanded the same way.
 
 ## Scope
 
@@ -18,11 +19,16 @@ and `projects`.
 - The schema header appears once
 - An anchored list keeps its anchor and its alias after an edit; editing the
   aliased list gives it its own copy and leaves the anchored one alone
+- A merge key (`<<: *base`) stays after an edit and only the keys the mapping
+  sets itself are written out; editing the anchored mapping reaches a mapping
+  that merges it, and removing the anchored mapping writes the merged keys out
 
 ## Environment
 
 Run inside the devcontainer with `ssenv` isolation (`--init`).
 mdproof replaces `$HOME`, so the config is reached through `$XDG_CONFIG_HOME`.
+mdproof's setup re-runs `init` before every step, so steps 6 to 10 each write
+their own config instead of relying on an earlier step.
 
 ## Steps
 
@@ -110,7 +116,7 @@ Expected:
 - lost-count=0
 - orphans-under-targets
 
-### 6. Setup: one include list shared through an anchor
+### 6. Editing the anchored target keeps the anchor and the alias
 
 ```bash
 CFG=$XDG_CONFIG_HOME/skillshare/config.yaml
@@ -129,17 +135,6 @@ targets:
       include: *shared
 YAML
 sed -i "s|SRC|$XDG_CONFIG_HOME/skillshare|; s|HOME|$HOME|g" "$CFG"
-echo "anchors=$(grep -c '&shared' "$CFG") aliases=$(grep -c '\*shared' "$CFG")"
-```
-
-Expected:
-- exit_code: 0
-- anchors=1 aliases=1
-
-### 7. Editing the anchored target keeps the anchor and the alias
-
-```bash
-CFG=$XDG_CONFIG_HOME/skillshare/config.yaml
 ss target claude --add-exclude 'old-*'
 echo "anchors=$(grep -c '&shared' "$CFG") aliases=$(grep -c '\*shared' "$CFG")"
 grep -c -- "- old-\*" "$CFG"
@@ -150,10 +145,25 @@ Expected:
 - anchors=1 aliases=1
 - 1
 
-### 8. Editing the aliased target gives it its own list
+### 7. Editing the aliased target gives it its own list
 
 ```bash
 CFG=$XDG_CONFIG_HOME/skillshare/config.yaml
+cat > "$CFG" <<'YAML'
+sources:
+  skills: SRC/skills
+targets:
+  claude:
+    skills:
+      path: HOME/.claude/skills
+      include: &shared
+        - demo
+  codex:
+    skills:
+      path: HOME/.codex/skills
+      include: *shared
+YAML
+sed -i "s|SRC|$XDG_CONFIG_HOME/skillshare|; s|HOME|$HOME|g" "$CFG"
 ss target codex --add-include extra
 echo "aliases=$(grep -c '\*shared' "$CFG")"
 echo "extra=$(grep -c -- '- extra' "$CFG")"
@@ -166,10 +176,126 @@ Expected:
 - extra=1
 - claude-extras=0
 
+### 8. A merge key survives an edit and only local keys stay written out
+
+`claude` merges `zshared` and sets its own `skills`; `codex` only merges.
+Targets are written in name order, so the anchor moves onto the first merge key
+that uses it.
+
+```bash
+CFG=$XDG_CONFIG_HOME/skillshare/config.yaml
+cat > "$CFG" <<'YAML'
+sources:
+  skills: SRC/skills
+targets:
+  zshared: &shared
+    skills:
+      path: HOME/.shared/skills
+      mode: copy
+  claude:
+    # inherits the shared settings
+    <<: *shared
+    skills:
+      path: HOME/.claude/skills
+  codex:
+    <<: *shared
+YAML
+sed -i "s|SRC|$XDG_CONFIG_HOME/skillshare|; s|HOME|$HOME|g" "$CFG"
+mode() { ss target list --json | tr -d ' \n' | grep -o "\"name\":\"$1\",\"path\":\"[^\"]*\",\"mode\":\"[a-z]*\"" | sed 's/.*"mode"://'; }
+ss target claude --add-exclude 'old-*'
+echo "merges=$(grep -c '<<:' "$CFG")"
+echo "anchors=$(grep -c '&shared' "$CFG") aliases=$(grep -c '\*shared' "$CFG")"
+echo "comment=$(grep -c '# inherits the shared settings' "$CFG")"
+echo "codex-own-keys=$(awk '/^  codex:/{c=1;next} /^  [a-z]/{c=0} c' "$CFG" | grep -c -v '<<:')"
+echo "codex-mode=$(mode codex)"
+```
+
+Expected:
+- exit_code: 0
+- merges=2
+- anchors=1 aliases=2
+- comment=1
+- codex-own-keys=0
+- codex-mode="copy"
+
+### 9. Editing the anchored target reaches the merging target, an override stays local
+
+```bash
+CFG=$XDG_CONFIG_HOME/skillshare/config.yaml
+cat > "$CFG" <<'YAML'
+sources:
+  skills: SRC/skills
+targets:
+  zshared: &shared
+    skills:
+      path: HOME/.shared/skills
+      mode: copy
+  claude:
+    # inherits the shared settings
+    <<: *shared
+    skills:
+      path: HOME/.claude/skills
+  codex:
+    <<: *shared
+YAML
+sed -i "s|SRC|$XDG_CONFIG_HOME/skillshare|; s|HOME|$HOME|g" "$CFG"
+mode() { ss target list --json | tr -d ' \n' | grep -o "\"name\":\"$1\",\"path\":\"[^\"]*\",\"mode\":\"[a-z]*\"" | sed 's/.*"mode"://'; }
+ss target zshared --mode symlink
+echo "merges=$(grep -c '<<:' "$CFG")"
+echo "codex-mode=$(mode codex)"
+echo "claude-mode=$(mode claude)"
+```
+
+Expected:
+- exit_code: 0
+- merges=2
+- codex-mode="symlink"
+- claude-mode="merge"
+
+### 10. Removing the anchored target writes the merged keys out
+
+```bash
+CFG=$XDG_CONFIG_HOME/skillshare/config.yaml
+cat > "$CFG" <<'YAML'
+sources:
+  skills: SRC/skills
+targets:
+  zshared: &shared
+    skills:
+      path: HOME/.shared/skills
+      mode: copy
+  claude:
+    # inherits the shared settings
+    <<: *shared
+    skills:
+      path: HOME/.claude/skills
+  codex:
+    <<: *shared
+YAML
+sed -i "s|SRC|$XDG_CONFIG_HOME/skillshare|; s|HOME|$HOME|g" "$CFG"
+mode() { ss target list --json | tr -d ' \n' | grep -o "\"name\":\"$1\",\"path\":\"[^\"]*\",\"mode\":\"[a-z]*\"" | sed 's/.*"mode"://'; }
+ss target remove zshared
+echo "merges=$(grep -c '<<:' "$CFG") anchors=$(grep -c '&shared' "$CFG") aliases=$(grep -c '\*shared' "$CFG")"
+echo "comment=$(grep -c '# inherits the shared settings' "$CFG")"
+echo "codex-mode=$(mode codex)"
+```
+
+Expected:
+- exit_code: 0
+- merges=0 anchors=0 aliases=0
+- comment=1
+- codex-mode="copy"
+
 ## Pass Criteria
 
 - Step 3: all 11 comments present after `target` set, schema header once.
 - Step 5: `universal` gone, all 11 comments still present, the removed
   target's comments sit inside the `targets` section.
-- Step 7: the `&shared` anchor and its `*shared` alias are both still there.
-- Step 8: `codex` no longer aliases `shared`, and `claude` did not gain `extra`.
+- Step 6: the `&shared` anchor and its `*shared` alias are both still there.
+- Step 7: `codex` no longer aliases `shared`, and `claude` did not gain `extra`.
+- Step 8: both `<<:` keys are still there with one anchor and two aliases of
+  it, `codex` writes nothing but its merge key and still loads as `copy`.
+- Step 9: `codex` follows the edit of the anchored target; `claude`, which sets
+  its own `skills`, does not.
+- Step 10: no `<<:`, anchor or alias is left, `codex` still loads as `copy`, and
+  the comment on the removed merge key is still in the file.

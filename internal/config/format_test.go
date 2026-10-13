@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -364,5 +365,230 @@ func TestMarshalConfig_AliasAsListItemSurvivesEdit(t *testing.T) {
 	}
 	if ex := cfg.Targets["a"].Skills.Exclude; !slices.Equal(ex, []string{"demo"}) {
 		t.Errorf("exclude = %v, want [demo]", ex)
+	}
+}
+
+const mergeListConfig = "targets:\n  a: &a\n    skills:\n      mode: copy\n  b: &b\n    skills:\n      mode: merge\n    agents:\n      path: /tmp/agents\n  claude:\n    <<: [*a, *b]\n"
+
+const mergeConfig = "targets:\n  base: &base\n    skills:\n      mode: copy\n  claude:\n    # inherits base\n    <<: *base\n    skills:\n      path: /tmp/claude\n  codex:\n    <<: *base\n"
+
+// remarshalMerged is remarshalConfig plus the round trip a merge key must
+// keep: what is written loads as the config that was meant to be saved, which
+// is what writing it with every merge expanded loads as.
+func remarshalMerged[T any](t *testing.T, existing string, header []byte, edit func(*T)) (string, T) {
+	t.Helper()
+	got, cfg := remarshalConfig(t, existing, header, edit)
+	var meant T
+	if err := yaml.Unmarshal([]byte(existing), &meant); err != nil {
+		t.Fatal(err)
+	}
+	edit(&meant)
+	expanded, err := marshalConfig(&meant, header, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want T
+	if err := yaml.Unmarshal(expanded, &want); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(cfg, want) {
+		t.Errorf("written config loads differently from its expanded form:\nwritten:\n%s\nexpanded:\n%s", got, expanded)
+	}
+	return got, cfg
+}
+
+func TestMarshalConfig_MergeKeySurvivesEdit(t *testing.T) {
+	got, cfg := remarshalMerged(t, mergeConfig, schemaComment, func(c *Config) {
+		c.Mode = "copy"
+	})
+	if !strings.Contains(got, strings.TrimPrefix(mergeConfig, "targets:\n")) {
+		t.Errorf("merge keys should survive with only local keys written:\n%s", got)
+	}
+	if m := cfg.Targets["codex"].Skills.Mode; m != "copy" {
+		t.Errorf("codex mode = %q, want copy", m)
+	}
+}
+
+func TestMarshalConfig_MergeKeyListSurvivesEdit(t *testing.T) {
+	got, cfg := remarshalMerged(t, mergeListConfig, schemaComment, func(c *Config) {
+		c.Mode = "copy"
+	})
+	if !strings.Contains(got, "  claude:\n    <<: [*a, *b]\n") {
+		t.Errorf("merge list should survive:\n%s", got)
+	}
+	claude := cfg.Targets["claude"]
+	if claude.Skills.Mode != "copy" || claude.Agents.Path != "/tmp/agents" {
+		t.Errorf("claude = %+v / %+v, want skills from a and agents from b", claude.Skills, claude.Agents)
+	}
+}
+
+func TestMarshalConfig_MergeKeyInNestedMappingSurvivesEdit(t *testing.T) {
+	existing := "targets:\n  base:\n    skills: &shared\n      mode: copy\n      include:\n        - demo\n  claude:\n    skills:\n      <<: *shared\n      path: /tmp/claude\n"
+	got, cfg := remarshalMerged(t, existing, schemaComment, func(c *Config) {
+		c.Mode = "copy"
+	})
+	if !strings.Contains(got, "    skills: &shared\n") || !strings.Contains(got, "    skills:\n      <<: *shared\n      path: /tmp/claude\n") {
+		t.Errorf("nested merge key should survive:\n%s", got)
+	}
+	if inc := cfg.Targets["claude"].Skills.Include; !slices.Equal(inc, []string{"demo"}) {
+		t.Errorf("claude include = %v, want [demo]", inc)
+	}
+}
+
+func TestMarshalConfig_ProjectMergeKeySurvivesEdit(t *testing.T) {
+	existing := "projects:\n  /p/one: &one\n    targets:\n      - claude\n    skills:\n      include:\n        - demo\n  /p/two:\n    <<: *one\n    name: two\n"
+	got, cfg := remarshalMerged(t, existing, schemaComment, func(c *Config) {
+		c.Mode = "copy"
+	})
+	if !strings.Contains(got, "  /p/two:\n    <<: *one\n    name: two\n") {
+		t.Errorf("project merge key should survive:\n%s", got)
+	}
+	if two := cfg.Projects["/p/two"].Targets; !slices.Equal(two, []string{"claude"}) {
+		t.Errorf("/p/two targets = %v, want [claude]", two)
+	}
+}
+
+func TestMarshalConfig_ProjectConfigMergeKeySurvivesEdit(t *testing.T) {
+	existing := "targets:\n  - name: claude\n    skills: &sk\n      mode: copy\n  - name: codex\n    skills:\n      <<: *sk\n      path: /tmp/codex\n"
+	got, cfg := remarshalMerged(t, existing, projectSchemaComment, func(c *ProjectConfig) {
+		c.TargetNaming = "prefixed"
+	})
+	if !strings.Contains(got, "skills: &sk\n") || !strings.Contains(got, "      <<: *sk\n      path: /tmp/codex\n") {
+		t.Errorf("merge key in a target list item should survive:\n%s", got)
+	}
+	if m := cfg.Targets[1].Skills.Mode; m != "copy" {
+		t.Errorf("codex mode = %q, want copy", m)
+	}
+}
+
+func TestMarshalConfig_EditedAnchorReachesMergingMapping(t *testing.T) {
+	// A merge copies keys the mapping does not set itself, so the edit reaches
+	// codex and not claude, whose own skills replace the merged ones.
+	got, cfg := remarshalConfig(t, mergeConfig, schemaComment, func(c *Config) {
+		c.Targets["base"].Skills.Mode = "symlink"
+	})
+	if !strings.Contains(got, "  claude:\n    # inherits base\n    <<: *base\n    skills:\n      path: /tmp/claude\n  codex:\n    <<: *base\n") {
+		t.Errorf("merge keys should survive an edit of the anchored mapping:\n%s", got)
+	}
+	if m := cfg.Targets["codex"].Skills.Mode; m != "symlink" {
+		t.Errorf("codex mode = %q, want symlink", m)
+	}
+	if claude := cfg.Targets["claude"].Skills; claude.Mode != "" || claude.Path != "/tmp/claude" {
+		t.Errorf("claude skills = %+v, want only its own path", claude)
+	}
+}
+
+func TestMarshalConfig_LocalOverrideEqualToMergedValueStaysLocal(t *testing.T) {
+	existing := "targets:\n  base: &base\n    skills:\n      mode: copy\n  claude:\n    <<: *base\n    skills:\n      mode: copy\n"
+	got, cfg := remarshalConfig(t, existing, schemaComment, func(c *Config) {
+		c.Targets["base"].Skills.Mode = "symlink"
+	})
+	if !strings.Contains(got, "  claude:\n    <<: *base\n    skills:\n      mode: copy\n") {
+		t.Errorf("an override must stay in claude:\n%s", got)
+	}
+	if m := cfg.Targets["claude"].Skills.Mode; m != "copy" {
+		t.Errorf("claude mode = %q, want its own copy", m)
+	}
+}
+
+func TestMarshalConfig_EditedMergedValueBecomesLocalOverride(t *testing.T) {
+	got, cfg := remarshalMerged(t, mergeConfig, schemaComment, func(c *Config) {
+		c.Targets["codex"].Skills.Mode = "symlink"
+	})
+	if !strings.Contains(got, "  codex:\n    <<: *base\n    skills:\n      mode: symlink\n") {
+		t.Errorf("codex should keep the merge key and write its own skills:\n%s", got)
+	}
+	if m := cfg.Targets["base"].Skills.Mode; m != "copy" {
+		t.Errorf("base mode = %q, want copy", m)
+	}
+}
+
+func TestMarshalConfig_RemovedAnchorWritesMergedKeysOut(t *testing.T) {
+	got, cfg := remarshalMerged(t, mergeConfig, schemaComment, func(c *Config) {
+		delete(c.Targets, "base")
+	})
+	if strings.Contains(got, "<<") || strings.Contains(got, "*base") {
+		t.Errorf("the anchor is gone, so the merged keys must be written out:\n%s", got)
+	}
+	if m := cfg.Targets["codex"].Skills.Mode; m != "copy" {
+		t.Errorf("codex mode = %q, want copy", m)
+	}
+}
+
+func TestMarshalConfig_RemovedOneMergeSourceKeepsTheOther(t *testing.T) {
+	got, cfg := remarshalMerged(t, mergeListConfig, schemaComment, func(c *Config) {
+		delete(c.Targets, "a")
+	})
+	if !strings.Contains(got, "  claude:\n    <<: [*b]\n    skills:\n      mode: copy\n") {
+		t.Errorf("claude should merge b and keep the skills it took from a:\n%s", got)
+	}
+	if m := cfg.Targets["claude"].Skills.Mode; m != "copy" {
+		t.Errorf("claude mode = %q, want copy", m)
+	}
+}
+
+func TestMarshalConfig_ClearedMergedKeyIsNotMergedBack(t *testing.T) {
+	existing := "targets:\n  base: &base\n    path: /tmp/base\n    mode: copy\n  claude:\n    <<: *base\n"
+	got, cfg := remarshalMerged(t, existing, schemaComment, func(c *Config) {
+		c.Targets["claude"] = TargetConfig{Path: "/tmp/base"}
+	})
+	if strings.Contains(got, "<<") {
+		t.Errorf("claude cleared mode, which a merge would bring back:\n%s", got)
+	}
+	if m := cfg.Targets["claude"].Mode; m != "" {
+		t.Errorf("claude mode = %q, want it cleared", m)
+	}
+}
+
+func TestMarshalConfig_AnchorAfterMergeInOutputMovesToIt(t *testing.T) {
+	// Targets are written in name order, so claude comes before zbase and the
+	// anchor must move to the merge key instead of following it.
+	existing := "targets:\n  zbase: &base\n    skills:\n      mode: copy\n  claude:\n    <<: *base\n    skills:\n      path: /tmp/claude\n"
+	got, cfg := remarshalMerged(t, existing, schemaComment, func(c *Config) {
+		c.Mode = "copy"
+	})
+	if !strings.Contains(got, "    <<: &base\n") || !strings.Contains(got, "  zbase: *base\n") {
+		t.Errorf("anchor should sit on the first merge key:\n%s", got)
+	}
+	if m := cfg.Targets["zbase"].Skills.Mode; m != "copy" {
+		t.Errorf("zbase mode = %q, want copy", m)
+	}
+	if again, _ := remarshalMerged(t, got, schemaComment, func(*Config) {}); again != got {
+		t.Errorf("a second write should keep the moved anchor:\n%s", again)
+	}
+	// zbase is now an alias, but it is still where the file's anchor came from.
+	edited, _ := remarshalConfig(t, got, schemaComment, func(c *Config) {
+		c.Targets["zbase"].Skills.Exclude = []string{"old-*"}
+	})
+	if !strings.Contains(edited, "    <<: &base\n      skills:\n        mode: copy\n        exclude:\n          - old-*\n") || !strings.Contains(edited, "  zbase: *base\n") {
+		t.Errorf("editing the alias of a moved anchor should keep the merge:\n%s", edited)
+	}
+}
+
+func TestMarshalConfig_EditedFirstAliasOfMovedAnchorIsNotTheAnchor(t *testing.T) {
+	// m and p are aliases of the anchor an earlier write put on claude's merge
+	// key. m is edited, so it gets its own copy and p still stands for the anchor.
+	existing := "targets:\n  claude:\n    <<: &base\n      skills:\n        mode: copy\n    skills:\n      path: /tmp/claude\n  m: *base\n  p: *base\n"
+	got, cfg := remarshalConfig(t, existing, schemaComment, func(c *Config) {
+		c.Targets["m"].Skills.Mode = "symlink"
+	})
+	if !strings.Contains(got, "  m:\n    skills:\n      mode: symlink\n") || !strings.Contains(got, "    <<: &base\n      skills:\n        mode: copy\n") || !strings.Contains(got, "  p: *base\n") {
+		t.Errorf("m should keep its own copy and p the anchor:\n%s", got)
+	}
+	if m := cfg.Targets["p"].Skills.Mode; m != "copy" {
+		t.Errorf("p mode = %q, want copy", m)
+	}
+}
+
+func TestMarshalConfig_ChainedMergeKeysSurviveEdit(t *testing.T) {
+	existing := "targets:\n  b1: &b1\n    path: /tmp/b1\n    mode: copy\n  b2: &b2\n    <<: *b1\n    agents:\n      path: /tmp/agents\n  claude:\n    <<: *b2\n    skills:\n      path: /tmp/claude\n"
+	got, cfg := remarshalMerged(t, existing, schemaComment, func(c *Config) {
+		c.Mode = "copy"
+	})
+	if !strings.Contains(got, "  b2: &b2\n    <<: *b1\n    agents:\n      path: /tmp/agents\n  claude:\n    <<: *b2\n    skills:\n      path: /tmp/claude\n") {
+		t.Errorf("a merge source that merges another should survive:\n%s", got)
+	}
+	if m := cfg.Targets["claude"].Mode; m != "copy" {
+		t.Errorf("claude mode = %q, want copy", m)
 	}
 }
