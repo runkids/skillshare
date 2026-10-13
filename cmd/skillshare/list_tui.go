@@ -8,7 +8,9 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/resource"
 	"skillshare/internal/skillignore"
+	"skillshare/internal/sync"
 	"skillshare/internal/theme"
 	"skillshare/internal/utils"
 
@@ -57,6 +59,7 @@ func (s listStatusFilter) String() string {
 type listLoadResult struct {
 	skills     []skillItem
 	totalCount int
+	discovered []sync.DiscoveredSkill
 	err        error
 }
 
@@ -92,10 +95,14 @@ type listTUIModel struct {
 	sourcePath       string
 	agentsSourcePath string
 	targets          map[string]config.TargetConfig
+	discovered       []sync.DiscoveredSkill // source skills; sync's name resolution needs all of them
+	defaultMode      string                 // skills mode of a target that sets none
 	quitting         bool
 	action           string // "audit", "update", "uninstall", or "" (normal quit)
 	termWidth        int
 	detailCache      map[string]*detailData // key = RelPath; lazy-populated
+	// resolutions caches sync's per-target skill resolution (key = target name); nil marks a failed one.
+	resolutions map[string]*sync.TargetSkillResolution
 
 	// Async loading — spinner shown until data arrives
 	loading     bool
@@ -190,6 +197,7 @@ func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, mode
 		activeTab:        initTab,
 		tabPinned:        initialKind != kindAll,
 		detailCache:      make(map[string]*detailData),
+		resolutions:      make(map[string]*sync.TargetSkillResolution),
 		loading:          loadFn != nil,
 		loadSpinner:      sp,
 		loadFn:           loadFn,
@@ -333,6 +341,8 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.allItems = msg.result.skills
 		m.totalCount = msg.result.totalCount
+		m.discovered = msg.result.discovered
+		clear(m.resolutions)
 		m.recomputeTabCounts()
 		m.applyFilter() // applies tab + text filter, sets matchCount
 		skipGroupItem(&m.list, 1)
@@ -531,6 +541,7 @@ func (m listTUIModel) toggleDisabled() (tea.Model, tea.Cmd) {
 
 	// Clear detail cache so the panel re-renders
 	delete(m.detailCache, item.entry.RelPath)
+	clear(m.resolutions)
 
 	// When a status filter is active, the toggled item no longer matches it —
 	// re-apply the filter so it leaves the view (selection resets).
@@ -603,6 +614,7 @@ func (m listTUIModel) toggleModelInvocation() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	delete(m.detailCache, item.entry.RelPath) // the chip re-reads the file
+	clear(m.resolutions)
 	return m, nil
 }
 
@@ -971,20 +983,11 @@ func listSkillFiles(dir string) []string {
 	return names
 }
 
-// findSyncedTargets returns target names where this skill has a symlink.
+// findSyncedTargets returns the targets where sync has placed this skill or agent.
 func (m listTUIModel) findSyncedTargets(e skillEntry) []string {
-	if m.targets == nil {
-		return nil
-	}
-	flatName := e.Name
-	if e.RelPath != "" {
-		flatName = utils.PathToFlatName(e.RelPath)
-	}
-
 	var synced []string
 	for name, tc := range m.targets {
-		linkPath := filepath.Join(tc.SkillsConfig().Path, flatName)
-		if utils.IsSymlinkOrJunction(linkPath) {
+		if m.syncedTo(name, tc, e) {
 			synced = append(synced, name)
 		}
 	}
@@ -992,12 +995,42 @@ func (m listTUIModel) findSyncedTargets(e skillEntry) []string {
 	return synced
 }
 
+func (m listTUIModel) syncedTo(name string, tc config.TargetConfig, e skillEntry) bool {
+	if e.Kind == "agent" {
+		ac := tc.AgentsConfig()
+		dir := ac.Path // a project target carries its resolved agents path
+		if m.modeLabel != "project" {
+			dir = resolveAgentTargetPath(tc, config.DefaultAgentTargets(), name)
+		}
+		if dir == "" {
+			return false
+		}
+		agent := resource.DiscoveredResource{FlatName: resource.AgentFlatName(e.RelPath), AbsPath: filepath.Join(m.agentsSourcePath, e.RelPath)}
+		return sync.AgentSyncedToTarget(ac.Mode, ac.Extension, dir, m.agentsSourcePath, agent)
+	}
+	sc := tc.SkillsConfig()
+	if !sc.IsEnabled() {
+		return false
+	}
+	mode := getTargetMode(sc.Mode, m.defaultMode)
+	var resolution *sync.TargetSkillResolution
+	if mode != "symlink" {
+		var ok bool
+		if resolution, ok = m.resolutions[name]; !ok {
+			resolution, _ = sync.ResolveTargetSkillsForTarget(name, sc, m.discovered) // nil on error
+			m.resolutions[name] = resolution
+		}
+	}
+	return sync.SkillSyncedToTarget(resolution, mode, sc.Path, m.sourcePath, e.RelPath)
+}
+
 // runListTUI starts the bubbletea TUI for the skill list.
 // When loadFn is non-nil, data is loaded asynchronously inside the TUI (no blank screen).
 // initialStatus comes from list --status and stays for the whole session.
 // Returns (action, skillName, skillKind, error). action is "" on normal quit (q/ctrl+c).
-func runListTUI(loadFn listLoadFn, modeLabel, sourcePath, agentsSourcePath string, targets map[string]config.TargetConfig, initialKind resourceKindFilter, initialStatus listStatusFilter) (string, string, string, error) {
+func runListTUI(loadFn listLoadFn, modeLabel, sourcePath, agentsSourcePath string, targets map[string]config.TargetConfig, defaultMode string, initialKind resourceKindFilter, initialStatus listStatusFilter) (string, string, string, error) {
 	model := newListTUIModel(loadFn, nil, 0, modeLabel, sourcePath, agentsSourcePath, targets, initialKind)
+	model.defaultMode = defaultMode
 	model.statusFilter = initialStatus
 	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	finalModel, err := p.Run()

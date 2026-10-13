@@ -633,9 +633,9 @@ func cmdList(args []string) error {
 			// blocks, which the default sort guarantees (tracked → named
 			// locals → standalone).
 			sortSkillEntries(allEntries, opts.SortBy)
-			return listLoadResult{skills: toSkillItems(allEntries), totalCount: total}
+			return listLoadResult{skills: toSkillItems(allEntries), totalCount: total, discovered: discovered}
 		}
-		action, skillName, skillKind, err := runListTUI(loadFn, "global", cfg.EffectiveSkillsSource(), cfg.EffectiveAgentsSource(), cfg.Targets, kind, opts.Status)
+		action, skillName, skillKind, err := runListTUI(loadFn, "global", cfg.EffectiveSkillsSource(), cfg.EffectiveAgentsSource(), cfg.Targets, cfg.Mode, kind, opts.Status)
 		printSkippedSourceLinkWarnings(walk, false)
 		if err != nil {
 			return err

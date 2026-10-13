@@ -55,9 +55,9 @@ func cmdListProject(root string, opts listOptions, kind resourceKindFilter) erro
 			// disabled entries loaded so the `s` key can restore them.
 			allEntries = filterSkillEntries(allEntries, opts.Pattern, opts.TypeFilter, statusFilterAll)
 			sortSkillEntries(allEntries, sortBy)
-			return listLoadResult{skills: toSkillItems(allEntries), totalCount: total}
+			return listLoadResult{skills: toSkillItems(allEntries), totalCount: total, discovered: discovered}
 		}
-		action, skillName, skillKind, err := runListTUI(loadFn, "project", skillsSource, agentsSource, targets, kind, opts.Status)
+		action, skillName, skillKind, err := runListTUI(loadFn, "project", skillsSource, agentsSource, targets, "", kind, opts.Status)
 		printSkippedSourceLinkWarnings(skillsWalk, false)
 		if err != nil {
 			return err
