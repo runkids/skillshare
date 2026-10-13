@@ -223,7 +223,7 @@ Each detected client shows the name of its MCP file, and **Copy path** copies it
 path. Once the file exists, **Open in editor** opens it in the same editor a skill's
 **Open in editor** uses. The editor starts on the machine running the dashboard, so the
 button appears only when the browser runs there too, at `localhost` or through SSH port
-forwarding, not through a LAN address.
+forwarding, not through a LAN address or a reverse proxy.
 
 Additional client details:
 

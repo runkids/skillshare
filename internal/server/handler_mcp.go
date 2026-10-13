@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"reflect"
@@ -92,7 +93,7 @@ func (s *Server) handleMCPList(w http.ResponseWriter, r *http.Request) {
 	// another machine, so list only the files this viewer can open.
 	openable := []string{}
 	for target, path := range paths {
-		if _, err := os.Stat(path); err == nil && requestFromLoopback(r) {
+		if _, err := os.Stat(path); err == nil && browserOnServerMachine(r) {
 			openable = append(openable, target)
 		}
 	}
@@ -272,12 +273,27 @@ func (s *Server) handleMCPRestore(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, result)
 }
 
+// browserOnServerMachine reports whether the browser runs where an editor would start. A
+// reverse proxy on this machine also connects from loopback, so the Host the browser used
+// must be loopback too, and a request a proxy forwarded does not count.
+func browserOnServerMachine(r *http.Request) bool {
+	for _, header := range []string{"Forwarded", "X-Forwarded-For", "X-Real-IP"} {
+		if r.Header.Get(header) != "" {
+			return false
+		}
+	}
+	host, _ := splitHostPortDefault(r.Host)
+	host = strings.TrimSuffix(strings.Trim(host, "[]"), ".")
+	ip := net.ParseIP(host)
+	return requestFromLoopback(r) && (strings.EqualFold(host, "localhost") || ip != nil && ip.IsLoopback())
+}
+
 // handleMCPOpen opens one Agent's MCP config file, as listed by handleMCPList, the way the
 // skill page opens a skill. Only those paths open, so the request cannot name another file.
 func (s *Server) handleMCPOpen(w http.ResponseWriter, r *http.Request) {
 	// The editor starts on the machine running the server, so a viewer elsewhere on the LAN
 	// would launch it on someone else's screen.
-	if !requestFromLoopback(r) {
+	if !browserOnServerMachine(r) {
 		writeError(w, http.StatusForbidden, "opening a file is available only on the machine running the dashboard")
 		return
 	}
