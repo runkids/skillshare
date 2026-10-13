@@ -58,6 +58,7 @@ Directory layout and file locations for skillshare.
 │   └── audit.log            # Security audit scans
 ├── mcp/                     # MCP sync state (auto-managed)
 │   ├── state.json           # Which native entries Skillshare owns
+│   ├── tool-pins.json       # Tool definition hashes recorded by mcp check --live
 │   └── backups/             # Agent files before each write (newest 20 per file)
 └── plugins/                 # Reviewed local copies of plugin sources
 

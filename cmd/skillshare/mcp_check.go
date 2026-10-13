@@ -9,10 +9,10 @@ import (
 	"skillshare/internal/ui"
 )
 
-const mcpCheckUsage = "skillshare mcp check [name...] [--json] [--no-dns] [--live [--timeout <duration>]]"
+const mcpCheckUsage = "skillshare mcp check [name...] [--json] [--no-dns] [--live [--timeout <duration>] [--accept-tools]]"
 
-// runMCPCheck is read-only: it writes no file and no operation log entry. Only --live
-// starts servers or sends requests to them.
+// runMCPCheck writes no config file and no operation log entry. Only --live starts servers or
+// sends requests to them, and only --live reads or writes the tool baseline in the state dir.
 func runMCPCheck(service *mcp.Service, args []string) error {
 	opts := mcp.CheckOptions{ClientVersion: version}
 	asJSON := false
@@ -26,6 +26,8 @@ func runMCPCheck(service *mcp.Service, args []string) error {
 			opts.SkipDNS = true
 		case arg == "--live":
 			opts.Live = true
+		case arg == "--accept-tools":
+			opts.AcceptTools = true
 		case arg == "--timeout":
 			if i+1 >= len(args) {
 				return fmt.Errorf("--timeout requires a duration such as 10s")
@@ -39,6 +41,9 @@ func runMCPCheck(service *mcp.Service, args []string) error {
 		default:
 			opts.Names = append(opts.Names, arg)
 		}
+	}
+	if opts.AcceptTools && !opts.Live {
+		return fmt.Errorf("--accept-tools only applies with --live")
 	}
 	if timeout != "" {
 		if !opts.Live {

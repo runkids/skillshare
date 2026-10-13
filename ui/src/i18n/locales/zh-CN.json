@@ -87,6 +87,8 @@
   "mcp.check.finding.command": "找不到命令 {subject}，请确认已安装，并且在 PATH 中。",
   "mcp.check.finding.dns": "无法解析 {subject}，可能是网络或网址有误。",
   "mcp.check.finding.notSynced": "尚未同步，点击“同步 MCP”后才会写入。",
+  "mcp.check.finding.toolChanged": "{tools} 的说明或输入格式在固定后变了。请先检查，再对这个 server 运行 skillshare mcp check --live --accept-tools 接受。",
+  "mcp.check.finding.toolAdded": "固定后新增的工具：{tools}。请先检查，再对这个 server 运行 skillshare mcp check --live --accept-tools 接受。",
   "mcp.check.tag.error": "{count} error",
   "mcp.check.tag.warning": "{count} warning",
   "mcp.transport": "传输方式",

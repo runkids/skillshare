@@ -87,6 +87,8 @@
   "mcp.check.finding.command": "명령 {subject}을(를) 찾을 수 없습니다. 설치되어 있고 PATH에 있는지 확인하세요.",
   "mcp.check.finding.dns": "{subject}을(를) 확인할 수 없습니다. 네트워크나 URL이 잘못되었을 수 있습니다.",
   "mcp.check.finding.notSynced": "아직 동기화되지 않았습니다. \"MCP 동기화\"를 누르면 기록됩니다.",
+  "mcp.check.finding.toolChanged": "{tools}의 설명 또는 입력 스키마가 고정 후 바뀌었습니다. 확인한 다음 이 서버에 skillshare mcp check --live --accept-tools를 실행해 수락하세요.",
+  "mcp.check.finding.toolAdded": "고정 후 새로 생긴 도구: {tools}. 확인한 다음 이 서버에 skillshare mcp check --live --accept-tools를 실행해 수락하세요.",
   "mcp.check.tag.error": "{count} error",
   "mcp.check.tag.warning": "{count} warning",
   "mcp.transport": "전송 방식",

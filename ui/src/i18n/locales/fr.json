@@ -87,6 +87,8 @@
   "mcp.check.finding.command": "La commande {subject} est introuvable. Vérifiez qu’elle est installée et dans le PATH.",
   "mcp.check.finding.dns": "Impossible de résoudre {subject}. Le réseau ou l’URL est peut-être incorrect.",
   "mcp.check.finding.notSynced": "Pas encore synchronisé. L’écriture se fait quand vous appuyez sur Synchroniser MCP.",
+  "mcp.check.finding.toolChanged": "La description ou le schéma d’entrée de {tools} a changé depuis qu’il a été figé. Vérifiez-le, puis acceptez-le avec skillshare mcp check --live --accept-tools pour ce serveur.",
+  "mcp.check.finding.toolAdded": "Nouveaux depuis qu’ils ont été figés : {tools}. Vérifiez-les, puis acceptez-les avec skillshare mcp check --live --accept-tools pour ce serveur.",
   "mcp.check.tag.error": "{count} error",
   "mcp.check.tag.warning": "{count} warning",
   "mcp.transport": "Transport",

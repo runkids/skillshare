@@ -87,6 +87,8 @@
   "mcp.check.finding.command": "找不到指令 {subject}，請確認已安裝，而且在 PATH 裡。",
   "mcp.check.finding.dns": "無法解析 {subject}，可能是網路或網址有誤。",
   "mcp.check.finding.notSynced": "尚未同步，按「同步 MCP」後才會寫入。",
+  "mcp.check.finding.toolChanged": "{tools} 的說明或輸入格式在釘選後變了。請先檢查，再對這個 server 執行 skillshare mcp check --live --accept-tools 接受。",
+  "mcp.check.finding.toolAdded": "釘選後新增的工具：{tools}。請先檢查，再對這個 server 執行 skillshare mcp check --live --accept-tools 接受。",
   "mcp.check.tag.error": "{count} error",
   "mcp.check.tag.warning": "{count} warning",
   "mcp.transport": "傳輸方式",

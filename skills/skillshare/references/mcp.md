@@ -23,6 +23,7 @@ skillshare mcp restore BACKUP_ID --dry-run --json     # Preview entry-level rest
 skillshare mcp restore BACKUP_ID --no-tui            # Apply restoration; source stays unchanged
 skillshare mcp check --json                          # Static check: variables, commands, DNS, sync state
 skillshare mcp check --live --timeout 30s --json     # Also start/call each server: serverInfo, protocol, tools
+skillshare mcp check docs --live --accept-tools      # Accept the tool definitions docs lists now as the baseline
 skillshare mcp serve [--target NAME] [--http ADDR [--tls-cert F --tls-key F]]  # Serve skills read-only over MCP (SEP-2640)
 skillshare mcp serve --check [--target NAME]         # List skills serve would skip, then exit
 ```
@@ -45,7 +46,8 @@ skillshare mcp serve --check [--target NAME]         # List skills serve would s
   fail with a message. See [Upgrading Pi from 0.22](#upgrading-pi-from-022).
 - Preview with `skillshare sync mcp --dry-run --json`, then apply with
   `skillshare sync mcp --revision <revision>` to reject a stale plan.
-- `mcp check [name...] [--json] [--no-dns]` is read-only; without `--live` it starts nothing. It exits 1
+- `mcp check [name...] [--json] [--no-dns]` writes no config file; without `--live` it starts nothing
+  and writes nothing. It exits 1
   on an error (unset `fromEnv` variable, command not on PATH, client rule, conflict);
   an unresolved host or an unsynced entry is only a warning. In global mode it also checks
   servers under `mcp.projects`; `--json` marks each with its `project` root.
@@ -53,6 +55,12 @@ skillshare mcp serve --check [--target NAME]         # List skills serve would s
   its `env`) and POSTs to each remote one, skipping servers with a static error. A 401 is a
   warning with the resource metadata URL; it never signs in. Use it only for trusted
   servers. `--json` adds `live: {protocolVersion, serverInfo, tools, toolNames}`.
+- `mcp check --live` also pins each tool's definition (hash of name, description and input
+  schema) on a server's first probe, in `mcp/tool-pins.json` of the state directory. Later
+  probes warn (`tool-change`) about a changed or new tool and note a removed one; the pin is
+  kept until `--accept-tools` (only with `--live`) re-baselines every probed server, so
+  review the changes first. An unreadable pin file is never rewritten; move it away to pin
+  again. Without `--live` the pins are untouched.
 - `mcp serve` serves skills to Agents that cannot reach the synced folders (VMs, MCP
   gateways): stdio by default, global unless `-p`. `--target NAME` applies that target's
   filters. Skipped skills (`SKILL.md` a link or not starting with frontmatter, name not matching

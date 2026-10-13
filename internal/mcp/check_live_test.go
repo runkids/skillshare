@@ -68,7 +68,11 @@ func TestMCPLiveHelperServer(t *testing.T) {
 			os.Exit(6)
 		}
 		switch {
-		case mode == "modern" && msg.Method == "server/discover":
+		case mode == "pinned" && msg.Method == "tools/list":
+			var tools []map[string]any
+			_ = json.Unmarshal([]byte(os.Getenv("MCP_LIVE_TOOLS")), &tools)
+			reply(msg.ID, map[string]any{"resultType": "complete", "tools": tools})
+		case (mode == "modern" || mode == "pinned") && msg.Method == "server/discover":
 			reply(msg.ID, map[string]any{"resultType": "complete", "supportedVersions": []string{"2026-07-28"}, "capabilities": map[string]any{"tools": map[string]any{}},
 				"_meta": map[string]any{"io.modelcontextprotocol/serverInfo": map[string]string{"name": "helper", "version": "1.2.3"}}})
 		case mode == "modern" && msg.Method == "tools/list" && msg.Params.Cursor == "":

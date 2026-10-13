@@ -58,6 +58,9 @@ type CheckOptions struct {
 	// Live starts each stdio server and sends requests to each remote one, after the
 	// static checks; nothing else in a check does either.
 	Live bool
+	// AcceptTools, with Live, records the tool definitions a probe returns as the new baseline
+	// instead of reporting how they differ from the old one.
+	AcceptTools bool
 	// Timeout bounds each live probe; zero means DefaultLiveTimeout.
 	Timeout time.Duration
 	// ClientVersion is the clientInfo version a live probe sends.

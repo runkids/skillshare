@@ -22,6 +22,7 @@ skillshare mcp list --json
 skillshare mcp check
 skillshare mcp check docs --json --no-dns
 skillshare mcp check --live --timeout 30s
+skillshare mcp check docs --live --accept-tools
 skillshare mcp remove docs --sync
 skillshare mcp remove docs --keep-files
 skillshare mcp restore BACKUP_ID --dry-run
@@ -52,6 +53,7 @@ skillshare sync --all
 | `--no-dns` | `check`와 함께 사용: 원격 서버의 호스트 조회를 건너뜀. [아래](#check-servers-before-an-agent-starts-them) 참고 |
 | `--live` | `check`와 함께 사용: 각 로컬 서버를 시작하고 각 원격 서버를 호출하는 검사도 수행. [아래](#probe-servers-live) 참고 |
 | `--timeout DURATION` | `check --live`와 함께 사용: 서버별 프로브 제한 시간 (예: `30s`); 기본값 `10s` |
+| `--accept-tools` | `check --live`와 함께 사용: 프로브한 각 서버가 나열한 도구 정의를 새 기준선으로 기록. [아래](#pin-tool-definitions) 참고 |
 | `--http ADDR` | `serve`와 함께 사용: stdio 대신 `ADDR`에서 Streamable HTTP를 수신. [아래](#serve-skills-over-mcp) 참고 |
 | `--tls-cert FILE`, `--tls-key FILE` | `serve --http`와 함께 사용: 이 PEM 인증서와 키로 HTTPS를 제공; loopback이 아니면 필수 |
 | `--check` | `serve`와 함께 사용: 건너뛸 skill과 그 이유를 나열하고 서버를 시작하지 않고 종료 |
@@ -649,7 +651,7 @@ warning으로는 실패하지 않습니다. 알 수 없는 서버 이름은 erro
 ```
 
 `check`는 `env`, `command`, `url`, `dns`, `client-rule`, `sync`, `targets`,
-`tools`, `live` 중 하나입니다.
+`tools`, `tool-change`, `live` 중 하나입니다.
 `target`은 Agent 또는 계정을 나타내며, 결과가 서버 자체에 관한 것이면 비어 있습니다.
 `subject`는 `env`, `command`, `dns` 결과에서 변수, 명령, 호스트를 나타내고, 성공한 `live` 프로브에서는
 서버가 보고한 이름을, `live` 로그인 warning에서는 resource metadata URL을 나타내며, 그 외에는 생략됩니다.
@@ -697,12 +699,15 @@ error가 있는 서버나 비활성화된 항목에는 접속하지 않으며, `
 | 원격 서버가 로그인을 요구함 (HTTP 401) | warning |
 | 명령을 시작할 수 없거나, 일찍 종료되었거나, 제한 시간 안에 응답하지 않음 | error |
 | 프로토콜 error, 지원되지 않는 프로토콜 버전, 또는 그 밖의 HTTP 상태 | error |
+| 서버에 대한 첫 성공한 프로브: 도구 정의가 고정됨 | info |
+| 도구의 description 또는 입력 스키마가 고정 내용과 다르거나, 고정되지 않은 도구를 서버가 나열함 | warning |
+| 고정된 도구가 더 이상 나열되지 않음 | info |
 
 로컬 서버가 실패하면 메시지 끝에 해당 서버 stderr의 최대 다섯 줄이 붙습니다. `env`, `headers`,
 `bearerToken`의 값은 모든 메시지에서 제거되며, 네 글자보다 짧은 값은 그대로 남습니다. 값은 작성된
 그대로 전달됩니다: Skillshare는 Pi `!command` 값을 실행하지 않으며 `piOptions`를 읽지 않습니다.
-종료 코드는 같은 규칙을 따르며, error가 하나라도 있으면 1입니다. `--live`는 파일도, 작업 로그
-항목도 쓰지 않습니다.
+종료 코드는 같은 규칙을 따르며, error가 하나라도 있으면 1입니다. `--live`는 설정 파일도, 작업 로그
+항목도 쓰지 않으며, state 디렉터리에 [도구 고정](#pin-tool-definitions)만 보관합니다.
 
 `--json`을 사용하면 응답한 서버에는 `live` 객체도 추가됩니다:
 
@@ -724,6 +729,34 @@ error가 있는 서버나 비활성화된 항목에는 접속하지 않으며, `
 한 군데뿐입니다: 서버 대화상자의 [도구 섹션](#tool-policy-dashboard)에 있는 **도구 불러오기**로,
 대화상자의 현재 입력값으로 서버를 한 번 시작해 도구 목록을 가져옵니다. `--json`을 사용하면 `live`에는
 `tools/list`가 반환한 이름인 `toolNames`도 들어갑니다.
+
+### 도구 정의 고정하기 {#pin-tool-definitions}
+
+서버는 사용자가 검토한 뒤에 도구가 설명하는 내용이나 받아들이는 입력을 바꿀 수 있고, Agent는 이를
+묻지 않고 그대로 따릅니다. 그래서 `--live`는 서버가 처음 응답할 때 각 도구를 고정하고, 이후의 모든 프로브를
+그 고정 내용과 비교합니다.
+
+- **고정되는 것.** 도구마다 `name`, `description`, `inputSchema`에 대한 SHA-256 해시 하나입니다. 해시는
+  정규화한 JSON으로 계산하므로 키 순서와 공백은 영향을 주지 않습니다. 해시는 범위(global, `mcp.projects`
+  root, 또는 `-p`가 선택하는 프로젝트)와 서버 이름별로 Skillshare state 디렉터리의 `mcp/tool-pins.json`
+  (`state.json` 옆)에 저장됩니다. description이나 스키마 텍스트는 저장되지 않습니다.
+- **첫 프로브.** 기준선을 기록하고, check가 `tool-change`인 `info` 결과 하나가 이를 알립니다. warning은
+  없습니다.
+- **이후 프로브.** description이나 입력 스키마가 바뀐 도구와 고정 이후에 새로 생긴 도구에는 각각 도구 이름을
+  나열한 `tool-change` `warning`이 붙습니다. 더 이상 나열되지 않는 도구는 `info`입니다. 기준선은 그대로
+  유지되므로, 수락할 때까지 같은 warning이 계속 나타납니다. warning 때문에 종료 코드가 1이 되지는
+  않습니다.
+- **수락.** 도구를 검토한 뒤 `skillshare mcp check docs --live --accept-tools`를 실행합니다. 프로브한 선택된
+  서버는 각각 지금 나열한 내용을 새 기준선으로 기록하며, `info` 결과가 변경, 추가, 삭제된 도구를
+  나열합니다. `--live` 없이 `--accept-tools`를 쓰면 error입니다. 이름은 전역과 각 `mcp.projects` root의
+  같은 이름 서버를 모두 선택하고 그 모두를 수락하므로, 보고서에 나온 서버를 하나씩 검토하세요. 읽을 수 없는
+  `tool-pins.json`(새 버전이 쓴 파일 포함)은 프로브한 각 서버에 대한 warning이 되며, 다른 서버의 고정을
+  담고 있을 수 있으므로 `--accept-tools`로도 다시 쓰지 않습니다. 다시 고정하려면 파일을 옮기세요.
+
+`--live` 없이는 고정 내용을 읽지도 쓰지도 않습니다. 편집한 서버(다른 명령, 다른 URL)나 삭제한 뒤 다시 추가한
+서버는 같은 이름으로 고정 내용을 그대로 유지합니다. 도구가 정당하게 달라졌다면 새 정의를 한 번 수락하세요.
+`GET /api/mcp/check?live=1`(대시보드 **검사** 버튼이 호출하는 엔드포인트이며, 버튼은
+`live`를 보내지 않습니다)도 고정하고 비교하지만 수락은 할 수 없습니다.
 
 ## Stop managing a server {#stop-managing-a-server}
 
@@ -885,7 +918,8 @@ npx @modelcontextprotocol/inspector --cli skillshare mcp serve --method skills/l
   VS Code로 동기화된 헤더와 `bearerToken` 참조는 해당 문제가 수정될 때까지 서버에
   해석되지 않은 채로 도달합니다.
 - 로컬 작업 기록은 Skillshare state 디렉터리의 `mcp/` 아래에 존재합니다:
-  `state.json`, 쓰기 중의 `pending.json`, 그리고 `backups/`(Agent 파일별 최신 20개).
+  `state.json`, 쓰기 중의 `pending.json`, `tool-pins.json`(`mcp check --live`의
+  [도구 고정](#pin-tool-definitions)), 그리고 `backups/`(Agent 파일별 최신 20개).
   이 디렉터리를 이식 가능한 매니페스트로 공유하지 마세요.
 
 

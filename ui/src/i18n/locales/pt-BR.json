@@ -87,6 +87,8 @@
   "mcp.check.finding.command": "O comando {subject} não foi encontrado. Confira se está instalado e no PATH.",
   "mcp.check.finding.dns": "Não foi possível resolver {subject}. A rede ou a URL pode estar errada.",
   "mcp.check.finding.notSynced": "Ainda não sincronizado. É gravado quando você clica em Sincronizar MCP.",
+  "mcp.check.finding.toolChanged": "A descrição ou o esquema de entrada de {tools} mudou desde que foi fixado. Revise e depois aceite com skillshare mcp check --live --accept-tools para este servidor.",
+  "mcp.check.finding.toolAdded": "Novas desde que foram fixadas: {tools}. Revise-as e depois aceite com skillshare mcp check --live --accept-tools para este servidor.",
   "mcp.check.tag.error": "{count} error",
   "mcp.check.tag.warning": "{count} warning",
   "mcp.transport": "Transporte",

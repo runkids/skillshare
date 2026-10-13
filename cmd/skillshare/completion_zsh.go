@@ -115,6 +115,7 @@ _skillshare() {
                         '--json[JSON output]' \
                         '--no-dns[Skip host lookups]' \
                         '--live[check: start or call each server]' \
+                        '--accept-tools[check --live: accept the tools a server lists as the new baseline]' \
                         '--timeout[check --live: per-server timeout]:duration:' \
                         '--http[serve: Streamable HTTP listen address]:address:' \
                         '--tls-cert[serve --http: TLS certificate file]:file:_files' \

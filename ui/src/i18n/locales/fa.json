@@ -87,6 +87,8 @@
   "mcp.check.finding.command": "دستور {subject} پیدا نشد. مطمئن شوید نصب شده و در PATH است.",
   "mcp.check.finding.dns": "{subject} قابل resolve نیست. شاید شبکه یا نشانی اشتباه باشد.",
   "mcp.check.finding.notSynced": "هنوز همگام‌سازی نشده است. بعد از زدن «همگام‌سازی MCP» نوشته می‌شود.",
+  "mcp.check.finding.toolChanged": "توضیح یا طرح‌وارهٔ ورودی {tools} پس از ثابت شدن تغییر کرده است. آن را بررسی کنید و سپس با skillshare mcp check --live --accept-tools برای این سرور بپذیرید.",
+  "mcp.check.finding.toolAdded": "ابزارهای تازه پس از ثابت شدن: {tools}. آن‌ها را بررسی کنید و سپس با skillshare mcp check --live --accept-tools برای این سرور بپذیرید.",
   "mcp.check.tag.error": "{count} error",
   "mcp.check.tag.warning": "{count} warning",
   "mcp.transport": "انتقال",

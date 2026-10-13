@@ -87,6 +87,8 @@
   "mcp.check.finding.command": "Command {subject} was not found. Make sure it is installed and on PATH.",
   "mcp.check.finding.dns": "Could not resolve {subject}. The network or the URL may be wrong.",
   "mcp.check.finding.notSynced": "Not synced yet. It is written after you press Sync MCP.",
+  "mcp.check.finding.toolChanged": "The description or input schema of {tools} changed since it was pinned. Review it, then accept it with skillshare mcp check --live --accept-tools for this server.",
+  "mcp.check.finding.toolAdded": "New since it was pinned: {tools}. Review them, then accept them with skillshare mcp check --live --accept-tools for this server.",
   "mcp.check.tag.error": "{count} error",
   "mcp.check.tag.warning": "{count} warning",
   "mcp.transport": "Transport",

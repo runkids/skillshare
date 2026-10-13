@@ -22,6 +22,7 @@ skillshare mcp list --json
 skillshare mcp check
 skillshare mcp check docs --json --no-dns
 skillshare mcp check --live --timeout 30s
+skillshare mcp check docs --live --accept-tools
 skillshare mcp remove docs --sync
 skillshare mcp remove docs --keep-files
 skillshare mcp restore BACKUP_ID --dry-run
@@ -52,6 +53,7 @@ skillshare sync --all
 | `--no-dns` | 搭配 `check` 使用：略過遠端 server 的主機名稱解析。參見[下方說明](#check-servers-before-an-agent-starts-them) |
 | `--live` | 搭配 `check` 使用：另外啟動每個本機 server，並呼叫每個遠端 server。參見[下方說明](#probe-servers-live) |
 | `--timeout DURATION` | 搭配 `check --live` 使用：每個 server 探測的時間上限，例如 `30s`；預設為 `10s` |
+| `--accept-tools` | 搭配 `check --live` 使用：把每個已探測 server 列出的工具定義記錄為新的基準。參見[下方說明](#pin-tool-definitions) |
 | `--http ADDR` | 搭配 `serve` 使用：在 `ADDR` 上以 Streamable HTTP 監聽，而不使用 stdio。參見[下方說明](#serve-skills-over-mcp) |
 | `--tls-cert FILE`, `--tls-key FILE` | 搭配 `serve --http` 使用：以這組 PEM 憑證與金鑰提供 HTTPS；非 loopback 位址必須設定 |
 | `--check` | 搭配 `serve` 使用：列出會被跳過的 skills 及原因，然後結束，不啟動服務 |
@@ -608,7 +610,7 @@ skillshare mcp check --no-dns
 }
 ```
 
-`check` 是 `env`、`command`、`url`、`dns`、`client-rule`、`sync`、`targets`、`tools` 或 `live` 其中之一。
+`check` 是 `env`、`command`、`url`、`dns`、`client-rule`、`sync`、`targets`、`tools`、`tool-change` 或 `live` 其中之一。
 `target` 表示 Agent 或帳號；當該項發現是針對 server 本身時則為空。
 `subject` 在 `env`、`command` 與 `dns` 發現中表示變數、指令或主機；在成功的 `live` 探測中表示 server
 回報的名稱；在 `live` 登入 warning 中表示 resource metadata URL；其他情況下省略。
@@ -652,11 +654,14 @@ skillshare mcp check docs --live --timeout 30s --json
 | 遠端 server 需要登入（HTTP 401） | warning |
 | 指令無法啟動、提早結束，或未在時限內回應 | error |
 | protocol error、不支援的 protocol 版本，或任何其他 HTTP 狀態 | error |
+| server 的首次成功探測：它的工具定義被釘選 | info |
+| 某個工具的 description 或輸入 schema 與釘選不同，或 server 列出了未被釘選的工具 | warning |
+| 已釘選的工具不再被列出 | info |
 
 本機 server 失敗時，訊息結尾會附上最多五行它的 stderr。`env`、`headers` 與 `bearerToken` 的值會從每則
 訊息中移除；短於四個字元的值則維持原樣。值會照原樣傳遞：Skillshare 永遠不會執行 Pi 的 `!command` 值，
-也不會讀取 `piOptions`。結束代碼遵循相同規則，只要發現任何 error 就是 1。`--live` 不會寫入任何檔案，
-也不會留下操作紀錄項目。
+也不會讀取 `piOptions`。結束代碼遵循相同規則，只要發現任何 error 就是 1。`--live` 不會寫入任何設定檔，
+也不會留下操作紀錄項目；它只會在 state 目錄中保存[工具釘選](#pin-tool-definitions)。
 
 使用 `--json` 時，有回應的 server 還會多一個 `live` 物件：
 
@@ -676,6 +681,31 @@ skillshare mcp check docs --live --timeout 30s --json
 dashboard 的 **檢查** 按鈕只執行靜態檢查。dashboard 只在一個地方探測 server：server 對話框
 [工具區塊](#tool-policy-dashboard)中的 **載入工具**，它會依對話框目前的欄位啟動 server 一次，
 列出它的工具。搭配 `--json` 時，`live` 也會包含 `toolNames`，即 `tools/list` 回傳的名稱。
+
+### 釘選工具定義 {#pin-tool-definitions}
+
+server 可能在你審閱之後修改某個工具的描述或它接受的輸入，而 Agent 會不經詢問就照做。因此 `--live` 會在
+server 第一次回應時釘選每個工具，並把之後每次探測都與該釘選比較。
+
+- **釘選的內容。** 每個工具一個 SHA-256 雜湊，涵蓋它的 `name`、`description` 與 `inputSchema`，
+  依正規化 JSON 計算：鍵的順序與空白不影響結果。雜湊依範圍（global、`mcp.projects` root，或 `-p` 選定
+  的 project）與 server 名稱存放在 Skillshare state 目錄的 `mcp/tool-pins.json`，位於 `state.json`
+  旁邊。不會儲存 description 或 schema 的文字。
+- **首次探測。** 記錄基準，並由一則 check 為 `tool-change` 的 `info` 發現說明。沒有 warning。
+- **之後的探測。** description 或輸入 schema 有變化的工具，以及釘選之後新增的工具，各會得到一則列出工具
+  名稱的 `tool-change` `warning`。不再被列出的工具是 `info`。基準維持不變，因此在你接受之前同樣的 warning
+  會一直出現。warning 不會讓結束代碼變成 1。
+- **接受。** 審閱這些工具後，執行 `skillshare mcp check docs --live --accept-tools`。每個被探測的已選
+  server 會把它現在列出的內容記錄為基準，並由一則 `info` 發現列出被變更、新增或移除的工具。
+  未搭配 `--live` 使用 `--accept-tools` 會是 error。名稱會選到全域和每個 `mcp.projects` root 中的同名
+  server，並全部接受，所以請逐一審閱報告列出的每一個。無法讀取的 `tool-pins.json`（包含較新版本寫入的）
+  會在每個被探測的 server 上產生 warning，而且因為它可能含有其他 server 的釘選，連 `--accept-tools`
+  也不會改寫它；要重新釘選，請把檔案移開。
+
+未搭配 `--live` 時既不會讀取也不會寫入釘選。你編輯過的 server（換了指令或 URL），或刪除後再新增的
+server，會以同一名稱保留它的釘選：如果它的工具確實有變化，接受一次新定義即可。
+`GET /api/mcp/check?live=1`（dashboard **檢查** 按鈕呼叫的端點，按鈕不會送出 `live`）
+也會釘選並比較，但不能接受。
 
 ## 停止管理某個 server {#stop-managing-a-server}
 
@@ -840,7 +870,8 @@ npx @modelcontextprotocol/inspector --cli skillshare mcp serve --method skills/l
   所以同步到 VS Code 的 header 與 `bearerToken` 參照，在此問題修復前
   會以未解析的原始值送達 server。
 - 本機操作紀錄存放在 Skillshare state 目錄的 `mcp/` 下：
-  `state.json`、寫入期間的 `pending.json`，以及 `backups/`（每個
+  `state.json`、寫入期間的 `pending.json`、`tool-pins.json`（`mcp check --live` 的
+  [工具釘選](#pin-tool-definitions)），以及 `backups/`（每個
   Agent 檔案保留最新 20 份）。請勿把這個
   目錄當作可攜式清單分享出去。
 

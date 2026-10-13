@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { MCPPlan } from '../../api/mcp';
-import { buildMatrix, denyRemovesAll, describeError, describeMessage, canImportConflict, groupByFile, isResolvable, joinCommand, projectFileTargets, mcpClient, mcpNotice, parsePiOptions, parseToolNotice, serverCount, setToolChecked, splitCommand, switchTargets, targetLabel, toolRules, toolSummary } from './mcpView';
+import { buildMatrix, denyRemovesAll, describeError, describeMessage, canImportConflict, groupByFile, isResolvable, joinCommand, projectFileTargets, mcpClient, mcpNotice, parsePiOptions, parseToolChange, parseToolNotice, serverCount, setToolChecked, splitCommand, switchTargets, targetLabel, toolRules, toolSummary } from './mcpView';
 import { mcpTargets } from '../../api/mcp';
 
 const change = (name: string, target: string, action: string, message?: string) => ({ name, target, action, message, path: `/${target}.json` });
 
 describe('MCP view helpers', () => {
+  it('reads the tools a tool-change warning names, and nothing else', () => {
+    expect(parseToolChange('description or input schema changed since it was pinned: read_file, search; review it, then run skillshare mcp check docs --live --accept-tools to accept')).toEqual({ key: 'mcp.check.finding.toolChanged', tools: 'read_file, search' });
+    expect(parseToolChange('new since it was pinned: exfiltrate; review it, then run skillshare mcp check docs --live --accept-tools to accept')).toEqual({ key: 'mcp.check.finding.toolAdded', tools: 'exfiltrate' });
+    expect(parseToolChange('could not save the tool baseline: permission denied')).toBeUndefined();
+  });
+
   it('gives the agy skills target the MCP file it shares with Antigravity', () => {
     expect(mcpClient('antigravity-cli')).toBe('antigravity');
   });

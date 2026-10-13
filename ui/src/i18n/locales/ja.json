@@ -87,6 +87,8 @@
   "mcp.check.finding.command": "コマンド {subject} が見つかりません。インストールされ、PATH にあるか確認してください。",
   "mcp.check.finding.dns": "{subject} を名前解決できません。ネットワークか URL が間違っている可能性があります。",
   "mcp.check.finding.notSynced": "まだ同期されていません。「MCP を同期」を押すと書き込まれます。",
+  "mcp.check.finding.toolChanged": "{tools} の説明または入力スキーマが固定後に変わりました。確認してから、このサーバーで skillshare mcp check --live --accept-tools を実行して受け入れてください。",
+  "mcp.check.finding.toolAdded": "固定後に追加されたツール：{tools}。確認してから、このサーバーで skillshare mcp check --live --accept-tools を実行して受け入れてください。",
   "mcp.check.tag.error": "{count} error",
   "mcp.check.tag.warning": "{count} warning",
   "mcp.transport": "トランスポート",

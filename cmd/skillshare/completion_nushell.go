@@ -89,6 +89,7 @@ export extern "skillshare mcp" [
     --json
     --no-dns # Skip host lookups
     --live # check: start or call each server
+    --accept-tools # check --live: accept the tools a server lists as the new baseline
     --timeout: string # check --live: per-server timeout, such as 10s
     --http: string # serve: Streamable HTTP listen address
     --tls-cert: string # serve --http: TLS certificate file

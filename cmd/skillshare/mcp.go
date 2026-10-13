@@ -387,7 +387,7 @@ func printMCPHelp() {
 			{"add [name]", "Guided setup, or --url URL / -- command args..."},
 			{"edit [name]", "Interactive editor, or update --url / --target / -- command"},
 			{"import [name]", "Import --from <client> or --file <JSON/TOML/YAML file>"},
-			{"check [name...]", "Verify variables, commands, hosts and sync state (--no-dns);\n--live also starts or calls each server [--timeout 10s]"},
+			{"check [name...]", "Verify variables, commands, hosts and sync state (--no-dns);\n--live also starts or calls each server [--timeout 10s] [--accept-tools]"},
 			{"remove [name]", "Select and remove a source entry; optionally sync removal,\nor stop managing it and keep its Agent entries (--keep-files)"},
 			{"restore [id]", "Browse backups, preview and restore Agent entries"},
 			{"serve", "Serve skills read-only over MCP (SEP-2640) on stdio, or\n--http <addr> [--tls-cert <file> --tls-key <file>] [--target <name>];\nglobal unless -p; --check lists skipped skills without serving"},

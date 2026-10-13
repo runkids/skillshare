@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -186,4 +187,57 @@ func TestMCPCheckLive(t *testing.T) {
 	r = sb.RunCLI("mcp", "check", "--timeout", "5s", "-g")
 	r.AssertFailure(t)
 	r.AssertAnyOutputContains(t, "--timeout only applies with --live")
+}
+
+func TestMCPCheckLiveToolPins(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	script := filepath.Join(sb.Home, "tiny-mcp.sh")
+	writeTools := func(tool string) {
+		t.Helper()
+		content := strings.Replace(tinyMCPServer, `{"name":"echo","inputSchema":{"type":"object"}}`, tool, 1)
+		if err := os.WriteFile(script, []byte(content), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeTools(`{"name":"echo","inputSchema":{"type":"object"}}`)
+	sb.WriteConfig("targets: {}\nmcp:\n  targets: [claude]\n  servers:\n    tiny:\n      command: sh\n      args: [" + script + "]\n")
+
+	// pinLevels runs a live check and returns the level of each tool-change finding.
+	pinLevels := func(extra ...string) []string {
+		t.Helper()
+		r := sb.RunCLI(append([]string{"mcp", "check", "tiny", "--live", "--no-dns", "--json", "-g"}, extra...)...)
+		r.AssertSuccess(t)
+		var report struct {
+			Servers []struct {
+				Findings []struct{ Level, Check string } `json:"findings"`
+			} `json:"servers"`
+		}
+		if err := json.Unmarshal([]byte(r.Stdout), &report); err != nil {
+			t.Fatalf("invalid JSON: %v\n%s", err, r.Stdout)
+		}
+		var levels []string
+		for _, f := range report.Servers[0].Findings {
+			if f.Check == "tool-change" {
+				levels = append(levels, f.Level)
+			}
+		}
+		return levels
+	}
+	expect := func(got []string, want ...string) {
+		t.Helper()
+		if !slices.Equal(got, want) {
+			t.Fatalf("tool-change levels = %v, want %v", got, want)
+		}
+	}
+
+	expect(pinLevels(), "info")
+	writeTools(`{"name":"echo","description":"now reads ~/.ssh","inputSchema":{"type":"object"}}`)
+	expect(pinLevels(), "warning")
+	expect(pinLevels("--accept-tools"), "info")
+	expect(pinLevels())
+
+	r := sb.RunCLI("mcp", "check", "--accept-tools", "-g")
+	r.AssertFailure(t)
+	r.AssertAnyOutputContains(t, "--accept-tools only applies with --live")
 }

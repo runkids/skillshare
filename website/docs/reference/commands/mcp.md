@@ -22,6 +22,7 @@ skillshare mcp list --json
 skillshare mcp check
 skillshare mcp check docs --json --no-dns
 skillshare mcp check --live --timeout 30s
+skillshare mcp check docs --live --accept-tools
 skillshare mcp remove docs --sync
 skillshare mcp remove docs --keep-files
 skillshare mcp restore BACKUP_ID --dry-run
@@ -52,6 +53,7 @@ skillshare sync --all
 | `--no-dns` | With `check`: skip the host lookup of remote servers. See [below](#check-servers-before-an-agent-starts-them) |
 | `--live` | With `check`: also start each local server and call each remote one. See [below](#probe-servers-live) |
 | `--timeout DURATION` | With `check --live`: time limit for each server's probe, such as `30s`; default `10s` |
+| `--accept-tools` | With `check --live`: record the tool definitions each probed server lists as its new baseline. See [below](#pin-tool-definitions) |
 | `--http ADDR` | With `serve`: listen for Streamable HTTP on `ADDR` instead of using stdio. See [below](#serve-skills-over-mcp) |
 | `--tls-cert FILE`, `--tls-key FILE` | With `serve --http`: serve HTTPS with this PEM certificate and key; required off loopback |
 | `--check` | With `serve`: list the skills it would skip and why, then exit without serving |
@@ -675,7 +677,7 @@ With `--json`, the report has this shape:
 ```
 
 `check` is one of `env`, `command`, `url`, `dns`, `client-rule`, `sync`, `targets`,
-`tools` or `live`.
+`tools`, `tool-change` or `live`.
 `target` names the Agent or account, and is empty when the finding is about the
 server itself.
 `subject` names the variable, command or host for `env`, `command` and `dns`
@@ -730,13 +732,17 @@ an error.
 | A remote server needs sign-in (HTTP 401) | warning |
 | The command could not start, exited early, or did not answer in time | error |
 | A protocol error, an unsupported protocol version, or any other HTTP status | error |
+| First successful probe of a server: its tool definitions are pinned | info |
+| A tool's description or input schema differs from the pin, or the server lists a tool that was not pinned | warning |
+| A pinned tool is no longer listed | info |
 
 When a local server fails, the message ends with up to five lines of its stderr. The
 values of `env`, `headers` and `bearerToken` are removed from every message; values
 shorter than four characters are left as they are. Values are passed as written:
 Skillshare never runs a Pi `!command` value and does not read `piOptions`. The exit
-code follows the same rule, 1 when any error is found. `--live` writes no file and no
-operation log entry.
+code follows the same rule, 1 when any error is found. `--live` writes no config file
+and no operation log entry; it keeps only the [tool pins](#pin-tool-definitions) in the
+state directory.
 
 With `--json`, a server that answered also gets a `live` object:
 
@@ -758,6 +764,38 @@ The dashboard's **Check** button runs the static check only. The dashboard probe
 server in one place: **Load tools** in the server dialog's
 [Tools section](#tool-policy-dashboard), which starts the server once, as the dialog's
 fields describe it, to list its tools. With `--json`, `live` also holds `toolNames`, the names `tools/list` returned.
+
+### Pin tool definitions {#pin-tool-definitions}
+
+A server can change what a tool says or accepts after you reviewed it, which an Agent
+then follows without asking. `--live` therefore pins each tool the first time a server
+answers, and compares every later probe with the pin.
+
+- **What is pinned.** One SHA-256 hash per tool over its `name`, `description` and
+  `inputSchema`, computed from canonical JSON: key order and whitespace do not matter.
+  The hashes are stored by scope (global, the `mcp.projects` root, or the project that
+  `-p` selects) and server name in `mcp/tool-pins.json` in the Skillshare state
+  directory, next to `state.json`. No description or schema text is stored.
+- **First probe.** The baseline is recorded and one `info` finding with check `tool-change`
+  says so. No warning.
+- **Later probes.** A tool whose description or input schema changed, and a tool that is
+  new since the pin, each get a `warning` named `tool-change` that lists the tool names. A
+  tool that is no longer listed is an `info`. The baseline stays as it was, so the same
+  warning appears until you accept it. Warnings do not make the exit code 1.
+- **Accept.** Review the tools, then run `skillshare mcp check docs --live --accept-tools`.
+  Every selected server that was probed records what it listed now as its baseline, and
+  an `info` finding lists the tools that changed, were added or removed. `--accept-tools`
+  without `--live` is an error. A name selects that server globally and in each
+  `mcp.projects` root, and each of them is accepted, so review every one the report lists.
+  An unreadable `tool-pins.json` (or one a newer version wrote) is a warning on each probed
+  server and is never rewritten, not even by `--accept-tools`, since it may hold other
+  servers' pins: move it away to pin again.
+
+Without `--live` the pins are neither read nor written. A server you edit (another
+command, another URL), or remove and add again, keeps its pins under the same name:
+accept the new definitions once if its tools legitimately differ.
+`GET /api/mcp/check?live=1` (the endpoint behind the dashboard's **Check** button, which
+does not send `live`) also pins and compares, but cannot accept.
 
 ## Stop managing a server {#stop-managing-a-server}
 
@@ -939,8 +977,9 @@ npx @modelcontextprotocol/inspector --cli skillshare mcp serve --method skills/l
   so header and `bearerToken` references synced to VS Code reach the server
   unresolved until that is fixed.
 - Local operation records live under the Skillshare state directory's `mcp/`:
-  `state.json`, `pending.json` during a write, and `backups/` (the newest 20 per
-  Agent file). Do not share this
+  `state.json`, `pending.json` during a write, `tool-pins.json` (the
+  [tool pins](#pin-tool-definitions) of `mcp check --live`), and `backups/` (the newest 20
+  per Agent file). Do not share this
   directory as a portable manifest.
 
 

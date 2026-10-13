@@ -58,6 +58,7 @@ func (s *Service) checkLive(source *Source, report *CheckReport, opts CheckOptio
 		timeout = DefaultLiveTimeout
 	}
 	slots := make(chan struct{}, liveConcurrency)
+	baseline := s.loadToolBaseline(len(report.Servers), opts.AcceptTools)
 	var wg sync.WaitGroup
 	for i := range report.Servers {
 		result := &report.Servers[i]
@@ -75,9 +76,13 @@ func (s *Service) checkLive(source *Source, report *CheckReport, opts CheckOptio
 			live, finding := p.run()
 			result.Live = live
 			result.Findings = append(result.Findings, finding)
+			if live != nil {
+				result.Findings = append(result.Findings, baseline.compare(i, result.Project, result.Name, p.toolHashes)...)
+			}
 		}()
 	}
 	wg.Wait()
+	baseline.save(s, report)
 }
 
 func liveSkipReason(server Server, findings []CheckFinding) string {
@@ -101,6 +106,8 @@ type liveProbe struct {
 	headers http.Header
 	// secrets are the resolved env, header and token values, longest first.
 	secrets []string
+	// toolHashes is each listed tool's definition hash by redacted name, set by a probe.
+	toolHashes map[string]string
 }
 
 func newLiveProbe(server Server, root string, timeout time.Duration, opts CheckOptions) *liveProbe {
@@ -191,9 +198,13 @@ func (p *liveProbe) probe() (*CheckLive, error) {
 	live.ProtocolVersion = p.redact(live.ProtocolVersion)
 	live.ServerInfo.Name = p.redact(live.ServerInfo.Name)
 	live.ServerInfo.Version = p.redact(live.ServerInfo.Version)
+	// The pin file is keyed by the redacted name, so a configured value never reaches it.
+	hashes := map[string]string{}
 	for i, name := range live.ToolNames {
 		live.ToolNames[i] = p.redact(name)
+		hashes[live.ToolNames[i]] = p.toolHashes[name]
 	}
+	p.toolHashes = hashes
 	return live, nil
 }
 
@@ -395,7 +406,7 @@ func (p *liveProbe) discover(ctx context.Context, conn rpcConn, wait time.Durati
 	}
 	live := &CheckLive{ProtocolVersion: liveProtocolVersion, ServerInfo: result.Meta.ServerInfo}
 	if _, ok := result.Capabilities["tools"]; ok {
-		live.ToolNames, err = listTools(ctx, conn, p.modernParams)
+		live.ToolNames, p.toolHashes, err = listTools(ctx, conn, p.modernParams)
 		live.Tools = len(live.ToolNames)
 	}
 	return live, err
@@ -423,7 +434,7 @@ func (p *liveProbe) initialize(ctx context.Context, conn rpcConn) (*CheckLive, e
 	live := &CheckLive{ProtocolVersion: result.ProtocolVersion, ServerInfo: result.ServerInfo}
 	if _, ok := result.Capabilities["tools"]; ok {
 		var err error
-		live.ToolNames, err = listTools(ctx, conn, func(cursor string) map[string]any {
+		live.ToolNames, p.toolHashes, err = listTools(ctx, conn, func(cursor string) map[string]any {
 			if cursor == "" {
 				return map[string]any{}
 			}
@@ -437,27 +448,27 @@ func (p *liveProbe) initialize(ctx context.Context, conn rpcConn) (*CheckLive, e
 	return live, nil
 }
 
-func listTools(ctx context.Context, conn rpcConn, params func(cursor string) map[string]any) ([]string, error) {
-	names, cursor := []string{}, ""
+// listTools returns the tool names and, by name, a hash of each tool's definition.
+func listTools(ctx context.Context, conn rpcConn, params func(cursor string) map[string]any) ([]string, map[string]string, error) {
+	names, hashes, cursor := []string{}, map[string]string{}, ""
 	for range liveMaxPages {
 		var page struct {
-			Tools []struct {
-				Name string `json:"name"`
-			} `json:"tools"`
-			NextCursor string `json:"nextCursor"`
+			Tools      []liveTool `json:"tools"`
+			NextCursor string     `json:"nextCursor"`
 		}
 		if err := callResult(ctx, conn, "tools/list", params(cursor), &page); err != nil {
-			return nil, fmt.Errorf("tools/list: %w", err)
+			return nil, nil, fmt.Errorf("tools/list: %w", err)
 		}
 		for _, tool := range page.Tools {
 			names = append(names, tool.Name)
+			hashes[tool.Name] = tool.hash()
 		}
 		if page.NextCursor == "" {
 			break
 		}
 		cursor = page.NextCursor
 	}
-	return names, nil
+	return names, hashes, nil
 }
 
 // stdio starts the server, probes it over stdin/stdout, and always stops it again.

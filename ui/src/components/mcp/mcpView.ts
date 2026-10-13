@@ -89,6 +89,20 @@ const conflictKeys: Record<string, string> = {
 
 const conflictPrefix = (message: string) => Object.keys(conflictKeys).find((k) => message.startsWith(k)) ?? '';
 
+// A live check's tool-change warnings, as internal/mcp/check_pins.go words them.
+const toolChangeKeys: Record<string, string> = {
+  'description or input schema changed since it was pinned: ': 'mcp.check.finding.toolChanged',
+  'new since it was pinned: ': 'mcp.check.finding.toolAdded',
+};
+const toolChangeReview = '; review it, then run ';
+
+/** The sentence key and tool names of a tool-change warning; undefined for any other message. */
+export const parseToolChange = (message: string) => {
+  const prefix = Object.keys(toolChangeKeys).find((p) => message.startsWith(p));
+  const end = message.indexOf(toolChangeReview);
+  return prefix && end > prefix.length ? { key: toolChangeKeys[prefix], tools: message.slice(prefix.length, end) } : undefined;
+};
+
 export const describeMessage = (t: (key: string) => string, message = '') => {
   const start = conflictPrefix(message);
   return start ? t(conflictKeys[start]) + message.slice(start.length) : message;

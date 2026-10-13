@@ -87,6 +87,8 @@
   "mcp.check.finding.command": "Perintah {subject} tidak ditemukan. Pastikan sudah terpasang dan ada di PATH.",
   "mcp.check.finding.dns": "Tidak dapat me-resolve {subject}. Jaringan atau URL mungkin salah.",
   "mcp.check.finding.notSynced": "Belum disinkronkan. Akan ditulis setelah Anda menekan Sinkronkan MCP.",
+  "mcp.check.finding.toolChanged": "Deskripsi atau skema input {tools} berubah sejak dikunci. Periksa, lalu terima dengan skillshare mcp check --live --accept-tools untuk server ini.",
+  "mcp.check.finding.toolAdded": "Baru sejak dikunci: {tools}. Periksa, lalu terima dengan skillshare mcp check --live --accept-tools untuk server ini.",
   "mcp.check.tag.error": "{count} error",
   "mcp.check.tag.warning": "{count} warning",
   "mcp.transport": "Transport",
