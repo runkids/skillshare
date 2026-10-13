@@ -11,21 +11,47 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ## [0.25.9] - 2026-10-13
 
-
-* **release:** request version 0.25.9 ([2a20005](https://github.com/runkids/skillshare/commit/2a20005e1f36de891eefe04c29d3e8a2fa863ed0))
-
-
 ### New Features
 
-* **mcp:** open an Agent's MCP config file from the dashboard ([#552](https://github.com/runkids/skillshare/issues/552)) ([7ee08b9](https://github.com/runkids/skillshare/commit/7ee08b913d53ef6d4ea33cd62724aae21336f643))
+#### Dashboard
 
+- **Open an Agent's MCP file from the MCP page** — each detected Agent on the MCP page now has **Open in editor** next to **Copy path**, which opens its MCP config file, such as `opencode.json` or `.cursor/mcp.json`. It uses the same editor as a skill's **Open in editor**: `$VISUAL` or `$EDITOR`, then an installed GUI editor, then the system default. The button shows only for files that exist and only when the dashboard is opened on the machine running it, since the editor starts there. Refs: #538.
 
 ### Bug Fixes
 
-* **config:** keep YAML anchors and aliases when a command writes the config ([#551](https://github.com/runkids/skillshare/issues/551)) ([2d5849a](https://github.com/runkids/skillshare/commit/2d5849a0efbdc8026ef8b07e144588aed92dfba5))
-* **plugin:** stop evaluating Pi rules whose meaning depends on the Pi version ([#549](https://github.com/runkids/skillshare/issues/549)) ([ffdf9e5](https://github.com/runkids/skillshare/commit/ffdf9e57ab13b4f1de0c17f90eec2c6928a5e400))
-* **sync:** limit project adoption writes to moved skills ([#548](https://github.com/runkids/skillshare/issues/548)) ([656437c](https://github.com/runkids/skillshare/commit/656437c2b589b74b9c74f42f6e9d0b01858f1090))
-* **ui:** accept a quoted editor path in $EDITOR ([#553](https://github.com/runkids/skillshare/issues/553)) ([9e935b3](https://github.com/runkids/skillshare/commit/9e935b35fb626216893709c6015b0938b622951a))
+#### Config
+
+- **Commands keep YAML anchors, aliases and merge keys** — a command that writes `config.yaml`, such as `skillshare target a --add-exclude 'old-*'`, wrote anchors under `targets` and `projects` out in full, so a target that shared a list through `*shared` got its own copy and stopped following later edits. Anchors, aliases and merge keys (`<<: *base`, `<<: [*a, *b]`) are now kept, along with their comments. Refs: #546.
+  ```yaml
+  targets:
+    a:
+      skills:
+        path: /tmp/a
+        include: &shared
+          - demo
+    b:
+      skills:
+        path: /tmp/b
+        include: *shared
+  ```
+  - Editing the anchored value still reaches every alias and every mapping that merges it, including a key added to or removed from it.
+  - A command that changes only an aliased or merged copy gives that copy its own value and leaves the anchor alone.
+  - Still written out: a merge source written inline without an anchor (`<<: {a: 1}`) and anchors defined inside one.
+
+#### Sync
+
+- **`sync -p` no longer rewrites the project config when nothing moved** — in project mode, a `.metadata.json` record whose folder was deleted by hand made sync look for moved skills, and that pass then added every remote install in the source folder to the project's `skills:` list, `.gitignore` and `skills.lock.json`. This hit projects whose source folder is shared with the global source. Sync now writes entries only for skills it actually found moved, and leaves the three files unchanged when none did. Refs: #547.
+
+#### Plugins
+
+- **Pi extension rules that depend on the Pi version show as unknown** — Pi 1.2.0 rewrites resource-filter patterns such as `~/…`, `file://…` and, on Windows, `~\…` and `/c/…` before matching, while older Pi compares them as written. Skillshare cannot tell which Pi will read the rules, so the dashboard now marks extensions decided by such a pattern as unknown and names the pattern, instead of guessing whether they load. Exact rules also follow Pi's own normalization now: a leading `.\` is dropped, and `\` becomes `/` on Windows.
+
+#### Dashboard
+
+- **Open in editor accepts a quoted editor path** — `$VISUAL` and `$EDITOR` can now hold a quoted path with spaces, so an editor outside `PATH` works on Windows. Refs: #538.
+  ```powershell
+  $env:EDITOR = '"C:\Program Files\Notepad++\notepad++.exe"'
+  ```
 
 ## [0.25.8] - 2026-10-12
 
