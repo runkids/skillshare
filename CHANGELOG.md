@@ -2,13 +2,12 @@
 
 ## [0.25.10] - 2026-10-13
 
-
-* **release:** request version 0.25.10 ([4fac71d](https://github.com/runkids/skillshare/commit/4fac71d53230c74ffb79de3fccba32b8a08e634a))
-
-
 ### New Features
 
-* **mcp:** open an Agent's MCP config folder, and project files, from the dashboard ([#554](https://github.com/runkids/skillshare/issues/554)) ([bfc402f](https://github.com/runkids/skillshare/commit/bfc402fe96e30c76f145831621d544db1b56fc96))
+#### Dashboard
+
+- **Open an Agent's MCP config folder** — each detected Agent on the MCP page now has **Open folder** next to **Open in editor** and **Copy path**. It opens the folder that holds the config file in the file manager (Finder, File Explorer, or the default handler on Linux), so you can open `opencode.json` or `.cursor/mcp.json` in any program without setting `$EDITOR`. Before the Agent has written its file, it opens the closest folder that exists. Like **Open in editor**, it shows only when the dashboard is opened on the machine running it. Refs: #538.
+- **A project's MCP files on its MCP tab** — on the **Projects** page, each project's **MCP** tab now lists that project's Agent files: the project's Agents, the ones its own servers go to, and any other whose file is already there. Each row shows the file name and **Copy path**, plus **Open folder** and **Open in editor** on the dashboard's machine. Refs: #538.
 
 ## [0.25.9] - 2026-10-13
 
