@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.25.10](https://github.com/runkids/skillshare/compare/v0.25.9...v0.25.10) (2026-10-13)
+
+
+* **release:** request version 0.25.10 ([4fac71d](https://github.com/runkids/skillshare/commit/4fac71d53230c74ffb79de3fccba32b8a08e634a))
+
+
+### New Features
+
+* **mcp:** open an Agent's MCP config folder, and project files, from the dashboard ([#554](https://github.com/runkids/skillshare/issues/554)) ([bfc402f](https://github.com/runkids/skillshare/commit/bfc402fe96e30c76f145831621d544db1b56fc96))
+
 ## [0.25.9] - 2026-10-13
 
 ### New Features
