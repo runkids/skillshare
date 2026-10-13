@@ -23,12 +23,14 @@ and `projects`. Merge keys were expanded the same way.
   sets itself are written out; editing the anchored mapping reaches a mapping
   that merges it (a key it gains included), and removing the anchored mapping
   writes the merged keys out
+- Comments on the items of a merge list, and on a key the command removed from
+  a mapping that is left with merged keys only, are not lost
 
 ## Environment
 
 Run inside the devcontainer with `ssenv` isolation (`--init`).
 mdproof replaces `$HOME`, so the config is reached through `$XDG_CONFIG_HOME`.
-mdproof's setup re-runs `init` before every step, so steps 6 to 11 each write
+mdproof's setup re-runs `init` before every step, so steps 6 to 13 each write
 their own config instead of relying on an earlier step.
 
 ## Steps
@@ -325,6 +327,78 @@ Expected:
 - agents-blocks=1
 - agent-copy=3
 
+### 12. Comments on the items of a merge list stay on them
+
+`alpha` and `beta` sort before `claude`, so their anchors stay where they are.
+
+```bash
+CFG=$XDG_CONFIG_HOME/skillshare/config.yaml
+cat > "$CFG" <<'YAML'
+sources:
+  skills: SRC/skills
+targets:
+  alpha: &a
+    skills:
+      path: HOME/.alpha/skills
+  beta: &b
+    agents:
+      path: HOME/.beta/agents
+  claude:
+    <<:
+      # about the first source
+      - *a # line a
+      - *b # line b
+    skills:
+      path: HOME/.claude/skills
+YAML
+sed -i "s|SRC|$XDG_CONFIG_HOME/skillshare|; s|HOME|$HOME|g" "$CFG"
+ss target claude --add-exclude 'old-*'
+echo "merges=$(grep -c '<<:' "$CFG")"
+echo "comments=$(grep -c -e '# about the first source' -e '# line a' -e '# line b' "$CFG")"
+echo "line-a=$(grep -c -e '- \*a # line a' "$CFG")"
+echo "line-b=$(grep -c -e '- \*b # line b' "$CFG")"
+```
+
+Expected:
+- exit_code: 0
+- merges=1
+- comments=3
+- line-a=1
+- line-b=1
+
+### 13. Comments of a removed key stay when only merged keys are left
+
+`claude` sets one key of its own, `exclude`, with comments around it. Removing
+it must not drop them, although the keys left in `claude` come from the merge.
+
+```bash
+CFG=$XDG_CONFIG_HOME/skillshare/config.yaml
+cat > "$CFG" <<'YAML'
+sources:
+  skills: SRC/skills
+targets:
+  base: &shared
+    skills:
+      path: HOME/.shared/skills
+      mode: copy
+  claude:
+    <<: *shared
+    # why the exclude
+    exclude:
+      - old-* # drop the old ones
+    # end of the exclude
+YAML
+sed -i "s|SRC|$XDG_CONFIG_HOME/skillshare|; s|HOME|$HOME|g" "$CFG"
+ss target claude --remove-exclude 'old-*'
+echo "merges=$(grep -c '<<:' "$CFG") exclude=$(grep -c 'exclude:' "$CFG")"
+echo "comments=$(grep -c -e '# why the exclude' -e '# drop the old ones' -e '# end of the exclude' "$CFG")"
+```
+
+Expected:
+- exit_code: 0
+- merges=1 exclude=0
+- comments=3
+
 ## Pass Criteria
 
 - Step 3: all 11 comments present after `target` set, schema header once.
@@ -340,3 +414,7 @@ Expected:
   the comment on the removed merge key is still in the file.
 - Step 11: both `<<:` keys and the anchor are still there, the new `agents`
   block is written once under `base`, and all three targets load it.
+- Step 12: the merge list is still there and each of its three comments is
+  written once, the line comments on the item they were on.
+- Step 13: the merge key is still there, `exclude` is gone, and its three
+  comments are all still in the file.

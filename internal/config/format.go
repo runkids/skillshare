@@ -96,6 +96,7 @@ func keepComments(m *yaml.Node, existing []byte) {
 		return
 	}
 	top := old.Content[0]
+	fixAnchorComments(top)
 	top.HeadComment = withoutSchemaDirective(joinComments(old.HeadComment, top.HeadComment))
 	for i := 0; i < len(top.Content); i += 2 {
 		top.Content[i].HeadComment = withoutSchemaDirective(top.Content[i].HeadComment)
@@ -104,6 +105,60 @@ func keepComments(m *yaml.Node, existing []byte) {
 	l := &links{pairs: map[*yaml.Node]*yaml.Node{}}
 	copyComments(top, m, l)
 	relinkAliases(m, l)
+	settleLineComments(m, false)
+}
+
+// fixAnchorComments gives the comment that follows an anchor on a block mapping
+// (`base: &base # shared`) a line of its own. yaml.v3 parses it as the line
+// comment of the mapping's first key, where it collides with the line comment
+// of that key's value, and only the value's is written.
+func fixAnchorComments(n *yaml.Node) {
+	if n.Kind == yaml.MappingNode && n.Anchor != "" && len(n.Content) >= 2 &&
+		n.Content[0].LineComment != "" && n.Content[1].Kind != yaml.MappingNode && n.Content[1].Kind != yaml.SequenceNode {
+		first := n.Content[0]
+		first.HeadComment = joinComments(first.LineComment, first.HeadComment)
+		first.LineComment = ""
+	}
+	for _, c := range n.Content {
+		fixAnchorComments(c)
+	}
+}
+
+// settleLineComments moves comments to where yaml.v3 writes them and the next
+// parse reads them back from the same place:
+//   - a block collection's line comment (what the comment of an alias written
+//     out as a copy, or of an anchor that moved onto it, becomes) is dropped, so
+//     it goes in front of the first entry;
+//   - so does the head comment of an anchored one, which would be written in
+//     front of its `- ` or key and parsed into it on the next write;
+//   - a key's line comment is lost or lands on the next key when its value is
+//     an empty collection, so it goes to the value; with an anchor on the value
+//     it is written after the anchor name's line, so it goes in front of the
+//     first entry.
+//
+// Inside a flow collection, which yaml.v3 writes for any node under it, comments
+// stay on their node.
+func settleLineComments(n *yaml.Node, inFlow bool) {
+	inFlow = inFlow || n.Style&yaml.FlowStyle != 0
+	for i, c := range n.Content {
+		isCollection := c.Kind == yaml.MappingNode || c.Kind == yaml.SequenceNode
+		empty := isCollection && len(c.Content) == 0
+		block := isCollection && !empty && c.Style&yaml.FlowStyle == 0 && !inFlow
+		if n.Kind == yaml.MappingNode && i%2 == 1 && (empty || block && c.Anchor != "") {
+			k := n.Content[i-1]
+			c.LineComment = joinComments(k.LineComment, c.LineComment)
+			k.LineComment = ""
+		}
+		if block {
+			lead := c.LineComment
+			if c.Anchor != "" {
+				lead, c.HeadComment = joinComments(c.HeadComment, lead), ""
+			}
+			c.Content[0].HeadComment = joinComments(lead, c.Content[0].HeadComment)
+			c.LineComment = ""
+		}
+		settleLineComments(c, inFlow)
+	}
 }
 
 // links records how the nodes of the replaced file map onto the new ones.
@@ -183,8 +238,13 @@ func copyComments(old, cur *yaml.Node, l *links) {
 	default:
 		return
 	}
-	// A trailing orphan goes on the last entry: yaml.v3 prints a container's
-	// own foot comment after the next key instead.
+	footOrphans(cur, orphaned)
+}
+
+// footOrphans puts the comments of removed entries that no entry follows on the
+// last entry of cur: yaml.v3 prints a container's own foot comment after the
+// next key instead.
+func footOrphans(cur *yaml.Node, orphaned string) {
 	switch {
 	case orphaned == "":
 	case cur.Kind == yaml.MappingNode && len(cur.Content) >= 2:
@@ -246,8 +306,9 @@ func relinkAliases(cur *yaml.Node, l *links) {
 		}
 		members.add(src, c, old.Value)
 	}
-	for _, e := range l.merges {
-		l.relinkMerge(e, members)
+	// relinkMerge may add entries: an inline merge source has merge keys of its own.
+	for i := 0; i < len(l.merges); i++ {
+		l.relinkMerge(l.merges[i], members)
 	}
 	var place func(n *yaml.Node)
 	place = func(n *yaml.Node) {
@@ -324,6 +385,10 @@ func (g *aliasGroup) place(n *yaml.Node) {
 //   - a source that was removed, or that has a key e.old had and e.cur lost, is
 //     not merged: its keys stay written out, because a merge could not drop them.
 //
+// Comments follow the entry they were on: a merge item's to the alias that
+// replaces it, and those of an item no longer merged or a key the merge now
+// supplies to the next entry still written, as copyComments does for a removed key.
+//
 // Decoded data cannot tell a key the command left alone from one it set to the
 // old merged value, so an edit that does both to the same key reads as left alone.
 func (l *links) relinkMerge(e mergeEntry, groups aliasGroups) {
@@ -336,8 +401,10 @@ func (l *links) relinkMerge(e mergeEntry, groups aliasGroups) {
 	type source struct {
 		node *yaml.Node
 		data map[string]any
+		item *yaml.Node // the merge item it came from, whose comments it keeps
 	}
 	var used []source
+	var dropped string
 	// follows reports for each key whether the first merge item that gave it
 	// before is still merged.
 	follows := map[string]bool{}
@@ -349,9 +416,20 @@ func (l *links) relinkMerge(e mergeEntry, groups aliasGroups) {
 		kept := false
 		if node := l.pairs[src]; node != nil && node.Kind == yaml.MappingNode && curData != nil {
 			if d := mapData(node); d != nil && !dropsKey(oldData, curData, d) {
-				used = append(used, source{node, d})
-				kept = true
+				// The comments of the items dropped in front of it head it.
+				item.HeadComment = joinComments(dropped, item.HeadComment)
+				used = append(used, source{node, d, item})
+				dropped, kept = "", true
+				if item == src {
+					// An inline source has no key of its own to pair its comments by.
+					body := *item
+					body.HeadComment, body.LineComment, body.FootComment = "", "", ""
+					copyComments(&body, node, l)
+				}
 			}
+		}
+		if !kept {
+			dropped = joinComments(dropped, allComments(item))
 		}
 		for k := range mapData(item) {
 			if _, seen := follows[k]; !seen {
@@ -386,12 +464,17 @@ func (l *links) relinkMerge(e mergeEntry, groups aliasGroups) {
 	// Every used node has its anchor by now: relinkAliases set it from the old file.
 	aliases := make([]*yaml.Node, len(used))
 	for n, s := range used {
-		aliases[n] = &yaml.Node{Kind: yaml.AliasNode, Value: s.node.Anchor, Alias: s.node}
+		aliases[n] = &yaml.Node{
+			Kind: yaml.AliasNode, Value: s.node.Anchor, Alias: s.node,
+			HeadComment: s.item.HeadComment, LineComment: s.item.LineComment, FootComment: s.item.FootComment,
+		}
 		groups.add(s.node, aliases[n], s.node.Anchor)
 	}
+	end := aliases[len(aliases)-1]
+	end.FootComment = joinComments(end.FootComment, dropped)
 	val := aliases[0]
 	if e.val.Kind == yaml.SequenceNode {
-		val = &yaml.Node{Kind: yaml.SequenceNode, Style: yaml.FlowStyle, Content: aliases}
+		val = &yaml.Node{Kind: yaml.SequenceNode, Style: e.val.Style & yaml.FlowStyle, Content: aliases}
 	}
 	val.HeadComment, val.LineComment, val.FootComment = e.val.HeadComment, e.val.LineComment, e.val.FootComment
 	// yaml.v3 prints a parsed merge key with its !!merge tag; the untagged
@@ -399,12 +482,25 @@ func (l *links) relinkMerge(e mergeEntry, groups aliasGroups) {
 	key := *e.key
 	key.Tag = ""
 	content := []*yaml.Node{&key, val}
+	var orphaned string
 	for i := 0; i+1 < len(e.cur.Content); i += 2 {
-		if !covered(e.cur.Content[i].Value) {
-			content = append(content, e.cur.Content[i], e.cur.Content[i+1])
+		k, v := e.cur.Content[i], e.cur.Content[i+1]
+		if covered(k.Value) {
+			orphaned = joinComments(orphaned, pairComments(k, v))
+			continue
 		}
+		k.HeadComment = joinComments(orphaned, k.HeadComment)
+		orphaned = ""
+		content = append(content, k, v)
 	}
 	e.cur.Content = content
+	if len(content) == 2 {
+		// A foot comment would follow the merged mapping when the anchor moves
+		// onto it, and be parsed into that mapping on the next write.
+		key.HeadComment = joinComments(key.HeadComment, orphaned)
+	} else {
+		footOrphans(e.cur, orphaned)
+	}
 }
 
 // mergeItems lists the sources of a merge key: its value, or the items of a list.

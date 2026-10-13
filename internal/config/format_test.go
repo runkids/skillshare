@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -858,5 +859,202 @@ func TestMarshalConfig_KeyRemovedFromChainedAnchorReachesLastMergingMapping(t *t
 	}
 	if m := cfg.Targets["claude"].Mode; m != "" {
 		t.Errorf("claude mode = %q, want none", m)
+	}
+}
+
+// assertCommentsOnce fails unless every `# marker` of existing (a single word
+// after the hash) is in got exactly once: a comment must neither be lost nor
+// written twice.
+func assertCommentsOnce(t *testing.T, existing, got string) {
+	t.Helper()
+	markers := regexp.MustCompile(`# [a-z0-9-]+`).FindAllString(existing, -1)
+	if len(markers) == 0 {
+		t.Fatal("fixture has no comments")
+	}
+	for _, m := range markers {
+		// A marker followed by a name character is another marker.
+		if n := len(regexp.MustCompile(regexp.QuoteMeta(m)+`(?:\s|$)`).FindAllString(got, -1)); n != 1 {
+			t.Errorf("comment %q is written %d times, want once:\n%s", m, n, got)
+		}
+	}
+}
+
+func TestMarshalConfig_CommentsOnMergeListItemsSurviveEdit(t *testing.T) {
+	existing := "targets:\n  a: &a\n    skills:\n      mode: copy\n  b: &b\n    agents:\n      path: /tmp/agents\n  claude:\n    <<:\n      # about-a\n      - *a # line-a\n      - *b # line-b\n      # foot-b\n    skills:\n      path: /tmp/claude\n"
+	got, _ := remarshalMerged(t, existing, schemaComment, func(c *Config) {
+		c.Mode = "copy"
+	})
+	assertCommentsOnce(t, existing, got)
+	if want := "    <<:\n      # about-a\n      - *a # line-a\n      - *b # line-b\n      # foot-b\n"; !strings.Contains(got, want) {
+		t.Errorf("items of the merge list should keep their comments in place:\n%s", got)
+	}
+}
+
+func TestMarshalConfig_CommentsOnFlowMergeListItemsSurviveEdit(t *testing.T) {
+	existing := "targets:\n  a: &a\n    skills:\n      mode: copy\n  b: &b\n    agents:\n      path: /tmp/agents\n  claude:\n    <<: [*a, # line-a\n      *b] # line-list\n"
+	got, _ := remarshalMerged(t, existing, schemaComment, func(c *Config) {
+		c.Mode = "copy"
+	})
+	assertCommentsOnce(t, existing, got)
+}
+
+const commentedMergeList = "targets:\n  a: &a\n    skills:\n      mode: copy\n  b: &b\n    agents:\n      path: /tmp/agents\n  claude:\n    <<:\n      - *a # line-a\n      - *b # line-b\n"
+
+func TestMarshalConfig_CommentOnRemovedMergeSourceMovesToNextItem(t *testing.T) {
+	existing := commentedMergeList
+	got, _ := remarshalConfig(t, existing, schemaComment, func(c *Config) {
+		delete(c.Targets, "a")
+	})
+	assertCommentsOnce(t, existing, got)
+	if want := "      # line-a\n      - *b # line-b\n"; !strings.Contains(got, want) {
+		t.Errorf("the comment of the dropped item should head the next one:\n%s", got)
+	}
+}
+
+func TestMarshalConfig_CommentOnLastRemovedMergeSourceEndsTheList(t *testing.T) {
+	existing := commentedMergeList
+	got, _ := remarshalConfig(t, existing, schemaComment, func(c *Config) {
+		delete(c.Targets, "b")
+	})
+	assertCommentsOnce(t, existing, got)
+	if want := "      - *a # line-a\n      # line-b\n"; !strings.Contains(got, want) {
+		t.Errorf("the comment of the dropped last item should follow the one before it:\n%s", got)
+	}
+}
+
+func TestMarshalConfig_CommentOnMergeSourceDroppedByClearedKeyIsKept(t *testing.T) {
+	// The command clears a key only a has, so a is no longer merged and b stays.
+	existing := "targets:\n  a: &a\n    path: /tmp/a\n  b: &b\n    mode: copy\n  claude:\n    <<:\n      - *a # line-a\n      - *b # line-b\n"
+	got, _ := remarshalConfig(t, existing, schemaComment, func(c *Config) {
+		editEntry(c.Targets, "claude", func(t *TargetConfig) { t.Path = "" })
+	})
+	assertCommentsOnce(t, existing, got)
+}
+
+func TestMarshalConfig_CommentsOfInlineMergeSourceFollowItsAnchor(t *testing.T) {
+	// zbase stands for the anchor an earlier write put on claude's merge key.
+	// Both writes must keep the comments of the mapping's own keys.
+	existing := "targets:\n  claude:\n    <<: &base # line-merge\n      # about-mode\n      skills:\n        mode: copy # line-mode\n    skills:\n      path: /tmp/claude\n  zbase: *base # line-alias\n"
+	got, _ := remarshalMerged(t, existing, schemaComment, func(c *Config) {
+		c.Mode = "copy"
+	})
+	assertCommentsOnce(t, existing, got)
+	again, _ := remarshalMerged(t, got, schemaComment, func(*Config) {})
+	assertCommentsOnce(t, existing, again)
+}
+
+func TestMarshalConfig_CommentOfRemovedLastLocalKeyStaysWhenOnlyMergedKeysRemain(t *testing.T) {
+	existing := "targets:\n  base: &base\n    path: /tmp/base\n    mode: copy\n  claude:\n    <<: *base\n    # about-files\n    files:\n      - a.md # line-files\n    # foot-files\n"
+	got, _ := remarshalMerged(t, existing, schemaComment, func(c *Config) {
+		editEntry(c.Targets, "claude", func(t *TargetConfig) { t.Files = nil })
+	})
+	assertCommentsOnce(t, existing, got)
+	if want := "  claude:\n    # about-files\n    # line-files\n    # foot-files\n    <<: *base\n"; !strings.Contains(got, want) {
+		t.Errorf("claude should keep only its merge key, with the comments in front:\n%s", got)
+	}
+}
+
+func TestMarshalConfig_CommentOfRemovedKeyFollowsLastKeptKeyWhenMergedKeysFollow(t *testing.T) {
+	// path is local and kept; the removed key's comments would land on the
+	// last key, which the merge supplies, and must follow path instead.
+	existing := "targets:\n  base: &base\n    mode: copy\n    include: [x]\n  claude:\n    <<: *base\n    path: /tmp/claude # line-path\n    files:\n      - a.md # line-files\n    # foot-files\n"
+	got, _ := remarshalMerged(t, existing, schemaComment, func(c *Config) {
+		editEntry(c.Targets, "claude", func(t *TargetConfig) { t.Files = nil })
+	})
+	assertCommentsOnce(t, existing, got)
+	if want := "    path: /tmp/claude # line-path\n    # line-files\n    # foot-files\n"; !strings.Contains(got, want) {
+		t.Errorf("the comments should follow the last kept key:\n%s", got)
+	}
+}
+
+func TestMarshalConfig_CommentAfterAnchorKeepsFirstKeyComment(t *testing.T) {
+	// yaml.v3 parses the comment after an anchor as the line comment of the
+	// first key, which then collides with the one on that key's value.
+	existing := "targets:\n  base: &base # line-anchor\n    # about-path\n    path: /tmp/base # line-path\n    mode: copy\n  claude:\n    <<: *base\n"
+	got, _ := remarshalMerged(t, existing, schemaComment, func(c *Config) {
+		c.Mode = "copy"
+	})
+	assertCommentsOnce(t, existing, got)
+	if want := "  base: &base\n    # line-anchor\n    # about-path\n    path: /tmp/base # line-path\n"; !strings.Contains(got, want) {
+		t.Errorf("the comment after the anchor should head the first key, not follow another key:\n%s", got)
+	}
+}
+
+func TestMarshalConfig_CommentAfterAnchorOfMergingMappingIsKept(t *testing.T) {
+	// The anchored mapping's first key is a merge key, whose value is an alias.
+	existing := "targets:\n  b1: &b1\n    path: /tmp/b1\n  b2: &b2 # line-anchor\n    # about-merge\n    <<: *b1 # line-merge\n    mode: copy\n  claude:\n    <<: *b2\n"
+	got, _ := remarshalMerged(t, existing, schemaComment, func(c *Config) {
+		c.Mode = "copy"
+	})
+	assertCommentsOnce(t, existing, got)
+	if want := "  b2: &b2\n    # line-anchor\n    # about-merge\n    <<: *b1 # line-merge\n"; !strings.Contains(got, want) {
+		t.Errorf("the comment after the anchor should head the merge key:\n%s", got)
+	}
+}
+
+func TestMarshalConfig_CommentOnAliasEditedIntoOwnCopyIsKept(t *testing.T) {
+	existing := "targets:\n  a: &a\n    skills:\n      mode: copy\n  b: *a # line-alias\n"
+	got, _ := remarshalConfig(t, existing, schemaComment, func(c *Config) {
+		c.Targets["b"].Skills.Mode = "symlink"
+	})
+	assertCommentsOnce(t, existing, got)
+}
+
+func TestMarshalConfig_CommentOnMergeKeyFollowsMovedAnchor(t *testing.T) {
+	// claude sorts before zbase, so the anchor moves onto its merge key, which
+	// then holds a block mapping that has no place for a line comment.
+	existing := "targets:\n  zbase: &base # line-anchor\n    # about-path\n    path: /tmp/base # line-path\n  claude:\n    <<: *base # line-merge\n    skills:\n      path: /tmp/claude\n"
+	got, _ := remarshalMerged(t, existing, schemaComment, func(c *Config) {
+		c.Mode = "copy"
+	})
+	assertCommentsOnce(t, existing, got)
+	again, _ := remarshalMerged(t, got, schemaComment, func(*Config) {})
+	assertCommentsOnce(t, existing, again)
+}
+
+func TestMarshalConfig_CommentOnKeyEmptiedByEditIsKept(t *testing.T) {
+	existing := "targets:\n  claude: # line-claude\n    path: /tmp/claude # line-path\n  codex:\n    path: /tmp/codex\n"
+	got, _ := remarshalConfig(t, existing, schemaComment, func(c *Config) {
+		c.Targets["claude"] = TargetConfig{}
+	})
+	assertCommentsOnce(t, existing, got)
+	if want := "  claude: {} # line-claude\n"; !strings.Contains(got, want) {
+		t.Errorf("the key's comment should follow its empty value:\n%s", got)
+	}
+}
+
+func TestMarshalConfig_CommentsOfMergeKeyInsideInlineSourceAreKept(t *testing.T) {
+	// The merged mapping is written inline on claude's merge key and merges a
+	// mapping itself; zbase is the alias an earlier write left of its anchor.
+	existing := "targets:\n  b1: &b1\n    path: /tmp/b1\n  claude:\n    <<: &mid\n      # about-merge\n      <<: *b1 # line-merge\n      mode: copy # line-mode\n    skills:\n      path: /tmp/claude\n  zmid: *mid\n"
+	got, _ := remarshalMerged(t, existing, schemaComment, func(c *Config) {
+		c.Mode = "copy"
+	})
+	assertCommentsOnce(t, existing, got)
+}
+
+func TestMarshalConfig_CommentsOnMergeListItemsStayPutWhenAnchorsMoveOntoThem(t *testing.T) {
+	// za and zb sort after claude, so their anchors move onto its merge items.
+	existing := "targets:\n  za: &a\n    skills:\n      mode: copy\n  zb: &b\n    agents:\n      path: /tmp/agents\n  claude:\n    <<:\n      # about-a\n      - *a # line-a\n      - *b # line-b\n"
+	got, _ := remarshalMerged(t, existing, schemaComment, func(c *Config) {
+		c.Mode = "copy"
+	})
+	assertCommentsOnce(t, existing, got)
+	if again, _ := remarshalMerged(t, got, schemaComment, func(*Config) {}); again != got {
+		t.Errorf("a second write should keep every comment where it is:\n%s\nthen:\n%s", got, again)
+	}
+}
+
+func TestMarshalConfig_CommentsOfRemovedKeyStayOnMergeKeyWhenAnchorMovesOntoIt(t *testing.T) {
+	existing := "targets:\n  zshared: &shared\n    skills:\n      path: /tmp/shared\n  claude:\n    <<: *shared\n    # about-files\n    files:\n      - a.md # line-files\n    # foot-files\n"
+	got, _ := remarshalMerged(t, existing, schemaComment, func(c *Config) {
+		editEntry(c.Targets, "claude", func(t *TargetConfig) { t.Files = nil })
+	})
+	assertCommentsOnce(t, existing, got)
+	if again, _ := remarshalMerged(t, got, schemaComment, func(*Config) {}); again != got {
+		t.Errorf("a second write should keep the comments on claude:\n%s\nthen:\n%s", got, again)
+	}
+	if strings.Index(got, "# foot-files") > strings.Index(got, "<<:") {
+		t.Errorf("the comments should stay in front of the merge key, not move into the merged mapping:\n%s", got)
 	}
 }
