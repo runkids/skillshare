@@ -66,7 +66,7 @@ mcp:
   servers:
     context7:
       command: npx
-      args: ["-y", "@upstash/context7-mcp"]
+      args: ["-y", "@upstash/context7-mcp@4.4.1"]
       targets: [opencode]
   projects:
     ~/work/project01:

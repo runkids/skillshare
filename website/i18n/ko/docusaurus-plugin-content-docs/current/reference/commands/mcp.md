@@ -480,7 +480,7 @@ mcp:
   servers:
     context7:
       command: npx
-      args: ["-y", "@upstash/context7-mcp"]
+      args: ["-y", "@upstash/context7-mcp@4.4.1"]
       targets: [claude, opencode]
   projects:
     ~/work/project01:
@@ -600,7 +600,7 @@ skillshare mcp check --no-dns
 |---|---|
 | `env`, `headers`, `bearerToken`의 `fromEnv` 변수가 설정되지 않았거나 비어 있음 | error |
 | 로컬 서버의 `command`를 `PATH`에서 찾을 수 없음 (앞의 `~/`는 확장됨) | error |
-| 로컬 서버가 `npx`, `uvx`, `pipx run`, `docker run`, `podman run`으로 실행하는 패키지 또는 이미지에 버전이 없거나 `latest`임 | warning |
+| 로컬 서버가 `npx`, `uvx`, `pipx run`, `docker run`, `podman run`으로 실행하는 패키지에 정확한 버전이 없음(없음, `latest`, `next` 같은 dist-tag, `^1.2` 같은 범위, `==1.*` 와일드카드. npx의 각 `--package`와 uvx `--with` 포함), 또는 이미지에 태그가 없거나 `latest`임 | warning |
 | 로컬 서버의 이미지에 tag는 있지만 `@sha256:` digest가 없어 tag가 바뀔 수 있음 | info |
 | 원격 서버의 호스트가 DNS로 조회되지 않음 (제한 3초, `--no-dns`로 건너뜀) | warning |
 | Agent의 규칙이 서버를 거부함 (예: Claude Code가 예약한 이름) | error |

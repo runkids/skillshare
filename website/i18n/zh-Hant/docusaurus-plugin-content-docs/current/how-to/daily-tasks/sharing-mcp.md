@@ -21,7 +21,7 @@ mcp:
   servers:
     playwright:
       command: npx
-      args: ["-y", "@playwright/mcp@latest"]
+      args: ["-y", "@playwright/mcp@0.0.83"]
       targets: [amp, gemini, kiro]
 ```
 

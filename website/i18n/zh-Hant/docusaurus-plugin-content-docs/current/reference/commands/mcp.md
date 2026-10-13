@@ -445,7 +445,7 @@ mcp:
   servers:
     context7:
       command: npx
-      args: ["-y", "@upstash/context7-mcp"]
+      args: ["-y", "@upstash/context7-mcp@4.4.1"]
       targets: [claude, opencode]
   projects:
     ~/work/project01:
@@ -561,7 +561,7 @@ skillshare mcp check --no-dns
 |---|---|
 | `env`、`headers` 或 `bearerToken` 中的 `fromEnv` 變數未設定或為空 | error |
 | 在 `PATH` 上找不到本機 server 的 `command`（開頭的 `~/` 會被展開） | error |
-| 本機 server 以 `npx`、`uvx`、`pipx run`、`docker run` 或 `podman run` 執行的套件或映像沒有版本或為 `latest` | warning |
+| 本機 server 以 `npx`、`uvx`、`pipx run`、`docker run` 或 `podman run` 執行的套件沒有確切版本（未指定、`latest`、`next` 之類的 dist-tag、`^1.2` 之類的範圍或 `==1.*` 萬用字元，包含 npx 的每個 `--package` 和 uvx 的 `--with`），或映像沒有標籤或為 `latest` | warning |
 | 本機 server 的映像有 tag 但沒有 `@sha256:` digest，tag 可能被移動 | info |
 | 遠端 server 的主機無法透過 DNS 解析（限時 3 秒；可用 `--no-dns` 略過） | warning |
 | 某個 Agent 的規則拒絕該 server，例如 Claude Code 保留的名稱 | error |

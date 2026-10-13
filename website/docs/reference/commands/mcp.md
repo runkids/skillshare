@@ -505,7 +505,7 @@ mcp:
   servers:
     context7:
       command: npx
-      args: ["-y", "@upstash/context7-mcp"]
+      args: ["-y", "@upstash/context7-mcp@4.4.1"]
       targets: [claude, opencode]
   projects:
     ~/work/project01:
@@ -626,7 +626,7 @@ HTTP request, runs a command or writes a file, unless you add [`--live`](#probe-
 |---|---|
 | A `fromEnv` variable in `env`, `headers` or `bearerToken` is unset or empty | error |
 | A local server's `command` is not found on `PATH` (a leading `~/` is expanded) | error |
-| A local server runs `npx`, `uvx`, `pipx run`, `docker run` or `podman run` on a package or image with no version or `latest` | warning |
+| A local server runs `npx`, `uvx`, `pipx run`, `docker run` or `podman run` on a package without an exact version (none, `latest`, a dist-tag such as `next`, a range such as `^1.2`, or a `==1.*` wildcard), including each npx `--package` and uvx `--with`, or on an image with no tag or `latest` | warning |
 | A local server's image has a tag but no `@sha256:` digest, so the tag can move | info |
 | A remote server's host does not resolve through DNS (3-second limit; skip with `--no-dns`) | warning |
 | An Agent's rule refuses the server, such as a name Claude Code reserves | error |

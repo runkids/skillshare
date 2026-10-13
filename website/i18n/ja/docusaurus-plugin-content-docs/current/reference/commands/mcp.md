@@ -371,7 +371,7 @@ mcp:
   servers:
     context7:
       command: npx
-      args: ["-y", "@upstash/context7-mcp"]
+      args: ["-y", "@upstash/context7-mcp@4.4.1"]
       targets: [claude, opencode]
   projects:
     ~/work/project01:
@@ -485,7 +485,7 @@ HTTP リクエストの送信、コマンドの実行、ファイルの書き込
 |---|---|
 | `env`、`headers`、`bearerToken` 内の `fromEnv` 変数が未設定または空 | error |
 | ローカルサーバーの `command` が `PATH` 上に見つからない(先頭の `~/` は展開される) | error |
-| ローカルサーバーが `npx`、`uvx`、`pipx run`、`docker run`、`podman run` で実行するパッケージまたはイメージにバージョンがない、または `latest` | warning |
+| ローカルサーバーが `npx`、`uvx`、`pipx run`、`docker run`、`podman run` で実行するパッケージに正確なバージョンがない（未指定、`latest`、`next` などの dist-tag、`^1.2` などの範囲、`==1.*` のワイルドカード。npx の各 `--package` と uvx の `--with` も含む）、またはイメージにタグがない、または `latest` | warning |
 | ローカルサーバーのイメージにタグはあるが `@sha256:` ダイジェストがなく、タグが移動しうる | info |
 | リモートサーバーのホストが DNS で解決できない(制限は 3 秒。`--no-dns` でスキップ) | warning |
 | Agent のルールがサーバーを拒否する(Claude Code が予約している名前など) | error |

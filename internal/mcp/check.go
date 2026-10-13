@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -261,6 +262,9 @@ var (
 		"--cap-add", "--cap-drop", "--security-opt", "--pull", "--tmpfs", "--device", "--add-host", "--ulimit", "--cpus", "--shm-size", "--log-driver", "--log-opt", "--cidfile", "--ipc", "--pid", "--restart", "--runtime", "--gpus", "--dns", "--label-file", "--group-add", "--stop-signal", "--stop-timeout", "--health-cmd"}
 )
 
+// exactNpmVersion is a pinned npm version: exact semver, not a dist-tag or range (as Pi pins).
+var exactNpmVersion = regexp.MustCompile(`^v?\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$`)
+
 // checkPin warns when a stdio server's launcher fetches code at every start without a pinned
 // version. It reads only command and args; a launcher it does not know yields nothing.
 // shortcut: no support for launcher flags beyond the lists above, extend them when one shows up.
@@ -293,7 +297,7 @@ func checkPin(server Server) []CheckFinding {
 			if i := strings.LastIndex(pkg, "@"); i > 0 { // i == 0 is only the scope
 				name, version = pkg[:i], pkg[i+1:]
 			}
-			if version == "" || version == "latest" {
+			if !exactNpmVersion.MatchString(version) {
 				out = append(out, finding("warning", name, fmt.Sprintf("npx runs %s without a pinned version; pin it, e.g. %s@<version>", name, name))...)
 			}
 		}
@@ -316,7 +320,10 @@ func checkPin(server Server) []CheckFinding {
 		for _, spec := range append([]string{command}, withs...) {
 			// Only the requirement counts: an environment marker after ';' can hold its own ==.
 			requirement := strings.TrimSpace(strings.SplitN(spec, ";", 2)[0])
-			if !remote(requirement) || strings.Contains(requirement, "==") || (strings.Contains(requirement, "@") && !strings.HasSuffix(requirement, "@latest")) {
+			// == pins unless it ends in a .* prefix match; uvx's tool@version is exact too.
+			_, equal, pinned := strings.Cut(requirement, "==")
+			_, at, versioned := strings.Cut(requirement, "@")
+			if !remote(requirement) || pinned && !strings.Contains(equal, "*") || versioned && at != "" && at != "latest" {
 				continue
 			}
 			name := requirement

@@ -11,7 +11,7 @@ which runs Skillshare's own read-only skills server.
 ```bash
 skillshare mcp --no-tui                             # Plain status (bare mcp opens the TUI)
 skillshare mcp add docs --url https://example.com/mcp --target claude --sync --no-tui
-skillshare mcp add local --target claude --no-tui -- npx -y @modelcontextprotocol/server-filesystem /path/to/docs
+skillshare mcp add local --target claude --no-tui -- npx -y @modelcontextprotocol/server-filesystem@1.0.0 /path/to/docs
 skillshare mcp edit docs --url https://updated.example/mcp --no-tui
 skillshare mcp import --from claude --json           # Inspect candidates without saving
 skillshare mcp import docs --from claude --target claude --sync --no-tui
@@ -88,7 +88,7 @@ mcp:
         X-Api-Key: {fromEnv: DOCS_KEY}     # a reference, never the secret itself
     files:
       command: npx
-      args: ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/docs"]
+      args: ["-y", "@modelcontextprotocol/server-filesystem@1.0.0", "/path/to/docs"]
       targets: [claude, opencode]
 ```
 
@@ -399,7 +399,7 @@ mcp:
   servers:
     context7:
       command: npx
-      args: ["-y", "@upstash/context7-mcp"]
+      args: ["-y", "@upstash/context7-mcp@4.4.1"]
   projects:
     ~/work/project01:
       servers:
