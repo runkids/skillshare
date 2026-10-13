@@ -137,26 +137,26 @@ func mcpCheckHasWarning(server mcp.CheckServer) bool {
 	return false
 }
 
-// logMCPAcceptTools records which servers' tool baselines --accept-tools replaced, so a later
-// review can tell when a changed definition was approved. A server whose new baseline could not
-// be saved is listed as failed, not accepted.
+// logMCPAcceptTools records which servers' tool baselines --accept-tools recorded, so a later
+// review can tell when a changed definition was approved. A first pin counts too. A server
+// with an error, or whose baseline could not be saved, is listed as failed, and so is the entry.
 func logMCPAcceptTools(path string, start time.Time, report *mcp.CheckReport, err error) {
-	status := statusFromErr(err)
-	entry := oplog.NewEntry("mcp check --accept-tools", status, time.Since(start))
+	entry := oplog.NewEntry("mcp check --accept-tools", statusFromErr(err), time.Since(start))
 	if report != nil {
 		var accepted, failed []string
 		for _, server := range report.Servers {
 			name := strings.TrimSpace(server.Name + " " + server.Project)
-			saved, accepting := true, false
+			recorded, ok := false, true
 			for _, f := range server.Findings {
-				accepting = accepting || f.Check == "tool-change" && strings.HasPrefix(f.Message, "accepted ")
-				saved = saved && !(f.Check == "tool-change" && strings.HasPrefix(f.Message, "could not save the tool baseline"))
+				pin := f.Check == "tool-change"
+				recorded = recorded || pin && (strings.HasPrefix(f.Message, "accepted ") || strings.HasPrefix(f.Message, "pinned "))
+				ok = ok && f.Level != "error" && !(pin && strings.HasPrefix(f.Message, "could not save the tool baseline"))
 			}
 			switch {
-			case accepting && saved:
-				accepted = append(accepted, name)
-			case accepting:
+			case !ok:
 				failed = append(failed, name)
+			case recorded:
+				accepted = append(accepted, name)
 			}
 		}
 		entry.Args = map[string]any{"accepted": accepted}

@@ -27,3 +27,21 @@ func TestLogMCPAcceptToolsListsUnsavedBaselinesAsFailed(t *testing.T) {
 		t.Fatalf("entry = %+v", e)
 	}
 }
+
+func TestLogMCPAcceptToolsCountsFirstPinsAndReportErrors(t *testing.T) {
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	report := &mcp.CheckReport{Servers: []mcp.CheckServer{
+		{Name: "new", Findings: []mcp.CheckFinding{{Level: "info", Check: "tool-change", Message: "pinned 2 tool definition(s) as the baseline"}}},
+		{Name: "broken", Findings: []mcp.CheckFinding{{Level: "error", Check: "command", Message: "command nope was not found on PATH"}}},
+	}}
+	logMCPAcceptTools(cfgPath, time.Now(), report, nil)
+
+	entries, err := oplog.Read(cfgPath, oplog.OpsFile, 1)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("entries = %+v, err = %v", entries, err)
+	}
+	e := entries[0]
+	if e.Status != "error" || e.Args["accepted"].([]any)[0] != "new" || e.Args["failed"].([]any)[0] != "broken" {
+		t.Fatalf("entry = %+v", e)
+	}
+}
