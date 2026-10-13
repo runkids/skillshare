@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.25.9](https://github.com/runkids/skillshare/compare/v0.25.8...v0.25.9) (2026-10-13)
+
+
+* **release:** request version 0.25.9 ([2a20005](https://github.com/runkids/skillshare/commit/2a20005e1f36de891eefe04c29d3e8a2fa863ed0))
+
+
+### New Features
+
+* **mcp:** open an Agent's MCP config file from the dashboard ([#552](https://github.com/runkids/skillshare/issues/552)) ([7ee08b9](https://github.com/runkids/skillshare/commit/7ee08b913d53ef6d4ea33cd62724aae21336f643))
+
+
+### Bug Fixes
+
+* **config:** keep YAML anchors and aliases when a command writes the config ([#551](https://github.com/runkids/skillshare/issues/551)) ([2d5849a](https://github.com/runkids/skillshare/commit/2d5849a0efbdc8026ef8b07e144588aed92dfba5))
+* **plugin:** stop evaluating Pi rules whose meaning depends on the Pi version ([#549](https://github.com/runkids/skillshare/issues/549)) ([ffdf9e5](https://github.com/runkids/skillshare/commit/ffdf9e57ab13b4f1de0c17f90eec2c6928a5e400))
+* **sync:** limit project adoption writes to moved skills ([#548](https://github.com/runkids/skillshare/issues/548)) ([656437c](https://github.com/runkids/skillshare/commit/656437c2b589b74b9c74f42f6e9d0b01858f1090))
+* **ui:** accept a quoted editor path in $EDITOR ([#553](https://github.com/runkids/skillshare/issues/553)) ([9e935b3](https://github.com/runkids/skillshare/commit/9e935b35fb626216893709c6015b0938b622951a))
+
 ## [0.25.8] - 2026-10-12
 
 ### Bug Fixes
