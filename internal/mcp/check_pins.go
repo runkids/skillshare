@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
@@ -43,15 +44,23 @@ func (s *Service) readToolPins() (toolPinFile, error) {
 
 // liveTool is the part of a tools/list entry a pin covers: the text and schema a model reads.
 type liveTool struct {
-	Name        string `json:"name"`
-	Description any    `json:"description"`
-	InputSchema any    `json:"inputSchema"`
+	Name        string          `json:"name"`
+	Description json.RawMessage `json:"description"`
+	InputSchema json.RawMessage `json:"inputSchema"`
 }
 
 // hash is the SHA-256 of the tool's canonical JSON: encoding sorts object keys, so only a change
-// in content, not in key order or whitespace, changes it.
+// in content, not in key order or whitespace, changes it. Numbers keep their literal text, so a
+// bound past 2^53 is not rounded into another one.
 func (t liveTool) hash() string {
-	data, _ := json.Marshal(t) // a decoded JSON value always encodes
+	canonical := func(raw json.RawMessage) any {
+		var v any
+		d := json.NewDecoder(bytes.NewReader(raw))
+		d.UseNumber()
+		_ = d.Decode(&v) // a missing field stays nil
+		return v
+	}
+	data, _ := json.Marshal(map[string]any{"name": t.Name, "description": canonical(t.Description), "inputSchema": canonical(t.InputSchema)})
 	return digest(data)
 }
 
@@ -120,7 +129,12 @@ func (b *toolBaseline) compare(i int, root, name string, now map[string]string) 
 		slices.Sort(parts)
 		return []CheckFinding{{Level: "info", Check: "tool-change", Message: "accepted the current tool definitions as the baseline (" + strings.Join(parts, "; ") + ")"}}
 	}
-	review := fmt.Sprintf("; review it, then run skillshare mcp check %s --live --accept-tools to accept", name)
+	// Name the scope, so the command accepts this baseline even when run from another directory.
+	scope := "-g"
+	if b.configRoot != "" {
+		scope = "-p"
+	}
+	review := fmt.Sprintf("; review it, then run skillshare mcp check %s --live --accept-tools %s to accept", name, scope)
 	var out []CheckFinding
 	if len(changed) > 0 {
 		out = append(out, CheckFinding{Level: "warning", Check: "tool-change", Message: "description or input schema changed since it was pinned: " + strings.Join(changed, ", ") + review})

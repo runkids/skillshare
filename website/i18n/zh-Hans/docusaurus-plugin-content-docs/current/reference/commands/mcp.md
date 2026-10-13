@@ -730,7 +730,8 @@ server 第一次响应时固定（pin）每个工具，并把之后每次探测�
   会一直出现。warning 不会使退出码变为 1。
 - **接受。** 审阅这些工具后，运行 `skillshare mcp check docs --live --accept-tools`。每个被探测的已选
   server 会把它现在列出的内容记录为基线，并由一条 `info` 发现列出被更改、新增或移除的工具。
-  不带 `--live` 使用 `--accept-tools` 是 error。名称会选中全局和每个 `mcp.projects` root 中的同名
+  不带 `--live` 使用 `--accept-tools` 是 error。每次接受都会连同被接受的 server 记录到操作日志
+  （`skillshare log`）。名称会选中全局和每个 `mcp.projects` root 中的同名
   server，并全部接受，所以请逐一审阅报告列出的每一个。无法读取的 `tool-pins.json`（包括较新版本写入的）
   会在每个被探测的 server 上产生 warning，而且因为它可能含有其他 server 的固定，连 `--accept-tools`
   也不会改写它；要重新固定，请把文件移走。

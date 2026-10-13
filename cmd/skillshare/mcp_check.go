@@ -2,17 +2,20 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"skillshare/internal/mcp"
+	"skillshare/internal/oplog"
 	"skillshare/internal/ui"
 )
 
 const mcpCheckUsage = "skillshare mcp check [name...] [--json] [--no-dns] [--live [--timeout <duration>] [--accept-tools]]"
 
-// runMCPCheck writes no config file and no operation log entry. Only --live starts servers or
-// sends requests to them, and only --live reads or writes the tool baseline in the state dir.
+// runMCPCheck writes no config file. Only --live starts servers or sends requests to them, and
+// only --live reads or writes the tool baseline in the state dir. Only --accept-tools, which
+// approves changed tool definitions, writes an operation log entry.
 func runMCPCheck(service *mcp.Service, args []string) error {
 	opts := mcp.CheckOptions{ClientVersion: version}
 	asJSON := false
@@ -55,7 +58,11 @@ func runMCPCheck(service *mcp.Service, args []string) error {
 		}
 		opts.Timeout = d
 	}
+	start := time.Now()
 	report, err := service.Check(opts)
+	if opts.AcceptTools {
+		logMCPAcceptTools(service.ConfigPath, start, report, err)
+	}
 	if err != nil {
 		if asJSON {
 			return writeJSONError(err)
@@ -128,4 +135,24 @@ func mcpCheckHasWarning(server mcp.CheckServer) bool {
 		}
 	}
 	return false
+}
+
+// logMCPAcceptTools records which servers' tool baselines --accept-tools replaced, so a later
+// review can tell when a changed definition was approved.
+func logMCPAcceptTools(path string, start time.Time, report *mcp.CheckReport, err error) {
+	entry := oplog.NewEntry("mcp check --accept-tools", statusFromErr(err), time.Since(start))
+	if report != nil {
+		var accepted []string
+		for _, server := range report.Servers {
+			for _, f := range server.Findings {
+				if f.Check == "tool-change" && strings.HasPrefix(f.Message, "accepted ") {
+					accepted = append(accepted, strings.TrimSpace(server.Name+" "+server.Project))
+				}
+			}
+		}
+		entry.Args = map[string]any{"accepted": accepted}
+	}
+	if logErr := oplog.Write(path, oplog.OpsFile, entry); logErr != nil {
+		fmt.Fprintln(os.Stderr, "Warning: could not write MCP operation log")
+	}
 }

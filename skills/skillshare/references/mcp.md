@@ -59,7 +59,7 @@ skillshare mcp serve --check [--target NAME]         # List skills serve would s
   schema) on a server's first probe, in `mcp/tool-pins.json` of the state directory. Later
   probes warn (`tool-change`) about a changed or new tool and note a removed one; the pin is
   kept until `--accept-tools` (only with `--live`) re-baselines every probed server, so
-  review the changes first. An unreadable pin file is never rewritten; move it away to pin
+  review the changes first; each acceptance is recorded in the operations log. An unreadable pin file is never rewritten; move it away to pin
   again. Without `--live` the pins are untouched.
 - `mcp serve` serves skills to Agents that cannot reach the synced folders (VMs, MCP
   gateways): stdio by default, global unless `-p`. `--target NAME` applies that target's

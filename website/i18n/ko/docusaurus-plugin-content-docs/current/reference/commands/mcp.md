@@ -748,7 +748,8 @@ error가 있는 서버나 비활성화된 항목에는 접속하지 않으며, `
   않습니다.
 - **수락.** 도구를 검토한 뒤 `skillshare mcp check docs --live --accept-tools`를 실행합니다. 프로브한 선택된
   서버는 각각 지금 나열한 내용을 새 기준선으로 기록하며, `info` 결과가 변경, 추가, 삭제된 도구를
-  나열합니다. `--live` 없이 `--accept-tools`를 쓰면 error입니다. 이름은 전역과 각 `mcp.projects` root의
+  나열합니다. `--live` 없이 `--accept-tools`를 쓰면 error입니다. 수락할 때마다 수락한 서버와 함께 작업 로그(`skillshare log`)에
+  기록됩니다. 이름은 전역과 각 `mcp.projects` root의
   같은 이름 서버를 모두 선택하고 그 모두를 수락하므로, 보고서에 나온 서버를 하나씩 검토하세요. 읽을 수 없는
   `tool-pins.json`(새 버전이 쓴 파일 포함)은 프로브한 각 서버에 대한 warning이 되며, 다른 서버의 고정을
   담고 있을 수 있으므로 `--accept-tools`로도 다시 쓰지 않습니다. 다시 고정하려면 파일을 옮기세요.

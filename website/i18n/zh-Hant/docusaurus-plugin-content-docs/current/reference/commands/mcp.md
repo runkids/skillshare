@@ -697,7 +697,8 @@ server 第一次回應時釘選每個工具，並把之後每次探測都與該�
   會一直出現。warning 不會讓結束代碼變成 1。
 - **接受。** 審閱這些工具後，執行 `skillshare mcp check docs --live --accept-tools`。每個被探測的已選
   server 會把它現在列出的內容記錄為基準，並由一則 `info` 發現列出被變更、新增或移除的工具。
-  未搭配 `--live` 使用 `--accept-tools` 會是 error。名稱會選到全域和每個 `mcp.projects` root 中的同名
+  未搭配 `--live` 使用 `--accept-tools` 會是 error。每次接受都會連同被接受的 server 記錄到操作日誌
+  （`skillshare log`）。名稱會選到全域和每個 `mcp.projects` root 中的同名
   server，並全部接受，所以請逐一審閱報告列出的每一個。無法讀取的 `tool-pins.json`（包含較新版本寫入的）
   會在每個被探測的 server 上產生 warning，而且因為它可能含有其他 server 的釘選，連 `--accept-tools`
   也不會改寫它；要重新釘選，請把檔案移開。

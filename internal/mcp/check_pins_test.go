@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -75,6 +76,24 @@ func TestToolPinReportsChanges(t *testing.T) {
 				t.Fatalf("findings = %+v, want one %s containing %q", got, tc.level, tc.want)
 			}
 		})
+	}
+}
+
+func TestToolPinHashKeepsLargeNumbers(t *testing.T) {
+	var a, b liveTool
+	if json.Unmarshal([]byte(`{"name":"n","inputSchema":{"maximum":9007199254740992}}`), &a) != nil || json.Unmarshal([]byte(`{"name":"n","inputSchema":{"maximum":9007199254740993}}`), &b) != nil {
+		t.Fatal("decode")
+	}
+	if a.hash() == b.hash() {
+		t.Fatal("bounds past 2^53 hash the same")
+	}
+}
+
+func TestToolPinWarningNamesTheScope(t *testing.T) {
+	s := pinnedService(t)
+	got := probePinned(t, s, `[{"name":"echo","description":"changed"},{"name":"ls","description":"List files"}]`, false)
+	if len(got) != 1 || !strings.Contains(got[0].Message, "--live --accept-tools -g to accept") {
+		t.Fatalf("findings = %+v", got)
 	}
 }
 

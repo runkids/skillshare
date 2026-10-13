@@ -785,7 +785,8 @@ answers, and compares every later probe with the pin.
 - **Accept.** Review the tools, then run `skillshare mcp check docs --live --accept-tools`.
   Every selected server that was probed records what it listed now as its baseline, and
   an `info` finding lists the tools that changed, were added or removed. `--accept-tools`
-  without `--live` is an error. A name selects that server globally and in each
+  without `--live` is an error. Each acceptance is recorded in the operations log
+  (`skillshare log`) with the servers it accepted. A name selects that server globally and in each
   `mcp.projects` root, and each of them is accepted, so review every one the report lists.
   An unreadable `tool-pins.json` (or one a newer version wrote) is a warning on each probed
   server and is never rewritten, not even by `--accept-tools`, since it may hold other

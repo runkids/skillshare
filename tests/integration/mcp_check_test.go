@@ -237,6 +237,13 @@ func TestMCPCheckLiveToolPins(t *testing.T) {
 	expect(pinLevels("--accept-tools"), "info")
 	expect(pinLevels())
 
+	// Accepting changed definitions is the one part of a check that is logged.
+	logged := sb.RunCLI("log", "--json", "--tail", "1", "-g")
+	logged.AssertSuccess(t)
+	if out := logged.Stdout; !strings.Contains(out, `"cmd":"mcp check --accept-tools"`) || !strings.Contains(out, `"accepted":["tiny"]`) {
+		t.Fatalf("operation log = %s", out)
+	}
+
 	r := sb.RunCLI("mcp", "check", "--accept-tools", "-g")
 	r.AssertFailure(t)
 	r.AssertAnyOutputContains(t, "--accept-tools only applies with --live")
