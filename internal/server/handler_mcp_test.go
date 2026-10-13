@@ -247,3 +247,38 @@ func TestMCPSyncSavesTheConfigWithoutRetiredSettings(t *testing.T) {
 		t.Fatalf("list: %s", list.Body)
 	}
 }
+
+func TestMCPOpenOnlyListedConfigFiles(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("CLAUDE_CONFIG_DIR", "")
+	t.Setenv("VISUAL", "")
+	t.Setenv("EDITOR", "true")
+	open := func(remote, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/api/mcp/open", strings.NewReader(body))
+		req.RemoteAddr = remote
+		rec := httptest.NewRecorder()
+		s.handleMCPOpen(rec, req)
+		return rec
+	}
+	if rec := open("127.0.0.1:1", `{"target":"../etc/passwd"}`); rec.Code != 400 {
+		t.Fatalf("unknown target: %d", rec.Code)
+	}
+	if rec := open("127.0.0.1:1", `{"target":"claude"}`); rec.Code != 404 {
+		t.Fatalf("missing file: %d", rec.Code)
+	}
+	path := filepath.Join(home, ".claude.json")
+	if err := os.WriteFile(path, []byte("{}"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if rec := open("192.168.1.9:1", `{"target":"claude"}`); rec.Code != 403 {
+		t.Fatalf("LAN viewer: %d", rec.Code)
+	}
+	rec := open("127.0.0.1:1", `{"target":"claude"}`)
+	var resp openInEditorResponse
+	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &resp) != nil || resp.Editor != "true" || resp.Path != path {
+		t.Fatalf("open: %d %s", rec.Code, rec.Body)
+	}
+}

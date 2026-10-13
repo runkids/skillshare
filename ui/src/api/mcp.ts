@@ -65,7 +65,9 @@ export const mcpApi = {
       notices?: string[] };
     /** Project roots that also have their own .skillshare/config.yaml. */
     projectConfigs: string[];
-    paths: Record<string, string>; detected: string[]; plan: MCPPlan | null; previewError: string;
+    paths: Record<string, string>; detected: string[];
+    /** Targets whose file in `paths` exists, so it can be opened. */
+    existing: string[]; plan: MCPPlan | null; previewError: string;
     /** Native import files by scope: the empty key is this config, others are project roots. */
     importSources?: Record<string, MCPImportSource[]>;
     backups: MCPBackup[];
@@ -85,4 +87,6 @@ export const mcpApi = {
   import: (body: { from?: string; content?: string; name?: string; root?: string; piExtension?: string }) => post<{ candidates: MCPCandidate[] }>('/mcp/import', body),
   previewRestore: (backupId: string) => post<MCPPlan>('/mcp/restore', { backupId, preview: true }),
   restore: (backupId: string, revision: string) => post<MCPResult>('/mcp/restore', { backupId, revision }),
+  /** Open one Agent's config file, as listed in `paths`, the way the skill page opens a skill. */
+  open: (target: string) => post<{ editor: string; path: string; pid: number }>('/mcp/open', { target }),
 };

@@ -103,24 +103,11 @@ func (s *Server) handleOpenSkillInEditor(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	editor, picked, err := pickEditor(strings.TrimSpace(req.Editor))
+	picked, cmd, status, err := launchEditor(req.Editor, targetPath)
 	if err != nil {
-		writeError(w, http.StatusConflict, "no editor available: "+err.Error())
+		writeError(w, status, err.Error())
 		return
 	}
-
-	cmd := exec.Command(editor.bin, append(editor.args, targetPath)...) //nolint:gosec // editor choice is explicit
-	// Detach from the current process so the server doesn't wait on the editor.
-	cmd.Stdin = nil
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-
-	if err := childproc.StartDetached(cmd); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to launch %s: %s", editor.bin, err))
-		return
-	}
-	// Reap in the background so we don't accumulate zombies on *nix.
-	go func() { _ = cmd.Wait() }()
 
 	s.writeOpsLog("skill.openInEditor", "ok", start, map[string]any{
 		"name":   name,
@@ -134,6 +121,28 @@ func (s *Server) handleOpenSkillInEditor(w http.ResponseWriter, r *http.Request)
 		Path:   targetPath,
 		PID:    cmd.Process.Pid,
 	})
+}
+
+// launchEditor opens path in the requested editor, or the one pickEditor finds, without
+// waiting for it. On failure it returns the HTTP status to report.
+func launchEditor(requested, path string) (string, *exec.Cmd, int, error) {
+	editor, picked, err := pickEditor(strings.TrimSpace(requested))
+	if err != nil {
+		return "", nil, http.StatusConflict, fmt.Errorf("no editor available: %w", err)
+	}
+
+	cmd := exec.Command(editor.bin, append(editor.args, path)...) //nolint:gosec // editor choice is explicit
+	// Detach from the current process so the server doesn't wait on the editor.
+	cmd.Stdin = nil
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+
+	if err := childproc.StartDetached(cmd); err != nil {
+		return "", nil, http.StatusInternalServerError, fmt.Errorf("failed to launch %s: %w", editor.bin, err)
+	}
+	// Reap in the background so we don't accumulate zombies on *nix.
+	go func() { _ = cmd.Wait() }()
+	return picked, cmd, 0, nil
 }
 
 // pickEditor returns the editor to launch, honouring an explicit request

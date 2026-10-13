@@ -219,6 +219,9 @@ Below it, **Agents** lists the clients detected on this machine. A client counts
 detected when its MCP file exists, or when the folder that client keeps its settings in
 exists, so a fresh install with no MCP file yet still appears. In project mode a client
 is listed when the project has its MCP file or the client is detected globally.
+Each detected client shows the name of its MCP file, and **Copy path** copies its full
+path. Once the file exists, **Open in editor** opens it on the machine running the
+dashboard, in the same editor a skill's **Open in editor** uses.
 
 Additional client details:
 

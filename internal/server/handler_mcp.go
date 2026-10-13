@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"reflect"
 	"slices"
 	"strings"
@@ -87,10 +88,18 @@ func (s *Server) handleMCPList(w http.ResponseWriter, r *http.Request) {
 	}
 	slices.Sort(ownConfig)
 	detected := service.DetectedClients(paths)
+	// A client can be detected before its file exists; only an existing file can be opened.
+	existing := []string{}
+	for target, path := range paths {
+		if _, err := os.Stat(path); err == nil {
+			existing = append(existing, target)
+		}
+	}
+	slices.Sort(existing)
 	if !s.IsProjectMode() {
 		detected = append(detected, mcp.DetectedAccounts(source.Accounts)...)
 	}
-	writeJSON(w, map[string]any{"source": source, "paths": paths, "importSources": service.ImportSources(source), "detected": detected, "plan": p, "previewError": message, "backups": backups, "projectConfigs": ownConfig, "unmanaged": service.FindUnmanaged(source)})
+	writeJSON(w, map[string]any{"source": source, "paths": paths, "importSources": service.ImportSources(source), "detected": detected, "existing": existing, "plan": p, "previewError": message, "backups": backups, "projectConfigs": ownConfig, "unmanaged": service.FindUnmanaged(source)})
 }
 
 func (s *Server) handleMCPPreview(w http.ResponseWriter, r *http.Request) {
@@ -260,6 +269,55 @@ func (s *Server) handleMCPRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, result)
+}
+
+// handleMCPOpen opens one Agent's MCP config file, as listed by handleMCPList, the way the
+// skill page opens a skill. Only those paths open, so the request cannot name another file.
+func (s *Server) handleMCPOpen(w http.ResponseWriter, r *http.Request) {
+	// The editor starts on the machine running the server, so a viewer elsewhere on the LAN
+	// would launch it on someone else's screen.
+	if !requestFromLoopback(r) {
+		writeError(w, http.StatusForbidden, "opening a file is available only on the machine running the dashboard")
+		return
+	}
+	var body struct {
+		Target string `json:"target"`
+	}
+	if !decodeMCPRequest(w, r, &body) {
+		return
+	}
+	s.mu.RLock()
+	service := s.mcpService()
+	source, err := mcp.LoadSource(service.ConfigPath)
+	path := ""
+	if err == nil {
+		path = service.ConfiguredClientPaths(source)[body.Target]
+	}
+	s.mu.RUnlock()
+	switch {
+	case err != nil:
+		writeError(w, 400, err.Error())
+		return
+	case path == "":
+		writeError(w, 400, "unknown MCP target: "+body.Target)
+		return
+	}
+	if _, err := os.Stat(path); err != nil {
+		writeError(w, 404, "config file does not exist yet: "+path)
+		return
+	}
+	if os.Getenv("SKILLSHARE_HEADLESS") == "1" {
+		writeError(w, 409, "refusing to launch editor: SKILLSHARE_HEADLESS=1")
+		return
+	}
+	start := time.Now()
+	picked, cmd, status, err := launchEditor("auto", path)
+	if err != nil {
+		writeError(w, status, err.Error())
+		return
+	}
+	s.writeOpsLog("mcp open", "ok", start, map[string]any{"target": body.Target, "editor": picked, "path": path, "scope": "ui"}, "")
+	writeJSON(w, openInEditorResponse{Editor: picked, Path: path, PID: cmd.Process.Pid})
 }
 
 func writeMCPFailure(w http.ResponseWriter, result *mcp.Result, err error) {
