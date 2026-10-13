@@ -592,3 +592,271 @@ func TestMarshalConfig_ChainedMergeKeysSurviveEdit(t *testing.T) {
 		t.Errorf("claude mode = %q, want copy", m)
 	}
 }
+
+// editEntry changes one entry of a config map that holds structs.
+func editEntry[K comparable, V any](m map[K]V, key K, edit func(*V)) {
+	v := m[key]
+	edit(&v)
+	m[key] = v
+}
+
+// claude sets its own agents, codex only merges.
+const mergeAgentsConfig = "targets:\n  base: &base\n    agents:\n      mode: copy\n  claude:\n    <<: *base\n    agents:\n      mode: copy\n  codex:\n    <<: *base\n"
+
+func TestMarshalConfig_KeyAddedToAnchorReachesMergingMapping(t *testing.T) {
+	existing := "targets:\n  base: &base\n    skills:\n      mode: copy\n  claude:\n    <<: *base\n    agents:\n      path: /tmp/claude-agents\n  codex:\n    <<: *base\n"
+	got, cfg := remarshalConfig(t, existing, schemaComment, func(c *Config) {
+		editEntry(c.Targets, "base", func(b *TargetConfig) { b.Agents = &ResourceTargetConfig{Mode: "copy"} })
+	})
+	if !strings.Contains(got, "  base: &base\n    skills:\n      mode: copy\n    agents:\n      mode: copy\n  claude:\n    <<: *base\n    agents:\n      path: /tmp/claude-agents\n  codex:\n    <<: *base\n") {
+		t.Errorf("merge keys should survive and base should carry the new key:\n%s", got)
+	}
+	if a := cfg.Targets["codex"].Agents; a == nil || a.Mode != "copy" {
+		t.Errorf("codex agents = %+v, want mode copy from base", a)
+	}
+	if a := cfg.Targets["claude"].Agents; a.Path != "/tmp/claude-agents" || a.Mode != "" {
+		t.Errorf("claude agents = %+v, want only its own path", a)
+	}
+}
+
+func TestMarshalConfig_KeyRemovedFromAnchorReachesMergingMapping(t *testing.T) {
+	got, cfg := remarshalConfig(t, mergeAgentsConfig, schemaComment, func(c *Config) {
+		editEntry(c.Targets, "base", func(b *TargetConfig) { b.Agents = nil })
+	})
+	if !strings.Contains(got, "  claude:\n    <<: *base\n    agents:\n      mode: copy\n  codex:\n    <<: *base\n") {
+		t.Errorf("claude set agents itself and must keep them, codex only its merge key:\n%s", got)
+	}
+	if a := cfg.Targets["codex"].Agents; a != nil {
+		t.Errorf("codex agents = %+v, want none", a)
+	}
+}
+
+func TestMarshalConfig_KeyRemovedFromAnchorKeepsValueTheCommandEdited(t *testing.T) {
+	got, cfg := remarshalConfig(t, mergeAgentsConfig, schemaComment, func(c *Config) {
+		editEntry(c.Targets, "base", func(b *TargetConfig) { b.Agents = nil })
+		c.Targets["codex"].Agents.Mode = "symlink"
+	})
+	if !strings.Contains(got, "  codex:\n    <<: *base\n    agents:\n      mode: symlink\n") {
+		t.Errorf("codex was edited and must keep its agents:\n%s", got)
+	}
+	if m := cfg.Targets["claude"].Agents.Mode; m != "copy" {
+		t.Errorf("claude agents mode = %q, want its own copy", m)
+	}
+}
+
+func TestMarshalConfig_KeyAddedToMergingMappingStaysLocal(t *testing.T) {
+	got, _ := remarshalMerged(t, mergeConfig, schemaComment, func(c *Config) {
+		editEntry(c.Targets, "codex", func(x *TargetConfig) { x.Agents = &ResourceTargetConfig{Path: "/tmp/codex-agents"} })
+	})
+	if !strings.Contains(got, "  codex:\n    <<: *base\n    agents:\n      path: /tmp/codex-agents\n") {
+		t.Errorf("codex should keep the merge key and write the new key:\n%s", got)
+	}
+}
+
+func TestMarshalConfig_KeyRemovedFromMergingMappingStaysRemoved(t *testing.T) {
+	existing := "targets:\n  base: &base\n    skills:\n      mode: copy\n  claude:\n    <<: *base\n    agents:\n      path: /tmp/claude-agents\n"
+	got, _ := remarshalMerged(t, existing, schemaComment, func(c *Config) {
+		editEntry(c.Targets, "claude", func(x *TargetConfig) { x.Agents = nil })
+	})
+	if !strings.Contains(got, "  claude:\n    <<: *base\n") || strings.Contains(got, "agents") {
+		t.Errorf("claude should keep only its merge key:\n%s", got)
+	}
+}
+
+func TestMarshalConfig_ChangedLocalKeyStaysLocal(t *testing.T) {
+	got, _ := remarshalMerged(t, mergeConfig, schemaComment, func(c *Config) {
+		c.Targets["claude"].Skills.Path = "/tmp/other"
+	})
+	if !strings.Contains(got, "  claude:\n    # inherits base\n    <<: *base\n    skills:\n      path: /tmp/other\n") {
+		t.Errorf("claude should keep the merge key and its changed skills:\n%s", got)
+	}
+}
+
+func TestMarshalConfig_MergingMappingEditedWhileAnchorEditedKeepsItsValue(t *testing.T) {
+	got, cfg := remarshalConfig(t, mergeConfig, schemaComment, func(c *Config) {
+		c.Targets["base"].Skills.Mode = "symlink"
+		c.Targets["codex"].Skills.Mode = "merge"
+	})
+	if !strings.Contains(got, "  codex:\n    <<: *base\n    skills:\n      mode: merge\n") {
+		t.Errorf("codex was edited and must keep its own value:\n%s", got)
+	}
+	if m := cfg.Targets["base"].Skills.Mode; m != "symlink" {
+		t.Errorf("base mode = %q, want symlink", m)
+	}
+}
+
+func TestMarshalConfig_KeyOfSecondMergeSourceChangedReachesMergingMapping(t *testing.T) {
+	got, cfg := remarshalConfig(t, mergeListConfig, schemaComment, func(c *Config) {
+		c.Targets["b"].Agents.Path = "/tmp/new-agents"
+	})
+	if !strings.Contains(got, "  claude:\n    <<: [*a, *b]\n") {
+		t.Errorf("merge list should survive:\n%s", got)
+	}
+	if p := cfg.Targets["claude"].Agents.Path; p != "/tmp/new-agents" {
+		t.Errorf("claude agents path = %q, want the edited one from b", p)
+	}
+}
+
+func TestMarshalConfig_KeyOfSecondMergeSourceRemovedReachesMergingMapping(t *testing.T) {
+	got, cfg := remarshalConfig(t, mergeListConfig, schemaComment, func(c *Config) {
+		editEntry(c.Targets, "b", func(b *TargetConfig) { b.Agents = nil })
+	})
+	if !strings.Contains(got, "  claude:\n    <<: [*a, *b]\n") || strings.Contains(got, "/tmp/agents") {
+		t.Errorf("claude should keep the merge list and lose the removed key:\n%s", got)
+	}
+	if c := cfg.Targets["claude"]; c.Agents != nil || c.Skills.Mode != "copy" {
+		t.Errorf("claude = %+v, want no agents and skills from a", c)
+	}
+}
+
+func TestMarshalConfig_KeyAddedToSecondMergeSourceReachesMergingMapping(t *testing.T) {
+	got, cfg := remarshalConfig(t, mergeListConfig, schemaComment, func(c *Config) {
+		editEntry(c.Targets, "b", func(b *TargetConfig) { b.Path = "/tmp/b" })
+	})
+	if !strings.Contains(got, "  claude:\n    <<: [*a, *b]\n") {
+		t.Errorf("merge list should survive:\n%s", got)
+	}
+	if p := cfg.Targets["claude"].Path; p != "/tmp/b" {
+		t.Errorf("claude path = %q, want /tmp/b from b", p)
+	}
+}
+
+func TestMarshalConfig_KeyAddedToFirstMergeSourceOverridesSecond(t *testing.T) {
+	_, cfg := remarshalConfig(t, mergeListConfig, schemaComment, func(c *Config) {
+		editEntry(c.Targets, "a", func(a *TargetConfig) { a.Agents = &ResourceTargetConfig{Path: "/tmp/a-agents"} })
+	})
+	if p := cfg.Targets["claude"].Agents.Path; p != "/tmp/a-agents" {
+		t.Errorf("claude agents path = %q, want the first source's", p)
+	}
+}
+
+func TestMarshalConfig_KeyRemovedFromFirstMergeSourceFallsToSecond(t *testing.T) {
+	got, cfg := remarshalConfig(t, mergeListConfig, schemaComment, func(c *Config) {
+		editEntry(c.Targets, "a", func(a *TargetConfig) { a.Skills = nil })
+	})
+	if !strings.Contains(got, "  claude:\n    <<: [*a, *b]\n") {
+		t.Errorf("merge list should survive:\n%s", got)
+	}
+	if m := cfg.Targets["claude"].Skills.Mode; m != "merge" {
+		t.Errorf("claude skills mode = %q, want b's now that a no longer gives skills", m)
+	}
+}
+
+func TestMarshalConfig_KeyAddedToNestedAnchorReachesMergingMapping(t *testing.T) {
+	existing := "targets:\n  base:\n    skills: &shared\n      mode: copy\n  claude:\n    skills:\n      <<: *shared\n      path: /tmp/claude\n  codex:\n    skills:\n      <<: *shared\n"
+	got, cfg := remarshalConfig(t, existing, schemaComment, func(c *Config) {
+		c.Targets["base"].Skills.Include = []string{"demo"}
+	})
+	if !strings.Contains(got, "    skills:\n      <<: *shared\n      path: /tmp/claude\n  codex:\n    skills:\n      <<: *shared\n") {
+		t.Errorf("nested merge keys should survive:\n%s", got)
+	}
+	for _, name := range []string{"claude", "codex"} {
+		if inc := cfg.Targets[name].Skills.Include; !slices.Equal(inc, []string{"demo"}) {
+			t.Errorf("%s include = %v, want [demo]", name, inc)
+		}
+	}
+}
+
+func TestMarshalConfig_KeyRemovedFromNestedAnchorReachesMergingMapping(t *testing.T) {
+	existing := "targets:\n  base:\n    skills: &shared\n      mode: copy\n      include:\n        - demo\n  claude:\n    skills:\n      <<: *shared\n      path: /tmp/claude\n"
+	got, cfg := remarshalConfig(t, existing, schemaComment, func(c *Config) {
+		c.Targets["base"].Skills.Include = nil
+	})
+	if !strings.Contains(got, "    skills:\n      <<: *shared\n      path: /tmp/claude\n") || strings.Contains(got, "demo") {
+		t.Errorf("claude should keep the merge key and lose include:\n%s", got)
+	}
+	if inc := cfg.Targets["claude"].Skills.Include; len(inc) != 0 {
+		t.Errorf("claude include = %v, want none", inc)
+	}
+}
+
+func TestMarshalConfig_KeyAddedToAnchoredProjectReachesMergingProject(t *testing.T) {
+	existing := "projects:\n  /p/one: &one\n    targets:\n      - claude\n  /p/two:\n    <<: *one\n    name: two\n"
+	got, cfg := remarshalConfig(t, existing, schemaComment, func(c *Config) {
+		editEntry(c.Projects, "/p/one", func(p *ManagedProject) { p.Agents = &ResourceTargetConfig{Mode: "copy"} })
+	})
+	if !strings.Contains(got, "  /p/two:\n    <<: *one\n    name: two\n") {
+		t.Errorf("project merge key should survive:\n%s", got)
+	}
+	if a := cfg.Projects["/p/two"].Agents; a == nil || a.Mode != "copy" {
+		t.Errorf("/p/two agents = %+v, want mode copy from /p/one", a)
+	}
+}
+
+func TestMarshalConfig_KeyRemovedFromAnchoredProjectReachesMergingProject(t *testing.T) {
+	existing := "projects:\n  /p/one: &one\n    targets:\n      - claude\n    skills:\n      include:\n        - demo\n  /p/two:\n    <<: *one\n    name: two\n"
+	got, cfg := remarshalConfig(t, existing, schemaComment, func(c *Config) {
+		editEntry(c.Projects, "/p/one", func(p *ManagedProject) { p.Skills = nil })
+	})
+	if !strings.Contains(got, "  /p/two:\n    <<: *one\n    name: two\n") || strings.Contains(got, "demo") {
+		t.Errorf("/p/two should keep the merge key and lose skills:\n%s", got)
+	}
+	if s := cfg.Projects["/p/two"].Skills; s != nil {
+		t.Errorf("/p/two skills = %+v, want none", s)
+	}
+}
+
+func TestMarshalConfig_KeyAddedToAnchorInProjectConfigReachesMergingTarget(t *testing.T) {
+	existing := "targets:\n  - name: claude\n    skills: &sk\n      mode: copy\n  - name: codex\n    skills:\n      <<: *sk\n      path: /tmp/codex\n"
+	got, cfg := remarshalConfig(t, existing, projectSchemaComment, func(c *ProjectConfig) {
+		c.Targets[0].Skills.Include = []string{"demo"}
+	})
+	if !strings.Contains(got, "      <<: *sk\n      path: /tmp/codex\n") {
+		t.Errorf("merge key in a target list item should survive:\n%s", got)
+	}
+	if inc := cfg.Targets[1].Skills.Include; !slices.Equal(inc, []string{"demo"}) {
+		t.Errorf("codex include = %v, want [demo]", inc)
+	}
+}
+
+func TestMarshalConfig_KeyRemovedFromAnchorInProjectConfigReachesMergingTarget(t *testing.T) {
+	existing := "targets:\n  - name: claude\n    skills: &sk\n      mode: copy\n      include:\n        - demo\n  - name: codex\n    skills:\n      <<: *sk\n      path: /tmp/codex\n"
+	got, cfg := remarshalConfig(t, existing, projectSchemaComment, func(c *ProjectConfig) {
+		c.Targets[0].Skills.Include = nil
+	})
+	if !strings.Contains(got, "      <<: *sk\n      path: /tmp/codex\n") || strings.Contains(got, "demo") {
+		t.Errorf("codex should keep the merge key and lose include:\n%s", got)
+	}
+	if inc := cfg.Targets[1].Skills.Include; len(inc) != 0 {
+		t.Errorf("codex include = %v, want none", inc)
+	}
+}
+
+func TestMarshalConfig_KeyAddedToAnchoredTargetListItemReachesMergingItem(t *testing.T) {
+	existing := "targets:\n  - &base\n    name: claude\n    skills:\n      mode: copy\n  - <<: *base\n    name: codex\n"
+	got, cfg := remarshalConfig(t, existing, projectSchemaComment, func(c *ProjectConfig) {
+		c.Targets[0].Agents = &ResourceTargetConfig{Mode: "copy"}
+	})
+	if !strings.Contains(got, "  - <<: *base\n    name: codex\n") {
+		t.Errorf("merge key in a list item should survive:\n%s", got)
+	}
+	if a := cfg.Targets[1].Agents; a == nil || a.Mode != "copy" {
+		t.Errorf("codex agents = %+v, want mode copy from claude", a)
+	}
+}
+
+func TestMarshalConfig_KeyAddedToChainedAnchorReachesLastMergingMapping(t *testing.T) {
+	existing := "targets:\n  b1: &b1\n    path: /tmp/b1\n  b2: &b2\n    <<: *b1\n    agents:\n      path: /tmp/agents\n  claude:\n    <<: *b2\n    skills:\n      path: /tmp/claude\n"
+	got, cfg := remarshalConfig(t, existing, schemaComment, func(c *Config) {
+		editEntry(c.Targets, "b1", func(b *TargetConfig) { b.Mode = "copy" })
+	})
+	if !strings.Contains(got, "  b2: &b2\n    <<: *b1\n    agents:\n      path: /tmp/agents\n  claude:\n    <<: *b2\n    skills:\n      path: /tmp/claude\n") {
+		t.Errorf("chained merge keys should survive:\n%s", got)
+	}
+	if m := cfg.Targets["claude"].Mode; m != "copy" {
+		t.Errorf("claude mode = %q, want copy through b2", m)
+	}
+}
+
+func TestMarshalConfig_KeyRemovedFromChainedAnchorReachesLastMergingMapping(t *testing.T) {
+	existing := "targets:\n  b1: &b1\n    path: /tmp/b1\n    mode: copy\n  b2: &b2\n    <<: *b1\n    agents:\n      path: /tmp/agents\n  claude:\n    <<: *b2\n    skills:\n      path: /tmp/claude\n"
+	got, cfg := remarshalConfig(t, existing, schemaComment, func(c *Config) {
+		editEntry(c.Targets, "b1", func(b *TargetConfig) { b.Mode = "" })
+	})
+	if !strings.Contains(got, "  claude:\n    <<: *b2\n    skills:\n      path: /tmp/claude\n") || strings.Contains(got, "mode:") {
+		t.Errorf("claude should keep its merge key and lose the removed key:\n%s", got)
+	}
+	if m := cfg.Targets["claude"].Mode; m != "" {
+		t.Errorf("claude mode = %q, want none", m)
+	}
+}

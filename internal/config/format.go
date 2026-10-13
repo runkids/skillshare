@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"cmp"
 	"errors"
+	"maps"
 	"os"
 	"reflect"
 	"sort"
@@ -310,16 +311,18 @@ func (g *aliasGroup) place(n *yaml.Node) {
 
 // relinkMerge writes the merge key of e.old back onto e.cur in place of the
 // merged keys the struct encoding expanded, so what is written decodes to the
-// same data as e.cur does:
+// data e.cur holds, except where the edit of an anchored mapping is meant to
+// reach this one:
 //   - a key the old mapping set itself stays written out, even when it equals
 //     the merged value;
 //   - a key whose value is the one its merge source gives it is dropped, and so
-//     is one still holding the old merged value while the same source was
-//     edited, so editing an anchored mapping reaches the mappings merging it;
+//     is one left alone while the source that gave it was edited, so an edit of
+//     an anchored mapping (a value changed, a key added or removed) reaches the
+//     mappings merging it;
 //   - any other key stays written out and replaces the merged value as a whole,
 //     since merges are shallow;
-//   - a source that was removed, or that holds a key e.cur no longer has, is not
-//     merged: its keys stay written out, because a merge could not drop them.
+//   - a source that was removed, or that has a key e.old had and e.cur lost, is
+//     not merged: its keys stay written out, because a merge could not drop them.
 //
 // Decoded data cannot tell a key the command left alone from one it set to the
 // old merged value, so an edit that does both to the same key reads as left alone.
@@ -331,28 +334,29 @@ func (l *links) relinkMerge(e mergeEntry, groups aliasGroups) {
 		local[e.old.Content[i].Value] = true
 	}
 	type source struct {
-		item int
 		node *yaml.Node
 		data map[string]any
 	}
 	var used []source
-	oldFrom := map[string]int{} // key -> first merge item that gave it before
-	for i, item := range items {
-		for k := range mapData(item) {
-			if _, seen := oldFrom[k]; !seen {
-				oldFrom[k] = i
-			}
-		}
+	// follows reports for each key whether the first merge item that gave it
+	// before is still merged.
+	follows := map[string]bool{}
+	for _, item := range items {
 		src := item
 		if item.Kind == yaml.AliasNode {
 			src = item.Alias
 		}
-		node := l.pairs[src]
-		if node == nil || node.Kind != yaml.MappingNode || curData == nil {
-			continue
+		kept := false
+		if node := l.pairs[src]; node != nil && node.Kind == yaml.MappingNode && curData != nil {
+			if d := mapData(node); d != nil && !dropsKey(oldData, curData, d) {
+				used = append(used, source{node, d})
+				kept = true
+			}
 		}
-		if d := mapData(node); d != nil && hasKeys(curData, d) {
-			used = append(used, source{i, node, d})
+		for k := range mapData(item) {
+			if _, seen := follows[k]; !seen {
+				follows[k] = kept
+			}
 		}
 	}
 	if len(used) == 0 {
@@ -364,21 +368,20 @@ func (l *links) relinkMerge(e mergeEntry, groups aliasGroups) {
 		}
 		return
 	}
-	// A key is merged when the first source that has it gives its value.
+	// A key is merged when the first source that has it gives its value, or when
+	// the command left it alone and its old source is still merged, whatever that
+	// source now says, including nothing.
+	merged := map[string]any{}
+	for i := len(used) - 1; i >= 0; i-- {
+		maps.Copy(merged, used[i].data)
+	}
 	covered := func(k string) bool {
 		if local[k] {
 			return false
 		}
-		for _, s := range used {
-			v, ok := s.data[k]
-			if !ok {
-				continue
-			}
-			first, seen := oldFrom[k]
-			return reflect.DeepEqual(curData[k], v) ||
-				seen && first == s.item && reflect.DeepEqual(curData[k], oldData[k])
-		}
-		return false
+		v, ok := merged[k]
+		return ok && reflect.DeepEqual(curData[k], v) ||
+			follows[k] && reflect.DeepEqual(curData[k], oldData[k])
 	}
 	// Every used node has its anchor by now: relinkAliases set it from the old file.
 	aliases := make([]*yaml.Node, len(used))
@@ -422,14 +425,17 @@ func mapData(n *yaml.Node) map[string]any {
 	return m
 }
 
-// hasKeys reports whether every key of sub is a key of m.
-func hasKeys(m, sub map[string]any) bool {
-	for k := range sub {
-		if _, ok := m[k]; !ok {
-			return false
+// dropsKey reports whether old had a key of src that cur lost. A key src gained
+// is not one: old never had it.
+func dropsKey(old, cur, src map[string]any) bool {
+	for k := range src {
+		_, inOld := old[k]
+		_, inCur := cur[k]
+		if inOld && !inCur {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 // sameValue reports whether two nodes decode to the same data, with aliases

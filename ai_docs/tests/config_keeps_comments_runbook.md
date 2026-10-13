@@ -21,13 +21,14 @@ and `projects`. Merge keys were expanded the same way.
   aliased list gives it its own copy and leaves the anchored one alone
 - A merge key (`<<: *base`) stays after an edit and only the keys the mapping
   sets itself are written out; editing the anchored mapping reaches a mapping
-  that merges it, and removing the anchored mapping writes the merged keys out
+  that merges it (a key it gains included), and removing the anchored mapping
+  writes the merged keys out
 
 ## Environment
 
 Run inside the devcontainer with `ssenv` isolation (`--init`).
 mdproof replaces `$HOME`, so the config is reached through `$XDG_CONFIG_HOME`.
-mdproof's setup re-runs `init` before every step, so steps 6 to 10 each write
+mdproof's setup re-runs `init` before every step, so steps 6 to 11 each write
 their own config instead of relying on an earlier step.
 
 ## Steps
@@ -286,6 +287,44 @@ Expected:
 - comment=1
 - codex-mode="copy"
 
+### 11. A key added to the anchored target reaches the merging targets
+
+`base` has no `agents` block yet; `work` only merges and `home` sets its own
+`skills`.
+
+```bash
+CFG=$XDG_CONFIG_HOME/skillshare/config.yaml
+cat > "$CFG" <<'YAML'
+sources:
+  skills: SRC/skills
+targets:
+  base: &base
+    agent: claude
+    config_dir: HOME/.base
+    skills:
+      mode: copy
+  work:
+    <<: *base
+    config_dir: HOME/.work
+  home:
+    <<: *base
+    config_dir: HOME/.home
+    skills:
+      mode: symlink
+YAML
+sed -i "s|SRC|$XDG_CONFIG_HOME/skillshare|; s|HOME|$HOME|g" "$CFG"
+ss target base --agent-mode copy
+echo "merges=$(grep -c '<<:' "$CFG") anchors=$(grep -c '&base' "$CFG")"
+echo "agents-blocks=$(grep -c 'agents:' "$CFG")"
+echo "agent-copy=$(ss target list --json | tr -d ' \n' | grep -o '"agentMode":"copy"' | wc -l)"
+```
+
+Expected:
+- exit_code: 0
+- merges=2 anchors=1
+- agents-blocks=1
+- agent-copy=3
+
 ## Pass Criteria
 
 - Step 3: all 11 comments present after `target` set, schema header once.
@@ -299,3 +338,5 @@ Expected:
   its own `skills`, does not.
 - Step 10: no `<<:`, anchor or alias is left, `codex` still loads as `copy`, and
   the comment on the removed merge key is still in the file.
+- Step 11: both `<<:` keys and the anchor are still there, the new `agents`
+  block is written once under `base`, and all three targets load it.
