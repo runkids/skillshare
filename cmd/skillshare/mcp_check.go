@@ -138,19 +138,32 @@ func mcpCheckHasWarning(server mcp.CheckServer) bool {
 }
 
 // logMCPAcceptTools records which servers' tool baselines --accept-tools replaced, so a later
-// review can tell when a changed definition was approved.
+// review can tell when a changed definition was approved. A server whose new baseline could not
+// be saved is listed as failed, not accepted.
 func logMCPAcceptTools(path string, start time.Time, report *mcp.CheckReport, err error) {
-	entry := oplog.NewEntry("mcp check --accept-tools", statusFromErr(err), time.Since(start))
+	status := statusFromErr(err)
+	entry := oplog.NewEntry("mcp check --accept-tools", status, time.Since(start))
 	if report != nil {
-		var accepted []string
+		var accepted, failed []string
 		for _, server := range report.Servers {
+			name := strings.TrimSpace(server.Name + " " + server.Project)
+			saved, accepting := true, false
 			for _, f := range server.Findings {
-				if f.Check == "tool-change" && strings.HasPrefix(f.Message, "accepted ") {
-					accepted = append(accepted, strings.TrimSpace(server.Name+" "+server.Project))
-				}
+				accepting = accepting || f.Check == "tool-change" && strings.HasPrefix(f.Message, "accepted ")
+				saved = saved && !(f.Check == "tool-change" && strings.HasPrefix(f.Message, "could not save the tool baseline"))
+			}
+			switch {
+			case accepting && saved:
+				accepted = append(accepted, name)
+			case accepting:
+				failed = append(failed, name)
 			}
 		}
 		entry.Args = map[string]any{"accepted": accepted}
+		if len(failed) > 0 {
+			entry.Args["failed"] = failed
+			entry.Status = "error"
+		}
 	}
 	if logErr := oplog.Write(path, oplog.OpsFile, entry); logErr != nil {
 		fmt.Fprintln(os.Stderr, "Warning: could not write MCP operation log")
