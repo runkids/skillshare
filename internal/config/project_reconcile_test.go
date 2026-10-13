@@ -476,3 +476,34 @@ func TestReconcileProjectSkills_HandMovedSkillKeepsPin(t *testing.T) {
 		t.Error("the pin of the old path was left behind")
 	}
 }
+
+func TestAdoptMovedProjectSkills_KeepsDestinationDeclaration(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, ".skillshare", "skills")
+	dest := filepath.Join(source, "new", "demo")
+	if err := os.MkdirAll(dest, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dest, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hashes, err := install.ComputeFileHashes(dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceURL := "github.com/user/repo/demo"
+	declared := SkillEntry{Name: "demo", Source: sourceURL, Group: "new", Branch: "next"}
+	cfg := &ProjectConfig{
+		Targets: []ProjectTargetEntry{{Name: "claude"}},
+		Skills:  []SkillEntry{{Name: "demo", Source: sourceURL, Group: "old"}, declared},
+	}
+	store := install.NewMetadataStore()
+	store.Set("old/demo", &install.MetadataEntry{Source: sourceURL, Group: "old", FileHashes: hashes})
+
+	if err := AdoptMovedProjectSkills(root, cfg, store, source); err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Skills) != 1 || cfg.Skills[0] != declared {
+		t.Errorf("skills = %+v, want only the existing destination declaration %+v", cfg.Skills, declared)
+	}
+}

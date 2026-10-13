@@ -115,13 +115,20 @@ func reconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store
 		if prune {
 			configChanged = reconcileProjectConfigSkills(projectCfg, store, result.live)
 		} else {
-			for i, skill := range projectCfg.Skills {
+			kept := projectCfg.Skills[:0]
+			for _, skill := range projectCfg.Skills {
 				if dest, ok := result.moved[skill.FullName()]; ok {
-					projectCfg.Skills[i].Name = skillBaseName(dest)
-					projectCfg.Skills[i].Group = store.Get(dest).Group
 					configChanged = true
+					// Keep an existing destination declaration, as full reconcile does.
+					if _, exists := declared[dest]; exists {
+						continue
+					}
+					skill.Name = skillBaseName(dest)
+					skill.Group = store.Get(dest).Group
 				}
+				kept = append(kept, skill)
 			}
+			projectCfg.Skills = kept
 		}
 	}
 	if configChanged {
