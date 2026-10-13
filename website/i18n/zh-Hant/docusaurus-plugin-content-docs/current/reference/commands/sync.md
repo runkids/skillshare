@@ -75,6 +75,8 @@ skillshare sync -p       # 明確指定 project mode
 
 **Project sync** 預設使用 merge mode（逐 skill symlink），但每個 target 都可以透過 `skillshare target <name> --mode copy -p` 設為 copy 或 symlink mode。不會建立備份（專案 targets 可從 source 重新產生）。
 
+當 sync 接手手動搬移的已宣告 skill 時，只會更新該 skill 的 project 宣告、ignore rule 與既有 lock pin。只有過期的安裝紀錄而沒有搬移時，`config.yaml`、`.gitignore` 和 `skills.lock.json` 不會改變；source 裡其他 remote installs 也不會加入 project 的 `skills:` 清單。
+
 ```
 .skillshare/skills/                 .claude/skills/
 ├── my-skill/          ────────►    ├── my-skill/ → (symlink)

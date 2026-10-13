@@ -77,6 +77,8 @@ skillshare sync -p       # 显式指定 project mode
 `skillshare target <name> --mode copy -p` 把每个 Target 单独设置为 copy 或
 symlink 模式。不会创建 Backup（project Target 可以从 Source 重新生成）。
 
+当 sync 接手手动移动的已声明 skill 时，只会更新该 skill 的 project 声明、ignore rule 和现有 lock pin。只有过期的安装记录而没有移动时，`config.yaml`、`.gitignore` 和 `skills.lock.json` 不会改变；source 中其他 remote installs 也不会加入 project 的 `skills:` 列表。
+
 ```
 .skillshare/skills/                 .claude/skills/
 ├── my-skill/          ────────►    ├── my-skill/ → (symlink)
