@@ -2,18 +2,36 @@
 
 ## [0.25.11] - 2026-10-13
 
-
 ### New Features
 
-* **mcp:** pin tool definitions in mcp check --live and warn when they change ([#560](https://github.com/runkids/skillshare/issues/560)) ([6cc7909](https://github.com/runkids/skillshare/commit/6cc790965a1addc86716bf52e7ac68c91bd26779))
-* **mcp:** warn when a local server runs an unpinned package or image ([#559](https://github.com/runkids/skillshare/issues/559)) ([4382a8c](https://github.com/runkids/skillshare/commit/4382a8c8c80b0a7f1b063f0d948978cbcd32d474))
-
+#### MCP
+- **Warn about MCP servers that run unpinned packages or images** — `mcp check` now flags a local server whose launcher fetches code at every start without an exact version, so a compromised release cannot reach your machine on the next Agent launch unnoticed. It reads only `command` and `args`; nothing is downloaded or started.
+  ```bash
+  skillshare mcp check            # ! npx runs @upstash/context7-mcp without a pinned version
+  ```
+  - `npx`, `uvx` and `pipx run` warn when a package has no exact version: none, `latest`, a dist-tag such as `next`, a range such as `^1.2`, or a `==1.*` wildcard. Every npx `--package` and uvx `--with` package is checked.
+  - `docker run` and `podman run` warn on an image with no tag or `latest`; an image pinned by tag but not by `@sha256:` digest is a note, since a tag can move.
+  - The warning also shows in `doctor` and on the dashboard's MCP page, in every dashboard language. Warnings never change the exit code. The docs' own MCP examples now name exact versions.
+- **Detect tool definitions that change after you reviewed them** — `mcp check --live` records each tool's name, description and input schema the first time a server answers, and warns when a tool's description or schema changes or a new tool appears. An Agent reads those descriptions as instructions, and a server can change them later (a "rug pull"). The warning repeats until you accept the new definitions:
+  ```bash
+  skillshare mcp check --live                              # pins tools on the first run
+  skillshare mcp check docs --live --accept-tools -g       # accept docs' current tools
+  ```
+  - Only hashes are stored, in `mcp/tool-pins.json` of the state directory; a check without `--live` never reads or writes them. A removed tool is a note.
+  - Each `--accept-tools` is written to the operations log (`skillshare log`) with the servers it accepted. An unreadable pin file is never overwritten; move it away to pin again.
 
 ### Bug Fixes
 
-* **backup:** reclaim abandoned staging directories safely ([#558](https://github.com/runkids/skillshare/issues/558)) ([cf5783e](https://github.com/runkids/skillshare/commit/cf5783ee888a0defd3519509ea4274dee4c6f8b6))
-* **list:** show every target sync placed a skill or agent in ([#562](https://github.com/runkids/skillshare/issues/562)) ([ac1d4b4](https://github.com/runkids/skillshare/commit/ac1d4b4387a1dd667aae916a693dcd29451bcb88))
-* **skills:** let code review use the running tool's subagent model ([d8909fa](https://github.com/runkids/skillshare/commit/d8909faef40d4d4ab3b79c62fab8a99ae748ba9c))
+#### Backup
+
+- **Cleanup removes incomplete backups an interruption left behind** — a backup interrupted mid-copy left a hidden `.snapshot-*` directory that `backup --cleanup` never found, so it kept using disk space. Cleanup now removes these, even when there are no completed snapshots, and `--cleanup --dry-run` lists them. A backup still being written is skipped and reported as busy; run cleanup again after it finishes. Refs: #556.
+  ```bash
+  skillshare backup --cleanup --dry-run    # preview, including abandoned incomplete directories
+  ```
+
+#### List
+
+- **The detail panel lists every Agent a skill or agent is synced to** — the **Targets** row in `skillshare list` showed only Agents linked in merge mode with flat names. It now also lists Agents that get the skill through copy or symlink mode or under `standard` or `prefixed` naming, and an agent's detail panel shows its Agents for the first time. A target with skills turned off, or a skill you disable with `t`, no longer lists a target.
 
 ## [0.25.10] - 2026-10-13
 
