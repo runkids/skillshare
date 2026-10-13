@@ -3,17 +3,21 @@
 Verifies that commands which write `config.yaml` keep every comment in it:
 head, inline and trailing comments, comments with odd spacing or no space
 after `#`, comments on nested keys and list items, and comments on a key the
-command removed.
+command removed. It also checks that YAML anchors and aliases survive.
 
 **Origin**: [#525](https://github.com/runkids/skillshare/issues/525) — on
 0.25.4 `target --mode copy --target-naming prefixed` dropped marker comments
-a user's script relied on.
+a user's script relied on. [#546](https://github.com/runkids/skillshare/issues/546)
+— on 0.25.5 the same write expanded `&anchor` / `*alias` pairs under `targets`
+and `projects`.
 
 ## Scope
 
 - Global mode, `config.yaml` written by `target` (set and remove)
 - Every comment survives, including the ones on the removed target
 - The schema header appears once
+- An anchored list keeps its anchor and its alias after an edit; editing the
+  aliased list gives it its own copy and leaves the anchored one alone
 
 ## Environment
 
@@ -106,8 +110,66 @@ Expected:
 - lost-count=0
 - orphans-under-targets
 
+### 6. Setup: one include list shared through an anchor
+
+```bash
+CFG=$XDG_CONFIG_HOME/skillshare/config.yaml
+cat > "$CFG" <<'YAML'
+sources:
+  skills: SRC/skills
+targets:
+  claude:
+    skills:
+      path: HOME/.claude/skills
+      include: &shared
+        - demo
+  codex:
+    skills:
+      path: HOME/.codex/skills
+      include: *shared
+YAML
+sed -i "s|SRC|$XDG_CONFIG_HOME/skillshare|; s|HOME|$HOME|g" "$CFG"
+echo "anchors=$(grep -c '&shared' "$CFG") aliases=$(grep -c '\*shared' "$CFG")"
+```
+
+Expected:
+- exit_code: 0
+- anchors=1 aliases=1
+
+### 7. Editing the anchored target keeps the anchor and the alias
+
+```bash
+CFG=$XDG_CONFIG_HOME/skillshare/config.yaml
+ss target claude --add-exclude 'old-*'
+echo "anchors=$(grep -c '&shared' "$CFG") aliases=$(grep -c '\*shared' "$CFG")"
+grep -c -- "- old-\*" "$CFG"
+```
+
+Expected:
+- exit_code: 0
+- anchors=1 aliases=1
+- 1
+
+### 8. Editing the aliased target gives it its own list
+
+```bash
+CFG=$XDG_CONFIG_HOME/skillshare/config.yaml
+ss target codex --add-include extra
+echo "aliases=$(grep -c '\*shared' "$CFG")"
+echo "extra=$(grep -c -- '- extra' "$CFG")"
+awk '/^  claude:/{c=1} /^  codex:/{c=0} c&&/- extra/{n++} END{print "claude-extras=" n+0}' "$CFG"
+```
+
+Expected:
+- exit_code: 0
+- aliases=0
+- extra=1
+- claude-extras=0
+
 ## Pass Criteria
 
 - Step 3: all 11 comments present after `target` set, schema header once.
 - Step 5: `universal` gone, all 11 comments still present, the removed
   target's comments sit inside the `targets` section.
+- Step 7: the `&shared` anchor and its `*shared` alias are both still there.
+- Step 8: `codex` no longer aliases `shared`, and `claude` did not gain `extra`.

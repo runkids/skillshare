@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -232,5 +233,136 @@ func TestMarshalConfig_RemovedNestedEntryKeepsCommentOrder(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "# BEGIN\n# note\n# END") {
 		t.Errorf("nested comments should keep their order:\n%s", data)
+	}
+}
+
+const sharedIncludeConfig = "targets:\n  a:\n    skills:\n      path: /tmp/a\n      include: &shared\n        - demo\n  b:\n    skills:\n      path: /tmp/b\n      include: *shared\n"
+
+// remarshalConfig loads existing, applies edit, writes it back, and returns
+// the bytes plus the config read from them, so a test can check both the text
+// and what a later command would load.
+func remarshalConfig[T any](t *testing.T, existing string, header []byte, edit func(*T)) (string, T) {
+	t.Helper()
+	var cfg T
+	if err := yaml.Unmarshal([]byte(existing), &cfg); err != nil {
+		t.Fatal(err)
+	}
+	edit(&cfg)
+	data, err := marshalConfig(&cfg, header, []byte(existing))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var reloaded T
+	if err := yaml.Unmarshal(data, &reloaded); err != nil {
+		t.Fatalf("written config does not load: %v\n%s", err, data)
+	}
+	return string(data), reloaded
+}
+
+func assertAnchorAndAlias(t *testing.T, got string) {
+	t.Helper()
+	if !strings.Contains(got, "include: &shared\n") || !strings.Contains(got, "include: *shared\n") {
+		t.Errorf("anchor and alias should survive:\n%s", got)
+	}
+}
+
+func TestMarshalConfig_TargetAnchorSurvivesEdit(t *testing.T) {
+	got, cfg := remarshalConfig(t, sharedIncludeConfig, schemaComment, func(c *Config) {
+		c.Targets["a"].Skills.Exclude = []string{"old-*"}
+	})
+	assertAnchorAndAlias(t, got)
+	if b := cfg.Targets["b"].Skills.Include; !slices.Equal(b, []string{"demo"}) {
+		t.Errorf("b include = %v, want [demo]", b)
+	}
+}
+
+func TestMarshalConfig_EditedAnchorReachesAlias(t *testing.T) {
+	got, cfg := remarshalConfig(t, sharedIncludeConfig, schemaComment, func(c *Config) {
+		c.Targets["a"].Skills.Include = []string{"demo", "extra"}
+	})
+	assertAnchorAndAlias(t, got)
+	if b := cfg.Targets["b"].Skills.Include; !slices.Equal(b, []string{"demo", "extra"}) {
+		t.Errorf("b include = %v, want [demo extra]", b)
+	}
+}
+
+func TestMarshalConfig_EditedAliasStopsAliasing(t *testing.T) {
+	got, cfg := remarshalConfig(t, sharedIncludeConfig, schemaComment, func(c *Config) {
+		c.Targets["b"].Skills.Include = []string{"other"}
+	})
+	if strings.Contains(got, "*shared") {
+		t.Errorf("b was edited and must not alias a:\n%s", got)
+	}
+	if a := cfg.Targets["a"].Skills.Include; !slices.Equal(a, []string{"demo"}) {
+		t.Errorf("a include = %v, want [demo]", a)
+	}
+	if b := cfg.Targets["b"].Skills.Include; !slices.Equal(b, []string{"other"}) {
+		t.Errorf("b include = %v, want [other]", b)
+	}
+}
+
+func TestMarshalConfig_AnchorLaterInOutputThanAlias(t *testing.T) {
+	// Targets are written in name order, so b comes before z and the anchor
+	// must move to b instead of leaving an alias in front of it.
+	existing := "targets:\n  z:\n    skills:\n      path: /tmp/z\n      include: &shared\n        - demo\n  b:\n    skills:\n      path: /tmp/b # b path\n      include: *shared\n"
+	got, cfg := remarshalConfig(t, existing, schemaComment, func(c *Config) {
+		c.Targets["z"].Skills.Exclude = []string{"old-*"}
+	})
+	if !strings.Contains(got, "path: /tmp/b # b path\n      include: &shared\n") || !strings.Contains(got, "include: *shared\n") {
+		t.Errorf("anchor should sit on the first target and keep its comments:\n%s", got)
+	}
+	for name, target := range cfg.Targets {
+		if inc := target.Skills.Include; !slices.Equal(inc, []string{"demo"}) {
+			t.Errorf("%s include = %v, want [demo]", name, inc)
+		}
+	}
+}
+
+func TestMarshalConfig_ProjectAnchorsSurviveEdit(t *testing.T) {
+	existing := "projects:\n  /p/one:\n    targets:\n      - claude\n    skills:\n      include: &shared\n        - demo\n  /p/two:\n    targets:\n      - claude\n    skills:\n      include: *shared\n"
+	got, cfg := remarshalConfig(t, existing, schemaComment, func(c *Config) {
+		p := c.Projects["/p/one"]
+		p.Name = "one"
+		c.Projects["/p/one"] = p
+	})
+	assertAnchorAndAlias(t, got)
+	if two := cfg.Projects["/p/two"].Skills.Include; !slices.Equal(two, []string{"demo"}) {
+		t.Errorf("/p/two include = %v, want [demo]", two)
+	}
+}
+
+func TestMarshalConfig_ProjectConfigTargetAnchorSurvivesEdit(t *testing.T) {
+	existing := "targets:\n  - name: claude\n    skills:\n      include: &shared\n        - demo\n  - name: codex\n    skills:\n      include: *shared\n"
+	got, cfg := remarshalConfig(t, existing, projectSchemaComment, func(c *ProjectConfig) {
+		c.Targets[0].Skills.Mode = "copy"
+	})
+	assertAnchorAndAlias(t, got)
+	if codex := cfg.Targets[1].Skills.Include; !slices.Equal(codex, []string{"demo"}) {
+		t.Errorf("codex include = %v, want [demo]", codex)
+	}
+}
+
+func TestMarshalConfig_RemovedAnchorTargetLeavesAliasItsOwnList(t *testing.T) {
+	got, cfg := remarshalConfig(t, sharedIncludeConfig, schemaComment, func(c *Config) {
+		delete(c.Targets, "a")
+	})
+	if strings.Contains(got, "*shared") {
+		t.Errorf("the anchor is gone, so b must hold its own list:\n%s", got)
+	}
+	if b := cfg.Targets["b"].Skills.Include; !slices.Equal(b, []string{"demo"}) {
+		t.Errorf("b include = %v, want [demo]", b)
+	}
+}
+
+func TestMarshalConfig_AliasAsListItemSurvivesEdit(t *testing.T) {
+	existing := "targets:\n  a:\n    skills:\n      path: /tmp/a\n      include:\n        - &d demo\n        - other\n      exclude:\n        - *d\n"
+	got, cfg := remarshalConfig(t, existing, schemaComment, func(c *Config) {
+		c.Targets["a"].Skills.Mode = "copy"
+	})
+	if !strings.Contains(got, "- &d demo\n") || !strings.Contains(got, "- *d\n") {
+		t.Errorf("list item anchor and alias should survive:\n%s", got)
+	}
+	if ex := cfg.Targets["a"].Skills.Exclude; !slices.Equal(ex, []string{"demo"}) {
+		t.Errorf("exclude = %v, want [demo]", ex)
 	}
 }

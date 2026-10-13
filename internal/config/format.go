@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"os"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -85,7 +86,8 @@ func marshalConfigFile(path string, v any, header []byte) ([]byte, error) {
 // comment is dropped: one on a key that was removed moves in front of the next
 // key that is still present, or to the end of its section. Comments m already
 // carries (raw sections such as hooks) win, and the schema directive is
-// dropped, since marshalConfig writes its own header.
+// dropped, since marshalConfig writes its own header. Anchors and aliases are
+// restored the same way, by relinkAliases.
 func keepComments(m *yaml.Node, existing []byte) {
 	var old yaml.Node
 	if yaml.Unmarshal(existing, &old) != nil || len(old.Content) == 0 || old.Content[0].Kind != yaml.MappingNode {
@@ -97,10 +99,15 @@ func keepComments(m *yaml.Node, existing []byte) {
 		top.Content[i].HeadComment = withoutSchemaDirective(top.Content[i].HeadComment)
 	}
 	top.FootComment = joinComments(top.FootComment, old.FootComment)
-	copyComments(top, m)
+	pairs := map[*yaml.Node]*yaml.Node{}
+	copyComments(top, m, pairs)
+	relinkAliases(m, pairs)
 }
 
-func copyComments(old, cur *yaml.Node) {
+// copyComments copies the comments of old onto cur and records every old node
+// with the node that replaced it in pairs.
+func copyComments(old, cur *yaml.Node, pairs map[*yaml.Node]*yaml.Node) {
+	pairs[old] = cur
 	// A target that changed between `- claude` and `- name: claude` keeps its
 	// line comment on the name, the only place a block mapping can show one.
 	if old.Kind != cur.Kind {
@@ -133,8 +140,8 @@ func copyComments(old, cur *yaml.Node) {
 				orphaned = joinComments(orphaned, pairComments(old.Content[i], old.Content[i+1]))
 				continue
 			}
-			copyComments(old.Content[i], cur.Content[j])
-			copyComments(old.Content[i+1], cur.Content[j+1])
+			copyComments(old.Content[i], cur.Content[j], pairs)
+			copyComments(old.Content[i+1], cur.Content[j+1], pairs)
 			cur.Content[j].HeadComment = joinComments(orphaned, cur.Content[j].HeadComment)
 			orphaned = ""
 		}
@@ -152,7 +159,7 @@ func copyComments(old, cur *yaml.Node) {
 				continue
 			}
 			used[j] = true
-			copyComments(item, cur.Content[j])
+			copyComments(item, cur.Content[j], pairs)
 			cur.Content[j].HeadComment = joinComments(orphaned, cur.Content[j].HeadComment)
 			orphaned = ""
 		}
@@ -172,6 +179,82 @@ func copyComments(old, cur *yaml.Node) {
 	default:
 		cur.FootComment = joinComments(cur.FootComment, orphaned)
 	}
+}
+
+// aliasGroup is an anchor of the replaced file with the nodes that still show
+// its value: the anchored node itself and every alias that was not edited.
+type aliasGroup struct {
+	name  string
+	src   *yaml.Node // the anchored node, whose current content the group shows
+	first *yaml.Node // the group's first node in document order, which gets the anchor
+}
+
+// relinkAliases restores the anchors and aliases the struct encoding expanded.
+// An anchored node keeps its anchor. An alias stays an alias while its value is
+// the anchor's old value or equals the anchor's current one, so editing an
+// anchored node reaches its aliases, as the file said it should; an alias
+// whose value was edited to something else keeps its own copy. When the
+// anchored node was removed, its aliases keep their own copies. An anchor
+// stays where its node survives even if no alias is left, and a merge key
+// (`<<: *base`) is not restored: the merged keys are written out.
+func relinkAliases(cur *yaml.Node, pairs map[*yaml.Node]*yaml.Node) {
+	members := map[*yaml.Node]*aliasGroup{}
+	for old, c := range pairs {
+		if c.Kind == yaml.AliasNode {
+			continue
+		}
+		if old.Anchor != "" {
+			c.Anchor = old.Anchor
+		}
+		if old.Kind != yaml.AliasNode {
+			continue
+		}
+		src := pairs[old.Alias]
+		if src == nil || !(sameValue(old.Alias, c) || sameValue(src, c)) {
+			continue
+		}
+		g := members[src]
+		if g == nil {
+			g = &aliasGroup{name: old.Value, src: src}
+			members[src] = g
+		}
+		members[c] = g
+	}
+	var place func(n *yaml.Node)
+	place = func(n *yaml.Node) {
+		if g := members[n]; g != nil {
+			g.place(n)
+		}
+		for _, child := range n.Content {
+			place(child)
+		}
+	}
+	place(cur)
+}
+
+// place makes n the group's anchor if it is the first node reached, and an
+// alias of it otherwise. Output order is not the old file's order, so the
+// anchor moves to wherever the group appears first: an alias may not precede
+// its anchor.
+func (g *aliasGroup) place(n *yaml.Node) {
+	head, line, foot := n.HeadComment, n.LineComment, n.FootComment
+	if g.first != nil {
+		*n = yaml.Node{Kind: yaml.AliasNode, Value: g.name, Alias: g.first}
+	} else {
+		g.first = n
+		if n != g.src {
+			*n = *g.src
+		}
+		n.Anchor = g.name
+	}
+	n.HeadComment, n.LineComment, n.FootComment = head, line, foot
+}
+
+// sameValue reports whether two nodes decode to the same data, with aliases
+// resolved and mapping order ignored.
+func sameValue(a, b *yaml.Node) bool {
+	var x, y any
+	return a.Decode(&x) == nil && b.Decode(&y) == nil && reflect.DeepEqual(x, y)
 }
 
 // pairComments gathers the comments of a mapping entry as they appeared: the
@@ -202,6 +285,8 @@ func allComments(n *yaml.Node) string {
 // ("" for a nested list) never match.
 func itemIdentity(n *yaml.Node) string {
 	switch n.Kind {
+	case yaml.AliasNode:
+		return itemIdentity(n.Alias)
 	case yaml.ScalarNode:
 		return n.Value
 	case yaml.MappingNode:
