@@ -70,6 +70,25 @@ func TestFindSyncedTargets_MergeLinksRespectFilters(t *testing.T) {
 	assertSyncedTo(t, m.findSyncedTargets(skillEntryAt("other")))
 }
 
+func TestFindSyncedTargets_DisablingSkillDropsItsTargets(t *testing.T) {
+	source, dst := t.TempDir(), t.TempDir()
+	writeSyncSkill(t, source, "demo", "demo")
+	tc := skillTarget(dst, "merge", "")
+	targets := map[string]config.TargetConfig{"claude": tc}
+	discovered := syncedTargetsModel(t, source, targets, "").discovered
+	if _, err := sync.SyncTargetMergeWithSkills("claude", tc, discovered, source, false, false, ""); err != nil {
+		t.Fatal(err)
+	}
+	m := newListTUIModel(nil, []skillItem{{entry: skillEntryAt("demo")}}, 1, "global", source, "", targets, kindAll)
+	m.discovered = discovered
+	assertSyncedTo(t, m.findSyncedTargets(skillEntryAt("demo")), "claude")
+
+	m = pressKey(t, m, "t")
+
+	// A reopened list rediscovers the skill as disabled and shows no target; the open one must agree.
+	assertSyncedTo(t, m.findSyncedTargets(skillEntryAt("demo")))
+}
+
 func TestFindSyncedTargets_CopyMode(t *testing.T) {
 	source, dst := t.TempDir(), t.TempDir()
 	writeSyncSkill(t, source, "demo", "demo")

@@ -538,6 +538,13 @@ func (m listTUIModel) toggleDisabled() (tea.Model, tea.Cmd) {
 			break
 		}
 	}
+	// Sync's name resolution skips disabled skills, as a reopened list would.
+	for i := range m.discovered {
+		if m.discovered[i].RelPath == item.entry.RelPath {
+			m.discovered[i].Disabled = newDisabled
+			break
+		}
+	}
 
 	// Clear detail cache so the panel re-renders
 	delete(m.detailCache, item.entry.RelPath)
