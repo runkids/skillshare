@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"unicode"
 
 	"skillshare/internal/childproc"
 )
@@ -198,10 +199,34 @@ func pickEditor(requested string) (editorCandidate, string, error) {
 	return editorCandidate{}, "", fmt.Errorf("no usable editor found; set $EDITOR or pass editor=<name>")
 }
 
-// splitCommand naively splits an $EDITOR value into (bin, args...).
-// Quoted arguments are not supported because $EDITOR rarely needs them.
+// splitCommand splits an $EDITOR value into (bin, args...). Double or single quotes keep a
+// field with spaces together, such as "C:\Program Files\Notepad++\notepad++.exe".
+// Backslashes stay literal because Windows paths use them.
 func splitCommand(v string) (string, []string) {
-	fields := strings.Fields(v)
+	var fields []string
+	var field strings.Builder
+	var quote rune
+	inField := false
+	for _, r := range v {
+		switch {
+		case quote != 0 && r == quote:
+			quote = 0
+		case quote == 0 && (r == '"' || r == '\''):
+			quote, inField = r, true
+		case quote == 0 && unicode.IsSpace(r):
+			if inField {
+				fields = append(fields, field.String())
+				field.Reset()
+				inField = false
+			}
+		default:
+			field.WriteRune(r)
+			inField = true
+		}
+	}
+	if inField {
+		fields = append(fields, field.String())
+	}
 	if len(fields) == 0 {
 		return "", nil
 	}
