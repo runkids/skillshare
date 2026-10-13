@@ -256,7 +256,7 @@ func checkLaunch(server Server, opts CheckOptions) []CheckFinding {
 
 // Flags of each launcher whose value must not be mistaken for the package or image.
 var (
-	uvxValueFlags    = []string{"--with", "--python", "-p", "--index"}
+	uvxValueFlags    = []string{"--python", "-p", "--index"}
 	dockerValueFlags = []string{"-e", "--env", "-v", "--volume", "--name", "-p", "--publish", "-w", "--workdir", "--network", "--net", "-u", "--user", "--entrypoint", "--mount", "--platform", "--env-file", "-l", "--label", "-m", "--memory", "-h", "--hostname",
 		"--cap-add", "--cap-drop", "--security-opt", "--pull", "--tmpfs", "--device", "--add-host", "--ulimit", "--cpus", "--shm-size", "--log-driver", "--log-opt", "--cidfile", "--ipc", "--pid", "--restart", "--runtime", "--gpus", "--dns", "--label-file", "--group-add", "--stop-signal", "--stop-timeout", "--health-cmd"}
 )
@@ -281,7 +281,11 @@ func checkPin(server Server) []CheckFinding {
 	case "npx":
 		// npx accepts --package more than once; each one is fetched.
 		var out []CheckFinding
-		for _, pkg := range pinTargets(args, []string{"-p", "--package"}, nil) {
+		pkgs, command := pinTargets(args, []string{"-p", "--package"}, nil)
+		if len(pkgs) == 0 {
+			pkgs = []string{command}
+		}
+		for _, pkg := range pkgs {
 			if !remote(pkg) {
 				continue
 			}
@@ -301,20 +305,32 @@ func checkPin(server Server) []CheckFinding {
 			}
 			args = args[1:]
 		}
-		spec := first(pinTargets(args, []string{"--from", "--spec"}, uvxValueFlags))
-		if !remote(spec) || strings.Contains(spec, "==") || (strings.Contains(spec, "@") && !strings.HasSuffix(spec, "@latest")) {
-			return nil
+		// The tool comes from --from or --spec, else the command; uvx --with adds more packages.
+		from, with := []string{"--from", "--spec"}, []string{"--with", "-w"}
+		froms, command := pinTargets(args, from, append(with, uvxValueFlags...))
+		withs, _ := pinTargets(args, with, append(from, uvxValueFlags...))
+		if len(froms) > 0 {
+			command = froms[0]
 		}
-		name := spec
-		if i := strings.IndexAny(spec, "=<>~!@[;"); i > 0 {
-			name = spec[:i]
+		var out []CheckFinding
+		for _, spec := range append([]string{command}, withs...) {
+			// Only the requirement counts: an environment marker after ';' can hold its own ==.
+			requirement := strings.TrimSpace(strings.SplitN(spec, ";", 2)[0])
+			if !remote(requirement) || strings.Contains(requirement, "==") || (strings.Contains(requirement, "@") && !strings.HasSuffix(requirement, "@latest")) {
+				continue
+			}
+			name := requirement
+			if i := strings.IndexAny(requirement, "=<>~!@[ "); i > 0 {
+				name = requirement[:i]
+			}
+			out = append(out, finding("warning", name, fmt.Sprintf("%s runs %s without a pinned version; pin it, e.g. %s==<version>", launcher, name, name))...)
 		}
-		return finding("warning", name, fmt.Sprintf("%s runs %s without a pinned version; pin it, e.g. %s==<version>", launcher, name, name))
+		return out
 	default: // docker, podman
 		if len(args) == 0 || args[0] != "run" {
 			return nil
 		}
-		image := first(pinTargets(args[1:], nil, dockerValueFlags))
+		_, image := pinTargets(args[1:], nil, dockerValueFlags)
 		if image == "" || strings.Contains(image, "@") {
 			return nil
 		}
@@ -329,10 +345,10 @@ func checkPin(server Server) []CheckFinding {
 	}
 }
 
-// pinTargets is what a launcher runs: every value of pkgFlags, else the first argument that is
-// not a flag. valueFlags take a separate value, which is skipped.
-func pinTargets(args, pkgFlags, valueFlags []string) []string {
-	var pkgs []string
+// pinTargets reads a launcher's args up to the command it runs: every value of pkgFlags, and
+// that command, the first argument that is not a flag. valueFlags take a separate value, which
+// is skipped.
+func pinTargets(args, pkgFlags, valueFlags []string) (pkgs []string, command string) {
 	for i := 0; i < len(args); i++ {
 		name, value, joined := strings.Cut(args[i], "=")
 		switch {
@@ -345,20 +361,10 @@ func pinTargets(args, pkgFlags, valueFlags []string) []string {
 		case slices.Contains(valueFlags, name) && !joined:
 			i++
 		case !strings.HasPrefix(args[i], "-"):
-			if len(pkgs) == 0 {
-				return []string{args[i]}
-			}
-			return pkgs
+			return pkgs, args[i]
 		}
 	}
-	return pkgs
-}
-
-func first(values []string) string {
-	if len(values) == 0 {
-		return ""
-	}
-	return values[0]
+	return pkgs, ""
 }
 
 // checkClientRules renders the server alone, once per target, so a rule an Agent enforces
