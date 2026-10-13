@@ -76,6 +76,8 @@ skillshare sync -p       # 명시적 project mode
 
 **Project sync**는 기본적으로 merge mode(skill별 symlink)를 사용하지만, 각 target은 `skillshare target <name> --mode copy -p`를 통해 copy 또는 symlink mode로 설정할 수 있습니다. Backup은 생성되지 않습니다(project target은 source로부터 재현 가능하기 때문입니다).
 
+sync가 수동으로 이동한 선언된 skill을 인계받으면 해당 skill의 project 설정, ignore rule 및 기존 lock pin만 업데이트합니다. 오래된 설치 기록만 있고 이동이 없으면 `config.yaml`, `.gitignore`, `skills.lock.json`은 변경되지 않습니다. source의 다른 remote installs도 project의 `skills:` 목록에 추가되지 않습니다.
+
 ```
 .skillshare/skills/                 .claude/skills/
 ├── my-skill/          ────────►    ├── my-skill/ → (symlink)

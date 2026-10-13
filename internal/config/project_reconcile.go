@@ -19,8 +19,8 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store
 	return reconcileProjectSkills(projectRoot, projectCfg, store, sourcePath, true)
 }
 
-// AdoptMovedProjectSkills is ReconcileProjectSkills without the prune; see
-// AdoptMovedGlobalSkills.
+// AdoptMovedProjectSkills follows hand-moved declared skills without pruning
+// records or reconciling unrelated project entries.
 func AdoptMovedProjectSkills(projectRoot string, projectCfg *ProjectConfig, store *install.MetadataStore, sourcePath string) error {
 	return reconcileProjectSkills(projectRoot, projectCfg, store, sourcePath, false)
 }
@@ -64,6 +64,19 @@ func reconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store
 	if err != nil {
 		return fmt.Errorf("failed to scan project skills: %w", err)
 	}
+	if !prune {
+		// A stale record can trigger the walk without any skill having moved.
+		if len(result.moved) == 0 {
+			if result.changed {
+				return store.Save(sourcePath)
+			}
+			return nil
+		}
+		gitignoreEntries = nil
+		for _, dest := range result.moved {
+			onFound(dest)
+		}
+	}
 
 	if prune && !result.incomplete && pruneStaleEntries(store, result.live) {
 		result.changed = true
@@ -97,7 +110,28 @@ func reconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store
 			result.live[sk.FullName()] = true
 		}
 	}
-	if projectCfg != nil && reconcileProjectConfigSkills(projectCfg, store, result.live) {
+	configChanged := false
+	if projectCfg != nil {
+		if prune {
+			configChanged = reconcileProjectConfigSkills(projectCfg, store, result.live)
+		} else {
+			kept := projectCfg.Skills[:0]
+			for _, skill := range projectCfg.Skills {
+				if dest, ok := result.moved[skill.FullName()]; ok {
+					configChanged = true
+					// Keep an existing destination declaration, as full reconcile does.
+					if _, exists := declared[dest]; exists {
+						continue
+					}
+					skill.Name = skillBaseName(dest)
+					skill.Group = store.Get(dest).Group
+				}
+				kept = append(kept, skill)
+			}
+			projectCfg.Skills = kept
+		}
+	}
+	if configChanged {
 		if err := projectCfg.Save(projectRoot); err != nil {
 			return fmt.Errorf("failed to save project config after reconcile: %w", err)
 		}
@@ -110,8 +144,10 @@ func reconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store
 				return fmt.Errorf("failed to write %s: %w", install.LockFileName, err)
 			}
 		}
-		if err := WriteProjectLock(projectRoot, projectCfg, store, sourcePath); err != nil {
-			return fmt.Errorf("failed to write %s: %w", install.LockFileName, err)
+		if prune {
+			if err := WriteProjectLock(projectRoot, projectCfg, store, sourcePath); err != nil {
+				return fmt.Errorf("failed to write %s: %w", install.LockFileName, err)
+			}
 		}
 	}
 

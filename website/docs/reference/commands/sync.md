@@ -76,6 +76,11 @@ skillshare sync -p       # Explicit project mode
 
 **Project sync** defaults to merge mode (per-skill symlinks), but each target can be set to copy or symlink mode via `skillshare target <name> --mode copy -p`. Backup is not created (project targets are reproducible from source).
 
+When sync adopts a hand-moved declared skill, only that skill's project entry,
+ignore rule and existing lock pin follow the move. A stale install record alone
+does not change `config.yaml`, `.gitignore` or `skills.lock.json`, and other
+remote installs in the source are not added to the project's `skills:` list.
+
 ```
 .skillshare/skills/                 .claude/skills/
 ├── my-skill/          ────────►    ├── my-skill/ → (symlink)
