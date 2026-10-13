@@ -1637,6 +1637,8 @@
   "mcp.syncDialog.outside.one": "還會寫入這個專案以外的 1 項變更。",
   "mcp.syncDialog.outside.other": "還會寫入這個專案以外的 {count} 項變更。",
   "mcp.copyPath": "複製路徑",
+  "mcp.openFolder": "開啟資料夾",
+  "mcp.openedFolder": "已開啟資料夾",
   "mcp.moreFiles": "還有 {count} 個",
   "mcp.format": "格式化",
   "mcp.fileDetected": "已偵測",

@@ -66,8 +66,12 @@ export const mcpApi = {
     /** Project roots that also have their own .skillshare/config.yaml. */
     projectConfigs: string[];
     paths: Record<string, string>; detected: string[];
+    /** This browser runs on the dashboard's machine, so it can open files and folders there. */
+    local: boolean;
     /** Targets whose file in `paths` exists and this browser, on the dashboard's machine, can open. */
-    openable: string[]; plan: MCPPlan | null; previewError: string;
+    openable: string[];
+    /** `paths` and `openable` for each mcp.projects root. */
+    projectPaths: Record<string, Record<string, string>>; projectOpenable: Record<string, string[]>; plan: MCPPlan | null; previewError: string;
     /** Native import files by scope: the empty key is this config, others are project roots. */
     importSources?: Record<string, MCPImportSource[]>;
     backups: MCPBackup[];
@@ -87,6 +91,6 @@ export const mcpApi = {
   import: (body: { from?: string; content?: string; name?: string; root?: string; piExtension?: string }) => post<{ candidates: MCPCandidate[] }>('/mcp/import', body),
   previewRestore: (backupId: string) => post<MCPPlan>('/mcp/restore', { backupId, preview: true }),
   restore: (backupId: string, revision: string) => post<MCPResult>('/mcp/restore', { backupId, revision }),
-  /** Open one Agent's config file, as listed in `paths`, the way the skill page opens a skill. */
-  open: (target: string) => post<{ editor: string; path: string; pid: number }>('/mcp/open', { target }),
+  /** Open one Agent's config file, as listed in `paths` or `projectPaths`, the way the skill page opens a skill; `folder` opens its directory instead. */
+  open: (target: string, opts: { project?: string; folder?: boolean } = {}) => post<{ editor: string; path: string; pid: number }>('/mcp/open', { target, ...opts }),
 };

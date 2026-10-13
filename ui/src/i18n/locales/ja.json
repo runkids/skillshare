@@ -1637,6 +1637,8 @@
   "mcp.syncDialog.outside.one": "このプロジェクト外の変更 1 件も書き込みます。",
   "mcp.syncDialog.outside.other": "このプロジェクト外の変更 {count} 件も書き込みます。",
   "mcp.copyPath": "パスをコピー",
+  "mcp.openFolder": "フォルダを開く",
+  "mcp.openedFolder": "フォルダを開きました",
   "mcp.moreFiles": "ほか {count} 件",
   "mcp.format": "整形",
   "mcp.fileDetected": "検出済み",

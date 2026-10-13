@@ -1637,6 +1637,8 @@
   "mcp.syncDialog.outside.one": "Juga menulis 1 perubahan di luar proyek ini.",
   "mcp.syncDialog.outside.other": "Juga menulis {count} perubahan di luar proyek ini.",
   "mcp.copyPath": "Salin path",
+  "mcp.openFolder": "Buka folder",
+  "mcp.openedFolder": "Folder dibuka",
   "mcp.moreFiles": "{count} lainnya",
   "mcp.format": "Rapikan",
   "mcp.fileDetected": "terdeteksi",

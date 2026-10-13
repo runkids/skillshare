@@ -132,6 +132,24 @@ func (s *Server) handleExtensionsOpen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if status, err := openFileManager(dir); err != nil {
+		writeError(w, status, err.Error())
+		return
+	}
+
+	s.writeOpsLog("extensions-open", "ok", start, map[string]any{
+		"path":  dir,
+		"scope": "ui",
+	}, "")
+	writeJSON(w, map[string]any{"path": dir})
+}
+
+// openFileManager opens dir in the OS file manager without waiting for it. On failure it
+// returns the HTTP status to report.
+func openFileManager(dir string) (int, error) {
+	if os.Getenv("SKILLSHARE_HEADLESS") == "1" {
+		return http.StatusConflict, errors.New("refusing to open file manager: SKILLSHARE_HEADLESS=1")
+	}
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
@@ -141,22 +159,15 @@ func (s *Server) handleExtensionsOpen(w http.ResponseWriter, r *http.Request) {
 	case "linux", "freebsd", "openbsd", "netbsd":
 		cmd = exec.Command("xdg-open", dir)
 	default:
-		writeError(w, http.StatusNotImplemented, "opening a file manager is not supported on this platform")
-		return
+		return http.StatusNotImplemented, errors.New("opening a file manager is not supported on this platform")
 	}
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = nil, nil, nil
 	if err := childproc.StartDetached(cmd); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to open file manager: %s", err))
-		return
+		return http.StatusInternalServerError, fmt.Errorf("failed to open file manager: %w", err)
 	}
 	// Explorer returns a non-zero exit code even on success; ignore Wait result.
 	go func() { _ = cmd.Wait() }()
-
-	s.writeOpsLog("extensions-open", "ok", start, map[string]any{
-		"path":  dir,
-		"scope": "ui",
-	}, "")
-	writeJSON(w, map[string]any{"path": dir})
+	return 0, nil
 }
 
 // handleExtensionsRemove — DELETE /api/extensions/{name}

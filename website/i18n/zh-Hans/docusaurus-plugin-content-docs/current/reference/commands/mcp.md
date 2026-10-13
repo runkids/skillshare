@@ -216,9 +216,11 @@ client 的 MCP 文件存在，或该 client 用于保存设置的文件夹存在
 已检测到，因此即使是全新安装、还没有 MCP 文件，也仍会出现在列表中。在 project mode 下，
 当项目拥有自己的 MCP 文件，或该 client 在全局范围内被检测到时，就会列出该 client。
 每个检测到的 client 会显示其 MCP 文件名，**Copy path** 会复制完整路径。文件存在后，
-**Open in editor** 会用与 skill 的 **Open in editor** 相同的编辑器打开它。编辑器在运行
-dashboard 的机器上启动，所以只有当浏览器也在那台机器上打开（通过 `localhost` 或 SSH
-端口转发）时才会显示这个按钮，通过局域网地址或反向代理访问时不会显示。
+**Open in editor** 会用与 skill 的 **Open in editor** 相同的编辑器打开它。**Open folder**
+会用文件管理器（Finder、文件资源管理器，Linux 上为默认处理程序）打开文件所在的文件夹；
+client 还没写入文件时，打开最近一个已存在的文件夹。这样不必设置 `$EDITOR` 也能用任意程序
+打开文件。两者都在运行 dashboard 的机器上启动，所以只有当浏览器也在那台机器上打开（通过
+`localhost` 或 SSH 端口转发）时才会显示这些按钮，通过局域网地址或反向代理访问时不会显示。
 
 其他 client 细节：
 
@@ -548,6 +550,8 @@ mcp:
   按项目的开关，该行会说明这个 server 在那里仍会加载。如果某个条目列出了自己的
   `targets`，且与项目的 targets 不同，就会出现 **改成与项目一致**：它会把该条目重新保存为
   不带 `targets` 的形式。
+- 标签页右侧的 **Agents** 列表显示该 project 的 Agent，以及文件已在 project 中的其他
+  Agent，附带文件名和 **Copy path**。**Open folder** 和 **Open in editor** 与 MCP 页面相同。
 - 该标签页 Sync 框中的 **Sync MCP** 会写入整个 MCP 计划，并说明其中有多少更改
   位于此项目之外。项目页面顶部的 **Sync project** 只写入此项目的 skills、agents 和 MCP。
 - **默认值** 位于 **MCP** 标签页底部，用于编辑 `mcp.targets`。

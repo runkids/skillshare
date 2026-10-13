@@ -1637,6 +1637,8 @@
   "mcp.syncDialog.outside.one": "Écrit aussi 1 modification hors de ce projet.",
   "mcp.syncDialog.outside.other": "Écrit aussi {count} modifications hors de ce projet.",
   "mcp.copyPath": "Copier le chemin",
+  "mcp.openFolder": "Ouvrir le dossier",
+  "mcp.openedFolder": "Dossier ouvert",
   "mcp.moreFiles": "{count} de plus",
   "mcp.format": "Formater",
   "mcp.fileDetected": "détecté",

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ChevronDown, Copy, Download, ExternalLink, Eye, Pencil, Plug, Plus, PowerOff, Trash2, X } from 'lucide-react';
+import { AlertCircle, ChevronDown, Download, Eye, Pencil, Plug, Plus, PowerOff, Trash2, X } from 'lucide-react';
 import { mcpApi, type MCPMutation, type MCPPlan, type MCPSettings } from '../api/mcp';
 import Button from '../components/Button';
 import { useAppContext } from '../context/AppContext';
@@ -14,6 +14,7 @@ import { RailGroup, RailLayout, RailRow, RailSection } from '../components/Statu
 import { SkillContextMenu, type ContextMenuItem } from '../components/TargetMenu';
 import { useToast } from '../components/Toast';
 import MCPDefaults from '../components/mcp/MCPDefaults';
+import MCPFileActions from '../components/mcp/MCPFileActions';
 import MCPImportDialog from '../components/mcp/MCPImportDialog';
 import MCPUnmanagedNote from '../components/mcp/MCPUnmanagedNote';
 import MCPCheckNote from '../components/mcp/MCPCheckNote';
@@ -35,7 +36,6 @@ import { shortenHome } from '../lib/paths';
 import { useMcpQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
 
-const copy = (text: string) => void navigator.clipboard?.writeText(text);
 const inGlobalScope = (change: MCPChange) => !change.root;
 
 function mcpPageModel(data: MCPList | undefined, order: readonly string[]) {
@@ -81,20 +81,12 @@ function MCPHeader({ source, onImport, onAdd }: { source?: { path: string; confi
 
 function MCPFilesRail({ data, model, allFiles, onShowAll }: { data: MCPList; model: PageModel; allFiles: boolean; onShowAll: () => void }) {
   const t = useT();
-  const { toast } = useToast();
   const { files, undetected, detected } = model;
   return (
     <RailSection title={t('layout.nav.agents')} count={files.length}>
-      {/* The file name is enough to recognise; the full path is one hover or one copy away. */}
       <RailGroup label={t('mcp.fileDetected')} count={files.length - undetected.length}>
         {files.filter((x) => detected.has(x)).map((target) => (
-          <RailRow key={target} target={target} label={targetLabel(target)} right={<>
-            <span className="max-w-[130px] truncate font-mono text-xs text-ink-3" title={data.paths[target]}>{data.paths[target].split(/[\\/]/).pop()}</span>
-            <span className="flex">
-              {data.openable.includes(target) && <button type="button" className="ss-ib" aria-label={`${t('resourceDetail.actions.openInEditor')} · ${targetLabel(target)}`} onClick={() => mcpApi.open(target).then((r) => toast(t('resourceDetail.toast.openedIn', { editor: r.editor }), 'info'), (e) => toast(describeError(t, (e as Error).message), 'error'))}><ExternalLink size={14} /></button>}
-              <button type="button" className="ss-ib" aria-label={`${t('mcp.copyPath')} · ${targetLabel(target)}`} onClick={() => { copy(data.paths[target]); toast(t('mcp.copied'), 'success'); }}><Copy size={14} /></button>
-            </span>
-          </>} />
+          <RailRow key={target} target={target} label={targetLabel(target)} right={<MCPFileActions target={target} path={data.paths[target]} local={data.local} openable={data.openable.includes(target)} />} />
         ))}
       </RailGroup>
       {undetected.length > 0 && (

@@ -225,6 +225,13 @@ func (s *Service) ConfiguredClientPaths(source *Source) map[string]string {
 	return paths
 }
 
+// ForProject is this service scoped to one mcp.projects root.
+func (s *Service) ForProject(root string) *Service {
+	scoped := *s
+	scoped.ProjectRoot = root
+	return &scoped
+}
+
 // withAccounts keeps account-aware resolution consistent without changing the caller's scope.
 func (s *Service) withAccounts(accounts map[string]Account) *Service {
 	scoped := *s

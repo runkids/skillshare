@@ -1637,6 +1637,8 @@
   "mcp.syncDialog.outside.one": "이 프로젝트 밖의 변경 1개도 기록합니다.",
   "mcp.syncDialog.outside.other": "이 프로젝트 밖의 변경 {count}개도 기록합니다.",
   "mcp.copyPath": "경로 복사",
+  "mcp.openFolder": "폴더 열기",
+  "mcp.openedFolder": "폴더를 열었습니다",
   "mcp.moreFiles": "{count}개 더",
   "mcp.format": "정렬",
   "mcp.fileDetected": "감지됨",

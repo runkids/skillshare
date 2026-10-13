@@ -1637,6 +1637,8 @@
   "mcp.syncDialog.outside.one": "还会写入此项目以外的 1 项变更。",
   "mcp.syncDialog.outside.other": "还会写入此项目以外的 {count} 项变更。",
   "mcp.copyPath": "复制路径",
+  "mcp.openFolder": "打开文件夹",
+  "mcp.openedFolder": "已打开文件夹",
   "mcp.moreFiles": "还有 {count} 个",
   "mcp.format": "格式化",
   "mcp.fileDetected": "已检测到",

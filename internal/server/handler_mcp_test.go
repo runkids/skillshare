@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -306,5 +307,69 @@ func TestMCPOpenOnlyListedConfigFiles(t *testing.T) {
 	var resp openInEditorResponse
 	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &resp) != nil || resp.Editor != "true" || resp.Path != path {
 		t.Fatalf("open: %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestMCPOpenProjectConfigFile(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	root := t.TempDir()
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("VISUAL", "")
+	t.Setenv("EDITOR", "true")
+	data, err := os.ReadFile(s.configPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	data = append(data, []byte("\nmcp:\n  projects:\n    "+root+": {}\n")...)
+	if err := os.WriteFile(s.configPath(), data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root, ".gemini", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("{}"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	local := func(r *http.Request) *http.Request { r.RemoteAddr, r.Host = "127.0.0.1:1", "localhost:19420"; return r }
+	list := httptest.NewRecorder()
+	s.handleMCPList(list, local(httptest.NewRequest(http.MethodGet, "/api/mcp", nil)))
+	var view struct {
+		ProjectPaths    map[string]map[string]string
+		ProjectOpenable map[string][]string
+	}
+	if json.Unmarshal(list.Body.Bytes(), &view) != nil || view.ProjectPaths[root]["gemini"] != path || !slices.Equal(view.ProjectOpenable[root], []string{"gemini"}) {
+		t.Fatalf("list: %s", list.Body)
+	}
+	open := func(body string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		s.handleMCPOpen(rec, local(httptest.NewRequest(http.MethodPost, "/api/mcp/open", strings.NewReader(body))))
+		return rec
+	}
+	if rec := open(`{"target":"gemini","project":"/not/configured"}`); rec.Code != 400 {
+		t.Fatalf("unknown project: %d", rec.Code)
+	}
+	body, _ := json.Marshal(map[string]string{"target": "gemini", "project": root})
+	rec := open(string(body))
+	var resp openInEditorResponse
+	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &resp) != nil || resp.Path != path {
+		t.Fatalf("open: %d %s", rec.Code, rec.Body)
+	}
+	// A folder opens before the Agent writes its file; the editor needs the file.
+	missing, _ := json.Marshal(map[string]string{"target": "cursor", "project": root})
+	if rec := open(string(missing)); rec.Code != 404 {
+		t.Fatalf("missing file: %d", rec.Code)
+	}
+	t.Setenv("SKILLSHARE_HEADLESS", "1")
+	folder, _ := json.Marshal(map[string]any{"target": "cursor", "project": root, "folder": true})
+	if rec := open(string(folder)); rec.Code != 409 || !strings.Contains(rec.Body.String(), "file manager") {
+		t.Fatalf("folder: %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestNearestDir(t *testing.T) {
+	root := t.TempDir()
+	if got := nearestDir(filepath.Join(root, ".cursor", "rules")); got != root {
+		t.Fatalf("nearestDir = %s, want %s", got, root)
 	}
 }

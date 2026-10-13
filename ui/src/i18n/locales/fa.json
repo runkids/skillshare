@@ -1637,6 +1637,8 @@
   "mcp.syncDialog.outside.one": "۱ تغییر بیرون از این پروژه هم نوشته می‌شود.",
   "mcp.syncDialog.outside.other": "{count} تغییر بیرون از این پروژه هم نوشته می‌شود.",
   "mcp.copyPath": "کپی مسیر",
+  "mcp.openFolder": "باز کردن پوشه",
+  "mcp.openedFolder": "پوشه باز شد",
   "mcp.moreFiles": "{count} مورد دیگر",
   "mcp.format": "قالب‌بندی",
   "mcp.fileDetected": "شناسایی‌شده",

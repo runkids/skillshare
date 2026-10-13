@@ -183,9 +183,11 @@ Dashboard 只會提供目前 scope 與主機平台可用的目的地。每個 se
 所以剛安裝、還沒有 MCP 檔案的 client 也會顯示出來。在 project mode 中，
 當 project 有自己的 MCP 檔案，或該 client 在 global 層級被偵測到時，就會列出該 client。
 每個偵測到的 client 會顯示它的 MCP 檔名，**Copy path** 會複製完整路徑。檔案存在後，
-**Open in editor** 會用和 skill 的 **Open in editor** 相同的編輯器開啟它。編輯器在執行
-dashboard 的機器上啟動，所以只有瀏覽器也在那台機器上開啟（透過 `localhost` 或 SSH
-連接埠轉送）時才會顯示這個按鈕，透過區域網路位址或反向代理開啟時不會顯示。
+**Open in editor** 會用和 skill 的 **Open in editor** 相同的編輯器開啟它。**Open folder**
+會用檔案管理員（Finder、檔案總管，Linux 上為預設處理程式）開啟檔案所在的資料夾；client
+還沒寫入檔案時，開啟最近一個已存在的資料夾。這樣不必設定 `$EDITOR` 也能用任何程式開啟檔案。
+兩者都在執行 dashboard 的機器上啟動，所以只有瀏覽器也在那台機器上開啟（透過 `localhost`
+或 SSH 連接埠轉送）時才會顯示這些按鈕，透過區域網路位址或反向代理開啟時不會顯示。
 
 其他 client 細節：
 
@@ -517,6 +519,8 @@ mcp:
   不支援個別 project 開關時，該列會說明這個 server 在那裡仍會載入。如果項目列出了
   自己的 `targets`，且與 project 的不同，就會出現 **改成跟專案一致**：它會把該項目
   重新儲存為不含 `targets` 的版本。
+- 分頁右側的 **Agents** 清單列出這個 project 的 Agent，以及檔案已在 project 裡的其他
+  Agent，附上檔名和 **Copy path**。**Open folder** 和 **Open in editor** 與 MCP 頁面相同。
 - 分頁 Sync 框中的 **Sync MCP** 會寫入整份 MCP 計畫，並說明其中有多少變更不屬於
   這個 project。專案頁面頂端的 **Sync project** 只會寫入這個 project 的 skills、
   agents 與 MCP。

@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
@@ -91,17 +92,21 @@ func (s *Server) handleMCPList(w http.ResponseWriter, r *http.Request) {
 	detected := service.DetectedClients(paths)
 	// A client can be detected before its file exists, and handleMCPOpen refuses a viewer on
 	// another machine, so list only the files this viewer can open.
-	openable := []string{}
-	for target, path := range paths {
-		if _, err := os.Stat(path); err == nil && browserOnServerMachine(r) {
-			openable = append(openable, target)
+	local := browserOnServerMachine(r)
+	openable := openableTargets(paths, local)
+	// The same for each mcp.projects root, whose files the project page offers to open.
+	// handleMCPOpen refuses those roots in project mode.
+	projectPaths, projectOpenable := map[string]map[string]string{}, map[string][]string{}
+	if !s.IsProjectMode() {
+		for root := range source.Projects {
+			projectPaths[root] = service.ForProject(root).ClientPaths()
+			projectOpenable[root] = openableTargets(projectPaths[root], local)
 		}
 	}
-	slices.Sort(openable)
 	if !s.IsProjectMode() {
 		detected = append(detected, mcp.DetectedAccounts(source.Accounts)...)
 	}
-	writeJSON(w, map[string]any{"source": source, "paths": paths, "importSources": service.ImportSources(source), "detected": detected, "openable": openable, "plan": p, "previewError": message, "backups": backups, "projectConfigs": ownConfig, "unmanaged": service.FindUnmanaged(source)})
+	writeJSON(w, map[string]any{"source": source, "paths": paths, "importSources": service.ImportSources(source), "detected": detected, "local": local, "openable": openable, "projectPaths": projectPaths, "projectOpenable": projectOpenable, "plan": p, "previewError": message, "backups": backups, "projectConfigs": ownConfig, "unmanaged": service.FindUnmanaged(source)})
 }
 
 func (s *Server) handleMCPPreview(w http.ResponseWriter, r *http.Request) {
@@ -288,8 +293,57 @@ func browserOnServerMachine(r *http.Request) bool {
 	return requestFromLoopback(r) && (strings.EqualFold(host, "localhost") || ip != nil && ip.IsLoopback())
 }
 
-// handleMCPOpen opens one Agent's MCP config file, as listed by handleMCPList, the way the
-// skill page opens a skill. Only those paths open, so the request cannot name another file.
+// openableTargets lists the targets whose file exists, when this viewer can open files at all.
+func openableTargets(paths map[string]string, local bool) []string {
+	out := []string{}
+	if !local {
+		return out
+	}
+	for target, path := range paths {
+		if _, err := os.Stat(path); err == nil {
+			out = append(out, target)
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
+// mcpOpenPath resolves target's file as handleMCPList lists it, in this scope or in one
+// mcp.projects root, so a request cannot name another file.
+func (s *Server) mcpOpenPath(target, project string) (string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	service := s.mcpService()
+	source, err := mcp.LoadSource(service.ConfigPath)
+	if err != nil {
+		return "", err
+	}
+	var paths map[string]string
+	if project == "" {
+		paths = service.ConfiguredClientPaths(source)
+	} else if _, ok := source.Projects[project]; ok && !s.IsProjectMode() {
+		paths = service.ForProject(project).ClientPaths()
+	} else {
+		return "", fmt.Errorf("unknown MCP project: %s", project)
+	}
+	if paths[target] == "" {
+		return "", fmt.Errorf("unknown MCP target: %s", target)
+	}
+	return paths[target], nil
+}
+
+// nearestDir returns dir, or its closest parent that exists.
+func nearestDir(dir string) string {
+	for {
+		if _, err := os.Stat(dir); err == nil || filepath.Dir(dir) == dir {
+			return dir
+		}
+		dir = filepath.Dir(dir)
+	}
+}
+
+// handleMCPOpen opens one Agent's MCP config file the way the skill page opens a skill, or
+// with folder the folder that holds it in the file manager.
 func (s *Server) handleMCPOpen(w http.ResponseWriter, r *http.Request) {
 	// The editor starts on the machine running the server, so a viewer elsewhere on the LAN
 	// would launch it on someone else's screen.
@@ -298,25 +352,28 @@ func (s *Server) handleMCPOpen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Target string `json:"target"`
+		Target  string `json:"target"`
+		Project string `json:"project"`
+		Folder  bool   `json:"folder"`
 	}
 	if !decodeMCPRequest(w, r, &body) {
 		return
 	}
-	s.mu.RLock()
-	service := s.mcpService()
-	source, err := mcp.LoadSource(service.ConfigPath)
-	path := ""
-	if err == nil {
-		path = service.ConfiguredClientPaths(source)[body.Target]
-	}
-	s.mu.RUnlock()
-	switch {
-	case err != nil:
+	path, err := s.mcpOpenPath(body.Target, body.Project)
+	if err != nil {
 		writeError(w, 400, err.Error())
 		return
-	case path == "":
-		writeError(w, 400, "unknown MCP target: "+body.Target)
+	}
+	start := time.Now()
+	if body.Folder {
+		// Before the Agent writes its file, its folder may not exist either.
+		dir := nearestDir(filepath.Dir(path))
+		if status, err := openFileManager(dir); err != nil {
+			writeError(w, status, err.Error())
+			return
+		}
+		s.writeOpsLog("mcp open", "ok", start, map[string]any{"target": body.Target, "project": body.Project, "path": dir, "scope": "ui"}, "")
+		writeJSON(w, map[string]any{"path": dir})
 		return
 	}
 	if _, err := os.Stat(path); err != nil {
@@ -327,13 +384,12 @@ func (s *Server) handleMCPOpen(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 409, "refusing to launch editor: SKILLSHARE_HEADLESS=1")
 		return
 	}
-	start := time.Now()
 	picked, cmd, status, err := launchEditor("auto", path)
 	if err != nil {
 		writeError(w, status, err.Error())
 		return
 	}
-	s.writeOpsLog("mcp open", "ok", start, map[string]any{"target": body.Target, "editor": picked, "path": path, "scope": "ui"}, "")
+	s.writeOpsLog("mcp open", "ok", start, map[string]any{"target": body.Target, "project": body.Project, "editor": picked, "path": path, "scope": "ui"}, "")
 	writeJSON(w, openInEditorResponse{Editor: picked, Path: path, PID: cmd.Process.Pid})
 }
 

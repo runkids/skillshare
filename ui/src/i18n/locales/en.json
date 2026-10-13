@@ -1637,6 +1637,8 @@
   "mcp.syncDialog.outside.one": "Also writes 1 change outside this project.",
   "mcp.syncDialog.outside.other": "Also writes {count} changes outside this project.",
   "mcp.copyPath": "Copy path",
+  "mcp.openFolder": "Open folder",
+  "mcp.openedFolder": "Opened folder",
   "mcp.moreFiles": "{count} more",
   "mcp.format": "Format",
   "mcp.fileDetected": "Detected",
