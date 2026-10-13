@@ -247,3 +247,64 @@ func TestMCPSyncSavesTheConfigWithoutRetiredSettings(t *testing.T) {
 		t.Fatalf("list: %s", list.Body)
 	}
 }
+
+func TestMCPOpenOnlyListedConfigFiles(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("CLAUDE_CONFIG_DIR", "")
+	t.Setenv("VISUAL", "")
+	t.Setenv("EDITOR", "true")
+	// A browser on this machine, then ones elsewhere: on the LAN, and behind a reverse proxy on
+	// this machine that keeps the browser's Host or adds a forwarding header.
+	local := func(r *http.Request) { r.RemoteAddr, r.Host = "127.0.0.1:1", "localhost:19420" }
+	remote := map[string]func(*http.Request){
+		"lan":        func(r *http.Request) { r.RemoteAddr, r.Host = "192.168.1.9:1", "192.168.1.5:19420" },
+		"proxy host": func(r *http.Request) { r.RemoteAddr, r.Host = "127.0.0.1:1", "192.168.1.5" },
+		"proxy header": func(r *http.Request) {
+			local(r)
+			r.Header.Set("X-Forwarded-For", "192.168.1.9")
+		},
+	}
+	list := func(from func(*http.Request)) string {
+		req := httptest.NewRequest(http.MethodGet, "/api/mcp", nil)
+		from(req)
+		rec := httptest.NewRecorder()
+		s.handleMCPList(rec, req)
+		return rec.Body.String()
+	}
+	open := func(from func(*http.Request), body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/api/mcp/open", strings.NewReader(body))
+		from(req)
+		rec := httptest.NewRecorder()
+		s.handleMCPOpen(rec, req)
+		return rec
+	}
+	if rec := open(local, `{"target":"../etc/passwd"}`); rec.Code != 400 {
+		t.Fatalf("unknown target: %d", rec.Code)
+	}
+	if rec := open(local, `{"target":"claude"}`); rec.Code != 404 {
+		t.Fatalf("missing file: %d", rec.Code)
+	}
+	path := filepath.Join(home, ".claude.json")
+	if err := os.WriteFile(path, []byte("{}"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for name, from := range remote {
+		if body := list(from); !strings.Contains(body, `"openable":[]`) {
+			t.Fatalf("%s list: %s", name, body)
+		}
+		if rec := open(from, `{"target":"claude"}`); rec.Code != 403 {
+			t.Fatalf("%s open: %d", name, rec.Code)
+		}
+	}
+	if body := list(local); !strings.Contains(body, `"openable":["claude"]`) {
+		t.Fatalf("local list: %s", body)
+	}
+	rec := open(local, `{"target":"claude"}`)
+	var resp openInEditorResponse
+	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &resp) != nil || resp.Editor != "true" || resp.Path != path {
+		t.Fatalf("open: %d %s", rec.Code, rec.Body)
+	}
+}

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ChevronDown, Copy, Download, Eye, Pencil, Plug, Plus, PowerOff, Trash2, X } from 'lucide-react';
+import { AlertCircle, ChevronDown, Copy, Download, ExternalLink, Eye, Pencil, Plug, Plus, PowerOff, Trash2, X } from 'lucide-react';
 import { mcpApi, type MCPMutation, type MCPPlan, type MCPSettings } from '../api/mcp';
 import Button from '../components/Button';
 import { useAppContext } from '../context/AppContext';
@@ -90,7 +90,10 @@ function MCPFilesRail({ data, model, allFiles, onShowAll }: { data: MCPList; mod
         {files.filter((x) => detected.has(x)).map((target) => (
           <RailRow key={target} target={target} label={targetLabel(target)} right={<>
             <span className="max-w-[130px] truncate font-mono text-xs text-ink-3" title={data.paths[target]}>{data.paths[target].split(/[\\/]/).pop()}</span>
-            <button type="button" className="ss-ib" aria-label={`${t('mcp.copyPath')} · ${targetLabel(target)}`} onClick={() => { copy(data.paths[target]); toast(t('mcp.copied'), 'success'); }}><Copy size={14} /></button>
+            <span className="flex">
+              {data.openable.includes(target) && <button type="button" className="ss-ib" aria-label={`${t('resourceDetail.actions.openInEditor')} · ${targetLabel(target)}`} onClick={() => mcpApi.open(target).then((r) => toast(t('resourceDetail.toast.openedIn', { editor: r.editor }), 'info'), (e) => toast(describeError(t, (e as Error).message), 'error'))}><ExternalLink size={14} /></button>}
+              <button type="button" className="ss-ib" aria-label={`${t('mcp.copyPath')} · ${targetLabel(target)}`} onClick={() => { copy(data.paths[target]); toast(t('mcp.copied'), 'success'); }}><Copy size={14} /></button>
+            </span>
           </>} />
         ))}
       </RailGroup>

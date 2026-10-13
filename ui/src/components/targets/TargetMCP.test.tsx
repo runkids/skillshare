@@ -16,7 +16,7 @@ type Data = Parameters<typeof TargetMCP>[0]['data'];
 const view = (name: string, servers: Data['source']['servers'], plan: Data['plan'] = null, targets: string[] | null = null) => {
   const data = {
     source: { path: '', configPath: '', targets, servers },
-    projectConfigs: [], paths: { claude: '/work/app/.mcp.json', cursor: '/work/app/.cursor/mcp.json' }, detected: [], plan, previewError: '', backups: [], unmanaged: [],
+    projectConfigs: [], paths: { claude: '/work/app/.mcp.json', cursor: '/work/app/.cursor/mcp.json' }, detected: [], openable: [], plan, previewError: '', backups: [], unmanaged: [],
   } as Data;
   // The switch reads the server from the shared MCP query, as the page that owns it does.
   const client = new QueryClient();

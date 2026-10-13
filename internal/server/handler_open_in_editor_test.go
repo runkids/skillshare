@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -98,5 +99,17 @@ func TestSplitCommand(t *testing.T) {
 	}
 	if len(rest) != 2 || rest[0] != "--wait" || rest[1] != "--new-window" {
 		t.Errorf("unexpected rest: %v", rest)
+	}
+}
+
+func TestSplitCommand_QuotedPath(t *testing.T) {
+	for value, want := range map[string][]string{
+		`"C:\Program Files\Notepad++\notepad++.exe" -multiInst`: {`C:\Program Files\Notepad++\notepad++.exe`, "-multiInst"},
+		`'/Applications/My Editor.app/edit'`:                    {"/Applications/My Editor.app/edit"},
+	} {
+		head, rest := splitCommand(value)
+		if got := append([]string{head}, rest...); strings.Join(got, "|") != strings.Join(want, "|") {
+			t.Errorf("%s: got %q, want %q", value, got, want)
+		}
 	}
 }

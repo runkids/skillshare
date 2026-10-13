@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"unicode"
 
 	"skillshare/internal/childproc"
 )
@@ -103,24 +104,11 @@ func (s *Server) handleOpenSkillInEditor(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	editor, picked, err := pickEditor(strings.TrimSpace(req.Editor))
+	picked, cmd, status, err := launchEditor(req.Editor, targetPath)
 	if err != nil {
-		writeError(w, http.StatusConflict, "no editor available: "+err.Error())
+		writeError(w, status, err.Error())
 		return
 	}
-
-	cmd := exec.Command(editor.bin, append(editor.args, targetPath)...) //nolint:gosec // editor choice is explicit
-	// Detach from the current process so the server doesn't wait on the editor.
-	cmd.Stdin = nil
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-
-	if err := childproc.StartDetached(cmd); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to launch %s: %s", editor.bin, err))
-		return
-	}
-	// Reap in the background so we don't accumulate zombies on *nix.
-	go func() { _ = cmd.Wait() }()
 
 	s.writeOpsLog("skill.openInEditor", "ok", start, map[string]any{
 		"name":   name,
@@ -134,6 +122,28 @@ func (s *Server) handleOpenSkillInEditor(w http.ResponseWriter, r *http.Request)
 		Path:   targetPath,
 		PID:    cmd.Process.Pid,
 	})
+}
+
+// launchEditor opens path in the requested editor, or the one pickEditor finds, without
+// waiting for it. On failure it returns the HTTP status to report.
+func launchEditor(requested, path string) (string, *exec.Cmd, int, error) {
+	editor, picked, err := pickEditor(strings.TrimSpace(requested))
+	if err != nil {
+		return "", nil, http.StatusConflict, fmt.Errorf("no editor available: %w", err)
+	}
+
+	cmd := exec.Command(editor.bin, append(editor.args, path)...) //nolint:gosec // editor choice is explicit
+	// Detach from the current process so the server doesn't wait on the editor.
+	cmd.Stdin = nil
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+
+	if err := childproc.StartDetached(cmd); err != nil {
+		return "", nil, http.StatusInternalServerError, fmt.Errorf("failed to launch %s: %w", editor.bin, err)
+	}
+	// Reap in the background so we don't accumulate zombies on *nix.
+	go func() { _ = cmd.Wait() }()
+	return picked, cmd, 0, nil
 }
 
 // pickEditor returns the editor to launch, honouring an explicit request
@@ -198,10 +208,34 @@ func pickEditor(requested string) (editorCandidate, string, error) {
 	return editorCandidate{}, "", fmt.Errorf("no usable editor found; set $EDITOR or pass editor=<name>")
 }
 
-// splitCommand naively splits an $EDITOR value into (bin, args...).
-// Quoted arguments are not supported because $EDITOR rarely needs them.
+// splitCommand splits an $EDITOR value into (bin, args...). Double or single quotes keep a
+// field with spaces together, such as "C:\Program Files\Notepad++\notepad++.exe".
+// Backslashes stay literal because Windows paths use them.
 func splitCommand(v string) (string, []string) {
-	fields := strings.Fields(v)
+	var fields []string
+	var field strings.Builder
+	var quote rune
+	inField := false
+	for _, r := range v {
+		switch {
+		case quote != 0 && r == quote:
+			quote = 0
+		case quote == 0 && (r == '"' || r == '\''):
+			quote, inField = r, true
+		case quote == 0 && unicode.IsSpace(r):
+			if inField {
+				fields = append(fields, field.String())
+				field.Reset()
+				inField = false
+			}
+		default:
+			field.WriteRune(r)
+			inField = true
+		}
+	}
+	if inField {
+		fields = append(fields, field.String())
+	}
 	if len(fields) == 0 {
 		return "", nil
 	}
