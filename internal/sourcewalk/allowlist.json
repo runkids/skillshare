@@ -400,6 +400,14 @@
     "note": "Clean empty nested backup directory"
   },
   {
+    "file": "internal/backup/cleanup.go",
+    "function": "cleanupInDir",
+    "callee": "os.ReadDir",
+    "root": "backupDir",
+    "reason": "backup",
+    "note": "Find abandoned staging directories under the backup lock"
+  },
+  {
     "file": "internal/backup/restore.go",
     "function": "ValidateRestore",
     "callee": "os.ReadDir",

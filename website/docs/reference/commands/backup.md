@@ -87,6 +87,8 @@ The newest snapshot is always kept, even when it alone exceeds the size cap — 
 
 This same policy runs automatically after every `sync`, so `--cleanup` is only needed to prune on demand.
 
+Cleanup also removes incomplete `.snapshot-*` directories left by an interrupted backup, even if there are no completed snapshots. These directories are not listed by `--list` or included in its size total. `--cleanup --dry-run` includes them in the preview without deleting them. If a backup is still being written, cleanup skips that backup directory; run cleanup again after it finishes.
+
 ### Delete a Backup
 
 ```bash

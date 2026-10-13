@@ -79,7 +79,8 @@ internal/backup/backup.go	createInDir	os.MkdirTemp	backupDir	backup
 internal/backup/backup.go	createInDir	os.RemoveAll	stagingPath	backup
 internal/backup/backup.go	createInDir	os.Rename	stagingPath, backupPath	backup
 internal/backup/backup.go	removeDirIfEmpty	os.Remove	path	backup
-internal/backup/cleanup.go	CleanupInDir	os.RemoveAll	backup.Path	backup
+internal/backup/cleanup.go	cleanupInDir	os.RemoveAll	backup.Path	backup
+internal/backup/cleanup.go	cleanupInDir	os.RemoveAll	path	backup
 internal/backup/cleanup.go	cleanEmptyDirs	os.Remove	subPath	backup
 internal/backup/delete.go	DeleteInDir	os.RemoveAll	path	backup
 internal/backup/restore.go	RestoreToPath	os.Remove	destPath	target

@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, ChevronDown, ChevronRight, Copy, Link2, Plus, Trash2 } from 'lucide-react';
 import { api } from '../api/client';
+import { ApiError } from '../api/http';
 import type { BackupInfo, RestoreValidateResponse } from '../api/client';
 import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
@@ -140,7 +141,7 @@ function FolderBackups({ creating }: { creating: boolean }) {
   const cleanup = useMutation({
     mutationFn: () => api.cleanupBackups(),
     onSuccess: (res) => { toast(t('backup.toast.cleanedUp', { count: res.removed }), 'success'); refresh(); setCleanupOpen(false); },
-    onError: (e: Error) => { toast(e.message, 'error'); setCleanupOpen(false); },
+    onError: (e: Error) => { toast(e instanceof ApiError && e.status === 409 ? t('backup.cleanup.busy') : e.message, 'error'); setCleanupOpen(false); },
   });
   const removeAll = useMutation({
     mutationFn: () => api.deleteAllBackups(),

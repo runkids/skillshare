@@ -10,12 +10,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gofrs/flock"
+
 	"skillshare/internal/config"
 	"skillshare/internal/projectdir"
 	"skillshare/internal/utils"
 )
 
 const stagingDirPrefix = ".snapshot-"
+const backupLockName = ".backup.lock"
 
 // BackupDir returns the global backup directory path.
 func BackupDir() string {
@@ -73,6 +76,14 @@ func createInDir(backupDir, targetName, targetPath string, copyDirectory func(st
 	if err := os.MkdirAll(backupDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create backup directory: %w", err)
 	}
+	// Hold the shared lock before staging becomes visible, through finalization.
+	// Never remove the lock file: other processes may already have it open.
+	lock := flock.New(filepath.Join(backupDir, backupLockName))
+	if err := lock.RLock(); err != nil {
+		return "", fmt.Errorf("lock backup directory: %w", err)
+	}
+	defer lock.Unlock() //nolint:errcheck
+
 	stagingPath := ""
 	cleanupStaging := false
 	defer func() {

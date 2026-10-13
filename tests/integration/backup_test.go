@@ -9,6 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gofrs/flock"
+
+	"skillshare/internal/backup"
 	"skillshare/internal/testutil"
 )
 
@@ -137,6 +140,63 @@ targets:
 
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "nothing to back up")
+}
+
+func TestBackup_CleanupBusy(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+	root := filepath.Join(sb.Home, ".local", "share", "skillshare", "backups")
+	if err := os.MkdirAll(root, 0755); err != nil {
+		t.Fatal(err)
+	}
+	lock := flock.New(filepath.Join(root, ".backup.lock"))
+	if err := lock.RLock(); err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Unlock() //nolint:errcheck
+
+	for _, args := range [][]string{{"backup", "--cleanup"}, {"backup", "--cleanup", "--dry-run"}} {
+		result := sb.RunCLI(args...)
+		result.AssertFailure(t)
+		result.AssertAnyOutputContains(t, "cleanup skipped")
+	}
+}
+
+func TestBackup_CleanupInterruptedSnapshot(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	staging := filepath.Join(sb.Home, ".local", "share", "skillshare", "backups", ".snapshot-orphan")
+	if err := os.MkdirAll(staging, 0755); err != nil {
+		t.Fatal(err)
+	}
+	payload := filepath.Join(staging, "partial.txt")
+	if err := os.WriteFile(payload, []byte("partial"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	listed := sb.RunCLI("backup", "--list")
+	listed.AssertSuccess(t)
+	listed.AssertOutputContains(t, "No backups")
+
+	preview := sb.RunCLI("backup", "--cleanup", "--dry-run")
+	preview.AssertSuccess(t)
+	preview.AssertOutputContains(t, "Would remove 1 backup directory, freeing 7 B")
+	if _, err := os.Stat(payload); err != nil {
+		t.Fatalf("dry run changed incomplete snapshot: %v", err)
+	}
+
+	cleaned := sb.RunCLI("backup", "--cleanup")
+	cleaned.AssertSuccess(t)
+	cleaned.AssertOutputContains(t, "Removed 1 backup directory, freed 7 B")
+	cleaned.AssertOutputContains(t, "0 backups left")
+	if _, err := os.Stat(staging); !os.IsNotExist(err) {
+		t.Fatalf("incomplete snapshot remains after cleanup: %v", err)
+	}
 }
 
 func TestBackup_List_Empty_ShowsNone(t *testing.T) {
@@ -293,13 +353,13 @@ targets:
 
 	sb.RunCLI("backup").AssertSuccess(t)
 
-	// Get first backup timestamp
+	// Get the completed snapshot, excluding lock files and staging directories.
 	backupDir := filepath.Join(sb.Home, ".local", "share", "skillshare", "backups")
-	entries, err := os.ReadDir(backupDir)
-	if err != nil || len(entries) == 0 {
+	backups, err := backup.ListInDir(backupDir)
+	if err != nil || len(backups) == 0 {
 		t.Fatal("expected at least one backup directory")
 	}
-	firstTimestamp := entries[0].Name()
+	firstTimestamp := backups[0].Timestamp
 
 	// Wait to ensure different timestamp
 	time.Sleep(1100 * time.Millisecond)

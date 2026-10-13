@@ -312,21 +312,25 @@ func backupCleanup(backupDir string, cfg backup.CleanupConfig) error {
 		return err
 	}
 
-	if len(backups) == 0 {
-		ui.Done(ui.MarkNone, "No backups to clean up", 0)
-		return nil
+	totalSize, err := backup.TotalSizeInDir(backupDir)
+	if err != nil {
+		return err
 	}
-
-	totalSize, _ := backup.TotalSizeInDir(backupDir)
-	removed, err := backup.CleanupInDir(backupDir, cfg)
+	removed, freed, err := backup.CleanupWithStatsInDir(backupDir, cfg)
 	if err != nil {
 		return err
 	}
 
 	if removed > 0 {
 		newSize, _ := backup.TotalSizeInDir(backupDir)
-		ui.Done(ui.MarkOK, fmt.Sprintf("Removed %s, freed %s", plural(removed, "old backup"), formatBytes(totalSize-newSize)), time.Since(start))
-		ui.Note(fmt.Sprintf("%s left, %s", plural(len(backups)-removed, "backup"), formatBytes(newSize)))
+		remaining, err := backup.ListInDir(backupDir)
+		if err != nil {
+			return err
+		}
+		ui.Done(ui.MarkOK, fmt.Sprintf("Removed %s, freed %s", plural(removed, "backup directory"), formatBytes(freed)), time.Since(start))
+		ui.Note(fmt.Sprintf("%s left, %s", plural(len(remaining), "backup"), formatBytes(newSize)))
+	} else if len(backups) == 0 && totalSize == 0 {
+		ui.Done(ui.MarkNone, "No backups to clean up", 0)
 	} else {
 		ui.Done(ui.MarkNone, "No old backups to remove", 0)
 		ui.Note(fmt.Sprintf("%s, %s", plural(len(backups), "backup"), formatBytes(totalSize)))
@@ -341,15 +345,18 @@ func backupCleanupDryRun(backupDir string, cfg backup.CleanupConfig) error {
 		return err
 	}
 
-	if len(backups) == 0 {
-		ui.Done(ui.MarkNone, "No backups to clean up", 0)
-		return nil
+	totalSize, err := backup.TotalSizeInDir(backupDir)
+	if err != nil {
+		return err
 	}
-
-	totalSize, _ := backup.TotalSizeInDir(backupDir)
-	removed, freed := planBackupCleanup(backups, cfg, time.Now())
+	removed, freed, err := backup.PreviewCleanupInDir(backupDir, cfg)
+	if err != nil {
+		return err
+	}
 	if removed > 0 {
-		ui.Done(ui.MarkNone, fmt.Sprintf("Would remove %s, freeing %s", plural(removed, "old backup"), formatBytes(freed)), 0)
+		ui.Done(ui.MarkNone, fmt.Sprintf("Would remove %s, freeing %s", plural(removed, "backup directory"), formatBytes(freed)), 0)
+	} else if len(backups) == 0 && totalSize == 0 {
+		ui.Done(ui.MarkNone, "No backups to clean up", 0)
 	} else {
 		ui.Done(ui.MarkNone, "No old backups to remove", 0)
 	}
@@ -357,39 +364,6 @@ func backupCleanupDryRun(backupDir string, cfg backup.CleanupConfig) error {
 	fmt.Println()
 	ui.DryRun()
 	return nil
-}
-
-func planBackupCleanup(backups []backup.BackupInfo, cfg backup.CleanupConfig, now time.Time) (int, int64) {
-	removed := 0
-	var removedSize int64
-	var totalSize int64
-
-	for i, backupInfo := range backups {
-		shouldRemove := false
-
-		if cfg.MaxAge > 0 && now.Sub(backupInfo.Date) > cfg.MaxAge {
-			shouldRemove = true
-		}
-
-		if cfg.MaxCount > 0 && i >= cfg.MaxCount {
-			shouldRemove = true
-		}
-
-		size := backup.Size(backupInfo.Path)
-		if !shouldRemove && cfg.MaxSizeMB > 0 && i > 0 &&
-			totalSize+size > cfg.MaxSizeMB*1024*1024 {
-			shouldRemove = true
-		}
-
-		if shouldRemove {
-			removed++
-			removedSize += size
-			continue
-		}
-		totalSize += size
-	}
-
-	return removed, removedSize
 }
 
 func cmdRestore(args []string) error {

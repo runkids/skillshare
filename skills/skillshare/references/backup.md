@@ -20,6 +20,8 @@ skillshare backup --delete <timestamp> [-p] [--dry-run]  # Delete one backup (ti
 
 **Scope:** Local target content only. Merge-mode symlinks are skipped — they point into the source, which is already the source of truth, and `sync` recreates them. A target holding only symlinks produces no backup. Retention (10 snapshots / 30 days / 500 MB, newest always kept) runs automatically after every `sync`. Change the count and size in the global config with `backup.max_count` and `backup.max_size_mb` (`0` = no limit).
 
+Cleanup also removes incomplete `.snapshot-*` directories left by interrupted backups, including when there are no completed snapshots. `--list` and its size total exclude them; `backup --cleanup --dry-run` previews their removal. Cleanup skips the backup directory while a backup is being written; retry after it finishes.
+
 ## backup files
 
 Earlier versions of single files skillshare rewrote (AGENTS.md, CLAUDE.md, shared-file locations).

@@ -232,6 +232,10 @@ func TestCleanupInDir_OverSizeCap_KeepsNewestBackup(t *testing.T) {
 		}
 	}
 
+	count, freed, err := PreviewCleanupInDir(backupDir, CleanupConfig{MaxSizeMB: 1})
+	if err != nil || count != 2 || freed != 4<<20 {
+		t.Fatalf("preview = (%d, %d, %v), want (2, 4194304, nil)", count, freed, err)
+	}
 	removed, err := CleanupInDir(backupDir, CleanupConfig{MaxSizeMB: 1})
 	if err != nil {
 		t.Fatalf("CleanupInDir failed: %v", err)
@@ -273,6 +277,10 @@ func TestCleanupInDir_SizeCapCountsOnlyRetainedBackups(t *testing.T) {
 		}
 	}
 
+	count, freed, err := PreviewCleanupInDir(backupDir, CleanupConfig{MaxSizeMB: 1})
+	if err != nil || count != 1 || freed != 700<<10 {
+		t.Fatalf("preview = (%d, %d, %v), want (1, 716800, nil)", count, freed, err)
+	}
 	removed, err := CleanupInDir(backupDir, CleanupConfig{MaxSizeMB: 1})
 	if err != nil {
 		t.Fatalf("CleanupInDir failed: %v", err)
@@ -292,21 +300,20 @@ func TestCleanupInDir_SizeCapCountsOnlyRetainedBackups(t *testing.T) {
 }
 
 func TestCleanupInDir_IgnoresActiveStagingDirectory(t *testing.T) {
-	backupDir := t.TempDir()
-	stagingPath, err := os.MkdirTemp(backupDir, stagingDirPrefix)
+	backupDir, targetDir := t.TempDir(), t.TempDir()
+	writeTestFile(t, filepath.Join(targetDir, "SKILL.md"), "local")
+	_, err := createInDir(backupDir, "claude", targetDir, func(_, stagingPath string) error {
+		removed, err := CleanupInDir(backupDir, DefaultCleanupConfig())
+		if err != nil || removed != 0 {
+			t.Fatalf("cleanup during copy = (%d, %v), want (0, nil)", removed, err)
+		}
+		if _, err := os.Stat(stagingPath); err != nil {
+			t.Errorf("active staging directory was removed: %v", err)
+		}
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	removed, err := CleanupInDir(backupDir, DefaultCleanupConfig())
-	if err != nil {
-		t.Fatalf("CleanupInDir failed: %v", err)
-	}
-	if removed != 0 {
-		t.Errorf("removed = %d, want 0", removed)
-	}
-	if _, err := os.Stat(stagingPath); err != nil {
-		t.Errorf("active staging directory was removed: %v", err)
 	}
 }
 
