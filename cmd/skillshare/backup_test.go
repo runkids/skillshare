@@ -3,10 +3,18 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/backup"
 )
+
+func TestBackupHelp_DisclosesStagingCleanup(t *testing.T) {
+	output := captureStdout(t, printBackupHelp)
+	if !strings.Contains(output, "abandoned incomplete directories") {
+		t.Fatalf("help does not disclose staging cleanup: %q", output)
+	}
+}
 
 func TestBackupCleanup_StagingOnly(t *testing.T) {
 	root := t.TempDir()

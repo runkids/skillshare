@@ -2,8 +2,26 @@ package main
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
+
+func TestCheckBackupStatus_LockOnly(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, ".backup.lock"), nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	result := &doctorResult{}
+	output := captureStdout(t, func() { checkBackupStatus(result, false, root) })
+	if !strings.Contains(output, "Backups") || !strings.Contains(output, "none found") {
+		t.Fatalf("missing backup status row: %q", output)
+	}
+	if len(result.checks) != 1 || result.checks[0].Message != "Backups: none found" {
+		t.Fatalf("unexpected backup JSON check: %+v", result.checks)
+	}
+}
 
 func TestFetchDoctorUpdateResultDevModeSimulatesUpdate(t *testing.T) {
 	oldVersion := version

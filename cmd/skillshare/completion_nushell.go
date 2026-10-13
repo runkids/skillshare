@@ -428,7 +428,7 @@ export extern "skillshare diff" [
 export extern "skillshare backup" [
     subcommand?: string@"nu-complete skillshare backup"
     --list(-l)               # List existing backups
-    --cleanup(-c)            # Remove old backups
+    --cleanup(-c)            # Remove old backups and abandoned incomplete directories
     --delete: string         # Delete one backup (timestamp)
     --all                    # Back up skills + agents
     --dry-run(-n)            # Preview changes

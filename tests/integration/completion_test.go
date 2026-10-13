@@ -65,6 +65,18 @@ func TestCompletion_Nushell_OutputsScript(t *testing.T) {
 	result.AssertOutputContains(t, "export extern \"skillshare\"")
 }
 
+func TestCompletion_BackupCleanupDescription(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	for _, shell := range []string{"fish", "zsh", "nushell"} {
+		t.Run(shell, func(t *testing.T) {
+			result := sb.RunCLI("completion", shell)
+			result.AssertSuccess(t)
+			result.AssertOutputContains(t, "Remove old backups and abandoned incomplete directories")
+		})
+	}
+}
+
 func TestCompletion_MCPCheck_AllShells(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

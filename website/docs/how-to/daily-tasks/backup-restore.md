@@ -118,7 +118,7 @@ flowchart TD
 skillshare backup --cleanup
 ```
 
-Removes backups older than the configured retention period. Retention already runs automatically after every `sync`, so this is only for pruning on demand.
+Removes completed snapshots beyond the configured retention limits and abandoned `.snapshot-*` directories left by interrupted backups. Abandoned incomplete directories are removed regardless of retention limits, even when no completed snapshots exist. Cleanup skips the backup directory while a backup is running; retry after it finishes. Cleanup also runs automatically after backups created by `sync`, so this command is for on-demand cleanup.
 
 To check how much space snapshots use:
 

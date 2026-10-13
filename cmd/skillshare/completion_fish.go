@@ -214,7 +214,7 @@ complete -c skillshare -n '__fish_skillshare_using_command diff' -l help -s h -d
 complete -c skillshare -n '__fish_skillshare_using_command backup' -a files -d 'Versions of single files skillshare rewrote'
 complete -c skillshare -n '__fish_skillshare_using_command backup' -a agents -d 'Back up agents'
 complete -c skillshare -n '__fish_skillshare_using_command backup' -l list -s l -d 'List existing backups'
-complete -c skillshare -n '__fish_skillshare_using_command backup' -l cleanup -s c -d 'Remove old backups'
+complete -c skillshare -n '__fish_skillshare_using_command backup' -l cleanup -s c -d 'Remove old backups and abandoned incomplete directories'
 complete -c skillshare -n '__fish_skillshare_using_command backup' -l delete -r -d 'Delete one backup'
 complete -c skillshare -n '__fish_skillshare_using_command backup' -l all -d 'Back up skills + agents'
 complete -c skillshare -n '__fish_skillshare_using_command backup' -l dry-run -s n -d 'Preview changes'

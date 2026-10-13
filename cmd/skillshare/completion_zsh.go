@@ -308,8 +308,8 @@ _skillshare() {
                         '1:subcommand:->subcmd' \
                         '--list[List existing backups]' \
                         '-l[List existing backups]' \
-                        '--cleanup[Remove old backups]' \
-                        '-c[Remove old backups]' \
+                        '--cleanup[Remove old backups and abandoned incomplete directories]' \
+                        '-c[Remove old backups and abandoned incomplete directories]' \
                         '--delete[Delete one backup]:timestamp:' \
                         '--all[Back up skills + agents]' \
                         '--dry-run[Preview changes]' \
