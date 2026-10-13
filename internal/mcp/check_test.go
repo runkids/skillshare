@@ -284,3 +284,68 @@ func TestCheckUnknownNameListsProjectServers(t *testing.T) {
 		t.Fatalf("unknown name must list project servers once each, got %v", err)
 	}
 }
+
+func TestCheckPin(t *testing.T) {
+	cases := []struct {
+		name    string
+		command string
+		args    []string
+		level   string // "" means no finding
+		subject string
+	}{
+		{"npx unversioned", "npx", []string{"-y", "@modelcontextprotocol/server-everything"}, "warning", "@modelcontextprotocol/server-everything"},
+		{"npx plain", "npx", []string{"mcp-server"}, "warning", "mcp-server"},
+		{"npx latest", "npx", []string{"--yes", "mcp-server@latest"}, "warning", "mcp-server"},
+		{"npx scoped latest", "npx", []string{"@scope/pkg@latest"}, "warning", "@scope/pkg"},
+		{"npx pinned", "npx", []string{"-y", "mcp-server@1.2.3"}, "", ""},
+		{"npx scoped pinned", "npx", []string{"-y", "@scope/pkg@1.2.3"}, "", ""},
+		{"npx -p unversioned", "npx", []string{"-p", "mcp-server", "mcp-bin"}, "warning", "mcp-server"},
+		{"npx -p pinned", "npx", []string{"-p", "mcp-server@2.0.0", "mcp-bin"}, "", ""},
+		{"npx local path", "npx", []string{"./local-server"}, "", ""},
+		{"uvx unversioned", "uvx", []string{"mcp-server-git"}, "warning", "mcp-server-git"},
+		{"uvx @latest", "uvx", []string{"mcp-server-git@latest"}, "warning", "mcp-server-git"},
+		{"uvx @version", "uvx", []string{"mcp-server-git@1.2"}, "", ""},
+		{"uvx --from pinned", "uvx", []string{"--from", "mcp-server-git==1.2", "mcp-git"}, "", ""},
+		{"uvx --from range", "uvx", []string{"--from", "mcp-server-git>=1.2", "mcp-git"}, "warning", "mcp-server-git"},
+		{"uvx skips option value", "uvx", []string{"--python", "3.12", "mcp-server-git"}, "warning", "mcp-server-git"},
+		{"pipx run unversioned", "pipx", []string{"run", "mcp-server-git"}, "warning", "mcp-server-git"},
+		{"pipx run pinned", "pipx", []string{"run", "mcp-server-git==1.2"}, "", ""},
+		{"pipx other subcommand", "pipx", []string{"install", "mcp-server-git"}, "", ""},
+		{"docker no tag", "docker", []string{"run", "-i", "--rm", "-e", "TOKEN", "ghcr.io/org/server"}, "warning", "ghcr.io/org/server"},
+		{"podman latest", "podman", []string{"run", "--rm", "org/server:latest"}, "warning", "org/server"},
+		{"docker registry port", "docker", []string{"run", "localhost:5000/server"}, "warning", "localhost:5000/server"},
+		{"docker tag only", "docker", []string{"run", "-i", "--rm", "org/server:1.4"}, "info", "org/server"},
+		{"docker digest", "docker", []string{"run", "-i", "org/server:1.4@sha256:abc123"}, "", ""},
+		{"docker value flag", "docker", []string{"run", "-v", "/a:/b", "org/server"}, "warning", "org/server"},
+		{"docker hardened digest", "docker", []string{"run", "-i", "--rm", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--pull", "always", "--read-only", "org/server:1.2@sha256:abc123"}, "", ""},
+		{"docker hardened unpinned", "docker", []string{"run", "-i", "--rm", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--pull", "always", "--read-only", "org/server"}, "warning", "org/server"},
+		{"docker --pull always", "podman", []string{"run", "--pull", "always", "org/server:1.4"}, "info", "org/server"},
+		{"absolute binary", "/usr/local/bin/mcp-server", []string{"--flag"}, "", ""},
+		{"node script", "node", []string{"/opt/server/index.js"}, "", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := checkPin(Server{Command: tc.command, Args: tc.args})
+			if tc.level == "" {
+				if len(got) != 0 {
+					t.Fatalf("want no finding, got %+v", got)
+				}
+				return
+			}
+			if len(got) != 1 || got[0].Level != tc.level || got[0].Check != "pin" || got[0].Subject != tc.subject {
+				t.Fatalf("want %s pin finding for %q, got %+v", tc.level, tc.subject, got)
+			}
+		})
+	}
+}
+
+func TestCheckPinWarningDoesNotFailServer(t *testing.T) {
+	s := checkService(t, "mcp:\n  targets: [claude]\n  servers:\n    local:\n      command: npx\n      args: [-y, mcp-server]\n")
+	report, err := s.Check(offlineCheck())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasFinding(findings(t, report, "local"), "warning", "pin", "") || !report.Servers[0].OK {
+		t.Fatalf("an unpinned package is a warning only: %+v", report.Servers)
+	}
+}

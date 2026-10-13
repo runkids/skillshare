@@ -485,6 +485,8 @@ HTTP リクエストの送信、コマンドの実行、ファイルの書き込
 |---|---|
 | `env`、`headers`、`bearerToken` 内の `fromEnv` 変数が未設定または空 | error |
 | ローカルサーバーの `command` が `PATH` 上に見つからない(先頭の `~/` は展開される) | error |
+| ローカルサーバーが `npx`、`uvx`、`pipx run`、`docker run`、`podman run` で実行するパッケージまたはイメージにバージョンがない、または `latest` | warning |
+| ローカルサーバーのイメージにタグはあるが `@sha256:` ダイジェストがなく、タグが移動しうる | info |
 | リモートサーバーのホストが DNS で解決できない(制限は 3 秒。`--no-dns` でスキップ) | warning |
 | Agent のルールがサーバーを拒否する(Claude Code が予約している名前など) | error |
 | Agent のエントリが source と競合する(`sync mcp --dry-run` と同様) | error |
@@ -533,9 +535,9 @@ HTTP リクエストの送信、コマンドの実行、ファイルの書き込
 }
 ```
 
-`check` は `env`、`command`、`url`、`dns`、`client-rule`、`sync`、`targets`、`tools`、`live` のいずれかです。
+`check` は `env`、`command`、`pin`、`url`、`dns`、`client-rule`、`sync`、`targets`、`tools`、`live` のいずれかです。
 `target` は Agent またはアカウントを示し、指摘がサーバー自体に関するものである場合は空になります。
-`subject` は `env`、`command`、`dns` の指摘では変数、コマンド、ホストを、成功した `live` プローブでは
+`subject` は `env`、`command`、`pin`、`dns` の指摘では変数、コマンド、パッケージ、イメージ、ホストを、成功した `live` プローブでは
 サーバーが報告した名前を、`live` のサインイン warning ではリソースメタデータ URL を示し、それ以外では省略されます。
 `project` はサーバーの `mcp.projects` ルートを絶対パスで示し(先頭の `~` は展開される)、global サーバーでは
 省略されます。`summary` は、project のサーバーも含め、レポート内のすべてのサーバーを集計します。

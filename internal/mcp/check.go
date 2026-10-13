@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -131,6 +132,7 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 		result.Findings = append(result.Findings, checkEnv(server, opts.LookupEnv)...)
 		if !server.Disabled {
 			result.Findings = append(result.Findings, checkLaunch(server, opts)...)
+			result.Findings = append(result.Findings, checkPin(server)...)
 		}
 		result.Findings = append(result.Findings, preflight[k]...)
 		result.Findings = append(result.Findings, checkToolPolicy(source, k.root, server)...)
@@ -250,6 +252,101 @@ func checkLaunch(server Server, opts CheckOptions) []CheckFinding {
 		return []CheckFinding{{Level: "warning", Check: "dns", Subject: host, Message: fmt.Sprintf("host %s did not resolve", host)}}
 	}
 	return nil
+}
+
+// Flags of each launcher whose value must not be mistaken for the package or image.
+var (
+	uvxValueFlags    = []string{"--with", "--python", "-p", "--index"}
+	dockerValueFlags = []string{"-e", "--env", "-v", "--volume", "--name", "-p", "--publish", "-w", "--workdir", "--network", "--net", "-u", "--user", "--entrypoint", "--mount", "--platform", "--env-file", "-l", "--label", "-m", "--memory", "-h", "--hostname",
+		"--cap-add", "--cap-drop", "--security-opt", "--pull", "--tmpfs", "--device", "--add-host", "--ulimit", "--cpus", "--shm-size", "--log-driver", "--log-opt", "--cidfile", "--ipc", "--pid", "--restart", "--runtime", "--gpus", "--dns", "--label-file", "--group-add", "--stop-signal", "--stop-timeout", "--health-cmd"}
+)
+
+// checkPin warns when a stdio server's launcher fetches code at every start without a pinned
+// version. It reads only command and args; a launcher it does not know yields nothing.
+// shortcut: no support for launcher flags beyond the lists above, extend them when one shows up.
+func checkPin(server Server) []CheckFinding {
+	launcher := strings.TrimSuffix(strings.TrimSuffix(strings.ToLower(filepath.Base(server.Command)), ".cmd"), ".exe")
+	if server.Command == "" || !slices.Contains([]string{"npx", "uvx", "pipx", "docker", "podman"}, launcher) {
+		return nil
+	}
+	finding := func(level, name, message string) []CheckFinding {
+		return []CheckFinding{{Level: level, Check: "pin", Subject: name, Message: message}}
+	}
+	// A local path or URL has no registry version to pin.
+	remote := func(spec string) bool {
+		return spec != "" && !strings.ContainsAny(spec[:1], "./") && !strings.Contains(spec, ":")
+	}
+	args := server.Args
+	switch launcher {
+	case "npx":
+		pkg := pinTarget(args, []string{"-p", "--package"}, nil)
+		if !remote(pkg) {
+			return nil
+		}
+		name, version := pkg, ""
+		if i := strings.LastIndex(pkg, "@"); i > 0 { // i == 0 is only the scope
+			name, version = pkg[:i], pkg[i+1:]
+		}
+		if version != "" && version != "latest" {
+			return nil
+		}
+		return finding("warning", name, fmt.Sprintf("npx runs %s without a pinned version; pin it, e.g. %s@<version>", name, name))
+	case "uvx", "pipx":
+		if launcher == "pipx" {
+			if len(args) == 0 || args[0] != "run" {
+				return nil
+			}
+			args = args[1:]
+		}
+		spec := pinTarget(args, []string{"--from", "--spec"}, uvxValueFlags)
+		if !remote(spec) || strings.Contains(spec, "==") || (strings.Contains(spec, "@") && !strings.HasSuffix(spec, "@latest")) {
+			return nil
+		}
+		name := spec
+		if i := strings.IndexAny(spec, "=<>~!@[;"); i > 0 {
+			name = spec[:i]
+		}
+		return finding("warning", name, fmt.Sprintf("%s runs %s without a pinned version; pin it, e.g. %s==<version>", launcher, name, name))
+	default: // docker, podman
+		if len(args) == 0 || args[0] != "run" {
+			return nil
+		}
+		image := pinTarget(args[1:], nil, dockerValueFlags)
+		if image == "" || strings.Contains(image, "@") {
+			return nil
+		}
+		name, tag := image, ""
+		if i := strings.LastIndex(image, ":"); i > strings.LastIndex(image, "/") {
+			name, tag = image[:i], image[i+1:]
+		}
+		if tag == "" || tag == "latest" {
+			return finding("warning", name, fmt.Sprintf("%s runs image %s without a version tag; pin it, e.g. %s:<tag>", launcher, name, name))
+		}
+		return finding("info", name, fmt.Sprintf("image %s:%s uses a tag, which can move; pin a digest, e.g. %s@sha256:<digest>", name, tag, name))
+	}
+}
+
+// pinTarget is the package or image a launcher runs: the value of one of pkgFlags, else the
+// first argument that is not a flag. valueFlags take a separate value, which is skipped.
+func pinTarget(args, pkgFlags, valueFlags []string) string {
+	for i := 0; i < len(args); i++ {
+		name, value, joined := strings.Cut(args[i], "=")
+		switch {
+		case slices.Contains(pkgFlags, name):
+			if joined {
+				return value
+			}
+			if i+1 < len(args) {
+				return args[i+1]
+			}
+			return ""
+		case slices.Contains(valueFlags, name) && !joined:
+			i++
+		case !strings.HasPrefix(args[i], "-"):
+			return args[i]
+		}
+	}
+	return ""
 }
 
 // checkClientRules renders the server alone, once per target, so a rule an Agent enforces

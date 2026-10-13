@@ -600,6 +600,8 @@ skillshare mcp check --no-dns
 |---|---|
 | `env`, `headers`, `bearerToken`의 `fromEnv` 변수가 설정되지 않았거나 비어 있음 | error |
 | 로컬 서버의 `command`를 `PATH`에서 찾을 수 없음 (앞의 `~/`는 확장됨) | error |
+| 로컬 서버가 `npx`, `uvx`, `pipx run`, `docker run`, `podman run`으로 실행하는 패키지 또는 이미지에 버전이 없거나 `latest`임 | warning |
+| 로컬 서버의 이미지에 tag는 있지만 `@sha256:` digest가 없어 tag가 바뀔 수 있음 | info |
 | 원격 서버의 호스트가 DNS로 조회되지 않음 (제한 3초, `--no-dns`로 건너뜀) | warning |
 | Agent의 규칙이 서버를 거부함 (예: Claude Code가 예약한 이름) | error |
 | Agent의 항목이 source와 충돌함 (`sync mcp --dry-run`과 동일) | error |
@@ -648,10 +650,10 @@ warning으로는 실패하지 않습니다. 알 수 없는 서버 이름은 erro
 }
 ```
 
-`check`는 `env`, `command`, `url`, `dns`, `client-rule`, `sync`, `targets`,
+`check`는 `env`, `command`, `pin`, `url`, `dns`, `client-rule`, `sync`, `targets`,
 `tools`, `live` 중 하나입니다.
 `target`은 Agent 또는 계정을 나타내며, 결과가 서버 자체에 관한 것이면 비어 있습니다.
-`subject`는 `env`, `command`, `dns` 결과에서 변수, 명령, 호스트를 나타내고, 성공한 `live` 프로브에서는
+`subject`는 `env`, `command`, `pin`, `dns` 결과에서 변수, 명령, 패키지, 이미지, 호스트를 나타내고, 성공한 `live` 프로브에서는
 서버가 보고한 이름을, `live` 로그인 warning에서는 resource metadata URL을 나타내며, 그 외에는 생략됩니다.
 `project`는 서버의 `mcp.projects` root를 절대 경로로 나타내며 (앞의 `~`는 확장됨), global 서버에서는
 생략됩니다. `summary`는 프로젝트 서버를 포함해 보고서의 모든 서버를 집계합니다.

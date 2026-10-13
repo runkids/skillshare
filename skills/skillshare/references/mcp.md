@@ -21,7 +21,7 @@ skillshare mcp remove docs --sync --no-tui           # Remove unchanged managed 
 skillshare mcp remove docs --keep-files --no-tui     # Stop managing; Agent entries stay as they are
 skillshare mcp restore BACKUP_ID --dry-run --json     # Preview entry-level restoration
 skillshare mcp restore BACKUP_ID --no-tui            # Apply restoration; source stays unchanged
-skillshare mcp check --json                          # Static check: variables, commands, DNS, sync state
+skillshare mcp check --json                          # Static check: variables, commands, version pins, DNS, sync state
 skillshare mcp check --live --timeout 30s --json     # Also start/call each server: serverInfo, protocol, tools
 skillshare mcp serve [--target NAME] [--http ADDR [--tls-cert F --tls-key F]]  # Serve skills read-only over MCP (SEP-2640)
 skillshare mcp serve --check [--target NAME]         # List skills serve would skip, then exit
@@ -47,7 +47,7 @@ skillshare mcp serve --check [--target NAME]         # List skills serve would s
   `skillshare sync mcp --revision <revision>` to reject a stale plan.
 - `mcp check [name...] [--json] [--no-dns]` is read-only; without `--live` it starts nothing. It exits 1
   on an error (unset `fromEnv` variable, command not on PATH, client rule, conflict);
-  an unresolved host or an unsynced entry is only a warning. In global mode it also checks
+  an unresolved host, an unpinned package or image (`pin`) or an unsynced entry is only a warning. In global mode it also checks
   servers under `mcp.projects`; `--json` marks each with its `project` root.
 - `mcp check --live [--timeout 10s]` also starts each local server (your environment plus
   its `env`) and POSTs to each remote one, skipping servers with a static error. A 401 is a
