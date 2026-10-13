@@ -198,7 +198,7 @@
   "backup.actions.backUpNow": "Jetzt sichern",
   "backup.cleanup.busy": "Backup oder Bereinigung läuft noch. Bereinigung übersprungen; danach erneut versuchen.",
   "backup.cleanup.confirmText": "Bereinigen",
-  "backup.cleanup.message": "Entfernt Sicherungen über den Aufbewahrungsgrenzen: {policy}. Die neueste Sicherung bleibt immer erhalten.",
+  "backup.cleanup.message": "Entfernt Sicherungen über den Aufbewahrungsgrenzen: {policy}. Die neueste Sicherung bleibt immer erhalten. Entfernt außerdem alle verwaisten Verzeichnisse unvollständiger Sicherungen, unabhängig von den Aufbewahrungsgrenzen.",
   "backup.cleanup.title": "Alte Backups bereinigen",
   "backup.empty.description": "Erstelle dein erstes Backup, um deine Zielkonfigurationen zu sichern",
   "backup.empty.title": "Keine Backups gefunden",

@@ -186,7 +186,7 @@
   "backup.actions.backUpNow": "Back up now",
   "backup.cleanup.busy": "A backup or cleanup is running. Cleanup was skipped; retry when it finishes.",
   "backup.cleanup.confirmText": "Cleanup",
-  "backup.cleanup.message": "Removes backups past the retention limits: {policy}. The newest backup is always kept.",
+  "backup.cleanup.message": "Removes backups past the retention limits: {policy}. The newest backup is always kept. Also removes all abandoned incomplete backup directories, regardless of retention limits.",
   "backup.cleanup.title": "Cleanup Old Backups",
   "backup.empty.description": "Create your first backup to protect your target configurations",
   "backup.empty.title": "No backups found",

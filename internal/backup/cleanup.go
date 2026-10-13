@@ -88,6 +88,15 @@ func cleanupInDir(backupDir string, cfg CleanupConfig, dryRun bool) (int, int64,
 	if err != nil {
 		return 0, 0, err
 	}
+	var entries []os.DirEntry
+	if dryRun {
+		// Read before probing the lock: if no lock exists afterward, these
+		// entries cannot include staging from a participating writer.
+		entries, err = os.ReadDir(backupDir)
+		if err != nil {
+			return 0, 0, err
+		}
+	}
 	lockPath := filepath.Join(backupDir, backupLockName)
 	lock := flock.New(lockPath)
 	if dryRun {
@@ -105,10 +114,12 @@ func cleanupInDir(backupDir string, cfg CleanupConfig, dryRun bool) (int, int64,
 		defer lock.Unlock() //nolint:errcheck
 	}
 
-	// Discover staging only after excluding writers.
-	entries, err := os.ReadDir(backupDir)
-	if err != nil {
-		return 0, 0, err
+	if locked {
+		// Refresh under the lock, excluding writers during discovery.
+		entries, err = os.ReadDir(backupDir)
+		if err != nil {
+			return 0, 0, err
+		}
 	}
 	backups, err := ListInDir(backupDir)
 	if err != nil {

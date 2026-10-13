@@ -20,6 +20,7 @@ vi.mock('../api/client', async (load) => {
       getOverview: vi.fn(),
       listBackups: vi.fn(),
       createBackup: vi.fn(),
+      cleanupBackups: vi.fn(),
       deleteBackup: vi.fn(),
       deleteAllBackups: vi.fn(),
       patchConfig: vi.fn(),
@@ -103,6 +104,20 @@ describe('BackupPage', () => {
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete all' }));
 
     await waitFor(() => expect(api.deleteAllBackups).toHaveBeenCalled());
+  });
+
+  it('cleans staging-only backups only after confirmation', async () => {
+    vi.mocked(api.listBackups).mockResolvedValue({ totalSizeBytes: 0, backups: [], retention: { maxAgeDays: 30, maxCount: 10, maxSizeMB: 500 } });
+    vi.mocked(api.cleanupBackups).mockResolvedValue({ success: true, removed: 1 });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Clean up old backups' }));
+    expect(screen.getByText(/abandoned incomplete backup directories/)).toBeInTheDocument();
+    expect(api.cleanupBackups).not.toHaveBeenCalled();
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cleanup' }));
+
+    await waitFor(() => expect(api.cleanupBackups).toHaveBeenCalledOnce());
   });
 
   it('saves the count and size limits from the retention summary', async () => {

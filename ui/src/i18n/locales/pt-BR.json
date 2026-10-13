@@ -198,7 +198,7 @@
   "backup.actions.backUpNow": "Fazer backup agora",
   "backup.cleanup.busy": "Um backup ou uma limpeza está em andamento. A limpeza foi ignorada; tente novamente ao terminar.",
   "backup.cleanup.confirmText": "Limpar",
-  "backup.cleanup.message": "Remove backups além dos limites de retenção: {policy}. O backup mais recente é sempre mantido.",
+  "backup.cleanup.message": "Remove backups além dos limites de retenção: {policy}. O backup mais recente é sempre mantido. Também remove todos os diretórios de backups incompletos abandonados, independentemente dos limites de retenção.",
   "backup.cleanup.title": "Limpar Backups Antigos",
   "backup.empty.description": "Crie seu primeiro backup para proteger as configurações dos seus destinos",
   "backup.empty.title": "Nenhum backup encontrado",

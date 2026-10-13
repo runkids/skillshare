@@ -198,7 +198,7 @@
   "backup.actions.backUpNow": "今すぐバックアップ",
   "backup.cleanup.busy": "バックアップまたはクリーンアップが実行中です。クリーンアップをスキップしました。完了後に再試行してください。",
   "backup.cleanup.confirmText": "クリーンアップ",
-  "backup.cleanup.message": "保持の上限を超えた古いバックアップを削除します：{policy}。最新のバックアップは常に残ります。",
+  "backup.cleanup.message": "保持の上限を超えた古いバックアップを削除します：{policy}。最新のバックアップは常に残ります。 保持制限に関係なく、中断されて使われていない未完了のバックアップディレクトリもすべて削除します。",
   "backup.cleanup.title": "古いバックアップをクリーンアップ",
   "backup.empty.description": "最初のバックアップを作成してターゲット設定を保護します",
   "backup.empty.title": "バックアップが見つかりません",

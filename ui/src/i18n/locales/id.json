@@ -198,7 +198,7 @@
   "backup.actions.backUpNow": "Cadangkan sekarang",
   "backup.cleanup.busy": "Pencadangan atau pembersihan sedang berjalan. Pembersihan dilewati; coba lagi setelah selesai.",
   "backup.cleanup.confirmText": "Bersihkan",
-  "backup.cleanup.message": "Menghapus cadangan yang melewati batas penyimpanan: {policy}. Cadangan terbaru selalu disimpan.",
+  "backup.cleanup.message": "Menghapus cadangan yang melewati batas penyimpanan: {policy}. Cadangan terbaru selalu disimpan. Juga menghapus semua direktori cadangan tidak lengkap yang ditinggalkan, terlepas dari batas retensi.",
   "backup.cleanup.title": "Bersihkan Cadangan Lama",
   "backup.empty.description": "Buat cadangan pertama Anda untuk melindungi konfigurasi target",
   "backup.empty.title": "Tidak ada cadangan ditemukan",

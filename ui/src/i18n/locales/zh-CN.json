@@ -198,7 +198,7 @@
   "backup.actions.backUpNow": "立即备份",
   "backup.cleanup.busy": "备份或清理正在进行，本次清理已跳过，请在完成后重试。",
   "backup.cleanup.confirmText": "清理",
-  "backup.cleanup.message": "按保留上限删除旧备份：{policy}。最新一份始终保留。",
+  "backup.cleanup.message": "按保留上限删除旧备份：{policy}。最新一份始终保留。 同时移除所有已中断且不再使用的未完成备份目录，不受保留上限限制。",
   "backup.cleanup.title": "清理旧备份",
   "backup.empty.description": "创建第一个备份以保护你的目标配置",
   "backup.empty.title": "没有找到备份",

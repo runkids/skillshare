@@ -198,7 +198,7 @@
   "backup.actions.backUpNow": "지금 백업",
   "backup.cleanup.busy": "백업 또는 정리가 진행 중입니다. 정리를 건너뛰었습니다. 완료 후 다시 시도하세요.",
   "backup.cleanup.confirmText": "정리",
-  "backup.cleanup.message": "보관 한도를 넘은 오래된 백업을 삭제합니다: {policy}. 최신 백업은 항상 유지됩니다.",
+  "backup.cleanup.message": "보관 한도를 넘은 오래된 백업을 삭제합니다: {policy}. 최신 백업은 항상 유지됩니다. 보존 제한과 관계없이 중단되어 사용되지 않는 미완료 백업 디렉터리도 모두 삭제합니다.",
   "backup.cleanup.title": "오래된 백업 정리",
   "backup.empty.description": "첫 번째 백업을 생성하여 대상 설정을 보호하세요",
   "backup.empty.title": "백업 없음",

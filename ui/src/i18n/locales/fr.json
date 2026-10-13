@@ -198,7 +198,7 @@
   "backup.actions.backUpNow": "Sauvegarder",
   "backup.cleanup.busy": "Une sauvegarde ou un nettoyage est en cours. Nettoyage ignoré ; réessayez ensuite.",
   "backup.cleanup.confirmText": "Nettoyer",
-  "backup.cleanup.message": "Supprime les sauvegardes au-delà des limites de conservation : {policy}. La plus récente est toujours conservée.",
+  "backup.cleanup.message": "Supprime les sauvegardes au-delà des limites de conservation : {policy}. La plus récente est toujours conservée. Supprime également tous les dossiers de sauvegardes incomplètes abandonnées, indépendamment des limites de conservation.",
   "backup.cleanup.title": "Nettoyer les anciennes sauvegardes",
   "backup.empty.description": "Créez votre première sauvegarde pour protéger vos configurations de cibles",
   "backup.empty.title": "Aucune sauvegarde trouvée",

@@ -198,7 +198,7 @@
   "backup.actions.backUpNow": "Hacer copia ahora",
   "backup.cleanup.busy": "Hay una copia de seguridad o limpieza en curso. Se omitió la limpieza; inténtalo al terminar.",
   "backup.cleanup.confirmText": "Limpiar",
-  "backup.cleanup.message": "Elimina las copias que superan los límites de retención: {policy}. La copia más reciente siempre se conserva.",
+  "backup.cleanup.message": "Elimina las copias que superan los límites de retención: {policy}. La copia más reciente siempre se conserva. También elimina todos los directorios de copias de seguridad incompletas abandonadas, independientemente de los límites de retención.",
   "backup.cleanup.title": "Limpiar copias antiguas",
   "backup.empty.description": "Crea tu primera copia de seguridad para proteger las configuraciones de tus destinos",
   "backup.empty.title": "No se encontraron copias de seguridad",

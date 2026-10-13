@@ -190,7 +190,9 @@ function FolderBackups({ creating }: { creating: boolean }) {
       ) : error ? (
         <div className="ss-note bad"><span className="flex-1">{error.message}</span></div>
       ) : backups.length === 0 ? (
-        <EmptyState icon={Archive} title={t('backup.empty.title')} description={t('backup.empty.description')} />
+        <EmptyState icon={Archive} title={t('backup.empty.title')} description={t('backup.empty.description')} action={
+          <button type="button" className="ss-btn sm ghost" onClick={() => setCleanupOpen(true)}><Trash2 size={14} />{t('backup.actions.cleanup')}</button>
+        } />
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2">
