@@ -1,7 +1,7 @@
 import { apiFetch } from './client';
 import type { MCPMutation } from './mcp';
 
-/** One result of `skillshare mcp check`. `subject` names the variable, command, or host; never a value. */
+/** One result of `skillshare mcp check`. `subject` names the variable, command, package, image, or host; never a value. */
 export interface MCPCheckFinding {
   level: 'error' | 'warning' | 'info';
   check: string;

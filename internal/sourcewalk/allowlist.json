@@ -400,6 +400,22 @@
     "note": "Clean empty nested backup directory"
   },
   {
+    "file": "internal/backup/cleanup.go",
+    "function": "cleanupInDir",
+    "callee": "os.ReadDir",
+    "root": "backupDir",
+    "reason": "backup",
+    "note": "Find abandoned staging directories under the backup lock"
+  },
+  {
+    "file": "internal/backup/cleanup.go",
+    "function": "cleanupInDir",
+    "callee": "os.ReadDir",
+    "root": "backupDir",
+    "reason": "backup",
+    "note": "Snapshot legacy staging before probing the preview lock to exclude first-use writers"
+  },
+  {
     "file": "internal/backup/restore.go",
     "function": "ValidateRestore",
     "callee": "os.ReadDir",

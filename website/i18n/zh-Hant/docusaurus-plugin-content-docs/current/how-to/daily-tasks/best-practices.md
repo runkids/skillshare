@@ -246,7 +246,7 @@ team-skills/
 # 每週
 skillshare update --all     # 更新 tracked repos
 skillshare doctor           # 檢查是否有問題
-skillshare backup --cleanup # 移除舊備份
+skillshare backup --cleanup # 移除舊快照和遺留的不完整目錄
 
 # 每月
 skillshare list             # 檢視已安裝的 Skills

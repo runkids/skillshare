@@ -1415,6 +1415,7 @@ func checkBackupStatus(result *doctorResult, isProject bool, backupDir string) {
 		ui.Row(ui.MarkNone, "Backups", "last "+latest+ui.DimText(" · "+timeAgo(latestTime)), doctorWidth)
 		result.addCheck("backup", checkPass, fmt.Sprintf("Backups: last backup %s (%s)", latest, ageStr), nil)
 	} else {
+		ui.Row(ui.MarkNone, "Backups", "none found", doctorWidth)
 		result.addCheck("backup", checkPass, "Backups: none found", nil)
 	}
 }

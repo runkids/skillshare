@@ -504,7 +504,7 @@ A snapshot captures only **local** target content. Merge-mode symlinks are skipp
 skillshare backup              # Backup all targets
 skillshare backup claude       # Backup specific target
 skillshare backup --list       # List all backups
-skillshare backup --cleanup    # Remove old backups
+skillshare backup --cleanup    # Remove old snapshots and abandoned incomplete directories
 skillshare backup --dry-run    # Preview
 ```
 

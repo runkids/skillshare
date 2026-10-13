@@ -194,7 +194,11 @@ func (s *Server) handleCleanupBackups(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	removed, err := backup.CleanupInDir(s.backupDir(), s.backupRetention())
+	removed, _, err := backup.CleanupWithStatsInDir(s.backupDir(), s.backupRetention())
+	if errors.Is(err, backup.ErrCleanupBusy) {
+		writeError(w, http.StatusConflict, err.Error())
+		return
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

@@ -12,7 +12,7 @@ skillshare backup claude       # 特定のターゲットをバックアップ
 skillshare backup agents       # すべての agent ターゲットをバックアップ
 skillshare backup --all        # Skill と agent をバックアップ
 skillshare backup --list       # すべてのバックアップを一覧表示
-skillshare backup --cleanup    # 古いバックアップを削除
+skillshare backup --cleanup    # 古いスナップショットと放置された未完成ディレクトリを削除
 skillshare backup --delete 2026-01-19_10-00-00  # 1 つのバックアップを削除
 skillshare backup files        # skillshare が書き換えた単一ファイルのバージョン
 ```
@@ -21,7 +21,7 @@ skillshare backup files        # skillshare が書き換えた単一ファイル
 
 - 危険な変更を行う前に手動でバックアップを作成する
 - 既存のバックアップを一覧表示して復元の選択肢を確認する
-- 古いバックアップをクリーンアップする、または不要になったバックアップを 1 つ削除する
+- 古いスナップショットと放置された未完成ディレクトリをクリーンアップする、または不要になったバックアップを 1 つ削除する
 - `AGENTS.md` や `CLAUDE.md` などのファイルの以前のバージョンを取り戻す
 
 ## 自動バックアップ
@@ -66,11 +66,11 @@ Next
 ### 古いバックアップのクリーンアップ
 
 ```bash
-skillshare backup --cleanup           # 古いバックアップを削除
+skillshare backup --cleanup           # 古いスナップショットと放置された未完成ディレクトリを削除
 skillshare backup --cleanup --dry-run # クリーンアップをプレビュー
 ```
 
-デフォルトのクリーンアップポリシー:
+完了したスナップショットのデフォルト保持ポリシー:
 - 直近 10 個のバックアップを保持
 - 30 日以上前のバックアップを削除
 - 合計サイズの上限を 500 MB に設定
@@ -86,6 +86,8 @@ backup:
 最新のスナップショットは、それ単体でサイズ上限を超えていても常に保持されます — 復元ポイントがまったくない状態にはなりません。
 
 このポリシーはすべての `sync` の後に自動的に実行されるため、`--cleanup` はオンデマンドで整理したいときにのみ必要です。
+
+クリーンアップは、中断されたバックアップが残した未完成の `.snapshot-*` ディレクトリも削除します。完了したスナップショットがない場合も対象です。これらのディレクトリは `--list` に表示されず、その合計サイズにも含まれません。`--cleanup --dry-run` では削除せずにプレビューに含めます。バックアップの書き込み中は、そのバックアップディレクトリのクリーンアップをスキップします。完了後にクリーンアップを再実行してください。
 
 ### バックアップの削除
 
@@ -164,7 +166,7 @@ Versions  ~/.claude/CLAUDE.md
 | `--project, -p` | プロジェクトモードを使用（`.skillshare/backups/`）。**agent のみ** |
 | `--global, -g` | グローバルモードを使用（Skill のデフォルト） |
 | `--list, -l` | すべてのバックアップを一覧表示（`-p` ではプロジェクトのもの） |
-| `--cleanup, -c` | 古いバックアップを削除（`-p` ではプロジェクトのもの） |
+| `--cleanup, -c` | 古いスナップショットと放置された未完成ディレクトリを削除（`-p` ではプロジェクトのもの） |
 | `--delete <timestamp>` | 1 つのバックアップを削除。`-p` 指定時は `.skillshare/backups/` から削除 |
 | `--target, -t <name>` | 特定のバックアップを対象にする（位置引数の代替） |
 | `--dry-run, -n` | 変更を加えずにプレビュー |
@@ -222,7 +224,7 @@ Versions  ~/.claude/CLAUDE.md
 ```bash
 du -sh ~/.local/share/skillshare/backups   # ディスク上の合計サイズ
 skillshare backup --list                   # スナップショットごとのサイズ
-skillshare backup --cleanup --dry-run      # 保持ポリシーが何を削除するかプレビュー
+skillshare backup --cleanup --dry-run      # 放置された未完成ディレクトリを含めてクリーンアップをプレビュー
 ```
 
 Copy モードのターゲットは、スナップショットが依然として大きくなり得る唯一のケースです。これらは実体ファイルであるため、Skill ディレクトリ配下のあらゆるものがコピーされます。ランタイムキャッシュや大きなアーティファクトは Skill ツリーの外に置くか、`ignore:` で除外して、そもそもターゲットに届かないようにしてください。

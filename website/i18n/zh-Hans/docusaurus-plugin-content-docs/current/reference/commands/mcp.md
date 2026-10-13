@@ -479,7 +479,7 @@ mcp:
   servers:
     context7:
       command: npx
-      args: ["-y", "@upstash/context7-mcp"]
+      args: ["-y", "@upstash/context7-mcp@4.4.1"]
       targets: [claude, opencode]
   projects:
     ~/work/project01:
@@ -594,6 +594,8 @@ skillshare mcp check --no-dns
 |---|---|
 | `env`、`headers` 或 `bearerToken` 中的 `fromEnv` 变量未设置或为空 | error |
 | 在 `PATH` 上找不到本地 server 的 `command`（开头的 `~/` 会被展开） | error |
+| 本地 server 用 `npx`、`uvx`、`pipx run`、`docker run` 或 `podman run` 运行的包没有确切版本（未指定、`latest`、`next` 之类的 dist-tag、`^1.2` 之类的范围或 `==1.*` 通配符，包括 npx 的每个 `--package` 和 uvx 的 `--with`），或镜像没有标签或为 `latest` | warning |
+| 本地 server 的镜像有 tag 但没有 `@sha256:` digest，tag 可能被移动 | info |
 | 远程 server 的主机无法通过 DNS 解析（限时 3 秒；用 `--no-dns` 跳过） | warning |
 | 某个 Agent 的规则拒绝该 server，例如 Claude Code 保留的名称 | error |
 | 某个 Agent 的条目与 source 冲突，与 `sync mcp --dry-run` 相同 | error |
@@ -641,9 +643,9 @@ skillshare mcp check --no-dns
 }
 ```
 
-`check` 是 `env`、`command`、`url`、`dns`、`client-rule`、`sync`、`targets`、`tools`、`tool-change` 或 `live` 之一。
+`check` 是 `env`、`command`、`pin`、`url`、`dns`、`client-rule`、`sync`、`targets`、`tools`、`tool-change` 或 `live` 之一。
 `target` 表示 Agent 或账户；当该发现针对的是 server 本身时为空。
-`subject` 在 `env`、`command` 和 `dns` 发现中表示变量、命令或主机；在成功的 `live` 探测中表示
+`subject` 在 `env`、`command`、`pin` 和 `dns` 发现中表示变量、命令、包、镜像或主机；在成功的 `live` 探测中表示
 server 报告的名称；在 `live` 登录 warning 中表示资源元数据 URL；其他情况下省略。
 `project` 是该 server 所在的 `mcp.projects` 根目录，以绝对路径表示（开头的 `~` 会被展开）；
 global server 则省略此字段。`summary` 统计报告中的每个 server，包括项目 server。

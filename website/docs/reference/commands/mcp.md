@@ -507,7 +507,7 @@ mcp:
   servers:
     context7:
       command: npx
-      args: ["-y", "@upstash/context7-mcp"]
+      args: ["-y", "@upstash/context7-mcp@4.4.1"]
       targets: [claude, opencode]
   projects:
     ~/work/project01:
@@ -628,6 +628,8 @@ HTTP request, runs a command or writes a file, unless you add [`--live`](#probe-
 |---|---|
 | A `fromEnv` variable in `env`, `headers` or `bearerToken` is unset or empty | error |
 | A local server's `command` is not found on `PATH` (a leading `~/` is expanded) | error |
+| A local server runs `npx`, `uvx`, `pipx run`, `docker run` or `podman run` on a package without an exact version (none, `latest`, a dist-tag such as `next`, a range such as `^1.2`, or a `==1.*` wildcard), including each npx `--package` and uvx `--with`, or on an image with no tag or `latest` | warning |
+| A local server's image has a tag but no `@sha256:` digest, so the tag can move | info |
 | A remote server's host does not resolve through DNS (3-second limit; skip with `--no-dns`) | warning |
 | An Agent's rule refuses the server, such as a name Claude Code reserves | error |
 | An Agent's entry conflicts with the source, as in `sync mcp --dry-run` | error |
@@ -676,12 +678,12 @@ With `--json`, the report has this shape:
 }
 ```
 
-`check` is one of `env`, `command`, `url`, `dns`, `client-rule`, `sync`, `targets`,
+`check` is one of `env`, `command`, `pin`, `url`, `dns`, `client-rule`, `sync`, `targets`,
 `tools`, `tool-change` or `live`.
 `target` names the Agent or account, and is empty when the finding is about the
 server itself.
-`subject` names the variable, command or host for `env`, `command` and `dns`
-findings, the name a server reports for a successful `live` probe, and the resource
+`subject` names the variable, command, package, image or host for `env`, `command`,
+`pin` and `dns` findings, the name a server reports for a successful `live` probe, and the resource
 metadata URL of a `live` sign-in warning; it is omitted otherwise.
 `project` is the server's `mcp.projects` root as an absolute path (a leading `~` is
 expanded), and is omitted for a global server. `summary` counts every server in the

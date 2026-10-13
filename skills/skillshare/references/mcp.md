@@ -11,7 +11,7 @@ which runs Skillshare's own read-only skills server.
 ```bash
 skillshare mcp --no-tui                             # Plain status (bare mcp opens the TUI)
 skillshare mcp add docs --url https://example.com/mcp --target claude --sync --no-tui
-skillshare mcp add local --target claude --no-tui -- npx -y @modelcontextprotocol/server-filesystem /path/to/docs
+skillshare mcp add local --target claude --no-tui -- npx -y @modelcontextprotocol/server-filesystem@1.0.0 /path/to/docs
 skillshare mcp edit docs --url https://updated.example/mcp --no-tui
 skillshare mcp import --from claude --json           # Inspect candidates without saving
 skillshare mcp import docs --from claude --target claude --sync --no-tui
@@ -21,7 +21,7 @@ skillshare mcp remove docs --sync --no-tui           # Remove unchanged managed 
 skillshare mcp remove docs --keep-files --no-tui     # Stop managing; Agent entries stay as they are
 skillshare mcp restore BACKUP_ID --dry-run --json     # Preview entry-level restoration
 skillshare mcp restore BACKUP_ID --no-tui            # Apply restoration; source stays unchanged
-skillshare mcp check --json                          # Static check: variables, commands, DNS, sync state
+skillshare mcp check --json                          # Static check: variables, commands, version pins, DNS, sync state
 skillshare mcp check --live --timeout 30s --json     # Also start/call each server: serverInfo, protocol, tools
 skillshare mcp check docs --live --accept-tools      # Accept the tool definitions docs lists now as the baseline
 skillshare mcp serve [--target NAME] [--http ADDR [--tls-cert F --tls-key F]]  # Serve skills read-only over MCP (SEP-2640)
@@ -49,7 +49,7 @@ skillshare mcp serve --check [--target NAME]         # List skills serve would s
 - `mcp check [name...] [--json] [--no-dns]` writes no config file; without `--live` it starts nothing
   and writes nothing. It exits 1
   on an error (unset `fromEnv` variable, command not on PATH, client rule, conflict);
-  an unresolved host or an unsynced entry is only a warning. In global mode it also checks
+  an unresolved host, an unpinned package or image (`pin`) or an unsynced entry is only a warning. In global mode it also checks
   servers under `mcp.projects`; `--json` marks each with its `project` root.
 - `mcp check --live [--timeout 10s]` also starts each local server (your environment plus
   its `env`) and POSTs to each remote one, skipping servers with a static error. A 401 is a
@@ -96,7 +96,7 @@ mcp:
         X-Api-Key: {fromEnv: DOCS_KEY}     # a reference, never the secret itself
     files:
       command: npx
-      args: ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/docs"]
+      args: ["-y", "@modelcontextprotocol/server-filesystem@1.0.0", "/path/to/docs"]
       targets: [claude, opencode]
 ```
 
@@ -407,7 +407,7 @@ mcp:
   servers:
     context7:
       command: npx
-      args: ["-y", "@upstash/context7-mcp"]
+      args: ["-y", "@upstash/context7-mcp@4.4.1"]
   projects:
     ~/work/project01:
       servers:

@@ -246,7 +246,7 @@ team-skills/
 # Weekly
 skillshare update --all     # Update tracked repos
 skillshare doctor           # Check for issues
-skillshare backup --cleanup # Remove old backups
+skillshare backup --cleanup # 移除旧快照和遗留的不完整目录
 
 # Monthly
 skillshare list             # Review installed skills

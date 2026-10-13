@@ -204,7 +204,7 @@ skillshare diff
 ```bash
 # 週次メンテナンス
 skillshare audit             # セキュリティ脅威をスキャン
-skillshare backup --cleanup  # 古いバックアップを削除
+skillshare backup --cleanup  # 古いスナップショットと放置された未完成ディレクトリを削除
 skillshare doctor            # 問題をチェック
 ```
 

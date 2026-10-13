@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -134,6 +136,7 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 		result.Findings = append(result.Findings, checkEnv(server, opts.LookupEnv)...)
 		if !server.Disabled {
 			result.Findings = append(result.Findings, checkLaunch(server, opts)...)
+			result.Findings = append(result.Findings, checkPin(server)...)
 		}
 		result.Findings = append(result.Findings, preflight[k]...)
 		result.Findings = append(result.Findings, checkToolPolicy(source, k.root, server)...)
@@ -253,6 +256,125 @@ func checkLaunch(server Server, opts CheckOptions) []CheckFinding {
 		return []CheckFinding{{Level: "warning", Check: "dns", Subject: host, Message: fmt.Sprintf("host %s did not resolve", host)}}
 	}
 	return nil
+}
+
+// Flags of each launcher whose value must not be mistaken for the package or image.
+var (
+	uvxValueFlags    = []string{"--python", "-p", "--index"}
+	dockerValueFlags = []string{"-e", "--env", "-v", "--volume", "--name", "-p", "--publish", "-w", "--workdir", "--network", "--net", "-u", "--user", "--entrypoint", "--mount", "--platform", "--env-file", "-l", "--label", "-m", "--memory", "-h", "--hostname",
+		"--cap-add", "--cap-drop", "--security-opt", "--pull", "--tmpfs", "--device", "--add-host", "--ulimit", "--cpus", "--shm-size", "--log-driver", "--log-opt", "--cidfile", "--ipc", "--pid", "--restart", "--runtime", "--gpus", "--dns", "--label-file", "--group-add", "--stop-signal", "--stop-timeout", "--health-cmd"}
+)
+
+// exactNpmVersion is a pinned npm version: exact semver, not a dist-tag or range (as Pi pins).
+var exactNpmVersion = regexp.MustCompile(`^v?\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$`)
+
+// checkPin warns when a stdio server's launcher fetches code at every start without a pinned
+// version. It reads only command and args; a launcher it does not know yields nothing.
+// shortcut: no support for launcher flags beyond the lists above, extend them when one shows up.
+func checkPin(server Server) []CheckFinding {
+	launcher := strings.TrimSuffix(strings.TrimSuffix(strings.ToLower(filepath.Base(server.Command)), ".cmd"), ".exe")
+	if server.Command == "" || !slices.Contains([]string{"npx", "uvx", "pipx", "docker", "podman"}, launcher) {
+		return nil
+	}
+	finding := func(level, name, message string) []CheckFinding {
+		return []CheckFinding{{Level: level, Check: "pin", Subject: name, Message: message}}
+	}
+	// A local path or URL has no registry version to pin.
+	remote := func(spec string) bool {
+		return spec != "" && !strings.ContainsAny(spec[:1], "./") && !strings.Contains(spec, ":")
+	}
+	args := server.Args
+	switch launcher {
+	case "npx":
+		// npx accepts --package more than once; each one is fetched.
+		var out []CheckFinding
+		pkgs, command := pinTargets(args, []string{"-p", "--package"}, nil)
+		if len(pkgs) == 0 {
+			pkgs = []string{command}
+		}
+		for _, pkg := range pkgs {
+			if !remote(pkg) {
+				continue
+			}
+			name, version := pkg, ""
+			if i := strings.LastIndex(pkg, "@"); i > 0 { // i == 0 is only the scope
+				name, version = pkg[:i], pkg[i+1:]
+			}
+			if !exactNpmVersion.MatchString(version) {
+				out = append(out, finding("warning", name, fmt.Sprintf("npx runs %s without a pinned version; pin it, e.g. %s@<version>", name, name))...)
+			}
+		}
+		return out
+	case "uvx", "pipx":
+		if launcher == "pipx" {
+			if len(args) == 0 || args[0] != "run" {
+				return nil
+			}
+			args = args[1:]
+		}
+		// The tool comes from --from or --spec, else the command; uvx --with adds more packages.
+		from, with := []string{"--from", "--spec"}, []string{"--with", "-w"}
+		froms, command := pinTargets(args, from, append(with, uvxValueFlags...))
+		withs, _ := pinTargets(args, with, append(from, uvxValueFlags...))
+		if len(froms) > 0 {
+			command = froms[0]
+		}
+		var out []CheckFinding
+		for _, spec := range append([]string{command}, withs...) {
+			// Only the requirement counts: an environment marker after ';' can hold its own ==.
+			requirement := strings.TrimSpace(strings.SplitN(spec, ";", 2)[0])
+			// == pins unless it ends in a .* prefix match; uvx's tool@version is exact too.
+			_, equal, pinned := strings.Cut(requirement, "==")
+			_, at, versioned := strings.Cut(requirement, "@")
+			if !remote(requirement) || pinned && !strings.Contains(equal, "*") || versioned && at != "" && at != "latest" {
+				continue
+			}
+			name := requirement
+			if i := strings.IndexAny(requirement, "=<>~!@[ "); i > 0 {
+				name = requirement[:i]
+			}
+			out = append(out, finding("warning", name, fmt.Sprintf("%s runs %s without a pinned version; pin it, e.g. %s==<version>", launcher, name, name))...)
+		}
+		return out
+	default: // docker, podman
+		if len(args) == 0 || args[0] != "run" {
+			return nil
+		}
+		_, image := pinTargets(args[1:], nil, dockerValueFlags)
+		if image == "" || strings.Contains(image, "@") {
+			return nil
+		}
+		name, tag := image, ""
+		if i := strings.LastIndex(image, ":"); i > strings.LastIndex(image, "/") {
+			name, tag = image[:i], image[i+1:]
+		}
+		if tag == "" || tag == "latest" {
+			return finding("warning", name, fmt.Sprintf("%s runs image %s without a version tag; pin it, e.g. %s:<tag>", launcher, name, name))
+		}
+		return finding("info", name, fmt.Sprintf("image %s:%s uses a tag, which can move; pin a digest, e.g. %s@sha256:<digest>", name, tag, name))
+	}
+}
+
+// pinTargets reads a launcher's args up to the command it runs: every value of pkgFlags, and
+// that command, the first argument that is not a flag. valueFlags take a separate value, which
+// is skipped.
+func pinTargets(args, pkgFlags, valueFlags []string) (pkgs []string, command string) {
+	for i := 0; i < len(args); i++ {
+		name, value, joined := strings.Cut(args[i], "=")
+		switch {
+		case slices.Contains(pkgFlags, name):
+			if !joined && i+1 < len(args) {
+				i++
+				value = args[i]
+			}
+			pkgs = append(pkgs, value)
+		case slices.Contains(valueFlags, name) && !joined:
+			i++
+		case !strings.HasPrefix(args[i], "-"):
+			return pkgs, args[i]
+		}
+	}
+	return pkgs, ""
 }
 
 // checkClientRules renders the server alone, once per target, so a rule an Agent enforces

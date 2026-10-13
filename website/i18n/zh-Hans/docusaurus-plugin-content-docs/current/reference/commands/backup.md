@@ -12,7 +12,7 @@ skillshare backup claude       # 备份指定 target
 skillshare backup agents       # 备份所有 agent target
 skillshare backup --all        # 备份 skills + agents
 skillshare backup --list       # 列出所有 Backup
-skillshare backup --cleanup    # 移除旧的 Backup
+skillshare backup --cleanup    # 移除旧快照和遗留的不完整目录
 skillshare backup --delete 2026-01-19_10-00-00  # 删除一个 Backup
 skillshare backup files        # skillshare 改写过的单个文件的各个版本
 ```
@@ -21,7 +21,7 @@ skillshare backup files        # skillshare 改写过的单个文件的各个版
 
 - 在有风险的变更之前创建手动 Backup
 - 列出现有 Backup 以检查恢复选项
-- 清理旧的 Backup，或删除某个不再需要的 Backup
+- 清理旧快照和遗留的不完整目录，或删除某个不再需要的 Backup
 - 找回 `AGENTS.md` 或 `CLAUDE.md` 等文件的早期版本
 
 ## 自动 Backup
@@ -66,11 +66,11 @@ Next
 ### 清理旧的 Backup
 
 ```bash
-skillshare backup --cleanup           # 移除旧的 Backup
+skillshare backup --cleanup           # 移除旧快照和遗留的不完整目录
 skillshare backup --cleanup --dry-run # 预览清理效果
 ```
 
-默认清理策略：
+已完成快照的默认保留策略：
 - 保留最近 10 个 Backup
 - 移除超过 30 天的 Backup
 - 总大小上限为 500 MB
@@ -86,6 +86,8 @@ backup:
 即使最新的快照单独就超过了大小上限，它也始终会被保留——你永远不会失去恢复点。
 
 这个策略在每次 `sync` 之后都会自动运行，因此 `--cleanup` 只在你想按需清理时才需要用到。
+
+清理也会移除备份中断后留下的不完整 `.snapshot-*` 目录，即使没有已完成的快照也会处理。这些目录不会出现在 `--list` 中，也不计入其总大小。`--cleanup --dry-run` 会在预览中包含这些目录，但不会删除它们。如果备份仍在写入，清理会跳过该备份目录；请在备份完成后再次运行清理。
 
 ### 删除 Backup
 
@@ -164,7 +166,7 @@ reason 说明 skillshare 当时要做什么：
 | `--project, -p` | 使用 project mode（`.skillshare/backups/`）；**仅限 agents** |
 | `--global, -g` | 使用 global mode（skills 的默认值） |
 | `--list, -l` | 列出所有 Backup；加 `-p` 时列出项目的 |
-| `--cleanup, -c` | 移除旧的 Backup；加 `-p` 时处理项目的 |
+| `--cleanup, -c` | 移除旧快照和遗留的不完整目录；加 `-p` 时处理项目的 |
 | `--delete <timestamp>` | 删除一个 Backup；搭配 `-p` 时从 `.skillshare/backups/` 中删除 |
 | `--target, -t <name>` | 针对指定 target 备份（作为位置参数的替代方式） |
 | `--dry-run, -n` | 预览而不做任何变更 |
@@ -222,7 +224,7 @@ Retention 会在每次 `sync` 之后自动运行，使用下方的默认策略�
 ```bash
 du -sh ~/.local/share/skillshare/backups   # 磁盘上的总大小
 skillshare backup --list                   # 每个快照的大小
-skillshare backup --cleanup --dry-run      # 预览 Retention 会移除什么
+skillshare backup --cleanup --dry-run      # 预览清理，包括遗留的不完整目录
 ```
 
 Copy 模式的 target 是快照仍可能变大的唯一情形：它们是真实文件，因此某个 skill 目录下的任何内容都会被复制。请把运行时缓存和大型产物放在 skill 目录之外，或者用 `ignore:` 排除它们，避免它们一开始就到达 target。

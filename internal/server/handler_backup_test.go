@@ -10,9 +10,30 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gofrs/flock"
+
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
 )
+
+func TestHandleCleanupBackups_Busy(t *testing.T) {
+	s, _ := newTestServer(t)
+	t.Setenv("XDG_DATA_HOME", filepath.Join(t.TempDir(), "data"))
+	root := s.backupDir()
+	if err := os.MkdirAll(root, 0755); err != nil {
+		t.Fatal(err)
+	}
+	lock := flock.New(filepath.Join(root, ".backup.lock"))
+	if err := lock.RLock(); err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Unlock() //nolint:errcheck
+
+	rr := serveJSON(t, s, http.MethodPost, "/api/backup/cleanup", "")
+	if rr.Code != http.StatusConflict || !strings.Contains(rr.Body.String(), "cleanup skipped") {
+		t.Fatalf("busy cleanup: %d %s", rr.Code, rr.Body.String())
+	}
+}
 
 func TestHandleListBackups_Empty(t *testing.T) {
 	s, _ := newTestServer(t)

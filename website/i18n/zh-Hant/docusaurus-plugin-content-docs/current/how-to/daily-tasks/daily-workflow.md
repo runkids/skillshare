@@ -204,7 +204,7 @@ skillshare diff
 ```bash
 # 每週維護
 skillshare audit             # 掃描安全威脅
-skillshare backup --cleanup  # 移除舊備份
+skillshare backup --cleanup  # 移除舊快照和遺留的不完整目錄
 skillshare doctor            # 檢查是否有問題
 ```
 

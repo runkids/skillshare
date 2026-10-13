@@ -492,7 +492,7 @@ skillshare sync  # 変更を適用
 skillshare backup              # すべての targets をバックアップ
 skillshare backup claude       # 特定の target をバックアップ
 skillshare backup --list       # すべてのバックアップを一覧表示
-skillshare backup --cleanup    # 古いバックアップを削除
+skillshare backup --cleanup    # 古いスナップショットと放置された未完成ディレクトリを削除
 skillshare backup --dry-run    # プレビュー
 ```
 

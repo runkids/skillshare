@@ -12,7 +12,7 @@ skillshare backup claude       # Backup specific target
 skillshare backup agents       # Backup all agent targets
 skillshare backup --all        # Backup skills + agents
 skillshare backup --list       # List all backups
-skillshare backup --cleanup    # Remove old backups
+skillshare backup --cleanup    # 移除舊快照和遺留的不完整目錄
 skillshare backup --delete 2026-01-19_10-00-00  # Delete one backup
 skillshare backup files        # Versions of single files skillshare rewrote
 ```
@@ -21,7 +21,7 @@ skillshare backup files        # Versions of single files skillshare rewrote
 
 - 在進行有風險的變更前手動建立備份
 - 列出現有備份以確認可回復的選項
-- 清理舊備份，或刪除不再需要的某一份備份
+- 清理舊快照和遺留的不完整目錄，或刪除不再需要的某一份備份
 - 取回 `AGENTS.md` 或 `CLAUDE.md` 這類檔案的較早版本
 
 ## 自動備份
@@ -66,11 +66,11 @@ Next
 ### 清理舊備份
 
 ```bash
-skillshare backup --cleanup           # Remove old backups
+skillshare backup --cleanup           # 移除舊快照和遺留的不完整目錄
 skillshare backup --cleanup --dry-run # Preview cleanup
 ```
 
-預設清理策略：
+已完成快照的預設保留策略：
 - 保留最新 10 份備份
 - 移除超過 30 天的備份
 - 總大小上限為 500 MB
@@ -86,6 +86,8 @@ backup:
 最新的快照永遠會被保留，即使它單獨就超過大小上限——你永遠不會失去可回復的還原點。
 
 這項策略會在每次 `sync` 後自動執行，所以 `--cleanup` 只在需要時手動觸發即可。
+
+清理也會移除備份中斷後留下的不完整 `.snapshot-*` 目錄，即使沒有已完成的快照也會處理。這些目錄不會出現在 `--list` 中，也不計入其總大小。`--cleanup --dry-run` 會在預覽中包含這些目錄，但不會刪除它們。如果備份仍在寫入，清理會跳過該備份目錄；請在備份完成後再次執行清理。
 
 ### 刪除備份
 
@@ -164,7 +166,7 @@ reason 說明 skillshare 當時正要做什麼：
 | `--project, -p` | Use project mode (`.skillshare/backups/`); **agents only** |
 | `--global, -g` | Use global mode (default for skills) |
 | `--list, -l` | List all backups; with `-p`, the project's |
-| `--cleanup, -c` | Remove old backups; with `-p`, the project's |
+| `--cleanup, -c` | 移除舊快照和遺留的不完整目錄；加 `-p` 時處理專案的 |
 | `--delete <timestamp>` | Delete one backup; with `-p`, from `.skillshare/backups/` |
 | `--target, -t <name>` | Target specific backup (alternative to positional arg) |
 | `--dry-run, -n` | Preview without making changes |
@@ -222,7 +224,7 @@ reason 說明 skillshare 當時正要做什麼：
 ```bash
 du -sh ~/.local/share/skillshare/backups   # Total size on disk
 skillshare backup --list                   # Per-snapshot sizes
-skillshare backup --cleanup --dry-run      # Preview what retention would remove
+skillshare backup --cleanup --dry-run      # 預覽清理，包括遺留的不完整目錄
 ```
 
 Copy 模式的 targets 是快照仍可能變大的唯一情況：那些是真實檔案，所以 skill 目錄下的任何內容都會被複製。請把執行期快取與大型產物放在 skill 目錄樹之外，或用 `ignore:` 排除它們，讓它們一開始就不會被送到 target。

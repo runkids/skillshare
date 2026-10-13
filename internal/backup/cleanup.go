@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gofrs/flock"
+
 	"skillshare/internal/config"
 )
 
@@ -49,22 +51,103 @@ func Cleanup(cfg CleanupConfig) (int, error) {
 	return CleanupInDir(BackupDir(), cfg)
 }
 
-// CleanupInDir removes old backups from the specified directory based on the
-// configuration. Returns the number of backups removed.
+// ErrCleanupBusy indicates a backup or another cleanup owns the directory lock.
+var ErrCleanupBusy = errors.New("backup directory is busy; cleanup skipped, retry after the current backup or cleanup finishes")
+
+// CleanupInDir removes old backups and abandoned staging directories.
+// Returns the number of directories removed. Cleanup is skipped while a backup
+// or another cleanup owns the directory lock.
 func CleanupInDir(backupDir string, cfg CleanupConfig) (int, error) {
-	backups, err := ListInDir(backupDir)
+	removed, _, err := CleanupWithStatsInDir(backupDir, cfg)
+	if errors.Is(err, ErrCleanupBusy) {
+		return 0, nil
+	}
+	return removed, err
+}
+
+// CleanupWithStatsInDir returns the removed directory count and reclaimed bytes.
+// Unlike automatic cleanup, it reports ErrCleanupBusy when cleanup is skipped.
+func CleanupWithStatsInDir(backupDir string, cfg CleanupConfig) (int, int64, error) {
+	return cleanupInDir(backupDir, cfg, false)
+}
+
+// PreviewCleanupInDir returns the directory count and bytes cleanup would reclaim,
+// without removing snapshots or staging directories.
+func PreviewCleanupInDir(backupDir string, cfg CleanupConfig) (int, int64, error) {
+	return cleanupInDir(backupDir, cfg, true)
+}
+
+func cleanupInDir(backupDir string, cfg CleanupConfig, dryRun bool) (int, int64, error) {
+	if backupDir == "" {
+		return 0, 0, fmt.Errorf("cannot determine backup directory: home directory not found")
+	}
+	_, err := os.Stat(backupDir)
+	if os.IsNotExist(err) {
+		return 0, 0, nil
+	}
 	if err != nil {
-		return 0, err
+		return 0, 0, err
+	}
+	var entries []os.DirEntry
+	if dryRun {
+		// Read before probing the lock: if no lock exists afterward, these
+		// entries cannot include staging from a participating writer.
+		entries, err = os.ReadDir(backupDir)
+		if err != nil {
+			return 0, 0, err
+		}
+	}
+	lockPath := filepath.Join(backupDir, backupLockName)
+	lock := flock.New(lockPath)
+	if dryRun {
+		lock = flock.New(lockPath, flock.SetFlag(os.O_RDONLY))
+	}
+	locked, err := lock.TryLock()
+	// Legacy backups may have no lock file; a preview must not create one.
+	if err != nil && !(dryRun && os.IsNotExist(err)) {
+		return 0, 0, fmt.Errorf("lock backup directory: %w", err)
+	}
+	if err == nil {
+		if !locked {
+			return 0, 0, ErrCleanupBusy
+		}
+		defer lock.Unlock() //nolint:errcheck
 	}
 
-	if len(backups) == 0 {
-		return 0, nil
+	if locked {
+		// Refresh under the lock, excluding writers during discovery.
+		entries, err = os.ReadDir(backupDir)
+		if err != nil {
+			return 0, 0, err
+		}
+	}
+	backups, err := ListInDir(backupDir)
+	if err != nil {
+		return 0, 0, err
 	}
 
 	removed := 0
+	var freed int64
 	now := time.Now()
 	var totalSize int64
 	var cleanupErrs []error
+
+	// No writer holds the shared lock, so every staging directory is abandoned.
+	for _, entry := range entries {
+		if !entry.IsDir() || !strings.HasPrefix(entry.Name(), stagingDirPrefix) {
+			continue
+		}
+		path := filepath.Join(backupDir, entry.Name())
+		size := dirSize(path)
+		if !dryRun {
+			if err := os.RemoveAll(path); err != nil {
+				cleanupErrs = append(cleanupErrs, fmt.Errorf("remove incomplete backup %s: %w", entry.Name(), err))
+				continue
+			}
+		}
+		removed++
+		freed += size
+	}
 
 	// Backups are sorted by date (newest first)
 	for i, backup := range backups {
@@ -90,23 +173,28 @@ func CleanupInDir(backupDir string, cfg CleanupConfig) (int, error) {
 		}
 
 		if shouldRemove {
-			if err := os.RemoveAll(backup.Path); err != nil {
-				cleanupErrs = append(cleanupErrs, fmt.Errorf("remove backup %s: %w", backup.Timestamp, err))
-				totalSize += size
-				continue
+			if !dryRun {
+				if err := os.RemoveAll(backup.Path); err != nil {
+					cleanupErrs = append(cleanupErrs, fmt.Errorf("remove backup %s: %w", backup.Timestamp, err))
+					totalSize += size
+					continue
+				}
 			}
 			removed++
+			freed += size
 			continue
 		}
 		totalSize += size
 	}
 
 	// Clean up empty timestamp directories
-	if err := cleanEmptyDirs(backupDir); err != nil {
-		cleanupErrs = append(cleanupErrs, err)
+	if !dryRun {
+		if err := cleanEmptyDirs(backupDir); err != nil {
+			cleanupErrs = append(cleanupErrs, err)
+		}
 	}
 
-	return removed, errors.Join(cleanupErrs...)
+	return removed, freed, errors.Join(cleanupErrs...)
 }
 
 // CleanupByAge removes backups older than the specified duration.

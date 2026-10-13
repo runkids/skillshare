@@ -89,6 +89,10 @@ const conflictKeys: Record<string, string> = {
 
 const conflictPrefix = (message: string) => Object.keys(conflictKeys).find((k) => message.startsWith(k)) ?? '';
 
+/** The sentence for a pin warning: an image without a tag, or a package without a version. */
+export const pinFindingKey = (f: { message: string; subject?: string }) =>
+  f.message.includes(` runs image ${f.subject} `) ? 'mcp.check.finding.pinTag' : 'mcp.check.finding.pinVersion';
+
 // A live check's tool-change warnings, as internal/mcp/check_pins.go words them.
 const toolChangeKeys: Record<string, string> = {
   'description or input schema changed since it was pinned: ': 'mcp.check.finding.toolChanged',
