@@ -550,8 +550,8 @@ mcp:
   按项目的开关，该行会说明这个 server 在那里仍会加载。如果某个条目列出了自己的
   `targets`，且与项目的 targets 不同，就会出现 **改成与项目一致**：它会把该条目重新保存为
   不带 `targets` 的形式。
-- 标签页右侧的 **Agents** 列表显示该 project 的 Agent，以及文件已在 project 中的其他
-  Agent，附带文件名和 **Copy path**。**Open folder** 和 **Open in editor** 与 MCP 页面相同。
+- 标签页右侧的 **Agents** 列表显示该 project 的 Agent、project 专属服务器发往的 Agent，
+  以及文件已在 project 中的其他 Agent，附带文件名和 **Copy path**。**Open folder** 和 **Open in editor** 与 MCP 页面相同。
 - 该标签页 Sync 框中的 **Sync MCP** 会写入整个 MCP 计划，并说明其中有多少更改
   位于此项目之外。项目页面顶部的 **Sync project** 只写入此项目的 skills、agents 和 MCP。
 - **默认值** 位于 **MCP** 标签页底部，用于编辑 `mcp.targets`。

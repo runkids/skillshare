@@ -389,3 +389,7 @@ export const mcpNotice = (t: (key: string, params?: Record<string, string>) => s
   const parts = policy.gaps.map((gap) => t(toolGapKey(gap))).join(t('mcp.tools.partSeparator'));
   return t('mcp.notice.toolPolicy', { agent: targetLabel(policy.target), parts, names: policy.names.join(', ') });
 };
+
+/** A project's Agent files to list: those sync writes (the project's targets, and the ones its own servers pick), and any other already there. */
+export const projectFileTargets = (targets: readonly string[], servers: Record<string, MCPServer>, existing: readonly string[], paths: Record<string, string>) =>
+  [...new Set([...targets, ...Object.values(servers).flatMap((s) => s.targets ?? targets), ...existing])].filter((x) => paths[x]).sort();

@@ -580,8 +580,9 @@ project has an **MCP** tab.
   project's Agents has no per-project switch, the row says that the server still loads
   there. An entry that lists its own `targets`, which differ from the project's, gets
   **Match the project**: it saves the entry again without `targets`.
-- The tab's **Agents** list, on the right, shows the project's Agents, and any other
-  Agent whose file is already in the project, with the file name and **Copy path**.
+- The tab's **Agents** list, on the right, shows the project's Agents, those its own
+  servers go to, and any other Agent whose file is already in the project, with the file
+  name and **Copy path**.
   **Open folder** and **Open in editor** work as on the MCP page.
 - **Sync MCP** in the tab's Sync box writes the whole MCP plan, and says how many of
   its changes are outside this project. **Sync project**, at the top of the project

@@ -554,8 +554,8 @@ Global mode에서는 대시보드에 **프로젝트** 페이지가 있습니다.
   프로젝트별 스위치가 없으면, 해당 행은 그 Agent에서는 서버가 여전히 로드된다고
   알려줍니다. 프로젝트의 target과 다른 자체 `targets`를 나열한 항목에는
   **프로젝트에 맞추기**가 표시되며, 이는 `targets` 없이 항목을 다시 저장합니다.
-- 탭 오른쪽의 **Agents** 목록은 이 project의 Agent와, 파일이 이미 project에 있는 다른
-  Agent를 파일 이름 및 **Copy path**와 함께 보여 줍니다. **Open folder**와 **Open in editor**는
+- 탭 오른쪽의 **Agents** 목록은 이 project의 Agent, project 전용 서버가 가는 Agent, 파일이 이미
+  project에 있는 다른 Agent를 파일 이름 및 **Copy path**와 함께 보여 줍니다. **Open folder**와 **Open in editor**는
   MCP 페이지와 같이 동작합니다.
 - 탭의 Sync 박스에 있는 **Sync MCP**는 전체 MCP 계획을 작성하며, 그 변경 사항 중
   몇 개가 이 프로젝트 밖에 있는지 알려줍니다. 프로젝트 페이지 상단의 **Sync project**는

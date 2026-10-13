@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MCPPlan } from '../../api/mcp';
-import { buildMatrix, denyRemovesAll, describeError, describeMessage, canImportConflict, groupByFile, isResolvable, joinCommand, mcpClient, mcpNotice, parsePiOptions, parseToolNotice, serverCount, setToolChecked, splitCommand, switchTargets, targetLabel, toolRules, toolSummary } from './mcpView';
+import { buildMatrix, denyRemovesAll, describeError, describeMessage, canImportConflict, groupByFile, isResolvable, joinCommand, projectFileTargets, mcpClient, mcpNotice, parsePiOptions, parseToolNotice, serverCount, setToolChecked, splitCommand, switchTargets, targetLabel, toolRules, toolSummary } from './mcpView';
 import { mcpTargets } from '../../api/mcp';
 
 const change = (name: string, target: string, action: string, message?: string) => ({ name, target, action, message, path: `/${target}.json` });
@@ -232,5 +232,10 @@ describe('mcpNotice', () => {
 
   it('shows a notice it does not know as the server sent it', () => {
     expect(mcpNotice(t, 'something new: docs')).toBe('something new: docs');
+  });
+
+  it("lists the Agents a project's own servers pick before their file exists", () => {
+    const paths = { claude: '/p/.mcp.json', cursor: '/p/.cursor/mcp.json', gemini: '/p/.gemini/settings.json', pi: '/p/.pi/mcp.json' };
+    expect(projectFileTargets(['claude'], { docs: { command: 'npx', targets: ['cursor'] }, own: { command: 'x' } }, ['gemini'], paths)).toEqual(['claude', 'cursor', 'gemini']);
   });
 });

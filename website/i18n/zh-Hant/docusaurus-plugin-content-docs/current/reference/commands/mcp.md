@@ -519,8 +519,8 @@ mcp:
   不支援個別 project 開關時，該列會說明這個 server 在那裡仍會載入。如果項目列出了
   自己的 `targets`，且與 project 的不同，就會出現 **改成跟專案一致**：它會把該項目
   重新儲存為不含 `targets` 的版本。
-- 分頁右側的 **Agents** 清單列出這個 project 的 Agent，以及檔案已在 project 裡的其他
-  Agent，附上檔名和 **Copy path**。**Open folder** 和 **Open in editor** 與 MCP 頁面相同。
+- 分頁右側的 **Agents** 清單列出這個 project 的 Agent、project 專屬伺服器要寫入的 Agent，
+  以及檔案已在 project 裡的其他 Agent，附上檔名和 **Copy path**。**Open folder** 和 **Open in editor** 與 MCP 頁面相同。
 - 分頁 Sync 框中的 **Sync MCP** 會寫入整份 MCP 計畫，並說明其中有多少變更不屬於
   這個 project。專案頁面頂端的 **Sync project** 只會寫入這個 project 的 skills、
   agents 與 MCP。

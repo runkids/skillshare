@@ -442,7 +442,7 @@ global mode では、ダッシュボードに **プロジェクト** ページ�
   project ごとのスイッチを持たないものがある場合、その行にはサーバーがそこでは引き続き読み込まれることが
   表示されます。project のものとは異なる独自の `targets` を持つエントリには **プロジェクトに合わせる** が
   表示され、`targets` なしでそのエントリを保存し直します。
-- タブ右側の **Agents** には、この project の Agent と、ファイルがすでに project にあるその他の Agent が、ファイル名と **Copy path** 付きで表示されます。**Open folder** と **Open in editor** は MCP ページと同じように動作します。
+- タブ右側の **Agents** には、この project の Agent、project 専用サーバーの送信先 Agent、ファイルがすでに project にあるその他の Agent が、ファイル名と **Copy path** 付きで表示されます。**Open folder** と **Open in editor** は MCP ページと同じように動作します。
 - タブの Sync ボックスにある **Sync MCP** は MCP の計画全体を書き込み、そのうち何件の変更がこの project の外に
   あるかを表示します。project ページの上部にある **Sync project** は、この project の skills、agents、MCP だけを
   書き込みます。

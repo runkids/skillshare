@@ -21,7 +21,7 @@ import MCPSyncBox, { MCPRailActions } from './MCPSyncBox';
 import MCPUnmanagedNote from './MCPUnmanagedNote';
 import { TargetPill } from './TargetPicker';
 import { problemsByServer, useMCPCheck } from './useMCPCheck';
-import { buildMatrix, describeEndpoint, describeError, projectOf, switchTargets, targetLabel, writes } from './mcpView';
+import { buildMatrix, describeEndpoint, describeError, projectFileTargets, projectOf, switchTargets, targetLabel, writes } from './mcpView';
 
 type MCPList = Awaited<ReturnType<typeof mcpApi.list>>;
 
@@ -128,8 +128,7 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
   const { globals, defaults, targets, servers, shownGlobals, roots, changes, name, unmanaged, own, targetsOf, offTargets, switchable, ownRows, shown } = model;
   const paths = data.projectPaths[root] ?? {};
   const existing = data.projectExisting[root] ?? [];
-  // The project's Agents, and any other whose file is already there.
-  const files = [...new Set([...targets, ...existing])].filter((x) => paths[x]).sort();
+  const files = projectFileTargets(targets, own, existing, paths);
 
   const save = async (mutation: MCPMutation) => {
     setBusy(true);
