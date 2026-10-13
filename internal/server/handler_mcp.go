@@ -93,20 +93,23 @@ func (s *Server) handleMCPList(w http.ResponseWriter, r *http.Request) {
 	// A client can be detected before its file exists, and handleMCPOpen refuses a viewer on
 	// another machine, so list only the files this viewer can open.
 	local := browserOnServerMachine(r)
-	openable := openableTargets(paths, local)
-	// The same for each mcp.projects root, whose files the project page offers to open.
-	// handleMCPOpen refuses those roots in project mode.
-	projectPaths, projectOpenable := map[string]map[string]string{}, map[string][]string{}
+	openable := []string{}
+	if local {
+		openable = existingTargets(paths)
+	}
+	// Each mcp.projects root's files, which the project page lists for every viewer and offers
+	// to open when local. handleMCPOpen refuses those roots in project mode.
+	projectPaths, projectExisting := map[string]map[string]string{}, map[string][]string{}
 	if !s.IsProjectMode() {
 		for root := range source.Projects {
 			projectPaths[root] = service.ForProject(root).ClientPaths()
-			projectOpenable[root] = openableTargets(projectPaths[root], local)
+			projectExisting[root] = existingTargets(projectPaths[root])
 		}
 	}
 	if !s.IsProjectMode() {
 		detected = append(detected, mcp.DetectedAccounts(source.Accounts)...)
 	}
-	writeJSON(w, map[string]any{"source": source, "paths": paths, "importSources": service.ImportSources(source), "detected": detected, "local": local, "openable": openable, "projectPaths": projectPaths, "projectOpenable": projectOpenable, "plan": p, "previewError": message, "backups": backups, "projectConfigs": ownConfig, "unmanaged": service.FindUnmanaged(source)})
+	writeJSON(w, map[string]any{"source": source, "paths": paths, "importSources": service.ImportSources(source), "detected": detected, "local": local, "openable": openable, "projectPaths": projectPaths, "projectExisting": projectExisting, "plan": p, "previewError": message, "backups": backups, "projectConfigs": ownConfig, "unmanaged": service.FindUnmanaged(source)})
 }
 
 func (s *Server) handleMCPPreview(w http.ResponseWriter, r *http.Request) {
@@ -293,12 +296,9 @@ func browserOnServerMachine(r *http.Request) bool {
 	return requestFromLoopback(r) && (strings.EqualFold(host, "localhost") || ip != nil && ip.IsLoopback())
 }
 
-// openableTargets lists the targets whose file exists, when this viewer can open files at all.
-func openableTargets(paths map[string]string, local bool) []string {
+// existingTargets lists the targets whose file exists.
+func existingTargets(paths map[string]string) []string {
 	out := []string{}
-	if !local {
-		return out
-	}
 	for target, path := range paths {
 		if _, err := os.Stat(path); err == nil {
 			out = append(out, target)

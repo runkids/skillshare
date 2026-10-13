@@ -127,9 +127,9 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
   const model = projectViewModel(data, root, offered);
   const { globals, defaults, targets, servers, shownGlobals, roots, changes, name, unmanaged, own, targetsOf, offTargets, switchable, ownRows, shown } = model;
   const paths = data.projectPaths[root] ?? {};
-  const openable = data.projectOpenable[root] ?? [];
+  const existing = data.projectExisting[root] ?? [];
   // The project's Agents, and any other whose file is already there.
-  const files = [...new Set([...targets, ...openable])].filter((x) => paths[x]).sort();
+  const files = [...new Set([...targets, ...existing])].filter((x) => paths[x]).sort();
 
   const save = async (mutation: MCPMutation) => {
     setBusy(true);
@@ -186,7 +186,7 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
         {files.length > 0 && (
           <RailSection title={t('layout.nav.agents')} count={files.length}>
             {files.map((target) => (
-              <RailRow key={target} target={target} label={targetLabel(target)} right={<MCPFileActions target={target} path={paths[target]} local={data.local} openable={openable.includes(target)} project={root} />} />
+              <RailRow key={target} target={target} label={targetLabel(target)} right={<MCPFileActions target={target} path={paths[target]} local={data.local} openable={data.local && existing.includes(target)} project={root} />} />
             ))}
           </RailSection>
         )}

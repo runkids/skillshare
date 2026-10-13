@@ -57,7 +57,7 @@ describe('BackupPage', () => {
     });
     vi.mocked(api.listFileBackups).mockResolvedValue({ files: [{ path: '/home/me/.claude/CLAUDE.md', versions: 1, latest: new Date().toISOString(), target: 'claude' }] });
     vi.mocked(mcpApi.list).mockResolvedValue({
-      source: { path: '', configPath: '', targets: [], servers: {} }, projectConfigs: [], paths: {}, detected: [], openable: [], local: false, projectPaths: {}, projectOpenable: {}, plan: null, previewError: '', unmanaged: [],
+      source: { path: '', configPath: '', targets: [], servers: {} }, projectConfigs: [], paths: {}, detected: [], openable: [], local: false, projectPaths: {}, projectExisting: {}, plan: null, previewError: '', unmanaged: [],
       backups: [
         { id: '1790000000000000000-a', target: 'claude', path: '/home/me/.claude.json', servers: [{ name: 'github', change: 'added' }] },
         { id: '1780000000000000000-b', target: 'claude', path: '/home/me/.claude.json', servers: [{ name: 'linear', change: 'removed' }] },

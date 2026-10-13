@@ -16,7 +16,7 @@ type Data = Parameters<typeof MCPProjectView>[0]['data'];
 const view = (servers: Data['source']['servers'], project: NonNullable<Data['source']['projects']>[string], unmanaged: Data['unmanaged'] = []) => {
   const data = {
     source: { path: '', configPath: '', targets: null, servers, projects: { '/work/app': project } },
-    projectConfigs: [], paths: {}, detected: [], local: false, openable: [], projectPaths: {}, projectOpenable: {}, plan: null, previewError: '', backups: [], unmanaged,
+    projectConfigs: [], paths: {}, detected: [], local: false, openable: [], projectPaths: {}, projectExisting: {}, plan: null, previewError: '', backups: [], unmanaged,
   } as Data;
   render(<MemoryRouter><QueryClientProvider client={new QueryClient()}><I18nProvider><ToastProvider><MCPProjectView data={data} root="/work/app" offered={['claude', 'cursor', 'opencode', 'pi']} onChanged={vi.fn()} onRemoved={vi.fn()} /></ToastProvider></I18nProvider></QueryClientProvider></MemoryRouter>);
 };

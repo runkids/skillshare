@@ -336,10 +336,18 @@ func TestMCPOpenProjectConfigFile(t *testing.T) {
 	s.handleMCPList(list, local(httptest.NewRequest(http.MethodGet, "/api/mcp", nil)))
 	var view struct {
 		ProjectPaths    map[string]map[string]string
-		ProjectOpenable map[string][]string
+		ProjectExisting map[string][]string
 	}
-	if json.Unmarshal(list.Body.Bytes(), &view) != nil || view.ProjectPaths[root]["gemini"] != path || !slices.Equal(view.ProjectOpenable[root], []string{"gemini"}) {
+	if json.Unmarshal(list.Body.Bytes(), &view) != nil || view.ProjectPaths[root]["gemini"] != path || !slices.Equal(view.ProjectExisting[root], []string{"gemini"}) {
 		t.Fatalf("list: %s", list.Body)
+	}
+	// A viewer elsewhere still sees which files exist, to list them; only opening is local.
+	remote := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/mcp", nil)
+	req.RemoteAddr, req.Host = "192.168.1.9:1", "192.168.1.5:19420"
+	s.handleMCPList(remote, req)
+	if json.Unmarshal(remote.Body.Bytes(), &view) != nil || !slices.Equal(view.ProjectExisting[root], []string{"gemini"}) {
+		t.Fatalf("remote list: %s", remote.Body)
 	}
 	open := func(body string) *httptest.ResponseRecorder {
 		rec := httptest.NewRecorder()

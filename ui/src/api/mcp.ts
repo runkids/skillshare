@@ -70,8 +70,8 @@ export const mcpApi = {
     local: boolean;
     /** Targets whose file in `paths` exists and this browser, on the dashboard's machine, can open. */
     openable: string[];
-    /** `paths` and `openable` for each mcp.projects root. */
-    projectPaths: Record<string, Record<string, string>>; projectOpenable: Record<string, string[]>; plan: MCPPlan | null; previewError: string;
+    /** For each mcp.projects root: its Agents' paths, and the targets whose file exists there, whoever views them. */
+    projectPaths: Record<string, Record<string, string>>; projectExisting: Record<string, string[]>; plan: MCPPlan | null; previewError: string;
     /** Native import files by scope: the empty key is this config, others are project roots. */
     importSources?: Record<string, MCPImportSource[]>;
     backups: MCPBackup[];
