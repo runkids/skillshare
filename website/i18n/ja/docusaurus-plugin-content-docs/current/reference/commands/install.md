@@ -529,6 +529,8 @@ skillshare install https://github.com/org/private-skills.git --track
 
 プラットフォーム固有の環境変数は `SKILLSHARE_GIT_TOKEN` より優先されます。
 
+token はホスト単位の credential helper を通じて git に渡されるため、`ps` の出力などのプロセス引数には現れません。token がホストに適用されている間、git はそのホストについて自分の credential helper やキーチェーンに問い合わせず、何も保存しません。
+
 公式のトークンドキュメント:
 - GitHub: [Managing your personal access tokens](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
 - GitLab: [Token overview](https://docs.gitlab.com/security/tokens/)

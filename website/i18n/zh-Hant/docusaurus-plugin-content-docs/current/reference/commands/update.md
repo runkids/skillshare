@@ -224,7 +224,7 @@ skillshare update --all
 1. 所有 tracked 儲存庫（git pull）
 2. 所有帶有來源 metadata 的 skills（upstream 有變更時重新安裝）
 
-`update --all` 與 `update --group` 會依儲存庫將遠端 skill 分組，每個儲存庫只 clone 一次。資料夾在 upstream 沒有變更的 skill 維持不動，並計為 up to date。資料夾中含有 symlink 的 skill 例外：資料夾不變時檔案也可能改變，因此只要 upstream commit 有變動就會重新安裝。在專案模式（`-p`）下依名稱指定多個 skill 時也相同。使用 `--force` 可重新安裝所有 skill。只更新一個 skill，或在全域模式下依名稱指定時，一律重新安裝。
+`update --all` 與 `update --group` 會依儲存庫將遠端 skill 分組，每個儲存庫只 clone 一次。資料夾在 upstream 沒有變更的 skill 維持不動，並計為 up to date。資料夾中含有 symlink 的 skill 例外：資料夾不變時檔案也可能改變，因此只要 upstream commit 有變動就會重新安裝。在專案模式（`-p`）下依名稱指定多個 skill 時也相同。使用 `--force` 可重新安裝所有 skill。只更新一個 skill，或在全域模式下依名稱指定時，一律重新安裝。無法取得某個儲存庫時，其 skill 計為 skipped，`update` 會顯示一則警告，寫明該儲存庫與錯誤，並移除 URL 中的憑證。
 
 ### 輸出範例
 

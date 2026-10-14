@@ -529,6 +529,8 @@ skillshare install https://github.com/org/private-skills.git --track
 
 平台专属变量的优先级高于 `SKILLSHARE_GIT_TOKEN`。
 
+token 通过限定于该主机的 credential helper 传给 git，因此不会出现在 `ps` 输出等进程参数中。token 作用于某个主机期间，git 不会向你自己的 credential helper 或钥匙串查询该主机，也不会在其中存储任何内容。
+
 官方 token 文档：
 - GitHub: [Managing your personal access tokens](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
 - GitLab: [Token overview](https://docs.gitlab.com/security/tokens/)

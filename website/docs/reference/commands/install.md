@@ -535,6 +535,8 @@ skillshare install https://github.com/org/private-skills.git --track
 
 Platform-specific variables take priority over `SKILLSHARE_GIT_TOKEN`.
 
+The token reaches git through a credential helper scoped to the host, so it never appears in process arguments such as `ps` output. While a token applies to a host, git does not ask your own credential helper or keychain for that host and stores nothing there.
+
 Official token documentation:
 - GitHub: [Managing your personal access tokens](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
 - GitLab: [Token overview](https://docs.gitlab.com/security/tokens/)

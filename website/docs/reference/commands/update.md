@@ -224,7 +224,7 @@ This updates:
 1. All tracked repositories (git pull)
 2. All skills with source metadata (reinstall when upstream changed)
 
-`update --all` and `update --group` group remote skills by repository and clone each repository once. They leave alone any skill whose folder did not change upstream and count it as up to date. A skill whose folder contains a symlink is the exception: its files can change without the folder changing, so it is reinstalled whenever the upstream commit moves. Several skills named in project mode (`-p`) work the same way. Use `--force` to reinstall every skill anyway. A single skill, and skills named in global mode, are always reinstalled.
+`update --all` and `update --group` group remote skills by repository and clone each repository once. They leave alone any skill whose folder did not change upstream and count it as up to date. A skill whose folder contains a symlink is the exception: its files can change without the folder changing, so it is reinstalled whenever the upstream commit moves. Several skills named in project mode (`-p`) work the same way. Use `--force` to reinstall every skill anyway. A single skill, and skills named in global mode, are always reinstalled. When a repository cannot be fetched, its skills count as skipped and `update` prints a warning naming the repository and the error, with any credentials in the URL removed.
 
 ### Example Output
 

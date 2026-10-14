@@ -224,7 +224,7 @@ skillshare update --all
 1. 所有 tracked repositories（git pull）
 2. 所有带来源 metadata 的 skills（upstream 有变化时重新安装）
 
-`update --all` 和 `update --group` 会按仓库对远程 skill 分组，每个仓库只 clone 一次。文件夹在 upstream 中没有变化的 skill 保持不变，并计为 up to date。文件夹中含有 symlink 的 skill 例外：文件夹不变时文件也可能变化，因此只要 upstream commit 有变动就会重新安装。在项目模式（`-p`）下按名称指定多个 skill 时也一样。使用 `--force` 可重新安装所有 skill。只更新一个 skill，或在全局模式下按名称指定时，总是重新安装。
+`update --all` 和 `update --group` 会按仓库对远程 skill 分组，每个仓库只 clone 一次。文件夹在 upstream 中没有变化的 skill 保持不变，并计为 up to date。文件夹中含有 symlink 的 skill 例外：文件夹不变时文件也可能变化，因此只要 upstream commit 有变动就会重新安装。在项目模式（`-p`）下按名称指定多个 skill 时也一样。使用 `--force` 可重新安装所有 skill。只更新一个 skill，或在全局模式下按名称指定时，总是重新安装。无法获取某个仓库时，其 skill 计为 skipped，`update` 会显示一条警告，写明该仓库和错误，并移除 URL 中的凭据。
 
 ### 示例输出
 

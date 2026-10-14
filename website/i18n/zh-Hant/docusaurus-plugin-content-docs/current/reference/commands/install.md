@@ -529,6 +529,8 @@ skillshare install https://github.com/org/private-skills.git --track
 
 平台專屬的變數優先於 `SKILLSHARE_GIT_TOKEN`。
 
+token 會透過限定於該主機的 credential helper 傳給 git，因此不會出現在 `ps` 輸出等行程參數中。token 套用於某個主機期間，git 不會向你自己的 credential helper 或鑰匙圈查詢該主機，也不會在其中儲存任何內容。
+
 官方 token 文件：
 - GitHub：[Managing your personal access tokens](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
 - GitLab：[Token overview](https://docs.gitlab.com/security/tokens/)

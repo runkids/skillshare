@@ -529,6 +529,8 @@ skillshare install https://github.com/org/private-skills.git --track
 
 플랫폼별 변수가 `SKILLSHARE_GIT_TOKEN`보다 우선합니다.
 
+token은 호스트 범위의 credential helper를 통해 git에 전달되므로 `ps` 출력 같은 프로세스 인자에 나타나지 않습니다. 호스트에 token이 적용되는 동안 git은 해당 호스트에 대해 사용자의 credential helper나 키체인에 묻지 않으며 아무것도 저장하지 않습니다.
+
 공식 토큰 문서:
 - GitHub: [Managing your personal access tokens](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
 - GitLab: [Token overview](https://docs.gitlab.com/security/tokens/)
