@@ -3,13 +3,13 @@ package install
 import (
 	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"skillshare/internal/audit"
+	"skillshare/internal/testutil"
 )
 
 func TestIsSkillCurrentAtRepoState_RootSkillCommitMatch(t *testing.T) {
@@ -218,11 +218,7 @@ func TestIsSkillCurrentAtRepoState_SymlinkTargetChangeIsNotCurrent(t *testing.T)
 		t.Fatalf("getGitCommit failed: %v, commit=%q", err, originalCommit)
 	}
 	// The tree hash an install recorded before symlinks disabled it.
-	out, err := exec.Command("git", "-C", repo, "rev-parse", "HEAD:skills/my-skill").Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	recordedTree := strings.TrimSpace(string(out))
+	recordedTree := testutil.RunGit(t, repo, "rev-parse", "HEAD:skills/my-skill")
 
 	// Change only the link target, outside the skill subdir.
 	if err := os.WriteFile(filepath.Join(repo, "shared", "ref.md"), []byte("v2"), 0644); err != nil {

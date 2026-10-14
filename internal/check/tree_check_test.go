@@ -8,13 +8,17 @@ import (
 )
 
 func TestParseLsTreeOutput(t *testing.T) {
-	input := `040000 tree abc123def456789012345678901234567890abcd	skills/my-skill
-040000 tree 1234567890abcdef1234567890abcdef12345678	data/other
-`
+	// -z output: NUL-terminated entries, so a newline belongs to the path.
+	input := "040000 tree abc123def456789012345678901234567890abcd\tskills/my-skill\x00" +
+		"040000 tree 1234567890abcdef1234567890abcdef12345678\tdata/other\x00" +
+		"040000 tree 0000000000000000000000000000000000000000\tdata/odd\nname\x00"
 	result := parseLsTreeOutput(input)
 
-	if len(result) != 2 {
-		t.Fatalf("expected 2 entries, got %d", len(result))
+	if len(result) != 3 {
+		t.Fatalf("expected 3 entries, got %d: %v", len(result), result)
+	}
+	if _, ok := result["data/odd\nname"]; !ok {
+		t.Errorf("expected path with a newline kept whole, got %v", result)
 	}
 	if result["skills/my-skill"] != "abc123def456789012345678901234567890abcd" {
 		t.Errorf("unexpected hash for skills/my-skill: %s", result["skills/my-skill"])
@@ -32,7 +36,7 @@ func TestParseLsTreeOutput_Empty(t *testing.T) {
 }
 
 func TestParseLsTreeOutput_MalformedLines(t *testing.T) {
-	input := "not a valid line\n\n040000 tree abc123\tvalid/path\n"
+	input := "not a valid line\x00\x00040000 tree abc123\tvalid/path\x00"
 	result := parseLsTreeOutput(input)
 	if len(result) != 1 {
 		t.Fatalf("expected 1 valid entry, got %d", len(result))

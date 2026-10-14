@@ -66,16 +66,13 @@ func FetchRemoteTreeHashesForRef(repoURL, ref string) map[string]string {
 }
 
 // parseLsTreeOutput parses `git ls-tree -r -t` output into a map[path]treeHash.
-// Each entry: "<mode> <type> <hash>\t<path>", NUL- or newline-terminated. A
-// directory that holds a symlink maps to "": install copies the link's target,
-// whose changes its tree hash cannot see, so it must not count as unchanged.
-// shortcut: a link whose target stays inside the directory blanks it too;
-// resolve link targets if skills report update_available too often.
+// Each entry: "<mode> <type> <hash>\t<path>", NUL-terminated. A directory
+// that holds a symlink maps to "": install copies the link's target, whose
+// changes its tree hash cannot see, so it must not count as unchanged.
 func parseLsTreeOutput(output string) map[string]string {
 	result := make(map[string]string)
 	var symlinks []string
-	entries := strings.FieldsFunc(output, func(r rune) bool { return r == 0 || r == '\n' })
-	for _, line := range entries {
+	for _, line := range strings.Split(output, "\x00") {
 		// Split on tab: left side has "mode type hash", right side is path
 		parts := strings.SplitN(line, "\t", 2)
 		if len(parts) != 2 {
@@ -95,6 +92,7 @@ func parseLsTreeOutput(output string) map[string]string {
 		}
 		result[path] = fields[2]
 	}
+	// shortcut: a link whose target stays inside the directory blanks it too, resolve link targets if skills report update_available too often.
 	for _, link := range symlinks {
 		for dir := path.Dir(link); dir != "."; dir = path.Dir(dir) {
 			result[dir] = ""

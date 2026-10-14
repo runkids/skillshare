@@ -552,8 +552,7 @@ func getSubdirTreeHash(repoPath, subdir string) string {
 	if err != nil {
 		return ""
 	}
-	// shortcut: a symlink whose target stays inside the subdir also disables
-	// the tree hash; resolve link targets if that costs too many reinstalls.
+	// shortcut: a symlink whose target stays inside the subdir also disables the tree hash, resolve link targets if that costs too many reinstalls.
 	lsCmd := exec.Command("git", "ls-tree", "-r", "HEAD:"+subdir)
 	lsCmd.Dir = repoPath
 	entries, err := lsCmd.Output()
