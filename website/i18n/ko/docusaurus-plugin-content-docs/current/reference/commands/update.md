@@ -224,7 +224,7 @@ skillshare update --all
 1. 모든 tracked 저장소(git pull)
 2. source metadata가 있는 모든 skill(upstream이 바뀌었을 때 재설치)
 
-`update --all`과 `update --group`은 원격 skill을 저장소별로 묶어 저장소마다 한 번만 clone합니다. upstream에서 폴더가 바뀌지 않은 skill은 그대로 두고 up to date로 집계합니다. 프로젝트 모드(`-p`)에서 여러 skill을 이름으로 지정해도 같습니다. 모든 skill을 다시 설치하려면 `--force`를 사용하세요. skill이 하나뿐이거나 글로벌 모드에서 이름으로 지정하면 항상 다시 설치합니다.
+`update --all`과 `update --group`은 원격 skill을 저장소별로 묶어 저장소마다 한 번만 clone합니다. upstream에서 폴더가 바뀌지 않은 skill은 그대로 두고 up to date로 집계합니다. 단, 폴더에 symlink가 있는 skill은 예외입니다. 폴더가 바뀌지 않아도 파일이 바뀔 수 있으므로 upstream commit이 바뀔 때마다 다시 설치합니다. 프로젝트 모드(`-p`)에서 여러 skill을 이름으로 지정해도 같습니다. 모든 skill을 다시 설치하려면 `--force`를 사용하세요. skill이 하나뿐이거나 글로벌 모드에서 이름으로 지정하면 항상 다시 설치합니다.
 
 ### 출력 예시
 
