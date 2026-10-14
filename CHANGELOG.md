@@ -2,14 +2,25 @@
 
 ## [0.25.12] - 2026-10-14
 
-
 ### Bug Fixes
 
-* **install:** keep git tokens out of process arguments ([#566](https://github.com/runkids/skillshare/issues/566)) ([1094668](https://github.com/runkids/skillshare/commit/109466840801de1656a6324e666d5eeb8237b071)), closes [#565](https://github.com/runkids/skillshare/issues/565)
-* **update:** read store in batch fast path ([#569](https://github.com/runkids/skillshare/issues/569)) ([c4b183f](https://github.com/runkids/skillshare/commit/c4b183f6efc473da5008d126531d57ad81d3aee0))
-* **update:** stop trusting tree hashes for skills with symlinks ([#573](https://github.com/runkids/skillshare/issues/573)) ([0c69dad](https://github.com/runkids/skillshare/commit/0c69dad6c2e8a6bfeb645e0e27f244730e33e173))
-* **update:** warn when a repo fetch fails ([#570](https://github.com/runkids/skillshare/issues/570)) ([322abb1](https://github.com/runkids/skillshare/commit/322abb1e1ff7eca46a1b2f68d88e9e1a59dd9e83))
-* **upgrade:** preserve UI assets for the pre-upgrade version ([#571](https://github.com/runkids/skillshare/issues/571)) ([fe92a50](https://github.com/runkids/skillshare/commit/fe92a50b1b4a5ee6024bbb1e7752902a5c445b5e))
+#### Install
+
+- **Git tokens no longer show up in `ps`** — a token from `GITHUB_TOKEN`, `GITLAB_TOKEN` or another token variable was written into the clone URL that git hands to its HTTPS helper, so any user on the machine could read it with `ps` while a clone or fetch ran. git now gets the token from a credential helper scoped to the host, and the token stays in the git process's environment. While a token applies to a host, git no longer asks your own credential helper or keychain for it, and stores nothing there. Refs: #565.
+
+#### Update
+
+- **`update --all` leaves unchanged skills alone** — grouped updates reinstalled every skill on every run and reported each one as updated, because the up-to-date check read per-skill metadata files that the move to `.metadata.json` had removed. A skill already at the upstream commit, or whose folder did not change, is now skipped and counted as up to date in the summary, in `--json` (`up_to_date`) and in the operations log. This applies to `--all`, `--group`, and several skills named with `-p`; `--force` reinstalls them anyway. Refs: #564.
+  ```bash
+  skillshare update --all          # unchanged skills are counted as up to date
+  skillshare update --all --force  # reinstall every skill
+  ```
+- **A repository that cannot be fetched is reported** — when `update --all` or `--group` could not clone a repository, its skills were counted as skipped with no explanation. `update` now prints a warning that names the repository and the git error, with credentials in the URL, including query tokens, removed.
+- **Skills with symlinks update when a link target changes** — a skill folder can hold a symlink to a file elsewhere in its repository. Install copies the target, but the folder's git tree hash ignores the target's content, so after the target changed `update` skipped the skill and `check` reported it up to date. A skill whose folder contains a symlink is now compared by commit: `update` reinstalls it whenever the upstream commit moves, and `check` reports an update. Refs: #572.
+
+#### Upgrade
+
+- **An open dashboard keeps working after `upgrade`** — `upgrade` pre-downloads the new version's UI assets and removed every other cached version, including the one a running `skillshare ui` server still loads pages from, so navigating the open dashboard broke. The pre-upgrade version's assets are now kept as well. Restart the UI server between upgrades: a second upgrade without a restart can still remove the oldest server's assets.
 
 ## [0.25.11] - 2026-10-13
 
