@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.25.12](https://github.com/runkids/skillshare/compare/v0.25.11...v0.25.12) (2026-10-14)
+
+
+### Bug Fixes
+
+* **install:** keep git tokens out of process arguments ([#566](https://github.com/runkids/skillshare/issues/566)) ([1094668](https://github.com/runkids/skillshare/commit/109466840801de1656a6324e666d5eeb8237b071)), closes [#565](https://github.com/runkids/skillshare/issues/565)
+* **update:** read store in batch fast path ([#569](https://github.com/runkids/skillshare/issues/569)) ([c4b183f](https://github.com/runkids/skillshare/commit/c4b183f6efc473da5008d126531d57ad81d3aee0))
+* **update:** stop trusting tree hashes for skills with symlinks ([#573](https://github.com/runkids/skillshare/issues/573)) ([0c69dad](https://github.com/runkids/skillshare/commit/0c69dad6c2e8a6bfeb645e0e27f244730e33e173))
+* **update:** warn when a repo fetch fails ([#570](https://github.com/runkids/skillshare/issues/570)) ([322abb1](https://github.com/runkids/skillshare/commit/322abb1e1ff7eca46a1b2f68d88e9e1a59dd9e83))
+* **upgrade:** preserve UI assets for the pre-upgrade version ([#571](https://github.com/runkids/skillshare/issues/571)) ([fe92a50](https://github.com/runkids/skillshare/commit/fe92a50b1b4a5ee6024bbb1e7752902a5c445b5e))
+
 ## [0.25.11] - 2026-10-13
 
 ### New Features
