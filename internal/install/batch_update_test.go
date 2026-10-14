@@ -3,6 +3,7 @@ package install
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -188,6 +189,66 @@ func TestIsSkillCurrentAtRepoState_SubdirTreeHashMatchSkipsOnCommitMismatch(t *t
 
 	if !isSkillCurrentAtRepoState(installedSkillMeta(nil, "", dest), "skills/my-skill", newCommit, repo, map[string]string{}) {
 		t.Fatal("expected subdir skill to skip when tree hash matches despite commit mismatch")
+	}
+}
+
+func TestIsSkillCurrentAtRepoState_SymlinkTargetChangeIsNotCurrent(t *testing.T) {
+	repo := initTestRepo(t)
+	subdir := filepath.Join(repo, "skills", "my-skill")
+	if err := os.MkdirAll(subdir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(repo, "shared"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(subdir, "SKILL.md"), []byte("# Skill"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "shared", "ref.md"), []byte("v1"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join("..", "..", "shared", "ref.md"), filepath.Join(subdir, "ref.md")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	gitAdd(t, repo, ".")
+	gitCommit(t, repo, "add skill with symlink")
+
+	originalCommit, err := getGitCommit(repo)
+	if err != nil || originalCommit == "" {
+		t.Fatalf("getGitCommit failed: %v, commit=%q", err, originalCommit)
+	}
+	// The tree hash an install recorded before symlinks disabled it.
+	out, err := exec.Command("git", "-C", repo, "rev-parse", "HEAD:skills/my-skill").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	recordedTree := strings.TrimSpace(string(out))
+
+	// Change only the link target, outside the skill subdir.
+	if err := os.WriteFile(filepath.Join(repo, "shared", "ref.md"), []byte("v2"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitAdd(t, repo, ".")
+	gitCommit(t, repo, "update link target")
+	newCommit, err := getGitCommit(repo)
+	if err != nil || newCommit == "" {
+		t.Fatalf("getGitCommit failed: %v, commit=%q", err, newCommit)
+	}
+
+	dest := t.TempDir()
+	if err := WriteMeta(dest, &SkillMeta{
+		Source:      "https://example.com/repo/skills/my-skill",
+		Type:        "github",
+		InstalledAt: time.Now(),
+		Version:     originalCommit,
+		TreeHash:    recordedTree,
+		Subdir:      "skills/my-skill",
+	}); err != nil {
+		t.Fatalf("WriteMeta failed: %v", err)
+	}
+
+	if isSkillCurrentAtRepoState(installedSkillMeta(nil, "", dest), "skills/my-skill", newCommit, repo, map[string]string{}) {
+		t.Fatal("expected skill to need an update after its symlink target changed")
 	}
 }
 

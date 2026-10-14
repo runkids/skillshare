@@ -126,6 +126,50 @@ func TestFetchRemoteTreeHashes_StableAfterUnrelatedChange(t *testing.T) {
 	}
 }
 
+func TestFetchRemoteTreeHashes_SymlinkBlanksContainingDirs(t *testing.T) {
+	dir := t.TempDir()
+	work := filepath.Join(dir, "work")
+	bare := filepath.Join(dir, "bare.git")
+
+	gitRun(t, "", "init", "--bare", bare)
+	gitRun(t, "", "clone", bare, work)
+	gitConfig(t, work)
+
+	linked := filepath.Join(work, "skills", "linked")
+	plain := filepath.Join(work, "skills", "plain")
+	os.MkdirAll(linked, 0755)
+	os.MkdirAll(plain, 0755)
+	os.MkdirAll(filepath.Join(work, "shared"), 0755)
+	os.WriteFile(filepath.Join(linked, "SKILL.md"), []byte("# Linked"), 0644)
+	os.WriteFile(filepath.Join(plain, "SKILL.md"), []byte("# Plain"), 0644)
+	os.WriteFile(filepath.Join(work, "shared", "ref.md"), []byte("v1"), 0644)
+	// A non-ASCII name makes git quote the path unless -z is used.
+	if err := os.Symlink(filepath.Join("..", "..", "shared", "ref.md"), filepath.Join(linked, "réf.md")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	gitRun(t, work, "add", "-A")
+	gitRun(t, work, "commit", "-m", "add skills")
+	gitRun(t, work, "push", "origin", "HEAD")
+
+	result := FetchRemoteTreeHashes("file://" + bare)
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	// A blank hash still marks the dir as present, so the skill reads as
+	// update_available rather than stale.
+	for _, d := range []string{"skills/linked", "skills"} {
+		if hash, ok := result[d]; !ok || hash != "" {
+			t.Errorf("%s: expected present with empty hash, got %q (present=%v)", d, hash, ok)
+		}
+	}
+	if len(result["skills/plain"]) != 40 {
+		t.Errorf("skills/plain: expected a tree hash, got %q", result["skills/plain"])
+	}
+	if _, ok := result["skills/plain/SKILL.md"]; ok {
+		t.Error("blob entries must not appear in the result")
+	}
+}
+
 // --- test helpers ---
 
 func setupBareRepoWithSubdir(t *testing.T, subdir, filename, content string) string {

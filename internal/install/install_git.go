@@ -537,7 +537,9 @@ func gitResetHard(repoPath, rev string) error {
 // getSubdirTreeHash returns the git tree hash for a subdirectory within a repo.
 // This is the SHA of the tree object for that directory — it changes only when
 // files inside the subdir change, even if the repo HEAD moves.
-// Returns "" on any error (no .git, subdir not found, etc.).
+// Returns "" on any error (no .git, subdir not found, etc.), and when the
+// subdir holds a symlink: install copies the link's target, whose changes the
+// tree hash cannot see, so such a skill is compared by commit instead.
 func getSubdirTreeHash(repoPath, subdir string) string {
 	if subdir == "" {
 		return ""
@@ -550,7 +552,25 @@ func getSubdirTreeHash(repoPath, subdir string) string {
 	if err != nil {
 		return ""
 	}
+	// shortcut: a symlink whose target stays inside the subdir also disables
+	// the tree hash; resolve link targets if that costs too many reinstalls.
+	lsCmd := exec.Command("git", "ls-tree", "-r", "HEAD:"+subdir)
+	lsCmd.Dir = repoPath
+	entries, err := lsCmd.Output()
+	if err != nil || hasSymlinkEntry(string(entries)) {
+		return ""
+	}
 	return strings.TrimSpace(string(out))
+}
+
+// hasSymlinkEntry reports whether `git ls-tree` output lists a symlink.
+func hasSymlinkEntry(lsTree string) bool {
+	for _, line := range strings.Split(lsTree, "\n") {
+		if strings.HasPrefix(line, "120000 ") {
+			return true
+		}
+	}
+	return false
 }
 
 // copyDir copies a directory recursively
