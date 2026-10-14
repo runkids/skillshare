@@ -198,6 +198,32 @@ func TestCleanOldVersions(t *testing.T) {
 	}
 }
 
+func TestCleanOldVersions_KeepVersions(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+
+	for _, ver := range []string{"0.9.0", "1.0.0", "1.1.0"} {
+		if err := os.MkdirAll(CacheDir(ver), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(CacheDir(ver), "index.html"), []byte("hi"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := cleanOldVersions("1.1.0", "1.0.0"); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, ver := range []string{"1.0.0", "1.1.0"} {
+		if _, ok := IsCached(ver); !ok {
+			t.Errorf("expected %s to remain cached", ver)
+		}
+	}
+	if _, err := os.Stat(CacheDir("0.9.0")); !os.IsNotExist(err) {
+		t.Error("expected 0.9.0 to be removed")
+	}
+}
+
 // createTestTarGz builds an in-memory tar.gz from a map of path→content.
 func createTestTarGz(t *testing.T, files map[string]string) []byte {
 	t.Helper()

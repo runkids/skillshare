@@ -118,6 +118,8 @@ sudo chown -R "$(id -un)" ~/.config/skillshare/skills
 
 升級後，skillshare 會預先下載新版本的 Web UI 前端資源。這些會快取於 `~/.cache/skillshare/ui/<version>/`，並在你執行 `skillshare ui` 時提供服務。
 
+預先下載會保留新版本與升級前 CLI 版本的資源，讓已執行的 UI server 仍能載入檔案。其他快取版本會被刪除。請在兩次升級之間重啟 app 或 UI server：連續升級兩次而不重啟，仍可能刪除最舊 server 使用的資源。
+
 若預先下載失敗（例如網路問題），這些資源會在下一次啟動 `skillshare ui` 時下載。
 
 ### skillshare Skill

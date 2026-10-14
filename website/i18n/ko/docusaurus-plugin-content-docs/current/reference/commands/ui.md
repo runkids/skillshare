@@ -272,7 +272,7 @@ skillshare ui -p
 
 - **First run**은 UI 자산(약 2MB)을 다운로드하기 위해 인터넷 연결이 필요합니다
 - **Subsequent runs**은 캐시된 자산을 사용합니다 — 네트워크가 필요 없습니다
-- **On upgrade** 시, 이전에 캐시된 버전은 자동으로 정리되며, 새 UI는 `skillshare upgrade` 중에 미리 다운로드됩니다
+- **On upgrade** 시, `skillshare upgrade`는 새 UI를 미리 다운로드하고 새 버전과 업그레이드 전 버전의 캐시를 유지합니다. 그 외의 캐시된 버전은 정리됩니다
 - **To clear the cache manually**, `skillshare ui --clear-cache`를 실행하세요
 
 ## Homebrew 참고 사항

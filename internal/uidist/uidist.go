@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -38,7 +39,8 @@ func IsCached(ver string) (string, bool) {
 // Download fetches the UI dist tarball for the given version, verifies its
 // checksum, extracts it to the cache directory, and cleans up old versions.
 // onProgress (may be nil) receives tarball download progress.
-func Download(ver string, onProgress utils.ProgressFunc) error {
+// keepVersions preserves additional cached versions that a running UI may use.
+func Download(ver string, onProgress utils.ProgressFunc, keepVersions ...string) error {
 	dir := CacheDir(ver)
 
 	// Fetch expected checksum
@@ -75,7 +77,7 @@ func Download(ver string, onProgress utils.ProgressFunc) error {
 	}
 
 	// Clean old versions (best-effort)
-	_ = cleanOldVersions(ver)
+	_ = cleanOldVersions(append(keepVersions, ver)...)
 
 	return nil
 }
@@ -98,15 +100,15 @@ func ClearVersion(ver string) error {
 	return os.RemoveAll(dir)
 }
 
-// cleanOldVersions removes cached UI dist versions other than currentVer.
-func cleanOldVersions(currentVer string) error {
+// cleanOldVersions removes cached UI dist versions not in keep.
+func cleanOldVersions(keep ...string) error {
 	uiDir := filepath.Join(config.CacheDir(), "ui")
 	entries, err := os.ReadDir(uiDir)
 	if err != nil {
 		return err
 	}
 	for _, e := range entries {
-		if e.IsDir() && e.Name() != currentVer {
+		if e.IsDir() && !slices.Contains(keep, e.Name()) {
 			os.RemoveAll(filepath.Join(uiDir, e.Name()))
 		}
 	}

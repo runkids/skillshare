@@ -273,7 +273,7 @@ dashboard 会读写 `.skillshare/config.yaml`，同步到 project 本地的 targ
 
 - **首次运行** 需要网络连接来下载 UI 资源（约 2 MB）
 - **后续运行** 使用缓存的资源——无需网络
-- **升级时**，旧的缓存版本会自动清理；新 UI 会在 `skillshare upgrade` 期间被预先下载
+- **升级时**，`skillshare upgrade` 会预先下载新 UI，并保留新版与升级前版本的缓存；其他缓存版本会被清理
 - **手动清除缓存**，运行 `skillshare ui --clear-cache`
 
 ## Homebrew 说明

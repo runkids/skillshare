@@ -274,7 +274,7 @@ The dashboard reads and writes `.skillshare/config.yaml`, syncs to project-local
 
 - **First run** requires an internet connection to download the UI assets (about 2 MB)
 - **Subsequent runs** use the cached assets — no network needed
-- **On upgrade**, old cached versions are automatically cleaned up; the new UI is pre-downloaded during `skillshare upgrade`
+- **On upgrade**, `skillshare upgrade` pre-downloads the new UI and keeps both the new and pre-upgrade versions cached; other cached versions are cleaned up
 - **To clear the cache manually**, run `skillshare ui --clear-cache`
 
 ## Homebrew Note

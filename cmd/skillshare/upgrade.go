@@ -226,7 +226,9 @@ func upgradeCLIBinary(dryRun, force bool) (string, error) {
 
 	// Pre-download UI assets for the new version (best-effort)
 	uiSpinner := ui.StartSpinner("Downloading UI assets...")
-	uiErr := uidist.Download(latestVersion, downloadProgress("Downloading UI assets...", uiSpinner.Update))
+	// Keep the pre-upgrade assets available to an already-running UI server.
+	// shortcut: a second upgrade can remove that server's assets; restart it between upgrades.
+	uiErr := uidist.Download(latestVersion, downloadProgress("Downloading UI assets...", uiSpinner.Update), versionpkg.Version)
 	uiSpinner.Stop()
 	if uiErr != nil {
 		ui.Note("UI download skipped — run 'skillshare ui' to retry")

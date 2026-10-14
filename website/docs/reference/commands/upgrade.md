@@ -121,6 +121,8 @@ When there is no terminal to ask for a password on (the dashboard's **Update now
 
 After upgrading, skillshare pre-downloads the Web UI frontend assets for the new version. These are cached at `~/.cache/skillshare/ui/<version>/` and served when you run `skillshare ui`.
 
+The pre-download keeps both the new version's assets and the pre-upgrade CLI version's assets, so an already-running UI server can still load its files. Other cached versions are removed. Restart the app or UI server between upgrades: a second upgrade without a restart can remove the oldest server's assets.
+
 If the pre-download fails (e.g. network issues), the assets will be downloaded on the next `skillshare ui` launch instead.
 
 ### skillshare Skill

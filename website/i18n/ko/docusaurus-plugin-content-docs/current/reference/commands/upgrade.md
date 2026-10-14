@@ -121,6 +121,8 @@ sudo chown -R "$(id -un)" ~/.config/skillshare/skills
 
 업그레이드 후, skillshare는 새 버전의 Web UI frontend asset을 미리 다운로드합니다. 이는 `~/.cache/skillshare/ui/<version>/`에 캐시되며 `skillshare ui`를 실행할 때 제공됩니다.
 
+미리 다운로드할 때 새 버전과 업그레이드 전 CLI 버전의 에셋을 모두 유지하므로 실행 중인 UI 서버가 계속 파일을 로드할 수 있습니다. 다른 캐시 버전은 삭제됩니다. 업그레이드 사이에 앱이나 UI 서버를 다시 시작하세요. 다시 시작하지 않고 두 번 업그레이드하면 가장 오래된 서버의 에셋이 삭제될 수 있습니다.
+
 미리 다운로드가 실패하면(예: network 문제), 다음 `skillshare ui` 실행 시 대신 다운로드됩니다.
 
 ### skillshare Skill

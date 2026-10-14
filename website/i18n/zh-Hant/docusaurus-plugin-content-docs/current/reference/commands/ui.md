@@ -272,7 +272,7 @@ Dashboard 會讀寫 `.skillshare/config.yaml`、同步至 project 本機的 targ
 
 - **首次執行**需要網際網路連線來下載 UI 資源（約 2 MB）
 - **後續執行**使用快取的資源——不需要網路
-- **升級時**，舊的快取版本會自動清除；新 UI 會在 `skillshare upgrade` 期間預先下載
+- **升級時**，`skillshare upgrade` 會預先下載新 UI，並保留新版與升級前版本的快取；其他快取版本會被清除
 - **手動清除快取**，執行 `skillshare ui --clear-cache`
 
 ## Homebrew 說明
