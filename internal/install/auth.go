@@ -121,7 +121,7 @@ func resolveTokenWithOptions(cloneURL string, cnbHosts, giteaHosts []string) (to
 	}
 
 	// Generic fallback — use platform-appropriate username, or preserve
-	// existing URL username (e.g. https://myuser@host/... → myuser:token@...).
+	// existing URL username (e.g. https://myuser@host/... authenticates as myuser).
 	if t := os.Getenv("SKILLSHARE_GIT_TOKEN"); t != "" {
 		if u := urlUsername(cloneURL); u != "" {
 			return t, u
@@ -138,11 +138,11 @@ func resolveTokenWithOptions(cloneURL string, cnbHosts, giteaHosts []string) (to
 	return "", ""
 }
 
-// authEnv returns environment variables that inject token authentication
-// via GIT_CONFIG_COUNT/KEY/VALUE (Git 2.31+). This avoids the git -c
-// key=value format which breaks when tokens contain '=' characters.
-// If GIT_CONFIG_COUNT is already set in the environment, the new entry
-// is appended at the next available index to avoid overriding existing
+// authEnv returns environment variables that give git the token through a
+// credential helper set via GIT_CONFIG_COUNT/KEY/VALUE (Git 2.31+). The token
+// itself travels only in SKILLSHARE_GIT_AUTH_PASSWORD, never in config or argv.
+// If GIT_CONFIG_COUNT is already set in the environment, the new entries
+// are appended at the next available index to avoid overriding existing
 // git config entries (e.g. from CI pipelines).
 // Returns nil for SSH/file URLs or when no token is available.
 func authEnv(cloneURL string) []string {
@@ -160,15 +160,30 @@ func authEnvWithOptions(cloneURL string, cnbHosts, giteaHosts []string) []string
 		return nil
 	}
 
+	// Not an insteadOf URL rewrite: git passes the rewritten URL to
+	// git-remote-https as an argument, visible in ps (#565). Not an extraHeader:
+	// it is sent before any 401, so a stale token breaks public repos.
+	// The empty entry clears the user's helpers for this host, so git never
+	// asks their keychain or erases from it.
 	base := existingConfigCount()
-	authed := fmt.Sprintf("https://%s:%s@%s/", username, token, host)
-	original := originalPrefix(cloneURL, host)
+	key := fmt.Sprintf("credential.https://%s.helper", host)
 	return []string{
-		fmt.Sprintf("GIT_CONFIG_COUNT=%d", base+1),
-		fmt.Sprintf("GIT_CONFIG_KEY_%d=url.%s.insteadOf", base, authed),
-		fmt.Sprintf("GIT_CONFIG_VALUE_%d=%s", base, original),
+		fmt.Sprintf("GIT_CONFIG_COUNT=%d", base+2),
+		fmt.Sprintf("GIT_CONFIG_KEY_%d=%s", base, key),
+		fmt.Sprintf("GIT_CONFIG_VALUE_%d=", base),
+		fmt.Sprintf("GIT_CONFIG_KEY_%d=%s", base+1, key),
+		fmt.Sprintf("GIT_CONFIG_VALUE_%d=%s", base+1, gitCredentialHelper),
+		gitAuthUsernameEnv + "=" + username,
+		gitAuthPasswordEnv + "=" + token,
 	}
 }
+
+const (
+	gitAuthUsernameEnv = "SKILLSHARE_GIT_AUTH_USERNAME"
+	gitAuthPasswordEnv = "SKILLSHARE_GIT_AUTH_PASSWORD"
+	// printf is a shell builtin, so the token never reaches a process argv.
+	gitCredentialHelper = `!f() { if [ "$1" = get ]; then printf 'username=%s\npassword=%s\n' "$` + gitAuthUsernameEnv + `" "$` + gitAuthPasswordEnv + `"; fi; }; f`
+)
 
 // AuthEnvForURL returns git auth injection env for HTTPS clone/pull URLs.
 // Returns nil when no token is available or URL is not HTTPS.
@@ -221,17 +236,6 @@ func existingConfigCount() int {
 		return 0
 	}
 	return n
-}
-
-// originalPrefix returns the URL prefix that git's insteadOf should match.
-// If the URL already contains a username (e.g. https://user@host/...),
-// the prefix includes it so the rewrite rule matches the actual URL.
-func originalPrefix(cloneURL, host string) string {
-	u, err := url.Parse(strings.TrimSpace(cloneURL))
-	if err == nil && u.User != nil && u.User.Username() != "" {
-		return fmt.Sprintf("https://%s@%s/", u.User.Username(), host)
-	}
-	return fmt.Sprintf("https://%s/", host)
 }
 
 // sanitizeTokens replaces any known credential values found in text with

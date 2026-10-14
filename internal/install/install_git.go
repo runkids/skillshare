@@ -97,7 +97,7 @@ func runGitCommandEnv(args []string, dir string, extraEnv []string) error {
 // UsedTokenAuth reports whether extraEnv contains token-based auth overrides.
 func UsedTokenAuth(extraEnv []string) bool {
 	for _, env := range extraEnv {
-		if strings.HasPrefix(env, "GIT_CONFIG_KEY_") && strings.Contains(env, ".insteadOf") {
+		if strings.HasPrefix(env, gitAuthPasswordEnv+"=") {
 			return true
 		}
 	}

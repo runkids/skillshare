@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -65,11 +66,7 @@ func TestPushRemoteWithEnv_TokenNotInError(t *testing.T) {
 	t.Setenv("PATH", fakeBin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("GITHUB_TOKEN", token)
 
-	extraEnv := []string{
-		"GIT_CONFIG_COUNT=1",
-		"GIT_CONFIG_KEY_0=url.https://x-access-token:" + token + "@github.com/.insteadOf",
-		"GIT_CONFIG_VALUE_0=https://github.com/",
-	}
+	extraEnv := install.AuthEnvForURL("https://github.com/org/repo.git")
 
 	err := PushRemoteWithEnv(t.TempDir(), extraEnv)
 	if err == nil {
@@ -108,11 +105,7 @@ func TestPushRemoteWithEnv_PreservesStdoutDiagnostics(t *testing.T) {
 	t.Setenv("PATH", fakeBin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("GITHUB_TOKEN", token)
 
-	extraEnv := []string{
-		"GIT_CONFIG_COUNT=1",
-		"GIT_CONFIG_KEY_0=url.https://x-access-token:" + token + "@github.com/.insteadOf",
-		"GIT_CONFIG_VALUE_0=https://github.com/",
-	}
+	extraEnv := install.AuthEnvForURL("https://github.com/org/repo.git")
 
 	err := PushRemoteWithEnv(t.TempDir(), extraEnv)
 	if err == nil {
@@ -281,14 +274,14 @@ func TestAuthEnvForRepo_UsesGitHubToken(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "ghp_test_token_123")
 
 	env := AuthEnvForRepo(repo)
-	if len(env) != 3 {
-		t.Fatalf("expected auth env with 3 entries, got %d: %v", len(env), env)
-	}
-	if !strings.Contains(env[1], "url.https://x-access-token:ghp_test_token_123@github.com/.insteadOf") {
-		t.Fatalf("unexpected auth key env: %q", env[1])
-	}
-	if !strings.Contains(env[2], "https://github.com/") {
-		t.Fatalf("unexpected auth value env: %q", env[2])
+	for _, want := range []string{
+		"GIT_CONFIG_KEY_0=credential.https://github.com.helper",
+		"SKILLSHARE_GIT_AUTH_USERNAME=x-access-token",
+		"SKILLSHARE_GIT_AUTH_PASSWORD=ghp_test_token_123",
+	} {
+		if !slices.Contains(env, want) {
+			t.Errorf("auth env %q missing %q", env, want)
+		}
 	}
 }
 
@@ -298,14 +291,14 @@ func TestAuthEnvForRepo_UsesGitLabToken(t *testing.T) {
 	t.Setenv("GITLAB_TOKEN", "glpat_test_token_123")
 
 	env := AuthEnvForRepo(repo)
-	if len(env) != 3 {
-		t.Fatalf("expected auth env with 3 entries, got %d: %v", len(env), env)
-	}
-	if !strings.Contains(env[1], "url.https://oauth2:glpat_test_token_123@gitlab.com/.insteadOf") {
-		t.Fatalf("unexpected auth key env: %q", env[1])
-	}
-	if !strings.Contains(env[2], "https://gitlab.com/") {
-		t.Fatalf("unexpected auth value env: %q", env[2])
+	for _, want := range []string{
+		"GIT_CONFIG_KEY_0=credential.https://gitlab.com.helper",
+		"SKILLSHARE_GIT_AUTH_USERNAME=oauth2",
+		"SKILLSHARE_GIT_AUTH_PASSWORD=glpat_test_token_123",
+	} {
+		if !slices.Contains(env, want) {
+			t.Errorf("auth env %q missing %q", env, want)
+		}
 	}
 }
 

@@ -288,7 +288,7 @@ func TestGitRemoteHash_DefaultBranchUsesAuth(t *testing.T) {
 	const token = "ghp_check_default_branch_token"
 	fakeBin := t.TempDir()
 	script := "#!/bin/sh\n" +
-		"case \"$GIT_CONFIG_KEY_0\" in *" + token + "*) ;; *) echo 'fatal: Authentication failed' >&2; exit 128;; esac\n" +
+		"case \"$SKILLSHARE_GIT_AUTH_PASSWORD\" in " + token + ") ;; *) echo 'fatal: Authentication failed' >&2; exit 128;; esac\n" +
 		"printf '0123456789abcdef0123456789abcdef01234567\\tHEAD\\n'\n"
 	if err := os.WriteFile(filepath.Join(fakeBin, "git"), []byte(script), 0755); err != nil {
 		t.Fatal(err)
