@@ -787,7 +787,7 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
   --tls-cert cert.pem --tls-key key.pem               # HTTPS for other machines
 ```
 
-`mcp serve` 是一个只读的 MCP server，供无法访问 skill 同步目标文件夹的 Agent 使用，例如运行在
+`mcp serve` 是一个 MCP server，除非[开启编辑](#edit-skills-over-mcp)，否则为只读，供无法访问 skill 同步目标文件夹的 Agent 使用，例如运行在
 一次性 VM 上或位于 MCP gateway 之后的 Agent。它实现了
 [Skills extension](https://modelcontextprotocol.io/seps/2640-skills-extension)
 （`io.modelcontextprotocol/skills`，SEP-2640）：`skills/list`、`skills/get` 和
@@ -800,7 +800,7 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
 `list_skills` 列出名称、描述和 URI（`query` 可缩小范围；一次最多列出 200 个），
 `read_skill` 读取某个 skill 的 `SKILL.md` 或其他文件，读取 `SKILL.md` 时还会列出该 skill 的
 其他文件。任何使用 MCP 工具的 Agent 都能以这种方式读取 skill，包括通过会转发工具的 gateway。
-声明了 Skills extension 的 client 会以原生方式加载 skill，不会得到这些工具，因此不会看到
+声明了 Skills extension 的 client 会以原生方式加载 skill，不会得到这两个工具，因此不会看到
 两份 skill。两个工具都标记了 `readOnlyHint`，因此会在修改数据的工具前请求确认的 client 或
 gateway 调用它们时不会请求确认。通过工具读取的内容对 Agent 而言只是普通文本：Agent 自身的 skill 批准机制不适用。
 
@@ -821,7 +821,7 @@ gateway 调用它们时不会请求确认。通过工具读取的内容对 Agent
   发送 `Authorization: Bearer <token>`。若要改用 TLS 代理，请绑定 loopback 地址，例如
   `127.0.0.1:8765`，由代理终止 TLS。
 - **安全性。** 只能读取 skill 清单中的文件，且读取范围不会超出 skill 目录。链接和 `.git`
-  既不会被列出，也不会被提供。不会执行或写入任何内容。使用 `--http` 时，跨源的浏览器请求会被拒绝。
+  既不会被列出，也不会被提供。不会执行任何内容，除非开启编辑，否则也不会写入任何内容。使用 `--http` 时，跨源的浏览器请求会被拒绝。
 
 要连接某个 Agent，请像添加其他 server 一样添加它并同步。在运行该 Agent 的机器上：
 
@@ -856,6 +856,42 @@ mcp:
 ```bash
 npx @modelcontextprotocol/inspector --cli skillshare mcp serve --method skills/list --verify
 ```
+
+### 通过 MCP 编辑 skill {#edit-skills-over-mcp}
+
+通过 `mcp serve` 读取 skill 的 Agent，也可以修改你在配置中列出的 skill 的现有文件：
+
+```yaml
+mcp:
+  serve:
+    edit:
+      skills: [pdf, _team__*]   # flat names, matched like a target's include
+      preview_ttl: 30m          # how long a preview can be applied; default 30m
+```
+
+此时 server 会再提供两个工具，同样也提供给以原生方式加载 skill 的 client：
+
+1. `preview_skill_edit` 接收文件的 URI、它的 revision，以及完整的新内容。
+   开启编辑后，`read_skill` 会在文件末尾加上 `Revision: sha256:...`，与 `skills/list` 中该文件的
+   `digest` 相同；这一行不属于内容。预览不会写入任何内容，只返回完整的 diff、审计结果和一个 preview id。
+2. `apply_skill_edit` 只接收该 preview id，并原样保存预览过的内容。
+   它标记了 `destructiveHint`，因此会在此类工具前请求确认的 client 会询问用户。
+
+出现以下情况时，编辑会被拒绝，且不会写入任何内容：
+
+- **`not_writable`**：该 skill 未被列出、位于被跟踪的仓库内，或是从 upstream 安装的。
+  `update` 会覆盖这些更改。
+- **`conflict`**：文件在被读取或预览之后发生了变化。请重新读取。
+- **`invalid`**：使用新内容后该 skill 无法通过验证，或文件不是 UTF-8 文本。
+- **`audit_blocked`**：使用新内容后该 skill 存在达到或超过 `audit.block_threshold` 的发现，或审计无法运行。
+  与 `install` 一样，通过 `install --force` 接受的发现不会阻止编辑。每个发现都会标记为新增或已有，
+  按规则和匹配的行而不是行号来匹配，因此你可以看到这次编辑新增了什么。
+- **`expired`**：预览已超过 `preview_ttl`、已被应用，或 server 已重启。
+
+只能修改现有文件：编辑不能创建、删除或重命名文件。写入是原子的，保留文件的权限模式，
+并与对 source 的其他写入经过相同的链接检查。每次保存都会记录到操作日志中，
+类型为 `mcp serve`，并附带该文件及其旧的和新的 revision。target 会在下一次 `sync` 时收到更改。
+`skillshare mcp serve --check` 会报告所提供的 skill 中有多少可编辑。
 
 
 ## 安全性与限制
@@ -895,7 +931,7 @@ npx @modelcontextprotocol/inspector --cli skillshare mcp serve --method skills/l
 - 凭据使用环境引用；没有密钥存储、OAuth 会话同步、
   持续健康监控、软件包安装、gateway、注册表或插件同步。
   `mcp check --live` 是唯一会启动或调用已配置 server 的命令；
-  `mcp serve` 运行的是 Skillshare 自己的只读 skills server。
+  `mcp serve` 运行的是 Skillshare 自己的 skills server，除非设置了 `mcp.serve.edit`，否则为只读。
 - 本版本不支持 VS Code Insiders、自定义 profile、远程工作区和旧版 SSE。
 - VS Code 目前不会在 `headers` 内部替换 `${env:VARIABLE}`
   （[microsoft/vscode#336232](https://github.com/microsoft/vscode/issues/336232)），

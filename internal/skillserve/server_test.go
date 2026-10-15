@@ -22,8 +22,13 @@ func connect(t *testing.T, src string) *mcp.ClientSession {
 
 func connectWith(t *testing.T, src string, opts *mcp.ClientOptions) *mcp.ClientSession {
 	t.Helper()
+	return connectServer(t, src, Options{Version: "test", Warn: io.Discard}, opts)
+}
+
+func connectServer(t *testing.T, src string, so Options, opts *mcp.ClientOptions) *mcp.ClientSession {
+	t.Helper()
 	ctx := context.Background()
-	srv, err := NewServer(&Builder{Source: src}, Options{Version: "test", Warn: io.Discard})
+	srv, err := NewServer(&Builder{Source: src}, so)
 	if err != nil {
 		t.Fatal(err)
 	}

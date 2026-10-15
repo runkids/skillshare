@@ -4,7 +4,7 @@ Skillshare keeps MCP server definitions in one source and writes each Agent's na
 config file from it. It writes settings only: it never starts a configured server, checks
 connectivity, resolves a secret or copies OAuth credentials. The exceptions are
 `mcp check --live`, which starts or calls servers only when asked, and `mcp serve`,
-which runs Skillshare's own read-only skills server.
+which runs Skillshare's own skills server, read-only unless `mcp.serve.edit` is set.
 
 ## Commands
 
@@ -24,8 +24,8 @@ skillshare mcp restore BACKUP_ID --no-tui            # Apply restoration; source
 skillshare mcp check --json                          # Static check: variables, commands, version pins, DNS, sync state
 skillshare mcp check --live --timeout 30s --json     # Also start/call each server: serverInfo, protocol, tools
 skillshare mcp check docs --live --accept-tools      # Accept the tool definitions docs lists now as the baseline
-skillshare mcp serve [--target NAME] [--http ADDR [--tls-cert F --tls-key F]]  # Serve skills read-only over MCP (SEP-2640)
-skillshare mcp serve --check [--target NAME]         # List skills serve would skip, then exit
+skillshare mcp serve [--target NAME] [--http ADDR [--tls-cert F --tls-key F]]  # Serve skills over MCP (SEP-2640)
+skillshare mcp serve --check [--target NAME]         # List skipped and editable skills, then exit
 ```
 
 ## Automation rules
@@ -73,6 +73,16 @@ skillshare mcp serve --check [--target NAME]         # List skills serve would s
   lack it and Claude Code's is off by default, so the server also offers `list_skills`
   (`query` filters) and `read_skill` tools, marked `readOnlyHint` and hidden from clients that declare the extension. Verify the server with
   `npx @modelcontextprotocol/inspector --cli skillshare mcp serve --method skills/list --verify`.
+- `mcp.serve.edit.skills` (flat-name patterns, like `include`) lets clients change
+  existing files of those skills; `preview_ttl` defaults to `30m`. `preview_skill_edit`
+  (uri, `read_skill`'s revision, full content) writes nothing and returns the diff, audit
+  and a preview id; `apply_skill_edit` (preview id, `destructiveHint`) saves exactly that.
+  With editing on, `read_skill` ends with `Revision: sha256:...` (the `skills/list` digest),
+  which is not part of the content. Refusals write nothing: `not_writable` (unlisted,
+  tracked repo, installed or nested in an installed skill), `conflict`, `invalid`,
+  `audit_blocked` (any finding at or above `audit.block_threshold` not accepted with
+  `install --force`; findings are marked new or existing), `expired`. No create, delete
+  or rename. Saves are logged as `mcp serve`.
 - Noninteractive `import` without a name only lists candidates. Use `--replace` only
   when replacing is intended.
 - An `update` with the message `same settings, laid out one field per line` is a

@@ -2,7 +2,10 @@ package config
 
 import (
 	"fmt"
+	"path/filepath"
 	"slices"
+	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -18,6 +21,8 @@ type MCPConfig struct {
 	DirectTools *yaml.Node `yaml:"directTools,omitempty" json:"-"`
 	// Projects is global config only; the MCP service refuses it in a project config.
 	Projects *yaml.Node `yaml:"projects,omitempty" json:"-"`
+	// Serve configures `skillshare mcp serve`; only that command reads it.
+	Serve *MCPServeConfig `yaml:"serve,omitempty" json:"-"`
 	// A section that does not parse is kept as written, so a mistake in MCP
 	// settings never stops skills commands from loading or saving the config.
 	raw *yaml.Node
@@ -43,7 +48,7 @@ func (c *MCPConfig) decode(node *yaml.Node) error {
 		return fmt.Errorf("mcp must be a mapping")
 	}
 	for i := 0; i < len(node.Content); i += 2 {
-		if key := node.Content[i].Value; key != "targets" && key != "servers" && key != "projects" && key != "directTools" {
+		if key := node.Content[i].Value; key != "targets" && key != "servers" && key != "projects" && key != "directTools" && key != "serve" {
 			return fmt.Errorf("unknown MCP configuration field")
 		}
 	}
@@ -59,6 +64,19 @@ func (c *MCPConfig) decode(node *yaml.Node) error {
 			c.Projects = node.Content[i+1]
 		case "directTools":
 			c.DirectTools = node.Content[i+1]
+		case "serve":
+			// A misspelt key would silently leave editing off.
+			if err := onlyKeys(node.Content[i+1], "mcp.serve", "edit"); err != nil {
+				return err
+			}
+			if edit := mappingValue(node.Content[i+1], "edit"); edit != nil {
+				if err := onlyKeys(edit, "mcp.serve.edit", "skills", "preview_ttl"); err != nil {
+					return err
+				}
+			}
+			if err := node.Content[i+1].Decode(&c.Serve); err != nil {
+				return fmt.Errorf("mcp.serve.edit.skills must be a list and preview_ttl a duration")
+			}
 		}
 	}
 	return nil
@@ -96,6 +114,9 @@ func ValidateMCP(cfg *MCPConfig, external string, accounts ...string) error {
 			}
 		}
 	}
+	if _, _, err := cfg.ServeEdit(); err != nil {
+		return err
+	}
 	if cfg.DirectTools != nil {
 		var value any
 		if err := cfg.DirectTools.Decode(&value); err != nil || !mcp.ValidDirectTools(value) {
@@ -128,6 +149,70 @@ func ValidateMCP(cfg *MCPConfig, external string, accounts ...string) error {
 		}
 		if err := known(server.Targets); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// MCPServeConfig is the mcp.serve section.
+type MCPServeConfig struct {
+	Edit *MCPServeEditConfig `yaml:"edit,omitempty"`
+}
+
+// MCPServeEditConfig turns on skill editing over `mcp serve`. Skills holds
+// patterns matched like a target's include filter; nothing is editable without one.
+type MCPServeEditConfig struct {
+	Skills     []string `yaml:"skills,omitempty"`
+	PreviewTTL string   `yaml:"preview_ttl,omitempty"`
+}
+
+// ServeEdit returns the checked mcp.serve.edit patterns and preview lifetime,
+// or no patterns when editing is off. An MCP section that does not parse is
+// reported, since editing cannot be known to be off.
+func (c *MCPConfig) ServeEdit() ([]string, time.Duration, error) {
+	if c == nil {
+		return nil, 0, nil
+	}
+	if c.err != nil {
+		return nil, 0, fmt.Errorf("mcp: %w", c.err)
+	}
+	if c.Serve == nil || c.Serve.Edit == nil || len(c.Serve.Edit.Skills) == 0 {
+		return nil, 0, nil
+	}
+	e := c.Serve.Edit
+	for _, p := range e.Skills {
+		// The same check target include patterns get.
+		if _, err := filepath.Match(strings.TrimSpace(p), ""); err != nil {
+			return nil, 0, fmt.Errorf("mcp.serve.edit.skills: %q: %w", p, err)
+		}
+	}
+	ttl := 30 * time.Minute
+	if e.PreviewTTL != "" {
+		d, err := time.ParseDuration(e.PreviewTTL)
+		if err != nil || d <= 0 {
+			return nil, 0, fmt.Errorf("mcp.serve.edit.preview_ttl must be a positive duration such as 30m, not %q", e.PreviewTTL)
+		}
+		ttl = d
+	}
+	return e.Skills, ttl, nil
+}
+
+func onlyKeys(node *yaml.Node, label string, keys ...string) error {
+	if node.Kind != yaml.MappingNode {
+		return fmt.Errorf("%s must be a mapping", label)
+	}
+	for i := 0; i < len(node.Content); i += 2 {
+		if !slices.Contains(keys, node.Content[i].Value) {
+			return fmt.Errorf("unknown field %s.%s", label, node.Content[i].Value)
+		}
+	}
+	return nil
+}
+
+func mappingValue(node *yaml.Node, key string) *yaml.Node {
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		if node.Content[i].Value == key {
+			return node.Content[i+1]
 		}
 	}
 	return nil

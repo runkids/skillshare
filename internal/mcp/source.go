@@ -146,7 +146,7 @@ func LoadSource(configPath string) (*Source, error) {
 			return nil, fmt.Errorf("mcp must be a mapping")
 		}
 		for i := 0; i < len(mcp.Content); i += 2 {
-			if k := mcp.Content[i].Value; k != "targets" && k != "servers" && k != "projects" && k != "directTools" {
+			if k := mcp.Content[i].Value; k != "targets" && k != "servers" && k != "projects" && k != "directTools" && k != "serve" {
 				return nil, fmt.Errorf("unknown mcp field %q", k)
 			}
 		}

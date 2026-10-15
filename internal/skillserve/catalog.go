@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"net/url"
 	"os"
 	"slices"
@@ -39,11 +38,16 @@ type Skill struct {
 	URI         string         `json:"uri"`
 	Frontmatter map[string]any `json:"frontmatter"`
 	Resources   []File         `json:"resources"`
+
+	src ssync.DiscoveredSkill // where it was discovered, for edits
 }
 
 // servedFile locates a manifest file: the resolved skill directory, the
 // slash path inside it, and the digest it was listed with.
-type servedFile struct{ dir, rel, digest string }
+type servedFile struct {
+	dir, rel, digest string
+	owner            *Skill // the skill whose manifest lists the file
+}
 
 // Skip is a skill left out of the catalog, by source path.
 type Skip struct {
@@ -147,7 +151,12 @@ func (b *Builder) build(all []ssync.DiscoveredSkill) (*Catalog, error) {
 		}
 		c.Skills = append(c.Skills, skill)
 		c.bySkill[skill.URI] = skill
-		maps.Copy(c.byFile, files)
+		for uri, f := range files {
+			// A nested skill's files are also in the outer manifest; the deepest skill owns them.
+			if old, ok := c.byFile[uri]; !ok || len(f.owner.URI) > len(old.owner.URI) {
+				c.byFile[uri] = f
+			}
+		}
 	}
 	slices.Reverse(c.Skipped)
 	// By URI, which skills/list cursors continue from.
@@ -164,11 +173,11 @@ func load(s ssync.DiscoveredSkill) (*Skill, map[string]servedFile, string) {
 		return nil, nil, err.Error()
 	}
 	base := "skill://" + escapePath(s.RelPath)
-	skill := &Skill{URI: base + "/SKILL.md", Frontmatter: p.Frontmatter}
+	skill := &Skill{URI: base + "/SKILL.md", Frontmatter: p.Frontmatter, src: s}
 	files := make(map[string]servedFile, len(p.Files))
 	for _, f := range p.Files {
 		uri := base + "/" + escapePath(f.Rel)
-		files[uri] = servedFile{dir: p.Dir, rel: f.Rel, digest: f.Digest}
+		files[uri] = servedFile{dir: p.Dir, rel: f.Rel, digest: f.Digest, owner: skill}
 		skill.Resources = append(skill.Resources, File{URI: uri, Digest: f.Digest, Size: f.Size})
 	}
 	return skill, files, ""
@@ -179,6 +188,12 @@ func (c *Catalog) Skill(uri string) (*Skill, bool) {
 	key, ok := canonical(uri)
 	skill := c.bySkill[key]
 	return skill, ok && skill != nil
+}
+
+// Revision returns the digest a listed file was served with, or "".
+func (c *Catalog) Revision(uri string) string {
+	key, _ := canonical(uri)
+	return c.byFile[key].digest
 }
 
 // Read returns the content of a listed file. Only manifest files are served,

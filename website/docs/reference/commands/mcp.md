@@ -848,7 +848,7 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
   --tls-cert cert.pem --tls-key key.pem               # HTTPS for other machines
 ```
 
-`mcp serve` is a read-only MCP server for an Agent that cannot reach the folder
+`mcp serve` is an MCP server, read-only unless you [turn on editing](#edit-skills-over-mcp), for an Agent that cannot reach the folder
 your skills sync to, such as one on a disposable VM or behind an MCP gateway. It
 implements the [Skills extension](https://modelcontextprotocol.io/seps/2640-skills-extension)
 (`io.modelcontextprotocol/skills`, SEP-2640): `skills/list`, `skills/get` and
@@ -862,7 +862,7 @@ two tools: `list_skills` lists names, descriptions and URIs (`query` narrows the
 answer lists at most 200), and `read_skill` reads a `SKILL.md` or another file of a skill,
 and for a `SKILL.md` lists the skill's other files. Any Agent that uses MCP tools can read
 skills this way, including through a gateway that passes tools on. A client that declares
-the Skills extension loads skills natively and is not offered the tools, so it does not
+the Skills extension loads skills natively and is not offered these two tools, so it does not
 see each skill twice. Both tools are marked `readOnlyHint`, so a client or gateway that
 asks before tools that change data calls them without asking. Content read through a tool
 is ordinary text to the Agent: its own skill approval does not apply.
@@ -891,8 +891,8 @@ is ordinary text to the Agent: its own skill approval does not apply.
   send `Authorization: Bearer <token>`. To use a TLS proxy instead, bind a loopback
   address such as `127.0.0.1:8765` and let the proxy terminate TLS.
 - **Safety.** Only files in a skill's manifest can be read, and reads stay inside the
-  skill directory. Links and `.git` are neither listed nor served. Nothing is executed or
-  written. With `--http`, cross-origin browser requests are refused.
+  skill directory. Links and `.git` are neither listed nor served. Nothing is executed,
+  and nothing is written unless editing is on. With `--http`, cross-origin browser requests are refused.
 
 To connect an Agent, add the server like any other and sync it. On the machine that
 runs the Agent:
@@ -931,6 +931,49 @@ frontmatter and checks each file's digest:
 ```bash
 npx @modelcontextprotocol/inspector --cli skillshare mcp serve --method skills/list --verify
 ```
+
+### Edit skills over MCP {#edit-skills-over-mcp}
+
+An Agent that reads skills through `mcp serve` can also change existing skill files,
+for the skills you list in config:
+
+```yaml
+mcp:
+  serve:
+    edit:
+      skills: [pdf, _team__*]   # flat names, matched like a target's include
+      preview_ttl: 30m          # how long a preview can be applied; default 30m
+```
+
+The server then offers two more tools, also to clients that load skills natively:
+
+1. `preview_skill_edit` takes a file's URI, its revision, and the complete new content.
+   With editing on, `read_skill` ends a file with `Revision: sha256:...`, the same value
+   as the file's `digest` in `skills/list`; that footer is not part of the content. The
+   preview writes nothing. It returns the full diff, the audit findings, and a preview id.
+2. `apply_skill_edit` takes only that preview id and saves exactly what was previewed.
+   It is marked `destructiveHint`, so a client that asks before such tools asks the user.
+
+An edit is refused, and nothing is written, when:
+
+- **`not_writable`**: the skill is not listed, it sits inside a tracked repo, or it was
+  installed from upstream. `update` would overwrite those changes.
+- **`conflict`**: the file changed after it was read or previewed. Read it again.
+- **`invalid`**: the skill would fail validation with the new content, or the file is
+  not UTF-8 text.
+- **`audit_blocked`**: with the new content the skill has a finding at or above
+  `audit.block_threshold`, or the audit could not run. As with `install`, a finding
+  accepted with `install --force` does not block. Each finding is marked new or existing,
+  matched by rule and matched line rather than line number, so you can see what the
+  edit adds.
+- **`expired`**: the preview is older than `preview_ttl`, was already applied, or the
+  server restarted.
+
+Only existing files can change: an edit cannot create, delete, or rename a file. The
+write is atomic, keeps the file's mode, and goes through the same link checks as other
+writes to the source. Each save is recorded in the operation log as `mcp serve`, with
+the file and its old and new revision. Targets receive the change on the next `sync`.
+`skillshare mcp serve --check` reports how many served skills are editable.
 
 
 ## Safety and limitations
@@ -973,7 +1016,7 @@ npx @modelcontextprotocol/inspector --cli skillshare mcp serve --method skills/l
 - Credentials use environment references; no secret store, OAuth session sync,
   continuous health monitoring, package installation, gateway, registry or plugin sync.
   `mcp check --live` is the only command that starts or calls a configured server;
-  `mcp serve` runs Skillshare's own read-only skills server.
+  `mcp serve` runs Skillshare's own skills server, read-only unless `mcp.serve.edit` is set.
 - VS Code Insiders, custom profiles, remote workspaces and legacy SSE are not
   supported in this version.
 - VS Code does not currently substitute `${env:VARIABLE}` inside `headers`

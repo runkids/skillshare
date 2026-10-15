@@ -10,9 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sergi/go-diff/diffmatchpatch"
-
 	"skillshare/internal/install"
+	"skillshare/internal/textdiff"
 )
 
 // fileDiffEntry represents a single file-level difference between source and destination.
@@ -170,14 +169,8 @@ func generateUnifiedDiff(srcPath, dstPath string) string {
 		return "(binary file differs)"
 	}
 
-	dmp := diffmatchpatch.New()
 	// dstContent is "old", srcContent is "new"
-	a, b, lineArray := dmp.DiffLinesToChars(dstContent, srcContent)
-	diffs := dmp.DiffMain(a, b, false)
-	diffs = dmp.DiffCharsToLines(diffs, lineArray)
-	diffs = dmp.DiffCleanupSemantic(diffs)
-
-	return formatUnifiedDiff(diffs)
+	return textdiff.Lines(dstContent, srcContent)
 }
 
 // readFileString reads a file and returns its content as a string.
@@ -212,39 +205,6 @@ func isBinary(content string) bool {
 		}
 	}
 	return false
-}
-
-// formatUnifiedDiff formats diffmatchpatch.Diff slices as a unified diff string.
-// Insert lines are prefixed with "+ ", Delete lines with "- ", Equal lines with "  ".
-func formatUnifiedDiff(diffs []diffmatchpatch.Diff) string {
-	var b strings.Builder
-
-	for _, d := range diffs {
-		lines := strings.Split(d.Text, "\n")
-		// If the text ends with \n, Split produces a trailing empty string.
-		// Don't emit a line for that trailing empty element.
-		if len(lines) > 0 && lines[len(lines)-1] == "" {
-			lines = lines[:len(lines)-1]
-		}
-
-		var prefix string
-		switch d.Type {
-		case diffmatchpatch.DiffInsert:
-			prefix = "+ "
-		case diffmatchpatch.DiffDelete:
-			prefix = "- "
-		case diffmatchpatch.DiffEqual:
-			prefix = "  "
-		}
-
-		for _, line := range lines {
-			b.WriteString(prefix)
-			b.WriteString(line)
-			b.WriteString("\n")
-		}
-	}
-
-	return b.String()
 }
 
 // renderFileStat returns a git-style stat summary for file diffs.

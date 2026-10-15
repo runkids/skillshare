@@ -17,6 +17,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"skillshare/internal/config"
+	"skillshare/internal/oplog"
 	"skillshare/internal/skillserve"
 	"skillshare/internal/ui"
 )
@@ -26,8 +27,9 @@ const mcpServeUsage = "skillshare mcp serve [--target <name>] [--http <addr> [--
 // mcpServeTokenEnv holds the bearer token HTTP clients must send.
 const mcpServeTokenEnv = "SKILLSHARE_MCP_TOKEN"
 
-// cmdMCPServe serves the managed skills over MCP (SEP-2640). It never writes:
-// stdout carries the protocol, so diagnostics go to stderr.
+// cmdMCPServe serves the managed skills over MCP (SEP-2640). It writes only
+// skill files that mcp.serve.edit makes editable. stdout carries the
+// protocol, so diagnostics go to stderr.
 func cmdMCPServe(args []string) error {
 	var target, addr, certFile, keyFile string
 	valueFlags := map[string]*string{"--target": &target, "--http": &addr, "--tls-cert": &certFile, "--tls-key": &keyFile}
@@ -65,6 +67,7 @@ func cmdMCPServe(args []string) error {
 	// A gateway chooses the working directory, so only -p selects project mode.
 	b := &skillserve.Builder{Target: target}
 	var targets map[string]config.TargetConfig
+	var edit *skillserve.EditOptions
 	if mode == modeProject {
 		cwd, err := os.Getwd()
 		if err != nil {
@@ -75,12 +78,21 @@ func cmdMCPServe(args []string) error {
 			return err
 		}
 		b.Source, b.Walk, targets = rt.sourcePath, rt.skillsWalk(), rt.targets
+		if edit, err = mcpServeEdit(rt.config.MCP, rt.config.Audit.BlockThreshold, config.ProjectConfigPath(cwd)); err != nil {
+			return err
+		}
+		if edit != nil {
+			edit.ProjectRoot = cwd
+		}
 	} else {
 		cfg, err := config.Load()
 		if err != nil {
 			return err
 		}
 		b.Source, b.Walk, targets = cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), cfg.Targets
+		if edit, err = mcpServeEdit(cfg.MCP, cfg.Audit.BlockThreshold, config.ConfigPath()); err != nil {
+			return err
+		}
 	}
 	if target != "" {
 		tc, ok := targets[target]
@@ -94,7 +106,7 @@ func cmdMCPServe(args []string) error {
 		b.Skills = &sc
 	}
 	if check {
-		return printMCPServeCheck(b)
+		return printMCPServeCheck(b, edit)
 	}
 
 	// Off loopback, the token must exist and must not cross the network in plain text.
@@ -108,7 +120,7 @@ func cmdMCPServe(args []string) error {
 		}
 	}
 
-	srv, err := skillserve.NewServer(b, skillserve.Options{Version: version, Warn: os.Stderr, Refresh: 5 * time.Second})
+	srv, err := skillserve.NewServer(b, skillserve.Options{Version: version, Warn: os.Stderr, Refresh: 5 * time.Second, Edit: edit})
 	if err != nil {
 		return err
 	}
@@ -144,21 +156,42 @@ func cmdMCPServe(args []string) error {
 	return nil
 }
 
+// mcpServeEdit reads mcp.serve.edit. It returns nil when editing is off.
+func mcpServeEdit(m *config.MCPConfig, threshold, cfgPath string) (*skillserve.EditOptions, error) {
+	skills, ttl, err := m.ServeEdit()
+	if err != nil || skills == nil {
+		return nil, err
+	}
+	return &skillserve.EditOptions{
+		Skills: skills, PreviewTTL: ttl, Threshold: threshold,
+		Log: func(entry oplog.Entry) {
+			oplog.WriteWithLimit(cfgPath, oplog.OpsFile, entry, logMaxEntries()) //nolint:errcheck
+		},
+	}, nil
+}
+
 // printMCPServeCheck builds the catalog the server would serve and lists the
-// skills it would skip, without starting a server.
-func printMCPServeCheck(b *skillserve.Builder) error {
+// skills it would skip and those clients may edit, without starting a server.
+func printMCPServeCheck(b *skillserve.Builder, edit *skillserve.EditOptions) error {
 	start := time.Now()
 	c, err := b.Build()
 	if err != nil {
 		return err
 	}
-	labels := make([]string, len(c.Skipped))
-	for i, s := range c.Skipped {
-		labels[i] = s.Path
+	labels := []string{"Editable"}
+	for _, s := range c.Skipped {
+		labels = append(labels, s.Path)
 	}
 	width := ui.RowWidth(labels...)
 	for _, s := range c.Skipped {
 		ui.Row(ui.MarkWarn, s.Path, s.Reason, width)
+	}
+	if edit != nil {
+		editable, err := b.Editable(c, edit)
+		if err != nil {
+			return err
+		}
+		ui.Row(ui.MarkNone, "Editable", fmt.Sprintf("%d of %d (mcp.serve.edit.skills)", len(editable), len(c.Skills)), width)
 	}
 	text, mark := plural(len(c.Skills), "skill")+" served", ui.MarkOK
 	if len(c.Skipped) > 0 {

@@ -91,6 +91,30 @@ func TestMCPServe_CheckListsSkippedSkillsWithoutServing(t *testing.T) {
 	r.AssertOutputContains(t, "1 skill served, 1 skipped")
 }
 
+func TestMCPServe_CheckCountsEditableSkills(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\nmcp:\n  serve:\n    edit:\n      skills: [pdf]\n")
+	sb.CreateSkill("pdf", map[string]string{"SKILL.md": "---\nname: pdf\ndescription: Use when editing PDFs\n---\n# PDF\n"})
+	sb.CreateSkill("review", map[string]string{"SKILL.md": "---\nname: review\ndescription: Use when reviewing\n---\n# Review\n"})
+
+	r := sb.RunCLI("mcp", "serve", "--check", "-g")
+
+	r.AssertSuccess(t)
+	r.AssertRowContains(t, "Editable", "1 of 2 (mcp.serve.edit.skills)")
+}
+
+func TestMCPServe_RejectsAnInvalidPreviewLifetime(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\nmcp:\n  serve:\n    edit:\n      skills: [pdf]\n      preview_ttl: soon\n")
+
+	r := sb.RunCLI("mcp", "serve", "--check", "-g")
+
+	r.AssertFailure(t)
+	r.AssertAnyOutputContains(t, `mcp.serve.edit.preview_ttl must be a positive duration such as 30m, not "soon"`)
+}
+
 func TestMCPServe_RefusesUnauthenticatedNetworkListener(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

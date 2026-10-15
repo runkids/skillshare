@@ -41,12 +41,36 @@
         "servers": {"$ref": "#/$defs/servers"}
       }
     },
+    "serve": {
+      "type": "object", "additionalProperties": false,
+      "description": "Settings for skillshare mcp serve.",
+      "properties": {
+        "edit": {
+          "type": "object", "additionalProperties": false,
+          "description": "Lets MCP clients edit existing files of the matching skills: preview_skill_edit shows the change, apply_skill_edit saves it. Off when skills is empty.",
+          "properties": {
+            "skills": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}, "description": "Patterns matched like a target's include filter. Skills installed from upstream or inside a tracked repo stay read-only."},
+            "preview_ttl": {"type": "string", "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$", "description": "How long a preview can be applied, as a Go duration such as 30m or 1h. Default 30m."}
+          }
+        }
+      }
+    },
+    "projectConfiguration": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "targets": {"$ref": "#/$defs/targets"},
+        "directTools": {"$ref": "#/$defs/directTools"},
+        "servers": {"$ref": "#/$defs/servers"},
+        "serve": {"$ref": "#/$defs/serve"}
+      }
+    },
     "globalConfiguration": {
       "type": "object", "additionalProperties": false,
       "properties": {
         "targets": {"$ref": "#/$defs/targets"},
         "directTools": {"$ref": "#/$defs/directTools"},
         "servers": {"$ref": "#/$defs/servers"},
+        "serve": {"$ref": "#/$defs/serve"},
         "projects": {
           "type": "object",
           "description": "Project folders this global config syncs into, keyed by absolute path (or ~/...). Each takes what that project's own config.yaml would hold under mcp.",

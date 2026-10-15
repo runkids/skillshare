@@ -132,3 +132,21 @@ func TestServerJSONIgnoresLegacyPiFields(t *testing.T) {
 		t.Fatal("unknown field accepted")
 	}
 }
+
+func TestSourceKeepsTheServeSection(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte("mcp:\n  serve:\n    edit:\n      skills: [pdf]\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	source, err := LoadSource(path)
+	if err != nil {
+		t.Fatalf("mcp.serve belongs to mcp serve and must not stop MCP commands: %v", err)
+	}
+	source.Servers, source.serversChanged = map[string]Server{"docs": {URL: "https://example.com/mcp"}}, true
+	if err := source.save(""); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(path); !strings.Contains(string(data), "  serve:\n    edit:\n      skills:\n        - pdf\n") {
+		t.Errorf("saving MCP servers dropped mcp.serve:\n%s", data)
+	}
+}

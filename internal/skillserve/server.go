@@ -60,6 +60,8 @@ type Options struct {
 	// Refresh is how long a catalog is reused before the source is read again;
 	// it is also the ttlMs hint. Zero rebuilds on every request.
 	Refresh time.Duration
+	// Edit, when set, adds the tools that edit existing skill files.
+	Edit *EditOptions
 }
 
 type service struct {
@@ -70,15 +72,20 @@ type service struct {
 	cat    *Catalog
 	built  time.Time
 	warned map[string]bool
+
+	edit     *EditOptions
+	editMu   sync.Mutex // serializes saves and guards previews
+	previews map[string]*preview
 }
 
-// NewServer returns a read-only MCP server for the skills b selects. The first
+// NewServer returns an MCP server for the skills b selects, read-only unless
+// opts.Edit is set. The first
 // catalog is built here, so source errors and initial warnings surface at once.
 func NewServer(b *Builder, opts Options) (*mcp.Server, error) {
 	if opts.Warn == nil {
 		opts.Warn = io.Discard
 	}
-	svc := &service{b: b, opts: opts}
+	svc := &service{b: b, opts: opts, edit: opts.Edit, previews: map[string]*preview{}}
 	if _, err := svc.catalog(); err != nil {
 		return nil, err
 	}
@@ -96,6 +103,9 @@ func NewServer(b *Builder, opts Options) (*mcp.Server, error) {
 		return nil, err
 	}
 	svc.addTools(srv)
+	if svc.edit != nil {
+		svc.addEditTools(srv)
+	}
 	return srv, nil
 }
 

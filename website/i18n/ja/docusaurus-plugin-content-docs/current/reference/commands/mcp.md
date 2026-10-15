@@ -692,10 +692,10 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
   --tls-cert cert.pem --tls-key key.pem               # HTTPS for other machines
 ```
 
-`mcp serve` は、Skill の同期先フォルダーにアクセスできない Agent（使い捨ての VM 上の Agent や MCP gateway の背後にある Agent など）向けの読み取り専用 MCP サーバーです。[Skills extension](https://modelcontextprotocol.io/seps/2640-skills-extension)
+`mcp serve` は、Skill の同期先フォルダーにアクセスできない Agent（使い捨ての VM 上の Agent や MCP gateway の背後にある Agent など）向けの MCP サーバーで、[編集をオンにしない限り](#edit-skills-over-mcp)読み取り専用です。[Skills extension](https://modelcontextprotocol.io/seps/2640-skills-extension)
 （`io.modelcontextprotocol/skills`、SEP-2640）の `skills/list`、`skills/get`、`resources/read` を実装しています。各 Skill は 1 つのエントリで、その URI は `skill://_team/tools/pdf/SKILL.md` のように source 内のパスに従います。エントリには frontmatter 全体と、`sha256` ダイジェストとサイズ付きのすべてのファイルが含まれます。自分のマシン上の Agent はすでに `sync` で Skill を受け取っているため、それらを `mcp serve` にも接続すると各 Skill が二重に表示されます。
 
-ほとんどの Agent はまだ Skills extension に対応していないため（下記参照）、サーバーは 2 つのツールも提供します。`list_skills` は名前、説明、URI を一覧表示し（`query` で絞り込み可能。1 回の応答は最大 200 件）、`read_skill` は Skill の `SKILL.md` または他のファイルを読み、`SKILL.md` の場合はその Skill の他のファイルも一覧表示します。MCP ツールを使える Agent なら、ツールを中継する gateway 経由でも、この方法で Skill を読めます。Skills extension を宣言したクライアントは Skill をネイティブに読み込み、ツールは提供されないため、各 Skill が二重に表示されることはありません。両方のツールには `readOnlyHint` が付いているため、データを変更するツールの前に確認するクライアントや gateway も、確認なしで呼び出します。ツール経由で読んだ内容は Agent にとって通常のテキストであり、Agent 自身の Skill 承認は適用されません。
+ほとんどの Agent はまだ Skills extension に対応していないため（下記参照）、サーバーは 2 つのツールも提供します。`list_skills` は名前、説明、URI を一覧表示し（`query` で絞り込み可能。1 回の応答は最大 200 件）、`read_skill` は Skill の `SKILL.md` または他のファイルを読み、`SKILL.md` の場合はその Skill の他のファイルも一覧表示します。MCP ツールを使える Agent なら、ツールを中継する gateway 経由でも、この方法で Skill を読めます。Skills extension を宣言したクライアントは Skill をネイティブに読み込み、この 2 つのツールは提供されないため、各 Skill が二重に表示されることはありません。両方のツールには `readOnlyHint` が付いているため、データを変更するツールの前に確認するクライアントや gateway も、確認なしで呼び出します。ツール経由で読んだ内容は Agent にとって通常のテキストであり、Agent 自身の Skill 承認は適用されません。
 
 - **選択。** `--target` を指定しない場合、有効なすべての Skill が提供されます。`--target NAME`
   は、sync mode にかかわらず、その target の `include`/`exclude` フィルターと frontmatter の `targets` を適用します。Skill は常に source から取得されます。Skill がオフになっている target を指定するとエラーになります。
@@ -713,7 +713,7 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
   `--http ADDR` は Streamable HTTP で提供します。ループバック以外のアドレスでは
   `SKILLSHARE_MCP_TOKEN` と、`--tls-cert` および `--tls-key` による HTTPS が必要です。これによりトークンが平文でネットワークを流れることはありません。トークンが設定されている場合、すべてのリクエストは
   `Authorization: Bearer <token>` を送る必要があります。代わりに TLS プロキシを使う場合は、`127.0.0.1:8765` のようなループバックアドレスにバインドし、プロキシで TLS を終端してください。
-- **安全性。** 読み取れるのは Skill のマニフェストにあるファイルだけで、読み取りは Skill ディレクトリ内に限られます。リンクと `.git` は一覧にも表示されず、提供もされません。何も実行・書き込みされません。`--http` では、クロスオリジンのブラウザーリクエストは拒否されます。
+- **安全性。** 読み取れるのは Skill のマニフェストにあるファイルだけで、読み取りは Skill ディレクトリ内に限られます。リンクと `.git` は一覧にも表示されず、提供もされません。何も実行されず、編集をオンにしない限り何も書き込まれません。`--http` では、クロスオリジンのブラウザーリクエストは拒否されます。
 
 Agent を接続するには、他のサーバーと同様にサーバーを追加して同期します。Agent を実行するマシンで:
 
@@ -742,6 +742,33 @@ Skill をネイティブに読み込むには Skills extension が必要です�
 ```bash
 npx @modelcontextprotocol/inspector --cli skillshare mcp serve --method skills/list --verify
 ```
+
+### MCP で Skill を編集する {#edit-skills-over-mcp}
+
+`mcp serve` 経由で Skill を読む Agent は、config に列挙した Skill の既存ファイルを変更することもできます。
+
+```yaml
+mcp:
+  serve:
+    edit:
+      skills: [pdf, _team__*]   # flat names, matched like a target's include
+      preview_ttl: 30m          # how long a preview can be applied; default 30m
+```
+
+サーバーは、Skill をネイティブに読み込むクライアントにも、さらに 2 つのツールを提供します。
+
+1. `preview_skill_edit` は、ファイルの URI、そのリビジョン、新しい内容の全体を受け取ります。編集をオンにすると、`read_skill` はファイルの末尾に `Revision: sha256:...` を付けます。これは `skills/list` のそのファイルの `digest` と同じ値で、この行は内容には含まれません。プレビューは何も書き込まず、完全な diff、audit の検出結果、プレビュー ID を返します。
+2. `apply_skill_edit` はそのプレビュー ID だけを受け取り、プレビューしたとおりの内容を保存します。`destructiveHint` が付いているため、そのようなツールの前に確認するクライアントはユーザーに確認します。
+
+次の場合、編集は拒否され、何も書き込まれません。
+
+- **`not_writable`**: Skill が一覧にない、追跡対象のリポジトリ内にある、または upstream からインストールされた場合。`update` がそれらの変更を上書きしてしまうためです。
+- **`conflict`**: 読み取りまたはプレビューの後にファイルが変更された場合。もう一度読み取ってください。
+- **`invalid`**: 新しい内容では Skill が検証に失敗する、またはファイルが UTF-8 テキストではない場合。
+- **`audit_blocked`**: 新しい内容では Skill に `audit.block_threshold` 以上の検出結果がある、または audit を実行できなかった場合。`install` と同様に、`install --force` で受け入れた検出結果はブロックしません。各検出結果は新規か既存かが示され、行番号ではなくルールと一致した行で照合されるため、編集で何が増えるかが分かります。
+- **`expired`**: プレビューが `preview_ttl` より古い、すでに適用済み、またはサーバーが再起動した場合。
+
+変更できるのは既存のファイルだけです。編集でファイルを作成、削除、名前変更することはできません。書き込みはアトミックで、ファイルのモードを保持し、source への他の書き込みと同じリンクチェックを通ります。保存のたびに、ファイルとその古いリビジョン・新しいリビジョンが、操作ログに `mcp serve` として記録されます。ターゲットは次の `sync` で変更を受け取ります。`skillshare mcp serve --check` は、提供している Skill のうち編集可能な数を報告します。
 
 
 ## 安全性と制限事項
@@ -778,7 +805,7 @@ npx @modelcontextprotocol/inspector --cli skillshare mcp serve --method skills/l
 - 認証情報は環境変数参照を使用します。secret ストア、OAuth セッション同期、
   継続的なヘルスモニタリング、package のインストール、gateway、レジストリ、plugin の同期はありません。
   設定済みのサーバーを起動したり呼び出したりするコマンドは `mcp check --live` だけです。
-  `mcp serve` は Skillshare 自身の読み取り専用の Skill サーバーを実行します。
+  `mcp serve` は Skillshare 自身のSkill サーバーを実行します。`mcp.serve.edit` を設定しない限り読み取り専用です。
 - VS Code Insiders、カスタムプロファイル、リモート workspace、レガシー SSE は、このバージョンでは
   対応していません。
 - VS Code は現在、`headers` 内で `${env:VARIABLE}` を置換しません

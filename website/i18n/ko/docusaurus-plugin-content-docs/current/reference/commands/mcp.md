@@ -806,7 +806,7 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
   --tls-cert cert.pem --tls-key key.pem               # HTTPS for other machines
 ```
 
-`mcp serve`는 skill이 동기화되는 폴더에 접근할 수 없는 Agent(일회용 VM에 있거나 MCP 게이트웨이 뒤에 있는 Agent 등)를 위한 읽기 전용 MCP 서버입니다.
+`mcp serve`는 skill이 동기화되는 폴더에 접근할 수 없는 Agent(일회용 VM에 있거나 MCP 게이트웨이 뒤에 있는 Agent 등)를 위한 MCP 서버이며, [편집을 켜지 않는 한](#edit-skills-over-mcp) 읽기 전용입니다.
 [Skills extension](https://modelcontextprotocol.io/seps/2640-skills-extension)
 (`io.modelcontextprotocol/skills`, SEP-2640)의 `skills/list`, `skills/get`, `resources/read`를 구현합니다.
 각 skill은 하나의 항목이며, URI는 `skill://_team/tools/pdf/SKILL.md`처럼 source 경로를 따릅니다.
@@ -817,7 +817,7 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
 `list_skills`는 이름, 설명, URI를 나열하며(`query`로 좁힐 수 있고, 한 번의 응답에 최대 200개),
 `read_skill`은 skill의 `SKILL.md`나 다른 파일을 읽고, `SKILL.md`를 읽을 때는 그 skill의 다른 파일 목록도 보여 줍니다.
 MCP 도구를 사용하는 Agent라면 도구를 그대로 전달하는 게이트웨이를 거쳐도 이 방식으로 skill을 읽을 수 있습니다.
-Skills extension을 선언한 client는 skill을 네이티브로 로드하며 도구를 제공받지 않으므로 각 skill이 두 번 보이지 않습니다.
+Skills extension을 선언한 client는 skill을 네이티브로 로드하며 이 두 도구를 제공받지 않으므로 각 skill이 두 번 보이지 않습니다.
 두 도구 모두 `readOnlyHint`가 표시되어 있어, 데이터를 바꾸는 도구 앞에서 확인을 요청하는 client나 게이트웨이도 확인 없이 호출합니다.
 도구로 읽은 내용은 Agent에게 일반 텍스트이며, Agent 자체의 skill 승인은 적용되지 않습니다.
 
@@ -839,7 +839,7 @@ Skills extension을 선언한 client는 skill을 네이티브로 로드하며 �
   `Authorization: Bearer <token>`을 보내야 합니다. TLS 프록시를 대신 쓰려면 `127.0.0.1:8765` 같은
   loopback 주소에 바인딩하고 프록시가 TLS를 종료하게 하세요.
 - **안전.** skill manifest에 있는 파일만 읽을 수 있으며, 읽기는 skill 디렉터리 안으로 제한됩니다.
-  링크와 `.git`은 나열되지도 제공되지도 않습니다. 아무것도 실행하거나 쓰지 않습니다.
+  링크와 `.git`은 나열되지도 제공되지도 않습니다. 아무것도 실행하지 않으며, 편집을 켜지 않는 한 아무것도 쓰지 않습니다.
   `--http`에서는 cross-origin 브라우저 요청을 거부합니다.
 
 Agent를 연결하려면 다른 서버와 똑같이 추가하고 sync하세요. Agent를 실행하는 컴퓨터에서:
@@ -875,6 +875,43 @@ skill을 네이티브로 로드하려면 Skills extension이 필요합니다. 20
 ```bash
 npx @modelcontextprotocol/inspector --cli skillshare mcp serve --method skills/list --verify
 ```
+
+### Edit skills over MCP {#edit-skills-over-mcp}
+
+`mcp serve`로 skill을 읽는 Agent는 config에 나열한 skill의 기존 파일도 바꿀 수 있습니다.
+
+```yaml
+mcp:
+  serve:
+    edit:
+      skills: [pdf, _team__*]   # flat names, matched like a target's include
+      preview_ttl: 30m          # how long a preview can be applied; default 30m
+```
+
+그러면 서버는 skill을 네이티브로 로드하는 client에도 도구 두 개를 더 제공합니다.
+
+1. `preview_skill_edit`은 파일의 URI, 그 revision, 새 내용 전체를 받습니다.
+   편집을 켜면 `read_skill`이 파일 끝에 `Revision: sha256:...`을 붙이는데, 이는 `skills/list`의 해당 파일 `digest`와 같은 값이며
+   이 줄은 내용에 포함되지 않습니다. preview는 아무것도 쓰지 않고, 전체 diff, audit 결과, preview id를 반환합니다.
+2. `apply_skill_edit`은 그 preview id만 받아 미리 본 내용 그대로 저장합니다.
+   `destructiveHint`가 표시되어 있으므로, 이런 도구 앞에서 확인을 요청하는 client는 사용자에게 확인합니다.
+
+다음 경우에는 편집이 거부되며 아무것도 쓰이지 않습니다.
+
+- **`not_writable`**: skill이 나열되어 있지 않거나, 추적되는 repo 안에 있거나, upstream에서 설치된 경우.
+  `update`가 그 변경을 덮어쓰기 때문입니다.
+- **`conflict`**: 파일을 읽거나 미리 본 뒤에 파일이 바뀐 경우. 다시 읽으세요.
+- **`invalid`**: 새 내용으로는 skill이 검증에 실패하거나, 파일이 UTF-8 텍스트가 아닌 경우.
+- **`audit_blocked`**: 새 내용으로 skill에 `audit.block_threshold` 이상의 finding이 있거나, audit을 실행할 수 없는 경우.
+  `install`과 마찬가지로 `install --force`로 수락한 finding은 차단하지 않습니다. 각 finding에는 새것인지 기존 것인지
+  표시되며, 줄 번호가 아니라 규칙과 일치한 줄로 대응시키므로 편집이 무엇을 추가하는지 볼 수 있습니다.
+- **`expired`**: preview가 `preview_ttl`보다 오래되었거나, 이미 적용되었거나, 서버가 재시작된 경우.
+
+기존 파일만 바꿀 수 있습니다. 편집으로 파일을 만들거나 삭제하거나 이름을 바꿀 수 없습니다.
+쓰기는 원자적이고, 파일의 mode를 유지하며, source에 대한 다른 쓰기와 같은 링크 검사를 거칩니다.
+저장할 때마다 파일과 그 이전 revision 및 새 revision이 operation log에 `mcp serve`로 기록됩니다.
+target은 다음 `sync`에서 변경 사항을 받습니다.
+`skillshare mcp serve --check`는 제공 중인 skill 중 편집 가능한 개수를 보고합니다.
 
 
 ## Safety and limitations
@@ -914,7 +951,7 @@ npx @modelcontextprotocol/inspector --cli skillshare mcp serve --method skills/l
 - 자격 증명은 환경 참조를 사용합니다. 시크릿 저장소, OAuth 세션 동기화, 지속적인
   상태 모니터링, 패키지 설치, 게이트웨이, 레지스트리, 플러그인 동기화는 없습니다.
   구성된 서버를 시작하거나 호출하는 명령은 `mcp check --live`뿐입니다.
-  `mcp serve`는 Skillshare 자체의 읽기 전용 skills 서버를 실행합니다.
+  `mcp serve`는 Skillshare 자체의 skills 서버를 실행하며, `mcp.serve.edit`을 설정하지 않는 한 읽기 전용입니다.
 - VS Code Insiders, 사용자 지정 프로필, 원격 워크스페이스, 레거시 SSE는 이 버전에서
   지원되지 않습니다.
 - VS Code는 현재 `headers` 안에서 `${env:VARIABLE}`을 치환하지 않으므로

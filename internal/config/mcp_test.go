@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -117,5 +118,48 @@ func TestMCPDirectToolsDefaultSurvivesSaveAndIsValidated(t *testing.T) {
 	}
 	if err := ValidateMCP(cfg.MCP, ""); err == nil {
 		t.Fatal("bad default passed validation")
+	}
+}
+
+func TestMCPServeEditSurvivesSave(t *testing.T) {
+	const input = "mcp:\n  serve:\n    edit:\n      skills: [pdf, drafts/*]\n      preview_ttl: 45m\n"
+	var cfg Config
+	if err := yaml.Unmarshal([]byte(input), &cfg); err != nil {
+		t.Fatal(err)
+	}
+	skills, ttl, err := cfg.MCP.ServeEdit()
+	if err != nil || len(skills) != 2 || ttl != 45*time.Minute {
+		t.Fatalf("ServeEdit = %v, %v, %v", skills, ttl, err)
+	}
+	data, err := yaml.Marshal(cfg.MCP)
+	if err != nil || !strings.Contains(string(data), "preview_ttl: 45m") {
+		t.Errorf("saved mcp section lost serve.edit:\n%s", data)
+	}
+}
+
+func TestMCPServeRejectsAMisspeltKey(t *testing.T) {
+	// A typo must not leave editing silently off.
+	for _, input := range []string{
+		"mcp:\n  serve:\n    edits:\n      skills: [pdf]\n",
+		"mcp:\n  serve:\n    edit:\n      skill: [pdf]\n",
+	} {
+		var cfg Config
+		if err := yaml.Unmarshal([]byte(input), &cfg); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := cfg.MCP.ServeEdit(); err == nil || !strings.Contains(err.Error(), "unknown field") {
+			t.Errorf("%q: ServeEdit error = %v, want the unknown field named", input, err)
+		}
+	}
+}
+
+func TestMCPValidationRejectsAnInvalidPreviewLifetime(t *testing.T) {
+	// The dashboard saves through ValidateMCP; mcp serve would then fail to start.
+	var cfg Config
+	if err := yaml.Unmarshal([]byte("mcp:\n  serve:\n    edit:\n      skills: [pdf]\n      preview_ttl: soon\n"), &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateMCP(cfg.MCP, ""); err == nil || !strings.Contains(err.Error(), "preview_ttl") {
+		t.Errorf("ValidateMCP = %v, want the preview_ttl error", err)
 	}
 }

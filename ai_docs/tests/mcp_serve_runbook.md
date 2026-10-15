@@ -1,8 +1,8 @@
 # CLI E2E Runbook: `skillshare mcp serve`
 
-Validates the read-only SEP-2640 skills server over stdio and Streamable HTTP.
+Validates the SEP-2640 skills server over stdio and Streamable HTTP, and its opt-in skill editing.
 
-**Origin**: issue #428 — Agents that only reach an MCP endpoint need the skills Skillshare manages.
+**Origin**: issue #428 — Agents that only reach an MCP endpoint need the skills Skillshare manages. Editing: issue #540.
 
 ## Scope
 
@@ -15,6 +15,7 @@ Validates the read-only SEP-2640 skills server over stdio and Streamable HTTP.
 - Over HTTP: bearer token required, a newly added skill appears without a restart
 - A non-loopback `--http` address without `SKILLSHARE_MCP_TOKEN` is refused
 - A non-loopback `--http` address with a token but no `--tls-cert`/`--tls-key` is refused
+- With `mcp.serve.edit`, a preview writes nothing, apply saves exactly the preview once, and an unlisted skill is refused
 
 ## Environment
 
@@ -185,7 +186,49 @@ Expected:
 - exit_code: 1
 - --tls-cert
 
+### Step 9: Preview and apply an edit over HTTP
+
+```bash
+set -eu
+cd "$HOME"
+CASE="$HOME/mcp-serve"
+export SKILLSHARE_CONFIG="$CASE/config.yaml"
+printf 'mcp:\n  serve:\n    edit:\n      skills: [pdf]\n' >> "$SKILLSHARE_CONFIG"
+ss mcp serve -g --http 127.0.0.1:47944 2>/dev/null &
+PID=$!
+trap 'kill $PID 2>/dev/null || true' EXIT
+for _ in 1 2 3 4 5 6 7 8 9 10; do curl -s -o /dev/null http://127.0.0.1:47944/ && break; sleep 0.5; done
+M='"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"e2e","version":"1"},"io.modelcontextprotocol/clientCapabilities":{}}'
+call() { # tool, arguments JSON → the result
+  curl -s -X POST http://127.0.0.1:47944/ -H 'Content-Type: application/json' \
+    -H 'Accept: application/json, text/event-stream' -H 'MCP-Protocol-Version: 2026-07-28' \
+    -H 'Mcp-Method: tools/call' -H "Mcp-Name: $1" \
+    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$1\",\"arguments\":$2,$M}}" \
+    | sed -n 's/^data: //p' | jq -c '.result'
+}
+FILE="$CASE/skills/pdf/references/FORMS.md"
+REV=$(call read_skill '{"uri":"skill://pdf/references/FORMS.md"}' | jq -r '.content[0].text' | sed -n 's/^Revision: //p')
+PREVIEW=$(call preview_skill_edit "$(jq -nc --arg r "$REV" '{uri:"skill://pdf/references/FORMS.md",base_revision:$r,content:"forms v2\n"}')")
+UNCHANGED=$(cat "$FILE")
+ID=$(echo "$PREVIEW" | jq -r '.content[0].text' | sed -n 's/^Preview \([0-9a-f]*\) .*/\1/p')
+APPLY=$(call apply_skill_edit "{\"preview_id\":\"$ID\"}")
+AGAIN=$(call apply_skill_edit "{\"preview_id\":\"$ID\"}")
+NOTES_REV=$(call read_skill '{"uri":"skill://notes/SKILL.md"}' | jq -r '.content[0].text' | sed -n 's/^Revision: //p')
+NOTES=$(call preview_skill_edit "$(jq -nc --arg r "$NOTES_REV" '{uri:"skill://notes/SKILL.md",base_revision:$r,content:"x\n"}')")
+jq -nc --arg u "$UNCHANGED" --arg f "$(cat "$FILE")" --argjson p "$PREVIEW" --argjson a "$APPLY" --argjson g "$AGAIN" --argjson n "$NOTES" \
+  '{unchanged: $u, file: $f, diff: ($p.content[0].text | contains("+ forms v2")), applied: ($a.isError | not), again: $g.content[0].text, notes: $n.content[0].text}'
+```
+
+Expected:
+- exit_code: 0
+- jq: .unchanged == "forms"
+- jq: .diff == true
+- jq: .applied == true
+- jq: .file == "forms v2"
+- jq: .again | startswith("expired:")
+- jq: .notes | startswith("not_writable:")
+
 ## Pass Criteria
 
 - All steps marked PASS
-- No `ss mcp serve` process remains after Step 6
+- No `ss mcp serve` process remains after Steps 6 and 9

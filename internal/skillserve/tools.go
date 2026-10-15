@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -46,14 +47,18 @@ func (s *service) addTools(srv *mcp.Server) {
 }
 
 // hideToolsFromNativeClients leaves a client that declares the Skills
-// extension without the tools, so it does not see each skill twice.
+// extension without the reading tools, so it does not see each skill twice.
+// The edit tools stay: the extension has no way to write.
 func hideToolsFromNativeClients(next mcp.MethodHandler) mcp.MethodHandler {
 	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
 		res, err := next(ctx, method, req)
 		if r, ok := req.(*mcp.ListToolsRequest); ok && err == nil {
 			if caps := r.ClientCapabilities(); caps != nil {
 				if _, native := caps.Extensions[extensionID]; native {
-					res.(*mcp.ListToolsResult).Tools = []*mcp.Tool{}
+					list := res.(*mcp.ListToolsResult)
+					list.Tools = slices.DeleteFunc(slices.Clone(list.Tools), func(t *mcp.Tool) bool {
+						return t.Name == "list_skills" || t.Name == "read_skill"
+					})
 				}
 			}
 		}
@@ -107,17 +112,24 @@ func (s *service) readTool(_ context.Context, _ *mcp.CallToolRequest, in readToo
 	if !utf8.Valid(data) {
 		return nil, nil, fmt.Errorf("%s is a binary file", in.URI)
 	}
-	text := string(data)
-	if skill, ok := c.Skill(in.URI); ok && len(skill.Resources) > 1 {
-		var b strings.Builder
-		b.WriteString(text)
-		b.WriteString("\n\n---\nOther files in this skill (read them with read_skill):\n")
+	var b strings.Builder
+	b.WriteString(string(data))
+	skill, ok := c.Skill(in.URI)
+	others := ok && len(skill.Resources) > 1
+	if s.edit != nil || others {
+		b.WriteString("\n\n---\n")
+	}
+	if s.edit != nil {
+		// The revision is what an edit is checked against.
+		fmt.Fprintf(&b, "Revision: %s\n", c.Revision(in.URI))
+	}
+	if others {
+		b.WriteString("Other files in this skill (read them with read_skill):\n")
 		for _, f := range skill.Resources {
 			if f.URI != skill.URI {
 				fmt.Fprintf(&b, "- %s\n", f.URI)
 			}
 		}
-		text = b.String()
 	}
-	return textResult(text), nil, nil
+	return textResult(b.String()), nil, nil
 }

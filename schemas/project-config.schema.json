@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "allOf": [{"not": {"required": ["sources", "mcp"], "properties": {"sources": {"required": ["mcp"]}, "mcp": {"required": ["servers"]}}}}],
   "properties": {
-    "mcp": {"$ref": "mcp.schema.json#/$defs/configuration"},
+    "mcp": {"$ref": "mcp.schema.json#/$defs/projectConfiguration"},
     "hooks": {"$ref": "hooks.schema.json#/$defs/configuration"},
     "sources": {
       "type": "object",
