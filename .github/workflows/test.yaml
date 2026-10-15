@@ -121,6 +121,7 @@ jobs:
             ./internal/install \
             ./internal/instructions \
             ./internal/mcp \
+            ./internal/memory \
             ./internal/projectdir \
             ./internal/resource \
             ./internal/search \
