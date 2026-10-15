@@ -951,7 +951,8 @@ The server then offers two more tools, also to clients that load skills natively
    With editing on, `read_skill` ends a file with `Revision: sha256:...`, the same value
    as the file's `digest` in `skills/list`; that footer is not part of the content. The
    preview writes nothing. It returns the full diff, the audit findings, and a preview id.
-2. `apply_skill_edit` takes only that preview id and saves exactly what was previewed.
+2. `apply_skill_edit` takes only that preview id and saves exactly what was previewed,
+   after checking and auditing the skill again as it will be saved.
    It is marked `destructiveHint`, so a client that asks before such tools asks the user.
 
 An edit is refused, and nothing is written, when:
@@ -972,7 +973,9 @@ An edit is refused, and nothing is written, when:
 Only existing files can change: an edit cannot create, delete, or rename a file. The
 write is atomic, keeps the file's mode, and goes through the same link checks as other
 writes to the source. Each save is recorded in the operation log as `mcp serve`, with
-the file and its old and new revision. Targets receive the change on the next `sync`.
+the file and its old and new revision, and each audit in the audit log (`skillshare log --audit`).
+While the source still has a legacy `registry.yaml`, no skill is editable; any other
+command migrates it. Targets receive the change on the next `sync`.
 `skillshare mcp serve --check` reports how many served skills are editable.
 
 

@@ -398,6 +398,23 @@ func LoadMetadata(dir string) (*MetadataStore, error) {
 	return store, nil
 }
 
+// ReadMetadata loads .metadata.json without migrating or cleaning up legacy
+// files. legacy reports a registry.yaml that a migration would still read,
+// because no .metadata.json exists yet.
+func ReadMetadata(dir string) (store *MetadataStore, legacy bool, err error) {
+	if store, err = loadMetadataFile(dir); err != nil {
+		return nil, false, err
+	}
+	if _, err := os.Stat(filepath.Join(dir, MetadataFileName)); os.IsNotExist(err) {
+		for _, d := range []string{dir, filepath.Dir(dir)} {
+			if _, err := os.Stat(filepath.Join(d, "registry.yaml")); err == nil {
+				legacy = true
+			}
+		}
+	}
+	return store, legacy, nil
+}
+
 // LoadMetadataOrNew loads metadata from dir, returning an empty store on error.
 func LoadMetadataOrNew(dir string) *MetadataStore {
 	store, _ := LoadMetadata(dir)

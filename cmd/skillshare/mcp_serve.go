@@ -164,8 +164,8 @@ func mcpServeEdit(m *config.MCPConfig, threshold, cfgPath string) (*skillserve.E
 	}
 	return &skillserve.EditOptions{
 		Skills: skills, PreviewTTL: ttl, Threshold: threshold,
-		Log: func(entry oplog.Entry) {
-			oplog.WriteWithLimit(cfgPath, oplog.OpsFile, entry, logMaxEntries()) //nolint:errcheck
+		Log: func(file string, entry oplog.Entry) {
+			oplog.WriteWithLimit(cfgPath, file, entry, logMaxEntries()) //nolint:errcheck
 		},
 	}, nil
 }

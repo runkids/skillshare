@@ -82,7 +82,8 @@ skillshare mcp serve --check [--target NAME]         # List skipped and editable
   tracked repo, installed or nested in an installed skill), `conflict`, `invalid`,
   `audit_blocked` (any finding at or above `audit.block_threshold` not accepted with
   `install --force`; findings are marked new or existing), `expired`. No create, delete
-  or rename. Saves are logged as `mcp serve`.
+  or rename. Apply re-checks the whole skill. Saves are logged as `mcp serve`, audits in
+  `audit.log`. A legacy `registry.yaml` keeps every skill read-only until migrated.
 - Noninteractive `import` without a name only lists candidates. Use `--replace` only
   when replacing is intended.
 - An `update` with the message `same settings, laid out one field per line` is a

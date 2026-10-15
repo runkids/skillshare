@@ -847,7 +847,7 @@ mcp:
 1. `preview_skill_edit` 接收檔案的 URI、它的 revision，以及完整的新內容。
    開啟編輯後，`read_skill` 會在檔案結尾加上 `Revision: sha256:...`，與 `skills/list` 中該檔案的
    `digest` 相同；這一行不屬於內容。預覽不會寫入任何東西，只回傳完整的 diff、稽核結果與一個 preview id。
-2. `apply_skill_edit` 只接收該 preview id，並原樣儲存預覽過的內容。
+2. `apply_skill_edit` 只接收該 preview id，並原樣儲存預覽過的內容，儲存前會依最終儲存的狀態再次檢查並稽核該 skill。
    它標記了 `destructiveHint`，所以會在這類工具前要求確認的 client 會詢問使用者。
 
 發生以下情況時，編輯會被拒絕，且不會寫入任何東西：
@@ -863,7 +863,8 @@ mcp:
 
 只能修改既有檔案：編輯不能建立、刪除或重新命名檔案。寫入是原子的，保留檔案的權限模式，
 並與對 source 的其他寫入經過相同的連結檢查。每次儲存都會記錄到操作日誌，
-類型為 `mcp serve`，並附上該檔案及其舊的與新的 revision。target 會在下一次 `sync` 時收到變更。
+類型為 `mcp serve`，並附上該檔案及其舊的與新的 revision，每次稽核則記錄在稽核日誌中（`skillshare log --audit`）。
+只要 source 中仍有舊版 `registry.yaml`，就沒有任何 skill 可編輯；執行任何其他指令都會遷移它。target 會在下一次 `sync` 時收到變更。
 `skillshare mcp serve --check` 會回報所提供的 skills 中有多少可編輯。
 
 ## Safety and limitations

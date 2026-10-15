@@ -176,11 +176,15 @@ func (c *MCPConfig) ServeEdit() ([]string, time.Duration, error) {
 	if c.err != nil {
 		return nil, 0, fmt.Errorf("mcp: %w", c.err)
 	}
-	if c.Serve == nil || c.Serve.Edit == nil || len(c.Serve.Edit.Skills) == 0 {
+	if c.Serve == nil || c.Serve.Edit == nil {
 		return nil, 0, nil
 	}
 	e := c.Serve.Edit
 	for _, p := range e.Skills {
+		// A blank pattern would be dropped, and no patterns match every skill.
+		if strings.TrimSpace(p) == "" {
+			return nil, 0, fmt.Errorf("mcp.serve.edit.skills: a pattern is empty")
+		}
 		// The same check target include patterns get.
 		if _, err := filepath.Match(strings.TrimSpace(p), ""); err != nil {
 			return nil, 0, fmt.Errorf("mcp.serve.edit.skills: %q: %w", p, err)
@@ -193,6 +197,9 @@ func (c *MCPConfig) ServeEdit() ([]string, time.Duration, error) {
 			return nil, 0, fmt.Errorf("mcp.serve.edit.preview_ttl must be a positive duration such as 30m, not %q", e.PreviewTTL)
 		}
 		ttl = d
+	}
+	if len(e.Skills) == 0 {
+		return nil, 0, nil
 	}
 	return e.Skills, ttl, nil
 }

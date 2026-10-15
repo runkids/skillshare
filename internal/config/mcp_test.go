@@ -163,3 +163,19 @@ func TestMCPValidationRejectsAnInvalidPreviewLifetime(t *testing.T) {
 		t.Errorf("ValidateMCP = %v, want the preview_ttl error", err)
 	}
 }
+
+func TestMCPServeEditRejectsABlankPatternAndABadLifetimeAlone(t *testing.T) {
+	// A blank pattern would otherwise match every skill.
+	for _, input := range []string{
+		"mcp:\n  serve:\n    edit:\n      skills: [' ']\n",
+		"mcp:\n  serve:\n    edit:\n      preview_ttl: soon\n",
+	} {
+		var cfg Config
+		if err := yaml.Unmarshal([]byte(input), &cfg); err != nil {
+			t.Fatal(err)
+		}
+		if err := ValidateMCP(cfg.MCP, ""); err == nil {
+			t.Errorf("%q: ValidateMCP accepted it", input)
+		}
+	}
+}

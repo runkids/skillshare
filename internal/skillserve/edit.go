@@ -37,8 +37,9 @@ type EditOptions struct {
 	Threshold string
 	// ProjectRoot is set in project mode, for the project's audit rules.
 	ProjectRoot string
-	// Log records each save; nil records nothing.
-	Log func(oplog.Entry)
+	// Log records each save to oplog.OpsFile and each audit to
+	// oplog.AuditFile; nil records nothing.
+	Log func(file string, e oplog.Entry)
 }
 
 const notWritten = "Nothing was written."
@@ -150,6 +151,10 @@ func (s *service) applyTool(_ context.Context, _ *mcp.CallToolRequest, in applyI
 	if rev := skillpkg.Digest(current); rev != p.base {
 		return nil, nil, fmt.Errorf("conflict: %s changed after the preview (now %s); read it again and preview again. %s", p.uri, rev, notWritten)
 	}
+	// Other files may have changed since the preview: check the skill as it will be saved.
+	if _, err := s.check(p.skill, p.rel, p.content); err != nil {
+		return nil, nil, err
+	}
 	src, err := sourcefs.Open(s.b.Source, s.b.Walk.Follow)
 	if err != nil {
 		return nil, nil, err
@@ -174,7 +179,7 @@ func (s *service) applyTool(_ context.Context, _ *mcp.CallToolRequest, in applyI
 	if s.edit.Log != nil {
 		e := oplog.NewEntry("mcp serve", "ok", time.Since(start))
 		e.Args = map[string]any{"action": "edit", "skill": p.skill.RelPath, "file": p.rel, "from": p.base, "to": rev}
-		s.edit.Log(e)
+		s.edit.Log(oplog.OpsFile, e)
 	}
 	return textResult(fmt.Sprintf("Saved %s at revision %s (was %s). Read it back with read_skill to verify. Targets get the change on the next sync.", p.uri, rev, p.base)), nil, nil
 }
@@ -191,32 +196,47 @@ func owner(c *Catalog, uri string) (ssync.DiscoveredSkill, string, error) {
 }
 
 func (s *service) writable(skill ssync.DiscoveredSkill) error {
-	store, err := install.LoadMetadataWithMigration(s.b.Source, "")
+	store, err := readMetadata(s.b.Source)
 	if err != nil {
 		return err
 	}
-	return writable(s.edit, store, skill)
+	return writable(s.edit, store, s.b.Source, skill)
 }
 
 // Editable returns the source paths of the served skills e lets clients edit.
 func (b *Builder) Editable(c *Catalog, e *EditOptions) ([]string, error) {
-	store, err := install.LoadMetadataWithMigration(b.Source, "")
+	store, err := readMetadata(b.Source)
+	if errors.Is(err, errLegacyMetadata) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
 	var paths []string
 	for _, skill := range c.Skills {
-		if writable(e, store, skill.src) == nil {
+		if writable(e, store, b.Source, skill.src) == nil {
 			paths = append(paths, skill.src.RelPath)
 		}
 	}
 	return paths, nil
 }
 
+var errLegacyMetadata = fmt.Errorf("not_writable: the source still has a legacy registry.yaml, so installed skills cannot be told apart; run any skillshare command, such as skillshare list, to migrate it. %s", notWritten)
+
+// readMetadata reads the install records without migrating them, since a
+// preview promises to write nothing.
+func readMetadata(source string) (*install.MetadataStore, error) {
+	store, legacy, err := install.ReadMetadata(source)
+	if err == nil && legacy {
+		err = errLegacyMetadata
+	}
+	return store, err
+}
+
 // writable refuses skills outside mcp.serve.edit.skills and skills that an
 // update could overwrite: those in a tracked repo, and those installed from
 // upstream or nested inside one.
-func writable(e *EditOptions, store *install.MetadataStore, skill ssync.DiscoveredSkill) error {
+func writable(e *EditOptions, store *install.MetadataStore, source string, skill ssync.DiscoveredSkill) error {
 	if ok, err := ssync.ShouldSyncFlatName(skill.FlatName, e.Skills, nil); err != nil || !ok {
 		return fmt.Errorf("not_writable: %s is not listed in mcp.serve.edit.skills. %s", skill.RelPath, notWritten)
 	}
@@ -224,29 +244,40 @@ func writable(e *EditOptions, store *install.MetadataStore, skill ssync.Discover
 		return fmt.Errorf("not_writable: %s is inside the tracked repo %s, which update would overwrite. %s", skill.RelPath, skill.RepoRelPath, notWritten)
 	}
 	for p := skill.RelPath; p != "." && p != "/"; p = path.Dir(p) {
-		if installed(store, p) {
+		if installed(store, source, p) {
 			return fmt.Errorf("not_writable: %s was installed from upstream, and update would overwrite it. %s", p, notWritten)
 		}
 	}
 	return nil
 }
 
-// installed reports whether the store records the skill at rel. Unlike
-// GetByPath it skips the basename-only fallback, which would mistake a local
-// team/pdf for an installed top-level pdf; tracked repos are refused before.
-func installed(store *install.MetadataStore, rel string) bool {
+// installed reports whether the store, or a legacy sidecar file, records the
+// skill at rel. Unlike GetByPath it skips the basename-only fallback, which
+// would mistake a local team/pdf for an installed top-level pdf; tracked
+// repos are refused before.
+func installed(store *install.MetadataStore, source, rel string) bool {
 	if store.Entries[rel] != nil {
 		return true
 	}
-	e := store.Entries[path.Base(rel)]
-	return e != nil && path.Dir(rel) != "." && e.Group == path.Dir(rel)
+	if e := store.Entries[path.Base(rel)]; e != nil && path.Dir(rel) != "." && e.Group == path.Dir(rel) {
+		return true
+	}
+	_, err := os.Stat(filepath.Join(source, filepath.FromSlash(rel), install.MetaFileName))
+	return err == nil
 }
 
 // check validates the skill with the new content in a copy and audits the
 // copy the way install does: a finding at or above the threshold refuses the
 // edit unless it was accepted with --force. Findings are marked new or
 // existing against the skill as it is.
-func (s *service) check(skill ssync.DiscoveredSkill, rel string, content []byte) ([]markedFinding, error) {
+func (s *service) check(skill ssync.DiscoveredSkill, rel string, content []byte) (marked []markedFinding, err error) {
+	start := time.Now()
+	var after *audit.Result
+	defer func() {
+		if after != nil || errors.Is(err, errAuditFailed) {
+			s.logAudit(skill, rel, after, err, time.Since(start))
+		}
+	}()
 	pkg, err := skillpkg.Load(skill.SourcePath)
 	if err != nil {
 		return nil, fmt.Errorf("invalid: %s is not a valid skill now: %v. %s", skill.RelPath, err, notWritten)
@@ -276,12 +307,13 @@ func (s *service) check(skill ssync.DiscoveredSkill, rel string, content []byte)
 	if err != nil {
 		return nil, err
 	}
-	after, err := s.scan(newDir, nil)
+	scanned, err := s.scan(newDir, nil)
 	if err != nil {
 		return nil, err
 	}
+	after = scanned
 	install.ApplyAcceptedFindings(s.b.Source, skill.SourcePath, after)
-	marked := markNew(before.Findings, after.Findings)
+	marked = markNew(before.Findings, after.Findings)
 	if after.HasSeverityAtOrAbove(s.edit.Threshold) {
 		var blocking []markedFinding
 		for _, f := range marked {
@@ -316,9 +348,35 @@ func (s *service) scan(dir string, follow *sourcewalk.Follow) (*audit.Result, er
 		res, err = audit.ScanSkillWithFollow(dir, follow)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("audit_blocked: the audit could not run: %v. %s", err, notWritten)
+		return nil, fmt.Errorf("%w: %v. %s", errAuditFailed, err, notWritten)
 	}
 	return res, nil
+}
+
+var errAuditFailed = errors.New("audit_blocked: the audit could not run")
+
+// logAudit records an edit's audit in audit.log, like install's audit gate.
+func (s *service) logAudit(skill ssync.DiscoveredSkill, rel string, res *audit.Result, err error, d time.Duration) {
+	if s.edit.Log == nil {
+		return
+	}
+	status := "ok"
+	if err != nil {
+		status = "blocked"
+		if errors.Is(err, errAuditFailed) {
+			status = "error"
+		}
+	}
+	e := oplog.NewEntry("audit", status, d)
+	e.Args = map[string]any{"mode": "mcp serve edit", "name": skill.RelPath, "file": rel, "threshold": s.edit.Threshold}
+	if res != nil {
+		e.Args["max_severity"] = res.MaxSeverity()
+		e.Args["findings"] = len(res.Findings)
+	}
+	if err != nil {
+		e.Message, _, _ = strings.Cut(err.Error(), "\n")
+	}
+	s.edit.Log(oplog.AuditFile, e)
 }
 
 type markedFinding struct {

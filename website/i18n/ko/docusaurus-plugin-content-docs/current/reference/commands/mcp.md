@@ -893,7 +893,7 @@ mcp:
 1. `preview_skill_edit`은 파일의 URI, 그 revision, 새 내용 전체를 받습니다.
    편집을 켜면 `read_skill`이 파일 끝에 `Revision: sha256:...`을 붙이는데, 이는 `skills/list`의 해당 파일 `digest`와 같은 값이며
    이 줄은 내용에 포함되지 않습니다. preview는 아무것도 쓰지 않고, 전체 diff, audit 결과, preview id를 반환합니다.
-2. `apply_skill_edit`은 그 preview id만 받아 미리 본 내용 그대로 저장합니다.
+2. `apply_skill_edit`은 그 preview id만 받아 미리 본 내용 그대로, 저장될 상태로 skill을 다시 검사하고 audit한 뒤 저장합니다.
    `destructiveHint`가 표시되어 있으므로, 이런 도구 앞에서 확인을 요청하는 client는 사용자에게 확인합니다.
 
 다음 경우에는 편집이 거부되며 아무것도 쓰이지 않습니다.
@@ -909,7 +909,8 @@ mcp:
 
 기존 파일만 바꿀 수 있습니다. 편집으로 파일을 만들거나 삭제하거나 이름을 바꿀 수 없습니다.
 쓰기는 원자적이고, 파일의 mode를 유지하며, source에 대한 다른 쓰기와 같은 링크 검사를 거칩니다.
-저장할 때마다 파일과 그 이전 revision 및 새 revision이 operation log에 `mcp serve`로 기록됩니다.
+저장할 때마다 파일과 그 이전 revision 및 새 revision이 operation log에 `mcp serve`로 기록되고, 각 audit은 audit log(`skillshare log --audit`)에 기록됩니다.
+source에 레거시 `registry.yaml`이 남아 있는 동안에는 어떤 skill도 편집할 수 없습니다. 다른 명령을 실행하면 마이그레이션됩니다.
 target은 다음 `sync`에서 변경 사항을 받습니다.
 `skillshare mcp serve --check`는 제공 중인 skill 중 편집 가능한 개수를 보고합니다.
 
