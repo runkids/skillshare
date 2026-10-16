@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **최신 버전**: v0.25.11 — `mcp check`는 로컬 MCP 서버가 정확한 버전 없이 패키지나 이미지를 실행하면 경고하고, `mcp check --live`는 검토한 뒤 서버의 도구 설명이 바뀌면 경고합니다. `skillshare list` 상세 패널에는 이제 skill이나 agent가 동기화된 모든 Agent가 표시됩니다. [변경 기록](https://skillshare.runkids.cc/changelog)을 확인하세요.
+> **최신 버전**: v0.25.13 — `mcp serve`에서 `mcp.serve.edit.skills`에 지정한 skill을 편집할 수 있습니다. 클라이언트는 전체 diff와 감사 결과를 미리 보고, 그 미리보기 그대로 저장하며, 그 사이 파일이 바뀌었으면 거부됩니다. `list_skills`와 `read_skill`은 읽기 전용으로 표시되어, 도구 호출마다 확인하는 클라이언트도 더 이상 묻지 않습니다. [변경 기록](https://skillshare.runkids.cc/changelog)을 확인하세요.
 
 ## skillshare를 쓰는 이유
 

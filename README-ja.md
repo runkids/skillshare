@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新バージョン**：v0.25.11 — `mcp check` は、ローカルの MCP サーバーが正確なバージョンを指定せずにパッケージやイメージを起動すると警告し、`mcp check --live` は確認後にサーバーのツール説明が変わると警告します。`skillshare list` の詳細パネルには、skill や agent の同期先の Agent がすべて表示されるようになりました。 [Releases](https://github.com/runkids/skillshare/releases) と[変更履歴](https://skillshare.runkids.cc/changelog)をご覧ください。
+> **最新バージョン**：v0.25.13 — `mcp serve` で、`mcp.serve.edit.skills` に指定した skill を編集できるようになりました。クライアントは完全な diff と監査結果をプレビューし、そのプレビューどおりに保存します。その間にファイルが変更されていれば拒否されます。`list_skills` と `read_skill` は読み取り専用としてマークされ、ツール呼び出しのたびに確認するクライアントでも確認されなくなりました。 [Releases](https://github.com/runkids/skillshare/releases) と[変更履歴](https://skillshare.runkids.cc/changelog)をご覧ください。
 
 ## skillshare を使う理由
 

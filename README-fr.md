@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Dernière version** : v0.25.11 — `mcp check` avertit quand un serveur MCP local lance un paquet ou une image sans version exacte, et `mcp check --live` avertit quand les descriptions d'outils d'un serveur changent après votre vérification. Le panneau de détails de `skillshare list` affiche désormais chaque Agent vers lequel un skill ou un agent est synchronisé. [Toutes les versions →](https://github.com/runkids/skillshare/releases)
+> **Dernière version** : v0.25.13 — `mcp serve` peut maintenant modifier les skills listés dans `mcp.serve.edit.skills` : le client prévisualise le diff complet et le résultat de l'audit, puis enregistre exactement cet aperçu, et un fichier modifié entre-temps est refusé. Les outils `list_skills` et `read_skill` sont désormais marqués en lecture seule, donc les clients qui demandent avant chaque appel d'outil ne le font plus pour eux. [Toutes les versions →](https://github.com/runkids/skillshare/releases)
 
 ## Pourquoi skillshare
 

@@ -29,6 +29,15 @@ skillshare is a Go CLI with a React dashboard and a Docusaurus documentation sit
 - Never change permissions, delete persistent data, rewrite Git history, commit, tag, push, or release without explicit authorization.
 - Resolve and confirm the exact target before a destructive action. Never recursively delete a workspace root, home directory, or unresolved broad path.
 
+## Code Review Rules
+
+These apply to automated pull request review, including Codex.
+
+- Report a finding only when a user can reach it through a supported command, dashboard action, or configuration skillshare writes. Hand-edited metadata, input no real file uses, and combinations of unrelated manual edits are out of scope.
+- Report a class of bug once and list every place in the diff where it occurs.
+- On a re-review, review the commits since the last reviewed commit and the regressions they cause. Do not reopen scope that earlier rounds settled.
+- Skip style, naming, and cleanup-only findings; CI covers formatting and lint.
+
 ## Load Context Per Task
 
 ```sh

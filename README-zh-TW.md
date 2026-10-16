@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.25.11 — `mcp check` 會在本機 MCP server 啟動的套件或映像檔沒有鎖定確切版本時發出警告，`mcp check --live` 會在你審查過後 server 的工具說明有變動時發出警告。`skillshare list` 的詳細面板現在會列出 skill 或 agent 同步到的每個 Agent。 [Releases](https://github.com/runkids/skillshare/releases) 和[更新紀錄](https://skillshare.runkids.cc/changelog)。
+> **最新版本**：v0.25.13 — `mcp serve` 現在可以編輯你在 `mcp.serve.edit.skills` 列出的 skill：client 先預覽完整 diff 和 audit 結果，再儲存那份預覽；檔案在這之間被改過就會拒絕。`list_skills` 和 `read_skill` 現在標記為唯讀，每次呼叫前都會詢問的 client 不再為它們跳出確認。 [Releases](https://github.com/runkids/skillshare/releases) 和[更新紀錄](https://skillshare.runkids.cc/changelog)。
 
 ## 為什麼用 skillshare
 

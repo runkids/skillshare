@@ -20,9 +20,9 @@ Codex reviews a pull request when it is opened, and again for each `@codex revie
 Handle each finding as a bug report:
 
 1. Read the cited code and confirm the scenario. A finding is a claim, not a fact.
-2. If it holds, write a failing test that reproduces it, then fix it. Run `make check` in the devcontainer.
+2. If it holds, name its class of bug (for example, one format or outcome not handled at every consumer), find every instance of that class in the change, and fix them all in the same commit. Write a failing test that reproduces it first. Run `make check` in the devcontainer.
 3. Commit the fixes as a `fix(...)` commit whose body explains each problem, and push to the pull request branch. Never amend or force-push commits already on the branch.
-4. Reply in each thread in English: the fix commit, what changed, and the covering test. For a finding that does not hold, reply with the evidence instead. Do not resolve threads; the maintainer does.
+4. Reply in each thread in English: the fix commit, what changed, every other instance of the class that was fixed, and the covering test. For a finding that does not hold, reply with the evidence instead. Do not resolve threads; the maintainer does.
 5. Comment `@codex review` on the pull request to request a review of the new commit.
 
 After opening the pull request, and after each `@codex review` comment, follow up until Codex answers. Poll in the background (for example every 30 seconds, up to 30 minutes). A 👀 reaction on the comment, or **Running** in the summary, means the review is still in progress. Codex has answered when any of these appears:
@@ -49,7 +49,7 @@ Not every finding deserves code. Fix a finding when a user can hit it through a 
 
 Stop requesting reviews, and report to the user, when any of these holds:
 
-- Three rounds are done. From then on, answer new findings in the thread and in "Not covered" instead of changing code, unless a finding shows data loss or a broken supported workflow.
+- Three rounds are done. Tell the user why findings keep arriving (for example, an unwritten state matrix, or logic repeated at each consumer instead of in one shared place) and propose a redesign when the approach is the cause. From then on, answer new findings in the thread and in "Not covered" instead of changing code, unless a finding shows data loss or a broken supported workflow.
 - A round produced no finding that changes behaviour.
 - Fixing a finding would widen the change beyond the pull request's scope. Say so in the thread and leave it for a follow-up issue.
 
