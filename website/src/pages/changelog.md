@@ -11,14 +11,23 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ## [0.25.13] - 2026-10-16
 
-
-* **release:** request version 0.25.13 ([e4d3fdd](https://github.com/runkids/skillshare/commit/e4d3fdd8a892c55335e1a2957d05d30943adde66))
-
-
 ### New Features
 
-* **mcp:** let mcp serve clients edit listed skills ([#577](https://github.com/runkids/skillshare/issues/577)) ([4a5daca](https://github.com/runkids/skillshare/commit/4a5dacac6bcdee653a5a115b0bf2e53c4dbb4871))
-* **mcp:** mark the mcp serve skill tools read-only ([fdca87a](https://github.com/runkids/skillshare/commit/fdca87a1ffd46394435210c73550f0495226966f))
+#### MCP
+
+- **Edit skills over `mcp serve`** — an Agent that reaches your skills only through `mcp serve` could read them but had to hand every change back to you. Skills you list in `mcp.serve.edit.skills` can now be changed one existing file at a time. `preview_skill_edit` writes nothing and returns the full diff, the audit findings and a preview id; `apply_skill_edit` saves exactly that preview, once. Editing is off until you list skills. Refs: #540.
+  ```yaml
+  mcp:
+    serve:
+      edit:
+        skills: [pdf, _team__*]   # matched like a target's include
+        preview_ttl: 30m          # default
+  ```
+  - Every save is tied to the revision the Agent read, so a file changed in the meantime is refused as a conflict instead of being overwritten.
+  - Skills that `update` would overwrite stay read-only: skills in a tracked repo and skills installed from upstream.
+  - The skill is validated and audited as it will be saved. As with `install`, a finding at or above `audit.block_threshold` refuses the edit unless you accepted it with `install --force`, and each finding is marked new or existing.
+  - An edit cannot create, delete or rename files. Each save goes to the operations log and each audit to `skillshare log --audit`; targets get the change on the next `sync`. `skillshare mcp serve --check` reports how many served skills are editable.
+- **`mcp serve` skill tools no longer ask for approval** — `list_skills` and `read_skill` are now marked `readOnlyHint`, so a client or gateway that asks before tools that change data calls them without asking. Refs: #540.
 
 ## [0.25.12] - 2026-10-14
 
