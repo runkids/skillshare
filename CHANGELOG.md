@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.25.13](https://github.com/runkids/skillshare/compare/v0.25.12...v0.25.13) (2026-10-16)
+
+
+* **release:** request version 0.25.13 ([e4d3fdd](https://github.com/runkids/skillshare/commit/e4d3fdd8a892c55335e1a2957d05d30943adde66))
+
+
+### New Features
+
+* **mcp:** let mcp serve clients edit listed skills ([#577](https://github.com/runkids/skillshare/issues/577)) ([4a5daca](https://github.com/runkids/skillshare/commit/4a5dacac6bcdee653a5a115b0bf2e53c4dbb4871))
+* **mcp:** mark the mcp serve skill tools read-only ([fdca87a](https://github.com/runkids/skillshare/commit/fdca87a1ffd46394435210c73550f0495226966f))
+
 ## [0.25.12] - 2026-10-14
 
 ### Bug Fixes
