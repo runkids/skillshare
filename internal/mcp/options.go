@@ -3,6 +3,7 @@ package mcp
 import (
 	"fmt"
 	"slices"
+	"strings"
 )
 
 var portableFields = []string{"command", "args", "env", "url", "headers", "type", "transport"}
@@ -29,8 +30,11 @@ func (s Server) validateOptions(name string) error {
 			if !optionValue(s.Options[agent][key], false) {
 				return fmt.Errorf("MCP %s: options.%s.%s must be a string, number, boolean, list of those, or a mapping of them", name, agent, key)
 			}
-			if field := literalSecret(key, s.Options[agent][key]); field != "" {
-				return fmt.Errorf("MCP %s: options.%s.%s holds a credential as plain text; reference an environment variable in the Agent's own syntax, such as ${VAR} or {env:VAR}", name, agent, field)
+			if field := literalSecret(agent, key, s.Options[agent][key]); field != "" {
+				if prefix := envRefPrefix(agent); prefix != "" {
+					return fmt.Errorf("MCP %s: options.%s.%s holds a credential as plain text; make the whole value an environment reference, %sVAR}", name, agent, field, prefix)
+				}
+				return fmt.Errorf("MCP %s: options.%s.%s holds a credential, and %s cannot read an environment reference there; keep it out of options", name, agent, field, agent)
 			}
 		}
 	}
@@ -62,27 +66,47 @@ func optionValue(value any, inList bool) bool {
 }
 
 // literalSecret names the first field holding a credential as plain text, as import judges
-// one. The Agent's file may be committed, so only an environment reference may stand there.
-func literalSecret(key string, value any) string {
+// one. The Agent's file may be committed, so only a whole environment reference in the
+// Agent's own syntax may stand there; text around one would still be written out.
+func literalSecret(agent, key string, value any) string {
 	switch v := value.(type) {
 	case string:
-		if v != "" && (sensitiveKey.MatchString(key) || hasURLPassword(v)) && !hasInterpolation(v) {
+		prefix := envRefPrefix(agent)
+		ref := prefix != "" && strings.HasPrefix(v, prefix) && strings.HasSuffix(v, "}") && envName.MatchString(v[len(prefix):len(v)-1])
+		if v != "" && (sensitiveKey.MatchString(key) || hasURLPassword(v)) && !ref {
 			return key
 		}
 	case []any:
 		for _, item := range v {
-			if field := literalSecret(key, item); field != "" {
+			if field := literalSecret(agent, key, item); field != "" {
 				return field
 			}
 		}
 	case map[string]any:
 		for _, name := range sortedKeys(v) {
-			if field := literalSecret(name, v[name]); field != "" {
+			if field := literalSecret(agent, name, v[name]); field != "" {
 				return key + "." + field
 			}
 		}
 	}
 	return ""
+}
+
+// hasReference reports an interpolation anywhere in an Agent's options.
+func hasReference(value any) bool {
+	switch v := value.(type) {
+	case string:
+		return hasInterpolation(v)
+	case []any:
+		return slices.ContainsFunc(v, hasReference)
+	case map[string]any:
+		for _, item := range v {
+			if hasReference(item) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // withOptions adds the Agent's options to a rendered entry. A field Render already wrote,

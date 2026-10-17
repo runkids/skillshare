@@ -163,8 +163,10 @@ servers:
 - Pi's fields go in [`piOptions`](#pi-options); `options.pi` is refused.
 - A credential, judged by its field name (token, secret, password, API key, authorization,
   credential) or a password in a URL, must be an environment reference in the Agent's own
-  syntax, such as `${VAR}` for Claude Code or `{env:VAR}` for OpenCode. Plain text is
-  refused, because the Agent's file may be committed.
+  syntax that makes up the whole value, such as `${VAR}` for Claude Code or `{env:VAR}`
+  for OpenCode. Plain text, or text around a reference, is refused, because the Agent's
+  file may be committed. Codex and Antigravity read no references there, so their options
+  cannot hold a credential.
 - Options for a client the server does not reach are kept and not written.
 - Sync writes the fields again when it recreates an entry, for example after a rename.
   When the source drops an option, the next sync removes the field it wrote, unless

@@ -159,7 +159,8 @@ servers:
 - Pi 的字段放在 [`piOptions`](#pi-options) 中；`options.pi` 会被拒绝。
 - 凭据（字段名含 token、secret、password、API key、authorization、credential，或 URL 中带密码）
   必须使用该 Agent 自身语法的环境变量引用，例如 Claude Code 用 `${VAR}`、OpenCode 用
-  `{env:VAR}`。Agent 的文件可能会被提交，因此明文会被拒绝。
+  `{env:VAR}`，且整个值必须就是引用。Agent 的文件可能会被提交，因此明文或引用前后带有文字的值会被拒绝。
+  Codex 和 Antigravity 不会读取那里的引用，所以它们的 options 不能放凭据。
 - 该 server 触达不到的 client 的 options 会被保留，但不会写入。
 - 当 sync 重新创建条目时，例如重命名之后，会再次写入这些字段。
   当 source 删掉某个 option 时，下一次 sync 会移除它写入的字段，除非 Agent 在此之后改过它；那属于需要 import 或 replace 的冲突。

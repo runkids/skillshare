@@ -45,6 +45,23 @@ func renderDisabled(target string, s Server) (map[string]any, error) {
 	return nil, fmt.Errorf("%s cannot turn off a global server from a project file; disabled supports claude, opencode, kilocode, pi and omp", target)
 }
 
+// envRefPrefix is how the Agent's file names an environment variable, closed by "}", or ""
+// for an Agent whose file cannot: Codex forwards variables by name instead.
+func envRefPrefix(target string) string {
+	switch {
+	case openCodeFormat(target):
+		return "{env:"
+	case target == "claude" || target == "grok":
+		return "${"
+	case target == "codex" || target == "antigravity":
+		return ""
+	}
+	if format, ok := clientFormats[target]; ok {
+		return format.refPrefix
+	}
+	return "${env:"
+}
+
 // Render converts a portable definition to a native entry without reading env.
 func Render(target string, s Server) (map[string]any, error) {
 	out, err := renderEntry(target, s)
@@ -87,13 +104,7 @@ func renderEntry(target string, s Server) (map[string]any, error) {
 		if v.FromEnv == "" {
 			return v.Literal
 		}
-		if openCodeFormat(target) {
-			return "{env:" + v.FromEnv + "}"
-		}
-		if target == "claude" || target == "grok" {
-			return "${" + v.FromEnv + "}"
-		}
-		return "${env:" + v.FromEnv + "}"
+		return envRefPrefix(target) + v.FromEnv + "}"
 	}
 	if s.Command != "" {
 		out["command"] = s.Command
