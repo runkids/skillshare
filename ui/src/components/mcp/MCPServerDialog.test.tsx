@@ -145,6 +145,15 @@ describe('MCP server dialog', () => {
     await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server })));
   });
 
+  // Refs: #578. The dialog has no editor for options, so saving must not drop them.
+  it('keeps other Agents\' options when editing', async () => {
+    const user = userEvent.setup();
+    const server = { url: 'https://docs.example/mcp', targets: ['codex'], options: { codex: { default_tools_approval_mode: 'approve' } } };
+    renderDialog({ initial: { name: 'docs', server } });
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server })));
+  });
+
   // Refs: #289. Unticking Pi must not drop its settings from the source.
   it('keeps Pi settings when Pi is unticked', async () => {
     const user = userEvent.setup();

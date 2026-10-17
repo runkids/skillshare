@@ -84,6 +84,9 @@ type Server struct {
 	// PiOptions are Pi built-in fields Skillshare has no setting for, such as timeout.
 	// They are written into Pi's entry as given.
 	PiOptions PiOptions `yaml:"piOptions,omitempty" json:"piOptions,omitempty"`
+	// Options are other Agents' native per-server fields Skillshare has no setting for, keyed
+	// by Agent, such as Codex's default_tools_approval_mode. They are written as given.
+	Options map[string]map[string]any `yaml:"options,omitempty" json:"options,omitempty"`
 	// Disabled is the whole entry: it turns off, for one project, a server that the
 	// Agent's global config defines. Unselecting an Agent already covers a server
 	// Skillshare defines, so a disabled server carries no command or url.
@@ -346,6 +349,9 @@ func (s Server) Validate(name string) error {
 		return fmt.Errorf("invalid MCP name %q: use letters, digits, dots, underscores or hyphens", name)
 	}
 	if err := s.validatePiOptions(name); err != nil {
+		return err
+	}
+	if err := s.validateOptions(name); err != nil {
 		return err
 	}
 	if !s.Tools.IsZero() {

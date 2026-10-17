@@ -191,12 +191,12 @@ func importPiOption(name, key string, value any, warnings *[]string) any {
 
 func piFieldHash(value any) string { data, _ := json.Marshal(value); return digest(data) }
 
-func piOwnedFields(entry map[string]any) map[string]string {
+func ownedFields(target string, entry map[string]any) map[string]string {
 	fields := map[string]string{}
 	for key, value := range entry {
 		managed := false
-		for _, field := range additionalManagedFields("pi") {
-			managed = managed || key == field && key != "enabled"
+		for _, field := range additionalManagedFields(target) {
+			managed = managed || key == field && !(target == "pi" && key == "enabled")
 		}
 		if !managed {
 			fields[key] = piFieldHash(value)

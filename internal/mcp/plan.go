@@ -89,7 +89,9 @@ type ownership struct {
 	Name   string `json:"name"`
 	Hash   string `json:"hash"`
 	// A nil Root is legacy ownership; an empty root records global scope.
-	Root     *string           `json:"root,omitempty"`
+	Root *string `json:"root,omitempty"`
+	// PiFields hash the fields outside Hash that this config wrote, such as options, so
+	// sync can remove them once the config stops setting them. Named before it covered every Agent.
 	PiFields map[string]string `json:"piFields,omitempty"`
 }
 
@@ -647,8 +649,8 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 			wantHash := entryHash(managedEntry(target, want))
 			prune := map[string]bool{}
 			pruneConflict := false
-			// Fields this config wrote earlier and no longer sets go, unless Pi changed them since.
-			if target == "pi" && want != nil && managed && owned.Owner == source.ConfigPath {
+			// Fields this config wrote earlier and no longer sets go, unless the Agent changed them since.
+			if want != nil && managed && owned.Owner == source.ConfigPath {
 				for field, hash := range owned.PiFields {
 					if _, set := want[field]; set {
 						continue
@@ -697,7 +699,7 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 				// over it.
 				change.Action, change.Message = "conflict", "existing entry is a Pi project override of a global server; replace it, or remove the override with /mcp in Pi"
 			case pruneConflict:
-				change.Action, change.Message = "conflict", "Pi setting changed since sync; import it before removing the cleared setting"
+				change.Action, change.Message = "conflict", "Agent setting changed since sync; import it before removing the cleared setting"
 			case managed && owned.Owner != source.ConfigPath:
 				change.Action, change.Message = "conflict", "managed by another Skillshare config: "+owned.Owner
 				// A config that is gone can never release the entry, so an explicit resolution
@@ -758,9 +760,7 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 			if want != nil && change.Action != "conflict" {
 				if own, ok := p.state.Entries[key]; ok && own.Owner == source.ConfigPath {
 					own.Root = &root
-					if target == "pi" {
-						own.PiFields = piOwnedFields(want)
-					}
+					own.PiFields = ownedFields(target, want)
 					p.state.Entries[key] = own
 				}
 			}

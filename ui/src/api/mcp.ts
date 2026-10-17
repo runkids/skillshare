@@ -19,6 +19,8 @@ export interface MCPServer {
   bearerToken?: { fromEnv: string };
   /** Per-server fields written into Pi's built-in MCP as given. */
   piOptions?: Record<string, unknown>;
+  /** Other Agents' native per-server fields, keyed by Agent, written as given. */
+  options?: Record<string, Record<string, unknown>>;
   tools?: MCPToolPolicy;
   /** Project mode: the whole entry, turning off a server the Agent's global config defines. */
   disabled?: boolean;

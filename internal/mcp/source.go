@@ -276,7 +276,7 @@ func LoadSource(configPath string) (*Source, error) {
 		}
 		note(migrateServers(servers, global), "", s.Path != path)
 		if s.Servers, err = ParseServers(servers); err != nil {
-			return nil, fmt.Errorf("invalid MCP server fields: use command/args/env or url/headers/bearerToken and optional targets/transport/piOptions, or disabled with targets")
+			return nil, fmt.Errorf("invalid MCP server fields: use command/args/env or url/headers/bearerToken and optional targets/transport/tools/options/piOptions, or disabled with targets")
 		}
 	}
 	for name, server := range s.Servers {

@@ -95,6 +95,7 @@ Add、edit、remove 與 import 在 **Save and sync** 或 **Save only** 之前會
 | `transport` | 選填的 `stdio` 或 `streamable-http`；省略時自動推斷 |
 | `targets` | 選填的接收端 clients；覆寫 `mcp.targets`。空清單會讓 server 只保留在 Skillshare 中。參見[下方說明](#keep-a-server-without-syncing-it) |
 | `tools` | 哪些工具會提供給模型：`allow`、`deny`。只需寫一次，會依各 Agent 轉換。參見[工具政策](#tool-policy) |
+| `options` | 其他 Agent 的原生單一 server 欄位，以 client ID 為鍵，例如 Codex 的核准模式或 Claude Code 的逾時。參見[下方說明](#agent-options) |
 | `piOptions` | Pi 內建 MCP 的其他單一 server 欄位。參見 [Pi](#pi-options) |
 | `disabled` | 只能是 `true`，不能有其他連線欄位，且必須有 project 在作用範圍內：project mode，或 `mcp.projects` 下的某個 root。參見[下方說明](#turn-off-a-global-server-in-one-project) |
 
@@ -104,6 +105,34 @@ Client ID 有 `claude`、`codex`、`cursor`、`vscode`、`opencode`、`kilocode`
 `grok` 指的是官方的 xAI Grok CLI。Server 名稱使用字母、
 數字、點、底線與連字號。一個 server 必須直接或透過 `mcp.targets`
 選擇至少一個 client 才能同步，除非它自己的 `targets` 是空清單。
+
+### 其他 Agent 設定 {#agent-options}
+
+`options` 會把沒有可攜式對應形式的原生欄位，原樣寫入某個 Agent 的項目。
+每個鍵是一個 client ID；帳號 target 會收到其所屬 Agent 的 options。
+
+```yaml
+servers:
+  docs:
+    url: https://example.com/mcp
+    targets: [codex, claude]
+    options:
+      codex:
+        default_tools_approval_mode: approve
+      claude:
+        timeout: 600000
+```
+
+- 值可以是字串、數字、布林值、由它們組成的清單，或由它們組成的對應表。`null` 與對應表清單會被拒絕，因為並非每種原生格式都能把它們寫回。
+- Skillshare 依 server 自身設定寫入的欄位會被拒絕，例如 `url`、`command`、`env`、`headers`、`type`、`enabled` 或 Codex 的 `enabled_tools`。
+- Pi 的欄位放在 [`piOptions`](#pi-options) 中；`options.pi` 會被拒絕。
+- 憑證（欄位名稱含 token、secret、password、API key、authorization、credential，或 URL 中帶密碼）
+  必須使用該 Agent 自己語法的環境變數參照，例如 Claude Code 用 `${VAR}`、OpenCode 用
+  `{env:VAR}`。Agent 的檔案可能會被 commit，因此明文會被拒絕。
+- 該 server 觸及不到的 client 的 options 會被保留，但不會寫入。
+- 當 sync 重新建立項目時，例如重新命名之後，會再次寫入這些欄位。
+  當 source 移除某個 option 時，下一次 sync 會移除它寫入的欄位，除非 Agent 在那之後改過它；那屬於需要 import 或 replace 的衝突。
+- 儀表板目前沒有 `options` 的編輯器。在那裡編輯 server 會保留它們。
 
 ### 保留 server 但不同步 {#keep-a-server-without-syncing-it}
 
@@ -200,7 +229,7 @@ Dashboard 只會提供目前 scope 與主機平台可用的目的地。每個 se
   project 中，已同步的 servers 不會載入，且不會顯示錯誤。`cwd`、
   `http_headers_helper`、核准模式、逾時，以及 `oauth` 表格
   都沒有可攜式對應形式：import 會將它們省略並顯示警告，sync 則會將它們保留在
-  既有項目中。`enabled_tools` 與 `disabled_tools` 來自[工具政策](#tool-policy)，
+  既有項目中。若要從 source 設定它們，請使用 [`options.codex`](#agent-options)。`enabled_tools` 與 `disabled_tools` 來自[工具政策](#tool-policy)，
   匯入時也會讀回政策中。由 Codex plugin 包裝的 MCP servers，會設定在
   `plugins.<plugin>.mcp_servers` 下，不受此處管理。
 - Claude Desktop 的檔案同步僅支援 **stdio**，僅限 macOS 與 Windows。
@@ -414,7 +443,7 @@ skillshare sync mcp
   [`mcp.projects`](#manage-several-projects-from-the-global-config) 下的某個 project root。
   在沒有任何 project 在作用範圍內的 global `mcp.servers` 中，它會被拒絕。
 - **`disabled` 必須單獨存在。** 該項目只能帶 `targets`。加入 `command`、`url`、
-  `env`、`headers`、`piOptions` 或 `tools` 會是錯誤。
+  `env`、`headers`、`options`、`piOptions` 或 `tools` 會是錯誤。
 - **`targets` 可以省略。** 該項目會跟著 project 的 targets：每次同步時，它會寫到
   project 所使用、且支援個別 project 開關的 clients。在 `mcp.projects` 底下，
   Skillshare 也知道同名的 global server，因此範圍會再縮小到該 server 實際寫入的
@@ -872,7 +901,7 @@ mcp:
 - JSONC 註解與不相關的設定會被保留。已變更的、由 Skillshare 擁有的
   項目會整體取代，所以那些項目內的註解可能因此改變。只有
   Skillshare 寫入的欄位會被比對與取代；Agent 專屬欄位（例如逾時設定）
-  會被保留。
+  會被保留。透過 [`options`](#agent-options) 設定的欄位由 sync 寫入與移除。
   Agent 自行填入的預設值，例如 `"type": "stdio"`、空的 `env` 或
   header 名稱大小寫，不算變更。用 `enabled: false` 或 `disabled: true`
   關閉一個受管理的 server，會回報為衝突。

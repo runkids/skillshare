@@ -204,7 +204,8 @@ Codex 是以名稱轉發本機變數，因此選擇 Codex 時，`env.KEY.fromEnv
 若某個 target 無法表示某項設定，會直接阻擋預覽，而不是默默捨棄它。client 專屬的
 佔位符與輸入提示（input prompts）必須先明確解析後才能匯入。Agent 專屬的欄位，
 例如 Codex 的 `startup_timeout_sec` 或 `cwd`，不會被匯入；匯入會將它們列為警告，
-並在同步時保留在該 Agent 既有的項目中。
+並在同步時保留在該 Agent 既有的項目中。若要從 source 管理它們，請在 server 的
+[`options`](../../reference/commands/mcp.md#agent-options) 下設定。
 
 ## 匯入既有的連線
 

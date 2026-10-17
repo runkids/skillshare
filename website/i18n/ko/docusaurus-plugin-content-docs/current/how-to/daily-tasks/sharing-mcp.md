@@ -215,7 +215,8 @@ Codex는 이름으로 로컬 변수를 전달하므로, Codex를 선택했다면
 미리보기 자체를 막습니다. 클라이언트별 플레이스홀더와 입력 프롬프트는 import 전에
 명시적으로 해결해야 합니다. Codex의 `startup_timeout_sec`나 `cwd`처럼 Agent 특화
 필드는 import되지 않습니다. import는 이를 경고로 나열하며, sync는 해당 Agent의 기존
-항목에 그대로 유지합니다.
+항목에 그대로 유지합니다. source에서 관리하려면 서버의
+[`options`](../../reference/commands/mcp.md#agent-options)에 설정합니다.
 
 ## 기존 연결 가져오기
 

@@ -47,6 +47,14 @@ func renderDisabled(target string, s Server) (map[string]any, error) {
 
 // Render converts a portable definition to a native entry without reading env.
 func Render(target string, s Server) (map[string]any, error) {
+	out, err := renderEntry(target, s)
+	if err != nil || s.Disabled {
+		return out, err
+	}
+	return withOptions(target, s, out)
+}
+
+func renderEntry(target string, s Server) (map[string]any, error) {
 	if !validTarget(target) {
 		return nil, fmt.Errorf("unsupported MCP target %q", target)
 	}

@@ -118,6 +118,7 @@ mcp:
 | `transport` | Optional `stdio` or `streamable-http`; inferred when omitted. Legacy SSE is not supported |
 | `targets` | Receiving clients for this server. `[]` keeps it in Skillshare only |
 | `tools` | `{allow, deny}`: which tools reach the model, translated per Agent. See [Tool policy](#tool-policy) |
+| `options` | `{<client>: {field: value}}`: other Agents' native per-server fields written as given, e.g. `codex: {default_tools_approval_mode: approve}`, `claude: {timeout: 600000}`. Values: scalars, lists of scalars, or mappings; no `null`. Managed fields (`url`, `command`, `env`, `headers`, `type`, `enabled`, Codex `enabled_tools`…) and `options.pi` (use `piOptions`) are refused; credentials (by field name or a URL password) must be environment references in the Agent's own syntax (`${VAR}`, `{env:VAR}`), never plain text; not allowed with `disabled`. Sync removes an option it wrote once the source drops it |
 | `piOptions` | Other Pi built-in per-server fields. See [Pi](#pi) |
 | `disabled` | `true` only, no connection fields, and a project must be in scope: project mode, or a root under `mcp.projects`. See [Turn off a global server in one project](#turn-off-a-global-server-in-one-project) |
 
@@ -135,7 +136,8 @@ Names such as `company-docs` (letters, digits, hyphens) work across all clients.
 - A differing unmanaged entry is a conflict. Resolve it with `mcp import --replace` or
   an explicit per-entry replacement. Inspect conflicts with `skillshare mcp --json`.
 - Only the fields Skillshare writes are compared. Agent-only fields in an entry, such
-  as timeouts, are kept across syncs. Tool filters come from `tools`.
+  as timeouts, are kept across syncs; fields set through `options` are written and
+  removed by sync. Tool filters come from `tools`.
 - Turning a managed server off by hand in the Agent's file (`enabled: false`,
   `disabled: true`) is reported as a conflict. Pi and OMP connection entries preserve
   `enabled` as an Agent setting; changing it alone is not a conflict.
@@ -223,7 +225,7 @@ setups usually go wrong.
   definitions are rejected without touching the file; convert them to tables first.
 - `cwd`, `http_headers_helper`, approval modes, timeouts (`startup_timeout_sec`) and
   the `oauth` table have no portable form. Import leaves them out with a warning, and
-  sync keeps them in the existing entry. `enabled_tools`/`disabled_tools` come from
+  sync keeps them in the existing entry; set them from the source with `options.codex`. `enabled_tools`/`disabled_tools` come from
   `tools` (exact names only) and import back into it.
 - Servers bundled by a Codex plugin live under `plugins.<plugin>.mcp_servers` and are
   not managed here.

@@ -217,7 +217,8 @@ Codex はローカル変数を名前で転送するため、Codex を選択す�
 ブロックします。クライアント固有のプレースホルダーと入力プロンプトは、Import の前に明示的に解決して
 おく必要があります。Codex の `startup_timeout_sec` や `cwd` のような Agent 固有のフィールドは
 Import されません。Import はそれらを警告として一覧表示し、Sync はその Agent の既存エントリ内にそれらを
-維持します。
+維持します。source から管理するには、サーバーの
+[`options`](../../reference/commands/mcp.md#agent-options) に設定します。
 
 ## 既存の接続をインポートする
 

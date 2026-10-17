@@ -80,7 +80,7 @@ const conflictKeys: Record<string, string> = {
   [shadowMessage]: 'mcp.claudeLocalShadow',
   'managed by another Skillshare config': 'mcp.conflictOtherConfig',
   'left over from a Skillshare config that was removed; import it or explicitly replace this entry': 'mcp.conflictOrphaned',
-  'Pi setting changed since sync; import it before removing the cleared setting': 'mcp.conflictChanged',
+  'Agent setting changed since sync; import it before removing the cleared setting': 'mcp.conflictChanged',
   'Agent configuration changed; import it or explicitly replace this entry': 'mcp.conflictChanged',
   'existing entry is not managed; import it to explicitly adopt it': 'mcp.conflictUnmanaged',
   'existing entry is a Pi project override of a global server; replace it, or remove the override with /mcp in Pi': 'mcp.conflictPiOverride',

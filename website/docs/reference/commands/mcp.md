@@ -127,6 +127,7 @@ Skillshare config. The schema is `schemas/mcp.schema.json` in the repository.
 | `transport` | Optional `stdio` or `streamable-http`; inferred when omitted |
 | `targets` | Optional receiving clients; overrides `mcp.targets`. An empty list keeps the server in Skillshare only. See [below](#keep-a-server-without-syncing-it) |
 | `tools` | Which tools reach the model: `allow`, `deny`. Written once and translated per Agent. See [Tool policy](#tool-policy) |
+| `options` | Other Agents' native per-server fields, keyed by client ID, such as a Codex approval mode or a Claude Code timeout. See [below](#agent-options) |
 | `piOptions` | Other per-server fields of Pi's built-in MCP. See [Pi](#pi-options) |
 | `disabled` | `true` only, no other connection fields, and a project must be in scope: project mode, or a root under `mcp.projects`. See [below](#turn-off-a-global-server-in-one-project) |
 
@@ -137,6 +138,38 @@ Client IDs are `claude`, `codex`, `cursor`, `vscode`, `opencode`, `kilocode`,
 digits, dots, underscores and hyphens. A server must select at least one client
 either directly or through `mcp.targets` before synchronization, unless its own
 `targets` is an empty list.
+
+### Other Agent settings {#agent-options}
+
+`options` writes native fields that have no portable form into one Agent's entry, as
+given. Each key is a client ID; an account target receives the options of its Agent.
+
+```yaml
+servers:
+  docs:
+    url: https://example.com/mcp
+    targets: [codex, claude]
+    options:
+      codex:
+        default_tools_approval_mode: approve
+      claude:
+        timeout: 600000
+```
+
+- Values are strings, numbers, booleans, lists of those, or mappings of them. `null` and
+  lists of mappings are refused, because not every native format writes them back.
+- A field Skillshare writes from the server's own settings, such as `url`, `command`,
+  `env`, `headers`, `type`, `enabled` or Codex `enabled_tools`, is refused.
+- Pi's fields go in [`piOptions`](#pi-options); `options.pi` is refused.
+- A credential, judged by its field name (token, secret, password, API key, authorization,
+  credential) or a password in a URL, must be an environment reference in the Agent's own
+  syntax, such as `${VAR}` for Claude Code or `{env:VAR}` for OpenCode. Plain text is
+  refused, because the Agent's file may be committed.
+- Options for a client the server does not reach are kept and not written.
+- Sync writes the fields again when it recreates an entry, for example after a rename.
+  When the source drops an option, the next sync removes the field it wrote, unless
+  the Agent changed it since; that is a conflict to import or replace.
+- The dashboard has no editor for `options` yet. Editing the server there keeps them.
 
 ### Keep a server without syncing it
 
@@ -239,7 +272,7 @@ Additional client details:
   project the synced servers do not load, without an error. `cwd`,
   `http_headers_helper`, approval modes, timeouts and the `oauth` table
   have no portable form: import leaves them out with a warning and sync keeps them in
-  the existing entry. `enabled_tools` and `disabled_tools` come from the
+  the existing entry. To set them from the source, use [`options.codex`](#agent-options). `enabled_tools` and `disabled_tools` come from the
   [tool policy](#tool-policy) and are imported into it. MCP servers that a Codex plugin bundles are configured under
   `plugins.<plugin>.mcp_servers` and are not managed here.
 - Claude Desktop file sync supports **stdio only**, on macOS and Windows.
@@ -474,7 +507,7 @@ skillshare sync mcp
   [`mcp.projects`](#manage-several-projects-from-the-global-config). In the global
   `mcp.servers`, where no project is in scope, it is refused.
 - **`disabled` stands alone.** The entry takes `targets` only. Adding `command`, `url`,
-  `env`, `headers`, `piOptions` or `tools` is an error.
+  `env`, `headers`, `options`, `piOptions` or `tools` is an error.
 - **`targets` can be left out.** The entry then follows the project's targets: on every
   sync it goes to the clients the project uses that have a per-project switch. Under
   `mcp.projects`, where Skillshare also knows the global server of that name, it is
@@ -984,7 +1017,8 @@ command migrates it. Targets receive the change on the next `sync`.
 - JSONC comments and unrelated settings are preserved. Changed owned entries
   are replaced as a unit, so comments inside those entries may change. Only the
   fields Skillshare writes are compared and replaced; Agent-specific fields such
-  as timeouts are kept.
+  as timeouts are kept. Fields set through [`options`](#agent-options) are written
+  and removed by sync.
   Defaults an Agent fills in, such as `"type": "stdio"`, an empty `env` or
   header name case, are not changes. Turning a managed server off with
   `enabled: false` or `disabled: true` is reported as a conflict.

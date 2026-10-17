@@ -123,6 +123,7 @@ source가 한 번 저장되기 전에 검증되며, 이후의 네이티브 파�
 | `transport` | 선택적으로 `stdio` 또는 `streamable-http`; 생략 시 추론됨 |
 | `targets` | 선택적 수신 client; `mcp.targets`를 재정의. 빈 목록이면 서버를 Skillshare에만 유지합니다. [아래](#keep-a-server-without-syncing-it) 참고 |
 | `tools` | 어떤 도구가 모델에 전달되는지: `allow`, `deny`. 한 번 작성하면 Agent별로 변환됩니다. [도구 정책](#tool-policy) 참고 |
+| `options` | 다른 Agent의 네이티브 서버별 필드. client ID를 키로 사용하며, 예를 들어 Codex 승인 모드나 Claude Code 타임아웃. [아래](#agent-options) 참고 |
 | `piOptions` | Pi 내장 MCP의 그 밖의 서버별 필드. [Pi](#pi-options) 참고 |
 | `disabled` | `true`만 가능, 다른 연결 필드 불가, 그리고 project가 scope 안에 있어야 합니다: project mode이거나 `mcp.projects` 아래의 root. [아래](#turn-off-a-global-server-in-one-project) 참고 |
 
@@ -132,6 +133,34 @@ Client ID는 `claude`, `codex`, `cursor`, `vscode`, `opencode`, `kilocode`,
 `grok`은 공식 xAI Grok CLI를 의미합니다. 서버 이름은 문자, 숫자, 점, 밑줄, 하이픈을
 사용합니다. 서버는 동기화 전에 직접 또는 `mcp.targets`를 통해 최소 하나의 client를
 선택해야 합니다. 단, 서버 자체의 `targets`가 빈 목록인 경우는 예외입니다.
+
+### 그 밖의 Agent 설정 {#agent-options}
+
+`options`는 이식 가능한 형태가 없는 네이티브 필드를 한 Agent의 항목에 있는 그대로 작성합니다.
+각 키는 client ID이며, 계정 target은 해당 Agent의 options를 받습니다.
+
+```yaml
+servers:
+  docs:
+    url: https://example.com/mcp
+    targets: [codex, claude]
+    options:
+      codex:
+        default_tools_approval_mode: approve
+      claude:
+        timeout: 600000
+```
+
+- 값은 문자열, 숫자, 불리언, 그 목록, 또는 그 매핑입니다. `null`과 매핑의 목록은 거부됩니다. 모든 네이티브 형식이 이를 다시 쓸 수 있는 것은 아니기 때문입니다.
+- `url`, `command`, `env`, `headers`, `type`, `enabled`, Codex `enabled_tools`처럼 Skillshare가 서버 자체 설정에서 작성하는 필드는 거부됩니다.
+- Pi의 필드는 [`piOptions`](#pi-options)에 넣습니다. `options.pi`는 거부됩니다.
+- 자격 증명(필드 이름에 token, secret, password, API key, authorization, credential이 들어가거나
+  URL에 비밀번호가 있는 값)은 해당 Agent 자체 문법의 환경 변수 참조여야 합니다. 예: Claude Code는
+  `${VAR}`, OpenCode는 `{env:VAR}`. Agent의 파일이 커밋될 수 있으므로 평문은 거부됩니다.
+- 서버가 도달하지 않는 client의 options는 유지되며 작성되지 않습니다.
+- sync는 이름 변경 후처럼 항목을 다시 만들 때 해당 필드를 다시 작성합니다.
+  source에서 option을 빼면 다음 sync가 작성했던 필드를 제거합니다. 단, 그 뒤 Agent가 변경했다면 제거하지 않으며, 이는 import 또는 replace로 해결할 충돌입니다.
+- 대시보드에는 아직 `options` 편집기가 없습니다. 거기서 서버를 편집해도 `options`는 유지됩니다.
 
 ### Keep a server without syncing it {#keep-a-server-without-syncing-it}
 
@@ -229,7 +258,7 @@ mode에서는 프로젝트에 MCP 파일이 있거나 client가 전역적으로 
   프로젝트에서만 `.codex/config.toml`을 읽습니다. 신뢰하지 않는 프로젝트에서는
   동기화된 서버가 오류 없이 로드되지 않습니다. `cwd`, `http_headers_helper`, 승인
   모드, 타임아웃, `oauth` 테이블은 이식 가능한 형태가 없습니다: import는
-  이를 경고와 함께 제외하고, sync는 기존 항목에 그대로 유지합니다. `enabled_tools`와
+  이를 경고와 함께 제외하고, sync는 기존 항목에 그대로 유지합니다. source에서 설정하려면 [`options.codex`](#agent-options)를 사용합니다. `enabled_tools`와
   `disabled_tools`는 [도구 정책](#tool-policy)에서 만들어지며, import 시 도구 정책으로
   가져옵니다. Codex 플러그인이
   번들하는 MCP 서버는 `plugins.<plugin>.mcp_servers` 아래에 구성되며 여기서 관리되지
@@ -449,7 +478,7 @@ skillshare sync mcp
   항목을 [`mcp.projects`](#manage-several-projects-from-the-global-config)의 프로젝트
   root 아래에 두세요. project가 scope에 없는 global `mcp.servers`에서는 거부됩니다.
 - **`disabled`는 단독으로 사용됩니다.** 항목은 `targets`만 받습니다. `command`, `url`,
-  `env`, `headers`, `piOptions`, `tools`를 추가하면 오류입니다.
+  `env`, `headers`, `options`, `piOptions`, `tools`를 추가하면 오류입니다.
 - **`targets`는 생략할 수 있습니다.** 그러면 항목은 프로젝트의 target을
   따릅니다: sync할 때마다 프로젝트가 사용하는 client 중 프로젝트별 스위치가 있는
   client에 작성됩니다. Skillshare가 같은 이름의 global 서버도 알고 있는
@@ -919,7 +948,7 @@ target은 다음 `sync`에서 변경 사항을 받습니다.
 
 - JSONC 주석과 관련 없는 설정은 보존됩니다. 변경된 소유 항목은 하나의 단위로
   교체되므로, 해당 항목 안의 주석은 바뀔 수 있습니다. Skillshare가 작성하는 필드만
-  비교되고 교체되며, 타임아웃 같은 Agent 고유 필드는 유지됩니다.
+  비교되고 교체되며, 타임아웃 같은 Agent 고유 필드는 유지됩니다. [`options`](#agent-options)로 설정한 필드는 sync가 작성하고 제거합니다.
   `"type": "stdio"`, 빈 `env`, 헤더 이름 대소문자처럼 Agent가 채우는 기본값은
   변경으로 간주되지 않습니다. `enabled: false`나 `disabled: true`로 관리되는 서버를
   끄는 것은 충돌로 보고됩니다.

@@ -216,7 +216,8 @@ Codex 会依名称转发本地变量，因此当选择 Codex 时，`env.KEY.from
 是 `KEY`。当某个 Target 无法表示某项设置时，会阻止预览，而不是直接丢弃它。
 客户端专属的占位符与输入提示，必须在 Import 前先行明确解析。Agent 专属的
 字段，例如 Codex 的 `startup_timeout_sec` 或 `cwd`，不会被 Import；Import 会将其
-列为警告，sync 则会保留该 Agent 现有条目中的这些字段。
+列为警告，sync 则会保留该 Agent 现有条目中的这些字段。若要从 source 管理它们，请在 server 的
+[`options`](../../reference/commands/mcp.md#agent-options) 下设置。
 
 ## 导入现有连接
 

@@ -313,6 +313,8 @@ export default function MCPServerDialog({ initial, defaultTargets, existingNames
     if (off) return { disabled: true };
     const next = connection();
     if (options.value && Object.keys(options.value).length > 0) next.piOptions = options.value;
+    // The dialog has no editor for these yet; keep what the source has.
+    if (server?.options) next.options = server.options;
     const tools = cleanToolPolicy(draft.tools);
     if (tools) next.tools = tools;
     return next;

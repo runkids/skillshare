@@ -96,6 +96,7 @@ Add、edit、remove、import では、**Save and sync** または **Save only** 
 | `transport` | 任意の `stdio` または `streamable-http`。省略時は推測される |
 | `targets` | 任意の受け取り側クライアント。`mcp.targets` を上書きする。空のリストにすると、サーバーは Skillshare 内にのみ保持される。[下記](#keep-a-server-without-syncing-it)を参照 |
 | `tools` | どのツールをモデルに渡すか: `allow`、`deny`。一度書けば Agent ごとに変換される。[ツールポリシー](#tool-policy)を参照 |
+| `options` | 他の Agent のネイティブなサーバー別フィールド。クライアント ID をキーにする。Codex の承認モードや Claude Code のタイムアウトなど。[下記](#agent-options)を参照 |
 | `piOptions` | Pi の内蔵 MCP のその他のサーバー別フィールド。[Pi](#pi-options)を参照 |
 | `disabled` | `true` のみ、他の接続フィールドを伴わない、かつ project がスコープ内にあること: project mode、または `mcp.projects` 配下の root。[下記](#turn-off-a-global-server-in-one-project)を参照 |
 
@@ -106,6 +107,35 @@ Add、edit、remove、import では、**Save and sync** または **Save only** 
 数字、ドット、アンダースコア、ハイフンを使用します。サーバーは同期前に、直接または
 `mcp.targets` 経由で少なくとも 1 つのクライアントを選択する必要があります。ただし、サーバー自身の
 `targets` が空のリストである場合は除きます。
+
+### その他の Agent 設定 {#agent-options}
+
+`options` は、ポータブルな形式がないネイティブフィールドを、1 つの Agent のエントリにそのまま書き込みます。
+キーはクライアント ID で、アカウント target はその Agent の options を受け取ります。
+
+```yaml
+servers:
+  docs:
+    url: https://example.com/mcp
+    targets: [codex, claude]
+    options:
+      codex:
+        default_tools_approval_mode: approve
+      claude:
+        timeout: 600000
+```
+
+- 値は文字列、数値、真偽値、それらのリスト、またはそれらのマッピングです。`null` とマッピングのリストは拒否されます。すべてのネイティブ形式が書き戻せるとは限らないためです。
+- `url`、`command`、`env`、`headers`、`type`、`enabled`、Codex の `enabled_tools` のように、Skillshare がサーバー自身の設定から書き込むフィールドは拒否されます。
+- Pi のフィールドは [`piOptions`](#pi-options) に置きます。`options.pi` は拒否されます。
+- 認証情報（フィールド名が token、secret、password、API key、authorization、credential を含むもの、
+  または URL 内のパスワード）は、その Agent 自身の書式による環境変数参照にする必要があります。
+  例: Claude Code なら `${VAR}`、OpenCode なら `{env:VAR}`。Agent のファイルはコミットされる
+  ことがあるため、平文は拒否されます。
+- サーバーが届かないクライアントの options は保持され、書き込まれません。
+- sync は、リネームの後などにエントリを作り直すとき、そのフィールドを再び書き込みます。
+  source から option を外すと、次の sync は書き込んだフィールドを削除します。ただし、その後に Agent が変更していた場合は除きます。それは import または replace で解決する競合です。
+- ダッシュボードには `options` のエディターがまだありません。そこでサーバーを編集しても `options` は保持されます。
 
 ### 同期せずにサーバーを保持する {#keep-a-server-without-syncing-it}
 
@@ -178,7 +208,7 @@ JSON エントリは、そのファイル自体のインデントに合わせて
 
 - `codex` の送信先は、Codex CLI、Codex IDE 拡張機能、ChatGPT デスクトップアプリが共有する 1 つの `config.toml` です。そのため、`codex` に同期したサーバーはこの 3 つすべてに表示されます。ChatGPT デスクトップアプリでは **Settings → MCP servers** の下に表示されます。
   Codex は、trust している project でのみ `.codex/config.toml` を読み込みます。trust していない project では、同期されたサーバーはエラーなく読み込まれません。`cwd`、
-  `http_headers_helper`、承認モード、タイムアウト、`oauth` テーブルにはポータブルな形式がありません。インポートではこれらを警告付きで除外し、sync は既存のエントリ内にそれらを維持します。`enabled_tools` と `disabled_tools` は[ツールポリシー](#tool-policy)から書き込まれ、インポート時もそこに取り込まれます。Codex の plugin が同梱する MCP サーバーは `plugins.<plugin>.mcp_servers` の下に設定され、ここでは管理されません。
+  `http_headers_helper`、承認モード、タイムアウト、`oauth` テーブルにはポータブルな形式がありません。インポートではこれらを警告付きで除外し、sync は既存のエントリ内にそれらを維持します。source から設定するには [`options.codex`](#agent-options) を使います。`enabled_tools` と `disabled_tools` は[ツールポリシー](#tool-policy)から書き込まれ、インポート時もそこに取り込まれます。Codex の plugin が同梱する MCP サーバーは `plugins.<plugin>.mcp_servers` の下に設定され、ここでは管理されません。
 - Claude Desktop のファイル sync は macOS と Windows で **stdio のみ**に対応します。
   ディレクトリは macOS では `~/Library/Application Support/Claude`、
   Windows では `%APPDATA%/Claude` です。リモートコネクタはアプリケーション内で設定してください。
@@ -343,7 +373,7 @@ skillshare sync mcp
   [`mcp.projects`](#manage-several-projects-from-the-global-config) 内の project root の下にエントリを
   置いてください。project がスコープ内にない global の `mcp.servers` では拒否されます。
 - **`disabled` は単独で指定します。** このエントリが取れるのは `targets` のみです。`command`、`url`、
-  `env`、`headers`、`piOptions`、`tools` を追加するとエラーになります。
+  `env`、`headers`、`options`、`piOptions`、`tools` を追加するとエラーになります。
 - **`targets` は省略できます。** その場合、エントリは project の target に従います。sync のたびに、
   project が使うクライアントのうち、project ごとのスイッチを持つものに書き込まれます。Skillshare が同名の
   global サーバーも把握している `mcp.projects` 配下では、そのサーバーの書き込み先クライアントにさらに
@@ -775,7 +805,7 @@ mcp:
 
 - JSONC のコメントと無関係な設定は保持されます。変更された所有エントリは
   ひとまとまりとして置き換えられるため、それらのエントリ内のコメントは変わる可能性があります。比較・置換の対象となるのは
-  Skillshare が書き込むフィールドのみで、タイムアウトなどの Agent 固有のフィールドは保持されます。
+  Skillshare が書き込むフィールドのみで、タイムアウトなどの Agent 固有のフィールドは保持されます。[`options`](#agent-options) で設定したフィールドは、sync が書き込み、削除します。
   `"type": "stdio"`、空の `env`、ヘッダー名の大文字小文字などの Agent が補完するデフォルト値は
   変更とはみなされません。管理下のサーバーを `enabled: false` や `disabled: true` でオフにすることは
   競合として報告されます。
