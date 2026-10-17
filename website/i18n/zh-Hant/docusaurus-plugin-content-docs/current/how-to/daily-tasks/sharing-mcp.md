@@ -50,7 +50,7 @@ skillshare mcp add
 在 dashboard 中，**Add server** 支援兩種形式：填寫欄位，或貼上一份設定。
 貼上這一側也支援載入檔案，等同於瀏覽器版的 `mcp import --file`。貼上的 JSON 會自動被辨識；
 若是 TOML，則需選擇它來自 Codex 還是 Grok。若貼上的內容只有一個伺服器且勾選了 Pi，
-對話框也會顯示表單中的 Pi 設定：工具曝光模式與其他 Pi 設定。**Skillshare** 分頁會加入 `skillshare mcp serve`，
+對話框也會顯示表單中的 Pi 設定：工具曝光模式與其他 Pi 設定。表單的 **其他 Agent 設定** 以 JSON 輸入其他 Agent 的原生欄位，例如 Codex 的核准模式，詳見 [`options`](../../reference/commands/mcp.md#agent-options)。**Skillshare** 分頁會加入 `skillshare mcp serve`，
 [透過 MCP 提供你的 skills](/docs/reference/commands/mcp#serve-skills-over-mcp) 給無法透過 sync 取得 skills 的
 Agent：選擇要提供哪些 skills、勾選 Agents，它會標出已經同步 skills、因此會看到兩次的 Agents。**Import from a target** 是另一個獨立功能，
 會讀取已安裝的 Agent 目前已有的伺服器設定。無論哪種方式，dashboard 都使用與 CLI 相同的來源、

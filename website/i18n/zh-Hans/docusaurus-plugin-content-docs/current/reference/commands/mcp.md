@@ -164,7 +164,8 @@ servers:
 - 该 server 触达不到的 client 的 options 会被保留，但不会写入。
 - 当 sync 重新创建条目时，例如重命名之后，会再次写入这些字段。
   当 source 删掉某个 option 时，下一次 sync 会移除它写入的字段，除非 Agent 在此之后改过它；那属于需要 import 或 replace 的冲突。
-- 仪表板暂时没有 `options` 的编辑器。在那里编辑 server 会保留它们。
+- 在仪表板中，server 对话框的 **其他 Agent 设置** 可以编辑它们：选择 Agent，再以 JSON 对象输入字段。
+  清空文字会移除该 Agent 的 `options`。
 
 ### 保留 server 但不同步 {#keep-a-server-without-syncing-it}
 

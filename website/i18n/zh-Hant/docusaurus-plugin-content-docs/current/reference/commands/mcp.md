@@ -133,7 +133,8 @@ servers:
 - 該 server 觸及不到的 client 的 options 會被保留，但不會寫入。
 - 當 sync 重新建立項目時，例如重新命名之後，會再次寫入這些欄位。
   當 source 移除某個 option 時，下一次 sync 會移除它寫入的欄位，除非 Agent 在那之後改過它；那屬於需要 import 或 replace 的衝突。
-- 儀表板目前沒有 `options` 的編輯器。在那裡編輯 server 會保留它們。
+- 在儀表板中，server 對話框的 **其他 Agent 設定** 可以編輯它們：選擇 Agent，再以 JSON 物件輸入欄位。
+  清空文字會移除該 Agent 的 `options`。
 
 ### 保留 server 但不同步 {#keep-a-server-without-syncing-it}
 

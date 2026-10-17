@@ -162,7 +162,8 @@ servers:
 - 서버가 도달하지 않는 client의 options는 유지되며 작성되지 않습니다.
 - sync는 이름 변경 후처럼 항목을 다시 만들 때 해당 필드를 다시 작성합니다.
   source에서 option을 빼면 다음 sync가 작성했던 필드를 제거합니다. 단, 그 뒤 Agent가 변경했다면 제거하지 않으며, 이는 import 또는 replace로 해결할 충돌입니다.
-- 대시보드에는 아직 `options` 편집기가 없습니다. 거기서 서버를 편집해도 `options`는 유지됩니다.
+- 대시보드에서는 서버 대화 상자의 **기타 Agent 설정**에서 편집합니다. Agent를 고른 뒤 필드를 JSON
+  객체로 입력합니다. 텍스트를 비우면 해당 Agent의 `options`가 제거됩니다.
 
 ### Keep a server without syncing it {#keep-a-server-without-syncing-it}
 

@@ -53,7 +53,7 @@ MCP 제공자로부터 받은 URL이나 JSON을 붙여넣고, 이름을 지정�
 방식입니다. 붙여넣기 쪽에서는 파일을 불러올 수도 있는데, 이는 브라우저에서 `mcp import --file`에
 해당하는 기능입니다. 붙여넣은 JSON은 자동으로 인식되며, TOML의 경우 Codex에서 온 것인지 Grok에서
 온 것인지 선택해야 합니다. 붙여넣은 내용에 서버가 하나이고 Pi가 체크되어 있으면, 대화상자에
-폼의 Pi 설정인 도구 노출 방식과 기타 Pi 설정도 표시됩니다. **Skillshare** 탭은 `skillshare mcp serve`를 추가합니다.
+폼의 Pi 설정인 도구 노출 방식과 기타 Pi 설정도 표시됩니다. 폼의 **기타 Agent 설정**에서는 Codex 승인 모드처럼 다른 Agent의 네이티브 필드를 JSON으로 입력합니다([`options`](../../reference/commands/mcp.md#agent-options) 참고). **Skillshare** 탭은 `skillshare mcp serve`를 추가합니다.
 이 명령은 sync로 skill을 받지 않는 Agent에 [MCP로 skill을 제공](/docs/reference/commands/mcp#serve-skills-over-mcp)합니다.
 제공할 skill을 고르고 Agent를 체크하면, 이미 skill을 sync하고 있어 skill이 두 번 보이게 될 Agent가 표시됩니다. **Import from a target**은 별도 기능으로, 이미 설치된 Agent가 가진
 서버를 읽어옵니다. 어느 경우든 대시보드는 CLI와 동일한 소스, 검증, 미리보기, 충돌 규칙을

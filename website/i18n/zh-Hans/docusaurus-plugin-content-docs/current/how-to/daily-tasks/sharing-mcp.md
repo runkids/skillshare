@@ -55,7 +55,7 @@ Agent，并检查变更内容。**Save and sync** 会立即应用设置；
 一份配置。粘贴选项也可以加载一个文件，其作用相当于浏览器版本的
 `mcp import --file`。粘贴的 JSON 会被自动识别；对于
 TOML，则需要选择它来自 Codex 还是 Grok。如果粘贴的内容只有一个服务器且勾选了 Pi，
-对话框还会显示表单中的 Pi 设置：工具暴露方式和其他 Pi 设置。**Skillshare** 标签页会添加 `skillshare mcp serve`，
+对话框还会显示表单中的 Pi 设置：工具暴露方式和其他 Pi 设置。表单的 **其他 Agent 设置** 以 JSON 输入其他 Agent 的原生字段，例如 Codex 的审批模式，详见 [`options`](../../reference/commands/mcp.md#agent-options)。**Skillshare** 标签页会添加 `skillshare mcp serve`，
 它会[通过 MCP 提供你的 skill](/docs/reference/commands/mcp#serve-skills-over-mcp)，给无法通过 sync
 获得这些 skill 的 Agent：选择要提供哪些 skill、勾选 Agent，它还会标出那些已经同步 skill、
 因而会看到两份的 Agent。**Import from a target** 是

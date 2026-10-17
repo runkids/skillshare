@@ -7,7 +7,7 @@ import { InfoTip } from './PiSettingsFields';
 import { targetLabel } from './mcpView';
 
 interface Props {
-  /** The Agents to offer: those ticked, and any unticked one that still has settings. */
+  /** The Agents to offer, the one to open on first. */
   agents: string[];
   texts: Record<string, string>;
   error: string;

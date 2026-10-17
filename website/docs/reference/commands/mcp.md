@@ -171,7 +171,8 @@ servers:
 - Sync writes the fields again when it recreates an entry, for example after a rename.
   When the source drops an option, the next sync removes the field it wrote, unless
   the Agent changed it since; that is a conflict to import or replace.
-- The dashboard has no editor for `options` yet. Editing the server there keeps them.
+- In the dashboard, **Other Agent settings** in the server dialog edits them: pick an Agent, then
+  type its fields as a JSON object. Clearing the text removes that Agent's options.
 
 ### Keep a server without syncing it
 

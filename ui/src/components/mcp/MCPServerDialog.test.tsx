@@ -167,6 +167,15 @@ describe('MCP server dialog', () => {
     })));
   });
 
+  it("keeps an unticked Agent's settings open while they are retyped", async () => {
+    const user = userEvent.setup();
+    renderDialog({ initial: { name: 'docs', server: { url: 'https://docs.example/mcp', targets: ['codex'], options: { claude: { timeout: 600000 } } } } });
+    await user.click(screen.getByRole('combobox', { name: 'Agent' }));
+    await user.click(screen.getByRole('option', { name: (name) => name.startsWith('Claude') && !name.startsWith('Claude Desktop') }));
+    await user.clear(screen.getByLabelText('Claude: other settings'));
+    expect(screen.getByLabelText('Claude: other settings')).toBeInTheDocument();
+  });
+
   it('blocks saving Agent settings that are not a JSON object', async () => {
     const user = userEvent.setup();
     renderDialog({ initial: { name: 'docs', server: { url: 'https://docs.example/mcp', targets: ['codex'] } } });
