@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.26.0] - 2026-10-17
+
+
+### New Features
+
+* **mcp:** write per-Agent native fields from the source ([#579](https://github.com/runkids/skillshare/issues/579)) ([578790c](https://github.com/runkids/skillshare/commit/578790c416d0282829b8a41595dfb3abb3ee2cbc))
+* **ui:** edit other Agents' MCP options in the server dialog ([#580](https://github.com/runkids/skillshare/issues/580)) ([8f55e58](https://github.com/runkids/skillshare/commit/8f55e5899927e136fa4ec19ec5548f11ffdbe096))
+
 ## [0.25.13] - 2026-10-16
 
 ### New Features
