@@ -154,6 +154,27 @@ describe('MCP server dialog', () => {
     await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server })));
   });
 
+  it("saves the options typed for a ticked Agent and keeps another Agent's", async () => {
+    const user = userEvent.setup();
+    renderDialog({ initial: { name: 'docs', server: { url: 'https://docs.example/mcp', targets: ['codex'], options: { claude: { timeout: 600000 } } } } });
+    const box = screen.getByLabelText('Codex: other settings');
+    await user.clear(box);
+    await user.click(box);
+    await user.paste('{"default_tools_approval_mode": "approve"}');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({
+      server: expect.objectContaining({ options: { codex: { default_tools_approval_mode: 'approve' }, claude: { timeout: 600000 } } }),
+    })));
+  });
+
+  it('blocks saving Agent settings that are not a JSON object', async () => {
+    const user = userEvent.setup();
+    renderDialog({ initial: { name: 'docs', server: { url: 'https://docs.example/mcp', targets: ['codex'] } } });
+    await user.click(screen.getByLabelText('Codex: other settings'));
+    await user.paste('[1]');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  });
+
   // Refs: #289. Unticking Pi must not drop its settings from the source.
   it('keeps Pi settings when Pi is unticked', async () => {
     const user = userEvent.setup();

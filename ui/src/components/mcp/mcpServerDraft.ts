@@ -1,6 +1,6 @@
 import { mcpOffTargets, type MCPServer, type MCPToolPolicy, type MCPValue } from '../../api/mcp';
 import type { useT } from '../../i18n';
-import { denyRemovesAll, hasToolPolicy, joinCommand, parsePiOptions, splitCommand } from './mcpView';
+import { denyRemovesAll, hasToolPolicy, joinCommand, parsePiOptions, splitCommand, targetLabel } from './mcpView';
 
 // Mirrors mcp.serverName.
 const NAME = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/;
@@ -15,6 +15,8 @@ export interface ServerDraft {
   name: string;
   http: boolean;
   piOptions: string;
+  /** Other Agents' native fields as typed JSON, by Agent. */
+  agentOptions: Record<string, string>;
   /** Kept as saved so an edit never drops it; empty parts are left out when saving. */
   tools: MCPToolPolicy;
   command: string;
@@ -31,6 +33,7 @@ export function initialServerDraft(server: MCPServer | undefined, name: string, 
   return {
     name, http: Boolean(server?.url),
     piOptions: server?.piOptions ? JSON.stringify(server.piOptions, null, 2) : '',
+    agentOptions: Object.fromEntries(Object.entries(server?.options ?? {}).map(([agent, fields]) => [agent, JSON.stringify(fields, null, 2)])),
     tools: server?.tools ?? {},
     command: server?.command ? joinCommand([server.command, ...(server.args ?? [])]) : '',
     env: envRows(server?.env), headers: envRows(server?.headers), url: server?.url ?? '', tokenEnv: server?.bearerToken?.fromEnv ?? '',
@@ -80,10 +83,20 @@ export function validateServerDraft(draft: ServerDraft, off: boolean, editing: b
   const options = off ? {} : parsePiOptions(piOptions, hasToolPolicy(tools));
   const optionsError = piOptionsError(options, t);
   const toolsError = !off && denyRemovesAll(tools) ? t('mcp.tools.denyAll') : '';
-  const canSave = Boolean(trimmed) && !nameError && (targets.length > 0 || !off) && (off || (http ? url.trim() !== '' : words.length > 0)) && !optionsError && !toolsError;
+  // Empty text drops an Agent; the server checks the fields themselves when saving.
+  const agentOptions: Record<string, Record<string, unknown>> = {};
+  let agentOptionsError = '';
+  for (const [agent, text] of off ? [] : Object.entries(draft.agentOptions)) {
+    if (!text.trim()) continue;
+    let value: unknown;
+    try { value = JSON.parse(text); } catch { value = undefined; }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) agentOptionsError ||= t('mcp.agentOptionsInvalid', { agent: targetLabel(agent) });
+    else if (Object.keys(value).length > 0) agentOptions[agent] = value as Record<string, unknown>;
+  }
+  const canSave = Boolean(trimmed) && !nameError && (targets.length > 0 || !off) && (off || (http ? url.trim() !== '' : words.length > 0)) && !optionsError && !toolsError && !agentOptionsError;
   const title = t(off ? (editing ? 'mcp.editOff' : 'mcp.addOff') : (editing ? 'mcp.editServer' : 'mcp.addServer'));
   const complete = Boolean(trimmed) && !nameError && targets.length > 0 && (off || (http ? url.trim() !== '' : words.length > 0));
-  return { trimmed, nameError, words, options, optionsError, toolsError, canSave, title, complete };
+  return { trimmed, nameError, words, options, optionsError, toolsError, agentOptions, agentOptionsError, canSave, title, complete };
 }
 
 export type ServerValidation = ReturnType<typeof validateServerDraft>;
