@@ -157,8 +157,8 @@ servers:
 - 자격 증명(필드 이름에 token, secret, password, API key, authorization, credential이 들어가거나
   URL에 비밀번호가 있는 값)은 해당 Agent 자체 문법의 환경 변수 참조여야 합니다. 예: Claude Code는
   `${VAR}`, OpenCode는 `{env:VAR}`이며 값 전체가 참조여야 합니다. Agent의 파일이 커밋될 수
-  있으므로 평문이나 참조 앞뒤에 글자가 붙은 값은 거부됩니다. Codex와 Antigravity는 그곳의 참조를
-  읽지 않으므로 해당 options에는 자격 증명을 둘 수 없습니다.
+  있으므로 평문이나 참조 앞뒤에 글자가 붙은 값은 거부됩니다. Codex, Antigravity, Claude Desktop, Goose, Junie, LM Studio, Warp는
+  그곳의 참조를 읽지 않으므로 해당 options에는 자격 증명을 둘 수 없습니다.
 - 서버가 도달하지 않는 client의 options는 유지되며 작성되지 않습니다.
 - sync는 이름 변경 후처럼 항목을 다시 만들 때 해당 필드를 다시 작성합니다.
   source에서 option을 빼면 다음 sync가 작성했던 필드를 제거합니다. 단, 그 뒤 Agent가 변경했다면 제거하지 않으며, 이는 import 또는 replace로 해결할 충돌입니다.
