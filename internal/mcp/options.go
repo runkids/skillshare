@@ -30,7 +30,7 @@ func (s Server) validateOptions(name string) error {
 			if !optionValue(s.Options[agent][key], false) {
 				return fmt.Errorf("MCP %s: options.%s.%s must be a string, number, boolean, list of those, or a mapping of them", name, agent, key)
 			}
-			if field := literalSecret(agent, key, s.Options[agent][key]); field != "" {
+			if field := literalSecret(agent, key, s.Options[agent][key], false); field != "" {
 				if prefix := envRefPrefix(agent); prefix != "" {
 					return fmt.Errorf("MCP %s: options.%s.%s holds a credential as plain text; make the whole value an environment reference, %sVAR}", name, agent, field, prefix)
 				}
@@ -67,24 +67,30 @@ func optionValue(value any, inList bool) bool {
 
 // literalSecret names the first field holding a credential as plain text, as import judges
 // one. The Agent's file may be committed, so only a whole environment reference in the
-// Agent's own syntax may stand there; text around one would still be written out.
-func literalSecret(agent, key string, value any) string {
+// Agent's own syntax may stand there; text around one would still be written out. Everything
+// under a sensitive name is sensitive, and a number there is a credential written as plain text.
+func literalSecret(agent, key string, value any, sensitive bool) string {
+	sensitive = sensitive || sensitiveKey.MatchString(key)
 	switch v := value.(type) {
 	case string:
 		prefix := envRefPrefix(agent)
 		ref := prefix != "" && strings.HasPrefix(v, prefix) && strings.HasSuffix(v, "}") && envName.MatchString(v[len(prefix):len(v)-1])
-		if v != "" && (sensitiveKey.MatchString(key) || hasURLPassword(v)) && !ref {
+		if v != "" && (sensitive || hasURLPassword(v)) && !ref {
+			return key
+		}
+	case int, int64, uint64, float64:
+		if sensitive {
 			return key
 		}
 	case []any:
 		for _, item := range v {
-			if field := literalSecret(agent, key, item); field != "" {
+			if field := literalSecret(agent, key, item, sensitive); field != "" {
 				return field
 			}
 		}
 	case map[string]any:
 		for _, name := range sortedKeys(v) {
-			if field := literalSecret(agent, name, v[name]); field != "" {
+			if field := literalSecret(agent, name, v[name], sensitive); field != "" {
 				return key + "." + field
 			}
 		}

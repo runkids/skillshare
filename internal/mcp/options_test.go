@@ -117,6 +117,9 @@ func TestOptionsRefusePlainTextSecrets(t *testing.T) {
 		"text around a reference":     {"opencode": {"api_key": "secret-{env:DOCS_KEY}"}},
 		"another Agent's syntax":      {"claude": {"api_key": "{env:DOCS_KEY}"}},
 		"an Agent without references": {"codex": {"api_key": "${DOCS_KEY}"}},
+		// YAML reads an unquoted number as one, and a credentials mapping names its fields plainly.
+		"a number":               {"opencode": {"api_key": 123456}},
+		"under a sensitive name": {"opencode": {"api_key": map[string]any{"value": "abc"}}},
 	} {
 		if err := (Server{URL: "https://example.com", Options: options}).Validate("docs"); err == nil || !strings.Contains(err.Error(), "api_key") {
 			t.Errorf("%s: got %v", name, err)

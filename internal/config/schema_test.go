@@ -374,6 +374,28 @@ func findRepoRoot(t *testing.T) string {
 	}
 }
 
+// The schema accepts only option values sync can write back unchanged, as LoadSource does.
+func TestSchema_MCPOptionValuesMatchRuntime(t *testing.T) {
+	data, err := os.ReadFile("../../schemas/mcp.schema.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var schema map[string]any
+	if err := json.Unmarshal(data, &schema); err != nil {
+		t.Fatal(err)
+	}
+	defs := schema["$defs"].(map[string]any)
+	options := defs["server"].(map[string]any)["properties"].(map[string]any)["options"].(map[string]any)
+	if options["additionalProperties"].(map[string]any)["additionalProperties"].(map[string]any)["$ref"] != "#/$defs/optionValue" {
+		t.Fatalf("option fields unconstrained: %v", options["additionalProperties"])
+	}
+	scalar, _ := json.Marshal(defs["optionScalar"])
+	value, _ := json.Marshal(defs["optionValue"])
+	if string(scalar) != `{"type":["string","number","boolean"]}` || !strings.Contains(string(value), `"items":{"$ref":"#/$defs/optionScalar"}`) {
+		t.Fatalf("option value allows null or nested lists: %s %s", scalar, value)
+	}
+}
+
 func TestSchema_TargetsAllowFiles(t *testing.T) {
 	root := findRepoRoot(t)
 	cases := map[string]func(defs map[string]any) any{
