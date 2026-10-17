@@ -7,6 +7,7 @@ import { mcpApi } from '../../api/mcp';
 import { mcpCheckApi } from '../../api/mcpCheck';
 import { I18nProvider } from '../../i18n';
 import MCPServerDialog from './MCPServerDialog';
+import { MCPAccountAgents } from './targetOrder';
 
 vi.mock('../CopyButton', () => ({ default: () => null }));
 // CodeMirror needs a real layout engine; a textarea stands in for it
@@ -167,13 +168,31 @@ describe('MCP server dialog', () => {
     })));
   });
 
-  it("keeps an unticked Agent's settings open while they are retyped", async () => {
+  it("saves an unticked Agent's settings cleared and retyped", async () => {
     const user = userEvent.setup();
     renderDialog({ initial: { name: 'docs', server: { url: 'https://docs.example/mcp', targets: ['codex'], options: { claude: { timeout: 600000 } } } } });
     await user.click(screen.getByRole('combobox', { name: 'Agent' }));
     await user.click(screen.getByRole('option', { name: (name) => name.startsWith('Claude') && !name.startsWith('Claude Desktop') }));
-    await user.clear(screen.getByLabelText('Claude: other settings'));
-    expect(screen.getByLabelText('Claude: other settings')).toBeInTheDocument();
+    const box = screen.getByLabelText('Claude: other settings');
+    await user.clear(box);
+    await user.click(screen.getByLabelText('Claude: other settings'));
+    await user.paste('{"timeout": 120000}');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({
+      server: expect.objectContaining({ options: { claude: { timeout: 120000 } } }),
+    })));
+  });
+
+  // Options are keyed by Agent; a ticked account opens its Agent's editor.
+  it("saves an account's settings under its Agent", async () => {
+    const user = userEvent.setup();
+    render(<QueryClientProvider client={new QueryClient()}><I18nProvider><MCPAccountAgents.Provider value={{ 'codex-work': 'codex' }}><MCPServerDialog defaultTargets={[]} existingNames={[]} onClose={vi.fn()} onSaved={vi.fn()} initial={{ name: 'docs', server: { url: 'https://docs.example/mcp', targets: ['codex-work'] } }} /></MCPAccountAgents.Provider></I18nProvider></QueryClientProvider>);
+    await user.click(screen.getByLabelText('Codex: other settings'));
+    await user.paste('{"default_tools_approval_mode": "approve"}');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({
+      server: expect.objectContaining({ options: { codex: { default_tools_approval_mode: 'approve' } } }),
+    })));
   });
 
   it('blocks saving Agent settings that are not a JSON object', async () => {

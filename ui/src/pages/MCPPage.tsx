@@ -29,7 +29,7 @@ import MCPRestoreDialog from '../components/mcp/MCPRestoreDialog';
 import MCPServerDialog from '../components/mcp/MCPServerDialog';
 import { isServeCommand, type AddMode } from '../components/mcp/mcpServerDraft';
 import { buildMatrix, canImportConflict, describeError, describeMessage, isShadowed, isResolvable, mcpOrder, projectOf, targetLabel, writes, type MCPChange } from '../components/mcp/mcpView';
-import { MCPTargetOrder } from '../components/mcp/targetOrder';
+import { MCPAccountAgents, MCPTargetOrder } from '../components/mcp/targetOrder';
 import { useMCPToggle } from '../components/mcp/useMCPToggle';
 import { useT, plural } from '../i18n';
 import { shortenHome } from '../lib/paths';
@@ -319,6 +319,7 @@ export default function MCPPage() {
   };
 
   const order = useMemo(() => mcpOrder(data?.source.accounts), [data?.source.accounts]);
+  const accountAgents = useMemo(() => Object.fromEntries(Object.entries(data?.source.accounts ?? {}).map(([name, account]) => [name, account.agent])), [data?.source.accounts]);
   const toggleTarget = useMCPToggle(order);
 
   if (isPending) return <PageSkeleton />;
@@ -388,6 +389,7 @@ export default function MCPPage() {
 
   return (
     <MCPTargetOrder.Provider value={order}>
+    <MCPAccountAgents.Provider value={accountAgents}>
     <div className="animate-fade-in">
       <MCPHeader source={data?.source} onImport={() => setImporting({})} onAdd={() => { setAddingOff(false); setAddMode('form'); setEditing(''); }} />
 
@@ -408,6 +410,7 @@ export default function MCPPage() {
       <MCPReplaceDialog replace={replace} busy={busy} onClose={() => setReplace(null)} onApply={applyReplace} />
       <SkillContextMenu open={!!menu} anchorPoint={menu ?? undefined} items={menu?.items ?? []} onClose={() => setMenu(null)} />
     </div>
+    </MCPAccountAgents.Provider>
     </MCPTargetOrder.Provider>
   );
 }

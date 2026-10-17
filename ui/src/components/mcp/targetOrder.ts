@@ -7,3 +7,6 @@ import { mcpTargets } from '../../api/mcp';
  * account of an Agent reads the same project files.
  */
 export const MCPTargetOrder = createContext<readonly string[]>(mcpTargets);
+
+/** The Agent each account target writes to, by account name; empty in a project. */
+export const MCPAccountAgents = createContext<Readonly<Record<string, string>>>({});

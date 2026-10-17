@@ -15,7 +15,7 @@ import PiSettingsFields from './PiSettingsFields';
 import ToolPolicyFields from './ToolPolicyFields';
 import MCPConfigView from './MCPConfigView';
 import { cleanToolPolicy, describeError, hasToolPolicy, targetLabel } from './mcpView';
-import { MCPTargetOrder } from './targetOrder';
+import { MCPAccountAgents, MCPTargetOrder } from './targetOrder';
 import { initialServerDraft, serveSkillsCommand, serveSkillsTarget, validateServerDraft, type AddMode, type DraftPatch, type EnvRow, type ServerDraft, type ServerValidation } from './mcpServerDraft';
 
 /**
@@ -122,7 +122,9 @@ function ServerForm({ draft, validation, patch, off, saving, editing, order, vis
   const served = serveSkillsTarget(validation.words) ?? '';
   const twice = serve ? order.filter((x) => selectedTargets.has(x) && skillTargets.synced.has(x)) : [];
   // Options are keyed by Agent, not account, so every Agent is offered: ticked ones first, then those with settings.
-  const rank = (x: string) => (selectedTargets.has(x) ? 0 : draft.agentOptions[x]?.trim() ? 1 : 2);
+  const accountAgents = useContext(MCPAccountAgents);
+  const tickedAgents = new Set(targets.map((x) => accountAgents[x] ?? x));
+  const rank = (x: string) => (tickedAgents.has(x) ? 0 : draft.agentOptions[x]?.trim() ? 1 : 2);
   const agents = mcpTargets.filter((x) => x !== 'pi').sort((a, b) => rank(a) - rank(b));
   return (
     <form id="mcp-server" className="db" onSubmit={(e) => { e.preventDefault(); void onSave(); }}>
