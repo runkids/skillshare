@@ -165,8 +165,8 @@ servers:
   credential) or a password in a URL, must be an environment reference in the Agent's own
   syntax that makes up the whole value, such as `${VAR}` for Claude Code or `{env:VAR}`
   for OpenCode. Plain text, or text around a reference, is refused, because the Agent's
-  file may be committed. Codex and Antigravity read no references there, so their options
-  cannot hold a credential.
+  file may be committed. Codex, Antigravity, Claude Desktop, Goose, Junie, LM Studio and Warp
+  read no references there, so their options cannot hold a credential.
 - Options for a client the server does not reach are kept and not written.
 - Sync writes the fields again when it recreates an entry, for example after a rename.
   When the source drops an option, the next sync removes the field it wrote, unless

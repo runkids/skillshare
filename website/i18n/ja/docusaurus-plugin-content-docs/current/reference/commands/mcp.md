@@ -132,7 +132,7 @@ servers:
   または URL 内のパスワード）は、その Agent 自身の書式による環境変数参照にする必要があります。
   値全体が参照である必要があります。例: Claude Code なら `${VAR}`、OpenCode なら `{env:VAR}`。
   Agent のファイルはコミットされることがあるため、平文や参照の前後に文字がある値は拒否されます。
-  Codex と Antigravity はそこで参照を読まないため、その options に認証情報は置けません。
+  Codex、Antigravity、Claude Desktop、Goose、Junie、LM Studio、Warp はそこで参照を読まないため、その options に認証情報は置けません。
 - サーバーが届かないクライアントの options は保持され、書き込まれません。
 - sync は、リネームの後などにエントリを作り直すとき、そのフィールドを再び書き込みます。
   source から option を外すと、次の sync は書き込んだフィールドを削除します。ただし、その後に Agent が変更していた場合は除きます。それは import または replace で解決する競合です。

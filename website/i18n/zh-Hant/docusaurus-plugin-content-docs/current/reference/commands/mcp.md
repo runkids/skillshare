@@ -129,7 +129,7 @@ servers:
 - 憑證（欄位名稱含 token、secret、password、API key、authorization、credential，或 URL 中帶密碼）
   必須使用該 Agent 自己語法的環境變數參照，例如 Claude Code 用 `${VAR}`、OpenCode 用
   `{env:VAR}`，且整個值必須就是參照。Agent 的檔案可能會被 commit，因此明文或參照前後帶有文字的值會被拒絕。
-  Codex 與 Antigravity 不會讀取那裡的參照，所以它們的 options 不能放憑證。
+  Codex、Antigravity、Claude Desktop、Goose、Junie、LM Studio 與 Warp 不會讀取那裡的參照，所以它們的 options 不能放憑證。
 - 該 server 觸及不到的 client 的 options 會被保留，但不會寫入。
 - 當 sync 重新建立項目時，例如重新命名之後，會再次寫入這些欄位。
   當 source 移除某個 option 時，下一次 sync 會移除它寫入的欄位，除非 Agent 在那之後改過它；那屬於需要 import 或 replace 的衝突。
