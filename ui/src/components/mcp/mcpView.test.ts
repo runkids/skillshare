@@ -56,6 +56,24 @@ describe('MCP view helpers', () => {
       .toBe('D:\\project: [mcp.kilocodeProjectEnv:mcp-test]');
   });
 
+  // The server checks option fields; its English refusals are shown in the dialog's language. Refs: #578.
+  it("translates the server's refusals of Agent options", () => {
+    const t = (key: string, params?: Record<string, string>) => `[${key}:${Object.values(params ?? {}).join(',')}]`;
+    expect([
+      describeError(t, "MCP docs: options.codex cannot set url; Skillshare writes that field from the server's own settings"),
+      describeError(t, 'options.copilot cannot set tools; Skillshare writes that field from the server\'s own settings'),
+      describeError(t, 'MCP docs: options.opencode.oauth.clientSecret holds a credential as plain text; make the whole value an environment reference, {env:VAR}'),
+      describeError(t, 'MCP docs: options.codex.api_key holds a credential, and codex cannot read an environment reference there; keep it out of options'),
+      describeError(t, 'MCP docs: options.claude.timeout must be a string, number, boolean, list of those, or a mapping of them'),
+    ]).toEqual([
+      '[mcp.agentOptionsTaken:Codex,url]',
+      '[mcp.agentOptionsTaken:Copilot CLI,tools]',
+      '[mcp.agentOptionsSecret:OpenCode,oauth.clientSecret,{env:VAR}]',
+      '[mcp.agentOptionsNoSecret:Codex,api_key]',
+      '[mcp.agentOptionsBad:Claude,timeout]',
+    ]);
+  });
+
   // A pasted snippet is parsed by the server, whose errors are English and talk about a target file.
   it('translates what the server says about a snippet it cannot read', () => {
     const t = (key: string) => `[${key}]`;

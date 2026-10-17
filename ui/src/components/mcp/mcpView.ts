@@ -126,8 +126,20 @@ const kiloProjectEnvPrefix = 'Kilo Code MCP ';
 const kiloProjectEnvSuffix = ': Kilo does not allow environment references in project config and ignores the whole file when it finds one; remove fromEnv here or define this server in global mode';
 
 /** Localizes the errors people can act on: an unreadable snippet, and the Kilo project error, whose leading project path is kept. */
+/** The server's refusals of a field in options, by i18n key; the groups are the Agent, the field and, for a credential, the reference to use. */
+const agentOptionErrors: [RegExp, string][] = [
+  [/options\.([\w-]+) cannot set ([\w.-]+); Skillshare writes that field/, 'mcp.agentOptionsTaken'],
+  [/options\.([\w-]+)\.(\S+) holds a credential as plain text; make the whole value an environment reference, (\S+)$/, 'mcp.agentOptionsSecret'],
+  [/options\.([\w-]+)\.(\S+) holds a credential, and [\w-]+ cannot read an environment reference there/, 'mcp.agentOptionsNoSecret'],
+  [/options\.([\w-]+)\.(\S+) must be a string, number, boolean, list of those, or a mapping of them/, 'mcp.agentOptionsBad'],
+];
+
 export const describeError = (t: (key: string, params?: Record<string, string>) => string, message = '') => {
   if (importErrorKeys[message]) return t(importErrorKeys[message]);
+  for (const [pattern, key] of agentOptionErrors) {
+    const m = pattern.exec(message);
+    if (m) return t(key, { agent: targetLabel(m[1]), field: m[2], ...(m[3] && { example: m[3] }) });
+  }
   const start = message.indexOf(kiloProjectEnvPrefix);
   if (start < 0) return message;
   const nameStart = start + kiloProjectEnvPrefix.length;
