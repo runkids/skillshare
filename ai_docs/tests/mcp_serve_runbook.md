@@ -2,7 +2,7 @@
 
 Validates the SEP-2640 skills server over stdio and Streamable HTTP, and its opt-in skill editing.
 
-**Origin**: issue #428 — Agents that only reach an MCP endpoint need the skills Skillshare manages. Editing: issue #540.
+**Origin**: issue #428 — Agents that only reach an MCP endpoint need the skills Skillshare manages. Editing: issue #540. Executor index: issue #574.
 
 ## Scope
 
@@ -16,6 +16,7 @@ Validates the SEP-2640 skills server over stdio and Streamable HTTP, and its opt
 - A non-loopback `--http` address without `SKILLSHARE_MCP_TOKEN` is refused
 - A non-loopback `--http` address with a token but no `--tls-cert`/`--tls-key` is refused
 - With `mcp.serve.edit`, a preview writes nothing, apply saves exactly the preview once, and an unlisted skill is refused
+- Over HTTP, the Executor index at `/.well-known/agent-skills/` lists text skills, leaves out one with a binary file (and `--check` says so), serves listed files, and changes a skill's `version` after `apply_skill_edit`
 
 ## Environment
 
@@ -228,7 +229,54 @@ Expected:
 - jq: .again | startswith("expired:")
 - jq: .notes | startswith("not_writable:")
 
+### Step 10: Executor index over HTTP
+
+```bash
+set -eu
+cd "$HOME"
+CASE="$HOME/mcp-serve"
+export SKILLSHARE_CONFIG="$CASE/config.yaml"
+mkdir -p "$CASE/skills/logo"
+printf -- '---\nname: logo\ndescription: Use when testing logo\n---\n# logo\n' > "$CASE/skills/logo/SKILL.md"
+printf '\211PNG\377' > "$CASE/skills/logo/logo.png"
+CHECK=$(ss mcp serve -g --check 2>&1)
+ss mcp serve -g --http 127.0.0.1:47945 2>/dev/null &
+PID=$!
+trap 'kill $PID 2>/dev/null || true' EXIT
+for _ in 1 2 3 4 5 6 7 8 9 10; do curl -s -o /dev/null http://127.0.0.1:47945/ && break; sleep 0.5; done
+W=http://127.0.0.1:47945/.well-known/agent-skills
+BEFORE=$(curl -sf "$W/index.json")
+AGAIN=$(curl -sf "$W/index.json")
+FORMS=$(curl -sf "$W/pdf/references/FORMS.md")
+M='"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"e2e","version":"1"},"io.modelcontextprotocol/clientCapabilities":{}}'
+call() { # tool, arguments JSON → the result
+  curl -s -X POST http://127.0.0.1:47945/ -H 'Content-Type: application/json' \
+    -H 'Accept: application/json, text/event-stream' -H 'MCP-Protocol-Version: 2026-07-28' \
+    -H 'Mcp-Method: tools/call' -H "Mcp-Name: $1" \
+    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$1\",\"arguments\":$2,$M}}" \
+    | sed -n 's/^data: //p' | jq -c '.result'
+}
+REV=$(call read_skill '{"uri":"skill://pdf/references/FORMS.md"}' | jq -r '.content[0].text' | sed -n 's/^Revision: //p')
+ID=$(call preview_skill_edit "$(jq -nc --arg r "$REV" '{uri:"skill://pdf/references/FORMS.md",base_revision:$r,content:"forms v3\n"}')" | jq -r '.content[0].text' | sed -n 's/^Preview \([0-9a-f]*\) .*/\1/p')
+call apply_skill_edit "{\"preview_id\":\"$ID\"}" >/dev/null
+AFTER=$(curl -sf "$W/index.json")
+jq -nc --argjson b "$BEFORE" --argjson a "$AFTER" --arg same "$([ "$BEFORE" = "$AGAIN" ] && echo yes)" --arg forms "$FORMS" --arg check "$CHECK" \
+  '{names: [$b.skills[].name], pdf: ($b.skills[] | select(.name == "pdf") | .files), same: $same, forms: $forms,
+    changed: (($b.skills[] | select(.name == "pdf") | .version) != ($a.skills[] | select(.name == "pdf") | .version)),
+    check: ($check | contains("logo") and contains("not UTF-8"))}'
+```
+
+Expected:
+- exit_code: 0
+- jq: .names | index("logo") == null
+- jq: .names | index("pdf") != null
+- jq: .pdf == ["SKILL.md", "references/FORMS.md"]
+- jq: .same == "yes"
+- jq: .forms == "forms v2"
+- jq: .changed == true
+- jq: .check == true
+
 ## Pass Criteria
 
 - All steps marked PASS
-- No `ss mcp serve` process remains after Steps 6 and 9
+- No `ss mcp serve` process remains after Steps 6, 9 and 10

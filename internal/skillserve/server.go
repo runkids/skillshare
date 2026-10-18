@@ -76,12 +76,22 @@ type service struct {
 	edit     *EditOptions
 	editMu   sync.Mutex // serializes saves and guards previews
 	previews map[string]*preview
+
+	idxMu  sync.Mutex
+	idx    *Index
+	idxFor *Catalog // the catalog idx was built from
+}
+
+// Server is the MCP server, plus the Executor skill index HTTPHandler serves.
+type Server struct {
+	*mcp.Server
+	svc *service
 }
 
 // NewServer returns an MCP server for the skills b selects, read-only unless
 // opts.Edit is set. The first
 // catalog is built here, so source errors and initial warnings surface at once.
-func NewServer(b *Builder, opts Options) (*mcp.Server, error) {
+func NewServer(b *Builder, opts Options) (*Server, error) {
 	if opts.Warn == nil {
 		opts.Warn = io.Discard
 	}
@@ -106,16 +116,30 @@ func NewServer(b *Builder, opts Options) (*mcp.Server, error) {
 	if svc.edit != nil {
 		svc.addEditTools(srv)
 	}
-	return srv, nil
+	return &Server{Server: srv, svc: svc}, nil
 }
 
-// HTTPHandler serves srv over Streamable HTTP. A non-empty token must be sent
-// as a bearer token on every request. Cross-origin browser requests are
-// refused, so a web page cannot reach a loopback server that has no token.
-func HTTPHandler(srv *mcp.Server, token string) http.Handler {
-	h := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return srv }, &mcp.StreamableHTTPOptions{
+// HTTPHandler serves srv over Streamable HTTP, and the Executor skill index
+// under IndexPath. A non-empty token must be sent as a bearer token on every
+// request. Cross-origin browser requests to MCP are refused, and the index
+// refuses rebound host names, so a web page cannot use a loopback server that
+// has no token.
+func HTTPHandler(srv *Server, token string) http.Handler {
+	mcpHandler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return srv.Server }, &mcp.StreamableHTTPOptions{
 		Stateless:             true,
 		CrossOriginProtection: http.NewCrossOriginProtection(),
+	})
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, IndexPath) {
+			mcpHandler.ServeHTTP(w, r)
+			return
+		}
+		// Reading needs no CSRF check: without CORS headers a page cannot read the answer.
+		if rebound(r) {
+			http.Error(w, fmt.Sprintf("Forbidden: invalid Host header %q", r.Host), http.StatusForbidden)
+			return
+		}
+		srv.svc.serveIndex(w, r)
 	})
 	if token == "" {
 		return h

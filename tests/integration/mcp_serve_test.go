@@ -104,6 +104,20 @@ func TestMCPServe_CheckCountsEditableSkills(t *testing.T) {
 	r.AssertRowContains(t, "Editable", "1 of 2 (mcp.serve.edit.skills)")
 }
 
+func TestMCPServe_CheckListsSkillsLeftOutOfTheExecutorIndex(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+	sb.CreateSkill("pdf", map[string]string{"SKILL.md": "---\nname: pdf\ndescription: Use when editing PDFs\n---\n# PDF\n"})
+	sb.CreateSkill("logo", map[string]string{"SKILL.md": "---\nname: logo\ndescription: Use when drawing\n---\n# Logo\n", "logo.png": "\x89PNG\xff"})
+
+	r := sb.RunCLI("mcp", "serve", "--check", "-g")
+
+	r.AssertSuccess(t)
+	r.AssertRowContains(t, "logo", "left out of the Executor index: logo.png is not UTF-8 text")
+	r.AssertRowContains(t, "Executor", "1 of 2 in /.well-known/agent-skills/index.json (1 file, ")
+}
+
 func TestMCPServe_RejectsAnInvalidPreviewLifetime(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

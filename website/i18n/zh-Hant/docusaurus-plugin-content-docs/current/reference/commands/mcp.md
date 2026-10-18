@@ -54,9 +54,9 @@ skillshare sync --all
 | `--live` | 搭配 `check` 使用：另外啟動每個本機 server，並呼叫每個遠端 server。參見[下方說明](#probe-servers-live) |
 | `--timeout DURATION` | 搭配 `check --live` 使用：每個 server 探測的時間上限，例如 `30s`；預設為 `10s` |
 | `--accept-tools` | 搭配 `check --live` 使用：把每個已探測 server 列出的工具定義記錄為新的基準。參見[下方說明](#pin-tool-definitions) |
-| `--http ADDR` | 搭配 `serve` 使用：在 `ADDR` 上以 Streamable HTTP 監聽，而不使用 stdio。參見[下方說明](#serve-skills-over-mcp) |
+| `--http ADDR` | 搭配 `serve` 使用：在 `ADDR` 上以 Streamable HTTP 監聽，而不使用 stdio，同時提供 [Executor skill 索引](#executor)。參見[下方說明](#serve-skills-over-mcp) |
 | `--tls-cert FILE`, `--tls-key FILE` | 搭配 `serve --http` 使用：以這組 PEM 憑證與金鑰提供 HTTPS；非 loopback 位址必須設定 |
-| `--check` | 搭配 `serve` 使用：列出會被跳過的 skills 及原因，然後結束，不啟動服務 |
+| `--check` | 搭配 `serve` 使用：列出會被跳過的 skills 及原因、可編輯的數量，以及 Executor 索引會提供的內容，然後結束，不啟動服務 |
 | `--no-tui` | 停用互動選單；`tui: false`、`--json` 或非終端機輸入/輸出時也會停用 |
 | `--revision ID` | 要求 add、import、remove 或 `sync mcp` 使用相符的 preview |
 | `--global`, `-g` | 使用 global Skillshare 設定 |
@@ -824,7 +824,7 @@ skill 核准機制不適用。
   例如 `127.0.0.1:8765`，並由 proxy 終止 TLS。
 - **安全性。** 只有 skill manifest 中的檔案可以讀取，且讀取範圍限於 skill 目錄內。
   連結與 `.git` 既不會列出也不會提供。不會執行任何東西，除非開啟編輯，否則也不會寫入任何東西。使用 `--http` 時，
-  跨來源的瀏覽器請求會被拒絕。
+  送往 MCP 端點的跨來源瀏覽器請求會被拒絕；Executor 索引只回應讀取，而其他來源的頁面看不到這些回應。
 
 要連接 Agent，請像其他 server 一樣新增並同步它。在執行該 Agent 的機器上：
 
@@ -897,6 +897,56 @@ mcp:
 類型為 `mcp serve`，並附上該檔案及其舊的與新的 revision，每次稽核則記錄在稽核日誌中（`skillshare log --audit`）。
 只要 source 中仍有舊版 `registry.yaml`，就沒有任何 skill 可編輯；執行任何其他指令都會遷移它。target 會在下一次 `sync` 時收到變更。
 `skillshare mcp serve --check` 會回報所提供的 skills 中有多少可編輯。
+
+### 將 skills 載入 Executor {#executor}
+
+使用 `--http` 時，server 也會在 [Executor](https://github.com/UsefulSoftwareCo/executor) 應用程式透過
+`wellKnownSkills` 載入的索引中發布其 skills，索引位於 `/.well-known/agent-skills/index.json`，
+每個檔案位於 `/.well-known/agent-skills/<name>/<path>`。透過 `apply_skill_edit` 儲存的編輯
+不需要 commit 或 push，Executor 在下一次檢查時就會收到。格式是 Executor 的載入器所讀取的
+（`{skills: [{name, version, files}]}`），而不是 agent-skills discovery 草案的 0.2 版。
+
+```ts
+const skillshare = defineProvider({
+  name: "Skillshare",
+  hosts: ["skills-host:8765"],
+  auth: { token: secrets({ label: "Token", fields: object({ token: string() }) }) },
+});
+
+export default defineApp({ accounts: { skillshare } }, async (ctx) => ({
+  dynamicSkills: dynamicSkills({
+    list: () =>
+      wellKnownSkills({
+        url: "https://skills-host:8765/",
+        cache: ctx.cache.forAccount(ctx.accounts.skillshare),
+        signal: ctx.signal,
+        fetch: (input, init) => {
+          const headers = new Headers(init?.headers);
+          headers.set("Authorization", `Bearer ${ctx.accounts.skillshare.fields.token}`);
+          return ctx.fetch(input, { ...init, headers });
+        },
+      }),
+  }),
+}));
+```
+
+- **被排除的 skills。** Executor 只要拒絕其中一個 skill，整次載入就會失敗，因此索引會排除以下 skills：
+  `metadata` 的值、`license` 或 `allowed-tools` 不是文字；有檔案超過 2 MB、有檔案不是 UTF-8 文字（例如圖片），或有檔名是 Executor 無法解碼的（例如含 `%` 或 `\`）；
+  或名稱與另一個已提供的 skill 相同（同名的全部排除）。
+- **限制。** Executor 從一個索引最多載入 1,000 個檔案與 20 MB，並且最多讀取 2 MB 的 `index.json`。超過時，索引會回傳錯誤；
+  請用 `--target` 減少所提供的 skills，每個索引使用一個 server。
+- **版本。** 每個項目的 `version` 是其檔案路徑與摘要的摘要，因此 Executor 只會在內容有變更後重新載入。
+  內容沒有變更時，索引逐位元組相同。
+- **Token。** 同一個 bearer token 同時保護索引與 MCP 工具，開啟編輯時也包含編輯工具。
+  若要給 Executor 唯讀存取，請另外執行一個未設定 `mcp.serve.edit` 的 `mcp serve`。
+  `cache: ctx.cache.forAccount(...)` 可避免某個帳號的 skills 進入另一個帳號的快取。
+- **連線到 server。** 預設情況下，Executor Cloud 與自行架設的 Executor 都會拒絕私有位址與 loopback 位址，
+  所以 Cloud 需要公開位址。自行架設的維運人員可以用 `EXECUTOR_APPS_ALLOW_PRIVATE_FETCH=true` 允許這類位址，
+  而且 Executor 主機仍需要有到 server 的路由，並信任它的憑證。Executor 會拒絕重新導向，
+  所以前面的代理不能做重新導向，例如為了補上結尾斜線。
+
+`skillshare mcp serve --check` 會列出索引排除的 skills，以及所提供的 skills、檔案與位元組數。`--http` 會在啟動時印出索引 URL，並在 stderr 上對相同的 skills 發出警告。
+
 
 ## Safety and limitations
 

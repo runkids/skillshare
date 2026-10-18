@@ -143,11 +143,23 @@ func cmdMCPServe(args []string) error {
 		<-ctx.Done()
 		httpSrv.Close()
 	}()
+	scheme := "https"
 	if certFile == "" {
-		fmt.Fprintf(os.Stderr, "Serving skills over MCP at http://%s/\n", ln.Addr())
+		scheme = "http"
+	}
+	fmt.Fprintf(os.Stderr, "Serving skills over MCP at %s://%s/\n", scheme, ln.Addr())
+	fmt.Fprintf(os.Stderr, "Executor skill index at %s://%s%sindex.json\n", scheme, ln.Addr(), skillserve.IndexPath)
+	if idx, err := srv.Index(); err == nil {
+		for _, s := range idx.Skipped {
+			fmt.Fprintf(os.Stderr, "warning: %s left out of the Executor index: %s\n", s.Path, s.Reason)
+		}
+		if idx.Err != nil {
+			fmt.Fprintln(os.Stderr, "warning: "+idx.Err.Error())
+		}
+	}
+	if certFile == "" {
 		err = httpSrv.Serve(ln)
 	} else {
-		fmt.Fprintf(os.Stderr, "Serving skills over MCP at https://%s/\n", ln.Addr())
 		err = httpSrv.ServeTLS(ln, certFile, keyFile)
 	}
 	if !errors.Is(err, http.ErrServerClosed) {
@@ -171,20 +183,30 @@ func mcpServeEdit(m *config.MCPConfig, threshold, cfgPath string) (*skillserve.E
 }
 
 // printMCPServeCheck builds the catalog the server would serve and lists the
-// skills it would skip and those clients may edit, without starting a server.
+// skills it would skip, those clients may edit, and those the Executor index
+// leaves out, without starting a server.
 func printMCPServeCheck(b *skillserve.Builder, edit *skillserve.EditOptions) error {
 	start := time.Now()
 	c, err := b.Build()
 	if err != nil {
 		return err
 	}
-	labels := []string{"Editable"}
-	for _, s := range c.Skipped {
+	idx := c.Index()
+	labels := []string{"Editable", "Executor"}
+	for _, s := range slices.Concat(c.Skipped, idx.Skipped) {
 		labels = append(labels, s.Path)
 	}
 	width := ui.RowWidth(labels...)
 	for _, s := range c.Skipped {
 		ui.Row(ui.MarkWarn, s.Path, s.Reason, width)
+	}
+	for _, s := range idx.Skipped {
+		ui.Row(ui.MarkWarn, s.Path, "left out of the Executor index: "+s.Reason, width)
+	}
+	if idx.Err != nil {
+		ui.Row(ui.MarkFail, "Executor", idx.Err.Error(), width)
+	} else {
+		ui.Row(ui.MarkNone, "Executor", fmt.Sprintf("%d of %d in %s (%s, %s)", idx.Skills, len(c.Skills), skillserve.IndexPath+"index.json", plural(idx.Files, "file"), formatBytes(idx.Bytes)), width)
 	}
 	if edit != nil {
 		editable, err := b.Editable(c, edit)

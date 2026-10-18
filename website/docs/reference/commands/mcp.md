@@ -54,9 +54,9 @@ skillshare sync --all
 | `--live` | With `check`: also start each local server and call each remote one. See [below](#probe-servers-live) |
 | `--timeout DURATION` | With `check --live`: time limit for each server's probe, such as `30s`; default `10s` |
 | `--accept-tools` | With `check --live`: record the tool definitions each probed server lists as its new baseline. See [below](#pin-tool-definitions) |
-| `--http ADDR` | With `serve`: listen for Streamable HTTP on `ADDR` instead of using stdio. See [below](#serve-skills-over-mcp) |
+| `--http ADDR` | With `serve`: listen for Streamable HTTP on `ADDR` instead of using stdio, and also serve the [Executor skill index](#executor). See [below](#serve-skills-over-mcp) |
 | `--tls-cert FILE`, `--tls-key FILE` | With `serve --http`: serve HTTPS with this PEM certificate and key; required off loopback |
-| `--check` | With `serve`: list the skills it would skip and why, then exit without serving |
+| `--check` | With `serve`: list the skills it would skip and why, how many are editable, and what the Executor index would serve, then exit without serving |
 | `--no-tui` | Disable interactive menus; also disabled by `tui: false`, `--json`, or non-terminal input/output |
 | `--revision ID` | Require a matching preview for add/import/remove or `sync mcp` |
 | `--global`, `-g` | Use global Skillshare configuration |
@@ -928,7 +928,7 @@ is ordinary text to the Agent: its own skill approval does not apply.
   address such as `127.0.0.1:8765` and let the proxy terminate TLS.
 - **Safety.** Only files in a skill's manifest can be read, and reads stay inside the
   skill directory. Links and `.git` are neither listed nor served. Nothing is executed,
-  and nothing is written unless editing is on. With `--http`, cross-origin browser requests are refused.
+  and nothing is written unless editing is on. With `--http`, cross-origin browser requests to the MCP endpoint are refused; the Executor index answers reads only, which a page on another origin cannot see.
 
 To connect an Agent, add the server like any other and sync it. On the machine that
 runs the Agent:
@@ -1013,6 +1013,65 @@ the file and its old and new revision, and each audit in the audit log (`skillsh
 While the source still has a legacy `registry.yaml`, no skill is editable; any other
 command migrates it. Targets receive the change on the next `sync`.
 `skillshare mcp serve --check` reports how many served skills are editable.
+
+### Load skills into Executor {#executor}
+
+With `--http`, the server also publishes its skills in the index that
+[Executor](https://github.com/UsefulSoftwareCo/executor) apps load with
+`wellKnownSkills`, at `/.well-known/agent-skills/index.json`, with each file at
+`/.well-known/agent-skills/<name>/<path>`. An edit saved through `apply_skill_edit`
+reaches Executor on its next check, with no commit or push. The format is the one
+Executor's loader reads (`{skills: [{name, version, files}]}`), not version 0.2 of the
+agent-skills discovery draft.
+
+```ts
+const skillshare = defineProvider({
+  name: "Skillshare",
+  hosts: ["skills-host:8765"],
+  auth: { token: secrets({ label: "Token", fields: object({ token: string() }) }) },
+});
+
+export default defineApp({ accounts: { skillshare } }, async (ctx) => ({
+  dynamicSkills: dynamicSkills({
+    list: () =>
+      wellKnownSkills({
+        url: "https://skills-host:8765/",
+        cache: ctx.cache.forAccount(ctx.accounts.skillshare),
+        signal: ctx.signal,
+        fetch: (input, init) => {
+          const headers = new Headers(init?.headers);
+          headers.set("Authorization", `Bearer ${ctx.accounts.skillshare.fields.token}`);
+          return ctx.fetch(input, { ...init, headers });
+        },
+      }),
+  }),
+}));
+```
+
+- **Skills it leaves out.** One skill Executor rejects fails its whole load, so the index
+  leaves out a skill whose `metadata` values, `license` or `allowed-tools` are not text,
+  that has a file over 2 MB, a file that is not UTF-8 text (such as an image), or a file
+  name Executor cannot decode (such as one with `%` or `\`), or whose name another
+  served skill also uses (all of them are left out).
+- **Limits.** Executor loads at most 1,000 files and 20 MB from one index, and reads at
+  most 2 MB of `index.json`. Over that, the index answers with an error; serve fewer
+  skills with `--target`, one server per index.
+- **Versions.** Each entry's `version` is a digest of its file paths and digests, so
+  Executor reloads only after a change. The index is the same byte for byte while
+  nothing changes.
+- **Token.** The same bearer token protects the index and the MCP tools, including the
+  edit tools when editing is on. To give Executor read-only access, run a separate
+  `mcp serve` without `mcp.serve.edit`. `cache: ctx.cache.forAccount(...)` keeps one
+  account's skills out of another's cache.
+- **Reaching the server.** By default Executor Cloud and self-hosted Executor refuse
+  private and loopback addresses, so Cloud needs a public address. A self-hosted
+  operator allows them with `EXECUTOR_APPS_ALLOW_PRIVATE_FETCH=true`, and the Executor
+  host still needs a route to the server and must trust its certificate. Executor
+  refuses redirects, so a proxy in front must not redirect, such as to add a trailing slash.
+
+`skillshare mcp serve --check` lists the skills the index leaves out, and how many skills,
+files and bytes it serves. `--http` prints the index URL and warns about the same skills on
+stderr when it starts.
 
 
 ## Safety and limitations

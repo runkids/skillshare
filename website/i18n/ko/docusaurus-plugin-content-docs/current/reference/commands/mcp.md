@@ -54,9 +54,9 @@ skillshare sync --all
 | `--live` | `check`와 함께 사용: 각 로컬 서버를 시작하고 각 원격 서버를 호출하는 검사도 수행. [아래](#probe-servers-live) 참고 |
 | `--timeout DURATION` | `check --live`와 함께 사용: 서버별 프로브 제한 시간 (예: `30s`); 기본값 `10s` |
 | `--accept-tools` | `check --live`와 함께 사용: 프로브한 각 서버가 나열한 도구 정의를 새 기준선으로 기록. [아래](#pin-tool-definitions) 참고 |
-| `--http ADDR` | `serve`와 함께 사용: stdio 대신 `ADDR`에서 Streamable HTTP를 수신. [아래](#serve-skills-over-mcp) 참고 |
+| `--http ADDR` | `serve`와 함께 사용: stdio 대신 `ADDR`에서 Streamable HTTP를 수신하고, [Executor skill index](#executor)도 제공. [아래](#serve-skills-over-mcp) 참고 |
 | `--tls-cert FILE`, `--tls-key FILE` | `serve --http`와 함께 사용: 이 PEM 인증서와 키로 HTTPS를 제공; loopback이 아니면 필수 |
-| `--check` | `serve`와 함께 사용: 건너뛸 skill과 그 이유를 나열하고 서버를 시작하지 않고 종료 |
+| `--check` | `serve`와 함께 사용: 건너뛸 skill과 그 이유를 나열하고, 편집 가능한 개수와 Executor index가 제공할 내용을 보여준 뒤 서버를 시작하지 않고 종료 |
 | `--no-tui` | 대화형 메뉴 비활성화; `tui: false`, `--json`, 또는 비터미널 입출력에서도 비활성화됨 |
 | `--revision ID` | add/import/remove 또는 `sync mcp`에 일치하는 미리보기 요구 |
 | `--global`, `-g` | global Skillshare 구성 사용 |
@@ -872,7 +872,7 @@ Skills extension을 선언한 client는 skill을 네이티브로 로드하며 �
   loopback 주소에 바인딩하고 프록시가 TLS를 종료하게 하세요.
 - **안전.** skill manifest에 있는 파일만 읽을 수 있으며, 읽기는 skill 디렉터리 안으로 제한됩니다.
   링크와 `.git`은 나열되지도 제공되지도 않습니다. 아무것도 실행하지 않으며, 편집을 켜지 않는 한 아무것도 쓰지 않습니다.
-  `--http`에서는 cross-origin 브라우저 요청을 거부합니다.
+  `--http`에서는 MCP 엔드포인트로 오는 cross-origin 브라우저 요청을 거부합니다. Executor index는 읽기에만 응답하며, 다른 origin의 페이지는 그 응답을 볼 수 없습니다.
 
 Agent를 연결하려면 다른 서버와 똑같이 추가하고 sync하세요. Agent를 실행하는 컴퓨터에서:
 
@@ -945,6 +945,56 @@ mcp:
 source에 레거시 `registry.yaml`이 남아 있는 동안에는 어떤 skill도 편집할 수 없습니다. 다른 명령을 실행하면 마이그레이션됩니다.
 target은 다음 `sync`에서 변경 사항을 받습니다.
 `skillshare mcp serve --check`는 제공 중인 skill 중 편집 가능한 개수를 보고합니다.
+
+### Skill을 Executor에 불러오기 {#executor}
+
+`--http`를 쓰면 서버는 [Executor](https://github.com/UsefulSoftwareCo/executor) 앱이
+`wellKnownSkills`로 불러오는 index로도 skill을 게시합니다. index는
+`/.well-known/agent-skills/index.json`에, 각 파일은 `/.well-known/agent-skills/<name>/<path>`에 있습니다.
+`apply_skill_edit`로 저장한 편집은 commit이나 push 없이 Executor의 다음 확인 때 반영됩니다.
+형식은 Executor의 로더가 읽는 것(`{skills: [{name, version, files}]}`)이며, agent-skills discovery
+초안의 0.2 버전이 아닙니다.
+
+```ts
+const skillshare = defineProvider({
+  name: "Skillshare",
+  hosts: ["skills-host:8765"],
+  auth: { token: secrets({ label: "Token", fields: object({ token: string() }) }) },
+});
+
+export default defineApp({ accounts: { skillshare } }, async (ctx) => ({
+  dynamicSkills: dynamicSkills({
+    list: () =>
+      wellKnownSkills({
+        url: "https://skills-host:8765/",
+        cache: ctx.cache.forAccount(ctx.accounts.skillshare),
+        signal: ctx.signal,
+        fetch: (input, init) => {
+          const headers = new Headers(init?.headers);
+          headers.set("Authorization", `Bearer ${ctx.accounts.skillshare.fields.token}`);
+          return ctx.fetch(input, { ...init, headers });
+        },
+      }),
+  }),
+}));
+```
+
+- **제외되는 skill.** Executor가 skill 하나라도 거부하면 전체 로드가 실패합니다. 그래서
+  `metadata` 값, `license`, `allowed-tools`가 텍스트가 아닌 skill, 2 MB를 넘는 파일, UTF-8 텍스트가 아닌 파일(이미지 등), Executor가 디코딩할 수 없는 파일 이름(`%`나 `\`가 들어간 것 등)이 있는 skill,
+  제공 중인 다른 skill과 이름이 같은 skill(해당하는 것 모두)은 index에서 제외됩니다.
+- **한도.** Executor는 index 하나에서 최대 1,000개 파일, 20 MB까지 불러오고, `index.json`은 최대 2 MB까지 읽습니다. 넘으면 index는 오류로 응답합니다.
+  `--target`으로 제공하는 skill을 줄이고, index마다 서버를 하나씩 사용하세요.
+- **버전.** 각 항목의 `version`은 파일 경로와 digest를 합친 digest이므로, Executor는 변경이 있은 뒤에만 다시 불러옵니다.
+  변경이 없는 동안 index는 바이트 단위로 같습니다.
+- **Token.** 같은 bearer token이 index와 MCP 도구를 모두 보호하며, 편집을 켠 경우에는 편집 도구도 포함됩니다.
+  Executor에 읽기 전용 접근을 주려면 `mcp.serve.edit` 없이 별도의 `mcp serve`를 실행하세요.
+  `cache: ctx.cache.forAccount(...)`는 한 계정의 skill이 다른 계정의 cache에 섞이지 않게 합니다.
+- **서버에 접근하기.** 기본적으로 Executor Cloud와 자체 호스팅 Executor는 private 주소와 loopback 주소를 거부하므로,
+  Cloud에는 공개 주소가 필요합니다. 자체 호스팅 운영자는 `EXECUTOR_APPS_ALLOW_PRIVATE_FETCH=true`로 허용할 수 있으며,
+  Executor 호스트에서 서버까지의 경로가 있어야 하고 서버의 인증서를 신뢰해야 합니다. Executor는 리디렉션을 거부하므로,
+  앞단의 프록시는 끝 슬래시를 붙이는 등의 리디렉션을 해서는 안 됩니다.
+
+`skillshare mcp serve --check`는 index에서 제외되는 skill과, 제공하는 skill, 파일, 바이트의 수를 나열합니다. `--http`는 시작할 때 index URL을 출력하고, 같은 skill에 대한 경고를 stderr에 출력합니다.
 
 
 ## Safety and limitations

@@ -54,9 +54,9 @@ skillshare sync --all
 | `--live` | `check` で使用。各ローカルサーバーの起動と各リモートサーバーの呼び出しも行う。[下記](#probe-servers-live)を参照 |
 | `--timeout DURATION` | `check --live` で使用。各サーバーのプローブの制限時間(`30s` など)。デフォルトは `10s` |
 | `--accept-tools` | `check --live` で使用。プローブした各サーバーが一覧にしたツール定義を新しいベースラインとして記録する。[下記](#pin-tool-definitions)を参照 |
-| `--http ADDR` | `serve` で使用。stdio の代わりに `ADDR` で Streamable HTTP を待ち受ける。[下記](#serve-skills-over-mcp)を参照 |
+| `--http ADDR` | `serve` で使用。stdio の代わりに `ADDR` で Streamable HTTP を待ち受け、[Executor の Skill インデックス](#executor)も提供する。[下記](#serve-skills-over-mcp)を参照 |
 | `--tls-cert FILE`, `--tls-key FILE` | `serve --http` で使用。この PEM 証明書と鍵で HTTPS を提供する。ループバック以外では必須 |
-| `--check` | `serve` で使用。スキップされる Skill とその理由を一覧表示し、提供せずに終了する |
+| `--check` | `serve` で使用。スキップされる Skill とその理由、編集可能な数と Executor インデックスが提供する内容を一覧表示し、提供せずに終了する |
 | `--no-tui` | インタラクティブメニューを無効化。`tui: false`、`--json`、または非ターミナルの入出力でも無効になる |
 | `--revision ID` | add/import/remove または `sync mcp` に一致するプレビューを要求する |
 | `--global`, `-g` | global の Skillshare 設定を使う |
@@ -745,7 +745,7 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
   `--http ADDR` は Streamable HTTP で提供します。ループバック以外のアドレスでは
   `SKILLSHARE_MCP_TOKEN` と、`--tls-cert` および `--tls-key` による HTTPS が必要です。これによりトークンが平文でネットワークを流れることはありません。トークンが設定されている場合、すべてのリクエストは
   `Authorization: Bearer <token>` を送る必要があります。代わりに TLS プロキシを使う場合は、`127.0.0.1:8765` のようなループバックアドレスにバインドし、プロキシで TLS を終端してください。
-- **安全性。** 読み取れるのは Skill のマニフェストにあるファイルだけで、読み取りは Skill ディレクトリ内に限られます。リンクと `.git` は一覧にも表示されず、提供もされません。何も実行されず、編集をオンにしない限り何も書き込まれません。`--http` では、クロスオリジンのブラウザーリクエストは拒否されます。
+- **安全性。** 読み取れるのは Skill のマニフェストにあるファイルだけで、読み取りは Skill ディレクトリ内に限られます。リンクと `.git` は一覧にも表示されず、提供もされません。何も実行されず、編集をオンにしない限り何も書き込まれません。`--http` では、MCP エンドポイントへのクロスオリジンのブラウザーリクエストは拒否されます。Executor インデックスは読み取りにのみ応答し、別オリジンのページはその応答を見られません。
 
 Agent を接続するには、他のサーバーと同様にサーバーを追加して同期します。Agent を実行するマシンで:
 
@@ -801,6 +801,56 @@ mcp:
 - **`expired`**: プレビューが `preview_ttl` より古い、すでに適用済み、またはサーバーが再起動した場合。
 
 変更できるのは既存のファイルだけです。編集でファイルを作成、削除、名前変更することはできません。書き込みはアトミックで、ファイルのモードを保持し、source への他の書き込みと同じリンクチェックを通ります。保存のたびに、ファイルとその古いリビジョン・新しいリビジョンが、操作ログに `mcp serve` として記録され、各 audit は audit ログ（`skillshare log --audit`）に記録されます。ソースにレガシーの `registry.yaml` が残っている間は、どの Skill も編集できません。他のコマンドを実行すると移行されます。ターゲットは次の `sync` で変更を受け取ります。`skillshare mcp serve --check` は、提供している Skill のうち編集可能な数を報告します。
+
+### Skill を Executor に読み込む {#executor}
+
+`--http` を付けると、サーバーは [Executor](https://github.com/UsefulSoftwareCo/executor) のアプリが
+`wellKnownSkills` で読み込むインデックスでも Skill を公開します。インデックスは
+`/.well-known/agent-skills/index.json`、各ファイルは `/.well-known/agent-skills/<name>/<path>` にあります。
+`apply_skill_edit` で保存した編集は、commit も push も不要で、Executor の次回チェック時に反映されます。
+形式は Executor のローダーが読むもの（`{skills: [{name, version, files}]}`）で、agent-skills discovery
+ドラフトのバージョン 0.2 ではありません。
+
+```ts
+const skillshare = defineProvider({
+  name: "Skillshare",
+  hosts: ["skills-host:8765"],
+  auth: { token: secrets({ label: "Token", fields: object({ token: string() }) }) },
+});
+
+export default defineApp({ accounts: { skillshare } }, async (ctx) => ({
+  dynamicSkills: dynamicSkills({
+    list: () =>
+      wellKnownSkills({
+        url: "https://skills-host:8765/",
+        cache: ctx.cache.forAccount(ctx.accounts.skillshare),
+        signal: ctx.signal,
+        fetch: (input, init) => {
+          const headers = new Headers(init?.headers);
+          headers.set("Authorization", `Bearer ${ctx.accounts.skillshare.fields.token}`);
+          return ctx.fetch(input, { ...init, headers });
+        },
+      }),
+  }),
+}));
+```
+
+- **除外される Skill。** Executor が 1 つでも拒否する Skill があると、読み込み全体が失敗します。そのため、
+  `metadata` の値、`license`、`allowed-tools` がテキストでない Skill、2 MB を超えるファイル、UTF-8 テキストでないファイル（画像など）、Executor がデコードできないファイル名（`%` や `\` を含むものなど）を持つ Skill、
+  提供中の他の Skill と名前が重複する Skill（該当するものはすべて）は、インデックスから除外されます。
+- **上限。** Executor が 1 つのインデックスから読み込めるのは、最大 1,000 ファイル、20 MB までで、読み取る `index.json` は最大 2 MB です。超えると、インデックスはエラーを返します。
+  `--target` で提供する Skill を減らし、インデックスごとに 1 つのサーバーを使ってください。
+- **バージョン。** 各エントリの `version` はファイルのパスとダイジェストのダイジェストなので、Executor は変更があった後にだけ再読み込みします。
+  変更がない間、インデックスはバイト単位で同一です。
+- **Token。** 同じ bearer token がインデックスと MCP ツールの両方を保護します。編集がオンのときは編集ツールも含まれます。
+  Executor に読み取り専用のアクセスを与えるには、`mcp.serve.edit` を設定しない別の `mcp serve` を実行してください。
+  `cache: ctx.cache.forAccount(...)` は、あるアカウントの Skill が別のアカウントのキャッシュに入らないようにします。
+- **サーバーへの到達。** デフォルトでは、Executor Cloud とセルフホストの Executor はプライベートアドレスとループバックアドレスを拒否するため、
+  Cloud にはパブリックアドレスが必要です。セルフホストの運用者は `EXECUTOR_APPS_ALLOW_PRIVATE_FETCH=true` で許可できますが、
+  Executor のホストからサーバーへの経路と、その証明書への信頼も必要です。Executor はリダイレクトを拒否するため、
+  手前のプロキシは末尾スラッシュを付けるなどのリダイレクトをしてはいけません。
+
+`skillshare mcp serve --check` は、インデックスから除外される Skill と、提供する Skill・ファイル・バイトの数を一覧表示します。`--http` は、起動時にインデックスの URL を表示し、同じ Skill についての警告を stderr に出力します。
 
 
 ## 安全性と制限事項

@@ -25,7 +25,7 @@ skillshare mcp check --json                          # Static check: variables, 
 skillshare mcp check --live --timeout 30s --json     # Also start/call each server: serverInfo, protocol, tools
 skillshare mcp check docs --live --accept-tools      # Accept the tool definitions docs lists now as the baseline
 skillshare mcp serve [--target NAME] [--http ADDR [--tls-cert F --tls-key F]]  # Serve skills over MCP (SEP-2640)
-skillshare mcp serve --check [--target NAME]         # List skipped and editable skills, then exit
+skillshare mcp serve --check [--target NAME]         # List skipped, editable and Executor-index skills, then exit
 ```
 
 ## Automation rules
@@ -65,7 +65,7 @@ skillshare mcp serve --check [--target NAME]         # List skipped and editable
   gateways): stdio by default, global unless `-p`. `--target NAME` applies that target's
   filters. Skipped skills (`SKILL.md` a link or not starting with frontmatter, name not matching
   its directory, description missing or over 1,024 characters, compatibility empty or over 500, over 512 files/16 MiB) are
-  listed on stderr; `--check` lists them without serving. `--http` on a non-loopback address requires `SKILLSHARE_MCP_TOKEN` and `--tls-cert`/`--tls-key` (or bind loopback behind a TLS proxy). Cross-origin browser requests are refused.
+  listed on stderr; `--check` lists them without serving. `--http` on a non-loopback address requires `SKILLSHARE_MCP_TOKEN` and `--tls-cert`/`--tls-key` (or bind loopback behind a TLS proxy). Cross-origin browser requests to the MCP endpoint are refused.
   Do not connect local Agents that already sync skills; they would see each skill twice.
   Connect one with `mcp add skillshare --target CLIENT --sync -- skillshare mcp serve`, or a
   remote `url` with `bearerToken: {fromEnv: SKILLSHARE_MCP_TOKEN}`. Agents with the Skills
@@ -84,6 +84,11 @@ skillshare mcp serve --check [--target NAME]         # List skipped and editable
   `install --force`; findings are marked new or existing), `expired`. No create, delete
   or rename. Apply re-checks the whole skill. Saves are logged as `mcp serve`, audits in
   `audit.log`. A legacy `registry.yaml` keeps every skill read-only until migrated.
+- With `--http`, the same server and token also publish an index for Executor's
+  `wellKnownSkills` loader at `/.well-known/agent-skills/index.json` (Executor's format,
+  not discovery draft v0.2). It leaves out skills Executor would reject (non-text
+  `metadata`/`license`/`allowed-tools`, a file over 2 MB or not UTF-8, a file name with `%` or `\`, a name used twice)
+  and errors past 1,000 files, 20 MB, or a 2 MB `index.json`; narrow with `--target`. `--check` lists them.
 - Noninteractive `import` without a name only lists candidates. Use `--replace` only
   when replacing is intended.
 - An `update` with the message `same settings, laid out one field per line` is a

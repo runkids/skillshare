@@ -54,9 +54,9 @@ skillshare sync --all
 | `--live` | 与 `check` 一起使用：还会启动每个本地 server，并调用每个远程 server。参见[下文](#probe-servers-live) |
 | `--timeout DURATION` | 与 `check --live` 一起使用：每个 server 探测的时间限制，例如 `30s`；默认 `10s` |
 | `--accept-tools` | 与 `check --live` 一起使用：把每个已探测 server 列出的工具定义记录为新的基线。参见[下文](#pin-tool-definitions) |
-| `--http ADDR` | 与 `serve` 一起使用：在 `ADDR` 上以 Streamable HTTP 监听，而不使用 stdio。参见[下文](#serve-skills-over-mcp) |
+| `--http ADDR` | 与 `serve` 一起使用：在 `ADDR` 上以 Streamable HTTP 监听，而不使用 stdio，同时提供 [Executor skill 索引](#executor)。参见[下文](#serve-skills-over-mcp) |
 | `--tls-cert FILE`, `--tls-key FILE` | 与 `serve --http` 一起使用：以这个 PEM 证书和私钥提供 HTTPS；监听非 loopback 地址时必须提供 |
-| `--check` | 与 `serve` 一起使用：列出会被跳过的 skill 及原因，然后退出，不提供服务 |
+| `--check` | 与 `serve` 一起使用：列出会被跳过的 skill 及原因、可编辑的数量，以及 Executor 索引会提供的内容，然后退出，不提供服务 |
 | `--no-tui` | 禁用交互式菜单；`tui: false`、`--json` 或非终端输入/输出也会禁用它 |
 | `--revision ID` | 要求 add/import/remove 或 `sync mcp` 匹配指定的 preview |
 | `--global`, `-g` | 使用 global Skillshare 配置 |
@@ -852,7 +852,7 @@ gateway 调用它们时不会请求确认。通过工具读取的内容对 Agent
   发送 `Authorization: Bearer <token>`。若要改用 TLS 代理，请绑定 loopback 地址，例如
   `127.0.0.1:8765`，由代理终止 TLS。
 - **安全性。** 只能读取 skill 清单中的文件，且读取范围不会超出 skill 目录。链接和 `.git`
-  既不会被列出，也不会被提供。不会执行任何内容，除非开启编辑，否则也不会写入任何内容。使用 `--http` 时，跨源的浏览器请求会被拒绝。
+  既不会被列出，也不会被提供。不会执行任何内容，除非开启编辑，否则也不会写入任何内容。使用 `--http` 时，发往 MCP 端点的跨源浏览器请求会被拒绝；Executor 索引只响应读取，而其他源的页面看不到这些响应。
 
 要连接某个 Agent，请像添加其他 server 一样添加它并同步。在运行该 Agent 的机器上：
 
@@ -924,6 +924,55 @@ mcp:
 类型为 `mcp serve`，并附带该文件及其旧的和新的 revision，每次审计则记录在审计日志中（`skillshare log --audit`）。
 只要 source 中仍有旧版 `registry.yaml`，就没有任何 skill 可编辑；运行任何其他命令都会迁移它。target 会在下一次 `sync` 时收到更改。
 `skillshare mcp serve --check` 会报告所提供的 skill 中有多少可编辑。
+
+### 将 skill 加载到 Executor {#executor}
+
+使用 `--http` 时，server 还会在 [Executor](https://github.com/UsefulSoftwareCo/executor) 应用通过
+`wellKnownSkills` 加载的索引中发布其 skill，索引位于 `/.well-known/agent-skills/index.json`，
+每个文件位于 `/.well-known/agent-skills/<name>/<path>`。通过 `apply_skill_edit` 保存的编辑
+无需 commit 或 push，Executor 在下一次检查时就会收到。格式是 Executor 的加载器所读取的
+（`{skills: [{name, version, files}]}`），而不是 agent-skills discovery 草案的 0.2 版。
+
+```ts
+const skillshare = defineProvider({
+  name: "Skillshare",
+  hosts: ["skills-host:8765"],
+  auth: { token: secrets({ label: "Token", fields: object({ token: string() }) }) },
+});
+
+export default defineApp({ accounts: { skillshare } }, async (ctx) => ({
+  dynamicSkills: dynamicSkills({
+    list: () =>
+      wellKnownSkills({
+        url: "https://skills-host:8765/",
+        cache: ctx.cache.forAccount(ctx.accounts.skillshare),
+        signal: ctx.signal,
+        fetch: (input, init) => {
+          const headers = new Headers(init?.headers);
+          headers.set("Authorization", `Bearer ${ctx.accounts.skillshare.fields.token}`);
+          return ctx.fetch(input, { ...init, headers });
+        },
+      }),
+  }),
+}));
+```
+
+- **被排除的 skill。** Executor 只要拒绝其中一个 skill，整次加载就会失败，因此索引会排除以下 skill：
+  `metadata` 的值、`license` 或 `allowed-tools` 不是文本；有文件超过 2 MB、有文件不是 UTF-8 文本（例如图片），或有文件名是 Executor 无法解码的（例如含 `%` 或 `\`）；
+  或名称与另一个已提供的 skill 相同（同名的全部排除）。
+- **限制。** Executor 从一个索引最多加载 1,000 个文件和 20 MB，并且最多读取 2 MB 的 `index.json`。超过时，索引会返回错误；
+  请用 `--target` 减少所提供的 skill，每个索引使用一个 server。
+- **版本。** 每个条目的 `version` 是其文件路径和摘要的摘要，因此 Executor 只会在内容变化后重新加载。
+  内容没有变化时，索引逐字节相同。
+- **Token。** 同一个 bearer token 同时保护索引和 MCP 工具，开启编辑时也包括编辑工具。
+  若要给 Executor 只读访问，请另外运行一个未设置 `mcp.serve.edit` 的 `mcp serve`。
+  `cache: ctx.cache.forAccount(...)` 可避免一个账户的 skill 进入另一个账户的缓存。
+- **连接到 server。** 默认情况下，Executor Cloud 和自托管的 Executor 都会拒绝私有地址和 loopback 地址，
+  所以 Cloud 需要公网地址。自托管的运维人员可以用 `EXECUTOR_APPS_ALLOW_PRIVATE_FETCH=true` 允许这类地址，
+  而且 Executor 主机仍需要有到 server 的路由，并信任它的证书。Executor 会拒绝重定向，
+  所以前面的代理不能做重定向，例如为了补上结尾斜杠。
+
+`skillshare mcp serve --check` 会列出索引排除的 skill，以及所提供的 skill、文件和字节数。`--http` 会在启动时打印索引 URL，并在 stderr 上对相同的 skill 发出警告。
 
 
 ## 安全性与限制

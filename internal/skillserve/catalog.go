@@ -31,6 +31,8 @@ type File struct {
 	URI    string `json:"uri"`
 	Digest string `json:"digest"`
 	Size   int64  `json:"size"`
+
+	rel string // slash path inside the skill that lists it
 }
 
 // Skill is one skills/list entry.
@@ -178,7 +180,7 @@ func load(s ssync.DiscoveredSkill) (*Skill, map[string]servedFile, string) {
 	for _, f := range p.Files {
 		uri := base + "/" + escapePath(f.Rel)
 		files[uri] = servedFile{dir: p.Dir, rel: f.Rel, digest: f.Digest, owner: skill}
-		skill.Resources = append(skill.Resources, File{URI: uri, Digest: f.Digest, Size: f.Size})
+		skill.Resources = append(skill.Resources, File{URI: uri, Digest: f.Digest, Size: f.Size, rel: f.Rel})
 	}
 	return skill, files, ""
 }
