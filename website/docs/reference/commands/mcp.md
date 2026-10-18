@@ -925,7 +925,9 @@ is ordinary text to the Agent: its own skill approval does not apply.
   `SKILLSHARE_MCP_TOKEN` and HTTPS through `--tls-cert` and `--tls-key`, so the token
   never crosses the network in plain text; when the token is set, every request must
   send `Authorization: Bearer <token>`. To use a TLS proxy instead, bind a loopback
-  address such as `127.0.0.1:8765` and let the proxy terminate TLS.
+  address such as `127.0.0.1:8765` and let the proxy terminate TLS. Without the token,
+  that server answers only requests whose `Host` is a loopback address, so set the token
+  or have the proxy send such a `Host`.
 - **Safety.** Only files in a skill's manifest can be read, and reads stay inside the
   skill directory. Links and `.git` are neither listed nor served. Nothing is executed,
   and nothing is written unless editing is on. With `--http`, cross-origin browser requests to the MCP endpoint are refused; the Executor index answers reads only, which a page on another origin cannot see.
@@ -1031,16 +1033,16 @@ const skillshare = defineProvider({
   auth: { token: secrets({ label: "Token", fields: object({ token: string() }) }) },
 });
 
-export default defineApp({ accounts: { skillshare } }, async (ctx) => ({
+export default defineApp({ app: { accounts: { skillshare } } }, async (ctx) => ({
   dynamicSkills: dynamicSkills({
     list: () =>
       wellKnownSkills({
         url: "https://skills-host:8765/",
-        cache: ctx.cache.forAccount(ctx.accounts.skillshare),
+        cache: ctx.cache.forAccount(ctx.app.accounts.skillshare),
         signal: ctx.signal,
         fetch: (input, init) => {
           const headers = new Headers(init?.headers);
-          headers.set("Authorization", `Bearer ${ctx.accounts.skillshare.fields.token}`);
+          headers.set("Authorization", `Bearer ${ctx.app.accounts.skillshare.fields.token}`);
           return ctx.fetch(input, { ...init, headers });
         },
       }),

@@ -850,7 +850,8 @@ gateway 调用它们时不会请求确认。通过工具读取的内容对 Agent
   Streamable HTTP。非 loopback 地址需要 `SKILLSHARE_MCP_TOKEN`，并通过 `--tls-cert` 和
   `--tls-key` 使用 HTTPS，这样 token 永远不会以明文在网络上传输；设置 token 后，每个请求都必须
   发送 `Authorization: Bearer <token>`。若要改用 TLS 代理，请绑定 loopback 地址，例如
-  `127.0.0.1:8765`，由代理终止 TLS。
+  `127.0.0.1:8765`，由代理终止 TLS。没有 token 时，该服务器只响应 `Host` 为 loopback 地址的请求，
+  因此请设置 token，或让代理发送这样的 `Host`。
 - **安全性。** 只能读取 skill 清单中的文件，且读取范围不会超出 skill 目录。链接和 `.git`
   既不会被列出，也不会被提供。不会执行任何内容，除非开启编辑，否则也不会写入任何内容。使用 `--http` 时，发往 MCP 端点的跨源浏览器请求会被拒绝；Executor 索引只响应读取，而其他源的页面看不到这些响应。
 
@@ -940,16 +941,16 @@ const skillshare = defineProvider({
   auth: { token: secrets({ label: "Token", fields: object({ token: string() }) }) },
 });
 
-export default defineApp({ accounts: { skillshare } }, async (ctx) => ({
+export default defineApp({ app: { accounts: { skillshare } } }, async (ctx) => ({
   dynamicSkills: dynamicSkills({
     list: () =>
       wellKnownSkills({
         url: "https://skills-host:8765/",
-        cache: ctx.cache.forAccount(ctx.accounts.skillshare),
+        cache: ctx.cache.forAccount(ctx.app.accounts.skillshare),
         signal: ctx.signal,
         fetch: (input, init) => {
           const headers = new Headers(init?.headers);
-          headers.set("Authorization", `Bearer ${ctx.accounts.skillshare.fields.token}`);
+          headers.set("Authorization", `Bearer ${ctx.app.accounts.skillshare.fields.token}`);
           return ctx.fetch(input, { ...init, headers });
         },
       }),

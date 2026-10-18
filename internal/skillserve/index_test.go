@@ -182,6 +182,27 @@ func TestIndex_RequiresTheBearerToken(t *testing.T) {
 	}
 }
 
+// A TLS proxy in front of a loopback server may keep the public Host; the token
+// already proves the request is not a rebinding page.
+func TestHTTPHandler_AcceptsProxiedHostWithToken(t *testing.T) {
+	src := t.TempDir()
+	writeFile(t, filepath.Join(src, "pdf/SKILL.md"), textSkill("pdf"))
+	h := indexServer(t, src, "s3cret")
+	local := context.WithValue(context.Background(), http.LocalAddrContextKey, &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 8765})
+	for _, req := range []*http.Request{
+		httptest.NewRequest(http.MethodGet, "https://skills.example.com"+IndexPath+"index.json", nil),
+		httptest.NewRequest(http.MethodPost, "https://skills.example.com/", strings.NewReader(`{}`)),
+	} {
+		req = req.WithContext(local)
+		req.Header.Set("Authorization", "Bearer s3cret")
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code == http.StatusForbidden {
+			t.Errorf("%s %s: 403 %s", req.Method, req.URL.Path, rec.Body)
+		}
+	}
+}
+
 // A page that rebinds its own host name to 127.0.0.1 must not read a server that has no token.
 func TestIndex_RejectsReboundHostOnLoopback(t *testing.T) {
 	src := t.TempDir()

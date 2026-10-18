@@ -744,7 +744,7 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
 - **トランスポート。** デフォルトは stdio で、コマンドを起動する gateway または Agent 向けです。
   `--http ADDR` は Streamable HTTP で提供します。ループバック以外のアドレスでは
   `SKILLSHARE_MCP_TOKEN` と、`--tls-cert` および `--tls-key` による HTTPS が必要です。これによりトークンが平文でネットワークを流れることはありません。トークンが設定されている場合、すべてのリクエストは
-  `Authorization: Bearer <token>` を送る必要があります。代わりに TLS プロキシを使う場合は、`127.0.0.1:8765` のようなループバックアドレスにバインドし、プロキシで TLS を終端してください。
+  `Authorization: Bearer <token>` を送る必要があります。代わりに TLS プロキシを使う場合は、`127.0.0.1:8765` のようなループバックアドレスにバインドし、プロキシで TLS を終端してください。トークンがない場合、そのサーバーは `Host` がループバックアドレスのリクエストにしか応答しないため、トークンを設定するか、プロキシにそのような `Host` を送らせてください。
 - **安全性。** 読み取れるのは Skill のマニフェストにあるファイルだけで、読み取りは Skill ディレクトリ内に限られます。リンクと `.git` は一覧にも表示されず、提供もされません。何も実行されず、編集をオンにしない限り何も書き込まれません。`--http` では、MCP エンドポイントへのクロスオリジンのブラウザーリクエストは拒否されます。Executor インデックスは読み取りにのみ応答し、別オリジンのページはその応答を見られません。
 
 Agent を接続するには、他のサーバーと同様にサーバーを追加して同期します。Agent を実行するマシンで:
@@ -818,16 +818,16 @@ const skillshare = defineProvider({
   auth: { token: secrets({ label: "Token", fields: object({ token: string() }) }) },
 });
 
-export default defineApp({ accounts: { skillshare } }, async (ctx) => ({
+export default defineApp({ app: { accounts: { skillshare } } }, async (ctx) => ({
   dynamicSkills: dynamicSkills({
     list: () =>
       wellKnownSkills({
         url: "https://skills-host:8765/",
-        cache: ctx.cache.forAccount(ctx.accounts.skillshare),
+        cache: ctx.cache.forAccount(ctx.app.accounts.skillshare),
         signal: ctx.signal,
         fetch: (input, init) => {
           const headers = new Headers(init?.headers);
-          headers.set("Authorization", `Bearer ${ctx.accounts.skillshare.fields.token}`);
+          headers.set("Authorization", `Bearer ${ctx.app.accounts.skillshare.fields.token}`);
           return ctx.fetch(input, { ...init, headers });
         },
       }),

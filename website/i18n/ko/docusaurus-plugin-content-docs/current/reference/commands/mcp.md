@@ -869,7 +869,8 @@ Skills extension을 선언한 client는 skill을 네이티브로 로드하며 �
   `SKILLSHARE_MCP_TOKEN`과 `--tls-cert`, `--tls-key`를 통한 HTTPS가 필요하므로 token이
   네트워크를 평문으로 오가지 않습니다. token이 설정되면 모든 요청은
   `Authorization: Bearer <token>`을 보내야 합니다. TLS 프록시를 대신 쓰려면 `127.0.0.1:8765` 같은
-  loopback 주소에 바인딩하고 프록시가 TLS를 종료하게 하세요.
+  loopback 주소에 바인딩하고 프록시가 TLS를 종료하게 하세요. 토큰이 없으면 그 서버는 `Host`가
+  loopback 주소인 요청에만 응답하므로, 토큰을 설정하거나 프록시가 그런 `Host`를 보내게 하세요.
 - **안전.** skill manifest에 있는 파일만 읽을 수 있으며, 읽기는 skill 디렉터리 안으로 제한됩니다.
   링크와 `.git`은 나열되지도 제공되지도 않습니다. 아무것도 실행하지 않으며, 편집을 켜지 않는 한 아무것도 쓰지 않습니다.
   `--http`에서는 MCP 엔드포인트로 오는 cross-origin 브라우저 요청을 거부합니다. Executor index는 읽기에만 응답하며, 다른 origin의 페이지는 그 응답을 볼 수 없습니다.
@@ -962,16 +963,16 @@ const skillshare = defineProvider({
   auth: { token: secrets({ label: "Token", fields: object({ token: string() }) }) },
 });
 
-export default defineApp({ accounts: { skillshare } }, async (ctx) => ({
+export default defineApp({ app: { accounts: { skillshare } } }, async (ctx) => ({
   dynamicSkills: dynamicSkills({
     list: () =>
       wellKnownSkills({
         url: "https://skills-host:8765/",
-        cache: ctx.cache.forAccount(ctx.accounts.skillshare),
+        cache: ctx.cache.forAccount(ctx.app.accounts.skillshare),
         signal: ctx.signal,
         fetch: (input, init) => {
           const headers = new Headers(init?.headers);
-          headers.set("Authorization", `Bearer ${ctx.accounts.skillshare.fields.token}`);
+          headers.set("Authorization", `Bearer ${ctx.app.accounts.skillshare.fields.token}`);
           return ctx.fetch(input, { ...init, headers });
         },
       }),

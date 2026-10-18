@@ -821,7 +821,8 @@ skill 核准機制不適用。
   `SKILLSHARE_MCP_TOKEN`，以及透過 `--tls-cert` 與 `--tls-key` 提供的 HTTPS，讓 token
   永遠不會以明文經過網路；設定 token 後，每個請求都必須送出
   `Authorization: Bearer <token>`。若要改用 TLS proxy，請綁定 loopback 位址，
-  例如 `127.0.0.1:8765`，並由 proxy 終止 TLS。
+  例如 `127.0.0.1:8765`，並由 proxy 終止 TLS。沒有 token 時，該 server 只回應 `Host` 為 loopback 位址的請求，
+  所以請設定 token，或讓 proxy 送出這樣的 `Host`。
 - **安全性。** 只有 skill manifest 中的檔案可以讀取，且讀取範圍限於 skill 目錄內。
   連結與 `.git` 既不會列出也不會提供。不會執行任何東西，除非開啟編輯，否則也不會寫入任何東西。使用 `--http` 時，
   送往 MCP 端點的跨來源瀏覽器請求會被拒絕；Executor 索引只回應讀取，而其他來源的頁面看不到這些回應。
@@ -913,16 +914,16 @@ const skillshare = defineProvider({
   auth: { token: secrets({ label: "Token", fields: object({ token: string() }) }) },
 });
 
-export default defineApp({ accounts: { skillshare } }, async (ctx) => ({
+export default defineApp({ app: { accounts: { skillshare } } }, async (ctx) => ({
   dynamicSkills: dynamicSkills({
     list: () =>
       wellKnownSkills({
         url: "https://skills-host:8765/",
-        cache: ctx.cache.forAccount(ctx.accounts.skillshare),
+        cache: ctx.cache.forAccount(ctx.app.accounts.skillshare),
         signal: ctx.signal,
         fetch: (input, init) => {
           const headers = new Headers(init?.headers);
-          headers.set("Authorization", `Bearer ${ctx.accounts.skillshare.fields.token}`);
+          headers.set("Authorization", `Bearer ${ctx.app.accounts.skillshare.fields.token}`);
           return ctx.fetch(input, { ...init, headers });
         },
       }),

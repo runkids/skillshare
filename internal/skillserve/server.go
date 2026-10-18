@@ -121,13 +121,14 @@ func NewServer(b *Builder, opts Options) (*Server, error) {
 
 // HTTPHandler serves srv over Streamable HTTP, and the Executor skill index
 // under IndexPath. A non-empty token must be sent as a bearer token on every
-// request. Cross-origin browser requests to MCP are refused, and the index
-// refuses rebound host names, so a web page cannot use a loopback server that
-// has no token.
+// request. Cross-origin browser requests to MCP are refused. Without a token,
+// a loopback server also refuses other host names, so a DNS rebinding page cannot
+// use it; with one, the token proves that, and a TLS proxy may keep its public Host.
 func HTTPHandler(srv *Server, token string) http.Handler {
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return srv.Server }, &mcp.StreamableHTTPOptions{
-		Stateless:             true,
-		CrossOriginProtection: http.NewCrossOriginProtection(),
+		Stateless:                  true,
+		CrossOriginProtection:      http.NewCrossOriginProtection(),
+		DisableLocalhostProtection: token != "",
 	})
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasPrefix(r.URL.Path, IndexPath) {
@@ -135,7 +136,7 @@ func HTTPHandler(srv *Server, token string) http.Handler {
 			return
 		}
 		// Reading needs no CSRF check: without CORS headers a page cannot read the answer.
-		if rebound(r) {
+		if token == "" && rebound(r) {
 			http.Error(w, fmt.Sprintf("Forbidden: invalid Host header %q", r.Host), http.StatusForbidden)
 			return
 		}
