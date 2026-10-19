@@ -152,3 +152,21 @@ func TestFilesFrom_RefusesAnEchoedEmptyFile(t *testing.T) {
 		t.Fatalf("err = %v, want a cleared file refused", err)
 	}
 }
+
+func TestRenderNative_ReadsReferencesInsteadOfSentContents(t *testing.T) {
+	e := newEnv(t)
+	dir := filepath.Dir(e.config)
+	write(t, filepath.Join(dir, "hooks", "lint.pi.ts"), "export default function (pi) {}\n")
+	write(t, filepath.Join(dir, "hooks", "guard.sh"), "echo new\n")
+	// The dashboard sends contents cached before the files changed.
+	stale := entry(t, `{"bindings":{"pi":{"codeFile":"hooks/lint.pi.ts","code":"old"},"cursor":{"events":{"stop":[{"command":"echo"}]},"files":{"guard.sh":"echo old\n"},"filesFrom":{"guard.sh":"hooks/guard.sh"}}}}`)
+	files, err := e.service.RenderNative(Mutation{Name: "lint", Entry: stale})
+	must(t, err)
+	var got []string
+	for _, f := range files {
+		got = append(got, f.Content)
+	}
+	if all := strings.Join(got, "\n"); !strings.Contains(all, "export default function (pi) {}") || !strings.Contains(all, "echo new") || strings.Contains(all, "old") {
+		t.Fatalf("rendered %q", got)
+	}
+}

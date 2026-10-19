@@ -2,6 +2,8 @@ package hooks
 
 import (
 	"fmt"
+	"maps"
+	"path/filepath"
 	"slices"
 	"strings"
 )
@@ -41,6 +43,25 @@ func (s *Service) RenderNative(m Mutation) ([]RenderedFile, error) {
 	entry := *m.Entry
 	if err := entry.normalize(); err != nil {
 		return nil, err
+	}
+	// The dashboard may send contents cached before a referenced file changed; show
+	// what sync would write by reading every reference again.
+	for target, b := range entry.Bindings {
+		if b.CodeFile != "" {
+			b.Code = ""
+		}
+		if len(b.FilesFrom) > 0 {
+			b.Files = maps.Clone(b.Files)
+			for name := range b.FilesFrom {
+				if _, kept := b.Files[name]; kept {
+					b.Files[name] = fileRefMark
+				}
+			}
+		}
+		entry.Bindings[target] = b
+	}
+	if err := entry.resolveRefs(filepath.Dir(s.ConfigPath)); err != nil {
+		return nil, fmt.Errorf("hook %s: %w", m.Name, err)
 	}
 	if err := s.validateEntry(m.Name, entry, root); err != nil {
 		return nil, err
