@@ -143,3 +143,12 @@ func TestFilesFrom_KeepsTheReferenceInAnAliasedBinding(t *testing.T) {
 		t.Fatalf("aliased check.sh = %q", got)
 	}
 }
+
+func TestFilesFrom_RefusesAnEchoedEmptyFile(t *testing.T) {
+	e := newEnv(t)
+	write(t, filepath.Join(filepath.Dir(e.config), "hooks", "guard.sh"), "echo guard\n")
+	cleared := entry(t, `{"bindings":{"cursor":{"events":{"stop":[{"command":"echo"}]},"files":{"guard.sh":""},"filesFrom":{"guard.sh":"hooks/guard.sh"}}}}`)
+	if _, err := e.service.PreviewMutation(Mutation{Name: "guard", Entry: cleared}); err == nil || !strings.Contains(err.Error(), "differ") {
+		t.Fatalf("err = %v, want a cleared file refused", err)
+	}
+}

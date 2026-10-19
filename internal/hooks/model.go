@@ -88,7 +88,8 @@ func markFileRefs(entry *yaml.Node) error {
 	return nil
 }
 
-// takeFileRefs moves marked files values into FilesFrom.
+// takeFileRefs moves marked files values into FilesFrom and leaves the bare mark, so
+// resolveRefs can tell contents still to read from an empty file sent with its reference.
 func (e Entry) takeFileRefs() {
 	for target, b := range e.Bindings {
 		for name, value := range b.Files {
@@ -96,7 +97,7 @@ func (e Entry) takeFileRefs() {
 				if b.FilesFrom == nil {
 					b.FilesFrom = map[string]string{}
 				}
-				b.Files[name], b.FilesFrom[name] = "", from
+				b.Files[name], b.FilesFrom[name] = fileRefMark, from
 			}
 		}
 		e.Bindings[target] = b
@@ -154,7 +155,8 @@ func (e Entry) resolveRefs(dir string) error {
 	for _, target := range sortedKeys(e.Bindings) {
 		b := e.Bindings[target]
 		if b.CodeFile != "" {
-			data, err := readRef(dir, b.CodeFile, b.Code)
+			// Code is never empty, so empty means it was not sent.
+			data, err := readRef(dir, b.CodeFile, b.Code, b.Code != "")
 			if err != nil {
 				return fmt.Errorf("%s: codeFile: %w", target, err)
 			}
@@ -168,7 +170,7 @@ func (e Entry) resolveRefs(dir string) error {
 					// The file was removed; its reference goes with it.
 					continue
 				}
-				data, err := readRef(dir, b.FilesFrom[name], current)
+				data, err := readRef(dir, b.FilesFrom[name], current, current != fileRefMark)
 				if err != nil {
 					return fmt.Errorf("%s: files.%s: %w", target, name, err)
 				}
@@ -184,7 +186,7 @@ func (e Entry) resolveRefs(dir string) error {
 	return nil
 }
 
-func readRef(dir, ref, current string) (string, error) {
+func readRef(dir, ref, current string, sent bool) (string, error) {
 	path := filepath.Join(dir, filepath.FromSlash(ref))
 	if !filepath.IsLocal(filepath.FromSlash(ref)) || checkPath(dir, path) != nil {
 		return "", fmt.Errorf("%q must be a relative path inside %s without symlinks", ref, dir)
@@ -196,7 +198,7 @@ func readRef(dir, ref, current string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if current != "" && current != string(data) {
+	if sent && current != string(data) {
 		return "", fmt.Errorf("contents differ from %s; edit the file, or drop the reference to save the contents inline", ref)
 	}
 	return string(data), nil
