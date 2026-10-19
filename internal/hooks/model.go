@@ -135,7 +135,8 @@ func ParseEntry(data []byte) (Entry, error) {
 			return Entry{}, fmt.Errorf("hook entry must contain one JSON document")
 		}
 	} else {
-		d := yaml.NewDecoder(bytes.NewReader(trimmed))
+		// Decode the original bytes: a block scalar ending the file keeps its final newline only if it is still there.
+		d := yaml.NewDecoder(bytes.NewReader(data))
 		d.KnownFields(true)
 		if err := d.Decode(&entry); err != nil {
 			return Entry{}, fmt.Errorf("invalid hook entry YAML: %w", err)

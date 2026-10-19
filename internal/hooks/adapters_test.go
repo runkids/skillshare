@@ -154,6 +154,14 @@ func TestParseEntry_ValidatesNativeShape(t *testing.T) {
 	}
 }
 
+func TestParseEntry_YAMLBlockScalarKeepsFinalNewline(t *testing.T) {
+	e, err := ParseEntry([]byte("bindings:\n  pi:\n    code: |\n      export default function () {}\n"))
+	must(t, err)
+	if got := e.Bindings["pi"].Code; got != "export default function () {}\n" {
+		t.Fatalf("code = %q", got)
+	}
+}
+
 func TestCopilotFileChangesNameTheirEvents(t *testing.T) {
 	e := newEnv(t)
 	start := `{"bindings":{"copilot":{"events":{"sessionStart":[{"type":"command","bash":"echo a"}]}}}}`
