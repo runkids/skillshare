@@ -16,7 +16,7 @@ func validGitFriendlyName(name string) bool {
 }
 
 func validateGit(b Binding) error {
-	if b.Events != nil || b.Code != "" {
+	if b.Events != nil || b.Code != "" || b.CodeFile != "" {
 		return fmt.Errorf("takes commands and optional files, not events or code")
 	}
 	if b.Scripts != nil {

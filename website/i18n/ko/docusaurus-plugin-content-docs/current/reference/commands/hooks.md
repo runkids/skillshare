@@ -88,7 +88,8 @@ Skillshare는 `hooks` 섹션을 들여쓴 block 형식으로 쓰며, 저장할 �
 | `bindings` | Agent ID별 네이티브 binding |
 | `bindings.AGENT.events` | 설정형 Agent의 네이티브 event map |
 | `bindings.AGENT.code` | Pi, OMP, Amp, OpenCode의 네이티브 extension/plugin 소스 |
-| `bindings.AGENT.files` | 상대 파일명을 key로 하는 선택 UTF-8 스크립트 |
+| `bindings.AGENT.codeFile` | `code` 대신 config 폴더 기준 상대 경로. 파일 내용을 `code`로 사용하며 config를 읽을 때마다 다시 읽습니다. 경로는 그 폴더 안이어야 합니다 |
+| `bindings.AGENT.files` | 상대 파일명을 key로 하는 선택 UTF-8 스크립트. 값은 내용 또는 `codeFile`과 같은 규칙으로 읽는 `{from: path}` |
 
 Agent ID는 `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`, `antigravity`, `pi`, `omp`, `amp`, `opencode`, `git`입니다. `factory`는 `droid`, `antigravity-cli`와 `agy`는 `antigravity`의 별칭입니다. event, matcher, handler type, command, timeout 단위와 payload는 원래 형식을 유지하고 자동 변환하지 않습니다. event 이름은 각 command Agent 문서의 event와 대조합니다. 알 수 없는 이름(예: 철자가 틀린 `Stopp`)은 미리보기와 plan의 `warnings`에 경고로 표시되지만, Agent가 event를 계속 추가하므로 동기화를 막지 않습니다. Pi, OMP, Amp, OpenCode 코드는 확인하지 않습니다. Pi, OMP, Amp, OpenCode의 코드와 imports는 설치된 버전에 맞춰 제공하며 전용 `skillshare-NAME.ts`에 기록됩니다. 공통 실행 엔진을 생성하지 않습니다. command binding 스크립트는 Agent 설정 디렉터리의 `hooks/skillshare/NAME/`에 저장하며 command의 macro／명시 경로를 변경하지 않습니다. 미리보기에서 전체 경로를 확인하세요. global binding에는 `targets` 아래 선언한 계정 target 이름도 사용할 수 있습니다.
 

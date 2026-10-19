@@ -4,7 +4,9 @@ Manage hooks with `skillshare hooks`; use `-g` or `-p` explicitly. Declarations
 live in `hooks.entries` in the selected config. Entries contain `description`,
 optional `enabled` (default true), and `bindings` keyed by receiving Agent.
 Command bindings keep native `events`; Pi, OMP, Amp and OpenCode bindings keep native
-`code`. Optional command scripts use `files`. Do not translate native event
+`code`, or `codeFile`: a path relative to the config's folder (no symlinks)
+whose contents are used as `code`; edit that file, then `hooks sync`. Optional command scripts use `files`;
+a value is the contents or `{from: path}`, resolved like `codeFile`. Do not translate native event
 names, matchers, handler types or timeout units across Agents.
 
 OMP writes verbatim `code` to `~/.omp/agent/extensions/skillshare-NAME.ts`,

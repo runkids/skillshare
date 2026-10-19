@@ -240,6 +240,10 @@ func (s *Service) draft(m Mutation) (*Source, map[string]bool, map[string]bool, 
 		if err := entry.normalize(); err != nil {
 			return nil, nil, nil, err
 		}
+		// Re-read file references so the saved reference and the synced contents always match.
+		if err := entry.resolveRefs(filepath.Dir(source.ConfigPath)); err != nil {
+			return nil, nil, nil, fmt.Errorf("hook %s: %w", m.Name, err)
+		}
 		if err := s.validateEntry(m.Name, entry, root); err != nil {
 			return nil, nil, nil, err
 		}

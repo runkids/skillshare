@@ -88,7 +88,8 @@ Skillshare は `hooks` セクションをインデントした block 形式で�
 | `bindings` | Agent ID ごとのネイティブ binding |
 | `bindings.AGENT.events` | 設定型 Agent のネイティブ event map |
 | `bindings.AGENT.code` | Pi、OMP、Amp、OpenCode のネイティブ extension/plugin ソース |
-| `bindings.AGENT.files` | 相対ファイル名を key とした任意の UTF-8 スクリプト |
+| `bindings.AGENT.codeFile` | `code` の代わりに、config のフォルダからの相対パス。ファイルの内容を `code` として使い、config を読むたびに読み込みます。パスはそのフォルダ内に限られます |
+| `bindings.AGENT.files` | 相対ファイル名を key とした任意の UTF-8 スクリプト。値は内容、または `codeFile` と同じ規則で読み込む `{from: path}` |
 
 Agent ID は `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`omp`、`amp`、`opencode`、`git`。`factory` は `droid` の、`antigravity-cli` と `agy` は `antigravity` の別名です。event、matcher、handler type、command、timeout 単位、payload はネイティブ形式のまま保持し、自動変換しません。event 名は各 command Agent のドキュメントにある event と照合します。未知の名前（例：綴り違いの `Stopp`）はプレビューと plan の `warnings` に警告として表示されますが、Agent は event を追加していくため同期は止めません。Pi、OMP、Amp、OpenCode のコードは確認しません。Pi、OMP、Amp、OpenCode のコードと imports はインストール済みバージョンに合わせ、専用の `skillshare-NAME.ts` に出力します。共通実行エンジンは生成しません。
 

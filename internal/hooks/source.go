@@ -150,7 +150,7 @@ func parseSource(path string, data []byte, accounts map[string]string, project b
 		}
 	}
 	var err error
-	if s.Entries, err = decodeEntries(field(section, "entries"), "hooks.entries", accounts, project); err != nil {
+	if s.Entries, err = decodeEntries(field(section, "entries"), "hooks.entries", filepath.Dir(path), accounts, project); err != nil {
 		return nil, err
 	}
 	projects := field(section, "projects")
@@ -177,7 +177,7 @@ func parseSource(path string, data []byte, accounts map[string]string, project b
 				return nil, fmt.Errorf("hooks.projects: %s takes only entries", key)
 			}
 		}
-		entries, err := decodeEntries(field(block, "entries"), "hooks.projects."+key, accounts, true)
+		entries, err := decodeEntries(field(block, "entries"), "hooks.projects."+key, filepath.Dir(path), accounts, true)
 		if err != nil {
 			return nil, err
 		}
@@ -187,7 +187,8 @@ func parseSource(path string, data []byte, accounts map[string]string, project b
 	return s, nil
 }
 
-func decodeEntries(node *yaml.Node, where string, accounts map[string]string, project bool) (map[string]Entry, error) {
+// decodeEntries reads codeFile paths relative to dir, the config's folder.
+func decodeEntries(node *yaml.Node, where, dir string, accounts map[string]string, project bool) (map[string]Entry, error) {
 	entries := map[string]Entry{}
 	if node == nil || node.Kind == yaml.ScalarNode && node.Tag == "!!null" {
 		return entries, nil
@@ -195,20 +196,35 @@ func decodeEntries(node *yaml.Node, where string, accounts map[string]string, pr
 	if node.Kind != yaml.MappingNode {
 		return nil, fmt.Errorf("%s must be a mapping", where)
 	}
+	// Work on a copy: the config's own node is saved back as written.
 	encoded, err := yaml.Marshal(node)
 	if err != nil {
 		return nil, err
 	}
-	decoder := yaml.NewDecoder(bytes.NewReader(encoded))
-	decoder.KnownFields(true)
-	if err := decoder.Decode(&entries); err != nil {
-		return nil, fmt.Errorf("invalid %s: each entry takes description, enabled and bindings (events, code, files): %v", where, err)
+	var tree yaml.Node
+	if err := yaml.Unmarshal(encoded, &tree); err != nil {
+		return nil, err
+	}
+	for i := 0; i+1 < len(mapping(&tree).Content); i += 2 {
+		if err := markFileRefs(mapping(&tree).Content[i+1]); err != nil {
+			return nil, fmt.Errorf("hook %s: %w", mapping(&tree).Content[i].Value, err)
+		}
+	}
+	if err := strictDecode(&tree, &entries); err != nil {
+		return nil, fmt.Errorf("invalid %s: each entry takes description, enabled and bindings (events, code, codeFile, files): %v", where, err)
 	}
 	if entries == nil {
 		entries = map[string]Entry{}
 	}
 	for name, entry := range entries {
+		entry.takeFileRefs()
 		if err := entry.normalize(); err != nil {
+			return nil, fmt.Errorf("hook %s: %w", name, err)
+		}
+		if err := entry.checkCodeFile(); err != nil {
+			return nil, fmt.Errorf("hook %s: %w", name, err)
+		}
+		if err := entry.resolveRefs(dir); err != nil {
 			return nil, fmt.Errorf("hook %s: %w", name, err)
 		}
 		scope := validateGlobal
@@ -240,8 +256,9 @@ func projectRoot(key string) (string, error) {
 }
 
 // ValidateSection checks a config's hooks node the way LoadSource and a project's
-// sync do, so the config editor never accepts a section sync would refuse.
-func ValidateSection(node *yaml.Node, project bool, accounts map[string]string) error {
+// sync do, so the config editor never accepts a section sync would refuse. codeFile
+// paths resolve next to configPath.
+func ValidateSection(node *yaml.Node, configPath string, project bool, accounts map[string]string) error {
 	if node == nil || node.Kind == 0 {
 		return nil
 	}
@@ -250,7 +267,7 @@ func ValidateSection(node *yaml.Node, project bool, accounts map[string]string) 
 	if err != nil {
 		return err
 	}
-	source, err := parseSource("config.yaml", data, accounts, project)
+	source, err := parseSource(configPath, data, accounts, project)
 	if err != nil {
 		return err
 	}

@@ -37,6 +37,22 @@ describe('Git command binding editor', () => {
   });
 });
 
+describe('code bindings', () => {
+  const binding = { code: 'export default function () {}\n', codeFile: 'hooks/lint.pi.ts' };
+  it('keeps codeFile while the code is unchanged and saves edited code inline', () => {
+    const draft = bindingToDraft('pi', binding);
+    expect(draftToBinding('pi', draft)).toEqual({ codeFile: 'hooks/lint.pi.ts' });
+    expect(draftToBinding('pi', { ...draft, code: 'edited' })).toEqual({ code: 'edited' });
+  });
+  it('keeps a file reference while its name and contents are unchanged', () => {
+    const events = { beforeShellExecution: [{ command: './guard.sh' }] };
+    const draft = bindingToDraft('cursor', { events, files: { 'guard.sh': 'echo\n' }, filesFrom: { 'guard.sh': 'hooks/guard.sh' } });
+    expect(draftToBinding('cursor', draft)).toEqual({ events, files: { 'guard.sh': 'echo\n' }, filesFrom: { 'guard.sh': 'hooks/guard.sh' } });
+    const edited = { ...draft, files: draft.files.map((f) => ({ ...f, content: 'edited' })) };
+    expect(draftToBinding('cursor', edited)).toEqual({ events, files: { 'guard.sh': 'edited' } });
+  });
+});
+
 describe('command events editor', () => {
   it('round-trips a matcher group and keeps fields it has no input for', () => {
     const rows = eventsToRows(claudeEvents)!;

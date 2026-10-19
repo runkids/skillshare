@@ -88,7 +88,8 @@ Skillshare 以缩进的 block 格式写入 `hooks` 区段；每次保存也会�
 | `bindings` | Agent ID 到原生 binding 的映射 |
 | `bindings.AGENT.events` | command／配置型 Agent 的原生 event map |
 | `bindings.AGENT.code` | Pi、OMP、Amp、OpenCode 的原生 extension/plugin 代码 |
-| `bindings.AGENT.files` | 可选 UTF-8 脚本文件，以相对文件名为 key |
+| `bindings.AGENT.codeFile` | 代替 `code`：相对于 config 所在文件夹的路径，文件内容作为 `code` 使用，每次读取 config 时重新读取；路径必须位于该文件夹内 |
+| `bindings.AGENT.files` | 可选 UTF-8 脚本文件，以相对文件名为 key；值为文件内容，或按 `codeFile` 相同规则读取的 `{from: path}` |
 
 Agent ID 为 `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`omp`、`amp`、`opencode`、`git`；`factory` 是 `droid` 的别名，`antigravity-cli` 和 `agy` 是 `antigravity` 的别名。event、matcher、handler type、command、timeout 单位和 payload 均保留原生格式，不自动跨 Agent 转换。event 名称会对照各 command Agent 文档列出的事件检查：未知名称（例如拼错的 `Stopp`）在预览和 plan 的 `warnings` 中显示警告，但不阻止同步，因为 Agent 会陆续新增事件。Pi、OMP、Amp、OpenCode 的代码不检查。Pi、OMP、Amp、OpenCode 的代码及 imports 须匹配已安装版本，发布为独立的 `skillshare-NAME.ts`，不生成共享执行引擎。
 

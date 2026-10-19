@@ -8,7 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -38,12 +40,166 @@ type Binding struct {
 	Events map[string]any `yaml:"events,omitempty" json:"events,omitempty"`
 	// Code is one standalone native TypeScript/JavaScript extension or plugin.
 	Code string `yaml:"code,omitempty" json:"code,omitempty"`
+	// CodeFile is a path relative to the config's folder whose contents become Code
+	// when the config is read. Saving keeps the reference, never the inline code.
+	CodeFile string `yaml:"codeFile,omitempty" json:"codeFile,omitempty"`
 	// Files are script files written to <Agent config dir>/hooks/skillshare/<entry>/.
+	// In YAML a value may be {from: path}, read like CodeFile into Files.
 	Files map[string]string `yaml:"files,omitempty" json:"files,omitempty"`
+	// FilesFrom maps a file name to the path its contents were read from.
+	FilesFrom map[string]string `yaml:"-" json:"filesFrom,omitempty"`
 	// Commands are Git's native hook.<name> definitions.
 	Commands map[string]GitCommand `yaml:"commands,omitempty" json:"commands,omitempty"`
 	// Scripts is reserved for Git whole-file hooks, which are not supported yet.
 	Scripts map[string]string `yaml:"scripts,omitempty" json:"scripts,omitempty"`
+}
+
+type fileRef struct {
+	From string `yaml:"from"`
+}
+
+// fileRefMark prefixes a files value that was written as {from: path} until the
+// decoded entry moves the path into FilesFrom.
+const fileRefMark = "\x00skillshare-from\x00"
+
+// markFileRefs replaces each files value written as {from: path} under one entry node
+// with a marked string, so one strict decode reads the rest. A binding shared through
+// an anchor shares the replaced node, so every alias of it keeps the reference.
+func markFileRefs(entry *yaml.Node) error {
+	bindings := field(entry, "bindings")
+	if bindings == nil || bindings.Kind != yaml.MappingNode {
+		return nil
+	}
+	for i := 0; i+1 < len(bindings.Content); i += 2 {
+		files := field(bindings.Content[i+1], "files")
+		if files == nil || files.Kind != yaml.MappingNode {
+			continue
+		}
+		for j := 0; j+1 < len(files.Content); j += 2 {
+			if value := files.Content[j+1]; value.Kind == yaml.MappingNode {
+				var ref fileRef
+				if err := strictDecode(value, &ref); err != nil || ref.From == "" {
+					return fmt.Errorf("%s: files.%s: use the contents or {from: path}", bindings.Content[i].Value, files.Content[j].Value)
+				}
+				files.Content[j+1] = &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: fileRefMark + ref.From}
+			}
+		}
+	}
+	return nil
+}
+
+// takeFileRefs moves marked files values into FilesFrom.
+func (e Entry) takeFileRefs() {
+	for target, b := range e.Bindings {
+		for name, value := range b.Files {
+			if from, ok := strings.CutPrefix(value, fileRefMark); ok {
+				if b.FilesFrom == nil {
+					b.FilesFrom = map[string]string{}
+				}
+				b.Files[name], b.FilesFrom[name] = "", from
+			}
+		}
+		e.Bindings[target] = b
+	}
+}
+
+func strictDecode(n *yaml.Node, out any) error {
+	data, err := yaml.Marshal(n)
+	if err != nil {
+		return err
+	}
+	d := yaml.NewDecoder(bytes.NewReader(data))
+	d.KnownFields(true)
+	return d.Decode(out)
+}
+
+// MarshalYAML writes codeFile and {from: path} references instead of the contents read from them.
+func (b Binding) MarshalYAML() (any, error) {
+	type plain Binding
+	if b.CodeFile != "" {
+		b.Code = ""
+	}
+	var n yaml.Node
+	if err := n.Encode(plain(b)); err != nil {
+		return nil, err
+	}
+	if files := field(&n, "files"); files != nil {
+		for i := 0; i+1 < len(files.Content); i += 2 {
+			if from, ok := b.FilesFrom[files.Content[i].Value]; ok {
+				var ref yaml.Node
+				if err := ref.Encode(fileRef{From: from}); err != nil {
+					return nil, err
+				}
+				files.Content[i+1] = &ref
+			}
+		}
+	}
+	return &n, nil
+}
+
+// checkCodeFile rejects a config binding that sets code and codeFile as written.
+func (e Entry) checkCodeFile() error {
+	for _, target := range sortedKeys(e.Bindings) {
+		if b := e.Bindings[target]; b.Code != "" && b.CodeFile != "" {
+			return fmt.Errorf("%s: set code or codeFile, not both", target)
+		}
+	}
+	return nil
+}
+
+// resolveRefs reads codeFile and files {from} paths, relative to dir, into Code and
+// Files. Contents already set, as in an entry echoed back from list or the dashboard,
+// must match the file.
+func (e Entry) resolveRefs(dir string) error {
+	for _, target := range sortedKeys(e.Bindings) {
+		b := e.Bindings[target]
+		if b.CodeFile != "" {
+			data, err := readRef(dir, b.CodeFile, b.Code)
+			if err != nil {
+				return fmt.Errorf("%s: codeFile: %w", target, err)
+			}
+			b.Code = data
+		}
+		if len(b.FilesFrom) > 0 {
+			files, from := maps.Clone(b.Files), map[string]string{}
+			for _, name := range sortedKeys(b.FilesFrom) {
+				current, kept := files[name]
+				if !kept {
+					// The file was removed; its reference goes with it.
+					continue
+				}
+				data, err := readRef(dir, b.FilesFrom[name], current)
+				if err != nil {
+					return fmt.Errorf("%s: files.%s: %w", target, name, err)
+				}
+				files[name], from[name] = data, b.FilesFrom[name]
+			}
+			b.Files, b.FilesFrom = files, nil
+			if len(from) > 0 {
+				b.FilesFrom = from
+			}
+		}
+		e.Bindings[target] = b
+	}
+	return nil
+}
+
+func readRef(dir, ref, current string) (string, error) {
+	path := filepath.Join(dir, filepath.FromSlash(ref))
+	if !filepath.IsLocal(filepath.FromSlash(ref)) || checkPath(dir, path) != nil {
+		return "", fmt.Errorf("%q must be a relative path inside %s without symlinks", ref, dir)
+	}
+	if info, err := os.Stat(path); err == nil && !info.Mode().IsRegular() {
+		return "", fmt.Errorf("%s must be a regular file", path)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	if current != "" && current != string(data) {
+		return "", fmt.Errorf("contents differ from %s; edit the file, or drop the reference to save the contents inline", ref)
+	}
+	return string(data), nil
 }
 
 // GitCommand describes one friendly name, which Git may run for several events.
@@ -135,15 +291,22 @@ func ParseEntry(data []byte) (Entry, error) {
 			return Entry{}, fmt.Errorf("hook entry must contain one JSON document")
 		}
 	} else {
+		var tree yaml.Node
 		// Decode the original bytes: a block scalar ending the file keeps its final newline only if it is still there.
 		d := yaml.NewDecoder(bytes.NewReader(data))
-		d.KnownFields(true)
-		if err := d.Decode(&entry); err != nil {
+		if err := d.Decode(&tree); err != nil {
 			return Entry{}, fmt.Errorf("invalid hook entry YAML: %w", err)
 		}
 		if d.Decode(new(yaml.Node)) != io.EOF {
 			return Entry{}, fmt.Errorf("hook entry must contain one YAML document")
 		}
+		if err := markFileRefs(&tree); err != nil {
+			return Entry{}, err
+		}
+		if err := strictDecode(&tree, &entry); err != nil {
+			return Entry{}, fmt.Errorf("invalid hook entry YAML: %w", err)
+		}
+		entry.takeFileRefs()
 	}
 	if err := entry.normalize(); err != nil {
 		return Entry{}, err
@@ -228,12 +391,13 @@ func (e Entry) validate(name string, accounts map[string]string, scope validatio
 			if len(b.Events) > 0 || len(b.Files) > 0 {
 				return fmt.Errorf("hook %s: %s takes code only, not events or files", name, target)
 			}
-			if strings.TrimSpace(b.Code) == "" {
+			// A parsed entry's codeFile is read when the draft is saved.
+			if strings.TrimSpace(b.Code) == "" && (scope != validateParse || b.CodeFile == "") {
 				return fmt.Errorf("hook %s: %s requires code", name, target)
 			}
 			continue
 		}
-		if b.Code != "" {
+		if b.Code != "" || b.CodeFile != "" {
 			return fmt.Errorf("hook %s: %s takes events, not code", name, target)
 		}
 		if len(b.Events) == 0 {

@@ -12,8 +12,12 @@ export interface HookBinding {
   /** The Agent's own event map, passed through as written. */
   events?: Record<string, unknown>;
   code?: string;
+  /** Path, relative to the config's folder, that `code` was read from. */
+  codeFile?: string;
   /** Relative script filename → UTF-8 contents. */
   files?: Record<string, string>;
+  /** Script filename → path, relative to the config's folder, its contents were read from. */
+  filesFrom?: Record<string, string>;
 }
 export interface HookEntry {
   description?: string;

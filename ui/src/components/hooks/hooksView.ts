@@ -205,7 +205,8 @@ export const eventSuggestions = (agent: string): string[] => {
 
 // ---- Draft <-> entry --------------------------------------------------------------------------
 
-export interface FileRow { id: string; name: string; content: string }
+/** `from` is the file the contents were read from; kept on save while name and contents are unchanged. */
+export interface FileRow { id: string; name: string; content: string; from?: { name: string; path: string; content: string } }
 
 /** What the dialog edits for one Agent. `mode` picks which of rows/native is the source of truth. */
 export interface BindingDraft {
@@ -214,6 +215,8 @@ export interface BindingDraft {
   /** The Agent's native event map as JSON text. */
   native: string;
   code: string;
+  /** The codeFile the code was read from; kept on save while the code is unchanged. */
+  codeFile?: { path: string; code: string };
   files: FileRow[];
 }
 
@@ -228,7 +231,11 @@ export function bindingToDraft(agent: string, binding: HookEntry['bindings'][str
     rows: rows ?? [],
     native: binding.events ? JSON.stringify(binding.events, null, 2) : '',
     code: binding.code ?? '',
-    files: Object.entries(binding.files ?? {}).map(([name, content]) => ({ id: rowId(), name, content })),
+    ...(binding.codeFile && { codeFile: { path: binding.codeFile, code: binding.code ?? '' } }),
+    files: Object.entries(binding.files ?? {}).map(([name, content]) => {
+      const path = binding.filesFrom?.[name];
+      return { id: rowId(), name, content, ...(path && { from: { name, path, content } }) };
+    }),
   };
 }
 
@@ -294,8 +301,9 @@ export const bindingInvalid = (c: BindingCheck) => c.nativeError || c.rowErrors 
 export function draftToBinding(agent: string, d: BindingDraft) {
   if (agent === 'git') return parseGitBinding(d.native).value ?? {};
   const files = Object.fromEntries(d.files.filter((f) => f.name.trim()).map((f) => [f.name.trim(), f.content]));
-  const withFiles = Object.keys(files).length > 0 ? { files } : {};
-  if (isCodeAgent(agent)) return { code: d.code, ...withFiles };
+  const filesFrom = Object.fromEntries(d.files.filter((f) => f.from && f.name.trim() === f.from.name && f.content === f.from.content).map((f) => [f.from!.name, f.from!.path]));
+  const withFiles = { ...(Object.keys(files).length > 0 && { files }), ...(Object.keys(filesFrom).length > 0 && { filesFrom }) };
+  if (isCodeAgent(agent)) return d.codeFile && d.code === d.codeFile.code ? { codeFile: d.codeFile.path } : { code: d.code, ...withFiles };
   const events = d.mode === 'native' ? parseNative(d.native).value : rowsToEvents(d.rows);
   return { ...(events && { events }), ...withFiles };
 }

@@ -41,7 +41,8 @@ export const fieldDocs: Record<string, FieldDoc> = {
   'hooks.entries.bindings': { description: 'What each Agent receives, keyed by Agent name. Written in that Agent\'s own format without translation.', type: 'object', example: 'bindings:\n  claude:\n    events: {}' },
   'hooks.entries.bindings.events': { description: 'The Agent\'s own event map, such as SessionStart or Stop, copied into its hook file as written.', type: 'object', example: 'events:\n  Stop:\n    - command: echo done' },
   'hooks.entries.bindings.code': { description: 'For Agents whose hooks are code (Pi, Amp, OpenCode): one TypeScript or JavaScript extension or plugin.', type: 'string', example: 'code: |\n  export default function (pi) {}' },
-  'hooks.entries.bindings.files': { description: 'Script files the hook calls, written to <Agent config dir>/hooks/skillshare/<hook>/.', type: 'object', example: 'files:\n  check.sh: |\n    #!/bin/sh' },
+  'hooks.entries.bindings.codeFile': { description: 'Instead of code: a path, relative to this config\'s folder, whose contents are used as the code. Read every time the config is read.', type: 'string', example: 'codeFile: hooks/lint.pi.ts' },
+  'hooks.entries.bindings.files': { description: 'Script files the hook calls, written to <Agent config dir>/hooks/skillshare/<hook>/. A value is the contents or {from: path}, a path relative to this config\'s folder.', type: 'object', example: 'files:\n  check.sh:\n    from: hooks/check.sh' },
   'hooks.projects': { description: 'Hooks for other projects, keyed by project path, so one sync from the global config reaches each project.', type: 'object', example: 'projects:\n  /work/app:\n    entries: {}' },
   'mcp.targets': {
     description: 'Default MCP clients. Individual servers can override this list.',

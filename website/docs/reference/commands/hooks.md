@@ -124,8 +124,9 @@ stay on one line.
 | `bindings` | Map of native Agent IDs to bindings |
 | `bindings.AGENT.events` | Native event map for command/configuration Agents |
 | `bindings.AGENT.code` | Supplied native extension/plugin source for Pi, OMP, Amp or OpenCode |
+| `bindings.AGENT.codeFile` | Instead of `code`: a path, relative to the config's folder, whose contents are used as `code` |
 | `bindings.git.commands` | Named Git config hooks: `events`, `command`, optional `parallel` |
-| `bindings.AGENT.files` | Optional UTF-8 script files for command bindings, keyed by relative filename |
+| `bindings.AGENT.files` | Optional UTF-8 script files for command bindings, keyed by relative filename; a value is the contents or `{from: path}`, read like `codeFile` |
 
 Agent IDs are `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`,
 `antigravity`, `pi`, `omp`, `amp`, `opencode` and `git`. `factory` is accepted as an alias for
@@ -141,6 +142,35 @@ Agents add events over time. Pi, OMP, Amp and OpenCode code is not checked.
 Pi, OMP, Amp and OpenCode use their own extension/plugin APIs. Supply code matching
 the installed Agent version, including its imports. Skillshare writes it to a
 dedicated `skillshare-NAME.ts` file without generating a universal hook runtime.
+
+Longer code and scripts can live in their own files, which a tsconfig, shellcheck or
+an editor can check. Use `codeFile` instead of `code`, and `{from: path}` instead of a
+`files` value; inline values keep working. Both are read every time the config is
+read, so edit the file and run `hooks sync`; a change made after a preview fails the
+apply as stale. A path resolves against the folder of the config that holds the
+entry (`.skillshare/` in a project, the global config's folder for `hooks.projects`;
+with `hooks add|edit --file`, the selected config's folder, not the entry file's),
+must stay inside it, and must not pass through a symlink. A missing file stops the
+config from loading, like any other invalid entry. Saving an entry keeps the
+references. Editing the code or a script in the dashboard saves it inline. JSON
+(`hooks list --json`, the Web API) carries the contents in `code` and `files`, with
+the references in `codeFile` and `filesFrom`; an entry sent back with both must send
+the file's current contents.
+
+```yaml
+hooks:
+  entries:
+    lint:
+      bindings:
+        pi:
+          codeFile: hooks/lint.pi.ts
+        cursor:
+          events:
+            afterFileEdit:
+              - command: .cursor/hooks/skillshare/lint/lint.sh
+          files:
+            lint.sh: { from: hooks/lint.sh }
+```
 
 ### Oh My Pi code bindings {#omp}
 
