@@ -81,9 +81,50 @@ func markFileRefs(entry *yaml.Node) error {
 				if err := strictDecode(value, &ref); err != nil || ref.From == "" {
 					return fmt.Errorf("%s: files.%s: use the contents or {from: path}", bindings.Content[i].Value, files.Content[j].Value)
 				}
-				files.Content[j+1] = &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: fileRefMark + ref.From}
+				// Rewrite in place, keeping the anchor, so an alias of this value follows it.
+				*value = yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: fileRefMark + ref.From, Anchor: value.Anchor}
 			}
 		}
+	}
+	return nil
+}
+
+// UnmarshalJSON accepts a files value as contents or {"from": path}, like YAML. It
+// decodes strictly, as every caller of a JSON entry does.
+func (b *Binding) UnmarshalJSON(data []byte) error {
+	type binding Binding
+	var raw struct {
+		*binding
+		Files map[string]json.RawMessage `json:"files,omitempty"`
+	}
+	raw.binding = (*binding)(b)
+	d := json.NewDecoder(bytes.NewReader(data))
+	d.DisallowUnknownFields()
+	if err := d.Decode(&raw); err != nil {
+		return err
+	}
+	if raw.Files == nil {
+		return nil
+	}
+	b.Files = map[string]string{}
+	for _, name := range sortedKeys(raw.Files) {
+		var contents string
+		if json.Unmarshal(raw.Files[name], &contents) == nil {
+			b.Files[name] = contents
+			continue
+		}
+		var ref struct {
+			From string `json:"from"`
+		}
+		d := json.NewDecoder(bytes.NewReader(raw.Files[name]))
+		d.DisallowUnknownFields()
+		if err := d.Decode(&ref); err != nil || ref.From == "" {
+			return fmt.Errorf("files.%s: use the contents or {\"from\": path}", name)
+		}
+		if b.FilesFrom == nil {
+			b.FilesFrom = map[string]string{}
+		}
+		b.Files[name], b.FilesFrom[name] = fileRefMark, ref.From
 	}
 	return nil
 }

@@ -170,3 +170,26 @@ func TestRenderNative_ReadsReferencesInsteadOfSentContents(t *testing.T) {
 		t.Fatalf("rendered %q", got)
 	}
 }
+
+func TestFilesFrom_KeepsAnAnchoredReference(t *testing.T) {
+	e := newEnv(t)
+	write(t, e.config, "targets: {}\nhooks:\n  entries:\n    a:\n      bindings:\n        cursor:\n          events: {stop: [{command: ./check.sh}]}\n          files:\n            check.sh: &check {from: hooks/check.sh}\n        claude:\n          events: {Stop: [{hooks: [{type: command, command: ./check.sh}]}]}\n          files:\n            check.sh: *check\n")
+	write(t, filepath.Join(filepath.Dir(e.config), "hooks", "check.sh"), "echo check\n")
+	source, err := LoadSource(e.config)
+	must(t, err)
+	if got := source.Entries["a"].Bindings["claude"].Files["check.sh"]; got != "echo check\n" {
+		t.Fatalf("aliased check.sh = %q", got)
+	}
+}
+
+func TestFilesFrom_AcceptsReferencesInJSONEntries(t *testing.T) {
+	e := newEnv(t)
+	write(t, filepath.Join(filepath.Dir(e.config), "hooks", "guard.sh"), "echo guard\n")
+	save(t, e.service, Mutation{Name: "guard", Entry: entry(t, `{"bindings":{"cursor":{"events":{"stop":[{"command":"echo"}]},"files":{"guard.sh":{"from":"hooks/guard.sh"}}}}}`)})
+	if got := read(t, e.config); !strings.Contains(got, "from: hooks/guard.sh") {
+		t.Fatalf("config:\n%s", got)
+	}
+	if _, err := ParseEntry([]byte(`{"bindings":{"cursor":{"files":{"guard.sh":{"path":"x"}}}}}`)); err == nil {
+		t.Fatal("an unknown reference field must be refused")
+	}
+}

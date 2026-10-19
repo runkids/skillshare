@@ -155,7 +155,8 @@ config from loading, like any other invalid entry. Saving an entry keeps the
 references. Editing the code or a script in the dashboard saves it inline. JSON
 (`hooks list --json`, the Web API) carries the contents in `code` and `files`, with
 the references in `codeFile` and `filesFrom`; an entry sent back with both must send
-the file's current contents.
+the file's current contents. An entry JSON file may also write a `files` value as
+`{"from": path}`.
 
 ```yaml
 hooks:
