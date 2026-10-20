@@ -50,6 +50,47 @@ func TestOMPDiscoverUsesItsOwnCatalogPackage(t *testing.T) {
 	}
 }
 
+func TestOMPCatalogVersionReachesNativeInstall(t *testing.T) {
+	for _, legacy := range []bool{false, true} {
+		t.Run(map[bool]string{false: "native", true: "legacy"}[legacy], func(t *testing.T) {
+			root := ompCatalogFixture(t)
+			catalogPath := ".omp-plugin/marketplace.json"
+			if legacy {
+				if err := os.Remove(filepath.Join(root, catalogPath)); err != nil {
+					t.Fatal(err)
+				}
+				catalogPath = ".claude-plugin/marketplace.json"
+			}
+			writeFile(t, root, catalogPath, `{"name":"market","plugins":[{"name":"kata","version":"3.0.0","source":"./plugins/oh-my-pi"}]}`)
+			d, err := Discover(context.Background(), root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := d.Candidates[0].TargetInfo["omp"].Version; got != "3.0.0" {
+				t.Fatalf("OMP ignored catalog version: %q", got)
+			}
+			agents := &fakeAgents{version: "3.0.0"}
+			s := agents.service(t)
+			r := Request{Action: "add", Source: root, Plugin: "kata", Targets: []string{"omp"}}
+			p, err := s.Preview(context.Background(), r)
+			if err != nil || len(p.Changes) != 1 || p.Changes[0].Binding.Version != "3.0.0" {
+				t.Fatalf("preview lost catalog version: %+v %v", p, err)
+			}
+			applyPluginRequest(t, s, r)
+			for _, market := range agents.markets["omp"] {
+				data, err := os.ReadFile(filepath.Join(market, ".claude-plugin/marketplace.json"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				var catalog struct{ Plugins []struct{ Version string } }
+				if err := json.Unmarshal(data, &catalog); err != nil || len(catalog.Plugins) != 1 || catalog.Plugins[0].Version != "3.0.0" {
+					t.Fatalf("native catalog lost version: %s %v", data, err)
+				}
+			}
+		})
+	}
+}
+
 func TestOMPCatalogPreventsClaudeFallback(t *testing.T) {
 	for _, catalog := range []string{
 		`{"name":"omp-market","plugins":[]}`,

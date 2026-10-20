@@ -382,6 +382,9 @@ func (s *Service) marketplaces(ctx context.Context, target string) (map[string]s
 // an entry that defines its own components (strict: false, skills, lspServers, ...) keeps them.
 func pluginEntry(c Candidate, source, target string) map[string]any {
 	entry := map[string]any{"name": c.Name, "source": source, "policy": map[string]string{"installation": "AVAILABLE", "authentication": "ON_INSTALL"}, "category": "Productivity"}
+	if target == "omp" && c.TargetInfo[target].Version != "" {
+		entry["version"] = c.TargetInfo[target].Version
+	}
 	if target != "claude" {
 		return entry
 	}

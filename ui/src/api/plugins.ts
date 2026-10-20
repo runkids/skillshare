@@ -53,7 +53,7 @@ export const pluginShareCommand = (name: string, p: { source?: string; sourceRef
   const flags: [string, string | undefined][] = [['--plugin', p.plugin], ['--name', p.plugin && p.plugin !== name ? name : undefined], ['--source-ref', p.sourceRef], ['--entry', p.entry]];
   return ['skillshare plugin add', quote(p.source), ...flags.filter(([, v]) => v).map(([flag, v]) => `${flag} ${quote(v!)}`), '-g'].join(' ');
 };
-export interface PluginCandidate { name: string; description: string; version: string; targets: PluginTarget[]; components: string[]; problem?: string; problemKey?: string; problemArgs?: Record<string, string>; targetInfo?: Record<string, { manifest: string; version?: string; logo?: string; entry?: string; components: string[]; problem?: string; problemKey?: string; problemArgs?: Record<string, string> }> }
+export interface PluginCandidate { name: string; description: string; version: string; targets: PluginTarget[]; components: string[]; problem?: string; problemKey?: string; problemArgs?: Record<string, string>; targetInfo?: Record<string, { manifest: string; path?: string; version?: string; logo?: string; entry?: string; components: string[]; problem?: string; problemKey?: string; problemArgs?: Record<string, string> }> }
 export interface PluginDiscovery {
   warnings?: string[]; source: string; sourceRef?: string; commit?: string; targetDefinitions?: PluginTargetDefinition[]; digest: string; candidates: PluginCandidate[] }
 export interface PluginPlan { revision: string; blocked: boolean; changes: { name: string; target: PluginTarget; id: string; action: string; message?: string; messageKey?: string; messageArgs?: Record<string, string>; components?: string[]; preservedKeys?: string[]; logo?: string; binding?: PluginBinding }[] }

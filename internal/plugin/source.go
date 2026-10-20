@@ -300,6 +300,12 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 				c.Name, c.Path, c.Marketplace = name, filepath.ToSlash(clean), catalog.Name
 				for target, info := range c.TargetInfo {
 					info.Marketplace = catalog.Name
+					if target == "omp" {
+						var version string
+						if json.Unmarshal(fields["version"], &version) == nil && version != "" {
+							info.Version = version
+						}
+					}
 					c.TargetInfo[target] = info
 				}
 				if path == ".claude-plugin/marketplace.json" {
