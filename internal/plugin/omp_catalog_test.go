@@ -27,6 +27,8 @@ func TestOMPDiscoverUsesItsOwnCatalogPackage(t *testing.T) {
 		`{"version":"2.0.0","omp":{"extensions":["./kata.ts"]}}`,
 		`{"name":"@team/kata-omp","version":"2.0.0","omp":{"extensions":["./kata.ts"]}}`,
 		`{"name":"@team/kata_omp","version":"2.0.0","omp":{"extensions":["./kata.ts"]}}`,
+		`{"name":"kata","version":"2.0.0","pi":{"extensions":["./kata.ts"]}}`,
+		`{"name":"@team/kata-pi","version":"2.0.0","pi":{"extensions":["./kata.ts"]}}`,
 	} {
 		t.Run(pkg, func(t *testing.T) {
 			root := ompCatalogFixture(t)
@@ -251,14 +253,23 @@ func TestOMPSeparateCatalogKeepsClaudeNativeAdoption(t *testing.T) {
 }
 
 func TestOMPAddCatalogPackageMaterializesNativeSource(t *testing.T) {
-	for _, project := range []bool{false, true} {
-		t.Run(map[bool]string{false: "global", true: "project"}[project], func(t *testing.T) {
+	for _, test := range []struct {
+		name, manifest string
+		project        bool
+	}{
+		{"omp-global", "omp", false},
+		{"omp-project", "omp", true},
+		{"pi-global", "pi", false},
+		{"pi-project", "pi", true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
 			agents := &fakeAgents{version: "2.0.0"}
 			s := agents.service(t)
-			if project {
+			if test.project {
 				s.ProjectRoot = t.TempDir()
 			}
 			root := ompCatalogFixture(t)
+			writeFile(t, root, "plugins/oh-my-pi/package.json", `{"name":"kata","version":"2.0.0","`+test.manifest+`":{"extensions":["./kata.ts"]}}`)
 			r := Request{Action: "add", Source: root, Plugin: "kata", Name: "kata", Targets: []string{"omp"}}
 			p, err := s.Preview(context.Background(), r)
 			if err != nil || len(p.Changes) != 1 || p.Changes[0].Action != "install" || p.Changes[0].Binding.Version != "2.0.0" || !slices.Equal(p.Changes[0].Components, []string{"extensions"}) {

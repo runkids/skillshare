@@ -64,7 +64,7 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 		if spec.path == "package.json" {
 			name = strings.ReplaceAll(strings.TrimPrefix(name, "@"), "/", "-")
 			if spec.target == "omp" {
-				if m["omp"] == nil || !ompExtensions(root) {
+				if !ompExtensions(root) {
 					continue
 				}
 				info.Components = append(info.Components, "extensions")

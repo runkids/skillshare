@@ -150,7 +150,7 @@ skillshare plugin import demo@my-market --from omp --dry-run --json -g
 而不只是 marketplace 名稱。既有的 module 目錄或連結會擋下安裝，而不會被取代；目的地會綁定
 到預覽，並在安裝前再次檢查。Adapter 會讓 plugin 樹保持完整，使用原生 marketplace 安裝，
 並驗證產生的註冊結果。Catalog 優先使用 `.omp-plugin/marketplace.json`，只有在 OMP catalog 不存在時才退回
-`.claude-plugin/marketplace.json`。OMP entry 可以指向在 `package.json` 宣告 `omp.extensions`
+`.claude-plugin/marketplace.json`。OMP entry 可以指向在 `package.json` 宣告 `omp.extensions` 或 `pi.extensions`
 的套件；即使 npm 名稱不同或未提供，也會使用 marketplace 的 plugin 名稱。
 不同 catalog 將同名 plugin 放在不同目錄時，OMP 會保留自己的路徑、版本與 components。
 文字 discovery 會分列不同 build；JSON 則保留一個邏輯 candidate，透過 `targetInfo` 提供各 target

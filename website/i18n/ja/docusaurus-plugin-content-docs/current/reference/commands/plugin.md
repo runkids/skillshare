@@ -135,7 +135,7 @@ skillshare plugin import demo@my-market --from omp --dry-run --json -g
 アダプタは plugin のツリーをまとめて保ち、
 ネイティブのマーケットプレイスインストールを使い、結果の登録を検証します。カタログは `.omp-plugin/marketplace.json` を優先し、OMP カタログが存在しない場合に限り
 `.claude-plugin/marketplace.json` にフォールバックします。OMP entry は `package.json` に
-`omp.extensions` を宣言した package を参照でき、npm 名が異なる場合や未指定でも marketplace の
+`omp.extensions` または `pi.extensions` を宣言した package を参照でき、npm 名が異なる場合や未指定でも marketplace の
 plugin 名を使います。各カタログが同名 plugin を別のフォルダに置く場合、OMP は独自のパス、
 バージョン、components を保持します。テキストの discovery は build ごとに行を分けます。
 JSON は一つの論理 candidate を保持し、`targetInfo` に target ごとのパスと metadata を返します。

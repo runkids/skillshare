@@ -167,7 +167,7 @@ The adapter keeps the plugin tree together,
 uses native marketplace installation, and verifies the resulting registration. Catalogs can use
 `.omp-plugin/marketplace.json`, with `.claude-plugin/marketplace.json` as a fallback
 only when no OMP catalog exists. An OMP catalog entry can point to a package with
-`omp.extensions` in `package.json`; its marketplace name identifies the plugin even
+`omp.extensions` or `pi.extensions` in `package.json`; its marketplace name identifies the plugin even
 when the npm name differs or is absent. If two catalogs place the same plugin in
 different folders, OMP keeps its own path, version and components. Text discovery
 shows these builds on separate rows; JSON keeps one logical candidate with
