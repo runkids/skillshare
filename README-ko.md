@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **최신 버전**: v0.25.13 — `mcp serve`에서 `mcp.serve.edit.skills`에 지정한 skill을 편집할 수 있습니다. 클라이언트는 전체 diff와 감사 결과를 미리 보고, 그 미리보기 그대로 저장하며, 그 사이 파일이 바뀌었으면 거부됩니다. `list_skills`와 `read_skill`은 읽기 전용으로 표시되어, 도구 호출마다 확인하는 클라이언트도 더 이상 묻지 않습니다. [변경 기록](https://skillshare.runkids.cc/changelog)을 확인하세요.
+> **최신 버전**: v0.26.0 — Agent별 MCP 옵션을 하나의 source에서 관리하고 `mcp serve --http`로 Executor용 skill index를 제공합니다. Hooks는 config 옆 파일에서 코드와 스크립트를 읽을 수 있으며, OMP plugins는 이제 전용 marketplace build를 사용합니다. [변경 기록](https://skillshare.runkids.cc/changelog)을 확인하세요.
 
 ## skillshare를 쓰는 이유
 

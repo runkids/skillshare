@@ -93,6 +93,25 @@ Skillshare は `hooks` セクションをインデントした block 形式で�
 
 Agent ID は `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`omp`、`amp`、`opencode`、`git`。`factory` は `droid` の、`antigravity-cli` と `agy` は `antigravity` の別名です。event、matcher、handler type、command、timeout 単位、payload はネイティブ形式のまま保持し、自動変換しません。event 名は各 command Agent のドキュメントにある event と照合します。未知の名前（例：綴り違いの `Stopp`）はプレビューと plan の `warnings` に警告として表示されますが、Agent は event を追加していくため同期は止めません。Pi、OMP、Amp、OpenCode のコードは確認しません。Pi、OMP、Amp、OpenCode のコードと imports はインストール済みバージョンに合わせ、専用の `skillshare-NAME.ts` に出力します。共通実行エンジンは生成しません。
 
+長いコードやスクリプトは、`codeFile` または `files` の `{from: path}` で別ファイルから読み込めます。パスの基準は entry を持つ config のフォルダです（project では `.skillshare/`、global の `hooks.projects` では global config のフォルダ）。`hooks add|edit --file` でも entry ファイルの場所ではなく、選択した config が基準です。パスはそのフォルダ内に限られ、symlink を通過できません。ファイルがなければ config の読み込みは失敗します。config を読むたびに再読み込みし、プレビュー後に変更された場合は適用を拒否します。
+
+保存時は参照を保持しますが、dashboard でコードやスクリプトを編集すると inline で保存します。JSON（`hooks list --json`、Web API）には `code`／`files` の内容と `codeFile`／`filesFrom` の参照が含まれます。両方を送り返す場合、内容は現在のファイルと一致する必要があります。Entry JSON の `files` 値にも `{"from": path}` を使えます。
+
+```yaml
+hooks:
+  entries:
+    lint:
+      bindings:
+        pi:
+          codeFile: hooks/lint.pi.ts
+        cursor:
+          events:
+            afterFileEdit:
+              - command: .cursor/hooks/skillshare/lint/lint.sh
+          files:
+            lint.sh: { from: hooks/lint.sh }
+```
+
 ### Oh My Pi のコード binding {#omp}
 
 `bindings.omp.code` には、インストール済みの OMP バージョンの extension API に合わせたコードを指定します。

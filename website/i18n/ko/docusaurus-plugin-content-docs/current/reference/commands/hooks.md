@@ -93,6 +93,25 @@ Skillshare는 `hooks` 섹션을 들여쓴 block 형식으로 쓰며, 저장할 �
 
 Agent ID는 `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`, `antigravity`, `pi`, `omp`, `amp`, `opencode`, `git`입니다. `factory`는 `droid`, `antigravity-cli`와 `agy`는 `antigravity`의 별칭입니다. event, matcher, handler type, command, timeout 단위와 payload는 원래 형식을 유지하고 자동 변환하지 않습니다. event 이름은 각 command Agent 문서의 event와 대조합니다. 알 수 없는 이름(예: 철자가 틀린 `Stopp`)은 미리보기와 plan의 `warnings`에 경고로 표시되지만, Agent가 event를 계속 추가하므로 동기화를 막지 않습니다. Pi, OMP, Amp, OpenCode 코드는 확인하지 않습니다. Pi, OMP, Amp, OpenCode의 코드와 imports는 설치된 버전에 맞춰 제공하며 전용 `skillshare-NAME.ts`에 기록됩니다. 공통 실행 엔진을 생성하지 않습니다. command binding 스크립트는 Agent 설정 디렉터리의 `hooks/skillshare/NAME/`에 저장하며 command의 macro／명시 경로를 변경하지 않습니다. 미리보기에서 전체 경로를 확인하세요. global binding에는 `targets` 아래 선언한 계정 target 이름도 사용할 수 있습니다.
 
+긴 코드나 스크립트는 `codeFile` 또는 `files`의 `{from: path}`로 별도 파일에서 읽을 수 있습니다. 경로는 entry를 가진 config 폴더 기준입니다(project에서는 `.skillshare/`, global의 `hooks.projects`에서는 global config 폴더). `hooks add|edit --file`도 entry 파일 위치가 아닌 선택한 config가 기준입니다. 경로는 그 폴더 안에 있어야 하며 symlink를 거칠 수 없습니다. 파일이 없으면 config를 읽지 못합니다. config를 읽을 때마다 다시 읽으며 미리보기 후 바뀌면 적용을 거부합니다.
+
+저장할 때 참조를 유지하지만 dashboard에서 코드나 스크립트를 편집하면 inline으로 저장합니다. JSON(`hooks list --json`, Web API)은 `code`／`files` 내용과 `codeFile`／`filesFrom` 참조를 담습니다. 둘 다 보내면 내용이 현재 파일과 일치해야 합니다. Entry JSON의 `files` 값에도 `{"from": path}`를 쓸 수 있습니다.
+
+```yaml
+hooks:
+  entries:
+    lint:
+      bindings:
+        pi:
+          codeFile: hooks/lint.pi.ts
+        cursor:
+          events:
+            afterFileEdit:
+              - command: .cursor/hooks/skillshare/lint/lint.sh
+          files:
+            lint.sh: { from: hooks/lint.sh }
+```
+
 ### Oh My Pi code bindings {#omp}
 
 설치된 OMP 버전의 extension API에 맞춰 `bindings.omp.code`를 사용하세요. Skillshare는 소스를 그대로 복사하며, shell event를 변환하거나 검증을 위해 extension을 실행하지 않습니다. OMP에는 project trust 확인이 없으므로, 동기화된 project extension은 다음 OMP 시작 시 실행될 수 있습니다.

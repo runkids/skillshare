@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.25.13 — `mcp serve` 現在可以編輯你在 `mcp.serve.edit.skills` 列出的 skill：client 先預覽完整 diff 和 audit 結果，再儲存那份預覽；檔案在這之間被改過就會拒絕。`list_skills` 和 `read_skill` 現在標記為唯讀，每次呼叫前都會詢問的 client 不再為它們跳出確認。 [Releases](https://github.com/runkids/skillshare/releases) 和[更新紀錄](https://skillshare.runkids.cc/changelog)。
+> **最新版本**：v0.26.0 — 在同一個 source 管理各 Agent 的 MCP 選項，並用 `mcp serve --http` 提供 Executor skill index。Hooks 可從 config 旁的檔案讀取程式碼與腳本；OMP plugins 現在會使用自己的 marketplace build。 [Releases](https://github.com/runkids/skillshare/releases) 和[更新紀錄](https://skillshare.runkids.cc/changelog)。
 
 ## 為什麼用 skillshare
 

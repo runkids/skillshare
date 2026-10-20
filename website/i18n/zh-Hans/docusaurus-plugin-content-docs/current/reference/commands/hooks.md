@@ -93,6 +93,25 @@ Skillshare 以缩进的 block 格式写入 `hooks` 区段；每次保存也会�
 
 Agent ID 为 `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`omp`、`amp`、`opencode`、`git`；`factory` 是 `droid` 的别名，`antigravity-cli` 和 `agy` 是 `antigravity` 的别名。event、matcher、handler type、command、timeout 单位和 payload 均保留原生格式，不自动跨 Agent 转换。event 名称会对照各 command Agent 文档列出的事件检查：未知名称（例如拼错的 `Stopp`）在预览和 plan 的 `warnings` 中显示警告，但不阻止同步，因为 Agent 会陆续新增事件。Pi、OMP、Amp、OpenCode 的代码不检查。Pi、OMP、Amp、OpenCode 的代码及 imports 须匹配已安装版本，发布为独立的 `skillshare-NAME.ts`，不生成共享执行引擎。
 
+较长的代码和脚本可以用 `codeFile` 或 `files` 的 `{from: path}` 从独立文件读取。路径以持有该 entry 的 config 所在文件夹为准（项目是 `.skillshare/`，global 的 `hooks.projects` 则是 global config 文件夹）；`hooks add|edit --file` 也以选定的 config 为准，而不是 entry 文件所在位置。路径必须位于该文件夹内，不能经过 symlink；文件缺失会使 config 读取失败。每次读取 config 都会重新读取文件，预览后内容有变化就会拒绝应用。
+
+保存 entry 会保留引用；在 dashboard 编辑代码或脚本则改为 inline 保存。JSON（`hooks list --json`、Web API）同时包含 `code`／`files` 的内容及 `codeFile`／`filesFrom` 引用；一起传回时，内容必须与文件当前内容一致。Entry JSON 的 `files` 值也接受 `{"from": path}`。
+
+```yaml
+hooks:
+  entries:
+    lint:
+      bindings:
+        pi:
+          codeFile: hooks/lint.pi.ts
+        cursor:
+          events:
+            afterFileEdit:
+              - command: .cursor/hooks/skillshare/lint/lint.sh
+          files:
+            lint.sh: { from: hooks/lint.sh }
+```
+
 ### Oh My Pi code binding {#omp}
 
 请使用 `bindings.omp.code`，并配合你已安装 OMP 版本的 extension API。Skillshare 会原样复制源码；它不会转换 shell event，也不会执行该 extension 来验证它。OMP 没有项目信任提示，因此同步到项目中的 extension 可能会在下一次 OMP 启动时执行。

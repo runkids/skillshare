@@ -48,7 +48,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: v0.25.13 — `mcp serve` can now edit the skills you list in `mcp.serve.edit.skills`: the client previews the full diff and audit result, then saves exactly that preview, and a file changed in the meantime is refused. Its `list_skills` and `read_skill` tools are now marked read-only, so clients that ask before each tool call stop asking for them. [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: v0.26.0 — Keep per-Agent MCP options in one source and serve an Executor skill index with `mcp serve --http`. Hooks can read code and scripts from files next to the config; OMP plugins now use their own marketplace builds. [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
