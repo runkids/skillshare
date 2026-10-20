@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.26.0](https://github.com/runkids/skillshare/compare/v0.25.13...v0.26.0) (2026-10-20)
+
+
+### New Features
+
+* **hooks:** read hook code and scripts from files next to the config ([#586](https://github.com/runkids/skillshare/issues/586)) ([f6e7265](https://github.com/runkids/skillshare/commit/f6e72654148a9054f0e06df562105ec41cd4b3a1))
+* **mcp:** serve an Executor skill index from mcp serve --http ([#583](https://github.com/runkids/skillshare/issues/583)) ([70ceacc](https://github.com/runkids/skillshare/commit/70ceacca9bc373bec9b9508b24d70e2b2ebbae39))
+* **mcp:** write per-Agent native fields from the source ([#579](https://github.com/runkids/skillshare/issues/579)) ([578790c](https://github.com/runkids/skillshare/commit/578790c416d0282829b8a41595dfb3abb3ee2cbc))
+* **ui:** edit other Agents' MCP options in the server dialog ([#580](https://github.com/runkids/skillshare/issues/580)) ([8f55e58](https://github.com/runkids/skillshare/commit/8f55e5899927e136fa4ec19ec5548f11ffdbe096))
+* **ui:** keep all local or all remote in the pull conflict dialog ([a2112ff](https://github.com/runkids/skillshare/commit/a2112ff68157ed121e1f724334e1a190db4a3bec))
+* **ui:** update outdated memory guidance in one step ([364af36](https://github.com/runkids/skillshare/commit/364af363917ad58b170298d72a494e3f5d7f2821))
+
+
+### Bug Fixes
+
+* **hooks:** keep a YAML block scalar's final newline in entry files ([#584](https://github.com/runkids/skillshare/issues/584)) ([36d04b5](https://github.com/runkids/skillshare/commit/36d04b526b65f0612d88a185628b663d50d07c6a))
+* **plugins:** honor native OMP marketplace builds ([#588](https://github.com/runkids/skillshare/issues/588)) ([829cbb1](https://github.com/runkids/skillshare/commit/829cbb176d278d880900996ab77245e8e6e04deb))
+
 ## [0.25.13] - 2026-10-16
 
 ### New Features
