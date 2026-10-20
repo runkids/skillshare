@@ -149,7 +149,12 @@ skillshare plugin import demo@my-market --from omp --dry-run --json -g
 以及一个尚不存在的作用域本地运行时目标位置。运行时 package 名称来自经审核的来源，而不仅仅是
 marketplace 名称。已存在的模块目录或链接会阻止安装，而不会被替换；目标位置会绑定到预览，并在
 安装前再次检查。适配器会让 plugin 树保持完整，使用原生 marketplace 安装，并验证产生的注册。
-Catalog 可以使用 `.omp-plugin/marketplace.json` 或旧版的 `.claude-plugin/marketplace.json`。
+Catalog 优先使用 `.omp-plugin/marketplace.json`，仅在 OMP catalog 不存在时回退到
+`.claude-plugin/marketplace.json`。OMP entry 可以指向在 `package.json` 中声明 `omp.extensions`
+的包；即使 npm 名称不同或缺失，也会使用 marketplace 的 plugin 名称。
+不同 catalog 将同名 plugin 放在不同目录时，OMP 会保留自己的路径、版本和 components。
+文本 discovery 会分行显示不同 build；JSON 保留一个逻辑 candidate，通过 `targetInfo` 提供各 target
+的路径和 metadata。只要 OMP catalog 存在，缺失或无效的 OMP entry 都不会回退到 Claude build。
 预览不会调用 OMP 原生的 `--dry-run`，因为它可能会写入文件。应用前请先审查来源：OMP 可能会在下次
 启动时于进程内执行 plugin 的 extension 和工具，而且没有项目信任提示。安装成功并不能证明这些资源
 已成功加载。
@@ -287,8 +292,8 @@ Skillshare 从不提供原生信任的批准 flags。
 - Codex 接受 `.codex-plugin/plugin.json` 以及可识别的、便携的 root
   `plugin.json` packages。两者都有的 package，Codex 会从便携的 root `plugin.json` 安装，所以
   Skillshare 预期该 manifest 的版本，没有版本时预期 `1.0.0`。仅限 Claude 的 package 不会被静默转换。
-- Sources 可能包含带有本地 plugin 条目的 marketplace。外部 catalog
-  catalogs 会按 plugin 名称/路径合并。冲突的路径会被拒绝；外部
+- Sources 可能包含带有本地 plugin 条目的 marketplace。原生
+  catalogs 会按 plugin 名称合并，并保留各 target 的包路径；外部
   条目会连同说明一起报告，提示直接添加其 repository 或原生安装后再导入。基于命令的 sources
   不会被自动批准。
 - 完整的 source 快照会保留 plugin 脚本、资源和安全的相对

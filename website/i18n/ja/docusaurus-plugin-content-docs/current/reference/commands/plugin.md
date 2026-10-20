@@ -133,8 +133,13 @@ skillshare plugin import demo@my-market --from omp --dry-run --json -g
 ランタイムの package 名は、マーケットプレイス名だけでなく、レビュー済みの source から決まります。既存のモジュールディレクトリやリンクは
 置き換えられずにインストールをブロックします。配置先はプレビューに紐付けられ、インストール前に再確認されます。
 アダプタは plugin のツリーをまとめて保ち、
-ネイティブのマーケットプレイスインストールを使い、結果の登録を検証します。カタログには
-`.omp-plugin/marketplace.json` またはレガシーの `.claude-plugin/marketplace.json` を使えます。
+ネイティブのマーケットプレイスインストールを使い、結果の登録を検証します。カタログは `.omp-plugin/marketplace.json` を優先し、OMP カタログが存在しない場合に限り
+`.claude-plugin/marketplace.json` にフォールバックします。OMP entry は `package.json` に
+`omp.extensions` を宣言した package を参照でき、npm 名が異なる場合や未指定でも marketplace の
+plugin 名を使います。各カタログが同名 plugin を別のフォルダに置く場合、OMP は独自のパス、
+バージョン、components を保持します。テキストの discovery は build ごとに行を分けます。
+JSON は一つの論理 candidate を保持し、`targetInfo` に target ごとのパスと metadata を返します。
+OMP カタログが存在する限り、OMP entry が欠落または無効でも Claude build には戻りません。
 プレビューでは、ファイルを書き込む可能性がある OMP ネイティブの `--dry-run` は呼び出しません。適用前に
 source を確認してください。OMP は plugin の
 extension とツールを、project の信頼確認なしに、次回起動時にプロセス内で実行できます。インストールは、それらのリソースが正常に読み込まれたことの証明ではありません。
@@ -275,7 +280,7 @@ Copilot と Antigravity CLI のインストールは、reviewed されたロー�
 
 - Claude はネイティブな `.claude-plugin/plugin.json` package を必要とします。
 - Codex は `.codex-plugin/plugin.json` と、認識可能なポータブルなルート `plugin.json` package を受け付けます。両方を含む package では Codex がポータブルなルート `plugin.json` からインストールするため、Skillshare はその manifest のバージョンを、ない場合は `1.0.0` を想定します。Claude 専用の package が黙って変換されることはありません。
-- source にはローカル plugin エントリを含むマーケットプレイスが含まれる場合があります。外部カタログは plugin の name/path でマージされます。パスが衝突する場合は拒否され、外部エントリはそのリポジトリを直接追加するか、ネイティブにインストールしてインポートするよう指示とともに報告されます。コマンドベースの source は自動承認されません。
+- source にはローカル plugin エントリを含むマーケットプレイスが含まれる場合があります。ネイティブカタログは plugin 名でマージされ、target ごとの package パスを保持します。外部エントリはそのリポジトリを直接追加するか、ネイティブにインストールしてインポートするよう指示とともに報告されます。コマンドベースの source は自動承認されません。
 - 完全な source スナップショットは、plugin のスクリプト、アセット、および安全な相対 symlink（`AGENTS.md → CLAUDE.md` を含む）を保持します。絶対パス、脱出、dangling、循環、`.git` を参照する symlink や特殊ファイルは拒否されます。source は 20,000 ファイルおよび 100 MiB に制限されます。
 - ネイティブインストールは、ランタイムでの有効化を証明するものではありません。Agent を再起動/再読み込みし、その Agent 内で認証または hook trust を完了してください。
 - Codex は `PATH` の `codex` を実行します。`PATH` にない場合、Skillshare は Homebrew の

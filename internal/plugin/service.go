@@ -359,8 +359,8 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 					change.Message = "Package already has a different binding for this target; choose another name or remove it first."
 				}
 			}
-			if c.Marketplace != "" && change.Action == "install" {
-				if native, ok := find(target, c.Name+"@"+c.Marketplace); ok {
+			if market := c.TargetInfo[agent].Marketplace; market != "" && change.Action == "install" {
+				if native, ok := find(target, c.Name+"@"+market); ok {
 					change.Action = "import"
 					change.ID = native.ID
 					change.Binding = Binding{ID: native.ID, Version: native.Version}

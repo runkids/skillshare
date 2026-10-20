@@ -196,6 +196,7 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("Skipped %d broken or unsafe links; they are left out of the install: %s", len(skipped), strings.Join(links, ", ")))
 	}
 	seenAt := map[string]int{}
+	var ompCatalog map[string]Candidate
 	// Read all native catalogs; the same package may be advertised more than once.
 	for _, path := range []string{".agents/plugins/marketplace.json", ".omp-plugin/marketplace.json", ".claude-plugin/marketplace.json", ".cursor-plugin/marketplace.json", ".github/plugin/marketplace.json", ".plugin/marketplace.json", "marketplace.json"} {
 		data, err := os.ReadFile(filepath.Join(root, path))
@@ -204,6 +205,9 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 		}
 		if err != nil {
 			return nil, err
+		}
+		if path == ".omp-plugin/marketplace.json" {
+			ompCatalog = map[string]Candidate{}
 		}
 		var catalog struct {
 			Name    string                       `json:"name"`
@@ -241,7 +245,7 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 				}
 			}
 			// One broken entry marks its own row; the rest of the marketplace stays installable.
-			c := Candidate{Name: name, Marketplace: catalog.Name, Targets: []string{}, Components: []string{}}
+			c := Candidate{Name: name, Marketplace: catalog.Name, Targets: []string{}, Components: []string{}, TargetInfo: map[string]TargetPackage{}}
 			clean := filepath.Clean(rel)
 			switch {
 			case rel == "":
@@ -251,11 +255,30 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 			default:
 				dir := filepath.Join(root, clean)
 				found, err := inspect(dir, explicit...)
-				_, claudeManifest := found.TargetInfo["claude"]
+				ompPackage := false
+				if info, ok := found.TargetInfo["omp"]; path == ".omp-plugin/marketplace.json" && ok && info.Manifest == "package.json" && (info.Problem == "" || info.ProblemKey == "plugins.problem.ompName") {
+					// A marketplace names an OMP package independently of its optional npm name.
+					ompPackage, err = true, nil
+					info.Problem, info.ProblemKey, info.ProblemArgs = "", "", nil
+					if !validOMPName(name) {
+						info.block("plugins.problem.ompName", "OMP plugin names use only ASCII letters, digits, hyphens and dots, up to 64 characters", nil)
+					}
+					found.TargetInfo["omp"] = info
+					found.collectTargets()
+				}
+				if _, claudeManifest := found.TargetInfo["claude"]; path == ".claude-plugin/marketplace.json" && !claudeManifest {
+					// Claude makes plugin.json optional, even alongside another Agent's package manifest.
+					claude := claudeCatalogCandidate(dir, name, fields)
+					if err != nil {
+						maps.Copy(claude.TargetInfo, found.TargetInfo)
+						claude.collectTargets()
+						found, err = claude, nil
+					} else {
+						maps.Copy(found.TargetInfo, claude.TargetInfo)
+						found.collectTargets()
+					}
+				}
 				switch {
-				case err != nil && path == ".claude-plugin/marketplace.json" && !claudeManifest:
-					// Claude makes plugin.json optional; the catalog entry then names and defines the plugin.
-					found = claudeCatalogCandidate(dir, name, fields)
 				case err != nil:
 					found.block("plugins.problem.noManifest", name+": "+err.Error(), nil)
 				case found.Name != name:
@@ -263,7 +286,7 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 					// ponytail: other Agents are unverified, so they are blocked too; unblock one once its CLI is checked.
 					args := map[string]string{"name": name, "manifest": found.Name}
 					for target, info := range found.TargetInfo {
-						if target != "claude" && info.Problem == "" {
+						if target != "claude" && !(target == "omp" && ompPackage) && info.Problem == "" {
 							info.block("plugins.problem.catalogNameDiffers", "Catalog and manifest names differ for "+name, args)
 							found.TargetInfo[target] = info
 						}
@@ -275,16 +298,25 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 				}
 				c = found
 				c.Name, c.Path, c.Marketplace = name, filepath.ToSlash(clean), catalog.Name
+				for target, info := range c.TargetInfo {
+					info.Marketplace = catalog.Name
+					c.TargetInfo[target] = info
+				}
 				if path == ".claude-plugin/marketplace.json" {
 					c.catalogEntry = claudeEntryFields(fields)
 				}
+			}
+			if path == ".omp-plugin/marketplace.json" {
+				native := c
+				native.TargetInfo = maps.Clone(c.TargetInfo)
+				ompCatalog[c.Name] = native
 			}
 			if i, ok := seenAt[c.Name]; ok {
 				// An external entry has no path; a catalog that points inside the source wins over it.
 				// The same folder may be readable by one catalog only (Claude allows no plugin.json).
 				switch previous := result.Candidates[i].Path; {
-				case c.Path == "" || (c.Path == previous && (c.Problem != "" || result.Candidates[i].Problem == "")):
-				case previous == "" || c.Path == previous:
+				case c.Path == "" || (c.Path == previous && c.Problem != ""):
+				case previous == "":
 					result.Candidates[i] = c
 				case result.Candidates[i].Problem != "":
 					result.Candidates[i] = c
@@ -297,23 +329,41 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 			result.Candidates = append(result.Candidates, c)
 		}
 	}
-	if len(result.Candidates) > 0 {
-		return result, nil
+	if len(result.Candidates) == 0 {
+		c, err := inspect(root, explicit...)
+		if err != nil {
+			return nil, err
+		}
+		c.Path = "."
+		result.Candidates = append(result.Candidates, c)
 	}
-	c, err := inspect(root, explicit...)
-	if err != nil {
-		return nil, err
+	// OMP reads its own marketplace exclusively when present, even if an entry is broken.
+	if ompCatalog != nil {
+		for i := range result.Candidates {
+			c := &result.Candidates[i]
+			native, ok := ompCatalog[c.Name]
+			info, supported := native.TargetInfo["omp"]
+			delete(c.TargetInfo, "omp")
+			if ok {
+				if native.Problem != "" {
+					info.block(native.ProblemKey, native.Problem, native.ProblemArgs)
+				} else if !supported {
+					info.block("plugins.problem.noManifest", native.Name+": no OMP-compatible manifest found", nil)
+				}
+				info.Path = native.Path
+				c.TargetInfo["omp"] = info
+			}
+			c.collectTargets()
+		}
 	}
-	c.Path = "."
-	result.Candidates = append(result.Candidates, c)
 	return result, nil
 }
 
 // catalogOwner is the Agent each native catalog is written for.
 var catalogOwner = map[string]string{".agents/plugins/marketplace.json": "codex", ".omp-plugin/marketplace.json": "omp", ".claude-plugin/marketplace.json": "claude", ".cursor-plugin/marketplace.json": "cursor", ".github/plugin/marketplace.json": "copilot", ".plugin/marketplace.json": "copilot"}
 
-// mergeCatalogPath folds in the same plugin that another catalog places in another folder
-// (one folder per Agent). An Agent keeps the folder found first, unless its own catalog says otherwise.
+// mergeCatalogPath folds in the same plugin advertised by another catalog, possibly in another
+// folder. An Agent keeps the folder found first, unless its own catalog says otherwise.
 func mergeCatalogPath(kept *Candidate, c Candidate, owner string) {
 	for target, info := range c.TargetInfo {
 		if existing, ok := kept.TargetInfo[target]; info.Problem != "" || (ok && existing.Problem == "" && target != owner) {

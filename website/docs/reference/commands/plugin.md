@@ -165,7 +165,14 @@ name. Existing module directories or links block installation rather than being
 replaced; the destination is bound to the preview and checked again before install.
 The adapter keeps the plugin tree together,
 uses native marketplace installation, and verifies the resulting registration. Catalogs can use
-`.omp-plugin/marketplace.json` or the legacy `.claude-plugin/marketplace.json`.
+`.omp-plugin/marketplace.json`, with `.claude-plugin/marketplace.json` as a fallback
+only when no OMP catalog exists. An OMP catalog entry can point to a package with
+`omp.extensions` in `package.json`; its marketplace name identifies the plugin even
+when the npm name differs or is absent. If two catalogs place the same plugin in
+different folders, OMP keeps its own path, version and components. Text discovery
+shows these builds on separate rows; JSON keeps one logical candidate with
+per-target paths and metadata in `targetInfo`. A missing or invalid OMP entry never
+falls back to the Claude build while an OMP catalog exists.
 Preview does not invoke OMP's native `--dry-run`, which can write files. Review
 the source before applying: OMP can execute plugin
 extensions and tools in-process at the next startup, without a project trust
@@ -445,8 +452,8 @@ never supplies native trust approval flags.
   root `plugin.json`, so Skillshare expects that manifest's version, or `1.0.0`
   when it has none.
   A Claude-only package is not silently converted.
-- Sources may contain a marketplace with local plugin entries. External catalog
-  catalogs are merged by plugin name/path. Conflicting paths are rejected; external
+- Sources may contain a marketplace with local plugin entries. Native
+  catalogs are merged by plugin name, retaining each target's package path; external
   entries are reported with instructions to add their repository directly or
   install natively and import. Command-based sources are not auto-approved.
 - Complete source snapshots retain plugin scripts, assets, and safe relative

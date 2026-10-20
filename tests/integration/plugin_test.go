@@ -92,6 +92,42 @@ func TestPluginAddNpmPackageThroughPi(t *testing.T) {
 	}
 }
 
+func TestPluginDiscoverShowsSeparateOMPBuild(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("targets: {}\n")
+	root := filepath.Join(sb.Home, "fixture")
+	for path, data := range map[string]string{
+		".claude-plugin/marketplace.json":                `{"name":"claude-market","plugins":[{"name":"kata","source":"./plugins/claude-code"}]}`,
+		".omp-plugin/marketplace.json":                   `{"name":"omp-market","plugins":[{"name":"kata","source":"./plugins/oh-my-pi"}]}`,
+		"plugins/claude-code/.claude-plugin/plugin.json": `{"name":"kata","version":"0.1.0","hooks":"./hooks/hooks.json"}`,
+		"plugins/oh-my-pi/package.json":                  `{"name":"kata","version":"2.0.0","omp":{"extensions":["./kata.ts"]}}`,
+		"plugins/oh-my-pi/kata.ts":                       "export default function () {}",
+	} {
+		file := filepath.Join(root, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(file), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(file, []byte(data), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	r := sb.RunCLI("plugin", "discover", root, "-g")
+	r.AssertSuccess(t)
+	var omp, claude bool
+	for _, line := range strings.Split(r.Stdout, "\n") {
+		if strings.Contains(line, "omp") && strings.Contains(line, "extensions") && strings.Contains(line, "plugins/oh-my-pi") && !strings.Contains(line, "hooks") && !strings.Contains(line, "claude") {
+			omp = true
+		}
+		if strings.Contains(line, "claude") && strings.Contains(line, "hooks") && strings.Contains(line, "plugins/claude-code") && !strings.Contains(line, "omp") && !strings.Contains(line, "extensions") {
+			claude = true
+		}
+	}
+	if !omp || !claude {
+		t.Fatalf("native builds were not shown separately:\n%s", r.Stdout)
+	}
+}
+
 func TestPluginDiscoverNpmPointsToAdd(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

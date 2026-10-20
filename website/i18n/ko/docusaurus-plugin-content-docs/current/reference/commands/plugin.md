@@ -125,7 +125,7 @@ skillshare plugin add ./my-omp-plugin --target omp --no-tui -g
 skillshare plugin import demo@my-market --from omp --dry-run --json -g
 ```
 
-설치하려면 OMP **18.6.1+**, 검토한 로컬/Git source, 검증되었고 이전에 사용되지 않은 cache 대상 경로, 그리고 아직 존재하지 않는 scope-local 런타임 대상 경로가 필요합니다. 런타임 패키지 이름은 marketplace 이름만이 아니라 검토한 source에서 가져옵니다. 기존 모듈 디렉터리나 링크가 있으면 교체하지 않고 설치를 차단합니다. 대상 경로는 미리보기에 묶이며 설치 전에 다시 확인됩니다. adapter는 plugin 트리를 한데 유지하고, 네이티브 marketplace 설치를 사용하며, 결과 등록을 검증합니다. 카탈로그는 `.omp-plugin/marketplace.json` 또는 기존의 `.claude-plugin/marketplace.json`을 사용할 수 있습니다. 미리보기는 파일을 쓸 수 있는 OMP의 네이티브 `--dry-run`을 호출하지 않습니다. 적용하기 전에 source를 검토하세요. OMP는 다음 시작 시 project trust 확인 없이 plugin extension과 tool을 프로세스 안에서 실행할 수 있습니다. 설치되었다고 해서 해당 리소스가 성공적으로 로드되었다는 증거는 아닙니다.
+설치하려면 OMP **18.6.1+**, 검토한 로컬/Git source, 검증되었고 이전에 사용되지 않은 cache 대상 경로, 그리고 아직 존재하지 않는 scope-local 런타임 대상 경로가 필요합니다. 런타임 패키지 이름은 marketplace 이름만이 아니라 검토한 source에서 가져옵니다. 기존 모듈 디렉터리나 링크가 있으면 교체하지 않고 설치를 차단합니다. 대상 경로는 미리보기에 묶이며 설치 전에 다시 확인됩니다. adapter는 plugin 트리를 한데 유지하고, 네이티브 marketplace 설치를 사용하며, 결과 등록을 검증합니다. 카탈로그는 `.omp-plugin/marketplace.json`을 우선하며, OMP 카탈로그가 없을 때만 `.claude-plugin/marketplace.json`으로 돌아갑니다. OMP entry는 `package.json`에 `omp.extensions`를 선언한 package를 가리킬 수 있으며, npm 이름이 다르거나 없어도 marketplace의 plugin 이름을 사용합니다. 각 카탈로그가 같은 이름의 plugin을 서로 다른 폴더에 두면 OMP는 자체 경로, 버전, components를 유지합니다. 텍스트 discovery는 build별로 행을 나누고, JSON은 하나의 논리 candidate를 유지하며 `targetInfo`에 target별 경로와 metadata를 제공합니다. OMP 카탈로그가 있으면 OMP entry가 없거나 잘못되어도 Claude build로 돌아가지 않습니다. 미리보기는 파일을 쓸 수 있는 OMP의 네이티브 `--dry-run`을 호출하지 않습니다. 적용하기 전에 source를 검토하세요. OMP는 다음 시작 시 project trust 확인 없이 plugin extension과 tool을 프로세스 안에서 실행할 수 있습니다. 설치되었다고 해서 해당 리소스가 성공적으로 로드되었다는 증거는 아닙니다.
 
 **OMP 18.6.1+의 공유 cache 제한:** 네이티브 uninstall과 upgrade는 다른 프로젝트가 아직 참조하는 plugin cache 파일을 삭제하거나 교체할 수 있습니다. 네이티브 inventory는 사용자 레지스트리와 현재 프로젝트의 레지스트리만 나열하므로, 다른 프로젝트에 대해 이 작업이 안전한지 확인할 수 없습니다. Skillshare는 이런 파괴적인 명령을 호출하지 않습니다. **Remove**와 disable 후 sync는 대신 scope 단위 adapter를 사용해 해당 설치의 레지스트리 항목, 런타임 선택, 검증된 `node_modules` 링크를 삭제합니다. plugin은 단순히 비활성화되는 것이 아니라 그 scope에서 제거됩니다. 공유 cache, marketplace, plugin 설정은 유지되며 cache garbage collection은 시도하지 않습니다. 이전 cache가 아직 남아 있으면 재설치 시 다른 프로젝트가 사용할 수 있는 파일을 교체하지 않고 새로운 marketplace/cache identity를 자동으로 선택합니다. 읽을 수 없거나, 링크이거나, 디렉터리가 아닌 cache 대상 경로는 계속 차단됩니다.
 
@@ -209,7 +209,7 @@ Copilot과 Antigravity CLI 설치는 검토된 로컬 스냅샷을 사용합니�
 
 - Claude는 자체 네이티브 `.claude-plugin/plugin.json` 패키지를 요구합니다.
 - Codex는 `.codex-plugin/plugin.json`과 인식된 portable root `plugin.json` 패키지를 받아들입니다. 둘 다 있는 패키지는 Codex가 portable root `plugin.json`에서 설치하므로, Skillshare는 그 manifest의 버전을, 없으면 `1.0.0`을 예상합니다. Claude 전용 패키지는 자동으로 변환되지 않습니다.
-- Source에는 local plugin entry가 있는 marketplace가 포함될 수 있습니다. 외부 카탈로그는 plugin 이름/경로로 병합됩니다. 충돌하는 경로는 거부됩니다. 외부 entry는 저장소를 직접 추가하거나 네이티브로 설치한 후 import하라는 안내와 함께 보고됩니다. command 기반 source는 자동으로 승인되지 않습니다.
+- Source에는 local plugin entry가 있는 marketplace가 포함될 수 있습니다. 네이티브 카탈로그는 plugin 이름으로 병합되며 target별 package 경로를 유지합니다. 외부 entry는 저장소를 직접 추가하거나 네이티브로 설치한 후 import하라는 안내와 함께 보고됩니다. command 기반 source는 자동으로 승인되지 않습니다.
 - 완전한 source 스냅샷은 plugin 스크립트, asset, 그리고 안전한 상대 symlink(`AGENTS.md → CLAUDE.md` 포함)를 유지합니다. 절대 경로, 범위를 벗어나는(escaping), 끊어진(dangling), 순환(cyclic), `.git`을 참조하는 링크와 특수 파일은 거부됩니다. source는 20,000개 파일과 100MiB로 제한됩니다.
 - 네이티브 설치가 런타임 활성화의 증거는 아닙니다. Agent를 재시작/다시 로드하고 해당 Agent에서 인증 또는 hook trust를 완료하세요.
 - Codex는 `PATH`의 `codex`를 실행합니다. `PATH`에 없으면 Skillshare는 Homebrew의

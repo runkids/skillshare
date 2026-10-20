@@ -18,7 +18,7 @@ type manifestSpec struct{ path, target string }
 
 func inspect(root string, explicit ...string) (Candidate, error) {
 	c := Candidate{Targets: []string{}, Components: []string{}, TargetInfo: map[string]TargetPackage{}}
-	specs := []manifestSpec{{".codex-plugin/plugin.json", "codex"}, {".claude-plugin/plugin.json", "claude"}, {".omp-plugin/plugin.json", "omp"}, {".cursor-plugin/plugin.json", "cursor"}, {"package.json", "pi"}, {"package.json", "opencode"}, {".plugin/plugin.json", "copilot"}, {".github/plugin/plugin.json", "copilot"}, {".grok-plugin/plugin.json", "grok"}, {"kimi.plugin.json", "kimi"}, {".kimi-plugin/plugin.json", "kimi"}, {".devin-plugin/plugin.json", "devin"}, {".hermes-plugin/plugin.yaml", "hermes"}, {"plugin.json", "codex"}}
+	specs := []manifestSpec{{".codex-plugin/plugin.json", "codex"}, {".claude-plugin/plugin.json", "claude"}, {".omp-plugin/plugin.json", "omp"}, {".cursor-plugin/plugin.json", "cursor"}, {"package.json", "pi"}, {"package.json", "opencode"}, {".plugin/plugin.json", "copilot"}, {".github/plugin/plugin.json", "copilot"}, {".grok-plugin/plugin.json", "grok"}, {"kimi.plugin.json", "kimi"}, {".kimi-plugin/plugin.json", "kimi"}, {".devin-plugin/plugin.json", "devin"}, {".hermes-plugin/plugin.yaml", "hermes"}, {"plugin.json", "codex"}, {"package.json", "omp"}}
 	for _, spec := range specs {
 		data, err := os.ReadFile(filepath.Join(root, spec.path))
 		if os.IsNotExist(err) {
@@ -63,7 +63,12 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 		}
 		if spec.path == "package.json" {
 			name = strings.ReplaceAll(strings.TrimPrefix(name, "@"), "/", "-")
-			if spec.target == "pi" {
+			if spec.target == "omp" {
+				if m["omp"] == nil || !ompExtensions(root) {
+					continue
+				}
+				info.Components = append(info.Components, "extensions")
+			} else if spec.target == "pi" {
 				var resources map[string]json.RawMessage
 				if m["pi"] != nil {
 					if json.Unmarshal(m["pi"], &resources) != nil || resources == nil {
@@ -102,7 +107,7 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 				info.Components = append(info.Components, "extensions")
 			}
 		}
-		// Pi and OpenCode install by path, so a package.json name may be scoped (@owner/pkg),
+		// OMP, Pi and OpenCode install by path, so a package.json name may be scoped (@owner/pkg),
 		// differ, or be missing; it only names the plugin when nothing else does.
 		npm := spec.path == "package.json"
 		if !namePattern.MatchString(name) && !npm {
@@ -153,8 +158,16 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 	// install records the version it finds itself, never the one in .omp-plugin/plugin.json.
 	if info, ok := c.TargetInfo["omp"]; ok && info.Problem == "" {
 		info.Components = slices.Clone(info.Components)
+		if claude, ok := c.TargetInfo["claude"]; ok && claude.Problem == "" {
+			for _, component := range claude.Components {
+				if !slices.Contains(info.Components, component) {
+					info.Components = append(info.Components, component)
+				}
+			}
+			slices.Sort(info.Components)
+		}
 		info.Version = ompInstallVersion(root)
-		if !validOMPName(c.Name) {
+		if c.Name != "" && !validOMPName(c.Name) {
 			info.block("plugins.problem.ompName", "OMP plugin names use only ASCII letters, digits, hyphens and dots, up to 64 characters", nil)
 		} else if ompExtensions(root) && !slices.Contains(info.Components, "extensions") {
 			info.Components = append(info.Components, "extensions")

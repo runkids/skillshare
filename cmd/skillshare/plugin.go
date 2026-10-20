@@ -169,28 +169,7 @@ func executePlugin(s *plugin.Service, o pluginOptions) error {
 		if o.json {
 			return json.NewEncoder(os.Stdout).Encode(d)
 		}
-		for _, warning := range d.Warnings {
-			ui.Warning("%s", warning)
-		}
-		names := make([]string, len(d.Candidates))
-		for i, c := range d.Candidates {
-			names[i] = c.Name
-		}
-		width := ui.RowWidth(names...)
-		for _, c := range d.Candidates {
-			mark := ui.MarkNone
-			if c.Problem != "" {
-				mark = ui.MarkFail
-			}
-			value := strings.Join(c.Targets, ", ")
-			if len(c.Components) > 0 {
-				value += ui.DimText(" · " + strings.Join(c.Components, ", "))
-			}
-			ui.Row(mark, c.Name, value, width)
-			if c.Problem != "" {
-				ui.Note(c.Problem)
-			}
-		}
+		printPluginDiscovery(d)
 		return nil
 	case "list", "inspect":
 		inventory, err := s.Inventory(ctx)

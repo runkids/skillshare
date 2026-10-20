@@ -149,8 +149,12 @@ skillshare plugin import demo@my-market --from omp --dry-run --json -g
 目的地，以及尚不存在的 scope 本機 runtime 目的地。Runtime 套件名稱來自已審閱的 source，
 而不只是 marketplace 名稱。既有的 module 目錄或連結會擋下安裝，而不會被取代；目的地會綁定
 到預覽，並在安裝前再次檢查。Adapter 會讓 plugin 樹保持完整，使用原生 marketplace 安裝，
-並驗證產生的註冊結果。Catalog 可以使用 `.omp-plugin/marketplace.json` 或舊版的
-`.claude-plugin/marketplace.json`。預覽不會呼叫 OMP 原生的 `--dry-run`，因為它可能會寫入檔案。
+並驗證產生的註冊結果。Catalog 優先使用 `.omp-plugin/marketplace.json`，只有在 OMP catalog 不存在時才退回
+`.claude-plugin/marketplace.json`。OMP entry 可以指向在 `package.json` 宣告 `omp.extensions`
+的套件；即使 npm 名稱不同或未提供，也會使用 marketplace 的 plugin 名稱。
+不同 catalog 將同名 plugin 放在不同目錄時，OMP 會保留自己的路徑、版本與 components。
+文字 discovery 會分列不同 build；JSON 則保留一個邏輯 candidate，透過 `targetInfo` 提供各 target
+的路徑與 metadata。只要 OMP catalog 存在，缺少或無效的 OMP entry 都不會退回 Claude build。預覽不會呼叫 OMP 原生的 `--dry-run`，因為它可能會寫入檔案。
 套用前請先審閱 source：OMP 可能在下次啟動時於同一個 process 中執行 plugin 的 extensions
 與 tools，且沒有 project 信任提示。安裝完成不代表這些資源已成功載入。
 
@@ -291,8 +295,8 @@ Copilot 與 Antigravity CLI 的安裝使用已檢視過的本機快照。匯入�
 - Codex 接受 `.codex-plugin/plugin.json` 以及可辨識的可攜式根目錄 `plugin.json` 套件。兩者都有的套件，Codex 會從可攜式根目錄 `plugin.json`
   安裝，所以 Skillshare 預期該 manifest 的版本，沒有版本時預期 `1.0.0`。僅限
   Claude 的套件不會被靜默轉換。
-- Source 可能包含帶有本機 plugin 項目的 marketplace。外部 catalog 會依 plugin 名稱/路徑合併。
-  衝突的路徑會被拒絕；外部項目會附上說明，指引你直接加入其 repository，或以原生方式安裝後
+- Source 可能包含帶有本機 plugin 項目的 marketplace。原生 catalog 會依 plugin 名稱合併，
+  並保留各 target 的套件路徑；外部項目會附上說明，指引你直接加入其 repository，或以原生方式安裝後
   再匯入。以指令為基礎的 source 不會自動核准。
 - 完整的 source 快照會保留 plugin 腳本、資產，以及安全的相對 symlink（包含
   `AGENTS.md → CLAUDE.md`）。絕對路徑、逃逸路徑、懸空、循環，以及參照 `.git` 的連結與特殊檔案

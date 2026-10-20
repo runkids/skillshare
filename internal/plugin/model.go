@@ -62,6 +62,7 @@ type TargetPackage struct {
 	Manifest string `json:"manifest"`
 	// Path is set when this Agent's catalog points at its own folder; empty means Candidate.Path.
 	Path        string            `json:"path,omitempty"`
+	Marketplace string            `json:"marketplace,omitempty"`
 	Version     string            `json:"version,omitempty"`
 	Logo        string            `json:"logo,omitempty"`
 	Entry       string            `json:"entry,omitempty"`

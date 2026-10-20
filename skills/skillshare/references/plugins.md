@@ -135,7 +135,12 @@ cannot reach, says why, and still updates the other targets.
   ownership or metadata blocks removal, Windows requires private
   native ACLs, and interrupted removal can be retried. Do not run native plugin
   mutations concurrently; their writer does not share the adapter lock.
-  Updates remain blocked, and imported code is not upgraded without a reviewed source. Native `.omp-plugin/marketplace.json` catalogs are supported.
+  Updates remain blocked, and imported code is not upgraded without a reviewed source. Native `.omp-plugin/marketplace.json` catalogs take precedence; Claude catalogs
+  are a fallback only when no OMP catalog exists, not when an entry is missing or invalid.
+  Catalog entries can point to `package.json` with `omp.extensions`, using the catalog
+  plugin name even if the npm name differs or is absent. Each target keeps its own
+  package path, version and components. Text discovery separates different build paths;
+  JSON keeps one logical candidate with per-target metadata in `targetInfo`.
   User/project scopes require the matching native root. Import `name@marketplace`,
   not bare npm/Git/link packages; manage those in OMP. OMP accounts are not plugin
   targets: `config_dir` does not redirect its plugin store. Preview never calls native
