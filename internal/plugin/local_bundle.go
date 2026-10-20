@@ -111,7 +111,7 @@ func (s *Service) localInventory(target string) ([]Installed, string, error) {
 		fingerprint = append(fingerprint, marker...)
 		// Only canonical directory names can be safely managed; other local installs
 		// remain visible under their directory identity and cannot be imported.
-		result = append(result, Installed{ID: entry.Name(), Name: candidate.Name, Version: candidate.Version, Scope: "user", Installed: true, Enabled: true})
+		result = append(result, Installed{ID: entry.Name(), Name: candidate.Name, Version: candidate.TargetInfo[target].Version, Scope: "user", Installed: true, Enabled: true})
 	}
 	return result, hash(fingerprint), nil
 }

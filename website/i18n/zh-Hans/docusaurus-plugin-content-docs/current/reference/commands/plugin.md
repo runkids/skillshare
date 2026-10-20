@@ -154,7 +154,8 @@ Catalog 优先使用 `.omp-plugin/marketplace.json`，仅在 OMP catalog 不存�
 的包；即使 npm 名称不同或缺失，也会使用 marketplace 的 plugin 名称。
 不同 catalog 将同名 plugin 放在不同目录时，OMP 会保留自己的路径、版本和 components。
 文本 discovery 会分行显示不同 build；JSON 保留一个逻辑 candidate，通过 `targetInfo` 提供各 target
-的路径和 metadata。只要 OMP catalog 存在，缺失或无效的 OMP entry 都不会回退到 Claude build。
+的路径和 metadata。target 版本不同或其中一个未知时，共享 `version` 为空；
+不选 Agent 加入管理时不会记录任意一个 build 的版本。只要 OMP catalog 存在，缺失或无效的 OMP entry 都不会回退到 Claude build。
 预览不会调用 OMP 原生的 `--dry-run`，因为它可能会写入文件。应用前请先审查来源：OMP 可能会在下次
 启动时于进程内执行 plugin 的 extension 和工具，而且没有项目信任提示。安装成功并不能证明这些资源
 已成功加载。

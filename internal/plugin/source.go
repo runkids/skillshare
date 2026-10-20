@@ -343,10 +343,10 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 		c.Path = "."
 		result.Candidates = append(result.Candidates, c)
 	}
-	// OMP reads its own marketplace exclusively when present, even if an entry is broken.
-	if ompCatalog != nil {
-		for i := range result.Candidates {
-			c := &result.Candidates[i]
+	for i := range result.Candidates {
+		c := &result.Candidates[i]
+		// OMP reads its own marketplace exclusively when present, even if an entry is broken.
+		if ompCatalog != nil {
 			native, ok := ompCatalog[c.Name]
 			info, supported := native.TargetInfo["omp"]
 			delete(c.TargetInfo, "omp")
@@ -359,8 +359,8 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 				info.Path = native.Path
 				c.TargetInfo["omp"] = info
 			}
-			c.collectTargets()
 		}
+		c.collectTargets()
 	}
 	return result, nil
 }

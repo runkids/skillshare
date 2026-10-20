@@ -50,6 +50,31 @@ func TestOMPDiscoverUsesItsOwnCatalogPackage(t *testing.T) {
 	}
 }
 
+func TestOMPMergedBuildVersionWithoutTargets(t *testing.T) {
+	for _, test := range []struct{ name, claudeVersion, want string }{
+		{"different", "0.1.0", ""},
+		{"same", "2.0.0", "2.0.0"},
+		{"unspecified", "", ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := ompCatalogFixture(t)
+			writeFile(t, root, "plugins/claude-code/.claude-plugin/plugin.json", `{"name":"kata","version":"`+test.claudeVersion+`","hooks":"./hooks/hooks.json"}`)
+			agents := &fakeAgents{}
+			s := agents.service(t)
+			r := Request{Action: "add", Source: root, Plugin: "kata"}
+			p, err := s.Preview(context.Background(), r)
+			if err != nil || len(p.Changes) != 1 || p.Changes[0].Binding.Version != test.want {
+				t.Fatalf("ambiguous no-Agent version: %+v %v; want %q", p, err, test.want)
+			}
+			applyPluginRequest(t, s, r)
+			d, err := s.load()
+			if err != nil || d.packages["kata"].Version != test.want {
+				t.Fatalf("recorded no-Agent version: %+v %v; want %q", d, err, test.want)
+			}
+		})
+	}
+}
+
 func TestOMPCatalogVersionReachesNativeInstall(t *testing.T) {
 	for _, legacy := range []bool{false, true} {
 		t.Run(map[bool]string{false: "native", true: "legacy"}[legacy], func(t *testing.T) {
@@ -68,6 +93,13 @@ func TestOMPCatalogVersionReachesNativeInstall(t *testing.T) {
 			}
 			if got := d.Candidates[0].TargetInfo["omp"].Version; got != "3.0.0" {
 				t.Fatalf("OMP ignored catalog version: %q", got)
+			}
+			wantVersion := ""
+			if legacy {
+				wantVersion = "3.0.0"
+			}
+			if got := d.Candidates[0].Version; got != wantVersion {
+				t.Fatalf("aggregate version: %q; want %q", got, wantVersion)
 			}
 			agents := &fakeAgents{version: "3.0.0"}
 			s := agents.service(t)

@@ -171,7 +171,9 @@ only when no OMP catalog exists. An OMP catalog entry can point to a package wit
 when the npm name differs or is absent. If two catalogs place the same plugin in
 different folders, OMP keeps its own path, version and components. Text discovery
 shows these builds on separate rows; JSON keeps one logical candidate with
-per-target paths and metadata in `targetInfo`. A missing or invalid OMP entry never
+per-target paths and metadata in `targetInfo`. The shared `version` is empty when
+target versions differ or one is unknown; adding without an Agent does not record
+an arbitrary build version. A missing or invalid OMP entry never
 falls back to the Claude build while an OMP catalog exists.
 Preview does not invoke OMP's native `--dry-run`, which can write files. Review
 the source before applying: OMP can execute plugin

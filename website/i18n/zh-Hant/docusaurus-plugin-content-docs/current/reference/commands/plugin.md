@@ -154,7 +154,8 @@ skillshare plugin import demo@my-market --from omp --dry-run --json -g
 的套件；即使 npm 名稱不同或未提供，也會使用 marketplace 的 plugin 名稱。
 不同 catalog 將同名 plugin 放在不同目錄時，OMP 會保留自己的路徑、版本與 components。
 文字 discovery 會分列不同 build；JSON 則保留一個邏輯 candidate，透過 `targetInfo` 提供各 target
-的路徑與 metadata。只要 OMP catalog 存在，缺少或無效的 OMP entry 都不會退回 Claude build。預覽不會呼叫 OMP 原生的 `--dry-run`，因為它可能會寫入檔案。
+的路徑與 metadata。target 版本不同或其中一個未知時，共用 `version` 為空；
+不選 Agent 加入管理時不會記錄任意一個 build 的版本。只要 OMP catalog 存在，缺少或無效的 OMP entry 都不會退回 Claude build。預覽不會呼叫 OMP 原生的 `--dry-run`，因為它可能會寫入檔案。
 套用前請先審閱 source：OMP 可能在下次啟動時於同一個 process 中執行 plugin 的 extensions
 與 tools，且沒有 project 信任提示。安裝完成不代表這些資源已成功載入。
 

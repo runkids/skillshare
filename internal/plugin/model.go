@@ -103,12 +103,17 @@ func (c Candidate) pathFor(target string) string {
 	return c.Path
 }
 
-// collectTargets derives Targets, Components and the OpenCode entry from TargetInfo.
+// collectTargets derives shared metadata from TargetInfo; only matching versions are shared.
 func (c *Candidate) collectTargets() {
-	c.Targets, c.Components = []string{}, []string{}
+	c.Targets, c.Components, c.Version = []string{}, []string{}, ""
 	for target, info := range c.TargetInfo {
 		if info.Problem != "" {
 			continue
+		}
+		if len(c.Targets) == 0 {
+			c.Version = info.Version
+		} else if c.Version != info.Version {
+			c.Version = ""
 		}
 		c.Targets = append(c.Targets, target)
 		for _, component := range info.Components {
