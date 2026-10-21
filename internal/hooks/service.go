@@ -205,12 +205,13 @@ func ConfigDirsFromEnv() map[string]string {
 
 // configDirEnv maps ConfigDirs keys to the environment variables Agents document.
 var configDirEnv = map[string]string{
-	"claude":  "CLAUDE_CONFIG_DIR",
-	"codex":   "CODEX_HOME",
-	"copilot": "COPILOT_HOME",
-	"pi":      "PI_CODING_AGENT_DIR",
-	"omp":     "PI_CODING_AGENT_DIR", // OMP is a Pi fork and reads the same variable.
-	"xdg":     "XDG_CONFIG_HOME",
+	"claude":   "CLAUDE_CONFIG_DIR",
+	"codex":    "CODEX_HOME",
+	"copilot":  "COPILOT_HOME",
+	"opencode": "OPENCODE_CONFIG_DIR",
+	"pi":       "PI_CODING_AGENT_DIR",
+	"omp":      "PI_CODING_AGENT_DIR", // OMP is a Pi fork and reads the same variable.
+	"xdg":      "XDG_CONFIG_HOME",
 }
 
 func (s *Service) home() (string, error) {

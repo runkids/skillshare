@@ -455,6 +455,7 @@ targets:
     also_scans:
       - {global: "~/.agents/skills", project: ".agents/skills"}
   - name: opencode
+    config_dir: "~/.config/opencode"
     skills:
       global: "~/.config/opencode/skills"
       project: ".opencode/skills"

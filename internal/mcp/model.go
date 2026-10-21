@@ -318,7 +318,7 @@ type Account struct {
 }
 
 // accountAgents are the Agents whose MCP file follows their config directory.
-var accountAgents = []string{"claude", "codex", "pi", "omp"}
+var accountAgents = []string{"claude", "codex", "opencode", "pi", "omp"}
 
 var accountName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 

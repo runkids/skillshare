@@ -80,6 +80,9 @@ func (s *Service) nativePath(target string) (string, error) {
 		if !filepath.IsAbs(dir) {
 			return "", fmt.Errorf("%s config directory must be absolute", target)
 		}
+		if target == "opencode" {
+			return jsoncPath("opencode", dir)
+		}
 		file := "config.toml"
 		if target == "claude" {
 			file = ".claude.json"
@@ -239,7 +242,7 @@ func (s *Service) withAccounts(accounts map[string]Account) *Service {
 	return &scoped
 }
 
-var accountEnv = map[string]string{"codex": "CODEX_HOME", "claude": "CLAUDE_CONFIG_DIR", "pi": "PI_CODING_AGENT_DIR", "omp": "PI_CODING_AGENT_DIR"}
+var accountEnv = map[string]string{"codex": "CODEX_HOME", "claude": "CLAUDE_CONFIG_DIR", "opencode": "OPENCODE_CONFIG_DIR", "pi": "PI_CODING_AGENT_DIR", "omp": "PI_CODING_AGENT_DIR"}
 
 // configDir keeps an account shell from redirecting the plain Agent to that account.
 // Account-scoped services still use their explicit directory; unrelated overrides stand.
@@ -286,7 +289,7 @@ func DetectedAccounts(accounts map[string]Account) []string {
 // ConfigDirsFromEnv reads the Agent directory overrides Agents themselves honor.
 func ConfigDirsFromEnv() map[string]string {
 	dirs := map[string]string{}
-	for key, env := range map[string]string{"pi": "PI_CODING_AGENT_DIR", "omp": "PI_CODING_AGENT_DIR", "codex": "CODEX_HOME", "claude": "CLAUDE_CONFIG_DIR", "grok": "GROK_HOME", "copilot": "COPILOT_HOME", "cline": "CLINE_DIR", "cline-data": "CLINE_DATA_DIR", "cline-mcp": "CLINE_MCP_SETTINGS_PATH", "xdg": "XDG_CONFIG_HOME", "appdata": "APPDATA"} {
+	for key, env := range map[string]string{"pi": "PI_CODING_AGENT_DIR", "omp": "PI_CODING_AGENT_DIR", "codex": "CODEX_HOME", "claude": "CLAUDE_CONFIG_DIR", "opencode": "OPENCODE_CONFIG_DIR", "grok": "GROK_HOME", "copilot": "COPILOT_HOME", "cline": "CLINE_DIR", "cline-data": "CLINE_DATA_DIR", "cline-mcp": "CLINE_MCP_SETTINGS_PATH", "xdg": "XDG_CONFIG_HOME", "appdata": "APPDATA"} {
 		value := strings.TrimSpace(os.Getenv(env))
 		// The XDG spec says a relative XDG_CONFIG_HOME is invalid and must be ignored.
 		if value == "" || (key == "xdg" || key == "appdata") && !filepath.IsAbs(value) {

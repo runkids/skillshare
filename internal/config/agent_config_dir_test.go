@@ -43,6 +43,20 @@ func TestAgentConfigDir_DerivesThePaths(t *testing.T) {
 	}
 }
 
+func TestAgentConfigDir_OpenCodeDerivesThePaths(t *testing.T) {
+	cfg, root, err := loadWithTargets(t, "  opencode-work:\n    agent: opencode\n    config_dir: $ROOT/.config/opencode-work\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := cfg.Targets["opencode-work"]
+	if got := target.SkillsConfig().Path; got != filepath.Join(root, ".config", "opencode-work", "skills") {
+		t.Errorf("skills path %q", got)
+	}
+	if got := target.AgentsConfig().Path; got != filepath.Join(root, ".config", "opencode-work", "agents") {
+		t.Errorf("agents path %q", got)
+	}
+}
+
 func TestAgentConfigDir_AnExplicitPathWins(t *testing.T) {
 	cfg, root, err := loadWithTargets(t, "  claude-work:\n    agent: claude\n    config_dir: $ROOT/.claude-work\n    skills:\n      path: $ROOT/elsewhere\n")
 	if err != nil {

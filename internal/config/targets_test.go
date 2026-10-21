@@ -598,6 +598,14 @@ func TestTargetInstructions_AccountMovesIntoConfigDir(t *testing.T) {
 	}
 }
 
+func TestTargetInstructions_OpenCodeAccountMovesIntoConfigDir(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "work")
+	got, ok := TargetInstructions("opencode-work", TargetConfig{Agent: "opencode", ConfigDir: dir}, false)
+	if !ok || got.Path != filepath.Join(dir, "AGENTS.md") {
+		t.Errorf("opencode account instructions = %+v, %v", got, ok)
+	}
+}
+
 func TestTargetInstructions_CustomGlobalExpandsTilde(t *testing.T) {
 	home, _ := os.UserHomeDir()
 	tc := TargetConfig{Instructions: &TargetInstructionsConfig{Path: "~/.myagent/AGENTS.md", Import: true}}
