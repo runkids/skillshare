@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -140,6 +141,21 @@ func TestSkillsPathKeptBy_IgnoresDisabledOthers(t *testing.T) {
 	}
 	if got := SkillsPathKeptBy(targets, "codex", nil); got != "universal" {
 		t.Fatalf("enabled universal keeps folder, got %q", got)
+	}
+}
+
+// Windows folders are case-insensitive: a case-different spelling is the same
+// folder, so target remove keeps it rather than unlinking what the other uses.
+func TestSkillsPathKeptBy_WindowsCaseFolds(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("case-insensitive paths are Windows-only")
+	}
+	targets := map[string]TargetConfig{
+		"universal": {Skills: &ResourceTargetConfig{Path: `C:\Users\Me\.agents\skills`}},
+		"codex":     {Skills: &ResourceTargetConfig{Path: `c:\users\me\.Agents\Skills`}},
+	}
+	if got := SkillsPathKeptBy(targets, "codex", nil); got != "universal" {
+		t.Fatalf("case-different folder not shared, got %q", got)
 	}
 }
 

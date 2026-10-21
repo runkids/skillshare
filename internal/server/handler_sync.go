@@ -1,21 +1,20 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"maps"
 	"net/http"
-	"os"
-	"path/filepath"
 	"slices"
 	"sort"
-	"strings"
 	"time"
 
-	"skillshare/internal/backup"
 	"skillshare/internal/config"
+	"skillshare/internal/projects"
 	"skillshare/internal/skillignore"
 	ssync "skillshare/internal/sync"
+	"skillshare/internal/utils"
 )
 
 // ignorePayload builds the common ignored-skills fields for JSON responses.
@@ -40,36 +39,9 @@ func ignorePayload(stats *skillignore.IgnoreStats) map[string]any {
 	}
 }
 
-// syncFailure is a target that failed to sync while the others went ahead.
-// Message is the same text the failure adds to warnings, so a client can show
-// failures apart from the other warnings.
-type syncFailure struct {
-	Target   string `json:"target"`
-	Part     string `json:"part"` // "skill", "agent", or "config"
-	Error    string `json:"error"`
-	Message  string `json:"message"`
-	Conflict bool   `json:"conflict,omitempty"` // a symlink points elsewhere; force replaces it
-}
-
-// unmatchedInclude is a target whose include filter selects no skill, so the
-// dashboard can explain it and link to where the filter is edited.
-type unmatchedInclude struct {
-	Target      string   `json:"target"`
-	Root        string   `json:"root,omitempty"` // the project folder of a project target
-	Patterns    []string `json:"patterns"`
-	Suggestions []string `json:"suggestions,omitempty"` // source path names the patterns likely meant
-	// All means no include pattern selects anything, so the target gets no skills.
-	All bool `json:"all"`
-}
-
-type syncTargetResult struct {
-	Target     string   `json:"target"`
-	Linked     []string `json:"linked"`
-	Updated    []string `json:"updated"`
-	Skipped    []string `json:"skipped"`
-	Pruned     []string `json:"pruned"`
-	DirCreated string   `json:"dir_created,omitempty"`
-}
+type syncFailure = ssync.TargetFailure
+type unmatchedInclude = ssync.TargetUnmatchedInclude
+type syncTargetResult = ssync.TargetResult
 
 func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
@@ -94,7 +66,11 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if body.Project != "" {
-		root := s.declaredProjectRoot(body.Project)
+		root, lookupErr := lookupProjectRoot(s.cfg.Projects, body.Project)
+		if lookupErr != nil && !errors.Is(lookupErr, projects.ErrNotFound) {
+			writeError(w, http.StatusBadRequest, lookupErr.Error())
+			return
+		}
 		if _, ok := s.cfg.Projects[root]; !ok {
 			writeError(w, http.StatusBadRequest, "unknown project: "+body.Project)
 			return
@@ -141,31 +117,15 @@ type syncOutcome struct {
 // sync, never nil, plus how many targets overlap in a way they don't explain.
 // harmless is passed on to config.DetectPathOverlap.
 func folderConflicts(targets map[string]config.TargetConfig, isProject bool, defaultMode string, harmless func(scanner, writer string) bool) ([]config.SkillsFolderConflict, int) {
-	conflicts := config.SkillsFolderConflicts(targets, defaultMode)
-	explained := map[string]bool{}
-	for _, c := range conflicts {
-		for _, name := range c.Targets {
-			explained[name] = true
-		}
-	}
-	rest := 0
-	for _, name := range config.DetectPathOverlap(targets, isProject, harmless) {
-		if !explained[name] {
-			rest++
-		}
-	}
-	if conflicts == nil {
-		conflicts = []config.SkillsFolderConflict{}
-	}
-	return conflicts, rest
+	return ssync.TargetFolderConflicts(targets, isProject, defaultMode, harmless)
 }
 
 // projectTargets returns the targets of the project declared under root.
 func (s *Server) projectTargets(root string) map[string]config.TargetConfig {
-	abs := filepath.Clean(config.ExpandPath(root))
+	abs := config.ExpandPath(root)
 	targets := map[string]config.TargetConfig{}
 	for name, target := range s.cfg.Targets {
-		if target.ProjectRoot() != "" && filepath.Clean(target.ProjectRoot()) == abs {
+		if target.ProjectRoot() != "" && utils.PathsEqual(target.ProjectRoot(), abs) {
 			targets[name] = target
 		}
 	}
@@ -181,11 +141,6 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	targets := s.cfg.Targets
 	if project != "" {
 		targets = s.projectTargets(project)
-	}
-
-	globalMode := s.cfg.Mode
-	if globalMode == "" {
-		globalMode = "merge"
 	}
 
 	// Pre-check warnings via shared config validation
@@ -222,7 +177,7 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 
 	var ignoreStats *skillignore.IgnoreStats
 	var allSkills []ssync.DiscoveredSkill
-	ignorePatterns := ssync.EffectiveFileIgnorePatterns(s.cfg.Ignore)
+	var sourceIncomplete bool
 
 	// Skill sync (skip when kind == "agent")
 	if kind != kindAgent {
@@ -237,154 +192,34 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 		if err != nil {
 			return nil, http.StatusInternalServerError, fmt.Errorf("failed to discover skills: %w", err)
 		}
-		sourceIncomplete := walk.Follow.Incomplete()
+		sourceIncomplete = walk.Follow.Incomplete()
 		warnings = append(warnings, ssync.SourceLinkWarnings(walk, sourceIncomplete)...)
 
 		if len(allSkills) == 0 {
 			warnings = append(warnings, "source directory is empty (0 skills)")
 		}
-
-		// Registry entries are managed by install/uninstall, not sync.
-		// Sync only manages symlinks — it must not prune registry entries
-		// for installed skills whose files may be missing from disk.
-
-		// A failed target adds a warning and no results row; the rest still sync.
-		failTarget := func(name string, err error) {
-			msg := name + ": sync failed: " + err.Error()
-			warnings = append(warnings, msg)
-			failed = append(failed, syncFailure{Target: name, Part: "skill", Error: err.Error(), Message: msg, Conflict: errors.Is(err, ssync.ErrSymlinkConflict)})
-		}
-		runOpts := ssync.SkillRunOptions{
-			Source: s.cfg.EffectiveSkillsSource(), ProjectRoot: s.projectRoot, IgnorePatterns: ignorePatterns,
-			DryRun: dryRun, Force: force, SourceIncomplete: sourceIncomplete,
-		}
-		for name, target := range runTargets {
-			sc := target.SkillsConfig()
-			if !sc.IsEnabled() {
-				continue // skills off: agents, extras and MCP below still run
-			}
-			mode := sc.Mode
-			if mode == "" {
-				mode = globalMode
-			}
-
-			res := syncTargetResult{
-				Target:  name,
-				Linked:  make([]string, 0),
-				Updated: make([]string, 0),
-				Skipped: make([]string, 0),
-				Pruned:  make([]string, 0),
-			}
-
-			run := ssync.SyncSkillTarget(ssync.SkillTarget{Name: name, Target: target, Mode: mode}, allSkills, runOpts)
-			if run.Err != nil {
-				failTarget(name, run.Err)
-				continue
-			}
-			warnings = append(warnings, run.Warnings...)
-			if len(run.UnmatchedIncludes) > 0 {
-				u := unmatchedInclude{Target: name, Root: target.ProjectRoot(), Patterns: []string{}, All: ssync.AllIncludesUnmatched(sc.Include, run.UnmatchedIncludes)}
-				for _, m := range run.UnmatchedIncludes {
-					u.Patterns = append(u.Patterns, m.Pattern)
-					u.Suggestions = append(u.Suggestions, m.Suggestions...)
-				}
-				unmatched = append(unmatched, u)
-			}
-			switch mode {
-			case "merge", "copy":
-				res.Linked, res.Updated, res.Skipped, res.DirCreated = run.Linked, run.Updated, run.Skipped, run.DirCreated
-				if run.Pruned != nil {
-					res.Pruned = run.Pruned
-				}
-			default:
-				res.Linked = []string{"(symlink mode)"}
-			}
-
-			results = append(results, res)
-		}
-
-		// Clean skillshare entries left in also_scans dirs a target no longer
-		// writes to, so the runtime stops seeing every skill twice.
-		if s.IsProjectMode() {
-			warnings = append(warnings, ssync.CleanMovedProjectDirs(
-				s.projectRoot, s.cfg.EffectiveSkillsSource(),
-				ssync.MovedProjectTargets(s.projectCfg, s.cfg.Targets), dryRun)...)
-		}
 	}
-
-	// Agent sync (skip when kind == "skill")
+	discovery := ssync.TargetDiscovery{Skills: allSkills, IgnoreStats: ignoreStats, SourceIncomplete: sourceIncomplete}
 	if kind != kindSkill {
-		agentsSource := s.agentsSource()
-		if info, err := os.Stat(agentsSource); err == nil && info.IsDir() {
-			agents := discoverActiveAgents(agentsSource)
-			builtinAgents := s.builtinAgentTargets()
-
-			agentTargets := make([]ssync.AgentTarget, 0, len(runTargets))
-			for name, target := range runTargets {
-				agentTargets = append(agentTargets, ssync.AgentTarget{
-					Name:   name,
-					Path:   resolveAgentPath(target, builtinAgents, name, s.IsProjectMode()),
-					Config: target.AgentsConfig(),
-				})
-			}
-			runs := ssync.RunAgentSync(agentTargets, agents, ssync.AgentRunOptions{
-				Source:           agentsSource,
-				ProjectRoot:      s.projectRoot,
-				DryRun:           dryRun,
-				Force:            force,
-				ResolveExtension: s.resolveExtensionSpec,
-			})
-
-			for _, run := range runs {
-				name := run.Name
-				if run.Path == "" {
-					continue
-				}
-				failAgent := func(err error) {
-					msg := "agent sync failed for " + name + ": " + err.Error()
-					warnings = append(warnings, msg)
-					failed = append(failed, syncFailure{Target: name, Part: "agent", Error: err.Error(), Message: msg})
-				}
-				if run.Err != nil {
-					failAgent(run.Err)
-					continue
-				}
-				warnings = append(warnings, run.Warnings...)
-				if run.SyncErr != nil {
-					failAgent(run.SyncErr)
-				}
-				if !run.Synced {
-					continue
-				}
-
-				// Find or create result entry for this target
-				idx := -1
-				for i := range results {
-					if results[i].Target == name {
-						idx = i
-						break
-					}
-				}
-				if idx < 0 && (len(run.Linked) > 0 || len(run.Updated) > 0 || len(run.Skipped) > 0 || len(run.Pruned) > 0) {
-					results = append(results, syncTargetResult{
-						Target:  name,
-						Linked:  make([]string, 0),
-						Updated: make([]string, 0),
-						Skipped: make([]string, 0),
-						Pruned:  make([]string, 0),
-					})
-					idx = len(results) - 1
-				}
-
-				if idx >= 0 {
-					results[idx].Linked = append(results[idx].Linked, run.Linked...)
-					results[idx].Updated = append(results[idx].Updated, run.Updated...)
-					results[idx].Skipped = append(results[idx].Skipped, run.Skipped...)
-					results[idx].Pruned = append(results[idx].Pruned, run.Pruned...)
-				}
-			}
-		}
+		discovery.Agents, discovery.AgentsAvailable = ssync.DiscoverTargetAgents(s.agentsSource())
 	}
+	kinds := []string(nil)
+	if kind != "" {
+		kinds = []string{kind}
+	}
+	executed, err := ssync.ExecuteTargets(context.Background(), s.cfg, runTargets, ssync.ExecuteOptions{
+		Kinds: kinds, DryRun: dryRun, Force: force, ProjectMode: s.IsProjectMode(), ProjectRoot: s.projectRoot,
+		AgentsSource: s.agentsSource(), Discovery: discovery, BuiltinAgentTargets: s.builtinAgentTargets(),
+		ResolveExtension: s.resolveExtensionSpec, DiagnosticsTargets: s.cfg.Targets,
+		MovedTargets: ssync.MovedProjectTargets(s.projectCfg, s.cfg.Targets),
+	})
+	if err != nil {
+		return nil, http.StatusInternalServerError, err
+	}
+	results = executed.Results
+	failed = append(failed, executed.Failed...)
+	unmatched = executed.Unmatched
+	warnings = append(warnings, executed.Warnings...)
 
 	// Log the sync operation. A target counts once however many parts failed.
 	failedNames := failedTargetNames(failed)
@@ -411,11 +246,7 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	}
 	s.writeOpsLog("sync", status, start, logArgs, "")
 
-	conflicts, overlap := folderConflicts(s.cfg.Targets, s.IsProjectMode(), globalMode,
-		ssync.HarmlessOverlap(s.cfg.Targets, globalMode, allSkills))
-	// Targets sync from a map; a fixed order keeps the dashboard's notices still.
-	slices.SortFunc(unmatched, func(a, b unmatchedInclude) int { return strings.Compare(a.Target, b.Target) })
-	return &syncOutcome{results: results, warnings: warnings, unmatched: unmatched, failed: failed, folderConflicts: conflicts, pathOverlap: overlap, skills: allSkills, ignoreStats: ignoreStats}, 0, nil
+	return &syncOutcome{results: results, warnings: warnings, unmatched: unmatched, failed: failed, folderConflicts: executed.FolderConflicts, pathOverlap: executed.PathOverlap, skills: executed.Skills, ignoreStats: executed.IgnoreStats}, 0, nil
 }
 
 // failedTargetNames returns the distinct targets in failed, sorted.
@@ -432,29 +263,10 @@ func failedTargetNames(failed []syncFailure) []string {
 // CLI does, then trims old snapshots. Project mode backs up agents only, like
 // `sync -p`. Failures come back as warnings. Callers must hold s.mu.
 func (s *Server) backupBeforeSync(targets map[string]config.TargetConfig, skills, agents bool) []string {
-	var warnings []string
-	dir := backup.BackupDir()
-	if s.IsProjectMode() {
-		dir, skills = backup.ProjectBackupDir(s.projectRoot), false
-	}
-	snapshot := func(entry, path string) {
-		if _, err := backup.CreateInDir(dir, entry, path); err != nil {
-			warnings = append(warnings, "backup failed for "+entry+": "+err.Error())
-		}
-	}
-	builtinAgents := s.builtinAgentTargets()
-	for name, target := range targets {
-		if skills && target.SkillsConfig().IsEnabled() {
-			snapshot(name, target.SkillsConfig().Path)
-		}
-		if p := resolveAgentPath(target, builtinAgents, name, s.IsProjectMode()); agents && p != "" {
-			snapshot(name+"-agents", resolveExtrasTargetPath(s.projectRoot, p))
-		}
-	}
-	if _, err := backup.CleanupInDir(dir, s.backupRetention()); err != nil {
-		warnings = append(warnings, "backup cleanup failed: "+err.Error())
-	}
-	return warnings
+	return ssync.BackupTargets(targets, skills, agents, ssync.BackupTargetsOptions{
+		Dir: s.backupDir(), Retention: s.backupRetention(), ProjectMode: s.IsProjectMode(), ProjectRoot: s.projectRoot,
+		BuiltinAgentTargets: s.builtinAgentTargets(),
+	})
 }
 
 func (s *Server) computeContextCost(skills []ssync.DiscoveredSkill) map[string]any {

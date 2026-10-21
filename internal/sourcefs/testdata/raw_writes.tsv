@@ -91,10 +91,8 @@ internal/check/checktest/fixture.go	Seed	os.MkdirAll	dir	test-helper
 internal/check/checktest/fixture.go	Seed	os.WriteFile	filepath.Join(dir, "SKILL.md")	test-helper
 internal/check/tree_check.go	FetchRemoteTreeHashesForRef	os.MkdirTemp	""	tmp
 internal/check/tree_check.go	FetchRemoteTreeHashesForRef	os.RemoveAll	tmpDir	tmp
-internal/config/config.go	(*Config).Save	os.MkdirAll	dir	config
-internal/config/config.go	(*Config).Save	os.WriteFile	path	config
-internal/config/config.go	Load	os.Rename	tmpPath, dest	config
-internal/config/config.go	Load	os.WriteFile	tmpPath	config
+internal/config/config.go	decodeConfig	os.Rename	tmpPath, dest	config
+internal/config/config.go	decodeConfig	os.WriteFile	tmpPath	config
 internal/config/config.go	migrateSkillsToRegistry	os.WriteFile	configPath	config
 internal/config/extras_migrate.go	MigrateExtrasDir	os.MkdirAll	filepath.Join(configDir, "extras")	extras
 internal/config/extras_migrate.go	MigrateExtrasDir	os.Rename	oldPath, newPath	extras
@@ -110,6 +108,10 @@ internal/config/registry.go	(*Registry).Save	os.MkdirAll	dir	source-unmigrated
 internal/config/registry.go	(*Registry).Save	os.WriteFile	path	source-unmigrated
 internal/config/registry.go	MigrateRegistryToSource	os.Remove	oldPath	source-unmigrated
 internal/config/registry.go	MigrateRegistryToSource	os.WriteFile	newPath	source-unmigrated
+internal/config/save_candidate.go	(*SaveCandidate).Write	os.MkdirAll	dir	config
+internal/config/save_candidate.go	(*SaveCandidate).Write	os.OpenFile	tmpPath	config
+internal/config/save_candidate.go	(*SaveCandidate).Write	os.Remove	tmp.Name()	config
+internal/config/save_candidate.go	(*SaveCandidate).Write	os.Rename	tmp.Name(), dest	config
 internal/git/info.go	resolveMetadataConflicts	os.WriteFile	filepath.Join(dir, path)	source-unmigrated
 internal/git/info.go	restorePullResidue	os.Remove	full	source-unmigrated
 internal/git/scope.go	DisableNestedRepo	os.Rename	gitDir, disabled	source-unmigrated
@@ -291,6 +293,7 @@ internal/plugin/source.go	acquireRef	os.RemoveAll	root	plugin
 internal/plugin/source.go	copyTree	os.MkdirAll	to	plugin
 internal/plugin/source.go	copyTree	os.Symlink	link, to	plugin
 internal/plugin/source.go	copyTree	os.WriteFile	to	plugin
+internal/projects/lock.go	lockPath	os.MkdirAll	dir	config
 internal/resource/agent.go	(AgentKind).CreateLink	os.Symlink	src, dst	target
 internal/resource/skill.go	(SkillKind).CreateLink	os.Symlink	src, dst	target
 internal/search/index.go	readIndexFromGitClone	os.RemoveAll	dir	tmp
@@ -316,9 +319,6 @@ internal/server/handler_skill_content.go	writeFileAtomic	os.Remove	tmpPath	agent
 internal/server/handler_skill_content.go	writeFileAtomic	os.Rename	tmpPath, path	agents
 internal/server/handler_skillignore.go	(*Server).handlePutSkillignore	os.Remove	ignorePath	source-unmigrated
 internal/server/handler_skillignore.go	(*Server).handlePutSkillignore	os.WriteFile	ignorePath	source-unmigrated
-internal/server/handler_targets.go	<package>	os.Remove	<ref>	target
-internal/server/handler_targets.go	copySkillDir	os.MkdirAll	dstPath	target
-internal/server/handler_targets.go	copySkillDir	os.OpenFile	dstPath	target
 internal/server/handler_trash.go	(*Server).handleDeleteTrash	os.RemoveAll	resolved.entry.Path	trash
 internal/server/handler_trash.go	(*Server).handleEmptyTrash	os.RemoveAll	item.Path	trash
 internal/skillignore/write.go	AddPattern	os.MkdirAll	filepath.Dir(filePath)	source-unmigrated
@@ -360,6 +360,9 @@ internal/sync/copy.go	SyncTargetCopyWithSkillsOptions	os.RemoveAll	targetSkillPa
 internal/sync/copy.go	copySkillToTarget	os.Chmod	skillFile	target
 internal/sync/copy.go	copySkillToTarget	os.Chmod	skillFile	target
 internal/sync/copy.go	copySkillToTarget	os.RemoveAll	dst	target
+internal/sync/detach_target.go	<package>	os.Remove	<ref>	target
+internal/sync/detach_target.go	copySkillDir	os.MkdirAll	dstPath	target
+internal/sync/detach_target.go	copySkillDir	os.OpenFile	dstPath	target
 internal/sync/extension.go	runExtensionFile	os.MkdirAll	filepath.Dir(tgtFile)	target
 internal/sync/extension.go	runExtensionFile	os.WriteFile	tgtFile	target
 internal/sync/extras.go	CollectExtraFiles	os.MkdirAll	filepath.Dir(destPath)	extras
@@ -536,3 +539,5 @@ internal/version/check.go	cleanupLegacyCache	os.Remove	legacyPath	config
 internal/version/check.go	cleanupLegacyCache	os.Remove	parentDir	config
 internal/version/check.go	saveCacheAt	os.MkdirAll	filepath.Dir(cachePath)	config
 internal/version/check.go	saveCacheAt	os.WriteFile	cachePath	config
+internal/config/config.go	(*Config).Save	os.MkdirAll	dir	config
+internal/config/config.go	(*Config).Save	os.WriteFile	path	config

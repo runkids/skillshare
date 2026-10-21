@@ -728,15 +728,15 @@
     "note": "Read individual skill contents after resolving a followed root"
   },
   {
-    "file": "internal/server/handler_targets.go",
-    "function": "(*Server).unlinkMergeSymlinks",
+    "file": "internal/sync/detach_target.go",
+    "function": "unlinkMergeSymlinks",
     "callee": "os.ReadDir",
     "root": "targetPath",
     "reason": "target",
     "note": "Inspect merge target links"
   },
   {
-    "file": "internal/server/handler_targets.go",
+    "file": "internal/sync/detach_target.go",
     "function": "copySkillDir",
     "callee": "filepath.Walk",
     "root": "src",

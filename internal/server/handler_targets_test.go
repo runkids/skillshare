@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"skillshare/internal/config"
+	ssync "skillshare/internal/sync"
 )
 
 func TestHandleListTargets_Empty(t *testing.T) {
@@ -151,14 +152,14 @@ func TestHandleRemoveTarget_CleanupFailureKeepsTarget(t *testing.T) {
 	if err := os.Symlink(filepath.Join(sourceDir, "alpha"), filepath.Join(tgtPath, "alpha")); err != nil {
 		t.Fatalf("create symlink: %v", err)
 	}
-	origRemoveTargetPath := removeTargetPath
-	removeTargetPath = func(path string) error {
-		if path == filepath.Join(tgtPath, "alpha") {
-			return errors.New("remove denied")
+	origDetachSkillsTarget := detachSkillsTarget
+	detachSkillsTarget = func(path string, opts ssync.DetachOptions) (ssync.DetachReport, error) {
+		if path != tgtPath || opts.Source != sourceDir || opts.DryRun {
+			t.Fatalf("wrong detach inputs: %s, %+v", path, opts)
 		}
-		return origRemoveTargetPath(path)
+		return ssync.DetachReport{}, errors.New("remove denied")
 	}
-	defer func() { removeTargetPath = origRemoveTargetPath }()
+	defer func() { detachSkillsTarget = origDetachSkillsTarget }()
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/targets/claude", nil)
 	rr := httptest.NewRecorder()

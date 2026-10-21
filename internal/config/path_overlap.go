@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+
+	"skillshare/internal/utils"
 )
 
 // DetectPathOverlap returns the set of target names whose configured skill
@@ -91,7 +93,7 @@ func SkillsPathKeptBy(targets map[string]TargetConfig, name string, leaving map[
 		if other == name || leaving[other] || target.SkillsConfig().Path == "" || !target.SkillsConfig().IsEnabled() {
 			continue
 		}
-		if filepath.Clean(ExpandPath(target.SkillsConfig().Path)) == path {
+		if utils.PathsEqual(filepath.Clean(ExpandPath(target.SkillsConfig().Path)), path) {
 			return other
 		}
 	}

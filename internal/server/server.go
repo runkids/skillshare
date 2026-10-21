@@ -352,6 +352,13 @@ func (s *Server) reloadConfig() error {
 	if err != nil {
 		return err
 	}
+	s.installGlobalConfig(newCfg)
+	return nil
+}
+
+// installGlobalConfig refreshes dependent state from an already expanded config.
+// Callers must hold s.mu.
+func (s *Server) installGlobalConfig(newCfg *config.Config) {
 	s.cfg = newCfg
 	if st, err := install.LoadMetadata(newCfg.EffectiveSkillsSource()); err == nil {
 		s.skillsStore = st
@@ -360,7 +367,6 @@ func (s *Server) reloadConfig() error {
 		s.agentsStore = st
 	}
 	s.snapshotFollow()
-	return nil
 }
 
 func (s *Server) refreshConfig() error {
@@ -374,6 +380,11 @@ func (s *Server) shouldAutoReloadConfig(path string) bool {
 		return false
 	}
 	if path == "/api/health" {
+		return false
+	}
+	// Project handlers reload without persisting legacy migrations, after taking
+	// the shared project lock for mutations.
+	if path == "/api/projects" || strings.HasPrefix(path, "/api/projects/") {
 		return false
 	}
 	// Keep config editor recoverable even if config file is temporarily invalid.

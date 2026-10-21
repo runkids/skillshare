@@ -3,11 +3,7 @@ package server
 import (
 	"cmp"
 	"errors"
-	"fmt"
-	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,7 +12,6 @@ import (
 	"skillshare/internal/mcp"
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/targetsummary"
-	"skillshare/internal/utils"
 )
 
 type targetItem struct {
@@ -55,7 +50,7 @@ type targetItem struct {
 	SkillsSharedWith []string `json:"skillsSharedWith,omitempty"`
 }
 
-var removeTargetPath = os.Remove
+var detachSkillsTarget = ssync.DetachSkillsTarget
 
 func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
@@ -664,108 +659,10 @@ func (s *Server) handleSkillsOffPreview(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, resp)
 }
 
-// detachSkillsTarget removes what sync owns in a skills folder before its target leaves
-// the config: the folder symlink, or the manifest and the symlinks into the source.
-// Copies and local skills stay.
+// detachSkillsTarget keeps HTTP error translation at the server boundary.
 func (s *Server) detachSkillsTarget(path string) (int, error) {
-	info, err := os.Lstat(path)
-	if os.IsNotExist(err) {
-		return 0, nil
-	}
-	if err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("failed to inspect target: %w", err)
-	}
-	if utils.IsLinkMode(path, info.Mode()) {
-		// Symlink mode: entire directory is a symlink
-		if err := removeTargetPath(path); err != nil {
-			return http.StatusInternalServerError, fmt.Errorf("failed to remove target symlink: %w", err)
-		}
-	} else if info.IsDir() {
-		// Remove manifest if present (merge/copy mode)
-		if err := ssync.RemoveManifest(path); err != nil {
-			return http.StatusInternalServerError, fmt.Errorf("failed to remove target manifest: %w", err)
-		}
-		// Merge mode: remove individual skill symlinks pointing to source
-		if err := s.unlinkMergeSymlinks(path); err != nil {
-			return http.StatusInternalServerError, fmt.Errorf("failed to clean target symlinks: %w", err)
-		}
+	if _, err := detachSkillsTarget(path, ssync.DetachOptions{Source: s.cfg.EffectiveSkillsSource()}); err != nil {
+		return http.StatusInternalServerError, err
 	}
 	return 0, nil
-}
-
-// unlinkMergeSymlinks removes symlinks in targetPath that point under the
-// source directory and copies the skill contents back as real files.
-func (s *Server) unlinkMergeSymlinks(targetPath string) error {
-	entries, err := os.ReadDir(targetPath)
-	if err != nil {
-		return err
-	}
-
-	absSource, err := filepath.Abs(s.cfg.EffectiveSkillsSource())
-	if err != nil {
-		return err
-	}
-	absSourcePrefix := absSource + string(filepath.Separator)
-
-	for _, entry := range entries {
-		skillPath := filepath.Join(targetPath, entry.Name())
-
-		if !utils.IsSymlinkOrJunction(skillPath) {
-			continue
-		}
-
-		absLink, err := utils.ResolveLinkTarget(skillPath)
-		if err != nil {
-			continue
-		}
-
-		if !utils.PathHasPrefix(absLink, absSourcePrefix) {
-			continue
-		}
-
-		// Remove symlink and copy the skill back if source still exists
-		if err := removeTargetPath(skillPath); err != nil {
-			return fmt.Errorf("remove %s: %w", skillPath, err)
-		}
-		if _, statErr := os.Stat(absLink); statErr == nil {
-			if err := copySkillDir(absLink, skillPath); err != nil {
-				return fmt.Errorf("restore %s from %s: %w", skillPath, absLink, err)
-			}
-		}
-	}
-	return nil
-}
-
-// copySkillDir copies a directory tree from src to dst.
-func copySkillDir(src, dst string) error {
-	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		relPath, err := filepath.Rel(src, path)
-		if err != nil {
-			return fmt.Errorf("failed to compute relative path from %s to %s: %w", src, path, err)
-		}
-		dstPath := filepath.Join(dst, relPath)
-
-		if info.IsDir() {
-			return os.MkdirAll(dstPath, info.Mode())
-		}
-
-		srcFile, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer srcFile.Close()
-
-		dstFile, err := os.OpenFile(dstPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode())
-		if err != nil {
-			return err
-		}
-		defer dstFile.Close()
-
-		_, err = io.Copy(dstFile, srcFile)
-		return err
-	})
 }

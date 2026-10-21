@@ -123,6 +123,7 @@ jobs:
             ./internal/mcp \
             ./internal/memory \
             ./internal/projectdir \
+            ./internal/projects \
             ./internal/resource \
             ./internal/search \
             ./internal/skill \

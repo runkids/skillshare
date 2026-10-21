@@ -2,44 +2,21 @@ package server
 
 import (
 	"errors"
+	"fmt"
+	"maps"
 	"net/http"
 	"os"
-	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"skillshare/internal/config"
-	"skillshare/internal/projectdir"
+	"skillshare/internal/projects"
 	ssync "skillshare/internal/sync"
 )
 
-// projectResource is one resource kind of a project. nil means it is not sent.
-type projectResource struct {
-	Mode         string   `json:"mode"`
-	TargetNaming string   `json:"targetNaming,omitempty"`
-	Include      []string `json:"include"`
-	Exclude      []string `json:"exclude"`
-}
-
-type projectGroup struct {
-	Target     string   `json:"target"` // target name, as the sync and target lists show it
-	Tools      []string `json:"tools"`
-	SkillsPath string   `json:"skillsPath"`
-	AgentsPath string   `json:"agentsPath"`
-}
-
-type projectItem struct {
-	Root         string           `json:"root"` // as written in config.yaml
-	Path         string           `json:"path"` // absolute
-	Name         string           `json:"name"`
-	CustomName   string           `json:"customName,omitempty"`
-	Targets      []string         `json:"targets"`
-	Skills       *projectResource `json:"skills"`
-	Agents       *projectResource `json:"agents"`
-	Groups       []projectGroup   `json:"groups"`
-	Missing      bool             `json:"missing"`
-	HasOwnConfig bool             `json:"hasOwnConfig"`
-}
+type projectResource projects.Resource
+type projectItem = projects.Item
 
 type projectBody struct {
 	Root    string           `json:"root"`
@@ -51,25 +28,11 @@ type projectBody struct {
 	Create bool `json:"create"`
 }
 
-func toProjectResource(rc *config.ResourceTargetConfig) *projectResource {
-	if rc == nil {
-		return nil
-	}
-	return &projectResource{Mode: rc.Mode, TargetNaming: rc.TargetNaming, Include: append([]string{}, rc.Include...), Exclude: append([]string{}, rc.Exclude...)}
-}
-
 func (r *projectResource) config() *config.ResourceTargetConfig {
 	if r == nil {
 		return nil
 	}
 	return &config.ResourceTargetConfig{Mode: r.Mode, TargetNaming: r.TargetNaming, Include: r.Include, Exclude: r.Exclude}
-}
-
-// hasOwnProjectConfig reports a folder that project mode manages too. Sync never
-// overwrites what it does not own there, so the dashboard says so up front.
-func hasOwnProjectConfig(root string) bool {
-	_, ok := projectdir.Find(root)
-	return ok
 }
 
 func (s *Server) requireGlobalProjects(next http.HandlerFunc) http.HandlerFunc {
@@ -83,30 +46,18 @@ func (s *Server) requireGlobalProjects(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	items := []projectItem{}
-	for root, project := range s.cfg.Projects {
-		abs := config.ExpandPath(root)
-		name := project.ProjectName(root)
-		item := projectItem{
-			Root: root, Path: abs, Name: name, CustomName: project.Name,
-			Targets: append([]string{}, project.Targets...),
-			Skills:  toProjectResource(project.Skills), Agents: toProjectResource(project.Agents),
-			Groups:       []projectGroup{},
-			HasOwnConfig: hasOwnProjectConfig(abs),
-		}
-		if info, err := os.Stat(abs); err != nil || !info.IsDir() {
-			item.Missing = true
-		}
-		groups, _ := project.ToolGroups(root) // Load has already accepted every target
-		for _, group := range groups {
-			item.Groups = append(item.Groups, projectGroup{Target: config.ProjectTargetName(name, group.Target()), Tools: group.Tools, SkillsPath: group.SkillsPath, AgentsPath: group.AgentsPath})
-		}
-		items = append(items, item)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.reloadProjectsReadOnly(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
 	}
-	sort.Slice(items, func(i, j int) bool { return items[i].Name < items[j].Name })
+
+	items, err := s.projectService().List()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 
 	type convertible struct {
 		Root    string   `json:"root"`
@@ -160,37 +111,41 @@ func (s *Server) handleSaveProject(w http.ResponseWriter, r *http.Request) {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	root := s.declaredProjectRoot(body.Root)
-	_, exists := s.cfg.Projects[root]
-	if body.Create {
-		if exists {
-			writeError(w, http.StatusConflict, "project is already declared: "+body.Root)
-			return
-		}
-		if info, err := os.Stat(config.ExpandPath(root)); err != nil || !info.IsDir() {
-			writeError(w, http.StatusBadRequest, "folder not found: "+body.Root)
-			return
-		}
-	} else if !exists {
-		writeError(w, http.StatusNotFound, "project not found: "+body.Root)
-		return
-	}
-
-	projects := make(map[string]config.ManagedProject, len(s.cfg.Projects)+1)
-	for k, v := range s.cfg.Projects {
-		projects[k] = v
-	}
-	projects[root] = config.ManagedProject{Name: body.Name, Targets: body.Targets, Skills: body.Skills.config(), Agents: body.Agents.config()}
-	if err := s.cfg.ValidateProjects(projects); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	s.cfg.Projects = projects
-	if err := s.saveAndReloadConfig(); err != nil {
+	release, err := projects.LockConfig(r.Context(), s.configPath())
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	defer release()
+	if err := s.reloadProjectsReadOnly(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	root, lookupErr := lookupProjectRoot(s.cfg.Projects, body.Root)
+	if lookupErr != nil {
+		if !errors.Is(lookupErr, projects.ErrNotFound) {
+			writeError(w, http.StatusBadRequest, lookupErr.Error())
+			return
+		}
+		root = body.Root
+	}
+	result, err := s.projectService().Put(root, config.ManagedProject{Name: body.Name, Targets: body.Targets, Skills: body.Skills.config(), Agents: body.Agents.config()}, projects.PutOptions{Create: body.Create})
+	if err != nil {
+		status := http.StatusBadRequest
+		switch {
+		case errors.Is(err, projects.ErrSave), errors.Is(err, projects.ErrDetach):
+			status = http.StatusInternalServerError
+		case errors.Is(err, projects.ErrExists):
+			status = http.StatusConflict
+		case errors.Is(err, projects.ErrNotFound):
+			status = http.StatusNotFound
+		}
+
+		s.writeProjectFailure(w, status, result, err, start, "update", root)
+		return
+	}
+	s.installGlobalConfig(result.Expanded)
 	action := "update"
 	if body.Create {
 		action = "add"
@@ -203,27 +158,35 @@ func (s *Server) handleRemoveProject(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	release, err := projects.LockConfig(r.Context(), s.configPath())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer release()
+	if err := s.reloadProjectsReadOnly(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 
-	root := s.declaredProjectRoot(r.URL.Query().Get("root"))
+	root, lookupErr := lookupProjectRoot(s.cfg.Projects, r.URL.Query().Get("root"))
+	if lookupErr != nil {
+		if !errors.Is(lookupErr, projects.ErrNotFound) {
+			writeError(w, http.StatusBadRequest, lookupErr.Error())
+			return
+		}
+		root = r.URL.Query().Get("root")
+	}
 	if _, exists := s.cfg.Projects[root]; !exists {
 		writeError(w, http.StatusNotFound, "project not found: "+root)
 		return
 	}
-	abs := config.ExpandPath(root)
-	for name, target := range s.cfg.Targets {
-		if target.ProjectRoot() != abs {
-			continue
-		}
-		if status, err := s.detachSkillsTarget(target.SkillsConfig().Path); err != nil {
-			writeError(w, status, name+": "+err.Error())
-			return
-		}
-	}
-	delete(s.cfg.Projects, root)
-	if err := s.saveAndReloadConfig(); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+	result, err := s.projectService().Remove(root, projects.RemoveOptions{})
+	if err != nil {
+		s.writeProjectFailure(w, http.StatusInternalServerError, result, err, start, "remove", root)
 		return
 	}
+	s.installGlobalConfig(result.Expanded)
 	s.writeOpsLog("project", "ok", start, map[string]any{"action": "remove", "root": root, "scope": "ui"}, "")
 	writeJSON(w, map[string]any{"success": true, "root": root})
 }
@@ -244,28 +207,36 @@ func (s *Server) handleConvertProject(w http.ResponseWriter, r *http.Request) {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	release, err := projects.LockConfig(r.Context(), s.configPath())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer release()
+	if err := s.reloadProjectsReadOnly(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 
 	for _, found := range s.cfg.ConvertibleProjects() {
 		if found.Root != body.Root {
 			continue
 		}
-		projects := make(map[string]config.ManagedProject, len(s.cfg.Projects)+1)
-		for k, v := range s.cfg.Projects {
-			projects[k] = v
+		next := *s.cfg
+		next.Targets = maps.Clone(s.cfg.Targets)
+		for _, name := range found.Targets {
+			delete(next.Targets, name)
 		}
-		projects[found.Root] = found.Project
-		if err := s.cfg.ValidateProjects(projects); err != nil {
+		candidate, err := projects.PrepareProjects(s.configPath(), &next, func(entries map[string]config.ManagedProject) error { entries[found.Root] = found.Project; return nil })
+		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		for _, name := range found.Targets {
-			delete(s.cfg.Targets, name)
-		}
-		s.cfg.Projects = projects
-		if err := s.saveAndReloadConfig(); err != nil {
+		if err := candidate.Save.Write(); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+		s.installGlobalConfig(candidate.Save.Expanded)
 		s.writeOpsLog("project", "ok", start, map[string]any{"action": "convert", "root": found.Root, "targets": found.Targets, "scope": "ui"}, "")
 		writeJSON(w, map[string]any{"success": true, "root": found.Root})
 		return
@@ -273,14 +244,44 @@ func (s *Server) handleConvertProject(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusNotFound, "no targets to convert for "+body.Root)
 }
 
-// declaredProjectRoot returns the key a root is declared under, so ~/app and its
-// absolute form name the same project. An undeclared root is returned as given.
-func (s *Server) declaredProjectRoot(root string) string {
-	abs := filepath.Clean(config.ExpandPath(root))
-	for key := range s.cfg.Projects {
-		if filepath.Clean(config.ExpandPath(key)) == abs {
-			return key
-		}
+func lookupProjectRoot(entries map[string]config.ManagedProject, root string) (string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
 	}
-	return root
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return projects.FindRoot(entries, root, cwd, home)
+}
+
+// projectService is used while the caller holds s.mu.
+func (s *Server) projectService() *projects.Service {
+	svc := projects.NewService(s.configPath(), func() (*config.Config, error) { return s.cfg, nil })
+	svc.DetachSkillsTarget = detachSkillsTarget
+	return svc
+}
+
+// reloadProjectsReadOnly is called under s.mu, and under the project file lock
+// for mutations. Unlike the ordinary dashboard reload it never migrates on disk.
+func (s *Server) reloadProjectsReadOnly() error {
+	cfg, err := config.LoadReadOnlyPath(s.configPath())
+	if err != nil {
+		return err
+	}
+	s.installGlobalConfig(cfg)
+	return nil
+}
+
+func (s *Server) writeProjectFailure(w http.ResponseWriter, status int, result projects.Result, err error, start time.Time, action, root string) {
+	if result.Detach == nil || (len(result.Detach.Removed) == 0 && len(result.Detach.CopiedBack) == 0) {
+		writeError(w, status, err.Error())
+		return
+	}
+	message := fmt.Sprintf("%s; registration %s; completed detach: removed [%s], copied back [%s]", err, result.Registration, strings.Join(result.Detach.Removed, ", "), strings.Join(result.Detach.CopiedBack, ", "))
+	s.writeOpsLog("project", "partial", start, map[string]any{"action": action, "root": root, "scope": "ui"}, message)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	writeJSON(w, map[string]any{"error": message, "detach": result.Detach, "registration": result.Registration})
 }

@@ -376,6 +376,9 @@ type GlobalSources struct {
 
 // Config holds the application configuration
 type Config struct {
+	// legacySkills retains unmigrated embedded metadata during read-only edits.
+	// Ordinary Load removes this section through migrateSkillsToRegistry first.
+	legacySkills yaml.Node     `yaml:"-"`
 	Plugins      yaml.Node     `yaml:"plugins,omitempty"`
 	Hooks        yaml.Node     `yaml:"hooks,omitempty"`
 	MCP          *MCPConfig    `yaml:"mcp,omitempty"`
@@ -688,12 +691,57 @@ func ConfigPath() string {
 	return filepath.Join(BaseDir(), "config.yaml")
 }
 
+// LoadReadOnly reads the migrated config view without writing files or relocating
+// legacy state. On Windows a legacy config is read in place when needed.
+func LoadReadOnly() (*Config, error) {
+	return LoadReadOnlyPath(ReadOnlyConfigPath())
+}
+
+// LoadReadOnlyPath reads one exact global config without migrations on disk.
+func LoadReadOnlyPath(path string) (*Config, error) {
+	cfg, err := loadConfig(path, false)
+	if err != nil {
+		return nil, err
+	}
+	// Keep an old registry readable without moving it to the canonical source root.
+	if !fileExists(RegistryPath(cfg.RegistryDir)) && fileExists(RegistryPath(filepath.Dir(path))) {
+		cfg.RegistryDir = filepath.Dir(path)
+	}
+	return cfg, nil
+}
+
+// ReadOnlyConfigPath selects the config read in place, including Windows legacy fallback.
+func ReadOnlyConfigPath() string { return readOnlyConfigPath(runtime.GOOS) }
+
+func readOnlyConfigPath(goos string) string {
+	path := ConfigPath()
+	if goos != "windows" || os.Getenv("SKILLSHARE_CONFIG") != "" {
+		return path
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		return path
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return path
+	}
+	legacy := filepath.Join(home, ".config", "skillshare", "config.yaml")
+	if fileExists(legacy) {
+		return legacy
+	}
+	return path
+}
+
 // Load reads the config from the default location
 func Load() (*Config, error) {
-	path := ConfigPath()
+	return loadConfig(ConfigPath(), true)
+}
 
-	// Migrate skills[] to registry.yaml (one-time, silent)
-	_ = migrateSkillsToRegistry(path)
+func loadConfig(path string, persist bool) (*Config, error) {
+	// Migrate skills[] to registry.yaml (one-time, silent).
+	if persist {
+		_ = migrateSkillsToRegistry(path)
+	}
 
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -703,10 +751,26 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("failed to read config: %w", err)
 	}
 
+	return decodeConfig(path, data, persist)
+}
+
+// decodeConfig shares normalization and expansion with prepared saves. Only a
+// normal Load persists the legacy migrations.
+func decodeConfig(path string, data []byte, persist bool) (*Config, error) {
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
+
+	// Retain legacy metadata until an ordinary Load migrates it to the registry.
+	// Project candidates must not discard this raw section while loading in place.
+	var legacy struct {
+		Skills yaml.Node `yaml:"skills"`
+	}
+	if err := yaml.Unmarshal(data, &legacy); err != nil {
+		return nil, fmt.Errorf("failed to parse config: %w", err)
+	}
+	cfg.legacySkills = legacy.Skills
 
 	threshold, err := normalizeAuditBlockThreshold(cfg.Audit.BlockThreshold)
 	if err != nil {
@@ -742,8 +806,8 @@ func Load() (*Config, error) {
 	}
 	cfg.GiteaHosts = giteaHosts
 
-	// Migrate legacy flat target fields to skills: sub-key (one-time, persisted immediately)
-	if migrateTargetConfigs(cfg.Targets) {
+	// Migrate legacy flat target fields in memory, persisting only for ordinary Load.
+	if migrateTargetConfigs(cfg.Targets) && persist {
 		if migrated, err := marshalConfig(&cfg, schemaComment, data); err == nil {
 			// Write a symlinked config's target so the link survives.
 			dest := utils.ResolveSymlink(path)
@@ -798,7 +862,9 @@ func Load() (*Config, error) {
 	// (without a legacy source: top-level) still resolve a registry root.
 	if skillsDir := cfg.EffectiveSkillsSource(); skillsDir != "" {
 		cfg.RegistryDir = SourceRoot(skillsDir)
-		MigrateRegistryToSource(filepath.Dir(path), cfg.RegistryDir)
+		if persist {
+			MigrateRegistryToSource(filepath.Dir(path), cfg.RegistryDir)
+		}
 	}
 
 	return &cfg, nil
