@@ -44,7 +44,7 @@ func printPluginHelp() {
 		helpNotes("Notes",
 			"For marketplaces, pass a discovered candidate with --plugin NAME on preview and apply.",
 			"Use --source-ref for a Git branch/tag/commit; plugins do not use install --track.",
-			"Omit --source-ref to follow the remote default branch; run plugin update for its latest content.",
+			"Omit --source-ref when adding a package to follow the remote default branch; update reuses its stored ref.",
 			"Sync alias: skillshare sync plugins [name] [--dry-run] [--json]",
 			"Plugins are not included in sync --all. Complete plugin trees stay together.",
 			"Grok requires native trust: install there first, then import.",

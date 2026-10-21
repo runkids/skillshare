@@ -97,9 +97,10 @@ or `-p` for this project; keep that scope on preview, apply, update, and sync.
 `--all`, `--yes`, `--skill`, or `--agent`. Named selections also need no `--yes`.
 `--name team` gives the tracked checkout the name `_team`; use the actual name
 reported by install/list for later commands.
-To follow the latest upstream content, omit `--branch`: the checkout follows the
-remote's default branch (usually `main`). Run `update` whenever you want its latest
-changes, then `sync`; tracking does not schedule automatic updates.
+To follow the latest upstream content, install from a plain `owner/repo` source
+without `--branch` or a ref embedded in the URL. This starts tracking its default
+branch (usually `main`). Run `update` for that branch's latest changes, then
+`sync`; tracking does not schedule automatic updates.
 
 ```bash
 skillshare install owner/repo --track --name team -g --dry-run
@@ -184,6 +185,8 @@ Use the source's actual candidate name with `--plugin` if discovery finds a
 marketplace. Choose supported targets from discovery; repeat `--target` for
 several clients. `add` without a target stores the package but installs it nowhere.
 Use `--source-ref` for a Git branch/tag/commit, not `--track`.
+Omit it when adding a new package to follow the remote default branch; updates
+reuse the stored ref rather than unpinning an existing package.
 
 Run only the requested operation. `add` installs a whole native package; `import`
 adopts an existing installation. Plugin enable/disable saves sync selection only;
