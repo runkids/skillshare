@@ -167,9 +167,9 @@ cannot reach, says why, and still updates the other targets.
   be available. The CLI version selects the schema; do not guess from docs alone.
 - Another account of an Agent (a target with `agent:` and `config_dir:` in the global
   config) is a plugin target under its own name: `--target claude-work`, `--from
-  claude-work`. Supported for `claude`, `codex` and `pi`. Skillshare runs that Agent's CLI
-  against the account's config directory, through `CLAUDE_CONFIG_DIR`, `CODEX_HOME` or
-  `PI_CODING_AGENT_DIR`, and the account keeps its own bindings. Global scope only. With
+  claude-work`. Supported for `claude`, `codex`, `opencode` and `pi`. Skillshare runs that Agent's CLI
+  against the account's config directory, through `CLAUDE_CONFIG_DIR`, `CODEX_HOME`,
+  `OPENCODE_CONFIG_DIR` or `PI_CODING_AGENT_DIR`, and the account keeps its own bindings. Global scope only. With
   `cli:` it runs that compatible CLI instead (such as `omo` for Pi); a Pi account also sets
   `SENPI_CODING_AGENT_DIR` and `OMO_CODING_AGENT_DIR`. A missing CLI fails, with no fallback.
 - Codex without `cli:`: `codex` on PATH, then Homebrew (`/opt/homebrew/bin`, `/usr/local/bin`) or the

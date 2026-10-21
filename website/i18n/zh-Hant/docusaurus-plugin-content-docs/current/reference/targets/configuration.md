@@ -329,7 +329,7 @@ targets:
 
 #### 某個 Agent 的另一個帳號 {#agent-config-dir}
 
-Target 可以是某個內建 Agent 的第二個 config 目錄：以 `CLAUDE_CONFIG_DIR` 啟動的 Claude Code、以 `CODEX_HOME` 啟動的 Codex，或以 `PI_CODING_AGENT_DIR` 啟動的 Pi。指定 Agent 與該目錄即可；Skill 與 agents 的路徑會跟著它決定。
+Target 可以是某個內建 Agent 的第二個 config 目錄：以 `CLAUDE_CONFIG_DIR` 啟動的 Claude Code、以 `CODEX_HOME` 啟動的 Codex、以 `OPENCODE_CONFIG_DIR` 啟動的 OpenCode，或以 `PI_CODING_AGENT_DIR` 啟動的 Pi。指定 Agent 與該目錄即可；Skill 與 agents 的路徑會跟著它決定。
 
 ```yaml
 targets:
@@ -341,11 +341,11 @@ targets:
     config_dir: ~/.codex-work    # Skill 會放到 ~/.codex-work/skills
 ```
 
-Codex 也會讀取共用的 `~/.agents/skills`，但一個帳號只擁有自己的目錄，因此它的 Skill 會放到 `<config_dir>/skills`。Pi 與 OMP 的運作方式相同。只有 Claude 有 agents 目錄。
+Codex 也會讀取共用的 `~/.agents/skills`，但一個帳號只擁有自己的目錄，因此它的 Skill 會放到 `<config_dir>/skills`。Pi 與 OMP 的運作方式相同。Claude 和 OpenCode 另外有 agents 目錄。
 
 | 欄位 | 說明 |
 |-------|-------------|
-| `agent` | 內建的 Agent：`claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）、`pi` 或 `omp`（兩者都使用 `PI_CODING_AGENT_DIR`） |
+| `agent` | 內建的 Agent：`claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）、`opencode`（`OPENCODE_CONFIG_DIR`）、`pi` 或 `omp`（兩者都使用 `PI_CODING_AGENT_DIR`） |
 | `config_dir` | 該帳號的 config 目錄。必須是絕對路徑或以 `~` 開頭，不能是該 Agent 的預設目錄，且只能由一個 Target 使用 |
 | `cli` | 選填。用相容的 CLI 取代 Agent 本身來執行這個帳號的 [plugin 指令](/docs/reference/commands/plugin#accounts)，例如 Pi 用 `omo`。填 `PATH` 上的名稱，或絕對路徑（可以用 `~` 開頭）。只能是一個執行檔、不帶參數；shell alias 不會生效 |
 

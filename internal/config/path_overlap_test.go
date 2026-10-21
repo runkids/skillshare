@@ -20,6 +20,20 @@ func TestDetectPathOverlap_CrossRuntimeDiscovery(t *testing.T) {
 	}
 }
 
+func TestDetectPathOverlap_AccountTargetCrossRuntimeDiscovery(t *testing.T) {
+	// opencode-work is an account of opencode; its runtime reads ~/.claude/skills, which claude writes to.
+	involved := DetectPathOverlap(map[string]TargetConfig{
+		"opencode-work": {Agent: "opencode", ConfigDir: "~/.config/opencode-work", Skills: &ResourceTargetConfig{Path: "~/.config/opencode-work/skills"}},
+		"claude":        {Skills: &ResourceTargetConfig{Path: "~/.claude/skills"}},
+	}, false, nil)
+
+	for _, want := range []string{"opencode-work", "claude"} {
+		if !slices.Contains(involved, want) {
+			t.Errorf("DetectPathOverlap = %v, missing %s", involved, want)
+		}
+	}
+}
+
 func TestDetectPathOverlap_CodexSharesUniversalPath(t *testing.T) {
 	// Default codex path is universal's ~/.agents/skills — a shared-primary overlap.
 	involved := DetectPathOverlap(map[string]TargetConfig{

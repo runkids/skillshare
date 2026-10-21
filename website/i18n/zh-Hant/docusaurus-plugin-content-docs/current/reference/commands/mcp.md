@@ -326,15 +326,15 @@ VS Code Stable 的預設 user 檔案為：
 - Linux：`${XDG_CONFIG_HOME:-~/.config}/Code/User/mcp.json`
 - Windows：`%APPDATA%/Code/User/mcp.json`
 
-Global 的 Claude、Codex、Grok 與 Copilot 路徑遵循 `CLAUDE_CONFIG_DIR`、`CODEX_HOME`、
-`GROK_HOME` 與 `COPILOT_HOME`。`OPENCODE_CONFIG` 與 `OPENCODE_CONFIG_DIR` 不受管理。Amp 與 Goose 在
+Global 的 Claude、Codex、Grok、Copilot 與 OpenCode 路徑遵循 `CLAUDE_CONFIG_DIR`、`CODEX_HOME`、
+`GROK_HOME`、`COPILOT_HOME` 與 `OPENCODE_CONFIG_DIR`。`OPENCODE_CONFIG` 不受管理。Amp 與 Goose 在
 使用 `.config` 路徑的平台上會遵循 `XDG_CONFIG_HOME`。
 Project 目的地是相對於所選 project 根目錄。Project 信任、
 server 核准與驗證仍屬於接收端 Agent 的責任。
 
 ### 某個 Agent 的另一個帳號 {#accounts}
 
-宣告為[某個 Agent 的另一個帳號](/docs/reference/targets/configuration#agent-config-dir)的 target 同時也是 MCP target，適用於 `claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）、`pi` 與 `omp`（兩者都使用 `PI_CODING_AGENT_DIR`）。它的 servers 會以該 Agent 的格式寫入該帳號自己的檔案：Claude 是 `<config_dir>/.claude.json`，Codex 是 `<config_dir>/config.toml`，Pi 與 OMP 是 `<config_dir>/mcp.json`。
+宣告為[某個 Agent 的另一個帳號](/docs/reference/targets/configuration#agent-config-dir)的 target 同時也是 MCP target，適用於 `claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）、`opencode`（`OPENCODE_CONFIG_DIR`）、`pi` 與 `omp`（兩者都使用 `PI_CODING_AGENT_DIR`）。它的 servers 會以該 Agent 的格式寫入該帳號自己的檔案：Claude 是 `<config_dir>/.claude.json`，Codex 是 `<config_dir>/config.toml`，OpenCode 是 `<config_dir>/opencode.json`，Pi 與 OMP 是 `<config_dir>/mcp.json`。
 
 ```yaml
 targets:

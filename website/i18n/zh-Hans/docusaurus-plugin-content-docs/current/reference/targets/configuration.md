@@ -329,7 +329,7 @@ targets:
 
 #### 某个 Agent 的另一个账号 {#agent-config-dir}
 
-一个 Target 可以是某个内置 Agent 的第二个配置目录：通过 `CLAUDE_CONFIG_DIR` 启动的 Claude Code、通过 `CODEX_HOME` 启动的 Codex，或通过 `PI_CODING_AGENT_DIR` 启动的 Pi。指定 Agent 和该目录即可；skills 和 agents 路径会随之确定。
+一个 Target 可以是某个内置 Agent 的第二个配置目录：通过 `CLAUDE_CONFIG_DIR` 启动的 Claude Code、通过 `CODEX_HOME` 启动的 Codex、通过 `OPENCODE_CONFIG_DIR` 启动的 OpenCode，或通过 `PI_CODING_AGENT_DIR` 启动的 Pi。指定 Agent 和该目录即可；skills 和 agents 路径会随之确定。
 
 ```yaml
 targets:
@@ -341,11 +341,11 @@ targets:
     config_dir: ~/.codex-work    # skills 写入 ~/.codex-work/skills
 ```
 
-Codex 也会读取共享的 `~/.agents/skills`，但一个账号只拥有它自己的目录，因此它的 skills 会写入 `<config_dir>/skills`。Pi 和 OMP 的行为相同。只有 Claude 有 agents 目录。
+Codex 也会读取共享的 `~/.agents/skills`，但一个账号只拥有它自己的目录，因此它的 skills 会写入 `<config_dir>/skills`。Pi 和 OMP 的行为相同。Claude 和 OpenCode 也有 agents 目录。
 
 | 字段 | 说明 |
 |-------|-------------|
-| `agent` | 内置 Agent：`claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）、`pi` 或 `omp`（两者都使用 `PI_CODING_AGENT_DIR`） |
+| `agent` | 内置 Agent：`claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）、`opencode`（`OPENCODE_CONFIG_DIR`）、`pi` 或 `omp`（两者都使用 `PI_CODING_AGENT_DIR`） |
 | `config_dir` | 该账号的配置目录。绝对路径或以 `~` 开头，不能是该 Agent 的默认目录，且只能被一个 Target 使用 |
 | `cli` | 可选。用兼容的 CLI 代替 Agent 本身来运行这个账号的 [plugin 命令](/docs/reference/commands/plugin#accounts)，例如 Pi 用 `omo`。填写 `PATH` 中的名称，或绝对路径（可以以 `~` 开头）。只能是一个可执行文件、不带参数；shell alias 不会生效 |
 

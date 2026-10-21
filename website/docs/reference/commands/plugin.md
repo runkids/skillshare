@@ -107,7 +107,7 @@ target; a malformed catalog is reported as a warning without hiding valid format
 
 ### Another account of an Agent {#accounts}
 
-A target declared as [another account of an Agent](/docs/reference/targets/configuration#agent-config-dir) is a plugin target too, for `claude`, `codex` and `pi`. Skillshare runs that Agent's own CLI against the account's config directory, through `CLAUDE_CONFIG_DIR`, `CODEX_HOME` or `PI_CODING_AGENT_DIR`:
+A target declared as [another account of an Agent](/docs/reference/targets/configuration#agent-config-dir) is a plugin target too, for `claude`, `codex`, `opencode` and `pi`. Skillshare runs that Agent's own CLI against the account's config directory, through `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_CONFIG_DIR` or `PI_CODING_AGENT_DIR`:
 
 ```yaml
 targets:

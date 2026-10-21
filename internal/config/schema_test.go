@@ -479,4 +479,3 @@ func TestSchema_TargetConfigAllowsOpenCodeAgent(t *testing.T) {
 		t.Fatalf("targetConfig.agent enum missing opencode: %v", enums)
 	}
 }
-

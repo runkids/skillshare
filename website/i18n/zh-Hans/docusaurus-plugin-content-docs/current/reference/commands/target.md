@@ -52,7 +52,7 @@ skillshare target add gemini ~/.gemini/skills --no-skills
 
 #### 某个 Agent 的另一个账号 {#another-account}
 
-如果你用独立的配置目录运行某个 Agent 的第二个账号，例如使用 `CLAUDE_CONFIG_DIR=~/.claude-work` 的 Claude Code、使用 `CODEX_HOME` 的 Codex，或使用 `PI_CODING_AGENT_DIR` 的 Pi，请把该目录添加为一个 target。Skillshare 会据此推导出 skills 和 agents 路径：
+如果你用独立的配置目录运行某个 Agent 的第二个账号，例如使用 `CLAUDE_CONFIG_DIR=~/.claude-work` 的 Claude Code、使用 `CODEX_HOME` 的 Codex、使用 `OPENCODE_CONFIG_DIR` 的 OpenCode，或使用 `PI_CODING_AGENT_DIR` 的 Pi，请把该目录添加为一个 target。Skillshare 会据此推导出 skills 和 agents 路径：
 
 ```bash
 skillshare target add claude-work --agent claude --config-dir ~/.claude-work
@@ -67,7 +67,7 @@ skillshare target add claude-work --agent claude --config-dir ~/.claude-work
 skillshare target add omo --agent pi --config-dir ~/.omo/agent --cli omo
 ```
 
-`--agent` 接受 `claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）、`pi` 和 `omp`（两者都使用 `PI_CODING_AGENT_DIR`）。Codex、Pi 或 OMP 账号会把它的 skills 同步到 `<config_dir>/skills`；只有 Claude 还有 agents 目录。OMP 账号支持 skills、指示文件、files、MCP 和原生代码 hooks，但不支持 plugin 命令。该目录必须是绝对路径或以 `~` 开头，不能是该 Agent 的默认目录，也不能被两个 target 共用。
+`--agent` 接受 `claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）、`opencode`（`OPENCODE_CONFIG_DIR`）、`pi` 和 `omp`（两者都使用 `PI_CODING_AGENT_DIR`）。Codex、OpenCode、Pi 或 OMP 账号会把它的 skills 同步到 `<config_dir>/skills`；Claude 和 OpenCode 还有 agents 目录。OMP 账号支持 skills、指示文件、files、MCP 和原生代码 hooks，但不支持 plugin 命令。该目录必须是绝对路径或以 `~` 开头，不能是该 Agent 的默认目录，也不能被两个 target 共用。
 
 移除这类 target 不会因为 MCP 而失败：即使 `mcp.targets` 或某个 server 的 `targets` 仍然写着它，`skillshare target remove` 也会移除该 target，并提醒你把那里的名称也一并删掉。
 

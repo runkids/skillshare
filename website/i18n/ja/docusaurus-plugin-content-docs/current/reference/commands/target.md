@@ -52,7 +52,7 @@ skillshare target add gemini ~/.gemini/skills --no-skills
 
 #### Agent の別のアカウント {#another-account}
 
-Agent の 2 つ目のアカウントを専用の config ディレクトリで動かしている場合（例: Claude Code を `CLAUDE_CONFIG_DIR=~/.claude-work` で、Codex を `CODEX_HOME` で、Pi を `PI_CODING_AGENT_DIR` で起動している場合）、そのディレクトリを Target として追加します。Skillshare はそこから skills と agents のパスを導き出します。
+Agent の 2 つ目のアカウントを専用の config ディレクトリで動かしている場合（例: Claude Code を `CLAUDE_CONFIG_DIR=~/.claude-work` で、Codex を `CODEX_HOME` で、OpenCode を `OPENCODE_CONFIG_DIR` で、Pi を `PI_CODING_AGENT_DIR` で起動している場合）、そのディレクトリを Target として追加します。Skillshare はそこから skills と agents のパスを導き出します。
 
 ```bash
 skillshare target add claude-work --agent claude --config-dir ~/.claude-work
@@ -67,7 +67,7 @@ skillshare target add claude-work --agent claude --config-dir ~/.claude-work
 skillshare target add omo --agent pi --config-dir ~/.omo/agent --cli omo
 ```
 
-`--agent` は `claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）、`pi` と `omp`（どちらも `PI_CODING_AGENT_DIR`）を受け付けます。Codex、Pi、OMP のアカウントは Skill を `<config_dir>/skills` に sync します。agents ディレクトリを持つのは Claude だけです。OMP のアカウントは Skill、instructions、files、MCP、ネイティブのコード hooks に対応しますが、plugin コマンドには対応しません。ディレクトリは絶対パスか `~` で始まる必要があり、Agent のデフォルトのディレクトリであってはならず、2 つの Target で共有することもできません。
+`--agent` は `claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）、`opencode`（`OPENCODE_CONFIG_DIR`）、`pi` と `omp`（どちらも `PI_CODING_AGENT_DIR`）を受け付けます。Codex、OpenCode、Pi、OMP のアカウントは Skill を `<config_dir>/skills` に sync します。Claude と OpenCode には agents ディレクトリもあります。OMP のアカウントは Skill、instructions、files、MCP、ネイティブのコード hooks に対応しますが、plugin コマンドには対応しません。ディレクトリは絶対パスか `~` で始まる必要があり、Agent のデフォルトのディレクトリであってはならず、2 つの Target で共有することもできません。
 
 この種の Target の削除が MCP を理由に失敗することはありません。`mcp.targets` やサーバーの `targets` にまだその名前が残っていても、`skillshare target remove` は Target を削除し、そちらからも名前を取り除くよう警告します。
 

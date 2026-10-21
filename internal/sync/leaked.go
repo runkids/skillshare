@@ -20,7 +20,11 @@ import (
 // filter is invalid, or nothing was discovered); every skill in writer's folder
 // may then reach scanner.
 func LeakedSkills(scanner, writer string, targets map[string]config.TargetConfig, defaultMode string, discovered []DiscoveredSkill) (leaked []string, known bool) {
-	if !config.LoadsOneSkillPerName(scanner) || discovered == nil {
+	scannerAgent := scanner
+	if a := targets[scanner].Agent; a != "" {
+		scannerAgent = a
+	}
+	if !config.LoadsOneSkillPerName(scannerAgent) || discovered == nil {
 		return nil, false
 	}
 	// A symlink-mode folder is the source itself, .skillignore'd skills that

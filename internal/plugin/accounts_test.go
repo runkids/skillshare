@@ -162,6 +162,37 @@ func TestCodexAccountRunsItsCLIWithCodexHome(t *testing.T) {
 	}
 }
 
+func TestOpenCodeAccountRunsItsCLIWithOpenCodeConfigDir(t *testing.T) {
+	var calls []string
+	s := agentAccountPluginService(t, "opencode", &calls)
+	s.host(context.Background(), "opencode-work")
+	want := "opencode OPENCODE_CONFIG_DIR=" + s.Accounts["opencode-work"].Dir
+	if !slices.Contains(calls, want) {
+		t.Fatalf("no call was %q: %v", want, calls)
+	}
+}
+
+// OpenCode's packages are a file, so an account's inventory must be read
+// from the account's own directory rather than default config or OPENCODE_CONFIG_DIR.
+func TestOpenCodeAccountInventoryComesFromItsDirectory(t *testing.T) {
+	var calls []string
+	s := agentAccountPluginService(t, "opencode", &calls)
+	dir := s.Accounts["opencode-work"].Dir
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "opencode.json"), []byte(`{"plugins":["demo-pkg"]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	h := s.host(context.Background(), "opencode-work")
+	if h.Status != HostReady {
+		t.Fatalf("host = %+v", h)
+	}
+	if len(h.Installed) != 1 || h.Installed[0].ID != "demo-pkg" {
+		t.Fatalf("installed = %+v", h.Installed)
+	}
+}
+
 // Pi's packages are a file, not a list command, so an account's inventory must be read
 // from the account's own directory rather than from PI_CODING_AGENT_DIR.
 func TestPiAccountInventoryComesFromItsDirectory(t *testing.T) {

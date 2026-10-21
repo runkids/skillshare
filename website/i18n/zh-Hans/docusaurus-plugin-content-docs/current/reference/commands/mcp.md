@@ -359,15 +359,15 @@ VS Code Stable 的默认用户文件是：
 - Linux：`${XDG_CONFIG_HOME:-~/.config}/Code/User/mcp.json`
 - Windows：`%APPDATA%/Code/User/mcp.json`
 
-Global 的 Claude、Codex、Grok 和 Copilot 路径会遵循 `CLAUDE_CONFIG_DIR`、`CODEX_HOME`、
-`GROK_HOME` 和 `COPILOT_HOME`。`OPENCODE_CONFIG` 和 `OPENCODE_CONFIG_DIR` 不受管理。Amp 和 Goose 在使用其
+Global 的 Claude、Codex、Grok、Copilot 和 OpenCode 路径会遵循 `CLAUDE_CONFIG_DIR`、`CODEX_HOME`、
+`GROK_HOME`、`COPILOT_HOME` 和 `OPENCODE_CONFIG_DIR`。`OPENCODE_CONFIG` 不受管理。Amp 和 Goose 在使用其
 `.config` 路径的平台上会遵循 `XDG_CONFIG_HOME`。
 Project 目标位置是相对于所选项目根目录的。Project 信任、
 server 批准和身份验证仍是接收方 Agent 自身的责任。
 
 ### 某个 Agent 的另一个账号 {#accounts}
 
-声明为[某个 Agent 的另一个账号](/docs/reference/targets/configuration#agent-config-dir)的 target 同样是一个 MCP target，适用于 `claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）、`pi` 和 `omp`（两者都使用 `PI_CODING_AGENT_DIR`）。它的 server 会以该 Agent 的格式，写入这个账号自己的文件：Claude 为 `<config_dir>/.claude.json`，Codex 为 `<config_dir>/config.toml`，Pi 和 OMP 为 `<config_dir>/mcp.json`。
+声明为[某个 Agent 的另一个账号](/docs/reference/targets/configuration#agent-config-dir)的 target 同样是一个 MCP target，适用于 `claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）、`opencode`（`OPENCODE_CONFIG_DIR`）、`pi` 和 `omp`（两者都使用 `PI_CODING_AGENT_DIR`）。它的 server 会以该 Agent 的格式，写入这个账号自己的文件：Claude 为 `<config_dir>/.claude.json`，Codex 为 `<config_dir>/config.toml`，OpenCode 为 `<config_dir>/opencode.json`，Pi 和 OMP 为 `<config_dir>/mcp.json`。
 
 ```yaml
 targets:

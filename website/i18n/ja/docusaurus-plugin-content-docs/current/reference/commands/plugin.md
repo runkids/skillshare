@@ -88,7 +88,7 @@ Kimi の非インタラクティブなライフサイクル、Hermes のプロ�
 
 ### Agent の別のアカウント {#accounts}
 
-[Agent の別のアカウント](/docs/reference/targets/configuration#agent-config-dir)として宣言された Target は、`claude`、`codex`、`pi` については plugin の Target でもあります。Skillshare は `CLAUDE_CONFIG_DIR`、`CODEX_HOME`、`PI_CODING_AGENT_DIR` を通じて、そのアカウントの config ディレクトリに対して Agent 自身の CLI を実行します。
+[Agent の別のアカウント](/docs/reference/targets/configuration#agent-config-dir)として宣言された Target は、`claude`、`codex`、`opencode`、`pi` については plugin の Target でもあります。Skillshare は `CLAUDE_CONFIG_DIR`、`CODEX_HOME`、`OPENCODE_CONFIG_DIR`、`PI_CODING_AGENT_DIR` を通じて、そのアカウントの config ディレクトリに対して Agent 自身の CLI を実行します。
 
 ```yaml
 targets:

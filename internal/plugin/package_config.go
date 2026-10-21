@@ -129,9 +129,9 @@ func logicalName(id string) string {
 	return ""
 }
 
-func (s *Service) openCodeConfigPath() (string, error) {
-	if os.Getenv("OPENCODE_CONFIG_CONTENT") != "" || os.Getenv("OPENCODE_CONFIG_DIR") != "" {
-		return "", fmt.Errorf("OpenCode inline/config-directory overrides are not supported for plugin sync; use its standard config")
+func (s *Service) openCodeConfigPath(target ...string) (string, error) {
+	if os.Getenv("OPENCODE_CONFIG_CONTENT") != "" {
+		return "", fmt.Errorf("OpenCode inline overrides are not supported for plugin sync; use its standard config")
 	}
 	if override := os.Getenv("OPENCODE_CONFIG"); override != "" {
 		if !filepath.IsAbs(override) {
@@ -143,19 +143,38 @@ func (s *Service) openCodeConfigPath() (string, error) {
 		return override, nil
 	}
 	dir := s.ProjectRoot
-	if dir == "" {
-		base := os.Getenv("XDG_CONFIG_HOME")
-		if base == "" {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				return "", err
+	if dir != "" {
+		if os.Getenv("OPENCODE_CONFIG_DIR") != "" {
+			return "", fmt.Errorf("unset OPENCODE_CONFIG_DIR before project plugin sync to avoid editing a shared config")
+		}
+	} else {
+		if len(target) > 0 {
+			if account, ok := s.account(target[0]); ok {
+				dir = account.Dir
 			}
-			base = filepath.Join(home, ".config")
 		}
-		if !filepath.IsAbs(base) {
-			return "", fmt.Errorf("XDG_CONFIG_HOME must be absolute")
+		if dir == "" {
+			if override := os.Getenv("OPENCODE_CONFIG_DIR"); override != "" {
+				if !filepath.IsAbs(override) {
+					return "", fmt.Errorf("OPENCODE_CONFIG_DIR must be absolute")
+				}
+				dir = override
+			}
 		}
-		dir = filepath.Join(base, "opencode")
+		if dir == "" {
+			base := os.Getenv("XDG_CONFIG_HOME")
+			if base == "" {
+				home, err := os.UserHomeDir()
+				if err != nil {
+					return "", err
+				}
+				base = filepath.Join(home, ".config")
+			}
+			if !filepath.IsAbs(base) {
+				return "", fmt.Errorf("XDG_CONFIG_HOME must be absolute")
+			}
+			dir = filepath.Join(base, "opencode")
+		}
 	}
 	var found string
 	for _, name := range []string{"opencode.json", "opencode.jsonc"} {
@@ -239,12 +258,12 @@ func readPackageConfig(root, path, key string) ([]byte, *hujson.Value, []json.Ra
 	return raw, &value, entries, nil
 }
 
-func (s *Service) openCodeInventory(version string) ([]Installed, string, error) {
+func (s *Service) openCodeInventory(target, version string) ([]Installed, string, error) {
 	key, err := openCodeKey(version)
 	if err != nil {
 		return nil, "", err
 	}
-	path, err := s.openCodeConfigPath()
+	path, err := s.openCodeConfigPath(target)
 	if err != nil {
 		return nil, "", err
 	}
@@ -278,7 +297,7 @@ func (s *Service) openCodeInventory(version string) ([]Installed, string, error)
 
 func (s *Service) applyOpenCode(ctx context.Context, c Change, b Binding) error {
 
-	version, err := s.run(ctx, "opencode", "--version")
+	version, err := s.run(ctx, c.Target, "--version")
 	if err != nil {
 		return err
 	}
@@ -290,10 +309,10 @@ func (s *Service) applyOpenCode(ctx context.Context, c Change, b Binding) error 
 		if key != "plugins" || s.ProjectRoot != "" {
 			return fmt.Errorf("imported package updates require OpenCode v2 global scope")
 		}
-		_, err := s.run(ctx, "opencode", "plugin", "update", b.ID)
+		_, err := s.run(ctx, c.Target, "plugin", "update", b.ID)
 		return err
 	}
-	path, err := s.openCodeConfigPath()
+	path, err := s.openCodeConfigPath(c.Target)
 	if err != nil {
 		return err
 	}

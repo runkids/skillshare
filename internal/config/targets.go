@@ -511,6 +511,59 @@ func RuntimeScanPaths(name string, isProject bool) []string {
 	return paths
 }
 
+// TargetScanPaths returns every path a target's runtime reads: for a built-in
+// target, its also_scans paths plus its built-in default skills path; for an
+// account target, its also_scans paths resolved from its underlying Agent plus
+// its account primary skills path.
+func TargetScanPaths(name string, target TargetConfig, isProject bool) []string {
+	agent := name
+	isAccount := target.Agent != ""
+	if isAccount {
+		agent = target.Agent
+	}
+	var scans []string
+	if isProject {
+		scans = AlsoScansProject(agent)
+	} else {
+		scans = AlsoScansGlobal(agent)
+	}
+	off := make(map[string]bool)
+	for _, s := range ScansTurnedOff(agent, isProject) {
+		off[s.Path] = true
+	}
+
+	paths := make([]string, 0, len(scans)+2)
+	seen := make(map[string]bool, len(scans)+2)
+	for _, p := range scans {
+		if p == "" || seen[p] || off[p] {
+			continue
+		}
+		seen[p] = true
+		paths = append(paths, p)
+	}
+	if isAccount {
+		if raw := target.SkillsConfig().Path; raw != "" {
+			p := normalizeTargetPath(ExpandPath(raw))
+			if p != "" && !seen[p] {
+				seen[p] = true
+				paths = append(paths, p)
+			}
+		}
+	} else {
+		var primary string
+		if isProject {
+			primary = ProjectTargets()[name].Path
+		} else {
+			primary = DefaultTargets()[name].Path
+		}
+		if primary != "" && !seen[primary] {
+			seen[primary] = true
+			paths = append(paths, primary)
+		}
+	}
+	return paths
+}
+
 // LookupProjectTarget returns the known project target config for a name.
 // It first checks canonical project names, then falls back to aliases.
 func LookupProjectTarget(name string) (TargetConfig, bool) {

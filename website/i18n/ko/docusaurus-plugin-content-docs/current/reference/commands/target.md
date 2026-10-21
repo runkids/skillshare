@@ -52,7 +52,7 @@ skillshare target add gemini ~/.gemini/skills --no-skills
 
 #### Another account of an Agent {#another-account}
 
-`CLAUDE_CONFIG_DIR=~/.claude-work`로 실행하는 Claude Code, `CODEX_HOME`을 쓰는 Codex, `PI_CODING_AGENT_DIR`을 쓰는 Pi처럼 Agent의 두 번째 계정을 별도의 config 디렉터리에서 사용한다면, 그 디렉터리를 target으로 추가하세요. Skillshare가 그 디렉터리에서 skills와 agents 경로를 알아냅니다.
+`CLAUDE_CONFIG_DIR=~/.claude-work`로 실행하는 Claude Code, `CODEX_HOME`을 쓰는 Codex, `OPENCODE_CONFIG_DIR`을 쓰는 OpenCode, `PI_CODING_AGENT_DIR`을 쓰는 Pi처럼 Agent의 두 번째 계정을 별도의 config 디렉터리에서 사용한다면, 그 디렉터리를 target으로 추가하세요. Skillshare가 그 디렉터리에서 skills와 agents 경로를 알아냅니다.
 
 ```bash
 skillshare target add claude-work --agent claude --config-dir ~/.claude-work
@@ -67,7 +67,7 @@ skillshare target add claude-work --agent claude --config-dir ~/.claude-work
 skillshare target add omo --agent pi --config-dir ~/.omo/agent --cli omo
 ```
 
-`--agent`는 `claude`(`CLAUDE_CONFIG_DIR`), `codex`(`CODEX_HOME`), `pi`, `omp`(둘 다 `PI_CODING_AGENT_DIR` 사용)를 받습니다. Codex, Pi, OMP 계정은 skill을 `<config_dir>/skills`로 동기화하며, agents 디렉터리를 함께 가지는 것은 Claude뿐입니다. OMP 계정은 skills, instructions, files, MCP, 네이티브 코드 hooks를 지원하지만 plugin 명령은 지원하지 않습니다. 디렉터리는 절대 경로이거나 `~`로 시작해야 하고, Agent의 기본 디렉터리여서는 안 되며, 두 target이 함께 사용할 수 없습니다.
+`--agent`는 `claude`(`CLAUDE_CONFIG_DIR`), `codex`(`CODEX_HOME`), `opencode`(`OPENCODE_CONFIG_DIR`), `pi`, `omp`(둘 다 `PI_CODING_AGENT_DIR` 사용)를 받습니다. Codex, OpenCode, Pi, OMP 계정은 skill을 `<config_dir>/skills`로 동기화하며, Claude와 OpenCode는 agents 디렉터리도 함께 가집니다. OMP 계정은 skills, instructions, files, MCP, 네이티브 코드 hooks를 지원하지만 plugin 명령은 지원하지 않습니다. 디렉터리는 절대 경로이거나 `~`로 시작해야 하고, Agent의 기본 디렉터리여서는 안 되며, 두 target이 함께 사용할 수 없습니다.
 
 이런 target을 제거할 때 MCP 때문에 실패하는 일은 없습니다. `mcp.targets`나 어떤 서버의 `targets`가 여전히 그 이름을 가리키고 있어도, `skillshare target remove`는 target을 제거하고 그쪽에서도 이름을 빼라고 경고합니다.
 

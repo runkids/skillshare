@@ -269,14 +269,14 @@ VS Code Stable のデフォルトのユーザーファイルは以下のとお�
 - Linux: `${XDG_CONFIG_HOME:-~/.config}/Code/User/mcp.json`
 - Windows: `%APPDATA%/Code/User/mcp.json`
 
-Global の Claude、Codex、Grok、Copilot のパスは、`CLAUDE_CONFIG_DIR`、`CODEX_HOME`、
-`GROK_HOME`、`COPILOT_HOME` を尊重します。`OPENCODE_CONFIG` と `OPENCODE_CONFIG_DIR` は管理対象外です。Amp と Goose は、`.config` パスを使うプラットフォームでは `XDG_CONFIG_HOME` を尊重します。
+Global の Claude、Codex、Grok、Copilot、OpenCode のパスは、`CLAUDE_CONFIG_DIR`、`CODEX_HOME`、
+`GROK_HOME`、`COPILOT_HOME`、`OPENCODE_CONFIG_DIR` を尊重します。`OPENCODE_CONFIG` は管理対象外です。Amp と Goose は、`.config` パスを使うプラットフォームでは `XDG_CONFIG_HOME` を尊重します。
 project の送信先は、選択された project ルートからの相対パスです。project の trust、
 サーバーの承認、認証は引き続き受け取り側 Agent の責任です。
 
 ### Agent の別のアカウント {#accounts}
 
-[Agent の別のアカウント](/docs/reference/targets/configuration#agent-config-dir)として宣言された Target は、`claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）、`pi` と `omp`（どちらも `PI_CODING_AGENT_DIR`）については MCP の Target でもあります。そのサーバーは、その Agent のフォーマットで、アカウント自身のファイル（Claude は `<config_dir>/.claude.json`、Codex は `<config_dir>/config.toml`、Pi と OMP は `<config_dir>/mcp.json`）に書き込まれます。
+[Agent の別のアカウント](/docs/reference/targets/configuration#agent-config-dir)として宣言された Target は、`claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）、`opencode`（`OPENCODE_CONFIG_DIR`）、`pi` と `omp`（どちらも `PI_CODING_AGENT_DIR`）については MCP の Target でもあります。そのサーバーは、その Agent のフォーマットで、アカウント自身のファイル（Claude は `<config_dir>/.claude.json`、Codex は `<config_dir>/config.toml`、OpenCode は `<config_dir>/opencode.json`、Pi と OMP は `<config_dir>/mcp.json`）に書き込まれます。
 
 ```yaml
 targets:

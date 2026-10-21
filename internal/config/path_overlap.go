@@ -45,7 +45,7 @@ func DetectPathOverlap(targets map[string]TargetConfig, isProject bool, harmless
 	}
 
 	for scanner := range primaryByName {
-		for _, p := range RuntimeScanPaths(scanner, isProject) {
+		for _, p := range TargetScanPaths(scanner, targets[scanner], isProject) {
 			resolved := filepath.Clean(p)
 			if resolved == primaryByName[scanner] {
 				// The scanner's own write path — the shared-primary pass above

@@ -28,6 +28,26 @@ func TestLeakedSkills_ListsSkillsFilteredFromScanner(t *testing.T) {
 	}
 }
 
+func TestLeakedSkills_AccountTarget(t *testing.T) {
+	discovered := []DiscoveredSkill{
+		{FlatName: "shared"},
+		{FlatName: "claude-only", Targets: []string{"claude"}},
+	}
+	dir := t.TempDir()
+	targets := map[string]config.TargetConfig{
+		"opencode-work": {
+			Agent:     "opencode",
+			ConfigDir: filepath.Join(dir, "opencode-work"),
+			Skills:    &config.ResourceTargetConfig{Path: filepath.Join(dir, "opencode-work", "skills")},
+		},
+		"claude": {Skills: &config.ResourceTargetConfig{Path: filepath.Join(dir, "claude")}},
+	}
+	leaked, known := LeakedSkills("opencode-work", "claude", targets, "merge", discovered)
+	if !known || !slices.Equal(leaked, []string{"claude-only"}) {
+		t.Errorf("LeakedSkills = %v, %v; want [claude-only], true", leaked, known)
+	}
+}
+
 func TestLeakedSkills_NoneWhenScannerGetsEverySkill(t *testing.T) {
 	discovered := []DiscoveredSkill{{FlatName: "shared"}}
 	leaked, known := LeakedSkills("opencode", "claude", leakTargets(t, "opencode"), "merge", discovered)

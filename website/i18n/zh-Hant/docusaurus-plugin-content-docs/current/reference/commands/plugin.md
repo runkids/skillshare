@@ -98,7 +98,7 @@ source 宣告某個 target 不代表 Skillshare 就能管理它。`list --json` 
 
 ### 某個 Agent 的另一個帳號 {#accounts}
 
-宣告為[某個 Agent 的另一個帳號](/docs/reference/targets/configuration#agent-config-dir)的 target 同時也是 plugin target，適用於 `claude`、`codex` 與 `pi`。Skillshare 會透過 `CLAUDE_CONFIG_DIR`、`CODEX_HOME` 或 `PI_CODING_AGENT_DIR`，對該帳號的 config 目錄執行該 Agent 自己的 CLI：
+宣告為[某個 Agent 的另一個帳號](/docs/reference/targets/configuration#agent-config-dir)的 target 同時也是 plugin target，適用於 `claude`、`codex`、`opencode` 與 `pi`。Skillshare 會透過 `CLAUDE_CONFIG_DIR`、`CODEX_HOME`、`OPENCODE_CONFIG_DIR` 或 `PI_CODING_AGENT_DIR`，對該帳號的 config 目錄執行該 Agent 自己的 CLI：
 
 ```yaml
 targets:
