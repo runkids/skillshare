@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.26.1](https://github.com/runkids/skillshare/compare/v0.26.0...v0.26.1) (2026-10-21)
+## [0.26.1] - 2026-10-21
 
 
 * **skill:** restore plugin guardrails trimmed in [#596](https://github.com/runkids/skillshare/issues/596) ([5c59de8](https://github.com/runkids/skillshare/commit/5c59de88476651e119d585d050cffd5020eba7d8))
