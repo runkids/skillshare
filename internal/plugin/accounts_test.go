@@ -166,9 +166,19 @@ func TestOpenCodeAccountRunsItsCLIWithOpenCodeConfigDir(t *testing.T) {
 	var calls []string
 	s := agentAccountPluginService(t, "opencode", &calls)
 	s.host(context.Background(), "opencode-work")
-	want := "opencode OPENCODE_CONFIG_DIR=" + s.Accounts["opencode-work"].Dir
+	want := "opencode OPENCODE_CONFIG_DIR=" + s.Accounts["opencode-work"].Dir + " OPENCODE_CONFIG="
 	if !slices.Contains(calls, want) {
 		t.Fatalf("no call was %q: %v", want, calls)
+	}
+}
+
+func TestOpenCodeAccountRefusesOpenCodeConfigOverride(t *testing.T) {
+	var calls []string
+	s := agentAccountPluginService(t, "opencode", &calls)
+	t.Setenv("OPENCODE_CONFIG", filepath.Join(t.TempDir(), "other.json"))
+	_, err := s.openCodeConfigPath("opencode-work")
+	if err == nil || !strings.Contains(err.Error(), "unset OPENCODE_CONFIG before account plugin sync") {
+		t.Fatalf("expected error rejecting OPENCODE_CONFIG, got %v", err)
 	}
 }
 

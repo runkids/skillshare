@@ -32,6 +32,9 @@ func (a Account) env() []string {
 			env = append(env, name+"="+a.Dir)
 		}
 	}
+	if a.Agent == "opencode" {
+		env = append(env, "OPENCODE_CONFIG=")
+	}
 	return env
 }
 

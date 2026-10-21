@@ -513,34 +513,74 @@ func RuntimeScanPaths(name string, isProject bool) []string {
 
 // TargetScanPaths returns every path a target's runtime reads: for a built-in
 // target, its also_scans paths plus its built-in default skills path; for an
-// account target, its also_scans paths resolved from its underlying Agent plus
-// its account primary skills path.
+// account target, config-root scan paths remapped to the account directory
+// while preserving external scan paths (such as Codex's ~/.agents/skills),
+// plus its account primary skills path.
 func TargetScanPaths(name string, target TargetConfig, isProject bool) []string {
 	agent := name
 	isAccount := target.Agent != ""
 	if isAccount {
 		agent = target.Agent
 	}
-	var scans []string
+
+	var candidatePaths []string
 	if isProject {
-		scans = AlsoScansProject(agent)
+		candidatePaths = append(candidatePaths, AlsoScansProject(agent)...)
+		if isAccount {
+			if primary := ProjectTargets()[agent].Path; primary != "" {
+				candidatePaths = append(candidatePaths, primary)
+			}
+		} else if primary := ProjectTargets()[name].Path; primary != "" {
+			candidatePaths = append(candidatePaths, primary)
+		}
 	} else {
-		scans = AlsoScansGlobal(agent)
+		candidatePaths = append(candidatePaths, AlsoScansGlobal(agent)...)
+		if isAccount {
+			if primary := DefaultTargets()[agent].Path; primary != "" {
+				candidatePaths = append(candidatePaths, primary)
+			}
+		} else if primary := DefaultTargets()[name].Path; primary != "" {
+			candidatePaths = append(candidatePaths, primary)
+		}
 	}
+
 	off := make(map[string]bool)
 	for _, s := range ScansTurnedOff(agent, isProject) {
 		off[s.Path] = true
 	}
 
-	paths := make([]string, 0, len(scans)+2)
-	seen := make(map[string]bool, len(scans)+2)
-	for _, p := range scans {
-		if p == "" || seen[p] || off[p] {
+	baseConfigDir := ""
+	accountDir := ""
+	if isAccount {
+		baseConfigDir = AgentConfigDir(agent)
+		if target.ConfigDir != "" {
+			accountDir = normalizeTargetPath(ExpandPath(target.ConfigDir))
+		}
+	}
+
+	remapPath := func(p string) string {
+		norm := normalizeTargetPath(p)
+		if !isAccount || baseConfigDir == "" || accountDir == "" {
+			return norm
+		}
+		rel, err := filepath.Rel(baseConfigDir, norm)
+		if err == nil && !strings.HasPrefix(rel, "..") {
+			return filepath.Join(accountDir, rel)
+		}
+		return norm
+	}
+
+	paths := make([]string, 0, len(candidatePaths)+1)
+	seen := make(map[string]bool, len(candidatePaths)+1)
+	for _, p := range candidatePaths {
+		remapped := remapPath(p)
+		if remapped == "" || seen[remapped] || off[p] {
 			continue
 		}
-		seen[p] = true
-		paths = append(paths, p)
+		seen[remapped] = true
+		paths = append(paths, remapped)
 	}
+
 	if isAccount {
 		if raw := target.SkillsConfig().Path; raw != "" {
 			p := normalizeTargetPath(ExpandPath(raw))
@@ -549,18 +589,8 @@ func TargetScanPaths(name string, target TargetConfig, isProject bool) []string 
 				paths = append(paths, p)
 			}
 		}
-	} else {
-		var primary string
-		if isProject {
-			primary = ProjectTargets()[name].Path
-		} else {
-			primary = DefaultTargets()[name].Path
-		}
-		if primary != "" && !seen[primary] {
-			seen[primary] = true
-			paths = append(paths, primary)
-		}
 	}
+
 	return paths
 }
 

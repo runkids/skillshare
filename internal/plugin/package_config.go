@@ -133,48 +133,50 @@ func (s *Service) openCodeConfigPath(target ...string) (string, error) {
 	if os.Getenv("OPENCODE_CONFIG_CONTENT") != "" {
 		return "", fmt.Errorf("OpenCode inline overrides are not supported for plugin sync; use its standard config")
 	}
-	if override := os.Getenv("OPENCODE_CONFIG"); override != "" {
-		if !filepath.IsAbs(override) {
-			return "", fmt.Errorf("OPENCODE_CONFIG must be absolute")
-		}
-		if s.ProjectRoot != "" {
+	var dir string
+	if s.ProjectRoot != "" {
+		if os.Getenv("OPENCODE_CONFIG") != "" {
 			return "", fmt.Errorf("unset OPENCODE_CONFIG before project plugin sync to avoid editing a shared config")
 		}
-		return override, nil
-	}
-	dir := s.ProjectRoot
-	if dir != "" {
 		if os.Getenv("OPENCODE_CONFIG_DIR") != "" {
 			return "", fmt.Errorf("unset OPENCODE_CONFIG_DIR before project plugin sync to avoid editing a shared config")
 		}
-	} else {
-		if len(target) > 0 {
-			if account, ok := s.account(target[0]); ok {
-				dir = account.Dir
+		dir = s.ProjectRoot
+	} else if len(target) > 0 {
+		if account, ok := s.account(target[0]); ok {
+			if os.Getenv("OPENCODE_CONFIG") != "" {
+				return "", fmt.Errorf("unset OPENCODE_CONFIG before account plugin sync to avoid editing a shared config")
 			}
+			dir = account.Dir
 		}
-		if dir == "" {
-			if override := os.Getenv("OPENCODE_CONFIG_DIR"); override != "" {
-				if !filepath.IsAbs(override) {
-					return "", fmt.Errorf("OPENCODE_CONFIG_DIR must be absolute")
-				}
-				dir = override
+	}
+	if dir == "" {
+		if override := os.Getenv("OPENCODE_CONFIG"); override != "" {
+			if !filepath.IsAbs(override) {
+				return "", fmt.Errorf("OPENCODE_CONFIG must be absolute")
 			}
+			return override, nil
 		}
-		if dir == "" {
-			base := os.Getenv("XDG_CONFIG_HOME")
-			if base == "" {
-				home, err := os.UserHomeDir()
-				if err != nil {
-					return "", err
-				}
-				base = filepath.Join(home, ".config")
+		if override := os.Getenv("OPENCODE_CONFIG_DIR"); override != "" {
+			if !filepath.IsAbs(override) {
+				return "", fmt.Errorf("OPENCODE_CONFIG_DIR must be absolute")
 			}
-			if !filepath.IsAbs(base) {
-				return "", fmt.Errorf("XDG_CONFIG_HOME must be absolute")
-			}
-			dir = filepath.Join(base, "opencode")
+			dir = override
 		}
+	}
+	if dir == "" {
+		base := os.Getenv("XDG_CONFIG_HOME")
+		if base == "" {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return "", err
+			}
+			base = filepath.Join(home, ".config")
+		}
+		if !filepath.IsAbs(base) {
+			return "", fmt.Errorf("XDG_CONFIG_HOME must be absolute")
+		}
+		dir = filepath.Join(base, "opencode")
 	}
 	var found string
 	for _, name := range []string{"opencode.json", "opencode.jsonc"} {

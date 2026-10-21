@@ -34,6 +34,33 @@ func TestDetectPathOverlap_AccountTargetCrossRuntimeDiscovery(t *testing.T) {
 	}
 }
 
+func TestDetectPathOverlap_CodexAccountCrossRuntimeDiscovery(t *testing.T) {
+	// codex-work is an account of codex; its runtime still reads universal's ~/.agents/skills.
+	involved := DetectPathOverlap(map[string]TargetConfig{
+		"codex-work": {Agent: "codex", ConfigDir: "~/.codex-work", Skills: &ResourceTargetConfig{Path: "~/.codex-work/skills"}},
+		"universal":  {Skills: &ResourceTargetConfig{Path: "~/.agents/skills"}},
+	}, false, nil)
+
+	for _, want := range []string{"codex-work", "universal"} {
+		if !slices.Contains(involved, want) {
+			t.Errorf("DetectPathOverlap = %v, missing %s", involved, want)
+		}
+	}
+}
+
+func TestDetectPathOverlap_CodexAccountDoesNotReadDefaultCodexSkills(t *testing.T) {
+	// A custom target writing to ~/.codex/skills should not conflict with codex-work,
+	// because codex-work reads ~/.codex-work/skills and ~/.agents/skills, not ~/.codex/skills.
+	involved := DetectPathOverlap(map[string]TargetConfig{
+		"codex-work":   {Agent: "codex", ConfigDir: "~/.codex-work", Skills: &ResourceTargetConfig{Path: "~/.codex-work/skills"}},
+		"other-writer": {Skills: &ResourceTargetConfig{Path: "~/.codex/skills"}},
+	}, false, nil)
+
+	if slices.Contains(involved, "codex-work") {
+		t.Errorf("DetectPathOverlap = %v, unexpectedly contains codex-work for ~/.codex/skills", involved)
+	}
+}
+
 func TestDetectPathOverlap_CodexSharesUniversalPath(t *testing.T) {
 	// Default codex path is universal's ~/.agents/skills — a shared-primary overlap.
 	involved := DetectPathOverlap(map[string]TargetConfig{

@@ -257,6 +257,32 @@ func TestCheckCrossTargetDiscovery_OpenCodeAccountNamesLeakedSkills(t *testing.T
 	}
 }
 
+func TestCheckCrossTargetDiscovery_CodexAccountSeesUniversal(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	cfg := &config.Config{
+		Source: tmp,
+		Mode:   "merge",
+		Targets: map[string]config.TargetConfig{
+			"codex-work": {
+				Agent:     "codex",
+				ConfigDir: filepath.Join(tmp, "codex-work"),
+				Skills:    &config.ResourceTargetConfig{Path: filepath.Join(tmp, "codex-work", "skills")},
+			},
+			"universal": {Skills: &config.ResourceTargetConfig{Path: "~/.agents/skills"}},
+		},
+	}
+	r := &doctorResult{}
+	checkCrossTargetDiscovery(cfg, r, false, nil)
+
+	if r.warnings != 1 {
+		t.Fatalf("expected 1 warning, got %d (checks=%+v)", r.warnings, r.checks)
+	}
+	if len(r.checks[0].Details) == 0 || !strings.Contains(r.checks[0].Details[0], "universal") {
+		t.Errorf("expected warning mentioning universal, got %+v", r.checks[0].Details)
+	}
+}
+
 func TestCheckCrossTargetDiscovery_OpenCodeEnvOffPassesWithNote(t *testing.T) {
 	cfg := opencodeAndClaude(t)
 	t.Setenv("OPENCODE_DISABLE_CLAUDE_CODE_SKILLS", "1")
