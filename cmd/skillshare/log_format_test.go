@@ -369,3 +369,39 @@ func TestPrintLogEntries_ZeroDurationHasNoTrailingSeparator(t *testing.T) {
 		t.Fatalf("expected no trailing separator, got %q", line)
 	}
 }
+
+func TestFormatProjectLog_ShowsActionAndRoot(t *testing.T) {
+	e := oplog.Entry{Command: "project", Args: map[string]any{"action": "convert", "root": "~/work/app", "targets": []any{"claude", "cursor"}, "scope": "ui"}}
+
+	detail := formatLogDetail(e, false)
+	if detail != "convert ~/work/app, targets=claude, cursor, scope=ui" {
+		t.Fatalf("unexpected project detail: %q", detail)
+	}
+
+	pairs := formatLogDetailPairs(e)
+	got := map[string]string{}
+	for _, p := range pairs {
+		got[p.key] = p.value
+		if p.isList {
+			got[p.key] = strings.Join(p.listValues, ",")
+		}
+	}
+	want := map[string]string{"action": "convert", "root": "~/work/app", "targets": "claude,cursor", "scope": "ui"}
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("pair %s = %q, want %q (all: %v)", k, got[k], v, got)
+		}
+	}
+}
+
+func TestFormatSyncLog_ShowsProjectRoot(t *testing.T) {
+	e := oplog.Entry{Command: "sync", Args: map[string]any{"action": "sync", "root": "~/work/app", "targets_total": 2, "scope": "cli"}}
+
+	if detail := formatLogDetail(e, false); detail != "root=~/work/app, targets=2, scope=cli" {
+		t.Fatalf("unexpected sync detail: %q", detail)
+	}
+	pairs := formatLogDetailPairs(e)
+	if len(pairs) == 0 || pairs[0].key != "root" || pairs[0].value != "~/work/app" {
+		t.Fatalf("sync pairs should lead with the project root: %+v", pairs)
+	}
+}

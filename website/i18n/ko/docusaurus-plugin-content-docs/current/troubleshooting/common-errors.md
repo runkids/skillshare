@@ -139,6 +139,8 @@ skillshare target codex --skills=false
 
 대시보드의 **Sync** 페이지에도 같은 경고가 표시되며, 해당 target의 skill 동기화를 중지하는 버튼이 함께 제공됩니다. 두 target에 같은 filter, mode, target naming을 지정해도 해결됩니다.
 
+등록된 프로젝트의 target(`<project>@<tool>`)에는 개별 skill 스위치가 없습니다. 프로젝트의 skills 설정이 모든 target에 적용되기 때문입니다. 이 경우 명령은 해당 도구만 프로젝트에서 빼는 `skillshare project edit <root> --target <나머지 도구>`이며, 그 target이 프로젝트의 유일한 target이면 `skillshare project edit <root> --no-skills`입니다.
+
 ### `sync seems stuck or slow`
 
 **Cause:** skill 디렉터리에 큰 파일이 있습니다.

@@ -41,6 +41,8 @@ func formatLogDetailPairs(e oplog.Entry) []logDetailPair {
 		return formatInitLogPairs(e.Args)
 	case "upgrade":
 		return formatUpgradeLogPairs(e.Args)
+	case "project":
+		return formatProjectLogPairs(e.Args)
 	default:
 		return formatGenericLogPairs(e.Args)
 	}
@@ -49,6 +51,10 @@ func formatLogDetailPairs(e oplog.Entry) []logDetailPair {
 func formatSyncLogPairs(args map[string]any) []logDetailPair {
 	var pairs []logDetailPair
 
+	// Project syncs name the project they touched.
+	if root, ok := logArgString(args, "root"); ok && root != "" {
+		pairs = append(pairs, logDetailPair{key: "root", value: root})
+	}
 	if total, ok := logArgInt(args, "targets_total", "targets"); ok {
 		pairs = append(pairs, logDetailPair{key: "targets", value: fmt.Sprintf("%d", total)})
 	}
@@ -409,6 +415,43 @@ func formatUpgradeLogDetail(args map[string]any) string {
 	return strings.Join(parts, ", ")
 }
 
+func formatProjectLogPairs(args map[string]any) []logDetailPair {
+	var pairs []logDetailPair
+
+	if action, ok := logArgString(args, "action"); ok && action != "" {
+		pairs = append(pairs, logDetailPair{key: "action", value: action})
+	}
+	if root, ok := logArgString(args, "root"); ok && root != "" {
+		pairs = append(pairs, logDetailPair{key: "root", value: root})
+	}
+	if targets, ok := logArgStringSlice(args, "targets"); ok && len(targets) > 0 {
+		pairs = append(pairs, logDetailPair{key: "targets", isList: true, listValues: targets})
+	}
+	if scope, ok := logArgString(args, "scope"); ok && scope != "" {
+		pairs = append(pairs, logDetailPair{key: "scope", value: scope})
+	}
+
+	return pairs
+}
+
+func formatProjectLogDetail(args map[string]any) string {
+	parts := make([]string, 0, 3)
+
+	action, _ := logArgString(args, "action")
+	root, _ := logArgString(args, "root")
+	if head := strings.TrimSpace(action + " " + root); head != "" {
+		parts = append(parts, head)
+	}
+	if targets, ok := logArgStringSlice(args, "targets"); ok && len(targets) > 0 {
+		parts = append(parts, "targets="+strings.Join(targets, ", "))
+	}
+	if scope, ok := logArgString(args, "scope"); ok && scope != "" {
+		parts = append(parts, "scope="+scope)
+	}
+
+	return strings.Join(parts, ", ")
+}
+
 func formatGenericLogPairs(args map[string]any) []logDetailPair {
 	var pairs []logDetailPair
 
@@ -467,6 +510,8 @@ func formatLogDetail(e oplog.Entry, truncate bool) string {
 			detail = formatInitLogDetail(e.Args)
 		case "upgrade":
 			detail = formatUpgradeLogDetail(e.Args)
+		case "project":
+			detail = formatProjectLogDetail(e.Args)
 		default:
 			detail = formatGenericLogDetail(e.Args)
 		}
@@ -492,8 +537,11 @@ func formatLogDetailValue(value string, truncate bool) string {
 }
 
 func formatSyncLogDetail(args map[string]any) string {
-	parts := make([]string, 0, 5)
+	parts := make([]string, 0, 6)
 
+	if root, ok := logArgString(args, "root"); ok && root != "" {
+		parts = append(parts, "root="+root)
+	}
 	if total, ok := logArgInt(args, "targets_total", "targets"); ok {
 		parts = append(parts, fmt.Sprintf("targets=%d", total))
 	}

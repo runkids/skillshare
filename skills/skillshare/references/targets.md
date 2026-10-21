@@ -78,7 +78,9 @@ skip the target's skills. `--skills` cannot be combined with include/exclude fla
 command. Works with `-p`.
 
 When `sync` warns that two targets "sync skills to <folder> with different settings, so each
-sync undoes the other", run the `skillshare target <name> --skills=false` it prints.
+sync undoes the other", run the `skillshare target <name> --skills=false` it prints. For a
+project target (`<project>@<tool>`) it prints `skillshare project edit <root> --target <other tools>`,
+which drops only that tool, or `--no-skills` when it is the project's only target.
 
 ## Project Targets (`-p`)
 
@@ -116,8 +118,50 @@ projects:
 
 - Shows up in `sync`/`status`/`diff` as `<name>@<target>` (e.g. `shop-web@claude`). Tools sharing a folder (`.agents/skills`) are one target.
 - A missing folder is skipped with a warning, never recreated.
-- `skillshare target` and `collect` ignore these; edit `config.yaml` or the dashboard's Projects page.
+- `skillshare target` and `collect` ignore these; use `skillshare project` or the dashboard's Projects page.
 - MCP for the same folders lives under `mcp.projects` (see [mcp.md](mcp.md)).
+
+### Manage registrations with `project`
+
+```bash
+skillshare project list --json
+skillshare project show shop-web --json
+skillshare project add ~/work/shop-web --target claude,codex --skills-mode copy --agents --dry-run
+skillshare project add ~/work/shop-web --target claude,codex --skills-mode copy --agents --sync
+skillshare project edit shop-web --skills-include 'frontend-*' --skills-exclude=
+skillshare project edit shop-web --name= --skills-mode= --skills-naming=
+skillshare project sync shop-web --json
+skillshare project remove shop-web --dry-run --json
+skillshare project remove shop-web --yes --json
+```
+
+Always global (explicit `-g` accepted, `-p` rejected), even inside a project. Add requires
+an existing root and `--target` (repeat or comma list); skills default on, agents off.
+Show/edit/sync/remove accept an effective name or root; use `./path` to select a relative
+root explicitly. Ambiguous name/root matches fail instead of choosing one.
+
+Edit changes only supplied settings. `--target`, `--skills-include`, `--skills-exclude`,
+`--agents-include`, and `--agents-exclude` replace their lists; repeat filter flags for
+multiple patterns, use an empty value to clear. `--skills` / `--no-skills` and
+`--agents` / `--no-agents` toggle resources. Any resource setting turns on that resource
+when it is omitted from the project. Enabling an existing resource keeps its settings.
+`--skills-mode` / `--agents-mode` accept merge, symlink or copy; an empty value inherits.
+`--skills-naming` accepts flat, standard or prefixed; empty inherits. There is no agents
+naming flag, and agents filters with symlink mode are rejected.
+
+`--dry-run` / `-n` previews add/edit/sync/remove without writes or prompts. `--sync`
+on add/edit saves first and syncs only that project, without force. On sync failure,
+exit 1 does not undo the saved registration: inspect `sync.failed` and retry with
+`project sync`. List JSON is `{ "projects": [] }`, show JSON wraps `project`, and
+mutation JSON includes `action`, `project`, `applied`, `affected`, and `warnings`.
+No-op edits report `applied: false, unchanged: true`.
+
+Removal asks for confirmation unless `--yes` or previewing; JSON removal requires
+`--yes` unless previewing. Whole-folder links are removed; merge links become local
+copies while source content exists; copy files remain and their manifest is removed.
+Agents stay. Inspect `detach` and `registration` after failure: earlier detaches can
+remain even when a later detach or save fails. There is no rollback. MCP and hooks
+project definitions are outside this command's scope.
 
 ## Target Filters
 
@@ -200,3 +244,10 @@ Unlink targets with `target remove`: it removes the link itself and leaves the l
 Inspect whether a path is a symlink before filesystem operations. Removing a symlink
 itself and traversing its target are different operations; `target remove` handles the
 managed relationship without requiring manual recursive deletion.
+
+Project add can be repeated with identical settings: it returns unchanged and
+still honors `--sync`. Different settings require `project edit`. Edits detach
+dropped skill paths, preserving paths owned by surviving enabled targets and
+all agent files. Partial failures report completed detach work and whether the
+registration was saved. CLI and dashboard project mutations share a config
+lock and reload after acquisition; other config writers remain outside it.

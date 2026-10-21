@@ -33,16 +33,11 @@ Choose project mode when the setup should travel with the repo. Choose `projects
 
 ### Skills and agents: `projects`
 
-```yaml
-# ~/.config/skillshare/config.yaml
-projects:
-  ~/work/project01:
-    targets: [claude, codex]
-    skills:
-      mode: copy
-      include:
-        - myskill-*
-    agents: {}
+```bash
+skillshare project add ~/work/project01 --target claude,codex \
+  --skills-mode copy --skills-include 'myskill-*' --agents --dry-run
+skillshare project add ~/work/project01 --target claude,codex \
+  --skills-mode copy --skills-include 'myskill-*' --agents
 ```
 
 ```bash
@@ -54,7 +49,14 @@ skillshare sync
 - `skills` and `agents` switch that part on. Left empty, they sync everything; `include` and `exclude` narrow it down. See [Filtering skills](/docs/how-to/daily-tasks/filtering-skills).
 - `copy` writes real files, so the project can commit them. Leave the default `merge` if symlinks are fine.
 
-In the dashboard, the **Projects** page does the same: **Add project**, pick the targets, and choose what to sync. See [`projects`](/docs/reference/targets/configuration#projects) for every field.
+```bash
+skillshare project list --json
+skillshare project edit project01 --skills-include= --skills-include 'core-*'
+skillshare project sync project01 --dry-run --json
+skillshare project sync project01
+```
+
+Use [`skillshare project`](/docs/reference/commands/project) to add, edit, sync, or remove project registrations, or use the dashboard’s **Projects** page. See [`projects`](/docs/reference/targets/configuration#projects) for every field.
 
 ### MCP servers: `mcp.projects`
 

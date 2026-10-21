@@ -21,7 +21,7 @@ export type FeatureGroup = {
 const C = '/docs/reference/commands/';
 const D = '/docs/';
 
-export const COMMAND_COUNT = 38;
+export const COMMAND_COUNT = 39;
 export const TARGET_COUNT = 79;
 
 export const FEATURE_GROUPS: FeatureGroup[] = [
@@ -96,7 +96,8 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
       {cmd: 'push / pull', what: 'Git-sync the source folder with any remote', kw: 'git remote machine laptop desktop github gitlab', href: C + 'push'},
       {cmd: 'commit', what: 'Commit source changes locally without pushing', kw: 'git save', href: C + 'commit'},
       {cmd: 'install --track', what: 'Follow an organization repo; updates flow in with update', kw: 'team org standards tracked company', href: D + 'understand/tracked-repositories'},
-      {cmd: '-p / project', what: 'Skills that ship with a repo, in .skillshare/', kw: 'project mode local repo team', href: D + 'understand/project-skills'},
+      {cmd: '-p / project mode', what: 'Skills that ship with a repo, in .skillshare/', kw: 'project mode local repo team', href: D + 'understand/project-skills'},
+      {cmd: 'project', what: 'Manage project folders from the global config', kw: 'projects folder register skills agents sync', href: C + 'project'},
       {cmd: 'target', what: 'Add, remove or configure sync targets', kw: 'custom tool path add', href: C + 'target'},
     ],
     guides: [

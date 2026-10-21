@@ -674,7 +674,7 @@ projects:
 - **출력에 표시되는 이름.** `sync`, `status`, `diff`, `doctor`, `backup`은 프로젝트의 target을 `<name>@<target>` 형태로 표시합니다. 예: `shop-web@claude`. `name`에는 `@`, `/`, `\`를 포함할 수 없으며, 두 프로젝트가 같은 이름을 공유할 수 없습니다.
 - **Agent**는 프로젝트 agent 폴더가 있는 tool에만 기록됩니다. `agents`만 있고 `skills`가 없는 프로젝트는 agent만 동기화합니다.
 - **폴더가 없으면 건너뜁니다.** `sync`는 `project <folder>: folder not found, skipped`를 출력하며, 이동하거나 삭제한 프로젝트를 다시 만들지 않습니다.
-- **`target`과 `collect`는 프로젝트를 건드리지 않습니다.** `skillshare target`은 `targets` 섹션만 나열하고 편집하며, `collect`는 프로젝트 자체 skill을 source로 가져오지 않습니다. `config.yaml`에서 `projects`를 직접 편집하거나 대시보드의 **프로젝트** 페이지를 사용하세요.
+- **`target`과 `collect`는 프로젝트를 건드리지 않습니다.** `skillshare target`은 `targets` 섹션만 나열하고 편집하며, `collect`는 프로젝트 자체 skill을 source로 가져오지 않습니다. [`skillshare project`](/docs/reference/commands/project)로 프로젝트 등록을 추가·편집·동기화·제거하거나 대시보드의 **프로젝트** 페이지를 사용하세요.
 - `targets` frontmatter 필드가 있는 skill은 tool을 기준으로 매칭되므로, `targets: [claude]`는 `shop-web@claude`에 도달합니다.
 
 같은 폴더의 MCP 서버는 같은 폴더를 키로 하는 [`mcp.projects`](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config) 아래에 나열됩니다. 단계별 설정은 [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config)를 참고하세요.

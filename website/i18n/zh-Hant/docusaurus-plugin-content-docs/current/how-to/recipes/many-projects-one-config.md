@@ -33,16 +33,11 @@ sidebar_position: 8
 
 ### Skills 與 agents：`projects`
 
-```yaml
-# ~/.config/skillshare/config.yaml
-projects:
-  ~/work/project01:
-    targets: [claude, codex]
-    skills:
-      mode: copy
-      include:
-        - myskill-*
-    agents: {}
+```bash
+skillshare project add ~/work/project01 --target claude,codex \
+  --skills-mode copy --skills-include 'myskill-*' --agents --dry-run
+skillshare project add ~/work/project01 --target claude,codex \
+  --skills-mode copy --skills-include 'myskill-*' --agents
 ```
 
 ```bash
@@ -54,7 +49,14 @@ skillshare sync
 - `skills` 與 `agents` 用來開啟該部分的同步。留空代表同步全部；用 `include` 與 `exclude` 縮小範圍。參見[篩選 skills](/docs/how-to/daily-tasks/filtering-skills)。
 - `copy` 會寫入實際檔案，所以 project 可以 commit 它們。若 symlinks 就夠用，保留預設的 `merge` 即可。
 
-在 dashboard 中，**Projects** 頁面做的是同一件事：**Add project**，選擇 targets，並選擇要同步的內容。每個欄位請參見 [`projects`](/docs/reference/targets/configuration#projects)。
+```bash
+skillshare project list --json
+skillshare project edit project01 --skills-include= --skills-include 'core-*'
+skillshare project sync project01 --dry-run --json
+skillshare project sync project01
+```
+
+使用 [`skillshare project`](/docs/reference/commands/project) 新增、編輯、同步或移除專案註冊，也可以使用 dashboard 的 **Projects** 頁面。完整欄位請參見 [`projects`](/docs/reference/targets/configuration#projects)。
 
 ### MCP servers：`mcp.projects`
 

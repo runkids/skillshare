@@ -44,10 +44,12 @@ skillshare log --no-tui | less    # 手動でページャーにパイプする
 
 | コマンド | ログファイル |
 |---------|------|
-| `install`, `uninstall`, `sync`, `push`, `pull`, `collect`, `backup`, `restore`, `update`, `target`, `trash`, `config`, `check`, `diff`, `init`, `upgrade` | `operations.log` |
+| `install`, `uninstall`, `sync`, `push`, `pull`, `collect`, `backup`, `restore`, `update`, `target`, `project`, `trash`, `config`, `check`, `diff`, `init`, `upgrade` | `operations.log` |
 | `audit` | `audit.log` |
 
 これらの API を呼び出す Web UI のアクションも、CLI の操作と同じ方法で記録されます。
+
+`project` のエントリには `action`（`add`、`update`、`remove`、またはダッシュボードの `convert`）と project の `root` が記録されるため、どの project が変更されたかがわかります。`skillshare project sync` は同じ 2 つのフィールドを持つ `sync` エントリとして記録されます。
 
 ## ログの種類
 

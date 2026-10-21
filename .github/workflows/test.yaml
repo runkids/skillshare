@@ -137,6 +137,18 @@ jobs:
             ./internal/validate \
             ./internal/version
 
+
+      - name: Native project registration smoke
+        shell: pwsh
+        env:
+          SKILLSHARE_TEST_BINARY: ${{ github.workspace }}/bin/skillshare.exe
+        run: |
+          $principal = [Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
+          Write-Output "Architecture=$env:PROCESSOR_ARCHITECTURE elevated=$($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))"
+          go build -o bin/skillshare.exe ./cmd/skillshare
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          go test -v -count=1 ./tests/integration -run '^TestProject_NativeLinksSmoke$'
+
   docker-sandbox-offline:
     if: *not-release-duplicate
     runs-on: ubuntu-latest

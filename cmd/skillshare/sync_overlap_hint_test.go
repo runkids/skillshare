@@ -1,7 +1,10 @@
 package main
 
 import (
+	"fmt"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -9,13 +12,101 @@ import (
 	"skillshare/internal/sync"
 )
 
+// loadProjectConfig loads a global config registering root with targets.
+func loadProjectConfig(t *testing.T, root string, targets string) *config.Config {
+	t.Helper()
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	yaml := fmt.Sprintf("source: %q\ntargets: {}\nprojects:\n  %q:\n    targets: [%s]\n    skills: {}\n", filepath.Join(dir, "skills"), root, targets)
+	if err := os.WriteFile(path, []byte(yaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.LoadReadOnlyPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cfg
+}
+
+func TestSkillsOffCommand_ProjectTargetKeepsOtherTargets(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "app")
+	cfg := loadProjectConfig(t, root, "claude, cursor")
+	got := skillsOffCommand("app@claude", false, cfg.Targets, cfg.Projects)
+	if want := "skillshare project edit " + root + " --target cursor"; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestSkillsOffCommand_OnlyProjectTargetTurnsSkillsOff(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "app")
+	cfg := loadProjectConfig(t, root, "claude")
+	got := skillsOffCommand("app@claude", false, cfg.Targets, cfg.Projects)
+	if want := "skillshare project edit " + root + " --no-skills"; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestSkillsOffCommand_QuotesRootWithDoubleQuotes(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "my app")
+	cfg := loadProjectConfig(t, root, "claude")
+	got := skillsOffCommand("my app@claude", false, cfg.Targets, cfg.Projects)
+	if want := `skillshare project edit "` + root + `" --no-skills`; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	if strings.Contains(got, "'") {
+		t.Errorf("single quotes break cmd.exe: %q", got)
+	}
+}
+
+func TestSkillsOffCommand_UsesExplicitProjectRoot(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "~app")
+	cfg := loadProjectConfig(t, root, "claude")
+	got := skillsOffCommand("~app@claude", false, cfg.Targets, cfg.Projects)
+	if !strings.Contains(got, root) {
+		t.Fatal("hint cannot resolve a root-looking name:", got)
+	}
+}
+
+func TestSkillsOffCommand_OrdinaryTargets(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		isProject bool
+		want      string
+	}{
+		{"codex", false, "skillshare target codex --skills=false"},
+		{"codex", true, "skillshare target codex --skills=false -p"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := skillsOffCommand(tc.name, tc.isProject, nil, nil); got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestShellArg(t *testing.T) {
+	for in, want := range map[string]string{"/a/b": "/a/b", "claude,cursor": "claude,cursor", "a b": `"a b"`, "": `""`} {
+		if got := shellArg(in); got != want {
+			t.Errorf("shellArg(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if runtime.GOOS != "windows" {
+		if got := shellArg(`a"$b`); got != `"a\"\$b"` {
+			t.Errorf("got %q", got)
+		}
+	}
+}
+
 func TestPrintSyncOverlapHint_NamesConflictAndFix(t *testing.T) {
 	keepPathsUnfolded(t)
 	targets := map[string]config.TargetConfig{
 		"universal": {Skills: &config.ResourceTargetConfig{Path: "/tmp/agents/skills", Exclude: []string{"feature-radar*"}}},
 		"codex":     {Skills: &config.ResourceTargetConfig{Path: "/tmp/agents/skills"}},
 	}
-	out := captureStdout(t, func() { printSyncOverlapHint(targets, true, false, "", nil) })
+	out := captureStdout(t, func() { printSyncOverlapHint(targets, nil, true, false, "", nil) })
 
 	for _, want := range []string{
 		"codex and universal sync skills to " + filepath.FromSlash("/tmp/agents/skills") + " with different settings, so each sync undoes the other",
@@ -35,7 +126,7 @@ func TestPrintSyncOverlapHint_SameSettingsKeepsGenericLine(t *testing.T) {
 		"universal": {Skills: &config.ResourceTargetConfig{Path: "/tmp/agents/skills"}},
 		"codex":     {Skills: &config.ResourceTargetConfig{Path: "/tmp/agents/skills"}},
 	}
-	out := captureStdout(t, func() { printSyncOverlapHint(targets, false, false, "", nil) })
+	out := captureStdout(t, func() { printSyncOverlapHint(targets, nil, false, false, "", nil) })
 
 	if !strings.Contains(out, "2 targets share skill folders") {
 		t.Errorf("expected generic overlap line:\n%s", out)
@@ -48,7 +139,7 @@ func TestPrintSyncOverlapHint_SameSettingsKeepsGenericLine(t *testing.T) {
 func TestPrintSyncOverlapHint_OpenCodeSameSkillsIsQuiet(t *testing.T) {
 	cfg := opencodeAndClaude(t)
 	discovered := []sync.DiscoveredSkill{{FlatName: "shared"}}
-	out := captureStdout(t, func() { printSyncOverlapHint(cfg.Targets, false, false, cfg.Mode, discovered) })
+	out := captureStdout(t, func() { printSyncOverlapHint(cfg.Targets, cfg.Projects, false, false, cfg.Mode, discovered) })
 
 	if strings.Contains(out, "share skill folders") {
 		t.Errorf("opencode loads nothing extra from claude's folder, expected no hint:\n%s", out)

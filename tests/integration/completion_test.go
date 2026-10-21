@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"skillshare/internal/config"
 	"skillshare/internal/testutil"
 )
 
@@ -419,5 +420,133 @@ func TestCompletion_Move_AllShells(t *testing.T) {
 		for _, s := range want {
 			result.AssertOutputContains(t, s)
 		}
+	}
+}
+
+// These assertions are scoped to project so another command cannot satisfy them.
+func TestCompletion_Project_AllShells(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	for _, shell := range []string{"bash", "zsh", "fish", "powershell", "nushell"} {
+		t.Run(shell, func(t *testing.T) {
+			result := sb.RunCLI("completion", shell)
+			result.AssertSuccess(t)
+			start := strings.Index(result.Stdout, "# Project command")
+			end := strings.Index(result.Stdout, "# End project command")
+			if start < 0 || end < start {
+				t.Fatal("missing project completion block")
+			}
+			block := result.Stdout[start:end]
+			registration := map[string]string{
+				"bash":       "target project upgrade",
+				"zsh":        "'project:Manage project folders'",
+				"fish":       "-a project -d 'Manage project folders'",
+				"powershell": "@{ Name = 'project'; Desc = 'Manage project folders' }",
+				"nushell":    `{ value: "project", description: "Manage project folders" }`,
+			}
+			if !strings.Contains(result.Stdout, registration[shell]) {
+				t.Error("missing top-level project command")
+			}
+			for _, flag := range []string{"target", "name", "skills", "no-skills", "agents", "no-agents", "skills-mode", "agents-mode", "skills-naming", "skills-include", "skills-exclude", "agents-include", "agents-exclude", "sync", "dry-run", "yes", "json", "help", "global"} {
+				pattern := "--" + flag
+				if shell == "fish" {
+					pattern = "-l " + flag
+				}
+				// Delimit the flag so --skills-mode cannot satisfy --skills.
+				if !strings.Contains(block, pattern+" ") && !strings.Contains(block, pattern+"\n") && !strings.Contains(block, pattern+"'") && !strings.Contains(block, pattern+"[") && !strings.Contains(block, pattern+":") && !strings.Contains(block, pattern+"(") {
+					t.Errorf("project completions missing flag %q", flag)
+				}
+			}
+			// Tokenize values and short flags so xcode-codex cannot satisfy
+			// codex, nor --no-skills satisfy -n.
+			tokens := strings.FieldsFunc(block, func(r rune) bool {
+				return !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-')
+			})
+			for _, short := range []string{"n", "h", "g"} {
+				found := slices.Contains(tokens, "-"+short)
+				if shell == "fish" {
+					found = strings.Contains(block, "-s "+short+"\n")
+				}
+				if !found {
+					t.Errorf("project completions missing short flag -%s", short)
+				}
+			}
+			if shell == "nushell" {
+				for _, flag := range []string{"skills-mode", "agents-mode"} {
+					if !strings.Contains(block, "--"+flag+`: string@"nu-complete skillshare sync-mode"`) {
+						t.Errorf("missing %s mode completer", flag)
+					}
+				}
+				start := strings.Index(result.Stdout, `def "nu-complete skillshare sync-mode"`)
+				if start < 0 {
+					t.Fatal("missing sync-mode completer")
+				}
+				end := strings.Index(result.Stdout[start:], "}")
+				if end < 0 {
+					t.Fatal("unterminated sync-mode completer")
+				}
+				modeTokens := strings.FieldsFunc(result.Stdout[start:start+end], func(r rune) bool { return !(r >= 'a' && r <= 'z') })
+				tokens = append(tokens, modeTokens...)
+			}
+			for _, word := range []string{"list", "show", "add", "edit", "sync", "remove", "merge", "symlink", "copy", "flat", "standard", "prefixed"} {
+				if !slices.Contains(tokens, word) {
+					t.Errorf("project completions missing %q", word)
+				}
+			}
+			for name := range config.ProjectTargets() {
+				if !slices.Contains(tokens, name) {
+					t.Errorf("project target completions missing %q", name)
+				}
+			}
+		})
+	}
+}
+
+func TestCompletion_Project_RealShells(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	for _, shell := range []string{"bash", "zsh", "fish"} {
+		t.Run(shell, func(t *testing.T) {
+			if _, err := exec.LookPath(shell); err != nil {
+				t.Skipf("%s is not installed", shell)
+			}
+			result := sb.RunCLI("completion", shell)
+			result.AssertSuccess(t)
+			dir := t.TempDir()
+			script := filepath.Join(dir, "_skillshare")
+			capture := filepath.Join(dir, "capture.zsh")
+			if err := os.WriteFile(script, []byte(result.Stdout), 0644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(capture, []byte(zshCapture), 0644); err != nil {
+				t.Fatal(err)
+			}
+			complete := func(line string) []string {
+				switch shell {
+				case "bash":
+					return completeIn(t, shell, "--noprofile", "--norc", "-c", `source "$1"; read -ra COMP_WORDS <<< "$2"; [[ "$2" == *" " ]] && COMP_WORDS+=(""); COMP_CWORD=$((${#COMP_WORDS[@]}-1)); _skillshare; printf '%s\n' "${COMPREPLY[@]}"`, "bash", script, line)
+				case "zsh":
+					return completeIn(t, shell, "-f", capture, dir, line)
+				default:
+					return completeIn(t, shell, "--no-config", "-c", `source "$argv[1]"; complete -C "$argv[2]"`, script, line)
+				}
+			}
+			assertCandidates(t, complete("skillshare "), "project")
+			assertCandidates(t, complete("skillshare project "), "list", "show", "add", "edit", "sync", "remove")
+			for _, action := range []string{"add", "edit"} {
+				prefix := "skillshare project " + action + " example "
+				assertCandidates(t, complete(prefix+"--"), "--target", "--name", "--skills", "--no-skills", "--agents", "--no-agents", "--skills-mode", "--agents-mode", "--skills-naming", "--skills-include", "--skills-exclude", "--agents-include", "--agents-exclude", "--sync", "--dry-run", "--json", "--help", "--global")
+				assertCandidates(t, complete(prefix+"-"), "-n", "-h", "-g")
+				for _, flag := range []string{"--skills-mode", "--agents-mode"} {
+					assertCandidates(t, complete(prefix+flag+" "), "merge", "symlink", "copy")
+				}
+				assertCandidates(t, complete(prefix+"--skills-naming "), "flat", "standard", "prefixed")
+				targets := complete(prefix + "--target ")
+				for name := range config.ProjectTargets() {
+					assertCandidates(t, targets, name)
+				}
+			}
+			assertCandidates(t, complete("skillshare project remove example --"), "--yes", "--dry-run", "--json")
+		})
 	}
 }

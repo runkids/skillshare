@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"skillshare/internal/utils"
 )
 
 // Identity returns the lexical absolute identity of a project root.
@@ -40,6 +42,34 @@ func Identity(arg, cwd, home string) (string, error) {
 		}
 	}
 	return trimTrailingSeparators(filepath.Clean(path)), nil
+}
+
+// StoredKey returns the spelling used when registering a new project root.
+// Explicit tilde and absolute spellings retain their internal separators and
+// dot components; relative spellings become absolute and fold under home.
+func StoredKey(arg, cwd, home string) (string, error) {
+	identity, err := Identity(arg, cwd, home)
+	if err != nil {
+		return "", err
+	}
+	if strings.HasPrefix(arg, "~") || filepath.IsAbs(arg) {
+		return trimTrailingSeparators(arg), nil
+	}
+	if home == "" {
+		return identity, nil
+	}
+	cleanHome := trimTrailingSeparators(filepath.Clean(home))
+	// FoldHomePathWith needs a separator-free prefix, including volume roots.
+	if utils.PathsEqual(identity, cleanHome) {
+		return "~", nil
+	}
+	foldHome := strings.TrimSuffix(cleanHome, string(filepath.Separator))
+	if foldHome == "" {
+		// On Unix, removing a volume root's separator leaves no prefix for
+		// FoldHomePathWith. Every absolute identity is under that root.
+		return "~" + identity, nil
+	}
+	return utils.FoldHomePathWith(identity, foldHome), nil
 }
 
 func trimTrailingSeparators(path string) string {

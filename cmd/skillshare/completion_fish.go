@@ -23,6 +23,30 @@ function __fish_skillshare_using_subcommand
     test (count $cmd) -gt 2; and test "$cmd[2]" = "$argv[1]"; and test "$cmd[3]" = "$argv[2]"
 end
 
+# Project command
+complete -c skillshare -n __fish_skillshare_no_subcommand -a project -d 'Manage project folders'
+complete -c skillshare -n '__fish_skillshare_using_command project' -a 'list show add edit sync remove'
+complete -c skillshare -n '__fish_skillshare_using_command project' -l target -r -a 'adal aiderdesk amp antigravity antigravity-cli astrbot augment autohand-code bob claude cline codearts codebuddy codestudio codex comate commandcode continue copilot cortex crush cursor deepagents deepseek-harness devin dexto droid firebender forgecode fx gemini gitlab-duo goose grok hermes iflow jazz junie kilocode kimchi kimi kimi-code kiro kode letta lingma mcpjam mux neovate omp ona openclaw opencode openhands pi pochi posit-assistant purecode qoder qoder-cn qwen reasonix replit roo rovodev tabnine trae trae-cn universal verdent vibe warp windsurf witsy xcode-claude xcode-codex zcode zed zencoder'
+complete -c skillshare -n '__fish_skillshare_using_command project' -l name -r
+complete -c skillshare -n '__fish_skillshare_using_command project' -l skills
+complete -c skillshare -n '__fish_skillshare_using_command project' -l no-skills
+complete -c skillshare -n '__fish_skillshare_using_command project' -l agents
+complete -c skillshare -n '__fish_skillshare_using_command project' -l no-agents
+complete -c skillshare -n '__fish_skillshare_using_command project' -l skills-mode -r -a 'merge symlink copy'
+complete -c skillshare -n '__fish_skillshare_using_command project' -l agents-mode -r -a 'merge symlink copy'
+complete -c skillshare -n '__fish_skillshare_using_command project' -l skills-naming -r -a 'flat standard prefixed'
+complete -c skillshare -n '__fish_skillshare_using_command project' -l skills-include -r
+complete -c skillshare -n '__fish_skillshare_using_command project' -l skills-exclude -r
+complete -c skillshare -n '__fish_skillshare_using_command project' -l agents-include -r
+complete -c skillshare -n '__fish_skillshare_using_command project' -l agents-exclude -r
+complete -c skillshare -n '__fish_skillshare_using_command project' -l sync
+complete -c skillshare -n '__fish_skillshare_using_command project' -l dry-run -s n
+complete -c skillshare -n '__fish_skillshare_using_command project' -l yes
+complete -c skillshare -n '__fish_skillshare_using_command project' -l json
+complete -c skillshare -n '__fish_skillshare_using_command project' -l help -s h
+complete -c skillshare -n '__fish_skillshare_using_command project' -l global -s g
+# End project command
+
 # Commands
 complete -c skillshare -n __fish_skillshare_no_subcommand -a init -d 'Initialize skillshare'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a install -d 'Install skills/agents from local path or git repo'
@@ -111,7 +135,7 @@ complete -c skillshare -n __fish_skillshare_no_subcommand -a version -d 'Show ve
 complete -c skillshare -n __fish_skillshare_no_subcommand -a help -d 'Show help'
 
 # Global flags
-complete -c skillshare -n 'not __fish_seen_subcommand_from pull push commit' -l project -s p -d 'Use project-level config'
+complete -c skillshare -n 'not __fish_seen_subcommand_from pull push commit project' -l project -s p -d 'Use project-level config'
 complete -c skillshare -n 'not __fish_seen_subcommand_from pull push commit' -l global -s g -d 'Use global config'
 
 # init

@@ -35,6 +35,8 @@ function summarizeNames(names: string[], limit = 3): string {
 
 function formatSyncDetail(args: Record<string, any>): string {
   const parts: string[] = [];
+  const root = asString(args.root);
+  if (root) parts.push(`root=${root}`);
   const total = asInt(args.targets_total ?? args.targets);
   if (total != null) parts.push(`targets=${total}`);
   const failed = asInt(args.targets_failed);
@@ -104,6 +106,17 @@ function formatUpdateDetail(args: Record<string, any>): string {
   return parts.join(', ');
 }
 
+function formatProjectDetail(args: Record<string, any>): string {
+  const parts: string[] = [];
+  const head = [asString(args.action), asString(args.root)].filter(Boolean).join(' ');
+  if (head) parts.push(head);
+  const targets = asStringArray(args.targets);
+  if (targets.length > 0) parts.push(`targets=${summarizeNames(targets)}`);
+  const scope = asString(args.scope);
+  if (scope) parts.push(`scope=${scope}`);
+  return parts.join(', ');
+}
+
 function formatGenericDetail(args: Record<string, any>): string {
   const parts: string[] = [];
   if (args.source) parts.push(String(args.source));
@@ -123,7 +136,9 @@ export function formatLogDetail(entry: LogEntry): string {
         ? formatUpdateDetail(entry.args)
         : entry.cmd === 'audit'
           ? formatAuditDetail(entry.args)
-          : formatGenericDetail(entry.args)
+          : entry.cmd === 'project'
+            ? formatProjectDetail(entry.args)
+            : formatGenericDetail(entry.args)
     : '';
   if (entry.msg && detail) return `${detail} — ${entry.msg}`;
   if (entry.msg) return entry.msg;

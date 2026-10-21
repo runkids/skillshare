@@ -29,6 +29,7 @@ $_skillshareCompleter = {
             @{ Name = 'commit'; Desc = 'Create local git commit without pushing' }
             @{ Name = 'doctor'; Desc = 'Check environment and diagnose issues' }
             @{ Name = 'target'; Desc = 'Manage targets' }
+            @{ Name = 'project'; Desc = 'Manage project folders' }
             @{ Name = 'upgrade'; Desc = 'Upgrade CLI and/or skillshare skill' }
             @{ Name = 'update'; Desc = 'Update skills/agents or tracked repositories' }
             @{ Name = 'check'; Desc = 'Check for available updates' }
@@ -246,6 +247,32 @@ $_skillshareCompleter = {
         }
         return
     }
+
+    # Project command
+    $commands['project'] = @(
+        @{ Name = 'list'; Desc = 'Project list' }
+        @{ Name = 'show'; Desc = 'Project show' }
+        @{ Name = 'add'; Desc = 'Project add' }
+        @{ Name = 'edit'; Desc = 'Project edit' }
+        @{ Name = 'sync'; Desc = 'Project sync' }
+        @{ Name = 'remove'; Desc = 'Project remove' }
+    )
+    $flags['project'] = '--target', '--name', '--skills', '--no-skills', '--agents', '--no-agents', '--skills-mode', '--agents-mode', '--skills-naming', '--skills-include', '--skills-exclude', '--agents-include', '--agents-exclude', '--sync', '--dry-run', '-n', '--yes', '--json', '--help', '-h', '--global', '-g'
+    if ($cmd -eq 'project' -and $previousIndex -ge 0) {
+        $values = switch ($elements[$previousIndex]) {
+            '--skills-mode' { @('merge', 'symlink', 'copy') }
+            '--agents-mode' { @('merge', 'symlink', 'copy') }
+            '--skills-naming' { @('flat', 'standard', 'prefixed') }
+            '--target' { @('adal', 'aiderdesk', 'amp', 'antigravity', 'antigravity-cli', 'astrbot', 'augment', 'autohand-code', 'bob', 'claude', 'cline', 'codearts', 'codebuddy', 'codestudio', 'codex', 'comate', 'commandcode', 'continue', 'copilot', 'cortex', 'crush', 'cursor', 'deepagents', 'deepseek-harness', 'devin', 'dexto', 'droid', 'firebender', 'forgecode', 'fx', 'gemini', 'gitlab-duo', 'goose', 'grok', 'hermes', 'iflow', 'jazz', 'junie', 'kilocode', 'kimchi', 'kimi', 'kimi-code', 'kiro', 'kode', 'letta', 'lingma', 'mcpjam', 'mux', 'neovate', 'omp', 'ona', 'openclaw', 'opencode', 'openhands', 'pi', 'pochi', 'posit-assistant', 'purecode', 'qoder', 'qoder-cn', 'qwen', 'reasonix', 'replit', 'roo', 'rovodev', 'tabnine', 'trae', 'trae-cn', 'universal', 'verdent', 'vibe', 'warp', 'windsurf', 'witsy', 'xcode-claude', 'xcode-codex', 'zcode', 'zed', 'zencoder') }
+        }
+        if ($values) {
+            $values | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+                [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+            }
+            return
+        }
+    }
+    # End project command
 
     # Complete subcommands
     if ($elements.Count -le 2 -or ($elements.Count -eq 2 -and $wordToComplete -ne '')) {
