@@ -54,7 +54,7 @@ func (e *Error) Unwrap() error { return e.Err }
 // TrackedRepoOptions configures one tracked-repo update.
 type TrackedRepoOptions struct {
 	// SourceDir is the source root that holds the repo's metadata and accepted
-	// findings. Empty skips the metadata refresh.
+	// findings.
 	SourceDir string
 	// Force discards uncommitted changes, pulls with a hard reset and lets
 	// audit findings through. It never overrides a scan that could not run.
@@ -137,9 +137,7 @@ func TrackedRepo(repoPath string, opts TrackedRepoOptions) (*TrackedRepoResult, 
 		res.Warnings = install.SubmoduleWarnings(repoPath, git.AuthEnvForRepo(repoPath))
 	}
 
-	if opts.SourceDir != "" {
-		res.MetadataChanged, res.MetadataErr = refreshMetadata(repoPath, opts)
-	}
+	res.MetadataChanged, res.MetadataErr = refreshMetadata(repoPath, opts)
 	res.Status = StatusUpdated
 	if info.UpToDate {
 		res.Status = StatusUpToDate

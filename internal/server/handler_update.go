@@ -331,7 +331,13 @@ func (s *Server) updateTrackedRepo(name, repoPath, sourceDir string, force, skip
 		log.Printf("warning: failed to refresh metadata for %s: %v", name, res.MetadataErr)
 	}
 	if res.MetadataChanged {
-		s.reloadSkillsStore()
+		if sourceDir == s.agentsSource() {
+			if st, loadErr := install.LoadMetadataWithMigration(sourceDir, install.MetadataKindAgent); loadErr == nil {
+				s.agentsStore = st
+			}
+		} else {
+			s.reloadSkillsStore()
+		}
 	}
 	switch res.Status {
 	case update.StatusDirty:
