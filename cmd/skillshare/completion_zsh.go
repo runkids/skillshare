@@ -27,6 +27,7 @@ _skillshare() {
         'commit:Create local git commit without pushing'
         'doctor:Check environment and diagnose issues'
         'target:Manage targets'
+        'project:Manage project folders'
         'upgrade:Upgrade CLI and/or skillshare skill'
         'update:Update skills/agents or tracked repositories'
         'check:Check for available updates'
@@ -389,6 +390,35 @@ _skillshare() {
                         '--help[Show help]' \
                         '-h[Show help]'
                     ;;
+                # Project command
+                project)
+                    _arguments \
+                        '1:project command:(list show add edit sync remove)' \
+                        '2:project: ' \
+                        '*--target[Replace targets]:target:(adal aiderdesk amp antigravity antigravity-cli astrbot augment autohand-code bob claude cline codearts codebuddy codestudio codex comate commandcode continue copilot cortex crush cursor deepagents deepseek-harness devin dexto droid firebender forgecode fx gemini gitlab-duo goose grok hermes iflow jazz junie kilocode kimchi kimi kimi-code kiro kode letta lingma mcpjam mux neovate omp ona openclaw opencode openhands pi pochi posit-assistant purecode qoder qoder-cn qwen reasonix replit roo rovodev tabnine trae trae-cn universal verdent vibe warp windsurf witsy xcode-claude xcode-codex zcode zed zencoder)' \
+                        '--name[Set project name]:name: ' \
+                        '--skills[Enable skills]' \
+                        '--no-skills[Disable skills]' \
+                        '--agents[Enable agents]' \
+                        '--no-agents[Disable agents]' \
+                        '--skills-mode[Set skills mode]:mode:(merge symlink copy)' \
+                        '--agents-mode[Set agents mode]:mode:(merge symlink copy)' \
+                        '--skills-naming[Set skills naming]:naming:(flat standard prefixed)' \
+                        '*--skills-include[Replace skills include filters]:pattern: ' \
+                        '*--skills-exclude[Replace skills exclude filters]:pattern: ' \
+                        '*--agents-include[Replace agents include filters]:pattern: ' \
+                        '*--agents-exclude[Replace agents exclude filters]:pattern: ' \
+                        '--sync[Sync after add or edit]' \
+                        '--dry-run[Preview changes]' \
+                        '-n[Preview changes]' \
+                        '--yes[Skip remove confirmation]' \
+                        '--json[JSON output]' \
+                        '--global[Use global config]' \
+                        '-g[Use global config]' \
+                        '--help[Show help]' \
+                        '-h[Show help]'
+                    ;;
+                # End project command
                 target)
                     local -a target_subcmds
                     target_subcmds=(

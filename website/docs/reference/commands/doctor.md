@@ -159,6 +159,8 @@ When the targets sharing a path have different `include` or `exclude` filters, `
 
 `sync` prints the same targets with the command to run, and the dashboard's Sync page has a button that stops syncing skills for the target to drop, or, for a project target, a link to edit its project. Targets sharing a path with identical settings keep the resolution above.
 
+A target from a registered project (`<project>@<tool>`) has no skills switch of its own, because a project's skills setting covers all its targets. For one, the command drops only that tool from the project, `skillshare project edit <root> --target <other tools>`, or turns skills off with `skillshare project edit <root> --no-skills` when it is the project's only target.
+
 **`cross_target_discovery`** — fires when an enabled target's runtime is documented to also scan a directory another enabled target writes to. For example, a config left over from an older setup still points `codex` at the legacy `~/.codex/skills`, while `universal` writes to `~/.agents/skills` — which Codex also reads. Enabling both makes Codex see universal's content on top of its own.
 
 ```text

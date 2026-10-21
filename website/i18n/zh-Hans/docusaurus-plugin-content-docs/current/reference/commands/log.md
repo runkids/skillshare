@@ -44,10 +44,12 @@ skillshare log --no-tui | less    # 手动通过 pager 分页
 
 | 命令 | 日志文件 |
 |---------|----------|
-| `install`、`uninstall`、`sync`、`push`、`pull`、`collect`、`backup`、`restore`、`update`、`target`、`trash`、`config`、`check`、`diff`、`init`、`upgrade` | `operations.log` |
+| `install`、`uninstall`、`sync`、`push`、`pull`、`collect`、`backup`、`restore`、`update`、`target`、`project`、`trash`、`config`、`check`、`diff`、`init`、`upgrade` | `operations.log` |
 | `audit` | `audit.log` |
 
 调用这些 API 的 Web UI 操作，其记录方式与 CLI 操作相同。
+
+`project` 记录会包含 `action`（`add`、`update`、`remove`，或仪表盘的 `convert`）和项目的 `root`，因此可以看出是哪个项目发生了变更。`skillshare project sync` 会记录为带有这两个字段的 `sync` 条目。
 
 ## 日志类型
 

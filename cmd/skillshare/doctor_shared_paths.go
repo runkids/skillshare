@@ -28,10 +28,10 @@ func sharedTargetPathsSuggestion(path string, targets []string, isProject bool) 
 
 // folderConflictSuggestion says which targets to stop syncing skills for when
 // targets share a folder with different settings.
-func folderConflictSuggestion(c config.SkillsFolderConflict, isProject bool) string {
+func folderConflictSuggestion(c config.SkillsFolderConflict, cfg *config.Config, isProject bool) string {
 	cmds := make([]string, 0, len(c.Stop))
 	for _, name := range c.Stop {
-		cmds = append(cmds, "`"+skillsOffCommand(name, isProject)+"`")
+		cmds = append(cmds, "`"+skillsOffCommand(name, isProject, cfg.Targets, cfg.Projects)+"`")
 	}
 	return fmt.Sprintf("Keep %s syncing skills to %s and stop the rest with %s.", c.Keep, c.Path, strings.Join(cmds, ", "))
 }
@@ -114,7 +114,7 @@ func checkSharedTargetPaths(cfg *config.Config, result *doctorResult, isProject 
 		suggestion := sharedTargetPathsSuggestion(c.path, c.targets, isProject)
 		if conflict, ok := conflicts[c.path]; ok {
 			detail += " (different settings, so they undo each other on every sync)"
-			suggestion = folderConflictSuggestion(conflict, isProject)
+			suggestion = folderConflictSuggestion(conflict, cfg, isProject)
 		}
 		ui.Warning("Shared path %s", detail)
 		details = append(details, detail)

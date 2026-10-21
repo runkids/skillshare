@@ -386,24 +386,41 @@ func TestDisplayInstallResults_VerboseLargeBatch_ShowsCompactThenHighCritical(t 
 	}
 }
 
+func TestCaptureStdoutLargeOutput(t *testing.T) {
+	want := strings.Repeat("captured output\n", 1<<16)
+	old := os.Stdout
+	got := captureStdout(t, func() {
+		if _, err := io.WriteString(os.Stdout, want); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if got != want {
+		t.Fatalf("captured output differs: got %d bytes, want %d", len(got), len(want))
+	}
+	if os.Stdout != old {
+		t.Fatal("stdout was not restored after capture")
+	}
+}
+
 func captureStdout(t *testing.T, fn func()) string {
 	t.Helper()
 
 	old := os.Stdout
-	r, w, err := os.Pipe()
+	f, err := os.CreateTemp(t.TempDir(), "stdout-")
 	if err != nil {
-		t.Fatalf("failed to create pipe: %v", err)
+		t.Fatalf("failed to create capture file: %v", err)
 	}
-	os.Stdout = w
+	defer f.Close()
+	os.Stdout = f
+	defer func() { os.Stdout = old }()
 
 	fn()
 
-	if err := w.Close(); err != nil {
-		t.Fatalf("failed to close write pipe: %v", err)
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		t.Fatalf("failed to rewind captured output: %v", err)
 	}
-	os.Stdout = old
 
-	data, err := io.ReadAll(r)
+	data, err := io.ReadAll(f)
 	if err != nil {
 		t.Fatalf("failed to read captured output: %v", err)
 	}

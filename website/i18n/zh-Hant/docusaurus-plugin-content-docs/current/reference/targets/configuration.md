@@ -669,7 +669,7 @@ projects:
 - **輸出中的名稱。** `sync`、`status`、`diff`、`doctor` 與 `backup` 會以 `<name>@<target>` 的形式顯示一個 project 的 targets，例如 `shop-web@claude`。`name` 不能包含 `@`、`/` 或 `\`，且兩個 project 不能共用同一個名稱。
 - **Agents** 只會寫入擁有 project agents 目錄的工具。只設定 `agents` 而不設定 `skills` 的 project，只會同步 agents。
 - **找不到的資料夾會被跳過。** `sync` 會印出 `project <folder>: folder not found, skipped`，且不會重新建立你已經搬移或刪除的 project。
-- **`target` 與 `collect` 不會動到 projects。** `skillshare target` 只會列出並編輯 `targets` 區塊，`collect` 也不會把 project 自己的 skills 拉回 source。請在 `config.yaml` 中編輯 `projects`，或在 dashboard 的 **Projects** 頁面編輯。
+- **`target` 與 `collect` 不會動到 projects。** `skillshare target` 只會列出並編輯 `targets` 區塊，`collect` 也不會把 project 自己的 skills 拉回 source。使用 [`skillshare project`](/docs/reference/commands/project) 新增、編輯、同步或移除專案註冊，也可以使用 dashboard 的 **Projects** 頁面。
 - 帶有 `targets` frontmatter 欄位的 skill 會依工具比對，因此 `targets: [claude]` 會涵蓋 `shop-web@claude`。
 
 同樣這些資料夾的 MCP servers 列在 [`mcp.projects`](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config) 底下，以相同的資料夾為 key。逐步設定教學請參見[多個 Projects，一份 Config](/docs/how-to/recipes/many-projects-one-config)。

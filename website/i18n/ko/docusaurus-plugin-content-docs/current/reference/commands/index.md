@@ -11,6 +11,7 @@ sidebar_position: 1
 | 하고 싶은 작업... | 명령어 |
 |--------------|---------|
 | skillshare를 처음 설정하기 | [`init`](./init.md) |
+| 전역 설정에서 프로젝트 폴더 관리 | [`project`](/docs/reference/commands/project) |
 | GitHub에서 skill 설치하기 | [`install`](./install.md) |
 | 나만의 skill 만들기 | [`new`](./new.md) |
 | 모든 AI CLI에 skill 동기화하기 | [`sync`](./sync.md) |
@@ -38,7 +39,7 @@ sidebar_position: 1
 | **Skill Management** | `new`, `check`, `update`, `upgrade`, `enable`, `disable` |
 | **MCP Connections** | `mcp` (`add`, `edit`, `import`, `list`, `remove`, `restore`), `sync mcp` |
 | **Plugin Management** | `plugin` (`list`, `discover`, `add`, `import`, `inspect`, `sync`, `check`, `update`, `enable`, `disable`, `remove`) |
-| **Target Management** | `target`, `diff` |
+| **Target Management** | `target`, `project`, `diff` |
 | **Extras Management** | `extras` (`init`, `list`, `remove`, `collect`) |
 | **Sync Operations** | `collect`, `backup`, `restore`, `trash`, `commit`, `push`, `pull` |
 | **Security & Utilities** | `analyze`, `audit`, `hub`, `log`, `doctor`, `tui`, `ui`, `completion`, `version` |
@@ -74,6 +75,7 @@ sidebar_position: 1
 | 명령어 | 설명 |
 |---------|-------------|
 | [target](./target.md) | target 관리 |
+| [project](/docs/reference/commands/project) | 프로젝트 폴더와 skill 및 agent 동기화 관리 |
 | [diff](./diff.md) | Source와 target 간 차이 표시 |
 
 ## Extras Management

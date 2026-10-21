@@ -139,6 +139,8 @@ skillshare target codex --skills=false
 
 In the dashboard, the **Sync** page shows the same warning with a button that stops syncing skills for that target. Giving both targets the same filters, mode and target naming also works.
 
+A target from a registered project (`<project>@<tool>`) has no skills switch of its own, because a project's skills setting covers all its targets. For one, the command drops only that tool from the project, `skillshare project edit <root> --target <other tools>`, or turns skills off with `skillshare project edit <root> --no-skills` when it is the project's only target.
+
 ### `sync seems stuck or slow`
 
 **Cause:** Large files in skills directory.
