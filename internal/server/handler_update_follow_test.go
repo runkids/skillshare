@@ -178,6 +178,12 @@ func runFollowUpdate(t *testing.T, s *Server, stream bool, name string, forces .
 		body := fmt.Sprintf(`{"name":%q,"all":%t,"force":%t}`, name, name == "", force)
 		s.handleUpdate(rr, httptest.NewRequest(http.MethodPost, "/api/update", strings.NewReader(body)))
 	}
+	return updateResults(t, rr, stream)
+}
+
+// updateResults decodes the results of an update response, streamed or not.
+func updateResults(t *testing.T, rr *httptest.ResponseRecorder, stream bool) []updateResultItem {
+	t.Helper()
 	if rr.Code != http.StatusOK {
 		t.Fatalf("update status = %d: %s", rr.Code, rr.Body.String())
 	}

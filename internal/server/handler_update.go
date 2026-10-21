@@ -187,6 +187,15 @@ func (s *Server) updateAgent(name string, force, skipAudit bool) updateResultIte
 		return updateResultItem{Name: name, Kind: "agent", Action: "error", Message: "agents source is not configured"}
 	}
 
+	// The dashboard names an agent repo by its folder.
+	if validSourceName(name) {
+		if repoPath := filepath.Join(agentsSource, filepath.FromSlash(name)); install.IsTrackedCheckout(repoPath) {
+			item := s.updateTrackedRepo(name, repoPath, agentsSource, force, skipAudit)
+			item.Kind = "agent"
+			return item
+		}
+	}
+
 	localAgent, err := resolveAgentResource(agentsSource, name)
 	if err != nil {
 		return updateResultItem{Name: name, Kind: "agent", Action: "error", Message: err.Error()}
@@ -194,7 +203,9 @@ func (s *Server) updateAgent(name string, force, skipAudit bool) updateResultIte
 
 	if localAgent.RepoRelPath != "" {
 		repoPath := filepath.Join(agentsSource, filepath.FromSlash(localAgent.RepoRelPath))
-		return s.updateTrackedRepo(agentMetaKey(localAgent.RelPath), repoPath, agentsSource, force, skipAudit)
+		item := s.updateTrackedRepo(agentMetaKey(localAgent.RelPath), repoPath, agentsSource, force, skipAudit)
+		item.Kind = "agent"
+		return item
 	}
 
 	metaKey := agentMetaKey(localAgent.RelPath)
