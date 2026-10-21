@@ -670,7 +670,7 @@ func printInstallHelp() {
 		}},
 		helpNotes("Workflow notes",
 			"Use -g for user-wide resources or -p for a project; keep the scope on each command.",
-			"--skill selections need no --all/--yes. --track keeps the collection as one unit.",
+			"--skill rejects --all/--yes. --track keeps the collection as one unit.",
 			"With a plain owner/repo source (no URL ref), omit --branch to start on its default branch.",
 			"Tracked repositories follow branches; omit --track to pin a tag or commit.",
 			"Target include/exclude filters control exposure; sync never fetches upstream updates.",

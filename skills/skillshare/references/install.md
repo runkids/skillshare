@@ -67,8 +67,8 @@ well as team repositories. With a plain `owner/repo` source (no URL ref), omit
 `--branch` to start tracking its default branch (usually `main`), then use
 `update` to pull that branch's latest changes. Tracking does not
 schedule updates. It does not need `--all` or `--yes`; both are rejected,
-as are `--skill` and `--agent`. To install selected skills separately, use `-s`
-without `--track`, `--all`, or `--yes`.
+as are `--skill` and `--agent`. To install selected skills separately, use `-s`.
+Combining `--skill` with `--track`, `--all`, or `--yes` is rejected.
 
 ```bash
 skillshare install owner/repo --track --name team -g --dry-run
@@ -113,8 +113,8 @@ or `--kind agent` to choose which resource to manage.
 | `--branch, -b <name>` | Select a Git branch, tag or commit SHA (overrides a ref in a web URL) |
 | `--force, -f` | Overwrite existing and explicitly override audit blocking |
 | `--update, -u` | Update if exists |
-| `--track, -t` | Track for updates (preserves .git); a local path works if it is a git repository |
-| `--skill, -s <names>` | Select specific skills from multi-skill repo (comma-separated) |
+| `--track, -t` | Track for updates (preserves .git); a local path works if it is a git repository. Rejects `--all`, `--yes`, `--skill`, and `--agent` |
+| `--skill, -s <names>` | Select specific skills from multi-skill repo (comma-separated). Rejects `--track`, `--all`, and `--yes` |
 | `--into <dir>` | Install into subdirectory (e.g., `--into frontend`) |
 | `--all` | Install all discovered skills without prompting |
 | `--yes, -y` | Auto-accept all prompts (CI/CD friendly) |

@@ -93,32 +93,9 @@ or `-p` for this project; keep that scope on preview, apply, update, and sync.
 | Install all discovered skills individually | `skillshare install owner/repo --all -g` |
 | Manage a complete native plugin, including hooks/MCP | Use `plugin discover` and `plugin add`; see below |
 
-`--track` already runs without a selection prompt. Do not combine it with
-`--all`, `--yes`, `--skill`, or `--agent`. Named selections also need no `--yes`.
-`--name team` gives the tracked checkout the name `_team`; use the actual name
-reported by install/list for later commands.
-To follow the latest upstream content, install from a plain `owner/repo` source
-without `--branch` or a ref embedded in the URL. This starts tracking its default
-branch (usually `main`). Run `update` for that branch's latest changes, then
-`sync`; tracking does not schedule automatic updates.
-
-```bash
-skillshare install owner/repo --track --name team -g --dry-run
-skillshare install owner/repo --track --name team -g
-skillshare list -g --json
-skillshare sync -g --dry-run
-skillshare sync -g
-skillshare status -g --json
-# Later: check and update the source, then distribute it again
-skillshare check _team -g --json
-skillshare update _team -g
-skillshare sync -g
-```
-
-Inspect existing target filters before syncing. A tracked checkout and target
-exposure are separate: include/exclude rules decide which of its skills reach
-each Agent. Read [install.md](references/install.md) for the filter workflow and
-branch/subdirectory tracking. `sync` distributes local content; it does not fetch updates.
+For the scoped preview → apply → update → sync workflow, read
+[install.md](references/install.md#track-a-collection-without-a-picker). It covers
+following the latest upstream branch, rejected flag combinations, and target filters.
 
 For project setup, use `init -p`, then `install -p` and `sync -p`. Rehydrate configured
 remote dependencies with `install` without a source. For full flag details and agents,
@@ -170,29 +147,11 @@ editing, import conflicts, credentials, backups, and human-operated TUI commands
 
 ### Complete plugins
 
-```bash
-skillshare plugin discover https://github.com/owner/plugin.git -g --json
-skillshare plugin add https://github.com/owner/plugin.git --name demo --target claude -g --dry-run --json
-skillshare plugin add https://github.com/owner/plugin.git --name demo --target claude -g --no-tui
-skillshare plugin inspect demo -g --json
-# Later: review upstream changes before updating
-skillshare plugin check demo -g --json
-skillshare plugin update demo -g --dry-run --json
-skillshare plugin update demo -g --no-tui
-```
-
-Use the source's actual candidate name with `--plugin` if discovery finds a
-marketplace. Choose supported targets from discovery; repeat `--target` for
-several clients. `add` without a target stores the package but installs it nowhere.
-Use `--source-ref` for a Git branch/tag/commit, not `--track`.
-Omit it when adding a new package to follow the remote default branch; updates
-reuse the stored ref rather than unpinning an existing package.
-
-Run only the requested operation. `add` installs a whole native package; `import`
-adopts an existing installation. Plugin enable/disable saves sync selection only;
-the next `sync plugins` installs or removes the managed target. It is excluded
-from `sync --all`. Inspect `targetDefinitions` for supported operations and scopes;
-format discovery alone does not mean installation is supported. Read [plugins.md](references/plugins.md) before applying changes.
+Use `plugin discover` and `plugin add` for a complete native package; `plugin import`
+adopts an existing native installation. Read [plugins.md](references/plugins.md)
+for the scoped upstream workflow, supported targets, and source-ref rules.
+`plugin check/update` handles upstream changes; `sync plugins` reconciles target
+selection. Plugins are excluded from `sync --all`.
 
 ### Skill hubs
 
