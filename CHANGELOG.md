@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.26.1](https://github.com/runkids/skillshare/compare/v0.26.0...v0.26.1) (2026-10-21)
+
+
+* **skill:** restore plugin guardrails trimmed in [#596](https://github.com/runkids/skillshare/issues/596) ([5c59de8](https://github.com/runkids/skillshare/commit/5c59de88476651e119d585d050cffd5020eba7d8))
+
+
+### Bug Fixes
+
+* **ui:** update agents from the Updates tab and repo detail page ([#601](https://github.com/runkids/skillshare/issues/601)) ([2bba224](https://github.com/runkids/skillshare/commit/2bba224cdfae0abb0138a711e777d336a9959d6c)), closes [#600](https://github.com/runkids/skillshare/issues/600)
+* **update:** honor accepted findings in dashboard tracked updates ([#599](https://github.com/runkids/skillshare/issues/599)) ([7b952c0](https://github.com/runkids/skillshare/commit/7b952c02a9ca95d94ec515ebd709b7d21cae237d))
+
 ## [0.26.0] - 2026-10-20
 
 ### New Features
