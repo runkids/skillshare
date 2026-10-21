@@ -186,11 +186,12 @@ setups usually go wrong.
 
 - Another account: a target with `agent:` and `config_dir: <dir>` is an MCP target by its own
   name, and `mcp import --from <name>` reads that file. `claude` (`CLAUDE_CONFIG_DIR`) writes
-  `<dir>/.claude.json`, `codex` (`CODEX_HOME`) writes `<dir>/config.toml`, `pi` and `omp`
+  `<dir>/.claude.json`, `codex` (`CODEX_HOME`) writes `<dir>/config.toml`, `opencode` (`OPENCODE_CONFIG_DIR`)
+  writes `<dir>/opencode.json`, `pi` and `omp`
   (`PI_CODING_AGENT_DIR`) write `<dir>/mcp.json`. Global scope only; a project
   uses the Agent's own name, and a project's off switch goes to every account that has the
   server.
-- Account shell overrides: when `CLAUDE_CONFIG_DIR`, `CODEX_HOME` or
+- Account shell overrides: when `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_CONFIG_DIR` or
   `PI_CODING_AGENT_DIR` matches a declared account's `config_dir`, the plain Agent
   uses its default home and sync warns. Unrelated overrides are still honored.
   Existing directory aliases, including symlinks and filesystem case aliases, match.

@@ -52,7 +52,7 @@ See [Skills on or off](#skills-off).
 
 #### Another account of an Agent {#another-account}
 
-If you run a second account of an Agent from its own config directory, such as Claude Code with `CLAUDE_CONFIG_DIR=~/.claude-work`, Codex with `CODEX_HOME` or Pi with `PI_CODING_AGENT_DIR`, add that directory as a target. Skillshare works out the skills and agents paths from it:
+If you run a second account of an Agent from its own config directory, such as Claude Code with `CLAUDE_CONFIG_DIR=~/.claude-work`, Codex with `CODEX_HOME`, OpenCode with `OPENCODE_CONFIG_DIR` or Pi with `PI_CODING_AGENT_DIR`, add that directory as a target. Skillshare works out the skills and agents paths from it:
 
 ```bash
 skillshare target add claude-work --agent claude --config-dir ~/.claude-work
@@ -67,7 +67,7 @@ If the account runs a compatible CLI, such as omo for Pi, `--cli` makes its [plu
 skillshare target add omo --agent pi --config-dir ~/.omo/agent --cli omo
 ```
 
-`--agent` accepts `claude` (`CLAUDE_CONFIG_DIR`), `codex` (`CODEX_HOME`), `pi` and `omp` (both use `PI_CODING_AGENT_DIR`). A Codex, Pi or OMP account syncs its skills to `<config_dir>/skills`; only Claude also has an agents directory. OMP accounts support skills, instructions, files, MCP and native code hooks, but not plugin commands. The directory must be absolute or start with `~`, must not be the Agent's default one, and cannot be shared by two targets.
+`--agent` accepts `claude` (`CLAUDE_CONFIG_DIR`), `codex` (`CODEX_HOME`), `opencode` (`OPENCODE_CONFIG_DIR`), `pi` and `omp` (both use `PI_CODING_AGENT_DIR`). A Codex, OpenCode, Pi or OMP account syncs its skills to `<config_dir>/skills`; Claude and OpenCode also have an agents directory. OMP accounts support skills, instructions, files, MCP and native code hooks, but not plugin commands. The directory must be absolute or start with `~`, must not be the Agent's default one, and cannot be shared by two targets.
 
 Removing such a target never fails because of MCP: if `mcp.targets` or a server's `targets` still names it, `skillshare target remove` removes the target and warns you to take the name out there too.
 

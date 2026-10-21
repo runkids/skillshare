@@ -329,7 +329,7 @@ targets:
 
 #### Another account of an Agent {#agent-config-dir}
 
-A target can be a second config directory of a built-in Agent: Claude Code started with `CLAUDE_CONFIG_DIR`, Codex with `CODEX_HOME`, or Pi with `PI_CODING_AGENT_DIR`. Name the Agent and the directory; the skills and agents paths follow it.
+A target can be a second config directory of a built-in Agent: Claude Code started with `CLAUDE_CONFIG_DIR`, Codex with `CODEX_HOME`, OpenCode with `OPENCODE_CONFIG_DIR`, or Pi with `PI_CODING_AGENT_DIR`. Name the Agent and the directory; the skills and agents paths follow it.
 
 ```yaml
 targets:
@@ -341,11 +341,11 @@ targets:
     config_dir: ~/.codex-work    # skills go to ~/.codex-work/skills
 ```
 
-Codex reads the shared `~/.agents/skills` as well, but an account owns only its own directory, so its skills go to `<config_dir>/skills`. Pi and OMP work the same way. Only Claude has an agents directory.
+Codex reads the shared `~/.agents/skills` as well, but an account owns only its own directory, so its skills go to `<config_dir>/skills`. Pi and OMP work the same way. Claude and OpenCode also have an agents directory.
 
 | Field | Description |
 |-------|-------------|
-| `agent` | The built-in Agent: `claude` (`CLAUDE_CONFIG_DIR`), `codex` (`CODEX_HOME`), `pi` or `omp` (both use `PI_CODING_AGENT_DIR`) |
+| `agent` | The built-in Agent: `claude` (`CLAUDE_CONFIG_DIR`), `codex` (`CODEX_HOME`), `opencode` (`OPENCODE_CONFIG_DIR`), `pi` or `omp` (both use `PI_CODING_AGENT_DIR`) |
 | `config_dir` | That account's config directory. Absolute or starting with `~`, not the Agent's default one, and used by one target only |
 | `cli` | Optional. Runs the account's [plugin commands](/docs/reference/commands/plugin#accounts) with a compatible CLI instead of the Agent's own, such as `omo` for Pi. A name found on `PATH`, or an absolute path that may start with `~`. One executable without arguments; shell aliases are not seen |
 

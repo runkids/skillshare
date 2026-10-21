@@ -14,10 +14,10 @@ skillshare target remove myapp                # Remove target (safe)
 ```
 
 Another account (`agent` + `config_dir` in config.yaml): `--agent` accepts `claude`
-(`CLAUDE_CONFIG_DIR`), `codex` (`CODEX_HOME`), `pi` and `omp` (both use
+(`CLAUDE_CONFIG_DIR`), `codex` (`CODEX_HOME`), `opencode` (`OPENCODE_CONFIG_DIR`), `pi` and `omp` (both use
 `PI_CODING_AGENT_DIR`). The skills path follows the directory (`<config_dir>/skills`
-for Codex, Pi and OMP, even though Codex also
-reads the shared `~/.agents/skills`); only Claude has an agents directory. Any number of
+for Codex, OpenCode, Pi and OMP, even though Codex also
+reads the shared `~/.agents/skills`); Claude and OpenCode also have an agents directory. Any number of
 accounts can be added, and the target name is also valid in `mcp.targets` and a server's
 `targets`. Optional `--cli <executable>` (`cli:` in config.yaml) runs the account's plugin
 commands with a compatible CLI, such as `omo` for Pi: a name on PATH or an absolute path, no
