@@ -59,6 +59,45 @@ skillshare install anthropics/skills -s pdf -p        # Selective + project mode
 skillshare install user/repo --skip-audit             # Skip security scan
 ```
 
+### Track a collection without a picker
+
+`--track` keeps the repository (or Git subdirectory) as one checkout, with its
+Git metadata for updates. It is useful for personal upstream collections as
+well as team repositories. Omit `--branch` to follow the remote's default branch
+(usually `main`), then use `update` to pull its latest changes. Tracking does not
+schedule updates. It does not need `--all` or `--yes`; both are rejected,
+as are `--skill` and `--agent`. To install selected skills separately, use `-s`
+without `--track`, `--all`, or `--yes`.
+
+```bash
+skillshare install owner/repo --track --name team -g --dry-run
+skillshare install owner/repo --track --name team -g
+skillshare list -g --json
+skillshare target claude -g
+# Only if this target already uses an allowlist, add the desired discovered name/pattern:
+skillshare target claude --add-include '_team__*' -g
+skillshare sync -g --dry-run
+skillshare sync -g
+skillshare status -g --json
+```
+
+Preserve existing target filters. Adding the first include pattern creates an
+allowlist and can exclude other skills. Patterns match flattened source names
+reported by `list` (for example, `_team__skills__pdf`), even when target naming
+produces a shorter folder name. Do not guess names from the repository basename.
+Target filters control exposure without removing files from the tracked checkout;
+install-time selection is a different operation. Filters require merge/copy mode.
+
+Use `-p` instead of `-g` throughout for a project. Add `--branch BRANCH` to
+follow a specific upstream branch. Tracked repositories must follow a branch;
+to pin a tag or commit, install without `--track`. Use a source such as
+`owner/repo/skills` to track only that Git subdirectory. Review audit findings
+before applying; do not use `--force` as a noninteractive shortcut.
+
+Later, run `check _team -g --json`, `update _team -g`, then `sync -g` (each with
+the `skillshare` prefix). Sync does not fetch upstream changes. A complete native
+plugin uses [the plugin lifecycle](plugins.md), not `install --track`.
+
 ### Flags
 
 | Flag | Description |
