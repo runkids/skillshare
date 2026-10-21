@@ -194,7 +194,7 @@ func (s *Server) updateAgent(name string, force, skipAudit bool) updateResultIte
 
 	if localAgent.RepoRelPath != "" {
 		repoPath := filepath.Join(agentsSource, filepath.FromSlash(localAgent.RepoRelPath))
-		return s.updateTrackedRepo(agentMetaKey(localAgent.RelPath), repoPath, "", force, skipAudit)
+		return s.updateTrackedRepo(agentMetaKey(localAgent.RelPath), repoPath, agentsSource, force, skipAudit)
 	}
 
 	metaKey := agentMetaKey(localAgent.RelPath)
@@ -286,14 +286,12 @@ func (s *Server) updateAgent(name string, force, skipAudit bool) updateResultIte
 }
 
 // updateTrackedRepo runs the shared tracked-repo update and reports it as a
-// result item. sourceDir is the source root whose metadata is refreshed; pass
-// "" for repos that have none there (agent repos).
+// result item. sourceDir is the skills or agents source root that holds the
+// repo's metadata and accepted findings, as the CLI passes it.
 func (s *Server) updateTrackedRepo(name, repoPath, sourceDir string, force, skipAudit bool, follow ...*sourcewalk.Follow) updateResultItem {
 	if refusal := s.refuseFollowedCheckout(name, repoPath, follow); refusal != nil {
 		return *refusal
 	}
-	// AcceptedFindings stays off: a dashboard force update is not remembered,
-	// and findings accepted from the CLI still block here.
 	opts := update.TrackedRepoOptions{
 		SourceDir: sourceDir,
 		Force:     force,
@@ -346,6 +344,9 @@ func (s *Server) updateTrackedRepo(name, repoPath, sourceDir string, force, skip
 		item.Message = fmt.Sprintf("%d commits, %d files changed", len(res.Info.Commits), res.Info.Stats.FilesChanged)
 		for _, w := range res.Warnings {
 			item.Message += "; " + w
+		}
+		if res.RecordErr != nil {
+			item.Message += "; failed to record accepted findings: " + res.RecordErr.Error()
 		}
 		if res.Audit != nil {
 			item.AuditRiskScore = res.Audit.RiskScore

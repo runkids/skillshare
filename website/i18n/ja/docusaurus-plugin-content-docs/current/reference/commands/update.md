@@ -319,7 +319,7 @@ skillshare update --all --skip-audit
 
 ### 承認済みの検出結果 {#accepted-findings}
 
-`--force`（またはプロンプトで `y` と回答）で gate を上書きすると、受け入れた検出結果は `.metadata.json` の `audit_accepted` に記録されます。同じ skill の以降の更新では、それらの正確な検出結果ではブロックされなくなるため、`update --all` のたびに `--force` を繰り返す必要はありません。
+`--force`（またはプロンプトで `y` と回答）で gate を上書きすると、受け入れた検出結果は `.metadata.json` の `audit_accepted` に記録されます。同じ skill の以降の更新では、それらの正確な検出結果ではブロックされなくなるため、`update --all` のたびに `--force` を繰り返す必要はありません。ダッシュボードの **Updates** タブの Force Retry も同じように記録し、どちらで受け入れた検出結果も両方で尊重されます。
 
 ```
   1 previously accepted finding skipped

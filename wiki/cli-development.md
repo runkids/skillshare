@@ -96,7 +96,7 @@ When a dashboard endpoint is needed:
 
 Sync is the main example: the CLI and the server both run per-target sync through `internal/sync` (`SyncSkillTarget`, `RunAgentSync`, `RunExtraTargets`). Both follow CLI semantics: every target runs, and a failed target is reported as a partial failure instead of stopping the loop. Change sync behavior in these runners, not in a command or handler loop.
 
-Updating one tracked repo is another: both call `update.TrackedRepo` (`internal/update`), which checks for uncommitted changes, pulls, runs the post-pull audit gate (`install.AuditGate`), resets to the pre-pull commit when the gate blocks, and refreshes metadata. The gate is fail-closed: a scan that cannot run is never overridden by force. Callers only choose inputs (`AcceptedFindings`, `Confirm`) and word the result; change the sequence in the operation, not in a command or handler.
+Updating one tracked repo is another: both call `update.TrackedRepo` (`internal/update`), which checks for uncommitted changes, pulls, runs the post-pull audit gate (`install.AuditGate`), resets to the pre-pull commit when the gate blocks, and refreshes metadata. The gate is fail-closed: a scan that cannot run is never overridden by force. Findings an earlier override accepted are always honored, and an override records the ones it lets through. Callers only choose inputs (`Confirm`) and word the result; change the sequence in the operation, not in a command or handler.
 
 ## Completion Criteria
 

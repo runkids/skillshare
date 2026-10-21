@@ -216,31 +216,24 @@ func TestTrackedRepo_ForceSkipsConfirm(t *testing.T) {
 	}
 }
 
-// Findings let through by force are remembered only when the caller opts in.
+// Findings let through by force are remembered and do not block again.
 func TestTrackedRepo_AcceptedFindings(t *testing.T) {
-	for _, accepted := range []bool{true, false} {
-		f := newFixture(t, maliciousSkill)
-		opts := f.opts()
-		opts.AcceptedFindings = accepted
-		opts.Force = true
-		res, err := TrackedRepo(f.repo, opts)
-		if err != nil || !res.Overridden {
-			t.Fatalf("accepted=%t: force update = %+v, %v", accepted, res, err)
-		}
-		if want := map[bool]int{true: 1, false: 0}[accepted]; res.Recorded != want {
-			t.Errorf("accepted=%t: recorded %d findings, want %d", accepted, res.Recorded, want)
-		}
+	f := newFixture(t, maliciousSkill)
+	opts := f.opts()
+	opts.Force = true
+	res, err := TrackedRepo(f.repo, opts)
+	if err != nil || !res.Overridden {
+		t.Fatalf("force update = %+v, %v", res, err)
+	}
+	if res.Recorded != 1 {
+		t.Errorf("recorded %d findings, want 1", res.Recorded)
+	}
 
-		f.push(t, "# Moved down\n\n"+maliciousSkill)
-		opts.Force = false
-		res, err = TrackedRepo(f.repo, opts)
-		if accepted {
-			if err != nil || res.Status != StatusUpdated || res.AcceptedSkipped != 1 || res.Overridden {
-				t.Errorf("accepted finding should not block again: %+v, %v", res, err)
-			}
-			continue
-		}
-		blocked(t, err, install.RolledBack)
+	f.push(t, "# Moved down\n\n"+maliciousSkill)
+	opts.Force = false
+	res, err = TrackedRepo(f.repo, opts)
+	if err != nil || res.Status != StatusUpdated || res.AcceptedSkipped != 1 || res.Overridden {
+		t.Errorf("accepted finding should not block again: %+v, %v", res, err)
 	}
 }
 
