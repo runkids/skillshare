@@ -1,7 +1,9 @@
 package theme
 
 import (
-	"strings"
+	"io"
+	"os"
+	"runtime"
 	"testing"
 
 	"github.com/charmbracelet/lipgloss"
@@ -58,28 +60,28 @@ func TestResolve_ExplicitDark(t *testing.T) {
 func TestResolve_InvalidValueFallsBack(t *testing.T) {
 	t.Setenv("NO_COLOR", "")
 	t.Setenv("SKILLSHARE_THEME", "rainbow")
-	Reset()
+	wantSource := pinAutoTheme(t)
 
 	tm := Get()
 	if tm.Mode != ModeDark {
-		t.Errorf("Mode = %q, want dark fallback", tm.Mode)
+		t.Errorf("Mode = %q, want dark auto theme", tm.Mode)
 	}
-	if !strings.HasPrefix(tm.Source, "fallback-dark") {
-		t.Errorf("Source = %q, want fallback-dark-*", tm.Source)
+	if tm.Source != wantSource {
+		t.Errorf("Source = %q, want %q", tm.Source, wantSource)
 	}
 }
 
-func TestResolve_NonTTYFallback(t *testing.T) {
+func TestResolve_NonTTY(t *testing.T) {
 	t.Setenv("NO_COLOR", "")
 	t.Setenv("SKILLSHARE_THEME", "")
-	Reset()
+	wantSource := pinAutoTheme(t)
 
 	tm := Get()
 	if tm.Mode != ModeDark {
 		t.Errorf("Mode = %q", tm.Mode)
 	}
-	if tm.Source != "fallback-dark-no-tty" {
-		t.Errorf("Source = %q", tm.Source)
+	if tm.Source != wantSource {
+		t.Errorf("Source = %q, want %q", tm.Source, wantSource)
 	}
 }
 
@@ -114,23 +116,55 @@ func pinStdoutTerminal(t *testing.T, isTerminal bool) {
 	Reset()
 }
 
-func TestResolve_CIEnvSkipsDetection(t *testing.T) {
+func TestResolve_CIEnv(t *testing.T) {
 	t.Setenv("NO_COLOR", "")
 	t.Setenv("SKILLSHARE_THEME", "")
 	t.Setenv("CI", "true")
-	Reset()
+	wantSource := pinAutoTheme(t)
 
 	tm := Get()
 	if tm.Mode != ModeDark {
 		t.Errorf("Mode = %q", tm.Mode)
 	}
-	if !strings.HasPrefix(tm.Source, "fallback-dark") {
-		t.Errorf("Source = %q, want fallback-dark-*", tm.Source)
+	if tm.Source != wantSource {
+		t.Errorf("Source = %q, want %q", tm.Source, wantSource)
 	}
 }
 
 func TestCanDetect_Windows(t *testing.T) {
-	_ = canDetect()
+	t.Setenv("CI", "true")
+	t.Setenv("TERM", "dumb")
+	if got, want := canDetect(), runtime.GOOS == "windows"; got != want {
+		t.Errorf("canDetect() = %v, want %v", got, want)
+	}
+}
+
+// pinAutoTheme isolates the terminal and forwarded theme. Windows still probes
+// through lipgloss without a TTY; Unix falls back before probing.
+func pinAutoTheme(t *testing.T) string {
+	t.Helper()
+	t.Setenv("_SKILLSHARE_THEME_FORWARDED", "")
+	stdout, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	origStdout := os.Stdout
+	os.Stdout = stdout
+	origRenderer := lipgloss.DefaultRenderer()
+	renderer := lipgloss.NewRenderer(io.Discard)
+	renderer.SetHasDarkBackground(true)
+	lipgloss.SetDefaultRenderer(renderer)
+	t.Cleanup(func() {
+		os.Stdout = origStdout
+		stdout.Close()
+		lipgloss.SetDefaultRenderer(origRenderer)
+		Reset()
+	})
+	Reset()
+	if runtime.GOOS == "windows" {
+		return "detected"
+	}
+	return "fallback-dark-no-tty"
 }
 
 // --- helpers used by later tests ---
