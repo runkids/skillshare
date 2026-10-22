@@ -92,7 +92,7 @@ _skillshare() {
         return
     fi
     if [[ "${cmd}" == target && "${prev}" == --agent ]]; then
-        COMPREPLY=($(compgen -W "claude codex pi omp" -- "${cur}"))
+        COMPREPLY=($(compgen -W "claude codex opencode pi omp" -- "${cur}"))
         return
     fi
 

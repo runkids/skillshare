@@ -78,7 +78,7 @@ skillshare sync     # 推送到 Targets
 
 ## Variations
 
-- **选择性安装**：`skillshare install your-org/internal-skills --track --skill code-review` 只安装一个 Skill
+- **选择性安装**：`skillshare install your-org/internal-skills --skill code-review` 只安装一个 Skill
 - **CI/CD token**：在流水线中，通过 CI secrets 设置对应平台的环境变量（例如 `GITHUB_TOKEN`）
 - **Self-hosted GitLab**：设置 `GITLAB_TOKEN` 并使用 HTTPS URL：`skillshare install https://gitlab.internal.com/team/skills.git --track`
 - **Self-hosted Gitea**：设置 `GITEA_TOKEN`。如果主机名不包含 `gitea`，还需将其列入 [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts)

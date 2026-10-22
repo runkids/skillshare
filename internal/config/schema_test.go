@@ -454,3 +454,28 @@ func TestSchema_HooksAllowAccountBindings(t *testing.T) {
 		t.Fatal("incorrect project or root scope")
 	}
 }
+
+func TestSchema_TargetConfigAllowsOpenCodeAgent(t *testing.T) {
+	root := findRepoRoot(t)
+	data, err := os.ReadFile(filepath.Join(root, "schemas", "config.schema.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var schema map[string]any
+	if err := json.Unmarshal(data, &schema); err != nil {
+		t.Fatal(err)
+	}
+	defs := schema["$defs"].(map[string]any)
+	agentProp := defs["targetConfig"].(map[string]any)["properties"].(map[string]any)["agent"].(map[string]any)
+	enums := agentProp["enum"].([]any)
+	var found bool
+	for _, e := range enums {
+		if e == "opencode" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("targetConfig.agent enum missing opencode: %v", enums)
+	}
+}

@@ -43,15 +43,14 @@ func runTrackedRepoUpdate(uc *updateContext, repoPath string, onProgress func(st
 	}
 
 	opts := update.TrackedRepoOptions{
-		SourceDir:        uc.sourcePath,
-		Force:            uc.opts.force,
-		DryRun:           uc.opts.dryRun,
-		SkipAudit:        uc.opts.skipAudit,
-		Threshold:        uc.opts.threshold,
-		ProjectRoot:      uc.projectRoot,
-		Follow:           uc.follow,
-		AcceptedFindings: true,
-		OnProgress:       onProgress,
+		SourceDir:   uc.sourcePath,
+		Force:       uc.opts.force,
+		DryRun:      uc.opts.dryRun,
+		SkipAudit:   uc.opts.skipAudit,
+		Threshold:   uc.opts.threshold,
+		ProjectRoot: uc.projectRoot,
+		Follow:      uc.follow,
+		OnProgress:  onProgress,
 	}
 	declined := false
 	if ui.IsTTY() {

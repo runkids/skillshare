@@ -358,16 +358,16 @@ VS Code Stable의 기본 사용자 파일은 다음과 같습니다.
 - Linux: `${XDG_CONFIG_HOME:-~/.config}/Code/User/mcp.json`
 - Windows: `%APPDATA%/Code/User/mcp.json`
 
-Global Claude, Codex, Grok, Copilot 경로는 `CLAUDE_CONFIG_DIR`, `CODEX_HOME`,
-`GROK_HOME`, `COPILOT_HOME`을 존중합니다. `OPENCODE_CONFIG`와
-`OPENCODE_CONFIG_DIR`은 관리되지 않습니다. Amp와 Goose는 `.config` 경로를 사용하는
+Global Claude, Codex, Grok, Copilot, OpenCode 경로는 `CLAUDE_CONFIG_DIR`, `CODEX_HOME`,
+`GROK_HOME`, `COPILOT_HOME`, `OPENCODE_CONFIG_DIR`을 존중합니다. `OPENCODE_CONFIG`는
+관리되지 않습니다. Amp와 Goose는 `.config` 경로를 사용하는
 플랫폼에서 `XDG_CONFIG_HOME`을 존중합니다.
 Project 대상은 선택한 프로젝트 루트를 기준으로 합니다. 프로젝트 신뢰, 서버 승인,
 인증은 여전히 수신 Agent의 책임입니다.
 
 ### Another account of an Agent {#accounts}
 
-[Agent의 다른 계정](/docs/reference/targets/configuration#agent-config-dir)으로 선언된 target은 `claude`(`CLAUDE_CONFIG_DIR`), `codex`(`CODEX_HOME`), `pi`와 `omp`(둘 다 `PI_CODING_AGENT_DIR` 사용)에 대해 MCP target이기도 합니다. 그 서버는 해당 Agent의 형식으로, 계정 자체의 파일에 작성됩니다. Claude는 `<config_dir>/.claude.json`, Codex는 `<config_dir>/config.toml`, Pi와 OMP는 `<config_dir>/mcp.json`입니다.
+[Agent의 다른 계정](/docs/reference/targets/configuration#agent-config-dir)으로 선언된 target은 `claude`(`CLAUDE_CONFIG_DIR`), `codex`(`CODEX_HOME`), `opencode`(`OPENCODE_CONFIG_DIR`), `pi`와 `omp`(둘 다 `PI_CODING_AGENT_DIR` 사용)에 대해 MCP target이기도 합니다. 그 서버는 해당 Agent의 형식으로, 계정 자체의 파일에 작성됩니다. Claude는 `<config_dir>/.claude.json`, Codex는 `<config_dir>/config.toml`, OpenCode는 `<config_dir>/opencode.json`, Pi와 OMP는 `<config_dir>/mcp.json`입니다.
 
 ```yaml
 targets:

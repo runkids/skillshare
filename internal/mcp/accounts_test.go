@@ -11,7 +11,7 @@ import (
 )
 
 func TestAccountEnvOverrideDoesNotPruneDefaultHome(t *testing.T) {
-	for agent, env := range map[string]string{"codex": "CODEX_HOME", "claude": "CLAUDE_CONFIG_DIR", "pi": "PI_CODING_AGENT_DIR"} {
+	for agent, env := range map[string]string{"codex": "CODEX_HOME", "claude": "CLAUDE_CONFIG_DIR", "opencode": "OPENCODE_CONFIG_DIR", "pi": "PI_CODING_AGENT_DIR"} {
 		t.Run(agent, func(t *testing.T) {
 			s, work := agentAccountService(t, agent, fmt.Sprintf("mcp:\n  targets: [%s, %s-work]\n  servers:\n    demo:\n      url: https://example.com/mcp\n", agent, agent))
 			plan, err := s.Apply("")
@@ -490,6 +490,7 @@ func TestImportResolutionAdoptsTheAccountsEntry(t *testing.T) {
 func agentAccountService(t *testing.T, agent, mcp string) (*Service, string) {
 	t.Helper()
 	s := testService(t)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(s.Home, ".config"))
 	work := filepath.Join(s.Home, "."+agent+"-work")
 	config := "targets:\n  " + agent + "-work:\n    agent: " + agent + "\n    config_dir: " + work + "\n" + mcp
 	if err := os.WriteFile(s.ConfigPath, []byte(config), 0600); err != nil {
@@ -526,6 +527,25 @@ func TestPiAccountSyncsIntoItsOwnFile(t *testing.T) {
 	}
 	want := filepath.Join(work, "mcp.json")
 	if len(plan.Changes) != 1 || plan.Changes[0].Target != "pi-work" || plan.Changes[0].Path != want {
+		t.Fatalf("changes: %+v", plan.Changes)
+	}
+	if _, err := s.Apply(plan.Revision); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(want); !strings.Contains(string(data), "https://example.com/mcp") {
+		t.Fatalf("the account's file: %s", data)
+	}
+}
+
+// An OpenCode account keeps its own opencode.json, in the directory OPENCODE_CONFIG_DIR moves.
+func TestOpenCodeAccountSyncsIntoItsOpencodeJson(t *testing.T) {
+	s, work := agentAccountService(t, "opencode", "mcp:\n  targets: [opencode-work]\n  servers:\n    docs:\n      url: https://example.com/mcp\n")
+	plan, err := s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(work, "opencode.json")
+	if len(plan.Changes) != 1 || plan.Changes[0].Target != "opencode-work" || plan.Changes[0].Path != want {
 		t.Fatalf("changes: %+v", plan.Changes)
 	}
 	if _, err := s.Apply(plan.Revision); err != nil {

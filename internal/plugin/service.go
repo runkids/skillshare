@@ -173,7 +173,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 			skip("plugins.skip.imported", "Update imported packages in the native client; Skillshare updates reviewed source snapshots only.", nil)
 		}
 		if c.Action == "update" && agent == "opencode" && c.Binding.Source == "" {
-			help, err := s.run(ctx, "opencode", "plugin", "update", "--help")
+			help, err := s.run(ctx, c.Target, "plugin", "update", "--help")
 			if err != nil || !strings.Contains(string(help), "update") {
 				skip("plugins.skip.opencodeNoUpdate", "Installed OpenCode does not expose a verified plugin update command.", nil)
 			}

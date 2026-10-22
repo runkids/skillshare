@@ -225,6 +225,64 @@ func TestCheckCrossTargetDiscovery_OpenCodeNamesLeakedSkills(t *testing.T) {
 	}
 }
 
+func TestCheckCrossTargetDiscovery_OpenCodeAccountNamesLeakedSkills(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	cfg := &config.Config{
+		Source: tmp,
+		Mode:   "merge",
+		Targets: map[string]config.TargetConfig{
+			"opencode-work": {
+				Agent:     "opencode",
+				ConfigDir: filepath.Join(tmp, "opencode-work"),
+				Skills:    &config.ResourceTargetConfig{Path: filepath.Join(tmp, "opencode-work", "skills")},
+			},
+			"claude": {Skills: &config.ResourceTargetConfig{Path: "~/.claude/skills"}},
+		},
+	}
+	r := &doctorResult{}
+	checkCrossTargetDiscovery(cfg, r, false, []sync.DiscoveredSkill{
+		{FlatName: "shared"},
+		{FlatName: "claude-only", Targets: []string{"claude"}},
+	})
+
+	if r.warnings != 1 {
+		t.Fatalf("expected 1 warning, got %d (checks=%+v)", r.warnings, r.checks)
+	}
+	if detail := r.checks[0].Details[0]; !strings.Contains(detail, "loads skills missing from its own folder: claude-only") {
+		t.Errorf("detail %q does not name the leaked skill", detail)
+	}
+	if s := r.checks[0].Suggestions[0]; !strings.Contains(s, "OPENCODE_DISABLE_CLAUDE_CODE_SKILLS=1") {
+		t.Errorf("suggestion %q does not say how to stop OpenCode reading .claude/skills", s)
+	}
+}
+
+func TestCheckCrossTargetDiscovery_CodexAccountSeesUniversal(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	cfg := &config.Config{
+		Source: tmp,
+		Mode:   "merge",
+		Targets: map[string]config.TargetConfig{
+			"codex-work": {
+				Agent:     "codex",
+				ConfigDir: filepath.Join(tmp, "codex-work"),
+				Skills:    &config.ResourceTargetConfig{Path: filepath.Join(tmp, "codex-work", "skills")},
+			},
+			"universal": {Skills: &config.ResourceTargetConfig{Path: "~/.agents/skills"}},
+		},
+	}
+	r := &doctorResult{}
+	checkCrossTargetDiscovery(cfg, r, false, nil)
+
+	if r.warnings != 1 {
+		t.Fatalf("expected 1 warning, got %d (checks=%+v)", r.warnings, r.checks)
+	}
+	if len(r.checks[0].Details) == 0 || !strings.Contains(r.checks[0].Details[0], "universal") {
+		t.Errorf("expected warning mentioning universal, got %+v", r.checks[0].Details)
+	}
+}
+
 func TestCheckCrossTargetDiscovery_OpenCodeEnvOffPassesWithNote(t *testing.T) {
 	cfg := opencodeAndClaude(t)
 	t.Setenv("OPENCODE_DISABLE_CLAUDE_CODE_SKILLS", "1")

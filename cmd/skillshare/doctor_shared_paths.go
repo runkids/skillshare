@@ -45,9 +45,13 @@ func crossTargetDiscoverySuggestion(scanner string, writers []string, isProject 
 
 // leakedSkillsSuggestion also names the most specific environment variable
 // that makes the runtime skip every one of paths, when one does.
-func leakedSkillsSuggestion(scanner string, paths []string, isProject bool) string {
+func leakedSkillsSuggestion(scanner, agent string, paths []string, isProject bool) string {
 	s := fmt.Sprintf("These skills are not in %s's folder, but %s also reads other targets' folders. Sync them to %s too", scanner, scanner, scanner)
-	disabledBy := config.AlsoScansDisabledBy(scanner, isProject)
+	lookup := scanner
+	if agent != "" {
+		lookup = agent
+	}
+	disabledBy := config.AlsoScansDisabledBy(lookup, isProject)
 	for _, v := range disabledBy[paths[0]] {
 		if !slices.ContainsFunc(paths[1:], func(p string) bool { return !slices.Contains(disabledBy[p], v) }) {
 			s += ", or where " + scanner + " runs, set " + v + "=1"
@@ -175,7 +179,7 @@ func checkCrossTargetDiscovery(cfg *config.Config, result *doctorResult, isProje
 	overlapsByScanner := make(map[string]*scannerOverlap)
 
 	for scanner := range primaryByName {
-		for _, p := range config.RuntimeScanPaths(scanner, isProject) {
+		for _, p := range config.TargetScanPaths(scanner, cfg.Targets[scanner], isProject) {
 			resolved := filepath.Clean(p)
 			if resolved == primaryByName[scanner] {
 				// The scanner's own write path — checkSharedTargetPaths covers it.
@@ -248,7 +252,7 @@ func checkCrossTargetDiscovery(cfg *config.Config, result *doctorResult, isProje
 		suggestion := crossTargetDiscoverySuggestion(so.scanner, writers, isProject)
 		if !so.unknown {
 			header = fmt.Sprintf("%s loads %s missing from its own folder, from: %s", so.scanner, plural(len(leaked), "skill"), strings.Join(writers, ", "))
-			suggestion = leakedSkillsSuggestion(so.scanner, paths, isProject)
+			suggestion = leakedSkillsSuggestion(so.scanner, cfg.Targets[so.scanner].Agent, paths, isProject)
 		}
 		ui.Warning("%s", header)
 		for _, p := range so.paths {

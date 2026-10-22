@@ -162,6 +162,82 @@ func TestCodexAccountRunsItsCLIWithCodexHome(t *testing.T) {
 	}
 }
 
+func TestOpenCodeAccountRunsItsCLIWithOpenCodeConfigDir(t *testing.T) {
+	var calls []string
+	s := agentAccountPluginService(t, "opencode", &calls)
+	s.host(context.Background(), "opencode-work")
+	want := "opencode OPENCODE_CONFIG_DIR=" + s.Accounts["opencode-work"].Dir + " OPENCODE_CONFIG="
+	if !slices.Contains(calls, want) {
+		t.Fatalf("no call was %q: %v", want, calls)
+	}
+}
+
+func TestOpenCodeAccountRefusesOpenCodeConfigOverride(t *testing.T) {
+	var calls []string
+	s := agentAccountPluginService(t, "opencode", &calls)
+	t.Setenv("OPENCODE_CONFIG", filepath.Join(t.TempDir(), "other.json"))
+	_, err := s.openCodeConfigPath("opencode-work")
+	if err == nil || !strings.Contains(err.Error(), "unset OPENCODE_CONFIG before account plugin sync") {
+		t.Fatalf("expected error rejecting OPENCODE_CONFIG, got %v", err)
+	}
+}
+
+func TestOpenCodeAccountUpdateProbeUsesConfiguredCLIAndEnv(t *testing.T) {
+	var calls []string
+	s := agentAccountPluginService(t, "opencode", &calls)
+	a := s.Accounts["opencode-work"]
+	a.CLI = "/custom/bin/opencode-v2"
+	s.Accounts["opencode-work"] = a
+
+	cfg := []byte("plugins:\n  packages:\n    demo:\n      bindings:\n        opencode-work:\n          id: demo\n")
+	if err := os.WriteFile(s.ConfigPath, cfg, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	p, err := s.Preview(context.Background(), Request{Action: "update", Name: "demo", Targets: []string{"opencode-work"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Blocked || len(p.Changes) != 1 || p.Changes[0].Action != "update" {
+		t.Fatalf("unexpected changes: %+v", p.Changes)
+	}
+
+	wantProbePrefix := "/custom/bin/opencode-v2 OPENCODE_CONFIG_DIR=" + a.Dir + " OPENCODE_CONFIG="
+	found := false
+	for _, call := range calls {
+		if strings.HasPrefix(call, wantProbePrefix) {
+			found = true
+		}
+		if strings.HasPrefix(call, "opencode ") {
+			t.Fatalf("probe called default opencode instead of account CLI: %s", call)
+		}
+	}
+	if !found {
+		t.Fatalf("expected probe call starting with %q, got: %v", wantProbePrefix, calls)
+	}
+}
+
+// OpenCode's packages are a file, so an account's inventory must be read
+// from the account's own directory rather than default config or OPENCODE_CONFIG_DIR.
+func TestOpenCodeAccountInventoryComesFromItsDirectory(t *testing.T) {
+	var calls []string
+	s := agentAccountPluginService(t, "opencode", &calls)
+	dir := s.Accounts["opencode-work"].Dir
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "opencode.json"), []byte(`{"plugins":["demo-pkg"]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	h := s.host(context.Background(), "opencode-work")
+	if h.Status != HostReady {
+		t.Fatalf("host = %+v", h)
+	}
+	if len(h.Installed) != 1 || h.Installed[0].ID != "demo-pkg" {
+		t.Fatalf("installed = %+v", h.Installed)
+	}
+}
+
 // Pi's packages are a file, not a list command, so an account's inventory must be read
 // from the account's own directory rather than from PI_CODING_AGENT_DIR.
 func TestPiAccountInventoryComesFromItsDirectory(t *testing.T) {

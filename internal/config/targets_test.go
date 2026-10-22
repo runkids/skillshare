@@ -598,6 +598,14 @@ func TestTargetInstructions_AccountMovesIntoConfigDir(t *testing.T) {
 	}
 }
 
+func TestTargetInstructions_OpenCodeAccountMovesIntoConfigDir(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "work")
+	got, ok := TargetInstructions("opencode-work", TargetConfig{Agent: "opencode", ConfigDir: dir}, false)
+	if !ok || got.Path != filepath.Join(dir, "AGENTS.md") {
+		t.Errorf("opencode account instructions = %+v, %v", got, ok)
+	}
+}
+
 func TestTargetInstructions_CustomGlobalExpandsTilde(t *testing.T) {
 	home, _ := os.UserHomeDir()
 	tc := TargetConfig{Instructions: &TargetInstructionsConfig{Path: "~/.myagent/AGENTS.md", Import: true}}
@@ -620,5 +628,29 @@ func TestTargetInstructions_CustomOverridesBuiltin(t *testing.T) {
 	got, ok := TargetInstructions("claude", tc, false)
 	if !ok || got != (InstructionsTarget{Path: filepath.Clean("/elsewhere/NOTES.md")}) {
 		t.Errorf("override = %+v, %v", got, ok)
+	}
+}
+
+func TestTargetScanPaths_CodexAccount(t *testing.T) {
+	home, _ := os.UserHomeDir()
+	dir := filepath.Join(t.TempDir(), "codex-work")
+	target := TargetConfig{
+		Agent:     "codex",
+		ConfigDir: dir,
+		Skills:    &ResourceTargetConfig{Path: filepath.Join(dir, "skills")},
+	}
+	paths := TargetScanPaths("codex-work", target, false)
+	wantUniversal := filepath.Join(home, ".agents", "skills")
+	wantAccount := filepath.Join(dir, "skills")
+	dontWantDefault := filepath.Join(home, ".codex", "skills")
+
+	if !slices.Contains(paths, wantUniversal) {
+		t.Errorf("TargetScanPaths(codex-work) = %v, missing universal %q", paths, wantUniversal)
+	}
+	if !slices.Contains(paths, wantAccount) {
+		t.Errorf("TargetScanPaths(codex-work) = %v, missing account skills %q", paths, wantAccount)
+	}
+	if slices.Contains(paths, dontWantDefault) {
+		t.Errorf("TargetScanPaths(codex-work) = %v, unexpectedly contains default account %q", paths, dontWantDefault)
 	}
 }

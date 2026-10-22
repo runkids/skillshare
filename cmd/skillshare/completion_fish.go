@@ -280,7 +280,7 @@ complete -c skillshare -n '__fish_skillshare_using_command target' -l add-agent-
 complete -c skillshare -n '__fish_skillshare_using_command target' -l add-agent-exclude -r -d 'Add agent exclude filter'
 complete -c skillshare -n '__fish_skillshare_using_command target' -l remove-agent-include -r -d 'Remove agent include filter'
 complete -c skillshare -n '__fish_skillshare_using_command target' -l remove-agent-exclude -r -d 'Remove agent exclude filter'
-complete -c skillshare -n '__fish_skillshare_using_command target' -l agent -r -a 'claude codex pi omp' -d 'With add: the Agent this is another account of'
+complete -c skillshare -n '__fish_skillshare_using_command target' -l agent -r -a 'claude codex opencode pi omp' -d 'With add: the Agent this is another account of'
 complete -c skillshare -n '__fish_skillshare_using_command target' -l config-dir -r -F -d 'With add: the config directory of that account'
 complete -c skillshare -n '__fish_skillshare_using_command target' -l cli -r -d 'With add: the executable that runs its plugin commands'
 complete -c skillshare -n '__fish_skillshare_using_command target' -l skills -r -a 'true false' -d 'Sync skills to this target'

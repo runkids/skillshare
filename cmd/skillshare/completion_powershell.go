@@ -235,7 +235,7 @@ $_skillshareCompleter = {
         return
     }
     if ($cmd -eq 'target' -and $previousIndex -ge 0 -and $elements[$previousIndex] -eq '--agent') {
-        @('claude', 'codex', 'pi', 'omp') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+        @('claude', 'codex', 'opencode', 'pi', 'omp') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
             [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
         }
         return

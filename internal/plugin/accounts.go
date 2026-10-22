@@ -18,7 +18,7 @@ type Account struct {
 
 // accountEnv names, for each Agent whose plugins follow its config directory, the
 // environment variable that points its CLI at another one. Only these Agents have accounts.
-var accountEnv = map[string]string{"claude": "CLAUDE_CONFIG_DIR", "codex": "CODEX_HOME", "pi": "PI_CODING_AGENT_DIR"}
+var accountEnv = map[string]string{"claude": "CLAUDE_CONFIG_DIR", "codex": "CODEX_HOME", "opencode": "OPENCODE_CONFIG_DIR", "pi": "PI_CODING_AGENT_DIR"}
 
 // piForkEnv are the variables Pi forks read before PI_CODING_AGENT_DIR (senpi, and omo
 // built on it). One left in the user's environment would win over the account's directory.
@@ -31,6 +31,9 @@ func (a Account) env() []string {
 		for _, name := range piForkEnv {
 			env = append(env, name+"="+a.Dir)
 		}
+	}
+	if a.Agent == "opencode" {
+		env = append(env, "OPENCODE_CONFIG=")
 	}
 	return env
 }

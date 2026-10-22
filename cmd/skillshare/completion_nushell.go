@@ -59,7 +59,7 @@ def "nu-complete skillshare mcp-target" [] {
 }
 
 def "nu-complete skillshare account-agent" [] {
-    [claude codex pi omp]
+    [claude codex opencode pi omp]
 }
 
 def "nu-complete skillshare hooks" [] {

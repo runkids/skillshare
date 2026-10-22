@@ -99,7 +99,7 @@ Kimi 的非交互式生命周期、Hermes 的 profile 清单/同意流程，以�
 
 ### 某个 Agent 的另一个账号 {#accounts}
 
-声明为[某个 Agent 的另一个账号](/docs/reference/targets/configuration#agent-config-dir)的 target 同样是一个 plugin target，适用于 `claude`、`codex` 和 `pi`。Skillshare 会通过 `CLAUDE_CONFIG_DIR`、`CODEX_HOME` 或 `PI_CODING_AGENT_DIR`，针对该账号的配置目录运行该 Agent 自己的 CLI：
+声明为[某个 Agent 的另一个账号](/docs/reference/targets/configuration#agent-config-dir)的 target 同样是一个 plugin target，适用于 `claude`、`codex`、`opencode` 和 `pi`。Skillshare 会通过 `CLAUDE_CONFIG_DIR`、`CODEX_HOME`、`OPENCODE_CONFIG_DIR` 或 `PI_CODING_AGENT_DIR`，针对该账号的配置目录运行该 Agent 自己的 CLI：
 
 ```yaml
 targets:

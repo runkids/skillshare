@@ -288,10 +288,10 @@ See [Project Setup](/docs/how-to/sharing/project-setup) for the full guide.
 | `--force` | `-f` | Overwrite existing skill; override audit blocking and cross-path duplicate check |
 | `--update` | `-u` | Update if exists (git pull or reinstall) |
 | `--branch <ref>` | `-b` | Git branch, tag, or commit SHA to install from (default: remote default branch) |
-| `--track` | `-t` | Keep `.git` for tracked repos |
+| `--track` | `-t` | Keep `.git` for tracked repos. Cannot combine with `--all`, `--yes`, `--skill`, or `--agent`. |
 | `--kind <skill\|agent>` | | Limit install to one resource kind |
 | `--agent <names>` | `-a` | Select specific agents from a repo (comma-separated) |
-| `--skill` | `-s` | Select specific skills from multi-skill repo (comma-separated; supports glob patterns like `core-*`) |
+| `--skill` | `-s` | Select specific skills from multi-skill repo (comma-separated; supports glob patterns like `core-*`). Rejects `--all` and `--yes`. |
 | `--exclude` | | Skip specific skills during install (comma-separated; supports glob patterns like `test-*`) |
 | `--all` | | Install all discovered skills without prompting |
 | `--yes` | `-y` | Auto-accept all prompts (CI/CD friendly) |

@@ -372,15 +372,15 @@ VS Code Stable's default user file is:
 - Linux: `${XDG_CONFIG_HOME:-~/.config}/Code/User/mcp.json`
 - Windows: `%APPDATA%/Code/User/mcp.json`
 
-Global Claude, Codex, Grok and Copilot paths respect `CLAUDE_CONFIG_DIR`, `CODEX_HOME`,
-`GROK_HOME` and `COPILOT_HOME`. `OPENCODE_CONFIG` and `OPENCODE_CONFIG_DIR` are not managed. Amp and Goose honor `XDG_CONFIG_HOME` on the
+Global Claude, Codex, Grok, Copilot and OpenCode paths respect `CLAUDE_CONFIG_DIR`, `CODEX_HOME`,
+`GROK_HOME`, `COPILOT_HOME` and `OPENCODE_CONFIG_DIR`. `OPENCODE_CONFIG` is not managed. Amp and Goose honor `XDG_CONFIG_HOME` on the
 platforms using their `.config` paths.
 Project destinations are relative to the selected project root. Project trust,
 server approval and authentication remain the receiving Agent's responsibility.
 
 ### Another account of an Agent {#accounts}
 
-A target declared as [another account of an Agent](/docs/reference/targets/configuration#agent-config-dir) is an MCP target too, for `claude` (`CLAUDE_CONFIG_DIR`), `codex` (`CODEX_HOME`), `pi` and `omp` (both use `PI_CODING_AGENT_DIR`). Its servers are written in that Agent's format, into the account's own file: `<config_dir>/.claude.json` for Claude, `<config_dir>/config.toml` for Codex, or `<config_dir>/mcp.json` for Pi and OMP.
+A target declared as [another account of an Agent](/docs/reference/targets/configuration#agent-config-dir) is an MCP target too, for `claude` (`CLAUDE_CONFIG_DIR`), `codex` (`CODEX_HOME`), `opencode` (`OPENCODE_CONFIG_DIR`), `pi` and `omp` (both use `PI_CODING_AGENT_DIR`). Its servers are written in that Agent's format, into the account's own file: `<config_dir>/.claude.json` for Claude, `<config_dir>/config.toml` for Codex, `<config_dir>/opencode.json` for OpenCode, or `<config_dir>/mcp.json` for Pi and OMP.
 
 ```yaml
 targets:
@@ -400,7 +400,7 @@ mcp:
 
 Here `docs` goes to `~/.claude.json` and `~/.claude-work/.claude.json`, and `jira` to the second file only. `--target claude-work` works with `mcp add` and `mcp edit`, and the dashboard lists the account next to the Agents.
 
-When `CLAUDE_CONFIG_DIR`, `CODEX_HOME` or `PI_CODING_AGENT_DIR` points at a declared account's `config_dir` for that Agent, the plain Agent target uses its default home and sync warns about the shadowed variable. Existing directory aliases, including symlinks and case variants on case-insensitive filesystems, count as the same home. With no matching account, the override is honored as usual.
+When `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_CONFIG_DIR` or `PI_CODING_AGENT_DIR` points at a declared account's `config_dir` for that Agent, the plain Agent target uses its default home and sync warns about the shadowed variable. Existing directory aliases, including symlinks and case variants on case-insensitive filesystems, count as the same home. With no matching account, the override is honored as usual.
 
 If a managed MCP entry's file no longer matches its scope's resolved destination, sync leaves that entry and its ownership unchanged and warns about the parked path. This also applies after an account is removed or its `config_dir` changes. Sync from a configuration and shell where that home resolves again to resume managing it. Removed project scopes recorded in ownership and Pi's legacy adapter files remain eligible for cleanup.
 

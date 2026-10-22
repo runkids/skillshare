@@ -87,7 +87,7 @@ Kimi의 비대화형 lifecycle, Hermes의 profile inventory/consent, Devin의 �
 
 ### Another account of an Agent {#accounts}
 
-[Agent의 다른 계정](/docs/reference/targets/configuration#agent-config-dir)으로 선언된 target은 `claude`, `codex`, `pi`에 대해 plugin target이기도 합니다. Skillshare는 `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `PI_CODING_AGENT_DIR`을 통해 해당 Agent 자체의 CLI를 그 계정의 config 디렉터리에 대해 실행합니다:
+[Agent의 다른 계정](/docs/reference/targets/configuration#agent-config-dir)으로 선언된 target은 `claude`, `codex`, `opencode`, `pi`에 대해 plugin target이기도 합니다. Skillshare는 `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_CONFIG_DIR`, `PI_CODING_AGENT_DIR`을 통해 해당 Agent 자체의 CLI를 그 계정의 config 디렉터리에 대해 실행합니다:
 
 ```yaml
 targets:

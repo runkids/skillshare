@@ -262,9 +262,10 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
       for (const result of results) {
         if (!isSuccessfulUpdateAction(result.action)) continue;
         for (const item of updatable) {
+          if (item.kind !== (result.kind ?? 'skill')) continue;
           const hit = result.isRepo
             ? repoOf(item) === result.name
-            : !item.isInRepo && matchesCheckSkill(item, result.name);
+            : !item.isInRepo && (matchesCheckSkill(item, result.name) || agentKey(item) === result.name);
           if (hit) next.set(checkKey(item), { ...status, message: result.message });
         }
       }
@@ -306,9 +307,9 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
         setRunning(false);
         setFinished(true);
       },
-      { names, force: forceUpdate },
+      { names, kind, force: forceUpdate },
     );
-  }, [patchRun, applyUpdateResults, invalidateSkillData, toast]);
+  }, [kind, patchRun, applyUpdateResults, invalidateSkillData, toast]);
 
   const retryForce = useCallback((name: string) => {
     setRetried((prev) => new Set(prev).add(name));
@@ -321,21 +322,21 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
         invalidateSkillData();
       },
       (err) => patchRun(name, { status: 'error', message: err.message }),
-      { names: [name], force: true },
+      { names: [name], kind, force: true },
     );
-  }, [patchRun, applyUpdateResults, invalidateSkillData]);
+  }, [kind, patchRun, applyUpdateResults, invalidateSkillData]);
 
   const purge = useCallback(async (name: string) => {
     setRetried((prev) => new Set(prev).add(name));
     patchRun(name, { status: 'in-progress', message: t('update.updating.purging') });
     try {
-      await api.batchUninstall({ names: [name], force: true });
+      await api.batchUninstall({ names: [name], kind, force: true });
       patchRun(name, { status: 'skipped', message: t('update.updating.purged') });
       invalidateSkillData();
     } catch (err) {
       patchRun(name, { status: 'error', message: (err as Error).message });
     }
-  }, [patchRun, invalidateSkillData, t]);
+  }, [kind, patchRun, invalidateSkillData, t]);
 
   // A finished install-missing banner collapses on its own unless something failed.
   useEffect(() => {
@@ -845,6 +846,11 @@ function failureSummary(message: string): string {
 
 function matchesCheckSkill(item: Skill, resultName: string): boolean {
   return item.name === resultName || item.flatName === resultName || item.relPath === resultName;
+}
+
+/** An agent's update result names it by its path without `.md`. */
+function agentKey(item: Skill): string | undefined {
+  return item.kind === 'agent' ? item.relPath.replace(/\.md$/, '') : undefined;
 }
 
 function isSuccessfulUpdateAction(action: string): boolean {

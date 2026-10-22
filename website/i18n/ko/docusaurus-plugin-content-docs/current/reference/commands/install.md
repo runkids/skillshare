@@ -284,10 +284,10 @@ skillshare sync
 | `--force` | `-f` | 기존 skill을 덮어쓰기; audit 차단 및 cross-path 중복 검사를 재정의 |
 | `--update` | `-u` | 존재하면 업데이트 (git pull 또는 재설치) |
 | `--branch <ref>` | `-b` | 설치할 git branch, tag 또는 commit SHA (기본값: remote 기본 브랜치) |
-| `--track` | `-t` | tracked repo용으로 `.git`을 유지 |
+| `--track` | `-t` | tracked repo용으로 `.git`을 유지. `--all`, `--yes`, `--skill`, `--agent`와 함께 사용할 수 없습니다. |
 | `--kind <skill\|agent>` | | 설치를 하나의 리소스 종류로 제한 |
 | `--agent <names>` | `-a` | repo에서 특정 agent만 선택 (쉼표로 구분) |
-| `--skill` | `-s` | multi-skill repo에서 특정 skill 선택 (쉼표로 구분; `core-*`와 같은 glob 패턴 지원) |
+| `--skill` | `-s` | multi-skill repo에서 특정 skill 선택 (쉼표로 구분; `core-*`와 같은 glob 패턴 지원). `--all`, `--yes`와 함께 사용할 수 없습니다. |
 | `--exclude` | | 설치 중 특정 skill 건너뛰기 (쉼표로 구분; `test-*`와 같은 glob 패턴 지원) |
 | `--all` | | 프롬프트 없이 발견된 모든 skill 설치 |
 | `--yes` | `-y` | 모든 프롬프트 자동 승인 (CI/CD에 적합) |

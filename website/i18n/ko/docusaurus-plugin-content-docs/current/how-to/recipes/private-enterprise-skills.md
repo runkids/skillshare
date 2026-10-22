@@ -78,7 +78,7 @@ skillshare sync     # Target에 반영
 
 ## 변형
 
-- **선택적 설치**: `skillshare install your-org/internal-skills --track --skill code-review`는 하나의 Skill만 설치합니다
+- **선택적 설치**: `skillshare install your-org/internal-skills --skill code-review`는 하나의 Skill만 설치합니다
 - **CI/CD 토큰**: 파이프라인에서는 CI 시크릿으로부터 플랫폼별 환경 변수(예: `GITHUB_TOKEN`)를 설정하세요
 - **자체 호스팅 GitLab**: `GITLAB_TOKEN`을 설정하고 HTTPS URL을 사용하세요: `skillshare install https://gitlab.internal.com/team/skills.git --track`
 - **자체 호스팅 Gitea**: `GITEA_TOKEN`을 설정하세요. 호스트명에 `gitea`가 포함되어 있지 않다면 [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts)에도 등록하세요

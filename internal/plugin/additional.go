@@ -147,7 +147,7 @@ func (s *Service) additionalHost(ctx context.Context, target string) Host {
 		data, err = s.run(ctx, target, "--version")
 		h.Version = strings.TrimSpace(string(data))
 		if err == nil {
-			h.Installed, h.Fingerprint, err = s.openCodeInventory(h.Version)
+			h.Installed, h.Fingerprint, err = s.openCodeInventory(target, h.Version)
 		}
 		h.NoteKey = "plugins.note.opencode"
 		h.Note = "Plugin registrations only. OpenCode loads code and resolves dependencies on startup."

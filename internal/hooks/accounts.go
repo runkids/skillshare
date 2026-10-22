@@ -13,7 +13,7 @@ type Account struct {
 	Dir   string `json:"configDir"`
 }
 
-var accountAgents = []string{"claude", "codex", "pi", "omp"}
+var accountAgents = []string{"claude", "codex", "opencode", "pi", "omp"}
 
 func (s *Service) lookupAccount(target string) (Account, bool) {
 	if target == "git" {

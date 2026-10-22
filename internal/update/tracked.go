@@ -54,7 +54,7 @@ func (e *Error) Unwrap() error { return e.Err }
 // TrackedRepoOptions configures one tracked-repo update.
 type TrackedRepoOptions struct {
 	// SourceDir is the source root that holds the repo's metadata and accepted
-	// findings. Empty skips the metadata refresh.
+	// findings.
 	SourceDir string
 	// Force discards uncommitted changes, pulls with a hard reset and lets
 	// audit findings through. It never overrides a scan that could not run.
@@ -64,10 +64,6 @@ type TrackedRepoOptions struct {
 	Threshold   string
 	ProjectRoot string // non-empty audits with the project's rules
 	Follow      *sourcewalk.Follow
-	// AcceptedFindings makes the gate ignore findings an earlier override
-	// recorded under SourceDir, and records the ones this update lets through.
-	// The CLI sets it; the dashboard does not.
-	AcceptedFindings bool
 	// Confirm is asked once when findings would block and Force is unset. It
 	// receives the result so far (Info, Audit, Threshold, AcceptedSkipped).
 	// Nil, false or an error blocks and rolls back.
@@ -141,9 +137,7 @@ func TrackedRepo(repoPath string, opts TrackedRepoOptions) (*TrackedRepoResult, 
 		res.Warnings = install.SubmoduleWarnings(repoPath, git.AuthEnvForRepo(repoPath))
 	}
 
-	if opts.SourceDir != "" {
-		res.MetadataChanged, res.MetadataErr = refreshMetadata(repoPath, opts)
-	}
+	res.MetadataChanged, res.MetadataErr = refreshMetadata(repoPath, opts)
 	res.Status = StatusUpdated
 	if info.UpToDate {
 		res.Status = StatusUpToDate
@@ -156,14 +150,13 @@ func auditPulled(repoPath string, res *TrackedRepoResult, opts TrackedRepoOption
 		res.Audit, res.Threshold, res.AcceptedSkipped, res.Overridden = g.Audit, g.Threshold, g.AcceptedSkipped, g.Overridden
 	}
 	gate := install.AuditGate{
-		SourceDir:     opts.SourceDir,
-		RepoPath:      repoPath,
-		BeforeHash:    res.Info.BeforeHash,
-		Threshold:     opts.Threshold,
-		ProjectRoot:   opts.ProjectRoot,
-		Follow:        opts.Follow,
-		Override:      opts.Force,
-		HonorAccepted: opts.AcceptedFindings,
+		SourceDir:   opts.SourceDir,
+		RepoPath:    repoPath,
+		BeforeHash:  res.Info.BeforeHash,
+		Threshold:   opts.Threshold,
+		ProjectRoot: opts.ProjectRoot,
+		Follow:      opts.Follow,
+		Override:    opts.Force,
 	}
 	if opts.Confirm != nil {
 		gate.Confirm = func(g *install.AuditGateResult) (bool, error) {
@@ -178,7 +171,7 @@ func auditPulled(repoPath string, res *TrackedRepoResult, opts TrackedRepoOption
 	if err != nil {
 		return err
 	}
-	if g.Overridden && opts.AcceptedFindings {
+	if g.Overridden {
 		res.Recorded, res.RecordErr = install.RecordAcceptedFindings(opts.SourceDir, repoPath, g.Audit, g.Threshold)
 	}
 	return nil

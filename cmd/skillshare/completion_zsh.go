@@ -412,7 +412,7 @@ _skillshare() {
                         '--add-agent-exclude[Add agent exclude filter]:pattern:' \
                         '--remove-agent-include[Remove agent include filter]:pattern:' \
                         '--remove-agent-exclude[Remove agent exclude filter]:pattern:' \
-                        '--agent[With add: the Agent this is another account of]:agent:(claude codex pi omp)' \
+                        '--agent[With add: the Agent this is another account of]:agent:(claude codex opencode pi omp)' \
                         '--config-dir[With add: the config directory of that account]:dir:_files -/' \
                         '--cli[With add: the executable that runs its plugin commands]:executable:_command_names' \
                         '--skills=[Sync skills to this target]:enabled:(true false)' \

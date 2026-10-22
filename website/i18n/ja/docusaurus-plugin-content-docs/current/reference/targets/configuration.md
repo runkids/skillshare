@@ -331,7 +331,7 @@ targets:
 
 #### Agent の別のアカウント {#agent-config-dir}
 
-Target は、組み込み Agent の 2 つ目の Config ディレクトリにすることもできます。`CLAUDE_CONFIG_DIR` で起動した Claude Code、`CODEX_HOME` で起動した Codex、`PI_CODING_AGENT_DIR` で起動した Pi です。Agent とディレクトリを指定すれば、skills と agents のパスはそれに従います。
+Target は、組み込み Agent の 2 つ目の Config ディレクトリにすることもできます。`CLAUDE_CONFIG_DIR` で起動した Claude Code、`CODEX_HOME` で起動した Codex、`OPENCODE_CONFIG_DIR` で起動した OpenCode、`PI_CODING_AGENT_DIR` で起動した Pi です。Agent とディレクトリを指定すれば、skills と agents のパスはそれに従います。
 
 ```yaml
 targets:
@@ -343,11 +343,11 @@ targets:
     config_dir: ~/.codex-work    # skills は ~/.codex-work/skills に入る
 ```
 
-Codex は共有の `~/.agents/skills` も読み込みますが、アカウントが所有するのは自分のディレクトリだけなので、その Skill は `<config_dir>/skills` に入ります。Pi と OMP も同じ仕組みです。agents ディレクトリを持つのは Claude だけです。
+Codex は共有の `~/.agents/skills` も読み込みますが、アカウントが所有するのは自分のディレクトリだけなので、その Skill は `<config_dir>/skills` に入ります。Pi と OMP も同じ仕組みです。Claude と OpenCode には agents ディレクトリもあります。
 
 | フィールド | 説明 |
 |-------|-------------|
-| `agent` | 組み込みの Agent。`claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）、`pi` または `omp`（どちらも `PI_CODING_AGENT_DIR`） |
+| `agent` | 組み込みの Agent。`claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）、`opencode`（`OPENCODE_CONFIG_DIR`）、`pi` または `omp`（どちらも `PI_CODING_AGENT_DIR`） |
 | `config_dir` | そのアカウントの Config ディレクトリ。絶対パスか `~` で始まること、Agent のデフォルトのディレクトリではないこと、1 つの Target だけが使うこと |
 | `cli` | 任意。このアカウントの [plugin コマンド](/docs/reference/commands/plugin#accounts)を、Agent 本体ではなく互換 CLI で実行します（Pi なら `omo` など）。`PATH` 上の名前か、絶対パス（`~` で始めても可）。引数なしの実行ファイル 1 つだけで、shell alias は使えません |
 

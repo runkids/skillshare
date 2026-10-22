@@ -261,11 +261,11 @@
         "agent": {
           "type": "string",
           "description": "Makes this target another config directory of a built-in Agent, such as a second account. Goes with config_dir. The skills and agents paths follow config_dir unless skills.path or agents.path is set.",
-          "enum": ["claude", "codex", "pi", "omp"]
+          "enum": ["claude", "codex", "opencode", "pi", "omp"]
         },
         "config_dir": {
           "type": "string",
-          "description": "The config directory this account of the Agent uses, the one CLAUDE_CONFIG_DIR, CODEX_HOME or PI_CODING_AGENT_DIR points at. Absolute or starting with ~, and not the Agent's default one.",
+          "description": "The config directory this account of the Agent uses, the one CLAUDE_CONFIG_DIR, CODEX_HOME, OPENCODE_CONFIG_DIR or PI_CODING_AGENT_DIR points at. Absolute or starting with ~, and not the Agent's default one.",
           "examples": ["~/.claude-work", "~/.codex-work", "~/.pi/work"]
         },
         "cli": {

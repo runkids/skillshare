@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.26.2] - 2026-10-22
+
+
+### Bug Fixes
+
+- **Releases are built with Go 1.26.10 (CVE-2026-111943)** — Go 1.26.10 rejects certificate chains that pass through a set of compromised eMudhra intermediate CAs. Go 1.25, which earlier releases were built with, has no such fix, so those builds could still trust a certificate forged through one of them. This matters for HTTPS requests such as `skillshare upgrade`, update checks and search. Upgrade to get the fix. Refs: #604.
+
+## [0.26.1] - 2026-10-21
+
+### Bug Fixes
+
+#### Dashboard
+
+- **Tracked repo updates remember accepted findings** — dashboard updates of a tracked repo now skip audit findings you already accepted, whether through `skillshare update --force`, the update prompt or the dashboard, and **Force Retry** records the findings it lets through. Before, the same unchanged findings blocked every dashboard update again, while the CLI and dashboard updates of regular skills already remembered them. A finding is matched by rule, file and matched text, so a new finding still blocks. Acceptances for an agent repo in a subfolder are stored in the agents source, where the CLI keeps them. Refs: #599.
+- **Update agents from the dashboard** — the **Updates** tab on the Agents page now updates agents; before, every agent update there failed. On an agent's page, **Update** works for an agent inside a tracked repo instead of failing with `agent not found`. **Prune** on an agent deleted upstream now removes that agent, and an agent in a subfolder is shown as up to date after it updates. Refs: #600, #601.
+
+#### Install and plugins
+
+- **Tracking guidance matches what `install` accepts** — the built-in skill no longer recommends `install --track --all`, which `install` rejects. `install --help` now shows the workflow for tracking an upstream collection and lists the flags `--track` cannot be combined with (`--all`, `--yes`, `--skill`, `--agent`), and `plugin --help` shows the discover, add, check and update workflow for native plugins. Refs: #596.
+  ```bash
+  skillshare install owner/repo --track --name team -g --dry-run   # preview, then run without --dry-run
+  skillshare check _team -g --json
+  skillshare update _team -g && skillshare sync -g
+  ```
+
 ## [0.26.0] - 2026-10-20
 
 ### New Features
