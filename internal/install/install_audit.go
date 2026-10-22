@@ -268,9 +268,6 @@ type AuditGate struct {
 	// that could not run stays blocked: "I accept these findings" is not the
 	// same as "I could not be told any".
 	Override bool
-	// HonorAccepted hides findings an earlier override recorded for this path,
-	// so they no longer count against the threshold.
-	HonorAccepted bool
 	// Confirm is asked once when findings would block and Override is unset.
 	// Nil, false or an error blocks.
 	Confirm func(*AuditGateResult) (bool, error)
@@ -281,7 +278,7 @@ type AuditGate struct {
 type AuditGateResult struct {
 	Audit           *audit.Result
 	Threshold       string // normalized
-	AcceptedSkipped int    // findings hidden by HonorAccepted
+	AcceptedSkipped int    // findings an earlier override accepted
 	Overridden      bool   // blocking findings were let through
 }
 
@@ -347,13 +344,11 @@ func (g AuditGate) Run() (*AuditGateResult, error) {
 	}
 
 	res := &AuditGateResult{Audit: scanResult, Threshold: threshold}
-	if g.HonorAccepted {
-		acceptPath := g.AcceptPath
-		if acceptPath == "" {
-			acceptPath = g.RepoPath
-		}
-		res.AcceptedSkipped = ApplyAcceptedFindings(g.SourceDir, acceptPath, scanResult)
+	acceptPath := g.AcceptPath
+	if acceptPath == "" {
+		acceptPath = g.RepoPath
 	}
+	res.AcceptedSkipped = ApplyAcceptedFindings(g.SourceDir, acceptPath, scanResult)
 	if !scanResult.HasSeverityAtOrAbove(threshold) {
 		return res, nil
 	}
@@ -403,13 +398,12 @@ func blockedDetailsError(e *AuditGateError, res *AuditGateResult, subject string
 // help", so this wording stays separate from AuditGateError's.
 func auditGateFailClosed(sourceDir, repoPath, beforeHash, threshold, projectRoot string, auditOverride bool, follow ...*sourcewalk.Follow) (*audit.Result, error) {
 	gate := AuditGate{
-		SourceDir:     sourceDir,
-		RepoPath:      repoPath,
-		BeforeHash:    beforeHash,
-		Threshold:     threshold,
-		ProjectRoot:   projectRoot,
-		Override:      auditOverride,
-		HonorAccepted: true,
+		SourceDir:   sourceDir,
+		RepoPath:    repoPath,
+		BeforeHash:  beforeHash,
+		Threshold:   threshold,
+		ProjectRoot: projectRoot,
+		Override:    auditOverride,
 	}
 	if len(follow) > 0 {
 		gate.Follow = follow[0]
@@ -443,15 +437,14 @@ func auditTrackedRepoUpdate(repoPath, beforeHash string, result *TrackedRepoResu
 
 	acceptRoot, acceptPath := opts.auditAcceptTarget(repoPath)
 	res, err := AuditGate{
-		SourceDir:     acceptRoot,
-		RepoPath:      repoPath,
-		AcceptPath:    acceptPath,
-		BeforeHash:    beforeHash,
-		Threshold:     opts.AuditThreshold,
-		ProjectRoot:   opts.AuditProjectRoot,
-		Follow:        opts.SourceFollow,
-		Override:      opts.AuditOverride,
-		HonorAccepted: true,
+		SourceDir:   acceptRoot,
+		RepoPath:    repoPath,
+		AcceptPath:  acceptPath,
+		BeforeHash:  beforeHash,
+		Threshold:   opts.AuditThreshold,
+		ProjectRoot: opts.AuditProjectRoot,
+		Follow:      opts.SourceFollow,
+		Override:    opts.AuditOverride,
 	}.Run()
 	if err != nil {
 		var blocked *AuditGateError

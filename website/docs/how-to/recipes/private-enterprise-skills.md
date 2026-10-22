@@ -78,7 +78,7 @@ skillshare sync     # Push to targets
 
 ## Variations
 
-- **Selective install**: `skillshare install your-org/internal-skills --track --skill code-review` installs only one skill
+- **Selective install**: `skillshare install your-org/internal-skills --skill code-review` installs only one skill
 - **CI/CD token**: In pipelines, set the platform-specific env var (e.g., `GITHUB_TOKEN`) from CI secrets
 - **Self-hosted GitLab**: Set `GITLAB_TOKEN` and use HTTPS URL: `skillshare install https://gitlab.internal.com/team/skills.git --track`
 - **Self-hosted Gitea**: Set `GITEA_TOKEN`. If the hostname does not contain `gitea`, also list it in [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts)

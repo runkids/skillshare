@@ -12,10 +12,11 @@ export const updateApi = {
     onResult: (item: UpdateResultItem) => void,
     onDone: (data: { results: UpdateResultItem[]; summary: UpdateStreamSummary }) => void,
     onError: (err: Error) => void,
-    opts?: { names?: string[]; force?: boolean; skipAudit?: boolean },
+    opts?: { names?: string[]; kind?: 'skill' | 'agent'; force?: boolean; skipAudit?: boolean },
   ): EventSource => {
     const params = new URLSearchParams();
     if (opts?.names?.length) params.set('names', opts.names.join(','));
+    if (opts?.kind) params.set('kind', opts.kind);
     if (opts?.force) params.set('force', 'true');
     if (opts?.skipAudit) params.set('skipAudit', 'true');
     return createSSEStream(`${BASE}/update/stream?${params.toString()}`, {

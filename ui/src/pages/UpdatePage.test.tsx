@@ -7,6 +7,7 @@ import { I18nProvider } from '../i18n';
 import { ToastProvider } from '../components/Toast';
 import UpdatePage, { countUpdates, isForceRetryable, updateUnits } from './UpdatePage';
 import { api } from '../api/client';
+import type { UpdateResultItem } from '../api/client';
 import { queryKeys } from '../lib/queryKeys';
 
 vi.mock('../api/client', async (importOriginal) => {
@@ -100,7 +101,7 @@ describe('UpdatePage', () => {
       expect.any(Function),
       expect.any(Function),
       expect.any(Function),
-      { names: ['tools/agent-browser'], force: false },
+      { names: ['tools/agent-browser'], kind: 'skill', force: false },
     );
   });
 
@@ -124,7 +125,60 @@ describe('UpdatePage', () => {
 
     await user.click(await screen.findByRole('button', { name: /update all/i }));
 
-    expect(vi.mocked(api.updateAllStream).mock.calls[0][4]).toEqual({ names: ['_team'], force: false });
+    expect(vi.mocked(api.updateAllStream).mock.calls[0][4]).toEqual({ names: ['_team'], kind: 'skill', force: false });
+  });
+
+  it('updates an agent repo as an agent, by its folder', async () => {
+    vi.mocked(api.listSkills).mockResolvedValue({
+      resources: [{ ...nestedSkill, kind: 'agent', name: 'helper', flatName: 'team___team__helper', relPath: 'team/_team/helper.md', isInRepo: true, repoPath: 'team/_team' }],
+    });
+    vi.mocked(api.updateAllStream).mockImplementation((_onStart, _onResult, onDone) => {
+      queueMicrotask(() => onDone(noResults));
+      return { close: vi.fn() } as unknown as EventSource;
+    });
+
+    const user = userEvent.setup();
+    renderUpdatePage('agent');
+
+    await user.click(await screen.findByRole('button', { name: /update all/i }));
+
+    expect(vi.mocked(api.updateAllStream).mock.calls[0][4]).toEqual({ names: ['team/_team'], kind: 'agent', force: false });
+  });
+
+  const nestedAgent = { ...nestedSkill, kind: 'agent' as const, name: 'code-helper', flatName: 'sub__helper.md', relPath: 'sub/helper.md', sourcePath: '/agents/sub/helper.md' };
+  const streamResult = (result: UpdateResultItem) => {
+    vi.mocked(api.updateAllStream).mockImplementation((_onStart, onResult, onDone) => {
+      queueMicrotask(() => {
+        onResult(result);
+        onDone({ results: [result], summary: noResults.summary });
+      });
+      return { close: vi.fn() } as unknown as EventSource;
+    });
+  };
+
+  it('marks a nested agent up to date after it updates', async () => {
+    vi.mocked(api.listSkills).mockResolvedValue({ resources: [nestedAgent] });
+    cacheStatus('sub/helper.md', 'update-available');
+    streamResult({ name: 'sub/helper', kind: 'agent', action: 'updated', isRepo: false });
+
+    const user = userEvent.setup();
+    renderUpdatePage('agent');
+    await user.click(await screen.findByRole('button', { name: /update all/i }));
+
+    await waitFor(() => expect(localStorage.getItem('skillshare.updateCheckCache.global')).toContain('"sub/helper.md":{"status":"up-to-date"'));
+  });
+
+  it('purges an agent deleted upstream as an agent', async () => {
+    vi.mocked(api.listSkills).mockResolvedValue({ resources: [nestedAgent] });
+    vi.mocked(api.batchUninstall).mockResolvedValue({ results: [] } as never);
+    streamResult({ name: 'sub/helper', kind: 'agent', action: 'error', message: 'agent path "helper.md" not found in repository', isRepo: false });
+
+    const user = userEvent.setup();
+    renderUpdatePage('agent');
+    await user.click(await screen.findByRole('button', { name: /update all/i }));
+    await user.click(await (await findRow('code-helper')).findByRole('button', { name: 'Prune' }));
+
+    await waitFor(() => expect(api.batchUninstall).toHaveBeenCalledWith({ names: ['sub/helper.md'], kind: 'agent', force: true }));
   });
 
   it.each(['skill', 'agent'] as const)('does not offer a %s sync write when the fresh diff only changes the other kind', async (kind) => {

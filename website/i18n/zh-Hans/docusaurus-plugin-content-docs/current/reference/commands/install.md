@@ -284,10 +284,10 @@ skillshare sync
 | `--force` | `-f` | 覆盖已存在的 Skill；跳过 audit 拦截和跨路径重复检测 |
 | `--update` | `-u` | 如果已存在则更新（git pull 或重新安装） |
 | `--branch <ref>` | `-b` | 要安装的 git branch、tag 或 commit SHA（默认：远程默认分支） |
-| `--track` | `-t` | 为 tracked repo 保留 `.git` |
+| `--track` | `-t` | 为 tracked repo 保留 `.git`。不能与 `--all`、`--yes`、`--skill` 或 `--agent` 同时使用。 |
 | `--kind <skill\|agent>` | | 限制只安装某一种资源类型 |
 | `--agent <names>` | `-a` | 从仓库中选择指定的 agent（逗号分隔） |
-| `--skill` | `-s` | 从多 Skill 仓库中选择指定的 Skill（逗号分隔；支持像 `core-*` 这样的 glob 模式） |
+| `--skill` | `-s` | 从多 Skill 仓库中选择指定的 Skill（逗号分隔；支持像 `core-*` 这样的 glob 模式）。不能与 `--all` 或 `--yes` 同时使用。 |
 | `--exclude` | | 安装时跳过特定的 Skill（逗号分隔；支持像 `test-*` 这样的 glob 模式） |
 | `--all` | | 不经提示安装所有发现的 Skill |
 | `--yes` | `-y` | 自动接受所有提示（对 CI/CD 友好） |

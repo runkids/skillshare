@@ -16,8 +16,19 @@ import (
 //   - "result" → updateResultItem                 after each item is updated
 //   - "done"   → {"results":…,"summary":…}       final payload
 //
-// Query params: names (comma-separated), force, skipAudit
+// Query params: names (comma-separated), kind (skill or agent), force, skipAudit
 func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
+	// Agents are updated by name only; nothing updates them all at once.
+	kind := r.URL.Query().Get("kind")
+	if kind != "" && kind != "skill" && kind != "agent" {
+		writeError(w, http.StatusBadRequest, "invalid kind: "+kind)
+		return
+	}
+	if kind == "agent" && r.URL.Query().Get("names") == "" {
+		writeError(w, http.StatusBadRequest, "names are required for agents")
+		return
+	}
+
 	safeSend, ok := initSSE(w)
 	if !ok {
 		return
@@ -42,6 +53,7 @@ func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 	type updateItem struct {
 		name    string
 		isRepo  bool
+		agent   bool
 		path    string
 		invalid bool // the name would resolve outside the source; reported, never touched
 	}
@@ -57,6 +69,10 @@ func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 			}
 			if !validSourceName(name) {
 				items = append(items, updateItem{name: name, invalid: true})
+				continue
+			}
+			if kind == "agent" {
+				items = append(items, updateItem{name: name, agent: true})
 				continue
 			}
 			// A tracked repo (a _-prefixed checkout; an unprefixed one is a regular skill)
@@ -120,6 +136,8 @@ func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case item.invalid:
 			result = updateResultItem{Name: item.name, Action: "error", Message: "invalid skill name: " + item.name}
+		case item.agent:
+			result = s.updateSingleByKind(item.name, "agent", force, skipAudit)
 		case item.isRepo:
 			result = s.updateTrackedRepo(item.name, item.path, s.cfg.EffectiveSkillsSource(), force, skipAudit, walk.Follow)
 		default:

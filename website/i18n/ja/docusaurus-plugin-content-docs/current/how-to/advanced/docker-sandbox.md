@@ -156,7 +156,7 @@ make playground-down
 |----------|-------------|-----------------|
 | Go/Node をインストールせずに skillshare を試す | `docker run ghcr.io/runkids/skillshare` | Go + Node + pnpm をインストールしてソースからビルド |
 | PR を出す前にフルテストスイートを実行する | `make test-docker` | ローカルツールチェーンに依存する（Go バージョンの不一致でテスト結果が不安定になる） |
-| Go 未インストールでのフロントエンド作業 | `make dev-docker` + `cd ui && pnpm run dev` | API サーバーを動かすためにローカルに Go 1.25+ をインストールする必要がある |
+| Go 未インストールでのフロントエンド作業 | `make dev-docker` + `cd ui && pnpm run dev` | API サーバーを動かすためにローカルに Go 1.26+ をインストールする必要がある |
 | 同僚に skillshare をデモする | `make playground` → `:19420` の Web UI | フルローカルインストールの手順を一通り説明する |
 | Apple Silicon 上で Linux の挙動を検証する | `make docker-build` | CI にプッシュして待つ |
 
@@ -166,7 +166,7 @@ make playground-down
 |----------|-------------|---------------|
 | 新規コントリビューターのオンボーディング | `make playground` — コマンド1つで準備完了 | 「Go をインストール、PATH を設定、clone、build」というセットアップガイドが不要に |
 | CI での自動 Skill 品質ゲート | `docker run ghcr.io/.../skillshare-ci audit /skills` | 以前はワークフローごとに Go のインストール + ソースビルドが必要だった |
-| コントリビューター間の「自分の環境では動く」問題 | Docker が Go 1.25.5 + すべての依存関係を固定 | ローカルの Go バージョンの違いによるテストの不安定化 |
+| コントリビューター間の「自分の環境では動く」問題 | Docker が Go 1.26.10 + すべての依存関係を固定 | ローカルの Go バージョンの違いによるテストの不安定化 |
 | PR レビュアーによる問題の再現 | `./scripts/test_docker.sh --cmd "go test -run TestXxx ..."` | 再現するには clone + フルローカルセットアップが必要だった |
 
 ### エンタープライズおよびセルフホストデプロイ
@@ -310,7 +310,7 @@ make devc-status     # コンテナのステータスを表示
 
 Devcontainer はサンドボックスと同じ `docker/sandbox/Dockerfile` を再利用しているため、以下が含まれます。
 
-- Go 1.25 ツールチェーン
+- Go 1.26 ツールチェーン
 - Node.js 24 + pnpm（Docker イメージに同梱）— コンテナ内で `make ui-dev` と `cd website && pnpm start` が使える
 - VS Code 拡張機能: Go、Tailwind CSS、ESLint、Prettier
 - 転送されるポート: `45173`（Vite HMR）、`49420`（Go API）、`48888`（Docusaurus）— 意図的に一般的でない番号にしており、ホスト上の他のプロジェクトと衝突しません
@@ -405,7 +405,7 @@ make lint          # go vet
 |---|---|---|---|
 | **イメージ** | `ghcr.io/runkids/skillshare` | `ghcr.io/runkids/skillshare-ci` | ローカルビルドのみ |
 | **Dockerfile** | `docker/production/Dockerfile` | `docker/ci/Dockerfile` | `docker/sandbox/Dockerfile` |
-| **ベース** | `debian:bookworm-slim` | `debian:bookworm-slim` | `golang:1.25.5-bookworm` |
+| **ベース** | `debian:bookworm-slim` | `debian:bookworm-slim` | `golang:1.26.10-bookworm` |
 | **含まれるもの** | git、curl、tini | git のみ | Go ツールチェーン、gh、jq、air、delve、ビルド済み UI |
 | **Non-root** | あり (UID 10001) | なし | なし |
 | **PID 1** | tini | default | default |

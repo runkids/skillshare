@@ -319,7 +319,7 @@ skillshare update --all --skip-audit
 
 ### 수락된 Findings {#accepted-findings}
 
-`--force`로 gate를 재정의하거나(또는 프롬프트에서 `y`로 응답하면), 수락한 findings는 `.metadata.json`의 `audit_accepted` 아래에 기록됩니다. 이후 동일한 skill의 업데이트는 정확히 동일한 findings에서 더 이상 차단되지 않으므로, `update --all`을 실행할 때마다 `--force`를 반복할 필요가 없습니다.
+`--force`로 gate를 재정의하거나(또는 프롬프트에서 `y`로 응답하면), 수락한 findings는 `.metadata.json`의 `audit_accepted` 아래에 기록됩니다. 이후 동일한 skill의 업데이트는 정확히 동일한 findings에서 더 이상 차단되지 않으므로, `update --all`을 실행할 때마다 `--force`를 반복할 필요가 없습니다. 대시보드 **Updates** 탭의 Force Retry도 같은 방식으로 기록하며, 어느 쪽에서 수락한 findings든 양쪽 모두에서 적용됩니다.
 
 ```
   1 previously accepted finding skipped

@@ -156,7 +156,7 @@ make playground-down
 |----------|-------------|-----------------|
 | 无需安装 Go/Node 即可试用 skillshare | `docker run ghcr.io/runkids/skillshare` | 安装 Go + Node + pnpm，再从源码构建 |
 | 在开 PR 前运行完整测试套件 | `make test-docker` | 依赖本地工具链（Go 版本不一致导致结果不稳定） |
-| 无需安装 Go 也能做前端工作 | `make dev-docker` + `cd ui && pnpm run dev` | 必须在本地安装 Go 1.25+ 才能运行 API 服务器 |
+| 无需安装 Go 也能做前端工作 | `make dev-docker` + `cd ui && pnpm run dev` | 必须在本地安装 Go 1.26+ 才能运行 API 服务器 |
 | 向同事演示 skillshare | `make playground` → Web UI 位于 `:19420` | 带他们完整走一遍本地安装流程 |
 | 在 Apple Silicon 上验证 Linux 行为 | `make docker-build` | 推送到 CI 后等待结果 |
 
@@ -166,7 +166,7 @@ make playground-down
 |----------|-------------|---------------|
 | 新贡献者上手 | `make playground` — 一条命令即可就绪 | 不再需要「安装 Go、设置 PATH、clone、build」的搭建指南 |
 | CI 中的自动化 Skill 质量关卡 | `docker run ghcr.io/.../skillshare-ci audit /skills` | 此前每个工作流都需要安装 Go 并从源码构建 |
-| 「在我机器上没问题」跨贡献者的一致性 | Docker 固定了 Go 1.25.5 及所有依赖 | 不同的本地 Go 版本导致测试不稳定 |
+| 「在我机器上没问题」跨贡献者的一致性 | Docker 固定了 Go 1.26.10 及所有依赖 | 不同的本地 Go 版本导致测试不稳定 |
 | PR 审阅者复现问题 | `./scripts/test_docker.sh --cmd "go test -run TestXxx ..."` | 必须 clone 并完整本地搭建才能复现 |
 
 ### 企业与自托管部署
@@ -310,7 +310,7 @@ make devc-status     # 显示容器状态
 
 Devcontainer 复用了与 Sandbox 相同的 `docker/sandbox/Dockerfile`，因此你会获得：
 
-- Go 1.25 工具链
+- Go 1.26 工具链
 - Node.js 24 + pnpm（打包在 Docker 镜像中）— 支持在容器内运行 `make ui-dev` 和 `cd website && pnpm start`
 - VS Code 扩展：Go、Tailwind CSS、ESLint、Prettier
 - 已转发的端口：`45173`（Vite HMR）、`49420`（Go API）、`48888`（Docusaurus）— 刻意使用不常见的端口号，避免与主机上的其他项目冲突
@@ -405,7 +405,7 @@ make lint          # go vet
 |---|---|---|---|
 | **镜像** | `ghcr.io/runkids/skillshare` | `ghcr.io/runkids/skillshare-ci` | 仅本地构建 |
 | **Dockerfile** | `docker/production/Dockerfile` | `docker/ci/Dockerfile` | `docker/sandbox/Dockerfile` |
-| **基础镜像** | `debian:bookworm-slim` | `debian:bookworm-slim` | `golang:1.25.5-bookworm` |
+| **基础镜像** | `debian:bookworm-slim` | `debian:bookworm-slim` | `golang:1.26.10-bookworm` |
 | **包含内容** | git、curl、tini | 仅 git | Go 工具链、gh、jq、air、delve、预构建 UI |
 | **非 root** | 是（UID 10001） | 否 | 否 |
 | **PID 1** | tini | 默认 | 默认 |

@@ -80,7 +80,7 @@ skillshare sync     # Target にプッシュする
 
 ## バリエーション
 
-- **選択的インストール**: `skillshare install your-org/internal-skills --track --skill code-review`
+- **選択的インストール**: `skillshare install your-org/internal-skills --skill code-review`
   は1つの Skill のみをインストールする
 - **CI/CD トークン**: パイプラインでは、CI シークレットからプラットフォーム固有の環境変数
   （例: `GITHUB_TOKEN`）を設定する

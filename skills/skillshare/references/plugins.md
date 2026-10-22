@@ -2,10 +2,38 @@
 
 Plugins are complete native packages, not standalone skills. Keep their components
 together. Install targets: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias),
-`antigravity-cli`, `copilot`, `pi`, and `opencode`. Grok supports native import/removal,
+`antigravity-cli`, `copilot`, `pi`, `opencode`, and `omp`. Grok supports native import/removal,
 with trust/install handled in Grok. Kimi, Hermes, and Devin are discovery-only.
 Read `targetDefinitions` from JSON output instead of assuming every format supports
 all operations. `targetInfo` reports per-target components, version, and problems.
+
+## Track an upstream plugin
+
+Use `plugin add` to keep the native plugin's components together. Unlike a
+skill collection, it does not use `install --track`. Choose global (`-g`) or
+project (`-p`) scope explicitly and check discovery's `targetDefinitions` for
+supported operations and scopes before adding targets.
+
+```bash
+skillshare plugin discover https://github.com/owner/plugin.git -g --json
+skillshare plugin add https://github.com/owner/plugin.git --name demo --target claude -g --dry-run --json
+skillshare plugin add https://github.com/owner/plugin.git --name demo --target claude -g --no-tui
+skillshare plugin inspect demo -g --json
+skillshare plugin check demo -g --json
+skillshare plugin update demo -g --dry-run --json
+skillshare plugin update demo -g --no-tui
+```
+
+For a marketplace, pass the discovered candidate with `--plugin NAME` on both
+preview and apply. Repeat `--target` to select several supported clients. Use
+`--source-ref REF` on discover/add/update for a branch, tag or commit; it is
+separate from `--revision`, the token that binds an apply to a reviewed preview.
+`add` installs the selected targets immediately; `sync plugins` reconciles
+managed target selection, while `plugin update` refreshes upstream content.
+When adding a new package, omit `--source-ref` to follow the remote's default branch.
+Updates reuse its stored ref; omitting the flag on update does not unpin an existing package.
+Adding a plugin does not schedule automatic updates; run `check` and `update` later.
+`sync --all` does not update or sync plugins.
 
 ## Inspect before changing
 
@@ -39,7 +67,7 @@ keeps the plugin in Skillshare and installs it nowhere; `list` shows it as `no t
 Add targets later with the same source and `--name`, which installs the source as it is
 then. Such a package stays managed when its last target is removed.
 
-Use `--source-ref TAG_OR_COMMIT` with discover/add/update for a remote Git source.
+Use `--source-ref REF` with discover/add/update for a remote Git source.
 Bindings retain `source_ref` and the reviewed `commit`; `--revision` is a separate
 preview token. Use `--entry dist/plugin.js` with discover/add for an explicit
 OpenCode entry. Never build or execute package code just to discover it.
