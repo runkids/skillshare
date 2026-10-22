@@ -490,6 +490,7 @@ func TestImportResolutionAdoptsTheAccountsEntry(t *testing.T) {
 func agentAccountService(t *testing.T, agent, mcp string) (*Service, string) {
 	t.Helper()
 	s := testService(t)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(s.Home, ".config"))
 	work := filepath.Join(s.Home, "."+agent+"-work")
 	config := "targets:\n  " + agent + "-work:\n    agent: " + agent + "\n    config_dir: " + work + "\n" + mcp
 	if err := os.WriteFile(s.ConfigPath, []byte(config), 0600); err != nil {
