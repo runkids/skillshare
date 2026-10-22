@@ -9,6 +9,13 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.26.2] - 2026-10-22
+
+
+### Bug Fixes
+
+* **security:** bump Go to 1.26.10 for CVE-2026-111943 ([#604](https://github.com/runkids/skillshare/issues/604)) ([1333086](https://github.com/runkids/skillshare/commit/13330867ced3ff07b5e8ff445cb5060465bc2be9))
+
 ## [0.26.1] - 2026-10-21
 
 ### Bug Fixes
