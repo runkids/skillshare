@@ -14,7 +14,7 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ### Bug Fixes
 
-* **security:** bump Go to 1.26.10 for CVE-2026-111943 ([#604](https://github.com/runkids/skillshare/issues/604)) ([1333086](https://github.com/runkids/skillshare/commit/13330867ced3ff07b5e8ff445cb5060465bc2be9))
+- **Releases are built with Go 1.26.10 (CVE-2026-111943)** — Go 1.26.10 rejects certificate chains that pass through a set of compromised eMudhra intermediate CAs. Go 1.25, which earlier releases were built with, has no such fix, so those builds could still trust a certificate forged through one of them. This matters for HTTPS requests such as `skillshare upgrade`, update checks and search. Upgrade to get the fix. Refs: #604.
 
 ## [0.26.1] - 2026-10-21
 
