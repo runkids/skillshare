@@ -156,7 +156,7 @@ make playground-down
 |----------|-------------|-----------------|
 | Try skillshare without installing Go/Node | `docker run ghcr.io/runkids/skillshare` | Install Go + Node + pnpm, then build from source |
 | Run full test suite before opening a PR | `make test-docker` | Depend on local toolchain (Go version mismatch = flaky results) |
-| Frontend work without Go installed | `make dev-docker` + `cd ui && pnpm run dev` | Must install Go 1.25+ locally to run the API server |
+| Frontend work without Go installed | `make dev-docker` + `cd ui && pnpm run dev` | Must install Go 1.26+ locally to run the API server |
 | Demo skillshare to a colleague | `make playground` → Web UI on `:19420` | Walk them through a full local install |
 | Verify Linux behavior on Apple Silicon | `make docker-build` | Push to CI and wait |
 
@@ -166,7 +166,7 @@ make playground-down
 |----------|-------------|---------------|
 | New contributor onboarding | `make playground` — one command, ready to go | No more "install Go, set PATH, clone, build" setup guide |
 | Automated skill quality gate in CI | `docker run ghcr.io/.../skillshare-ci audit /skills` | Previously required installing Go + building from source in every workflow |
-| "Works on my machine" across contributors | Docker pins Go 1.25.5 + all dependencies | Different local Go versions causing test flakes |
+| "Works on my machine" across contributors | Docker pins Go 1.26.10 + all dependencies | Different local Go versions causing test flakes |
 | PR reviewer reproducing an issue | `./scripts/test_docker.sh --cmd "go test -run TestXxx ..."` | Must clone + full local setup to reproduce |
 
 ### Enterprise and self-hosted deployment
@@ -310,7 +310,7 @@ make devc-status     # show container status
 
 The devcontainer reuses the same `docker/sandbox/Dockerfile` as the sandbox, so you get:
 
-- Go 1.25 toolchain
+- Go 1.26 toolchain
 - Node.js 24 + pnpm (bundled in the Docker image) — enables `make ui-dev` and `cd website && pnpm start` inside the container
 - VS Code extensions: Go, Tailwind CSS, ESLint, Prettier
 - Ports forwarded: `45173` (Vite HMR), `49420` (Go API), `48888` (Docusaurus) — uncommon on purpose, so they do not clash with other projects on your host
@@ -405,7 +405,7 @@ Three Dockerfiles serve different purposes:
 |---|---|---|---|
 | **Image** | `ghcr.io/runkids/skillshare` | `ghcr.io/runkids/skillshare-ci` | Local build only |
 | **Dockerfile** | `docker/production/Dockerfile` | `docker/ci/Dockerfile` | `docker/sandbox/Dockerfile` |
-| **Base** | `debian:bookworm-slim` | `debian:bookworm-slim` | `golang:1.25.5-bookworm` |
+| **Base** | `debian:bookworm-slim` | `debian:bookworm-slim` | `golang:1.26.10-bookworm` |
 | **Includes** | git, curl, tini | git only | Go toolchain, gh, jq, air, delve, pre-built UI |
 | **Non-root** | Yes (UID 10001) | No | No |
 | **PID 1** | tini | default | default |

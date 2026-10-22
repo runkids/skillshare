@@ -1,5 +1,5 @@
 [tools]
-go = "1.25.5"
+go = "1.26.10"
 pnpm = "12.6.0"
 
 [tasks.help]

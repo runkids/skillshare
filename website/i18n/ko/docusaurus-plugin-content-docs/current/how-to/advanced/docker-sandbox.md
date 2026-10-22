@@ -156,7 +156,7 @@ make playground-down
 |----------|-------------|-----------------|
 | Go/Node를 설치하지 않고 skillshare 사용해 보기 | `docker run ghcr.io/runkids/skillshare` | Go + Node + pnpm 설치 후 소스에서 빌드 |
 | PR을 열기 전에 전체 테스트 스위트 실행 | `make test-docker` | 로컬 툴체인 의존 (Go 버전 불일치 = 결과 불안정) |
-| Go를 설치하지 않고 프런트엔드 작업 | `make dev-docker` + `cd ui && pnpm run dev` | API 서버 실행을 위해 로컬에 Go 1.25+ 설치 필요 |
+| Go를 설치하지 않고 프런트엔드 작업 | `make dev-docker` + `cd ui && pnpm run dev` | API 서버 실행을 위해 로컬에 Go 1.26+ 설치 필요 |
 | 동료에게 skillshare 데모 보여주기 | `make playground` → `:19420`에서 Web UI | 전체 로컬 설치 과정을 안내 |
 | Apple Silicon에서 Linux 동작 검증 | `make docker-build` | CI에 푸시하고 대기 |
 
@@ -166,7 +166,7 @@ make playground-down
 |----------|-------------|---------------|
 | 신규 기여자 온보딩 | `make playground` — 명령어 하나로 준비 완료 | "Go 설치, PATH 설정, clone, build" 안내서가 더 이상 필요 없음 |
 | CI에서 자동화된 skill 품질 게이트 | `docker run ghcr.io/.../skillshare-ci audit /skills` | 이전에는 모든 워크플로에서 Go 설치 및 소스 빌드가 필요했음 |
-| 기여자마다 "내 컴퓨터에서는 되는데" 문제 | Docker가 Go 1.25.5 + 모든 의존성을 고정 | 서로 다른 로컬 Go 버전으로 인한 테스트 불안정 |
+| 기여자마다 "내 컴퓨터에서는 되는데" 문제 | Docker가 Go 1.26.10 + 모든 의존성을 고정 | 서로 다른 로컬 Go 버전으로 인한 테스트 불안정 |
 | 이슈를 재현하는 PR 리뷰어 | `./scripts/test_docker.sh --cmd "go test -run TestXxx ..."` | 재현하려면 clone 및 전체 로컬 설정이 필요 |
 
 ### 엔터프라이즈 및 자체 호스팅 배포
@@ -310,7 +310,7 @@ make devc-status     # 컨테이너 상태 표시
 
 devcontainer는 sandbox와 동일한 `docker/sandbox/Dockerfile`을 재사용하므로 다음을 제공합니다.
 
-- Go 1.25 툴체인
+- Go 1.26 툴체인
 - Node.js 24 + pnpm (Docker 이미지에 번들됨) — 컨테이너 내부에서 `make ui-dev`와 `cd website && pnpm start`를 사용할 수 있음
 - VS Code 확장: Go, Tailwind CSS, ESLint, Prettier
 - 포트 포워딩: `45173` (Vite HMR), `49420` (Go API), `48888` (Docusaurus) — 호스트의 다른 프로젝트와 충돌하지 않도록 의도적으로 흔치 않은 값을 사용
@@ -405,7 +405,7 @@ make lint          # go vet
 |---|---|---|---|
 | **이미지** | `ghcr.io/runkids/skillshare` | `ghcr.io/runkids/skillshare-ci` | 로컬 빌드 전용 |
 | **Dockerfile** | `docker/production/Dockerfile` | `docker/ci/Dockerfile` | `docker/sandbox/Dockerfile` |
-| **베이스** | `debian:bookworm-slim` | `debian:bookworm-slim` | `golang:1.25.5-bookworm` |
+| **베이스** | `debian:bookworm-slim` | `debian:bookworm-slim` | `golang:1.26.10-bookworm` |
 | **포함 내용** | git, curl, tini | git만 | Go 툴체인, gh, jq, air, delve, 미리 빌드된 UI |
 | **Non-root** | 예 (UID 10001) | 아니오 | 아니오 |
 | **PID 1** | tini | 기본값 | 기본값 |

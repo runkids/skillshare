@@ -156,7 +156,7 @@ make playground-down
 |----------|-------------|-----------------|
 | 不安裝 Go/Node 就試用 skillshare | `docker run ghcr.io/runkids/skillshare` | 安裝 Go + Node + pnpm，再從原始碼建置 |
 | 在開 PR 前執行完整測試套件 | `make test-docker` | 依賴本機工具鏈（Go 版本不一致會導致結果不穩定） |
-| 沒有安裝 Go 也能做前端開發 | `make dev-docker` + `cd ui && pnpm run dev` | 必須在本機安裝 Go 1.25+ 才能執行 API server |
+| 沒有安裝 Go 也能做前端開發 | `make dev-docker` + `cd ui && pnpm run dev` | 必須在本機安裝 Go 1.26+ 才能執行 API server |
 | 向同事展示 skillshare | `make playground` → Web UI 於 `:19420` | 帶著他們走一遍完整的本機安裝流程 |
 | 在 Apple Silicon 上驗證 Linux 行為 | `make docker-build` | 推送到 CI 並等待結果 |
 
@@ -166,7 +166,7 @@ make playground-down
 |----------|-------------|---------------|
 | 新貢獻者上手 | `make playground` — 一個指令即可就緒 | 不再需要「安裝 Go、設定 PATH、clone、build」的教學文件 |
 | CI 中的自動化 Skill 品質關卡 | `docker run ghcr.io/.../skillshare-ci audit /skills` | 以往每個 workflow 都需要安裝 Go 並從原始碼建置 |
-| 各貢獻者環境間「在我機器上可以跑」的問題 | Docker 固定了 Go 1.25.5 與所有依賴套件 | 本機 Go 版本不同導致測試不穩定 |
+| 各貢獻者環境間「在我機器上可以跑」的問題 | Docker 固定了 Go 1.26.10 與所有依賴套件 | 本機 Go 版本不同導致測試不穩定 |
 | PR 審查者重現問題 | `./scripts/test_docker.sh --cmd "go test -run TestXxx ..."` | 必須 clone 並完成完整本機設定才能重現 |
 
 ### 企業與自架部署
@@ -310,7 +310,7 @@ make devc-status     # 顯示容器狀態
 
 devcontainer 與 sandbox 共用同一份 `docker/sandbox/Dockerfile`，因此你會得到：
 
-- Go 1.25 工具鏈
+- Go 1.26 工具鏈
 - Node.js 24 + pnpm（已包含在 Docker 映像檔中）— 讓你可以在容器內使用 `make ui-dev` 與 `cd website && pnpm start`
 - VS Code 擴充功能：Go、Tailwind CSS、ESLint、Prettier
 - 已轉發的連接埠：`45173`（Vite HMR）、`49420`（Go API）、`48888`（Docusaurus）— 刻意使用不常見的號碼，避免與主機上其他專案衝突
@@ -405,7 +405,7 @@ make lint          # go vet
 |---|---|---|---|
 | **映像檔** | `ghcr.io/runkids/skillshare` | `ghcr.io/runkids/skillshare-ci` | 僅限本機建置 |
 | **Dockerfile** | `docker/production/Dockerfile` | `docker/ci/Dockerfile` | `docker/sandbox/Dockerfile` |
-| **基礎映像** | `debian:bookworm-slim` | `debian:bookworm-slim` | `golang:1.25.5-bookworm` |
+| **基礎映像** | `debian:bookworm-slim` | `debian:bookworm-slim` | `golang:1.26.10-bookworm` |
 | **包含內容** | git、curl、tini | 僅 git | Go 工具鏈、gh、jq、air、delve、已建置的 UI |
 | **非 root** | 是（UID 10001） | 否 | 否 |
 | **PID 1** | tini | 預設 | 預設 |

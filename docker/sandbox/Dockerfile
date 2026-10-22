@@ -1,7 +1,7 @@
 # Build arguments (must be before first FROM for cross-stage visibility)
 ARG NODE_VERSION=24
 ARG PNPM_VERSION=12.6.0
-ARG GO_VERSION=1.25.5
+ARG GO_VERSION=1.26.10
 
 # Stage 1: Build frontend assets (for playground UI)
 FROM node:${NODE_VERSION}-bookworm-slim AS ui-builder
