@@ -37,9 +37,11 @@ export default function FolderConflictNotice({ conflict, targets, onStop }: { co
 
   return (
     <div className="ss-note warn flex-col !items-stretch">
-      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
-        <TriangleAlert size={16} className="shrink-0 text-warn" />
-        <span className="min-w-0 flex-1 basis-80">{t('sync.folderConflict.text', { names: joinList(conflict.targets, locale), path: shortenHome(conflict.path) })}</span>
+      <div className="flex items-start gap-2.5">
+        <TriangleAlert size={16} className="mt-0.5 shrink-0 text-warn" />
+        <span className="min-w-0 flex-1">{t('sync.folderConflict.text', { names: joinList(conflict.targets, locale), path: shortenHome(conflict.path) })}</span>
+      </div>
+      <div className="flex flex-wrap gap-2 pl-[26px]">
         {conflict.stop.map((name) => {
           const page = projectPage(name);
           return page ? (
