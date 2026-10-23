@@ -23,6 +23,13 @@ func NewSandbox(t *testing.T) *Sandbox {
 	t.Helper()
 
 	root := t.TempDir()
+	// macOS temp paths can pass through symlinks such as /var -> /private/var.
+	// Keep sandbox paths aligned with the canonical cwd reported by subprocesses.
+	resolvedRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatalf("failed to resolve sandbox root %s: %v", root, err)
+	}
+	root = resolvedRoot
 	home := filepath.Join(root, "home")
 
 	sb := &Sandbox{

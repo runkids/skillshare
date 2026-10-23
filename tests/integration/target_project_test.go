@@ -5,6 +5,7 @@ package integration
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -31,10 +32,19 @@ func TestTargetProject_AddCustomTarget(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 	projectRoot := sb.SetupProjectDir("claude")
+	projectCWD := projectRoot
+	if runtime.GOOS != "windows" {
+		projectCWD = filepath.Join(sb.Root, "project-alias")
+		sb.CreateSymlink(projectRoot, projectCWD)
+	}
 
-	result := sb.RunCLIInDir(projectRoot, "target", "add", "my-ide", ".my-ide/skills/", "-p")
+	result := sb.RunCLIInDir(projectCWD, "target", "add", "my-ide", ".my-ide/skills/", "-p")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "Added target")
+	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
+	if !strings.Contains(cfg, "my-ide") || !strings.Contains(cfg, ".my-ide/skills") {
+		t.Fatalf("custom target was not persisted: %s", cfg)
+	}
 }
 
 func TestTargetProject_AddDuplicate_Error(t *testing.T) {

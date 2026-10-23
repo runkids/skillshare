@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -16,7 +17,13 @@ import (
 func TestGitHooksCLILifecycle(t *testing.T) {
 	sb := newHooksSandbox(t)
 	defer sb.Cleanup()
-	sb.SetEnv("GIT_CONFIG_GLOBAL", filepath.Join(sb.Home, "custom.gitconfig"))
+	gitConfigPath := filepath.Join(sb.Home, "custom.gitconfig")
+	if runtime.GOOS != "windows" {
+		aliasedHome := filepath.Join(sb.Root, "home-alias")
+		sb.CreateSymlink(sb.Home, aliasedHome)
+		gitConfigPath = filepath.Join(aliasedHome, "custom.gitconfig")
+	}
+	sb.SetEnv("GIT_CONFIG_GLOBAL", gitConfigPath)
 	sb.SetEnv("GIT_CONFIG_SYSTEM", filepath.Join(sb.Home, "system.gitconfig"))
 	sb.SetEnv("GIT_CONFIG_NOSYSTEM", "1")
 	path := filepath.Join(sb.Root, "git-entry.yaml")
@@ -34,7 +41,7 @@ func TestGitHooksCLILifecycle(t *testing.T) {
 	if err := json.Unmarshal([]byte(list.Stdout), &inv); err != nil {
 		t.Fatal(err)
 	}
-	// Destinations resolve existing parent aliases, including macOS /var -> /private/var.
+	// Destinations resolve existing parent aliases before reporting their target.
 	resolvedHome, err := filepath.EvalSymlinks(sb.Home)
 	if err != nil {
 		t.Fatal(err)

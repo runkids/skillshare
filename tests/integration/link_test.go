@@ -5,6 +5,7 @@ package integration
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -176,7 +177,13 @@ func TestLink_OptionTerminatorPath(t *testing.T) {
 	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
 	checkout := filepath.Join(sb.Root, "-checkout")
 	sb.WriteFile(filepath.Join(checkout, "foo", "SKILL.md"), "---\nname: foo\n---\n# foo")
-	sb.RunCLIInDir(sb.Root, "link", "--global", "--", "-checkout").AssertSuccess(t)
+	cwd := sb.Root
+	if runtime.GOOS != "windows" {
+		// Preserve coverage for a path reached through a symlinked working directory.
+		cwd = filepath.Join(filepath.Dir(sb.Root), "root-alias")
+		sb.CreateSymlink(sb.Root, cwd)
+	}
+	sb.RunCLIInDir(cwd, "link", "--global", "--", "-checkout").AssertSuccess(t)
 	// macOS temp dirs live under /var -> /private/var, so compare canonical paths.
 	want, err := filepath.EvalSymlinks(checkout)
 	if err != nil {

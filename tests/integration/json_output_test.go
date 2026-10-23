@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -225,6 +226,22 @@ func TestTarget_List_Project_JSON_IncludesSyncMetadata(t *testing.T) {
 	}
 	if _, ok := output["extras"]; ok {
 		t.Fatalf("did not expect extras in target list JSON, got %v", output["extras"])
+	}
+	if runtime.GOOS != "windows" {
+		projectAlias := filepath.Join(sb.Root, "project-alias")
+		sb.CreateSymlink(projectDir, projectAlias)
+		aliasResult := sb.RunCLIInDir(projectAlias, "target", "list", "-p", "--json")
+		aliasResult.AssertSuccess(t)
+		var aliasOutput map[string]any
+		if err := json.Unmarshal([]byte(aliasResult.Stdout), &aliasOutput); err != nil {
+			t.Fatalf("invalid aliased JSON output: %v\nStdout: %s", err, aliasResult.Stdout)
+		}
+		aliasTargets := aliasOutput["targets"].([]any)
+		aliasTarget := aliasTargets[0].(map[string]any)
+		wantAliasPath := filepath.Join(projectAlias, ".claude", "skills")
+		if aliasTarget["path"] != wantAliasPath {
+			t.Fatalf("expected aliased target path %q, got %v", wantAliasPath, aliasTarget["path"])
+		}
 	}
 }
 

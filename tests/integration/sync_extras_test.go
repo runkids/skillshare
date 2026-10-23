@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -626,6 +627,12 @@ func TestSyncExtras_ProjectJSONReportsResolvedPath(t *testing.T) {
 	defer sb.Cleanup()
 
 	projectRoot := sb.SetupProjectDir("claude")
+	projectCWD := projectRoot
+	if runtime.GOOS != "windows" {
+		// Keep exercising an aliased cwd after the sandbox resolves its temp root.
+		projectCWD = filepath.Join(sb.Root, "project-alias")
+		sb.CreateSymlink(projectRoot, projectCWD)
+	}
 	rulesSource := filepath.Join(projectRoot, ".skillshare", "extras", "rules")
 	os.MkdirAll(rulesSource, 0755)
 	os.WriteFile(filepath.Join(rulesSource, "coding.md"), []byte("# Coding"), 0644)
@@ -640,10 +647,19 @@ extras:
 	result := sb.RunCLIInDir(projectRoot, "sync", "extras", "-p", "--json")
 	result.AssertSuccess(t)
 
-	// The CLI reports the real path; on macOS the temp dir sits behind /var -> /private/var.
+	// The CLI reports the real path when invoked from the canonical project root.
 	want, _ := filepath.EvalSymlinks(filepath.Join(projectRoot, ".claude", "rules"))
 	if got := syncExtrasJSONTargets(t, result.Stdout)[0]["path"]; got != want {
 		t.Errorf("path = %v, want %q", got, want)
+	}
+	if projectCWD != projectRoot {
+		// Relative targets preserve the lexical project root when invoked through its alias.
+		result = sb.RunCLIInDir(projectCWD, "sync", "extras", "-p", "--json")
+		result.AssertSuccess(t)
+		wantAlias := filepath.Join(projectCWD, ".claude", "rules")
+		if got := syncExtrasJSONTargets(t, result.Stdout)[0]["path"]; got != wantAlias {
+			t.Errorf("aliased path = %v, want %q", got, wantAlias)
+		}
 	}
 }
 
