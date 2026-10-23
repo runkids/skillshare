@@ -211,7 +211,7 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 	// Discover skills in the cloned repo. Include root SKILL.md so the count
 	// matches what `skillshare sync` will see: every SKILL.md inside a tracked
 	// repo (root and nested alike) becomes an independent skill on sync.
-	skills := discoverSkills(clonePath, true)
+	skills := discoverSkillsByDirectory(clonePath, true)
 	result.SkillCount = len(skills)
 	for _, skill := range skills {
 		if skill.Path == "." {
@@ -315,7 +315,7 @@ func updateTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallO
 	}
 
 	// Re-discover skills (include root so count matches `sync` view).
-	skills := discoverSkills(repoPath, true)
+	skills := discoverSkillsByDirectory(repoPath, true)
 	result.SkillCount = len(skills)
 	for _, skill := range skills {
 		result.Skills = append(result.Skills, skill.Name)

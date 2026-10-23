@@ -91,7 +91,7 @@ type InstallResult struct {
 
 // SkillInfo represents a discovered skill in a repository
 type SkillInfo struct {
-	Name        string // Skill name (directory name)
+	Name        string // Install name (directory name, or frontmatter for generic containers)
 	Path        string // Relative path from repo root
 	License     string // License from SKILL.md frontmatter (if any)
 	Description string // Description from SKILL.md frontmatter (if any)

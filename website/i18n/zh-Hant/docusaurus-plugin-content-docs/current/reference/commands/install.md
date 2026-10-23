@@ -401,6 +401,8 @@ skillshare install owner/repo-b --name my-skill
 
 ## 常見情境
 
+**預設安裝名稱：** 通常使用 skill 的目錄名稱。如果目錄名稱是通用的 `skill` 或 `skills`，則改用 `SKILL.md` frontmatter 中有效的 `name`，轉為小寫並將空白轉換為連字號（例如 `MinerU Document Extractor` → `mineru-document-extractor`）。名稱缺漏、無效或與其他 skill 名稱衝突時保留目錄名稱。`--name` 可覆寫此預設值。更新保留既有安裝名稱，`--track` 的 repository 命名方式不變。
+
 **以自訂名稱安裝：**
 ```bash
 skillshare install google-gemini/gemini-cli/.../skill-creator --name my-creator

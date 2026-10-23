@@ -343,6 +343,9 @@ func dispatchInstall(source *install.Source, cfg *config.Config, opts install.In
 		return handleGitInstall(source, cfg, opts)
 	}
 
+	if source.Type == install.SourceTypeLocalPath {
+		source.Name = install.DefaultSkillName(source.Path, source.Name)
+	}
 	return handleDirectInstall(source, cfg, opts)
 }
 

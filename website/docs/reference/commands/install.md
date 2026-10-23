@@ -405,6 +405,8 @@ The `--force` hint always includes the correct flags (including `--into` if appl
 
 ## Common Scenarios
 
+**Default install names:** Skills keep their directory name. If that name is the generic `skill` or `skills`, a valid `SKILL.md` frontmatter `name` is used instead, lowercased with spaces normalized to hyphens (for example, `MinerU Document Extractor` → `mineru-document-extractor`). Missing, invalid, or conflicting frontmatter names fall back to the directory name. `--name` overrides this default. Updates preserve existing install names, and `--track` keeps its existing repository naming.
+
 **Install with custom name:**
 ```bash
 skillshare install google-gemini/gemini-cli/.../skill-creator --name my-creator

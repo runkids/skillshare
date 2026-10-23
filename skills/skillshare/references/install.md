@@ -7,6 +7,12 @@ see [native-agents.md](native-agents.md). These examples use skills unless speci
 
 Install skills from local path or git repository.
 
+Skills normally keep their directory name. For generic `skill` or `skills` directories,
+a valid `SKILL.md` frontmatter `name` is used, lowercased with spaces normalized to hyphens
+(e.g. `MinerU Document Extractor` → `mineru-document-extractor`). Missing, invalid,
+or conflicting frontmatter names fall back to the directory name. `--name` overrides the default; updates
+preserve existing install names. Tracked repository naming is unchanged.
+
 ### Source Formats
 
 ```bash

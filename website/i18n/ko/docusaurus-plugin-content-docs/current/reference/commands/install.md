@@ -401,6 +401,8 @@ skillshare install owner/repo-b --name my-skill
 
 ## 일반적인 시나리오
 
+**기본 설치 이름:** 일반적으로 skill 디렉터리 이름을 사용합니다. 이름이 일반적인 `skill` 또는 `skills`이면 `SKILL.md` frontmatter의 유효한 `name`을 사용하고 소문자로 변환하고 공백을 하이픈으로 바꿉니다(예: `MinerU Document Extractor` → `mineru-document-extractor`). 이름이 없거나 유효하지 않거나 다른 skill 이름과 충돌하면 디렉터리 이름을 사용합니다. `--name`은 이 기본값을 덮어씁니다. 업데이트는 기존 설치 이름을 유지하며 `--track`의 저장소 이름 규칙은 바뀌지 않습니다.
+
 **커스텀 이름으로 설치:**
 ```bash
 skillshare install google-gemini/gemini-cli/.../skill-creator --name my-creator

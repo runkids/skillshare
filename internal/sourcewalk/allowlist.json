@@ -521,7 +521,7 @@
   },
   {
     "file": "internal/install/install_discovery.go",
-    "function": "discoverSkills",
+    "function": "discoverSkillsByDirectory",
     "callee": "filepath.Walk",
     "root": "repoPath",
     "reason": "clone",

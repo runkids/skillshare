@@ -164,7 +164,7 @@ func lookupSkillSubdir(repoPath, subdir string) (SkillInfo, bool) {
 	}
 	fm := utils.ParseFrontmatterFields(skillFile, []string{"description", "license"})
 	return SkillInfo{
-		Name:        path.Base(cleaned),
+		Name:        DefaultSkillName(filepath.Dir(skillFile), path.Base(cleaned)),
 		Path:        cleaned,
 		License:     fm["license"],
 		Description: fm["description"],
