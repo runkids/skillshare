@@ -158,21 +158,6 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		return logSummary, err
 	}
 	defer install.CleanupDiscovery(discovery)
-	resolvedNames := make(map[string]bool)
-	for i := range discovery.Skills {
-		name, err := install.ExistingSkillInstallName(cfg.EffectiveSkillsSource(), source, discovery.Skills[i], opts)
-		if err != nil {
-			treeSpinner.Stop()
-			return logSummary, err
-		}
-		discovery.Skills[i].Name = name
-		key := strings.ToLower(name)
-		if opts.Update && resolvedNames[key] {
-			treeSpinner.Stop()
-			return logSummary, fmt.Errorf("skill name collision after resolving installed names: %s; update each installed skill by name instead", name)
-		}
-		resolvedNames[key] = true
-	}
 
 	treeSpinner.Stop()
 	ui.StepDone("Source", sourceLabel(source.Raw))
@@ -208,6 +193,9 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 
 	// Subdir mode handles single skill before empty check (shows "1 skill: name")
 	if source.HasSubdir() && len(discovery.Skills) == 1 {
+		if err := resolveSkillUpdateNames(discovery.Skills, source, cfg, opts); err != nil {
+			return logSummary, err
+		}
 		skill := discovery.Skills[0]
 		if opts.Name != "" {
 			if err := validate.SkillName(opts.Name); err != nil {
@@ -290,6 +278,9 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 
 	// Single skill (non-subdir): show detailed box and install directly
 	if len(discovery.Skills) == 1 {
+		if err := resolveSkillUpdateNames(discovery.Skills, source, cfg, opts); err != nil {
+			return logSummary, err
+		}
 		skill := discovery.Skills[0]
 		if opts.Name != "" {
 			if err := validate.SkillName(opts.Name); err != nil {
@@ -338,6 +329,9 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 	if opts.HasSkillFilter() || opts.ShouldInstallAll() {
 		selected, err := selectSkills(discovery.Skills, opts)
 		if err != nil {
+			return logSummary, err
+		}
+		if err := resolveSkillUpdateNames(selected, source, cfg, opts); err != nil {
 			return logSummary, err
 		}
 
@@ -391,6 +385,9 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		ui.Done(ui.MarkNone, "No skills selected", 0)
 		return logSummary, nil
 	}
+	if err := resolveSkillUpdateNames(selected, source, cfg, opts); err != nil {
+		return logSummary, err
+	}
 
 	batchSummary := installSelectedSkills(selected, discovery, cfg, opts)
 	if batchSummary.Err != nil {
@@ -402,6 +399,26 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 	installDiscoveredAgents(discovery, cfg, opts)
 
 	return logSummary, nil
+}
+
+func resolveSkillUpdateNames(skills []install.SkillInfo, source *install.Source, cfg *config.Config, opts install.InstallOptions) error {
+	if !opts.Update {
+		return nil
+	}
+	names := make(map[string]bool)
+	for i := range skills {
+		name, err := install.ExistingSkillInstallName(cfg.EffectiveSkillsSource(), source, skills[i], opts)
+		if err != nil {
+			return err
+		}
+		key := strings.ToLower(name)
+		if names[key] {
+			return fmt.Errorf("skill name collision after resolving installed names: %s; update each installed skill by name instead", name)
+		}
+		names[key] = true
+		skills[i].Name = name
+	}
+	return nil
 }
 
 // largeBatchProgressThreshold is the skill count above which a progress bar

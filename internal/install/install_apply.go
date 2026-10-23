@@ -361,12 +361,16 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 	// Check if destination exists
 	stage := false
 	if _, err := os.Stat(destPath); err == nil {
-		if !opts.Force && !opts.Update {
+		if !opts.Force {
 			// Use the original repo URL for force hints, not the per-skill
 			// fullSource URL (which isn't a valid install target).
 			hint := buildForceHint(discovery.Source.Raw, opts.Into)
-			if err := checkExistingConflict(destPath, discovery.Source.CloneURL, hint); err != nil {
-				return nil, err
+			meta := LoadMetadataOrNew(opts.SourceDir).GetByPath(filepath.Join(opts.Into, filepath.Base(destPath)))
+			knownUpdate := opts.Update && meta != nil && meta.Source == fullSource && meta.Group == opts.Into && !meta.Tracked && meta.EffectiveKind() == "skill"
+			if !knownUpdate {
+				if err := checkExistingConflict(destPath, discovery.Source.CloneURL, hint); err != nil {
+					return nil, err
+				}
 			}
 			// nil means empty/invalid dir — safe to overwrite, fall through.
 		}

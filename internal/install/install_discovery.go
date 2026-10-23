@@ -199,6 +199,12 @@ func ExistingSkillInstallName(sourceDir string, source *Source, skill SkillInfo,
 	if existing != "" {
 		return existing, nil
 	}
+	destPath := filepath.Join(sourceDir, opts.Into, skill.Name)
+	if !opts.Force {
+		if _, err := os.Stat(destPath); err == nil && !dirIsEmpty(destPath) {
+			return "", fmt.Errorf("already exists at %s; use --force to overwrite", destPath)
+		}
+	}
 	return skill.Name, nil
 }
 

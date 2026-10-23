@@ -26,11 +26,22 @@ func TestInstall_ContainerDirectoryName_SourceUpdateCollision(t *testing.T) {
 			repo := filepath.Join(sb.Root, "collection")
 			original := "---\nname: pdf\n---\n# Original"
 			sb.WriteFile(filepath.Join(repo, "skills", "SKILL.md"), original)
+			sb.WriteFile(filepath.Join(repo, "other", "SKILL.md"), "# Other")
 			initGitRepo(t, repo)
 			args = append(args, "file://"+repo)
 			sb.RunCLIInDir(cwd, args...).AssertSuccess(t)
 			sb.WriteFile(filepath.Join(repo, "pdf", "SKILL.md"), "# Unrelated skill")
+			sb.WriteFile(filepath.Join(repo, "other", "SKILL.md"), "# Updated other")
 			initGitRepo(t, repo)
+			selected := []string{"install", "file://" + repo, "--update", "--skill", "other"}
+			if project {
+				selected = append(selected, "-p")
+			}
+			sb.RunCLIInDir(cwd, selected...).AssertSuccess(t)
+			if got := sb.ReadFile(filepath.Join(destRoot, "other", "SKILL.md")); got != "# Updated other" {
+				t.Fatalf("selected skill was not updated: %q", got)
+			}
+			sb.RunCLIInDir(cwd, append(args, "--update", "--exclude", "pdf")...).AssertSuccess(t)
 			result := sb.RunCLIInDir(cwd, append(args, "--update")...)
 			if result.ExitCode == 0 || !strings.Contains(result.Stdout+result.Stderr, "collision") {
 				t.Fatalf("expected update collision error, got %d: %s%s", result.ExitCode, result.Stdout, result.Stderr)
@@ -39,6 +50,48 @@ func TestInstall_ContainerDirectoryName_SourceUpdateCollision(t *testing.T) {
 				t.Fatalf("collision overwrote the installed skill: %q", got)
 			}
 		})
+	}
+}
+
+func TestInstall_ContainerDirectoryName_UpdateConflict(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, unmanaged := range []bool{false, true} {
+			name := map[bool]string{false: "global", true: "project"}[project] + "/" + map[bool]string{false: "different-repo", true: "unmanaged"}[unmanaged]
+			for _, prefix := range []string{"", "file://"} {
+				t.Run(name+"/"+map[string]string{"": "local", "file://": "git"}[prefix], func(t *testing.T) {
+					sb := testutil.NewSandbox(t)
+					defer sb.Cleanup()
+					sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+					cwd, destRoot := sb.Root, sb.SourcePath
+					args := []string{"install"}
+					if project {
+						cwd = sb.SetupProjectDir("claude")
+						destRoot = filepath.Join(cwd, ".skillshare", "skills")
+						args = append(args, "-p")
+					}
+					original := "# Original skill"
+					dest := filepath.Join(destRoot, "pdf", "SKILL.md")
+					if unmanaged {
+						sb.WriteFile(dest, original)
+					} else {
+						first := filepath.Join(sb.Root, "first", "pdf")
+						sb.WriteFile(filepath.Join(first, "SKILL.md"), original)
+						initGitRepo(t, first)
+						sb.RunCLIInDir(cwd, append(args, prefix+first)...).AssertSuccess(t)
+					}
+					incoming := filepath.Join(sb.Root, "second", "skills")
+					sb.WriteFile(filepath.Join(incoming, "SKILL.md"), "---\nname: pdf\n---\n# Unrelated skill")
+					initGitRepo(t, incoming)
+					result := sb.RunCLIInDir(cwd, append(args, prefix+incoming, "--update")...)
+					if result.ExitCode == 0 {
+						t.Fatalf("update accepted an unrelated destination: %s%s", result.Stdout, result.Stderr)
+					}
+					if got := sb.ReadFile(dest); got != original {
+						t.Fatalf("update overwrote an unrelated destination: %q", got)
+					}
+				})
+			}
+		}
 	}
 }
 
