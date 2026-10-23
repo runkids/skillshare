@@ -43,8 +43,7 @@ function target(name: string, status: string): Target {
   return { name, path: `/home/dev/.${name}/skills`, mode: 'merge', targetNaming: 'flat', status, skillsEnabled: true, linkedCount: 3, localCount: 0, include: [], exclude: [], expectedSkillCount: 3 } as Target;
 }
 
-function renderPage() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function renderPage(client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   return render(
     <MemoryRouter initialEntries={['/']}>
       <QueryClientProvider client={client}><I18nProvider><ToastProvider><DashboardPage /></ToastProvider></I18nProvider></QueryClientProvider>
@@ -88,6 +87,17 @@ describe('DashboardPage', () => {
       await userEvent.click(await screen.findByRole('button', { name: 'Check for updates' }));
       await userEvent.click(await screen.findByRole('button', { name: 'Update' }));
       await waitFor(() => expect(screen.queryByRole('button', { name: 'Update' })).not.toBeInTheDocument());
+    });
+
+    it('forgets the check after leaving the Dashboard, since updates elsewhere do not touch it', async () => {
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const { unmount } = renderPage(client);
+      await userEvent.click(await screen.findByRole('button', { name: 'Check for updates' }));
+      await screen.findByRole('button', { name: 'Update' });
+      unmount();
+      renderPage(client);
+      await screen.findByRole('button', { name: 'Repo actions' });
+      expect(screen.queryByRole('button', { name: 'Update' })).not.toBeInTheDocument();
     });
   });
 

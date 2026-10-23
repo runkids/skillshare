@@ -295,6 +295,8 @@ function NeedsAttention({ targets, healths }: { targets: Target[]; healths: Heal
   const { toast } = useToast();
   // Shared with TrackedRepos, which offers Update only for a repo this check found behind.
   const { data: check } = useQuery<CheckResult>({ queryKey: queryKeys.check, queryFn: () => api.check(), enabled: false, staleTime: Infinity });
+  // Updates made elsewhere (Skills page, CLI) never correct this result, so it lives only while the Dashboard is open.
+  useEffect(() => () => queryClient.removeQueries({ queryKey: queryKeys.check }), [queryClient]);
   const [checking, setChecking] = useState(false);
   const [scanning, setScanning] = useState(false);
   // Reads a scan the Audit page (or this page) already ran; never scans on its own.
