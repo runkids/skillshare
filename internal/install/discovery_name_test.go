@@ -83,7 +83,7 @@ func TestInstallTrackedRepo_ContainerDirectoryNameReport(t *testing.T) {
 }
 
 func TestDiscoverSkills_ContainerDirectoryNameCollision(t *testing.T) {
-	for _, paths := range [][]string{{"skills", "pdf"}, {"a/skills", "b/skill"}} {
+	for _, paths := range [][]string{{"skills", "pdf"}, {"skills", "PDF"}, {"a/skills", "b/skill"}} {
 		t.Run(strings.Join(paths, "+"), func(t *testing.T) {
 			repo := t.TempDir()
 			for _, path := range paths {

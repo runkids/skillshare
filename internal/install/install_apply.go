@@ -361,7 +361,7 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 	// Check if destination exists
 	stage := false
 	if _, err := os.Stat(destPath); err == nil {
-		if !opts.Force {
+		if !opts.Force && !opts.Update {
 			// Use the original repo URL for force hints, not the per-skill
 			// fullSource URL (which isn't a valid install target).
 			hint := buildForceHint(discovery.Source.Raw, opts.Into)

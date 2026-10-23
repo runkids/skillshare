@@ -158,6 +158,21 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		return logSummary, err
 	}
 	defer install.CleanupDiscovery(discovery)
+	resolvedNames := make(map[string]bool)
+	for i := range discovery.Skills {
+		name, err := install.ExistingSkillInstallName(cfg.EffectiveSkillsSource(), source, discovery.Skills[i], opts)
+		if err != nil {
+			treeSpinner.Stop()
+			return logSummary, err
+		}
+		discovery.Skills[i].Name = name
+		key := strings.ToLower(name)
+		if opts.Update && resolvedNames[key] {
+			treeSpinner.Stop()
+			return logSummary, fmt.Errorf("skill name collision after resolving installed names: %s; update each installed skill by name instead", name)
+		}
+		resolvedNames[key] = true
+	}
 
 	treeSpinner.Stop()
 	ui.StepDone("Source", sourceLabel(source.Raw))

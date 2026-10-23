@@ -171,6 +171,37 @@ func DefaultSkillName(dir, fallback string) string {
 	return name
 }
 
+// ExistingSkillInstallName preserves a recorded destination for source-based updates.
+func ExistingSkillInstallName(sourceDir string, source *Source, skill SkillInfo, opts InstallOptions) (string, error) {
+	if !opts.Update || opts.Name != "" {
+		return skill.Name, nil
+	}
+	fullSource := buildDiscoverySkillSource(source, skill.Path)
+	store := LoadMetadataOrNew(sourceDir)
+	var existing string
+	for _, key := range store.List() {
+		entry := store.Get(key)
+		if entry.Tracked || entry.EffectiveKind() != "skill" || entry.Source != fullSource {
+			continue
+		}
+		rel := KeyToRelPath(key, entry)
+		if filepath.Dir(rel) != filepath.Clean(opts.Into) {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(sourceDir, rel, "SKILL.md")); err != nil {
+			continue
+		}
+		if existing != "" {
+			return "", fmt.Errorf("multiple installed skills match source %s; use --name to choose the update destination", fullSource)
+		}
+		existing = filepath.Base(rel)
+	}
+	if existing != "" {
+		return existing, nil
+	}
+	return skill.Name, nil
+}
+
 // discoverSkills finds directories containing SKILL.md
 // If includeRoot is true, root-level SKILL.md is also included (with Path=".")
 func discoverSkills(repoPath string, includeRoot bool) []SkillInfo {
@@ -189,14 +220,14 @@ func applySkillInstallNames(skills []SkillInfo, repoPath, rootName string) {
 			name = rootName
 		}
 		fallbacks[i] = name
-		directoryNames[name]++
+		directoryNames[strings.ToLower(name)]++
 		skills[i].Name = DefaultSkillName(filepath.Join(repoPath, skills[i].Path), name)
-		installNames[skills[i].Name]++
+		installNames[strings.ToLower(skills[i].Name)]++
 	}
 	for i := range skills {
 		name := skills[i].Name
 		// A new frontmatter name must not overwrite another discovered skill.
-		if name != fallbacks[i] && (directoryNames[name] > 0 || installNames[name] > 1) {
+		if name != fallbacks[i] && (directoryNames[strings.ToLower(name)] > 0 || installNames[strings.ToLower(name)] > 1) {
 			skills[i].Name = fallbacks[i]
 		}
 	}
