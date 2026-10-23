@@ -12,6 +12,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/projects"
+	"skillshare/internal/resource"
 	"skillshare/internal/skillignore"
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/utils"
@@ -87,7 +88,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	maps.Copy(resp, ignorePayload(out.ignoreStats))
-	maps.Copy(resp, agentIgnorePayload(s.agentsSource(), nil))
+	maps.Copy(resp, agentIgnorePayload(s.agentsSource(), out.allAgents))
 	writeJSON(w, resp)
 }
 
@@ -100,6 +101,7 @@ type syncOutcome struct {
 	pathOverlap     int // targets whose path overlap the folder conflicts don't explain
 	skills          []ssync.DiscoveredSkill
 	ignoreStats     *skillignore.IgnoreStats
+	allAgents       []resource.DiscoveredResource // nil when agents were not synced
 }
 
 // folderConflicts returns the skills folders whose targets undo each other's
@@ -190,7 +192,7 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	}
 	discovery := ssync.TargetDiscovery{Skills: allSkills, IgnoreStats: ignoreStats, SourceIncomplete: sourceIncomplete}
 	if kind != kindSkill {
-		discovery.Agents, discovery.AgentsAvailable = ssync.DiscoverTargetAgents(s.agentsSource())
+		discovery.Agents, discovery.AllAgents, discovery.AgentsAvailable = ssync.DiscoverTargetAgents(s.agentsSource())
 	}
 	kinds := []string(nil)
 	if kind != "" {
@@ -235,7 +237,7 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	}
 	s.writeOpsLog("sync", status, start, logArgs, "")
 
-	return &syncOutcome{results: results, warnings: warnings, unmatched: unmatched, failed: failed, folderConflicts: executed.FolderConflicts, pathOverlap: executed.PathOverlap, skills: executed.Skills, ignoreStats: executed.IgnoreStats}, 0, nil
+	return &syncOutcome{results: results, warnings: warnings, unmatched: unmatched, failed: failed, folderConflicts: executed.FolderConflicts, pathOverlap: executed.PathOverlap, skills: executed.Skills, ignoreStats: executed.IgnoreStats, allAgents: executed.AllAgents}, 0, nil
 }
 
 // failedTargetNames returns the distinct targets in failed, sorted.

@@ -10,12 +10,17 @@ import (
 )
 
 // DiscoverTargetAgents preserves agent discovery's empty-source/prune behavior.
-func DiscoverTargetAgents(source string) ([]resource.DiscoveredResource, bool) {
+// all also holds .agentignore'd agents, so NewIgnoreReport needs no second scan.
+func DiscoverTargetAgents(source string) (active, all []resource.DiscoveredResource, available bool) {
 	if info, err := os.Stat(source); err == nil && info.IsDir() {
-		all, _ := (resource.AgentKind{}).Discover(source)
-		return resource.ActiveAgents(all), true
+		all, _ = (resource.AgentKind{}).Discover(source)
+		if all == nil {
+			// NewIgnoreReport treats nil as a rescan request; preserve an empty snapshot.
+			all = []resource.DiscoveredResource{}
+		}
+		return resource.ActiveAgents(all), all, true
 	}
-	return nil, false
+	return nil, nil, false
 }
 
 // BackupTargetsOptions describes the adapter's backup location and policy.

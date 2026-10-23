@@ -7,11 +7,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
+	"time"
 
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
 	"skillshare/internal/projects"
+	"skillshare/internal/resource"
+	ssync "skillshare/internal/sync"
 )
 
 // projectSyncFixture writes a global config and keeps backups and state in the test.
@@ -223,5 +227,61 @@ func TestProjectSyncLogStatus(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestSyncProject_ReturnsDiscoveredAgents(t *testing.T) {
+	path, dir := projectSyncFixture(t, func(source string) string {
+		return "source: " + filepath.ToSlash(source) + "\ntargets: {}\nprojects:\n  " + filepath.ToSlash(filepath.Join(filepath.Dir(source), "app")) + ":\n    targets: [claude]\n    agents: {}\n"
+	})
+	cfg, err := config.LoadReadOnlyPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	agents := t.TempDir()
+	cfg.AgentsSource = agents
+	for _, name := range []string{"keep.md", "ignored.md"} {
+		if err := os.WriteFile(filepath.Join(agents, name), []byte("# Agent\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(agents, ".agentignore"), []byte("ignored.md\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	synced, err := syncProject(cfg, filepath.ToSlash(filepath.Join(dir, "app")), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(synced.AllAgents) != 2 || !slices.ContainsFunc(synced.AllAgents, func(a resource.DiscoveredResource) bool {
+		return a.RelPath == "ignored.md" && a.Disabled
+	}) {
+		t.Fatalf("sync discarded the full agent snapshot: %+v", synced.AllAgents)
+	}
+	// Rendering must keep the synced snapshot even if the source changes.
+	if err := os.Remove(filepath.Join(agents, "ignored.md")); err != nil {
+		t.Fatal(err)
+	}
+	output := captureStdout(t, func() {
+		err = renderProjectResult(projectOptions{action: "sync", json: true}, projectResult{
+			Result: projects.Result{Expanded: cfg}, Sync: synced,
+		}, nil, time.Now())
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got projectResultJSON
+	if err := json.Unmarshal([]byte(output), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Sync == nil || got.Sync.AgentIgnoredCount != 1 || !slices.Equal(got.Sync.AgentIgnoredSkills, []string{"ignored.md"}) {
+		t.Fatalf("project JSON lost the synced agent snapshot: %s", output)
+	}
+}
+
+func TestProjectSyncPayload_ReportsSyncedAgentSnapshot(t *testing.T) {
+	r := &ssync.ExecuteResult{AllAgents: []resource.DiscoveredResource{{RelPath: "ignored.md", Disabled: true}, {RelPath: "keep.md"}}}
+	got := projectSyncPayload(r, t.TempDir())
+	if got.AgentIgnoredCount != 1 || !slices.Equal(got.AgentIgnoredSkills, []string{"ignored.md"}) {
+		t.Fatalf("agent ignore report = %+v", got.IgnoreReport)
 	}
 }

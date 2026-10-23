@@ -87,7 +87,7 @@ func TestExecuteTargets_FailedAgentsKeepCompletedSkills(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(agentsSource, "tutor.md"), []byte("# Tutor"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	agents, available := DiscoverTargetAgents(agentsSource)
+	agents, _, available := DiscoverTargetAgents(agentsSource)
 	targets := map[string]config.TargetConfig{}
 	for _, name := range []string{"one", "two"} {
 		targets[name] = config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: t.TempDir()}, Agents: &config.ResourceTargetConfig{Path: t.TempDir(), Extension: "broken"}}
@@ -166,4 +166,48 @@ func TestExecuteTargets_NoEffectiveTargetsReturnsEmptyCollections(t *testing.T) 
 	if err != nil || got.Results == nil || got.Failed == nil || got.Unmatched == nil || got.FolderConflicts == nil || len(got.Results)+len(got.Failed)+len(got.Unmatched)+len(got.FolderConflicts) != 0 {
 		t.Fatalf("empty selection = %+v, %v", got, err)
 	}
+}
+
+func TestExecuteTargets_ReturnsDiscoveredAgentsForIgnoreReport(t *testing.T) {
+	source := t.TempDir()
+	for _, name := range []string{"keep.md", "ignored.md"} {
+		if err := os.WriteFile(filepath.Join(source, name), []byte("# Agent\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(source, ".agentignore"), []byte("ignored.md\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	agents, all, available := DiscoverTargetAgents(source)
+	if !available || len(agents) != 1 || agents[0].RelPath != "keep.md" || len(all) != 2 {
+		t.Fatalf("discovery = active %+v, all %+v, available %v", agents, all, available)
+	}
+	got, err := ExecuteTargets(context.Background(), &config.Config{}, map[string]config.TargetConfig{}, ExecuteOptions{
+		Kinds: []string{"agent"}, DryRun: true, AgentsSource: source,
+		Discovery: TargetDiscovery{Agents: agents, AllAgents: all, AgentsAvailable: available},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A report built from the result must use the synced snapshot, not a rescan.
+	if err := os.Remove(filepath.Join(source, "ignored.md")); err != nil {
+		t.Fatal(err)
+	}
+	if r := NewIgnoreReport(nil, source, got.AllAgents); !slices.Equal(r.AgentIgnoredSkills, []string{"ignored.md"}) {
+		t.Fatalf("ignore report rescanned the source: %+v", r)
+	}
+	t.Run("empty source", func(t *testing.T) {
+		source := t.TempDir()
+		agents, all, available := DiscoverTargetAgents(source)
+		got, err := ExecuteTargets(context.Background(), &config.Config{}, map[string]config.TargetConfig{}, ExecuteOptions{
+			Kinds: []string{"agent"}, DryRun: true, AgentsSource: source,
+			Discovery: TargetDiscovery{Agents: agents, AllAgents: all, AgentsAvailable: available},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !available || got.AllAgents == nil || len(got.AllAgents) != 0 {
+			t.Fatalf("empty source lost the non-nil snapshot: available %v, AllAgents %#v", available, got.AllAgents)
+		}
+	})
 }

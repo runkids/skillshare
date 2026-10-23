@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -102,5 +103,81 @@ func TestHandleSync_SelectedProjectKeepsDiagnosticsAndIgnoreEnvelope(t *testing.
 				t.Fatalf("selected sync lost whole-config diagnostics or ignore fields: %+v", got)
 			}
 		})
+	}
+}
+
+func TestHandleSync_AgentIgnoreEnvelope(t *testing.T) {
+	// Run as a transform extension after discovery, before the response is built.
+	if ignored := os.Getenv("SKILLSHARE_TEST_REMOVE_IGNORED_AGENT"); ignored != "" {
+		if err := os.Remove(ignored); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if _, err := io.Copy(os.Stdout, os.Stdin); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+	s, _ := newTestServerWithTargets(t, map[string]string{"claude": filepath.Join(t.TempDir(), "skills")})
+	agents := t.TempDir()
+	s.cfg.AgentsSource = agents
+	for _, name := range []string{"keep.md", "ignored.md"} {
+		if err := os.WriteFile(filepath.Join(agents, name), []byte("# Agent\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ignore := filepath.Join(agents, ".agentignore")
+	if err := os.WriteFile(ignore, []byte("ignored.md\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	extension := t.TempDir()
+	manifest, err := json.Marshal(map[string]any{"run": []string{exe, "-test.run=^TestHandleSync_AgentIgnoreEnvelope$"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(extension, "extension.yaml"), manifest, 0644); err != nil {
+		t.Fatal(err)
+	}
+	target := s.cfg.Targets["claude"]
+	target.Agents = &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "agents"), Mode: "copy", Extension: extension}
+	s.cfg.Targets["claude"] = target
+	if err := s.cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+	ignored := filepath.Join(agents, "ignored.md")
+	t.Setenv("SKILLSHARE_TEST_REMOVE_IGNORED_AGENT", ignored)
+	rr := projectRequest(t, s, http.MethodPost, "/api/sync", `{"kind":"agent"}`)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("sync: %d %s", rr.Code, rr.Body)
+	}
+	if _, err := os.Stat(ignored); !os.IsNotExist(err) {
+		t.Fatalf("extension did not remove ignored agent: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(target.Agents.Path, "keep.md")); err != nil {
+		t.Fatalf("agent sync did not finish: %v", err)
+	}
+	var got struct {
+		Root    string   `json:"agent_ignore_root"`
+		Count   int      `json:"agent_ignored_count"`
+		Ignored []string `json:"agent_ignored_skills"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Count != 1 || !slices.Equal(got.Ignored, []string{"ignored.md"}) {
+		t.Fatalf("agent ignore envelope = %+v", got)
+	}
+	// The root is the resolved path, which can spell a temp dir differently.
+	want, err := os.Stat(ignore)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if root, err := os.Stat(got.Root); err != nil || !os.SameFile(want, root) {
+		t.Fatalf("agent_ignore_root = %q: %v", got.Root, err)
 	}
 }
