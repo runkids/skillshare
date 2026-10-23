@@ -5,10 +5,13 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"skillshare/internal/config"
 	"skillshare/internal/projects"
+	"skillshare/internal/resource"
+	ssync "skillshare/internal/sync"
 )
 
 // projectSyncFixture writes a global config and keeps backups and state in the test.
@@ -145,5 +148,13 @@ func TestSyncProject_DeclaredResources(t *testing.T) {
 				t.Fatalf("project with nothing enabled executed: %+v", synced)
 			}
 		})
+	}
+}
+
+func TestProjectSyncPayload_ReportsSyncedAgentSnapshot(t *testing.T) {
+	r := &ssync.ExecuteResult{AllAgents: []resource.DiscoveredResource{{RelPath: "ignored.md", Disabled: true}, {RelPath: "keep.md"}}}
+	got := projectSyncPayload(r, t.TempDir())
+	if got.AgentIgnoredCount != 1 || !slices.Equal(got.AgentIgnoredSkills, []string{"ignored.md"}) {
+		t.Fatalf("agent ignore report = %+v", got.IgnoreReport)
 	}
 }

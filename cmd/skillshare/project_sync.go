@@ -92,7 +92,7 @@ func syncProject(cfg *config.Config, root string, dryRun bool) (*ssync.ExecuteRe
 		}
 	}
 	if agents {
-		discovery.Agents, discovery.AgentsAvailable = ssync.DiscoverTargetAgents(cfg.EffectiveAgentsSource())
+		discovery.Agents, discovery.AllAgents, discovery.AgentsAvailable = ssync.DiscoverTargetAgents(cfg.EffectiveAgentsSource())
 	}
 
 	extensionsDir := filepath.Join(filepath.Dir(config.ReadOnlyConfigPath()), "extensions")

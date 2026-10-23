@@ -57,8 +57,8 @@ func projectSyncPayload(r *ssync.ExecuteResult, agentsSource string) *projectSyn
 	if r == nil {
 		return nil
 	}
-	// Mirror the dashboard sync envelope, including its separate agent scan.
-	p := &projectSyncJSON{Results: projectSlice(r.Results), Warnings: projectSlice(r.Warnings), Unmatched: projectSlice(r.Unmatched), Failed: projectSlice(r.Failed), FolderConflicts: projectSlice(r.FolderConflicts), PathOverlap: r.PathOverlap, IgnoreReport: ssync.NewIgnoreReport(r.IgnoreStats, agentsSource, nil)}
+	// Mirror the dashboard sync envelope from the agents the sync discovered.
+	p := &projectSyncJSON{Results: projectSlice(r.Results), Warnings: projectSlice(r.Warnings), Unmatched: projectSlice(r.Unmatched), Failed: projectSlice(r.Failed), FolderConflicts: projectSlice(r.FolderConflicts), PathOverlap: r.PathOverlap, IgnoreReport: ssync.NewIgnoreReport(r.IgnoreStats, agentsSource, r.AllAgents)}
 	for i := range p.Results {
 		row := &p.Results[i]
 		row.Linked = projectSlice(row.Linked)
