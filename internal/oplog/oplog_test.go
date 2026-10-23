@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"skillshare/internal/config"
 )
 
 func tempConfigPath(t *testing.T) string {
@@ -591,5 +593,49 @@ func TestWriteWithLimit_HysteresisAvoidsTruncation(t *testing.T) {
 	}
 	if len(entries) != 11 {
 		t.Errorf("got %d entries, want 11 (hysteresis should prevent truncation)", len(entries))
+	}
+}
+
+func TestLogDir_SelectedGlobalConfigRoundTrip(t *testing.T) {
+	for _, dir := range []string{"shared/skillshare", "shared/.skillshare", ".config/skillshare"} {
+		t.Run(dir, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			t.Setenv("USERPROFILE", home)
+			t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg"))
+			t.Setenv("XDG_STATE_HOME", filepath.Join(home, "state"))
+			selected := filepath.Join(home, filepath.FromSlash(dir), "config.yaml")
+			t.Setenv("SKILLSHARE_CONFIG", selected)
+			canonical := filepath.Join(config.BaseDir(), "config.yaml")
+			want := filepath.Join(config.StateDir(), "logs")
+			if got := LogDir(selected); got != want {
+				t.Errorf("selected global logs=%q want %q", got, want)
+			}
+			if err := Write(canonical, OpsFile, Entry{Command: "project", Status: "ok"}); err != nil {
+				t.Fatal(err)
+			}
+			entries, err := Read(selected, OpsFile, 0)
+			if err != nil || len(entries) != 1 {
+				t.Errorf("global reader lost canonical write: %v %v", entries, err)
+			}
+			project := filepath.Join(home, "app", "skillshare", "config.yaml")
+			if err := Write(project, OpsFile, Entry{Command: "sync", Status: "ok"}); err != nil {
+				t.Fatal(err)
+			}
+			if got := LogDir(project); got != filepath.Join(filepath.Dir(project), "logs") {
+				t.Fatalf("real project moved: %s", got)
+			}
+			if err := Clear(selected, OpsFile); err != nil {
+				t.Fatal(err)
+			}
+			entries, err = Read(canonical, OpsFile, 0)
+			if err != nil || len(entries) != 0 {
+				t.Errorf("global clear missed canonical write: %v %v", entries, err)
+			}
+			entries, err = Read(project, OpsFile, 0)
+			if err != nil || len(entries) != 1 {
+				t.Errorf("global clear changed real project: %v %v", entries, err)
+			}
+		})
 	}
 }
