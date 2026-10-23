@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.26.3](https://github.com/runkids/skillshare/compare/v0.26.2...v0.26.3) (2026-10-23)
+
+
+* **release:** request 0.26.3 ([0122ff0](https://github.com/runkids/skillshare/commit/0122ff026441eaef0f68e0db5d1e4f6eb7f7102d))
+
+
+### New Features
+
+* **targets:** support OpenCode config directory accounts ([#594](https://github.com/runkids/skillshare/issues/594)) ([dabe06a](https://github.com/runkids/skillshare/commit/dabe06a297d66ebeab4041598e82ec850a255544))
+
+
+### Bug Fixes
+
+* **deps:** update vulnerable Go dependencies ([#608](https://github.com/runkids/skillshare/issues/608)) ([b7cffce](https://github.com/runkids/skillshare/commit/b7cffce14bc95b7aba0f20c7860f4dfb8504ee35))
+* **install:** use frontmatter names for generic skill directories ([#617](https://github.com/runkids/skillshare/issues/617)) ([330114b](https://github.com/runkids/skillshare/commit/330114bd6af0b125ee35b0f16919fd53d5ab807b))
+* **ui:** link project targets in the folder-conflict hint to their project ([dea01b1](https://github.com/runkids/skillshare/commit/dea01b1b8d8ef4a567004d3fc67d6c7dc0303fa5)), closes [#612](https://github.com/runkids/skillshare/issues/612)
+* **ui:** put folder-conflict actions on their own row ([#613](https://github.com/runkids/skillshare/issues/613)) ([2c724c4](https://github.com/runkids/skillshare/commit/2c724c4e5116fc5df1d3d4dd326498d22ccab2fe))
+* **ui:** send project-target folder conflicts to the project editor ([9dcd8d6](https://github.com/runkids/skillshare/commit/9dcd8d6e63807f4333f870a7622d63a29d50f267)), closes [#612](https://github.com/runkids/skillshare/issues/612)
+* **website:** approve dependency build scripts for pnpm 12 ([#615](https://github.com/runkids/skillshare/issues/615)) ([107d1b2](https://github.com/runkids/skillshare/commit/107d1b2fe055a75b0341a01aa1dabd82e46eaf27))
+
 ## [0.26.2] - 2026-10-22
 
 
