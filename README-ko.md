@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **최신 버전**: v0.26.0 — Agent별 MCP 옵션을 하나의 source에서 관리하고 `mcp serve --http`로 Executor용 skill index를 제공합니다. Hooks는 config 옆 파일에서 코드와 스크립트를 읽을 수 있으며, OMP plugins는 이제 전용 marketplace build를 사용합니다. [변경 기록](https://skillshare.runkids.cc/changelog)을 확인하세요.
+> **최신 버전**: v0.26.3 — `OPENCODE_CONFIG_DIR`를 사용하는 별도의 OpenCode 계정을 추가할 수 있습니다. Go 의존성의 보안 수정도 포함하며, dashboard의 폴더 충돌에 project target이 있으면 프로젝트 편집기로 안내합니다. [변경 기록](https://skillshare.runkids.cc/changelog)을 확인하세요.
 
 ## skillshare를 쓰는 이유
 
@@ -295,7 +295,13 @@ skillshare가 유용했다면 ⭐를 눌러 주세요
 
 ## Star History
 
-[![Star History Chart](https://star-history.dera.page/svg?repos=runkids/skillshare&type=date&legend=top-left)](https://star-history.dera.page/#runkids/skillshare&type=date&legend=top-left)
+<a href="https://star-history.dera.page/runkids/skillshare">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=runkids/skillshare&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=runkids/skillshare" />
+   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=runkids/skillshare" />
+ </picture>
+</a>
 
 ---
 

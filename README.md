@@ -48,7 +48,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: v0.26.0 — Keep per-Agent MCP options in one source and serve an Executor skill index with `mcp serve --http`. Hooks can read code and scripts from files next to the config; OMP plugins now use their own marketplace builds. [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: v0.26.3 — Add separate OpenCode accounts with `OPENCODE_CONFIG_DIR`. This release also updates Go dependencies with security fixes and sends dashboard folder conflicts involving project targets to the project editor. [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
@@ -384,6 +384,8 @@ Thanks to everyone who helped shape skillshare.
 <a href="https://github.com/neilforest7"><img src="https://github.com/neilforest7.png" width="50" style="border-radius:50%" alt="neilforest7"></a>
 <a href="https://github.com/johnkattenhorn"><img src="https://github.com/johnkattenhorn.png" width="50" style="border-radius:50%" alt="johnkattenhorn"></a>
 <a href="https://github.com/aleps001"><img src="https://github.com/aleps001.png" width="50" style="border-radius:50%" alt="aleps001"></a>
+<a href="https://github.com/jskswamy"><img src="https://github.com/jskswamy.png" width="50" style="border-radius:50%" alt="jskswamy"></a>
+<a href="https://github.com/heyAidy"><img src="https://github.com/heyAidy.png" width="50" style="border-radius:50%" alt="heyAidy"></a>
 
 ---
 
@@ -401,7 +403,13 @@ You can also help by giving skillshare a ⭐ on GitHub!
 
 ## Star History
 
-[![Star History Chart](https://star-history.dera.page/svg?repos=runkids/skillshare&type=date&legend=top-left)](https://star-history.dera.page/#runkids/skillshare&type=date&legend=top-left)
+<a href="https://star-history.dera.page/runkids/skillshare">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=runkids/skillshare&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=runkids/skillshare" />
+   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=runkids/skillshare" />
+ </picture>
+</a>
 
 ---
 

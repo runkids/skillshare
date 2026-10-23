@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.26.0 — 在同一個 source 管理各 Agent 的 MCP 選項，並用 `mcp serve --http` 提供 Executor skill index。Hooks 可從 config 旁的檔案讀取程式碼與腳本；OMP plugins 現在會使用自己的 marketplace build。 [Releases](https://github.com/runkids/skillshare/releases) 和[更新紀錄](https://skillshare.runkids.cc/changelog)。
+> **最新版本**：v0.26.3 — 新增使用 `OPENCODE_CONFIG_DIR` 的獨立 OpenCode 帳號。本版也更新了包含安全修正的 Go 相依套件，並將 dashboard 中涉及 project target 的資料夾衝突操作導向專案編輯器。 [Releases](https://github.com/runkids/skillshare/releases) 和[更新紀錄](https://skillshare.runkids.cc/changelog)。
 
 ## 為什麼用 skillshare
 
@@ -295,7 +295,13 @@ make check  # format + lint + test
 
 ## Star History
 
-[![Star History Chart](https://star-history.dera.page/svg?repos=runkids/skillshare&type=date&legend=top-left)](https://star-history.dera.page/#runkids/skillshare&type=date&legend=top-left)
+<a href="https://star-history.dera.page/runkids/skillshare">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=runkids/skillshare&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=runkids/skillshare" />
+   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=runkids/skillshare" />
+ </picture>
+</a>
 
 ---
 

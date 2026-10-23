@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新バージョン**：v0.26.0 — Agent ごとの MCP オプションを 1 つの source で管理し、`mcp serve --http` で Executor 向けの skill index を公開できます。Hooks は config の隣にあるファイルからコードやスクリプトを読み込めるようになり、OMP plugins は専用の marketplace build を使うようになりました。 [Releases](https://github.com/runkids/skillshare/releases) と[変更履歴](https://skillshare.runkids.cc/changelog)をご覧ください。
+> **最新バージョン**：v0.26.3 — `OPENCODE_CONFIG_DIR` を使う OpenCode の別アカウントを追加できます。Go 依存関係のセキュリティ修正を取り込み、dashboard のフォルダー競合に project target が含まれる場合はプロジェクト編集画面へ案内するようになりました。 [Releases](https://github.com/runkids/skillshare/releases) と[変更履歴](https://skillshare.runkids.cc/changelog)をご覧ください。
 
 ## skillshare を使う理由
 
@@ -295,7 +295,13 @@ skillshare が役に立ったら、⭐ をお願いします
 
 ## Star History
 
-[![Star History Chart](https://star-history.dera.page/svg?repos=runkids/skillshare&type=date&legend=top-left)](https://star-history.dera.page/#runkids/skillshare&type=date&legend=top-left)
+<a href="https://star-history.dera.page/runkids/skillshare">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=runkids/skillshare&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=runkids/skillshare" />
+   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=runkids/skillshare" />
+ </picture>
+</a>
 
 ---
 

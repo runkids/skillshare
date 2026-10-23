@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Neueste Version**: v0.26.0 — Verwalte Agent-spezifische MCP-Optionen in einer Quelle und stelle mit `mcp serve --http` einen Executor-Skill-Index bereit. Hooks können Code und Skripte aus Dateien neben der Konfiguration lesen; OMP-Plugins verwenden jetzt ihre eigenen Marketplace-Builds. [Alle Releases →](https://github.com/runkids/skillshare/releases)
+> **Neueste Version**: v0.26.3 — Füge separate OpenCode-Konten mit `OPENCODE_CONFIG_DIR` hinzu. Dieses Release aktualisiert außerdem Go-Abhängigkeiten mit Sicherheitskorrekturen und führt bei Ordnerkonflikten mit Projektzielen im Dashboard zum Projekteditor. [Alle Releases →](https://github.com/runkids/skillshare/releases)
 
 ## Warum skillshare
 
@@ -296,7 +296,13 @@ Wenn dir skillshare hilft, freuen wir uns über einen ⭐
 
 ## Star History
 
-[![Star History Chart](https://star-history.dera.page/svg?repos=runkids/skillshare&type=date&legend=top-left)](https://star-history.dera.page/#runkids/skillshare&type=date&legend=top-left)
+<a href="https://star-history.dera.page/runkids/skillshare">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=runkids/skillshare&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=runkids/skillshare" />
+   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=runkids/skillshare" />
+ </picture>
+</a>
 
 ---
 
