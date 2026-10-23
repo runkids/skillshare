@@ -6,6 +6,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"skillshare/internal/config"
+	"skillshare/internal/oplog"
 )
 
 func TestHandleListLog_Empty(t *testing.T) {
@@ -80,5 +83,36 @@ func TestHandleClearLog(t *testing.T) {
 	json.Unmarshal(rr.Body.Bytes(), &resp)
 	if resp["success"] != true {
 		t.Error("expected success true")
+	}
+}
+
+func TestHandleLog_ListStatsAndClear(t *testing.T) {
+	s, _ := newTestServer(t)
+	cfgPath := config.ConfigPath()
+	if err := oplog.Write(cfgPath, oplog.OpsFile, oplog.Entry{Command: "sync", Status: "ok"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, url := range []string{"/api/log", "/api/log/stats"} {
+		rr := projectRequest(t, s, http.MethodGet, url, "")
+		var payload struct {
+			Total int `json:"total"`
+		}
+		if rr.Code != http.StatusOK {
+			t.Fatalf("%s: %d %s", url, rr.Code, rr.Body)
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
+			t.Fatal(err)
+		}
+		if payload.Total != 1 {
+			t.Errorf("%s missed global log entry: %s", url, rr.Body)
+		}
+	}
+	rr := projectRequest(t, s, http.MethodDelete, "/api/log", "")
+	if rr.Code != http.StatusOK {
+		t.Fatalf("clear: %d %s", rr.Code, rr.Body)
+	}
+	entries, err := oplog.Read(cfgPath, oplog.OpsFile, 0)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("clear missed canonical log: %v %v", entries, err)
 	}
 }

@@ -137,6 +137,11 @@ jobs:
             ./internal/validate \
             ./internal/version
 
+      # Run this Windows-only regression; the rest of oplog still has failures tracked in #344.
+      - name: Windows legacy config log regression
+        shell: bash
+        run: go test -v -count=1 ./internal/oplog -run "^TestLogDir_WindowsLegacySelectedGlobal$"
+
   docker-sandbox-offline:
     if: *not-release-duplicate
     runs-on: ubuntu-latest
