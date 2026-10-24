@@ -33,7 +33,12 @@ func TestLocalChanges_DiffsAgainstInstalledCommit(t *testing.T) {
 	gitAdd(t, repo, ".")
 	gitCommit(t, repo, "v2")
 
-	if err := os.WriteFile(filepath.Join(dest, "SKILL.md"), []byte("---\nname: alpha\n---\nmine\n"), 0644); err != nil {
+	// Edit in place like an editor would: git may have checked out CRLF on Windows.
+	installed, err := os.ReadFile(filepath.Join(dest, "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dest, "SKILL.md"), []byte(strings.Replace(string(installed), "v1", "mine", 1)), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dest, "notes.md"), []byte("note\n"), 0644); err != nil {
@@ -46,7 +51,7 @@ func TestLocalChanges_DiffsAgainstInstalledCommit(t *testing.T) {
 	}
 	var got []string
 	for _, c := range changes {
-		got = append(got, c.Status+" "+c.Path+"\n"+c.Diff)
+		got = append(got, c.Status+" "+c.Path+"\n"+strings.ReplaceAll(c.Diff, "\r", ""))
 	}
 	want := []string{
 		"modified SKILL.md\n  ---\n  name: alpha\n  ---\n- v1\n+ mine\n",
