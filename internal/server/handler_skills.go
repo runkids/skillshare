@@ -39,11 +39,22 @@ type skillItem struct {
 	// ManualOnly mirrors disable-model-invocation: installed and invocable by name, but the
 	// model does not load it on its own. The list TUI toggles it with M.
 	ManualOnly bool `json:"manualOnly,omitempty"`
+	// Description is the source file's frontmatter description, shown under the name in the list.
+	Description string `json:"description,omitempty"`
 }
 
-// ponytail: one small read per skill on the list; carry it on DiscoveredSkill if lists get slow.
-func manualOnly(skillDir string) bool {
-	return strings.EqualFold(utils.ParseFrontmatterField(filepath.Join(skillDir, "SKILL.md"), "disable-model-invocation"), "true")
+// listMeta reads what a list row shows from a skill's SKILL.md or an agent's file, in one pass.
+// An unquoted ": " in a description makes the YAML invalid, so a failed decode falls back to the line scanner.
+// ponytail: one small read per resource on the list; carry it on DiscoveredSkill if lists get slow.
+func listMeta(path string) (manualOnly bool, description string) {
+	fields := []string{"disable-model-invocation", "description"}
+	m := utils.ParseFrontmatterFields(path, fields)
+	if len(m) == 0 {
+		for _, f := range fields {
+			m[f] = utils.ParseFrontmatterField(path, f)
+		}
+	}
+	return strings.EqualFold(m["disable-model-invocation"], "true"), strings.TrimSpace(m["description"])
 }
 
 // enrichSkillBranch fills item.Branch from metadata, falling back to
@@ -110,8 +121,8 @@ func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
 				RepoPath:   d.RepoRelPath,
 				Targets:    d.Targets,
 				Disabled:   d.Disabled,
-				ManualOnly: manualOnly(d.SourcePath),
 			}
+			item.ManualOnly, item.Description = listMeta(filepath.Join(d.SourcePath, "SKILL.md"))
 			enrichSkillLink(&item, source, walk, linkTargets)
 
 			if entry := s.discoveredSkillEntry(d.RelPath, d.RepoRelPath); entry != nil {
@@ -145,6 +156,7 @@ func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
 				Disabled:   d.Disabled,
 				Targets:    d.Targets,
 			}
+			_, item.Description = listMeta(d.SourcePath)
 
 			// Read from centralized agents metadata store
 			agentKey := strings.TrimSuffix(d.RelPath, ".md")
@@ -228,8 +240,8 @@ func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
 				RepoPath:   d.RepoRelPath,
 				Targets:    d.Targets,
 				Disabled:   d.Disabled,
-				ManualOnly: manualOnly(d.SourcePath),
 			}
+			item.ManualOnly, item.Description = listMeta(filepath.Join(d.SourcePath, "SKILL.md"))
 			enrichSkillLink(&item, source, walk, make(map[string]string))
 
 			if entry := s.discoveredSkillEntry(d.RelPath, d.RepoRelPath); entry != nil {
@@ -306,6 +318,7 @@ func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
 				Disabled:   d.Disabled,
 				Targets:    d.Targets,
 			}
+			_, item.Description = listMeta(d.SourcePath)
 
 			agentKey := strings.TrimSuffix(d.RelPath, ".md")
 			if entry := s.agentEntry(agentKey); entry != nil {

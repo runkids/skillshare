@@ -2,10 +2,12 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -161,6 +163,46 @@ func TestHandleListSkills_ManualOnly(t *testing.T) {
 	}
 	if len(resp.Resources) != 2 {
 		t.Fatalf("expected 2 resources, got %d", len(resp.Resources))
+	}
+}
+
+func TestHandleListSkills_Description(t *testing.T) {
+	s, src := newTestServer(t)
+	files := map[string]string{
+		"folded":  "---\nname: folded\ndescription: >\n  Writes release\n  notes\n---\n",
+		"literal": "---\nname: literal\ndescription: |\n  First paragraph.\n\n  Second paragraph.\n---\n",
+		// An unquoted ": " is invalid YAML; the row still gets the text and the manual-only flag.
+		"colon": "---\nname: colon\ndescription: Use when: a release is due\ndisable-model-invocation: true\n---\n",
+	}
+	for name, md := range files {
+		addSkill(t, src, name)
+		if err := os.WriteFile(filepath.Join(src, name, "SKILL.md"), []byte(md), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/resources", nil))
+
+	var resp struct {
+		Resources []struct {
+			Name        string `json:"name"`
+			Description string `json:"description"`
+			ManualOnly  bool   `json:"manualOnly"`
+		} `json:"resources"`
+	}
+	json.Unmarshal(rr.Body.Bytes(), &resp)
+	got := map[string]string{}
+	for _, r := range resp.Resources {
+		got[r.Name] = fmt.Sprintf("%s|%v", r.Description, r.ManualOnly)
+	}
+	want := map[string]string{
+		"folded":  "Writes release notes|false",
+		"literal": "First paragraph.\n\nSecond paragraph.|false",
+		"colon":   "Use when: a release is due|true",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("description|manualOnly = %v, want %v", got, want)
 	}
 }
 

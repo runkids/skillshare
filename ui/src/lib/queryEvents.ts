@@ -17,7 +17,8 @@ const ignoreFile = [k.diff(), k.overview, k.skills.all, k.doctor];
 const events = {
   // Skills and agents
   skillsChanged: () => keys(k.skills.all, k.overview, k.diff()),
-  skillEdited: (name: string) => keys(k.skills.detail(name)),
+  // The list shows frontmatter (description, manual only), so an edit refreshes it too.
+  skillEdited: (name: string) => keys(k.skills.all, k.skills.detail(name)),
   installDialogClosed: () => keys(k.skills.all),
   reposChanged: () => keys(k.overview, k.skills.all, k.trash),
   skillsMoved: () => keys(k.skills.all, k.overview, k.syncMatrixAll, k.diff()),

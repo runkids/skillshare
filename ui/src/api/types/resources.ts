@@ -47,6 +47,8 @@ export interface Skill {
   disabled?: boolean;
   /** disable-model-invocation: invocable by name, never loaded by the model on its own. */
   manualOnly?: boolean;
+  /** Frontmatter description from the source file. */
+  description?: string;
   branch?: string;
 }
 

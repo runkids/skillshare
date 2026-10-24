@@ -351,6 +351,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   const nests = useMemo(() => new Map<string, Nest>(view !== 'list' ? [] :
     (group === 'source' ? groups : group === 'folder' ? folderGroups : [{ key: '', items: filtered }]).map((g) => [g.key, nestSkills(g.items)])),
   [view, group, groups, folderGroups, filtered]);
+  const listPackages = useMemo(() => [...nests.values()].flatMap((n) => [...n.children.keys()].map(openKey)), [nests]);
   const byName = useMemo(() => new Map(items.map((s) => [s.flatName, s])), [items]);
   const treeSkills = useMemo(() => selectedSkills(tree, treeSel, byName), [tree, treeSel, byName]);
   const paneSubject = useMemo((): PaneSubject => {
@@ -667,7 +668,12 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
             {s.manualOnly && <span className="ss-tag shrink-0" title={t('frontmatterEditor.field.disableModelInvocation.hint')}>manual only</span>}
             {pkg && <span className="shrink-0 text-xs text-ink-3">{t(plural('resources.nested', pkg.count), { count: pkg.count })}</span>}
           </span>
-          {sub && <span className="font-mono text-xs text-ink-3 truncate">{sub}</span>}
+          {(sub || s.description) && (
+            <span className="flex min-w-0 items-baseline gap-2 text-xs text-ink-3">
+              {sub && <span className="font-mono shrink-0 max-w-[50%] truncate">{sub}</span>}
+              {s.description && <span className="min-w-0 truncate" title={s.description}>{s.description}</span>}
+            </span>
+          )}
         </span>
         {group !== 'source' && view === 'list' && <span className="w-[150px] font-mono text-xs text-ink-3 truncate">{sourceName(s)}</span>}
         <span className={targetsCol}><TargetStack names={synced} reachable={reachable} max={hasProjects ? 8 : 4} /></span>
@@ -998,11 +1004,12 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
               />
             )}
             <span className="flex-1" />
-            {((view === 'tree' && tree.children.size > 0) || (view === 'list' && group !== 'none')) && (() => {
+            {((view === 'tree' && tree.children.size > 0) || (view === 'list' && (group !== 'none' || listPackages.length > 0))) && (() => {
               // One button: collapses everything once all is open, otherwise opens everything.
-              const listKeys = group === 'source' ? groups.map((g) => groupKey(g.key)) : folderGroups.map((g) => groupKey(folderKey(g.key)));
+              const listKeys = group === 'source' ? groups.map((g) => groupKey(g.key)) : group === 'folder' ? folderGroups.map((g) => groupKey(folderKey(g.key))) : [];
               const paths = view === 'tree' ? folderPaths(tree) : listKeys;
-              const allOpen = !paths.some((p) => collapsed.has(p));
+              // Packages record open keys, the opposite of groups and folders.
+              const allOpen = !paths.some((p) => collapsed.has(p)) && listPackages.every((k) => collapsed.has(k));
               const label = t(allOpen ? 'resources.folder.collapseAll' : 'resources.folder.expandAll');
               return (
                 <button
@@ -1011,7 +1018,10 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
                   title={label}
                   aria-label={label}
                   // The set also holds the other view's keys; leave those as they are.
-                  onClick={() => updateCollapsed(allOpen ? new Set([...collapsed, ...paths]) : new Set([...collapsed].filter((k) => !paths.includes(k))))}
+                  onClick={() => {
+                    const rest = [...collapsed].filter((k) => !paths.includes(k) && !listPackages.includes(k));
+                    updateCollapsed(new Set([...rest, ...(allOpen ? paths : listPackages)]));
+                  }}
                 >
                   {allOpen ? <ChevronsDownUp size={16} /> : <ChevronsUpDown size={16} />}
                 </button>
