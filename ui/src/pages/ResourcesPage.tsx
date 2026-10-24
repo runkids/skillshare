@@ -345,11 +345,13 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
 
   const groups = useMemo(() => groupBySource(filtered, shownLinks), [filtered, shownLinks]);
   const folderGroups = useMemo(() => groupByFolder(filtered, shownLinks), [filtered, shownLinks]);
+  // Each folder group's skills before filtering, keyed the way groupByFolder keys them (linked folders by link name).
+  const folderPools = useMemo(() => new Map(groupByFolder(items, []).map((g) => [g.key, g.items])), [items]);
   // Group sizes before filtering, so a filtered header reads "1 / 9 skills".
   const groupTotals = useMemo(() => new Map<string, number>([
     ...groupBySource(items, []).map((g) => [`g:${g.key}`, g.items.length] as const),
-    ...groupByFolder(items, []).map((g) => [`f:${g.key}`, g.items.length] as const),
-  ]), [items]);
+    ...[...folderPools].map(([key, list]) => [`f:${key}`, list.length] as const),
+  ]), [items, folderPools]);
   const tree = useMemo(() => buildTree(filtered, shownLinks), [filtered, shownLinks]);
   const treeRows = useMemo(() => flattenTree(tree, collapsed, filtering), [tree, collapsed, filtering]);
   const shownTreeRows = useMemo(() => {
@@ -365,8 +367,8 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   // Filtering keeps the packages that hold a match, shown as context around it; a folder group takes them only from its own folder.
   const nests = useMemo(() => new Map<string, Nest>(view !== 'list' ? [] :
     (group === 'source' ? groups : group === 'folder' ? folderGroups : [{ key: '', items: filtered }])
-      .map((g) => [g.key, nestSkills(filtering ? sortSkills(withAncestors(g.items, group === 'folder' ? items.filter((x) => folderOf(x) === g.key) : items), sort) : g.items)])),
-  [view, group, groups, folderGroups, filtered, filtering, items, sort]);
+      .map((g) => [g.key, nestSkills(filtering ? sortSkills(withAncestors(g.items, group === 'folder' ? folderPools.get(g.key) ?? g.items : items), sort) : g.items)])),
+  [view, group, groups, folderGroups, filtered, filtering, items, folderPools, sort]);
   const packageNames = useMemo(() => [...nests.values()].flatMap((n) => [...n.children.keys()]), [nests]);
   const listPackages = useMemo(() => packageNames.map(openKey), [packageNames]);
   const matched = useMemo(() => new Set(filtered.map((s) => s.flatName)), [filtered]);
