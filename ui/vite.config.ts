@@ -16,6 +16,9 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
+    // Node's native storage globals can shadow jsdom's implementation even when
+    // no storage file is configured. Let jsdom provide storage in test workers.
+    execArgv: 'localStorage' in globalThis ? ['--no-experimental-webstorage'] : [],
   },
   resolve: {
     dedupe: ['react', 'react-dom'],
