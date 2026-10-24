@@ -162,6 +162,8 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 .ss-sw { width: 34px; height: 20px; flex: none; padding: 2px; display: flex; border-radius: 99px; background: var(--line-2); }
 .ss-sw i { width: 16px; height: 16px; border-radius: 99px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
 .ss-sw.on { background: var(--ink); justify-content: flex-end; }
+.ss-sw.sm { width: 28px; height: 16px; }
+.ss-sw.sm i { width: 12px; height: 12px; }
 .ss-sw.on i { background: var(--surface); }
 /* Some of the items it covers are on: half-tone track, centered knob with a dash. */
 .ss-sw.mix { justify-content: center; background: var(--ink-3); }
@@ -229,7 +231,23 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 :root[data-theme="playful"] .ss-r.sel { background: var(--pe); }
 :root[data-theme="playful"].dark .ss-r.sel { background: #332B17; }
 .ss-r .nm { font-weight: 600; }
-.ss-r .nm.m { font-size: 13px; font-weight: 600; letter-spacing: -0.015em; }
+:is(.ss-r, .ss-nr) .nm.m { font-size: 13px; font-weight: 600; letter-spacing: -0.015em; }
+/* A package's skills: one recessed panel under its row, lined up with the names, no lines inside. */
+.ss-nest { margin: -4px 16px 12px 44px; padding: 4px 0; background: color-mix(in srgb, var(--sunken) 55%, transparent); border-radius: 8px; }
+.ss-nest+.ss-r { border-top: var(--sep); }
+.ss-nr { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 4px 12px; border-radius: 8px; }
+.ss-nr.sel { background: var(--accent-bg); }
+.ss-pill { display: inline-flex; flex: none; align-items: center; gap: 2px; height: 24px; padding: 0 6px 0 9px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 8%, transparent); font-size: 12px; font-weight: 500; color: var(--ink-2); white-space: nowrap; cursor: pointer; }
+.ss-pill:hover { color: var(--ink); }
+.ss-nest .ss-pill { background: color-mix(in srgb, var(--ink) 12%, transparent); }
+.ss-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* One faint line under the open package's checkbox runs down to its last nested row. */
+.ss-guide { position: relative; }
+.ss-guide::before { content: ""; position: absolute; left: var(--guide); top: 2px; bottom: 20px; border-left: 1px solid color-mix(in srgb, var(--ink) 14%, transparent); }
+.ss-hit { background: var(--accent-bg); color: var(--accent); border-radius: 3px; }
+.ss-desc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Keyboard focus in a row shows its whole description; the mouse gets the title tooltip. */
+:is(.ss-r, .ss-nr):has(:focus-visible) .ss-desc { white-space: normal; overflow: visible; }
 .ss-lh { display: flex; align-items: center; gap: 12px; height: 34px; padding: 0 16px; font: 500 12px/1 var(--f); color: var(--ink-3); border-bottom: var(--sep); background: var(--sunken); }
 .ss-gh { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 6px 16px; background: var(--sunken); border-top: var(--sep); font-size: 13px; }
 .ss-gh:first-child { border-top: 0; }

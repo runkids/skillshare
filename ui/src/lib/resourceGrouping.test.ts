@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Skill } from '../api/client';
-import { groupByFolder, groupBySource, limitGroups, nestSkills, nestedCount, sortSkills } from './resourceGrouping';
+import { groupByFolder, groupBySource, limitGroups, descendantCount, nestSkills, sortSkills, withAncestors } from './resourceGrouping';
 
 const skill = (relPath: string, extra: Partial<Skill> = {}): Skill => ({
   name: relPath.split('/').pop()!, kind: 'skill', flatName: relPath.replace(/\//g, '__'), relPath, sourcePath: '',
@@ -80,9 +80,11 @@ describe('nestSkills', () => {
   });
 
   it('counts every descendant, not only direct children', () => {
-    const { roots, children } = nestSkills(pack);
+    expect(descendantCount(pack[0], pack)).toBe(3);
+  });
 
-    expect(nestedCount(roots[0], children)).toBe(3);
+  it('brings back the packages that hold a match', () => {
+    expect(withAncestors([pack[3]], pack).map((s) => s.name)).toEqual(['visual-pack', 'portrait', 'wardrobe']);
   });
 
   it('keeps a child top-level when its parent is not in the list', () => {

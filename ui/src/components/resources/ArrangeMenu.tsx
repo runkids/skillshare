@@ -14,14 +14,21 @@ interface Section {
   options: Choice[];
 }
 
+interface Toggles {
+  label: string;
+  options: { label: string; checked: boolean; onChange: () => void }[];
+}
+
 interface ArrangeMenuProps {
   /** Left out where grouping does not apply (the tree view). */
   group?: Section;
   sort: Section;
+  /** What the rows show; left out where the view has nothing to switch. */
+  display?: Toggles;
 }
 
 /** Group and sort behind one icon button; both change rarely, so they share one menu. */
-export default function ArrangeMenu({ group, sort }: ArrangeMenuProps) {
+export default function ArrangeMenu({ group, sort, display }: ArrangeMenuProps) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -83,6 +90,18 @@ export default function ArrangeMenu({ group, sort }: ArrangeMenuProps) {
           {group && section(group)}
           {group && <hr />}
           {section(sort)}
+          {display && (
+            <>
+              <hr />
+              <span className="px-[9px] pt-1.5 pb-1 text-xs font-semibold text-ink-3">{display.label}</span>
+              {display.options.map((o) => (
+                <button key={o.label} type="button" role="menuitemcheckbox" aria-checked={o.checked} className="text-ink" onClick={o.onChange}>
+                  <span className="flex-1">{o.label}</span>
+                  <span className={`ss-sw sm ${o.checked ? 'on' : ''}`} aria-hidden><i /></span>
+                </button>
+              ))}
+            </>
+          )}
         </div>
       )}
     </div>

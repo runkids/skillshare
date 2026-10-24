@@ -5,6 +5,7 @@ import {
   Bot,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   ChevronsDownUp,
   ChevronsUpDown,
   CircleCheck,
@@ -40,7 +41,7 @@ import { globToRegex } from '../lib/glob';
 import { parseRemoteURL } from '../lib/parseRemoteURL';
 import { folderOf, formatTrackedRepoName, resourceHref } from '../lib/resourceNames';
 import {
-  byTargetOrProject, countLabel, groupByFolder, groupBySource, limitGroups, nestedCount, nestSkills, parentPath, projectOf, repoOf, sortSkills, sourceLinkOf, sourceName, splitTargets, syncedByTarget,
+  byTargetOrProject, countLabel, groupByFolder, groupBySource, descendantCount, limitGroups, nestSkills, parentPath, projectOf, repoOf, sortSkills, sourceLinkOf, sourceName, splitTargets, syncedByTarget, withAncestors,
   SOURCE_LABEL, SOURCE_ORDER,
   type FolderGroup, type Group, type Nest, type SortType, type SourceFilter,
 } from '../lib/resourceGrouping';
@@ -104,6 +105,7 @@ const STEP = 100;
 const SOURCE_ICON = { tracked: GitBranch, github: Github, remote: Globe, local: Folder };
 const VIEW_KEY = 'skillshare:skills-view';
 const COLLAPSED_KEY = 'skillshare:folder-collapsed';
+const DESC_KEY = 'skillshare:list-descriptions';
 /** List-view group keys share the collapsed set with tree folder paths, apart by prefix. */
 const groupKey = (key: string) => `group:${key}`;
 /** A folder group's key, kept apart from source groups of the same name. */
@@ -121,6 +123,10 @@ function loadView(): ViewType {
     if (v === 'tree' || v === 'grouped') return 'tree';
   } catch { /* storage unavailable */ }
   return 'list';
+}
+
+function loadShowDesc(): boolean {
+  try { return localStorage.getItem(DESC_KEY) !== 'off'; } catch { return true; }
 }
 
 function loadCollapsed(): Set<string> {
@@ -269,6 +275,9 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   const [view, setView] = useState<ViewType>(loadView);
   const [limit, setLimit] = useState(STEP);
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
+  const [showDesc, setShowDesc] = useState(loadShowDesc);
+  // Packages closed while filtering; a new filter starts with every package open again.
+  const [shut, setShut] = useState<{ filter: string; names: Set<string> }>({ filter: '', names: new Set() });
   // The toolbar sticks to the top; its height places the list header and group heads under it.
   const [stuck, setStuck] = useState(false);
   const sentinel = useRef<HTMLDivElement>(null);
@@ -336,6 +345,11 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
 
   const groups = useMemo(() => groupBySource(filtered, shownLinks), [filtered, shownLinks]);
   const folderGroups = useMemo(() => groupByFolder(filtered, shownLinks), [filtered, shownLinks]);
+  // Group sizes before filtering, so a filtered header reads "1 / 9 skills".
+  const groupTotals = useMemo(() => new Map<string, number>([
+    ...groupBySource(items, []).map((g) => [`g:${g.key}`, g.items.length] as const),
+    ...groupByFolder(items, []).map((g) => [`f:${g.key}`, g.items.length] as const),
+  ]), [items]);
   const tree = useMemo(() => buildTree(filtered, shownLinks), [filtered, shownLinks]);
   const treeRows = useMemo(() => flattenTree(tree, collapsed, filtering), [tree, collapsed, filtering]);
   const shownTreeRows = useMemo(() => {
@@ -348,10 +362,17 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
     return rows;
   }, [treeRows, limit]);
   // List view nests a skill under the nearest skill whose folder holds it, within the skill's group.
+  // Filtering keeps the packages that hold a match, shown as context around it; a folder group takes them only from its own folder.
   const nests = useMemo(() => new Map<string, Nest>(view !== 'list' ? [] :
-    (group === 'source' ? groups : group === 'folder' ? folderGroups : [{ key: '', items: filtered }]).map((g) => [g.key, nestSkills(g.items)])),
-  [view, group, groups, folderGroups, filtered]);
-  const listPackages = useMemo(() => [...nests.values()].flatMap((n) => [...n.children.keys()].map(openKey)), [nests]);
+    (group === 'source' ? groups : group === 'folder' ? folderGroups : [{ key: '', items: filtered }])
+      .map((g) => [g.key, nestSkills(filtering ? sortSkills(withAncestors(g.items, group === 'folder' ? items.filter((x) => folderOf(x) === g.key) : items), sort) : g.items)])),
+  [view, group, groups, folderGroups, filtered, filtering, items, sort]);
+  const packageNames = useMemo(() => [...nests.values()].flatMap((n) => [...n.children.keys()]), [nests]);
+  const listPackages = useMemo(() => packageNames.map(openKey), [packageNames]);
+  const matched = useMemo(() => new Set(filtered.map((s) => s.flatName)), [filtered]);
+  const filterKey = JSON.stringify([query, source, status, activeTarget, activeFolder]);
+  const shutNames = shut.filter === filterKey ? shut.names : new Set<string>();
+  const isOpen = (s: Skill) => (filtering ? !shutNames.has(s.flatName) : collapsed.has(openKey(s.flatName)));
   const byName = useMemo(() => new Map(items.map((s) => [s.flatName, s])), [items]);
   const treeSkills = useMemo(() => selectedSkills(tree, treeSel, byName), [tree, treeSel, byName]);
   const paneSubject = useMemo((): PaneSubject => {
@@ -534,6 +555,17 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
     const skills = list.filter(canMove);
     return skills.length > 0 ? { skills, skipped: list.length - skills.length } : null;
   };
+  const toggleOpen = (s: Skill) => {
+    if (!filtering) return toggleCollapsed(openKey(s.flatName));
+    const names = new Set(shutNames);
+    if (!names.delete(s.flatName)) names.add(s.flatName);
+    setShut({ filter: filterKey, names });
+  };
+  const toggleDesc = () => {
+    setShowDesc(!showDesc);
+    try { localStorage.setItem(DESC_KEY, showDesc ? 'off' : 'on'); } catch { /* storage unavailable */ }
+  };
+
   const openRow = (e: ReactMouseEvent, s: Skill) => {
     if ((e.target as HTMLElement).closest('a,button,label,input')) return;
     navigate(resourceHref(s));
@@ -603,7 +635,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
 
   const groupHead = (g: Group, asLabel: boolean) => {
     const Icon = g.link ? Link2 : SOURCE_ICON[g.source];
-    const meta = [g.link?.warning ?? countLabel(t, kind, g.items.length), g.repo && !g.link ? g.items[0].branch : ''];
+    const meta = [g.link?.warning ?? groupCount(`g:${g.key}`, g.items.length), g.repo && !g.link ? g.items[0].branch : ''];
     return (
       <div key={`g:${g.key}`} className={asLabel ? 'ss-gl' : 'ss-gh'} onContextMenu={g.link ? undefined : (e) => openGroupMenu(e, g.repo)}>
         {!asLabel && groupToggle(g.key, g.link?.name ?? formatTrackedRepoName(g.repo ?? SOURCE_LABEL[g.source]))}
@@ -632,7 +664,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
       {g.repo && !g.link && <span className="ss-tag">tracked</span>}
       {g.repo && !g.link && repoOrigin(g.key, g.items)}
       {g.link && <span className="min-w-0 truncate font-mono text-xs text-ink-3" title={g.link.target}>{g.link.target}</span>}
-      <span className="shrink-0 text-ink-3">{g.link?.warning ?? countLabel(t, kind, g.items.length)}</span>
+      <span className="shrink-0 text-ink-3">{g.link?.warning ?? groupCount(`f:${g.key}`, g.items.length)}</span>
       {g.link && !isAgent && <><span className="flex-1" />{unlinkButton(g.link)}</>}
       {movable(g) && (
         <>
@@ -645,33 +677,62 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
     </div>
   );
 
-  const itemRow = (s: Skill, depth = 0, pkg?: { count: number; open: boolean }) => {
+  type Pkg = { count: number; matches: number; open: boolean };
+  // Rows drawn this render; the bulk bar counts selected skills that are not among them.
+  const drawn = new Set<string>();
+  const context = (s: Skill) => filtering && !matched.has(s.flatName);
+  const groupCount = (id: string, n: number) => {
+    const total = filtering ? groupTotals.get(id) : undefined;
+    return total !== undefined && total !== n ? `${n} / ${countLabel(t, kind, total)}` : countLabel(t, kind, n);
+  };
+  /** Marks the typed text inside a name; glob patterns match whole names, so they mark nothing. */
+  const hit = (name: string) => {
+    const i = query && !isGlob ? name.toLowerCase().indexOf(query.toLowerCase()) : -1;
+    return i < 0 ? name : <>{name.slice(0, i)}<mark className="ss-hit">{name.slice(i, i + query.length)}</mark>{name.slice(i + query.length)}</>;
+  };
+
+  const pill = (s: Skill, pkg: Pkg) => {
+    const text = filtering && pkg.matches < pkg.count
+      ? t('resources.nestedMatch', { shown: pkg.matches, count: pkg.count })
+      : t(plural('resources.nested', pkg.count), { count: pkg.count });
+    return (
+      <button type="button" className="ss-pill" aria-expanded={pkg.open} aria-controls={pkg.open ? `nest-${s.flatName}` : undefined}
+        aria-label={`${t(pkg.open ? 'resources.folder.collapse' : 'resources.folder.expand', { name: s.relPath })}, ${text}`} onClick={() => toggleOpen(s)}>
+        {text}
+        {pkg.open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+      </button>
+    );
+  };
+
+  const pkgOf = (s: Skill, kids: Skill[] | undefined): Pkg | undefined => kids && {
+    count: descendantCount(s, items),
+    matches: descendantCount(s, filtered),
+    open: isOpen(s),
+  };
+
+  const itemRow = (s: Skill, pkg?: Pkg) => {
     const { synced, reachable, tone, label } = rowInfo(s);
     // Grouped by folder, the header already names the parent path.
     const sub = group === 'folder' && !s.linkName ? '' : parentPath(s, group === 'source' || group === 'folder');
+    const desc = showDesc ? s.description : '';
+    drawn.add(s.flatName);
     return (
       <div
         key={s.flatName}
-        className={`ss-r link ${selected.has(s.flatName) ? 'sel' : ''}`}
-        onClick={(e) => openRow(e, s)}
+        className={`ss-r ${selected.has(s.flatName) ? 'sel' : ''}`}
         onContextMenu={(e) => openItemMenu(e, s)}
       >
         {selectBox(s)}
-        <span className="flex flex-col min-w-0 flex-1 gap-px" style={depth ? { paddingLeft: depth * 24 } : undefined}>
+        <span className="flex flex-col min-w-0 flex-1 gap-px">
           <span className="flex min-w-0 items-center gap-2">
-            {pkg && (
-              <button type="button" className="ss-ib !w-6 !h-6 -mx-1 shrink-0" aria-expanded={pkg.open} aria-label={t(pkg.open ? 'resources.folder.collapse' : 'resources.folder.expand', { name: s.name })} onClick={() => toggleCollapsed(openKey(s.flatName))}>
-                {pkg.open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-              </button>
-            )}
-            <Link to={resourceHref(s)} className={`nm m truncate hover:underline ${s.disabled ? 'text-ink-3' : ''}`}>{s.name}</Link>
+            <Link to={resourceHref(s)} className={`nm m truncate hover:underline ${s.disabled || context(s) ? 'text-ink-3' : ''}`}>{hit(s.name)}</Link>
             {s.manualOnly && <span className="ss-tag shrink-0" title={t('frontmatterEditor.field.disableModelInvocation.hint')}>manual only</span>}
-            {pkg && <span className="shrink-0 text-xs text-ink-3">{t(plural('resources.nested', pkg.count), { count: pkg.count })}</span>}
+            {pkg && pill(s, pkg)}
           </span>
-          {(sub || s.description) && (
+          {(sub || desc) && (
             <span className="flex min-w-0 items-baseline gap-2 text-xs text-ink-3">
               {sub && <span className="font-mono shrink-0 max-w-[50%] truncate">{sub}</span>}
-              {s.description && <span className="min-w-0 truncate" title={s.description}>{s.description}</span>}
+              {desc && <span className={`ss-desc min-w-0 ${context(s) ? '' : 'text-ink-2'}`} title={desc}>{desc}</span>}
             </span>
           )}
         </span>
@@ -683,17 +744,53 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
     );
   };
 
-  /** A package row, then its nested skills while it is open. */
-  const nestRows = (list: Skill[], nest: Nest | undefined, depth = 0): React.ReactNode[] => list.flatMap((s) => {
+  /** A skill inside a package's panel: no target or status columns, only a tag when it is not plainly on. */
+  const nestedRow = (s: Skill, depth: number, pkg?: Pkg) => {
+    const { tone, label } = rowInfo(s);
+    const desc = showDesc ? s.description : '';
+    drawn.add(s.flatName);
+    return (
+      <div
+        key={s.flatName}
+        className={`ss-nr ${selected.has(s.flatName) ? 'sel' : ''}`}
+        onContextMenu={(e) => openItemMenu(e, s)}
+      >
+        {depth > 0 && <span aria-hidden className="shrink-0 -mr-2.5" style={{ width: depth * 24 }} />}
+        {selectBox(s)}
+        <Link to={resourceHref(s)} className={`nm m shrink-0 hover:underline ${s.disabled || context(s) ? 'text-ink-3' : ''}`}>{hit(s.name)}</Link>
+        {s.manualOnly && <span className="ss-tag shrink-0" title={t('frontmatterEditor.field.disableModelInvocation.hint')}>manual only</span>}
+        {pkg && pill(s, pkg)}
+        {tone !== 'ok' && <span className="ss-tag shrink-0">{label}</span>}
+        {desc && <span className={`ss-desc min-w-0 text-xs ${context(s) ? 'text-ink-3' : 'text-ink-2'}`} title={desc}>{desc}</span>}
+        <span className="flex-1" />
+        {actionsButton(s)}
+      </div>
+    );
+  };
+
+  /** The skills under a package, one level deeper each time a nested package is open. */
+  const nestedRows = (list: Skill[], nest: Nest, depth: number): React.ReactNode[] => list.flatMap((s) => {
+    const kids = nest.children.get(s.flatName);
+    const pkg = pkgOf(s, kids);
+    return [
+      nestedRow(s, depth, pkg),
+      ...(pkg?.open ? [<div key={`nest-${s.flatName}`} id={`nest-${s.flatName}`} role="group" aria-label={s.name} className="ss-guide" style={{ '--guide': `${20 + depth * 24}px` } as React.CSSProperties}>{nestedRows(kids!, nest, depth + 1)}</div>] : []),
+    ];
+  });
+
+  /** A top-level row, then its package panel while it is open. */
+  const nestRows = (list: Skill[], nest: Nest | undefined): React.ReactNode[] => list.flatMap((s) => {
     const kids = nest?.children.get(s.flatName);
-    if (!kids) return [itemRow(s, depth)];
-    // Filtering opens every package so nested matches stay visible, as the tree view does.
-    const open = filtering || collapsed.has(openKey(s.flatName));
-    return [itemRow(s, depth, { count: nestedCount(s, nest!.children), open }), ...(open ? nestRows(kids, nest, depth + 1) : [])];
+    const pkg = pkgOf(s, kids);
+    return [
+      itemRow(s, pkg),
+      ...(pkg?.open ? [<div key={`nest-${s.flatName}`} id={`nest-${s.flatName}`} role="group" aria-label={s.name} className="ss-nest">{nestedRows(kids!, nest!, 0)}</div>] : []),
+    ];
   });
 
   const card = (s: Skill) => {
     const { synced, reachable, tone, label } = rowInfo(s);
+    drawn.add(s.flatName);
     return (
       <div
         key={s.flatName}
@@ -878,6 +975,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
 
   // The tree view acts on its own selection through the detail pane, not the bulk toolbar.
   const count = view === 'tree' ? 0 : selectedItems.length;
+  const hiddenCount = selectedItems.filter((s) => !drawn.has(s.flatName)).length;
 
   return (
     <div className={`ss-wrap animate-fade-in ${tab === 'installed' && count > 0 ? 'pb-16' : ''}`}>
@@ -956,8 +1054,11 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
                 placeholder={t(isAgent ? 'resources.search.agents' : 'resources.search.skills')}
                 aria-label={t(isAgent ? 'resources.search.agents' : 'resources.search.skills')}
               />
-              {!search && <span className="k">/</span>}
+              {search
+                ? <button type="button" className="ss-ib !w-6 !h-6 -mr-1.5 shrink-0" aria-label={t('resources.search.clear')} onClick={(e) => { setSearch(''); setLimit(STEP); e.currentTarget.closest('label')?.querySelector('input')?.focus(); }}><X size={14} /></button>
+                : <span className="k">/</span>}
             </label>
+            {query && <span className="shrink-0 text-[13px] text-ink-3">{filtered.length} / {countLabel(t, kind, items.length)}</span>}
             <Select
               className="shrink-0 ml-2"
               prefix={t('resources.toolbar.source')}
@@ -1008,8 +1109,9 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
               // One button: collapses everything once all is open, otherwise opens everything.
               const listKeys = group === 'source' ? groups.map((g) => groupKey(g.key)) : group === 'folder' ? folderGroups.map((g) => groupKey(folderKey(g.key))) : [];
               const paths = view === 'tree' ? folderPaths(tree) : listKeys;
-              // Packages record open keys, the opposite of groups and folders.
-              const allOpen = !paths.some((p) => collapsed.has(p)) && listPackages.every((k) => collapsed.has(k));
+              // Packages record open keys, the opposite of groups and folders; while filtering they open on their own.
+              const packagesOpen = packageNames.every((n) => (filtering ? !shutNames.has(n) : collapsed.has(openKey(n))));
+              const allOpen = !paths.some((p) => collapsed.has(p)) && packagesOpen;
               const label = t(allOpen ? 'resources.folder.collapseAll' : 'resources.folder.expandAll');
               return (
                 <button
@@ -1019,8 +1121,10 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
                   aria-label={label}
                   // The set also holds the other view's keys; leave those as they are.
                   onClick={() => {
-                    const rest = [...collapsed].filter((k) => !paths.includes(k) && !listPackages.includes(k));
-                    updateCollapsed(new Set([...rest, ...(allOpen ? paths : listPackages)]));
+                    const packages = filtering ? [] : listPackages;
+                    const rest = [...collapsed].filter((k) => !paths.includes(k) && !packages.includes(k));
+                    updateCollapsed(new Set([...rest, ...(allOpen ? paths : packages)]));
+                    if (filtering) setShut({ filter: filterKey, names: new Set(allOpen ? packageNames : []) });
                   }}
                 >
                   {allOpen ? <ChevronsDownUp size={16} /> : <ChevronsUpDown size={16} />}
@@ -1048,6 +1152,10 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
                   { value: 'newest', label: t('resources.sort.newestFirst') },
                   { value: 'oldest', label: t('resources.sort.oldestFirst') },
                 ],
+              }}
+              display={view !== 'list' ? undefined : {
+                label: t('resources.display'),
+                options: [{ label: t('resources.display.descriptions'), checked: showDesc, onChange: toggleDesc }],
               }}
             />
             <SegmentedControl
@@ -1084,6 +1192,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
           {count > 0 && (
             <div className="ss-bulk" role="toolbar" aria-label={t('resources.select.count', { count })}>
               <b>{t('resources.select.count', { count })}</b>
+              {hiddenCount > 0 && <span className="text-ink-3">{t('resources.select.hidden', { count: hiddenCount })}</span>}
               <span className="dv" />
               <Button variant="secondary" size="sm" disabled={toggleMany.isPending} onClick={() => toggleMany.mutate({ names: selectedItems.map((s) => s.flatName), enable: true })}>
                 <CircleCheck size={15} />

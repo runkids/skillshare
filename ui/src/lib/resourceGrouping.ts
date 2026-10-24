@@ -177,9 +177,19 @@ export function nestSkills(items: Skill[]): Nest {
   return { roots, children };
 }
 
-/** How many skills sit anywhere under `s`. */
-export function nestedCount(s: Skill, children: Map<string, Skill[]>): number {
-  return (children.get(s.flatName) ?? []).reduce((n, c) => n + 1 + nestedCount(c, children), 0);
+/** How many skills in `items` sit anywhere under `s`'s folder. */
+export function descendantCount(s: Skill, items: Skill[]): number {
+  const prefix = `${s.relPath}/`;
+  return items.reduce((n, x) => n + (x.relPath.startsWith(prefix) ? 1 : 0), 0);
+}
+
+/** `matched` plus each skill in `all` whose folder holds one of them, in the order of `all`, so a match keeps its packages around it. */
+export function withAncestors(matched: Skill[], all: Skill[]): Skill[] {
+  const keep = new Set(matched.map((s) => s.relPath));
+  for (const s of matched) {
+    for (let i = s.relPath.lastIndexOf('/'); i > 0; i = s.relPath.lastIndexOf('/', i - 1)) keep.add(s.relPath.slice(0, i));
+  }
+  return all.filter((s) => keep.has(s.relPath));
 }
 
 /** Splits target names into global tools and projects; `myapp@claude` is claude in the myapp project. */
