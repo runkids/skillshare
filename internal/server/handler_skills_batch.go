@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"skillshare/internal/install"
 	"skillshare/internal/resource"
 	"skillshare/internal/sourcefs"
 	"skillshare/internal/sourcewalk"
@@ -81,12 +80,6 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 	var updated, skipped int
 	var errors []string
 
-	// Collect skills that need meta hash refresh (outside the lock).
-	type updatedSkill struct {
-		name string
-		path string
-	}
-	var updatedSkills []updatedSkill
 	overridden := false
 
 	var values []string
@@ -118,18 +111,19 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 		}
 
 		skillMDPath := filepath.Join(d.SourcePath, "SKILL.md")
+		before, _ := utils.FileHashFormatted(skillMDPath)
 		if err := setSourceFrontmatterList(source, skillMDPath, "metadata.targets", values, walk.Follow); err != nil {
 			errors = append(errors, d.FlatName+": "+err.Error())
 			continue
 		}
 
-		if s.skillsStore.HasFileHashes(relPath) {
-			updatedSkills = append(updatedSkills, updatedSkill{name: relPath, path: d.SourcePath})
+		if after, err := utils.FileHashFormatted(skillMDPath); err == nil && s.skillsStore.CarryFileHash(relPath, "SKILL.md", before, after) {
+			overridden = true
 		}
 		updated++
 	}
-	// Save the overrides before unlocking: every API request reloads skillsStore
-	// from disk, so an override left unsaved here can be dropped by the next one.
+	// Save the overrides and hashes before unlocking: every API request reloads
+	// skillsStore from disk, so a change left unsaved here can be dropped by the next one.
 	if overridden {
 		if err := s.skillsStore.Save(s.cfg.EffectiveSkillsSource()); err != nil {
 			s.mu.Unlock()
@@ -138,27 +132,6 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.mu.Unlock()
-
-	// Recompute file hashes outside the lock so reads aren't blocked; the
-	// store itself is only touched under the lock.
-	hashes := make(map[string]map[string]string, len(updatedSkills))
-	for _, sk := range updatedSkills {
-		if h, err := install.ComputeFileHashes(sk.path, walk.Follow); err == nil {
-			hashes[sk.name] = h
-		}
-	}
-	if len(hashes) > 0 {
-		s.mu.Lock()
-		for name, h := range hashes {
-			s.skillsStore.SetFileHashes(name, h)
-		}
-		err := s.skillsStore.Save(s.cfg.EffectiveSkillsSource())
-		s.mu.Unlock()
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to save file hashes: "+err.Error())
-			return
-		}
-	}
 
 	s.writeOpsLog("batch-set-targets", "ok", start, map[string]any{
 		"folder":  req.Folder,
@@ -235,7 +208,13 @@ func (s *Server) handleSetSkillTargets(w http.ResponseWriter, r *http.Request) {
 			skillMDPath := filepath.Join(d.SourcePath, "SKILL.md")
 
 			s.mu.Lock()
+			before, _ := utils.FileHashFormatted(skillMDPath)
 			err := setSourceFrontmatterList(source, skillMDPath, "metadata.targets", values, walk.Follow)
+			if err == nil {
+				if after, hashErr := utils.FileHashFormatted(skillMDPath); hashErr == nil && s.skillsStore.CarryFileHash(d.RelPath, "SKILL.md", before, after) {
+					err = s.skillsStore.Save(s.cfg.EffectiveSkillsSource())
+				}
+			}
 			s.mu.Unlock()
 
 			if err != nil {
@@ -245,23 +224,6 @@ func (s *Server) handleSetSkillTargets(w http.ResponseWriter, r *http.Request) {
 				}
 				writeError(w, status, "failed to update skill: "+err.Error())
 				return
-			}
-
-			s.mu.RLock()
-			refresh := s.skillsStore.HasFileHashes(d.RelPath)
-			s.mu.RUnlock()
-			if refresh {
-				if hashes, err := install.ComputeFileHashes(d.SourcePath, walk.Follow); err == nil {
-					s.mu.Lock()
-					s.skillsStore.SetFileHashes(d.RelPath, hashes)
-					err := s.skillsStore.Save(s.cfg.EffectiveSkillsSource())
-					s.mu.Unlock()
-
-					if err != nil {
-						writeError(w, http.StatusInternalServerError, "failed to update skill: "+err.Error())
-						return
-					}
-				}
 			}
 		}
 

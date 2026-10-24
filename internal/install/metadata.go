@@ -528,22 +528,17 @@ func (s *MetadataStore) RefreshHashes(relPath, skillPath string, follow ...*sour
 	entry.FileHashes = hashes
 }
 
-// HasFileHashes reports whether the entry at relPath records file hashes,
-// i.e. whether RefreshHashes would recompute them.
-func (s *MetadataStore) HasFileHashes(relPath string) bool {
+// CarryFileHash records after as the hash of file, a file skillshare itself
+// rewrote, when its recorded hash was before. A file the user had already
+// edited keeps its recorded hash, so the edit still counts as a local change.
+// It reports whether the entry changed.
+func (s *MetadataStore) CarryFileHash(relPath, file, before, after string) bool {
 	entry := s.GetByPath(relPath)
-	return entry != nil && entry.FileHashes != nil
-}
-
-// SetFileHashes stores hashes computed by ComputeFileHashes for an entry that
-// already has them. No-op if entry doesn't exist or has no FileHashes. It lets
-// callers hash files without holding the lock that guards the store.
-func (s *MetadataStore) SetFileHashes(relPath string, hashes map[string]string) {
-	entry := s.GetByPath(relPath)
-	if entry == nil || entry.FileHashes == nil {
-		return
+	if entry == nil || before == "" || entry.FileHashes[file] != before || before == after {
+		return false
 	}
-	entry.FileHashes = hashes
+	entry.FileHashes[file] = after
+	return true
 }
 
 // RefreshTrackedRootSkillHashes recomputes file hashes for tracked repositories
