@@ -103,3 +103,19 @@ func TestLocalChanges_OnlyAddedFilesDoNotFetch(t *testing.T) {
 		t.Errorf("LocalChanges = %+v, %v", changes, err)
 	}
 }
+
+// A short SHA makes git fetch the whole history, so the full recorded commit
+// is used when it is the same commit as Version.
+func TestInstalledCommit(t *testing.T) {
+	full := "0123456789abcdef0123456789abcdef01234567"
+	for _, c := range []struct{ version, commit, want string }{
+		{"0123456", full, full},
+		{"0123456", "", "0123456"},
+		{"89abcde", full, "89abcde"}, // stale Commit from an older install
+		{"", full, ""},
+	} {
+		if got := installedCommit(&MetadataEntry{Version: c.version, Commit: c.commit}); got != c.want {
+			t.Errorf("installedCommit(%q, %q) = %q, want %q", c.version, c.commit, got, c.want)
+		}
+	}
+}

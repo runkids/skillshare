@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strings"
 
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/textdiff"
@@ -58,7 +59,8 @@ func LocalChanges(entry *MetadataEntry, parseOpts ParseOptions, dir string, foll
 	installed := ""
 	if slices.ContainsFunc(changes, func(c FileChange) bool { return c.Status != "added" }) {
 		// Upstream HEAD would show its own changes as the user's.
-		if !IsCommitSHA(entry.Version) {
+		commit := installedCommit(entry)
+		if commit == "" {
 			return nil, errors.New("no recorded commit to compare with")
 		}
 		source, err := ParseSourceWithOptions(entry.Source, parseOpts)
@@ -66,7 +68,7 @@ func LocalChanges(entry *MetadataEntry, parseOpts ParseOptions, dir string, foll
 			return nil, fmt.Errorf("invalid source: %w", err)
 		}
 		source.ApplyRecordedBranch(entry.Branch)
-		source.Commit = entry.Version
+		source.Commit = commit
 		tmp, err := os.MkdirTemp("", "skillshare-changes-")
 		if err != nil {
 			return nil, err
@@ -92,4 +94,17 @@ func LocalChanges(entry *MetadataEntry, parseOpts ParseOptions, dir string, foll
 		changes[i].Diff = textdiff.Files(old, filepath.Join(dir, rel))
 	}
 	return changes, nil
+}
+
+// installedCommit is the commit the skill was installed at: the full SHA when
+// it is the same commit as the short Version, since fetching a short SHA falls
+// back to downloading the whole history. "" when none was recorded.
+func installedCommit(entry *MetadataEntry) string {
+	if !IsCommitSHA(entry.Version) {
+		return ""
+	}
+	if IsCommitSHA(entry.Commit) && strings.HasPrefix(entry.Commit, entry.Version) {
+		return entry.Commit
+	}
+	return entry.Version
 }
