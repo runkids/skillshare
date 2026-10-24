@@ -11,24 +11,22 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ## [0.26.4] - 2026-10-24
 
-
 ### New Features
 
-* **check:** show what changed in a skill since install ([#623](https://github.com/runkids/skillshare/issues/623)) ([2d196c2](https://github.com/runkids/skillshare/commit/2d196c286b6fe2e4642e4dfc87f4ad24c3ee5262))
-* **ui:** draw skill trees as curved branches and animate folding ([f3d23cc](https://github.com/runkids/skillshare/commit/f3d23ccb0cd9bf71fd8cf73c1acc0351bc160878))
-* **ui:** import several installed plugins at once ([8e43cc5](https://github.com/runkids/skillshare/commit/8e43cc5ce69a734514bb306be2b729d5796c5c7f))
-* **ui:** nest skill packages under their parent in the list view ([a65414f](https://github.com/runkids/skillshare/commit/a65414fa2fd442da684e5262a6ad2cb2e1ed8dc7)), closes [#624](https://github.com/runkids/skillshare/issues/624)
-* **ui:** show skill descriptions in the list and redesign package rows ([#635](https://github.com/runkids/skillshare/issues/635)) ([1a79971](https://github.com/runkids/skillshare/commit/1a79971df43dc0519eb0f4c93152e52cf943ce61))
-* **update:** flag and protect skills edited since install ([#622](https://github.com/runkids/skillshare/issues/622)) ([7a7ccee](https://github.com/runkids/skillshare/commit/7a7cceefabfdae77e8e047e9028856f0021bf9c4))
-
+- **Protect skills you edited since install** — `skillshare check` reports a remote skill whose files no longer match the ones recorded at install as `local changes since install`, and `skillshare check <name> --diff` shows the changes file by file. `update` skips such a skill instead of reinstalling over your edits: a named skill fails with a hint, `--all` and `--group` count it as skipped, and `--dry-run` lists it as one it would skip. Add `--force` to discard the edits. On the dashboard, the **Updates** tab marks it **Modified locally** with a **View changes** button, and the skill page asks before overwriting it. Tracked repos and local-path installs are not checked. Thanks to @chung1912 for the report. Refs: #621, #622, #623.
+  ```bash
+  skillshare check alpha --diff
+  skillshare update alpha --force
+  ```
+- **Skill descriptions and packages in the dashboard list** — each row in the Skills list view shows the `description` from the skill's frontmatter on one line (**Group and sort** → **Show** → **Descriptions** hides them). A skill inside another skill's folder is listed under it: the count after the package's name opens its skills below it, and a search opens the packages that hold a match with counts such as `1 / 3`. Only a skill's name opens its detail page. Nested skills hang from their package on a faint curved line, the **tree** view draws folders the same way, and packages and folders grow open and shrink shut. Thanks to @trojanwk for both proposals. Refs: #624, #625, #627, #631, #635.
+- **Import several installed plugins at once** — the dashboard's **Import installed** dialog has checkboxes and an **Import selected (N)** button, and stays open while the plugins are imported. A blocked or failed plugin keeps its tick and shows the reason, so you can retry it.
 
 ### Bug Fixes
 
-* **ui:** center single-line rows in the plugin update dialog ([5ba6266](https://github.com/runkids/skillshare/commit/5ba626696ea3ed1e08a2cd21468cea000613c3fa))
-* **ui:** offer a tracked repo's Update only when a check finds it behind ([#619](https://github.com/runkids/skillshare/issues/619)) ([e441b57](https://github.com/runkids/skillshare/commit/e441b57f0e69779e90dbbb928003b70c12810fca))
-* **ui:** restore jsdom storage in Node 26 test workers ([#626](https://github.com/runkids/skillshare/issues/626)) ([e5e2e2c](https://github.com/runkids/skillshare/commit/e5e2e2c0f3543a30f2218f86153e7434ea40f207))
-* **ui:** warn that uninstalling a package removes its nested skills ([#636](https://github.com/runkids/skillshare/issues/636)) ([a96c5e5](https://github.com/runkids/skillshare/commit/a96c5e55f2bd7b832d59d6f416448fcff6abecda))
-* **version:** refetch the skill version when a newer CLI release is cached ([#620](https://github.com/runkids/skillshare/issues/620)) ([265f518](https://github.com/runkids/skillshare/commit/265f518cc41f12efb1b9c737566347e4fe0716a1))
+- **Uninstalling a package names its nested skills** — uninstalling a skill from the dashboard moves the skills inside its folder to the trash too; the confirmation now says how many, and selecting a package together with its nested skills no longer ends in a partial failure. Refs: #636.
+- **Tracked repo Update button** — the dashboard shows **Update** on a tracked repo only after a check finds it behind, instead of on every tracked repo. Refs: #619.
+- **Built-in skill version after a release** — `status`, `doctor` and the dashboard no longer report an outdated built-in skill as up to date while a newer CLI release is already known. Refs: #620.
+- **Plugin update dialog** — single-line rows are vertically centered.
 
 ## [0.26.3] - 2026-10-23
 
