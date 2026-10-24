@@ -183,9 +183,9 @@ export function descendantCount(s: Skill, items: Skill[]): number {
   return items.reduce((n, x) => n + (x.relPath.startsWith(prefix) ? 1 : 0), 0);
 }
 
-/** The skills in `list` that no other skill in `list` holds in its folder; removing those folders removes the rest. */
-export function outermost(list: Skill[]): Skill[] {
-  return list.filter((s) => !list.some((p) => s.relPath.startsWith(`${p.relPath}/`)));
+/** The skills in `list` that none of `holders` holds in its folder; removing those folders removes the rest. */
+export function outermost(list: Skill[], holders: Skill[] = list): Skill[] {
+  return list.filter((s) => !holders.some((p) => s.relPath.startsWith(`${p.relPath}/`)));
 }
 
 /** `matched` plus each skill in `all` whose folder holds one of them, in the order of `all`, so a match keeps its packages around it. */

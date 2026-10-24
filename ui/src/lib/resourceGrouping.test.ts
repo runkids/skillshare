@@ -87,6 +87,10 @@ describe('nestSkills', () => {
     expect(outermost([pack[3], pack[0], pack[4]]).map((s) => s.name)).toEqual(['visual-pack', 'visual-pack-extra']);
   });
 
+  it('keeps the skills under a package that cannot take them along', () => {
+    expect(outermost([pack[0], pack[1]], []).map((s) => s.name)).toEqual(['visual-pack', 'cover']);
+  });
+
   it('brings back the packages that hold a match', () => {
     expect(withAncestors([pack[3]], pack).map((s) => s.name)).toEqual(['visual-pack', 'portrait', 'wardrobe']);
   });

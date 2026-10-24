@@ -38,8 +38,10 @@ export function UninstallDialog({ kind, selection, all, onClose }: {
   }
   // A skill's folder holds its nested skills, so they go to the trash with it. Callers may pass agents in `all` too.
   const skills = kind === 'skill' ? all.filter((x) => x.kind === 'skill') : [];
-  const tops = kind === 'skill' ? outermost(singles) : singles;
-  const inside = new Map(tops.map((s) => [s.flatName, descendantCount(s, skills)]));
+  // A linked folder's root is only ever unlinked, never trashed, so its nested skills are removed one by one.
+  const holds = (s: Skill) => sourceLinkOf(s)?.name !== s.relPath;
+  const tops = kind === 'skill' ? outermost(singles, singles.filter(holds)) : singles;
+  const inside = new Map(tops.map((s) => [s.flatName, holds(s) ? descendantCount(s, skills) : 0]));
   const nestedCount = [...inside.values()].reduce((a, b) => a + b, 0);
   const names = [...repos.keys(), ...tops.map((s) => s.flatName)];
   const removedCount = tops.length + nestedCount + [...repos.values()].reduce((a, b) => a + b, 0);
