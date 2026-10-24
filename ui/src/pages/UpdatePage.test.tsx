@@ -312,6 +312,7 @@ describe('update failure message helpers', () => {
   it('offers force retry for failures force can actually resolve', () => {
     expect(isForceRetryable(auditBlocked)).toBe(true);
     expect(isForceRetryable('non-fast-forward pull rejected (try force update)')).toBe(true);
+    expect(isForceRetryable('has local changes since install (try force update)')).toBe(true);
   });
 
   it('hides force retry where retrying with force fails identically', () => {

@@ -79,6 +79,33 @@ func TestHandleBatchSetTargets_SetSingleTarget(t *testing.T) {
 	}
 }
 
+// The folder-wide edit rewrites SKILL.md, so a nested remote skill's recorded
+// hashes must follow or check reports it as modified locally.
+func TestHandleBatchSetTargets_RefreshesNestedSkillHashes(t *testing.T) {
+	s, src := newTestServer(t)
+	addSkillNested(t, src, "frontend/skill-a")
+	dir := filepath.Join(src, "frontend", "skill-a")
+	hashes, err := install.ComputeFileHashes(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.skillsStore = install.NewMetadataStore()
+	s.skillsStore.Set("frontend/skill-a", &install.MetadataEntry{Source: "org/repo/skill-a", RepoURL: "https://github.com/org/repo.git", FileHashes: hashes})
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/resources/batch/targets", bytes.NewBufferString(`{"folder":"frontend","target":"claude"}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if s.skillsStore.GetByPath("frontend/skill-a").LocallyModified(dir) {
+		t.Error("skillshare's own target edit left the skill reported as modified")
+	}
+}
+
 func TestHandleBatchSetTargets_RemoveTargets(t *testing.T) {
 	s, src := newTestServer(t)
 	addSkillWithTargets(t, src, "skill-a", []string{"claude", "cursor"})

@@ -104,7 +104,7 @@ skillshare update --all --json
 }
 ```
 
-Possible `status` values: `updated`, `skipped`, `failed`, `security_blocked`. When an item fails, the `error` field is included.
+Possible `status` values: `updated`, `skipped`, `failed`, `security_blocked`. When an item fails, the `error` field is included. A remote skill skipped for its local changes is a `skipped` item with `"error": "local changes since install"`.
 
 When a batch update finds remote skills already at the upstream commit, it leaves them alone and counts them in an `up_to_date` field. The field is omitted when the count is zero.
 
@@ -224,7 +224,7 @@ This updates:
 1. All tracked repositories (git pull)
 2. All skills with source metadata (reinstall when upstream changed)
 
-`update --all` and `update --group` group remote skills by repository and clone each repository once. They leave alone any skill whose folder did not change upstream and count it as up to date. A skill whose folder contains a symlink is the exception: its files can change without the folder changing, so it is reinstalled whenever the upstream commit moves. Several skills named in project mode (`-p`) work the same way. Use `--force` to reinstall every skill anyway. A single skill, and skills named in global mode, are always reinstalled. When a repository cannot be fetched, its skills count as skipped and `update` prints a warning naming the repository and the error, with any credentials in the URL removed.
+`update --all` and `update --group` group remote skills by repository and clone each repository once. They leave alone any skill whose folder did not change upstream and count it as up to date. A skill whose folder contains a symlink is the exception: its files can change without the folder changing, so it is reinstalled whenever the upstream commit moves. Several skills named in project mode (`-p`) work the same way. Use `--force` to reinstall every skill anyway. A single skill, and skills named in global mode, are always reinstalled. A skill whose files you changed since install is skipped in every case until you add `--force` (see [Handling Conflicts](#handling-conflicts)). When a repository cannot be fetched, its skills count as skipped and `update` prints a warning naming the repository and the error, with any credentials in the URL removed.
 
 ### Example Output
 
@@ -378,6 +378,14 @@ skillshare update _team-skills --force
 ```
 
 If skillshare cannot read the repo's git status, the update fails for that repo with `failed to check git status`; `--force` skips the check.
+
+A skill installed from a repository is protected the same way. When its files no longer match the ones recorded at install time, `update` skips it and reports `local changes since install`; `skillshare check` lists it as modified. Copy your edits elsewhere if you want to keep them, then discard them:
+
+```bash
+skillshare update my-skill --force
+```
+
+On the dashboard's **Updates** tab, the skill shows **Modified locally**; tick **Force overwrite local edits** before updating it, or use **Force Retry** on the skipped row. Updating it from the skill's own page asks before discarding the changes. `update <name> --dry-run` reports the skill as one it would skip. A modified skill that was also deleted upstream is kept until you add `--force`, even with `--prune`.
 
 ## After Updating
 

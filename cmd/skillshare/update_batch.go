@@ -56,6 +56,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	var auditEntries []batchAuditEntry
 	var blockedEntries []batchBlockedEntry
 	var staleNames []string
+	var modifiedNames []string
 	var prunedNames []string
 	var missingRepoNames []string
 	var statusFailedEntries []batchBlockedEntry
@@ -174,12 +175,23 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 				result.skipped++
 				continue
 			}
+			if !uc.opts.force && t.meta.LocallyModified(t.path, uc.follow) {
+				modifiedNames = append(modifiedNames, t.name)
+				result.skipped++
+				result.items = append(result.items, updateJSONItem{Name: t.name, Type: "skill", Status: "skipped", Error: modifiedSkillReason})
+				progressBar.Increment()
+				continue
+			}
 			subdir := t.meta.Subdir
 			if subdir == "" {
 				subdir = "."
 			}
 			skillTargetMap[subdir] = t.path
 			pathToTarget[subdir] = t
+		}
+
+		if len(skillTargetMap) == 0 {
+			continue
 		}
 
 		batchOpts := uc.makeInstallOpts()
@@ -195,7 +207,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		batchResult, err := install.UpdateSkillsFromRepo(repoURL, branch, skillTargetMap, batchOpts)
 		if err != nil {
 			fetchFailedEntries = append(fetchFailedEntries, fetchFailedEntry(repoURL, err))
-			for _, t := range groupTargets {
+			for _, t := range pathToTarget {
 				progressBar.UpdateTitle(fmt.Sprintf("Failed %s: %v", t.name, err))
 				result.skipped++
 				progressBar.Increment()
@@ -302,6 +314,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		}
 		displayPrunedSection(prunedNames)
 		displayStaleWarning(staleNames)
+		displayModifiedWarning(modifiedNames)
 		displayMissingTrackedReposWarning(missingRepoNames)
 		displayUpdateAuditResults(auditEntries, uc.opts.auditVerbose)
 		ui.UpdateSummary(ui.UpdateStats{

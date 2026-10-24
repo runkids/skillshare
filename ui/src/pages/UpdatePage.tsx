@@ -201,8 +201,9 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
         const item = updatable.find((i) => !i.isInRepo && matchesCheckSkill(i, skill.name));
         if (!item) continue;
         next.set(checkKey(item), {
-          status: skill.status === 'update_available' ? 'update-available' : skill.status === 'stale' ? 'stale' : skill.status === 'error' ? 'error' : 'up-to-date',
-          message: skill.message,
+          status: skill.status === 'update_available' ? 'update-available' : skill.status === 'stale' ? 'stale' : skill.status === 'modified' ? 'dirty' : skill.status === 'error' ? 'error' : 'up-to-date',
+          // The modified reason is English API copy; the translated label says it.
+          message: skill.status === 'modified' ? undefined : skill.message,
           checkedAt,
         });
         pending.delete(checkKey(item));
@@ -458,6 +459,10 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
       case 'success':
         return <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-ok"><Check size={15} strokeWidth={2.6} className="ss-pop" />{t('update.status.updated')}</span>;
       case 'skipped':
+        // A skill skipped for its local changes can be overwritten from its row.
+        if (isForceRetryable(r.message)) {
+          return <Button variant="secondary" size="sm" onClick={() => retryForce(unit.name)}>{t('update.updating.forceRetry')}</Button>;
+        }
         return <span className="ss-st off">{t('update.status.skipped')}</span>;
       case 'blocked':
         return <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-bad"><X size={15} strokeWidth={2.6} className="ss-pop" />{t('update.status.blocked')}</span>;
@@ -819,7 +824,8 @@ function isStaleError(message?: string): boolean {
 }
 
 // Force Retry only helps for failures force actually changes: an audit block,
-// or a pull the backend rejected but would retry with --force. Everything else
+// a pull the backend rejected but would retry with --force, or a skill skipped
+// for its local changes. Everything else
 // (permission denied, missing metadata, scan failures that stay fail-closed)
 // would just fail identically, so no button is offered.
 export function isForceRetryable(message?: string): boolean {

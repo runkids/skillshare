@@ -183,6 +183,24 @@ func updateRegularSkill(uc *updateContext, skillName string) (updateResult, erro
 		return updateResult{skipped: 1}, fmt.Errorf("skill '%s' has no source metadata, cannot update", skillName)
 	}
 
+	if !uc.opts.force && meta.LocallyModified(skillPath, uc.follow) {
+		if uc.opts.dryRun {
+			printUpdateRow(ui.MarkWarn, skillName, "would skip — "+modifiedSkillReason, 0)
+			fmt.Println()
+			ui.DryRun()
+			return updateResult{skipped: 1}, nil
+		}
+		// Only a skill named on purpose fails; --all and --group skip it as the batch path does.
+		if uc.opts.all || len(uc.opts.groups) > 0 {
+			printUpdateRow(ui.MarkWarn, skillName, modifiedSkillReason, 0)
+			ui.Next("skillshare update "+skillName+" --force", "discard them and reinstall")
+			return updateResult{skipped: 1}, nil
+		}
+		printUpdateRow(ui.MarkFail, skillName, modifiedSkillReason, 0)
+		ui.Next("skillshare update "+skillName+" --force", "discard them and reinstall")
+		return updateResult{skipped: 1}, fmt.Errorf("local changes in skill")
+	}
+
 	from := "from " + sourceLabel(meta.Source)
 	if uc.opts.dryRun {
 		printUpdateRow(ui.MarkNone, skillName, "would reinstall "+from, 0)

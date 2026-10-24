@@ -104,7 +104,7 @@ skillshare update --all --json
 }
 ```
 
-가능한 `status` 값: `updated`, `skipped`, `failed`, `security_blocked`. 항목이 실패하면 `error` 필드가 포함됩니다.
+가능한 `status` 값: `updated`, `skipped`, `failed`, `security_blocked`. 항목이 실패하면 `error` 필드가 포함됩니다. 로컬 변경 때문에 건너뛴 원격 skill은 `"error": "local changes since install"`이 있는 `skipped` 항목입니다.
 
 배치 업데이트에서 원격 skill이 이미 upstream commit에 있으면 그대로 두고 `up_to_date` 필드에 집계합니다. 개수가 0이면 이 필드는 생략됩니다.
 
@@ -224,7 +224,7 @@ skillshare update --all
 1. 모든 tracked 저장소(git pull)
 2. source metadata가 있는 모든 skill(upstream이 바뀌었을 때 재설치)
 
-`update --all`과 `update --group`은 원격 skill을 저장소별로 묶어 저장소마다 한 번만 clone합니다. upstream에서 폴더가 바뀌지 않은 skill은 그대로 두고 up to date로 집계합니다. 단, 폴더에 symlink가 있는 skill은 예외입니다. 폴더가 바뀌지 않아도 파일이 바뀔 수 있으므로 upstream commit이 바뀔 때마다 다시 설치합니다. 프로젝트 모드(`-p`)에서 여러 skill을 이름으로 지정해도 같습니다. 모든 skill을 다시 설치하려면 `--force`를 사용하세요. skill이 하나뿐이거나 글로벌 모드에서 이름으로 지정하면 항상 다시 설치합니다. 저장소를 가져오지 못하면 해당 skill은 skipped로 집계되고, 저장소와 오류를 알려 주는 경고가 표시됩니다. URL에 포함된 인증 정보는 제거됩니다.
+`update --all`과 `update --group`은 원격 skill을 저장소별로 묶어 저장소마다 한 번만 clone합니다. upstream에서 폴더가 바뀌지 않은 skill은 그대로 두고 up to date로 집계합니다. 단, 폴더에 symlink가 있는 skill은 예외입니다. 폴더가 바뀌지 않아도 파일이 바뀔 수 있으므로 upstream commit이 바뀔 때마다 다시 설치합니다. 프로젝트 모드(`-p`)에서 여러 skill을 이름으로 지정해도 같습니다. 모든 skill을 다시 설치하려면 `--force`를 사용하세요. skill이 하나뿐이거나 글로벌 모드에서 이름으로 지정하면 항상 다시 설치합니다. 설치 후 파일을 변경한 skill은 어떤 경우에도 `--force`를 추가하기 전까지 건너뜁니다([충돌 처리](#충돌-처리) 참고). 저장소를 가져오지 못하면 해당 skill은 skipped로 집계되고, 저장소와 오류를 알려 주는 경고가 표시됩니다. URL에 포함된 인증 정보는 제거됩니다.
 
 ### 출력 예시
 
@@ -378,6 +378,14 @@ skillshare update _team-skills --force
 ```
 
 skillshare가 repo의 git status를 읽을 수 없으면 해당 repo의 업데이트는 `failed to check git status`로 실패합니다. `--force`를 사용하면 이 확인을 건너뜁니다.
+
+저장소에서 설치한 skill도 같은 방식으로 보호됩니다. 파일이 설치 시 기록된 파일과 더 이상 일치하지 않으면 `update`는 해당 skill을 건너뛰고 `local changes since install`을 보고하며, `skillshare check`는 이를 modified로 나열합니다. 변경 사항을 보존하려면 다른 곳에 복사해 둔 뒤 버리세요.
+
+```bash
+skillshare update my-skill --force
+```
+
+대시보드의 **Updates** 탭에서는 해당 skill이 **Modified locally**로 표시됩니다. 업데이트하기 전에 **Force overwrite local edits**를 선택하거나, 건너뛴 행의 **Force Retry**를 사용하세요. skill 자체 페이지에서 업데이트하면 변경 사항을 버리기 전에 확인을 요청합니다. `update <name> --dry-run`은 이 skill을 건너뛸 대상으로 보고합니다. upstream에서도 삭제된 modified skill은 `--prune`을 사용해도 `--force`를 추가하기 전까지 유지됩니다.
 
 ## 업데이트 후
 

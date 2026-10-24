@@ -123,8 +123,8 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		if name := filepath.Base(d.SourcePath); s.skillsStore.HasFileHashes(name) {
-			updatedSkills = append(updatedSkills, updatedSkill{name: name, path: d.SourcePath})
+		if s.skillsStore.HasFileHashes(relPath) {
+			updatedSkills = append(updatedSkills, updatedSkill{name: relPath, path: d.SourcePath})
 		}
 		updated++
 	}

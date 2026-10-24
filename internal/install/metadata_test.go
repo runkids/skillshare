@@ -555,3 +555,44 @@ func TestMetadataStore_MovePath(t *testing.T) {
 		t.Errorf("accepted findings left at old paths: %v", store.AuditAccepted)
 	}
 }
+
+func TestMetadataEntry_LocallyModified(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# v1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	hashes, err := ComputeFileHashes(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	remote := &MetadataEntry{RepoURL: "https://github.com/org/repo.git", FileHashes: hashes}
+
+	if remote.LocallyModified(dir) {
+		t.Fatal("unchanged skill reported as modified")
+	}
+	if err := os.WriteFile(filepath.Join(dir, "notes.md"), []byte("mine\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !remote.LocallyModified(dir) {
+		t.Fatal("added file not reported as modified")
+	}
+	if remote.LocallyModified(filepath.Join(dir, "missing")) {
+		t.Fatal("missing skill directory reported as modified")
+	}
+	// A file that cannot be hashed must not let update overwrite the skill.
+	if err := os.Symlink(filepath.Join(dir, "gone"), filepath.Join(dir, "dangling.md")); err != nil {
+		t.Fatal(err)
+	}
+	if !remote.LocallyModified(dir) {
+		t.Fatal("unhashable skill not reported as modified")
+	}
+	for name, e := range map[string]*MetadataEntry{
+		"tracked":   {RepoURL: remote.RepoURL, Tracked: true, FileHashes: hashes},
+		"local":     {FileHashes: hashes},
+		"no hashes": {RepoURL: remote.RepoURL},
+	} {
+		if e.LocallyModified(dir) {
+			t.Errorf("%s entry reported as modified", name)
+		}
+	}
+}

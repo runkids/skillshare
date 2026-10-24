@@ -240,6 +240,23 @@ func displayStaleWarning(stale []string) {
 	ui.Note("Run with --prune to remove them")
 }
 
+// modifiedSkillReason is why update skips a skill edited since install.
+const modifiedSkillReason = "local changes since install"
+
+// displayModifiedWarning lists skills skipped because their files changed
+// since install.
+func displayModifiedWarning(modified []string) {
+	if len(modified) == 0 {
+		return
+	}
+	ui.Section("Modified locally")
+	width := ui.RowWidth(modified...)
+	for _, name := range modified {
+		ui.Row(ui.MarkWarn, name, modifiedSkillReason, width)
+	}
+	ui.Note("Run with --force to discard the changes and reinstall")
+}
+
 // displayMissingTrackedReposWarning warns about tracked repos declared in
 // metadata whose clone directories are absent on disk (issue #212).
 func displayMissingTrackedReposWarning(missing []string) {

@@ -43,9 +43,10 @@ result=$(skillshare check --json)
 1. **Tracked repositories** — Fetches from origin, shows how many commits you're behind
 2. **Installed skills (with metadata)** — Compares installed version against the remote HEAD
 3. **Stale skills** — Detects skills whose subdirectory was deleted from the upstream repository
-4. **Local-path installs** — Compares the files at the path you installed from with the files recorded at install time (see [Local-Path Installs](#local-path-installs))
-5. **Local skills** — Marks skills without install metadata as "local source" (nothing to compare)
-6. **Skill-level `targets` validation** — Warns about unknown target names in SKILL.md `targets` frontmatter fields
+4. **Locally modified skills** — Compares the files of a skill installed from a repository with the files recorded at install time, and reports `"status": "modified"` when you edited, added, or deleted any of them
+5. **Local-path installs** — Compares the files at the path you installed from with the files recorded at install time (see [Local-Path Installs](#local-path-installs))
+6. **Local skills** — Marks skills without install metadata as "local source" (nothing to compare)
+7. **Skill-level `targets` validation** — Warns about unknown target names in SKILL.md `targets` frontmatter fields
 
 Unlike `update`, `check` never modifies any files.
 
@@ -148,6 +149,9 @@ skillshare check --json
      "status": "update_available", "installed_at": "2024-05-15T08:30:00Z"},
     {"name": "old-helper", "source": "anthropics/skills", "version": "d4e5f6g",
      "status": "stale", "installed_at": "2024-03-10T09:00:00Z"},
+    {"name": "my-review", "source": "anthropics/skills", "version": "a1b2c3d",
+     "status": "modified", "installed_at": "2024-06-01T10:00:00Z",
+     "message": "local changes since install"},
     {"name": "local-skill", "source": "", "version": "",
      "status": "local", "installed_at": "2024-04-20T12:00:00Z"}
   ]
@@ -163,11 +167,15 @@ Skills with `"status": "error"` include a `message` field when the reason is kno
 | `✓` | Up to date |
 | `⬇` | Update available (tracked repo: commits behind; skill: newer version) |
 | `⚠` | Stale — subdirectory deleted or renamed upstream |
-| `!` | Has uncommitted changes |
+| `!` | Has uncommitted changes (tracked repo) or local changes since install (skill) |
 | `•` | Local source (no install metadata to compare) |
 
 :::info Stale skills
 When a skill's subdirectory was renamed or deleted upstream, `check` reports it as **stale**. Use `update --prune` to clean up stale skills.
+:::
+
+:::info Locally modified skills
+A skill you edited after installing it is reported as **modified**, even when upstream has a newer version; its `message` then ends with `update available upstream`. `update` leaves it alone until you run `skillshare update <name> --force`, which discards your changes and reinstalls it.
 :::
 
 :::tip Monorepo awareness

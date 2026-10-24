@@ -21,6 +21,7 @@ import { projectUrl } from '../components/projects/projectView';
 import { formatDateTime, formatRelativeTime, useI18n, useT, plural } from '../i18n';
 import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
+import ConfirmDialog from '../components/ConfirmDialog';
 import DialogShell from '../components/DialogShell';
 import EmptyState from '../components/EmptyState';
 import FindingList from '../components/FindingList';
@@ -36,7 +37,7 @@ import { SkillEditor } from '../components/skill-editor';
 import { UninstallDialog } from '../components/resources/UninstallDialog';
 import { MoveDialog } from '../components/resources/MoveDialog';
 import { canMove } from '../lib/moveFolders';
-import { checkKey, hasUpdate, updateUnits, useCheckStatuses } from './UpdatePage';
+import { checkKey, hasUpdate, isForceRetryable, updateUnits, useCheckStatuses } from './UpdatePage';
 import { useDiffQuery, useSkillsQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
 
@@ -85,6 +86,7 @@ export default function ResourceDetailPage() {
   const [updating, setUpdating] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [blocked, setBlocked] = useState<string | null>(null);
+  const [modified, setModified] = useState(false);
   const [raw, setRaw] = useState(false);
 
   const skillMaps = useMemo(() => {
@@ -162,11 +164,11 @@ export default function ResourceDetailPage() {
     });
   };
 
-  const runUpdate = async (skipAudit: boolean) => {
+  const runUpdate = async (skipAudit: boolean, force = false) => {
     setUpdating(true);
     try {
       const target = repoOf(resource) ?? (isAgent ? resource.flatName : resource.relPath);
-      const res = await api.update({ name: target, kind: resource.kind, skipAudit });
+      const res = await api.update({ name: target, kind: resource.kind, skipAudit, force });
       const item = res.results[0];
       if (item?.action === 'updated') {
         setBlocked(null);
@@ -184,6 +186,8 @@ export default function ResourceDetailPage() {
         setBlocked(item.message ?? '');
       } else if (item?.action === 'error') {
         toast(item.message ?? t('resourceDetail.toast.updateFailed'), 'error');
+      } else if (item?.action === 'skipped' && isForceRetryable(item.message)) {
+        setModified(true);
       } else {
         toast(item?.message ?? t('resourceDetail.toast.skipped'), 'warning');
       }
@@ -384,6 +388,16 @@ export default function ResourceDetailPage() {
           }}
         />
       )}
+      <ConfirmDialog
+        open={modified}
+        title={t('update.check.dirty')}
+        message={t('resourceDetail.modified.message', { name: resource.name })}
+        confirmText={t('update.tab.force')}
+        variant="danger"
+        loading={updating}
+        onConfirm={() => runUpdate(false, true).then(() => setModified(false))}
+        onCancel={() => setModified(false)}
+      />
       {blocked !== null && (
         <BlockedDialog name={resource.name} message={blocked} loading={updating} onSkip={() => runUpdate(true)} onClose={() => setBlocked(null)} />
       )}

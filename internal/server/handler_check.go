@@ -36,7 +36,7 @@ func (s *Server) planSkillCheck(sourceDir, projectRoot string, walk sourcewalk.O
 		if followedCheckout(filepath.Join(sourceDir, name), walk.Follow) != "" {
 			continue
 		}
-		skills = append(skills, check.Skill{Name: name, Entry: s.skillEntry(name)})
+		skills = append(skills, check.Skill{Name: name, Entry: s.skillEntry(name), Dir: filepath.Join(sourceDir, name), Follow: walk.Follow})
 	}
 	return check.Plan(skills, projectRoot)
 }
@@ -57,6 +57,7 @@ func dashboardSkillResults(results []check.SkillResult) []skillCheckResult {
 			Version:     r.Version,
 			Status:      r.Status,
 			InstalledAt: r.InstalledAt,
+			Message:     r.Message,
 		})
 	}
 	return out

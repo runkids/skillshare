@@ -73,7 +73,7 @@ Tracked repos
 - **仅手动切换** —— 按 `m` 切换所选 skill 的 `SKILL.md` 中的 `disable-model-invocation`。
   该 skill 仍保持已安装状态，你仍可以按名称调用它，但模型不会再自主加载它；详情面板会显示
   **manual only** 徽章。与 `t` 不同，这会编辑 skill 文件本身：对于 tracked 或已安装的 skill，
-  TUI 会先询问，因为 `skillshare update` 会跳过有本地更改的 tracked repos，而重新安装某个 skill
+  TUI 会先询问，因为 `skillshare update` 会跳过有本地更改的 tracked repos 和已安装的 skill，直到你再次按 `m` 或使用 `--force` 更新，而 `--force`
   会丢弃该编辑。再次按 `m` 会移除该行并完全恢复文件。Agents 不受影响。
   [dashboard](/docs/reference/commands/ui) 显示相同的 **manual only** 标签，并在其 skill 编辑器中提供该开关。
 

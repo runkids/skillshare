@@ -7,13 +7,17 @@ import (
 
 	"skillshare/internal/git"
 	"skillshare/internal/install"
+	"skillshare/internal/sourcewalk"
 )
 
 // Skill is an installed skill to check. Entry is nil when the skill has no
-// metadata.
+// metadata. Dir is the skill's directory, resolved through Follow, and is
+// hashed to detect local changes to a remote skill.
 type Skill struct {
-	Name  string
-	Entry *install.MetadataEntry
+	Name   string
+	Entry  *install.MetadataEntry
+	Dir    string
+	Follow *sourcewalk.Follow
 }
 
 // SkillResult is the update status of one skill.
@@ -22,7 +26,7 @@ type SkillResult struct {
 	Source      string
 	Version     string
 	InstalledAt string // "2006-01-02", empty when unknown
-	Status      string // "up_to_date", "update_available", "stale", "local", "error"
+	Status      string // "up_to_date", "update_available", "stale", "modified", "local", "error"
 	Message     string
 	Local       bool // the skill has no remote; Status comes from LocalSourceStatus
 }
@@ -129,6 +133,7 @@ func (r *Resolution) Run(ctx context.Context, opts Options) ([]SkillResult, erro
 	resolve := func(i int) {
 		g := r.groups[i]
 		resolved[i] = g.resolve(remote)
+		g.markModified(resolved[i])
 		if opts.OnRemoteDone != nil {
 			opts.OnRemoteDone(len(g.skills))
 		}
@@ -201,6 +206,22 @@ func (g remoteGroup) resolve(remote Remote) []SkillResult {
 		results[i].Status = remoteStatus(s.Entry, remoteHash, trees)
 	}
 	return results
+}
+
+// markModified reports skills whose files changed since install as
+// "modified": update skips them unless forced, so they are not counted as
+// updatable. A failed remote check keeps its error.
+func (g remoteGroup) markModified(results []SkillResult) {
+	for i, s := range g.skills {
+		if results[i].Status == "error" || !s.Entry.LocallyModified(s.Dir, s.Follow) {
+			continue
+		}
+		results[i].Message = "local changes since install"
+		if results[i].Status == "update_available" {
+			results[i].Message += "; update available upstream"
+		}
+		results[i].Status = "modified"
+	}
 }
 
 // remoteStatus compares one skill with its remote. A moved commit alone does

@@ -43,9 +43,10 @@ result=$(skillshare check --json)
 1. **トラッキング対象のリポジトリ** — origin から fetch し、何コミット遅れているかを表示
 2. **メタデータ付きのインストール済み Skill** — インストール済みのバージョンをリモートの HEAD と比較
 3. **Stale な Skill** — アップストリームリポジトリからサブディレクトリが削除された Skill を検出
-4. **ローカルパスからのインストール** — インストール元のパスにあるファイルを、インストール時に記録したファイルと比較（[ローカルパスからのインストール](#local-path-installs)を参照）
-5. **ローカルの Skill** — インストールメタデータのない Skill を「local source」としてマーク（比較対象がない）
-6. **Skill レベルの `targets` 検証** — SKILL.md の `targets` フロントマターフィールドにある未知の Target 名について警告
+4. **ローカルで変更された Skill** — リポジトリからインストールした Skill のファイルを、インストール時に記録したファイルと比較し、ファイルを編集・追加・削除していた場合は `"status": "modified"` を報告
+5. **ローカルパスからのインストール** — インストール元のパスにあるファイルを、インストール時に記録したファイルと比較（[ローカルパスからのインストール](#local-path-installs)を参照）
+6. **ローカルの Skill** — インストールメタデータのない Skill を「local source」としてマーク（比較対象がない）
+7. **Skill レベルの `targets` 検証** — SKILL.md の `targets` フロントマターフィールドにある未知の Target 名について警告
 
 `update` とは異なり、`check` はファイルを一切変更しません。
 
@@ -148,6 +149,9 @@ skillshare check --json
      "status": "update_available", "installed_at": "2024-05-15T08:30:00Z"},
     {"name": "old-helper", "source": "anthropics/skills", "version": "d4e5f6g",
      "status": "stale", "installed_at": "2024-03-10T09:00:00Z"},
+    {"name": "my-review", "source": "anthropics/skills", "version": "a1b2c3d",
+     "status": "modified", "installed_at": "2024-06-01T10:00:00Z",
+     "message": "local changes since install"},
     {"name": "local-skill", "source": "", "version": "",
      "status": "local", "installed_at": "2024-04-20T12:00:00Z"}
   ]
@@ -163,11 +167,15 @@ skillshare check --json
 | `✓` | 最新 |
 | `⬇` | 更新あり（トラッキング対象のリポジトリ: 遅れているコミット数、Skill: 新しいバージョン） |
 | `⚠` | Stale — アップストリームでサブディレクトリが削除またはリネームされた |
-| `!` | 未コミットの変更がある |
+| `!` | 未コミットの変更がある（tracked repo）、またはインストール後にローカルで変更がある（skill） |
 | `•` | ローカルソース（比較対象のインストールメタデータがない） |
 
 :::info Stale な Skill
 Skill のサブディレクトリがアップストリームでリネームまたは削除された場合、`check` はそれを **stale** として報告します。stale な Skill を掃除するには `update --prune` を使用してください。
+:::
+
+:::info ローカルで変更された Skill
+インストール後に編集した Skill は、upstream に新しいバージョンがあっても **modified** と報告され、その `message` は `update available upstream` で終わります。`update` は `skillshare update <name> --force` を実行するまで手を付けません。このコマンドは変更を破棄して再インストールします。
 :::
 
 :::tip モノレポでの挙動

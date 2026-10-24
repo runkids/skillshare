@@ -70,7 +70,7 @@ Tracked repos
   ```
   這會只顯示「security」群組中、名稱包含「audit」的 tracked skills。
 
-- **僅手動切換** — 按 `m` 切換選取 skill `SKILL.md` 中的 `disable-model-invocation`。該 skill 仍保持已安裝，你仍可用名稱呼叫它，但模型不會再自動載入它；詳細面板會顯示 **manual only** 徽章。與 `t` 不同，這會編輯 skill 檔案本身：對於 tracked 或已安裝的 skill，TUI 會先詢問，因為 `skillshare update` 會跳過有本地變更的 tracked repos，而重新安裝 skill 會丟失這項編輯。再按一次 `m` 會移除該行並完整還原檔案。Agents 不受影響。[dashboard](/docs/reference/commands/ui) 顯示相同的 **manual only** 標籤，並在其 skill 編輯器中提供切換開關。
+- **僅手動切換** — 按 `m` 切換選取 skill `SKILL.md` 中的 `disable-model-invocation`。該 skill 仍保持已安裝，你仍可用名稱呼叫它，但模型不會再自動載入它；詳細面板會顯示 **manual only** 徽章。與 `t` 不同，這會編輯 skill 檔案本身：對於 tracked 或已安裝的 skill，TUI 會先詢問，因為 `skillshare update` 會跳過有本地變更的 tracked repos 和已安裝的 skill，直到你再按一次 `m` 或使用 `--force` 更新，而 `--force` 會丟失這項編輯。再按一次 `m` 會移除該行並完整還原檔案。Agents 不受影響。[dashboard](/docs/reference/commands/ui) 顯示相同的 **manual only** 標籤，並在其 skill 編輯器中提供切換開關。
 
 使用 `--no-tui` 跳過 TUI，改印出純文字：
 

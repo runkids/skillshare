@@ -104,7 +104,7 @@ skillshare update --all --json
 }
 ```
 
-可能的 `status` 值：`updated`、`skipped`、`failed`、`security_blocked`。當某個項目失敗時，會包含 `error` 欄位。
+可能的 `status` 值：`updated`、`skipped`、`failed`、`security_blocked`。當某個項目失敗時，會包含 `error` 欄位。因本機變更而被略過的遠端 skill，是一個帶有 `"error": "local changes since install"` 的 `skipped` 項目。
 
 批次更新時，若遠端 skill 已在 upstream commit，會保持不變並計入 `up_to_date` 欄位。數量為 0 時省略此欄位。
 
@@ -224,7 +224,7 @@ skillshare update --all
 1. 所有 tracked 儲存庫（git pull）
 2. 所有帶有來源 metadata 的 skills（upstream 有變更時重新安裝）
 
-`update --all` 與 `update --group` 會依儲存庫將遠端 skill 分組，每個儲存庫只 clone 一次。資料夾在 upstream 沒有變更的 skill 維持不動，並計為 up to date。資料夾中含有 symlink 的 skill 例外：資料夾不變時檔案也可能改變，因此只要 upstream commit 有變動就會重新安裝。在專案模式（`-p`）下依名稱指定多個 skill 時也相同。使用 `--force` 可重新安裝所有 skill。只更新一個 skill，或在全域模式下依名稱指定時，一律重新安裝。無法取得某個儲存庫時，其 skill 計為 skipped，`update` 會顯示一則警告，寫明該儲存庫與錯誤，並移除 URL 中的憑證。
+`update --all` 與 `update --group` 會依儲存庫將遠端 skill 分組，每個儲存庫只 clone 一次。資料夾在 upstream 沒有變更的 skill 維持不動，並計為 up to date。資料夾中含有 symlink 的 skill 例外：資料夾不變時檔案也可能改變，因此只要 upstream commit 有變動就會重新安裝。在專案模式（`-p`）下依名稱指定多個 skill 時也相同。使用 `--force` 可重新安裝所有 skill。只更新一個 skill，或在全域模式下依名稱指定時，一律重新安裝。安裝後你修改過檔案的 skill，在任何情況下都會被略過，直到你加上 `--force`（參見[處理衝突](#處理衝突)）。無法取得某個儲存庫時，其 skill 計為 skipped，`update` 會顯示一則警告，寫明該儲存庫與錯誤，並移除 URL 中的憑證。
 
 ### 輸出範例
 
@@ -378,6 +378,14 @@ skillshare update _team-skills --force
 ```
 
 如果 skillshare 無法讀取該儲存庫的 git status，該儲存庫的更新會以 `failed to check git status` 失敗；`--force` 會略過此檢查。
+
+從儲存庫安裝的 skill 同樣受到保護。當它的檔案與安裝時記錄的檔案不再一致時，`update` 會略過它並回報 `local changes since install`；`skillshare check` 會將其列為 modified。如果想保留你的修改，請先複製到別處，再捨棄它們：
+
+```bash
+skillshare update my-skill --force
+```
+
+在 dashboard 的 **Updates** 分頁中，該 skill 顯示為 **Modified locally**；更新前請勾選 **Force overwrite local edits**，或對被略過的列使用 **Force Retry**。從該 skill 自己的頁面更新時，會在捨棄變更前詢問。`update <name> --dry-run` 會將該 skill 回報為將被略過。若一個 modified 的 skill 同時已在 upstream 被刪除，即使使用 `--prune`，在你加上 `--force` 之前也會保留它。
 
 ## 更新後
 

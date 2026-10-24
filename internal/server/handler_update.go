@@ -395,6 +395,9 @@ func (s *Server) updateRegularSkill(name, skillPath string, force, skipAudit boo
 	if entry == nil {
 		return updateResultItem{Name: name, Action: "error", Message: "no metadata found"}
 	}
+	if !force && entry.LocallyModified(skillPath, follow...) {
+		return updateResultItem{Name: name, Action: "skipped", Message: "has local changes since install (try force update)"}
+	}
 	source, err := install.ParseSourceWithOptions(entry.Source, s.parseOpts())
 	if err != nil {
 		return updateResultItem{

@@ -605,7 +605,7 @@ func (m listTUIModel) pressModelInvocation() (tea.Model, tea.Cmd) {
 	if e.RepoName != "" {
 		m.confirmNote = "This edits SKILL.md in a tracked repo. 'skillshare update' skips the repo until you press m again."
 	} else {
-		m.confirmNote = "This edits an installed SKILL.md. The next 'skillshare update' reinstalls the skill and drops the change."
+		m.confirmNote = "This edits an installed SKILL.md. 'skillshare update' skips the skill as modified until you press m again or use --force."
 	}
 	return m, nil
 }

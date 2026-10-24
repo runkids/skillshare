@@ -32,7 +32,7 @@ type checkSkillResult struct {
 	Name        string `json:"name"`
 	Source      string `json:"source"`
 	Version     string `json:"version"`
-	Status      string `json:"status"` // "up_to_date", "update_available", "local", "error"
+	Status      string `json:"status"` // "up_to_date", "update_available", "stale", "modified", "local", "error"
 	InstalledAt string `json:"installed_at,omitempty"`
 	Message     string `json:"message,omitempty"`
 }
@@ -54,7 +54,8 @@ type checkOptions struct {
 // Returns: tracked repo inputs and the planned skill check, in which skills
 // without a remote are already resolved (no network needed).
 // projectRoot is the base of relative local sources; "" in global mode.
-func collectCheckItems(sourceDir, projectRoot string, repos []string, skills []string) ([]check.RepoCheckInput, *check.Resolution) {
+// follow resolves linked skill directories before they are hashed.
+func collectCheckItems(sourceDir, projectRoot string, repos []string, skills []string, follow *sourcewalk.Follow) ([]check.RepoCheckInput, *check.Resolution) {
 	var repoInputs []check.RepoCheckInput
 	for _, repo := range repos {
 		repoInputs = append(repoInputs, check.RepoCheckInput{
@@ -68,7 +69,7 @@ func collectCheckItems(sourceDir, projectRoot string, repos []string, skills []s
 
 	checkSkills := make([]check.Skill, len(skills))
 	for i, skill := range skills {
-		checkSkills[i] = check.Skill{Name: skill, Entry: store.GetByPath(skill)}
+		checkSkills[i] = check.Skill{Name: skill, Entry: store.GetByPath(skill), Dir: filepath.Join(sourceDir, skill), Follow: follow}
 	}
 
 	return repoInputs, check.Plan(checkSkills, projectRoot)
@@ -282,7 +283,7 @@ func runCheck(sourceDir, projectRoot string, jsonOutput bool, extraTargetNames [
 	}
 
 	// Collect & group
-	repoInputs, plan := collectCheckItems(sourceDir, projectRoot, repos, skills)
+	repoInputs, plan := collectCheckItems(sourceDir, projectRoot, repos, skills, walk.Follow)
 
 	if scanSpinner != nil {
 		scanSpinner.Stop()
@@ -352,7 +353,7 @@ func runCheck(sourceDir, projectRoot string, jsonOutput bool, extraTargetNames [
 func renderCheckResults(repoResults []checkRepoResult, skillResults []checkSkillResult, showDetails bool, warnings []string, start time.Time) {
 	type checkRow struct{ mark, name, value string }
 	var rows []checkRow
-	upToDateRepos, upToDateSkills, updatableRepos, updatableSkills, local, stale, failed := 0, 0, 0, 0, 0, 0, 0
+	upToDateRepos, upToDateSkills, updatableRepos, updatableSkills, local, stale, modified, failed := 0, 0, 0, 0, 0, 0, 0, 0
 
 	for _, r := range repoResults {
 		switch r.Status {
@@ -385,6 +386,9 @@ func renderCheckResults(repoResults []checkRepoResult, skillResults []checkSkill
 		case "stale":
 			stale++
 			rows = append(rows, checkRow{ui.MarkWarn, s.Name, "stale — no longer in the upstream repository"})
+		case "modified":
+			modified++
+			rows = append(rows, checkRow{ui.MarkWarn, s.Name, s.Message})
 		case "error":
 			failed++
 			rows = append(rows, checkRow{ui.MarkFail, s.Name, skillErrorMessage(s)})
@@ -416,6 +420,8 @@ func renderCheckResults(repoResults []checkRepoResult, skillResults []checkSkill
 		}
 	case upToDate > 0:
 		mark, text = ui.MarkOK, repoSkillCounts(upToDateRepos, upToDateSkills)+" up to date"
+	case modified > 0:
+		mark, text = ui.MarkWarn, plural(modified, "skill")+" modified locally"
 	case local > 0:
 		mark, text = ui.MarkNone, plural(local, "local skill")+" skipped"
 		local = 0
@@ -428,6 +434,9 @@ func renderCheckResults(repoResults []checkRepoResult, skillResults []checkSkill
 	if stale > 0 {
 		mark, text = ui.MarkWarn, fmt.Sprintf("%s, %d stale", text, stale)
 	}
+	if modified > 0 && updatableRepos+updatableSkills+upToDate > 0 {
+		mark, text = ui.MarkWarn, fmt.Sprintf("%s, %d modified locally", text, modified)
+	}
 	if failed > 0 {
 		mark, text = ui.MarkWarn, fmt.Sprintf("%s, %d failed to check", text, failed)
 	}
@@ -439,6 +448,9 @@ func renderCheckResults(repoResults []checkRepoResult, skillResults []checkSkill
 	}
 	if stale > 0 {
 		next = append(next, "skillshare update --all --prune", "remove stale skills")
+	}
+	if modified > 0 {
+		next = append(next, "skillshare update <name> --force", "discard local changes and reinstall")
 	}
 	if len(next) > 0 {
 		ui.Next(next...)
@@ -581,7 +593,11 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, walks .
 		}
 	}
 
-	repoInputs, plan := collectCheckItems(sourceDir, projectRoot, repoNames, skillNames)
+	var follow *sourcewalk.Follow
+	if len(walks) > 0 {
+		follow = walks[0].Follow
+	}
+	repoInputs, plan := collectCheckItems(sourceDir, projectRoot, repoNames, skillNames, follow)
 
 	total := len(repoInputs) + plan.RemoteSkills()
 	isSingle := len(targets) == 1
@@ -689,6 +705,8 @@ func singleCheckStatus(repos []checkRepoResult, skills []checkSkillResult) singl
 			return singleCheckResult{ui.MarkWarn, updateAvailableText(s.Source), "skillshare update " + s.Name, "pull the update"}
 		case "stale":
 			return singleCheckResult{ui.MarkWarn, "stale — no longer in the upstream repository", "skillshare update --all --prune", "remove stale skills"}
+		case "modified":
+			return singleCheckResult{ui.MarkWarn, s.Message, "skillshare update " + s.Name + " --force", "discard local changes and reinstall"}
 		case "local":
 			return singleCheckResult{mark: ui.MarkNone, text: "local source, nothing to compare"}
 		case "error":

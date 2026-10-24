@@ -70,7 +70,7 @@ On a TTY, `skillshare list` opens an interactive view with skills and agents in 
   ```
   This shows only tracked skills in the "security" group whose name contains "audit".
 
-- **Manual only toggle** — press `m` to toggle `disable-model-invocation` in the selected skill's `SKILL.md`. The skill stays installed and you can still invoke it by name, but the model stops loading it on its own; the detail panel shows **manual only**. Unlike `t`, this edits the skill file itself: for a tracked or installed skill the TUI asks first, because `skillshare update` skips tracked repos with local changes and reinstalling a skill drops the edit. Pressing `m` again removes the line and restores the file exactly. Agents are not affected. The [dashboard](/docs/reference/commands/ui) shows the same **manual only** tag and has the switch in its skill editor.
+- **Manual only toggle** — press `m` to toggle `disable-model-invocation` in the selected skill's `SKILL.md`. The skill stays installed and you can still invoke it by name, but the model stops loading it on its own; the detail panel shows **manual only**. Unlike `t`, this edits the skill file itself: for a tracked or installed skill the TUI asks first, because `skillshare update` skips tracked repos and installed skills with local changes until you press `m` again or update with `--force`, which drops the edit. Pressing `m` again removes the line and restores the file exactly. Agents are not affected. The [dashboard](/docs/reference/commands/ui) shows the same **manual only** tag and has the switch in its skill editor.
 
 Use `--no-tui` to skip the TUI and print plain text instead:
 

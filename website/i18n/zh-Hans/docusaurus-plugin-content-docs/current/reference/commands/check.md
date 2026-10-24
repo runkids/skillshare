@@ -43,9 +43,10 @@ result=$(skillshare check --json)
 1. **已跟踪仓库**——从 origin 拉取，显示落后多少个 commit
 2. **已安装 skills（带 metadata）**——将已安装版本与 remote HEAD 进行比较
 3. **过时的 skills**——检测哪些 skill 的子目录已在 upstream 仓库中被删除
-4. **从本地路径安装的 skills**——将安装来源路径中的文件与安装时记录的文件进行比较（参见[从本地路径安装](#local-path-installs)）
-5. **本地 skills**——将没有安装 metadata 的 skill 标记为 "local source"（没有可比较的对象）
-6. **Skill 级别的 `targets` 校验**——对 SKILL.md `targets` frontmatter 字段中的未知 target 名称发出警告
+4. **本地修改过的 skills**——将从仓库安装的 skill 的文件与安装时记录的文件进行比较，如果你编辑、添加或删除了其中任何文件，则报告 `"status": "modified"`
+5. **从本地路径安装的 skills**——将安装来源路径中的文件与安装时记录的文件进行比较（参见[从本地路径安装](#local-path-installs)）
+6. **本地 skills**——将没有安装 metadata 的 skill 标记为 "local source"（没有可比较的对象）
+7. **Skill 级别的 `targets` 校验**——对 SKILL.md `targets` frontmatter 字段中的未知 target 名称发出警告
 
 与 `update` 不同，`check` 绝不会修改任何文件。
 
@@ -148,6 +149,9 @@ skillshare check --json
      "status": "update_available", "installed_at": "2024-05-15T08:30:00Z"},
     {"name": "old-helper", "source": "anthropics/skills", "version": "d4e5f6g",
      "status": "stale", "installed_at": "2024-03-10T09:00:00Z"},
+    {"name": "my-review", "source": "anthropics/skills", "version": "a1b2c3d",
+     "status": "modified", "installed_at": "2024-06-01T10:00:00Z",
+     "message": "local changes since install"},
     {"name": "local-skill", "source": "", "version": "",
      "status": "local", "installed_at": "2024-04-20T12:00:00Z"}
   ]
@@ -163,11 +167,15 @@ skillshare check --json
 | `✓` | 已是最新 |
 | `⬇` | 有可用更新（已跟踪仓库：落后的 commit 数；skill：有更新版本） |
 | `⚠` | 过时——子目录已在 upstream 被删除或重命名 |
-| `!` | 有未提交的更改 |
+| `!` | 有未提交的更改（tracked repo）或安装后有本地更改（skill） |
 | `•` | 本地 source（没有安装 metadata 可比较） |
 
 :::info 过时的 skills
 当某个 skill 的子目录在 upstream 被重命名或删除时，`check` 会将其报告为**过时（stale）**。使用 `update --prune` 清理过时的 skills。
+:::
+
+:::info 本地修改过的 skills
+安装后被你编辑过的 skill 会被报告为 **modified**，即使 upstream 已有更新版本；此时其 `message` 以 `update available upstream` 结尾。在你运行 `skillshare update <name> --force` 之前，`update` 不会处理它；该命令会丢弃你的更改并重新安装。
 :::
 
 :::tip Monorepo 感知

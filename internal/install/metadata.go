@@ -194,6 +194,21 @@ func (s *MetadataStore) MovedEntryKey(sourcePath, relPath, dir string, follow *s
 	return found, nil
 }
 
+// LocallyModified reports whether a remote skill's files at dir differ from
+// the hashes recorded at install or update time. Tracked repos, local installs,
+// entries without recorded hashes and missing directories are never reported;
+// a directory that cannot be hashed is, so update does not overwrite it.
+func (e *MetadataEntry) LocallyModified(dir string, follow ...*sourcewalk.Follow) bool {
+	if e == nil || e.Tracked || e.RepoURL == "" || len(e.FileHashes) == 0 {
+		return false
+	}
+	if _, err := os.Stat(dir); err != nil {
+		return false
+	}
+	hashes, err := ComputeFileHashes(dir, follow...)
+	return err != nil || !maps.Equal(hashes, e.FileHashes)
+}
+
 // MatchesDeclaration reports whether this plain-skill record still installs
 // what skill declares, so a moved copy of it can stand in for skill.
 func (e *MetadataEntry) MatchesDeclaration(skill SkillEntryDTO) bool {

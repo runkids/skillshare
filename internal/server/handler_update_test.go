@@ -156,6 +156,28 @@ func runGit(t *testing.T, dir string, args ...string) []byte {
 	return out
 }
 
+func TestUpdateRegularSkill_LocallyModifiedIsSkippedWithoutForce(t *testing.T) {
+	s, src := newTestServer(t)
+	skillPath := filepath.Join(src, "edited")
+	if err := os.MkdirAll(skillPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillPath, "SKILL.md"), []byte("# my edit\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	s.skillsStore = install.NewMetadataStore()
+	s.skillsStore.Set("edited", &install.MetadataEntry{
+		Source:     "github.com/org/repo/edited",
+		RepoURL:    "https://github.com/org/repo.git",
+		FileHashes: map[string]string{"SKILL.md": "sha256:original"},
+	})
+
+	result := s.updateRegularSkill("edited", skillPath, false, true)
+	if result.Action != "skipped" || !strings.Contains(result.Message, "(try force update)") {
+		t.Fatalf("got %q: %s, want skipped with a force hint", result.Action, result.Message)
+	}
+}
+
 func TestUpdateSingle_RegularSkillPriority(t *testing.T) {
 	s, src := newTestServer(t)
 

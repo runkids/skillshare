@@ -104,7 +104,7 @@ skillshare update --all --json
 }
 ```
 
-取りうる `status` の値: `updated`、`skipped`、`failed`、`security_blocked`。項目が失敗した場合、`error` フィールドが含まれます。
+取りうる `status` の値: `updated`、`skipped`、`failed`、`security_blocked`。項目が失敗した場合、`error` フィールドが含まれます。リモート skill がローカルの変更のためスキップされた場合は、`"error": "local changes since install"` を持つ `skipped` 項目になります。
 
 バッチ更新でリモート skill がすでに upstream の commit にある場合、その skill はそのままにして `up_to_date` フィールドに数えます。件数が 0 のときはこのフィールドを省略します。
 
@@ -224,7 +224,7 @@ skillshare update --all
 1. すべての tracked repositories（git pull）
 2. source metadata を持つすべての skill（upstream が変わったときに再インストール）
 
-`update --all` と `update --group` はリモート skill をリポジトリごとにまとめ、各リポジトリを 1 回だけ clone します。フォルダが upstream で変わっていない skill には手を付けず、up to date として数えます。ただし、フォルダに symlink を含む skill は例外です。フォルダが変わらなくてもファイルが変わることがあるため、upstream の commit が進むたびに再インストールします。プロジェクトモード（`-p`）で複数の skill を名前で指定した場合も同じです。すべてを再インストールするには `--force` を使います。skill が 1 つだけのときと、グローバルモードで名前を指定したときは常に再インストールします。リポジトリを取得できなかった場合、その skill は skipped として数え、リポジトリ名とエラーを示す警告を表示します。URL に含まれる認証情報は取り除かれます。
+`update --all` と `update --group` はリモート skill をリポジトリごとにまとめ、各リポジトリを 1 回だけ clone します。フォルダが upstream で変わっていない skill には手を付けず、up to date として数えます。ただし、フォルダに symlink を含む skill は例外です。フォルダが変わらなくてもファイルが変わることがあるため、upstream の commit が進むたびに再インストールします。プロジェクトモード（`-p`）で複数の skill を名前で指定した場合も同じです。すべてを再インストールするには `--force` を使います。skill が 1 つだけのときと、グローバルモードで名前を指定したときは常に再インストールします。インストール後にファイルを変更した skill は、いずれの場合も `--force` を付けるまでスキップされます（[コンフリクトの処理](#コンフリクトの処理)を参照）。リポジトリを取得できなかった場合、その skill は skipped として数え、リポジトリ名とエラーを示す警告を表示します。URL に含まれる認証情報は取り除かれます。
 
 ### 出力例
 
@@ -378,6 +378,14 @@ skillshare update _team-skills --force
 ```
 
 skillshare がリポジトリの git status を読み取れない場合、そのリポジトリの更新は `failed to check git status` で失敗します。`--force` を使うとこのチェックをスキップします。
+
+リポジトリからインストールした skill も同様に保護されます。ファイルがインストール時に記録したものと一致しなくなると、`update` はその skill をスキップして `local changes since install` と報告し、`skillshare check` は modified として一覧表示します。変更を残したい場合は別の場所にコピーしてから、破棄します。
+
+```bash
+skillshare update my-skill --force
+```
+
+ダッシュボードの **Updates** タブでは、その skill に **Modified locally** と表示されます。更新する前に **Force overwrite local edits** にチェックを入れるか、スキップされた行の **Force Retry** を使います。skill 自身のページから更新する場合は、変更を破棄する前に確認が表示されます。`update <name> --dry-run` は、その skill をスキップ対象として報告します。upstream で削除された modified の skill も、`--prune` を付けても `--force` を付けるまで保持されます。
 
 ## 更新後
 

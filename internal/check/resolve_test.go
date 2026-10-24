@@ -189,6 +189,43 @@ func TestResolution_GroupsByURLAndBranch(t *testing.T) {
 	}
 }
 
+func TestResolution_EditedRemoteSkillIsModified(t *testing.T) {
+	skill := func(name, version string) Skill {
+		dir := filepath.Join(t.TempDir(), name)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# v1\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		hashes, err := install.ComputeFileHashes(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# edited\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return Skill{Name: name, Dir: dir, Entry: &install.MetadataEntry{RepoURL: "u", Version: version, FileHashes: hashes}}
+	}
+	remote := &fakeRemote{hashes: map[string]string{"u": "c2"}}
+
+	results, err := Plan([]Skill{skill("current", "c2"), skill("behind", "c1")}, "").Run(context.Background(), Options{Remote: remote})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, r := range results {
+		got[r.Name] = r.Status + ": " + r.Message
+	}
+	want := map[string]string{
+		"current": "modified: local changes since install",
+		"behind":  "modified: local changes since install; update available upstream",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
 func TestResolution_LocalSkillsComeFirstWithTheirMetadata(t *testing.T) {
 	installed := time.Date(2024, 5, 6, 0, 0, 0, 0, time.UTC)
 	skills := []Skill{

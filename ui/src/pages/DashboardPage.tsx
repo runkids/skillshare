@@ -7,6 +7,7 @@ import {
   CircleArrowUp,
   CircleCheck,
   Ellipsis,
+  FilePen,
   FolderPlus,
   Github,
   Info,
@@ -309,7 +310,7 @@ function NeedsAttention({ targets, healths }: { targets: Target[]; healths: Heal
     try {
       const res = await api.check();
       setCheck(res);
-      if (!res.tracked_repos.some((r) => r.status === 'behind') && !res.skills.some((s) => s.status === 'update_available')) {
+      if (!res.tracked_repos.some((r) => r.status === 'behind') && !res.skills.some((s) => s.status === 'update_available' || s.status === 'modified')) {
         toast(t('dashboard.updates.allUpToDate'), 'success');
       }
     } catch (e: unknown) {
@@ -340,6 +341,10 @@ function NeedsAttention({ targets, healths }: { targets: Target[]; healths: Heal
     ];
     if (names.length > 0) {
       rows.push({ key: 'updates', kind: 'warn', icon: CircleArrowUp, title: t('dashboard.attention.updates', { count: names.length }), sub: names.join(', '), action: t('dashboard.trackedRepos.update'), to: '/skills?tab=updates' });
+    }
+    const modified = check.skills.filter((s) => s.status === 'modified').map((s) => s.name);
+    if (modified.length > 0) {
+      rows.push({ key: 'modified', kind: 'warn', icon: FilePen, title: t('dashboard.attention.modified', { count: modified.length }), sub: modified.join(', '), action: t('dashboard.trackedRepos.update'), to: '/skills?tab=updates' });
     }
   }
   if (audit && audit.summary.critical + audit.summary.high > 0) {

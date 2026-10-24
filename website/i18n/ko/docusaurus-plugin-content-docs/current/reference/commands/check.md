@@ -43,9 +43,10 @@ result=$(skillshare check --json)
 1. **추적 중인 저장소** — origin에서 fetch하고, 몇 커밋 뒤처져 있는지 표시
 2. **메타데이터가 있는 설치된 skill** — 설치된 버전을 remote HEAD와 비교
 3. **오래된(stale) skill** — 업스트림 저장소에서 하위 디렉터리가 삭제된 skill 감지
-4. **로컬 경로 설치** — 설치한 경로의 파일을 설치 시 기록된 파일과 비교([로컬 경로 설치](#local-path-installs) 참고)
-5. **로컬 skill** — 설치 메타데이터가 없는 skill을 "local source"로 표시(비교할 대상 없음)
-6. **skill 수준 `targets` 검증** — SKILL.md의 `targets` frontmatter 필드에 있는 알 수 없는 target 이름에 대해 경고
+4. **로컬에서 수정된 skill** — 저장소에서 설치한 skill의 파일을 설치 시 기록된 파일과 비교하고, 파일을 편집·추가·삭제했다면 `"status": "modified"`로 보고
+5. **로컬 경로 설치** — 설치한 경로의 파일을 설치 시 기록된 파일과 비교([로컬 경로 설치](#local-path-installs) 참고)
+6. **로컬 skill** — 설치 메타데이터가 없는 skill을 "local source"로 표시(비교할 대상 없음)
+7. **skill 수준 `targets` 검증** — SKILL.md의 `targets` frontmatter 필드에 있는 알 수 없는 target 이름에 대해 경고
 
 `update`와 달리 `check`는 어떤 파일도 수정하지 않습니다.
 
@@ -148,6 +149,9 @@ skillshare check --json
      "status": "update_available", "installed_at": "2024-05-15T08:30:00Z"},
     {"name": "old-helper", "source": "anthropics/skills", "version": "d4e5f6g",
      "status": "stale", "installed_at": "2024-03-10T09:00:00Z"},
+    {"name": "my-review", "source": "anthropics/skills", "version": "a1b2c3d",
+     "status": "modified", "installed_at": "2024-06-01T10:00:00Z",
+     "message": "local changes since install"},
     {"name": "local-skill", "source": "", "version": "",
      "status": "local", "installed_at": "2024-04-20T12:00:00Z"}
   ]
@@ -163,11 +167,15 @@ skillshare check --json
 | `✓` | 최신 상태 |
 | `⬇` | 업데이트 사용 가능(추적 저장소: 뒤처진 커밋 수; skill: 새 버전) |
 | `⚠` | Stale — 업스트림에서 하위 디렉터리가 삭제되거나 이름이 변경됨 |
-| `!` | 커밋되지 않은 변경 사항 있음 |
+| `!` | 커밋되지 않은 변경 사항 있음(tracked repo) 또는 설치 이후 로컬 변경 사항 있음(skill) |
 | `•` | 로컬 source(비교할 설치 메타데이터 없음) |
 
 :::info Stale skills
 skill의 하위 디렉터리가 업스트림에서 이름이 바뀌거나 삭제된 경우, `check`는 이를 **stale**로 보고합니다. stale skill을 정리하려면 `update --prune`을 사용하세요.
+:::
+
+:::info 로컬에서 수정된 skills
+설치한 뒤 편집한 skill은 upstream에 더 새로운 버전이 있어도 **modified**로 보고되며, 이때 `message`는 `update available upstream`으로 끝납니다. `update`는 `skillshare update <name> --force`를 실행하기 전까지 이 skill을 건드리지 않습니다. 이 명령은 변경 사항을 버리고 다시 설치합니다.
 :::
 
 :::tip Monorepo awareness
