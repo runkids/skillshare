@@ -294,7 +294,10 @@ function NeedsAttention({ targets, healths }: { targets: Target[]; healths: Heal
   const t = useT();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [check, setCheck] = useState<CheckResult | null>(null);
+  // Shared with TrackedRepos, which offers Update only for a repo this check found behind.
+  const { data: check } = useQuery<CheckResult>({ queryKey: queryKeys.check, queryFn: () => api.check(), enabled: false, staleTime: Infinity });
+  // Updates made elsewhere (Skills page, CLI) never correct this result, so it lives only while the Dashboard is open.
+  useEffect(() => () => queryClient.removeQueries({ queryKey: queryKeys.check }), [queryClient]);
   const [checking, setChecking] = useState(false);
   const [scanning, setScanning] = useState(false);
   // Reads a scan the Audit page (or this page) already ran; never scans on its own.
@@ -309,7 +312,7 @@ function NeedsAttention({ targets, healths }: { targets: Target[]; healths: Heal
     setChecking(true);
     try {
       const res = await api.check();
-      setCheck(res);
+      queryClient.setQueryData(queryKeys.check, res);
       if (!res.tracked_repos.some((r) => r.status === 'behind') && !res.skills.some((s) => s.status === 'update_available' || s.status === 'modified')) {
         toast(t('dashboard.updates.allUpToDate'), 'success');
       }
@@ -443,6 +446,8 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { updating, update } = useRepoUpdate();
+  const { data: check } = useQuery<CheckResult>({ queryKey: queryKeys.check, queryFn: () => api.check(), enabled: false, staleTime: Infinity });
+  const behind = new Set(check?.tracked_repos.filter((r) => r.status === 'behind').map((r) => r.name));
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [toDelete, setToDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -500,9 +505,11 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
             <span className={`ss-st ${repo.dirty ? 'warn' : 'ok'}`}>
               {repo.dirty ? t('dashboard.trackedRepos.modified') : t('dashboard.trackedRepos.clean')}
             </span>
-            <Button variant="secondary" size="sm" onClick={() => update(repo.name)} loading={updating === repo.name} disabled={updating !== null || deleting}>
-              {t('dashboard.trackedRepos.update')}
-            </Button>
+            {behind.has(repo.name) && (
+              <Button variant="secondary" size="sm" onClick={() => update(repo.name)} loading={updating === repo.name} disabled={updating !== null || deleting}>
+                {t('dashboard.trackedRepos.update')}
+              </Button>
+            )}
             <div className="relative" ref={menuFor === repo.name ? menuRef : undefined}>
               <button type="button" className="ss-ib" aria-label={t('dashboard.trackedRepos.actions')} aria-expanded={menuFor === repo.name} onClick={() => setMenuFor(menuFor === repo.name ? null : repo.name)}>
                 <Ellipsis size={16} />

@@ -88,7 +88,8 @@ const skillCacheFileName = "skill-version-check.json"
 // asking GitHub at most once per checkInterval like Check does for the
 // CLI. Returns "" when offline with no fresh cache.
 func CachedRemoteSkillVersion() string {
-	if cache, _ := loadCacheAt(skillCachePath()); cache != nil && time.Since(cache.LastChecked) < checkInterval {
+	// The CLI and skill ship in the same release, so a newer cached CLI release means this cache predates it.
+	if cache, _ := loadCacheAt(skillCachePath()); cache != nil && time.Since(cache.LastChecked) < checkInterval && !SkillOutdated(cache.LatestVersion, GetCachedVersion()) {
 		return cache.LatestVersion
 	}
 	latest := FetchRemoteSkillVersion()

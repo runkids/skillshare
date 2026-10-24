@@ -22,7 +22,7 @@ vi.mock('../api/client', async (load) => {
     api: {
       ...actual.api,
       getOverview: vi.fn(), listTargets: vi.fn(), listExtras: vi.fn(), listLog: vi.fn(),
-      auditAll: vi.fn(), check: vi.fn(), getVersionCheck: vi.fn(), deleteRepo: vi.fn(),
+      auditAll: vi.fn(), check: vi.fn(), getVersionCheck: vi.fn(), deleteRepo: vi.fn(), update: vi.fn(),
     },
   };
 });
@@ -43,8 +43,7 @@ function target(name: string, status: string): Target {
   return { name, path: `/home/dev/.${name}/skills`, mode: 'merge', targetNaming: 'flat', status, skillsEnabled: true, linkedCount: 3, localCount: 0, include: [], exclude: [], expectedSkillCount: 3 } as Target;
 }
 
-function renderPage() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function renderPage(client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   return render(
     <MemoryRouter initialEntries={['/']}>
       <QueryClientProvider client={client}><I18nProvider><ToastProvider><DashboardPage /></ToastProvider></I18nProvider></QueryClientProvider>
@@ -66,6 +65,40 @@ describe('DashboardPage', () => {
     vi.mocked(mcpApi.list).mockReturnValue(new Promise(() => {}));
     vi.mocked(pluginsApi.list).mockReturnValue(new Promise(() => {}));
     vi.mocked(hooksApi.list).mockResolvedValue({ source: { entries: { lint: { bindings: {} }, fmt: { bindings: {} } } } } as unknown as HookInventory);
+  });
+
+  describe('updating a tracked repo', () => {
+    beforeEach(() => {
+      vi.mocked(api.getOverview).mockResolvedValue({ skillCount: 3, agentCount: 0, source: '/home/dev/skills', trackedRepos: [{ name: '_team', skillCount: 1, dirty: false }] } as unknown as Overview);
+      vi.mocked(api.check).mockResolvedValue({ tracked_repos: [{ name: '_team', status: 'behind', behind: 2 }], linked_repos: [], skills: [] } as unknown as Awaited<ReturnType<typeof api.check>>);
+    });
+
+    it('offers Update only after a check finds the repo behind', async () => {
+      renderPage();
+      await screen.findByRole('button', { name: 'Repo actions' });
+      expect(screen.queryByRole('button', { name: 'Update' })).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Check for updates' }));
+      expect(await screen.findByRole('button', { name: 'Update' })).toBeInTheDocument();
+    });
+
+    it('drops Update once the repo is pulled', async () => {
+      vi.mocked(api.update).mockResolvedValue({ results: [{ name: '_team', action: 'updated', message: 'done' }] } as unknown as Awaited<ReturnType<typeof api.update>>);
+      renderPage();
+      await userEvent.click(await screen.findByRole('button', { name: 'Check for updates' }));
+      await userEvent.click(await screen.findByRole('button', { name: 'Update' }));
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Update' })).not.toBeInTheDocument());
+    });
+
+    it('forgets the check after leaving the Dashboard, since updates elsewhere do not touch it', async () => {
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const { unmount } = renderPage(client);
+      await userEvent.click(await screen.findByRole('button', { name: 'Check for updates' }));
+      await screen.findByRole('button', { name: 'Update' });
+      unmount();
+      renderPage(client);
+      await screen.findByRole('button', { name: 'Repo actions' });
+      expect(screen.queryByRole('button', { name: 'Update' })).not.toBeInTheDocument();
+    });
   });
 
   describe('uninstalling a tracked repo', () => {

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestReadLocalSkillVersion(t *testing.T) {
@@ -92,5 +93,15 @@ func TestCachedRemoteSkillVersion_FreshCacheSkipsFetch(t *testing.T) {
 
 	if got := CachedRemoteSkillVersion(); got != "9.9.9" {
 		t.Fatalf("CachedRemoteSkillVersion() = %q, want the cached 9.9.9", got)
+	}
+}
+
+func TestCachedRemoteSkillVersion_RefetchesWhenCLIReleaseIsNewer(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	SaveRemoteSkillVersion("1.0.0")
+	_ = saveCache(&Cache{LastChecked: time.Now(), LatestVersion: "9.9.9"})
+
+	if got := CachedRemoteSkillVersion(); got == "1.0.0" {
+		t.Fatal("CachedRemoteSkillVersion() kept a skill cache older than the cached CLI release")
 	}
 }
