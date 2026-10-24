@@ -231,7 +231,8 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 :root[data-theme="playful"] .ss-r.sel { background: var(--pe); }
 :root[data-theme="playful"].dark .ss-r.sel { background: #332B17; }
 .ss-r .nm { font-weight: 600; }
-:is(.ss-r, .ss-nr) .nm.m { font-size: 13px; font-weight: 600; letter-spacing: -0.015em; }
+.ss-r .nm.m { font-size: 13px; font-weight: 600; letter-spacing: -0.015em; }
+.ss-nr .nm.m { font-size: 13px; font-weight: 600; letter-spacing: -0.015em; }
 /* A package's skills: one recessed panel under its row, lined up with the names, no lines inside. */
 .ss-nest { margin: -4px 16px 12px 44px; padding: 4px 0; background: color-mix(in srgb, var(--sunken) 55%, transparent); border-radius: 8px; }
 .ss-nest+.ss-r { border-top: var(--sep); }
