@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Neueste Version**: v0.26.3 — Füge separate OpenCode-Konten mit `OPENCODE_CONFIG_DIR` hinzu. Dieses Release aktualisiert außerdem Go-Abhängigkeiten mit Sicherheitskorrekturen und führt bei Ordnerkonflikten mit Projektzielen im Dashboard zum Projekteditor. [Alle Releases →](https://github.com/runkids/skillshare/releases)
+> **Neueste Version**: v0.26.4 — `update` überspringt jetzt Skills, die du seit der Installation bearbeitet hast, und `skillshare check <name> --diff` zeigt deine Änderungen. Die Skill-Liste im Dashboard zeigt Beschreibungen und ordnet Skill-Pakete unter ihrem übergeordneten Skill ein; mehrere installierte Plugins lassen sich auf einmal importieren. [Alle Releases →](https://github.com/runkids/skillshare/releases)
 
 ## Warum skillshare
 

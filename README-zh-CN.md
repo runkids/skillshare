@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.26.3 — 新增使用 `OPENCODE_CONFIG_DIR` 的独立 OpenCode 账号。本版也更新了包含安全修复的 Go 依赖，并将 dashboard 中涉及 project target 的文件夹冲突操作导向项目编辑器。 [Releases](https://github.com/runkids/skillshare/releases) 和[更新记录](https://skillshare.runkids.cc/changelog)。
+> **最新版本**：v0.26.4 — 安装后改过的 skill 现在会被 `update` 跳过，`skillshare check <name> --diff` 可以查看改了什么。dashboard 的 skill 列表会显示描述，skill package 会收在父 skill 下面，也可以一次导入多个已安装的 plugin。 [Releases](https://github.com/runkids/skillshare/releases) 和[更新记录](https://skillshare.runkids.cc/changelog)。
 
 ## 为什么用 skillshare
 

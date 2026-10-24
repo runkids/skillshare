@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **최신 버전**: v0.26.3 — `OPENCODE_CONFIG_DIR`를 사용하는 별도의 OpenCode 계정을 추가할 수 있습니다. Go 의존성의 보안 수정도 포함하며, dashboard의 폴더 충돌에 project target이 있으면 프로젝트 편집기로 안내합니다. [변경 기록](https://skillshare.runkids.cc/changelog)을 확인하세요.
+> **최신 버전**: v0.26.4 — 설치 후 수정한 skill은 이제 `update`에서 건너뛰며, `skillshare check <name> --diff`로 변경 내용을 볼 수 있습니다. dashboard의 skill 목록에 설명이 표시되고 skill 패키지가 상위 skill 아래에 묶여 표시되며, 설치된 plugin 여러 개를 한 번에 가져올 수 있습니다. [변경 기록](https://skillshare.runkids.cc/changelog)을 확인하세요.
 
 ## skillshare를 쓰는 이유
 

@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新バージョン**：v0.26.3 — `OPENCODE_CONFIG_DIR` を使う OpenCode の別アカウントを追加できます。Go 依存関係のセキュリティ修正を取り込み、dashboard のフォルダー競合に project target が含まれる場合はプロジェクト編集画面へ案内するようになりました。 [Releases](https://github.com/runkids/skillshare/releases) と[変更履歴](https://skillshare.runkids.cc/changelog)をご覧ください。
+> **最新バージョン**：v0.26.4 — インストール後に編集した skill は `update` でスキップされ、`skillshare check <name> --diff` で変更内容を確認できます。dashboard の skill 一覧に説明が表示され、skill パッケージは親の下にまとめて表示されます。インストール済み plugin の一括インポートにも対応しました。 [Releases](https://github.com/runkids/skillshare/releases) と[変更履歴](https://skillshare.runkids.cc/changelog)をご覧ください。
 
 ## skillshare を使う理由
 

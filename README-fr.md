@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Dernière version** : v0.26.3 — Ajoutez des comptes OpenCode séparés avec `OPENCODE_CONFIG_DIR`. Cette version met aussi à jour les dépendances Go avec des correctifs de sécurité et dirige les conflits de dossiers impliquant des cibles de projet dans le dashboard vers l'éditeur du projet. [Toutes les versions →](https://github.com/runkids/skillshare/releases)
+> **Dernière version** : v0.26.4 — `update` ignore désormais les skills que vous avez modifiés depuis l'installation, et `skillshare check <name> --diff` montre vos modifications. La liste des skills du dashboard affiche les descriptions et range les paquets de skills sous leur skill parent, et vous pouvez importer plusieurs plugins installés à la fois. [Toutes les versions →](https://github.com/runkids/skillshare/releases)
 
 ## Pourquoi skillshare
 

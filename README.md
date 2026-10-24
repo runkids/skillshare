@@ -48,7 +48,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: v0.26.3 — Add separate OpenCode accounts with `OPENCODE_CONFIG_DIR`. This release also updates Go dependencies with security fixes and sends dashboard folder conflicts involving project targets to the project editor. [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: v0.26.4 — `update` now skips skills you edited since install, and `skillshare check <name> --diff` shows what you changed. The dashboard skill list shows descriptions and nests skill packages under their parent, and you can import several installed plugins at once. [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
@@ -386,6 +386,7 @@ Thanks to everyone who helped shape skillshare.
 <a href="https://github.com/aleps001"><img src="https://github.com/aleps001.png" width="50" style="border-radius:50%" alt="aleps001"></a>
 <a href="https://github.com/jskswamy"><img src="https://github.com/jskswamy.png" width="50" style="border-radius:50%" alt="jskswamy"></a>
 <a href="https://github.com/heyAidy"><img src="https://github.com/heyAidy.png" width="50" style="border-radius:50%" alt="heyAidy"></a>
+<a href="https://github.com/trojanwk"><img src="https://github.com/trojanwk.png" width="50" style="border-radius:50%" alt="trojanwk"></a>
 
 ---
 
