@@ -86,7 +86,8 @@ export default function ResourceDetailPage() {
   const [updating, setUpdating] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [blocked, setBlocked] = useState<string | null>(null);
-  const [modified, setModified] = useState(false);
+  // The Updates tab links a modified skill here with ?changes=1 to show its edits.
+  const [modified, setModified] = useState(() => searchParams.get('changes') === '1');
   const [raw, setRaw] = useState(false);
 
   const skillMaps = useMemo(() => {
@@ -391,9 +392,10 @@ export default function ResourceDetailPage() {
       <ConfirmDialog
         open={modified}
         title={t('update.check.dirty')}
-        message={t('resourceDetail.modified.message', { name: resource.name })}
+        message={<>{t('resourceDetail.modified.message', { name: resource.name })}{modified && <LocalChanges relPath={resource.relPath} />}</>}
         confirmText={t('update.tab.force')}
         variant="danger"
+        wide
         loading={updating}
         onConfirm={() => runUpdate(false, true).then(() => setModified(false))}
         onCancel={() => setModified(false)}
@@ -887,5 +889,28 @@ function BlockedDialog({ name, message, loading, onSkip, onClose }: {
         <Button variant="primary" onClick={onClose} disabled={loading}>{t('resourceDetail.blocked.keep')}</Button>
       </div>
     </DialogShell>
+  );
+}
+
+/** What a remote skill changed since install, each file diffed against the installed version. */
+function LocalChanges({ relPath }: { relPath: string }) {
+  const t = useT();
+  const { data, error, isPending } = useQuery({ queryKey: queryKeys.skills.localChanges(relPath), queryFn: () => api.getLocalChanges(relPath), staleTime: 0 });
+  if (isPending) return <div className="flex justify-center py-6"><Spinner /></div>;
+  if (error) return <div className="ss-note bad mt-3">{t('resourceDetail.modified.loadFailed', { message: (error as Error).message })}</div>;
+  const status = { modified: t('resourceDetail.modified.status.modified'), added: t('resourceDetail.modified.status.added'), deleted: t('resourceDetail.modified.status.deleted') };
+  return (
+    <div className="mt-3 flex flex-col gap-3">
+      {data.files.map((f) => (
+        <div key={f.path}>
+          <p className="mb-1 font-mono text-[12.5px]">{f.path} <span className="text-ink-2">· {status[f.status]}</span></p>
+          <pre className="ss-code !max-h-[40vh] !overflow-auto !whitespace-pre-wrap" style={{ overflowWrap: 'anywhere' }}>
+            {f.diff.replace(/\n$/, '').split('\n').map((l, i) => (
+              <span key={i} className={l.startsWith('+ ') ? 'add' : l.startsWith('- ') ? 'del' : 'block'}>{l || ' '}</span>
+            ))}
+          </pre>
+        </div>
+      ))}
+    </div>
   );
 }

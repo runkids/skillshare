@@ -254,7 +254,7 @@ func displayModifiedWarning(modified []string) {
 	for _, name := range modified {
 		ui.Row(ui.MarkWarn, name, modifiedSkillReason, width)
 	}
-	ui.Note("Run with --force to discard the changes and reinstall")
+	ui.Note("Run 'skillshare check <name> --diff' to see the changes, or update with --force to discard them and reinstall")
 }
 
 // displayMissingTrackedReposWarning warns about tracked repos declared in

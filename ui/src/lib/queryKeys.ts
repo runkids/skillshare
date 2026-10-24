@@ -7,6 +7,7 @@ export const queryKeys = {
     detail: (name: string) => ['skills', name] as const,
     detailOfKind: (name: string, kind?: string) => ['skills', name, kind] as const,
     file: (name: string, path: string) => ['skill-file', name, path] as const,
+    localChanges: (relPath: string) => ['skill-local-changes', relPath] as const,
   },
 
   /** A dry-run of the move dialog: what a move to `dest` would do. */

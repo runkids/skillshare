@@ -379,13 +379,13 @@ skillshare update _team-skills --force
 
 如果 skillshare 无法读取该仓库的 git status，该仓库的更新会以 `failed to check git status` 失败；`--force` 会跳过此检查。
 
-从仓库安装的 skill 同样受到保护。当它的文件与安装时记录的文件不再一致时，`update` 会跳过它并报告 `local changes since install`；`skillshare check` 会将其列为 modified。如果想保留你的修改，请先复制到别处，然后再丢弃它们：
+从仓库安装的 skill 同样受到保护。当它的文件与安装时记录的文件不再一致时，`update` 会跳过它并报告 `local changes since install`；`skillshare check` 会将其列为 modified，`skillshare check <name> --diff` 会显示你改了什么。如果想保留你的修改，请先复制到别处，然后再丢弃它们：
 
 ```bash
 skillshare update my-skill --force
 ```
 
-在 dashboard 的 **Updates** 标签页中，该 skill 显示为 **Modified locally**；更新前请勾选 **Force overwrite local edits**，或对被跳过的行使用 **Force Retry**。从该 skill 自己的页面更新时，会在丢弃更改前询问。`update <name> --dry-run` 会将该 skill 报告为将被跳过。若一个 modified 的 skill 同时已在 upstream 被删除，即使使用 `--prune`，在你加上 `--force` 之前也会保留它。
+在 dashboard 的 **Updates** 标签页中，该 skill 显示为 **Modified locally**，并有 **View changes** 按钮，可在该 skill 的页面查看更改；更新前请勾选 **Force overwrite local edits**，或对被跳过的行使用 **Force Retry**。从该 skill 自己的页面更新时，会显示这些更改，并在丢弃前询问。`update <name> --dry-run` 会将该 skill 报告为将被跳过。若一个 modified 的 skill 同时已在 upstream 被删除，即使使用 `--prune`，在你加上 `--force` 之前也会保留它。
 
 ## 更新之后
 

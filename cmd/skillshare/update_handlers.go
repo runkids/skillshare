@@ -193,11 +193,13 @@ func updateRegularSkill(uc *updateContext, skillName string) (updateResult, erro
 		// Only a skill named on purpose fails; --all and --group skip it as the batch path does.
 		if uc.opts.all || len(uc.opts.groups) > 0 {
 			printUpdateRow(ui.MarkWarn, skillName, modifiedSkillReason, 0)
-			ui.Next("skillshare update "+skillName+" --force", "discard them and reinstall")
+			ui.Next("skillshare check "+skillName+" --diff", "see the changes",
+				"skillshare update "+skillName+" --force", "discard them and reinstall")
 			return updateResult{skipped: 1}, nil
 		}
 		printUpdateRow(ui.MarkFail, skillName, modifiedSkillReason, 0)
-		ui.Next("skillshare update "+skillName+" --force", "discard them and reinstall")
+		ui.Next("skillshare check "+skillName+" --diff", "see the changes",
+			"skillshare update "+skillName+" --force", "discard them and reinstall")
 		return updateResult{skipped: 1}, fmt.Errorf("local changes in skill")
 	}
 

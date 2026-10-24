@@ -468,6 +468,7 @@ _skillshare() {
                     _arguments \
                         '1:scope:(agents)' \
                         '--json[JSON output]' \
+                        '--diff[Show changes since install]' \
                         '--all[Check all]' \
                         '--group[Check by group]:group:' \
                         '-G[Check by group]:group:' \

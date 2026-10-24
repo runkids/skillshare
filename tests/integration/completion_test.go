@@ -103,6 +103,23 @@ func TestCompletion_MCPCheck_AllShells(t *testing.T) {
 	}
 }
 
+func TestCompletion_CheckDiff_AllShells(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	for shell, flag := range map[string]string{
+		"bash":       `check_flags="--json --diff `,
+		"zsh":        "'--diff[Show changes since install]'",
+		"fish":       "check' -l diff",
+		"powershell": "'check' = '--json', '--diff'",
+		"nushell":    "--diff                   # Show changes since install",
+	} {
+		result := sb.RunCLI("completion", shell)
+		result.AssertSuccess(t)
+		result.AssertOutputContains(t, flag)
+	}
+}
+
 func TestCompletion_TargetCLIFlag_AllShells(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

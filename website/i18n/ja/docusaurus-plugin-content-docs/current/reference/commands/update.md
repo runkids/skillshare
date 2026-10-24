@@ -379,13 +379,13 @@ skillshare update _team-skills --force
 
 skillshare がリポジトリの git status を読み取れない場合、そのリポジトリの更新は `failed to check git status` で失敗します。`--force` を使うとこのチェックをスキップします。
 
-リポジトリからインストールした skill も同様に保護されます。ファイルがインストール時に記録したものと一致しなくなると、`update` はその skill をスキップして `local changes since install` と報告し、`skillshare check` は modified として一覧表示します。変更を残したい場合は別の場所にコピーしてから、破棄します。
+リポジトリからインストールした skill も同様に保護されます。ファイルがインストール時に記録したものと一致しなくなると、`update` はその skill をスキップして `local changes since install` と報告し、`skillshare check` は modified として一覧表示し、`skillshare check <name> --diff` は加えた変更を表示します。変更を残したい場合は別の場所にコピーしてから、破棄します。
 
 ```bash
 skillshare update my-skill --force
 ```
 
-ダッシュボードの **Updates** タブでは、その skill に **Modified locally** と表示されます。更新する前に **Force overwrite local edits** にチェックを入れるか、スキップされた行の **Force Retry** を使います。skill 自身のページから更新する場合は、変更を破棄する前に確認が表示されます。`update <name> --dry-run` は、その skill をスキップ対象として報告します。upstream で削除された modified の skill も、`--prune` を付けても `--force` を付けるまで保持されます。
+ダッシュボードの **Updates** タブでは、その skill に **Modified locally** と、変更を skill のページで開く **View changes** ボタンが表示されます。更新する前に **Force overwrite local edits** にチェックを入れるか、スキップされた行の **Force Retry** を使います。skill 自身のページから更新する場合は、変更を表示したうえで、破棄する前に確認します。`update <name> --dry-run` は、その skill をスキップ対象として報告します。upstream で削除された modified の skill も、`--prune` を付けても `--force` を付けるまで保持されます。
 
 ## 更新後
 

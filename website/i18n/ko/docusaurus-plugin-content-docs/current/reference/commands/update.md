@@ -379,13 +379,13 @@ skillshare update _team-skills --force
 
 skillshare가 repo의 git status를 읽을 수 없으면 해당 repo의 업데이트는 `failed to check git status`로 실패합니다. `--force`를 사용하면 이 확인을 건너뜁니다.
 
-저장소에서 설치한 skill도 같은 방식으로 보호됩니다. 파일이 설치 시 기록된 파일과 더 이상 일치하지 않으면 `update`는 해당 skill을 건너뛰고 `local changes since install`을 보고하며, `skillshare check`는 이를 modified로 나열합니다. 변경 사항을 보존하려면 다른 곳에 복사해 둔 뒤 버리세요.
+저장소에서 설치한 skill도 같은 방식으로 보호됩니다. 파일이 설치 시 기록된 파일과 더 이상 일치하지 않으면 `update`는 해당 skill을 건너뛰고 `local changes since install`을 보고하며, `skillshare check`는 이를 modified로 나열하고, `skillshare check <name> --diff`는 변경한 내용을 보여줍니다. 변경 사항을 보존하려면 다른 곳에 복사해 둔 뒤 버리세요.
 
 ```bash
 skillshare update my-skill --force
 ```
 
-대시보드의 **Updates** 탭에서는 해당 skill이 **Modified locally**로 표시됩니다. 업데이트하기 전에 **Force overwrite local edits**를 선택하거나, 건너뛴 행의 **Force Retry**를 사용하세요. skill 자체 페이지에서 업데이트하면 변경 사항을 버리기 전에 확인을 요청합니다. `update <name> --dry-run`은 이 skill을 건너뛸 대상으로 보고합니다. upstream에서도 삭제된 modified skill은 `--prune`을 사용해도 `--force`를 추가하기 전까지 유지됩니다.
+대시보드의 **Updates** 탭에서는 해당 skill이 **Modified locally**로 표시되고, 변경 사항을 skill 페이지에서 열어 보는 **View changes** 버튼이 나타납니다. 업데이트하기 전에 **Force overwrite local edits**를 선택하거나, 건너뛴 행의 **Force Retry**를 사용하세요. skill 자체 페이지에서 업데이트하면 변경 사항을 보여 주고 버리기 전에 확인을 요청합니다. `update <name> --dry-run`은 이 skill을 건너뛸 대상으로 보고합니다. upstream에서도 삭제된 modified skill은 `--prune`을 사용해도 `--force`를 추가하기 전까지 유지됩니다.
 
 ## 업데이트 후
 

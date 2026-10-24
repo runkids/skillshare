@@ -161,11 +161,12 @@ Check for available updates and validate skill metadata.
 skillshare check             # Show update status for all repos/skills
 skillshare check --json      # JSON output (CI-friendly)
 skillshare check -p          # Check project skills
+skillshare check my-skill --diff  # Show local edits vs the installed version
 ```
 
 - **Tracked repos:** Fetches from origin, shows commits behind
 - **Remote skills:** Compares installed version with remote HEAD
-- **Modified skills:** Remote skills edited since install are `modified`; `update` skips them until `--force`
+- **Modified skills:** Remote skills edited since install are `modified`; `update` skips them until `--force`. `check <name> --diff` shows the edits
 - **Local skills:** Shown as "local source"
 - **Targets validation:** Warns about unknown target names in skill-level `targets` field
 

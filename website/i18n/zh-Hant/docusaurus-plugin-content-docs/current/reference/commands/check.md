@@ -13,6 +13,7 @@ skillshare check a b c                # 檢查多個 skills
 skillshare check --group frontend     # 檢查 frontend/ 下所有 skills
 skillshare check x -G backend         # 混用名稱與群組
 skillshare check --json               # 機器可讀輸出
+skillshare check my-skill --diff      # 顯示安裝後你對 skill 所做的修改
 ```
 
 ## 使用時機
@@ -124,6 +125,7 @@ skillshare check frontend               # 自動偵測為群組
 | `--project`, `-p` | 檢查 project 層級的 skills（`.skillshare/`） |
 | `--global`, `-g` | 檢查 global skills（`~/.config/skillshare`） |
 | `--json` | 以 JSON 輸出（供 scripting/CI 使用） |
+| `--diff` | 針對指定的 skills，以行 diff 的形式顯示自安裝以來每個被修改的檔案（與已安裝版本比較）。需要指定名稱或 `--group`；不能與 `--json` 同時使用 |
 | `--help`, `-h` | 顯示說明 |
 
 :::tip 自動偵測
@@ -176,6 +178,18 @@ skillshare check --json
 
 :::info 本機修改過的 skills
 安裝後被你編輯過的 skill 會被回報為 **modified**，即使 upstream 已有更新版本；此時其 `message` 以 `update available upstream` 結尾。在你執行 `skillshare update <name> --force` 之前，`update` 不會動它；該指令會捨棄你的變更並重新安裝。
+
+如需先查看變更內容，請執行 `skillshare check <name> --diff`。它會取得該 skill 安裝時所在的 commit，因此即使 upstream 已經前進，diff 也只顯示你自己的修改：
+
+```
+! my-skill  2 files changed since install
+            modified SKILL.md
+                # My Skill
+              - Run the tests.
+              + Run the tests with -race.
+            added NOTES.md
+              + my notes
+```
 :::
 
 :::tip Monorepo 感知

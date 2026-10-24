@@ -96,6 +96,25 @@ func (s *MetadataStore) Has(name string) bool {
 // It first tries a direct key lookup, then falls back to matching group+basename.
 // This handles the case where entries are stored with basename keys but have a Group field.
 func (s *MetadataStore) GetByPath(relPath string) *MetadataEntry {
+	if e := s.GetExact(relPath); e != nil {
+		return e
+	}
+	if s == nil {
+		return nil
+	}
+	base := filepath.Base(filepath.ToSlash(relPath))
+	// Basename-only fallback: tracked repos store metadata with short keys
+	// (e.g. "agent-browser") but discovery produces full relPaths including
+	// the repo prefix (e.g. "_repo/agent-browser/agent-browser").
+	if e := s.Entries[base]; e != nil && e.Group == "" {
+		return e
+	}
+	return nil
+}
+
+// GetExact is GetByPath without the basename-only fallback for tracked-repo
+// members, so a nested path never resolves to a top-level skill's entry.
+func (s *MetadataStore) GetExact(relPath string) *MetadataEntry {
 	if s == nil {
 		return nil
 	}
@@ -112,12 +131,6 @@ func (s *MetadataStore) GetByPath(relPath string) *MetadataEntry {
 		group = filepath.ToSlash(dir)
 	}
 	if e := s.Entries[base]; e != nil && e.Group == group {
-		return e
-	}
-	// Basename-only fallback: tracked repos store metadata with short keys
-	// (e.g. "agent-browser") but discovery produces full relPaths including
-	// the repo prefix (e.g. "_repo/agent-browser/agent-browser").
-	if e := s.Entries[base]; e != nil && e.Group == "" {
 		return e
 	}
 	return nil

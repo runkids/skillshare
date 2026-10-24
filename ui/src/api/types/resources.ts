@@ -112,6 +112,14 @@ export interface SkillFileContent {
   filename: string;
 }
 
+/** A file of an installed skill that differs from the version it was installed at. */
+export interface LocalFileChange {
+  path: string;
+  status: 'modified' | 'added' | 'deleted';
+  /** Every line of the file, prefixed "+ ", "- " or "  ". */
+  diff: string;
+}
+
 export interface BatchUninstallRequest {
   names: string[];
   kind?: 'skill' | 'agent';

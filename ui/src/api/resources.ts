@@ -1,5 +1,5 @@
 import { apiFetch, kindQuery } from './http';
-import type { BatchToggleResult, MoveRequest, MoveResult, BatchUninstallRequest, BatchUninstallResult, CollectResult, CollectScanResult, CreateSkillRequest, CreateSkillResponse, Overview, LinkedRepo, Skill, SkillFileContent, SourceLink, SourceLinkRequest, SourceLinkResult, TemplatesResponse } from './types/resources';
+import type { BatchToggleResult, MoveRequest, MoveResult, BatchUninstallRequest, BatchUninstallResult, CollectResult, CollectScanResult, CreateSkillRequest, CreateSkillResponse, Overview, LinkedRepo, LocalFileChange, Skill, SkillFileContent, SourceLink, SourceLinkRequest, SourceLinkResult, TemplatesResponse } from './types/resources';
 
 export const resourcesApi = {
   createSourceLink: (body: SourceLinkRequest) =>
@@ -76,6 +76,9 @@ export const resourcesApi = {
   // Skill file content
   getSkillFile: (skillName: string, filepath: string) =>
     apiFetch<SkillFileContent>(`/resources/${encodeURIComponent(skillName)}/files/${filepath}`),
+  // Files changed since install, diffed against the installed version; name is the skill's relPath.
+  getLocalChanges: (name: string) =>
+    apiFetch<{ files: LocalFileChange[] }>(`/resources/${encodeURIComponent(name)}/local-changes`),
   // Save SKILL.md / agent markdown.
   saveSkillContent: (name: string, content: string, kind?: 'skill' | 'agent') =>
     apiFetch<{

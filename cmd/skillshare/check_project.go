@@ -34,5 +34,6 @@ func cmdCheckProject(root string, opts *checkOptions) error {
 	}
 
 	// Filtered check
+	opts.parseOpts = parseOptsFromProjectConfig(projectCfg)
 	return runCheckFiltered(sourcePath, root, opts, projectSkillsWalk(root, projectCfg))
 }

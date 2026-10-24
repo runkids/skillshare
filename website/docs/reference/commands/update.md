@@ -379,13 +379,13 @@ skillshare update _team-skills --force
 
 If skillshare cannot read the repo's git status, the update fails for that repo with `failed to check git status`; `--force` skips the check.
 
-A skill installed from a repository is protected the same way. When its files no longer match the ones recorded at install time, `update` skips it and reports `local changes since install`; `skillshare check` lists it as modified. Copy your edits elsewhere if you want to keep them, then discard them:
+A skill installed from a repository is protected the same way. When its files no longer match the ones recorded at install time, `update` skips it and reports `local changes since install`; `skillshare check` lists it as modified, and `skillshare check <name> --diff` shows what you changed. Copy your edits elsewhere if you want to keep them, then discard them:
 
 ```bash
 skillshare update my-skill --force
 ```
 
-On the dashboard's **Updates** tab, the skill shows **Modified locally**; tick **Force overwrite local edits** before updating it, or use **Force Retry** on the skipped row. Updating it from the skill's own page asks before discarding the changes. `update <name> --dry-run` reports the skill as one it would skip. A modified skill that was also deleted upstream is kept until you add `--force`, even with `--prune`.
+On the dashboard's **Updates** tab, the skill shows **Modified locally** and a **View changes** button that opens its changes on the skill's page; tick **Force overwrite local edits** before updating it, or use **Force Retry** on the skipped row. Updating it from the skill's own page shows the changes and asks before discarding them. `update <name> --dry-run` reports the skill as one it would skip. A modified skill that was also deleted upstream is kept until you add `--force`, even with `--prune`.
 
 ## After Updating
 

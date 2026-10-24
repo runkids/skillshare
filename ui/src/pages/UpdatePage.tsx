@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bot, Check, CircleAlert, CircleArrowUp, CircleCheck, Download, FolderX, GitBranch, Link, Loader2, Puzzle, RefreshCw, ShieldAlert, Trash2, X } from 'lucide-react';
+import { Link as RouterLink } from 'react-router-dom';
+import { resourceHref } from '../lib/resourceNames';
 import { api } from '../api/client';
 import type { CheckResult, LinkedRepo, Skill, UpdateResultItem } from '../api/client';
 import { queryKeys } from '../lib/queryKeys';
@@ -437,7 +439,12 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
       case 'stale':
         return <span className="ss-st warn">{t('update.check.stale')}</span>;
       case 'dirty':
-        return <span className="ss-st warn" title={c.message}>{t('update.check.dirty')}</span>;
+        return (
+          <span className="inline-flex items-center gap-2">
+            <span className="ss-st warn" title={c.message}>{t('update.check.dirty')}</span>
+            {!unit.isRepo && unit.items[0] && <RouterLink className="ss-btn sm" to={`${resourceHref(unit.items[0])}?changes=1`}>{t('update.check.viewChanges')}</RouterLink>}
+          </span>
+        );
       case 'up-to-date':
         return <span className="ss-st ok">{t('update.check.upToDate')}</span>;
       case 'error':

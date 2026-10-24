@@ -45,6 +45,8 @@ Compare routes in `internal/server/server.go`, `handler_*.go` files, handler tes
 
 `GET /api/check` and the `done` event of `GET /api/check/stream` return the same `linked_repos` field separately from `tracked_repos`. Linked checkouts are excluded from Git checks and work-unit totals. Dashboard update endpoints return a `skipped` result for them before running Git, including force retries and skills within those checkouts.
 
+`GET /api/resources/{name}/local-changes` (`name` is the skill's relative path) returns `{files: [{path, status, diff}]}` with `status` `modified`, `added` or `deleted`, each diffed against the commit the skill was installed at; it backs the same comparison as `check <name> --diff` through `install.LocalChanges`. Skills without an install record of their own (local, tracked, no recorded hashes) are 404.
+
 Source-link endpoints (skills only, in the dashboard's current global/project mode):
 
 | Endpoint | Request | Response |

@@ -14,6 +14,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
 	"skillshare/internal/sync"
+	"skillshare/internal/textdiff"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
 )
@@ -1192,7 +1193,7 @@ func renderDiffGroup(r targetDiffResult, opts diffRenderOpts, next *diffNext, wi
 				if f.Action != "modify" || item.srcDir == "" {
 					continue
 				}
-				diffText := generateUnifiedDiff(filepath.Join(item.srcDir, f.RelPath), filepath.Join(item.dstDir, f.RelPath))
+				diffText := textdiff.Files(filepath.Join(item.dstDir, f.RelPath), filepath.Join(item.srcDir, f.RelPath))
 				if diffText == "" {
 					continue
 				}

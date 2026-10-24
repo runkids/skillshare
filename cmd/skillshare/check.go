@@ -48,6 +48,9 @@ type checkOptions struct {
 	names  []string // positional (0+ = all)
 	groups []string // --group/-G
 	json   bool
+	diff   bool // --diff: show each skill's changes since install
+
+	parseOpts install.ParseOptions // how --diff parses recorded sources
 }
 
 // collectCheckItems reads metadata and partitions items for parallel checking.
@@ -111,6 +114,8 @@ func parseCheckArgs(args []string) (*checkOptions, bool, error) {
 		switch {
 		case arg == "--json":
 			opts.json = true
+		case arg == "--diff":
+			opts.diff = true
 		case arg == "--group" || arg == "-G":
 			i++
 			if i >= len(args) {
@@ -124,6 +129,12 @@ func parseCheckArgs(args []string) (*checkOptions, bool, error) {
 		default:
 			opts.names = append(opts.names, arg)
 		}
+	}
+	if opts.diff && opts.json {
+		return nil, false, fmt.Errorf("--diff cannot be combined with --json")
+	}
+	if opts.diff && len(opts.names) == 0 && len(opts.groups) == 0 {
+		return nil, false, fmt.Errorf("--diff needs a skill name or --group")
 	}
 
 	return opts, false, nil
@@ -183,6 +194,10 @@ func cmdCheck(args []string) error {
 		return parseErr
 	}
 
+	if opts.diff && kind == kindAgents {
+		return fmt.Errorf("--diff compares skills only")
+	}
+
 	cfgPath := config.ConfigPath()
 	if mode == modeProject {
 		cfgPath = config.ProjectConfigPath(cwd)
@@ -223,6 +238,7 @@ func cmdCheck(args []string) error {
 	}
 
 	// Filtered check: resolve targets then check only those
+	opts.parseOpts = parseOptsFromConfig(cfg)
 	cmdErr := runCheckFiltered(cfg.EffectiveSkillsSource(), "", opts, cfg.SkillsWalk())
 	logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, cmdErr)
 	return cmdErr
@@ -450,7 +466,8 @@ func renderCheckResults(repoResults []checkRepoResult, skillResults []checkSkill
 		next = append(next, "skillshare update --all --prune", "remove stale skills")
 	}
 	if modified > 0 {
-		next = append(next, "skillshare update <name> --force", "discard local changes and reinstall")
+		next = append(next, "skillshare check <name> --diff", "see the local changes",
+			"skillshare update <name> --force", "discard local changes and reinstall")
 	}
 	if len(next) > 0 {
 		ui.Next(next...)
@@ -582,6 +599,14 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, walks .
 		return fmt.Errorf("no skills found")
 	}
 
+	var follow *sourcewalk.Follow
+	if len(walks) > 0 {
+		follow = walks[0].Follow
+	}
+	if opts.diff {
+		return runCheckDiff(sourceDir, targets, opts.parseOpts, follow)
+	}
+
 	// --- Partition targets for parallel check ---
 	var repoNames []string
 	var skillNames []string
@@ -593,10 +618,6 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, walks .
 		}
 	}
 
-	var follow *sourcewalk.Follow
-	if len(walks) > 0 {
-		follow = walks[0].Follow
-	}
 	repoInputs, plan := collectCheckItems(sourceDir, projectRoot, repoNames, skillNames, follow)
 
 	total := len(repoInputs) + plan.RemoteSkills()
@@ -706,7 +727,7 @@ func singleCheckStatus(repos []checkRepoResult, skills []checkSkillResult) singl
 		case "stale":
 			return singleCheckResult{ui.MarkWarn, "stale — no longer in the upstream repository", "skillshare update --all --prune", "remove stale skills"}
 		case "modified":
-			return singleCheckResult{ui.MarkWarn, s.Message, "skillshare update " + s.Name + " --force", "discard local changes and reinstall"}
+			return singleCheckResult{ui.MarkWarn, s.Message, "skillshare check " + s.Name + " --diff", "see the changes; update --force discards them"}
 		case "local":
 			return singleCheckResult{mark: ui.MarkNone, text: "local source, nothing to compare"}
 		case "error":
@@ -836,6 +857,7 @@ func printCheckHelp() {
 			{"-p, --project", "Check project-level skills (.skillshare/)"},
 			{"-g, --global", "Check global skills (~/.config/skillshare)"},
 			{"--json", "Output results as JSON"},
+			{"--diff", "Show what changed in named skills since install"},
 		}},
 		helpExamples(
 			helpRow{"skillshare check", "Check all items"},
@@ -844,6 +866,7 @@ func printCheckHelp() {
 			helpRow{"skillshare check --group frontend", "Check all skills in frontend/"},
 			helpRow{"skillshare check x -G backend", "Mix names and groups"},
 			helpRow{"skillshare check --json", "Output as JSON (for CI)"},
+			helpRow{"skillshare check my-skill --diff", "Show local edits to a skill"},
 			helpRow{"skillshare check -p", "Check project skills"},
 			helpRow{"skillshare check agents", "Check all agents"},
 			helpRow{"skillshare check agents -G demo", "Check agents in demo/"},

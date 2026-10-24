@@ -13,6 +13,7 @@ skillshare check a b c                # 複数の Skill を確認
 skillshare check --group frontend     # frontend/ 配下のすべての Skill を確認
 skillshare check x -G backend         # 名前とグループを混在させる
 skillshare check --json               # 機械可読な出力
+skillshare check my-skill --diff      # インストール後に Skill へ加えた変更を表示
 ```
 
 ## 使うタイミング
@@ -124,6 +125,7 @@ skillshare check frontend               # グループとして自動検出
 | `--project`, `-p` | Project レベルの Skill（`.skillshare/`）を確認 |
 | `--global`, `-g` | グローバルの Skill（`~/.config/skillshare`）を確認 |
 | `--json` | JSON として出力（スクリプト/CI 向け） |
+| `--diff` | 指定した Skill について、インストール後に変更された各ファイルを、インストール済みバージョンとの行 diff で表示します。名前または `--group` が必要で、`--json` とは併用できません |
 | `--help`, `-h` | ヘルプを表示 |
 
 :::tip 自動検出
@@ -176,6 +178,18 @@ Skill のサブディレクトリがアップストリームでリネームま�
 
 :::info ローカルで変更された Skill
 インストール後に編集した Skill は、upstream に新しいバージョンがあっても **modified** と報告され、その `message` は `update available upstream` で終わります。`update` は `skillshare update <name> --force` を実行するまで手を付けません。このコマンドは変更を破棄して再インストールします。
+
+先に変更内容を確認するには、`skillshare check <name> --diff` を実行します。Skill がインストールされた commit を取得するため、upstream が先に進んでいても diff にはあなたの編集だけが表示されます:
+
+```
+! my-skill  2 files changed since install
+            modified SKILL.md
+                # My Skill
+              - Run the tests.
+              + Run the tests with -race.
+            added NOTES.md
+              + my notes
+```
 :::
 
 :::tip モノレポでの挙動

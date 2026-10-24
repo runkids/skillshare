@@ -566,6 +566,7 @@ export extern "skillshare update" [
 export extern "skillshare check" [
     scope?: string@"nu-complete skillshare kind"
     --json                   # JSON output
+    --diff                   # Show changes since install
     --all                    # Check all
     --group(-G): string      # Check by group
     --project(-p)            # Use project-level config

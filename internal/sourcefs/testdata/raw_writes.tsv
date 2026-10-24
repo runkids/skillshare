@@ -192,6 +192,8 @@ internal/install/install_update.go	handleUpdate	os.MkdirTemp	""	tmp
 internal/install/install_update.go	handleUpdate	os.RemoveAll	tempDir	tmp
 internal/install/install_update.go	updateRepoRootOrchestrator	os.MkdirTemp	""	tmp
 internal/install/install_update.go	updateRepoRootOrchestrator	os.RemoveAll	tempDir	tmp
+internal/install/local_changes.go	LocalChanges	os.MkdirTemp	""	tmp
+internal/install/local_changes.go	LocalChanges	os.RemoveAll	tmp	tmp
 internal/install/lock.go	(*Lock).Save	os.Remove	path	project
 internal/install/lock.go	(*Lock).Save	os.WriteFile	path	project
 internal/install/meta.go	WriteMeta	os.WriteFile	metaPath	source-unmigrated

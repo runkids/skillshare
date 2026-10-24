@@ -13,6 +13,7 @@ skillshare check a b c                # Check multiple skills
 skillshare check --group frontend     # Check all skills in frontend/
 skillshare check x -G backend         # Mix names and groups
 skillshare check --json               # Machine-readable output
+skillshare check my-skill --diff      # Show what you changed in a skill since install
 ```
 
 ## 언제 사용하나요
@@ -124,6 +125,7 @@ skillshare check frontend               # Auto-detected as group
 | `--project`, `-p` | project 수준 skill 확인(`.skillshare/`) |
 | `--global`, `-g` | global skill 확인(`~/.config/skillshare`) |
 | `--json` | JSON으로 출력(스크립팅/CI용) |
+| `--diff` | 지정한 skill에 대해 설치 이후 변경된 각 파일을 설치된 버전과의 줄 단위 diff로 보여줍니다. 이름 또는 `--group`이 필요하며 `--json`과 함께 사용할 수 없습니다 |
 | `--help`, `-h` | 도움말 표시 |
 
 :::tip Auto-detection
@@ -176,6 +178,18 @@ skill의 하위 디렉터리가 업스트림에서 이름이 바뀌거나 삭제
 
 :::info 로컬에서 수정된 skills
 설치한 뒤 편집한 skill은 upstream에 더 새로운 버전이 있어도 **modified**로 보고되며, 이때 `message`는 `update available upstream`으로 끝납니다. `update`는 `skillshare update <name> --force`를 실행하기 전까지 이 skill을 건드리지 않습니다. 이 명령은 변경 사항을 버리고 다시 설치합니다.
+
+먼저 변경 사항을 보려면 `skillshare check <name> --diff`를 실행하세요. skill이 설치된 commit을 가져오므로 upstream이 앞서 나가 있어도 diff에는 직접 수정한 내용만 표시됩니다:
+
+```
+! my-skill  2 files changed since install
+            modified SKILL.md
+                # My Skill
+              - Run the tests.
+              + Run the tests with -race.
+            added NOTES.md
+              + my notes
+```
 :::
 
 :::tip Monorepo awareness

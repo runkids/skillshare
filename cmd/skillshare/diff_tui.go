@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"skillshare/internal/textdiff"
 	"skillshare/internal/theme"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -870,7 +871,7 @@ func expandDiffCmd(entry *copyDiffEntry) tea.Cmd {
 				defer wg.Done()
 				src := filepath.Join(entry.srcDir, fe.RelPath)
 				dst := filepath.Join(entry.dstDir, fe.RelPath)
-				results[idx] = generateUnifiedDiff(src, dst)
+				results[idx] = textdiff.Files(dst, src)
 			}(i, f)
 		}
 		wg.Wait()

@@ -13,6 +13,7 @@ skillshare check a b c                # Check multiple skills
 skillshare check --group frontend     # Check all skills in frontend/
 skillshare check x -G backend         # Mix names and groups
 skillshare check --json               # Machine-readable output
+skillshare check my-skill --diff      # Show what you changed in a skill since install
 ```
 
 ## When to Use
@@ -124,6 +125,7 @@ Skills without metadata (local-only) are skipped when expanding groups.
 | `--project`, `-p` | Check project-level skills (`.skillshare/`) |
 | `--global`, `-g` | Check global skills (`~/.config/skillshare`) |
 | `--json` | Output as JSON (for scripting/CI) |
+| `--diff` | For the named skills, show each file changed since install as a line diff against the installed version. Needs a name or `--group`; cannot be combined with `--json` |
 | `--help`, `-h` | Show help |
 
 :::tip Auto-detection
@@ -176,6 +178,18 @@ When a skill's subdirectory was renamed or deleted upstream, `check` reports it 
 
 :::info Locally modified skills
 A skill you edited after installing it is reported as **modified**, even when upstream has a newer version; its `message` then ends with `update available upstream`. `update` leaves it alone until you run `skillshare update <name> --force`, which discards your changes and reinstalls it.
+
+To see the changes first, run `skillshare check <name> --diff`. It fetches the commit the skill was installed at, so the diff shows only your edits even when upstream has moved on:
+
+```
+! my-skill  2 files changed since install
+            modified SKILL.md
+                # My Skill
+              - Run the tests.
+              + Run the tests with -race.
+            added NOTES.md
+              + my notes
+```
 :::
 
 :::tip Monorepo awareness

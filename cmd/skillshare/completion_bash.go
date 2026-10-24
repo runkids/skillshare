@@ -55,7 +55,7 @@ _skillshare() {
     local target_remove_flags="--all -a --dry-run -n"
     local upgrade_flags="--dry-run -n --force -f --skill --cli --help -h"
     local update_flags="--all -a --dry-run -n --force -f --skip-audit --audit-threshold --threshold -T --diff --audit-verbose --prune --json --group -G --help -h"
-    local check_flags="--json --all --group -G --help -h"
+    local check_flags="--json --diff --all --group -G --help -h"
     local new_flags="--pattern -P --dry-run -n --help -h"
     local search_flags="--json --list -l --hub --limit -n --help -h"
     local trash_flags="--all --no-tui --help -h"
