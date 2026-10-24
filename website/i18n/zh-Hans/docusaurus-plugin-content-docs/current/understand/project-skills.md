@@ -78,7 +78,7 @@ skillshare sync -g       # Force global mode
 | **Git integration** | 可选(`push`/`pull`) | Skills 直接提交到项目仓库 |
 | **Scope** | 机器上的所有项目 | 单一仓库 |
 
-对于只属于你自己的项目，还有第三种选择：把这些文件夹列在全局配置的 [`projects`](/docs/reference/targets/configuration#projects) 下。每个文件夹都会拿到自己的一份 Skill、Agent 和 MCP server，不会有任何内容添加到仓库中，一次 `sync` 就能更新它们全部。参见 [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config#scenario)，了解该如何选择。
+对于只属于你自己的项目，还有第三种选择：把这些文件夹列在全局配置的 [`projects`](/docs/reference/targets/configuration#projects) 下，可以使用 [`skillshare project add`](/docs/reference/commands/project)，也可以在仪表盘的 **Projects** 页面添加。每个文件夹都会拿到自己的一份 Skill、Agent 和 MCP server，不会有任何内容添加到仓库中，一次 `sync` 就能更新它们全部。参见 [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config#scenario)，了解该如何选择。
 
 ---
 

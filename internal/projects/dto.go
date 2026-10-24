@@ -2,6 +2,8 @@ package projects
 
 // Resource is one resource kind of a project. nil means it is not sent.
 type Resource struct {
+	// Disabled preserves config state for text adapters without changing the wire DTO.
+	Disabled     bool     `json:"-"`
 	Mode         string   `json:"mode"`
 	TargetNaming string   `json:"targetNaming,omitempty"`
 	Include      []string `json:"include"`

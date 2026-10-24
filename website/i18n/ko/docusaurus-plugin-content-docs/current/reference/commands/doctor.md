@@ -159,6 +159,8 @@ Doctor는 런타임 피커에 도달하기 전에 두 가지 종류의 중복 sk
 
 `sync`도 같은 target과 실행할 명령을 출력하며, 대시보드의 동기화 페이지에는 뺄 target의 Skills 동기화를 중지하는 버튼(project target이면 해당 project 편집 링크)이 있습니다. 설정이 같은 target들이 경로를 공유하는 경우에는 위의 해결 방법이 그대로 적용됩니다.
 
+등록된 프로젝트의 target(`<project>@<tool>`)에는 개별 skill 스위치가 없습니다. 프로젝트의 skills 설정이 모든 target에 적용되기 때문입니다. 이 경우 명령은 해당 도구만 프로젝트에서 빼는 `skillshare project edit <root> --target <나머지 도구>`이며, 그 target이 프로젝트의 유일한 target이면 `skillshare project edit <root> --no-skills`입니다.
+
 **`cross_target_discovery`** — 활성화된 target의 런타임이 다른 활성화된 target이 쓰는 디렉터리도 스캔하도록 문서화되어 있을 때 발생합니다. 예를 들어 이전 설정이 남아 있어 `codex`가 여전히 legacy 경로인 `~/.codex/skills`를 가리키는 반면, `universal`은 `~/.agents/skills`에 쓰고 Codex는 이 경로도 읽습니다. 둘 다 활성화하면 Codex가 자신의 콘텐츠에 더해 universal의 콘텐츠까지 보게 됩니다.
 
 ```text

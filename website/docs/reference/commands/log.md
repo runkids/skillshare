@@ -44,10 +44,12 @@ Every mutating CLI and Web UI operation is recorded as a JSONL entry with timest
 
 | Command | Log File |
 |---------|----------|
-| `install`, `uninstall`, `sync`, `push`, `pull`, `collect`, `backup`, `restore`, `update`, `target`, `trash`, `config`, `check`, `diff`, `init`, `upgrade` | `operations.log` |
+| `install`, `uninstall`, `sync`, `push`, `pull`, `collect`, `backup`, `restore`, `update`, `target`, `project`, `trash`, `config`, `check`, `diff`, `init`, `upgrade` | `operations.log` |
 | `audit` | `audit.log` |
 
 Web UI actions that call these APIs are logged the same way as CLI operations.
+
+`project` entries record the `action` (`add`, `update`, `remove`, or the dashboard's `convert`) and the project `root`, so you can tell which project changed. `skillshare project sync` is logged as a `sync` entry with the same two fields.
 
 ## Log Types
 

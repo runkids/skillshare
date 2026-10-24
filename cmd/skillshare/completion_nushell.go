@@ -26,6 +26,7 @@ def "nu-complete skillshare commands" [] {
         { value: "commit", description: "Create local git commit without pushing" }
         { value: "doctor", description: "Check environment and diagnose issues" }
         { value: "target", description: "Manage targets" }
+        { value: "project", description: "Manage project folders" }
         { value: "upgrade", description: "Upgrade CLI and/or skillshare skill" }
         { value: "update", description: "Update skills/agents or tracked repositories" }
         { value: "check", description: "Check for available updates" }
@@ -45,6 +46,36 @@ def "nu-complete skillshare commands" [] {
         { value: "help", description: "Show help" }
     ]
 }
+
+# Project command
+def "nu-complete skillshare project" [] { [list show add edit sync remove] }
+def "nu-complete skillshare project-naming" [] { [flat standard prefixed] }
+def "nu-complete skillshare project-target" [] { [adal aiderdesk amp antigravity antigravity-cli astrbot augment autohand-code bob claude cline codearts codebuddy codestudio codex comate commandcode continue copilot cortex crush cursor deepagents deepseek-harness devin dexto droid firebender forgecode fx gemini gitlab-duo goose grok hermes iflow jazz junie kilocode kimchi kimi kimi-code kiro kode letta lingma mcpjam mux neovate omp ona openclaw opencode openhands pi pochi posit-assistant purecode qoder qoder-cn qwen reasonix replit roo rovodev tabnine trae trae-cn universal verdent vibe warp windsurf witsy xcode-claude xcode-codex zcode zed zencoder] }
+
+export extern "skillshare project" [
+    subcommand?: string@"nu-complete skillshare project"
+    project?: string
+    --target: string@"nu-complete skillshare project-target"
+    --name: string
+    --skills
+    --no-skills
+    --agents
+    --no-agents
+    --skills-mode: string@"nu-complete skillshare sync-mode"
+    --agents-mode: string@"nu-complete skillshare sync-mode"
+    --skills-naming: string@"nu-complete skillshare project-naming"
+    --skills-include: string
+    --skills-exclude: string
+    --agents-include: string
+    --agents-exclude: string
+    --sync
+    --dry-run(-n)
+    --yes
+    --json
+    --global(-g)
+    --help(-h)
+]
+# End project command
 
 def "nu-complete skillshare plugin" [] {
     [add discover import list inspect sync check update enable disable remove]

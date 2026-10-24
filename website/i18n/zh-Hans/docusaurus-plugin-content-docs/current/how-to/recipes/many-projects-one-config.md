@@ -33,16 +33,11 @@ sidebar_position: 8
 
 ### Skill 与 Agent：`projects`
 
-```yaml
-# ~/.config/skillshare/config.yaml
-projects:
-  ~/work/project01:
-    targets: [claude, codex]
-    skills:
-      mode: copy
-      include:
-        - myskill-*
-    agents: {}
+```bash
+skillshare project add ~/work/project01 --target claude,codex \
+  --skills-mode copy --skills-include 'myskill-*' --agents --dry-run
+skillshare project add ~/work/project01 --target claude,codex \
+  --skills-mode copy --skills-include 'myskill-*' --agents
 ```
 
 ```bash
@@ -54,7 +49,14 @@ skillshare sync
 - `skills` 和 `agents` 用来开启对应部分的 sync。留空时会同步全部内容；用 `include` 和 `exclude` 缩小范围。参见 [Filtering skills](/docs/how-to/daily-tasks/filtering-skills)。
 - `copy` 会写入真实文件，因此项目可以将它们提交。如果 symlink 就够用，保留默认的 `merge` 即可。
 
-在仪表盘中，**Projects** 页面做的是同一件事：**Add project**，选择 Target，再选择要 sync 的内容。完整字段参见 [`projects`](/docs/reference/targets/configuration#projects)。
+```bash
+skillshare project list --json
+skillshare project edit project01 --skills-include= --skills-include 'core-*'
+skillshare project sync project01 --dry-run --json
+skillshare project sync project01
+```
+
+使用 [`skillshare project`](/docs/reference/commands/project) 添加、编辑、同步或移除项目注册，也可以使用仪表盘的 **Projects** 页面。完整字段参见 [`projects`](/docs/reference/targets/configuration#projects)。
 
 ### MCP server：`mcp.projects`
 

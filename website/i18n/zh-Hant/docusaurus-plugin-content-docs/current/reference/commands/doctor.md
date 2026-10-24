@@ -159,6 +159,8 @@ Doctor 會在兩類重複 skill 風險到達 runtime picker 之前先標示出�
 
 `sync` 也會列出相同的 targets 與要執行的指令，dashboard 的同步頁面則提供按鈕，可直接停止同步該 target 的 skills；project target 則改為連到所屬 project 的編輯頁面。設定完全相同的共用路徑 targets 仍適用上方的解決方式。
 
+已登錄專案的 target（`<project>@<tool>`）沒有單獨的 skills 開關，因為專案的 skills 設定作用於它的所有 target。此時指令只會把該工具從專案中移除：`skillshare project edit <root> --target <其餘工具>`；若它是專案唯一的 target，則為 `skillshare project edit <root> --no-skills`。
+
 **`cross_target_discovery`**——當某個已啟用 target 的 runtime 文件說明它也會掃描另一個已啟用 target 寫入的目錄時觸發。例如，從舊設定沿用下來的 config 仍將 `codex` 指向舊的 `~/.codex/skills`，而 `universal` 則寫入 `~/.agents/skills`——這個目錄 Codex 同樣會讀取。兩者都啟用時，Codex 就會在自己的內容之外，額外看到 universal 的內容。
 
 ```text

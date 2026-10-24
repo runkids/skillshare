@@ -108,3 +108,78 @@ func TestRootWindows(t *testing.T) {
 		}
 	}
 }
+
+func TestStoredKey(t *testing.T) {
+	cwd, home := rootContext(t)
+	sep := string(filepath.Separator)
+	volumeRoot := filepath.VolumeName(cwd) + sep
+	absTyped := home + sep + "work" + sep + ".." + sep + "app"
+	for _, tt := range []struct{ name, arg, stored string }{
+		{"home", "~", "~"},
+		{"home separators", "~/", "~"},
+		{"tilde clean", "~/work/../app///", "~/work/../app"},
+		{"relative", "app", filepath.Join("~", "work", "app")},
+		{"dot", ".", filepath.Join("~", "work")},
+		{"parent", "../app/", filepath.Join("~", "app")},
+		{"absolute spelling", absTyped + sep + sep, absTyped},
+		{"absolute home", home, home},
+		{"relative home", "..", "~"},
+		{"outside home", "../../outside", filepath.Join(home, "..", "outside")},
+		{"volume root", volumeRoot, volumeRoot},
+		{"volume root separators", volumeRoot + sep, volumeRoot},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := StoredKey(tt.arg, cwd, home)
+			if err != nil || got != tt.stored {
+				t.Errorf("StoredKey(%q) = %q, %v; want %q", tt.arg, got, err, tt.stored)
+			}
+		})
+	}
+	for _, arg := range []string{"", "~user/app"} {
+		if _, err := StoredKey(arg, cwd, home); err == nil {
+			t.Errorf("StoredKey(%q) accepted invalid root", arg)
+		}
+	}
+}
+
+func TestStoredKeyHomeBoundaries(t *testing.T) {
+	cwd, home := rootContext(t)
+	sep := string(filepath.Separator)
+	volumeRoot := filepath.VolumeName(cwd) + sep
+	for _, tt := range []struct{ name, arg, cwd, home, want string }{
+		{"home trailing separators", "app", cwd, home + sep + sep, filepath.Join("~", "work", "app")},
+		{"home prefix sibling", ".", home + "-other", home, home + "-other"},
+		{"home at volume root", "app", volumeRoot, volumeRoot, "~" + sep + "app"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := StoredKey(tt.arg, tt.cwd, tt.home)
+			if err != nil || got != tt.want {
+				t.Fatalf("StoredKey(%q) = %q, %v; want %q", tt.arg, got, err, tt.want)
+			}
+		})
+	}
+}
+
+func TestStoredKeyWindows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("native Windows path semantics")
+	}
+	for _, tt := range []struct{ arg, stored string }{
+		{`C:\Work\App\\`, `C:\Work\App`},
+		{`c:/Work/../App//`, `c:/Work/../App`},
+		{`C:\`, `C:\`},
+		{`C:/`, `C:/`},
+		{`\\server\share\App\\`, `\\server\share\App`},
+		{`\\server\share\`, `\\server\share`},
+		{`\\server\share`, `\\server\share`},
+		{`~\App\`, `~\App`},
+		{`.\App`, `C:\Work\App`},
+		{`\App`, `C:\App`},
+		{`/App`, `C:\App`},
+	} {
+		got, err := StoredKey(tt.arg, `C:\Work`, `C:\Users\Me`)
+		if err != nil || got != tt.stored {
+			t.Errorf("StoredKey(%q) = %q, %v; want %q", tt.arg, got, err, tt.stored)
+		}
+	}
+}

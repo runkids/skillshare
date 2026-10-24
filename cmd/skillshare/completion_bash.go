@@ -14,7 +14,7 @@ _skillshare() {
         cword=$COMP_CWORD
     fi
 
-    local commands="init install uninstall link unlink move list search sync mcp hooks plugin status diff backup restore collect pull push commit doctor target upgrade update check new trash analyze audit hub log ui tui extras enable disable completion version help"
+    local commands="init install uninstall link unlink move list search sync mcp hooks plugin status diff backup restore collect pull push commit doctor target project upgrade update check new trash analyze audit hub log ui tui extras enable disable completion version help"
 
     local global_flags="--project -p --global -g"
 
@@ -86,6 +86,25 @@ _skillshare() {
     esac
 
     local cmd="${words[1]}"
+
+    # Project command
+    if [[ "${cmd}" == project ]]; then
+        local project_subcmds="list show add edit sync remove"
+        local project_flags="--target --name --skills --no-skills --agents --no-agents --skills-mode --agents-mode --skills-naming --skills-include --skills-exclude --agents-include --agents-exclude --sync --dry-run -n --yes --json --help -h --global -g"
+        case "${prev}" in
+            --skills-mode|--agents-mode) COMPREPLY=($(compgen -W "merge symlink copy" -- "${cur}")); return ;;
+            --skills-naming) COMPREPLY=($(compgen -W "flat standard prefixed" -- "${cur}")); return ;;
+            --target) COMPREPLY=($(compgen -W "adal aiderdesk amp antigravity antigravity-cli astrbot augment autohand-code bob claude cline codearts codebuddy codestudio codex comate commandcode continue copilot cortex crush cursor deepagents deepseek-harness devin dexto droid firebender forgecode fx gemini gitlab-duo goose grok hermes iflow jazz junie kilocode kimchi kimi kimi-code kiro kode letta lingma mcpjam mux neovate omp ona openclaw opencode openhands pi pochi posit-assistant purecode qoder qoder-cn qwen reasonix replit roo rovodev tabnine trae trae-cn universal verdent vibe warp windsurf witsy xcode-claude xcode-codex zcode zed zencoder" -- "${cur}")); return ;;
+            --name|--skills-include|--skills-exclude|--agents-include|--agents-exclude) return ;;
+        esac
+        if [[ ${cword} -eq 2 ]]; then
+            COMPREPLY=($(compgen -W "${project_subcmds} ${project_flags}" -- "${cur}"))
+        elif [[ "${cur}" == -* ]]; then
+            COMPREPLY=($(compgen -W "${project_flags}" -- "${cur}"))
+        fi
+        return
+    fi
+    # End project command
 
     if [[ "${cmd}" == mcp && ( "${prev}" == --target || "${prev}" == --from ) ]]; then
         COMPREPLY=($(compgen -W "claude codex cursor vscode opencode kilocode grok antigravity amp claude-desktop cline copilot factory gemini goose junie kiro lmstudio warp windsurf pi omp" -- "${cur}"))

@@ -104,3 +104,49 @@ func TestHandleSync_SelectedProjectKeepsDiagnosticsAndIgnoreEnvelope(t *testing.
 		})
 	}
 }
+
+func TestHandleSync_AgentIgnoreEnvelope(t *testing.T) {
+	for _, kind := range []string{"", "skill", "agent"} {
+		t.Run(kind, func(t *testing.T) {
+			s, src := newTestServerWithTargets(t, map[string]string{"claude": filepath.Join(t.TempDir(), "skills")})
+			addSkill(t, src, "alpha")
+			agents := t.TempDir()
+			s.cfg.AgentsSource = agents
+			for _, name := range []string{"keep.md", "ignored.md"} {
+				if err := os.WriteFile(filepath.Join(agents, name), []byte("# Agent\n"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			ignore := filepath.Join(agents, ".agentignore")
+			if err := os.WriteFile(ignore, []byte("ignored.md\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.cfg.Save(); err != nil {
+				t.Fatal(err)
+			}
+			rr := projectRequest(t, s, http.MethodPost, "/api/sync", `{"dryRun":true,"kind":"`+kind+`"}`)
+			if rr.Code != http.StatusOK {
+				t.Fatalf("sync: %d %s", rr.Code, rr.Body)
+			}
+			var got struct {
+				Root    string   `json:"agent_ignore_root"`
+				Count   int      `json:"agent_ignored_count"`
+				Ignored []string `json:"agent_ignored_skills"`
+			}
+			if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+				t.Fatal(err)
+			}
+			if got.Count != 1 || !slices.Equal(got.Ignored, []string{"ignored.md"}) {
+				t.Fatalf("agent ignore envelope = %+v", got)
+			}
+			// The root is the resolved path, which can spell a temp dir differently.
+			want, err := os.Stat(ignore)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if root, err := os.Stat(got.Root); err != nil || !os.SameFile(want, root) {
+				t.Fatalf("agent_ignore_root = %q: %v", got.Root, err)
+			}
+		})
+	}
+}

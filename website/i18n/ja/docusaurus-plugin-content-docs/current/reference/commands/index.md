@@ -11,6 +11,7 @@ skillshare のすべてのコマンドに関する完全なリファレンスで
 | やりたいこと... | コマンド |
 |--------------|---------|
 | skillshare を初めてセットアップする | [`init`](./init.md) |
+| グローバル設定からプロジェクトフォルダーを管理 | [`project`](/docs/reference/commands/project) |
 | GitHub から Skill をインストールする | [`install`](./install.md) |
 | 自分の Skill を作成する | [`new`](./new.md) |
 | すべての AI CLI に Skill を sync する | [`sync`](./sync.md) |
@@ -38,7 +39,7 @@ skillshare のすべてのコマンドに関する完全なリファレンスで
 | **Skill 管理** | `new`, `check`, `update`, `upgrade`, `enable`, `disable` |
 | **MCP 接続** | `mcp`（`add`, `edit`, `import`, `list`, `remove`, `restore`）, `sync mcp` |
 | **Plugin 管理** | `plugin`（`list`, `discover`, `add`, `import`, `inspect`, `sync`, `check`, `update`, `enable`, `disable`, `remove`） |
-| **ターゲット管理** | `target`, `diff` |
+| **ターゲット管理** | `target`, `project`, `diff` |
 | **Extras 管理** | `extras`（`init`, `list`, `remove`, `collect`） |
 | **Sync 操作** | `collect`, `backup`, `restore`, `trash`, `commit`, `push`, `pull` |
 | **セキュリティ & ユーティリティ** | `analyze`, `audit`, `hub`, `log`, `doctor`, `tui`, `ui`, `completion`, `version` |
@@ -74,6 +75,7 @@ skillshare のすべてのコマンドに関する完全なリファレンスで
 | コマンド | 説明 |
 |---------|-------------|
 | [target](./target.md) | ターゲットを管理 |
+| [project](/docs/reference/commands/project) | プロジェクトフォルダーと Skill・Agent の同期を管理 |
 | [diff](./diff.md) | ソースとターゲットの差分を表示 |
 
 ## Extras 管理

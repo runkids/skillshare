@@ -44,10 +44,12 @@ skillshare log --no-tui | less    # 手動接到 pager
 
 | 指令 | 日誌檔案 |
 |---------|----------|
-| `install`, `uninstall`, `sync`, `push`, `pull`, `collect`, `backup`, `restore`, `update`, `target`, `trash`, `config`, `check`, `diff`, `init`, `upgrade` | `operations.log` |
+| `install`, `uninstall`, `sync`, `push`, `pull`, `collect`, `backup`, `restore`, `update`, `target`, `project`, `trash`, `config`, `check`, `diff`, `init`, `upgrade` | `operations.log` |
 | `audit` | `audit.log` |
 
 呼叫這些 API 的 Web UI 動作，記錄方式與 CLI 操作相同。
+
+`project` 項目會記錄 `action`（`add`、`update`、`remove`，或 dashboard 的 `convert`）與 project 的 `root`，讓你看出是哪個 project 被變更。`skillshare project sync` 會記錄為帶有這兩個欄位的 `sync` 項目。
 
 ## 日誌類型
 
