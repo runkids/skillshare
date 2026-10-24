@@ -1050,6 +1050,8 @@
   "resources.uninstall.title": "Uninstall {what}?",
   "resources.uninstall.wholeRepo": "Whole repo · {what}",
   "resources.uninstall.repoNote": "Skills in a tracked repo can only be uninstalled with their repo. Every skill in that repo is removed.",
+  "resources.uninstall.inside": "+ {what} inside",
+  "resources.uninstall.nestedNote": "Skills inside a removed skill's folder are removed with it: {what} more.",
   "resources.uninstall.trashNote": "Removed items move to Trash and stay there for 7 days.",
   "resources.uninstall.resultSummary": "{removed} removed · {failed} failed",
   "resources.uninstall.movedToTrash": "Moved to Trash",

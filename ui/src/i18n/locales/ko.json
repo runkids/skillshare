@@ -1050,6 +1050,8 @@
   "resources.uninstall.title": "{what}를 제거할까요?",
   "resources.uninstall.wholeRepo": "저장소 전체 · {what}",
   "resources.uninstall.repoNote": "추적 중인 저장소의 skill은 저장소와 함께만 제거할 수 있습니다. 해당 저장소의 모든 skill이 제거됩니다.",
+  "resources.uninstall.inside": "안에 {what}",
+  "resources.uninstall.nestedNote": "제거하는 skill 폴더 안의 skill도 함께 제거됩니다: 추가로 {what}.",
   "resources.uninstall.trashNote": "제거한 항목은 휴지통으로 이동하며 7일 동안 보관됩니다.",
   "resources.uninstall.resultSummary": "{removed}개 제거 · {failed}개 실패",
   "resources.uninstall.movedToTrash": "휴지통으로 이동됨",

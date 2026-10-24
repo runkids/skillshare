@@ -1050,6 +1050,8 @@
   "resources.uninstall.title": "Copot {what}?",
   "resources.uninstall.wholeRepo": "Seluruh repo · {what}",
   "resources.uninstall.repoNote": "Skill di repo yang dilacak hanya bisa dicopot bersama repo-nya. Semua skill di repo itu akan dihapus.",
+  "resources.uninstall.inside": "+ {what} di dalamnya",
+  "resources.uninstall.nestedNote": "Skill di dalam folder skill yang dihapus ikut terhapus: {what} lagi.",
   "resources.uninstall.trashNote": "Item yang dihapus dipindah ke Sampah dan disimpan selama 7 hari.",
   "resources.uninstall.resultSummary": "{removed} dihapus · {failed} gagal",
   "resources.uninstall.movedToTrash": "Dipindah ke Sampah",

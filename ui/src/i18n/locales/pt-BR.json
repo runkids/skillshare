@@ -1050,6 +1050,8 @@
   "resources.uninstall.title": "Desinstalar {what}?",
   "resources.uninstall.wholeRepo": "Repo inteiro · {what}",
   "resources.uninstall.repoNote": "Skills de um repo rastreado só podem ser desinstaladas junto com o repo. Todas as skills desse repo são removidas.",
+  "resources.uninstall.inside": "+ {what} dentro",
+  "resources.uninstall.nestedNote": "As skills dentro da pasta de uma skill removida são removidas junto: mais {what}.",
   "resources.uninstall.trashNote": "Os itens removidos vão para a Lixeira e ficam lá por 7 dias.",
   "resources.uninstall.resultSummary": "{removed} removidas · {failed} com falha",
   "resources.uninstall.movedToTrash": "Movido para a Lixeira",

@@ -1050,6 +1050,8 @@
   "resources.uninstall.title": "حذف نصب {what}؟",
   "resources.uninstall.wholeRepo": "کل مخزن · {what}",
   "resources.uninstall.repoNote": "اسکیل‌های یک مخزن ردیابی‌شده فقط همراه مخزنشان حذف نصب می‌شوند. همهٔ اسکیل‌های آن مخزن حذف می‌شوند.",
+  "resources.uninstall.inside": "+ {what} درون آن",
+  "resources.uninstall.nestedNote": "skillهای داخل پوشه‌ی skill حذف‌شده هم با آن حذف می‌شوند: {what} دیگر.",
   "resources.uninstall.trashNote": "موارد حذف‌شده به زباله‌دان می‌روند و ۷ روز آنجا می‌مانند.",
   "resources.uninstall.resultSummary": "{removed} حذف شد · {failed} ناموفق",
   "resources.uninstall.movedToTrash": "به زباله‌دان منتقل شد",

@@ -1050,6 +1050,8 @@
   "resources.uninstall.title": "要解除安裝 {what} 嗎？",
   "resources.uninstall.wholeRepo": "整個 Repo · {what}",
   "resources.uninstall.repoNote": "追蹤 Repo 中的 skill 只能連同 Repo 一起解除安裝。該 Repo 裡的所有 skill 都會被移除。",
+  "resources.uninstall.inside": "內含 {what}",
+  "resources.uninstall.nestedNote": "被移除的 skill 資料夾裡的 skill 會一起移除：另外 {what}。",
   "resources.uninstall.trashNote": "移除的項目會移到垃圾桶，保留 7 天。",
   "resources.uninstall.resultSummary": "已移除 {removed} 個 · 失敗 {failed} 個",
   "resources.uninstall.movedToTrash": "已移到垃圾桶",

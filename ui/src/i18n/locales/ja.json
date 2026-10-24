@@ -1050,6 +1050,8 @@
   "resources.uninstall.title": "{what}をアンインストールしますか？",
   "resources.uninstall.wholeRepo": "リポジトリ全体 · {what}",
   "resources.uninstall.repoNote": "追跡リポジトリ内のスキルは、リポジトリごとにしかアンインストールできません。そのリポジトリのスキルはすべて削除されます。",
+  "resources.uninstall.inside": "内部に {what}",
+  "resources.uninstall.nestedNote": "削除する Skill のフォルダ内にある Skill も一緒に削除されます：ほかに {what}。",
   "resources.uninstall.trashNote": "削除した項目はゴミ箱に移動し、7 日間保持されます。",
   "resources.uninstall.resultSummary": "{removed} 件削除 · {failed} 件失敗",
   "resources.uninstall.movedToTrash": "ゴミ箱に移動しました",

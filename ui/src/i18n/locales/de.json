@@ -1050,6 +1050,8 @@
   "resources.uninstall.title": "{what} deinstallieren?",
   "resources.uninstall.wholeRepo": "Ganzes Repo · {what}",
   "resources.uninstall.repoNote": "Skills in einem getrackten Repo lassen sich nur zusammen mit dem Repo deinstallieren. Alle Skills darin werden entfernt.",
+  "resources.uninstall.inside": "+ {what} darin",
+  "resources.uninstall.nestedNote": "Skills im Ordner eines entfernten Skills werden mit entfernt: {what} mehr.",
   "resources.uninstall.trashNote": "Entfernte Einträge landen im Papierkorb und bleiben dort 7 Tage.",
   "resources.uninstall.resultSummary": "{removed} entfernt · {failed} fehlgeschlagen",
   "resources.uninstall.movedToTrash": "In den Papierkorb verschoben",

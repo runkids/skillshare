@@ -183,6 +183,11 @@ export function descendantCount(s: Skill, items: Skill[]): number {
   return items.reduce((n, x) => n + (x.relPath.startsWith(prefix) ? 1 : 0), 0);
 }
 
+/** The skills in `list` that no other skill in `list` holds in its folder; removing those folders removes the rest. */
+export function outermost(list: Skill[]): Skill[] {
+  return list.filter((s) => !list.some((p) => s.relPath.startsWith(`${p.relPath}/`)));
+}
+
 /** `matched` plus each skill in `all` whose folder holds one of them, in the order of `all`, so a match keeps its packages around it. */
 export function withAncestors(matched: Skill[], all: Skill[]): Skill[] {
   const keep = new Set(matched.map((s) => s.relPath));

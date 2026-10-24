@@ -1050,6 +1050,8 @@
   "resources.uninstall.title": "要卸载 {what} 吗？",
   "resources.uninstall.wholeRepo": "整个仓库 · {what}",
   "resources.uninstall.repoNote": "追踪仓库中的 skill 只能随仓库一起卸载。该仓库中的所有 skill 都会被移除。",
+  "resources.uninstall.inside": "内含 {what}",
+  "resources.uninstall.nestedNote": "被移除的 skill 文件夹里的 skill 会一起移除：另外 {what}。",
   "resources.uninstall.trashNote": "移除的项目会移到回收站，保留 7 天。",
   "resources.uninstall.resultSummary": "已移除 {removed} 个 · 失败 {failed} 个",
   "resources.uninstall.movedToTrash": "已移到回收站",

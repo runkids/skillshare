@@ -175,6 +175,27 @@ describe('Move to folder', () => {
   });
 });
 
+describe('Uninstall a package', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+    vi.mocked(api.listSkills).mockResolvedValue({ resources: [at('pack'), at('pack/skills/child')] } as Awaited<ReturnType<typeof api.listSkills>>);
+    vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as unknown as Awaited<ReturnType<typeof api.diff>>);
+    vi.mocked(api.listTargets).mockResolvedValue({ targets: [], sourceSkillCount: 0 });
+    vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as unknown as Awaited<ReturnType<typeof api.getSyncMatrix>>);
+    vi.mocked(api.batchUninstall).mockResolvedValue({ results: [], summary: { succeeded: 1, failed: 0 } });
+  });
+
+  it('sends only the package when its nested skill is selected too', async () => {
+    mount();
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Select all' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Uninstall' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Uninstall' }));
+    await waitFor(() => expect(api.batchUninstall).toHaveBeenCalledWith({ names: ['pack'], kind: 'skill', force: false }));
+  });
+});
+
 /** Link folder sits in the menu beside Install. */
 async function openLinkFolder() {
   fireEvent.click(await screen.findByRole('button', { name: 'More ways to add' }));

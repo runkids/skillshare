@@ -5,7 +5,7 @@ import { api } from '../../api/client';
 import type { BatchUninstallItemResult, Skill } from '../../api/client';
 import { clearAuditCache } from '../../lib/auditCache';
 import { formatTrackedRepoName } from '../../lib/resourceNames';
-import { countLabel, parentPath, repoOf, sourceLinkOf } from '../../lib/resourceGrouping';
+import { countLabel, descendantCount, outermost, parentPath, repoOf, sourceLinkOf } from '../../lib/resourceGrouping';
 import { useT } from '../../i18n';
 import Button from '../Button';
 import { Checkbox } from '../Checkbox';
@@ -36,8 +36,13 @@ export function UninstallDialog({ kind, selection, all, onClose }: {
     if (repo) repos.set(repo, all.filter((x) => repoOf(x) === repo).length);
     else singles.push(s);
   }
-  const names = [...repos.keys(), ...singles.map((s) => s.flatName)];
-  const removedCount = singles.length + [...repos.values()].reduce((a, b) => a + b, 0);
+  // A skill's folder holds its nested skills, so they go to the trash with it. Callers may pass agents in `all` too.
+  const skills = kind === 'skill' ? all.filter((x) => x.kind === 'skill') : [];
+  const tops = kind === 'skill' ? outermost(singles) : singles;
+  const inside = new Map(tops.map((s) => [s.flatName, descendantCount(s, skills)]));
+  const nestedCount = [...inside.values()].reduce((a, b) => a + b, 0);
+  const names = [...repos.keys(), ...tops.map((s) => s.flatName)];
+  const removedCount = tops.length + nestedCount + [...repos.values()].reduce((a, b) => a + b, 0);
 
   const run = async (targets: string[], withForce: boolean) => {
     setRunning(true);
@@ -46,7 +51,7 @@ export function UninstallDialog({ kind, selection, all, onClose }: {
       clearAuditCache(queryClient);
       void invalidate(queryClient, 'skillsUninstalled');
       if (res.summary.failed === 0) {
-        toast(t('batchUninstall.toast.success', { count: res.summary.succeeded }), 'success');
+        toast(t('batchUninstall.toast.success', { count: removedCount }), 'success');
         onClose(true);
         return;
       }
@@ -118,10 +123,11 @@ export function UninstallDialog({ kind, selection, all, onClose }: {
               <span className="text-xs text-ink-3">{t('resources.uninstall.wholeRepo', { what: countLabel(t, 'skill', n) })}</span>
             </div>
           ))}
-          {singles.map((s) => (
+          {tops.map((s) => (
             <div key={s.flatName} className="ss-r !min-h-[42px]">
               <span className={`ss-cat sm ${kind}`}>{kind === 'agent' ? <Bot size={14} /> : <Puzzle size={14} />}</span>
               <span className="nm m flex-1 truncate">{s.name}</span>
+              {inside.get(s.flatName)! > 0 && <span className="shrink-0 text-xs text-ink-3">{t('resources.uninstall.inside', { what: countLabel(t, kind, inside.get(s.flatName)!) })}</span>}
               <span className="font-mono text-xs text-ink-3 truncate">{parentPath(s)}</span>
             </div>
           ))}
@@ -132,10 +138,16 @@ export function UninstallDialog({ kind, selection, all, onClose }: {
             <div className="flex-1">{t('resources.uninstall.repoNote')}</div>
           </div>
         )}
+        {nestedCount > 0 && (
+          <div className="ss-note warn">
+            <TriangleAlert size={16} />
+            <div className="flex-1">{t('resources.uninstall.nestedNote', { what: countLabel(t, kind, nestedCount) })}</div>
+          </div>
+        )}
         {repos.size > 0 && (
           <Checkbox size="sm" label={t('batchUninstall.confirm.forceLabel')} checked={force} onChange={setForce} />
         )}
-        {singles.some((s) => sourceLinkOf(s)) && <p className="text-[13px] text-ink-2">{t('resources.uninstall.linkedNote')}</p>}
+        {tops.some((s) => sourceLinkOf(s)) && <p className="text-[13px] text-ink-2">{t('resources.uninstall.linkedNote')}</p>}
         <p className="text-[13px] text-ink-2">{t('resources.uninstall.trashNote')}</p>
       </div>
       <div className="df">

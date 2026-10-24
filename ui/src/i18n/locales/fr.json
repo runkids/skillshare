@@ -1050,6 +1050,8 @@
   "resources.uninstall.title": "Désinstaller {what} ?",
   "resources.uninstall.wholeRepo": "Dépôt entier · {what}",
   "resources.uninstall.repoNote": "Les skills d'un dépôt suivi ne peuvent être désinstallés qu'avec leur dépôt. Tous les skills de ce dépôt sont supprimés.",
+  "resources.uninstall.inside": "+ {what} à l'intérieur",
+  "resources.uninstall.nestedNote": "Les skills du dossier d'une skill supprimée sont supprimées avec elle : {what} de plus.",
   "resources.uninstall.trashNote": "Les éléments supprimés vont dans la Corbeille et y restent 7 jours.",
   "resources.uninstall.resultSummary": "{removed} supprimés · {failed} en échec",
   "resources.uninstall.movedToTrash": "Déplacé dans la Corbeille",
