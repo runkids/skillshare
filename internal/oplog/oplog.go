@@ -44,16 +44,25 @@ func LogDir(configPath string) string {
 //
 // The visible project directory shares its name with the global config
 // directory (<config-home>/skillshare), so a name match alone is ambiguous and
-// the global location is excluded by full path.
+// the canonical and selected global locations are excluded by full path.
 func projectConfigDir(configPath string) (string, bool) {
 	configDir := filepath.Dir(configPath)
 	if !projectdir.IsName(filepath.Base(configDir)) {
 		return "", false
 	}
-	if utils.PathsEqual(configDir, config.BaseDir()) {
+	if utils.PathsEqual(configDir, config.BaseDir()) ||
+		utils.PathsEqual(configPath, config.ConfigPath()) ||
+		utils.PathsEqual(configPath, config.ReadOnlyConfigPath()) {
 		return "", false
 	}
 	return configDir, true
+}
+
+// IsProjectConfig reports whether a config routes to project-local logs.
+// Both readers and writers must use the same global/selected-config exclusions.
+func IsProjectConfig(configPath string) bool {
+	_, ok := projectConfigDir(configPath)
+	return ok
 }
 
 // Write appends a single JSONL entry to the named log file.
