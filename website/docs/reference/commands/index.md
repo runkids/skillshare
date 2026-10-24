@@ -11,6 +11,7 @@ Complete reference for all skillshare commands.
 | I want to... | Command |
 |--------------|---------|
 | Set up skillshare for the first time | [`init`](./init.md) |
+| Manage project folders from the global config | [`project`](/docs/reference/commands/project) |
 | Install a skill from GitHub | [`install`](./install.md) |
 | Create my own skill | [`new`](./new.md) |
 | Sync skills to all AI CLIs | [`sync`](./sync.md) |
@@ -41,7 +42,7 @@ Complete reference for all skillshare commands.
 | **MCP Connections** | `mcp` (`add`, `edit`, `import`, `list`, `remove`, `restore`), `sync mcp` |
 | **Hooks** | `hooks` (`list`, `add`, `edit`, `import`, `enable`, `disable`, `remove`, `sync`, `restore`) |
 | **Plugin Management** | `plugin` (`list`, `discover`, `add`, `import`, `inspect`, `sync`, `check`, `update`, `enable`, `disable`, `remove`) |
-| **Target Management** | `target`, `diff` |
+| **Target Management** | `target`, `project`, `diff` |
 | **Extras Management** | `extras` (`init`, `list`, `remove`, `collect`) |
 | **Sync Operations** | `collect`, `backup`, `restore`, `trash`, `commit`, `push`, `pull` |
 | **Security & Utilities** | `analyze`, `audit`, `hub`, `log`, `doctor`, `tui`, `ui`, `completion`, `version` |
@@ -78,6 +79,7 @@ Complete reference for all skillshare commands.
 | Command | Description |
 |---------|-------------|
 | [target](./target.md) | Manage targets |
+| [project](/docs/reference/commands/project) | Manage project folders and sync their skills and agents |
 | [diff](./diff.md) | Show differences between source and targets |
 
 ## Extras Management

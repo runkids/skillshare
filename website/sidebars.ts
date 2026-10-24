@@ -162,6 +162,7 @@ const sidebars: SidebarsConfig = {
               label: 'Target Management',
               items: [
                 'reference/commands/target',
+                'reference/commands/project',
                 'reference/commands/diff',
               ],
             },

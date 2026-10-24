@@ -11,6 +11,7 @@ skillshare 所有指令的完整參考。
 | 我想要... | 指令 |
 |--------------|---------|
 | 第一次設定 skillshare | [`init`](./init.md) |
+| 從全域設定管理專案資料夾 | [`project`](/docs/reference/commands/project) |
 | 從 GitHub 安裝一個 skill | [`install`](./install.md) |
 | 建立自己的 skill | [`new`](./new.md) |
 | 把 skills 同步到所有 AI CLI | [`sync`](./sync.md) |
@@ -38,7 +39,7 @@ skillshare 所有指令的完整參考。
 | **Skill 管理** | `new`, `check`, `update`, `upgrade`, `enable`, `disable` |
 | **MCP 連線** | `mcp` (`add`, `edit`, `import`, `list`, `remove`, `restore`), `sync mcp` |
 | **Plugin 管理** | `plugin` (`list`, `discover`, `add`, `import`, `inspect`, `sync`, `check`, `update`, `enable`, `disable`, `remove`) |
-| **Target 管理** | `target`, `diff` |
+| **Target 管理** | `target`, `project`, `diff` |
 | **Extras 管理** | `extras` (`init`, `list`, `remove`, `collect`) |
 | **同步操作** | `collect`, `backup`, `restore`, `trash`, `commit`, `push`, `pull` |
 | **安全與工具** | `analyze`, `audit`, `hub`, `log`, `doctor`, `tui`, `ui`, `completion`, `version` |
@@ -74,6 +75,7 @@ skillshare 所有指令的完整參考。
 | 指令 | 說明 |
 |---------|-------------|
 | [target](./target.md) | 管理 targets |
+| [project](/docs/reference/commands/project) | 管理專案資料夾並同步其 skills 與 agents |
 | [diff](./diff.md) | 顯示 source 與 targets 之間的差異 |
 
 ## Extras 管理

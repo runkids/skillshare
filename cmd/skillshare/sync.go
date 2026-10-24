@@ -13,7 +13,6 @@ import (
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/hooks"
-	"skillshare/internal/install"
 	"skillshare/internal/mcp"
 	"skillshare/internal/oplog"
 	"skillshare/internal/skillignore"
@@ -360,16 +359,9 @@ func cmdSync(args []string) error {
 		return agentErr
 	}
 
-	// A skill moved by hand keeps its install record; sync never prunes one.
 	var metaWarnings []string
 	if !dryRun {
-		store, adoptErr := install.LoadMetadata(cfg.EffectiveSkillsSource())
-		if adoptErr == nil {
-			adoptErr = config.AdoptMovedGlobalSkills(cfg, store)
-		}
-		if adoptErr != nil {
-			metaWarnings = append(metaWarnings, fmt.Sprintf("install metadata not updated: %v", adoptErr))
-		}
+		metaWarnings = adoptMovedGlobalSkills(cfg)
 	}
 
 	// Phase 1: Discovery (skills)
@@ -443,7 +435,7 @@ func cmdSync(args []string) error {
 		printIgnoredSkills(ignoreStats)
 
 		// One-liner path-overlap hint — points users at `doctor` for details.
-		printSyncOverlapHint(cfg.Targets, false, jsonOutput, cfg.Mode, discoveredSkills)
+		printSyncOverlapHint(cfg.Targets, cfg.Projects, false, jsonOutput, cfg.Mode, discoveredSkills)
 
 		// Opportunistic cleanup of expired trash items
 		if !dryRun {

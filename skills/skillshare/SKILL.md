@@ -4,7 +4,7 @@ description: |
   Manage skills, agents, extras, hooks, plugins, and MCP connection settings with the Skillshare CLI.
   Use when the user asks to configure or run Skillshare, install or sync resources
   across AI tools, manage shared memory notes, review a session for lessons or dream over saved memories,
-  import MCP settings, manage targets, audit skills, recover backups,
+  import MCP settings, manage targets and project folders, audit skills, recover backups,
   or troubleshoot Skillshare configuration and sync. Covers global and project modes,
   noninteractive automation, and guidance for the terminal UI.
 argument-hint: "[command] [target] [--json] [--dry-run] [-p|-g]"
@@ -131,6 +131,22 @@ skillshare sync
 Use `move` instead of `mv` for installed skills: it keeps their install records, so
 nothing is downloaded again. It does not sync; run `sync` afterwards. Read
 [install.md](references/install.md) for refusals and project mode.
+
+### Project folders from the global config
+
+```bash
+skillshare project list --json
+skillshare project add ~/work/app --target claude,codex --skills-mode copy --dry-run
+skillshare project add ~/work/app --target claude,codex --skills-mode copy --sync
+skillshare project edit app --skills-include 'frontend-*'
+skillshare project sync app --json
+skillshare project remove app --dry-run --json
+```
+
+`project` always uses the global config, including inside a repo; it does not accept
+`-p`. Edit filters replace lists. Removal detaches skills and keeps agent files;
+JSON removal requires `--yes` unless previewing. Read [targets.md](references/targets.md)
+for saved-then-sync failures, retries, and partial removal results.
 
 ### MCP settings
 

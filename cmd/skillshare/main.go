@@ -40,6 +40,7 @@ var commands = map[string]func([]string) error{
 	"commit":       cmdCommit,
 	"doctor":       cmdDoctor,
 	"target":       cmdTarget,
+	"project":      cmdProject,
 	"upgrade":      cmdUpgrade,
 	"update":       cmdUpdate,
 	"check":        cmdCheck,
@@ -68,8 +69,12 @@ func main() {
 	// console it reruns inside a hidden one so they do not each open a window.
 	relaunchInHiddenConsole(childproc.BindToProcess())
 
-	// Clean up any leftover .old files from Windows self-upgrade
-	cleanupOldBinary()
+	// Project reads, previews and JSON output change nothing, so they skip
+	// opportunistic maintenance too.
+	skipMaintenance := len(os.Args) > 1 && os.Args[1] == "project" && projectSkipsMaintenance(os.Args[2:])
+	if !skipMaintenance {
+		cleanupOldBinary()
+	}
 
 	// Resolve theme early so OSC 11 probe overhead happens at startup,
 	// not inside a TUI render loop.
@@ -78,10 +83,13 @@ func main() {
 	}
 
 	// Migrate Windows legacy ~/.config/skillshare → %AppData%\skillshare
-	results := config.MigrateWindowsLegacyDir()
+	var results []config.MigrationResult
+	if !skipMaintenance {
+		results = config.MigrateWindowsLegacyDir()
 
-	// Migrate legacy dirs (backups/trash/logs) to XDG data/state dirs
-	results = append(results, config.MigrateXDGDirs()...)
+		// Migrate legacy dirs (backups/trash/logs) to XDG data/state dirs
+		results = append(results, config.MigrateXDGDirs()...)
+	}
 	// mcp serve speaks the protocol on stdout, so its errors, notices and trailers stay off it.
 	serving := len(os.Args) > 2 && os.Args[1] == "mcp" && os.Args[2] == "serve"
 	stdout := os.Stdout
@@ -157,7 +165,7 @@ func main() {
 
 		// Check for updates (non-blocking, silent on errors)
 		// Skip for upgrade (just upgraded, old version in process) and doctor (has its own check)
-		if cmd != "upgrade" && cmd != "doctor" {
+		if !skipMaintenance && cmd != "upgrade" && cmd != "doctor" {
 			method := detectInstallMethod()
 			if result := versioncheck.Check(version, method); result != nil && result.UpdateAvailable {
 				ui.UpdateNotification(result.CurrentVersion, result.LatestVersion, result.InstallMethod.UpgradeCommand())
@@ -233,6 +241,7 @@ func printUsage() {
 		}},
 		helpGroup{title: "Targets", rows: []helpRow{
 			{"target", "Add, remove and list Targets"},
+			{"project", "Manage project folders in the global config"},
 			{"diff", "Compare the source with a Target"},
 		}},
 		helpGroup{title: "History", rows: []helpRow{

@@ -19,23 +19,12 @@ import (
 
 // ignorePayload builds the common ignored-skills fields for JSON responses.
 func ignorePayload(stats *skillignore.IgnoreStats) map[string]any {
-	skills := []string{}
-	rootFile := ""
-	repoFiles := []string{}
-	if stats != nil {
-		if len(stats.IgnoredSkills) > 0 {
-			skills = stats.IgnoredSkills
-		}
-		rootFile = stats.RootFile
-		if stats.RepoFiles != nil {
-			repoFiles = stats.RepoFiles
-		}
-	}
+	r := ssync.NewIgnoreReport(stats, "", nil)
 	return map[string]any{
-		"ignored_count":  len(skills),
-		"ignored_skills": skills,
-		"ignore_root":    rootFile,
-		"ignore_repos":   repoFiles,
+		"ignored_count":  r.IgnoredCount,
+		"ignored_skills": r.IgnoredSkills,
+		"ignore_root":    r.IgnoreRoot,
+		"ignore_repos":   r.IgnoreRepos,
 	}
 }
 

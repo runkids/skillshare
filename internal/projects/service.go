@@ -23,9 +23,12 @@ var ErrSave = errors.New("failed to save config")
 var ErrDetach = errors.New("failed to detach skills")
 
 // PutOptions controls creation and preparation without persistence.
+// Detach also detaches the skills of project targets the edit removes or
+// turns off; the dashboard leaves it unset, so its saves never detach.
 type PutOptions struct {
 	Create bool
 	DryRun bool
+	Detach bool
 }
 
 // RemoveOptions requests a detach and candidate preview when DryRun is set.
@@ -61,7 +64,7 @@ func resource(rc *config.ResourceTargetConfig) *Resource {
 	if rc == nil {
 		return nil
 	}
-	return &Resource{Mode: rc.Mode, TargetNaming: rc.TargetNaming, Include: append([]string{}, rc.Include...), Exclude: append([]string{}, rc.Exclude...)}
+	return &Resource{Disabled: !rc.IsEnabled(), Mode: rc.Mode, TargetNaming: rc.TargetNaming, Include: append([]string{}, rc.Include...), Exclude: append([]string{}, rc.Exclude...)}
 }
 func item(root string, p config.ManagedProject) Item {
 	abs := config.ExpandPath(root)
@@ -110,11 +113,27 @@ func lookup(cfg *config.Config, key string, rootOnly bool) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return FindRoot(cfg.Projects, key, cwd, home)
+	if rootOnly {
+		return FindRoot(cfg.Projects, key, cwd, home)
+	}
+	return Find(cfg.Projects, key, cwd, home)
+}
+
+// Show returns one registered project.
+func (s *Service) Show(key string) (Item, error) {
+	cfg, err := s.load()
+	if err != nil {
+		return Item{}, err
+	}
+	root, err := lookup(cfg, key, false)
+	if err != nil {
+		return Item{}, err
+	}
+	return item(root, cfg.Projects[root]), nil
 }
 
 // Put replaces a full project value and validates its effective YAML candidate.
-// Like the dashboard on main, it never detaches skills; only Remove does.
+// Like the dashboard on main, it detaches skills only when opts.Detach is set.
 // An unchanged value and a dry run never write the config.
 func (s *Service) Put(root string, entry config.ManagedProject, opts PutOptions) (Result, error) {
 	cfg, err := s.load()
@@ -149,6 +168,13 @@ func (s *Service) Put(root string, entry config.ManagedProject, opts PutOptions)
 	}
 	old := item(root, cfg.Projects[root])
 	result := Result{Item: &old, Affected: c.Affected, Expanded: cfg, Registration: "kept"}
+	if opts.Detach {
+		report, err := s.detachDeparting(cfg, c.Save.Expanded, c.Affected, opts.DryRun, true)
+		result.Detach = &report
+		if err != nil {
+			return result, err
+		}
+	}
 	if !opts.DryRun && len(c.Affected) > 0 {
 		if err := c.Save.Write(); err != nil {
 			return result, fmt.Errorf("%w: %w", ErrSave, err)
@@ -161,17 +187,24 @@ func (s *Service) Put(root string, entry config.ManagedProject, opts PutOptions)
 	return result, nil
 }
 
-// detachDeparting compares paths, rather than target names, so shared
-// destinations stay owned. Effective candidates include alias changes.
-// Every project target of an affected root departs, whether or not its skills
-// are on now: an agents-only project may still hold an earlier sync's manifest.
-func (s *Service) detachDeparting(before, after *config.Config, affected []string, dryRun bool) (DetachReport, error) {
+// detachDeparting compares paths, rather than target names, so renamed and
+// shared destinations stay owned. Effective candidates include alias changes.
+// Remove departs every project target of an affected root, whether or not its
+// skills are on now: an agents-only project may still hold an earlier sync's
+// manifest. An edit passes enabledOnly, so a target whose skills were already
+// off is not detached again.
+func (s *Service) detachDeparting(before, after *config.Config, affected []string, dryRun, enabledOnly bool) (DetachReport, error) {
 	report := DetachReport{}
 	survivors := enabledSkillTargets(after)
 	seen := []string{}
 	departing := map[string]config.TargetConfig{}
+	enabled := enabledSkillTargets(before)
 	for _, root := range affected {
-		maps.Copy(departing, selected(before, root))
+		for name, target := range selected(before, root) {
+			if _, ok := enabled[name]; ok || !enabledOnly {
+				departing[name] = target
+			}
+		}
 	}
 	for _, name := range slices.Sorted(maps.Keys(departing)) {
 		target := before.Targets[name]
@@ -184,7 +217,8 @@ func (s *Service) detachDeparting(before, after *config.Config, affected []strin
 			continue
 		}
 		seen = append(seen, path)
-		// A synthetic probe lets the existing ownership helper compare all survivors.
+		// A synthetic probe lets the existing ownership helper compare all survivors,
+		// including a target with the same name after an edit.
 		probe := maps.Clone(survivors)
 		probe["@departing"] = target
 		if config.SkillsPathKeptBy(probe, "@departing", nil) != "" {
@@ -253,7 +287,7 @@ func (s *Service) Remove(key string, opts RemoveOptions) (Result, error) {
 	if err != nil {
 		return result, err
 	}
-	report, err := s.detachDeparting(cfg, c.Save.Expanded, c.Affected, opts.DryRun)
+	report, err := s.detachDeparting(cfg, c.Save.Expanded, c.Affected, opts.DryRun, false)
 	result.Detach = &report
 	if err != nil {
 		return result, err

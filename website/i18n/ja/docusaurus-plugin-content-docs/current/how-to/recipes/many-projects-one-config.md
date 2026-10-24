@@ -33,16 +33,11 @@ sidebar_position: 8
 
 ### Skill と Agent: `projects`
 
-```yaml
-# ~/.config/skillshare/config.yaml
-projects:
-  ~/work/project01:
-    targets: [claude, codex]
-    skills:
-      mode: copy
-      include:
-        - myskill-*
-    agents: {}
+```bash
+skillshare project add ~/work/project01 --target claude,codex \
+  --skills-mode copy --skills-include 'myskill-*' --agents --dry-run
+skillshare project add ~/work/project01 --target claude,codex \
+  --skills-mode copy --skills-include 'myskill-*' --agents
 ```
 
 ```bash
@@ -54,7 +49,14 @@ skillshare sync
 - `skills` と `agents` がその部分を有効にします。空のままなら全部を sync し、`include` と `exclude` で絞り込めます。[Skill のフィルタリング](/docs/how-to/daily-tasks/filtering-skills)を参照してください。
 - `copy` は実ファイルを書き込むため、project 側でコミットできます。シンボリックリンクで問題なければ、デフォルトの `merge` のままにしてください。
 
-ダッシュボードでは、**プロジェクト** ページが同じことを行います: **プロジェクトを追加**、Target を選び、sync する内容を選択します。フィールドの詳細は [`projects`](/docs/reference/targets/configuration#projects) を参照してください。
+```bash
+skillshare project list --json
+skillshare project edit project01 --skills-include= --skills-include 'core-*'
+skillshare project sync project01 --dry-run --json
+skillshare project sync project01
+```
+
+[`skillshare project`](/docs/reference/commands/project) でプロジェクトの登録・編集・同期・削除を行うか、ダッシュボードの **プロジェクト** ページを使用してください。各フィールドは [`projects`](/docs/reference/targets/configuration#projects) を参照してください。
 
 ### MCP サーバー: `mcp.projects`
 

@@ -139,6 +139,8 @@ skillshare target codex --skills=false
 
 在 dashboard 中，**Sync** 頁面會顯示相同的警告，並附上一個按鈕，可停止該 Target 的 Skill 同步。讓兩個 Target 使用相同的 filters、mode 與 target naming 也可以解決。
 
+已登錄專案的 target（`<project>@<tool>`）沒有單獨的 skills 開關，因為專案的 skills 設定作用於它的所有 target。此時指令只會把該工具從專案中移除：`skillshare project edit <root> --target <其餘工具>`；若它是專案唯一的 target，則為 `skillshare project edit <root> --no-skills`。
+
 ### `sync seems stuck or slow`
 
 **原因：** Skill 目錄中有大型檔案。

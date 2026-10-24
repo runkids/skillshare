@@ -259,6 +259,21 @@ func TestServiceList(t *testing.T) {
 	}
 }
 
+func TestServiceShow(t *testing.T) {
+	s, _, _, root, _ := serviceFixture(t)
+	shown, err := s.Show("app")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if shown.Root != root || shown.Skills == nil || shown.Agents == nil {
+		t.Fatalf("show: %+v", shown)
+	}
+	_, err = s.Show("unknown")
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unknown: %v", err)
+	}
+}
+
 func serviceTargetManifests(t *testing.T, cfg *config.Config) []string {
 	t.Helper()
 	var paths []string

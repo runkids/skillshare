@@ -78,7 +78,7 @@ skillshare sync -g       # Force global mode
 | **Git integration** | 任意（`push`/`pull`） | Skill はプロジェクトのリポジトリに直接コミットされる |
 | **Scope** | マシン上のすべてのプロジェクト | 単一リポジトリ |
 
-自分だけのプロジェクトであれば、第三の選択肢もあります。グローバル config の [`projects`](/docs/reference/targets/configuration#projects) の下にフォルダーを列挙する方法です。各フォルダーは独自の skill、agent、MCP サーバーのセットを持ち、リポジトリには何も追加されず、`sync` を 1 回実行するだけですべてが更新されます。どちらを選ぶべきかは[多数の Project を 1 つの Config で](/docs/how-to/recipes/many-projects-one-config#scenario)を参照してください。
+自分だけのプロジェクトであれば、第三の選択肢もあります。グローバル config の [`projects`](/docs/reference/targets/configuration#projects) の下にフォルダーを列挙する方法です。[`skillshare project add`](/docs/reference/commands/project) またはダッシュボードの **プロジェクト** ページから登録できます。各フォルダーは独自の skill、agent、MCP サーバーのセットを持ち、リポジトリには何も追加されず、`sync` を 1 回実行するだけですべてが更新されます。どちらを選ぶべきかは[多数の Project を 1 つの Config で](/docs/how-to/recipes/many-projects-one-config#scenario)を参照してください。
 
 ---
 

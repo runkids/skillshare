@@ -148,6 +148,8 @@ skillshare target codex --skills=false
 
 ダッシュボードの **Sync** ページにも同じ警告が表示され、その Target の Skill の Sync を停止するボタンがあります。両方の Target に同じフィルター、mode、target naming を設定する方法でも解決できます。
 
+登録済みプロジェクトの Target（`<project>@<tool>`）には個別の Skill スイッチがありません。プロジェクトの skills 設定がすべての Target に適用されるためです。その場合のコマンドは、そのツールだけをプロジェクトから外す `skillshare project edit <root> --target <残りのツール>` か、それがプロジェクト唯一の Target なら `skillshare project edit <root> --no-skills` です。
+
 ### `sync seems stuck or slow`
 
 **原因:** skills ディレクトリ内に大きなファイルがある。

@@ -33,16 +33,11 @@ sidebar_position: 8
 
 ### Skill과 Agent: `projects`
 
-```yaml
-# ~/.config/skillshare/config.yaml
-projects:
-  ~/work/project01:
-    targets: [claude, codex]
-    skills:
-      mode: copy
-      include:
-        - myskill-*
-    agents: {}
+```bash
+skillshare project add ~/work/project01 --target claude,codex \
+  --skills-mode copy --skills-include 'myskill-*' --agents --dry-run
+skillshare project add ~/work/project01 --target claude,codex \
+  --skills-mode copy --skills-include 'myskill-*' --agents
 ```
 
 ```bash
@@ -54,7 +49,14 @@ skillshare sync
 - `skills`와 `agents`는 해당 부분을 켜는 스위치입니다. 비워 두면 모든 것을 동기화하며, `include`와 `exclude`로 범위를 좁힐 수 있습니다. [Filtering skills](/docs/how-to/daily-tasks/filtering-skills)를 참고하세요.
 - `copy`는 실제 파일을 작성하므로 프로젝트에서 커밋할 수 있습니다. 심볼릭 링크로 충분하다면 기본값인 `merge`를 그대로 두세요.
 
-대시보드에서도 동일한 작업을 할 수 있습니다: **프로젝트** 페이지에서 **프로젝트 추가**로 target을 선택하고 동기화할 항목을 고르세요. 모든 필드는 [`projects`](/docs/reference/targets/configuration#projects)를 참고하세요.
+```bash
+skillshare project list --json
+skillshare project edit project01 --skills-include= --skills-include 'core-*'
+skillshare project sync project01 --dry-run --json
+skillshare project sync project01
+```
+
+[`skillshare project`](/docs/reference/commands/project)로 프로젝트 등록을 추가·편집·동기화·제거하거나 대시보드의 **프로젝트** 페이지를 사용하세요. 모든 필드는 [`projects`](/docs/reference/targets/configuration#projects)를 참고하세요.
 
 ### MCP 서버: `mcp.projects`
 
