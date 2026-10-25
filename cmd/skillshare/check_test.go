@@ -144,8 +144,10 @@ func TestCheck_ResolvesEveryStatus(t *testing.T) {
 	runJSON := func(t *testing.T, args ...string) checkOutput {
 		t.Helper()
 		output := captureStdoutStderr(t, func() {
-			if err := cmdCheck(append([]string{"-g", "--json"}, args...)); err != nil {
-				t.Errorf("check: %v", err)
+			err := cmdCheck(append([]string{"-g", "--json"}, args...))
+			wantError := len(args) == 0 || (len(args) == 1 && args[0] == "broken")
+			if (err != nil) != wantError {
+				t.Errorf("check error = %v, want error: %t", err, wantError)
 			}
 		})
 		var result checkOutput
@@ -177,10 +179,17 @@ func TestCheck_ResolvesEveryStatus(t *testing.T) {
 		}
 	})
 
+	t.Run("failed filtered", func(t *testing.T) {
+		result := runJSON(t, "broken")
+		if len(result.Skills) != 1 || result.Skills[0].Status != "error" {
+			t.Fatalf("expected failed skill, got %+v", result.Skills)
+		}
+	})
+
 	t.Run("text", func(t *testing.T) {
 		output := captureStdoutStderr(t, func() {
-			if err := cmdCheck([]string{"-g"}); err != nil {
-				t.Errorf("check: %v", err)
+			if err := cmdCheck([]string{"-g"}); err == nil {
+				t.Error("check must fail when a remote cannot be checked")
 			}
 		})
 		const summary = "Updates available for 2 skills, 3 up to date, 1 local skipped, 1 stale, 1 failed to check"

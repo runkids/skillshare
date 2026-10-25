@@ -20,6 +20,7 @@ import { useToast } from '../components/Toast';
 import { useDiffQuery, useSkillsQuery } from '../hooks/useSharedQueries';
 import { countChanges, resourceGroups } from '../components/sync/syncView';
 import { invalidate } from '../lib/queryEvents';
+import { updateCheckTitle } from '../lib/updateCheckSummary';
 import { useInstallFromConfig } from '../hooks/useInstallFromConfig';
 
 /* -- Types ---------------------------------------- */
@@ -529,11 +530,12 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
     };
   } else {
     const summary = lastChecked ? t('update.check.checkedAt', { time: formatRelativeTime(lastChecked, locale) }) : '';
+    const checkFailed = units.some((u) => unitCheck(statuses, u).status === 'error');
     hero = {
-      icon: <CircleArrowUp size={20} />,
-      tone: '',
-      title: !lastChecked ? t('update.tab.notChecked') : available > 0 ? t('update.hero.available', { count: available }) : t('update.hero.allCurrent'),
-      sub: `${summary} ${t('update.tab.audited')}`.trim(),
+      icon: checkFailed ? <CircleAlert size={20} /> : <CircleArrowUp size={20} />,
+      tone: checkFailed ? 'warn' : '',
+      title: t(updateCheckTitle(checkFailed, !!lastChecked, available), { count: available }),
+      sub: `${checkFailed && available > 0 ? t('update.hero.available', { count: available }) + '. ' : ''}${summary} ${t('update.tab.audited')}`.trim(),
     };
   }
 

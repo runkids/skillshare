@@ -37,6 +37,10 @@ result=$(skillshare check --json)
 # 解析 JSON 以偵測過期的 skills
 ```
 
+## 結束狀態
+
+只要任一受檢項目的狀態為 `error`（例如無法連線遠端或本機來源不存在），`check` 就會以代碼 `1` 結束。僅有可用更新、過期項目或本機修改不會造成失敗。使用 `--json` 時，stdout 仍會包含完整結果；請查看各項目的 `status` 與 `message`。
+
 ## 執行內容
 
 `check` 會檢查你的 source 目錄，並回報以下項目的更新狀態：

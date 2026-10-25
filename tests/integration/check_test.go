@@ -268,8 +268,23 @@ func TestCheck_LocalSource_Missing(t *testing.T) {
 	os.RemoveAll(external)
 
 	result := sb.RunCLI("check", "gone-skill")
-	result.AssertSuccess(t)
+	result.AssertExitCode(t, 1)
 	result.AssertAnyOutputContains(t, "local source not found")
+
+	for _, args := range [][]string{{"check", "--json"}, {"check", "gone-skill", "--json"}} {
+		result := sb.RunCLI(args...)
+		result.AssertExitCode(t, 1)
+		if result.Stderr != "" {
+			t.Errorf("JSON failure wrote to stderr: %s", result.Stderr)
+		}
+		var output checkOutput
+		if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
+			t.Fatalf("invalid JSON: %v: %s", err, result.Stdout)
+		}
+		if len(output.Skills) != 1 || output.Skills[0].Status != "error" {
+			t.Fatalf("expected failed skill in JSON: %s", result.Stdout)
+		}
+	}
 }
 
 // ── Filtered check tests (multi-name + --group) ──────────

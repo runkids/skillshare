@@ -37,6 +37,10 @@ result=$(skillshare check --json)
 # Parse JSON to detect outdated skills
 ```
 
+## Exit Status
+
+`check` exits with code `1` if any checked item has status `error` (for example, an unreachable remote or a missing local source). Available updates, stale items, and local modifications alone do not cause failure. With `--json`, stdout still contains the complete results; inspect each item's `status` and `message` for details.
+
 ## What It Does
 
 `check` inspects your source directory and reports update status for:
