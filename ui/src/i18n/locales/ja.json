@@ -588,6 +588,7 @@
   "layout.group.library": "ライブラリ",
   "layout.group.destinations": "同期先",
   "layout.group.maintain": "メンテナンス",
+  "layout.navigation": "ナビゲーション",
   "layout.nav.audit": "監査",
   "layout.nav.dashboard": "ダッシュボード",
   "layout.nav.extras": "Extras",

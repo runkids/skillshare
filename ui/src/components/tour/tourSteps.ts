@@ -35,11 +35,12 @@ const ALL_STEPS: TourStep[] = [
 interface BuildStepsOptions {
   isProjectMode: boolean;
   skillCount: number;
+  isMobile?: boolean;
 }
 
-export function buildSteps({ isProjectMode, skillCount }: BuildStepsOptions): TourStep[] {
+export function buildSteps({ isProjectMode, skillCount, isMobile = false }: BuildStepsOptions): TourStep[] {
   // A project keeps its skills in its own repository, so there is no Git Sync page.
-  let steps = isProjectMode ? ALL_STEPS.filter((s) => s.id !== 'git-actions') : ALL_STEPS;
+  let steps = ALL_STEPS.filter((s) => !(isProjectMode && s.id === 'git-actions') && !(isMobile && s.id === 'shortcuts-btn'));
   if (skillCount === 0) {
     steps = steps.map((s) => (HAS_EMPTY_COPY.has(s.id) ? { ...s, empty: true } : s));
   }

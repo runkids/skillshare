@@ -127,7 +127,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
     const cached = queryClient.getQueryData<Overview>(queryKeys.overview);
     const skillCount = cached?.skillCount ?? 0;
 
-    const builtSteps = buildSteps({ isProjectMode, skillCount });
+    const builtSteps = buildSteps({ isProjectMode, skillCount, isMobile: !window.matchMedia('(min-width: 768px)').matches });
     setSteps(builtSteps);
     setCurrentStep(0);
     setIsActive(true);

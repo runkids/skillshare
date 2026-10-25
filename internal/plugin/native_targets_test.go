@@ -24,13 +24,10 @@ func TestNativePackageLifecycle(t *testing.T) {
 				if strings.Contains(command, "--help") {
 					return []byte("Usage: plugin install uninstall list update --json"), nil
 				}
-				if strings.HasPrefix(command, "plugin list") {
+				if command == "plugin list --json" {
 					rows := []map[string]any{}
 					if installed {
 						rows = append(rows, map[string]any{"name": "demo", "enabled": false, "source": "installed"})
-					}
-					if bin == "agy" {
-						return json.Marshal(map[string]any{"imports": rows})
 					}
 					return json.Marshal(rows)
 				}
@@ -105,5 +102,91 @@ func TestFailedUpdateRestoresSnapshot(t *testing.T) {
 	digest, err := treeDigest(filepath.Join(s.snapshotPath(binding, "copilot"), "content"))
 	if err != nil || digest != binding.Digest {
 		t.Fatalf("old snapshot not restored: %s %v", digest, err)
+	}
+}
+
+func TestParseCommandInventoryAntigravityCLI(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantLen   int
+		wantError bool
+		check     func(t *testing.T, items []Installed)
+	}{
+		{
+			name:    "empty json array",
+			input:   "[]\n",
+			wantLen: 0,
+		},
+		{
+			name:    "text no plugins installed",
+			input:   "No plugins installed.\n",
+			wantLen: 0,
+		},
+		{
+			name:    "text no imported plugins",
+			input:   "No imported plugins.\n",
+			wantLen: 0,
+		},
+		{
+			name:    "empty string",
+			input:   "  \n",
+			wantLen: 0,
+		},
+		{
+			name: "native json array with plugin",
+			input: `[
+  {
+    "name": "beads",
+    "enabled": true,
+    "version": "1.3.2",
+    "source": "claude-code"
+  }
+]`,
+			wantLen: 1,
+			check: func(t *testing.T, items []Installed) {
+				item := items[0]
+				if item.ID != "beads" || item.Name != "beads" || item.Version != "1.3.2" || !item.Enabled || !item.EnabledKnown {
+					t.Fatalf("unexpected parsed item: %+v", item)
+				}
+			},
+		},
+		{
+			name:    "legacy envelope imports",
+			input:   `{"imports": [{"name": "demo", "enabled": false, "version": "1.0.0"}]}`,
+			wantLen: 1,
+			check: func(t *testing.T, items []Installed) {
+				item := items[0]
+				if item.ID != "demo" || item.Name != "demo" || item.Version != "1.0.0" || item.Enabled || !item.EnabledKnown {
+					t.Fatalf("unexpected parsed item: %+v", item)
+				}
+			},
+		},
+		{
+			name:      "invalid json",
+			input:     `not json`,
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			items, err := parseCommandInventory("antigravity-cli", []byte(tt.input))
+			if tt.wantError {
+				if err == nil {
+					t.Fatalf("expected error for input %q, got nil", tt.input)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(items) != tt.wantLen {
+				t.Fatalf("got %d items, want %d", len(items), tt.wantLen)
+			}
+			if tt.check != nil {
+				tt.check(t, items)
+			}
+		})
 	}
 }

@@ -40,9 +40,6 @@ func (s *Service) commandHost(ctx context.Context, target string) Host {
 	{
 		agent := s.agentOf(target)
 		args := []string{"plugin", "list", "--json"}
-		if agent == "antigravity-cli" {
-			args = []string{"plugin", "list"}
-		}
 		var data []byte
 		data, err = s.run(ctx, target, args...)
 		if err == nil {
@@ -58,16 +55,16 @@ func (s *Service) commandHost(ctx context.Context, target string) Host {
 
 func parseCommandInventory(target string, data []byte) ([]Installed, error) {
 	if target == "antigravity-cli" {
-		if strings.TrimSpace(string(data)) == "No imported plugins." {
+		trimmed := strings.TrimSpace(string(data))
+		if trimmed == "" || trimmed == "[]" || trimmed == "No imported plugins." || trimmed == "No plugins installed." {
 			return []Installed{}, nil
 		}
 		var envelope struct {
 			Imports json.RawMessage `json:"imports"`
 		}
-		if json.Unmarshal(data, &envelope) != nil || envelope.Imports == nil {
-			return nil, fmt.Errorf("unrecognized Antigravity CLI plugin inventory")
+		if err := json.Unmarshal(data, &envelope); err == nil && envelope.Imports != nil {
+			data = envelope.Imports
 		}
-		data = envelope.Imports
 	}
 	var rows []struct {
 		Name        string `json:"name"`

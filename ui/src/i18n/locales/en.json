@@ -756,6 +756,7 @@
   "layout.group.library": "Library",
   "layout.group.destinations": "Destinations",
   "layout.group.maintain": "Maintain",
+  "layout.navigation": "Navigation",
   "layout.nav.audit": "Audit",
   "layout.nav.dashboard": "Dashboard",
   "layout.nav.extras": "Extras",

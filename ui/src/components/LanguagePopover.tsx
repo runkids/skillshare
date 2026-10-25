@@ -67,7 +67,7 @@ export default function LanguagePopover() {
           ref={panelRef}
           role="radiogroup"
           aria-label={t('language.settings')}
-          className="ss-menu absolute left-0 bottom-full mb-3 z-50 !w-[300px] animate-dropdown-in"
+          className="ss-menu absolute left-0 bottom-full mb-3 z-50 !w-[300px] max-w-[calc(100vw-6rem)] max-h-[calc(100dvh-8rem)] overflow-y-auto animate-dropdown-in"
         >
           {localeOptions.map((entry) => {
             const on = locale === entry.code;
