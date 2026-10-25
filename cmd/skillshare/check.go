@@ -208,9 +208,9 @@ func cmdCheck(args []string) error {
 				logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, err)
 				return err
 			}
-			renderAgentCheck(projectCfg.EffectiveAgentsSource(cwd), opts.groups, opts.json)
-			logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, nil)
-			return nil
+			cmdErr := renderAgentCheck(projectCfg.EffectiveAgentsSource(cwd), opts.groups, opts.json)
+			logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, cmdErr)
+			return cmdErr
 		}
 		cmdErr := cmdCheckProject(cwd, opts)
 		logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, cmdErr)
@@ -225,9 +225,9 @@ func cmdCheck(args []string) error {
 	// Agent-only check: scan agents source directory and skip repo checks.
 	if kind == kindAgents {
 		agentsDir := cfg.EffectiveAgentsSource()
-		renderAgentCheck(agentsDir, opts.groups, opts.json)
-		logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, nil)
-		return nil
+		cmdErr := renderAgentCheck(agentsDir, opts.groups, opts.json)
+		logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, cmdErr)
+		return cmdErr
 	}
 
 	// No names and no groups → check all (existing behavior)
@@ -349,9 +349,7 @@ func runCheck(sourceDir, projectRoot string, jsonOutput bool, extraTargetNames [
 		if output.Skills == nil {
 			output.Skills = []checkSkillResult{}
 		}
-		out, _ := json.MarshalIndent(output, "", "  ")
-		fmt.Println(string(out))
-		return nil
+		return writeJSONResult(output, checkResultsError(repoResults, skillResults))
 	}
 
 	// Display results + summary, with unknown target names in skill-level
@@ -359,7 +357,7 @@ func runCheck(sourceDir, projectRoot string, jsonOutput bool, extraTargetNames [
 	warnings := unknownSkillTargetWarnings(sourceDir, extraTargetNames, walk)
 	renderCheckResults(repoResults, skillResults, false, warnings, start)
 
-	return nil
+	return checkResultsError(repoResults, skillResults)
 }
 
 // renderCheckResults lists the repos and skills that need attention, then
@@ -663,9 +661,7 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, walks .
 		if output.Skills == nil {
 			output.Skills = []checkSkillResult{}
 		}
-		out, _ := json.MarshalIndent(output, "", "  ")
-		fmt.Println(string(out))
-		return nil
+		return writeJSONResult(output, checkResultsError(repoResults, skillResults))
 	}
 
 	// Single target: one row, like update
@@ -675,12 +671,34 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, walks .
 		if r.next != "" {
 			ui.Next(r.next, r.why)
 		}
-		return nil
+		return checkResultsError(repoResults, skillResults)
 	}
 
 	// Display results + summary (filtered: show local skills individually)
 	renderCheckResults(repoResults, skillResults, true, nil, start)
 
+	return checkResultsError(repoResults, skillResults)
+}
+
+func checkResultsError(repos []checkRepoResult, skills []checkSkillResult) error {
+	failed := 0
+	for _, r := range repos {
+		if r.Status == "error" {
+			failed++
+		}
+	}
+	for _, s := range skills {
+		if s.Status == "error" {
+			failed++
+		}
+	}
+	return checkFailureError(failed)
+}
+
+func checkFailureError(failed int) error {
+	if failed > 0 {
+		return fmt.Errorf("%s failed to check", plural(failed, "item"))
+	}
 	return nil
 }
 
@@ -762,18 +780,16 @@ func formatSourceShort(source string) string {
 
 // renderAgentCheck runs CheckAgents and displays results (text or JSON).
 // If groups is non-empty, only agents in those group subdirectories are shown.
-func renderAgentCheck(agentsDir string, groups []string, jsonMode bool) {
+func renderAgentCheck(agentsDir string, groups []string, jsonMode bool) error {
 	agentResults := check.CheckAgents(agentsDir)
 
 	if len(groups) > 0 {
 		filtered, err := filterAgentResultsByGroups(agentResults, groups, agentsDir)
 		if err != nil {
 			if jsonMode {
-				writeJSONError(err) //nolint:errcheck
-				return
+				return writeJSONError(err)
 			}
-			ui.Error("%v", err)
-			return
+			return err
 		}
 		agentResults = filtered
 	}
@@ -799,14 +815,18 @@ func renderAgentCheck(agentsDir string, groups []string, jsonMode bool) {
 		}
 	}
 
+	failed := 0
+	for _, r := range agentResults {
+		if r.Status == "error" {
+			failed++
+		}
+	}
 	if jsonMode {
-		out, _ := json.MarshalIndent(agentResults, "", "  ")
-		fmt.Println(string(out))
-		return
+		return writeJSONResult(agentResults, checkFailureError(failed))
 	}
 	if len(agentResults) == 0 {
 		ui.Done(ui.MarkNone, "No agents found", 0)
-		return
+		return nil
 	}
 	names := make([]string, len(agentResults))
 	for i, r := range agentResults {
@@ -844,6 +864,7 @@ func renderAgentCheck(agentsDir string, groups []string, jsonMode bool) {
 	default:
 		ui.Done(ui.MarkNone, "No tracked agents to compare", 0)
 	}
+	return checkFailureError(failed)
 }
 
 func printCheckHelp() {

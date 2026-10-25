@@ -10,6 +10,20 @@ import (
 	"skillshare/internal/utils"
 )
 
+func TestEnrichAgentResultsWithRemote_Failure(t *testing.T) {
+	missingRepo := filepath.Join(t.TempDir(), "missing.git")
+	results := []AgentCheckResult{
+		{Name: "current", RepoURL: missingRepo, Version: "abc", Status: "up_to_date"},
+		{Name: "edited", RepoURL: missingRepo, Version: "abc", Status: "drifted"},
+	}
+	EnrichAgentResultsWithRemote(results, nil)
+	for _, r := range results {
+		if r.Status != "error" || r.Message == "" {
+			t.Errorf("remote failure must be reported: %+v", r)
+		}
+	}
+}
+
 func TestCheckAgents_NoAgents(t *testing.T) {
 	dir := t.TempDir()
 	results := CheckAgents(dir)

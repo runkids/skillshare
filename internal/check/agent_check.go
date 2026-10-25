@@ -171,6 +171,10 @@ func EnrichAgentResultsWithRemote(results []AgentCheckResult, onDone func()) {
 	for i, out := range outputs {
 		ref := refs[i]
 		if out.Err != nil {
+			for _, idx := range ref.indices {
+				results[idx].Status = "error"
+				results[idx].Message = out.Err.Error()
+			}
 			continue
 		}
 		if out.RemoteHash != "" && out.RemoteHash != ref.version {

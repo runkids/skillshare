@@ -37,6 +37,10 @@ result=$(skillshare check --json)
 # Parse JSON to detect outdated skills
 ```
 
+## 종료 상태
+
+검사한 항목 중 하나라도 상태가 `error`이면(예: 원격 저장소에 연결할 수 없거나 로컬 소스가 없음) `check`는 코드 `1`로 종료합니다. 사용 가능한 업데이트, 오래된 항목, 로컬 수정만으로는 실패하지 않습니다. `--json`을 사용해도 stdout에 전체 결과가 출력됩니다. 각 항목의 `status`와 `message`를 확인하세요.
+
 ## 동작 내용
 
 `check`는 source 디렉터리를 검사하여 다음 항목의 업데이트 상태를 보고합니다.

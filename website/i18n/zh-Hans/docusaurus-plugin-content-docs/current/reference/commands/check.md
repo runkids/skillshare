@@ -37,6 +37,10 @@ result=$(skillshare check --json)
 # 解析 JSON 以检测过时的 skills
 ```
 
+## 退出状态
+
+只要任一检查项的状态为 `error`（例如无法连接远程仓库或本地来源不存在），`check` 就会以代码 `1` 退出。仅有可用更新、过时项目或本地修改不会导致失败。使用 `--json` 时，stdout 仍包含完整结果；请查看各项的 `status` 和 `message`。
+
 ## 它做了什么
 
 `check` 会检查你的 source 目录，并报告以下内容的更新状态：
