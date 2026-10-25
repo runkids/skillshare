@@ -61,11 +61,12 @@ export function claimSaveShortcut(): () => void {
 interface UseGlobalShortcutsOptions {
   onToggleHelp: () => void;
   onRefresh?: () => void;
-  onSync?: () => void;
+  onNavigate?: (path: string) => void;
 }
 
-export function useGlobalShortcuts({ onToggleHelp, onRefresh, onSync }: UseGlobalShortcutsOptions) {
-  const navigate = useNavigate();
+export function useGlobalShortcuts({ onToggleHelp, onRefresh, onNavigate }: UseGlobalShortcutsOptions) {
+  const defaultNavigate = useNavigate();
+  const navigate = onNavigate ?? defaultNavigate;
   const pendingChordRef = useRef<string | null>(null);
   const chordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [modifierHeld, setModifierHeld] = useState(false);
@@ -93,11 +94,7 @@ export function useGlobalShortcuts({ onToggleHelp, onRefresh, onSync }: UseGloba
           // Reset modifier state immediately — macOS often swallows the
           // Meta keyup after a Cmd+key shortcut, leaving the HUD stuck.
           setModifierHeld(false);
-          if (onSync) {
-            onSync();
-          } else {
-            navigate('/sync');
-          }
+          navigate('/sync');
           return;
         }
         // All other modifier combos: let browser handle natively
@@ -197,7 +194,7 @@ export function useGlobalShortcuts({ onToggleHelp, onRefresh, onSync }: UseGloba
       clearChord();
       clearModifierTimer();
     };
-  }, [navigate, onToggleHelp, onRefresh, onSync, clearChord]);
+  }, [navigate, onToggleHelp, onRefresh, clearChord]);
 
   return { modifierHeld };
 }

@@ -1020,7 +1020,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
         )}
       />
 
-      <nav className="ss-tabs" aria-label={t(isAgent ? 'layout.nav.agents' : 'layout.nav.skills')} data-tour="skills-view">
+      <nav className="ss-tabs overflow-x-auto" aria-label={t(isAgent ? 'layout.nav.agents' : 'layout.nav.skills')} data-tour="skills-view">
         {([
           ['installed', '', t('resources.tab.installed'), items.length],
           ['updates', '?tab=updates', t('resources.tab.updates'), updateCount],

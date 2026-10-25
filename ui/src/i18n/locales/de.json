@@ -588,6 +588,7 @@
   "layout.group.library": "Bibliothek",
   "layout.group.destinations": "Ziele",
   "layout.group.maintain": "Pflege",
+  "layout.navigation": "Navigation",
   "layout.nav.audit": "Audit",
   "layout.nav.dashboard": "Dashboard",
   "layout.nav.extras": "Extras",

@@ -440,7 +440,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
         return <span className="ss-st warn">{t('update.check.stale')}</span>;
       case 'dirty':
         return (
-          <span className="inline-flex items-center gap-2">
+          <span className="inline-flex flex-wrap items-center gap-2">
             <span className="ss-st warn" title={c.message}>{t('update.check.dirty')}</span>
             {!unit.isRepo && unit.items[0] && <RouterLink className="ss-btn sm" to={`${resourceHref(unit.items[0])}?changes=1`}>{t('update.check.viewChanges')}</RouterLink>}
           </span>
@@ -489,10 +489,10 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
     : <span className={`ss-cat sm ${kind}`}>{kind === 'agent' ? <Bot size={14} /> : <Puzzle size={14} />}</span>);
 
   const unitName = (unit: UpdateUnit) => (
-    <span className="flex items-baseline gap-3 min-w-0 flex-1">
-      <span className="nm m truncate shrink-0 max-w-[60%]">{unit.label}</span>
+    <span className="flex flex-wrap md:flex-nowrap items-baseline gap-x-3 gap-y-1 min-w-0 flex-1">
+      <span className="nm m truncate max-w-full md:shrink-0 md:max-w-[60%]">{unit.label}</span>
       {unit.isRepo && <span className="ss-tag self-center">tracked</span>}
-      <span className="font-mono text-xs text-ink-3 truncate">{sourceLabel(unit.source)}</span>
+      <span className="basis-full md:basis-auto font-mono text-xs text-ink-3 truncate">{sourceLabel(unit.source)}</span>
     </span>
   );
 
@@ -543,7 +543,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
         <section className="ss-box flex flex-col gap-4 -mt-2" aria-live="polite">
           <div className="flex flex-wrap items-center gap-4">
             <span className={`ss-update-icon ${hero.tone}`}>{hero.icon}</span>
-            <div className="flex flex-col gap-0.5 min-w-[240px] flex-1">
+            <div className="flex flex-col gap-0.5 min-w-0 sm:min-w-[240px] flex-1 break-words">
               <div key={String(running) + String(checking) + String(showDone)} className="text-[16px] font-semibold animate-fade-in">{hero.title}</div>
               <div className="text-[13px] text-ink-2">{hero.sub}</div>
             </div>
@@ -638,9 +638,10 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
                 return (
                   // Rows of one Prune all leave one after another.
                   <div key={unit.name} className={`ss-collapse ${p === 'out' ? 'out' : ''}`} style={{ transitionDelay: p === 'out' ? `${i * 60}ms` : undefined }}>
-                    <div className={`ss-r ${p ? 'updating' : ''}`}>
+                    <div className={`ss-r flex-wrap md:flex-nowrap ${p ? 'updating' : ''}`}>
                       {unitIcon(unit)}
                       {unitName(unit)}
+                      <div className="w-full flex flex-wrap items-center gap-2 pl-[38px] md:contents">
                       {p ? (
                         <span className="inline-flex items-center gap-2 text-[13px] text-ink-2 animate-fade-in"><Loader2 size={13} className="animate-spin" />{t('update.updating.purging')}</span>
                       ) : (
@@ -649,6 +650,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
                           <Button variant="secondary" size="sm" disabled={busy} onClick={() => void prune([unit])}>{t('update.updating.purge')}</Button>
                         </>
                       )}
+                      </div>
                       {p && <span className="ss-rowbar" aria-hidden />}
                     </div>
                   </div>
@@ -676,12 +678,13 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
               const trouble = r?.status === 'blocked' || r?.status === 'error';
               return (
                 <div key={unit.name} className="ss-r flex-col !items-stretch gap-2 py-3">
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap md:flex-nowrap items-center gap-3">
                     {r?.status === 'blocked' ? <span className="w-[26px] grid place-items-center text-bad"><ShieldAlert size={16} /></span> : unitIcon(unit)}
                     <span className="flex flex-col min-w-0 flex-1 gap-0.5">
                       {unitName(unit)}
                       {trouble && message && <span className="text-[13px] text-bad truncate">{failureSummary(message)}</span>}
                     </span>
+                    <div className="w-full flex flex-wrap items-center gap-2 pl-[38px] md:contents">
                     {riskTag(unit)}
                     {trouble && message && (
                       <Button variant="ghost" size="sm" aria-expanded={open} onClick={() => setOpenDetails((prev) => {
@@ -692,7 +695,8 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
                         {t(open ? 'update.failed.hideDetails' : 'update.failed.showDetails')}
                       </Button>
                     )}
-                    <span className="flex items-center justify-end gap-2 min-w-[96px]">{trouble ? failureActions(unit) : statusCell(unit)}</span>
+                    <span className="flex flex-wrap items-center justify-end gap-2 md:min-w-[96px]">{trouble ? failureActions(unit) : statusCell(unit)}</span>
+                    </div>
                   </div>
                   {trouble && open && message && (
                     <pre className="m-0 ml-[38px] p-3 rounded-lg bg-sunken font-mono text-xs leading-relaxed text-ink-2 whitespace-pre-wrap break-words animate-fade-in">{message}</pre>
@@ -748,23 +752,25 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
             const canUpdate = !r && c !== 'up-to-date' && c !== 'checking';
             const rowState = r?.status === 'in-progress' ? 'updating' : r?.status === 'pending' || (running && !r) ? 'dim' : r?.status === 'success' ? 'flash' : '';
             return (
-              <div key={unit.name} className={`ss-r group ${selected.has(unit.name) ? 'sel' : ''} ${rowState}`}>
+              <div key={unit.name} className={`ss-r group flex-wrap md:flex-nowrap ${selected.has(unit.name) ? 'sel' : ''} ${rowState}`}>
                 <Checkbox hideLabel label={unit.label} checked={selected.has(unit.name)} disabled={busy} onChange={() => toggle(unit.name)} />
                 {unitIcon(unit)}
                 {unitName(unit)}
+                <div className="w-full flex flex-wrap items-center gap-2 pl-[66px] md:contents">
                 {riskTag(unit)}
                 {canUpdate && (
                   <Button
                     variant="secondary"
                     size="sm"
-                    className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                    className="md:pointer-fine:opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                     disabled={busy}
                     onClick={() => startUpdate([unit.name], force)}
                   >
                     {t('update.row.update')}
                   </Button>
                 )}
-                <span className="w-[140px] flex justify-end">{statusCell(unit)}</span>
+                <span className="max-w-full md:max-w-none md:min-w-[140px] md:shrink-0 flex justify-end ml-auto md:ml-0">{statusCell(unit)}</span>
+                </div>
                 {rowState === 'updating' && <span className="ss-rowbar" aria-hidden />}
               </div>
             );

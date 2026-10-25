@@ -1,5 +1,5 @@
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   LayoutDashboard,
@@ -17,6 +17,8 @@ import {
   Settings,
   Keyboard,
   Compass,
+  Menu,
+  X,
 } from 'lucide-react';
 import { api, type AuditAllResponse } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -24,6 +26,8 @@ import { pendingCount } from './sync/syncView';
 import { useAppContext } from '../context/AppContext';
 import { useGlobalShortcuts } from '../hooks/useGlobalShortcuts';
 import KeyboardShortcutsModal from './KeyboardShortcutsModal';
+import DialogShell from './DialogShell';
+import IconButton from './IconButton';
 import ShortcutHUD from './ShortcutHUD';
 import ScrollToTop from './ScrollToTop';
 import { TargetAgents } from './targetAgents';
@@ -88,13 +92,37 @@ function isActive(item: NavItem, pathname: string): boolean {
 export default function Layout() {
   const t = useT();
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const location = useLocation();
+  const [navigationOpen, setNavigationOpen] = useState(false);
+  const [navigationLocation, setNavigationLocation] = useState(location);
+  if (navigationLocation !== location) {
+    setNavigationLocation(location);
+    setNavigationOpen(false);
+  }
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const closeNavigation = useCallback(() => {
+    setNavigationOpen(false);
+    menuButton.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 768px)');
+    const onResize = () => { if (desktop.matches) setNavigationOpen(false); };
+    desktop.addEventListener('change', onResize);
+    return () => desktop.removeEventListener('change', onResize);
+  }, []);
   const { isProjectMode, projectRoot } = useAppContext();
   const { startTour } = useTour();
   const nav = useNavigate();
-  const location = useLocation();
-  const toggleShortcuts = useCallback(() => setShortcutsOpen((v) => !v), []);
-  const handleSync = useCallback(() => nav('/sync'), [nav]);
-  const { modifierHeld } = useGlobalShortcuts({ onToggleHelp: toggleShortcuts, onSync: handleSync });
+  const toggleShortcuts = useCallback(() => {
+    if (navigationOpen) closeNavigation();
+    setShortcutsOpen((v) => !v);
+  }, [navigationOpen, closeNavigation]);
+  const handleNavigate = useCallback((path: string) => {
+    if (navigationOpen) closeNavigation();
+    nav(path);
+  }, [navigationOpen, closeNavigation, nav]);
+  const { modifierHeld } = useGlobalShortcuts({ onToggleHelp: toggleShortcuts, onNavigate: handleNavigate });
 
   const { data: overview } = useOverviewQuery();
   const version = overview?.version;
@@ -104,9 +132,8 @@ export default function Layout() {
   const { data: synced } = useSyncedTargetsQuery();
   const targetAgents = useMemo(() => Object.fromEntries((synced?.targets ?? []).flatMap((x) => (x.agent ? [[x.name, x.agent]] : []))), [synced]);
 
-  return (
-    <div className="min-h-screen">
-      <aside className="ss-side fixed top-0 left-0 z-30 h-screen">
+  const sidebar = (
+    <>
         <div className="ss-wm">
           <b>{t('app.name')}</b>
           <svg className="ss-squig ss-only-playful" width="112" height="7" viewBox="0 0 112 7" aria-hidden="true">
@@ -115,7 +142,7 @@ export default function Layout() {
           <div className="group flex items-center gap-1 min-w-0">
             <span className="truncate" title={home}>{t(isProjectMode ? 'app.project' : 'app.global')}{home && ` · ${shortenHome(home)}`}</span>
             {/* The label is truncated, so the tooltip is the only place the full path shows — copying saves retyping it. */}
-            {home && <CopyButton value={home} title={t('common.copyPath')} copiedLabel="" className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100" />}
+            {home && <CopyButton value={home} title={t('common.copyPath')} copiedLabel="" className="md:pointer-fine:opacity-0 group-hover:opacity-100 focus-visible:opacity-100" />}
           </div>
         </div>
 
@@ -129,7 +156,7 @@ export default function Layout() {
                   const Icon = item.icon;
                   const active = isActive(item, location.pathname);
                   return (
-                    <Link key={item.to} to={item.to} className={`ss-nv ${active ? 'on' : ''}`} aria-current={active ? 'page' : undefined}>
+                    <Link key={item.to} to={item.to} onClick={() => { if (navigationOpen) closeNavigation(); }} className={`ss-nv ${active ? 'on' : ''}`} aria-current={active ? 'page' : undefined}>
                       <Icon size={16} />
                       <span>{t(item.labelKey)}</span>
                       {counts[item.to] > 0 && <span className="n">{counts[item.to]}</span>}
@@ -148,15 +175,34 @@ export default function Layout() {
             <button type="button" className="ss-ib" data-tour="shortcuts-btn" onClick={toggleShortcuts} aria-label={t('shortcuts.title')} title={t('shortcuts.title')} aria-keyshortcuts="?">
               <Keyboard size={16} />
             </button>
-            <button type="button" className="ss-ib" onClick={startTour} aria-label={t('layout.tools.quickTour')} title={t('layout.tools.quickTour')}>
+            <button type="button" className="ss-ib" onClick={() => { if (navigationOpen) closeNavigation(); startTour(); }} aria-label={t('layout.tools.quickTour')} title={t('layout.tools.quickTour')}>
               <Compass size={16} />
             </button>
           </span>
           {version && <span className="font-mono text-[11px] text-ink-3">{/^\d/.test(version) ? `v${version}` : version}</span>}
         </div>
-      </aside>
+    </>
+  );
 
-      <main className="ml-[232px] min-w-0 px-12 py-10">
+  return (
+    <div className="min-h-screen">
+      <aside className="ss-side fixed top-0 left-0 z-30 h-screen hidden md:flex">{sidebar}</aside>
+      <header className="flex items-center gap-3 px-4 py-3 border-b border-line bg-side md:hidden">
+        <button ref={menuButton} type="button" className="ss-ib" aria-label={t('layout.navigation')} aria-expanded={navigationOpen} aria-controls="mobile-navigation" onClick={() => setNavigationOpen(true)}>
+          <Menu size={20} />
+        </button>
+        <b>{t('app.name')}</b>
+      </header>
+      <DialogShell open={navigationOpen} onClose={closeNavigation} ariaLabel={t('layout.navigation')} maxWidth="sm" padding="none" className="ss-side !w-full h-[calc(100dvh-2rem)]">
+        <div id="mobile-navigation" className="flex flex-col flex-1 min-h-0">
+          <div className="flex justify-end">
+            <IconButton icon={<X size={18} />} label={t('common.close')} onClick={closeNavigation} />
+          </div>
+          {sidebar}
+        </div>
+      </DialogShell>
+
+      <main className="min-w-0 px-4 py-6 md:ml-[232px] md:px-12 md:py-10">
         <div className="max-w-[1080px] mx-auto">
           <TargetAgents.Provider value={targetAgents}><Outlet /></TargetAgents.Provider>
         </div>
