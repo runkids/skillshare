@@ -179,14 +179,18 @@ export default function FrontmatterEditor({ frontmatter, onChange, yaml, onYaml 
           {otherRoot.map((key) => (
             <Row key={key} name={key} onRemove={() => set(key, null)}>
               {/* Clearing the value keeps the key, so the row does not vanish while typing */}
-              {Array.isArray(frontmatter[key])
+              {frontmatter[key] && typeof frontmatter[key] === 'object' && !Array.isArray(frontmatter[key])
+                ? <CodeView content={JSON.stringify(frontmatter[key], null, 2)} lang="json" />
+                : Array.isArray(frontmatter[key])
                 ? <ListInput value={frontmatter[key]} onChange={(v) => onChange({ ...frontmatter, [key]: v })} label={key} />
                 : <input aria-label={key} className="ss-inp w-full font-mono outline-none" value={listText(frontmatter[key])} onChange={(e) => onChange({ ...frontmatter, [key]: e.target.value })} />}
             </Row>
           ))}
           {Object.keys(meta).map((key) => (
             <Row key={key} name={`metadata.${key}`} hint={key === 'targets' ? t('frontmatterEditor.field.targets.hint') : undefined} onRemove={() => setMeta(key, undefined)}>
-              {LIST_METADATA.has(key) || Array.isArray(meta[key])
+              {meta[key] && typeof meta[key] === 'object' && !Array.isArray(meta[key])
+                ? <CodeView content={JSON.stringify(meta[key], null, 2)} lang="json" />
+                : LIST_METADATA.has(key) || Array.isArray(meta[key])
                 ? <ListInput value={meta[key]} onChange={(v) => setMeta(key, v)} label={key} />
                 : <input aria-label={key} className="ss-inp w-full font-mono outline-none" value={listText(meta[key])} onChange={(e) => setMeta(key, e.target.value)} />}
             </Row>

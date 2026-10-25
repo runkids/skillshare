@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { parse as parseYaml } from 'yaml';
 import { parseSkillMarkdown, serializeFrontmatter, composeSkillMarkdown } from './frontmatter';
 
 describe('parseSkillMarkdown', () => {
@@ -22,7 +23,12 @@ describe('parseSkillMarkdown', () => {
     const { frontmatter } = parseSkillMarkdown(
       '---\ndescription: |\n  Line one\n  Line two\n---\nbody'
     );
-    expect(frontmatter.description).toBe('Line one\nLine two');
+    expect(frontmatter.description).toBe('Line one\nLine two\n');
+  });
+
+  it('keeps legacy headers with unquoted description colons editable', () => {
+    const { frontmatter } = parseSkillMarkdown('---\nname: foo\ndescription: Use when asked: convert PDF\n---\nbody');
+    expect(frontmatter).toEqual({ name: 'foo', description: 'Use when asked: convert PDF' });
   });
 
   it('skips a leading BOM before the opening fence', () => {
@@ -63,20 +69,56 @@ describe('parseSkillMarkdown', () => {
   });
 });
 
+describe('edited frontmatter', () => {
+  it('decodes quoted descriptions without exposing YAML escapes', () => {
+    const description = 'Use when asked: "convert PDF". Path: C:\\tools';
+    const content = `---\ndescription: ${JSON.stringify(description)}\n---\n# Body`;
+    expect(parseSkillMarkdown(content).frontmatter.description).toBe(description);
+  });
+
+  it('preserves folded descriptions and nested flow metadata through repeated edits', () => {
+    const metadata = { openclaw: { emoji: '📄', requires: { bins: ['mineru-open-api'] }, install: [{ kind: 'node', package: 'mineru-open-api' }] } };
+    const original = `---\nname: MinerU Document Extractor\ndescription: >-\n  Convert PDFs.\n  Use when asked: "convert PDF to Markdown".\nmetadata: ${JSON.stringify(metadata)}\nallowed-tools: Bash(mineru-open-api:*)\n---\n# MinerU\n`;
+    const description = 'MinerU document extraction: convert PDFs. Use when asked: "convert PDF". 文件提取 C:\\tools';
+    let content = original;
+    for (let i = 0; i < 3; i++) {
+      const parsed = parseSkillMarkdown(content);
+      expect(parsed.frontmatter.metadata).toEqual(metadata);
+      content = composeSkillMarkdown({ ...parsed.frontmatter, name: 'mineru-document-extractor', description }, parsed.body);
+      const saved = parseSkillMarkdown(content);
+      expect(parseYaml(saved.rawFrontmatter)).toMatchObject({ name: 'mineru-document-extractor', description, metadata });
+      expect(saved.frontmatter.description).toBe(description);
+      expect(saved.body).toBe('# MinerU\n');
+    }
+    expect(content).toContain('description: >-\n');
+    expect(content).not.toContain('\\"convert PDF');
+  });
+
+  it('preserves YAML chomp indicators, paragraphs and typed metadata', () => {
+    const content = '---\ndescription: >-\n  Line one\n  wraps here\n\n  Next paragraph\nmetadata:\n  version: "1.0"\n  enabled: false\n  aliases: ["a, b", "true"]\n---\nbody';
+    const parsed = parseSkillMarkdown(content);
+    expect(parsed.frontmatter.description).toBe('Line one wraps here\nNext paragraph');
+    expect(parsed.frontmatter.metadata).toEqual({ version: '1.0', enabled: false, aliases: ['a, b', 'true'] });
+    const saved = composeSkillMarkdown({ ...parsed.frontmatter, name: 'foo' }, parsed.body);
+    expect(parseYaml(parseSkillMarkdown(saved).rawFrontmatter)).toEqual({ ...parsed.frontmatter, name: 'foo' });
+  });
+});
+
 describe('serializeFrontmatter', () => {
   it('emits known-safe scalars unquoted', () => {
     const out = serializeFrontmatter({ name: 'foo' });
     expect(out).toContain('name: foo');
   });
 
-  it('quotes values with YAML-reserved chars', () => {
-    const out = serializeFrontmatter({ description: 'hello: world' });
-    expect(out).toContain('description: "hello: world"');
+  it('quotes non-prose values with YAML-reserved chars', () => {
+    const out = serializeFrontmatter({ name: 'hello: world' });
+    expect(out).toContain('name: "hello: world"');
   });
 
   it('emits multiline as block scalar', () => {
-    const out = serializeFrontmatter({ description: 'line1\nline2' });
-    expect(out).toMatch(/description: \|\n {2}line1\n {2}line2/);
+    const out = serializeFrontmatter({ when_to_use: 'line1\nline2' });
+    expect(out).toMatch(/when_to_use: \|-\n {2}line1\n {2}line2/);
+    expect(parseYaml(parseSkillMarkdown(out).rawFrontmatter).when_to_use).toBe('line1\nline2');
   });
 
   it('emits inline arrays for scalar elements', () => {

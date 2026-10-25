@@ -1,12 +1,10 @@
-// Tiny YAML frontmatter parser/serializer — handles the field set SKILL.md cares
-// about (scalars, inline arrays, multiline block scalars). Not a general-purpose
-// YAML parser; fidelity is "good enough for SKILL.md round-trips".
+import { Document, isScalar, isSeq, parse, Scalar } from 'yaml';
 
 export type FrontmatterScalar = string | number | boolean | null;
-export type FrontmatterNested = Record<string, FrontmatterScalar | FrontmatterScalar[]>;
+export type FrontmatterNested = { [key: string]: FrontmatterValue };
 export type FrontmatterValue =
   | FrontmatterScalar
-  | FrontmatterScalar[]
+  | FrontmatterValue[]
   | FrontmatterNested;
 export type Frontmatter = Record<string, FrontmatterValue>;
 
@@ -49,6 +47,16 @@ function parseFenced(content: string): Omit<ParsedSkillMarkdown, 'bom'> {
 }
 
 function parseYaml(text: string): Frontmatter {
+  try {
+    const value = parse(text + '\n');
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  } catch {
+    // Keep older, non-YAML skill headers editable (e.g. unquoted description colons).
+    return parseLegacyYaml(text);
+  }
+}
+
+function parseLegacyYaml(text: string): Frontmatter {
   const out: Frontmatter = {};
   const lines = text.split(/\r?\n/);
   let i = 0;
@@ -146,74 +154,22 @@ function unquote(s: string): string | number | boolean {
 }
 
 export function serializeFrontmatter(fm: Frontmatter, keyOrder?: string[]): string {
-  const lines: string[] = ['---'];
-  const written = new Set<string>();
-  const push = (key: string) => {
-    if (written.has(key)) return;
+  const doc = new Document();
+  const keys = new Set([...(keyOrder ?? []), ...Object.keys(fm)]);
+  for (const key of keys) {
     const value = fm[key];
-    if (value == null || value === '' || (Array.isArray(value) && value.length === 0)) return;
-    if (typeof value === 'object' && !Array.isArray(value)) {
-      const entries = Object.entries(value).filter(
-        ([, v]) => v != null && v !== '' && !(Array.isArray(v) && v.length === 0),
-      );
-      if (entries.length === 0) return;
-      written.add(key);
-      lines.push(`${key}:`);
-      for (const [subK, subV] of entries) {
-        if (Array.isArray(subV)) {
-          lines.push(`  ${subK}: [${subV.map((v) => String(v)).join(', ')}]`);
-        } else if (typeof subV === 'number' || typeof subV === 'boolean') {
-          lines.push(`  ${subK}: ${subV}`);
-        } else {
-          lines.push(`  ${subK}: ${quote(String(subV))}`);
-        }
-      }
-      return;
+    if (value == null || value === '' || (Array.isArray(value) && value.length === 0)) continue;
+    const node = doc.createNode(value);
+    // Prose stays readable without adding quote escapes to the source.
+    if (key === 'description' && isScalar(node) && typeof value === 'string' && /:\s|\n/.test(value)) {
+      node.type = Scalar.BLOCK_FOLDED;
     }
-    written.add(key);
-    if (Array.isArray(value)) {
-      const allScalar = value.every((v) => !/[,\s]/.test(String(v)));
-      if (allScalar) {
-        lines.push(`${key}: [${value.map((v) => String(v)).join(', ')}]`);
-      } else {
-        lines.push(`${key}:`);
-        for (const v of value) lines.push(`  - ${quote(String(v))}`);
-      }
-      return;
+    if (isSeq(node) && value instanceof Array && value.every((v) => v == null || typeof v !== 'object')) {
+      node.flow = value.every((v) => !/[,\s]/.test(String(v)));
     }
-    const str = String(value);
-    if (/\n/.test(str)) {
-      lines.push(`${key}: |`);
-      for (const line of str.split('\n')) lines.push('  ' + line);
-      return;
-    }
-    if (typeof value === 'number' || typeof value === 'boolean') {
-      lines.push(`${key}: ${value}`);
-      return;
-    }
-    lines.push(`${key}: ${quote(str)}`);
-  };
-  const order = keyOrder ?? Object.keys(fm);
-  for (const key of order) push(key);
-  for (const key of Object.keys(fm)) push(key);
-  lines.push('---');
-  return lines.join('\n');
-}
-
-function quote(s: string): string {
-  // Emit as a YAML plain scalar when safe. Quoting is only required for:
-  //   - empty strings or leading/trailing whitespace
-  //   - strings starting with a YAML indicator character
-  //   - `-`, `?`, `:` followed by space/EOL
-  //   - strings containing `: ` or ` #` (would be parsed as mapping / comment)
-  //   - values that look like bool/null/number (avoid auto-coercion on re-parse)
-  if (s === '' || s.trim() !== s) return `"${s.replace(/"/g, '\\"')}"`;
-  if (/^[!&*[\]{}|>@`'"%#,]/.test(s)) return `"${s.replace(/"/g, '\\"')}"`;
-  if (/^[-?:](\s|$)/.test(s)) return `"${s.replace(/"/g, '\\"')}"`;
-  if (/:\s|\s#/.test(s)) return `"${s.replace(/"/g, '\\"')}"`;
-  if (/^(true|false|null|~|yes|no|on|off)$/i.test(s)) return `"${s}"`;
-  if (/^-?\d+(\.\d+)?$/.test(s)) return `"${s}"`;
-  return s;
+    doc.set(key, node);
+  }
+  return `---\n${doc.toString({ lineWidth: 0, singleQuote: false, flowCollectionPadding: false })}---`;
 }
 
 export function composeSkillMarkdown(
