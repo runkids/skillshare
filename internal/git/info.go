@@ -247,7 +247,7 @@ func pullWithResolution(repoPath string, extraEnv []string, onProgress func(stri
 		return nil, err
 	}
 	info.BeforeHash = beforeHash
-	dirtyBefore := statusPaths(repoPath)
+	restoreCheckout := install.GitCheckoutRecovery(repoPath, "@{upstream}")
 
 	// Merge explicitly: without pull.rebase/pull.ff configured, git refuses to
 	// reconcile a branch that both this machine and the remote moved.
@@ -267,7 +267,7 @@ func pullWithResolution(repoPath string, extraEnv []string, onProgress func(stri
 			abort.Dir = repoPath
 			abort.Run() // best-effort; fails harmlessly when no merge started
 			if after, _ := GetCurrentFullHash(repoPath); after == beforeHash {
-				restorePullResidue(repoPath, dirtyBefore)
+				restoreCheckout()
 			}
 			if len(conflicts) > 0 {
 				return nil, conflictErr
@@ -294,66 +294,6 @@ func pullWithResolution(repoPath string, extraEnv []string, onProgress func(stri
 	info.Stats = stats
 
 	return info, nil
-}
-
-// statusPaths returns every path git status reports, tracked or not.
-func statusPaths(dir string) map[string]bool {
-	cmd := exec.Command("git", "status", "--porcelain", "-z", "-uall", "--no-renames")
-	cmd.Dir = dir
-	out, err := cmd.Output()
-	paths := map[string]bool{}
-	if err != nil {
-		return paths
-	}
-	for entry := range strings.SplitSeq(string(out), "\x00") {
-		if len(entry) > 3 {
-			paths[entry[3:]] = true
-		}
-	}
-	return paths
-}
-
-// restorePullResidue puts back files a failed pull already wrote. git stops a
-// checkout it cannot finish (e.g. "unable to unlink old ...: Permission
-// denied") without undoing the files before it, and with no MERGE_HEAD there
-// is nothing for merge --abort to undo. Left alone, the remote's copies show
-// up as local changes that block the next pull and invite committing them.
-// Only paths that were clean before the pull and now hold exactly the
-// upstream version are restored, so the user's own edits are never touched.
-func restorePullResidue(dir string, dirtyBefore map[string]bool) {
-	blob := func(rev, path string) string {
-		cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", rev+":"+path)
-		cmd.Dir = dir
-		out, _ := cmd.Output() // empty when the path is absent at rev
-		return strings.TrimSpace(string(out))
-	}
-	for path := range statusPaths(dir) {
-		if dirtyBefore[path] {
-			continue
-		}
-		upstream := blob("@{upstream}", path)
-		full := filepath.Join(dir, path)
-		if _, err := os.Lstat(full); err == nil {
-			hash := exec.Command("git", "hash-object", "--", path)
-			hash.Dir = dir
-			out, err := hash.Output()
-			if err != nil || upstream == "" || strings.TrimSpace(string(out)) != upstream {
-				continue
-			}
-		} else if upstream != "" {
-			continue // missing here but present upstream: not the pull's doing
-		}
-		if blob("HEAD", path) != "" {
-			restore := exec.Command("git", "checkout", "HEAD", "--", path)
-			restore.Dir = dir
-			restore.Run() // best-effort; the pull error is what gets reported
-			continue
-		}
-		unstage := exec.Command("git", "rm", "--cached", "--quiet", "--ignore-unmatch", "--", path)
-		unstage.Dir = dir
-		unstage.Run()
-		os.Remove(full)
-	}
 }
 
 // conflictedFiles lists the paths an in-progress merge left unmerged.

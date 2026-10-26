@@ -91,15 +91,15 @@ func TestTrackedRepo_CleanUpdate(t *testing.T) {
 	}
 }
 
-func TestTrackedRepo_FindingsAtThresholdRollBack(t *testing.T) {
+func TestTrackedRepo_FindingsAtThresholdLeaveCheckoutUnchanged(t *testing.T) {
 	f := newFixture(t, maliciousSkill)
 
 	res, err := TrackedRepo(f.repo, f.opts())
-	gateErr := blocked(t, err, install.RolledBack)
+	gateErr := blocked(t, err, install.CheckoutUnchanged)
 	if gateErr.ScanErr != nil || gateErr.Threshold != audit.SeverityCritical {
 		t.Errorf("unexpected gate error %+v", gateErr)
 	}
-	if !strings.Contains(err.Error(), "findings at/above CRITICAL detected — rolled back") {
+	if !strings.Contains(err.Error(), "findings at/above CRITICAL detected — candidate rejected; checkout unchanged") {
 		t.Errorf("unexpected message: %v", err)
 	}
 	if res.Audit == nil || !res.Audit.HasSeverityAtOrAbove(audit.SeverityCritical) {
@@ -120,7 +120,7 @@ func TestTrackedRepo_BelowThresholdApplies(t *testing.T) {
 	}
 }
 
-func TestTrackedRepo_ScanErrorRollsBack(t *testing.T) {
+func TestTrackedRepo_ScanErrorLeavesCheckoutUnchanged(t *testing.T) {
 	f := newFixture(t, cleanSkill+"More help.\n")
 	project := t.TempDir()
 	rules := filepath.Join(project, ".skillshare", "audit-rules.yaml")
@@ -136,7 +136,7 @@ func TestTrackedRepo_ScanErrorRollsBack(t *testing.T) {
 		opts.ProjectRoot = project
 		opts.Force = force
 		res, err := TrackedRepo(f.repo, opts)
-		gateErr := blocked(t, err, install.RolledBack)
+		gateErr := blocked(t, err, install.CheckoutUnchanged)
 		if gateErr.ScanErr == nil || res.Audit != nil {
 			t.Errorf("force=%t: expected a scan error without a result, got %+v / %+v", force, gateErr, res.Audit)
 		}
@@ -146,21 +146,21 @@ func TestTrackedRepo_ScanErrorRollsBack(t *testing.T) {
 	}
 }
 
-func TestTrackedRepo_ResetFailureIsReported(t *testing.T) {
+func TestTrackedRepo_RejectionDoesNotNeedLiveReset(t *testing.T) {
 	f := newFixture(t, maliciousSkill)
 
-	// Git refuses to reset while another process holds the index lock.
+	// Even when the live checkout cannot reset, rejection must remain safe.
 	opts := f.opts()
 	opts.Confirm = func(*TrackedRepoResult) (bool, error) {
 		return false, os.WriteFile(filepath.Join(f.repo, ".git", "index.lock"), nil, 0o644)
 	}
 	_, err := TrackedRepo(f.repo, opts)
-	gateErr := blocked(t, err, install.RollbackFailed)
-	if gateErr.ResetErr == nil || !strings.Contains(err.Error(), "WARNING: rollback also failed") || !strings.Contains(err.Error(), "malicious content may remain") {
-		t.Errorf("rollback failure not reported: %v", err)
+	gateErr := blocked(t, err, install.CheckoutUnchanged)
+	if gateErr.ResetErr != nil || !strings.Contains(err.Error(), "checkout unchanged") {
+		t.Errorf("unexpected rejection: %v", err)
 	}
-	if f.head(t) == f.before {
-		t.Error("test did not make the rollback fail")
+	if f.head(t) != f.before {
+		t.Error("rejection changed the active checkout")
 	}
 }
 
@@ -195,7 +195,7 @@ func TestTrackedRepo_Confirm(t *testing.T) {
 				}
 				return
 			}
-			blocked(t, err, install.RolledBack)
+			blocked(t, err, install.CheckoutUnchanged)
 			if f.head(t) != f.before {
 				t.Error("update was not rolled back")
 			}

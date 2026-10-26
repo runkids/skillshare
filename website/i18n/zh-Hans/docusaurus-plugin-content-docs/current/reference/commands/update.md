@@ -38,12 +38,12 @@ Next
 flowchart TD
     TITLE["skillshare update _team-skills"]
     S1["1. Check for uncommitted changes"]
-    S2["2. Run git pull"]
+    S2["2. Pull into isolated candidate"]
     S3["3. Security audit gate"]
-    S4["4. Show changes"]
+    S4["4. Publish audited commit"]
     TITLE --> S1 -- clean --> S2 --> S3
     S3 -- pass --> S4
-    S3 -- "At/above threshold" --> RB["Rollback"]
+    S3 -- "At/above threshold" --> RB["Reject; checkout unchanged"]
 
     style RB fill:#ef4444,color:#fff
 ```
@@ -69,7 +69,7 @@ flowchart TD
 | `--group, -G <name>` | Update all updatable skills in a group, or all agents in an agent subdirectory |
 | `--force, -f` | Discard local changes, proceed despite audit findings, and reinstall remote skills that are already at the upstream commit |
 | `--dry-run, -n` | Preview without making changes |
-| `--skip-audit` | Skip the post-update security audit gate |
+| `--skip-audit` | Skip the security audit gate |
 | `--audit-threshold <t>`, `--threshold <t>`, `-T <t>` | Override update audit block threshold (`critical|high|medium|low|info`; shorthand: `c|h|m|l|i`, plus `crit`, `med`) |
 | `--diff` | Show file-level change summary after skill/repo update |
 | `--audit-verbose` | Show detailed per-skill audit findings in batch mode |
@@ -280,9 +280,9 @@ Tracked repositories（`_repo`）不受 `--prune` 影响。当某个 tracked rep
 
 ## Security Audit Gate {#security-audit-gate}
 
-更新 skills 后，`update` 会自动运行一次安全审计：
+发布 tracked 更新前，`update` 会审计隔离的候选 checkout。通过审核前，正式 checkout 和已有 target 链接仍提供旧内容：
 
-- **Tracked repos（`git pull`）**在生效阈值（`audit.block_threshold`，默认 `CRITICAL`）上使用 post-pull gate
+- **Tracked repos（`git pull`）**在私有 checkout 中拉取并按生效阈值（`audit.block_threshold`，默认 `CRITICAL`）扫描，再发布已审计的确切 commit，不再从上游拉取
 - **普通 skills（重新安装路径）**使用相同的阈值策略
 - 对于所有更新类型，都会显示风险标签/分数以供审阅参考
 
@@ -302,11 +302,11 @@ Tracked repositories（`_repo`）不受 `--prune` 影响。当某个 tracked rep
 ```
 
 - **Yes** — 接受更新，忽略 findings
-- **No**（默认）— 回滚到 pull 之前的状态
+- **No**（默认）— 丢弃候选，正式 checkout 保持不变
 
 ### 非交互模式（CI/CD）
 
-在非交互环境中，更新会被自动回滚，并且命令以非零代码退出。这确保了 CI 流水线中的 fail-closed 行为。
+在非交互环境中，阻断级别的发现会拒绝候选，命令以非零代码退出。扫描错误也会保留正式 checkout 和 metadata，即使使用 `--force`。发布并非多文件原子切换。
 
 ```bash
 # Bypass the audit gate when you trust the source
@@ -314,7 +314,7 @@ skillshare update --all --skip-audit
 ```
 
 :::caution
-`--skip-audit` 会完全禁用更新后的安全扫描。仅在你信任来源或已有外部审计流程时使用它。
+`--skip-audit` 会完全禁用安全扫描。仅在你信任来源或已有外部审计流程时使用它。
 :::
 
 ### Accepted Findings {#accepted-findings}

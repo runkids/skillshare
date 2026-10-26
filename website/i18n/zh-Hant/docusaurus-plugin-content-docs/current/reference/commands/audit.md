@@ -194,7 +194,7 @@ skillshare install /path/to/skill --skip-audit
 
 ### 更新時
 
-`skillshare update` 在拉取 tracked repos 後會執行安全 audit。達到或超過目前啟用門檻（預設為 `audit.block_threshold`，或以 `--audit-threshold` / `--threshold` / `-T` 覆蓋）的發現項目會觸發 rollback。詳情參見 [`update --skip-audit`](/docs/reference/commands/update#security-audit-gate)。
+`skillshare update` 會將 tracked repos 拉取到隔離的候選副本中，並在發布前執行安全 audit。達到或超過目前啟用門檻（預設為 `audit.block_threshold`，或以 `--audit-threshold` / `--threshold` / `-T` 覆蓋）的發現項目會阻止發布，除非明確接受；拒絕時實際 checkout 保持不變。詳情參見 [`update --skip-audit`](/docs/reference/commands/update#security-audit-gate)。
 
 你用 `--force` 接受的發現項目會針對該 skill 被記住，之後的更新不會因為同一條規則比對到相同文字而再次阻擋。新的發現項目，或同一條規則比對到不同文字，仍會再次阻擋。參見 [Accepted Findings](/docs/reference/commands/update#accepted-findings)。
 

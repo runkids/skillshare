@@ -72,10 +72,10 @@ flowchart TD
     end
 
     subgraph UPDATE ["阶段 2 — 更新"]
-        U1["skillshare update _repo"] --> U2["git pull"]
-        U2 --> U3{"更新后审计<br/>（阈值关卡）"}
-        U3 -- "达到/超过阈值" --> U4["回滚<br/>（在 CI / 非 TTY 中自动执行）"]
-        U3 -- "干净" --> U5["Tracked repo 更新完成 ✓"]
+        U1["skillshare update _repo"] --> U2["在隔离候选副本中 git pull"]
+        U2 --> U3{"审计候选副本<br/>（阈值关卡）"}
+        U3 -- "达到/超过阈值" --> U4["拒绝候选副本<br/>（checkout 不变）"]
+        U3 -- "干净 / 已批准" --> U5["发布已审计的 revision ✓"]
 
         R1["skillshare update &lt;skill&gt;"] --> R2["从 Source 重新安装"]
         R2 --> R3{"安装时审计<br/>（阈值关卡）"}
@@ -123,7 +123,7 @@ flowchart TD
 **关键设计：**
 - **常规 Skill 安装/更新** — 审计在接受前运行；成功的安装/更新会写入 `file_hashes` 元数据
 - **Tracked repo 安装关卡** — 全新的 `--track` 安装会在接受前对整个克隆的仓库进行审计
-- **Tracked repo 更新关卡** — `skillshare update` 在 `git pull` 之后进行审计；达到/超过阈值的发现会在非交互模式下自动触发回滚
+- **Tracked repo 更新关卡** — `skillshare update` 会拉取并审计隔离的候选副本；拒绝时不修改实际 checkout，批准后只发布已审计的 revision
 - **完整性验证范围** — 只有存在 `file_hashes` 元数据时，才会运行 `content-*` 哈希检查
 
 ## 安全检查清单

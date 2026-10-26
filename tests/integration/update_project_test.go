@@ -228,7 +228,7 @@ func TestUpdateProject_BatchAll_FailsOnMalicious(t *testing.T) {
 	result.AssertAnyOutputContains(t, "blocked by security audit")
 
 	// Blocked section shows details (not just a count)
-	result.AssertAnyOutputContains(t, "Blocked and rolled back")
+	result.AssertAnyOutputContains(t, "Blocked by security audit")
 	result.AssertAnyOutputContains(t, maliciousName)
 
 	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")

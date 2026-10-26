@@ -428,10 +428,10 @@ func TestUpdate_AutoAudit_RollbackOnMalicious(t *testing.T) {
 
 	repoName := setupTrackedRepoWithMaliciousUpdate(t, sb)
 
-	// Non-interactive: should auto-rollback
+	// Non-interactive: reject the candidate without changing the checkout.
 	result := sb.RunCLI("update", repoName)
 	result.AssertFailure(t)
-	result.AssertAnyOutputContains(t, "rolled back")
+	result.AssertAnyOutputContains(t, "checkout unchanged")
 
 	// Verify the content is still clean (rolled back)
 	content := sb.ReadFile(filepath.Join(sb.SourcePath, repoName, "my-skill", "SKILL.md"))
@@ -594,7 +594,7 @@ func TestUpdate_BatchAll_FailsOnMalicious(t *testing.T) {
 	result.AssertAnyOutputContains(t, "blocked by security audit")
 
 	// Blocked section shows details (not just a count)
-	result.AssertAnyOutputContains(t, "Blocked and rolled back")
+	result.AssertAnyOutputContains(t, "Blocked by security audit")
 	result.AssertAnyOutputContains(t, maliciousName)
 
 	// Clean repo should be updated

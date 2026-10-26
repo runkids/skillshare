@@ -38,12 +38,12 @@ Next
 flowchart TD
     TITLE["skillshare update _team-skills"]
     S1["1. 檢查是否有未提交的變更"]
-    S2["2. 執行 git pull"]
+    S2["2. Pull into isolated candidate"]
     S3["3. 安全性 Audit 關卡"]
-    S4["4. 顯示變更"]
+    S4["4. Publish audited commit"]
     TITLE --> S1 -- clean --> S2 --> S3
     S3 -- pass --> S4
-    S3 -- "At/above threshold" --> RB["回滾"]
+    S3 -- "At/above threshold" --> RB["Reject; checkout unchanged"]
 
     style RB fill:#ef4444,color:#fff
 ```
@@ -69,7 +69,7 @@ flowchart TD
 | `--group, -G <name>` | 更新群組中所有可更新的 skills，或某個 agent 子目錄中所有 agents |
 | `--force, -f` | 捨棄本機變更並強制執行，即使有 audit 發現的問題，並重新安裝已在 upstream commit 的遠端 skill |
 | `--dry-run, -n` | 預覽而不做任何變更 |
-| `--skip-audit` | 跳過更新後的安全性 audit 關卡 |
+| `--skip-audit` | 跳過安全性 audit 關卡 |
 | `--audit-threshold <t>`, `--threshold <t>`, `-T <t>` | 覆寫更新 audit 的封鎖門檻（`critical|high|medium|low|info`；簡寫：`c|h|m|l|i`，以及 `crit`、`med`） |
 | `--diff` | 在 skill/儲存庫更新後顯示檔案層級的變更摘要 |
 | `--audit-verbose` | 在批次模式下顯示每個 skill 的詳細 audit 發現 |
@@ -280,9 +280,9 @@ Tracked 儲存庫（`_repo`）不受 `--prune` 影響。當 tracked 儲存庫內
 
 ## 安全性 Audit 關卡 {#security-audit-gate}
 
-在更新 skills 後，`update` 會自動執行安全性 audit：
+發布 tracked 更新前，`update` 會稽核隔離的候選 checkout。核准前，正式 checkout 與既有 target 連結仍提供舊內容：
 
-- **Tracked 儲存庫（`git pull`）** 使用 pull 後的關卡，門檻為目前生效的門檻（`audit.block_threshold`，預設為 `CRITICAL`）
+- **Tracked 儲存庫（`git pull`）** 在私有 checkout 中拉取並依生效門檻（`audit.block_threshold`，預設為 `CRITICAL`）掃描，再發布已稽核的確切 commit，不再從上游拉取
 - **一般 skills（重新安裝路徑）** 使用相同的門檻政策
 - 對於所有更新類型，都會顯示風險標籤/分數以供檢視參考
 
@@ -302,11 +302,11 @@ Tracked 儲存庫（`_repo`）不受 `--prune` 影響。當 tracked 儲存庫內
 ```
 
 - **Yes** — 接受更新，即使有發現的問題
-- **No**（預設）— 回滾到 pull 前的狀態
+- **No**（預設）— 捨棄候選，正式 checkout 保持不變
 
 ### 非互動模式（CI/CD）
 
-在非互動環境中，更新會自動回滾，且指令會以非零狀態碼結束。這確保了 CI pipeline 中的 fail-closed 行為。
+在非互動環境中，阻擋性發現會拒絕候選，指令以非零狀態碼結束。掃描錯誤也會保留正式 checkout 與 metadata，即使使用 `--force`。發布並非多檔案原子切換。
 
 ```bash
 # 當你信任來源時，可繞過 audit 關卡
@@ -314,7 +314,7 @@ skillshare update --all --skip-audit
 ```
 
 :::caution
-`--skip-audit` 會完全停用更新後的安全性掃描。僅在你信任來源，或有外部 audit 流程時才使用。
+`--skip-audit` 會完全停用安全性掃描。僅在你信任來源，或有外部 audit 流程時才使用。
 :::
 
 ### 已接受的發現 {#accepted-findings}

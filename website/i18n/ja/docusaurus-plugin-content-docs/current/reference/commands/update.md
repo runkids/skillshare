@@ -38,12 +38,12 @@ Next
 flowchart TD
     TITLE["skillshare update _team-skills"]
     S1["1. Check for uncommitted changes"]
-    S2["2. Run git pull"]
+    S2["2. Pull into isolated candidate"]
     S3["3. Security audit gate"]
-    S4["4. Show changes"]
+    S4["4. Publish audited commit"]
     TITLE --> S1 -- clean --> S2 --> S3
     S3 -- pass --> S4
-    S3 -- "At/above threshold" --> RB["Rollback"]
+    S3 -- "At/above threshold" --> RB["Reject; checkout unchanged"]
 
     style RB fill:#ef4444,color:#fff
 ```
@@ -69,7 +69,7 @@ flowchart TD
 | `--group, -G <name>` | グループ内の更新可能なすべての skill、または agent サブディレクトリ内のすべての agent を更新 |
 | `--force, -f` | ローカルの変更を破棄し、audit の検出結果があっても続行し、すでに upstream の commit にあるリモート skill も再インストール |
 | `--dry-run, -n` | 変更を加えずにプレビュー |
-| `--skip-audit` | 更新後の security audit gate をスキップ |
+| `--skip-audit` | security audit gate をスキップ |
 | `--audit-threshold <t>`, `--threshold <t>`, `-T <t>` | update の audit ブロックしきい値を上書き（`critical|high|medium|low|info`；省略形: `c|h|m|l|i`、加えて `crit`、`med`） |
 | `--diff` | skill/repo 更新後にファイルレベルの変更サマリーを表示 |
 | `--audit-verbose` | batch mode で skill ごとの詳細な audit 検出結果を表示 |
@@ -280,9 +280,9 @@ tracked repositories（`_repo`）は `--prune` の影響を受けません。tra
 
 ## セキュリティ Audit ゲート {#security-audit-gate}
 
-skill を更新した後、`update` は自動的に security audit を実行します。
+Tracked 更新の公開前に、`update` は隔離された候補 checkout を監査します。承認までは既存の checkout と target リンクが旧コンテンツを提供します。
 
-- **Tracked repos（`git pull`）** は有効なしきい値（`audit.block_threshold`、デフォルト `CRITICAL`）での post-pull gate を使用します
+- **Tracked repos（`git pull`）** は非公開の checkout で pull と監査を実行し、有効なしきい値（`audit.block_threshold`、デフォルト `CRITICAL`）で承認された正確な commit を公開します。上流から再度 pull しません
 - **通常の skill（再インストールパス）** は同じしきい値ポリシーを使用します
 - どの更新タイプでも、確認用に risk のラベル/スコアが表示されます
 
@@ -302,11 +302,11 @@ skill を更新した後、`update` は自動的に security audit を実行し�
 ```
 
 - **Yes** — 検出結果があっても更新を受け入れる
-- **No**（デフォルト） — pull 前の状態にロールバックする
+- **No**（デフォルト） — 候補を破棄し、既存の checkout を変更しない
 
 ### 非対話モード（CI/CD）
 
-非対話環境では、更新は自動的にロールバックされ、コマンドは非ゼロのコードで終了します。これにより CI パイプラインでの fail-closed な挙動が保証されます。
+非対話環境では、ブロック対象の検出結果があると候補を拒否し、非ゼロのコードで終了します。スキャンエラーでも既存の checkout と metadata は変更されず、`--force` でも上書きできません。公開は複数ファイルのアトミックな切り替えではありません。
 
 ```bash
 # source を信頼している場合は audit gate をバイパスする
@@ -314,7 +314,7 @@ skillshare update --all --skip-audit
 ```
 
 :::caution
-`--skip-audit` は更新後の security scan を完全に無効化します。source を信頼している場合、または外部の audit プロセスがある場合にのみ使用してください。
+`--skip-audit` は security scan を完全に無効化します。source を信頼している場合、または外部の audit プロセスがある場合にのみ使用してください。
 :::
 
 ### 承認済みの検出結果 {#accepted-findings}

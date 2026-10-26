@@ -72,10 +72,10 @@ flowchart TD
     end
 
     subgraph UPDATE ["Phase 2 — Update"]
-        U1["skillshare update _repo"] --> U2["git pull"]
-        U2 --> U3{"Update 후 audit<br/>(threshold 게이트)"}
-        U3 -- "threshold 이상" --> U4["Rollback<br/>(CI/non-TTY에서 자동)"]
-        U3 -- "깨끗함" --> U5["Tracked repo 업데이트 완료 ✓"]
+        U1["skillshare update _repo"] --> U2["격리된 후보에서 git pull"]
+        U2 --> U3{"후보 audit<br/>(threshold 게이트)"}
+        U3 -- "threshold 이상" --> U4["후보 거부<br/>(checkout 변경 없음)"]
+        U3 -- "깨끗함 / 승인" --> U5["audit한 revision 게시 ✓"]
 
         R1["skillshare update &lt;skill&gt;"] --> R2["source에서 재설치"]
         R2 --> R3{"Install 시점 audit<br/>(threshold 게이트)"}
@@ -123,7 +123,7 @@ flowchart TD
 **핵심 설계:**
 - **일반 skill install/update** — 수락 전에 audit이 실행됨. 성공한 install/update는 `file_hashes` 메타데이터를 기록
 - **Tracked repo install 게이트** — 새로 `--track`으로 install하면 수락 전에 clone된 전체 repo가 audit됨
-- **Tracked repo update 게이트** — `skillshare update`는 `git pull` 후 audit함. threshold 이상의 결과는 non-interactive 모드에서 자동으로 rollback을 트리거함
+- **Tracked repo update 게이트** — `skillshare update`는 격리된 후보를 pull하고 audit함. 거부하면 실제 checkout은 바뀌지 않으며, 승인하면 audit한 revision 그대로 게시함
 - **Integrity 검증 범위** — `content-*` 해시 검사는 `file_hashes` 메타데이터가 존재할 때만 실행됨
 
 ## 보안 체크리스트

@@ -369,7 +369,7 @@ skillshare install anthropics/skills/skills/pdf
 
 새로고침하려면 `--update`를, 덮어쓰려면 `--force`를 사용하세요.
 
-[따라간 source 링크](../targets/configuration.md#follow_source_links) 뒤에 있는 tracked repo에 `--update`를 사용하면, 해당 checkout에 커밋되지 않은 변경 사항이 있는 동안에는 pull을 거부합니다. 차단 수준의 audit 발견 사항이 `git reset --hard`로 checkout을 롤백해 버리기 때문입니다. 먼저 commit하거나 stash하세요.
+[따라간 source 링크](../targets/configuration.md#follow_source_links) 뒤의 tracked repo에 `--update`를 사용하면, checkout에 커밋되지 않은 변경 사항이 있을 때 pull을 거부합니다. 먼저 commit하거나 stash하세요.
 
 ### Cross-path 중복
 
@@ -635,12 +635,12 @@ Tracked repo는 동일한 threshold 모델을 사용하지만, 스캔 범위와 
 - 신규 설치가 차단되면, skillshare는 source에서 clone된 repo를 자동으로 제거합니다
 - 자동 정리가 실패하면, install은 명시적인 오류를 반환하고 경로를 수동으로 제거하라고 안내합니다
 
-install을 통한 tracked repo 업데이트(`skillshare install <repo> --track --update`)는 `git pull` 이후 감사됩니다.
+install을 통한 tracked repo 업데이트(`skillshare install <repo> --track --update`)도 동일한 격리 후보 감사 흐름을 사용합니다.
 
-- skillshare는 먼저 pull 이전의 commit hash를 캡처합니다
-- hash 캡처가 실패하면 업데이트는 즉시 중단됩니다 (fail-closed)
-- threshold 이상의 findings가 감지되면, 업데이트는 pull 이전 commit으로 롤백됩니다
-- 롤백이 실패하면, 명령은 악성 콘텐츠가 남아 있을 수 있다는 경고와 함께 종료됩니다
+- 임시 checkout에서 pull과 감사를 실행하며 기존 source 디렉터리를 변경하지 않습니다
+- 거부 또는 스캔 오류 시 기존 checkout과 metadata가 유지됩니다
+- 승인한 정확한 commit을 게시하며 upstream에서 다시 pull하지 않습니다
+- `--force`는 findings를 무시할 수 있지만 스캔 오류는 무시할 수 없습니다
 
 ### `--force` vs `--skip-audit`
 

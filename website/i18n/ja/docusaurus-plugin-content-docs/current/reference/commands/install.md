@@ -369,7 +369,7 @@ skillshare install anthropics/skills/skills/pdf
 
 更新するには `--update`、上書きするには `--force` を使用します。
 
-[たどられた source リンク](../targets/configuration.md#follow_source_links)の背後にある tracked repo に対する `--update` は、そのチェックアウトにコミットされていない変更がある間は pull を拒否します。ブロックする audit の検出結果によって `git reset --hard` で巻き戻されてしまうためです。先にコミットするか stash してください。
+[たどられた source リンク](../targets/configuration.md#follow_source_links)の背後にある tracked repo への `--update` は、checkout に未コミットの変更がある場合 pull を拒否します。先に commit または stash してください。
 
 ### クロスパスの重複
 
@@ -635,12 +635,12 @@ skillshare install suspicious-skill -T h
 - 新規インストールがブロックされた場合、skillshare はクローンしたリポジトリをソースから自動的に削除します
 - 自動クリーンアップが失敗した場合、install は明示的なエラーを返し、パスを手動で削除するよう案内します
 
-install 経由でのトラック対象リポジトリ更新（`skillshare install <repo> --track --update`）は、`git pull` の後に監査されます。
+install 経由の tracked repo 更新（`skillshare install <repo> --track --update`）も、同じ隔離候補の監査フローを使用します。
 
-- skillshare はまず pull 前のコミットハッシュを取得します
-- ハッシュの取得に失敗した場合、更新は即座に中止されます（フェイルクローズ）
-- 閾値以上の検出結果があった場合、更新は pull 前のコミットにロールバックされます
-- ロールバックが失敗した場合、悪意あるコンテンツが残っている可能性がある旨の警告とともにコマンドは終了します
+- 一時 checkout で pull と監査を実行し、既存の source ディレクトリを変更しません
+- 拒否またはスキャンエラーの場合、既存の checkout と metadata は変更されません
+- 承認された正確な commit を公開し、上流から再度 pull しません
+- `--force` は検出結果を上書きできますが、スキャンエラーは上書きできません
 
 ### `--force` と `--skip-audit` の違い
 

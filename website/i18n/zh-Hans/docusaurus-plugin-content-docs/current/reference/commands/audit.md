@@ -194,7 +194,7 @@ skillshare install /path/to/skill --skip-audit
 
 ### 更新时
 
-`skillshare update` 会在拉取 tracked 仓库后运行一次安全 audit。达到或超过当前阈值（默认为 `audit.block_threshold`，或通过 `--audit-threshold` / `--threshold` / `-T` 覆盖）的发现结果会触发回滚。详情参见 [`update --skip-audit`](/docs/reference/commands/update#security-audit-gate)。
+`skillshare update` 会将 tracked 仓库拉取到隔离的候选副本中，并在发布前运行安全 audit。达到或超过当前阈值（默认为 `audit.block_threshold`，或通过 `--audit-threshold` / `--threshold` / `-T` 覆盖）的发现结果会阻止发布，除非明确接受；拒绝时实际 checkout 保持不变。详情参见 [`update --skip-audit`](/docs/reference/commands/update#security-audit-gate)。
 
 你用 `--force` 接受的发现结果会针对该 skill 被记住，因此后续更新在同一条规则匹配到同一段文本时不会再次阻断。新的发现结果，或同一条规则匹配到不同的文本，仍会再次阻断。参见 [Accepted Findings](/docs/reference/commands/update#accepted-findings)。
 

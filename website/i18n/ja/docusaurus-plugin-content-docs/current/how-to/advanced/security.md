@@ -72,10 +72,10 @@ flowchart TD
     end
 
     subgraph UPDATE ["フェーズ 2 — 更新"]
-        U1["skillshare update _repo"] --> U2["git pull"]
-        U2 --> U3{"更新後の監査<br/>（しきい値ゲート）"}
-        U3 -- "しきい値以上" --> U4["ロールバック<br/>（CI / 非 TTY では自動）"]
-        U3 -- "クリーン" --> U5["Tracked repo 更新完了 ✓"]
+        U1["skillshare update _repo"] --> U2["隔離された候補で git pull"]
+        U2 --> U3{"候補を監査<br/>（しきい値ゲート）"}
+        U3 -- "しきい値以上" --> U4["候補を拒否<br/>（チェックアウトは変更なし）"]
+        U3 -- "クリーン / 承認" --> U5["監査済みリビジョンを公開 ✓"]
 
         R1["skillshare update &lt;skill&gt;"] --> R2["Source から再インストール"]
         R2 --> R3{"インストール時の監査<br/>（しきい値ゲート）"}
@@ -123,7 +123,7 @@ flowchart TD
 **設計上のポイント:**
 - **通常の Skill のインストール/更新** — 受理前に監査が実行される。インストール/更新に成功すると `file_hashes` メタデータが書き込まれる
 - **Tracked repo のインストールゲート** — 新規の `--track` インストールは、受理前に clone されたリポジトリ全体で監査される
-- **Tracked repo の更新ゲート** — `skillshare update` は `git pull` の後に監査を行う。しきい値以上の検出があると、非対話モードでは自動的にロールバックがトリガーされる
+- **Tracked repo の更新ゲート** — `skillshare update` は隔離された候補を pull・監査する。拒否時は実際のチェックアウトを変更せず、承認時は監査したリビジョンそのものを公開する
 - **整合性検証の範囲** — `content-*` のハッシュチェックは `file_hashes` メタデータが存在する場合のみ実行される
 
 ## セキュリティチェックリスト

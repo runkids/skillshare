@@ -72,10 +72,10 @@ flowchart TD
     end
 
     subgraph UPDATE ["階段 2 — 更新"]
-        U1["skillshare update _repo"] --> U2["git pull"]
-        U2 --> U3{"更新後稽核<br/>（門檻關卡）"}
-        U3 -- "達到／超過門檻" --> U4["回復<br/>（在 CI／非 TTY 環境下自動執行）"]
-        U3 -- "乾淨" --> U5["Tracked repo 更新完成 ✓"]
+        U1["skillshare update _repo"] --> U2["在隔離候選副本中 git pull"]
+        U2 --> U3{"稽核候選副本<br/>（門檻關卡）"}
+        U3 -- "達到／超過門檻" --> U4["拒絕候選副本<br/>（checkout 不變）"]
+        U3 -- "乾淨 / 已核准" --> U5["發布已稽核的 revision ✓"]
 
         R1["skillshare update &lt;skill&gt;"] --> R2["從來源重新安裝"]
         R2 --> R3{"安裝時稽核<br/>（門檻關卡）"}
@@ -123,7 +123,7 @@ flowchart TD
 **關鍵設計：**
 - **一般 Skill 安裝／更新** — 稽核會在接受前執行；安裝／更新成功後會寫入 `file_hashes` metadata
 - **Tracked repo 安裝關卡** — 全新的 `--track` 安裝會在接受前對整個被 clone 的 repo 進行稽核
-- **Tracked repo 更新關卡** — `skillshare update` 會在 `git pull` 之後進行稽核；達到／超過門檻的發現，在非互動模式下會自動觸發回復
+- **Tracked repo 更新關卡** — `skillshare update` 會拉取並稽核隔離的候選副本；拒絕時不修改實際 checkout，核准後只發布已稽核的 revision
 - **完整性驗證範圍** — `content-*` 雜湊值檢查只有在存在 `file_hashes` metadata 時才會執行
 
 ## 安全檢查清單

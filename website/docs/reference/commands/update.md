@@ -38,12 +38,12 @@ Next
 flowchart TD
     TITLE["skillshare update _team-skills"]
     S1["1. Check for uncommitted changes"]
-    S2["2. Run git pull"]
+    S2["2. Pull into isolated candidate"]
     S3["3. Security audit gate"]
-    S4["4. Show changes"]
+    S4["4. Publish audited commit"]
     TITLE --> S1 -- clean --> S2 --> S3
     S3 -- pass --> S4
-    S3 -- "At/above threshold" --> RB["Rollback"]
+    S3 -- "At/above threshold" --> RB["Reject; checkout unchanged"]
 
     style RB fill:#ef4444,color:#fff
 ```
@@ -69,7 +69,7 @@ flowchart TD
 | `--group, -G <name>` | Update all updatable skills in a group, or all agents in an agent subdirectory |
 | `--force, -f` | Discard local changes, proceed despite audit findings, and reinstall remote skills that are already at the upstream commit |
 | `--dry-run, -n` | Preview without making changes |
-| `--skip-audit` | Skip the post-update security audit gate |
+| `--skip-audit` | Skip the security audit gate |
 | `--audit-threshold <t>`, `--threshold <t>`, `-T <t>` | Override update audit block threshold (`critical|high|medium|low|info`; shorthand: `c|h|m|l|i`, plus `crit`, `med`) |
 | `--diff` | Show file-level change summary after skill/repo update |
 | `--audit-verbose` | Show detailed per-skill audit findings in batch mode |
@@ -280,9 +280,9 @@ Tracked repositories (`_repo`) are not affected by `--prune`. When a tracked rep
 
 ## Security Audit Gate {#security-audit-gate}
 
-After updating skills, `update` automatically runs a security audit:
+Before publishing tracked updates, `update` audits an isolated candidate. The active checkout and existing target links keep serving the old content until approval:
 
-- **Tracked repos (`git pull`)** use a post-pull gate at the active threshold (`audit.block_threshold`, default `CRITICAL`)
+- **Tracked repos (`git pull`)** pull and scan in a private checkout at the active threshold (`audit.block_threshold`, default `CRITICAL`), then publish the exact audited commit without another upstream pull
 - **Regular skills (reinstall path)** use the same threshold policy
 - For all update types, risk label/score is displayed for review context
 
@@ -302,11 +302,11 @@ When findings are detected at or above the active threshold, you're prompted to 
 ```
 
 - **Yes** — Accept the update despite findings
-- **No** (default) — Roll back to the pre-pull state
+- **No** (default) — Discard the candidate; the active checkout stays unchanged
 
 ### Non-Interactive Mode (CI/CD)
 
-In non-interactive environments, the update is automatically rolled back and the command exits with a non-zero code. This ensures fail-closed behavior in CI pipelines.
+In non-interactive environments, blocking findings reject the candidate and the command exits with a non-zero code. Scan errors also leave the active checkout and metadata unchanged, even with `--force`. Publication is not an atomic multi-file switch.
 
 ```bash
 # Bypass the audit gate when you trust the source
@@ -314,7 +314,7 @@ skillshare update --all --skip-audit
 ```
 
 :::caution
-`--skip-audit` disables the post-update security scan entirely. Use it only when you trust the source or have an external audit process.
+`--skip-audit` disables the security scan entirely. Use it only when you trust the source or have an external audit process.
 :::
 
 ### Accepted Findings {#accepted-findings}

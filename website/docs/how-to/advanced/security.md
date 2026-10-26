@@ -72,10 +72,10 @@ flowchart TD
     end
 
     subgraph UPDATE ["Phase 2 — Update"]
-        U1["skillshare update _repo"] --> U2["git pull"]
-        U2 --> U3{"Post-update audit<br/>(threshold gate)"}
-        U3 -- "At/above threshold" --> U4["Rollback<br/>(auto in CI/non-TTY)"]
-        U3 -- "Clean" --> U5["Tracked repo updated ✓"]
+        U1["skillshare update _repo"] --> U2["git pull in isolated candidate"]
+        U2 --> U3{"Audit candidate<br/>(threshold gate)"}
+        U3 -- "At/above threshold" --> U4["Reject candidate<br/>(checkout unchanged)"]
+        U3 -- "Clean / approved" --> U5["Publish audited revision ✓"]
 
         R1["skillshare update &lt;skill&gt;"] --> R2["Reinstall from source"]
         R2 --> R3{"Install-time audit<br/>(threshold gate)"}
@@ -123,7 +123,7 @@ flowchart TD
 **Key design:**
 - **Regular skill install/update** — audit runs before acceptance; successful installs/updates write `file_hashes` metadata
 - **Tracked repo install gate** — fresh `--track` installs are audited across the whole cloned repository before acceptance
-- **Tracked repo update gate** — `skillshare update` audits after `git pull`; findings at/above threshold trigger rollback automatically in non-interactive mode
+- **Tracked repo update gate** — `skillshare update` pulls and audits an isolated candidate; rejection leaves the active checkout unchanged, and approval publishes the exact audited revision
 - **Integrity verification scope** — `content-*` hash checks run only when `file_hashes` metadata exists
 
 ## Security Checklist
