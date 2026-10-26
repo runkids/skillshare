@@ -172,6 +172,10 @@ func realPath(t *testing.T, p string) string {
 // The CLI words its summary from "tracked repository" in the message.
 func TestInstallTrackedUpdateCandidateRemainsPrivate(t *testing.T) {
 	source, link, checkout, remote, before := setupInstallUpdateFollowedCheckout(t)
+	beforeContent, err := os.ReadFile(filepath.Join(link, "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	asked := false
 	opts := InstallOptions{
 		Name: "dev-skills", Update: true, SourceDir: source,
@@ -181,7 +185,7 @@ func TestInstallTrackedUpdateCandidateRemainsPrivate(t *testing.T) {
 				return
 			}
 			asked = true
-			if got, err := os.ReadFile(filepath.Join(link, "SKILL.md")); err != nil || string(got) != "# Safe skill\n" {
+			if got, err := os.ReadFile(filepath.Join(link, "SKILL.md")); err != nil || string(got) != string(beforeContent) {
 				t.Errorf("published link exposed candidate: %q, %v", got, err)
 			}
 			if got := testutil.RunGit(t, checkout, "rev-parse", "HEAD"); got != before {
@@ -190,7 +194,7 @@ func TestInstallTrackedUpdateCandidateRemainsPrivate(t *testing.T) {
 		},
 	}
 	parsed := &Source{Type: SourceTypeGitHTTPS, Raw: "file://" + remote, CloneURL: "file://" + remote}
-	_, err := InstallTrackedRepo(parsed, source, opts)
+	_, err = InstallTrackedRepo(parsed, source, opts)
 	if !asked {
 		t.Fatal("candidate audit barrier was not reached")
 	}

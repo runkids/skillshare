@@ -3,6 +3,7 @@ package install
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -10,14 +11,31 @@ import (
 )
 
 func TestGitUpdateCandidatePreservesLocalChanges(t *testing.T) {
+	for _, autocrlf := range []string{"false", "true"} {
+		t.Run("autocrlf="+autocrlf, func(t *testing.T) {
+			for _, worktree := range []string{"unstaged notes\n", "original notes\n"} {
+				t.Run(strings.TrimSpace(worktree), func(t *testing.T) {
+					testGitUpdateCandidatePreservesLocalChanges(t, autocrlf, worktree)
+				})
+			}
+		})
+	}
+}
+
+func testGitUpdateCandidatePreservesLocalChanges(t *testing.T, autocrlf, worktree string) {
+	t.Helper()
 	_, _, repo, _, _ := setupInstallUpdateFollowedCheckout(t)
+	testutil.RunGit(t, repo, "config", "core.autocrlf", autocrlf)
 	// The legacy install-update path allows a compatible tracked edit.
 	notes := filepath.Join(repo, "notes.txt")
 	if err := os.WriteFile(notes, []byte("staged notes\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	testutil.RunGit(t, repo, "add", "notes.txt")
-	if err := os.WriteFile(notes, []byte("unstaged notes\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, "staged-only.txt"), []byte("staged only\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.RunGit(t, repo, "add", "notes.txt", "staged-only.txt")
+	if err := os.WriteFile(notes, []byte(worktree), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(repo, "untracked.txt"), []byte("untracked notes\n"), 0o644); err != nil {
@@ -29,7 +47,7 @@ func TestGitUpdateCandidatePreservesLocalChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer candidate.Close()
-	for _, name := range []string{"notes.txt", "untracked.txt"} {
+	for _, name := range []string{"notes.txt", "staged-only.txt", "untracked.txt"} {
 		want, _ := os.ReadFile(filepath.Join(repo, name))
 		got, err := os.ReadFile(filepath.Join(candidate.Path, name))
 		if err != nil || string(got) != string(want) {
@@ -54,7 +72,7 @@ func TestGitUpdateCandidatePreservesLocalChanges(t *testing.T) {
 	if got := testutil.RunGit(t, repo, "status", "--porcelain"); got != before {
 		t.Errorf("publication changed local state: %q, want %q", got, before)
 	}
-	if got, _ := os.ReadFile(notes); string(got) != "unstaged notes\n" {
+	if got, _ := os.ReadFile(notes); string(got) != worktree {
 		t.Errorf("publication lost local edit: %q", got)
 	}
 	candidate.Close()
@@ -64,8 +82,8 @@ func TestGitUpdateCandidatePreservesLocalChanges(t *testing.T) {
 }
 
 func TestGitUpdateCandidateFailedPublicationPreservesCheckout(t *testing.T) {
-	if os.Getuid() == 0 {
-		t.Skip("test requires non-root user")
+	if os.Getuid() == 0 || runtime.GOOS == "windows" {
+		t.Skip("test requires POSIX directory permissions and non-root user")
 	}
 	for _, mode := range []string{"clean", "local-edits", "force", "force-readonly-local-edits", "force-deleted", "force-renamed", "force-sparse", "symlink"} {
 		t.Run(mode, func(t *testing.T) {

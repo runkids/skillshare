@@ -27,9 +27,9 @@ TC29_EXIT="$SS_EXIT"
 assert_exit "TC-29: update --all exits non-zero with malicious repo" 1 "$TC29_EXIT"
 assert_contains "TC-29b: output mentions blocked" "$TC29_OUTPUT" "blocked by security audit"
 
-# TC-30: clean repo still updated, malicious rolled back
+# TC-30: clean repo still updated, malicious candidate rejected
 CLEAN_AFTER=$(cat "$SOURCE_DIR/_clean-repo/my-skill/SKILL.md")
 assert_contains "TC-30a: clean repo updated successfully" "$CLEAN_AFTER" "Version 2"
 
 EVIL_AFTER=$(cat "$SOURCE_DIR/_evil-repo/my-skill/SKILL.md")
-assert_not_contains "TC-30b: malicious repo rolled back" "$EVIL_AFTER" "Ignore all previous instructions"
+assert_not_contains "TC-30b: malicious candidate rejected" "$EVIL_AFTER" "Ignore all previous instructions"

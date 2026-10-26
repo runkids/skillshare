@@ -105,18 +105,29 @@ func StageGitUpdate(repoPath string, discard bool) (_ *GitUpdateCandidate, err e
 			return nil, err
 		}
 	}
-	// Include untracked and ignored files, as the existing audit did. Git does
-	// not traverse directory links; preserve links rather than their targets.
-	cmd := exec.Command("git", "ls-files", "--others", "-z")
-	cmd.Dir = repoPath
-	untracked, err := cmd.Output()
-	if err != nil {
-		return nil, err
+	// Include untracked and ignored files, as the existing audit did. Overlay
+	// edited worktree bytes too: git apply can change them via core.autocrlf.
+	commands := [][]string{{"ls-files", "--others", "-z"}}
+	if !discard {
+		commands = append(commands,
+			[]string{"diff", "--name-only", "--diff-filter=ACMRT", "-z", "HEAD"},
+			[]string{"diff", "--name-only", "--diff-filter=ACMRT", "-z"})
 	}
-	for _, name := range strings.Split(string(untracked), "\x00") {
-		if name == "" {
-			continue
+	files := make(map[string]bool)
+	for _, args := range commands {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repoPath
+		out, e := cmd.Output()
+		if e != nil {
+			return nil, e
 		}
+		for _, name := range strings.Split(string(out), "\x00") {
+			if name != "" {
+				files[name] = true
+			}
+		}
+	}
+	for name := range files {
 		src, dst := filepath.Join(repoPath, name), filepath.Join(c.Path, name)
 		if err = os.MkdirAll(filepath.Dir(dst), 0700); err != nil {
 			return nil, err
@@ -124,6 +135,10 @@ func StageGitUpdate(repoPath string, discard bool) (_ *GitUpdateCandidate, err e
 		info, e := os.Lstat(src)
 		if e != nil {
 			return nil, e
+		}
+		// Never write through a candidate symlink when replacing a local edit.
+		if err = os.Remove(dst); err != nil && !os.IsNotExist(err) {
+			return nil, err
 		}
 		if info.Mode()&os.ModeSymlink != 0 {
 			target, e := os.Readlink(src)

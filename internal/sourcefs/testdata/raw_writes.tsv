@@ -156,6 +156,7 @@ internal/install/copy.go	copyFile	os.OpenFile	dst	source-unmigrated
 internal/install/git_candidate.go	(*GitUpdateCandidate).Close	os.RemoveAll	c.tempDir	tmp
 internal/install/git_candidate.go	StageGitUpdate	os.MkdirAll	filepath.Dir(dst)	tmp
 internal/install/git_candidate.go	StageGitUpdate	os.MkdirTemp	""	tmp
+internal/install/git_candidate.go	StageGitUpdate	os.Remove	dst	tmp
 internal/install/git_candidate.go	StageGitUpdate	os.Symlink	target, dst	tmp
 internal/install/gitea_download.go	cnbWriteContentItem	os.MkdirAll	target	clone
 internal/install/gitea_download.go	cnbWriteContentItem	os.MkdirAll	target	clone

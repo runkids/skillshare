@@ -30,7 +30,7 @@ else
   fail "TC-20: malicious content not found in work clone"
 fi
 
-# ── TC-21: update detects + blocks + rolls back ───────────────
+# ── TC-21: update rejects candidate before publication ───────
 
 info "TC-21: skillshare update detects and blocks malicious update"
 ss_capture update _attack-repo
@@ -38,11 +38,11 @@ TC21_OUTPUT="$SS_OUTPUT"
 TC21_EXIT="$SS_EXIT"
 
 assert_exit "TC-21a: update exits non-zero" 1 "$TC21_EXIT"
-assert_contains "TC-21b: output mentions rollback" "$TC21_OUTPUT" "rolled back"
+assert_contains "TC-21b: output mentions candidate rejection" "$TC21_OUTPUT" "candidate rejected; checkout unchanged"
 
-# ── TC-22: Content verified clean after rollback ──────────────
+# ── TC-22: Content verified clean after rejection ─────────────
 
-info "TC-22: content is clean after rollback"
+info "TC-22: content is clean after candidate rejection"
 AFTER_CONTENT=$(cat "$SOURCE_DIR/_attack-repo/my-skill/SKILL.md")
 assert_contains "TC-22a: clean content preserved" "$AFTER_CONTENT" "Nothing dangerous"
 assert_not_contains "TC-22b: malicious content absent" "$AFTER_CONTENT" "Ignore all previous instructions"
