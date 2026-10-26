@@ -9,6 +9,23 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.27.0] - 2026-10-26
+
+
+### New Features
+
+* **project:** manage global registrations from the CLI ([#603](https://github.com/runkids/skillshare/issues/603)) ([5729eee](https://github.com/runkids/skillshare/commit/5729eee088d4708a43b12f823f2459ab4c7cc807))
+
+
+### Bug Fixes
+
+* **check:** report failed update checks as failures ([#643](https://github.com/runkids/skillshare/issues/643)) ([2e22257](https://github.com/runkids/skillshare/commit/2e22257520c3cc32993369b6dedbbb1fda75fa6e))
+* **oplog:** keep selected global config logs in the state dir ([#609](https://github.com/runkids/skillshare/issues/609)) ([61eedff](https://github.com/runkids/skillshare/commit/61eedffe1ec9fe7e629c1e89a3f6b981f82d1900))
+* **plugins:** support native JSON array for Antigravity CLI inventory ([#640](https://github.com/runkids/skillshare/issues/640)) ([fad3305](https://github.com/runkids/skillshare/commit/fad330506067f1cba9e20a67424a460d7fd02559)), closes [#639](https://github.com/runkids/skillshare/issues/639)
+* **ui:** preserve frontmatter when editing skill descriptions ([#644](https://github.com/runkids/skillshare/issues/644)) ([18d47d8](https://github.com/runkids/skillshare/commit/18d47d832be430e8923d2bd02f0169391ac5fda5))
+* **ui:** prevent update action overlap and support mobile navigation ([#642](https://github.com/runkids/skillshare/issues/642)) ([562e737](https://github.com/runkids/skillshare/commit/562e7371fa005a94068dfc92ee2adb72218a4e15))
+* **update:** audit tracked candidates before publication ([#647](https://github.com/runkids/skillshare/issues/647)) ([efc492f](https://github.com/runkids/skillshare/commit/efc492fd7a1677fe42bfe110d99cd32935158dfd))
+
 ## [0.26.4] - 2026-10-24
 
 ### New Features
