@@ -252,15 +252,18 @@ const (
 	RollbackUnavailable
 	// RollbackFailed means the reset failed and pulled content may remain.
 	RollbackFailed
+	// CheckoutUnchanged means only an isolated candidate was changed.
+	CheckoutUnchanged
 )
 
 // AuditGate is the fail-closed audit of a git checkout that has just been
-// pulled. Every blocked outcome resets the checkout to BeforeHash.
+// pulled. A candidate is discarded on block; a live checkout is reset.
 type AuditGate struct {
 	SourceDir   string // root the accepted findings are stored under
 	RepoPath    string
 	AcceptPath  string // path the accepted findings are keyed on; RepoPath when empty
 	BeforeHash  string // pre-pull commit; without it nothing is let through
+	Candidate   bool   // isolated checkout: rejection must not reset the live repo
 	Threshold   string
 	ProjectRoot string // non-empty scans with the project's audit rules
 	Follow      *sourcewalk.Follow
@@ -294,6 +297,8 @@ type AuditGateError struct {
 // RollbackNote describes the state of the checkout after the block.
 func (e *AuditGateError) RollbackNote() string {
 	switch e.Rollback {
+	case CheckoutUnchanged:
+		return "candidate rejected; checkout unchanged"
 	case RollbackUnavailable:
 		return "rollback commit unavailable, update aborted and repository state is unknown"
 	case RollbackFailed:
@@ -313,6 +318,8 @@ func (e *AuditGateError) message(subject string) string {
 		head = fmt.Sprintf("%s: %v", subject, e.ScanErr)
 	}
 	switch e.Rollback {
+	case CheckoutUnchanged:
+		return head + " — " + e.RollbackNote() + " (use --skip-audit to bypass)"
 	case RollbackUnavailable:
 		return subject + " — " + e.RollbackNote()
 	case RollbackFailed:
@@ -333,6 +340,15 @@ func (g AuditGate) Run() (*AuditGateResult, error) {
 		return nil, &AuditGateError{Threshold: threshold, Rollback: RollbackUnavailable}
 	}
 
+	acceptPath := g.AcceptPath
+	if acceptPath == "" {
+		acceptPath = g.RepoPath
+	}
+	if g.Candidate {
+		if err := prepareCandidateAudit(g.SourceDir, acceptPath, g.RepoPath); err != nil {
+			return nil, g.block(&AuditGateError{ScanErr: err, Threshold: threshold})
+		}
+	}
 	var scanResult *audit.Result
 	if g.ProjectRoot != "" {
 		scanResult, err = audit.ScanSkillForProject(g.RepoPath, g.ProjectRoot, g.Follow)
@@ -344,10 +360,6 @@ func (g AuditGate) Run() (*AuditGateResult, error) {
 	}
 
 	res := &AuditGateResult{Audit: scanResult, Threshold: threshold}
-	acceptPath := g.AcceptPath
-	if acceptPath == "" {
-		acceptPath = g.RepoPath
-	}
 	res.AcceptedSkipped = ApplyAcceptedFindings(g.SourceDir, acceptPath, scanResult)
 	if !scanResult.HasSeverityAtOrAbove(threshold) {
 		return res, nil
@@ -372,22 +384,29 @@ func (g AuditGate) Run() (*AuditGateResult, error) {
 	return res, blocked
 }
 
-// block resets the checkout to the pre-pull commit and records the outcome.
+// block rejects a candidate or resets a live checkout, and records the outcome.
 func (g AuditGate) block(e *AuditGateError) *AuditGateError {
 	e.BeforeHash = g.BeforeHash
+	if g.Candidate {
+		e.Rollback = CheckoutUnchanged
+		return e
+	}
 	if err := gitResetHard(g.RepoPath, g.BeforeHash); err != nil {
 		e.Rollback, e.ResetErr = RollbackFailed, err
 	}
 	return e
 }
 
-// blockedDetailsError is the wording install uses for findings that blocked
-// and were rolled back: it lists them and names the override flags.
+// blockedDetailsError lists the blocked findings and names the override flags.
 func blockedDetailsError(e *AuditGateError, res *AuditGateResult, subject string) error {
+	note := "rolled back to " + shortHash(e.BeforeHash)
+	if e.Rollback == CheckoutUnchanged {
+		note = e.RollbackNote()
+	}
 	return fmt.Errorf(
-		"%s (rolled back to %s):\n%s\n\nUse --force to override or --skip-audit to bypass scanning: %w",
+		"%s (%s):\n%s\n\nUse --force to override or --skip-audit to bypass scanning: %w",
 		subject,
-		shortHash(e.BeforeHash),
+		note,
 		strings.Join(blockedFindingDetails(res.Audit.Findings, e.Threshold), "\n"),
 		audit.ErrBlocked,
 	)
@@ -424,23 +443,31 @@ func auditGateFailClosed(sourceDir, repoPath, beforeHash, threshold, projectRoot
 	return nil, fmt.Errorf("post-update audit found findings at/above %s; %s: %w", blocked.Threshold, blocked.RollbackNote(), audit.ErrBlocked)
 }
 
-// auditTrackedRepoUpdate scans an updated tracked repo for security threats.
-// Unlike auditTrackedRepo (used for fresh installs), on block it rolls back
-// via git reset --hard to preserve the repo and its history.
-func auditTrackedRepoUpdate(repoPath, beforeHash string, result *TrackedRepoResult, opts InstallOptions) error {
+// auditTrackedRepoUpdate audits an isolated candidate and publishes only its
+// approved revision. Accepted findings are recorded only after publication.
+func auditTrackedRepoUpdate(candidate *GitUpdateCandidate, result *TrackedRepoResult, opts InstallOptions) error {
+	repoPath, beforeHash := candidate.Path, candidate.BeforeHash
+	revision, err := getGitFullHash(repoPath)
+	if err != nil {
+		return err
+	}
 	if opts.SkipAudit {
 		result.AuditSkipped = true
 		result.AuditThreshold = opts.AuditThreshold
 		result.Warnings = append(result.Warnings, "audit skipped (--skip-audit)")
-		return nil
+		return candidate.Publish(revision)
 	}
 
-	acceptRoot, acceptPath := opts.auditAcceptTarget(repoPath)
+	if opts.OnProgress != nil {
+		opts.OnProgress("Auditing update candidate...")
+	}
+	acceptRoot, acceptPath := opts.auditAcceptTarget(candidate.repoPath)
 	res, err := AuditGate{
 		SourceDir:   acceptRoot,
 		RepoPath:    repoPath,
 		AcceptPath:  acceptPath,
 		BeforeHash:  beforeHash,
+		Candidate:   true,
 		Threshold:   opts.AuditThreshold,
 		ProjectRoot: opts.AuditProjectRoot,
 		Follow:      opts.SourceFollow,
@@ -449,17 +476,14 @@ func auditTrackedRepoUpdate(repoPath, beforeHash string, result *TrackedRepoResu
 	if err != nil {
 		var blocked *AuditGateError
 		// The CLI reads "tracked repository" from these to word its summary.
-		if errors.As(err, &blocked) && blocked.ScanErr == nil {
-			switch blocked.Rollback {
-			case RolledBack:
-				return blockedDetailsError(blocked, res,
-					fmt.Sprintf("security audit failed — findings at/above %s detected in tracked repository", blocked.Threshold))
-			case RollbackFailed:
-				return fmt.Errorf("security audit found findings at/above %s in tracked repository — %s: %w",
-					blocked.Threshold, blocked.RollbackNote(), audit.ErrBlocked)
-			}
+		if errors.As(err, &blocked) && blocked.ScanErr == nil && blocked.Rollback == CheckoutUnchanged {
+			return blockedDetailsError(blocked, res,
+				fmt.Sprintf("security audit failed — findings at/above %s detected in tracked repository", blocked.Threshold))
 		}
 		return err
+	}
+	if err := candidate.Publish(revision); err != nil {
+		return fmt.Errorf("failed to publish audited update: %w", err)
 	}
 	threshold, scanResult := res.Threshold, res.Audit
 	result.AuditThreshold = threshold

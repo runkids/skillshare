@@ -194,7 +194,7 @@ skillshare install /path/to/skill --skip-audit
 
 ### 업데이트 시점
 
-`skillshare update`는 tracked repo를 pull한 후 보안 audit를 실행합니다. 활성 threshold(기본적으로 `audit.block_threshold`, 또는 `--audit-threshold` / `--threshold` / `-T` 재정의) 이상의 findings는 rollback을 트리거합니다. 자세한 내용은 [`update --skip-audit`](/docs/reference/commands/update#security-audit-gate)를 참조하십시오.
+`skillshare update`는 tracked repo를 격리된 후보에 pull하고 게시 전에 audit합니다. 활성 threshold(기본적으로 `audit.block_threshold`, 또는 `--audit-threshold` / `--threshold` / `-T` 재정의) 이상의 findings는 명시적으로 수락하지 않으면 게시를 차단합니다. 거부하면 실제 checkout은 변경되지 않습니다. 자세한 내용은 [`update --skip-audit`](/docs/reference/commands/update#security-audit-gate)를 참조하십시오.
 
 `--force`로 수락한 findings는 해당 skill에 대해 기억되므로, 이후 업데이트에서 동일한 규칙이 동일한 텍스트에 매칭되어도 차단되지 않습니다. 새로운 finding이나 동일한 규칙이 다른 텍스트에 매칭되는 경우에는 다시 차단됩니다. [Accepted Findings](/docs/reference/commands/update#accepted-findings)를 참조하십시오.
 

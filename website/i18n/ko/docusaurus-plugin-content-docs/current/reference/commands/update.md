@@ -38,12 +38,12 @@ Next
 flowchart TD
     TITLE["skillshare update _team-skills"]
     S1["1. Check for uncommitted changes"]
-    S2["2. Run git pull"]
+    S2["2. Pull into isolated candidate"]
     S3["3. Security audit gate"]
-    S4["4. Show changes"]
+    S4["4. Publish audited commit"]
     TITLE --> S1 -- clean --> S2 --> S3
     S3 -- pass --> S4
-    S3 -- "At/above threshold" --> RB["Rollback"]
+    S3 -- "At/above threshold" --> RB["Reject; checkout unchanged"]
 
     style RB fill:#ef4444,color:#fff
 ```
@@ -69,7 +69,7 @@ flowchart TD
 | `--group, -G <name>` | 그룹 내 업데이트 가능한 모든 skill을 업데이트하거나, agent 하위 디렉터리의 모든 agent를 업데이트 |
 | `--force, -f` | 로컬 변경 사항을 버리고 audit findings에도 불구하고 진행하며, 이미 upstream commit에 있는 원격 skill도 재설치 |
 | `--dry-run, -n` | 변경 없이 미리보기 |
-| `--skip-audit` | 업데이트 후 보안 audit gate를 건너뜀 |
+| `--skip-audit` | 보안 audit gate를 건너뜀 |
 | `--audit-threshold <t>`, `--threshold <t>`, `-T <t>` | update audit block threshold 재정의(`critical|high|medium|low|info`; 축약형: `c|h|m|l|i`, 그리고 `crit`, `med`) |
 | `--diff` | skill/저장소 업데이트 후 파일 수준 변경 요약 표시 |
 | `--audit-verbose` | batch mode에서 skill별 상세 audit findings 표시 |
@@ -280,9 +280,9 @@ tracked 저장소(`_repo`)는 `--prune`의 영향을 받지 않습니다. tracke
 
 ## 보안 Audit Gate {#security-audit-gate}
 
-skill을 업데이트한 후, `update`는 자동으로 보안 audit를 실행합니다:
+Tracked 업데이트를 게시하기 전에 `update`는 격리된 후보 checkout을 감사합니다. 승인 전에는 기존 checkout과 target 링크가 이전 콘텐츠를 계속 제공합니다:
 
-- **Tracked 저장소(`git pull`)**는 활성 threshold(`audit.block_threshold`, 기본값 `CRITICAL`)에서 post-pull gate를 사용합니다
+- **Tracked 저장소(`git pull`)**는 비공개 checkout에서 pull과 감사를 실행하고 활성 threshold(`audit.block_threshold`, 기본값 `CRITICAL`)로 승인한 정확한 commit을 게시합니다. upstream에서 다시 pull하지 않습니다
 - **일반 skill(재설치 경로)**은 동일한 threshold 정책을 사용합니다
 - 모든 업데이트 유형에서 검토를 위해 risk label/score가 표시됩니다
 
@@ -302,11 +302,11 @@ findings가 활성 threshold 이상에서 감지되면 결정하라는 프롬프
 ```
 
 - **Yes** — findings에도 불구하고 업데이트를 수락
-- **No**(기본값) — pull 이전 상태로 롤백
+- **No**(기본값) — 후보를 폐기하고 기존 checkout을 유지
 
 ### 비대화형 Mode (CI/CD)
 
-비대화형 환경에서는 업데이트가 자동으로 롤백되고 명령은 0이 아닌 코드로 종료됩니다. 이는 CI 파이프라인에서 fail-closed 동작을 보장합니다.
+비대화형 환경에서는 차단 대상 findings가 후보를 거부하고 명령은 0이 아닌 코드로 종료됩니다. 스캔 오류도 기존 checkout과 metadata를 변경하지 않으며 `--force`로 무시할 수 없습니다. 게시는 여러 파일의 원자적 전환이 아닙니다.
 
 ```bash
 # source를 신뢰하는 경우 audit gate를 우회
@@ -314,7 +314,7 @@ skillshare update --all --skip-audit
 ```
 
 :::caution
-`--skip-audit`는 업데이트 후 보안 스캔을 완전히 비활성화합니다. source를 신뢰하거나 외부 audit 프로세스가 있는 경우에만 사용하세요.
+`--skip-audit`는 보안 스캔을 완전히 비활성화합니다. source를 신뢰하거나 외부 audit 프로세스가 있는 경우에만 사용하세요.
 :::
 
 ### 수락된 Findings {#accepted-findings}

@@ -113,7 +113,6 @@ internal/config/save_candidate.go	(*SaveCandidate).Write	os.OpenFile	tmpPath	con
 internal/config/save_candidate.go	(*SaveCandidate).Write	os.Remove	tmp.Name()	config
 internal/config/save_candidate.go	(*SaveCandidate).Write	os.Rename	tmp.Name(), dest	config
 internal/git/info.go	resolveMetadataConflicts	os.WriteFile	filepath.Join(dir, path)	source-unmigrated
-internal/git/info.go	restorePullResidue	os.Remove	full	source-unmigrated
 internal/git/scope.go	DisableNestedRepo	os.Rename	gitDir, disabled	source-unmigrated
 internal/git/scope.go	InitScopeRepo	os.MkdirAll	dir	source-unmigrated
 internal/git/scope.go	WriteScopeGitignore	os.WriteFile	gitignore	source-unmigrated
@@ -154,6 +153,11 @@ internal/hub/index.go	WriteIndex	os.MkdirAll	filepath.Dir(path)	source-unmigrate
 internal/hub/index.go	WriteIndex	os.WriteFile	path	source-unmigrated
 internal/install/copy.go	copyDirExcluding	os.MkdirAll	dstPath	source-unmigrated
 internal/install/copy.go	copyFile	os.OpenFile	dst	source-unmigrated
+internal/install/git_candidate.go	(*GitUpdateCandidate).Close	os.RemoveAll	c.tempDir	tmp
+internal/install/git_candidate.go	StageGitUpdate	os.MkdirAll	filepath.Dir(dst)	tmp
+internal/install/git_candidate.go	StageGitUpdate	os.MkdirTemp	""	tmp
+internal/install/git_candidate.go	StageGitUpdate	os.Remove	dst	tmp
+internal/install/git_candidate.go	StageGitUpdate	os.Symlink	target, dst	tmp
 internal/install/gitea_download.go	cnbWriteContentItem	os.MkdirAll	target	clone
 internal/install/gitea_download.go	cnbWriteContentItem	os.MkdirAll	target	clone
 internal/install/gitea_download.go	downloadCNBDir	os.MkdirAll	destDir	clone

@@ -659,8 +659,8 @@ func TestUpdateTrackedRepo_BeforeHashFailure_FailsClosed(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when rollback commit cannot be determined")
 	}
-	if !strings.Contains(err.Error(), "failed to determine rollback commit before update") {
-		t.Fatalf("expected rollback commit error, got: %v", err)
+	if !strings.Contains(err.Error(), "cannot determine candidate base commit") {
+		t.Fatalf("expected candidate base commit error, got: %v", err)
 	}
 }
 

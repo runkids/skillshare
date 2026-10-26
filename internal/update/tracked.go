@@ -66,7 +66,7 @@ type TrackedRepoOptions struct {
 	Follow      *sourcewalk.Follow
 	// Confirm is asked once when findings would block and Force is unset. It
 	// receives the result so far (Info, Audit, Threshold, AcceptedSkipped).
-	// Nil, false or an error blocks and rolls back.
+	// Nil, false or an error rejects the candidate without changing the checkout.
 	Confirm    func(*TrackedRepoResult) (bool, error)
 	OnProgress func(string)
 }
@@ -75,10 +75,11 @@ type TrackedRepoOptions struct {
 // as the update got.
 type TrackedRepoResult struct {
 	Status    Status
-	Discarded bool            // Force discarded uncommitted changes (in a dry run: would)
-	Info      *git.UpdateInfo // set once the pull succeeded
-	Audit     *audit.Result   // nil when the audit was skipped or could not scan
-	Threshold string          // normalized block threshold of the audit
+	Discarded bool             // Force discarded uncommitted changes (in a dry run: would)
+	Info      *git.UpdateInfo  // set once the candidate pull succeeded
+	Changes   []git.FileChange // candidate diff, also available before publication
+	Audit     *audit.Result    // nil when the audit was skipped or could not scan
+	Threshold string           // normalized block threshold of the audit
 
 	AcceptedSkipped int      // findings ignored because they were accepted earlier
 	Overridden      bool     // blocking findings were let through by Force or Confirm
@@ -90,8 +91,8 @@ type TrackedRepoResult struct {
 }
 
 // TrackedRepo updates one tracked repo: it refuses or discards uncommitted
-// changes, pulls, audits what was pulled, resets to the pre-pull commit when
-// the audit blocks, and refreshes the repo's metadata.
+// changes, pulls and audits in isolation, publishes the approved revision,
+// and refreshes the repo's metadata.
 func TrackedRepo(repoPath string, opts TrackedRepoOptions) (*TrackedRepoResult, error) {
 	res := &TrackedRepoResult{}
 
@@ -105,32 +106,47 @@ func TrackedRepo(repoPath string, opts TrackedRepoOptions) (*TrackedRepoResult, 
 			res.Status = StatusDirty
 			return res, nil
 		}
-		res.Discarded = true
-		if !opts.DryRun {
-			if err := git.Restore(repoPath); err != nil {
-				return res, &Error{Stage: StageDiscard, Err: err}
-			}
-		}
 	}
 	if opts.DryRun {
+		res.Discarded = dirty && opts.Force
 		res.Status = StatusDryRun
 		return res, nil
 	}
+
+	candidate, err := install.StageGitUpdate(repoPath, opts.Force)
+	if err != nil {
+		return res, &Error{Stage: StagePull, Err: err}
+	}
+	defer candidate.Close()
 
 	pull := git.PullWithProgress
 	if opts.Force {
 		pull = git.ForcePullWithProgress
 	}
-	info, err := pull(repoPath, git.AuthEnvForRepo(repoPath), opts.OnProgress)
+	info, err := pull(candidate.Path, git.AuthEnvForRepo(repoPath), opts.OnProgress)
 	if err != nil {
 		return res, &Error{Stage: StagePull, Err: err}
 	}
 	res.Info = info
+	if !info.UpToDate {
+		res.Changes, _ = git.GetChangedFiles(candidate.Path, info.BeforeHash, info.AfterHash)
+	}
 
 	if !info.UpToDate && !opts.SkipAudit {
-		if err := auditPulled(repoPath, res, opts); err != nil {
+		if opts.OnProgress != nil {
+			opts.OnProgress("Auditing update candidate...")
+		}
+		if err := auditPulled(candidate.Path, repoPath, res, opts); err != nil {
 			return res, err
 		}
+	}
+
+	if err := candidate.Publish(info.AfterHash); err != nil {
+		return res, &Error{Stage: StagePull, Err: err}
+	}
+	res.Discarded = dirty && opts.Force
+	if res.Overridden {
+		res.Recorded, res.RecordErr = install.RecordAcceptedFindings(opts.SourceDir, repoPath, res.Audit, res.Threshold)
 	}
 
 	if !info.UpToDate {
@@ -145,14 +161,16 @@ func TrackedRepo(repoPath string, opts TrackedRepoOptions) (*TrackedRepoResult, 
 	return res, nil
 }
 
-func auditPulled(repoPath string, res *TrackedRepoResult, opts TrackedRepoOptions) error {
+func auditPulled(candidatePath, repoPath string, res *TrackedRepoResult, opts TrackedRepoOptions) error {
 	fill := func(g *install.AuditGateResult) {
 		res.Audit, res.Threshold, res.AcceptedSkipped, res.Overridden = g.Audit, g.Threshold, g.AcceptedSkipped, g.Overridden
 	}
 	gate := install.AuditGate{
 		SourceDir:   opts.SourceDir,
-		RepoPath:    repoPath,
+		RepoPath:    candidatePath,
+		AcceptPath:  repoPath,
 		BeforeHash:  res.Info.BeforeHash,
+		Candidate:   true,
 		Threshold:   opts.Threshold,
 		ProjectRoot: opts.ProjectRoot,
 		Follow:      opts.Follow,
@@ -168,13 +186,7 @@ func auditPulled(repoPath string, res *TrackedRepoResult, opts TrackedRepoOption
 	if g != nil {
 		fill(g)
 	}
-	if err != nil {
-		return err
-	}
-	if g.Overridden {
-		res.Recorded, res.RecordErr = install.RecordAcceptedFindings(opts.SourceDir, repoPath, g.Audit, g.Threshold)
-	}
-	return nil
+	return err
 }
 
 func refreshMetadata(repoPath string, opts TrackedRepoOptions) (bool, error) {

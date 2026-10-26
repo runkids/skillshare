@@ -150,17 +150,17 @@ skillshare sync
 ```
 
 **何が起こるか:**
-```
-cd ~/.config/skillshare/skills/_team-skills
-git pull origin main
+```text
+隔離候補 → git pull → 監査 → 承認済み commit の公開
 ```
 
 **更新時のセキュリティ動作:**
-- 更新されたコンテンツは pull 後に監査されます。
-- ブロックには有効なしきい値が使われます（デフォルトは `audit.block_threshold`、またはコマンドごとの `--threshold`/`-T` による上書き）。
-- TTY モードでは、検出結果がしきい値に達すると `skillshare update` が確認を求めます。非 TTY モードでは（`--skip-audit` を使わない限り）自動的にロールバックします。
-- 拒否された場合、追跡リポジトリはローカルの状態を保持するために直前のコミットへロールバックします。
-- ロールバックのベースライン取得に失敗した場合、安全のため update は中止されます（フェイルクローズ）。
+- 隔離された候補で pull と監査を実行し、既存の target リンクは既存の checkout を読み続けます。
+- Sparse-checkout の選択範囲と既存の integrity hashes は維持されます。解決できない symlink や候補の外を指すリンクはスキャンエラーとして更新を拒否します。
+- ブロックには有効なしきい値を使用します（デフォルトは `audit.block_threshold`、または `--threshold`/`-T`）。
+- TTY モードでは、しきい値以上の検出結果について確認を求めます。非 TTY モードではデフォルトで候補を拒否します。
+- 拒否またはスキャンエラーの場合、既存の checkout と metadata は変更されません。`--force` でスキャンエラーは上書きできず、`--skip-audit` はスキャンを無効にします。
+- 承認された正確な commit を公開し、上流から再度 pull しません。公開は複数ファイルのアトミックな切り替えではありません。
 
 ---
 

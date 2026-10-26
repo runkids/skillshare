@@ -90,7 +90,7 @@ func TestUpdateTrackedRepo_BlockedRollsBack(t *testing.T) {
 	f.push(t, trackedMaliciousSkill)
 
 	got := f.s.updateSingle("_team", false, false)
-	want := updateResultItem{Name: "_team", Action: "blocked", Message: "blocked by security audit — findings at/above CRITICAL detected, rolled back", IsRepo: true}
+	want := updateResultItem{Name: "_team", Action: "blocked", Message: "blocked by security audit — findings at/above CRITICAL detected (candidate rejected; checkout unchanged)", IsRepo: true}
 	if got != want {
 		t.Fatalf("got %+v, want %+v", got, want)
 	}

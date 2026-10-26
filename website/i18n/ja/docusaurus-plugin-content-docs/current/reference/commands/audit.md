@@ -194,7 +194,7 @@ install 時の audit をグローバルに無効化する config フラグはあ
 
 ### 更新時
 
-`skillshare update` は、追跡中のリポジトリを pull した後にセキュリティ audit を実行します。有効な閾値（デフォルトは `audit.block_threshold`、または `--audit-threshold` / `--threshold` / `-T` による上書き）以上の findings があると、ロールバックが発生します。詳細は [`update --skip-audit`](/docs/reference/commands/update#security-audit-gate) を参照してください。
+`skillshare update` は追跡中のリポジトリを隔離された候補に pull し、公開前に監査します。有効な閾値（デフォルトは `audit.block_threshold`、または `--audit-threshold` / `--threshold` / `-T` による上書き）以上の findings は、明示的に受け入れない限り公開をブロックします。拒否時は実際のチェックアウトを変更しません。詳細は [`update --skip-audit`](/docs/reference/commands/update#security-audit-gate) を参照してください。
 
 `--force` で受け入れた findings はその Skill について記憶されるため、後続の更新で同じルールが同じテキストに一致しても再びブロックされることはありません。新しい finding、または同じルールが異なるテキストに一致した場合は、再びブロックされます。詳細は [Accepted Findings](/docs/reference/commands/update#accepted-findings) を参照してください。
 

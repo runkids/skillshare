@@ -150,17 +150,17 @@ skillshare sync
 ```
 
 **发生了什么：**
-```
-cd ~/.config/skillshare/skills/_team-skills
-git pull origin main
+```text
+隔离候选 → git pull → 审计 → 发布获批 commit
 ```
 
 **更新过程中的安全行为：**
-- 拉取后会对更新内容进行审计。
-- 阻止行为使用当前的阈值（默认为 `audit.block_threshold`，或按命令覆盖的 `--threshold`/`-T`）。
-- 在 TTY 模式下，当发现的问题达到阈值时，`skillshare update` 会提示确认；在非 TTY 模式下，会自动回滚（除非使用 `--skip-audit`）。
-- 被拒绝时，Tracked Repo 会回滚到上一个 commit 以保留本地状态。
-- 如果回滚基线的捕获失败，出于安全考虑更新会中止（fail-closed）。
+- 在隔离候选中拉取并审计；已有 target 链接继续读取正式 checkout。
+- 保留 sparse-checkout 的选择范围和现有 integrity hashes。无法解析或指向候选之外的 symlink 会作为扫描错误拒绝更新。
+- 阻止行为使用当前阈值（默认为 `audit.block_threshold`，或按命令覆盖的 `--threshold`/`-T`）。
+- 在 TTY 模式下，`skillshare update` 会在发现达到阈值时提示确认；非 TTY 模式下默认拒绝候选。
+- 拒绝候选或扫描出错时，正式 checkout 和 metadata 保持不变。`--force` 不能覆盖扫描错误；`--skip-audit` 禁用扫描。
+- 审核通过后发布已审计的确切 commit，不再从上游拉取。发布并非多文件原子切换。
 
 ---
 

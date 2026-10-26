@@ -189,7 +189,7 @@ skillshare sync
 `.git` 파일이 있는 Git worktree와 submodule도 체크아웃입니다. `update --all`은 이들을 건너뛰며 대시보드는 업데이트를 거부합니다.
 
 :::warning update는 실제 checkout을 변경합니다
-`skillshare update _dev-skills`는 별도의 관리형 clone이 아니라 `~/code/dev-skills` 안에서 git을 실행합니다. `skillshare update _dev-skills --force`는 그 실제 checkout을 reset하고 로컬 변경 사항을 버립니다. 같은 이유로 `skillshare update --all`은 `--force`를 지정해도 따라간 링크를 경고와 함께 건너뛰므로, 이름을 지정해 update하세요. `skillshare install <url> --track --update`는 커밋하지 않은 변경이 있는 연결된 체크아웃의 pull을 거부합니다. 차단 수준의 audit 결과로 `git reset --hard`가 실행될 수 있으므로 먼저 커밋하거나 stash하세요. 대시보드는 강제 재시도를 포함해 연결된 Git 체크아웃을 업데이트하지 않습니다. 사용자가 직접 관리합니다.
+`skillshare update _dev-skills`는 격리된 후보를 준비하고 audit한 뒤 승인된 revision을 `~/code/dev-skills`에 게시합니다. 거부하면 실제 checkout은 변경되지 않습니다. `skillshare update _dev-skills --force`는 후보를 게시할 때만 로컬 변경 사항을 버립니다. `skillshare update --all`은 `--force`를 지정해도 따라간 링크를 경고와 함께 건너뛰므로, 이름을 지정해 update하세요. `skillshare install <url> --track --update`는 여전히 커밋하지 않은 변경이 있는 연결된 체크아웃을 거부합니다. 먼저 커밋하거나 stash하세요. 대시보드는 강제 재시도를 포함해 연결된 Git 체크아웃을 업데이트하지 않습니다. 사용자가 직접 관리합니다.
 :::
 
 #### 안전 장치 {#safety-guards}

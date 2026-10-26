@@ -373,7 +373,7 @@ skillshare install anthropics/skills/skills/pdf
 
 Use `--update` to refresh, or `--force` to overwrite.
 
-`--update` on a tracked repo behind a [followed source link](../targets/configuration.md#follow_source_links) refuses to pull while that checkout has uncommitted changes, because a blocking audit finding would roll it back with `git reset --hard`. Commit or stash first.
+`--update` on a tracked repo behind a [followed source link](../targets/configuration.md#follow_source_links) refuses to pull while that checkout has uncommitted changes. Commit or stash first.
 
 ### Cross-path duplicate
 
@@ -641,12 +641,12 @@ Tracked repos use the same threshold model, but the scan scope and failure handl
 - On blocked fresh install, skillshare automatically removes the cloned repo from source
 - If automatic cleanup fails, install returns an explicit error and tells you to remove the path manually
 
-Tracked repo updates through install (`skillshare install <repo> --track --update`) are audited after `git pull`:
+Tracked repo updates through install (`skillshare install <repo> --track --update`) use the same isolated-candidate audit gate:
 
-- skillshare captures a pre-pull commit hash first
-- If hash capture fails, update aborts immediately (fail-closed)
-- If findings at/above threshold are detected, update is rolled back to the pre-pull commit
-- If rollback fails, command exits with a warning that malicious content may remain
+- Pull and audit happen in a temporary checkout, not the active source directory
+- Rejection or a scan error leaves the active checkout and metadata unchanged
+- Approval publishes the exact audited commit without another upstream pull
+- `--force` can override findings, but cannot override a scan error
 
 ### `--force` vs `--skip-audit`
 

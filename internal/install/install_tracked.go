@@ -296,21 +296,16 @@ func updateTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallO
 		return nil, err
 	}
 
-	// Record hash before pull for rollback on audit failure
-	beforeHash, err := getGitFullHash(repoPath)
+	candidate, err := StageGitUpdate(repoPath, false)
 	if err != nil {
-		return nil, fmt.Errorf("failed to determine rollback commit before update (aborting for safety): %w", err)
+		return nil, fmt.Errorf("failed to stage update: %w", err)
 	}
-	if beforeHash == "" {
-		return nil, fmt.Errorf("failed to determine rollback commit before update (aborting for safety): empty commit hash")
-	}
-
-	if err := gitPull(repoPath, opts.OnProgress); err != nil {
+	defer candidate.Close()
+	if err := gitPull(candidate.Path, opts.OnProgress); err != nil {
 		return nil, fmt.Errorf("failed to update: %w", err)
 	}
 
-	// Post-pull audit: rollback via git reset (not os.RemoveAll) to preserve repo.
-	if err := auditTrackedRepoUpdate(repoPath, beforeHash, result, opts); err != nil {
+	if err := auditTrackedRepoUpdate(candidate, result, opts); err != nil {
 		return nil, err
 	}
 

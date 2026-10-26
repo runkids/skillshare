@@ -173,12 +173,12 @@ func displayUpdateAuditResults(entries []batchAuditEntry, auditVerbose bool) {
 }
 
 // displayUpdateBlockedSection lists the skills the security audit blocked
-// during a batch update; each was rolled back.
+// during a batch update; tracked candidates were never published.
 func displayUpdateBlockedSection(blocked []batchBlockedEntry) {
 	if len(blocked) == 0 {
 		return
 	}
-	ui.Section("Blocked and rolled back")
+	ui.Section("Blocked by security audit")
 	for _, b := range blocked {
 		digest := parseAuditBlockedFailure(b.errMsg)
 		label := blockedSkillLabel(b.name, digest.threshold)

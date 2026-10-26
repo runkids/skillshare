@@ -150,17 +150,17 @@ skillshare sync
 ```
 
 **What happens:**
-```
-cd ~/.config/skillshare/skills/_team-skills
-git pull origin main
+```text
+Isolated candidate → git pull → audit → publish approved commit
 ```
 
 **Security behavior during updates:**
-- Updated content is audited after pull.
+- Pull and audit run in an isolated candidate; existing target links keep reading the active checkout.
+- Sparse-checkout selection and existing integrity hashes are preserved. Unresolvable symlinks or links escaping the candidate reject the update as a scan error.
 - Blocking uses the active threshold (`audit.block_threshold` by default, or per-command `--threshold`/`-T` override).
-- In TTY mode, `skillshare update` prompts for confirmation when findings hit threshold; in non-TTY mode it rolls back automatically (unless `--skip-audit` is used).
-- On rejection, tracked repos roll back to the previous commit to preserve local state.
-- If rollback baseline capture fails, update aborts for safety (fail-closed).
+- In TTY mode, `skillshare update` prompts when findings hit threshold; in non-TTY mode it rejects the candidate unless overridden.
+- Rejection or a scan error leaves the active checkout and metadata unchanged. `--force` cannot override scan errors; `--skip-audit` disables scanning.
+- Approval publishes the exact audited commit without another upstream pull. Publication is not an atomic multi-file switch.
 
 ---
 

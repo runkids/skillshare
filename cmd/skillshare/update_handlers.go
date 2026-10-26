@@ -77,8 +77,8 @@ func runTrackedRepoUpdate(uc *updateContext, repoPath string, onProgress func(st
 		}
 	}
 	var blocked *install.AuditGateError
-	if declined && errors.As(err, &blocked) && blocked.Rollback == install.RolledBack {
-		ui.Note(fmt.Sprintf("Rolled back to %s", blocked.BeforeHash[:12]))
+	if declined && errors.As(err, &blocked) && blocked.Rollback == install.CheckoutUnchanged {
+		ui.Note("Candidate rejected; checkout unchanged")
 	}
 	var opErr *update.Error
 	if errors.As(err, &opErr) && opErr.Stage == update.StageStatus {
@@ -115,7 +115,7 @@ func updateTrackedRepo(uc *updateContext, repoName string) (updateResult, error)
 		printCommitNotes(info.Commits)
 
 		if uc.opts.diff {
-			renderDiffSummary(repoPath, info.BeforeHash, info.AfterHash)
+			renderDiffSummary(res.Changes)
 		}
 	})
 
@@ -330,10 +330,9 @@ func updateSkillFromMeta(uc *updateContext, skillPath string, cachedMeta *instal
 	return true, result, nil
 }
 
-// renderDiffSummary prints a file-level change summary for the given repo.
-func renderDiffSummary(repoPath, beforeHash, afterHash string) {
-	changes, err := git.GetChangedFiles(repoPath, beforeHash, afterHash)
-	if err != nil || len(changes) == 0 {
+// renderDiffSummary prints the candidate's file-level changes, before publication.
+func renderDiffSummary(changes []git.FileChange) {
+	if len(changes) == 0 {
 		return
 	}
 

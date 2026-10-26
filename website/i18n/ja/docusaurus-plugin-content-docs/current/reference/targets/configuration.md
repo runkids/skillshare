@@ -191,7 +191,7 @@ skillshare sync
 `.git` ファイルを持つ Git worktree と submodule もチェックアウトです。`update --all` はそれらをスキップし、ダッシュボードは更新を拒否します。
 
 :::warning update は実際のチェックアウトを変更します
-`skillshare update _dev-skills` は、別途管理される clone ではなく `~/code/dev-skills` の中で git を実行します。`skillshare update _dev-skills --force` はその実際のチェックアウトをリセットし、ローカルの変更を破棄します。この理由から、`skillshare update --all` は `--force` を指定しても、たどられたリンクを警告付きでスキップします。名前を指定して update してください。`skillshare install <url> --track --update` は、コミットされていない変更があるたどられたチェックアウトの pull を拒否します。ブロックする audit の検出結果によって `git reset --hard` で巻き戻される可能性があるため、先にコミットするか stash してください。ダッシュボードは強制再試行を含め、たどられた Git チェックアウトを更新しません。ユーザーが管理してください。
+`skillshare update _dev-skills` は隔離された候補を準備・監査し、承認されたリビジョンを `~/code/dev-skills` に公開します。拒否時は実際のチェックアウトを変更しません。`skillshare update _dev-skills --force` は候補の公開時にのみローカルの変更を破棄します。`skillshare update --all` は `--force` を指定しても、たどられたリンクを警告付きでスキップします。名前を指定して update してください。`skillshare install <url> --track --update` は引き続き、コミットされていない変更があるたどられたチェックアウトを拒否します。先にコミットするか stash してください。ダッシュボードは強制再試行を含め、たどられた Git チェックアウトを更新しません。ユーザーが管理してください。
 :::
 
 #### 安全ガード {#safety-guards}

@@ -369,7 +369,7 @@ skillshare install anthropics/skills/skills/pdf
 
 使用 `--update` 刷新，或使用 `--force` 覆盖。
 
-对位于[被跟随的 source link](../targets/configuration.md#follow_source_links) 背后的 tracked repo 使用 `--update` 时，如果该 checkout 存在未提交的修改，会拒绝拉取，因为一旦出现阻断级别的 audit 结果，就会用 `git reset --hard` 回滚它。请先 commit 或 stash。
+对位于[被跟随的 source link](../targets/configuration.md#follow_source_links)背后的 tracked repo 使用 `--update` 时，如果该 checkout 存在未提交的修改，会拒绝拉取。请先 commit 或 stash。
 
 ### 跨路径重复
 
@@ -635,12 +635,12 @@ Tracked repo 使用相同的阈值模型，但扫描范围和失败处理更加�
 - 首次安装被阻止时，skillshare 会自动从 source 中移除已克隆的仓库
 - 如果自动清理失败，install 会返回明确的错误，并提示你手动移除该路径
 
-通过 install 更新 tracked repo（`skillshare install <repo> --track --update`）时，会在 `git pull` 之后进行 audit：
+通过 install 更新 tracked repo（`skillshare install <repo> --track --update`）时，使用相同的隔离候选审计流程：
 
-- skillshare 会先捕获一个 pull 前的 commit hash
-- 如果 hash 捕获失败，更新会立即中止（fail-closed）
-- 如果检测到达到/超过阈值的发现项，更新会回滚到 pull 前的 commit
-- 如果回滚失败，命令会以警告退出，提示可能仍残留恶意内容
+- 在临时 checkout 中拉取并审计，不修改正式 source 目录
+- 拒绝候选或扫描出错时，正式 checkout 和 metadata 保持不变
+- 通过审核后发布已审计的确切 commit，不再从上游拉取
+- `--force` 可覆盖发现项，但不能覆盖扫描错误
 
 ### `--force` 与 `--skip-audit` 的区别
 

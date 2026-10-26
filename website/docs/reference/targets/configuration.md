@@ -189,7 +189,7 @@ If `~/code/dev-skills` contains a `.git` entry, `_dev-skills` becomes a tracked-
 Git worktrees and submodules with a `.git` file are also checkouts: `update --all` skips them, and the dashboard refuses to update them.
 
 :::warning Updates change the real checkout
-`skillshare update _dev-skills` runs git inside `~/code/dev-skills`, not a separate managed clone. `skillshare update _dev-skills --force` resets that real checkout and discards its local changes. `skillshare update --all` skips followed links with a warning for that reason, including with `--force`; update them by name. `skillshare install <url> --track --update` refuses to pull a followed checkout with uncommitted changes, because a blocking audit finding could roll it back with `git reset --hard`; commit or stash first. The dashboard never updates followed Git checkouts, including force retries; they are managed by you.
+`skillshare update _dev-skills` prepares and audits an isolated candidate, then publishes the approved revision into `~/code/dev-skills`. Rejection leaves that real checkout unchanged. `skillshare update _dev-skills --force` discards its local changes only when publishing the candidate. `skillshare update --all` skips followed links with a warning, including with `--force`; update them by name. `skillshare install <url> --track --update` still refuses a followed checkout with uncommitted changes; commit or stash first. The dashboard never updates followed Git checkouts, including force retries; they are managed by you.
 :::
 
 #### Safety guards

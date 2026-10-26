@@ -205,7 +205,7 @@ skillshare update _repo --force -p  # Discard local changes
 | `--group, -G <name>` | Update all updatable skills in a group (repeatable) |
 | `--force, -f` | Discard local changes and force update |
 | `--dry-run, -n` | Preview without making changes |
-| `--skip-audit` | Skip post-update security audit gate |
+| `--skip-audit` | Skip security audit gate |
 | `--json` | JSON output |
 | `--diff` | Show file-level change summary after update |
 
@@ -214,9 +214,12 @@ even with `--force`; update them by name instead.
 
 **Safety:** Tracked repos with uncommitted changes are skipped, and repos whose git status cannot be read fail. A remote skill whose files changed since install is skipped too; `check` reports it as `modified`. Use `--force` to override all three.
 
-**Security:** Updates roll back when findings reach the configured block threshold.
+**Security:** Tracked updates (including `install --track --update`) pull and audit
+an isolated candidate, then publish the exact approved commit. Rejection or scan
+errors leave the active checkout and metadata unchanged; existing target links
+keep reading old content until approval. Publication is not an atomic multi-file switch.
 `--audit-threshold` / `--threshold` / `-T` overrides the threshold for the run.
-Explicit `--force` can discard local changes and override audit blocking;
+Explicit `--force` can discard local changes and override findings, but not scan errors;
 `--skip-audit` skips scanning. Review findings before selecting either override.
 
 **After update:** `skillshare sync` applies remaining target changes. Existing symlinks already read updated source content; managed copies and added, removed, or renamed links may still need sync. The dashboard's Updates tab checks that kind's pending changes before offering **Sync Now**, reports when no sync is needed, and offers **Retry** if the check fails.

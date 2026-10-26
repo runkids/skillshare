@@ -144,7 +144,7 @@ func TestInstall_Track_Update_RollsBackOnMalicious(t *testing.T) {
 	// Step 3: Update should fail and roll back
 	updateResult := sb.RunCLI("update", "_rollback-repo")
 	updateResult.AssertFailure(t)
-	updateResult.AssertAnyOutputContains(t, "rolled back")
+	updateResult.AssertAnyOutputContains(t, "checkout unchanged")
 
 	// Step 4: Verify the repo still exists (not deleted) and content is clean
 	repoPath := filepath.Join(sb.SourcePath, "_rollback-repo")
