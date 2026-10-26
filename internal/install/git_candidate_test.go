@@ -26,6 +26,7 @@ func testGitUpdateCandidatePreservesLocalChanges(t *testing.T, autocrlf, worktre
 	t.Helper()
 	_, _, repo, _, _ := setupInstallUpdateFollowedCheckout(t)
 	testutil.RunGit(t, repo, "config", "core.autocrlf", autocrlf)
+	testutil.RunGit(t, repo, "reset", "--hard", "HEAD")
 	// The legacy install-update path allows a compatible tracked edit.
 	notes := filepath.Join(repo, "notes.txt")
 	if err := os.WriteFile(notes, []byte("staged notes\n"), 0o644); err != nil {
