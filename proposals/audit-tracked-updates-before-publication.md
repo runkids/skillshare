@@ -1,12 +1,21 @@
 # Feature Proposal: Audit tracked updates before publication
 
+## Status
+
+**Implemented in [#647](https://github.com/runkids/skillshare/pull/647)** (merged 2026-10-26).
+
+- Candidates are staged and audited in a private temporary clone, shared by both tracked update entry points.
+- Approval publishes the exact audited commit into the existing checkout. Atomic multi-file publication is not guaranteed and remains outside this proposal's scope.
+
+The sections below preserve the original proposal, pre-fix behavior, and design questions.
+
 ## Problem
 
 Issue: https://github.com/runkids/skillshare/issues/645
 
-Tracked repositories are exposed to consumers via symlinks into their active checkout. Updating a tracked repository currently pulls upstream changes directly into the active checkout before running the audit gate (`internal/update/tracked.go`: `git.PullWithProgress` followed by `auditPulled` -> `install.AuditGate.Run`). If audit detects security findings above threshold and rejects the update, `AuditGate.block` resets the working tree (`gitResetHard`).
+Before #647, including in v0.26.4, tracked repositories were exposed to consumers via symlinks into their active checkout. Updating a tracked repository pulled upstream changes directly into the active checkout before running the audit gate (`internal/update/tracked.go`: `git.PullWithProgress` followed by `auditPulled` -> `install.AuditGate.Run`). If audit detected security findings above threshold and rejected the update, `AuditGate.block` reset the working tree (`gitResetHard`).
 
-This creates a visibility window: concurrent readers can read rejected candidate files before the reset occurs. While successful rollback restores the pre-update commit, it cannot revoke data already read.
+This created a visibility window: concurrent readers could read rejected candidate files before the reset occurred. While successful rollback restored the pre-update commit, it could not revoke data already read.
 
 Reproduction:
 1. Create a local Git repo with two skills and commit them.
@@ -53,9 +62,9 @@ Audit update candidates in an isolated staging location before modifying the act
 - [x] Medium (3-10 files, 200-500 lines)
 - [ ] Large (10+ files, 500+ lines)
 
-*Note: Scope is an estimate/unknown until maintainer selects the staging/publication mechanism. This PR provides only the proposal per CONTRIBUTING.md; implementation is reserved for the maintainer.*
+*Original scope estimate. This PR provides only the proposal per CONTRIBUTING.md; implementation was completed separately in #647.*
 
-## Open Questions
+## Original Open Questions
 
 1. Which candidate staging mechanism is preferred (e.g. detached `git worktree`, temporary clone, or in-repo object fetch)?
 2. Should publication guarantee atomic multi-file switch for readers (e.g. symlink swap), or is in-place checkout update after audit sufficient?
