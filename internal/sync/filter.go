@@ -205,60 +205,68 @@ func suggestFlatNames(pattern string, skills []DiscoveredSkill) []string {
 // skills that pass its include/exclude filters and whose frontmatter targets
 // name it or declare none.
 func SelectTargetSkills(skills []DiscoveredSkill, targetName string, sc config.ResourceTargetConfig) ([]DiscoveredSkill, error) {
-	selected, _, err := selectTargetSkills(skills, targetName, sc)
-	return selected, err
+	selection, err := selectTargetSkills(skills, targetName, sc)
+	return selection.Skills, err
 }
 
-func selectTargetSkills(skills []DiscoveredSkill, targetName string, sc config.ResourceTargetConfig) ([]DiscoveredSkill, []string, error) {
+type targetSkillSelection struct {
+	Skills   []DiscoveredSkill
+	Warnings []string
+	Skipped  map[string]string // Physical relative path to its selection diagnostic
+}
+
+func selectTargetSkills(skills []DiscoveredSkill, targetName string, sc config.ResourceTargetConfig) (targetSkillSelection, error) {
 	enabled := slices.DeleteFunc(slices.Clone(skills), func(s DiscoveredSkill) bool { return s.Disabled })
 	filtered, err := FilterSkills(enabled, sc.Include, sc.Exclude)
 	if err != nil {
-		return nil, nil, err
+		return targetSkillSelection{}, err
 	}
-	selected, warnings := filterSkillsByTarget(filtered, targetName, targetAgent(targetName, sc))
-	return selected, warnings, nil
+	return filterSkillsByTarget(filtered, targetName, targetAgent(targetName, sc)), nil
 }
 
 // FilterSkillsByTarget removes skills whose Targets field does not include
 // the given target name.  Skills with nil Targets (no field declared) pass
 // through unconditionally.
 func FilterSkillsByTarget(skills []DiscoveredSkill, targetName string) []DiscoveredSkill {
-	selected, _ := filterSkillsByTarget(skills, targetName, config.CanonicalTargetName(targetName))
-	return selected
+	return filterSkillsByTarget(skills, targetName, config.CanonicalTargetName(targetName)).Skills
 }
 
-func filterSkillsByTarget(skills []DiscoveredSkill, targetName, agent string) ([]DiscoveredSkill, []string) {
+func filterSkillsByTarget(skills []DiscoveredSkill, targetName, agent string) targetSkillSelection {
 	variants := make(map[string]int)
 	for _, skill := range skills {
 		if skill.variantRouting && skill.VariantAgent == agent {
 			variants[skill.LogicalID]++
 		}
 	}
-	var warnings []string
-	filtered := make([]DiscoveredSkill, 0, len(skills))
+	selection := targetSkillSelection{Skills: make([]DiscoveredSkill, 0, len(skills))}
 	for _, skill := range skills {
 		if skill.variantRouting {
 			if skill.VariantAgent == agent {
 				if variants[skill.LogicalID] > 1 {
-					warnings = append(warnings, fmt.Sprintf("Target %q: skipped ambiguous %s variant %s; use include/exclude or a target override to select one", targetName, agent, skill.RelPath))
+					warning := fmt.Sprintf("Target %q: skipped ambiguous %s variant %s; use include/exclude or a target override to select one", targetName, agent, skill.RelPath)
+					selection.Warnings = append(selection.Warnings, warning)
+					if selection.Skipped == nil {
+						selection.Skipped = make(map[string]string)
+					}
+					selection.Skipped[skill.RelPath] = warning
 				} else {
-					filtered = append(filtered, skill)
+					selection.Skills = append(selection.Skills, skill)
 				}
 			}
 			continue
 		}
 		if skill.Targets == nil {
-			filtered = append(filtered, skill)
+			selection.Skills = append(selection.Skills, skill)
 			continue
 		}
 		for _, t := range skill.Targets {
 			if config.MatchesTargetName(t, targetName) {
-				filtered = append(filtered, skill)
+				selection.Skills = append(selection.Skills, skill)
 				break
 			}
 		}
 	}
-	return filtered, warnings
+	return selection
 }
 
 // FilterAgentsByTarget removes agents whose frontmatter targets field does not

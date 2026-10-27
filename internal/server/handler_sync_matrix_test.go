@@ -29,6 +29,80 @@ func TestHandleSyncMatrix_Empty(t *testing.T) {
 	}
 }
 
+func TestSyncMatrixUsesSharedVariantSelection(t *testing.T) {
+	s, src := newTestServerWithTargets(t, map[string]string{"claude": t.TempDir(), "codex-work": t.TempDir(), "universal": t.TempDir()})
+	account := s.cfg.Targets["codex-work"]
+	account.Agent = "codex"
+	account.ConfigDir = t.TempDir()
+	account.Path = ""
+	s.cfg.Targets["codex-work"] = account
+	if err := s.cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+	for _, agent := range []string{"claude", "claude-code", "codex"} {
+		for _, suffix := range []string{"fix", "review/fix"} {
+			addSkill(t, src, "_repo/skills/"+agent+"/"+suffix)
+		}
+	}
+	for _, tc := range []struct {
+		target string
+		want   int
+	}{{"claude", 0}, {"codex-work", 2}, {"universal", 0}} {
+		for _, method := range []string{http.MethodGet, http.MethodPost} {
+			t.Run(tc.target+"/"+method, func(t *testing.T) {
+				req := httptest.NewRequest(http.MethodGet, "/api/sync-matrix?target="+tc.target, nil)
+				if method == http.MethodPost {
+					req = httptest.NewRequest(http.MethodPost, "/api/sync-matrix/preview", strings.NewReader(`{"target":"`+tc.target+`"}`))
+				}
+				rr := httptest.NewRecorder()
+				s.handler.ServeHTTP(rr, req)
+				if rr.Code != http.StatusOK {
+					t.Fatal(rr.Body.String())
+				}
+				var response struct {
+					Entries []syncMatrixEntry `json:"entries"`
+				}
+				if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
+					t.Fatal(err)
+				}
+				synced, skipped := 0, 0
+				for _, row := range response.Entries {
+					if row.Kind == "agent" {
+						continue
+					}
+					if row.Status == "synced" {
+						synced++
+					}
+					if row.Status == "skipped" && strings.Contains(row.Reason, "ambiguous") {
+						skipped++
+					}
+				}
+				if synced != tc.want || (tc.target == "claude" && skipped != 4) {
+					t.Fatalf("matrix selected %d, skipped %d; want %d selected: %s", synced, skipped, tc.want, rr.Body.String())
+				}
+			})
+		}
+	}
+	// Draft includes must disambiguate before the shared selector checks aliases.
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/sync-matrix/preview", strings.NewReader(`{"target":"claude","include":["_repo__skills__claude__*"]}`)))
+	var response struct {
+		Entries []syncMatrixEntry `json:"entries"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	synced := 0
+	for _, row := range response.Entries {
+		if row.Status == "synced" {
+			synced++
+		}
+	}
+	if synced != 2 {
+		t.Fatalf("draft include failed to select exact variant: %s", rr.Body.String())
+	}
+}
+
 func TestHandleSyncMatrix_WithSkillsAndTargets(t *testing.T) {
 	tgtPath := filepath.Join(t.TempDir(), "claude-skills")
 	s, sourceDir := newTestServerWithTargets(t, map[string]string{"claude": tgtPath})

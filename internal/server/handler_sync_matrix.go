@@ -100,9 +100,14 @@ func (s *Server) handleSyncMatrix(w http.ResponseWriter, r *http.Request) {
 				entries = append(entries, newSyncMatrixEntry(skill.FlatName, name, "na", "symlink mode — filters not applicable", ""))
 			}
 		} else {
+			classified, err := ssync.ClassifySkillsForTarget(skills, name, sc)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
 			for _, skill := range skills {
-				status, reason := ssync.ClassifySkillForTarget(skill.FlatName, skill.Targets, name, sc.Include, sc.Exclude)
-				entries = append(entries, newSyncMatrixEntry(skill.FlatName, name, status, reason, ""))
+				row := classified[skill.RelPath]
+				entries = append(entries, newSyncMatrixEntry(skill.FlatName, name, row.Status, row.Reason, ""))
 			}
 		}
 		// Agents — resolve path from user config or builtin defaults
@@ -187,13 +192,20 @@ func (s *Server) handleSyncMatrixPreview(w http.ResponseWriter, r *http.Request)
 	}
 
 	var entries []syncMatrixEntry
+	target, ok := targets[body.Target]
+	sc := target.SkillsConfig()
+	sc.Include, sc.Exclude = body.Include, body.Exclude
+	classified, err := ssync.ClassifySkillsForTarget(skills, body.Target, sc)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	for _, skill := range skills {
-		status, reason := ssync.ClassifySkillForTarget(skill.FlatName, skill.Targets, body.Target, body.Include, body.Exclude)
-		entries = append(entries, newSyncMatrixEntry(skill.FlatName, body.Target, status, reason, ""))
+		row := classified[skill.RelPath]
+		entries = append(entries, newSyncMatrixEntry(skill.FlatName, body.Target, row.Status, row.Reason, ""))
 	}
 
 	// Agents — resolve path from config or builtin defaults
-	target, ok := targets[body.Target]
 	_, projectTool, isProject := config.SplitProjectTarget(body.Target)
 	if (ok || isProject) && agentsSource != "" {
 		ac := target.AgentsConfig()

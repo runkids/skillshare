@@ -39,11 +39,21 @@ function renderPage(codex: Partial<Target>, universal: Partial<Target> = {}) {
 }
 
 describe('Target page shared skills folder', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.previewSyncMatrix).mockResolvedValue({ entries: [] });
+  });
 
   it('shows selection warnings for flat naming', async () => {
+    vi.mocked(api.previewSyncMatrix).mockResolvedValue({ entries: [
+      { skill: '_repo__skills__codex__fix', target: 'codex', status: 'skipped', reason: 'ambiguous variant _repo/skills/codex/fix' },
+      { skill: '_repo__skills__codex-cli__fix', target: 'codex', status: 'skipped', reason: 'ambiguous variant _repo/skills/codex-cli/fix' },
+    ] });
     renderPage({ expectedSkillCount: 0, skippedSkillCount: 2, warnings: ['ambiguous codex variant; use a target override'] } as Partial<Target>);
     expect(await screen.findByText('ambiguous codex variant; use a target override')).toBeInTheDocument();
+    expect(await screen.findByText('0 of 2 skills go to codex.')).toBeInTheDocument();
+    expect(screen.getByText('_repo__skills__codex__fix').closest('button')).toBeNull();
+    expect(screen.getByText('_repo__skills__codex-cli__fix').closest('button')).toBeNull();
   });
 
   it('warns under the mode picker and sets the draft to the other target\'s mode', async () => {
