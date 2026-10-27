@@ -116,6 +116,10 @@ rewrite the copied `name:` field; source bytes and agent-specific instructions s
 
 ### Acceptance cases for a future implementation
 
+Every case assumes the maintainer-approved recognition mechanism is enabled for that
+tracked source; no automatic upgrade activation is asserted, and recognition/activation
+remain maintainer decisions.
+
 | Case | Expected result |
 |---|---|
 | One name, Claude/Codex files | One logical skill, two variants; exact file routed to each agent |
@@ -145,11 +149,13 @@ rewrite the copied `name:` field; source bytes and agent-specific instructions s
 
 ## Scope
 
-- [x] Small (1 file, under 200 lines): this proposal only; no production changes or dependencies.
+- [ ] Small (1-3 files, < 200 lines)
 - [ ] Medium (3-10 files, 200-500 lines)
-- [ ] Large (10+ files, 500+ lines)
+- [x] Large (10+ files, 500+ lines): provisional implementation and tests estimate.
 
-Implementation size and public API/schema changes need maintainer agreement after review.
+This PR adds one proposal document only (under 200 lines); eventual scope/size requires
+maintainer agreement. The estimate covers discovery, shared selection, count outputs,
+tests, and docs. Public API/schema changes also need maintainer agreement after review.
 The eventual implementation updates affected public docs (README/website/wiki) and any
 JSON schemas whose contracts actually change, documenting logical/variant fields compatibly.
 Sparse checkout, content conversion, and a new naming/filter migration are outside this proposal's first implementation.
