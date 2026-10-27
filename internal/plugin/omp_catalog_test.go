@@ -129,15 +129,21 @@ func TestOMPCatalogVersionReachesNativeInstall(t *testing.T) {
 				}
 			}
 			writeFile(t, root, catalogPath, `{"name":"market","plugins":[{"name":"kata","version":"4.0.0","source":"./plugins/oh-my-pi"}]}`)
-			agents.version = "4.0.0"
-			applyPluginRequest(t, s, Request{Action: "update", Name: "kata", Targets: []string{"omp"}})
-			wantVersion = ""
+			generic := ""
 			if legacy {
-				wantVersion = "4.0.0"
+				generic = "4.0.0"
+			}
+			check, err := s.Preview(context.Background(), Request{Action: "check", Name: "kata", Targets: []string{"omp"}})
+			if err != nil || len(check.Changes) != 1 || check.Changes[0].sourceVersion == nil || *check.Changes[0].sourceVersion != generic || check.Changes[0].Binding.Version != "4.0.0" {
+				t.Fatalf("review confused generic and OMP versions: %+v %v; want generic %q", check, err, generic)
+			}
+			update, err := s.Preview(context.Background(), Request{Action: "update", Name: "kata", Targets: []string{"omp"}})
+			if err != nil || !update.Blocked {
+				t.Fatalf("OMP update bypassed its native safety guard: %+v %v", update, err)
 			}
 			pack := readState(t, s).packages["kata"]
-			if pack.Version != wantVersion || pack.Bindings["omp"].Version != "4.0.0" {
-				t.Fatalf("update confused default and OMP versions: %+v; want default %q", pack, wantVersion)
+			if pack.Version != wantVersion || pack.Bindings["omp"].Version != "3.0.0" {
+				t.Fatalf("blocked update changed reviewed versions: %+v; want default %q", pack, wantVersion)
 			}
 		})
 	}
