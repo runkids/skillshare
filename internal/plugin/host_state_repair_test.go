@@ -821,3 +821,60 @@ func TestPluginHostStateDisabledRefKeepsCompatibleCandidate(t *testing.T) {
 		})
 	}
 }
+
+func TestPluginHostStateNativeOnlyReimportDropsPreviousSource(t *testing.T) {
+	var ac, bc []string
+	a := fakePiNpm(t, &ac)
+	source, _ := repairGitSource(t, "native-only")
+	applyPluginRequest(t, a, Request{Action: "add", Source: source, SourceRef: "main", Targets: []string{"pi"}})
+	original := readState(t, a).packages["demo"].Bindings["pi"]
+	shared, _ := os.ReadFile(a.ConfigPath)
+	b := fakePiNpm(t, &bc)
+	writePluginFile(t, filepath.Dir(b.ConfigPath), filepath.Base(b.ConfigPath), string(shared))
+	nativeDir := hostStatePiSource(t)
+	nativeFile, _ := b.piSettingsPath("pi")
+	relative, err := filepath.Rel(filepath.Dir(nativeFile), nativeDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writePluginFile(t, filepath.Dir(nativeFile), filepath.Base(nativeFile), `{"packages":[`+strconv.Quote(relative)+`]}`)
+	// B has no source receipt; removal forgets intent while leaving its native item.
+	applyPluginRequest(t, b, Request{Action: "remove", Name: "demo"})
+	applyPluginRequest(t, b, Request{Action: "import", Name: "demo", From: "pi", Plugin: nativeDir})
+	if decl := readState(t, b).intent["demo"].Bindings["pi"]; !decl.Imported || decl.Source != "" {
+		t.Fatal("B did not produce native-only intent")
+	}
+	shared, _ = os.ReadFile(b.ConfigPath)
+	writePluginFile(t, filepath.Dir(a.ConfigPath), filepath.Base(a.ConfigPath), string(shared))
+	repairHost(t, a)
+	if old := readState(t, a).packages["demo"].Bindings["pi"]; !old.Cleanup || old.Source != source {
+		t.Fatal("A lacks original source cleanup evidence")
+	}
+	nativeA, _ := a.piSettingsPath("pi")
+	otherNative := hostStatePiSource(t)
+	oldRelative, err := filepath.Rel(filepath.Dir(nativeA), original.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherRelative, err := filepath.Rel(filepath.Dir(nativeA), otherNative)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writePluginFile(t, filepath.Dir(nativeA), filepath.Base(nativeA), `{"packages":[`+strconv.Quote(oldRelative)+`,`+strconv.Quote(otherRelative)+`]}`)
+	same := unchanged(t, a.ConfigPath, a.statePath(), nativeA)
+	if _, err := a.Preview(context.Background(), Request{Action: "import", Name: "demo", From: "pi", Plugin: otherNative}); err == nil || !strings.Contains(err.Error(), "different plugin") {
+		t.Fatalf("cleanup allowed a different native ID: %v", err)
+	}
+	same()
+	same = unchanged(t, a.ConfigPath, nativeA)
+	applyPluginRequest(t, a, Request{Action: "import", Name: "demo", From: "pi", Plugin: original.ID})
+	got := readState(t, a).packages["demo"].Bindings["pi"]
+	if got.Source != "" || got.SourceRef != "" || got.Commit != "" || got.Digest != "" || got.Cleanup || got.ID != original.ID {
+		t.Errorf("native-only reimport retained old source metadata: %+v", got)
+	}
+	t.Setenv("PATH", t.TempDir())
+	if _, err := a.Preview(context.Background(), Request{Action: "update", Name: "demo", Targets: []string{"pi"}}); err != nil {
+		t.Errorf("native-only update reacquired previous Git source: %v", err)
+	}
+	same()
+}

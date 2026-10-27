@@ -117,7 +117,7 @@ func (s *Service) Discover(ctx context.Context, source, ref, entry string) (*Dis
 // DiscoverManaged is Discover for the package name already manages. Its reviewed snapshot
 // answers when it is of the same source, so opening the plugin does not clone it again.
 func (s *Service) DiscoverManaged(ctx context.Context, name, source, ref, entry string) (*Discovery, error) {
-	if d := s.discoverSnapshot(name, source, ref, entry); d != nil {
+	if d := s.discoverSnapshot(ctx, name, source, ref, entry); d != nil {
 		return s.withAccounts(d), nil
 	}
 	return s.Discover(ctx, source, ref, entry)

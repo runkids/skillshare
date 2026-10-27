@@ -278,8 +278,12 @@ func (s *Service) captureLegacy(d *document) {
 
 // Legacy candidates become receipts only after the same scoped native, snapshot
 // and private-registration proofs, independently of today's shared declarations.
-func (s *Service) adoptLegacy(d *document, host func(string) Host) {
+// Names optionally limit a read-only projection to its requested packages.
+func (s *Service) adoptLegacy(d *document, host func(string) Host, names ...string) {
 	prove := func(name, target string, hint *receipt) {
+		if len(names) > 0 && !slices.Contains(names, name) {
+			return
+		}
 		local := d.state.Bindings[name][target]
 		if local.Applied != nil || hint.Store != s.storeIdentity(target) {
 			return

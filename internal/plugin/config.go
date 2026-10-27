@@ -201,26 +201,6 @@ func canonicalSource(source string) string {
 	return source
 }
 
-// foldSources returns packages with local sources under home written as ~/...
-func foldSources(packages map[string]Package) map[string]Package {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return packages
-	}
-	out := make(map[string]Package, len(packages))
-	for name, p := range packages {
-		p.Source = utils.FoldHomePathWith(p.Source, home)
-		bindings := make(map[string]Binding, len(p.Bindings))
-		for target, b := range p.Bindings {
-			b.Source = utils.FoldHomePathWith(b.Source, home)
-			bindings[target] = b
-		}
-		p.Bindings = bindings
-		out[name] = p
-	}
-	return out
-}
-
 func (s *Service) save(d *document) error {
 	current, err := os.ReadFile(s.ConfigPath)
 	if err != nil && !os.IsNotExist(err) {

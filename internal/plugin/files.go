@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/fs"
@@ -14,17 +15,53 @@ import (
 // maxPreview keeps a stray bundle or binary from being sent to the browser whole.
 const maxPreview = 1 << 20
 
-// snapshotDir is the reviewed copy of a package's source, "" when there is none: an
-// imported plugin has no source, so Skillshare never copied it. Every target of one
-// package snapshots the same source, so the first one present answers for all.
-func (s *Service) snapshotDir(name string) (string, error) {
+// snapshotPackage verifies only this package's unresolved source ownership in
+// memory. Current local receipts need no native queries; nothing is migrated.
+func (s *Service) snapshotPackage(ctx context.Context, name string) (Package, error) {
 	d, err := s.load()
 	if err != nil {
-		return "", err
+		return Package{}, err
 	}
 	pack, ok := d.packages[name]
 	if !ok {
-		return "", fmt.Errorf("plugin %q is not managed here", name)
+		return Package{}, fmt.Errorf("plugin %q is not managed here", name)
+	}
+	targets := map[string]bool{}
+	for target := range pack.Bindings {
+		local := d.state.Bindings[name][target]
+		candidate := d.legacy[name].Bindings[target]
+		if local.Legacy != nil {
+			candidate = local.Legacy.Binding
+		}
+		if local.Applied == nil && candidate.Source != "" {
+			targets[target] = true
+		}
+	}
+	if len(targets) == 0 {
+		return pack, nil
+	}
+	hosts := map[string]Host{}
+	s.adoptLegacy(d, func(target string) Host {
+		if !targets[target] {
+			return Host{Error: "outside requested plugin snapshot"}
+		}
+		if h, ok := hosts[target]; ok {
+			return h
+		}
+		h := s.host(ctx, target)
+		hosts[target] = h
+		return h
+	}, name)
+	return d.packages[name], nil
+}
+
+// snapshotDir is the reviewed copy of a package's source, "" when there is none: an
+// imported plugin has no source, so Skillshare never copied it. Each binding of a
+// package can use a different source; the first locally owned snapshot answers.
+func (s *Service) snapshotDir(name string) (string, error) {
+	pack, err := s.snapshotPackage(context.Background(), name)
+	if err != nil {
+		return "", err
 	}
 	for _, target := range slices.Sorted(maps.Keys(pack.Bindings)) {
 		b := pack.Bindings[target]
@@ -41,15 +78,14 @@ func (s *Service) snapshotDir(name string) (string, error) {
 
 // discoverSnapshot reads a remote source from the snapshot of a binding made from it, nil
 // when there is none. A snapshot whose digest no longer matches was edited, so it does not answer.
-func (s *Service) discoverSnapshot(name, source, ref, entry string) *Discovery {
+func (s *Service) discoverSnapshot(ctx context.Context, name, source, ref, entry string) *Discovery {
 	if name == "" || !strings.HasPrefix(source, "https://") {
 		return nil
 	}
-	d, err := s.load()
+	pack, err := s.snapshotPackage(ctx, name)
 	if err != nil {
 		return nil
 	}
-	pack := d.packages[name]
 	for _, target := range slices.Sorted(maps.Keys(pack.Bindings)) {
 		b := pack.Bindings[target]
 		if b.Source != source || b.SourceRef != ref || b.Digest == "" || b.Cleanup || b.ContextChanged || !s.ownedSnapshot(b, target) {

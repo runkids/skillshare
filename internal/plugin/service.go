@@ -451,7 +451,8 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 			if old.Source == "" {
 				old.Version = installed.Version
 			}
-			if old.ID != "" {
+			decl, declared := d.intent[name].Bindings[r.From]
+			if old.ID != "" && declared && !decl.Imported {
 				b = old
 			}
 		}
