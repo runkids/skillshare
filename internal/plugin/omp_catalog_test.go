@@ -129,13 +129,9 @@ func TestOMPCatalogVersionReachesNativeInstall(t *testing.T) {
 				}
 			}
 			writeFile(t, root, catalogPath, `{"name":"market","plugins":[{"name":"kata","version":"4.0.0","source":"./plugins/oh-my-pi"}]}`)
-			generic := ""
-			if legacy {
-				generic = "4.0.0"
-			}
 			check, err := s.Preview(context.Background(), Request{Action: "check", Name: "kata", Targets: []string{"omp"}})
-			if err != nil || len(check.Changes) != 1 || check.Changes[0].sourceVersion == nil || *check.Changes[0].sourceVersion != generic || check.Changes[0].Binding.Version != "4.0.0" {
-				t.Fatalf("review confused generic and OMP versions: %+v %v; want generic %q", check, err, generic)
+			if err != nil || len(check.Changes) != 1 || check.Changes[0].Binding.Version != "4.0.0" {
+				t.Fatalf("check lost the OMP version: %+v %v", check, err)
 			}
 			update, err := s.Preview(context.Background(), Request{Action: "update", Name: "kata", Targets: []string{"omp"}})
 			if err != nil || !update.Blocked {

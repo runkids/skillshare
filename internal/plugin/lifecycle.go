@@ -85,9 +85,9 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 			}
 			d.intent[c.Name] = pack
 		case "import":
-			// Repeated local import attaches a receipt without replacing source intent.
-			if _, exists := pack.Bindings[c.Target]; !exists {
-				pack.Bindings[c.Target] = declaration{Imported: true}
+			// A first local native import replaces this target recipe; verified source receipts remain source-managed.
+			if old, exists := pack.Bindings[c.Target]; !exists || c.Binding.Source == "" && d.packages[c.Name].Bindings[c.Target].ID == "" {
+				pack.Bindings[c.Target] = declaration{Imported: true, Sync: old.Sync}
 				d.intent[c.Name] = pack
 			}
 		case "enable", "disable":

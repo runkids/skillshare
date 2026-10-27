@@ -451,7 +451,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				b = old
 			}
 		}
-		change := Change{Name: name, Target: r.From, ID: b.ID, Binding: b, Action: "import", Message: "Record the existing native installation; leave its content and enabled state unchanged."}
+		change := Change{Name: name, Target: r.From, ID: b.ID, Binding: b, Action: "import", Message: "Record the existing native installation. A first local import marks this shared target native-only; content and enabled state stay unchanged."}
 		if installed.Filtered && !d.packages[name].Bindings[r.From].ContextChanged {
 			if err := s.preparePiRegistration(ctx, &change); err != nil {
 				return nil, err
