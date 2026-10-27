@@ -21,6 +21,7 @@ skillshare sync plugins --no-tui
 skillshare plugin enable review --target codex --no-tui
 skillshare plugin check review --json
 skillshare plugin update review --target claude --no-tui
+skillshare plugin update --all --no-tui
 skillshare plugin remove review --no-tui
 ```
 
@@ -39,11 +40,11 @@ skillshare plugin remove review --no-tui
 | `inspect NAME` | 管理下の 1 つの package を検査 |
 | `sync [NAME]` | 選択済みの target を整合させ、未完了のネイティブ操作を再試行 |
 | `check [NAME]` | Source の内容を記録済みのダイジェストと、または Pi の npm パッケージのバージョンを npm の最新と比較。更新は行わない |
-| `update [NAME]` | Source の変更を確認し、対応するネイティブ更新操作を使用 |
+| `update [NAME \| --all]` | Source の変更を確認し、対応するネイティブ更新操作を使用 |
 | `enable / disable [NAME]` | 次の sync に target を含める / 除外する |
 | `remove [NAME]` | 管理下のバインディングをアンインストールし、その定義を削除 |
 
-引数なしのコマンドはターミナルで不足している入力をプロンプトします。非インタラクティブな変更コマンドには明示的な入力が必要です。`sync` と `check` はすべての package を対象に動作できます。`sync --all` は plugin を含み**ません** — `sync plugins` を明示的に使ってください。
+引数なしのコマンドはターミナルで不足している入力をプロンプトします。非インタラクティブな変更コマンドには明示的な入力が必要です。`sync` と `check` はすべての package を対象に動作でき、`update` は `--all`（`-a`）を指定するとすべての管理下 package を更新します。`sync --all` は plugin を含み**ません** — `sync plugins` を明示的に使ってください。
 
 ## オプション
 
@@ -53,6 +54,7 @@ skillshare plugin remove review --no-tui
 | `--plugin NAME` | source のマーケットプレイスから 1 つの plugin を選択 |
 | `--name NAME` | 追加またはインポート時の論理的な package 名 |
 | `--from TARGET` | Claude、Codex、Antigravity CLI、Copilot、Grok、Pi、OMP のマーケットプレイス、OpenCode、または [Agent の別のアカウント](#accounts)からインポート |
+| `--all`, `-a` | すべての管理下 plugin を更新（`update` のみ。package 名や `--source-ref` とは併用不可） |
 | `--dry-run`, `-n` | Skillshare または Agent の設定を変更せずにプレビュー |
 | `--source-ref REF` | `discover`、`add`、`update` 用の git ブランチ、タグ、またはコミット。リモート source のみ |
 | `--entry PATH` | package ルートからの相対パスで明示的にビルド済みの OpenCode JS/TS エントリを指定（`discover` と `add`） |
@@ -76,7 +78,7 @@ JSON 出力には source パスとネイティブ識別子が含まれます。s
 | Oh My Pi | ネイティブ互換のメタデータを持つ、マーケットプレイス経由のローカル/Git plugin | 新しい cache へのインストール/再インストール、インポート、スコープを限定した削除 | OMP の project アンカーで | 更新はブロック。削除しても共有 cache は保持 |
 | OpenCode | SDK 依存を持つ `package.json`、`.opencode/plugins/` エントリ、または明示的な `--entry` | Yes | Yes | 管理下 source スナップショットを更新 |
 
-| Antigravity CLI | `agy` に受け入れられるネイティブルートマニフェストまたは Claude マニフェスト | Yes | No | enable 状態を保持しつつネイティブに update |
+| Antigravity CLI | `agy` に受け入れられるネイティブルートマニフェストまたは Claude マニフェスト | Yes | No | reviewed された source を更新（ネイティブな enabled 状態がわかっており enabled の場合のみ） |
 | GitHub Copilot CLI | `.plugin/plugin.json`、`.github/plugin/plugin.json`、Claude マニフェスト、または Agent Plugins ルートマニフェスト | Yes | No | reviewed された source を更新（ネイティブな enabled 状態がわかっており enabled の場合のみ） |
 | Grok Build | `.grok-plugin/plugin.json` または Claude マニフェスト | インポート/削除のみ。インストールにはネイティブな trust が必要 | No | ネイティブに update |
 | Kimi Code | `kimi.plugin.json` または `.kimi-plugin/plugin.json` | 検出のみ | No | 自動化されていない |

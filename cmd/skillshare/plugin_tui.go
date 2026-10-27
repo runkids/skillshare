@@ -194,7 +194,7 @@ func pluginWizard(s *plugin.Service, o pluginOptions) error {
 		r.From = choices[idx[0]].target
 		r.Plugin = choices[idx[0]].id
 	default:
-		if r.Name == "" && r.Action != "sync" && r.Action != "check" {
+		if r.Name == "" && !r.All && r.Action != "sync" && r.Action != "check" {
 			inventory, err := s.Inventory(ctx)
 			if err != nil {
 				return err
@@ -219,7 +219,7 @@ func pluginWizard(s *plugin.Service, o pluginOptions) error {
 		}
 	}
 	o.request = r
-	if len(r.Targets) == 0 && (r.Action == "enable" || r.Action == "disable" || r.Action == "update" || r.Action == "remove") {
+	if len(r.Targets) == 0 && !r.All && (r.Action == "enable" || r.Action == "disable" || r.Action == "update" || r.Action == "remove") {
 		inventory, err := s.Inventory(ctx)
 		if err != nil {
 			return err

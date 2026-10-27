@@ -21,6 +21,7 @@ skillshare sync plugins --no-tui
 skillshare plugin enable review --target codex --no-tui
 skillshare plugin check review --json
 skillshare plugin update review --target claude --no-tui
+skillshare plugin update --all --no-tui
 skillshare plugin remove review --no-tui
 ```
 
@@ -39,11 +40,11 @@ skillshare plugin remove review --no-tui
 | `inspect NAME` | 관리되는 패키지 하나를 검사 |
 | `sync [NAME]` | 선택된 target을 재조정하고 미완료된 네이티브 작업을 재시도 |
 | `check [NAME]` | source 내용을 기록된 digest와, 또는 Pi npm 패키지 버전을 npm 최신 버전과 비교. 업데이트는 절대 하지 않음 |
-| `update [NAME]` | source 변경 사항을 검토하고 지원되는 네이티브 업데이트 작업을 사용 |
+| `update [NAME \| --all]` | source 변경 사항을 검토하고 지원되는 네이티브 업데이트 작업을 사용 |
 | `enable / disable [NAME]` | 다음 sync에 target을 포함/제외 |
 | `remove [NAME]` | 관리되는 바인딩을 제거하고 정의를 삭제 |
 
-인수 없는 명령은 터미널에서 누락된 입력을 프롬프트로 요청합니다. 비대화형 변경 명령은 명시적인 입력이 필요합니다. `sync`와 `check`는 모든 패키지에 대해 동작할 수 있습니다. `sync --all`은 plugin을 포함하지 **않습니다**. `sync plugins`를 명시적으로 사용하세요.
+인수 없는 명령은 터미널에서 누락된 입력을 프롬프트로 요청합니다. 비대화형 변경 명령은 명시적인 입력이 필요합니다. `sync`와 `check`는 모든 패키지에 대해 동작할 수 있으며, `update`는 `--all`(`-a`)을 지정하면 관리되는 모든 패키지를 업데이트합니다. `sync --all`은 plugin을 포함하지 **않습니다**. `sync plugins`를 명시적으로 사용하세요.
 
 ## 옵션
 
@@ -53,6 +54,7 @@ skillshare plugin remove review --no-tui
 | `--plugin NAME` | source marketplace에서 plugin 하나를 선택 |
 | `--name NAME` | 추가하거나 import할 때의 논리적 패키지 이름 |
 | `--from TARGET` | Claude, Codex, Antigravity CLI, Copilot, Grok, Pi, OMP marketplace, OpenCode, 또는 [Agent의 다른 계정](#accounts)에서 import |
+| `--all`, `-a` | 관리되는 모든 plugin 업데이트(`update` 전용, 패키지 이름이나 `--source-ref`와 함께 사용할 수 없음) |
 | `--dry-run`, `-n` | Skillshare나 Agent 설정을 변경하지 않고 미리보기 |
 | `--source-ref REF` | `discover`, `add`, `update`를 위한 Git 브랜치, 태그, 또는 커밋. 원격 source에만 해당 |
 | `--entry PATH` | 패키지 루트 기준의 명시적으로 빌드된 OpenCode JS/TS entry(`discover`와 `add`) |
@@ -76,7 +78,7 @@ JSON 출력에는 source 경로와 네이티브 식별자가 포함됩니다. so
 | Oh My Pi | 네이티브 호환 메타데이터를 가진 marketplace 기반 로컬/Git plugin | 새 cache 설치/재설치, import, scope 단위 제거 | OMP의 project anchor에서 | 업데이트 차단, 제거 시 공유 cache 유지 |
 | OpenCode | SDK dependency가 있는 `package.json`, `.opencode/plugins/` entry, 또는 명시적 `--entry` | 예 | 예 | 관리되는 source 스냅샷 새로고침 |
 
-| Antigravity CLI | `agy`가 허용하는 네이티브 루트 매니페스트 또는 Claude 매니페스트 | 예 | 아니요 | 활성화 상태를 유지하기 위해 네이티브로 업데이트 |
+| Antigravity CLI | `agy`가 허용하는 네이티브 루트 매니페스트 또는 Claude 매니페스트 | 예 | 아니요 | 네이티브 활성화 상태가 확인되고 활성화된 경우에만 검토된 source를 새로고침 |
 | GitHub Copilot CLI | `.plugin/plugin.json`, `.github/plugin/plugin.json`, Claude 매니페스트, 또는 Agent Plugins 루트 매니페스트 | 예 | 아니요 | 네이티브 활성화 상태가 확인되고 활성화된 경우에만 검토된 source를 새로고침 |
 | Grok Build | `.grok-plugin/plugin.json` 또는 Claude 매니페스트 | import/remove만 가능. 설치에는 네이티브 trust 필요 | 아니요 | 네이티브로 업데이트 |
 | Kimi Code | `kimi.plugin.json` 또는 `.kimi-plugin/plugin.json` | discovery만 가능 | 아니요 | 자동화되지 않음 |

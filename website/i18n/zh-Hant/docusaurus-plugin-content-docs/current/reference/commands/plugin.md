@@ -22,6 +22,7 @@ skillshare sync plugins --no-tui
 skillshare plugin enable review --target codex --no-tui
 skillshare plugin check review --json
 skillshare plugin update review --target claude --no-tui
+skillshare plugin update --all --no-tui
 skillshare plugin remove review --no-tui
 ```
 
@@ -42,12 +43,12 @@ target 會儲存這個選擇。下一次 `sync plugins` 會移除其受管理的
 | `inspect NAME` | 檢查單一受管理的套件 |
 | `sync [NAME]` | 協調已選的 target 並重試未完成的原生操作 |
 | `check [NAME]` | 比對 source 內容與記錄的 digest，或 Pi npm 套件版本與 npm 最新版；絕不更新 |
-| `update [NAME]` | 檢視 source 變更並使用支援的原生更新操作 |
+| `update [NAME \| --all]` | 檢視 source 變更並使用支援的原生更新操作 |
 | `enable / disable [NAME]` | 在下一次 sync 中納入/排除某個 target |
 | `remove [NAME]` | 解除安裝受管理的綁定並移除其定義 |
 
 在終端機中執行不帶參數的指令會提示輸入缺少的內容。非互動式的異動指令則需要明確的輸入。
-`sync` 和 `check` 可以對所有套件操作。`sync --all` **不會**包含 plugin；請明確使用 `sync plugins`。
+`sync` 和 `check` 可以對所有套件操作；`update` 傳入 `--all`（`-a`）時會更新所有受管理的套件。`sync --all` **不會**包含 plugin；請明確使用 `sync plugins`。
 
 ## Options
 
@@ -57,6 +58,7 @@ target 會儲存這個選擇。下一次 `sync plugins` 會移除其受管理的
 | `--plugin NAME` | 從 source marketplace 選擇一個 plugin |
 | `--name NAME` | 新增或匯入時使用的邏輯套件名稱 |
 | `--from TARGET` | 從 Claude、Codex、Antigravity CLI、Copilot、Grok、Pi、OMP marketplaces、OpenCode 或[某個 Agent 的另一個帳號](#accounts)匯入 |
+| `--all`, `-a` | 更新所有受管理的 plugins（僅限 `update`；不可與套件名稱或 `--source-ref` 同時使用） |
 | `--dry-run`, `-n` | 預覽而不變更 Skillshare 或 Agent 設定 |
 | `--source-ref REF` | 用於 `discover`、`add`、`update` 的 Git branch、tag 或 commit；僅限遠端 source |
 | `--entry PATH` | 明確指定已建置的 OpenCode JS/TS 進入點，相對於套件根目錄（`discover` 與 `add`） |
@@ -82,7 +84,7 @@ JSON 輸出包含 source 路徑與原生識別碼。請勿在 source URL 中放�
 | Oh My Pi | 以 marketplace 為基礎、具有原生相容 metadata 的本機/Git plugins | 全新 cache 的安裝/重新安裝、匯入與限定 scope 的移除 | 在 OMP 的 project anchor | 更新被擋下；移除時保留共用 cache |
 | OpenCode | 含 SDK 依賴的 `package.json`、`.opencode/plugins/` 項目，或明確的 `--entry` | Yes | Yes | 重新整理受管理的 source 快照 |
 
-| Antigravity CLI | `agy` 接受的原生根目錄 manifest 或 Claude manifest | Yes | No | 以原生方式更新以保留啟用狀態 |
+| Antigravity CLI | `agy` 接受的原生根目錄 manifest 或 Claude manifest | Yes | No | 重新整理已檢視的 source，僅在原生啟用狀態已知且為啟用時 |
 | GitHub Copilot CLI | `.plugin/plugin.json`、`.github/plugin/plugin.json`、Claude manifest，或 Agent Plugins 根目錄 manifest | Yes | No | 重新整理已檢視的 source，僅在原生啟用狀態已知且為啟用時 |
 | Grok Build | `.grok-plugin/plugin.json` 或 Claude manifest | 僅限匯入/移除；安裝需要原生信任 | No | 以原生方式更新 |
 | Kimi Code | `kimi.plugin.json` 或 `.kimi-plugin/plugin.json` | 僅限探索 | No | 未自動化 |

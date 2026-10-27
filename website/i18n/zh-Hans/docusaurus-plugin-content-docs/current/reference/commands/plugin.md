@@ -22,6 +22,7 @@ skillshare sync plugins --no-tui
 skillshare plugin enable review --target codex --no-tui
 skillshare plugin check review --json
 skillshare plugin update review --target claude --no-tui
+skillshare plugin update --all --no-tui
 skillshare plugin remove review --no-tui
 ```
 
@@ -42,12 +43,12 @@ target 会保存该选择。下一次 `sync plugins` 会移除其受管理的安
 | `inspect NAME` | Inspect one managed package |
 | `sync [NAME]` | Reconcile selected targets and retry incomplete native operations |
 | `check [NAME]` | 比对 source 内容与记录的 digest，或 Pi npm 包版本与 npm 最新版；绝不更新 |
-| `update [NAME]` | Review source changes and use a supported native update operation |
+| `update [NAME \| --all]` | Review source changes and use a supported native update operation |
 | `enable / disable [NAME]` | Include/exclude a target in the next sync |
 | `remove [NAME]` | Uninstall managed bindings and remove their definitions |
 
 裸命令会在终端中提示缺失的输入。非交互式的变更命令需要显式输入。
-`sync` 和 `check` 可以对所有 packages 进行操作。`sync --all` **不**包含 plugins；请显式使用
+`sync` 和 `check` 可以对所有 packages 进行操作；`update` 传入 `--all`（`-a`）时会更新所有受管理的 packages。`sync --all` **不**包含 plugins；请显式使用
 `sync plugins`。
 
 ## 选项
@@ -58,6 +59,7 @@ target 会保存该选择。下一次 `sync plugins` 会移除其受管理的安
 | `--plugin NAME` | Select one plugin from a source marketplace |
 | `--name NAME` | Logical package name when adding or importing |
 | `--from TARGET` | Import from Claude, Codex, Antigravity CLI, Copilot, Grok, Pi, OMP marketplaces, OpenCode, or [another account of an Agent](#accounts) |
+| `--all`, `-a` | Update all managed plugins (`update` only; cannot be combined with a package name or `--source-ref`) |
 | `--dry-run`, `-n` | Preview without changing Skillshare or Agent configuration |
 | `--source-ref REF` | Git branch, tag, or commit for `discover`, `add`, and `update`; remote sources only |
 | `--entry PATH` | Explicit built OpenCode JS/TS entry, relative to the package root (`discover` and `add`) |
@@ -83,7 +85,7 @@ JSON 输出包含来源路径和原生标识符。不要在来源 URL 中放置�
 | Oh My Pi | Marketplace-backed local/Git plugins with native-compatible metadata | Fresh-cache install/reinstall, import and scoped removal | At OMP's project anchor | Updates blocked; removal retains shared cache |
 | OpenCode | `package.json` with an SDK dependency, `.opencode/plugins/` entry, or explicit `--entry` | Yes | Yes | Refresh managed source snapshot |
 
-| Antigravity CLI | Native root manifest or Claude manifest accepted by `agy` | Yes | No | Update natively to preserve enablement |
+| Antigravity CLI | Native root manifest or Claude manifest accepted by `agy` | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
 | GitHub Copilot CLI | `.plugin/plugin.json`, `.github/plugin/plugin.json`, Claude manifest, or Agent Plugins root manifest | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
 | Grok Build | `.grok-plugin/plugin.json` or Claude manifest | Import/remove only; native trust required for install | No | Update natively |
 | Kimi Code | `kimi.plugin.json` or `.kimi-plugin/plugin.json` | Discovery only | No | Not automated |

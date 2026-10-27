@@ -1028,3 +1028,137 @@ func TestBatchUpdateStartsNoPluginAfterAStop(t *testing.T) {
 		t.Fatalf("failed %d, ended %q", failed, ended)
 	}
 }
+
+func TestPluginUpdateAllValidationAndPartialFailureIsolation(t *testing.T) {
+	agents := &fakeAgents{version: "1.0.0"}
+	s := agents.service(t)
+	sourceA := fixture(t)
+	sourceB := t.TempDir()
+	writeFile(t, sourceB, ".claude-plugin/plugin.json", `{"name":"other","version":"1.0.0","skills":"./skills"}`)
+	writeFile(t, sourceB, "skills/other/SKILL.md", "---\nname: other\n---\nother")
+
+	applyPluginRequest(t, s, Request{Action: "add", Source: sourceA, Targets: []string{"claude", "omp"}})
+	applyPluginRequest(t, s, Request{Action: "add", Source: sourceB, Targets: []string{"claude"}})
+
+	for _, bad := range []Request{
+		{Action: "update"},
+		{Action: "update", Name: "demo", All: true},
+		{Action: "update", SourceRef: "main", All: true},
+		{Action: "sync", All: true},
+	} {
+		if _, err := s.Preview(context.Background(), bad); err == nil {
+			t.Fatalf("expected validation error for %+v", bad)
+		}
+	}
+
+	// Bump both sources and update all in one pass.
+	bumpDemo(t, sourceA, agents)
+	writeFile(t, sourceB, ".claude-plugin/plugin.json", `{"name":"other","version":"2.0.0","skills":"./skills"}`)
+	writeFile(t, sourceB, "skills/other/SKILL.md", "---\nname: other\n---\nother v2")
+	same := unchanged(t, s.ConfigPath)
+	applyPluginRequest(t, s, Request{Action: "update", All: true})
+	same()
+	cfg, err := s.load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.packages["demo"].Bindings["claude"].Version != "2.0.0" || cfg.packages["other"].Bindings["claude"].Version != "2.0.0" {
+		t.Fatalf("update --all did not update all packages: %+v", cfg.packages)
+	}
+
+	// Remove sourceA on disk so its discovery fails, while bumping sourceB to 3.0.0.
+	if err := os.RemoveAll(sourceA); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, sourceB, ".claude-plugin/plugin.json", `{"name":"other","version":"3.0.0","skills":"./skills"}`)
+	writeFile(t, sourceB, "skills/other/SKILL.md", "---\nname: other\n---\nother v3")
+
+	agents.version = "3.0.0"
+	var result *Result
+	var applyErr error
+	_ = s.WithDiscoveryCache(func() error {
+		req := Request{Action: "update", All: true}
+		p, pErr := s.Preview(context.Background(), req)
+		if pErr != nil {
+			t.Fatalf("preview --all should isolate source error, got: %v", pErr)
+		}
+		if p.Blocked {
+			t.Fatalf("preview --all should not be blocked by one broken source: %+v", p.Changes)
+		}
+		result, applyErr = s.Apply(context.Background(), req, p.Revision)
+		return nil
+	})
+	if applyErr == nil {
+		t.Fatalf("expected partial failure error from Apply when a source failed discovery, got nil (result=%+v)", result)
+	}
+	same()
+	cfg, err = s.load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.packages["other"].Bindings["claude"].Version != "3.0.0" {
+		t.Fatalf("healthy package was not updated during partial failure: %+v", cfg.packages["other"])
+	}
+	if cfg.packages["demo"].Bindings["claude"].Version != "2.0.0" || cfg.packages["demo"].Bindings["claude"].Pending != "" {
+		t.Fatalf("failed package binding should remain untouched at 2.0.0: %+v", cfg.packages["demo"])
+	}
+}
+
+func TestPluginUpdateAllOnSharedHostIsolatesMissingSource(t *testing.T) {
+	for _, existing := range []bool{false, true} {
+		t.Run(map[bool]string{false: "fresh", true: "replacement"}[existing], func(t *testing.T) {
+			var aCalls, bCalls []string
+			a := fakePiNpm(t, &aCalls)
+			broken, healthy := hostStatePiSource(t), t.TempDir()
+			writeFile(t, healthy, "package.json", `{"name":"other","version":"1.0.0","keywords":["pi-package"]}`)
+			writeFile(t, healthy, "extensions/other.ts", "export default () => {}")
+			applyPluginRequest(t, a, Request{Action: "add", Source: broken, Targets: []string{"pi"}})
+			applyPluginRequest(t, a, Request{Action: "add", Source: healthy, Targets: []string{"pi"}})
+			shared, _ := os.ReadFile(a.ConfigPath)
+			b := fakePiNpm(t, &bCalls)
+			writePluginFile(t, filepath.Dir(b.ConfigPath), filepath.Base(b.ConfigPath), string(shared))
+			oldID := ""
+			if existing {
+				applyPluginRequest(t, b, Request{Action: "sync"})
+				oldID = readState(t, b).state.Bindings["demo"]["pi"].Applied.Binding.ID
+				repairHost(t, a)
+				applyPluginRequest(t, a, Request{Action: "remove", Name: "demo", Targets: []string{"pi"}})
+				broken = hostStatePiSource(t)
+				applyPluginRequest(t, a, Request{Action: "add", Name: "demo", Source: broken, Targets: []string{"pi"}})
+				shared, _ = os.ReadFile(a.ConfigPath)
+				writePluginFile(t, filepath.Dir(b.ConfigPath), filepath.Base(b.ConfigPath), string(shared))
+				repairHost(t, b)
+			}
+			writeFile(t, healthy, "package.json", `{"name":"other","version":"2.0.0","keywords":["pi-package"]}`)
+			if err := os.RemoveAll(broken); err != nil {
+				t.Fatal(err)
+			}
+			same := unchanged(t, b.ConfigPath)
+			_ = b.WithDiscoveryCache(func() error {
+				request := Request{Action: "update", All: true}
+				plan, err := b.Preview(context.Background(), request)
+				if err != nil || plan.Blocked {
+					t.Fatalf("shared host --all did not isolate missing source: %+v %v", plan, err)
+				}
+				result, err := b.Apply(context.Background(), request, plan.Revision)
+				if err == nil || result == nil {
+					t.Fatalf("missing source did not report partial failure: %+v %v", result, err)
+				}
+				return nil
+			})
+			d := readState(t, b)
+			if d.packages["other"].Bindings["pi"].ID == "" || d.packages["other"].Bindings["pi"].Version != "2.0.0" {
+				t.Fatalf("shared host --all skipped healthy source: %+v", d.packages)
+			}
+			local := d.state.Bindings["demo"]["pi"]
+			if existing {
+				if local.Applied == nil || local.Applied.Binding.ID != oldID || local.Pending != nil || !slices.ContainsFunc(b.host(context.Background(), "pi").Installed, func(i Installed) bool { return i.ID == oldID }) {
+					t.Fatalf("failed replacement changed the previous native installation: %+v", local)
+				}
+			} else if len(d.state.Bindings["demo"]) != 0 {
+				t.Fatalf("missing source acquired a receipt: %+v", local)
+			}
+			same()
+		})
+	}
+}

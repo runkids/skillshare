@@ -142,6 +142,10 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 		outcome := Outcome{Name: c.Name, Target: c.Target}
 		if c.Action == "skip" {
 			outcome.Status = "skipped"
+			if c.batchError {
+				outcome.Status, failed[key] = "failed", true
+				failures = append(failures, errors.New(c.Message))
+			}
 			outcome.Message, outcome.MessageKey, outcome.MessageArgs = c.Message, c.MessageKey, c.MessageArgs
 			result.Results = append(result.Results, outcome)
 			continue

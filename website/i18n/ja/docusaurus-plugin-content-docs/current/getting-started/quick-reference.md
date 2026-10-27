@@ -81,7 +81,7 @@ skillshare のコマンド早見表です。
 | `plugin import [plugin@market] --from claude` | 既存のネイティブインストールを取り込む |
 | `plugin inspect <name>` | 管理下のパッケージを調べる |
 | `plugin check [name]` | 適用せずにソースの変更を確認 |
-| `plugin update [name] --target claude` | 確認済みのソースから対応 Target を更新 |
+| `plugin update [name \| --all] --target claude` | 確認済みのソースから対応 Target を更新 |
 | `plugin enable [name] --target codex` | 次回の Sync 対象として Target を選択 |
 | `plugin disable [name] --target codex` | 次回の Sync 対象から Target を除外 |
 | `plugin remove [name]` | 管理下のバインディングをアンインストールし、定義を削除 |

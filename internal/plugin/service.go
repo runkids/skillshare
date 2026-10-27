@@ -23,13 +23,11 @@ func (s *Service) managedRoot() string {
 // or the existing update batch, without caching it across standalone previews.
 func (s *Service) discover(ctx context.Context, source, ref, entry string) (*Discovery, error) {
 	key := source + "\x00" + ref + "\x00" + entry
-	if d := s.discoveries[key]; d != nil {
-		return d, nil
+	if d, seen := s.discoveries[key]; seen {
+		return d, s.discoveryErrs[key]
 	}
 	d, err := DiscoverOptions(ctx, source, ref, entry)
-	if err == nil {
-		s.discoveries[key] = d
-	}
+	s.discoveries[key], s.discoveryErrs[key] = d, err
 	return d, err
 }
 
@@ -102,7 +100,21 @@ func (s *Service) validate(r Request) error {
 	if r.Action == "import" && (!slices.Contains(targets, r.From) || !validTargetID(s.agentOf(r.From), r.Plugin)) {
 		return fmt.Errorf("import requires --from <target> and a native plugin identifier")
 	}
-	if (r.Action == "remove" || r.Action == "update" || r.Action == "enable" || r.Action == "disable") && r.Name == "" {
+	if r.All {
+		if r.Action != "update" {
+			return fmt.Errorf("--all is only supported for update")
+		}
+		if r.Name != "" {
+			return fmt.Errorf("--all cannot be combined with a package name")
+		}
+		if r.SourceRef != "" {
+			return fmt.Errorf("--source-ref cannot be combined with --all")
+		}
+	}
+	if r.Action == "update" && r.Name == "" && !r.All {
+		return fmt.Errorf("update requires a package name or --all")
+	}
+	if (r.Action == "remove" || r.Action == "enable" || r.Action == "disable") && r.Name == "" {
 		return fmt.Errorf("%s requires a package name", r.Action)
 	}
 	return nil
@@ -120,7 +132,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 	// Recursive source previews share this operation's discoveries, not receiver lifetime.
 	if s.discoveries == nil {
 		preview := *s
-		preview.discoveries = map[string]*Discovery{}
+		preview.discoveries, preview.discoveryErrs = map[string]*Discovery{}, map[string]error{}
 		s = &preview
 	}
 	d, err := s.load()
@@ -157,20 +169,26 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		}
 		h := host(c.Target)
 		agent := s.agentOf(c.Target)
+		failChange := func(message, key string, args map[string]string) {
+			if r.All {
+				c.Action, c.batchError = "skip", true
+			} else {
+				c.Action = "blocked"
+			}
+			c.Message, c.MessageKey, c.MessageArgs = message, key, args
+		}
 		if agent == "pi" && c.Binding.PiRegistration != "" && len(c.piRecord) == 0 && (c.Action == "install" || c.Action == "uninstall" || c.Action == "remove" || c.Action == "update") {
 			if err := s.preparePiRegistration(ctx, &c); err != nil {
-				c.Action, c.Message, c.MessageKey, c.MessageArgs = "blocked", err.Error(), "", nil
+				failChange(err.Error(), "", nil)
 			}
 		}
-		// A change already blocked keeps its own reason; the key always matches the message.
-		if h.Error != "" && c.Action != "blocked" {
-			c.Action = "blocked"
-			c.Message, c.MessageKey, c.MessageArgs = h.Error, h.ErrorKey, h.ErrorArgs
+		// A change already blocked or skipped keeps its own reason; the key always matches the message.
+		if h.Error != "" && c.Action != "blocked" && c.Action != "skip" {
+			failChange(h.Error, h.ErrorKey, h.ErrorArgs)
 		}
 		if c.Action != "blocked" && c.Action != "noop" && c.Action != "forget" && c.Action != "skip" && c.Action != "import" && c.Action != "update-available" && c.Action != "native-check" {
 			if err := s.verifyCommand(ctx, c.Target, c.Action, c.ID); err != nil {
-				c.Action = "blocked"
-				c.Message = err.Error()
+				failChange(err.Error(), "", nil)
 			}
 		}
 		// An update that cannot reach a target skips it, so the plugin's other Agents still update.
@@ -202,9 +220,6 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		if agent == "omp" && (c.Action == "install" || c.Action == "update") && c.Message == "" {
 			c.Message, c.MessageKey = "Installs the reviewed snapshot. If the plugin provides extensions or tools, OMP loads them at its next startup.", "plugins.note.ompRuntime"
 		}
-		if c.Action == "update" && agent == "antigravity-cli" {
-			skip("plugins.skip.keepEnablement", "Update in Antigravity CLI to preserve native enablement; automatic reinstall updates are not supported.", map[string]string{"agent": "Antigravity CLI"})
-		}
 		// pi update keeps an npm package pinned to an exact version.
 		if version := pinnedNpm(c.ID); c.Action == "update" && agent == "pi" && version != "" {
 			skip("plugins.skip.npmPinned", fmt.Sprintf("Pinned to %s; to use another version, add the package again with that version.", version), map[string]string{"version": version})
@@ -227,11 +242,22 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		if c.Binding.Source == "" && commandTarget(agent) && c.Action == "update" {
 			skip("plugins.skip.imported", "This imported plugin has no reviewed reinstall source; update it in the native client.", nil)
 		}
-		if c.Action == "update" && agent == "copilot" {
+		if (c.Action == "update" || r.Action == "update" && c.Action == "install") && (agent == "copilot" || agent == "antigravity-cli") {
+			label := "GitHub Copilot CLI"
+			msg := "Update in Copilot to preserve native enablement."
+			if agent == "antigravity-cli" {
+				label = "Antigravity CLI"
+				msg = "Update in Antigravity CLI to preserve native enablement."
+			}
+			enabled := false
 			for _, item := range h.Installed {
-				if item.ID == c.ID && (!item.EnabledKnown || !item.Enabled) {
-					skip("plugins.skip.keepEnablement", "Update in Copilot to preserve native enablement.", map[string]string{"agent": "GitHub Copilot CLI"})
+				if item.ID == c.ID && item.EnabledKnown && item.Enabled {
+					enabled = true
+					break
 				}
+			}
+			if !enabled {
+				skip("plugins.skip.keepEnablement", msg, map[string]string{"agent": label})
 			}
 		}
 		if c.Action == "update" && agent == "codex" && c.Binding.Source == "" {
@@ -257,12 +283,18 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		// Skips above are not native commands; what is left for omp must not destroy a shared cache.
 		if agent == "omp" && h.Error == "" {
 			ompGuard(h, &c)
+			if r.All && c.Action == "blocked" && c.MessageKey == "plugins.error.ompNativeDestructive" && len(r.Targets) == 0 {
+				c.Action = "skip"
+			}
 			if c.Action == "install" {
 				s.prepareOMPInstall(ctx, h, &c)
 			}
 			if c.Action == "remove" || c.Action == "uninstall" || c.Action == "forget" {
 				s.prepareOMPRemoval(h, &c)
 			}
+		}
+		if r.All && c.Action == "blocked" {
+			c.Action, c.batchError = "skip", true
 		}
 		if c.Action == "blocked" {
 			p.Blocked = true
@@ -506,8 +538,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 					continue
 				}
 				if b.ContextChanged {
-					p.Blocked = true
-					p.Changes = append(p.Changes, Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "blocked", Message: "Native account or scope changed; restore the previous account settings to resolve its local receipt before rebinding."})
+					appendChange(Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "blocked", Message: "Native account or scope changed; restore the previous account settings to resolve its local receipt before rebinding."})
 					continue
 				}
 				if b.ID == "" && (decl.Imported || r.Action == "remove" || !b.Selected()) {
@@ -526,14 +557,11 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 					if _, exists := find(target, b.ID); !exists && host(target).Error == "" && !mayOwnMarket(target, b) {
 						action = "forget"
 					}
-					old := b
-					old.Cleanup = false
-					appendChange(Change{Name: name, Target: target, ID: b.ID, Binding: old, Action: action, Message: "Remove the previous local installation before reconciling current intent."})
-					if r.Action != "remove" && declared && (decl.Sync == nil || *decl.Sync) && !decl.Imported {
-						c, err := s.sourceChange(ctx, name, target, decl)
-						if err != nil {
-							return nil, err
-						}
+					changes, err := s.sourceReplacementChanges(ctx, r, name, target, decl, declared, b, action)
+					if err != nil {
+						return nil, err
+					}
+					for _, c := range changes {
 						appendChange(c)
 					}
 					continue
@@ -543,7 +571,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 						p.Changes = append(p.Changes, Change{Name: name, Target: target, Binding: b, Action: "native-check", Message: "Installation required on this machine; sync to review and install the source."})
 						continue
 					}
-					c, err := s.sourceChange(ctx, name, target, decl)
+					c, err := s.sourceChange(ctx, name, target, decl, r.All)
 					if err != nil {
 						return nil, err
 					}
@@ -627,15 +655,24 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 					}
 					disc, err := s.discover(ctx, b.Source, ref, b.Entry)
 					if err != nil {
-						return nil, err
+						if !r.All {
+							return nil, err
+						}
+						key, args := ErrorKey(err)
+						c.Action, c.batchError = "skip", true
+						c.Message, c.MessageKey, c.MessageArgs = err.Error(), key, args
+						break
 					}
 
 					candidate, candidateErr := updateCandidate(disc, b.Plugin, agent)
-					if candidate == nil {
-						return nil, candidateErr
-					}
 					if candidateErr != nil {
+						if candidate == nil && !r.All {
+							return nil, candidateErr
+						}
 						c.Action = "blocked"
+						if r.All {
+							c.Action, c.batchError = "skip", true
+						}
 						c.Message = candidateErr.Error()
 						break
 					}
@@ -705,12 +742,16 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 	}
 	ompRemovals := map[string]string{}
 	ompRuntimePaths := map[string]string{}
+	batchErrors := map[string]bool{}
 	for _, c := range p.Changes {
 		if c.ompRuntimePath != "" {
 			ompRuntimePaths[c.Target+"\x00"+c.ID] = c.ompRuntimePath
 		}
 		if c.ompRemoval != nil {
 			ompRemovals[c.Target+"\x00"+c.ID] = c.ompRemoval.revision
+		}
+		if c.batchError {
+			batchErrors[c.Name+"\x00"+c.Target+"\x00"+c.ID] = true
 		}
 	}
 	stores := map[string]string{}
@@ -727,7 +768,8 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		OMPCacheRoots   map[string]string
 		OMPRemovals     map[string]string
 		OMPRuntimePaths map[string]string
-	}{r, string(d.raw), string(d.stateRaw), stores, reviewedChanges(p.Changes), hosts, ompRoots, ompRemovals, ompRuntimePaths})
+		BatchErrors     map[string]bool
+	}{r, string(d.raw), string(d.stateRaw), stores, reviewedChanges(p.Changes), hosts, ompRoots, ompRemovals, ompRuntimePaths, batchErrors})
 	p.Revision = hash(fingerprint)
 	return p, nil
 }

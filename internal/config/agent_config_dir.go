@@ -185,8 +185,8 @@ func (c *Config) AddAgentConfigDirTarget(name, agent, dir, cli string) (string, 
 	return target.SkillsConfig().Path, nil
 }
 
-// withoutDerivedPaths drops the paths expandAgentConfigDirs filled in, so they keep
-// following config_dir instead of being saved as written ones.
+// withoutDerivedPaths drops the paths filled in from config_dir or the environment, so
+// they keep following it instead of being saved as written ones.
 func (tc TargetConfig) withoutDerivedPaths() TargetConfig {
 	strip := func(rc *ResourceTargetConfig, derived string) *ResourceTargetConfig {
 		if rc == nil || derived == "" || rc.Path != derived {

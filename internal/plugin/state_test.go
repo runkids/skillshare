@@ -429,6 +429,16 @@ func TestPluginHostStateDetachedAccountRetainsReceipt(t *testing.T) {
 	if !p.Blocked {
 		t.Fatal("detached account could execute native cleanup")
 	}
+	request := Request{Action: "update", All: true}
+	p, err = s.Preview(context.Background(), request)
+	if err != nil || p.Blocked || len(p.Changes) != 1 || p.Changes[0].Action != "skip" || !p.Changes[0].batchError {
+		t.Fatalf("--all did not isolate the detached account: %+v %v", p, err)
+	}
+	same := unchanged(t, s.ConfigPath, s.statePath())
+	if _, err := s.Apply(context.Background(), request, p.Revision); err == nil {
+		t.Fatal("--all did not report the detached account failure")
+	}
+	same()
 }
 
 func TestPluginHostStateRecoversVerifiedPendingInstall(t *testing.T) {
