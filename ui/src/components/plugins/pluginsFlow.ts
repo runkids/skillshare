@@ -49,14 +49,21 @@ export function updatesFound(plan: PluginPlan) {
  * failed, was skipped, or never ran because the apply stopped first keeps its Update action.
  */
 export function updatesLeft(updates: Updates, plan: PluginPlan, response: PluginResult) {
-  const done = new Set((response.result?.results ?? []).filter((r) => r.status !== 'failed' && r.status !== 'skipped').map((r) => `${r.name}:${r.target}`));
   const next = { ...updates };
   for (const c of plan.changes) {
-    if ((c.action !== 'update' && c.action !== 'install' && c.action !== 'noop') || !done.has(`${c.name}:${c.target}`) || !next[c.name]) continue;
+    if (!completedUpdate(c, plan, response) || !next[c.name]) continue;
     next[c.name] = { ...next[c.name] };
     delete next[c.name][c.target];
   }
   return next;
+}
+
+function completedUpdate(c: PluginPlan['changes'][number], plan: PluginPlan, response: PluginResult) {
+  const operations = plan.changes.filter((p) => p.name === c.name && p.target === c.target);
+  const outcomes = (response.result?.results ?? []).filter((r) => r.name === c.name && r.target === c.target);
+  return c === operations.at(-1) && ['update', 'install', 'noop'].includes(c.action)
+    && outcomes.length === operations.length
+    && outcomes.at(-1)?.status === (c.action === 'noop' ? 'unchanged' : 'installed');
 }
 
 /** What Sync would do: every binding whose tick differs from what its Agent has. */

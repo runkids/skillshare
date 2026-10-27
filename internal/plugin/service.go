@@ -494,83 +494,9 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 					c.Action = "selection"
 					c.Message = "Save sync selection only. Run sync to install or remove this managed target."
 				case "check", "update":
-					if !b.Selected() {
-						c.Action = "noop"
-						break
-					}
-					if b.Source == "" {
-						// An npm package has no source snapshot to compare; npm names its latest version instead.
-						installed, latest := s.npmVersions(ctx, target, b.ID, host(target), latests)
-						known := installed != nil && latest != nil
-						if known && slices.Compare(latest, installed) <= 0 {
-							c.Action = "noop"
-							break
-						}
-						if r.Action != "check" {
-							// No version is recorded: what Pi installed is read back from the package each time.
-							break
-						}
-						if known {
-							c.Action = "update-available"
-							c.Binding.Version = fmt.Sprintf("%d.%d.%d", latest[0], latest[1], latest[2])
-							break
-						}
-						c.Action = "native-check"
-						c.Message, c.MessageKey = "Imported installation: use the native marketplace to check releases.", "plugins.note.nativeCheck"
-						break
-					}
-					ref := b.SourceRef
-					if declared && action == "update" {
-						ref = decl.SourceRef
-						c.Action = "update"
-					}
-					if r.SourceRef != "" {
-						ref = r.SourceRef
-					}
-					disc, err := s.discover(ctx, b.Source, ref, b.Entry)
+					c, err = s.checkOrUpdate(ctx, r, c, action, decl, declared, exists, host(target), latests)
 					if err != nil {
-						if !r.All {
-							return nil, err
-						}
-						key, args := ErrorKey(err)
-						c.Action, c.batchError = "skip", true
-						c.Message, c.MessageKey, c.MessageArgs = err.Error(), key, args
-						break
-					}
-
-					candidate, candidateErr := updateCandidate(disc, b.Plugin, agent)
-					if candidateErr != nil {
-						if candidate == nil && !r.All {
-							return nil, candidateErr
-						}
-						c.Action = "blocked"
-						if r.All {
-							c.Action, c.batchError = "skip", true
-						}
-						c.Message = candidateErr.Error()
-						break
-					}
-
-					c.Components, c.sourceVersion = candidate.TargetInfo[agent].Components, &candidate.Version
-					if disc.Digest == b.Digest && b.Pending == "" && ref == b.SourceRef {
-						c.Action = "noop"
-					} else if r.Action == "check" {
-						c.Action = "update-available"
-						c.Message, c.MessageKey = "Source content changed; review an update before applying.", "plugins.note.sourceChanged"
-						// Check is read-only; the binding carries the source's version, commit and digest so the change can show
-						// old → new and a later update can tell whether the source moved again since.
-						c.Binding.Version = candidate.TargetInfo[agent].Version
-						c.Binding.Commit = disc.Commit
-						c.Binding.Digest = disc.Digest
-					} else {
-						c.Binding.Digest = disc.Digest
-						c.Binding.Commit = disc.Commit
-						c.Binding.SourceRef = disc.SourceRef
-						c.Binding.Version = candidate.TargetInfo[agent].Version
-						c.Binding.Components = candidate.TargetInfo[agent].Components
-						if !exists {
-							c.Action = "install"
-						}
+						return nil, err
 					}
 				}
 				if (c.Action == "uninstall" || c.Action == "remove") && !exists && ownMarket(target, b) {
@@ -812,4 +738,96 @@ func (s *Service) prepareChange(ctx context.Context, r Request, d *document, hos
 		c.Action, c.batchError = "skip", true
 	}
 	return c
+}
+
+func (s *Service) checkOrUpdate(ctx context.Context, r Request, c Change, action string, decl declaration, declared, exists bool, host Host, latests map[string][]int) (Change, error) {
+	b, target := c.Binding, c.Target
+	agent := s.agentOf(target)
+	if !b.Selected() {
+		c.Action = "noop"
+		return c, nil
+	}
+	if r.Action == "check" && b.Cleanup && (!declared || decl.Imported || isNpmSource(decl.Source)) {
+		c.Action, c.Message = "native-check", "Previous installation requires cleanup; sync to reconcile current intent."
+		return c, nil
+	}
+	if b.Source == "" && (r.Action != "check" || !declared || decl.Imported || isNpmSource(decl.Source)) {
+		// An npm package has no source snapshot to compare; npm names its latest version instead.
+		installed, latest := s.npmVersions(ctx, target, b.ID, host, latests)
+		known := installed != nil && latest != nil
+		if known && slices.Compare(latest, installed) <= 0 {
+			c.Action = "noop"
+			return c, nil
+		}
+		if r.Action != "check" {
+			// No version is recorded: what Pi installed is read back from the package each time.
+			return c, nil
+		}
+		if known {
+			c.Action = "update-available"
+			c.Binding.Version = fmt.Sprintf("%d.%d.%d", latest[0], latest[1], latest[2])
+			return c, nil
+		}
+		c.Action = "native-check"
+		c.Message, c.MessageKey = "Imported installation: use the native marketplace to check releases.", "plugins.note.nativeCheck"
+		return c, nil
+	}
+	source, ref, plugin, entry := b.Source, b.SourceRef, b.Plugin, b.Entry
+	if r.Action == "check" && declared && !decl.Imported {
+		source, ref, plugin, entry = decl.Source, decl.SourceRef, decl.Plugin, decl.Entry
+	}
+	if declared && action == "update" {
+		ref = decl.SourceRef
+		c.Action = "update"
+	}
+	if r.SourceRef != "" {
+		ref = r.SourceRef
+	}
+	disc, err := s.discover(ctx, source, ref, entry)
+	if err != nil {
+		if !r.All {
+			return c, err
+		}
+		key, args := ErrorKey(err)
+		c.Action, c.batchError = "skip", true
+		c.Message, c.MessageKey, c.MessageArgs = err.Error(), key, args
+		return c, nil
+	}
+
+	candidate, candidateErr := updateCandidate(disc, plugin, agent)
+	if candidateErr != nil {
+		if candidate == nil && !r.All {
+			return c, candidateErr
+		}
+		c.Action = "blocked"
+		if r.All {
+			c.Action, c.batchError = "skip", true
+		}
+		c.Message = candidateErr.Error()
+		return c, nil
+	}
+
+	c.Components, c.sourceVersion = candidate.TargetInfo[agent].Components, &candidate.Version
+	if disc.Digest == b.Digest && b.Pending == "" && source == b.Source && ref == b.SourceRef && plugin == b.Plugin && entry == b.Entry {
+		c.Action = "noop"
+	} else if r.Action == "check" {
+		c.Action = "update-available"
+		c.Message, c.MessageKey = "Source content changed; review an update before applying.", "plugins.note.sourceChanged"
+		// Check is read-only; the binding carries the source's version, commit and digest so the change can show
+		// old → new and a later update can tell whether the source moved again since.
+		c.Binding.Source, c.Binding.SourceRef, c.Binding.Plugin, c.Binding.Entry = source, ref, plugin, entry
+		c.Binding.Version = candidate.TargetInfo[agent].Version
+		c.Binding.Commit = disc.Commit
+		c.Binding.Digest = disc.Digest
+	} else {
+		c.Binding.Digest = disc.Digest
+		c.Binding.Commit = disc.Commit
+		c.Binding.SourceRef = disc.SourceRef
+		c.Binding.Version = candidate.TargetInfo[agent].Version
+		c.Binding.Components = candidate.TargetInfo[agent].Components
+		if !exists {
+			c.Action = "install"
+		}
+	}
+	return c, nil
 }
