@@ -33,11 +33,24 @@ For new features or large changes:
 
 Approved proposals will be added to the roadmap. Implementation is handled by the maintainer to ensure consistency with the project's architecture and codebase conventions.
 
+Approval is the `approved` label on the issue, added by the maintainer. A feature or large-change PR needs a linked issue with that label; without it, the PR may be closed without review.
+
 > **Note:** Due to the nature of this project, most feature PRs won't be merged directly — but every contribution is valuable. Your PR serves as a concrete reference that shapes the final implementation.
+
+### AI-Assisted Contributions
+
+AI coding tools are welcome; skillshare is built for them. Fully autonomous contributions are not.
+
+- **You are the author.** You have read, run, and can explain every line of the diff.
+- **Answer reviews yourself.** Don't paste review comments into a model and post its reply unchecked.
+- **Don't split to fit.** Splitting one change into several PRs to stay under the size guideline doesn't make it small.
+- **Keep claims checkable.** Statements such as "approved" or "tests pass" in a PR must match what the issue and CI show.
 
 ### PR Checklist
 
 - [ ] Linked to an issue (required for features, recommended for bug fixes)
+- [ ] Features and large changes: the linked issue has the `approved` label
+- [ ] I've reviewed every line of the diff and can explain it
 - [ ] Tests included and passing (`make check`)
 - [ ] No unrelated changes in the diff
 - [ ] Commit messages explain "why", not just "what"
