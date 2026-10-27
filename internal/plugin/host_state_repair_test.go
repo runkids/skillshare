@@ -971,3 +971,65 @@ func TestPluginHostStateCheckUsesDesiredRecipe(t *testing.T) {
 		})
 	}
 }
+
+func TestPluginCheckedUpdateRejectsAnotherCandidateInTheSameSource(t *testing.T) {
+	source := t.TempDir()
+	writeFile(t, source, ".claude-plugin/marketplace.json", `{"name":"team","plugins":[{"name":"first","source":"./first"},{"name":"second","source":"./second"}]}`)
+	for _, name := range []string{"first", "second"} {
+		writeFile(t, source, name+"/.claude-plugin/plugin.json", `{"name":"`+name+`","version":"1.0.0"}`)
+	}
+	aNative := &fakeAgents{version: "1.0.0"}
+	a := aNative.service(t)
+	applyPluginRequest(t, a, Request{Action: "add", Name: "demo", Plugin: "first", Source: source, Targets: []string{"claude"}})
+	shared, _ := os.ReadFile(a.ConfigPath)
+	bNative := &fakeAgents{version: "1.0.0"}
+	b := bNative.service(t)
+	writePluginFile(t, filepath.Dir(b.ConfigPath), filepath.Base(b.ConfigPath), string(shared))
+	applyPluginRequest(t, b, Request{Action: "sync"})
+	for _, name := range []string{"first", "second"} {
+		writeFile(t, source, name+"/.claude-plugin/plugin.json", `{"name":"`+name+`","version":"2.0.0"}`)
+	}
+	aNative.version, bNative.version = "2.0.0", "2.0.0"
+	checked, err := b.Preview(context.Background(), Request{Action: "check", Name: "demo"})
+	if err != nil || len(checked.Changes) != 1 || checked.Changes[0].Action != "update-available" {
+		t.Fatalf("check: %+v %v", checked, err)
+	}
+	observed := checked.Changes[0].Binding
+	t.Setenv("HOME", filepath.Dir(a.ConfigPath))
+	applyPluginRequest(t, a, Request{Action: "remove", Name: "demo"})
+	applyPluginRequest(t, a, Request{Action: "add", Name: "demo", Plugin: "second", Source: source, Targets: []string{"claude"}})
+	shared, _ = os.ReadFile(a.ConfigPath)
+	t.Setenv("HOME", filepath.Dir(b.ConfigPath))
+	writePluginFile(t, filepath.Dir(b.ConfigPath), filepath.Base(b.ConfigPath), string(shared))
+	plan, err := b.Preview(context.Background(), Request{Action: "update", Name: "demo"})
+	if err != nil || len(plan.Changes) != 2 || plan.Changes[1].Action != "install" {
+		t.Fatalf("replacement: %+v %v", plan, err)
+	}
+	replacement := plan.Changes[1].Binding
+	if observed.Version != replacement.Version || observed.Commit != replacement.Commit || observed.Digest != replacement.Digest || observed.Plugin == replacement.Plugin {
+		t.Fatalf("fixture did not isolate identity: checked=%+v replacement=%+v", observed, replacement)
+	}
+	same := unchanged(t, b.ConfigPath, b.statePath())
+	commands := len(bNative.commands)
+	_, _, err = b.updateLocked(context.Background(), UpdateItem{Name: "demo", Targets: []string{"claude"}, Seen: map[string]Seen{"claude": checkedObservation(t, observed)}}, func(*Plan) {})
+	if err != ErrSourceMoved || len(bNative.commands) != commands {
+		t.Fatalf("unreviewed candidate accepted: %v, commands=%q", err, bNative.commands[commands:])
+	}
+	same()
+	checked, err = b.Preview(context.Background(), Request{Action: "check", Name: "demo"})
+	if err != nil || len(checked.Changes) != 1 || checked.Changes[0].Action != "update-available" {
+		t.Fatalf("fresh replacement check: %+v %v", checked, err)
+	}
+	approved := checked.Changes[0].Binding
+	if approved.ID == replacement.ID {
+		t.Fatal("fixture did not preserve applied ID as check baseline")
+	}
+	_, result, err := b.updateLocked(context.Background(), UpdateItem{Name: "demo", Targets: []string{"claude"}, Seen: map[string]Seen{"claude": checkedObservation(t, approved)}}, func(*Plan) {})
+	if err != nil || len(result.Results) != 2 || result.Results[1].Status != "installed" {
+		t.Fatalf("approved replacement rejected: %+v %v", result, err)
+	}
+	installed := readState(t, b).state.Bindings["demo"]["claude"].Applied.Binding
+	if installed.Plugin != "second" || installed.Digest != approved.Digest {
+		t.Fatalf("wrong replacement installed: %+v", installed)
+	}
+}

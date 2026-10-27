@@ -876,7 +876,11 @@ func TestBatchUpdateOfAnImportRecordsTheVersionItInstalled(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer unlock()
-	if _, err := updateDemo(s, map[string]Seen{"claude": {Version: "1.0.0"}}); err != nil {
+	check, err := s.Preview(context.Background(), Request{Action: "check", Name: "demo"})
+	if err != nil || len(check.Changes) != 1 {
+		t.Fatalf("check: %+v %v", check, err)
+	}
+	if _, err := updateDemo(s, map[string]Seen{"claude": checkedObservation(t, check.Changes[0].Binding)}); err != nil {
 		t.Fatal(err)
 	}
 	if b := loadBinding(t, s); b.Version != "2.0.0" || b.Pending != "" {
@@ -976,6 +980,20 @@ func bumpedDemo(t *testing.T) (*Service, *fakeAgents) {
 	return s, agents
 }
 
+// checkedObservation crosses the same JSON boundary as the dashboard's observed binding.
+func checkedObservation(t *testing.T, binding Binding) Seen {
+	t.Helper()
+	raw, err := json.Marshal(binding)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var observed Seen
+	if err := json.Unmarshal(raw, &observed); err != nil {
+		t.Fatal(err)
+	}
+	return observed
+}
+
 func updateDemo(s *Service, seen map[string]Seen) (*Result, error) {
 	_, result, err := s.updateLocked(context.Background(), UpdateItem{Name: "demo", Targets: []string{"claude"}, Seen: seen}, func(*Plan) {})
 	return result, err
@@ -983,7 +1001,7 @@ func updateDemo(s *Service, seen map[string]Seen) (*Result, error) {
 
 // Batch updates may install only the source the user approved, including a missing native installation.
 func TestBatchUpdateUsesOnlyTheSourceTheCheckShowed(t *testing.T) {
-	for _, scenario := range []string{"version moved", "content moved", "no approval", "matching approval"} {
+	for _, scenario := range []string{"version moved", "content moved", "no approval", "missing identity", "matching approval"} {
 		for _, missing := range []bool{false, true} {
 			t.Run(scenario+"/"+map[bool]string{false: "present", true: "removed"}[missing], func(t *testing.T) {
 				s, agents := bumpedDemo(t)
@@ -992,14 +1010,18 @@ func TestBatchUpdateUsesOnlyTheSourceTheCheckShowed(t *testing.T) {
 					t.Fatalf("check: %+v %v", checked, err)
 				}
 				binding := checked.Changes[0].Binding
-				seen := map[string]Seen{"claude": {Version: binding.Version, Commit: binding.Commit, Digest: binding.Digest}}
+				seen := map[string]Seen{"claude": checkedObservation(t, binding)}
 				switch scenario {
 				case "version moved":
-					seen["claude"] = Seen{Version: "1.5.0"}
+					moved := seen["claude"]
+					moved.Version = "1.5.0"
+					seen["claude"] = moved
 				case "content moved":
 					writeFile(t, binding.Source, "skills/demo/SKILL.md", "source changed after approval")
 				case "no approval":
 					seen = nil
+				case "missing identity":
+					seen["claude"] = Seen{Version: binding.Version, Commit: binding.Commit, Digest: binding.Digest}
 				}
 				if missing {
 					agents.installed["claude"] = nil

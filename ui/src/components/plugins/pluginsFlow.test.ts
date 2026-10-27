@@ -93,16 +93,17 @@ describe('plugins flow', () => {
   });
 
   it('remembers what a check found, opens no review, and takes an Agent off once its batch update is applied', async () => {
-    const found = { name: 'driver', target: 'pi', binding: { id: 'npm:driver', version: '1.1.0', commit: 'abc' } };
+    const observed = { id: '/owned/driver', source: 'https://fixture.invalid/driver.git', sourceRef: 'main', plugin: 'driver', entry: 'entry.js', version: '1.1.0', commit: 'abc', digest: 'reviewed-digest' };
+    const found = { name: 'driver', target: 'pi', binding: observed };
     vi.mocked(pluginsApi.preview).mockResolvedValueOnce(plan('r', { ...found, action: 'update-available' }));
     streams({ name: 'driver', plan: plan('r2', { ...found, action: 'update' }), result: { results: [{ name: 'driver', target: 'pi', status: 'installed' }] }, failure: '', stale: false });
     const { now, onPreviewed } = flow();
     await act(() => now().check());
-    expect(now().updates).toEqual({ driver: { pi: { version: '1.1.0', commit: 'abc' } } });
+    expect(now().updates).toEqual({ driver: { pi: observed } });
     expect(now().review).toBeNull();
     expect(onPreviewed).not.toHaveBeenCalled();
     await act(() => now().updateMany([{ name: 'driver', targets: ['pi'] }]));
-    expect(vi.mocked(pluginsApi.update).mock.calls[0][0]).toEqual([{ name: 'driver', targets: ['pi'], seen: { pi: { version: '1.1.0', commit: 'abc' } } }]);
+    expect(vi.mocked(pluginsApi.update).mock.calls[0][0]).toEqual([{ name: 'driver', targets: ['pi'], seen: { pi: observed } }]);
     expect(now().updates).toEqual({ driver: {} });
     expect(now().batch).toEqual([{ name: 'driver', targets: ['pi'], status: 'done', versions: { moves: [{ target: 'pi', from: undefined, to: '1.1.0', fromCommit: undefined, toCommit: 'abc' }], shared: true } }]);
   });

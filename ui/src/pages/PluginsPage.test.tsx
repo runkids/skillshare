@@ -150,8 +150,8 @@ describe('PluginsPage', () => {
     fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'plugins.updateDialog.updateSelected.other' }));
     await waitFor(() => expect(pluginsApi.update).toHaveBeenCalledTimes(1));
     expect(vi.mocked(pluginsApi.update).mock.calls[0][0]).toEqual([
-      { name: 'driver', targets: ['pi'], seen: { pi: { version: '1.1.0' } } },
-      { name: 'tail', targets: ['pi', 'codex'], seen: { pi: { version: '2.1.0' }, codex: { version: '2.1.0' } } },
+      { name: 'driver', targets: ['pi'], seen: { pi: { id: 'npm:driver', version: '1.1.0' } } },
+      { name: 'tail', targets: ['pi', 'codex'], seen: { pi: { id: 'npm:tail', version: '2.1.0' }, codex: { id: 'tail@market', version: '2.1.0' } } },
     ]);
   });
   it('leaves out a plugin unticked and an Agent unticked under its plugin', async () => {
