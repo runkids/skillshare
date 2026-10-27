@@ -55,6 +55,8 @@ Version  CLI 0.24.0 · skill 0.21.12
 
 skills 폴더와 그 안의 skill 수를 표시합니다. agents 폴더가 있으면 두 번째 줄에 폴더와 agent 수를 표시합니다. `.skillignore`가 적용 중이면 패턴 수와 제외된 skill 수를 보여 주는 줄이 추가됩니다.
 
+Source와 tracked repository는 논리 스킬 수를 표시합니다. 서로 대응하는 에이전트별 복사본은 하나의 스킬로 셉니다. 물리적 수가 다르면 `2 skills, 4 variants`처럼 둘 다 표시합니다. Target의 linked/copied 수는 해당 target에 선택된 물리 항목 수를 유지합니다.
+
 ### Tracked Repositories
 
 `--track`으로 설치한 git 저장소와 각 저장소의 skill 수를 나열합니다. `✓`는 커밋되지 않은 변경이 없다는 뜻입니다. `!`에는 `uncommitted changes`가 붙거나, git status를 읽을 수 없으면 그 오류가 붙습니다.
@@ -85,6 +87,8 @@ Targets                     skills                agents
 | `skills off` | 이 target의 skills가 꺼져 있습니다 |
 
 **agents 열:** `✓ 8`은 연결된 agent 수입니다(최신 복사본도 연결된 것으로 셉니다). `! 7/8`은 일부가 빠졌다는 뜻이므로 `skillshare sync agents`를 실행하세요. 이 target이 sync하는 agent만 셉니다. 즉 `.agentignore`, target의 agents include/exclude, 각 agent의 `targets` frontmatter를 거친 뒤 남은 agent입니다. copy fallback에서는 skillshare가 소유하지 않은 동일한 로컬 file을 보존하며 `· 1 local`로 셉니다. `—`는 그 target에 agents 폴더가 없다는 뜻입니다. agents source가 없으면 이 열은 생략됩니다.
+
+전역 및 프로젝트 모드 모두에서 에이전트 변형이 있고 skills target이 symlink mode를 사용하면 `status`와 `doctor`가 경고합니다. 폴더 전체 링크가 모든 변형을 노출하기 때문입니다. 자동 에이전트 라우팅에는 merge 또는 copy mode를 사용하세요.
 
 ### Extras
 
@@ -135,9 +139,10 @@ skillshare status --json
     }
   },
   "skill_count": 12,
+  "variant_count": 17,
   "tracked_repos": [
-    {"name": "_team-skills", "skill_count": 5, "dirty": false},
-    {"name": "_personal-repo", "skill_count": 3, "dirty": true}
+    {"name": "_team-skills", "skill_count": 5, "variant_count": 10, "dirty": false},
+    {"name": "_personal-repo", "skill_count": 3, "variant_count": 3, "dirty": true}
   ],
   "targets": [
     {
@@ -168,7 +173,9 @@ skillshare status --json
 }
 ```
 
-`warning` 문자열은 sync가 해당 target을 거부할 때만 붙습니다(예: copy 이외의 mode에서 `prefixed` naming). 문구에 해결 방법이 포함됩니다.
+`skill_count`는 논리 스킬 수이고 `variant_count`는 물리 소스 항목 수입니다. 최상위와 각 tracked repository에 두 필드가 모두 포함됩니다. Target의 `synced_count`는 물리적 수를 유지합니다.
+
+Target의 `warning` 문자열은 copy 이외의 mode에서 `prefixed` naming을 사용하는 등의 설정 오류나 symlink mode의 에이전트 라우팅 제한을 나타냅니다. 해결 방법도 설명합니다.
 
 git status를 읽을 수 없는 tracked repo는 `"status": "unknown"`이 되고 `message`에 오류가 담깁니다. 이때 `dirty`는 false이며 의미가 없습니다.
 

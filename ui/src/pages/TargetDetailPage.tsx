@@ -378,7 +378,9 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
                 {saved.naming !== 'flat' && (target.skippedSkillCount ?? 0) > 0 && (
                   <span className="text-[13px] text-warn">{t(plural('targetDetail.skipped', target.skippedSkillCount), { count: target.skippedSkillCount })}</span>
                 )}
-                {target.warnings?.map((warning) => <p key={warning} className="text-[13px] text-warn">{warning}</p>)}
+                {saved.naming === 'flat' && (target.skippedSkillCount ?? 0) > 0 && (
+                  <span className="text-[13px] text-warn">{t('sync.skipped.hintSelection')}</span>
+                )}
               </div>
             )}
 

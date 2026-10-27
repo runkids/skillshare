@@ -1998,6 +1998,7 @@
   "sync.skipped.hint": "car deux dossiers se terminent par le même nom. Passez {name} en nommage flat pour garder les deux.",
   "sync.skipped.hintNaming": "car leur nom dans SKILL.md est invalide ou ne correspond pas à leur dossier. Passez {name} en nommage flat pour les garder.",
   "sync.skipped.hintMixed": "à cause de noms SKILL.md invalides et de dossiers qui se terminent par le même nom. Passez {name} en nommage flat pour les garder.",
+  "sync.skipped.hintSelection": "les variantes par agent nécessitent une sélection explicite. Utilisez include/exclude ou une configuration de cible pour en sélectionner une.",
   "sync.skipped.open": "Ouvrir la cible",
   "sync.local.one": "{count} élément n'existe que dans une cible",
   "sync.local.other": "{count} éléments n'existent que dans une cible",

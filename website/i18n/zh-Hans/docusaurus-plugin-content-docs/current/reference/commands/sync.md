@@ -14,6 +14,14 @@ sidebar_position: 2
 `install` 和 `uninstall` 这类操作只修改 Source —— sync 才会把变更传播到 Target。这样你可以批量修改、用 `--dry-run` 预览，并自己控制 Target 何时更新。参见 [Why Sync is a Separate Step](/docs/understand/source-and-targets#why-sync-is-a-separate-step)。
 :::
 
+## 代理专用 skill 变体
+
+在 tracked 仓库中，只有当相同完整 skill 路径出现在同一个 `skills/` 上层下至少两个不同的标准代理目录时，才会将 `skills/<known-agent>/<skill-path>/SKILL.md` 识别为代理专用变体。同一代理的多个别名不符合条件；单独的 `skills/agents/planner` 分类仍是普通 skill。
+
+在 merge/copy mode 中，变体会路由到对应代理，包括别名与账号 target。共享 skills 文件夹且配置兼容的 targets 会选取其代理身份的并集：Codex 与 `universal` 共享 `~/.agents/skills` 时，会保留 Codex 变体。每个读取端都能看到这个并集；不兼容的配置仍会产生重叠或冲突诊断。明确的来源本地 target 覆盖与 frontmatter 路由保持优先，忽略规则与 include/exclude 筛选仍会应用。
+
+Source 与仓库摘要将每个逻辑 skill 计算一次，另列实体变体，例如 `2 skills, 4 variants`。每个 target 的同步操作仍按实体条目计数。整个文件夹的 symlink mode 会暴露所有变体；`status` 与 `doctor` 会说明限制，并建议使用 merge 或 copy 以自动路由。
+
 ## 何时使用
 
 - 在安装、卸载或编辑 skills 之后 —— 把变更传播到所有 Target

@@ -37,8 +37,12 @@ Sync runs every target. A target whose sync fails, or whose own settings are inv
 - `symlink`: whole target directory symlinked to source.
 
 Tracked repositories with `skills/<known-agent>/<skill-path>/SKILL.md` use exact
-agent routing in merge/copy mode. Canonical aliases and account `agent:` identities
-match; shared destination paths do not. Source-local target overrides beat nonempty
+agent routing in merge/copy mode only when the same complete suffix occurs beneath
+at least two distinct canonical agents under the same `skills/` parent. A lone
+agent-like category remains ordinary. Canonical aliases and account `agent:`
+identities match. Compatible targets sharing a skills folder select the union of
+their agent identities, preserving each other's managed variants; incompatible
+settings retain overlap/conflict diagnostics. Source-local target overrides beat nonempty
 frontmatter targets, then variant inference, then old host-path inference. An empty
 override sends that physical variant to all targets. Ignores and filters keep using
 physical relative/flat names, and ambiguous aliases need an explicit selection.

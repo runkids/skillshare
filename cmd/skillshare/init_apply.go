@@ -284,8 +284,9 @@ func firstSync(cfg *config.Config) (skills int, kept []string, err error) {
 	if failed > 0 {
 		err = fmt.Errorf("%s failed to sync; run skillshare sync for details", plural(failed, "tool"))
 	}
-	ui.Answered("Synced", fmt.Sprintf("%s to %s", plural(len(discovered), "skill"), plural(len(cfg.Targets), "tool"))+ui.Took(time.Since(start)))
-	return len(discovered), kept, err
+	counts := ssync.CountSkills(discovered)
+	ui.Answered("Synced", fmt.Sprintf("%s to %s", sourceSkillCountText(counts.Skills, counts.Variants), plural(len(cfg.Targets), "tool"))+ui.Took(time.Since(start)))
+	return counts.Skills, kept, err
 }
 
 // replaceIdenticalCopies removes real skill folders in merge-mode targets

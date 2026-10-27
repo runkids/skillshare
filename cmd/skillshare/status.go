@@ -69,7 +69,7 @@ type statusJSONTarget struct {
 	Exclude     []string `json:"exclude"`
 	// SkillsEnabled is false for a target with skills switched off.
 	SkillsEnabled bool `json:"skills_enabled"`
-	// Warning says why sync will reject the target, with the fix.
+	// Warning describes target configuration errors or routing limitations.
 	Warning string `json:"warning,omitempty"`
 }
 
@@ -181,7 +181,7 @@ func cmdStatus(args []string) error {
 			Exclude:     sc.Exclude,
 
 			SkillsEnabled: sc.IsEnabled(),
-			Warning:       namingWarning(target, tMode),
+			Warning:       skillTargetWarning(target, tMode, discovered),
 		})
 	}
 
@@ -328,8 +328,8 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 		sc := target.SkillsConfig()
 		mode := getTargetMode(sc.Mode, cfg.Mode)
 		res := getTargetStatusDetail(target, cfg.EffectiveSkillsSource(), mode)
-		if err := target.NamingModeConfigError(mode); err != nil {
-			warnings = append(warnings, name+": "+err.Error())
+		if warning := skillTargetWarning(target, mode, discovered); warning != "" {
+			warnings = append(warnings, name+": "+warning)
 		}
 
 		// A target with skills off expects nothing, so it has no drift.

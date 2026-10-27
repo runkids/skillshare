@@ -738,6 +738,7 @@ func displayTargetStatus(target config.TargetConfig, source, mode string, row fu
 }
 
 func checkSyncDrift(cfg *config.Config, result *doctorResult, discovered []sync.DiscoveredSkill, targetCache map[string]cachedTargetStatus) {
+	checkVariantRouting(cfg, result, discovered)
 	if discovered == nil {
 		result.addCheck("sync_drift", checkPass, "No skills discovered, skipping drift check", nil)
 		return

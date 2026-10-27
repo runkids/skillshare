@@ -1998,6 +1998,7 @@
   "sync.skipped.hint": "because two folders end in the same name. Switch {name} to flat naming to keep both.",
   "sync.skipped.hintNaming": "because their SKILL.md name is invalid or doesn't match its folder. Switch {name} to flat naming to keep them.",
   "sync.skipped.hintMixed": "because of invalid SKILL.md names and folders that end in the same name. Switch {name} to flat naming to keep them.",
+  "sync.skipped.hintSelection": "agent variants need an explicit selection. Use include/exclude or a target override to select one.",
   "sync.skipped.open": "Open target",
   "sync.local.one": "{count} item exists only in a target",
   "sync.local.other": "{count} items exist only in a target",

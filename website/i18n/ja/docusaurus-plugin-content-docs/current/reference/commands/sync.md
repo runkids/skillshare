@@ -14,6 +14,14 @@ MCP 接続設定には `skillshare sync mcp` を、skills、agents、extras、MC
 `install` や `uninstall` のような操作は source のみを変更します — sync は targets に反映します。これにより、変更をバッチ処理し、`--dry-run` でプレビューし、targets が更新されるタイミングを制御できます。[Why Sync is a Separate Step](/docs/understand/source-and-targets#why-sync-is-a-separate-step) を参照してください。
 :::
 
+## エージェント別スキルバリアント
+
+Tracked repository 内の `skills/<known-agent>/<skill-path>/SKILL.md` は、同じ `skills/` 親ディレクトリ内の二つ以上の異なる正規エージェントに同じ完全なスキルパスがある場合にのみ、エージェント別バリアントと認識されます。一つのエージェントの別名だけでは該当しません。単独の `skills/agents/planner` カテゴリは通常のスキルのままです。
+
+Merge/copy mode では、別名やアカウント target を含め、対応するエージェントにルーティングします。同じ skills フォルダを共有する互換性のある targets は、エージェント ID の和集合を選択します。Codex と `universal` が `~/.agents/skills` を共有する場合、Codex のバリアントが保持されます。各読み取り側にはこの和集合が公開され、互換性のない設定には重複・競合の診断が引き続き表示されます。明示的なソースローカル target 上書きと frontmatter のルーティングが優先され、無視規則と include/exclude フィルタも適用されます。
+
+Source と repository の概要は論理スキルを一度だけ数え、`2 skills, 4 variants` のように物理バリアントを別に表示します。Target ごとの同期操作は物理的な数のままです。ディレクトリ全体の symlink mode はすべてのバリアントを公開します。`status` と `doctor` はこの制限を説明し、自動ルーティングには merge または copy を推奨します。
+
 ## 使うタイミング
 
 - Skill をインストール、uninstall、編集した後 — 変更をすべての targets に反映する

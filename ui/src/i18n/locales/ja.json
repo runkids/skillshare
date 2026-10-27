@@ -1998,6 +1998,7 @@
   "sync.skipped.hint": "2 つのフォルダ名の末尾が同じためです。両方残すには {name} を flat 命名に切り替えてください。",
   "sync.skipped.hintNaming": "SKILL.md の名前が規則に合わないか、フォルダ名と異なるためです。残すには {name} を flat 命名に切り替えてください。",
   "sync.skipped.hintMixed": "規則に合わない SKILL.md の名前と、末尾が同じフォルダ名があるためです。残すには {name} を flat 命名に切り替えてください。",
+  "sync.skipped.hintSelection": "エージェント別のバリアントを明示的に選択する必要があります。include/exclude またはターゲットの上書き設定で選択してください。",
   "sync.skipped.open": "ターゲットを開く",
   "sync.local.one": "{count} 件はターゲットにだけ存在します",
   "sync.local.other": "{count} 件はターゲットにだけ存在します",

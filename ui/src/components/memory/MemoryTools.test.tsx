@@ -14,7 +14,7 @@ vi.mock('../../api/client', async (load) => {
   const actual = await load<typeof import('../../api/client')>();
   return { ...actual, api: { ...actual.api, getOverview: vi.fn() } };
 });
-const overview: Overview = { source: '/skills', skillCount: 0, agentCount: 0, topLevelCount: 0, targetCount: 0,
+const overview: Overview = { source: '/skills', skillCount: 0, variantCount: 0, agentCount: 0, topLevelCount: 0, targetCount: 0,
   mode: 'merge', version: 'dev', trackedRepos: [], isProjectMode: false, configDir: '/config' };
 const renderTools = () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

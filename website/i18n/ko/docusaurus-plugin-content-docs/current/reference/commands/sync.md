@@ -15,6 +15,14 @@ skill symlink 대신 entry ownership과 conflict check를 사용합니다. [mcp]
 `install`, `uninstall` 같은 작업은 source만 수정하며 — sync가 target으로 전파합니다. 덕분에 변경 사항을 모아서 처리하고, `--dry-run`으로 미리 보고, target이 업데이트되는 시점을 제어할 수 있습니다. [Why Sync is a Separate Step](/docs/understand/source-and-targets#why-sync-is-a-separate-step)를 참고하세요.
 :::
 
+## 에이전트별 스킬 변형
+
+Tracked repository의 `skills/<known-agent>/<skill-path>/SKILL.md`는 같은 `skills/` 상위 폴더 아래 서로 다른 정식 에이전트 두 개 이상에 동일한 전체 스킬 경로가 있을 때만 에이전트별 변형으로 인식합니다. 한 에이전트의 별칭들만으로는 해당하지 않습니다. 단독 `skills/agents/planner` 분류는 일반 스킬로 유지됩니다.
+
+Merge/copy mode에서는 별칭과 계정 target을 포함해 일치하는 에이전트로 라우팅합니다. 같은 skills 폴더를 공유하는 호환 가능한 targets는 에이전트 ID의 합집합을 선택합니다. Codex와 `universal`이 `~/.agents/skills`를 공유하면 Codex 변형이 유지됩니다. 각 읽기 도구는 이 합집합을 보며, 호환되지 않는 설정에는 기존 중복·충돌 진단이 계속 표시됩니다. 명시적인 소스 로컬 target 재정의와 frontmatter 라우팅이 우선하며, 무시 규칙과 include/exclude 필터도 적용됩니다.
+
+Source 및 repository 요약은 논리 스킬을 한 번만 세고 `2 skills, 4 variants`처럼 물리 변형을 따로 표시합니다. Target별 동기화 작업은 물리적 수를 유지합니다. 폴더 전체의 symlink mode는 모든 변형을 노출합니다. `status`와 `doctor`가 이 제한을 설명하고 자동 라우팅에는 merge 또는 copy를 권장합니다.
+
 ## 사용 시점
 
 - skill을 설치, 제거, 편집한 후 — 변경 사항을 모든 target에 전파

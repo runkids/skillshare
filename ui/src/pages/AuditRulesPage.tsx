@@ -68,7 +68,7 @@ export default function AuditRulesPage() {
   }, [rules]);
 
   // Findings from the last scan, so a rule can show what it catches right now.
-  const scan = getCachedAuditResult(queryClient, 'skills', overview.data?.skillCount);
+  const scan = getCachedAuditResult(queryClient, 'skills', (overview.data?.variantCount ?? overview.data?.skillCount));
   const hits = useMemo(() => {
     const map = new Map<string, string[]>();
     for (const result of scan?.results ?? []) {

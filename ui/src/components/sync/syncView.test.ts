@@ -309,6 +309,7 @@ describe('failureExplanation', () => {
 
 describe('skippedHintKey', () => {
   it.each([
+    [{ skippedCount: 2 }, 'sync.skipped.hintSelection'],
     [{ collisionCount: 1 }, 'sync.skipped.hint'],
     [{ namingSkippedCount: 1 }, 'sync.skipped.hintNaming'],
     [{ collisionCount: 1, namingSkippedCount: 1 }, 'sync.skipped.hintMixed'],

@@ -50,8 +50,12 @@ Different repositories or different shared parents never merge, even when their
 `--into` retain their actual repository boundary.
 
 Recognition is automatic for repository-relative `skills/<known-agent>/<suffix>`
-paths, including one remaining variant. The outer recognized component owns the
-complete suffix. Ordinary skills and unknown layouts keep existing discovery behavior.
+paths only when the same complete suffix occurs under at least two distinct canonical
+agents beneath the same repository-relative `skills/` parent. Aliases of one agent
+do not provide that second identity. A lone `skills/agents/planner` or
+`skills/continue/helper` category remains ordinary, even when its name is a registry
+alias. The outer recognized component owns the complete suffix. Ordinary skills
+and unknown layouts keep existing discovery behavior.
 
 ### Routing and precedence
 
@@ -64,9 +68,11 @@ separate variant walkers or per-command routing rules:
   Do not maintain another tool-name list or infer identity from a target's folder.
 - Automatic routing selects the exact agent variant: Claude receives Claude's file,
   Codex receives Codex's file, and an unrelated target receives neither by inference.
-  Shared destination paths, such as Codex and `universal`, do not prove agent identity.
-  Reuse existing path-overlap/conflict diagnostics: targets sharing a directory
-  cannot be promised isolation when their selected variants differ.
+  Compatible targets sharing a destination folder use the union of their configured
+  agent identities for automatic selection. Thus Codex and `universal` sharing
+  `~/.agents/skills` both select the Codex variants and neither prunes them. This
+  shared folder exposes the union to every reader; it does not isolate agents.
+  Existing overlap/conflict diagnostics still reject incompatible settings.
 - Routing precedence is source-local target override > explicit frontmatter targets >
   recognized variant-agent inference > existing `inferSkillTargetsFromRelPath`.
   Generic host-style path inference cannot override a recognized variant's agent.
@@ -132,11 +138,12 @@ Every case uses automatic recognition for the bounded tracked-source layout.
 | Same basename elsewhere | Distinct repositories, parents, and full nested suffixes remain separate |
 | Repository installed with `--into` | Actual tracked root scopes grouping and existing override keys |
 | `--into codex/skills`: `_repo/internal/skills/claude/fix` | Recognized Claude variant wins over outer Codex host inference unless explicitly overridden |
+| Single agent-like category or aliases of one agent only | Ordinary skills; no inferred variant routing or logical grouping |
 | Root/repository ignores and disabled variant | Existing precedence; no ignored variant selected or substituted |
 | Per-target includes/excludes | Legacy physical flat-name patterns retain their selection semantics |
 | Frontmatter and source-local overrides | Explicit routing wins; empty override retains all-target meaning |
 | Canonical alias and account target | Same exact agent variant selected using registry/`Agent` identity |
-| Shared target directory | No inferred permission for another tool solely because paths coincide |
+| Shared target directory | Compatible targets select the union of agent identities without pruning one another; incompatible settings retain overlap diagnostics |
 | Universal-only or unmatched target, merge/copy | No automatic variant; explicit target override selects a copy, empty override preserves all-target behavior |
 | Missing, unknown, shared, or ambiguous variant | No guessed substitute; applicable diagnostic or ordinary discovery |
 | CLI/server/status/diff/doctor/analyze/`skill move`/target-scoped skillserve | Same selected physical entries and reasons; physical IDs and context-cost totals stay accurate |

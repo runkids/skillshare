@@ -335,8 +335,8 @@ export async function runSync(run: SyncRun) {
   return { resources, failures };
 }
 
-/** The hint for a target's skipped skills: name collisions, naming rules, or both. */
+/** The localized hint for naming skips or ambiguous agent variants. */
 export function skippedHintKey(d: DiffTarget) {
-  if (!d.namingSkippedCount) return 'sync.skipped.hint' as const;
+  if (!d.namingSkippedCount) return d.collisionCount ? 'sync.skipped.hint' as const : 'sync.skipped.hintSelection' as const;
   return d.collisionCount ? 'sync.skipped.hintMixed' as const : 'sync.skipped.hintNaming' as const;
 }

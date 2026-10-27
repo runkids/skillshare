@@ -55,6 +55,8 @@ Version  CLI 0.24.0 · skill 0.21.12
 
 Shows the skills folder and how many skills it holds. When an agents folder exists, it is shown on a second line with its agent count. An active `.skillignore` adds a line with its pattern and ignored-skill counts.
 
+Source and tracked-repository counts are logical: matching agent-specific copies count as one skill. When the physical count differs, text output shows both, for example `2 skills, 4 variants`. Target linked/copied counts still describe physical entries selected for that target.
+
 ### Tracked Repositories
 
 Lists git repositories installed with `--track`, each with its skill count. `✓` means the repository is clean; `!` adds `uncommitted changes`, or the git error when its status cannot be read.
@@ -85,6 +87,8 @@ Targets                     skills                agents
 | `skills off` | Skills are turned off for this target |
 
 **agents column:** `✓ 8` is the number of linked agents (up-to-date copies count as linked). `! 7/8` means some are missing; run `skillshare sync agents`. Only the agents this target syncs count: those left after `.agentignore`, the target's agents include/exclude and each agent's `targets` frontmatter. In copy fallback, identical local files that skillshare does not own are kept and counted as `· 1 local`. `—` means the target has no agents folder. The column is left out when there is no agents source.
+
+In both global and project mode, `status` and `doctor` warn when agent variants are present and a skills target uses symlink mode: the whole-directory link exposes every variant. Use merge or copy mode for automatic agent routing.
 
 ### Extras
 
@@ -135,9 +139,10 @@ skillshare status --json
     }
   },
   "skill_count": 12,
+  "variant_count": 17,
   "tracked_repos": [
-    {"name": "_team-skills", "skill_count": 5, "dirty": false},
-    {"name": "_personal-repo", "skill_count": 3, "dirty": true}
+    {"name": "_team-skills", "skill_count": 5, "variant_count": 10, "dirty": false},
+    {"name": "_personal-repo", "skill_count": 3, "variant_count": 3, "dirty": true}
   ],
   "targets": [
     {
@@ -168,7 +173,9 @@ skillshare status --json
 }
 ```
 
-A target gets a `warning` string only when sync would reject it, for example `prefixed` naming outside copy mode; the text says how to fix it.
+`skill_count` counts logical skills; `variant_count` counts physical source entries. Both fields appear at the top level and in each tracked repository. Target `synced_count` remains a physical count.
+
+A target can have a `warning` string for a configuration error, such as `prefixed` naming outside copy mode, or for the symlink-mode agent-routing limitation. The text explains how to address it.
 
 A tracked repo whose git status cannot be read has `"status": "unknown"` and `message` holding the error; `dirty` is then false and not meaningful.
 
