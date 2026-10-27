@@ -115,6 +115,12 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		return ownMarket(target, b) || marketplaceAgent(s.agentOf(target)) && b.Source != "" && host(target).Marketplaces == nil
 	}
 	appendChange := func(c Change) {
+		if (r.Action == "add" || r.Action == "import") && d.packages[c.Name].Bindings[c.Target].ContextChanged {
+			c.Action, c.Message = "blocked", "Native account or scope changed; restore the previous account settings to resolve its local receipt before rebinding."
+			p.Blocked = true
+			p.Changes = append(p.Changes, c)
+			return
+		}
 		h := host(c.Target)
 		agent := s.agentOf(c.Target)
 		if agent == "pi" && c.Binding.PiRegistration != "" && len(c.piRecord) == 0 && (c.Action == "install" || c.Action == "uninstall" || c.Action == "remove" || c.Action == "update") {
@@ -261,11 +267,16 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 			}
 			old, bound := d.packages[name].Bindings[target]
 			c := s.npmChange(name, target, r.Source, owner, old, bound && old.ID != "" && !old.Cleanup, host(target).Installed)
+			if old.ContextChanged {
+				appendChange(c)
+				continue
+			}
 			// An adopted entry with resource filters keeps them, as an import does. Installing
 			// another version over one keeps them too, so its new entry is recorded after the install.
 			filtered := func(id string) bool {
 				return slices.ContainsFunc(host(target).Installed, func(i Installed) bool { return i.Filtered && (i.ID == id || sameNpmPackage(i.ID, id)) })
 			}
+
 			if c.Action == "import" && filtered(c.ID) {
 				if err := s.preparePiRegistration(ctx, &c); err != nil {
 					c.Action, c.Message = "blocked", err.Error()
@@ -411,11 +422,12 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 			}
 		}
 		change := Change{Name: name, Target: r.From, ID: b.ID, Binding: b, Action: "import", Message: "Record the existing native installation; leave its content and enabled state unchanged."}
-		if installed.Filtered {
+		if installed.Filtered && !d.packages[name].Bindings[r.From].ContextChanged {
 			if err := s.preparePiRegistration(ctx, &change); err != nil {
 				return nil, err
 			}
 		}
+
 		appendChange(change)
 	} else {
 		if r.Name != "" {
@@ -444,6 +456,12 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				}
 				agent := s.agentOf(target)
 				decl, declared := d.intent[name].Bindings[target]
+				if r.Action == "update" && r.SourceRef != "" {
+					if decl.Source == "" || decl.Imported || isNpmSource(decl.Source) {
+						return nil, fmt.Errorf("source ref requires a reviewed Git source for %s/%s", name, target)
+					}
+					decl.SourceRef = r.SourceRef
+				}
 				if r.Action == "enable" || r.Action == "disable" {
 					if !declared {
 						p.Changes = append(p.Changes, Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "skip", Message: "This target was removed from shared intent; sync to finish local cleanup."})
@@ -464,7 +482,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 					if r.Action == "remove" {
 						action, message = "forget", "Remove declaration; no local native installation is bound."
 					}
-					if !b.Selected() {
+					if !b.Selected() && r.Action != "remove" {
 						action, message = "noop", ""
 					}
 					p.Changes = append(p.Changes, Change{Name: name, Target: target, Binding: b, Action: action, Message: message})
@@ -502,7 +520,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				c := Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: r.Action}
 				_, exists := find(target, b.ID)
 				action := r.Action
-				if r.Action == "sync" && declared && sameDistribution(b, decl) && b.SourceRef != decl.SourceRef {
+				if r.Action == "sync" && b.Selected() && declared && sameDistribution(b, decl) && b.SourceRef != decl.SourceRef {
 					action = "update"
 				}
 				switch action {

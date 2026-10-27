@@ -266,6 +266,8 @@ a recipe that runs Pi's install scripts; npm import remains native-only. Ambiguo
 legacy npm entries remain native-only until explicitly added again.
 
 Legacy read/sync does not rewrite YAML; actual declaration edits write version 2.
+Unresolved legacy bindings survive declaration edits as passive private hints;
+only original-context inventory/ownership proof can turn them into cleanup receipts.
 Upgrade all shared-config writers first. Local adoption needs inventory and owned
 snapshot proof. Removed or changed targets retain local cleanup evidence until
 success; account changes require resolving the old native context. Failures and

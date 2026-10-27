@@ -61,6 +61,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 		return nil, err
 	}
 	s.adoptLegacy(d, func(target string) Host { return s.host(ctx, target) })
+	s.captureLegacy(d)
 	before, _ := yaml.Marshal(d.intent)
 	for _, c := range p.Changes {
 		if c.Action == "skip" || c.Action == "blocked" {
@@ -73,6 +74,9 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 		switch r.Action {
 		case "add":
 			decl := declarationForAdd(r, c)
+			if old, exists := pack.Bindings[c.Target]; exists {
+				decl.Sync = old.Sync
+			}
 			if c.Target == "" || pack.Source == "" {
 				pack.Source, pack.SourceRef, pack.Plugin, pack.Entry = decl.Source, decl.SourceRef, decl.Plugin, decl.Entry
 			}
@@ -114,7 +118,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 	}
 	after, _ := yaml.Marshal(d.intent)
 	if !bytes.Equal(before, after) {
-		// Preserve proven legacy ownership before dropping its shared hints.
+		// Preserve verified receipts and unresolved proof candidates before rewriting legacy YAML.
 		if len(d.state.Bindings) > 0 {
 			if err := s.saveState(d); err != nil {
 				return nil, err
@@ -147,6 +151,12 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 			if c.Action == "forget" {
 				outcome.Status = "removed"
 				outcome.Message = "Removed from Skillshare."
+				for target, local := range d.state.Bindings[c.Name] {
+					if c.Target == "" || c.Target == target {
+						local.Legacy = nil
+						d.putLocal(c.Name, target, local)
+					}
+				}
 			}
 			result.Results = append(result.Results, outcome)
 			continue
@@ -156,6 +166,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 		if c.Action == "noop" {
 			if r.Action == "add" && local.Applied != nil && c.Binding.ID == local.Applied.Binding.ID {
 				local.Applied.Intent = decl.fingerprint()
+				local.Legacy = nil
 				d.putLocal(c.Name, c.Target, local)
 			}
 			if local.Pending != nil && local.Applied == nil && c.Binding.Selected() && !c.Binding.Cleanup && local.Pending.Intent == decl.fingerprint() {
@@ -203,6 +214,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 			failed[key] = true
 		} else {
 			local.Pending = nil
+			local.Legacy = nil
 			b.Pending = ""
 			outcome.Status, outcome.Message = "installed", "Native installation recorded. Reload the Agent and complete any required login or hook trust."
 			if c.Action == "remove" || c.Action == "forget" {

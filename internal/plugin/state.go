@@ -37,6 +37,8 @@ type receipt struct {
 type localBinding struct {
 	Applied *receipt `json:"applied,omitempty"`
 	Pending *receipt `json:"pending,omitempty"`
+	// Legacy is a passive proof candidate, never executable installation state.
+	Legacy *receipt `json:"legacy,omitempty"`
 }
 type localState struct {
 	Version  int                                `json:"version"`
@@ -120,7 +122,10 @@ func (s *Service) loadState(d *document) error {
 				return fmt.Errorf("invalid plugin local package")
 			}
 			for _, b := range targets {
-				for _, r := range []*receipt{b.Applied, b.Pending} {
+				if b.Legacy != nil && (b.Legacy.Action != "" || b.Legacy.Binding.Pending != "") {
+					return fmt.Errorf("invalid passive plugin legacy hint for %s", name)
+				}
+				for _, r := range []*receipt{b.Applied, b.Pending, b.Legacy} {
 					if r == nil {
 						continue
 					}
@@ -224,7 +229,7 @@ func (s *Service) saveState(d *document) error {
 	return nil
 }
 func (d *document) putLocal(name, target string, b localBinding) {
-	if b.Applied == nil && b.Pending == nil {
+	if b.Applied == nil && b.Pending == nil && b.Legacy == nil {
 		delete(d.state.Bindings[name], target)
 		if len(d.state.Bindings[name]) == 0 {
 			delete(d.state.Bindings, name)
@@ -255,36 +260,69 @@ func (s *Service) checkApplyIntent() error {
 	return (&document{raw: *s.applyConfig}).checkIntent(s.ConfigPath)
 }
 
-// Legacy IDs are hints only. Native inventory and an owned, unmodified snapshot
-// establish a local receipt; foreign progress is never adopted.
-func (s *Service) adoptLegacy(d *document, host func(string) Host) {
+// captureLegacy runs before intent mutation: a later proof must retain the
+// original declaration and store even if the shared target is removed or replaced.
+func (s *Service) captureLegacy(d *document) {
 	for name, p := range d.legacy {
 		for target, b := range p.Bindings {
-			if d.state.Bindings[name][target].Applied != nil {
+			local := d.state.Bindings[name][target]
+			if local.Applied == nil && local.Legacy == nil {
+				b.Pending = ""
+				local.Legacy = &receipt{Intent: d.intent[name].Bindings[target].fingerprint(), Store: s.storeIdentity(target), Binding: b}
+				d.putLocal(name, target, local)
+			}
+		}
+	}
+}
+
+// Legacy candidates become receipts only after the same scoped native, snapshot
+// and private-registration proofs, independently of today's shared declarations.
+func (s *Service) adoptLegacy(d *document, host func(string) Host) {
+	prove := func(name, target string, hint *receipt) {
+		local := d.state.Bindings[name][target]
+		if local.Applied != nil || hint.Store != s.storeIdentity(target) {
+			return
+		}
+		b := hint.Binding
+		h := host(target)
+		if h.Error != "" || !slices.ContainsFunc(h.Installed, func(i Installed) bool { return i.ID == b.ID }) {
+			return
+		}
+		if b.Source != "" {
+			if !s.ownedSnapshot(b, target) {
+				return
+			}
+			if marketplaceAgent(s.agentOf(target)) {
+				_, market, _ := strings.Cut(b.ID, "@")
+				if filepath.Clean(h.Marketplaces[market]) != s.snapshotPath(b, target) {
+					return
+				}
+			}
+		}
+		if b.PiRegistration != "" {
+			if _, err := s.readPiRegistration(b.PiRegistration, target, b.ID); err != nil {
+				return
+			}
+		}
+		b.Pending = ""
+		local.Applied = &receipt{Intent: hint.Intent, Store: hint.Store, Binding: b}
+		local.Legacy = nil
+		d.putLocal(name, target, local)
+	}
+	for name, targets := range d.state.Bindings {
+		for target, local := range targets {
+			if local.Legacy != nil {
+				prove(name, target, local.Legacy)
+			}
+		}
+	}
+	for name, p := range d.legacy {
+		for target, b := range p.Bindings {
+			// A captured candidate's context and fingerprint take precedence over current intent.
+			if d.state.Bindings[name][target].Legacy != nil {
 				continue
 			}
-			h := host(target)
-			if h.Error != "" || !slices.ContainsFunc(h.Installed, func(i Installed) bool { return i.ID == b.ID }) {
-				continue
-			}
-			if b.Source != "" {
-				if !s.ownedSnapshot(b, target) {
-					continue
-				}
-				if marketplaceAgent(s.agentOf(target)) {
-					_, market, _ := strings.Cut(b.ID, "@")
-					if filepath.Clean(h.Marketplaces[market]) != s.snapshotPath(b, target) {
-						continue
-					}
-				}
-			}
-			if b.PiRegistration != "" {
-				if _, err := s.readPiRegistration(b.PiRegistration, target, b.ID); err != nil {
-					continue
-				}
-			}
-			b.Pending = ""
-			d.putLocal(name, target, localBinding{Applied: &receipt{Intent: d.intent[name].Bindings[target].fingerprint(), Store: s.storeIdentity(target), Binding: b}})
+			prove(name, target, &receipt{Intent: d.intent[name].Bindings[target].fingerprint(), Store: s.storeIdentity(target), Binding: b})
 		}
 	}
 	s.compose(d)

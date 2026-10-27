@@ -558,7 +558,10 @@ install scripts; an npm import shares only native-only intent.
 Old configurations remain readable. Native IDs are adopted only with local
 inventory and, for source installs, owned snapshot evidence. Foreign pending
 operations are ignored. Reads and sync leave old YAML unchanged; the next actual
-declaration edit writes version 2. Legacy npm entries cannot prove whether they
+declaration edit writes version 2. Unresolved legacy bindings remain private,
+passive hints across that edit. They are retried in their original native context
+and become receipts only after ownership checks, retaining the old intent for
+cleanup even if its shared target was removed. Legacy npm entries cannot prove whether they
 came from add or import, so they remain native-only; explicitly add the npm spec
 again to establish a shared recipe. Upgrade **every writer** of a shared config
 before editing version 2; older binaries cannot safely write this format.

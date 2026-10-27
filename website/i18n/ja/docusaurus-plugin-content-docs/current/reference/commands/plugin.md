@@ -332,3 +332,5 @@ add、選択、remove は外部変更を確認して宣言を更新します。�
 区別できないため native-only のままです。共有配方が必要なら npm spec を明示的に add し直してください。
 削除や source 変更後も cleanup が成功するまで古いローカル receipt を保持し、失敗はローカルで再試行します。
 account 変更時は以前の native context を解決してから cleanup します。認証、native 設定、trust は各ツールに残ります。
+
+未確認の旧 binding は宣言編集後も非公開の受動的なヒントとして残ります。元の native context で所有権を検証してから receipt に変換し、共有 target が削除されていても元の意図に基づいて cleanup します。
