@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -102,6 +103,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		hosts[target] = h
 		return h
 	}
+	s.adoptLegacy(d, host)
 	// ownMarket reports whether the marketplace Skillshare registered for b is still in place.
 	ownMarket := func(target string, b Binding) bool {
 		_, market, _ := strings.Cut(b.ID, "@")
@@ -258,7 +260,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				}
 			}
 			old, bound := d.packages[name].Bindings[target]
-			c := s.npmChange(name, target, r.Source, owner, old, bound, host(target).Installed)
+			c := s.npmChange(name, target, r.Source, owner, old, bound && old.ID != "" && !old.Cleanup, host(target).Installed)
 			// An adopted entry with resource filters keeps them, as an import does. Installing
 			// another version over one keeps them too, so its new entry is recorded after the install.
 			filtered := func(id string) bool {
@@ -336,7 +338,8 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				b.Entry = c.Entry
 				b.ID = fileURL(filepath.Join(s.snapshotPath(b, target), "content", filepath.FromSlash(c.pathFor(agent)), c.Entry))
 			}
-			change := Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "install", Components: b.Components}
+			recipe := declareBinding(b)
+			change := Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "install", Components: b.Components, recipe: &recipe}
 			if c.Problem != "" || !slices.Contains(c.Targets, agent) {
 				change.Action = "blocked"
 				change.Message = c.Problem
@@ -347,8 +350,8 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 					change.Message = "No native manifest for this target; plugin components will not be silently converted or omitted."
 				}
 			}
-			if old, ok := d.packages[name].Bindings[target]; ok {
-				if old.Source == b.Source && old.Plugin == b.Plugin && old.SourceRef == b.SourceRef {
+			if old, ok := d.packages[name].Bindings[target]; ok && old.ID != "" && !old.Cleanup {
+				if old.Source == b.Source && old.Plugin == b.Plugin && old.SourceRef == b.SourceRef || d.intent[name].Bindings[target].Source == b.Source && d.intent[name].Bindings[target].Plugin == b.Plugin && d.intent[name].Bindings[target].SourceRef == b.SourceRef {
 					change.Binding = old
 					change.ID = old.ID
 					if _, ok := find(target, old.ID); ok {
@@ -360,14 +363,14 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				}
 			}
 			if market := c.TargetInfo[agent].Marketplace; market != "" && change.Action == "install" {
-				if native, ok := find(target, c.Name+"@"+market); ok {
+				if native, ok := find(target, c.Name+"@"+market); ok && !(d.packages[name].Bindings[target].Cleanup && native.ID == d.packages[name].Bindings[target].ID) {
 					change.Action = "import"
 					change.ID = native.ID
 					change.Binding = Binding{ID: native.ID, Version: native.Version}
 					change.Message = "Already installed natively; adopt without reinstalling."
 				}
 			}
-			if _, ok := find(target, change.ID); ok && change.Action == "install" {
+			if _, ok := find(target, change.ID); ok && change.Action == "install" && !(d.packages[name].Bindings[target].Cleanup && d.packages[name].Bindings[target].ID == change.ID) {
 				change.Action = "blocked"
 				change.Message = "A native installation already uses this identity; import it explicitly instead of replacing it."
 			}
@@ -396,14 +399,16 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		}
 		b := Binding{ID: installed.ID, Version: installed.Version}
 		if old, ok := d.packages[name].Bindings[r.From]; ok {
-			if old.ID != b.ID {
+			if old.ID != "" && old.ID != b.ID {
 				return nil, fmt.Errorf("package already manages a different plugin")
 			}
 			// An import follows what is installed; a source binding keeps the version Skillshare reviewed.
 			if old.Source == "" {
 				old.Version = installed.Version
 			}
-			b = old
+			if old.ID != "" {
+				b = old
+			}
 		}
 		change := Change{Name: name, Target: r.From, ID: b.ID, Binding: b, Action: "import", Message: "Record the existing native installation; leave its content and enabled state unchanged."}
 		if installed.Filtered {
@@ -432,15 +437,75 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 			if r.Name != "" && r.Name != name {
 				continue
 			}
-			for _, target := range s.targets() {
+			for _, target := range slices.Sorted(maps.Keys(d.packages[name].Bindings)) {
 				b, ok := d.packages[name].Bindings[target]
 				if !ok || (len(r.Targets) > 0 && !slices.Contains(r.Targets, target)) {
 					continue
 				}
 				agent := s.agentOf(target)
+				decl, declared := d.intent[name].Bindings[target]
+				if r.Action == "enable" || r.Action == "disable" {
+					if !declared {
+						p.Changes = append(p.Changes, Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "skip", Message: "This target was removed from shared intent; sync to finish local cleanup."})
+						continue
+					}
+					selected := r.Action == "enable"
+					b.Sync = &selected
+					p.Changes = append(p.Changes, Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "selection", Message: "Save sync selection only. Run sync to install or remove this managed target."})
+					continue
+				}
+				if b.ContextChanged {
+					p.Blocked = true
+					p.Changes = append(p.Changes, Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "blocked", Message: "Native account or scope changed; restore the previous account settings to resolve its local receipt before rebinding."})
+					continue
+				}
+				if b.ID == "" && (decl.Imported || r.Action == "remove" || !b.Selected()) {
+					action, message := "skip", localImportMessage()
+					if r.Action == "remove" {
+						action, message = "forget", "Remove declaration; no local native installation is bound."
+					}
+					if !b.Selected() {
+						action, message = "noop", ""
+					}
+					p.Changes = append(p.Changes, Change{Name: name, Target: target, Binding: b, Action: action, Message: message})
+					continue
+				}
+				if b.Cleanup && (r.Action == "sync" || r.Action == "update" || r.Action == "remove") {
+					action := "remove"
+					if _, exists := find(target, b.ID); !exists && host(target).Error == "" && !mayOwnMarket(target, b) {
+						action = "forget"
+					}
+					old := b
+					old.Cleanup = false
+					appendChange(Change{Name: name, Target: target, ID: b.ID, Binding: old, Action: action, Message: "Remove the previous local installation before reconciling current intent."})
+					if r.Action != "remove" && declared && (decl.Sync == nil || *decl.Sync) && !decl.Imported {
+						c, err := s.sourceChange(ctx, name, target, decl)
+						if err != nil {
+							return nil, err
+						}
+						appendChange(c)
+					}
+					continue
+				}
+				if b.ID == "" && !decl.Imported {
+					if r.Action == "check" {
+						p.Changes = append(p.Changes, Change{Name: name, Target: target, Binding: b, Action: "native-check", Message: "Installation required on this machine; sync to review and install the source."})
+						continue
+					}
+					c, err := s.sourceChange(ctx, name, target, decl)
+					if err != nil {
+						return nil, err
+					}
+					appendChange(c)
+					continue
+				}
 				c := Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: r.Action}
 				_, exists := find(target, b.ID)
-				switch r.Action {
+				action := r.Action
+				if r.Action == "sync" && declared && sameDistribution(b, decl) && b.SourceRef != decl.SourceRef {
+					action = "update"
+				}
+				switch action {
 				case "sync":
 					if !b.Selected() {
 						c.Action = "uninstall"
@@ -502,6 +567,10 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 						break
 					}
 					ref := b.SourceRef
+					if declared && action == "update" {
+						ref = decl.SourceRef
+						c.Action = "update"
+					}
 					if r.SourceRef != "" {
 						ref = r.SourceRef
 					}
@@ -546,6 +615,9 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 						c.Binding.SourceRef = disc.SourceRef
 						c.Binding.Version = candidate.TargetInfo[agent].Version
 						c.Binding.Components = candidate.TargetInfo[agent].Components
+						if !exists {
+							c.Action = "install"
+						}
 					}
 				}
 				if (c.Action == "uninstall" || c.Action == "remove") && !exists && ownMarket(target, b) {
@@ -574,7 +646,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 			continue
 		}
 		for name, pack := range d.packages {
-			if name != c.Name && pack.Bindings[c.Target].ID == c.ID {
+			if c.ID != "" && name != c.Name && pack.Bindings[c.Target].ID == c.ID {
 				c.Action = "blocked"
 				c.Message = "This native plugin is already managed by package " + name
 				p.Blocked = true
@@ -599,15 +671,21 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 			ompRemovals[c.Target+"\x00"+c.ID] = c.ompRemoval.revision
 		}
 	}
+	stores := map[string]string{}
+	for _, target := range s.targets() {
+		stores[target] = s.storeIdentity(target)
+	}
 	fingerprint, _ := json.Marshal(struct {
 		Request         Request
 		Raw             string
+		State           string
+		Stores          map[string]string
 		Changes         []Change
 		Hosts           map[string]Host
 		OMPCacheRoots   map[string]string
 		OMPRemovals     map[string]string
 		OMPRuntimePaths map[string]string
-	}{r, string(d.raw), p.Changes, hosts, ompRoots, ompRemovals, ompRuntimePaths})
+	}{r, string(d.raw), string(d.stateRaw), stores, p.Changes, hosts, ompRoots, ompRemovals, ompRuntimePaths})
 	p.Revision = hash(fingerprint)
 	return p, nil
 }

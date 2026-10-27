@@ -23,6 +23,11 @@ func TestFilesListsTheSnapshotAndReadsOnlyInsideIt(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	b := Binding{ID: "demo@skillshare-abc", Source: "/src/demo", Plugin: "demo"}
+	b.Digest, _ = treeDigest(content)
+	writePluginFile(t, filepath.Dir(content), ".skillshare-owner", b.Source+"\n"+b.Plugin)
+	writePluginFile(t, filepath.Dir(content), ".skillshare-digest", b.Digest)
+	seedLocalBinding(t, s, "demo", "claude", b)
 	files, err := s.Files("demo")
 	if err != nil || !slices.Equal(files, []string{"skills/hi/SKILL.md"}) {
 		t.Fatalf("files = %v, %v", files, err)
@@ -48,12 +53,12 @@ func TestSaveKeepsTwoSpaceIndent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d.packages["demo"] = Package{Bindings: map[string]Binding{"claude": {ID: "demo@local", Components: []string{"skills"}}}}
+	d.intent["demo"] = packageDeclaration{Bindings: map[string]declaration{"claude": {Imported: true}}}
 	if err := s.save(d); err != nil {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(s.ConfigPath)
-	want := "ignore:\n  - '**/.git/**'\nplugins:\n  packages:\n    demo:\n      bindings:\n        claude:\n          components:\n            - skills\n"
+	want := "ignore:\n  - '**/.git/**'\nplugins:\n  version: 2\n  packages:\n    demo:\n      bindings:\n        claude:\n          imported: true\n"
 	if !strings.HasPrefix(string(data), want) {
 		t.Errorf("got:\n%s\nwant prefix:\n%s", data, want)
 	}
@@ -74,6 +79,9 @@ func TestDiscoverManagedReadsTheSnapshotWithoutGit(t *testing.T) {
 		t.Fatal(err)
 	}
 	writePluginFile(t, filepath.Dir(s.ConfigPath), "config.yaml", "plugins:\n  packages:\n    demo:\n      bindings:\n        claude:\n          id: demo@skillshare-abc\n          source: "+source+"\n          plugin: demo\n          commit: abc123\n          digest: "+digest+"\n")
+	writePluginFile(t, s.snapshotPath(b, "claude"), ".skillshare-owner", b.Source+"\n"+b.Plugin)
+	writePluginFile(t, s.snapshotPath(b, "claude"), ".skillshare-digest", b.Digest)
+	seedLocalBinding(t, s, "demo", "claude", b)
 	t.Setenv("PATH", t.TempDir())
 	d, err := s.DiscoverManaged(context.Background(), "demo", source, "", "")
 	if err != nil {

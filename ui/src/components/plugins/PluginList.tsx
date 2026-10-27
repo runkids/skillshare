@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronDown, Ellipsis, Loader2, Package } from 'lucide-react';
-import { bindingVersion, pluginsApi, syncAction, targetMap, type PluginInventory, type PluginRequest, type PluginTarget } from '../../api/plugins';
+import { bindingStatus, bindingVersion, pluginsApi, syncAction, targetMap, type PluginInventory, type PluginRequest, type PluginTarget } from '../../api/plugins';
 import type { PluginUpdate } from '../../api/plugins';
 import AgentIcon from '../AgentIcon';
 import Spinner from '../Spinner';
@@ -65,7 +65,8 @@ function Row({ name, pi, inventory, updates, busy, working, onToggle, onMenu, on
   const parts = [...new Set(bindings.flatMap(([, b]) => b.components ?? []))];
   const from = bindings.find(([, b]) => b.source)?.[1];
   // A plugin with no Agent yet has only what was recorded when it was added.
-  const source = from?.source ?? pack.source;
+  const recipe = from?.source ?? pack.source;
+  const source = recipe?.startsWith('npm:') ? undefined : recipe;
   const sourceRef = from?.sourceRef ?? pack.sourceRef;
   const entry = bindings.find(([, b]) => b.entry)?.[1].entry ?? pack.entry;
   const meta = parts.join(', ');
@@ -92,7 +93,7 @@ function Row({ name, pi, inventory, updates, busy, working, onToggle, onMenu, on
   const others = candidate ? agentReasons(candidate, pluginTargets, isProjectMode, t).filter((r) => !pack.bindings[r.target]) : [];
   // An npm package, imported or added, records no source: Pi installs it from its identifier,
   // so the other Pi targets need no discovery, as in the add dialog.
-  const npm = source ? undefined : bindings.find(([, b]) => b.id.startsWith('npm:'))?.[1].id;
+  const npm = recipe?.startsWith('npm:') ? recipe : source ? undefined : bindings.find(([, b]) => b.id.startsWith('npm:'))?.[1].id;
   const npmOthers = npm ? (inventory.targetDefinitions ?? []).filter((d) => d.npm && d.operations.includes('add') && (!isProjectMode || d.project) && !pack.bindings[d.target]) : [];
   const blocked = others.filter((r) => r.reason).length;
   const total = bindings.length + others.length - blocked + npmOthers.length;
@@ -151,13 +152,12 @@ function Row({ name, pi, inventory, updates, busy, working, onToggle, onMenu, on
           {bindings.map(([target, b]) => {
             const on = b.sync !== false;
             const host = inventory.hosts.find((h) => h.target === target);
-            const installed = host?.installed.find((i) => i.id === b.id);
             const todo = syncAction(b, host);
             // Only what the tick does not already say: a ticked Agent that has the plugin needs no label.
-            const state = todo ? 'plugins.pending' : !host ? '' : host.error ? 'plugins.unverified' : installed && installed.enabledKnown !== false && !installed.enabled ? 'plugins.nativeDisabled' : '';
+            const state = bindingStatus(b, host);
             return (
               <span key={target} className="inline-flex items-center gap-2">
-                <Toggle target={target} label={pluginTargets[target]?.label ?? target} title={b.id} on={on} applying={working === `${name}:${target}`} disabled={busy} onClick={() => onToggle(name, target, !on)} />
+                <Toggle target={target} label={pluginTargets[target]?.label ?? target} title={b.id} on={on} applying={working === `${name}:${target}`} disabled={busy || !!b.cleanup || !!b.contextChanged} onClick={() => onToggle(name, target, !on)} />
                 {state && <span className={`ss-tag ${todo ? 'warn' : ''}`}>{t(state)}</span>}
               </span>
             );

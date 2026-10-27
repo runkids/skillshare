@@ -70,8 +70,8 @@ func TestOMPMergedBuildVersionWithoutTargets(t *testing.T) {
 			}
 			applyPluginRequest(t, s, r)
 			d, err := s.load()
-			if err != nil || d.packages["kata"].Version != test.want {
-				t.Fatalf("recorded no-Agent version: %+v %v; want %q", d, err, test.want)
+			if err != nil || d.packages["kata"].Version != "" {
+				t.Fatalf("shared intent unexpectedly cached a version: %+v %v; want %q", d, err, test.want)
 			}
 		})
 	}

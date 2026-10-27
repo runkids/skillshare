@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"slices"
 	"strings"
 	"testing"
 
 	"skillshare/internal/config"
+	"skillshare/internal/plugin"
 )
 
 func TestPluginAPIRequiresPreviewAndLocalOrigin(t *testing.T) {
@@ -90,5 +92,36 @@ func TestPluginUpdateStreamReportsEachPluginThenDone(t *testing.T) {
 	body := w.Body.String()
 	if strings.Count(body, "event: result") != 2 || !strings.Contains(body, `not found`) || !strings.HasSuffix(strings.TrimSpace(body), `data: {"failure":""}`) {
 		t.Fatalf("stream:\n%s", body)
+	}
+}
+
+// hosts=false returns declarations even before any machine-local native binding
+// exists; it never claims that another host's imported plugin is installed here.
+func TestPluginListIncludesUnboundNativeImport(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	service := s.pluginService()
+	if err := os.WriteFile(service.ConfigPath, []byte("plugins:\n  version: 2\n  packages:\n    router:\n      bindings:\n        omp: {imported: true}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(service.ConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	s.handlePluginList(w, httptest.NewRequest(http.MethodGet, "/api/plugins?hosts=false", nil))
+	var result plugin.Inventory
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &result) != nil {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	b := result.Packages["router"].Bindings["omp"]
+	if !b.Imported || b.ID != "" || len(result.Hosts) != 0 {
+		t.Fatalf("foreign native binding: %+v", result)
+	}
+	after, _ := os.ReadFile(service.ConfigPath)
+	if string(after) != string(before) {
+		t.Fatal("listing rewrote declarations")
+	}
+	if _, err := os.Stat(service.StateDir); !os.IsNotExist(err) {
+		t.Fatalf("listing created state: %v", err)
 	}
 }

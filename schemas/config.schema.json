@@ -177,15 +177,83 @@
     },
     "plugins": {
       "type": "object",
-      "description": "Plugins managed by `skillshare plugin` commands. Written by the CLI and dashboard; edit with those rather than by hand.",
+      "description": "Shared plugin declarations. Native receipts and pending operations remain in machine-local state.",
       "additionalProperties": false,
       "properties": {
+        "version": {
+          "const": 2
+        },
         "packages": {
           "type": "object",
-          "description": "Managed plugin packages keyed by plugin name.",
-          "additionalProperties": { "type": "object" }
+          "additionalProperties": {
+            "type": "object"
+          }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "version"
+            ]
+          },
+          "then": {
+            "properties": {
+              "packages": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "source": {
+                      "type": "string"
+                    },
+                    "source_ref": {
+                      "type": "string"
+                    },
+                    "plugin": {
+                      "type": "string"
+                    },
+                    "entry": {
+                      "type": "string"
+                    },
+                    "bindings": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "source": {
+                            "type": "string"
+                          },
+                          "source_ref": {
+                            "type": "string"
+                          },
+                          "plugin": {
+                            "type": "string"
+                          },
+                          "entry": {
+                            "type": "string"
+                          },
+                          "imported": {
+                            "type": "boolean"
+                          },
+                          "sync": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "bindings"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "preserve_tilde_on_save": {
       "type": "boolean",

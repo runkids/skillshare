@@ -7,7 +7,7 @@ export interface PluginTargetDefinition { target: string; label: string; project
 export const targetMap = (definitions: PluginTargetDefinition[] = []) => Object.fromEntries(definitions.map((d) => [d.target, d]));
 export type PluginAction = 'add' | 'import' | 'sync' | 'check' | 'update' | 'remove' | 'enable' | 'disable';
 export interface PluginRequest { action: PluginAction; name?: string; source?: string; sourceRef?: string; entry?: string; plugin?: string; targets?: PluginTarget[]; from?: PluginTarget }
-export interface PluginBinding { piRegistration?: string; id: string; source?: string; sourceRef?: string; commit?: string; entry?: string; plugin?: string; digest?: string; version?: string; pending?: string; sync?: boolean; components?: string[] }
+export interface PluginBinding { imported?: boolean; cleanup?: boolean; contextChanged?: boolean; piRegistration?: string; id: string; source?: string; sourceRef?: string; commit?: string; entry?: string; plugin?: string; digest?: string; version?: string; pending?: string; sync?: boolean; components?: string[] }
 export interface NativePlugin { id: string; version?: string; enabled: boolean; enabledKnown?: boolean; scope?: string; filtered?: boolean; importable?: boolean }
 export interface PluginPackage { version?: string; source?: string; sourceRef?: string; plugin?: string; entry?: string; bindings: Partial<Record<PluginTarget, PluginBinding>> }
 export interface PluginInventory {
@@ -25,12 +25,26 @@ export interface PluginInventory {
  * the plan from the API instead if the two ever drift.
  */
 export const syncAction = (b: PluginBinding, host?: PluginInventory['hosts'][number]) => {
+  if (b.contextChanged) return '';
+  if (b.imported && !b.id) return '';
   const exists = host?.installed.some((i) => i.id === b.id);
   // The plugin is gone but the marketplace Skillshare registered for it is still there.
   const leftover = !exists && !!b.source && b.id.includes('@') && !!host?.managedMarketplaces?.includes(b.id.slice(b.id.indexOf('@') + 1));
+  if (b.cleanup) return host && !host.error ? 'remove' : '';
   if (b.sync === false) return exists || leftover ? 'uninstall' : '';
   if (b.pending) return b.pending === 'install' && exists && !b.piRegistration ? '' : b.pending;
   return !host || host.error || exists ? '' : 'install';
+};
+/** Local binding state shown beside the existing target checkbox. */
+export const bindingStatus = (b: PluginBinding, host?: PluginInventory['hosts'][number]) => {
+  if (b.contextChanged) return 'plugins.accountChanged';
+  if (b.cleanup) return 'plugins.cleanup';
+  if (b.imported && !b.id) return 'plugins.importRequired';
+  if (syncAction(b, host)) return 'plugins.pending';
+  if (!host) return '';
+  if (host.error) return 'plugins.unverified';
+  const installed = host.installed.find((i) => i.id === b.id);
+  return installed && installed.enabledKnown !== false && !installed.enabled ? 'plugins.nativeDisabled' : '';
 };
 /**
  * A binding's version: what config recorded, else what the Agent reports installed. On a Pi

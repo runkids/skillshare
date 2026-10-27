@@ -209,7 +209,7 @@ cannot reach, says why, and still updates the other targets.
 - Local directory plugins cannot import unowned folders or marketplace installs.
   Pi 0.99.2 or later can import supported filtered entries without changing
   native settings. Preview shows retained keys; raw entries stay in private state
-  and shared config stores a digest. Uninstall captures current options; reinstall
+  and its machine-local receipt stores a digest. Uninstall captures current options; reinstall
   restores the object before native install. Missing/changed/cross-target records,
   uncertain sources or precedence, and non-normalized local references are refused.
   Windows registrations use private ACLs, not POSIX mode bits. Unsafe existing
@@ -247,3 +247,27 @@ automation must provide explicit arguments and use `--json` or `--no-tui`.
 - Registration is not proof of resource loading. Verify inside the target Agent.
 - Failed snapshot updates restore the previous managed snapshot; this is not a
   claim that every native cache side effect can be rolled back.
+
+
+## Shared plugin intent and local state
+
+Shared `plugins.version: 2` declares package source/ref/plugin/entry, effective
+per-target sources and selection, or `imported: true`. Native IDs, reviewed
+commit/digest/version, Pi registration references and pending actions stay in
+`<StateDir>/plugins/<config-path-hash>/state.json` (version 1). Keep StateDir local.
+Sync, normal update and retry never rewrite shared YAML; `update --source-ref`
+changes intent only when the ref differs. Read-only commands do not create state.
+
+Each host reviews source installs independently and generates local native IDs.
+A local source path must exist on every host. Native-only targets on another host
+require native installation and `plugin import LOCAL-ID --from TARGET --name NAME`;
+identical repeated import intent does not rewrite YAML. Explicit Pi npm add shares
+a recipe that runs Pi's install scripts; npm import remains native-only. Ambiguous
+legacy npm entries remain native-only until explicitly added again.
+
+Legacy read/sync does not rewrite YAML; actual declaration edits write version 2.
+Upgrade all shared-config writers first. Local adoption needs inventory and owned
+snapshot proof. Removed or changed targets retain local cleanup evidence until
+success; account changes require resolving the old native context. Failures and
+retries stay local. Changed-byte checks do not merge simultaneous Syncthing intent
+edits. Native settings, authentication and trust remain private to each host.

@@ -252,7 +252,7 @@ OpenCode は、管理下エントリを `opencode.json` または既存の `open
 
 ユーザースコープの npm 登録に managed cache がない場合は Unknown／読み取り専用です。未インストールとは限りません。Pi は Skillshare が調べない legacy global npm/pnpm パスを使うことがあります。
 
-インポートは通常の Pi source に加え、Pi 0.99.2 以降の対応する source とオプション形式を持つ filtered object を受け付けます。プレビューは保持するキー名だけを表示し、opaque 値を表示しません。ネイティブ設定とファイルは変更せず、元のエントリを Skillshare の非公開 state に保存し、共有 config には digest だけを記録します。sync/update は現在のエントリを保持します。アンインストール前に最新のオプションを保存し、再インストール時はネイティブ install の前に object を復元して、他のリソースが一時的に既定で有効になるのを防ぎます。同じ Apply で複数を復元するときは、その操作自身が書いた正確な内容だけを受け入れます。他の設定変更がある場合は後続の復元を止めます。非公開 state を保持してください。記録の欠落・変更や別 target の記録は復元を拒否します。Windows の新しい登録ディレクトリは owner/SYSTEM 用の保護された ACL で作成します。既存ディレクトリと記録は、現在のユーザーと特権を持つ SYSTEM/Administrators 以外にアクセスを許可している場合、または ACL を確認できない場合、インポート・復元を拒否します。既存 ACL は変更しません。記録を保持し、所有者がアクセス保護を修復してから再試行してください。不明な source・優先順位、非対応のエンコーディング、Pi が正規化するローカル参照は読み取り専用です。通常の OpenCode エントリは取り込めますが、filtered OpenCode は引き続き拒否します。10 秒の stale 閾値を超えた空のロックディレクトリは inode と mtime が変わっていない場合だけ回収します。新しい・更新された・置換されたロック、空でないディレクトリ、ファイル、symlink は保持します。古さは所有者の終了を証明せず、最終確認と削除は atomic CAS ではありません。インポートされた Pi の package は、global モードでは `pi update SOURCE` で更新され、設定エントリは保持されます。project のものは Pi で更新してください。`pi update` は global の package にも及ぶためです。インポートされた OpenCode v1 の package は、そのネイティブツール上で更新されます。OpenCode v2 の global インポートはネイティブの update コマンドを使用できますが、v2 の update コマンドは global 向けであるため、project のインポートはネイティブに更新する必要があります。
+インポートは通常の Pi source に加え、Pi 0.99.2 以降の対応する source とオプション形式を持つ filtered object を受け付けます。プレビューは保持するキー名だけを表示し、opaque 値を表示しません。ネイティブ設定とファイルは変更せず、元のエントリを Skillshare の非公開 state に保存し、ローカル receipt に digest だけを記録します。sync/update は現在のエントリを保持します。アンインストール前に最新のオプションを保存し、再インストール時はネイティブ install の前に object を復元して、他のリソースが一時的に既定で有効になるのを防ぎます。同じ Apply で複数を復元するときは、その操作自身が書いた正確な内容だけを受け入れます。他の設定変更がある場合は後続の復元を止めます。非公開 state を保持してください。記録の欠落・変更や別 target の記録は復元を拒否します。Windows の新しい登録ディレクトリは owner/SYSTEM 用の保護された ACL で作成します。既存ディレクトリと記録は、現在のユーザーと特権を持つ SYSTEM/Administrators 以外にアクセスを許可している場合、または ACL を確認できない場合、インポート・復元を拒否します。既存 ACL は変更しません。記録を保持し、所有者がアクセス保護を修復してから再試行してください。不明な source・優先順位、非対応のエンコーディング、Pi が正規化するローカル参照は読み取り専用です。通常の OpenCode エントリは取り込めますが、filtered OpenCode は引き続き拒否します。10 秒の stale 閾値を超えた空のロックディレクトリは inode と mtime が変わっていない場合だけ回収します。新しい・更新された・置換されたロック、空でないディレクトリ、ファイル、symlink は保持します。古さは所有者の終了を証明せず、最終確認と削除は atomic CAS ではありません。インポートされた Pi の package は、global モードでは `pi update SOURCE` で更新され、設定エントリは保持されます。project のものは Pi で更新してください。`pi update` は global の package にも及ぶためです。インポートされた OpenCode v1 の package は、そのネイティブツール上で更新されます。OpenCode v2 の global インポートはネイティブの update コマンドを使用できますが、v2 の update コマンドは global 向けであるため、project のインポートはネイティブに更新する必要があります。
 
 ```bash
 skillshare plugin add ./cursor-plugin --target cursor --no-tui
@@ -291,7 +291,7 @@ Copilot と Antigravity CLI のインストールは、reviewed されたロー�
 - Codex のネイティブな project インストールは、このアダプタでは提供されません。global の Codex インストールに対する sync 選択は引き続き機能します。
 - Codex には update コマンドがないため、update は更新後のスナップショットからプラグインを再度 add します。add は常にプラグインを有効にするため、Codex で無効化されたプラグインはスキップされます。Import した Codex プラグインは `codex plugin marketplace upgrade NAME` で更新されます。これは Codex がその marketplace からインストールしたすべてのプラグインを再インストールするもので、Codex も起動時に同じことを行います。
 - update は対応できない Target を理由を示してスキップし、そのプラグインのほかの Agent は通常どおり更新されます。スキップされた update は保留のまま残り、後の sync で処理されます。
-- インポートされた plugin は元のマーケットプレイス identity を保持します。`check` は、source のないインポート済み plugin についてリリースの有無を推測できません。ただし Pi の npm パッケージは npm で確認します。インポートした Claude または Codex の plugin のネイティブ marketplace がなくなった場合、sync と update はその Target をスキップして理由を示します。その marketplace を一度も追加していない別のマシンでも同じことが起こります。Agent で marketplace を復元するか、その Target を削除して source から plugin を追加し直してください。Skillshare がインポート済み plugin を勝手に別の source へ移すことはありません。
+- インポートされた plugin は元のマーケットプレイス identity を保持します。`check` は、source のないインポート済み plugin についてリリースの有無を推測できません。ただし Pi の npm パッケージは npm で確認します。インポートした Claude または Codex の plugin のネイティブ marketplace がなくなった場合、sync と update はその Target をスキップして理由を示します。新しいマシンでは、同名の marketplace があっても明示的なローカル import が必要です。Agent で marketplace を復元するか、その Target を削除して source から plugin を追加し直してください。Skillshare がインポート済み plugin を勝手に別の source へ移すことはありません。
 - Skillshare は管理下の Claude/Codex plugin ごとに marketplace を 1 つ登録し、`skillshare-<plugin>-<hash>` と名付けます（以前のインストールは `skillshare-<hash>` のまま）。plugin を削除または除外すると、plugin がすでになくてもその marketplace も削除し、失敗したクリーンアップは次回の sync で再試行します。marketplace がなくなっていた場合、update で再登録します。別のパスにある同名の登録とインポート済み plugin の marketplace には触れません。スナップショットとネイティブキャッシュは保持されます。
 - これらの登録は、user 設定でも project 設定でも、このマシンの Skillshare 状態ディレクトリを指します。Git や dotfile マネージャーで Agent の設定を共有すると、ほかのマシンには存在しないパスが持ち込まれます。各マシンで source から plugin を追加してください。
 - Claude は、skills ディレクトリ内で plugin manifest を持つ skill フォルダも `<name>@skills-dir` という plugin として読み込み、同じ名前の plugin は 1 つしか読み込みません。同名の Claude plugin を追加するとプレビューでそのことを伝えます。名前を変えるかどちらかを削除するまで、Claude は plugin を読み込み、skill フォルダはスキップします。
@@ -306,3 +306,29 @@ Copilot と Antigravity CLI のインストールは、reviewed されたロー�
 - [Pi packages](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md)
 - [OpenCode v1 plugins](https://opencode.ai/docs/plugins/)
 - [OpenCode v2 plugins](https://opencode.ai/v2/docs/plugins)
+
+## 共有宣言とマシンごとのインストール {#host-state}
+
+`plugins.version: 2` は global/project 設定に source、ref、plugin、entry、target ごとの
+有効な source、`sync` 選択、または native import の `imported: true` を保存します。
+target の source は明示的に保存されるため、package の既定値を変更しても別の配布物に
+変わりません。native ID、version、commit/digest、Pi 登録参照、保留中の操作はローカルの
+`<StateDir>/plugins/<config-path-hash>/state.json`（version 1）に保存します。StateDir は共有しないでください。
+
+sync、通常の update、検証、失敗、再試行は共有宣言を書き換えません。`update --source-ref` は
+ref が変わった場合だけ書き込みます。読み取り操作は state や lock を作りません。
+add、選択、remove は外部変更を確認して宣言を更新します。同時に行われる Syncthing の
+宣言編集をマージする機能ではありません。
+
+新しいマシンでは source を改めて確認し、そのマシンの snapshot path を生成します。
+ローカルの source path は各マシンに必要です。native-only target は「このマシンでインポートが必要」
+と表示されます。native client でインストール後、`plugin import LOCAL-ID --from TARGET --name NAME`
+を実行してください。同じ宣言への再 import はローカル ID だけを保存します。
+明示的な Pi `add npm:PACKAGE` は Pi の install script を実行する配方を共有し、npm import は import 意図だけを共有します。
+
+旧形式の読み取りと sync は YAML を変更しません。旧 ID の採用には scoped inventory と、source の
+場合は所有する snapshot の証拠が必要です。他のホストの pending は無視します。実際に宣言を編集する
+と version 2 になるため、共有設定の全 writer を先に更新してください。旧 npm ID は add/import を
+区別できないため native-only のままです。共有配方が必要なら npm spec を明示的に add し直してください。
+削除や source 変更後も cleanup が成功するまで古いローカル receipt を保持し、失敗はローカルで再試行します。
+account 変更時は以前の native context を解決してから cleanup します。認証、native 設定、trust は各ツールに残ります。

@@ -165,9 +165,9 @@ func TestPiExtensionsApplyRefusesWhileALockIsHeld(t *testing.T) {
 			}
 		},
 		"another plugin operation": func(f *piFixture) func() {
-			writeTree(t, filepath.Dir(f.svc.ConfigPath), map[string]string{filepath.Base(f.svc.ConfigPath) + ".plugins.lock": ""})
+			writeTree(t, filepath.Dir(f.svc.operationLockPath()), map[string]string{filepath.Base(f.svc.operationLockPath()): ""})
 			return func() {
-				if _, err := os.Stat(f.svc.ConfigPath + ".plugins.lock"); err != nil {
+				if _, err := os.Stat(f.svc.operationLockPath()); err != nil {
 					t.Fatal("an unowned plugin lock was removed")
 				}
 			}
@@ -211,7 +211,7 @@ func TestPiExtensionsApplyReleasesItsLocksAndKeepsABackup(t *testing.T) {
 	if _, err := f.apply(change(f, 0, "extensions/b.ts", "select")); err != nil {
 		t.Fatal(err)
 	}
-	for _, lock := range []string{f.settingsPath() + ".lock", f.svc.ConfigPath + ".plugins.lock"} {
+	for _, lock := range []string{f.settingsPath() + ".lock", f.svc.operationLockPath()} {
 		if _, err := os.Stat(lock); !os.IsNotExist(err) {
 			t.Fatalf("%s left behind", lock)
 		}

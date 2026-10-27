@@ -257,7 +257,7 @@ OpenCode 會在 `opencode.json` 或既有的 `opencode.jsonc` 中，把受管理
 
 全域 npm 登錄沒有 managed cache 時顯示 Unknown／唯讀，不代表尚未安裝；Pi 可能使用 Skillshare 不探查的 legacy global npm/pnpm 路徑。
 
-匯入接受一般 Pi source，以及Pi 0.99.2 以上來源與選項格式受支援的 filtered object。預覽只顯示保留的欄位名稱，不顯示 opaque 值。匯入不修改原生設定或已安裝檔案；原始項目保存在 Skillshare 私有狀態，共用設定僅存 digest。sync/update 保留現有項目；解除安裝前保存最新選項，重新安裝時先恢復 object，避免暫時以預設規則啟用其他資源。同一次 Apply 批次恢復時，只接受此次操作自己寫出的精確內容；其他設定變動仍會阻止後續恢復。這些 bindings 必須保留私有狀態：紀錄遺失、被修改或屬於其他 target 時拒絕恢復。Windows 的新登錄目錄以受保護的 owner/SYSTEM ACL 建立。現有目錄與紀錄若允許目前使用者及特權 SYSTEM/Administrators 以外的主體存取，或無法驗證 ACL，便拒絕匯入或恢復。不會修改現有 ACL；請保留紀錄，由擁有者修復存取保護後再重試。不確定的來源或優先序、不支援的編碼，以及 Pi 會正規化的本機參照仍為唯讀。一般 OpenCode 項目可匯入，filtered OpenCode 項目仍拒絕。超過 Pi 10 秒過期門檻的空鎖目錄，只有 inode 與 mtime 未變動時才能回收；新鎖、更新或被替換的鎖、非空目錄、檔案與 symlink 一律保留。過期不代表擁有者已終止，最後檢查與移除不是原子 CAS。已匯入的 Pi 套件在全域模式下以 `pi update SOURCE` 更新，並保留其設定項目；專案中的則要在 Pi 裡更新，因為 `pi update` 也會動到全域套件。已匯入的 OpenCode v1 套件會在其原生工具中更新。OpenCode
+匯入接受一般 Pi source，以及Pi 0.99.2 以上來源與選項格式受支援的 filtered object。預覽只顯示保留的欄位名稱，不顯示 opaque 值。匯入不修改原生設定或已安裝檔案；原始項目保存在 Skillshare 私有狀態，本機安裝紀錄僅存 digest。sync/update 保留現有項目；解除安裝前保存最新選項，重新安裝時先恢復 object，避免暫時以預設規則啟用其他資源。同一次 Apply 批次恢復時，只接受此次操作自己寫出的精確內容；其他設定變動仍會阻止後續恢復。這些 bindings 必須保留私有狀態：紀錄遺失、被修改或屬於其他 target 時拒絕恢復。Windows 的新登錄目錄以受保護的 owner/SYSTEM ACL 建立。現有目錄與紀錄若允許目前使用者及特權 SYSTEM/Administrators 以外的主體存取，或無法驗證 ACL，便拒絕匯入或恢復。不會修改現有 ACL；請保留紀錄，由擁有者修復存取保護後再重試。不確定的來源或優先序、不支援的編碼，以及 Pi 會正規化的本機參照仍為唯讀。一般 OpenCode 項目可匯入，filtered OpenCode 項目仍拒絕。超過 Pi 10 秒過期門檻的空鎖目錄，只有 inode 與 mtime 未變動時才能回收；新鎖、更新或被替換的鎖、非空目錄、檔案與 symlink 一律保留。過期不代表擁有者已終止，最後檢查與移除不是原子 CAS。已匯入的 Pi 套件在全域模式下以 `pi update SOURCE` 更新，並保留其設定項目；專案中的則要在 Pi 裡更新，因為 `pi update` 也會動到全域套件。已匯入的 OpenCode v1 套件會在其原生工具中更新。OpenCode
 v2 的全域匯入可以使用其原生更新指令；專案匯入則必須以原生方式更新，因為 v2 的更新指令是
 全域性的。
 
@@ -313,8 +313,7 @@ Copilot 與 Antigravity CLI 的安裝使用已檢視過的本機快照。匯入�
 - 更新遇到無法處理的 target 時會略過並說明原因；該 plugin 的其他 Agent 仍會照常更新，被略過的更新會保留為待處理，留待之後的 sync。
 - 匯入的 plugin 會保留其原始的 marketplace 身分。對於沒有 source 的匯入 plugin，`check` 無法
   推斷是否有新版本可用，但 Pi 的 npm 套件會向 npm 檢查。若匯入的 Claude 或 Codex plugin 的原生 marketplace 已經不在，
-  sync 和 update 會略過該 target 並說明原因。在從未加入該 marketplace 的另一台機器上，
-  也會發生同樣的情況。請在 Agent 中恢復該 marketplace，或移除該
+  sync 和 update 會略過該 target 並說明原因。新機器即使有同名 marketplace，仍需要明確在本機匯入。請在 Agent 中恢復該 marketplace，或移除該
   target 後從 source 重新加入 plugin；Skillshare 不會自行把匯入的 plugin 改到其他 source。
 - Skillshare 會替每個受管理的 Claude/Codex plugin 註冊一個 marketplace，命名為
   `skillshare-<plugin>-<hash>`（較早的安裝維持 `skillshare-<hash>`）。移除或排除該 plugin 時，
@@ -342,3 +341,25 @@ Copilot 與 Antigravity CLI 的安裝使用已檢視過的本機快照。匯入�
 - [Pi packages](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md)
 - [OpenCode v1 plugins](https://opencode.ai/docs/plugins/)
 - [OpenCode v2 plugins](https://opencode.ai/v2/docs/plugins)
+
+## 共用宣告與本機安裝 {#host-state}
+
+`plugins.version: 2` 在全域或專案設定保存來源、ref、plugin、entry、各 target 的有效來源、
+`sync` 選擇，或原生匯入用的 `imported: true`。保存時會明確寫出各 target 的來源，避免變更
+套件預設值時改到其他發行版本。原生 ID、版本、commit/digest、Pi 登錄參照及待處理操作
+只存在本機 `<StateDir>/plugins/<config-path-hash>/state.json`（版本 1）；請勿跨機器同步 StateDir。
+
+sync、一般 update、驗證、失敗與重試不寫入共用宣告；`update --source-ref` 只在 ref 改變時寫入。
+唯讀操作不建立狀態或鎖。明確的新增、選取及移除會檢查設定是否遭外部修改；這不能合併
+Syncthing 上同時發生的宣告編輯。
+
+新機器的 sync 會重新檢閱來源並產生本機快照路徑。本機來源路徑必須在每台機器上存在。
+原生匯入顯示「需要在此機器上匯入」：先在原生工具安裝，再執行
+`plugin import LOCAL-ID --from TARGET --name NAME`；相同宣告的再次匯入只保存本機 ID。
+明確的 Pi `add npm:PACKAGE` 會共用安裝配方並執行 Pi 的安裝腳本；npm 匯入只共用匯入意圖。
+
+舊格式的讀取及 sync 不改寫 YAML。必須有本機清單與來源快照擁有權證據才能接納舊 ID；
+外機待處理操作會被忽略。下次實際修改宣告才寫成版本 2；請先升級所有共用設定的寫入端。
+舊 npm ID 無法證明原本來自新增或匯入，因此保守視為原生匯入；再次明確 add 才建立共用配方。
+離線期間移除或改來源的 target 會保留本機清理紀錄直到成功；清理與替換失敗可在本機重試。
+帳號變更需要先解決舊原生環境，才能清理。原生設定、驗證與信任仍由各工具在本機管理。

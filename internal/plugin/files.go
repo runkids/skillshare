@@ -28,7 +28,7 @@ func (s *Service) snapshotDir(name string) (string, error) {
 	}
 	for _, target := range slices.Sorted(maps.Keys(pack.Bindings)) {
 		b := pack.Bindings[target]
-		if b.Source == "" {
+		if b.Source == "" || b.ID == "" || b.Cleanup || b.ContextChanged || !s.ownedSnapshot(b, target) {
 			continue
 		}
 		dir := filepath.Join(s.snapshotPath(b, target), "content")
@@ -52,7 +52,7 @@ func (s *Service) discoverSnapshot(name, source, ref, entry string) *Discovery {
 	pack := d.packages[name]
 	for _, target := range slices.Sorted(maps.Keys(pack.Bindings)) {
 		b := pack.Bindings[target]
-		if b.Source != source || b.SourceRef != ref || b.Digest == "" {
+		if b.Source != source || b.SourceRef != ref || b.Digest == "" || b.Cleanup || b.ContextChanged || !s.ownedSnapshot(b, target) {
 			continue
 		}
 		found, err := discoverRoot(filepath.Join(s.snapshotPath(b, target), "content"), b.Source, entry)

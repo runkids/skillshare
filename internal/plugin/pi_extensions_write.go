@@ -173,16 +173,11 @@ var piWriteProject = rootAtomicWrite
 // a project's .pi is in its repository, where the lock file would stay behind,
 // and Pi's lock directory already shuts out every other writer.
 func (s *Service) lockPiSettings(file string, fileLock bool) (func(), *piNativeLock, error) {
-	if err := os.MkdirAll(filepath.Dir(s.ConfigPath), 0o755); err != nil {
-		return nil, nil, err
-	}
-	pluginLock := s.ConfigPath + ".plugins.lock"
-	f, err := os.OpenFile(pluginLock, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	unlock, err := s.Lock()
 	if err != nil {
-		return nil, nil, fmt.Errorf("%w (another plugin operation holds %s)", ErrPiExtensionsBusy, pluginLock)
+		return nil, nil, fmt.Errorf("%w (%v)", ErrPiExtensionsBusy, err)
 	}
-	_ = f.Close()
-	releases := []func(){func() { _ = os.Remove(pluginLock) }}
+	releases := []func(){unlock}
 	release := func() {
 		for i := len(releases) - 1; i >= 0; i-- {
 			releases[i]()

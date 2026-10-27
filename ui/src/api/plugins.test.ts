@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { apiFetch } from './client';
-import { pluginShareCommand, pluginsApi, syncAction } from './plugins';
+import { bindingStatus, pluginShareCommand, pluginsApi, syncAction } from './plugins';
 
 vi.mock('./client', () => ({ apiFetch: vi.fn() }));
 
@@ -39,5 +39,26 @@ describe('syncAction', () => {
   });
   it('never claims an imported plugin\'s marketplace', () => {
     expect(syncAction({ id: 'demo@team', sync: false }, host(['team']))).toBe('');
+  });
+});
+
+
+describe('host-local bindings', () => {
+  const host = { target: 'omp', version: '1', status: 'ready', installed: [] };
+  it('keeps an unbound import visible without proposing an install', () => {
+    const binding = { id: '', imported: true };
+    expect(syncAction(binding, host)).toBe('');
+    expect(bindingStatus(binding, host)).toBe('plugins.importRequired');
+    expect(bindingStatus(binding)).toBe('plugins.importRequired');
+  });
+  it('shows cleanup even if the shared target was removed', () => {
+    const binding = { id: 'demo@old', cleanup: true };
+    expect(syncAction(binding, host)).toBe('remove');
+    expect(bindingStatus(binding, host)).toBe('plugins.cleanup');
+  });
+  it('does not propose commands through a changed native account', () => {
+    const binding = { id: 'demo@old', cleanup: true, contextChanged: true };
+    expect(syncAction(binding, host)).toBe('');
+    expect(bindingStatus(binding, host)).toBe('plugins.accountChanged');
   });
 });

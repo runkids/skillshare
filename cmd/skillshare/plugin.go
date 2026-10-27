@@ -118,6 +118,7 @@ func pluginContext(args []string) (*plugin.Service, []string, error) {
 	}
 	s := &plugin.Service{ConfigPath: config.ConfigPath(), StateDir: config.StateDir()}
 	if mode == modeProject {
+		s.GlobalConfigPath = s.ConfigPath
 		s.ConfigPath = config.ProjectConfigPath(cwd)
 		s.ProjectRoot = cwd
 	} else if cfg, err := config.Load(); err == nil {
@@ -192,8 +193,7 @@ func executePlugin(s *plugin.Service, o pluginOptions) error {
 			if len(p.Bindings) == 0 {
 				ui.Row(ui.MarkNone, name, "no targets"+ui.DimText(" · "+p.Source), width)
 			}
-			for _, definition := range inventory.TargetDefinitions {
-				target := definition.Target
+			for _, target := range slices.Sorted(maps.Keys(p.Bindings)) {
 				if b, ok := p.Bindings[target]; ok {
 					mark, state := ui.MarkWarn, "not installed"
 					for _, h := range inventory.Hosts {
@@ -214,6 +214,15 @@ func executePlugin(s *plugin.Service, o pluginOptions) error {
 					}
 					if b.Pending != "" {
 						mark, state = ui.MarkWarn, "pending "+b.Pending
+					}
+					if b.Imported && b.ID == "" {
+						mark, state = ui.MarkWarn, "Import required on this machine"
+					}
+					if b.Cleanup {
+						mark, state = ui.MarkWarn, "local cleanup required"
+					}
+					if b.ContextChanged {
+						mark, state = ui.MarkWarn, "native account changed; restore its previous settings to resolve local state"
 					}
 					ui.Row(mark, name, target+" · "+state+ui.DimText(" · "+b.ID), width)
 				}

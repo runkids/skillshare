@@ -462,6 +462,7 @@ func TestPiProjectExtensionsNameTheManagedPlugin(t *testing.T) {
 		}
 		f.writeJSON(filepath.Join(root, ".pi", "settings.json"), map[string]any{"packages": entries})
 		f.svc.ProjectRoot = root
+		seedLocalBinding(t, f.svc, "powers", "pi", Binding{ID: f.pkg})
 		if got := f.view("pi").Packages[0]; got.ManagedBy != "powers" {
 			t.Fatalf("project entry %v: managedBy = %q, scope %s", project, got.ManagedBy, got.Scope)
 		}
@@ -474,6 +475,7 @@ func TestPiProjectModeNamesTheGlobalManagedPlugin(t *testing.T) {
 	root := filepath.Join(f.home, "code", "acme")
 	writeTree(t, f.home, map[string]string{"config.yaml": "plugins:\n  packages:\n    powers:\n      bindings:\n        pi:\n          id: " + f.pkg + "\n"})
 	f.global(map[string]any{"packages": []any{f.pkg}})
+	seedLocalBinding(t, f.svc, "powers", "pi", Binding{ID: f.pkg})
 	for _, scope := range []string{"global", "project"} {
 		entries := []any{}
 		if scope == "project" {
@@ -501,6 +503,7 @@ func TestPiExtensionsNameTheManagedPluginOfAProblemEntry(t *testing.T) {
 		} else {
 			f.global(map[string]any{"packages": entry})
 		}
+		seedLocalBinding(t, f.svc, "powers", "pi", Binding{ID: f.pkg})
 		if got := f.view("pi").Packages[0]; got.Problem == "" || got.ManagedBy != "powers" {
 			t.Fatalf("project %v: problem = %q, managedBy = %q", project, got.Problem, got.ManagedBy)
 		}

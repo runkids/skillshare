@@ -194,6 +194,7 @@ func TestOpenCodeAccountUpdateProbeUsesConfiguredCLIAndEnv(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	seedLocalBinding(t, s, "demo", "opencode-work", Binding{ID: "demo"})
 	p, err := s.Preview(context.Background(), Request{Action: "update", Name: "demo", Targets: []string{"opencode-work"}})
 	if err != nil {
 		t.Fatal(err)

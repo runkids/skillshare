@@ -254,7 +254,7 @@ OpenCode 必须在 PATH 上，以便 Skillshare 能够选择对应版本的 sche
 
 全局 npm 注册没有 managed cache 时显示 Unknown／只读，不代表尚未安装；Pi 可能使用 Skillshare 不探查的 legacy global npm/pnpm 路径。
 
-Import 接受普通 Pi source，以及Pi 0.99.2 及以上来源与选项格式受支持的 filtered object。预览只显示保留的字段名称，不显示 opaque 值。导入不修改原生设置或已安装文件；原始条目保存在 Skillshare 私有状态，共享配置仅存 digest。sync/update 保留当前条目；卸载前保存最新选项，重新安装时先恢复 object，避免暂时按默认规则启用其他资源。同一次 Apply 批量恢复时，只接受此次操作自己写出的精确内容；其他设置变动仍会阻止后续恢复。这些 bindings 必须保留私有状态：记录丢失、被修改或属于其他 target 时拒绝恢复。Windows 的新注册目录以受保护的 owner/SYSTEM ACL 创建。现有目录与记录若允许当前用户及特权 SYSTEM/Administrators 之外的主体访问，或无法验证 ACL，便拒绝导入或恢复。不会修改现有 ACL；请保留记录，由所有者修复访问保护后再重试。不确定的来源或优先级、不支持的编码，以及 Pi 会规范化的本地引用仍为只读。普通 OpenCode 条目可导入，filtered OpenCode 条目仍拒绝。超过 Pi 10 秒过期阈值的空锁目录，只有 inode 与 mtime 未变动时才能回收；新锁、更新或被替换的锁、非空目录、文件与 symlink 一律保留。过期不代表持有者已终止，最后检查与移除不是原子 CAS。已导入的 Pi package 在全局模式下用 `pi update SOURCE` 更新，并保留其设置条目；project 中的则要在 Pi 里更新，因为 `pi update` 也会影响全局 package。已导入的 OpenCode v1 packages 会在其原生工具中更新。
+Import 接受普通 Pi source，以及Pi 0.99.2 及以上来源与选项格式受支持的 filtered object。预览只显示保留的字段名称，不显示 opaque 值。导入不修改原生设置或已安装文件；原始条目保存在 Skillshare 私有状态，本机安装记录仅存 digest。sync/update 保留当前条目；卸载前保存最新选项，重新安装时先恢复 object，避免暂时按默认规则启用其他资源。同一次 Apply 批量恢复时，只接受此次操作自己写出的精确内容；其他设置变动仍会阻止后续恢复。这些 bindings 必须保留私有状态：记录丢失、被修改或属于其他 target 时拒绝恢复。Windows 的新注册目录以受保护的 owner/SYSTEM ACL 创建。现有目录与记录若允许当前用户及特权 SYSTEM/Administrators 之外的主体访问，或无法验证 ACL，便拒绝导入或恢复。不会修改现有 ACL；请保留记录，由所有者修复访问保护后再重试。不确定的来源或优先级、不支持的编码，以及 Pi 会规范化的本地引用仍为只读。普通 OpenCode 条目可导入，filtered OpenCode 条目仍拒绝。超过 Pi 10 秒过期阈值的空锁目录，只有 inode 与 mtime 未变动时才能回收；新锁、更新或被替换的锁、非空目录、文件与 symlink 一律保留。过期不代表持有者已终止，最后检查与移除不是原子 CAS。已导入的 Pi package 在全局模式下用 `pi update SOURCE` 更新，并保留其设置条目；project 中的则要在 Pi 里更新，因为 `pi update` 也会影响全局 package。已导入的 OpenCode v1 packages 会在其原生工具中更新。
 OpenCode v2 的全局导入可以使用其原生的更新命令；project 导入则必须原生更新，
 因为 v2 的更新命令是全局的。
 
@@ -316,8 +316,7 @@ Skillshare 从不提供原生信任的批准 flags。
   被跳过的更新会保留为待处理，留给之后的 sync。
 - 已导入的 plugins 保留其原始的 marketplace 身份。`check` 无法为没有 source 的
   已导入 plugin 推断发布可用性，但 Pi 的 npm 包会向 npm 检查。若已导入的 Claude 或 Codex plugin 的原生
-  marketplace 已经不在，sync 和 update 会跳过该 target 并说明原因。在从未添加该 marketplace 的另一台
-  机器上也会出现同样的情况。请在 Agent
+  marketplace 已经不在，sync 和 update 会跳过该 target 并说明原因。新机器即使有同名 marketplace，仍需要明确在本机导入。请在 Agent
   中恢复该 marketplace，或移除该 target 后从 source 重新添加 plugin；Skillshare
   不会自行把已导入的 plugin 改到其他 source。
 - Skillshare 为每个受管理的 Claude/Codex plugin 注册一个 marketplace，命名为
@@ -347,3 +346,25 @@ capabilities 和清单 schemas 会在运行时检查；不受支持的操作会�
 - [Pi packages](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md)
 - [OpenCode v1 plugins](https://opencode.ai/docs/plugins/)
 - [OpenCode v2 plugins](https://opencode.ai/v2/docs/plugins)
+
+## 共享声明与本机安装 {#host-state}
+
+`plugins.version: 2` 在全局或项目配置保存来源、ref、plugin、entry、各 target 的有效来源、
+`sync` 选择，或原生导入用的 `imported: true`。保存时明确写出各 target 的来源，避免修改
+包默认值时改变其他发行版本。原生 ID、版本、commit/digest、Pi 注册引用及待处理操作
+只存在本机 `<StateDir>/plugins/<config-path-hash>/state.json`（版本 1）；不要跨机器同步 StateDir。
+
+sync、普通 update、验证、失败与重试不写入共享声明；`update --source-ref` 只在 ref 改变时写入。
+只读操作不创建状态或锁。明确的添加、选择及移除会检查配置是否被外部修改；这不能合并
+Syncthing 上同时发生的声明编辑。
+
+新机器的 sync 会重新审查来源并生成本机快照路径。本地来源路径必须在每台机器上存在。
+原生导入显示“需要在此机器上导入”：先在原生工具安装，再执行
+`plugin import LOCAL-ID --from TARGET --name NAME`；相同声明的重复导入只保存本机 ID。
+明确的 Pi `add npm:PACKAGE` 共享安装配方并运行 Pi 安装脚本；npm 导入只共享导入意图。
+
+旧格式的读取及 sync 不改写 YAML。只有本机清单与来源快照所有权证据才能证明旧 ID 属于本机；
+外机待处理操作被忽略。下次实际修改声明才写成版本 2；请先升级所有共享配置写入端。
+旧 npm ID 无法证明原本来自添加还是导入，因此视为原生导入；再次明确 add 才建立共享配方。
+离线期间移除或更改来源的 target 保留本机清理记录直到成功；清理与替换失败可在本机重试。
+账户变更需要先解决旧原生环境才能清理。原生设置、认证与信任仍由各工具在本机管理。

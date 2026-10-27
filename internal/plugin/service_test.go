@@ -265,8 +265,8 @@ func TestAddWithoutTargetsKeepsPackageForLater(t *testing.T) {
 	if p.Changes[0].Logo != "data:image/png;base64,cG5n" {
 		t.Fatalf("preview lost the Codex logo: %q", p.Changes[0].Logo)
 	}
-	if d.packages["demo"].Version != "1.0.0" {
-		t.Fatalf("version not recorded without an Agent: %+v", d.packages["demo"])
+	if d.packages["demo"].Version != "" {
+		t.Fatal("version without a local installation must not enter shared intent")
 	}
 	apply(Request{Action: "add", Name: "demo", Source: root, Plugin: "demo", Targets: []string{"claude"}})
 	apply(Request{Action: "remove", Name: "demo", Targets: []string{"claude"}})
@@ -425,6 +425,7 @@ func legacyBinding(t *testing.T, s *Service, agents *fakeAgents, extra string) B
 	b := Binding{ID: "demo@skillshare-0123456789abcdef", Source: "https://example.com/demo", Plugin: "demo"}
 	writePluginFile(t, filepath.Dir(s.ConfigPath), "config.yaml", "plugins:\n  packages:\n    demo:\n      bindings:\n        claude:\n          id: "+b.ID+"\n          source: "+b.Source+"\n          plugin: demo\n"+extra)
 	agents.market("claude")["skillshare-0123456789abcdef"] = s.snapshotPath(b, "claude")
+	seedLocalBinding(t, s, "demo", "claude", b)
 	return b
 }
 
@@ -559,7 +560,7 @@ func TestSyncSkipsAnImportWhoseNativeMarketplaceIsGone(t *testing.T) {
 	s := agents.service(t)
 	writePluginFile(t, filepath.Dir(s.ConfigPath), "config.yaml", "plugins:\n  packages:\n    demo:\n      source: https://example.com/demo\n      plugin: demo\n      bindings:\n        claude:\n          id: demo@team\n          pending: install\n")
 	p, err := s.Preview(context.Background(), Request{Action: "sync"})
-	if err != nil || p.Blocked || len(p.Changes) != 1 || p.Changes[0].Action != "skip" || p.Changes[0].MessageKey != "plugins.skip.marketplaceGone" {
+	if err != nil || p.Blocked || len(p.Changes) != 1 || p.Changes[0].Action != "skip" || !strings.Contains(p.Changes[0].Message, "Import required on this machine") {
 		t.Fatalf("sync did not skip the import: %+v %v", p, err)
 	}
 	applyPluginRequest(t, s, Request{Action: "sync"})
@@ -822,7 +823,10 @@ func importedDemo(t *testing.T) (*Service, *fakeAgents) {
 	b.Pending = "update"
 	pack.Bindings["claude"] = b
 	cfg.packages["demo"] = pack
-	if err := s.save(cfg); err != nil {
+	local := cfg.state.Bindings["demo"]["codex"]
+	local.Pending = &receipt{Intent: cfg.intent["demo"].Bindings["codex"].fingerprint(), Store: s.storeIdentity("codex"), Binding: b, Action: "update"}
+	cfg.putLocal("demo", "codex", local)
+	if err := s.saveState(cfg); err != nil {
 		t.Fatal(err)
 	}
 	return s, agents
@@ -901,7 +905,10 @@ func TestSkippedUpdateStaysPending(t *testing.T) {
 	b.Pending = "update"
 	pack.Bindings["codex"] = b
 	cfg.packages["demo"] = pack
-	if err := s.save(cfg); err != nil {
+	local := cfg.state.Bindings["demo"]["codex"]
+	local.Pending = &receipt{Intent: cfg.intent["demo"].Bindings["codex"].fingerprint(), Store: s.storeIdentity("codex"), Binding: b, Action: "update"}
+	cfg.putLocal("demo", "codex", local)
+	if err := s.saveState(cfg); err != nil {
 		t.Fatal(err)
 	}
 	agents.installed["codex"][0].Enabled = false

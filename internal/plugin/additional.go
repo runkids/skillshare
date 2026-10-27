@@ -206,6 +206,9 @@ func (s *Service) applyAdditional(ctx context.Context, c Change, b Binding) erro
 			return fmt.Errorf("plugin missing from snapshot")
 		}
 	}
+	if err := s.checkApplyIntent(); err != nil {
+		return err
+	}
 	if commandTarget(s.agentOf(c.Target)) {
 		return s.applyNativeTarget(ctx, c, b, root)
 	}
@@ -239,7 +242,7 @@ func (s *Service) applyAdditional(ctx context.Context, c Change, b Binding) erro
 				args = append(args, "--local")
 			}
 			if _, err := s.run(ctx, c.Target, args...); err != nil {
-				return fmt.Errorf("Pi operation failed; project packages require trust established in Pi: %w", err)
+				return fmt.Errorf("Pi operation failed: %w", err)
 			}
 		}
 	}

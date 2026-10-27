@@ -638,7 +638,7 @@ func (s *Service) piManaged(target string) map[string]string {
 		return result
 	}
 	for name, p := range d.packages {
-		if b, ok := p.Bindings[target]; ok && b.ID != "" {
+		if b, ok := p.Bindings[target]; ok && b.ID != "" && !b.Cleanup && !b.ContextChanged {
 			result[b.ID] = name
 		}
 	}

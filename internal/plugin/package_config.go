@@ -369,5 +369,8 @@ func (s *Service) applyOpenCode(ctx context.Context, c Change, b Binding) error 
 	if info, err := os.Stat(path); err == nil {
 		mode = info.Mode().Perm()
 	}
+	if err := s.checkApplyIntent(); err != nil {
+		return err
+	}
 	return atomicNativeWrite(filepath.Dir(path), path, value.Pack(), mode)
 }

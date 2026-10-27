@@ -395,7 +395,7 @@ Import accepts plain Pi package sources and, on Pi 0.99.2 or later,
 filtered object entries with supported sources and option shapes. Preview lists
 retained field names, never opaque values. Import changes neither native settings
 nor installed files. The original entry is kept in private Skillshare state;
-shared config stores only its digest. Sync/update retain the live entry. When
+the local receipt stores only its digest. Sync/update retain the live entry. When
 uninstalling, Skillshare captures its latest rules and options; reinstall restores
 that object before native installation, avoiding a default-enabled window.
 Multiple restores in one Apply recognize only that Apply's own exact writes;
@@ -481,8 +481,8 @@ never supplies native trust approval flags.
   infer release availability for an imported plugin without a source, except an npm
   package in Pi, which it checks against npm. If an
   imported Claude or Codex plugin's native marketplace is gone, sync and update
-  skip that target and say so. This also happens on another machine where that
-  marketplace was never added. Restore the marketplace in the Agent, or remove
+  skip that target and say so. A new machine requires an explicit local import,
+  even if a marketplace with the same name exists. Restore the marketplace in the Agent, or remove
   the target and add the plugin again from its source; Skillshare never moves an
   imported plugin to another source on its own.
 - Skillshare registers one marketplace per managed Claude/Codex plugin, named
@@ -518,3 +518,53 @@ runtime; unsupported operations are blocked with an explanation.
 - [Pi packages](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md)
 - [OpenCode v1 plugins](https://opencode.ai/docs/plugins/)
 - [OpenCode v2 plugins](https://opencode.ai/v2/docs/plugins)
+
+## Shared declarations and local installations {#host-state}
+
+`plugins.version: 2` stores intent in global or project configuration: package
+source/ref/plugin/entry, target-specific source overrides, `sync` selection, or
+`imported: true` for native-only targets. A target's effective source is recorded
+explicitly so changing package defaults cannot change another target's distribution.
+
+```yaml
+plugins:
+  version: 2
+  packages:
+    router:
+      source: https://github.com/acme/router.git
+      plugin: router
+      bindings:
+        pi: {source: https://github.com/acme/router.git, plugin: router}
+        omp: {imported: true}
+```
+
+Each machine keeps native IDs, reviewed commits/digests/versions, private Pi
+registration references and pending operations under
+`<StateDir>/plugins/<config-path-hash>/state.json` (local format version 1).
+Keep StateDir machine-local. Sync, update, verification, failure and retry never
+write shared declarations; `update --source-ref` writes only a changed desired ref.
+Read-only commands create neither state nor locks. Explicit add, selection and
+removal edit declarations with changed-byte checks. This does not merge simultaneous
+Syncthing intent edits: concurrent declaration edits can still conflict.
+
+On a new machine, sync reviews source content and derives that machine's native
+snapshot paths. Local source paths remain user input and must exist on each machine.
+Native-only targets show **Import required on this machine**: install natively,
+then run `plugin import LOCAL-ID --from TARGET --name NAME` on that machine.
+Repeating that import records the local ID without rewriting identical intent.
+An explicit Pi `add npm:PACKAGE` shares an npm install recipe and Pi runs its
+install scripts; an npm import shares only native-only intent.
+
+Old configurations remain readable. Native IDs are adopted only with local
+inventory and, for source installs, owned snapshot evidence. Foreign pending
+operations are ignored. Reads and sync leave old YAML unchanged; the next actual
+declaration edit writes version 2. Legacy npm entries cannot prove whether they
+came from add or import, so they remain native-only; explicitly add the npm spec
+again to establish a shared recipe. Upgrade **every writer** of a shared config
+before editing version 2; older binaries cannot safely write this format.
+
+A machine returning after a target or source changed retains its previous local
+receipt until cleanup succeeds. Failed cleanup or replacement remains local and
+retryable. Repointing/removing an account preserves its old receipt and requires
+resolving the previous native context before cleanup. Authentication, native
+settings and trust remain in each tool; do not copy them as plugin state.

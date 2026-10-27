@@ -294,6 +294,8 @@ func TestUnavailableNativeClientDoesNotForgetBinding(t *testing.T) {
 	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), Run: func(_ context.Context, _ string, _ []string, _ string, _ ...string) ([]byte, error) {
 		return nil, fmt.Errorf("Pi not installed")
 	}}
+	s.StateDir = filepath.Join(home, "state")
+	seedLocalBinding(t, s, "demo", "pi", Binding{ID: "npm:demo"})
 	p, err := s.Preview(context.Background(), Request{Action: "remove", Name: "demo"})
 	if err != nil {
 		t.Fatal(err)

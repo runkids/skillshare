@@ -93,6 +93,7 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 	if s.GlobalConfigPath != "" {
 		global := *s
 		global.ConfigPath = s.GlobalConfigPath
+		global.ProjectRoot = ""
 		globalManaged = global.piManaged(target)
 	}
 	globals := map[string]*globalPkg{}
