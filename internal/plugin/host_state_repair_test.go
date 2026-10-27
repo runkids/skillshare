@@ -878,3 +878,90 @@ func TestPluginHostStateNativeOnlyReimportDropsPreviousSource(t *testing.T) {
 	}
 	same()
 }
+
+// A shared recipe can change before this host reconciles its applied receipt.
+func TestPluginHostStateCheckUsesDesiredRecipe(t *testing.T) {
+	for _, kind := range []string{"ref content", "ref same content", "missing ref", "source", "plugin", "entry", "native-only", "npm"} {
+		t.Run(kind, func(t *testing.T) {
+			var aCalls, bCalls []string
+			a := fakePiNpm(t, &aCalls)
+			source, _, repo := repairGitSourceRepo(t, "desired-check")
+			applyPluginRequest(t, a, Request{Action: "add", Source: source, SourceRef: "main", Targets: []string{"pi"}})
+			raw, _ := os.ReadFile(a.ConfigPath)
+			b := fakePiNpm(t, &bCalls)
+			writePluginFile(t, filepath.Dir(b.ConfigPath), filepath.Base(b.ConfigPath), string(raw))
+			applyPluginRequest(t, b, Request{Action: "sync"})
+			applied := readState(t, b).packages["demo"].Bindings["pi"]
+			desiredSource, ref, plugin, entry, imported := source, "main", "demo", "", false
+			switch kind {
+			case "ref content", "ref same content":
+				if kind == "ref same content" {
+					cmd := exec.Command("git", "branch", "same", "main")
+					cmd.Dir = repo
+					if out, err := cmd.CombinedOutput(); err != nil {
+						t.Fatalf("branch: %s %v", out, err)
+					}
+					ref = "same"
+				} else {
+					ref = "next"
+				}
+				repairHost(t, a)
+				applyPluginRequest(t, a, Request{Action: "update", Name: "demo", SourceRef: ref})
+				raw, _ = os.ReadFile(a.ConfigPath)
+			case "missing ref":
+				ref = "absent"
+			case "source":
+				desiredSource, ref = hostStatePiSource(t), ""
+				writeFile(t, desiredSource, "package.json", `{"name":"demo","version":"2.0.0","keywords":["pi-package"]}`)
+			case "plugin":
+				plugin = "absent"
+			case "entry":
+				entry = "new-entry.js"
+			case "native-only":
+				imported = true
+			case "npm":
+				desiredSource, ref, plugin = "npm:demo", "", ""
+			}
+			if kind != "ref content" && kind != "ref same content" {
+				// This is the shared file received from another host, including explicit target overrides.
+				text := "plugins:\n  version: 2\n  packages:\n    demo:\n      bindings:\n        pi:\n"
+				if imported {
+					text += "          imported: true\n"
+				} else {
+					text += "          source: " + strconv.Quote(desiredSource) + "\n          source_ref: " + strconv.Quote(ref) + "\n          plugin: " + strconv.Quote(plugin) + "\n          entry: " + strconv.Quote(entry) + "\n"
+				}
+				raw = []byte(text)
+			}
+			repairHost(t, b)
+			writePluginFile(t, filepath.Dir(b.ConfigPath), filepath.Base(b.ConfigPath), string(raw))
+			same := unchanged(t, b.ConfigPath, b.statePath())
+			calls := len(bCalls)
+			plan, err := b.Preview(context.Background(), Request{Action: "check", Name: "demo"})
+			if kind == "missing ref" || kind == "plugin" {
+				if err == nil && (len(plan.Changes) != 1 || plan.Changes[0].Action != "blocked") {
+					t.Fatalf("invalid desired recipe silently used applied source: %+v %v", plan, err)
+				}
+			} else if kind == "native-only" || kind == "npm" {
+				if err != nil || len(plan.Changes) != 1 || plan.Changes[0].Action != "native-check" {
+					t.Fatalf("cleanup target claimed applied source current: %+v %v", plan, err)
+				}
+			} else {
+				if err != nil || len(plan.Changes) != 1 || plan.Changes[0].Action != "update-available" {
+					t.Fatalf("check missed desired recipe: %+v %v", plan, err)
+				}
+				desired, discoverErr := DiscoverOptions(context.Background(), desiredSource, ref, entry)
+				got := plan.Changes[0].Binding
+				if discoverErr != nil || got.Digest != desired.Digest || got.Commit != desired.Commit || got.Source != desiredSource || got.SourceRef != ref || got.Plugin != plugin || got.Entry != entry {
+					t.Fatalf("check did not expose desired approval: %+v %+v %v", got, desired, discoverErr)
+				}
+			}
+			same()
+			if len(bCalls) != calls {
+				t.Fatalf("check ran native commands: %q", bCalls[calls:])
+			}
+			if got := readState(t, b).state.Bindings["demo"]["pi"].Applied.Binding; got.Source != applied.Source || got.SourceRef != applied.SourceRef || got.Digest != applied.Digest {
+				t.Fatalf("check rewrote applied provenance: %+v", got)
+			}
+		})
+	}
+}

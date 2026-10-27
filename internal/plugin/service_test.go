@@ -981,72 +981,47 @@ func updateDemo(s *Service, seen map[string]Seen) (*Result, error) {
 	return result, err
 }
 
-// The user approved the version a check showed; a batch update installs nothing newer.
-func TestBatchUpdateSkipsAPluginWhoseVersionMovedSinceTheCheck(t *testing.T) {
-	s, agents := bumpedDemo(t)
-	if _, err := updateDemo(s, map[string]Seen{"claude": {Version: "1.5.0"}}); err != ErrSourceMoved || len(agents.commands) != 0 {
-		t.Fatalf("moved source: %v, commands %q", err, agents.commands)
-	}
-}
-
-// A local directory has no commit: the same version with other content has moved too.
-func TestBatchUpdateSkipsAPluginWhoseContentMovedSinceTheCheck(t *testing.T) {
-	for _, missing := range []bool{false, true} {
-		t.Run(map[bool]string{false: "present", true: "removed"}[missing], func(t *testing.T) {
-			s, agents := bumpedDemo(t)
-			checked, err := s.Preview(context.Background(), Request{Action: "check", Name: "demo"})
-			if err != nil || len(checked.Changes) != 1 || checked.Changes[0].Action != "update-available" {
-				t.Fatalf("check did not produce reviewed source: %+v %v", checked, err)
-			}
-			binding := checked.Changes[0].Binding
-			if missing {
-				agents.installed["claude"] = nil
-			}
-			writeFile(t, binding.Source, "skills/demo/SKILL.md", "source changed after approval")
-			same := unchanged(t, s.ConfigPath, s.statePath())
-			if _, err := updateDemo(s, map[string]Seen{"claude": {Version: binding.Version, Commit: binding.Commit, Digest: binding.Digest}}); err != ErrSourceMoved || len(agents.commands) != 0 {
-				t.Fatalf("moved digest installed without approval: %v, commands %q", err, agents.commands)
-			}
-			same()
-		})
-	}
-}
-
-// Without what a check showed there is nothing the user approved.
-func TestBatchUpdateSkipsAnAgentNoCheckShowed(t *testing.T) {
-	for _, missing := range []bool{false, true} {
-		t.Run(map[bool]string{false: "present", true: "removed"}[missing], func(t *testing.T) {
-			s, agents := bumpedDemo(t)
-			if missing {
-				agents.installed["claude"] = nil
-			}
-			if _, err := updateDemo(s, nil); err != ErrSourceMoved || len(agents.commands) != 0 {
-				t.Fatalf("unchecked: %v, commands %q", err, agents.commands)
-			}
-		})
-	}
-}
-
-func TestBatchUpdateInstallsTheVersionTheCheckShowed(t *testing.T) {
-	for _, missing := range []bool{false, true} {
-		t.Run(map[bool]string{false: "present", true: "removed"}[missing], func(t *testing.T) {
-			s, agents := bumpedDemo(t)
-			checked, err := s.Preview(context.Background(), Request{Action: "check", Name: "demo"})
-			if err != nil || len(checked.Changes) != 1 {
-				t.Fatalf("check: %+v %v", checked, err)
-			}
-			binding := checked.Changes[0].Binding
-			if missing {
-				agents.installed["claude"] = nil
-			}
-			if result, err := updateDemo(s, map[string]Seen{"claude": {Version: binding.Version, Commit: binding.Commit, Digest: binding.Digest}}); err != nil || len(result.Results) != 1 || result.Results[0].Status != "installed" {
-				t.Fatalf("approved update: %+v %v", result, err)
-			}
-			installed := readState(t, s).packages["demo"].Bindings["claude"]
-			if installed.Digest != binding.Digest || installed.Version != binding.Version || !s.ownedSnapshot(installed, "claude") {
-				t.Fatalf("reinstallation lost approved source: %+v", installed)
-			}
-		})
+// Batch updates may install only the source the user approved, including a missing native installation.
+func TestBatchUpdateUsesOnlyTheSourceTheCheckShowed(t *testing.T) {
+	for _, scenario := range []string{"version moved", "content moved", "no approval", "matching approval"} {
+		for _, missing := range []bool{false, true} {
+			t.Run(scenario+"/"+map[bool]string{false: "present", true: "removed"}[missing], func(t *testing.T) {
+				s, agents := bumpedDemo(t)
+				checked, err := s.Preview(context.Background(), Request{Action: "check", Name: "demo"})
+				if err != nil || len(checked.Changes) != 1 || checked.Changes[0].Action != "update-available" {
+					t.Fatalf("check: %+v %v", checked, err)
+				}
+				binding := checked.Changes[0].Binding
+				seen := map[string]Seen{"claude": {Version: binding.Version, Commit: binding.Commit, Digest: binding.Digest}}
+				switch scenario {
+				case "version moved":
+					seen["claude"] = Seen{Version: "1.5.0"}
+				case "content moved":
+					writeFile(t, binding.Source, "skills/demo/SKILL.md", "source changed after approval")
+				case "no approval":
+					seen = nil
+				}
+				if missing {
+					agents.installed["claude"] = nil
+				}
+				same := unchanged(t, s.ConfigPath, s.statePath())
+				result, err := updateDemo(s, seen)
+				if scenario != "matching approval" {
+					if err != ErrSourceMoved || len(agents.commands) != 0 {
+						t.Fatalf("unapproved source: %v, commands %q", err, agents.commands)
+					}
+					same()
+					return
+				}
+				if err != nil || len(result.Results) != 1 || result.Results[0].Status != "installed" {
+					t.Fatalf("approved update: %+v %v", result, err)
+				}
+				installed := readState(t, s).packages["demo"].Bindings["claude"]
+				if installed.Digest != binding.Digest || installed.Version != binding.Version || !s.ownedSnapshot(installed, "claude") {
+					t.Fatalf("update lost approved source: %+v", installed)
+				}
+			})
+		}
 	}
 }
 

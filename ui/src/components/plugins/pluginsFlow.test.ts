@@ -253,14 +253,20 @@ describe('plugins flow rules', () => {
 
   const pending = { demo: { codex: { version: '1.1.0' }, claude: { version: '1.1.0' } } };
   const updating = plan('r', { action: 'update' }, { target: 'claude', action: 'update' });
-  it('takes off an Agent that updated or was already there, and keeps one that failed', () => {
-    const left = updatesLeft(pending, plan('r', { action: 'noop' }, { target: 'claude', action: 'update' }), { result: { results: [{ name: 'demo', target: 'codex', status: 'unchanged' }, { name: 'demo', target: 'claude', status: 'failed' }] }, failure: 'x' });
-    expect(left).toEqual({ demo: { claude: { version: '1.1.0' } } });
-  });
-  it('takes off successful approved reinstalls and retains failed reinstalls', () => {
-    const reinstalling = plan('r', { action: 'install' }, { target: 'claude', action: 'install' });
-    const response = { result: { results: [{ name: 'demo', target: 'codex', status: 'installed' }, { name: 'demo', target: 'claude', status: 'failed' }] }, failure: 'native failure' };
-    expect(updatesLeft(pending, reinstalling, response)).toEqual({ demo: { claude: { version: '1.1.0' } } });
+  it('takes off an Agent whose final operation succeeded and keeps failed or unfinished updates', () => {
+    for (const action of ['noop', 'update', 'install']) {
+      const status = action === 'noop' ? 'unchanged' : 'installed';
+      const reviewed = plan('r', { action }, { target: 'claude', action: 'update' });
+      const response = { result: { results: [{ name: 'demo', target: 'codex', status }, { name: 'demo', target: 'claude', status: 'failed' }] }, failure: 'native failure' };
+      expect(updatesLeft(pending, reviewed, response)).toEqual({ demo: { claude: { version: '1.1.0' } } });
+    }
+    const replacing = plan('r', { action: 'remove' }, { action: 'install' });
+    for (const tail of ['failed', 'not run', 'installed']) {
+      const results = [{ name: 'demo', target: 'codex', status: 'removed' }];
+      if (tail !== 'not run') results.push({ name: 'demo', target: 'codex', status: tail });
+      const expected = tail === 'installed' ? { demo: { claude: { version: '1.1.0' } } } : pending;
+      expect.soft(updatesLeft(pending, replacing, { result: { results }, failure: tail === 'installed' ? '' : 'native failure' }), tail).toEqual(expected);
+    }
   });
   it('keeps an Agent whose update was skipped', () => {
     expect(updatesLeft(pending, updating, { result: { results: [{ name: 'demo', target: 'codex', status: 'skipped' }] }, failure: '' })).toEqual(pending);
