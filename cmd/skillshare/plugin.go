@@ -160,17 +160,15 @@ func cmdPlugin(args []string) (resultErr error) {
 		return err
 	}
 	interactive := mcpInteractive(mcpOptions{json: o.json, noTUI: o.noTUI})
-	return s.WithDiscoveryCache(func() error {
-		if interactive && !o.dryRun {
-			if o.request.Action == "list" {
-				return runPluginManager(s)
-			}
-			if o.request.Action == "add" || o.request.Action == "import" || o.request.Action == "remove" || o.request.Action == "update" || o.request.Action == "enable" || o.request.Action == "disable" || o.request.Action == "sync" {
-				return pluginWizard(s, o)
-			}
+	if interactive && !o.dryRun {
+		if o.request.Action == "list" {
+			return runPluginManager(s)
 		}
-		return executePlugin(s, o)
-	})
+		if o.request.Action == "add" || o.request.Action == "import" || o.request.Action == "remove" || o.request.Action == "update" || o.request.Action == "enable" || o.request.Action == "disable" || o.request.Action == "sync" {
+			return pluginWizard(s, o)
+		}
+	}
+	return s.WithDiscoveryCache(func() error { return executePlugin(s, o) })
 }
 
 func executePlugin(s *plugin.Service, o pluginOptions) error {

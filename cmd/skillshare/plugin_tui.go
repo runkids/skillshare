@@ -76,6 +76,10 @@ func pluginNpmTargets(s *plugin.Service, r *plugin.Request) error {
 }
 
 func pluginWizard(s *plugin.Service, o pluginOptions) error {
+	return s.WithDiscoveryCache(func() error { return pluginWizardAction(s, o) })
+}
+
+func pluginWizardAction(s *plugin.Service, o pluginOptions) error {
 	ctx := context.Background()
 	r := o.request
 	switch r.Action {

@@ -1,8 +1,14 @@
 package main
 
 import (
+	"context"
+	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"skillshare/internal/plugin"
 )
 
 func TestPluginOptions(t *testing.T) {
@@ -42,5 +48,56 @@ func TestPluginAntigravityAlias(t *testing.T) {
 	o, err := parsePluginOptions([]string{"add", "./demo", "--target", "agy", "--no-tui"})
 	if err != nil || o.request.Targets[0] != "antigravity" {
 		t.Fatalf("alias: %+v %v", o, err)
+	}
+}
+
+func TestPluginWizardRefreshesEarlierAddDiscovery(t *testing.T) {
+	home, source := t.TempDir(), t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("PI_CODING_AGENT_DIR", filepath.Join(home, ".pi/agent"))
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local/share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local/state"))
+	if err := os.MkdirAll(filepath.Join(source, "extensions"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, "extensions/demo.ts"), []byte("export default () => {}"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	manifest := func(version string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(source, "package.json"), []byte(`{"name":"demo","version":"`+version+`","keywords":["pi-package"]}`), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	manifest("1.0.0")
+	s := &plugin.Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+	s.Run = func(context.Context, string, []string, string, ...string) ([]byte, error) {
+		return nil, errors.New("native CLI unavailable")
+	}
+	// This is the earlier manager action's discovery scope. A wizard must start
+	// its own action, even when its source was already observed in this session.
+	_ = s.WithDiscoveryCache(func() error {
+		if _, err := s.Preview(context.Background(), plugin.Request{Action: "add", Source: source}); err != nil {
+			t.Fatal(err)
+		}
+		manifest("2.0.0")
+		request := plugin.Request{Action: "add", Source: source, Plugin: "demo", Targets: []string{"pi"}}
+		output := captureStdout(t, func() {
+			err := pluginWizard(s, pluginOptions{request: request, noTUI: true})
+			if err == nil || !strings.Contains(err.Error(), "blocked") {
+				t.Fatalf("expected unavailable native CLI to stop before confirmation: %v", err)
+			}
+		})
+		fresh, err := s.Preview(context.Background(), request)
+		if err != nil || len(fresh.Changes) != 1 || fresh.Changes[0].Binding.Version != "2.0.0" || !strings.Contains(output, fresh.Revision) {
+			t.Fatalf("wizard reused the earlier add discovery: %+v %v output=%s", fresh, err, output)
+		}
+		return nil
+	})
+	for _, path := range []string{s.ConfigPath, s.StateDir} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("read-only blocked action wrote %s: %v", path, err)
+		}
 	}
 }
