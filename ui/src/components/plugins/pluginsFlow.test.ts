@@ -257,6 +257,11 @@ describe('plugins flow rules', () => {
     const left = updatesLeft(pending, plan('r', { action: 'noop' }, { target: 'claude', action: 'update' }), { result: { results: [{ name: 'demo', target: 'codex', status: 'unchanged' }, { name: 'demo', target: 'claude', status: 'failed' }] }, failure: 'x' });
     expect(left).toEqual({ demo: { claude: { version: '1.1.0' } } });
   });
+  it('takes off successful approved reinstalls and retains failed reinstalls', () => {
+    const reinstalling = plan('r', { action: 'install' }, { target: 'claude', action: 'install' });
+    const response = { result: { results: [{ name: 'demo', target: 'codex', status: 'installed' }, { name: 'demo', target: 'claude', status: 'failed' }] }, failure: 'native failure' };
+    expect(updatesLeft(pending, reinstalling, response)).toEqual({ demo: { claude: { version: '1.1.0' } } });
+  });
   it('keeps an Agent whose update was skipped', () => {
     expect(updatesLeft(pending, updating, { result: { results: [{ name: 'demo', target: 'codex', status: 'skipped' }] }, failure: '' })).toEqual(pending);
   });

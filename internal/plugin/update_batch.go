@@ -93,7 +93,7 @@ func (s *Service) updateLocked(ctx context.Context, item UpdateItem, planned fun
 		return nil, nil, err
 	}
 	for _, c := range p.Changes {
-		if c.Action != "update" {
+		if c.Action != "update" && c.Action != "install" {
 			continue
 		}
 		// An Agent no check showed has no version the user approved.

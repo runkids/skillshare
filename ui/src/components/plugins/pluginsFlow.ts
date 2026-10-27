@@ -52,7 +52,7 @@ export function updatesLeft(updates: Updates, plan: PluginPlan, response: Plugin
   const done = new Set((response.result?.results ?? []).filter((r) => r.status !== 'failed' && r.status !== 'skipped').map((r) => `${r.name}:${r.target}`));
   const next = { ...updates };
   for (const c of plan.changes) {
-    if ((c.action !== 'update' && c.action !== 'noop') || !done.has(`${c.name}:${c.target}`) || !next[c.name]) continue;
+    if ((c.action !== 'update' && c.action !== 'install' && c.action !== 'noop') || !done.has(`${c.name}:${c.target}`) || !next[c.name]) continue;
     next[c.name] = { ...next[c.name] };
     delete next[c.name][c.target];
   }

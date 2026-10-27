@@ -991,24 +991,62 @@ func TestBatchUpdateSkipsAPluginWhoseVersionMovedSinceTheCheck(t *testing.T) {
 
 // A local directory has no commit: the same version with other content has moved too.
 func TestBatchUpdateSkipsAPluginWhoseContentMovedSinceTheCheck(t *testing.T) {
-	s, _ := bumpedDemo(t)
-	if _, err := updateDemo(s, map[string]Seen{"claude": {Version: "2.0.0", Digest: "edited-since"}}); err != ErrSourceMoved {
-		t.Fatalf("moved digest: %v", err)
+	for _, missing := range []bool{false, true} {
+		t.Run(map[bool]string{false: "present", true: "removed"}[missing], func(t *testing.T) {
+			s, agents := bumpedDemo(t)
+			checked, err := s.Preview(context.Background(), Request{Action: "check", Name: "demo"})
+			if err != nil || len(checked.Changes) != 1 || checked.Changes[0].Action != "update-available" {
+				t.Fatalf("check did not produce reviewed source: %+v %v", checked, err)
+			}
+			binding := checked.Changes[0].Binding
+			if missing {
+				agents.installed["claude"] = nil
+			}
+			writeFile(t, binding.Source, "skills/demo/SKILL.md", "source changed after approval")
+			same := unchanged(t, s.ConfigPath, s.statePath())
+			if _, err := updateDemo(s, map[string]Seen{"claude": {Version: binding.Version, Commit: binding.Commit, Digest: binding.Digest}}); err != ErrSourceMoved || len(agents.commands) != 0 {
+				t.Fatalf("moved digest installed without approval: %v, commands %q", err, agents.commands)
+			}
+			same()
+		})
 	}
 }
 
 // Without what a check showed there is nothing the user approved.
 func TestBatchUpdateSkipsAnAgentNoCheckShowed(t *testing.T) {
-	s, agents := bumpedDemo(t)
-	if _, err := updateDemo(s, nil); err != ErrSourceMoved || len(agents.commands) != 0 {
-		t.Fatalf("unchecked: %v, commands %q", err, agents.commands)
+	for _, missing := range []bool{false, true} {
+		t.Run(map[bool]string{false: "present", true: "removed"}[missing], func(t *testing.T) {
+			s, agents := bumpedDemo(t)
+			if missing {
+				agents.installed["claude"] = nil
+			}
+			if _, err := updateDemo(s, nil); err != ErrSourceMoved || len(agents.commands) != 0 {
+				t.Fatalf("unchecked: %v, commands %q", err, agents.commands)
+			}
+		})
 	}
 }
 
 func TestBatchUpdateInstallsTheVersionTheCheckShowed(t *testing.T) {
-	s, _ := bumpedDemo(t)
-	if result, err := updateDemo(s, map[string]Seen{"claude": {Version: "2.0.0"}}); err != nil || len(result.Results) != 1 || result.Results[0].Status != "installed" {
-		t.Fatalf("approved update: %+v %v", result, err)
+	for _, missing := range []bool{false, true} {
+		t.Run(map[bool]string{false: "present", true: "removed"}[missing], func(t *testing.T) {
+			s, agents := bumpedDemo(t)
+			checked, err := s.Preview(context.Background(), Request{Action: "check", Name: "demo"})
+			if err != nil || len(checked.Changes) != 1 {
+				t.Fatalf("check: %+v %v", checked, err)
+			}
+			binding := checked.Changes[0].Binding
+			if missing {
+				agents.installed["claude"] = nil
+			}
+			if result, err := updateDemo(s, map[string]Seen{"claude": {Version: binding.Version, Commit: binding.Commit, Digest: binding.Digest}}); err != nil || len(result.Results) != 1 || result.Results[0].Status != "installed" {
+				t.Fatalf("approved update: %+v %v", result, err)
+			}
+			installed := readState(t, s).packages["demo"].Bindings["claude"]
+			if installed.Digest != binding.Digest || installed.Version != binding.Version || !s.ownedSnapshot(installed, "claude") {
+				t.Fatalf("reinstallation lost approved source: %+v", installed)
+			}
+		})
 	}
 }
 
