@@ -9,10 +9,10 @@ import (
 	"github.com/pterm/pterm"
 
 	"skillshare/internal/config"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 	"skillshare/internal/theme"
 	"skillshare/internal/ui"
-	"skillshare/internal/utils"
 )
 
 // syncTargetResult captures all output data for one target's sync operation.
@@ -418,5 +418,5 @@ func runParallelSyncCore(entries []syncTargetEntry, source string, skills []sync
 // but skills/ hasn't been created yet), we resolve the longest existing ancestor
 // and re-append the remaining segments so that symlink aliases still converge.
 func canonicalPath(p string) string {
-	return utils.CanonicalPath(p)
+	return sourcewalk.Canonical(p)
 }

@@ -161,3 +161,75 @@ func TestConsumerVariantDiagnosticScope(t *testing.T) {
 		})
 	}
 }
+
+func TestFirstSyncSharedVariants(t *testing.T) {
+	for _, mode := range []string{"merge", "copy"} {
+		t.Run(mode, func(t *testing.T) {
+			source := consumerVariantSource(t)
+			dest := t.TempDir()
+			cfg := &config.Config{Source: source, AgentsSource: t.TempDir(), Mode: mode, Targets: map[string]config.TargetConfig{
+				"codex": {Path: dest}, "universal": {Path: dest},
+			}}
+			captureStdout(t, func() {
+				if _, _, err := firstSync(cfg); err != nil {
+					t.Fatal(err)
+				}
+			})
+			if _, err := os.Stat(filepath.Join(dest, "_repo__skills__codex__fix", "SKILL.md")); err != nil {
+				t.Fatalf("init pruned shared Codex variant: %v", err)
+			}
+		})
+	}
+}
+
+func TestIgnoredVariantsSymlinkWarning(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(map[bool]string{false: "global", true: "project"}[project], func(t *testing.T) {
+			source := consumerVariantSource(t)
+			if err := os.WriteFile(filepath.Join(source, ".skillignore"), []byte("**\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			cfg := &config.Config{Source: source, AgentsSource: t.TempDir(), Mode: "symlink", Targets: map[string]config.TargetConfig{"claude": {Path: filepath.Join(t.TempDir(), "skills")}}}
+			if err := cfg.Save(); err != nil {
+				t.Fatal(err)
+			}
+			root := t.TempDir()
+			if project {
+				pc := &config.ProjectConfig{Sources: config.ProjectSources{Skills: source}, Targets: []config.ProjectTargetEntry{{Name: "claude", Path: cfg.Targets["claude"].Path, Mode: "symlink"}}}
+				if err := pc.Save(root); err != nil {
+					t.Fatal(err)
+				}
+			}
+			output := captureStdout(t, func() {
+				var err error
+				if project {
+					err = cmdStatusProjectJSON(root)
+				} else {
+					err = cmdStatus([]string{"-g", "--json"})
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+			})
+			var status statusJSONOutput
+			if err := json.Unmarshal([]byte(output), &status); err != nil {
+				t.Fatal(err)
+			}
+			if status.SkillCount != 0 || status.VariantCount != 0 {
+				t.Fatalf("ignored inventory counted: %s", output)
+			}
+			if len(status.Targets) != 1 || !strings.Contains(status.Targets[0].Warning, "symlink mode exposes all agent variants") {
+				t.Fatalf("ignored variants still exposed without warning: %s", output)
+			}
+			discovered, err := sync.DiscoverSourceSkills(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result := &doctorResult{}
+			captureStdout(t, func() { checkVariantRouting(cfg, result, discovered) })
+			if len(result.checks) != 1 || result.checks[0].Status != checkWarning {
+				t.Fatalf("doctor missed ignored variants: %+v", result)
+			}
+		})
+	}
+}

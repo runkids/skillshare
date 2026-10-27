@@ -83,6 +83,7 @@ func cmdStatusProjectJSON(root string) error {
 	counts := sync.CountSkills(discovered)
 	output.SkillCount, output.VariantCount = counts.Skills, counts.Variants
 	output.TrackedRepos = buildTrackedRepoJSON(runtime.sourcePath, trackedRepos, discovered, walk)
+	warningSkills := variantWarningSkills(runtime.sourcePath, runtime.targets, "merge", walk, discovered)
 
 	for _, entry := range runtime.config.Targets {
 		target, ok := runtime.targets[entry.Name]
@@ -105,7 +106,7 @@ func cmdStatusProjectJSON(root string) error {
 			Exclude:     sc.Exclude,
 
 			SkillsEnabled: sc.IsEnabled(),
-			Warning:       skillTargetWarning(target, mode, discovered),
+			Warning:       skillTargetWarning(target, mode, warningSkills),
 		})
 	}
 
@@ -183,6 +184,7 @@ func resolveProjectAgentTargetPath(entry config.ProjectTargetEntry, builtinAgent
 }
 
 func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.DiscoveredSkill) error {
+	warningSkills := variantWarningSkills(runtime.sourcePath, runtime.targets, "merge", runtime.skillsWalk(), discovered)
 	builtinAgents := config.ProjectAgentTargets()
 	agentsExist := dirExists(runtime.agentsSourcePath)
 	var agents []resource.DiscoveredResource
@@ -206,7 +208,7 @@ func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.Discov
 			mode = "merge"
 		}
 		res := getTargetStatusDetail(target, runtime.sourcePath, mode)
-		if warning := skillTargetWarning(target, mode, discovered); warning != "" {
+		if warning := skillTargetWarning(target, mode, warningSkills); warning != "" {
 			warnings = append(warnings, entry.Name+": "+warning)
 		}
 

@@ -166,6 +166,7 @@ func cmdStatus(args []string) error {
 	counts := sync.CountSkills(discovered)
 	output.SkillCount, output.VariantCount = counts.Skills, counts.Variants
 	output.TrackedRepos = buildTrackedRepoJSON(cfg.EffectiveSkillsSource(), trackedRepos, discovered, walk)
+	warningSkills := variantWarningSkills(cfg.EffectiveSkillsSource(), cfg.Targets, cfg.Mode, walk, discovered)
 
 	for name, target := range cfg.Targets {
 		sc := target.SkillsConfig()
@@ -181,7 +182,7 @@ func cmdStatus(args []string) error {
 			Exclude:     sc.Exclude,
 
 			SkillsEnabled: sc.IsEnabled(),
-			Warning:       skillTargetWarning(target, tMode, discovered),
+			Warning:       skillTargetWarning(target, tMode, warningSkills),
 		})
 	}
 
@@ -312,6 +313,7 @@ type targetStatusResult struct {
 }
 
 func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) error {
+	warningSkills := variantWarningSkills(cfg.EffectiveSkillsSource(), cfg.Targets, cfg.Mode, cfg.SkillsWalk(), discovered)
 	builtinAgents := config.DefaultAgentTargets()
 	agentsSource := cfg.EffectiveAgentsSource()
 	agentsExist := dirExists(agentsSource)
@@ -328,7 +330,7 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 		sc := target.SkillsConfig()
 		mode := getTargetMode(sc.Mode, cfg.Mode)
 		res := getTargetStatusDetail(target, cfg.EffectiveSkillsSource(), mode)
-		if warning := skillTargetWarning(target, mode, discovered); warning != "" {
+		if warning := skillTargetWarning(target, mode, warningSkills); warning != "" {
 			warnings = append(warnings, name+": "+warning)
 		}
 

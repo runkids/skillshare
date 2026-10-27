@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/sourcewalk"
 )
 
 // confirmSkillVariants requires a matching suffix under a second canonical
@@ -24,8 +25,11 @@ func confirmSkillVariants(skills []DiscoveredSkill, source string) {
 			checked[sk.LogicalID] = true
 			parts := strings.Split(sk.LogicalID, "\x00")
 			root := filepath.Join(source, parts[0], filepath.FromSlash(parts[1]))
-			agents, _ := os.ReadDir(root)
+			agents, _ := sourcewalk.ReadDir(root, sourcewalk.Options{})
 			for _, entry := range agents {
+				if !entry.IsDir() {
+					continue
+				}
 				agent := config.CanonicalTargetName(entry.Name())
 				if agent == "" || agent == sk.VariantAgent {
 					continue

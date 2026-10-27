@@ -6,6 +6,7 @@ import (
 	"slices"
 	"sort"
 
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
 
@@ -26,7 +27,7 @@ func WithSharedSkillsTargets(targets map[string]TargetConfig, defaultMode string
 		out[name] = tc
 		if tc.SkillsConfig().IsEnabled() {
 			if folder := skillsFolder(tc); folder != "" {
-				folder = utils.CanonicalPath(folder)
+				folder = sourcewalk.Canonical(folder)
 				groups[folder] = append(groups[folder], name)
 			}
 		}

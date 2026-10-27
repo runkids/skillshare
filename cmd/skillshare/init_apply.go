@@ -263,6 +263,7 @@ func printInitDone(p *initPlan, res *initResult) {
 // syncs skills (and agents, if any) quietly. It returns the folders left as
 // they were because they differ from the source.
 func firstSync(cfg *config.Config) (skills int, kept []string, err error) {
+	cfg.Targets = config.WithSharedSkillsTargets(cfg.Targets, cfg.Mode)
 	start := time.Now()
 	spinner := ui.StartSpinner("Syncing…")
 	discovered, err := ssync.DiscoverSourceSkills(cfg.EffectiveSkillsSource(), cfg.SkillsWalk())

@@ -4,16 +4,36 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 )
+
+// variantWarningSkills includes ignored files only for a whole-directory link.
+// Keep this diagnostic inventory separate from counts and merge/copy selection.
+func variantWarningSkills(source string, targets map[string]config.TargetConfig, mode string, walk sourcewalk.Options, discovered []sync.DiscoveredSkill) []sync.DiscoveredSkill {
+	for _, skill := range discovered {
+		if skill.VariantAgent != "" {
+			return discovered
+		}
+	}
+	for _, target := range targets {
+		if target.SkillsConfig().IsEnabled() && getTargetMode(target.SkillsConfig().Mode, mode) == "symlink" {
+			if all, err := sync.DiscoverSourceSkillsAll(source, walk); err == nil {
+				return all
+			}
+			break
+		}
+	}
+	return discovered
+}
 
 func variantSymlinkWarning(target config.TargetConfig, mode string, discovered []sync.DiscoveredSkill) string {
 	if mode != "symlink" || !target.SkillsConfig().IsEnabled() {
 		return ""
 	}
 	for _, skill := range discovered {
-		if !skill.Disabled && skill.VariantAgent != "" {
+		if skill.VariantAgent != "" {
 			return "symlink mode exposes all agent variants; automatic agent routing requires merge or copy mode"
 		}
 	}
@@ -32,6 +52,7 @@ func skillTargetWarning(target config.TargetConfig, mode string, discovered []sy
 }
 
 func checkVariantRouting(cfg *config.Config, result *doctorResult, discovered []sync.DiscoveredSkill) {
+	discovered = variantWarningSkills(cfg.EffectiveSkillsSource(), cfg.Targets, cfg.Mode, cfg.SkillsWalk(), discovered)
 	var details []string
 	for _, name := range targetNamesFromConfig(cfg.Targets) {
 		target := cfg.Targets[name]
