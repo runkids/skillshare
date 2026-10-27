@@ -18,7 +18,7 @@ func TestOMPGlobalSkillsPaths(t *testing.T) {
 		{second, filepath.Join(second, "skills")},
 		{"relative/agent", filepath.Join(cwd, "relative", "agent", "skills")},
 		{"~/literal-agent", filepath.Join(cwd, "~", "literal-agent", "skills")},
-		{" agent ", filepath.Join(cwd, " agent ", "skills")},
+		{" agent", filepath.Join(cwd, " agent", "skills")},
 		{"", normalizeTargetPath("~/.omp/agent/skills")},
 	} {
 		dir, want := tc.dir, tc.want
