@@ -98,6 +98,8 @@ func NewTargetSkillsMode(naming, mode string) string {
 
 // ResourceTargetConfig holds per-resource-kind target configuration (skills, agents, etc.).
 type ResourceTargetConfig struct {
+	// Agent carries the enclosing account's identity during selection; it is not configuration.
+	Agent        string   `yaml:"-" json:"-"`
 	Path         string   `yaml:"path,omitempty"`
 	Mode         string   `yaml:"mode,omitempty"` // merge, symlink, or copy
 	TargetNaming string   `yaml:"target_naming,omitempty"`
@@ -188,12 +190,14 @@ type TargetInstructionsConfig struct {
 func (tc *TargetConfig) SkillsConfig() ResourceTargetConfig {
 	if tc.Skills != nil {
 		sc := *tc.Skills
+		sc.Agent = tc.Agent
 		if sc.TargetNaming == "" {
 			sc.TargetNaming = tc.defaultTargetNaming
 		}
 		return sc
 	}
 	return ResourceTargetConfig{
+		Agent:        tc.Agent,
 		Path:         tc.Path,
 		Mode:         tc.Mode,
 		TargetNaming: tc.defaultTargetNaming,

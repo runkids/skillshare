@@ -593,6 +593,7 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 	}
 
 	resolution, err := sync.ResolveTargetSkillsForTarget(name, config.ResourceTargetConfig{
+		Agent:        sc.Agent,
 		Path:         sc.Path,
 		TargetNaming: sc.TargetNaming,
 	}, filtered)

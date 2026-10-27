@@ -67,7 +67,7 @@ func (u UnmatchedInclude) Warning() string {
 // ResolveTargetSkillsForTarget applies a target's filters and target_naming
 // policy to discovered skills and returns the effective target-visible skills.
 func ResolveTargetSkillsForTarget(targetName string, sc config.ResourceTargetConfig, allSkills []DiscoveredSkill) (*TargetSkillResolution, error) {
-	filtered, err := SelectTargetSkills(allSkills, targetName, sc)
+	filtered, warnings, err := selectTargetSkills(allSkills, targetName, sc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply filters for target %s: %w", targetName, err)
 	}
@@ -75,6 +75,7 @@ func ResolveTargetSkillsForTarget(targetName string, sc config.ResourceTargetCon
 	naming := config.EffectiveTargetNaming(sc.TargetNaming)
 	result := &TargetSkillResolution{
 		Naming:            naming,
+		Warnings:          warnings,
 		UnmatchedIncludes: FindUnmatchedIncludes(sc.Include, allSkills),
 	}
 

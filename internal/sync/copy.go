@@ -304,7 +304,7 @@ func PruneOrphanCopies(targetPath, sourcePath string, include, exclude []string,
 }
 
 // PruneOrphanCopiesWithSkills is like PruneOrphanCopies but accepts pre-discovered skills.
-func PruneOrphanCopiesWithSkills(targetPath string, allSourceSkills []DiscoveredSkill, include, exclude []string, targetName, targetNaming string, dryRun bool) (*PruneResult, error) {
+func PruneOrphanCopiesWithSkills(targetPath string, allSourceSkills []DiscoveredSkill, include, exclude []string, targetName, targetNaming string, dryRun bool, agents ...string) (*PruneResult, error) {
 	result := &PruneResult{}
 
 	manifest, err := ReadManifest(targetPath)
@@ -312,7 +312,12 @@ func PruneOrphanCopiesWithSkills(targetPath string, allSourceSkills []Discovered
 		return nil, fmt.Errorf("failed to read manifest: %w", err)
 	}
 
+	agent := ""
+	if len(agents) > 0 {
+		agent = agents[0]
+	}
 	resolution, err := ResolveTargetSkillsForTarget(targetName, config.ResourceTargetConfig{
+		Agent:        agent,
 		Path:         targetPath,
 		TargetNaming: targetNaming,
 		Include:      include,

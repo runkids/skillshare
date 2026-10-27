@@ -36,6 +36,16 @@ Sync runs every target. A target whose sync fails, or whose own settings are inv
 - `copy`: real-file copies with `.skillshare-manifest.json` tracking managed entries.
 - `symlink`: whole target directory symlinked to source.
 
+Tracked repositories with `skills/<known-agent>/<skill-path>/SKILL.md` use exact
+agent routing in merge/copy mode. Canonical aliases and account `agent:` identities
+match; shared destination paths do not. Source-local target overrides beat nonempty
+frontmatter targets, then variant inference, then old host-path inference. An empty
+override sends that physical variant to all targets. Ignores and filters keep using
+physical relative/flat names, and ambiguous aliases need an explicit selection.
+Source/repository status counts logical skills and reports physical variants;
+resource rows, sync results, and context cost count actual files. Full-directory
+symlink mode exposes all files. No conversion or sparse checkout is performed.
+
 Copy mode note:
 - `skillshare doctor` duplicate checks ignore manifest-managed copy entries (expected mirrors of source).
 - Duplicate warnings in copy mode are for true local copies that collide with source skill names.

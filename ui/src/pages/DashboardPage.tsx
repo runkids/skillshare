@@ -62,7 +62,7 @@ function useTargetHealth() {
     if (tgt.status === 'has files' && tgt.mode === 'symlink') return { kind: 'warn', label: t('targets.state.migrate'), detail: t('targets.syncing.migrate'), pending: 0 };
     if (tgt.status === 'unknown') return { kind: 'off', label: tgt.status, detail: '', pending: 0 };
     const counted = tgt.status === 'has files' || (tgt.mode === 'merge' && tgt.status === 'merged') || (tgt.mode === 'copy' && tgt.status === 'copied');
-    const pending = counted ? Math.max(0, (tgt.expectedSkillCount || sourceSkillCount) - tgt.linkedCount) : 0;
+    const pending = counted ? Math.max(0, (tgt.expectedSkillCount ?? sourceSkillCount) - tgt.linkedCount) : 0;
     const linked = tgt.linkedCount > 0
       ? t(tgt.mode === 'copy' ? 'dashboard.targets.managed' : 'dashboard.targets.linked', { count: tgt.linkedCount })
       : '';

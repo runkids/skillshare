@@ -205,20 +205,48 @@ func suggestFlatNames(pattern string, skills []DiscoveredSkill) []string {
 // skills that pass its include/exclude filters and whose frontmatter targets
 // name it or declare none.
 func SelectTargetSkills(skills []DiscoveredSkill, targetName string, sc config.ResourceTargetConfig) ([]DiscoveredSkill, error) {
+	selected, _, err := selectTargetSkills(skills, targetName, sc)
+	return selected, err
+}
+
+func selectTargetSkills(skills []DiscoveredSkill, targetName string, sc config.ResourceTargetConfig) ([]DiscoveredSkill, []string, error) {
 	enabled := slices.DeleteFunc(slices.Clone(skills), func(s DiscoveredSkill) bool { return s.Disabled })
 	filtered, err := FilterSkills(enabled, sc.Include, sc.Exclude)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return FilterSkillsByTarget(filtered, targetName), nil
+	selected, warnings := filterSkillsByTarget(filtered, targetName, targetAgent(targetName, sc))
+	return selected, warnings, nil
 }
 
 // FilterSkillsByTarget removes skills whose Targets field does not include
 // the given target name.  Skills with nil Targets (no field declared) pass
 // through unconditionally.
 func FilterSkillsByTarget(skills []DiscoveredSkill, targetName string) []DiscoveredSkill {
+	selected, _ := filterSkillsByTarget(skills, targetName, config.CanonicalTargetName(targetName))
+	return selected
+}
+
+func filterSkillsByTarget(skills []DiscoveredSkill, targetName, agent string) ([]DiscoveredSkill, []string) {
+	variants := make(map[string]int)
+	for _, skill := range skills {
+		if skill.variantRouting && skill.VariantAgent == agent {
+			variants[skill.LogicalID]++
+		}
+	}
+	var warnings []string
 	filtered := make([]DiscoveredSkill, 0, len(skills))
 	for _, skill := range skills {
+		if skill.variantRouting {
+			if skill.VariantAgent == agent {
+				if variants[skill.LogicalID] > 1 {
+					warnings = append(warnings, fmt.Sprintf("Target %q: skipped ambiguous %s variant %s; use include/exclude or a target override to select one", targetName, agent, skill.RelPath))
+				} else {
+					filtered = append(filtered, skill)
+				}
+			}
+			continue
+		}
 		if skill.Targets == nil {
 			filtered = append(filtered, skill)
 			continue
@@ -230,7 +258,7 @@ func FilterSkillsByTarget(skills []DiscoveredSkill, targetName string) []Discove
 			}
 		}
 	}
-	return filtered
+	return filtered, warnings
 }
 
 // FilterAgentsByTarget removes agents whose frontmatter targets field does not

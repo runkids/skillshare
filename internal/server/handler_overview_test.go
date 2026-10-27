@@ -54,6 +54,50 @@ func TestHandleOverview_WithSkills(t *testing.T) {
 	}
 }
 
+func TestHandleOverviewAndTargets_LogicalVariants(t *testing.T) {
+	s, src := newTestServerWithTargets(t, map[string]string{"claude": filepath.Join(t.TempDir(), "claude"), "universal": filepath.Join(t.TempDir(), "universal")})
+	for _, agent := range []string{"claude", "codex"} {
+		for _, name := range []string{"fix", "review"} {
+			addSkill(t, src, "_repo/skills/"+agent+"/"+name)
+		}
+	}
+	initServerGitRepo(t, filepath.Join(src, "_repo"))
+	for _, endpoint := range []string{"/api/overview", "/api/targets"} {
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, endpoint, nil))
+		if rr.Code != http.StatusOK {
+			t.Fatalf("%s: %d: %s", endpoint, rr.Code, rr.Body.String())
+		}
+		var resp map[string]any
+		if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+			t.Fatal(err)
+		}
+		if endpoint == "/api/overview" {
+			if resp["skillCount"] != float64(2) || resp["variantCount"] != float64(4) {
+				t.Fatalf("overview counts: %+v", resp)
+			}
+			repo := resp["trackedRepos"].([]any)[0].(map[string]any)
+			if repo["skillCount"] != float64(2) || repo["variantCount"] != float64(4) {
+				t.Fatalf("repo counts: %+v", repo)
+			}
+		} else {
+			if resp["sourceSkillCount"] != float64(2) || resp["sourceVariantCount"] != float64(4) {
+				t.Fatalf("source counts: %+v", resp)
+			}
+			for _, value := range resp["targets"].([]any) {
+				target := value.(map[string]any)
+				want := float64(0)
+				if target["name"] == "claude" {
+					want = 2
+				}
+				if target["expectedSkillCount"] != want {
+					t.Fatalf("target counts: %+v", target)
+				}
+			}
+		}
+	}
+}
+
 func TestHandleOverview_AgentCountIncludesNestedAgents(t *testing.T) {
 	s, _ := newTestServer(t)
 	agentsDir := s.agentsSource()

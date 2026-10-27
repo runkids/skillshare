@@ -20,20 +20,23 @@ var DiagOutput io.Writer = os.Stdout
 
 // DiscoveredSkill represents a skill found during recursive source directory scan.
 type DiscoveredSkill struct {
-	SourcePath  string      // Full path: ~/.config/skillshare/skills/_team/frontend/ui
-	RelPath     string      // Relative path from source: _team/frontend/ui
-	FlatName    string      // Flat name for target: _team__frontend__ui
-	IsInRepo    bool        // Whether this skill is inside a tracked repo (_-prefixed directory)
-	RepoRelPath string      // Tracked repo root relative to source (_team, or org/_team via --into); set when IsInRepo
-	Targets     []string    // From SKILL.md frontmatter; nil = all targets
-	DescChars   int         // Rune count of name + description (populated when collectContext)
-	BodyChars   int         // Rune count of body after frontmatter (populated when collectContext)
-	DescTokens  int         // Estimated tokens of name + description (populated when collectContext)
-	BodyTokens  int         // Estimated tokens of body (populated when collectContext)
-	Description string      // Frontmatter description text (populated when collectContext)
-	LintIssues  []LintIssue // Lint issues (populated when collectContext)
-	Disabled    bool        // Whether this skill is ignored by .skillignore
-	Local       bool        // Found in a target folder rather than the source; see TargetSkills
+	SourcePath     string      // Full path: ~/.config/skillshare/skills/_team/frontend/ui
+	RelPath        string      // Relative path from source: _team/frontend/ui
+	FlatName       string      // Flat name for target: _team__frontend__ui
+	IsInRepo       bool        // Whether this skill is inside a tracked repo (_-prefixed directory)
+	RepoRelPath    string      // Tracked repo root relative to source (_team, or org/_team via --into); set when IsInRepo
+	LogicalID      string      // Repository + full prefix/suffix identity for recognized agent variants
+	VariantAgent   string      // Canonical agent from a tracked skills/<agent>/<suffix> layout
+	variantRouting bool        // Targets were inferred from VariantAgent rather than explicitly declared
+	Targets        []string    // From SKILL.md frontmatter; nil = all targets
+	DescChars      int         // Rune count of name + description (populated when collectContext)
+	BodyChars      int         // Rune count of body after frontmatter (populated when collectContext)
+	DescTokens     int         // Estimated tokens of name + description (populated when collectContext)
+	BodyTokens     int         // Estimated tokens of body (populated when collectContext)
+	Description    string      // Frontmatter description text (populated when collectContext)
+	LintIssues     []LintIssue // Lint issues (populated when collectContext)
+	Disabled       bool        // Whether this skill is ignored by .skillignore
+	Local          bool        // Found in a target folder rather than the source; see TargetSkills
 }
 
 // isSkillIgnored checks whether a skill inside a tracked repo should be
@@ -747,6 +750,7 @@ type PruneResult struct {
 
 // PruneOptions holds parameters for PruneOrphanLinks / PruneOrphanCopies.
 type PruneOptions struct {
+	Agent        string
 	TargetPath   string
 	SourcePath   string
 	Skills       []DiscoveredSkill // pre-discovered; if nil, will be discovered from SourcePath
@@ -807,6 +811,7 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 	manifestChanged := false
 
 	resolution, err := ResolveTargetSkillsForTarget(targetName, config.ResourceTargetConfig{
+		Agent:        opts.Agent,
 		Path:         targetPath,
 		TargetNaming: targetNaming,
 		Include:      include,

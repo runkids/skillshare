@@ -144,6 +144,7 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				resolution, resErr := ssync.ResolveTargetSkillsForTarget(name, config.ResourceTargetConfig{
+					Agent:        sc.Agent,
 					Path:         sc.Path,
 					TargetNaming: sc.TargetNaming,
 				}, filtered)
@@ -202,10 +203,10 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 	// Count source skills for drift detection
 	sourceSkillCount := 0
 	if discoveredErr == nil {
-		sourceSkillCount = len(discovered)
+		sourceSkillCount = ssync.CountSkills(discovered).Skills
 	}
 
-	writeJSON(w, map[string]any{"targets": items, "sourceSkillCount": sourceSkillCount})
+	writeJSON(w, map[string]any{"targets": items, "sourceSkillCount": sourceSkillCount, "sourceVariantCount": ssync.CountSkills(discovered).Variants})
 }
 
 func intPtr(v int) *int {

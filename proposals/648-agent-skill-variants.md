@@ -1,4 +1,4 @@
-# Feature Proposal: Agent-specific variants of a tracked skill
+# Agent-specific variants of a tracked skill
 
 ## Problem
 
@@ -25,7 +25,9 @@ Per-target include/exclude filters and source-local target overrides already rou
 the copies correctly. `.skillignore` can hide unused variants. These controls
 require consumers to describe the producer's layout and still count copies separately.
 
-## Proposed Solution
+## Implemented behavior
+
+This PR implements logical counting and exact-agent routing. Sparse checkout remains deferred.
 
 Represent one logical skill with several physical variants inside a tracked repository.
 Keep every variant's source path, files, and bytes intact; select existing files
@@ -47,10 +49,9 @@ Different repositories or different shared parents never merge, even when their
 `SKILL.md` names or final directory names are identical. Repositories nested with
 `--into` retain their actual repository boundary.
 
-Recognition must be bounded to an approved layout or explicit opt-in; recognizing
-any directory named `claude` anywhere would create false groups. Activation and
-single-variant recognition are open questions below. Ordinary skills keep their
-existing discovery behavior.
+Recognition is automatic for repository-relative `skills/<known-agent>/<suffix>`
+paths, including one remaining variant. The outer recognized component owns the
+complete suffix. Ordinary skills and unknown layouts keep existing discovery behavior.
 
 ### Routing and precedence
 
@@ -75,14 +76,16 @@ separate variant walkers or per-command routing rules:
   to physical entries. An include cannot resurrect an ignored file; an excluded
   matching variant does not cause selection of another agent's variant.
 - Missing matches, unknown agent directories, and ambiguous matches never cause a
-  sibling or lexicographically first variant to be chosen. Report unresolved
-  recognized groups; do not invent a fallback to an agent named `shared` or `default`.
+  sibling or lexicographically first variant to be chosen. Report ambiguous
+  variants in naming/sync diagnostics; do not invent a fallback to an agent named
+  `shared` or `default`.
   Unrecognized paths retain ordinary discovery behavior rather than guessed routing.
 
 Use `SelectTargetSkills` and existing target naming/resolution as the common selection
 boundary for CLI/server sync, previews, status, diff, doctor, analyze, `skill move`,
-and target-scoped skillserve catalogs. A shared result should explain selected,
-filtered, missing, and ambiguous variants consistently.
+and target-scoped skillserve catalogs. Selection preserves the physical entries;
+missing matches select nothing and ambiguous automatic matches are skipped with
+a diagnostic.
 Repository grouping belongs in discovery metadata, not in a status-only deduplicator.
 
 ### Counts, compatibility, and sync modes
@@ -154,18 +157,16 @@ remain maintainer decisions.
 - [ ] Medium (3-10 files, 200-500 lines)
 - [x] Large (10+ files, 500+ lines): provisional implementation and tests estimate.
 
-This PR adds one proposal document only (under 200 lines); eventual scope/size requires
-maintainer agreement. The estimate covers discovery, shared selection, count outputs,
-tests, and docs. Public API/schema changes also need maintainer agreement after review.
-The eventual implementation updates affected public docs (README/website/wiki) and any
-JSON schemas whose contracts actually change, documenting logical/variant fields compatibly.
+The implementation extends shared discovery and selection, source/repository count
+outputs, tests, and public docs. Status JSON adds `variant_count`, overview JSON adds
+`variantCount`, and targets JSON adds `sourceVariantCount`; existing skill counts in
+these source summaries become logical counts. Resource rows and operation/context
+totals remain physical. No new persisted configuration or schema version is added.
 Sparse checkout, content conversion, and a new naming/filter migration are outside this proposal's first implementation.
 
-## Open Questions
+## Deferred
 
-1. Should grouping require producer/user opt-in, recognize `skills/<agent>/...` automatically,
-   or support both? What evidence safely identifies a group when only one variant remains?
-2. How should logical names and variant counts appear in existing CLI/JSON/UI output while
-   retaining physical names, filters, override keys, and installed entries for compatibility?
-3. Should a producer-declared shared variant be supported later, and how would explicit
-   precedence resolve shared/specific overlap? This proposal assumes no inferred fallback.
+Sparse checkout, producer-declared shared/default fallbacks, and a grouped resource-list
+UI remain outside this implementation. Physical resource rows retain their paths so
+install/uninstall, filters, and override keys remain compatible. Existing empty
+frontmatter list behavior is preserved; source-local empty overrides mean all targets.

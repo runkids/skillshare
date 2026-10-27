@@ -103,6 +103,7 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 		return dt
 	}
 	resolution, err := ssync.ResolveTargetSkillsForTarget(name, config.ResourceTargetConfig{
+		Agent:        sc.Agent,
 		Path:         sc.Path,
 		TargetNaming: sc.TargetNaming,
 	}, filtered)
