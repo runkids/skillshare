@@ -63,7 +63,7 @@ func TestDoctor_UndeclaredSourceLinks(t *testing.T) {
 				out := parseDoctorJSON(t, jsonResult.Stdout)
 				count := 0
 				for _, check := range out.Checks {
-					if check.Name == "source" && !strings.Contains(check.Message, "(1 skills)") {
+					if check.Name == "source" && !strings.Contains(check.Message, "(1 skill)") {
 						t.Errorf("linked skill must remain undiscovered: %+v", check)
 					}
 					if check.Name != "undeclared_source_links" {
