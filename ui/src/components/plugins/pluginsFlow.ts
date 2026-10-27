@@ -40,7 +40,7 @@ const blockedText = (t: T, plan: PluginPlan) => plan.changes.filter((c) => c.act
 /** What a check found to update, per plugin and Agent (version '' when the source changed without a new one). */
 export function updatesFound(plan: PluginPlan) {
   const found: Updates = {};
-  for (const c of plan.changes) if (c.action === 'update-available') (found[c.name] ??= {})[c.target] = { version: c.binding?.version ?? '', commit: c.binding?.commit, digest: c.binding?.digest };
+  for (const c of plan.changes) if (c.action === 'update-available') (found[c.name] ??= {})[c.target] = { version: c.binding?.version ?? '', commit: c.binding?.commit, digest: c.binding?.digest, id: c.binding?.id, source: c.binding?.source, sourceRef: c.binding?.sourceRef, plugin: c.binding?.plugin, entry: c.binding?.entry };
   return found;
 }
 

@@ -89,7 +89,7 @@ export function byPlugin<R extends PluginRun>(rows: R[], key: (r: R) => string =
 }
 export interface PluginResult { result: { results: PluginOutcome[] } | null; failure: string }
 /** What a check showed for one Agent of a plugin: the version an update would bring, and the source it came from. */
-export interface PluginUpdate { version: string; commit?: string; digest?: string }
+export interface PluginUpdate { version: string; commit?: string; digest?: string; id?: string; source?: string; sourceRef?: string; plugin?: string; entry?: string }
 /** One plugin of a batch update, with what the check showed per Agent so a source that moved since is not installed. */
 export interface PluginUpdateItem { name: string; targets: PluginTarget[]; seen?: Record<PluginTarget, PluginUpdate> }
 export type PluginUpdateEvent =

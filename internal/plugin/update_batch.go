@@ -11,19 +11,30 @@ var ErrSourceMoved = errors.New("source changed since the check; check again")
 
 // Seen is what a check showed for one Agent of a plugin.
 type Seen struct {
-	Version string `json:"version"`
-	Commit  string `json:"commit,omitempty"`
-	Digest  string `json:"digest,omitempty"`
+	ID        string `json:"id,omitempty"`
+	Source    string `json:"source,omitempty"`
+	SourceRef string `json:"sourceRef,omitempty"`
+	Plugin    string `json:"plugin,omitempty"`
+	Entry     string `json:"entry,omitempty"`
+	Version   string `json:"version"`
+	Commit    string `json:"commit,omitempty"`
+	Digest    string `json:"digest,omitempty"`
 }
 
 // movedTo says whether the source an update would install is not the one the check showed.
 func (seen Seen) movedTo(b Binding) bool {
-	// An npm package (no source) has no reviewed snapshot to move: Pi installs whatever npm names latest.
+	return !seen.matchesRecipe(b)
+}
+
+func (seen Seen) matchesRecipe(b Binding) bool {
 	if b.Source == "" {
-		return false
+		// Native and npm updates identify the installation; npm still installs its latest version.
+		return seen.ID != "" && seen.ID == b.ID && seen.Source == "" && seen.SourceRef == "" && seen.Plugin == "" && seen.Entry == ""
 	}
-	// A local directory has no commit; its digest is what moves.
-	return b.Version != seen.Version || seen.Commit != "" && b.Commit != seen.Commit || seen.Digest != "" && b.Digest != seen.Digest
+	// The digest identifies the tree, while the recipe identifies the candidate within it.
+	return seen.Source != "" && seen.Digest != "" && seen.Source == b.Source && seen.SourceRef == b.SourceRef &&
+		seen.Plugin == b.Plugin && seen.Entry == b.Entry && seen.Version == b.Version &&
+		seen.Commit == b.Commit && seen.Digest == b.Digest
 }
 
 // UpdateItem is one plugin of a batch update and, per Agent, what the check showed.
