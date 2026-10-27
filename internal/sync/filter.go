@@ -228,7 +228,30 @@ func selectTargetSkills(skills []DiscoveredSkill, targetName string, sc config.R
 	if err != nil {
 		return targetSkillSelection{}, err
 	}
-	return filterSkillsByTarget(filtered, targetName, targetAgent(targetName, sc)), nil
+	if len(sc.SharedTargets) == 0 {
+		return filterSkillsByTarget(filtered, targetName, targetAgent(targetName, sc)), nil
+	}
+	selected := make(map[string]bool)
+	skipped := make(map[string]string)
+	for _, identity := range sc.SharedTargets {
+		part := filterSkillsByTarget(filtered, identity.Name, targetAgent(identity.Name, config.ResourceTargetConfig{Agent: identity.Agent}))
+		for _, skill := range part.Skills {
+			selected[skill.RelPath] = true
+		}
+		for rel, warning := range part.Skipped {
+			skipped[rel] = warning
+		}
+	}
+	result := targetSkillSelection{Skills: make([]DiscoveredSkill, 0, len(selected)), Skipped: make(map[string]string)}
+	for _, skill := range filtered {
+		if selected[skill.RelPath] {
+			result.Skills = append(result.Skills, skill)
+		} else if warning, ok := skipped[skill.RelPath]; ok {
+			result.Skipped[skill.RelPath] = warning
+			result.Warnings = append(result.Warnings, warning)
+		}
+	}
+	return result, nil
 }
 
 // FilterSkillsByTarget removes skills whose Targets field does not include

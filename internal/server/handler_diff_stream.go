@@ -108,7 +108,7 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 	dt.SkippedCount = resolution.SkippedCount
 	dt.NamingSkippedCount = resolution.NamingSkippedCount
 	dt.Warnings = resolution.Warnings
-	for _, warning := range resolution.Warnings {
+	for _, warning := range resolution.SelectionWarnings {
 		dt.Items = append(dt.Items, diffItem{Skill: "(skill selection)", Action: "skip", Reason: warning, Kind: kindSkill})
 	}
 	validNames := resolution.ValidTargetNames()

@@ -750,16 +750,17 @@ type PruneResult struct {
 
 // PruneOptions holds parameters for PruneOrphanLinks / PruneOrphanCopies.
 type PruneOptions struct {
-	Agent        string
-	TargetPath   string
-	SourcePath   string
-	Skills       []DiscoveredSkill // pre-discovered; if nil, will be discovered from SourcePath
-	Include      []string
-	Exclude      []string
-	TargetNaming string
-	TargetName   string
-	DryRun       bool
-	Force        bool
+	SharedTargets []config.SkillTargetIdentity
+	Agent         string
+	TargetPath    string
+	SourcePath    string
+	Skills        []DiscoveredSkill // pre-discovered; if nil, will be discovered from SourcePath
+	Include       []string
+	Exclude       []string
+	TargetNaming  string
+	TargetName    string
+	DryRun        bool
+	Force         bool
 	// ManagedOnly removes only entries that are provably skillshare's: broken
 	// links into the source and manifest-tracked links and directories. The name heuristic and
 	// broken-external-link cleanup are skipped. For directories that are not a
@@ -811,11 +812,12 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 	manifestChanged := false
 
 	resolution, err := ResolveTargetSkillsForTarget(targetName, config.ResourceTargetConfig{
-		Agent:        opts.Agent,
-		Path:         targetPath,
-		TargetNaming: targetNaming,
-		Include:      include,
-		Exclude:      exclude,
+		SharedTargets: opts.SharedTargets,
+		Agent:         opts.Agent,
+		Path:          targetPath,
+		TargetNaming:  targetNaming,
+		Include:       include,
+		Exclude:       exclude,
 	}, allSourceSkills)
 	if err != nil {
 		return nil, err

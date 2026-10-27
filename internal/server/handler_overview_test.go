@@ -10,7 +10,24 @@ import (
 	"testing"
 
 	"skillshare/internal/config"
+	ssync "skillshare/internal/sync"
 )
+
+func TestDiffNamingWarningIsNotPendingWork(t *testing.T) {
+	s, src := newTestServer(t)
+	addSkill(t, src, "invalid")
+	if err := os.WriteFile(filepath.Join(src, "invalid", "SKILL.md"), []byte("---\nname: wrong-name\n---\n# Instructions"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	skills, err := ssync.DiscoverSourceSkills(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	diff := s.computeTargetDiff("claude", config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: t.TempDir(), TargetNaming: "standard"}}, skills, "merge", src, nil)
+	if len(diff.Warnings) == 0 || diff.NamingSkippedCount != 1 || len(diff.Items) != 0 {
+		t.Fatalf("validation warning becomes a sync operation: %+v", diff)
+	}
+}
 
 func TestHandleOverview_Empty(t *testing.T) {
 	s, _ := newTestServer(t)

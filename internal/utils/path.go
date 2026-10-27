@@ -30,6 +30,16 @@ func ResolveSymlink(path string) string {
 	return path
 }
 
+// CanonicalPath resolves an absolute path through its longest existing prefix,
+// so aliases still agree before their destination directory is created.
+func CanonicalPath(path string) string {
+	abs, err := filepath.Abs(filepath.Clean(path))
+	if err != nil {
+		return filepath.Clean(path)
+	}
+	return resolveExisting(abs)
+}
+
 // resolveExisting resolves symlinks in the longest existing prefix of path and
 // appends the part that does not exist yet.
 func resolveExisting(path string) string {

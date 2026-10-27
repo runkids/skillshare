@@ -621,10 +621,10 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 		dp.add(len(resolution.Skills))
 	}
 
-	for _, warning := range resolution.Warnings {
+	for _, warning := range resolution.SelectionWarnings {
 		r.items = append(r.items, copyDiffEntry{action: "skip", name: "(skill selection)", reason: warning})
 	}
-	if len(resolution.Warnings) > 0 {
+	if len(resolution.SelectionWarnings) > 0 {
 		r.synced = false
 	}
 

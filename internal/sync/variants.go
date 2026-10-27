@@ -2,10 +2,49 @@ package sync
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"skillshare/internal/config"
 )
+
+// confirmSkillVariants requires a matching suffix under a second canonical
+// agent. Check the source tree so ignoring one peer does not turn the remaining
+// agent's instructions into a shared skill.
+func confirmSkillVariants(skills []DiscoveredSkill, source string) {
+	confirmed := make(map[string]bool)
+	checked := make(map[string]bool)
+	for i := range skills {
+		sk := &skills[i]
+		if sk.LogicalID == "" {
+			continue
+		}
+		if !checked[sk.LogicalID] {
+			checked[sk.LogicalID] = true
+			parts := strings.Split(sk.LogicalID, "\x00")
+			root := filepath.Join(source, parts[0], filepath.FromSlash(parts[1]))
+			agents, _ := os.ReadDir(root)
+			for _, entry := range agents {
+				agent := config.CanonicalTargetName(entry.Name())
+				if agent == "" || agent == sk.VariantAgent {
+					continue
+				}
+				if info, err := os.Stat(filepath.Join(root, entry.Name(), filepath.FromSlash(parts[2]), "SKILL.md")); err == nil && !info.IsDir() {
+					confirmed[sk.LogicalID] = true
+					break
+				}
+			}
+		}
+		if !confirmed[sk.LogicalID] {
+			sk.LogicalID, sk.VariantAgent = "", ""
+			if sk.variantRouting {
+				sk.Targets = inferSkillTargetsFromRelPath(sk.RelPath)
+				sk.variantRouting = false
+			}
+		}
+	}
+}
 
 // skillVariant recognizes only repository-relative skills/<known agent>/<suffix>.
 // The outer recognized component owns the complete suffix, including nested skills.
@@ -81,9 +120,16 @@ func variantRemovalWarning(name string, sc config.ResourceTargetConfig, skills [
 		removed[entry] = true
 	}
 	mismatches := make(map[string]bool)
-	agent := targetAgent(name, sc)
+	selection, err := selectTargetSkills(skills, name, sc)
+	if err != nil {
+		return ""
+	}
+	selected := make(map[string]bool, len(selection.Skills))
+	for _, skill := range selection.Skills {
+		selected[skill.RelPath] = true
+	}
 	for _, skill := range skills {
-		if !skill.variantRouting || skill.VariantAgent == agent || skill.Disabled {
+		if !skill.variantRouting || selected[skill.RelPath] || skill.Disabled {
 			continue
 		}
 		if allowed, _ := ShouldSyncFlatName(skill.FlatName, sc.Include, sc.Exclude); !allowed {
@@ -102,5 +148,5 @@ func variantRemovalWarning(name string, sc config.ResourceTargetConfig, skills [
 	if dryRun {
 		action = "would remove"
 	}
-	return fmt.Sprintf("%s: automatic agent routing %s %d managed variant entries because their agent does not match this target; set a source-local target override for the desired variant to restore it (an empty override means all targets)", name, action, len(mismatches))
+	return fmt.Sprintf("%s: automatic agent routing %s %d managed variant entries because their agent does not match this folder's targets or their selection is ambiguous; use include/exclude or a source-local target override to select the desired variant (an empty override means all targets)", name, action, len(mismatches))
 }

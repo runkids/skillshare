@@ -351,6 +351,7 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 		return nil, nil, nil, fmt.Errorf("failed to walk source directory: %w", err)
 	}
 
+	confirmSkillVariants(skills, walkRoot)
 	if opts.parseFrontmatter || opts.collectContext {
 		applyTargetOverrides(skills, walkRoot)
 	}

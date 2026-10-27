@@ -33,6 +33,7 @@ type TargetSkillResolution struct {
 	Naming             string
 	Skills             []ResolvedTargetSkill
 	Warnings           []string
+	SelectionWarnings  []string // Ambiguity diagnostics, separate from naming validation
 	Collisions         []NameCollision
 	UnmatchedIncludes  []UnmatchedInclude
 	SkippedCount       int // Physical candidates rejected by selection, validation, or collisions
@@ -79,6 +80,7 @@ func ResolveTargetSkillsForTarget(targetName string, sc config.ResourceTargetCon
 	result := &TargetSkillResolution{
 		Naming:            naming,
 		Warnings:          warnings,
+		SelectionWarnings: warnings,
 		SkippedCount:      len(warnings),
 		UnmatchedIncludes: FindUnmatchedIncludes(sc.Include, allSkills),
 	}

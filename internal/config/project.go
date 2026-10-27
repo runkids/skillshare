@@ -611,5 +611,5 @@ func ResolveValidProjectTargets(projectRoot string, cfg *ProjectConfig) (resolve
 		resolved[name] = tc
 	}
 
-	return resolved, unresolved
+	return WithSharedSkillsTargets(resolved, "merge"), unresolved
 }

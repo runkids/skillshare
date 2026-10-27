@@ -2,6 +2,7 @@ package sync
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,70 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 )
+
+func TestTrackedAgentCategoriesRemainOrdinarySkills(t *testing.T) {
+	src := t.TempDir()
+	for _, category := range []string{"agents", "continue", "pi", "warp", "factory", "copilot"} {
+		writeSkillMD(t, filepath.Join(src, "_repo/skills", category, category+"-planner"), "# Instructions")
+	}
+	for _, lite := range []bool{false, true} {
+		var skills []DiscoveredSkill
+		var err error
+		if lite {
+			skills, _, err = DiscoverSourceSkillsLite(src)
+		} else {
+			skills, err = DiscoverSourceSkills(src)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, sk := range skills {
+			if sk.LogicalID != "" || sk.VariantAgent != "" {
+				t.Fatalf("category inferred as variant: %+v", sk)
+			}
+		}
+		if !lite {
+			selected, err := SelectTargetSkills(skills, "claude", config.ResourceTargetConfig{})
+			if err != nil || len(selected) != 6 {
+				t.Fatalf("category selection = %d, %v", len(selected), err)
+			}
+		}
+	}
+}
+
+func TestTrackedVariantsSharedFolder(t *testing.T) {
+	for _, mode := range []string{"merge", "copy"} {
+		t.Run(mode, func(t *testing.T) {
+			src, dest := t.TempDir(), t.TempDir()
+			for _, agent := range []string{"claude", "codex"} {
+				writeSkillMD(t, filepath.Join(src, "_repo/skills", agent, "fix"), "# Instructions for "+agent)
+			}
+			skills, err := DiscoverSourceSkills(src)
+			if err != nil {
+				t.Fatal(err)
+			}
+			targets := map[string]config.TargetConfig{
+				"codex": {Path: dest}, "universal": {Path: dest},
+			}
+			cfg := &config.Config{Source: src, Mode: mode, Targets: targets}
+			for i := 0; i < 2; i++ {
+				result, err := ExecuteTargets(context.Background(), cfg, targets, ExecuteOptions{Kinds: []string{"skill"}, Discovery: TargetDiscovery{Skills: skills}})
+				if err != nil || len(result.Failed) != 0 {
+					t.Fatalf("sync: %+v, %v", result, err)
+				}
+				for _, r := range result.Results {
+					if len(r.Pruned) != 0 {
+						t.Fatalf("shared variant pruned: %+v", r)
+					}
+				}
+				got, err := os.ReadFile(filepath.Join(dest, "_repo__skills__codex__fix", "SKILL.md"))
+				if err != nil || string(got) != "# Instructions for codex" {
+					t.Fatalf("Codex lost variant: %q, %v", got, err)
+				}
+			}
+		})
+	}
+}
 
 func TestTrackedVariantsRouteAndPreserveBytes(t *testing.T) {
 	src := t.TempDir()
@@ -65,6 +130,9 @@ func TestTrackedVariantRoutingPrecedence(t *testing.T) {
 	src := t.TempDir()
 	paths := []string{"_repo/claude/skills/codex/inferred", "_repo/skills/codex/explicit", "_repo/skills/codex/all", "_repo/skills/codex/override"}
 	for _, path := range paths {
+		// A second canonical agent distinguishes this family from a category.
+		peer := strings.Replace(path, "/skills/codex/", "/skills/claude/", 1)
+		writeSkillMD(t, filepath.Join(src, peer), "---\nmetadata:\n  targets: [unused]\n---\n# Peer")
 		content := "# Instructions"
 		if filepath.Base(path) == "explicit" || filepath.Base(path) == "override" {
 			content = "---\nmetadata:\n  targets: [custom]\n---\n# Instructions"
@@ -269,6 +337,34 @@ func TestTrackedVariantUpgradeDisclosesPrunedEntries(t *testing.T) {
 			recovery := SyncSkillTarget(target, restored, SkillRunOptions{Source: src})
 			if recovery.Err != nil || len(recovery.Linked) != 1 || len(recovery.Pruned) != 0 {
 				t.Fatalf("override recovery: %+v", recovery)
+			}
+		})
+	}
+}
+
+func TestTrackedVariantAmbiguousPruneExplainsRemoval(t *testing.T) {
+	for _, mode := range []string{"merge", "copy"} {
+		t.Run(mode, func(t *testing.T) {
+			src := t.TempDir()
+			for _, agent := range []string{"claude", "codex"} {
+				writeSkillMD(t, filepath.Join(src, "_repo/skills", agent, "fix"), "# Instructions")
+			}
+			target := SkillTarget{Name: "claude", Target: config.TargetConfig{Path: t.TempDir()}, Mode: mode}
+			skills, err := DiscoverSourceSkills(src)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result := SyncSkillTarget(target, skills, SkillRunOptions{Source: src}); result.Err != nil || len(result.Linked) != 1 {
+				t.Fatalf("initial sync: %+v", result)
+			}
+			writeSkillMD(t, filepath.Join(src, "_repo/skills/claude-code/fix"), "# Alias makes selection ambiguous")
+			skills, err = DiscoverSourceSkills(src)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result := SyncSkillTarget(target, skills, SkillRunOptions{Source: src})
+			if result.Err != nil || len(result.Pruned) != 1 || !strings.Contains(strings.Join(result.Warnings, "\n"), "ambiguous") {
+				t.Fatalf("silent ambiguous removal: %+v", result)
 			}
 		})
 	}
