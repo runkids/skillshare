@@ -209,6 +209,13 @@ func SelectTargetSkills(skills []DiscoveredSkill, targetName string, sc config.R
 	return selection.Skills, err
 }
 
+// SelectTargetSkillsWithDiagnostics also returns selection diagnostics keyed by
+// source-relative physical path. Expected exclusions and mismatches are not warnings.
+func SelectTargetSkillsWithDiagnostics(skills []DiscoveredSkill, targetName string, sc config.ResourceTargetConfig) ([]DiscoveredSkill, map[string]string, error) {
+	selection, err := selectTargetSkills(skills, targetName, sc)
+	return selection.Skills, selection.Skipped, err
+}
+
 type targetSkillSelection struct {
 	Skills   []DiscoveredSkill
 	Warnings []string

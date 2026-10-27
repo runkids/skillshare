@@ -70,10 +70,11 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	counts := sync.CountSkills(skills)
 	resp := map[string]any{
 		"source":        source,
-		"skillCount":    sync.CountSkills(skills).Skills,
-		"variantCount":  sync.CountSkills(skills).Variants,
+		"skillCount":    counts.Skills,
+		"variantCount":  counts.Variants,
 		"agentCount":    agentCount,
 		"topLevelCount": topLevelCount,
 		"targetCount":   targetCount,

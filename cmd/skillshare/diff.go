@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	gosync "sync"
@@ -147,9 +148,11 @@ type targetDiffResult struct {
 	dstMtime   time.Time // newest file mtime in target dir
 }
 
-// inSync reports that sync has nothing to do for the target. Folders only the
+// inSync reports no pending work or selection diagnostics. Folders only the
 // target holds stay listed, but sync never touches them.
-func (r targetDiffResult) inSync() bool { return r.errMsg == "" && r.syncCount == 0 }
+func (r targetDiffResult) inSync() bool {
+	return r.errMsg == "" && r.syncCount == 0 && !slices.ContainsFunc(r.items, func(item copyDiffEntry) bool { return item.action == "skip" })
+}
 
 type copyDiffEntry struct {
 	action string // "add", "modify", "remove"

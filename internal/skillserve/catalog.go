@@ -110,8 +110,9 @@ func (b *Builder) Build() (*Catalog, error) {
 func (b *Builder) build(all []ssync.DiscoveredSkill) (*Catalog, error) {
 	var err error
 	var selected []ssync.DiscoveredSkill
+	var skipped map[string]string
 	if b.Skills != nil {
-		if selected, err = ssync.SelectTargetSkills(all, b.Target, *b.Skills); err != nil {
+		if selected, skipped, err = ssync.SelectTargetSkillsWithDiagnostics(all, b.Target, *b.Skills); err != nil {
 			return nil, err
 		}
 	} else {
@@ -122,16 +123,19 @@ func (b *Builder) build(all []ssync.DiscoveredSkill) (*Catalog, error) {
 		served[s.RelPath] = true
 	}
 	var unserved []string
+	c := &Catalog{bySkill: map[string]*Skill{}, byFile: map[string]servedFile{}}
 	for _, s := range all {
 		if !served[s.RelPath] {
 			unserved = append(unserved, s.RelPath)
+		}
+		if reason, ok := skipped[s.RelPath]; ok {
+			c.Skipped = append(c.Skipped, Skip{Path: s.RelPath, Reason: reason})
 		}
 	}
 	slices.SortFunc(selected, func(x, y ssync.DiscoveredSkill) int { return strings.Compare(x.RelPath, y.RelPath) })
 
 	// Deepest first, so a nested skill skipped for any reason also skips its parents,
 	// which would otherwise publish its files as their own.
-	c := &Catalog{bySkill: map[string]*Skill{}, byFile: map[string]servedFile{}}
 	for i := len(selected) - 1; i >= 0; i-- {
 		s := selected[i]
 		skill, files, reason := load(s)
@@ -160,7 +164,7 @@ func (b *Builder) build(all []ssync.DiscoveredSkill) (*Catalog, error) {
 			}
 		}
 	}
-	slices.Reverse(c.Skipped)
+	slices.SortFunc(c.Skipped, func(a, b Skip) int { return strings.Compare(a.Path, b.Path) })
 	// By URI, which skills/list cursors continue from.
 	slices.SortFunc(c.Skills, func(x, y *Skill) int { return strings.Compare(x.URI, y.URI) })
 	return c, nil

@@ -131,7 +131,8 @@ func cmdStatus(args []string) error {
 		sp.Stop()
 		printSkippedSourceLinkWarnings(walk, false)
 
-		printSourceStatus(cfg.EffectiveSkillsSource(), cfg.EffectiveAgentsSource(), utils.FoldHomePath, sync.CountSkills(discovered).Skills, countSourceAgents(cfg.EffectiveAgentsSource()), stats, sync.CountSkills(discovered).Variants)
+		counts := sync.CountSkills(discovered)
+		printSourceStatus(cfg.EffectiveSkillsSource(), cfg.EffectiveAgentsSource(), utils.FoldHomePath, counts.Skills, countSourceAgents(cfg.EffectiveAgentsSource()), stats, counts.Variants)
 		printTrackedReposStatus(cfg.EffectiveSkillsSource(), discovered, trackedRepos)
 		if err := printTargetsStatus(cfg, discovered); err != nil {
 			return err

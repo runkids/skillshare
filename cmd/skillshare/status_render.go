@@ -185,7 +185,7 @@ func modesNote(targets []statusTarget) string {
 
 // printSourceStatus prints where skills and agents come from, with paths
 // shown by show. agentCount is negative when there is no agents folder.
-func printSourceStatus(skillsPath, agentsPath string, show func(string) string, skillCount, agentCount int, stats *skillignore.IgnoreStats, variants ...int) {
+func printSourceStatus(skillsPath, agentsPath string, show func(string) string, skillCount, agentCount int, stats *skillignore.IgnoreStats, variants int) {
 	ui.Section("Source")
 	width := ui.RowWidth("skills", "agents")
 	if _, err := os.Stat(skillsPath); err != nil {
@@ -197,7 +197,7 @@ func printSourceStatus(skillsPath, agentsPath string, show func(string) string, 
 	if agentCount >= 0 {
 		pathW = max(pathW, runewidth.StringWidth(agents))
 	}
-	ui.Row(ui.MarkNone, "skills", pad(skills, pathW)+"  "+theme.Dim().Render(sourceSkillCountText(skillCount, variants...)), width)
+	ui.Row(ui.MarkNone, "skills", pad(skills, pathW)+"  "+theme.Dim().Render(sourceSkillCountText(skillCount, variants)), width)
 	if agentCount >= 0 {
 		ui.Row(ui.MarkNone, "agents", pad(agents, pathW)+"  "+theme.Dim().Render(plural(agentCount, "agent")), width)
 	}
@@ -309,10 +309,10 @@ func statusLine(name, value string) string {
 	return theme.Primary().Bold(true).Render(pad(name, len("Version"))) + "  " + value
 }
 
-func sourceSkillCountText(skills int, variants ...int) string {
+func sourceSkillCountText(skills, variants int) string {
 	text := plural(skills, "skill")
-	if len(variants) > 0 && variants[0] > skills {
-		text += ", " + plural(variants[0], "variant")
+	if variants > skills {
+		text += ", " + plural(variants, "variant")
 	}
 	return text
 }

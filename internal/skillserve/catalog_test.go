@@ -108,6 +108,32 @@ func TestBuild_AppliesTargetSelectionAndDisabledState(t *testing.T) {
 	}
 }
 
+func TestBuild_ReportsAmbiguousTargetVariants(t *testing.T) {
+	src := t.TempDir()
+	for _, agent := range []string{"claude", "claude-code", "codex"} {
+		writeFile(t, filepath.Join(src, "_repo/skills", agent, "fix/SKILL.md"), skillMD("fix"))
+	}
+	c, err := (&Builder{Source: src, Target: "claude", Skills: &config.ResourceTargetConfig{}}).Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.Skills) != 0 || len(c.Skipped) != 2 || !hasWarning(c, "ambiguous") || !hasWarning(c, "target override") {
+		t.Fatalf("ambiguous catalog silently skipped variants: skills=%v, skipped=%v", c.Skills, c.Skipped)
+	}
+	if c.Skipped[0].Path != "_repo/skills/claude-code/fix" || c.Skipped[1].Path != "_repo/skills/claude/fix" {
+		t.Fatalf("skip paths must retain source order: %v", c.Skipped)
+	}
+	account := config.TargetConfig{Agent: "codex", Skills: &config.ResourceTargetConfig{TargetNaming: "prefixed"}}
+	sc := account.SkillsConfig()
+	c, err = (&Builder{Source: src, Target: "codex-work", Skills: &sc}).Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.Skills) != 1 || c.Skills[0].URI != "skill://_repo/skills/codex/fix/SKILL.md" || len(c.Skipped) != 0 {
+		t.Fatalf("account catalog must serve the selected physical variant: skills=%v, skipped=%v", c.Skills, c.Skipped)
+	}
+}
+
 func TestBuild_SkipsParentOfExcludedNestedSkill(t *testing.T) {
 	src := t.TempDir()
 	writeFile(t, filepath.Join(src, "suite/SKILL.md"), skillMD("suite"))

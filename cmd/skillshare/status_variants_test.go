@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -79,5 +80,21 @@ func TestTrackedRepoStatusCountsLogicalVariants(t *testing.T) {
 		if !strings.Contains(output, "ambiguous") || !strings.Contains(output, "target override") {
 			t.Fatalf("diff lost selection reason: %s", output)
 		}
+		if flag == "--json" {
+			var result diffJSONOutput
+			if err := json.Unmarshal([]byte(output), &result); err != nil {
+				t.Fatal(err)
+			}
+			if len(result.Targets) != 1 || result.Targets[0].Synced {
+				t.Fatalf("warning-only target must require attention: %s", output)
+			}
+		}
+	}
+}
+
+func TestDiffLocalOnlyFoldersStayInSync(t *testing.T) {
+	result := targetDiffResult{localCount: 1, items: []copyDiffEntry{{name: "personal", action: "remove", reason: "local only"}}}
+	if !result.inSync() {
+		t.Fatal("a local-only folder is not pending sync work")
 	}
 }

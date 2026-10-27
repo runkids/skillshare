@@ -38,7 +38,8 @@ func cmdStatusProject(root string) error {
 		agentCount = len(agents)
 	}
 	show := func(path string) string { return projectStatusPath(runtime.root, path) }
-	printSourceStatus(runtime.sourcePath, runtime.agentsSourcePath, show, sync.CountSkills(discovered).Skills, agentCount, stats, sync.CountSkills(discovered).Variants)
+	counts := sync.CountSkills(discovered)
+	printSourceStatus(runtime.sourcePath, runtime.agentsSourcePath, show, counts.Skills, agentCount, stats, counts.Variants)
 	printTrackedReposStatus(runtime.sourcePath, discovered, trackedRepos)
 	if err := printProjectTargetsStatus(runtime, discovered); err != nil {
 		return err
