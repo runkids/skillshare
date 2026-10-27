@@ -543,8 +543,8 @@ registration references and pending operations under
 `<StateDir>/plugins/<config-path-hash>/state.json` (local format version 1).
 Keep StateDir machine-local. Sync, update, verification, failure and retry never
 write shared declarations; `update --source-ref` writes only a changed desired ref.
-Read-only commands create neither state nor locks. Explicit add, selection and
-removal edit declarations with changed-byte checks. This does not merge simultaneous
+Read-only commands create neither state nor locks. Explicit add, import, selection
+and removal edit declarations with changed-byte checks. This does not merge simultaneous
 Syncthing intent edits: concurrent declaration edits can still conflict.
 
 On a new machine, sync reviews source content and derives that machine's native
@@ -552,6 +552,10 @@ snapshot paths. Local source paths remain user input and must exist on each mach
 Native-only targets show **Import required on this machine**: install natively,
 then run `plugin import LOCAL-ID --from TARGET --name NAME` on that machine.
 Repeating that import records the local ID without rewriting identical intent.
+A first local import over a source-managed target converts that shared target to
+native-only intent, so other machines need their own local imports. Reimporting
+the same native ID with an existing verified source binding preserves its source
+recipe.
 An explicit Pi `add npm:PACKAGE` shares an npm install recipe and Pi runs its
 install scripts; an npm import shares only native-only intent.
 
