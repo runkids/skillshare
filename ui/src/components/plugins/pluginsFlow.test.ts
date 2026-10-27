@@ -293,7 +293,14 @@ describe('plugins flow rules', () => {
     expect(syncTodo(undefined)).toEqual([]);
   });
   it('calls a package Pi installs itself, bound only to Pi targets, a Pi package', () => {
-    expect(['demo', 'driver', 'powers', 'unbound', 'gone'].filter(piPackageTest(inventory))).toEqual(['driver']);
+    const packages = {
+      ...inventory.packages,
+      driver: { source: 'npm:@scope/driver', bindings: { omo: { id: 'npm:@scope/driver' } } },
+      mixed: { source: 'npm:driver', bindings: { omo: { id: 'npm:driver' }, codex: { id: 'driver@market' } } },
+      imported: { bindings: { omo: { id: 'native:imported' } } },
+      copied: { source: 'npm:driver', bindings: { omo: { id: 'local:driver', source: 'owner/driver' } } },
+    };
+    expect(['demo', 'driver', 'mixed', 'imported', 'copied', 'powers', 'unbound', 'gone'].filter(piPackageTest({ ...inventory, packages }))).toEqual(['driver', 'imported']);
   });
   it('splits a preview into what it changes and what it leaves alone, with the version each has', () => {
     const { active, idle } = reviewChanges(plan('r', { action: 'update' }, { action: 'noop' }, { name: 'driver', target: 'omo', action: 'noop', binding: { id: 'npm:@scope/driver', version: '3.0.0' } }), inventory);

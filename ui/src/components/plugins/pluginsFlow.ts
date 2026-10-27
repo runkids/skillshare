@@ -84,7 +84,7 @@ export function piPackageTest(inventory: PluginInventory | undefined) {
     const pack = inventory?.packages[name];
     if (!pack) return false;
     const bound = Object.entries(pack.bindings);
-    return !pack.source && bound.length > 0 && bound.every(([target, b]) => piTargets.has(target) && !b?.source);
+    return (!pack.source || pack.source.startsWith('npm:')) && bound.length > 0 && bound.every(([target, b]) => piTargets.has(target) && !b?.source);
   };
 }
 
