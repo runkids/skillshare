@@ -265,8 +265,12 @@ func TestAddWithoutTargetsKeepsPackageForLater(t *testing.T) {
 	if p.Changes[0].Logo != "data:image/png;base64,cG5n" {
 		t.Fatalf("preview lost the Codex logo: %q", p.Changes[0].Logo)
 	}
-	if d.packages["demo"].Version != "" {
-		t.Fatal("version without a local installation must not enter shared intent")
+	if d.packages["demo"].Version != "1.0.0" {
+		t.Fatalf("lost local reviewed version: %+v", d.packages["demo"])
+	}
+	shared, err := decodeDocument(d.raw, nil)
+	if err != nil || len(shared.legacy) != 0 || shared.intent["demo"].Source != root {
+		t.Fatalf("shared intent cached local metadata: %s %v", d.raw, err)
 	}
 	apply(Request{Action: "add", Name: "demo", Source: root, Plugin: "demo", Targets: []string{"claude"}})
 	apply(Request{Action: "remove", Name: "demo", Targets: []string{"claude"}})

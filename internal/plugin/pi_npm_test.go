@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -19,9 +20,18 @@ func fakePiNpm(t *testing.T, commands *[]string) *Service {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local/share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local/state"))
+	for _, key := range []string{"OPENCODE_CONFIG", "OPENCODE_CONFIG_DIR", "OPENCODE_CONFIG_CONTENT"} {
+		t.Setenv(key, "")
+	}
 	t.Setenv("PI_CODING_AGENT_DIR", filepath.Join(home, ".pi/agent"))
 	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+	var nativeMu sync.Mutex
 	s.Run = func(_ context.Context, _ string, env []string, bin string, args ...string) ([]byte, error) {
+		nativeMu.Lock()
+		defer nativeMu.Unlock()
 		if args[0] == "--version" {
 			return []byte("0.99.2"), nil
 		}

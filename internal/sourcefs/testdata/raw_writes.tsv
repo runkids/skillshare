@@ -265,9 +265,9 @@ internal/plugin/config.go	(*Service).save	os.CreateTemp	filepath.Dir(path)	plugi
 internal/plugin/config.go	(*Service).save	os.MkdirAll	filepath.Dir(path)	plugin
 internal/plugin/config.go	(*Service).save	os.Remove	f.Name()	plugin
 internal/plugin/config.go	(*Service).save	os.Rename	f.Name(), path	plugin
-internal/plugin/lifecycle.go	(*Service).Lock	os.MkdirAll	filepath.Dir(s.ConfigPath)	plugin
-internal/plugin/lifecycle.go	(*Service).Lock	os.OpenFile	s.ConfigPath + ".plugins.lock"	plugin
-internal/plugin/lifecycle.go	(*Service).Lock	os.Remove	s.ConfigPath + ".plugins.lock"	plugin
+internal/plugin/lifecycle.go	(*Service).Lock	os.MkdirAll	filepath.Dir(path)	config
+internal/plugin/lifecycle.go	(*Service).Lock	os.OpenFile	path	config
+internal/plugin/lifecycle.go	(*Service).Lock	os.Remove	path	config
 internal/plugin/local_bundle.go	(*Service).applyLocal	os.MkdirAll	root	plugin
 internal/plugin/local_bundle.go	(*Service).applyLocal	os.MkdirTemp	root	plugin
 internal/plugin/local_bundle.go	(*Service).applyLocal	os.Remove	marker	plugin
@@ -287,9 +287,6 @@ internal/plugin/package_config.go	(*Service).applyOpenCode	os.MkdirAll	filepath.
 internal/plugin/pi_extensions_lock.go	(*piNativeLock).release	os.Remove	l.path	plugin
 internal/plugin/pi_extensions_lock.go	acquirePiNativeLock	os.Mkdir	path	plugin
 internal/plugin/pi_extensions_lock.go	acquirePiNativeLock	os.Mkdir	path	plugin
-internal/plugin/pi_extensions_write.go	(*Service).lockPiSettings	os.MkdirAll	filepath.Dir(s.ConfigPath)	plugin
-internal/plugin/pi_extensions_write.go	(*Service).lockPiSettings	os.OpenFile	pluginLock	plugin
-internal/plugin/pi_extensions_write.go	(*Service).lockPiSettings	os.Remove	pluginLock	plugin
 internal/plugin/pi_extensions_write.go	(*Service).piBackup	os.MkdirAll	dir	plugin
 internal/plugin/pi_extensions_write.go	(*Service).piBackup	os.Remove	record	plugin
 internal/plugin/pi_registration_private_other.go	makePiRegistrationDir	os.MkdirAll	path	plugin
@@ -547,3 +544,4 @@ internal/version/check.go	saveCacheAt	os.MkdirAll	filepath.Dir(cachePath)	config
 internal/version/check.go	saveCacheAt	os.WriteFile	cachePath	config
 internal/config/config.go	(*Config).Save	os.MkdirAll	dir	config
 internal/config/config.go	(*Config).Save	os.WriteFile	path	config
+internal/plugin/state.go	(*Service).saveState	os.MkdirAll	s.managedRoot()	config

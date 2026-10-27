@@ -81,15 +81,36 @@ func TestDoctor_JSON_GitHooksWithoutGitAreInactive(t *testing.T) {
 }
 
 func TestDoctor_JSON_PluginMissingCLIIsWarning(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets:\n  codex-x: {agent: codex, config_dir: ~/.codex-x, cli: no-such-codex-cli, skills: {enabled: false}}\nplugins:\n  packages:\n    demo:\n      bindings:\n        codex-x:\n          id: demo@team\n")
+	for _, test := range []struct {
+		name, binding, detail string
+	}{
+		{"source", "", "CLI is not installed"},
+		{"legacy-import", "id: demo@team", "Import required on this machine"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			binding := test.binding
+			if test.name == "source" {
+				source := filepath.Join(sb.Root, "plugin")
+				sb.WriteFile(filepath.Join(source, ".codex-plugin", "plugin.json"), `{"name":"demo","version":"1.0.0"}`)
+				binding = "source: " + source + "\n          plugin: demo"
+			}
+			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets:\n  codex-x: {agent: codex, config_dir: ~/.codex-x, cli: no-such-codex-cli, skills: {enabled: false}}\nplugins:\n  packages:\n    demo:\n      bindings:\n        codex-x:\n          " + binding + "\n")
+			before, _ := os.ReadFile(sb.ConfigPath)
 
-	out := parseDoctorJSON(t, sb.RunCLI("doctor", "--json").Stdout)
+			out := parseDoctorJSON(t, sb.RunCLI("doctor", "--json").Stdout)
 
-	c := doctorCheckNamed(t, out, "plugins")
-	if c.Status != "warning" || !strings.Contains(strings.Join(c.Details, "\n"), "demo") {
-		t.Fatalf("want a plugins warning naming the blocked package, got %+v", c)
+			c := doctorCheckNamed(t, out, "plugins")
+			details := strings.Join(c.Details, "\n")
+			if c.Status != "warning" || !strings.Contains(details, "demo") || !strings.Contains(details, test.detail) {
+				t.Fatalf("want a plugins warning naming the unavailable local package and %q, got %+v", test.detail, c)
+			}
+			after, _ := os.ReadFile(sb.ConfigPath)
+			if string(before) != string(after) {
+				t.Fatal("doctor changed shared plugin intent")
+			}
+		})
 	}
 }
 

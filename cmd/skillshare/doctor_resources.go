@@ -187,11 +187,11 @@ func checkPluginPackages(service *plugin.Service, result *doctorResult) {
 	for _, c := range plan.Changes {
 		line := c.Name + " → " + c.Target
 		switch c.Action {
-		case "noop", "skip":
+		case "noop":
 		case "blocked":
 			warnings = append(warnings, line+": blocked: "+c.Message)
 		default:
-			warnings = append(warnings, line+": not synced ("+c.Action+")")
+			warnings = append(warnings, line+": not synced ("+c.Action+"): "+c.Message)
 		}
 	}
 	ok := fmt.Sprintf("All %d plugin package(s) in sync", len(inv.Packages))

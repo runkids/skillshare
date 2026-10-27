@@ -70,8 +70,15 @@ func TestOMPMergedBuildVersionWithoutTargets(t *testing.T) {
 			}
 			applyPluginRequest(t, s, r)
 			d, err := s.load()
-			if err != nil || d.packages["kata"].Version != "" {
-				t.Fatalf("shared intent unexpectedly cached a version: %+v %v; want %q", d, err, test.want)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := d.packages["kata"].Version; got != test.want {
+				t.Fatalf("local reviewed version = %q; want %q", got, test.want)
+			}
+			shared, err := decodeDocument(d.raw, nil)
+			if err != nil || len(shared.legacy) != 0 || shared.intent["kata"].Source != root {
+				t.Fatalf("shared intent cached local metadata: %s %v", d.raw, err)
 			}
 		})
 	}

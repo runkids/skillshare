@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"skillshare/internal/plugin"
 	"skillshare/internal/testutil"
 )
 
@@ -83,8 +84,17 @@ func TestPluginAddNpmPackageThroughPi(t *testing.T) {
 		t.Fatalf("Pi did not install the package: %s\n%s", settings, r.Stdout+r.Stderr)
 	}
 	config, _ := os.ReadFile(filepath.Join(sb.Home, ".config/skillshare/config.yaml"))
-	if !strings.Contains(string(config), "id: npm:demo") {
-		t.Fatalf("binding not recorded: %s", config)
+	if !strings.Contains(string(config), "source: npm:demo") || strings.Contains(string(config), "id:") || strings.Contains(string(config), "pending:") {
+		t.Fatalf("shared intent lost source or exported native state: %s", config)
+	}
+	listed := sb.RunCLIEnv(env, "plugin", "list", "--json", "-g")
+	listed.AssertSuccess(t)
+	var inventory plugin.Inventory
+	if err := json.Unmarshal([]byte(listed.Stdout), &inventory); err != nil {
+		t.Fatal(err)
+	}
+	if binding := inventory.Packages["demo"].Bindings["pi"]; binding.ID != "npm:demo" || binding.Pending != "" {
+		t.Fatalf("local binding not recorded: %+v", binding)
 	}
 }
 
