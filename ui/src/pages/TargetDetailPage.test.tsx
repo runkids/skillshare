@@ -46,8 +46,8 @@ describe('Target page shared skills folder', () => {
 
   it('shows selection warnings for flat naming', async () => {
     vi.mocked(api.previewSyncMatrix).mockResolvedValue({ entries: [
-      { skill: '_repo__skills__codex__fix', target: 'codex', status: 'skipped', reason: 'ambiguous variant _repo/skills/codex/fix' },
-      { skill: '_repo__skills__codex-cli__fix', target: 'codex', status: 'skipped', reason: 'ambiguous variant _repo/skills/codex-cli/fix' },
+      { skill: '_repo__skills__codex__fix', target: 'codex', status: 'skipped', reason: 'Target "codex": skipped ambiguous codex variant _repo/skills/codex/fix; use include/exclude or a target override to select one' },
+      { skill: '_repo__skills__codex-cli__fix', target: 'codex', status: 'skipped', reason: 'Target "codex": skipped ambiguous codex variant _repo/skills/codex-cli/fix; use include/exclude or a target override to select one' },
     ] });
     renderPage({ expectedSkillCount: 0, skippedSkillCount: 2, warnings: ['ambiguous codex variant; use a target override'] } as Partial<Target>);
     expect(await screen.findByText('ambiguous codex variant; use a target override')).toBeInTheDocument();

@@ -25,13 +25,17 @@ func TestTrackedRepoStatusCountsLogicalVariants(t *testing.T) {
 			}
 		}
 	}
-	skills, _, err := sync.DiscoverSourceSkillsLite(src)
+	initGitRepoForTest(t, filepath.Join(src, "_repo"))
+	skills, trackedRepos, err := sync.DiscoverSourceSkillsLite(src)
 	if err != nil {
 		t.Fatal(err)
 	}
-	repos := buildTrackedRepoJSON(src, []string{"_repo"}, skills)
+	repos := buildTrackedRepoJSON(src, trackedRepos, skills)
 	if len(repos) != 1 || repos[0].SkillCount != 2 {
 		t.Fatalf("repository counts = %+v, want 2 logical skills", repos)
+	}
+	if repos[0].Status != "" || repos[0].Dirty {
+		t.Fatalf("tracked fixture must be a clean Git repository: %+v", repos[0])
 	}
 	if repos[0].VariantCount != 4 {
 		t.Fatalf("physical count = %d, want 4", repos[0].VariantCount)
