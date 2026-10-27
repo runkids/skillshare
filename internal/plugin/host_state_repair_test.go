@@ -934,6 +934,12 @@ func TestPluginHostStateCheckUsesDesiredRecipe(t *testing.T) {
 			}
 			repairHost(t, b)
 			writePluginFile(t, filepath.Dir(b.ConfigPath), filepath.Base(b.ConfigPath), string(raw))
+			if kind == "native-only" || kind == "npm" {
+				if err := os.RemoveAll(repo); err != nil {
+					t.Fatal(err)
+				}
+			}
+
 			same := unchanged(t, b.ConfigPath, b.statePath())
 			calls := len(bCalls)
 			plan, err := b.Preview(context.Background(), Request{Action: "check", Name: "demo"})
