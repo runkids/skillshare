@@ -66,9 +66,11 @@ separate variant walkers or per-command routing rules:
   Shared destination paths, such as Codex and `universal`, do not prove agent identity.
   Reuse existing path-overlap/conflict diagnostics: targets sharing a directory
   cannot be promised isolation when their selected variants differ.
-- Explicit source-local target overrides remain authoritative, including an empty
-  override meaning all targets. Frontmatter targets override inferred routing when
-  no source-local override exists. Existing explicit target matching stays compatible.
+- Routing precedence is source-local target override > explicit frontmatter targets >
+  recognized variant-agent inference > existing `inferSkillTargetsFromRelPath`.
+  Generic host-style path inference cannot override a recognized variant's agent.
+  An empty source-local override still means all targets. Existing explicit target
+  matching stays compatible.
 - `.skillignore`, disabled state, and per-target include/exclude filters still apply
   to physical entries. An include cannot resurrect an ignored file; an excluded
   matching variant does not cause selection of another agent's variant.
@@ -78,8 +80,9 @@ separate variant walkers or per-command routing rules:
   Unrecognized paths retain ordinary discovery behavior rather than guessed routing.
 
 Use `SelectTargetSkills` and existing target naming/resolution as the common selection
-boundary for CLI and server sync, previews, status, diff, and doctor. A shared result
-should explain selected, filtered, missing, and ambiguous variants consistently.
+boundary for CLI/server sync, previews, status, diff, doctor, analyze, `skill move`,
+and target-scoped skillserve catalogs. A shared result should explain selected,
+filtered, missing, and ambiguous variants consistently.
 Repository grouping belongs in discovery metadata, not in a status-only deduplicator.
 
 ### Counts, compatibility, and sync modes
@@ -88,6 +91,8 @@ Source and repository summaries distinguish logical skills from physical variant
 two logical skills with Claude and Codex copies are `2 skills, 4 variants`.
 Sync results continue to count actual links, copies, updates, skips, and errors per
 target; grouping must not reduce those totals or hide a failed variant operation.
+Physical operation/catalog IDs remain stable. Grouping alone must not reduce analyze
+or context-cost totals, which measure the physical files actually exposed to a target.
 Ignored variants follow existing enabled/ignored reporting rather than inflating
 the active logical count. A group with no enabled variant contributes no active skill.
 
@@ -95,6 +100,12 @@ Retain physical relative paths and flat names for existing filters, overrides,
 uninstall operations, and destination naming. Do not silently rename installed
 entries or broaden existing filters. Decide any future logical-name filter syntax
 and migration separately, with compatibility tests.
+
+In merge/copy mode, a target with no matching agent identity, including a universal-only
+configuration, receives no agent-specific variant automatically. An explicit per-variant
+target override can select the desired copy; an empty override preserves that variant's
+old all-target behavior. The chosen activation mechanism must disclose this compatibility
+effect and override options before enabling recognition; no new CLI/config fields are proposed.
 
 Per-skill routing applies to merge and copy modes. Full-directory symlink mode
 exposes the complete source tree and cannot enforce variant selection or ignores;
@@ -113,13 +124,15 @@ rewrite the copied `name:` field; source bytes and agent-specific instructions s
 | Prefixed copy naming | Only established naming transformation; agent-specific instructions preserved |
 | Same basename elsewhere | Distinct repositories, parents, and full nested suffixes remain separate |
 | Repository installed with `--into` | Actual tracked root scopes grouping and existing override keys |
+| `--into codex/skills`: `_repo/internal/skills/claude/fix` | Recognized Claude variant wins over outer Codex host inference unless explicitly overridden |
 | Root/repository ignores and disabled variant | Existing precedence; no ignored variant selected or substituted |
 | Per-target includes/excludes | Legacy physical flat-name patterns retain their selection semantics |
 | Frontmatter and source-local overrides | Explicit routing wins; empty override retains all-target meaning |
 | Canonical alias and account target | Same exact agent variant selected using registry/`Agent` identity |
 | Shared target directory | No inferred permission for another tool solely because paths coincide |
+| Universal-only or unmatched target, merge/copy | No automatic variant; explicit target override selects a copy, empty override preserves all-target behavior |
 | Missing, unknown, shared, or ambiguous variant | No guessed substitute; applicable diagnostic or ordinary discovery |
-| CLI/server/status/diff/doctor | Same selected physical entries and reasons in global and project contexts |
+| CLI/server/status/diff/doctor/analyze/`skill move`/target-scoped skillserve | Same selected physical entries and reasons; physical IDs and context-cost totals stay accurate |
 | Merge/copy failure | Actual work/error counts remain independent of logical source counts |
 | Full-directory symlink | Limitation visible; no promise that variant routing restricts exposed files |
 
@@ -137,6 +150,8 @@ rewrite the copied `name:` field; source bytes and agent-specific instructions s
 - [ ] Large (10+ files, 500+ lines)
 
 Implementation size and public API/schema changes need maintainer agreement after review.
+The eventual implementation updates affected public docs (README/website/wiki) and any
+JSON schemas whose contracts actually change, documenting logical/variant fields compatibly.
 Sparse checkout, content conversion, and a new naming/filter migration are outside this proposal's first implementation.
 
 ## Open Questions
