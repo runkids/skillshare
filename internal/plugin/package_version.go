@@ -44,7 +44,7 @@ func (d *document) putPackageVersion(name string, p packageDeclaration, version 
 
 // recordPackageVersions records only a source observation for the actual default recipe.
 func recordPackageVersions(d *document, r Request, plan *Plan) map[string]packageDeclaration {
-	if r.Action != "add" {
+	if r.Action != "add" && r.Action != "update" && r.Action != "sync" {
 		return d.intent
 	}
 	for _, c := range plan.Changes {

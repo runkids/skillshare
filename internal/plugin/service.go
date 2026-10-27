@@ -407,13 +407,8 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 					change.Message = "Package already has a different binding for this target; choose another name or remove it first."
 				}
 			}
-			if market := c.TargetInfo[agent].Marketplace; market != "" && change.Action == "install" && d.intent[name].Bindings[target].Source == "" {
-				if native, ok := find(target, c.Name+"@"+market); ok && !(d.packages[name].Bindings[target].Cleanup && native.ID == d.packages[name].Bindings[target].ID) {
-					change.Action = "import"
-					change.ID = native.ID
-					change.Binding = Binding{ID: native.ID, Version: native.Version}
-					change.Message = "Already installed natively; adopt without reinstalling."
-				}
+			if change.Action == "install" {
+				change = existingNativeSourceChange(change, host(target).Installed, agent, c.TargetInfo[agent].Marketplace, d.intent[name].Bindings[target].Source, d.packages[name].Bindings[target])
 			}
 			if _, ok := find(target, change.ID); ok && change.Action == "install" && !(d.packages[name].Bindings[target].Cleanup && d.packages[name].Bindings[target].ID == change.ID) {
 				change.Action = "blocked"
@@ -558,7 +553,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				c := Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: r.Action}
 				_, exists := find(target, b.ID)
 				action := r.Action
-				if r.Action == "sync" && b.Selected() && declared && sameDistribution(b, decl) && b.SourceRef != decl.SourceRef {
+				if r.Action == "sync" && b.Selected() && declared && sameDistribution(b, decl) && (b.SourceRef != decl.SourceRef || b.Pending == "update") {
 					action = "update"
 				}
 				switch action {
@@ -645,7 +640,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 						break
 					}
 
-					c.Components = candidate.TargetInfo[agent].Components
+					c.Components, c.sourceVersion = candidate.TargetInfo[agent].Components, &candidate.Version
 					if disc.Digest == b.Digest && b.Pending == "" && ref == b.SourceRef {
 						c.Action = "noop"
 					} else if r.Action == "check" {
@@ -735,4 +730,33 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 	}{r, string(d.raw), string(d.stateRaw), stores, reviewedChanges(p.Changes), hosts, ompRoots, ompRemovals, ompRuntimePaths})
 	p.Revision = hash(fingerprint)
 	return p, nil
+}
+
+// existingNativeSourceChange preserves explicit add adoption while protecting a
+// shared source from a same-name native installation that can shadow its hooks.
+func existingNativeSourceChange(c Change, installed []Installed, agent, market, declaredSource string, old Binding) Change {
+	for _, native := range installed {
+		if old.Cleanup && native.ID == old.ID {
+			continue
+		}
+		if declaredSource != "" && agent == "claude" {
+			name := native.Name
+			if name == "" {
+				name, _, _ = strings.Cut(native.ID, "@")
+			}
+			if name == c.Binding.Plugin {
+				c.Action = "blocked"
+				c.Message = "An independent native plugin has the same name and may shadow the reviewed source. Remove it in the native client before syncing, or use plugin import explicitly to keep the native installation."
+				return c
+			}
+		}
+		if declaredSource == "" && market != "" && native.ID == c.Binding.Plugin+"@"+market {
+			c.Action = "import"
+			c.ID = native.ID
+			c.Binding = Binding{ID: native.ID, Version: native.Version}
+			c.Message = "Already installed natively; adopt without reinstalling."
+			return c
+		}
+	}
+	return c
 }

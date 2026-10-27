@@ -12,7 +12,7 @@ import (
 // Produce private metadata through supported requests, then review the same
 // source at a new version while establishing or refreshing its default target.
 func TestPackageVersionRefreshOnTargetAdd(t *testing.T) {
-	for _, history := range []string{"fresh", "record-only", "removed-record-only"} {
+	for _, history := range []string{"fresh", "record-only", "removed-record-only", "update"} {
 		t.Run(history, func(t *testing.T) {
 			var commands []string
 			s := fakePiNpm(t, &commands)
@@ -21,7 +21,9 @@ func TestPackageVersionRefreshOnTargetAdd(t *testing.T) {
 				writePluginFile(t, source, "package.json", `{"name":"demo","version":"`+version+`","keywords":["pi-package"]}`)
 			}
 			manifest("1.2.3")
-			if history != "fresh" {
+			if history == "update" {
+				applyPluginRequest(t, s, Request{Action: "add", Source: source, Targets: []string{"pi"}})
+			} else if history != "fresh" {
 				applyPluginRequest(t, s, Request{Action: "add", Source: source})
 				if got := readState(t, s).packages["demo"].Version; got != "1.2.3" {
 					t.Fatalf("record-only producer version = %q", got)
@@ -37,7 +39,11 @@ func TestPackageVersionRefreshOnTargetAdd(t *testing.T) {
 				}
 			}
 			manifest("2.0.0")
-			applyPluginRequest(t, s, Request{Action: "add", Source: source, Targets: []string{"pi"}})
+			request := Request{Action: "add", Source: source, Targets: []string{"pi"}}
+			if history == "update" {
+				request = Request{Action: "update", Name: "demo", Targets: []string{"pi"}}
+			}
+			applyPluginRequest(t, s, request)
 			if got := readState(t, s).packages["demo"].Bindings["pi"].Version; got != "2.0.0" {
 				t.Fatalf("installed receipt version = %q, want reviewed 2.0.0", got)
 			}
@@ -148,6 +154,14 @@ func TestOtherTargetSourceDoesNotReplaceDefaultVersion(t *testing.T) {
 	applyPluginRequest(t, s, Request{Action: "add", Source: other, Targets: []string{"pi"}})
 	if got := readState(t, s).packages["demo"].Version; got != "1.0.0" {
 		t.Fatalf("other source replaced default version: %q", got)
+	}
+	writePluginFile(t, other, "package.json", `{"name":"demo","version":"3.0.0","keywords":["pi-package"]}`)
+	same := unchanged(t, s.ConfigPath)
+	applyPluginRequest(t, s, Request{Action: "update", Name: "demo", Targets: []string{"pi"}})
+	same()
+	pack := readState(t, s).packages["demo"]
+	if pack.Version != "1.0.0" || pack.Bindings["pi"].Version != "3.0.0" {
+		t.Fatalf("updated override replaced default version or lost its own version: %+v", pack)
 	}
 }
 

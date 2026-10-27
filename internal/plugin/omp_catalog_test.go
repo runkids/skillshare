@@ -128,6 +128,17 @@ func TestOMPCatalogVersionReachesNativeInstall(t *testing.T) {
 					t.Fatalf("native catalog lost version: %s %v", data, err)
 				}
 			}
+			writeFile(t, root, catalogPath, `{"name":"market","plugins":[{"name":"kata","version":"4.0.0","source":"./plugins/oh-my-pi"}]}`)
+			agents.version = "4.0.0"
+			applyPluginRequest(t, s, Request{Action: "update", Name: "kata", Targets: []string{"omp"}})
+			wantVersion = ""
+			if legacy {
+				wantVersion = "4.0.0"
+			}
+			pack := readState(t, s).packages["kata"]
+			if pack.Version != wantVersion || pack.Bindings["omp"].Version != "4.0.0" {
+				t.Fatalf("update confused default and OMP versions: %+v; want default %q", pack, wantVersion)
+			}
 		})
 	}
 }

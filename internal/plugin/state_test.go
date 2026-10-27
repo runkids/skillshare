@@ -466,25 +466,53 @@ func TestPluginHostStateSourceAdoptionKeepsRecipe(t *testing.T) {
 		t.Fatal("adoption lost recipe or invented snapshot provenance")
 	}
 	raw, _ := os.ReadFile(s.ConfigPath)
-	otherNative := &fakeAgents{installed: map[string][]Installed{"claude": {{ID: "demo@team", Scope: "user", Installed: true, Enabled: true}}}}
-	other := otherNative.service(t)
-	writePluginFile(t, filepath.Dir(other.ConfigPath), filepath.Base(other.ConfigPath), string(raw))
-	same := unchanged(t, other.ConfigPath)
-	applyPluginRequest(t, other, Request{Action: "sync"})
-	if got := readState(t, other).packages["demo"].Bindings["claude"]; got.Source != source || got.Digest == "" || got.ID == "demo@team" {
-		t.Fatalf("new host lost review: %+v", got)
+	for _, test := range []struct {
+		name, id string
+		catalog  bool
+	}{
+		{"same-market", "demo@team", true},
+		{"other-market", "demo@other", true},
+		{"standalone", "demo@other", false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if !test.catalog {
+				if err := os.Remove(filepath.Join(source, ".claude-plugin/marketplace.json")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			otherNative := &fakeAgents{installed: map[string][]Installed{"claude": {{ID: test.id, Scope: "user", Installed: true, Enabled: true}}}}
+			other := otherNative.service(t)
+			writePluginFile(t, filepath.Dir(other.ConfigPath), filepath.Base(other.ConfigPath), string(raw))
+			same := unchanged(t, other.ConfigPath)
+			collision, err := other.Preview(context.Background(), Request{Action: "sync"})
+			if err != nil || !collision.Blocked || len(collision.Changes) != 1 || collision.Changes[0].Action != "blocked" || !strings.Contains(collision.Changes[0].Message, "native") {
+				t.Fatalf("same-name native plugin must block reviewed source installation: %+v %v", collision, err)
+			}
+			if _, err := other.Apply(context.Background(), Request{Action: "sync"}, collision.Revision); err == nil || len(otherNative.commands) != 0 {
+				t.Fatalf("blocked collision mutated native installation: %v %v", otherNative.commands, err)
+			}
+			// The user removes the independent plugin in its native client before retrying.
+			otherNative.installed["claude"] = nil
+			applyPluginRequest(t, other, Request{Action: "sync"})
+			if got := readState(t, other).packages["demo"].Bindings["claude"]; got.Source != source || got.Digest == "" || got.ID == test.id {
+				t.Fatalf("new host lost review: %+v", got)
+			}
+			if got := readState(t, other).packages["demo"].Version; got != "1.0.0" {
+				t.Fatalf("first source sync lost reviewed default version: %q", got)
+			}
+			for _, command := range otherNative.commands {
+				if strings.Contains(command, "uninstall "+test.id) || strings.Contains(command, "remove "+test.id) || strings.Contains(command, "marketplace remove ") {
+					t.Fatalf("removed an independent native installation: %s", command)
+				}
+			}
+			commands := len(otherNative.commands)
+			applyPluginRequest(t, other, Request{Action: "sync"})
+			if len(otherNative.commands) != commands {
+				t.Fatalf("second sync repeated native work: %v", otherNative.commands)
+			}
+			same()
+		})
 	}
-	for _, command := range otherNative.commands {
-		if strings.Contains(command, "uninstall demo@team") || strings.Contains(command, "remove demo@team") || strings.Contains(command, "marketplace remove team") {
-			t.Fatalf("removed an independent native installation: %s", command)
-		}
-	}
-	commands := len(otherNative.commands)
-	applyPluginRequest(t, other, Request{Action: "sync"})
-	if len(otherNative.commands) != commands {
-		t.Fatalf("second sync repeated native work: %v", otherNative.commands)
-	}
-	same()
 }
 
 func TestPluginHostStateUpdateLeavesSharedIntentUntouched(t *testing.T) {
@@ -815,4 +843,45 @@ func FuzzPluginHostStateSharedIntentIsolation(f *testing.F) {
 			t.Fatal("local metadata changed shared declaration roundtrip")
 		}
 	})
+}
+
+func TestPluginHostStateRetriesReviewedUpdateAfterRollback(t *testing.T) {
+	var commands []string
+	s := fakePiNpm(t, &commands)
+	source := hostStatePiSource(t)
+	applyPluginRequest(t, s, Request{Action: "add", Source: source, Targets: []string{"pi"}})
+	old := readState(t, s).state.Bindings["demo"]["pi"].Applied.Binding
+	writePluginFile(t, source, "extensions/demo.ts", "export default () => { console.log('v2') }")
+	request := Request{Action: "update", Name: "demo", Targets: []string{"pi"}}
+	plan, err := s.Preview(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated := plan.Changes[0].Binding
+	content := filepath.Join(s.snapshotPath(updated, "pi"), "content")
+	run := s.Run
+	failedAfterMaterialization := false
+	s.Run = func(ctx context.Context, dir string, env []string, bin string, args ...string) ([]byte, error) {
+		if args[0] == "--version" {
+			if actual, err := treeDigest(content); err == nil && actual == updated.Digest && actual != old.Digest {
+				failedAfterMaterialization = true
+				return nil, errors.New("post-materialization verification failure")
+			}
+		}
+		return run(ctx, dir, env, bin, args...)
+	}
+	same := unchanged(t, s.ConfigPath)
+	applyFailure(t, s, request)
+	s.Run = run
+	local := readState(t, s).state.Bindings["demo"]["pi"]
+	actual, err := treeDigest(content)
+	if !failedAfterMaterialization || err != nil || actual != old.Digest || local.Applied == nil || local.Applied.Binding.Digest != old.Digest || local.Pending == nil || local.Pending.Action != "update" || local.Pending.Binding.Digest != updated.Digest {
+		t.Fatalf("failure did not leave a rolled-back snapshot and reviewed pending update: %+v digest=%s err=%v", local, actual, err)
+	}
+	applyPluginRequest(t, s, Request{Action: "sync", Name: "demo"})
+	local = readState(t, s).state.Bindings["demo"]["pi"]
+	if local.Pending != nil || local.Applied == nil || local.Applied.Binding.Digest != updated.Digest || !s.ownedSnapshot(local.Applied.Binding, "pi") {
+		t.Fatalf("retry lost reviewed update provenance: %+v", local)
+	}
+	same()
 }
