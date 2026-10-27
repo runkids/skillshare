@@ -30,6 +30,7 @@ type targetItem struct {
 	Exclude            []string `json:"exclude"`
 	ExpectedSkillCount int      `json:"expectedSkillCount"`
 	SkippedSkillCount  int      `json:"skippedSkillCount,omitempty"`
+	Warnings           []string `json:"warnings,omitempty"`
 	CollisionCount     int      `json:"collisionCount,omitempty"`
 	AgentPath          string   `json:"agentPath,omitempty"`
 	AgentMode          string   `json:"agentMode,omitempty"`
@@ -138,23 +139,15 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 			item.SkillsReadFrom = config.SkillsReadFrom(targets, name, projectRoot)
 		case mode == "merge" || mode == "copy":
 			if discoveredErr == nil {
-				filtered, err := ssync.SelectTargetSkills(discovered, name, sc)
+				resolution, err := ssync.ResolveTargetSkillsForTarget(name, sc, discovered)
 				if err != nil {
 					writeError(w, http.StatusBadRequest, "invalid include/exclude for target "+name+": "+err.Error())
 					return
 				}
-				resolution, resErr := ssync.ResolveTargetSkillsForTarget(name, config.ResourceTargetConfig{
-					Agent:        sc.Agent,
-					Path:         sc.Path,
-					TargetNaming: sc.TargetNaming,
-				}, filtered)
-				if resErr == nil {
-					item.ExpectedSkillCount = len(resolution.Skills)
-					item.SkippedSkillCount = len(filtered) - len(resolution.Skills)
-					item.CollisionCount = len(resolution.Collisions)
-				} else {
-					item.ExpectedSkillCount = len(filtered)
-				}
+				item.ExpectedSkillCount = len(resolution.Skills)
+				item.SkippedSkillCount = resolution.SkippedCount
+				item.CollisionCount = len(resolution.Collisions)
+				item.Warnings = resolution.Warnings
 			}
 			if mode == "merge" {
 				status, linked, local := ssync.CheckStatusMerge(sc.Path, source)

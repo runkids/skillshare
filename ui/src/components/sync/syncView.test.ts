@@ -20,6 +20,11 @@ const diff: DiffTarget[] = [
 ];
 
 describe('resourceGroups', () => {
+  it('shows selection warnings as read-only rows even with force', () => {
+    const diffs: DiffTarget[] = [{ target: 'claude', items: [{ skill: '(skill selection)', action: 'skip', reason: 'ambiguous claude variant; use a target override' }] }];
+    const groups = resourceGroups(diffs, [target('claude')], new Set(['skill']), true).groups;
+    expect([countChanges(groups), groups[0].rows[0].detail]).toEqual([0, 'ambiguous claude variant; use a target override']);
+  });
   it('counts kept local copies only when force is on', () => {
     const targets = [target('claude'), target('codex')];
     const all = new Set(['skill', 'agent'] as const);

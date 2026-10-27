@@ -55,12 +55,12 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 		}
 	}
 
-	// Pre-filter skills per target and compute total for progress bar
+	// Resolve each target once, preserving selection diagnostics for the preview.
 	type resolvedTarget struct {
-		name     string
-		target   config.TargetConfig
-		mode     string
-		filtered []sync.DiscoveredSkill
+		name       string
+		target     config.TargetConfig
+		mode       string
+		resolution *sync.TargetSkillResolution
 	}
 	var resolved []resolvedTarget
 	totalSkills := 0
@@ -75,7 +75,7 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 		if !sc.IsEnabled() {
 			continue
 		}
-		filtered, err := sync.SelectTargetSkills(discovered, entry.Name, sc)
+		resolution, err := sync.ResolveTargetSkillsForTarget(entry.Name, sc, discovered)
 		if err != nil {
 			return fmt.Errorf("target %s has invalid include/exclude config: %w", entry.Name, err)
 		}
@@ -83,8 +83,8 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 		if mode == "" {
 			mode = "merge"
 		}
-		resolved = append(resolved, resolvedTarget{entry.Name, target, mode, filtered})
-		totalSkills += len(filtered)
+		resolved = append(resolved, resolvedTarget{entry.Name, target, mode, resolution})
+		totalSkills += len(resolution.Skills)
 		if mode == "copy" {
 			hasCopyMode = true
 		}
@@ -110,7 +110,7 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 			defer wg.Done()
 			defer func() { <-sem }()
 			progress.startTarget(rt.name)
-			r := collectTargetDiff(rt.name, rt.target, runtime.sourcePath, rt.mode, rt.filtered, ignorePatterns, progress)
+			r := collectTargetDiff(rt.name, rt.target, runtime.sourcePath, rt.mode, rt.resolution, ignorePatterns, progress)
 			progress.doneTarget(rt.name, r)
 			results[idx] = r
 		}(i, rt)

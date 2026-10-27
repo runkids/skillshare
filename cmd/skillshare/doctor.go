@@ -382,8 +382,10 @@ func checkSource(cfg *config.Config, walk sourcewalk.Options, result *doctorResu
 	}
 
 	skillCount := 0
+	var variants int
 	if discoverErr == nil {
-		skillCount = len(discovered)
+		counts := sync.CountSkills(discovered)
+		skillCount, variants = counts.Skills, counts.Variants
 	} else {
 		entries, _ := sourcewalk.ReadDir(cfg.EffectiveSkillsSource(), walk)
 		for _, e := range entries {
@@ -392,8 +394,9 @@ func checkSource(cfg *config.Config, walk sourcewalk.Options, result *doctorResu
 			}
 		}
 	}
-	ui.Row(ui.MarkOK, "Source", shortenPath(cfg.EffectiveSkillsSource())+ui.DimText(" · "+plural(skillCount, "skill")), doctorWidth)
-	result.addCheck("source", checkPass, fmt.Sprintf("Source: %s (%d skills)", cfg.EffectiveSkillsSource(), skillCount), nil)
+	count := sourceSkillCountText(skillCount, variants)
+	ui.Row(ui.MarkOK, "Source", shortenPath(cfg.EffectiveSkillsSource())+ui.DimText(" · "+count), doctorWidth)
+	result.addCheck("source", checkPass, fmt.Sprintf("Source: %s (%s)", cfg.EffectiveSkillsSource(), count), nil)
 }
 
 func checkAgentsSource(cfg *config.Config, result *doctorResult) {

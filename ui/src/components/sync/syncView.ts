@@ -58,9 +58,10 @@ export function resourceGroups(diffs: DiffTarget[], targets: Target[], parts: Se
       if (!parts.has(part) || item.action === 'local') continue;
       // Agents always sync as symlinks, whatever the target mode.
       const copy = part === 'skill' && target?.mode === 'copy';
-      const row = { key: `${d.target}/${part}/${item.skill}`, part, name: part === 'agent' ? formatAgentDisplayName(item.skill) : item.skill } as const;
+      const warning = item.skill === '(target naming)' || item.skill === '(skill selection)';
+      const row = { key: `${d.target}/${part}/${item.skill}${warning ? `/${item.reason}` : ''}`, part, name: part === 'agent' ? formatAgentDisplayName(item.skill) : item.skill } as const;
       // A kept item: a local folder holds the new name, so sync keeps the old entry, with or without force.
-      if (item.skill === '(target naming)' || item.action === 'kept') rows.push({ ...row, icon: 'kept', text: null, detail: item.reason, counts: false });
+      if (warning || item.action === 'kept') rows.push({ ...row, icon: 'kept', text: null, detail: item.reason, counts: false });
       else if (item.skill === '(entire directory)') rows.push({ ...row, name: target?.path ?? item.skill, icon: 'add', text: 'sync.row.folder', counts: true });
       else if (item.action === 'link') rows.push({ ...row, icon: 'add', text: item.reason?.startsWith('missing') ? 'sync.row.recopy' : copy ? 'sync.row.newCopy' : 'sync.row.newLink', counts: true });
       else if (item.action === 'update') rows.push({ ...row, icon: 'update', text: item.reason === COPY_TO_LINK ? 'sync.row.copyToLink' : copy ? 'sync.row.updateCopy' : 'sync.row.updateLink', counts: true });

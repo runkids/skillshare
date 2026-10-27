@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"fmt"
 	"strings"
 
 	"skillshare/internal/config"
@@ -67,4 +68,39 @@ func targetAgent(name string, sc config.ResourceTargetConfig) string {
 		name = sc.Agent
 	}
 	return config.CanonicalTargetName(name)
+}
+
+// variantRemovalWarning explains the upgrade effect only for removed entries
+// whose known physical/naming IDs belong to automatically excluded variants.
+func variantRemovalWarning(name string, sc config.ResourceTargetConfig, skills []DiscoveredSkill, pruned []string, dryRun bool) string {
+	if len(pruned) == 0 {
+		return ""
+	}
+	removed := make(map[string]bool, len(pruned))
+	for _, entry := range pruned {
+		removed[entry] = true
+	}
+	mismatches := make(map[string]bool)
+	agent := targetAgent(name, sc)
+	for _, skill := range skills {
+		if !skill.variantRouting || skill.VariantAgent == agent || skill.Disabled {
+			continue
+		}
+		if allowed, _ := ShouldSyncFlatName(skill.FlatName, sc.Include, sc.Exclude); !allowed {
+			continue
+		}
+		for _, candidate := range targetNameCandidates(skill) {
+			if removed[candidate.name] {
+				mismatches[candidate.name] = true
+			}
+		}
+	}
+	if len(mismatches) == 0 {
+		return ""
+	}
+	action := "removed"
+	if dryRun {
+		action = "would remove"
+	}
+	return fmt.Sprintf("%s: automatic agent routing %s %d managed variant entries because their agent does not match this target; set a source-local target override for the desired variant to restore it (an empty override means all targets)", name, action, len(mismatches))
 }

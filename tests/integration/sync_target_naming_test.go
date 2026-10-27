@@ -80,7 +80,7 @@ targets:
 
 	result := sb.RunCLI("sync")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "skill(s) skipped (naming validation)")
+	result.AssertAnyOutputContains(t, "skill(s) skipped (selection or naming)")
 	result.AssertAnyOutputContains(t, "skipped frontend/dev because")
 
 	if !sb.IsSymlink(filepath.Join(targetPath, "alpha")) {

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"skillshare/internal/config"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 )
 
@@ -36,6 +38,11 @@ func TestTrackedRepoStatusCountsLogicalVariants(t *testing.T) {
 	if text := sourceSkillCountText(repos[0].SkillCount, repos[0].VariantCount); text != "2 skills, 4 variants" {
 		t.Fatalf("status text = %q", text)
 	}
+	doctor := &doctorResult{}
+	output := captureStdout(t, func() { checkSource(&config.Config{Source: src}, sourcewalk.Options{}, doctor, skills, nil) })
+	if !strings.Contains(output, "2 skills, 4 variants") || !strings.Contains(doctor.checks[0].Message, "2 skills, 4 variants") {
+		t.Errorf("doctor disagrees with inventory: %s, %+v", output, doctor.checks)
+	}
 	for _, name := range []string{"XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME"} {
 		t.Setenv(name, t.TempDir())
 	}
@@ -52,6 +59,25 @@ func TestTrackedRepoStatusCountsLogicalVariants(t *testing.T) {
 		}
 		if !strings.Contains(output, "2 skills, 4 variants to 1 target") {
 			t.Fatalf("sync summary must count source inventory: %s", output)
+		}
+	}
+	for _, suffix := range []string{"fix", "review/fix"} {
+		dir := filepath.Join(src, "_repo/internal/skills/claude-code", suffix)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# Instructions"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, flag := range []string{"--json", "--no-tui"} {
+		var diffErr error
+		output := captureStdout(t, func() { diffErr = cmdDiff([]string{"-g", flag}) })
+		if diffErr != nil {
+			t.Fatal(diffErr)
+		}
+		if !strings.Contains(output, "ambiguous") || !strings.Contains(output, "target override") {
+			t.Fatalf("diff lost selection reason: %s", output)
 		}
 	}
 }

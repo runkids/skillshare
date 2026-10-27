@@ -126,6 +126,9 @@ func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptio
 	if len(res.KeptLocal) > 0 {
 		res.Warnings = append(res.Warnings, fmt.Sprintf("%s: %s", res.Name, keptLocalWarning(res.KeptLocal)))
 	}
+	if warning := variantRemovalWarning(t.Name, sc, skills, res.Pruned, opts.DryRun); warning != "" {
+		res.Warnings = append(res.Warnings, warning)
+	}
 	return res
 }
 

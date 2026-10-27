@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/config"
@@ -205,5 +206,70 @@ func TestTrackedVariantIgnoresAndPhysicalContext(t *testing.T) {
 				t.Fatalf("missing physical context for %s", sk.RelPath)
 			}
 		}
+	}
+}
+
+func TestTrackedVariantUpgradeDisclosesPrunedEntries(t *testing.T) {
+	for _, mode := range []string{"merge", "copy"} {
+		t.Run(mode, func(t *testing.T) {
+			src := t.TempDir()
+			store := install.NewMetadataStore()
+			for _, agent := range []string{"claude", "codex"} {
+				rel := "_repo/skills/" + agent + "/fix"
+				writeSkillMD(t, filepath.Join(src, rel), "# Instructions for "+agent)
+				store.SetTargetOverride(rel, nil)
+			}
+			if err := store.Save(src); err != nil {
+				t.Fatal(err)
+			}
+			// Empty overrides reproduce the unrestricted selection of pre-upgrade discovery.
+			legacy, err := DiscoverSourceSkills(src)
+			if err != nil {
+				t.Fatal(err)
+			}
+			target := SkillTarget{Name: "universal", Target: config.TargetConfig{Path: t.TempDir(), Mode: mode}, Mode: mode}
+			before := SyncSkillTarget(target, legacy, SkillRunOptions{Source: src})
+			if before.Err != nil || len(before.Linked) != 2 {
+				t.Fatalf("unrestricted sync: %+v", before)
+			}
+			store.RemoveTargetOverrides("_repo")
+			if err := store.Save(src); err != nil {
+				t.Fatal(err)
+			}
+			inferred, err := DiscoverSourceSkills(src)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, dryRun := range []bool{true, false} {
+				after := SyncSkillTarget(target, inferred, SkillRunOptions{Source: src, DryRun: dryRun})
+				warnings := strings.Join(after.Warnings, "\n")
+				if after.Err != nil || len(after.Pruned) != 2 {
+					t.Fatalf("upgrade prune: %+v", after)
+				}
+				if !strings.Contains(warnings, "automatic agent routing") || !strings.Contains(warnings, "target override") {
+					t.Fatalf("upgrade removals need routing and recovery explanation: %+v", after)
+				}
+			}
+			for _, sk := range inferred {
+				if _, err := os.Stat(filepath.Join(sk.SourcePath, "SKILL.md")); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := os.Lstat(filepath.Join(target.Target.Path, sk.FlatName)); !os.IsNotExist(err) {
+					t.Fatalf("mismatched target entry survived: %s, %v", sk.FlatName, err)
+				}
+			}
+			store.SetTargetOverride("_repo/skills/codex/fix", []string{"universal"})
+			if err := store.Save(src); err != nil {
+				t.Fatal(err)
+			}
+			restored, err := DiscoverSourceSkills(src)
+			if err != nil {
+				t.Fatal(err)
+			}
+			recovery := SyncSkillTarget(target, restored, SkillRunOptions{Source: src})
+			if recovery.Err != nil || len(recovery.Linked) != 1 || len(recovery.Pruned) != 0 {
+				t.Fatalf("override recovery: %+v", recovery)
+			}
+		})
 	}
 }

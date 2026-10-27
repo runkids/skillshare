@@ -52,6 +52,7 @@ export interface Target {
   exclude: string[];
   expectedSkillCount: number;
   skippedSkillCount?: number;
+  warnings?: string[];
   collisionCount?: number;
   agentPath?: string;
   agentMode?: string;

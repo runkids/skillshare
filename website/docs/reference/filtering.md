@@ -112,6 +112,13 @@ this routing. Use merge or copy for agent selection. Targets sharing a destinati
 directory also cannot keep different selections isolated; existing overlap
 diagnostics apply. Sparse checkout is not supported by this recognition.
 
+After upgrading, merge/copy sync removes previously managed variants whose agent
+does not match the target. The CLI and server warn when automatic agent routing
+removes those entries, including during dry-run. Set a source-local target override
+for the desired variant to restore it; an empty override restores all-target routing.
+The source files remain intact. The targets column shows effective routing, including
+inference; it does not imply that the producer declared that field.
+
 **Aliases:** Target names support aliases. `claude` matches a target configured as `claude-code`. See [Supported Targets](/docs/reference/targets/supported-targets).
 
 📖 [Skill format — targets field](/docs/understand/skill-format#targets)

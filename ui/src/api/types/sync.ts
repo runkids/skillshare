@@ -104,6 +104,7 @@ export interface FolderConflict {
 
 export interface DiffTarget {
   target: string;
+  warnings?: string[];
   items: { skill: string; action: string; reason?: string; kind?: 'skill' | 'agent' }[];
   skippedCount?: number;
   collisionCount?: number;

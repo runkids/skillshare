@@ -459,7 +459,7 @@ export default function SyncPage() {
                   <TriangleAlert size={15} className="ml-6 shrink-0 text-warn" />
                   <span className="min-w-0 flex-1">
                     <b>{t(plural('sync.skipped', d.skippedCount ?? 0), { count: d.skippedCount ?? 0, name: d.target })}</b>{' '}
-                    <span className="text-ink-2">{t(skippedHintKey(d), { name: d.target })}</span>
+                    <span className="text-ink-2">{d.warnings?.length ? d.warnings.join(' · ') : t(skippedHintKey(d), { name: d.target })}</span>
                   </span>
                   <Link to={`/targets/${encodeURIComponent(d.target)}`} className="shrink-0 font-semibold">{t('sync.skipped.open')}</Link>
                 </div>

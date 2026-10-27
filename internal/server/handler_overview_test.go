@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/config"
@@ -92,6 +93,52 @@ func TestHandleOverviewAndTargets_LogicalVariants(t *testing.T) {
 				}
 				if target["expectedSkillCount"] != want {
 					t.Fatalf("target counts: %+v", target)
+				}
+			}
+		}
+	}
+}
+
+func TestTrackedVariantAmbiguityReachesPreviews(t *testing.T) {
+	s, src := newTestServerWithTargets(t, map[string]string{"claude": t.TempDir()})
+	for _, agent := range []string{"claude", "claude-code", "codex"} {
+		addSkill(t, src, "_repo/skills/"+agent+"/fix")
+	}
+	for _, endpoint := range []string{"/api/diff", "/api/targets"} {
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, endpoint, nil))
+		if rr.Code != http.StatusOK {
+			t.Fatalf("%s: %s", endpoint, rr.Body.String())
+		}
+		if !strings.Contains(rr.Body.String(), "ambiguous") || !strings.Contains(rr.Body.String(), "target override") {
+			t.Errorf("%s lost selection reason: %s", endpoint, rr.Body.String())
+		}
+		var response struct {
+			Diffs []struct {
+				Skipped int        `json:"skippedCount"`
+				Naming  int        `json:"namingSkippedCount"`
+				Items   []diffItem `json:"items"`
+			} `json:"diffs"`
+			Targets []struct {
+				Expected int `json:"expectedSkillCount"`
+				Skipped  int `json:"skippedSkillCount"`
+			}
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
+			t.Fatal(err)
+		}
+		if endpoint == "/api/targets" {
+			if response.Targets[0].Expected != 0 || response.Targets[0].Skipped != 2 {
+				t.Errorf("preview counts = %+v", response.Targets)
+			}
+		} else {
+			preview := response.Diffs[0]
+			if preview.Skipped != 2 || preview.Naming != 0 || len(preview.Items) != 2 {
+				t.Fatalf("ambiguous preview counts: %+v", preview)
+			}
+			for _, item := range preview.Items {
+				if item.Action != "skip" {
+					t.Fatalf("ambiguous preview proposes an operation: %+v", item)
 				}
 			}
 		}

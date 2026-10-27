@@ -41,6 +41,11 @@ function renderPage(codex: Partial<Target>, universal: Partial<Target> = {}) {
 describe('Target page shared skills folder', () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it('shows selection warnings for flat naming', async () => {
+    renderPage({ expectedSkillCount: 0, skippedSkillCount: 2, warnings: ['ambiguous codex variant; use a target override'] } as Partial<Target>);
+    expect(await screen.findByText('ambiguous codex variant; use a target override')).toBeInTheDocument();
+  });
+
   it('warns under the mode picker and sets the draft to the other target\'s mode', async () => {
     const user = userEvent.setup();
     renderPage({ mode: 'copy' });

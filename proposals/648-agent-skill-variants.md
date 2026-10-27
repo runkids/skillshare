@@ -107,9 +107,10 @@ and migration separately, with compatibility tests.
 In merge/copy mode, a target with no matching agent identity, including a universal-only
 configuration, receives no agent-specific variant automatically. An explicit per-variant
 target override can select the desired copy; an empty override preserves that variant's
-old all-target behavior. The chosen activation mechanism must disclose this compatibility
-effect and override options before enabling recognition. This proposal does not choose
-new CLI/config fields; any opt-in surface remains part of the maintainer's activation decision.
+old all-target behavior. Recognition is automatic on upgrade. Sync removes old managed
+entries whose inferred agent does not match the target, reports the automatic-routing
+reason through CLI/server warnings (including dry-run), and names target overrides as
+the recovery option. Source files remain intact; no opt-in configuration is added.
 
 Per-skill routing applies to merge and copy modes. Full-directory symlink mode
 exposes the complete source tree and cannot enforce variant selection or ignores;
@@ -118,11 +119,9 @@ selective exposure is needed. Do not claim logical counts describe runtime expos
 No new content rewrite is introduced. Existing prefixed copy naming may still
 rewrite the copied `name:` field; source bytes and agent-specific instructions stay intact.
 
-### Acceptance cases for a future implementation
+### Acceptance cases
 
-Every case assumes the maintainer-approved recognition mechanism is enabled for that
-tracked source; no automatic upgrade activation is asserted, and recognition/activation
-remain maintainer decisions.
+Every case uses automatic recognition for the bounded tracked-source layout.
 
 | Case | Expected result |
 |---|---|
