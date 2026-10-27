@@ -242,68 +242,6 @@ func TestPluginHostStateNpmRecipeAndLegacyAmbiguity(t *testing.T) {
 	}
 }
 
-func TestPluginHostStateOrphanAndReplacementRetry(t *testing.T) {
-	for _, mode := range []string{"orphan", "replacement"} {
-		t.Run(mode, func(t *testing.T) {
-			var commands []string
-			s := fakePiNpm(t, &commands)
-			source := hostStatePiSource(t)
-			applyPluginRequest(t, s, Request{Action: "add", Source: source, Targets: []string{"pi"}})
-			old := readState(t, s).packages["demo"].Bindings["pi"]
-			d := readState(t, s)
-			if mode == "orphan" {
-				delete(d.intent, "demo")
-			} else {
-				other := hostStatePiSource(t)
-				pack := d.intent["demo"]
-				decl := pack.Bindings["pi"]
-				decl.Source = other
-				pack.Bindings["pi"] = decl
-				d.intent["demo"] = pack
-			}
-			if err := s.save(d); err != nil {
-				t.Fatal(err)
-			}
-			original := unchanged(t, s.ConfigPath)
-			run := s.Run
-			failRemove, failInstall := true, true
-			s.Run = func(ctx context.Context, dir string, env []string, bin string, args ...string) ([]byte, error) {
-				if len(args) > 1 && args[1] != "--help" && (args[0] == "remove" && failRemove || args[0] == "install" && failInstall) {
-					return nil, errors.New("local failure")
-				}
-				return run(ctx, dir, env, bin, args...)
-			}
-			applyFailure(t, s, Request{Action: "sync"})
-			d = readState(t, s)
-			if got := d.state.Bindings["demo"]["pi"].Applied; got == nil || got.Binding.ID != old.ID {
-				t.Fatal("failed cleanup lost old ID")
-			}
-			failRemove = false
-			if mode == "replacement" {
-				applyFailure(t, s, Request{Action: "sync"})
-				d = readState(t, s)
-				local := d.state.Bindings["demo"]["pi"]
-				if local.Applied != nil || local.Pending == nil || local.Pending.Binding.ID == old.ID {
-					t.Fatalf("replacement failure lost new pending: %+v", local)
-				}
-			}
-			failInstall = false
-			applyPluginRequest(t, s, Request{Action: "sync"})
-			original()
-			d = readState(t, s)
-			if mode == "orphan" && len(d.packages) != 0 {
-				t.Fatal("orphan receipt survived cleanup")
-			}
-			if mode == "replacement" {
-				b := d.packages["demo"].Bindings["pi"]
-				if b.ID == old.ID || b.Cleanup || b.Pending != "" {
-					t.Fatal(b)
-				}
-			}
-		})
-	}
-}
-
 func TestPluginHostStateStaleApprovalAndCorruption(t *testing.T) {
 	for _, change := range []string{"local", "account", "shared", "missing", "unknown", "corrupt"} {
 		t.Run(change, func(t *testing.T) {

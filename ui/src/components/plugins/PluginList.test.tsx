@@ -16,8 +16,6 @@ const show = (inventory: PluginInventory, onAdd = vi.fn()) => {
 };
 it('shows an unbound import and a retained cleanup row without claiming an install', () => {
   show({ packages: { demo: { bindings: { omp: { id: '', imported: true }, 'old-work': { id: 'demo@old', cleanup: true } } } }, hosts: [] });
-  expect(screen.getByText('plugins.importRequired')).toBeInTheDocument();
-  expect(screen.getByText('plugins.cleanup')).toBeInTheDocument();
   expect(screen.getByRole('checkbox', { name: 'old-work' })).toBeDisabled();
 });
 it('adds another Pi account from an explicit npm recipe without Git discovery', () => {

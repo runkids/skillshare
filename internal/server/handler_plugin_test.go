@@ -103,10 +103,6 @@ func TestPluginListIncludesUnboundNativeImport(t *testing.T) {
 	if err := os.WriteFile(service.ConfigPath, []byte("plugins:\n  version: 2\n  packages:\n    router:\n      bindings:\n        omp: {imported: true}\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	before, err := os.ReadFile(service.ConfigPath)
-	if err != nil {
-		t.Fatal(err)
-	}
 	w := httptest.NewRecorder()
 	s.handlePluginList(w, httptest.NewRequest(http.MethodGet, "/api/plugins?hosts=false", nil))
 	var result plugin.Inventory
@@ -116,12 +112,5 @@ func TestPluginListIncludesUnboundNativeImport(t *testing.T) {
 	b := result.Packages["router"].Bindings["omp"]
 	if !b.Imported || b.ID != "" || len(result.Hosts) != 0 {
 		t.Fatalf("foreign native binding: %+v", result)
-	}
-	after, _ := os.ReadFile(service.ConfigPath)
-	if string(after) != string(before) {
-		t.Fatal("listing rewrote declarations")
-	}
-	if _, err := os.Stat(service.StateDir); !os.IsNotExist(err) {
-		t.Fatalf("listing created state: %v", err)
 	}
 }

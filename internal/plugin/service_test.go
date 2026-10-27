@@ -556,11 +556,17 @@ func TestMarketplaceAlsoDeclaredAtAnotherPathIsNotRemoved(t *testing.T) {
 }
 
 func TestSyncSkipsAnImportWhoseNativeMarketplaceIsGone(t *testing.T) {
-	agents := &fakeAgents{}
+	agents := &fakeAgents{installed: map[string][]Installed{"claude": {{ID: "demo@team", Scope: "user", Installed: true}}}, markets: map[string]map[string]string{"claude": {"team": "/team"}}}
 	s := agents.service(t)
-	writePluginFile(t, filepath.Dir(s.ConfigPath), "config.yaml", "plugins:\n  packages:\n    demo:\n      source: https://example.com/demo\n      plugin: demo\n      bindings:\n        claude:\n          id: demo@team\n          pending: install\n")
+	applyPluginRequest(t, s, Request{Action: "import", From: "claude", Plugin: "demo@team"})
+	if b := readState(t, s).state.Bindings["demo"]["claude"]; b.Applied == nil || b.Applied.Binding.ID != "demo@team" || b.Legacy != nil {
+		t.Fatal("fixture lacks a locally owned imported receipt")
+	}
+	delete(agents.market("claude"), "team")
+	agents.installed["claude"] = nil
+
 	p, err := s.Preview(context.Background(), Request{Action: "sync"})
-	if err != nil || p.Blocked || len(p.Changes) != 1 || p.Changes[0].Action != "skip" || !strings.Contains(p.Changes[0].Message, "Import required on this machine") {
+	if err != nil || p.Blocked || len(p.Changes) != 1 || p.Changes[0].Action != "skip" || p.Changes[0].MessageKey != "plugins.skip.marketplaceGone" {
 		t.Fatalf("sync did not skip the import: %+v %v", p, err)
 	}
 	applyPluginRequest(t, s, Request{Action: "sync"})
@@ -813,22 +819,30 @@ func importedDemo(t *testing.T) (*Service, *fakeAgents) {
 	agents := &fakeAgents{version: "2.0.0", installed: map[string][]Installed{"claude": {{ID: "demo@team", PluginID: "demo@team", Installed: true, Enabled: true, Version: "1.0.0", Scope: "user"}}}, markets: map[string]map[string]string{"claude": {"team": "/team"}}}
 	s := agents.service(t)
 	applyPluginRequest(t, s, Request{Action: "import", From: "claude", Plugin: "demo@team"})
-	cfg, err := s.load()
-	if err != nil {
-		t.Fatal(err)
+	source := fixture(t)
+	applyPluginRequest(t, s, Request{Action: "add", Name: "demo", Source: source})
+	run := s.Run
+	s.Run = func(ctx context.Context, dir string, env []string, bin string, args ...string) ([]byte, error) {
+		if bin == "claude" && len(args) > 1 && args[0] == "plugin" && args[1] == "update" && !slices.Contains(args, "--help") {
+			return nil, fmt.Errorf("native update failed")
+		}
+		return run(ctx, dir, env, bin, args...)
 	}
+	applyFailure(t, s, Request{Action: "update", Name: "demo", Targets: []string{"claude"}})
+	s.Run = run
+	cfg := readState(t, s)
 	pack := cfg.packages["demo"]
-	pack.Source = "https://example.com/demo"
-	b := pack.Bindings["claude"]
-	b.Pending = "update"
-	pack.Bindings["claude"] = b
-	cfg.packages["demo"] = pack
-	local := cfg.state.Bindings["demo"]["codex"]
-	local.Pending = &receipt{Intent: cfg.intent["demo"].Bindings["codex"].fingerprint(), Store: s.storeIdentity("codex"), Binding: b, Action: "update"}
-	cfg.putLocal("demo", "codex", local)
-	if err := s.saveState(cfg); err != nil {
-		t.Fatal(err)
+	local := cfg.state.Bindings["demo"]["claude"]
+	if pack.Source != source || pack.Bindings["claude"].Source != "" || !pack.Bindings["claude"].Imported {
+		t.Fatal("fixture lacks source intent with an imported Claude override")
 	}
+	if local.Applied == nil || local.Pending == nil || local.Pending.Action != "update" || local.Pending.Binding.Version != "1.0.0" || local.Pending.Intent != cfg.intent["demo"].Bindings["claude"].fingerprint() {
+		t.Fatal("fixture lacks a pending owned Claude update at 1.0.0")
+	}
+	if len(cfg.state.Bindings["demo"]) != 1 {
+		t.Fatal("fixture includes a foreign target receipt")
+	}
+
 	return s, agents
 }
 
@@ -861,7 +875,7 @@ func TestBatchUpdateOfAnImportRecordsTheVersionItInstalled(t *testing.T) {
 	if _, err := updateDemo(s, map[string]Seen{"claude": {Version: "1.0.0"}}); err != nil {
 		t.Fatal(err)
 	}
-	if b := loadBinding(t, s); b.Version != "2.0.0" {
+	if b := loadBinding(t, s); b.Version != "2.0.0" || b.Pending != "" {
 		t.Fatalf("binding: %+v", b)
 	}
 }

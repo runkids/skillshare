@@ -182,41 +182,6 @@ func repairGitSourceRepo(t *testing.T, name string) (string, string, string) {
 	return url, git("rev-parse", "next"), src
 }
 
-func TestReviewTwoHostsSelectionSurvivesRepeatAdd(t *testing.T) {
-	var aCommands, bCommands []string
-	source := hostStatePiSource(t)
-	a := fakePiNpm(t, &aCommands)
-	applyPluginRequest(t, a, Request{Action: "add", Source: source, Targets: []string{"pi"}})
-	applyPluginRequest(t, a, Request{Action: "disable", Name: "demo", Targets: []string{"pi"}})
-	raw, err := os.ReadFile(a.ConfigPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	b := fakePiNpm(t, &bCommands)
-	writePluginFile(t, filepath.Dir(b.ConfigPath), filepath.Base(b.ConfigPath), string(raw))
-	p, err := b.Preview(context.Background(), Request{Action: "sync"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if p.Changes[0].Action != "noop" {
-		t.Fatalf("disabled on new host: %+v", p.Changes)
-	}
-	t.Setenv("HOME", filepath.Dir(a.ConfigPath))
-	t.Setenv("PI_CODING_AGENT_DIR", filepath.Join(filepath.Dir(a.ConfigPath), ".pi/agent"))
-	applyPluginRequest(t, a, Request{Action: "add", Source: source, Targets: []string{"pi"}})
-	d := readState(t, a)
-	if d.intent["demo"].Bindings["pi"].Sync == nil || *d.intent["demo"].Bindings["pi"].Sync {
-		t.Fatal("repeat add re-enabled a disabled target")
-	}
-	raw, _ = os.ReadFile(a.ConfigPath)
-	writePluginFile(t, filepath.Dir(b.ConfigPath), filepath.Base(b.ConfigPath), string(raw))
-	repairHost(t, b)
-	applyPluginRequest(t, b, Request{Action: "sync"})
-	if len(bCommands) != 0 {
-		t.Fatal("repeat add made another host install disabled target")
-	}
-}
-
 func TestReviewNewHostUpdateRef(t *testing.T) {
 	var commands []string
 	a := fakePiNpm(t, &commands)
@@ -246,7 +211,7 @@ func TestReviewNewHostUpdateRef(t *testing.T) {
 func TestPluginHostStateRepeatAddPreservesSelection(t *testing.T) {
 	for _, kind := range []string{"source", "npm"} {
 		for _, receipt := range []string{"present", "missing", "adopt"} {
-			if kind == "source" && (receipt == "adopt" || receipt == "present") {
+			if kind == "source" && receipt == "adopt" {
 				continue
 			}
 			t.Run(kind+"/"+receipt, func(t *testing.T) {
@@ -259,6 +224,18 @@ func TestPluginHostStateRepeatAddPreservesSelection(t *testing.T) {
 				req := Request{Action: "add", Source: source, Targets: []string{"pi"}}
 				applyPluginRequest(t, s, req)
 				applyPluginRequest(t, s, Request{Action: "disable", Name: "demo", Targets: []string{"pi"}})
+				var other *Service
+				var otherCommands []string
+				if receipt == "present" {
+					shared, _ := os.ReadFile(s.ConfigPath)
+					other = fakePiNpm(t, &otherCommands)
+					writePluginFile(t, filepath.Dir(other.ConfigPath), filepath.Base(other.ConfigPath), string(shared))
+					p, err := other.Preview(context.Background(), Request{Action: "sync"})
+					if err != nil || len(p.Changes) != 1 || p.Changes[0].Action != "noop" {
+						t.Fatalf("disabled on second host: %+v %v", p, err)
+					}
+					repairHost(t, s)
+				}
 				if receipt != "present" {
 					if err := os.Remove(s.statePath()); err != nil {
 						t.Fatal(err)
@@ -271,6 +248,15 @@ func TestPluginHostStateRepeatAddPreservesSelection(t *testing.T) {
 				applyPluginRequest(t, s, req)
 				if b := readState(t, s).intent["demo"].Bindings["pi"]; b.Sync == nil || *b.Sync {
 					t.Fatal("repeat add changed shared selection")
+				}
+				if other != nil {
+					shared, _ := os.ReadFile(s.ConfigPath)
+					writePluginFile(t, filepath.Dir(other.ConfigPath), filepath.Base(other.ConfigPath), string(shared))
+					repairHost(t, other)
+					applyPluginRequest(t, other, Request{Action: "sync"})
+					if len(otherCommands) != 0 {
+						t.Fatal("repeat add made another host install a disabled target")
+					}
 				}
 			})
 		}
@@ -363,54 +349,84 @@ func TestPluginHostStateLegacyHintKeepsOriginalOwnership(t *testing.T) {
 	}
 }
 
-func TestPluginHostStateReplacementUsesRequestedRefAndRetries(t *testing.T) {
-	var ca, cb []string
-	a := fakePiNpm(t, &ca)
-	oldSource, _ := repairGitSource(t, "old")
-	applyPluginRequest(t, a, Request{Action: "add", Source: oldSource, SourceRef: "main", Targets: []string{"pi"}})
-	raw, _ := os.ReadFile(a.ConfigPath)
-	b := fakePiNpm(t, &cb)
-	writePluginFile(t, filepath.Dir(b.ConfigPath), filepath.Base(b.ConfigPath), string(raw))
-	applyPluginRequest(t, b, Request{Action: "sync"})
-	original := readState(t, b).state.Bindings["demo"]["pi"].Applied
-	repairHost(t, a)
-	source, next := repairGitSource(t, "replacement")
-	applyPluginRequest(t, a, Request{Action: "remove", Name: "demo", Targets: []string{"pi"}})
-	applyPluginRequest(t, a, Request{Action: "add", Name: "demo", Source: source, SourceRef: "main", Targets: []string{"pi"}})
-	raw, _ = os.ReadFile(a.ConfigPath)
-	writePluginFile(t, filepath.Dir(b.ConfigPath), filepath.Base(b.ConfigPath), string(raw))
-	repairHost(t, b)
-	req := Request{Action: "update", Name: "demo", SourceRef: "next"}
-	p, err := b.Preview(context.Background(), req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(p.Changes) != 2 || p.Changes[1].Binding.Commit != next || p.Changes[1].Binding.SourceRef != "next" {
-		t.Fatalf("replacement reviewed wrong ref: %+v", p.Changes)
-	}
-	run := b.Run
-	failRemove, failInstall := true, true
-	b.Run = func(ctx context.Context, dir string, env []string, bin string, args ...string) ([]byte, error) {
-		if len(args) > 1 && args[1] != "--help" && (args[0] == "remove" && failRemove || args[0] == "install" && failInstall) {
-			return nil, errors.New("native failure")
-		}
-		return run(ctx, dir, env, bin, args...)
-	}
-	applyFailure(t, b, req)
-	if got := readState(t, b).state.Bindings["demo"]["pi"]; got.Applied == nil || got.Applied.Intent != original.Intent || got.Applied.Binding.ID != original.Binding.ID {
-		t.Fatal("failed cleanup lost original evidence")
-	}
-	failRemove = false
-	applyFailure(t, b, Request{Action: "sync"})
-	d := readState(t, b)
-	local := d.state.Bindings["demo"]["pi"]
-	if local.Applied != nil || local.Pending == nil || local.Pending.Binding.Commit != next || local.Pending.Intent != d.intent["demo"].Bindings["pi"].fingerprint() {
-		t.Fatal("failed replacement lost requested intent")
-	}
-	failInstall = false
-	applyPluginRequest(t, b, Request{Action: "sync"})
-	if got := readState(t, b).packages["demo"].Bindings["pi"]; got.Commit != next || got.SourceRef != "next" {
-		t.Fatal("retry installed wrong ref")
+func TestPluginHostStateOrphanAndReplacementRetry(t *testing.T) {
+	for _, mode := range []string{"orphan", "replacement"} {
+		t.Run(mode, func(t *testing.T) {
+			var ca, cb []string
+			a := fakePiNpm(t, &ca)
+			oldSource := hostStatePiSource(t)
+			applyPluginRequest(t, a, Request{Action: "add", Source: oldSource, Targets: []string{"pi"}})
+			raw, _ := os.ReadFile(a.ConfigPath)
+			b := fakePiNpm(t, &cb)
+			writePluginFile(t, filepath.Dir(b.ConfigPath), filepath.Base(b.ConfigPath), string(raw))
+			applyPluginRequest(t, b, Request{Action: "sync"})
+			original := readState(t, b).state.Bindings["demo"]["pi"].Applied
+			repairHost(t, a)
+			removal := Request{Action: "remove", Name: "demo"}
+			if mode == "replacement" {
+				removal.Targets = []string{"pi"}
+			}
+			applyPluginRequest(t, a, removal)
+			next := ""
+			req := Request{Action: "sync"}
+			if mode == "replacement" {
+				var source string
+				source, next = repairGitSource(t, "replacement")
+				applyPluginRequest(t, a, Request{Action: "add", Name: "demo", Source: source, SourceRef: "main", Targets: []string{"pi"}})
+				req = Request{Action: "update", Name: "demo", SourceRef: "next"}
+			}
+			raw, _ = os.ReadFile(a.ConfigPath)
+			writePluginFile(t, filepath.Dir(b.ConfigPath), filepath.Base(b.ConfigPath), string(raw))
+			repairHost(t, b)
+			p, err := b.Preview(context.Background(), req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if mode == "replacement" && (len(p.Changes) != 2 || p.Changes[1].Binding.Commit != next || p.Changes[1].Binding.SourceRef != "next") {
+				t.Fatalf("replacement reviewed wrong ref: %+v", p.Changes)
+			}
+			run := b.Run
+			failRemove, failInstall := true, true
+			b.Run = func(ctx context.Context, dir string, env []string, bin string, args ...string) ([]byte, error) {
+				if len(args) > 1 && args[1] != "--help" && (args[0] == "remove" && failRemove || args[0] == "install" && failInstall) {
+					return nil, errors.New("native failure")
+				}
+				return run(ctx, dir, env, bin, args...)
+			}
+			same := unchanged(t, b.ConfigPath)
+			applyFailure(t, b, req)
+			if mode == "orphan" {
+				same()
+			} else {
+				same = unchanged(t, b.ConfigPath)
+			} // Explicit ref update changes intent once; retries never do.
+			if got := readState(t, b).state.Bindings["demo"]["pi"]; got.Applied == nil || got.Applied.Intent != original.Intent || got.Applied.Binding.ID != original.Binding.ID {
+				t.Fatal("failed cleanup lost original evidence")
+			}
+			failRemove = false
+			if mode == "replacement" {
+				applyFailure(t, b, Request{Action: "sync"})
+				d := readState(t, b)
+				local := d.state.Bindings["demo"]["pi"]
+				if local.Applied != nil || local.Pending == nil || local.Pending.Binding.ID == original.Binding.ID || local.Pending.Binding.Commit != next || local.Pending.Intent != d.intent["demo"].Bindings["pi"].fingerprint() {
+					t.Fatal("failed replacement lost requested intent")
+				}
+				same()
+			}
+			failInstall = false
+			applyPluginRequest(t, b, Request{Action: "sync"})
+			same()
+			d := readState(t, b)
+			if mode == "orphan" && len(d.packages) != 0 {
+				t.Fatal("orphan receipt survived cleanup")
+			}
+			if mode == "replacement" {
+				got := d.packages["demo"].Bindings["pi"]
+				if got.ID == original.Binding.ID || got.Cleanup || got.Pending != "" || got.Commit != next || got.SourceRef != "next" {
+					t.Fatalf("retry installed wrong ref or retained stale state: %+v", got)
+				}
+			}
+		})
 	}
 }
 
