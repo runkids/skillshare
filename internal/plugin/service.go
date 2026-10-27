@@ -160,146 +160,14 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 	mayOwnMarket := func(target string, b Binding) bool {
 		return ownMarket(target, b) || marketplaceAgent(s.agentOf(target)) && b.Source != "" && host(target).Marketplaces == nil
 	}
-	appendChange := func(c Change) {
-		if (r.Action == "add" || r.Action == "import") && d.packages[c.Name].Bindings[c.Target].ContextChanged {
-			c.Action, c.Message = "blocked", "Native account or scope changed; restore the previous account settings to resolve its local receipt before rebinding."
-			p.Blocked = true
-			p.Changes = append(p.Changes, c)
-			return
-		}
-		h := host(c.Target)
-		agent := s.agentOf(c.Target)
-		failChange := func(message, key string, args map[string]string) {
-			if r.All {
-				c.Action, c.batchError = "skip", true
-			} else {
-				c.Action = "blocked"
-			}
-			c.Message, c.MessageKey, c.MessageArgs = message, key, args
-		}
-		if agent == "pi" && c.Binding.PiRegistration != "" && len(c.piRecord) == 0 && (c.Action == "install" || c.Action == "uninstall" || c.Action == "remove" || c.Action == "update") {
-			if err := s.preparePiRegistration(ctx, &c); err != nil {
-				failChange(err.Error(), "", nil)
-			}
-		}
-		// A change already blocked or skipped keeps its own reason; the key always matches the message.
-		if h.Error != "" && c.Action != "blocked" && c.Action != "skip" {
-			failChange(h.Error, h.ErrorKey, h.ErrorArgs)
-		}
-		if c.Action != "blocked" && c.Action != "noop" && c.Action != "forget" && c.Action != "skip" && c.Action != "import" && c.Action != "update-available" && c.Action != "native-check" {
-			if err := s.verifyCommand(ctx, c.Target, c.Action, c.ID); err != nil {
-				failChange(err.Error(), "", nil)
-			}
-		}
-		// An update that cannot reach a target skips it, so the plugin's other Agents still update.
-		skip := func(key, message string, args map[string]string) {
-			c.Action = "skip"
-			c.Message, c.MessageKey, c.MessageArgs = message, key, args
-		}
-		// An import reinstalls and updates from its native marketplace. Once that is gone, only the
-		// native client, or adding the plugin again from a reviewed source, can bring it back.
-		if c.Binding.Source == "" && marketplaceAgent(agent) && (c.Action == "install" || c.Action == "update") && h.Marketplaces != nil {
-			_, market, _ := strings.Cut(c.ID, "@")
-			if _, ok := h.Marketplaces[market]; !ok {
-				skip("plugins.skip.marketplaceGone", fmt.Sprintf("The native marketplace %s is gone. Restore it in the native client, or remove this Agent and add the plugin again from its source.", market), map[string]string{"market": market})
-			}
-		}
-		// Claude reads a skill folder that has a plugin manifest as <name>@skills-dir, and loads
-		// only one plugin per name.
-		if c.Action == "install" && agent == "claude" && c.Message == "" {
-			name, _, _ := strings.Cut(c.ID, "@")
-			for _, item := range h.Installed {
-				if item.ID == name+"@skills-dir" {
-					c.Message = fmt.Sprintf("Claude's skills folder also has a %s plugin; Claude will load this plugin and skip that copy until one of them is renamed or removed.", name)
-					c.MessageKey, c.MessageArgs = "plugins.note.skillsDirClash", map[string]string{"name": name}
-				}
-			}
-		}
-		// omp copies a marketplace plugin without running it, but imports its extension modules
-		// and tools in-process at its next start; there is no native trust prompt to lean on.
-		if agent == "omp" && (c.Action == "install" || c.Action == "update") && c.Message == "" {
-			c.Message, c.MessageKey = "Installs the reviewed snapshot. If the plugin provides extensions or tools, OMP loads them at its next startup.", "plugins.note.ompRuntime"
-		}
-		// pi update keeps an npm package pinned to an exact version.
-		if version := pinnedNpm(c.ID); c.Action == "update" && agent == "pi" && version != "" {
-			skip("plugins.skip.npmPinned", fmt.Sprintf("Pinned to %s; to use another version, add the package again with that version.", version), map[string]string{"version": version})
-		}
-		// pi update has no project scope, and OpenCode v1 has no update command. omp's upgrade
-		// would reinstall whatever the native marketplace holds, which Skillshare never reviewed.
-		if c.Action == "update" && c.Binding.Source == "" && (s.ProjectRoot != "" && agent == "pi" || agent == "omp") || c.Action == "update" && c.Binding.Source == "" && agent == "opencode" && (s.ProjectRoot != "" || !openCode2(h.Version)) {
-			skip("plugins.skip.imported", "Update imported packages in the native client; Skillshare updates reviewed source snapshots only.", nil)
-		}
-		if c.Action == "update" && agent == "opencode" && c.Binding.Source == "" {
-			help, err := s.run(ctx, c.Target, "plugin", "update", "--help")
-			if err != nil || !strings.Contains(string(help), "update") {
-				skip("plugins.skip.opencodeNoUpdate", "Installed OpenCode does not expose a verified plugin update command.", nil)
-			}
-		}
-		if c.Binding.Source == "" && commandTarget(agent) && c.Action == "install" {
-			c.Action = "blocked"
-			c.Message = "This imported plugin has no reviewed reinstall source; install or update in the native client."
-		}
-		if c.Binding.Source == "" && commandTarget(agent) && c.Action == "update" {
-			skip("plugins.skip.imported", "This imported plugin has no reviewed reinstall source; update it in the native client.", nil)
-		}
-		if (c.Action == "update" || r.Action == "update" && c.Action == "install") && (agent == "copilot" || agent == "antigravity-cli") {
-			label := "GitHub Copilot CLI"
-			msg := "Update in Copilot to preserve native enablement."
-			if agent == "antigravity-cli" {
-				label = "Antigravity CLI"
-				msg = "Update in Antigravity CLI to preserve native enablement."
-			}
-			enabled := false
-			for _, item := range h.Installed {
-				if item.ID == c.ID && item.EnabledKnown && item.Enabled {
-					enabled = true
-					break
-				}
-			}
-			if !enabled {
-				skip("plugins.skip.keepEnablement", msg, map[string]string{"agent": label})
-			}
-		}
-		if c.Action == "update" && agent == "codex" && c.Binding.Source == "" {
-			// An imported plugin comes from a Codex marketplace, which Codex upgrades together
-			// with every plugin installed from it, as it also does when it starts.
-			_, market, _ := strings.Cut(c.ID, "@")
-			help, err := s.run(ctx, c.Target, "plugin", "marketplace", "--help")
-			if err != nil || !strings.Contains(string(help), "upgrade") {
-				skip("plugins.skip.codexNoUpgrade", "Installed Codex cannot upgrade marketplaces; update the plugin in Codex.", nil)
-			} else {
-				c.Message = fmt.Sprintf("Upgrades the Codex marketplace %s, which reinstalls every plugin installed from it.", market)
-				c.MessageKey, c.MessageArgs = "plugins.note.codexUpgrade", map[string]string{"market": market}
-			}
-		}
-		if c.Action == "update" && agent == "codex" && c.Binding.Source != "" {
-			for _, item := range h.Installed {
-				// Codex's add, which updates the plugin, always enables it.
-				if item.ID == c.ID && !item.Enabled {
-					skip("plugins.skip.codexDisabled", "Enable the plugin in Codex before updating it; updating would turn it back on.", nil)
-				}
-			}
-		}
-		// Skips above are not native commands; what is left for omp must not destroy a shared cache.
-		if agent == "omp" && h.Error == "" {
-			ompGuard(h, &c)
-			if r.All && c.Action == "blocked" && c.MessageKey == "plugins.error.ompNativeDestructive" && len(r.Targets) == 0 {
-				c.Action = "skip"
-			}
-			if c.Action == "install" {
-				s.prepareOMPInstall(ctx, h, &c)
-			}
-			if c.Action == "remove" || c.Action == "uninstall" || c.Action == "forget" {
-				s.prepareOMPRemoval(h, &c)
-			}
-		}
-		if r.All && c.Action == "blocked" {
-			c.Action, c.batchError = "skip", true
-		}
+	appendPrepared := func(c Change) {
 		if c.Action == "blocked" {
 			p.Blocked = true
 		}
 		p.Changes = append(p.Changes, c)
+	}
+	appendChange := func(c Change) {
+		appendPrepared(s.prepareChange(ctx, r, d, host, c))
 	}
 	find := func(target, id string) (Installed, bool) {
 		for _, i := range host(target).Installed {
@@ -561,8 +429,14 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 					if err != nil {
 						return nil, err
 					}
-					for _, c := range changes {
-						appendChange(c)
+					if len(changes) == 2 {
+						replacement := s.prepareChange(ctx, r, d, host, changes[1])
+						if replacement.Action != "blocked" && replacement.Action != "skip" {
+							appendChange(changes[0])
+						}
+						appendPrepared(replacement)
+					} else {
+						appendChange(changes[0])
 					}
 					continue
 				}
@@ -799,6 +673,143 @@ func existingNativeSourceChange(c Change, installed []Installed, agent, market, 
 			c.Message = "Already installed natively; adopt without reinstalling."
 			return c
 		}
+	}
+	return c
+}
+
+func (s *Service) prepareChange(ctx context.Context, r Request, d *document, host func(string) Host, c Change) Change {
+	if (r.Action == "add" || r.Action == "import") && d.packages[c.Name].Bindings[c.Target].ContextChanged {
+		c.Action, c.Message = "blocked", "Native account or scope changed; restore the previous account settings to resolve its local receipt before rebinding."
+		return c
+	}
+	h := host(c.Target)
+	agent := s.agentOf(c.Target)
+	failChange := func(message, key string, args map[string]string) {
+		if r.All {
+			c.Action, c.batchError = "skip", true
+		} else {
+			c.Action = "blocked"
+		}
+		c.Message, c.MessageKey, c.MessageArgs = message, key, args
+	}
+	if agent == "pi" && c.Binding.PiRegistration != "" && len(c.piRecord) == 0 && (c.Action == "install" || c.Action == "uninstall" || c.Action == "remove" || c.Action == "update") {
+		if err := s.preparePiRegistration(ctx, &c); err != nil {
+			failChange(err.Error(), "", nil)
+		}
+	}
+	// A change already blocked or skipped keeps its own reason; the key always matches the message.
+	if h.Error != "" && c.Action != "blocked" && c.Action != "skip" {
+		failChange(h.Error, h.ErrorKey, h.ErrorArgs)
+	}
+	if c.Action != "blocked" && c.Action != "noop" && c.Action != "forget" && c.Action != "skip" && c.Action != "import" && c.Action != "update-available" && c.Action != "native-check" {
+		if err := s.verifyCommand(ctx, c.Target, c.Action, c.ID); err != nil {
+			failChange(err.Error(), "", nil)
+		}
+	}
+	// An update that cannot reach a target skips it, so the plugin's other Agents still update.
+	skip := func(key, message string, args map[string]string) {
+		c.Action = "skip"
+		c.Message, c.MessageKey, c.MessageArgs = message, key, args
+	}
+	// An import reinstalls and updates from its native marketplace. Once that is gone, only the
+	// native client, or adding the plugin again from a reviewed source, can bring it back.
+	if c.Binding.Source == "" && marketplaceAgent(agent) && (c.Action == "install" || c.Action == "update") && h.Marketplaces != nil {
+		_, market, _ := strings.Cut(c.ID, "@")
+		if _, ok := h.Marketplaces[market]; !ok {
+			skip("plugins.skip.marketplaceGone", fmt.Sprintf("The native marketplace %s is gone. Restore it in the native client, or remove this Agent and add the plugin again from its source.", market), map[string]string{"market": market})
+		}
+	}
+	// Claude reads a skill folder that has a plugin manifest as <name>@skills-dir, and loads
+	// only one plugin per name.
+	if c.Action == "install" && agent == "claude" && c.Message == "" {
+		name, _, _ := strings.Cut(c.ID, "@")
+		for _, item := range h.Installed {
+			if item.ID == name+"@skills-dir" {
+				c.Message = fmt.Sprintf("Claude's skills folder also has a %s plugin; Claude will load this plugin and skip that copy until one of them is renamed or removed.", name)
+				c.MessageKey, c.MessageArgs = "plugins.note.skillsDirClash", map[string]string{"name": name}
+			}
+		}
+	}
+	// omp copies a marketplace plugin without running it, but imports its extension modules
+	// and tools in-process at its next start; there is no native trust prompt to lean on.
+	if agent == "omp" && (c.Action == "install" || c.Action == "update") && c.Message == "" {
+		c.Message, c.MessageKey = "Installs the reviewed snapshot. If the plugin provides extensions or tools, OMP loads them at its next startup.", "plugins.note.ompRuntime"
+	}
+	// pi update keeps an npm package pinned to an exact version.
+	if version := pinnedNpm(c.ID); c.Action == "update" && agent == "pi" && version != "" {
+		skip("plugins.skip.npmPinned", fmt.Sprintf("Pinned to %s; to use another version, add the package again with that version.", version), map[string]string{"version": version})
+	}
+	// pi update has no project scope, and OpenCode v1 has no update command. omp's upgrade
+	// would reinstall whatever the native marketplace holds, which Skillshare never reviewed.
+	if c.Action == "update" && c.Binding.Source == "" && (s.ProjectRoot != "" && agent == "pi" || agent == "omp") || c.Action == "update" && c.Binding.Source == "" && agent == "opencode" && (s.ProjectRoot != "" || !openCode2(h.Version)) {
+		skip("plugins.skip.imported", "Update imported packages in the native client; Skillshare updates reviewed source snapshots only.", nil)
+	}
+	if c.Action == "update" && agent == "opencode" && c.Binding.Source == "" {
+		help, err := s.run(ctx, c.Target, "plugin", "update", "--help")
+		if err != nil || !strings.Contains(string(help), "update") {
+			skip("plugins.skip.opencodeNoUpdate", "Installed OpenCode does not expose a verified plugin update command.", nil)
+		}
+	}
+	if c.Binding.Source == "" && commandTarget(agent) && c.Action == "install" {
+		c.Action = "blocked"
+		c.Message = "This imported plugin has no reviewed reinstall source; install or update in the native client."
+	}
+	if c.Binding.Source == "" && commandTarget(agent) && c.Action == "update" {
+		skip("plugins.skip.imported", "This imported plugin has no reviewed reinstall source; update it in the native client.", nil)
+	}
+	if (c.Action == "update" || r.Action == "update" && c.Action == "install") && (agent == "copilot" || agent == "antigravity-cli") {
+		label := "GitHub Copilot CLI"
+		msg := "Update in Copilot to preserve native enablement."
+		if agent == "antigravity-cli" {
+			label = "Antigravity CLI"
+			msg = "Update in Antigravity CLI to preserve native enablement."
+		}
+		enabled := false
+		for _, item := range h.Installed {
+			if item.ID == c.ID && item.EnabledKnown && item.Enabled {
+				enabled = true
+				break
+			}
+		}
+		if !enabled {
+			skip("plugins.skip.keepEnablement", msg, map[string]string{"agent": label})
+		}
+	}
+	if c.Action == "update" && agent == "codex" && c.Binding.Source == "" {
+		// An imported plugin comes from a Codex marketplace, which Codex upgrades together
+		// with every plugin installed from it, as it also does when it starts.
+		_, market, _ := strings.Cut(c.ID, "@")
+		help, err := s.run(ctx, c.Target, "plugin", "marketplace", "--help")
+		if err != nil || !strings.Contains(string(help), "upgrade") {
+			skip("plugins.skip.codexNoUpgrade", "Installed Codex cannot upgrade marketplaces; update the plugin in Codex.", nil)
+		} else {
+			c.Message = fmt.Sprintf("Upgrades the Codex marketplace %s, which reinstalls every plugin installed from it.", market)
+			c.MessageKey, c.MessageArgs = "plugins.note.codexUpgrade", map[string]string{"market": market}
+		}
+	}
+	if c.Action == "update" && agent == "codex" && c.Binding.Source != "" {
+		for _, item := range h.Installed {
+			// Codex's add, which updates the plugin, always enables it.
+			if item.ID == c.ID && !item.Enabled {
+				skip("plugins.skip.codexDisabled", "Enable the plugin in Codex before updating it; updating would turn it back on.", nil)
+			}
+		}
+	}
+	// Skips above are not native commands; what is left for omp must not destroy a shared cache.
+	if agent == "omp" && h.Error == "" {
+		ompGuard(h, &c)
+		if r.All && c.Action == "blocked" && c.MessageKey == "plugins.error.ompNativeDestructive" && len(r.Targets) == 0 {
+			c.Action = "skip"
+		}
+		if c.Action == "install" {
+			s.prepareOMPInstall(ctx, h, &c)
+		}
+		if c.Action == "remove" || c.Action == "uninstall" || c.Action == "forget" {
+			s.prepareOMPRemoval(h, &c)
+		}
+	}
+	if r.All && c.Action == "blocked" {
+		c.Action, c.batchError = "skip", true
 	}
 	return c
 }

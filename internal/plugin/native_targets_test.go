@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -246,5 +247,74 @@ func TestAntigravityCLIUpdateRespectsEnablement(t *testing.T) {
 	applyPluginRequest(t, s, Request{Action: "update", Name: "demo"})
 	if installs != before+1 {
 		t.Fatalf("expected agy plugin install on enabled update, installs=%d (before=%d)", installs, before)
+	}
+}
+
+func TestNativeReplacementPreservesDisabledInstallation(t *testing.T) {
+	for _, target := range []string{"copilot", "antigravity-cli"} {
+		for _, all := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/all=%v", target, all), func(t *testing.T) {
+				newHost := func() (*Service, *bool, *bool) {
+					home := t.TempDir()
+					t.Setenv("HOME", home)
+					installed, enabled := false, true
+					s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+					s.Run = func(_ context.Context, _ string, _ []string, _ string, args ...string) ([]byte, error) {
+						command := strings.Join(args, " ")
+						if command == "--version" {
+							return []byte("1.0.0"), nil
+						}
+						if strings.Contains(command, "--help") {
+							return []byte("install uninstall list --json"), nil
+						}
+						if command == "plugin list --json" {
+							rows := []map[string]any{}
+							if installed {
+								rows = append(rows, map[string]any{"name": "demo", "enabled": enabled, "version": "1.0.0"})
+							}
+							return json.Marshal(rows)
+						}
+						if len(args) > 1 && args[1] == "install" {
+							installed = true
+							return nil, nil
+						}
+						if len(args) > 1 && args[1] == "uninstall" {
+							installed = false
+							return nil, nil
+						}
+						return nil, fmt.Errorf("unexpected native command: %s", command)
+					}
+					return s, &installed, &enabled
+				}
+				b, installed, enabled := newHost()
+				oldSource := fixture(t)
+				applyPluginRequest(t, b, Request{Action: "add", Source: oldSource, Targets: []string{target}})
+				*enabled = false // The user disables the existing plugin in its native client.
+				a, _, _ := newHost()
+				applyPluginRequest(t, a, Request{Action: "add", Source: fixture(t), Targets: []string{target}})
+				shared, _ := os.ReadFile(a.ConfigPath)
+				writePluginFile(t, filepath.Dir(b.ConfigPath), filepath.Base(b.ConfigPath), string(shared))
+				t.Setenv("HOME", filepath.Dir(b.ConfigPath))
+				if old := readState(t, b).packages["demo"].Bindings[target]; !old.Cleanup || old.ContextChanged || old.Source != oldSource {
+					t.Fatalf("producer did not leave an owned source replacement: %+v", old)
+				}
+				request := Request{Action: "update", Name: "demo"}
+				if all {
+					request.Name, request.All = "", true
+				}
+				plan, err := b.Preview(context.Background(), request)
+				if err != nil || plan.Blocked {
+					t.Fatalf("replacement preview: %+v %v", plan, err)
+				}
+				same := unchanged(t, b.ConfigPath, b.statePath())
+				if _, err := b.Apply(context.Background(), request, plan.Revision); err != nil {
+					t.Fatal(err)
+				}
+				if !*installed || *enabled {
+					t.Fatalf("skipped replacement removed or enabled the old plugin: %+v", plan.Changes)
+				}
+				same()
+			})
+		}
 	}
 }
