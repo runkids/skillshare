@@ -429,7 +429,7 @@ func cmdSync(args []string) error {
 
 	if !jsonOutput {
 		// Phase 3: Summary
-		printSyncDone(len(discoveredSkills), len(cfg.Targets), failedTargets, dryRun, time.Since(start))
+		printSyncDone(sync.CountSkills(discoveredSkills), len(cfg.Targets), failedTargets, dryRun, time.Since(start))
 
 		// Show ignored skills from .skillignore
 		printIgnoredSkills(ignoreStats)
@@ -680,18 +680,19 @@ func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iS
 	return writeJSONResult(&output, syncErr)
 }
 
-// printSyncDone closes a skills sync: how many skills reached how many
-// targets, or which part failed.
-func printSyncDone(skills, targets, failed int, dryRun bool, took time.Duration) {
+// printSyncDone closes a skills sync with source inventory and target counts,
+// or which part failed. Per-target rows retain physical operation counts.
+func printSyncDone(counts sync.SkillCounts, targets, failed int, dryRun bool, took time.Duration) {
 	fmt.Println()
+	skills := sourceSkillCountText(counts.Skills, counts.Variants)
 	switch {
 	case failed > 0:
 		ui.Done(ui.MarkFail, fmt.Sprintf("%d of %s failed", failed, plural(targets, "target")), took)
 	case dryRun:
-		ui.Done(ui.MarkOK, fmt.Sprintf("Would sync %s to %s", plural(skills, "skill"), plural(targets, "target")), took)
+		ui.Done(ui.MarkOK, fmt.Sprintf("Would sync %s to %s", skills, plural(targets, "target")), took)
 		ui.DryRun()
 	default:
-		ui.Done(ui.MarkOK, fmt.Sprintf("Synced %s to %s", plural(skills, "skill"), plural(targets, "target")), took)
+		ui.Done(ui.MarkOK, fmt.Sprintf("Synced %s to %s", skills, plural(targets, "target")), took)
 	}
 }
 

@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/sync"
@@ -34,5 +35,23 @@ func TestTrackedRepoStatusCountsLogicalVariants(t *testing.T) {
 	}
 	if text := sourceSkillCountText(repos[0].SkillCount, repos[0].VariantCount); text != "2 skills, 4 variants" {
 		t.Fatalf("status text = %q", text)
+	}
+	for _, name := range []string{"XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME"} {
+		t.Setenv(name, t.TempDir())
+	}
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	t.Setenv("SKILLSHARE_CONFIG", configPath)
+	if err := os.WriteFile(configPath, []byte("source: "+src+"\nmode: merge\ntargets:\n  claude:\n    path: "+filepath.Join(t.TempDir(), "skills")+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"-g", "--dry-run"}, {"-g"}} {
+		var syncErr error
+		output := stripANSIWarnings(captureStdout(t, func() { syncErr = cmdSync(args) }))
+		if syncErr != nil {
+			t.Fatal(syncErr)
+		}
+		if !strings.Contains(output, "2 skills, 4 variants to 1 target") {
+			t.Fatalf("sync summary must count source inventory: %s", output)
+		}
 	}
 }
