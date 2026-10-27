@@ -838,11 +838,14 @@ type agentInfo struct {
 
 // detectNewAgents finds agents not already in the config
 func detectNewAgents(existingCfg *config.Config) []agentInfo {
-	defaultTargets := config.DefaultTargets()
+	defaultTargets := existingCfg.DefaultTargets()
 	var newAgents []agentInfo
 	universalAlias := false
 
 	for name, target := range defaultTargets {
+		if !hasTargetInstall(name) {
+			continue
+		}
 		if isSharedUniversalSkillsAlias(name, target, defaultTargets) {
 			// Detected through its install dir instead; counts for universal.
 			if dir := config.DetectDir(name); dir != "" {
@@ -931,7 +934,7 @@ func promptAgentSelection(newAgents []agentInfo) ([]string, error) {
 
 // saveAddedAgents adds agents to config and saves
 func saveAddedAgents(cfg *config.Config, names []string, asked, dryRun bool, mode string) error {
-	defaultTargets := config.DefaultTargets()
+	defaultTargets := cfg.DefaultTargets()
 
 	for _, name := range names {
 		if target, ok := defaultTargets[name]; ok {
@@ -1008,7 +1011,7 @@ func reinitWithDiscover(existingCfg *config.Config, selectArg string, dryRun boo
 
 // addSelectedAgentsByName adds agents specified by --select flag (non-interactive)
 func addSelectedAgentsByName(existingCfg *config.Config, newAgents []agentInfo, selectArg string, dryRun bool, mode string) error {
-	defaultTargets := config.DefaultTargets()
+	defaultTargets := existingCfg.DefaultTargets()
 
 	// Build a map of available new agents for quick lookup
 	availableAgents := make(map[string]bool)

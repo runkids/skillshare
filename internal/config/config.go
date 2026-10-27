@@ -825,7 +825,7 @@ func decodeConfig(path string, data []byte, persist bool) (*Config, error) {
 	cfg.Sources.Skills = expandPath(cfg.Sources.Skills)
 	cfg.Sources.Agents = expandPath(cfg.Sources.Agents)
 	cfg.Sources.Extras = expandPath(cfg.Sources.Extras)
-	defaults := DefaultTargets()
+	defaults := cfg.DefaultTargets()
 	for name, target := range cfg.Targets {
 		target.defaultTargetNaming = cfg.TargetNaming
 		if target.Skills != nil {

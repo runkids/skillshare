@@ -9,7 +9,7 @@ import (
 
 // globalSpec finds a built-in target by name or alias.
 func globalSpec(name string) (targetSpec, bool) {
-	specs, _ := loadTargetSpecs()
+	specs, _ := loadTargetTemplates()
 	for _, spec := range specs {
 		if spec.Name != "" && targetSpecMatchesName(spec, name) {
 			return spec, true

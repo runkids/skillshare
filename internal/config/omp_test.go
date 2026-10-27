@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -16,9 +17,11 @@ func TestOMPGlobalSkillsPaths(t *testing.T) {
 	for _, tc := range []struct{ dir, want string }{
 		{first, filepath.Join(first, "skills")},
 		{second, filepath.Join(second, "skills")},
-		{"relative/agent", filepath.Join(cwd, "relative", "agent", "skills")},
-		{"~/literal-agent", filepath.Join(cwd, "~", "literal-agent", "skills")},
-		{" agent", filepath.Join(cwd, " agent", "skills")},
+		{"relative/agent", normalizeTargetPath("~/.omp/agent/skills")},
+		{"~/literal-agent", normalizeTargetPath("~/.omp/agent/skills")},
+		{" agent", normalizeTargetPath("~/.omp/agent/skills")},
+		{" \t" + first + " \n", filepath.Join(first, "skills")},
+		{" \t ", normalizeTargetPath("~/.omp/agent/skills")},
 		{"", normalizeTargetPath("~/.omp/agent/skills")},
 	} {
 		dir, want := tc.dir, tc.want
@@ -96,13 +99,21 @@ func TestOMPAccountSkillsPathsWithOverride(t *testing.T) {
 			t.Run(agent+"/"+filepath.Base(override), func(t *testing.T) {
 				t.Setenv("PI_CODING_AGENT_DIR", override)
 				for _, explicit := range []bool{false, true} {
-					body := fmt.Sprintf("  omp-work:\n    agent: %s\n    config_dir: %q\n", agent, accountDir)
+					body := fmt.Sprintf("  omp: {}\n  omp-work:\n    agent: %s\n    config_dir: %q\n", agent, accountDir)
 					if explicit {
 						body += "    skills:\n      path: $ROOT/pinned-account\n"
 					}
 					cfg, root, err := loadWithTargets(t, body)
 					if err != nil {
 						t.Fatal(err)
+					}
+					plain := normalizeTargetPath("~/.omp/agent/skills")
+					if override != "" && override != accountDir {
+						plain = filepath.Join(override, "skills")
+					}
+					plainTarget := cfg.Targets["omp"]
+					if got := plainTarget.SkillsConfig().Path; got != plain {
+						t.Fatalf("default skills = %q; want %q", got, plain)
 					}
 					target := cfg.Targets["omp-work"]
 					want := filepath.Join(accountDir, "skills")
@@ -131,5 +142,41 @@ func TestOMPAccountSkillsPathsWithOverride(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// Account identity follows symlinks, just as MCP and hooks do.
+func TestOMPAccountShellSymlink(t *testing.T) {
+	account := t.TempDir()
+	link := filepath.Join(t.TempDir(), "account")
+	if err := os.Symlink(account, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	t.Setenv("PI_CODING_AGENT_DIR", link)
+	cfg, _, err := loadWithTargets(t, fmt.Sprintf("  omp: {}\n  omp-work:\n    agent: omp\n    config_dir: %q\n    skills:\n      include: [work]\n", account))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := normalizeTargetPath("~/.omp/agent/skills")
+	plainTarget := cfg.Targets["omp"]
+	if got := plainTarget.SkillsConfig().Path; got != want {
+		t.Fatalf("default skills = %q; want %q", got, want)
+	}
+	if err := cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+	next := t.TempDir()
+	t.Setenv("PI_CODING_AGENT_DIR", next)
+	cfg, err = Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	plainTarget = cfg.Targets["omp"]
+	if got := plainTarget.SkillsConfig().Path; got != filepath.Join(next, "skills") {
+		t.Fatalf("reloaded default skills = %q", got)
+	}
+	accountTarget := cfg.Targets["omp-work"]
+	if got := accountTarget.SkillsConfig(); got.Path != filepath.Join(account, "skills") || !reflect.DeepEqual(got.Include, []string{"work"}) {
+		t.Fatalf("reloaded account = %+v", got)
 	}
 }

@@ -201,8 +201,12 @@ This is the same path used by the [npx skills CLI](https://github.com/vercel-lab
 Use `omp` for native skills, [MCP configuration](../commands/mcp.md#omp) and
 [code hooks](../commands/hooks.md#omp).
 Skills default to `~/.omp/agent/skills` globally or `.omp/skills` in a project.
-Only a global OMP config entry with its skills path omitted follows nonempty
-`PI_CODING_AGENT_DIR`; relative values resolve against the working directory.
+Only a global OMP config entry with its skills path omitted follows
+`PI_CODING_AGENT_DIR`. Surrounding whitespace is trimmed; empty or relative values
+use the canonical default. If the override matches a declared OMP account's
+`config_dir` (including a symlink), plain `omp` keeps `~/.omp/agent/skills`, so the
+account's filters stay independent. Automatic detection requires `~/.omp` to exist,
+because Pi shares the same environment variable.
 `init` and `target add` save the chosen destination, and saved paths remain pinned.
 Explicit skills paths and account `config_dir` take precedence. OMP scans
 one level of `<skill>/SKILL.md` and requires a description; Skillshare's default

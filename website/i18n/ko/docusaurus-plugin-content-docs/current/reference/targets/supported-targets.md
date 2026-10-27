@@ -200,8 +200,11 @@ skillshare는 공유 Universal target을 포함해 **79개의 내장 target**을
 
 네이티브 skills, [MCP 구성](../commands/mcp.md#omp), [code hooks](../commands/hooks.md#omp)에는 `omp`를 사용하세요.
 Skill의 기본 경로는 global에서는 `~/.omp/agent/skills`, project에서는 `.omp/skills`입니다.
-Skill 경로를 생략한 global OMP 설정만 비어 있지 않은 `PI_CODING_AGENT_DIR`을 따르며,
-상대 값은 작업 디렉터리를 기준으로 해석합니다. `init`과 `target add`는 선택한 경로를
+Skill 경로를 생략한 global OMP 설정만 `PI_CODING_AGENT_DIR`을 따릅니다.
+앞뒤 공백을 제거하며, 빈 값이나 상대 경로는 표준 기본 경로를 사용합니다. 선언된 OMP 계정의
+`config_dir`과 일치하면(심볼릭 링크 포함) 일반 `omp`는 `~/.omp/agent/skills`를 유지하여
+계정 필터가 독립적으로 적용됩니다. Pi도 같은 변수를 사용하므로 OMP 자동 감지에는 `~/.omp`가 필요합니다.
+`init`과 `target add`는 선택한 경로를
 저장하며, 저장된 경로는 고정됩니다. 명시적 skill 경로와 계정의
 `config_dir`이 우선합니다. OMP는
 `<skill>/SKILL.md`를 한 수준만 스캔하며 description을 요구합니다. Skillshare의 기본
