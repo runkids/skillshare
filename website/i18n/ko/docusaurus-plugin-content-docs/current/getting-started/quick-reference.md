@@ -81,7 +81,7 @@ skillshare 명령 치트시트입니다.
 | `plugin import [plugin@market] --from claude` | 기존 네이티브 설치를 인계받기 |
 | `plugin inspect <name>` | 관리 중인 패키지 검사 |
 | `plugin check [name]` | 적용하지 않고 Source 변경 사항 확인 |
-| `plugin update [name] --target claude` | 검토한 Source로 지원 Target 업데이트 |
+| `plugin update [name \| --all] --target claude` | 검토한 Source로 지원 Target 업데이트 |
 | `plugin enable [name] --target codex` | 다음 Sync에 포함할 Target 선택 |
 | `plugin disable [name] --target codex` | 다음 Sync에서 Target 선택 해제 |
 | `plugin remove [name]` | 관리 중인 바인딩을 제거하고 정의 삭제 |

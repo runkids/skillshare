@@ -39,6 +39,8 @@ func parsePluginOptions(args []string) (pluginOptions, error) {
 			o.dryRun = true
 		case "--no-tui":
 			o.noTUI = true
+		case "--all", "-a":
+			o.request.All = true
 		case "--target", "--from", "--plugin", "--name", "--revision", "--source-ref", "--entry":
 			if i+1 == len(args) {
 				return o, fmt.Errorf("%s requires a value", a)
@@ -85,6 +87,17 @@ func parsePluginOptions(args []string) (pluginOptions, error) {
 		}
 	default:
 		return o, fmt.Errorf("unknown plugin command %q; run skillshare plugin --help", o.request.Action)
+	}
+	if o.request.All {
+		if o.request.Action != "update" {
+			return o, fmt.Errorf("--all is only supported for update")
+		}
+		if o.request.Name != "" {
+			return o, fmt.Errorf("--all cannot be combined with a package name")
+		}
+		if o.request.SourceRef != "" {
+			return o, fmt.Errorf("--source-ref cannot be combined with --all")
+		}
 	}
 	return o, nil
 }
@@ -146,15 +159,17 @@ func cmdPlugin(args []string) (resultErr error) {
 		return err
 	}
 	interactive := mcpInteractive(mcpOptions{json: o.json, noTUI: o.noTUI})
-	if interactive && !o.dryRun {
-		if o.request.Action == "list" {
-			return runPluginManager(s)
+	return s.WithDiscoveryCache(func() error {
+		if interactive && !o.dryRun {
+			if o.request.Action == "list" {
+				return runPluginManager(s)
+			}
+			if o.request.Action == "add" || o.request.Action == "import" || o.request.Action == "remove" || o.request.Action == "update" || o.request.Action == "enable" || o.request.Action == "disable" || o.request.Action == "sync" {
+				return pluginWizard(s, o)
+			}
 		}
-		if o.request.Action == "add" || o.request.Action == "import" || o.request.Action == "remove" || o.request.Action == "update" || o.request.Action == "enable" || o.request.Action == "disable" || o.request.Action == "sync" {
-			return pluginWizard(s, o)
-		}
-	}
-	return executePlugin(s, o)
+		return executePlugin(s, o)
+	})
 }
 
 func executePlugin(s *plugin.Service, o pluginOptions) error {

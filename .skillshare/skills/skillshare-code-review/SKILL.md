@@ -16,7 +16,7 @@ metadata:
 
 Review one change in five independent passes, verify every finding, and report them by pass. $ARGUMENTS names the target (a base ref, a PR number, or a path) and may end with `fix`.
 
-**Scope**: Read-only by default. With `fix`, apply only verified findings that do not change intended behavior, then run the checks the `testing` topic names. Never commit, push, or comment on GitHub unless the user asks.
+**Scope**: Read-only by default. With `fix`, apply findings as the end of Step 5 describes. Never commit, push, or comment on GitHub unless the user asks.
 
 Before acting, run `python3 scripts/ai-context.py pull-requests`. Its Review Rounds section defines what a review must sweep before Codex sees the change; this skill is how that sweep runs.
 
@@ -72,7 +72,7 @@ Dropped: n. Not checked: <passes or areas skipped, and why>.
 
 End with the single most severe confirmed finding per pass, or "clean".
 
-With `fix`: apply the CONFIRMED findings, add a failing test first for each correctness fix, rerun the narrowest check that proves it, and report each finding as fixed, skipped (why), or no change needed.
+With `fix`: apply the CONFIRMED findings that do not change intended behavior, add a failing test first for each correctness fix, rerun the narrowest check that proves it (in the devcontainer, as the `testing` topic describes), and report each finding as fixed, skipped (why), or no change needed.
 
 ## Rules
 

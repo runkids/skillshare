@@ -61,11 +61,17 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 		}
 	}
 	result := &Result{Results: []Outcome{}}
+	var failures []error
 	changed := false
 	for _, c := range p.Changes {
 		if c.Action == "skip" {
 			// Unlike noop, a skipped update stays pending for a later sync.
-			result.Results = append(result.Results, Outcome{Name: c.Name, Target: c.Target, Status: "skipped", Message: c.Message, MessageKey: c.MessageKey, MessageArgs: c.MessageArgs})
+			status := "skipped"
+			if c.batchError {
+				status = "failed"
+				failures = append(failures, errors.New(c.Message))
+			}
+			result.Results = append(result.Results, Outcome{Name: c.Name, Target: c.Target, Status: status, Message: c.Message, MessageKey: c.MessageKey, MessageArgs: c.MessageArgs})
 			continue
 		}
 		if c.Action == "noop" {
@@ -106,12 +112,11 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 		d.packages[c.Name] = pack
 	}
 	if !changed {
-		return result, nil
+		return result, errors.Join(failures...)
 	}
 	if err := s.save(d); err != nil {
 		return result, err
 	}
-	var failures []error
 	// Receipts are private to this Apply, and record only bytes our restore wrote.
 	piRestores := map[string]piRestoreReceipt{}
 	for _, c := range p.Changes {

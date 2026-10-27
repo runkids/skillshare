@@ -135,8 +135,8 @@ Claude can update through its native CLI. Codex adds the plugin again from the
 reviewed snapshot, unless it is disabled in Codex, which adding would turn back
 on; an imported Codex plugin is updated by upgrading its marketplace. Cursor and
 Antigravity replace managed local copies after checking for local edits. Pi and
-OpenCode update the reviewed snapshot. Copilot can refresh a reviewed source
-while preserving known enabled state. Antigravity CLI and Grok updates stay in
+OpenCode update the reviewed snapshot. Copilot and Antigravity CLI can refresh a
+reviewed source while preserving known enabled state. Grok updates stay in
 the native tool, and the dialog lists such installs apart under **Update inside
 the Agent**; see the command reference for imported-package limits. A source that
 no longer provides a compatible plugin is listed under **Cannot update**. A target

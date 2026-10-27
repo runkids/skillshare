@@ -128,9 +128,10 @@ export default function Layout() {
   const version = overview?.version;
   const home = isProjectMode ? projectRoot : overview?.configDir;
   const counts = useNavCounts(isProjectMode);
+  const { data: targets } = useQuery({ queryKey: queryKeys.targets.all, queryFn: () => api.listTargets(), staleTime: staleTimes.targets });
   // Shares the badge query, so this costs no request.
   const { data: synced } = useSyncedTargetsQuery();
-  const targetAgents = useMemo(() => Object.fromEntries((synced?.targets ?? []).flatMap((x) => (x.agent ? [[x.name, x.agent]] : []))), [synced]);
+  const targetAgents = useMemo(() => Object.fromEntries([...(synced?.targets ?? []), ...(targets?.targets ?? [])].flatMap((x) => (x.agent ? [[x.name, x.agent]] : []))), [synced, targets]);
 
   const sidebar = (
     <>

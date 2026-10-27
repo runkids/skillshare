@@ -23,6 +23,7 @@ skillshare sync plugins --no-tui
 skillshare plugin enable review --target codex --no-tui
 skillshare plugin check review --json
 skillshare plugin update review --target claude --no-tui
+skillshare plugin update --all --no-tui
 skillshare plugin remove review --no-tui
 ```
 
@@ -48,12 +49,13 @@ removed. `remove NAME` without `--target` removes it from Skillshare.
 | `inspect NAME` | Inspect one managed package |
 | `sync [NAME]` | Reconcile selected targets and retry incomplete native operations |
 | `check [NAME]` | Compare source content with the recorded digest, or a Pi npm package's version with npm's latest; never update |
-| `update [NAME]` | Review source changes and use a supported native update operation |
+| `update [NAME \| --all]` | Review source changes and use a supported native update operation |
 | `enable / disable [NAME]` | Include/exclude a target in the next sync |
 | `remove [NAME]` | Uninstall managed bindings and remove their definitions |
 
 Bare commands prompt for missing inputs in a terminal. Noninteractive mutation
-commands require explicit inputs. `sync` and `check` may operate on all packages.
+commands require explicit inputs. `sync` and `check` may operate on all packages;
+`update` updates all managed packages when passed `--all` (`-a`).
 `sync --all` does **not** include plugins; use `sync plugins` explicitly.
 
 ## Options
@@ -64,6 +66,7 @@ commands require explicit inputs. `sync` and `check` may operate on all packages
 | `--plugin NAME` | Select one plugin from a source marketplace |
 | `--name NAME` | Logical package name when adding or importing |
 | `--from TARGET` | Import from Claude, Codex, Antigravity CLI, Copilot, Grok, Pi, OMP marketplaces, OpenCode, or [another account of an Agent](#accounts) |
+| `--all`, `-a` | Update all managed plugins (`update` only; cannot be combined with a package name or `--source-ref`) |
 | `--dry-run`, `-n` | Preview without changing Skillshare or Agent configuration |
 | `--source-ref REF` | Git branch, tag, or commit for `discover`, `add`, and `update`; remote sources only |
 | `--entry PATH` | Explicit built OpenCode JS/TS entry, relative to the package root (`discover` and `add`) |
@@ -89,7 +92,7 @@ the CLI exits nonzero when any target fails. Inspect the result before retrying.
 | Oh My Pi | Marketplace-backed local/Git plugins with native-compatible metadata | Fresh-cache install/reinstall, import and scoped removal | At OMP's project anchor | Updates blocked; removal retains shared cache |
 | OpenCode | `package.json` with an SDK dependency, `.opencode/plugins/` entry, or explicit `--entry` | Yes | Yes | Refresh managed source snapshot |
 
-| Antigravity CLI | Native root manifest or Claude manifest accepted by `agy` | Yes | No | Update natively to preserve enablement |
+| Antigravity CLI | Native root manifest or Claude manifest accepted by `agy` | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
 | GitHub Copilot CLI | `.plugin/plugin.json`, `.github/plugin/plugin.json`, Claude manifest, or Agent Plugins root manifest | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
 | Grok Build | `.grok-plugin/plugin.json` or Claude manifest | Import/remove only; native trust required for install | No | Update natively |
 | Kimi Code | `kimi.plugin.json` or `.kimi-plugin/plugin.json` | Discovery only | No | Not automated |

@@ -158,6 +158,7 @@ export extern "skillshare plugin" [
     --source-ref: string
     --entry: string
     --revision: string
+    --all(-a)
     --dry-run(-n)
     --json
     --no-tui

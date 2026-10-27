@@ -81,7 +81,7 @@ skillshare 的指令速查表。
 | `plugin import [plugin@market] --from claude` | 接管既有的原生安裝 |
 | `plugin inspect <name>` | 檢視已管理的套件 |
 | `plugin check [name]` | 檢查來源變更但不套用 |
-| `plugin update [name] --target claude` | 從已檢視過的來源更新支援的 target |
+| `plugin update [name \| --all] --target claude` | 從已檢視過的來源更新支援的 target |
 | `plugin enable [name] --target codex` | 為下次 sync 選取一個 target |
 | `plugin disable [name] --target codex` | 為下次 sync 取消選取一個 target |
 | `plugin remove [name]` | 解除安裝已管理的綁定並移除定義 |

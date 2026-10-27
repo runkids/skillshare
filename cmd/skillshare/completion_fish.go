@@ -66,6 +66,7 @@ complete -c skillshare -n '__fish_skillshare_using_command plugin' -l name -r
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l source-ref -r
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l entry -r
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l revision -r
+complete -c skillshare -n '__fish_skillshare_using_command plugin' -l all -s a -d 'Update all managed plugins (update only)'
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l dry-run -s n
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l json
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l no-tui

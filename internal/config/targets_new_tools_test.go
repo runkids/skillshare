@@ -100,6 +100,23 @@ func TestTargets_ConfigHomeOverrides(t *testing.T) {
 			if got := filepath.Clean(target.SkillsConfig().Path); got != filepath.Join(root, "pinned", "skills") {
 				t.Errorf("explicit path = %q, want pinned path", got)
 			}
+
+			// A pathless entry keeps following the override after a save.
+			cfg, _, err = loadWithTargets(t, "  "+tt.name+": {}\n")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := cfg.Save(); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv(tt.env, filepath.Join(base, "moved"))
+			if cfg, err = Load(); err != nil {
+				t.Fatal(err)
+			}
+			target = cfg.Targets[tt.name]
+			if got := target.SkillsConfig().Path; got != DefaultTargets()[tt.name].Path {
+				t.Errorf("path after save = %q, want %q", got, DefaultTargets()[tt.name].Path)
+			}
 		})
 	}
 }

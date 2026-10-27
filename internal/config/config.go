@@ -168,7 +168,7 @@ type TargetConfig struct {
 	Files []string `yaml:"files,omitempty"`
 
 	defaultTargetNaming string `yaml:"-"`
-	// derivedSkills and derivedAgents track inferred paths that stay derived on save.
+	// derivedSkills and derivedAgents are the paths filled in from config_dir or the environment.
 	derivedSkills, derivedAgents string `yaml:"-"`
 	// projectRoot marks a target expanded from projects; see expandProjects.
 	projectRoot string `yaml:"-"`
@@ -838,7 +838,8 @@ func decodeConfig(path string, data []byte, persist bool) (*Config, error) {
 		if target.SkillsConfig().Path == "" {
 			if def, ok := defaults[name]; ok {
 				target.EnsureSkills().Path = expandPath(def.Path)
-				if name == "omp" {
+				// Keep omitted OMP paths and environment defaults derived across saves.
+				if name == "omp" || targetConfigHome(name, runtime.GOOS) != "" {
 					target.derivedSkills = target.SkillsConfig().Path
 				}
 			}

@@ -66,6 +66,7 @@ fi
 
 require_docker
 cd "$PROJECT_ROOT"
+bash scripts/test_production_entrypoint.sh
 
 if [[ "$SKIP_BUILD" != "true" ]]; then
   docker compose -f "$COMPOSE_FILE" --profile "$PROFILE" build "$SERVICE"

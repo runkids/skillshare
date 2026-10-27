@@ -152,6 +152,8 @@ _skillshare() {
                         '--source-ref[Git branch, tag or commit]:ref:' \
                         '--entry[OpenCode entry path]:path:' \
                         '--revision[Preview revision]:revision:' \
+                        '--all[Update all managed plugins (update only)]' \
+                        '-a[Update all managed plugins (update only)]' \
                         '--dry-run[Preview changes]' \
                         '-n[Preview changes]' \
                         '--json[JSON output]' \
