@@ -43,6 +43,7 @@ type localBinding struct {
 type localState struct {
 	Version  int                                `json:"version"`
 	Bindings map[string]map[string]localBinding `json:"bindings"`
+	Versions map[string]packageVersion          `json:"versions,omitempty"`
 }
 
 func (b declaration) fingerprint() string { b.Sync = nil; raw, _ := json.Marshal(b); return hash(raw) }
@@ -148,7 +149,7 @@ func (s *Service) loadState(d *document) error {
 func (s *Service) compose(d *document) {
 	d.packages = map[string]Package{}
 	for name, p := range d.intent {
-		pack := Package{Source: p.Source, SourceRef: p.SourceRef, Plugin: p.Plugin, Entry: p.Entry, Bindings: map[string]Binding{}}
+		pack := d.packageWithVersion(name, p)
 		for target, decl := range p.Bindings {
 			b := decl.runtime()
 			local := d.state.Bindings[name][target]

@@ -61,7 +61,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 		return nil, err
 	}
 	s.adoptLegacy(d, func(target string) Host { return s.host(ctx, target) })
-	s.captureLegacy(d)
+	s.captureLegacyAndVersions(d, r, p)
 	before, _ := yaml.Marshal(d.intent)
 	for _, c := range p.Changes {
 		if c.Action == "skip" || c.Action == "blocked" {
@@ -119,7 +119,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 	after, _ := yaml.Marshal(d.intent)
 	if !bytes.Equal(before, after) {
 		// Preserve verified receipts and unresolved proof candidates before rewriting legacy YAML.
-		if len(d.state.Bindings) > 0 {
+		if d.hasLocalState() {
 			if err := s.saveState(d); err != nil {
 				return nil, err
 			}
@@ -251,7 +251,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 		result.Results = append(result.Results, outcome)
 	}
 	// This also persists verified migration receipts on an otherwise unchanged sync.
-	if len(d.state.Bindings) > 0 || d.stateRaw != nil {
+	if d.hasLocalState() || d.stateRaw != nil {
 		if err := s.saveState(d); err != nil {
 			return result, errors.Join(append(failures, err)...)
 		}
