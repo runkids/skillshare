@@ -199,7 +199,10 @@ skillshare는 공유 Universal target을 포함해 **79개의 내장 target**을
 ## Oh My Pi (OMP)
 
 네이티브 skills, [MCP 구성](../commands/mcp.md#omp), [code hooks](../commands/hooks.md#omp)에는 `omp`를 사용하세요.
-Skill은 global에서는 `~/.omp/agent/skills`, project에서는 `.omp/skills`로 갑니다. OMP는
+Skill의 기본 경로는 global에서는 `~/.omp/agent/skills`, project에서는 `.omp/skills`입니다.
+경로를 지정하지 않은 global skill target은 비어 있지 않은 `PI_CODING_AGENT_DIR`을 따르며,
+상대 값은 작업 디렉터리를 기준으로 해석합니다. 명시적 skill 경로와 계정의
+`config_dir`이 우선합니다. OMP는
 `<skill>/SKILL.md`를 한 수준만 스캔하며 description을 요구합니다. Skillshare의 기본
 flat target naming은 이 구조에 맞습니다. `oh-my-pi`는 skill target alias이고, MCP
 client ID는 `omp`입니다.

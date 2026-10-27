@@ -162,6 +162,14 @@ func DefaultTargets() map[string]TargetConfig {
 			continue
 		}
 		path := normalizeTargetPath(spec.Skills.Global)
+		// Resolve the runtime default without changing the canonical account template.
+		if spec.Name == "omp" {
+			if raw := os.Getenv("PI_CODING_AGENT_DIR"); raw != "" {
+				if dir, err := filepath.Abs(raw); err == nil {
+					path = filepath.Join(dir, "skills")
+				}
+			}
+		}
 		targets[spec.Name] = TargetConfig{Path: path}
 	}
 
@@ -536,8 +544,9 @@ func TargetScanPaths(name string, target TargetConfig, isProject bool) []string 
 	} else {
 		candidatePaths = append(candidatePaths, AlsoScansGlobal(agent)...)
 		if isAccount {
-			if primary := DefaultTargets()[agent].Path; primary != "" {
-				candidatePaths = append(candidatePaths, primary)
+			// Accounts remap the canonical path, independent of runtime overrides.
+			if spec, ok := globalSpec(agent); ok && spec.Skills.Global != "" {
+				candidatePaths = append(candidatePaths, normalizeTargetPath(spec.Skills.Global))
 			}
 		} else if primary := DefaultTargets()[name].Path; primary != "" {
 			candidatePaths = append(candidatePaths, primary)

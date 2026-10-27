@@ -5,6 +5,10 @@ and MCP client support are identical.
 
 ## Global Targets
 
+OMP's unpinned global skills path follows nonempty `PI_CODING_AGENT_DIR`
+(relative values resolve against the working directory), otherwise `~/.omp/agent/skills`.
+Explicit skills paths and account `config_dir` take precedence; project skills stay `.omp/skills`.
+
 ```bash
 skillshare target list                        # List all targets
 skillshare target claude                      # Show target info
