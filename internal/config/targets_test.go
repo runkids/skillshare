@@ -97,27 +97,19 @@ func TestGroupedProjectTargets_MembersAreSorted(t *testing.T) {
 }
 
 func TestLookupProjectTarget_Alias(t *testing.T) {
-	// Canonical name should resolve
-	tc, ok := LookupProjectTarget("claude")
-	if !ok {
-		t.Fatal("LookupProjectTarget should find canonical name 'claude'")
+	t.Setenv("PI_CODING_AGENT_DIR", t.TempDir())
+	for _, tt := range []struct{ name, alias, path string }{
+		{"claude", "claude-code", filepath.Join(".claude", "skills")},
+		{"omp", "oh-my-pi", filepath.Join(".omp", "skills")},
+	} {
+		for _, name := range []string{tt.name, tt.alias} {
+			target, ok := LookupProjectTarget(name)
+			if !ok || target.Path != tt.path {
+				t.Errorf("LookupProjectTarget(%q) = %+v, %t; want %q", name, target, ok, tt.path)
+			}
+		}
 	}
-	if tc.Path == "" {
-		t.Error("expected non-empty path for claude")
-	}
-
-	// Alias should also resolve to the same target
-	tcAlias, ok := LookupProjectTarget("claude-code")
-	if !ok {
-		t.Fatal("LookupProjectTarget should find alias 'claude-code'")
-	}
-	if tcAlias.Path != tc.Path {
-		t.Errorf("alias path %q != canonical path %q", tcAlias.Path, tc.Path)
-	}
-
-	// Unknown name should not resolve
-	_, ok = LookupProjectTarget("nonexistent-tool")
-	if ok {
+	if _, ok := LookupProjectTarget("nonexistent-tool"); ok {
 		t.Error("LookupProjectTarget should not find unknown name")
 	}
 }

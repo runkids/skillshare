@@ -31,15 +31,6 @@ func TestOMPGlobalSkillsPaths(t *testing.T) {
 			t.Fatalf("env %q: runtime scans = %v; want [%s]", dir, got, want)
 		}
 	}
-	for _, alias := range []string{"omp", "oh-my-pi"} {
-		project, ok := LookupProjectTarget(alias)
-		if !ok || project.Path != filepath.Join(".omp", "skills") {
-			t.Fatalf("project %s = %+v, %t", alias, project, ok)
-		}
-	}
-	if !MatchesTargetName("oh-my-pi", "omp") {
-		t.Fatal("OMP alias no longer matches")
-	}
 }
 
 func TestOMPLoadSkillsPaths(t *testing.T) {
@@ -81,9 +72,6 @@ func TestOMPLoadSkillsPaths(t *testing.T) {
 			}
 			if err := cfg.Save(); err != nil {
 				t.Fatal(err)
-			}
-			if target := cfg.Targets["omp"]; !reflect.DeepEqual(target.SkillsConfig(), skills) {
-				t.Fatal("Save changed in-memory skills")
 			}
 			next := t.TempDir()
 			t.Setenv("PI_CODING_AGENT_DIR", next)

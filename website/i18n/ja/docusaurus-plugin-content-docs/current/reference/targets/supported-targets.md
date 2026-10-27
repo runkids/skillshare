@@ -207,8 +207,9 @@ skillshare は、共有の Universal target を含む **79 の組み込み targe
 ネイティブの Skill、[MCP 設定](../commands/mcp.md#omp)、
 [コード hooks](../commands/hooks.md#omp) には `omp` を使います。
 Skill の既定の保存先は global では `~/.omp/agent/skills`、project では `.omp/skills` です。
-パス未指定の global skill target は、空でない `PI_CODING_AGENT_DIR` に従います。
-相対値は作業ディレクトリを基準に解決します。明示的な Skill パスとアカウントの
+Skill パスを省略した global OMP 設定だけが、空でない `PI_CODING_AGENT_DIR` に従います。
+相対値は作業ディレクトリを基準に解決します。`init` と `target add` は選択した保存先を
+保存し、保存済みのパスは固定されます。明示的な Skill パスとアカウントの
 `config_dir` が優先されます。OMP は
 `<skill>/SKILL.md` を 1 階層だけスキャンし、description を必須とします。Skillshare のデフォルトの
 flat な target 命名はこのレイアウトに合っています。`oh-my-pi` は Skill の target のエイリアスで、MCP の
