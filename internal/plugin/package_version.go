@@ -24,22 +24,13 @@ func (d *document) hasLocalState() bool {
 	return len(d.state.Bindings) > 0 || len(d.state.Versions) > 0
 }
 
-func (s *Service) captureLegacyAndVersions(d *document, r Request, plan *Plan) {
+func (s *Service) captureLegacyAndVersions(d *document) {
 	s.captureLegacy(d)
 	for name, p := range d.legacy {
 		if p.Version != "" {
 			if v, exists := d.state.Versions[name]; !exists || v.Intent != packageFingerprint(d.intent[name]) {
 				d.putPackageVersion(name, d.intent[name], p.Version)
 			}
-		}
-	}
-	if r.Action != "add" {
-		return
-	}
-	for _, c := range plan.Changes {
-		if c.Target == "" && (c.Action == "record" || c.Action == "noop") {
-			b := declarationForAdd(r, c)
-			d.putPackageVersion(c.Name, packageDeclaration{Source: b.Source, SourceRef: b.SourceRef, Plugin: b.Plugin, Entry: b.Entry}, c.Binding.Version)
 		}
 	}
 }
@@ -49,4 +40,70 @@ func (d *document) putPackageVersion(name string, p packageDeclaration, version 
 		d.state.Versions = map[string]packageVersion{}
 	}
 	d.state.Versions[name] = packageVersion{Intent: packageFingerprint(p), Version: version}
+}
+
+// recordPackageVersions records only a source observation for the actual default recipe.
+func recordPackageVersions(d *document, r Request, plan *Plan) map[string]packageDeclaration {
+	if r.Action != "add" {
+		return d.intent
+	}
+	for _, c := range plan.Changes {
+		if c.Action == "skip" || c.Action == "blocked" {
+			continue
+		}
+		version := c.sourceVersion
+		if c.Target == "" && (c.Action == "record" || c.Action == "noop") {
+			version = &c.Binding.Version
+		}
+		if version == nil {
+			continue
+		}
+		b := declarationForAdd(r, c)
+		recipe := packageDeclaration{Source: b.Source, SourceRef: b.SourceRef, Plugin: b.Plugin, Entry: b.Entry}
+		if packageFingerprint(recipe) == packageFingerprint(d.intent[c.Name]) {
+			d.putPackageVersion(c.Name, recipe, *version)
+		}
+	}
+	return d.intent
+}
+
+// Include private observations in the approval revision without exposing them in the plan.
+func reviewedChanges(changes []Change) any {
+	type reviewedChange struct {
+		Change
+		SourceVersion *string
+	}
+	out := make([]reviewedChange, 0, len(changes))
+	for _, c := range changes {
+		out = append(out, reviewedChange{c, c.sourceVersion})
+	}
+	return out
+}
+
+func (s *Service) saveAndPruneVersions(d *document) error {
+	if err := s.save(d); err != nil {
+		return err
+	}
+	changed := false
+	for name := range d.state.Versions {
+		if _, exists := d.intent[name]; !exists {
+			delete(d.state.Versions, name)
+			changed = true
+		}
+	}
+	if changed {
+		return s.saveState(d)
+	}
+	return nil
+}
+
+func (d *document) hasReceipts() bool {
+	for _, targets := range d.state.Bindings {
+		for _, b := range targets {
+			if b.Applied != nil || b.Pending != nil || b.Legacy != nil {
+				return true
+			}
+		}
+	}
+	return false
 }

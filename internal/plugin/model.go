@@ -228,6 +228,7 @@ type Inventory struct {
 }
 
 type Change struct {
+	sourceVersion  *string
 	PreservedKeys  []string `json:"preservedKeys,omitempty"`
 	recipe         *declaration
 	piRecord       []byte

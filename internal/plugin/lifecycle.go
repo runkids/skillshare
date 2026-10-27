@@ -61,7 +61,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 		return nil, err
 	}
 	s.adoptLegacy(d, func(target string) Host { return s.host(ctx, target) })
-	s.captureLegacyAndVersions(d, r, p)
+	s.captureLegacyAndVersions(d)
 	before, _ := yaml.Marshal(d.intent)
 	for _, c := range p.Changes {
 		if c.Action == "skip" || c.Action == "blocked" {
@@ -116,7 +116,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 			}
 		}
 	}
-	after, _ := yaml.Marshal(d.intent)
+	after, _ := yaml.Marshal(recordPackageVersions(d, r, p))
 	if !bytes.Equal(before, after) {
 		// Preserve verified receipts and unresolved proof candidates before rewriting legacy YAML.
 		if d.hasLocalState() {
@@ -124,7 +124,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 				return nil, err
 			}
 		}
-		if err := s.save(d); err != nil {
+		if err := s.saveAndPruneVersions(d); err != nil {
 			return nil, err
 		}
 	}

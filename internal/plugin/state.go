@@ -140,7 +140,7 @@ func (s *Service) loadState(d *document) error {
 		}
 	}
 	// A disappeared shared file is not a declaration to remove every local plugin.
-	if d.raw == nil && d.stateRaw != nil {
+	if d.raw == nil && d.hasReceipts() {
 		return fmt.Errorf("plugin configuration is missing; restore it before reconciling local installations")
 	}
 	s.compose(d)

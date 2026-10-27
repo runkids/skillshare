@@ -384,7 +384,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				b.ID = fileURL(filepath.Join(s.snapshotPath(b, target), "content", filepath.FromSlash(c.pathFor(agent)), c.Entry))
 			}
 			recipe := declareBinding(b)
-			change := Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "install", Components: b.Components, recipe: &recipe}
+			change := Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "install", Components: b.Components, recipe: &recipe, sourceVersion: &c.Version}
 			if c.Problem != "" || !slices.Contains(c.Targets, agent) {
 				change.Action = "blocked"
 				change.Message = c.Problem
@@ -727,12 +727,12 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		Raw             string
 		State           string
 		Stores          map[string]string
-		Changes         []Change
+		Changes         any
 		Hosts           map[string]Host
 		OMPCacheRoots   map[string]string
 		OMPRemovals     map[string]string
 		OMPRuntimePaths map[string]string
-	}{r, string(d.raw), string(d.stateRaw), stores, p.Changes, hosts, ompRoots, ompRemovals, ompRuntimePaths})
+	}{r, string(d.raw), string(d.stateRaw), stores, reviewedChanges(p.Changes), hosts, ompRoots, ompRemovals, ompRuntimePaths})
 	p.Revision = hash(fingerprint)
 	return p, nil
 }
