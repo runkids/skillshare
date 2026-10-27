@@ -466,12 +466,25 @@ func TestPluginHostStateSourceAdoptionKeepsRecipe(t *testing.T) {
 		t.Fatal("adoption lost recipe or invented snapshot provenance")
 	}
 	raw, _ := os.ReadFile(s.ConfigPath)
-	other := (&fakeAgents{}).service(t)
+	otherNative := &fakeAgents{installed: map[string][]Installed{"claude": {{ID: "demo@team", Scope: "user", Installed: true, Enabled: true}}}}
+	other := otherNative.service(t)
 	writePluginFile(t, filepath.Dir(other.ConfigPath), filepath.Base(other.ConfigPath), string(raw))
+	same := unchanged(t, other.ConfigPath)
 	applyPluginRequest(t, other, Request{Action: "sync"})
 	if got := readState(t, other).packages["demo"].Bindings["claude"]; got.Source != source || got.Digest == "" || got.ID == "demo@team" {
 		t.Fatalf("new host lost review: %+v", got)
 	}
+	for _, command := range otherNative.commands {
+		if strings.Contains(command, "uninstall demo@team") || strings.Contains(command, "remove demo@team") || strings.Contains(command, "marketplace remove team") {
+			t.Fatalf("removed an independent native installation: %s", command)
+		}
+	}
+	commands := len(otherNative.commands)
+	applyPluginRequest(t, other, Request{Action: "sync"})
+	if len(otherNative.commands) != commands {
+		t.Fatalf("second sync repeated native work: %v", otherNative.commands)
+	}
+	same()
 }
 
 func TestPluginHostStateUpdateLeavesSharedIntentUntouched(t *testing.T) {
