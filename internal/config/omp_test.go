@@ -109,7 +109,7 @@ func TestOMPAccountSkillsPathsWithOverride(t *testing.T) {
 					if explicit {
 						want = filepath.Join(root, "pinned-account")
 					}
-					if got := target.SkillsConfig().Path; got != want {
+					if got := target.SkillsConfig().Path; filepath.Clean(got) != want {
 						t.Fatalf("account skills = %q; want %q", got, want)
 					}
 					if !explicit {
