@@ -13,8 +13,8 @@ _roborev/internal/skills/codex/roborev-fix/SKILL.md
 ```
 
 At Skillshare revision `e64fac67`, these become two discovered skills with no inferred
-target restriction. Status reports `_roborev: 2 skills`; merge sync sends both files
-to both Claude and Codex. This was reproduced with actual producer files from
+target restriction. With default flat target naming, status reports `_roborev: 2 skills`;
+merge sync sends both files to both Claude and Codex. This was reproduced with actual producer files from
 [roborev revision 626dea47](https://github.com/kenn-io/roborev/tree/626dea478c5d5ab5c1d25845ce1474120f9c0f7b/internal/skills).
 
 The Claude file uses `/roborev-fix` and `dangerouslyDisableSandbox`; the Codex file
@@ -105,7 +105,8 @@ In merge/copy mode, a target with no matching agent identity, including a univer
 configuration, receives no agent-specific variant automatically. An explicit per-variant
 target override can select the desired copy; an empty override preserves that variant's
 old all-target behavior. The chosen activation mechanism must disclose this compatibility
-effect and override options before enabling recognition; no new CLI/config fields are proposed.
+effect and override options before enabling recognition. This proposal does not choose
+new CLI/config fields; any opt-in surface remains part of the maintainer's activation decision.
 
 Per-skill routing applies to merge and copy modes. Full-directory symlink mode
 exposes the complete source tree and cannot enforce variant selection or ignores;
