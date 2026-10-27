@@ -168,7 +168,7 @@ type TargetConfig struct {
 	Files []string `yaml:"files,omitempty"`
 
 	defaultTargetNaming string `yaml:"-"`
-	// derivedSkills and derivedAgents are the paths expandAgentConfigDirs filled in.
+	// derivedSkills and derivedAgents track inferred paths that stay derived on save.
 	derivedSkills, derivedAgents string `yaml:"-"`
 	// projectRoot marks a target expanded from projects; see expandProjects.
 	projectRoot string `yaml:"-"`
@@ -838,6 +838,9 @@ func decodeConfig(path string, data []byte, persist bool) (*Config, error) {
 		if target.SkillsConfig().Path == "" {
 			if def, ok := defaults[name]; ok {
 				target.EnsureSkills().Path = expandPath(def.Path)
+				if name == "omp" {
+					target.derivedSkills = target.SkillsConfig().Path
+				}
 			}
 		}
 		cfg.Targets[name] = target

@@ -8,30 +8,6 @@ import (
 	"testing"
 )
 
-func TestOMPAccountPaths(t *testing.T) {
-	t.Setenv("PI_CODING_AGENT_DIR", "")
-	cfg, root, err := loadWithTargets(t, "  omp-work:\n    agent: omp\n    config_dir: $ROOT/.omp-work/agent\n")
-	if err != nil {
-		t.Fatal(err)
-	}
-	target := cfg.Targets["omp-work"]
-	if got := target.SkillsConfig().Path; got != filepath.Join(root, ".omp-work", "agent", "skills") {
-		t.Fatalf("account skills: %q", got)
-	}
-	instructions, ok := TargetInstructions("omp-work", target, false)
-	if !ok || instructions.Path != filepath.Join(target.ConfigDir, "AGENTS.md") {
-		t.Fatalf("account instructions: %+v %t", instructions, ok)
-	}
-	fileRoot, ok := TargetFileRoot("omp-work", target, false, "")
-	if !ok || filepath.Clean(fileRoot) != filepath.Clean(target.ConfigDir) {
-		t.Fatalf("account file root: %q %t", fileRoot, ok)
-	}
-	project, ok := LookupProjectTarget("oh-my-pi")
-	if !ok || project.Path != filepath.Join(".omp", "skills") {
-		t.Fatalf("project skills alias: %+v %t", project, ok)
-	}
-}
-
 func TestOMPGlobalSkillsPaths(t *testing.T) {
 	cwd := t.TempDir()
 	t.Chdir(cwd)
@@ -54,11 +30,11 @@ func TestOMPGlobalSkillsPaths(t *testing.T) {
 		if got := RuntimeScanPaths("omp", false); !reflect.DeepEqual(got, []string{want}) {
 			t.Fatalf("env %q: runtime scans = %v; want [%s]", dir, got, want)
 		}
-		for _, alias := range []string{"omp", "oh-my-pi"} {
-			project, ok := LookupProjectTarget(alias)
-			if !ok || project.Path != filepath.Join(".omp", "skills") {
-				t.Fatalf("project %s = %+v, %t", alias, project, ok)
-			}
+	}
+	for _, alias := range []string{"omp", "oh-my-pi"} {
+		project, ok := LookupProjectTarget(alias)
+		if !ok || project.Path != filepath.Join(".omp", "skills") {
+			t.Fatalf("project %s = %+v, %t", alias, project, ok)
 		}
 	}
 	if !MatchesTargetName("oh-my-pi", "omp") {
@@ -68,15 +44,24 @@ func TestOMPGlobalSkillsPaths(t *testing.T) {
 
 func TestOMPLoadSkillsPaths(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("PI_CODING_AGENT_DIR", dir)
-	for _, tc := range []struct{ name, body, want string }{
-		{"default", "  omp: {}\n", filepath.Join(dir, "skills")},
-		{"nested", "  omp:\n    skills:\n      path: $ROOT/pinned\n", "$ROOT/pinned"},
-		{"legacy", "  omp:\n    path: $ROOT/legacy\n", "$ROOT/legacy"},
-		{"saved default", "  omp:\n    skills:\n      path: ~/.omp/agent/skills\n", normalizeTargetPath("~/.omp/agent/skills")},
-		{"filters", "  omp:\n    skills:\n      include: [team__*]\n      exclude: [team__draft]\n      mode: copy\n", filepath.Join(dir, "skills")},
+	for _, tc := range []struct {
+		name, body, want string
+		inferred, unset  bool
+	}{
+		{"default", "  omp: {}\n", filepath.Join(dir, "skills"), true, false},
+		{"unset", "  omp: {}\n", normalizeTargetPath("~/.omp/agent/skills"), true, true},
+		{"explicit override", fmt.Sprintf("  omp:\n    skills:\n      path: %q\n", filepath.Join(dir, "skills")), filepath.Join(dir, "skills"), false, false},
+		{"nested", "  omp:\n    skills:\n      path: $ROOT/pinned\n", "$ROOT/pinned", false, false},
+		{"legacy", "  omp:\n    path: $ROOT/legacy\n", "$ROOT/legacy", false, false},
+		{"saved default", "  omp:\n    skills:\n      path: ~/.omp/agent/skills\n", normalizeTargetPath("~/.omp/agent/skills"), false, false},
+		{"filters", "  omp:\n    skills:\n      include: [team__*]\n      exclude: [team__draft]\n      mode: copy\n", filepath.Join(dir, "skills"), true, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			initial := dir
+			if tc.unset {
+				initial = ""
+			}
+			t.Setenv("PI_CODING_AGENT_DIR", initial)
 			cfg, root, err := loadWithTargets(t, tc.body)
 			if err != nil {
 				t.Fatal(err)
@@ -89,6 +74,29 @@ func TestOMPLoadSkillsPaths(t *testing.T) {
 			if tc.name == "filters" && (skills.Mode != "copy" || !reflect.DeepEqual(skills.Include, []string{"team__*"}) || !reflect.DeepEqual(skills.Exclude, []string{"team__draft"})) {
 				t.Fatalf("changed filter configuration: %+v", skills)
 			}
+			if tc.name == "filters" {
+				target.EnsureSkills().Include = append(skills.Include, "shared")
+				cfg.Targets["omp"] = target
+				skills = target.SkillsConfig()
+			}
+			if err := cfg.Save(); err != nil {
+				t.Fatal(err)
+			}
+			if target := cfg.Targets["omp"]; !reflect.DeepEqual(target.SkillsConfig(), skills) {
+				t.Fatal("Save changed in-memory skills")
+			}
+			next := t.TempDir()
+			t.Setenv("PI_CODING_AGENT_DIR", next)
+			reloaded, err := Load()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.inferred {
+				skills.Path = filepath.Join(next, "skills")
+			}
+			if target := reloaded.Targets["omp"]; !reflect.DeepEqual(target.SkillsConfig(), skills) {
+				t.Fatalf("reloaded skills = %+v; want %+v", target.SkillsConfig(), skills)
+			}
 		})
 	}
 }
@@ -96,7 +104,7 @@ func TestOMPLoadSkillsPaths(t *testing.T) {
 func TestOMPAccountSkillsPathsWithOverride(t *testing.T) {
 	accountDir := t.TempDir()
 	for _, agent := range []string{"omp", "oh-my-pi"} {
-		for _, override := range []string{t.TempDir(), accountDir} {
+		for _, override := range []string{"", t.TempDir(), accountDir} {
 			t.Run(agent+"/"+filepath.Base(override), func(t *testing.T) {
 				t.Setenv("PI_CODING_AGENT_DIR", override)
 				for _, explicit := range []bool{false, true} {
