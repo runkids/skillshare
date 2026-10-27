@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 // The fixtures follow scripts/pi/phase0-contract.mjs: one local package with three
@@ -739,5 +741,101 @@ func TestPiMinVersionHasExecutedEvidence(t *testing.T) {
 	}
 	if len(passed) != len(doc.Versions) || !slices.Contains(passed, PiMinVersion) {
 		t.Fatalf("PiMinVersion = %s, recorded %d versions, executed and passed: %v", PiMinVersion, len(doc.Versions), passed)
+	}
+}
+
+// Legacy ownership is proved in the requested scope, without upgrading either file.
+func TestPiExtensionsVerifiedLegacyOwnership(t *testing.T) {
+	for _, mode := range []string{"global", "project", "account", "inherited", "foreign", "absent", "bad-snapshot", "private", "bad-registration", "changed-context"} {
+		t.Run(mode, func(t *testing.T) {
+			var calls []string
+			s := fakePiNpm(t, &calls)
+			target := "pi"
+			if mode == "account" {
+				target = "work"
+				s.Accounts = map[string]Account{target: {Agent: "pi", Dir: t.TempDir()}}
+			}
+			if mode == "project" {
+				s.ProjectRoot = t.TempDir()
+			}
+			if mode == "bad-registration" || mode == "private" {
+				file, _ := s.piSettingsPath(target)
+				writePluginFile(t, filepath.Dir(file), filepath.Base(file), `{"packages":[{"source":"npm:demo","extensions":["-private.ts"]}]}`)
+				applyPluginRequest(t, s, Request{Action: "import", Name: "demo", From: target, Plugin: "npm:demo"})
+			} else {
+				applyPluginRequest(t, s, Request{Action: "add", Source: hostStatePiSource(t), Targets: []string{target}})
+			}
+			b := readState(t, s).packages["demo"].Bindings[target]
+			// Serialize the same public binding that the legacy writer persisted.
+			raw, err := yaml.Marshal(map[string]any{"plugins": map[string]any{"packages": map[string]Package{"demo": {Bindings: map[string]Binding{target: b}}}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(s.ConfigPath, raw, 0600); err != nil {
+				t.Fatal(err)
+			}
+			if mode == "changed-context" {
+				d := readState(t, s)
+				s.captureLegacy(d)
+				if err := s.saveState(d); err != nil {
+					t.Fatal(err)
+				}
+				previous, _ := s.piSettingsPath(target)
+				settings, err := os.ReadFile(previous)
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Setenv("PI_CODING_AGENT_DIR", t.TempDir())
+				current, _ := s.piSettingsPath(target)
+				writePluginFile(t, filepath.Dir(current), filepath.Base(current), string(settings))
+			} else if err := os.Remove(s.statePath()); err != nil {
+				t.Fatal(err)
+			}
+			if mode == "foreign" {
+				s.StateDir = t.TempDir()
+			}
+			file, _ := s.piSettingsPath(target)
+			if mode == "absent" {
+				writePluginFile(t, filepath.Dir(file), filepath.Base(file), `{"packages":[]}`)
+			}
+			if mode == "bad-snapshot" {
+				writePluginFile(t, s.snapshotPath(b, target), ".skillshare-digest", "bad")
+			}
+			if mode == "bad-registration" {
+				path, err := s.piRegistrationPath(b.PiRegistration)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, []byte("changed"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			shared, local := s.ConfigPath, s.statePath()
+			if mode == "inherited" {
+				s.GlobalConfigPath = s.ConfigPath
+				s.ProjectRoot = t.TempDir()
+				s.ConfigPath = filepath.Join(s.ProjectRoot, ".skillshare", "config.yaml")
+			}
+			same := unchanged(t, shared, local, s.ConfigPath, s.statePath(), file)
+			before := len(calls)
+			view, err := s.PiExtensions(context.Background(), target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			owner := ""
+			for _, p := range view.Packages {
+				if p.ManagedBy != "" {
+					owner = p.ManagedBy
+				}
+			}
+			want := mode == "global" || mode == "project" || mode == "account" || mode == "inherited" || mode == "private"
+			if (owner == "demo") != want {
+				t.Fatalf("managedBy=%q, expected ownership=%v", owner, want)
+			}
+			same()
+			if len(calls) != before {
+				t.Fatal("ownership read mutated native installation")
+			}
+		})
 	}
 }

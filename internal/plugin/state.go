@@ -162,6 +162,7 @@ func (s *Service) compose(d *document) {
 				b.Imported = decl.Imported
 				b.Cleanup = r.Intent != decl.fingerprint() && (r.Binding.Source != decl.Source || r.Binding.Plugin != decl.Plugin || r.Binding.Entry != decl.Entry || decl.Imported)
 				b.ContextChanged = r.Store != s.storeIdentity(target)
+				b.RefChanged = b.Selected() && sameDistribution(r.Binding, decl) && r.Binding.SourceRef != decl.SourceRef
 				if local.Pending != nil && local.Pending.Intent == decl.fingerprint() {
 					b.Pending = local.Pending.Action
 				}

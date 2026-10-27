@@ -7,7 +7,7 @@ export interface PluginTargetDefinition { target: string; label: string; project
 export const targetMap = (definitions: PluginTargetDefinition[] = []) => Object.fromEntries(definitions.map((d) => [d.target, d]));
 export type PluginAction = 'add' | 'import' | 'sync' | 'check' | 'update' | 'remove' | 'enable' | 'disable';
 export interface PluginRequest { action: PluginAction; name?: string; source?: string; sourceRef?: string; entry?: string; plugin?: string; targets?: PluginTarget[]; from?: PluginTarget }
-export interface PluginBinding { imported?: boolean; cleanup?: boolean; contextChanged?: boolean; piRegistration?: string; id: string; source?: string; sourceRef?: string; commit?: string; entry?: string; plugin?: string; digest?: string; version?: string; pending?: string; sync?: boolean; components?: string[] }
+export interface PluginBinding { refChanged?: boolean; imported?: boolean; cleanup?: boolean; contextChanged?: boolean; piRegistration?: string; id: string; source?: string; sourceRef?: string; commit?: string; entry?: string; plugin?: string; digest?: string; version?: string; pending?: string; sync?: boolean; components?: string[] }
 export interface NativePlugin { id: string; version?: string; enabled: boolean; enabledKnown?: boolean; scope?: string; filtered?: boolean; importable?: boolean }
 export interface PluginPackage { version?: string; source?: string; sourceRef?: string; plugin?: string; entry?: string; bindings: Partial<Record<PluginTarget, PluginBinding>> }
 export interface PluginInventory {
@@ -32,6 +32,7 @@ export const syncAction = (b: PluginBinding, host?: PluginInventory['hosts'][num
   const leftover = !exists && !!b.source && b.id.includes('@') && !!host?.managedMarketplaces?.includes(b.id.slice(b.id.indexOf('@') + 1));
   if (b.cleanup) return host && !host.error ? 'remove' : '';
   if (b.sync === false) return exists || leftover ? 'uninstall' : '';
+  if (b.refChanged && host?.status === 'ready' && !host.error) return exists ? 'update' : 'install';
   if (b.pending) return b.pending === 'install' && exists && !b.piRegistration ? '' : b.pending;
   return !host || host.error || exists ? '' : 'install';
 };

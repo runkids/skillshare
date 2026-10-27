@@ -196,7 +196,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 			intent = local.Applied.Intent
 		}
 		b := c.Binding
-		b.Cleanup, b.ContextChanged = false, false
+		b.Cleanup, b.ContextChanged, b.RefChanged = false, false, false
 		local.Pending = &receipt{Intent: intent, Store: s.storeIdentity(c.Target), Binding: b, Action: c.Action}
 		d.putLocal(c.Name, c.Target, local)
 		if err := s.saveState(d); err != nil {

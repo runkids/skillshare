@@ -571,7 +571,7 @@ func (s *Service) piGlobalState(ctx context.Context, target string) (*piTargetSt
 		Packages: []PiExtensionPackage{}, Folders: []PiExtensionFolder{},
 	}
 	st := &piTargetState{view: v, settings: settings, agentDir: agentDir, packages: map[int]*piPackage{}}
-	managed := s.piManaged(target)
+	managed := s.piManaged(ctx, target)
 	seen := map[string]bool{}
 	unresolved := false
 	for _, e := range settings.entries {
@@ -631,12 +631,23 @@ func (s *Service) piGlobalState(ctx context.Context, target string) (*piTargetSt
 }
 
 // piManaged maps the source of each plugin Skillshare installs into target to its name.
-func (s *Service) piManaged(target string) map[string]string {
+func (s *Service) piManaged(ctx context.Context, target string) map[string]string {
 	result := map[string]string{}
 	d, err := s.load()
 	if err != nil {
 		return result
 	}
+	var h *Host
+	s.adoptLegacy(d, func(requested string) Host {
+		if requested != target {
+			return Host{Error: "outside requested target"}
+		}
+		if h == nil {
+			current := s.host(ctx, target)
+			h = &current
+		}
+		return *h
+	})
 	for name, p := range d.packages {
 		if b, ok := p.Bindings[target]; ok && b.ID != "" && !b.Cleanup && !b.ContextChanged {
 			result[b.ID] = name

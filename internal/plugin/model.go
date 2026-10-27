@@ -18,6 +18,7 @@ var Targets = func() []string {
 }()
 
 type Binding struct {
+	RefChanged     bool `json:"refChanged,omitempty" yaml:"-"`
 	Imported       bool `json:"imported,omitempty" yaml:"-"`
 	Cleanup        bool `json:"cleanup,omitempty" yaml:"-"`
 	ContextChanged bool `json:"contextChanged,omitempty" yaml:"-"`

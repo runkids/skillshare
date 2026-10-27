@@ -32,12 +32,12 @@ export default function PluginsPage() {
   const t = useT();
   const cache = useQueryClient();
   // Config answers at once; asking every Agent's CLI takes seconds. The plugin list is drawn
-  // from the quick answer and the Agents are filled in when the full one arrives.
+  // from the quick answer until full inventory supplies verified packages and Agents.
   const quick = useQuery({ queryKey: queryKeys.pluginPackages, queryFn: () => pluginsApi.list(false) });
   const full = useQuery({ queryKey: queryKeys.plugins, queryFn: () => pluginsApi.list() });
   const hostsReady = !!full.data;
   const hostsSlow = useSlow(!hostsReady, 10000);
-  const base = quick.data ?? full.data;
+  const base = full.data ?? quick.data;
   const data = base && { ...base, hosts: full.data?.hosts ?? [] };
   const error = quick.error ?? full.error;
   const [adding, setAdding] = useState<{ source?: string; name?: string; targets?: PluginTarget[]; bound?: PluginInventory['packages'][string]['bindings']; recorded?: PluginInventory['packages'][string] } | null>(null);

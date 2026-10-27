@@ -24,6 +24,42 @@ describe('PluginsPage', () => {
     vi.mocked(pluginsApi.apply).mockResolvedValue({ result: { results: [] }, failure: '' });
     vi.mocked(pluginsApi.update).mockImplementation(async (_items, on) => { on({ event: 'done', failure: '' }); });
   });
+  it('shows full-inventory ref work in the row and Sync rail, then refreshes after Sync', async () => {
+    let resolveFull!: (value: PluginInventory) => void;
+    let synced = false;
+    const initial: PluginInventory = { packages: { demo: { bindings: { pi: { id: '/local/old', source: 'owner/repo' } } } }, hosts: [], targetDefinitions: [{ target: 'pi', label: 'Pi', project: true, operations: ['sync'] }] };
+    const inventory = (): PluginInventory => ({ ...initial, packages: { demo: { bindings: { pi: { ...initial.packages.demo.bindings.pi!, refChanged: !synced } } } }, hosts: [{ target: 'pi', version: '1', status: 'ready', installed: [{ id: '/local/old', enabled: true }] }] });
+    const full = new Promise<PluginInventory>((resolve) => { resolveFull = resolve; });
+    vi.mocked(pluginsApi.list).mockImplementation((agents) => agents === false ? Promise.resolve(initial) : synced ? Promise.resolve(inventory()) : full);
+    vi.mocked(pluginsApi.preview).mockResolvedValue({ revision: 'ref-review', blocked: false, changes: [{ name: 'demo', target: 'pi', id: '/local/old', action: 'update' }] });
+    vi.mocked(pluginsApi.apply).mockImplementation(async () => { synced = true; return { result: { results: [] }, failure: '' }; });
+    mount();
+    await screen.findByText('demo');
+    expect(screen.queryByText('plugins.pending')).not.toBeInTheDocument();
+    resolveFull(inventory());
+    expect(await screen.findByText('plugins.pending')).toBeInTheDocument();
+    expect(screen.getByText('update')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'plugins.sync' }));
+    const dialog = await screen.findByRole('dialog', { name: 'plugins.preview' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'plugins.apply' }));
+    await waitFor(() => expect(screen.queryByText('plugins.pending')).not.toBeInTheDocument());
+    expect(pluginsApi.apply).toHaveBeenCalledWith({ action: 'sync' }, 'ref-review');
+    expect(await screen.findByText('targets.state.synced')).toBeInTheDocument();
+  });
+  it('replaces quick packages with verified full ownership before offering imports', async () => {
+    let resolveFull!: (value: PluginInventory) => void;
+    const quick: PluginInventory = { packages: { demo: { bindings: { pi: { id: '', imported: true } } } }, hosts: [], targetDefinitions: [{ target: 'pi', label: 'Pi', project: true, operations: ['import'] }] };
+    const full = new Promise<PluginInventory>((resolve) => { resolveFull = resolve; });
+    vi.mocked(pluginsApi.list).mockImplementation((agents) => agents === false ? Promise.resolve(quick) : full);
+    mount();
+    expect(await screen.findByText('demo')).toBeInTheDocument();
+    resolveFull({ ...quick, packages: { demo: { bindings: { pi: { id: 'npm:demo', imported: true } } } }, hosts: [{ target: 'pi', version: '1', status: 'ready', installed: [{ id: 'npm:demo', enabled: true }] }] });
+    await screen.findByText('plugins.hostRegistered.one');
+    fireEvent.click(screen.getAllByRole('button', { name: 'plugins.import' })[0]);
+    const dialog = await screen.findByRole('dialog', { name: 'plugins.import' });
+    expect(within(dialog).queryByText('npm:demo')).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: 'plugins.importOne' })).not.toBeInTheDocument();
+  });
   it('adds an imported registration to the managed count only after the reviewed import', async () => {
     let imported = false;
     vi.mocked(pluginsApi.list).mockImplementation(async (): Promise<PluginInventory> => ({

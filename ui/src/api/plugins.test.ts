@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { apiFetch } from './client';
-import { bindingStatus, pluginShareCommand, pluginsApi, syncAction } from './plugins';
+import { type PluginBinding, bindingStatus, pluginShareCommand, pluginsApi, syncAction } from './plugins';
 
 vi.mock('./client', () => ({ apiFetch: vi.fn() }));
 
@@ -60,5 +60,21 @@ describe('host-local bindings', () => {
     const binding = { id: 'demo@old', cleanup: true, contextChanged: true };
     expect(syncAction(binding, host)).toBe('');
     expect(bindingStatus(binding, host)).toBe('plugins.accountChanged');
+  });
+});
+
+
+describe('shared ref reconciliation', () => {
+  const binding: PluginBinding = { id: '/local/old', source: 'owner/repo', refChanged: true };
+  const ready = { target: 'pi', version: '1', status: 'ready', installed: [{ id: binding.id, enabled: true }] };
+  it.each([
+    [{}, ready, 'update'], [{}, { ...ready, installed: [] }, 'install'],
+    [{ sync: false }, ready, 'uninstall'], [{ sync: false }, { ...ready, installed: [] }, ''],
+    [{ cleanup: true }, ready, 'remove'], [{ contextChanged: true }, ready, ''],
+    [{ imported: true, id: '' }, ready, ''], [{ pending: 'remove' }, ready, 'update'],
+    [{}, undefined, ''], [{}, { ...ready, status: 'missing', installed: [] }, 'install'],
+    [{}, { ...ready, error: 'unavailable' }, ''],
+  ] as [Partial<PluginBinding>, typeof ready | undefined, string][])('keeps reconciliation precedence: %o / %o', (changes, host, action) => {
+    expect(syncAction({ ...binding, ...changes }, host)).toBe(action);
   });
 });

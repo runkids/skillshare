@@ -89,12 +89,13 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 		rows    []piRowState
 		problem string
 	}
-	managed, globalManaged := s.piManaged(target), s.piManaged(target)
+	managed := s.piManaged(ctx, target)
+	globalManaged := managed
 	if s.GlobalConfigPath != "" {
 		global := *s
 		global.ConfigPath = s.GlobalConfigPath
 		global.ProjectRoot = ""
-		globalManaged = global.piManaged(target)
+		globalManaged = global.piManaged(ctx, target)
 	}
 	globals := map[string]*globalPkg{}
 	globalOrder := []*globalPkg{}

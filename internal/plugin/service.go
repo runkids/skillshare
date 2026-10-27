@@ -19,6 +19,34 @@ func (s *Service) managedRoot() string {
 	return filepath.Join(s.StateDir, "plugins", hash([]byte(p))[:16])
 }
 
+// discover shares a reviewed source within one preview (including recursive adds)
+// or the existing update batch, without caching it across standalone previews.
+func (s *Service) discover(ctx context.Context, source, ref, entry string) (*Discovery, error) {
+	key := source + "\x00" + ref + "\x00" + entry
+	if d := s.discoveries[key]; d != nil {
+		return d, nil
+	}
+	d, err := DiscoverOptions(ctx, source, ref, entry)
+	if err == nil {
+		s.discoveries[key] = d
+	}
+	return d, err
+}
+
+// updateCandidate preserves the selected update's missing/unsupported distinction.
+func updateCandidate(d *Discovery, name, agent string) (*Candidate, error) {
+	for _, candidate := range d.Candidates {
+		if candidate.Name != name {
+			continue
+		}
+		if candidate.Problem != "" || !slices.Contains(candidate.Targets, agent) {
+			return &candidate, fmt.Errorf("Updated source no longer provides a compatible native plugin")
+		}
+		return &candidate, nil
+	}
+	return nil, fmt.Errorf("plugin %s no longer exists in source", name)
+}
+
 func (s *Service) validate(r Request) error {
 	switch r.Action {
 	case "add", "import", "sync", "remove", "update", "check", "enable", "disable":
@@ -88,6 +116,12 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 	r.From = NormalizeTarget(r.From)
 	if err := s.validate(r); err != nil {
 		return nil, err
+	}
+	// Recursive source previews share this operation's discoveries, not receiver lifetime.
+	if s.discoveries == nil {
+		preview := *s
+		preview.discoveries = map[string]*Discovery{}
+		s = &preview
 	}
 	d, err := s.load()
 	if err != nil {
@@ -286,7 +320,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 			appendChange(c)
 		}
 	} else if r.Action == "add" {
-		discovered, err := DiscoverOptions(ctx, r.Source, r.SourceRef, r.Entry)
+		discovered, err := s.discover(ctx, r.Source, r.SourceRef, r.Entry)
 		if err != nil {
 			return nil, err
 		}
@@ -440,10 +474,6 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 			names = append(names, name)
 		}
 		slices.Sort(names)
-		discoveries := s.discoveries
-		if discoveries == nil {
-			discoveries = map[string]*Discovery{}
-		}
 		latests := map[string][]int{}
 		for _, name := range names {
 			if r.Name != "" && r.Name != name {
@@ -461,6 +491,13 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 						return nil, fmt.Errorf("source ref requires a reviewed Git source for %s/%s", name, target)
 					}
 					decl.SourceRef = r.SourceRef
+					disc, err := s.discover(ctx, decl.Source, decl.SourceRef, decl.Entry)
+					if err != nil {
+						return nil, err
+					}
+					if _, err := updateCandidate(disc, decl.Plugin, agent); err != nil {
+						return nil, err
+					}
 				}
 				if r.Action == "enable" || r.Action == "disable" {
 					if !declared {
@@ -592,30 +629,21 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 					if r.SourceRef != "" {
 						ref = r.SourceRef
 					}
-					discoveryKey := b.Source + "\x00" + ref + "\x00" + b.Entry
-					disc := discoveries[discoveryKey]
-					if disc == nil {
-						disc, err = DiscoverOptions(ctx, b.Source, ref, b.Entry)
-						if err != nil {
-							return nil, err
-						}
-						discoveries[discoveryKey] = disc
+					disc, err := s.discover(ctx, b.Source, ref, b.Entry)
+					if err != nil {
+						return nil, err
 					}
-					var candidate *Candidate
-					for _, x := range disc.Candidates {
-						if x.Name == b.Plugin {
-							xx := x
-							candidate = &xx
-						}
-					}
+
+					candidate, candidateErr := updateCandidate(disc, b.Plugin, agent)
 					if candidate == nil {
-						return nil, fmt.Errorf("plugin %s no longer exists in source", b.Plugin)
+						return nil, candidateErr
 					}
-					if candidate.Problem != "" || !slices.Contains(candidate.Targets, agent) {
+					if candidateErr != nil {
 						c.Action = "blocked"
-						c.Message = "Updated source no longer provides a compatible native plugin"
+						c.Message = candidateErr.Error()
 						break
 					}
+
 					c.Components = candidate.TargetInfo[agent].Components
 					if disc.Digest == b.Digest && b.Pending == "" && ref == b.SourceRef {
 						c.Action = "noop"

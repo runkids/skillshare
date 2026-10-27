@@ -152,6 +152,10 @@ func repairHost(t *testing.T, s *Service) {
 }
 
 func repairGitSource(t *testing.T, name string) (string, string) {
+	source, next, _ := repairGitSourceRepo(t, name)
+	return source, next
+}
+func repairGitSourceRepo(t *testing.T, name string) (string, string, string) {
 	t.Helper()
 	src := hostStatePiSource(t)
 	git := func(args ...string) string {
@@ -175,7 +179,7 @@ func repairGitSource(t *testing.T, name string) (string, string) {
 	cfg := filepath.Join(t.TempDir(), "gitconfig")
 	writePluginFile(t, filepath.Dir(cfg), filepath.Base(cfg), "[url \"file://"+src+"\"]\n  insteadOf = "+url+"\n")
 	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
-	return url, git("rev-parse", "next")
+	return url, git("rev-parse", "next"), src
 }
 
 func TestReviewTwoHostsSelectionSurvivesRepeatAdd(t *testing.T) {
@@ -242,7 +246,7 @@ func TestReviewNewHostUpdateRef(t *testing.T) {
 func TestPluginHostStateRepeatAddPreservesSelection(t *testing.T) {
 	for _, kind := range []string{"source", "npm"} {
 		for _, receipt := range []string{"present", "missing", "adopt"} {
-			if kind == "source" && receipt == "adopt" {
+			if kind == "source" && (receipt == "adopt" || receipt == "present") {
 				continue
 			}
 			t.Run(kind+"/"+receipt, func(t *testing.T) {
@@ -539,6 +543,264 @@ func TestPluginHostStateUnsupportedUpdateRefHasNoEffects(t *testing.T) {
 			same()
 			if count() != before {
 				t.Fatal("unsupported ref changed native installation")
+			}
+		})
+	}
+}
+
+func TestPluginHostStateRefDriftIsLocalReconciliation(t *testing.T) {
+	var ac, bc []string
+	a := fakePiNpm(t, &ac)
+	source, next := repairGitSource(t, "ref-drift")
+	applyPluginRequest(t, a, Request{Action: "add", Source: source, SourceRef: "main", Targets: []string{"pi"}})
+	run := a.Run
+	a.Run = func(ctx context.Context, dir string, env []string, bin string, args ...string) ([]byte, error) {
+		if filepath.Base(bin) != "pi" {
+			return nil, errors.New("fixture target unavailable")
+		}
+		return run(ctx, dir, env, bin, args...)
+	}
+	old := readState(t, a).packages["demo"].Bindings["pi"]
+	shared, _ := os.ReadFile(a.ConfigPath)
+	b := fakePiNpm(t, &bc)
+	writePluginFile(t, filepath.Dir(b.ConfigPath), filepath.Base(b.ConfigPath), string(shared))
+	applyPluginRequest(t, b, Request{Action: "update", Name: "demo", SourceRef: "next"})
+	share := func() {
+		t.Helper()
+		raw, _ := os.ReadFile(b.ConfigPath)
+		writePluginFile(t, filepath.Dir(a.ConfigPath), filepath.Base(a.ConfigPath), string(raw))
+		repairHost(t, a)
+	}
+	share()
+	assertDrift := func(want bool) {
+		t.Helper()
+		quick, err := a.Packages()
+		if err != nil {
+			t.Fatal(err)
+		}
+		full, err := a.Inventory(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, inv := range []*Inventory{quick, full} {
+			if got := inv.Packages["demo"].Bindings["pi"].RefChanged; got != want {
+				t.Fatalf("ref drift=%v want %v", got, want)
+			}
+		}
+	}
+	assertDrift(true)
+	if got := readState(t, a).packages["demo"].Bindings["pi"]; got.SourceRef != "main" || got.ID != old.ID {
+		t.Fatal("projection replaced applied identity")
+	}
+	same := unchanged(t, a.ConfigPath)
+	entry := filepath.Join(old.ID, "extensions", "demo.ts")
+	original, err := os.ReadFile(entry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(entry, []byte("local edit"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	applyFailure(t, a, Request{Action: "sync"})
+	assertDrift(true)
+	pendingRaw, _ := os.ReadFile(a.statePath())
+	if strings.Contains(string(pendingRaw), "refChanged") {
+		t.Fatal("persisted computed drift in pending receipt")
+	}
+	if err := os.WriteFile(entry, original, 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	applyPluginRequest(t, a, Request{Action: "sync"})
+	same()
+	assertDrift(false)
+	got := readState(t, a).packages["demo"].Bindings["pi"]
+	if got.SourceRef != "next" || got.Commit != next {
+		t.Fatalf("wrong local ref: %+v", got)
+	}
+	raw, _ := os.ReadFile(a.statePath())
+	if strings.Contains(string(raw), "refChanged") {
+		t.Fatal("persisted computed ref drift")
+	}
+	// Restoring a default ref is also drift, even if default currently has the same commit.
+	repairHost(t, b)
+	applyPluginRequest(t, b, Request{Action: "remove", Name: "demo"})
+	applyPluginRequest(t, b, Request{Action: "add", Source: source, Targets: []string{"pi"}})
+	share()
+	assertDrift(true)
+	applyPluginRequest(t, a, Request{Action: "disable", Name: "demo"})
+	assertDrift(false)
+	applyPluginRequest(t, a, Request{Action: "sync"})
+	assertDrift(false)
+	applyPluginRequest(t, a, Request{Action: "enable", Name: "demo"})
+	assertDrift(true)
+	same = unchanged(t, a.ConfigPath)
+	applyPluginRequest(t, a, Request{Action: "sync"})
+	same()
+	assertDrift(false)
+	if readState(t, a).packages["demo"].Bindings["pi"].SourceRef != "" {
+		t.Fatal("default ref not restored")
+	}
+}
+
+func TestPluginHostStateExplicitRefValidatedBeforeWrites(t *testing.T) {
+	for _, kind := range []string{"local", "missing-git-ref", "valid-git-ref"} {
+		for _, phase := range []string{"disabled", "new-host", "replacement"} {
+			t.Run(kind+"/"+phase, func(t *testing.T) {
+				var calls []string
+				s := fakePiNpm(t, &calls)
+				source, initial, requested := hostStatePiSource(t), "", "branch"
+				if kind != "local" {
+					source, _ = repairGitSource(t, "validate-ref")
+					initial = "main"
+					requested = "absent"
+					if kind == "valid-git-ref" {
+						requested = "next"
+					}
+				}
+				original, originalRef := source, initial
+				if phase == "replacement" {
+					original, originalRef = hostStatePiSource(t), ""
+				}
+				applyPluginRequest(t, s, Request{Action: "add", Source: original, SourceRef: originalRef, Targets: []string{"pi"}})
+				if phase == "replacement" {
+					// A different producer changes distribution; the old source is now unavailable.
+					shared, _ := os.ReadFile(s.ConfigPath)
+					other := fakePiNpm(t, &calls)
+					writePluginFile(t, filepath.Dir(other.ConfigPath), filepath.Base(other.ConfigPath), string(shared))
+					applyPluginRequest(t, other, Request{Action: "remove", Name: "demo"})
+					applyPluginRequest(t, other, Request{Action: "add", Source: source, SourceRef: initial, Targets: []string{"pi"}})
+					shared, _ = os.ReadFile(other.ConfigPath)
+					writePluginFile(t, filepath.Dir(s.ConfigPath), filepath.Base(s.ConfigPath), string(shared))
+					repairHost(t, s)
+					if err := os.RemoveAll(original); err != nil {
+						t.Fatal(err)
+					}
+
+				} else {
+					applyPluginRequest(t, s, Request{Action: "disable", Name: "demo"})
+					if phase == "new-host" {
+						shared, _ := os.ReadFile(s.ConfigPath)
+						s = fakePiNpm(t, &calls)
+						writePluginFile(t, filepath.Dir(s.ConfigPath), filepath.Base(s.ConfigPath), string(shared))
+					}
+				}
+				settings, _ := s.piSettingsPath("pi")
+				same := unchanged(t, s.ConfigPath, s.statePath(), settings)
+				count := len(calls)
+				info, _ := os.Stat(s.ConfigPath)
+				trace := filepath.Join(t.TempDir(), "git.trace")
+				t.Setenv("GIT_TRACE", trace)
+				req := Request{Action: "update", Name: "demo", SourceRef: requested}
+				p, err := s.Preview(context.Background(), req)
+				if kind != "valid-git-ref" {
+					if err == nil {
+						t.Fatalf("invalid explicit ref accepted: %+v", p)
+					}
+					if _, err := s.Apply(context.Background(), req, "reviewed"); err == nil {
+						t.Fatal("apply accepted invalid explicit ref")
+					}
+					same()
+					after, _ := os.Stat(s.ConfigPath)
+					if !info.ModTime().Equal(after.ModTime()) {
+						t.Fatal("refusal rewrote shared YAML")
+					}
+					if len(calls) != count {
+						t.Fatal("refusal mutated native state")
+					}
+					return
+				}
+				if err != nil || p.Blocked {
+					t.Fatalf("valid ref: %v %+v", err, p)
+				}
+				raw, _ := os.ReadFile(trace)
+				if n := strings.Count(string(raw), " clone --depth 1 -- "); n != 1 {
+					t.Fatalf("effective declaration acquired %d times in one preview", n)
+				}
+				if s.discoveries != nil {
+					t.Fatal("preview cache escaped operation")
+				}
+				if _, err := s.Apply(context.Background(), req, p.Revision); err != nil {
+					t.Fatal(err)
+				}
+				if phase != "replacement" && len(calls) != count {
+					t.Fatal("disabled ref update ran native command")
+				}
+				applyPluginRequest(t, s, Request{Action: "enable", Name: "demo"})
+				applyPluginRequest(t, s, Request{Action: "sync"})
+				if got := readState(t, s).packages["demo"].Bindings["pi"]; got.SourceRef != "next" {
+					t.Fatalf("enabled sync ignored validated ref: %+v", got)
+				}
+			})
+		}
+	}
+}
+
+func TestPluginHostStateRefDiscoverySharedWithinPreview(t *testing.T) {
+	var calls []string
+	s := fakePiNpm(t, &calls)
+	source, _ := repairGitSource(t, "one-acquisition")
+	s.Accounts = map[string]Account{"work": {Agent: "pi", Dir: t.TempDir()}}
+	applyPluginRequest(t, s, Request{Action: "add", Source: source, SourceRef: "main", Targets: []string{"pi", "work"}})
+	trace := filepath.Join(t.TempDir(), "git.trace")
+	t.Setenv("GIT_TRACE", trace)
+	if _, err := s.Preview(context.Background(), Request{Action: "update", Name: "demo", SourceRef: "next"}); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(trace)
+	if n := strings.Count(string(raw), " clone --depth 1 -- "); n != 1 {
+		t.Fatalf("acquisitions=%d, want one: %s", n, raw)
+	}
+	// Validate each effective target, and refuse all writes when just one is invalid.
+	applyPluginRequest(t, s, Request{Action: "remove", Name: "demo", Targets: []string{"work"}})
+	applyPluginRequest(t, s, Request{Action: "add", Name: "demo", Source: hostStatePiSource(t), Targets: []string{"work"}})
+
+	same := unchanged(t, s.ConfigPath, s.statePath())
+	before := len(calls)
+	if _, err := s.Preview(context.Background(), Request{Action: "update", Name: "demo", SourceRef: "next"}); err == nil {
+		t.Fatal("invalid target override accepted")
+	}
+	same()
+	if len(calls) != before {
+		t.Fatal("partial native update during validation")
+	}
+}
+
+func TestPluginHostStateDisabledRefKeepsCompatibleCandidate(t *testing.T) {
+	for _, change := range []string{"renamed", "incompatible"} {
+		t.Run(change, func(t *testing.T) {
+			var calls []string
+			s := fakePiNpm(t, &calls)
+			source, _, repo := repairGitSourceRepo(t, "candidate-ref")
+			applyPluginRequest(t, s, Request{Action: "add", Source: source, SourceRef: "main", Targets: []string{"pi"}})
+			applyPluginRequest(t, s, Request{Action: "disable", Name: "demo"})
+
+			body := `{"name":"other","keywords":["pi-package"]}`
+			if change == "incompatible" {
+				body = `{"name":"demo","main":"index.js","dependencies":{"@opencode-ai/plugin":"1"}}`
+				if err := os.RemoveAll(filepath.Join(repo, "extensions")); err != nil {
+					t.Fatal(err)
+				}
+				writePluginFile(t, repo, "index.js", "export default () => {}")
+			}
+			writePluginFile(t, repo, "package.json", body)
+			for _, args := range [][]string{{"add", "."}, {"-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "changed candidate"}} {
+				cmd := exec.Command("git", args...)
+				cmd.Dir = repo
+				if out, err := cmd.CombinedOutput(); err != nil {
+					t.Fatalf("git: %s %v", out, err)
+				}
+			}
+			same := unchanged(t, s.ConfigPath, s.statePath())
+			before := len(calls)
+			req := Request{Action: "update", Name: "demo", SourceRef: "next"}
+			p, err := s.Preview(context.Background(), req)
+			if err == nil && !p.Blocked {
+				t.Fatalf("disabled update accepted incompatible candidate: %+v", p.Changes)
+			}
+			same()
+			if len(calls) != before {
+				t.Fatal("candidate validation ran native mutation")
 			}
 		})
 	}
