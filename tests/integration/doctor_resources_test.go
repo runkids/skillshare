@@ -90,13 +90,14 @@ func TestDoctor_JSON_PluginMissingCLIIsWarning(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			sb := testutil.NewSandbox(t)
 			defer sb.Cleanup()
-			binding := test.binding
+			binding, schema := test.binding, ""
 			if test.name == "source" {
 				source := filepath.Join(sb.Root, "plugin")
 				sb.WriteFile(filepath.Join(source, ".codex-plugin", "plugin.json"), `{"name":"demo","version":"1.0.0"}`)
 				binding = "source: " + source + "\n          plugin: demo"
+				schema = "  version: 2\n"
 			}
-			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets:\n  codex-x: {agent: codex, config_dir: ~/.codex-x, cli: no-such-codex-cli, skills: {enabled: false}}\nplugins:\n  packages:\n    demo:\n      bindings:\n        codex-x:\n          " + binding + "\n")
+			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets:\n  codex-x: {agent: codex, config_dir: ~/.codex-x, cli: no-such-codex-cli, skills: {enabled: false}}\nplugins:\n" + schema + "  packages:\n    demo:\n      bindings:\n        codex-x:\n          " + binding + "\n")
 			before, _ := os.ReadFile(sb.ConfigPath)
 
 			out := parseDoctorJSON(t, sb.RunCLI("doctor", "--json").Stdout)
