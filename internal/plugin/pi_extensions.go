@@ -638,7 +638,7 @@ func (s *Service) piManaged(ctx context.Context, target string) map[string]strin
 		return result
 	}
 	var h *Host
-	adopted := s.adoptLegacy(d, func(requested string) Host {
+	s.adoptLegacy(d, func(requested string) Host {
 		if requested != target {
 			return Host{Error: "outside requested target"}
 		}
@@ -648,11 +648,6 @@ func (s *Service) piManaged(ctx context.Context, target string) map[string]strin
 		}
 		return *h
 	})
-	if adopted {
-		if err := s.saveState(d); err != nil {
-			return result
-		}
-	}
 	for name, p := range d.packages {
 		if b, ok := p.Bindings[target]; ok && b.ID != "" && !b.Cleanup && !b.ContextChanged {
 			result[b.ID] = name

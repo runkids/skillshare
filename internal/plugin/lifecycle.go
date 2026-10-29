@@ -60,6 +60,13 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 	if err != nil {
 		return nil, err
 	}
+	// Reuse the inventory already observed by this apply's fresh Preview.
+	s.adoptLegacy(d, func(target string) Host {
+		if h, ok := p.hosts[target]; ok {
+			return h
+		}
+		return s.host(ctx, target)
+	})
 	before, _ := yaml.Marshal(d.intent)
 	for _, c := range p.Changes {
 		if c.Action == "skip" || c.Action == "blocked" {

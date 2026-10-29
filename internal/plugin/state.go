@@ -75,12 +75,12 @@ func (s *Service) storeIdentity(target string) string {
 		case "opencode":
 			dir, _ = s.openCodeConfigPath(target)
 		case "claude":
-			dir = os.Getenv("CLAUDE_CONFIG_DIR")
+			dir = os.Getenv(accountEnv[agent])
 			if dir == "" {
 				dir = filepath.Join(home, ".claude")
 			}
 		case "codex":
-			dir = os.Getenv("CODEX_HOME")
+			dir = os.Getenv(accountEnv[agent])
 			if dir == "" {
 				dir = filepath.Join(home, ".codex")
 			}
@@ -280,8 +280,7 @@ func (s *Service) captureLegacy(d *document) {
 // Legacy candidates become receipts only after the same scoped native, snapshot
 // and private-registration proofs, independently of today's shared declarations.
 // Names optionally limit a read-only projection to its requested packages.
-func (s *Service) adoptLegacy(d *document, host func(string) Host, names ...string) bool {
-	adopted := false
+func (s *Service) adoptLegacy(d *document, host func(string) Host, names ...string) {
 	prove := func(name, target string, hint *receipt) {
 		if len(names) > 0 && !slices.Contains(names, name) {
 			return
@@ -312,7 +311,6 @@ func (s *Service) adoptLegacy(d *document, host func(string) Host, names ...stri
 			}
 		}
 		b.Pending = ""
-		adopted = true
 		local.Applied = &receipt{Intent: hint.Intent, Store: hint.Store, Binding: b}
 		local.Legacy = nil
 		d.putLocal(name, target, local)
@@ -334,7 +332,6 @@ func (s *Service) adoptLegacy(d *document, host func(string) Host, names ...stri
 		}
 	}
 	s.compose(d)
-	return adopted
 }
 func (s *Service) ownedSnapshot(b Binding, target string) bool {
 	if b.Source == "" || b.ID == "" || b.Digest == "" {

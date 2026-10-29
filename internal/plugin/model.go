@@ -255,6 +255,7 @@ type Change struct {
 }
 
 type Plan struct {
+	hosts    map[string]Host
 	Revision string   `json:"revision"`
 	Blocked  bool     `json:"blocked"`
 	Changes  []Change `json:"changes"`

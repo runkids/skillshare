@@ -134,6 +134,9 @@ func (s *Service) materialize(ctx context.Context, b Binding, target string) (st
 
 // applyChange records in b the version an imported plugin's update installed.
 func (s *Service) applyChange(ctx context.Context, c Change, b *Binding) (resultErr error) {
+	if err := s.checkApplyIntent(); err != nil {
+		return err
+	}
 	if b.Source != "" && (c.Action == "install" || c.Action == "update") {
 		if _, err := os.Stat(s.snapshotPath(*b, c.Target) + ".previous"); err == nil {
 			return fmt.Errorf("unfinished snapshot replacement; inspect previous snapshot before retrying")
@@ -205,6 +208,9 @@ func (s *Service) applyChange(ctx context.Context, c Change, b *Binding) (result
 				} else if agent == "codex" {
 					args = append(args, "--json")
 				}
+				if err := s.checkApplyIntent(); err != nil {
+					return err
+				}
 				if _, err := s.run(ctx, c.Target, args...); err != nil {
 					return err
 				}
@@ -214,6 +220,9 @@ func (s *Service) applyChange(ctx context.Context, c Change, b *Binding) (result
 		// omp installs from the catalog it cached when the marketplace was added.
 		if c.Action == "update" && (agent == "claude" || agent == "omp") {
 			_, market, _ := strings.Cut(b.ID, "@")
+			if err := s.checkApplyIntent(); err != nil {
+				return err
+			}
 			if _, err := s.run(ctx, c.Target, "plugin", "marketplace", "update", market); err != nil {
 				return err
 			}
@@ -238,6 +247,9 @@ func (s *Service) applyChange(ctx context.Context, c Change, b *Binding) (result
 		if err := ompEmptyRuntime(c.ompRuntimePath); err != nil {
 			return agentError{cause: err, key: "plugins.error.ompRuntimeSafety", message: err.Error()}
 		}
+	}
+	if err := s.checkApplyIntent(); err != nil {
+		return err
 	}
 	if _, err := s.run(ctx, c.Target, args...); err != nil {
 		return err
@@ -295,6 +307,9 @@ func (s *Service) removeMarketplace(ctx context.Context, target string, b Bindin
 	// No --scope: Claude refuses a scoped removal when only known_marketplaces.json records the
 	// marketplace, for example after synced settings dropped its declaration. The name is unique
 	// to this binding and its root was checked above, so every scope's copy is Skillshare's.
+	if err := s.checkApplyIntent(); err != nil {
+		return err
+	}
 	if _, err := s.run(ctx, target, "plugin", "marketplace", "remove", market); err != nil {
 		return kept(err)
 	}

@@ -114,20 +114,6 @@ func runCommand(ctx context.Context, dir string, env []string, bin string, args 
 }
 
 func (s *Service) run(ctx context.Context, target string, args ...string) ([]byte, error) {
-	if len(args) > 0 && !slices.Contains(args, "--help") {
-		command := args[0]
-		if command == "plugin" && len(args) > 1 {
-			command = args[1]
-			if command == "marketplace" && len(args) > 2 {
-				command = args[2]
-			}
-		}
-		if slices.Contains([]string{"install", "add", "remove", "uninstall", "update", "upgrade"}, command) {
-			if err := s.checkApplyIntent(); err != nil {
-				return nil, err
-			}
-		}
-	}
 
 	run := s.Run
 	if run == nil {
@@ -312,7 +298,7 @@ func (s *Service) Inventory(ctx context.Context) (*Inventory, error) {
 	if err != nil {
 		return nil, err
 	}
-	adopted := s.adoptLegacy(d, func(target string) Host {
+	s.adoptLegacy(d, func(target string) Host {
 		for _, h := range result.Hosts {
 			if h.Target == target {
 				return h
@@ -320,11 +306,6 @@ func (s *Service) Inventory(ctx context.Context) (*Inventory, error) {
 		}
 		return Host{Error: "inventory unavailable"}
 	})
-	if adopted {
-		if err := s.saveState(d); err != nil {
-			return nil, err
-		}
-	}
 	result.Packages = d.packages
 	return result, nil
 }
