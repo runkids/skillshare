@@ -77,6 +77,10 @@ func skillVariant(relPath, repo string) (id, agent string) {
 	return "", ""
 }
 
+// UsesVariantRouting reports whether agent routing was inferred from the layout.
+// Explicit frontmatter targets and source-local overrides retain their own policy.
+func (s DiscoveredSkill) UsesVariantRouting() bool { return s.variantRouting }
+
 // SkillCounts distinguishes enabled logical skills from physical source entries.
 type SkillCounts struct {
 	Skills   int

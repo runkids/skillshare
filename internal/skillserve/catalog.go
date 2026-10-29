@@ -130,7 +130,7 @@ func (b *Builder) build(all []ssync.DiscoveredSkill) (*Catalog, error) {
 	var unserved []string
 	c := &Catalog{bySkill: map[string]*Skill{}, byFile: map[string]servedFile{}}
 	for _, s := range all {
-		if !served[s.RelPath] && !(s.LogicalID != "" && !s.Disabled && routed[s.RelPath].Status == "skill_target_mismatch") {
+		if !served[s.RelPath] && !(s.UsesVariantRouting() && !s.Disabled && routed[s.RelPath].Status == "skill_target_mismatch") {
 			unserved = append(unserved, s.RelPath)
 		}
 		if reason, ok := skipped[s.RelPath]; ok {

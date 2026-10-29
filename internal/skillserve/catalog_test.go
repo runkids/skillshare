@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 	"skillshare/internal/skillpkg"
 )
 
@@ -477,5 +478,35 @@ func TestBuild_ServesParentWithDifferentlyRoutedVariant(t *testing.T) {
 		if find(c, "skill://_repo/parent/SKILL.md") == nil || len(c.Skills) != 2 {
 			t.Fatalf("%s: skills=%v skips=%v", target, c.Skills, c.Skipped)
 		}
+	}
+}
+
+func TestBuild_VariantParentRespectsExplicitChildTargets(t *testing.T) {
+	for _, override := range []bool{false, true} {
+		t.Run(fmt.Sprintf("override=%t", override), func(t *testing.T) {
+			src := t.TempDir()
+			writeFile(t, filepath.Join(src, "_repo/parent/SKILL.md"), skillMD("parent"))
+			for _, agent := range []string{"claude", "codex"} {
+				content := skillMD("fix")
+				if agent == "codex" && !override {
+					content = strings.Replace(content, "metadata:\n", "metadata:\n  targets: [codex]\n", 1)
+				}
+				writeFile(t, filepath.Join(src, "_repo/parent/skills", agent, "fix/SKILL.md"), content)
+			}
+			if override {
+				store := install.NewMetadataStore()
+				store.SetTargetOverride("_repo/parent/skills/codex/fix", []string{"codex"})
+				if err := store.Save(src); err != nil {
+					t.Fatal(err)
+				}
+			}
+			c, err := (&Builder{Source: src, Target: "claude", Skills: &config.ResourceTargetConfig{}}).Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if find(c, "skill://_repo/parent/SKILL.md") != nil {
+				t.Fatalf("parent exposes explicitly restricted child: skips=%v", c.Skipped)
+			}
+		})
 	}
 }
