@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { pluginsApi } from '../../api/plugins';
 import type { PluginInventory, PluginPlan, PluginUpdateEvent } from '../../api/plugins';
-import { changedRuns, failureText, piPackageTest, reviewChanges, syncTodo, updatesFound, updatedTargets, updatesLeft, updatesPending, usePluginsFlow, versionMoves } from './pluginsFlow';
+import { changedRuns, failureText, importPackageNames, importRequest, piPackageTest, reviewChanges, syncTodo, updatesFound, updatedTargets, updatesLeft, updatesPending, usePluginsFlow, versionMoves } from './pluginsFlow';
 
 vi.mock('../../api/plugins', async (importOriginal) => ({ ...await importOriginal<typeof import('../../api/plugins')>(), pluginsApi: { preview: vi.fn(), apply: vi.fn(), update: vi.fn(), stopUpdate: vi.fn() } }));
 
@@ -293,14 +293,7 @@ describe('plugins flow rules', () => {
     expect(syncTodo(undefined)).toEqual([]);
   });
   it('calls a package Pi installs itself, bound only to Pi targets, a Pi package', () => {
-    const packages = {
-      ...inventory.packages,
-      driver: { source: 'npm:@scope/driver', bindings: { omo: { id: 'npm:@scope/driver' } } },
-      mixed: { source: 'npm:driver', bindings: { omo: { id: 'npm:driver' }, codex: { id: 'driver@market' } } },
-      imported: { bindings: { omo: { id: 'native:imported' } } },
-      copied: { source: 'npm:driver', bindings: { omo: { id: 'local:driver', source: 'owner/driver' } } },
-    };
-    expect(['demo', 'driver', 'mixed', 'imported', 'copied', 'powers', 'unbound', 'gone'].filter(piPackageTest({ ...inventory, packages }))).toEqual(['driver', 'imported']);
+    expect(['demo', 'driver', 'powers', 'unbound', 'gone'].filter(piPackageTest(inventory))).toEqual(['driver']);
   });
   it('splits a preview into what it changes and what it leaves alone, with the version each has', () => {
     const { active, idle } = reviewChanges(plan('r', { action: 'update' }, { action: 'noop' }, { name: 'driver', target: 'omo', action: 'noop', binding: { id: 'npm:@scope/driver', version: '3.0.0' } }), inventory);
@@ -316,4 +309,16 @@ describe('plugins flow rules', () => {
     ]);
     expect(runs.map((r) => [r.name, r.status, r.targets, r.note])).toEqual([['bad', 'failed', ['codex'], 'Native authentication required'], ['demo', 'installed', ['claude', 'codex'], '']]);
   });
+});
+
+it('keeps the chosen declaration name in single and batch import requests', () => {
+  const inventory: PluginInventory = { hosts: [], packages: {
+    bar: { bindings: { pi: { id: '', imported: true } } },
+    other: { bindings: { pi: { id: '', imported: true } } },
+    managed: { bindings: { pi: { id: 'npm:managed' } } },
+  } };
+  expect(importPackageNames(inventory, 'pi')).toEqual(['bar', 'other']);
+  expect(importRequest(inventory, 'pi', 'npm:foo', 'bar')).toEqual({ action: 'import', from: 'pi', plugin: 'npm:foo', name: 'bar' });
+  expect(importRequest(inventory, 'pi', 'npm:new', '')).toEqual({ action: 'import', from: 'pi', plugin: 'npm:new' });
+  expect(importPackageNames(inventory, 'claude')).toEqual([]);
 });

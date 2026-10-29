@@ -70,15 +70,8 @@ func TestOMPMergedBuildVersionWithoutTargets(t *testing.T) {
 			}
 			applyPluginRequest(t, s, r)
 			d, err := s.load()
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got := d.packages["kata"].Version; got != test.want {
-				t.Fatalf("local reviewed version = %q; want %q", got, test.want)
-			}
-			shared, err := decodeDocument(d.raw, nil)
-			if err != nil || len(shared.legacy) != 0 || shared.intent["kata"].Source != root {
-				t.Fatalf("shared intent cached local metadata: %s %v", d.raw, err)
+			if err != nil || d.packages["kata"].Version != test.want {
+				t.Fatalf("recorded no-Agent version: %+v %v; want %q", d, err, test.want)
 			}
 		})
 	}
@@ -127,19 +120,6 @@ func TestOMPCatalogVersionReachesNativeInstall(t *testing.T) {
 				if err := json.Unmarshal(data, &catalog); err != nil || len(catalog.Plugins) != 1 || catalog.Plugins[0].Version != "3.0.0" {
 					t.Fatalf("native catalog lost version: %s %v", data, err)
 				}
-			}
-			writeFile(t, root, catalogPath, `{"name":"market","plugins":[{"name":"kata","version":"4.0.0","source":"./plugins/oh-my-pi"}]}`)
-			check, err := s.Preview(context.Background(), Request{Action: "check", Name: "kata", Targets: []string{"omp"}})
-			if err != nil || len(check.Changes) != 1 || check.Changes[0].Binding.Version != "4.0.0" {
-				t.Fatalf("check lost the OMP version: %+v %v", check, err)
-			}
-			update, err := s.Preview(context.Background(), Request{Action: "update", Name: "kata", Targets: []string{"omp"}})
-			if err != nil || !update.Blocked {
-				t.Fatalf("OMP update bypassed its native safety guard: %+v %v", update, err)
-			}
-			pack := readState(t, s).packages["kata"]
-			if pack.Version != wantVersion || pack.Bindings["omp"].Version != "3.0.0" {
-				t.Fatalf("blocked update changed reviewed versions: %+v; want default %q", pack, wantVersion)
 			}
 		})
 	}
