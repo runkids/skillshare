@@ -810,13 +810,13 @@ func TestPiExtensionsVerifiedLegacyOwnership(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			shared, local := s.ConfigPath, s.statePath()
+			shared := s.ConfigPath
 			if mode == "inherited" {
 				s.GlobalConfigPath = s.ConfigPath
 				s.ProjectRoot = t.TempDir()
 				s.ConfigPath = filepath.Join(s.ProjectRoot, ".skillshare", "config.yaml")
 			}
-			same := unchanged(t, shared, local, s.ConfigPath, s.statePath(), file)
+			same := unchanged(t, shared, s.ConfigPath, file)
 			before := len(calls)
 			view, err := s.PiExtensions(context.Background(), target)
 			if err != nil {

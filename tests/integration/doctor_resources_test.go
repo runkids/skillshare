@@ -86,11 +86,15 @@ func TestDoctor_JSON_PluginMissingCLIIsWarning(t *testing.T) {
 	}{
 		{"source", "", "CLI is not installed"},
 		{"legacy-import", "id: demo@team", "Import required on this machine"},
+		{"second-machine-import", "imported: true", "Import required on this machine"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			sb := testutil.NewSandbox(t)
 			defer sb.Cleanup()
 			binding, schema := test.binding, ""
+			if test.name == "second-machine-import" {
+				schema = "  version: 2\n"
+			}
 			if test.name == "source" {
 				source := filepath.Join(sb.Root, "plugin")
 				sb.WriteFile(filepath.Join(source, ".codex-plugin", "plugin.json"), `{"name":"demo","version":"1.0.0"}`)

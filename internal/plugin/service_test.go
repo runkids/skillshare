@@ -679,7 +679,7 @@ func (f *fakeAgents) service(t *testing.T) *Service {
 		f.markets = map[string]map[string]string{}
 	}
 	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
-	s.Run = func(_ context.Context, _ string, _ []string, bin string, args ...string) ([]byte, error) {
+	s.Run = func(_ context.Context, dir string, _ []string, bin string, args ...string) ([]byte, error) {
 		command := strings.Join(args, " ")
 		switch {
 		case command == "--version":
@@ -759,7 +759,7 @@ func (f *fakeAgents) service(t *testing.T) *Service {
 					}
 				}
 			}
-			f.installed[bin] = []Installed{{ID: args[2], PluginID: args[2], Installed: true, Enabled: enabled, Version: f.version, Scope: scope}}
+			f.installed[bin] = []Installed{{ID: args[2], PluginID: args[2], Installed: true, Enabled: enabled, Version: f.version, Scope: scope, ProjectPath: dir}}
 		case args[1] == "remove" || args[1] == "uninstall":
 			f.installed[bin] = nil
 		}

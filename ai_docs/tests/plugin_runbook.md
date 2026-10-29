@@ -117,3 +117,56 @@ pnpm exec vitest run src/components/plugins/PluginAddDialog.test.tsx src/pages/P
 
 Check Clean and Playful in light/dark: advanced source options, per-target reasons,
 registered/loading-unverified state, and identical Antigravity Desktop/CLI logos.
+
+### 4. Two-machine shared declarations and private receipts
+
+These deterministic fixtures simulate two machines with separate native homes,
+config paths and state directories. Only config bytes pass between them. They
+exercise global Codex/Cursor/Antigravity and project Claude/Antigravity, plus Pi
+source and import flows:
+
+1. A adds a source; B receives only its declarations and previews its own install.
+2. B applies and repeats sync without changing shared YAML; A removes the package.
+3. B receives the changed declarations, previews local cleanup, applies it, and
+   confirms the next sync is empty.
+4. B imports a native ID into A's source declaration. The shared recipe remains
+   byte-identical and A keeps its reviewed source installation.
+5. Each machine reads legacy YAML before a remote v2 edit. Its saved hints survive
+   restart; a failed legacy target or whole-package removal is retried by sync.
+
+```bash
+cd /workspace
+GOMAXPROCS=4 go test -p 4 ./internal/plugin -run 'TestSharedSourceLifecycleAcrossHostsAndScopes|TestPluginHostStateFirstNativeImportPreservesSourceIntent|TestLegacyReadPersistsEvidenceBeforeRemoteMigration|TestLegacyPendingRemovalRetriesAfterMigration' -count=1 -v
+```
+
+**Expected**:
+- Exit code 0.
+- `--- PASS: TestSharedSourceLifecycleAcrossHostsAndScopes`
+- `--- PASS: TestPluginHostStateFirstNativeImportPreservesSourceIntent`
+- `--- PASS: TestLegacyReadPersistsEvidenceBeforeRemoteMigration`
+- `--- PASS: TestLegacyPendingRemovalRetriesAfterMigration`
+
+### 5. Second-machine import guidance in doctor
+
+A second machine receives an imported declaration without the first machine's
+native ID. Doctor must warn about the skipped import, leaving shared YAML intact.
+
+```bash
+cd /workspace
+GOMAXPROCS=4 go test -p 4 ./tests/integration -run 'TestDoctor_JSON_PluginMissingCLIIsWarning/second-machine-import' -count=1 -v
+```
+
+**Expected**:
+- Exit code 0.
+- `--- PASS: TestDoctor_JSON_PluginMissingCLIIsWarning/second-machine-import`
+
+## Two-machine pass criteria
+
+- Receipts, pending work and native IDs stay machine-local.
+- An import into an existing source declaration does not convert shared intent.
+- Shared removal cleans up only the receiving machine's proven installation.
+- Before a real first v2 edit, every writer is upgraded and **each machine** has
+  run `skillshare plugin list` while the shared YAML is still legacy.
+- Review and commit pinning are per machine. Branch refs resolve at that machine's
+  install/update time, including non-interactive sync. A commit SHA in `source_ref`
+  is required to pin all machines to the same revision.
