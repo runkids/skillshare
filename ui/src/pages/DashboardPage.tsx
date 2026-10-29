@@ -500,7 +500,7 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
             <Github size={15} />
             <span className="flex flex-col min-w-0 flex-1 gap-px">
               <span className="font-mono text-[13px] font-semibold truncate">{repo.name.replace(/^_/, '')}</span>
-              <span className="text-[13px] text-ink-2">{t(plural('dashboard.trackedRepos.skillCount', repo.skillCount), { count: repo.skillCount })}</span>
+              <span className="text-[13px] text-ink-2">{t(plural('dashboard.trackedRepos.skillCount', repo.skillCount), { count: repo.skillCount })}{(repo.variantCount ?? repo.skillCount) > repo.skillCount && <>{', '}{t('dashboard.trackedRepos.variantCount', { count: repo.variantCount! })}</>}</span>
             </span>
             <span className={`ss-st ${repo.dirty ? 'warn' : 'ok'}`}>
               {repo.dirty ? t('dashboard.trackedRepos.modified') : t('dashboard.trackedRepos.clean')}

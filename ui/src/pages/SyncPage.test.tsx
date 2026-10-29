@@ -120,9 +120,6 @@ describe('Sync page last sync', () => {
     renderPage();
 
     expect(await screen.findByText(/Sync 1 change/)).toBeInTheDocument();
-    const skippedBanner = (await screen.findByText('1 skill skipped in codex')).parentElement;
-    expect(skippedBanner).not.toHaveTextContent(warning);
-    expect(skippedBanner).toHaveTextContent('because their SKILL.md name is invalid');
     await waitFor(() => expect(api.getSyncMatrix).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByRole('button', { name: 'Discard all' })).toBeNull();

@@ -3504,5 +3504,7 @@
   "memory.starterHint": "یادداشت‌های اولیه آماده‌اند. یک ترجیح، تصمیم یا درس تأییدشده اضافه کنید.",
   "memory.recentlyUpdated": "به‌روزرسانی‌های اخیر",
   "memory.updated": "به‌روزرسانی: {time}",
-  "memory.configuredHint": "پیکربندی‌شده یعنی فایل دستورالعمل به اینجا اشاره می‌کند، نه اینکه یک عامل آن را خوانده است."
+  "memory.configuredHint": "پیکربندی‌شده یعنی فایل دستورالعمل به اینجا اشاره می‌کند، نه اینکه یک عامل آن را خوانده است.",
+  "sync.skipped.ambiguousVariant": "گونهٔ عامل مبهم است؛ با include/exclude یا بازنویسی مقصد یکی را انتخاب کنید.",
+  "dashboard.trackedRepos.variantCount": "{count} گونه"
 }

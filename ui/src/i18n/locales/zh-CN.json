@@ -3504,5 +3504,7 @@
   "memory.starterHint": "初始笔记已准备好。添加一项偏好、决策或已验证的经验。",
   "memory.recentlyUpdated": "最近更新",
   "memory.updated": "更新时间：{time}",
-  "memory.configuredHint": "已配置表示指令文件已指向这里，不代表 agent 已读取。"
+  "memory.configuredHint": "已配置表示指令文件已指向这里，不代表 agent 已读取。",
+  "sync.skipped.ambiguousVariant": "代理变体不明确；请用 include/exclude 或目标覆盖选择一个。",
+  "dashboard.trackedRepos.variantCount": "{count} 个变体"
 }

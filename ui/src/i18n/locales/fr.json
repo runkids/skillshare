@@ -3504,5 +3504,7 @@
   "memory.starterHint": "Les notes initiales sont prêtes. Ajoutez une préférence, une décision ou une leçon vérifiée.",
   "memory.recentlyUpdated": "Mises à jour récentes",
   "memory.updated": "Mise à jour {time}",
-  "memory.configuredHint": "Configuré signifie que le fichier d’instructions pointe ici, pas qu’un agent l’a lu."
+  "memory.configuredHint": "Configuré signifie que le fichier d’instructions pointe ici, pas qu’un agent l’a lu.",
+  "sync.skipped.ambiguousVariant": "Variante d’agent ambiguë ; utilisez include/exclude ou une cible explicite pour en sélectionner une.",
+  "dashboard.trackedRepos.variantCount": "{count} variantes"
 }

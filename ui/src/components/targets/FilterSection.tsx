@@ -44,6 +44,7 @@ export default function FilterSection({ kind, mode, name, include, exclude, onCh
 
   const reason = (e: SyncMatrixEntry) => {
     switch (e.status) {
+      case 'skipped': return t('sync.skipped.ambiguousVariant');
       case 'synced': return t(include.length ? 'targetDetail.reason.included' : 'targetDetail.reason.noFilter');
       case 'excluded': return t('targetDetail.reason.excluded', { pattern: e.reason });
       case 'not_included': return t('targetDetail.reason.notIncluded');
@@ -140,7 +141,7 @@ export default function FilterSection({ kind, mode, name, include, exclude, onCh
                   </>
                 );
                 return next ? (
-                  <button key={e.skill} type="button" className="ss-r link !min-h-[42px] w-full text-left" onClick={() => onChange(next)} title={t(on ? 'targetDetail.clickExclude' : 'targetDetail.clickInclude')} disabled={disabled}>
+                  <button key={e.skill} type="button" className="ss-r link !min-h-[42px] w-full text-left" onClick={() => onChange(next)} title={t(on || e.status === 'skipped' ? 'targetDetail.clickExclude' : 'targetDetail.clickInclude')} disabled={disabled}>
                     {cells}
                   </button>
                 ) : (

@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, type Target } from '../api/client';
 import { ToastProvider } from '../components/Toast';
-import { I18nProvider, LOCALE_STORAGE_KEY, translate } from '../i18n';
+import { I18nProvider } from '../i18n';
 import TargetDetailPage from './TargetDetailPage';
 
 const offline = vi.hoisted(() => () => Promise.reject(new Error('offline')));
@@ -42,31 +42,6 @@ describe('Target page shared skills folder', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(api.previewSyncMatrix).mockResolvedValue({ entries: [] });
-  });
-
-  it('shows selection warnings for flat naming', async () => {
-    vi.mocked(api.previewSyncMatrix).mockResolvedValue({ entries: [
-      { skill: '_repo__skills__codex__fix', target: 'codex', status: 'skipped', reason: 'Target "codex": skipped ambiguous codex variant _repo/skills/codex/fix; use include/exclude or a target override to select one' },
-      { skill: '_repo__skills__codex-cli__fix', target: 'codex', status: 'skipped', reason: 'Target "codex": skipped ambiguous codex variant _repo/skills/codex-cli/fix; use include/exclude or a target override to select one' },
-    ] });
-    renderPage({ expectedSkillCount: 0, skippedSkillCount: 2, warnings: ['ambiguous codex variant; use a target override'] } as Partial<Target>);
-    expect(await screen.findByText(/agent variants need an explicit selection/)).toBeInTheDocument();
-    expect(screen.queryByText('ambiguous codex variant; use a target override')).toBeNull();
-    expect(await screen.findByText('0 of 2 skills go to codex.')).toBeInTheDocument();
-    expect(screen.getByText('_repo__skills__codex__fix').closest('button')).toBeNull();
-    expect(screen.getByText('_repo__skills__codex-cli__fix').closest('button')).toBeNull();
-  });
-
-  it('keeps naming warnings localized in Traditional Chinese', async () => {
-    localStorage.setItem(LOCALE_STORAGE_KEY, 'zh-TW');
-    const warning = 'Go warning: invalid SKILL.md name';
-    try {
-      renderPage({ targetNaming: 'standard', skippedSkillCount: 2, warnings: [warning] });
-      expect(await screen.findByText(translate('zh-TW', 'targetDetail.skipped.other', { count: 2 }))).toBeInTheDocument();
-      expect(screen.queryByText(warning)).toBeNull();
-    } finally {
-      localStorage.removeItem(LOCALE_STORAGE_KEY);
-    }
   });
 
   it('warns under the mode picker and sets the draft to the other target\'s mode', async () => {

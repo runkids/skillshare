@@ -3504,5 +3504,7 @@
   "memory.starterHint": "Die Startnotizen sind bereit. Ergänze eine Vorliebe, Entscheidung oder bestätigte Erkenntnis.",
   "memory.recentlyUpdated": "Zuletzt aktualisiert",
   "memory.updated": "Aktualisiert: {time}",
-  "memory.configuredHint": "Konfiguriert bedeutet, dass die Anweisungsdatei hierher verweist, nicht dass ein Agent sie gelesen hat."
+  "memory.configuredHint": "Konfiguriert bedeutet, dass die Anweisungsdatei hierher verweist, nicht dass ein Agent sie gelesen hat.",
+  "sync.skipped.ambiguousVariant": "Mehrdeutige Agent-Variante; mit include/exclude oder einer Zielüberschreibung eine auswählen.",
+  "dashboard.trackedRepos.variantCount": "{count} Varianten"
 }

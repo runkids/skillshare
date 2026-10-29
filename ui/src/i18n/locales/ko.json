@@ -3504,5 +3504,7 @@
   "memory.starterHint": "초기 노트가 준비되었습니다. 선호 사항, 결정 또는 검증된 교훈을 추가하세요.",
   "memory.recentlyUpdated": "최근 업데이트",
   "memory.updated": "업데이트: {time}",
-  "memory.configuredHint": "설정됨은 지침 파일이 여기를 가리킨다는 뜻이며, 에이전트가 읽었다는 뜻은 아닙니다."
+  "memory.configuredHint": "설정됨은 지침 파일이 여기를 가리킨다는 뜻이며, 에이전트가 읽었다는 뜻은 아닙니다.",
+  "sync.skipped.ambiguousVariant": "에이전트 변형이 모호합니다. include/exclude 또는 대상 재정의로 하나를 선택하세요.",
+  "dashboard.trackedRepos.variantCount": "변형 {count}개"
 }

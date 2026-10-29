@@ -3504,5 +3504,7 @@
   "memory.starterHint": "Catatan awal sudah siap. Tambahkan preferensi, keputusan, atau pelajaran terverifikasi.",
   "memory.recentlyUpdated": "Baru diperbarui",
   "memory.updated": "Diperbarui {time}",
-  "memory.configuredHint": "Dikonfigurasi berarti berkas instruksi mengarah ke sini, bukan berarti agen sudah membacanya."
+  "memory.configuredHint": "Dikonfigurasi berarti berkas instruksi mengarah ke sini, bukan berarti agen sudah membacanya.",
+  "sync.skipped.ambiguousVariant": "Varian agen ambigu; gunakan include/exclude atau penggantian target untuk memilih satu.",
+  "dashboard.trackedRepos.variantCount": "{count} varian"
 }

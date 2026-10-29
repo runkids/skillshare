@@ -21,9 +21,9 @@ const diff: DiffTarget[] = [
 
 describe('resourceGroups', () => {
   it('shows selection warnings as read-only rows even with force', () => {
-    const diffs: DiffTarget[] = [{ target: 'claude', items: [{ skill: '(skill selection)', action: 'skip', reason: 'ambiguous claude variant; use a target override' }] }];
+    const diffs: DiffTarget[] = [{ target: 'claude', items: [{ skill: '(skill selection)', action: 'skip', reason: 'Target "claude": skipped ambiguous claude variant _repo/skills/claude/fix; use include/exclude or a target override to select one' }] }];
     const groups = resourceGroups(diffs, [target('claude')], new Set(['skill']), true).groups;
-    expect([countChanges(groups), groups[0].rows[0].detail]).toEqual([0, 'ambiguous claude variant; use a target override']);
+    expect([countChanges(groups), groups[0].rows[0].name, groups[0].rows[0].text, groups[0].rows[0].detail]).toEqual([0, '_repo/skills/claude/fix', 'sync.skipped.ambiguousVariant', undefined]);
   });
   it('counts kept local copies only when force is on', () => {
     const targets = [target('claude'), target('codex')];

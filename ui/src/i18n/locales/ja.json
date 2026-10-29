@@ -3504,5 +3504,7 @@
   "memory.starterHint": "初期ノートを用意しました。好み、決定事項、検証済みの知見を追加してください。",
   "memory.recentlyUpdated": "最近の更新",
   "memory.updated": "更新：{time}",
-  "memory.configuredHint": "設定済みは指示ファイルがここを指していることを示し、エージェントが読んだことを意味しません。"
+  "memory.configuredHint": "設定済みは指示ファイルがここを指していることを示し、エージェントが読んだことを意味しません。",
+  "sync.skipped.ambiguousVariant": "エージェントのバリアントを特定できません。include/exclude またはターゲットの上書きで1つ選択してください。",
+  "dashboard.trackedRepos.variantCount": "{count} バリアント"
 }

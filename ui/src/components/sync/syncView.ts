@@ -1,3 +1,4 @@
+import { targetWarning } from '../targets/targetView';
 import { api, type DiffTarget, type ExtraDiffResult, type Skill, type SyncMatrixEntry, type SyncResponse, type Target } from '../../api/client';
 import { hooksApi, type HookPlan } from '../../api/hooks';
 import { mcpApi, type MCPPlan } from '../../api/mcp';
@@ -61,7 +62,8 @@ export function resourceGroups(diffs: DiffTarget[], targets: Target[], parts: Se
       const warning = item.skill === '(target naming)' || item.skill === '(skill selection)';
       const row = { key: `${d.target}/${part}/${item.skill}${warning ? `/${item.reason}` : ''}`, part, name: part === 'agent' ? formatAgentDisplayName(item.skill) : item.skill } as const;
       // A kept item: a local folder holds the new name, so sync keeps the old entry, with or without force.
-      if (warning || item.action === 'kept') rows.push({ ...row, icon: 'kept', text: null, detail: item.reason, counts: false });
+      if (item.skill === '(skill selection)') rows.push({ ...row, name: targetWarning(item.reason ?? '')?.path ?? d.target, icon: 'kept', text: 'sync.skipped.ambiguousVariant', counts: false });
+      else if (warning || item.action === 'kept') rows.push({ ...row, icon: 'kept', text: null, detail: item.reason, counts: false });
       else if (item.skill === '(entire directory)') rows.push({ ...row, name: target?.path ?? item.skill, icon: 'add', text: 'sync.row.folder', counts: true });
       else if (item.action === 'link') rows.push({ ...row, icon: 'add', text: item.reason?.startsWith('missing') ? 'sync.row.recopy' : copy ? 'sync.row.newCopy' : 'sync.row.newLink', counts: true });
       else if (item.action === 'update') rows.push({ ...row, icon: 'update', text: item.reason === COPY_TO_LINK ? 'sync.row.copyToLink' : copy ? 'sync.row.updateCopy' : 'sync.row.updateLink', counts: true });

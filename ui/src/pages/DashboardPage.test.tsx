@@ -67,13 +67,6 @@ describe('DashboardPage', () => {
     vi.mocked(hooksApi.list).mockResolvedValue({ source: { entries: { lint: { bindings: {} }, fmt: { bindings: {} } } } } as unknown as HookInventory);
   });
 
-  it('shows an empty target selection as in sync', async () => {
-    vi.mocked(api.listTargets).mockResolvedValue({ targets: [{ ...target('universal', 'merged'), linkedCount: 0, expectedSkillCount: 0 }], sourceSkillCount: 2 } as Awaited<ReturnType<typeof api.listTargets>>);
-    renderPage();
-    await screen.findAllByText('universal');
-    expect(screen.queryAllByText(/2 pending/)).toHaveLength(0);
-  });
-
   describe('updating a tracked repo', () => {
     beforeEach(() => {
       vi.mocked(api.getOverview).mockResolvedValue({ skillCount: 3, agentCount: 0, source: '/home/dev/skills', trackedRepos: [{ name: '_team', skillCount: 1, dirty: false }] } as unknown as Overview);

@@ -12,6 +12,7 @@ import SegmentedControl from '../components/SegmentedControl';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import FilterSection, { ModePicker } from '../components/targets/FilterSection';
+import { targetWarning } from '../components/targets/targetView';
 import RemoveTargetDialog from '../components/targets/RemoveTargetDialog';
 import SkillsOffDialog from '../components/targets/SkillsOffDialog';
 import TargetMCP from '../components/targets/TargetMCP';
@@ -252,6 +253,11 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
           </>
         }
       />
+
+      {target.warnings?.map((warning) => {
+        const diagnostic = targetWarning(warning);
+        return <div key={warning} className="ss-note warn mb-3" role="status"><span>{diagnostic ? <><span className="font-mono">{diagnostic.path}</span>: {t(diagnostic.key)}</> : warning}</span></div>;
+      })}
 
       {tabs.length > 1 && (
         <nav className="ss-tabs mb-7" aria-label={t('targetDetail.tabs')}>
