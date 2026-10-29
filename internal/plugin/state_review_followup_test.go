@@ -111,7 +111,7 @@ func TestPluginPublicMessageContracts(t *testing.T) {
 }
 
 func TestMigratedNativeImportSurvivesRemoteSourceRecipe(t *testing.T) {
-	for _, phase := range []string{"hint", "applied"} {
+	for _, phase := range []string{"hint", "applied", "repeat-add"} {
 		t.Run(phase, func(t *testing.T) {
 			nativeA := &fakeAgents{installed: map[string][]Installed{"claude": {{ID: "demo@team", Scope: "user", Installed: true}}}}
 			a := nativeA.service(t)
@@ -130,7 +130,8 @@ func TestMigratedNativeImportSurvivesRemoteSourceRecipe(t *testing.T) {
 			nativeB := &fakeAgents{}
 			b := nativeB.service(t)
 			writePluginFile(t, filepath.Dir(b.ConfigPath), filepath.Base(b.ConfigPath), string(shared))
-			applyPluginRequest(t, b, Request{Action: "add", Name: "demo", Source: fixture(t), Targets: []string{"claude"}})
+			source := fixture(t)
+			applyPluginRequest(t, b, Request{Action: "add", Name: "demo", Source: source, Targets: []string{"claude"}})
 			shared, err = os.ReadFile(b.ConfigPath)
 			if err != nil {
 				t.Fatal(err)
@@ -150,6 +151,39 @@ func TestMigratedNativeImportSurvivesRemoteSourceRecipe(t *testing.T) {
 			same()
 			if len(nativeA.commands) != 0 || len(nativeA.installed["claude"]) != 1 || nativeA.installed["claude"][0].ID != "demo@team" {
 				t.Fatalf("changed migrated native import: %v %v", nativeA.commands, nativeA.installed)
+			}
+			if phase == "repeat-add" {
+				req := Request{Action: "add", Name: "demo", Source: source, Targets: []string{"claude"}}
+				add, err := a.Preview(context.Background(), req)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if add.Blocked || len(add.Changes) != 1 || add.Changes[0].Action != "noop" || !add.Changes[0].Binding.Imported {
+					t.Fatalf("matching add did not preserve import: %+v", add)
+				}
+				applyPluginRequest(t, a, req)
+				repairHost(t, b)
+				applyPluginRequest(t, b, Request{Action: "remove", Name: "demo"})
+				applyPluginRequest(t, b, Request{Action: "add", Name: "demo", Source: fixture(t), Targets: []string{"claude"}})
+				shared, err = os.ReadFile(b.ConfigPath)
+				if err != nil {
+					t.Fatal(err)
+				}
+				writePluginFile(t, filepath.Dir(a.ConfigPath), filepath.Base(a.ConfigPath), string(shared))
+				repairHost(t, a)
+				same = unchanged(t, a.ConfigPath)
+				p, err = a.Preview(context.Background(), Request{Action: "sync"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if p.Blocked || len(p.Changes) != 1 || p.Changes[0].Action != "noop" || !p.Changes[0].Binding.Imported {
+					t.Fatalf("matching noop add lost imported ownership: %+v", p)
+				}
+				applyPluginRequest(t, a, Request{Action: "sync"})
+				same()
+				if len(nativeA.commands) != 0 || len(nativeA.installed["claude"]) != 1 || nativeA.installed["claude"][0].ID != "demo@team" {
+					t.Fatalf("repeat add allowed native replacement: %v", nativeA.commands)
+				}
 			}
 
 		})

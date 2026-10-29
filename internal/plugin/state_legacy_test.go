@@ -200,6 +200,17 @@ func TestPluginHostStateLegacyHintKeepsOriginalOwnership(t *testing.T) {
 				}
 				return
 			}
+			if mode == "replaced" {
+				if len(changes) != 1 || changes[0].Action != "noop" || changes[0].ID != "demo@team" || !changes[0].Binding.Imported {
+					t.Fatalf("replaced recipe changed native-only legacy ownership: %+v", changes)
+				}
+				before := len(native.commands)
+				applyPluginRequest(t, s, Request{Action: "sync"})
+				if len(native.commands) != before || len(native.installed["claude"]) != 1 {
+					t.Fatal("recipe movement changed native installation")
+				}
+				return
+			}
 			if len(changes) == 0 || changes[0].Action != "remove" || changes[0].ID != "demo@team" {
 				t.Fatalf("lost original cleanup ownership: %+v", changes)
 			}

@@ -178,7 +178,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 		decl, declared := d.intent[c.Name].Bindings[c.Target]
 		if c.Action == "noop" {
 			if r.Action == "add" && local.Applied != nil && c.Binding.ID == local.Applied.Binding.ID {
-				local.Applied.Intent = decl.fingerprint()
+				local.Applied.Intent, local.Applied.Binding.Imported = decl.fingerprint(), c.Binding.Imported
 				local.Legacy = nil
 				d.putLocal(c.Name, c.Target, local)
 			}

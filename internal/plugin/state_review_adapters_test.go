@@ -118,14 +118,15 @@ func TestSharedRefReconcileAndAccountChangeAcrossAdapters(t *testing.T) {
 }
 
 func TestImportsMatchLocalPathsAndDefaultRecipeCandidate(t *testing.T) {
-	for _, agent := range []string{"claude", "pi", "opencode", "opencode-nested", "opencode-explicit", "opencode-unrelated-entry"} {
+	for _, agent := range []string{"claude", "pi", "opencode", "opencode-nested", "opencode-explicit", "opencode-unrelated-entry", "opencode-missing-entry"} {
 		t.Run(agent, func(t *testing.T) {
 			native := &fakeAgents{installed: map[string][]Installed{"claude": {{ID: "demo@team", Scope: "user", Installed: true}}}}
 			s := native.service(t)
 			source := fixture(t)
 			id := "demo@team"
 			explicit := ""
-			reject := agent == "opencode-unrelated-entry"
+			missing := agent == "opencode-missing-entry"
+			reject := agent == "opencode-unrelated-entry" || missing
 			switch agent {
 			case "pi":
 				var calls []string
@@ -134,7 +135,7 @@ func TestImportsMatchLocalPathsAndDefaultRecipeCandidate(t *testing.T) {
 				id = source
 				file, _ := s.piSettingsPath("pi")
 				writePluginFile(t, filepath.Dir(file), filepath.Base(file), `{"packages":["`+id+`"]}`)
-			case "opencode", "opencode-nested", "opencode-explicit", "opencode-unrelated-entry":
+			case "opencode", "opencode-nested", "opencode-explicit", "opencode-unrelated-entry", "opencode-missing-entry":
 				noSDK := agent == "opencode-explicit"
 				nested := agent == "opencode-nested" || noSDK
 				agent = "opencode"
@@ -152,7 +153,9 @@ func TestImportsMatchLocalPathsAndDefaultRecipeCandidate(t *testing.T) {
 				writePluginFile(t, source, entry, "export default async () => ({})")
 				id = fileURL(filepath.Join(source, entry))
 				if reject {
-					writePluginFile(t, source, "plugins/demo.js", "export default async () => ({})")
+					if !missing {
+						writePluginFile(t, source, "plugins/demo.js", "export default async () => ({})")
+					}
 					id = fileURL(filepath.Join(source, "plugins/demo.js"))
 				}
 				file, _ := s.openCodeConfigPath("opencode")
@@ -171,7 +174,7 @@ func TestImportsMatchLocalPathsAndDefaultRecipeCandidate(t *testing.T) {
 			p, err := s.Preview(context.Background(), req)
 			if reject {
 				if err == nil {
-					t.Fatal("native file outside the package entry was accepted as its package")
+					t.Fatal("native file without a verified package entry was accepted as its package")
 				}
 				same()
 				return

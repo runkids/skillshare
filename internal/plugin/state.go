@@ -484,7 +484,11 @@ func (s *Service) importMatchesRecipe(ctx context.Context, target string, instal
 			path = resolvePiSource(installed.ID, filepath.Dir(settings), filepath.Dir(settings), scope).install
 		}
 		if filepath.IsAbs(path) {
-			if info, err := os.Stat(path); err == nil && !info.IsDir() {
+			info, err := os.Stat(path)
+			if agent == "opencode" && (err != nil || !info.Mode().IsRegular()) {
+				return false, nil
+			}
+			if err == nil && !info.IsDir() {
 				file := path
 				path = filepath.Dir(path)
 				matched := false
