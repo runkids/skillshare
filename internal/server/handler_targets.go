@@ -15,32 +15,34 @@ import (
 )
 
 type targetItem struct {
-	Name               string   `json:"name"`
-	Project            string   `json:"project,omitempty"` // root of the project this target belongs to
-	Agent              string   `json:"agent,omitempty"`   // the built-in Agent this is another config directory of
-	ConfigDir          string   `json:"configDir,omitempty"`
-	CLI                string   `json:"cli,omitempty"` // the executable that runs its plugin commands, when not the Agent's own
-	Path               string   `json:"path"`
-	Mode               string   `json:"mode"`
-	TargetNaming       string   `json:"targetNaming"`
-	Status             string   `json:"status"`
-	LinkedCount        int      `json:"linkedCount"`
-	LocalCount         int      `json:"localCount"`
-	Include            []string `json:"include"`
-	Exclude            []string `json:"exclude"`
-	ExpectedSkillCount int      `json:"expectedSkillCount"`
-	SkippedSkillCount  int      `json:"skippedSkillCount,omitempty"`
-	Warnings           []string `json:"warnings,omitempty"`
-	CollisionCount     int      `json:"collisionCount,omitempty"`
-	AgentPath          string   `json:"agentPath,omitempty"`
-	AgentMode          string   `json:"agentMode,omitempty"`
-	AgentExtension     string   `json:"agentExtension,omitempty"`
-	AgentInclude       []string `json:"agentInclude,omitempty"`
-	AgentExclude       []string `json:"agentExclude,omitempty"`
-	AgentLinkedCount   *int     `json:"agentLinkedCount,omitempty"`
-	AgentLocalCount    *int     `json:"agentLocalCount,omitempty"`
-	AgentExpectedCount *int     `json:"agentExpectedCount,omitempty"`
-	SkillsEnabled      bool     `json:"skillsEnabled"`
+	Name                       string   `json:"name"`
+	Project                    string   `json:"project,omitempty"` // root of the project this target belongs to
+	Agent                      string   `json:"agent,omitempty"`   // the built-in Agent this is another config directory of
+	ConfigDir                  string   `json:"configDir,omitempty"`
+	CLI                        string   `json:"cli,omitempty"` // the executable that runs its plugin commands, when not the Agent's own
+	Path                       string   `json:"path"`
+	Mode                       string   `json:"mode"`
+	TargetNaming               string   `json:"targetNaming"`
+	Status                     string   `json:"status"`
+	LinkedCount                int      `json:"linkedCount"`
+	LocalCount                 int      `json:"localCount"`
+	Include                    []string `json:"include"`
+	Exclude                    []string `json:"exclude"`
+	ExpectedSkillCount         int      `json:"expectedSkillCount"`
+	SkippedSkillCount          int      `json:"skippedSkillCount,omitempty"`
+	NamingSkippedSkillCount    int      `json:"namingSkippedSkillCount,omitempty"`
+	SelectionSkippedSkillCount int      `json:"selectionSkippedSkillCount,omitempty"`
+	Warnings                   []string `json:"warnings,omitempty"`
+	CollisionCount             int      `json:"collisionCount,omitempty"`
+	AgentPath                  string   `json:"agentPath,omitempty"`
+	AgentMode                  string   `json:"agentMode,omitempty"`
+	AgentExtension             string   `json:"agentExtension,omitempty"`
+	AgentInclude               []string `json:"agentInclude,omitempty"`
+	AgentExclude               []string `json:"agentExclude,omitempty"`
+	AgentLinkedCount           *int     `json:"agentLinkedCount,omitempty"`
+	AgentLocalCount            *int     `json:"agentLocalCount,omitempty"`
+	AgentExpectedCount         *int     `json:"agentExpectedCount,omitempty"`
+	SkillsEnabled              bool     `json:"skillsEnabled"`
 	// SkillsReadFrom (skills off) names the enabled targets whose skills folder
 	// this tool still reads; SkillsAlsoReadBy (skills on) names the targets with
 	// skills off whose tool reads this target's folder.
@@ -146,6 +148,8 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 				}
 				item.ExpectedSkillCount = len(resolution.Skills)
 				item.SkippedSkillCount = resolution.SkippedCount
+				item.NamingSkippedSkillCount = resolution.NamingSkippedCount
+				item.SelectionSkippedSkillCount = len(resolution.SelectionWarnings)
 				item.CollisionCount = len(resolution.Collisions)
 				item.Warnings = append(resolution.Warnings, resolution.SelectionWarnings...)
 			}

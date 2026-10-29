@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, type DiffTarget, type Target } from '../../api/client';
 import { hooksApi, type HookPlan } from '../../api/hooks';
 import { mcpApi, type MCPPlan } from '../../api/mcp';
-import { changeSets, countChanges, countEdited, discardable, extraGroups, failureExplanation, groupByFolder, groupInSync, HOOKS_CHANGED, hooksGroups, MCP_CHANGED, mcpGroups, otherWarnings, pendingCount, resourceGroups, runSync, skippedHintKey, type SyncFailure } from './syncView';
+import { changeSets, countChanges, countEdited, discardable, extraGroups, failureExplanation, groupByFolder, groupInSync, HOOKS_CHANGED, hooksGroups, MCP_CHANGED, mcpGroups, otherWarnings, pendingCount, resourceGroups, runSync, skippedHintKeys, type SyncFailure } from './syncView';
 
 vi.mock('../../api/client', async (load) => ({ ...await load<typeof import('../../api/client')>(), api: { sync: vi.fn(), syncExtras: vi.fn() } }));
 vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { preview: vi.fn(), configure: vi.fn() } }));
@@ -307,13 +307,14 @@ describe('failureExplanation', () => {
   });
 });
 
-describe('skippedHintKey', () => {
+describe('skippedHintKeys', () => {
   it.each([
-    [{ skippedCount: 2 }, 'sync.skipped.hintSelection'],
-    [{ collisionCount: 1 }, 'sync.skipped.hint'],
-    [{ namingSkippedCount: 1 }, 'sync.skipped.hintNaming'],
-    [{ collisionCount: 1, namingSkippedCount: 1 }, 'sync.skipped.hintMixed'],
+    [{ skippedCount: 2 }, ['sync.skipped.hintSelection']],
+    [{ collisionCount: 1 }, ['sync.skipped.hint']],
+    [{ namingSkippedCount: 1 }, ['sync.skipped.hintNaming']],
+    [{ collisionCount: 1, namingSkippedCount: 1 }, ['sync.skipped.hintMixed']],
+    [{ skippedCount: 5, collisionCount: 1, namingSkippedCount: 1, items: [{ skill: '(skill selection)', action: 'skip' }] }, ['sync.skipped.hintMixed', 'sync.skipped.hintSelection']],
   ])('explains %o with %s', (counts, key) => {
-    expect(skippedHintKey({ target: 'codex', items: [], ...counts })).toBe(key);
+    expect(skippedHintKeys({ target: 'codex', items: [], ...counts })).toEqual(key);
   });
 });

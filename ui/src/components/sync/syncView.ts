@@ -337,8 +337,11 @@ export async function runSync(run: SyncRun) {
   return { resources, failures };
 }
 
-/** The localized hint for naming skips or ambiguous agent variants. */
-export function skippedHintKey(d: DiffTarget) {
-  if (!d.namingSkippedCount) return d.collisionCount ? 'sync.skipped.hint' as const : 'sync.skipped.hintSelection' as const;
-  return d.collisionCount ? 'sync.skipped.hintMixed' as const : 'sync.skipped.hintNaming' as const;
+/** Each independent remedy needed for the skipped skills. */
+export function skippedHintKeys(d: DiffTarget) {
+  const keys = [];
+  if (d.namingSkippedCount) keys.push(d.collisionCount ? 'sync.skipped.hintMixed' as const : 'sync.skipped.hintNaming' as const);
+  else if (d.collisionCount) keys.push('sync.skipped.hint' as const);
+  if (d.items.some((item) => item.skill === '(skill selection)') || (!d.namingSkippedCount && !d.collisionCount && d.skippedCount)) keys.push('sync.skipped.hintSelection' as const);
+  return keys;
 }

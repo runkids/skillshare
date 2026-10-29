@@ -75,3 +75,12 @@ export function targetWarning(warning: string): { key: string; path: string } | 
   const naming = warning.match(/^Target '.*': skipped (.+) because /);
   return naming ? { key: 'sync.skipped.hintNaming', path: naming[1] } : null;
 }
+
+/** Independent remedies for skills omitted from this target. */
+export function targetSkipHints(target: Target) {
+  const keys = [];
+  if (target.namingSkippedSkillCount) keys.push(target.collisionCount ? 'sync.skipped.hintMixed' as const : 'sync.skipped.hintNaming' as const);
+  else if (target.collisionCount) keys.push('sync.skipped.hint' as const);
+  if (target.selectionSkippedSkillCount) keys.push('sync.skipped.hintSelection' as const);
+  return keys;
+}

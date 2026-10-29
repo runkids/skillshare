@@ -12,7 +12,7 @@ import SegmentedControl from '../components/SegmentedControl';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import FilterSection, { ModePicker } from '../components/targets/FilterSection';
-import { targetWarning } from '../components/targets/targetView';
+import { targetWarning, targetSkipHints } from '../components/targets/targetView';
 import RemoveTargetDialog from '../components/targets/RemoveTargetDialog';
 import SkillsOffDialog from '../components/targets/SkillsOffDialog';
 import TargetMCP from '../components/targets/TargetMCP';
@@ -381,11 +381,11 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
                   <span className="flex items-center gap-1.5 text-[13px] text-ink-3"><Info size={14} className="shrink-0" />{t('targetDetail.prefixedNeedsCopy')}</span>
                 )}
                 {namingClash && sharedNote(namingClash, 'naming')}
-                {saved.naming !== 'flat' && (target.skippedSkillCount ?? 0) > 0 && (
-                  <span className="text-[13px] text-warn">{t(plural('targetDetail.skipped', target.skippedSkillCount), { count: target.skippedSkillCount })}</span>
-                )}
-                {saved.naming === 'flat' && (target.skippedSkillCount ?? 0) > 0 && (
-                  <span className="text-[13px] text-warn">{t('sync.skipped.hintSelection')}</span>
+                {targetSkipHints(target).length > 0 && (
+                  <span className="text-[13px] text-warn">
+                    {t(plural('sync.skipped', target.skippedSkillCount ?? 0), { count: target.skippedSkillCount ?? 0, name: target.name })}{' '}
+                    {targetSkipHints(target).map((key) => t(key, { name: target.name })).join(' ')}
+                  </span>
                 )}
               </div>
             )}
