@@ -673,7 +673,7 @@ projects:
 - **공유 폴더는 한 번만 기록됩니다.** 여러 tool이 같은 프로젝트 폴더를 읽는 경우(`cursor`와 `codex` 모두 `.agents/skills`를 읽음) 하나의 sync target으로 합쳐집니다.
 - **출력에 표시되는 이름.** `sync`, `status`, `diff`, `doctor`, `backup`은 프로젝트의 target을 `<name>@<target>` 형태로 표시합니다. 예: `shop-web@claude`. `name`에는 `@`, `/`, `\`를 포함할 수 없으며, 두 프로젝트가 같은 이름을 공유할 수 없습니다.
 - **Agent**는 프로젝트 agent 폴더가 있는 tool에만 기록됩니다. `agents`만 있고 `skills`가 없는 프로젝트는 agent만 동기화합니다.
-- **폴더가 없으면 건너뜁니다.** `sync`는 `project <folder>: folder not found, skipped`를 출력하며, 이동하거나 삭제한 프로젝트를 다시 만들지 않습니다.
+- **폴더가 없으면 건너뜁니다.** 전역 Skill 동기화는 없는 프로젝트 폴더 수를 경고 한 줄로 요약하며, 이동하거나 삭제한 프로젝트를 다시 만들지 않습니다. `skillshare project list`로 전체 목록을 확인하거나 `skillshare project list --json`으로 각 항목의 `missing` 필드를 읽을 수 있습니다.
 - **`target`과 `collect`는 프로젝트를 건드리지 않습니다.** `skillshare target`은 `targets` 섹션만 나열하고 편집하며, `collect`는 프로젝트 자체 skill을 source로 가져오지 않습니다. [`skillshare project`](/docs/reference/commands/project)로 프로젝트 등록을 추가·편집·동기화·제거하거나 대시보드의 **프로젝트** 페이지를 사용하세요.
 - `targets` frontmatter 필드가 있는 skill은 tool을 기준으로 매칭되므로, `targets: [claude]`는 `shop-web@claude`에 도달합니다.
 

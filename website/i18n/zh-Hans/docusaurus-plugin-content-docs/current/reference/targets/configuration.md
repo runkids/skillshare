@@ -668,7 +668,7 @@ projects:
 - **共享的文件夹只会被写入一次。** 多个工具会读取同一个 project 文件夹（`cursor` 和 `codex` 都读取 `.agents/skills`），它们会合并成同一个 Sync Target。
 - **输出中的名称。** `sync`、`status`、`diff`、`doctor` 和 `backup` 会把一个项目的 targets 显示为 `<name>@<target>`，例如 `shop-web@claude`。`name` 不能包含 `@`、`/` 或 `\`，且两个项目不能共用同一个名称。
 - **Agent** 只会写入拥有 project Agent 目录的工具。只设置了 `agents`、没有设置 `skills` 的项目只会 sync Agent。
-- **缺失的文件夹会被跳过。** `sync` 会打印 `project <folder>: folder not found, skipped`，且不会重新创建你已经移动或删除的项目。
+- **缺失的文件夹会被跳过。** 全局 Skill 同步只用一条警告汇总缺失的项目文件夹数量，不会重新创建你已经移动或删除的项目。运行 `skillshare project list` 查看完整列表，或用 `skillshare project list --json` 读取各项的 `missing` 字段。
 - **`target` 和 `collect` 不会改动 projects。** `skillshare target` 只列出并编辑 `targets` 部分，`collect` 也不会把项目自己的 Skill 拉回 Source。使用 [`skillshare project`](/docs/reference/commands/project) 添加、编辑、同步或移除项目注册，也可以使用仪表盘的 **Projects** 页面。
 - 带有 `targets` frontmatter 字段的 Skill 会与工具进行匹配，因此 `targets: [claude]` 能到达 `shop-web@claude`。
 

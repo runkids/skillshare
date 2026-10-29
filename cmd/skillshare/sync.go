@@ -403,8 +403,8 @@ func cmdSync(args []string) error {
 
 	// Phase 2: Per-target sync (parallel)
 	if !jsonOutput {
-		for _, root := range cfg.MissingProjects() {
-			ui.Warning("project %s: folder not found, skipped", root)
+		if missing := len(cfg.MissingProjects()); missing > 0 {
+			ui.Warning("%s not found on this machine, skipped; run skillshare project list to inspect", plural(missing, "registered project"))
 		}
 	}
 
