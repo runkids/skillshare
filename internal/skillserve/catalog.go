@@ -111,8 +111,13 @@ func (b *Builder) build(all []ssync.DiscoveredSkill) (*Catalog, error) {
 	var err error
 	var selected []ssync.DiscoveredSkill
 	var skipped map[string]string
+	var routed map[string]ssync.SkillTargetClassification
 	if b.Skills != nil {
 		if selected, skipped, err = ssync.SelectTargetSkillsWithDiagnostics(all, b.Target, *b.Skills); err != nil {
+			return nil, err
+		}
+		routed, err = ssync.ClassifySkillsForTarget(all, b.Target, *b.Skills)
+		if err != nil {
 			return nil, err
 		}
 	} else {
@@ -125,7 +130,7 @@ func (b *Builder) build(all []ssync.DiscoveredSkill) (*Catalog, error) {
 	var unserved []string
 	c := &Catalog{bySkill: map[string]*Skill{}, byFile: map[string]servedFile{}}
 	for _, s := range all {
-		if !served[s.RelPath] {
+		if !served[s.RelPath] && !(s.LogicalID != "" && !s.Disabled && routed[s.RelPath].Status == "skill_target_mismatch") {
 			unserved = append(unserved, s.RelPath)
 		}
 		if reason, ok := skipped[s.RelPath]; ok {

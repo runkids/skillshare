@@ -439,3 +439,43 @@ func TestRead_ServesListedFileWithBackslashInName(t *testing.T) {
 		t.Errorf("Read = %q, %v; want the listed file", data, err)
 	}
 }
+
+func TestBuild_ServesParentWithDifferentlyRoutedVariant(t *testing.T) {
+	src := t.TempDir()
+	writeFile(t, filepath.Join(src, "_repo/parent/SKILL.md"), skillMD("parent"))
+	for _, agent := range []string{"claude", "codex"} {
+		writeFile(t, filepath.Join(src, "_repo/parent/skills", agent, "fix/SKILL.md"), skillMD("fix"))
+	}
+	for _, tc := range []struct {
+		name     string
+		sc       config.ResourceTargetConfig
+		disabled bool
+	}{
+		{name: "excluded peer", sc: config.ResourceTargetConfig{Exclude: []string{"_repo__parent__skills__codex__fix"}}},
+		{name: "peer omitted by include", sc: config.ResourceTargetConfig{Include: []string{"_repo__parent", "_repo__parent__skills__claude__fix"}}},
+		{name: "disabled peer", disabled: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.disabled {
+				writeFile(t, filepath.Join(src, ".skillignore"), "_repo/parent/skills/codex/fix\n")
+			}
+			c, err := (&Builder{Source: src, Target: "claude", Skills: &tc.sc}).Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if find(c, "skill://_repo/parent/SKILL.md") != nil {
+				t.Fatalf("parent exposes unserved filtered peer: skips=%v", c.Skipped)
+			}
+		})
+	}
+	writeFile(t, filepath.Join(src, ".skillignore"), "")
+	for _, target := range []string{"claude", "codex"} {
+		c, err := (&Builder{Source: src, Target: target, Skills: &config.ResourceTargetConfig{}}).Build()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if find(c, "skill://_repo/parent/SKILL.md") == nil || len(c.Skills) != 2 {
+			t.Fatalf("%s: skills=%v skips=%v", target, c.Skills, c.Skipped)
+		}
+	}
+}
