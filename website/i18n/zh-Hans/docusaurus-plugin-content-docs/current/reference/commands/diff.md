@@ -40,6 +40,8 @@ Next
   skillshare collect  copy local-only skills into source
 ```
 
+不明确的代理变体会显示为带有诊断信息的 `(skill selection)` 跳过行。请使用 `include`/`exclude` 或源目录中的目标覆盖来选择所需变体。这些行解释跳过选择的原因，不是 sync 可以应用的更改。
+
 ## 交互式 TUI
 
 在 TTY 上，`diff` 会打开交互式界面：左侧是 targets，右侧是所选 target 的差异，可以一直看到文件级别的 diff。按键列在界面底部。使用 `--no-tui` 或将输出 pipe 出去，就会改为输出纯文本。

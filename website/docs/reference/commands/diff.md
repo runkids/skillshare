@@ -40,6 +40,8 @@ Next
   skillshare collect  copy local-only skills into source
 ```
 
+Ambiguous agent variants appear as `(skill selection)` skip rows with a diagnostic. Use `include`/`exclude` or a source-local target override to select the desired variant. These rows explain skipped selection; they are not changes that sync can apply.
+
 ## Interactive TUI
 
 On a TTY, `diff` opens an interactive view: targets on the left, and what differs for the selected target on the right, down to file-level diffs. The keys are listed at the bottom of the screen. Use `--no-tui`, or pipe the output, for plain text.

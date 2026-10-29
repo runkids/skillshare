@@ -57,6 +57,8 @@ Next
   skillshare sync  bring the targets up to date
 ```
 
+For tracked repositories with agent variants, the Source line shows `N skills, M variants`: logical skills and physical copies. The `variant_routing` check warns when symlink mode exposes all variants instead of selecting by agent; use merge or copy mode for selective routing.
+
 ## When to Use
 
 - Something isn't working and you don't know why

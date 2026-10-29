@@ -46,6 +46,7 @@ settings retain overlap/conflict diagnostics. Source-local target overrides beat
 frontmatter targets, then variant inference, then old host-path inference. An empty
 override sends that physical variant to all targets. Ignores and filters keep using
 physical relative/flat names, and ambiguous aliases need an explicit selection.
+Agent-named folders that contain their own SKILL.md remain ordinary skills, including their nested skills.
 Source/repository status counts logical skills and reports physical variants;
 resource rows, sync results, and context cost count actual files. Full-directory
 symlink mode exposes all files. No conversion or sparse checkout is performed.

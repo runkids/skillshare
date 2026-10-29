@@ -57,6 +57,8 @@ Next
   skillshare sync  bring the targets up to date
 ```
 
+エージェント別バリアントを含む追跡リポジトリでは、Source 行に `N skills, M variants`（論理スキル数と物理コピー数）が表示されます。`variant_routing` チェックは、symlink モードがエージェント別に選択せず全バリアントを公開する場合に警告します。選択的なルーティングには merge または copy モードを使用してください。
+
 ## 使うタイミング
 
 - 何かがうまく動かないが、原因がわからないとき
