@@ -9,6 +9,30 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.28.0] - 2026-10-29
+
+
+* prepare v0.28.0 release overview ([ed0a02a](https://github.com/runkids/skillshare/commit/ed0a02a3595b36e4f01f22da6136db53e04ffe17))
+
+
+### New Features
+
+* **plugin:** add --all flag to plugin update and enable antigravity-cli updates ([#656](https://github.com/runkids/skillshare/issues/656)) ([eb9b2b2](https://github.com/runkids/skillshare/commit/eb9b2b28f9a5e9716f766b2c9dff0150ce76e3b1))
+* **sync:** recognize and route agent-specific skill variants ([#649](https://github.com/runkids/skillshare/issues/649)) ([85bcf58](https://github.com/runkids/skillshare/commit/85bcf589a7a969c4fd4f751cc05374534c97af7e))
+* **ui:** report the current route to an embedding app ([#659](https://github.com/runkids/skillshare/issues/659)) ([d7c4361](https://github.com/runkids/skillshare/commit/d7c436157ddcee975f461c454b01409aee63a964))
+
+
+### Bug Fixes
+
+* **config:** honor OMP agent directory for default skills path ([#652](https://github.com/runkids/skillshare/issues/652)) ([89ae706](https://github.com/runkids/skillshare/commit/89ae7068d53d855798498d92eced03e8d5b51095))
+* **config:** keep env-derived default skills paths on save ([#662](https://github.com/runkids/skillshare/issues/662)) ([ee96aee](https://github.com/runkids/skillshare/commit/ee96aeea56b10f8b372a76d683bb93d2fdd74efd)), closes [#661](https://github.com/runkids/skillshare/issues/661)
+* **docker:** respect global config path on startup ([#655](https://github.com/runkids/skillshare/issues/655)) ([bab172d](https://github.com/runkids/skillshare/commit/bab172d1a7d0cf2da1f02ec3814dfa182c99d935))
+* **skills:** state code review fix mode once ([c91118c](https://github.com/runkids/skillshare/commit/c91118c500fb08dda071228c1305568b5b5e1b9a))
+* **sync:** summarize missing registered project roots ([#665](https://github.com/runkids/skillshare/issues/665)) ([51fa8d1](https://github.com/runkids/skillshare/commit/51fa8d14b3f65868c2ff5b9be367b06f8cdbd06f))
+* **ui:** resolve account icons from default targets ([#657](https://github.com/runkids/skillshare/issues/657)) ([6c6c45d](https://github.com/runkids/skillshare/commit/6c6c45ddd19d11e5f7a22e09fd11a8bf476b3b2a))
+* **update:** allow lazy blob fetches between partial clone and candidate ([#668](https://github.com/runkids/skillshare/issues/668)) ([7f268e8](https://github.com/runkids/skillshare/commit/7f268e88d732d68f2d94c7dc491ac57d56ca0a01)), closes [#667](https://github.com/runkids/skillshare/issues/667)
+* **update:** serialize checkout updates across skillshare processes ([#666](https://github.com/runkids/skillshare/issues/666)) ([23c9453](https://github.com/runkids/skillshare/commit/23c9453f877d646b3be13669af8779e46daf479c))
+
 ## [0.27.0] - 2026-10-26
 
 

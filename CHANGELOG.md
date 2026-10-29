@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.28.0](https://github.com/runkids/skillshare/compare/v0.27.0...v0.28.0) (2026-10-29)
+## [0.28.0] - 2026-10-29
 
 
 * prepare v0.28.0 release overview ([ed0a02a](https://github.com/runkids/skillshare/commit/ed0a02a3595b36e4f01f22da6136db53e04ffe17))
