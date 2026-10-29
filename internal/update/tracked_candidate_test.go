@@ -152,6 +152,26 @@ func TestTrackedRepo_CandidateFromShallowClone(t *testing.T) {
 	}
 }
 
+// Partial clones lack intermediate blobs, which git >= 2.45.1 will not
+// lazy-fetch through a local upload-pack by default.
+func TestTrackedRepo_CandidateFromPartialClone(t *testing.T) {
+	f := newFixture(t, cleanSkill+"Initial help.\n")
+	remote := testutil.RunGit(t, f.repo, "remote", "get-url", "origin")
+	testutil.RunGit(t, remote, "config", "uploadpack.allowFilter", "true")
+	partial := filepath.Join(f.source, "_partial")
+	testutil.RunGit(t, "", "clone", "--depth=1", "--filter=blob:none", "file://"+remote, partial)
+	// A plain pull, as before 0.27.0, leaves the intermediate blob missing.
+	f.push(t, cleanSkill+"First help.\n")
+	f.push(t, cleanSkill+"Second help.\n")
+	testutil.RunGit(t, partial, "pull", "--quiet")
+	f.push(t, cleanSkill+"Third help.\n")
+	f.push(t, cleanSkill+"Fourth help.\n")
+	res, err := TrackedRepo(partial, f.opts())
+	if err != nil || res.Status != StatusUpdated {
+		t.Fatalf("partial update = %+v, %v", res, err)
+	}
+}
+
 func TestTrackedRepo_CandidateMergesLocalCommit(t *testing.T) {
 	f := newFixture(t, cleanSkill+"Upstream help.\n")
 	testutil.ConfigureGitUser(t, f.repo)

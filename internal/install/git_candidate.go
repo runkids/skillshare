@@ -11,7 +11,8 @@ import (
 )
 
 // GitUpdateCandidate isolates a pull from a checkout already published to tools.
-// Close removes only the temporary clone; publication never fetches upstream.
+// Close removes only the temporary clone; publication never fetches upstream
+// refs, though a partial clone may lazily fetch the blobs it lacks.
 // It lives in install because internal/git imports install for authentication.
 type GitUpdateCandidate struct {
 	Path       string
@@ -20,6 +21,7 @@ type GitUpdateCandidate struct {
 	tempDir    string
 	discard    bool
 	state      [3]string // status, staged patch, unstaged patch
+	env        []string  // for local transports between repoPath and Path
 }
 
 // StageGitUpdate clones the current branch and preserves the pull's local Git
@@ -44,7 +46,10 @@ func StageGitUpdate(repoPath string, discard bool) (_ *GitUpdateCandidate, err e
 	if err != nil {
 		return nil, err
 	}
-	c := &GitUpdateCandidate{Path: filepath.Join(temp, filepath.Base(repoPath)), BeforeHash: before, repoPath: repoPath, tempDir: temp, discard: discard, state: state}
+	// Partial clones lack intermediate blobs; git >= 2.45.1 refuses to
+	// lazy-fetch them through a local upload-pack unless re-enabled.
+	env := append(AuthEnvForURL(getRemoteURL(repoPath)), "GIT_NO_LAZY_FETCH=0")
+	c := &GitUpdateCandidate{Path: filepath.Join(temp, filepath.Base(repoPath)), BeforeHash: before, repoPath: repoPath, tempDir: temp, discard: discard, state: state, env: env}
 	defer func() {
 		if err != nil {
 			c.Close()
@@ -52,7 +57,7 @@ func StageGitUpdate(repoPath string, discard bool) (_ *GitUpdateCandidate, err e
 	}()
 	// Shared objects are immutable; fetched and merged candidate objects stay
 	// private until Publish imports the approved revision.
-	if err = runGitCommandEnv([]string{"clone", "--quiet", "--shared", "--no-checkout", repoPath, c.Path}, "", nil); err != nil {
+	if err = runGitCommandEnv([]string{"clone", "--quiet", "--shared", "--no-checkout", repoPath, c.Path}, "", c.env); err != nil {
 		return nil, err
 	}
 	configPath, err := gitOutput(repoPath, "rev-parse", "--path-format=absolute", "--git-path", "config")
@@ -260,7 +265,7 @@ func (c *GitUpdateCandidate) Publish(revision string) error {
 			return fmt.Errorf("cannot preserve local edits before force update: %w", err)
 		}
 	}
-	if err := runGitCommandEnv([]string{"fetch", "--quiet", "--no-tags", c.Path, revision, "+refs/remotes/*:refs/remotes/*"}, c.repoPath, nil); err != nil {
+	if err := runGitCommandEnv([]string{"fetch", "--quiet", "--no-tags", c.Path, revision, "+refs/remotes/*:refs/remotes/*"}, c.repoPath, c.env); err != nil {
 		return err
 	}
 	restoreCheckout := GitCheckoutRecovery(c.repoPath, revision)
