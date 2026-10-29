@@ -256,7 +256,7 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
 
       {target.warnings?.map((warning) => {
         const diagnostic = targetWarning(warning);
-        return <div key={warning} className="ss-note warn mb-3" role="status"><span>{diagnostic ? <><span className="font-mono">{diagnostic.path}</span>: {t(diagnostic.key)}</> : warning}</span></div>;
+        return <div key={warning} className="ss-note warn mb-3" role="status"><span>{diagnostic ? <><span className="font-mono">{diagnostic.path}</span>: {t(diagnostic.key, { name: target.name })}</> : warning}</span></div>;
       })}
 
       {tabs.length > 1 && (
