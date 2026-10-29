@@ -3506,5 +3506,17 @@
   "memory.starterHint": "Les notes initiales sont prêtes. Ajoutez une préférence, une décision ou une leçon vérifiée.",
   "memory.recentlyUpdated": "Mises à jour récentes",
   "memory.updated": "Mise à jour {time}",
-  "memory.configuredHint": "Configuré signifie que le fichier d’instructions pointe ici, pas qu’un agent l’a lu."
+  "memory.configuredHint": "Configuré signifie que le fichier d’instructions pointe ici, pas qu’un agent l’a lu.",
+  "plugins.note.localImportRecorded": "Enregistrer cette installation localement sans modifier les sources partagées, le contenu ni l’état d’activation.",
+  "plugins.note.removedIntent": "Cette cible a été retirée de la configuration partagée. Synchronisez pour terminer le nettoyage local.",
+  "plugins.note.accountChanged": "Le compte natif ou la portée a changé. Restaurez les anciens paramètres pour traiter l’enregistrement local avant de le réassocier.",
+  "plugins.note.installRequired": "Une installation est nécessaire sur cette machine. Synchronisez pour examiner et installer la source.",
+  "plugins.note.independentNative": "Un autre plugin natif du même nom peut masquer la source examinée. Supprimez-le dans le client natif avant de synchroniser, ou importez-le pour le conserver.",
+  "plugins.note.identityInUse": "Une installation native utilise déjà cet identifiant. Importez-la explicitement au lieu de la remplacer.",
+  "plugins.note.cleanupRequired": "L’ancienne installation doit être nettoyée. Synchronisez pour appliquer la configuration partagée.",
+  "plugins.note.replaceLocal": "Supprimer l’ancienne installation locale avant d’appliquer la configuration partagée.",
+  "plugins.note.nativeAdopt": "Déjà installé nativement. Importer sans réinstaller.",
+  "plugins.note.selection": "Enregistrer uniquement la sélection de synchronisation. Synchronisez pour installer ou retirer cette cible.",
+  "plugins.note.localImportRequired": "Un import est nécessaire sur cette machine. Importez son identifiant natif local dans ce paquet.",
+  "plugins.note.noLocalBinding": "Retirer la déclaration. Aucune installation locale n’est associée."
 }

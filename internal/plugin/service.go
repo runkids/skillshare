@@ -317,6 +317,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 			if _, ok := find(target, change.ID); ok && change.Action == "install" && !(d.packages[name].Bindings[target].Cleanup && d.packages[name].Bindings[target].ID == change.ID) {
 				change.Action = "blocked"
 				change.Message = "A native installation already uses this identity; import it explicitly instead of replacing it."
+				change.MessageKey = "plugins.note.identityInUse"
 			}
 			appendChange(change)
 		}
@@ -355,7 +356,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				b = old
 			}
 		}
-		change := Change{Name: name, Target: r.From, ID: b.ID, Binding: b, Action: "import", Message: "Record the existing native installation locally; shared recipes, content and enabled state stay unchanged."}
+		change := Change{Name: name, Target: r.From, ID: b.ID, Binding: b, Action: "import", Message: "Record the existing native installation locally; shared recipes, content and enabled state stay unchanged.", MessageKey: "plugins.note.localImportRecorded"}
 		if installed.Filtered && !d.packages[name].Bindings[r.From].ContextChanged {
 			if err := s.preparePiRegistration(ctx, &change); err != nil {
 				return nil, err
@@ -401,27 +402,27 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				}
 				if r.Action == "enable" || r.Action == "disable" {
 					if !declared {
-						p.Changes = append(p.Changes, Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "skip", Message: "This target was removed from shared intent; sync to finish local cleanup."})
+						p.Changes = append(p.Changes, Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "skip", Message: "This target was removed from shared intent; sync to finish local cleanup.", MessageKey: "plugins.note.removedIntent"})
 						continue
 					}
 					selected := r.Action == "enable"
 					b.Sync = &selected
-					p.Changes = append(p.Changes, Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "selection", Message: "Save sync selection only. Run sync to install or remove this managed target."})
+					p.Changes = append(p.Changes, Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "selection", Message: "Save sync selection only. Run sync to install or remove this managed target.", MessageKey: "plugins.note.selection"})
 					continue
 				}
 				if b.ContextChanged {
-					appendChange(Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "blocked", Message: "Native account or scope changed; restore the previous account settings to resolve its local receipt before rebinding."})
+					appendChange(Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "blocked", Message: "Native account or scope changed; restore the previous account settings to resolve its local receipt before rebinding.", MessageKey: "plugins.note.accountChanged"})
 					continue
 				}
 				if b.ID == "" && (decl.Imported || r.Action == "remove" || !b.Selected()) {
-					action, message := "skip", localImportMessage()
+					action, message, key := "skip", localImportMessage(), "plugins.note.localImportRequired"
 					if r.Action == "remove" {
-						action, message = "forget", "Remove declaration; no local native installation is bound."
+						action, message, key = "forget", "Remove declaration; no local native installation is bound.", "plugins.note.noLocalBinding"
 					}
 					if !b.Selected() && r.Action != "remove" {
-						action, message = "noop", ""
+						action, message, key = "noop", "", ""
 					}
-					p.Changes = append(p.Changes, Change{Name: name, Target: target, Binding: b, Action: action, Message: message})
+					p.Changes = append(p.Changes, Change{Name: name, Target: target, Binding: b, Action: action, Message: message, MessageKey: key})
 					continue
 				}
 				if b.Cleanup && (r.Action == "sync" || r.Action == "update" || r.Action == "remove") {
@@ -446,7 +447,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				}
 				if b.ID == "" && !decl.Imported {
 					if r.Action == "check" {
-						p.Changes = append(p.Changes, Change{Name: name, Target: target, Binding: b, Action: "native-check", Message: "Installation required on this machine; sync to review and install the source."})
+						p.Changes = append(p.Changes, Change{Name: name, Target: target, Binding: b, Action: "native-check", Message: "Installation required on this machine; sync to review and install the source.", MessageKey: "plugins.note.installRequired"})
 						continue
 					}
 					c, err := s.sourceChange(ctx, name, target, decl, r.All)
@@ -497,6 +498,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 					c.Binding.Pending = ""
 					c.Action = "selection"
 					c.Message = "Save sync selection only. Run sync to install or remove this managed target."
+					c.MessageKey = "plugins.note.selection"
 				case "check", "update":
 					c, err = s.checkOrUpdate(ctx, r, c, action, decl, declared, exists, host(target), latests)
 					if err != nil {
@@ -593,6 +595,7 @@ func existingNativeSourceChange(c Change, installed []Installed, agent, market, 
 			if name == c.Binding.Plugin {
 				c.Action = "blocked"
 				c.Message = "An independent native plugin has the same name and may shadow the reviewed source. Remove it in the native client before syncing, or use plugin import explicitly to keep the native installation."
+				c.MessageKey = "plugins.note.independentNative"
 				return c
 			}
 		}
@@ -601,6 +604,7 @@ func existingNativeSourceChange(c Change, installed []Installed, agent, market, 
 			c.ID = native.ID
 			c.Binding = Binding{ID: native.ID, Version: native.Version}
 			c.Message = "Already installed natively; adopt without reinstalling."
+			c.MessageKey = "plugins.note.nativeAdopt"
 			return c
 		}
 	}
@@ -610,6 +614,7 @@ func existingNativeSourceChange(c Change, installed []Installed, agent, market, 
 func (s *Service) prepareChange(ctx context.Context, r Request, d *document, host func(string) Host, c Change) Change {
 	if (r.Action == "add" || r.Action == "import") && d.packages[c.Name].Bindings[c.Target].ContextChanged {
 		c.Action, c.Message = "blocked", "Native account or scope changed; restore the previous account settings to resolve its local receipt before rebinding."
+		c.MessageKey = "plugins.note.accountChanged"
 		return c
 	}
 	h := host(c.Target)
@@ -683,6 +688,7 @@ func (s *Service) prepareChange(ctx context.Context, r Request, d *document, hos
 	if c.Binding.Source == "" && commandTarget(agent) && c.Action == "install" {
 		c.Action = "blocked"
 		c.Message = "This imported plugin has no reviewed reinstall source; install or update in the native client."
+		c.MessageKey = "plugins.skip.imported"
 	}
 	if c.Binding.Source == "" && commandTarget(agent) && c.Action == "update" {
 		skip("plugins.skip.imported", "This imported plugin has no reviewed reinstall source; update it in the native client.", nil)
@@ -753,6 +759,7 @@ func (s *Service) checkOrUpdate(ctx context.Context, r Request, c Change, action
 	}
 	if r.Action == "check" && b.Cleanup && (!declared || decl.Imported || isNpmSource(decl.Source)) {
 		c.Action, c.Message = "native-check", "Previous installation requires cleanup; sync to reconcile current intent."
+		c.MessageKey = "plugins.note.cleanupRequired"
 		return c, nil
 	}
 	if b.Source == "" && (r.Action != "check" || !declared || b.Imported || decl.Imported || isNpmSource(decl.Source)) {

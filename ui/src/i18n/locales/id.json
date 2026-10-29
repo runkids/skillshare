@@ -3506,5 +3506,17 @@
   "memory.starterHint": "Catatan awal sudah siap. Tambahkan preferensi, keputusan, atau pelajaran terverifikasi.",
   "memory.recentlyUpdated": "Baru diperbarui",
   "memory.updated": "Diperbarui {time}",
-  "memory.configuredHint": "Dikonfigurasi berarti berkas instruksi mengarah ke sini, bukan berarti agen sudah membacanya."
+  "memory.configuredHint": "Dikonfigurasi berarti berkas instruksi mengarah ke sini, bukan berarti agen sudah membacanya.",
+  "plugins.note.localImportRecorded": "Catat instalasi ini secara lokal tanpa mengubah sumber bersama, konten, atau status aktifnya.",
+  "plugins.note.removedIntent": "Target ini dihapus dari konfigurasi bersama. Sinkronkan untuk menyelesaikan pembersihan lokal.",
+  "plugins.note.accountChanged": "Akun native atau cakupan berubah. Pulihkan pengaturan sebelumnya untuk menyelesaikan catatan lokal sebelum mengaitkan ulang.",
+  "plugins.note.installRequired": "Mesin ini memerlukan instalasi. Sinkronkan untuk meninjau dan memasang sumber.",
+  "plugins.note.independentNative": "Plugin native lain dengan nama sama dapat menimpa sumber yang ditinjau. Hapus di klien native sebelum menyinkronkan, atau impor untuk mempertahankannya.",
+  "plugins.note.identityInUse": "Instalasi native sudah menggunakan identitas ini. Impor secara eksplisit, jangan menggantinya.",
+  "plugins.note.cleanupRequired": "Instalasi sebelumnya perlu dibersihkan. Sinkronkan untuk menerapkan konfigurasi bersama.",
+  "plugins.note.replaceLocal": "Hapus instalasi lokal sebelumnya sebelum menerapkan konfigurasi bersama.",
+  "plugins.note.nativeAdopt": "Sudah terpasang secara native. Impor tanpa memasang ulang.",
+  "plugins.note.selection": "Simpan pilihan sinkronisasi saja. Sinkronkan untuk memasang atau menghapus target ini.",
+  "plugins.note.localImportRequired": "Mesin ini memerlukan impor. Impor pengenal native lokal ke paket ini.",
+  "plugins.note.noLocalBinding": "Hapus deklarasi. Tidak ada instalasi lokal yang terkait."
 }

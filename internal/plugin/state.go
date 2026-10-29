@@ -430,7 +430,7 @@ func sourceChangeFailure(name, target string, all bool, err error) (Change, erro
 // keeps its existing local installation and cleanup receipt.
 func (s *Service) sourceReplacementChanges(ctx context.Context, r Request, name, target string, decl declaration, declared bool, old Binding, action string) ([]Change, error) {
 	old.Cleanup = false
-	changes := []Change{{Name: name, Target: target, ID: old.ID, Binding: old, Action: action, Message: "Remove the previous local installation before reconciling current intent."}}
+	changes := []Change{{Name: name, Target: target, ID: old.ID, Binding: old, Action: action, Message: "Remove the previous local installation before reconciling current intent.", MessageKey: "plugins.note.replaceLocal"}}
 	if r.Action != "remove" && declared && (decl.Sync == nil || *decl.Sync) && !decl.Imported {
 		c, err := s.sourceChange(ctx, name, target, decl, r.All)
 		if err != nil {

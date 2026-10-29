@@ -3506,5 +3506,17 @@
   "memory.starterHint": "初期ノートを用意しました。好み、決定事項、検証済みの知見を追加してください。",
   "memory.recentlyUpdated": "最近の更新",
   "memory.updated": "更新：{time}",
-  "memory.configuredHint": "設定済みは指示ファイルがここを指していることを示し、エージェントが読んだことを意味しません。"
+  "memory.configuredHint": "設定済みは指示ファイルがここを指していることを示し、エージェントが読んだことを意味しません。",
+  "plugins.note.localImportRecorded": "このインストールをローカルに記録します。共有のインストール元、内容、有効状態は変更しません。",
+  "plugins.note.removedIntent": "このターゲットは共有設定から削除されました。同期してローカルの削除を完了してください。",
+  "plugins.note.accountChanged": "ネイティブのアカウントまたはスコープが変わりました。以前の設定に戻してローカル記録を解決してから再登録してください。",
+  "plugins.note.installRequired": "このマシンにインストールが必要です。同期してソースを確認し、インストールしてください。",
+  "plugins.note.independentNative": "同名の別のネイティブプラグインが確認済みソースを上書きする可能性があります。同期前にネイティブクライアントで削除するか、保持するためにインポートしてください。",
+  "plugins.note.identityInUse": "この識別子は既存のネイティブインストールで使用されています。置換せず、明示的にインポートしてください。",
+  "plugins.note.cleanupRequired": "以前のインストールの削除が必要です。同期して共有設定を反映してください。",
+  "plugins.note.replaceLocal": "共有設定を適用する前に、以前のローカルインストールを削除します。",
+  "plugins.note.nativeAdopt": "ネイティブにインストール済みです。再インストールせずにインポートします。",
+  "plugins.note.selection": "同期対象の選択のみを保存します。同期してこのターゲットをインストールまたは削除してください。",
+  "plugins.note.localImportRequired": "このマシンでインポートが必要です。ローカルのネイティブ識別子をこのパッケージにインポートしてください。",
+  "plugins.note.noLocalBinding": "宣言を削除します。ローカルインストールは登録されていません。"
 }

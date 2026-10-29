@@ -3506,5 +3506,17 @@
   "memory.starterHint": "Die Startnotizen sind bereit. Ergänze eine Vorliebe, Entscheidung oder bestätigte Erkenntnis.",
   "memory.recentlyUpdated": "Zuletzt aktualisiert",
   "memory.updated": "Aktualisiert: {time}",
-  "memory.configuredHint": "Konfiguriert bedeutet, dass die Anweisungsdatei hierher verweist, nicht dass ein Agent sie gelesen hat."
+  "memory.configuredHint": "Konfiguriert bedeutet, dass die Anweisungsdatei hierher verweist, nicht dass ein Agent sie gelesen hat.",
+  "plugins.note.localImportRecorded": "Diese Installation lokal erfassen. Gemeinsame Installationsquellen, Inhalte und Aktivierungsstatus bleiben unverändert.",
+  "plugins.note.removedIntent": "Dieses Ziel wurde aus der gemeinsamen Konfiguration entfernt. Zum Abschluss der lokalen Bereinigung synchronisieren.",
+  "plugins.note.accountChanged": "Das native Konto oder der Geltungsbereich hat sich geändert. Vor dem erneuten Zuordnen die bisherigen Einstellungen wiederherstellen und den lokalen Eintrag klären.",
+  "plugins.note.installRequired": "Auf diesem Rechner ist eine Installation nötig. Zum Prüfen und Installieren der Quelle synchronisieren.",
+  "plugins.note.independentNative": "Ein anderes natives Plugin mit gleichem Namen kann die geprüfte Quelle überlagern. Vor dem Synchronisieren im nativen Client entfernen oder zum Beibehalten importieren.",
+  "plugins.note.identityInUse": "Eine native Installation verwendet diese Kennung bereits. Ausdrücklich importieren, statt sie zu ersetzen.",
+  "plugins.note.cleanupRequired": "Die bisherige Installation muss bereinigt werden. Zum Abgleichen mit der gemeinsamen Konfiguration synchronisieren.",
+  "plugins.note.replaceLocal": "Vor dem Anwenden der gemeinsamen Konfiguration die bisherige lokale Installation entfernen.",
+  "plugins.note.nativeAdopt": "Bereits nativ installiert. Ohne Neuinstallation importieren.",
+  "plugins.note.selection": "Nur die Synchronisierungsauswahl speichern. Zum Installieren oder Entfernen dieses Ziels synchronisieren.",
+  "plugins.note.localImportRequired": "Auf diesem Rechner ist ein Import nötig. Die lokale native Kennung in dieses Paket importieren.",
+  "plugins.note.noLocalBinding": "Deklaration entfernen. Es ist keine lokale Installation zugeordnet."
 }

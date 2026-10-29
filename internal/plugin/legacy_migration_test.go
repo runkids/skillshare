@@ -85,3 +85,15 @@ func TestLegacyReadPersistsEvidenceBeforeRemoteMigration(t *testing.T) {
 		})
 	}
 }
+
+func TestSharedImportRequiredPlanHasLocalizedGuidance(t *testing.T) {
+	s := (&fakeAgents{}).service(t)
+	writePluginFile(t, filepath.Dir(s.ConfigPath), filepath.Base(s.ConfigPath), "plugins:\n  version: 2\n  packages:\n    demo:\n      bindings:\n        claude: {imported: true}\n")
+	p, err := s.Preview(context.Background(), Request{Action: "sync"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Changes) != 1 || p.Changes[0].MessageKey != "plugins.note.localImportRequired" {
+		t.Fatalf("unlocalized plan: %+v", p.Changes)
+	}
+}

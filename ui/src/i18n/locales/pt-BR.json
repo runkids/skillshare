@@ -3506,5 +3506,17 @@
   "memory.starterHint": "As notas iniciais estão prontas. Adicione uma preferência, decisão ou lição verificada.",
   "memory.recentlyUpdated": "Atualizadas recentemente",
   "memory.updated": "Atualizada {time}",
-  "memory.configuredHint": "Configurado significa que o arquivo de instruções aponta para cá, não que um agente o tenha lido."
+  "memory.configuredHint": "Configurado significa que o arquivo de instruções aponta para cá, não que um agente o tenha lido.",
+  "plugins.note.localImportRecorded": "Registrar esta instalação localmente sem alterar as fontes compartilhadas, o conteúdo nem o estado de ativação.",
+  "plugins.note.removedIntent": "Este destino foi removido da configuração compartilhada. Sincronize para concluir a limpeza local.",
+  "plugins.note.accountChanged": "A conta nativa ou o escopo mudou. Restaure as configurações anteriores para resolver o registro local antes de vinculá-lo novamente.",
+  "plugins.note.installRequired": "Esta máquina precisa de uma instalação. Sincronize para revisar e instalar a fonte.",
+  "plugins.note.independentNative": "Outro plugin nativo com o mesmo nome pode sobrepor a fonte revisada. Remova-o no cliente nativo antes de sincronizar ou importe-o para mantê-lo.",
+  "plugins.note.identityInUse": "Uma instalação nativa já usa este identificador. Importe-a explicitamente em vez de substituí-la.",
+  "plugins.note.cleanupRequired": "A instalação anterior precisa de limpeza. Sincronize para aplicar a configuração compartilhada.",
+  "plugins.note.replaceLocal": "Remover a instalação local anterior antes de aplicar a configuração compartilhada.",
+  "plugins.note.nativeAdopt": "Já instalado nativamente. Importar sem reinstalar.",
+  "plugins.note.selection": "Salvar apenas a seleção de sincronização. Sincronize para instalar ou remover este destino.",
+  "plugins.note.localImportRequired": "Esta máquina precisa de uma importação. Importe o identificador nativo local neste pacote.",
+  "plugins.note.noLocalBinding": "Remover a declaração. Nenhuma instalação local está vinculada."
 }

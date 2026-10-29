@@ -3506,5 +3506,17 @@
   "memory.starterHint": "초기 노트가 준비되었습니다. 선호 사항, 결정 또는 검증된 교훈을 추가하세요.",
   "memory.recentlyUpdated": "최근 업데이트",
   "memory.updated": "업데이트: {time}",
-  "memory.configuredHint": "설정됨은 지침 파일이 여기를 가리킨다는 뜻이며, 에이전트가 읽었다는 뜻은 아닙니다."
+  "memory.configuredHint": "설정됨은 지침 파일이 여기를 가리킨다는 뜻이며, 에이전트가 읽었다는 뜻은 아닙니다.",
+  "plugins.note.localImportRecorded": "이 설치를 로컬에 기록합니다. 공유 설치 소스, 내용, 활성화 상태는 바뀌지 않습니다.",
+  "plugins.note.removedIntent": "이 대상은 공유 설정에서 제거되었습니다. 동기화하여 로컬 정리를 완료하세요.",
+  "plugins.note.accountChanged": "네이티브 계정이나 범위가 바뀌었습니다. 이전 설정을 복원하여 로컬 기록을 처리한 후 다시 연결하세요.",
+  "plugins.note.installRequired": "이 기기에 설치가 필요합니다. 동기화하여 소스를 검토하고 설치하세요.",
+  "plugins.note.independentNative": "같은 이름의 별도 네이티브 플러그인이 검토한 소스를 덮어쓸 수 있습니다. 동기화 전에 네이티브 클라이언트에서 제거하거나, 유지하려면 가져오세요.",
+  "plugins.note.identityInUse": "네이티브 설치가 이 식별자를 사용 중입니다. 교체하지 말고 명시적으로 가져오세요.",
+  "plugins.note.cleanupRequired": "이전 설치를 정리해야 합니다. 동기화하여 공유 설정을 반영하세요.",
+  "plugins.note.replaceLocal": "공유 설정을 적용하기 전에 이전 로컬 설치를 제거합니다.",
+  "plugins.note.nativeAdopt": "이미 네이티브로 설치되어 있습니다. 재설치 없이 가져옵니다.",
+  "plugins.note.selection": "동기화 선택만 저장합니다. 동기화하여 이 대상을 설치하거나 제거하세요.",
+  "plugins.note.localImportRequired": "이 기기에서 가져오기가 필요합니다. 로컬 네이티브 식별자를 이 패키지로 가져오세요.",
+  "plugins.note.noLocalBinding": "선언을 제거합니다. 연결된 로컬 설치가 없습니다."
 }

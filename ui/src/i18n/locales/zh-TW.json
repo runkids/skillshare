@@ -3506,5 +3506,17 @@
   "memory.starterHint": "起始筆記已備妥。加入一項偏好、決策或已驗證的經驗。",
   "memory.recentlyUpdated": "最近更新",
   "memory.updated": "更新時間：{time}",
-  "memory.configuredHint": "已設定表示指令檔已指向這裡，不代表 agent 已經讀過。"
+  "memory.configuredHint": "已設定表示指令檔已指向這裡，不代表 agent 已經讀過。",
+  "plugins.note.localImportRecorded": "在本機記錄此安裝；共用安裝來源、內容與啟用狀態保持不變。",
+  "plugins.note.removedIntent": "此目標已從共用設定移除。請同步以完成本機清理。",
+  "plugins.note.accountChanged": "原生帳戶或作用範圍已變更。請先還原原設定並處理本機記錄，再重新綁定。",
+  "plugins.note.installRequired": "此機器需要安裝。請同步以檢視並安裝來源。",
+  "plugins.note.independentNative": "另一個同名原生外掛可能覆蓋已檢視的來源。請先在原生用戶端移除它再同步，或匯入以保留它。",
+  "plugins.note.identityInUse": "原生安裝已使用此識別碼。請明確匯入，不要取代它。",
+  "plugins.note.cleanupRequired": "先前的安裝需要清理。請同步以套用共用設定。",
+  "plugins.note.replaceLocal": "套用共用設定前，先移除之前的本機安裝。",
+  "plugins.note.nativeAdopt": "已在原生用戶端安裝。匯入而不重新安裝。",
+  "plugins.note.selection": "僅儲存同步選擇。請同步以安裝或移除此目標。",
+  "plugins.note.localImportRequired": "此機器需要匯入。請將本機原生識別碼匯入此套件。",
+  "plugins.note.noLocalBinding": "移除宣告。未綁定本機安裝。"
 }
