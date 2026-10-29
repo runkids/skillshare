@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -201,7 +202,24 @@ func TestConvertibleProjects_SharedAgentIdentityDoesNotMakeRootMixed(t *testing.
 	root := t.TempDir()
 	path := filepath.Join(root, "config.yaml")
 	t.Setenv("SKILLSHARE_CONFIG", path)
-	data := "source: " + root + "/skills\ntargets:\n  app-codex:\n    agent: codex\n    config_dir: " + root + "/app/.codex\n    path: " + root + "/app/.agents/skills\n  app-universal:\n    path: " + root + "/app/.agents/skills\n  app-claude:\n    agent: claude\n    config_dir: " + root + "/app/.claude\n    path: " + root + "/app/.claude/skills\n"
+	data := fmt.Sprintf(`source: %s
+targets:
+  app-codex:
+    agent: codex
+    config_dir: %s
+    path: %s
+  app-universal:
+    path: %s
+  app-claude:
+    agent: claude
+    config_dir: %s
+    path: %s
+`, filepath.Join(root, "skills"),
+		filepath.Join(root, "app", ".codex"),
+		filepath.Join(root, "app", ".agents", "skills"),
+		filepath.Join(root, "app", ".agents", "skills"),
+		filepath.Join(root, "app", ".claude"),
+		filepath.Join(root, "app", ".claude", "skills"))
 	if err := os.WriteFile(path, []byte(data), 0644); err != nil {
 		t.Fatal(err)
 	}
