@@ -643,7 +643,7 @@ skillshare backup -p --all           # 效果相同（在 Project mode 下会收
 
 ### `The native marketplace X is gone` {#plugin-marketplace-gone}
 
-此错误发生在本机已有导入记录，但原生 marketplace 不存在时。请在 Agent 中恢复 marketplace 后同步。另一台机器若没有本机记录，会显示需要导入，sync 会跳过；请先原生安装，再使用声明的软件包名称导入本机 ID。
+本机已有导入记录，但原生 marketplace 不再注册。Skillshare 会跳过操作；导入记录本身不是经过审查的重装来源。请在原生客户端中恢复 marketplace，并安装或更新插件。如果需要重新绑定，请使用声明的包名导入本地 ID。也可以删除该 Agent 的绑定，再从源码添加。另一台机器若没有本地记录，会显示需要导入，sync 会跳过；请先原生安装，再使用声明的包名导入本地 ID。
 
 ---
 

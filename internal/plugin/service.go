@@ -643,8 +643,8 @@ func (s *Service) prepareChange(ctx context.Context, r Request, d *document, hos
 		c.Action = "skip"
 		c.Message, c.MessageKey, c.MessageArgs = message, key, args
 	}
-	// An import reinstalls and updates from its native marketplace. Once that is gone, only the
-	// native client, or adding the plugin again from a reviewed source, can bring it back.
+	// An import receipt is not a reviewed reinstall source. Report a missing
+	// marketplace before directing the user to repair it in the native client.
 	if c.Binding.Source == "" && marketplaceAgent(agent) && (c.Action == "install" || c.Action == "update") && h.Marketplaces != nil {
 		_, market, _ := strings.Cut(c.ID, "@")
 		if _, ok := h.Marketplaces[market]; !ok {

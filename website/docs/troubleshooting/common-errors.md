@@ -679,12 +679,14 @@ The same rule applies to `restore`: `restore is not supported in project mode (e
 
 ### `The native marketplace X is gone` {#plugin-marketplace-gone}
 
-**Cause:** The plugin was imported, so Skillshare reinstalls it from the native marketplace it came from, and that marketplace is not registered in the Agent. This applies only when this machine already has a local import receipt. A second machine without a receipt instead shows **Import required on this machine** and skips that target. Install natively there, then import its local ID with the declared package name.
+**Cause:** This machine has a local import receipt, but its native marketplace is no longer registered. Skillshare skips the operation; a receipt is not a reviewed reinstall source.
 
 **Solutions:**
 
-1. Add the marketplace again in the Agent, then run `skillshare sync plugins`.
+1. Restore the marketplace and install or update the plugin in the native client. Import its local ID into the declared package if it needs rebinding.
 2. Or remove that Agent from the plugin and add the plugin again from its source. See [Cross-Machine Sync — Plugins](/docs/how-to/sharing/cross-machine-sync#plugins).
+
+A second machine without a receipt instead shows **Import required on this machine** and skips that target. Install natively there, then import its local ID with the declared package name.
 
 ---
 
