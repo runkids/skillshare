@@ -148,6 +148,7 @@ func (s *Server) handleSyncMatrixPreview(w http.ResponseWriter, r *http.Request)
 	source := s.cfg.EffectiveSkillsSource()
 	agentsSource := s.agentsSource()
 	targets := s.cloneTargets()
+	defaultMode := s.cfg.Mode
 	s.mu.RUnlock()
 
 	var body struct {
@@ -197,6 +198,10 @@ func (s *Server) handleSyncMatrixPreview(w http.ResponseWriter, r *http.Request)
 	target, ok := targets[body.Target]
 	sc := target.SkillsConfig()
 	sc.Include, sc.Exclude = body.Include, body.Exclude
+	target.Skills = &sc
+	targets[body.Target] = target
+	target = config.WithSharedSkillsTargets(targets, defaultMode)[body.Target]
+	sc = target.SkillsConfig()
 	classified, err := ssync.ClassifySkillsForTarget(skills, body.Target, sc)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())

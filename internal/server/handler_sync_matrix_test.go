@@ -437,3 +437,38 @@ func TestSyncMatrixAmbiguityReasonCode(t *testing.T) {
 		t.Fatalf("reason code = %q", entry.ReasonCode)
 	}
 }
+
+func TestSyncMatrixPreviewRecomputesSharedVariantSelection(t *testing.T) {
+	shared := t.TempDir()
+	s, src := newTestServerWithTargets(t, map[string]string{"codex": shared, "universal": shared})
+	for _, agent := range []string{"claude", "codex"} {
+		addSkill(t, src, "_repo/skills/"+agent+"/fix")
+	}
+	for _, tc := range []struct {
+		filters string
+		want    string
+	}{
+		{``, "synced"},
+		{`,"exclude":["unrelated"]`, "skill_target_mismatch"},
+	} {
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/sync-matrix/preview", strings.NewReader(`{"target":"universal"`+tc.filters+`}`)))
+		if rr.Code != http.StatusOK {
+			t.Fatal(rr.Body.String())
+		}
+		var response struct {
+			Entries []syncMatrixEntry `json:"entries"`
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
+			t.Fatal(err)
+		}
+		for _, row := range response.Entries {
+			if row.Skill == "_repo__skills__codex__fix" && row.Status != tc.want {
+				t.Fatalf("preview %s: got %s want %s", tc.filters, row.Status, tc.want)
+			}
+		}
+	}
+	if len(s.cfg.Targets["universal"].Exclude) != 0 {
+		t.Fatal("preview mutated saved filters")
+	}
+}
