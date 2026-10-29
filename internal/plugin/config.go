@@ -145,9 +145,14 @@ func decodeDocument(raw []byte, accounts map[string]string) (*document, error) {
 		for name, p := range d.legacy {
 			decl := packageDeclaration{Source: p.Source, SourceRef: p.SourceRef, Plugin: p.Plugin, Entry: p.Entry, Bindings: map[string]declaration{}}
 			for target, b := range p.Bindings {
+				if b.Pending == "remove" {
+					continue
+				}
 				decl.Bindings[target] = declareBinding(b)
 			}
-			d.intent[name] = decl
+			if len(p.Bindings) == 0 || len(decl.Bindings) > 0 {
+				d.intent[name] = decl
+			}
 		}
 	}
 	for name, p := range d.intent {

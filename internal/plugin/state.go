@@ -270,7 +270,7 @@ func (s *Service) captureLegacy(d *document) {
 			local := d.state.Bindings[name][target]
 			if local.Applied == nil && local.Legacy == nil {
 				b.Pending = ""
-				local.Legacy = &receipt{Intent: d.intent[name].Bindings[target].fingerprint(), Store: s.storeIdentity(target), Binding: b}
+				local.Legacy = &receipt{Intent: declareBinding(b).fingerprint(), Store: s.storeIdentity(target), Binding: b}
 				d.putLocal(name, target, local)
 			}
 		}
@@ -328,7 +328,7 @@ func (s *Service) adoptLegacy(d *document, host func(string) Host, names ...stri
 			if d.state.Bindings[name][target].Legacy != nil {
 				continue
 			}
-			prove(name, target, &receipt{Intent: d.intent[name].Bindings[target].fingerprint(), Store: s.storeIdentity(target), Binding: b})
+			prove(name, target, &receipt{Intent: declareBinding(b).fingerprint(), Store: s.storeIdentity(target), Binding: b})
 		}
 	}
 	s.compose(d)
