@@ -114,7 +114,6 @@ func runCommand(ctx context.Context, dir string, env []string, bin string, args 
 }
 
 func (s *Service) run(ctx context.Context, target string, args ...string) ([]byte, error) {
-
 	run := s.Run
 	if run == nil {
 		run = runCommand

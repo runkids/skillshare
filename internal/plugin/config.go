@@ -38,14 +38,17 @@ func (s *Service) load() (*document, error) {
 	}
 	// Capture passive local hints before another machine can replace legacy YAML.
 	// Reads leave shared intent untouched; ownership is still proved before adoption.
-	before, _ := json.Marshal(d.state)
-	s.captureLegacyAndVersions(d)
-	after, _ := json.Marshal(d.state)
-	if !bytes.Equal(before, after) {
-		if err := s.saveState(d); err != nil {
-			return nil, err
+	if len(d.legacy) > 0 {
+		before, _ := json.Marshal(d.state)
+		s.captureLegacyAndVersions(d)
+		after, _ := json.Marshal(d.state)
+		if !bytes.Equal(before, after) {
+			if err := s.saveState(d); err != nil {
+				return nil, err
+			}
 		}
 	}
+
 	return d, nil
 }
 
