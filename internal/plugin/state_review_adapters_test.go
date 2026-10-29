@@ -118,12 +118,13 @@ func TestSharedRefReconcileAndAccountChangeAcrossAdapters(t *testing.T) {
 }
 
 func TestImportsMatchLocalPathsAndDefaultRecipeCandidate(t *testing.T) {
-	for _, agent := range []string{"claude", "pi", "opencode", "opencode-nested"} {
+	for _, agent := range []string{"claude", "pi", "opencode", "opencode-nested", "opencode-explicit"} {
 		t.Run(agent, func(t *testing.T) {
 			native := &fakeAgents{installed: map[string][]Installed{"claude": {{ID: "demo@team", Scope: "user", Installed: true}}}}
 			s := native.service(t)
 			source := fixture(t)
 			id := "demo@team"
+			explicit := ""
 			switch agent {
 			case "pi":
 				var calls []string
@@ -132,14 +133,21 @@ func TestImportsMatchLocalPathsAndDefaultRecipeCandidate(t *testing.T) {
 				id = source
 				file, _ := s.piSettingsPath("pi")
 				writePluginFile(t, filepath.Dir(file), filepath.Base(file), `{"packages":["`+id+`"]}`)
-			case "opencode", "opencode-nested":
-				nested := agent == "opencode-nested"
+			case "opencode", "opencode-nested", "opencode-explicit":
+				noSDK := agent == "opencode-explicit"
+				nested := agent != "opencode"
 				agent = "opencode"
 				entry := "index.js"
 				if nested {
 					entry = "dist/plugin.js"
 				}
-				writePluginFile(t, source, "package.json", `{"name":"demo","main":"`+entry+`","dependencies":{"@opencode-ai/plugin":"1"}}`)
+				if noSDK {
+					source = t.TempDir()
+					explicit = entry
+					writePluginFile(t, source, "package.json", `{"name":"demo","main":"`+entry+`"}`)
+				} else {
+					writePluginFile(t, source, "package.json", `{"name":"demo","main":"`+entry+`","dependencies":{"@opencode-ai/plugin":"1"}}`)
+				}
 				writePluginFile(t, source, entry, "export default async () => ({})")
 				id = fileURL(filepath.Join(source, entry))
 				file, _ := s.openCodeConfigPath("opencode")
@@ -152,7 +160,7 @@ func TestImportsMatchLocalPathsAndDefaultRecipeCandidate(t *testing.T) {
 					return run(ctx, dir, env, bin, args...)
 				}
 			}
-			writePluginFile(t, filepath.Dir(s.ConfigPath), filepath.Base(s.ConfigPath), "plugins:\n  version: 2\n  packages:\n    alias:\n      source: "+source+"\n      bindings:\n        "+agent+": {}\n")
+			writePluginFile(t, filepath.Dir(s.ConfigPath), filepath.Base(s.ConfigPath), "plugins:\n  version: 2\n  packages:\n    alias:\n      source: "+source+"\n      entry: "+explicit+"\n      bindings:\n        "+agent+": {}\n")
 			same := unchanged(t, s.ConfigPath)
 			req := Request{Action: "import", From: agent, Plugin: id, Name: "alias"}
 			p, err := s.Preview(context.Background(), req)

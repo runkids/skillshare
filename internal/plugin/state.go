@@ -494,7 +494,7 @@ func (s *Service) importMatchesRecipe(ctx context.Context, target string, instal
 					}
 				}
 			}
-			if native, err := discoverRoot(path, path, ""); err == nil {
+			if native, err := discoverRoot(path, path, decl.Entry); err == nil {
 				for _, candidate := range native.Candidates {
 					if candidate.Name == decl.Plugin || decl.Plugin == "" && len(native.Candidates) == 1 {
 						nativeName = candidate.Name
