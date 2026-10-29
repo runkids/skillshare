@@ -254,13 +254,6 @@ func selectTargetSkills(skills []DiscoveredSkill, targetName string, sc config.R
 	return result, nil
 }
 
-// FilterSkillsByTarget removes skills whose Targets field does not include
-// the given target name.  Skills with nil Targets (no field declared) pass
-// through unconditionally.
-func FilterSkillsByTarget(skills []DiscoveredSkill, targetName string) []DiscoveredSkill {
-	return filterSkillsByTarget(skills, targetName, config.CanonicalTargetName(targetName)).Skills
-}
-
 func filterSkillsByTarget(skills []DiscoveredSkill, targetName, agent string) targetSkillSelection {
 	variants := make(map[string]int)
 	for _, skill := range skills {
@@ -301,7 +294,7 @@ func filterSkillsByTarget(skills []DiscoveredSkill, targetName, agent string) ta
 
 // FilterAgentsByTarget removes agents whose frontmatter targets field does not
 // include the given target name. Agents with nil Targets (no field declared)
-// pass through unconditionally. Mirrors FilterSkillsByTarget.
+// pass through unconditionally. Uses the same explicit target matching as skill selection.
 func FilterAgentsByTarget(agents []resource.DiscoveredResource, targetName string) []resource.DiscoveredResource {
 	filtered := make([]resource.DiscoveredResource, 0, len(agents))
 	for _, agent := range agents {

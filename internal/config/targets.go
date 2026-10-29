@@ -698,22 +698,30 @@ func GroupedProjectTargets() []GroupedProjectTarget {
 	return result
 }
 
+var canonicalTargetNamesOnce sync.Once
+var canonicalTargetNames map[string]string
+
 // CanonicalTargetName resolves registry names and aliases without treating a
 // shared destination path as agent identity. Unknown names return empty.
 func CanonicalTargetName(name string) string {
 	if _, tool, ok := SplitProjectTarget(name); ok {
 		name = tool
 	}
-	specs, err := loadTargetSpecs()
-	if err != nil {
-		return ""
-	}
-	for _, spec := range specs {
-		if targetSpecMatchesName(spec, name) {
-			return spec.Name
+	canonicalTargetNamesOnce.Do(func() {
+		specs, err := loadTargetSpecs()
+		if err != nil {
+			return
 		}
-	}
-	return ""
+		canonicalTargetNames = make(map[string]string)
+		for _, spec := range specs {
+			for _, alias := range append([]string{spec.Name}, spec.Aliases...) {
+				if _, exists := canonicalTargetNames[alias]; !exists {
+					canonicalTargetNames[alias] = spec.Name
+				}
+			}
+		}
+	})
+	return canonicalTargetNames[name]
 }
 
 // MatchesTargetName checks explicit target declarations, including aliases and

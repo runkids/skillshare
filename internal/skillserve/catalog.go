@@ -164,7 +164,7 @@ func (b *Builder) build(all []ssync.DiscoveredSkill) (*Catalog, error) {
 			}
 		}
 	}
-	slices.SortFunc(c.Skipped, func(a, b Skip) int { return strings.Compare(a.Path, b.Path) })
+	slices.Reverse(c.Skipped)
 	// By URI, which skills/list cursors continue from.
 	slices.SortFunc(c.Skills, func(x, y *Skill) int { return strings.Compare(x.URI, y.URI) })
 	return c, nil
