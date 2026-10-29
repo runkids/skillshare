@@ -128,7 +128,7 @@ var (
 	loadTargetsOnce sync.Once
 )
 
-func loadTargetSpecs() ([]targetSpec, error) {
+func loadTargetTemplates() ([]targetSpec, error) {
 	loadTargetsOnce.Do(func() {
 		var file targetsFile
 		if err := yaml.Unmarshal(defaultTargetsData, &file); err != nil {
@@ -138,9 +138,17 @@ func loadTargetSpecs() ([]targetSpec, error) {
 		loadedTargets = file.Targets
 	})
 
+	return loadedTargets, loadTargetsErr
+}
+
+func loadTargetSpecs() ([]targetSpec, error) {
+	templates, err := loadTargetTemplates()
+	if err != nil {
+		return nil, err
+	}
 	// Resolve native config homes per call, without changing the embedded defaults
 	// or explicit paths saved in a user's config.
-	specs := append([]targetSpec(nil), loadedTargets...)
+	specs := append([]targetSpec(nil), templates...)
 	for i, spec := range specs {
 		if home := targetConfigHome(spec.Name, runtime.GOOS); home != "" {
 			specs[i].Skills.Global = filepath.Join(home, "skills")
@@ -166,6 +174,22 @@ func DefaultTargets() map[string]TargetConfig {
 	}
 
 	return targets
+}
+
+// DefaultTargets returns built-in defaults for this configuration. An account
+// shell must not redirect the plain OMP target into that account's directory.
+func (c *Config) DefaultTargets() map[string]TargetConfig {
+	defaults := DefaultTargets()
+	if home := targetConfigHome("omp", runtime.GOOS); home != "" {
+		for _, account := range c.Targets {
+			if spec, ok := globalSpec(account.Agent); ok && spec.Name == "omp" && account.ConfigDir != "" &&
+				utils.PathsEqual(utils.ResolveSymlink(home), utils.ResolveSymlink(filepath.Clean(expandPath(account.ConfigDir)))) {
+				defaults["omp"] = TargetConfig{Path: filepath.Join(AgentConfigDir("omp"), "skills")}
+				break
+			}
+		}
+	}
+	return defaults
 }
 
 // ProjectTargets returns the well-known CLI skills directories for project mode.
@@ -536,8 +560,9 @@ func TargetScanPaths(name string, target TargetConfig, isProject bool) []string 
 	} else {
 		candidatePaths = append(candidatePaths, AlsoScansGlobal(agent)...)
 		if isAccount {
-			if primary := DefaultTargets()[agent].Path; primary != "" {
-				candidatePaths = append(candidatePaths, primary)
+			// Accounts remap the canonical path, independent of runtime overrides.
+			if spec, ok := globalSpec(agent); ok && spec.Skills.Global != "" {
+				candidatePaths = append(candidatePaths, normalizeTargetPath(spec.Skills.Global))
 			}
 		} else if primary := DefaultTargets()[name].Path; primary != "" {
 			candidatePaths = append(candidatePaths, primary)
@@ -847,6 +872,11 @@ func normalizeTargetPath(path string) string {
 
 func targetConfigHome(name, goos string) string {
 	switch name {
+	case "omp":
+		// Match MCP: trim the override and never resolve it against the working directory.
+		if home := strings.TrimSpace(os.Getenv("PI_CODING_AGENT_DIR")); filepath.IsAbs(home) {
+			return filepath.Clean(home)
+		}
 	case "deepseek-harness":
 		if home := os.Getenv("DSH_HOME"); strings.TrimSpace(home) != "" {
 			// Harness resolves relative overrides against the current directory.

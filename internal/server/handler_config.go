@@ -225,7 +225,7 @@ func (s *Server) handleAvailableTargets(w http.ResponseWriter, r *http.Request) 
 	if isProjectMode {
 		defaults = config.ProjectTargets()
 	} else {
-		defaults = config.DefaultTargets()
+		defaults = (&config.Config{Targets: targets}).DefaultTargets()
 	}
 
 	type availTarget struct {

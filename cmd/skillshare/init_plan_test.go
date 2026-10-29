@@ -127,3 +127,69 @@ func TestSameTree_ComparesContent(t *testing.T) {
 		t.Error("edited folders should not match")
 	}
 }
+
+func TestDetectCLIDirectories_OMPRequiresOwnInstall(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	piHome := filepath.Join(home, "pi-home")
+	if err := os.MkdirAll(filepath.Join(piHome, "skills", "pi-skill"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PI_CODING_AGENT_DIR", piHome)
+	for _, d := range detectCLIDirectories() {
+		if d.name == "omp" {
+			t.Fatalf("Pi-only home detected as OMP: %+v", d)
+		}
+	}
+	if err := os.MkdirAll(filepath.Join(home, ".omp"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range detectCLIDirectories() {
+		if d.name == "omp" && d.path == filepath.Join(piHome, "skills") {
+			return
+		}
+	}
+	t.Fatal("installed OMP did not retain its environment-selected skills path")
+}
+
+func TestDiscover_OMPAccountAndPiOnly(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	account := filepath.Join(home, ".omp-work", "agent")
+	if err := os.MkdirAll(account, 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PI_CODING_AGENT_DIR", account)
+	cfg := &config.Config{Targets: map[string]config.TargetConfig{"omp-work": {Agent: "omp", ConfigDir: account}}}
+	for _, agent := range detectNewAgents(cfg) {
+		if agent.name == "omp" {
+			t.Fatal("Pi-only home offered as OMP by discover")
+		}
+	}
+	if err := os.MkdirAll(filepath.Join(home, ".omp", "agent"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(home, ".omp", "agent", "skills")
+	found := false
+	for _, agent := range detectNewAgents(cfg) {
+		if agent.name == "omp" {
+			found = true
+			if agent.path != want {
+				t.Fatalf("discover path = %q; want %q", agent.path, want)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("discover did not find installed OMP")
+	}
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(home, "config.yaml"))
+	if err := saveAddedAgents(cfg, []string{"omp"}, false, false, ""); err != nil {
+		t.Fatal(err)
+	}
+	target := cfg.Targets["omp"]
+	if target.SkillsConfig().Path != want {
+		t.Fatalf("saved default = %q; want %q", target.SkillsConfig().Path, want)
+	}
+}

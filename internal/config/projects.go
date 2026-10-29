@@ -184,7 +184,7 @@ func (c *Config) OwnTargets() map[string]TargetConfig {
 }
 
 // withoutProjectTargets returns c as it should be written: project targets come from
-// projects, never from targets, and a path derived from config_dir stays derived.
+// projects, never from targets, and inferred resource paths stay derived.
 func (c *Config) withoutProjectTargets() *Config {
 	out := *c
 	out.Targets = c.OwnTargets()

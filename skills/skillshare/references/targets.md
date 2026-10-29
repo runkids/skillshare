@@ -5,6 +5,14 @@ and MCP client support are identical.
 
 ## Global Targets
 
+Only a global OMP config entry with its skills path omitted follows
+`PI_CODING_AGENT_DIR`, after trimming whitespace. Empty or relative values use
+`~/.omp/agent/skills`. When the override matches a declared OMP account's
+`config_dir` (including a symlink), plain `omp` keeps the canonical default and
+the account's filters stay independent. Automatic OMP detection requires `~/.omp`. `init` and `target add` save the chosen destination;
+saved paths remain pinned. Explicit skills paths and account `config_dir` take
+precedence; project skills stay `.omp/skills`.
+
 ```bash
 skillshare target list                        # List all targets
 skillshare target claude                      # Show target info

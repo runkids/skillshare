@@ -200,7 +200,13 @@ skillshare 提供 **79 个内置 target**，其中包括共享的 Universal targ
 
 使用 `omp` 管理原生 skill、[MCP 配置](../commands/mcp.md#omp)和
 [code hooks](../commands/hooks.md#omp)。
-Skill 在全局写入 `~/.omp/agent/skills`，在项目中写入 `.omp/skills`。OMP 只扫描一层
+Skill 默认在全局写入 `~/.omp/agent/skills`，在项目中写入 `.omp/skills`。
+只有省略 skill 路径的全局 OMP 配置条目才遵循 `PI_CODING_AGENT_DIR`。
+会去除前后空白；空值或相对路径使用标准默认路径。如果变量指向已声明的 OMP 账号
+`config_dir`（包括符号链接），普通 `omp` 仍使用 `~/.omp/agent/skills`，使账号筛选条件保持独立。
+因为 Pi 也使用相同变量，自动检测 OMP 需要 `~/.omp` 存在。
+`init` 和 `target add` 会保存选定的目标路径，已保存的路径保持固定。
+明确的 skill 路径和账号 `config_dir` 优先。OMP 只扫描一层
 `<skill>/SKILL.md`，并要求提供描述；skillshare 默认的 flat target 命名正好符合这种布局。
 `oh-my-pi` 是 skill target 的别名；MCP client ID 为 `omp`。
 

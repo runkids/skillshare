@@ -41,6 +41,15 @@ func isSharedUniversalSkillsAlias(name string, target config.TargetConfig, defau
 	return filepath.Clean(target.SkillsConfig().Path) == filepath.Clean(universal.SkillsConfig().Path)
 }
 
+// hasTargetInstall distinguishes OMP from Pi, which shares its environment variable.
+func hasTargetInstall(name string) bool {
+	if name != "omp" {
+		return true
+	}
+	info, err := os.Stat(config.DetectDir(name))
+	return err == nil && info.IsDir()
+}
+
 // detectCLIDirectories finds installed AI tools. It only reads the disk.
 // Tools with skills come first (most skills first), then the rest by name.
 func detectCLIDirectories() []detectedDir {
@@ -49,6 +58,10 @@ func detectCLIDirectories() []detectedDir {
 	var aliases []string
 
 	for name, target := range defaultTargets {
+		if !hasTargetInstall(name) {
+			continue
+		}
+
 		if isSharedUniversalSkillsAlias(name, target, defaultTargets) {
 			// The skills path can't identify the tool (it belongs to universal),
 			// so fall back to its install dir and credit universal instead.

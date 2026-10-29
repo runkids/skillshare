@@ -177,3 +177,16 @@ func TestProjectConfig_TargetFilesRoundTrip(t *testing.T) {
 		t.Errorf("files = %v", got)
 	}
 }
+
+func TestTargetFileRoot_EnvironmentHomes(t *testing.T) {
+	for _, tc := range []struct{ name, env string }{{"deepseek-harness", "DSH_HOME"}, {"gitlab-duo", "GLAB_CONFIG_DIR"}} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			t.Setenv(tc.env, dir)
+			root, ok := TargetFileRoot(tc.name, TargetConfig{}, false, "")
+			if !ok || root != dir {
+				t.Fatalf("file root = %q, %t; want %q", root, ok, dir)
+			}
+		})
+	}
+}
