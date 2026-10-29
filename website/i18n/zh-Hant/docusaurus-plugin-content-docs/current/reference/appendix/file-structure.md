@@ -53,6 +53,9 @@ skillshare 的目錄配置與檔案位置。
         └── SKILL.md
 
 ~/.local/state/skillshare/   # XDG_STATE_HOME
+├── plugins/<config-path-hash>/
+│   ├── state.json
+│   └── .operation.lock
 ├── logs/                    # 操作記錄（JSONL）
 │   ├── operations.log       # install、sync、update 等
 │   └── audit.log            # 安全性 audit 掃描

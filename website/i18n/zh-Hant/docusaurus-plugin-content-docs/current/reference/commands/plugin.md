@@ -346,24 +346,28 @@ Copilot 與 Antigravity CLI 的安裝使用已檢視過的本機快照。匯入�
 
 ## 共用宣告與本機安裝 {#host-state}
 
-`plugins.version: 2` 在全域或專案設定保存來源、ref、plugin、entry、各 target 的有效來源、
-`sync` 選擇，或原生匯入用的 `imported: true`。保存時會明確寫出各 target 的來源，避免變更
-套件預設值時改到其他發行版本。原生 ID、版本、commit/digest、Pi 登錄參照及待處理操作
-只存在本機 `<StateDir>/plugins/<config-path-hash>/state.json`（版本 1）；請勿跨機器同步 StateDir。
+`plugins.version: 2` 在全域／專案設定中儲存 source、ref、plugin、entry、各目標的來源與 `sync` 選擇，或 `imported: true`。目標來源會明確記錄，因此修改套件預設值不會切換其他目標的發行內容。
 
-sync、一般 update、驗證、失敗與重試不寫入共用宣告；`update --source-ref` 只在 ref 改變時寫入。
-唯讀操作不建立狀態或鎖。明確的新增、選取及移除會檢查設定是否遭外部修改；這不能合併
-Syncthing 上同時發生的宣告編輯。
+```yaml
+plugins:
+  version: 2
+  packages:
+    router:
+      source: https://github.com/acme/router.git
+      plugin: router
+      bindings:
+        pi: {source: https://github.com/acme/router.git, plugin: router}
+        omp: {imported: true}
+```
 
-新機器的 sync 會重新檢閱來源並產生本機快照路徑。本機來源路徑必須在每台機器上存在。
-原生匯入顯示「需要在此機器上匯入」：先在原生工具安裝，再執行
-`plugin import LOCAL-ID --from TARGET --name NAME`；相同宣告的再次匯入只保存本機 ID。
-明確的 Pi `add npm:PACKAGE` 會共用安裝配方並執行 Pi 的安裝腳本；npm 匯入只共用匯入意圖。
+原生 ID、已檢視的 commit/digest/version、Pi 註冊參照與待處理操作儲存在 `<StateDir>/plugins/<config-path-hash>/state.json`（本機格式 version 1）。StateDir 必須留在各機器本機。狀態以設定檔的**絕對路徑**區分：移動或重新命名專案／設定檔會建立新的狀態空間，不會自動追蹤或清理原有安裝。請先透過原設定位置移除安裝，或在新位置明確管理／匯入。
 
-舊格式的讀取及 sync 不改寫 YAML。必須有本機清單與來源快照擁有權證據才能接納舊 ID；
-外機待處理操作會被忽略。下次實際修改宣告才寫成版本 2；請先升級所有共用設定的寫入端。
-舊 npm ID 無法證明原本來自新增或匯入，因此保守視為原生匯入；再次明確 add 才建立共用配方。
-離線期間移除或改來源的 target 會保留本機清理紀錄直到成功；清理與替換失敗可在本機重試。
-帳號變更需要先解決舊原生環境，才能清理。原生設定、驗證與信任仍由各工具在本機管理。
+sync、一般 update、驗證、失敗與重試不會改寫共用宣告。`update --source-ref` 僅在 ref 改變時更新宣告。讀取會在本機保存舊格式證據，不修改共用 YAML，也不建立操作鎖。add、import、選擇與 remove 會儲存必要的宣告變更並檢查外部修改；這不會合併同時發生的 Syncthing 編輯。
 
-未確認的舊 binding 在宣告編輯後仍以私有的被動提示保存。只有在原生環境未變且通過擁有權驗證後才轉為安裝紀錄；即使共用 target 已移除，清理仍依據原始意圖。
+來源檢視與 commit 固定是**各機器獨立**的。分支 ref 在該機器安裝或更新時解析，因此非互動 sync 可能安裝比另一台機器檢視時更新的 commit。ref 變更也會在本機解析。若所有機器必須使用相同版本，請將 `source_ref` 設為 commit SHA。本機來源路徑也必須在各機器存在。
+
+native-only 目標顯示「此機器需要匯入」，sync 會略過。請先在原生用戶端安裝，再執行 `plugin import LOCAL-ID --from TARGET --name NAME`。匯入既有來源宣告只記錄本機安裝，不改變其他機器的來源或安裝。重新匯入已驗證來源的同一 ID 也會保留來源。明確的 Pi `add npm:PACKAGE` 會共用安裝方式，並由 Pi 執行安裝指令碼；npm import 則建立 native-only 宣告。
+
+舊格式讀取與 sync 不改寫 YAML，下次宣告編輯才寫入 version 2。**首次 v2 編輯前，請升級所有寫入端，並在共用 YAML 仍為舊格式時，於每台機器執行 `skillshare plugin list`。** 即使原生用戶端暫時無法使用，也能保存移轉線索。採用舊 ID 需要原生環境清單；來源安裝還需本機擁有的 snapshot 證據。不會執行其他主機的待處理操作。未驗證線索與移除證據會保留到所有權確認及清理完成。舊 npm 無法區分 add/import，若需要共用安裝方式，請明確重新 add。
+
+帳戶變更時，請先處理原本的原生環境，再進行清理。認證、原生設定與信任仍留在各工具中。

@@ -63,8 +63,9 @@ skillshare plugin import review@team --from claude --no-tui
 と適切な Target を使ってそれぞれの配布形式を add/import してください。skillshare は表示名から
 同等性を推測することはありません。
 
-インポートはこのマシンのネイティブインストールに結び付いています。同じ plugin を別のマシンで使うには、
-代わりに source から追加してください。[クロスマシン Sync — Plugins](/docs/how-to/sharing/cross-machine-sync#plugins) を参照してください。
+インポートはローカルのインストールを記録します。別のマシンでは native-only 宣言を sync がスキップし、ローカルでのインポートが必要と表示します。ネイティブクライアントでインストール後、同じ `--name` でローカル ID をインポートしてください。ダッシュボードのパッケージ選択と TUI の名前付き候補も利用できます。既存のソース宣言へのインポートは共有ソースと他のマシンのインストールを変えません。
+
+[Plugins](/docs/reference/commands/plugin#host-state)
 
 ## Sync する場所を選ぶ
 

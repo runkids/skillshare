@@ -643,12 +643,7 @@ skillshare backup -p --all           # 위와 동일 (agent로 좁혀짐)
 
 ### `The native marketplace X is gone` {#plugin-marketplace-gone}
 
-**Cause:** 이 plugin은 import된 것이므로 Skillshare는 원래의 네이티브 marketplace에서 다시 설치하는데, 그 marketplace가 Agent에 등록되어 있지 않습니다. 두 번째 머신에서 흔히 발생합니다. import는 첫 번째 머신에만 기록되기 때문입니다.
-
-**Solutions:**
-
-1. Agent에서 marketplace를 다시 추가한 뒤 `skillshare sync plugins`를 실행하세요.
-2. 또는 해당 plugin에서 그 Agent를 제거하고 source에서 plugin을 다시 추가하세요. [Cross-Machine Sync — Plugins](/docs/how-to/sharing/cross-machine-sync#plugins)를 참고하세요.
+이 오류는 이 기기에 가져오기 기록이 있지만 원래 네이티브 marketplace가 없을 때 발생합니다. Agent에서 marketplace를 복원한 뒤 동기화하세요. 다른 기기에 로컬 기록이 없으면 가져오기가 필요하다고 표시하고 sync는 건너뜁니다. 그 기기에 네이티브로 설치한 뒤 선언의 패키지 이름을 지정하여 로컬 ID를 가져오세요.
 
 ---
 

@@ -243,7 +243,7 @@ extras가 구성된 경우 다음을 검증합니다:
 
 ### Plugins
 
-소스를 가져오지 않고 `skillshare sync plugins`를 미리 봅니다. Doctor는 플러그인 패키지가 있을 때만 바인딩된 각 Agent의 네이티브 CLI에 설치된 항목을 묻습니다. 차단된 바인딩(예: Agent의 CLI가 설치되지 않음)과 아직 sync가 필요한 바인딩은 warning입니다. 소스의 새 릴리스 확인은 계속 `skillshare plugin check`가 담당합니다. 구성된 패키지가 없으면 `info`로 표시합니다.
+plugin sync를 미리 봅니다. 로컬 설치가 없거나 공유 ref가 바뀌면 소스 가져오기가 필요할 수 있습니다. 차단, 건너뜀(로컬 가져오기 필요 포함), 미완료 설치나 정리는 경고입니다. 레거시 읽기는 로컬 이관 증거를 저장하지만 공유 YAML은 바꾸지 않습니다. 새 릴리스 확인에는 `skillshare plugin check`를 사용하세요. 패키지가 없으면 `info`입니다.
 
 ### 기타
 

@@ -544,6 +544,10 @@ plugins:
 Each machine keeps native IDs, reviewed commits/digests/versions, private Pi
 registration references and pending operations under
 `<StateDir>/plugins/<config-path-hash>/state.json` (local format version 1).
+State is keyed by the config's **absolute path**. Moving or renaming a project
+folder or config starts a new state namespace. Previous installs are not
+implicitly tracked or cleaned up; remove them through the old config location
+before moving, or manage/import them explicitly at the new location.
 Keep StateDir machine-local. Sync, update, verification, failure and retry never
 write shared declarations; `update --source-ref` writes only a changed desired ref.
 Reads capture legacy evidence in local state without changing shared YAML or creating operation locks. Explicit add, import, selection
@@ -551,7 +555,11 @@ and removal edit declarations with changed-byte checks. This does not merge simu
 Syncthing intent edits: concurrent declaration edits can still conflict.
 
 On a new machine, sync reviews source content and derives that machine's native
-snapshot paths. Local source paths remain user input and must exist on each machine.
+snapshot paths. Review and commit pinning are per machine: a branch ref resolves
+when that machine installs or updates it, so non-interactive sync on another
+machine can install a newer commit. A ref change also resolves locally. Set
+`source_ref` to a commit SHA to pin all machines to the same revision.
+Local source paths remain user input and must exist on each machine.
 Native-only targets show **Import required on this machine**: install natively,
 then run `plugin import LOCAL-ID --from TARGET --name NAME` on that machine.
 Repeating that import records the local ID without rewriting identical intent.

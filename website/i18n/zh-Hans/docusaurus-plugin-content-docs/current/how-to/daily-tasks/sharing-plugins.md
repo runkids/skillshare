@@ -62,8 +62,9 @@ skillshare plugin import review@team --from claude --no-tui
 发行版使用相同的 `--name` 与对应的 Target，分别执行 add/import。
 Skillshare 不会依据显示名称来推断等价关系。
 
-导入绑定的是这台机器上的原生安装。要在另一台机器上使用同一个 plugin，请改为从它的
-source 添加；请参阅 [Cross-Machine Sync — Plugins](/docs/how-to/sharing/cross-machine-sync#plugins)。
+导入记录本机安装。在另一台机器，sync 会跳过 native-only 声明并提示需要本机导入。请先在原生客户端安装，再以相同的 `--name` 导入本机 ID。也可使用 dashboard 的软件包选择或 TUI 的具名选项。导入已有来源声明不会改变共享来源或其他机器的安装。
+
+[Plugins](/docs/reference/commands/plugin#host-state)
 
 ## 选择同步到哪里
 

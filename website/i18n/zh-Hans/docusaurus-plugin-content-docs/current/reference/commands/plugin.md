@@ -351,24 +351,28 @@ capabilities 和清单 schemas 会在运行时检查；不受支持的操作会�
 
 ## 共享声明与本机安装 {#host-state}
 
-`plugins.version: 2` 在全局或项目配置保存来源、ref、plugin、entry、各 target 的有效来源、
-`sync` 选择，或原生导入用的 `imported: true`。保存时明确写出各 target 的来源，避免修改
-包默认值时改变其他发行版本。原生 ID、版本、commit/digest、Pi 注册引用及待处理操作
-只存在本机 `<StateDir>/plugins/<config-path-hash>/state.json`（版本 1）；不要跨机器同步 StateDir。
+`plugins.version: 2` 在全局／项目配置中保存 source、ref、plugin、entry、各目标的来源与 `sync` 选择，或 `imported: true`。目标来源会明确记录，因此修改软件包默认值不会切换其他目标的发行内容。
 
-sync、普通 update、验证、失败与重试不写入共享声明；`update --source-ref` 只在 ref 改变时写入。
-只读操作不创建状态或锁。明确的添加、选择及移除会检查配置是否被外部修改；这不能合并
-Syncthing 上同时发生的声明编辑。
+```yaml
+plugins:
+  version: 2
+  packages:
+    router:
+      source: https://github.com/acme/router.git
+      plugin: router
+      bindings:
+        pi: {source: https://github.com/acme/router.git, plugin: router}
+        omp: {imported: true}
+```
 
-新机器的 sync 会重新审查来源并生成本机快照路径。本地来源路径必须在每台机器上存在。
-原生导入显示“需要在此机器上导入”：先在原生工具安装，再执行
-`plugin import LOCAL-ID --from TARGET --name NAME`；相同声明的重复导入只保存本机 ID。
-明确的 Pi `add npm:PACKAGE` 共享安装配方并运行 Pi 安装脚本；npm 导入只共享导入意图。
+原生 ID、已检查的 commit/digest/version、Pi 注册引用与待处理操作保存在 `<StateDir>/plugins/<config-path-hash>/state.json`（本机格式 version 1）。StateDir 必须保留在各机器本地。状态以配置文件的**绝对路径**区分：移动或重命名项目／配置文件会建立新的状态空间，不会自动跟踪或清理原有安装。请先通过原配置位置移除安装，或在新位置明确管理／导入。
 
-旧格式的读取及 sync 不改写 YAML。只有本机清单与来源快照所有权证据才能证明旧 ID 属于本机；
-外机待处理操作被忽略。下次实际修改声明才写成版本 2；请先升级所有共享配置写入端。
-旧 npm ID 无法证明原本来自添加还是导入，因此视为原生导入；再次明确 add 才建立共享配方。
-离线期间移除或更改来源的 target 保留本机清理记录直到成功；清理与替换失败可在本机重试。
-账户变更需要先解决旧原生环境才能清理。原生设置、认证与信任仍由各工具在本机管理。
+sync、普通 update、验证、失败与重试不会改写共享声明。`update --source-ref` 仅在 ref 改变时更新声明。读取会在本地保存旧格式证据，不修改共享 YAML，也不创建操作锁。add、import、选择与 remove 会保存必要的声明变更并检查外部修改；这不会合并同时发生的 Syncthing 编辑。
 
-未确认的旧 binding 在声明编辑后仍作为私有的被动提示保存。只有在原生环境未变且通过所有权验证后才转为安装记录；即使共享 target 已移除，清理仍依据原始意图。
+来源检查与 commit 固定是**各机器独立**的。分支 ref 在该机器安装或更新时解析，因此非交互 sync 可能安装比另一台机器检查时更新的 commit。ref 变更也会在本地解析。若所有机器必须使用相同版本，请将 `source_ref` 设为 commit SHA。本地来源路径也必须在各机器存在。
+
+native-only 目标显示“此机器需要导入”，sync 会跳过。请先在原生客户端安装，再执行 `plugin import LOCAL-ID --from TARGET --name NAME`。导入已有来源声明只记录本机安装，不改变其他机器的来源或安装。重新导入已验证来源的同一 ID 也会保留来源。明确的 Pi `add npm:PACKAGE` 会共享安装方式，并由 Pi 执行安装脚本；npm import 则建立 native-only 声明。
+
+旧格式读取与 sync 不改写 YAML，下次声明编辑才写入 version 2。**首次 v2 编辑前，请升级所有写入端，并在共享 YAML 仍为旧格式时，于每台机器执行 `skillshare plugin list`。** 即使原生客户端暂时不可用，也能保存迁移线索。采用旧 ID 需要原生环境清单；来源安装还需本机拥有的 snapshot 证据。不会执行其他主机的待处理操作。未验证线索与移除证据会保留到所有权确认及清理完成。旧 npm 无法区分 add/import，若需要共享安装方式，请明确重新 add。
+
+账户变更时，请先处理原本的原生环境，再进行清理。认证、原生配置与信任仍留在各工具中。

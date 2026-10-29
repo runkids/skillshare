@@ -243,7 +243,12 @@ Previews `skillshare sync hooks` without writing. A failed preview is an error. 
 
 ### Plugins
 
-Previews `skillshare sync plugins` without fetching any source. Doctor only asks each bound Agent's native CLI what is installed, and only when a plugin package exists. Blocked bindings (for example, the Agent's CLI is not installed) and bindings that still need a sync are warnings. Checking a source for new releases stays in `skillshare plugin check`. Shows `info` when no package is configured.
+Previews plugin sync. A missing local source installation or a changed shared ref
+may require fetching the source to construct the preview. Blocked bindings,
+skipped bindings (including **Import required on this machine**), and pending
+installation or cleanup are warnings. Legacy reads save local migration hints
+without changing shared YAML. Checking an unchanged source for new releases stays
+in `skillshare plugin check`. Shows `info` when no package is configured.
 
 ### Other
 

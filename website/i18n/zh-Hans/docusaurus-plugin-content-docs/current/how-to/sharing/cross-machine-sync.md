@@ -185,19 +185,11 @@ Skillshare 把凭据保存为 `fromEnv` 引用，从不保存实际的值。请�
 
 ### Plugins {#plugins}
 
-Plugin 定义不会通过 git 传递。请在每台机器上从相同的来源重新添加：
+共享配置的 `plugins:` 区段可保存 version 2 的来源、ref 与目标选择。StateDir 应保留在每台机器，不要共享。在新机器执行 `skillshare plugin sync`，即可检查来源并以本机路径安装。检查与 commit 固定是各机器独立的；分支 ref 在执行时解析，非交互 sync 可能安装比另一台机器检查时更新的 commit。若需要相同版本，请将 `source_ref` 设为 commit SHA。首次 v2 编辑前，升级所有写入端，并在共享 YAML 仍为旧格式时，于每台机器执行 `skillshare plugin list`。
 
-1. 在第一台机器的 dashboard 打开 **Plugins → Share**，复制命令。它会列出从 HTTPS Git 来源添加的 plugins，例如：
+导入记录本机安装。在另一台机器，sync 会跳过 native-only 声明并提示需要本机导入。请先在原生客户端安装，再以相同的 `--name` 导入本机 ID。也可使用 dashboard 的软件包选择或 TUI 的具名选项。导入已有来源声明不会改变共享来源或其他机器的安装。
 
-   ```bash
-   skillshare plugin add https://github.com/acme/plugins --plugin review -g --no-tui
-   ```
-
-2. 在另一台机器运行该命令，在 Plugins 页面勾选 Agents，然后运行 `skillshare sync plugins`。
-
-需要在多台机器上使用的 plugin，请用 **Add plugin** 从来源添加，而不是 **Import installed**。Import 只记录 native 安装。在另一台机器上，Claude 和 Codex 会从同名的 native marketplace 重新安装；如果那台机器没有注册该 marketplace，这个 plugin 就会被跳过。Cursor 和 Antigravity 则完全无法重新安装 imported plugin。从本地目录添加的 plugin 不会出现在 **Share** 中，因为该路径只存在于第一台机器上。
-
-`sync plugins` 会安装缺少的 plugins，已安装的保持不变。要更新它们，先运行 `skillshare plugin check`，再运行 `skillshare plugin update`。请参阅 [跨工具管理 plugins](/docs/how-to/daily-tasks/sharing-plugins#updates-and-recovery)。
+[Plugins](/docs/reference/commands/plugin#host-state)
 
 ### Hooks {#hooks}
 

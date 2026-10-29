@@ -53,6 +53,9 @@ skillshare의 디렉터리 레이아웃과 파일 위치입니다.
         └── SKILL.md
 
 ~/.local/state/skillshare/   # XDG_STATE_HOME
+├── plugins/<config-path-hash>/
+│   ├── state.json
+│   └── .operation.lock
 ├── logs/                    # 작업 로그 (JSONL)
 │   ├── operations.log       # install, sync, update 등
 │   └── audit.log            # 보안 Audit 스캔

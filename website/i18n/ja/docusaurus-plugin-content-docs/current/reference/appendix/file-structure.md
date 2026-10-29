@@ -53,6 +53,9 @@ skillshare のディレクトリレイアウトとファイルの場所です。
         └── SKILL.md
 
 ~/.local/state/skillshare/   # XDG_STATE_HOME
+├── plugins/<config-path-hash>/
+│   ├── state.json
+│   └── .operation.lock
 ├── logs/                    # Operation logs (JSONL)
 │   ├── operations.log       # install, sync, update, etc.
 │   └── audit.log            # Security audit scans

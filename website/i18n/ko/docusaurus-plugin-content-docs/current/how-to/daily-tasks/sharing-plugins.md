@@ -64,8 +64,9 @@ skillshare plugin import review@team --from claude --no-tui
 배포판을 동일한 `--name`과 해당 Target으로 추가/import하세요. Skillshare는 표시
 이름으로부터 동등성을 추론하지 않습니다.
 
-Import는 이 머신의 네이티브 설치에 묶여 있습니다. 같은 plugin을 다른 머신에서 쓰려면
-대신 source에서 추가하세요. [Cross-Machine Sync — Plugins](/docs/how-to/sharing/cross-machine-sync#plugins)를 참고하세요.
+가져오기는 로컬 설치를 기록합니다. 다른 기기의 sync는 native-only 선언을 건너뛰고 로컬 가져오기가 필요하다고 표시합니다. 네이티브 클라이언트에서 설치한 뒤 같은 `--name`으로 로컬 ID를 가져오세요. 대시보드의 패키지 선택과 TUI의 이름이 표시된 항목도 사용할 수 있습니다. 기존 소스 선언으로 가져와도 공유 소스와 다른 기기의 설치는 바뀌지 않습니다.
+
+[Plugins](/docs/reference/commands/plugin#host-state)
 
 ## 동기화 대상 선택하기
 

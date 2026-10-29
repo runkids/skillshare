@@ -706,12 +706,7 @@ Agent はベース名（`.md` を除く）でマッチするため、`draft-*` �
 
 ### `The native marketplace X is gone` {#plugin-marketplace-gone}
 
-**原因:** この plugin はインポートされたものなので、Skillshare は元のネイティブ marketplace から再インストールしますが、その marketplace が Agent に登録されていません。2 台目のマシンでよく起こります。インポートは最初のマシンでしか記録されていないためです。
-
-**解決策:**
-
-1. Agent で marketplace を追加し直してから、`skillshare sync plugins` を実行します。
-2. または、その plugin からその Agent を外し、source から plugin を追加し直します。[クロスマシン Sync — Plugins](/docs/how-to/sharing/cross-machine-sync#plugins) を参照してください。
+このエラーは、そのマシンにインポート記録があり、元のネイティブ marketplace がなくなった場合です。Agent で marketplace を復元して同期してください。別のマシンにローカル記録がなければ「インポートが必要」と表示され、sync はスキップします。そこでネイティブにインストールし、宣言のパッケージ名を指定してローカル ID をインポートしてください。
 
 ---
 

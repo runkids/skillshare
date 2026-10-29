@@ -185,19 +185,30 @@ Skillshare stores credentials as `fromEnv` references, never as values. Set thos
 
 ### Plugins {#plugins}
 
-Plugin definitions do not travel through git. Add them again on each machine from the same source:
+Share the `plugins:` section of the config to share version 2 declarations: sources,
+refs and selected targets. Keep `StateDir` local on every machine. Alternatively,
+use **Plugins → Share** to copy an add command into a separately managed config.
 
-1. On the first machine, open **Plugins → Share** in the dashboard and copy the command. It lists plugins added from an HTTPS Git source, for example:
+On a new machine, run `skillshare plugin sync` to review and install source-managed
+plugins using local snapshot paths. Review and commit pinning are **per machine**:
+a shared branch ref is resolved when that machine installs or updates it. A
+non-interactive sync may install a newer commit than another machine reviewed.
+Use a commit SHA as `source_ref` when every machine must use the same revision.
+Local source paths must exist on each machine.
 
-   ```bash
-   skillshare plugin add https://github.com/acme/plugins --plugin review -g --no-tui
-   ```
+Native-only declarations show **Import required on this machine** and sync skips
+them. Install in the native client, then run
+`skillshare plugin import LOCAL-ID --from TARGET --name NAME` on each machine.
+Importing into an existing source declaration only records a local receipt;
+other machines keep their source recipe and installation.
 
-2. Run it on the other machine, tick the Agents on the Plugins page, then run `skillshare sync plugins`.
+Before the first v2 edit, upgrade every writer and run `skillshare plugin list`
+on **each machine while the shared YAML is still legacy** to save its local
+migration hints. See [plugin state and migration](/docs/reference/commands/plugin#host-state).
 
-Add a plugin from its source (**Add plugin**) rather than **Import installed** when you want it on several machines. An import records only the native installation. On another machine, Claude and Codex reinstall it from the native marketplace of the same name, and the plugin is skipped when that marketplace is not registered there. Cursor and Antigravity cannot reinstall an imported plugin at all. Plugins added from a local directory are not listed under **Share**, because the path exists only on the first machine.
-
-`sync plugins` installs missing plugins and leaves installed ones as they are. To update them, run `skillshare plugin check`, then `skillshare plugin update`. See [Manage plugins across tools](/docs/how-to/daily-tasks/sharing-plugins#updates-and-recovery).
+`sync` installs missing plugins, reconciles changed refs and retries local cleanup.
+Use `skillshare plugin check` and `skillshare plugin update` for new releases on an
+unchanged ref.
 
 ### Hooks {#hooks}
 

@@ -264,19 +264,25 @@ per-target sources and selection, or `imported: true`. Native IDs, reviewed
 commit/digest/version, Pi registration references and pending actions stay in
 `<StateDir>/plugins/<config-path-hash>/state.json` (version 1). Keep StateDir local.
 Sync, normal update and retry never rewrite shared YAML; `update --source-ref`
-changes intent only when the ref differs. Read-only commands do not create state.
+changes intent only when the ref differs. Reads persist local legacy hints without changing shared YAML.
 
 Each host reviews source installs independently and generates local native IDs.
+Branch refs resolve on that host at install/update time, including non-interactive
+sync; use a commit SHA in source_ref for the same revision on every host.
+State is keyed by the absolute config path: moving a config/project starts a new
+namespace and does not track or clean up the previous installations.
 A local source path must exist on every host. Native-only targets on another host
 require native installation and `plugin import LOCAL-ID --from TARGET --name NAME`;
-identical repeated import intent does not rewrite YAML. Explicit Pi npm add shares
+identical repeated import intent does not rewrite YAML. Importing into an existing
+source declaration preserves its recipe and other machines' installations. Explicit Pi npm add shares
 a recipe that runs Pi's install scripts; npm import remains native-only. Ambiguous
 legacy npm entries remain native-only until explicitly added again.
 
 Legacy read/sync does not rewrite YAML; actual declaration edits write version 2.
 Unresolved legacy bindings survive declaration edits as passive private hints;
 only original-context inventory/ownership proof can turn them into cleanup receipts.
-Upgrade all shared-config writers first. Local adoption needs inventory and owned
+Upgrade all shared-config writers first, then run `skillshare plugin list` on each
+machine while YAML is still legacy, before the first v2 edit anywhere. Local adoption needs inventory and owned
 snapshot proof. Removed or changed targets retain local cleanup evidence until
 success; account changes require resolving the old native context. Failures and
 retries stay local. Changed-byte checks do not merge simultaneous Syncthing intent

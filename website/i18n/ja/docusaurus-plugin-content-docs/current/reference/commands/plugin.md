@@ -311,28 +311,28 @@ Copilot と Antigravity CLI のインストールは、reviewed されたロー�
 
 ## 共有宣言とマシンごとのインストール {#host-state}
 
-`plugins.version: 2` は global/project 設定に source、ref、plugin、entry、target ごとの
-有効な source、`sync` 選択、または native import の `imported: true` を保存します。
-target の source は明示的に保存されるため、package の既定値を変更しても別の配布物に
-変わりません。native ID、version、commit/digest、Pi 登録参照、保留中の操作はローカルの
-`<StateDir>/plugins/<config-path-hash>/state.json`（version 1）に保存します。StateDir は共有しないでください。
+`plugins.version: 2` は global/project 設定に source、ref、plugin、entry、ターゲットごとのソースと `sync` 選択、または `imported: true` を保存します。ターゲットのソースは明示的に保存されるため、パッケージの既定値を変えても別の配布物には切り替わりません。
 
-sync、通常の update、検証、失敗、再試行は共有宣言を書き換えません。`update --source-ref` は
-ref が変わった場合だけ書き込みます。読み取り操作は state や lock を作りません。
-add、選択、remove は外部変更を確認して宣言を更新します。同時に行われる Syncthing の
-宣言編集をマージする機能ではありません。
+```yaml
+plugins:
+  version: 2
+  packages:
+    router:
+      source: https://github.com/acme/router.git
+      plugin: router
+      bindings:
+        pi: {source: https://github.com/acme/router.git, plugin: router}
+        omp: {imported: true}
+```
 
-新しいマシンでは source を改めて確認し、そのマシンの snapshot path を生成します。
-ローカルの source path は各マシンに必要です。native-only target は「このマシンでインポートが必要」
-と表示されます。native client でインストール後、`plugin import LOCAL-ID --from TARGET --name NAME`
-を実行してください。同じ宣言への再 import はローカル ID だけを保存します。
-明示的な Pi `add npm:PACKAGE` は Pi の install script を実行する配方を共有し、npm import は import 意図だけを共有します。
+ネイティブ ID、確認済みの commit/digest/version、Pi 登録参照、保留中の操作は `<StateDir>/plugins/<config-path-hash>/state.json`（ローカル形式 version 1）に保存します。StateDir はマシンごとに保持してください。状態は設定ファイルの**絶対パス**で識別されます。プロジェクトや設定を移動・改名すると新しい状態領域になり、以前のインストールは追跡も削除もされません。移動前に旧設定から削除するか、移動先で明示的に管理・インポートしてください。
 
-旧形式の読み取りと sync は YAML を変更しません。旧 ID の採用には scoped inventory と、source の
-場合は所有する snapshot の証拠が必要です。他のホストの pending は無視します。実際に宣言を編集する
-と version 2 になるため、共有設定の全 writer を先に更新してください。旧 npm ID は add/import を
-区別できないため native-only のままです。共有配方が必要なら npm spec を明示的に add し直してください。
-削除や source 変更後も cleanup が成功するまで古いローカル receipt を保持し、失敗はローカルで再試行します。
-account 変更時は以前の native context を解決してから cleanup します。認証、native 設定、trust は各ツールに残ります。
+sync、通常の update、検証、失敗、再試行は共有宣言を書き換えません。`update --source-ref` は ref が変わったときだけ宣言を更新します。読み取りは旧形式の証拠をローカルに保存しますが、共有 YAML と操作ロックは変更しません。add、import、選択、remove は必要な宣言変更を保存し、外部変更を検出します。同時の Syncthing 編集はマージできません。
 
-未確認の旧 binding は宣言編集後も非公開の受動的なヒントとして残ります。元の native context で所有権を検証してから receipt に変換し、共有 target が削除されていても元の意図に基づいて cleanup します。
+ソースの確認と commit の固定は**マシンごと**です。ブランチ ref はそのマシンでのインストール・更新時に解決されるため、非対話 sync が別のマシンで確認したものより新しい commit をインストールすることがあります。ref の変更も各マシンで解決します。全マシンで同じ版を使うには `source_ref` に commit SHA を指定してください。ローカルのソースパスも各マシンに必要です。
+
+native-only ターゲットは「このマシンでインポートが必要」と表示され、sync はスキップします。ネイティブクライアントでインストール後、`plugin import LOCAL-ID --from TARGET --name NAME` を実行してください。既存のソース宣言へのローカル import はローカル記録だけを作り、他のマシンのソースやインストールを変えません。確認済みソースの同じ ID を再 import してもソースは保持されます。Pi の明示的な `add npm:PACKAGE` はインストール手順を共有し、Pi がスクリプトを実行します。npm import は native-only 宣言を作ります。
+
+旧形式の読み取りと sync は YAML を変えず、次の宣言編集で version 2 にします。**最初の v2 編集前に全 writer を更新し、各マシンで共有 YAML が旧形式のうちに `skillshare plugin list` を実行してください。** ネイティブクライアントが一時的に使えなくても移行のヒントを保存できます。採用には元のネイティブ環境の inventory と、ソースの場合は所有する snapshot の証拠が必要です。他のホストの保留中操作は実行しません。未確認のヒントと削除の証拠は、所有権確認と cleanup が完了するまで保持します。旧 npm は add/import を区別できないため、共有手順が必要なら明示的に add し直してください。
+
+アカウント変更時は以前のネイティブ環境を解決してから cleanup します。認証、ネイティブ設定、trust は各ツールに残ります。

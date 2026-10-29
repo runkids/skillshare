@@ -53,8 +53,9 @@ skillshare plugin import review@team --from claude --no-tui
 如果同一個邏輯套件對不同工具使用不同的原生發佈形式，請對每種發佈形式使用相同的
 `--name` 搭配對應的 target 分別新增／匯入。Skillshare 不會從顯示名稱推斷等價關係。
 
-匯入綁定的是這台機器上的原生安裝。要在另一台機器上使用同一個 plugin，請改從它的
-source 新增；請參考 [跨機器 Sync — Plugins](/docs/how-to/sharing/cross-machine-sync#plugins)。
+匯入記錄本機安裝。在另一台機器，sync 會略過 native-only 宣告並提示需要本機匯入。請先在原生用戶端安裝，再以相同的 `--name` 匯入本機 ID。也可使用 dashboard 的套件選擇或 TUI 的具名選項。匯入既有來源宣告不會改變共用來源或其他機器的安裝。
+
+[Plugins](/docs/reference/commands/plugin#host-state)
 
 ## 選擇要同步到哪裡
 

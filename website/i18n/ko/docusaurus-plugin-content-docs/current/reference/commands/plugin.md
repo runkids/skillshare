@@ -239,28 +239,28 @@ Copilot과 Antigravity CLI 설치는 검토된 로컬 스냅샷을 사용합니�
 
 ## 공유 선언과 머신별 설치 {#host-state}
 
-`plugins.version: 2`는 global/project 설정에 source, ref, plugin, entry, target별 유효 source,
-`sync` 선택 또는 네이티브 가져오기용 `imported: true`를 저장합니다. target source를 명시적으로
-저장하므로 package 기본값을 바꿔도 다른 배포판이 바뀌지 않습니다. 네이티브 ID, version,
-commit/digest, Pi 등록 참조와 대기 작업은 로컬
-`<StateDir>/plugins/<config-path-hash>/state.json`(version 1)에 저장합니다. StateDir는 공유하지 마세요.
+`plugins.version: 2`는 전역/프로젝트 설정에 source, ref, plugin, entry, 대상별 소스와 `sync` 선택 또는 `imported: true`를 저장합니다. 대상 소스가 명시적으로 기록되므로 패키지 기본값을 바꿔도 다른 배포본으로 바뀌지 않습니다.
 
-sync, 일반 update, 검증, 실패와 재시도는 공유 선언을 쓰지 않습니다. `update --source-ref`는 ref가
-바뀔 때만 씁니다. 읽기 작업은 state나 lock을 만들지 않습니다. 명시적인 add, 선택, remove는
-외부 변경을 확인한 뒤 선언을 수정합니다. 동시에 일어난 Syncthing 선언 편집을 병합하지는 않습니다.
+```yaml
+plugins:
+  version: 2
+  packages:
+    router:
+      source: https://github.com/acme/router.git
+      plugin: router
+      bindings:
+        pi: {source: https://github.com/acme/router.git, plugin: router}
+        omp: {imported: true}
+```
 
-새 머신은 source를 다시 검토하고 로컬 snapshot 경로를 만듭니다. 로컬 source 경로는 각 머신에
-있어야 합니다. 네이티브 전용 target은 “이 컴퓨터에서 가져오기 필요”로 표시됩니다. 네이티브 도구에서
-설치한 뒤 `plugin import LOCAL-ID --from TARGET --name NAME`을 실행하세요. 같은 선언에 반복하는
-가져오기는 로컬 ID만 저장합니다. 명시적인 Pi `add npm:PACKAGE`는 Pi 설치 스크립트를 실행하는
-설치 방법을 공유하며, npm 가져오기는 가져오기 의도만 공유합니다.
+네이티브 ID, 검토한 commit/digest/version, Pi 등록 참조와 대기 작업은 `<StateDir>/plugins/<config-path-hash>/state.json`(로컬 형식 version 1)에 저장합니다. StateDir는 기기마다 따로 유지하세요. 상태는 설정 파일의 **절대 경로**로 구분됩니다. 프로젝트나 설정을 이동하거나 이름을 바꾸면 새 상태 영역이 생기며 이전 설치는 추적하거나 정리하지 않습니다. 이동 전에 이전 설정으로 제거하거나 새 위치에서 명시적으로 관리·가져오세요.
 
-이전 형식의 읽기와 sync는 YAML을 바꾸지 않습니다. 이전 ID를 채택하려면 로컬 scope의 inventory와,
-source 설치의 경우 소유한 snapshot 증거가 필요합니다. 다른 호스트의 pending은 무시합니다.
-실제로 선언을 수정할 때 version 2를 쓰므로 공유 설정을 쓰는 모든 실행 파일을 먼저 업그레이드하세요.
-이전 npm ID는 add/import를 구분할 수 없어 네이티브 전용으로 유지됩니다. 공유 설치 방법이 필요하면
-npm spec을 명시적으로 다시 add하세요. 삭제되거나 source가 바뀐 target의 로컬 receipt는 정리가
-성공할 때까지 유지되며, 정리나 교체 실패는 로컬에서 재시도합니다. 계정을 바꿨다면 이전 네이티브
-환경을 해결한 뒤 정리해야 합니다. 네이티브 설정, 인증과 trust는 각 도구에 남습니다.
+sync, 일반 update, 검증, 실패와 재시도는 공유 선언을 바꾸지 않습니다. `update --source-ref`는 ref가 달라질 때만 선언을 변경합니다. 읽기는 레거시 증거를 로컬에 저장하지만 공유 YAML이나 작업 잠금을 만들지 않습니다. add, import, 선택, remove는 필요한 선언 변경을 저장하고 외부 변경을 감지합니다. 동시 Syncthing 편집을 병합하지는 않습니다.
 
-확인되지 않은 이전 binding은 선언을 편집해도 비공개 수동 힌트로 남습니다. 원래 네이티브 환경에서 소유권을 확인한 뒤에만 receipt로 바꾸며, 공유 target이 삭제되어도 원래 의도에 따라 정리합니다.
+소스 검토와 commit 고정은 **기기별**입니다. 브랜치 ref는 해당 기기의 설치·업데이트 시점에 해석되므로 비대화형 sync가 다른 기기에서 검토한 것보다 새로운 commit을 설치할 수 있습니다. ref 변경도 기기별로 해석합니다. 모든 기기에서 같은 버전을 쓰려면 `source_ref`에 commit SHA를 지정하세요. 로컬 소스 경로도 각 기기에 있어야 합니다.
+
+native-only 대상은 이 기기에서 가져오기가 필요하다고 표시되며 sync가 건너뜁니다. 네이티브 클라이언트에서 설치한 뒤 `plugin import LOCAL-ID --from TARGET --name NAME`을 실행하세요. 기존 소스 선언으로 가져오면 로컬 기록만 만들고 다른 기기의 소스나 설치를 바꾸지 않습니다. 검토한 소스의 동일 ID를 다시 가져와도 소스를 유지합니다. 명시적인 Pi `add npm:PACKAGE`는 설치 방법을 공유하고 Pi가 스크립트를 실행합니다. npm import는 native-only 선언을 만듭니다.
+
+레거시 읽기와 sync는 YAML을 바꾸지 않으며 다음 선언 편집에서 version 2로 전환합니다. **첫 v2 편집 전에 모든 writer를 업그레이드하고, 공유 YAML이 레거시 형식일 때 각 기기에서 `skillshare plugin list`를 실행하세요.** 네이티브 클라이언트가 일시적으로 없어도 이전 증거를 저장합니다. 채택에는 원래 네이티브 환경의 inventory와, 소스 설치의 경우 소유한 snapshot 증거가 필요합니다. 다른 호스트의 대기 작업은 실행하지 않습니다. 미확인 힌트와 제거 증거는 소유권 확인과 정리가 끝날 때까지 유지합니다. 레거시 npm은 add/import를 구별할 수 없으므로 공유 설치 방법이 필요하면 명시적으로 다시 add하세요.
+
+계정이 바뀌면 이전 네이티브 환경을 먼저 해결한 뒤 정리하세요. 인증, 네이티브 설정, trust는 각 도구에 남습니다.

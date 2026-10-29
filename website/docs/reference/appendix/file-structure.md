@@ -53,6 +53,9 @@ Directory layout and file locations for skillshare.
         └── SKILL.md
 
 ~/.local/state/skillshare/   # XDG_STATE_HOME
+├── plugins/<config-path-hash>/
+│   ├── state.json           # Machine-local plugin receipts and migration hints
+│   └── .operation.lock      # Serializes plugin mutations for this config
 ├── logs/                    # Operation logs (JSONL)
 │   ├── operations.log       # install, sync, update, etc.
 │   └── audit.log            # Security audit scans

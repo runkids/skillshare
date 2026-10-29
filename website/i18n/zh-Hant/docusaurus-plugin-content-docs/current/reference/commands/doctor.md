@@ -243,7 +243,7 @@ opencode skips ~/.claude/skills: OPENCODE_DISABLE_CLAUDE_CODE_SKILLS is set in t
 
 ### Plugins
 
-預覽 `skillshare sync plugins`，不抓取任何來源。Doctor 只詢問各綁定 Agent 的原生 CLI 目前安裝了什麼，而且只在有 plugin package 時才會這樣做。被阻擋的綁定（例如 Agent 的 CLI 沒有安裝）和仍需 sync 的綁定是 warning。檢查來源是否有新版本仍由 `skillshare plugin check` 負責。沒有設定 package 時顯示 `info`。
+預覽 plugin sync。缺少本機安裝或共用 ref 改變時，可能需要取得來源。受阻、略過（包括需要本機匯入）、未完成安裝與清理都會顯示警告。舊格式讀取會保存本機移轉證據，但不修改共用 YAML。新版本檢查請使用 `skillshare plugin check`。沒有套件時顯示 `info`。
 
 ### 其他
 

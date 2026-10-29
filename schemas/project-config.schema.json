@@ -120,6 +120,7 @@
       "examples": [["git.company.com"]]
     },
     "plugins": {
+      "description": "Written by the CLI and dashboard; edit with those rather than by hand.",
       "type": "object",
       "description": "Shared plugin declarations. Native receipts and pending operations remain in machine-local state.",
       "additionalProperties": false,

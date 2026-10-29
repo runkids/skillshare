@@ -64,8 +64,12 @@ If a logical package uses different native distributions for different tools,
 add/import each distribution using the same `--name` and the appropriate target.
 Skillshare does not infer equivalence from display names.
 
-An import is tied to this machine's native installation. To use the same plugin on
-another machine, add it from its source instead; see
+An import records this machine's native installation. A new machine skips a
+native-only declaration until you install it natively and import its local ID
+with the same `--name`. The dashboard package selector and TUI named import choices
+can attach it to that declaration. Importing into an existing source-managed target
+leaves its shared recipe and other machines' installations unchanged. For source
+review and migration requirements, see
 [Cross-Machine Sync — Plugins](/docs/how-to/sharing/cross-machine-sync#plugins).
 
 ## Choose where to sync
