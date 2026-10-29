@@ -337,7 +337,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		if installed.Filtered && s.agentOf(r.From) != "pi" {
 			return nil, fmt.Errorf("this native entry has resource filters or options; manage it in the native client to preserve those settings")
 		}
-		b := Binding{ID: installed.ID, Version: installed.Version}
+		b := Binding{ID: installed.ID, Version: installed.Version, Imported: true}
 		if old, ok := d.packages[name].Bindings[r.From]; ok {
 			if old.ID != "" && old.ID != b.ID {
 				return nil, fmt.Errorf("package already manages a different plugin")
@@ -351,7 +351,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				b = old
 			}
 		}
-		change := Change{Name: name, Target: r.From, ID: b.ID, Binding: b, Action: "import", Message: "Record the existing native installation. A first local import marks this shared target native-only; content and enabled state stay unchanged."}
+		change := Change{Name: name, Target: r.From, ID: b.ID, Binding: b, Action: "import", Message: "Record the existing native installation locally; shared recipes, content and enabled state stay unchanged."}
 		if installed.Filtered && !d.packages[name].Bindings[r.From].ContextChanged {
 			if err := s.preparePiRegistration(ctx, &change); err != nil {
 				return nil, err
@@ -751,7 +751,7 @@ func (s *Service) checkOrUpdate(ctx context.Context, r Request, c Change, action
 		c.Action, c.Message = "native-check", "Previous installation requires cleanup; sync to reconcile current intent."
 		return c, nil
 	}
-	if b.Source == "" && (r.Action != "check" || !declared || decl.Imported || isNpmSource(decl.Source)) {
+	if b.Source == "" && (r.Action != "check" || !declared || b.Imported || decl.Imported || isNpmSource(decl.Source)) {
 		// An npm package has no source snapshot to compare; npm names its latest version instead.
 		installed, latest := s.npmVersions(ctx, target, b.ID, host, latests)
 		known := installed != nil && latest != nil

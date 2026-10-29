@@ -896,7 +896,7 @@ func TestPluginHostStateRetriesReviewedUpdateAfterRollback(t *testing.T) {
 	same()
 }
 
-func TestPluginHostStateFirstNativeImportChangesSourceIntent(t *testing.T) {
+func TestPluginHostStateFirstNativeImportPreservesSourceIntent(t *testing.T) {
 	for _, selected := range []bool{true, false} {
 		t.Run(map[bool]string{true: "selected", false: "deselected"}[selected], func(t *testing.T) {
 			var aCalls, bCalls []string
@@ -910,39 +910,28 @@ func TestPluginHostStateFirstNativeImportChangesSourceIntent(t *testing.T) {
 			b := fakePiNpm(t, &bCalls)
 			writePluginFile(t, filepath.Dir(b.ConfigPath), filepath.Base(b.ConfigPath), string(shared))
 			writePluginFile(t, filepath.Dir(b.ConfigPath), ".pi/agent/settings.json", `{"packages":["npm:other"]}`)
-			request := Request{Action: "import", From: "pi", Plugin: "npm:other", Name: "demo"}
-			plan, err := b.Preview(context.Background(), request)
-			if err != nil || len(plan.Changes) != 1 || !strings.Contains(plan.Changes[0].Message, "native-only") {
-				t.Fatalf("import did not disclose its intent change: %+v %v", plan, err)
+			applyPluginRequest(t, b, Request{Action: "import", From: "pi", Plugin: "npm:other", Name: "demo"})
+			changed, _ := os.ReadFile(b.ConfigPath)
+			if string(changed) != string(shared) {
+				t.Fatal("local import rewrote shared source recipe")
 			}
-			if _, err := b.Apply(context.Background(), request, plan.Revision); err != nil {
+			before := len(bCalls)
+			applyPluginRequest(t, b, Request{Action: "sync"})
+			if selected && len(bCalls) != before {
+				t.Fatal("sync replaced local import")
+			}
+			writePluginFile(t, filepath.Dir(a.ConfigPath), filepath.Base(a.ConfigPath), string(changed))
+			repairHost(t, a)
+			p, err := a.Preview(context.Background(), Request{Action: "sync"})
+			if err != nil {
 				t.Fatal(err)
 			}
-			changed, _ := os.ReadFile(b.ConfigPath)
-			d := readState(t, b)
-			decl, binding := d.intent["demo"].Bindings["pi"], d.packages["demo"].Bindings["pi"]
-			if string(changed) == string(shared) || !decl.Imported || decl.Source != "" || binding.Source != "" || binding.ID != "npm:other" || binding.Selected() != selected || d.intent["demo"].Source != source {
-				t.Fatalf("explicit import did not replace only target intent: declaration=%+v binding=%+v", decl, binding)
-			}
+			want := "noop"
 			if !selected {
-				return
+				want = "uninstall"
 			}
-			same := unchanged(t, b.ConfigPath)
-			applyPluginRequest(t, b, Request{Action: "sync"})
-			same()
-			writePluginFile(t, filepath.Dir(a.ConfigPath), filepath.Base(a.ConfigPath), string(changed))
-			t.Setenv("HOME", filepath.Dir(a.ConfigPath))
-			t.Setenv("PI_CODING_AGENT_DIR", filepath.Join(filepath.Dir(a.ConfigPath), ".pi/agent"))
-			if old := readState(t, a).packages["demo"].Bindings["pi"]; !old.Cleanup || old.Source != source || old.ID == "" {
-				t.Fatalf("remote intent edit lost local cleanup receipt: %+v", old)
-			}
-			applyPluginRequest(t, a, Request{Action: "sync"})
-			next, err := a.Preview(context.Background(), Request{Action: "sync"})
-			if err != nil || len(next.Changes) != 1 || next.Changes[0].Action != "skip" || !strings.Contains(next.Changes[0].Message, "Import required") {
-				t.Fatalf("other host did not require its own import: %+v %v", next, err)
-			}
-			if raw, _ := os.ReadFile(a.ConfigPath); string(raw) != string(changed) {
-				t.Fatal("remote cleanup changed shared intent")
+			if len(p.Changes) != 1 || p.Changes[0].Action != want {
+				t.Fatalf("local import disrupted other host: %+v", p.Changes)
 			}
 		})
 	}

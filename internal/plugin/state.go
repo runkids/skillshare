@@ -160,7 +160,7 @@ func (s *Service) compose(d *document) {
 			if r != nil {
 				b = r.Binding
 				b.Sync = decl.Sync
-				b.Imported = decl.Imported
+				b.Imported = decl.Imported || r.Binding.Imported
 				b.Cleanup = r.Intent != decl.fingerprint() && (r.Binding.Source != decl.Source || r.Binding.Plugin != decl.Plugin || r.Binding.Entry != decl.Entry || decl.Imported)
 				b.ContextChanged = r.Store != s.storeIdentity(target)
 				b.RefChanged = b.Selected() && sameDistribution(r.Binding, decl) && r.Binding.SourceRef != decl.SourceRef

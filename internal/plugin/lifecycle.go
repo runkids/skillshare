@@ -85,8 +85,8 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 			}
 			d.intent[c.Name] = pack
 		case "import":
-			// A first local native import replaces this target recipe; verified source receipts remain source-managed.
-			if old, exists := pack.Bindings[c.Target]; !exists || c.Binding.Source == "" && d.packages[c.Name].Bindings[c.Target].ID == "" {
+			// Importing an existing declaration records only local evidence.
+			if old, exists := pack.Bindings[c.Target]; !exists {
 				pack.Bindings[c.Target] = declaration{Imported: true, Sync: old.Sync}
 				d.intent[c.Name] = pack
 			}
