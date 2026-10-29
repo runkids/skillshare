@@ -22,7 +22,7 @@ type remoteRepo struct {
 	reachable bool
 	reason    string   // why it could not be reached
 	names     []string // top-level skill folder names
-	skills    int      // skills found (nested folders count individually)
+	skills    int      // logical skills found (agent variants count once)
 	agents    int
 	extras    int
 	// rootScope means the repo versions the whole skillshare folder
@@ -82,7 +82,7 @@ func inspectRemote(url string) *remoteRepo {
 		}
 	}
 	if discovered, err := ssync.DiscoverSourceSkills(skillsDir); err == nil {
-		r.skills = len(discovered)
+		r.skills = ssync.CountSkills(discovered).Skills
 	}
 	return r
 }

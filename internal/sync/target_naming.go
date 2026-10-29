@@ -79,7 +79,6 @@ func ResolveTargetSkillsForTarget(targetName string, sc config.ResourceTargetCon
 	naming := config.EffectiveTargetNaming(sc.TargetNaming)
 	result := &TargetSkillResolution{
 		Naming:            naming,
-		Warnings:          warnings,
 		SelectionWarnings: warnings,
 		SkippedCount:      len(warnings),
 		UnmatchedIncludes: FindUnmatchedIncludes(sc.Include, allSkills),
@@ -167,7 +166,7 @@ func ResolveTargetSkillsForTarget(targetName string, sc config.ResourceTargetCon
 		result.Skills = append(result.Skills, candidate)
 	}
 
-	result.NamingSkippedCount = len(result.Warnings) - len(warnings)
+	result.NamingSkippedCount = len(result.Warnings)
 	result.SkippedCount += len(filtered) - len(result.Skills)
 	return result, nil
 }
@@ -219,8 +218,9 @@ const maxListed = 5
 // skills named apart from their folder. It names only the first few of each, so
 // a source with thousands of invalid names does not flood the output.
 func printResolutionSummary(r *TargetSkillResolution) {
-	if n := len(r.Warnings); n > 0 {
-		printListed(fmt.Sprintf("%d skill(s) skipped (selection or naming)", n), r.Warnings)
+	warnings := append(append([]string{}, r.Warnings...), r.SelectionWarnings...)
+	if n := len(warnings); n > 0 {
+		printListed(fmt.Sprintf("%d skill(s) skipped (selection or naming)", n), warnings)
 	}
 	if n := len(r.Collisions); n > 0 {
 		fmt.Fprintf(DiagOutput, "  %d name collision(s) excluded\n", n)

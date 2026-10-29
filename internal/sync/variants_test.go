@@ -190,7 +190,7 @@ func TestTrackedVariantAliasAmbiguity(t *testing.T) {
 		t.Fatalf("ambiguous Claude variants selected = %v: %v", got, err)
 	}
 	resolution, err := ResolveTargetSkillsForTarget("claude", config.ResourceTargetConfig{}, skills)
-	if err != nil || len(resolution.Warnings) == 0 {
+	if err != nil || len(resolution.SelectionWarnings) == 0 || len(resolution.Warnings) != 0 || resolution.NamingSkippedCount != 0 {
 		t.Fatalf("ambiguous variants need a diagnostic: %+v, %v", resolution, err)
 	}
 	got, err = SelectTargetSkills(skills, "claude", config.ResourceTargetConfig{Include: []string{"_repo__skills__claude__fix"}})
@@ -367,5 +367,26 @@ func TestTrackedVariantAmbiguousPruneExplainsRemoval(t *testing.T) {
 				t.Fatalf("silent ambiguous removal: %+v", result)
 			}
 		})
+	}
+}
+
+func TestNestedAgentNamedSkillsRemainOrdinary(t *testing.T) {
+	src := t.TempDir()
+	for _, agent := range []string{"codex", "gemini"} {
+		writeSkillMD(t, filepath.Join(src, "_repo/skills", agent), "# Parent skill")
+		writeSkillMD(t, filepath.Join(src, "_repo/skills", agent, "review"), "# Nested skill")
+	}
+	skills, err := DiscoverSourceSkills(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, skill := range skills {
+		if skill.LogicalID != "" {
+			t.Fatalf("ordinary nested skill inferred as variant: %+v", skill)
+		}
+	}
+	selected, err := SelectTargetSkills(skills, "claude", config.ResourceTargetConfig{})
+	if err != nil || len(selected) != 4 {
+		t.Fatalf("selected = %v, %v", selected, err)
 	}
 }

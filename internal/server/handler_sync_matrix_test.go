@@ -430,3 +430,10 @@ func TestHandleSyncMatrixPreview_ProjectDraftGetsAgents(t *testing.T) {
 		t.Fatalf("status %d, body %s", rr.Code, rr.Body.String())
 	}
 }
+
+func TestSyncMatrixAmbiguityReasonCode(t *testing.T) {
+	entry := newSyncMatrixEntry("_repo__skills__claude__fix", "claude", "skipped", "ambiguous variant", "skill")
+	if entry.ReasonCode != "sync_matrix.ambiguous_variant" {
+		t.Fatalf("reason code = %q", entry.ReasonCode)
+	}
+}

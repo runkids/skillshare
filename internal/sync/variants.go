@@ -21,13 +21,15 @@ func confirmSkillVariants(skills []DiscoveredSkill, source string) {
 		if sk.LogicalID == "" {
 			continue
 		}
-		if !checked[sk.LogicalID] {
+		parts := strings.Split(sk.LogicalID, "\x00")
+		agentRoot := filepath.Join(source, filepath.FromSlash(strings.TrimSuffix(sk.RelPath, "/"+parts[2])))
+		parentIsSkill := hasVariantParentSkill(agentRoot)
+		if !parentIsSkill && !checked[sk.LogicalID] {
 			checked[sk.LogicalID] = true
-			parts := strings.Split(sk.LogicalID, "\x00")
 			root := filepath.Join(source, parts[0], filepath.FromSlash(parts[1]))
 			agents, _ := sourcewalk.ReadDir(root, sourcewalk.Options{})
 			for _, entry := range agents {
-				if !entry.IsDir() {
+				if !entry.IsDir() || hasVariantParentSkill(filepath.Join(root, entry.Name())) {
 					continue
 				}
 				agent := config.CanonicalTargetName(entry.Name())
@@ -40,7 +42,7 @@ func confirmSkillVariants(skills []DiscoveredSkill, source string) {
 				}
 			}
 		}
-		if !confirmed[sk.LogicalID] {
+		if parentIsSkill || !confirmed[sk.LogicalID] {
 			sk.LogicalID, sk.VariantAgent = "", ""
 			if sk.variantRouting {
 				sk.Targets = inferSkillTargetsFromRelPath(sk.RelPath)
@@ -48,6 +50,12 @@ func confirmSkillVariants(skills []DiscoveredSkill, source string) {
 			}
 		}
 	}
+}
+
+// Agent-named skills own their nested skills; they are not variant containers.
+func hasVariantParentSkill(dir string) bool {
+	info, err := os.Stat(filepath.Join(dir, "SKILL.md"))
+	return err == nil && !info.IsDir()
 }
 
 // skillVariant recognizes only repository-relative skills/<known agent>/<suffix>.

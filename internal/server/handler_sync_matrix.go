@@ -25,6 +25,8 @@ func syncMatrixReason(status, reason string) (string, map[string]string) {
 		return "sync_matrix.symlink_filters_not_applicable", nil
 	}
 	switch status {
+	case "skipped":
+		return "sync_matrix.ambiguous_variant", nil
 	case "synced":
 		return "sync_matrix.synced", nil
 	case "excluded":

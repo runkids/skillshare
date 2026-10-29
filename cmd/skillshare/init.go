@@ -802,9 +802,9 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 	trackCmd.Dir = sourcePath
 	trackCmd.Run() // best-effort
 
-	// Count pulled skills (deep: count SKILL.md files, not top-level dirs)
+	// Count logical skills, including nested skills and agent variant families.
 	discovered, _ := ssync.DiscoverSourceSkills(sourcePath)
-	skillCount := len(discovered)
+	skillCount := ssync.CountSkills(discovered).Skills
 
 	spinner.Stop()
 	ui.Row(ui.MarkOK, "Pull", plural(skillCount, "skill")+" from origin/"+remoteBranch, gitRowWidth)

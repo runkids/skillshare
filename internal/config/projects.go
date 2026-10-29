@@ -263,6 +263,8 @@ func (c *Config) ConvertibleProjects() []ConvertibleProject {
 	}
 	withoutPath := func(rc ResourceTargetConfig) ResourceTargetConfig {
 		rc.Path = ""
+		rc.Agent = ""
+		rc.SharedTargets = nil
 		return rc
 	}
 

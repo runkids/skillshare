@@ -165,7 +165,7 @@ func applyRemote(p *initPlan, res *initResult, hadRepo bool) {
 		return
 	}
 	if discovered, err := ssync.DiscoverSourceSkills(p.source()); err == nil {
-		res.pulled = len(discovered)
+		res.pulled = ssync.CountSkills(discovered).Skills
 	}
 }
 

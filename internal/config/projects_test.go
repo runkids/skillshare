@@ -196,3 +196,24 @@ func TestProjects_AgentsOnlyIgnoresPrefixedNaming(t *testing.T) {
 		t.Fatalf("err = %v, invalid = %v; want app@claude valid", err, invalid)
 	}
 }
+
+func TestConvertibleProjects_SharedAgentIdentityDoesNotMakeRootMixed(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "config.yaml")
+	t.Setenv("SKILLSHARE_CONFIG", path)
+	data := "source: " + root + "/skills\ntargets:\n  app-codex:\n    agent: codex\n    config_dir: " + root + "/app/.codex\n    path: " + root + "/app/.agents/skills\n  app-universal:\n    path: " + root + "/app/.agents/skills\n  app-claude:\n    agent: claude\n    config_dir: " + root + "/app/.claude\n    path: " + root + "/app/.claude/skills\n"
+	if err := os.WriteFile(path, []byte(data), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := cfg.ConvertibleProjects()
+	if len(found) != 1 || len(found[0].Targets) != 3 {
+		t.Fatalf("convertible projects = %+v", found)
+	}
+	if found[0].Project.Skills.Agent != "" || len(found[0].Project.Skills.SharedTargets) != 0 {
+		t.Fatalf("identity leaked: %+v", found[0].Project.Skills)
+	}
+}

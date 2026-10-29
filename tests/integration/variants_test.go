@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"skillshare/internal/install"
 	"skillshare/internal/testutil"
 )
 
@@ -113,5 +114,110 @@ func TestVariants_CategoryAndNamingWarningsDoNotCreatePendingDiff(t *testing.T) 
 	}
 	if len(preview.Targets) != 1 || !preview.Targets[0].Synced {
 		t.Fatalf("naming warning becomes pending work: %s", result.Stdout)
+	}
+}
+
+func TestVariants_AccountSyncAndPrune(t *testing.T) {
+	for _, mode := range []string{"merge", "copy"} {
+		t.Run(mode, func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			for _, agent := range []string{"codex", "claude"} {
+				sb.CreateNestedSkill("_repo/skills/"+agent+"/fix", map[string]string{"SKILL.md": "# " + agent})
+			}
+			dest := filepath.Join(sb.Home, "account", "skills")
+			config := "source: " + sb.SourcePath + "\nmode: " + mode + "\ntargets:\n  codex-work:\n    agent: codex\n    config_dir: " + filepath.Join(sb.Home, "account") + "\n    path: " + dest + "\n"
+			sb.WriteConfig(config)
+			for i := 0; i < 2; i++ {
+				sb.RunCLI("sync", "-g").AssertSuccess(t)
+			}
+			selected := filepath.Join(dest, "_repo__skills__codex__fix", "SKILL.md")
+			if got := sb.ReadFile(selected); got != "# codex" {
+				t.Fatalf("account bytes = %q", got)
+			}
+			if sb.FileExists(filepath.Join(dest, "_repo__skills__claude__fix")) {
+				t.Fatal("account received other agent")
+			}
+			sb.WriteConfig(config + "    exclude: ['*codex*']\n")
+			sb.RunCLI("sync", "-g").AssertSuccess(t)
+			if sb.FileExists(selected) {
+				t.Fatal("excluded account variant was not pruned")
+			}
+		})
+	}
+}
+
+func TestVariants_ProjectAmbiguityAndOverrides(t *testing.T) {
+	for _, mode := range []string{"merge", "copy"} {
+		t.Run(mode, func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			root := sb.SetupProjectDir("claude")
+			source := filepath.Join(root, ".skillshare", "skills")
+			cfg := "targets:\n  - name: claude\n    mode: " + mode + "\n"
+			sb.WriteProjectConfig(root, cfg)
+			for _, agent := range []string{"claude", "claude-code", "codex"} {
+				dir := filepath.Join(source, "_repo", "skills", agent, "fix")
+				if err := os.MkdirAll(dir, 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# "+agent), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			dest := filepath.Join(root, ".claude", "skills")
+			sb.RunCLIInDir(root, "sync", "-p").AssertSuccess(t)
+			for _, agent := range []string{"claude", "claude-code"} {
+				if sb.FileExists(filepath.Join(dest, "_repo__skills__"+agent+"__fix")) {
+					t.Fatal("ambiguous variant synced")
+				}
+			}
+			sb.WriteProjectConfig(root, cfg+"    include: ['_repo__skills__claude__fix']\n")
+			sb.RunCLIInDir(root, "sync", "-p").AssertSuccess(t)
+			if !sb.FileExists(filepath.Join(dest, "_repo__skills__claude__fix", "SKILL.md")) {
+				t.Fatal("include did not resolve ambiguity")
+			}
+			sb.WriteProjectConfig(root, cfg)
+			store := install.NewMetadataStore()
+			store.SetTargetOverride("_repo/skills/codex/fix", []string{"claude"})
+			if err := store.Save(source); err != nil {
+				t.Fatal(err)
+			}
+			sb.RunCLIInDir(root, "sync", "-p").AssertSuccess(t)
+			if got := sb.ReadFile(filepath.Join(dest, "_repo__skills__codex__fix", "SKILL.md")); got != "# codex" {
+				t.Fatalf("override lost bytes: %q", got)
+			}
+			if sb.FileExists(filepath.Join(dest, "_repo__skills__claude__fix")) {
+				t.Fatal("newly ambiguous variant was not pruned")
+			}
+		})
+	}
+}
+
+func TestVariants_InitAndStatusAgree(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	if err := os.Remove(sb.ConfigPath); err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	remote := createSkillsRemote(t, sb.Root, map[string]string{
+		"_repo/skills/codex/fix": "# codex fix", "_repo/skills/claude/fix": "# claude fix",
+		"_repo/skills/codex/review": "# codex review", "_repo/skills/claude/review": "# claude review",
+	})
+	result := sb.RunCLI("init", "--remote", remote, "--no-skill")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "2 skills")
+	result.AssertOutputNotContains(t, "4 skills")
+	status := sb.RunCLI("status", "-g", "--json")
+	status.AssertSuccess(t)
+	var counts struct {
+		Skills   int `json:"skill_count"`
+		Variants int `json:"variant_count"`
+	}
+	if err := json.Unmarshal([]byte(status.Stdout), &counts); err != nil {
+		t.Fatal(err)
+	}
+	if counts.Skills != 2 || counts.Variants != 4 {
+		t.Fatalf("status: %s", status.Stdout)
 	}
 }

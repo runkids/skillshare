@@ -147,7 +147,7 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 				item.ExpectedSkillCount = len(resolution.Skills)
 				item.SkippedSkillCount = resolution.SkippedCount
 				item.CollisionCount = len(resolution.Collisions)
-				item.Warnings = resolution.Warnings
+				item.Warnings = append(resolution.Warnings, resolution.SelectionWarnings...)
 			}
 			if mode == "merge" {
 				status, linked, local := ssync.CheckStatusMerge(sc.Path, source)

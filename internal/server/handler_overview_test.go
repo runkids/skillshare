@@ -132,9 +132,10 @@ func TestTrackedVariantAmbiguityReachesPreviews(t *testing.T) {
 		}
 		var response struct {
 			Diffs []struct {
-				Skipped int        `json:"skippedCount"`
-				Naming  int        `json:"namingSkippedCount"`
-				Items   []diffItem `json:"items"`
+				Warnings []string   `json:"warnings"`
+				Skipped  int        `json:"skippedCount"`
+				Naming   int        `json:"namingSkippedCount"`
+				Items    []diffItem `json:"items"`
 			} `json:"diffs"`
 			Targets []struct {
 				Expected int `json:"expectedSkillCount"`
@@ -150,7 +151,7 @@ func TestTrackedVariantAmbiguityReachesPreviews(t *testing.T) {
 			}
 		} else {
 			preview := response.Diffs[0]
-			if preview.Skipped != 2 || preview.Naming != 0 || len(preview.Items) != 2 {
+			if preview.Skipped != 2 || preview.Naming != 0 || len(preview.Items) != 2 || len(preview.Warnings) != 0 {
 				t.Fatalf("ambiguous preview counts: %+v", preview)
 			}
 			for _, item := range preview.Items {
