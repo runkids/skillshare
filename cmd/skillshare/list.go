@@ -551,7 +551,7 @@ func displayTrackedRepos(trackedRepos []string, discovered []sync.DiscoveredSkil
 	}
 	wg.Wait()
 
-	_, counts := sync.CountSkillsByRepo(discovered)
+	counts := listedRepoCounts(discovered)
 	width := ui.RowWidth(trackedRepos...)
 	for i, repoName := range trackedRepos {
 		c := counts[repoName]
@@ -901,4 +901,14 @@ func printListHelp() {
 			helpRow{"skillshare list --all", "List skills + agents"},
 		),
 	)
+}
+
+// listedRepoCounts includes disabled rows, which list still displays.
+func listedRepoCounts(skills []sync.DiscoveredSkill) map[string]sync.SkillCounts {
+	rows := append([]sync.DiscoveredSkill(nil), skills...)
+	for i := range rows {
+		rows[i].Disabled = false
+	}
+	_, counts := sync.CountSkillsByRepo(rows)
+	return counts
 }
