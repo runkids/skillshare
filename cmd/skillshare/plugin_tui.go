@@ -161,7 +161,7 @@ func pluginWizardAction(s *plugin.Service, o pluginOptions) error {
 		if err != nil {
 			return err
 		}
-		type selection struct{ target, id string }
+		type selection struct{ target, id, name string }
 		choices := []selection{}
 		items := []checklistItemData{}
 		for _, h := range inventory.Hosts {
@@ -184,8 +184,23 @@ func pluginWizardAction(s *plugin.Service, o pluginOptions) error {
 				if r.Plugin != "" && r.Plugin != i.ID {
 					continue
 				}
-				choices = append(choices, selection{h.Target, i.ID})
-				items = append(items, checklistItemData{label: i.ID, desc: h.Target + " · " + i.Version})
+				names := []string{r.Name}
+				if r.Name == "" {
+					for name, p := range inventory.Packages {
+						if b, ok := p.Bindings[h.Target]; ok && b.ID == "" && !b.Cleanup {
+							names = append(names, name)
+						}
+					}
+					slices.Sort(names)
+				}
+				for _, name := range names {
+					label := i.ID
+					if name != "" {
+						label = name + " ← " + i.ID
+					}
+					choices = append(choices, selection{h.Target, i.ID, name})
+					items = append(items, checklistItemData{label: label, desc: h.Target + " · " + i.Version})
+				}
 			}
 		}
 		if len(items) == 0 {
@@ -197,6 +212,7 @@ func pluginWizardAction(s *plugin.Service, o pluginOptions) error {
 		}
 		r.From = choices[idx[0]].target
 		r.Plugin = choices[idx[0]].id
+		r.Name = choices[idx[0]].name
 	default:
 		if r.Name == "" && !r.All && r.Action != "sync" && r.Action != "check" {
 			inventory, err := s.Inventory(ctx)

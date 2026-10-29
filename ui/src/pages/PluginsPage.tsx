@@ -12,6 +12,7 @@ import IconButton from '../components/IconButton';
 import PageHeader from '../components/PageHeader';
 import { PageSkeleton } from '../components/Skeleton';
 import { SkillContextMenu, type ContextMenuItem } from '../components/TargetMenu';
+import { Select } from '../components/Select';
 import Spinner from '../components/Spinner';
 import { RailLayout, SyncBox } from '../components/StatusRail';
 import PluginAddDialog from '../components/plugins/PluginAddDialog';
@@ -20,7 +21,7 @@ import PluginShareDialog from '../components/plugins/PluginShareDialog';
 import PluginUpdateDialog from '../components/plugins/PluginUpdateDialog';
 import PluginAgents from '../components/plugins/PluginAgents';
 import { keyedMessage, keyedText, outcomeStatus } from '../components/plugins/outcomeText';
-import { installedVersion, usePluginsFlow } from '../components/plugins/pluginsFlow';
+import { importPackageNames, importRequest, installedVersion, usePluginsFlow } from '../components/plugins/pluginsFlow';
 import PluginList, { VersionChange } from '../components/plugins/PluginList';
 import { PluginRunLine, UnchangedRuns } from '../components/plugins/PluginRuns';
 import { useT, plural } from '../i18n';
@@ -50,6 +51,7 @@ export default function PluginsPage() {
     setParams({}, { replace: true });
   }, [params, setParams]);
   const [importing, setImporting] = useState(false);
+  const [importNames, setImportNames] = useState<Record<string, string>>({});
   // Rows ticked for one batch import, as `${target}:${id}`.
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [sharing, setSharing] = useState<string[] | null>(null);
@@ -120,7 +122,7 @@ export default function PluginsPage() {
     return { h, locked, importable, pickable };
   });
   // A tick on a row that stopped being pickable since (a refetch filtered it) is not sent.
-  const pickedRequests = importHosts.flatMap(({ h, importable, pickable }) => importable.filter((i) => picked.has(`${h.target}:${i.id}`) && pickable.includes(`${h.target}:${i.id}`)).map((i) => ({ action: 'import' as const, from: h.target, plugin: i.id })));
+  const pickedRequests = importHosts.flatMap(({ h, importable, pickable }) => importable.filter((i) => picked.has(`${h.target}:${i.id}`) && pickable.includes(`${h.target}:${i.id}`)).map((i) => importRequest(data, h.target, i.id, importNames[`${h.target}:${i.id}`])));
   const togglePicks = (keys: string[], on: boolean) => setPicked((prev) => { const next = new Set(prev); for (const k of keys) { if (on) next.add(k); else next.delete(k); } return next; });
   const addActions = <>
     <Button variant="secondary" disabled={busy} onClick={() => setImporting(true)}><Download size={15} />{t('plugins.import')}</Button>
@@ -222,7 +224,13 @@ export default function PluginsPage() {
                       <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-semibold" title={i.id}>{i.id}</span>
                       {i.enabledKnown !== false && !i.enabled && <span className="ss-tag">{t('plugins.nativeDisabled')}</span>}
                       <span className="font-mono text-xs text-ink-3">{i.version}</span>
-                      <Button size="sm" variant="secondary" loading={working === `${h.target}:${i.id}`} disabled={busy || (i.filtered && !i.importable) || locked} onClick={() => begin({ action: 'import', from: h.target, plugin: i.id }, `${h.target}:${i.id}`)}>{t('plugins.importOne')}</Button>
+                      {importPackageNames(data, h.target).length > 0 && <Select
+                        ariaLabel={t('resources.col.name')} size="sm" disabled={busy}
+                        value={importRequest(data, h.target, i.id, importNames[`${h.target}:${i.id}`]).name ?? ''}
+                        options={[{ value: '', label: i.id }, ...importPackageNames(data, h.target).map((name) => ({ value: name, label: name }))]}
+                        onChange={(name) => setImportNames((old) => ({ ...old, [`${h.target}:${i.id}`]: name }))}
+                      />}
+                      <Button size="sm" variant="secondary" loading={working === `${h.target}:${i.id}`} disabled={busy || (i.filtered && !i.importable) || locked} onClick={() => begin(importRequest(data, h.target, i.id, importNames[`${h.target}:${i.id}`]), `${h.target}:${i.id}`)}>{t('plugins.importOne')}</Button>
                     </div>
                   ))}
                 </div>

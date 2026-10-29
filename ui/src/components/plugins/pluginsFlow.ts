@@ -20,6 +20,20 @@ export interface BatchItem extends UpdatePick {
   stale?: boolean;
 }
 
+/** Existing declarations awaiting a local binding in this target. */
+export function importPackageNames(inventory: PluginInventory | undefined, target: string) {
+  return Object.entries(inventory?.packages ?? {}).filter(([, p]) => {
+    const b = p.bindings[target];
+    return b && !b.id && !b.cleanup;
+  }).map(([name]) => name).sort();
+}
+
+export function importRequest(inventory: PluginInventory | undefined, from: string, plugin: string, selected?: string): PluginRequest {
+  const names = importPackageNames(inventory, from);
+  const name = selected ?? (names.length === 1 ? names[0] : '');
+  return { action: 'import', from, plugin, ...(name ? { name } : {}) };
+}
+
 /** What is still to update after the last check: the Agents it found behind that are still bound, still ticked, and can be updated from here, per plugin. */
 export function updatesPending(updates: Updates, inventory?: PluginInventory): UpdatePick[] {
   const targets = targetMap(inventory?.targetDefinitions);

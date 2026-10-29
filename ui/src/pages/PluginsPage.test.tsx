@@ -46,19 +46,16 @@ describe('PluginsPage', () => {
     expect(pluginsApi.apply).toHaveBeenCalledWith({ action: 'sync' }, 'ref-review');
     expect(await screen.findByText('targets.state.synced')).toBeInTheDocument();
   });
-  it('replaces quick packages with verified full ownership before offering imports', async () => {
-    let resolveFull!: (value: PluginInventory) => void;
-    const quick: PluginInventory = { packages: { demo: { bindings: { pi: { id: '', imported: true } } } }, hosts: [], targetDefinitions: [{ target: 'pi', label: 'Pi', project: true, operations: ['import'] }] };
-    const full = new Promise<PluginInventory>((resolve) => { resolveFull = resolve; });
-    vi.mocked(pluginsApi.list).mockImplementation((agents) => agents === false ? Promise.resolve(quick) : full);
+  it('imports into the declared package that needs a local binding', async () => {
+    vi.mocked(pluginsApi.list).mockResolvedValue({
+      packages: { bar: { bindings: { pi: { id: '', imported: true } } } },
+      targetDefinitions: [{ target: 'pi', label: 'Pi', project: true, operations: ['import'] }],
+      hosts: [{ target: 'pi', version: '1', status: 'ready', installed: [{ id: 'npm:foo', enabled: true }] }],
+    });
     mount();
-    expect(await screen.findByText('demo')).toBeInTheDocument();
-    resolveFull({ ...quick, packages: { demo: { bindings: { pi: { id: 'npm:demo', imported: true } } } }, hosts: [{ target: 'pi', version: '1', status: 'ready', installed: [{ id: 'npm:demo', enabled: true }] }] });
-    await screen.findByText('plugins.hostRegistered.one');
-    fireEvent.click(screen.getAllByRole('button', { name: 'plugins.import' })[0]);
-    const dialog = await screen.findByRole('dialog', { name: 'plugins.import' });
-    expect(within(dialog).queryByText('npm:demo')).not.toBeInTheDocument();
-    expect(within(dialog).queryByRole('button', { name: 'plugins.importOne' })).not.toBeInTheDocument();
+    fireEvent.click((await screen.findAllByRole('button', { name: 'plugins.import' }))[0]);
+    fireEvent.click(await screen.findByRole('button', { name: 'plugins.importOne' }));
+    await waitFor(() => expect(pluginsApi.preview).toHaveBeenCalledWith({ action: 'import', from: 'pi', plugin: 'npm:foo', name: 'bar' }));
   });
   it('adds an imported registration to the managed count only after the reviewed import', async () => {
     let imported = false;
