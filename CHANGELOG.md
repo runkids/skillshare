@@ -2,27 +2,25 @@
 
 ## [0.28.0] - 2026-10-29
 
-
-* prepare v0.28.0 release overview ([ed0a02a](https://github.com/runkids/skillshare/commit/ed0a02a3595b36e4f01f22da6136db53e04ffe17))
-
-
 ### New Features
 
-* **plugin:** add --all flag to plugin update and enable antigravity-cli updates ([#656](https://github.com/runkids/skillshare/issues/656)) ([eb9b2b2](https://github.com/runkids/skillshare/commit/eb9b2b28f9a5e9716f766b2c9dff0150ce76e3b1))
-* **sync:** recognize and route agent-specific skill variants ([#649](https://github.com/runkids/skillshare/issues/649)) ([85bcf58](https://github.com/runkids/skillshare/commit/85bcf589a7a969c4fd4f751cc05374534c97af7e))
-* **ui:** report the current route to an embedding app ([#659](https://github.com/runkids/skillshare/issues/659)) ([d7c4361](https://github.com/runkids/skillshare/commit/d7c436157ddcee975f461c454b01409aee63a964))
-
+- **Agent-specific skill variants** — a tracked repo can ship a different copy of the same skill for each agent, such as `skills/claude/review/SKILL.md` and `skills/codex/review/SKILL.md`. A path counts as a variant only when the same skill path exists under at least two agents below one `skills/` folder. In merge and copy mode each copy syncs only to its matching agent, including aliases and account targets; targets sharing one skills folder get the copies of all their agents. Target overrides, frontmatter routing, ignores and filters still take precedence. `list`, `status` and their `--json` output count the skill once and show copies separately (`3 skills, 5 variants`, `variant_count`). Symlink mode exposes every copy, and `status` and `doctor` warn about it. Thanks to @salmonumbrella for the proposal and the implementation. Refs: #648, #649.
+- **Update every plugin at once** — `skillshare plugin update --all` (`-a`) updates all tracked plugins in one command. Healthy plugins update even when another fails; the command then exits non-zero and leaves the failed entries unchanged in `config.yaml`. A marketplace holding several plugins is cloned once. `plugin update` now also supports `antigravity-cli` and skips plugins `agy` reports as disabled. Thanks to @jskswamy for the request and the implementation. Refs: #653, #656.
+  ```bash
+  skillshare plugin update --all
+  ```
+- **Return to the same page in Skillshare App** — when embedded in Skillshare App, the dashboard reports its current page so the app can return to it after an auto-sync reload. Refs: #659.
 
 ### Bug Fixes
 
-* **config:** honor OMP agent directory for default skills path ([#652](https://github.com/runkids/skillshare/issues/652)) ([89ae706](https://github.com/runkids/skillshare/commit/89ae7068d53d855798498d92eced03e8d5b51095))
-* **config:** keep env-derived default skills paths on save ([#662](https://github.com/runkids/skillshare/issues/662)) ([ee96aee](https://github.com/runkids/skillshare/commit/ee96aeea56b10f8b372a76d683bb93d2fdd74efd)), closes [#661](https://github.com/runkids/skillshare/issues/661)
-* **docker:** respect global config path on startup ([#655](https://github.com/runkids/skillshare/issues/655)) ([bab172d](https://github.com/runkids/skillshare/commit/bab172d1a7d0cf2da1f02ec3814dfa182c99d935))
-* **skills:** state code review fix mode once ([c91118c](https://github.com/runkids/skillshare/commit/c91118c500fb08dda071228c1305568b5b5e1b9a))
-* **sync:** summarize missing registered project roots ([#665](https://github.com/runkids/skillshare/issues/665)) ([51fa8d1](https://github.com/runkids/skillshare/commit/51fa8d14b3f65868c2ff5b9be367b06f8cdbd06f))
-* **ui:** resolve account icons from default targets ([#657](https://github.com/runkids/skillshare/issues/657)) ([6c6c45d](https://github.com/runkids/skillshare/commit/6c6c45ddd19d11e5f7a22e09fd11a8bf476b3b2a))
-* **update:** allow lazy blob fetches between partial clone and candidate ([#668](https://github.com/runkids/skillshare/issues/668)) ([7f268e8](https://github.com/runkids/skillshare/commit/7f268e88d732d68f2d94c7dc491ac57d56ca0a01)), closes [#667](https://github.com/runkids/skillshare/issues/667)
-* **update:** serialize checkout updates across skillshare processes ([#666](https://github.com/runkids/skillshare/issues/666)) ([23c9453](https://github.com/runkids/skillshare/commit/23c9453f877d646b3be13669af8779e46daf479c))
+- **One update per checkout** — two dashboards, or a dashboard and the CLI, running **Update all** on the same source no longer pull into the same checkouts at once. `update`, `install --track --update` and git-installed skill updates take turns; a second process waits up to a minute, then stops with `another skillshare process is still updating <path>`. Refs: #666.
+- **`--force` on a git-installed skill** — it now resets to upstream as documented instead of running a pull that refused to merge over your edits, and keeps the edits if the fetch fails. Pull errors include the file list git prints, and the dashboard no longer says everything is up to date when some updates failed. Refs: #666.
+- **Shallow partial clones** — updating a tracked repo cloned with `--depth=1 --filter=blob:none` failed with `fetch-pack: invalid index-pack output` on git 2.45.1 or later once more than one upstream commit arrived. It works again. Thanks to @ndeybach for the report and diagnosis. Refs: #667, #668.
+- **OMP skills path** — an OMP target with no configured skills path follows `PI_CODING_AGENT_DIR`, and keeps following it after a config save. Refs: #652.
+- **DeepSeek Harness and GitLab Duo paths** — a target with no configured path keeps following `DSH_HOME`, `GLAB_CONFIG_DIR` or `XDG_CONFIG_HOME` after a config save, instead of pinning the resolved path. Refs: #661, #662.
+- **Missing project roots** — `sync` prints one line for registered projects that do not exist on this machine, with a hint to run `skillshare project list`, instead of one warning per folder. Refs: #665.
+- **Dashboard account icons** — load from the targets the dashboard already has instead of waiting for the slower all-targets request. Refs: #657.
+- **Docker first run** — the production image checks the same config path as the CLI, so an existing custom or XDG config no longer triggers first-run setup. Refs: #655.
 
 ## [0.27.0] - 2026-10-26
 
