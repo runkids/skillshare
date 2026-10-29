@@ -126,14 +126,14 @@ export function installedVersion(inventory: PluginInventory | undefined, name: s
 export function reviewChanges(plan: PluginPlan | undefined, inventory?: PluginInventory) {
   const changes = plan?.changes ?? [];
   return {
-    active: changes.filter((c) => c.action !== 'noop'),
-    idle: changes.filter((c) => c.action === 'noop').map((c) => ({ name: c.name, target: c.target, version: c.binding?.version ?? installedVersion(inventory, c.name, c.target) })),
+    active: changes.filter((c) => c.action !== 'noop' || c.message),
+    idle: changes.filter((c) => c.action === 'noop' && !c.message).map((c) => ({ name: c.name, target: c.target, version: c.binding?.version ?? installedVersion(inventory, c.name, c.target) })),
   };
 }
 
 /** What the last run changed, failures first; Agents that ended the same way share a row. */
 export function changedRuns(t: T, outcomes: PluginOutcome[]) {
-  return byPlugin(outcomes.filter((r) => r.status !== 'unchanged').map((r) => ({ ...r, note: r.message ? keyedMessage(t, r) : '' })), (r) => `${r.status}\0${r.note}`)
+  return byPlugin(outcomes.filter((r) => r.status !== 'unchanged' || r.message).map((r) => ({ ...r, note: r.message ? keyedMessage(t, r) : '' })), (r) => `${r.status}\0${r.note}`)
     .sort((a, b) => Number(b.status === 'failed') - Number(a.status === 'failed'));
 }
 

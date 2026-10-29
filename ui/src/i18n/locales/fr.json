@@ -3516,8 +3516,8 @@
   "plugins.note.cleanupRequired": "L’ancienne installation doit être nettoyée. Synchronisez pour appliquer la configuration partagée.",
   "plugins.note.replaceLocal": "Supprimer l’ancienne installation locale avant d’appliquer la configuration partagée.",
   "plugins.note.nativeAdopt": "Déjà installé nativement. Importer sans réinstaller.",
-  "plugins.note.importInstallRequired": "This imported plugin has no reviewed reinstall source; install or update it in the native client.",
-  "plugins.note.importRecipeChanged": "Shared recipe changed; keeping this local import. To switch to source, use plugin remove, restore the source target declaration, then sync.",
+  "plugins.note.importInstallRequired": "Ce plugin importé ne dispose d’aucune source vérifiée pour sa réinstallation ; installez-le ou mettez-le à jour dans le client natif.",
+  "plugins.note.importRecipeChanged": "La recette partagée a changé ; cet import local est conservé. Pour installer depuis la source, exécutez plugin remove, restaurez la déclaration de la cible de la source, puis exécutez sync.",
   "plugins.note.selection": "Enregistrer uniquement la sélection de synchronisation. Synchronisez pour installer ou retirer cette cible.",
   "plugins.note.localImportRequired": "Un import est nécessaire sur cette machine. Importez son identifiant natif local dans ce paquet.",
   "plugins.note.noLocalBinding": "Retirer la déclaration. Aucune installation locale n’est associée."

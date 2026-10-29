@@ -16,6 +16,7 @@ func TestLegacyRemovalDoesNotRepeatAfterManualReinstall(t *testing.T) {
 			s := native.service(t)
 			if project {
 				s.ProjectRoot = t.TempDir()
+				s.ConfigPath = filepath.Join(s.ProjectRoot, ".skillshare", "config.yaml")
 				native.installed["claude"][0].Scope = "project"
 				native.installed["claude"][0].ProjectPath = s.ProjectRoot
 			}
@@ -56,28 +57,46 @@ func TestImportRejectsUnrelatedSourceRecipe(t *testing.T) {
 }
 
 func TestLocalImportSurvivesSharedRecipeChanges(t *testing.T) {
-	native := &fakeAgents{installed: map[string][]Installed{"claude": {{ID: "demo@team", Scope: "user", Installed: true}}}}
-	s := native.service(t)
-	source := fixture(t)
-	raw := "plugins:\n  version: 2\n  packages:\n    review:\n      source: " + source + "\n      plugin: demo\n      bindings:\n        claude: {}\n"
-	writePluginFile(t, filepath.Dir(s.ConfigPath), filepath.Base(s.ConfigPath), raw)
-	applyPluginRequest(t, s, Request{Action: "import", From: "claude", Plugin: "demo@team", Name: "review"})
-	raw = strings.Replace(raw, source, fixture(t), 1)
-	writePluginFile(t, filepath.Dir(s.ConfigPath), filepath.Base(s.ConfigPath), raw)
-	same := unchanged(t, s.ConfigPath)
-	native.commands = nil
-	p, err := s.Preview(context.Background(), Request{Action: "sync"})
-	if err != nil {
-		t.Fatal(err)
+	for _, kind := range []string{"source", "ref"} {
+		t.Run(kind, func(t *testing.T) {
+			native := &fakeAgents{installed: map[string][]Installed{"claude": {{ID: "demo@team", Scope: "user", Installed: true}}}}
+			s := native.service(t)
+			source := fixture(t)
+			if kind == "ref" {
+				source = "https://fixture.invalid/imported.git"
+			}
+			raw := "plugins:\n  version: 2\n  packages:\n    review:\n      source: " + source + "\n      plugin: demo\n      bindings:\n        claude: {}\n"
+			writePluginFile(t, filepath.Dir(s.ConfigPath), filepath.Base(s.ConfigPath), raw)
+			applyPluginRequest(t, s, Request{Action: "import", From: "claude", Plugin: "demo@team", Name: "review"})
+			if kind == "ref" {
+				raw = strings.Replace(raw, "      plugin: demo", "      source_ref: v2\n      plugin: demo", 1)
+			} else {
+				raw = strings.Replace(raw, source, fixture(t), 1)
+			}
+			writePluginFile(t, filepath.Dir(s.ConfigPath), filepath.Base(s.ConfigPath), raw)
+			same := unchanged(t, s.ConfigPath)
+			native.commands = nil
+			p, err := s.Preview(context.Background(), Request{Action: "sync"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(p.Changes) != 1 || p.Changes[0].Action != "noop" || p.Changes[0].MessageKey != "plugins.note.importRecipeChanged" || !strings.Contains(p.Changes[0].Message, "plugin remove") {
+				t.Fatalf("import replaced or missing guidance: %+v", p.Changes)
+			}
+			result, err := s.Apply(context.Background(), Request{Action: "sync"}, p.Revision)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(result.Results) != 1 || result.Results[0].MessageKey != "plugins.note.importRecipeChanged" {
+				t.Fatalf("normal sync dropped guidance: %+v", result)
+			}
+			same()
+			if len(native.commands) != 0 || len(native.installed["claude"]) != 1 {
+				t.Fatalf("import changed native installation: %v", native.commands)
+			}
+		})
 	}
-	if len(p.Changes) != 1 || p.Changes[0].Action != "noop" || !strings.Contains(p.Changes[0].Message, "plugin remove") {
-		t.Fatalf("import replaced or missing guidance: %+v", p.Changes)
-	}
-	applyPluginRequest(t, s, Request{Action: "sync"})
-	same()
-	if len(native.commands) != 0 || len(native.installed["claude"]) != 1 {
-		t.Fatalf("import changed native installation: %v", native.commands)
-	}
+
 }
 
 func TestLegacyReadHintPersistenceRequiresOperationLock(t *testing.T) {

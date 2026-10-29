@@ -271,12 +271,15 @@ func (s *Service) captureLegacy(d *document) {
 	for name, p := range d.legacy {
 		for target, b := range p.Bindings {
 			local := d.state.Bindings[name][target]
-			if local.Applied == nil && local.Legacy == nil && !local.LegacySeen {
-				local.LegacySeen = true
+			if local.LegacySeen {
+				continue
+			}
+			local.LegacySeen = true
+			if local.Applied == nil && local.Legacy == nil {
 				b.Pending = ""
 				local.Legacy = &receipt{Intent: declareBinding(b).fingerprint(), Store: s.storeIdentity(target), Binding: b}
-				d.putLocal(name, target, local)
 			}
+			d.putLocal(name, target, local)
 		}
 	}
 }
@@ -480,6 +483,16 @@ func (s *Service) importMatchesRecipe(ctx context.Context, target string, instal
 		if filepath.IsAbs(path) {
 			if info, err := os.Stat(path); err == nil && !info.IsDir() {
 				path = filepath.Dir(path)
+				// Built OpenCode entries may sit below their package manifest.
+				for parent := path; ; parent = filepath.Dir(parent) {
+					if info, err := os.Stat(filepath.Join(parent, "package.json")); err == nil && info.Mode().IsRegular() {
+						path = parent
+						break
+					}
+					if filepath.Dir(parent) == parent {
+						break
+					}
+				}
 			}
 			if native, err := discoverRoot(path, path, ""); err == nil {
 				for _, candidate := range native.Candidates {

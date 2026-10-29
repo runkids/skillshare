@@ -328,3 +328,11 @@ it('does not pick the only waiting declaration for arbitrary imports', () => {
  expect(importRequest(inventory, 'claude', 'a@m')).toEqual({action: 'import', from: 'claude', plugin: 'a@m'});
  expect(importRequest(inventory, 'claude', 'b@m')).toEqual({action: 'import', from: 'claude', plugin: 'b@m'});
 });
+
+it('keeps unchanged recipe guidance visible in preview and completed outcomes', () => {
+ const note = {name: 'demo', target: 'codex', message: 'Shared recipe moved; plugin remove then restore and sync.', messageKey: 'plugins.note.importRecipeChanged'};
+ const preview = reviewChanges(plan('r', {...note, action: 'noop'}));
+ expect(preview.active).toHaveLength(1);
+ expect(preview.idle).toHaveLength(0);
+ expect(changedRuns(t, [{...note, status: 'unchanged'}])).toMatchObject([{name: 'demo', status: 'unchanged', note: 'plugins.note.importRecipeChanged'}]);
+});

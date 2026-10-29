@@ -195,6 +195,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 				d.putLocal(c.Name, c.Target, local)
 			}
 			outcome.Status = "unchanged"
+			outcome.Message, outcome.MessageKey, outcome.MessageArgs = c.Message, c.MessageKey, c.MessageArgs
 			result.Results = append(result.Results, outcome)
 			continue
 		}

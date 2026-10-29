@@ -118,7 +118,7 @@ grep '"plugin add"' $XDG_STATE_HOME/skillshare/logs/operations.log | tail -1
 
 **Expected**: `pi-agentic-driver  pi · installed`, `exit=0`;
 `["npm:@evoclock/pi-agentic-driver@1.0.0"]`; the shared recipe `pi: source: npm:@evoclock/pi-agentic-driver@1.0.0`
-with no `source`; `pi list` shows the package under User packages; version `1.0.0`; an oplog
+with no native `id`; `pi list` shows the package under User packages; version `1.0.0`; an oplog
 entry with `"status":"ok"`.
 
 ### 6. Update skips the pinned version

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestPluginHostStateNpmRecipeAndLegacyAmbiguity(t *testing.T) {
@@ -40,75 +42,82 @@ func TestPluginHostStateNpmRecipeAndLegacyAmbiguity(t *testing.T) {
 }
 
 func TestPluginHostStateProducerLegacyProjection(t *testing.T) {
-	var commands []string
-	s := fakePiNpm(t, &commands)
-	s.Accounts = map[string]Account{"pi-work": {Agent: "pi", Dir: t.TempDir()}}
-	raw, err := os.ReadFile("testdata/legacy-host-state/config.yaml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	source := t.TempDir()
-	if err := copyTree("testdata/legacy-host-state/source", source); err != nil {
-		t.Fatal(err)
-	}
-	// The fixture is foreign: shared native IDs, pending and private records must
-	// not appear as this host's receipts, even when its snapshot was copied here.
-	writePluginFile(t, filepath.Dir(s.ConfigPath), filepath.Base(s.ConfigPath), string(raw))
-	d := readState(t, s)
-	if b := d.intent["demo"].Bindings["pi-work"]; b.Source != "__ALTERNATE__" {
-		t.Fatalf("lost per-target distribution: %+v", b)
-	}
-	if b := d.intent["demo"].Bindings["opencode"]; b.Sync == nil || *b.Sync || b.SourceRef != "main" {
-		t.Fatalf("lost selection/ref: %+v", b)
-	}
-	if b := d.intent["native"].Bindings["pi"]; !b.Imported {
-		t.Fatal("native import inherited source")
-	}
-	for _, p := range d.packages {
-		for _, b := range p.Bindings {
-			if b.ID != "" || b.Pending != "" || b.PiRegistration != "" || b.Digest != "" {
-				t.Fatalf("foreign receipt escaped: %+v", b)
+	for _, local := range []bool{false, true} {
+		t.Run(map[bool]string{false: "foreign", true: "local"}[local], func(t *testing.T) {
+			var commands []string
+			s := fakePiNpm(t, &commands)
+			s.Accounts = map[string]Account{"pi-work": {Agent: "pi", Dir: t.TempDir()}}
+			raw, err := os.ReadFile("testdata/legacy-host-state/config.yaml")
+			if err != nil {
+				t.Fatal(err)
 			}
-		}
-	}
-	same := unchanged(t, s.ConfigPath)
-	if _, err := s.Packages(); err != nil {
-		t.Fatal(err)
-	}
-	same()
-	if _, err := os.Stat(s.statePath()); err != nil {
-		t.Fatalf("legacy read did not capture hints: %v", err)
-	}
-	// A local legacy source is adopted only with scoped inventory, exact local
-	// identity, owned snapshot markers, and matching reviewed content.
-	legacy := d.legacy["demo"].Bindings["pi"]
-	legacy.ID = filepath.Join(s.snapshotPath(legacy, "pi"), "content", "nested", "pkg")
-	snapshot := s.snapshotPath(legacy, "pi")
-	if err := copyTree(source, filepath.Join(snapshot, "content")); err != nil {
-		t.Fatal(err)
-	}
-	for _, name := range []string{".skillshare-owner", ".skillshare-digest"} {
-		body, err := os.ReadFile(filepath.Join("testdata/legacy-host-state", name))
-		if err != nil {
-			t.Fatal(err)
-		}
-		writePluginFile(t, snapshot, name, string(body))
-	}
-	d.state.Bindings = map[string]map[string]localBinding{}
-	d.legacy = map[string]Package{"demo": {Bindings: map[string]Binding{"pi": legacy}}}
-	host := func(string) Host { return Host{Installed: []Installed{{ID: legacy.ID}}} }
-	s.adoptLegacy(d, host)
-	if got := d.packages["demo"].Bindings["pi"]; got.ID != legacy.ID || got.Digest != legacy.Digest || got.Pending != "" {
-		t.Fatalf("local proof rejected: %+v", got)
-	}
-	// A foreign Pi ID cannot acquire local ownership just because markers exist.
-	foreign := legacy
-	foreign.ID = "/foreign/content/nested/pkg"
-	d.state.Bindings = map[string]map[string]localBinding{}
-	d.legacy["demo"] = Package{Bindings: map[string]Binding{"pi": foreign}}
-	s.adoptLegacy(d, func(string) Host { return Host{Installed: []Installed{{ID: foreign.ID}}} })
-	if got := d.packages["demo"].Bindings["pi"]; got.ID != "" {
-		t.Fatal("foreign native ID adopted from copied markers")
+			// Decode the producer's public v1 YAML, not today's private receipt layout.
+			var legacy struct {
+				Plugins struct {
+					Packages map[string]Package `yaml:"packages"`
+				} `yaml:"plugins"`
+			}
+			if err := yaml.Unmarshal(raw, &legacy); err != nil {
+				t.Fatal(err)
+			}
+			pack := legacy.Plugins.Packages["demo"]
+			binding := pack.Bindings["pi"]
+			snapshot := s.snapshotPath(binding, "pi")
+			if err := copyTree("testdata/legacy-host-state/source", filepath.Join(snapshot, "content")); err != nil {
+				t.Fatal(err)
+			}
+			for _, name := range []string{".skillshare-owner", ".skillshare-digest"} {
+				body, err := os.ReadFile(filepath.Join("testdata/legacy-host-state", name))
+				if err != nil {
+					t.Fatal(err)
+				}
+				writePluginFile(t, snapshot, name, string(body))
+			}
+			binding.ID = "/foreign/content/nested/pkg"
+			if local {
+				binding.ID = filepath.Join(snapshot, "content", "nested", "pkg")
+			}
+			pack.Bindings["pi"] = binding
+			legacy.Plugins.Packages["demo"] = pack
+			raw, err = yaml.Marshal(legacy)
+			if err != nil {
+				t.Fatal(err)
+			}
+			writePluginFile(t, filepath.Dir(s.ConfigPath), filepath.Base(s.ConfigPath), string(raw))
+			file, _ := s.piSettingsPath("pi")
+			writePluginFile(t, filepath.Dir(file), filepath.Base(file), `{"packages":["`+binding.ID+`"]}`)
+			same := unchanged(t, s.ConfigPath)
+			quick := hostPackages(t, s)
+			if b := quick["demo"].Bindings["pi-work"]; b.Source != "__ALTERNATE__" {
+				t.Fatalf("lost per-target distribution: %+v", b)
+			}
+			if b := quick["demo"].Bindings["opencode"]; b.Sync == nil || *b.Sync || b.SourceRef != "main" {
+				t.Fatalf("lost selection/ref: %+v", b)
+			}
+			if b := quick["native"].Bindings["pi"]; !b.Imported {
+				t.Fatal("native import inherited source")
+			}
+			for _, pack := range quick {
+				for _, b := range pack.Bindings {
+					if b.ID != "" || b.Pending != "" || b.PiRegistration != "" || b.Digest != "" {
+						t.Fatalf("unproved receipt escaped: %+v", b)
+					}
+				}
+			}
+			full, err := s.Inventory(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := full.Packages["demo"].Bindings["pi"]
+			if local {
+				if got.ID != binding.ID || got.Digest != binding.Digest || got.Pending != "" {
+					t.Fatalf("local proof rejected: %+v", got)
+				}
+			} else if got.ID != "" {
+				t.Fatal("foreign ID adopted from copied snapshot markers")
+			}
+			same()
+		})
 	}
 }
 

@@ -27,15 +27,21 @@ run "$b" plugin sync --dry-run --json -g | jq -e '.changes | length == 1 and .[0
 run "$b" plugin sync --no-tui -g
 run "$b" plugin sync --dry-run --json -g | jq -e 'all(.changes[]; .action == "noop")'
 cmp "$cfg_b" "$work/shared-before.yaml"
-# The snapshots must be native paths belonging to different isolated homes.
-run "$a" plugin list --json -g > "$work/a.json"
-run "$b" plugin list --json -g > "$work/b.json"
-jq -e --slurpfile other "$work/b.json" '.packages.demo.bindings.cursor.id != $other[0].packages.demo.bindings.cursor.id' "$work/a.json"
+# Cursor IDs are package names on both hosts; compare actual native roots.
+root_a=$(ssenv enter "$a" -- bash -c 'realpath "$HOME/.cursor/plugins/local/demo"')
+root_b=$(ssenv enter "$b" -- bash -c 'realpath "$HOME/.cursor/plugins/local/demo"')
+test "$root_a" != "$root_b"
+test -f "$root_a/.cursor-plugin/plugin.json"
+test -f "$root_b/.cursor-plugin/plugin.json"
+cmp "$root_a/skills/demo/SKILL.md" "$root_b/skills/demo/SKILL.md"
 run "$a" plugin remove demo --no-tui -g
+test ! -e "$root_a"
+test -d "$root_b"
 cp "$cfg_a" "$cfg_b"
 cp "$cfg_b" "$work/shared-removed.yaml"
 run "$b" plugin sync --dry-run --json -g | jq -e '.changes | length == 1 and .[0].action == "remove"'
 run "$b" plugin sync --no-tui -g
+test ! -e "$root_b"
 run "$b" plugin sync --dry-run --json -g | jq -e '.changes | length == 0'
 cmp "$cfg_b" "$work/shared-removed.yaml"
 printf 'PASS: two-machine CLI lifecycle (%s, %s); artifacts: %s\n' "$a" "$b" "$work"

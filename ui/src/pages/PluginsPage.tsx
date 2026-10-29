@@ -153,7 +153,7 @@ export default function PluginsPage() {
                   className={r.status === 'failed' ? 'rounded-lg bg-bad-bg px-3 py-2' : ''}
                   right={<span className={`ss-st ${r.status === 'failed' ? 'bad' : r.status === 'skipped' ? 'warn' : ''}`}>{outcomeStatus(t, r.status)}</span>} />
               ))}
-              <UnchangedRuns runs={outcomes.filter((r) => r.status === 'unchanged')} isPi={isPi} />
+              <UnchangedRuns runs={outcomes.filter((r) => r.status === 'unchanged' && !r.message)} isPi={isPi} />
             </div>
           )}
           {pending === 0 && (

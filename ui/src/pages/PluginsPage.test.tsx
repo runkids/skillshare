@@ -18,8 +18,11 @@ function mount(path = '/plugins', client = new QueryClient({ defaultOptions: { q
 describe('PluginsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // jsdom has no scrolling API; Select scrolls its focused option in browsers.
+    HTMLElement.prototype.scrollIntoView = vi.fn();
     synced.targets = [{ name: 'pi' }];
     vi.mocked(pluginsApi.list).mockResolvedValue({ targetDefinitions: [{target:'codex',label:'Codex',project:false,operations:['add','sync','import']}], packages: { demo: { bindings: { codex: { id: 'demo@market' } } } }, hosts: [{ target: 'codex', version: '0.154', status: 'ready', installed: [{ id: 'demo@market', enabled: false }] }] });
+    vi.mocked(pluginsApi.discover).mockResolvedValue({ source: 'owner/repo', digest: 'fixture', candidates: [] });
     vi.mocked(pluginsApi.preview).mockResolvedValue({ revision: 'reviewed', blocked: false, changes: [{ name: 'demo', target: 'codex', id: 'demo@market', action: 'selection' }] });
     vi.mocked(pluginsApi.apply).mockResolvedValue({ result: { results: [] }, failure: '' });
     vi.mocked(pluginsApi.update).mockImplementation(async (_items, on) => { on({ event: 'done', failure: '' }); });
@@ -46,7 +49,19 @@ describe('PluginsPage', () => {
     expect(pluginsApi.apply).toHaveBeenCalledWith({ action: 'sync' }, 'ref-review');
     expect(await screen.findByText('targets.state.synced')).toBeInTheDocument();
   });
-  it('imports into the declared package that needs a local binding', async () => {
+  it('shows retained-import guidance during review and after sync leaves it unchanged', async () => {
+    const message = 'Shared recipe moved; keep local import or remove, restore and sync.';
+    vi.mocked(pluginsApi.preview).mockResolvedValue({ revision: 'guidance', blocked: false, changes: [{ name: 'demo', target: 'codex', id: 'demo@market', action: 'noop', message }] });
+    vi.mocked(pluginsApi.apply).mockResolvedValue({ result: { results: [{ name: 'demo', target: 'codex', status: 'unchanged', message }] }, failure: '' });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'plugins.syncAgain' }));
+    const dialog = await screen.findByRole('dialog', { name: 'plugins.preview' });
+    expect(within(dialog).getByText(message)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'plugins.apply' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'plugins.preview' })).not.toBeInTheDocument());
+    expect(screen.getAllByText(message)).toHaveLength(1);
+  });
+  it('imports into the explicitly selected declaration that needs a local binding', async () => {
     vi.mocked(pluginsApi.list).mockResolvedValue({
       packages: { bar: { bindings: { pi: { id: '', imported: true } } } },
       targetDefinitions: [{ target: 'pi', label: 'Pi', project: true, operations: ['import'] }],
@@ -54,6 +69,11 @@ describe('PluginsPage', () => {
     });
     mount();
     fireEvent.click((await screen.findAllByRole('button', { name: 'plugins.import' }))[0]);
+    const selection = await screen.findByRole('combobox', { name: 'resources.col.name' });
+    expect(selection).toHaveTextContent('npm:foo');
+    fireEvent.click(selection);
+    fireEvent.mouseDown(await screen.findByRole('option', { name: 'bar' }));
+    expect(selection).toHaveTextContent('bar');
     fireEvent.click(await screen.findByRole('button', { name: 'plugins.importOne' }));
     await waitFor(() => expect(pluginsApi.preview).toHaveBeenCalledWith({ action: 'import', from: 'pi', plugin: 'npm:foo', name: 'bar' }));
   });
