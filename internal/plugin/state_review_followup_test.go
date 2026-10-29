@@ -109,3 +109,49 @@ func TestPluginPublicMessageContracts(t *testing.T) {
 		}
 	})
 }
+
+func TestMigratedNativeImportSurvivesRemoteSourceRecipe(t *testing.T) {
+	for _, phase := range []string{"hint", "applied"} {
+		t.Run(phase, func(t *testing.T) {
+			nativeA := &fakeAgents{installed: map[string][]Installed{"claude": {{ID: "demo@team", Scope: "user", Installed: true}}}}
+			a := nativeA.service(t)
+			writePluginFile(t, filepath.Dir(a.ConfigPath), filepath.Base(a.ConfigPath), "plugins:\n  packages:\n    demo:\n      bindings:\n        claude: {id: demo@team}\n")
+			if phase == "hint" {
+				if _, err := a.Packages(); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				applyPluginRequest(t, a, Request{Action: "sync"})
+			}
+			shared, err := os.ReadFile(a.ConfigPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			nativeB := &fakeAgents{}
+			b := nativeB.service(t)
+			writePluginFile(t, filepath.Dir(b.ConfigPath), filepath.Base(b.ConfigPath), string(shared))
+			applyPluginRequest(t, b, Request{Action: "add", Name: "demo", Source: fixture(t), Targets: []string{"claude"}})
+			shared, err = os.ReadFile(b.ConfigPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			writePluginFile(t, filepath.Dir(a.ConfigPath), filepath.Base(a.ConfigPath), string(shared))
+			repairHost(t, a)
+			nativeA.commands = nil
+			same := unchanged(t, a.ConfigPath)
+			p, err := a.Preview(context.Background(), Request{Action: "sync"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if p.Blocked || len(p.Changes) != 1 || p.Changes[0].Action != "noop" || p.Changes[0].ID != "demo@team" || !p.Changes[0].Binding.Imported || p.Changes[0].MessageKey != "plugins.note.importRecipeChanged" {
+				t.Fatalf("migrated import replaced after remote recipe change: %+v", p)
+			}
+			applyPluginRequest(t, a, Request{Action: "sync"})
+			same()
+			if len(nativeA.commands) != 0 || len(nativeA.installed["claude"]) != 1 || nativeA.installed["claude"][0].ID != "demo@team" {
+				t.Fatalf("changed migrated native import: %v %v", nativeA.commands, nativeA.installed)
+			}
+
+		})
+	}
+}

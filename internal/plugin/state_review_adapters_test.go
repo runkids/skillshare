@@ -118,13 +118,14 @@ func TestSharedRefReconcileAndAccountChangeAcrossAdapters(t *testing.T) {
 }
 
 func TestImportsMatchLocalPathsAndDefaultRecipeCandidate(t *testing.T) {
-	for _, agent := range []string{"claude", "pi", "opencode", "opencode-nested", "opencode-explicit"} {
+	for _, agent := range []string{"claude", "pi", "opencode", "opencode-nested", "opencode-explicit", "opencode-unrelated-entry"} {
 		t.Run(agent, func(t *testing.T) {
 			native := &fakeAgents{installed: map[string][]Installed{"claude": {{ID: "demo@team", Scope: "user", Installed: true}}}}
 			s := native.service(t)
 			source := fixture(t)
 			id := "demo@team"
 			explicit := ""
+			reject := agent == "opencode-unrelated-entry"
 			switch agent {
 			case "pi":
 				var calls []string
@@ -133,9 +134,9 @@ func TestImportsMatchLocalPathsAndDefaultRecipeCandidate(t *testing.T) {
 				id = source
 				file, _ := s.piSettingsPath("pi")
 				writePluginFile(t, filepath.Dir(file), filepath.Base(file), `{"packages":["`+id+`"]}`)
-			case "opencode", "opencode-nested", "opencode-explicit":
+			case "opencode", "opencode-nested", "opencode-explicit", "opencode-unrelated-entry":
 				noSDK := agent == "opencode-explicit"
-				nested := agent != "opencode"
+				nested := agent == "opencode-nested" || noSDK
 				agent = "opencode"
 				entry := "index.js"
 				if nested {
@@ -150,6 +151,10 @@ func TestImportsMatchLocalPathsAndDefaultRecipeCandidate(t *testing.T) {
 				}
 				writePluginFile(t, source, entry, "export default async () => ({})")
 				id = fileURL(filepath.Join(source, entry))
+				if reject {
+					writePluginFile(t, source, "plugins/demo.js", "export default async () => ({})")
+					id = fileURL(filepath.Join(source, "plugins/demo.js"))
+				}
 				file, _ := s.openCodeConfigPath("opencode")
 				writePluginFile(t, filepath.Dir(file), filepath.Base(file), `{"plugin":["`+id+`"]}`)
 				run := s.Run
@@ -164,6 +169,13 @@ func TestImportsMatchLocalPathsAndDefaultRecipeCandidate(t *testing.T) {
 			same := unchanged(t, s.ConfigPath)
 			req := Request{Action: "import", From: agent, Plugin: id, Name: "alias"}
 			p, err := s.Preview(context.Background(), req)
+			if reject {
+				if err == nil {
+					t.Fatal("native file outside the package entry was accepted as its package")
+				}
+				same()
+				return
+			}
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -163,8 +163,11 @@ func (s *Service) compose(d *document) {
 			if r != nil {
 				b = r.Binding
 				b.Sync = decl.Sync
-				b.Imported = decl.Imported || r.Binding.Imported
-				b.Cleanup = !r.Binding.Imported && r.Intent != decl.fingerprint() && (r.Binding.Source != decl.Source || r.Binding.Plugin != decl.Plugin || r.Binding.Entry != decl.Entry || decl.Imported)
+				// Older native-only receipts predate the explicit Imported flag.
+				// Managed npm receipts also omit Source, but retain an npm recipe fingerprint.
+				imported := r.Binding.Imported || r.Binding.Source == "" && r.Intent == (declaration{Imported: true}).fingerprint()
+				b.Imported = decl.Imported || imported
+				b.Cleanup = !imported && r.Intent != decl.fingerprint() && (r.Binding.Source != decl.Source || r.Binding.Plugin != decl.Plugin || r.Binding.Entry != decl.Entry || decl.Imported)
 				b.ContextChanged = r.Store != s.storeIdentity(target)
 				b.RefChanged = b.Selected() && sameDistribution(r.Binding, decl) && r.Binding.SourceRef != decl.SourceRef
 				if local.Pending != nil && local.Pending.Intent == decl.fingerprint() {
@@ -482,16 +485,27 @@ func (s *Service) importMatchesRecipe(ctx context.Context, target string, instal
 		}
 		if filepath.IsAbs(path) {
 			if info, err := os.Stat(path); err == nil && !info.IsDir() {
+				file := path
 				path = filepath.Dir(path)
-				// Built OpenCode entries may sit below their package manifest.
+				matched := false
+				if agent == "opencode" {
+					nativeName = ""
+				}
+				// A parent manifest identifies this file only if it resolves to that entry.
 				for parent := path; ; parent = filepath.Dir(parent) {
 					if info, err := os.Stat(filepath.Join(parent, "package.json")); err == nil && info.Mode().IsRegular() {
-						path = parent
-						break
+						entry, err := openCodeEntry(parent, decl.Entry)
+						if agent != "opencode" || err == nil && filepath.Clean(filepath.Join(parent, entry)) == filepath.Clean(file) {
+							path, matched = parent, true
+							break
+						}
 					}
 					if filepath.Dir(parent) == parent {
 						break
 					}
+				}
+				if agent == "opencode" && !matched {
+					return false, nil
 				}
 			}
 			if native, err := discoverRoot(path, path, decl.Entry); err == nil {
