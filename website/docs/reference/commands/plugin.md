@@ -546,7 +546,7 @@ registration references and pending operations under
 `<StateDir>/plugins/<config-path-hash>/state.json` (local format version 1).
 Keep StateDir machine-local. Sync, update, verification, failure and retry never
 write shared declarations; `update --source-ref` writes only a changed desired ref.
-Read-only commands create neither state nor locks. Explicit add, import, selection
+Reads capture legacy evidence in local state without changing shared YAML or creating operation locks. Explicit add, import, selection
 and removal edit declarations with changed-byte checks. This does not merge simultaneous
 Syncthing intent edits: concurrent declaration edits can still conflict.
 
@@ -555,8 +555,8 @@ snapshot paths. Local source paths remain user input and must exist on each mach
 Native-only targets show **Import required on this machine**: install natively,
 then run `plugin import LOCAL-ID --from TARGET --name NAME` on that machine.
 Repeating that import records the local ID without rewriting identical intent.
-A first local import over a source-managed target converts that shared target to
-native-only intent, so other machines need their own local imports. Reimporting
+Importing into an existing source-managed target records only a local receipt;
+other machines keep their source recipe and working installation. Reimporting
 the same native ID with an existing verified source binding preserves its source
 recipe.
 An explicit Pi `add npm:PACKAGE` shares an npm install recipe and Pi runs its
@@ -571,7 +571,10 @@ and become receipts only after ownership checks, retaining the old intent for
 cleanup even if its shared target was removed. Legacy npm entries cannot prove whether they
 came from add or import, so they remain native-only; explicitly add the npm spec
 again to establish a shared recipe. Upgrade **every writer** of a shared config
-before editing version 2; older binaries cannot safely write this format.
+before editing version 2; older binaries cannot safely write this format. On **each
+machine**, run `skillshare plugin list` against the shared config while it is still
+legacy YAML, before any machine makes the first v2 declaration edit. This captures
+that machine's legacy hints locally, even if its native client is temporarily unavailable.
 
 A machine returning after a target or source changed retains its previous local
 receipt until cleanup succeeds. Failed cleanup or replacement remains local and

@@ -366,8 +366,8 @@ func TestPluginHostStateProducerLegacyProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	same()
-	if _, err := os.Stat(s.StateDir); !os.IsNotExist(err) {
-		t.Fatal("read created state")
+	if _, err := os.Stat(s.statePath()); err != nil {
+		t.Fatalf("legacy read did not capture hints: %v", err)
 	}
 	// A local legacy source is adopted only with scoped inventory, exact local
 	// identity, owned snapshot markers, and matching reviewed content.
@@ -384,6 +384,7 @@ func TestPluginHostStateProducerLegacyProjection(t *testing.T) {
 		}
 		writePluginFile(t, snapshot, name, string(body))
 	}
+	d.state.Bindings = map[string]map[string]localBinding{}
 	d.legacy = map[string]Package{"demo": {Bindings: map[string]Binding{"pi": legacy}}}
 	host := func(string) Host { return Host{Installed: []Installed{{ID: legacy.ID}}} }
 	s.adoptLegacy(d, host)

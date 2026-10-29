@@ -60,8 +60,6 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 	if err != nil {
 		return nil, err
 	}
-	s.adoptLegacy(d, func(target string) Host { return s.host(ctx, target) })
-	s.captureLegacyAndVersions(d)
 	before, _ := yaml.Marshal(d.intent)
 	for _, c := range p.Changes {
 		if c.Action == "skip" || c.Action == "blocked" {

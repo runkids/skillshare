@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -34,6 +35,16 @@ func (s *Service) load() (*document, error) {
 	}
 	if err = s.loadState(d); err != nil {
 		return nil, err
+	}
+	// Capture passive local hints before another machine can replace legacy YAML.
+	// Reads leave shared intent untouched; ownership is still proved before adoption.
+	before, _ := json.Marshal(d.state)
+	s.captureLegacyAndVersions(d)
+	after, _ := json.Marshal(d.state)
+	if !bytes.Equal(before, after) {
+		if err := s.saveState(d); err != nil {
+			return nil, err
+		}
 	}
 	return d, nil
 }

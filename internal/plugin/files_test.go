@@ -231,7 +231,7 @@ func TestLegacySnapshotReadersRequireLocalProof(t *testing.T) {
 					}
 				})
 			}
-			paths := []string{service.ConfigPath, service.statePath(), native, private}
+			paths := []string{service.ConfigPath, native, private}
 			for _, dir := range []string{snapshot, service.snapshotPath(b, "pi")} {
 				paths = append(paths, filepath.Join(dir, ".skillshare-owner"), filepath.Join(dir, ".skillshare-digest"), filepath.Join(dir, "content/extensions/demo.ts"))
 			}

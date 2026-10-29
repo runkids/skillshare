@@ -312,7 +312,7 @@ func (s *Service) Inventory(ctx context.Context) (*Inventory, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.adoptLegacy(d, func(target string) Host {
+	adopted := s.adoptLegacy(d, func(target string) Host {
 		for _, h := range result.Hosts {
 			if h.Target == target {
 				return h
@@ -320,6 +320,11 @@ func (s *Service) Inventory(ctx context.Context) (*Inventory, error) {
 		}
 		return Host{Error: "inventory unavailable"}
 	})
+	if adopted {
+		if err := s.saveState(d); err != nil {
+			return nil, err
+		}
+	}
 	result.Packages = d.packages
 	return result, nil
 }

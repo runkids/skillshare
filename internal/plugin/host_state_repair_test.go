@@ -509,11 +509,12 @@ func TestPluginHostStateLegacyHintSaveFailurePreventsMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 	same := unchanged(t, s.ConfigPath)
-	s.Run = func(context.Context, string, []string, string, ...string) ([]byte, error) {
-		if err := os.MkdirAll(s.statePath(), 0700); err != nil {
-			t.Fatal(err)
-		}
-		return nil, errors.New("unavailable")
+	// The first preview now persists hints. Make the state path unwritable before apply.
+	if err := os.Remove(s.statePath()); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(s.statePath(), 0700); err != nil {
+		t.Fatal(err)
 	}
 	unlock, err := s.Lock()
 	if err != nil {

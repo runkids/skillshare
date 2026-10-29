@@ -149,7 +149,11 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		hosts[target] = h
 		return h
 	}
-	s.adoptLegacy(d, host)
+	if s.adoptLegacy(d, host) {
+		if err := s.saveState(d); err != nil {
+			return nil, err
+		}
+	}
 	// ownMarket reports whether the marketplace Skillshare registered for b is still in place.
 	ownMarket := func(target string, b Binding) bool {
 		_, market, _ := strings.Cut(b.ID, "@")

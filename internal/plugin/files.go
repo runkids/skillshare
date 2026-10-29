@@ -41,7 +41,7 @@ func (s *Service) snapshotPackage(ctx context.Context, name string) (Package, er
 		return pack, nil
 	}
 	hosts := map[string]Host{}
-	s.adoptLegacy(d, func(target string) Host {
+	adopted := s.adoptLegacy(d, func(target string) Host {
 		if !targets[target] {
 			return Host{Error: "outside requested plugin snapshot"}
 		}
@@ -52,6 +52,11 @@ func (s *Service) snapshotPackage(ctx context.Context, name string) (Package, er
 		hosts[target] = h
 		return h
 	}, name)
+	if adopted {
+		if err := s.saveState(d); err != nil {
+			return Package{}, err
+		}
+	}
 	return d.packages[name], nil
 }
 

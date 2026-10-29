@@ -54,3 +54,34 @@ func TestLegacyPendingRemovalRetriesAfterMigration(t *testing.T) {
 		})
 	}
 }
+
+func TestLegacyReadPersistsEvidenceBeforeRemoteMigration(t *testing.T) {
+	for _, read := range []string{"packages", "preview"} {
+		t.Run(read, func(t *testing.T) {
+			native := &fakeAgents{installed: map[string][]Installed{"claude": {{ID: "demo@team", Scope: "user", Installed: true}}}}
+			s := native.service(t)
+			writePluginFile(t, filepath.Dir(s.ConfigPath), filepath.Base(s.ConfigPath), "plugins:\n  packages:\n    demo:\n      bindings:\n        claude: {id: demo@team}\n")
+			same := unchanged(t, s.ConfigPath)
+			if read == "packages" {
+				if _, err := s.Packages(); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if _, err := s.Preview(context.Background(), Request{Action: "sync"}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			same()
+			// Another machine migrates the shared file before this host applies anything.
+			writePluginFile(t, filepath.Dir(s.ConfigPath), filepath.Base(s.ConfigPath), "plugins:\n  version: 2\n  packages:\n    demo:\n      bindings:\n        claude: {imported: true}\n")
+			restarted := *s
+			p, err := restarted.Preview(context.Background(), Request{Action: "sync"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(p.Changes) != 1 || p.Changes[0].Action != "noop" || p.Changes[0].ID != "demo@team" {
+				t.Fatalf("read lost local migration evidence: %+v", p.Changes)
+			}
+		})
+	}
+}
