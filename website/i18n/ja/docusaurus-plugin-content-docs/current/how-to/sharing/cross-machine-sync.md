@@ -191,6 +191,10 @@ Skillshare は認証情報を `fromEnv` 参照として保存し、値そのも�
 
 [Plugins](/docs/reference/commands/plugin#host-state)
 
+各マシンのネイティブクライアントでインストール後、`skillshare plugin import LOCAL-ID --from TARGET --name NAME` を実行してください。既存の宣言には、名前を明示的に選択したときだけ関連付けます。
+
+`sync` は不足する plugin のインストール、変更された ref の反映、ローカルのクリーンアップの再試行を行います。同じ ref の新リリースには `skillshare plugin check` と `skillshare plugin update` を使ってください。
+
 ### Hooks {#hooks}
 
 Hooks には別ファイルがありません。`config.yaml` の `hooks:` セクションを別のマシンにコピーし、`skillshare sync hooks` を実行します。

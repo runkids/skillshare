@@ -119,20 +119,17 @@ func TestPluginHostStateAbsentForgetClearsPendingAndLegacy(t *testing.T) {
 		return run(ctx, dir, env, bin, args...)
 	}
 	applyFailure(t, s, Request{Action: "add", Name: "demo", Source: "npm:new", Targets: []string{"pi"}})
-	d := readState(t, s)
-	local := d.state.Bindings["demo"]["pi"]
-	if local.Pending == nil || local.Legacy == nil {
-		t.Fatal("fixture did not retain failed work and passive hint")
-	}
-	delete(d.intent, "demo")
-	if err := s.save(d); err != nil {
-		t.Fatal(err)
+	if b := hostPackages(t, s)["demo"].Bindings["pi"]; b.Pending != "install" {
+		t.Fatal("fixture did not expose failed work")
 	}
 	s.Run = run
+	// Another machine removed the shared declaration; retain this host's failed work.
+	writePluginFile(t, filepath.Dir(s.ConfigPath), filepath.Base(s.ConfigPath), "plugins:\n  version: 2\n  packages: {}\n")
 	applyPluginRequest(t, s, Request{Action: "sync"})
-	if len(readState(t, s).state.Bindings) != 0 {
-		t.Fatal("forget did not clear pending and legacy evidence")
+	if changes := previewChanges(t, s, Request{Action: "sync"}); len(changes) != 0 {
+		t.Fatalf("forget left executable pending or legacy work: %+v", changes)
 	}
+
 	same := unchanged(t, s.ConfigPath, s.statePath())
 	applyPluginRequest(t, s, Request{Action: "sync"})
 	same()

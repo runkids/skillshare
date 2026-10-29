@@ -283,7 +283,7 @@ skillshare plugin add ./package --entry dist/plugin.js --target opencode --no-tu
 skillshare plugin update review --source-ref v1.1.0 --target claude --dry-run --json
 ```
 
-綁定會記錄 `source_ref` 以及解析後的 `commit`。安裝使用的是已檢視過的 commit；`check` 與
+共用綁定會記錄 `source_ref`；解析後的 `commit` 保存在本機記錄。安裝使用的是已檢視過的 commit；`check` 與
 `update` 會重新解析設定的 ref，因此某個 branch 可以持續前進，而 commit 仍維持固定。`--revision`
 是預覽用的 token，不是 Git ref。`--entry` 是相對於各候選項套件根目錄的路徑，且必須已經存在；
 它不會觸發 build 或 package manager 安裝。
@@ -362,7 +362,7 @@ plugins:
 
 原生 ID、已檢視的 commit/digest/version、Pi 註冊參照與待處理操作儲存在 `<StateDir>/plugins/<config-path-hash>/state.json`（本機格式 version 1）。StateDir 必須留在各機器本機。狀態以設定檔的**絕對路徑**區分：移動或重新命名專案／設定檔會建立新的狀態空間，不會自動追蹤或清理原有安裝。請先透過原設定位置移除安裝，或在新位置明確管理／匯入。
 
-sync、一般 update、驗證、失敗與重試不會改寫共用宣告。`update --source-ref` 僅在 ref 改變時更新宣告。讀取會在本機保存舊格式證據，不修改共用 YAML，也不建立操作鎖。add、import、選擇與 remove 會儲存必要的宣告變更並檢查外部修改；這不會合併同時發生的 Syncthing 編輯。
+sync、一般 update、驗證、失敗與重試不會改寫共用宣告。`update --source-ref` 僅在 ref 改變時更新宣告。讀取會在本機操作鎖下保存舊格式證據，不修改共用 YAML。鎖被其他操作持有時，會將保存延後至該操作或下次讀取。add、import、選擇與 remove 會儲存必要的宣告變更並檢查外部修改；這不會合併同時發生的 Syncthing 編輯。
 
 來源檢視與 commit 固定是**各機器獨立**的。分支 ref 在該機器安裝或更新時解析，因此非互動 sync 可能安裝比另一台機器檢視時更新的 commit。ref 變更也會在本機解析。若所有機器必須使用相同版本，請將 `source_ref` 設為 commit SHA。本機來源路徑也必須在各機器存在。
 
@@ -371,3 +371,7 @@ native-only 目標顯示「此機器需要匯入」，sync 會略過。請先在
 舊格式讀取與 sync 不改寫 YAML，下次宣告編輯才寫入 version 2。**首次 v2 編輯前，請升級所有寫入端，並在共用 YAML 仍為舊格式時，於每台機器執行 `skillshare plugin list`。** 即使原生用戶端暫時無法使用，也能保存移轉線索。採用舊 ID 需要原生環境清單；來源安裝還需本機擁有的 snapshot 證據。不會執行其他主機的待處理操作。未驗證線索與移除證據會保留到所有權確認及清理完成。舊 npm 無法區分 add/import，若需要共用安裝方式，請明確重新 add。
 
 帳戶變更時，請先處理原本的原生環境，再進行清理。認證、原生設定與信任仍留在各工具中。
+
+重複匯入不會改寫共用意圖。清理失敗會保留可重試的本機記錄，供下次 sync 使用。舊版執行檔無法寫入 v2，因為它們不認識版本化的宣告欄位。
+
+共用來源配方變更時，本機匯入仍會保留。若要切換至來源安裝，請執行 `skillshare plugin remove NAME --target TARGET`、還原共用來源目標宣告，再執行 `skillshare plugin sync NAME`。

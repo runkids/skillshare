@@ -191,6 +191,10 @@ Skillshare는 자격 증명을 값이 아닌 `fromEnv` 참조로 저장합니다
 
 [Plugins](/docs/reference/commands/plugin#host-state)
 
+각 컴퓨터에서 네이티브 클라이언트로 설치한 뒤 `skillshare plugin import LOCAL-ID --from TARGET --name NAME`을 실행하세요. 이름을 명시적으로 선택해야 기존 선언에 연결됩니다.
+
+`sync`는 누락된 plugin 설치, 변경된 ref 반영, 로컬 정리 재시도를 수행합니다. 같은 ref의 새 릴리스는 `skillshare plugin check`와 `skillshare plugin update`로 확인하고 업데이트하세요.
+
 ### Hooks {#hooks}
 
 Hooks에는 별도 파일이 없습니다. `config.yaml`의 `hooks:` 섹션을 다른 머신에 복사한 뒤 `skillshare sync hooks`를 실행하세요.

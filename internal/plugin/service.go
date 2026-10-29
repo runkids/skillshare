@@ -348,6 +348,16 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				old.Version = installed.Version
 			}
 			decl, declared := d.intent[name].Bindings[r.From]
+			if declared && !decl.Imported && old.ID == "" {
+				matches, err := s.importMatchesRecipe(ctx, r.From, installed, decl)
+				if err != nil {
+					return nil, err
+				}
+				if !matches {
+					return nil, fmt.Errorf("native plugin does not match the declaration's recipe")
+				}
+			}
+
 			if old.ID != "" && declared && !decl.Imported {
 				b = old
 			}
@@ -511,6 +521,10 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				if c.Action == "forget" && agent != "omp" || c.Action == "selection" {
 					p.Changes = append(p.Changes, c)
 				} else {
+					if b.Imported && declared && !decl.Imported && d.state.Bindings[name][target].Applied != nil && d.state.Bindings[name][target].Applied.Intent != decl.fingerprint() && c.Action == "noop" {
+						c.Message = "Shared recipe changed; keeping this local import. To switch to source, use plugin remove, restore the source target declaration, then sync."
+						c.MessageKey = "plugins.note.importRecipeChanged"
+					}
 					appendChange(c)
 				}
 			}
@@ -685,7 +699,7 @@ func (s *Service) prepareChange(ctx context.Context, r Request, d *document, hos
 	if c.Binding.Source == "" && commandTarget(agent) && c.Action == "install" {
 		c.Action = "blocked"
 		c.Message = "This imported plugin has no reviewed reinstall source; install or update in the native client."
-		c.MessageKey = "plugins.skip.imported"
+		c.MessageKey = "plugins.note.importInstallRequired"
 	}
 	if c.Binding.Source == "" && commandTarget(agent) && c.Action == "update" {
 		skip("plugins.skip.imported", "This imported plugin has no reviewed reinstall source; update it in the native client.", nil)

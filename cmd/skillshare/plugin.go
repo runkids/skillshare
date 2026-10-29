@@ -225,6 +225,9 @@ func executePlugin(s *plugin.Service, o pluginOptions) error {
 							}
 						}
 					}
+					if b.RefChanged {
+						mark, state = ui.MarkWarn, "shared ref changed; sync to reconcile"
+					}
 					if b.Pending != "" {
 						mark, state = ui.MarkWarn, "pending "+b.Pending
 					}

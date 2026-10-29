@@ -203,7 +203,7 @@ skillshare plugin add ./package --entry dist/plugin.js --target opencode --no-tu
 skillshare plugin update review --source-ref v1.1.0 --target claude --dry-run --json
 ```
 
-바인딩은 `source_ref`와 해석된 `commit`을 기록합니다. 설치는 검토된 commit을 사용합니다. `check`와 `update`는 구성된 ref를 다시 해석하므로, commit이 고정된 상태에서도 브랜치는 진행될 수 있습니다. `--revision`은 Git ref가 아니라 미리보기 토큰입니다. `--entry`는 각 후보의 패키지 루트를 기준으로 하며 이미 존재해야 합니다. 이는 빌드나 패키지 매니저 설치를 트리거하지 않습니다.
+공유 바인딩은 `source_ref`를 기록하고 해석된 `commit`은 로컬 기록에 저장합니다. 설치는 검토된 commit을 사용합니다. `check`와 `update`는 구성된 ref를 다시 해석하므로, commit이 고정된 상태에서도 브랜치는 진행될 수 있습니다. `--revision`은 Git ref가 아니라 미리보기 토큰입니다. `--entry`는 각 후보의 패키지 루트를 기준으로 하며 이미 존재해야 합니다. 이는 빌드나 패키지 매니저 설치를 트리거하지 않습니다.
 
 Copilot과 Antigravity CLI 설치는 검토된 로컬 스냅샷을 사용합니다. import된 항목은 재설치를 위한 검토된 source가 없습니다: 제거 후에는 네이티브 클라이언트에서 설치하고 다시 sync하세요. Grok도 설치/재설치 전에 네이티브 trust가 필요합니다. Skillshare는 네이티브 trust 승인 플래그를 절대 제공하지 않습니다.
 
@@ -255,7 +255,7 @@ plugins:
 
 네이티브 ID, 검토한 commit/digest/version, Pi 등록 참조와 대기 작업은 `<StateDir>/plugins/<config-path-hash>/state.json`(로컬 형식 version 1)에 저장합니다. StateDir는 기기마다 따로 유지하세요. 상태는 설정 파일의 **절대 경로**로 구분됩니다. 프로젝트나 설정을 이동하거나 이름을 바꾸면 새 상태 영역이 생기며 이전 설치는 추적하거나 정리하지 않습니다. 이동 전에 이전 설정으로 제거하거나 새 위치에서 명시적으로 관리·가져오세요.
 
-sync, 일반 update, 검증, 실패와 재시도는 공유 선언을 바꾸지 않습니다. `update --source-ref`는 ref가 달라질 때만 선언을 변경합니다. 읽기는 레거시 증거를 로컬에 저장하지만 공유 YAML이나 작업 잠금을 만들지 않습니다. add, import, 선택, remove는 필요한 선언 변경을 저장하고 외부 변경을 감지합니다. 동시 Syncthing 편집을 병합하지는 않습니다.
+sync, 일반 update, 검증, 실패와 재시도는 공유 선언을 바꾸지 않습니다. `update --source-ref`는 ref가 달라질 때만 선언을 변경합니다. 읽기는 로컬 작업 잠금 아래 레거시 증거를 저장하며 공유 YAML은 바꾸지 않습니다. 다른 작업이 잠금을 보유하면 해당 작업이나 다음 읽기에 저장을 맡깁니다. add, import, 선택, remove는 필요한 선언 변경을 저장하고 외부 변경을 감지합니다. 동시 Syncthing 편집을 병합하지는 않습니다.
 
 소스 검토와 commit 고정은 **기기별**입니다. 브랜치 ref는 해당 기기의 설치·업데이트 시점에 해석되므로 비대화형 sync가 다른 기기에서 검토한 것보다 새로운 commit을 설치할 수 있습니다. ref 변경도 기기별로 해석합니다. 모든 기기에서 같은 버전을 쓰려면 `source_ref`에 commit SHA를 지정하세요. 로컬 소스 경로도 각 기기에 있어야 합니다.
 
@@ -264,3 +264,7 @@ native-only 대상은 이 기기에서 가져오기가 필요하다고 표시되
 레거시 읽기와 sync는 YAML을 바꾸지 않으며 다음 선언 편집에서 version 2로 전환합니다. **첫 v2 편집 전에 모든 writer를 업그레이드하고, 공유 YAML이 레거시 형식일 때 각 기기에서 `skillshare plugin list`를 실행하세요.** 네이티브 클라이언트가 일시적으로 없어도 이전 증거를 저장합니다. 채택에는 원래 네이티브 환경의 inventory와, 소스 설치의 경우 소유한 snapshot 증거가 필요합니다. 다른 호스트의 대기 작업은 실행하지 않습니다. 미확인 힌트와 제거 증거는 소유권 확인과 정리가 끝날 때까지 유지합니다. 레거시 npm은 add/import를 구별할 수 없으므로 공유 설치 방법이 필요하면 명시적으로 다시 add하세요.
 
 계정이 바뀌면 이전 네이티브 환경을 먼저 해결한 뒤 정리하세요. 인증, 네이티브 설정, trust는 각 도구에 남습니다.
+
+가져오기를 반복해도 공유 의도를 다시 쓰지 않습니다. 정리가 실패하면 다음 sync에서 재시도할 로컬 기록을 유지합니다. 이전 바이너리는 버전이 지정된 선언 필드를 알지 못하므로 v2를 쓸 수 없습니다.
+
+공유 소스 설정이 바뀌어도 로컬 가져오기는 유지합니다. 소스로 전환하려면 `skillshare plugin remove NAME --target TARGET`을 실행하고 공유 소스 대상 선언을 복원한 뒤 `skillshare plugin sync NAME`을 실행하세요.

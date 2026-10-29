@@ -117,7 +117,7 @@ grep '"plugin add"' $XDG_STATE_HOME/skillshare/logs/operations.log | tail -1
 ```
 
 **Expected**: `pi-agentic-driver  pi · installed`, `exit=0`;
-`["npm:@evoclock/pi-agentic-driver@1.0.0"]`; the binding `pi: id: npm:@evoclock/pi-agentic-driver@1.0.0`
+`["npm:@evoclock/pi-agentic-driver@1.0.0"]`; the shared recipe `pi: source: npm:@evoclock/pi-agentic-driver@1.0.0`
 with no `source`; `pi list` shows the package under User packages; version `1.0.0`; an oplog
 entry with `"status":"ok"`.
 
@@ -141,7 +141,7 @@ jq -r .version $PI_CODING_AGENT_DIR/npm/node_modules/@evoclock/pi-agentic-driver
 
 **Expected**: the preview is `install` with key `plugins.note.npmReplace` and
 `{"from":"npm:@evoclock/pi-agentic-driver@1.0.0"}`; `exit=0`; Pi keeps one entry,
-`["npm:@evoclock/pi-agentic-driver@1.1.0"]`; the binding ID is `@1.1.0`; version `1.1.0`.
+`["npm:@evoclock/pi-agentic-driver@1.1.0"]`; the shared source is `npm:@evoclock/pi-agentic-driver@1.1.0` (native IDs stay local); version `1.1.0`.
 
 ### 8. An account that already has the package imports it
 
@@ -155,7 +155,7 @@ grep -A5 'pi-agentic-driver:' $CFG
 ```
 
 **Expected**: `{"target":"pi-work","action":"import"}`; `pi-agentic-driver  pi-work · imported`,
-`exit=0`; `unchanged`; bindings for both `pi` and `pi-work` with ID `@1.1.0`.
+`exit=0`; `unchanged`; shared recipes for both `pi` and `pi-work` with source `npm:@evoclock/pi-agentic-driver@1.1.0`; no native IDs in shared config.
 
 ### 9. Remove runs pi remove on every bound target
 

@@ -8,7 +8,7 @@ func printPluginHelp() {
 			{"discover <source>", "Inspect source candidates without installing"},
 			{"import [native-id]", "Adopt an existing native install with --from"},
 			{"inspect <name>", "Show bindings and native installation state"},
-			{"sync [name]", "Install missing bindings or retry pending operations"},
+			{"sync [name]", "Install missing plugins, reconcile refs and retry local cleanup"},
 			{"check [name]", "Check source content for changes (read-only)"},
 			{"update [name | --all]", "Review and update supported targets"},
 			{"enable [name]", "Select managed targets for the next sync"},
@@ -18,7 +18,7 @@ func printPluginHelp() {
 		helpGroup{title: "Options", rows: []helpRow{
 			{"--target <target>", "Receiving client (repeat to select several; add without\nit keeps the plugin in Skillshare only)"},
 			{"--plugin <name>", "Select one plugin from a marketplace"},
-			{"--name <name>", "Logical Skillshare package name"},
+			{"--name <name>", "Logical package name; import binds to this declaration"},
 			{"--from <target>", "Import from this native client in the selected scope"},
 			{"-a, --all", "Update all managed plugins (update only)"},
 			{"-n, --dry-run", "Preview without writing config or Agent state"},

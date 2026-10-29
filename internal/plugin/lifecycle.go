@@ -157,6 +157,10 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 		}
 		if c.Action == "selection" || c.Target == "" || c.ID == "" && c.Action == "forget" {
 			outcome.Status = "saved"
+			if c.Action == "selection" {
+				outcome.Message = "Sync selection saved. Run sync to apply installation changes."
+				outcome.MessageKey = "plugins.outcome.selectionHelp"
+			}
 			if c.Action == "forget" {
 				outcome.Status = "removed"
 				outcome.Message = "Removed from Skillshare."

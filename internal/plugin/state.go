@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -39,6 +40,8 @@ type localBinding struct {
 	Pending *receipt `json:"pending,omitempty"`
 	// Legacy is a passive proof candidate, never executable installation state.
 	Legacy *receipt `json:"legacy,omitempty"`
+	// LegacySeen survives cleanup so unchanged v1 YAML cannot recreate ownership.
+	LegacySeen bool `json:"legacySeen,omitempty"`
 }
 type localState struct {
 	Version  int                                `json:"version"`
@@ -161,7 +164,7 @@ func (s *Service) compose(d *document) {
 				b = r.Binding
 				b.Sync = decl.Sync
 				b.Imported = decl.Imported || r.Binding.Imported
-				b.Cleanup = r.Intent != decl.fingerprint() && (r.Binding.Source != decl.Source || r.Binding.Plugin != decl.Plugin || r.Binding.Entry != decl.Entry || decl.Imported)
+				b.Cleanup = !r.Binding.Imported && r.Intent != decl.fingerprint() && (r.Binding.Source != decl.Source || r.Binding.Plugin != decl.Plugin || r.Binding.Entry != decl.Entry || decl.Imported)
 				b.ContextChanged = r.Store != s.storeIdentity(target)
 				b.RefChanged = b.Selected() && sameDistribution(r.Binding, decl) && r.Binding.SourceRef != decl.SourceRef
 				if local.Pending != nil && local.Pending.Intent == decl.fingerprint() {
@@ -231,7 +234,7 @@ func (s *Service) saveState(d *document) error {
 	return nil
 }
 func (d *document) putLocal(name, target string, b localBinding) {
-	if b.Applied == nil && b.Pending == nil && b.Legacy == nil {
+	if b.Applied == nil && b.Pending == nil && b.Legacy == nil && !b.LegacySeen {
 		delete(d.state.Bindings[name], target)
 		if len(d.state.Bindings[name]) == 0 {
 			delete(d.state.Bindings, name)
@@ -268,7 +271,8 @@ func (s *Service) captureLegacy(d *document) {
 	for name, p := range d.legacy {
 		for target, b := range p.Bindings {
 			local := d.state.Bindings[name][target]
-			if local.Applied == nil && local.Legacy == nil {
+			if local.Applied == nil && local.Legacy == nil && !local.LegacySeen {
+				local.LegacySeen = true
 				b.Pending = ""
 				local.Legacy = &receipt{Intent: declareBinding(b).fingerprint(), Store: s.storeIdentity(target), Binding: b}
 				d.putLocal(name, target, local)
@@ -325,7 +329,7 @@ func (s *Service) adoptLegacy(d *document, host func(string) Host, names ...stri
 	for name, p := range d.legacy {
 		for target, b := range p.Bindings {
 			// A captured candidate's context and fingerprint take precedence over current intent.
-			if d.state.Bindings[name][target].Legacy != nil {
+			if local := d.state.Bindings[name][target]; local.Legacy != nil || local.LegacySeen {
 				continue
 			}
 			prove(name, target, &receipt{Intent: declareBinding(b).fingerprint(), Store: s.storeIdentity(target), Binding: b})
@@ -442,4 +446,62 @@ func (s *Service) sourceReplacementChanges(ctx context.Context, r Request, name,
 		changes = append(changes, c)
 	}
 	return changes, nil
+}
+
+// importMatchesRecipe compares package identities, not a dashboard's logical alias.
+// Native paths need their manifest identity; their basename may just be index.js.
+func (s *Service) importMatchesRecipe(ctx context.Context, target string, installed Installed, decl declaration) (bool, error) {
+	if isNpmSource(decl.Source) {
+		return sameNpmPackage(installed.ID, decl.Source), nil
+	}
+	nativeName := installed.Name
+	agent := s.agentOf(target)
+	switch {
+	case marketplaceAgent(agent) || agent == "omp" && strings.Contains(installed.ID, "@"):
+		nativeName, _, _ = strings.Cut(installed.ID, "@")
+	case isNpmSource(installed.ID):
+		nativeName = logicalName(installed.ID)
+	case agent == "pi" || agent == "opencode":
+		path := installed.ID
+		if u, err := url.Parse(path); err == nil && u.Scheme == "file" {
+			path = u.Path
+		}
+		if agent == "pi" {
+			settings, err := s.piSettingsPath(target)
+			if err != nil {
+				return false, err
+			}
+			scope := "user"
+			if s.ProjectRoot != "" {
+				scope = "project"
+			}
+			path = resolvePiSource(installed.ID, filepath.Dir(settings), filepath.Dir(settings), scope).install
+		}
+		if filepath.IsAbs(path) {
+			if info, err := os.Stat(path); err == nil && !info.IsDir() {
+				path = filepath.Dir(path)
+			}
+			if native, err := discoverRoot(path, path, ""); err == nil {
+				for _, candidate := range native.Candidates {
+					if candidate.Name == decl.Plugin || decl.Plugin == "" && len(native.Candidates) == 1 {
+						nativeName = candidate.Name
+						break
+					}
+				}
+			}
+		}
+	}
+	if decl.Plugin != "" {
+		return nativeName == decl.Plugin, nil
+	}
+	disc, err := s.discover(ctx, decl.Source, decl.SourceRef, decl.Entry)
+	if err != nil {
+		return false, err
+	}
+	for _, candidate := range disc.Candidates {
+		if candidate.Name == nativeName && slices.Contains(candidate.Targets, agent) && candidate.Problem == "" {
+			return true, nil
+		}
+	}
+	return false, nil
 }

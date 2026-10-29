@@ -19,7 +19,6 @@ describe('plugin outcome translations', () => {
 
   it.each([
     ['Native installation recorded. Reload the Agent and complete any required login or hook trust.', '已記錄原生安裝。請重新載入 Agent，並完成必要的登入或 hooks 信任確認。'],
-    ['Added to Skillshare. Choose Agents when you want to install it.', '已加入 Skillshare。想安裝時再選擇 Agent。'],
     ['Removed from Skillshare.', '已從 Skillshare 移除。'],
     ['Native plugin removed; shared marketplaces are retained.', '已移除原生 plugin；共用 marketplace 會保留。'],
     ['Sync selection saved. Run sync to apply installation changes.', '已儲存同步選擇。請執行同步以套用安裝變更。'],

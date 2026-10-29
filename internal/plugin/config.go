@@ -39,10 +39,20 @@ func (s *Service) load() (*document, error) {
 	// Capture passive local hints before another machine can replace legacy YAML.
 	// Reads leave shared intent untouched; ownership is still proved before adoption.
 	if len(d.legacy) > 0 {
+		// A concurrent mutation owns persistence. Keep passive hints in memory and
+		// let that operation, or the next unlocked read, record them.
+		unlock, lockErr := s.Lock()
+		if lockErr == nil {
+			defer unlock()
+			// Another reader may have saved hints while this read was loading.
+			if err := s.loadState(d); err != nil {
+				return nil, err
+			}
+		}
 		before, _ := json.Marshal(d.state)
 		s.captureLegacyAndVersions(d)
 		after, _ := json.Marshal(d.state)
-		if !bytes.Equal(before, after) {
+		if lockErr == nil && !bytes.Equal(before, after) {
 			if err := s.saveState(d); err != nil {
 				return nil, err
 			}

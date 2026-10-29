@@ -322,3 +322,9 @@ it('keeps the chosen declaration name in single and batch import requests', () =
   expect(importRequest(inventory, 'pi', 'npm:new', '')).toEqual({ action: 'import', from: 'pi', plugin: 'npm:new' });
   expect(importPackageNames(inventory, 'claude')).toEqual([]);
 });
+
+it('does not pick the only waiting declaration for arbitrary imports', () => {
+ const inventory: PluginInventory = { hosts: [], packages: {review: {bindings: {claude: {id: '', source: 'owner/review'}}}}};
+ expect(importRequest(inventory, 'claude', 'a@m')).toEqual({action: 'import', from: 'claude', plugin: 'a@m'});
+ expect(importRequest(inventory, 'claude', 'b@m')).toEqual({action: 'import', from: 'claude', plugin: 'b@m'});
+});

@@ -275,7 +275,7 @@ skillshare plugin add ./package --entry dist/plugin.js --target opencode --no-tu
 skillshare plugin update review --source-ref v1.1.0 --target claude --dry-run --json
 ```
 
-バインディングには `source_ref` と解決済みの `commit` が記録されます。インストールには reviewed されたコミットが使われます。`check` と `update` は設定された ref を再度解決するため、コミットが固定されたままブランチが進むことがあります。`--revision` は Git ref ではなくプレビュートークンです。`--entry` は各候補の package ルートからの相対パスであり、既に存在している必要があります。ビルドや package manager のインストールをトリガーすることはありません。
+共有バインディングには `source_ref` を記録し、解決済みの `commit` はローカルの記録に保存します。インストールには reviewed されたコミットが使われます。`check` と `update` は設定された ref を再度解決するため、コミットが固定されたままブランチが進むことがあります。`--revision` は Git ref ではなくプレビュートークンです。`--entry` は各候補の package ルートからの相対パスであり、既に存在している必要があります。ビルドや package manager のインストールをトリガーすることはありません。
 
 Copilot と Antigravity CLI のインストールは、reviewed されたローカルスナップショットを使用します。インポートには再インストール用の reviewed source がありません。削除後は、ネイティブクライアントでインストールしてから再度 sync してください。Grok もインストール/再インストール前にネイティブな trust が必要です。Skillshare はネイティブな trust の承認フラグを提供しません。
 
@@ -327,7 +327,7 @@ plugins:
 
 ネイティブ ID、確認済みの commit/digest/version、Pi 登録参照、保留中の操作は `<StateDir>/plugins/<config-path-hash>/state.json`（ローカル形式 version 1）に保存します。StateDir はマシンごとに保持してください。状態は設定ファイルの**絶対パス**で識別されます。プロジェクトや設定を移動・改名すると新しい状態領域になり、以前のインストールは追跡も削除もされません。移動前に旧設定から削除するか、移動先で明示的に管理・インポートしてください。
 
-sync、通常の update、検証、失敗、再試行は共有宣言を書き換えません。`update --source-ref` は ref が変わったときだけ宣言を更新します。読み取りは旧形式の証拠をローカルに保存しますが、共有 YAML と操作ロックは変更しません。add、import、選択、remove は必要な宣言変更を保存し、外部変更を検出します。同時の Syncthing 編集はマージできません。
+sync、通常の update、検証、失敗、再試行は共有宣言を書き換えません。`update --source-ref` は ref が変わったときだけ宣言を更新します。読み取りはローカルの操作ロックの下で旧形式の証拠を保存し、共有 YAML は変更しません。ロック使用中は保存を次の操作または読み取りに任せます。add、import、選択、remove は必要な宣言変更を保存し、外部変更を検出します。同時の Syncthing 編集はマージできません。
 
 ソースの確認と commit の固定は**マシンごと**です。ブランチ ref はそのマシンでのインストール・更新時に解決されるため、非対話 sync が別のマシンで確認したものより新しい commit をインストールすることがあります。ref の変更も各マシンで解決します。全マシンで同じ版を使うには `source_ref` に commit SHA を指定してください。ローカルのソースパスも各マシンに必要です。
 
@@ -336,3 +336,7 @@ native-only ターゲットは「このマシンでインポートが必要」�
 旧形式の読み取りと sync は YAML を変えず、次の宣言編集で version 2 にします。**最初の v2 編集前に全 writer を更新し、各マシンで共有 YAML が旧形式のうちに `skillshare plugin list` を実行してください。** ネイティブクライアントが一時的に使えなくても移行のヒントを保存できます。採用には元のネイティブ環境の inventory と、ソースの場合は所有する snapshot の証拠が必要です。他のホストの保留中操作は実行しません。未確認のヒントと削除の証拠は、所有権確認と cleanup が完了するまで保持します。旧 npm は add/import を区別できないため、共有手順が必要なら明示的に add し直してください。
 
 アカウント変更時は以前のネイティブ環境を解決してから cleanup します。認証、ネイティブ設定、trust は各ツールに残ります。
+
+同じインポートを繰り返しても共有の意図は書き換えません。クリーンアップが失敗すると再試行できるローカル記録が残り、次の sync で再試行します。古いバイナリはバージョン付きの宣言フィールドを認識しないため v2 を書き込めません。
+
+共有ソースのレシピが変わってもローカルのインポートは保持します。ソースへ切り替えるには `skillshare plugin remove NAME --target TARGET` を実行し、共有ソースのターゲット宣言を復元してから `skillshare plugin sync NAME` を実行してください。

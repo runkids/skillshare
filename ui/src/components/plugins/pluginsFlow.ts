@@ -28,9 +28,8 @@ export function importPackageNames(inventory: PluginInventory | undefined, targe
   }).map(([name]) => name).sort();
 }
 
-export function importRequest(inventory: PluginInventory | undefined, from: string, plugin: string, selected?: string): PluginRequest {
-  const names = importPackageNames(inventory, from);
-  const name = selected ?? (names.length === 1 ? names[0] : '');
+export function importRequest(_inventory: PluginInventory | undefined, from: string, plugin: string, selected?: string): PluginRequest {
+  const name = selected ?? '';
   return { action: 'import', from, plugin, ...(name ? { name } : {}) };
 }
 

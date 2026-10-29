@@ -280,7 +280,7 @@ skillshare plugin add ./package --entry dist/plugin.js --target opencode --no-tu
 skillshare plugin update review --source-ref v1.1.0 --target claude --dry-run --json
 ```
 
-Bindings 会记录 `source_ref` 和解析出的 `commit`。安装使用的是已审阅的 commit；`check` 和 `update`
+共享绑定记录 `source_ref`；解析出的 `commit` 保存在本机记录。安装使用的是已审阅的 commit；`check` 和 `update`
 会重新解析配置的 ref，因此分支可以继续推进，而 commit 则保持锁定。`--revision` 是一个预览
 token，而不是 Git ref。`--entry` 是相对于每个候选 package root 的路径，且必须已存在；
 它不会触发构建或 package manager 安装。
@@ -367,7 +367,7 @@ plugins:
 
 原生 ID、已检查的 commit/digest/version、Pi 注册引用与待处理操作保存在 `<StateDir>/plugins/<config-path-hash>/state.json`（本机格式 version 1）。StateDir 必须保留在各机器本地。状态以配置文件的**绝对路径**区分：移动或重命名项目／配置文件会建立新的状态空间，不会自动跟踪或清理原有安装。请先通过原配置位置移除安装，或在新位置明确管理／导入。
 
-sync、普通 update、验证、失败与重试不会改写共享声明。`update --source-ref` 仅在 ref 改变时更新声明。读取会在本地保存旧格式证据，不修改共享 YAML，也不创建操作锁。add、import、选择与 remove 会保存必要的声明变更并检查外部修改；这不会合并同时发生的 Syncthing 编辑。
+sync、普通 update、验证、失败与重试不会改写共享声明。`update --source-ref` 仅在 ref 改变时更新声明。读取会在本地操作锁下保存旧格式证据，不修改共享 YAML。锁被其他操作持有时，会将保存延后至该操作或下次读取。add、import、选择与 remove 会保存必要的声明变更并检查外部修改；这不会合并同时发生的 Syncthing 编辑。
 
 来源检查与 commit 固定是**各机器独立**的。分支 ref 在该机器安装或更新时解析，因此非交互 sync 可能安装比另一台机器检查时更新的 commit。ref 变更也会在本地解析。若所有机器必须使用相同版本，请将 `source_ref` 设为 commit SHA。本地来源路径也必须在各机器存在。
 
@@ -376,3 +376,7 @@ native-only 目标显示“此机器需要导入”，sync 会跳过。请先在
 旧格式读取与 sync 不改写 YAML，下次声明编辑才写入 version 2。**首次 v2 编辑前，请升级所有写入端，并在共享 YAML 仍为旧格式时，于每台机器执行 `skillshare plugin list`。** 即使原生客户端暂时不可用，也能保存迁移线索。采用旧 ID 需要原生环境清单；来源安装还需本机拥有的 snapshot 证据。不会执行其他主机的待处理操作。未验证线索与移除证据会保留到所有权确认及清理完成。旧 npm 无法区分 add/import，若需要共享安装方式，请明确重新 add。
 
 账户变更时，请先处理原本的原生环境，再进行清理。认证、原生配置与信任仍留在各工具中。
+
+重复导入不会改写共享意图。清理失败会保留可重试的本机记录，供下次 sync 使用。旧版可执行文件无法写入 v2，因为它们不认识版本化的声明字段。
+
+共享来源配方更改时，本机导入仍会保留。若要切换到来源安装，请运行 `skillshare plugin remove NAME --target TARGET`、恢复共享来源目标声明，再运行 `skillshare plugin sync NAME`。

@@ -3516,6 +3516,8 @@
   "plugins.note.cleanupRequired": "以前のインストールの削除が必要です。同期して共有設定を反映してください。",
   "plugins.note.replaceLocal": "共有設定を適用する前に、以前のローカルインストールを削除します。",
   "plugins.note.nativeAdopt": "ネイティブにインストール済みです。再インストールせずにインポートします。",
+  "plugins.note.importInstallRequired": "このインポート済み plugin には確認済みの再インストール元がありません。ネイティブクライアントでインストールまたは更新してください。",
+  "plugins.note.importRecipeChanged": "共有レシピが変更されましたが、ローカルのインポートを保持します。ソースへ切り替えるには plugin remove を実行し、ソースのターゲット宣言を復元してから sync してください。",
   "plugins.note.selection": "同期対象の選択のみを保存します。同期してこのターゲットをインストールまたは削除してください。",
   "plugins.note.localImportRequired": "このマシンでインポートが必要です。ローカルのネイティブ識別子をこのパッケージにインポートしてください。",
   "plugins.note.noLocalBinding": "宣言を削除します。ローカルインストールは登録されていません。"

@@ -235,8 +235,8 @@ func TestPluginHostStateFirstNativeImportPreservesSourceIntent(t *testing.T) {
 			shared, _ := os.ReadFile(a.ConfigPath)
 			b := fakePiNpm(t, &bCalls)
 			writePluginFile(t, filepath.Dir(b.ConfigPath), filepath.Base(b.ConfigPath), string(shared))
-			writePluginFile(t, filepath.Dir(b.ConfigPath), ".pi/agent/settings.json", `{"packages":["npm:other"]}`)
-			applyPluginRequest(t, b, Request{Action: "import", From: "pi", Plugin: "npm:other", Name: "demo"})
+			writePluginFile(t, filepath.Dir(b.ConfigPath), ".pi/agent/settings.json", `{"packages":["npm:demo"]}`)
+			applyPluginRequest(t, b, Request{Action: "import", From: "pi", Plugin: "npm:demo", Name: "demo"})
 			changed, _ := os.ReadFile(b.ConfigPath)
 			if string(changed) != string(shared) {
 				t.Fatal("local import rewrote shared source recipe")

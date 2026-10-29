@@ -3516,6 +3516,8 @@
   "plugins.note.cleanupRequired": "Instalasi sebelumnya perlu dibersihkan. Sinkronkan untuk menerapkan konfigurasi bersama.",
   "plugins.note.replaceLocal": "Hapus instalasi lokal sebelumnya sebelum menerapkan konfigurasi bersama.",
   "plugins.note.nativeAdopt": "Sudah terpasang secara native. Impor tanpa memasang ulang.",
+  "plugins.note.importInstallRequired": "This imported plugin has no reviewed reinstall source; install or update it in the native client.",
+  "plugins.note.importRecipeChanged": "Shared recipe changed; keeping this local import. To switch to source, use plugin remove, restore the source target declaration, then sync.",
   "plugins.note.selection": "Simpan pilihan sinkronisasi saja. Sinkronkan untuk memasang atau menghapus target ini.",
   "plugins.note.localImportRequired": "Mesin ini memerlukan impor. Impor pengenal native lokal ke paket ini.",
   "plugins.note.noLocalBinding": "Hapus deklarasi. Tidak ada instalasi lokal yang terkait."

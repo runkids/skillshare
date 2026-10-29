@@ -191,6 +191,10 @@ Skillshare 把憑證存成 `fromEnv` 參照，從不儲存實際的值。請在�
 
 [Plugins](/docs/reference/commands/plugin#host-state)
 
+在每台機器先於原生客戶端安裝，再執行 `skillshare plugin import LOCAL-ID --from TARGET --name NAME`。只有明確選擇宣告名稱時才會綁定既有宣告。
+
+`sync` 會安裝缺少的 plugin、調整已變更的 ref，並重試本機清理。對未變更的 ref，使用 `skillshare plugin check` 與 `skillshare plugin update` 檢查及更新新版本。
+
 ### Hooks {#hooks}
 
 Hooks 沒有獨立的檔案。把 `config.yaml` 的 `hooks:` 區段複製到另一台機器，然後執行 `skillshare sync hooks`。

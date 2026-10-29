@@ -3516,6 +3516,8 @@
   "plugins.note.cleanupRequired": "نصب قبلی به پاک‌سازی نیاز دارد. برای اعمال پیکربندی مشترک همگام‌سازی کنید.",
   "plugins.note.replaceLocal": "پیش از اعمال پیکربندی مشترک، نصب محلی قبلی را حذف کنید.",
   "plugins.note.nativeAdopt": "قبلاً به‌صورت بومی نصب شده است. بدون نصب مجدد وارد کنید.",
+  "plugins.note.importInstallRequired": "This imported plugin has no reviewed reinstall source; install or update it in the native client.",
+  "plugins.note.importRecipeChanged": "Shared recipe changed; keeping this local import. To switch to source, use plugin remove, restore the source target declaration, then sync.",
   "plugins.note.selection": "فقط انتخاب همگام‌سازی ذخیره شود. برای نصب یا حذف این مقصد همگام‌سازی کنید.",
   "plugins.note.localImportRequired": "ورود روی این دستگاه لازم است. شناسهٔ بومی محلی را به این بسته وارد کنید.",
   "plugins.note.noLocalBinding": "اعلان حذف شود. هیچ نصب محلی متصل نیست."

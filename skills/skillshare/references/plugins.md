@@ -69,7 +69,7 @@ Add targets later with the same source and `--name`, which installs the source a
 then. Such a package stays managed when its last target is removed.
 
 Use `--source-ref REF` with discover/add/update for a remote Git source.
-Bindings retain `source_ref` and the reviewed `commit`; `--revision` is a separate
+Shared bindings retain `source_ref`; the reviewed `commit` stays in the local receipt; `--revision` is a separate
 preview token. Use `--entry dist/plugin.js` with discover/add for an explicit
 OpenCode entry. Never build or execute package code just to discover it.
 

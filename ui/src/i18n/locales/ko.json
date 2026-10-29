@@ -3516,6 +3516,8 @@
   "plugins.note.cleanupRequired": "이전 설치를 정리해야 합니다. 동기화하여 공유 설정을 반영하세요.",
   "plugins.note.replaceLocal": "공유 설정을 적용하기 전에 이전 로컬 설치를 제거합니다.",
   "plugins.note.nativeAdopt": "이미 네이티브로 설치되어 있습니다. 재설치 없이 가져옵니다.",
+  "plugins.note.importInstallRequired": "가져온 plugin에는 검토된 재설치 소스가 없습니다. 네이티브 클라이언트에서 설치하거나 업데이트하세요.",
+  "plugins.note.importRecipeChanged": "공유 설치 설정이 바뀌었지만 로컬 가져오기를 유지합니다. 소스로 전환하려면 plugin remove 후 소스 대상 선언을 복원하고 sync를 실행하세요.",
   "plugins.note.selection": "동기화 선택만 저장합니다. 동기화하여 이 대상을 설치하거나 제거하세요.",
   "plugins.note.localImportRequired": "이 기기에서 가져오기가 필요합니다. 로컬 네이티브 식별자를 이 패키지로 가져오세요.",
   "plugins.note.noLocalBinding": "선언을 제거합니다. 연결된 로컬 설치가 없습니다."

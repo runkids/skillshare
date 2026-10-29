@@ -16,7 +16,6 @@ const statusKeys: Record<string, string> = {
 // Mirrors the fixed outcome messages in internal/plugin/lifecycle.go; native errors stay intact.
 const messageKeys: Record<string, string> = {
   'Native installation recorded. Reload the Agent and complete any required login or hook trust.': 'plugins.outcome.installHelp',
-  'Added to Skillshare. Choose Agents when you want to install it.': 'plugins.outcome.addHelp',
   'Removed from Skillshare.': 'plugins.outcome.removeHelp',
   'Native plugin removed; shared marketplaces are retained.': 'plugins.outcome.nativeRemoveHelp',
   'Sync selection saved. Run sync to apply installation changes.': 'plugins.outcome.selectionHelp',

@@ -3516,6 +3516,8 @@
   "plugins.note.cleanupRequired": "先前的安裝需要清理。請同步以套用共用設定。",
   "plugins.note.replaceLocal": "套用共用設定前，先移除之前的本機安裝。",
   "plugins.note.nativeAdopt": "已在原生用戶端安裝。匯入而不重新安裝。",
+  "plugins.note.importInstallRequired": "此匯入的 plugin 沒有已審閱的重新安裝來源；請在原生客戶端安裝或更新。",
+  "plugins.note.importRecipeChanged": "共用安裝配方已變更；保留此本機匯入。若要切換至來源安裝，請執行 plugin remove、還原來源目標宣告，再執行 sync。",
   "plugins.note.selection": "僅儲存同步選擇。請同步以安裝或移除此目標。",
   "plugins.note.localImportRequired": "此機器需要匯入。請將本機原生識別碼匯入此套件。",
   "plugins.note.noLocalBinding": "移除宣告。未綁定本機安裝。"

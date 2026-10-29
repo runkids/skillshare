@@ -118,7 +118,28 @@ pnpm exec vitest run src/components/plugins/PluginAddDialog.test.tsx src/pages/P
 Check Clean and Playful in light/dark: advanced source options, per-target reasons,
 registered/loading-unverified state, and identical Antigravity Desktop/CLI logos.
 
-### 4. Two-machine shared declarations and private receipts
+### 7. Real CLI flow in two ssenv environments
+
+The script creates two fresh ssenv homes and initializes each through the real
+binary. A installs a harmless Cursor source; only shared config passes to B.
+B previews and installs its own native snapshot, then repeats sync without
+rewriting shared YAML. A removes the declaration; B receives it and cleans up
+only its own install. No native CLI or network access is required for Cursor.
+The source path is shared because both simulated machines use one filesystem;
+all native homes and receipt directories are distinct.
+
+```bash
+cd /workspace
+SKILLSHARE_BIN=/workspace/bin/skillshare bash scripts/testing/plugin-two-hosts.sh
+```
+
+**Expected**:
+- Exit code 0.
+- `PASS: two-machine CLI lifecycle`
+- The output names both fresh environments and the retained artifact directory.
+- Each `jq -e` check prints `true`; both `cmp` checks succeed.
+
+### 8. Two-machine declaration regression fixtures
 
 These deterministic fixtures simulate two machines with separate native homes,
 config paths and state directories. Only config bytes pass between them. They
@@ -136,7 +157,7 @@ source and import flows:
 
 ```bash
 cd /workspace
-GOMAXPROCS=4 go test -p 4 ./internal/plugin -run 'TestSharedSourceLifecycleAcrossHostsAndScopes|TestPluginHostStateFirstNativeImportPreservesSourceIntent|TestLegacyReadPersistsEvidenceBeforeRemoteMigration|TestLegacyPendingRemovalRetriesAfterMigration' -count=1 -v
+GOMAXPROCS=2 GOFLAGS=-p=2 go test ./internal/plugin -run 'TestSharedSourceLifecycleAcrossHostsAndScopes|TestPluginHostStateFirstNativeImportPreservesSourceIntent|TestLegacyReadPersistsEvidenceBeforeRemoteMigration|TestLegacyPendingRemovalRetriesAfterMigration' -count=1 -v
 ```
 
 **Expected**:
@@ -146,14 +167,14 @@ GOMAXPROCS=4 go test -p 4 ./internal/plugin -run 'TestSharedSourceLifecycleAcros
 - `--- PASS: TestLegacyReadPersistsEvidenceBeforeRemoteMigration`
 - `--- PASS: TestLegacyPendingRemovalRetriesAfterMigration`
 
-### 5. Second-machine import guidance in doctor
+### 9. Second-machine import guidance in doctor
 
 A second machine receives an imported declaration without the first machine's
 native ID. Doctor must warn about the skipped import, leaving shared YAML intact.
 
 ```bash
 cd /workspace
-GOMAXPROCS=4 go test -p 4 ./tests/integration -run 'TestDoctor_JSON_PluginMissingCLIIsWarning/second-machine-import' -count=1 -v
+GOMAXPROCS=2 GOFLAGS=-p=2 go test ./tests/integration -run 'TestDoctor_JSON_PluginMissingCLIIsWarning/second-machine-import' -count=1 -v
 ```
 
 **Expected**:

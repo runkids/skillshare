@@ -438,8 +438,8 @@ skillshare plugin add ./package --entry dist/plugin.js --target opencode --no-tu
 skillshare plugin update review --source-ref v1.1.0 --target claude --dry-run --json
 ```
 
-Bindings record `source_ref` and the resolved `commit`. Installation uses the
-reviewed commit; `check` and `update` resolve the configured ref again, so a branch
+Shared bindings record `source_ref`; the resolved `commit` stays in the local receipt. Installation uses the
+locally reviewed commit; `check` and `update` resolve the configured ref again, so a branch
 can advance while a commit remains pinned. `--revision` is a preview token, not
 a Git ref. `--entry` is relative to each candidate's package root and must already
 exist; it does not trigger a build or package-manager install.
@@ -550,7 +550,7 @@ implicitly tracked or cleaned up; remove them through the old config location
 before moving, or manage/import them explicitly at the new location.
 Keep StateDir machine-local. Sync, update, verification, failure and retry never
 write shared declarations; `update --source-ref` writes only a changed desired ref.
-Reads capture legacy evidence in local state without changing shared YAML or creating operation locks. Explicit add, import, selection
+Reads capture legacy evidence under the local operation lock without changing shared YAML. If another operation holds the lock, the read leaves persistence to that operation or the next unlocked read. Explicit add, import, selection
 and removal edit declarations with changed-byte checks. This does not merge simultaneous
 Syncthing intent edits: concurrent declaration edits can still conflict.
 
@@ -589,3 +589,5 @@ receipt until cleanup succeeds. Failed cleanup or replacement remains local and
 retryable. Repointing/removing an account preserves its old receipt and requires
 resolving the previous native context before cleanup. Authentication, native
 settings and trust remain in each tool; do not copy them as plugin state.
+
+A local import remains installed when its shared source recipe changes. To switch to the source recipe, run `skillshare plugin remove NAME --target TARGET`, restore the shared declaration if removed, then run `skillshare plugin sync NAME`.
