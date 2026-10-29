@@ -40,7 +40,14 @@ func fileSpec(name string, tc TargetConfig, project bool) (targetSpec, bool) {
 	if !project && tc.Agent != "" && tc.ConfigDir != "" {
 		return globalSpec(tc.Agent)
 	}
-	return globalSpec(name)
+	// Plain targets retain environment-selected homes; accounts use canonical templates.
+	specs, _ := loadTargetSpecs()
+	for _, spec := range specs {
+		if spec.Name != "" && targetSpecMatchesName(spec, name) {
+			return spec, true
+		}
+	}
+	return targetSpec{}, false
 }
 
 // TargetFileRoot returns the directory a target's extra files are relative to.

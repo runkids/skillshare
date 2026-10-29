@@ -217,3 +217,67 @@ func TestUpdate_LocalSkillFileOnlySource_ChildAddedLater_CopiesChild(t *testing.
 		t.Errorf("child skill was not copied by the update: %v", err)
 	}
 }
+
+// setupGitSkillWithLocalEdit installs a single-skill git repo, edits its
+// SKILL.md locally, then changes SKILL.md upstream so a pull would conflict.
+func setupGitSkillWithLocalEdit(t *testing.T) (source *Source, dest, sourceDir string) {
+	t.Helper()
+	repo := initTestRepo(t)
+	write := func(dir, body string) {
+		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(body), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(repo, "---\nname: demo\n---\n# v1\n")
+	gitAdd(t, repo, ".")
+	gitCommit(t, repo, "v1")
+
+	sourceDir = t.TempDir()
+	dest = filepath.Join(sourceDir, "demo")
+	if err := cloneRepo("file://"+repo, dest, "", false, nil); err != nil {
+		t.Fatalf("clone failed: %v", err)
+	}
+	write(dest, "---\nname: demo\n---\n# local edit\n")
+	write(repo, "---\nname: demo\n---\n# v2\n")
+	gitAdd(t, repo, ".")
+	gitCommit(t, repo, "v2")
+
+	source, err := ParseSource("file://" + repo)
+	if err != nil {
+		t.Fatalf("ParseSource failed: %v", err)
+	}
+	return source, dest, sourceDir
+}
+
+func TestUpdate_GitSkillLocalEditErrorNamesFiles(t *testing.T) {
+	source, dest, sourceDir := setupGitSkillWithLocalEdit(t)
+	_, err := Install(source, dest, InstallOptions{Update: true, Force: true, SourceDir: sourceDir, SkipAudit: true})
+	if err == nil || !strings.Contains(err.Error(), "SKILL.md") {
+		t.Fatalf("expected the error to name SKILL.md, got %v", err)
+	}
+}
+
+func TestUpdate_GitSkillReinstallDiscardsLocalEdit(t *testing.T) {
+	source, dest, sourceDir := setupGitSkillWithLocalEdit(t)
+	if _, err := Install(source, dest, InstallOptions{Update: true, Force: true, Reinstall: true, SourceDir: sourceDir, SkipAudit: true}); err != nil {
+		t.Fatalf("forced update failed: %v", err)
+	}
+	if got, _ := os.ReadFile(filepath.Join(dest, "SKILL.md")); !strings.Contains(string(got), "# v2") {
+		t.Fatalf("SKILL.md = %q, want upstream v2", got)
+	}
+}
+
+func TestUpdate_GitSkillReinstallKeepsLocalEditWhenFetchFails(t *testing.T) {
+	_, dest, sourceDir := setupGitSkillWithLocalEdit(t)
+	runGit(t, dest, "remote", "set-url", "origin", "file://"+filepath.Join(t.TempDir(), "gone"))
+	source, err := ParseSource("file://" + filepath.Join(t.TempDir(), "gone"))
+	if err != nil {
+		t.Fatalf("ParseSource failed: %v", err)
+	}
+	if _, err := Install(source, dest, InstallOptions{Update: true, Force: true, Reinstall: true, SourceDir: sourceDir, SkipAudit: true}); err == nil {
+		t.Fatal("expected the update to fail without a reachable remote")
+	}
+	if got, _ := os.ReadFile(filepath.Join(dest, "SKILL.md")); !strings.Contains(string(got), "# local edit") {
+		t.Fatalf("local edit lost after failed update: %q", got)
+	}
+}

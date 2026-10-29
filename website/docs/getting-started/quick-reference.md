@@ -82,7 +82,7 @@ Command cheat sheet for skillshare.
 | `plugin import [plugin@market] --from claude` | Adopt an existing native installation |
 | `plugin inspect <name>` | Inspect a managed package |
 | `plugin check [name]` | Check source changes without applying |
-| `plugin update [name] --target claude` | Update a supported target from a reviewed source |
+| `plugin update [name \| --all] --target claude` | Update a supported target from a reviewed source |
 | `plugin enable [name] --target codex` | Select a target for the next sync |
 | `plugin disable [name] --target codex` | Deselect a target for the next sync |
 | `plugin remove [name]` | Uninstall managed bindings and remove definitions |

@@ -14,6 +14,7 @@ import { TourProvider, TourOverlay, TourTooltip } from './components/tour';
 import TruncateTip from './components/TruncateTip';
 import DashboardPage from './pages/DashboardPage';
 import { BASE_PATH } from './lib/basePath';
+import { useRouteReport } from './hooks/useRouteReport';
 
 const HubPage = lazy(() => import('./pages/HubPage'));
 const ResourcesPage = lazy(() => import('./pages/ResourcesPage'));
@@ -66,6 +67,7 @@ function LegacyTargetRedirect() {
 }
 
 function AppRoutes() {
+  useRouteReport();
   return (
     <ErrorBoundary>
       <TourProvider>

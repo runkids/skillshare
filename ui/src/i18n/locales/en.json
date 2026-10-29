@@ -827,6 +827,7 @@
   "update.check.viewChanges": "View changes",
   "update.done.subtitle": "Update finished.",
   "update.done.syncHint": "Targets get the new versions on the next sync.",
+  "update.done.failedHint": "Targets match the source. The items below were not updated.",
   "update.empty.description": "Install tracked repositories or GitHub skills to check for updates.",
   "update.empty.title": "No updatable skills",
   "update.empty.agentsTitle": "No updatable agents",

@@ -562,6 +562,13 @@ func TestExtractGitFatal(t *testing.T) {
 			want: "Need to specify how to reconcile divergent branches.",
 		},
 		{
+			name: "merge refusal keeps the listed files",
+			stderr: "error: Your local changes to the following files would be overwritten by merge:\n" +
+				"\tREADME.md\n\tSKILL.md\n" +
+				"Please commit your changes or stash them before you merge.\nAborting",
+			want: "Your local changes to the following files would be overwritten by merge: README.md, SKILL.md",
+		},
+		{
 			name:   "error prefix",
 			stderr: "error: cannot pull with rebase",
 			want:   "cannot pull with rebase",

@@ -905,6 +905,7 @@
   "update.check.viewChanges": "مشاهدهٔ تغییرات",
   "update.done.subtitle": "به‌روزرسانی کامل شد.",
   "update.done.syncHint": "مقصدها نسخه‌های جدید را در همگام‌سازی بعدی دریافت می‌کنند.",
+  "update.done.failedHint": "مقصدها با منبع مطابقت دارند. موارد زیر به‌روزرسانی نشدند.",
   "update.empty.description": "مخازن ردیابی‌شده یا اسکیل‌های GitHub نصب کنید تا به‌روزرسانی‌ها بررسی شوند.",
   "update.empty.title": "هیچ اسکیل قابل به‌روزرسانی وجود ندارد",
   "update.empty.agentsTitle": "هیچ ایجنت قابل به‌روزرسانی وجود ندارد",

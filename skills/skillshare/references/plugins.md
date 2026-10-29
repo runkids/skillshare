@@ -22,6 +22,7 @@ skillshare plugin inspect demo -g --json
 skillshare plugin check demo -g --json
 skillshare plugin update demo -g --dry-run --json
 skillshare plugin update demo -g --no-tui
+skillshare plugin update --all -g --no-tui
 ```
 
 For a marketplace, pass the discovered candidate with `--plugin NAME` on both
@@ -33,7 +34,7 @@ managed target selection, while `plugin update` refreshes upstream content.
 When adding a new package, omit `--source-ref` to follow the remote's default branch.
 Updates reuse its stored ref; omitting the flag on update does not unpin an existing package.
 Adding a plugin does not schedule automatic updates; run `check` and `update` later.
-`sync --all` does not update or sync plugins.
+`sync --all` does not update or sync plugins; use `plugin update --all` (`-a`) to update all managed plugins.
 
 ## Inspect before changing
 
@@ -104,16 +105,22 @@ This is not native enable/disable. `sync --all` does not include plugins.
 skillshare plugin check demo --json -g
 skillshare plugin update demo --target claude --dry-run --json -g
 skillshare plugin update demo --target claude --no-tui -g
+skillshare plugin update --all --dry-run --json -g
+skillshare plugin update --all --no-tui -g
 skillshare plugin remove demo --dry-run --json -g
 ```
 
+`update --all` (`-a`) updates all managed packages (optionally filtered by `--target`);
+it cannot be combined with a package name or `--source-ref`. In `--all` mode, broken
+sources or unavailable targets are isolated to the affected bindings so healthy packages
+still update while any failure returns a nonzero exit code.
 `remove NAME --target` uninstalls that binding. `remove NAME` without `--target`, once
 no Agent holds it, drops the package from Skillshare entirely.
 
 Claude supports native updates; Codex re-adds the reviewed snapshot unless the plugin is disabled in Codex. Cursor/Antigravity replace managed
 local copies; Pi/OpenCode refresh reviewed source snapshots. Imported Codex plugins update by upgrading their marketplace; imported Pi packages through `pi update`, global only. Imported OpenCode v1 packages must be updated natively. OpenCode v2 global
-imports may use native update; project imports may not. Copilot source updates
-require known native enabled state; Antigravity CLI and Grok update natively. Project mode supports Claude, Antigravity, Pi,
+imports may use native update; project imports may not. Copilot and Antigravity CLI source updates
+require known native enabled state; Grok updates natively. Project mode supports Claude, Antigravity, Pi,
 OMP and OpenCode, never falling back to global scope. An update skips a target it
 cannot reach, says why, and still updates the other targets.
 
@@ -239,8 +246,9 @@ automation must provide explicit arguments and use `--json` or `--no-tui`.
 
 - Copilot installs a reviewed snapshot. An imported binding without a source cannot
   be reinstalled automatically after removal; install natively, then sync again.
-- Antigravity CLI accepts native and Claude manifests using its own CLI. Its native
-  list does not expose enablement; never present unknown as disabled. Update in agy.
+- Antigravity CLI accepts native and Claude manifests using its own CLI. Source
+  updates require known native enabled state (`agy plugin list --json`); disabled or
+  imported installations must be updated in agy.
 - Grok install/update requires native trust; never add `--trust` automatically.
 - Kimi, Hermes, and Devin discovery does not authorize native installation,
   capability consent, or cloud changes. Explain the adapter limitation.

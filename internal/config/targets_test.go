@@ -124,6 +124,16 @@ func TestLookupProjectTarget_Alias(t *testing.T) {
 
 // --- Agent target tests ---
 
+func TestLookupProjectTarget_OMPAlias(t *testing.T) {
+	t.Setenv("PI_CODING_AGENT_DIR", t.TempDir())
+	for _, name := range []string{"omp", "oh-my-pi"} {
+		target, ok := LookupProjectTarget(name)
+		if !ok || target.Path != filepath.Join(".omp", "skills") {
+			t.Fatalf("project %s = %+v, %t", name, target, ok)
+		}
+	}
+}
+
 func TestDefaultAgentTargets_V1TargetsHaveAgentPaths(t *testing.T) {
 	agents := DefaultAgentTargets()
 

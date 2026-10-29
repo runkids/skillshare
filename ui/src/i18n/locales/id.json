@@ -905,6 +905,7 @@
   "update.check.viewChanges": "Lihat perubahan",
   "update.done.subtitle": "Pembaruan selesai.",
   "update.done.syncHint": "Target mendapatkan versi baru pada sinkronisasi berikutnya.",
+  "update.done.failedHint": "Target sudah sesuai dengan sumber. Item di bawah tidak diperbarui.",
   "update.empty.description": "Instal repositori yang dilacak atau skill GitHub untuk memeriksa pembaruan.",
   "update.empty.title": "Tidak ada skill yang dapat diperbarui",
   "update.empty.agentsTitle": "Tidak ada agent yang dapat diperbarui",

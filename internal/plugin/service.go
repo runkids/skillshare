@@ -73,7 +73,21 @@ func (s *Service) validate(r Request) error {
 	if r.Action == "import" && (!slices.Contains(targets, r.From) || !validTargetID(s.agentOf(r.From), r.Plugin)) {
 		return fmt.Errorf("import requires --from <target> and a native plugin identifier")
 	}
-	if (r.Action == "remove" || r.Action == "update" || r.Action == "enable" || r.Action == "disable") && r.Name == "" {
+	if r.All {
+		if r.Action != "update" {
+			return fmt.Errorf("--all is only supported for update")
+		}
+		if r.Name != "" {
+			return fmt.Errorf("--all cannot be combined with a package name")
+		}
+		if r.SourceRef != "" {
+			return fmt.Errorf("--source-ref cannot be combined with --all")
+		}
+	}
+	if r.Action == "update" && r.Name == "" && !r.All {
+		return fmt.Errorf("update requires a package name or --all")
+	}
+	if (r.Action == "remove" || r.Action == "enable" || r.Action == "disable") && r.Name == "" {
 		return fmt.Errorf("%s requires a package name", r.Action)
 	}
 	return nil
@@ -115,20 +129,26 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 	appendChange := func(c Change) {
 		h := host(c.Target)
 		agent := s.agentOf(c.Target)
+		failChange := func(message, key string, args map[string]string) {
+			if r.All {
+				c.Action, c.batchError = "skip", true
+			} else {
+				c.Action = "blocked"
+			}
+			c.Message, c.MessageKey, c.MessageArgs = message, key, args
+		}
 		if agent == "pi" && c.Binding.PiRegistration != "" && len(c.piRecord) == 0 && (c.Action == "install" || c.Action == "uninstall" || c.Action == "remove" || c.Action == "update") {
 			if err := s.preparePiRegistration(ctx, &c); err != nil {
-				c.Action, c.Message, c.MessageKey, c.MessageArgs = "blocked", err.Error(), "", nil
+				failChange(err.Error(), "", nil)
 			}
 		}
-		// A change already blocked keeps its own reason; the key always matches the message.
-		if h.Error != "" && c.Action != "blocked" {
-			c.Action = "blocked"
-			c.Message, c.MessageKey, c.MessageArgs = h.Error, h.ErrorKey, h.ErrorArgs
+		// A change already blocked or skipped keeps its own reason; the key always matches the message.
+		if h.Error != "" && c.Action != "blocked" && c.Action != "skip" {
+			failChange(h.Error, h.ErrorKey, h.ErrorArgs)
 		}
 		if c.Action != "blocked" && c.Action != "noop" && c.Action != "skip" && c.Action != "import" && c.Action != "update-available" && c.Action != "native-check" {
 			if err := s.verifyCommand(ctx, c.Target, c.Action, c.ID); err != nil {
-				c.Action = "blocked"
-				c.Message = err.Error()
+				failChange(err.Error(), "", nil)
 			}
 		}
 		// An update that cannot reach a target skips it, so the plugin's other Agents still update.
@@ -160,9 +180,6 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		if agent == "omp" && (c.Action == "install" || c.Action == "update") && c.Message == "" {
 			c.Message, c.MessageKey = "Installs the reviewed snapshot. If the plugin provides extensions or tools, OMP loads them at its next startup.", "plugins.note.ompRuntime"
 		}
-		if c.Action == "update" && agent == "antigravity-cli" {
-			skip("plugins.skip.keepEnablement", "Update in Antigravity CLI to preserve native enablement; automatic reinstall updates are not supported.", map[string]string{"agent": "Antigravity CLI"})
-		}
 		// pi update keeps an npm package pinned to an exact version.
 		if version := pinnedNpm(c.ID); c.Action == "update" && agent == "pi" && version != "" {
 			skip("plugins.skip.npmPinned", fmt.Sprintf("Pinned to %s; to use another version, add the package again with that version.", version), map[string]string{"version": version})
@@ -185,11 +202,22 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		if c.Binding.Source == "" && commandTarget(agent) && c.Action == "update" {
 			skip("plugins.skip.imported", "This imported plugin has no reviewed reinstall source; update it in the native client.", nil)
 		}
-		if c.Action == "update" && agent == "copilot" {
+		if c.Action == "update" && (agent == "copilot" || agent == "antigravity-cli") {
+			label := "GitHub Copilot CLI"
+			msg := "Update in Copilot to preserve native enablement."
+			if agent == "antigravity-cli" {
+				label = "Antigravity CLI"
+				msg = "Update in Antigravity CLI to preserve native enablement."
+			}
+			enabled := false
 			for _, item := range h.Installed {
-				if item.ID == c.ID && (!item.EnabledKnown || !item.Enabled) {
-					skip("plugins.skip.keepEnablement", "Update in Copilot to preserve native enablement.", map[string]string{"agent": "GitHub Copilot CLI"})
+				if item.ID == c.ID && item.EnabledKnown && item.Enabled {
+					enabled = true
+					break
 				}
+			}
+			if !enabled {
+				skip("plugins.skip.keepEnablement", msg, map[string]string{"agent": label})
 			}
 		}
 		if c.Action == "update" && agent == "codex" && c.Binding.Source == "" {
@@ -215,12 +243,18 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		// Skips above are not native commands; what is left for omp must not destroy a shared cache.
 		if agent == "omp" && h.Error == "" {
 			ompGuard(h, &c)
+			if r.All && c.Action == "blocked" && c.MessageKey == "plugins.error.ompNativeDestructive" && len(r.Targets) == 0 {
+				c.Action = "skip"
+			}
 			if c.Action == "install" {
 				s.prepareOMPInstall(ctx, h, &c)
 			}
 			if c.Action == "remove" || c.Action == "uninstall" || c.Action == "forget" {
 				s.prepareOMPRemoval(h, &c)
 			}
+		}
+		if r.All && c.Action == "blocked" {
+			c.Action, c.batchError = "skip", true
 		}
 		if c.Action == "blocked" {
 			p.Blocked = true
@@ -427,6 +461,10 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		if discoveries == nil {
 			discoveries = map[string]*Discovery{}
 		}
+		discoveryErrs := s.discoveryErrs
+		if discoveryErrs == nil {
+			discoveryErrs = map[string]error{}
+		}
 		latests := map[string][]int{}
 		for _, name := range names {
 			if r.Name != "" && r.Name != name {
@@ -507,12 +545,23 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 					}
 					discoveryKey := b.Source + "\x00" + ref + "\x00" + b.Entry
 					disc := discoveries[discoveryKey]
-					if disc == nil {
-						disc, err = DiscoverOptions(ctx, b.Source, ref, b.Entry)
-						if err != nil {
-							return nil, err
+					discErr := discoveryErrs[discoveryKey]
+					if disc == nil && discErr == nil {
+						disc, discErr = DiscoverOptions(ctx, b.Source, ref, b.Entry)
+						if discErr != nil {
+							discoveryErrs[discoveryKey] = discErr
+						} else {
+							discoveries[discoveryKey] = disc
 						}
-						discoveries[discoveryKey] = disc
+					}
+					if discErr != nil {
+						if !r.All {
+							return nil, discErr
+						}
+						key, args := ErrorKey(discErr)
+						c.Action, c.batchError = "skip", true
+						c.Message, c.MessageKey, c.MessageArgs = discErr.Error(), key, args
+						break
 					}
 					var candidate *Candidate
 					for _, x := range disc.Candidates {
@@ -522,10 +571,20 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 						}
 					}
 					if candidate == nil {
-						return nil, fmt.Errorf("plugin %s no longer exists in source", b.Plugin)
+						missingErr := fmt.Errorf("plugin %s no longer exists in source", b.Plugin)
+						if !r.All {
+							return nil, missingErr
+						}
+						c.Action, c.batchError = "skip", true
+						c.Message = missingErr.Error()
+						break
 					}
 					if candidate.Problem != "" || !slices.Contains(candidate.Targets, agent) {
-						c.Action = "blocked"
+						if r.All {
+							c.Action, c.batchError = "skip", true
+						} else {
+							c.Action = "blocked"
+						}
 						c.Message = "Updated source no longer provides a compatible native plugin"
 						break
 					}
@@ -591,12 +650,16 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 	}
 	ompRemovals := map[string]string{}
 	ompRuntimePaths := map[string]string{}
+	batchErrors := map[string]bool{}
 	for _, c := range p.Changes {
 		if c.ompRuntimePath != "" {
 			ompRuntimePaths[c.Target+"\x00"+c.ID] = c.ompRuntimePath
 		}
 		if c.ompRemoval != nil {
 			ompRemovals[c.Target+"\x00"+c.ID] = c.ompRemoval.revision
+		}
+		if c.batchError {
+			batchErrors[c.Name+"\x00"+c.Target+"\x00"+c.ID] = true
 		}
 	}
 	fingerprint, _ := json.Marshal(struct {
@@ -607,7 +670,8 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		OMPCacheRoots   map[string]string
 		OMPRemovals     map[string]string
 		OMPRuntimePaths map[string]string
-	}{r, string(d.raw), p.Changes, hosts, ompRoots, ompRemovals, ompRuntimePaths})
+		BatchErrors     map[string]bool
+	}{r, string(d.raw), p.Changes, hosts, ompRoots, ompRemovals, ompRuntimePaths, batchErrors})
 	p.Revision = hash(fingerprint)
 	return p, nil
 }

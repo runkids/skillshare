@@ -28,6 +28,12 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 			return result, nil
 		}
 
+		unlock, err := LockCheckout(destPath)
+		if err != nil {
+			return nil, err
+		}
+		defer unlock()
+
 		if err := checkFollowedCheckoutClean(destPath, opts); err != nil {
 			return nil, err
 		}
@@ -47,7 +53,13 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 			return nil, fmt.Errorf("failed to determine rollback commit before update (aborting for safety): empty commit hash")
 		}
 
-		if err := gitPull(destPath, opts.OnProgress); err != nil {
+		// update --force discards local edits, which a pull refuses to merge over. A
+		// followed checkout is the user's own clone and must be clean, so it keeps pulling.
+		pull := gitPull
+		if _, followed := opts.SourceFollow.Resolve(destPath); opts.Reinstall && !followed {
+			pull = gitForcePull
+		}
+		if err := pull(destPath, opts.OnProgress); err != nil {
 			return nil, fmt.Errorf("failed to update: %w", err)
 		}
 

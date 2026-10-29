@@ -136,10 +136,15 @@ func (s *Service) applyNativeTarget(ctx context.Context, c Change, b Binding, ro
 	// Reinstallation may reset a disabled native plugin. Require the native client
 	// to update those installations rather than silently changing enablement.
 	if c.Action == "update" {
+		enabled := false
 		for _, item := range s.host(ctx, c.Target).Installed {
-			if item.ID == b.ID && (!item.EnabledKnown || !item.Enabled) {
-				return fmt.Errorf("update this plugin in the native client to preserve its native enabled state")
+			if item.ID == b.ID && item.EnabledKnown && item.Enabled {
+				enabled = true
+				break
 			}
+		}
+		if !enabled {
+			return fmt.Errorf("update this plugin in the native client to preserve its native enabled state")
 		}
 	}
 	if _, err := s.run(ctx, c.Target, "plugin", command, argument); err != nil {

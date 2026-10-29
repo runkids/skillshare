@@ -430,6 +430,7 @@ targets:
       global: "~/.neovate/skills"
       project: ".neovate/skills"
   - name: omp
+    detect: "~/.omp"
     config_dir: "~/.omp/agent"
     skills:
       global: "~/.omp/agent/skills"

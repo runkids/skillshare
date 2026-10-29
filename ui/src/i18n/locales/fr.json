@@ -905,6 +905,7 @@
   "update.check.viewChanges": "Voir les modifications",
   "update.done.subtitle": "Mise à jour terminée.",
   "update.done.syncHint": "Les cibles reçoivent les nouvelles versions à la prochaine synchronisation.",
+  "update.done.failedHint": "Les cibles correspondent à la source. Les éléments ci-dessous n’ont pas été mis à jour.",
   "update.empty.description": "Installez des dépôts suivis ou des skills GitHub pour vérifier les mises à jour.",
   "update.empty.title": "Aucun skill pouvant être mis à jour",
   "update.empty.agentsTitle": "Aucun agent pouvant être mis à jour",

@@ -54,6 +54,7 @@ type Request struct {
 	Plugin    string   `json:"plugin,omitempty"`
 	Targets   []string `json:"targets,omitempty"`
 	From      string   `json:"from,omitempty"`
+	All       bool     `json:"all,omitempty"`
 }
 
 // ProblemKey names the sentence the dashboard can translate and ProblemArgs fill its
@@ -232,6 +233,7 @@ type Change struct {
 	ompRuntimePath string
 	// piRecordAfter records the entry Pi writes on install, which keeps another version's filters.
 	piRecordAfter bool
+	batchError    bool
 	Name          string `json:"name"`
 	Target        string `json:"target"`
 	ID            string `json:"id"`
@@ -287,7 +289,8 @@ type Service struct {
 	// findCodex stands in for the Codex CLI search in tests; nil searches this machine.
 	findCodex func() (string, []string)
 	// discoveries keeps each source UpdateBatch read while it runs, so its plugins share one copy.
-	discoveries map[string]*Discovery
+	discoveries   map[string]*Discovery
+	discoveryErrs map[string]error
 }
 
 func (b Binding) Selected() bool { return b.Sync == nil || *b.Sync }

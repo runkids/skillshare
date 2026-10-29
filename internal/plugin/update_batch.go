@@ -45,12 +45,28 @@ type Batch struct {
 	Ended   func(name string, p *Plan, result *Result, err error)
 }
 
+// WithDiscoveryCache shares source discovery results and errors across all Preview and
+// Apply calls made inside fn, so a single CLI command reads each remote source once.
+func (s *Service) WithDiscoveryCache(fn func() error) error {
+	s.discoveries = map[string]*Discovery{}
+	s.discoveryErrs = map[string]error{}
+	defer func() {
+		s.discoveries = nil
+		s.discoveryErrs = nil
+	}()
+	return fn()
+}
+
 // UpdateBatch updates b.Items one after another under the Lock its caller holds, so one
 // failure stops nothing else, and returns how many did not complete. Plugins from one
 // source share a single read of it for this batch only.
 func (s *Service) UpdateBatch(ctx context.Context, b Batch) (failed int) {
 	s.discoveries = map[string]*Discovery{}
-	defer func() { s.discoveries = nil }()
+	s.discoveryErrs = map[string]error{}
+	defer func() {
+		s.discoveries = nil
+		s.discoveryErrs = nil
+	}()
 	for _, item := range b.Items {
 		if b.Stopped() {
 			break

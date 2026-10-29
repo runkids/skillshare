@@ -1003,3 +1003,74 @@ func TestBatchUpdateStartsNoPluginAfterAStop(t *testing.T) {
 		t.Fatalf("failed %d, ended %q", failed, ended)
 	}
 }
+
+func TestPluginUpdateAllValidationAndPartialFailureIsolation(t *testing.T) {
+	agents := &fakeAgents{version: "1.0.0"}
+	s := agents.service(t)
+	sourceA := fixture(t)
+	sourceB := t.TempDir()
+	writeFile(t, sourceB, ".claude-plugin/plugin.json", `{"name":"other","version":"1.0.0","skills":"./skills"}`)
+	writeFile(t, sourceB, "skills/other/SKILL.md", "---\nname: other\n---\nother")
+
+	applyPluginRequest(t, s, Request{Action: "add", Source: sourceA, Targets: []string{"claude", "omp"}})
+	applyPluginRequest(t, s, Request{Action: "add", Source: sourceB, Targets: []string{"claude"}})
+
+	for _, bad := range []Request{
+		{Action: "update"},
+		{Action: "update", Name: "demo", All: true},
+		{Action: "update", SourceRef: "main", All: true},
+		{Action: "sync", All: true},
+	} {
+		if _, err := s.Preview(context.Background(), bad); err == nil {
+			t.Fatalf("expected validation error for %+v", bad)
+		}
+	}
+
+	// Bump both sources and update all in one pass.
+	bumpDemo(t, sourceA, agents)
+	writeFile(t, sourceB, ".claude-plugin/plugin.json", `{"name":"other","version":"2.0.0","skills":"./skills"}`)
+	writeFile(t, sourceB, "skills/other/SKILL.md", "---\nname: other\n---\nother v2")
+	applyPluginRequest(t, s, Request{Action: "update", All: true})
+	cfg, err := s.load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.packages["demo"].Bindings["claude"].Version != "2.0.0" || cfg.packages["other"].Bindings["claude"].Version != "2.0.0" {
+		t.Fatalf("update --all did not update all packages: %+v", cfg.packages)
+	}
+
+	// Remove sourceA on disk so its discovery fails, while bumping sourceB to 3.0.0.
+	if err := os.RemoveAll(sourceA); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, sourceB, ".claude-plugin/plugin.json", `{"name":"other","version":"3.0.0","skills":"./skills"}`)
+	writeFile(t, sourceB, "skills/other/SKILL.md", "---\nname: other\n---\nother v3")
+
+	var result *Result
+	var applyErr error
+	_ = s.WithDiscoveryCache(func() error {
+		req := Request{Action: "update", All: true}
+		p, pErr := s.Preview(context.Background(), req)
+		if pErr != nil {
+			t.Fatalf("preview --all should isolate source error, got: %v", pErr)
+		}
+		if p.Blocked {
+			t.Fatalf("preview --all should not be blocked by one broken source: %+v", p.Changes)
+		}
+		result, applyErr = s.Apply(context.Background(), req, p.Revision)
+		return nil
+	})
+	if applyErr == nil {
+		t.Fatalf("expected partial failure error from Apply when a source failed discovery, got nil (result=%+v)", result)
+	}
+	cfg, err = s.load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.packages["other"].Bindings["claude"].Version != "3.0.0" {
+		t.Fatalf("healthy package was not updated during partial failure: %+v", cfg.packages["other"])
+	}
+	if cfg.packages["demo"].Bindings["claude"].Version != "2.0.0" || cfg.packages["demo"].Bindings["claude"].Pending != "" {
+		t.Fatalf("failed package binding should remain untouched at 2.0.0: %+v", cfg.packages["demo"])
+	}
+}

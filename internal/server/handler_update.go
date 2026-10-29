@@ -412,6 +412,7 @@ func (s *Server) updateRegularSkill(name, skillPath string, force, skipAudit boo
 	opts := install.InstallOptions{
 		Force:          true,
 		AuditOverride:  force,
+		Reinstall:      force,
 		Update:         true,
 		SkipAudit:      skipAudit,
 		AuditThreshold: s.updateAuditThreshold(),
