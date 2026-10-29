@@ -10,6 +10,7 @@ import (
 	"skillshare/internal/audit"
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
 	"skillshare/internal/validate"
@@ -81,7 +82,13 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 			ui.StepContinue("Found", plural(result.AgentCount, "agent"))
 			renderTrackedRepoMeta("Agents", result.Agents)
 		} else {
-			ui.StepContinue("Found", plural(result.SkillCount, "skill"))
+			counts := sync.SkillCounts{Skills: result.SkillCount, Variants: result.SkillCount}
+			if discovered, err := sync.DiscoverSourceSkills(trackSourceDir, cfg.SkillsWalk()); err == nil {
+				_, repos := sync.CountSkillsByRepo(discovered)
+				rel, _ := filepath.Rel(trackSourceDir, result.RepoPath)
+				counts = repos[filepath.ToSlash(rel)]
+			}
+			ui.StepContinue("Found", sourceSkillCountText(counts.Skills, counts.Variants))
 			renderTrackedRepoMeta("Skills", result.Skills)
 		}
 	}

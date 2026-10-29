@@ -6,8 +6,66 @@ import (
 	"slices"
 	"sort"
 
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
+
+// SkillTargetIdentity identifies a reader of a shared skills folder.
+type SkillTargetIdentity struct{ Name, Agent string }
+
+// WithSharedSkillsTargets returns a runtime view in which compatible writers
+// select the union of their skills. Conflicting settings retain the existing
+// conflict diagnostic and are never combined.
+func WithSharedSkillsTargets(targets map[string]TargetConfig, defaultMode string) map[string]TargetConfig {
+	out := make(map[string]TargetConfig, len(targets))
+	groups := make(map[string][]string)
+	for name, tc := range targets {
+		// Managed project groups already combine the tools sharing a folder.
+		if tc.projectRoot == "" {
+			tc.sharedSkillTargets = nil
+		}
+		out[name] = tc
+		if tc.SkillsConfig().IsEnabled() {
+			if folder := skillsFolder(tc); folder != "" {
+				folder = sourcewalk.Canonical(folder)
+				groups[folder] = append(groups[folder], name)
+			}
+		}
+	}
+	for _, names := range groups {
+		if len(names) < 2 {
+			continue
+		}
+		slices.Sort(names)
+		first := out[names[0]]
+		compatible := true
+		for _, name := range names[1:] {
+			tc := out[name]
+			if !sameSkillsSettings(first.SkillsConfig(), tc.SkillsConfig(), defaultMode) {
+				compatible = false
+				break
+			}
+		}
+		if !compatible {
+			continue
+		}
+		identities := make([]SkillTargetIdentity, 0, len(names))
+		for _, name := range names {
+			tc := out[name]
+			if len(tc.sharedSkillTargets) > 0 {
+				identities = append(identities, tc.sharedSkillTargets...)
+			} else {
+				identities = append(identities, SkillTargetIdentity{Name: name, Agent: tc.Agent})
+			}
+		}
+		for _, name := range names {
+			tc := out[name]
+			tc.sharedSkillTargets = identities
+			out[name] = tc
+		}
+	}
+	return out
+}
 
 // DetectPathOverlap returns the set of target names whose configured skill
 // paths overlap with another enabled target — either by sharing the same

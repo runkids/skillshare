@@ -28,6 +28,7 @@ import (
 type statusJSONOutput struct {
 	Source       statusJSONSource   `json:"source"`
 	SkillCount   int                `json:"skill_count"`
+	VariantCount int                `json:"variant_count"`
 	TrackedRepos []statusJSONRepo   `json:"tracked_repos"`
 	Targets      []statusJSONTarget `json:"targets"`
 	Agents       *statusJSONAgents  `json:"agents,omitempty"`
@@ -50,11 +51,12 @@ type statusJSONSourceIgnore struct {
 }
 
 type statusJSONRepo struct {
-	Name       string `json:"name"`
-	SkillCount int    `json:"skill_count"`
-	Dirty      bool   `json:"dirty"`
-	Status     string `json:"status,omitempty"`
-	Message    string `json:"message,omitempty"`
+	Name         string `json:"name"`
+	SkillCount   int    `json:"skill_count"`
+	VariantCount int    `json:"variant_count"`
+	Dirty        bool   `json:"dirty"`
+	Status       string `json:"status,omitempty"`
+	Message      string `json:"message,omitempty"`
 }
 
 type statusJSONTarget struct {
@@ -67,7 +69,7 @@ type statusJSONTarget struct {
 	Exclude     []string `json:"exclude"`
 	// SkillsEnabled is false for a target with skills switched off.
 	SkillsEnabled bool `json:"skills_enabled"`
-	// Warning says why sync will reject the target, with the fix.
+	// Warning describes target configuration errors or routing limitations.
 	Warning string `json:"warning,omitempty"`
 }
 
@@ -129,7 +131,8 @@ func cmdStatus(args []string) error {
 		sp.Stop()
 		printSkippedSourceLinkWarnings(walk, false)
 
-		printSourceStatus(cfg.EffectiveSkillsSource(), cfg.EffectiveAgentsSource(), utils.FoldHomePath, len(discovered), countSourceAgents(cfg.EffectiveAgentsSource()), stats)
+		counts := sync.CountSkills(discovered)
+		printSourceStatus(cfg.EffectiveSkillsSource(), cfg.EffectiveAgentsSource(), utils.FoldHomePath, counts.Skills, countSourceAgents(cfg.EffectiveAgentsSource()), stats, counts.Variants)
 		printTrackedReposStatus(cfg.EffectiveSkillsSource(), discovered, trackedRepos)
 		if err := printTargetsStatus(cfg, discovered); err != nil {
 			return err
@@ -160,8 +163,10 @@ func cmdStatus(args []string) error {
 		Exists:      dirExists(cfg.EffectiveSkillsSource()),
 		Skillignore: buildSkillignoreJSON(stats),
 	}
-	output.SkillCount = len(discovered)
+	counts := sync.CountSkills(discovered)
+	output.SkillCount, output.VariantCount = counts.Skills, counts.Variants
 	output.TrackedRepos = buildTrackedRepoJSON(cfg.EffectiveSkillsSource(), trackedRepos, discovered, walk)
+	warningSkills := variantWarningSkills(cfg.EffectiveSkillsSource(), cfg.Targets, cfg.Mode, walk, discovered)
 
 	for name, target := range cfg.Targets {
 		sc := target.SkillsConfig()
@@ -177,7 +182,7 @@ func cmdStatus(args []string) error {
 			Exclude:     sc.Exclude,
 
 			SkillsEnabled: sc.IsEnabled(),
-			Warning:       namingWarning(target, tMode),
+			Warning:       skillTargetWarning(target, tMode, warningSkills),
 		})
 	}
 
@@ -265,12 +270,7 @@ func buildTrackedRepoJSON(sourcePath string, trackedRepos []string, discovered [
 
 	// Count skills per repo (single pass). RepoRelPath covers skills at the
 	// repo root and nested ones, and repos placed with --into (org/_repo).
-	repoSkillCount := make(map[string]int, len(trackedRepos))
-	for _, d := range discovered {
-		if d.IsInRepo {
-			repoSkillCount[d.RepoRelPath]++
-		}
-	}
+	_, repoCounts := sync.CountSkillsByRepo(discovered)
 
 	// Parallel git.IsDirty checks
 	var wg gosync.WaitGroup
@@ -281,9 +281,10 @@ func buildTrackedRepoJSON(sourcePath string, trackedRepos []string, discovered [
 			repoPath := filepath.Join(sourcePath, name)
 			dirty, err := git.IsDirty(repoPath)
 			results[idx] = statusJSONRepo{
-				Name:       name,
-				SkillCount: repoSkillCount[name],
-				Dirty:      dirty,
+				Name:         name,
+				SkillCount:   repoCounts[name].Skills,
+				VariantCount: repoCounts[name].Variants,
+				Dirty:        dirty,
 			}
 			if err != nil {
 				results[idx].Status = "unknown"
@@ -312,6 +313,7 @@ type targetStatusResult struct {
 }
 
 func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) error {
+	warningSkills := variantWarningSkills(cfg.EffectiveSkillsSource(), cfg.Targets, cfg.Mode, cfg.SkillsWalk(), discovered)
 	builtinAgents := config.DefaultAgentTargets()
 	agentsSource := cfg.EffectiveAgentsSource()
 	agentsExist := dirExists(agentsSource)
@@ -328,8 +330,8 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 		sc := target.SkillsConfig()
 		mode := getTargetMode(sc.Mode, cfg.Mode)
 		res := getTargetStatusDetail(target, cfg.EffectiveSkillsSource(), mode)
-		if err := target.NamingModeConfigError(mode); err != nil {
-			warnings = append(warnings, name+": "+err.Error())
+		if warning := skillTargetWarning(target, mode, warningSkills); warning != "" {
+			warnings = append(warnings, name+": "+warning)
 		}
 
 		// A target with skills off expects nothing, so it has no drift.

@@ -905,6 +905,7 @@
   "update.check.viewChanges": "変更を表示",
   "update.done.subtitle": "更新が完了しました。",
   "update.done.syncHint": "ターゲットには次回の同期で新しいバージョンが反映されます。",
+  "update.done.failedHint": "ターゲットはソースと一致しています。下の項目は更新されていません。",
   "update.empty.description": "追跡リポジトリまたは GitHub スキルをインストールして更新を確認してください。",
   "update.empty.title": "更新可能なスキルがありません",
   "update.empty.agentsTitle": "更新可能なエージェントがありません",
@@ -1890,8 +1891,6 @@
   "targetDetail.shared.use": "{other} に合わせて {value} にする",
   "targetDetail.shared.filters": "{other} も {path} に Skills を同期していて、フィルターが異なります。同期のたびに、もう一方が除外したものを追加し直したり削除したりします。",
   "targetDetail.shared.useFilters": "{other} と同じフィルターにする",
-  "targetDetail.skipped.one": "{count} 件のスキルは standard 命名を使えないためスキップされます。flat を試してください。",
-  "targetDetail.skipped.other": "{count} 件のスキルは standard 命名を使えないためスキップされます。flat を試してください。",
   "targetDetail.collect": "収集",
   "targetDetail.collectHint.skills.one": "{count} 件のスキルはこのターゲットにしかありません。収集するとソースにコピーされ、すべてのターゲットに届きます。",
   "targetDetail.collectHint.skills.other": "{count} 件のスキルはこのターゲットにしかありません。収集するとソースにコピーされ、すべてのターゲットに届きます。",
@@ -1998,6 +1997,7 @@
   "sync.skipped.hint": "2 つのフォルダ名の末尾が同じためです。両方残すには {name} を flat 命名に切り替えてください。",
   "sync.skipped.hintNaming": "SKILL.md の名前が規則に合わないか、フォルダ名と異なるためです。残すには {name} を flat 命名に切り替えてください。",
   "sync.skipped.hintMixed": "規則に合わない SKILL.md の名前と、末尾が同じフォルダ名があるためです。残すには {name} を flat 命名に切り替えてください。",
+  "sync.skipped.hintSelection": "エージェント別のバリアントを明示的に選択する必要があります。include/exclude またはターゲットの上書き設定で選択してください。",
   "sync.skipped.open": "ターゲットを開く",
   "sync.local.one": "{count} 件はターゲットにだけ存在します",
   "sync.local.other": "{count} 件はターゲットにだけ存在します",
@@ -3520,5 +3520,7 @@
   "plugins.note.importRecipeChanged": "共有レシピが変更されましたが、ローカルのインポートを保持します。ソースへ切り替えるには plugin remove を実行し、ソースのターゲット宣言を復元してから sync してください。",
   "plugins.note.selection": "同期対象の選択のみを保存します。同期してこのターゲットをインストールまたは削除してください。",
   "plugins.note.localImportRequired": "このマシンでインポートが必要です。ローカルのネイティブ識別子をこのパッケージにインポートしてください。",
-  "plugins.note.noLocalBinding": "宣言を削除します。ローカルインストールは登録されていません。"
+  "plugins.note.noLocalBinding": "宣言を削除します。ローカルインストールは登録されていません。",
+  "sync.skipped.ambiguousVariant": "エージェントのバリアントを特定できません。include/exclude またはターゲットの上書きで1つ選択してください。",
+  "dashboard.trackedRepos.variantCount": "{count} バリアント"
 }

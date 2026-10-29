@@ -6,6 +6,8 @@ sidebar_position: 3
 
 GitHub リポジトリ、git URL、またはローカルパスから Skill を追加します。
 
+Tracked repo の Agent 別コピーが少数の論理 Skill を表す場合、`Found N skills, M variants` と表示します。すべての物理バリアントを Source に保持し、merge/copy Sync は一致する Agent の指示を選択します。
+
 ## 概要
 
 ```mermaid

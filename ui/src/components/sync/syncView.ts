@@ -1,3 +1,4 @@
+import { targetWarning } from '../targets/targetView';
 import { api, type DiffTarget, type ExtraDiffResult, type Skill, type SyncMatrixEntry, type SyncResponse, type Target } from '../../api/client';
 import { hooksApi, type HookPlan } from '../../api/hooks';
 import { mcpApi, type MCPPlan } from '../../api/mcp';
@@ -58,9 +59,11 @@ export function resourceGroups(diffs: DiffTarget[], targets: Target[], parts: Se
       if (!parts.has(part) || item.action === 'local') continue;
       // Agents always sync as symlinks, whatever the target mode.
       const copy = part === 'skill' && target?.mode === 'copy';
-      const row = { key: `${d.target}/${part}/${item.skill}`, part, name: part === 'agent' ? formatAgentDisplayName(item.skill) : item.skill } as const;
+      const warning = item.skill === '(target naming)' || item.skill === '(skill selection)';
+      const row = { key: `${d.target}/${part}/${item.skill}${warning ? `/${item.reason}` : ''}`, part, name: part === 'agent' ? formatAgentDisplayName(item.skill) : item.skill } as const;
       // A kept item: a local folder holds the new name, so sync keeps the old entry, with or without force.
-      if (item.skill === '(target naming)' || item.action === 'kept') rows.push({ ...row, icon: 'kept', text: null, detail: item.reason, counts: false });
+      if (item.skill === '(skill selection)') rows.push({ ...row, name: targetWarning(item.reason ?? '')?.path ?? d.target, icon: 'kept', text: 'sync.skipped.ambiguousVariant', counts: false });
+      else if (warning || item.action === 'kept') rows.push({ ...row, icon: 'kept', text: null, detail: item.reason, counts: false });
       else if (item.skill === '(entire directory)') rows.push({ ...row, name: target?.path ?? item.skill, icon: 'add', text: 'sync.row.folder', counts: true });
       else if (item.action === 'link') rows.push({ ...row, icon: 'add', text: item.reason?.startsWith('missing') ? 'sync.row.recopy' : copy ? 'sync.row.newCopy' : 'sync.row.newLink', counts: true });
       else if (item.action === 'update') rows.push({ ...row, icon: 'update', text: item.reason === COPY_TO_LINK ? 'sync.row.copyToLink' : copy ? 'sync.row.updateCopy' : 'sync.row.updateLink', counts: true });
@@ -334,8 +337,11 @@ export async function runSync(run: SyncRun) {
   return { resources, failures };
 }
 
-/** The hint for a target's skipped skills: name collisions, naming rules, or both. */
-export function skippedHintKey(d: DiffTarget) {
-  if (!d.namingSkippedCount) return 'sync.skipped.hint' as const;
-  return d.collisionCount ? 'sync.skipped.hintMixed' as const : 'sync.skipped.hintNaming' as const;
+/** Each independent remedy needed for the skipped skills. */
+export function skippedHintKeys(d: DiffTarget) {
+  const keys = [];
+  if (d.namingSkippedCount) keys.push(d.collisionCount ? 'sync.skipped.hintMixed' as const : 'sync.skipped.hintNaming' as const);
+  else if (d.collisionCount) keys.push('sync.skipped.hint' as const);
+  if (d.items.some((item) => item.skill === '(skill selection)') || (!d.namingSkippedCount && !d.collisionCount && d.skippedCount)) keys.push('sync.skipped.hintSelection' as const);
+  return keys;
 }

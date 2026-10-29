@@ -610,3 +610,60 @@ func TestProject_EditKeepsStoredAgentSymlinkFilters(t *testing.T) {
 		t.Fatal(r.Stdout)
 	}
 }
+
+func TestProject_MissingRootsRemainInspectableAfterSync(t *testing.T) {
+	sb, root := projectFixture(t)
+	sb.CreateSkill("alpha", map[string]string{"SKILL.md": "---\nname: alpha\n---\n# Alpha\n"})
+	missing := []string{filepath.Join(sb.Home, "removed"), filepath.Join(sb.Home, "replaced-by-file")}
+	sb.RunCLI("project", "add", root, "--target", "claude", "--json").AssertSuccess(t)
+	for _, path := range missing {
+		if err := os.MkdirAll(path, 0755); err != nil {
+			t.Fatal(err)
+		}
+		sb.RunCLI("project", "add", path, "--target", "claude,codex", "--agents", "--json").AssertSuccess(t)
+		if err := os.Remove(path); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(missing[1], []byte("keep me"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	r := sb.RunCLI("sync", "-g", "--json")
+	r.AssertSuccess(t)
+	projectJSON(t, r)
+	if _, err := os.Stat(filepath.Join(root, ".claude", "skills", "alpha", "SKILL.md")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(missing[0]); !os.IsNotExist(err) {
+		t.Fatalf("absent project was created: %v", err)
+	}
+	if content, err := os.ReadFile(missing[1]); err != nil || string(content) != "keep me" {
+		t.Fatalf("file root changed: %q, %v", content, err)
+	}
+
+	r = sb.RunCLI("sync", "-g")
+	r.AssertSuccess(t)
+	r.AssertOutputContains(t, "2 registered projects not found on this machine, skipped; run skillshare project list to inspect")
+	for _, path := range missing {
+		if strings.Contains(r.Stdout, path) {
+			t.Fatalf("sync printed individual missing root: %s", r.Stdout)
+		}
+	}
+
+	r = sb.RunCLI("project", "list", "--json")
+	r.AssertSuccess(t)
+	items := projectJSON(t, r)["projects"].([]any)
+	got := map[string]bool{}
+	for _, item := range items {
+		p := item.(map[string]any)
+		got[p["path"].(string)] = p["missing"].(bool)
+	}
+	if len(got) != 3 || got[root] || !got[missing[0]] || !got[missing[1]] {
+		t.Fatalf("incorrect missing flags: %v", got)
+	}
+	r = sb.RunCLI("project", "list")
+	r.AssertSuccess(t)
+	for _, path := range missing {
+		r.AssertOutputContains(t, "Project folder is missing: "+path)
+	}
+}

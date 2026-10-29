@@ -69,6 +69,25 @@ targets: [claude, cursor]
 
 **Tracked repo:** dashboard에서 tracked repo 안의 skill에 설정한 targets는 해당 SKILL.md가 아니라 source의 `.metadata.json`에 저장됩니다. 그래서 clone은 깨끗하게 유지되고 `update`도 정상적으로 동작합니다. 이 설정은 skill의 `metadata.targets`보다 우선합니다.
 
+### Tracked 저장소의 Agent별 변형본 {#agent-specific-variants-in-tracked-repositories}
+
+```text
+_team/internal/skills/claude/review/SKILL.md
+_team/internal/skills/codex/review/SKILL.md
+```
+
+Tracked 저장소의 `skills/<알려진-agent>/<전체-스킬-경로>/SKILL.md`를 Agent별 변형본으로 자동 인식합니다. 예: `_team/internal/skills/{claude,codex}/review/SKILL.md`. 저장소, Agent 앞의 전체 경로, Agent 뒤의 전체 경로로 하나의 논리 Skill을 구분합니다. 변형본이 하나만 있어도 Agent별 라우팅이 적용되며, `--into` 아래의 저장소도 지원합니다.
+
+**merge/copy:** 일치하는 Agent의 파일만 선택합니다. `claude-code` 같은 등록된 별칭과 계정 Target의 `agent: codex`도 지원합니다. 같은 디렉터리를 쓴다고 같은 Agent는 아니므로 `universal`은 Codex 변형본을 자동으로 받지 않습니다. 일치하는 변형본이 없으면 다른 파일로 대체하지 않습니다. 같은 그룹에 동일 Agent를 가리키는 별칭 변형본이 중복되면 경고하고 건너뛰므로 필터나 재정의로 하나를 명시적으로 선택하세요.
+
+라우팅 우선순위는 Source의 `.metadata.json` Target 재정의 > 비어 있지 않은 frontmatter targets > 변형본 Agent 추론 > 기존 호스트 경로 추론입니다. 빈 Source 재정의는 모든 Target을 뜻하며, 명시적 Target 선언의 기존 일치 규칙은 유지됩니다. `.skillignore`와 include/exclude는 계속 물리 경로에 적용됩니다. 알 수 없는 Agent, `shared`/`default`, tracked 저장소 밖의 구조는 일반 discovery 동작을 유지하며 대체 변형본을 추론하지 않습니다.
+
+`status`와 dashboard의 Source/저장소 합계는 논리 Skill 수입니다. 두 Skill의 파일 네 개는 `2 skills, 4 variants`로 표시됩니다. JSON의 `skill_count`/`skillCount`는 논리 수이고, `variant_count`/`variantCount`와 Target API의 `sourceVariantCount`는 일반 Skill을 포함한 활성 물리 파일 합계입니다. 리소스 목록, 작업 ID, Sync 결과, 컨텍스트 비용은 계속 물리 파일 단위입니다.
+
+**symlink:** 전체 디렉터리가 노출되므로 변형본 라우팅을 적용할 수 없습니다. Agent별 선택에는 merge/copy를 사용하세요. 대상 디렉터리를 공유하는 Target도 서로 다른 선택을 분리할 수 없으며 기존 경로 중복 진단이 적용됩니다. Source 파일은 바꾸지 않지만 기존 prefixed copy 이름 지정은 사본의 `name:`을 바꿀 수 있습니다. Sparse checkout은 수행하지 않습니다.
+
+업그레이드 후 merge/copy는 Agent가 일치하지 않는 기존 관리 변형본을 Target에서 제거하고 CLI/서버 경고로 자동 라우팅 이유를 알립니다(dry-run 포함). Source의 Target 재정의로 원하는 사본을 복원할 수 있으며 빈 재정의는 모든 Target을 뜻합니다. Source 파일은 유지됩니다. Target 열은 추론을 포함한 실제 라우팅을 표시하므로 제작자가 해당 필드를 선언했다는 뜻은 아닙니다.
+
 **별칭(Alias):** Target 이름은 별칭을 지원합니다. `claude`는 `claude-code`로 설정된 Target과도 일치합니다. [Supported Targets](/docs/reference/targets/supported-targets)를 참고하세요.
 
 📖 [Skill format — targets field](/docs/understand/skill-format#targets)

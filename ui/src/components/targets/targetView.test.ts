@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SyncMatrixEntry, Target } from '../../api/client';
-import { joinList, targetHealth, togglePatterns } from './targetView';
+import { joinList, targetHealth, targetSkipHints, targetWarning, togglePatterns } from './targetView';
 
 const target = (over: Partial<Target>): Target => ({
   name: 'claude', path: '~/.claude/skills', mode: 'merge', targetNaming: 'flat', status: 'merged',
@@ -48,4 +48,19 @@ describe('joinList', () => {
     expect([joinList(['MCP', 'GEMINI.md'], 'zh-TW'), joinList(['MCP', '指令檔'], 'zh-TW'), joinList(['MCP', 'GEMINI.md'], 'en')])
       .toEqual(['MCP 與 GEMINI.md', 'MCP 與指令檔', 'MCP and GEMINI.md']);
   });
+});
+
+it('excludes an ambiguous physical candidate without changing other filters', () => {
+  expect(togglePatterns(row('_repo__skills__codex__fix', 'skipped'), ['*fix'], ['old'])).toEqual({ include: ['*fix'], exclude: ['old', '_repo__skills__codex__fix'] });
+});
+it('keeps diagnostic paths while localizing selection and naming warnings separately', () => {
+  expect(targetWarning('Target "codex": skipped ambiguous codex variant _repo/skills/codex/fix; use include/exclude or a target override to select one')).toEqual({ key: 'sync.skipped.ambiguousVariant', path: '_repo/skills/codex/fix' });
+  expect(targetWarning("Target 'codex': skipped broken because SKILL.md name could not be read: error")).toEqual({ key: 'sync.skipped.hintNaming', path: 'broken' });
+});
+
+describe('targetSkipHints', () => {
+ it('keeps ambiguity separate from naming and collisions', () => {
+  expect(targetSkipHints(target({ skippedSkillCount: 5, namingSkippedSkillCount: 1, selectionSkippedSkillCount: 2, collisionCount: 1 }))).toEqual(['sync.skipped.hintMixed', 'sync.skipped.hintSelection']);
+  expect(targetSkipHints(target({ targetNaming: 'standard', skippedSkillCount: 2, selectionSkippedSkillCount: 2 }))).toEqual(['sync.skipped.hintSelection']);
+ });
 });

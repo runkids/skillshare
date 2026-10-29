@@ -526,7 +526,8 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
       title: <>{t('update.done.subtitle')} {tallyText}</>,
       sub: !checkSync || diff.isError ? t('update.tab.audited')
         : syncChecking ? t('sync.checking')
-        : syncFirst ? t('update.done.syncHint') : t('syncPreview.allUpToDate'),
+        : syncFirst ? t('update.done.syncHint')
+        : troubled ? t('update.done.failedHint') : t('syncPreview.allUpToDate'),
     };
   } else {
     const summary = lastChecked ? t('update.check.checkedAt', { time: formatRelativeTime(lastChecked, locale) }) : '';

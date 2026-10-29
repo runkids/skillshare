@@ -17,6 +17,48 @@ import (
 	ssync "skillshare/internal/sync"
 )
 
+func TestHandleSync_SharedVariantsStaySynced(t *testing.T) {
+	for _, mode := range []string{"merge", "copy"} {
+		t.Run(mode, func(t *testing.T) {
+			dest := t.TempDir()
+			s, src := newTestServerWithTargets(t, map[string]string{"codex": dest, "universal": dest})
+			s.cfg.Mode = mode
+			for _, agent := range []string{"claude", "codex"} {
+				addSkill(t, src, "_repo/skills/"+agent+"/fix")
+			}
+			for i := 0; i < 2; i++ {
+				rr := httptest.NewRecorder()
+				s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{}`)))
+				if rr.Code != http.StatusOK {
+					t.Fatalf("sync: %d %s", rr.Code, rr.Body.String())
+				}
+				if _, err := os.Stat(filepath.Join(dest, "_repo__skills__codex__fix", "SKILL.md")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			rr := httptest.NewRecorder()
+			s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/diff", nil))
+			var preview struct {
+				Diffs []diffTarget `json:"diffs"`
+			}
+			if rr.Code != http.StatusOK {
+				t.Fatalf("diff: %s", rr.Body.String())
+			}
+			if err := json.Unmarshal(rr.Body.Bytes(), &preview); err != nil {
+				t.Fatal(err)
+			}
+			if len(preview.Diffs) != 2 {
+				t.Fatalf("missing targets: %s", rr.Body.String())
+			}
+			for _, target := range preview.Diffs {
+				if len(target.Items) != 0 {
+					t.Fatalf("shared selection differs: %+v", target)
+				}
+			}
+		})
+	}
+}
+
 func TestHandleSync_MergeMode(t *testing.T) {
 	tgtPath := filepath.Join(t.TempDir(), "claude-skills")
 	s, src := newTestServerWithTargets(t, map[string]string{"claude": tgtPath})

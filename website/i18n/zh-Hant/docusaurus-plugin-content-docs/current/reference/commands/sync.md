@@ -14,6 +14,14 @@ MCP 連線設定請用 `skillshare sync mcp`，或用 `skillshare sync --all`
 `install` 與 `uninstall` 之類的操作只會修改 source — sync 才會傳播到 targets。這讓你可以批次處理變更、用 `--dry-run` 預覽，並控制 targets 何時更新。見 [Why Sync is a Separate Step](/docs/understand/source-and-targets#why-sync-is-a-separate-step)。
 :::
 
+## 代理專用 skill 變體
+
+在 tracked 儲存庫中，只有當相同完整 skill 路徑出現在同一個 `skills/` 上層下至少兩個不同的標準代理目錄時，才會將 `skills/<known-agent>/<skill-path>/SKILL.md` 辨識為代理專用變體。同一代理的多個別名不符合條件；單獨的 `skills/agents/planner` 分類仍是一般 skill。
+
+在 merge/copy mode 中，變體會路由到對應代理，包含別名與帳號 target。共用 skills 資料夾且設定相容的 targets 會選取其代理身分的聯集：Codex 與 `universal` 共用 `~/.agents/skills` 時，會保留 Codex 變體。每個讀取端都看得到這個聯集；不相容的設定仍會產生重疊或衝突診斷。明確的來源本機 target 覆寫與 frontmatter 路由維持優先，忽略規則與 include/exclude 篩選仍會套用。
+
+Source 與儲存庫摘要將每個邏輯 skill 計算一次，另列實體變體，例如 `2 skills, 4 variants`。每個 target 的同步操作仍以實體項目計數。整個資料夾的 symlink mode 會暴露所有變體；`status` 與 `doctor` 會說明限制，並建議使用 merge 或 copy 以自動路由。
+
 ## 何時使用
 
 - 在安裝、解除安裝或編輯 skills 後 — 把變更傳播到所有 targets

@@ -695,3 +695,44 @@ func TestHandleUpdateTarget_DisablingSkillsSkipsNamingCheck(t *testing.T) {
 		t.Fatalf("disable with merge: got %d %s, want 200", rr.Code, rr.Body.String())
 	}
 }
+
+func TestHandleListTargets_SeparatesSkipRemedies(t *testing.T) {
+	s, src := newTestServerWithTargets(t, map[string]string{"claude": t.TempDir()})
+	target := s.cfg.Targets["claude"]
+	target.Skills = &config.ResourceTargetConfig{Path: target.Path, TargetNaming: "standard"}
+	s.cfg.Targets["claude"] = target
+	if err := s.cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"_repo/skills/claude/fix", "_repo/skills/claude-code/fix", "_repo/skills/codex/fix", "one/same", "two/same", "bad"} {
+		name := filepath.Base(path)
+		if name == "bad" {
+			name = "different"
+		}
+		dir := filepath.Join(src, filepath.FromSlash(path))
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: "+name+"\n---\n# Instructions"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/targets", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatal(rr.Body.String())
+	}
+	var response struct {
+		Targets []targetItem `json:"targets"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if len(response.Targets) != 1 {
+		t.Fatal(rr.Body.String())
+	}
+	got := response.Targets[0]
+	if got.NamingSkippedSkillCount != 1 || got.SelectionSkippedSkillCount != 2 || got.CollisionCount != 1 || got.SkippedSkillCount != 5 {
+		t.Fatalf("skip remedies: %s", rr.Body.String())
+	}
+}

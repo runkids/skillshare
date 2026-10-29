@@ -25,6 +25,8 @@ func syncMatrixReason(status, reason string) (string, map[string]string) {
 		return "sync_matrix.symlink_filters_not_applicable", nil
 	}
 	switch status {
+	case "skipped":
+		return "sync_matrix.ambiguous_variant", nil
 	case "synced":
 		return "sync_matrix.synced", nil
 	case "excluded":
@@ -100,9 +102,14 @@ func (s *Server) handleSyncMatrix(w http.ResponseWriter, r *http.Request) {
 				entries = append(entries, newSyncMatrixEntry(skill.FlatName, name, "na", "symlink mode — filters not applicable", ""))
 			}
 		} else {
+			classified, err := ssync.ClassifySkillsForTarget(skills, name, sc)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
 			for _, skill := range skills {
-				status, reason := ssync.ClassifySkillForTarget(skill.FlatName, skill.Targets, name, sc.Include, sc.Exclude)
-				entries = append(entries, newSyncMatrixEntry(skill.FlatName, name, status, reason, ""))
+				row := classified[skill.RelPath]
+				entries = append(entries, newSyncMatrixEntry(skill.FlatName, name, row.Status, row.Reason, ""))
 			}
 		}
 		// Agents — resolve path from user config or builtin defaults
@@ -141,6 +148,7 @@ func (s *Server) handleSyncMatrixPreview(w http.ResponseWriter, r *http.Request)
 	source := s.cfg.EffectiveSkillsSource()
 	agentsSource := s.agentsSource()
 	targets := s.cloneTargets()
+	defaultMode := s.cfg.Mode
 	s.mu.RUnlock()
 
 	var body struct {
@@ -187,13 +195,24 @@ func (s *Server) handleSyncMatrixPreview(w http.ResponseWriter, r *http.Request)
 	}
 
 	var entries []syncMatrixEntry
+	target, ok := targets[body.Target]
+	sc := target.SkillsConfig()
+	sc.Include, sc.Exclude = body.Include, body.Exclude
+	target.Skills = &sc
+	targets[body.Target] = target
+	target = config.WithSharedSkillsTargets(targets, defaultMode)[body.Target]
+	sc = target.SkillsConfig()
+	classified, err := ssync.ClassifySkillsForTarget(skills, body.Target, sc)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	for _, skill := range skills {
-		status, reason := ssync.ClassifySkillForTarget(skill.FlatName, skill.Targets, body.Target, body.Include, body.Exclude)
-		entries = append(entries, newSyncMatrixEntry(skill.FlatName, body.Target, status, reason, ""))
+		row := classified[skill.RelPath]
+		entries = append(entries, newSyncMatrixEntry(skill.FlatName, body.Target, row.Status, row.Reason, ""))
 	}
 
 	// Agents — resolve path from config or builtin defaults
-	target, ok := targets[body.Target]
 	_, projectTool, isProject := config.SplitProjectTarget(body.Target)
 	if (ok || isProject) && agentsSource != "" {
 		ac := target.AgentsConfig()

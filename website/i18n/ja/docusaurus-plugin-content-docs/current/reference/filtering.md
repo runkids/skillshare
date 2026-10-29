@@ -79,6 +79,25 @@ targets: [claude, cursor]
 
 **Tracked repo:** dashboard で tracked repo 内の Skill に設定した targets は、その SKILL.md ではなく source の `.metadata.json` に保存される。そのため clone はクリーンなままで、`update` も通常どおり動作する。この設定は Skill の `metadata.targets` より優先される。
 
+### Tracked repo 内の Agent 別バリアント {#agent-specific-variants-in-tracked-repositories}
+
+```text
+_team/internal/skills/claude/review/SKILL.md
+_team/internal/skills/codex/review/SKILL.md
+```
+
+Tracked repo 内の `skills/<既知の-agent>/<完全なスキルパス>/SKILL.md` は Agent 別バリアントとして自動認識されます。例：`_team/internal/skills/{claude,codex}/review/SKILL.md`。リポジトリ、Agent より前の完全なパス、Agent より後の完全なパスで1つの論理 Skill を識別します。バリアントが1つだけでも Agent による振り分けが適用され、`--into` 配下のリポジトリも対象です。
+
+**merge/copy:** 一致する Agent のファイルだけを選択します。`claude-code` などの登録済みエイリアスと、アカウント Target の `agent: codex` にも対応します。ディレクトリの共有は Agent の同一性を意味せず、`universal` が Codex バリアントを自動で受け取ることはありません。一致がなければ他のバリアントで代用せず、同じグループに同一 Agent のエイリアスが重複する場合は警告してスキップします。フィルターや上書き設定で明示的に選択してください。
+
+優先順位は Source の `.metadata.json` にある Target の上書き > 空でない frontmatter targets > バリアントの Agent 推論 > 従来のホストパス推論です。Source の空の上書きは全 Target を意味し、明示的な Target 宣言の既存の照合規則は維持されます。`.skillignore` と include/exclude は引き続き物理パスに適用されます。未知の Agent、`shared`/`default`、tracked repo 外の配置は通常の discovery のままで、代替バリアントは推論しません。
+
+`status` と dashboard の Source/リポジトリ総数は論理 Skill 数です。2つの Skill の4ファイルは `2 skills, 4 variants` と表示されます。JSON の `skill_count`/`skillCount` は論理数、`variant_count`/`variantCount` と Target API の `sourceVariantCount` は通常の Skill を含む有効な物理ファイル総数です。リソース一覧、操作 ID、Sync 結果、コンテキストコストは物理ファイル単位のままです。
+
+**symlink:** ディレクトリ全体が公開されるため、バリアントの振り分けは適用できません。Agent ごとの選択には merge/copy を使ってください。同じ出力ディレクトリを共有する Target 間でも異なる選択を分離できず、既存のパス重複診断が適用されます。Source ファイルは変更しませんが、従来の prefixed copy 命名ではコピーの `name:` が書き換わる場合があります。Sparse checkout は行いません。
+
+アップグレード後の merge/copy は、Agent が一致しない既存の管理対象バリアントを Target から削除します。CLI/サーバーの警告で自動ルーティングによる削除と復元方法を説明し、dry-run でも通知します。Source の Target 上書きで必要なコピーを復元でき、空の上書きは全 Target を意味します。Source ファイルは残ります。Target 欄は推論を含む有効なルーティングを示し、提供元の宣言とは限りません。
+
 **エイリアス:** Target 名はエイリアスに対応しています。`claude` は `claude-code` として設定された
 Target に一致します。[対応する Target](/docs/reference/targets/supported-targets) を参照してください。
 

@@ -39,7 +39,10 @@ function renderPage(codex: Partial<Target>, universal: Partial<Target> = {}) {
 }
 
 describe('Target page shared skills folder', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.previewSyncMatrix).mockResolvedValue({ entries: [] });
+  });
 
   it('warns under the mode picker and sets the draft to the other target\'s mode', async () => {
     const user = userEvent.setup();

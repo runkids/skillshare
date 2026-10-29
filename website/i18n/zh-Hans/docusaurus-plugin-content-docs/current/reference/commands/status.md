@@ -55,6 +55,8 @@ Version  CLI 0.24.0 · skill 0.21.12
 
 显示 skills 文件夹及其中的 skill 数量。若存在 agents 文件夹，会在第二行显示它和 agent 数量。`.skillignore` 生效时，会多一行显示规则数和被忽略的 skill 数。
 
+Source 与 tracked 仓库按逻辑 skill 计数：对应的代理专用副本算作一个 skill。实体数量不同时，文本输出会同时显示两者，例如 `2 skills, 4 variants`。Target 的 linked/copied 数量仍是该 target 选取的实体条目数。
+
 ### Tracked Repositories
 
 列出通过 `--track` 安装的 git 仓库及各自的 skill 数量。`✓` 表示仓库没有未提交的更改；`!` 会附上 `uncommitted changes`，或在无法读取 git status 时附上错误信息。
@@ -85,6 +87,8 @@ Targets                     skills                agents
 | `skills off` | 这个 Target 的 skills 已关闭 |
 
 **agents 列：** `✓ 8` 是已链接的 agent 数量（最新的副本也算作已链接）。`! 7/8` 表示部分缺失，请运行 `skillshare sync agents`。只计算该 Target 会同步的 agent，也就是经过 `.agentignore`、Target 的 agents include/exclude 以及各 agent 的 `targets` frontmatter 之后剩下的。在 copy fallback 中，skillshare 不拥有但内容相同的本地文件会被保留，并计为 `· 1 local`。`—` 表示该 Target 没有 agents 文件夹。没有 agents source 时，此列会省略。
+
+在全局与项目模式中，如果来源有代理变体且 skills target 使用 symlink mode，`status` 与 `doctor` 会发出警告：整个文件夹的链接会暴露所有变体。请使用 merge 或 copy mode，才能自动按代理路由。
 
 ### Extras
 
@@ -135,9 +139,10 @@ skillshare status --json
     }
   },
   "skill_count": 12,
+  "variant_count": 17,
   "tracked_repos": [
-    {"name": "_team-skills", "skill_count": 5, "dirty": false},
-    {"name": "_personal-repo", "skill_count": 3, "dirty": true}
+    {"name": "_team-skills", "skill_count": 5, "variant_count": 10, "dirty": false},
+    {"name": "_personal-repo", "skill_count": 3, "variant_count": 3, "dirty": true}
   ],
   "targets": [
     {
@@ -168,7 +173,9 @@ skillshare status --json
 }
 ```
 
-只有 sync 会拒绝某个 target 时，该 target 才会有 `warning` 字符串，例如在 copy 以外的模式下使用 `prefixed` naming；文字中会说明如何修正。
+`skill_count` 是逻辑 skill 数；`variant_count` 是实体来源条目数。顶层与每个 tracked 仓库都包含这两个字段。Target 的 `synced_count` 仍是实体数量。
+
+Target 的 `warning` 字符串可指出配置错误（例如在 copy 以外的 mode 使用 `prefixed` naming），或 symlink mode 的代理路由限制；文本会说明如何处理。
 
 无法读取 git status 的 tracked repo 会显示 `"status": "unknown"`，`message` 中包含错误信息；此时 `dirty` 为 false，且没有意义。
 

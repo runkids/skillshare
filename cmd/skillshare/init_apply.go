@@ -165,7 +165,7 @@ func applyRemote(p *initPlan, res *initResult, hadRepo bool) {
 		return
 	}
 	if discovered, err := ssync.DiscoverSourceSkills(p.source()); err == nil {
-		res.pulled = len(discovered)
+		res.pulled = ssync.CountSkills(discovered).Skills
 	}
 }
 
@@ -263,6 +263,7 @@ func printInitDone(p *initPlan, res *initResult) {
 // syncs skills (and agents, if any) quietly. It returns the folders left as
 // they were because they differ from the source.
 func firstSync(cfg *config.Config) (skills int, kept []string, err error) {
+	cfg.Targets = config.WithSharedSkillsTargets(cfg.Targets, cfg.Mode)
 	start := time.Now()
 	spinner := ui.StartSpinner("Syncing…")
 	discovered, err := ssync.DiscoverSourceSkills(cfg.EffectiveSkillsSource(), cfg.SkillsWalk())
@@ -284,8 +285,9 @@ func firstSync(cfg *config.Config) (skills int, kept []string, err error) {
 	if failed > 0 {
 		err = fmt.Errorf("%s failed to sync; run skillshare sync for details", plural(failed, "tool"))
 	}
-	ui.Answered("Synced", fmt.Sprintf("%s to %s", plural(len(discovered), "skill"), plural(len(cfg.Targets), "tool"))+ui.Took(time.Since(start)))
-	return len(discovered), kept, err
+	counts := ssync.CountSkills(discovered)
+	ui.Answered("Synced", fmt.Sprintf("%s to %s", sourceSkillCountText(counts.Skills, counts.Variants), plural(len(cfg.Targets), "tool"))+ui.Took(time.Since(start)))
+	return counts.Skills, kept, err
 }
 
 // replaceIdenticalCopies removes real skill folders in merge-mode targets

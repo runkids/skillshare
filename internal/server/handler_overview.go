@@ -14,9 +14,10 @@ import (
 )
 
 type trackedRepoItem struct {
-	Name       string `json:"name"`
-	SkillCount int    `json:"skillCount"`
-	Dirty      bool   `json:"dirty"`
+	Name         string `json:"name"`
+	SkillCount   int    `json:"skillCount"`
+	VariantCount int    `json:"variantCount"`
+	Dirty        bool   `json:"dirty"`
 }
 
 func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
@@ -69,9 +70,11 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	counts := sync.CountSkills(skills)
 	resp := map[string]any{
 		"source":        source,
-		"skillCount":    len(skills),
+		"skillCount":    counts.Skills,
+		"variantCount":  counts.Variants,
 		"agentCount":    agentCount,
 		"topLevelCount": topLevelCount,
 		"targetCount":   targetCount,
@@ -100,25 +103,19 @@ func buildTrackedRepos(sourceDir string, skills []sync.DiscoveredSkill, walk sou
 		return []trackedRepoItem{}
 	}
 
+	_, counts := sync.CountSkillsByRepo(skills)
 	items := make([]trackedRepoItem, 0, len(repoNames))
 	for _, repoName := range repoNames {
 		repoPath := filepath.Join(sourceDir, repoName)
-
-		// Count skills belonging to this repo
-		skillCount := 0
-		for _, sk := range skills {
-			if sk.RepoRelPath == repoName {
-				skillCount++
-			}
-		}
 
 		// Check git dirty status
 		dirty, _ := git.IsDirty(repoPath)
 
 		items = append(items, trackedRepoItem{
-			Name:       repoName,
-			SkillCount: skillCount,
-			Dirty:      dirty,
+			Name:         repoName,
+			SkillCount:   counts[repoName].Skills,
+			VariantCount: counts[repoName].Variants,
+			Dirty:        dirty,
 		})
 	}
 	return items

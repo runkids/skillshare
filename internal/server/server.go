@@ -259,7 +259,7 @@ func (s *Server) cloneTargets() map[string]config.TargetConfig {
 	for k, v := range s.cfg.Targets {
 		targets[k] = v
 	}
-	return targets
+	return config.WithSharedSkillsTargets(targets, s.cfg.Mode)
 }
 
 // parseOpts returns install.ParseOptions from the current config.

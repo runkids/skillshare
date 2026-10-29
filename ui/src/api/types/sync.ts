@@ -1,7 +1,7 @@
 export interface SyncMatrixEntry {
   skill: string;
   target: string;
-  status: 'synced' | 'excluded' | 'not_included' | 'skill_target_mismatch' | 'na';
+  status: 'synced' | 'excluded' | 'not_included' | 'skill_target_mismatch' | 'skipped' | 'na';
   reason: string;
   reasonCode?: string;
   reasonParams?: Record<string, string>;
@@ -104,6 +104,7 @@ export interface FolderConflict {
 
 export interface DiffTarget {
   target: string;
+  warnings?: string[];
   items: { skill: string; action: string; reason?: string; kind?: 'skill' | 'agent' }[];
   skippedCount?: number;
   collisionCount?: number;

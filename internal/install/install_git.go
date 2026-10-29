@@ -176,7 +176,8 @@ func sshPublickeyLogin(msg string) string {
 // failure it keeps the preceding transport line that explains it.
 func extractGitFatal(stderr string) string {
 	var fatal, reason string
-	var nonHint []string
+	var nonHint, listed []string
+	listing := false
 	for _, line := range strings.Split(stderr, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" {
@@ -185,15 +186,27 @@ func extractGitFatal(stderr string) string {
 		if strings.HasPrefix(trimmed, "hint:") {
 			continue
 		}
+		// git indents what an error ending in ":" lists, such as the files a merge would overwrite.
+		if listing && line != trimmed {
+			listed = append(listed, trimmed)
+			nonHint = append(nonHint, trimmed)
+			continue
+		}
+		listing = false
 		if strings.HasPrefix(trimmed, "fatal: ") {
 			fatal = strings.TrimPrefix(trimmed, "fatal: ")
 			if fatal == gitRemoteReadFatal && reason == "" {
 				reason = lastTransportLine(nonHint)
 			}
+			listed, listing = nil, strings.HasSuffix(fatal, ":")
 		} else if strings.HasPrefix(trimmed, "error: ") {
 			fatal = strings.TrimPrefix(trimmed, "error: ")
+			listed, listing = nil, strings.HasSuffix(fatal, ":")
 		}
 		nonHint = append(nonHint, trimmed)
+	}
+	if len(listed) > 0 {
+		fatal += " " + strings.Join(listed, ", ")
 	}
 	if fatal != "" {
 		if strings.Contains(fatal, "failed to push some refs") && len(nonHint) > 1 {
@@ -461,6 +474,19 @@ func gitPull(repoPath string, onProgress ProgressCallback) error {
 		args = []string{"pull", "--progress"}
 	}
 	return runGitCommandWithProgress(args, repoPath, authEnv(remoteURL), onProgress)
+}
+
+// gitForcePull moves the checkout to its upstream branch, discarding local
+// edits. It fetches first, so a failed fetch leaves the edits in place.
+func gitForcePull(repoPath string, onProgress ProgressCallback) error {
+	args := []string{"fetch", "--quiet"}
+	if onProgress != nil {
+		args = []string{"fetch", "--progress"}
+	}
+	if err := runGitCommandWithProgress(args, repoPath, authEnv(getRemoteURL(repoPath)), onProgress); err != nil {
+		return err
+	}
+	return runGitCommandEnv([]string{"reset", "--hard", "--quiet", "@{u}"}, repoPath, nil)
 }
 
 // getRemoteURL returns the fetch URL for the "origin" remote, or "".

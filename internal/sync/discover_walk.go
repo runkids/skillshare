@@ -265,6 +265,7 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 
 			repoRelPath := repoOf(relPath)
 			isInRepo := repoRelPath != ""
+			logicalID, variantAgent := skillVariant(relPath, repoRelPath)
 
 			// Root-level .skillignore fallback (for files in non-skipped dirs),
 			// then the repo-level .skillignore inside tracked repos. With
@@ -311,26 +312,35 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 				targets = utils.ParseFrontmatterList(skillFile, "targets")
 			}
 
+			variantRouting := false
 			if len(targets) == 0 && (opts.parseFrontmatter || opts.collectContext) {
-				targets = inferSkillTargetsFromRelPath(relPath)
+				if variantAgent != "" {
+					targets = []string{variantAgent}
+					variantRouting = true
+				} else {
+					targets = inferSkillTargetsFromRelPath(relPath)
+				}
 			}
 
 			// Use original sourcePath (not walkRoot) so SourcePath preserves
 			// the caller's logical path, even if sourcePath is a symlink.
 			skills = append(skills, DiscoveredSkill{
-				SourcePath:  filepath.Join(sourcePath, relPath),
-				RelPath:     relPath,
-				FlatName:    utils.PathToFlatName(relPath),
-				IsInRepo:    isInRepo,
-				RepoRelPath: repoRelPath,
-				Targets:     targets,
-				DescChars:   ctx.DescChars,
-				BodyChars:   ctx.BodyChars,
-				DescTokens:  ctx.DescTokens,
-				BodyTokens:  ctx.BodyTokens,
-				Description: ctx.Description,
-				LintIssues:  lintIssues,
-				Disabled:    disabled,
+				SourcePath:     filepath.Join(sourcePath, relPath),
+				RelPath:        relPath,
+				FlatName:       utils.PathToFlatName(relPath),
+				IsInRepo:       isInRepo,
+				RepoRelPath:    repoRelPath,
+				LogicalID:      logicalID,
+				VariantAgent:   variantAgent,
+				variantRouting: variantRouting,
+				Targets:        targets,
+				DescChars:      ctx.DescChars,
+				BodyChars:      ctx.BodyChars,
+				DescTokens:     ctx.DescTokens,
+				BodyTokens:     ctx.BodyTokens,
+				Description:    ctx.Description,
+				LintIssues:     lintIssues,
+				Disabled:       disabled,
 			})
 		}
 
@@ -341,6 +351,7 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 		return nil, nil, nil, fmt.Errorf("failed to walk source directory: %w", err)
 	}
 
+	confirmSkillVariants(skills, walkRoot)
 	if opts.parseFrontmatter || opts.collectContext {
 		applyTargetOverrides(skills, walkRoot)
 	}
@@ -367,6 +378,7 @@ func applyTargetOverrides(skills []DiscoveredSkill, sourceDir string) {
 		if !ok {
 			continue
 		}
+		skills[i].variantRouting = false
 		if len(targets) == 0 {
 			skills[i].Targets = nil
 		} else {

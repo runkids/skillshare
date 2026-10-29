@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, type DiffTarget, type Target } from '../../api/client';
 import { hooksApi, type HookPlan } from '../../api/hooks';
 import { mcpApi, type MCPPlan } from '../../api/mcp';
-import { changeSets, countChanges, countEdited, discardable, extraGroups, failureExplanation, groupByFolder, groupInSync, HOOKS_CHANGED, hooksGroups, MCP_CHANGED, mcpGroups, otherWarnings, pendingCount, resourceGroups, runSync, skippedHintKey, type SyncFailure } from './syncView';
+import { changeSets, countChanges, countEdited, discardable, extraGroups, failureExplanation, groupByFolder, groupInSync, HOOKS_CHANGED, hooksGroups, MCP_CHANGED, mcpGroups, otherWarnings, pendingCount, resourceGroups, runSync, skippedHintKeys, type SyncFailure } from './syncView';
 
 vi.mock('../../api/client', async (load) => ({ ...await load<typeof import('../../api/client')>(), api: { sync: vi.fn(), syncExtras: vi.fn() } }));
 vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { preview: vi.fn(), configure: vi.fn() } }));
@@ -20,6 +20,11 @@ const diff: DiffTarget[] = [
 ];
 
 describe('resourceGroups', () => {
+  it('shows selection warnings as read-only rows even with force', () => {
+    const diffs: DiffTarget[] = [{ target: 'claude', items: [{ skill: '(skill selection)', action: 'skip', reason: 'Target "claude": skipped ambiguous claude variant _repo/skills/claude/fix; use include/exclude or a target override to select one' }] }];
+    const groups = resourceGroups(diffs, [target('claude')], new Set(['skill']), true).groups;
+    expect([countChanges(groups), groups[0].rows[0].name, groups[0].rows[0].text, groups[0].rows[0].detail]).toEqual([0, '_repo/skills/claude/fix', 'sync.skipped.ambiguousVariant', undefined]);
+  });
   it('counts kept local copies only when force is on', () => {
     const targets = [target('claude'), target('codex')];
     const all = new Set(['skill', 'agent'] as const);
@@ -302,12 +307,14 @@ describe('failureExplanation', () => {
   });
 });
 
-describe('skippedHintKey', () => {
+describe('skippedHintKeys', () => {
   it.each([
-    [{ collisionCount: 1 }, 'sync.skipped.hint'],
-    [{ namingSkippedCount: 1 }, 'sync.skipped.hintNaming'],
-    [{ collisionCount: 1, namingSkippedCount: 1 }, 'sync.skipped.hintMixed'],
+    [{ skippedCount: 2 }, ['sync.skipped.hintSelection']],
+    [{ collisionCount: 1 }, ['sync.skipped.hint']],
+    [{ namingSkippedCount: 1 }, ['sync.skipped.hintNaming']],
+    [{ collisionCount: 1, namingSkippedCount: 1 }, ['sync.skipped.hintMixed']],
+    [{ skippedCount: 5, collisionCount: 1, namingSkippedCount: 1, items: [{ skill: '(skill selection)', action: 'skip' }] }, ['sync.skipped.hintMixed', 'sync.skipped.hintSelection']],
   ])('explains %o with %s', (counts, key) => {
-    expect(skippedHintKey({ target: 'codex', items: [], ...counts })).toBe(key);
+    expect(skippedHintKeys({ target: 'codex', items: [], ...counts })).toEqual(key);
   });
 });

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -194,5 +195,43 @@ func TestProjects_AgentsOnlyIgnoresPrefixedNaming(t *testing.T) {
 	// The project syncs no skill, so the inherited naming must not block its agents.
 	if _, invalid, err := ValidateConfigForSync(cfg); err != nil || invalid["app@claude"] != nil {
 		t.Fatalf("err = %v, invalid = %v; want app@claude valid", err, invalid)
+	}
+}
+
+func TestConvertibleProjects_SharedAgentIdentityDoesNotMakeRootMixed(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "config.yaml")
+	t.Setenv("SKILLSHARE_CONFIG", path)
+	data := fmt.Sprintf(`source: %s
+targets:
+  app-codex:
+    agent: codex
+    config_dir: %s
+    path: %s
+  app-universal:
+    path: %s
+  app-claude:
+    agent: claude
+    config_dir: %s
+    path: %s
+`, filepath.Join(root, "skills"),
+		filepath.Join(root, "app", ".codex"),
+		filepath.Join(root, "app", ".agents", "skills"),
+		filepath.Join(root, "app", ".agents", "skills"),
+		filepath.Join(root, "app", ".claude"),
+		filepath.Join(root, "app", ".claude", "skills"))
+	if err := os.WriteFile(path, []byte(data), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := cfg.ConvertibleProjects()
+	if len(found) != 1 || len(found[0].Targets) != 3 {
+		t.Fatalf("convertible projects = %+v", found)
+	}
+	if found[0].Project.Skills.Agent != "" || len(found[0].Project.Skills.SharedTargets) != 0 {
+		t.Fatalf("identity leaked: %+v", found[0].Project.Skills)
 	}
 }

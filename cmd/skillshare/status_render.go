@@ -185,7 +185,7 @@ func modesNote(targets []statusTarget) string {
 
 // printSourceStatus prints where skills and agents come from, with paths
 // shown by show. agentCount is negative when there is no agents folder.
-func printSourceStatus(skillsPath, agentsPath string, show func(string) string, skillCount, agentCount int, stats *skillignore.IgnoreStats) {
+func printSourceStatus(skillsPath, agentsPath string, show func(string) string, skillCount, agentCount int, stats *skillignore.IgnoreStats, variants int) {
 	ui.Section("Source")
 	width := ui.RowWidth("skills", "agents")
 	if _, err := os.Stat(skillsPath); err != nil {
@@ -197,7 +197,7 @@ func printSourceStatus(skillsPath, agentsPath string, show func(string) string, 
 	if agentCount >= 0 {
 		pathW = max(pathW, runewidth.StringWidth(agents))
 	}
-	ui.Row(ui.MarkNone, "skills", pad(skills, pathW)+"  "+theme.Dim().Render(plural(skillCount, "skill")), width)
+	ui.Row(ui.MarkNone, "skills", pad(skills, pathW)+"  "+theme.Dim().Render(sourceSkillCountText(skillCount, variants)), width)
 	if agentCount >= 0 {
 		ui.Row(ui.MarkNone, "agents", pad(agents, pathW)+"  "+theme.Dim().Render(plural(agentCount, "agent")), width)
 	}
@@ -223,15 +223,11 @@ func printTrackedReposStatus(sourcePath string, discovered []sync.DiscoveredSkil
 	}
 
 	ui.Section("Tracked repositories")
+	_, repoCounts := sync.CountSkillsByRepo(discovered)
 	width := ui.RowWidth(trackedRepos...)
 	for _, repoName := range trackedRepos {
-		skillCount := 0
-		for _, d := range discovered {
-			if d.RepoRelPath == repoName {
-				skillCount++
-			}
-		}
-		count := plural(skillCount, "skill")
+		counts := repoCounts[repoName]
+		count := sourceSkillCountText(counts.Skills, counts.Variants)
 
 		isDirty, err := git.IsDirty(filepath.Join(sourcePath, repoName))
 		switch {
@@ -311,4 +307,12 @@ func printAuditStatus(ac config.AuditConfig) {
 // statusLine is a closing line of status: a bold name and its value.
 func statusLine(name, value string) string {
 	return theme.Primary().Bold(true).Render(pad(name, len("Version"))) + "  " + value
+}
+
+func sourceSkillCountText(skills, variants int) string {
+	text := plural(skills, "skill")
+	if variants > skills {
+		text += ", " + plural(variants, "variant")
+	}
+	return text
 }

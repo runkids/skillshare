@@ -6,6 +6,8 @@ sidebar_position: 3
 
 從 GitHub repos、git URLs 或本地路徑新增 skills。
 
+Tracked repo 的 Agent 專屬副本代表較少的邏輯 Skill 時，安裝會顯示 `Found N skills, M variants`。所有實體變體都會保留在 Source；merge/copy Sync 會選擇符合 Agent 的指令。
+
 ## 總覽
 
 ```mermaid

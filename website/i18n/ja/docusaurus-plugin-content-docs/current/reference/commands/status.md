@@ -55,6 +55,8 @@ Version  CLI 0.24.0 · skill 0.21.12
 
 skills フォルダとその中の skill 数を表示します。agents フォルダがある場合は、2 行目にフォルダと agent 数を表示します。`.skillignore` が有効な場合は、パターン数と除外された skill 数の行が加わります。
 
+Source と tracked repository の数は論理スキル数です。対応するエージェント別コピーは一つのスキルとして数えます。物理的な数が異なる場合は `2 skills, 4 variants` のように両方を表示します。Target の linked/copied 数は、その target に選択された物理エントリ数のままです。
+
 ### Tracked Repositories
 
 `--track` でインストールした git リポジトリと、それぞれの skill 数を一覧表示します。`✓` はリポジトリに未コミットの変更がないことを示します。`!` には `uncommitted changes`、または git status を読み取れない場合はそのエラーが付きます。
@@ -85,6 +87,8 @@ Targets                     skills                agents
 | `skills off` | この target の skills はオフです |
 
 **agents 列:** `✓ 8` はリンク済みの agent 数です（最新のコピーもリンク済みとして数えます）。`! 7/8` は一部が欠けていることを示します。`skillshare sync agents` を実行してください。数えるのはこの target が sync する agent だけで、`.agentignore`、target の agents の include/exclude、各 agent の `targets` frontmatter で残ったものです。copy fallback では、skillshare が所有していない同一内容のローカルファイルは保持され、`· 1 local` として数えられます。`—` はその target に agents フォルダがないことを示します。agents source がない場合、この列は省略されます。
+
+グローバル・プロジェクト両モードで、エージェント別バリアントが存在し、skills target が symlink mode を使う場合、`status` と `doctor` は警告します。ディレクトリ全体へのリンクはすべてのバリアントを公開するためです。エージェント別の自動ルーティングには merge または copy mode を使ってください。
 
 ### Extras
 
@@ -135,9 +139,10 @@ skillshare status --json
     }
   },
   "skill_count": 12,
+  "variant_count": 17,
   "tracked_repos": [
-    {"name": "_team-skills", "skill_count": 5, "dirty": false},
-    {"name": "_personal-repo", "skill_count": 3, "dirty": true}
+    {"name": "_team-skills", "skill_count": 5, "variant_count": 10, "dirty": false},
+    {"name": "_personal-repo", "skill_count": 3, "variant_count": 3, "dirty": true}
   ],
   "targets": [
     {
@@ -168,7 +173,9 @@ skillshare status --json
 }
 ```
 
-`warning` 文字列は、sync がその Target を拒否する場合（例：copy 以外の mode での `prefixed` naming）にのみ付き、修正方法も示されます。
+`skill_count` は論理スキル数、`variant_count` は物理ソースエントリ数です。トップレベルと各 tracked repository に両方のフィールドを含みます。Target の `synced_count` は物理的な数のままです。
+
+Target の `warning` は、copy 以外の mode での `prefixed` naming などの設定エラーや、symlink mode のエージェントルーティング制限を示します。対処方法も表示します。
 
 git status を読み取れない tracked repo は `"status": "unknown"` となり、`message` にエラーが入ります。この場合 `dirty` は false で、意味を持ちません。
 

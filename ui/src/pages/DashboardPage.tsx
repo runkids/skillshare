@@ -62,7 +62,7 @@ function useTargetHealth() {
     if (tgt.status === 'has files' && tgt.mode === 'symlink') return { kind: 'warn', label: t('targets.state.migrate'), detail: t('targets.syncing.migrate'), pending: 0 };
     if (tgt.status === 'unknown') return { kind: 'off', label: tgt.status, detail: '', pending: 0 };
     const counted = tgt.status === 'has files' || (tgt.mode === 'merge' && tgt.status === 'merged') || (tgt.mode === 'copy' && tgt.status === 'copied');
-    const pending = counted ? Math.max(0, (tgt.expectedSkillCount || sourceSkillCount) - tgt.linkedCount) : 0;
+    const pending = counted ? Math.max(0, (tgt.expectedSkillCount ?? sourceSkillCount) - tgt.linkedCount) : 0;
     const linked = tgt.linkedCount > 0
       ? t(tgt.mode === 'copy' ? 'dashboard.targets.managed' : 'dashboard.targets.linked', { count: tgt.linkedCount })
       : '';
@@ -500,7 +500,7 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
             <Github size={15} />
             <span className="flex flex-col min-w-0 flex-1 gap-px">
               <span className="font-mono text-[13px] font-semibold truncate">{repo.name.replace(/^_/, '')}</span>
-              <span className="text-[13px] text-ink-2">{t(plural('dashboard.trackedRepos.skillCount', repo.skillCount), { count: repo.skillCount })}</span>
+              <span className="text-[13px] text-ink-2">{t(plural('dashboard.trackedRepos.skillCount', repo.skillCount), { count: repo.skillCount })}{(repo.variantCount ?? repo.skillCount) > repo.skillCount && <>{', '}{t('dashboard.trackedRepos.variantCount', { count: repo.variantCount! })}</>}</span>
             </span>
             <span className={`ss-st ${repo.dirty ? 'warn' : 'ok'}`}>
               {repo.dirty ? t('dashboard.trackedRepos.modified') : t('dashboard.trackedRepos.clean')}

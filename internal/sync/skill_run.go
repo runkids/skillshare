@@ -79,7 +79,9 @@ func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptio
 		}
 		res.UnmatchedIncludes = result.UnmatchedIncludes
 		prune, err := PruneOrphanLinksWithSkills(PruneOptions{
-			TargetPath: sc.Path, SourcePath: opts.Source, Skills: skills,
+			SharedTargets: sc.SharedTargets,
+			Agent:         sc.Agent,
+			TargetPath:    sc.Path, SourcePath: opts.Source, Skills: skills,
 			Include: sc.Include, Exclude: sc.Exclude, TargetNaming: sc.TargetNaming, TargetName: t.Name,
 			DryRun: opts.DryRun, Force: opts.Force,
 		})
@@ -101,7 +103,7 @@ func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptio
 			break
 		}
 		res.UnmatchedIncludes = result.UnmatchedIncludes
-		prune, err := PruneOrphanCopiesWithSkills(sc.Path, skills, sc.Include, sc.Exclude, t.Name, sc.TargetNaming, opts.DryRun)
+		prune, err := pruneOrphanCopiesWithConfig(t.Name, sc, skills, opts.DryRun)
 		res.addPrune(prune, err)
 
 	default:
@@ -124,6 +126,9 @@ func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptio
 	}
 	if len(res.KeptLocal) > 0 {
 		res.Warnings = append(res.Warnings, fmt.Sprintf("%s: %s", res.Name, keptLocalWarning(res.KeptLocal)))
+	}
+	if warning := variantRemovalWarning(t.Name, sc, skills, res.Pruned, opts.DryRun); warning != "" {
+		res.Warnings = append(res.Warnings, warning)
 	}
 	return res
 }

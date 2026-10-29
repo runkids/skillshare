@@ -131,7 +131,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 
 	if !jsonOutput {
 		// Phase 3: Summary
-		printSyncDone(len(discoveredSkills), len(runtime.config.Targets), len(stats.FailedTargets), dryRun, time.Since(start))
+		printSyncDone(sync.CountSkills(discoveredSkills), len(runtime.config.Targets), len(stats.FailedTargets), dryRun, time.Since(start))
 
 		// Show ignored skills from .skillignore
 		printIgnoredSkills(ignoreStats)

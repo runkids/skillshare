@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 	gosync "sync"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/pterm/pterm"
 
 	"skillshare/internal/config"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 	"skillshare/internal/theme"
 	"skillshare/internal/ui"
@@ -418,25 +418,5 @@ func runParallelSyncCore(entries []syncTargetEntry, source string, skills []sync
 // but skills/ hasn't been created yet), we resolve the longest existing ancestor
 // and re-append the remaining segments so that symlink aliases still converge.
 func canonicalPath(p string) string {
-	cleaned := filepath.Clean(p)
-	abs, err := filepath.Abs(cleaned)
-	if err != nil {
-		return cleaned
-	}
-	// Fast path: entire path exists and can be resolved.
-	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
-		return resolved
-	}
-	// Slow path: walk up to the nearest existing ancestor, resolve it,
-	// then re-append the non-existent tail segments.
-	parent, tail := filepath.Dir(abs), filepath.Base(abs)
-	for parent != abs {
-		if resolved, err := filepath.EvalSymlinks(parent); err == nil {
-			return filepath.Join(resolved, tail)
-		}
-		abs = parent
-		tail = filepath.Join(filepath.Base(parent), tail)
-		parent = filepath.Dir(parent)
-	}
-	return abs
+	return sourcewalk.Canonical(p)
 }

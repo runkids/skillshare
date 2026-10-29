@@ -98,22 +98,19 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 		return dt
 	}
 
-	filtered, err := ssync.SelectTargetSkills(discovered, name, sc)
-	if err != nil {
-		return dt
-	}
-	resolution, err := ssync.ResolveTargetSkillsForTarget(name, config.ResourceTargetConfig{
-		Path:         sc.Path,
-		TargetNaming: sc.TargetNaming,
-	}, filtered)
+	resolution, err := ssync.ResolveTargetSkillsForTarget(name, sc, discovered)
 	if err != nil {
 		dt.Items = append(dt.Items, diffItem{Skill: "(target naming)", Action: "skip", Reason: err.Error(), Kind: kindSkill})
 		return dt
 	}
 	// Surface collision/validation stats so the UI can show why skills were skipped
 	dt.CollisionCount = len(resolution.Collisions)
-	dt.SkippedCount = len(filtered) - len(resolution.Skills)
-	dt.NamingSkippedCount = len(resolution.Warnings)
+	dt.SkippedCount = resolution.SkippedCount
+	dt.NamingSkippedCount = resolution.NamingSkippedCount
+	dt.Warnings = resolution.Warnings
+	for _, warning := range resolution.SelectionWarnings {
+		dt.Items = append(dt.Items, diffItem{Skill: "(skill selection)", Action: "skip", Reason: warning, Kind: kindSkill})
+	}
 	validNames := resolution.ValidTargetNames()
 	manifest, _ := ssync.ReadManifest(sc.Path)
 	legacyNames := resolution.LegacyNames(mode, sc.Path, manifest)

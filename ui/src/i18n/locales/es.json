@@ -905,6 +905,7 @@
   "update.check.viewChanges": "Ver cambios",
   "update.done.subtitle": "Actualización completa.",
   "update.done.syncHint": "Los destinos reciben las nuevas versiones en la próxima sincronización.",
+  "update.done.failedHint": "Los destinos coinciden con el origen. Los elementos de abajo no se actualizaron.",
   "update.empty.description": "Instala repositorios rastreados o skills de GitHub para comprobar actualizaciones.",
   "update.empty.title": "Sin skills actualizables",
   "update.empty.agentsTitle": "Sin agents actualizables",
@@ -1890,8 +1891,6 @@
   "targetDetail.shared.use": "Usar {value} como {other}",
   "targetDetail.shared.filters": "{other} también sincroniza skills en {path}, con otros filtros. Cada sincronización volvería a añadir o quitaría lo que la otra filtra.",
   "targetDetail.shared.useFilters": "Usar los mismos filtros que {other}",
-  "targetDetail.skipped.one": "{count} skill no puede usar nombres estándar y se omite. Prueba flat.",
-  "targetDetail.skipped.other": "{count} skills no pueden usar nombres estándar y se omiten. Prueba flat.",
   "targetDetail.collect": "Recopilar",
   "targetDetail.collectHint.skills.one": "{count} skill solo existe en este destino. Recopilar lo copia a tu origen para que llegue a todos los destinos.",
   "targetDetail.collectHint.skills.other": "{count} skills solo existen en este destino. Recopilar los copia a tu origen para que lleguen a todos los destinos.",
@@ -1998,6 +1997,7 @@
   "sync.skipped.hint": "porque dos carpetas terminan con el mismo nombre. Cambia {name} a nombres flat para conservar ambos.",
   "sync.skipped.hintNaming": "porque su nombre en SKILL.md no es válido o no coincide con su carpeta. Cambia {name} a nombres flat para conservarlos.",
   "sync.skipped.hintMixed": "por nombres de SKILL.md no válidos y carpetas que terminan con el mismo nombre. Cambia {name} a nombres flat para conservarlos.",
+  "sync.skipped.hintSelection": "las variantes de agente necesitan una selección explícita. Usa include/exclude o una configuración de destino para seleccionar una.",
   "sync.skipped.open": "Abrir destino",
   "sync.local.one": "{count} elemento existe solo en un destino",
   "sync.local.other": "{count} elementos existen solo en un destino",
@@ -3520,5 +3520,7 @@
   "plugins.note.importRecipeChanged": "La receta compartida cambió; se conserva esta importación local. Para instalar desde la fuente, ejecuta plugin remove, restaura la declaración del destino de la fuente y ejecuta sync.",
   "plugins.note.selection": "Guardar solo la selección de sincronización. Sincroniza para instalar o eliminar este destino.",
   "plugins.note.localImportRequired": "Esta máquina necesita una importación. Importa su identificador nativo local en este paquete.",
-  "plugins.note.noLocalBinding": "Eliminar la declaración. No hay ninguna instalación local vinculada."
+  "plugins.note.noLocalBinding": "Eliminar la declaración. No hay ninguna instalación local vinculada.",
+  "sync.skipped.ambiguousVariant": "Variante de agente ambigua; usa include/exclude o una asignación de destino para elegir una.",
+  "dashboard.trackedRepos.variantCount": "{count} variantes"
 }

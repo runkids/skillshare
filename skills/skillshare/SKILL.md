@@ -25,6 +25,14 @@ Check `skillshare <command> --help` if the installed version differs from these 
   when location matters instead of relying on auto-detection.
 - Skills are directories containing `SKILL.md`; agents are single Markdown files.
   Source paths can be customized. Use the configured sources instead of assuming defaults.
+- Tracked `skills/<known-agent>/<skill-path>/SKILL.md` copies form one logical skill
+  per repository/prefix/suffix. Merge/copy select the exact agent variant (including
+  aliases and account `agent:` identity). Recognition requires the same suffix under
+  two distinct canonical agents. Compatible targets sharing a folder select the
+  union of their agent identities; a universal-only target does not infer an agent.
+  Status counts logical skills and physical variants; lists and sync operations retain
+  physical names. Explicit targets/overrides and physical filters still apply.
+  Whole-directory symlink mode exposes all variants. See [sync.md](references/sync.md).
 - Use native agents targets for agents. Use extras for arbitrary file resources or when
   flattening/content transformation is required; `extension:` works only on extras targets.
 - Shared memory notes live in the `memory` extra. Use `extras memory` to manage Markdown

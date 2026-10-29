@@ -409,6 +409,7 @@ type diffItem struct {
 
 type diffTarget struct {
 	Target         string     `json:"target"`
+	Warnings       []string   `json:"warnings,omitempty"`
 	Items          []diffItem `json:"items"`
 	SkippedCount   int        `json:"skippedCount,omitempty"`
 	CollisionCount int        `json:"collisionCount,omitempty"`

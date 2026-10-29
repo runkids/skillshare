@@ -45,7 +45,7 @@ export default function AuditPage() {
 
   useEffect(() => () => stream.current?.close(), []);
 
-  const counts = { skills: overview.data?.skillCount, agents: overview.data?.agentCount };
+  const counts = { skills: (overview.data?.variantCount ?? overview.data?.skillCount), agents: overview.data?.agentCount };
   const installed = counts[kind];
   const data = getCachedAuditResult(queryClient, kind, installed);
   const scannedAt = queryClient.getQueryState(queryKeys.audit.all(kind))?.dataUpdatedAt;

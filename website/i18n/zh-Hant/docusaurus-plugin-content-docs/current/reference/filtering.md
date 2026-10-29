@@ -69,6 +69,25 @@ targets: [claude, cursor]
 
 **Tracked repos：** 在 dashboard 為 tracked repo 內的 skill 設定的 targets 會存在 source 的 `.metadata.json`，而不是它的 SKILL.md，因此 clone 保持乾淨，`update` 也能照常運作。這個設定優先於 skill 的 `metadata.targets`。
 
+### Tracked repo 中的 Agent 專用變體 {#agent-specific-variants-in-tracked-repositories}
+
+```text
+_team/internal/skills/claude/review/SKILL.md
+_team/internal/skills/codex/review/SKILL.md
+```
+
+在 tracked repo 中，`skills/<已知-agent>/<完整技能路徑>/SKILL.md` 會自動識別為 Agent 專用變體，例如 `_team/internal/skills/{claude,codex}/review/SKILL.md`。邏輯 Skill 由倉庫、Agent 前的完整路徑與 Agent 後的完整路徑共同決定；即使只剩一個變體也會依 Agent 路由。`--into` 下的倉庫也適用。
+
+**merge/copy：** 僅選擇符合 Agent 的檔案，支援 `claude-code` 等註冊別名以及帳戶 Target 的 `agent: codex`。共用目錄不代表同一 Agent，`universal` 不會自動接收 Codex 變體。找不到符合項目時不選其他變體；同一組中有多個符合同一 Agent 的別名變體時會略過並提示，須以篩選器或覆寫設定明確選擇。
+
+路由優先順序為：Source 的 `.metadata.json` Target 覆寫 > 非空 frontmatter targets > 變體 Agent 推斷 > 原有主機路徑推斷。空的 Source 覆寫表示所有 Target；明確宣告的 Target 保留原有比對規則。`.skillignore` 與 include/exclude 仍依實體路徑生效。未知 Agent、`shared`/`default` 及 tracked repo 外的配置保留一般探索行為，不推斷備用變體。
+
+`status` 與 dashboard 的 Source/倉庫總數依邏輯 Skill 計數：兩個 Skill 的四份檔案顯示為 `2 skills, 4 variants`。JSON 的 `skill_count`/`skillCount` 是邏輯數量；`variant_count`/`variantCount` 及 Target API 的 `sourceVariantCount` 是啟用的實體檔案總數，也包含一般 Skill。資源清單、操作 ID、Sync 結果與上下文成本仍依實體檔案計算。
+
+**symlink：** 整個目錄會暴露給 Target，無法依變體路由；需要選擇 Agent 時請使用 merge/copy。共用目標目錄的 Target 也無法隔離不同選擇，原有路徑衝突提示仍適用。Source 檔案保持不變；既有 prefixed copy 命名仍可能改寫副本的 `name:`。此功能不執行 sparse checkout。
+
+升級後，merge/copy 會移除已管理但 Agent 不符的目標變體，並透過 CLI/伺服器警告說明自動路由原因（dry-run 也會提示）。使用 Source 的 Target 覆寫可還原所需副本；空覆寫表示所有 Target。Source 檔案保持完整。Target 欄顯示有效路由（包含推斷），不代表提供者宣告了該欄位。
+
 **別名：** Target 名稱支援別名。`claude` 會符合設定為 `claude-code` 的 target。參見 [Supported Targets](/docs/reference/targets/supported-targets)。
 
 📖 [Skill format — targets field](/docs/understand/skill-format#targets)

@@ -40,6 +40,8 @@ Next
   skillshare collect  copy local-only skills into source
 ```
 
+에이전트 변형이 모호하면 진단과 함께 `(skill selection)` 건너뛰기 행이 표시됩니다. `include`/`exclude` 또는 소스의 대상 재정의로 원하는 변형을 선택하세요. 이 행은 선택을 건너뛴 이유를 설명하며 sync로 적용할 변경 사항이 아닙니다.
+
 ## 인터랙티브 TUI
 
 TTY에서 `diff`는 대화형 화면을 엽니다. 왼쪽에는 target, 오른쪽에는 선택한 target의 차이가 표시되며 파일 단위 diff까지 볼 수 있습니다. 키는 화면 아래쪽에 표시됩니다. 일반 텍스트로 보려면 `--no-tui`를 사용하거나 출력을 파이프하세요.

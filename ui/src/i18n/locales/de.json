@@ -905,6 +905,7 @@
   "update.check.viewChanges": "Änderungen ansehen",
   "update.done.subtitle": "Aktualisierung abgeschlossen.",
   "update.done.syncHint": "Ziele erhalten die neuen Versionen beim nächsten Sync.",
+  "update.done.failedHint": "Die Ziele entsprechen der Quelle. Die Einträge unten wurden nicht aktualisiert.",
   "update.empty.description": "Getrackte Repositories oder GitHub-Skills installieren, um auf Updates zu prüfen.",
   "update.empty.title": "Keine aktualisierbaren Skills",
   "update.empty.agentsTitle": "Keine aktualisierbaren Agents",
@@ -1890,8 +1891,6 @@
   "targetDetail.shared.use": "{value} wie {other} verwenden",
   "targetDetail.shared.filters": "{other} synchronisiert ebenfalls Skills nach {path}, mit anderen Filtern. Jede Synchronisierung würde wieder hinzufügen oder entfernen, was die andere herausfiltert.",
   "targetDetail.shared.useFilters": "Dieselben Filter wie {other} verwenden",
-  "targetDetail.skipped.one": "{count} Skill kann die Standardbenennung nicht nutzen und wird übersprungen. Probiere flat.",
-  "targetDetail.skipped.other": "{count} Skills können die Standardbenennung nicht nutzen und werden übersprungen. Probiere flat.",
   "targetDetail.collect": "Sammeln",
   "targetDetail.collectHint.skills.one": "{count} Skill gibt es nur in diesem Ziel. Sammeln kopiert ihn in deine Quelle, damit jedes Ziel ihn bekommt.",
   "targetDetail.collectHint.skills.other": "{count} Skills gibt es nur in diesem Ziel. Sammeln kopiert sie in deine Quelle, damit jedes Ziel sie bekommt.",
@@ -1998,6 +1997,7 @@
   "sync.skipped.hint": "weil zwei Ordner gleich enden. Stelle {name} auf flat-Benennung um, um beide zu behalten.",
   "sync.skipped.hintNaming": "weil ihr SKILL.md-Name ungültig ist oder nicht zum Ordner passt. Stelle {name} auf flat-Benennung um, um sie zu behalten.",
   "sync.skipped.hintMixed": "wegen ungültiger SKILL.md-Namen und Ordnern, die gleich enden. Stelle {name} auf flat-Benennung um, um sie zu behalten.",
+  "sync.skipped.hintSelection": "Agentenvarianten müssen explizit ausgewählt werden. Verwende include/exclude oder eine Zielüberschreibung, um eine auszuwählen.",
   "sync.skipped.open": "Ziel öffnen",
   "sync.local.one": "{count} Eintrag existiert nur in einem Ziel",
   "sync.local.other": "{count} Einträge existieren nur in einem Ziel",
@@ -3520,5 +3520,7 @@
   "plugins.note.importRecipeChanged": "Das gemeinsame Installationsrezept wurde geändert; dieser lokale Import bleibt erhalten. Führe zum Wechsel zur Quelle plugin remove aus, stelle die Zieldeklaration für die Quelle wieder her und führe dann sync aus.",
   "plugins.note.selection": "Nur die Synchronisierungsauswahl speichern. Zum Installieren oder Entfernen dieses Ziels synchronisieren.",
   "plugins.note.localImportRequired": "Auf diesem Rechner ist ein Import nötig. Die lokale native Kennung in dieses Paket importieren.",
-  "plugins.note.noLocalBinding": "Deklaration entfernen. Es ist keine lokale Installation zugeordnet."
+  "plugins.note.noLocalBinding": "Deklaration entfernen. Es ist keine lokale Installation zugeordnet.",
+  "sync.skipped.ambiguousVariant": "Mehrdeutige Agent-Variante; mit include/exclude oder einer Zielüberschreibung eine auswählen.",
+  "dashboard.trackedRepos.variantCount": "{count} Varianten"
 }

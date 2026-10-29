@@ -104,16 +104,18 @@ describe('Sync page last sync', () => {
 
   it('does not offer Discard all for a skill a symlink-mode target already exposes', async () => {
     const skill = (flatName: string) => ({ name: flatName, kind: 'skill', flatName, relPath: flatName, sourcePath: '', isInRepo: true });
-    vi.mocked(api.listTargets).mockResolvedValue({ targets: [target('codex')], sourceSkillCount: 1 });
+    const warning = `Target 'codex': skipped broken because SKILL.md name "different" does not match directory name "broken"`;
+    vi.mocked(api.listTargets).mockResolvedValue({ targets: [target('codex', { targetNaming: 'standard' })], sourceSkillCount: 2 });
     vi.mocked(api.diff).mockResolvedValue({
-      diffs: [{ target: 'codex', items: [{ skill: 'fresh', action: 'link', reason: 'new' }] }],
+      diffs: [{ target: 'codex', skippedCount: 1, namingSkippedCount: 1, warnings: [warning], items: [{ skill: 'fresh', action: 'link', reason: 'new' }, { skill: '(skill selection)', action: 'skip', reason: warning }] }],
       ignored_count: 0, ignored_skills: [], ignore_root: '', ignore_repos: [],
     } as never);
-    vi.mocked(api.listSkills).mockResolvedValue({ resources: [skill('fresh')] } as never);
+    vi.mocked(api.listSkills).mockResolvedValue({ resources: [skill('fresh'), skill('broken')] } as never);
     // claude links the whole source folder, so fresh is already live there.
     vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [
       { skill: 'fresh', target: 'codex', status: 'synced', reason: '' },
       { skill: 'fresh', target: 'claude', status: 'na', reason: 'symlink mode — filters not applicable', reasonCode: 'sync_matrix.symlink_filters_not_applicable' },
+      { skill: 'broken', target: 'codex', status: 'synced', reason: '' },
     ] } as never);
     renderPage();
 

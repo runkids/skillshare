@@ -15,6 +15,14 @@ ownership and conflict checks rather than skill symlinks. See [mcp](/docs/refere
 Operations like `install` and `uninstall` only modify source — sync propagates to targets. This lets you batch changes, preview with `--dry-run`, and control when targets update. See [Why Sync is a Separate Step](/docs/understand/source-and-targets#why-sync-is-a-separate-step).
 :::
 
+## Agent-specific skill variants
+
+In a tracked repository, `skills/<known-agent>/<skill-path>/SKILL.md` is recognized as an agent-specific variant only when the same complete skill path exists under at least two distinct canonical agents beneath the same `skills/` parent. Aliases of one agent alone do not qualify. A lone category such as `skills/agents/planner` remains an ordinary skill.
+
+In merge/copy mode, variants route to the matching agent, including aliases and account targets. Compatible targets sharing one skills folder select the union of their agent identities: Codex and `universal` sharing `~/.agents/skills` keep the Codex variants. Each reader sees that shared union; incompatible settings still produce overlap/conflict diagnostics. Explicit source-local target overrides and frontmatter routing retain precedence, and ignores and include/exclude filters still apply.
+
+Source and repository summaries count logical skills once and show physical variants separately, for example `2 skills, 4 variants`. Per-target sync operations remain physical counts. Whole-directory symlink mode exposes every variant; `status` and `doctor` explain this limitation and recommend merge or copy for automatic routing.
+
 ## When to Use
 
 - After installing, uninstalling, or editing skills — propagate changes to all targets

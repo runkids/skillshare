@@ -827,6 +827,7 @@
   "update.check.viewChanges": "View changes",
   "update.done.subtitle": "Update finished.",
   "update.done.syncHint": "Targets get the new versions on the next sync.",
+  "update.done.failedHint": "Targets match the source. The items below were not updated.",
   "update.empty.description": "Install tracked repositories or GitHub skills to check for updates.",
   "update.empty.title": "No updatable skills",
   "update.empty.agentsTitle": "No updatable agents",
@@ -1890,8 +1891,6 @@
   "targetDetail.shared.use": "Use {value} like {other}",
   "targetDetail.shared.filters": "{other} also syncs skills to {path}, with different filters. Each sync would add back or remove what the other filters out.",
   "targetDetail.shared.useFilters": "Use the same filters as {other}",
-  "targetDetail.skipped.one": "{count} skill can't use standard naming and is skipped. Try flat.",
-  "targetDetail.skipped.other": "{count} skills can't use standard naming and are skipped. Try flat.",
   "targetDetail.collect": "Collect",
   "targetDetail.collectHint.skills.one": "{count} skill exists only in this target. Collect copies it into your source so every target gets it.",
   "targetDetail.collectHint.skills.other": "{count} skills exist only in this target. Collect copies them into your source so every target gets them.",
@@ -1998,6 +1997,7 @@
   "sync.skipped.hint": "because two folders end in the same name. Switch {name} to flat naming to keep both.",
   "sync.skipped.hintNaming": "because their SKILL.md name is invalid or doesn't match its folder. Switch {name} to flat naming to keep them.",
   "sync.skipped.hintMixed": "because of invalid SKILL.md names and folders that end in the same name. Switch {name} to flat naming to keep them.",
+  "sync.skipped.hintSelection": "agent variants need an explicit selection. Use include/exclude or a target override to select one.",
   "sync.skipped.open": "Open target",
   "sync.local.one": "{count} item exists only in a target",
   "sync.local.other": "{count} items exist only in a target",
@@ -3520,5 +3520,7 @@
   "plugins.note.importRecipeChanged": "Shared recipe changed; keeping this local import. To switch to source, use plugin remove, restore the source target declaration, then sync.",
   "plugins.note.selection": "Save sync selection only. Sync to install or remove this target.",
   "plugins.note.localImportRequired": "Import required on this machine. Import its local native identifier into this package.",
-  "plugins.note.noLocalBinding": "Remove the declaration. No local installation is bound."
+  "plugins.note.noLocalBinding": "Remove the declaration. No local installation is bound.",
+  "sync.skipped.ambiguousVariant": "Ambiguous agent variant; use include/exclude or a target override to select one.",
+  "dashboard.trackedRepos.variantCount": "{count} variants"
 }

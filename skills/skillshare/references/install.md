@@ -214,6 +214,8 @@ even with `--force`; update them by name instead.
 
 **Safety:** Tracked repos with uncommitted changes are skipped, and repos whose git status cannot be read fail. A remote skill whose files changed since install is skipped too; `check` reports it as `modified`. Use `--force` to override all three.
 
+Only one skillshare process updates a Git checkout at a time; another waits up to a minute, then fails with `another skillshare process is still updating <path>`.
+
 **Security:** Tracked updates (including `install --track --update`) pull and audit
 an isolated candidate, then publish the exact approved commit. Rejection or scan
 errors leave the active checkout and metadata unchanged; existing target links

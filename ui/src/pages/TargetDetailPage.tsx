@@ -12,6 +12,7 @@ import SegmentedControl from '../components/SegmentedControl';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import FilterSection, { ModePicker } from '../components/targets/FilterSection';
+import { targetWarning, targetSkipHints } from '../components/targets/targetView';
 import RemoveTargetDialog from '../components/targets/RemoveTargetDialog';
 import SkillsOffDialog from '../components/targets/SkillsOffDialog';
 import TargetMCP from '../components/targets/TargetMCP';
@@ -253,6 +254,11 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
         }
       />
 
+      {target.warnings?.map((warning) => {
+        const diagnostic = targetWarning(warning);
+        return <div key={warning} className="ss-note warn mb-3" role="status"><span>{diagnostic ? <><span className="font-mono">{diagnostic.path}</span>: {t(diagnostic.key, { name: target.name })}</> : warning}</span></div>;
+      })}
+
       {tabs.length > 1 && (
         <nav className="ss-tabs mb-7" aria-label={t('targetDetail.tabs')}>
           {tabs.filter((k) => k !== 'instructions').map((k) => (
@@ -375,8 +381,11 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
                   <span className="flex items-center gap-1.5 text-[13px] text-ink-3"><Info size={14} className="shrink-0" />{t('targetDetail.prefixedNeedsCopy')}</span>
                 )}
                 {namingClash && sharedNote(namingClash, 'naming')}
-                {saved.naming !== 'flat' && (target.skippedSkillCount ?? 0) > 0 && (
-                  <span className="text-[13px] text-warn">{t(plural('targetDetail.skipped', target.skippedSkillCount), { count: target.skippedSkillCount })}</span>
+                {targetSkipHints(target).length > 0 && (
+                  <span className="text-[13px] text-warn">
+                    {t(plural('sync.skipped', target.skippedSkillCount ?? 0), { count: target.skippedSkillCount ?? 0, name: target.name })}{' '}
+                    {targetSkipHints(target).map((key) => t(key, { name: target.name })).join(' ')}
+                  </span>
                 )}
               </div>
             )}

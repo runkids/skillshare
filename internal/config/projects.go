@@ -158,6 +158,11 @@ func (c *Config) expandProjects() error {
 			}
 			skills.Path = group.SkillsPath
 			target := TargetConfig{Skills: &skills, projectRoot: abs, defaultTargetNaming: c.TargetNaming}
+			if len(group.Tools) > 1 {
+				for _, tool := range group.Tools {
+					target.sharedSkillTargets = append(target.sharedSkillTargets, SkillTargetIdentity{Name: ProjectTargetName(name, tool)})
+				}
+			}
 			if project.Agents != nil && group.AgentsPath != "" {
 				agents := *project.Agents
 				agents.Path = group.AgentsPath
@@ -258,6 +263,8 @@ func (c *Config) ConvertibleProjects() []ConvertibleProject {
 	}
 	withoutPath := func(rc ResourceTargetConfig) ResourceTargetConfig {
 		rc.Path = ""
+		rc.Agent = ""
+		rc.SharedTargets = nil
 		return rc
 	}
 

@@ -668,7 +668,7 @@ projects:
 - **共用的資料夾只會寫入一次。** 若多個工具讀取同一個 project 資料夾（`cursor` 與 `codex` 都讀取 `.agents/skills`），它們會被合併成同一個同步目標。
 - **輸出中的名稱。** `sync`、`status`、`diff`、`doctor` 與 `backup` 會以 `<name>@<target>` 的形式顯示一個 project 的 targets，例如 `shop-web@claude`。`name` 不能包含 `@`、`/` 或 `\`，且兩個 project 不能共用同一個名稱。
 - **Agents** 只會寫入擁有 project agents 目錄的工具。只設定 `agents` 而不設定 `skills` 的 project，只會同步 agents。
-- **找不到的資料夾會被跳過。** `sync` 會印出 `project <folder>: folder not found, skipped`，且不會重新建立你已經搬移或刪除的 project。
+- **找不到的資料夾會被跳過。** 全域 Skill 同步只用一則警告彙總缺失的 project 資料夾數量，不會重新建立你已經搬移或刪除的 project。執行 `skillshare project list` 查看完整清單，或用 `skillshare project list --json` 讀取各項的 `missing` 欄位。
 - **`target` 與 `collect` 不會動到 projects。** `skillshare target` 只會列出並編輯 `targets` 區塊，`collect` 也不會把 project 自己的 skills 拉回 source。使用 [`skillshare project`](/docs/reference/commands/project) 新增、編輯、同步或移除專案註冊，也可以使用 dashboard 的 **Projects** 頁面。
 - 帶有 `targets` frontmatter 欄位的 skill 會依工具比對，因此 `targets: [claude]` 會涵蓋 `shop-web@claude`。
 

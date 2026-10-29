@@ -905,6 +905,7 @@
   "update.check.viewChanges": "Lihat perubahan",
   "update.done.subtitle": "Pembaruan selesai.",
   "update.done.syncHint": "Target mendapatkan versi baru pada sinkronisasi berikutnya.",
+  "update.done.failedHint": "Target sudah sesuai dengan sumber. Item di bawah tidak diperbarui.",
   "update.empty.description": "Instal repositori yang dilacak atau skill GitHub untuk memeriksa pembaruan.",
   "update.empty.title": "Tidak ada skill yang dapat diperbarui",
   "update.empty.agentsTitle": "Tidak ada agent yang dapat diperbarui",
@@ -1890,8 +1891,6 @@
   "targetDetail.shared.use": "Pakai {value} seperti {other}",
   "targetDetail.shared.filters": "{other} juga menyinkronkan skill ke {path}, dengan filter yang berbeda. Setiap sinkronisasi akan menambahkan kembali atau menghapus apa yang disaring yang lain.",
   "targetDetail.shared.useFilters": "Pakai filter yang sama dengan {other}",
-  "targetDetail.skipped.one": "{count} skill tidak bisa memakai penamaan standard dan dilewati. Coba flat.",
-  "targetDetail.skipped.other": "{count} skill tidak bisa memakai penamaan standard dan dilewati. Coba flat.",
   "targetDetail.collect": "Kumpulkan",
   "targetDetail.collectHint.skills.one": "{count} skill hanya ada di target ini. Kumpulkan menyalinnya ke sumber Anda agar semua target mendapatkannya.",
   "targetDetail.collectHint.skills.other": "{count} skill hanya ada di target ini. Kumpulkan menyalinnya ke sumber Anda agar semua target mendapatkannya.",
@@ -1998,6 +1997,7 @@
   "sync.skipped.hint": "karena dua folder berakhiran nama yang sama. Ubah {name} ke penamaan flat agar keduanya tetap ada.",
   "sync.skipped.hintNaming": "karena nama SKILL.md-nya tidak valid atau tidak sama dengan nama foldernya. Ubah {name} ke penamaan flat agar tetap ada.",
   "sync.skipped.hintMixed": "karena ada nama SKILL.md yang tidak valid dan folder yang berakhiran nama yang sama. Ubah {name} ke penamaan flat agar tetap ada.",
+  "sync.skipped.hintSelection": "varian agen memerlukan pilihan eksplisit. Gunakan include/exclude atau pengaturan tujuan untuk memilih satu.",
   "sync.skipped.open": "Buka target",
   "sync.local.one": "{count} item hanya ada di target",
   "sync.local.other": "{count} item hanya ada di target",
@@ -3520,5 +3520,7 @@
   "plugins.note.importRecipeChanged": "Resep bersama telah berubah; impor lokal ini dipertahankan. Untuk beralih ke sumber, jalankan plugin remove, pulihkan deklarasi target sumber, lalu jalankan sync.",
   "plugins.note.selection": "Simpan pilihan sinkronisasi saja. Sinkronkan untuk memasang atau menghapus target ini.",
   "plugins.note.localImportRequired": "Mesin ini memerlukan impor. Impor pengenal native lokal ke paket ini.",
-  "plugins.note.noLocalBinding": "Hapus deklarasi. Tidak ada instalasi lokal yang terkait."
+  "plugins.note.noLocalBinding": "Hapus deklarasi. Tidak ada instalasi lokal yang terkait.",
+  "sync.skipped.ambiguousVariant": "Varian agen ambigu; gunakan include/exclude atau penggantian target untuk memilih satu.",
+  "dashboard.trackedRepos.variantCount": "{count} varian"
 }

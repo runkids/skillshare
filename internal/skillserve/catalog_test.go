@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 	"skillshare/internal/skillpkg"
 )
 
@@ -105,6 +106,32 @@ func TestBuild_AppliesTargetSelectionAndDisabledState(t *testing.T) {
 	}
 	if len(c.Skills) != 1 || c.Skills[0].URI != "skill://keep/SKILL.md" {
 		t.Errorf("skills = %v, want only keep", c.Skills)
+	}
+}
+
+func TestBuild_ReportsAmbiguousTargetVariants(t *testing.T) {
+	src := t.TempDir()
+	for _, agent := range []string{"claude", "claude-code", "codex"} {
+		writeFile(t, filepath.Join(src, "_repo/skills", agent, "fix/SKILL.md"), skillMD("fix"))
+	}
+	c, err := (&Builder{Source: src, Target: "claude", Skills: &config.ResourceTargetConfig{}}).Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.Skills) != 0 || len(c.Skipped) != 2 || !hasWarning(c, "ambiguous") || !hasWarning(c, "target override") {
+		t.Fatalf("ambiguous catalog silently skipped variants: skills=%v, skipped=%v", c.Skills, c.Skipped)
+	}
+	if c.Skipped[0].Path != "_repo/skills/claude-code/fix" || c.Skipped[1].Path != "_repo/skills/claude/fix" {
+		t.Fatalf("skip paths must retain source order: %v", c.Skipped)
+	}
+	account := config.TargetConfig{Agent: "codex", Skills: &config.ResourceTargetConfig{TargetNaming: "prefixed"}}
+	sc := account.SkillsConfig()
+	c, err = (&Builder{Source: src, Target: "codex-work", Skills: &sc}).Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.Skills) != 1 || c.Skills[0].URI != "skill://_repo/skills/codex/fix/SKILL.md" || len(c.Skipped) != 0 {
+		t.Fatalf("account catalog must serve the selected physical variant: skills=%v, skipped=%v", c.Skills, c.Skipped)
 	}
 }
 
@@ -411,5 +438,75 @@ func TestRead_ServesListedFileWithBackslashInName(t *testing.T) {
 	}
 	if data, err := c.Read("skill://doc/a%5Cb.txt"); err != nil || string(data) != "x" {
 		t.Errorf("Read = %q, %v; want the listed file", data, err)
+	}
+}
+
+func TestBuild_ServesParentWithDifferentlyRoutedVariant(t *testing.T) {
+	src := t.TempDir()
+	writeFile(t, filepath.Join(src, "_repo/parent/SKILL.md"), skillMD("parent"))
+	for _, agent := range []string{"claude", "codex"} {
+		writeFile(t, filepath.Join(src, "_repo/parent/skills", agent, "fix/SKILL.md"), skillMD("fix"))
+	}
+	for _, tc := range []struct {
+		name     string
+		sc       config.ResourceTargetConfig
+		disabled bool
+	}{
+		{name: "excluded peer", sc: config.ResourceTargetConfig{Exclude: []string{"_repo__parent__skills__codex__fix"}}},
+		{name: "peer omitted by include", sc: config.ResourceTargetConfig{Include: []string{"_repo__parent", "_repo__parent__skills__claude__fix"}}},
+		{name: "disabled peer", disabled: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.disabled {
+				writeFile(t, filepath.Join(src, ".skillignore"), "_repo/parent/skills/codex/fix\n")
+			}
+			c, err := (&Builder{Source: src, Target: "claude", Skills: &tc.sc}).Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if find(c, "skill://_repo/parent/SKILL.md") != nil {
+				t.Fatalf("parent exposes unserved filtered peer: skips=%v", c.Skipped)
+			}
+		})
+	}
+	writeFile(t, filepath.Join(src, ".skillignore"), "")
+	for _, target := range []string{"claude", "codex"} {
+		c, err := (&Builder{Source: src, Target: target, Skills: &config.ResourceTargetConfig{}}).Build()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if find(c, "skill://_repo/parent/SKILL.md") == nil || len(c.Skills) != 2 {
+			t.Fatalf("%s: skills=%v skips=%v", target, c.Skills, c.Skipped)
+		}
+	}
+}
+
+func TestBuild_VariantParentRespectsExplicitChildTargets(t *testing.T) {
+	for _, override := range []bool{false, true} {
+		t.Run(fmt.Sprintf("override=%t", override), func(t *testing.T) {
+			src := t.TempDir()
+			writeFile(t, filepath.Join(src, "_repo/parent/SKILL.md"), skillMD("parent"))
+			for _, agent := range []string{"claude", "codex"} {
+				content := skillMD("fix")
+				if agent == "codex" && !override {
+					content = strings.Replace(content, "metadata:\n", "metadata:\n  targets: [codex]\n", 1)
+				}
+				writeFile(t, filepath.Join(src, "_repo/parent/skills", agent, "fix/SKILL.md"), content)
+			}
+			if override {
+				store := install.NewMetadataStore()
+				store.SetTargetOverride("_repo/parent/skills/codex/fix", []string{"codex"})
+				if err := store.Save(src); err != nil {
+					t.Fatal(err)
+				}
+			}
+			c, err := (&Builder{Source: src, Target: "claude", Skills: &config.ResourceTargetConfig{}}).Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if find(c, "skill://_repo/parent/SKILL.md") != nil {
+				t.Fatalf("parent exposes explicitly restricted child: skips=%v", c.Skipped)
+			}
+		})
 	}
 }

@@ -96,6 +96,17 @@ func ExecuteTargets(ctx context.Context, cfg *config.Config, targets map[string]
 	sourceIncomplete := opts.Discovery.SourceIncomplete
 	ignorePatterns := EffectiveFileIgnorePatterns(cfg.Ignore)
 	runTargets := targets
+	// Resolve against the whole configuration even for a target-only sync.
+	allTargets := maps.Clone(cfg.Targets)
+	if allTargets == nil {
+		allTargets = make(map[string]config.TargetConfig)
+	}
+	maps.Copy(allTargets, targets)
+	sharedTargets := config.WithSharedSkillsTargets(allTargets, globalMode)
+	runTargets = maps.Clone(targets)
+	for name := range runTargets {
+		runTargets[name] = sharedTargets[name]
+	}
 	dryRun, force := opts.DryRun, opts.Force
 	if opts.ResolveExtension == nil {
 		opts.ResolveExtension = func(ext string) (*ExtensionSpec, error) {

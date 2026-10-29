@@ -98,6 +98,10 @@ func NewTargetSkillsMode(naming, mode string) string {
 
 // ResourceTargetConfig holds per-resource-kind target configuration (skills, agents, etc.).
 type ResourceTargetConfig struct {
+	// SharedTargets are compatible writers to the same folder, resolved at runtime.
+	SharedTargets []SkillTargetIdentity `yaml:"-" json:"-"`
+	// Agent carries the enclosing account's identity during selection; it is not configuration.
+	Agent        string   `yaml:"-" json:"-"`
 	Path         string   `yaml:"path,omitempty"`
 	Mode         string   `yaml:"mode,omitempty"` // merge, symlink, or copy
 	TargetNaming string   `yaml:"target_naming,omitempty"`
@@ -143,10 +147,11 @@ func (r ResourceTargetConfig) withExtensionMode() ResourceTargetConfig {
 // Legacy flat fields (Path/Mode/Include/Exclude) are kept for backward-compatible
 // YAML reading; migrateTargetConfigs moves them into Skills on load.
 type TargetConfig struct {
-	Path    string   `yaml:"path,omitempty"`
-	Mode    string   `yaml:"mode,omitempty"` // merge, symlink, or copy
-	Include []string `yaml:"include,omitempty"`
-	Exclude []string `yaml:"exclude,omitempty"`
+	sharedSkillTargets []SkillTargetIdentity
+	Path               string   `yaml:"path,omitempty"`
+	Mode               string   `yaml:"mode,omitempty"` // merge, symlink, or copy
+	Include            []string `yaml:"include,omitempty"`
+	Exclude            []string `yaml:"exclude,omitempty"`
 
 	// Agent and ConfigDir make this target another config directory of a built-in Agent,
 	// such as a second account. Its paths are then the Agent's own, moved into ConfigDir.
@@ -188,17 +193,21 @@ type TargetInstructionsConfig struct {
 func (tc *TargetConfig) SkillsConfig() ResourceTargetConfig {
 	if tc.Skills != nil {
 		sc := *tc.Skills
+		sc.SharedTargets = tc.sharedSkillTargets
+		sc.Agent = tc.Agent
 		if sc.TargetNaming == "" {
 			sc.TargetNaming = tc.defaultTargetNaming
 		}
 		return sc
 	}
 	return ResourceTargetConfig{
-		Path:         tc.Path,
-		Mode:         tc.Mode,
-		TargetNaming: tc.defaultTargetNaming,
-		Include:      tc.Include,
-		Exclude:      tc.Exclude,
+		SharedTargets: tc.sharedSkillTargets,
+		Agent:         tc.Agent,
+		Path:          tc.Path,
+		Mode:          tc.Mode,
+		TargetNaming:  tc.defaultTargetNaming,
+		Include:       tc.Include,
+		Exclude:       tc.Exclude,
 	}
 }
 
@@ -853,6 +862,7 @@ func decodeConfig(path string, data []byte, persist bool) (*Config, error) {
 	if err := cfg.expandProjects(); err != nil {
 		return nil, err
 	}
+	cfg.Targets = WithSharedSkillsTargets(cfg.Targets, cfg.Mode)
 	// Expand ~ in extras paths
 	for i, extra := range cfg.Extras {
 		cfg.Extras[i].Source = expandPath(extra.Source)

@@ -110,8 +110,14 @@ func (b *Builder) Build() (*Catalog, error) {
 func (b *Builder) build(all []ssync.DiscoveredSkill) (*Catalog, error) {
 	var err error
 	var selected []ssync.DiscoveredSkill
+	var skipped map[string]string
+	var routed map[string]ssync.SkillTargetClassification
 	if b.Skills != nil {
-		if selected, err = ssync.SelectTargetSkills(all, b.Target, *b.Skills); err != nil {
+		if selected, skipped, err = ssync.SelectTargetSkillsWithDiagnostics(all, b.Target, *b.Skills); err != nil {
+			return nil, err
+		}
+		routed, err = ssync.ClassifySkillsForTarget(all, b.Target, *b.Skills)
+		if err != nil {
 			return nil, err
 		}
 	} else {
@@ -122,16 +128,19 @@ func (b *Builder) build(all []ssync.DiscoveredSkill) (*Catalog, error) {
 		served[s.RelPath] = true
 	}
 	var unserved []string
+	c := &Catalog{bySkill: map[string]*Skill{}, byFile: map[string]servedFile{}}
 	for _, s := range all {
-		if !served[s.RelPath] {
+		if !served[s.RelPath] && !(s.UsesVariantRouting() && !s.Disabled && routed[s.RelPath].Status == "skill_target_mismatch") {
 			unserved = append(unserved, s.RelPath)
+		}
+		if reason, ok := skipped[s.RelPath]; ok {
+			c.Skipped = append(c.Skipped, Skip{Path: s.RelPath, Reason: reason})
 		}
 	}
 	slices.SortFunc(selected, func(x, y ssync.DiscoveredSkill) int { return strings.Compare(x.RelPath, y.RelPath) })
 
 	// Deepest first, so a nested skill skipped for any reason also skips its parents,
 	// which would otherwise publish its files as their own.
-	c := &Catalog{bySkill: map[string]*Skill{}, byFile: map[string]servedFile{}}
 	for i := len(selected) - 1; i >= 0; i-- {
 		s := selected[i]
 		skill, files, reason := load(s)

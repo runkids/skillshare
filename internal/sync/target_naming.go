@@ -30,11 +30,14 @@ type ResolvedTargetSkill struct {
 // target after include/exclude filters, target filters, standard validation,
 // and collision handling are applied.
 type TargetSkillResolution struct {
-	Naming            string
-	Skills            []ResolvedTargetSkill
-	Warnings          []string
-	Collisions        []NameCollision
-	UnmatchedIncludes []UnmatchedInclude
+	Naming             string
+	Skills             []ResolvedTargetSkill
+	Warnings           []string
+	SelectionWarnings  []string // Ambiguity diagnostics, separate from naming validation
+	Collisions         []NameCollision
+	UnmatchedIncludes  []UnmatchedInclude
+	SkippedCount       int // Physical candidates rejected by selection, validation, or collisions
+	NamingSkippedCount int // Subset rejected by naming validation
 }
 
 // UnmatchedIncludeWarnings renders one diagnostic per include pattern that
@@ -67,14 +70,17 @@ func (u UnmatchedInclude) Warning() string {
 // ResolveTargetSkillsForTarget applies a target's filters and target_naming
 // policy to discovered skills and returns the effective target-visible skills.
 func ResolveTargetSkillsForTarget(targetName string, sc config.ResourceTargetConfig, allSkills []DiscoveredSkill) (*TargetSkillResolution, error) {
-	filtered, err := SelectTargetSkills(allSkills, targetName, sc)
+	selection, err := selectTargetSkills(allSkills, targetName, sc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply filters for target %s: %w", targetName, err)
 	}
+	filtered, warnings := selection.Skills, selection.Warnings
 
 	naming := config.EffectiveTargetNaming(sc.TargetNaming)
 	result := &TargetSkillResolution{
 		Naming:            naming,
+		SelectionWarnings: warnings,
+		SkippedCount:      len(warnings),
 		UnmatchedIncludes: FindUnmatchedIncludes(sc.Include, allSkills),
 	}
 
@@ -160,6 +166,8 @@ func ResolveTargetSkillsForTarget(targetName string, sc config.ResourceTargetCon
 		result.Skills = append(result.Skills, candidate)
 	}
 
+	result.NamingSkippedCount = len(result.Warnings)
+	result.SkippedCount += len(filtered) - len(result.Skills)
 	return result, nil
 }
 
@@ -210,8 +218,9 @@ const maxListed = 5
 // skills named apart from their folder. It names only the first few of each, so
 // a source with thousands of invalid names does not flood the output.
 func printResolutionSummary(r *TargetSkillResolution) {
-	if n := len(r.Warnings); n > 0 {
-		printListed(fmt.Sprintf("%d skill(s) skipped (naming validation)", n), r.Warnings)
+	warnings := append(append([]string{}, r.Warnings...), r.SelectionWarnings...)
+	if n := len(warnings); n > 0 {
+		printListed(fmt.Sprintf("%d skill(s) skipped (selection or naming)", n), warnings)
 	}
 	if n := len(r.Collisions); n > 0 {
 		fmt.Fprintf(DiagOutput, "  %d name collision(s) excluded\n", n)

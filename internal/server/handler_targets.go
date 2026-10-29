@@ -15,31 +15,34 @@ import (
 )
 
 type targetItem struct {
-	Name               string   `json:"name"`
-	Project            string   `json:"project,omitempty"` // root of the project this target belongs to
-	Agent              string   `json:"agent,omitempty"`   // the built-in Agent this is another config directory of
-	ConfigDir          string   `json:"configDir,omitempty"`
-	CLI                string   `json:"cli,omitempty"` // the executable that runs its plugin commands, when not the Agent's own
-	Path               string   `json:"path"`
-	Mode               string   `json:"mode"`
-	TargetNaming       string   `json:"targetNaming"`
-	Status             string   `json:"status"`
-	LinkedCount        int      `json:"linkedCount"`
-	LocalCount         int      `json:"localCount"`
-	Include            []string `json:"include"`
-	Exclude            []string `json:"exclude"`
-	ExpectedSkillCount int      `json:"expectedSkillCount"`
-	SkippedSkillCount  int      `json:"skippedSkillCount,omitempty"`
-	CollisionCount     int      `json:"collisionCount,omitempty"`
-	AgentPath          string   `json:"agentPath,omitempty"`
-	AgentMode          string   `json:"agentMode,omitempty"`
-	AgentExtension     string   `json:"agentExtension,omitempty"`
-	AgentInclude       []string `json:"agentInclude,omitempty"`
-	AgentExclude       []string `json:"agentExclude,omitempty"`
-	AgentLinkedCount   *int     `json:"agentLinkedCount,omitempty"`
-	AgentLocalCount    *int     `json:"agentLocalCount,omitempty"`
-	AgentExpectedCount *int     `json:"agentExpectedCount,omitempty"`
-	SkillsEnabled      bool     `json:"skillsEnabled"`
+	Name                       string   `json:"name"`
+	Project                    string   `json:"project,omitempty"` // root of the project this target belongs to
+	Agent                      string   `json:"agent,omitempty"`   // the built-in Agent this is another config directory of
+	ConfigDir                  string   `json:"configDir,omitempty"`
+	CLI                        string   `json:"cli,omitempty"` // the executable that runs its plugin commands, when not the Agent's own
+	Path                       string   `json:"path"`
+	Mode                       string   `json:"mode"`
+	TargetNaming               string   `json:"targetNaming"`
+	Status                     string   `json:"status"`
+	LinkedCount                int      `json:"linkedCount"`
+	LocalCount                 int      `json:"localCount"`
+	Include                    []string `json:"include"`
+	Exclude                    []string `json:"exclude"`
+	ExpectedSkillCount         int      `json:"expectedSkillCount"`
+	SkippedSkillCount          int      `json:"skippedSkillCount,omitempty"`
+	NamingSkippedSkillCount    int      `json:"namingSkippedSkillCount,omitempty"`
+	SelectionSkippedSkillCount int      `json:"selectionSkippedSkillCount,omitempty"`
+	Warnings                   []string `json:"warnings,omitempty"`
+	CollisionCount             int      `json:"collisionCount,omitempty"`
+	AgentPath                  string   `json:"agentPath,omitempty"`
+	AgentMode                  string   `json:"agentMode,omitempty"`
+	AgentExtension             string   `json:"agentExtension,omitempty"`
+	AgentInclude               []string `json:"agentInclude,omitempty"`
+	AgentExclude               []string `json:"agentExclude,omitempty"`
+	AgentLinkedCount           *int     `json:"agentLinkedCount,omitempty"`
+	AgentLocalCount            *int     `json:"agentLocalCount,omitempty"`
+	AgentExpectedCount         *int     `json:"agentExpectedCount,omitempty"`
+	SkillsEnabled              bool     `json:"skillsEnabled"`
 	// SkillsReadFrom (skills off) names the enabled targets whose skills folder
 	// this tool still reads; SkillsAlsoReadBy (skills on) names the targets with
 	// skills off whose tool reads this target's folder.
@@ -138,22 +141,17 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 			item.SkillsReadFrom = config.SkillsReadFrom(targets, name, projectRoot)
 		case mode == "merge" || mode == "copy":
 			if discoveredErr == nil {
-				filtered, err := ssync.SelectTargetSkills(discovered, name, sc)
+				resolution, err := ssync.ResolveTargetSkillsForTarget(name, sc, discovered)
 				if err != nil {
 					writeError(w, http.StatusBadRequest, "invalid include/exclude for target "+name+": "+err.Error())
 					return
 				}
-				resolution, resErr := ssync.ResolveTargetSkillsForTarget(name, config.ResourceTargetConfig{
-					Path:         sc.Path,
-					TargetNaming: sc.TargetNaming,
-				}, filtered)
-				if resErr == nil {
-					item.ExpectedSkillCount = len(resolution.Skills)
-					item.SkippedSkillCount = len(filtered) - len(resolution.Skills)
-					item.CollisionCount = len(resolution.Collisions)
-				} else {
-					item.ExpectedSkillCount = len(filtered)
-				}
+				item.ExpectedSkillCount = len(resolution.Skills)
+				item.SkippedSkillCount = resolution.SkippedCount
+				item.NamingSkippedSkillCount = resolution.NamingSkippedCount
+				item.SelectionSkippedSkillCount = len(resolution.SelectionWarnings)
+				item.CollisionCount = len(resolution.Collisions)
+				item.Warnings = append(resolution.Warnings, resolution.SelectionWarnings...)
 			}
 			if mode == "merge" {
 				status, linked, local := ssync.CheckStatusMerge(sc.Path, source)
@@ -200,12 +198,12 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Count source skills for drift detection
-	sourceSkillCount := 0
+	counts := ssync.SkillCounts{}
 	if discoveredErr == nil {
-		sourceSkillCount = len(discovered)
+		counts = ssync.CountSkills(discovered)
 	}
 
-	writeJSON(w, map[string]any{"targets": items, "sourceSkillCount": sourceSkillCount})
+	writeJSON(w, map[string]any{"targets": items, "sourceSkillCount": counts.Skills, "sourceVariantCount": counts.Variants})
 }
 
 func intPtr(v int) *int {

@@ -69,6 +69,56 @@ targets: [claude, cursor]
 
 **Tracked repos:** targets set in the dashboard for a skill inside a tracked repo are stored in the source's `.metadata.json` instead of its SKILL.md, so the clone stays clean and `update` keeps working. That setting takes precedence over the skill's `metadata.targets`.
 
+### Agent-specific variants in tracked repositories
+
+A tracked repository can ship separate instructions for each agent:
+
+```text
+_team/internal/skills/claude/review/SKILL.md
+_team/internal/skills/codex/review/SKILL.md
+```
+
+Skillshare recognizes repository-relative `skills/<known-agent>/<skill-path>`
+layouts automatically, including canonical aliases such as `claude-code` and
+repositories installed under `--into`. Merge and copy sync select the matching
+agent's file. A target with `agent: codex`, such as a second Codex account, gets
+the Codex variant. A shared skills directory does not establish agent identity:
+`universal` does not automatically receive the Codex variant.
+
+The repository, complete path before the agent component, and complete path after
+it identify one logical skill. Different repositories, prefixes, or suffixes
+stay separate. A single recognized variant still uses agent routing. Unknown
+agent directories and layouts outside tracked repositories keep ordinary behavior;
+`shared` and `default` have no inferred fallback meaning.
+
+Source-local target overrides take precedence over nonempty frontmatter targets,
+then recognized variant inference, then existing host-style path inference.
+An empty source-local override means all targets. Explicit target declarations
+keep their existing matching behavior. Ignores and include/exclude filters apply
+to physical paths as before. Missing matches select nothing; duplicate canonical
+aliases in one group are skipped with a sync warning until filters or overrides
+select one.
+
+`status` and dashboard source/repository totals count logical skills. Four files
+for two skills appear as `2 skills, 4 variants` in text status. Status JSON adds
+`variant_count` beside logical `skill_count`; overview JSON uses `variantCount`,
+and the targets API exposes `sourceVariantCount`. Variant counts are physical
+enabled file totals, including ordinary skills. Resource lists, operation IDs,
+sync totals, and context-cost reports retain physical entries. Source files are
+unchanged; existing prefixed copy naming can still rewrite the copy's `name:`.
+
+Full-directory symlink mode exposes every source variant and cannot enforce
+this routing. Use merge or copy for agent selection. Targets sharing a destination
+directory also cannot keep different selections isolated; existing overlap
+diagnostics apply. Sparse checkout is not supported by this recognition.
+
+After upgrading, merge/copy sync removes previously managed variants whose agent
+does not match the target. The CLI and server warn when automatic agent routing
+removes those entries, including during dry-run. Set a source-local target override
+for the desired variant to restore it; an empty override restores all-target routing.
+The source files remain intact. The targets column shows effective routing, including
+inference; it does not imply that the producer declared that field.
+
 **Aliases:** Target names support aliases. `claude` matches a target configured as `claude-code`. See [Supported Targets](/docs/reference/targets/supported-targets).
 
 📖 [Skill format — targets field](/docs/understand/skill-format#targets)

@@ -1,6 +1,7 @@
 export interface TrackedRepo {
   name: string;
   skillCount: number;
+  variantCount: number;
   dirty: boolean;
 }
 
@@ -9,6 +10,7 @@ export interface Overview {
   agentsSource?: string;
   extrasSource?: string;
   skillCount: number;
+  variantCount: number;
   agentCount: number;
   topLevelCount: number;
   targetCount: number;

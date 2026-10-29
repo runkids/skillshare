@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	gosync "sync"
@@ -147,9 +148,11 @@ type targetDiffResult struct {
 	dstMtime   time.Time // newest file mtime in target dir
 }
 
-// inSync reports that sync has nothing to do for the target. Folders only the
+// inSync reports no pending work or selection diagnostics. Folders only the
 // target holds stay listed, but sync never touches them.
-func (r targetDiffResult) inSync() bool { return r.errMsg == "" && r.syncCount == 0 }
+func (r targetDiffResult) inSync() bool {
+	return r.errMsg == "" && r.syncCount == 0 && !slices.ContainsFunc(r.items, func(item copyDiffEntry) bool { return item.action == "skip" })
+}
 
 type copyDiffEntry struct {
 	action string // "add", "modify", "remove"
@@ -435,22 +438,22 @@ func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOp
 		return entries[i].name < entries[j].name
 	})
 
-	// Pre-filter skills per target and compute total for progress bar
+	// Resolve each target once, preserving selection diagnostics for the preview.
 	type filteredEntry struct {
 		targetEntry
-		filtered []sync.DiscoveredSkill
+		resolution *sync.TargetSkillResolution
 	}
 	var fentries []filteredEntry
 	totalSkills := 0
 	hasCopyMode := false
 	for _, e := range entries {
 		sc := e.target.SkillsConfig()
-		filtered, err := sync.SelectTargetSkills(discovered, e.name, sc)
+		resolution, err := sync.ResolveTargetSkillsForTarget(e.name, sc, discovered)
 		if err != nil {
 			return fmt.Errorf("target %s has invalid include/exclude config: %w", e.name, err)
 		}
-		fentries = append(fentries, filteredEntry{e, filtered})
-		totalSkills += len(filtered)
+		fentries = append(fentries, filteredEntry{e, resolution})
+		totalSkills += len(resolution.Skills)
 		if e.mode == "copy" {
 			hasCopyMode = true
 		}
@@ -476,7 +479,7 @@ func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOp
 			defer wg.Done()
 			defer func() { <-sem }()
 			progress.startTarget(fe.name)
-			r := collectTargetDiff(fe.name, fe.target, cfg.EffectiveSkillsSource(), fe.mode, fe.filtered, sync.EffectiveFileIgnorePatterns(cfg.Ignore), progress)
+			r := collectTargetDiff(fe.name, fe.target, cfg.EffectiveSkillsSource(), fe.mode, fe.resolution, sync.EffectiveFileIgnorePatterns(cfg.Ignore), progress)
 			progress.doneTarget(fe.name, r)
 			results[idx] = r
 		}(i, fe)
@@ -575,7 +578,7 @@ func diffOutputJSONWithExtras(results []targetDiffResult, extrasResults []extraD
 	return writeJSON(&o)
 }
 
-func collectTargetDiff(name string, target config.TargetConfig, source, mode string, filtered []sync.DiscoveredSkill, ignorePatterns []string, dp *diffProgress) targetDiffResult {
+func collectTargetDiff(name string, target config.TargetConfig, source, mode string, resolution *sync.TargetSkillResolution, ignorePatterns []string, dp *diffProgress) targetDiffResult {
 	sc := target.SkillsConfig()
 	r := targetDiffResult{
 		name:    name,
@@ -588,17 +591,7 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 	_, err := os.Lstat(sc.Path)
 	if err != nil {
 		r.errMsg = fmt.Sprintf("Cannot access target: %v", err)
-		dp.add(len(filtered))
-		return r
-	}
-
-	resolution, err := sync.ResolveTargetSkillsForTarget(name, config.ResourceTargetConfig{
-		Path:         sc.Path,
-		TargetNaming: sc.TargetNaming,
-	}, filtered)
-	if err != nil {
-		r.errMsg = err.Error()
-		dp.add(len(filtered))
+		dp.add(len(resolution.Skills))
 		return r
 	}
 
@@ -611,7 +604,7 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 	if utils.IsSymlinkOrJunction(sc.Path) {
 		r.mode = "symlink"
 		collectSymlinkDiff(&r, sc.Path, source)
-		dp.add(len(filtered))
+		dp.add(len(resolution.Skills))
 		return r
 	}
 
@@ -625,7 +618,14 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 	} else {
 		// Merge mode (instant)
 		collectMergeDiff(&r, sc.Path, sourceSkills, sourceMap, legacyNames)
-		dp.add(len(filtered))
+		dp.add(len(resolution.Skills))
+	}
+
+	for _, warning := range resolution.SelectionWarnings {
+		r.items = append(r.items, copyDiffEntry{action: "skip", name: "(skill selection)", reason: warning})
+	}
+	if len(resolution.SelectionWarnings) > 0 {
+		r.synced = false
 	}
 
 	// Compute mtime only for copy mode (merge uses symlinks, mtime is misleading)
@@ -881,7 +881,7 @@ func categorizeItems(items []copyDiffEntry) []actionCategory {
 		case item.reason == "local only" || item.reason == "not in source" || item.reason == "local file":
 			add("local", "local", "Local Only", item.name)
 		default:
-			add("warn", "warn", item.reason, item.name)
+			add("warn:"+item.reason, "warn", item.reason, item.name)
 		}
 	}
 
@@ -1140,6 +1140,8 @@ func renderDiffGroup(r targetDiffResult, opts diffRenderOpts, next *diffNext, wi
 				agent = true
 			}
 			switch {
+			case cat.kind == "warn":
+				// Selection diagnostics describe skipped files, not sync work.
 			case cat.kind == "override":
 				next.force = true
 			case cat.kind == "kept":

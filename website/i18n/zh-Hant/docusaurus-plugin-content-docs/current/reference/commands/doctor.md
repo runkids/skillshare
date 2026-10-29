@@ -57,6 +57,8 @@ Next
   skillshare sync  bring the targets up to date
 ```
 
+對於包含代理變體的追蹤儲存庫，Source 行顯示 `N skills, M variants`，分別代表邏輯技能數與實體副本數。`variant_routing` 檢查會在 symlink 模式公開所有變體而未依代理選擇時發出警告；選擇性路由請使用 merge 或 copy 模式。
+
 ## 何時使用
 
 - 有東西無法運作但你不知道原因

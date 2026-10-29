@@ -57,6 +57,8 @@ Next
   skillshare sync  bring the targets up to date
 ```
 
+에이전트 변형이 있는 추적 저장소의 Source 줄에는 `N skills, M variants`가 표시됩니다. 이는 논리적 스킬 수와 물리적 복사본 수입니다. `variant_routing` 검사는 symlink 모드가 에이전트별 선택 없이 모든 변형을 노출할 때 경고합니다. 선택적 라우팅에는 merge 또는 copy 모드를 사용하세요.
+
 ## 사용 시점
 
 - 뭔가 작동하지 않는데 원인을 모를 때

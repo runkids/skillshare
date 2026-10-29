@@ -38,7 +38,8 @@ func cmdStatusProject(root string) error {
 		agentCount = len(agents)
 	}
 	show := func(path string) string { return projectStatusPath(runtime.root, path) }
-	printSourceStatus(runtime.sourcePath, runtime.agentsSourcePath, show, len(discovered), agentCount, stats)
+	counts := sync.CountSkills(discovered)
+	printSourceStatus(runtime.sourcePath, runtime.agentsSourcePath, show, counts.Skills, agentCount, stats, counts.Variants)
 	printTrackedReposStatus(runtime.sourcePath, discovered, trackedRepos)
 	if err := printProjectTargetsStatus(runtime, discovered); err != nil {
 		return err
@@ -79,8 +80,10 @@ func cmdStatusProjectJSON(root string) error {
 		Exists:      dirExists(runtime.sourcePath),
 		Skillignore: buildSkillignoreJSON(stats),
 	}
-	output.SkillCount = len(discovered)
+	counts := sync.CountSkills(discovered)
+	output.SkillCount, output.VariantCount = counts.Skills, counts.Variants
 	output.TrackedRepos = buildTrackedRepoJSON(runtime.sourcePath, trackedRepos, discovered, walk)
+	warningSkills := variantWarningSkills(runtime.sourcePath, runtime.targets, "merge", walk, discovered)
 
 	for _, entry := range runtime.config.Targets {
 		target, ok := runtime.targets[entry.Name]
@@ -103,7 +106,7 @@ func cmdStatusProjectJSON(root string) error {
 			Exclude:     sc.Exclude,
 
 			SkillsEnabled: sc.IsEnabled(),
-			Warning:       namingWarning(target, mode),
+			Warning:       skillTargetWarning(target, mode, warningSkills),
 		})
 	}
 
@@ -181,6 +184,7 @@ func resolveProjectAgentTargetPath(entry config.ProjectTargetEntry, builtinAgent
 }
 
 func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.DiscoveredSkill) error {
+	warningSkills := variantWarningSkills(runtime.sourcePath, runtime.targets, "merge", runtime.skillsWalk(), discovered)
 	builtinAgents := config.ProjectAgentTargets()
 	agentsExist := dirExists(runtime.agentsSourcePath)
 	var agents []resource.DiscoveredResource
@@ -204,8 +208,8 @@ func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.Discov
 			mode = "merge"
 		}
 		res := getTargetStatusDetail(target, runtime.sourcePath, mode)
-		if err := target.NamingModeConfigError(mode); err != nil {
-			warnings = append(warnings, entry.Name+": "+err.Error())
+		if warning := skillTargetWarning(target, mode, warningSkills); warning != "" {
+			warnings = append(warnings, entry.Name+": "+warning)
 		}
 
 		// A target with skills off expects nothing, so it has no drift.

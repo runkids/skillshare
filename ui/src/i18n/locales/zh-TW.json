@@ -905,6 +905,7 @@
   "update.check.viewChanges": "查看修改",
   "update.done.subtitle": "更新完成。",
   "update.done.syncHint": "目標會在下次同步時取得新版本。",
+  "update.done.failedHint": "目標已與來源一致。下方項目未更新。",
   "update.empty.description": "安裝追蹤的 repositories 或 GitHub skills 以檢查更新。",
   "update.empty.title": "沒有可更新的 skills",
   "update.empty.agentsTitle": "沒有可更新的 agents",
@@ -1890,8 +1891,6 @@
   "targetDetail.shared.use": "和 {other} 一樣使用 {value}",
   "targetDetail.shared.filters": "{other} 也把 Skills 同步到 {path}，但篩選不同。每次同步都會把對方篩掉的內容加回來或刪掉。",
   "targetDetail.shared.useFilters": "使用和 {other} 相同的篩選",
-  "targetDetail.skipped.one": "{count} 個 Skill 無法使用 standard 命名而被略過。試試 flat。",
-  "targetDetail.skipped.other": "{count} 個 Skills 無法使用 standard 命名而被略過。試試 flat。",
   "targetDetail.collect": "收集",
   "targetDetail.collectHint.skills.one": "有 {count} 個 Skill 只存在這個目標。收集會把它複製到來源，讓每個目標都能拿到。",
   "targetDetail.collectHint.skills.other": "有 {count} 個 Skills 只存在這個目標。收集會把它們複製到來源，讓每個目標都能拿到。",
@@ -1998,6 +1997,7 @@
   "sync.skipped.hint": "因為有兩個資料夾名稱結尾相同。將 {name} 改為 flat 命名即可保留兩者。",
   "sync.skipped.hintNaming": "因為 SKILL.md 的名稱不合規則，或與資料夾名稱不同。將 {name} 改為 flat 命名即可保留。",
   "sync.skipped.hintMixed": "因為有 SKILL.md 名稱不合規則，也有資料夾名稱結尾相同。將 {name} 改為 flat 命名即可保留。",
+  "sync.skipped.hintSelection": "代理變體需要明確選擇。請使用 include/exclude 或目標覆寫來選擇其中一個。",
   "sync.skipped.open": "開啟目標",
   "sync.local.one": "{count} 項只存在於目標中",
   "sync.local.other": "{count} 項只存在於目標中",
@@ -3520,5 +3520,7 @@
   "plugins.note.importRecipeChanged": "共用安裝配方已變更；保留此本機匯入。若要切換至來源安裝，請執行 plugin remove、還原來源目標宣告，再執行 sync。",
   "plugins.note.selection": "僅儲存同步選擇。請同步以安裝或移除此目標。",
   "plugins.note.localImportRequired": "此機器需要匯入。請將本機原生識別碼匯入此套件。",
-  "plugins.note.noLocalBinding": "移除宣告。未綁定本機安裝。"
+  "plugins.note.noLocalBinding": "移除宣告。未綁定本機安裝。",
+  "sync.skipped.ambiguousVariant": "代理變體不明確；請用 include/exclude 或目標覆寫選擇一個。",
+  "dashboard.trackedRepos.variantCount": "{count} 個變體"
 }

@@ -96,6 +96,14 @@ type TrackedRepoResult struct {
 func TrackedRepo(repoPath string, opts TrackedRepoOptions) (*TrackedRepoResult, error) {
 	res := &TrackedRepoResult{}
 
+	if !opts.DryRun {
+		unlock, err := install.LockCheckout(repoPath)
+		if err != nil {
+			return res, err
+		}
+		defer unlock()
+	}
+
 	// Force resets the checkout anyway, so it does not need a readable status.
 	dirty, err := git.IsDirty(repoPath)
 	if err != nil && !opts.Force {

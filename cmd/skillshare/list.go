@@ -551,9 +551,11 @@ func displayTrackedRepos(trackedRepos []string, discovered []sync.DiscoveredSkil
 	}
 	wg.Wait()
 
+	counts := listedRepoCounts(discovered)
 	width := ui.RowWidth(trackedRepos...)
 	for i, repoName := range trackedRepos {
-		skills := ui.DimText(" · " + plural(countRepoSkills(repoName, discovered), "skill"))
+		c := counts[repoName]
+		skills := ui.DimText(" · " + sourceSkillCountText(c.Skills, c.Variants))
 		if err := results[i].err; err != nil {
 			ui.Row(ui.MarkWarn, repoName, "git status unknown"+skills, width)
 			ui.Note((&gitStatusError{err: err}).Error())
@@ -563,17 +565,6 @@ func displayTrackedRepos(trackedRepos []string, discovered []sync.DiscoveredSkil
 			ui.Row(ui.MarkOK, repoName, "up to date"+skills, width)
 		}
 	}
-}
-
-// countRepoSkills counts skills in a tracked repo
-func countRepoSkills(repoName string, discovered []sync.DiscoveredSkill) int {
-	count := 0
-	for _, d := range discovered {
-		if d.RepoRelPath == repoName {
-			count++
-		}
-	}
-	return count
 }
 
 func cmdList(args []string) error {
@@ -910,4 +901,14 @@ func printListHelp() {
 			helpRow{"skillshare list --all", "List skills + agents"},
 		),
 	)
+}
+
+// listedRepoCounts includes disabled rows, which list still displays.
+func listedRepoCounts(skills []sync.DiscoveredSkill) map[string]sync.SkillCounts {
+	rows := append([]sync.DiscoveredSkill(nil), skills...)
+	for i := range rows {
+		rows[i].Disabled = false
+	}
+	_, counts := sync.CountSkillsByRepo(rows)
+	return counts
 }

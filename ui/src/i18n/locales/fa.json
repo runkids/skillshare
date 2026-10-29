@@ -905,6 +905,7 @@
   "update.check.viewChanges": "مشاهدهٔ تغییرات",
   "update.done.subtitle": "به‌روزرسانی کامل شد.",
   "update.done.syncHint": "مقصدها نسخه‌های جدید را در همگام‌سازی بعدی دریافت می‌کنند.",
+  "update.done.failedHint": "مقصدها با منبع مطابقت دارند. موارد زیر به‌روزرسانی نشدند.",
   "update.empty.description": "مخازن ردیابی‌شده یا اسکیل‌های GitHub نصب کنید تا به‌روزرسانی‌ها بررسی شوند.",
   "update.empty.title": "هیچ اسکیل قابل به‌روزرسانی وجود ندارد",
   "update.empty.agentsTitle": "هیچ ایجنت قابل به‌روزرسانی وجود ندارد",
@@ -1890,8 +1891,6 @@
   "targetDetail.shared.use": "استفاده از {value} مثل {other}",
   "targetDetail.shared.filters": "{other} هم Skills را در {path} همگام‌سازی می‌کند، با فیلترهای متفاوت. هر همگام‌سازی چیزی را که دیگری فیلتر می‌کند دوباره اضافه یا حذف می‌کند.",
   "targetDetail.shared.useFilters": "استفاده از همان فیلترهای {other}",
-  "targetDetail.skipped.one": "{count} اسکیل نمی‌تواند از نام‌گذاری standard استفاده کند و نادیده گرفته می‌شود. flat را امتحان کنید.",
-  "targetDetail.skipped.other": "{count} اسکیل نمی‌توانند از نام‌گذاری standard استفاده کنند و نادیده گرفته می‌شوند. flat را امتحان کنید.",
   "targetDetail.collect": "جمع‌آوری",
   "targetDetail.collectHint.skills.one": "{count} اسکیل فقط در این هدف وجود دارد. جمع‌آوری آن را به منبع شما کپی می‌کند تا به همه هدف‌ها برسد.",
   "targetDetail.collectHint.skills.other": "{count} اسکیل فقط در این هدف وجود دارند. جمع‌آوری آن‌ها را به منبع شما کپی می‌کند تا به همه هدف‌ها برسند.",
@@ -1998,6 +1997,7 @@
   "sync.skipped.hint": "چون نام دو پوشه یکسان تمام می‌شود. برای نگه‌داشتن هر دو، {name} را به نام‌گذاری flat تغییر دهید.",
   "sync.skipped.hintNaming": "چون نام SKILL.md آن‌ها نامعتبر است یا با نام پوشه یکی نیست. برای نگه‌داشتن آن‌ها، {name} را به نام‌گذاری flat تغییر دهید.",
   "sync.skipped.hintMixed": "چون نام‌های نامعتبر در SKILL.md و پوشه‌هایی با پایان نام یکسان وجود دارد. برای نگه‌داشتن آن‌ها، {name} را به نام‌گذاری flat تغییر دهید.",
+  "sync.skipped.hintSelection": "گونه‌های عامل به انتخاب صریح نیاز دارند. با include/exclude یا بازنویسی مقصد، یکی را انتخاب کنید.",
   "sync.skipped.open": "باز کردن هدف",
   "sync.local.one": "{count} مورد فقط در یک هدف وجود دارد",
   "sync.local.other": "{count} مورد فقط در یک هدف وجود دارند",
@@ -3520,5 +3520,7 @@
   "plugins.note.importRecipeChanged": "دستور نصب مشترک تغییر کرده است؛ این واردکردن محلی حفظ می‌شود. برای نصب از منبع، plugin remove را اجرا کنید، تعریف مقصد منبع را بازیابی کنید و سپس sync را اجرا کنید.",
   "plugins.note.selection": "فقط انتخاب همگام‌سازی ذخیره شود. برای نصب یا حذف این مقصد همگام‌سازی کنید.",
   "plugins.note.localImportRequired": "ورود روی این دستگاه لازم است. شناسهٔ بومی محلی را به این بسته وارد کنید.",
-  "plugins.note.noLocalBinding": "اعلان حذف شود. هیچ نصب محلی متصل نیست."
+  "plugins.note.noLocalBinding": "اعلان حذف شود. هیچ نصب محلی متصل نیست.",
+  "sync.skipped.ambiguousVariant": "گونهٔ عامل مبهم است؛ با include/exclude یا بازنویسی مقصد یکی را انتخاب کنید.",
+  "dashboard.trackedRepos.variantCount": "{count} گونه"
 }

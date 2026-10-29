@@ -205,37 +205,96 @@ func suggestFlatNames(pattern string, skills []DiscoveredSkill) []string {
 // skills that pass its include/exclude filters and whose frontmatter targets
 // name it or declare none.
 func SelectTargetSkills(skills []DiscoveredSkill, targetName string, sc config.ResourceTargetConfig) ([]DiscoveredSkill, error) {
+	selection, err := selectTargetSkills(skills, targetName, sc)
+	return selection.Skills, err
+}
+
+// SelectTargetSkillsWithDiagnostics also returns selection diagnostics keyed by
+// source-relative physical path. Expected exclusions and mismatches are not warnings.
+func SelectTargetSkillsWithDiagnostics(skills []DiscoveredSkill, targetName string, sc config.ResourceTargetConfig) ([]DiscoveredSkill, map[string]string, error) {
+	selection, err := selectTargetSkills(skills, targetName, sc)
+	return selection.Skills, selection.Skipped, err
+}
+
+type targetSkillSelection struct {
+	Skills   []DiscoveredSkill
+	Warnings []string
+	Skipped  map[string]string // Physical relative path to its selection diagnostic
+}
+
+func selectTargetSkills(skills []DiscoveredSkill, targetName string, sc config.ResourceTargetConfig) (targetSkillSelection, error) {
 	enabled := slices.DeleteFunc(slices.Clone(skills), func(s DiscoveredSkill) bool { return s.Disabled })
 	filtered, err := FilterSkills(enabled, sc.Include, sc.Exclude)
 	if err != nil {
-		return nil, err
+		return targetSkillSelection{}, err
 	}
-	return FilterSkillsByTarget(filtered, targetName), nil
+	if len(sc.SharedTargets) == 0 {
+		return filterSkillsByTarget(filtered, targetName, targetAgent(targetName, sc)), nil
+	}
+	selected := make(map[string]bool)
+	skipped := make(map[string]string)
+	for _, identity := range sc.SharedTargets {
+		part := filterSkillsByTarget(filtered, identity.Name, targetAgent(identity.Name, config.ResourceTargetConfig{Agent: identity.Agent}))
+		for _, skill := range part.Skills {
+			selected[skill.RelPath] = true
+		}
+		for rel, warning := range part.Skipped {
+			skipped[rel] = warning
+		}
+	}
+	result := targetSkillSelection{Skills: make([]DiscoveredSkill, 0, len(selected)), Skipped: make(map[string]string)}
+	for _, skill := range filtered {
+		if selected[skill.RelPath] {
+			result.Skills = append(result.Skills, skill)
+		} else if warning, ok := skipped[skill.RelPath]; ok {
+			result.Skipped[skill.RelPath] = warning
+			result.Warnings = append(result.Warnings, warning)
+		}
+	}
+	return result, nil
 }
 
-// FilterSkillsByTarget removes skills whose Targets field does not include
-// the given target name.  Skills with nil Targets (no field declared) pass
-// through unconditionally.
-func FilterSkillsByTarget(skills []DiscoveredSkill, targetName string) []DiscoveredSkill {
-	filtered := make([]DiscoveredSkill, 0, len(skills))
+func filterSkillsByTarget(skills []DiscoveredSkill, targetName, agent string) targetSkillSelection {
+	variants := make(map[string]int)
 	for _, skill := range skills {
+		if skill.variantRouting && skill.VariantAgent == agent {
+			variants[skill.LogicalID]++
+		}
+	}
+	selection := targetSkillSelection{Skills: make([]DiscoveredSkill, 0, len(skills))}
+	for _, skill := range skills {
+		if skill.variantRouting {
+			if skill.VariantAgent == agent {
+				if variants[skill.LogicalID] > 1 {
+					warning := fmt.Sprintf("Target %q: skipped ambiguous %s variant %s; use include/exclude or a target override to select one", targetName, agent, skill.RelPath)
+					selection.Warnings = append(selection.Warnings, warning)
+					if selection.Skipped == nil {
+						selection.Skipped = make(map[string]string)
+					}
+					selection.Skipped[skill.RelPath] = warning
+				} else {
+					selection.Skills = append(selection.Skills, skill)
+				}
+			}
+			continue
+		}
 		if skill.Targets == nil {
-			filtered = append(filtered, skill)
+			selection.Skills = append(selection.Skills, skill)
 			continue
 		}
 		for _, t := range skill.Targets {
 			if config.MatchesTargetName(t, targetName) {
-				filtered = append(filtered, skill)
+				selection.Skills = append(selection.Skills, skill)
 				break
 			}
 		}
 	}
-	return filtered
+	return selection
 }
 
 // FilterAgentsByTarget removes agents whose frontmatter targets field does not
 // include the given target name. Agents with nil Targets (no field declared)
-// pass through unconditionally. Mirrors FilterSkillsByTarget.
+// pass through unconditionally. Uses the same explicit target matching as skill selection.
 func FilterAgentsByTarget(agents []resource.DiscoveredResource, targetName string) []resource.DiscoveredResource {
 	filtered := make([]resource.DiscoveredResource, 0, len(agents))
 	for _, agent := range agents {

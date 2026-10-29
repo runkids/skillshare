@@ -723,9 +723,34 @@ func GroupedProjectTargets() []GroupedProjectTarget {
 	return result
 }
 
-// MatchesTargetName checks whether a skill-declared target name matches a
-// config target name.  It handles alias matching (e.g. "claude" matches
-// the alias "claude-code") by looking up the target spec registry.
+var canonicalTargetNamesOnce sync.Once
+var canonicalTargetNames map[string]string
+
+// CanonicalTargetName resolves registry names and aliases without treating a
+// shared destination path as agent identity. Unknown names return empty.
+func CanonicalTargetName(name string) string {
+	if _, tool, ok := SplitProjectTarget(name); ok {
+		name = tool
+	}
+	canonicalTargetNamesOnce.Do(func() {
+		specs, err := loadTargetSpecs()
+		if err != nil {
+			return
+		}
+		canonicalTargetNames = make(map[string]string)
+		for _, spec := range specs {
+			for _, alias := range append([]string{spec.Name}, spec.Aliases...) {
+				if _, exists := canonicalTargetNames[alias]; !exists {
+					canonicalTargetNames[alias] = spec.Name
+				}
+			}
+		}
+	})
+	return canonicalTargetNames[name]
+}
+
+// MatchesTargetName checks explicit target declarations, including aliases and
+// targets sharing a skills path for compatibility.
 func MatchesTargetName(skillTarget, configTarget string) bool {
 	if skillTarget == configTarget {
 		return true

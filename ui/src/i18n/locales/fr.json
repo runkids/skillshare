@@ -905,6 +905,7 @@
   "update.check.viewChanges": "Voir les modifications",
   "update.done.subtitle": "Mise à jour terminée.",
   "update.done.syncHint": "Les cibles reçoivent les nouvelles versions à la prochaine synchronisation.",
+  "update.done.failedHint": "Les cibles correspondent à la source. Les éléments ci-dessous n’ont pas été mis à jour.",
   "update.empty.description": "Installez des dépôts suivis ou des skills GitHub pour vérifier les mises à jour.",
   "update.empty.title": "Aucun skill pouvant être mis à jour",
   "update.empty.agentsTitle": "Aucun agent pouvant être mis à jour",
@@ -1890,8 +1891,6 @@
   "targetDetail.shared.use": "Utiliser {value} comme {other}",
   "targetDetail.shared.filters": "{other} synchronise aussi des skills vers {path}, avec d’autres filtres. Chaque synchronisation rajouterait ou retirerait ce que l’autre filtre.",
   "targetDetail.shared.useFilters": "Utiliser les mêmes filtres que {other}",
-  "targetDetail.skipped.one": "{count} skill ne peut pas utiliser le nommage standard et est ignoré. Essayez flat.",
-  "targetDetail.skipped.other": "{count} skills ne peuvent pas utiliser le nommage standard et sont ignorés. Essayez flat.",
   "targetDetail.collect": "Collecter",
   "targetDetail.collectHint.skills.one": "{count} skill n’existe que dans cette cible. Collecter le copie dans votre source pour que toutes les cibles le reçoivent.",
   "targetDetail.collectHint.skills.other": "{count} skills n’existent que dans cette cible. Collecter les copie dans votre source pour que toutes les cibles les reçoivent.",
@@ -1998,6 +1997,7 @@
   "sync.skipped.hint": "car deux dossiers se terminent par le même nom. Passez {name} en nommage flat pour garder les deux.",
   "sync.skipped.hintNaming": "car leur nom dans SKILL.md est invalide ou ne correspond pas à leur dossier. Passez {name} en nommage flat pour les garder.",
   "sync.skipped.hintMixed": "à cause de noms SKILL.md invalides et de dossiers qui se terminent par le même nom. Passez {name} en nommage flat pour les garder.",
+  "sync.skipped.hintSelection": "les variantes par agent nécessitent une sélection explicite. Utilisez include/exclude ou une configuration de cible pour en sélectionner une.",
   "sync.skipped.open": "Ouvrir la cible",
   "sync.local.one": "{count} élément n'existe que dans une cible",
   "sync.local.other": "{count} éléments n'existent que dans une cible",
@@ -3520,5 +3520,7 @@
   "plugins.note.importRecipeChanged": "La recette partagée a changé ; cet import local est conservé. Pour installer depuis la source, exécutez plugin remove, restaurez la déclaration de la cible de la source, puis exécutez sync.",
   "plugins.note.selection": "Enregistrer uniquement la sélection de synchronisation. Synchronisez pour installer ou retirer cette cible.",
   "plugins.note.localImportRequired": "Un import est nécessaire sur cette machine. Importez son identifiant natif local dans ce paquet.",
-  "plugins.note.noLocalBinding": "Retirer la déclaration. Aucune installation locale n’est associée."
+  "plugins.note.noLocalBinding": "Retirer la déclaration. Aucune installation locale n’est associée.",
+  "sync.skipped.ambiguousVariant": "Variante d’agent ambiguë ; utilisez include/exclude ou une cible explicite pour en sélectionner une.",
+  "dashboard.trackedRepos.variantCount": "{count} variantes"
 }
