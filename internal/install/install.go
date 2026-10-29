@@ -40,6 +40,8 @@ type InstallOptions struct {
 	AuditOverride bool
 	// Reinstall makes a batch update copy every skill again even when its
 	// recorded commit or tree hash already matches upstream (update --force).
+	// A git-installed skill is reset to upstream instead of pulled, discarding
+	// local edits.
 	Reinstall bool
 	// AuditAcceptRoot/AuditAcceptPath override where accepted audit findings
 	// are looked up and recorded. Staged installs audit a temp directory, so

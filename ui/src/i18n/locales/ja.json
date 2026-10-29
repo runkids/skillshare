@@ -905,6 +905,7 @@
   "update.check.viewChanges": "変更を表示",
   "update.done.subtitle": "更新が完了しました。",
   "update.done.syncHint": "ターゲットには次回の同期で新しいバージョンが反映されます。",
+  "update.done.failedHint": "ターゲットはソースと一致しています。下の項目は更新されていません。",
   "update.empty.description": "追跡リポジトリまたは GitHub スキルをインストールして更新を確認してください。",
   "update.empty.title": "更新可能なスキルがありません",
   "update.empty.agentsTitle": "更新可能なエージェントがありません",

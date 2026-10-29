@@ -905,6 +905,7 @@
   "update.check.viewChanges": "Ver cambios",
   "update.done.subtitle": "Actualización completa.",
   "update.done.syncHint": "Los destinos reciben las nuevas versiones en la próxima sincronización.",
+  "update.done.failedHint": "Los destinos coinciden con el origen. Los elementos de abajo no se actualizaron.",
   "update.empty.description": "Instala repositorios rastreados o skills de GitHub para comprobar actualizaciones.",
   "update.empty.title": "Sin skills actualizables",
   "update.empty.agentsTitle": "Sin agents actualizables",

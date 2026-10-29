@@ -292,6 +292,12 @@ func updateTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallO
 		return result, nil
 	}
 
+	unlock, err := LockCheckout(repoPath)
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+
 	if err := checkFollowedCheckoutClean(repoPath, opts); err != nil {
 		return nil, err
 	}

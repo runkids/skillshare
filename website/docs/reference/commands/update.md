@@ -226,6 +226,8 @@ This updates:
 
 `update --all` and `update --group` group remote skills by repository and clone each repository once. They leave alone any skill whose folder did not change upstream and count it as up to date. A skill whose folder contains a symlink is the exception: its files can change without the folder changing, so it is reinstalled whenever the upstream commit moves. Several skills named in project mode (`-p`) work the same way. Use `--force` to reinstall every skill anyway. A single skill, and skills named in global mode, are always reinstalled. A skill whose files you changed since install is skipped in every case until you add `--force` (see [Handling Conflicts](#handling-conflicts)). When a repository cannot be fetched, its skills count as skipped and `update` prints a warning naming the repository and the error, with any credentials in the URL removed.
 
+Only one skillshare process updates a git checkout at a time. When another `update` or dashboard is already updating the same tracked repo or git-installed skill, the update waits for it to finish. After a minute it gives up with `another skillshare process is still updating <path>`.
+
 ### Example Output
 
 ```

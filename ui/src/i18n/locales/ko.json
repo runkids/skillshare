@@ -905,6 +905,7 @@
   "update.check.viewChanges": "변경 사항 보기",
   "update.done.subtitle": "업데이트 완료.",
   "update.done.syncHint": "대상에는 다음 동기화 때 새 버전이 반영됩니다.",
+  "update.done.failedHint": "대상이 소스와 일치합니다. 아래 항목은 업데이트되지 않았습니다.",
   "update.empty.description": "업데이트를 확인하려면 추적 저장소 또는 GitHub skills를 설치하세요.",
   "update.empty.title": "업데이트 가능한 skills 없음",
   "update.empty.agentsTitle": "업데이트 가능한 agents 없음",

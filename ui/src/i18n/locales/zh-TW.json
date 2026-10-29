@@ -905,6 +905,7 @@
   "update.check.viewChanges": "查看修改",
   "update.done.subtitle": "更新完成。",
   "update.done.syncHint": "目標會在下次同步時取得新版本。",
+  "update.done.failedHint": "目標已與來源一致。下方項目未更新。",
   "update.empty.description": "安裝追蹤的 repositories 或 GitHub skills 以檢查更新。",
   "update.empty.title": "沒有可更新的 skills",
   "update.empty.agentsTitle": "沒有可更新的 agents",
