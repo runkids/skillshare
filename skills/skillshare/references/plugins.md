@@ -35,6 +35,16 @@ When adding a new package, omit `--source-ref` to follow the remote's default br
 Updates reuse its stored ref; omitting the flag on update does not unpin an existing package.
 Adding a plugin does not schedule automatic updates; run `check` and `update` later.
 `sync --all` does not update or sync plugins; use `plugin update --all` (`-a`) to update all managed plugins.
+To follow a branch again after a pin, run `plugin update NAME --source-ref BRANCH`: the stored
+ref becomes that branch, and later updates fetch its latest commit. Pin a tag or commit only
+when the user asks for that version.
+
+A remote source is read at its repository root, where discovery looks for plugin manifests and
+marketplaces. For a plugin in a subdirectory that no root marketplace lists, clone the
+repository's default branch to a dedicated directory and add the plugin's folder from that
+clone. A local source takes no `--source-ref`, so `check` and `update` see only what the clone
+holds: run `git -C CLONE pull --ff-only` first. Do not check out a release tag in the clone
+unless the user asked for that version.
 
 ## Inspect before changing
 
