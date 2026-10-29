@@ -13,7 +13,7 @@ func TestSharedRefReconcileAndAccountChangeAcrossAdapters(t *testing.T) {
 	for _, agent := range []string{"codex", "opencode", "omp"} {
 		t.Run(agent, func(t *testing.T) {
 			native := &fakeAgents{version: "1.0.0"}
-			s := native.service(t)
+			s := isolatedAgentService(t, native)
 			run := s.Run
 			s.Run = func(ctx context.Context, dir string, env []string, bin string, args ...string) ([]byte, error) {
 				if bin == "opencode" && len(args) == 1 && args[0] == "--version" {
@@ -121,7 +121,7 @@ func TestImportsMatchLocalPathsAndDefaultRecipeCandidate(t *testing.T) {
 	for _, agent := range []string{"claude", "pi", "opencode", "opencode-nested", "opencode-explicit", "opencode-unrelated-entry", "opencode-missing-entry"} {
 		t.Run(agent, func(t *testing.T) {
 			native := &fakeAgents{installed: map[string][]Installed{"claude": {{ID: "demo@team", Scope: "user", Installed: true}}}}
-			s := native.service(t)
+			s := isolatedAgentService(t, native)
 			source := fixture(t)
 			id := "demo@team"
 			explicit := ""
@@ -189,6 +189,46 @@ func TestImportsMatchLocalPathsAndDefaultRecipeCandidate(t *testing.T) {
 			same()
 			if b := hostPackages(t, s)["alias"].Bindings[agent]; !b.Imported || b.ID != id {
 				t.Fatalf("import not recorded: %+v", b)
+			}
+		})
+	}
+}
+
+func TestHostStateAgentFixtureIsolatesAmbientOpenCodeConfig(t *testing.T) {
+	for _, override := range []string{"xdg", "file", "directory", "inline"} {
+		t.Run(override, func(t *testing.T) {
+			ambient := t.TempDir()
+			sentinel := filepath.Join(ambient, "opencode", "opencode.json")
+			marker := `{"sentinel":"ambient config must remain untouched"}`
+			writePluginFile(t, filepath.Dir(sentinel), filepath.Base(sentinel), marker)
+			t.Setenv("XDG_CONFIG_HOME", ambient)
+			for _, key := range []string{"OPENCODE_CONFIG", "OPENCODE_CONFIG_DIR", "OPENCODE_CONFIG_CONTENT"} {
+				t.Setenv(key, "")
+			}
+			switch override {
+			case "file":
+				t.Setenv("OPENCODE_CONFIG", sentinel)
+			case "directory":
+				t.Setenv("OPENCODE_CONFIG_DIR", filepath.Dir(sentinel))
+			case "inline":
+				t.Setenv("OPENCODE_CONFIG_CONTENT", `{"plugin":[]}`)
+			}
+			s := isolatedAgentService(t, &fakeAgents{})
+			file, err := s.openCodeConfigPath("opencode")
+			if err != nil {
+				t.Fatalf("fixture inherited ambient OpenCode overrides: %v", err)
+			}
+			want := filepath.Join(filepath.Dir(s.ConfigPath), ".config", "opencode", "opencode.json")
+			if file != want {
+				t.Fatalf("fixture native config escaped its isolated HOME: got %s, want %s", file, want)
+			}
+			writePluginFile(t, filepath.Dir(file), filepath.Base(file), `{"plugin":[]}`)
+			raw, err := os.ReadFile(sentinel)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(raw) != marker {
+				t.Fatal("fixture changed the ambient config sentinel")
 			}
 		})
 	}

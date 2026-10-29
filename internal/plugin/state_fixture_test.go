@@ -161,3 +161,14 @@ func previewChanges(t *testing.T, s *Service, r Request) []Change {
 	}
 	return p.Changes
 }
+
+// isolatedAgentService is the native-agent fixture used by host-state adapter tests.
+func isolatedAgentService(t *testing.T, native *fakeAgents) *Service {
+	t.Helper()
+	s := native.service(t)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(filepath.Dir(s.ConfigPath), ".config"))
+	for _, key := range []string{"OPENCODE_CONFIG", "OPENCODE_CONFIG_DIR", "OPENCODE_CONFIG_CONTENT"} {
+		t.Setenv(key, "")
+	}
+	return s
+}
