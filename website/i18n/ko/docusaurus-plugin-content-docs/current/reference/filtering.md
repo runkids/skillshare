@@ -71,6 +71,11 @@ targets: [claude, cursor]
 
 ### Tracked 저장소의 Agent별 변형본 {#agent-specific-variants-in-tracked-repositories}
 
+```text
+_team/internal/skills/claude/review/SKILL.md
+_team/internal/skills/codex/review/SKILL.md
+```
+
 Tracked 저장소의 `skills/<알려진-agent>/<전체-스킬-경로>/SKILL.md`를 Agent별 변형본으로 자동 인식합니다. 예: `_team/internal/skills/{claude,codex}/review/SKILL.md`. 저장소, Agent 앞의 전체 경로, Agent 뒤의 전체 경로로 하나의 논리 Skill을 구분합니다. 변형본이 하나만 있어도 Agent별 라우팅이 적용되며, `--into` 아래의 저장소도 지원합니다.
 
 **merge/copy:** 일치하는 Agent의 파일만 선택합니다. `claude-code` 같은 등록된 별칭과 계정 Target의 `agent: codex`도 지원합니다. 같은 디렉터리를 쓴다고 같은 Agent는 아니므로 `universal`은 Codex 변형본을 자동으로 받지 않습니다. 일치하는 변형본이 없으면 다른 파일로 대체하지 않습니다. 같은 그룹에 동일 Agent를 가리키는 별칭 변형본이 중복되면 경고하고 건너뛰므로 필터나 재정의로 하나를 명시적으로 선택하세요.

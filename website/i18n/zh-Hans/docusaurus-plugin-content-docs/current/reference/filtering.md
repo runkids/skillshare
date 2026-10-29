@@ -71,6 +71,11 @@ targets: [claude, cursor]
 
 ### Tracked repo 中的 Agent 专用变体 {#agent-specific-variants-in-tracked-repositories}
 
+```text
+_team/internal/skills/claude/review/SKILL.md
+_team/internal/skills/codex/review/SKILL.md
+```
+
 在 tracked repo 中，`skills/<已知-agent>/<完整技能路径>/SKILL.md` 会自动识别为 Agent 专用变体，例如 `_team/internal/skills/{claude,codex}/review/SKILL.md`。逻辑 Skill 由仓库、Agent 前的完整路径和 Agent 后的完整路径共同确定；即使只剩一个变体也会按 Agent 路由。`--into` 下的仓库也适用。
 
 **merge/copy：** 仅选择匹配 Agent 的文件，支持 `claude-code` 等注册别名以及账户 Target 的 `agent: codex`。共用目录不代表同一 Agent，`universal` 不会自动接收 Codex 变体。找不到匹配项时不选其他变体；同一组中有多个匹配同一 Agent 的别名变体时会跳过并提示，需用过滤器或覆盖设置明确选择。

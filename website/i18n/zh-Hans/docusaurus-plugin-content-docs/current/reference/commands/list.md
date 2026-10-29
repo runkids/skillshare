@@ -126,7 +126,7 @@ Skills
   old-draft        local · disabled
 
 Tracked repos
-✓ _team-skills  up to date · 3 skills
+✓ _team-skills  up to date · 3 skills, 5 variants
 
 8 skills · 3 tracked, 3 remote, 2 local
   Add -v for sources and install dates
@@ -159,7 +159,7 @@ Skills
     Installed  2026-01-15
 
 Tracked repos
-✓ _team-skills  up to date · 3 skills
+✓ _team-skills  up to date · 3 skills, 5 variants
 ! _other-repo   has changes · 5 skills
 
 12 skills · 8 tracked, 3 remote, 1 local

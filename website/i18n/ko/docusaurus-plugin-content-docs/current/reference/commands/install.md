@@ -6,6 +6,8 @@ sidebar_position: 3
 
 GitHub repo, git URL, 또는 로컬 경로에서 skill을 추가합니다.
 
+Tracked repo의 Agent별 복사본이 더 적은 논리 Skill을 나타내면 `Found N skills, M variants`를 표시합니다. 모든 물리 변형은 Source에 유지되며 merge/copy Sync는 일치하는 Agent의 지침을 선택합니다.
+
 ## 개요
 
 ```mermaid

@@ -6,6 +6,8 @@ sidebar_position: 3
 
 从 GitHub 仓库、git URL 或本地路径添加 Skill。
 
+Tracked repo 的代理专属副本代表较少的逻辑 Skill 时，安装会显示 `Found N skills, M variants`。所有实体变体都会保留在 Source；merge/copy Sync 会选择符合代理的指令。
+
 ## 概述
 
 ```mermaid

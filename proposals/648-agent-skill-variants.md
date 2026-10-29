@@ -54,7 +54,8 @@ paths only when the same complete suffix occurs under at least two distinct cano
 agents beneath the same repository-relative `skills/` parent. Aliases of one agent
 do not provide that second identity. A lone `skills/agents/planner` or
 `skills/continue/helper` category remains ordinary, even when its name is a registry
-alias. The outer recognized component owns the complete suffix. Ordinary skills
+alias. The outer recognized component owns the complete suffix, unless the agent-named
+directory is itself a skill; its nested skills remain ordinary skills. Ordinary skills
 and unknown layouts keep existing discovery behavior.
 
 ### Routing and precedence

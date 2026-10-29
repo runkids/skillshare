@@ -59,7 +59,8 @@ func hasVariantParentSkill(dir string) bool {
 }
 
 // skillVariant recognizes only repository-relative skills/<known agent>/<suffix>.
-// The outer recognized component owns the complete suffix, including nested skills.
+// The outer recognized component owns the complete suffix, including nested skills,
+// unless the agent directory is itself a skill (checked by confirmSkillVariants).
 func skillVariant(relPath, repo string) (id, agent string) {
 	if repo == "" {
 		return "", ""
@@ -160,5 +161,5 @@ func variantRemovalWarning(name string, sc config.ResourceTargetConfig, skills [
 	if dryRun {
 		action = "would remove"
 	}
-	return fmt.Sprintf("%s: automatic agent routing %s %d managed variant entries because their agent does not match this folder's targets or their selection is ambiguous; use include/exclude or a source-local target override to select the desired variant (an empty override means all targets)", name, action, len(mismatches))
+	return fmt.Sprintf("%s: automatic agent routing %s %d managed variant entries because their agent does not match this folder's targets or their selection is ambiguous; use a source-local target override to select the desired variant (an empty override means all targets)", name, action, len(mismatches))
 }

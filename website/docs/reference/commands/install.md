@@ -6,6 +6,10 @@ sidebar_position: 3
 
 Add skills from GitHub repos, git URLs, or local paths.
 
+Tracked repositories report `Found N skills, M variants` when agent-specific copies
+represent fewer logical skills. All physical variants remain installed in the source;
+merge and copy sync select the matching agent's instructions.
+
 ## Overview
 
 ```mermaid

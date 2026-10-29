@@ -81,6 +81,11 @@ targets: [claude, cursor]
 
 ### Tracked repo 内の Agent 別バリアント {#agent-specific-variants-in-tracked-repositories}
 
+```text
+_team/internal/skills/claude/review/SKILL.md
+_team/internal/skills/codex/review/SKILL.md
+```
+
 Tracked repo 内の `skills/<既知の-agent>/<完全なスキルパス>/SKILL.md` は Agent 別バリアントとして自動認識されます。例：`_team/internal/skills/{claude,codex}/review/SKILL.md`。リポジトリ、Agent より前の完全なパス、Agent より後の完全なパスで1つの論理 Skill を識別します。バリアントが1つだけでも Agent による振り分けが適用され、`--into` 配下のリポジトリも対象です。
 
 **merge/copy:** 一致する Agent のファイルだけを選択します。`claude-code` などの登録済みエイリアスと、アカウント Target の `agent: codex` にも対応します。ディレクトリの共有は Agent の同一性を意味せず、`universal` が Codex バリアントを自動で受け取ることはありません。一致がなければ他のバリアントで代用せず、同じグループに同一 Agent のエイリアスが重複する場合は警告してスキップします。フィルターや上書き設定で明示的に選択してください。

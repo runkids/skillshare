@@ -15,8 +15,6 @@ Verify logical counts, account routing, ambiguity, explicit selection and prunin
 
 Run with a freshly built `skillshare` on PATH inside a fresh ssenv in the devcontainer.
 Each step creates its own fixture under the isolated `$HOME`; no network is needed.
-An explicitly authorized Linux Codex container may use a fresh HOME, XDG directories
-and TMPDIR for each step instead. Cap Go and frontend workers when building there.
 
 ## Steps
 
