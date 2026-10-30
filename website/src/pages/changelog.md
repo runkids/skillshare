@@ -11,18 +11,17 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ## [0.28.1] - 2026-10-30
 
-
-* **release:** request 0.28.1 ([5cf23ea](https://github.com/runkids/skillshare/commit/5cf23eaa1644de3fea418fbc9a1388cf0c480c1e))
-
-
 ### New Features
 
-* **mcp:** accept agy and antigravity-cli as MCP targets ([#670](https://github.com/runkids/skillshare/issues/670)) ([7ec788d](https://github.com/runkids/skillshare/commit/7ec788dea40014ddefa68d9b376564cb0a183403)), closes [#669](https://github.com/runkids/skillshare/issues/669)
-
+- **`agy` and `antigravity-cli` as MCP targets** — `mcp --target` and `--from` accept `agy` and `antigravity-cli`, the names `plugin` and `hooks` already use for Antigravity CLI. Both map to `antigravity`, because the agy CLI reads the file the `antigravity` client writes; the source still stores `antigravity`. Thanks to @jskswamy for the report and the implementation. Refs: #669, #670.
+  ```bash
+  skillshare mcp add docs --url https://example.com/mcp --target agy --sync
+  skillshare mcp import docs --from agy --target claude
+  ```
 
 ### Bug Fixes
 
-* **ui:** align plugin update result icon to the top of the row ([35a1e97](https://github.com/runkids/skillshare/commit/35a1e977835c96069c1566d41ec6fd50b4159750))
+- **Plugin update results** — in the dashboard's plugin update dialog, a result row with a multi-line message keeps its icon at the top of the row instead of floating in the middle.
 
 ## [0.28.0] - 2026-10-29
 
