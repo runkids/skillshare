@@ -276,7 +276,7 @@ _skillshare() {
         move)       COMPREPLY=($(compgen -W "${move_flags} ${global_flags}" -- "${cur}")) ;;
         list)       COMPREPLY=($(compgen -W "${list_flags} ${global_flags}" -- "${cur}")) ;;
         sync)       COMPREPLY=($(compgen -W "${sync_flags} ${global_flags}" -- "${cur}")) ;;
-        plugin)     COMPREPLY=($(compgen -W "add discover import list inspect sync check update enable disable remove --target --from --plugin --name --source-ref --entry --revision --all -a --dry-run -n --json --no-tui --help -h ${global_flags}" -- "${cur}")) ;;
+        plugin)     COMPREPLY=($(compgen -W "add discover import unimport list inspect sync check update enable disable remove --target --from --plugin --name --source-ref --entry --revision --all -a --dry-run -n --json --no-tui --help -h ${global_flags}" -- "${cur}")) ;;
         mcp)        COMPREPLY=($(compgen -W "add check edit import list remove restore serve ${mcp_flags} ${global_flags}" -- "${cur}")) ;;
         status)     COMPREPLY=($(compgen -W "${status_flags} ${global_flags}" -- "${cur}")) ;;
         hooks)      COMPREPLY=($(compgen -W "add disable edit enable import list remove restore sync ${hooks_flags} ${global_flags}" -- "${cur}")) ;;

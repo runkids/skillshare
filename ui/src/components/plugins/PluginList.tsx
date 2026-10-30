@@ -119,6 +119,7 @@ function Row({ name, pi, inventory, updates, busy, working, onToggle, onMenu, on
               <button type="button" className="ss-more min-h-6 shrink-0 disabled:opacity-50" disabled={busy} onClick={() => onAdd({ action: 'update', name, targets: behind }, name)}>{t('plugins.update')}</button>
             )}
             {bindings.some(([target, b]) => syncAction(b, inventory.hosts.find((h) => h.target === target))) && <span className="ss-tag warn">{t('plugins.pending')}</span>}
+            {bindings.some(([target, b]) => bindingStatus(b, inventory.hosts.find((h) => h.target === target)) === 'plugins.importRetained') && <span className="ss-tag">{t('plugins.importRetained')}</span>}
             {bindings.length === 0 && <span className="ss-tag">{t('plugins.noAgentsYet')}</span>}
           </span>
           {/* One quiet line instead of a tag, a label and a path each asking to be read. */}

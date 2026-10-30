@@ -2457,10 +2457,8 @@
   "plugins.outcome.imported": "Importé",
   "plugins.outcome.failed": "Échec",
   "plugins.outcome.installHelp": "L’installation native a été enregistrée. Rechargez l’Agent et effectuez la connexion ou la confirmation de confiance des hooks si nécessaire.",
-  "plugins.outcome.addHelp": "Ajouté à Skillshare. Choisissez les Agents lorsque vous souhaitez l’installer.",
   "plugins.outcome.removeHelp": "Supprimé de Skillshare.",
   "plugins.outcome.nativeRemoveHelp": "Le plugin natif a été supprimé ; les marketplaces partagés sont conservés.",
-  "plugins.outcome.selectionHelp": "La sélection de synchronisation a été enregistrée. Lancez la synchronisation pour appliquer les changements d’installation.",
   "plugins.outcome.excludeHelp": "Supprimé de cet outil ; la définition du plugin est conservée.",
   "plugins.outcome.importHelp": "L’installation existante a été intégrée sans modifier son état d’activation.",
   "plugins.outcome.recordFailedHelp": "L’opération native est terminée, mais son résultat n’a pas pu être enregistré ; vérifiez l’état avant de réessayer.",
@@ -3517,10 +3515,14 @@
   "plugins.note.replaceLocal": "Supprimer l’ancienne installation locale avant d’appliquer la configuration partagée.",
   "plugins.note.nativeAdopt": "Déjà installé nativement. Importer sans réinstaller.",
   "plugins.note.importInstallRequired": "Ce plugin importé ne dispose d’aucune source vérifiée pour sa réinstallation ; installez-le ou mettez-le à jour dans le client natif.",
-  "plugins.note.importRecipeChanged": "La recette partagée a changé ; cet import local est conservé. Pour installer depuis la source, exécutez plugin remove, restaurez la déclaration de la cible de la source, puis exécutez sync.",
+  "plugins.note.importRecipeChanged": "La recette partagée a changé ; cet import local est conservé. Pour installer depuis la source, exécutez plugin unimport {name} --target {target}, puis plugin sync.",
   "plugins.note.selection": "Enregistrer uniquement la sélection de synchronisation. Synchronisez pour installer ou retirer cette cible.",
   "plugins.note.localImportRequired": "Un import est nécessaire sur cette machine. Importez son identifiant natif local dans ce paquet.",
   "plugins.note.noLocalBinding": "Retirer la déclaration. Aucune installation locale n’est associée.",
   "sync.skipped.ambiguousVariant": "Variante d’agent ambiguë ; utilisez include/exclude ou une cible explicite pour en sélectionner une.",
-  "dashboard.trackedRepos.variantCount": "{count} variantes"
+  "dashboard.trackedRepos.variantCount": "{count} variantes",
+  "plugins.importRetained": "La recette partagée a changé ; import local conservé",
+  "plugins.error.importRecipeMismatch": "Le plugin natif ne correspond pas à la recette de la déclaration",
+  "plugins.note.localImportForgotten": "Supprimer l’installation importée et son reçu sur cette machine ; la configuration partagée reste inchangée. La prochaine synchronisation installe la recette partagée depuis la source.",
+  "plugins.error.importRecipeIdentityRequired": "Cette recette distante ne définit pas l’identité du plugin. Avant l’import, définissez plugin: avec le nom du paquet natif dans la déclaration partagée ; l’import ne télécharge pas le code source."
 }

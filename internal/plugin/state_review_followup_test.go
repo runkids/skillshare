@@ -83,7 +83,7 @@ func TestPluginPublicMessageContracts(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(result.Results) != 1 || result.Results[0].MessageKey != "plugins.outcome.selectionHelp" {
+		if len(result.Results) != 1 || result.Results[0].MessageKey != "" || result.Results[0].Message != "" {
 			t.Fatalf("selection outcome key: %+v", result)
 		}
 	})

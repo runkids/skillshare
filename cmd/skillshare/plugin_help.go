@@ -7,6 +7,7 @@ func printPluginHelp() {
 			{"add [source]", "Choose a plugin from a directory or HTTPS Git repository,\nor add npm:<package> to Pi"},
 			{"discover <source>", "Inspect source candidates without installing"},
 			{"import [native-id]", "Adopt an existing native install with --from"},
+			{"unimport <name>", "Remove this machine's import with --target; keep shared intent"},
 			{"inspect <name>", "Show bindings and native installation state"},
 			{"sync [name]", "Install missing plugins, reconcile refs and retry local cleanup"},
 			{"check [name]", "Check source content for changes (read-only)"},

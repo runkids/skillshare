@@ -18,6 +18,7 @@ var Targets = func() []string {
 }()
 
 type Binding struct {
+	ImportRetained bool `json:"importRetained,omitempty" yaml:"-"`
 	RefChanged     bool `json:"refChanged,omitempty" yaml:"-"`
 	Imported       bool `json:"imported,omitempty" yaml:"-"`
 	Cleanup        bool `json:"cleanup,omitempty" yaml:"-"`
@@ -229,6 +230,7 @@ type Inventory struct {
 }
 
 type Change struct {
+	Guidance       bool `json:"guidance,omitempty"`
 	sourceVersion  *string
 	PreservedKeys  []string `json:"preservedKeys,omitempty"`
 	recipe         *declaration
@@ -262,10 +264,11 @@ type Plan struct {
 }
 
 type Outcome struct {
-	Name    string `json:"name"`
-	Target  string `json:"target"`
-	Status  string `json:"status"`
-	Message string `json:"message,omitempty"`
+	Guidance bool   `json:"guidance,omitempty"`
+	Name     string `json:"name"`
+	Target   string `json:"target"`
+	Status   string `json:"status"`
+	Message  string `json:"message,omitempty"`
 	// MessageKey names Message for the dashboard to translate, with MessageArgs.
 	MessageKey  string            `json:"messageKey,omitempty"`
 	MessageArgs map[string]string `json:"messageArgs,omitempty"`

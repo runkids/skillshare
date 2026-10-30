@@ -31,7 +31,7 @@ func TestPluginOptions(t *testing.T) {
 
 func TestPluginCompletionsIncludeAllFlag(t *testing.T) {
 	want := map[string]string{
-		"bash":       "plugin)     COMPREPLY=($(compgen -W \"add discover import list inspect sync check update enable disable remove --target --from --plugin --name --source-ref --entry --revision --all -a",
+		"bash":       "plugin)     COMPREPLY=($(compgen -W \"add discover import unimport list inspect sync check update enable disable remove --target --from --plugin --name --source-ref --entry --revision --all -a",
 		"zsh":        "'--all[Update all managed plugins (update only)]' \\\n                        '-a[Update all managed plugins (update only)]'",
 		"fish":       "complete -c skillshare -n '__fish_skillshare_using_command plugin' -l all -s a",
 		"powershell": "'plugin' = '--target', '--from', '--plugin', '--name', '--source-ref', '--entry', '--revision', '--all', '-a'",
@@ -99,5 +99,62 @@ func TestPluginWizardRefreshesEarlierAddDiscovery(t *testing.T) {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			t.Fatalf("read-only blocked action wrote %s: %v", path, err)
 		}
+	}
+}
+
+func TestPluginUnimportOptions(t *testing.T) {
+	o, err := parsePluginOptions([]string{"unimport", "review", "--target", "claude", "--dry-run", "--json"})
+	if err != nil || o.request.Action != "unimport" || o.request.Name != "review" || len(o.request.Targets) != 1 || o.request.Targets[0] != "claude" || !o.dryRun || !o.json {
+		t.Fatalf("unimport options: %+v %v", o, err)
+	}
+	for name, shell := range shells {
+		if !strings.Contains(shell.script, "unimport") {
+			t.Errorf("%s omits unimport", name)
+		}
+	}
+}
+
+func TestPluginRetainedImportListAndDoctor(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	s := &plugin.Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+	s.Run = func(_ context.Context, _ string, _ []string, _ string, args ...string) ([]byte, error) {
+		switch strings.Join(args, " ") {
+		case "plugin list --json":
+			return []byte(`[{"id":"demo@team","name":"demo","scope":"user","installed":true}]`), nil
+		case "plugin marketplace list --json":
+			return []byte(`[]`), nil
+		default:
+			return []byte("--json --scope"), nil
+		}
+	}
+	raw := "plugins:\n  version: 2\n  packages:\n    review:\n      source: https://fixture.invalid/demo.git\n      plugin: demo\n      bindings:\n        claude: {}\n"
+	if err := os.WriteFile(s.ConfigPath, []byte(raw), 0600); err != nil {
+		t.Fatal(err)
+	}
+	req := plugin.Request{Action: "import", Name: "review", From: "claude", Plugin: "demo@team"}
+	p, err := s.Preview(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Apply(context.Background(), req, p.Revision); err != nil {
+		t.Fatal(err)
+	}
+	raw = strings.Replace(raw, "      plugin: demo", "      source_ref: next\n      plugin: demo", 1)
+	if err := os.WriteFile(s.ConfigPath, []byte(raw), 0600); err != nil {
+		t.Fatal(err)
+	}
+	output := captureStdout(t, func() {
+		if err := executePlugin(s, pluginOptions{request: plugin.Request{Action: "list"}, noTUI: true}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(output, "local import retained") {
+		t.Errorf("list hid retained import: %s", output)
+	}
+	result := &doctorResult{}
+	captureStdout(t, func() { checkPluginPackages(s, result) })
+	if len(result.checks) != 1 || result.checks[0].Status != "warning" {
+		t.Fatalf("doctor claimed in sync: %+v", result.checks)
 	}
 }

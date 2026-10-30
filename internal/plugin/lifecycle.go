@@ -144,7 +144,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 		if failed[key] {
 			continue
 		}
-		outcome := Outcome{Name: c.Name, Target: c.Target}
+		outcome := Outcome{Name: c.Name, Target: c.Target, Guidance: c.Guidance}
 		if c.Action == "skip" {
 			outcome.Status = "skipped"
 			if c.batchError {
@@ -157,10 +157,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 		}
 		if c.Action == "selection" || c.Target == "" || c.ID == "" && c.Action == "forget" {
 			outcome.Status = "saved"
-			if c.Action == "selection" {
-				outcome.Message = "Sync selection saved. Run sync to apply installation changes."
-				outcome.MessageKey = "plugins.outcome.selectionHelp"
-			}
+
 			if c.Action == "forget" {
 				outcome.Status = "removed"
 				outcome.Message = "Removed from Skillshare."
@@ -176,8 +173,9 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 		}
 		local := d.state.Bindings[c.Name][c.Target]
 		decl, declared := d.intent[c.Name].Bindings[c.Target]
+
 		if c.Action == "noop" {
-			if r.Action == "add" && local.Applied != nil && c.Binding.ID == local.Applied.Binding.ID {
+			if r.Action == "add" && !c.Binding.Imported && local.Applied != nil && c.Binding.ID == local.Applied.Binding.ID {
 				local.Applied.Intent, local.Applied.Binding.Imported = decl.fingerprint(), c.Binding.Imported
 				local.Legacy = nil
 				d.putLocal(c.Name, c.Target, local)
@@ -210,7 +208,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 			intent = local.Applied.Intent
 		}
 		b := c.Binding
-		b.Cleanup, b.ContextChanged, b.RefChanged = false, false, false
+		b.Cleanup, b.ContextChanged, b.RefChanged, b.ImportRetained = false, false, false, false
 		local.Pending = &receipt{Intent: intent, Store: s.storeIdentity(c.Target), Binding: b, Action: c.Action}
 		d.putLocal(c.Name, c.Target, local)
 		if err := s.saveState(d); err != nil {

@@ -50,7 +50,7 @@ func TestImportRejectsUnrelatedSourceRecipe(t *testing.T) {
 	writePluginFile(t, filepath.Dir(s.ConfigPath), filepath.Base(s.ConfigPath), "plugins:\n  version: 2\n  packages:\n    review:\n      source: "+source+"\n      plugin: demo\n      bindings:\n        claude: {}\n")
 	same := unchanged(t, s.ConfigPath)
 	_, err := s.Preview(context.Background(), Request{Action: "import", From: "claude", Plugin: "unrelated@team", Name: "review"})
-	if err == nil || !strings.Contains(err.Error(), "recipe") {
+	if key, _ := ErrorKey(err); key != "plugins.error.importRecipeMismatch" {
 		t.Fatalf("unrelated import accepted: %v", err)
 	}
 	same()
@@ -80,7 +80,7 @@ func TestLocalImportSurvivesSharedRecipeChanges(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(p.Changes) != 1 || p.Changes[0].Action != "noop" || p.Changes[0].MessageKey != "plugins.note.importRecipeChanged" || !strings.Contains(p.Changes[0].Message, "plugin remove") {
+			if len(p.Changes) != 1 || p.Changes[0].Action != "noop" || p.Changes[0].MessageKey != "plugins.note.importRecipeChanged" || !strings.Contains(p.Changes[0].Message, "plugin unimport") {
 				t.Fatalf("import replaced or missing guidance: %+v", p.Changes)
 			}
 			result, err := s.Apply(context.Background(), Request{Action: "sync"}, p.Revision)

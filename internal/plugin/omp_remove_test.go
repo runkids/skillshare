@@ -268,3 +268,16 @@ func TestOMPRemovalResumesAfterRegistryWasAlreadyRemoved(t *testing.T) {
 		}
 	})
 }
+
+func TestOMPDisabledRemovedTargetIsQuietNoop(t *testing.T) {
+	s, _, _, _ := ompRemovalFixture(t, false)
+	applyPluginRequest(t, s, Request{Action: "disable", Name: "demo", Targets: []string{"omp"}})
+	applyPluginRequest(t, s, Request{Action: "sync"})
+	p, err := s.Preview(context.Background(), Request{Action: "sync"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Changes) != 1 || p.Changes[0].Action != "noop" || p.Changes[0].Message != "" || p.Changes[0].Guidance {
+		t.Fatalf("idle removal shown as work: %+v", p)
+	}
+}

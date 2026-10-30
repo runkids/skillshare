@@ -78,7 +78,7 @@ export extern "skillshare project" [
 # End project command
 
 def "nu-complete skillshare plugin" [] {
-    [add discover import list inspect sync check update enable disable remove]
+    [add discover import unimport list inspect sync check update enable disable remove]
 }
 
 def "nu-complete skillshare mcp" [] {

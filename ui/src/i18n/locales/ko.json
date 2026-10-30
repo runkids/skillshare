@@ -2457,10 +2457,8 @@
   "plugins.outcome.imported": "가져옴",
   "plugins.outcome.failed": "실패",
   "plugins.outcome.installHelp": "네이티브 설치를 기록했습니다. Agent를 다시 로드하고 필요한 로그인이나 hooks 신뢰 확인을 완료하세요.",
-  "plugins.outcome.addHelp": "Skillshare에 추가했습니다. 설치할 때 Agent를 선택하세요.",
   "plugins.outcome.removeHelp": "Skillshare에서 제거했습니다.",
   "plugins.outcome.nativeRemoveHelp": "네이티브 plugin을 제거했습니다. 공유 marketplace는 유지됩니다.",
-  "plugins.outcome.selectionHelp": "동기화할 대상을 저장했습니다. 설치 변경 사항을 적용하려면 동기화를 실행하세요.",
   "plugins.outcome.excludeHelp": "이 도구에서 제거했습니다. plugin 정의는 유지됩니다.",
   "plugins.outcome.importHelp": "기존 설치를 가져왔습니다. 활성화 상태는 변경하지 않았습니다.",
   "plugins.outcome.recordFailedHelp": "네이티브 작업은 완료했지만 결과를 기록하지 못했습니다. 다시 시도하기 전에 상태를 확인하세요.",
@@ -3517,10 +3515,14 @@
   "plugins.note.replaceLocal": "공유 설정을 적용하기 전에 이전 로컬 설치를 제거합니다.",
   "plugins.note.nativeAdopt": "이미 네이티브로 설치되어 있습니다. 재설치 없이 가져옵니다.",
   "plugins.note.importInstallRequired": "가져온 plugin에는 검토된 재설치 소스가 없습니다. 네이티브 클라이언트에서 설치하거나 업데이트하세요.",
-  "plugins.note.importRecipeChanged": "공유 설치 설정이 바뀌었지만 로컬 가져오기를 유지합니다. 소스로 전환하려면 plugin remove 후 소스 대상 선언을 복원하고 sync를 실행하세요.",
+  "plugins.note.importRecipeChanged": "공유 설치 설정이 바뀌었지만 로컬 가져오기를 유지합니다. 소스로 전환하려면 plugin unimport {name} --target {target}을 실행한 뒤 plugin sync를 실행하세요.",
   "plugins.note.selection": "동기화 선택만 저장합니다. 동기화하여 이 대상을 설치하거나 제거하세요.",
   "plugins.note.localImportRequired": "이 기기에서 가져오기가 필요합니다. 로컬 네이티브 식별자를 이 패키지로 가져오세요.",
   "plugins.note.noLocalBinding": "선언을 제거합니다. 연결된 로컬 설치가 없습니다.",
   "sync.skipped.ambiguousVariant": "에이전트 변형이 모호합니다. include/exclude 또는 대상 재정의로 하나를 선택하세요.",
-  "dashboard.trackedRepos.variantCount": "변형 {count}개"
+  "dashboard.trackedRepos.variantCount": "변형 {count}개",
+  "plugins.importRetained": "공유 설치 설정이 변경됨; 로컬 가져오기 유지",
+  "plugins.error.importRecipeMismatch": "네이티브 플러그인이 선언의 설치 설정과 일치하지 않습니다",
+  "plugins.note.localImportForgotten": "이 컴퓨터의 가져온 설치와 기록을 삭제합니다. 공유 설정은 그대로 유지됩니다. 다음 동기화에서 공유 설치 설정에 따라 소스에서 설치합니다.",
+  "plugins.error.importRecipeIdentityRequired": "이 원격 설치 설정에는 플러그인 식별 정보가 없습니다. 가져오기 전에 공유 선언의 plugin:을 네이티브 패키지 이름으로 설정하세요. 가져오기는 소스를 다운로드하지 않습니다."
 }

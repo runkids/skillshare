@@ -46,6 +46,7 @@ removed. `remove NAME` without `--target` removes it from Skillshare.
 | `discover SOURCE` | Inspect a local directory, `owner/repo`, or HTTPS Git repository |
 | `add [SOURCE]` | Choose and install a whole plugin with its target adapter, or an `npm:` package through Pi |
 | `import [NATIVE-ID]` | Adopt an existing installation without reinstalling or enabling it |
+| `unimport NAME` | Uninstall this machine’s imported bindings for explicit targets; keep shared source declarations |
 | `inspect NAME` | Inspect one managed package |
 | `sync [NAME]` | Reconcile selected targets and retry incomplete native operations |
 | `check [NAME]` | Compare source content with the recorded digest, or a Pi npm package's version with npm's latest; never update |
@@ -570,6 +571,11 @@ recipe.
 An explicit Pi `add npm:PACKAGE` shares an npm install recipe and Pi runs its
 install scripts; an npm import shares only native-only intent.
 
+Import never fetches a remote source. For a manually written remote recipe without
+`plugin:`, set `plugin:` to the native package name before importing so Skillshare
+can verify its identity offline. Recipes created with `plugin add` already record
+this identity. Local directory recipes can be discovered locally.
+
 Old configurations remain readable. Native IDs are adopted only with local
 inventory and, for source installs, owned snapshot evidence. Foreign pending
 operations are ignored. Reads and sync leave old YAML unchanged; the next actual
@@ -590,4 +596,16 @@ retryable. Repointing/removing an account preserves its old receipt and requires
 resolving the previous native context before cleanup. Authentication, native
 settings and trust remain in each tool; do not copy them as plugin state.
 
-A local import remains installed when its shared source recipe changes. To switch to the source recipe, run `skillshare plugin remove NAME --target TARGET`, restore the shared declaration if removed, then run `skillshare plugin sync NAME`.
+A local import remains installed when its shared source recipe changes. To switch
+to the shared source recipe on this machine, run:
+
+```bash
+skillshare plugin unimport NAME --target TARGET --no-tui
+skillshare plugin sync NAME --no-tui
+```
+
+`unimport` requires one or more explicit `--target` flags, an existing local import
+receipt, and a shared source recipe for each selected target. It uninstalls the
+imported binding on this machine using the target's removal adapter, then drops
+its local receipt. Shared declarations and other machines' installations stay
+unchanged. The next sync installs the shared source recipe.

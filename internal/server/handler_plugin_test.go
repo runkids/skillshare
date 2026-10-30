@@ -114,3 +114,15 @@ func TestPluginListIncludesUnboundNativeImport(t *testing.T) {
 		t.Fatalf("foreign native binding: %+v", result)
 	}
 }
+
+func TestPluginPreviewPreservesLocalizedError(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	w := httptest.NewRecorder()
+	s.handlePluginPreview(w, httptest.NewRequest(http.MethodPost, "/api/plugins/preview", strings.NewReader(`{"request":{"action":"import","from":"omp","plugin":"npm-package"}}`)))
+	var body struct {
+		Code string `json:"error_code"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil || w.Code != 400 || body.Code != "plugins.error.ompPackageImport" {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+}

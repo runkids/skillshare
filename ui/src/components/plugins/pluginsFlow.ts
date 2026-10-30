@@ -3,6 +3,7 @@ import { bindingVersion, byPlugin, pluginsApi, syncAction, targetMap } from '../
 import type { PluginInventory, PluginOutcome, PluginPlan, PluginRequest, PluginResult, PluginTarget, PluginUpdate, PluginUpdateEvent } from '../../api/plugins';
 import type { useT } from '../../i18n';
 import { keyedMessage } from './outcomeText';
+import { pluginErrorMessage } from './pluginError';
 
 type T = ReturnType<typeof useT>;
 type Updates = Record<string, Record<PluginTarget, PluginUpdate>>;
@@ -28,7 +29,7 @@ export function importPackageNames(inventory: PluginInventory | undefined, targe
   }).map(([name]) => name).sort();
 }
 
-export function importRequest(_inventory: PluginInventory | undefined, from: string, plugin: string, selected?: string): PluginRequest {
+export function importRequest(from: string, plugin: string, selected?: string): PluginRequest {
   const name = selected ?? '';
   return { action: 'import', from, plugin, ...(name ? { name } : {}) };
 }
@@ -126,14 +127,14 @@ export function installedVersion(inventory: PluginInventory | undefined, name: s
 export function reviewChanges(plan: PluginPlan | undefined, inventory?: PluginInventory) {
   const changes = plan?.changes ?? [];
   return {
-    active: changes.filter((c) => c.action !== 'noop' || c.message),
-    idle: changes.filter((c) => c.action === 'noop' && !c.message).map((c) => ({ name: c.name, target: c.target, version: c.binding?.version ?? installedVersion(inventory, c.name, c.target) })),
+    active: changes.filter((c) => c.action !== 'noop' || c.guidance),
+    idle: changes.filter((c) => c.action === 'noop' && !c.guidance).map((c) => ({ name: c.name, target: c.target, version: c.binding?.version ?? installedVersion(inventory, c.name, c.target) })),
   };
 }
 
 /** What the last run changed, failures first; Agents that ended the same way share a row. */
 export function changedRuns(t: T, outcomes: PluginOutcome[]) {
-  return byPlugin(outcomes.filter((r) => r.status !== 'unchanged' || r.message).map((r) => ({ ...r, note: r.message ? keyedMessage(t, r) : '' })), (r) => `${r.status}\0${r.note}`)
+  return byPlugin(outcomes.filter((r) => r.status !== 'unchanged' || r.guidance).map((r) => ({ ...r, note: r.message ? keyedMessage(t, r) : '' })), (r) => `${r.status}\0${r.note}`)
     .sort((a, b) => Number(b.status === 'failed') - Number(a.status === 'failed'));
 }
 
@@ -225,7 +226,7 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
       const plan = await pluginsApi.preview(request);
       setReview({ request, plan }); onPreviewed();
     }
-    catch (e) { setFailure((e as Error).message); throw e; }
+    catch (e) { setFailure(pluginErrorMessage(e, t)); throw e; }
     finally { setBusy(false); setWorking(''); }
   };
   const begin = (request: PluginRequest, key = '') => { void preview(request, key).catch(() => {}); };
@@ -269,7 +270,7 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
         results.push(...(response.result?.results ?? []));
         const failed = failureText(t, response);
         if (failed) failures.push(failed);
-      } catch (e) { failures.push(`${request.plugin}: ${(e as Error).message}`); }
+      } catch (e) { failures.push(`${request.plugin}: ${pluginErrorMessage(e, t)}`); }
     }
     setResult({ result: { results }, failure: failures.join(' ') }); setFailure(failures.join(' '));
     setBusy(false); setWorking(''); refresh();

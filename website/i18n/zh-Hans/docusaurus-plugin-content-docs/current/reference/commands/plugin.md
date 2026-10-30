@@ -40,6 +40,7 @@ target 会保存该选择。下一次 `sync plugins` 会移除其受管理的安
 | `discover SOURCE` | Inspect a local directory, `owner/repo`, or HTTPS Git repository |
 | `add [SOURCE]` | Choose and install a whole plugin with its target adapter, or an `npm:` package through Pi |
 | `import [NATIVE-ID]` | Adopt an existing installation without reinstalling or enabling it |
+| `unimport NAME` | 卸载明确指定目标的本机导入安装，保留共享来源声明 |
 | `inspect NAME` | Inspect one managed package |
 | `sync [NAME]` | Reconcile selected targets and retry incomplete native operations |
 | `check [NAME]` | 比对 source 内容与记录的 digest，或 Pi npm 包版本与 npm 最新版；绝不更新 |
@@ -373,10 +374,19 @@ sync、普通 update、验证、失败与重试不会改写共享声明。`updat
 
 native-only 目标显示“此机器需要导入”，sync 会跳过。请先在原生客户端安装，再执行 `plugin import LOCAL-ID --from TARGET --name NAME`。导入已有来源声明只记录本机安装，不改变其他机器的来源或安装。重新导入已验证来源的同一 ID 也会保留来源。明确的 Pi `add npm:PACKAGE` 会共享安装方式，并由 Pi 执行安装脚本；npm import 则建立 native-only 声明。
 
+导入不会获取远程来源。手动编写的远程来源配置若缺少 `plugin:`，请在导入前将 `plugin:` 设为原生软件包名称，以便离线验证其身份。`plugin add` 创建的配置已经记录该名称。本地目录来源可以在本机发现。
+
 旧格式读取与 sync 不改写 YAML，下次声明编辑才写入 version 2。**首次 v2 编辑前，请升级所有写入端，并在共享 YAML 仍为旧格式时，于每台机器执行 `skillshare plugin list`。** 即使原生客户端暂时不可用，也能保存迁移线索。采用旧 ID 需要原生环境清单；来源安装还需本机拥有的 snapshot 证据。不会执行其他主机的待处理操作。未验证线索与移除证据会保留到所有权确认及清理完成。旧 npm 无法区分 add/import，若需要共享安装方式，请明确重新 add。
 
 账户变更时，请先处理原本的原生环境，再进行清理。认证、原生配置与信任仍留在各工具中。
 
 重复导入不会改写共享意图。清理失败会保留可重试的本机记录，供下次 sync 使用。旧版可执行文件无法写入 v2，因为它们不认识版本化的声明字段。
 
-共享来源配方更改时，本机导入仍会保留。若要切换到来源安装，请运行 `skillshare plugin remove NAME --target TARGET`、恢复共享来源目标声明，再运行 `skillshare plugin sync NAME`。
+共享来源配置更改时，本机导入仍会保留。若要在本机切换到共享来源安装，请运行：
+
+```bash
+skillshare plugin unimport NAME --target TARGET --no-tui
+skillshare plugin sync NAME --no-tui
+```
+
+`unimport` 要求明确指定一个或多个 `--target`，且各目标必须已有本机导入记录和共享来源配置。它通过目标的卸载适配器移除本机导入的安装，然后清除本机记录。共享声明和其他机器的安装保持不变。下一次 sync 会从共享来源安装。

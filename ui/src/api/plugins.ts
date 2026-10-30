@@ -5,9 +5,9 @@ export type PluginTarget = string;
 /** `npm`: the target installs npm:<package> sources (Pi, or a Pi account that runs pi). */
 export interface PluginTargetDefinition { target: string; label: string; project: boolean; operations: string[]; reason?: string; reasonKey?: string; npm?: boolean }
 export const targetMap = (definitions: PluginTargetDefinition[] = []) => Object.fromEntries(definitions.map((d) => [d.target, d]));
-export type PluginAction = 'add' | 'import' | 'sync' | 'check' | 'update' | 'remove' | 'enable' | 'disable';
+export type PluginAction = 'add' | 'import' | 'unimport' | 'sync' | 'check' | 'update' | 'remove' | 'enable' | 'disable';
 export interface PluginRequest { action: PluginAction; name?: string; source?: string; sourceRef?: string; entry?: string; plugin?: string; targets?: PluginTarget[]; from?: PluginTarget }
-export interface PluginBinding { refChanged?: boolean; imported?: boolean; cleanup?: boolean; contextChanged?: boolean; piRegistration?: string; id: string; source?: string; sourceRef?: string; commit?: string; entry?: string; plugin?: string; digest?: string; version?: string; pending?: string; sync?: boolean; components?: string[] }
+export interface PluginBinding { refChanged?: boolean; imported?: boolean; importRetained?: boolean; cleanup?: boolean; contextChanged?: boolean; piRegistration?: string; id: string; source?: string; sourceRef?: string; commit?: string; entry?: string; plugin?: string; digest?: string; version?: string; pending?: string; sync?: boolean; components?: string[] }
 export interface NativePlugin { id: string; version?: string; enabled: boolean; enabledKnown?: boolean; scope?: string; filtered?: boolean; importable?: boolean }
 export interface PluginPackage { version?: string; source?: string; sourceRef?: string; plugin?: string; entry?: string; bindings: Partial<Record<PluginTarget, PluginBinding>> }
 export interface PluginInventory {
@@ -42,6 +42,7 @@ export const bindingStatus = (b: PluginBinding, host?: PluginInventory['hosts'][
   if (b.cleanup) return 'plugins.cleanup';
   if (b.imported && !b.id) return 'plugins.importRequired';
   if (syncAction(b, host)) return 'plugins.pending';
+  if (b.importRetained) return 'plugins.importRetained';
   if (!host) return '';
   if (host.error) return 'plugins.unverified';
   const installed = host.installed.find((i) => i.id === b.id);
@@ -71,8 +72,8 @@ export const pluginShareCommand = (name: string, p: { source?: string; sourceRef
 export interface PluginCandidate { name: string; description: string; version: string; targets: PluginTarget[]; components: string[]; problem?: string; problemKey?: string; problemArgs?: Record<string, string>; targetInfo?: Record<string, { manifest: string; path?: string; version?: string; logo?: string; entry?: string; components: string[]; problem?: string; problemKey?: string; problemArgs?: Record<string, string> }> }
 export interface PluginDiscovery {
   warnings?: string[]; source: string; sourceRef?: string; commit?: string; targetDefinitions?: PluginTargetDefinition[]; digest: string; candidates: PluginCandidate[] }
-export interface PluginPlan { revision: string; blocked: boolean; changes: { name: string; target: PluginTarget; id: string; action: string; message?: string; messageKey?: string; messageArgs?: Record<string, string>; components?: string[]; preservedKeys?: string[]; logo?: string; binding?: PluginBinding }[] }
-export interface PluginOutcome { name: string; target: PluginTarget; status: string; message?: string; messageKey?: string; messageArgs?: Record<string, string> }
+export interface PluginPlan { revision: string; blocked: boolean; changes: { name: string; target: PluginTarget; id: string; action: string; guidance?: boolean; message?: string; messageKey?: string; messageArgs?: Record<string, string>; components?: string[]; preservedKeys?: string[]; logo?: string; binding?: PluginBinding }[] }
+export interface PluginOutcome { name: string; target: PluginTarget; status: string; guidance?: boolean; message?: string; messageKey?: string; messageArgs?: Record<string, string> }
 
 export interface PluginRun { name: string; target: string; version?: string }
 

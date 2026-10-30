@@ -49,18 +49,6 @@ describe('PluginsPage', () => {
     expect(pluginsApi.apply).toHaveBeenCalledWith({ action: 'sync' }, 'ref-review');
     expect(await screen.findByText('targets.state.synced')).toBeInTheDocument();
   });
-  it('shows retained-import guidance during review and after sync leaves it unchanged', async () => {
-    const message = 'Shared recipe moved; keep local import or remove, restore and sync.';
-    vi.mocked(pluginsApi.preview).mockResolvedValue({ revision: 'guidance', blocked: false, changes: [{ name: 'demo', target: 'codex', id: 'demo@market', action: 'noop', message }] });
-    vi.mocked(pluginsApi.apply).mockResolvedValue({ result: { results: [{ name: 'demo', target: 'codex', status: 'unchanged', message }] }, failure: '' });
-    mount();
-    fireEvent.click(await screen.findByRole('button', { name: 'plugins.syncAgain' }));
-    const dialog = await screen.findByRole('dialog', { name: 'plugins.preview' });
-    expect(within(dialog).getByText(message)).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'plugins.apply' }));
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'plugins.preview' })).not.toBeInTheDocument());
-    expect(screen.getAllByText(message)).toHaveLength(1);
-  });
   it('imports into the explicitly selected declaration that needs a local binding', async () => {
     vi.mocked(pluginsApi.list).mockResolvedValue({
       packages: { bar: { bindings: { pi: { id: '', imported: true } } } },

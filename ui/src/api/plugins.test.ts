@@ -61,6 +61,14 @@ describe('host-local bindings', () => {
     expect(syncAction(binding, host)).toBe('');
     expect(bindingStatus(binding, host)).toBe('plugins.accountChanged');
   });
+  it('shows a retained local import when the shared recipe has changed', () => {
+    const binding = { id: 'demo@local', imported: true, importRetained: true };
+    const installed = { ...host, installed: [{ id: binding.id, enabled: true }] };
+    expect(bindingStatus(binding)).toBe('plugins.importRetained');
+    expect(bindingStatus(binding, installed)).toBe('plugins.importRetained');
+    expect(bindingStatus({ ...binding, importRetained: false }, installed)).toBe('');
+    expect(bindingStatus({ ...binding, cleanup: true }, installed)).toBe('plugins.cleanup');
+  });
 });
 
 

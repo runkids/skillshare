@@ -274,7 +274,14 @@ namespace and does not track or clean up the previous installations.
 A local source path must exist on every host. Native-only targets on another host
 require native installation and `plugin import LOCAL-ID --from TARGET --name NAME`;
 identical repeated import intent does not rewrite YAML. Importing into an existing
-source declaration preserves its recipe and other machines' installations. Explicit Pi npm add shares
+source declaration preserves its recipe and other machines' installations.
+A local import remains installed when the shared recipe changes. To use that recipe
+on this machine, run `plugin unimport NAME --target TARGET --no-tui`, then
+`plugin sync NAME --no-tui`. `unimport` requires explicit targets with an existing
+local import receipt and a shared source recipe. It uninstalls the imported binding
+on this machine through the target's removal adapter, then drops its local receipt.
+Shared intent and other machines are unchanged; the next sync installs the shared recipe.
+Explicit Pi npm add shares
 a recipe that runs Pi's install scripts; npm import remains native-only. Ambiguous
 legacy npm entries remain native-only until explicitly added again.
 

@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { pluginsApi } from '../../api/plugins';
+import { ApiError } from '../../api/client';
 import type { PluginInventory, PluginPlan, PluginUpdateEvent } from '../../api/plugins';
 import { changedRuns, failureText, importPackageNames, importRequest, piPackageTest, reviewChanges, syncTodo, updatesFound, updatedTargets, updatesLeft, updatesPending, usePluginsFlow, versionMoves } from './pluginsFlow';
 
@@ -69,6 +70,27 @@ describe('plugins flow', () => {
     expect(now().review).toBeNull();
     expect(onPreviewed).not.toHaveBeenCalled();
     expect(now().busy).toBe(false);
+  });
+
+  it('localizes a keyed import preview failure without accepting the import', async () => {
+    const error = new ApiError(400, 'Native plugin does not match the declaration recipe', { code: 'plugins.error.importRecipeMismatch' });
+    vi.mocked(pluginsApi.preview).mockRejectedValueOnce(error);
+    const { now } = flow();
+    await act(async () => { await expect(now().preview({ action: 'import', from: 'pi', plugin: 'npm:wrong' })).rejects.toBe(error); });
+    expect(now().failure).toBe('plugins.error.importRecipeMismatch');
+    expect(now().review).toBeNull();
+    expect(pluginsApi.apply).not.toHaveBeenCalled();
+  });
+
+  it('localizes a batch import preview failure and still applies the next reviewed import', async () => {
+    vi.mocked(pluginsApi.preview).mockRejectedValueOnce(new ApiError(400, 'Remote recipe has no plugin identity', { code: 'plugins.error.importRecipeIdentityRequired' }));
+    const { now } = flow();
+    await act(() => now().importMany([
+      { action: 'import', from: 'pi', plugin: 'npm:unknown' },
+      { action: 'import', from: 'pi', plugin: 'npm:known' },
+    ]));
+    expect(now().failure).toBe('npm:unknown: plugins.error.importRecipeIdentityRequired');
+    expect(pluginsApi.apply).toHaveBeenCalledExactlyOnceWith({ action: 'import', from: 'pi', plugin: 'npm:known' }, 'reviewed');
   });
 
   it('keeps the review open and refreshes when apply is refused', async () => {
@@ -318,21 +340,28 @@ it('keeps the chosen declaration name in single and batch import requests', () =
     managed: { bindings: { pi: { id: 'npm:managed' } } },
   } };
   expect(importPackageNames(inventory, 'pi')).toEqual(['bar', 'other']);
-  expect(importRequest(inventory, 'pi', 'npm:foo', 'bar')).toEqual({ action: 'import', from: 'pi', plugin: 'npm:foo', name: 'bar' });
-  expect(importRequest(inventory, 'pi', 'npm:new', '')).toEqual({ action: 'import', from: 'pi', plugin: 'npm:new' });
+  expect(importRequest('pi', 'npm:foo', 'bar')).toEqual({ action: 'import', from: 'pi', plugin: 'npm:foo', name: 'bar' });
+  expect(importRequest('pi', 'npm:new', '')).toEqual({ action: 'import', from: 'pi', plugin: 'npm:new' });
   expect(importPackageNames(inventory, 'claude')).toEqual([]);
 });
 
-it('does not pick the only waiting declaration for arbitrary imports', () => {
- const inventory: PluginInventory = { hosts: [], packages: {review: {bindings: {claude: {id: '', source: 'owner/review'}}}}};
- expect(importRequest(inventory, 'claude', 'a@m')).toEqual({action: 'import', from: 'claude', plugin: 'a@m'});
- expect(importRequest(inventory, 'claude', 'b@m')).toEqual({action: 'import', from: 'claude', plugin: 'b@m'});
+it('leaves the declaration name unset unless explicitly selected', () => {
+ expect(importRequest('claude', 'a@m')).toEqual({action: 'import', from: 'claude', plugin: 'a@m'});
+ expect(importRequest('claude', 'b@m')).toEqual({action: 'import', from: 'claude', plugin: 'b@m'});
 });
 
 it('keeps unchanged recipe guidance visible in preview and completed outcomes', () => {
- const note = {name: 'demo', target: 'codex', message: 'Shared recipe moved; plugin remove then restore and sync.', messageKey: 'plugins.note.importRecipeChanged'};
+ const note = {name: 'demo', target: 'codex', guidance: true, message: 'Shared recipe moved; plugin unimport then sync.', messageKey: 'plugins.note.importRecipeChanged'};
  const preview = reviewChanges(plan('r', {...note, action: 'noop'}));
  expect(preview.active).toHaveLength(1);
  expect(preview.idle).toHaveLength(0);
  expect(changedRuns(t, [{...note, status: 'unchanged'}])).toMatchObject([{name: 'demo', status: 'unchanged', note: 'plugins.note.importRecipeChanged'}]);
+});
+
+it.each([undefined, false])('folds an incidental noop message away without guidance: %s', (guidance) => {
+ const note = {name: 'demo', target: 'omp', guidance, message: 'Removes this scope registration.'};
+ const preview = reviewChanges(plan('r', {...note, action: 'noop'}));
+ expect(preview.active).toEqual([]);
+ expect(preview.idle).toEqual([{name: 'demo', target: 'omp'}]);
+ expect(changedRuns(t, [{...note, status: 'unchanged'}])).toEqual([]);
 });

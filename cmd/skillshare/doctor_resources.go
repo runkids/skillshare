@@ -188,6 +188,9 @@ func checkPluginPackages(service *plugin.Service, result *doctorResult) {
 		line := c.Name + " → " + c.Target
 		switch c.Action {
 		case "noop":
+			if c.Guidance {
+				warnings = append(warnings, line+": "+c.Message)
+			}
 		case "blocked":
 			warnings = append(warnings, line+": blocked: "+c.Message)
 		default:

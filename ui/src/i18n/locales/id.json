@@ -2457,10 +2457,8 @@
   "plugins.outcome.imported": "Diimpor",
   "plugins.outcome.failed": "Gagal",
   "plugins.outcome.installHelp": "Instalasi native telah dicatat. Muat ulang Agent dan selesaikan login atau konfirmasi kepercayaan hooks jika diperlukan.",
-  "plugins.outcome.addHelp": "Ditambahkan ke Skillshare. Pilih Agent saat ingin menginstalnya.",
   "plugins.outcome.removeHelp": "Dihapus dari Skillshare.",
   "plugins.outcome.nativeRemoveHelp": "Plugin native dihapus; marketplace bersama tetap disimpan.",
-  "plugins.outcome.selectionHelp": "Pilihan sinkronisasi disimpan. Jalankan sinkronisasi untuk menerapkan perubahan instalasi.",
   "plugins.outcome.excludeHelp": "Dihapus dari alat ini; definisi plugin tetap disimpan.",
   "plugins.outcome.importHelp": "Instalasi yang ada diadopsi tanpa mengubah status aktifnya.",
   "plugins.outcome.recordFailedHelp": "Operasi native selesai, tetapi hasilnya gagal dicatat; periksa status sebelum mencoba lagi.",
@@ -3517,10 +3515,14 @@
   "plugins.note.replaceLocal": "Hapus instalasi lokal sebelumnya sebelum menerapkan konfigurasi bersama.",
   "plugins.note.nativeAdopt": "Sudah terpasang secara native. Impor tanpa memasang ulang.",
   "plugins.note.importInstallRequired": "Plugin yang diimpor ini tidak memiliki sumber yang telah ditinjau untuk pemasangan ulang; pasang atau perbarui melalui klien asli.",
-  "plugins.note.importRecipeChanged": "Resep bersama telah berubah; impor lokal ini dipertahankan. Untuk beralih ke sumber, jalankan plugin remove, pulihkan deklarasi target sumber, lalu jalankan sync.",
+  "plugins.note.importRecipeChanged": "Resep bersama telah berubah; impor lokal ini dipertahankan. Untuk beralih ke sumber, jalankan plugin unimport {name} --target {target}, lalu plugin sync.",
   "plugins.note.selection": "Simpan pilihan sinkronisasi saja. Sinkronkan untuk memasang atau menghapus target ini.",
   "plugins.note.localImportRequired": "Mesin ini memerlukan impor. Impor pengenal native lokal ke paket ini.",
   "plugins.note.noLocalBinding": "Hapus deklarasi. Tidak ada instalasi lokal yang terkait.",
   "sync.skipped.ambiguousVariant": "Varian agen ambigu; gunakan include/exclude atau penggantian target untuk memilih satu.",
-  "dashboard.trackedRepos.variantCount": "{count} varian"
+  "dashboard.trackedRepos.variantCount": "{count} varian",
+  "plugins.importRetained": "Resep bersama berubah; impor lokal dipertahankan",
+  "plugins.error.importRecipeMismatch": "Plugin native tidak cocok dengan resep deklarasi",
+  "plugins.note.localImportForgotten": "Hapus instalasi yang diimpor beserta catatannya di mesin ini; konfigurasi bersama tetap tidak berubah. Sinkronisasi berikutnya memasang resep bersama dari sumber.",
+  "plugins.error.importRecipeIdentityRequired": "Resep jarak jauh ini tidak memiliki identitas plugin. Sebelum mengimpor, isi plugin: dengan nama paket native dalam deklarasi bersama; impor tidak mengunduh kode sumber."
 }

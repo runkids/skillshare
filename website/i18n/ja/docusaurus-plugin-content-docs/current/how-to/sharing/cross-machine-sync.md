@@ -185,13 +185,13 @@ Skillshare は認証情報を `fromEnv` 参照として保存し、値そのも�
 
 ### Plugins {#plugins}
 
-共有設定の `plugins:` セクションに version 2 のソース、ref、ターゲット選択を保存できます。StateDir は各マシンに保持し、共有しないでください。新しいマシンでは `skillshare plugin sync` でソースを確認し、ローカルにインストールします。確認と commit 固定はマシンごとです。ブランチ ref は実行時に解決され、非対話 sync が別のマシンで確認した版より新しい commit を使う場合があります。同じ版が必要なら `source_ref` に commit SHA を指定してください。最初の v2 編集前に全 writer を更新し、共有 YAML が旧形式のうちに各マシンで `skillshare plugin list` を実行してください。
+共有設定の `plugins:` セクションに version 2 のソース、ref、ターゲット選択を保存できます。StateDir は各マシンに保持してください。設定を別々に管理する場合は、**Plugins → Share** から add コマンドをコピーできます。
 
-インポートはローカルのインストールを記録します。別のマシンでは native-only 宣言を sync がスキップし、ローカルでのインポートが必要と表示します。ネイティブクライアントでインストール後、同じ `--name` でローカル ID をインポートしてください。ダッシュボードのパッケージ選択と TUI の名前付き候補も利用できます。既存のソース宣言へのインポートは共有ソースと他のマシンのインストールを変えません。
+新しいマシンでは `skillshare plugin sync` でソースを確認し、ローカルの snapshot パスにインストールします。確認と commit 固定はマシンごとです。ブランチ ref はインストールや更新時に解決され、非対話 sync が別のマシンで確認した版より新しい commit を使う場合があります。同じ版が必要なら `source_ref` に commit SHA を指定してください。ローカルソースのパスは各マシンに存在する必要があります。
 
-[Plugins](/docs/reference/commands/plugin#host-state)
+native-only 宣言は「このマシンでインポートが必要」と表示され、sync はスキップします。各マシンのネイティブクライアントでインストール後、`skillshare plugin import LOCAL-ID --from TARGET --name NAME` を実行してください。既存のソース宣言へのインポートはローカルの記録だけを作り、他のマシンのソース設定やインストールを変更しません。
 
-各マシンのネイティブクライアントでインストール後、`skillshare plugin import LOCAL-ID --from TARGET --name NAME` を実行してください。既存の宣言には、名前を明示的に選択したときだけ関連付けます。
+**最初の v2 編集前に全 writer を更新し、共有 YAML が旧形式のうちに各マシンで `skillshare plugin list` を実行してください。** ローカルの移行情報を保存できます。[プラグインの状態と移行](/docs/reference/commands/plugin#host-state)を参照してください。
 
 `sync` は不足する plugin のインストール、変更された ref の反映、ローカルのクリーンアップの再試行を行います。同じ ref の新リリースには `skillshare plugin check` と `skillshare plugin update` を使ってください。
 

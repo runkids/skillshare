@@ -185,13 +185,13 @@ Skillshare는 자격 증명을 값이 아닌 `fromEnv` 참조로 저장합니다
 
 ### Plugins {#plugins}
 
-공유 설정의 `plugins:` 섹션에 version 2 소스, ref, 대상 선택을 저장할 수 있습니다. StateDir는 기기마다 따로 유지하고 공유하지 마세요. 새 기기에서 `skillshare plugin sync`로 소스를 검토하고 로컬에 설치하세요. 검토와 commit 고정은 기기별입니다. 브랜치 ref는 실행 시 해석되므로 비대화형 sync가 다른 기기에서 검토한 것보다 새 commit을 사용할 수 있습니다. 같은 버전이 필요하면 `source_ref`에 commit SHA를 지정하세요. 첫 v2 편집 전에 모든 writer를 업데이트하고, 공유 YAML이 레거시일 때 각 기기에서 `skillshare plugin list`를 실행하세요.
+공유 설정의 `plugins:` 섹션에 version 2 소스, ref, 대상 선택을 저장할 수 있습니다. StateDir는 기기마다 따로 유지하세요. 설정을 별도로 관리한다면 **Plugins → Share**에서 add 명령을 복사할 수 있습니다.
 
-가져오기는 로컬 설치를 기록합니다. 다른 기기의 sync는 native-only 선언을 건너뛰고 로컬 가져오기가 필요하다고 표시합니다. 네이티브 클라이언트에서 설치한 뒤 같은 `--name`으로 로컬 ID를 가져오세요. 대시보드의 패키지 선택과 TUI의 이름이 표시된 항목도 사용할 수 있습니다. 기존 소스 선언으로 가져와도 공유 소스와 다른 기기의 설치는 바뀌지 않습니다.
+새 기기에서 `skillshare plugin sync`로 소스를 검토하고 로컬 snapshot 경로에 설치하세요. 검토와 commit 고정은 기기별입니다. 브랜치 ref는 설치나 업데이트 시 해석되므로 비대화형 sync가 다른 기기에서 검토한 것보다 새 commit을 사용할 수 있습니다. 같은 버전이 필요하면 `source_ref`에 commit SHA를 지정하세요. 로컬 소스 경로는 각 기기에 존재해야 합니다.
 
-[Plugins](/docs/reference/commands/plugin#host-state)
+native-only 선언에는 **이 기기에서 가져오기 필요**가 표시되며 sync는 건너뜁니다. 각 기기의 네이티브 클라이언트에서 설치한 뒤 `skillshare plugin import LOCAL-ID --from TARGET --name NAME`을 실행하세요. 기존 소스 선언으로 가져오면 로컬 기록만 저장하며, 다른 기기의 소스 설정과 설치는 유지됩니다.
 
-각 컴퓨터에서 네이티브 클라이언트로 설치한 뒤 `skillshare plugin import LOCAL-ID --from TARGET --name NAME`을 실행하세요. 이름을 명시적으로 선택해야 기존 선언에 연결됩니다.
+**첫 v2 편집 전에 모든 writer를 업데이트하고, 공유 YAML이 레거시일 때 각 기기에서 `skillshare plugin list`를 실행하세요.** 로컬 마이그레이션 정보를 저장합니다. [플러그인 상태와 마이그레이션](/docs/reference/commands/plugin#host-state)을 참고하세요.
 
 `sync`는 누락된 plugin 설치, 변경된 ref 반영, 로컬 정리 재시도를 수행합니다. 같은 ref의 새 릴리스는 `skillshare plugin check`와 `skillshare plugin update`로 확인하고 업데이트하세요.
 

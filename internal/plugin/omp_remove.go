@@ -303,6 +303,8 @@ func (s *Service) prepareOMPRemoval(h Host, c *Change) {
 				}
 			} else if c.Action == "uninstall" {
 				c.Action = "noop"
+				c.Message, c.MessageKey = "", ""
+				return
 			}
 			c.Message, c.MessageKey = "Removes this scope's registration and runtime link. Shared cache, marketplaces and plugin settings are retained for other projects and later reinstalls.", "plugins.note.ompRemoval"
 			return

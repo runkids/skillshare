@@ -185,13 +185,13 @@ Skillshare 把憑證存成 `fromEnv` 參照，從不儲存實際的值。請在�
 
 ### Plugins {#plugins}
 
-共用設定的 `plugins:` 區段可保存 version 2 的來源、ref 與目標選擇。StateDir 應留在每台機器，不要共用。在新機器執行 `skillshare plugin sync`，即可檢視來源並以本機路徑安裝。檢視與 commit 固定是各機器獨立的；分支 ref 在執行時解析，非互動 sync 可能安裝比另一台機器檢視時更新的 commit。若需要相同版本，請將 `source_ref` 設為 commit SHA。首次 v2 編輯前，升級所有寫入端，並在共用 YAML 仍為舊格式時，於每台機器執行 `skillshare plugin list`。
+共用設定的 `plugins:` 區段可保存 version 2 的來源、ref 與目標選擇。StateDir 應留在每台機器上。如果個別管理各機器的設定，也可從 **Plugins → Share** 複製 add 指令。
 
-匯入記錄本機安裝。在另一台機器，sync 會略過 native-only 宣告並提示需要本機匯入。請先在原生用戶端安裝，再以相同的 `--name` 匯入本機 ID。也可使用 dashboard 的套件選擇或 TUI 的具名選項。匯入既有來源宣告不會改變共用來源或其他機器的安裝。
+在新機器上執行 `skillshare plugin sync`，檢視來源並使用本機 snapshot 路徑安裝。檢視與 commit 固定是各機器獨立的；分支 ref 在安裝或更新時解析，非互動 sync 可能安裝比另一台機器檢視時更新的 commit。若需要相同版本，請將 `source_ref` 設為 commit SHA。本機來源路徑必須在每台機器上存在。
 
-[Plugins](/docs/reference/commands/plugin#host-state)
+native-only 宣告顯示**此機器需要匯入**，sync 會略過。請在每台機器的原生用戶端中安裝後，再執行 `skillshare plugin import LOCAL-ID --from TARGET --name NAME`。匯入既有來源宣告只保存本機安裝紀錄，其他機器的來源設定與安裝保持不變。
 
-在每台機器先於原生客戶端安裝，再執行 `skillshare plugin import LOCAL-ID --from TARGET --name NAME`。只有明確選擇宣告名稱時才會綁定既有宣告。
+**首次 v2 編輯前，請升級所有寫入端，並在共用 YAML 仍為舊格式時，於每台機器執行 `skillshare plugin list`。** 這會保存該機器的本機移轉資訊。請參閱 [plugin 狀態與移轉](/docs/reference/commands/plugin#host-state)。
 
 `sync` 會安裝缺少的 plugin、調整已變更的 ref，並重試本機清理。對未變更的 ref，使用 `skillshare plugin check` 與 `skillshare plugin update` 檢查及更新新版本。
 

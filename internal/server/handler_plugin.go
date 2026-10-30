@@ -128,6 +128,10 @@ func (s *Server) handlePluginPreview(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.RUnlock()
 	p, err := s.pluginService().Preview(r.Context(), body.Request)
 	if err != nil {
+		if key, args := plugin.ErrorKey(err); key != "" {
+			writeCodedError(w, 400, key, err.Error(), args)
+			return
+		}
 		writeError(w, 400, err.Error())
 		return
 	}

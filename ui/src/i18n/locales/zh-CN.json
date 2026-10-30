@@ -2457,10 +2457,8 @@
   "plugins.outcome.imported": "已导入",
   "plugins.outcome.failed": "失败",
   "plugins.outcome.installHelp": "已记录原生安装。请重新加载 Agent，并完成必要的登录或 hooks 信任确认。",
-  "plugins.outcome.addHelp": "已加入 Skillshare。想安装时再选择 Agent。",
   "plugins.outcome.removeHelp": "已从 Skillshare 移除。",
   "plugins.outcome.nativeRemoveHelp": "已移除原生 plugin；共享 marketplace 会保留。",
-  "plugins.outcome.selectionHelp": "已保存同步选择。请执行同步以应用安装变更。",
   "plugins.outcome.excludeHelp": "已从这个工具移除；plugin 定义会保留。",
   "plugins.outcome.importHelp": "已纳入现有安装，未更改其启用状态。",
   "plugins.outcome.recordFailedHelp": "原生操作已完成，但无法记录结果；重试前请先检查状态。",
@@ -3517,10 +3515,14 @@
   "plugins.note.replaceLocal": "应用共享配置前，先移除之前的本机安装。",
   "plugins.note.nativeAdopt": "已在原生客户端安装。导入而不重新安装。",
   "plugins.note.importInstallRequired": "此导入的 plugin 没有已审阅的重新安装来源；请在原生客户端安装或更新。",
-  "plugins.note.importRecipeChanged": "共享安装配方已更改；保留此本机导入。若要切换到来源安装，请运行 plugin remove、恢复来源目标声明，再运行 sync。",
+  "plugins.note.importRecipeChanged": "共享安装配方已更改；保留此本机导入。若要切换到来源安装，请运行 plugin unimport {name} --target {target}，再运行 plugin sync。",
   "plugins.note.selection": "仅保存同步选择。请同步以安装或移除此目标。",
   "plugins.note.localImportRequired": "此机器需要导入。请将本机原生标识符导入此软件包。",
   "plugins.note.noLocalBinding": "移除声明。未绑定本机安装。",
   "sync.skipped.ambiguousVariant": "代理变体不明确；请用 include/exclude 或目标覆盖选择一个。",
-  "dashboard.trackedRepos.variantCount": "{count} 个变体"
+  "dashboard.trackedRepos.variantCount": "{count} 个变体",
+  "plugins.importRetained": "共享安装配方已更改；已保留本机导入",
+  "plugins.error.importRecipeMismatch": "原生插件与声明的安装配方不匹配",
+  "plugins.note.localImportForgotten": "删除此机器上导入的安装及其记录；共享配置保持不变。下次同步会依照共享的来源配方安装。",
+  "plugins.error.importRecipeIdentityRequired": "此远程安装配方没有插件标识。导入前，请将共享声明中的 plugin: 设为原生包名；导入不会下载源代码。"
 }

@@ -185,13 +185,13 @@ Skillshare 把凭据保存为 `fromEnv` 引用，从不保存实际的值。请�
 
 ### Plugins {#plugins}
 
-共享配置的 `plugins:` 区段可保存 version 2 的来源、ref 与目标选择。StateDir 应保留在每台机器，不要共享。在新机器执行 `skillshare plugin sync`，即可检查来源并以本机路径安装。检查与 commit 固定是各机器独立的；分支 ref 在执行时解析，非交互 sync 可能安装比另一台机器检查时更新的 commit。若需要相同版本，请将 `source_ref` 设为 commit SHA。首次 v2 编辑前，升级所有写入端，并在共享 YAML 仍为旧格式时，于每台机器执行 `skillshare plugin list`。
+共享配置的 `plugins:` 区段可保存 version 2 的来源、ref 与目标选择。StateDir 应保留在每台机器上。如果单独管理各机器的配置，也可从 **Plugins → Share** 复制 add 命令。
 
-导入记录本机安装。在另一台机器，sync 会跳过 native-only 声明并提示需要本机导入。请先在原生客户端安装，再以相同的 `--name` 导入本机 ID。也可使用 dashboard 的软件包选择或 TUI 的具名选项。导入已有来源声明不会改变共享来源或其他机器的安装。
+在新机器上运行 `skillshare plugin sync`，检查来源并使用本机 snapshot 路径安装。检查与 commit 固定是各机器独立的；分支 ref 在安装或更新时解析，非交互 sync 可能安装比另一台机器检查时更新的 commit。若需要相同版本，请将 `source_ref` 设为 commit SHA。本地来源路径必须在每台机器上存在。
 
-[Plugins](/docs/reference/commands/plugin#host-state)
+native-only 声明显示**此机器需要导入**，sync 会跳过。请在每台机器的原生客户端中安装后，再运行 `skillshare plugin import LOCAL-ID --from TARGET --name NAME`。导入已有来源声明只保存本机安装记录，其他机器的来源配置与安装保持不变。
 
-在每台机器先于原生客户端安装，再运行 `skillshare plugin import LOCAL-ID --from TARGET --name NAME`。只有明确选择声明名称时才会绑定现有声明。
+**首次 v2 编辑前，请升级所有写入端，并在共享 YAML 仍为旧格式时，于每台机器运行 `skillshare plugin list`。** 这会保存该机器的本地迁移信息。参阅 [plugin 状态与迁移](/docs/reference/commands/plugin#host-state)。
 
 `sync` 会安装缺少的 plugin、协调已更改的 ref，并重试本机清理。对未更改的 ref，使用 `skillshare plugin check` 和 `skillshare plugin update` 检查及更新新版本。
 

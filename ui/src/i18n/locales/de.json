@@ -2457,10 +2457,8 @@
   "plugins.outcome.imported": "Importiert",
   "plugins.outcome.failed": "Fehlgeschlagen",
   "plugins.outcome.installHelp": "Die native Installation wurde erfasst. Lade den Agent neu und schließe bei Bedarf die Anmeldung oder die Vertrauensbestätigung für Hooks ab.",
-  "plugins.outcome.addHelp": "Zu Skillshare hinzugefügt. Wähle die Agents aus, wenn du es installieren möchtest.",
   "plugins.outcome.removeHelp": "Aus Skillshare entfernt.",
   "plugins.outcome.nativeRemoveHelp": "Das native Plugin wurde entfernt; gemeinsame Marketplaces bleiben erhalten.",
-  "plugins.outcome.selectionHelp": "Die Sync-Auswahl wurde gespeichert. Führe die Synchronisierung aus, um die Installationsänderungen anzuwenden.",
   "plugins.outcome.excludeHelp": "Aus diesem Tool entfernt; die Plugin-Definition bleibt erhalten.",
   "plugins.outcome.importHelp": "Die vorhandene Installation wurde übernommen, ohne ihren Aktivierungsstatus zu ändern.",
   "plugins.outcome.recordFailedHelp": "Der native Vorgang wurde abgeschlossen, aber das Ergebnis konnte nicht gespeichert werden; prüfe den Status, bevor du es erneut versuchst.",
@@ -3517,10 +3515,14 @@
   "plugins.note.replaceLocal": "Vor dem Anwenden der gemeinsamen Konfiguration die bisherige lokale Installation entfernen.",
   "plugins.note.nativeAdopt": "Bereits nativ installiert. Ohne Neuinstallation importieren.",
   "plugins.note.importInstallRequired": "Dieses importierte Plugin hat keine geprüfte Quelle für eine erneute Installation. Installiere oder aktualisiere es im nativen Client.",
-  "plugins.note.importRecipeChanged": "Das gemeinsame Installationsrezept wurde geändert; dieser lokale Import bleibt erhalten. Führe zum Wechsel zur Quelle plugin remove aus, stelle die Zieldeklaration für die Quelle wieder her und führe dann sync aus.",
+  "plugins.note.importRecipeChanged": "Das gemeinsame Installationsrezept wurde geändert; dieser lokale Import bleibt erhalten. Führe zum Wechsel zur Quelle plugin unimport {name} --target {target} und danach plugin sync aus.",
   "plugins.note.selection": "Nur die Synchronisierungsauswahl speichern. Zum Installieren oder Entfernen dieses Ziels synchronisieren.",
   "plugins.note.localImportRequired": "Auf diesem Rechner ist ein Import nötig. Die lokale native Kennung in dieses Paket importieren.",
   "plugins.note.noLocalBinding": "Deklaration entfernen. Es ist keine lokale Installation zugeordnet.",
   "sync.skipped.ambiguousVariant": "Mehrdeutige Agent-Variante; mit include/exclude oder einer Zielüberschreibung eine auswählen.",
-  "dashboard.trackedRepos.variantCount": "{count} Varianten"
+  "dashboard.trackedRepos.variantCount": "{count} Varianten",
+  "plugins.importRetained": "Gemeinsames Installationsrezept geändert; lokaler Import beibehalten",
+  "plugins.error.importRecipeMismatch": "Das native Plugin entspricht nicht dem Installationsrezept der Deklaration",
+  "plugins.note.localImportForgotten": "Die importierte Installation und ihren Nachweis auf diesem Rechner entfernen; die gemeinsame Konfiguration bleibt unverändert. Die nächste Synchronisierung installiert das gemeinsame Quellrezept.",
+  "plugins.error.importRecipeIdentityRequired": "Dieses entfernte Installationsrezept enthält keine Plugin-Identität. Setze plugin: in der gemeinsamen Deklaration vor dem Import auf den nativen Paketnamen; beim Import wird kein Quellcode heruntergeladen."
 }

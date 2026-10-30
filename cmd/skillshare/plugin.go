@@ -78,7 +78,7 @@ func parsePluginOptions(args []string) (pluginOptions, error) {
 		o.request.Source = positional
 	case "import":
 		o.request.Plugin = positional
-	case "list", "sync", "check", "inspect", "remove", "update", "enable", "disable":
+	case "list", "sync", "check", "inspect", "unimport", "remove", "update", "enable", "disable":
 		if positional != "" {
 			if o.request.Name != "" {
 				return o, fmt.Errorf("specify one package name")
@@ -163,7 +163,7 @@ func cmdPlugin(args []string) (resultErr error) {
 		if o.request.Action == "list" {
 			return runPluginManager(s)
 		}
-		if o.request.Action == "add" || o.request.Action == "import" || o.request.Action == "remove" || o.request.Action == "update" || o.request.Action == "enable" || o.request.Action == "disable" || o.request.Action == "sync" {
+		if o.request.Action == "add" || o.request.Action == "import" || o.request.Action == "unimport" || o.request.Action == "remove" || o.request.Action == "update" || o.request.Action == "enable" || o.request.Action == "disable" || o.request.Action == "sync" {
 			return pluginWizard(s, o)
 		}
 	}
@@ -224,6 +224,9 @@ func executePlugin(s *plugin.Service, o pluginOptions) error {
 								}
 							}
 						}
+					}
+					if b.ImportRetained {
+						mark, state = ui.MarkWarn, "shared recipe changed; local import retained"
 					}
 					if b.RefChanged {
 						mark, state = ui.MarkWarn, "shared ref changed; sync to reconcile"

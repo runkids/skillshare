@@ -2457,10 +2457,8 @@
   "plugins.outcome.imported": "وارد شد",
   "plugins.outcome.failed": "ناموفق",
   "plugins.outcome.installHelp": "نصب بومی ثبت شد. Agent را دوباره بارگذاری کنید و در صورت نیاز ورود یا تأیید اعتماد به hooks را تکمیل کنید.",
-  "plugins.outcome.addHelp": "به Skillshare اضافه شد. هر وقت خواستید آن را نصب کنید، Agentها را انتخاب کنید.",
   "plugins.outcome.removeHelp": "از Skillshare حذف شد.",
   "plugins.outcome.nativeRemoveHelp": "plugin بومی حذف شد؛ marketplaceهای مشترک حفظ می‌شوند.",
-  "plugins.outcome.selectionHelp": "انتخاب همگام‌سازی ذخیره شد. برای اعمال تغییرات نصب، همگام‌سازی را اجرا کنید.",
   "plugins.outcome.excludeHelp": "از این ابزار حذف شد؛ تعریف plugin حفظ می‌شود.",
   "plugins.outcome.importHelp": "نصب موجود بدون تغییر وضعیت فعال‌سازی آن وارد شد.",
   "plugins.outcome.recordFailedHelp": "عملیات بومی کامل شد، اما ثبت نتیجه ناموفق بود؛ پیش از تلاش دوباره وضعیت را بررسی کنید.",
@@ -3517,10 +3515,14 @@
   "plugins.note.replaceLocal": "پیش از اعمال پیکربندی مشترک، نصب محلی قبلی را حذف کنید.",
   "plugins.note.nativeAdopt": "قبلاً به‌صورت بومی نصب شده است. بدون نصب مجدد وارد کنید.",
   "plugins.note.importInstallRequired": "این افزونهٔ واردشده منبع بررسی‌شده‌ای برای نصب مجدد ندارد؛ آن را در کلاینت اصلی نصب یا به‌روزرسانی کنید.",
-  "plugins.note.importRecipeChanged": "دستور نصب مشترک تغییر کرده است؛ این واردکردن محلی حفظ می‌شود. برای نصب از منبع، plugin remove را اجرا کنید، تعریف مقصد منبع را بازیابی کنید و سپس sync را اجرا کنید.",
+  "plugins.note.importRecipeChanged": "دستور نصب مشترک تغییر کرده است؛ این واردکردن محلی حفظ می‌شود. برای نصب از منبع، plugin unimport {name} --target {target} و سپس plugin sync را اجرا کنید.",
   "plugins.note.selection": "فقط انتخاب همگام‌سازی ذخیره شود. برای نصب یا حذف این مقصد همگام‌سازی کنید.",
   "plugins.note.localImportRequired": "ورود روی این دستگاه لازم است. شناسهٔ بومی محلی را به این بسته وارد کنید.",
   "plugins.note.noLocalBinding": "اعلان حذف شود. هیچ نصب محلی متصل نیست.",
   "sync.skipped.ambiguousVariant": "گونهٔ عامل مبهم است؛ با include/exclude یا بازنویسی مقصد یکی را انتخاب کنید.",
-  "dashboard.trackedRepos.variantCount": "{count} گونه"
+  "dashboard.trackedRepos.variantCount": "{count} گونه",
+  "plugins.importRetained": "دستور نصب مشترک تغییر کرده است؛ واردکردن محلی حفظ شد",
+  "plugins.error.importRecipeMismatch": "افزونهٔ بومی با دستور نصب تعریف‌شده مطابقت ندارد",
+  "plugins.note.localImportForgotten": "نصب واردشده و سابقهٔ آن را از این دستگاه حذف کنید؛ تنظیمات مشترک بدون تغییر می‌ماند. همگام‌سازی بعدی، دستور نصب مشترک را از منبع نصب می‌کند.",
+  "plugins.error.importRecipeIdentityRequired": "این دستور نصب راه دور، شناسهٔ افزونه ندارد. پیش از واردکردن، مقدار plugin: را در تعریف مشترک روی نام بستهٔ بومی تنظیم کنید؛ واردکردن، کد منبع را دانلود نمی‌کند."
 }

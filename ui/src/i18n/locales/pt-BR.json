@@ -2457,10 +2457,8 @@
   "plugins.outcome.imported": "Importado",
   "plugins.outcome.failed": "Falhou",
   "plugins.outcome.installHelp": "A instalação nativa foi registrada. Recarregue o Agent e conclua o login ou a confirmação de confiança dos hooks, se necessário.",
-  "plugins.outcome.addHelp": "Adicionado ao Skillshare. Escolha os Agents quando quiser instalá-lo.",
   "plugins.outcome.removeHelp": "Removido do Skillshare.",
   "plugins.outcome.nativeRemoveHelp": "O plugin nativo foi removido; os marketplaces compartilhados foram mantidos.",
-  "plugins.outcome.selectionHelp": "A seleção de sincronização foi salva. Execute a sincronização para aplicar as alterações de instalação.",
   "plugins.outcome.excludeHelp": "Removido desta ferramenta; a definição do plugin foi mantida.",
   "plugins.outcome.importHelp": "A instalação existente foi incorporada sem alterar seu estado de ativação.",
   "plugins.outcome.recordFailedHelp": "A operação nativa foi concluída, mas não foi possível registrar o resultado; verifique o estado antes de tentar novamente.",
@@ -3517,10 +3515,14 @@
   "plugins.note.replaceLocal": "Remover a instalação local anterior antes de aplicar a configuração compartilhada.",
   "plugins.note.nativeAdopt": "Já instalado nativamente. Importar sem reinstalar.",
   "plugins.note.importInstallRequired": "Este plugin importado não tem uma fonte revisada para reinstalação; instale ou atualize no cliente nativo.",
-  "plugins.note.importRecipeChanged": "A receita compartilhada mudou; esta importação local será mantida. Para instalar a partir da fonte, execute plugin remove, restaure a declaração do destino da fonte e execute sync.",
+  "plugins.note.importRecipeChanged": "A receita compartilhada mudou; esta importação local será mantida. Para instalar a partir da fonte, execute plugin unimport {name} --target {target} e depois plugin sync.",
   "plugins.note.selection": "Salvar apenas a seleção de sincronização. Sincronize para instalar ou remover este destino.",
   "plugins.note.localImportRequired": "Esta máquina precisa de uma importação. Importe o identificador nativo local neste pacote.",
   "plugins.note.noLocalBinding": "Remover a declaração. Nenhuma instalação local está vinculada.",
   "sync.skipped.ambiguousVariant": "Variante de agente ambígua; use include/exclude ou uma substituição de destino para selecionar uma.",
-  "dashboard.trackedRepos.variantCount": "{count} variantes"
+  "dashboard.trackedRepos.variantCount": "{count} variantes",
+  "plugins.importRetained": "A receita compartilhada mudou; importação local mantida",
+  "plugins.error.importRecipeMismatch": "O plugin nativo não corresponde à receita da declaração",
+  "plugins.note.localImportForgotten": "Remove a instalação importada e seu registro desta máquina; a configuração compartilhada permanece inalterada. A próxima sincronização instala a receita compartilhada a partir da fonte.",
+  "plugins.error.importRecipeIdentityRequired": "Esta receita remota não define a identidade do plugin. Antes de importar, defina plugin: com o nome do pacote nativo na declaração compartilhada; a importação não baixa o código-fonte."
 }

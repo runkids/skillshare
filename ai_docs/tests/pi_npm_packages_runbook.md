@@ -57,6 +57,7 @@ ss() { /workspace/bin/skillshare "$@"; }
 PKG=npm:@evoclock/pi-agentic-driver
 S=$PI_CODING_AGENT_DIR/settings.json
 CFG=$XDG_CONFIG_HOME/skillshare/config.yaml
+STATE=$XDG_STATE_HOME/skillshare/plugins/$(printf %s "$CFG" | sha256sum | cut -c1-16)/state.json
 pi --version
 npm view ${PKG#npm:}@1.1.0 version scripts
 ```
@@ -175,7 +176,8 @@ jq '.packages = [{source: .packages[0], extensions: ["-extensions/pulse.ts"]}]' 
 ss plugin import $PKG@1.0.0 --from pi --name pi-agentic-driver --no-tui -g; echo "exit=$?"
 ss plugin add $PKG@1.1.0 --name pi-agentic-driver --target pi --no-tui -g; echo "exit=$?"
 jq -c .packages $S
-grep -c pi_registration $CFG
+jq -e '.bindings["pi-agentic-driver"].pi.applied.binding.piRegistration | type == "string" and length > 0' "$STATE"
+! grep -q pi_registration "$CFG" && echo shared-config-clean
 pi remove $PKG@1.1.0 > /dev/null
 ss plugin sync --no-tui -g; echo "exit=$?"
 jq -c .packages $S
@@ -185,7 +187,8 @@ ss plugin remove pi-agentic-driver --no-tui -g > /dev/null; jq -c .packages $S
 **Expected**: `pi · imported`, then `pi · installed`, both `exit=0`. Pi moves the entry to the
 new version and keeps its filter:
 `[{"source":"npm:@evoclock/pi-agentic-driver@1.1.0","extensions":["-extensions/pulse.ts"]}]`,
-and the binding has a `pi_registration` (`1`). After the package is removed outside
+and the machine-local receipt has a `piRegistration` digest (`true`). The shared
+config contains no `pi_registration` (`shared-config-clean`). After the package is removed outside
 Skillshare, `sync` reinstalls it (`pi · installed`, `exit=0`) with the same filtered entry.
 The final removal leaves `[]`.
 

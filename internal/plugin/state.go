@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -167,6 +166,7 @@ func (s *Service) compose(d *document) {
 				// Managed npm receipts also omit Source, but retain an npm recipe fingerprint.
 				imported := r.Binding.Imported || r.Binding.Source == "" && r.Intent == (declaration{Imported: true}).fingerprint()
 				b.Imported = decl.Imported || imported
+				b.ImportRetained = imported && !decl.Imported && r.Intent != decl.fingerprint()
 				b.Cleanup = !imported && r.Intent != decl.fingerprint() && (r.Binding.Source != decl.Source || r.Binding.Plugin != decl.Plugin || r.Binding.Entry != decl.Entry || decl.Imported)
 				b.ContextChanged = r.Store != s.storeIdentity(target)
 				b.RefChanged = b.Selected() && sameDistribution(r.Binding, decl) && r.Binding.SourceRef != decl.SourceRef
@@ -467,65 +467,62 @@ func (s *Service) importMatchesRecipe(ctx context.Context, target string, instal
 		nativeName, _, _ = strings.Cut(installed.ID, "@")
 	case isNpmSource(installed.ID):
 		nativeName = logicalName(installed.ID)
-	case agent == "pi" || agent == "opencode":
-		path := installed.ID
-		if u, err := url.Parse(path); err == nil && u.Scheme == "file" {
-			path = u.Path
+	case agent == "opencode":
+		root, ok := openCodeImportRoot(installed.ID, decl.Entry)
+		if !ok {
+			return false, nil
 		}
-		if agent == "pi" {
-			settings, err := s.piSettingsPath(target)
-			if err != nil {
-				return false, err
-			}
-			scope := "user"
-			if s.ProjectRoot != "" {
-				scope = "project"
-			}
-			path = resolvePiSource(installed.ID, filepath.Dir(settings), filepath.Dir(settings), scope).install
+		if root != "" {
+			nativeName = importManifestName(root, decl, "")
 		}
+	case agent == "pi":
+		settings, err := s.piSettingsPath(target)
+		if err != nil {
+			return false, err
+		}
+		scope := "user"
+		if s.ProjectRoot != "" {
+			scope = "project"
+		}
+		path := resolvePiSource(installed.ID, filepath.Dir(settings), filepath.Dir(settings), scope).install
 		if filepath.IsAbs(path) {
-			info, err := os.Stat(path)
-			if agent == "opencode" && (err != nil || !info.Mode().IsRegular()) {
-				return false, nil
-			}
-			if err == nil && !info.IsDir() {
-				file := path
+			if info, err := os.Stat(path); err == nil && !info.IsDir() {
 				path = filepath.Dir(path)
-				matched := false
-				if agent == "opencode" {
-					nativeName = ""
-				}
-				// A parent manifest identifies this file only if it resolves to that entry.
 				for parent := path; ; parent = filepath.Dir(parent) {
 					if info, err := os.Stat(filepath.Join(parent, "package.json")); err == nil && info.Mode().IsRegular() {
-						entry, err := openCodeEntry(parent, decl.Entry)
-						if agent != "opencode" || err == nil && filepath.Clean(filepath.Join(parent, entry)) == filepath.Clean(file) {
-							path, matched = parent, true
-							break
-						}
+						path = parent
+						break
 					}
 					if filepath.Dir(parent) == parent {
 						break
 					}
 				}
-				if agent == "opencode" && !matched {
-					return false, nil
-				}
 			}
-			if native, err := discoverRoot(path, path, decl.Entry); err == nil {
-				for _, candidate := range native.Candidates {
-					if candidate.Name == decl.Plugin || decl.Plugin == "" && len(native.Candidates) == 1 {
-						nativeName = candidate.Name
-						break
-					}
-				}
-			}
+			nativeName = importManifestName(path, decl, nativeName)
 		}
 	}
 	if decl.Plugin != "" {
 		return nativeName == decl.Plugin, nil
 	}
-	disc, err := s.discover(ctx, decl.Source, decl.SourceRef, decl.Entry)
+	// Import observes local installations. Do not fetch a remote recipe to infer
+	// a missing identity: accepting an alias would also admit unrelated plugins.
+	source := decl.Source
+	if strings.HasPrefix(source, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return false, err
+		}
+		source = filepath.Join(home, source[2:])
+	}
+	info, err := os.Stat(source)
+	if err != nil || !info.IsDir() {
+		return false, agentError{key: "plugins.error.importRecipeIdentityRequired", message: "This remote recipe has no plugin identity. Set plugin: to the native package name in the shared declaration before importing; import does not download source."}
+	}
+	source, err = filepath.Abs(source)
+	if err != nil {
+		return false, err
+	}
+	disc, err := s.discover(ctx, source, decl.SourceRef, decl.Entry)
 	if err != nil {
 		return false, err
 	}
@@ -535,4 +532,16 @@ func (s *Service) importMatchesRecipe(ctx context.Context, target string, instal
 		}
 	}
 	return false, nil
+}
+
+// importManifestName reads native package identity without acquiring source.
+func importManifestName(path string, decl declaration, fallback string) string {
+	if native, err := discoverRoot(path, path, decl.Entry); err == nil {
+		for _, candidate := range native.Candidates {
+			if candidate.Name == decl.Plugin || decl.Plugin == "" && len(native.Candidates) == 1 {
+				return candidate.Name
+			}
+		}
+	}
+	return fallback
 }

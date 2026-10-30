@@ -37,6 +37,7 @@ skillshare plugin remove review --no-tui
 | `discover SOURCE` | 로컬 디렉터리, `owner/repo`, 또는 HTTPS Git 저장소를 검사 |
 | `add [SOURCE]` | target adapter와 함께 전체 plugin을 선택하여 설치하거나, Pi를 통해 `npm:` 패키지를 설치 |
 | `import [NATIVE-ID]` | 재설치하거나 활성화하지 않고 기존 설치를 채택 |
+| `unimport NAME` | 명시한 대상에서 이 기기의 가져온 설치를 제거하고 공유 소스 선언은 유지 |
 | `inspect NAME` | 관리되는 패키지 하나를 검사 |
 | `sync [NAME]` | 선택된 target을 재조정하고 미완료된 네이티브 작업을 재시도 |
 | `check [NAME]` | source 내용을 기록된 digest와, 또는 Pi npm 패키지 버전을 npm 최신 버전과 비교. 업데이트는 절대 하지 않음 |
@@ -261,10 +262,19 @@ sync, 일반 update, 검증, 실패와 재시도는 공유 선언을 바꾸지 �
 
 native-only 대상은 이 기기에서 가져오기가 필요하다고 표시되며 sync가 건너뜁니다. 네이티브 클라이언트에서 설치한 뒤 `plugin import LOCAL-ID --from TARGET --name NAME`을 실행하세요. 기존 소스 선언으로 가져오면 로컬 기록만 만들고 다른 기기의 소스나 설치를 바꾸지 않습니다. 검토한 소스의 동일 ID를 다시 가져와도 소스를 유지합니다. 명시적인 Pi `add npm:PACKAGE`는 설치 방법을 공유하고 Pi가 스크립트를 실행합니다. npm import는 native-only 선언을 만듭니다.
 
+가져오기는 원격 소스를 다운로드하지 않습니다. 직접 작성한 원격 소스 설정에 `plugin:`이 없다면 가져오기 전에 네이티브 패키지 이름을 `plugin:`에 지정하세요. 그러면 오프라인으로 패키지의 일치 여부를 확인할 수 있습니다. `plugin add`로 만든 설정에는 이 이름이 이미 기록되어 있습니다. 로컬 디렉터리 설정은 로컬에서 탐색할 수 있습니다.
+
 레거시 읽기와 sync는 YAML을 바꾸지 않으며 다음 선언 편집에서 version 2로 전환합니다. **첫 v2 편집 전에 모든 writer를 업그레이드하고, 공유 YAML이 레거시 형식일 때 각 기기에서 `skillshare plugin list`를 실행하세요.** 네이티브 클라이언트가 일시적으로 없어도 이전 증거를 저장합니다. 채택에는 원래 네이티브 환경의 inventory와, 소스 설치의 경우 소유한 snapshot 증거가 필요합니다. 다른 호스트의 대기 작업은 실행하지 않습니다. 미확인 힌트와 제거 증거는 소유권 확인과 정리가 끝날 때까지 유지합니다. 레거시 npm은 add/import를 구별할 수 없으므로 공유 설치 방법이 필요하면 명시적으로 다시 add하세요.
 
 계정이 바뀌면 이전 네이티브 환경을 먼저 해결한 뒤 정리하세요. 인증, 네이티브 설정, trust는 각 도구에 남습니다.
 
 가져오기를 반복해도 공유 의도를 다시 쓰지 않습니다. 정리가 실패하면 다음 sync에서 재시도할 로컬 기록을 유지합니다. 이전 바이너리는 버전이 지정된 선언 필드를 알지 못하므로 v2를 쓸 수 없습니다.
 
-공유 소스 설정이 바뀌어도 로컬 가져오기는 유지합니다. 소스로 전환하려면 `skillshare plugin remove NAME --target TARGET`을 실행하고 공유 소스 대상 선언을 복원한 뒤 `skillshare plugin sync NAME`을 실행하세요.
+공유 소스 설정이 바뀌어도 로컬 가져오기는 유지합니다. 이 기기를 공유 소스로 전환하려면 다음을 실행하세요.
+
+```bash
+skillshare plugin unimport NAME --target TARGET --no-tui
+skillshare plugin sync NAME --no-tui
+```
+
+`unimport`에는 하나 이상의 명시적인 `--target`이 필요하며, 선택한 각 대상에 기존 로컬 가져오기 기록과 공유 소스 설정이 있어야 합니다. 대상의 제거 어댑터를 사용해 이 기기에서 가져온 설치를 제거한 다음 로컬 기록을 삭제합니다. 공유 선언과 다른 기기의 설치는 그대로 유지됩니다. 다음 sync는 공유 소스에서 설치합니다.

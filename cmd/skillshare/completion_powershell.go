@@ -73,6 +73,7 @@ $_skillshareCompleter = {
             @{ Name = 'add'; Desc = 'Plugin add' }
             @{ Name = 'discover'; Desc = 'Plugin discover' }
             @{ Name = 'import'; Desc = 'Plugin import' }
+            @{ Name = 'unimport'; Desc = 'Remove a local plugin import; keep shared intent' }
             @{ Name = 'list'; Desc = 'Plugin list' }
             @{ Name = 'inspect'; Desc = 'Plugin inspect' }
             @{ Name = 'sync'; Desc = 'Plugin sync' }

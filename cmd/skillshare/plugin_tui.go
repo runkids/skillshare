@@ -239,7 +239,7 @@ func pluginWizardAction(s *plugin.Service, o pluginOptions) error {
 		}
 	}
 	o.request = r
-	if len(r.Targets) == 0 && !r.All && (r.Action == "enable" || r.Action == "disable" || r.Action == "update" || r.Action == "remove") {
+	if len(r.Targets) == 0 && !r.All && (r.Action == "enable" || r.Action == "disable" || r.Action == "update" || r.Action == "remove" || r.Action == "unimport") {
 		inventory, err := s.Inventory(ctx)
 		if err != nil {
 			return err
@@ -248,7 +248,11 @@ func pluginWizardAction(s *plugin.Service, o pluginOptions) error {
 		items := []checklistItemData{}
 		for _, definition := range inventory.TargetDefinitions {
 			target := definition.Target
-			if !slices.Contains(definition.Operations, r.Action) {
+			action := r.Action
+			if action == "unimport" {
+				action = "remove"
+			}
+			if !slices.Contains(definition.Operations, action) {
 				continue
 			}
 			if b, ok := inventory.Packages[r.Name].Bindings[target]; ok {

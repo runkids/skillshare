@@ -47,7 +47,7 @@ func updateCandidate(d *Discovery, name, agent string) (*Candidate, error) {
 
 func (s *Service) validate(r Request) error {
 	switch r.Action {
-	case "add", "import", "sync", "remove", "update", "check", "enable", "disable":
+	case "add", "import", "unimport", "sync", "remove", "update", "check", "enable", "disable":
 	default:
 		return fmt.Errorf("unknown plugin action %q", r.Action)
 	}
@@ -114,8 +114,11 @@ func (s *Service) validate(r Request) error {
 	if r.Action == "update" && r.Name == "" && !r.All {
 		return fmt.Errorf("update requires a package name or --all")
 	}
-	if (r.Action == "remove" || r.Action == "enable" || r.Action == "disable") && r.Name == "" {
+	if (r.Action == "unimport" || r.Action == "remove" || r.Action == "enable" || r.Action == "disable") && r.Name == "" {
 		return fmt.Errorf("%s requires a package name", r.Action)
+	}
+	if r.Action == "unimport" && len(r.Targets) == 0 {
+		return fmt.Errorf("unimport requires --target to select a local import receipt")
 	}
 	return nil
 }
@@ -167,6 +170,12 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		p.Changes = append(p.Changes, c)
 	}
 	appendChange := func(c Change) {
+		if c.Action == "noop" && c.Binding.ImportRetained {
+			c.Guidance = true
+			c.Message = fmt.Sprintf("Shared recipe changed; keeping this local import. To switch to source, run plugin unimport %s --target %s, then plugin sync.", c.Name, c.Target)
+			c.MessageKey = "plugins.note.importRecipeChanged"
+			c.MessageArgs = map[string]string{"name": c.Name, "target": c.Target}
+		}
 		appendPrepared(s.prepareChange(ctx, r, d, host, c))
 	}
 	find := func(target, id string) (Installed, bool) {
@@ -354,7 +363,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 					return nil, err
 				}
 				if !matches {
-					return nil, fmt.Errorf("native plugin does not match the declaration's recipe")
+					return nil, agentError{key: "plugins.error.importRecipeMismatch", message: "Native plugin does not match the declaration's recipe"}
 				}
 			}
 
@@ -393,6 +402,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				}
 				agent := s.agentOf(target)
 				decl, declared := d.intent[name].Bindings[target]
+
 				if r.Action == "update" && r.SourceRef != "" {
 					if decl.Source == "" || decl.Imported || isNpmSource(decl.Source) {
 						return nil, fmt.Errorf("source ref requires a reviewed Git source for %s/%s", name, target)
@@ -415,6 +425,9 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 					b.Sync = &selected
 					p.Changes = append(p.Changes, Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "selection", Message: "Save sync selection only. Run sync to install or remove this managed target.", MessageKey: "plugins.note.selection"})
 					continue
+				}
+				if r.Action == "unimport" && (!declared || decl.Imported || decl.Source == "" || !b.Imported || b.ID == "") {
+					return nil, fmt.Errorf("%s/%s has no local import backed by a shared source recipe", name, target)
 				}
 				if b.ContextChanged {
 					appendChange(Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "blocked", Message: "Native account or scope changed; restore the previous account settings to resolve its local receipt before rebinding.", MessageKey: "plugins.note.accountChanged"})
@@ -459,6 +472,14 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 					c, err := s.sourceChange(ctx, name, target, decl, r.All)
 					if err != nil {
 						return nil, err
+					}
+					appendChange(c)
+					continue
+				}
+				if r.Action == "unimport" {
+					c := Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "remove", Message: "Remove this machine's imported installation and its receipt; shared intent stays unchanged. The next sync installs the shared source recipe.", MessageKey: "plugins.note.localImportForgotten"}
+					if _, exists := find(target, b.ID); !exists && host(target).Error == "" && !mayOwnMarket(target, b) {
+						c.Action = "forget"
 					}
 					appendChange(c)
 					continue
@@ -517,14 +538,12 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				if c.Action == "install" && b.Source == "" && (agent == "antigravity" || agent == "cursor") {
 					c.Action = "blocked"
 					c.Message = "Imported installation has no reinstall source; install it in the native client, then sync again."
+					c.MessageKey = "plugins.note.importInstallRequired"
 				}
 				if c.Action == "forget" && agent != "omp" || c.Action == "selection" {
 					p.Changes = append(p.Changes, c)
 				} else {
-					if b.Imported && declared && !decl.Imported && d.state.Bindings[name][target].Applied != nil && d.state.Bindings[name][target].Applied.Intent != decl.fingerprint() && c.Action == "noop" {
-						c.Message = "Shared recipe changed; keeping this local import. To switch to source, use plugin remove, restore the source target declaration, then sync."
-						c.MessageKey = "plugins.note.importRecipeChanged"
-					}
+
 					appendChange(c)
 				}
 			}

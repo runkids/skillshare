@@ -2457,10 +2457,8 @@
   "plugins.outcome.imported": "インポート済み",
   "plugins.outcome.failed": "失敗",
   "plugins.outcome.installHelp": "ネイティブのインストールを記録しました。Agent を再読み込みし、必要なログインや hooks の信頼確認を完了してください。",
-  "plugins.outcome.addHelp": "Skillshare に追加しました。インストールするときに Agent を選択してください。",
   "plugins.outcome.removeHelp": "Skillshare から削除しました。",
   "plugins.outcome.nativeRemoveHelp": "ネイティブ plugin を削除しました。共有 marketplace は保持されます。",
-  "plugins.outcome.selectionHelp": "同期する対象を保存しました。インストールの変更を適用するには同期を実行してください。",
   "plugins.outcome.excludeHelp": "このツールから削除しました。plugin の定義は保持されます。",
   "plugins.outcome.importHelp": "既存のインストールを取り込みました。有効化状態は変更していません。",
   "plugins.outcome.recordFailedHelp": "ネイティブ操作は完了しましたが、結果を記録できませんでした。再試行する前に状態を確認してください。",
@@ -3517,10 +3515,14 @@
   "plugins.note.replaceLocal": "共有設定を適用する前に、以前のローカルインストールを削除します。",
   "plugins.note.nativeAdopt": "ネイティブにインストール済みです。再インストールせずにインポートします。",
   "plugins.note.importInstallRequired": "このインポート済み plugin には確認済みの再インストール元がありません。ネイティブクライアントでインストールまたは更新してください。",
-  "plugins.note.importRecipeChanged": "共有レシピが変更されましたが、ローカルのインポートを保持します。ソースへ切り替えるには plugin remove を実行し、ソースのターゲット宣言を復元してから sync してください。",
+  "plugins.note.importRecipeChanged": "共有レシピが変更されましたが、ローカルのインポートを保持します。ソースへ切り替えるには plugin unimport {name} --target {target} を実行し、その後 plugin sync を実行してください。",
   "plugins.note.selection": "同期対象の選択のみを保存します。同期してこのターゲットをインストールまたは削除してください。",
   "plugins.note.localImportRequired": "このマシンでインポートが必要です。ローカルのネイティブ識別子をこのパッケージにインポートしてください。",
   "plugins.note.noLocalBinding": "宣言を削除します。ローカルインストールは登録されていません。",
   "sync.skipped.ambiguousVariant": "エージェントのバリアントを特定できません。include/exclude またはターゲットの上書きで1つ選択してください。",
-  "dashboard.trackedRepos.variantCount": "{count} バリアント"
+  "dashboard.trackedRepos.variantCount": "{count} バリアント",
+  "plugins.importRetained": "共有レシピが変更されました。ローカルのインポートを保持しています",
+  "plugins.error.importRecipeMismatch": "ネイティブプラグインが宣言のレシピと一致しません",
+  "plugins.note.localImportForgotten": "このマシンのインポート済みインストールとその記録を削除します。共有設定は変更されません。次の同期で共有レシピのソースからインストールします。",
+  "plugins.error.importRecipeIdentityRequired": "このリモートレシピにはプラグインの識別情報がありません。インポート前に、共有宣言の plugin: にネイティブパッケージ名を設定してください。インポートではソースをダウンロードしません。"
 }
