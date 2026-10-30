@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.28.1](https://github.com/runkids/skillshare/compare/v0.28.0...v0.28.1) (2026-10-30)
+
+
+* **release:** request 0.28.1 ([5cf23ea](https://github.com/runkids/skillshare/commit/5cf23eaa1644de3fea418fbc9a1388cf0c480c1e))
+
+
+### New Features
+
+* **mcp:** accept agy and antigravity-cli as MCP targets ([#670](https://github.com/runkids/skillshare/issues/670)) ([7ec788d](https://github.com/runkids/skillshare/commit/7ec788dea40014ddefa68d9b376564cb0a183403)), closes [#669](https://github.com/runkids/skillshare/issues/669)
+
+
+### Bug Fixes
+
+* **ui:** align plugin update result icon to the top of the row ([35a1e97](https://github.com/runkids/skillshare/commit/35a1e977835c96069c1566d41ec6fd50b4159750))
+
 ## [0.28.0] - 2026-10-29
 
 ### New Features
