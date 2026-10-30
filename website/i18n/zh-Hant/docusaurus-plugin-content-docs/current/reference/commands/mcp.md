@@ -55,7 +55,7 @@ skillshare sync --all
 | `--timeout DURATION` | 搭配 `check --live` 使用：每個 server 探測的時間上限，例如 `30s`；預設為 `10s` |
 | `--accept-tools` | 搭配 `check --live` 使用：把每個已探測 server 列出的工具定義記錄為新的基準。參見[下方說明](#pin-tool-definitions) |
 | `--http ADDR` | 搭配 `serve` 使用：在 `ADDR` 上以 Streamable HTTP 監聽，而不使用 stdio，同時提供 [Executor skill 索引](#executor)。參見[下方說明](#serve-skills-over-mcp) |
-| `--http-allow-insecure` | 明確允許可信任私有網路上的明文 HTTP，並在啟動時警告；預設關閉 |
+| `--http-allow-insecure` | 使用 `serve --http` 時：明確允許可信任私有網路上的明文 HTTP，並在啟動時警告；預設關閉 |
 | `--tls-cert FILE`, `--tls-key FILE` | 搭配 `serve --http` 使用：以這組 PEM 憑證與金鑰提供 HTTPS；未明確允許時，非 loopback 位址必須設定 |
 | `--check` | 搭配 `serve` 使用：列出會被跳過的 skills 及原因、可編輯的數量，以及 Executor 索引會提供的內容，然後結束，不啟動服務 |
 | `--no-tui` | 停用互動選單；`tui: false`、`--json` 或非終端機輸入/輸出時也會停用 |
@@ -826,10 +826,19 @@ skill 核准機制不適用。
   `Authorization: Bearer <token>`。若要改用 TLS proxy，請綁定 loopback 位址，
   例如 `127.0.0.1:8765`，並由 proxy 終止 TLS。沒有 token 時，該 server 只回應 `Host` 為 loopback 位址的請求，
   所以請設定 token，或讓 proxy 送出這樣的 `Host`。
-  僅在可信任的私有網路上，可透過 `--http-allow-insecure` 或設定 `mcp.serve.http_allow_insecure: true` 明確允許明文 HTTP。啟動時會輸出警告，非 loopback 位址仍需要 token。預設仍拒絕明文 HTTP，loopback 與 HTTPS 的行為不變。
+  僅在可信任的私有網路上，可透過 `--http-allow-insecure` 明確允許明文 HTTP。啟動時會輸出警告，非 loopback 位址仍需要 token。預設仍拒絕明文 HTTP，loopback 與 HTTPS 的行為不變。
 - **安全性。** 只有 skill manifest 中的檔案可以讀取，且讀取範圍限於 skill 目錄內。
   連結與 `.git` 既不會列出也不會提供。不會執行任何東西，除非開啟編輯，否則也不會寫入任何東西。使用 `--http` 時，
   送往 MCP 端點的跨來源瀏覽器請求會被拒絕；Executor 索引只回應讀取，而其他來源的頁面看不到這些回應。
+
+如果伺服器與 MCP 閘道執行於可信任私有 Docker 網路的不同容器中，且兩者之間沒有 TLS 終止代理：
+
+```bash
+# 在伺服器環境變數與閘道的 Bearer 設定中設定 SKILLSHARE_MCP_TOKEN。
+skillshare mcp serve --http 0.0.0.0:8765 --http-allow-insecure
+```
+
+這會以明文傳送 token。僅在可信任網路上使用；公開或不可信任的網路應使用 TLS。預設仍拒絕非 loopback 位址上的明文 HTTP。此明確啟用選項不會改變 loopback 或 HTTPS 的行為。
 
 要連接 Agent，請像其他 server 一樣新增並同步它。在執行該 Agent 的機器上：
 

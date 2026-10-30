@@ -926,8 +926,7 @@ is ordinary text to the Agent: its own skill approval does not apply.
 - **Transport.** stdio by default, for a gateway or Agent that starts the command.
   `--http ADDR` serves Streamable HTTP. A non-loopback address requires
   `SKILLSHARE_MCP_TOKEN` and, by default, HTTPS through `--tls-cert` and `--tls-key`.
-  For a trusted private network, `--http-allow-insecure` (or
-  `mcp.serve.http_allow_insecure: true` in global or project config) explicitly allows
+  For a trusted private network, `--http-allow-insecure` explicitly allows
   plain HTTP and prints a startup warning. The token is still required off loopback.
   When the token is set, every request must
   send `Authorization: Bearer <token>`. To use a TLS proxy instead, bind a loopback

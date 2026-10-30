@@ -179,20 +179,3 @@ func TestMCPServeEditRejectsABlankPatternAndABadLifetimeAlone(t *testing.T) {
 		}
 	}
 }
-
-func TestMCPServeHTTPAllowInsecureSurvivesSave(t *testing.T) {
-	var cfg Config
-	if err := yaml.Unmarshal([]byte("mcp:\n  serve:\n    http_allow_insecure: true\n"), &cfg); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := cfg.MCP.ServeEdit(); err != nil {
-		t.Fatal(err)
-	}
-	if !cfg.MCP.Serve.HTTPAllowInsecure {
-		t.Fatal("HTTP opt-in was lost")
-	}
-	data, err := yaml.Marshal(cfg.MCP)
-	if err != nil || !strings.Contains(string(data), "http_allow_insecure: true") {
-		t.Fatalf("saved MCP config = %s, %v", data, err)
-	}
-}

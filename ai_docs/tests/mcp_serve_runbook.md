@@ -14,7 +14,8 @@ Validates the SEP-2640 skills server over stdio and Streamable HTTP, and its opt
 - `resources/read` returns a listed file and rejects a URI that escapes the skill
 - Over HTTP: bearer token required, a newly added skill appears without a restart
 - A non-loopback `--http` address without `SKILLSHARE_MCP_TOKEN` is refused
-- A non-loopback `--http` address with a token but no `--tls-cert`/`--tls-key` is refused
+- A non-loopback `--http` address with a token but no TLS or explicit opt-in is refused
+- `--http-allow-insecure` starts with exactly one warning and still requires a token
 - With `mcp.serve.edit`, a preview writes nothing, apply saves exactly the preview once, and an unlisted skill is refused
 - Over HTTP, the Executor index at `/.well-known/agent-skills/` lists text skills, leaves out one with a binary file (and `--check` says so), serves listed files, and changes a skill's `version` after `apply_skill_edit`
 
@@ -187,6 +188,48 @@ Expected:
 - exit_code: 1
 - --tls-cert
 
+### Step 8a: Explicit plain HTTP opt-in warns once and keeps bearer authentication
+
+```bash
+set -eu
+cd "$HOME"
+CASE="$HOME/mcp-serve"
+export SKILLSHARE_CONFIG="$CASE/config.yaml"
+export SKILLSHARE_MCP_TOKEN=e2e-throwaway-token
+ss mcp serve -g --http 0.0.0.0:47946 --http-allow-insecure 2>"$CASE/insecure-stderr" &
+PID=$!
+trap 'kill "$PID" 2>/dev/null || true; wait "$PID" 2>/dev/null || true' EXIT
+URL=http://127.0.0.1:47946/.well-known/agent-skills/index.json
+for _ in 1 2 3 4 5 6 7 8 9 10; do curl -s -o /dev/null "$URL" && break; sleep 0.5; done
+UNAUTH=$(curl -s -o /dev/null -w '%{http_code}' "$URL")
+AUTH=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $SKILLSHARE_MCP_TOKEN" "$URL")
+kill "$PID"
+wait "$PID"
+trap - EXIT
+WARNINGS=$(grep -c '^warning: --http-allow-insecure' "$CASE/insecure-stderr")
+jq -nc --arg u "$UNAUTH" --arg a "$AUTH" --argjson w "$WARNINGS" '{unauth: $u, auth: $a, warnings: $w}'
+```
+
+Expected:
+- exit_code: 0
+- jq: .unauth == "401"
+- jq: .auth == "200"
+- jq: .warnings == 1
+
+### Step 8b: Plain HTTP opt-in without a token is still refused
+
+```bash
+cd "$HOME"
+export SKILLSHARE_CONFIG="$HOME/mcp-serve/config.yaml"
+unset SKILLSHARE_MCP_TOKEN
+ss mcp serve -g --http 0.0.0.0:47946 --http-allow-insecure
+```
+
+Expected:
+- exit_code: 1
+- without authentication
+- SKILLSHARE_MCP_TOKEN
+
 ### Step 9: Preview and apply an edit over HTTP
 
 ```bash
@@ -279,4 +322,4 @@ Expected:
 ## Pass Criteria
 
 - All steps marked PASS
-- No `ss mcp serve` process remains after Steps 6, 9 and 10
+- No `ss mcp serve` process remains after Steps 6, 8a, 9 and 10

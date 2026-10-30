@@ -133,14 +133,38 @@ func TestMCPServe_RejectsAnInvalidPreviewLifetime(t *testing.T) {
 }
 
 func TestMCPServe_RefusesUnauthenticatedNetworkListener(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+	for _, insecure := range []bool{false, true} {
+		t.Run(fmt.Sprint(insecure), func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+			args := []string{"mcp", "serve", "--http", "0.0.0.0:0"}
+			if insecure {
+				args = append(args, "--http-allow-insecure")
+			}
+			r := sb.RunCLIEnv(map[string]string{"SKILLSHARE_MCP_TOKEN": ""}, args...)
+			r.AssertFailure(t)
+			r.AssertAnyOutputContains(t, "without authentication")
+			r.AssertAnyOutputContains(t, "SKILLSHARE_MCP_TOKEN")
+		})
+	}
+}
 
-	r := sb.RunCLI("mcp", "serve", "--http", "0.0.0.0:0")
-
-	r.AssertFailure(t)
-	r.AssertAnyOutputContains(t, "SKILLSHARE_MCP_TOKEN")
+func TestMCPServe_InsecureNeedsHTTP(t *testing.T) {
+	for _, check := range []bool{false, true} {
+		t.Run(fmt.Sprint(check), func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+			args := []string{"mcp", "serve", "--http-allow-insecure"}
+			if check {
+				args = append(args, "--check")
+			}
+			r := sb.RunCLI(args...)
+			r.AssertFailure(t)
+			r.AssertErrorContains(t, "--http-allow-insecure need --http")
+		})
+	}
 }
 
 // A token sent over plain HTTP off loopback can be read by anyone on the path.
@@ -161,10 +185,9 @@ func TestMCPServe_HTTPTransport(t *testing.T) {
 	for _, tc := range []struct {
 		name, addr, token string
 		insecure, warning bool
-		configOptIn       bool
+		project           bool
 	}{
-		{"private-network-project-config", "0.0.0.0:0", "secret", false, true, false},
-		{"private-network-config", "0.0.0.0:0", "secret", false, true, true},
+		{"private-network-project-opt-in", "0.0.0.0:0", "secret", true, true, true},
 		{"private-network-opt-in", "0.0.0.0:0", "secret", true, true, false},
 		{"loopback", "127.0.0.1:0", "", false, false, false},
 		{"loopback-token", "127.0.0.1:0", "secret", false, false, false},
@@ -174,9 +197,6 @@ func TestMCPServe_HTTPTransport(t *testing.T) {
 			sb := testutil.NewSandbox(t)
 			defer sb.Cleanup()
 			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
-			if tc.configOptIn {
-				sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\nmcp:\n  serve:\n    http_allow_insecure: true\n")
-			}
 			args := []string{"mcp", "serve", "--http", tc.addr}
 			if tc.insecure {
 				args = append(args, "--http-allow-insecure")
@@ -184,9 +204,8 @@ func TestMCPServe_HTTPTransport(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
 			cmd := exec.CommandContext(ctx, sb.BinaryPath, args...)
-			if tc.name == "private-network-project-config" {
+			if tc.project {
 				cmd.Dir = sb.SetupProjectDir("claude")
-				sb.WriteProjectConfig(cmd.Dir, "targets: [claude]\nmcp:\n  serve:\n    http_allow_insecure: true\n")
 				cmd.Args = append(cmd.Args, "-p")
 			}
 			cmd.Env = append(os.Environ(), "HOME="+sb.Home, "SKILLSHARE_CONFIG="+sb.ConfigPath, "SKILLSHARE_MCP_TOKEN="+tc.token)
@@ -251,15 +270,6 @@ func TestMCPServe_HTTPTransport(t *testing.T) {
 	}
 }
 
-func TestMCPServe_InsecureStillRequiresAuthentication(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
-	r := sb.RunCLIEnv(map[string]string{"SKILLSHARE_MCP_TOKEN": ""}, "mcp", "serve", "--http", "0.0.0.0:0", "--http-allow-insecure")
-	r.AssertFailure(t)
-	r.AssertAnyOutputContains(t, "without authentication")
-}
-
 func TestMCPServe_RequiresBothTLSFiles(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
@@ -296,7 +306,6 @@ func TestMCPServe_ServesHTTPSOffLoopbackWithTokenAndCertificate(t *testing.T) {
 			if !strings.Contains(line, "https://") {
 				t.Errorf("first stderr line = %q, want the https:// address", line)
 			}
-
 		})
 	}
 }

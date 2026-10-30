@@ -66,7 +66,7 @@ func (c *MCPConfig) decode(node *yaml.Node) error {
 			c.DirectTools = node.Content[i+1]
 		case "serve":
 			// A misspelt key would silently leave editing off.
-			if err := onlyKeys(node.Content[i+1], "mcp.serve", "edit", "http_allow_insecure"); err != nil {
+			if err := onlyKeys(node.Content[i+1], "mcp.serve", "edit"); err != nil {
 				return err
 			}
 			if edit := mappingValue(node.Content[i+1], "edit"); edit != nil {
@@ -75,7 +75,7 @@ func (c *MCPConfig) decode(node *yaml.Node) error {
 				}
 			}
 			if err := node.Content[i+1].Decode(&c.Serve); err != nil {
-				return fmt.Errorf("mcp.serve.http_allow_insecure must be a boolean, edit.skills a list and preview_ttl a duration")
+				return fmt.Errorf("mcp.serve.edit.skills must be a list and preview_ttl a duration")
 			}
 		}
 	}
@@ -156,8 +156,7 @@ func ValidateMCP(cfg *MCPConfig, external string, accounts ...string) error {
 
 // MCPServeConfig is the mcp.serve section.
 type MCPServeConfig struct {
-	HTTPAllowInsecure bool                `yaml:"http_allow_insecure,omitempty"`
-	Edit              *MCPServeEditConfig `yaml:"edit,omitempty"`
+	Edit *MCPServeEditConfig `yaml:"edit,omitempty"`
 }
 
 // MCPServeEditConfig turns on skill editing over `mcp serve`. Skills holds

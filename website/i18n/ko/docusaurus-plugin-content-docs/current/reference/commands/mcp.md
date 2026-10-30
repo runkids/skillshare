@@ -55,7 +55,7 @@ skillshare sync --all
 | `--timeout DURATION` | `check --live`와 함께 사용: 서버별 프로브 제한 시간 (예: `30s`); 기본값 `10s` |
 | `--accept-tools` | `check --live`와 함께 사용: 프로브한 각 서버가 나열한 도구 정의를 새 기준선으로 기록. [아래](#pin-tool-definitions) 참고 |
 | `--http ADDR` | `serve`와 함께 사용: stdio 대신 `ADDR`에서 Streamable HTTP를 수신하고, [Executor skill index](#executor)도 제공. [아래](#serve-skills-over-mcp) 참고 |
-| `--http-allow-insecure` | 신뢰할 수 있는 사설 네트워크에서 평문 HTTP를 명시적으로 허용하고 시작 시 경고. 기본값: 꺼짐 |
+| `--http-allow-insecure` | `serve --http` 사용 시: 신뢰할 수 있는 사설 네트워크에서 평문 HTTP를 명시적으로 허용하고 시작 시 경고. 기본값: 꺼짐 |
 | `--tls-cert FILE`, `--tls-key FILE` | `serve --http`와 함께 사용: 이 PEM 인증서와 키로 HTTPS를 제공; 명시적으로 허용하지 않으면 loopback 밖에서 필수 |
 | `--check` | `serve`와 함께 사용: 건너뛸 skill과 그 이유를 나열하고, 편집 가능한 개수와 Executor index가 제공할 내용을 보여준 뒤 서버를 시작하지 않고 종료 |
 | `--no-tui` | 대화형 메뉴 비활성화; `tui: false`, `--json`, 또는 비터미널 입출력에서도 비활성화됨 |
@@ -869,15 +869,24 @@ Skills extension을 선언한 client는 skill을 네이티브로 로드하며 �
 - **범위.** 서버를 어디서 시작하든 기본값은 global입니다. `-p`는 현재 디렉터리의 project를 제공합니다.
 - **전송.** 기본값은 stdio이며, 명령을 시작하는 게이트웨이나 Agent에 사용합니다.
   `--http ADDR`은 Streamable HTTP를 제공합니다. loopback이 아닌 주소에는
-  `SKILLSHARE_MCP_TOKEN`과 `--tls-cert`, `--tls-key`를 통한 기본적으로 HTTPS가 필요하므로 token이
-  네트워크를 평문으로 오가지 않습니다. token이 설정되면 모든 요청은
+  `SKILLSHARE_MCP_TOKEN`이 필요하며, 기본적으로 `--tls-cert`, `--tls-key`를 통한 HTTPS도 필요합니다.
+  token이 설정되면 모든 요청은
   `Authorization: Bearer <token>`을 보내야 합니다. TLS 프록시를 대신 쓰려면 `127.0.0.1:8765` 같은
   loopback 주소에 바인딩하고 프록시가 TLS를 종료하게 하세요. 토큰이 없으면 그 서버는 `Host`가
   loopback 주소인 요청에만 응답하므로, 토큰을 설정하거나 프록시가 그런 `Host`를 보내게 하세요.
-  신뢰할 수 있는 사설 네트워크에서만 `--http-allow-insecure` 또는 설정의 `mcp.serve.http_allow_insecure: true`로 평문 HTTP를 명시적으로 허용할 수 있습니다. 시작 시 경고를 출력하며 loopback 밖에서는 여전히 토큰이 필요합니다. 기본값은 거부이며 loopback과 HTTPS 동작은 그대로입니다.
+  신뢰할 수 있는 사설 네트워크에서만 `--http-allow-insecure`로 평문 HTTP를 명시적으로 허용할 수 있습니다. 시작 시 경고를 출력하며 loopback 밖에서는 여전히 토큰이 필요합니다. 기본값은 거부이며 loopback과 HTTPS 동작은 그대로입니다.
 - **안전.** skill manifest에 있는 파일만 읽을 수 있으며, 읽기는 skill 디렉터리 안으로 제한됩니다.
   링크와 `.git`은 나열되지도 제공되지도 않습니다. 아무것도 실행하지 않으며, 편집을 켜지 않는 한 아무것도 쓰지 않습니다.
   `--http`에서는 MCP 엔드포인트로 오는 cross-origin 브라우저 요청을 거부합니다. Executor index는 읽기에만 응답하며, 다른 origin의 페이지는 그 응답을 볼 수 없습니다.
+
+서버와 MCP 게이트웨이가 신뢰할 수 있는 사설 Docker 네트워크의 별도 컨테이너에서 실행되고 그 사이에 TLS 종료 지점이 없는 경우:
+
+```bash
+# 서버 환경 변수와 게이트웨이의 Bearer 설정에 SKILLSHARE_MCP_TOKEN을 설정하세요.
+skillshare mcp serve --http 0.0.0.0:8765 --http-allow-insecure
+```
+
+토큰이 평문으로 전송됩니다. 신뢰할 수 있는 네트워크에서만 사용하세요. 공개 네트워크나 신뢰할 수 없는 네트워크에서는 TLS를 사용해야 합니다. 기본값은 여전히 loopback 밖의 평문 HTTP를 거부합니다. 이 명시적 허용은 loopback이나 HTTPS 동작을 바꾸지 않습니다.
 
 Agent를 연결하려면 다른 서버와 똑같이 추가하고 sync하세요. Agent를 실행하는 컴퓨터에서:
 

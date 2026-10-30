@@ -68,6 +68,10 @@ func cmdMCPServe(args []string) error {
 		return fmt.Errorf("--tls-cert and --tls-key need --http")
 	}
 
+	if allowInsecure && addr == "" {
+		return fmt.Errorf("--http-allow-insecure need --http")
+	}
+
 	// A gateway chooses the working directory, so only -p selects project mode.
 	b := &skillserve.Builder{Target: target}
 	var targets map[string]config.TargetConfig
@@ -81,9 +85,6 @@ func cmdMCPServe(args []string) error {
 		if err != nil {
 			return err
 		}
-		if rt.config.MCP != nil && rt.config.MCP.Serve != nil {
-			allowInsecure = allowInsecure || rt.config.MCP.Serve.HTTPAllowInsecure
-		}
 		b.Source, b.Walk, targets = rt.sourcePath, rt.skillsWalk(), rt.targets
 		if edit, err = mcpServeEdit(rt.config.MCP, rt.config.Audit.BlockThreshold, config.ProjectConfigPath(cwd)); err != nil {
 			return err
@@ -95,9 +96,6 @@ func cmdMCPServe(args []string) error {
 		cfg, err := config.Load()
 		if err != nil {
 			return err
-		}
-		if cfg.MCP != nil && cfg.MCP.Serve != nil {
-			allowInsecure = allowInsecure || cfg.MCP.Serve.HTTPAllowInsecure
 		}
 		b.Source, b.Walk, targets = cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), cfg.Targets
 		if edit, err = mcpServeEdit(cfg.MCP, cfg.Audit.BlockThreshold, config.ConfigPath()); err != nil {
@@ -158,7 +156,7 @@ func cmdMCPServe(args []string) error {
 		scheme = "http"
 	}
 	if allowInsecure && certFile == "" && !isLoopbackAddr(addr) {
-		fmt.Fprintln(os.Stderr, "warning: --http-allow-insecure (mcp.serve.http_allow_insecure) sends the bearer token over plain HTTP; use only on a trusted private network")
+		fmt.Fprintln(os.Stderr, "warning: --http-allow-insecure sends the bearer token over plain HTTP; use only on a trusted private network")
 	}
 	fmt.Fprintf(os.Stderr, "Serving skills over MCP at %s://%s/\n", scheme, ln.Addr())
 	fmt.Fprintf(os.Stderr, "Executor skill index at %s://%s%sindex.json\n", scheme, ln.Addr(), skillserve.IndexPath)

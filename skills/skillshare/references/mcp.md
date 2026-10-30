@@ -65,7 +65,7 @@ skillshare mcp serve --check [--target NAME]         # List skipped, editable an
   gateways): stdio by default, global unless `-p`. `--target NAME` applies that target's
   filters. Skipped skills (`SKILL.md` a link or not starting with frontmatter, name not matching
   its directory, description missing or over 1,024 characters, compatibility empty or over 500, over 512 files/16 MiB) are
-  listed on stderr; `--check` lists them without serving. `--http` on a non-loopback address requires `SKILLSHARE_MCP_TOKEN` and, by default, `--tls-cert`/`--tls-key` (or bind loopback behind a TLS proxy). On a trusted private network, explicitly opt in to plain HTTP with `--http-allow-insecure` or `mcp.serve.http_allow_insecure: true`; this logs a startup warning and still requires the token. Cross-origin browser requests to the MCP endpoint are refused.
+  listed on stderr; `--check` lists them without serving. `--http` on a non-loopback address requires `SKILLSHARE_MCP_TOKEN` and, by default, `--tls-cert`/`--tls-key` (or bind loopback behind a TLS proxy). On a trusted private network, explicitly opt in to plain HTTP with `--http-allow-insecure`; this logs a startup warning and still requires the token. Cross-origin browser requests to the MCP endpoint are refused.
   Do not connect local Agents that already sync skills; they would see each skill twice.
   Connect one with `mcp add skillshare --target CLIENT --sync -- skillshare mcp serve`, or a
   remote `url` with `bearerToken: {fromEnv: SKILLSHARE_MCP_TOKEN}`. Agents with the Skills
