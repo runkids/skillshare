@@ -3524,5 +3524,8 @@
   "plugins.importRetained": "La receta compartida cambió; se conserva la importación local",
   "plugins.error.importRecipeMismatch": "El plugin nativo no coincide con la receta de la declaración",
   "plugins.note.localImportForgotten": "Elimina la instalación importada y su registro de este equipo; la configuración compartida no cambia. La próxima sincronización instala la receta compartida desde la fuente.",
-  "plugins.error.importRecipeIdentityRequired": "Esta receta remota no tiene una identidad de plugin. Antes de importar, establece plugin: con el nombre del paquete nativo en la declaración compartida; la importación no descarga el código fuente."
+  "plugins.error.importRecipeIdentityRequired": "Esta receta remota no tiene una identidad de plugin. Antes de importar, establece plugin: con el nombre del paquete nativo en la declaración compartida; la importación no descarga el código fuente.",
+  "plugins.error.unimportTargetRequired": "unimport requiere --target para seleccionar un registro de importación local",
+  "plugins.error.unimportTargetMissing": "{name} no tiene un enlace para el destino {target}",
+  "plugins.error.unimportReceiptRequired": "{name}/{target} no tiene una importación local respaldada por una receta de fuente compartida"
 }

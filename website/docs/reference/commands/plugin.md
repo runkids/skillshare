@@ -609,3 +609,5 @@ receipt, and a shared source recipe for each selected target. It uninstalls the
 imported binding on this machine using the target's removal adapter, then drops
 its local receipt. Shared declarations and other machines' installations stay
 unchanged. The next sync installs the shared source recipe.
+
+Uninstalling also removes native-client configuration or login associated with that installation.

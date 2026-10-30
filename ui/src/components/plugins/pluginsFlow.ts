@@ -198,15 +198,15 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
       const failedTargets = results.filter((r) => r.status === 'failed').map((r) => r.target);
       const skipped = results.filter((r) => r.status === 'skipped');
       if (failed) set(e.name, { status: 'failed', note: failed, failed: failedTargets.length ? failedTargets : targets });
-      else if (skipped.length) set(e.name, { status: 'skipped', note: skipped.filter((r) => r.message).map((r) => keyedMessage(t, r)).join(' ') || undefined, failed: skipped.map((r) => r.target) });
-      else set(e.name, { status: 'done', note: undefined, failed: undefined });
+      else if (skipped.length) set(e.name, { status: 'skipped', note: skipped.map((r) => keyedMessage(t, r)).join(' ') || undefined, failed: skipped.map((r) => r.target) });
+      else set(e.name, { status: 'done', note: results.filter((r) => r.guidance).map((r) => keyedMessage(t, r)).join(' ') || undefined, failed: undefined });
     };
     let broken = '';
     try {
       await pluginsApi.update(picks.map((p) => ({ ...p, seen: updates[p.name] })), (e) => {
         if (e.event === 'start') set(e.name, { status: 'running' });
         // What the Agent is about to do (an npm install, say) shows while it runs.
-        else if (e.event === 'plan') set(e.name, { note: e.plan.changes.filter((c) => c.message).map((c) => keyedMessage(t, c)).join(' ') || undefined });
+        else if (e.event === 'plan') set(e.name, { note: e.plan.changes.filter((c) => c.action !== 'noop' || c.guidance).map((c) => keyedMessage(t, c)).join(' ') || undefined });
         else if (e.event === 'result') finish(e);
         else if (e.failure) setFailure(e.failure);
       });

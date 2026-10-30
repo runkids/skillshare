@@ -3524,5 +3524,8 @@
   "plugins.importRetained": "共享安装配方已更改；已保留本机导入",
   "plugins.error.importRecipeMismatch": "原生插件与声明的安装配方不匹配",
   "plugins.note.localImportForgotten": "删除此机器上导入的安装及其记录；共享配置保持不变。下次同步会依照共享的来源配方安装。",
-  "plugins.error.importRecipeIdentityRequired": "此远程安装配方没有插件标识。导入前，请将共享声明中的 plugin: 设为原生包名；导入不会下载源代码。"
+  "plugins.error.importRecipeIdentityRequired": "此远程安装配方没有插件标识。导入前，请将共享声明中的 plugin: 设为原生包名；导入不会下载源代码。",
+  "plugins.error.unimportTargetRequired": "unimport 需要 --target 来选择本机导入记录",
+  "plugins.error.unimportTargetMissing": "{name} 没有目标 {target} 的绑定",
+  "plugins.error.unimportReceiptRequired": "{name}/{target} 没有共享来源配置支持的本机导入"
 }

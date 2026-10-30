@@ -118,7 +118,7 @@ func (s *Service) validate(r Request) error {
 		return fmt.Errorf("%s requires a package name", r.Action)
 	}
 	if r.Action == "unimport" && len(r.Targets) == 0 {
-		return fmt.Errorf("unimport requires --target to select a local import receipt")
+		return agentError{key: "plugins.error.unimportTargetRequired", message: "unimport requires --target to select a local import receipt"}
 	}
 	return nil
 }
@@ -395,6 +395,13 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 			if r.Name != "" && r.Name != name {
 				continue
 			}
+			if r.Action == "unimport" {
+				for _, target := range r.Targets {
+					if _, ok := d.packages[name].Bindings[target]; !ok {
+						return nil, agentError{key: "plugins.error.unimportTargetMissing", message: fmt.Sprintf("%s has no binding for target %s", name, target), args: map[string]string{"name": name, "target": target}}
+					}
+				}
+			}
 			for _, target := range slices.Sorted(maps.Keys(d.packages[name].Bindings)) {
 				b, ok := d.packages[name].Bindings[target]
 				if !ok || (len(r.Targets) > 0 && !slices.Contains(r.Targets, target)) {
@@ -426,8 +433,8 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 					p.Changes = append(p.Changes, Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "selection", Message: "Save sync selection only. Run sync to install or remove this managed target.", MessageKey: "plugins.note.selection"})
 					continue
 				}
-				if r.Action == "unimport" && (!declared || decl.Imported || decl.Source == "" || !b.Imported || b.ID == "") {
-					return nil, fmt.Errorf("%s/%s has no local import backed by a shared source recipe", name, target)
+				if r.Action == "unimport" && !d.canUnimport(name, target) {
+					return nil, agentError{key: "plugins.error.unimportReceiptRequired", message: fmt.Sprintf("%s/%s has no local import backed by a shared source recipe", name, target), args: map[string]string{"name": name, "target": target}}
 				}
 				if b.ContextChanged {
 					appendChange(Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "blocked", Message: "Native account or scope changed; restore the previous account settings to resolve its local receipt before rebinding.", MessageKey: "plugins.note.accountChanged"})

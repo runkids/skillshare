@@ -3524,5 +3524,8 @@
   "plugins.importRetained": "공유 설치 설정이 변경됨; 로컬 가져오기 유지",
   "plugins.error.importRecipeMismatch": "네이티브 플러그인이 선언의 설치 설정과 일치하지 않습니다",
   "plugins.note.localImportForgotten": "이 컴퓨터의 가져온 설치와 기록을 삭제합니다. 공유 설정은 그대로 유지됩니다. 다음 동기화에서 공유 설치 설정에 따라 소스에서 설치합니다.",
-  "plugins.error.importRecipeIdentityRequired": "이 원격 설치 설정에는 플러그인 식별 정보가 없습니다. 가져오기 전에 공유 선언의 plugin:을 네이티브 패키지 이름으로 설정하세요. 가져오기는 소스를 다운로드하지 않습니다."
+  "plugins.error.importRecipeIdentityRequired": "이 원격 설치 설정에는 플러그인 식별 정보가 없습니다. 가져오기 전에 공유 선언의 plugin:을 네이티브 패키지 이름으로 설정하세요. 가져오기는 소스를 다운로드하지 않습니다.",
+  "plugins.error.unimportTargetRequired": "unimport에는 로컬 가져오기 기록을 선택하는 --target이 필요합니다",
+  "plugins.error.unimportTargetMissing": "{name}에 대상 {target}의 바인딩이 없습니다",
+  "plugins.error.unimportReceiptRequired": "{name}/{target}에 공유 소스 설정에 연결된 로컬 가져오기가 없습니다"
 }

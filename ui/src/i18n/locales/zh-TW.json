@@ -3524,5 +3524,8 @@
   "plugins.importRetained": "共用安裝配方已變更；已保留本機匯入",
   "plugins.error.importRecipeMismatch": "原生外掛與宣告的安裝配方不符",
   "plugins.note.localImportForgotten": "刪除此機器上匯入的安裝及其記錄；共用設定維持不變。下次同步會依照共用的來源配方安裝。",
-  "plugins.error.importRecipeIdentityRequired": "此遠端安裝配方沒有外掛識別資訊。匯入前，請將共用宣告中的 plugin: 設為原生套件名稱；匯入不會下載原始碼。"
+  "plugins.error.importRecipeIdentityRequired": "此遠端安裝配方沒有外掛識別資訊。匯入前，請將共用宣告中的 plugin: 設為原生套件名稱；匯入不會下載原始碼。",
+  "plugins.error.unimportTargetRequired": "unimport 需要 --target 來選取本機匯入紀錄",
+  "plugins.error.unimportTargetMissing": "{name} 沒有目標 {target} 的綁定",
+  "plugins.error.unimportReceiptRequired": "{name}/{target} 沒有共用來源設定支持的本機匯入"
 }

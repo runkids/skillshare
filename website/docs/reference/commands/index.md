@@ -41,7 +41,7 @@ Complete reference for all skillshare commands.
 | **Skill Management** | `new`, `check`, `update`, `upgrade`, `enable`, `disable`, `move` |
 | **MCP Connections** | `mcp` (`add`, `edit`, `import`, `list`, `remove`, `restore`), `sync mcp` |
 | **Hooks** | `hooks` (`list`, `add`, `edit`, `import`, `enable`, `disable`, `remove`, `sync`, `restore`) |
-| **Plugin Management** | `plugin` (`list`, `discover`, `add`, `import`, `inspect`, `sync`, `check`, `update`, `enable`, `disable`, `remove`) |
+| **Plugin Management** | `plugin` (`list`, `discover`, `add`, `import`, `unimport`, `inspect`, `sync`, `check`, `update`, `enable`, `disable`, `remove`) |
 | **Target Management** | `target`, `project`, `diff` |
 | **Extras Management** | `extras` (`init`, `list`, `remove`, `collect`) |
 | **Sync Operations** | `collect`, `backup`, `restore`, `trash`, `commit`, `push`, `pull` |

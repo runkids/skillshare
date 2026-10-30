@@ -3524,5 +3524,8 @@
   "plugins.importRetained": "共有レシピが変更されました。ローカルのインポートを保持しています",
   "plugins.error.importRecipeMismatch": "ネイティブプラグインが宣言のレシピと一致しません",
   "plugins.note.localImportForgotten": "このマシンのインポート済みインストールとその記録を削除します。共有設定は変更されません。次の同期で共有レシピのソースからインストールします。",
-  "plugins.error.importRecipeIdentityRequired": "このリモートレシピにはプラグインの識別情報がありません。インポート前に、共有宣言の plugin: にネイティブパッケージ名を設定してください。インポートではソースをダウンロードしません。"
+  "plugins.error.importRecipeIdentityRequired": "このリモートレシピにはプラグインの識別情報がありません。インポート前に、共有宣言の plugin: にネイティブパッケージ名を設定してください。インポートではソースをダウンロードしません。",
+  "plugins.error.unimportTargetRequired": "unimport にはローカルのインポート記録を選択する --target が必要です",
+  "plugins.error.unimportTargetMissing": "{name} にはターゲット {target} のバインディングがありません",
+  "plugins.error.unimportReceiptRequired": "{name}/{target} には共有ソースレシピに対応するローカルのインポートがありません"
 }

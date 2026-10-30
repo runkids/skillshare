@@ -3524,5 +3524,8 @@
   "plugins.importRetained": "دستور نصب مشترک تغییر کرده است؛ واردکردن محلی حفظ شد",
   "plugins.error.importRecipeMismatch": "افزونهٔ بومی با دستور نصب تعریف‌شده مطابقت ندارد",
   "plugins.note.localImportForgotten": "نصب واردشده و سابقهٔ آن را از این دستگاه حذف کنید؛ تنظیمات مشترک بدون تغییر می‌ماند. همگام‌سازی بعدی، دستور نصب مشترک را از منبع نصب می‌کند.",
-  "plugins.error.importRecipeIdentityRequired": "این دستور نصب راه دور، شناسهٔ افزونه ندارد. پیش از واردکردن، مقدار plugin: را در تعریف مشترک روی نام بستهٔ بومی تنظیم کنید؛ واردکردن، کد منبع را دانلود نمی‌کند."
+  "plugins.error.importRecipeIdentityRequired": "این دستور نصب راه دور، شناسهٔ افزونه ندارد. پیش از واردکردن، مقدار plugin: را در تعریف مشترک روی نام بستهٔ بومی تنظیم کنید؛ واردکردن، کد منبع را دانلود نمی‌کند.",
+  "plugins.error.unimportTargetRequired": "unimport برای انتخاب سابقهٔ واردکردن محلی به --target نیاز دارد",
+  "plugins.error.unimportTargetMissing": "{name} هیچ اتصالی برای مقصد {target} ندارد",
+  "plugins.error.unimportReceiptRequired": "{name}/{target} هیچ واردکردن محلی با دستور نصب منبع مشترک ندارد"
 }

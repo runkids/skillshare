@@ -7,7 +7,7 @@ func printPluginHelp() {
 			{"add [source]", "Choose a plugin from a directory or HTTPS Git repository,\nor add npm:<package> to Pi"},
 			{"discover <source>", "Inspect source candidates without installing"},
 			{"import [native-id]", "Adopt an existing native install with --from"},
-			{"unimport <name>", "Remove this machine's import with --target; keep shared intent"},
+			{"unimport <name>", "Uninstall this machine's import with --target; keep shared intent"},
 			{"inspect <name>", "Show bindings and native installation state"},
 			{"sync [name]", "Install missing plugins, reconcile refs and retry local cleanup"},
 			{"check [name]", "Check source content for changes (read-only)"},
@@ -57,6 +57,7 @@ func printPluginHelp() {
 			"OMP manages marketplace plugins only and loads their extension modules at its next start.",
 			"Enable/disable saves sync selection only; run sync to install/remove the target.",
 			"Authentication, hook trust and command-source approval remain in the native client.",
+			"Unimport also removes native-client config or login associated with that install.",
 			"Use check before update. Import does not reinstall or change enabled state.",
 		),
 	)

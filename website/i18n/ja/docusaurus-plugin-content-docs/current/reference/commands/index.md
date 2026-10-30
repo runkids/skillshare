@@ -38,7 +38,7 @@ skillshare のすべてのコマンドに関する完全なリファレンスで
 | **コア** | `init`, `install`, `uninstall`, `link`, `unlink`, `list`, `search`, `sync`, `status` |
 | **Skill 管理** | `new`, `check`, `update`, `upgrade`, `enable`, `disable` |
 | **MCP 接続** | `mcp`（`add`, `edit`, `import`, `list`, `remove`, `restore`）, `sync mcp` |
-| **Plugin 管理** | `plugin`（`list`, `discover`, `add`, `import`, `inspect`, `sync`, `check`, `update`, `enable`, `disable`, `remove`） |
+| **Plugin 管理** | `plugin`（`list`, `discover`, `add`, `import`, `unimport`, `inspect`, `sync`, `check`, `update`, `enable`, `disable`, `remove`） |
 | **ターゲット管理** | `target`, `project`, `diff` |
 | **Extras 管理** | `extras`（`init`, `list`, `remove`, `collect`） |
 | **Sync 操作** | `collect`, `backup`, `restore`, `trash`, `commit`, `push`, `pull` |

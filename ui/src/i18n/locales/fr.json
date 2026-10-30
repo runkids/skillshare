@@ -3524,5 +3524,8 @@
   "plugins.importRetained": "La recette partagée a changé ; import local conservé",
   "plugins.error.importRecipeMismatch": "Le plugin natif ne correspond pas à la recette de la déclaration",
   "plugins.note.localImportForgotten": "Supprimer l’installation importée et son reçu sur cette machine ; la configuration partagée reste inchangée. La prochaine synchronisation installe la recette partagée depuis la source.",
-  "plugins.error.importRecipeIdentityRequired": "Cette recette distante ne définit pas l’identité du plugin. Avant l’import, définissez plugin: avec le nom du paquet natif dans la déclaration partagée ; l’import ne télécharge pas le code source."
+  "plugins.error.importRecipeIdentityRequired": "Cette recette distante ne définit pas l’identité du plugin. Avant l’import, définissez plugin: avec le nom du paquet natif dans la déclaration partagée ; l’import ne télécharge pas le code source.",
+  "plugins.error.unimportTargetRequired": "unimport nécessite --target pour sélectionner un enregistrement d’import local",
+  "plugins.error.unimportTargetMissing": "{name} n’a aucune liaison pour la cible {target}",
+  "plugins.error.unimportReceiptRequired": "{name}/{target} n’a aucun import local associé à une recette de source partagée"
 }

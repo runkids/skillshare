@@ -38,21 +38,21 @@ export default function PluginUpdateDialog({ open, plan, pending, inventory, bat
   // Only what is still behind and can be updated from here gets a tick; an update applied since the check took its Agent off.
   const found = changes.filter((c) => c.action === 'update-available' && pending.some((p) => p.name === c.name && p.targets.includes(c.target)));
   const names = pending.map((p) => p.name);
-  const unverified = changes.filter((c) => c.action === 'native-check');
+  const unverified = changes.filter((c) => c.action === 'native-check' || (c.action === 'noop' && c.guidance));
   // A source that no longer offers a compatible plugin for an Agent: nothing can be updated there until that changes.
   const blocked = changes.filter((c) => c.action === 'blocked');
   const others = [
     { title: t('plugins.updateDialog.blockedTitle'), rows: blocked, tag: <span className="ss-tag bad">{t('plugins.blocked')}</span> },
     { title: t('plugins.updateDialog.unverifiedTitle'), rows: unverified, tag: <span className="ss-tag warn">{t('plugins.unverified')}</span> },
   ].filter((g) => g.rows.length > 0);
-  const idle = changes.filter((c) => c.action === 'noop').map((c) => ({ name: c.name, target: c.target, version: c.binding?.version ?? installedVersion(inventory, c.name, c.target) }));
+  const idle = changes.filter((c) => c.action === 'noop' && !c.guidance).map((c) => ({ name: c.name, target: c.target, version: c.binding?.version ?? installedVersion(inventory, c.name, c.target) }));
   return (
     <DialogShell open={open} onClose={onClose} preventClose={busy} ariaLabel={t('plugins.updateDialog.title')} maxWidth="2xl" padding="none">
       {batch
         ? <Running batch={batch} busy={busy} inventory={inventory} label={label} onRetry={(item) => onUpdate([{ name: item.name, targets: item.failed ?? item.targets }])} onStop={onStop} onClose={onClose} />
         : (
           <Picking key={plan?.revision} names={names} attention={others.length > 0} current={others.length === 0 ? new Set(idle.map((r) => r.name)).size : 0} inventory={inventory} label={label} busy={busy} onUpdate={onUpdate} onClose={onClose}
-            found={found.map((c) => ({ name: c.name, target: c.target, version: c.binding?.version, commit: c.binding?.commit, note: c.message ? keyedMessage(t, c) : '' }))}>
+            found={found.map((c) => ({ name: c.name, target: c.target, version: c.binding?.version, commit: c.binding?.commit, note: keyedMessage(t, c) }))}>
             {others.map((g) => (
               <div key={g.title} className="flex flex-col gap-2">
                 <span className="text-xs font-medium text-ink-3">{g.title} · {g.rows.length}</span>
@@ -62,7 +62,7 @@ export default function PluginUpdateDialog({ open, plan, pending, inventory, bat
                       <span className="ss-at"><AgentIcon target={c.target} size={17} /></span>
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="flex items-center gap-2"><span className="font-mono font-semibold">{c.name}</span><span className="text-[13px] text-ink-2">{label(c.target)}</span><VersionChange from={installedVersion(inventory, c.name, c.target)} /></span>
-                        {c.message && <span className="text-xs text-ink-3">{keyedMessage(t, c)}</span>}
+                        {(c.action !== 'noop' || c.guidance) && <span className="text-xs text-ink-3">{keyedMessage(t, c)}</span>}
                       </span>
                       {g.tag}
                     </div>

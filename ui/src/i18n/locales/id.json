@@ -3524,5 +3524,8 @@
   "plugins.importRetained": "Resep bersama berubah; impor lokal dipertahankan",
   "plugins.error.importRecipeMismatch": "Plugin native tidak cocok dengan resep deklarasi",
   "plugins.note.localImportForgotten": "Hapus instalasi yang diimpor beserta catatannya di mesin ini; konfigurasi bersama tetap tidak berubah. Sinkronisasi berikutnya memasang resep bersama dari sumber.",
-  "plugins.error.importRecipeIdentityRequired": "Resep jarak jauh ini tidak memiliki identitas plugin. Sebelum mengimpor, isi plugin: dengan nama paket native dalam deklarasi bersama; impor tidak mengunduh kode sumber."
+  "plugins.error.importRecipeIdentityRequired": "Resep jarak jauh ini tidak memiliki identitas plugin. Sebelum mengimpor, isi plugin: dengan nama paket native dalam deklarasi bersama; impor tidak mengunduh kode sumber.",
+  "plugins.error.unimportTargetRequired": "unimport memerlukan --target untuk memilih catatan impor lokal",
+  "plugins.error.unimportTargetMissing": "{name} tidak memiliki ikatan untuk target {target}",
+  "plugins.error.unimportReceiptRequired": "{name}/{target} tidak memiliki impor lokal yang didukung resep sumber bersama"
 }

@@ -3524,5 +3524,8 @@
   "plugins.importRetained": "Gemeinsames Installationsrezept geändert; lokaler Import beibehalten",
   "plugins.error.importRecipeMismatch": "Das native Plugin entspricht nicht dem Installationsrezept der Deklaration",
   "plugins.note.localImportForgotten": "Die importierte Installation und ihren Nachweis auf diesem Rechner entfernen; die gemeinsame Konfiguration bleibt unverändert. Die nächste Synchronisierung installiert das gemeinsame Quellrezept.",
-  "plugins.error.importRecipeIdentityRequired": "Dieses entfernte Installationsrezept enthält keine Plugin-Identität. Setze plugin: in der gemeinsamen Deklaration vor dem Import auf den nativen Paketnamen; beim Import wird kein Quellcode heruntergeladen."
+  "plugins.error.importRecipeIdentityRequired": "Dieses entfernte Installationsrezept enthält keine Plugin-Identität. Setze plugin: in der gemeinsamen Deklaration vor dem Import auf den nativen Paketnamen; beim Import wird kein Quellcode heruntergeladen.",
+  "plugins.error.unimportTargetRequired": "unimport benötigt --target zur Auswahl eines lokalen Importbelegs",
+  "plugins.error.unimportTargetMissing": "{name} hat keine Bindung für das Ziel {target}",
+  "plugins.error.unimportReceiptRequired": "{name}/{target} hat keinen lokalen Import mit einem gemeinsamen Quellrezept"
 }

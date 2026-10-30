@@ -204,6 +204,29 @@ func (s *Service) compose(d *document) {
 		}
 	}
 }
+
+// UnimportTargets lists local imports backed by this target's shared source recipe.
+func (s *Service) UnimportTargets(name string) ([]string, error) {
+	d, err := s.load()
+	if err != nil {
+		return nil, err
+	}
+	var targets []string
+	for target := range d.packages[name].Bindings {
+		if d.canUnimport(name, target) {
+			targets = append(targets, target)
+		}
+	}
+	slices.Sort(targets)
+	return targets, nil
+}
+
+func (d *document) canUnimport(name, target string) bool {
+	decl, declared := d.intent[name].Bindings[target]
+	b := d.packages[name].Bindings[target]
+	return declared && !decl.Imported && decl.Source != "" && b.Imported && b.ID != ""
+}
+
 func (s *Service) saveState(d *document) error {
 	if !filepath.IsAbs(s.StateDir) {
 		return fmt.Errorf("plugin state directory must be absolute")
@@ -506,14 +529,7 @@ func (s *Service) importMatchesRecipe(ctx context.Context, target string, instal
 	}
 	// Import observes local installations. Do not fetch a remote recipe to infer
 	// a missing identity: accepting an alias would also admit unrelated plugins.
-	source := decl.Source
-	if strings.HasPrefix(source, "~/") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return false, err
-		}
-		source = filepath.Join(home, source[2:])
-	}
+	source := canonicalSource(decl.Source)
 	info, err := os.Stat(source)
 	if err != nil || !info.IsDir() {
 		return false, agentError{key: "plugins.error.importRecipeIdentityRequired", message: "This remote recipe has no plugin identity. Set plugin: to the native package name in the shared declaration before importing; import does not download source."}

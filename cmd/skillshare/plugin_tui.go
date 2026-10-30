@@ -26,8 +26,8 @@ func runPluginManager(s *plugin.Service) error {
 		if err := executePlugin(s, pluginOptions{request: plugin.Request{Action: "list"}, noTUI: true}); err != nil {
 			return err
 		}
-		actions := []string{"add", "import", "inspect", "sync", "check", "update", "enable", "disable", "remove"}
-		labels := []string{"Add a plugin", "Import an existing install", "Inspect a plugin", "Sync / retry pending operations", "Check for source updates", "Update a plugin", "Include a target in sync", "Exclude a target from sync", "Remove a plugin"}
+		actions := []string{"add", "import", "unimport", "inspect", "sync", "check", "update", "enable", "disable", "remove"}
+		labels := []string{"Add a plugin", "Import an existing install", "Uninstall a local import", "Inspect a plugin", "Sync / retry pending operations", "Check for source updates", "Update a plugin", "Include a target in sync", "Exclude a target from sync", "Remove a plugin"}
 		items := make([]checklistItemData, len(actions))
 		for i, label := range labels {
 			items[i] = checklistItemData{label: label}
@@ -240,6 +240,14 @@ func pluginWizardAction(s *plugin.Service, o pluginOptions) error {
 	}
 	o.request = r
 	if len(r.Targets) == 0 && !r.All && (r.Action == "enable" || r.Action == "disable" || r.Action == "update" || r.Action == "remove" || r.Action == "unimport") {
+		var importedTargets []string
+		if r.Action == "unimport" {
+			var err error
+			importedTargets, err = s.UnimportTargets(r.Name)
+			if err != nil {
+				return err
+			}
+		}
 		inventory, err := s.Inventory(ctx)
 		if err != nil {
 			return err
@@ -256,6 +264,9 @@ func pluginWizardAction(s *plugin.Service, o pluginOptions) error {
 				continue
 			}
 			if b, ok := inventory.Packages[r.Name].Bindings[target]; ok {
+				if r.Action == "unimport" && !slices.Contains(importedTargets, target) {
+					continue
+				}
 				targets = append(targets, target)
 				items = append(items, checklistItemData{label: definition.Label, desc: b.ID})
 			}

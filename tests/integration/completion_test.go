@@ -28,6 +28,18 @@ func TestCompletion_Bash_OutputsScript(t *testing.T) {
 	}
 }
 
+func TestCompletion_PluginUnimport_AllShells(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	for _, shell := range []string{"bash", "zsh", "fish", "powershell", "nushell"} {
+		t.Run(shell, func(t *testing.T) {
+			result := sb.RunCLI("completion", shell)
+			result.AssertSuccess(t)
+			result.AssertOutputContains(t, "unimport")
+		})
+	}
+}
+
 func TestCompletion_Zsh_OutputsScript(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

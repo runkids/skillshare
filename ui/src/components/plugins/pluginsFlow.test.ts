@@ -191,6 +191,15 @@ describe('plugins flow', () => {
     expect(now().batch?.[0]).toMatchObject({ status: 'skipped', note: 'marketplace gone' });
   });
 
+  it('keeps retained-import guidance in the completed batch', async () => {
+    const note = { name: 'demo', target: 'codex', guidance: true, messageKey: 'plugins.note.importRecipeChanged' };
+    streams({ name: 'demo', plan: plan('u', { ...note, action: 'noop' }), result: { results: [{ ...note, status: 'unchanged' }] }, failure: '', stale: false });
+    const { now } = flow();
+    await act(() => now().updateMany([{ name: 'demo', targets: ['codex'] }]));
+    expect(now().batch?.[0]).toMatchObject({ status: 'done', note: 'plugins.note.importRecipeChanged' });
+  });
+
+
   it('drops a plugin whose source moved since the check and checks again, showing why that check failed', async () => {
     vi.mocked(pluginsApi.preview)
       .mockResolvedValueOnce(plan('r', { name: 'driver', target: 'pi', action: 'update-available', binding: { id: 'npm:driver', version: '1.1.0' } }))

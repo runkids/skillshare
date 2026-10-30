@@ -3524,5 +3524,8 @@
   "plugins.importRetained": "Shared recipe changed; local import retained",
   "plugins.error.importRecipeMismatch": "Native plugin does not match the declaration's recipe",
   "plugins.note.localImportForgotten": "Remove this machine's imported installation and its receipt; shared intent stays unchanged. The next sync installs the shared source recipe.",
-  "plugins.error.importRecipeIdentityRequired": "This remote recipe has no plugin identity. Set plugin: to the native package name in the shared declaration before importing; import does not download source."
+  "plugins.error.importRecipeIdentityRequired": "This remote recipe has no plugin identity. Set plugin: to the native package name in the shared declaration before importing; import does not download source.",
+  "plugins.error.unimportTargetRequired": "unimport requires --target to select a local import receipt",
+  "plugins.error.unimportTargetMissing": "{name} has no binding for target {target}",
+  "plugins.error.unimportReceiptRequired": "{name}/{target} has no local import backed by a shared source recipe"
 }

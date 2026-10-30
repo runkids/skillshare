@@ -9,6 +9,37 @@ import (
 	"testing"
 )
 
+func TestUnimportRejectsInvalidTargets(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		targets []string
+		install bool
+		key     string
+	}{
+		{"no target", nil, false, "plugins.error.unimportTargetRequired"},
+		{"no receipt", []string{"claude"}, false, "plugins.error.unimportReceiptRequired"},
+		{"not imported", []string{"claude"}, true, "plugins.error.unimportReceiptRequired"},
+		{"missing target", []string{"codex"}, false, "plugins.error.unimportTargetMissing"},
+		{"mixed targets", []string{"claude", "codex"}, true, "plugins.error.unimportTargetMissing"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			native := &fakeAgents{}
+			s := native.service(t)
+			source := fixture(t)
+			writePluginFile(t, filepath.Dir(s.ConfigPath), filepath.Base(s.ConfigPath), "plugins:\n  version: 2\n  packages:\n    review:\n      source: "+source+"\n      plugin: demo\n      bindings:\n        claude: {}\n")
+			if tc.install {
+				applyPluginRequest(t, s, Request{Action: "sync", Name: "review"})
+			}
+			same := unchanged(t, s.ConfigPath)
+			_, err := s.Preview(context.Background(), Request{Action: "unimport", Name: "review", Targets: tc.targets})
+			if key, _ := ErrorKey(err); key != tc.key {
+				t.Fatalf("error = %v (key %q), want %q", err, key, tc.key)
+			}
+			same()
+		})
+	}
+}
+
 func TestUnimportPreservesOtherHostsSourceInstall(t *testing.T) {
 	for _, scope := range []string{"global", "project", "account"} {
 		t.Run(scope, func(t *testing.T) {
@@ -61,6 +92,10 @@ func TestUnimportPreservesOtherHostsSourceInstall(t *testing.T) {
 			copyConfig(a, b)
 			same := unchanged(t, b.ConfigPath)
 			nativeB.commands = nil
+			targets, err := b.UnimportTargets("review")
+			if err != nil || len(targets) != 1 || targets[0] != target {
+				t.Fatalf("unimport targets = %v, %v; want %s", targets, err, target)
+			}
 			apply(b, Request{Action: "unimport", Name: "review", Targets: []string{target}})
 			same()
 			if len(nativeB.installed["claude"]) != 0 {
@@ -83,6 +118,19 @@ func TestUnimportPreservesOtherHostsSourceInstall(t *testing.T) {
 				t.Fatalf("A source removed: %v", nativeA.commands)
 			}
 		})
+	}
+}
+
+func TestUnimportTargetsRequiresTargetRecipeAndLocalImport(t *testing.T) {
+	native := &fakeAgents{installed: map[string][]Installed{
+		"codex": {{PluginID: "demo@team", Installed: true}},
+	}}
+	s := native.service(t)
+	applyPluginRequest(t, s, Request{Action: "import", From: "codex", Plugin: "demo@team", Name: "review"})
+	applyPluginRequest(t, s, Request{Action: "add", Source: fixture(t), Name: "review", Targets: []string{"claude"}})
+	targets, err := s.UnimportTargets("review")
+	if err != nil || len(targets) != 0 {
+		t.Fatalf("native-only import and source-managed install must not be offered: %v, %v", targets, err)
 	}
 }
 
