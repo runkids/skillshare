@@ -27,6 +27,22 @@ func fixture(t *testing.T) string {
 	return root
 }
 
+func resolvedPath(t *testing.T, path string) string {
+	t.Helper()
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resolved
+}
+
+// Walk reports paths under the resolved root, so tests must compare against
+// that spelling rather than t.TempDir's possibly aliased one.
+func resolvedFixture(t *testing.T) string {
+	t.Helper()
+	return resolvedPath(t, fixture(t))
+}
+
 func TestSkipTargetDotDir(t *testing.T) {
 	orig := TargetDotDirs
 	TargetDotDirs = map[string]bool{".claude": true, ".cursor": true, ".skillshare": true}
@@ -53,7 +69,7 @@ func TestSkipTargetDotDir(t *testing.T) {
 }
 
 func TestWalkParity(t *testing.T) {
-	root := fixture(t)
+	root := resolvedFixture(t)
 	for _, skip := range []string{"", "skip", "z", "."} {
 		t.Run("skip="+skip, func(t *testing.T) {
 			collect := func(paths *[]string) filepath.WalkFunc {
@@ -80,7 +96,7 @@ func TestWalkParity(t *testing.T) {
 }
 
 func TestWalkDirParity(t *testing.T) {
-	root := fixture(t)
+	root := resolvedFixture(t)
 	for _, skip := range []string{"", "skip", "z", "."} {
 		t.Run("skip="+skip, func(t *testing.T) {
 			collect := func(paths *[]string) fs.WalkDirFunc {
@@ -107,7 +123,7 @@ func TestWalkDirParity(t *testing.T) {
 }
 
 func TestSymlinkRoot(t *testing.T) {
-	root := fixture(t)
+	root := resolvedFixture(t)
 	link := filepath.Join(t.TempDir(), "source")
 	if err := os.Symlink(root, link); err != nil {
 		t.Fatal(err)
@@ -119,7 +135,16 @@ func TestSymlinkRoot(t *testing.T) {
 	if err := WalkDir(link, Options{}, func(path string, _ fs.DirEntry, err error) error { dirPaths = append(dirPaths, path); return err }); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(walkPaths, dirPaths) || len(walkPaths) != 7 || walkPaths[0] != root {
+	wantPaths := []string{
+		root,
+		filepath.Join(root, "a"),
+		filepath.Join(root, "a", "child"),
+		filepath.Join(root, "link"),
+		filepath.Join(root, "skip"),
+		filepath.Join(root, "skip", "child"),
+		filepath.Join(root, "z"),
+	}
+	if !reflect.DeepEqual(walkPaths, wantPaths) || !reflect.DeepEqual(dirPaths, wantPaths) {
 		t.Fatalf("unexpected paths: %v / %v", walkPaths, dirPaths)
 	}
 	got, err := ReadDir(link, Options{})
