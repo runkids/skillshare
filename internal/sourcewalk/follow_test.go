@@ -44,8 +44,10 @@ func followFixture(t *testing.T) (root, checkout string) {
 
 func walkEntries(t *testing.T, root string, opts Options, skip string) (walk, walkDir []string) {
 	t.Helper()
+	// Keep passing the caller's root so Walk's own root resolution stays covered.
+	base := resolvedPath(t, root)
 	label := func(path string, dir bool, mode fs.FileMode) string {
-		rel, _ := filepath.Rel(root, path)
+		rel, _ := filepath.Rel(base, path)
 		kind := "file"
 		switch {
 		case dir:
@@ -144,7 +146,7 @@ func TestFollowThroughLinkedRoot(t *testing.T) {
 	symlink(t, root, alias)
 	var got []string
 	err := Walk(alias, Options{Follow: NewFollow(alias, nil)}, func(path string, info os.FileInfo, err error) error {
-		rel, _ := filepath.Rel(utilsResolve(t, root), path)
+		rel, _ := filepath.Rel(resolvedPath(t, root), path)
 		got = append(got, filepath.ToSlash(rel))
 		return err
 	})
@@ -154,15 +156,6 @@ func TestFollowThroughLinkedRoot(t *testing.T) {
 	if !reflect.DeepEqual(got[:3], []string{".", "_dev", "_dev/foo"}) {
 		t.Fatalf("got %v", got)
 	}
-}
-
-func utilsResolve(t *testing.T, path string) string {
-	t.Helper()
-	resolved, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return resolved
 }
 
 func TestFollowGuards(t *testing.T) {
@@ -264,7 +257,7 @@ func TestFollowWalkErrors(t *testing.T) {
 	for _, walker := range []string{"Walk", "WalkDir"} {
 		for _, failure := range []string{"unreadable-subdirectory", "missing-target", "vanished-child"} {
 			t.Run(walker+"/"+failure, func(t *testing.T) {
-				source, target := t.TempDir(), t.TempDir()
+				source, target := resolvedPath(t, t.TempDir()), resolvedPath(t, t.TempDir())
 				write(t, filepath.Join(source, "healthy", "SKILL.md"))
 				write(t, filepath.Join(target, "a", "SKILL.md"))
 				write(t, filepath.Join(target, "z", "SKILL.md"))
