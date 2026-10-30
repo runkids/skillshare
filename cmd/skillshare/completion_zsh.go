@@ -121,6 +121,7 @@ _skillshare() {
                         '--http[serve: Streamable HTTP listen address]:address:' \
                         '--tls-cert[serve --http: TLS certificate file]:file:_files' \
                         '--tls-key[serve --http: TLS key file]:file:_files' \
+                        '--http-allow-insecure[serve --http: allow plain HTTP on a trusted private network]' \
                         '--check[serve: list skipped skills without serving]' \
                         '--no-tui[Disable interactive menus]' \
                         $global_flags \

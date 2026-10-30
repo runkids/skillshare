@@ -47,6 +47,7 @@
       "type": "object", "additionalProperties": false,
       "description": "Settings for skillshare mcp serve.",
       "properties": {
+        "http_allow_insecure": {"type": "boolean", "default": false, "description": "Allow the bearer token over plain HTTP off loopback on a trusted private network. Authentication is still required."},
         "edit": {
           "type": "object", "additionalProperties": false,
           "description": "Lets MCP clients edit existing files of the matching skills: preview_skill_edit shows the change, apply_skill_edit saves it. Off when skills is empty.",

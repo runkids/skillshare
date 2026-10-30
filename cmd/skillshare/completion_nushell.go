@@ -125,6 +125,7 @@ export extern "skillshare mcp" [
     --http: string # serve: Streamable HTTP listen address
     --tls-cert: string # serve --http: TLS certificate file
     --tls-key: string # serve --http: TLS key file
+    --http-allow-insecure # serve --http: allow plain HTTP on a trusted private network
     --check # serve: list skipped skills without serving
     --no-tui
     --project(-p)

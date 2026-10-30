@@ -96,7 +96,7 @@ func TestCompletion_MCPCheck_AllShells(t *testing.T) {
 		result.AssertOutputContains(t, "live")
 		result.AssertOutputContains(t, "accept-tools")
 		result.AssertOutputContains(t, "timeout")
-		for _, flag := range []string{"tools-allow", "tools-deny"} {
+		for _, flag := range []string{"tools-allow", "tools-deny", "http-allow-insecure"} {
 			result.AssertOutputContains(t, flag)
 		}
 		result.AssertOutputNotContains(t, "direct-tools")

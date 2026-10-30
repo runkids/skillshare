@@ -55,7 +55,8 @@ skillshare sync --all
 | `--timeout DURATION` | `check --live` で使用。各サーバーのプローブの制限時間(`30s` など)。デフォルトは `10s` |
 | `--accept-tools` | `check --live` で使用。プローブした各サーバーが一覧にしたツール定義を新しいベースラインとして記録する。[下記](#pin-tool-definitions)を参照 |
 | `--http ADDR` | `serve` で使用。stdio の代わりに `ADDR` で Streamable HTTP を待ち受け、[Executor の Skill インデックス](#executor)も提供する。[下記](#serve-skills-over-mcp)を参照 |
-| `--tls-cert FILE`, `--tls-key FILE` | `serve --http` で使用。この PEM 証明書と鍵で HTTPS を提供する。ループバック以外では必須 |
+| `--http-allow-insecure` | 信頼できるプライベートネットワークで平文 HTTP を明示的に許可し、起動時に警告。デフォルトは無効 |
+| `--tls-cert FILE`, `--tls-key FILE` | `serve --http` で使用。この PEM 証明書と鍵で HTTPS を提供する。ループバック以外では明示的なオプトインがない限り必須 |
 | `--check` | `serve` で使用。スキップされる Skill とその理由、編集可能な数と Executor インデックスが提供する内容を一覧表示し、提供せずに終了する |
 | `--no-tui` | インタラクティブメニューを無効化。`tui: false`、`--json`、または非ターミナルの入出力でも無効になる |
 | `--revision ID` | add/import/remove または `sync mcp` に一致するプレビューを要求する |
@@ -745,8 +746,9 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
 - **スコープ。** サーバーをどこで起動しても、デフォルトは global です。`-p` は現在のディレクトリの project を提供します。
 - **トランスポート。** デフォルトは stdio で、コマンドを起動する gateway または Agent 向けです。
   `--http ADDR` は Streamable HTTP で提供します。ループバック以外のアドレスでは
-  `SKILLSHARE_MCP_TOKEN` と、`--tls-cert` および `--tls-key` による HTTPS が必要です。これによりトークンが平文でネットワークを流れることはありません。トークンが設定されている場合、すべてのリクエストは
+  `SKILLSHARE_MCP_TOKEN` と、`--tls-cert` および `--tls-key` による HTTPS が必要です。デフォルトではトークンが平文でネットワークを流れることはありません。トークンが設定されている場合、すべてのリクエストは
   `Authorization: Bearer <token>` を送る必要があります。代わりに TLS プロキシを使う場合は、`127.0.0.1:8765` のようなループバックアドレスにバインドし、プロキシで TLS を終端してください。トークンがない場合、そのサーバーは `Host` がループバックアドレスのリクエストにしか応答しないため、トークンを設定するか、プロキシにそのような `Host` を送らせてください。
+  信頼できるプライベートネットワークでのみ `--http-allow-insecure` または設定の `mcp.serve.http_allow_insecure: true` を指定すると、平文 HTTP を明示的に許可できます。起動時に警告が表示され、ループバック以外ではトークンが引き続き必須です。デフォルトでは拒否され、ループバックと HTTPS の動作は変わりません。
 - **安全性。** 読み取れるのは Skill のマニフェストにあるファイルだけで、読み取りは Skill ディレクトリ内に限られます。リンクと `.git` は一覧にも表示されず、提供もされません。何も実行されず、編集をオンにしない限り何も書き込まれません。`--http` では、MCP エンドポイントへのクロスオリジンのブラウザーリクエストは拒否されます。Executor インデックスは読み取りにのみ応答し、別オリジンのページはその応答を見られません。
 
 Agent を接続するには、他のサーバーと同様にサーバーを追加して同期します。Agent を実行するマシンで:

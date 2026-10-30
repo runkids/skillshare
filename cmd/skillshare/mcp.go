@@ -390,7 +390,7 @@ func printMCPHelp() {
 			{"check [name...]", "Verify variables, commands, hosts and sync state (--no-dns);\n--live also starts or calls each server [--timeout 10s] [--accept-tools]"},
 			{"remove [name]", "Select and remove a source entry; optionally sync removal,\nor stop managing it and keep its Agent entries (--keep-files)"},
 			{"restore [id]", "Browse backups, preview and restore Agent entries"},
-			{"serve", "Serve skills over MCP (SEP-2640) on stdio, or\n--http <addr> [--tls-cert <file> --tls-key <file>] [--target <name>];\nglobal unless -p; read-only unless mcp.serve.edit is set;\n--http also serves an Executor index at /.well-known/agent-skills/;\n--check lists skipped, editable and Executor-index skills without serving"},
+			{"serve", "Serve skills over MCP (SEP-2640) on stdio, or\n--http <addr> [--tls-cert <file> --tls-key <file>] [--http-allow-insecure] [--target <name>];\nglobal unless -p; read-only unless mcp.serve.edit is set;\n--http also serves an Executor index at /.well-known/agent-skills/;\n--check lists skipped, editable and Executor-index skills without serving"},
 		}},
 		helpGroup{title: "Options", rows: []helpRow{
 			{"--target <client>", "Receiving client; repeat for several, or none to keep the\nserver in Skillshare without writing it to any Agent"},

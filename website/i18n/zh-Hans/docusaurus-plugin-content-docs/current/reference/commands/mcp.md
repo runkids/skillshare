@@ -55,7 +55,8 @@ skillshare sync --all
 | `--timeout DURATION` | 与 `check --live` 一起使用：每个 server 探测的时间限制，例如 `30s`；默认 `10s` |
 | `--accept-tools` | 与 `check --live` 一起使用：把每个已探测 server 列出的工具定义记录为新的基线。参见[下文](#pin-tool-definitions) |
 | `--http ADDR` | 与 `serve` 一起使用：在 `ADDR` 上以 Streamable HTTP 监听，而不使用 stdio，同时提供 [Executor skill 索引](#executor)。参见[下文](#serve-skills-over-mcp) |
-| `--tls-cert FILE`, `--tls-key FILE` | 与 `serve --http` 一起使用：以这个 PEM 证书和私钥提供 HTTPS；监听非 loopback 地址时必须提供 |
+| `--http-allow-insecure` | 显式允许可信私有网络上的明文 HTTP，并在启动时警告；默认关闭 |
+| `--tls-cert FILE`, `--tls-key FILE` | 与 `serve --http` 一起使用：以这个 PEM 证书和私钥提供 HTTPS；未显式允许时，监听非 loopback 地址必须提供 |
 | `--check` | 与 `serve` 一起使用：列出会被跳过的 skill 及原因、可编辑的数量，以及 Executor 索引会提供的内容，然后退出，不提供服务 |
 | `--no-tui` | 禁用交互式菜单；`tui: false`、`--json` 或非终端输入/输出也会禁用它 |
 | `--revision ID` | 要求 add/import/remove 或 `sync mcp` 匹配指定的 preview |
@@ -850,10 +851,11 @@ gateway 调用它们时不会请求确认。通过工具读取的内容对 Agent
 - **作用范围。** 默认为 global，无论在哪里启动 server。`-p` 提供当前目录中的项目。
 - **传输。** 默认为 stdio，供启动该命令的 gateway 或 Agent 使用。`--http ADDR` 提供
   Streamable HTTP。非 loopback 地址需要 `SKILLSHARE_MCP_TOKEN`，并通过 `--tls-cert` 和
-  `--tls-key` 使用 HTTPS，这样 token 永远不会以明文在网络上传输；设置 token 后，每个请求都必须
+  `--tls-key` 使用 HTTPS，默认情况下 token 不会以明文在网络上传输；设置 token 后，每个请求都必须
   发送 `Authorization: Bearer <token>`。若要改用 TLS 代理，请绑定 loopback 地址，例如
   `127.0.0.1:8765`，由代理终止 TLS。没有 token 时，该服务器只响应 `Host` 为 loopback 地址的请求，
   因此请设置 token，或让代理发送这样的 `Host`。
+  仅在可信的私有网络上，可通过 `--http-allow-insecure` 或配置 `mcp.serve.http_allow_insecure: true` 显式允许明文 HTTP。启动时会输出警告，非 loopback 地址仍然需要 token。默认仍拒绝明文 HTTP，loopback 和 HTTPS 的行为不变。
 - **安全性。** 只能读取 skill 清单中的文件，且读取范围不会超出 skill 目录。链接和 `.git`
   既不会被列出，也不会被提供。不会执行任何内容，除非开启编辑，否则也不会写入任何内容。使用 `--http` 时，发往 MCP 端点的跨源浏览器请求会被拒绝；Executor 索引只响应读取，而其他源的页面看不到这些响应。
 

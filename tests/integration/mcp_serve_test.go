@@ -5,6 +5,7 @@ package integration
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -13,6 +14,8 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -150,6 +153,111 @@ func TestMCPServe_RefusesPlainHTTPNetworkListener(t *testing.T) {
 
 	r.AssertFailure(t)
 	r.AssertAnyOutputContains(t, "--tls-cert")
+	r.AssertAnyOutputContains(t, "--http-allow-insecure")
+}
+
+// Exercise the real listener and authentication, including the unchanged loopback default.
+func TestMCPServe_HTTPTransport(t *testing.T) {
+	for _, tc := range []struct {
+		name, addr, token string
+		insecure, warning bool
+		configOptIn       bool
+	}{
+		{"private-network-project-config", "0.0.0.0:0", "secret", false, true, false},
+		{"private-network-config", "0.0.0.0:0", "secret", false, true, true},
+		{"private-network-opt-in", "0.0.0.0:0", "secret", true, true, false},
+		{"loopback", "127.0.0.1:0", "", false, false, false},
+		{"loopback-token", "127.0.0.1:0", "secret", false, false, false},
+		{"loopback-opt-in", "127.0.0.1:0", "secret", true, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+			if tc.configOptIn {
+				sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\nmcp:\n  serve:\n    http_allow_insecure: true\n")
+			}
+			args := []string{"mcp", "serve", "--http", tc.addr}
+			if tc.insecure {
+				args = append(args, "--http-allow-insecure")
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			cmd := exec.CommandContext(ctx, sb.BinaryPath, args...)
+			if tc.name == "private-network-project-config" {
+				cmd.Dir = sb.SetupProjectDir("claude")
+				sb.WriteProjectConfig(cmd.Dir, "targets: [claude]\nmcp:\n  serve:\n    http_allow_insecure: true\n")
+				cmd.Args = append(cmd.Args, "-p")
+			}
+			cmd.Env = append(os.Environ(), "HOME="+sb.Home, "SKILLSHARE_CONFIG="+sb.ConfigPath, "SKILLSHARE_MCP_TOKEN="+tc.token)
+			stderr, err := cmd.StderrPipe()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := cmd.Start(); err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = cmd.Process.Kill(); _ = cmd.Wait() }()
+			scanner := bufio.NewScanner(stderr)
+			warnings := 0
+			var addr string
+			for scanner.Scan() {
+				line := scanner.Text()
+				if strings.Contains(line, "warning: --http-allow-insecure") {
+					warnings++
+				}
+				if strings.HasPrefix(line, "Serving skills over MCP at http://") {
+					addr = strings.TrimSuffix(strings.TrimPrefix(line, "Serving skills over MCP at http://"), "/")
+					break
+				}
+			}
+			if addr == "" {
+				t.Fatal("server did not announce an HTTP listener")
+			}
+			wantWarnings := 0
+			if tc.warning {
+				wantWarnings = 1
+			}
+			if warnings != wantWarnings {
+				t.Errorf("warnings = %d, want %d", warnings, wantWarnings)
+			}
+			_, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				t.Fatal(err)
+			}
+			client := &http.Client{Timeout: 5 * time.Second}
+			for _, authorized := range []bool{false, true} {
+				req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:"+port+"/.well-known/agent-skills/index.json", nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if authorized {
+					req.Header.Set("Authorization", "Bearer "+tc.token)
+				}
+				resp, err := client.Do(req)
+				if err != nil {
+					t.Fatal(err)
+				}
+				resp.Body.Close()
+				want := http.StatusOK
+				if tc.token != "" && !authorized {
+					want = http.StatusUnauthorized
+				}
+				if resp.StatusCode != want {
+					t.Errorf("authorized=%v: status = %d, want %d", authorized, resp.StatusCode, want)
+				}
+			}
+		})
+	}
+}
+
+func TestMCPServe_InsecureStillRequiresAuthentication(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+	r := sb.RunCLIEnv(map[string]string{"SKILLSHARE_MCP_TOKEN": ""}, "mcp", "serve", "--http", "0.0.0.0:0", "--http-allow-insecure")
+	r.AssertFailure(t)
+	r.AssertAnyOutputContains(t, "without authentication")
 }
 
 func TestMCPServe_RequiresBothTLSFiles(t *testing.T) {
@@ -164,24 +272,32 @@ func TestMCPServe_RequiresBothTLSFiles(t *testing.T) {
 }
 
 func TestMCPServe_ServesHTTPSOffLoopbackWithTokenAndCertificate(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
-	certFile, keyFile := writeSelfSignedCert(t)
+	for _, insecure := range []bool{false, true} {
+		t.Run(fmt.Sprint(insecure), func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+			certFile, keyFile := writeSelfSignedCert(t)
 
-	cmd := exec.Command(sb.BinaryPath, "mcp", "serve", "--http", "0.0.0.0:0", "--tls-cert", certFile, "--tls-key", keyFile)
-	cmd.Env = append(os.Environ(), "HOME="+sb.Home, "SKILLSHARE_CONFIG="+sb.ConfigPath, "SKILLSHARE_MCP_TOKEN=secret")
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := cmd.Start(); err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = cmd.Process.Kill(); _ = cmd.Wait() }()
-	line, _ := bufio.NewReader(stderr).ReadString('\n')
-	if !strings.Contains(line, "https://") {
-		t.Errorf("first stderr line = %q, want the https:// address", line)
+			cmd := exec.Command(sb.BinaryPath, "mcp", "serve", "--http", "0.0.0.0:0", "--tls-cert", certFile, "--tls-key", keyFile)
+			if insecure {
+				cmd.Args = append(cmd.Args, "--http-allow-insecure")
+			}
+			cmd.Env = append(os.Environ(), "HOME="+sb.Home, "SKILLSHARE_CONFIG="+sb.ConfigPath, "SKILLSHARE_MCP_TOKEN=secret")
+			stderr, err := cmd.StderrPipe()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := cmd.Start(); err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = cmd.Process.Kill(); _ = cmd.Wait() }()
+			line, _ := bufio.NewReader(stderr).ReadString('\n')
+			if !strings.Contains(line, "https://") {
+				t.Errorf("first stderr line = %q, want the https:// address", line)
+			}
+
+		})
 	}
 }
 

@@ -55,7 +55,8 @@ skillshare sync --all
 | `--timeout DURATION` | With `check --live`: time limit for each server's probe, such as `30s`; default `10s` |
 | `--accept-tools` | With `check --live`: record the tool definitions each probed server lists as its new baseline. See [below](#pin-tool-definitions) |
 | `--http ADDR` | With `serve`: listen for Streamable HTTP on `ADDR` instead of using stdio, and also serve the [Executor skill index](#executor). See [below](#serve-skills-over-mcp) |
-| `--tls-cert FILE`, `--tls-key FILE` | With `serve --http`: serve HTTPS with this PEM certificate and key; required off loopback |
+| `--http-allow-insecure` | With `serve --http`: allow the bearer token over plain HTTP off loopback on a trusted private network; logs a warning. Default: off |
+| `--tls-cert FILE`, `--tls-key FILE` | With `serve --http`: serve HTTPS with this PEM certificate and key; required off loopback unless explicitly opted out |
 | `--check` | With `serve`: list the skills it would skip and why, how many are editable, and what the Executor index would serve, then exit without serving |
 | `--no-tui` | Disable interactive menus; also disabled by `tui: false`, `--json`, or non-terminal input/output |
 | `--revision ID` | Require a matching preview for add/import/remove or `sync mcp` |
@@ -924,8 +925,11 @@ is ordinary text to the Agent: its own skill approval does not apply.
   in the current directory.
 - **Transport.** stdio by default, for a gateway or Agent that starts the command.
   `--http ADDR` serves Streamable HTTP. A non-loopback address requires
-  `SKILLSHARE_MCP_TOKEN` and HTTPS through `--tls-cert` and `--tls-key`, so the token
-  never crosses the network in plain text; when the token is set, every request must
+  `SKILLSHARE_MCP_TOKEN` and, by default, HTTPS through `--tls-cert` and `--tls-key`.
+  For a trusted private network, `--http-allow-insecure` (or
+  `mcp.serve.http_allow_insecure: true` in global or project config) explicitly allows
+  plain HTTP and prints a startup warning. The token is still required off loopback.
+  When the token is set, every request must
   send `Authorization: Bearer <token>`. To use a TLS proxy instead, bind a loopback
   address such as `127.0.0.1:8765` and let the proxy terminate TLS. Without the token,
   that server answers only requests whose `Host` is a loopback address, so set the token
@@ -933,6 +937,18 @@ is ordinary text to the Agent: its own skill approval does not apply.
 - **Safety.** Only files in a skill's manifest can be read, and reads stay inside the
   skill directory. Links and `.git` are neither listed nor served. Nothing is executed,
   and nothing is written unless editing is on. With `--http`, cross-origin browser requests to the MCP endpoint are refused; the Executor index answers reads only, which a page on another origin cannot see.
+
+For a server and MCP gateway in separate containers on a trusted private Docker
+network, with no TLS terminator between them:
+
+```bash
+# Set SKILLSHARE_MCP_TOKEN in the server environment and the gateway's bearer config.
+skillshare mcp serve --http 0.0.0.0:8765 --http-allow-insecure
+```
+
+This sends the token in plain text. Use it only when the network is trusted;
+public or untrusted networks should use TLS. The default still refuses plain HTTP
+off loopback. The opt-in does not change loopback or HTTPS behavior.
 
 To connect an Agent, add the server like any other and sync it. On the machine that
 runs the Agent:
