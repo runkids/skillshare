@@ -2635,6 +2635,7 @@
   "mcp.projects.noOnlyHere": "このプロジェクトだけのサーバーはありません。",
   "mcp.projects.offBadge": "ここではオフ",
   "mcp.projects.offIn": "{targets} でオフ",
+  "mcp.projects.onIn": "{targets} でオン",
   "mcp.projects.noSwitch": "どの Agent にもプロジェクト単位のスイッチがありません。",
   "mcp.projects.noSwitchHere": "このプロジェクトで使う Agent には、ここでオフにできるものがありません。",
   "mcp.projects.stillOn": "{targets} にはプロジェクト単位のスイッチがないため、ここでも読み込まれます。",

@@ -2635,6 +2635,7 @@
   "mcp.projects.noOnlyHere": "No servers only in this project.",
   "mcp.projects.offBadge": "off here",
   "mcp.projects.offIn": "Off in {targets}",
+  "mcp.projects.onIn": "On in {targets}",
   "mcp.projects.noSwitch": "None of its Agents has a per-project switch.",
   "mcp.projects.noSwitchHere": "None of the Agents this project uses can turn it off here.",
   "mcp.projects.stillOn": "Still loads in {targets}, which has no per-project switch.",

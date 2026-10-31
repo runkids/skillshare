@@ -2635,6 +2635,7 @@
   "mcp.projects.noOnlyHere": "Aucun serveur uniquement dans ce projet.",
   "mcp.projects.offBadge": "désactivé ici",
   "mcp.projects.offIn": "Désactivé dans {targets}",
+  "mcp.projects.onIn": "Activé dans {targets}",
   "mcp.projects.noSwitch": "Aucun de ses Agents n'a d'interrupteur par projet.",
   "mcp.projects.noSwitchHere": "Aucun des Agents utilisés par ce projet ne peut le désactiver ici.",
   "mcp.projects.stillOn": "Reste chargé dans {targets}, qui n'a pas d'interrupteur par projet.",

@@ -2635,6 +2635,7 @@
   "mcp.projects.noOnlyHere": "Keine Server nur in diesem Projekt.",
   "mcp.projects.offBadge": "hier aus",
   "mcp.projects.offIn": "Aus in {targets}",
+  "mcp.projects.onIn": "An in {targets}",
   "mcp.projects.noSwitch": "Keiner seiner Agents hat einen Schalter pro Projekt.",
   "mcp.projects.noSwitchHere": "Keiner der Agents dieses Projekts kann ihn hier ausschalten.",
   "mcp.projects.stillOn": "Wird in {targets} weiter geladen, dort gibt es keinen Schalter pro Projekt.",

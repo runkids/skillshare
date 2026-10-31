@@ -2635,6 +2635,7 @@
   "mcp.projects.noOnlyHere": "没有只在这个项目的服务器。",
   "mcp.projects.offBadge": "这里关闭",
   "mcp.projects.offIn": "已在 {targets} 关闭",
+  "mcp.projects.onIn": "已在 {targets} 启用",
   "mcp.projects.noSwitch": "它的 Agent 都没有项目级的开关。",
   "mcp.projects.noSwitchHere": "这个项目使用的 Agent 都无法在这里关掉它。",
   "mcp.projects.stillOn": "{targets} 不支持项目级别的关闭，在这里仍会加载。",

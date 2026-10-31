@@ -2635,6 +2635,7 @@
   "mcp.projects.noOnlyHere": "Tidak ada server yang hanya di proyek ini.",
   "mcp.projects.offBadge": "mati di sini",
   "mcp.projects.offIn": "Mati di {targets}",
+  "mcp.projects.onIn": "Aktif di {targets}",
   "mcp.projects.noSwitch": "Tidak ada Agent-nya yang punya sakelar per proyek.",
   "mcp.projects.noSwitchHere": "Tidak ada Agent yang dipakai proyek ini yang bisa mematikannya di sini.",
   "mcp.projects.stillOn": "Tetap dimuat di {targets}, yang tidak punya sakelar per proyek.",

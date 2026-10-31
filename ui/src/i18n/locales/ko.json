@@ -2635,6 +2635,7 @@
   "mcp.projects.noOnlyHere": "이 프로젝트에만 있는 서버가 없습니다.",
   "mcp.projects.offBadge": "여기서 꺼짐",
   "mcp.projects.offIn": "{targets}에서 꺼짐",
+  "mcp.projects.onIn": "{targets}에서 켜짐",
   "mcp.projects.noSwitch": "이 서버의 Agent 중 프로젝트별 스위치가 있는 것이 없습니다.",
   "mcp.projects.noSwitchHere": "이 프로젝트에서 쓰는 Agent 중 여기서 끌 수 있는 것이 없습니다.",
   "mcp.projects.stillOn": "{targets}에는 프로젝트별 스위치가 없어 여기서도 계속 로드됩니다.",

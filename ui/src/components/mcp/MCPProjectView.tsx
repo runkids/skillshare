@@ -204,7 +204,7 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
                 const entry = servers[n];
                 const off = Boolean(entry?.disabled);
                 const to = switchable(server);
-                // Off shows as Agent logos. A sentence is kept for the switch that cannot be used, which needs a reason.
+                // Agent logos say where it applies. A sentence is kept for the switch that cannot be used, which needs a reason.
                 const written = (entry?.targets ?? to).filter((x) => mcpOffTargets.includes(x));
                 const reason = entry && !off ? t('mcp.projects.overridden')
                   : off ? (written.length === 0 ? t('mcp.projects.noSwitchHere') : '')
@@ -215,6 +215,9 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
                 // loading the server here, and a list saved with the entry does not follow the project.
                 const stillOn = off ? targets.filter((x) => (server.targets ?? defaults).includes(x) && !written.includes(x)) : [];
                 const stale = off && entry.targets && [...entry.targets].sort().join() !== [...to].sort().join();
+                // Off shows where the switch turns it off; on shows every Agent the global server loads in.
+                const icons = off ? written : entry ? [] : server.targets ?? defaults;
+                const iconsLabel = t(off ? 'mcp.projects.offIn' : 'mcp.projects.onIn', { targets: icons.map(targetLabel).join(', ') });
                 return (
                   <div key={n} className="ss-r !items-stretch !flex-col !gap-2 !py-3">
                     <span className="flex min-w-0 items-center gap-2">
@@ -222,9 +225,9 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
                       {off && <span className="ss-tag warn">{t('mcp.projects.offBadge')}</span>}
                       {changes.some((c) => c.name === n && writes(c)) && <span className="ss-tag warn">{t('plugins.pending')}</span>}
                       <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-3">{describeEndpoint(server)}</span>
-                      {off && written.length > 0 && (
-                        <span className="ss-stack" role="img" aria-label={t('mcp.projects.offIn', { targets: written.map(targetLabel).join(', ') })} title={t('mcp.projects.offIn', { targets: written.map(targetLabel).join(', ') })}>
-                          {written.map((x) => <span key={x} className="ss-at"><AgentIcon target={x} size={13} /></span>)}
+                      {icons.length > 0 && (
+                        <span className="ss-stack" role="img" aria-label={iconsLabel} title={iconsLabel}>
+                          {icons.map((x) => <span key={x} className="ss-at"><AgentIcon target={x} size={13} /></span>)}
                         </span>
                       )}
                       <button type="button" role="switch" aria-checked={!off} aria-label={n} aria-describedby={`mcp-sw-${n}`} className={`ss-sw ${off ? '' : 'on'} disabled:opacity-50`} disabled={busy || (!off && to.length === 0) || Boolean(entry && !off)} onClick={() => void toggleGlobal(n, off)}><i /></button>

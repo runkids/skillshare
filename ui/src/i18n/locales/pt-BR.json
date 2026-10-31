@@ -2635,6 +2635,7 @@
   "mcp.projects.noOnlyHere": "Nenhum servidor só neste projeto.",
   "mcp.projects.offBadge": "desligado aqui",
   "mcp.projects.offIn": "Desligado em {targets}",
+  "mcp.projects.onIn": "Ligado em {targets}",
   "mcp.projects.noSwitch": "Nenhum dos Agents dele tem um interruptor por projeto.",
   "mcp.projects.noSwitchHere": "Nenhum dos Agents que este projeto usa pode desligá-lo aqui.",
   "mcp.projects.stillOn": "Continua carregando em {targets}, que não tem chave por projeto.",

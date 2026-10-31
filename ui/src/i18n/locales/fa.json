@@ -2635,6 +2635,7 @@
   "mcp.projects.noOnlyHere": "هیچ سروری فقط در این پروژه نیست.",
   "mcp.projects.offBadge": "اینجا خاموش",
   "mcp.projects.offIn": "خاموش در {targets}",
+  "mcp.projects.onIn": "روشن در {targets}",
   "mcp.projects.noSwitch": "هیچ‌کدام از Agentهایش کلید جداگانه برای هر پروژه ندارد.",
   "mcp.projects.noSwitchHere": "هیچ‌کدام از Agentهای این پروژه نمی‌تواند آن را اینجا خاموش کند.",
   "mcp.projects.stillOn": "همچنان در {targets} بارگذاری می‌شود، چون کلید جداگانه برای هر پروژه ندارد.",
