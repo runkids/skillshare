@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { initialServerDraft, serveSkillsCommand, serveSkillsTarget } from './mcpServerDraft';
+import { copyableServers, initialServerDraft, serveSkillsCommand, serveSkillsTarget } from './mcpServerDraft';
 import { splitCommand } from './mcpView';
 
 describe('MCP server drafts', () => {
@@ -13,6 +13,14 @@ describe('MCP server drafts', () => {
 
   it('keeps only Agents with a switch in the targets a new off switch starts with', () => {
     expect(initialServerDraft(undefined, '', ['claude', 'cursor', 'pi'], true).targets).toEqual(['claude', 'pi']);
+  });
+
+  it("offers other projects' servers without their targets or off switches", () => {
+    const projects = {
+      '/work/app': { servers: { mine: { command: 'mine' } } },
+      '/work/web': { targets: ['cursor'], servers: { docs: { command: 'docs', targets: ['cursor'] }, github: { disabled: true } } },
+    };
+    expect(copyableServers(projects, '/work/app')).toEqual([{ root: '/work/web', name: 'docs', server: { command: 'docs' } }]);
   });
 
   it('reads back the skills target of a command it builds, and nothing from other commands', () => {

@@ -61,7 +61,9 @@ other Pi settings. The form's **Other Agent settings** takes any other Agent's n
 JSON, such as a Codex approval mode; see [`options`](../../reference/commands/mcp.md#agent-options). The **Skillshare** tab adds `skillshare mcp serve`, which
 [serves your skills over MCP](/docs/reference/commands/mcp#serve-skills-over-mcp) to an
 Agent that does not get them by sync: choose which skills, tick the Agents, and it marks
-the Agents that already sync skills and would see them twice. **Import from a target** is
+the Agents that already sync skills and would see them twice. In a project's **MCP** tab,
+**From another project** fills the form with a server another project already has; the copy
+uses this project's Agents, not the other project's. **Import from a target** is
 separate and reads the servers an installed Agent already has. Either way the
 dashboard uses the same source, validation, preview and conflict rules as the
 CLI. **Sync MCP**, in the MCP page's Sync box, writes the MCP config files only. The

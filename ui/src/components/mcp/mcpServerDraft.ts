@@ -1,4 +1,4 @@
-import { mcpOffTargets, type MCPServer, type MCPToolPolicy, type MCPValue } from '../../api/mcp';
+import { mcpOffTargets, type MCPProject, type MCPServer, type MCPToolPolicy, type MCPValue } from '../../api/mcp';
 import type { useT } from '../../i18n';
 import { denyRemovesAll, hasToolPolicy, joinCommand, parsePiOptions, splitCommand, targetLabel } from './mcpView';
 
@@ -41,8 +41,18 @@ export function initialServerDraft(server: MCPServer | undefined, name: string, 
   };
 }
 
-/** How a new server is entered: fields, a pasted configuration, or Skillshare itself (`skillshare mcp serve`). */
-export type AddMode = 'form' | 'paste' | 'serve';
+/** How a new server is entered: fields, a pasted configuration, Skillshare itself (`skillshare mcp serve`), or a copy of another project's server. */
+export type AddMode = 'form' | 'paste' | 'serve' | 'copy';
+
+export interface CopyableServer { root: string; name: string; server: MCPServer }
+
+/** Tells copyable servers apart: two projects may each have one by the same name. */
+export const copyKey = (c: CopyableServer) => `${c.root}\0${c.name}`;
+
+/** The servers of every other mcp.projects root, without their targets so the copy follows this project's. Off switches are left out. */
+export const copyableServers = (projects: Record<string, MCPProject> = {}, root: string): CopyableServer[] =>
+  Object.entries(projects).filter(([r]) => r !== root).flatMap(([r, p]) =>
+    Object.entries(p.servers ?? {}).filter(([, s]) => !s.disabled).map(([name, server]) => ({ root: r, name, server: { ...server, targets: undefined } })));
 
 /** The command that serves skills over MCP: every enabled skill, or those of one skills target. */
 export const serveSkillsCommand = (target: string, project: boolean) =>
