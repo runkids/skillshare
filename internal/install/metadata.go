@@ -286,12 +286,17 @@ func (s *MetadataStore) MovePath(from, to string) int {
 }
 
 // Extract returns a copy of what RemoveByNames drops for relPath: the
-// entries, the accepted audit findings and the target overrides.
+// entries, the accepted audit findings and the target overrides. Legacy
+// basename keys become full paths, so a later Merge cannot mistake them for
+// another skill of the same name.
 func (s *MetadataStore) Extract(relPath string) *MetadataStore {
 	out := NewMetadataStore()
 	for key, entry := range s.Entries {
 		if entry != nil && removedWith(key, entry, relPath) {
 			e := *entry
+			if !inLegacyRepoGroup(entry, relPath) { // its Group is not its path
+				key = KeyToRelPath(key, entry)
+			}
 			out.Entries[key] = &e
 		}
 	}
@@ -318,9 +323,15 @@ func (s *MetadataStore) IsEmpty() bool {
 }
 
 // Merge copies other's entries, accepted audit findings and target overrides
-// into s, replacing what s holds under the same keys.
+// into s, replacing what s holds under the same keys. An entry of s whose key
+// names a different path, such as a legacy basename key, is kept.
 func (s *MetadataStore) Merge(other *MetadataStore) {
-	maps.Copy(s.Entries, other.Entries)
+	for key, entry := range other.Entries {
+		if live := s.Entries[key]; live != nil && KeyToRelPath(key, live) != KeyToRelPath(key, entry) {
+			continue
+		}
+		s.Entries[key] = entry
+	}
 	if len(other.AuditAccepted) > 0 && s.AuditAccepted == nil {
 		s.AuditAccepted = map[string][]string{}
 	}

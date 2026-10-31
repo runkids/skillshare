@@ -394,3 +394,25 @@ func TestRestore_EntryWithoutSavedMetadataStaysLocal(t *testing.T) {
 		t.Error("an item with nothing recorded should come back as local")
 	}
 }
+
+func TestRestore_LegacyKeyKeepsALiveRecordOfAnotherPath(t *testing.T) {
+	f := newFixture(t)
+	item := f.skill(t, "frontend/foo")
+	f.opts.Store.Set("foo", &install.MetadataEntry{Group: "frontend", Source: "github.com/acme/old"})
+	if out := Run([]Item{item}, f.opts); out.Results[0].Err != nil {
+		t.Fatal(out.Results[0].Err)
+	}
+	f.skill(t, "foo")
+	f.opts.Store.Set("foo", &install.MetadataEntry{Source: "github.com/acme/root"})
+
+	if err := Restore(trash.FindByName(f.opts.TrashDir, "frontend/foo"), f.source, nil, f.opts.Store); err != nil {
+		t.Fatal(err)
+	}
+
+	if e := f.opts.Store.GetExact("foo"); e == nil || e.Source != "github.com/acme/root" {
+		t.Errorf("root foo should keep its own record, got %+v", e)
+	}
+	if e := f.opts.Store.GetExact("frontend/foo"); e == nil || e.Source != "github.com/acme/old" {
+		t.Errorf("frontend/foo should get its record back, got %+v", e)
+	}
+}
