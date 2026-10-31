@@ -1,5 +1,7 @@
 # Feature Proposal: Bound remote installation work
 
+Issue: [#683](https://github.com/runkids/skillshare/issues/683)
+
 ## Problem
 
 Remote installation should have a predictable resource ceiling before candidate
