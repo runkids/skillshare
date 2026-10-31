@@ -179,6 +179,9 @@ Provide the full path to install immediately:
 skillshare install anthropics/skills/skills/pdf
 skillshare install google-gemini/gemini-cli/packages/core/src/skills/builtin/skill-creator
 
+# Optional playbook for reviewing untrusted skills before installation
+skillshare install runkids/skillshare/skills/skillshare-audit-review
+
 # Fuzzy subdirectory — if exact path doesn't exist, matches by skill name
 skillshare install runkids/my-skills/vue-best-practices
 
