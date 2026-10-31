@@ -55,7 +55,7 @@ MCP 제공자로부터 받은 URL이나 JSON을 붙여넣고, 이름을 지정�
 온 것인지 선택해야 합니다. 붙여넣은 내용에 서버가 하나이고 Pi가 체크되어 있으면, 대화상자에
 폼의 Pi 설정인 도구 노출 방식과 기타 Pi 설정도 표시됩니다. 폼의 **기타 Agent 설정**에서는 Codex 승인 모드처럼 다른 Agent의 네이티브 필드를 JSON으로 입력합니다([`options`](../../reference/commands/mcp.md#agent-options) 참고). **Skillshare** 탭은 `skillshare mcp serve`를 추가합니다.
 이 명령은 sync로 skill을 받지 않는 Agent에 [MCP로 skill을 제공](/docs/reference/commands/mcp#serve-skills-over-mcp)합니다.
-제공할 skill을 고르고 Agent를 체크하면, 이미 skill을 sync하고 있어 skill이 두 번 보이게 될 Agent가 표시됩니다. **Import from a target**은 별도 기능으로, 이미 설치된 Agent가 가진
+제공할 skill을 고르고 Agent를 체크하면, 이미 skill을 sync하고 있어 skill이 두 번 보이게 될 Agent가 표시됩니다. 프로젝트의 **MCP** 탭에서는 **From another project**로 다른 프로젝트에 있는 서버를 폼에 불러올 수 있습니다. 복사본은 원래 프로젝트가 아니라 이 프로젝트의 Agent를 사용합니다. **Import from a target**은 별도 기능으로, 이미 설치된 Agent가 가진
 서버를 읽어옵니다. 어느 경우든 대시보드는 CLI와 동일한 소스, 검증, 미리보기, 충돌 규칙을
 사용합니다. MCP 페이지의 Sync 박스에 있는 **Sync MCP**는 MCP 설정 파일만 작성합니다.
 Sync 페이지에는 Skill, Agent, 추가 항목, MCP를 위한 **Sync all resources**도 있습니다.

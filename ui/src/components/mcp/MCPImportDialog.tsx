@@ -60,6 +60,8 @@ interface Props {
   availableTargets?: readonly string[];
   /** Present when this is the paste half of "add a server", so the user can swap back to the form. */
   onMode?: (mode: AddMode) => void;
+  /** Offers the tab that copies another project's server. */
+  copyable?: boolean;
   onClose: () => void;
   onImported: () => void;
 }
@@ -396,7 +398,7 @@ export default function MCPImportDialog(props: Props) {
             className="self-start"
             value="paste"
             onChange={onMode}
-            options={[{ value: 'form', label: t('mcp.manualTab') }, { value: 'paste', label: t('mcp.pasteTab') }, { value: 'serve', label: 'Skillshare' }]}
+            options={[{ value: 'form', label: t('mcp.manualTab') }, { value: 'paste', label: t('mcp.pasteTab') }, { value: 'serve', label: 'Skillshare' }, ...(props.copyable ? [{ value: 'copy' as const, label: t('mcp.copyTab') }] : [])]}
           />
         )}
 

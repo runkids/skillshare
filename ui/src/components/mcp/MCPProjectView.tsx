@@ -15,7 +15,7 @@ import MCPFileActions from './MCPFileActions';
 import MCPImportDialog from './MCPImportDialog';
 import MCPRemoveDialog from './MCPRemoveDialog';
 import MCPServerDialog from './MCPServerDialog';
-import { isServeCommand, type AddMode } from './mcpServerDraft';
+import { copyableServers, isServeCommand, type AddMode } from './mcpServerDraft';
 import MCPServerList from './MCPServerList';
 import MCPSyncBox, { MCPRailActions } from './MCPSyncBox';
 import MCPUnmanagedNote from './MCPUnmanagedNote';
@@ -77,6 +77,7 @@ function ProjectServerEditor({ data, model, root, offered, editing, addingOff, a
   const { servers, targets, own } = model;
   const server = editing ? own[editing] : undefined;
   const serve = editing === '' ? addMode === 'serve' : isServeCommand(server);
+  const copyFrom = copyableServers(data.source.projects, root);
   return (
     editing === '' && addMode === 'paste' ? (
       <MCPImportDialog
@@ -88,6 +89,7 @@ function ProjectServerEditor({ data, model, root, offered, editing, addingOff, a
         paths={data.paths}
         detected={data.detected}
         onMode={onMode}
+        copyable={copyFrom.length > 0}
         onClose={onClose}
         onImported={onSaved}
       />
@@ -97,6 +99,8 @@ function ProjectServerEditor({ data, model, root, offered, editing, addingOff, a
         project={root}
         off={editing === '' && addingOff}
         serve={serve}
+        copyFrom={copyFrom}
+        copy={editing === '' && addMode === 'copy'}
         initial={editing && server ? { name: editing, server } : undefined}
         defaultTargets={targets}
         existingNames={Object.keys(servers)}

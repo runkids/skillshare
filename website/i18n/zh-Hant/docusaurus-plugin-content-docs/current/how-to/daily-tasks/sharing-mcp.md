@@ -52,7 +52,7 @@ skillshare mcp add
 若是 TOML，則需選擇它來自 Codex 還是 Grok。若貼上的內容只有一個伺服器且勾選了 Pi，
 對話框也會顯示表單中的 Pi 設定：工具曝光模式與其他 Pi 設定。表單的 **其他 Agent 設定** 以 JSON 輸入其他 Agent 的原生欄位，例如 Codex 的核准模式，詳見 [`options`](../../reference/commands/mcp.md#agent-options)。**Skillshare** 分頁會加入 `skillshare mcp serve`，
 [透過 MCP 提供你的 skills](/docs/reference/commands/mcp#serve-skills-over-mcp) 給無法透過 sync 取得 skills 的
-Agent：選擇要提供哪些 skills、勾選 Agents，它會標出已經同步 skills、因此會看到兩次的 Agents。**Import from a target** 是另一個獨立功能，
+Agent：選擇要提供哪些 skills、勾選 Agents，它會標出已經同步 skills、因此會看到兩次的 Agents。在專案的 **MCP** 分頁中，**From another project** 會用其他專案已有的伺服器填好表單；複製出來的伺服器使用這個專案的 Agents，而不是原專案的。**Import from a target** 是另一個獨立功能，
 會讀取已安裝的 Agent 目前已有的伺服器設定。無論哪種方式，dashboard 都使用與 CLI 相同的來源、
 驗證、預覽與衝突規則。MCP 頁面 Sync 框中的 **Sync MCP** 只會寫入 MCP 設定檔。
 Sync 頁面也提供 **Sync all resources**，可同步 Skills、agents、extras 與 MCP。

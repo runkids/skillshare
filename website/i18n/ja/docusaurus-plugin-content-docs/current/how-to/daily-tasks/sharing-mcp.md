@@ -56,7 +56,7 @@ MCP プロバイダーから提供された URL または JSON を貼り付け�
 Codex 由来か Grok 由来かを選択します。貼り付けた内容がサーバー 1 つだけで Pi にチェックが入っている場合は、
 ダイアログにフォームの Pi 設定（ツールの公開方法、その他の Pi 設定）も表示されます。フォームの **その他の Agent 設定** では、Codex の承認モードなど、ほかの Agent のネイティブフィールドを JSON で入力できます（[`options`](../../reference/commands/mcp.md#agent-options) を参照）。**Skillshare** タブは `skillshare mcp serve` を追加します。これは sync で Skill を受け取らない Agent に
 [MCP で Skill を提供します](/docs/reference/commands/mcp#serve-skills-over-mcp)。Skill を選び、Agent にチェックを入れます。すでに Skill を sync していて
-Skill が二重に表示される Agent には印が付きます。**Import from a target** は別の機能で、すでにインストールされて
+Skill が二重に表示される Agent には印が付きます。プロジェクトの **MCP** タブでは、**From another project** で別のプロジェクトにあるサーバーをフォームに読み込めます。コピーは元のプロジェクトではなく、このプロジェクトの Agent を使います。**Import from a target** は別の機能で、すでにインストールされて
 いる Agent が持つサーバーを読み込みます。いずれの方法でも、ダッシュボードは CLI と同じ source、検証、
 プレビュー、競合ルールを使用します。MCP ページの Sync ボックスにある **Sync MCP** は、MCP の設定ファイルだけを
 書き込みます。Sync ページには、skills、agents、extras、MCP をまとめて Sync するための

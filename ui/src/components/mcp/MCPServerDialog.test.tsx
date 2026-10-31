@@ -55,6 +55,21 @@ describe('MCP server dialog', () => {
     await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith({ name: 'skillshare', server: { command: 'skillshare', args: ['mcp', 'serve'] }, replace: false }));
   });
 
+  it("saves a copy of another project's server to this project, following this project's targets", async () => {
+    const user = userEvent.setup();
+    const copyFrom = [{ root: '/work/web', name: 'docs', server: { command: 'npx', args: ['docs'], env: { DOCS_TOKEN: { fromEnv: 'DOCS_TOKEN' } } } }];
+    renderDialog({ project: '/work/app', copy: true, copyFrom, onMode: vi.fn() });
+    await user.click(screen.getByRole('combobox', { name: 'Server to copy' }));
+    await user.click(await screen.findByRole('option', { name: 'docs · /work/web' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith({
+      project: '/work/app',
+      name: 'docs',
+      server: { command: 'npx', args: ['docs'], env: { DOCS_TOKEN: { fromEnv: 'DOCS_TOKEN' } } },
+      replace: false,
+    }));
+  });
+
   // A root under mcp.projects is served from the global config, where its targets live, so no -p.
   it("serves a project's own target selection from the global config", async () => {
     const user = userEvent.setup();

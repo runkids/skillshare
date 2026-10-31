@@ -58,7 +58,7 @@ TOML，则需要选择它来自 Codex 还是 Grok。如果粘贴的内容只有�
 对话框还会显示表单中的 Pi 设置：工具暴露方式和其他 Pi 设置。表单的 **其他 Agent 设置** 以 JSON 输入其他 Agent 的原生字段，例如 Codex 的审批模式，详见 [`options`](../../reference/commands/mcp.md#agent-options)。**Skillshare** 标签页会添加 `skillshare mcp serve`，
 它会[通过 MCP 提供你的 skill](/docs/reference/commands/mcp#serve-skills-over-mcp)，给无法通过 sync
 获得这些 skill 的 Agent：选择要提供哪些 skill、勾选 Agent，它还会标出那些已经同步 skill、
-因而会看到两份的 Agent。**Import from a target** 是
+因而会看到两份的 Agent。在项目的 **MCP** 标签页中，**From another project** 会用其他项目已有的服务器填好表单；复制出来的服务器使用这个项目的 Agent，而不是原项目的。**Import from a target** 是
 另一个独立功能，用于读取某个已安装 Agent 已有的服务器。无论哪种方式，
 控制台都使用与 CLI 相同的来源、验证、预览与冲突规则。MCP 页面 Sync 框中的
 **Sync MCP** 只写入 MCP 配置文件。Sync 页面也提供

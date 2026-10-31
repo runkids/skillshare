@@ -16,7 +16,7 @@ import ToolPolicyFields from './ToolPolicyFields';
 import MCPConfigView from './MCPConfigView';
 import { cleanToolPolicy, describeError, hasToolPolicy, targetLabel } from './mcpView';
 import { MCPAccountAgents, MCPTargetOrder } from './targetOrder';
-import { initialServerDraft, serveSkillsCommand, serveSkillsTarget, validateServerDraft, type AddMode, type DraftPatch, type EnvRow, type ServerDraft, type ServerValidation } from './mcpServerDraft';
+import { initialServerDraft, serveSkillsCommand, serveSkillsTarget, validateServerDraft, copyKey, type AddMode, type CopyableServer, type DraftPatch, type EnvRow, type ServerDraft, type ServerValidation } from './mcpServerDraft';
 
 /**
  * For the Skillshare tab: the skills targets that can be served, and the Agents that already get skills by sync.
@@ -87,6 +87,10 @@ interface Props {
   onMode?: (mode: AddMode) => void;
   /** The server is `skillshare mcp serve`: ask what to serve instead of a command. */
   serve?: boolean;
+  /** Other projects' servers; when any, a tab offers to start from a copy of one. */
+  copyFrom?: CopyableServer[];
+  /** The copy tab is open: pick a server to fill the fields with. */
+  copy?: boolean;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -103,6 +107,11 @@ interface ServerFormProps {
   isProject: boolean;
   project?: string;
   serve: boolean;
+  copyFrom: CopyableServer[];
+  copy: boolean;
+  /** The copied server as root and name; kept by the dialog so it survives viewing the config. */
+  copied: string;
+  onCopy: (key: string) => void;
   onMode: Props['onMode'];
   onSave: () => Promise<void>;
   error: string;
@@ -112,7 +121,7 @@ interface ServerFormProps {
   mutation?: MCPMutation;
 }
 
-function ServerForm({ draft, validation, patch, off, saving, editing, order, visibleTargets, isProject, project, serve, onMode, onSave, error, probe, mutation }: ServerFormProps) {
+function ServerForm({ draft, validation, patch, off, saving, editing, order, visibleTargets, isProject, project, serve, copyFrom, copy, copied, onCopy, onMode, onSave, error, probe, mutation }: ServerFormProps) {
   const t = useT();
   const { isProjectMode } = useAppContext();
   const { name, http, targets } = draft;
@@ -132,9 +141,18 @@ function ServerForm({ draft, validation, patch, off, saving, editing, order, vis
       {onMode && !off && (
         <SegmentedControl<AddMode>
           className="self-start"
-          value={serve ? 'serve' : 'form'}
+          value={serve ? 'serve' : copy ? 'copy' : 'form'}
           onChange={onMode}
-          options={[{ value: 'form', label: t('mcp.manualTab') }, { value: 'paste', label: t('mcp.pasteTab') }, { value: 'serve', label: 'Skillshare' }]}
+          options={[{ value: 'form', label: t('mcp.manualTab') }, { value: 'paste', label: t('mcp.pasteTab') }, { value: 'serve', label: 'Skillshare' }, ...(copyFrom.length > 0 ? [{ value: 'copy' as const, label: t('mcp.copyTab') }] : [])]}
+        />
+      )}
+      {copy && (
+        <Select
+          label={t('mcp.copy.which')}
+          value={copied}
+          onChange={onCopy}
+          options={[{ value: '', label: t('mcp.copy.pick') }, ...copyFrom.map((c) => ({ value: copyKey(c), label: `${c.name} · ${shortenHome(c.root)}` }))]}
+          disabled={saving}
         />
       )}
       {off && <div className="ss-note inf"><span className="flex-1">{t('mcp.offHint')}</span></div>}
@@ -272,7 +290,7 @@ function ServerFooter({ targets, off, complete, canSave, saving, onView, onClose
 }
 
 /** Add or edit one source server. Saving only changes the source; Sync writes the config files. */
-export default function MCPServerDialog({ initial, defaultTargets, existingNames, availableTargets: offered, project, off: offKind = false, onMode, serve = false, onClose, onSaved }: Props) {
+export default function MCPServerDialog({ initial, defaultTargets, existingNames, availableTargets: offered, project, off: offKind = false, onMode, serve = false, copyFrom = [], copy = false, onClose, onSaved }: Props) {
   const t = useT();
   const { isProjectMode } = useAppContext();
   const order = useContext(MCPTargetOrder);
@@ -290,6 +308,12 @@ export default function MCPServerDialog({ initial, defaultTargets, existingNames
   const patch: DraftPatch = (change) => setDraft((prev) => ({ ...prev, ...change }));
   const { http, url, tokenEnv, headers, env, targets } = draft;
   const [viewing, setViewing] = useState(false);
+  const [copied, setCopied] = useState('');
+  const copyServer = (key: string) => {
+    setCopied(key);
+    const from = copyFrom.find((c) => copyKey(c) === key);
+    if (from) setDraft(initialServerDraft(from.server, from.name, defaultTargets, false));
+  };
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const validation = validateServerDraft(draft, off, Boolean(initial), existingNames, t);
@@ -354,7 +378,7 @@ export default function MCPServerDialog({ initial, defaultTargets, existingNames
         <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={saving}><X size={16} /></button>
       </div>
       {/* The view takes the whole body, so a long file has room; the fields live in state and come back as they were. */}
-      {viewing ? <div className="db"><MCPConfigView mutation={mutation} /></div> : <ServerForm draft={draft} validation={validation} patch={patch} off={off} saving={saving} editing={Boolean(initial)} order={order} visibleTargets={visibleTargets} isProject={isProject} project={project} serve={serve} onMode={onMode} onSave={save} error={error} probe={probe} mutation={complete ? mutation : undefined} />}
+      {viewing ? <div className="db"><MCPConfigView mutation={mutation} /></div> : <ServerForm draft={draft} validation={validation} patch={patch} off={off} saving={saving} editing={Boolean(initial)} order={order} visibleTargets={visibleTargets} isProject={isProject} project={project} serve={serve} copyFrom={copyFrom} copy={copy} copied={copied} onCopy={copyServer} onMode={onMode} onSave={save} error={error} probe={probe} mutation={complete ? mutation : undefined} />}
       {viewing ? <div className="df"><Button variant="secondary" onClick={() => setViewing(false)}>{t('common.back')}</Button></div> : <ServerFooter targets={targets} off={off} complete={complete} canSave={canSave} saving={saving} onView={() => setViewing(true)} onClose={onClose} />}
     </DialogShell>
   );
