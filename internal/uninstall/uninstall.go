@@ -1,11 +1,14 @@
 // Package uninstall moves resolved skills, tracked repos and agents out of
 // their source directory into the trash and removes what the install recorded
-// about them. Callers resolve names and report the results.
+// about them, keeping a copy of that record beside the trash entry so restore
+// can put it back. Callers resolve names and report the results.
 package uninstall
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	gosync "sync"
 
@@ -162,7 +165,17 @@ func moveOut(item Item, o Options) error {
 			return err
 		}
 	}
-	if _, err := trash.MoveToTrash(item.Path, item.TrashName, o.TrashDir); err != nil {
+	saved := o.Store.Extract(item.Name)
+	if item.TrashName != item.Name {
+		saved.MovePath(item.Name, item.TrashName) // restore puts it at TrashName
+	}
+	trashPath, err := trash.MoveToTrash(item.Path, item.TrashName, o.TrashDir)
+	if err != nil {
+		return &TrashError{Err: err}
+	}
+	// On failure the item reports an error and keeps its metadata, so a
+	// restore from the trash still finds it in the store.
+	if err := saveMetadata(trashPath, saved); err != nil {
 		return &TrashError{Err: err}
 	}
 	return nil
@@ -182,7 +195,15 @@ func Agents(agents []Agent, sourceDir, trashDir string, store *install.MetadataS
 	removed := false
 	for i, a := range agents {
 		sidecar := filepath.Join(filepath.Dir(a.File), filepath.Base(a.Name)+install.MetaFileName)
-		if _, errs[i] = trash.MoveAgentToTrash(a.File, sidecar, a.Name, trashDir); errs[i] != nil {
+		saved := install.NewMetadataStore()
+		if store != nil && store.Has(a.Name) {
+			saved.Set(a.Name, store.Get(a.Name))
+		}
+		trashPath, err := trash.MoveAgentToTrash(a.File, sidecar, a.Name, trashDir)
+		if errs[i] = err; err != nil {
+			continue
+		}
+		if errs[i] = saveMetadata(trashPath, saved); errs[i] != nil {
 			continue
 		}
 		removed = true
@@ -194,4 +215,61 @@ func Agents(agents []Agent, sourceDir, trashDir string, store *install.MetadataS
 		saveErr = store.Save(sourceDir)
 	}
 	return errs, saveErr
+}
+
+// Restore moves a trashed skill, folder or tracked repo back into destDir and
+// records again what its uninstall removed from the store. store may be nil;
+// it is then loaded from destDir.
+func Restore(entry *trash.TrashEntry, destDir string, follow *sourcewalk.Follow, store *install.MetadataStore) error {
+	if err := trash.Restore(entry, destDir, follow); err != nil {
+		return err
+	}
+	return restoreMetadata(entry.Path, destDir, store)
+}
+
+// RestoreAgent is Restore for a trashed agent.
+func RestoreAgent(entry *trash.TrashEntry, destDir string, store *install.MetadataStore) error {
+	if err := trash.RestoreAgent(entry, destDir); err != nil {
+		return err
+	}
+	return restoreMetadata(entry.Path, destDir, store)
+}
+
+func saveMetadata(trashPath string, saved *install.MetadataStore) error {
+	if saved.IsEmpty() {
+		return nil
+	}
+	data, err := json.Marshal(saved)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(trash.MetadataFile(trashPath), data, 0o644); err != nil {
+		return fmt.Errorf("moved to trash but failed to save its metadata: %w", err)
+	}
+	return nil
+}
+
+func restoreMetadata(trashPath, sourceDir string, store *install.MetadataStore) error {
+	file := trash.MetadataFile(trashPath)
+	data, err := os.ReadFile(file)
+	if os.IsNotExist(err) {
+		return nil // trashed as a local item or before metadata was kept
+	}
+	if err != nil {
+		return fmt.Errorf("restored but failed to read its metadata: %w", err)
+	}
+	var saved install.MetadataStore
+	if err := json.Unmarshal(data, &saved); err != nil {
+		return fmt.Errorf("restored but failed to parse its metadata: %w", err)
+	}
+	if store == nil {
+		if store, err = install.LoadMetadata(sourceDir); err != nil {
+			return fmt.Errorf("restored but failed to load metadata: %w", err)
+		}
+	}
+	store.Merge(&saved)
+	if err := store.Save(sourceDir); err != nil {
+		return fmt.Errorf("restored but failed to save its metadata: %w", err)
+	}
+	return os.Remove(file)
 }

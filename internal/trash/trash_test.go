@@ -115,6 +115,19 @@ func TestCleanup(t *testing.T) {
 	}
 }
 
+func TestDelete_RemovesSavedMetadata(t *testing.T) {
+	entry := filepath.Join(t.TempDir(), "foo_2026-01-01_00-00-00")
+	os.MkdirAll(entry, 0755)
+	os.WriteFile(MetadataFile(entry), []byte("{}"), 0644)
+
+	if err := Delete(entry); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(MetadataFile(entry)); !os.IsNotExist(err) {
+		t.Errorf("saved metadata should be gone, got %v", err)
+	}
+}
+
 func TestTotalSize(t *testing.T) {
 	tmpDir := t.TempDir()
 	trashBase := filepath.Join(tmpDir, "trash")

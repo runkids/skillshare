@@ -332,7 +332,7 @@ func Cleanup(trashBase string, maxAge time.Duration) (int, error) {
 			if err := ensureStrictlyUnderBase(trashBase, item.Path); err != nil {
 				return removed, fmt.Errorf("skip unsafe item %s: %w", item.Name, err)
 			}
-			if err := os.RemoveAll(item.Path); err != nil {
+			if err := Delete(item.Path); err != nil {
 				return removed, fmt.Errorf("failed to clean up %s: %w", item.Name, err)
 			}
 			cleanEmptyParents(item.Path, trashBase)
@@ -341,6 +341,23 @@ func Cleanup(trashBase string, maxAge time.Duration) (int, error) {
 	}
 
 	return removed, nil
+}
+
+// MetadataFile returns where the metadata uninstall saved for the trash entry
+// at entryPath is kept. It sits beside the entry, which may be a link.
+func MetadataFile(entryPath string) string {
+	return entryPath + ".metadata.json"
+}
+
+// Delete permanently removes a trash entry and its saved metadata.
+func Delete(entryPath string) error {
+	if err := os.RemoveAll(entryPath); err != nil {
+		return err
+	}
+	if err := os.Remove(MetadataFile(entryPath)); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 // cleanEmptyParents removes empty parent directories between path and stopAt.

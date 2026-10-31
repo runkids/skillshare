@@ -18,6 +18,7 @@ import (
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/theme"
 	"skillshare/internal/trash"
+	"skillshare/internal/uninstall"
 )
 
 // ---------------------------------------------------------------------------
@@ -81,6 +82,7 @@ type trashTUIModel struct {
 	agentDestDir   string // agent restore destination
 	cfgPath        string
 	follow         *sourcewalk.Follow
+	reconcile      func() error // runs after skills are restored
 	quitting       bool
 	termWidth      int
 	termHeight     int
@@ -521,6 +523,7 @@ func (m trashTUIModel) startOperation() (tea.Model, tea.Cmd) {
 	destDir := m.destDir
 	agentDestDir := m.agentDestDir
 	follow := m.follow
+	reconcile := m.reconcile
 	cfgPath := m.cfgPath
 	skillTrashBase := m.skillTrashBase
 	agentTrashBase := m.agentTrashBase
@@ -532,23 +535,30 @@ func (m trashTUIModel) startOperation() (tea.Model, tea.Cmd) {
 
 		switch action {
 		case "restore":
+			skills := false
 			for _, entry := range entries {
 				e := entry // copy for closure
 				var restoreErr error
 				if e.Kind == "agent" {
-					restoreErr = trash.RestoreAgent(&e, agentDestDir)
+					restoreErr = uninstall.RestoreAgent(&e, agentDestDir, nil)
 				} else {
-					restoreErr = trash.Restore(&e, destDir, follow)
+					restoreErr = uninstall.Restore(&e, destDir, follow, nil)
 				}
 				if restoreErr != nil {
 					errMsgs = append(errMsgs, fmt.Sprintf("%s: %s", entry.Name, restoreErr))
 					continue // don't stop — process remaining items
 				}
+				skills = skills || e.Kind != "agent"
 				count++
+			}
+			if skills && reconcile != nil {
+				if err := reconcile(); err != nil {
+					errMsgs = append(errMsgs, err.Error())
+				}
 			}
 		case "delete", "empty":
 			for _, entry := range entries {
-				if err := os.RemoveAll(entry.Path); err != nil {
+				if err := trash.Delete(entry.Path); err != nil {
 					errMsgs = append(errMsgs, fmt.Sprintf("%s: %s", entry.Name, err))
 					continue
 				}
@@ -832,9 +842,10 @@ func (m trashTUIModel) renderTrashDetailPanel(entry trash.TrashEntry, width int)
 // ---------------------------------------------------------------------------
 
 // runTrashTUI starts the bubbletea TUI for the trash viewer.
-func runTrashTUI(items []trash.TrashEntry, skillTrashBase, agentTrashBase, destDir, agentDestDir, cfgPath, modeLabel string, follow *sourcewalk.Follow) error {
+func runTrashTUI(items []trash.TrashEntry, skillTrashBase, agentTrashBase, destDir, agentDestDir, cfgPath, modeLabel string, follow *sourcewalk.Follow, reconcile func() error) error {
 	model := newTrashTUIModel(items, skillTrashBase, agentTrashBase, destDir, agentDestDir, cfgPath, modeLabel)
 	model.follow = follow
+	model.reconcile = reconcile
 	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	_, err := p.Run()
 	return err

@@ -5,6 +5,7 @@ package integration
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -73,6 +74,52 @@ targets: {}
 	entries, _ := os.ReadDir(trashDir)
 	if len(entries) != 0 {
 		t.Errorf("trash should be empty after restore, has %d entries", len(entries))
+	}
+}
+
+// Regression for #679: a remote install restored from the trash keeps its
+// source instead of coming back as a local skill.
+func TestTrash_Restore_KeepsRemoteSource(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+	repoPath := filepath.Join(sb.Root, "remote")
+	os.MkdirAll(filepath.Join(repoPath, "skills", "remote-skill"), 0755)
+	os.WriteFile(filepath.Join(repoPath, "skills", "remote-skill", "SKILL.md"), []byte("---\nname: remote-skill\n---\n# Remote"), 0644)
+	initGitRepo(t, repoPath)
+	sb.RunCLI("install", "file://"+repoPath+"//skills/remote-skill").AssertSuccess(t)
+
+	sb.RunCLI("uninstall", "remote-skill", "--force").AssertSuccess(t)
+	sb.RunCLI("trash", "restore", "remote-skill").AssertSuccess(t)
+
+	meta := sb.ReadFile(filepath.Join(sb.SourcePath, ".metadata.json"))
+	if !strings.Contains(meta, repoPath) {
+		t.Errorf("restored skill should keep its source:\n%s", meta)
+	}
+}
+
+// Project mode also records a remote skill in config.yaml and .gitignore,
+// which uninstall drops; restore puts them back.
+func TestTrash_Restore_ProjectKeepsConfigAndGitignore(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+	repoPath := filepath.Join(sb.Root, "remote")
+	os.MkdirAll(filepath.Join(repoPath, "skills", "remote-skill"), 0755)
+	os.WriteFile(filepath.Join(repoPath, "skills", "remote-skill", "SKILL.md"), []byte("---\nname: remote-skill\n---\n# Remote"), 0644)
+	initGitRepo(t, repoPath)
+	sb.RunCLIInDir(projectRoot, "install", "-p", "file://"+repoPath+"//skills/remote-skill").AssertSuccess(t)
+
+	sb.RunCLIInDir(projectRoot, "uninstall", "-p", "remote-skill", "--force").AssertSuccess(t)
+	sb.RunCLIInDir(projectRoot, "trash", "restore", "-p", "remote-skill").AssertSuccess(t)
+
+	if cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml")); !strings.Contains(cfg, "name: remote-skill") {
+		t.Errorf("config.yaml should declare the restored skill:\n%s", cfg)
+	}
+	if ignore := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", ".gitignore")); !strings.Contains(ignore, "skills/remote-skill/") {
+		t.Errorf(".gitignore should ignore the restored skill:\n%s", ignore)
 	}
 }
 

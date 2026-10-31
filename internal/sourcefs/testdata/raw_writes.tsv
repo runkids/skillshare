@@ -36,9 +36,6 @@ cmd/skillshare/restore_tui.go	(restoreTUIModel).startDelete	os.RemoveAll	version
 cmd/skillshare/target.go	unlinkMergeMode	os.Remove	skillPath	target
 cmd/skillshare/target.go	unlinkSymlinkMode	os.Remove	targetPath	target
 cmd/skillshare/target_project.go	targetAddProject	os.MkdirAll	absPath	target
-cmd/skillshare/trash.go	trashDelete	os.RemoveAll	entry.Path	trash
-cmd/skillshare/trash.go	trashEmpty	os.RemoveAll	item.Path	trash
-cmd/skillshare/trash_tui.go	(trashTUIModel).startOperation	os.RemoveAll	entry.Path	trash
 cmd/skillshare/ui.go	clearCurrentUIStateIfMatches	os.Remove	currentUIStateFile()	config
 cmd/skillshare/ui.go	openUILog	os.MkdirAll	dir	config
 cmd/skillshare/ui.go	openUILog	os.OpenFile	filepath.Join(dir, "ui.log")	config
@@ -322,8 +319,6 @@ internal/server/handler_skill_content.go	writeFileAtomic	os.Remove	tmpPath	agent
 internal/server/handler_skill_content.go	writeFileAtomic	os.Rename	tmpPath, path	agents
 internal/server/handler_skillignore.go	(*Server).handlePutSkillignore	os.Remove	ignorePath	source-unmigrated
 internal/server/handler_skillignore.go	(*Server).handlePutSkillignore	os.WriteFile	ignorePath	source-unmigrated
-internal/server/handler_trash.go	(*Server).handleDeleteTrash	os.RemoveAll	resolved.entry.Path	trash
-internal/server/handler_trash.go	(*Server).handleEmptyTrash	os.RemoveAll	item.Path	trash
 internal/skillignore/write.go	AddPattern	os.MkdirAll	filepath.Dir(filePath)	source-unmigrated
 internal/skillignore/write.go	AddPattern	os.WriteFile	filePath	source-unmigrated
 internal/skillignore/write.go	RemovePattern	os.WriteFile	filePath	source-unmigrated
@@ -496,7 +491,8 @@ internal/testutil/testutil.go	(*Sandbox).WriteFile	os.WriteFile	path	test-helper
 internal/testutil/testutil.go	(*Sandbox).WriteProjectConfig	os.MkdirAll	dir	test-helper
 internal/testutil/testutil.go	(*Sandbox).WriteProjectConfig	os.WriteFile	path	test-helper
 internal/testutil/testutil.go	NewSandbox	os.MkdirAll	dir	test-helper
-internal/trash/trash.go	Cleanup	os.RemoveAll	item.Path	trash
+internal/trash/trash.go	Delete	os.Remove	MetadataFile(entryPath)	trash
+internal/trash/trash.go	Delete	os.RemoveAll	entryPath	trash
 internal/trash/trash.go	MoveAgentToTrash	os.MkdirAll	trashDir	trash
 internal/trash/trash.go	MoveAgentToTrash	os.Remove	agentFile	agents
 internal/trash/trash.go	MoveAgentToTrash	os.Remove	metaFile	agents
@@ -530,6 +526,8 @@ internal/uidist/uidist.go	downloadToTemp	os.Remove	tmp.Name()	config
 internal/uidist/uidist.go	extractTarGz	os.MkdirAll	filepath.Dir(target)	config
 internal/uidist/uidist.go	extractTarGz	os.MkdirAll	target	config
 internal/uidist/uidist.go	extractTarGz	os.OpenFile	target	config
+internal/uninstall/uninstall.go	restoreMetadata	os.Remove	file	trash
+internal/uninstall/uninstall.go	saveMetadata	os.WriteFile	trash.MetadataFile(trashPath)	trash
 internal/utils/frontmatter_write.go	SetFrontmatterList	os.WriteFile	filePath	source-unmigrated
 internal/utils/frontmatter_write.go	SetFrontmatterValue	os.WriteFile	filePath	target
 internal/utils/frontmatter_write.go	SetFrontmatterValue	os.WriteFile	filePath	target

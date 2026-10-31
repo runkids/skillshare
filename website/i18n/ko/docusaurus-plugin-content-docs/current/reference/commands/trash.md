@@ -90,6 +90,8 @@ Next
 
 agent의 경우, restore 힌트는 대신 `skillshare sync agents`를 제안합니다.
 
+restore는 설치 시 기록된 정보도 함께 되돌립니다. GitHub 등 원격에서 설치한 skill, tracked repo, agent는 source를 유지하므로 `update`와 `check`를 계속 사용할 수 있습니다. 이전 버전에서 trash로 이동된 항목은 local로 복원됩니다.
+
 휴지통으로 보낸 [source 링크](../targets/configuration.md#follow_source_links)는 `link → <target>`으로 나열되며, 대상의 복사본이 아니라 다시 링크(또는 junction)로 복원됩니다. 따라간 링크 뒤에서 휴지통으로 보낸 skill(`_dev-skills/foo`)은 `follow_source_links`가 켜져 있으면 실제 checkout으로 복원됩니다. 설정이 꺼져 있거나 checkout 아래의 중첩 링크가 다른 곳으로 이어지면 복원은 실패하고 휴지통 항목은 유지됩니다.
 
 동일한 이름의 항목이 source에 이미 존재하면 restore는 실패합니다. 기존 항목을 먼저 제거하거나 다른 이름을 사용하세요.

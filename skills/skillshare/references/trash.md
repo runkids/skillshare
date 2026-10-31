@@ -36,7 +36,7 @@ Use `-p` or `-g` to select scope explicitly when both configurations exist.
 ## Behavior
 
 - **7-day TTL**: Items auto-expire after 7 days
-- **Restore**: Copies skill/agent back to source directory; run `skillshare sync` / `skillshare sync agents` afterward
+- **Restore**: Copies skill/agent back to source directory with its install source (remote stays remote); run `skillshare sync` / `skillshare sync agents` afterward
 - **Empty**: Requires interactive confirmation (`y/yes`)
 - **List output**: Shows name, size, and age (minutes/hours/days)
 

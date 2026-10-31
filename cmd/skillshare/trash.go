@@ -8,11 +8,13 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 	"skillshare/internal/oplog"
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/theme"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
+	"skillshare/internal/uninstall"
 	"skillshare/internal/utils"
 )
 
@@ -129,7 +131,8 @@ func trashList(mode runMode, cwd string, noTUI bool, kind resourceKindFilter) er
 		if err != nil {
 			return err
 		}
-		return runTrashTUI(items, skillTrashBase, agentTrashBase, destDir, agentDestDir, cfgPath, modeLabel, follow)
+		return runTrashTUI(items, skillTrashBase, agentTrashBase, destDir, agentDestDir, cfgPath, modeLabel, follow,
+			func() error { return reconcileRestoredSkills(mode, cwd) })
 	}
 
 	// Plain text path (unchanged) — list single kind
@@ -204,7 +207,7 @@ func trashRestore(mode runMode, cwd string, args []string, kind resourceKindFilt
 	}
 
 	if kind == kindAgents {
-		if err := trash.RestoreAgent(entry, destDir); err != nil {
+		if err := uninstall.RestoreAgent(entry, destDir, nil); err != nil {
 			logTrashOp(cfgPath, "restore", 0, name, start, err)
 			return err
 		}
@@ -214,7 +217,11 @@ func trashRestore(mode runMode, cwd string, args []string, kind resourceKindFilt
 			logTrashOp(cfgPath, "restore", 0, name, start, err)
 			return err
 		}
-		if err := trash.Restore(entry, destDir, follow); err != nil {
+		if err := uninstall.Restore(entry, destDir, follow, nil); err != nil {
+			logTrashOp(cfgPath, "restore", 0, name, start, err)
+			return err
+		}
+		if err := reconcileRestoredSkills(mode, cwd); err != nil {
 			logTrashOp(cfgPath, "restore", 0, name, start, err)
 			return err
 		}
@@ -259,7 +266,7 @@ func trashDelete(mode runMode, cwd string, args []string, kind resourceKindFilte
 		return fmt.Errorf("'%s' not found in trash", name)
 	}
 
-	if err := os.RemoveAll(entry.Path); err != nil {
+	if err := trash.Delete(entry.Path); err != nil {
 		return fmt.Errorf("failed to delete '%s': %w", name, err)
 	}
 
@@ -293,7 +300,7 @@ func trashEmpty(mode runMode, cwd string, kind resourceKindFilter, force bool) e
 
 	removed := 0
 	for _, item := range items {
-		if err := os.RemoveAll(item.Path); err != nil {
+		if err := trash.Delete(item.Path); err != nil {
 			cmdErr := fmt.Errorf("failed to delete '%s': %w", item.Name, err)
 			logTrashOp(cfgPath, "empty", removed, "", start, cmdErr)
 			return cmdErr
@@ -317,6 +324,25 @@ func resolveTrashBase(mode runMode, cwd string, kind resourceKindFilter) string 
 		return trash.ProjectTrashDir(cwd)
 	}
 	return trash.TrashDir()
+}
+
+// reconcileRestoredSkills puts restored project skills back in the project
+// config, lockfile and .gitignore, which uninstall dropped. Global mode keeps
+// them only in the metadata that restore already put back.
+func reconcileRestoredSkills(mode runMode, cwd string) error {
+	if mode != modeProject {
+		return nil
+	}
+	cfg, err := config.LoadProject(cwd)
+	if err != nil {
+		return fmt.Errorf("failed to load project config: %w", err)
+	}
+	source := cfg.EffectiveSkillsSource(cwd)
+	store, err := install.LoadMetadata(source)
+	if err != nil {
+		return err
+	}
+	return config.ReconcileProjectSkills(cwd, cfg, store, source)
 }
 
 func resolveTrashFollow(mode runMode, cwd string) (*sourcewalk.Follow, error) {
