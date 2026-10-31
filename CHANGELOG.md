@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.28.2](https://github.com/runkids/skillshare/compare/v0.28.1...v0.28.2) (2026-10-31)
+
+
+* **release:** request 0.28.2 ([7bcce7a](https://github.com/runkids/skillshare/commit/7bcce7aafe71d27ea1fed217d048ff4b33f52cff))
+
+
+### New Features
+
+* **mcp:** allow plain HTTP on trusted private networks ([#675](https://github.com/runkids/skillshare/issues/675)) ([00abba4](https://github.com/runkids/skillshare/commit/00abba4727297e845ffe6d4c64643f2fd1447a54))
+* **ui:** copy another project's MCP server into a project ([#681](https://github.com/runkids/skillshare/issues/681)) ([b3a7fc5](https://github.com/runkids/skillshare/commit/b3a7fc5263d211aeb09e651f64ad1e978750eebe)), closes [#678](https://github.com/runkids/skillshare/issues/678)
+* **ui:** show which Agents load an enabled global MCP server in a project ([cc4c9e4](https://github.com/runkids/skillshare/commit/cc4c9e436b0ad57e827fa48935e0a9e8916853ea)), closes [#677](https://github.com/runkids/skillshare/issues/677)
+
+
+### Bug Fixes
+
+* **plugins:** separate shared intent from local installation state ([#660](https://github.com/runkids/skillshare/issues/660)) ([da3383e](https://github.com/runkids/skillshare/commit/da3383ed5fb224ac41d05ac0c585d83b41857ac9))
+* **trash:** keep install metadata when restoring from the trash ([#680](https://github.com/runkids/skillshare/issues/680)) ([78a8dc7](https://github.com/runkids/skillshare/commit/78a8dc7c0d279478f0a17757de834498d6c0f220))
+* **ui:** drop empty plugin notes before joining them ([8c2c646](https://github.com/runkids/skillshare/commit/8c2c646613e40cea9ad4d60b5b36bcd5f0ad4390))
+
 ## [0.28.1] - 2026-10-30
 
 ### New Features
