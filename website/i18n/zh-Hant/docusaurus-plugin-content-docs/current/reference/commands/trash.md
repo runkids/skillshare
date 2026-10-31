@@ -90,6 +90,8 @@ Next
 
 對於 agents，還原提示會建議改用 `skillshare sync agents`。
 
+還原時也會一併還原安裝時記錄的資訊：從 GitHub 或其他遠端來源安裝的 skill、tracked repo 和 agent 會保留來源，`update` 和 `check` 照常可用。舊版本移入 trash 的項目會以 local 還原。
+
 被丟進垃圾桶的 [source 連結](../targets/configuration.md#follow_source_links)會列為 `link → <target>`，還原時會重新建立為連結（或 junction），絕不會變成其目標的複本。從已跟進的連結背後丟進垃圾桶的 skill（`_dev-skills/foo`），在 `follow_source_links` 開啟時會還原到真實的 checkout；若該設定已關閉，或 checkout 底下有通往其他地方的巢狀連結，還原會失敗並保留垃圾桶項目。
 
 如果 source 中已存在同名項目，restore 會失敗。請先解除安裝既有項目，或改用不同名稱。

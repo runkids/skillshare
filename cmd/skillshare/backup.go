@@ -559,7 +559,8 @@ func restoreTUIDispatch(noTUI bool) error {
 		if err != nil {
 			return err
 		}
-		return runTrashTUI(items, skillTrashBase, agentTrashBase, destDir, agentDestDir, cfgPath, modeLabel, follow)
+		return runTrashTUI(items, skillTrashBase, agentTrashBase, destDir, agentDestDir, cfgPath, modeLabel, follow,
+			func() error { return reconcileRestoredSkills(mode, cwd) })
 	}
 
 	return nil

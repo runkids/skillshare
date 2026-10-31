@@ -270,3 +270,127 @@ func TestAgents_MovesFilesAndPrunesMetadata(t *testing.T) {
 		t.Errorf("saved metadata should keep only the agent that failed, got %v", saved.List())
 	}
 }
+
+func TestRestore_PutsBackWhatUninstallRemoved(t *testing.T) {
+	f := newFixture(t)
+	repo := f.skill(t, "_team")
+	f.opts.Store.Set("_team", &install.MetadataEntry{Source: "github.com/acme/team", Tracked: true})
+	f.opts.Store.SetTargetOverride("_team/foo", []string{"claude"})
+	if out := Run([]Item{repo}, f.opts); out.Results[0].Err != nil || out.SaveErr != nil {
+		t.Fatalf("unexpected outcome: %+v", out)
+	}
+
+	entry := trash.FindByName(f.opts.TrashDir, "_team")
+	if err := Restore(entry, f.source, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	saved, err := install.LoadMetadata(f.source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e := saved.Get("_team"); e == nil || e.Source != "github.com/acme/team" || !e.Tracked {
+		t.Errorf("restored repo should keep its source, got %+v", e)
+	}
+	if got := saved.TargetOverrides["_team/foo"]; len(got) != 1 {
+		t.Errorf("target override should be back, got %v", saved.TargetOverrides)
+	}
+	if exists(trash.MetadataFile(entry.Path)) {
+		t.Error("saved metadata should leave the trash with the entry")
+	}
+}
+
+func TestRestore_RekeysToTheTrashName(t *testing.T) {
+	f := newFixture(t)
+	item := f.skill(t, "frontend/foo")
+	item.TrashName = "foo"
+	f.opts.Store.Set("frontend/foo", &install.MetadataEntry{Group: "frontend", Source: "github.com/acme/foo"})
+	if out := Run([]Item{item}, f.opts); out.Results[0].Err != nil {
+		t.Fatal(out.Results[0].Err)
+	}
+
+	if err := Restore(trash.FindByName(f.opts.TrashDir, "foo"), f.source, nil, f.opts.Store); err != nil {
+		t.Fatal(err)
+	}
+
+	if e := f.opts.Store.Get("foo"); e == nil || e.Source != "github.com/acme/foo" || e.Group != "" {
+		t.Errorf("entry should follow the skill to foo, got %+v", e)
+	}
+}
+
+func TestRestoreAgent_PutsBackItsMetadata(t *testing.T) {
+	source := t.TempDir()
+	trashDir := filepath.Join(t.TempDir(), "trash")
+	file := filepath.Join(source, "team", "reviewer.md")
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, []byte("# reviewer"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	store := install.NewMetadataStore()
+	store.Set("team/reviewer", &install.MetadataEntry{Kind: install.MetadataKindAgent, Source: "github.com/acme/agents"})
+	if errs, _ := Agents([]Agent{{Name: "team/reviewer", File: file}}, source, trashDir, store); errs[0] != nil {
+		t.Fatal(errs[0])
+	}
+
+	if err := RestoreAgent(trash.FindByName(trashDir, "team/reviewer"), source, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	saved, err := install.LoadMetadata(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e := saved.Get("team/reviewer"); e == nil || e.Source != "github.com/acme/agents" {
+		t.Errorf("restored agent should keep its source, got %+v", e)
+	}
+}
+
+func TestRun_RekeyLeavesTheLiveLegacyEntryPrunable(t *testing.T) {
+	f := newFixture(t)
+	item := f.skill(t, "frontend/foo")
+	item.TrashName = "foo"
+	f.opts.Store.Set("foo", &install.MetadataEntry{Group: "frontend", Source: "github.com/acme/foo"})
+
+	if out := Run([]Item{item}, f.opts); out.Results[0].Err != nil {
+		t.Fatal(out.Results[0].Err)
+	}
+
+	if f.opts.Store.Has("foo") {
+		t.Errorf("legacy entry should be pruned, got %+v", f.opts.Store.Get("foo"))
+	}
+}
+
+func TestRestore_PutsBackLegacyRepoGroupEntries(t *testing.T) {
+	f := newFixture(t)
+	repo := f.skill(t, "_team")
+	f.opts.Store.Set("foo", &install.MetadataEntry{Group: "team", Tracked: true, Source: "github.com/acme/team"})
+	if out := Run([]Item{repo}, f.opts); out.Results[0].Err != nil || f.opts.Store.Has("foo") {
+		t.Fatalf("uninstall should prune the legacy entry: %+v", out)
+	}
+
+	if err := Restore(trash.FindByName(f.opts.TrashDir, "_team"), f.source, nil, f.opts.Store); err != nil {
+		t.Fatal(err)
+	}
+
+	if e := f.opts.Store.Get("foo"); e == nil || e.Source != "github.com/acme/team" {
+		t.Errorf("legacy repo entry should be back, got %+v", e)
+	}
+}
+
+func TestRestore_EntryWithoutSavedMetadataStaysLocal(t *testing.T) {
+	f := newFixture(t)
+	item := f.skill(t, "foo")
+	if out := Run([]Item{item}, f.opts); out.Results[0].Err != nil {
+		t.Fatal(out.Results[0].Err)
+	}
+
+	if err := Restore(trash.FindByName(f.opts.TrashDir, "foo"), f.source, nil, f.opts.Store); err != nil {
+		t.Fatal(err)
+	}
+
+	if !exists(item.Path) || f.opts.Store.Has("foo") {
+		t.Error("an item with nothing recorded should come back as local")
+	}
+}

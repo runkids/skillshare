@@ -285,6 +285,52 @@ func (s *MetadataStore) MovePath(from, to string) int {
 	return len(keys)
 }
 
+// Extract returns a copy of what RemoveByNames drops for relPath: the
+// entries, the accepted audit findings and the target overrides.
+func (s *MetadataStore) Extract(relPath string) *MetadataStore {
+	out := NewMetadataStore()
+	for key, entry := range s.Entries {
+		if entry != nil && removedWith(key, entry, relPath) {
+			e := *entry
+			out.Entries[key] = &e
+		}
+	}
+	under := func(k string) bool { return k == relPath || strings.HasPrefix(k, relPath+"/") }
+	for k, v := range s.AuditAccepted {
+		if under(k) {
+			if out.AuditAccepted == nil {
+				out.AuditAccepted = map[string][]string{}
+			}
+			out.AuditAccepted[k] = v
+		}
+	}
+	for k, v := range s.TargetOverrides {
+		if under(k) {
+			out.SetTargetOverride(k, v)
+		}
+	}
+	return out
+}
+
+// IsEmpty reports whether the store records nothing.
+func (s *MetadataStore) IsEmpty() bool {
+	return len(s.Entries) == 0 && len(s.AuditAccepted) == 0 && len(s.TargetOverrides) == 0
+}
+
+// Merge copies other's entries, accepted audit findings and target overrides
+// into s, replacing what s holds under the same keys.
+func (s *MetadataStore) Merge(other *MetadataStore) {
+	maps.Copy(s.Entries, other.Entries)
+	if len(other.AuditAccepted) > 0 && s.AuditAccepted == nil {
+		s.AuditAccepted = map[string][]string{}
+	}
+	maps.Copy(s.AuditAccepted, other.AuditAccepted)
+	if len(other.TargetOverrides) > 0 && s.TargetOverrides == nil {
+		s.TargetOverrides = map[string][]string{}
+	}
+	maps.Copy(s.TargetOverrides, other.TargetOverrides)
+}
+
 // List returns sorted entry names.
 func (s *MetadataStore) List() []string {
 	names := make([]string, 0, len(s.Entries))
@@ -313,17 +359,21 @@ func (s *MetadataStore) RemoveByNames(names map[string]bool) {
 		s.RemoveTargetOverrides(name)
 	}
 	for _, key := range s.List() {
-		entry := s.Get(key)
-		full := KeyToRelPath(key, entry)
 		for name := range names {
-			if full == name ||
-				strings.HasPrefix(key, name+"/") || strings.HasPrefix(full, name+"/") ||
-				inLegacyRepoGroup(entry, name) {
+			if removedWith(key, s.Get(key), name) {
 				s.Remove(key)
 				break
 			}
 		}
 	}
+}
+
+// removedWith reports whether uninstalling name removes the entry at key.
+func removedWith(key string, entry *MetadataEntry, name string) bool {
+	full := KeyToRelPath(key, entry)
+	return full == name ||
+		strings.HasPrefix(key, name+"/") || strings.HasPrefix(full, name+"/") ||
+		inLegacyRepoGroup(entry, name)
 }
 
 // inLegacyRepoGroup matches entries written when a top-level tracked repo

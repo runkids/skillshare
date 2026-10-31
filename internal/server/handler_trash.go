@@ -3,10 +3,10 @@ package server
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"skillshare/internal/trash"
+	"skillshare/internal/uninstall"
 )
 
 type trashKind string
@@ -161,9 +161,11 @@ func (s *Server) handleRestoreTrash(w http.ResponseWriter, r *http.Request) {
 
 	switch resolved.kind {
 	case trashKindAgent:
-		err = trash.RestoreAgent(resolved.entry, resolved.dest)
+		err = uninstall.RestoreAgent(resolved.entry, resolved.dest, s.agentsStore)
 	default:
-		err = trash.Restore(resolved.entry, resolved.dest, s.skillsWalk().Follow)
+		if err = uninstall.Restore(resolved.entry, resolved.dest, s.skillsWalk().Follow, s.skillsStore); err == nil {
+			s.reconcileSkillsConfig(resolved.dest)
+		}
 	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to restore: "+err.Error())
@@ -203,7 +205,7 @@ func (s *Server) handleDeleteTrash(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := os.RemoveAll(resolved.entry.Path); err != nil {
+	if err := trash.Delete(resolved.entry.Path); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete: "+err.Error())
 		return
 	}
@@ -246,7 +248,7 @@ func (s *Server) handleEmptyTrash(w http.ResponseWriter, r *http.Request) {
 	for _, target := range targets {
 		items := trash.List(target.base)
 		for _, item := range items {
-			if err := os.RemoveAll(item.Path); err != nil {
+			if err := trash.Delete(item.Path); err != nil {
 				writeError(w, http.StatusInternalServerError, "failed to empty trash: "+err.Error())
 				return
 			}

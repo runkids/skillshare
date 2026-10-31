@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"skillshare/internal/install"
 	"skillshare/internal/trash"
 )
 
@@ -72,6 +73,30 @@ func TestHandleRestoreTrash_AgentKind(t *testing.T) {
 	}
 	if entry := trash.FindByName(s.agentTrashBase(), "tutor"); entry != nil {
 		t.Fatalf("expected agent trash entry to be removed after restore")
+	}
+}
+
+func TestHandleRestoreTrash_KeepsRemoteSource(t *testing.T) {
+	s, src := newTestServer(t)
+	addSkill(t, src, "remote-skill")
+	s.skillsStore.Set("remote-skill", &install.MetadataEntry{Source: "github.com/acme/remote-skill"})
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, "/api/resources/remote-skill", nil))
+	if rr.Code != http.StatusOK || s.skillsStore.Has("remote-skill") {
+		t.Fatalf("uninstall should prune the entry: %d %s", rr.Code, rr.Body.String())
+	}
+
+	rr = httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/trash/remote-skill/restore", nil))
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if e := s.skillsStore.Get("remote-skill"); e == nil || e.Source != "github.com/acme/remote-skill" {
+		t.Errorf("cached store should hold the restored source, got %+v", e)
 	}
 }
 

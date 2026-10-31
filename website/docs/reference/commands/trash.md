@@ -90,6 +90,8 @@ Next
 
 For agents, the restore hint will suggest `skillshare sync agents` instead.
 
+Restore also brings back what the install recorded: a skill, tracked repo or agent installed from GitHub or another remote keeps its source, so `update` and `check` still work. Items trashed by an older version come back as local.
+
 A trashed [source link](../targets/configuration.md#follow_source_links) is listed as `link → <target>` and restored as a link (or junction) again, never as a copy of its target. A skill trashed from behind a followed link (`_dev-skills/foo`) is restored into the real checkout when `follow_source_links` is on; the restore fails and keeps the trash entry when the setting is off or a nested link below the checkout leads elsewhere.
 
 If an item with the same name already exists in source, restore will fail. Uninstall the existing item first or use a different name.
