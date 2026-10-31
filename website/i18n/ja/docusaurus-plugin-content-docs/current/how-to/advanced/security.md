@@ -204,7 +204,7 @@ rules:
 ```bash
 # いずれかの Skill に HIGH 以上の検出結果があればパイプラインを失敗させる
 skillshare audit --threshold high
-# 終了コード: 0 = クリーン、1 = 検出結果あり
+# 終了コード: 0 = 閾値未満、1 = 検出結果あり、2 = エラー
 ```
 
 ### 実例: Skill Hub の PR 検証

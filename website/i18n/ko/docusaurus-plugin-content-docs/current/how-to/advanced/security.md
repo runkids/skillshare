@@ -204,7 +204,7 @@ rules:
 ```bash
 # 어떤 skill이든 HIGH 이상 결과가 있으면 파이프라인 실패
 skillshare audit --threshold high
-# 종료 코드: 0 = 깨끗함, 1 = 결과 발견됨
+# 종료 코드: 0 = 임계값 미만, 1 = 결과 발견됨, 2 = 오류
 ```
 
 ### 실제 사례: Skill Hub PR 검증

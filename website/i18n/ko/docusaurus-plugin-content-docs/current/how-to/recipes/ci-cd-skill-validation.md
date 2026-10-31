@@ -143,7 +143,7 @@ jobs:
 ```bash
 # 임계값 이상의 발견 사항이 있으면 배포 차단
 skillshare audit --threshold high
-echo $?  # 0 = 정상, 1 = 발견 사항 있음
+echo $?  # 0 = 임계값 미만, 1 = 발견 사항 있음, 2 = 오류
 ```
 
 ### SARIF 출력

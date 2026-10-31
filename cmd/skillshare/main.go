@@ -141,11 +141,15 @@ func main() {
 	}
 
 	if err := handler(args); err != nil {
+		exitCode := 1
+		if cmd == "audit" {
+			exitCode = 2
+		}
 		// jsonSilentError means JSON output was already written to stdout;
 		// exit non-zero without adding plain-text noise.
 		var silent *jsonSilentError
 		if errors.As(err, &silent) {
-			os.Exit(1)
+			os.Exit(exitCode)
 		}
 		if serving {
 			fmt.Fprintf(os.Stderr, "✗ %v\n", err)
@@ -153,7 +157,7 @@ func main() {
 		}
 		fmt.Println()
 		ui.Error("%v", err)
-		os.Exit(1)
+		os.Exit(exitCode)
 	}
 
 	// Structured-output contract: machine-readable modes (--json, -j,
