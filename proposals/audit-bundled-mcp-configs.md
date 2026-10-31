@@ -1,5 +1,7 @@
 # Feature Proposal: Audit bundled MCP server configuration
 
+Issue: [#687](https://github.com/runkids/skillshare/issues/687)
+
 ## Problem
 
 A skill can include MCP server definitions as well as instructions and scripts.
