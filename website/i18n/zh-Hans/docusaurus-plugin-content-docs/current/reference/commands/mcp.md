@@ -582,7 +582,8 @@ mcp:
 - **MCP** 标签页列出每个 global server，并各带一个开关。关闭其中一个，会保存一条
   不带 `targets` 的 `disabled` 条目，因此它会如[上文](#turn-off-a-global-server-in-one-project)所述
   跟随项目的 targets；重新打开则会移除该条目。其下方是只存在于该项目中的 server。
-- 已关闭的 server 会显示它在哪些 Agent 中被关闭的 logo。如果项目的某个 Agent 没有
+- 已关闭的 server 会显示它在哪些 Agent 中被关闭的 logo。已开启的 server 会显示加载它的 Agent；
+  被同名的项目 server 取代时则不显示。如果项目的某个 Agent 没有
   按项目的开关，该行会说明这个 server 在那里仍会加载。如果某个条目列出了自己的
   `targets`，且与项目的 targets 不同，就会出现 **改成与项目一致**：它会把该条目重新保存为
   不带 `targets` 的形式。

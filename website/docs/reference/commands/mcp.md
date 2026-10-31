@@ -617,7 +617,8 @@ project has an **MCP** tab.
   `disabled` entry without `targets`, so it follows the project's targets as described
   [above](#turn-off-a-global-server-in-one-project); turning it back on removes the
   entry. Below it are the servers that exist in that project only.
-- A server that is off shows the logos of the Agents it is off in. When one of the
+- A server that is off shows the logos of the Agents it is off in. A server that is on shows
+  the Agents it loads in, and none when a project server of the same name replaces it. When one of the
   project's Agents has no per-project switch, the row says that the server still loads
   there. An entry that lists its own `targets`, which differ from the project's, gets
   **Match the project**: it saves the entry again without `targets`.

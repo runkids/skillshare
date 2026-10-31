@@ -551,7 +551,8 @@ mcp:
   不含 `targets` 的 `disabled` 項目，因此它會如
   [上方說明](#turn-off-a-global-server-in-one-project)所述跟著 project 的 targets；
   重新開啟則會移除該項目。下方則是只存在於該 project 的 servers。
-- 已關閉的 server 會顯示它在哪些 Agents 中被關閉的 logo。當 project 的某個 Agent
+- 已關閉的 server 會顯示它在哪些 Agents 中被關閉的 logo。已開啟的 server 會顯示載入它的 Agents；
+  被同名的 project server 取代時則不顯示。當 project 的某個 Agent
   不支援個別 project 開關時，該列會說明這個 server 在那裡仍會載入。如果項目列出了
   自己的 `targets`，且與 project 的不同，就會出現 **改成跟專案一致**：它會把該項目
   重新儲存為不含 `targets` 的版本。
