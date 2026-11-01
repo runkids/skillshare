@@ -26,7 +26,8 @@ Keep a useful local inventory and explicitly later transitive traversal visible.
 - Report visited nodes, failures and a truncated frontier with reasons, retaining
   source edges and deterministic ordering. Cycles and duplicate refs share work.
 - Inventory has no prerequisite. Transitive fetches genuinely require admission,
-  byte/path/time limits equivalent to the remote-install bounds proposal;
+  byte/path/time limits equivalent to the
+  [bounded remote-install proposal](https://github.com/runkids/skillshare/pull/684);
   cancellation and completeness contracts must be agreed, not assumed.
 
 Relevant source: `internal/audit/markdown_links.go`, `internal/install/github_download.go`, `internal/install/gitea_download.go`.
