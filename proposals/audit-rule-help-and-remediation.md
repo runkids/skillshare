@@ -16,8 +16,8 @@ Extend existing rule metadata and populate the full built-in inventory.
   preserve them through global/project merging and custom rule loading.
 - Populate useful guidance for every built-in rule, including generated
   credential rules; a schema-only seed is not completion.
-- Expose help in `audit rules`, Markdown reports and the dashboard detail
-  drawer, with stable rule identity and escaping appropriate to each format.
+- Expose help in `audit rules`, Markdown reports and the dashboard’s per-finding
+  expander rows, with stable rule identity and escaping appropriate to each format.
 - Emit SARIF rule help with the available explanation and remediation, retaining
   current result locations, severity and finding messages.
 - Let custom rules provide their own text without executing links or templates.
