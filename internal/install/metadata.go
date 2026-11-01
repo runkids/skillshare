@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"skillshare/internal/sourcewalk"
+	"skillshare/internal/utils"
 )
 
 // MetadataFileName is the centralized metadata file stored in each directory.
@@ -469,7 +470,19 @@ func loadMetadataFile(dir string) (*MetadataStore, error) {
 	if store.Entries == nil {
 		store.Entries = make(map[string]*MetadataEntry)
 	}
+	store.dropOSMetadataHashes()
 	return &store, nil
+}
+
+// dropOSMetadataHashes removes OS metadata files from recorded hashes. Hashes
+// recorded before ComputeFileHashes skipped them would otherwise always differ
+// from the current ones (#743).
+func (s *MetadataStore) dropOSMetadataHashes() {
+	for _, e := range s.Entries {
+		if e != nil {
+			maps.DeleteFunc(e.FileHashes, func(file, _ string) bool { return utils.IsOSMetadataFile(filepath.Base(file)) })
+		}
+	}
 }
 
 // LoadMetadata reads .metadata.json and cleans up any lingering sidecar files.

@@ -109,7 +109,7 @@ Audit エンジンは、skill ディレクトリ内のすべてのテキスト�
 | `content-tampered` | MEDIUM | ファイルの SHA-256 ハッシュが記録されたハッシュと一致しない |
 | `content-oversize` | MEDIUM | pin されたファイルが 1 MB のスキャンサイズ上限を超えている |
 | `content-missing` | LOW | メタデータに記録されたファイルがディスク上に存在しない |
-| `content-unexpected` | LOW | メタデータに記録されていない新しいファイルが存在する |
+| `content-unexpected` | LOW | メタデータに記録されていない新しいファイルが存在する（`.DS_Store` などの OS メタデータファイルは除く） |
 
 > **後方互換性：** この機能より前にインストールされた skill（メタデータに `file_hashes` がないもの）は静かにスキップされます — 誤検知は発生しません。
 

@@ -109,7 +109,7 @@ audit engine은 skill 디렉터리의 모든 텍스트 기반 파일을 100개 �
 | `content-tampered` | MEDIUM | 파일의 SHA-256 해시가 기록된 해시와 더 이상 일치하지 않음 |
 | `content-oversize` | MEDIUM | pin된 파일이 1MB 스캔 크기 제한을 초과함 |
 | `content-missing` | LOW | 메타데이터에 기록된 파일이 디스크에 더 이상 존재하지 않음 |
-| `content-unexpected` | LOW | 메타데이터에 기록되지 않은 새 파일이 존재함 |
+| `content-unexpected` | LOW | 메타데이터에 기록되지 않은 새 파일이 존재함 (`.DS_Store` 같은 OS 메타데이터 파일은 제외) |
 
 > **하위 호환:** 이 기능 이전에 설치된 skill(메타데이터에 `file_hashes`가 없음)은 조용히 건너뛰어집니다 — 오탐 없음.
 

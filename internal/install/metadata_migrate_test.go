@@ -109,6 +109,27 @@ func TestMigrateMetadata_FromRegistry(t *testing.T) {
 
 // TestMigrateMetadata_MergesRegistryAndSidecar verifies that registry fields (group, branch)
 // and sidecar fields (repo_url, file_hashes) are merged into a single entry.
+func TestMigrateMetadata_DropsOSMetadataHashes(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	writeSkillMetaSidecar(t, skillDir, &SkillMeta{
+		Source:     "github.com/user/repo",
+		RepoURL:    "https://github.com/user/repo",
+		FileHashes: map[string]string{"SKILL.md": "sha256:a", "assets/.DS_Store": "sha256:b"},
+	})
+
+	store, err := LoadMetadataWithMigration(dir, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := store.Get("my-skill").FileHashes; len(got) != 1 {
+		t.Errorf("FileHashes = %v, want only SKILL.md", got)
+	}
+}
+
 func TestMigrateMetadata_MergesRegistryAndSidecar(t *testing.T) {
 	dir := t.TempDir()
 

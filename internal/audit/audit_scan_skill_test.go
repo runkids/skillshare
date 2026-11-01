@@ -937,6 +937,51 @@ func TestScanSkill_ContentUnexpected(t *testing.T) {
 	}
 }
 
+func TestScanSkill_DSStoreNotUnexpected(t *testing.T) {
+	skillDir := filepath.Join(t.TempDir(), "my-skill")
+	os.MkdirAll(filepath.Join(skillDir, "assets"), 0755)
+	content := []byte("# Skill")
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), content, 0644)
+	os.WriteFile(filepath.Join(skillDir, "assets", ".DS_Store"), []byte{0}, 0644)
+	writeMetaWithHashes(t, skillDir, map[string]string{
+		"SKILL.md": "sha256:" + sha256hex(content),
+	})
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range result.Findings {
+		if f.Pattern == "content-unexpected" {
+			t.Errorf("unexpected finding for Finder metadata: %s", f.File)
+		}
+	}
+}
+
+func TestScanSkill_PinnedOSMetadataIgnored(t *testing.T) {
+	skillDir := filepath.Join(t.TempDir(), "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	content := []byte("# Skill")
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), content, 0644)
+	os.WriteFile(filepath.Join(skillDir, ".DS_Store"), []byte("rewritten by Finder"), 0644)
+	// Older installs pinned these; Finder rewrote one and the other is gone.
+	writeMetaWithHashes(t, skillDir, map[string]string{
+		"SKILL.md":    "sha256:" + sha256hex(content),
+		".DS_Store":   "sha256:" + sha256hex([]byte("original")),
+		"desktop.ini": "sha256:" + sha256hex([]byte("gone")),
+	})
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range result.Findings {
+		if f.Category == CategoryIntegrity {
+			t.Errorf("unexpected integrity finding: %s %s", f.Pattern, f.File)
+		}
+	}
+}
+
 func TestScanSkill_NoHashesNoFindings(t *testing.T) {
 	dir := t.TempDir()
 	skillDir := filepath.Join(dir, "my-skill")

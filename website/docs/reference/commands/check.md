@@ -181,7 +181,7 @@ When a skill's subdirectory was renamed or deleted upstream, `check` reports it 
 :::
 
 :::info Locally modified skills
-A skill you edited after installing it is reported as **modified**, even when upstream has a newer version; its `message` then ends with `update available upstream`. `update` leaves it alone until you run `skillshare update <name> --force`, which discards your changes and reinstalls it.
+A skill you edited after installing it is reported as **modified**, even when upstream has a newer version; its `message` then ends with `update available upstream`. `update` leaves it alone until you run `skillshare update <name> --force`, which discards your changes and reinstalls it. OS metadata files (`.DS_Store`, `Thumbs.db`, `desktop.ini`) do not count as local changes.
 
 To see the changes first, run `skillshare check <name> --diff`. It fetches the commit the skill was installed at, so the diff shows only your edits even when upstream has moved on:
 

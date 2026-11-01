@@ -109,7 +109,7 @@ Skills installed or updated via `skillshare install` or `skillshare update` have
 | `content-tampered` | MEDIUM | A file's SHA-256 hash no longer matches the recorded hash |
 | `content-oversize` | MEDIUM | A pinned file exceeds the 1 MB scan size limit |
 | `content-missing` | LOW | A file recorded in metadata no longer exists on disk |
-| `content-unexpected` | LOW | A new file exists that was not recorded in metadata |
+| `content-unexpected` | LOW | A new file exists that was not recorded in metadata (OS metadata files such as `.DS_Store` are ignored) |
 
 > **Backward compatible:** Skills installed before this feature (without `file_hashes` in metadata) are silently skipped — no false positives.
 

@@ -109,7 +109,7 @@ Audit engine 會把 skill 目錄中每個以文字為主的檔案，拿去比對
 | `content-tampered` | MEDIUM | 檔案的 SHA-256 雜湊值與記錄的雜湊值不再相符 |
 | `content-oversize` | MEDIUM | 已釘選的檔案超過 1 MB 的掃描大小限制 |
 | `content-missing` | LOW | metadata 中記錄的檔案在磁碟上已不存在 |
-| `content-unexpected` | LOW | 出現了未記錄在 metadata 中的新檔案 |
+| `content-unexpected` | LOW | 出現了未記錄在 metadata 中的新檔案（`.DS_Store` 等作業系統 metadata 檔案除外） |
 
 > **向下相容：** 在這項功能推出之前安裝的 skills（metadata 中沒有 `file_hashes`）會被自動略過 — 不會出現誤判。
 
