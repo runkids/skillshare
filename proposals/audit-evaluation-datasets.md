@@ -39,6 +39,12 @@ belong with `internal/audit/audit_scan_skill.go` and
 `internal/audit/audit_result.go`. A general completeness contract could supply
 shared dispositions if available, but is not a prerequisite for explicit output.
 
+## NVIDIA source and adaptation
+
+There is a source conflict at the pinned revision. SkillSpector's [dataset documentation](https://github.com/NVIDIA/SkillSpector/blob/6d0b7c849949cab9181e57798247f89e48ce5d6a/docs/EVAL_DATASETS.md#L3-L21) describes static exclusions for the listed paths, but its [static-pattern regression](https://github.com/NVIDIA/SkillSpector/blob/6d0b7c849949cab9181e57798247f89e48ce5d6a/tests/nodes/analyzers/test_static_patterns.py#L881-L906) asserts findings for two evaluation paths, and its [ledger regression](https://github.com/NVIDIA/SkillSpector/blob/6d0b7c849949cab9181e57798247f89e48ce5d6a/tests/nodes/test_security_remediation.py#L1773-L1782) asserts completed static inspection of an evaluation file. The [static runner](https://github.com/NVIDIA/SkillSpector/blob/6d0b7c849949cab9181e57798247f89e48ce5d6a/src/skillspector/nodes/analyzers/static_runner.py#L3212-L3228) iterates components without an evaluation-path exemption in that loop. These are source observations, not a claim that tests were run here.
+
+The documented path family is only historical or indirect inspiration; do not claim current NVIDIA runtime skips datasets. Skillshare's default versus opt-in exemption, strict profile, wildcard scope, JSONL handling and truthful coverage disclosures require independent policy approval. A path chosen by an author is not evidence that its contents are safe.
+
 ## Alternatives Considered
 
 Rule-by-rule exclusions require repeated configuration and obscure why a file
@@ -60,5 +66,7 @@ integrity changes. No implementation or change to default coverage is included.
 
 - Approve default static exclusion, or require users to opt in?
 - Are these exact path families sufficient, and should matching be case-sensitive?
+- Should the original broader `eval/dataset.*` request remain narrowed to the
+  named JSON/JSONL/YAML/YML formats, or should any other extensions be included?
 - Should strict profiles always scan recognized datasets despite the default?
 - Which non-static analyzers should continue to inspect dataset content?
