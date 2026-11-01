@@ -9,6 +9,13 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.28.3] - 2026-11-01
+
+
+### Bug Fixes
+
+* **check:** ignore OS metadata files when detecting local changes ([#744](https://github.com/runkids/skillshare/issues/744)) ([51d299f](https://github.com/runkids/skillshare/commit/51d299ff07ba4eeaff1b8929aa803c826d0a9ae1)), closes [#743](https://github.com/runkids/skillshare/issues/743)
+
 ## [0.28.2] - 2026-10-31
 
 
