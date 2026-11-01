@@ -344,3 +344,39 @@ rules:
     pattern: shell-chain
     message: "Command chaining detected; verify intent"
     regex: '(?m)(\|\||&&|;)\s*(rm|chmod|curl|wget|bash|sh)\b'
+
+  # Narrow imperative prose patterns; anchor at the start to avoid prohibitions.
+  - id: anti-refusal-0
+    severity: HIGH
+    pattern: anti-refusal
+    message: "Directive to comply despite safety policies"
+    confidence: 0.85
+    regex: '(?i)^\s*(?:[-*]\s*)?(?:never\s+refuse\s+any\s+request|always\s+(?:comply|answer))\b.{0,80}\b(?:regardless\s+of|despite|even\s+if)\b.{0,60}\b(?:safety|policy|policies|restrictions)\b'
+
+  - id: prompt-leakage-0
+    severity: HIGH
+    pattern: prompt-leakage
+    message: "Directive to disclose hidden system instructions"
+    confidence: 0.85
+    regex: '(?i)^\s*(?:[-*]\s*)?(?:reveal|print|disclose|output|show)\s+(?:(?:your|the|hidden|original)\s+){1,3}(?:system\s+prompt|system\s+instructions)\b'
+
+  - id: memory-poisoning-0
+    severity: HIGH
+    pattern: memory-poisoning
+    message: "Directive to persist a safety override in memory"
+    confidence: 0.85
+    regex: '(?i)^\s*(?:[-*]\s*)?(?:remember\s+permanently|save\s+to\s+(?:long[- ]term\s+)?memory)\b.{0,100}\b(?:safety|security)\b.{0,50}\b(?:disabled|ignored|bypassed)\b'
+
+  - id: agent-snooping-0
+    severity: HIGH
+    pattern: agent-snooping
+    message: "Directive to disclose or access agent configuration or another skill without permission"
+    confidence: 0.85
+    regex: '(?i)^\s*(?:[-*]\s*)?(?:read|open|copy)\s+(?:~/(?:\.claude|\.codex|\.gemini)/\S+|mcp\.json|another\s+skill''s\s+SKILL\.md)\s+(?:and\s+(?:send|share|exfiltrate)|without\s+(?:permission|consent))\b'
+
+  - id: persistence-0
+    severity: HIGH
+    pattern: persistence
+    message: "Directive to establish persistent execution"
+    confidence: 0.85
+    regex: '(?i)^\s*(?:[-*]\s*)?(?:install\s+a\s+cron\s+job\b|run\s+(?:crontab\s+-e|launchctl\s+load|systemctl\s+enable)\b|append\s+.{1,100}\s+to\s+~/\.(?:bashrc|zshrc|profile)\b).{0,100}\b(?:run|install|execute|launch|load)\s+(?:the\s+)?(?:payload|malware|backdoor)\b|^\s*(?:[-*]\s*)?append\s+.{0,80}\b(?:payload|malware|backdoor)\b.{0,80}\s+to\s+~/\.(?:bashrc|zshrc|profile)\b'

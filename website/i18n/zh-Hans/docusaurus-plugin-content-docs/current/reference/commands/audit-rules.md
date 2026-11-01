@@ -110,6 +110,7 @@ rules:
 | `pattern` | 是* | 规则类别名称（例如 `prompt-injection`） |
 | `message` | 是* | 在发现结果中展示的可读描述 |
 | `regex` | 是* | 用于匹配每一行的正则表达式 |
+| `confidence` | 否 | 0 到 1 的置信度；默认为 0.95 |
 | `exclude` | 否 | 如果某一行同时匹配 `regex` 和 `exclude`，该发现结果会被抑制 |
 | `enabled` | 否 | 设为 `false` 以禁用某条规则。禁用时只需提供 `id`。 |
 
@@ -120,7 +121,7 @@ rules:
 每一层（先 global，再 project）都在上一层的基础上叠加应用：
 
 - **相同 `id`** + `enabled: false` → 禁用该规则
-- **相同 `id`** + 其他字段 → 替换整条规则
+- **相同 `id`** + `regex` → 替换整条规则；仅有 `severity` 或 `confidence` 时覆盖相应字段
 - **新的 `id`** → 作为自定义规则追加
 - **仅 `pattern`**（无 `id`）+ `enabled: false` → 禁用所有匹配该 pattern 的规则
 - **仅 `pattern`** + `severity` → 覆盖所有匹配规则的 severity
@@ -340,6 +341,11 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 | `hidden-unicode-0` | hidden-unicode | HIGH |
 | `hidden-unicode-2` | hidden-unicode | HIGH |
 | `config-manipulation-0` | config-manipulation | HIGH |
+| `anti-refusal-0` | anti-refusal | HIGH |
+| `prompt-leakage-0` | prompt-leakage | HIGH |
+| `memory-poisoning-0` | memory-poisoning | HIGH |
+| `agent-snooping-0` | agent-snooping | HIGH |
+| `persistence-0` | persistence | HIGH |
 | `hidden-comment-injection-1` | hidden-comment-injection | HIGH |
 | `self-propagation-0` | self-propagation | HIGH |
 | `destructive-commands-0` | destructive-commands | HIGH |

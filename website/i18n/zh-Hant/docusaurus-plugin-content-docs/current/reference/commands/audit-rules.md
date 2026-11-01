@@ -110,6 +110,7 @@ rules:
 | `pattern` | 是* | 規則分類名稱（例如 `prompt-injection`） |
 | `message` | 是* | 顯示於發現項目中的人類可讀說明 |
 | `regex` | 是* | 用於比對每一行的正規表示式 |
+| `confidence` | 否 | 0 到 1 的信心度；預設為 0.95 |
 | `exclude` | 否 | 若一行同時符合 `regex` 與 `exclude`，該發現項目會被抑制 |
 | `enabled` | 否 | 設為 `false` 以停用規則。停用時只需要 `id`。 |
 
@@ -120,7 +121,7 @@ rules:
 每一層（global，再來是 project）都會疊加在前一層之上：
 
 - **相同 `id`** + `enabled: false` → 停用該規則
-- **相同 `id`** + 其他欄位 → 取代整條規則
+- **相同 `id`** + `regex` → 取代整條規則；只有 `severity` 或 `confidence` 時覆寫相應欄位
 - **新的 `id`** → 附加為自訂規則
 - **只有 `pattern`**（沒有 `id`）+ `enabled: false` → 停用所有符合該 pattern 的規則
 - **只有 `pattern`** + `severity` → 覆寫所有符合規則的嚴重程度
@@ -340,6 +341,11 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 | `hidden-unicode-0` | hidden-unicode | HIGH |
 | `hidden-unicode-2` | hidden-unicode | HIGH |
 | `config-manipulation-0` | config-manipulation | HIGH |
+| `anti-refusal-0` | anti-refusal | HIGH |
+| `prompt-leakage-0` | prompt-leakage | HIGH |
+| `memory-poisoning-0` | memory-poisoning | HIGH |
+| `agent-snooping-0` | agent-snooping | HIGH |
+| `persistence-0` | persistence | HIGH |
 | `hidden-comment-injection-1` | hidden-comment-injection | HIGH |
 | `self-propagation-0` | self-propagation | HIGH |
 | `destructive-commands-0` | destructive-commands | HIGH |

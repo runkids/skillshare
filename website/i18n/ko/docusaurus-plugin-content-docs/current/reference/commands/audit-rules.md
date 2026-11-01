@@ -110,6 +110,7 @@ rules:
 | `pattern` | 예* | 규칙 카테고리 이름 (예: `prompt-injection`) |
 | `message` | 예* | findings에 표시되는 사람이 읽을 수 있는 설명 |
 | `regex` | 예* | 각 줄에 대해 매칭할 정규식 |
+| `confidence` | 아니요 | 0에서 1 사이의 신뢰도; 기본값은 0.95 |
 | `exclude` | 아니오 | 줄이 `regex`와 `exclude` 둘 다에 매칭되면 finding이 억제됨 |
 | `enabled` | 아니오 | 규칙을 비활성화하려면 `false`로 설정. 비활성화 시 `id`만 필요 |
 
@@ -120,7 +121,7 @@ rules:
 각 레이어(global, 그다음 project)는 이전 레이어 위에 적용됩니다:
 
 - **동일한 `id`** + `enabled: false` → 해당 규칙 비활성화
-- **동일한 `id`** + 다른 필드 → 규칙 전체를 교체
+- **동일한 `id`** + `regex` → 규칙 전체를 교체; `severity` 또는 `confidence`만 있으면 해당 필드만 재정의
 - **새로운 `id`** → 커스텀 규칙으로 추가
 - **`pattern`만** (id 없음) + `enabled: false` → 해당 패턴에 일치하는 모든 규칙 비활성화
 - **`pattern`만** + `severity` → 일치하는 모든 규칙의 severity를 재정의
@@ -340,6 +341,11 @@ skillshare audit --json | jq '.skills[].findings'  # findings를 프로그래밍
 | `hidden-unicode-0` | hidden-unicode | HIGH |
 | `hidden-unicode-2` | hidden-unicode | HIGH |
 | `config-manipulation-0` | config-manipulation | HIGH |
+| `anti-refusal-0` | anti-refusal | HIGH |
+| `prompt-leakage-0` | prompt-leakage | HIGH |
+| `memory-poisoning-0` | memory-poisoning | HIGH |
+| `agent-snooping-0` | agent-snooping | HIGH |
+| `persistence-0` | persistence | HIGH |
 | `hidden-comment-injection-1` | hidden-comment-injection | HIGH |
 | `self-propagation-0` | self-propagation | HIGH |
 | `destructive-commands-0` | destructive-commands | HIGH |
