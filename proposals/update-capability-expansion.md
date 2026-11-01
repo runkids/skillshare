@@ -37,7 +37,8 @@ runtime behavior.
   same decision through CLI and dashboard, including batch updates.
 
 Relevant paths are `internal/install/metadata.go`,
-`internal/install/install_update.go`, `cmd/skillshare/update_handlers.go` and
+`internal/install/install_update.go`, `internal/update/tracked.go`,
+`cmd/skillshare/update.go`, `cmd/skillshare/update_handlers.go` and
 `internal/server/handler_update.go`. Shared extraction from another analyzer
 would be optional reuse; no separate analyzer is a prerequisite.
 
