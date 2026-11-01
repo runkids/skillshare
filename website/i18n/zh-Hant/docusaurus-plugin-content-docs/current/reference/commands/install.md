@@ -177,6 +177,9 @@ Glob 比對不分大小寫：`"Core-*"` 會比對到 `core-auth`、`CORE-DB` 等
 skillshare install anthropics/skills/skills/pdf
 skillshare install google-gemini/gemini-cli/packages/core/src/skills/builtin/skill-creator
 
+# 用於在安裝前審查不受信任 skill 的選用手冊
+skillshare install runkids/skillshare/skills/skillshare-audit-review
+
 # 模糊子目錄 — 若精確路徑不存在，依 skill 名稱比對
 skillshare install runkids/my-skills/vue-best-practices
 
