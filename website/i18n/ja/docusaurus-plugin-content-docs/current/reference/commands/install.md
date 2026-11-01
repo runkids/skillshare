@@ -177,6 +177,9 @@ CI/CD パイプラインやスクリプト化されたワークフローに便�
 skillshare install anthropics/skills/skills/pdf
 skillshare install google-gemini/gemini-cli/packages/core/src/skills/builtin/skill-creator
 
+# インストール前に信頼できない Skill をレビューするための任意のプレイブック
+skillshare install runkids/skillshare/skills/skillshare-audit-review
+
 # ファジーなサブディレクトリ — 完全一致するパスが存在しない場合、Skill 名でマッチ
 skillshare install runkids/my-skills/vue-best-practices
 

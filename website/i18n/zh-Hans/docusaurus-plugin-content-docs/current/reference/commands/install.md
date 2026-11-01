@@ -177,6 +177,9 @@ Glob 匹配不区分大小写：`"Core-*"` 会匹配 `core-auth`、`CORE-DB` 等
 skillshare install anthropics/skills/skills/pdf
 skillshare install google-gemini/gemini-cli/packages/core/src/skills/builtin/skill-creator
 
+# 用于在安装前审查不可信 Skill 的可选手册
+skillshare install runkids/skillshare/skills/skillshare-audit-review
+
 # 模糊子目录匹配 —— 如果精确路径不存在，会按 Skill 名称匹配
 skillshare install runkids/my-skills/vue-best-practices
 

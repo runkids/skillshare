@@ -177,6 +177,9 @@ CI/CD 파이프라인과 스크립트 워크플로우에 유용합니다.
 skillshare install anthropics/skills/skills/pdf
 skillshare install google-gemini/gemini-cli/packages/core/src/skills/builtin/skill-creator
 
+# 설치 전에 신뢰할 수 없는 skill을 검토하기 위한 선택 사항인 플레이북
+skillshare install runkids/skillshare/skills/skillshare-audit-review
+
 # Fuzzy 하위 디렉터리 — 정확한 경로가 없으면 skill 이름으로 매칭
 skillshare install runkids/my-skills/vue-best-practices
 
