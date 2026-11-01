@@ -27,8 +27,9 @@ Extend the existing audit command and parallel runner rather than a new CLI.
 - Use a shared completeness contract for partial work; do not represent a
   timeout or failed scan as a zero-finding clean skill.
 
-Cancellation is a real requirement, supplied by scan-budget work or delivered
-jointly. Discovery itself has no prerequisite feature.
+Add cooperative cancellation to scanning and ParallelScan as part of this
+feature. Reuse an agreed resource/completeness contract if one is available;
+discovery itself has no prerequisite feature.
 
 Relevant source: `cmd/skillshare/audit.go`, `internal/audit/parallel.go`.
 
