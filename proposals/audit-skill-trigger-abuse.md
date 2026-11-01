@@ -35,6 +35,12 @@ stable rule IDs, individual disable support and CLI/dashboard visibility.
 current result-based analysis is not an installed-description index.
 Reuse that scope where useful; no prerequisite analyzer is required.
 
+## NVIDIA source and adaptation
+
+The pinned SkillSpector [`_analyze_triggers`](https://github.com/NVIDIA/SkillSpector/blob/6d0b7c849949cab9181e57798247f89e48ce5d6a/src/skillspector/nodes/analyzers/static_patterns_supply_chain.py#L3364-L3387) examines activation prose and legacy triggers for broad, command-shadowing and universal-scope patterns. The [TR1–TR3 implementation](https://github.com/NVIDIA/SkillSpector/blob/6d0b7c849949cab9181e57798247f89e48ce5d6a/src/skillspector/nodes/analyzers/static_patterns_supply_chain.py#L3414-L3479) and [trigger tests](https://github.com/NVIDIA/SkillSpector/blob/6d0b7c849949cab9181e57798247f89e48ce5d6a/tests/unit/test_patterns_new.py#L3284-L3305) illustrate specific cases and negative controls.
+
+This is direct inspiration for trigger-risk categories, not an installed-skill similarity service. Skillshare's target-command inventory, installed-description index, self-update replacement, missing-context reporting and candidate MEDIUM severities require separate policy decisions. NVIDIA's TR1 example uses LOW severity; do not attribute the proposed Skillshare severity or similarity thresholds to it.
+
 ## Alternatives Considered
 
 Broad-trigger checks alone miss command and installed-skill shadowing. Exact
