@@ -35,6 +35,12 @@ Integration points are `internal/audit/audit_scan_content.go`,
 `internal/audit/audit_scan_skill.go` and `internal/audit/dedupe.go`.
 `go.mod` already declares `golang.org/x/text`; generated confusable data is new.
 
+## NVIDIA source and adaptation
+
+The pinned SkillSpector [`normalized_security_view`](https://github.com/NVIDIA/SkillSpector/blob/6d0b7c849949cab9181e57798247f89e48ce5d6a/src/skillspector/artifacts.py#L1882-L1910) builds an NFKC/UTS #39 ASCII-skeleton view, skips selected ignorable spans and records source offsets. Its [ASCII fast-path tests](https://github.com/NVIDIA/SkillSpector/blob/6d0b7c849949cab9181e57798247f89e48ce5d6a/tests/nodes/analyzers/test_security_character_folding.py#L27-L48) check equivalent character handling without normalization.
+
+This directly inspires a derived security view. Skillshare's byte/line mapping through expansion, contraction and removal, matching-rule selection, evidence deduplication, Unicode data license/version and mixed-script policy remain separate design decisions. The less-than-15% slowdown is a proposed Skillshare acceptance target, not an NVIDIA measurement.
+
 ## Alternatives Considered
 
 More hidden-character rules identify obfuscation but do not recover the phrase.
