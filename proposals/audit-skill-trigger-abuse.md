@@ -50,7 +50,7 @@ service adds disclosure and nondeterminism to a local metadata check.
 Estimate includes frontmatter handling, target command inventory, installed-set
 context, candidate comparison, reports, configuration and fixtures. Test benign
 utility descriptions, stuffing, command matches, near matches, self-updates and
-missing comparison context. This proposal contains no trigger analyzer.
+missing comparison context. The design extends existing metadata analysis; implementation follows separately.
 
 ## Open Questions
 
