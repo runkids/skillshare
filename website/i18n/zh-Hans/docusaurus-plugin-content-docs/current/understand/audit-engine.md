@@ -109,7 +109,7 @@ audit engine 会用 100 多条内置规则（正则表达式模式、表驱动�
 | `content-tampered` | MEDIUM | 文件的 SHA-256 哈希与记录的哈希不再匹配 |
 | `content-oversize` | MEDIUM | 固定文件超过 1 MB 的扫描大小限制 |
 | `content-missing` | LOW | 元数据中记录的文件在磁盘上已不存在 |
-| `content-unexpected` | LOW | 存在一个未记录在元数据中的新文件 |
+| `content-unexpected` | LOW | 存在一个未记录在元数据中的新文件（`.DS_Store` 等操作系统元数据文件除外） |
 
 > **向后兼容：** 在此功能之前安装的 skill（元数据中没有 `file_hashes`）会被静默跳过——不会产生误报。
 

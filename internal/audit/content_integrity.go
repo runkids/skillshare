@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -27,6 +28,10 @@ func checkContentIntegrity(skillPath string, cache map[string][]byte, allFiles m
 
 	// Check pinned files: missing or tampered
 	for rel, expected := range fileHashes {
+		// Older installs pinned OS metadata files, which are not skill content (#743).
+		if utils.IsOSMetadataFile(path.Base(rel)) {
+			continue
+		}
 		normalizedRel := filepath.FromSlash(rel)
 		// Reject absolute keys in metadata (e.g. "/etc/passwd").
 		// file_hashes must always be skill-relative paths.

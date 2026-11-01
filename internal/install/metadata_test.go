@@ -258,6 +258,19 @@ func TestLoadMetadata_InvalidJSON(t *testing.T) {
 	}
 }
 
+func TestLoadMetadata_DropsRecordedDSStore(t *testing.T) {
+	dir := t.TempDir()
+	data := `{"version":1,"entries":{"s":{"file_hashes":{"SKILL.md":"sha256:a",".DS_Store":"sha256:b","assets/Thumbs.db":"sha256:c"}}}}`
+	os.WriteFile(filepath.Join(dir, MetadataFileName), []byte(data), 0644)
+	store, err := LoadMetadata(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := store.Get("s").FileHashes; len(got) != 1 || got["SKILL.md"] != "sha256:a" {
+		t.Errorf("FileHashes = %v, want only SKILL.md", got)
+	}
+}
+
 func TestMetadataStore_SaveAtomic_NoTempFiles(t *testing.T) {
 	dir := t.TempDir()
 	store := NewMetadataStore()

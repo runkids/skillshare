@@ -181,7 +181,7 @@ skill의 하위 디렉터리가 업스트림에서 이름이 바뀌거나 삭제
 :::
 
 :::info 로컬에서 수정된 skills
-설치한 뒤 편집한 skill은 upstream에 더 새로운 버전이 있어도 **modified**로 보고되며, 이때 `message`는 `update available upstream`으로 끝납니다. `update`는 `skillshare update <name> --force`를 실행하기 전까지 이 skill을 건드리지 않습니다. 이 명령은 변경 사항을 버리고 다시 설치합니다.
+설치한 뒤 편집한 skill은 upstream에 더 새로운 버전이 있어도 **modified**로 보고되며, 이때 `message`는 `update available upstream`으로 끝납니다. `update`는 `skillshare update <name> --force`를 실행하기 전까지 이 skill을 건드리지 않습니다. 이 명령은 변경 사항을 버리고 다시 설치합니다. OS 메타데이터 파일(`.DS_Store`, `Thumbs.db`, `desktop.ini`)은 로컬 변경으로 보지 않습니다.
 
 먼저 변경 사항을 보려면 `skillshare check <name> --diff`를 실행하세요. skill이 설치된 commit을 가져오므로 upstream이 앞서 나가 있어도 diff에는 직접 수정한 내용만 표시됩니다:
 
