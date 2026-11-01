@@ -32,6 +32,18 @@ Relevant boundaries are `internal/hooks/apply.go`, `internal/hooks/plan.go`,
 `internal/sync/extras.go` and `internal/server/handler_extras_edit.go`.
 Reuse audit policy and matching; this needs no bundled-settings analyzer.
 
+## NVIDIA source and adaptation
+
+These references pin NVIDIA SkillSpector at commit
+`6d0b7c849949cab9181e57798247f89e48ce5d6a`. The connection is indirect:
+SkillSpector inspects bundled execution surfaces during a skill scan; it does
+not implement Skillshare's managed-resource save or sync operations.
+
+| Mechanism | Inspected source and tests | Relationship to this proposal |
+|---|---|---|
+| Hook surfaces | [`_hook_declaration` and `_hook_group_declarations`](https://github.com/NVIDIA/SkillSpector/blob/6d0b7c849949cab9181e57798247f89e48ce5d6a/src/skillspector/nodes/analyzers/bundled_execution_surface.py#L669-L739); [handler and reach test](https://github.com/NVIDIA/SkillSpector/blob/6d0b7c849949cab9181e57798247f89e48ce5d6a/tests/nodes/analyzers/test_bundled_execution_surface.py#L176-L197) | Indirect inspiration: structured hook handlers and their event reach are security-relevant scan inputs. Applying an active policy to Skillshare-managed hook previews, source-only saves and sync is a separate mutation contract. |
+| Incomplete inspection | [`_hook_declarations`](https://github.com/NVIDIA/SkillSpector/blob/6d0b7c849949cab9181e57798247f89e48ce5d6a/src/skillspector/nodes/analyzers/bundled_execution_surface.py#L750-L794); [unmodeled payload test](https://github.com/NVIDIA/SkillSpector/blob/6d0b7c849949cab9181e57798247f89e48ce5d6a/tests/nodes/analyzers/test_bundled_execution_surface.py#L221-L228) | Indirect inspiration: unmodeled handlers can make inspection partial. Classification and transformed content for rule extras, skipped/failed reporting, operation-time blocking, explicit overrides and doctor/CLI/API/dashboard behavior are proposed Skillshare policy, not established by these scanner functions. |
+
 ## Alternatives Considered
 
 Hooks-only checks leave rule extras uncovered. Checking only CLI handlers
@@ -46,8 +58,10 @@ change unrelated file synchronization without a useful content contract.
 
 Estimate includes both mutation systems, policy plumbing, reports, docs and
 fixture coverage. Acceptance should include a rejected fetch-and-execute hook,
-a normal formatter hook, rule-body findings, source-only saves, sync-time
-reference changes and explicit overrides. This proposal includes no implementation.
+a normal formatter hook (for example `prettier --write`), a rejected
+`curl | sh` hook, rule-body findings, source-only saves, sync-time reference
+changes and explicit overrides. This proposal includes no implementation;
+maintainer approval of the linked issue is required before implementation.
 
 ## Open Questions
 
