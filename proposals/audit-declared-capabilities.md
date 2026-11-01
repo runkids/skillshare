@@ -39,6 +39,12 @@ Useful foundations are `internal/utils/frontmatter.go`, `internal/audit/tiers.go
 and `internal/audit/policy.go`. Current tiers are optional evidence reuse, not a
 complete capability mapper. This proposal has no prerequisite feature.
 
+## NVIDIA source and adaptation
+
+SkillSpector's [`_normalize_allowed_tools` and `_detect_capabilities`](https://github.com/NVIDIA/SkillSpector/blob/6d0b7c849949cab9181e57798247f89e48ce5d6a/src/skillspector/nodes/analyzers/mcp_least_privilege.py#L246-L308) normalize declarations and identify capability patterns. Its [`_map_allowed_tools_to_categories`](https://github.com/NVIDIA/SkillSpector/blob/6d0b7c849949cab9181e57798247f89e48ce5d6a/src/skillspector/nodes/analyzers/mcp_least_privilege.py#L353-L396) maps supported tool names to categories, while [least-privilege tests](https://github.com/NVIDIA/SkillSpector/blob/6d0b7c849949cab9181e57798247f89e48ce5d6a/tests/test_mcp_least_privilege.py#L315-L348) exercise an undeclared shell capability and explicitly distinguish static evidence from runtime permissions.
+
+This is direct inspiration for declaration-versus-observation analysis. Skillshare's target-specific mappings, strict-only activation, interaction rules, unknown evidence and selected severities are independent policy. Comparing one skill's declared and observed capabilities is not the old-versus-new update-consent decision and does not depend on it.
+
 ## Alternatives Considered
 
 Tier counts alone conflate command behavior and tool permission. Checking only
