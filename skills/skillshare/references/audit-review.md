@@ -1,8 +1,3 @@
----
-name: skillshare-audit-review
-description: Review an explicit untrusted skill path with Skillshare audit and report a reasoned installation recommendation.
----
-
 # Review an untrusted skill
 
 Use this read-only procedure when asked to assess a specific skill before installation.
