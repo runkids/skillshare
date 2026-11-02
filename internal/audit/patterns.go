@@ -110,6 +110,8 @@ type rule struct {
 	prefilterFold bool
 }
 
+const defaultRuleConfidence = 0.95
+
 // yamlRule is the YAML deserialization type for a single rule.
 type yamlRule struct {
 	ID                   string   `yaml:"id"`
@@ -292,7 +294,7 @@ func compileRules(yr []yamlRule) ([]rule, error) {
 			return nil, fmt.Errorf("rule %q: invalid regex: %w", y.ID, err)
 		}
 
-		confidence := 0.95
+		confidence := defaultRuleConfidence
 		if y.Confidence != nil {
 			confidence = *y.Confidence
 			if math.IsNaN(confidence) || confidence < 0 || confidence > 1 {

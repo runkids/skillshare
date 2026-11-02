@@ -351,21 +351,21 @@ rules:
     pattern: anti-refusal
     message: "Directive to comply despite safety policies"
     confidence: 0.85
-    regex: '(?i)^\s*(?:(?:[-*+>]|\d+[.)])\s*)?(?:\*\*)?(?:never\s+refuse\s+any\s+request|always\s+(?:comply|answer))(?:\*\*)?\s*[,]?\s*(?:regardless\s+of|despite|even\s+if)\b.{0,60}\b(?:safety|security|refusal)\s+(?:policies|policy|rules|restrictions|checks)\b'
+    regex: '(?i)^\s*(?:(?:[-*+>]|\d+[.)])\s*)?(?:\*\*)?(?:never\s+refuse\s+any\s+request|always\s+(?:comply(?:\s+with\s+(?:any|all|every)\s+requests?)?|answer(?:\s+(?:all\s+)?(?:user\s+)?questions?)?))(?:\*\*)?\s*[,]?\s*(?:regardless\s+of|despite|even\s+if)\b.{0,60}\b(?:safety|security|refusal)\s+(?:policies|policy|rules|restrictions|checks|guidelines|protocols|requirements)\b'
 
   - id: prompt-leakage-0
     severity: HIGH
     pattern: prompt-leakage
     message: "Directive to disclose hidden system instructions"
     confidence: 0.85
-    regex: '(?i)^\s*(?:(?:[-*+>]|\d+[.)])\s*)?(?:\*\*)?(?:reveal|print|disclose|output|show)\s+(?:(?:your|the|hidden|original)\s+){1,3}(?:system\s+prompt|system\s+instructions)\b\s+to\s+(?:the\s+)?user\b'
+    regex: '(?i)^\s*(?:(?:[-*+>]|\d+[.)])\s*)?(?:\*\*)?(?:reveal|print|disclose|output|show)\s+(?:(?:your|the|hidden|original)\s+){1,3}(?:system\s+prompt|system\s+instructions)\b(?:\s+to\s+(?:the\s+)?user\b|\s*[.!]|\s*$)'
 
   - id: memory-poisoning-0
     severity: HIGH
     pattern: memory-poisoning
     message: "Directive to persist a safety override in memory"
     confidence: 0.85
-    regex: '(?i)^\s*(?:(?:[-*+>]|\d+[.)])\s*)?(?:\*\*)?(?:remember\s+permanently|save\s+to\s+(?:long[- ]term\s+)?memory)\b.{0,100}\b(?:safety|security)\s+(?:checks|rules|policies|restrictions)\s+(?:are|is|should\s+be|must\s+be)\s+(?:disabled|ignored|bypassed)\b'
+    regex: '(?i)^\s*(?:(?:[-*+>]|\d+[.)])\s*)?(?:\*\*)?(?:remember\s+permanently|save\s+to\s+(?:long[- ]term\s+)?memory)\b.{0,100}\b(?:safety|security)\s+(?:checks|rules|policies|restrictions)\s+(?:are(?:\s+to\s+be)?|is(?:\s+to\s+be)?|should\s+be|must\s+be|gets)\s+(?:disabled|ignored|bypassed)\b'
 
   - id: agent-snooping-0
     severity: HIGH

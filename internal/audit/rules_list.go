@@ -93,7 +93,7 @@ func buildCompiledList(base, globalUser, projectUser []yamlRule) ([]CompiledRule
 		source := determineSource(yr.ID, yr.Pattern, globalOverrides, projectOverrides,
 			globalPatternOverrides, projectPatternOverrides)
 
-		confidence := 0.95
+		confidence := defaultRuleConfidence
 		if yr.Confidence != nil {
 			confidence = *yr.Confidence
 		}
