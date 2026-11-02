@@ -142,7 +142,8 @@ func main() {
 
 	if err := handler(args); err != nil {
 		exitCode := 1
-		if cmd == "audit" {
+		var auditErr *auditExecutionError
+		if errors.As(err, &auditErr) {
 			exitCode = 2
 		}
 		// jsonSilentError means JSON output was already written to stdout;

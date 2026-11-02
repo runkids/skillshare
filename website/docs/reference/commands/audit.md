@@ -308,6 +308,8 @@ Access it from the Audit page via the "Custom Rules" button.
 | `1` | One or more findings at or above active threshold, with no scan errors |
 | `2` | Audit execution, usage, or configuration error, including a failed scan |
 
+Declining the large-scan confirmation exits `0` without scanning. Audits launched from `list` use the same exit codes.
+
 Scan errors take precedence over findings. Partial structured reports are still emitted when available.
 
 ## Scanned Files

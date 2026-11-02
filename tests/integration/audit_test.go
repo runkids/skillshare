@@ -96,6 +96,7 @@ func TestAudit_ExecutionExitCode(t *testing.T) {
 	}
 	sb.RunCLI("audit", "rules", "--help").AssertSuccess(t)
 	sb.RunCLI("unknown-command").AssertExitCode(t, 1)
+	sb.RunCLI("list", "--bad-option").AssertExitCode(t, 1)
 	sb.WriteConfig("source: [invalid\n")
 	sb.RunCLI("audit").AssertExitCode(t, 2)
 }
