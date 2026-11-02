@@ -351,7 +351,7 @@ rules:
     pattern: anti-refusal
     message: "Directive to comply despite safety policies"
     confidence: 0.85
-    regex: '(?i)^\s*(?:(?:[-*+>]|\d+[.)])\s*)?(?:\*\*)?(?:never\s+refuse\s+any\s+request|always\s+(?:comply(?:\s+with\s+(?:any|all|every)\s+requests?)?|answer(?:\s+(?:all\s+)?(?:user\s+)?questions?)?))(?:\*\*)?\s*[,]?\s*(?:regardless\s+of|despite|even\s+if)\b.{0,60}\b(?:safety|security|refusal)\s+(?:policies|policy|rules|restrictions|checks|guidelines|protocols|requirements)\b'
+    regex: '(?i)^\s*(?:(?:[-*+>]|\d+[.)])\s*)?(?:\*\*)?(?:never\s+refuse\s+any\s+request|always\s+(?:comply(?:\s+with\s+(?:any|all|every)\s+(?:user\s+)?requests?)?|answer(?:\s+(?:(?:any|all|every)\s+)?(?:user\s+)?questions?)?))(?:\*\*)?\s*[,]?\s*(?:regardless\s+of|despite|even\s+if)\b.{0,60}\b(?:safety|security|refusal)\s+(?:policies|policy|rules|restrictions|checks|guidelines|protocols|requirements)\b'
 
   - id: prompt-leakage-0
     severity: HIGH
