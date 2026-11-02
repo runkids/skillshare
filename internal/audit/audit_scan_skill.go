@@ -234,6 +234,7 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 	// --- Skill-scope analyzers (via registry) ---
 	result.TierProfile = skillTierProfile
 	skillCtx := &AnalyzeContext{
+		ReferenceRoot:  skillPath,
 		SkillPath:      logicalPath, // Central metadata belongs to the logical source.
 		MDFiles:        mdFiles,
 		FileCache:      fileCache,
@@ -575,4 +576,19 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+// ScanSkillsFilteredForProject loads project policy once for a set of skills.
+// Results retain their input order and per-skill errors.
+func ScanSkillsFilteredForProject(paths []string, projectRoot string, registry *Registry, follow *sourcewalk.Follow) ([]ScanOutput, error) {
+	rules, err := RulesWithProject(projectRoot)
+	if err != nil {
+		return nil, fmt.Errorf("load project rules: %w", err)
+	}
+	disabled := disabledIDsForProject(projectRoot)
+	outputs := make([]ScanOutput, len(paths))
+	for i, path := range paths {
+		outputs[i].Result, outputs[i].Err = scanSkillImpl(path, rules, disabled, registry, follow)
+	}
+	return outputs, nil
 }

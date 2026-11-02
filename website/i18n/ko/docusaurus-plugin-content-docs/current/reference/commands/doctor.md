@@ -59,6 +59,8 @@ Next
 
 에이전트 변형이 있는 추적 저장소의 Source 줄에는 `N skills, M variants`가 표시됩니다. 이는 논리적 스킬 수와 물리적 복사본 수입니다. `variant_routing` 검사는 symlink 모드가 에이전트별 선택 없이 모든 변형을 노출할 때 경고합니다. 선택적 라우팅에는 merge 또는 copy 모드를 사용하세요.
 
+번들 참조는 두 모드에서 audit 구조 검사를 사용합니다. 누락·미완료는 경고, 루트 이탈은 오류입니다. 전역/프로젝트 `audit-rules.yaml`의 비활성화 설정을 적용합니다. JSON의 `bundled_references`에는 규칙 ID, 파일, 줄 번호와 스니펫이 포함됩니다. [참조 검사](../../understand/audit-engine.md)를 참고하세요.
+
 ## 사용 시점
 
 - 뭔가 작동하지 않는데 원인을 모를 때

@@ -2,8 +2,6 @@ package audit
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -31,7 +29,7 @@ func globalSplitMarkdownLinkRules() (contentRules []rule, linkRules []rule) {
 
 var (
 	mdAutoLinkRe       = regexp.MustCompile(`<((?:https?://)[^>\s]+)>`)
-	mdRefLinkRe        = regexp.MustCompile(`\[([^\]]+)\]\[([^\]]*)\]`)
+	mdRefLinkRe        = regexp.MustCompile(`\[([^\]]+)\](?:\[([^\]]*)\])?`)
 	mdHTMLAnchorRe     = regexp.MustCompile(`(?i)<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>(.*?)</a>`)
 	mdHTMLTagStrip     = regexp.MustCompile(`(?s)<[^>]*>`)
 	mdTutorialMarkerRe = regexp.MustCompile(`(?i)(for\s+example|e\.g\.|example:|examples:|sample:|original:|attacker:|safe:|unsafe:|vulnerable:|pattern:|ruleid:|ok:|sink:|message:)`)
@@ -107,46 +105,6 @@ func checkMarkdownLinkRules(files []mdFileInfo, mdLinks map[string][]markdownLin
 	return findings
 }
 
-// checkDanglingLinks scans collected .md file data for local relative links
-// whose targets do not exist on disk. Returns LOW-severity findings.
-func checkDanglingLinks(files []mdFileInfo, mdLinks map[string][]markdownLink) []Finding {
-	var findings []Finding
-	for _, f := range files {
-		var links []markdownLink
-		if mdLinks != nil {
-			links = mdLinks[f.relPath]
-		} else {
-			links = extractMarkdownLinks(f.data)
-		}
-		for _, link := range links {
-			target := link.target
-			if isExternalOrAnchor(target) {
-				continue
-			}
-			cleaned := stripFragment(target)
-			if cleaned == "" {
-				continue
-			}
-			abs := filepath.Join(f.absDir, cleaned)
-			if _, err := os.Stat(abs); err != nil {
-				findings = append(findings, Finding{
-					Severity:   SeverityLow,
-					Pattern:    "dangling-link",
-					Message:    fmt.Sprintf("broken local link: %q not found", target),
-					File:       f.relPath,
-					Line:       link.line,
-					Snippet:    link.snippet,
-					RuleID:     "dangling-link",
-					Analyzer:   AnalyzerStructure,
-					Category:   CategoryStructure,
-					Confidence: 1.0,
-				})
-			}
-		}
-	}
-	return findings
-}
-
 func extractMarkdownLinks(data []byte) []markdownLink {
 	lines := strings.Split(string(data), "\n")
 	defs := parseReferenceDefinitions(lines)
@@ -186,13 +144,19 @@ func extractMarkdownLinks(data []byte) []markdownLink {
 		}
 
 		codeSpans := inlineCodeSpans(line)
-		for _, link := range extractInlineLinksFromLine(line, lineNum, codeSpans) {
+		inlineLinks, inlineLinkSpans := extractInlineLinksFromLine(line, lineNum, codeSpans)
+		if i > 0 {
+			if targetSpan, ok := multilineLinkTargetSpan(lines[i-1], line); ok {
+				inlineLinkSpans = append(inlineLinkSpans, targetSpan)
+			}
+		}
+		for _, link := range inlineLinks {
 			add(link)
 		}
 		for _, link := range extractAutoLinksFromLine(line, lineNum, codeSpans) {
 			add(link)
 		}
-		for _, link := range extractReferenceLinksFromLine(line, lineNum, defs, codeSpans) {
+		for _, link := range extractReferenceLinksFromLine(line, lineNum, defs, codeSpans, inlineLinkSpans) {
 			add(link)
 		}
 		for _, link := range extractHTMLAnchorLinksFromLine(line, lineNum, codeSpans) {
@@ -242,7 +206,7 @@ func parseReferenceDefinitions(lines []string) map[string]string {
 			continue
 		}
 		label := normalizeReferenceLabel(trimmed[1:idx])
-		if label == "" {
+		if label == "" || strings.HasPrefix(label, "^") {
 			continue
 		}
 		target := parseMarkdownLinkTarget(strings.TrimSpace(trimmed[idx+2:]))
@@ -258,8 +222,9 @@ func normalizeReferenceLabel(label string) string {
 	return strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(label)), " "))
 }
 
-func extractInlineLinksFromLine(line string, lineNum int, codeSpans []span) []markdownLink {
+func extractInlineLinksFromLine(line string, lineNum int, codeSpans []span) ([]markdownLink, []span) {
 	var links []markdownLink
+	var inlineLinkSpans []span
 
 	for i := 0; i < len(line); i++ {
 		if line[i] != '[' {
@@ -268,10 +233,7 @@ func extractInlineLinksFromLine(line string, lineNum int, codeSpans []span) []ma
 		if indexInSpans(i, codeSpans) {
 			continue
 		}
-		if i > 0 && line[i-1] == '!' && !indexInSpans(i-1, codeSpans) {
-			// Image link: ![alt](url)
-			continue
-		}
+		isImage := i > 0 && line[i-1] == '!' && !indexInSpans(i-1, codeSpans)
 		labelEnd := findMatchingBracket(line, i)
 		if labelEnd == -1 {
 			continue
@@ -289,6 +251,14 @@ func extractInlineLinksFromLine(line string, lineNum int, codeSpans []span) []ma
 			continue
 		}
 
+		if !isEscapedMarkdownAt(line, i) {
+			inlineLinkSpans = append(inlineLinkSpans, span{start: i, end: linkEnd + 1})
+		}
+		if isImage {
+			i = linkEnd
+			continue
+		}
+
 		label := strings.TrimSpace(line[i+1 : labelEnd])
 		target := parseMarkdownLinkTarget(inside)
 		if target != "" {
@@ -303,7 +273,7 @@ func extractInlineLinksFromLine(line string, lineNum int, codeSpans []span) []ma
 		i = linkEnd
 	}
 
-	return links
+	return links, inlineLinkSpans
 }
 
 func extractAutoLinksFromLine(line string, lineNum int, codeSpans []span) []markdownLink {
@@ -328,26 +298,48 @@ func extractAutoLinksFromLine(line string, lineNum int, codeSpans []span) []mark
 	return links
 }
 
-func extractReferenceLinksFromLine(line string, lineNum int, defs map[string]string, codeSpans []span) []markdownLink {
+func extractReferenceLinksFromLine(line string, lineNum int, defs map[string]string, codeSpans, inlineLinkSpans []span) []markdownLink {
 	var links []markdownLink
+	trimmed := strings.TrimSpace(line)
+	if strings.HasPrefix(trimmed, "[") {
+		if labelEnd := findMatchingBracket(trimmed, 0); labelEnd > 0 && labelEnd+1 < len(trimmed) && trimmed[labelEnd+1] == ':' {
+			// Definitions name destinations; they are not links themselves.
+			return nil
+		}
+	}
 	matches := mdRefLinkRe.FindAllStringSubmatchIndex(line, -1)
 	for _, m := range matches {
 		if len(m) < 6 {
 			continue
 		}
+		if isEscapedMarkdownAt(line, m[0]) {
+			continue
+		}
 		start := m[0]
+		if indexInSpans(start, inlineLinkSpans) {
+			continue
+		}
 		if indexInSpans(start, codeSpans) {
 			continue
 		}
-		if start > 0 && line[start-1] == '!' && !indexInSpans(start-1, codeSpans) {
+		if start > 0 && line[start-1] == '!' && !isEscapedMarkdownAt(line, start-1) && !indexInSpans(start-1, codeSpans) {
 			// Image reference: ![alt][id]
 			continue
 		}
 
 		label := strings.TrimSpace(line[m[2]:m[3]])
-		ref := strings.TrimSpace(line[m[4]:m[5]])
-		if ref == "" {
-			ref = label
+		if strings.HasPrefix(label, "^") {
+			continue
+		}
+		ref := label
+		if m[4] >= 0 && m[5] >= 0 {
+			ref = strings.TrimSpace(line[m[4]:m[5]])
+			if ref == "" {
+				ref = label
+			}
+		} else if m[1] < len(line) && line[m[1]] == '(' {
+			// Inline links take precedence over shortcut references with the same label.
+			continue
 		}
 		target, ok := defs[normalizeReferenceLabel(ref)]
 		if !ok {
@@ -406,10 +398,14 @@ func extractMultilineLink(line, nextLine string, lineNum int) (markdownLink, boo
 	}
 
 	targetLine := strings.TrimSpace(nextLine)
-	if !strings.HasPrefix(targetLine, "(") || !strings.HasSuffix(targetLine, ")") {
+	if !strings.HasPrefix(targetLine, "(") {
 		return markdownLink{}, false
 	}
-	target := parseMarkdownLinkTarget(strings.TrimSpace(targetLine[1 : len(targetLine)-1]))
+	inside, end := readParenthesized(targetLine, 0)
+	if end == -1 {
+		return markdownLink{}, false
+	}
+	target := parseMarkdownLinkTarget(strings.TrimSpace(inside))
 	if target == "" {
 		return markdownLink{}, false
 	}
@@ -420,6 +416,24 @@ func extractMultilineLink(line, nextLine string, lineNum int) (markdownLink, boo
 		line:    lineNum,
 		snippet: strings.TrimSpace(line),
 	}, true
+}
+
+// multilineLinkTargetSpan returns the span of targetLine consumed by a
+// multiline link destination, leaving any sibling references after it visible.
+func multilineLinkTargetSpan(line, targetLine string) (span, bool) {
+	_, ok := extractMultilineLink(line, targetLine, 0)
+	if !ok {
+		labelLine := strings.TrimSpace(line)
+		if !strings.HasPrefix(labelLine, "![") {
+			return span{}, false
+		}
+		if _, ok = extractMultilineLink(strings.TrimPrefix(labelLine, "!"), targetLine, 0); !ok {
+			return span{}, false
+		}
+	}
+	start := len(targetLine) - len(strings.TrimLeft(targetLine, " \t"))
+	_, end := readParenthesized(targetLine, start)
+	return span{start: start, end: end + 1}, true
 }
 
 func parseMarkdownLinkTarget(raw string) string {
@@ -585,6 +599,14 @@ func indexInSpans(idx int, spans []span) bool {
 		}
 	}
 	return false
+}
+
+func isEscapedMarkdownAt(line string, idx int) bool {
+	backslashes := 0
+	for i := idx - 1; i >= 0 && line[i] == '\\'; i-- {
+		backslashes++
+	}
+	return backslashes%2 == 1
 }
 
 // isExternalOrAnchor returns true for links that should not be checked on disk.

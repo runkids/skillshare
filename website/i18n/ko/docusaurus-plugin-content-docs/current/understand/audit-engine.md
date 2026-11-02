@@ -86,6 +86,7 @@ audit engine은 skill 디렉터리의 모든 텍스트 기반 파일을 100개 �
 | `data-exfiltration` | 서브도메인에 명령 치환을 사용한 `dig`/`nslookup`/`host`를 통한 DNS 데이터 유출 |
 | `self-propagation` | 다른 파일이나 프로젝트로 페이로드를 전파하는 자기 복제 지침 |
 | `hardcoded-secret` | 인라인 API 키, 토큰, 비밀번호: Google API 키(`AIza...`), AWS 액세스 키(`AKIA...`), GitHub PAT(`ghp_`/`ghs_`/`github_pat_`), Slack 토큰(`xox[bporas]-`), OpenAI 키, Anthropic 키, Stripe 키, PEM 개인 키 블록, 그리고 높은 엔트로피 값을 가진 일반적인 `api_key`/`secret_key`/`password` 할당 |
+| `reference-escapes-root` | 명시적 참조가 skill 디렉터리 밖으로 나가는 경우 |
 
 > **왜 high인가?** 숨겨진 유니코드 문자는 코드 리뷰 중 악성 지침을 보이지 않게 만들 수 있습니다. 양방향 텍스트 제어 문자는 보이는 텍스트의 순서를 바꿔 악성 코드를 위장할 수 있습니다(Trojan Source). Base64 난독화는 사람의 검사를 우회하는 일반적인 기법입니다. `rm -rf /` 같은 파괴적인 명령은 되돌릴 수 없는 손상을 일으킬 수 있습니다. `curl | bash`는 고전적인 원격 코드 실행 벡터입니다 — 가져온 콘텐츠가 셸에서 바로 실행됩니다. Config/메모리 파일 오염은 AI 세션 전반에 걸쳐 지속됩니다. DNS 유출은 훔친 데이터를 서브도메인 쿼리에 인코딩합니다. 자기 전파 지침은 저장소 웜을 만듭니다. skill 파일에 하드코딩된 비밀 정보(API 키, 토큰, 개인 키)는 유출된 자격 증명이거나 의도적인 자격 증명 노출을 나타내며 — 둘 다 검토가 필요한 공급망 위험입니다.
 
@@ -138,19 +139,24 @@ audit engine은 skill 디렉터리의 모든 텍스트 기반 파일을 100개 �
 이는 위험 점수와 보고에 기여하는 낮은 심각도의 지표입니다:
 
 - `LOW`: 약한 의심 패턴 (예: 명령 내 비-HTTPS URL — 중간자 공격 가능성)
+- `LOW`: 검사할 수 없는 참조도 LOW `reference-check-incomplete`로 보고합니다.
 - `LOW`: **외부 링크** — 외부 URL(`https://...`)을 가리키는 markdown 링크. 프롬프트 인젝션 벡터나 불필요한 토큰 소비를 나타낼 수 있음. localhost 링크는 제외
-- `LOW`: **끊어진 로컬 링크** — 대상 파일이나 디렉터리가 디스크에 존재하지 않는 깨진 상대 markdown 링크
+- `LOW`: **없는 번들 참조** — Markdown 링크, 이미지, 명시적 또는 인라인 경로의 대상이 없는 경우
 - `LOW`: **content-missing** / **content-unexpected** — 콘텐츠 무결성 문제 (위 참고)
 - `INFO`: 셸 체이닝 패턴 같은 문맥적 힌트 (분류/가시성 목적)
 - `INFO`: **낮은 분석 가능성** — skill 콘텐츠의 70% 미만이 감사 가능한 텍스트임 ([Analyzability Score](#analyzability-score) 참고)
 
 > 이 발견 사항들은 설치를 막지 않지만 전체 위험 점수를 높입니다. LOW/INFO 발견 사항이 많은 skill은 더 면밀한 검사가 필요할 수 있습니다.
 
-#### 끊어진 링크 탐지
+#### 번들 참조 검사
 
-audit engine은 `.md` 파일에 대해 **구조적 검사**도 수행합니다: 모든 인라인 markdown 링크(`[label](target)`)를 추출하여 로컬 상대 대상이 디스크에 존재하는지 확인합니다. 외부 링크(`http://`, `https://`, `mailto:` 등)와 순수 앵커(`#section`)는 건너뜁니다.
+구조 분석기는 참조 형식을 포함한 로컬 Markdown 링크와 이미지를 검사합니다. 인라인 코드에서는 공백·glob·템플릿 구문 없이 파일 확장자가 있고 `./`, `../`, `scripts/`, `references/`, `assets/`로 시작하는 경로와 명시적인 `path:<target>` 선언을 검사합니다. `skillshare-paths`로 표시한 펜스에서는 한 줄에 경로 하나를 검사합니다. 명시적 선언이 없는 확장자 없는 예제, 일반 식별자, 다른 코드 펜스, 명시적 표시가 없는 절대 경로 코드 예제, URL(`file:` URI 포함), 앵커만 있는 참조는 의도적으로 제외합니다. 필수 절대 경로는 Markdown 링크나 `path:` 선언으로 지정합니다. Markdown 링크와 이미지는 해당 문서의 디렉터리를 기준으로 해석합니다. 인라인 코드 경로, `path:` 선언, `skillshare-paths` 항목도 `./` 또는 `../`로 시작하면 해당 문서를 기준으로 해석합니다. 그 밖의 상대 코드 경로는 중첩된 Markdown 파일에서도 skill 루트를 기준으로 해석합니다.
 
-이는 누락된 참조 파일, 이름이 변경된 경로, 불완전한 skill 패키징 같은 흔한 품질 문제를 잡아냅니다. 각 깨진 링크는 `dangling-link` 패턴으로 `LOW` 심각도 발견 사항을 생성합니다.
+없는 대상은 기존 LOW `dangling-link`를 유지합니다. 상위 경로, 홈 경로, Windows 드라이브 경로 또는 심볼릭 링크 구성 요소가 skill 디렉터리 밖으로 나가면 HIGH `reference-escapes-root`를 생성합니다. 번들 내부의 절대 경로는 허용하며, 선언된 루트와 심볼릭 링크가 포함된 상위 디렉터리에서 도출한 동등한 표기(macOS의 `/var`와 `/private/var` 등)도 인식합니다. 선언된 루트 안에서 횟수가 제한된 `lstat`/`readlink`를 사용하며 참조 파일 내용은 읽지 않습니다. 미지원 경로, 읽을 수 없는 메타데이터, 링크 순환, 해석 한도 초과는 LOW `reference-check-incomplete`로 보고하며, 대상이 없거나 안전하다고 판단하지 않습니다. 한도는 경로당 4,096바이트, 구성 요소 256단계, 심볼릭 링크 40홉입니다. Windows의 기본 구분자는 정규화합니다. 다른 호스트에서는 인식 가능한 Windows 드라이브 이탈을 제외한 역슬래시 경로를 지원하지 않습니다. 원본 줄 번호와 스니펫을 보존합니다. 암시적 인라인 코드 예시가 번들 밖으로 나가면 무시하고 끝의 `:line`은 제거합니다.
+
+`/docs/foo` 같은 사이트 루트 링크가 스킬 밖을 가리키면 기존 LOW `dangling-link` 대신 HIGH `reference-escapes-root`가 발생합니다. `--threshold high`에서는 차단될 수 있습니다.
+
+세 규칙 ID 모두 `audit-rules.yaml`의 `enabled: false`를 지원하며 다른 구조 검사와 같은 전역/프로젝트 설정을 사용합니다. `doctor`도 같은 분석기를 사용합니다. 누락 또는 미완료는 경고, 루트 이탈은 오류이며, `doctor --json`은 `bundled_references`로 기록합니다. 두 모드에서 발견된 skill에 적용됩니다.
 
 ## 위협 카테고리 심층 분석
 

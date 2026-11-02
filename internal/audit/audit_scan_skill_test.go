@@ -453,6 +453,32 @@ func TestScanSkill_ExternalLink_ReferenceStyleDetected(t *testing.T) {
 	}
 }
 
+func TestScanSkill_ExternalLink_ShortcutReferenceDetected(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[docs]\n\n[docs]: https://example.com/docs\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var found bool
+	for _, f := range result.Findings {
+		if f.Pattern == "external-link" && f.Severity == "LOW" {
+			found = true
+			if f.Line != 3 {
+				t.Errorf("expected line 3, got %d", f.Line)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected a LOW external-link finding for shortcut reference link, got findings: %+v", result.Findings)
+	}
+}
+
 func TestScanSkill_SourceRepoLink_FallsBackToExternalLinkLOW(t *testing.T) {
 	dir := t.TempDir()
 	skillDir := filepath.Join(dir, "repo-skill")

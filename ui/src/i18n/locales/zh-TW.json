@@ -363,6 +363,7 @@
   "doctor.check.targets": "目標",
   "doctor.check.sync_drift": "同步狀態",
   "doctor.check.broken_symlinks": "失效符號連結",
+  "doctor.check.bundled_references": "技能套件內參照",
   "doctor.check.duplicate_skills": "重複 Skill",
   "doctor.check.extras": "附加設定",
   "doctor.check.mcp": "MCP 伺服器",

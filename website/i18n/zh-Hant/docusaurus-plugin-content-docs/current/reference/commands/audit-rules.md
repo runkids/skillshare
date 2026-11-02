@@ -282,7 +282,7 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 
 :::note 結構性、分層與跨 skill 檢查
 
-`dangling-link`、`content-tampered`、`content-oversize`、`content-missing` 與 `content-unexpected` 是**結構性檢查**（檔案系統查找與雜湊比對，並非正規表示式）。`low-analyzability` 是由 [Analyzability Score](/docs/understand/audit-engine#analyzability-score) 產生的**可分析性發現項目**。`tier-stealth`、`tier-destructive-network`、`tier-network-heavy`、`tier-interpreter` 與 `tier-interpreter-network` 是由 [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) 設定檔產生的**分層組合發現項目**。`cross-skill-*` 發現項目是由 [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection) 產生。以上這些都會出現在下方表格中，但並未定義於 `rules.yaml` 中。
+`dangling-link`、`reference-escapes-root`、`reference-check-incomplete`、`content-tampered`、`content-oversize`、`content-missing` 與 `content-unexpected` 是**結構性檢查**（檔案系統查找與雜湊比對，並非正規表示式）。`low-analyzability` 是由 [Analyzability Score](/docs/understand/audit-engine#analyzability-score) 產生的**可分析性發現項目**。`tier-stealth`、`tier-destructive-network`、`tier-network-heavy`、`tier-interpreter` 與 `tier-interpreter-network` 是由 [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) 設定檔產生的**分層組合發現項目**。`cross-skill-*` 發現項目是由 [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection) 產生。以上這些都會出現在下方表格中，但並未定義於 `rules.yaml` 中。
 
 :::
 
@@ -381,6 +381,8 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 | `insecure-http-0` | insecure-http | LOW |
 | `external-link-0` | external-link | LOW |
 | `dangling-link` | dangling-link | LOW |
+| `reference-escapes-root` | reference-escapes-root | HIGH |
+| `reference-check-incomplete` | reference-check-incomplete | LOW |
 | `content-tampered` | content-tampered | MEDIUM |
 | `content-oversize` | content-oversize | MEDIUM |
 | `content-missing` | content-missing | LOW |
