@@ -261,3 +261,32 @@ func TestToSARIF_OmitsRegionWhenLineZero(t *testing.T) {
 		t.Fatalf("expected startLine=5, got %v", startLine)
 	}
 }
+
+func TestSARIFResourceCoverage(t *testing.T) {
+	log := ToSARIF([]*Result{{SkillName: "clean", SkippedFiles: 2, BinaryFiles: 1, OversizedFiles: 1}}, SARIFOptions{})
+	raw, err := json.Marshal(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	runs := decoded["runs"].([]any)
+	props := runs[0].(map[string]any)["properties"].(map[string]any)
+	coverage := props["skillshareCoverage"].([]any)
+	row := coverage[0].(map[string]any)
+	if row["resource"] != "clean" || row["skippedFiles"] != float64(2) || row["binaryFiles"] != float64(1) || row["oversizedFiles"] != float64(1) {
+		t.Fatalf("coverage: %s", raw)
+	}
+}
+
+func TestHeaderSARIFRuleDescriptionDoesNotDependOnFirstFormat(t *testing.T) {
+	a, _ := classifyHeader(testELF64Header(), "bin/a")
+	b, _ := classifyHeader(testMachO64Header(), "bin/b")
+	first := ToSARIF([]*Result{{Findings: append(a, b...)}}, SARIFOptions{}).Runs[0].Tool.Driver.Rules[0].ShortDescription.Text
+	second := ToSARIF([]*Result{{Findings: append(b, a...)}}, SARIFOptions{}).Runs[0].Tool.Driver.Rules[0].ShortDescription.Text
+	if first != second {
+		t.Fatalf("rule description depends on first format: %q != %q", first, second)
+	}
+}

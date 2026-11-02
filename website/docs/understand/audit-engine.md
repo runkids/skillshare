@@ -398,6 +398,28 @@ _cross-skill
   HIGH  stealth skill cleaner installed alongside high-risk skill backdoor — evasion risk
 ```
 
+## Executable and archive headers {#executable-headers}
+
+Before text extension and size filters, the static analyzer checks the first **512 bytes** of each regular file, including hidden directories and `__pycache__`. It recognizes ELF, Mach-O (including universal headers), PE (with a bounded extra read when its header lies beyond that window), WASM version 1, CPython bytecode, ZIP/JAR signatures, and shebang scripts under document, image, configuration or cache paths.
+
+| Pattern | Severity | Meaning |
+|---------|----------|---------|
+| `disguised-executable` | HIGH | Executable header or shebang under a document/image/configuration extension or a `.cache`/`__pycache__` directory |
+| `python-bytecode` | HIGH | Recognized CPython bytecode; MEDIUM when a matching regular Python source exists |
+| `executable-artifact` | MEDIUM | Other native executable or WASM header |
+| `archive-artifact` | INFO | ZIP/JAR signature; not evidence of executable behavior |
+| `uncertain-header` | INFO | Unknown bytecode-like magic or truncated/invalid header |
+
+Disguise extensions are `.md`, `.txt`, `.rst`, `.pdf`, `.doc`, `.docx`, `.rtf`, `.html`, `.json`, `.yaml`, `.yml`, `.toml`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.webp`, `.ico`, `.bmp`, `.tif`, and `.tiff`. Ordinary scripts such as `run.sh` or extensionless launchers are not flagged solely for a shebang. Hidden names alone do not imply disguise: ordinary tooling scripts stay clean and native binaries such as `.venv/bin/python` are MEDIUM. Disguise requires a listed extension or a `.cache`/`__pycache__` parent directory. Executable permissions alone never trigger a finding.
+
+The pinned magic table covers final CPython **3.6–3.14** formats. Unknown CRLF magic with invalid UTF-8 or non-whitespace control prefix bytes is reported as uncertain, without decoding. Table updates require a tagged CPython source and a regression fixture; the source is recorded in `internal/audit/header.go`.
+
+CPython 3.6 uses a 12-byte header without flags; versions 3.7–3.14 use a 16-byte header and supported flags. For direct-file scans only the filename is used for disguise classification; ancestor directories do not affect the result.
+
+The existing depth limit remains six directory levels. `.git`, `.skillshare`, `.skillshare-meta.json`, OS metadata, file symlinks and special files are excluded from header reads; directory symlinks are not traversed. Explicitly configured first-level source links retain their existing resolution policy. There is no file-count cap; directory scans count files with header read errors as skipped and continue scanning other files; an unreadable direct-file target still returns an error. Files below hidden directories receive header classification only, without gaining text-rule or integrity scanning. Symlinked files retain their existing text scanning, including direct-file and agent audits.
+
+Header classification does not analyze runtime behavior, decode bytecode, or inspect archive members. Oversized files receive only a header check from this classifier. These findings belong to the `static` analyzer and can be disabled by rule ID with `enabled: false` in `audit-rules.yaml`.
+
 ## Analyzability Score {#analyzability-score}
 
 Each scanned skill receives an **analyzability score** — the ratio of auditable plaintext bytes to total file bytes (0–100%). This tells you how much of the skill's content the scanner was able to inspect.
@@ -410,10 +432,9 @@ Each scanned skill receives an **analyzability score** — the ratio of auditabl
 
 When analyzability drops below **70%**, the audit engine emits an `INFO`-level finding with pattern `low-analyzability`. This does not block installation but signals that the scanner's coverage is limited.
 
-Files excluded from the calculation:
-- Binary files (images, `.wasm`, etc.)
-- Files exceeding 1 MB
-- `.metadata.json` (internal metadata)
+Binary and unsupported files up to 1 MB count toward `totalBytes`, but not `auditableBytes`. Oversized files are excluded from the directory byte ratio; internal metadata and excluded paths are not counted.
+
+CLI, JSON and dashboard summaries separately report `binaryFiles`, `skippedFiles`, and `oversizedFiles`. `skippedFiles` counts files without full text analysis, including read failures, binaries, unsupported extensions, oversized files and regular files below hidden directories. Links and special files are not counted merely because header reads skip them. `binaryFiles` includes recognized binary/archive headers and NUL-containing headers. These counts overlap: an oversized binary contributes to all three, once per counter. Header bytes never count as auditable text.
 
 ### Output
 
@@ -435,7 +456,10 @@ In JSON output, each result includes:
 {
   "totalBytes": 12480,
   "auditableBytes": 10240,
-  "analyzability": 0.82
+  "analyzability": 0.82,
+  "binaryFiles": 2,
+  "skippedFiles": 3,
+  "oversizedFiles": 1
 }
 ```
 

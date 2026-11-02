@@ -150,3 +150,28 @@ Audit results are logged to `audit.log` (JSONL). View with:
 ```bash
 skillshare log --audit
 ```
+
+## File headers and coverage
+
+Before text extension/size filters, the static analyzer checks the first 512 header
+bytes per regular file, with a bounded extra read at a PE header offset when needed, including hidden paths and `__pycache__`. Disguised native
+executables/WASM and shebang scripts are HIGH; ordinary executable artifacts are
+MEDIUM; recognized CPython 3.6–3.14 bytecode is HIGH, or MEDIUM when a matching regular Python source exists. ZIP/JAR signatures and uncertain
+headers are INFO. This does not analyze runtime behavior or archive members.
+`.git`, `.skillshare`, internal/OS metadata, symlinks and special files are excluded
+from header reads; the existing source-link policy and six-level depth limit stay
+in effect. There is no file-count cap; directory scans count header read failures as skipped
+and continue. An unreadable direct-file target still returns an error. Hidden
+directories receive header classification only; file symlinks keep existing text
+scanning. Hidden names alone do not imply disguise. HIGH requires a document,
+image or configuration extension or a `.cache`/`__pycache__` parent directory;
+other native binaries, including `.venv/bin/python`, are MEDIUM.
+JSON results and summaries expose `binaryFiles`, `skippedFiles`, `oversizedFiles`;
+CLI and dashboard summaries show the same counts; the dashboard, Markdown and SARIF also report per-resource counts. Skipped includes read failures, binary,
+unsupported, oversized and regular files below hidden directories, so the counters
+overlap. Links and special files are not counted just for skipping header reads. Header
+bytes are not auditable text. The rules `disguised-executable`, `python-bytecode`,
+`executable-artifact`, `archive-artifact`, `uncertain-header` can be disabled by ID
+with `enabled: false` in `audit-rules.yaml`.
+
+Direct-file disguise classification uses the filename, not ancestor directories.

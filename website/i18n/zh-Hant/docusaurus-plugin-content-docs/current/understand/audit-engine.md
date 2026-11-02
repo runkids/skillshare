@@ -398,6 +398,28 @@ _cross-skill
   HIGH  stealth skill cleaner installed alongside high-risk skill backdoor — evasion risk
 ```
 
+## 執行檔與封存檔標頭 {#executable-headers}
+
+檢查每個一般檔案的前 **512 位元組**；PE 標頭超出範圍時，在指定偏移處額外讀取有限位元組。包含隱藏目錄和 `__pycache__`。辨識 ELF、Mach-O、PE、WASM version 1、CPython 位元組碼、ZIP/JAR 與偽裝 shebang。
+
+- `disguised-executable`：**HIGH**。文件、圖片、設定副檔名或 `.cache`/`__pycache__` 目錄下的執行格式或 shebang。
+- `python-bytecode`：**HIGH**。存在相符的一般 Python 原始檔時為 **MEDIUM**。
+- `executable-artifact`：**MEDIUM**。其他原生執行格式或 WASM。
+- `archive-artifact`：**INFO**。ZIP/JAR 簽章，不代表可執行行為。
+- `uncertain-header`：**INFO**。未知的類位元組碼 magic，或截斷、無效的標頭。
+
+偽裝副檔名為 `.md`、`.txt`、`.rst`、`.pdf`、`.doc`、`.docx`、`.rtf`、`.html`、`.json`、`.yaml`、`.yml`、`.toml`、`.png`、`.jpg`、`.jpeg`、`.gif`、`.svg`、`.webp`、`.ico`、`.bmp`、`.tif`、`.tiff`。一般 `run.sh` 或無副檔名腳本不會僅因 shebang 被回報，也不以執行權限作為判斷依據。
+
+固定 magic 表支援正式版 CPython **3.6–3.14**。前綴含無效 UTF-8 或非空白控制字元且帶 CRLF 的未知 magic 會標記為不確定，不進行解碼。更新表必須核對帶標籤的 CPython 原始碼並新增迴歸測試，來源記錄於 `internal/audit/header.go`。
+
+CPython 3.6 使用不含旗標的 12 位元組標頭；3.7–3.14 使用含支援旗標的 16 位元組標頭。 直接掃描檔案時，只使用檔名判斷偽裝，祖先目錄不影響結果。
+
+保留原有的六層深度限制。`.git`、`.skillshare`、`.skillshare-meta.json`、作業系統 metadata、檔案符號連結與特殊檔案不讀取標頭；目錄符號連結不會遍歷。明確設定的頂層來源連結沿用既有解析政策。沒有檔案數量上限；目錄掃描將標頭讀取失敗的檔案計入 skipped 並繼續掃描其他檔案；直接指定的檔案無法讀取時仍回傳錯誤。隱藏目錄內的檔案僅分類標頭，不新增文字規則或完整性掃描。檔案符號連結保留既有文字掃描，包括直接檔案與 agent 稽核。
+
+標頭分類不分析執行時行為、不解碼位元組碼、不檢查封存成員。超大檔案僅接受此分類器的標頭檢查。可在 `audit-rules.yaml` 中依規則 ID 設定 `enabled: false` 來停用這些發現。
+
+隱藏名稱本身不表示偽裝：一般工具腳本保持無發現，`.venv/bin/python` 等原生二進位為 MEDIUM。HIGH 需要文件、圖片、設定副檔名或 `.cache`/`__pycache__` 父目錄。連結與特殊檔案不會僅因略過標頭讀取而計入 `skippedFiles`。
+
 ## Analyzability Score {#analyzability-score}
 
 每個被掃描的 skill 都會收到一個**可分析性分數** — 可稽核純文字位元組佔總檔案位元組的比例（0–100%）。這告訴你掃描器實際能夠檢視的 skill 內容比例。
@@ -410,10 +432,9 @@ _cross-skill
 
 當可分析性低於 **70%** 時，audit engine 會發出一筆模式為 `low-analyzability` 的 `INFO` 等級發現。這不會封鎖安裝，但代表掃描器的涵蓋範圍有限。
 
-以下檔案不計入計算：
-- 二進位檔案（圖片、`.wasm` 等）
-- 超過 1 MB 的檔案
-- `.metadata.json`（內部 metadata）
+不超過 1 MB 的二進位與不支援檔案計入 `totalBytes`，但不計入 `auditableBytes`。超大檔案不計入目錄的位元組比例；內部 metadata 與排除路徑也不計入。
+
+CLI、JSON 與儀表板摘要分別回報 `binaryFiles`、`skippedFiles`、`oversizedFiles`。`skippedFiles` 表示未進行全文文字分析的檔案，包括讀取失敗、二進位、不支援副檔名、超大檔案及隱藏目錄內的一般檔案。`binaryFiles` 包含已辨識的二進位／封存標頭及含 NUL 的標頭。計數會重疊：超大二進位檔案在三個計數器各計一次。標頭位元組不計入可稽核文字。
 
 ### 輸出
 
@@ -435,7 +456,10 @@ Auditable: 92% avg
 {
   "totalBytes": 12480,
   "auditableBytes": 10240,
-  "analyzability": 0.82
+  "analyzability": 0.82,
+  "binaryFiles": 2,
+  "skippedFiles": 3,
+  "oversizedFiles": 1
 }
 ```
 

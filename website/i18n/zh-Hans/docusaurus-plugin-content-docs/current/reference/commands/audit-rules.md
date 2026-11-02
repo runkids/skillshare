@@ -282,7 +282,7 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 
 :::note 结构性、分级和跨 skill 检查
 
-`dangling-link`、`content-tampered`、`content-oversize`、`content-missing` 和 `content-unexpected` 属于**结构性检查**（文件系统查找和哈希比较，而非正则表达式）。`low-analyzability` 是由 [Analyzability Score](/docs/understand/audit-engine#analyzability-score) 生成的**可分析性发现结果**。`tier-stealth`、`tier-destructive-network`、`tier-network-heavy`、`tier-interpreter` 和 `tier-interpreter-network` 是由 [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) profile 生成的**分级组合发现结果**。`cross-skill-*` 发现结果由 [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection) 生成。以上这些都出现在下面的表格中，但并未定义在 `rules.yaml` 里。
+`dangling-link`、`content-tampered`、`content-oversize`、`content-missing` 和 `content-unexpected` 属于**结构性检查**（文件系统查找和哈希比较，而非正则表达式）。`low-analyzability` 是由 [Analyzability Score](/docs/understand/audit-engine#analyzability-score) 生成的**可分析性发现结果**。`tier-stealth`、`tier-destructive-network`、`tier-network-heavy`、`tier-interpreter` 和 `tier-interpreter-network` 是由 [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) profile 生成的**分级组合发现结果**。`cross-skill-*` 发现结果由 [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection) 生成。标头检查还会生成 [Executable and archive headers](/docs/understand/audit-engine#executable-headers) 中说明的 `disguised-executable`、`python-bytecode`、`executable-artifact`、`archive-artifact` 和 `uncertain-header` 发现结果。以上这些都出现在下面的表格中，但并未定义在 `rules.yaml` 里。
 
 :::
 
@@ -396,6 +396,11 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 | `cross-skill-privilege-network` | cross-skill-privilege-network | MEDIUM |
 | `cross-skill-stealth` | cross-skill-stealth | HIGH |
 | `cross-skill-cred-interpreter` | cross-skill-cred-interpreter | MEDIUM |
+| `disguised-executable` | disguised-executable | HIGH |
+| `python-bytecode` | python-bytecode | HIGH |
+| `executable-artifact` | executable-artifact | MEDIUM |
+| `archive-artifact` | archive-artifact | INFO |
+| `uncertain-header` | uncertain-header | INFO |
 
 ## 子命令
 

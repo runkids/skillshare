@@ -1,4 +1,6 @@
 {
+  "audit.coverage.one": "{skipped} فایل رد شد ({binary} دودویی، {oversized} بیش از حد بزرگ)",
+  "audit.coverage.other": "{skipped} فایل رد شد ({binary} دودویی، {oversized} بیش از حد بزرگ)",
   "sourceLinks.unlinkMessage": "پیوند از منبع مهارت‌ها حذف می‌شود و پوشه‌ای که به آن اشاره می‌کند تغییر نمی‌کند.",
   "sourceLinks.target": "مقصد",
   "sourceLinks.unlinkSkills": "این مهارت‌ها در همگام‌سازی بعدی از همه مقصدها حذف می‌شوند.",

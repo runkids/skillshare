@@ -399,6 +399,28 @@ _cross-skill
   HIGH  stealth skill cleaner installed alongside high-risk skill backdoor — evasion risk
 ```
 
+## 実行形式とアーカイブのヘッダー {#executable-headers}
+
+通常ファイルの先頭 **512 バイト**を検査し、PE ヘッダーが範囲外の場合はその位置から必要なバイト数だけ追加で読み取ります。隠しディレクトリと `__pycache__` も対象です。ELF、Mach-O、PE、WASM version 1、CPython バイトコード、ZIP/JAR、偽装 shebang を識別します。
+
+- `disguised-executable`: **HIGH**。文書・画像・設定用の拡張子、または `.cache`/`__pycache__` 内のパスに実行形式や shebang がある場合。
+- `python-bytecode`: **HIGH**。対応する通常の Python ソースがあれば **MEDIUM**。
+- `executable-artifact`: **MEDIUM**。その他のネイティブ実行形式や WASM。
+- `archive-artifact`: **INFO**。ZIP/JAR シグネチャ。実行可能な動作を示すものではありません。
+- `uncertain-header`: **INFO**。未知のバイトコード風 magic、不完全または不正なヘッダー。
+
+対象拡張子は `.md`, `.txt`, `.rst`, `.pdf`, `.doc`, `.docx`, `.rtf`, `.html`, `.json`, `.yaml`, `.yml`, `.toml`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.webp`, `.ico`, `.bmp`, `.tif`, `.tiff` です。通常の `run.sh` や拡張子のないスクリプトは shebang だけでは報告されず、実行権限も判定根拠にしません。
+
+固定 magic 表は正式版 CPython **3.6–3.14**を扱います。不正な UTF-8 または空白以外の制御文字を先頭に持ち、CRLF が続く未知の magic は不確実として報告し、デコードしません。表の更新にはタグ付き CPython ソースと回帰テストが必要です。出典は `internal/audit/header.go` に記録しています。
+
+CPython 3.6 はフラグのない 12 バイトのヘッダーを使い、3.7–3.14 は対応フラグを含む 16 バイトのヘッダーを使います。 単一ファイルのスキャンでは偽装判定にファイル名のみを使用し、親ディレクトリは影響しません。
+
+深さは従来どおり 6 階層です。`.git`、`.skillshare`、`.skillshare-meta.json`、OS メタデータ、ファイルのシンボリックリンクと特殊ファイルはヘッダーを読みません。ディレクトリのリンクもたどりません。設定済みの最上位 source link の解決規則は維持します。ファイル数の上限はありません。ディレクトリのスキャンではヘッダーを読み取れないファイルを skipped として数え、他のファイルの解析を続けます。直接指定したファイルが読めない場合はエラーになります。隠しディレクトリ内ではヘッダーのみを分類し、テキストルールや整合性チェックの対象は増やしません。ファイルのシンボリックリンクは、直接ファイル・agent の監査を含め、従来のテキスト解析を維持します。
+
+この分類は実行時の動作、バイトコードのデコード、アーカイブ内部を解析しません。サイズ超過ファイルはこの分類器によるヘッダー検査のみです。各ルール ID は `audit-rules.yaml` の `enabled: false` で無効化できます。
+
+隠し名だけでは偽装と判定しません。通常のツール用スクリプトは検出されず、`.venv/bin/python` などのネイティブバイナリは MEDIUM です。HIGH には文書・画像・設定用の拡張子、または `.cache`/`__pycache__` の親ディレクトリが必要です。リンク・特殊ファイルは、ヘッダー読み取りを省略しただけでは `skippedFiles` に数えません。
+
 ## 分析可能性スコア(Analyzability Score) {#analyzability-score}
 
 スキャンされた各 skill は **analyzability score**（分析可能性スコア）を受け取ります — これは audit 可能なプレーンテキストのバイト数と全ファイルバイト数との比率（0〜100%）です。これは、スキャナーが skill のコンテンツのうちどれだけを検査できたかを示します。
@@ -411,10 +433,9 @@ _cross-skill
 
 Analyzability が **70%** を下回ると、audit エンジンはパターン `low-analyzability` を持つ `INFO` レベルの finding を発します。これはインストールをブロックしませんが、スキャナーのカバレッジが限定的であることを示します。
 
-計算から除外されるファイル：
-- バイナリファイル（画像、`.wasm` など）
-- 1 MB を超えるファイル
-- `.metadata.json`（内部メタデータ）
+1 MB 以下のバイナリ・未対応ファイルは `totalBytes` に含め、`auditableBytes` には含めません。サイズ超過ファイルはディレクトリのバイト比率から除外し、内部メタデータと対象外パスも計算しません。
+
+CLI・JSON・ダッシュボードのサマリーは `binaryFiles`、`skippedFiles`、`oversizedFiles` を別々に報告します。`skippedFiles` は全文テキスト解析をしなかったファイル（読み取り失敗、バイナリ、未対応拡張子、サイズ超過、隠しディレクトリ内の通常ファイル）です。`binaryFiles` はバイナリ・アーカイブ形式と NUL を含むヘッダーを数えます。サイズ超過バイナリは各カウンターに 1 回ずつ加算します。ヘッダーのバイトは解析可能なテキストに含めません。
 
 ### 出力
 
@@ -436,7 +457,10 @@ JSON 出力では、各結果に以下が含まれます。
 {
   "totalBytes": 12480,
   "auditableBytes": 10240,
-  "analyzability": 0.82
+  "analyzability": 0.82,
+  "binaryFiles": 2,
+  "skippedFiles": 3,
+  "oversizedFiles": 1
 }
 ```
 

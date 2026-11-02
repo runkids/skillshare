@@ -398,6 +398,28 @@ _cross-skill
   HIGH  stealth skill cleaner installed alongside high-risk skill backdoor — evasion risk
 ```
 
+## 可执行文件和归档头部 {#executable-headers}
+
+检查每个普通文件的前 **512 字节**；PE 头部超出窗口时，在指定偏移处额外读取有限字节。包括隐藏目录和 `__pycache__`。识别 ELF、Mach-O、PE、WASM version 1、CPython 字节码、ZIP/JAR 和伪装 shebang。
+
+- `disguised-executable`：**HIGH**。文档、图片、配置扩展名或 `.cache`/`__pycache__` 目录下的可执行格式或 shebang。
+- `python-bytecode`：**HIGH**。存在匹配的普通 Python 源文件时为 **MEDIUM**。
+- `executable-artifact`：**MEDIUM**。其他本机可执行格式或 WASM。
+- `archive-artifact`：**INFO**。ZIP/JAR 签名，不代表可执行行为。
+- `uncertain-header`：**INFO**。未知的类字节码 magic，或截断、无效的头部。
+
+伪装扩展名为 `.md`、`.txt`、`.rst`、`.pdf`、`.doc`、`.docx`、`.rtf`、`.html`、`.json`、`.yaml`、`.yml`、`.toml`、`.png`、`.jpg`、`.jpeg`、`.gif`、`.svg`、`.webp`、`.ico`、`.bmp`、`.tif`、`.tiff`。普通 `run.sh` 或无扩展名脚本不会仅因 shebang 被报告，也不以执行权限作为判断依据。
+
+固定 magic 表支持正式版 CPython **3.6–3.14**。前缀包含无效 UTF-8 或非空白控制字符并带 CRLF 的未知 magic 会标记为不确定，不进行解码。更新表必须核对带标签的 CPython 源码并添加回归测试，来源记录在 `internal/audit/header.go`。
+
+CPython 3.6 使用不含标志的 12 字节头部；3.7–3.14 使用含受支持标志的 16 字节头部。 直接扫描文件时，仅使用文件名判断伪装，祖先目录不会影响结果。
+
+保留原有的六层深度限制。`.git`、`.skillshare`、`.skillshare-meta.json`、操作系统元数据、文件符号链接和特殊文件不读取头部；目录符号链接不会遍历。明确配置的顶层源链接继续使用原有解析策略。没有文件数量上限；目录扫描将头部读取失败的文件计入 skipped 并继续扫描其他文件；直接指定的文件无法读取时仍返回错误。隐藏目录中的文件仅分类头部，不增加文本规则或完整性扫描。文件符号链接保留原有文本扫描，包括直接文件和 agent 审计。
+
+头部分类不分析运行时行为、不解码字节码、不检查归档成员。超大文件仅接受此分类器的头部检查。可在 `audit-rules.yaml` 中按规则 ID 设置 `enabled: false` 来禁用这些发现。
+
+隐藏名称本身不表示伪装：普通工具脚本保持无发现，`.venv/bin/python` 等原生二进制为 MEDIUM。HIGH 需要文档、图片、配置扩展名或 `.cache`/`__pycache__` 父目录。链接和特殊文件不会仅因跳过头部读取而计入 `skippedFiles`。
+
 ## Analyzability Score {#analyzability-score}
 
 每个被扫描的 skill 都会获得一个**可分析性评分**——可审计明文字节占文件总字节数的比例（0–100%）。这体现了扫描器能够检查到该 skill 内容的比例。
@@ -410,10 +432,9 @@ _cross-skill
 
 当可分析性低于 **70%** 时，audit engine 会发出一条模式为 `low-analyzability` 的 `INFO` 级别发现结果。这不会阻止安装，但表明扫描器的覆盖范围有限。
 
-以下文件被排除在计算之外：
-- 二进制文件（图片、`.wasm` 等）
-- 超过 1 MB 的文件
-- `.metadata.json`（内部元数据）
+不超过 1 MB 的二进制及不支持的文件计入 `totalBytes`，但不计入 `auditableBytes`。超大文件不计入目录的字节比例；内部元数据及排除路径也不计入。
+
+CLI、JSON 和仪表盘摘要分别报告 `binaryFiles`、`skippedFiles`、`oversizedFiles`。`skippedFiles` 表示未做全文文本分析的文件，包括读取失败、二进制、不支持的扩展名、超大文件及隐藏目录中的普通文件。`binaryFiles` 包括已识别的二进制／归档头部及含 NUL 的头部。计数会重叠：超大二进制文件在三个计数器中各计一次。头部字节不计入可审计文本。
 
 ### 输出
 
@@ -435,7 +456,10 @@ Auditable: 92% avg
 {
   "totalBytes": 12480,
   "auditableBytes": 10240,
-  "analyzability": 0.82
+  "analyzability": 0.82,
+  "binaryFiles": 2,
+  "skippedFiles": 3,
+  "oversizedFiles": 1
 }
 ```
 

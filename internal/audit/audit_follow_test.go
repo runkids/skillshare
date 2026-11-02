@@ -75,3 +75,40 @@ func TestScanSkillFollowedRootLogicalMetadata(t *testing.T) {
 	}
 	t.Fatalf("logical source metadata was not checked: %+v", result.Findings)
 }
+
+func TestHeaderFollowedRootAndAcceptance(t *testing.T) {
+	source, target := t.TempDir(), t.TempDir()
+	if err := os.WriteFile(filepath.Join(target, "guide.png"), testELF64Header(), 0644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(source, "linked")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skip(err)
+	}
+	result, err := ScanSkillWithFollow(link, sourcewalk.NewFollow(source, nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var finding Finding
+	for _, f := range result.Findings {
+		if f.Pattern == "disguised-executable" {
+			finding = f
+			break
+		}
+	}
+	if finding.Fingerprint == "" || finding.File != "guide.png" {
+		t.Fatalf("missing followed header: %+v", result.Findings)
+	}
+	next, err := ScanSkillWithFollow(link, sourcewalk.NewFollow(source, nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := next.MarkAcknowledged([]string{AcceptKey(finding)}); n != 1 {
+		t.Fatalf("header was not accepted: %+v", next.Findings)
+	}
+	for _, f := range next.Findings {
+		if f.Pattern == "disguised-executable" && (!f.Acknowledged || f.Fingerprint != finding.Fingerprint) {
+			t.Fatalf("unstable accepted fingerprint: %+v", f)
+		}
+	}
+}

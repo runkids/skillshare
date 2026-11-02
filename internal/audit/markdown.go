@@ -8,20 +8,23 @@ import (
 
 // MarkdownOptions carries summary statistics for the Markdown report header.
 type MarkdownOptions struct {
-	Scanned    int
-	Passed     int
-	Warning    int
-	Failed     int
-	Critical   int
-	High       int
-	Medium     int
-	Low        int
-	Info       int
-	ScanErrors int
-	RiskScore  int
-	RiskLabel  string
-	Threshold  string
-	Mode       string
+	Scanned        int
+	Passed         int
+	Warning        int
+	Failed         int
+	Critical       int
+	High           int
+	Medium         int
+	Low            int
+	Info           int
+	BinaryFiles    int
+	SkippedFiles   int
+	OversizedFiles int
+	ScanErrors     int
+	RiskScore      int
+	RiskLabel      string
+	Threshold      string
+	Mode           string
 
 	AvgAnalyzability float64
 	Profile          string
@@ -35,6 +38,7 @@ func ToMarkdown(results []*Result, opts MarkdownOptions) string {
 
 	writeHeader(&b, opts)
 	writeSummaryTable(&b, opts)
+	writeCoverageTable(&b, results)
 
 	// Partition results into failed, warning, and clean.
 	var failed, warned, clean []*Result
@@ -111,8 +115,29 @@ func writeSummaryTable(b *strings.Builder, opts MarkdownOptions) {
 		strings.ToUpper(opts.RiskLabel), opts.RiskScore)
 	fmt.Fprintf(b, "| Analyzability | %.0f%% avg |\n",
 		opts.AvgAnalyzability*100)
+	if opts.SkippedFiles > 0 {
+		fmt.Fprintf(b, "| Skipped files | %d (%d binary, %d oversized) |\n", opts.SkippedFiles, opts.BinaryFiles, opts.OversizedFiles)
+	}
 	if opts.ScanErrors > 0 {
 		fmt.Fprintf(b, "| Scan Errors | %d |\n", opts.ScanErrors)
+	}
+}
+
+// writeCoverageTable keeps partial coverage visible even for clean resources.
+func writeCoverageTable(b *strings.Builder, results []*Result) {
+	var rows []*Result
+	for _, r := range results {
+		if r.SkippedFiles > 0 {
+			rows = append(rows, r)
+		}
+	}
+	if len(rows) == 0 {
+		return
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].SkillName < rows[j].SkillName })
+	b.WriteString("\n## File coverage by resource\n\n| Resource | Skipped | Binary | Oversized |\n|---|---:|---:|---:|\n")
+	for _, r := range rows {
+		fmt.Fprintf(b, "| %s | %d | %d | %d |\n", escapeMarkdownTable(r.SkillName), r.SkippedFiles, r.BinaryFiles, r.OversizedFiles)
 	}
 }
 
