@@ -469,3 +469,28 @@ SARIF 출력에서 `ruleId`는 SARIF의 `ruleId` 필드에 매핑되며, `finger
 - [`audit rules`](/docs/reference/commands/audit-rules) — 규칙 관리와 커스터마이즈
 - [Securing Your Skills](/docs/how-to/advanced/security) — 팀과 조직을 위한 보안 가이드
 - [CI/CD Skill Validation](/docs/how-to/recipes/ci-cd-skill-validation) — 파이프라인 자동화 레시피
+
+## 민감한 대상과 역직렬화 {#sensitive-destinations}
+
+정적 증거를 검토 대상으로 보고합니다. SSRF, 신뢰할 수 없는 입력 또는 런타임 악용 가능성을 입증하지 않습니다. 별칭, DNS, 리디렉션, 데이터 출처, 임의의 여러 줄 구문을 해석하지 않으며 네트워크 요청이나 역직렬화를 실행하지 않습니다.
+
+| 규칙 ID | 기본값 | 증거 |
+|---|---|---|
+| `ssrf-metadata-0` | 코드 문맥과 메타데이터 호스트 대상 요청은 CRITICAL, 산문 및 공개 URL 경로/쿼리의 언급은 HIGH | 모든 수집 대상 텍스트의 메타데이터 호스트. 소스 파일과 아래 목록의 Markdown 펜스는 그 밖의 언급에 CRITICAL 문맥을 부여합니다. 인식된 요청은 파싱한 URL 호스트 이름이 메타데이터 호스트와 일치할 때만 CRITICAL이며, 공개 URL의 경로/쿼리에만 주소가 있으면 HIGH입니다. |
+| `ssrf-internal-0` | MEDIUM | 알려진 요청 호출 또는 curl/wget의 리터럴 HTTP(S) 내부 대상 |
+| `ssrf-dynamic-0` | MEDIUM (0.6) | 요청 입력을 직접 사용하거나 Python f-string / JavaScript 템플릿으로 호스트를 보간하는 요청. 대상은 알 수 없음 |
+| `unsafe-deserialization-python` | HIGH | Python `pickle.load/loads`, `marshal.load/loads`, `dill.load/loads` |
+| `unsafe-deserialization-yaml` | HIGH | Python `yaml.load/load_all`, `unsafe_load/unsafe_load_all`, `full_load/full_load_all` |
+| `unsafe-deserialization-torch` | HIGH | 명시적인 `weights_only=True`가 없는 Python `torch.load` |
+| `unsafe-deserialization-php` | HIGH | PHP `unserialize` |
+| `unsafe-deserialization-ruby` | HIGH | Ruby `Marshal.load/restore` |
+| `unsafe-deserialization-js` | HIGH | JavaScript/TypeScript `require('node-serialize')` 또는 `from 'node-serialize'`. 의존성 사용 검토 필요 |
+
+초기 메타데이터 정책: `169.254.169.254`, `169.254.170.2`, `100.100.100.200`, `metadata.google.internal`, `fd00:ec2::254`. IPv6는 압축 표기(대괄호 유무 모두)를 인식합니다. 일치는 언어 필터 및 튜토리얼 억제와 독립적입니다. 산문, 설정 데이터와 텍스트 펜스는 HIGH이므로 언급만으로는 기본 CRITICAL 임계값에서 경고하며 audit 실패나 설치 차단이 발생하지 않습니다. HIGH 임계값에서는 차단됩니다. 소스 파일(주석 포함), 아래 목록의 Markdown 펜스(언어 미지정 포함)는 그 밖의 메타데이터 언급에 CRITICAL 문맥을 부여합니다. 인식된 요청은 파싱한 URL 호스트 이름이 메타데이터 호스트와 일치할 때만 CRITICAL입니다. 메타데이터 주소가 공개 URL의 경로나 쿼리에만 있으면 HIGH로 남습니다. 텍스트/설정 펜스 안의 요청도 파싱한 호스트 이름이 메타데이터 호스트와 일치할 때만 CRITICAL입니다. 구문 휴리스틱이며 실제 실행 여부를 증명하지 않습니다. 명시적 전역/프로젝트 심각도 재정의가 우선하며, 전체 정규식 교체는 문맥 검사 없이 설정된 심각도를 사용합니다. 다른 인코딩 IP 표기나 별칭은 범위 밖입니다.
+
+메타데이터 코드 문맥은 `.sh`, `.bash`, `.zsh`, `.fish`, `.py`, `.js`, `.ts`, `.rb`, `.php`, `.php3`, `.php4`, `.php5`, `.phtml`, `.go`, `.rs`, `.swift`, `Makefile`, `Dockerfile`(대소문자 무시)과 첫 줄이 shebang(`#!`, 선택적 BOM 뒤)인 수집 대상 파일을 인식합니다. 확장자 없는 메모는 shebang이나 인식된 요청이 없으면 HIGH를 유지합니다. Markdown 펜스는 언어 미지정, 위 확장자 이름 또는 `python`, `javascript`, `typescript`, `ruby`, `shell`, `console`, `golang`, `rust`, `makefile`, `dockerfile`일 때 코드로 인식합니다. 그 외(`http`, `powershell`, `pwsh`, `node`, `jsx`, `tsx`, `java` 포함)는 인식된 리터럴 요청이 없는 한 HIGH입니다. IPv4 메타데이터 주소나 `metadata.google.internal` 뒤의 문장 마침표는 허용하며 `.example.com` 같은 호스트명 접미사는 일치하지 않습니다.
+
+
+내부 대상은 표준 IPv4/IPv6(IPv4 매핑 IPv6 포함), RFC1918/사설 IPv6, 루프백, 링크 로컬, 미지정 주소, localhost 및 `.localhost`/`.internal`/`.local` 호스트입니다. 인식하는 요청 형식: requests/httpx/axios HTTP methods, fetch, urlopen, urllib.request.urlopen, file_get_contents/fopen, Net::HTTP.get/post, URI.open, curl/wget. 셸은 단순 호출만 지원합니다. 직접 입력: `req/request.query/body/params/args/GET`, `$_GET/$_POST/$_REQUEST`, `params[...]`. 일반 URL 변수만으로는 동적 규칙이 작동하지 않습니다. 내부 규칙은 `.py`, `.js`, `.ts`, `.rb`, `.php` 및 셸 `.sh`, `.bash`, `.zsh`, `.fish`에 적용됩니다. 동적 규칙은 셸을 제외한 같은 언어에 적용됩니다.
+
+역직렬화는 해당 `.py`, `.php`, `.rb`, `.js`, `.ts` 파일만 검사하며 Markdown 본문이나 코드 펜스는 제외합니다. PHP 별칭 `.php3`, `.php4`, `.php5`, `.phtml`도 인식합니다. 확장자는 대소문자를 구분하지 않습니다. 기존 크기/깊이/바이너리 제한이 적용됩니다. `yaml.safe_load/safe_load_all`은 음성 사례입니다. `yaml.load/load_all`의 최상위 인수 `Loader=SafeLoader`, `Loader=CSafeLoader`, `Loader=yaml.SafeLoader`, `Loader=yaml.CSafeLoader` 또는 `torch. SafeLoader와 CSafeLoader는 두 번째 위치 인수로도 인식합니다.load`의 `weights_only=True`는 그 호출만 억제합니다. 다른 안전한 호출, 문자열 속 키워드, 중첩된 키워드는 안전하지 않은 호출을 숨기지 않습니다. 불완전한 호출이나 여러 줄 호출에서 안전 옵션을 확인할 수 없으면 경고를 유지합니다. 로더 이름이나 의존성의 신뢰성을 보장하지 않습니다.

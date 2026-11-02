@@ -75,11 +75,12 @@ func checkMarkdownLinkRules(files []mdFileInfo, mdLinks map[string][]markdownLin
 		} else {
 			links = extractMarkdownLinks(f.data)
 		}
+		fileRules := rulesForFile(markdownLinkRules, f.relPath)
 		for _, link := range links {
 			canonical := fmt.Sprintf("[%s](%s)", link.label, link.target)
 			canonicalLower := ""
 			canonicalLowerReady := false
-			for _, r := range markdownLinkRules {
+			for _, r := range fileRules {
 				if !rulePrefilterAllows(r, canonical, &canonicalLower, &canonicalLowerReady) {
 					continue
 				}

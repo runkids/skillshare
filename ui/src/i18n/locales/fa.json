@@ -158,6 +158,7 @@
   "auditRules.confirm.message": "این عمل فایل audit-rules.yaml شما را حذف کرده و تمام قوانین را به پیش‌فرض‌های داخلی بازمی‌گرداند. این عمل قابل بازگشت نیست.",
   "auditRules.confirm.title": "بازنشانی همه قوانین سفارشی",
   "auditRules.detail.exclude": "استثنا",
+  "auditRules.detail.files": "فایل‌ها",
   "auditRules.detail.regex": "Regex",
   "auditRules.detail.confidence": "اطمینان",
   "auditRules.detail.overridden": "بازنویسی‌شده",

@@ -112,6 +112,7 @@ rules:
 | `regex` | Yes* | Regular expression to match against each line |
 | `confidence` | No | Confidence between 0 and 1; defaults to 0.95 |
 | `exclude` | No | If a line matches both `regex` and `exclude`, the finding is suppressed |
+| `files` | No | File glob patterns that limit where the rule applies; see File Scoping below. |
 | `enabled` | No | Set to `false` to disable a rule. Only `id` is required when disabling. |
 
 *Required unless `enabled: false`.
@@ -168,7 +169,7 @@ The generated file looks like this:
 #            → project (.skillshare/audit-rules.yaml)
 #
 # Each rule needs: id, severity, pattern, message, regex.
-# Optional: exclude (suppress match), enabled (false to disable).
+# Optional: exclude (suppress match), files (scope), enabled (false to disable).
 
 rules:
   # Example: flag TODO comments as informational
@@ -396,6 +397,15 @@ Source of truth for regex-based rules:
 | `cross-skill-privilege-network` | cross-skill-privilege-network | MEDIUM |
 | `cross-skill-stealth` | cross-skill-stealth | HIGH |
 | `cross-skill-cred-interpreter` | cross-skill-cred-interpreter | MEDIUM |
+| `ssrf-metadata-0` | ssrf-metadata | CRITICAL / HIGH ([context](/docs/understand/audit-engine#sensitive-destinations)) |
+| `ssrf-internal-0` | ssrf-internal | MEDIUM |
+| `ssrf-dynamic-0` | ssrf-dynamic | MEDIUM |
+| `unsafe-deserialization-python` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-yaml` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-torch` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-php` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-ruby` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-js` | unsafe-deserialization | HIGH |
 
 ## Subcommands
 
@@ -417,3 +427,15 @@ Source of truth for regex-based rules:
 - [Audit Engine](/docs/understand/audit-engine) — How the engine works (threat model, risk scoring, tiering)
 - [Securing Your Skills](/docs/how-to/advanced/security) — Security guide for teams
 - [CI/CD Skill Validation](/docs/how-to/recipes/ci-cd-skill-validation) — Pipeline automation recipe
+
+## File Applicability {#file-applicability}
+
+The optional `files` list limits a rule to matching paths. It uses Go `path.Match` syntax (`*`, `?`, character classes). A glob without `/`, such as `*.py`, matches a basename at any depth. A glob with `/`, such as `scripts/*.php`, matches the whole path relative to the scanned skill root; `*` does not cross `/`. Single-file scans use the basename; raw-content scans use the supplied filename. Matching is case-insensitive. This field filters files already admitted by the scanner; it does not collect additional file types.
+
+Absolute paths, empty globs, empty/dot/parent path segments, backslashes, colons, malformed character classes, and recursive `**` are rejected, including in disabled rules and unmatched overrides. Omitted `files` preserves inherited applicability; an explicit `files: []` clears it. ID and pattern overrides support this field; ID overrides take precedence. A full regex replacement replaces the whole rule, including applicability and built-in call inspection. `audit rules --format json` includes the effective `files` list when nonempty.
+
+```yaml
+rules:
+  - id: unsafe-deserialization-python
+    files: ['*.py', 'scripts/*.txt']
+```

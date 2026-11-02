@@ -304,6 +304,7 @@ func scanFileUnifiedMarkdown(
 	activeRules []rule, profile *TierProfile,
 	hasStatic, hasDataflow bool,
 ) (staticFindings, dfFindings []Finding) {
+	activeRules = rulesForFile(activeRules, relPath)
 	blocks := markdownCodeBlocks([]byte(text))
 	for _, block := range blocks {
 		if profile != nil {
@@ -320,6 +321,7 @@ func scanFileUnifiedMarkdown(
 	}
 
 	tutorialPath := isLikelyTutorialPath(relPath)
+	scriptContext := strings.HasPrefix(text, "#!")
 	blockIndex, lineNum := 0, 0
 	for line := range strings.SplitSeq(text, "\n") {
 		for blockIndex < len(blocks) && lineNum >= blocks[blockIndex].end {
@@ -327,6 +329,7 @@ func scanFileUnifiedMarkdown(
 		}
 		inCodeFence := blockIndex < len(blocks) && lineNum >= blocks[blockIndex].start
 		parameterContext := inCodeFence && !blocks[blockIndex].inHTML
+		metadataContext := scriptContext || (inCodeFence && metadataCodeFence(blocks[blockIndex].language))
 		nextLine := ""
 		if inCodeFence {
 			block := blocks[blockIndex]
@@ -344,8 +347,12 @@ func scanFileUnifiedMarkdown(
 			if shouldSuppressTutorialExample(r.Pattern, line, inCodeFence, tutorialPath) {
 				continue
 			}
+			severity := r.findingSeverity(line, relPath, metadataContext)
+			if severity == r.Severity {
+				severity = markdownFindingSeverity(r, line, parameterContext, nextLine)
+			}
 			staticFindings = append(staticFindings, Finding{
-				Severity: markdownFindingSeverity(r, line, parameterContext, nextLine),
+				Severity: severity,
 				Pattern:  r.Pattern, Message: r.Message, File: relPath, Line: lineNum,
 				Snippet: strings.TrimSpace(line), RuleID: r.ID, Analyzer: AnalyzerStatic,
 				Category: categoryForPattern(r.Pattern), Confidence: r.Confidence,
@@ -363,9 +370,11 @@ func scanFileUnifiedPlain(
 	activeRules []rule, profile *TierProfile,
 	hasStatic, hasDataflow, isShell bool,
 ) (staticFindings, dfFindings []Finding) {
+	activeRules = rulesForFile(activeRules, relPath)
 	// For shell dataflow, collect all lines to pass to analyzeShellBlock.
 	var allLines []string
 	collectLines := hasDataflow && isShell
+	scriptContext := strings.HasPrefix(text, "#!")
 
 	lineNum := 0
 	for start := 0; start <= len(text); {
@@ -403,7 +412,7 @@ func scanFileUnifiedPlain(
 				}
 				if r.matchesLine(line) {
 					staticFindings = append(staticFindings, Finding{
-						Severity:   r.Severity,
+						Severity:   r.findingSeverity(line, relPath, scriptContext),
 						Pattern:    r.Pattern,
 						Message:    r.Message,
 						File:       relPath,
@@ -538,7 +547,7 @@ func isScannable(name string) bool {
 	switch ext {
 	case ".md", ".txt", ".yaml", ".yml", ".json", ".toml",
 		".sh", ".bash", ".zsh", ".fish",
-		".py", ".js", ".ts", ".rb", ".go", ".rs", ".swift":
+		".py", ".js", ".ts", ".rb", ".php", ".php3", ".php4", ".php5", ".phtml", ".go", ".rs", ".swift":
 		return true
 	}
 	// Also scan files without extension (e.g. Makefile, Dockerfile)

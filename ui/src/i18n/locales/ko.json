@@ -158,6 +158,7 @@
   "auditRules.confirm.message": "audit-rules.yaml이 삭제되고 모든 규칙이 기본 내장값으로 복원됩니다. 이 작업은 취소할 수 없습니다.",
   "auditRules.confirm.title": "모든 사용자 정의 규칙 초기화",
   "auditRules.detail.exclude": "제외",
+  "auditRules.detail.files": "파일",
   "auditRules.detail.regex": "정규식",
   "auditRules.detail.confidence": "신뢰도",
   "auditRules.detail.overridden": "재정의됨",

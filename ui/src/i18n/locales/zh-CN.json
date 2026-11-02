@@ -158,6 +158,7 @@
   "auditRules.confirm.message": "此操作将删除你的 audit-rules.yaml，并将所有规则恢复为内置默认值。此操作无法撤销。",
   "auditRules.confirm.title": "重置所有自定义规则",
   "auditRules.detail.exclude": "排除",
+  "auditRules.detail.files": "文件",
   "auditRules.detail.regex": "正则表达式",
   "auditRules.detail.confidence": "置信度",
   "auditRules.detail.overridden": "已覆盖",

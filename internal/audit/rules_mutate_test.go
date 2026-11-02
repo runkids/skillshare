@@ -38,6 +38,26 @@ func TestToggleRule_EnableExisting(t *testing.T) {
 	}
 }
 
+func TestToggleRule_EnablePreservesEmptyFiles(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "audit-rules.yaml")
+	if err := os.WriteFile(path, []byte("rules:\n  - id: unsafe-deserialization-python\n    files: []\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := ToggleRule(path, "unsafe-deserialization-python", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := ToggleRule(path, "unsafe-deserialization-python", true); err != nil {
+		t.Fatal(err)
+	}
+	rules, err := loadUserRules(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rules) != 1 || rules[0].Files == nil {
+		t.Fatalf("explicit empty file scope was lost: %+v", rules)
+	}
+}
+
 func TestTogglePattern_Disable(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "audit-rules.yaml")
@@ -66,6 +86,26 @@ func TestTogglePattern_Enable(t *testing.T) {
 	content := string(data)
 	if strings.Contains(content, "credential-access") {
 		t.Fatal("re-enabled pattern should be removed")
+	}
+}
+
+func TestTogglePattern_EnablePreservesEmptyFiles(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "audit-rules.yaml")
+	if err := os.WriteFile(path, []byte("rules:\n  - pattern: external-link\n    files: []\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := TogglePattern(path, "external-link", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := TogglePattern(path, "external-link", true); err != nil {
+		t.Fatal(err)
+	}
+	rules, err := loadUserRules(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rules) != 1 || rules[0].Files == nil {
+		t.Fatalf("explicit empty file scope was lost: %+v", rules)
 	}
 }
 
@@ -588,6 +628,23 @@ func TestTogglePatternEnablePreservesConfidence(t *testing.T) {
 	}
 	if len(rules) != 1 || rules[0].Confidence == nil || *rules[0].Confidence != 0.5 || rules[0].Enabled != nil {
 		t.Fatalf("override lost: %+v", rules)
+	}
+}
+
+func TestTogglePatternEnablePreservesEmptyFilesOnRuleDisable(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "audit-rules.yaml")
+	if err := os.WriteFile(path, []byte("rules:\n  - id: custom-rule\n    pattern: credential-access\n    enabled: false\n    files: []\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := TogglePattern(path, "credential-access", true); err != nil {
+		t.Fatal(err)
+	}
+	rules, err := loadUserRules(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rules) != 1 || rules[0].Files == nil || rules[0].Enabled != nil {
+		t.Fatalf("file scope or enabled state lost: %+v", rules)
 	}
 }
 

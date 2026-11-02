@@ -318,7 +318,7 @@ audit は Skill ディレクトリ内のテキストベースのファイルを�
 
 - `.md`, `.txt`, `.yaml`, `.yml`, `.json`, `.toml`
 - `.sh`, `.bash`, `.zsh`, `.fish`
-- `.py`, `.js`, `.ts`, `.rb`, `.go`, `.rs`
+- `.py`, `.js`, `.ts`, `.rb`, `.php`, `.php3`, `.php4`, `.php5`, `.phtml`, `.go`, `.rs`, `.swift`
 - 拡張子のないファイル（例: `Makefile`, `Dockerfile`）
 
 スキャンは各 Skill ディレクトリ内で再帰的に行われるため、サポート対象のテキストファイルタイプに一致する限り、`SKILL.md`、ネストした `references/*.md`、`scripts/*.sh` もすべて検査されます。

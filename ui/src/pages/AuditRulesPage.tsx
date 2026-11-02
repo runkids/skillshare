@@ -286,6 +286,12 @@ function RuleRow({ rule, hits, expanded, onExpand, onToggle, onSeverity }: {
                 <dd className="break-all font-mono text-ink-2">{rule.exclude}</dd>
               </>
             )}
+            {!!rule.files?.length && (
+              <>
+                <dt>{t('auditRules.detail.files')}</dt>
+                <dd className="break-all font-mono text-ink-2">{rule.files.join(', ')}</dd>
+              </>
+            )}
             <dt>{t('auditRules.detail.confidence')}</dt>
             <dd>{rule.confidence}{rule.confidenceOverridden && ` (${t('auditRules.detail.overridden')})`}</dd>
             <dt>{t('auditRules.detail.source')}</dt>

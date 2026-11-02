@@ -9,16 +9,17 @@ import (
 
 // CompiledRule is the public view of a rule for listing/display.
 type CompiledRule struct {
-	Confidence           float64 `json:"confidence"`
-	ConfidenceOverridden bool    `json:"confidenceOverridden"`
-	ID                   string  `json:"id"`
-	Severity             string  `json:"severity"`
-	Pattern              string  `json:"pattern"`
-	Message              string  `json:"message"`
-	Regex                string  `json:"regex"`
-	Exclude              string  `json:"exclude,omitempty"`
-	Enabled              bool    `json:"enabled"`
-	Source               string  `json:"source"` // "builtin", "global", "project"
+	Files                []string `json:"files,omitempty"`
+	Confidence           float64  `json:"confidence"`
+	ConfidenceOverridden bool     `json:"confidenceOverridden"`
+	ID                   string   `json:"id"`
+	Severity             string   `json:"severity"`
+	Pattern              string   `json:"pattern"`
+	Message              string   `json:"message"`
+	Regex                string   `json:"regex"`
+	Exclude              string   `json:"exclude,omitempty"`
+	Enabled              bool     `json:"enabled"`
+	Source               string   `json:"source"` // "builtin", "global", "project"
 }
 
 // PatternGroup summarizes rules grouped by pattern name.
@@ -60,6 +61,13 @@ func ListRulesWithProject(projectRoot string) ([]CompiledRule, error) {
 // buildCompiledList merges base, global user, and project user rule layers
 // and produces the full listing. Disabled rules are included with Enabled=false.
 func buildCompiledList(base, globalUser, projectUser []yamlRule) ([]CompiledRule, error) {
+	for _, layer := range [][]yamlRule{base, globalUser, projectUser} {
+		for _, r := range layer {
+			if err := validateRuleFiles(r.Files); err != nil {
+				return nil, err
+			}
+		}
+	}
 	// Track which IDs are overridden at each layer.
 	globalOverrides := indexByID(globalUser)
 	projectOverrides := indexByID(projectUser)
@@ -98,6 +106,7 @@ func buildCompiledList(base, globalUser, projectUser []yamlRule) ([]CompiledRule
 			confidence = *yr.Confidence
 		}
 		result = append(result, CompiledRule{
+			Files:                append([]string(nil), yr.Files...),
 			Confidence:           confidence,
 			ConfidenceOverridden: yr.confidenceOverridden,
 			ID:                   yr.ID,
