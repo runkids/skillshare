@@ -23,12 +23,12 @@ as part of the review.
    severity, rule IDs, locations, `summary.failed`, `summary.scanErrors`, warnings,
    and `incomplete` when present. A HIGH threshold flags HIGH and CRITICAL findings
    for blocking; also consider lower-severity findings and their context.
-3. Current upstream uses exit 0 for success and exit 1 for both blocking findings
-   and errors; a future version may use exit 2. For any nonzero status, inspect the
-   report and stderr rather than assuming a security finding. Missing or invalid JSON,
-   scan errors, incomplete coverage, or an unexpected status are limitations to
-   resolve or report, not evidence of safety. A zero status alone is not proof of a
-   complete or safe scan.
+3. Current upstream uses exit 0 for no blocking findings, exit 1 for blocking findings,
+   and exit 2 for execution errors. Older releases may also use exit 1 for errors.
+   For any nonzero status, inspect the report and stderr rather than assuming a
+   security finding. Missing or invalid JSON, scan errors, incomplete coverage,
+   or an unexpected status are limitations to resolve or report, not evidence of
+   safety. A zero status alone is not proof of a complete or safe scan.
 4. Read flagged source at the reported paths and lines, plus relevant surrounding
    instructions, references, and scripts as text. Check whether findings are applicable
    or false positives, and look for unflagged behavior that matters. Do not execute
