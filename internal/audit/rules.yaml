@@ -379,4 +379,4 @@ rules:
     pattern: persistence
     message: "Directive to establish persistent execution"
     confidence: 0.85
-    regex: '(?i)^\s*(?:(?:[-*+>]|\d+[.)])\s*)?(?:\*\*)?(?:install\s+a\s+cron\s+job\b|run\s+(?:crontab\s+-e|launchctl\s+load|systemctl\s+enable)\b|append\s+.{1,100}\s+to\s+~/\.(?:bashrc|zshrc|profile)\b).{0,100}\b(?:run|install|execute|launch|load)\s+(?:the\s+)?(?:payload|malware|backdoor)\b(?:\s*[.,;!]|\s*$)|^\s*(?:(?:[-*+>]|\d+[.)])\s*)?(?:\*\*)?append\s+.{0,80}\b(?:payload|malware|backdoor)\b.{0,80}\s+to\s+~/\.(?:bashrc|zshrc|profile)\b'
+    regex: '(?i)^\s*(?:(?:[-*+>]|\d+[.)])\s*)?(?:\*\*)?(?:install\s+a\s+cron\s+job\b|run\s+(?:crontab\s+-e|launchctl\s+load|systemctl\s+enable)\b|append\s+.{1,100}\s+to\s+~/\.(?:bashrc|zshrc|profile)\b).{0,100}\b(?:run|install|execute|launch|load)\s+(?:the\s+)?(?:payload\b(?:\s+(?:every|at|on|from|with)\b|\s*[.,;!]|\s*$)|(?:malware|backdoor)\b)|^\s*(?:(?:[-*+>]|\d+[.)])\s*)?(?:\*\*)?append\s+.{0,80}\b(?:payload|malware|backdoor)\b.{0,80}\s+to\s+~/\.(?:bashrc|zshrc|profile)\b'
