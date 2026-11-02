@@ -14,6 +14,15 @@ import (
 	"skillshare/internal/plugin"
 )
 
+// pluginServiceSnapshot builds the plugin service under s.mu.RLock and releases it.
+// Reads that run Agent CLIs or reach the network use it: holding s.mu through them
+// would stall every other API request, since each one reloads config under s.mu.Lock.
+func (s *Server) pluginServiceSnapshot() *plugin.Service {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.pluginService()
+}
+
 func (s *Server) pluginService() *plugin.Service {
 	service := &plugin.Service{ConfigPath: s.configPath(), ProjectRoot: s.projectRoot, StateDir: config.StateDir()}
 	if s.IsProjectMode() {
@@ -75,16 +84,15 @@ func decodePluginRequest(w http.ResponseWriter, r *http.Request, v any) bool {
 }
 
 func (s *Server) handlePluginList(w http.ResponseWriter, r *http.Request) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	service := s.pluginServiceSnapshot()
 	// hosts=false skips the Agent CLIs: the page draws the plugin list from this answer
 	// and fills in the Agents when the full one arrives.
 	var inventory *plugin.Inventory
 	var err error
 	if r.URL.Query().Get("hosts") == "false" {
-		inventory, err = s.pluginService().Packages()
+		inventory, err = service.Packages()
 	} else {
-		inventory, err = s.pluginService().Inventory(r.Context())
+		inventory, err = service.Inventory(r.Context())
 	}
 	if err != nil {
 		writeError(w, 400, err.Error())
@@ -104,9 +112,7 @@ func (s *Server) handlePluginDiscover(w http.ResponseWriter, r *http.Request) {
 	if !decodePluginRequest(w, r, &body) {
 		return
 	}
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	result, err := s.pluginService().DiscoverManaged(r.Context(), body.Name, body.Source, body.SourceRef, body.Entry)
+	result, err := s.pluginServiceSnapshot().DiscoverManaged(r.Context(), body.Name, body.Source, body.SourceRef, body.Entry)
 	if err != nil {
 		// A fixed failure carries its key as the error code, so the dashboard can translate it.
 		if key, args := plugin.ErrorKey(err); key != "" {
@@ -124,9 +130,7 @@ func (s *Server) handlePluginPreview(w http.ResponseWriter, r *http.Request) {
 	if !decodePluginRequest(w, r, &body) {
 		return
 	}
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	p, err := s.pluginService().Preview(r.Context(), body.Request)
+	p, err := s.pluginServiceSnapshot().Preview(r.Context(), body.Request)
 	if err != nil {
 		if key, args := plugin.ErrorKey(err); key != "" {
 			writeCodedError(w, 400, key, err.Error(), args)
@@ -179,9 +183,7 @@ func (s *Server) handlePluginUpdateStream(w http.ResponseWriter, r *http.Request
 	if !decodePluginRequest(w, r, &body) {
 		return
 	}
-	s.mu.RLock()
-	service := s.pluginService()
-	s.mu.RUnlock()
+	service := s.pluginServiceSnapshot()
 	unlock, err := service.Lock()
 	if err != nil {
 		writeError(w, http.StatusConflict, err.Error())
