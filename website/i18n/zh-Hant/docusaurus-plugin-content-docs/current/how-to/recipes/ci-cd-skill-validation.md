@@ -142,7 +142,7 @@ jobs:
 ```bash
 # 若任何 skill 的發現達到或超過門檻，則封鎖部署
 skillshare audit --threshold high
-echo $?  # 0 = 乾淨，1 = 有發現
+echo $?  # 0 = 低於門檻，1 = 有發現，2 = 錯誤
 ```
 
 ### SARIF 輸出
