@@ -159,6 +159,8 @@
   "auditRules.confirm.title": "모든 사용자 정의 규칙 초기화",
   "auditRules.detail.exclude": "제외",
   "auditRules.detail.regex": "정규식",
+  "auditRules.detail.confidence": "신뢰도",
+  "auditRules.detail.overridden": "재정의됨",
   "auditRules.detail.source": "출처",
   "auditRules.detail.matches": "현재 일치",
   "auditRules.detail.matchCount": "현재 {count}건",

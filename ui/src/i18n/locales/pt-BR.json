@@ -159,6 +159,8 @@
   "auditRules.confirm.title": "Redefinir Todas as Regras Personalizadas",
   "auditRules.detail.exclude": "Excluir",
   "auditRules.detail.regex": "Regex",
+  "auditRules.detail.confidence": "Confiança",
+  "auditRules.detail.overridden": "substituída",
   "auditRules.detail.source": "Fonte",
   "auditRules.detail.matches": "Corresponde agora",
   "auditRules.detail.matchCount": "{count} agora",

@@ -124,7 +124,7 @@ rules:
 - **相同 `id`** + `regex` → 替换整条规则；仅有 `severity` 或 `confidence` 时覆盖相应字段
 - **新的 `id`** → 作为自定义规则追加
 - **仅 `pattern`**（无 `id`）+ `enabled: false` → 禁用所有匹配该 pattern 的规则
-- **仅 `pattern`** + `severity` → 覆盖所有匹配规则的 severity
+- **仅 `pattern`** + `severity` 或 `confidence` → 覆盖所有匹配规则的相应字段
 - **先 pattern 后 id** → id 级条目可以在被禁用的 pattern group 内重新启用个别规则
 
 ### 实用模板

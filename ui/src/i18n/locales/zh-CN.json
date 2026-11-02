@@ -159,6 +159,8 @@
   "auditRules.confirm.title": "重置所有自定义规则",
   "auditRules.detail.exclude": "排除",
   "auditRules.detail.regex": "正则表达式",
+  "auditRules.detail.confidence": "置信度",
+  "auditRules.detail.overridden": "已覆盖",
   "auditRules.detail.source": "来源",
   "auditRules.detail.matches": "目前命中",
   "auditRules.detail.matchCount": "目前 {count} 個",

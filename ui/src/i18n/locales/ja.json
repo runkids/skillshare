@@ -159,6 +159,8 @@
   "auditRules.confirm.title": "すべてのカスタムルールをリセット",
   "auditRules.detail.exclude": "除外",
   "auditRules.detail.regex": "正規表現",
+  "auditRules.detail.confidence": "信頼度",
+  "auditRules.detail.overridden": "上書き済み",
   "auditRules.detail.source": "ソース",
   "auditRules.detail.matches": "現在の一致",
   "auditRules.detail.matchCount": "現在 {count} 件",

@@ -112,16 +112,17 @@ type rule struct {
 
 // yamlRule is the YAML deserialization type for a single rule.
 type yamlRule struct {
-	ID                 string   `yaml:"id"`
-	Severity           string   `yaml:"severity"`
-	Pattern            string   `yaml:"pattern"`
-	Message            string   `yaml:"message"`
-	Confidence         *float64 `yaml:"confidence,omitempty"`
-	Regex              string   `yaml:"regex"`
-	Exclude            string   `yaml:"exclude,omitempty"`
-	Enabled            *bool    `yaml:"enabled,omitempty"` // nil = true; false = disable
-	severityOverridden bool     `yaml:"-"`
-	excludePhrase      bool     `yaml:"-"`
+	ID                   string   `yaml:"id"`
+	Severity             string   `yaml:"severity"`
+	Pattern              string   `yaml:"pattern"`
+	Message              string   `yaml:"message"`
+	Confidence           *float64 `yaml:"confidence,omitempty"`
+	Regex                string   `yaml:"regex"`
+	Exclude              string   `yaml:"exclude,omitempty"`
+	Enabled              *bool    `yaml:"enabled,omitempty"` // nil = true; false = disable
+	severityOverridden   bool     `yaml:"-"`
+	confidenceOverridden bool     `yaml:"-"`
+	excludePhrase        bool     `yaml:"-"`
 }
 
 type rulesFile struct {
@@ -383,6 +384,7 @@ func mergeYAMLRules(base, overlay []yamlRule) []yamlRule {
 			}
 			if po.Confidence != nil {
 				result[i].Confidence = po.Confidence
+				result[i].confidenceOverridden = true
 			}
 			if po.Severity != "" {
 				result[i].Severity = po.Severity
@@ -397,6 +399,7 @@ func mergeYAMLRules(base, overlay []yamlRule) []yamlRule {
 			if o.Regex != "" {
 				// Full custom rule (has regex) → replace entirely.
 				result[pos] = o
+				result[pos].confidenceOverridden = o.Confidence != nil
 			} else {
 				// Partial overlay (toggle / severity override) → merge fields.
 				if o.Enabled != nil {
@@ -410,6 +413,7 @@ func mergeYAMLRules(base, overlay []yamlRule) []yamlRule {
 				}
 				if o.Confidence != nil {
 					result[pos].Confidence = o.Confidence
+					result[pos].confidenceOverridden = true
 				}
 				if o.Severity != "" {
 					result[pos].Severity = o.Severity

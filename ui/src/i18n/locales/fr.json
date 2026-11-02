@@ -159,6 +159,8 @@
   "auditRules.confirm.title": "Réinitialiser toutes les règles personnalisées",
   "auditRules.detail.exclude": "Exclure",
   "auditRules.detail.regex": "Regex",
+  "auditRules.detail.confidence": "Confiance",
+  "auditRules.detail.overridden": "modifiée",
   "auditRules.detail.source": "Source",
   "auditRules.detail.matches": "Correspond actuellement",
   "auditRules.detail.matchCount": "{count} actuellement",

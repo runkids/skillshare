@@ -124,7 +124,7 @@ rules:
 - **相同 `id`** + `regex` → 取代整條規則；只有 `severity` 或 `confidence` 時覆寫相應欄位
 - **新的 `id`** → 附加為自訂規則
 - **只有 `pattern`**（沒有 `id`）+ `enabled: false` → 停用所有符合該 pattern 的規則
-- **只有 `pattern`** + `severity` → 覆寫所有符合規則的嚴重程度
+- **只有 `pattern`** + `severity` 或 `confidence` → 覆寫所有符合規則的相應欄位
 - **Pattern 後接 id** → id 層級的項目可以在已停用的 pattern 群組中重新啟用個別規則
 
 ### 實務範本

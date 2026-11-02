@@ -124,7 +124,7 @@ rules:
 - **동일한 `id`** + `regex` → 규칙 전체를 교체; `severity` 또는 `confidence`만 있으면 해당 필드만 재정의
 - **새로운 `id`** → 커스텀 규칙으로 추가
 - **`pattern`만** (id 없음) + `enabled: false` → 해당 패턴에 일치하는 모든 규칙 비활성화
-- **`pattern`만** + `severity` → 일치하는 모든 규칙의 severity를 재정의
+- **`pattern`만** + `severity` 또는 `confidence` → 일치하는 모든 규칙의 해당 필드를 재정의
 - **패턴 다음 id** → id 수준 항목이 비활성화된 패턴 그룹 내 개별 규칙을 재활성화할 수 있음
 
 ### 실전 템플릿

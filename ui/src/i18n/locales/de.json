@@ -159,6 +159,8 @@
   "auditRules.confirm.title": "Alle benutzerdefinierten Regeln zurücksetzen",
   "auditRules.detail.exclude": "Ausschließen",
   "auditRules.detail.regex": "Regex",
+  "auditRules.detail.confidence": "Konfidenz",
+  "auditRules.detail.overridden": "überschrieben",
   "auditRules.detail.source": "Quelle",
   "auditRules.detail.matches": "Trifft aktuell",
   "auditRules.detail.matchCount": "{count} aktuell",

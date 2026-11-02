@@ -124,7 +124,7 @@ Each layer (global, then project) is applied on top of the previous:
 - **Same `id`** + `regex` → replaces the entire rule; `severity` or `confidence` alone overrides that field
 - **New `id`** → appends as a custom rule
 - **`pattern` only** (no `id`) + `enabled: false` → disables all rules matching that pattern
-- **`pattern` only** + `severity` → overrides severity for all matching rules
+- **`pattern` only** + `severity` or `confidence` → overrides that field for all matching rules
 - **Pattern then id** → id-level entries can re-enable individual rules within a disabled pattern group
 
 ### Practical Templates
