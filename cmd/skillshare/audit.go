@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,6 +21,15 @@ import (
 )
 
 const largeAuditThreshold = 1000
+
+var errAuditDeclined = errors.New("audit declined by user")
+
+// auditExecutionError preserves the audit exit code when another command,
+// such as list, launches an audit and returns its error.
+type auditExecutionError struct{ cause error }
+
+func (e *auditExecutionError) Error() string { return e.cause.Error() }
+func (e *auditExecutionError) Unwrap() error { return e.cause }
 
 // Output format constants for --format flag.
 const (
@@ -115,7 +125,12 @@ type auditJSONOutput struct {
 	Incomplete bool     `json:"incomplete,omitempty"`
 }
 
-func cmdAudit(args []string) error {
+func cmdAudit(args []string) (err error) {
+	defer func() {
+		if err != nil {
+			err = &auditExecutionError{cause: err}
+		}
+	}()
 	start := time.Now()
 
 	mode, rest, err := parseModeArgs(args, "--format", "--threshold", "-T", "--group", "-G", "--profile", "--dedupe", "--analyzer", "--pattern", "--severity")
@@ -253,6 +268,10 @@ func cmdAudit(args []string) error {
 	default:
 		results, summary, err = auditFiltered(sourcePath, agentsSourcePath, opts.Targets, opts.Groups, modeString(mode), projectRoot, threshold, kind, opts, registry)
 	}
+	if errors.Is(err, errAuditDeclined) {
+		ui.Cancelled("scanned")
+		return nil
+	}
 	if err != nil {
 		logAuditOp(cfgPath, rest, summary, start, err, false)
 		return err
@@ -279,10 +298,6 @@ func cmdAudit(args []string) error {
 		log := audit.ToSARIF(results, audit.SARIFOptions{ToolVersion: versionpkg.Version})
 		out, _ := json.MarshalIndent(log, "", "  ")
 		fmt.Println(string(out))
-		if blocked {
-			os.Exit(1)
-		}
-		return nil
 	case formatJSON:
 		out, _ := json.MarshalIndent(auditJSONOutput{
 			Results:    results,
@@ -291,19 +306,14 @@ func cmdAudit(args []string) error {
 			Incomplete: opts.skillsWalk.Follow.Incomplete(),
 		}, "", "  ")
 		fmt.Println(string(out))
-		if blocked {
-			os.Exit(1)
-		}
-		return nil
 	case formatMarkdown:
 		md := audit.ToMarkdown(results, summary.toMarkdownOptions())
 		fmt.Print(md)
-		if blocked {
-			os.Exit(1)
-		}
-		return nil
 	}
 
+	if summary.ScanErrors > 0 {
+		os.Exit(2)
+	}
 	if blocked {
 		os.Exit(1)
 	}
@@ -590,7 +600,7 @@ func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold s
 			return nil, base, err
 		}
 		if !ok {
-			return nil, base, fmt.Errorf("aborted by user")
+			return nil, base, errAuditDeclined
 		}
 	}
 

@@ -114,6 +114,10 @@ func ComputeFileHashes(skillPath string, follow ...*sourcewalk.Follow) (map[stri
 		if info.Name() == MetadataFileName {
 			return nil
 		}
+		// File managers write these into folders they open; not skill content (#743).
+		if utils.IsOSMetadataFile(info.Name()) {
+			return nil
+		}
 		if utils.IsLinkMode(path, info.Mode()) {
 			// Walk does not follow symlinks, but FileHashFormatted does.
 			// Leave stat failures to hashing so they retain the existing error path.

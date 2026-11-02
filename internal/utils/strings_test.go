@@ -2,6 +2,20 @@ package utils
 
 import "testing"
 
+func TestIsOSMetadataFile(t *testing.T) {
+	for name, want := range map[string]bool{
+		".DS_Store":   true,
+		"Thumbs.db":   true,
+		"Desktop.ini": true,
+		"SKILL.md":    false,
+		".DS_Store~":  false,
+	} {
+		if got := IsOSMetadataFile(name); got != want {
+			t.Errorf("IsOSMetadataFile(%q) = %v, want %v", name, got, want)
+		}
+	}
+}
+
 func TestIsHidden(t *testing.T) {
 	tests := []struct {
 		name     string

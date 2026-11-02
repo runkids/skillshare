@@ -204,7 +204,7 @@ rules:
 ```bash
 # 如果任何 Skill 存在 HIGH 及以上级别的发现，则使流水线失败
 skillshare audit --threshold high
-# 退出码：0 = 干净，1 = 发现问题
+# 退出码：0 = 低于阈值，1 = 发现问题，2 = 错误
 ```
 
 ### 真实案例：Skill Hub PR 验证

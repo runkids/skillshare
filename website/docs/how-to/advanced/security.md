@@ -204,7 +204,7 @@ Rules evolve — a skill that was clean at install time may match new rules adde
 ```bash
 # Fail the pipeline if any skill has HIGH+ findings
 skillshare audit --threshold high
-# Exit code: 0 = clean, 1 = findings found
+# Exit code: 0 = below threshold, 1 = findings, 2 = error
 ```
 
 ### Real-World Example: Skill Hub PR Validation

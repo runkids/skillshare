@@ -181,7 +181,7 @@ Skill のサブディレクトリがアップストリームでリネームま�
 :::
 
 :::info ローカルで変更された Skill
-インストール後に編集した Skill は、upstream に新しいバージョンがあっても **modified** と報告され、その `message` は `update available upstream` で終わります。`update` は `skillshare update <name> --force` を実行するまで手を付けません。このコマンドは変更を破棄して再インストールします。
+インストール後に編集した Skill は、upstream に新しいバージョンがあっても **modified** と報告され、その `message` は `update available upstream` で終わります。`update` は `skillshare update <name> --force` を実行するまで手を付けません。このコマンドは変更を破棄して再インストールします。OS のメタデータファイル（`.DS_Store`、`Thumbs.db`、`desktop.ini`）はローカルの変更として数えません。
 
 先に変更内容を確認するには、`skillshare check <name> --diff` を実行します。Skill がインストールされた commit を取得するため、upstream が先に進んでいても diff にはあなたの編集だけが表示されます:
 

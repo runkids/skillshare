@@ -15,10 +15,12 @@ import (
 // writes mcp/tool-pins.json, but never accepts a change. Repeated ?name= limits the check
 // to those servers.
 func (s *Server) handleMCPCheck(w http.ResponseWriter, r *http.Request) {
+	// Release s.mu before the lookups and probes: every other API request waits on it.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	service := s.mcpService()
+	s.mu.RUnlock()
 	query := r.URL.Query()
-	report, err := s.mcpService().Check(mcp.CheckOptions{
+	report, err := service.Check(mcp.CheckOptions{
 		SkipDNS:       query.Get("dns") == "0",
 		Live:          query.Get("live") == "1",
 		Names:         query["name"],

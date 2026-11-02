@@ -55,6 +55,8 @@ func LoadMetadataWithMigration(dir, kind string) (*MetadataStore, error) {
 		migrateSkillSidecars(store, dir)
 	}
 
+	store.dropOSMetadataHashes()
+
 	// Phase 3: Save if we found anything to migrate
 	if len(store.Entries) > 0 {
 		if err := store.Save(dir); err != nil {

@@ -163,7 +163,10 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 
 		// Collect ALL non-meta files for integrity check (before size/scannable filters).
 		normalizedRel := filepath.ToSlash(relPath)
-		allFiles[normalizedRel] = true
+		// Install never pins OS metadata files, so they are not unexpected (#743).
+		if !utils.IsOSMetadataFile(fi.Name()) {
+			allFiles[normalizedRel] = true
+		}
 
 		// Files exceeding maxScanFileSize are excluded from totalBytes so that
 		// analyzability reflects the ratio among files the scanner considers,

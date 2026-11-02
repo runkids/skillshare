@@ -143,7 +143,7 @@ jobs:
 ```bash
 # しきい値以上の検出結果がある Skill があればデプロイをブロックする
 skillshare audit --threshold high
-echo $?  # 0 = クリーン、1 = 検出結果あり
+echo $?  # 0 = 閾値未満、1 = 検出結果あり、2 = エラー
 ```
 
 ### SARIF 出力

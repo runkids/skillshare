@@ -142,7 +142,7 @@ jobs:
 ```bash
 # 若任何 Skill 的 findings 达到或超过阈值，阻止部署
 skillshare audit --threshold high
-echo $?  # 0 = 干净, 1 = 存在 findings
+echo $?  # 0 = 低于阈值, 1 = 存在 findings, 2 = 错误
 ```
 
 ### SARIF Output

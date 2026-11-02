@@ -16,6 +16,17 @@ func IsHidden(name string) bool {
 	return len(name) > 0 && name[0] == '.'
 }
 
+// IsOSMetadataFile reports whether name is a file the OS file manager writes
+// into folders on its own: Finder's .DS_Store, Explorer's Thumbs.db and
+// desktop.ini. Windows names are case-insensitive, so all are compared that way.
+func IsOSMetadataFile(name string) bool {
+	switch strings.ToLower(name) {
+	case ".ds_store", "thumbs.db", "desktop.ini":
+		return true
+	}
+	return false
+}
+
 // HasTildePrefix checks if a path starts with ~.
 // Returns false for empty strings to prevent panic on empty paths.
 func HasTildePrefix(path string) bool {

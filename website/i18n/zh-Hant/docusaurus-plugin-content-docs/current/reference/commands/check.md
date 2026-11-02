@@ -181,7 +181,7 @@ skillshare check --json
 :::
 
 :::info 本機修改過的 skills
-安裝後被你編輯過的 skill 會被回報為 **modified**，即使 upstream 已有更新版本；此時其 `message` 以 `update available upstream` 結尾。在你執行 `skillshare update <name> --force` 之前，`update` 不會動它；該指令會捨棄你的變更並重新安裝。
+安裝後被你編輯過的 skill 會被回報為 **modified**，即使 upstream 已有更新版本；此時其 `message` 以 `update available upstream` 結尾。在你執行 `skillshare update <name> --force` 之前，`update` 不會動它；該指令會捨棄你的變更並重新安裝。作業系統的 metadata 檔案（`.DS_Store`、`Thumbs.db`、`desktop.ini`）不算本機修改。
 
 如需先查看變更內容，請執行 `skillshare check <name> --diff`。它會取得該 skill 安裝時所在的 commit，因此即使 upstream 已經前進，diff 也只顯示你自己的修改：
 

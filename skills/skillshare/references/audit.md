@@ -111,6 +111,8 @@ skillshare audit rules reset                    # Restore built-in defaults
 skillshare audit rules init                     # Create starter audit-rules.yaml
 ```
 
+Audit exits `0` when findings are below the threshold, `1` for threshold findings, and `2` for execution, usage, configuration, or scan errors. Scan errors take precedence over findings. Declining the large-scan confirmation exits `0` without scanning. Audits launched from `list` use the same exit codes.
+
 ## Custom Audit Rules
 
 ```bash

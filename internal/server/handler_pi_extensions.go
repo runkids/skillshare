@@ -48,11 +48,12 @@ func (s *Server) piExtensionsService(w http.ResponseWriter, name string) (*plugi
 
 func (s *Server) handlePiExtensions(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
 	service, target, ok := s.piExtensionsService(w, r.PathValue("name"))
+	s.mu.RUnlock()
 	if !ok {
 		return
 	}
+	// The Pi CLI runs without s.mu, so it cannot stall the dashboard's other requests.
 	view, err := service.PiExtensions(r.Context(), target)
 	if err != nil {
 		writePiExtensionsError(w, err)
@@ -68,8 +69,8 @@ func (s *Server) handlePiExtensionsPreview(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	s.mu.RLock()
-	defer s.mu.RUnlock()
 	service, target, ok := s.piExtensionsService(w, r.PathValue("name"))
+	s.mu.RUnlock()
 	if !ok {
 		return
 	}

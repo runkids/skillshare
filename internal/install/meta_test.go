@@ -157,6 +157,9 @@ func TestComputeFileHashes_SkipsMetaAndGit(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, ".skillshare-meta.json"), []byte("{}"), 0644)
 	os.MkdirAll(filepath.Join(dir, ".git", "objects"), 0755)
 	os.WriteFile(filepath.Join(dir, ".git", "HEAD"), []byte("ref: refs/heads/main"), 0644)
+	os.WriteFile(filepath.Join(dir, ".DS_Store"), []byte{0}, 0644)
+	os.MkdirAll(filepath.Join(dir, "assets"), 0755)
+	os.WriteFile(filepath.Join(dir, "assets", ".DS_Store"), []byte{0}, 0644)
 
 	hashes, err := ComputeFileHashes(dir)
 	if err != nil {

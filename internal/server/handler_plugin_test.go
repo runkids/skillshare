@@ -1,13 +1,16 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"skillshare/internal/config"
 	"skillshare/internal/plugin"
@@ -67,6 +70,42 @@ func TestPluginDiscoverNamesANetworkFailure(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil || w.Code != 400 || body.Code != "plugins.error.network" {
 		t.Fatalf("status %d: %s", w.Code, w.Body.String())
 	}
+}
+
+// A slow source must not hold the config lock: every other API request reloads config
+// under it, so the dashboard would hang until the check finished.
+func TestPluginDiscoverDoesNotHoldTheConfigLock(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	accepted := make(chan net.Conn, 1)
+	go func() {
+		if conn, err := listener.Accept(); err == nil {
+			accepted <- conn
+		}
+	}()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		body := `{"source":"https://` + listener.Addr().String() + `/demo.git"}`
+		r := httptest.NewRequest(http.MethodPost, "/api/plugins/discover", strings.NewReader(body)).WithContext(ctx)
+		s.handlePluginDiscover(httptest.NewRecorder(), r)
+	}()
+	defer func() { cancel(); <-done }()
+	select {
+	case conn := <-accepted:
+		defer conn.Close()
+	case <-time.After(10 * time.Second):
+		t.Fatal("discover never reached the source")
+	}
+	if !s.mu.TryLock() {
+		t.Fatal("a discover still reaching its source holds the config lock")
+	}
+	s.mu.Unlock()
 }
 
 // Only one plugin change runs at a time; a batch update that cannot start says so before streaming.
