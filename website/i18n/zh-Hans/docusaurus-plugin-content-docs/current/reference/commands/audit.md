@@ -137,7 +137,7 @@ skillshare audit --analyzer static --analyzer dataflow # 使用多个分析器
 | `tier` | 逐 skill | 能力分级组合风险分析 |
 | `integrity` | 逐 skill | 内容哈希校验（SKILL.md 中的 `file_hashes`） |
 | `metadata` | 逐 skill | 供应链信任校验（发布者不匹配、权威性声明） |
-| `structure` | 逐 skill | 悬空 markdown 链接检测 |
+| `structure` | 逐 skill | 悬空 markdown 链接检测; [随附的 hooks 与设置](/docs/understand/audit-engine#bundled-hooks-and-settings) |
 | `cross-skill` | 整批 | 跨 skill 的外泄与权限提升分析 |
 
 你也可以在配置中设置：
@@ -323,7 +323,7 @@ audit 会扫描 skill 目录中的文本类文件：
 
 扫描在每个 skill 目录内是递归的，因此 `SKILL.md`、嵌套的 `references/*.md` 以及 `scripts/*.sh` 只要匹配受支持的文本文件类型，都会被检查。
 
-二进制文件（图片、`.wasm` 等）和隐藏目录（`.git`）会被跳过。
+二进制文件（图片、`.wasm` 等）和隐藏目录（`.git`）会被跳过，但 structure 分析器会读取 skill 内的 `.claude/settings.json` 和 `.claude/settings.local.json`。
 
 ## 选项
 

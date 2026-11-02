@@ -76,10 +76,11 @@ type Finding struct {
 	Snippet  string `json:"snippet"` // trimmed matched line (no truncation)
 
 	// Phase 2 fields — analyzer traceability and deduplication.
-	RuleID       string  `json:"ruleId,omitempty"`       // stable rule identifier
-	Analyzer     string  `json:"analyzer,omitempty"`     // static|dataflow|tier|integrity|structure|cross-skill
-	Category     string  `json:"category,omitempty"`     // injection|exfiltration|credential|obfuscation|...
-	Confidence   float64 `json:"confidence,omitempty"`   // 0~1
-	Fingerprint  string  `json:"fingerprint,omitempty"`  // sha256 stable hash for deduplication
-	Acknowledged bool    `json:"acknowledged,omitempty"` // previously accepted via --force; excluded from blocking
+	RuleID            string  `json:"ruleId,omitempty"`       // stable rule identifier
+	Analyzer          string  `json:"analyzer,omitempty"`     // static|dataflow|tier|integrity|structure|cross-skill
+	Category          string  `json:"category,omitempty"`     // injection|exfiltration|credential|obfuscation|...
+	Confidence        float64 `json:"confidence,omitempty"`   // 0~1
+	Fingerprint       string  `json:"fingerprint,omitempty"`  // sha256 stable hash for deduplication
+	Acknowledged      bool    `json:"acknowledged,omitempty"` // previously accepted via --force; excluded from blocking
+	acceptanceContext string  `json:"-"`
 }

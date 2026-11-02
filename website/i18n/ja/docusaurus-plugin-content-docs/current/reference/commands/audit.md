@@ -137,7 +137,7 @@ skillshare audit --analyzer static --analyzer dataflow # 複数の analyzer
 | `tier` | Skill 単位 | Capability tier の組み合わせリスク分析 |
 | `integrity` | Skill 単位 | コンテンツハッシュ検証（SKILL.md の `file_hashes`） |
 | `metadata` | Skill 単位 | サプライチェーンの信頼性検証（publisher の不一致、権威の主張） |
-| `structure` | Skill 単位 | markdown のダングリングリンク検出 |
+| `structure` | Skill 単位 | markdown のダングリングリンク検出; [同梱フックと設定](/docs/understand/audit-engine#bundled-hooks-and-settings) |
 | `cross-skill` | バンドル単位 | Skill 間のデータ流出・権限昇格分析 |
 
 config で設定することもできます。
@@ -323,7 +323,7 @@ audit は Skill ディレクトリ内のテキストベースのファイルを�
 
 スキャンは各 Skill ディレクトリ内で再帰的に行われるため、サポート対象のテキストファイルタイプに一致する限り、`SKILL.md`、ネストした `references/*.md`、`scripts/*.sh` もすべて検査されます。
 
-バイナリファイル（画像、`.wasm` など）と隠しディレクトリ（`.git`）はスキップされます。
+バイナリファイル（画像、`.wasm` など）と隠しディレクトリ（`.git`）はスキップされます。ただし structure アナライザーは skill 内の `.claude/settings.json` と `.claude/settings.local.json` を読み取ります。
 
 ## オプション
 

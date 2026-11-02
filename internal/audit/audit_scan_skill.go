@@ -119,6 +119,7 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 	// fileCache collects file contents read during walk so that
 	// checkContentIntegrity can reuse them instead of re-reading from disk.
 	fileCache := make(map[string][]byte)
+	bundledDiagnostics := collectBundled(skillPath, fileCache)
 	// allFiles collects every encountered file relPath (including non-scannable)
 	// so checkContentIntegrity can skip its own filepath.Walk.
 	allFiles := make(map[string]bool)
@@ -168,22 +169,38 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 			allFiles[normalizedRel] = true
 		}
 
+		var data []byte
+		bundled := isBundledConfig(normalizedRel)
+		size := fi.Size()
+		if bundled {
+			// Reuse the confined, bounded read; failed reads must not fall back
+			// to an unconfined open. Count target bytes for an in-root link.
+			var ok bool
+			data, ok = fileCache[normalizedRel]
+			if !ok {
+				return nil
+			}
+			size = int64(len(data))
+		}
 		// Files exceeding maxScanFileSize are excluded from totalBytes so that
 		// analyzability reflects the ratio among files the scanner considers,
 		// not raw on-disk size. Oversized files are a separate concern.
-		if fi.Size() > maxScanFileSize {
+		if size > maxScanFileSize {
 			return nil
 		}
 
-		totalBytes += fi.Size()
+		totalBytes += size
 
 		if !isScannable(fi.Name()) {
 			return nil
 		}
 
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return nil
+		if !bundled {
+			var err error
+			data, err = os.ReadFile(path)
+			if err != nil {
+				return nil
+			}
 		}
 		if isBinaryContent(data) {
 			return nil
@@ -215,6 +232,13 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 			rulesForFile, &skillTierProfile,
 			hasStatic, dfEnabled, isShellFile(fi.Name()),
 		)
+		if bundled {
+			// Existing visible hook text findings remain covered, but arbitrary
+			// JSON content must be redacted before any report receives it.
+			for i := range staticFindings {
+				staticFindings[i].Snippet = bundledEvidence(staticFindings[i].Snippet)
+			}
+		}
 		result.Findings = append(result.Findings, staticFindings...)
 		result.Findings = append(result.Findings,
 			DeduplicateDataflow(dfFindings, staticFindings)...)
@@ -234,16 +258,17 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 	// --- Skill-scope analyzers (via registry) ---
 	result.TierProfile = skillTierProfile
 	skillCtx := &AnalyzeContext{
-		SkillPath:      logicalPath, // Central metadata belongs to the logical source.
-		MDFiles:        mdFiles,
-		FileCache:      fileCache,
-		TierProfile:    skillTierProfile,
-		MDLinks:        mdLinks,
-		AllFiles:       allFiles,
-		Rules:          resolvedRules,
-		MDContentRules: mdContentRules,
-		MDLinkRules:    mdLinkRules,
-		DisabledIDs:    disabled,
+		SkillPath:          logicalPath, // Central metadata belongs to the logical source.
+		MDFiles:            mdFiles,
+		FileCache:          fileCache,
+		BundledDiagnostics: bundledDiagnostics,
+		TierProfile:        skillTierProfile,
+		MDLinks:            mdLinks,
+		AllFiles:           allFiles,
+		Rules:              resolvedRules,
+		MDContentRules:     mdContentRules,
+		MDLinkRules:        mdLinkRules,
+		DisabledIDs:        disabled,
 	}
 	for _, a := range registry.SkillAnalyzers() {
 		if af, err := a.Analyze(skillCtx); err == nil {

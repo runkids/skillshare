@@ -35,13 +35,14 @@ type AnalyzeContext struct {
 	IsShell    bool
 
 	// --- Skill-scope fields (populated after Walk completes) ---
-	SkillPath   string
-	SourceURL   string // git clone URL from .skillshare-meta.json (empty for local)
-	MDFiles     []mdFileInfo
-	FileCache   map[string][]byte
-	TierProfile TierProfile
-	MDLinks     map[string][]markdownLink // pre-extracted links per md relPath
-	AllFiles    map[string]bool           // all walked file relPaths (for integrity)
+	SkillPath          string
+	SourceURL          string // git clone URL from .skillshare-meta.json (empty for local)
+	MDFiles            []mdFileInfo
+	FileCache          map[string][]byte
+	TierProfile        TierProfile
+	MDLinks            map[string][]markdownLink // pre-extracted links per md relPath
+	AllFiles           map[string]bool           // all walked file relPaths (for integrity)
+	BundledDiagnostics []Finding                 // bounded collection failures, without raw input/errors
 
 	// --- Bundle-scope fields (populated after all skills scanned) ---
 	Results []*Result

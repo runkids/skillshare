@@ -137,7 +137,7 @@ skillshare audit --analyzer static --analyzer dataflow # Multiple analyzers
 | `tier` | Per-skill | Capability tier combination risk analysis |
 | `integrity` | Per-skill | Content hash verification (`file_hashes` in SKILL.md) |
 | `metadata` | Per-skill | Supply-chain trust verification (publisher mismatch, authority claims) |
-| `structure` | Per-skill | Dangling markdown link detection |
+| `structure` | Per-skill | Dangling markdown link detection; [bundled hooks/settings](/docs/understand/audit-engine#bundled-hooks-and-settings) |
 | `cross-skill` | Bundle | Cross-skill exfiltration and privilege escalation analysis |
 
 You can also set this in config:
@@ -323,7 +323,7 @@ The audit scans text-based files in skill directories:
 
 Scanning is recursive within each skill directory, so `SKILL.md`, nested `references/*.md`, and `scripts/*.sh` are all inspected when they match supported text file types.
 
-Binary files (images, `.wasm`, etc.) and hidden directories (`.git`) are skipped.
+Binary files (images, `.wasm`, etc.) and hidden directories (`.git`) are skipped, except that the structure analyzer reads the skill’s `.claude/settings.json` and `.claude/settings.local.json`.
 
 ## Options
 

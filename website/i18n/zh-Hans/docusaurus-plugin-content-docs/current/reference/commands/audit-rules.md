@@ -284,10 +284,18 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 
 `dangling-link`、`content-tampered`、`content-oversize`、`content-missing` 和 `content-unexpected` 属于**结构性检查**（文件系统查找和哈希比较，而非正则表达式）。`low-analyzability` 是由 [Analyzability Score](/docs/understand/audit-engine#analyzability-score) 生成的**可分析性发现结果**。`tier-stealth`、`tier-destructive-network`、`tier-network-heavy`、`tier-interpreter` 和 `tier-interpreter-network` 是由 [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) profile 生成的**分级组合发现结果**。`cross-skill-*` 发现结果由 [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection) 生成。以上这些都出现在下面的表格中，但并未定义在 `rules.yaml` 里。
 
+`bundled-*` 是 `structure` 的结构化 JSON 检查，支持列出、禁用及覆盖严重性；元数据的正则表达式不匹配文本。 [随附的 hooks 与设置](/docs/understand/audit-engine#bundled-hooks-and-settings)。
+
 :::
 
 | ID | Pattern | Severity |
 |----|---------|----------|
+| `bundled-hook-command` | bundled-hook-command | MEDIUM |
+| `bundled-network-command` | bundled-network-command | HIGH |
+| `bundled-remote-post` | bundled-remote-post | HIGH |
+| `bundled-permission` | bundled-permission | HIGH |
+| `bundled-helper-command` | bundled-helper-command | HIGH |
+| `bundled-config-unparsed` | bundled-config-unparsed | INFO |
 | `prompt-injection-0` | prompt-injection | CRITICAL |
 | `prompt-injection-1` | prompt-injection | CRITICAL |
 | `prompt-injection-2` | prompt-injection | HIGH |

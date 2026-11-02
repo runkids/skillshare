@@ -68,6 +68,12 @@ HIGH findings warn at the default CRITICAL threshold and block at a HIGH thresho
 
 Explicit global or project severity overrides, including CRITICAL, take precedence over SDK parameter downgrades. Generic disclosure restrictions now use `prompt-injection-5`; overrides for `prompt-injection-4` apply only to explicit concealment. Built-in rule 5 excludes explicit-concealment phrases, not separate generic restrictions on the same line. Full custom regex replacements retain whole-line exclusion semantics. To make generic restrictions CRITICAL, override `prompt-injection-5`. For reviewed false positives, findings accepted with `--force` remain visible and are remembered for that resource; a different rule, file, or matched text requires acceptance again.
 
+## Bundled hooks and settings
+
+The `structure` analyzer inspects `hooks.json`, `hooks/hooks.json`, `.claude/settings.json`, and `.claude/settings.local.json` inside a skill, with confined reads capped at 1,000,000 bytes per file. It reports lifecycle commands at MEDIUM and recognized network commands, remote POST, broad permissions, and command-valued helpers at HIGH. Findings describe potential behavior if activated. Malformed, unsupported, oversized, or unreadable declarations produce `bundled-config-unparsed` at INFO; they do not establish a clean surface. Arguments and URLs are redacted before reporting. The six `bundled-*` IDs are listed by `audit rules` and honor disabling/severity overrides. Command-valued settings inspection is limited to `apiKeyHelper` and `statusLine`; other command-valued settings are not inspected. No declaration is executed and no live settings are read.
+
+Broad grants include `*`, bare tools, `Bash(*)`, `Bash(:*)`, and MCP server-wide grants (`mcp__server__*`). Narrow prefixes such as `Bash(git diff:*)` and scoped paths such as `Read(./docs/**)` and MCP tool prefixes such as `mcp__github__get_*` stay clean. POST evidence must come from the network command's own segment. Hidden settings receive declaration analysis only and remain excluded from text-rule scans and analyzability bytes. Existing text findings in the two visible hook files are redacted, changing their fingerprints/acceptance keys and requiring prior acceptances to be renewed.
+
 ## Config
 
 ```yaml

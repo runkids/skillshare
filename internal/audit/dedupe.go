@@ -22,11 +22,15 @@ func normalizeSnippet(s string) string {
 // ComputeFingerprint returns a stable sha256 hex hash for a finding.
 // Formula: sha256(lower(ruleId|pattern|analyzer|file|line|normalizedSnippet))
 func ComputeFingerprint(f Finding) string {
-	raw := strings.Join([]string{
+	parts := []string{
 		f.RuleID, f.Pattern, f.Analyzer,
 		f.File, strconv.Itoa(f.Line),
 		normalizeSnippet(f.Snippet),
-	}, "|")
+	}
+	if f.acceptanceContext != "" {
+		parts = append(parts, f.acceptanceContext)
+	}
+	raw := strings.Join(parts, "|")
 	h := sha256.Sum256([]byte(strings.ToLower(raw)))
 	return hex.EncodeToString(h[:])
 }
@@ -35,7 +39,7 @@ func dedupeKey(f Finding) string {
 	if f.Fingerprint != "" {
 		return f.Fingerprint
 	}
-	return f.Pattern + "|" + f.File + "|" + strconv.Itoa(f.Line) + "|" + normalizeSnippet(f.Snippet)
+	return f.Pattern + "|" + f.File + "|" + strconv.Itoa(f.Line) + "|" + normalizeSnippet(f.Snippet) + "|" + f.acceptanceContext
 }
 
 // StampFingerprints fills the Fingerprint field for every finding that lacks one.

@@ -137,7 +137,7 @@ skillshare audit --analyzer static --analyzer dataflow # 여러 분석기
 | `tier` | skill별 | 기능 등급(capability tier) 조합 위험 분석 |
 | `integrity` | skill별 | 콘텐츠 해시 검증 (SKILL.md의 `file_hashes`) |
 | `metadata` | skill별 | 공급망 신뢰 검증 (publisher 불일치, authority 주장) |
-| `structure` | skill별 | markdown 댕글링 링크 탐지 |
+| `structure` | skill별 | markdown 댕글링 링크 탐지; [번들 훅과 설정](/docs/understand/audit-engine#bundled-hooks-and-settings) |
 | `cross-skill` | 번들 | Cross-skill 유출 및 권한 상승 분석 |
 
 config에서도 설정할 수 있습니다:
@@ -323,7 +323,7 @@ audit는 skill 디렉터리 내 텍스트 기반 파일을 스캔합니다:
 
 스캔은 각 skill 디렉터리 내에서 재귀적으로 수행되므로, `SKILL.md`, 중첩된 `references/*.md`, `scripts/*.sh` 모두 지원되는 텍스트 파일 형식에 해당하면 검사됩니다.
 
-바이너리 파일(이미지, `.wasm` 등)과 숨김 디렉터리(`.git`)는 건너뜁니다.
+바이너리 파일(이미지, `.wasm` 등)과 숨김 디렉터리(`.git`)는 건너뜁니다. 단, structure 분석기는 skill의 `.claude/settings.json`과 `.claude/settings.local.json`을 읽습니다.
 
 ## 옵션
 

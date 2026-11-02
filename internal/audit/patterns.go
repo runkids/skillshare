@@ -260,6 +260,7 @@ func parseBuiltinRulesYAML() ([]yamlRule, error) {
 		return nil, err
 	}
 	rules = append(rules, credentialYAMLRules()...)
+	rules = append(rules, bundledYAMLRules()...)
 	for i := range rules {
 		rules[i].excludePhrase = rules[i].ID == "prompt-injection-5"
 	}

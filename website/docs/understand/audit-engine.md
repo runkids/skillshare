@@ -398,6 +398,25 @@ _cross-skill
   HIGH  stealth skill cleaner installed alongside high-risk skill backdoor — evasion risk
 ```
 
+## Bundled hooks and settings {#bundled-hooks-and-settings}
+
+The `structure` analyzer inspects exactly `hooks.json`, `hooks/hooks.json`, `.claude/settings.json`, and `.claude/settings.local.json` inside the audited skill. Reads stay within the resolved skill root, accept regular files only, and stop at 1,000,000 bytes per file. Other hidden trees remain excluded. No live user settings are read and no declaration is executed.
+
+Supported hooks use an event map under `hooks` (or a bare event map in `hooks.json`), with arrays of typed command/HTTP hooks (including command hooks with a string `args` array) or matcher groups containing a `hooks` array. Known Claude lifecycle events are supported; unknown events, prompt/agent hooks, malformed JSON, unsupported shapes, unreadable paths, and oversized files produce a coverage diagnostic. Unrelated settings keys are ignored. These findings describe what could run **if activated**; a bundled file does not establish that a client loaded it.
+
+| Rule ID | Default | Meaning |
+|---------|---------|---------|
+| `bundled-hook-command` | MEDIUM | Lifecycle shell command |
+| `bundled-network-command` | HIGH | Recognized network executable, including loopback calls |
+| `bundled-remote-post` | HIGH | HTTP hook or recognized POST/data flag with a non-loopback HTTP(S) destination |
+| `bundled-permission` | HIGH | Unrestricted allow entries (`*`, bare Bash/Read/Write/Edit/WebFetch, their `(*)` forms, or `Bash(:*)`), MCP server-wide tool grants (`mcp__server` or `mcp__server__*`), or `bypassPermissions` mode |
+| `bundled-helper-command` | HIGH | Settings `apiKeyHelper` string or `statusLine` command object |
+| `bundled-config-unparsed` | INFO | Surface was not fully inspected; manual review needed |
+
+A URL mentioned by `echo` is not a network call. Network and POST checks are conservative text heuristics for common executables, not a shell interpreter: indirect scripts and arbitrary runtime expressions may need manual review. POST flags and the remote destination must belong to the same network command segment; a later `grep -F` does not turn a GET into a POST. Network capability and remote POST do not prove exfiltration. Narrow allow entries such as `Bash(npm run test:*)`, `Bash(git diff:*)`, `Read(./docs/**)`, and `mcp__github__get_*`, and deny/ask lists do not trigger the broad-permission rule. Command-valued settings inspection is limited to `apiKeyHelper` and `statusLine` in the two settings files; other command-valued settings are not inspected.
+
+Findings carry the file and event/helper JSON path in `message`. To keep credentials out of all reports and logs, arbitrary command arguments and URLs are redacted before findings leave the scanner; snippets retain a recognized executable, POST/destination-scope evidence, and SHA-256 digests for change tracking. Existing text-rule findings in `hooks.json` and `hooks/hooks.json` are also redacted. This changes their fingerprints and acceptance keys, so previously accepted text findings in those files require acceptance again. Hidden `.claude/settings*.json` files receive declaration analysis only; ordinary text-rule coverage and analyzability byte counts retain their existing hidden-directory exclusions. Inspect the original file locally for the full command. Rule IDs appear in `audit rules` and support normal disabling and severity overrides. INFO diagnostics follow the existing threshold policy: they block only at an INFO threshold unless overridden.
+
 ## Analyzability Score {#analyzability-score}
 
 Each scanned skill receives an **analyzability score** — the ratio of auditable plaintext bytes to total file bytes (0–100%). This tells you how much of the skill's content the scanner was able to inspect.

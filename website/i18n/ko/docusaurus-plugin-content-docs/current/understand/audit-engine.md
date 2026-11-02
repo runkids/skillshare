@@ -469,3 +469,30 @@ SARIF 출력에서 `ruleId`는 SARIF의 `ruleId` 필드에 매핑되며, `finger
 - [`audit rules`](/docs/reference/commands/audit-rules) — 규칙 관리와 커스터마이즈
 - [Securing Your Skills](/docs/how-to/advanced/security) — 팀과 조직을 위한 보안 가이드
 - [CI/CD Skill Validation](/docs/how-to/recipes/ci-cd-skill-validation) — 파이프라인 자동화 레시피
+
+## 번들 훅과 설정 {#bundled-hooks-and-settings}
+
+`structure`는 감사하는 스킬 안의 다음 네 경로만 검사합니다. 실제 사용자 설정을 읽거나 명령을 실행하지 않습니다. 일반 파일만 허용하고 스킬 밖 링크를 거부하며 파일당 읽기를 1,000,000바이트로 제한합니다. 다른 숨김 트리는 탐색하지 않습니다. 선언은 활성화될 경우의 가능성을 뜻하며 현재 실행을 증명하지 않습니다.
+
+`hooks.json`, `hooks/hooks.json`, `.claude/settings.json`, `.claude/settings.local.json`
+
+`hooks` 이벤트 맵(hooks.json의 직접 맵 포함), 타입이 있는 command/HTTP 선언 배열, `hooks` 배열을 가진 매처 그룹을 지원합니다. 알 수 없는 이벤트, prompt/agent 타입, 잘못된 JSON, 미지원 구조, 읽기 실패, 크기 초과는 INFO 진단을 생성합니다. 이는 검사 범위의 공백이며 기존 임계값 정책을 따릅니다.
+
+로컬 명령은 MEDIUM입니다. 네트워크 명령(루프백 포함), 원격 POST, 넓은 allow 권한과 bypassPermissions, apiKeyHelper 및 statusLine 명령은 HIGH입니다. URL 언급만으로 통신으로 판단하지 않으며 통신과 POST가 유출을 증명하지 않습니다. 좁은 allow와 deny/ask는 제외합니다. 모든 출력 전에 인수와 URL을 가리고 파일, JSON 경로, 알려진 실행 이름, SHA-256을 남깁니다. 세부 범위는 영어 문서를 참조하세요.
+
+무제한 허용(`*`, `Bash`, `Bash(*)`, `Bash(:*)` 등)은 HIGH입니다. `Bash(npm run test:*)`, `Bash(git diff:*)`, `Read(./docs/**)`, `mcp__github__get_*`는 제외합니다. MCP 서버 전체의 `mcp__server` 또는 `mcp__server__*`는 HIGH입니다. POST 플래그와 대상은 같은 네트워크 명령 구간에 있어야 하며, 뒤따르는 `grep -F`는 POST 증거가 아닙니다.
+
+숨김 설정에는 선언 분석만 적용하며 텍스트 규칙과 분석 가능성 바이트 수에는 추가하지 않습니다. `hooks.json`과 `hooks/hooks.json`의 기존 텍스트 탐지는 가려지므로 지문과 승인 키가 변경되어 이전 승인을 다시 받아야 합니다.
+
+| ID | Severity | 번들 훅과 설정 |
+|---------|---------|---------|
+| `bundled-hook-command` | MEDIUM | 라이프사이클 명령 |
+| `bundled-network-command` | HIGH | 알려진 네트워크 실행 이름(루프백 포함) |
+| `bundled-remote-post` | HIGH | HTTP 훅 또는 POST/data 플래그와 비루프백 HTTP(S) 대상 |
+| `bundled-permission` | HIGH | 넓은 allow 권한, 무제한 도구 허용, bypassPermissions |
+| `bundled-helper-command` | HIGH | 설정의 apiKeyHelper 또는 statusLine 명령 |
+| `bundled-config-unparsed` | INFO | 검사 범위가 불완전하여 수동 검토 필요 |
+
+명령 값을 가진 설정 중 `apiKeyHelper`와 `statusLine`만 검사하며, 다른 명령 설정은 검사하지 않습니다.
+
+command 훅의 문자열 `args` 배열도 지원합니다. 규칙 ID는 `audit rules` 비활성화 및 심각도 재정의를 지원합니다. [영어 세부 설명](/docs/understand/audit-engine#bundled-hooks-and-settings)。
