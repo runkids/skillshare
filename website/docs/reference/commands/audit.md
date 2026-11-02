@@ -304,8 +304,11 @@ Access it from the Audit page via the "Custom Rules" button.
 
 | Code | Meaning |
 |------|---------|
-| `0` | No findings at or above active threshold |
-| `1` | One or more findings at or above active threshold |
+| `0` | No scan errors and no findings at or above active threshold |
+| `1` | One or more findings at or above active threshold, with no scan errors |
+| `2` | Audit execution, usage, or configuration error, including a failed scan |
+
+Scan errors take precedence over findings. Partial structured reports are still emitted when available.
 
 ## Scanned Files
 

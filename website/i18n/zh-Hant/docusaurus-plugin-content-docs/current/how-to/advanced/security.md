@@ -204,7 +204,7 @@ rules:
 ```bash
 # 若任何 Skill 有 HIGH 以上的發現，就讓 pipeline 失敗
 skillshare audit --threshold high
-# Exit code：0 = 乾淨，1 = 有發現
+# Exit code：0 = 低於門檻，1 = 有發現，2 = 錯誤
 ```
 
 ### 真實案例：Skill Hub 的 PR 驗證

@@ -304,8 +304,11 @@ Audit 페이지의 "Custom Rules" 버튼에서 접근할 수 있습니다.
 
 | Code | 의미 |
 |------|---------|
-| `0` | 활성 threshold 이상의 findings 없음 |
-| `1` | 활성 threshold 이상의 findings가 하나 이상 있음 |
+| `0` | 스캔 오류가 없고 활성 threshold 이상의 findings도 없음 |
+| `1` | 활성 threshold 이상의 findings가 하나 이상 있고 스캔 오류는 없음 |
+| `2` | 스캔 실패를 포함한 audit 실행, 사용 또는 설정 오류 |
+
+스캔 오류는 findings보다 우선합니다. 가능한 경우 부분 구조화 보고서도 출력됩니다.
 
 ## 스캔 대상 파일
 

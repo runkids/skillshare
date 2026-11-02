@@ -142,7 +142,7 @@ The `audit` command supports multiple output formats for different CI/CD integra
 ```bash
 # Block deployment if any skill has findings at or above threshold
 skillshare audit --threshold high
-echo $?  # 0 = clean, 1 = findings found
+echo $?  # 0 = below threshold, 1 = findings, 2 = error
 ```
 
 ### SARIF Output

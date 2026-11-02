@@ -279,10 +279,6 @@ func cmdAudit(args []string) error {
 		log := audit.ToSARIF(results, audit.SARIFOptions{ToolVersion: versionpkg.Version})
 		out, _ := json.MarshalIndent(log, "", "  ")
 		fmt.Println(string(out))
-		if blocked {
-			os.Exit(1)
-		}
-		return nil
 	case formatJSON:
 		out, _ := json.MarshalIndent(auditJSONOutput{
 			Results:    results,
@@ -291,19 +287,14 @@ func cmdAudit(args []string) error {
 			Incomplete: opts.skillsWalk.Follow.Incomplete(),
 		}, "", "  ")
 		fmt.Println(string(out))
-		if blocked {
-			os.Exit(1)
-		}
-		return nil
 	case formatMarkdown:
 		md := audit.ToMarkdown(results, summary.toMarkdownOptions())
 		fmt.Print(md)
-		if blocked {
-			os.Exit(1)
-		}
-		return nil
 	}
 
+	if summary.ScanErrors > 0 {
+		os.Exit(2)
+	}
 	if blocked {
 		os.Exit(1)
 	}
