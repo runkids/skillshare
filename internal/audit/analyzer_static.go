@@ -1,6 +1,6 @@
 package audit
 
-// staticAnalyzer wraps regex-based rule scanning for both content and markdown links.
+// staticAnalyzer wraps regex and whitespace-padding scanning for both content and markdown links.
 type staticAnalyzer struct{}
 
 func (a *staticAnalyzer) ID() string           { return AnalyzerStatic }

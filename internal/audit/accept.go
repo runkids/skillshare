@@ -7,13 +7,17 @@ import (
 )
 
 // AcceptKey returns a stable key for acknowledging a finding across updates.
-// Unlike Fingerprint it omits the line number, so an accepted finding survives
-// edits elsewhere in the file. A different rule, file, or matched text yields
-// a new key and blocks again.
+// It omits the reported line number; detector-specific acceptance context can
+// still bind the key to surrounding or file-wide evidence. A different rule,
+// file, matched text, or acceptance context yields a new key and blocks again.
 func AcceptKey(f Finding) string {
-	raw := strings.Join([]string{
+	parts := []string{
 		f.RuleID, f.Pattern, f.Analyzer, f.File, normalizeSnippet(f.Snippet),
-	}, "|")
+	}
+	if f.acceptanceContext != "" {
+		parts = append(parts, f.acceptanceContext)
+	}
+	raw := strings.Join(parts, "|")
 	h := sha256.Sum256([]byte(strings.ToLower(raw)))
 	return hex.EncodeToString(h[:])
 }

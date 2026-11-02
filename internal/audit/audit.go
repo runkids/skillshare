@@ -50,7 +50,7 @@ func categoryForPattern(pattern string) string {
 		return CategoryCredential
 	case strings.Contains(pattern, "obfuscation") || strings.Contains(pattern, "escape-obfuscation") ||
 		strings.Contains(pattern, "invisible-payload") || strings.Contains(pattern, "hidden-unicode") ||
-		strings.Contains(pattern, "data-uri"):
+		strings.Contains(pattern, "data-uri") || pattern == ruleWhitespacePadding:
 		return CategoryObfuscation
 	case strings.Contains(pattern, "destructive") || strings.Contains(pattern, "shell-execution") ||
 		strings.Contains(pattern, "dynamic-code-exec") || strings.Contains(pattern, "shell-chain"):
@@ -82,4 +82,6 @@ type Finding struct {
 	Confidence   float64 `json:"confidence,omitempty"`   // 0~1
 	Fingerprint  string  `json:"fingerprint,omitempty"`  // sha256 stable hash for deduplication
 	Acknowledged bool    `json:"acknowledged,omitempty"` // previously accepted via --force; excluded from blocking
+
+	acceptanceContext string `json:"-"` // detector-specific identity material, never included in reports
 }

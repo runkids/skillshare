@@ -132,7 +132,7 @@ type rulesFile struct {
 }
 
 func (r rule) matchesLine(line string) bool {
-	if !r.Regex.MatchString(line) {
+	if r.ID == ruleWhitespacePadding || !r.Regex.MatchString(line) {
 		return false
 	}
 	if r.Exclude == nil || !r.Exclude.MatchString(line) {
@@ -272,6 +272,11 @@ func parseRulesYAML(data []byte) ([]yamlRule, error) {
 	if err := yaml.Unmarshal(data, &f); err != nil {
 		return nil, fmt.Errorf("parse YAML: %w", err)
 	}
+	for _, r := range f.Rules {
+		if r.ID == ruleWhitespacePadding && (r.Regex != "" || r.Exclude != "") {
+			return nil, fmt.Errorf("rule %q: regex and exclude are not supported", r.ID)
+		}
+	}
 	return f.Rules, nil
 }
 
@@ -286,7 +291,7 @@ func compileRules(yr []yamlRule) ([]rule, error) {
 		if err != nil {
 			return nil, fmt.Errorf("rule %q: %w", y.ID, err)
 		}
-		if y.Regex == "" {
+		if y.Regex == "" && y.ID != ruleWhitespacePadding {
 			return nil, fmt.Errorf("rule %q: empty regex", y.ID)
 		}
 		re, err := regexp.Compile(y.Regex)
