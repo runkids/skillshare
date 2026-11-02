@@ -81,9 +81,13 @@ func writeRulesFile(path string, rules []yamlRule) error {
 func removeEntryByID(rules []yamlRule, id string) []yamlRule {
 	result := make([]yamlRule, 0, len(rules))
 	for _, r := range rules {
-		if r.ID != id {
-			result = append(result, r)
+		if r.ID == id {
+			r.Enabled = nil
+			if r.Severity == "" && r.Confidence == nil && r.Regex == "" && r.Pattern == "" && r.Message == "" && r.Exclude == "" {
+				continue
+			}
 		}
+		result = append(result, r)
 	}
 	return result
 }
@@ -105,7 +109,10 @@ func removePatternEntry(rules []yamlRule, pattern string) []yamlRule {
 	result := make([]yamlRule, 0, len(rules))
 	for _, r := range rules {
 		if isPatternLevel(r) && r.Pattern == pattern {
-			continue
+			r.Enabled = nil
+			if r.Severity == "" && r.Confidence == nil {
+				continue
+			}
 		}
 		result = append(result, r)
 	}
@@ -217,7 +224,7 @@ func clearDisableForPattern(rules []yamlRule, pattern string) []yamlRule {
 		if belongsToPattern && r.Enabled != nil && !*r.Enabled {
 			r.Enabled = nil
 			// Drop entry if it has no other overrides.
-			if r.Severity == "" && r.Regex == "" {
+			if r.Severity == "" && r.Regex == "" && r.Confidence == nil {
 				continue
 			}
 		}

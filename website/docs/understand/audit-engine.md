@@ -78,6 +78,11 @@ These patterns warrant **careful review**. They can indicate dangerous behavior 
 | `fetch-with-pipe` | `curl`/`wget` output piped to `sh`, `bash`, `python`, `node`, or other interpreters — remote code execution |
 | `prompt-injection` | Agent directive tags (`<system>`, `</instructions>`, `</override>`, `</prompt>`, `</rules>`) with optional HTML attributes; SDK-style `system:` / `System:` parameters in Markdown fenced code blocks and generic disclosure restrictions in any file type (see below) |
 | `config-manipulation` | Instructions to modify AI agent configuration or memory files (`MEMORY.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`) |
+| `anti-refusal` | Directives to comply despite safety policies |
+| `prompt-leakage` | Directives to disclose system prompts |
+| `memory-poisoning` | Directives to persist safety overrides in memory |
+| `agent-snooping` | Directives to send or access without permission agent configuration or another skill |
+| `persistence` | Persistence directives mentioning a payload, malware, or backdoor |
 | `data-exfiltration` | DNS data exfiltration via `dig`/`nslookup`/`host` with command substitution in subdomain |
 | `self-propagation` | Self-replication instructions that spread payload to other files or projects |
 | `hardcoded-secret` | Inline API keys, tokens, and passwords: Google API keys (`AIza...`), AWS access keys (`AKIA...`), GitHub PATs (`ghp_`/`ghs_`/`github_pat_`), Slack tokens (`xox[bporas]-`), OpenAI keys, Anthropic keys, Stripe keys, PEM private key blocks, and generic `api_key`/`secret_key`/`password` assignments with high-entropy values |

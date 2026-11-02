@@ -59,6 +59,8 @@ export interface AuditRulesResponse {
 }
 
 export interface CompiledRule {
+  confidence: number;
+  confidenceOverridden: boolean;
   id: string;
   severity: string;
   pattern: string;

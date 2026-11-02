@@ -99,7 +99,7 @@ func checkMarkdownLinkRules(files []mdFileInfo, mdLinks map[string][]markdownLin
 					RuleID:     r.ID,
 					Analyzer:   AnalyzerStatic,
 					Category:   categoryForPattern(r.Pattern),
-					Confidence: 0.95,
+					Confidence: r.Confidence,
 				})
 			}
 		}

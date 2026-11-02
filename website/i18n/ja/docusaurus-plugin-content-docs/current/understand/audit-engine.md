@@ -78,6 +78,11 @@ Audit エンジンは、skill ディレクトリ内のすべてのテキスト�
 | `fetch-with-pipe` | `curl`/`wget` の出力を `sh`、`bash`、`python`、`node`、その他のインタプリタにパイプ — リモートコード実行 |
 | `prompt-injection` | HTML 属性付きも含む agent ディレクティブタグ、Markdown のフェンス付きコードブロック内の SDK 形式の `system:` / `System:` パラメータ、すべてのファイル形式の一般的な開示制限（後述） |
 | `config-manipulation` | AI agent の設定ファイルやメモリファイル（`MEMORY.md`、`CLAUDE.md`、`.cursorrules`、`.windsurfrules`、`.clinerules`）を変更する指示 |
+| `anti-refusal` | 安全方針に反して応答する指示 |
+| `prompt-leakage` | システムプロンプトを公開する指示 |
+| `memory-poisoning` | 安全制限の無効化を記憶する指示 |
+| `agent-snooping` | エージェント設定や他のスキルを送信または無断で読む指示 |
+| `persistence` | payload、malware、backdoor に言及する永続化指示 |
 | `data-exfiltration` | サブドメイン内のコマンド置換を使った `dig`/`nslookup`/`host` による DNS データ流出 |
 | `self-propagation` | ペイロードを他のファイルやプロジェクトに拡散させる自己複製の指示 |
 | `hardcoded-secret` | インラインの API キー、トークン、パスワード：Google API キー（`AIza...`）、AWS アクセスキー（`AKIA...`）、GitHub PAT（`ghp_`/`ghs_`/`github_pat_`）、Slack トークン（`xox[bporas]-`）、OpenAI キー、Anthropic キー、Stripe キー、PEM 秘密鍵ブロック、および高エントロピー値を持つ汎用的な `api_key`/`secret_key`/`password` 代入 |

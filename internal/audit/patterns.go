@@ -3,6 +3,7 @@ package audit
 import (
 	_ "embed"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -98,6 +99,7 @@ type rule struct {
 	Severity           string
 	Pattern            string // rule name
 	Message            string
+	Confidence         float64
 	Regex              *regexp.Regexp
 	Exclude            *regexp.Regexp // if non-nil, suppress match when this also matches
 	severityOverridden bool
@@ -108,17 +110,21 @@ type rule struct {
 	prefilterFold bool
 }
 
+const defaultRuleConfidence = 0.95
+
 // yamlRule is the YAML deserialization type for a single rule.
 type yamlRule struct {
-	ID                 string `yaml:"id"`
-	Severity           string `yaml:"severity"`
-	Pattern            string `yaml:"pattern"`
-	Message            string `yaml:"message"`
-	Regex              string `yaml:"regex"`
-	Exclude            string `yaml:"exclude,omitempty"`
-	Enabled            *bool  `yaml:"enabled,omitempty"` // nil = true; false = disable
-	severityOverridden bool   `yaml:"-"`
-	excludePhrase      bool   `yaml:"-"`
+	ID                   string   `yaml:"id"`
+	Severity             string   `yaml:"severity"`
+	Pattern              string   `yaml:"pattern"`
+	Message              string   `yaml:"message"`
+	Confidence           *float64 `yaml:"confidence,omitempty"`
+	Regex                string   `yaml:"regex"`
+	Exclude              string   `yaml:"exclude,omitempty"`
+	Enabled              *bool    `yaml:"enabled,omitempty"` // nil = true; false = disable
+	severityOverridden   bool     `yaml:"-"`
+	confidenceOverridden bool     `yaml:"-"`
+	excludePhrase        bool     `yaml:"-"`
 }
 
 type rulesFile struct {
@@ -288,11 +294,20 @@ func compileRules(yr []yamlRule) ([]rule, error) {
 			return nil, fmt.Errorf("rule %q: invalid regex: %w", y.ID, err)
 		}
 
+		confidence := defaultRuleConfidence
+		if y.Confidence != nil {
+			confidence = *y.Confidence
+			if math.IsNaN(confidence) || confidence < 0 || confidence > 1 {
+				return nil, fmt.Errorf("rule %q: confidence must be between 0 and 1", y.ID)
+			}
+		}
+
 		r := rule{
 			ID:                 y.ID,
 			Severity:           sev,
 			Pattern:            y.Pattern,
 			Message:            y.Message,
+			Confidence:         confidence,
 			Regex:              re,
 			severityOverridden: y.severityOverridden,
 			excludePhrase:      y.excludePhrase,
@@ -369,6 +384,10 @@ func mergeYAMLRules(base, overlay []yamlRule) []yamlRule {
 			if po.Enabled != nil && !*po.Enabled {
 				result[i].Enabled = po.Enabled
 			}
+			if po.Confidence != nil {
+				result[i].Confidence = po.Confidence
+				result[i].confidenceOverridden = true
+			}
 			if po.Severity != "" {
 				result[i].Severity = po.Severity
 				result[i].severityOverridden = true
@@ -382,6 +401,7 @@ func mergeYAMLRules(base, overlay []yamlRule) []yamlRule {
 			if o.Regex != "" {
 				// Full custom rule (has regex) → replace entirely.
 				result[pos] = o
+				result[pos].confidenceOverridden = o.Confidence != nil
 			} else {
 				// Partial overlay (toggle / severity override) → merge fields.
 				if o.Enabled != nil {
@@ -392,6 +412,10 @@ func mergeYAMLRules(base, overlay []yamlRule) []yamlRule {
 					} else {
 						result[pos].Enabled = o.Enabled
 					}
+				}
+				if o.Confidence != nil {
+					result[pos].Confidence = o.Confidence
+					result[pos].confidenceOverridden = true
 				}
 				if o.Severity != "" {
 					result[pos].Severity = o.Severity

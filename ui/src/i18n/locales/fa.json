@@ -159,6 +159,8 @@
   "auditRules.confirm.title": "بازنشانی همه قوانین سفارشی",
   "auditRules.detail.exclude": "استثنا",
   "auditRules.detail.regex": "Regex",
+  "auditRules.detail.confidence": "اطمینان",
+  "auditRules.detail.overridden": "بازنویسی‌شده",
   "auditRules.detail.source": "منبع",
   "auditRules.detail.matches": "تطبیق‌های فعلی",
   "auditRules.detail.matchCount": "{count} مورد فعلی",

@@ -78,6 +78,11 @@ audit engine 会用 100 多条内置规则（正则表达式模式、表驱动�
 | `fetch-with-pipe` | `curl`/`wget` 的输出通过管道传给 `sh`、`bash`、`python`、`node` 或其他解释器——远程代码执行 |
 | `prompt-injection` | agent 指令标签（可含 HTML 属性）、Markdown fenced code block 内 SDK 形式的 `system:` / `System:` 参数，以及所有文件类型中的一般披露限制（见下文） |
 | `config-manipulation` | 修改 AI agent 配置或记忆文件的指令（`MEMORY.md`、`CLAUDE.md`、`.cursorrules`、`.windsurfrules`、`.clinerules`） |
+| `anti-refusal` | 无视安全策略并遵从请求的指令 |
+| `prompt-leakage` | 泄露系统提示词的指令 |
+| `memory-poisoning` | 将安全限制的禁用写入记忆的指令 |
+| `agent-snooping` | 发送或未经许可读取 agent 配置或其他技能的指令 |
+| `persistence` | 提及 payload、malware 或 backdoor 的持久化指令 |
 | `data-exfiltration` | 通过 `dig`/`nslookup`/`host` 结合子域名中的命令替换进行的 DNS 数据渗出 |
 | `self-propagation` | 将 payload 传播到其他文件或项目的自我复制指令 |
 | `hardcoded-secret` | 内联的 API 密钥、令牌和密码：Google API 密钥（`AIza...`）、AWS 访问密钥（`AKIA...`）、GitHub PAT（`ghp_`/`ghs_`/`github_pat_`）、Slack 令牌（`xox[bporas]-`）、OpenAI 密钥、Anthropic 密钥、Stripe 密钥、PEM 私钥块，以及带有高熵值的通用 `api_key`/`secret_key`/`password` 赋值 |

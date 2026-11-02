@@ -149,6 +149,8 @@
   "auditRules.confirm.title": "Reset All Custom Rules",
   "auditRules.detail.exclude": "Exclude",
   "auditRules.detail.regex": "Regex",
+  "auditRules.detail.confidence": "Confidence",
+  "auditRules.detail.overridden": "overridden",
   "auditRules.detail.source": "Source",
   "auditRules.detail.matches": "Matches now",
   "auditRules.detail.matchCount": "{count} now",

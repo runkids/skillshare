@@ -9,14 +9,16 @@ import (
 
 // CompiledRule is the public view of a rule for listing/display.
 type CompiledRule struct {
-	ID       string `json:"id"`
-	Severity string `json:"severity"`
-	Pattern  string `json:"pattern"`
-	Message  string `json:"message"`
-	Regex    string `json:"regex"`
-	Exclude  string `json:"exclude,omitempty"`
-	Enabled  bool   `json:"enabled"`
-	Source   string `json:"source"` // "builtin", "global", "project"
+	Confidence           float64 `json:"confidence"`
+	ConfidenceOverridden bool    `json:"confidenceOverridden"`
+	ID                   string  `json:"id"`
+	Severity             string  `json:"severity"`
+	Pattern              string  `json:"pattern"`
+	Message              string  `json:"message"`
+	Regex                string  `json:"regex"`
+	Exclude              string  `json:"exclude,omitempty"`
+	Enabled              bool    `json:"enabled"`
+	Source               string  `json:"source"` // "builtin", "global", "project"
 }
 
 // PatternGroup summarizes rules grouped by pattern name.
@@ -91,15 +93,21 @@ func buildCompiledList(base, globalUser, projectUser []yamlRule) ([]CompiledRule
 		source := determineSource(yr.ID, yr.Pattern, globalOverrides, projectOverrides,
 			globalPatternOverrides, projectPatternOverrides)
 
+		confidence := defaultRuleConfidence
+		if yr.Confidence != nil {
+			confidence = *yr.Confidence
+		}
 		result = append(result, CompiledRule{
-			ID:       yr.ID,
-			Severity: sev,
-			Pattern:  yr.Pattern,
-			Message:  yr.Message,
-			Regex:    yr.Regex,
-			Exclude:  yr.Exclude,
-			Enabled:  enabled,
-			Source:   source,
+			Confidence:           confidence,
+			ConfidenceOverridden: yr.confidenceOverridden,
+			ID:                   yr.ID,
+			Severity:             sev,
+			Pattern:              yr.Pattern,
+			Message:              yr.Message,
+			Regex:                yr.Regex,
+			Exclude:              yr.Exclude,
+			Enabled:              enabled,
+			Source:               source,
 		})
 	}
 	return result, nil

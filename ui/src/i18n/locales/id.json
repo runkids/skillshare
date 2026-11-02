@@ -159,6 +159,8 @@
   "auditRules.confirm.title": "Reset Semua Aturan Kustom",
   "auditRules.detail.exclude": "Kecualikan",
   "auditRules.detail.regex": "Regex",
+  "auditRules.detail.confidence": "Kepercayaan",
+  "auditRules.detail.overridden": "ditimpa",
   "auditRules.detail.source": "Sumber",
   "auditRules.detail.matches": "Cocok saat ini",
   "auditRules.detail.matchCount": "{count} saat ini",

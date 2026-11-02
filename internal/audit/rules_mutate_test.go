@@ -573,3 +573,47 @@ func TestWriteRulesFile_TwoSpaceIndent(t *testing.T) {
 		t.Errorf("rules not indented with 2 spaces:\n%s", data)
 	}
 }
+
+func TestTogglePatternEnablePreservesConfidence(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "audit-rules.yaml")
+	if err := os.WriteFile(path, []byte("rules:\n  - id: persistence-0\n    enabled: false\n    confidence: 0.5\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := TogglePattern(path, "persistence", true); err != nil {
+		t.Fatal(err)
+	}
+	rules, err := loadUserRules(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rules) != 1 || rules[0].Confidence == nil || *rules[0].Confidence != 0.5 || rules[0].Enabled != nil {
+		t.Fatalf("override lost: %+v", rules)
+	}
+}
+
+func TestEnablingPreservesConfidenceAtEachScope(t *testing.T) {
+	for _, tc := range []struct {
+		name, input string
+		enable      func(string) error
+	}{
+		{"rule", "rules:\n  - id: persistence-0\n    enabled: false\n    confidence: 0.5\n", func(p string) error { return ToggleRule(p, "persistence-0", true) }},
+		{"pattern", "rules:\n  - pattern: persistence\n    enabled: false\n    confidence: 0.5\n", func(p string) error { return TogglePattern(p, "persistence", true) }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "audit-rules.yaml")
+			if err := os.WriteFile(path, []byte(tc.input), 0644); err != nil {
+				t.Fatal(err)
+			}
+			if err := tc.enable(path); err != nil {
+				t.Fatal(err)
+			}
+			rules, err := loadUserRules(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(rules) != 1 || rules[0].Confidence == nil || *rules[0].Confidence != 0.5 || rules[0].Enabled != nil {
+				t.Fatalf("override lost: %+v", rules)
+			}
+		})
+	}
+}

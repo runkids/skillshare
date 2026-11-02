@@ -78,6 +78,11 @@ audit engine은 skill 디렉터리의 모든 텍스트 기반 파일을 100개 �
 | `fetch-with-pipe` | `sh`, `bash`, `python`, `node` 또는 그 외 인터프리터로 파이프되는 `curl`/`wget` 출력 — 원격 코드 실행 |
 | `prompt-injection` | HTML 속성을 포함할 수 있는 agent directive tags, Markdown fenced code block 안의 SDK 형식 `system:` / `System:` 매개변수, 모든 파일 형식의 일반적인 공개 제한(아래 참조) |
 | `config-manipulation` | AI agent 설정이나 메모리 파일(`MEMORY.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`)을 수정하는 지침 |
+| `anti-refusal` | 안전 정책을 무시하고 응답하라는 지시 |
+| `prompt-leakage` | 시스템 프롬프트를 공개하라는 지시 |
+| `memory-poisoning` | 안전 제한 해제를 기억하라는 지시 |
+| `agent-snooping` | 에이전트 설정이나 다른 스킬을 전송하거나 허가 없이 읽으라는 지시 |
+| `persistence` | payload, malware, backdoor를 언급하는 지속성 지시 |
 | `data-exfiltration` | 서브도메인에 명령 치환을 사용한 `dig`/`nslookup`/`host`를 통한 DNS 데이터 유출 |
 | `self-propagation` | 다른 파일이나 프로젝트로 페이로드를 전파하는 자기 복제 지침 |
 | `hardcoded-secret` | 인라인 API 키, 토큰, 비밀번호: Google API 키(`AIza...`), AWS 액세스 키(`AKIA...`), GitHub PAT(`ghp_`/`ghs_`/`github_pat_`), Slack 토큰(`xox[bporas]-`), OpenAI 키, Anthropic 키, Stripe 키, PEM 개인 키 블록, 그리고 높은 엔트로피 값을 가진 일반적인 `api_key`/`secret_key`/`password` 할당 |
