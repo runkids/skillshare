@@ -59,7 +59,7 @@ _skillshare() {
     local new_flags="--pattern -P --dry-run -n --help -h"
     local search_flags="--json --list -l --hub --limit -n --help -h"
     local trash_flags="--all --no-tui --help -h"
-    local audit_flags="--init-rules --json --format --quiet -q --yes -y --no-tui --threshold -T --group -G --profile --dedupe --analyzer --help -h"
+    local audit_flags="--min-severity --init-rules --json --format --quiet -q --yes -y --no-tui --threshold -T --group -G --profile --dedupe --analyzer --help -h"
     local audit_rules_flags="--pattern --severity --disabled --format --no-tui --help -h"
     local hub_flags="--help -h"
     local hub_index_flags="--source -s --output -o --full --audit --help -h"

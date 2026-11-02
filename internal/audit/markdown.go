@@ -26,6 +26,8 @@ type MarkdownOptions struct {
 	Threshold      string
 	Mode           string
 
+	MinSeverity string // display-only, normalized severity; empty shows all
+
 	AvgAnalyzability float64
 	Profile          string
 	ByCategory       map[string]int
@@ -39,6 +41,10 @@ func ToMarkdown(results []*Result, opts MarkdownOptions) string {
 	writeHeader(&b, opts)
 	writeSummaryTable(&b, opts)
 	writeCoverageTable(&b, results)
+	if opts.MinSeverity != "" {
+		visible, hidden := DisplayCounts(results, opts.MinSeverity)
+		fmt.Fprintf(&b, "\nFindings: %d visible, %d hidden (minimum %s).\n", visible, hidden, opts.MinSeverity)
+	}
 
 	// Partition results into failed, warning, and clean.
 	var failed, warned, clean []*Result
@@ -46,9 +52,9 @@ func ToMarkdown(results []*Result, opts MarkdownOptions) string {
 		switch {
 		case r.IsBlocked:
 			failed = append(failed, r)
-		case len(r.Findings) > 0:
+		case len(DisplayFindings(r.Findings, opts.MinSeverity)) > 0:
 			warned = append(warned, r)
-		default:
+		case len(r.Findings) == 0:
 			clean = append(clean, r)
 		}
 	}
@@ -68,10 +74,10 @@ func ToMarkdown(results []*Result, opts MarkdownOptions) string {
 	if hasFindings {
 		b.WriteString("\n## Findings\n")
 		for _, r := range failed {
-			writeSkillSection(&b, r, true)
+			writeSkillSection(&b, r, true, opts.MinSeverity)
 		}
 		for _, r := range warned {
-			writeSkillSection(&b, r, false)
+			writeSkillSection(&b, r, false, opts.MinSeverity)
 		}
 	}
 
@@ -152,7 +158,7 @@ func findingLocation(f Finding) string {
 	return f.File
 }
 
-func writeSkillSection(b *strings.Builder, r *Result, blocked bool) {
+func writeSkillSection(b *strings.Builder, r *Result, blocked bool, minSeverity string) {
 	symbol := "!"
 	if blocked {
 		symbol = "✗"
@@ -174,11 +180,18 @@ func writeSkillSection(b *strings.Builder, r *Result, blocked bool) {
 		fmt.Fprintf(b, "> **ALLOWED** — max severity %s < threshold %s\n\n", maxSev, threshold)
 	}
 
+	findings := DisplayFindings(r.Findings, minSeverity)
+	if minSeverity != "" {
+		fmt.Fprintf(b, "Findings: %d visible, %d hidden.\n\n", len(findings), len(r.Findings)-len(findings))
+	}
+
 	// Findings table — also track whether any snippets exist.
-	b.WriteString("| # | Rule ID | Severity | Pattern | Analyzer | Category | Message | Location |\n")
-	b.WriteString("|---|---------|----------|---------|----------|----------|---------|----------|\n")
+	if len(findings) > 0 {
+		b.WriteString("| # | Rule ID | Severity | Pattern | Analyzer | Category | Message | Location |\n")
+		b.WriteString("|---|---------|----------|---------|----------|----------|---------|----------|\n")
+	}
 	hasSnippets := false
-	for i, f := range r.Findings {
+	for i, f := range findings {
 		if f.Snippet != "" {
 			hasSnippets = true
 		}
@@ -209,7 +222,7 @@ func writeSkillSection(b *strings.Builder, r *Result, blocked bool) {
 	// Snippets in collapsible details.
 	if hasSnippets {
 		b.WriteString("\n<details>\n<summary>Snippets</summary>\n\n")
-		for _, f := range r.Findings {
+		for _, f := range findings {
 			if f.Snippet == "" {
 				continue
 			}

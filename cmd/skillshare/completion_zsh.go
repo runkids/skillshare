@@ -575,6 +575,7 @@ _skillshare() {
                     )
                     _arguments -C \
                         '1:subcommand:->subcmd' \
+                        '--min-severity[Display minimum severity]:level:(critical high medium low info)' \
                         '--init-rules[Initialize audit rules]' \
                         '--json[JSON output]' \
                         '--format[Output format]:format:(text json sarif markdown)' \

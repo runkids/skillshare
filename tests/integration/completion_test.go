@@ -589,3 +589,21 @@ func TestCompletion_Project_RealShells(t *testing.T) {
 		})
 	}
 }
+
+func TestCompletion_AuditDisplayFloor_AllShells(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	for _, shell := range []string{"bash", "zsh", "fish", "powershell", "nushell"} {
+		got := sb.RunCLI("completion", shell)
+		got.AssertSuccess(t)
+		flag := "--min-severity"
+		if shell == "fish" {
+			flag = "-l min-severity"
+		}
+		got.AssertOutputContains(t, flag)
+		if shell == "nushell" {
+			got.AssertOutputContains(t, `def "nu-complete skillshare audit-min-severity"`)
+			got.AssertOutputContains(t, `["critical" "high" "medium" "low" "info"]`)
+		}
+	}
+}

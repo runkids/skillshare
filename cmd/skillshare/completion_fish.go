@@ -380,6 +380,7 @@ complete -c skillshare -n '__fish_skillshare_using_command audit' -l quiet -s q 
 complete -c skillshare -n '__fish_skillshare_using_command audit' -l yes -s y -d 'Skip confirmation'
 complete -c skillshare -n '__fish_skillshare_using_command audit' -l no-tui -d 'Skip interactive TUI'
 complete -c skillshare -n '__fish_skillshare_using_command audit' -l threshold -s T -r -a 'low medium high critical' -d 'Block threshold'
+complete -c skillshare -n '__fish_skillshare_using_command audit' -l min-severity -r -a 'critical high medium low info' -d 'Display minimum severity'
 complete -c skillshare -n '__fish_skillshare_using_command audit' -l group -s G -r -d 'Filter by group'
 complete -c skillshare -n '__fish_skillshare_using_command audit' -l profile -r -a 'default strict permissive' -d 'Security profile'
 complete -c skillshare -n '__fish_skillshare_using_command audit' -l dedupe -r -a 'legacy global' -d 'Deduplication mode'

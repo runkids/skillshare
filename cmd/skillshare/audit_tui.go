@@ -234,12 +234,15 @@ type auditTUIModel struct {
 	termWidth    int
 	termHeight   int
 
-	summary auditRunSummary
+	summary     auditRunSummary
+	minSeverity string
 
 	// Tab switching (skills ↔ agents)
 	activeTab    auditTab
 	skillItems   []auditItem
 	agentItems   []auditItem
+	skillResults []*audit.Result
+	agentResults []*audit.Result
 	skillSummary auditRunSummary
 	agentSummary auditRunSummary
 	tabCounts    [2]int // [skills, agents]
@@ -283,11 +286,14 @@ func sortAuditItems(items []auditItem) {
 func newAuditTUIModel(
 	skillResults []*audit.Result, skillOutputs []audit.ScanOutput, skillSummary auditRunSummary,
 	agentResults []*audit.Result, agentOutputs []audit.ScanOutput, agentSummary auditRunSummary,
-	initialTab auditTab,
+	initialTab auditTab, minSeverity string,
 ) auditTUIModel {
 	buildItems := func(results []*audit.Result, outputs []audit.ScanOutput, kind string) []auditItem {
 		items := make([]auditItem, 0, len(results))
 		for idx, r := range results {
+			if minSeverity != "" && !r.IsBlocked && len(audit.DisplayFindings(r.Findings, minSeverity)) == 0 {
+				continue
+			}
 			var elapsed time.Duration
 			if idx < len(outputs) {
 				elapsed = outputs[idx].Elapsed
@@ -334,9 +340,12 @@ func newAuditTUIModel(
 		matchCount:   len(activeItems),
 		filterInput:  fi,
 		summary:      activeSummary,
+		minSeverity:  minSeverity,
 		activeTab:    initialTab,
 		skillItems:   skillItems,
 		agentItems:   agentItems,
+		skillResults: skillResults,
+		agentResults: agentResults,
 		skillSummary: skillSummary,
 		agentSummary: agentSummary,
 		tabCounts:    [2]int{len(skillItems), len(agentItems)},
@@ -518,7 +527,7 @@ func (m auditTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *auditTUIModel) openFiles(item auditItem) {
 	r := item.result
 	m.browser = newFileBrowser("audit", r.SkillName, r.ScanTarget, true, m.termWidth, m.termHeight)
-	m.findings = sortedFindings(r.Findings)
+	m.findings = sortedFindings(audit.DisplayFindings(r.Findings, m.minSeverity))
 	m.finding = 0
 	if len(m.findings) > 0 {
 		m.browser.openAt(m.findings[0].File, m.findings[0].Line)
@@ -598,6 +607,9 @@ func (m auditTUIModel) renderTitleLine() string {
 		facts = append(facts, formatNumber(m.matchCount)+" shown")
 	}
 	// Colored facts go last; a colored fact ends the dim run of facts.
+	if s.ScanErrors > 0 {
+		facts = append(facts, theme.Danger().Render(countNoun(s.ScanErrors, "scan error")))
+	}
 	if s.Failed > 0 {
 		facts = append(facts, theme.Danger().Render(formatNumber(s.Failed)+" failed"))
 	}
@@ -690,7 +702,16 @@ func (m auditTUIModel) renderSummaryNote() string {
 		acSevCount(s.Info, theme.Severity("info")).Render(fmt.Sprintf("%d", s.Info)),
 	}
 	dot := theme.Dim().Render(" · ")
-	parts := []string{theme.Dim().Render("c/h/m/l/i ") + strings.Join(sevParts, theme.Dim().Render("/"))}
+	var parts []string
+	if m.minSeverity != "" {
+		results := m.skillResults
+		if m.activeTab == auditTabAgents {
+			results = m.agentResults
+		}
+		visible, hidden := audit.DisplayCounts(results, m.minSeverity)
+		parts = append(parts, theme.Dim().Render(fmt.Sprintf("%d visible, %d hidden (minimum %s)", visible, hidden, m.minSeverity)))
+	}
+	parts = append(parts, theme.Dim().Render("c/h/m/l/i ")+strings.Join(sevParts, theme.Dim().Render("/")))
 	if threats := formatCategoryBreakdownTUI(s.ByCategory); threats != "" {
 		parts = append(parts, threats)
 	}
@@ -805,12 +826,17 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 
 	b.WriteString("\n")
 
+	if m.minSeverity != "" {
+		visible := len(audit.DisplayFindings(r.Findings, m.minSeverity))
+		row("Display", fmt.Sprintf("%d visible, %d hidden", visible, len(r.Findings)-visible))
+	}
+
 	// ── Findings detail ──
 	if len(r.Findings) > 0 {
 		b.WriteString(theme.Primary().Bold(true).Render("Findings"))
 		b.WriteString("\n\n")
 
-		for idx, f := range sortedFindings(r.Findings) {
+		for idx, f := range sortedFindings(audit.DisplayFindings(r.Findings, m.minSeverity)) {
 			// [N] SEVERITY  pattern
 			sevBadge := theme.SeverityStyle(f.Severity).Render(strings.ToUpper(f.Severity))
 			header := theme.Dim().Render(fmt.Sprintf("[%d] ", idx+1))
@@ -929,8 +955,9 @@ func runAuditTUI(
 	skillResults []*audit.Result, skillOutputs []audit.ScanOutput, skillSummary auditRunSummary,
 	agentResults []*audit.Result, agentOutputs []audit.ScanOutput, agentSummary auditRunSummary,
 	initialTab auditTab,
+	minSeverity string,
 ) error {
-	model := newAuditTUIModel(skillResults, skillOutputs, skillSummary, agentResults, agentOutputs, agentSummary, initialTab)
+	model := newAuditTUIModel(skillResults, skillOutputs, skillSummary, agentResults, agentOutputs, agentSummary, initialTab, minSeverity)
 	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	_, err := p.Run()
 	return err

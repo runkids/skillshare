@@ -28,6 +28,17 @@ skillshare audit --analyzer static      # Run only the static analyzer
 skillshare audit --analyzer static --analyzer dataflow  # Multiple analyzers
 ```
 
+## 最低顯示嚴重程度
+
+```bash
+skillshare audit --min-severity high
+skillshare audit --format markdown --min-severity medium
+```
+
+`--min-severity <level>` 顯示 `critical`、`high`、`medium`、`low` 或 `info` 中指定等級及以上的發現（不區分大小寫，也支援 `h` 等別名）。預設顯示全部。僅影響終端（含 TUI）和 Markdown 表格及程式碼片段；即使全部隱藏也顯示可見和隱藏數量。分數、`summary.maxSeverity`、封鎖判定、結束碼、掃描錯誤和掃描不完整警告仍基於完整掃描。JSON 和 SARIF 忽略此選項，完整輸出保持不變，不新增顯示中繼資料。
+
+在儀表板中，將嚴重程度篩選切換為**最低嚴重程度**，再點選嚴重程度計數，顯示該等級及以上。**指定嚴重程度**保留原有的精確比對。再次點選已選等級可清除選取。未選取等級時，LOW/INFO 保留逐資源展開功能，摺疊項計入隱藏數量。篩選不會重新掃描或改變政策、分數和封鎖狀態。
+
 ## 何時使用
 
 - 安裝新 skill 後檢視安全發現項目
@@ -333,6 +344,7 @@ audit 會掃描 skill 目錄中的文字型檔案：
 | `-p`, `--project` | Scan project-level skills |
 | `-g`, `--global` | Scan global skills |
 | `--threshold` `<t>`, `-T` `<t>` | Block threshold: `critical`\|`high`\|`medium`\|`low`\|`info` (shorthand: `c`\|`h`\|`m`\|`l`\|`i`, plus `crit`, `med`) |
+| `--min-severity <level>` | 僅顯示指定嚴重程度及以上，不改變分數、封鎖判定和機器輸出 |
 | `--profile` `<p>` | Audit profile preset: `default`, `strict`, `permissive` |
 | `--dedupe` `<mode>` | Dedup mode: `legacy`, `global` (default) |
 | `--analyzer` `<id>` | Only run specified analyzer (repeatable). IDs: `static`, `dataflow`, `tier`, `integrity`, `metadata`, `structure`, `cross-skill` |

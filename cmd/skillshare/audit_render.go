@@ -32,6 +32,7 @@ type auditTUIContext struct {
 	threshold        string
 	registry         *audit.Registry
 	mode             string
+	minSeverity      string
 }
 
 // presentAuditResults handles the common output path for audit scans:
@@ -54,7 +55,7 @@ func presentAuditResults(results []*audit.Result, elapsed []time.Duration, scanO
 			var shown []*audit.Result
 			var shownElapsed []time.Duration
 			for i, r := range results {
-				if len(r.Findings) > 0 || (!opts.Quiet && !suppressClean) {
+				if r.IsBlocked || len(audit.DisplayFindings(r.Findings, opts.MinSeverity)) > 0 || (len(r.Findings) == 0 && !opts.Quiet && !suppressClean) {
 					shown = append(shown, r)
 					shownElapsed = append(shownElapsed, elapsed[i])
 				}
@@ -79,6 +80,7 @@ func presentAuditResults(results []*audit.Result, elapsed []time.Duration, scanO
 			}
 		}
 		printAuditSummary(summary, kind)
+		printAuditDisplayCounts(results, opts.MinSeverity)
 		fmt.Println()
 		printAuditDone(summary, kind, "", took)
 		if flagged != "" {
@@ -88,9 +90,10 @@ func presentAuditResults(results []*audit.Result, elapsed []time.Duration, scanO
 
 	if useTUI {
 		if tuiCtx != nil {
+			tuiCtx.minSeverity = opts.MinSeverity
 			return launchAuditTUIWithTabs(results, scanOutputs, summary, tuiCtx)
 		}
-		return runAuditTUI(results, scanOutputs, summary, nil, nil, auditRunSummary{}, auditTabSkills)
+		return runAuditTUI(results, scanOutputs, summary, nil, nil, auditRunSummary{}, auditTabSkills, opts.MinSeverity)
 	}
 	return nil
 }
@@ -112,6 +115,7 @@ func launchAuditTUIWithTabs(results []*audit.Result, scanOutputs []audit.ScanOut
 	var otherResults []*audit.Result
 	var otherOutputs []audit.ScanOutput
 	var otherSummary auditRunSummary
+	otherScanErrors := 0
 
 	otherKindFilter := kindAgents
 	otherSource := ctx.agentsSourcePath
@@ -123,27 +127,34 @@ func launchAuditTUIWithTabs(results []*audit.Result, scanOutputs []audit.ScanOut
 	if otherSource != "" {
 		otherPaths, err := discoverForKind(otherKindFilter, otherSource, ctx.skillsWalk)
 		otherInputs := toInputsForKind(otherKindFilter, otherPaths)
+		if err != nil {
+			otherScanErrors++
+		}
 		if err == nil && len(otherPaths) > 0 {
 			otherScanResults := audit.ParallelScan(otherInputs, ctx.projectRoot, nil, ctx.registry, ctx.skillsWalk.Follow)
 			for i := range otherPaths {
 				if i < len(otherScanResults) {
 					sr := otherScanResults[i]
-					if sr.Err == nil {
-						sr.Result.Threshold = ctx.threshold
-						sr.Result.IsBlocked = sr.Result.HasSeverityAtOrAbove(ctx.threshold)
-						sr.Result.Kind = otherKindFilter.SingularNoun()
-						if rel, relErr := filepath.Rel(otherSource, sr.Result.ScanTarget); relErr == nil {
-							sr.Result.SkillName = rel
-						}
-						otherResults = append(otherResults, sr.Result)
-						otherOutputs = append(otherOutputs, sr)
+					if sr.Err != nil {
+						otherScanErrors++
+						continue
 					}
+					sr.Result.Threshold = ctx.threshold
+					sr.Result.IsBlocked = sr.Result.HasSeverityAtOrAbove(ctx.threshold)
+					sr.Result.Kind = otherKindFilter.SingularNoun()
+					if rel, relErr := filepath.Rel(otherSource, sr.Result.ScanTarget); relErr == nil {
+						sr.Result.SkillName = rel
+					}
+					otherResults = append(otherResults, sr.Result)
+					otherOutputs = append(otherOutputs, sr)
 				}
 			}
 			otherSummary = summarizeAuditResults(len(otherPaths), otherResults, ctx.threshold)
 			otherSummary.Mode = ctx.mode
 		}
 	}
+
+	otherSummary.ScanErrors = otherScanErrors
 
 	// Filter out synthetic _cross-skill result — it's not a real resource.
 	var filteredResults []*audit.Result
@@ -170,7 +181,7 @@ func launchAuditTUIWithTabs(results []*audit.Result, scanOutputs []audit.ScanOut
 		agentResults, agentOutputs, agentSummary = otherResults, otherOutputs, otherSummary
 	}
 
-	return runAuditTUI(skillResults, skillOutputs, skillSummary, agentResults, agentOutputs, agentSummary, initialTab)
+	return runAuditTUI(skillResults, skillOutputs, skillSummary, agentResults, agentOutputs, agentSummary, initialTab, ctx.minSeverity)
 }
 
 // printSkillResultLine prints a one-row result for a skill during batch scan.
@@ -197,14 +208,15 @@ func printSkillResultLine(result *audit.Result, elapsed time.Duration, width int
 
 // printSkillResult prints the findings of a single-skill audit, then its
 // risk, and closes with whether the skill is blocked.
-func printSkillResult(result *audit.Result, kind resourceKindFilter, elapsed time.Duration) {
+func printSkillResult(result *audit.Result, kind resourceKindFilter, elapsed time.Duration, floor string) {
+	printAuditDisplayCounts([]*audit.Result{result}, floor)
 	if len(result.Findings) == 0 {
 		printAuditCoverage(result.BinaryFiles, result.SkippedFiles, result.OversizedFiles, ui.RowWidth("Skipped"))
 		printAuditDone(auditRunSummary{Passed: 1, Threshold: result.Threshold}, kind, result.SkillName, elapsed)
 		return
 	}
 
-	for _, f := range result.Findings {
+	for _, f := range audit.DisplayFindings(result.Findings, floor) {
 		pad := strings.Repeat(" ", max(0, len("CRITICAL")-len(f.Severity)))
 		fmt.Printf("%s%s  %s  %s\n", formatSeverity(f.Severity), pad, f.Message, ui.DimText(fmt.Sprintf("%s:%d", f.File, f.Line)))
 		if meta := findingMetaCLI(f); meta != "" {
@@ -425,6 +437,7 @@ func printAuditHelp() {
 			{"-p, --project", "Use project-level skills"},
 			{"-g, --global", "Use global skills"},
 			{"-T, --threshold <t>", "Block by severity at/above: critical|high|medium|low|info\n(also supports c|h|m|l|i)"},
+			{"--min-severity <level>", "Display findings at/above: critical|high|medium|low|info\nDoes not change scores, gates, JSON or SARIF"},
 			{"--profile <p>", "Audit profile preset: default, strict, permissive"},
 			{"--dedupe <mode>", "Dedup mode: legacy, global (default)"},
 			{"--analyzer <id>", "Only run specified analyzer (repeatable)\nIDs: static, dataflow, tier, integrity, structure, cross-skill"},
@@ -463,4 +476,13 @@ func printAuditCoverage(binary, skipped, oversized, width int) {
 	if skipped > 0 {
 		ui.Row(ui.MarkNone, "Skipped", fmt.Sprintf("%s (%d binary, %d oversized)", plural(skipped, "file"), binary, oversized), width)
 	}
+}
+
+// printAuditDisplayCounts makes even an all-hidden report explicit.
+func printAuditDisplayCounts(results []*audit.Result, floor string) {
+	if floor == "" {
+		return
+	}
+	visible, hidden := audit.DisplayCounts(results, floor)
+	ui.Note(fmt.Sprintf("Findings: %d visible, %d hidden (minimum %s)", visible, hidden, floor))
 }
