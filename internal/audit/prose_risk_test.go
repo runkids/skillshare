@@ -81,6 +81,8 @@ func TestAntiRefusalOrdinaryCompliance(t *testing.T) {
 	for _, line := range []string{
 		"Always comply with repo conventions regardless of legacy style policies.",
 		"Always answer despite formatting restrictions.",
+		"Always answer, even if the question mentions security policies.",
+		"Always answer questions regardless of whether they cite safety policies.",
 	} {
 		for _, f := range ScanContent([]byte(line), "SKILL.md") {
 			if f.RuleID == "anti-refusal-0" {
