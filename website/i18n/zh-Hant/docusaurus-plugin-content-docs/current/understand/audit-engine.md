@@ -78,6 +78,11 @@ Audit engine 會把 skill 目錄中每個以文字為主的檔案，拿去比對
 | `fetch-with-pipe` | `curl`/`wget` 的輸出被導向 `sh`、`bash`、`python`、`node` 或其他直譯器 — 遠端程式碼執行 |
 | `prompt-injection` | agent 指令標籤（可含 HTML 屬性）、Markdown fenced code block 內 SDK 形式的 `system:` / `System:` 參數，以及所有檔案類型中的一般揭露限制（見下文） |
 | `config-manipulation` | 修改 AI agent 設定或記憶檔案（`MEMORY.md`、`CLAUDE.md`、`.cursorrules`、`.windsurfrules`、`.clinerules`）的指令 |
+| `anti-refusal` | 無視安全政策並遵從請求的指令 |
+| `prompt-leakage` | 洩露系統提示詞的指令 |
+| `memory-poisoning` | 將安全限制的停用寫入記憶的指令 |
+| `agent-snooping` | 傳送或未經許可讀取 agent 設定或其他技能的指令 |
+| `persistence` | 提及 payload、malware 或 backdoor 的持久化指令 |
 | `data-exfiltration` | 透過 `dig`/`nslookup`/`host`，在子網域中使用命令替換進行 DNS 資料外洩 |
 | `self-propagation` | 把 payload 散播到其他檔案或專案的自我複製指令 |
 | `hardcoded-secret` | 內嵌的 API 金鑰、token 與密碼：Google API 金鑰（`AIza...`）、AWS access key（`AKIA...`）、GitHub PAT（`ghp_`/`ghs_`/`github_pat_`）、Slack token（`xox[bporas]-`）、OpenAI 金鑰、Anthropic 金鑰、Stripe 金鑰、PEM 私鑰區塊，以及高熵值的一般 `api_key`/`secret_key`/`password` 賦值 |

@@ -348,7 +348,7 @@ func scanFileUnifiedMarkdown(
 				Severity: markdownFindingSeverity(r, line, parameterContext, nextLine),
 				Pattern:  r.Pattern, Message: r.Message, File: relPath, Line: lineNum,
 				Snippet: strings.TrimSpace(line), RuleID: r.ID, Analyzer: AnalyzerStatic,
-				Category: categoryForPattern(r.Pattern), Confidence: 0.95,
+				Category: categoryForPattern(r.Pattern), Confidence: r.Confidence,
 			})
 		}
 	}
@@ -412,7 +412,7 @@ func scanFileUnifiedPlain(
 						RuleID:     r.ID,
 						Analyzer:   AnalyzerStatic,
 						Category:   categoryForPattern(r.Pattern),
-						Confidence: 0.95,
+						Confidence: r.Confidence,
 					})
 				}
 			}

@@ -110,6 +110,7 @@ rules:
 | `pattern` | はい* | ルールのカテゴリ名（例: `prompt-injection`） |
 | `message` | はい* | findings に表示される人間可読な説明 |
 | `regex` | はい* | 各行と照合する正規表現 |
+| `confidence` | いいえ | 0 から 1 の信頼度。既定値は 0.95 |
 | `exclude` | いいえ | 行が `regex` と `exclude` の両方に一致した場合、finding は抑制される |
 | `enabled` | いいえ | `false` に設定するとルールを無効化する。無効化する場合は `id` のみが必要。 |
 
@@ -120,7 +121,7 @@ rules:
 各レイヤー（global、次に project）は、前のレイヤーの上に適用されます。
 
 - **同じ `id`** + `enabled: false` → ルールを無効化する
-- **同じ `id`** + 他のフィールド → ルール全体を置き換える
+- **同じ `id`** + `regex` → ルール全体を置き換える。`severity` または `confidence` のみならそのフィールドを上書きする
 - **新しい `id`** → カスタムルールとして追加する
 - **`pattern` のみ**（`id` なし）+ `enabled: false` → そのパターンに一致するすべてのルールを無効化する
 - **`pattern` のみ** + `severity` → 一致するすべてのルールの重大度を上書きする
@@ -340,6 +341,11 @@ skillshare audit --json | jq '.skills[].findings'  # findings をプログラム
 | `hidden-unicode-0` | hidden-unicode | HIGH |
 | `hidden-unicode-2` | hidden-unicode | HIGH |
 | `config-manipulation-0` | config-manipulation | HIGH |
+| `anti-refusal-0` | anti-refusal | HIGH |
+| `prompt-leakage-0` | prompt-leakage | HIGH |
+| `memory-poisoning-0` | memory-poisoning | HIGH |
+| `agent-snooping-0` | agent-snooping | HIGH |
+| `persistence-0` | persistence | HIGH |
 | `hidden-comment-injection-1` | hidden-comment-injection | HIGH |
 | `self-propagation-0` | self-propagation | HIGH |
 | `destructive-commands-0` | destructive-commands | HIGH |

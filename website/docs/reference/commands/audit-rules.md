@@ -110,6 +110,7 @@ rules:
 | `pattern` | Yes* | Rule category name (e.g., `prompt-injection`) |
 | `message` | Yes* | Human-readable description shown in findings |
 | `regex` | Yes* | Regular expression to match against each line |
+| `confidence` | No | Confidence between 0 and 1; defaults to 0.95 |
 | `exclude` | No | If a line matches both `regex` and `exclude`, the finding is suppressed |
 | `enabled` | No | Set to `false` to disable a rule. Only `id` is required when disabling. |
 
@@ -120,7 +121,7 @@ rules:
 Each layer (global, then project) is applied on top of the previous:
 
 - **Same `id`** + `enabled: false` → disables the rule
-- **Same `id`** + other fields → replaces the entire rule
+- **Same `id`** + `regex` → replaces the entire rule; `severity` or `confidence` alone overrides that field
 - **New `id`** → appends as a custom rule
 - **`pattern` only** (no `id`) + `enabled: false` → disables all rules matching that pattern
 - **`pattern` only** + `severity` → overrides severity for all matching rules
@@ -340,6 +341,11 @@ Source of truth for regex-based rules:
 | `hidden-unicode-0` | hidden-unicode | HIGH |
 | `hidden-unicode-2` | hidden-unicode | HIGH |
 | `config-manipulation-0` | config-manipulation | HIGH |
+| `anti-refusal-0` | anti-refusal | HIGH |
+| `prompt-leakage-0` | prompt-leakage | HIGH |
+| `memory-poisoning-0` | memory-poisoning | HIGH |
+| `agent-snooping-0` | agent-snooping | HIGH |
+| `persistence-0` | persistence | HIGH |
 | `hidden-comment-injection-1` | hidden-comment-injection | HIGH |
 | `self-propagation-0` | self-propagation | HIGH |
 | `destructive-commands-0` | destructive-commands | HIGH |
