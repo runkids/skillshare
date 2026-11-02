@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"skillshare/internal/config"
 	"skillshare/internal/plugin"
@@ -68,6 +70,29 @@ func writeFiles(t *testing.T, dir string, files map[string]string) {
 			t.Fatal(err)
 		}
 	}
+}
+
+// writeBlockingCommand writes an executable that marks itself started, waits for
+// release, then prints output. started blocks until the command runs.
+func writeBlockingCommand(t *testing.T, path, output string) (started, release func()) {
+	t.Helper()
+	dir := t.TempDir()
+	mark, done := filepath.Join(dir, "started"), filepath.Join(dir, "release")
+	script := "#!/bin/sh\n: > '" + mark + "'\nwhile [ ! -e '" + done + "' ]; do sleep 0.05; done\necho '" + output + "'\n"
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	started = func() {
+		t.Helper()
+		for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
+			if _, err := os.Stat(mark); err == nil {
+				return
+			}
+		}
+		t.Fatal("the command never started")
+	}
+	release = func() { _ = os.WriteFile(done, nil, 0o644) }
+	return started, release
 }
 
 func piRequest(t *testing.T, s *Server, method, url, body string) *httptest.ResponseRecorder {
@@ -199,6 +224,27 @@ func TestPiExtensionsAPIRefusesBadRequests(t *testing.T) {
 	if w.Code != 403 {
 		t.Errorf("rebind accepted: %d", w.Code)
 	}
+}
+
+// A slow Pi CLI must not hold the config lock, or every other API request waits for it.
+func TestPiExtensionsAPIDoesNotHoldTheConfigLock(t *testing.T) {
+	s, _ := newPiExtensionsServer(t, "0.99.1")
+	pi, err := exec.LookPath("pi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	started, release := writeBlockingCommand(t, pi, "0.99.1")
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		piRequest(t, s, http.MethodGet, "/api/targets/pi/pi-extensions", "")
+	}()
+	defer func() { release(); <-done }()
+	started()
+	if !s.mu.TryLock() {
+		t.Fatal("a running Pi CLI holds the config lock")
+	}
+	s.mu.Unlock()
 }
 
 func TestPiExtensionsAPIAccountAndUnsupportedVersion(t *testing.T) {

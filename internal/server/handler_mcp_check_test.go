@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -124,4 +125,26 @@ func TestMCPProbeClassifiesARefusedConnection(t *testing.T) {
 	if result["errorKind"] != "connect" || !strings.Contains(result["error"].(string), "refused") {
 		t.Fatalf("result = %v", result)
 	}
+}
+
+// A live probe of a slow server must not hold the config lock, or every other API
+// request waits for it.
+func TestMCPCheckLiveDoesNotHoldTheConfigLock(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("CLAUDE_CONFIG_DIR", "")
+	command := filepath.Join(t.TempDir(), "slow-mcp")
+	started, release := writeBlockingCommand(t, command, "")
+	writeMCPSource(t, s, "mcp:\n  targets: [claude]\n  servers:\n    slow:\n      command: "+command+"\n")
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.handleMCPCheck(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/mcp/check?dns=0&live=1", nil))
+	}()
+	defer func() { release(); <-done }()
+	started()
+	if !s.mu.TryLock() {
+		t.Fatal("a live probe holds the config lock")
+	}
+	s.mu.Unlock()
 }
