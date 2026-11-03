@@ -124,6 +124,12 @@ func (s *Service) validate(r Request) error {
 }
 
 func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
+	return s.preview(ctx, r, nil)
+}
+
+// cleanup is confined to the source replacement being resolved. Ordinary
+// previews cannot borrow a removal from another package or operation.
+func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (*Plan, error) {
 	r.Targets = slices.Clone(r.Targets)
 	for i, target := range r.Targets {
 		r.Targets[i] = NormalizeTarget(target)
@@ -176,7 +182,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 			c.MessageKey = "plugins.note.importRecipeChanged"
 			c.MessageArgs = map[string]string{"name": c.Name, "target": c.Target}
 		}
-		appendPrepared(s.prepareChange(ctx, r, d, host, c))
+		appendPrepared(s.prepareChange(ctx, r, d, host, c, cleanup))
 	}
 	find := func(target, id string) (Installed, bool) {
 		for _, i := range host(target).Installed {
@@ -456,18 +462,21 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 					if _, exists := find(target, b.ID); !exists && host(target).Error == "" && !mayOwnMarket(target, b) {
 						action = "forget"
 					}
-					changes, err := s.sourceReplacementChanges(ctx, r, name, target, decl, declared, b, action)
+					old := b
+					old.Cleanup = false
+					removal := s.prepareChange(ctx, r, d, host, Change{Name: name, Target: target, ID: old.ID, Binding: old, Action: action, Message: "Remove the previous local installation before reconciling current intent.", MessageKey: "plugins.note.replaceLocal"}, nil)
+					changes, err := s.sourceReplacementChanges(ctx, r, name, target, decl, declared, removal)
 					if err != nil {
 						return nil, err
 					}
 					if len(changes) == 2 {
-						replacement := s.prepareChange(ctx, r, d, host, changes[1])
+						replacement := s.prepareChange(ctx, r, d, host, changes[1], removal.ompRemoval)
 						if replacement.Action != "blocked" && replacement.Action != "skip" {
-							appendChange(changes[0])
+							appendPrepared(changes[0])
 						}
 						appendPrepared(replacement)
 					} else {
-						appendChange(changes[0])
+						appendPrepared(changes[0])
 					}
 					continue
 				}
@@ -476,7 +485,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 						p.Changes = append(p.Changes, Change{Name: name, Target: target, Binding: b, Action: "native-check", Message: "Installation required on this machine; sync to review and install the source.", MessageKey: "plugins.note.installRequired"})
 						continue
 					}
-					c, err := s.sourceChange(ctx, name, target, decl, r.All)
+					c, err := s.sourceChange(ctx, name, target, decl, r.All, nil)
 					if err != nil {
 						return nil, err
 					}
@@ -648,7 +657,7 @@ func existingNativeSourceChange(c Change, installed []Installed, agent, market, 
 	return c
 }
 
-func (s *Service) prepareChange(ctx context.Context, r Request, d *document, host func(string) Host, c Change) Change {
+func (s *Service) prepareChange(ctx context.Context, r Request, d *document, host func(string) Host, c Change, cleanup *ompRemoval) Change {
 	if (r.Action == "add" || r.Action == "import") && d.packages[c.Name].Bindings[c.Target].ContextChanged {
 		c.Action, c.Message = "blocked", "Native account or scope changed; restore the previous account settings to resolve its local receipt before rebinding."
 		c.MessageKey = "plugins.note.accountChanged"
@@ -775,7 +784,7 @@ func (s *Service) prepareChange(ctx context.Context, r Request, d *document, hos
 			c.Action = "skip"
 		}
 		if c.Action == "install" {
-			s.prepareOMPInstall(ctx, h, &c)
+			s.prepareOMPInstall(ctx, h, &c, cleanup)
 		}
 		if c.Action == "remove" || c.Action == "uninstall" || c.Action == "forget" {
 			s.prepareOMPRemoval(h, &c)

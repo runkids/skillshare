@@ -596,6 +596,14 @@ retryable. Repointing/removing an account preserves its old receipt and requires
 resolving the previous native context before cleanup. Authentication, native
 settings and trust remain in each tool; do not copy them as plugin state.
 
+When a shared source-managed target changes source, `plugin sync NAME` (or
+`plugin update NAME`) reviews cleanup and replacement together. For OMP, a runtime
+link is treated as about to be freed only when the same plan verifies its old
+installation owns that exact link. Cleanup runs before the replacement installs;
+shared cache and plugin settings are retained. Foreign links, real directories,
+and competing owners still block replacement. If cleanup or installation fails,
+run sync again to retry the remaining local work.
+
 A local import remains installed when its shared source recipe changes. To switch
 to the shared source recipe on this machine, run:
 
