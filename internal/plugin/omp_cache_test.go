@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -71,7 +72,7 @@ func TestOMPPreviewRuntimeProofConfinedToOwnedLink(t *testing.T) {
 
 func TestOMPPreviewRuntimeRejectsLinkedAncestors(t *testing.T) {
 	for _, depth := range []int{0, 1, 3} {
-		t.Run(strings.Repeat("nested/", depth)+"pkg", func(t *testing.T) {
+		t.Run(fmt.Sprintf("depth %d", depth), func(t *testing.T) {
 			dir := t.TempDir()
 			parent := filepath.Join(dir, "actual", strings.Repeat("nested/", depth))
 			if err := os.MkdirAll(parent, 0755); err != nil {
