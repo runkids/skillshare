@@ -11,21 +11,34 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ## [0.28.3] - 2026-11-03
 
-
 ### New Features
 
-* **audit:** detect narrow prose risk directives ([#711](https://github.com/runkids/skillshare/issues/711)) ([65af9c1](https://github.com/runkids/skillshare/commit/65af9c17b72671c2e2cf1b9b2c8bd704cd8e3c1c))
-
+- **Prose risk directives in audit** — five new HIGH rules catch narrowly phrased instructions that try to steer an agent: `anti-refusal` (comply despite safety policies), `prompt-leakage` (disclose the system prompt), `memory-poisoning` (persist a safety override in memory), `agent-snooping` (read or send another skill's or the agent's configuration without permission) and `persistence` (persist a payload, malware or backdoor). Ordinary security discussion and compliance wording stay clean. Custom rules in `audit-rules.yaml` can also set `confidence` from 0 to 1 by rule ID or pattern; rules without one default to 0.95. Thanks to @salmonumbrella for the implementation. Refs: #711.
+  ```yaml
+  rules:
+    - pattern: anti-refusal
+      confidence: 0.8
+  ```
 
 ### Bug Fixes
 
-* **audit:** distinguish execution errors from findings ([#686](https://github.com/runkids/skillshare/issues/686)) ([c6ec6bc](https://github.com/runkids/skillshare/commit/c6ec6bc7c99b5414d3ec0a3ecc7e8adf597acf06))
-* **audit:** require a policy noun right after anti-refusal qualifiers ([#748](https://github.com/runkids/skillshare/issues/748)) ([d7abd5b](https://github.com/runkids/skillshare/commit/d7abd5b9ac03a95c182617af74aab76940515ad9))
-* **audit:** stop flagging ignore arrays and typed root parameters ([#750](https://github.com/runkids/skillshare/issues/750)) ([b35793e](https://github.com/runkids/skillshare/commit/b35793e79f89d606e6c505946bedb4b7952c3449)), closes [#749](https://github.com/runkids/skillshare/issues/749)
-* **check:** ignore OS metadata files when detecting local changes ([#744](https://github.com/runkids/skillshare/issues/744)) ([51d299f](https://github.com/runkids/skillshare/commit/51d299ff07ba4eeaff1b8929aa803c826d0a9ae1)), closes [#743](https://github.com/runkids/skillshare/issues/743)
-* **plugins:** reconcile OMP source replacements in one sync ([#758](https://github.com/runkids/skillshare/issues/758)) ([8153025](https://github.com/runkids/skillshare/commit/8153025bebde0a32c20e17527acc7815370aa00d))
-* **project:** gitignore install metadata in project mode ([#760](https://github.com/runkids/skillshare/issues/760)) ([d41188b](https://github.com/runkids/skillshare/commit/d41188bbde4b4ff00ca63602bd7b49835c363bc5)), closes [#759](https://github.com/runkids/skillshare/issues/759)
-* **server:** release the config lock before slow plugin, Pi and MCP reads ([#747](https://github.com/runkids/skillshare/issues/747)) ([6a9e9ef](https://github.com/runkids/skillshare/commit/6a9e9efbe20d54ff523a5510f785b2061e11c9d2))
+#### Audit
+
+- **Exit code `2` for scan errors** — `skillshare audit` now exits `2` when the scan itself fails (a usage, configuration or execution error), so CI can tell an incomplete scan from a finding, which still exits `1`. When both happen, the error wins, and the partial report is kept. Audits started from `list` use the same codes, and declining the large-scan confirmation exits `0` without scanning. Thanks to @salmonumbrella for the implementation. Refs: #686.
+- **Fewer false positives** — `prompt-injection-1` no longer reports a JavaScript `ignore: ['**/*.test.vue']` array or a typed Python parameter such as `root: Path, lang_filter: set[str] | None = None` as CRITICAL, which blocked `update --all` for some vuejs-ai and dotnet skills. `anti-refusal` no longer flags a line that only mentions security policies as a topic, such as "Always answer, even if the question mentions security policies." Thanks to @JasonLandbridge for the report. Refs: #749, #750, #748.
+
+#### Other
+
+- **`.DS_Store` no longer marks skills modified** — opening an installed skill in Finder or Explorer wrote `.DS_Store`, `Thumbs.db` or `desktop.ini` into it, so `check` reported the skill as modified, hid available updates, and `update` skipped it unless run with `--force`. These files are now ignored when detecting local changes; their content is still audited. Thanks to @Soren90912 for the report. Refs: #743, #744.
+- **Project install metadata is gitignored** — `.skillshare/skills/.metadata.json` and `.skillshare/agents/.metadata.json` were committed with the project, although the docs said they were ignored. A project install now adds them to the project `.gitignore`; existing projects get the rule on their next install. A project that already committed the file should run `git rm --cached .skillshare/skills/.metadata.json` once. Thanks to @Snurppa for the report. Refs: #759, #760.
+  ```bash
+  git rm --cached .skillshare/skills/.metadata.json
+  ```
+- **OMP plugin source changes sync in one pass** — when a shared plugin changed source, a machine that still had the old OMP runtime link could not sync: the replacement was blocked before the cleanup that would free it ran. `plugin sync` and `plugin update` now preview the old removal and the new install together and apply both, keeping the shared cache and settings. Thanks to @salmonumbrella for the report and the fix. Refs: #757, #758.
+  ```bash
+  skillshare plugin sync NAME --dry-run -g
+  ```
+- **Dashboard stays responsive during plugin and MCP checks** — switching pages or reloading while the Plugins page checked for updates, or while Pi extensions or an MCP check ran, froze the whole dashboard until the check finished. Other requests are now served meanwhile. Refs: #747.
 
 ## [0.28.2] - 2026-10-31
 
