@@ -128,8 +128,68 @@ printf '{"projectRemoved":true,"userUnchanged":true,"cacheRetained":true}\n'
 - exit_code: 0
 - jq: .projectRemoved and .userUnchanged and .cacheRetained
 
+### 3. Receive a changed source on a second machine and sync once
+
+```bash
+set -eu
+cd "${SKILLSHARE_TEST_WORKTREE:-/workspace}"
+go build -o "$HOME/source-change-skillshare" ./cmd/skillshare
+ss="$HOME/source-change-skillshare"
+lab=$(mktemp -d "$HOME/source-change.XXXXXX")
+for host in a b; do
+  mkdir -p "$lab/$host/home" "$lab/$host/config/skillshare" "$lab/$host/state" "$lab/$host/data" "$lab/$host/cache"
+  printf 'targets: {}\n' > "$lab/$host/config/skillshare/config.yaml"
+done
+machine() {
+  selected=$1
+  shift
+  env HOME="$lab/$selected/home" XDG_CONFIG_HOME="$lab/$selected/config" \
+    XDG_STATE_HOME="$lab/$selected/state" XDG_DATA_HOME="$lab/$selected/data" \
+    XDG_CACHE_HOME="$lab/$selected/cache" "$@"
+}
+for recipe in old new; do
+  mkdir -p "$lab/$recipe/.claude-plugin" "$lab/$recipe/skills/probe"
+  printf '{"name":"source-change-probe","version":"1.0.0"}\n' > "$lab/$recipe/.claude-plugin/plugin.json"
+  printf '{"name":"source-change-runtime","version":"1.0.0"}\n' > "$lab/$recipe/package.json"
+  printf '%s\n' '---' 'name: probe' 'description: Inert source change fixture' '---' 'No executable resources.' > "$lab/$recipe/skills/probe/SKILL.md"
+done
+machine a "$ss" plugin add "$lab/old" --target omp --no-tui -g > "$lab/add-a.log"
+cp "$lab/a/config/skillshare/config.yaml" "$lab/b/config/skillshare/config.yaml"
+machine b "$ss" plugin sync source-change-probe --no-tui -g > "$lab/install-b.log"
+machine b omp plugin list --json > "$lab/native-old.json"
+old_id=$(jq -r '.marketplace[] | select(.scope == "user") | .id' "$lab/native-old.json")
+old_cache=$(jq -r '.marketplace[] | select(.scope == "user") | .entries[0].installPath' "$lab/native-old.json")
+test -n "$old_id" && test -f "$old_cache/package.json"
+sha256sum "$old_cache/package.json" > "$lab/retained-cache.sha"
+machine a "$ss" plugin remove source-change-probe --no-tui -g > "$lab/remove-a.log"
+machine a "$ss" plugin add "$lab/new" --target omp --no-tui -g > "$lab/replace-a.log"
+cp "$lab/a/config/skillshare/config.yaml" "$lab/b/config/skillshare/config.yaml"
+cp "$lab/b/config/skillshare/config.yaml" "$lab/intent-before.yaml"
+machine b "$ss" plugin sync source-change-probe --dry-run --json -g > "$lab/plan.json"
+jq -e '.blocked == false and (.changes | map(.action)) == ["remove", "install"]' "$lab/plan.json" > /dev/null
+revision=$(jq -r '.revision' "$lab/plan.json")
+machine b "$ss" plugin sync source-change-probe --revision "$revision" --no-tui -g > "$lab/sync-b.log"
+cmp "$lab/intent-before.yaml" "$lab/b/config/skillshare/config.yaml"
+sha256sum -c "$lab/retained-cache.sha" > /dev/null
+machine b omp plugin list --json | jq -e --arg old "$old_id" '.marketplace | length == 1 and .[0].id != $old' > /dev/null
+machine b "$ss" plugin sync source-change-probe --dry-run --json -g | jq -e '.blocked == false and (.changes | map(.action)) == ["noop"]' > /dev/null
+# A direct source-field edit has the same cleanup/install contract.
+sed "s|$lab/new|$lab/old|g" "$lab/intent-before.yaml" > "$lab/b/config/skillshare/config.yaml"
+machine b "$ss" plugin update source-change-probe --dry-run --json -g > "$lab/edit-plan.json"
+jq -e '.blocked == false and (.changes | map(.action)) == ["remove", "install"]' "$lab/edit-plan.json" > /dev/null
+revision=$(jq -r '.revision' "$lab/edit-plan.json")
+machine b "$ss" plugin update source-change-probe --revision "$revision" --no-tui -g > "$lab/update-b.log"
+printf '{"sourceReplaced":true,"sharedIntentUnchanged":true,"cacheRetained":true,"directEditReplaced":true}\n'
+```
+
+**Expected:**
+- exit_code: 0
+- jq: .sourceReplaced and .sharedIntentUnchanged and .cacheRetained and .directEditReplaced
+
 ## Pass Criteria
 
 The scoped registry, runtime selection and link are removed rather than disabled;
 foreign registrations, links and cache bytes remain unchanged. Reinstall uses a
 fresh identity, and no extension executes during management.
+
+A second machine completes a source replacement in one reviewed sync; direct source edits also reconcile through update. Shared intent and retained cache remain intact.
