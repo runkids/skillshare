@@ -4,6 +4,7 @@ package integration
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -28,6 +29,28 @@ func TestInstallProject_LocalPath(t *testing.T) {
 	// Skill name comes from directory name, not frontmatter
 	if !sb.FileExists(filepath.Join(projectRoot, ".skillshare", "skills", "external-skill", "SKILL.md")) {
 		t.Error("skill should be installed to .skillshare/skills/")
+	}
+}
+
+// TestInstallProject_GitignoresMetadata follows #759: after init -p and an
+// install, Git must treat the per-machine .metadata.json as ignored.
+func TestInstallProject_GitignoresMetadata(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := filepath.Join(sb.Root, "project")
+	os.MkdirAll(projectRoot, 0755)
+	sb.WriteFile(filepath.Join(sb.Root, "external-skill", "SKILL.md"), "---\nname: external-skill\n---\n# External")
+
+	sb.RunCLIInDir(projectRoot, "init", "-p", "--targets", "claude").AssertSuccess(t)
+	sb.RunCLIInDir(projectRoot, "install", filepath.Join(sb.Root, "external-skill"), "-p").AssertSuccess(t)
+
+	metadata := filepath.Join(".skillshare", "skills", install.MetadataFileName)
+	if !sb.FileExists(filepath.Join(projectRoot, metadata)) {
+		t.Fatalf("install should write %s", metadata)
+	}
+	testutil.RunGit(t, projectRoot, "init", "-q")
+	if err := exec.Command("git", "-C", projectRoot, "check-ignore", "-q", metadata).Run(); err != nil {
+		t.Errorf("%s should be gitignored (git check-ignore: %v)", metadata, err)
 	}
 }
 

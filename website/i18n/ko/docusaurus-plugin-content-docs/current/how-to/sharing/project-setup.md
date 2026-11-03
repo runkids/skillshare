@@ -88,7 +88,7 @@ skillshare install anthropics/skills -s pdf --into tools -p
 원격 Skill은:
 - `.skillshare/skills/<name>/` (또는 `--into` 사용 시 `.skillshare/skills/<into>/<name>/`)에 설치됩니다
 - `.skillshare/config.yaml`의 `skills:` 아래에 기록됩니다
-- `.skillshare/.gitignore`에 추가됩니다 (clone된 콘텐츠는 커밋되지 않으며, `logs/`, `trash/`, `backups/`는 기본적으로 무시됩니다)
+- `.skillshare/.gitignore`에 추가됩니다 (clone된 콘텐츠는 커밋되지 않으며, `logs/`, `trash/`, `backups/`, `.metadata.json` 파일은 기본적으로 무시됩니다)
 
 ### 4단계: Target에 Sync
 
@@ -108,7 +108,7 @@ git commit -m "Add project-level skills"
 **커밋되는 것:**
 - `.skillshare/config.yaml` — Target과 원격 Skill 목록
 - `.skillshare/skills.lock.json` — 각 원격 Skill이 고정된 commit. 모두가 같은 버전을 설치하게 됩니다
-- `.skillshare/.gitignore` — 프로젝트 로그, trash, 백업, clone된 Skill에 대한 무시 패턴
+- `.skillshare/.gitignore` — 프로젝트 로그, trash, 백업, 설치 메타데이터, clone된 Skill에 대한 무시 패턴
 - `.skillshare/skills/<local-skills>/` — 로컬 Skill 콘텐츠
 
 **무시되는 것:**

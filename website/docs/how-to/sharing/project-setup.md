@@ -88,7 +88,7 @@ skillshare install anthropics/skills -s pdf --into tools -p
 Remote skills are:
 - Installed to `.skillshare/skills/<name>/` (or `.skillshare/skills/<into>/<name>/` with `--into`)
 - Recorded in `.skillshare/config.yaml` under `skills:`
-- Added to `.skillshare/.gitignore` (cloned content not committed; `logs/`, `trash/`, and `backups/` are ignored by default)
+- Added to `.skillshare/.gitignore` (cloned content not committed; `logs/`, `trash/`, `backups/`, and the `.metadata.json` files are ignored by default)
 
 ### Step 4: Sync to Targets
 
@@ -108,7 +108,7 @@ git commit -m "Add project-level skills"
 **What gets committed:**
 - `.skillshare/config.yaml` — targets and remote skill list
 - `.skillshare/skills.lock.json` — the commit each remote skill is pinned to, so everyone installs the same version
-- `.skillshare/.gitignore` — ignore patterns for project logs, trash, backups, and cloned skills
+- `.skillshare/.gitignore` — ignore patterns for project logs, trash, backups, install metadata, and cloned skills
 - `.skillshare/skills/<local-skills>/` — local skill content
 
 **What's ignored:**

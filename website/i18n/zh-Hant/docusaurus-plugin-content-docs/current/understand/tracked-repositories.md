@@ -179,7 +179,7 @@ skillshare uninstall _team-skills
 
 ## Project Mode
 
-Tracked repos 在 project mode 下同樣適用。Repo 會被 clone 到 `.skillshare/skills/`，並加入 `.skillshare/.gitignore`（避免 tracked repo 自己的 git 歷史與你的專案 git 衝突）。Project 的日誌（`.skillshare/logs/`）、垃圾桶（`.skillshare/trash/`）與備份（`.skillshare/backups/`）預設也會被忽略。
+Tracked repos 在 project mode 下同樣適用。Repo 會被 clone 到 `.skillshare/skills/`，並加入 `.skillshare/.gitignore`（避免 tracked repo 自己的 git 歷史與你的專案 git 衝突）。Project 的日誌（`.skillshare/logs/`）、垃圾桶（`.skillshare/trash/`）、備份（`.skillshare/backups/`）與安裝 metadata（`.skillshare/skills/.metadata.json`）預設也會被忽略。
 
 安裝 tracked repo 會自動在 `.skillshare/.metadata.json` 中記錄 `tracked: true`，讓新加入的團隊成員透過 `skillshare install -p` 就能取得正確的 clone 行為：
 
@@ -216,7 +216,7 @@ skillshare uninstall team-skills -p
 ```
 <project-root>/
 └── .skillshare/
-    ├── .gitignore           # Contains: logs/, trash/, and skills/_team-skills
+    ├── .gitignore           # Contains: logs/, trash/, skills/.metadata.json, and skills/_team-skills
     └── skills/
         └── _team-skills/    # Tracked repo with .git/ preserved
             ├── .git/
