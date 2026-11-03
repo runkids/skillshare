@@ -9,6 +9,24 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.28.3] - 2026-11-03
+
+
+### New Features
+
+* **audit:** detect narrow prose risk directives ([#711](https://github.com/runkids/skillshare/issues/711)) ([65af9c1](https://github.com/runkids/skillshare/commit/65af9c17b72671c2e2cf1b9b2c8bd704cd8e3c1c))
+
+
+### Bug Fixes
+
+* **audit:** distinguish execution errors from findings ([#686](https://github.com/runkids/skillshare/issues/686)) ([c6ec6bc](https://github.com/runkids/skillshare/commit/c6ec6bc7c99b5414d3ec0a3ecc7e8adf597acf06))
+* **audit:** require a policy noun right after anti-refusal qualifiers ([#748](https://github.com/runkids/skillshare/issues/748)) ([d7abd5b](https://github.com/runkids/skillshare/commit/d7abd5b9ac03a95c182617af74aab76940515ad9))
+* **audit:** stop flagging ignore arrays and typed root parameters ([#750](https://github.com/runkids/skillshare/issues/750)) ([b35793e](https://github.com/runkids/skillshare/commit/b35793e79f89d606e6c505946bedb4b7952c3449)), closes [#749](https://github.com/runkids/skillshare/issues/749)
+* **check:** ignore OS metadata files when detecting local changes ([#744](https://github.com/runkids/skillshare/issues/744)) ([51d299f](https://github.com/runkids/skillshare/commit/51d299ff07ba4eeaff1b8929aa803c826d0a9ae1)), closes [#743](https://github.com/runkids/skillshare/issues/743)
+* **plugins:** reconcile OMP source replacements in one sync ([#758](https://github.com/runkids/skillshare/issues/758)) ([8153025](https://github.com/runkids/skillshare/commit/8153025bebde0a32c20e17527acc7815370aa00d))
+* **project:** gitignore install metadata in project mode ([#760](https://github.com/runkids/skillshare/issues/760)) ([d41188b](https://github.com/runkids/skillshare/commit/d41188bbde4b4ff00ca63602bd7b49835c363bc5)), closes [#759](https://github.com/runkids/skillshare/issues/759)
+* **server:** release the config lock before slow plugin, Pi and MCP reads ([#747](https://github.com/runkids/skillshare/issues/747)) ([6a9e9ef](https://github.com/runkids/skillshare/commit/6a9e9efbe20d54ff523a5510f785b2061e11c9d2))
+
 ## [0.28.2] - 2026-10-31
 
 
