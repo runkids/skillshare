@@ -274,7 +274,7 @@ This guard applies to both the CLI and the Web UI ([`skillshare ui`](./ui.md)).
 | Config update | Auto-reconciles `config.yaml` `skills:` | Auto-reconciles `.skillshare/config.yaml` `skills:` |
 | No-arg install | Installs all skills listed in config | Installs all skills listed in config |
 
-**Tracked repos in project mode** work the same as global — the repo is cloned with `.git` preserved and added to `.skillshare/.gitignore` (which also ignores `.skillshare/logs/` and `.skillshare/trash/` by default). The `tracked: true` flag is auto-recorded in `.skillshare/config.yaml`:
+**Tracked repos in project mode** work the same as global — the repo is cloned with `.git` preserved and added to `.skillshare/.gitignore` (which also ignores `.skillshare/logs/`, `.skillshare/trash/`, `.skillshare/backups/`, and the `.metadata.json` files by default). The `tracked: true` flag is auto-recorded in `.skillshare/config.yaml`:
 
 ```bash
 skillshare install github.com/team/skills --track -p

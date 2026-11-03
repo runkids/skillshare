@@ -268,7 +268,7 @@ skillshare install ./my-skill -p
 | Config の更新 | `config.yaml` の `skills:` を自動調整 | `.skillshare/config.yaml` の `skills:` を自動調整 |
 | 引数なし install | config に記載された全 Skill をインストール | config に記載された全 Skill をインストール |
 
-**プロジェクトモードでのトラック対象リポジトリ** はグローバルと同様に動作します — リポジトリは `.git` を保持したままクローンされ、`.skillshare/.gitignore`（デフォルトで `.skillshare/logs/` と `.skillshare/trash/` も無視）に追加されます。`tracked: true` フラグは `.skillshare/config.yaml` に自動的に記録されます。
+**プロジェクトモードでのトラック対象リポジトリ** はグローバルと同様に動作します — リポジトリは `.git` を保持したままクローンされ、`.skillshare/.gitignore`（デフォルトで `.skillshare/logs/`、`.skillshare/trash/`、`.skillshare/backups/`、`.metadata.json` ファイルも無視）に追加されます。`tracked: true` フラグは `.skillshare/config.yaml` に自動的に記録されます。
 
 ```bash
 skillshare install github.com/team/skills --track -p

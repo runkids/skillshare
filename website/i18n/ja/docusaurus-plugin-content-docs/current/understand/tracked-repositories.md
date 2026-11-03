@@ -179,7 +179,7 @@ skillshare uninstall _team-skills
 
 ## Project mode
 
-追跡リポジトリは Project mode でも動作します。リポジトリは `.skillshare/skills/` にクローンされ、`.skillshare/.gitignore` に追加されます（これにより、追跡リポジトリの git 履歴がプロジェクトの git と競合しなくなります）。プロジェクトのログ（`.skillshare/logs/`）、trash（`.skillshare/trash/`）、バックアップ（`.skillshare/backups/`）もデフォルトで無視されます。
+追跡リポジトリは Project mode でも動作します。リポジトリは `.skillshare/skills/` にクローンされ、`.skillshare/.gitignore` に追加されます（これにより、追跡リポジトリの git 履歴がプロジェクトの git と競合しなくなります）。プロジェクトのログ（`.skillshare/logs/`）、trash（`.skillshare/trash/`）、バックアップ（`.skillshare/backups/`）、インストールメタデータ（`.skillshare/skills/.metadata.json`）もデフォルトで無視されます。
 
 追跡リポジトリをインストールすると、`.skillshare/.metadata.json` に `tracked: true` が自動的に記録されるため、新しいチームメンバーは `skillshare install -p` を通じて正しいクローン動作を得られます。
 
@@ -216,7 +216,7 @@ skillshare uninstall team-skills -p
 ```
 <project-root>/
 └── .skillshare/
-    ├── .gitignore           # Contains: logs/, trash/, and skills/_team-skills
+    ├── .gitignore           # Contains: logs/, trash/, skills/.metadata.json, and skills/_team-skills
     └── skills/
         └── _team-skills/    # Tracked repo with .git/ preserved
             ├── .git/
