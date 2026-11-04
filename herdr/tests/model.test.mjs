@@ -149,7 +149,7 @@ function startJob(t, body) {
   const bin = mkdtempSync(join(tmpdir(), "ss-bin-"));
   t.after(() => rmSync(bin, { recursive: true, force: true }));
   writeFileSync(join(bin, "skillshare"), `#!/bin/sh\n${body}\n`, { mode: 0o755 });
-  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, HC_SCOPE: "exec-1" };
   return new Promise((resolve) => {
     const sh = spawn("sh", ["-c", START, "test", tmpdir(), "hello"], { env, detached: true });
     let out = "";
@@ -177,6 +177,12 @@ test("a detached job outlives the process group that started it", async (t) => {
   const d = await startJob(t, 'sleep 1; echo "$@"');
   assert.ok(await until(() => existsSync(join(d, "code"))), "the job never wrote its exit code");
   assert.deepEqual([readFileSync(join(d, "code"), "utf8").trim(), readFileSync(join(d, "out"), "utf8").trim()], ["0", "hello"]);
+});
+
+test("a detached job drops the exec's HC_SCOPE, so Herdr does not hang it up", async (t) => {
+  const d = await startJob(t, 'echo "${HC_SCOPE-unset}"');
+  assert.ok(await until(() => existsSync(join(d, "code"))), "the job never wrote its exit code");
+  assert.equal(readFileSync(join(d, "out"), "utf8").trim(), "unset");
 });
 
 test("a job killed before it finishes reads as stopped", async (t) => {
