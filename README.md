@@ -48,7 +48,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: v0.28.0 — Tracked repos that ship a separate copy of a skill per agent (`skills/claude/<skill>`, `skills/codex/<skill>`) now sync each copy only to its matching agent in merge and copy mode, and summaries count it as one skill. `skillshare plugin update --all` updates every tracked plugin at once, and `update` works again on shallow partial clones. [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: v0.28.4 — Install with Nix: `nix profile add github:runkids/skillshare`. On a Nix install, `skillshare upgrade` and the dashboard's update dialog tell you to run `nix profile upgrade skillshare`, or to update your Nix configuration, instead of replacing the store binary. A new [Herdr panel](https://skillshare.runkids.cc/docs/learn/with-herdr) shows what needs an update or a sync beside your agents, and acts on it on every machine Herdr connects to. [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
@@ -399,6 +399,7 @@ Thanks to everyone who helped shape skillshare.
 <a href="https://github.com/jskswamy"><img src="https://github.com/jskswamy.png" width="50" style="border-radius:50%" alt="jskswamy"></a>
 <a href="https://github.com/heyAidy"><img src="https://github.com/heyAidy.png" width="50" style="border-radius:50%" alt="heyAidy"></a>
 <a href="https://github.com/trojanwk"><img src="https://github.com/trojanwk.png" width="50" style="border-radius:50%" alt="trojanwk"></a>
+<a href="https://github.com/charitarthchugh"><img src="https://github.com/charitarthchugh.png" width="50" style="border-radius:50%" alt="charitarthchugh"></a>
 
 ---
 

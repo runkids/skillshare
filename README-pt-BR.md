@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Versão mais recente**: v0.28.0 — Repos tracked que trazem uma cópia separada de um skill para cada agente (`skills/claude/<skill>`, `skills/codex/<skill>`) agora sincronizam cada cópia só com o agente correspondente nos modos merge e copy, e os resumos contam como um único skill. `skillshare plugin update --all` atualiza todos os plugins tracked de uma vez, e o `update` volta a funcionar em partial clones rasos. [Todas as versões →](https://github.com/runkids/skillshare/releases)
+> **Versão mais recente**: v0.28.4 — Instale com Nix: `nix profile add github:runkids/skillshare`. Numa instalação com Nix, `skillshare upgrade` e o diálogo de atualização do dashboard indicam rodar `nix profile upgrade skillshare`, ou atualizar sua configuração do Nix, em vez de substituir o binário do store. Um novo [painel para o Herdr](https://skillshare.runkids.cc/docs/learn/with-herdr) mostra ao lado dos seus agentes o que precisa de atualização ou sincronização, e faz isso em cada máquina à qual o Herdr se conecta. [Todas as versões →](https://github.com/runkids/skillshare/releases)
 
 ## Por que skillshare
 
