@@ -7,7 +7,7 @@ import type { VersionCheck } from '../api/client';
 import DialogShell from './DialogShell';
 import Button from './Button';
 import { useT } from '../i18n';
-import { upgradeErrorMessage } from '../lib/upgradeError';
+import { nixUpdateNote, upgradeErrorMessage } from '../lib/upgradeError';
 
 const DISMISSED_KEY = 'ss-update-dialog-dismissed';
 
@@ -52,9 +52,7 @@ export default function UpdateDialog() {
   }, [hasUpdate, isMockMode]);
 
   if (!data || !hasUpdate) return null;
-
-  // "" means a Nix configuration provides skillshare, so no single command updates it.
-  const command = data.upgradeCommand ?? 'skillshare upgrade';
+  const nixNote = nixUpdateNote(data, t);
 
   const dismiss = () => {
     setOpen(false);
@@ -65,7 +63,7 @@ export default function UpdateDialog() {
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(command);
+      await navigator.clipboard.writeText('skillshare upgrade');
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -135,17 +133,14 @@ export default function UpdateDialog() {
         </dl>
         <div className="ss-fld">
           <label>{t('updateDialog.terminal')}</label>
-          {command ? (
-            <div className="flex items-center gap-2">
-              <code className="ss-code flex-1 !py-2">{command}</code>
-              <Button variant="secondary" onClick={handleCopy} disabled={updating}>
-                {copied ? <Check size={15} className="text-ok" /> : <Copy size={15} />}
-                {t('updateDialog.copyCommand')}
-              </Button>
-            </div>
-          ) : (
-            <p className="text-[13px] text-ink-2">{t('updateDialog.nixConfig')}</p>
-          )}
+          <div className="flex items-center gap-2">
+            <code className="ss-code flex-1 !py-2">skillshare upgrade</code>
+            <Button variant="secondary" onClick={handleCopy} disabled={updating}>
+              {copied ? <Check size={15} className="text-ok" /> : <Copy size={15} />}
+              {t('updateDialog.copyCommand')}
+            </Button>
+          </div>
+          {nixNote && <p className="text-[13px] text-ink-2">{nixNote}</p>}
         </div>
         <p className="text-[13px] text-ink-2">{t('updateDialog.restartNote')}</p>
         {status && <p className={`text-[13px] ${updating ? 'text-ink-2' : 'text-bad'}`}>{status}</p>}

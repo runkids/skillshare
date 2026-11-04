@@ -186,7 +186,7 @@ Web dashboard 在 `/api/` 上提供 REST API。所有端點皆回傳 JSON。
 | PUT | `/api/skillignore` | 更新 `.skillignore` 內容 |
 | GET | `/api/doctor` | 執行所有健康檢查（JSON） |
 | GET | `/api/health` | 存活探測；伺服器就緒後回傳 `200` |
-| GET | `/api/version` | 目前/最新版本 + 是否有可用升級 + 此安裝方式的終端機指令（`upgradeCommand`） |
+| GET | `/api/version` | 目前/最新版本 + 是否有可用升級 + Nix 安裝時更新 CLI 的指令（`nixUpgradeCommand`） |
 | POST | `/api/upgrade` | 就地執行 `skillshare upgrade`（若執行檔為開發版本則回傳 `devMode: true`；透過 Nix 安裝且有較新的 CLI 待安裝時回傳 `409`，錯誤碼為 `upgrade.nix`） |
 | POST | `/api/restart` | 重啟本機 UI 伺服器；可選的 `{ "clearCache": true }` body 會先清除快取的 UI 資源 |
 
@@ -198,7 +198,7 @@ Web dashboard 在 `/api/` 上提供 REST API。所有端點皆回傳 JSON。
 2. 新執行檔就緒後，UI 呼叫 `POST /api/restart` 重啟本機伺服器。
 3. 瀏覽器輪詢 `GET /api/health`，並在新伺服器就緒後自動重新載入。
 
-如果 skillshare 透過 Nix 安裝，該端點仍會更新內建的 skillshare skill，但 CLI 交由 Nix 更新。有較新的 CLI 時，它會回傳 `409`（`upgrade.nix`），對話框接著說明如何透過 Nix 更新。對話框中的終端機指令會直接對應安裝方式：`nix profile` 安裝顯示 `nix profile upgrade skillshare`，否則提示重新建置 Nix 設定。參見 [upgrade](./upgrade.md#nix-users)。
+如果 skillshare 透過 Nix 安裝，該端點仍會更新內建的 skillshare skill，但 CLI 交由 Nix 更新。有較新的 CLI 時，它會回傳 `409`（`upgrade.nix`），對話框接著說明如何透過 Nix 更新。點擊之前，對話框就會說明如何透過 Nix 更新 CLI：`nix profile` 安裝為 `nix profile upgrade skillshare`，否則為重新建置 Nix 設定。參見 [upgrade](./upgrade.md#nix-users)。
 
 如果正在執行的是開發版本（`version == "dev"`），upgrade 端點會回傳 `devMode: true`，UI 會模擬重啟而不修改磁碟上的任何內容。
 

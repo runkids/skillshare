@@ -186,7 +186,7 @@ Web ダッシュボードは `/api/` に REST API を公開しています。す
 | PUT | `/api/skillignore` | `.skillignore` の内容を更新 |
 | GET | `/api/doctor` | すべてのヘルスチェックを実行（JSON） |
 | GET | `/api/health` | 死活監視プローブ。サーバーの準備ができると `200` を返す |
-| GET | `/api/version` | 現在/最新バージョン、アップグレードの可否、このインストール方法のターミナルコマンド（`upgradeCommand`） |
+| GET | `/api/version` | 現在/最新バージョン、アップグレードの可否、Nix でのインストールでは CLI を更新するコマンド（`nixUpgradeCommand`） |
 | POST | `/api/upgrade` | `skillshare upgrade` をその場で実行（バイナリが開発ビルドの場合は `devMode: true` を返し、Nix でのインストールで新しい CLI が待機中の場合はコード `upgrade.nix` の `409` を返す） |
 | POST | `/api/restart` | ローカル UI サーバーを再起動。任意の `{ "clearCache": true }` ボディでキャッシュされた UI アセットを先にクリア |
 
@@ -198,7 +198,7 @@ Web ダッシュボードは `/api/` に REST API を公開しています。す
 2. 新しいバイナリが配置されると、UI が `POST /api/restart` を呼び出してローカルサーバーを再起動します。
 3. ブラウザは `GET /api/health` をポーリングし、新しいサーバーの準備ができ次第、自動的にリロードします。
 
-skillshare を Nix でインストールしている場合も、エンドポイントは組み込みの skillshare Skill を更新しますが、CLI の更新は Nix に任せます。新しい CLI がある場合は `409`（`upgrade.nix`）を返し、ダイアログに Nix での更新方法が表示されます。ダイアログのターミナルコマンドは最初からインストール方法に合わせて表示されます。`nix profile` でのインストールでは `nix profile upgrade skillshare`、それ以外では Nix 設定を再ビルドする案内です。[upgrade](./upgrade.md#nix-users) を参照してください。
+skillshare を Nix でインストールしている場合も、エンドポイントは組み込みの skillshare Skill を更新しますが、CLI の更新は Nix に任せます。新しい CLI がある場合は `409`（`upgrade.nix`）を返し、ダイアログに Nix での更新方法が表示されます。クリックする前から、ダイアログには Nix で CLI を更新する方法が表示されます。`nix profile` でのインストールでは `nix profile upgrade skillshare`、それ以外では Nix 設定の再ビルドです。[upgrade](./upgrade.md#nix-users) を参照してください。
 
 実行中のバイナリが開発ビルド（`version == "dev"`）である場合、upgrade エンドポイントは `devMode: true` を返し、UI はディスク上の何も変更せずに再起動をシミュレートします。
 

@@ -42,40 +42,4 @@ describe('UpdateDialog', () => {
 
     await waitFor(() => expect(api.restartApp).toHaveBeenCalledWith({ clearCache: false }));
   });
-
-  it.each([
-    ['brew upgrade skillshare'],
-    ['nix profile upgrade skillshare'],
-  ])('shows %s as the terminal command', async (command) => {
-    vi.mocked(api.getVersionCheck).mockResolvedValueOnce({ ...versionCheck, upgradeCommand: command });
-    renderDialog();
-    expect(await screen.findByText(command)).toBeInTheDocument();
-  });
-
-  it('points a Nix configuration at a rebuild instead of a command', async () => {
-    vi.mocked(api.getVersionCheck).mockResolvedValueOnce({ ...versionCheck, upgradeCommand: '' });
-    renderDialog();
-    expect(await screen.findByText(/Nix configuration and rebuild/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Copy command/ })).not.toBeInTheDocument();
-  });
 });
-
-const versionCheck = {
-  cliVersion: '0.21.12',
-  cliLatest: '0.21.13',
-  cliUpdateAvailable: true,
-  skillVersion: '0.21.12',
-  skillLatest: '0.21.13',
-  skillUpdateAvailable: true,
-};
-
-function renderDialog() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
-    <QueryClientProvider client={queryClient}>
-      <I18nProvider>
-        <UpdateDialog />
-      </I18nProvider>
-    </QueryClientProvider>,
-  );
-}

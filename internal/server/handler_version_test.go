@@ -79,13 +79,13 @@ func TestHandleVersionCheckNewerLocalSkillIsNotAnUpdate(t *testing.T) {
 	}
 }
 
-func TestHandleVersionCheckReportsUpgradeCommand(t *testing.T) {
+func TestHandleVersionCheckReportsNixUpgradeCommand(t *testing.T) {
 	tests := []struct {
 		method versioncheck.InstallMethod
-		want   string
+		want   any // nil: skillshare upgrade replaces the CLI itself
 	}{
-		{method: versioncheck.InstallDirect, want: "skillshare upgrade"},
-		{method: versioncheck.InstallBrew, want: "brew upgrade skillshare"},
+		{method: versioncheck.InstallDirect, want: nil},
+		{method: versioncheck.InstallBrew, want: nil},
 		{method: versioncheck.InstallNixProfile, want: "nix profile upgrade skillshare"},
 		{method: versioncheck.InstallNix, want: ""},
 	}
@@ -101,8 +101,8 @@ func TestHandleVersionCheckReportsUpgradeCommand(t *testing.T) {
 		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 			t.Fatalf("decode response: %v", err)
 		}
-		if body["upgradeCommand"] != tt.want {
-			t.Errorf("method %v: upgradeCommand = %#v, want %q", tt.method, body["upgradeCommand"], tt.want)
+		if body["nixUpgradeCommand"] != tt.want {
+			t.Errorf("method %v: nixUpgradeCommand = %#v, want %#v", tt.method, body["nixUpgradeCommand"], tt.want)
 		}
 	}
 }
