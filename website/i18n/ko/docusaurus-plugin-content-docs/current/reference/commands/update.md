@@ -143,7 +143,7 @@ skillshare update agents --all --json
 }
 ```
 
-가능한 agent `status` 값에는 `updated`, `failed`, `skipped`, `up_to_date`, `update_available`, `dirty`, `drifted`, `local`이 포함됩니다.
+가능한 agent `status` 값에는 `updated`, `failed`, `skipped`, `up_to_date`, `update_available`, `dirty`, `drifted`, `local`, `error`가 포함됩니다. `error` agent는 remote에 연결할 수 없거나 metadata를 읽을 수 없는 등의 이유로 확인하지 못한 agent입니다. 이 경우 명령은 agent를 최신 상태로 보고하지 않고 0이 아닌 종료 코드로 끝납니다.
 
 ## Agent 업데이트
 
