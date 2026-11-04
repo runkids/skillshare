@@ -569,12 +569,19 @@ func RenderInlineBar(done, total int) string {
 }
 
 // UpdateNotification prints a colorful update notification.
-// instruction says how to upgrade (e.g. "run: brew upgrade skillshare").
-func UpdateNotification(currentVersion, latestVersion, instruction string) {
-	runLine := "  " + strings.ToUpper(instruction[:1]) + instruction[1:]
+// upgradeCmd is the command the user should run (e.g. "brew upgrade skillshare"
+// or "skillshare upgrade"). When no single command upgrades this install,
+// upgradeCmd is empty and hint says what to do instead.
+func UpdateNotification(currentVersion, latestVersion, upgradeCmd, hint string) {
+	runLine := fmt.Sprintf("  Run: %s", upgradeCmd)
+	plainLine := fmt.Sprintf("  Run '%s' to update", upgradeCmd)
+	if upgradeCmd == "" {
+		runLine = "  " + strings.ToUpper(hint[:1]) + hint[1:]
+		plainLine = runLine
+	}
 	if !IsTTY() {
 		fmt.Fprintf(os.Stderr, "\n! Update available: %s -> %s\n", currentVersion, latestVersion)
-		fmt.Fprintln(os.Stderr, runLine)
+		fmt.Fprintln(os.Stderr, plainLine)
 		return
 	}
 
