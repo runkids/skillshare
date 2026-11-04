@@ -9,8 +9,10 @@ export const SCOPES = [["all", "All"], ["project", "Project"], ["global", "Globa
 // gets its own: setsid where it exists (Linux), or sh job control (macOS, whose sh is bash;
 // dash turns job control off without a terminal, but Linux has setsid). Never both: a job
 // that already leads its group makes setsid fork and exit. The job writes its own pid once
-// detached, and the starter waits for it (up to 5 s) so it is not ended before then.
-const DETACH = 'if command -v setsid >/dev/null 2>&1; then bg() { exec setsid "$@"; }; else set -m; bg() { exec "$@"; }; fi';
+// detached, and the starter waits for it (up to 5 s) so it is not ended before then. Herdr also
+// hangs up programs that carry the exec's HC_SCOPE once the exec returns (git and gh, which
+// skillshare runs, died with exit 129), so the job drops it.
+const DETACH = 'unset HC_SCOPE; if command -v setsid >/dev/null 2>&1; then bg() { exec setsid "$@"; }; else set -m; bg() { exec "$@"; }; fi';
 // Named so SWEEP can tell the panel's job folders from anything else in the temp folder.
 const TEMP = 'd=$(mktemp -d "${TMPDIR:-/tmp}/skillshare-panel.XXXXXX")';
 const READY = 'i=0; while [ ! -s "$d/pid" ] && [ $i -lt 50 ]; do sleep 0.1; i=$((i+1)); done; printf %s "$d"';

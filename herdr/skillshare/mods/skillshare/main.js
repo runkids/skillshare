@@ -58,6 +58,10 @@ async function ssLong(args, { on = null, cwd = null } = {}, wait, script = null)
   return { code: 1, stdout: "", stderr: "skillshare took longer than 15 minutes" };
 }
 
+// Work started from render. cx.spawn runs its body up to the first await at once, and
+// cx.notify() throws while a view renders, so the work starts after the render ends.
+const later = (cx, fn) => cx.spawn(async (cx) => { await cx.sleep(0); return fn(cx); });
+
 const flag = (scope) => (scope === "project" ? "-p" : "-g");
 const activeSpace = () => spaces().find((s) => s.active) ?? null;
 
@@ -174,13 +178,13 @@ export default class Skillshare extends View {
 
     this.view = "resources"; this.scope = "all"; this.kind = "skills"; this.query = ""; this.open = null;
     this.ctx = null; this.project = null; this.raw = {}; this.items = []; this.git = null; this.loading = false; this.loadedAt = 0;
-    this.checks = {}; this.checkedAt = 0; this.busy = null; this.lastRequest = shared(REQUEST)?.id ?? null; this.shownNotice = null;
+    this.checks = {}; this.checkedAt = 0; this.busy = null; this.busyOn = new Map(); this.lastRequest = shared(REQUEST)?.id ?? null; this.shownNotice = null;
     this.lastAgent = null; this.machines = {}; this.machinesAt = 0; this.version = null; this.token = 0;
     this.filter = InputState.new({ placeholder: "Filter by name or source" });
     this.filter.on("change", (_e, cx) => { this.query = this.filter.value(); cx.notify(); });
     // No remote work while the panel is hidden; showing it again refreshes (see render).
     const hidden = () => Boolean(find(layout(), PANEL)?.hidden);
-    cx.timer.every(POLL, (cx) => { if (!this.busy && !hidden()) this.refresh(cx, false); });
+    cx.timer.every(POLL, (cx) => { if (!this.busyAt(this.ctx?.on) && !hidden()) this.refresh(cx, false); });
     cx.timer.every(1000, (cx) => {
       const n = shared(NOTICE);
       if (n && (n.kind === "done" || n.kind === "info") && Date.now() - n.at > NOTICE_MS && this.shownNotice !== n.at) { this.shownNotice = n.at; cx.notify(); }
@@ -249,19 +253,24 @@ export default class Skillshare extends View {
 
   // ---- Work handed over by dialogs, and the panel's own buttons ----
 
+  // Work runs one at a time per machine; machines don't wait for each other.
+  busyAt(on) { return this.busyOn.has(on ?? ""); }
+  showBusy() { this.busy = [...this.busyOn.values()].join(" · ") || null; setShared(BUSY, this.busy); }
+
   perform(req, cx) {
     if (req.op === "show") {
       this.view = "resources"; this.kind = "skills"; this.open = null;
       if (this.project) this.scope = req.scope;
       this.filter.set_value(req.name); this.query = req.name; this.checkedAt = 0;
-      if (!this.busy) this.refresh(cx, false);
+      if (!this.busyAt(this.ctx?.on)) this.refresh(cx, false);
       cx.notify(); return;
     }
-    if (this.busy) { if (req.op !== "refresh") setShared(NOTICE, { kind: "warn", text: "skillshare is busy; try again when it finishes", at: Date.now() }); return; }
+    if (this.busyAt(req.on)) { if (req.op !== "refresh") setShared(NOTICE, { kind: "warn", text: "skillshare is busy on that machine; try again when it finishes", at: Date.now() }); return; }
     const say = (kind, text) => setShared(NOTICE, { kind, text, at: Date.now() });
     cx.spawn(async (cx) => {
       const wait = this.wait(cx);
-      const step = (text) => { this.busy = text; setShared(BUSY, text); cx.notify(); };
+      const key = req.on ?? "";
+      const step = (text) => { this.busyOn.set(key, text); this.showBusy(); cx.notify(); };
       try {
         const on = req.on ?? null;
         const opt = (scope) => ({ on, cwd: scope === "project" ? req.project : null });
@@ -373,7 +382,7 @@ export default class Skillshare extends View {
         }
       } finally {
         if (["update", "uninstall", "syncboth", "resolve", "pull", "refresh"].includes(req.op)) this.checkedAt = 0; // their update state changed
-        this.busy = null; setShared(BUSY, null);
+        this.busyOn.delete(key); this.showBusy();
         this.refresh(cx, false);
         if (this.view === "machines") this.loadMachines(cx);
         cx.notify();
@@ -436,16 +445,16 @@ export default class Skillshare extends View {
     const ctx = this.context(), key = ctx ? `${ctx.on}|${ctx.folder}|${ctx.spaceFolder}` : null;
     if (key !== this.ctxKey) {
       this.ctxKey = key; this.ctx = ctx; this.token++; this.items = []; this.raw = {}; this.loadedAt = 0; this.projectKnown = false; this.checks = {}; this.checkKey = null; this.git = null; this.project = null; this.loading = false; this.open = null;
-      if (ctx) cx.spawn(async (cx) => { this.refresh(cx, false); });
+      if (ctx) later(cx, (cx) => this.refresh(cx, false));
     }
     const req = shared(REQUEST);
-    if (req?.id && req.id !== this.lastRequest) { this.lastRequest = req.id; const r = req; cx.spawn(async (cx) => this.perform(r, cx)); }
-    if (this.view === "machines" && !this.machinesAt && !this.machinesLoading) cx.spawn(async (cx) => this.loadMachines(cx));
+    if (req?.id && req.id !== this.lastRequest) { this.lastRequest = req.id; const r = req; later(cx, (cx) => this.perform(r, cx)); }
+    if (this.view === "machines" && !this.machinesAt && !this.machinesLoading) later(cx, (cx) => this.loadMachines(cx));
     this.receiver();
 
     const node = find(layout(), PANEL);
     const shownNow = !node?.hidden;
-    if (shownNow && this.wasHidden && ctx) cx.spawn(async (cx) => this.refresh(cx, false));
+    if (shownNow && this.wasHidden && ctx) later(cx, (cx) => this.refresh(cx, false));
     this.wasHidden = !shownNow;
     return v_flex().id("skillshare").track_focus(this.handle).size_full().min_h(0).rounded(10).overflow_hidden()
       .bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(S().body)
@@ -528,7 +537,7 @@ export default class Skillshare extends View {
   groupHeader(t, id, label, color, action) {
     return h_flex().id(`group-${id}`).min_h(28).px(14).pt(10).pb(4).gap(8).items_center()
       .child(div().flex_1().text_size(S().label).font_semibold().text_color(color).child(label))
-      .when(Boolean(action), (el) => el.child(this.busy ? disabledButton(`${id}-busy`, "Working…", t, { h: 26, px: 10, size: S().label }) : action));
+      .when(Boolean(action), (el) => el.child(this.busyAt(this.ctx?.on) ? disabledButton(`${id}-busy`, "Working…", t, { h: 26, px: 10, size: S().label }) : action));
   }
 
   row(t, item, showScope, ctx) {
@@ -557,7 +566,7 @@ export default class Skillshare extends View {
     const buttons = [];
     const skillish = item.kind === "skills" || item.kind === "agents";
     if (item.state === "update" && skillish) {
-      buttons.push(this.busy ? disabledButton("u-busy", "Working…", t) : primary(`update-${item.key}`, "Update", t, () => request({ op: "update", on: ctx.on, project: this.project, updates: [{ kind: item.kind, scope: item.scope, name: item.update, label: item.label }] })));
+      buttons.push(this.busyAt(this.ctx?.on) ? disabledButton("u-busy", "Working…", t) : primary(`update-${item.key}`, "Update", t, () => request({ op: "update", on: ctx.on, project: this.project, updates: [{ kind: item.kind, scope: item.scope, name: item.update, label: item.label }] })));
       if (item.kind === "skills") buttons.push(secondary(`changes-${item.key}`, "See changes", t, () => request({ op: "text", on: ctx.on, cwd: item.scope === "project" ? this.project : null, busy: `Reading changes in ${item.label}…`, title: `Changes in “${item.label}”`, args: ["check", item.update, "--diff", flag(item.scope)] })));
     }
     if ((item.state === "sync" || item.state === "missing") && skillish) {
@@ -614,7 +623,7 @@ export default class Skillshare extends View {
           .child(h_flex().gap(8).child(stat("Source", behind, Boolean(m.git?.behind))).child(stat("Targets", String(m.targets))).child(stat("Needs sync", String(m.drift), m.drift > 0)))
           .when(Boolean(m.doctor?.errors || m.doctor?.warnings), (el) => el.child(note(t, `doctor: ${m.doctor.errors ?? 0} errors · ${m.doctor.warnings ?? 0} warnings`, m.doctor.errors ? t.ansi1 : t.muted)))
           .child(h_flex().gap(6).flex_wrap()
-            .child(this.busy ? disabledButton(`ps-${m.label}`, "Working…", t) : primary(`ps-${m.label}`, "Pull and sync", t, () => request({ op: "pullsync", on: m.on, label: m.label })))
+            .child(this.busyAt(m.on) ? disabledButton(`ps-${m.label}`, "Working…", t) : primary(`ps-${m.label}`, "Pull and sync", t, () => request({ op: "pullsync", on: m.on, label: m.label })))
             .when(Boolean(newer), (el) => el.child(secondary(`up-${m.label}`, `Update to ${String(newer).replace(/^v/, "")}`, t, () => openOverlay({ mod: "skillshare", kind: "dialog", width: 440, height: 220, props: { role: "upgrade", on: m.on, label: m.label, from: m.version, to: newer } }))))));
     });
     return v_flex().flex_1().min_h(0)
@@ -709,7 +718,7 @@ export default class Skillshare extends View {
         .on_click(() => openOverlay({ mod: "skillshare", kind: "dialog", width: 480, height: 520, props: { role: "source", on: ctx?.on ?? null, git: this.git } }))
         .child(icon("git", 14, color)).child(div().min_w(0).truncate().child(line.text)))
       .children([this.git?.repo && this.git.upstream
-        ? (this.busy ? disabledButton("both", "Sync both ways", t, { h: 26, px: 10, size: S().label })
+        ? (this.busyAt(this.ctx?.on) ? disabledButton("both", "Sync both ways", t, { h: 26, px: 10, size: S().label })
           : secondary("both", "Sync both ways", t, () => this.syncBoth(), { h: 26, px: 10, size: S().label, icon: "both" }))
         : null].filter(Boolean));
   }
