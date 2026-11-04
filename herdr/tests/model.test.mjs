@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseGitStatus, sourceLine, driftFrom, buildItems, groupItems, filterItems, cloneUrl, skillChoices, newerVersion, rowSub, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata } from "../skillshare/mods/skillshare/model.js";
+import { spawn, spawnSync } from "node:child_process";
+import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { parseGitStatus, sourceLine, driftFrom, buildItems, groupItems, filterItems, cloneUrl, skillChoices, newerVersion, rowSub, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE } from "../skillshare/mods/skillshare/model.js";
 
 test("git status reads branch, ahead/behind and files", () => {
   const g = parseGitStatus("top /src\n## main...origin/main [ahead 1, behind 2]\n M a.md\n?? b/SKILL.md\n");
@@ -134,4 +138,51 @@ test("MCP and plugin rows name no targets", () => {
   });
   const subs = items.map((i) => rowSub(i, false));
   assert.deepEqual(subs, ["changed since last sync", "changed since last sync"]);
+});
+
+// ---- Detached jobs (START, ALIVE) ----
+
+// Starts a fake `skillshare` (body) the way the panel does, then ends the starting shell's
+// process group, as Herdr does when an exec returns. Resolves to the job's temp folder.
+// After the test, the job is ended and both temp folders removed.
+function startJob(t, body) {
+  const bin = mkdtempSync(join(tmpdir(), "ss-bin-"));
+  t.after(() => rmSync(bin, { recursive: true, force: true }));
+  writeFileSync(join(bin, "skillshare"), `#!/bin/sh\n${body}\n`, { mode: 0o755 });
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  return new Promise((resolve) => {
+    const sh = spawn("sh", ["-c", START, "test", tmpdir(), "hello"], { env, detached: true });
+    let out = "";
+    sh.stdout.on("data", (b) => { out += b; });
+    sh.on("exit", () => {
+      try { process.kill(-sh.pid, "SIGKILL"); } catch { /* group already gone */ }
+      if (out) t.after(() => {
+        const pid = jobPid(out);
+        if (pid > 0) try { process.kill(-pid, "SIGKILL"); } catch { /* job already gone */ }
+        rmSync(out, { recursive: true, force: true });
+      });
+      resolve(out);
+    });
+  });
+}
+
+const until = async (ok, ms = 5000) => {
+  for (const end = Date.now() + ms; Date.now() < end; await new Promise((r) => setTimeout(r, 50))) if (ok()) return true;
+  return false;
+};
+const alive = (d) => spawnSync("sh", ["-c", ALIVE, "test", d]).status === 0;
+const jobPid = (d) => Number(existsSync(join(d, "pid")) ? readFileSync(join(d, "pid"), "utf8").trim() : 0);
+
+test("a detached job outlives the process group that started it", async (t) => {
+  const d = await startJob(t, 'sleep 1; echo "$@"');
+  assert.ok(await until(() => existsSync(join(d, "code"))), "the job never wrote its exit code");
+  assert.deepEqual([readFileSync(join(d, "code"), "utf8").trim(), readFileSync(join(d, "out"), "utf8").trim()], ["0", "hello"]);
+});
+
+test("a job killed before it finishes reads as stopped", async (t) => {
+  const d = await startJob(t, "sleep 30");
+  assert.ok(await until(() => jobPid(d) > 0), "the job never wrote its pid");
+  assert.ok(alive(d), "a running job should read as alive");
+  process.kill(-jobPid(d), "SIGKILL");
+  assert.ok(await until(() => !alive(d)), "a killed job should read as stopped");
 });

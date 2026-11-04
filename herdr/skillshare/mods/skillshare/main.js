@@ -9,7 +9,7 @@ import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { exec, hc, run, spaces, agents, focused, machines, shared, setShared, theme, settings, layout, openOverlay, closeOverlay, nextCommand, readTextFile, props as blockProps } from "herdr";
 import {
-  KINDS, SCOPES, SNAPSHOT, parseSnapshot, GIT_STATUS, PROJECT, DISCOVER, AUDIT, PREVIEW, CONFLICTS, RESOLVE, ABORT, METADATA_STAGES, METADATA_WRITE, mergeMetadata, parseStages,
+  KINDS, SCOPES, START, START_SCRIPT, ALIVE, SNAPSHOT, parseSnapshot, GIT_STATUS, PROJECT, DISCOVER, AUDIT, PREVIEW, CONFLICTS, RESOLVE, ABORT, METADATA_STAGES, METADATA_WRITE, mergeMetadata, parseStages,
   parseJSON, lastLine, failure, parseGitStatus, sourceLine, buildItems, rowSub, filterItems, groupItems, counts,
   cloneUrl, skillChoices, newerVersion, ago, auditMessage, driftFrom, parseDiscover, parseAudit, parsePreview, diffSides,
 } from "./model.js";
@@ -30,19 +30,24 @@ const sh = (script, args = [], on = null) => exec("sh", ["-c", `${PATHS}\n${scri
 // Short reads: one exec (Herdr stops an exec after 30 s).
 const ss = (args, { on = null, cwd = null } = {}) => sh('cd "$1" 2>/dev/null || cd; shift; exec skillshare "$@"', [cwd ?? "", ...args], on);
 
-// Work that can take longer than an exec may (update, install, push, check): started detached,
-// its output kept in a temp folder on that machine, polled until it writes its exit code.
-const START = 'd=$(mktemp -d); dir=$1; shift; ( cd "$dir" 2>/dev/null || cd; skillshare "$@" >"$d/out" 2>"$d/err" </dev/null; echo $? >"$d/code" ) >/dev/null 2>&1 & printf %s "$d"';
-// The same, for a script of ours: sh -c START_SCRIPT <name> <dir> <script> <args...>.
-const START_SCRIPT = 'd=$(mktemp -d); dir=$1; script=$2; shift 2; ( sh -c "$script" snapshot "$dir" "$@" >"$d/out" 2>"$d/err" </dev/null; echo $? >"$d/code" ) >/dev/null 2>&1 & printf %s "$d"';
+// Work that can take longer than an exec may (update, install, push, check): started detached
+// (START in model.js), polled until it writes its exit code or stops without one.
 async function ssLong(args, { on = null, cwd = null } = {}, wait, script = null) {
   const s = script ? await sh(START_SCRIPT, [cwd ?? "", ...script], on) : await sh(START, [cwd ?? "", ...args], on);
   const d = s.stdout.trim();
   if (s.code !== 0 || !d) return { code: s.code || 1, stdout: "", stderr: s.stderr || "Could not start skillshare" };
-  for (let i = 0; i < 1800; i++) {
+  for (let i = 1; i <= 1800; i++) {
     await wait(500);
     const code = await readTextFile(`${d}/code`, { on }).catch(() => null);
-    if (code === null || code.trim() === "") continue;
+    if (code === null || code.trim() === "") {
+      // A job that was killed never writes its code, so check every 5 s that it still runs.
+      if (i % 10 === 0 && (await sh(ALIVE, [d], on)).code === 1) {
+        const err = await readTextFile(`${d}/err`, { on }).catch(() => null);
+        sh('rm -rf "$1"', [d], on);
+        return { code: 1, stdout: "", stderr: lastLine(err) || "skillshare stopped before it finished" };
+      }
+      continue;
+    }
     const [stdout, stderr] = await Promise.all([readTextFile(`${d}/out`, { on }), readTextFile(`${d}/err`, { on })]);
     sh('rm -rf "$1"', [d], on);
     return { code: Number(code.trim()), stdout: stdout ?? "", stderr: stderr ?? "" };

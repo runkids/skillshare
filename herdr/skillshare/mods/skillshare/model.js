@@ -4,6 +4,27 @@
 export const KINDS = [["skills", "Skills"], ["agents", "Agents"], ["mcp", "MCP"], ["plugins", "Plugins"]];
 export const SCOPES = [["all", "All"], ["project", "Project"], ["global", "Global"]];
 
+// Long work runs detached, its output kept in a temp folder (out, err, code, pid) that the
+// panel polls. Herdr ends an exec's whole process group when the exec returns, so the job
+// gets its own: setsid where it exists (Linux), or sh job control (macOS, whose sh is bash;
+// dash turns job control off without a terminal, but Linux has setsid). Never both: a job
+// that already leads its group makes setsid fork and exit. The job writes its own pid once
+// detached, and the starter waits for it (up to 5 s) so it is not ended before then.
+const DETACH = 'if command -v setsid >/dev/null 2>&1; then bg() { exec setsid "$@"; }; else set -m; bg() { exec "$@"; }; fi';
+const READY = 'i=0; while [ ! -s "$d/pid" ] && [ $i -lt 50 ]; do sleep 0.1; i=$((i+1)); done; printf %s "$d"';
+// sh -c START <name> <dir> <args...>: runs skillshare <args> in <dir>; prints the temp folder.
+export const START = `${DETACH}; d=$(mktemp -d); dir=$1; shift
+bg sh -c 'echo $$ >"$2/pid"; cd "$1" 2>/dev/null || cd; d=$2; shift 2; skillshare "$@" >"$d/out" 2>"$d/err" </dev/null; echo $? >"$d/code"' job "$dir" "$d" "$@" >/dev/null 2>&1 </dev/null &
+${READY}`;
+// The same for a script of ours: sh -c START_SCRIPT <name> <dir> <script> <args...>.
+export const START_SCRIPT = `${DETACH}; d=$(mktemp -d); dir=$1; script=$2; shift 2
+bg sh -c 'echo $$ >"$1/pid"; d=$1; script=$2; shift 2; sh -c "$script" snapshot "$@" >"$d/out" 2>"$d/err" </dev/null; echo $? >"$d/code"' job "$d" "$script" "$dir" "$@" >/dev/null 2>&1 </dev/null &
+${READY}`;
+// sh -c ALIVE <name> <temp folder>: fails when the job stopped without writing its exit code.
+// A killed job nobody reaps stays a zombie (a container without init) that kill -0 still finds,
+// so a zombie counts as stopped. Where ps has no -p (busybox), only kill -0 decides.
+export const ALIVE = '[ -s "$1/code" ] || { p=$(cat "$1/pid" 2>/dev/null); kill -0 "$p" 2>/dev/null && ! ps -o stat= -p "$p" 2>/dev/null | grep -q Z; } || [ -s "$1/code" ]';
+
 // sh -c GIT_STATUS <name> <source dir> [fetch]: the repo holding the source, its branch line and
 // changed files. Prints "norepo" when the source is not in a git repository.
 export const GIT_STATUS = `cd "$1" 2>/dev/null || { echo norepo; exit 0; }
