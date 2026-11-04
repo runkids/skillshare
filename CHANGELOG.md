@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.28.4](https://github.com/runkids/skillshare/compare/v0.28.3...v0.28.4) (2026-11-04)
+## [0.28.4] - 2026-11-04
 
 
 * **release:** request 0.28.4 ([a93699c](https://github.com/runkids/skillshare/commit/a93699c5e0528c10c986ecde63a2d62160bb8726))
