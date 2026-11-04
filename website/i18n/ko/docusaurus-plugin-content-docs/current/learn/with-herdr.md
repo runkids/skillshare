@@ -28,7 +28,7 @@ sidebar_position: 8
 패널은 Herdr가 보여 주는 space를 따라가며, 그 space의 머신에서 포커스된 터미널의 폴더를 기준으로 skillshare를 실행합니다.
 
 - **Resources**는 skills, agents, MCP 서버, plugins, hooks를 "Updates available", "Needs sync", "In sync"로 나누어 보여 줍니다. `.skillshare/config.yaml`이 있는 프로젝트에서는 All · Project · Global로 범위를 고릅니다.
-- **행**은 그 자리에서 펼쳐집니다. skills와 agents에는 Update, Diff, Uninstall, 그리고 확인 후 해당 항목을 Herdr에서 포커스된 에이전트에 넘기는 "Ask &lt;agent&gt; to audit…"가 있습니다.
+- **행**은 그 자리에서 펼쳐집니다. skills와 agents에는 Update, Diff, Uninstall, 그리고 확인 후 해당 항목을 Herdr에서 포커스된 에이전트에 넘기는 "Ask &lt;agent&gt; to audit…"가 있습니다. 최상위에 선언된 hooks는 확인 후 Enable, Disable, Remove를 제공하며, 저장된 변경은 Sync로 적용합니다.
 - **Install**은 저장소 URL을 받습니다. skills가 여러 개인 저장소는 목록에서 고를 수 있습니다. 패널은 클론에 [`skillshare audit`](/docs/reference/commands/audit)을 실행하고 통과한 경우에만 설치합니다. audit에 막히면 findings와 함께 "Install anyway"(`--force`)와 "Ask &lt;agent&gt; to review…"를 보여 줍니다.
 - **Source**는 source 저장소의 상태를 보여 주며, 대화상자에서 Pull, Commit and push, Sync both ways를 제공합니다. 두 머신이 모두 바꾼 파일 때문에 pull이 멈추면, 좌우 비교 미리보기에서 파일마다 남길 버전을 고릅니다. `.metadata.json`은 [`skillshare pull`](/docs/reference/commands/pull)과 같은 방식으로 항목별로 병합됩니다.
 - **Machines**는 Herdr 각 머신의 skillshare 버전, source 상태, doctor 경고를 보여 주고, Pull and sync와 새 릴리스가 있을 때 Update를 제공합니다.

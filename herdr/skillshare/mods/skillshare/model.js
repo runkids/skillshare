@@ -273,6 +273,11 @@ export function buildItems(scope, raw) {
       state: pending.length ? "sync" : bindings.length ? "ok" : "missing", reason: pending.length ? `pending in ${pending.join(", ")}` : "", targets: Object.keys(p.bindings ?? {}) });
   }
   const hooks = new Map();
+  const status = (id, root = "") => {
+    const item = { key: `${scope}:hooks:status:${id}`, kind: "hooks", scope, root, name: "Hook status", label: "Hook status", targets: [], changes: [], declared: false };
+    hooks.set(item.key, item);
+    return item;
+  };
   const hook = (root, name) => {
     const key = `${scope}:hooks:${root ? root + "/" : ""}${name}`;
     if (!hooks.has(key)) hooks.set(key, { key, kind: "hooks", scope, root, name, label: name, targets: [], changes: [], declared: false });
@@ -284,16 +289,19 @@ export function buildItems(scope, raw) {
     }
   }
   for (const [index, c] of (raw.hooks?.plan?.changes ?? []).entries()) {
-    const item = c.name ? hook(c.root ?? "", c.name) : { key: `${scope}:hooks:status:${index}`, kind: "hooks", scope, root: c.root ?? "", name: "Hook status", label: "Hook status", targets: [], changes: [], declared: false };
-    if (!c.name) hooks.set(item.key, item);
+    const item = c.name ? hook(c.root ?? "", c.name) : status(index, c.root ?? "");
     if (c.target && !item.targets.includes(c.target)) item.targets.push(c.target);
     item.changes.push(c);
   }
-  if (raw.hooks?.error && Array.isArray(raw.list)) hooks.set("error", { key: `${scope}:hooks:error`, kind: "hooks", scope, name: "Hook status", label: "Hook status", targets: [], changes: [], declared: false });
+  const error = raw.hooks?.error || raw.hooks?.previewError;
+  if (error && !hooks.size && Array.isArray(raw.list)) status("error");
+  if (raw.hooks?.plan?.warnings?.length) status("warnings").warnings = raw.hooks.plan.warnings;
   for (const item of hooks.values()) {
     item.src = item.targets.join(", ") || "no agents";
-    const error = raw.hooks?.error || raw.hooks?.previewError;
-    item.lines = error ? [error] : item.changes.map((c) => `${c.target}: ${c.action}${c.message ? ` · ${c.message}` : ""}`);
+    item.lines = error ? [error] : [...item.changes.map((c) => [
+      [c.target, c.action].filter(Boolean).join(": "), ...new Set([c.message, c.inactiveReason].filter(Boolean)),
+    ].join(" · ")), ...(item.warnings ?? [])];
+    item.diagnostic = Boolean(item.warnings?.length || item.changes.some((c) => c.inactiveReason));
     item.reason = item.lines.join("; ");
     item.state = !raw.hooks?.plan || item.changes.some((c) => !["unchanged", "inactive"].includes(c.action)) ? "sync" : item.disabled ? "off" : "ok";
     items.push(item);
@@ -315,6 +323,7 @@ export function rowSub(item, showScope) {
   if (item.state === "missing") return `${pre}not synced yet`;
   // MCP and plugin reasons name targets; rows leave targets out, so those show in the open row only.
   if (item.state === "sync") return `${pre}${(item.kind === "skills" || item.kind === "agents" || item.kind === "hooks") && item.reason ? item.reason : "changed since last sync"}`;
+  if (item.kind === "hooks" && item.diagnostic) return `${pre}${item.reason}`;
   if (item.state === "off") return `${pre}disabled`;
   return `${pre}${item.src}${item.version && item.kind === "plugins" ? ` · ${item.version}` : ""}`;
 }

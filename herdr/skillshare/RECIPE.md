@@ -23,7 +23,7 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
       - "Needs sync · n" in `blocked`, with Sync, or Sync project / Sync global when only one scope needs it;
       - "In sync · n" in `muted`.
     - Each row is 48px: a dot (filled `accent`, `blocked` or `ansi2`; hollow `ansi1` when never synced or `muted` when disabled), the name, one line of detail (hook rows name their agents or planned changes), and a chevron. A row opens in place on `raised`.
-    - Hook rows expand to show agents, description, root and planned changes; nested-root and cleanup-only rows are read-only.
+    - Hook rows expand to show agents, description, root, planned changes and inactive reasons; read-only status rows also show plan warnings and cleanup preview failures. Nested-root and cleanup-only rows are read-only.
   - Machines: one card per Herdr machine, with its version, its source repository state, doctor errors and warnings when there are any, a Pull and sync button, and "Update to …" when a newer skillshare exists.
   - a 34px status line while work runs (work runs one at a time per machine; machines run side by side), with a spinning ring in `working`, or a notice: a done notice fades after 4 s, a warning or error stays until closed, and a stopped pull keeps a "Review conflicts" bar;
   - a 40px footer: the source state, such as "Source · n uncommitted · ↑n ↓n", "up to date" or "no remote" (`blocked` when it needs attention), and Sync both ways when the repository has an upstream.

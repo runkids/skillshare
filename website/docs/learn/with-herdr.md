@@ -28,7 +28,7 @@ A **skillshare** button appears in the tab bar. It shows and hides the panel, an
 The panel follows the space Herdr shows. It runs skillshare on that space's machine, in the focused terminal's folder.
 
 - **Resources** lists skills, agents, MCP servers, plugins and hooks, grouped into *Updates available*, *Needs sync* and *In sync*. In a project with `.skillshare/config.yaml`, an All · Project · Global switch picks the scope.
-- **Rows** open in place. Skills and agents offer Update, Diff, Uninstall, and *Ask &lt;agent&gt; to audit…*, which sends the item to the focused Herdr agent after you confirm.
+- **Rows** open in place. Skills and agents offer Update, Diff, Uninstall, and *Ask &lt;agent&gt; to audit…*, which sends the item to the focused Herdr agent after you confirm. Top-level declared hooks offer Enable, Disable and Remove, each after confirmation; Sync applies the saved changes.
 - **Install** takes a repository URL. A repository with several skills shows a pick list. The panel clones it, runs [`skillshare audit`](/docs/reference/commands/audit) on the clone, and installs only when the audit passes. A blocked audit shows the findings, with *Install anyway* (`--force`) and *Ask &lt;agent&gt; to review…*.
 - **Source** shows your source repository's state. Its dialog offers Pull, Commit and push, and Sync both ways. When a pull stops on files both machines changed, you pick a version per file from a side-by-side preview. `.metadata.json` merges per entry, the way [`skillshare pull`](/docs/reference/commands/pull) does.
 - **Machines** shows each Herdr machine's skillshare version, source state and doctor warnings, with Pull and sync and, when a newer release exists, Update.

@@ -28,7 +28,7 @@ tab bar 会出现 **skillshare** 按钮，用来显示或隐藏面板。切换 s
 面板跟随 Herdr 显示的 space，在该 space 的机器上、聚焦中 terminal 的文件夹里运行 skillshare。
 
 - **Resources** 列出 skills、agents、MCP servers、plugins 和 hooks，分为“Updates available”“Needs sync”“In sync”三组。在有 `.skillshare/config.yaml` 的项目中，可以用 All · Project · Global 切换 scope。
-- **行**会就地展开。skills 和 agents 提供 Update、Diff、Uninstall，以及“Ask &lt;agent&gt; to audit…”：确认后把该项交给 Herdr 中聚焦的 agent。
+- **行**会就地展开。skills 和 agents 提供 Update、Diff、Uninstall，以及“Ask &lt;agent&gt; to audit…”：确认后把该项交给 Herdr 中聚焦的 agent。 顶层声明的 hooks 提供 Enable、Disable 和 Remove，每项都先确认；Sync 会应用保存的更改。
 - **Install** 接受仓库 URL。包含多个 skills 的仓库会列出清单供你挑选。面板会先 clone，对 clone 运行 [`skillshare audit`](/docs/reference/commands/audit)，通过才安装。audit 拦下时会显示 findings，并提供“Install anyway”（`--force`）和“Ask &lt;agent&gt; to review…”。
 - **Source** 显示 source 仓库的状态，对话框提供 Pull、Commit and push 和 Sync both ways。pull 遇到两台机器都改过的文件时，可以从左右对照预览逐个文件选择要保留的版本。`.metadata.json` 会逐条合并，与 [`skillshare pull`](/docs/reference/commands/pull) 的做法相同。
 - **Machines** 显示每台 Herdr 机器的 skillshare 版本、source 状态和 doctor 警告，提供 Pull and sync；有新版本时也提供 Update。

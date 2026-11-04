@@ -68,14 +68,15 @@ test("hooks combine declarations and planned changes, including inactive and dis
 
 test("hook roots have distinct keys and nameless conflicts are read-only status rows", () => {
   const items = buildItems("global", { hooks: { source: {
-    entries: { fmt: { bindings: {} } }, projects: { "/fixture/repo": { entries: { fmt: { bindings: { claude: {} } } } } },
+    entries: { fmt: { bindings: {} } }, projects: { "/fixture/repo": { entries: { fmt: { bindings: { claude: {} } } } }, "/fixture/owned": { entries: {} } },
   }, plan: { changes: [{ root: "/fixture/repo", name: "fmt", target: "claude", action: "add" },
-    { root: "/fixture/repo", name: "", target: "git", action: "conflict", message: "root blocked" }] } } });
+    { path: "/fixture/owned", root: "/fixture/owned", name: "", target: "", action: "conflict", message: "project has its own Skillshare config; manage its hooks there with -p" }] } } });
   assert.equal(new Set(items.map((i) => i.key)).size, 3);
   assert.equal(items[1].key, "global:hooks:/fixture/repo/fmt");
   assert.equal(items[1].state, "sync");
   assert.equal(items[2].label, "Hook status");
-  assert.equal(items[2].reason, "git: conflict · root blocked");
+  assert.equal(items[2].reason, "conflict · project has its own Skillshare config; manage its hooks there with -p");
+  assert.equal(rowSub(items[2], false), items[2].reason);
   assert.equal(hookArgs(items[1], "disable"), null);
   assert.equal(hookArgs(items[2], "remove"), null);
 });
@@ -89,6 +90,33 @@ test("hook preview and inventory errors preserve panel read failures", () => {
   assert.equal(status.reason, "bad hook config");
   assert.deepEqual(buildItems("project", { list: null, hooks: null }), []);
   assert.deepEqual(buildItems("global", { list: null, hooks: { error: "missing config" } }), []);
+});
+
+test("hook diagnostics survive unchanged Git outputs and plans without entry changes", () => {
+  const reason = "Git 2.53.0 cannot run config hooks; Git 2.54 or later is required";
+  const warning = "Git include is conditional; activation depends on its includeIf condition";
+  const items = buildItems("global", { list: [], hooks: { source: { entries: { fmt: { bindings: { git: {} } } } },
+    plan: { changes: [{ target: "git", path: "/fixture/gitconfig", name: "fmt", action: "unchanged", inactiveReason: reason }], warnings: [warning] } } });
+  assert.equal(items[0].state, "ok");
+  assert.ok(items[0].lines[0].includes(reason));
+  assert.ok(rowSub(items[0], false).includes(reason));
+  assert.ok(items.some((i) => i.lines.includes(warning) && rowSub(i, false).includes(warning)));
+  const warningsOnly = buildItems("global", { list: [], hooks: { source: { entries: {} }, plan: { changes: [], warnings: [warning] } } });
+  assert.equal(warningsOnly.length, 1);
+  assert.ok(warningsOnly[0].lines.includes(warning));
+  assert.equal(hookArgs(warningsOnly[0], "remove"), null);
+});
+
+test("hook cleanup preview errors remain visible after the last declaration is removed", () => {
+  const raw = { list: [], hooks: { source: { entries: {} }, previewError: "parse /fixture/settings.json: invalid JSON" } };
+  const [item] = buildItems("global", raw);
+  assert.ok(item, "cleanup failure must not become an empty Hooks tab");
+  assert.equal(item.state, "sync");
+  assert.deepEqual(item.lines, [raw.hooks.previewError]);
+  assert.equal(rowSub(item, false), raw.hooks.previewError);
+  assert.equal(hookArgs(item, "remove"), null);
+  assert.equal(groupItems([item]).sync.length, 1);
+  assert.deepEqual(buildItems("global", { ...raw, list: null }), []);
 });
 
 test("hook actions use scoped argv without JSON and reject unsupported actions", () => {

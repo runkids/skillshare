@@ -41,6 +41,9 @@ shown or hidden state is a layout click, which Herdr keeps across spaces and res
 
 Hook rows show their agents and planned sync changes. Top-level declared hooks offer confirmed
 Enable, Disable and Remove actions; Sync applies them through `sync --all`.
+Inactive reasons and plan warnings remain visible even when the files are already in sync.
+Hook conflicts block `sync --all` for every resource kind; resolve them with the CLI or
+dashboard, then Sync again.
 
 ## Tests
 
