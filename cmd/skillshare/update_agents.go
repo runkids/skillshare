@@ -91,77 +91,12 @@ func cmdUpdateAgents(args []string, cfg *config.Config, start time.Time) error {
 		}
 	}
 
-	// Only check agents that have remote sources
-	tracked := collectTrackedAgentResults(results)
-
-	if len(tracked) == 0 {
-		err := agentUpdateError(0, reportUncheckedAgents(results, !opts.jsonOutput))
-		if opts.jsonOutput {
-			return jsonWriteResult(agentUpdateItemsFromCheckResults(results), err)
-		}
-		if err != nil {
-			return err
-		}
-		ui.Done(ui.MarkNone, "No tracked agents to update (all are local)", 0)
-		return nil
-	}
-
-	// Enrich with remote status
-	if !opts.jsonOutput {
-		sp := ui.StartSpinner("Checking " + plural(len(tracked), "agent") + " for updates...")
-		check.EnrichAgentResultsWithRemote(tracked, func() { sp.Stop() })
-	} else {
-		check.EnrichAgentResultsWithRemote(tracked, nil)
-	}
-	mergeTrackedAgentResults(results, tracked)
-
-	// Find agents with updates available
-	var updatable []check.AgentCheckResult
-	for _, r := range tracked {
-		if r.Status == "update_available" {
-			updatable = append(updatable, r)
-		}
-	}
-	finalItems := agentUpdateItemsFromCheckResults(results)
-	unchecked := reportUncheckedAgents(results, !opts.jsonOutput)
-
-	if len(updatable) == 0 {
-		err := agentUpdateError(0, unchecked)
-		if opts.jsonOutput {
-			return jsonWriteResult(finalItems, err)
-		}
-		if err != nil {
-			return err
-		}
-		ui.Done(ui.MarkOK, "All agents are up to date", time.Since(start))
-		return nil
-	}
-
-	// Update agents, batching by repo URL to share git clones.
-	var (
-		updated      int
-		failed       int
-		updatedItems []agentUpdateItem
-	)
-	if opts.dryRun {
-		if !opts.jsonOutput {
-			printAgentUpdatesAvailable(updatable)
-		}
-	} else {
-		updatedItems, updated, failed = batchUpdateAgents(agentsDir, updatable, opts, "", !opts.jsonOutput, parseOptsFromConfig(cfg))
-		finalItems = mergeAgentUpdateItems(finalItems, updatedItems)
-	}
-
-	if !opts.jsonOutput && !opts.dryRun {
-		printAgentUpdateDone(updated, failed, start)
-	}
-
-	logUpdateAgentOp(config.ConfigPath(), len(updatable), updated, failed, opts.dryRun, start)
-
-	if opts.jsonOutput {
-		return jsonWriteResult(finalItems, agentUpdateError(failed, unchecked))
-	}
-	return agentUpdateError(failed, unchecked)
+	return runAgentUpdates(agentUpdateScope{
+		agentsDir:  agentsDir,
+		configPath: config.ConfigPath(),
+		noun:       "agents",
+		parseOpts:  parseOptsFromConfig(cfg),
+	}, results, opts, start, jsonWriteResult)
 }
 
 // agentRepoKey groups agents by clone URL + branch + repo subdir so agents
@@ -170,6 +105,11 @@ type agentRepoKey struct {
 	cloneURL   string
 	branch     string
 	repoSubdir string
+}
+
+type agentRepoGroup struct {
+	source  *install.Source
+	members []check.AgentCheckResult
 }
 
 type agentUpdateItem struct {
@@ -185,8 +125,9 @@ type agentUpdateItem struct {
 func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *updateAgentArgs, projectRoot string, verbose bool, parseOpts install.ParseOptions) ([]agentUpdateItem, int, int) {
 	store := install.LoadMetadataOrNew(agentsDir)
 	trackedRepos := map[string][]check.AgentCheckResult{}
-	groups := map[agentRepoKey][]check.AgentCheckResult{}
-	groupSources := map[agentRepoKey]*install.Source{}
+	// Each group keeps the first member's parsed source: discovery and the
+	// metadata written back need its Raw and Type, not only the key.
+	groups := map[agentRepoKey]*agentRepoGroup{}
 	var noRepo []check.AgentCheckResult
 	var items []agentUpdateItem
 	updated, failed := 0, 0
@@ -217,10 +158,10 @@ func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *
 			branch:     source.Branch,
 			repoSubdir: source.Subdir,
 		}
-		if _, ok := groupSources[key]; !ok {
-			groupSources[key] = source
+		if groups[key] == nil {
+			groups[key] = &agentRepoGroup{source: source}
 		}
-		groups[key] = append(groups[key], r)
+		groups[key].members = append(groups[key].members, r)
 	}
 
 	for repoPath, members := range trackedRepos {
@@ -276,8 +217,8 @@ func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *
 	}
 
 	// Batch: one clone per repo group
-	for key, members := range groups {
-		source := groupSources[key]
+	for _, group := range groups {
+		source, members := group.source, group.members
 
 		var discovery *install.DiscoveryResult
 		var discErr error
@@ -771,22 +712,53 @@ func cmdUpdateAgentsProject(args []string, projectRoot string, start time.Time) 
 		}
 	}
 
-	tracked := collectTrackedAgentResults(results)
+	return runAgentUpdates(agentUpdateScope{
+		agentsDir:   agentsDir,
+		projectRoot: projectRoot,
+		configPath:  config.ProjectConfigPath(projectRoot),
+		noun:        "project agents",
+		parseOpts:   parseOptsFromProjectConfig(runtime.config),
+	}, results, opts, start, jsonWriteResult)
+}
 
-	if len(tracked) == 0 {
-		err := agentUpdateError(0, reportUncheckedAgents(results, !opts.jsonOutput))
+// agentUpdateScope is what differs between global and project agent updates.
+type agentUpdateScope struct {
+	agentsDir   string
+	projectRoot string // "" in global mode
+	configPath  string // where the operation log is written
+	noun        string // "agents" or "project agents", for messages
+	parseOpts   install.ParseOptions
+}
+
+// runAgentUpdates checks the filtered agents against their remotes, updates
+// those with updates available, and reports the outcome. Agents that could
+// not be checked are listed and make the command fail.
+func runAgentUpdates(scope agentUpdateScope, results []check.AgentCheckResult, opts *updateAgentArgs, start time.Time, writeJSON func([]agentUpdateItem, error) error) error {
+	finish := func(items []agentUpdateItem, err error) error {
 		if opts.jsonOutput {
-			return jsonWriteResult(agentUpdateItemsFromCheckResults(results), err)
+			return writeJSON(items, err)
 		}
-		if err != nil {
-			return err
+		return err
+	}
+
+	tracked := collectTrackedAgentResults(results)
+	if len(tracked) == 0 {
+		if err := agentUpdateError(0, reportUncheckedAgents(results, !opts.jsonOutput)); err != nil || opts.jsonOutput {
+			return finish(agentUpdateItemsFromCheckResults(results), err)
 		}
-		ui.Done(ui.MarkNone, "No tracked project agents to update (all are local)", 0)
+		ui.Done(ui.MarkNone, "No tracked "+scope.noun+" to update (all are local)", 0)
 		return nil
 	}
 
-	sp := ui.StartSpinner("Checking " + plural(len(tracked), "agent") + " for updates...")
-	check.EnrichAgentResultsWithRemote(tracked, func() { sp.Stop() })
+	if opts.jsonOutput {
+		check.EnrichAgentResultsWithRemote(tracked, nil)
+	} else {
+		// Stopped after the check, not per remote: agents with nothing to
+		// ask a remote about never call back.
+		sp := ui.StartSpinner("Checking " + plural(len(tracked), "agent") + " for updates...")
+		check.EnrichAgentResultsWithRemote(tracked, nil)
+		sp.Stop()
+	}
 	mergeTrackedAgentResults(results, tracked)
 
 	var updatable []check.AgentCheckResult
@@ -795,40 +767,33 @@ func cmdUpdateAgentsProject(args []string, projectRoot string, start time.Time) 
 			updatable = append(updatable, r)
 		}
 	}
-	finalItems := agentUpdateItemsFromCheckResults(results)
+	items := agentUpdateItemsFromCheckResults(results)
 	unchecked := reportUncheckedAgents(results, !opts.jsonOutput)
 
 	if len(updatable) == 0 {
-		err := agentUpdateError(0, unchecked)
-		if opts.jsonOutput {
-			return jsonWriteResult(finalItems, err)
+		if err := agentUpdateError(0, unchecked); err != nil || opts.jsonOutput {
+			return finish(items, err)
 		}
-		if err != nil {
-			return err
-		}
-		ui.Done(ui.MarkOK, "All project agents are up to date", time.Since(start))
+		ui.Done(ui.MarkOK, "All "+scope.noun+" are up to date", time.Since(start))
 		return nil
 	}
 
+	updated, failed := 0, 0
 	if opts.dryRun {
-		if opts.jsonOutput {
-			return jsonWriteResult(finalItems, agentUpdateError(0, unchecked))
+		if !opts.jsonOutput {
+			printAgentUpdatesAvailable(updatable)
 		}
-		printAgentUpdatesAvailable(updatable)
-		return agentUpdateError(0, unchecked)
+	} else {
+		var updatedItems []agentUpdateItem
+		updatedItems, updated, failed = batchUpdateAgents(scope.agentsDir, updatable, opts, scope.projectRoot, !opts.jsonOutput, scope.parseOpts)
+		items = mergeAgentUpdateItems(items, updatedItems)
+		if !opts.jsonOutput {
+			printAgentUpdateDone(updated, failed, start)
+		}
 	}
 
-	updatedItems, updated, failed := batchUpdateAgents(agentsDir, updatable, opts, projectRoot, !opts.jsonOutput, parseOptsFromProjectConfig(runtime.config))
-	finalItems = mergeAgentUpdateItems(finalItems, updatedItems)
-
-	logUpdateAgentOp(config.ProjectConfigPath(projectRoot), len(updatable), updated, failed, opts.dryRun, start)
-
-	if opts.jsonOutput {
-		return jsonWriteResult(finalItems, agentUpdateError(failed, unchecked))
-	}
-
-	printAgentUpdateDone(updated, failed, start)
-	return agentUpdateError(failed, unchecked)
+	logUpdateAgentOp(scope.configPath, len(updatable), updated, failed, opts.dryRun, start)
+	return finish(items, agentUpdateError(failed, unchecked))
 }
 
 // reportUncheckedAgents lists the agents whose update status could not be

@@ -6,11 +6,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/install"
 	"skillshare/internal/testutil"
-	"skillshare/internal/utils"
 )
 
 // --- update agents ---
@@ -162,34 +162,73 @@ func TestUpdate_Agents_RepeatedUpdatesKeepSource(t *testing.T) {
 	}
 }
 
-// An agent whose source an earlier update erased (#777) cannot be checked;
-// update must say so and fail instead of reporting it up to date.
-func TestUpdate_Agents_ErasedSourceAsksToReinstall(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
+// An agent the #777 bug broke, next to one with an update: the update still
+// lands, the broken agent is listed with a reinstall hint, and the command
+// fails, in each mode and output format.
+func TestUpdate_Agents_LostSourceDoesNotBlockOthers(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		project, json bool
+		dryRun        bool
+	}{
+		{name: "global"},
+		{name: "global json", json: true},
+		{name: "global dry run", dryRun: true},
+		{name: "project", project: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
 
-	agentsDir := createAgentSource(t, sb, map[string]string{"demo.md": "# Demo\n"})
-	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
-	hash, err := utils.FileHashFormatted(filepath.Join(agentsDir, "demo.md"))
-	if err != nil {
-		t.Fatalf("hash agent: %v", err)
-	}
-	store := install.NewMetadataStore()
-	store.Set("demo", &install.MetadataEntry{
-		Source:     "/agents/demo.md",
-		Kind:       install.MetadataKindAgent,
-		Type:       "unknown-subdir",
-		Subdir:     "agents/demo.md",
-		Version:    "abc1234",
-		FileHashes: map[string]string{"demo.md": hash},
-	})
-	if err := store.Save(agentsDir); err != nil {
-		t.Fatalf("save metadata: %v", err)
-	}
+			repoDir := filepath.Join(sb.Home, "repo")
+			sb.WriteFile(filepath.Join(repoDir, "agents", "good.md"), "# Good v1\n")
+			sb.WriteFile(filepath.Join(repoDir, "agents", "lost.md"), "# Lost v1\n")
+			initGitRepo(t, repoDir)
 
-	result := sb.RunCLI("update", "agents", "--all")
-	result.AssertFailure(t)
-	result.AssertAnyOutputContains(t, "reinstall this agent")
+			dir, mode := sb.Home, "-g"
+			agentsDir := filepath.Join(filepath.Dir(sb.SourcePath), "agents")
+			if tc.project {
+				dir, mode = setupProjectWithAgents(t, sb), "-p"
+				agentsDir = filepath.Join(dir, ".skillshare", "agents")
+			}
+			sb.RunCLIInDir(dir, "install", "file://"+repoDir, "--kind", "agent", "--all", "--skip-audit", mode).AssertSuccess(t)
+
+			store, err := install.LoadMetadata(agentsDir)
+			if err != nil {
+				t.Fatalf("load metadata: %v", err)
+			}
+			lost := store.GetByPath("lost")
+			lost.Source, lost.Type, lost.RepoURL = "/agents/lost.md", "unknown-subdir", ""
+			if err := store.Save(agentsDir); err != nil {
+				t.Fatalf("save metadata: %v", err)
+			}
+			sb.WriteFile(filepath.Join(repoDir, "agents", "good.md"), "# Good v2\n")
+			run(t, repoDir, "git", "commit", "-am", "good v2")
+
+			args := []string{"update", "agents", "--all", "--skip-audit", mode}
+			if tc.json {
+				args = append(args, "--json")
+			}
+			if tc.dryRun {
+				args = append(args, "--dry-run")
+			}
+			result := sb.RunCLIInDir(dir, args...)
+			result.AssertFailure(t)
+			if tc.json {
+				assertPureJSON(t, strings.TrimSpace(result.Stdout))
+			}
+			result.AssertAnyOutputContains(t, install.ErrAgentSourceLost.Error())
+
+			want := "# Good v2\n"
+			if tc.dryRun {
+				want = "# Good v1\n"
+			}
+			if got := sb.ReadFile(filepath.Join(agentsDir, "good.md")); got != want {
+				t.Errorf("good agent: got %q, want %q", got, want)
+			}
+		})
+	}
 }
 
 func TestUpdate_Agents_InvalidMetadataFails(t *testing.T) {

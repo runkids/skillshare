@@ -110,11 +110,9 @@ func checkOneAgent(store *install.MetadataStore, sourcePath, relPath string) Age
 	result.RepoURL = entry.RepoURL
 	result.Branch = entry.Branch
 
-	// Updates before #777 was fixed wrote the source back without its
-	// repository (type "unknown-subdir"), leaving nothing to check against.
-	if entry.RepoURL == "" && strings.HasPrefix(entry.Type, "unknown") {
+	if entry.AgentSourceLost() {
 		result.Status = "error"
-		result.Message = "source was lost by an earlier update; reinstall this agent"
+		result.Message = install.ErrAgentSourceLost.Error()
 		return result
 	}
 
@@ -145,17 +143,13 @@ func checkOneAgent(store *install.MetadataStore, sourcePath, relPath string) Age
 // against the remote head of the branch they were installed from.
 // Each remote branch is probed once; every agent is compared with its own version.
 func EnrichAgentResultsWithRemote(results []AgentCheckResult, onDone func()) {
-	type remoteRef struct {
-		repoURL string
-		branch  string
-	}
-	groups := make(map[remoteRef][]int)
-	var refs []remoteRef
+	groups := make(map[remoteKey][]int)
+	var refs []remoteKey
 	for i, r := range results {
 		if r.RepoURL == "" || r.Version == "" {
 			continue
 		}
-		ref := remoteRef{repoURL: r.RepoURL, branch: r.Branch}
+		ref := remoteKey{url: r.RepoURL, branch: r.Branch}
 		if _, ok := groups[ref]; !ok {
 			refs = append(refs, ref)
 		}
@@ -168,7 +162,7 @@ func EnrichAgentResultsWithRemote(results []AgentCheckResult, onDone func()) {
 
 	inputs := make([]URLCheckInput, len(refs))
 	for i, ref := range refs {
-		inputs[i] = URLCheckInput{RepoURL: ref.repoURL, Branch: ref.branch}
+		inputs[i] = URLCheckInput{RepoURL: ref.url, Branch: ref.branch}
 	}
 
 	outputs := ParallelCheckURLs(inputs, onDone)

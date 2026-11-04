@@ -1,6 +1,7 @@
 package install
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -101,13 +102,31 @@ func buildDiscoveredAgentSource(discovery *DiscoveryResult, agent AgentInfo) *So
 	}
 }
 
+// ErrAgentSourceLost reports agent metadata whose source an update before the
+// #777 fix wrote back without its repository: nothing is left to fetch from.
+var ErrAgentSourceLost = errors.New("source was lost by an earlier update; reinstall this agent")
+
+// AgentSourceLost reports whether the entry is in the state ErrAgentSourceLost
+// describes. Only that bug wrote an untyped ("unknown") source with no repo URL.
+func (e *MetadataEntry) AgentSourceLost() bool {
+	return e.RepoURL == "" && strings.HasPrefix(e.Type, SourceTypeUnknown.String())
+}
+
 // AgentRepoSource rebuilds the repository-level source an agent was
 // discovered from. entry.Source is the agent's own source, which
 // buildDiscoverySkillSource formed by appending entry.Subdir (the agent's
-// path) to it, so the path is cut off before parsing.
+// path) to it, so the path is cut off before parsing. Dashboard updates
+// before the #777 fix appended the path a second time; every copy is cut.
 func AgentRepoSource(entry *MetadataEntry, opts ParseOptions) (*Source, error) {
+	if entry.AgentSourceLost() {
+		return nil, ErrAgentSourceLost
+	}
 	raw := entry.Source
-	if root, ok := strings.CutSuffix(raw, "/"+entry.Subdir); entry.Subdir != "" && ok {
+	for entry.Subdir != "" {
+		root, ok := strings.CutSuffix(raw, "/"+entry.Subdir)
+		if !ok {
+			break
+		}
 		// Whole-repo SSH sources join the path with "//".
 		raw = strings.TrimSuffix(root, "/")
 	}

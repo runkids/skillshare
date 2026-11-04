@@ -279,3 +279,22 @@ func TestAgentRepoSource_RoundTripsAgentSource(t *testing.T) {
 		})
 	}
 }
+
+// Sources earlier updates broke (#777): the dashboard appended the agent path
+// a second time, which is repaired; the CLI dropped the repository, which
+// cannot be repaired and asks for a reinstall.
+func TestAgentRepoSource_BrokenSources(t *testing.T) {
+	doubled := &MetadataEntry{Source: "github.com/you/repo/agents/demo.md/agents/demo.md", Subdir: "agents/demo.md", RepoURL: "https://github.com/you/repo.git", Type: "github-subdir"}
+	source, err := AgentRepoSource(doubled, ParseOptions{})
+	if err != nil {
+		t.Fatalf("doubled path: %v", err)
+	}
+	if got := buildDiscoverySkillSource(source, doubled.Subdir); got != "github.com/you/repo/agents/demo.md" {
+		t.Errorf("doubled path rebuilt as %q", got)
+	}
+
+	lost := &MetadataEntry{Source: "/agents/demo.md", Subdir: "agents/demo.md", Type: "unknown-subdir"}
+	if _, err := AgentRepoSource(lost, ParseOptions{}); !errors.Is(err, ErrAgentSourceLost) {
+		t.Errorf("lost source: got %v, want ErrAgentSourceLost", err)
+	}
+}
