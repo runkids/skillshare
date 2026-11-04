@@ -53,6 +53,9 @@ export default function UpdateDialog() {
 
   if (!data || !hasUpdate) return null;
 
+  // "" means a Nix configuration provides skillshare, so no single command updates it.
+  const command = data.upgradeCommand ?? 'skillshare upgrade';
+
   const dismiss = () => {
     setOpen(false);
     try { sessionStorage.setItem(DISMISSED_KEY, '1'); } catch {
@@ -62,7 +65,7 @@ export default function UpdateDialog() {
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText('skillshare upgrade');
+      await navigator.clipboard.writeText(command);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -132,13 +135,17 @@ export default function UpdateDialog() {
         </dl>
         <div className="ss-fld">
           <label>{t('updateDialog.terminal')}</label>
-          <div className="flex items-center gap-2">
-            <code className="ss-code flex-1 !py-2">skillshare upgrade</code>
-            <Button variant="secondary" onClick={handleCopy} disabled={updating}>
-              {copied ? <Check size={15} className="text-ok" /> : <Copy size={15} />}
-              {t('updateDialog.copyCommand')}
-            </Button>
-          </div>
+          {command ? (
+            <div className="flex items-center gap-2">
+              <code className="ss-code flex-1 !py-2">{command}</code>
+              <Button variant="secondary" onClick={handleCopy} disabled={updating}>
+                {copied ? <Check size={15} className="text-ok" /> : <Copy size={15} />}
+                {t('updateDialog.copyCommand')}
+              </Button>
+            </div>
+          ) : (
+            <p className="text-[13px] text-ink-2">{t('updateDialog.nixConfig')}</p>
+          )}
         </div>
         <p className="text-[13px] text-ink-2">{t('updateDialog.restartNote')}</p>
         {status && <p className={`text-[13px] ${updating ? 'text-ink-2' : 'text-bad'}`}>{status}</p>}

@@ -186,7 +186,7 @@ web dashboard 在 `/api/` 下暴露一个 REST API。所有端点都返回 JSON�
 | PUT | `/api/skillignore` | 更新 `.skillignore` 内容 |
 | GET | `/api/doctor` | 运行所有健康检查（JSON） |
 | GET | `/api/health` | 存活探针；server 就绪后返回 `200` |
-| GET | `/api/version` | 当前/最新版本，以及是否有可用升级 |
+| GET | `/api/version` | 当前/最新版本、是否有可用升级，以及此安装方式的终端命令（`upgradeCommand`） |
 | POST | `/api/upgrade` | 就地运行 `skillshare upgrade`（当二进制文件为开发构建时返回 `devMode: true`；通过 Nix 安装且有更新的 CLI 待安装时返回 `409`，错误码为 `upgrade.nix`） |
 | POST | `/api/restart` | 重启本地 UI server；可选的 `{ "clearCache": true }` body 会先清除缓存的 UI 资源 |
 
@@ -198,7 +198,7 @@ web dashboard 在 `/api/` 下暴露一个 REST API。所有端点都返回 JSON�
 2. 新二进制文件就位后，UI 调用 `POST /api/restart` 重启本地 server。
 3. 浏览器轮询 `GET /api/health`，并在新 server 就绪后自动重新加载。
 
-如果 skillshare 通过 Nix 安装，该端点仍会更新内置的 skillshare skill，但 CLI 交给 Nix 更新。有更新的 CLI 时，它会返回 `409`（`upgrade.nix`），对话框随后说明如何通过 Nix 更新。点击之前，对话框中的终端命令仍显示 `skillshare upgrade`；在 Nix 上，该命令会输出相同的提示。参见 [upgrade](./upgrade.md#nix-users)。
+如果 skillshare 通过 Nix 安装，该端点仍会更新内置的 skillshare skill，但 CLI 交给 Nix 更新。有更新的 CLI 时，它会返回 `409`（`upgrade.nix`），对话框随后说明如何通过 Nix 更新。对话框中的终端命令会直接匹配安装方式：`nix profile` 安装显示 `nix profile upgrade skillshare`，否则提示重新构建 Nix 配置。参见 [upgrade](./upgrade.md#nix-users)。
 
 如果运行中的二进制文件是开发构建（`version == "dev"`），upgrade 端点会返回
 `devMode: true`，UI 会模拟一次重启而不修改磁盘上的任何内容。

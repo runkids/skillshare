@@ -3,6 +3,8 @@ export interface VersionCheck {
   cliLatest?: string;
   cliUpdateAvailable: boolean;
   cliDevMode?: boolean;
+  /** How this install upgrades from a terminal; "" when a Nix configuration provides skillshare. */
+  upgradeCommand?: string;
   skillVersion: string;
   skillLatest?: string;
   skillUpdateAvailable: boolean;

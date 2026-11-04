@@ -78,3 +78,31 @@ func TestHandleVersionCheckNewerLocalSkillIsNotAnUpdate(t *testing.T) {
 		t.Fatalf("skillUpdateAvailable = %v, want false when the local skill is newer", body["skillUpdateAvailable"])
 	}
 }
+
+func TestHandleVersionCheckReportsUpgradeCommand(t *testing.T) {
+	tests := []struct {
+		method versioncheck.InstallMethod
+		want   string
+	}{
+		{method: versioncheck.InstallDirect, want: "skillshare upgrade"},
+		{method: versioncheck.InstallBrew, want: "brew upgrade skillshare"},
+		{method: versioncheck.InstallNixProfile, want: "nix profile upgrade skillshare"},
+		{method: versioncheck.InstallNix, want: ""},
+	}
+	oldVersion, oldDetect := versioncheck.Version, detectUIInstallMethod
+	defer func() { versioncheck.Version, detectUIInstallMethod = oldVersion, oldDetect }()
+	versioncheck.Version = "dev" // skips the network lookup
+	for _, tt := range tests {
+		detectUIInstallMethod = func() versioncheck.InstallMethod { return tt.method }
+		rec := httptest.NewRecorder()
+		(&Server{cfg: &config.Config{Source: t.TempDir()}}).handleVersionCheck(rec, httptest.NewRequest(http.MethodGet, "/api/version", nil))
+
+		var body map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("decode response: %v", err)
+		}
+		if body["upgradeCommand"] != tt.want {
+			t.Errorf("method %v: upgradeCommand = %#v, want %q", tt.method, body["upgradeCommand"], tt.want)
+		}
+	}
+}

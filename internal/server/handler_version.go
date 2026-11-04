@@ -17,6 +17,7 @@ func (s *Server) handleVersionCheck(w http.ResponseWriter, r *http.Request) {
 	isProjectMode := projectRoot != ""
 
 	cliVersion := versioncheck.Version
+	method := detectUIInstallMethod()
 	cliUpdateAvailable := false
 	var cliLatest *string
 	cliDevMode := cliVersion == "" || cliVersion == "dev"
@@ -26,7 +27,7 @@ func (s *Server) handleVersionCheck(w http.ResponseWriter, r *http.Request) {
 		latest := "dev-ui-flow"
 		cliUpdateAvailable = true
 		cliLatest = &latest
-	} else if result := versioncheck.Check(cliVersion, versioncheck.InstallDirect); result != nil {
+	} else if result := versioncheck.Check(cliVersion, method); result != nil {
 		// CLI version check (uses 24h cache)
 		cliUpdateAvailable = result.UpdateAvailable
 		cliLatest = &result.LatestVersion
@@ -56,6 +57,7 @@ func (s *Server) handleVersionCheck(w http.ResponseWriter, r *http.Request) {
 		"cliLatest":            cliLatest,
 		"cliUpdateAvailable":   cliUpdateAvailable,
 		"cliDevMode":           cliDevMode,
+		"upgradeCommand":       method.UpgradeCommand(),
 		"skillVersion":         skillVersion,
 		"skillLatest":          skillLatest,
 		"skillUpdateAvailable": skillUpdateAvailable,
