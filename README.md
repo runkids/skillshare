@@ -400,6 +400,7 @@ Thanks to everyone who helped shape skillshare.
 <a href="https://github.com/heyAidy"><img src="https://github.com/heyAidy.png" width="50" style="border-radius:50%" alt="heyAidy"></a>
 <a href="https://github.com/trojanwk"><img src="https://github.com/trojanwk.png" width="50" style="border-radius:50%" alt="trojanwk"></a>
 <a href="https://github.com/charitarthchugh"><img src="https://github.com/charitarthchugh.png" width="50" style="border-radius:50%" alt="charitarthchugh"></a>
+<a href="https://github.com/servaasvdc"><img src="https://github.com/servaasvdc.png" width="50" style="border-radius:50%" alt="servaasvdc"></a>
 
 ---
 
