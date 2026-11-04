@@ -173,7 +173,7 @@ func main() {
 		if !skipMaintenance && cmd != "upgrade" && cmd != "doctor" {
 			method := versioncheck.DetectCurrentInstallMethod()
 			if result := versioncheck.Check(version, method); result != nil && result.UpdateAvailable {
-				ui.UpdateNotification(result.CurrentVersion, result.LatestVersion, result.InstallMethod.UpgradeInstruction())
+				ui.UpdateNotification(result.CurrentVersion, result.LatestVersion, result.InstallMethod.UpgradeCommand(), versioncheck.NixConfigUpgradeHint)
 			}
 		}
 	}
