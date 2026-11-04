@@ -26,9 +26,13 @@ type uiUpgradeResult struct {
 
 var (
 	detectUIInstallMethod = versioncheck.DetectCurrentInstallMethod
-	runUIUpgrade          = defaultRunUIUpgrade
-	startUIRestartHelper  = defaultStartUIRestartHelper
-	processExit           = os.Exit
+	uiCLIUpdateAvailable  = func(method versioncheck.InstallMethod) bool {
+		result := versioncheck.Check(versioncheck.Version, method)
+		return result != nil && result.UpdateAvailable
+	}
+	runUIUpgrade         = defaultRunUIUpgrade
+	startUIRestartHelper = defaultStartUIRestartHelper
+	processExit          = os.Exit
 )
 
 func (s *Server) handleUpgrade(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +40,9 @@ func (s *Server) handleUpgrade(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	result, err := runUIUpgrade()
+	// Only Nix may replace a Nix-store binary, so update just the skill there.
+	method := detectUIInstallMethod()
+	result, err := runUIUpgrade(method.IsNix())
 	if err != nil {
 		if strings.Contains(result.Output, versioncheck.SudoUpgradeHintPrefix+versioncheck.SudoUpgradeHint) {
 			writeCodedError(w, http.StatusForbidden, "upgrade.needs_sudo",
@@ -46,15 +52,12 @@ func (s *Server) handleUpgrade(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	// `upgrade` keeps a Nix-store binary and still updates the skill, so a
-	// newer CLI it could not install is reported with what to run instead.
-	if strings.Contains(result.Output, versioncheck.NixUpgradeNote) {
-		if method := detectUIInstallMethod(); method.IsNix() {
-			writeCodedError(w, http.StatusConflict, "upgrade.nix",
-				"skillshare is installed with Nix; "+method.UpgradeInstruction(),
-				map[string]string{"command": method.UpgradeCommand()})
-			return
-		}
+	// A newer CLI that Nix must install is reported with what to run instead.
+	if method.IsNix() && uiCLIUpdateAvailable(method) {
+		writeCodedError(w, http.StatusConflict, "upgrade.nix",
+			"skillshare is installed with Nix; "+method.UpgradeInstruction(),
+			map[string]string{"command": method.UpgradeCommand()})
+		return
 	}
 	writeJSON(w, map[string]any{
 		"ok":            true,
@@ -65,7 +68,7 @@ func (s *Server) handleUpgrade(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func defaultRunUIUpgrade() (uiUpgradeResult, error) {
+func defaultRunUIUpgrade(skillOnly bool) (uiUpgradeResult, error) {
 	if versioncheck.Version == "" || versioncheck.Version == "dev" {
 		return uiUpgradeResult{Updated: true, DevMode: true, LatestVersion: "dev-ui-flow", Output: "DEV mode update simulated"}, nil
 	}
@@ -76,7 +79,11 @@ func defaultRunUIUpgrade() (uiUpgradeResult, error) {
 	if err != nil {
 		return uiUpgradeResult{}, err
 	}
-	cmd := exec.CommandContext(ctx, exe, "upgrade", "--force")
+	args := []string{"upgrade", "--force"}
+	if skillOnly {
+		args = append(args, "--skill")
+	}
+	cmd := exec.CommandContext(ctx, exe, args...)
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf

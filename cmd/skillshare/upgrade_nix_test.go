@@ -69,11 +69,3 @@ func TestUpgradeCLIBinary_NixKeepsStoreBinary(t *testing.T) {
 		})
 	}
 }
-
-// The dashboard turns this row into a 409 upgrade.nix by matching the note.
-func TestUpgradeCLIBinary_NixRowCarriesDashboardNote(t *testing.T) {
-	_, out := fakeNixUpgrade(t, "1.1.0", false, false, false)
-	if !strings.Contains(out, versionpkg.NixUpgradeNote) {
-		t.Fatalf("output %q lacks %q", out, versionpkg.NixUpgradeNote)
-	}
-}

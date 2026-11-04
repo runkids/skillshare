@@ -199,7 +199,7 @@ func upgradeCLIBinary(dryRun, force bool) (string, error) {
 
 	// Replacing a file in the Nix store would corrupt it, so Nix updates it instead.
 	if method.IsNix() {
-		printUpgradeRow(ui.MarkWarn, "CLI", fmt.Sprintf("%s → v%s available · %s, %s", current, latestVersion, versionpkg.NixUpgradeNote, method.UpgradeInstruction()), time.Time{})
+		printUpgradeRow(ui.MarkWarn, "CLI", fmt.Sprintf("%s → v%s available · installed with Nix, %s", current, latestVersion, method.UpgradeInstruction()), time.Time{})
 		return "", nil
 	}
 
