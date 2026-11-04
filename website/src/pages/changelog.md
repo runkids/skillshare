@@ -11,25 +11,24 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ## [0.28.4] - 2026-11-04
 
-
-* **release:** request 0.28.4 ([a93699c](https://github.com/runkids/skillshare/commit/a93699c5e0528c10c986ecde63a2d62160bb8726))
-* **release:** withdraw the 0.28.4 release commit ([63dd86f](https://github.com/runkids/skillshare/commit/63dd86f6ec0ea190fbc65c4790ad40ef6a2a0b72))
-
-
 ### New Features
 
-* add Nix flake and handle Nix-store installs in upgrade ([#764](https://github.com/runkids/skillshare/issues/764)) ([64c8a3f](https://github.com/runkids/skillshare/commit/64c8a3f34effce5fa660e06deced57949fe7610e))
-* **herdr:** add a skillshare panel for Herdr ([#766](https://github.com/runkids/skillshare/issues/766)) ([16de1df](https://github.com/runkids/skillshare/commit/16de1df814ad5cb5f42747e95ef57e4cbaebd7a4))
-* **ui:** note how Nix updates the CLI in the update dialog ([#771](https://github.com/runkids/skillshare/issues/771)) ([11add19](https://github.com/runkids/skillshare/commit/11add195445c5bc0bf26ec4a69b4cce820688f27))
+- **Nix flake** — install the CLI with `nix profile add github:runkids/skillshare` (Nix 2.30+ with flakes; on older Nix or Lix use `nix profile install`) and update it with `nix profile upgrade skillshare`. NixOS and Home Manager configurations can use the flake's `overlays.default`. Thanks to @charitarthchugh for the implementation. Refs: #764.
+  ```bash
+  nix profile add github:runkids/skillshare
+  ```
+- **Skillshare panel for Herdr** — a panel beside your Herdr agents groups skills, agents, MCP servers and plugins into *Updates available*, *Needs sync* and *In sync*, installs from a repository URL after auditing a clone, pulls and pushes the source repository with a side-by-side conflict picker, and shows each machine's version and doctor warnings with Pull and sync and Update. Each machine runs its own work, one action at a time. See [Using skillshare in Herdr](https://skillshare.runkids.cc/docs/learn/with-herdr). Refs: #766, #773, #774, #775.
 
+### Changed
+
+- **Upgrades on Nix installs** — a binary under `/nix/store/` is read-only, so `skillshare upgrade` no longer tries to replace it. It still updates the built-in skill, then reports the CLI as up to date or prints `nix profile upgrade skillshare` (for a `nix profile` install) or a note to update your Nix configuration and rebuild, and exits `0`. The update notice and `doctor` suggest the same, and the dashboard's update dialog shows the Nix note before you click Update. Other install methods behave as before, including the `Run '…' to update` wording of the non-TTY update notice. Thanks to @charitarthchugh for the implementation. Refs: #764, #770, #771, #772.
 
 ### Bug Fixes
 
-* **herdr:** keep detached jobs alive and report a killed one ([#773](https://github.com/runkids/skillshare/issues/773)) ([b059616](https://github.com/runkids/skillshare/commit/b05961650eca11491b5ce3b3fbc26121f95b5165))
-* **herdr:** make panel actions run, and keep machines apart ([#775](https://github.com/runkids/skillshare/issues/775)) ([8cc77fe](https://github.com/runkids/skillshare/commit/8cc77fe58c9f315abd3ea5a4f9e5c24e9b0ed286))
-* **herdr:** remove job folders a closed panel never collected ([#774](https://github.com/runkids/skillshare/issues/774)) ([e5aaf14](https://github.com/runkids/skillshare/commit/e5aaf1469f027c203e58857b132cfc7a5e19041b))
-* **ui:** restore the plain update notice for installs with a command ([#772](https://github.com/runkids/skillshare/issues/772)) ([eec60c9](https://github.com/runkids/skillshare/commit/eec60c90fe93f9fa759a7cad60f339a453b673e6))
-* **update:** keep an agent's source when updating it ([#778](https://github.com/runkids/skillshare/issues/778)) ([53a3207](https://github.com/runkids/skillshare/commit/53a3207a17358ce15de6673a553eb7f046785fed))
+- **Agent updates keep their source** — after the first `skillshare update agents`, or an update from the dashboard, an agent's recorded source lost its repository, so `check agents` stopped looking upstream and later changes never arrived. Updates now write back the source the agent was installed from. An agent that an earlier 0.28.x update already rewrote cannot be repaired automatically; reinstall it once. Thanks to @servaasvdc for the report. Refs: #777, #778.
+  ```bash
+  skillshare install <repo> --kind agent --all --force
+  ```
 
 ## [0.28.3] - 2026-11-03
 
