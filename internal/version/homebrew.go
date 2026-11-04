@@ -122,7 +122,3 @@ const SudoUpgradeHint = "skillshare upgrade"
 
 // SudoUpgradeHintPrefix precedes SudoUpgradeHint in the CLI error.
 const SudoUpgradeHintPrefix = "run in a terminal: "
-
-// NixUpgradeNote marks the upgrade row that a Nix install prints when a newer
-// CLI exists. The dashboard matches on it to explain why the CLI was kept.
-const NixUpgradeNote = "installed with Nix"

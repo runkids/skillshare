@@ -70,7 +70,7 @@ func TestMCPRequestAllowed(t *testing.T) {
 
 func TestHandleUpgradeUsesInjectedRunner(t *testing.T) {
 	old := runUIUpgrade
-	runUIUpgrade = func() (uiUpgradeResult, error) {
+	runUIUpgrade = func(bool) (uiUpgradeResult, error) {
 		return uiUpgradeResult{Updated: true, Output: "upgraded"}, nil
 	}
 	defer func() { runUIUpgrade = old }()
@@ -94,7 +94,7 @@ func TestDefaultRunUIUpgradeSimulatesDevMode(t *testing.T) {
 	versioncheck.Version = "dev"
 	defer func() { versioncheck.Version = oldVersion }()
 
-	result, err := defaultRunUIUpgrade()
+	result, err := defaultRunUIUpgrade(false)
 	if err != nil {
 		t.Fatalf("defaultRunUIUpgrade returned error: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestDefaultRunUIUpgradeSimulatesDevMode(t *testing.T) {
 
 func TestHandleUpgradeReturnsRunnerError(t *testing.T) {
 	old := runUIUpgrade
-	runUIUpgrade = func() (uiUpgradeResult, error) {
+	runUIUpgrade = func(bool) (uiUpgradeResult, error) {
 		return uiUpgradeResult{}, errors.New("boom")
 	}
 	defer func() { runUIUpgrade = old }()
@@ -126,7 +126,7 @@ func TestHandleUpgradeReturnsRunnerError(t *testing.T) {
 
 func TestHandleUpgradeNeedsSudoIsCoded(t *testing.T) {
 	old := runUIUpgrade
-	runUIUpgrade = func() (uiUpgradeResult, error) {
+	runUIUpgrade = func(bool) (uiUpgradeResult, error) {
 		return uiUpgradeResult{Output: "run in a terminal: skillshare upgrade"}, errors.New("exit status 1")
 	}
 	defer func() { runUIUpgrade = old }()
@@ -139,61 +139,64 @@ func TestHandleUpgradeNeedsSudoIsCoded(t *testing.T) {
 	}
 }
 
-func stubNixUpgrade(t *testing.T, method versioncheck.InstallMethod, output string) *bool {
+// stubNixUpgrade fakes a Nix install whose version check reports newerCLI,
+// and returns whether the upgrade ran and whether it was skill-only.
+func stubNixUpgrade(t *testing.T, method versioncheck.InstallMethod, newerCLI bool) (ran, skillOnly *bool) {
 	t.Helper()
-	oldDetect, oldRun := detectUIInstallMethod, runUIUpgrade
-	ran := false
+	oldDetect, oldCheck, oldRun := detectUIInstallMethod, uiCLIUpdateAvailable, runUIUpgrade
+	ran, skillOnly = new(bool), new(bool)
 	detectUIInstallMethod = func() versioncheck.InstallMethod { return method }
-	runUIUpgrade = func() (uiUpgradeResult, error) {
-		ran = true
-		return uiUpgradeResult{Updated: true, Output: output}, nil
+	uiCLIUpdateAvailable = func(versioncheck.InstallMethod) bool { return newerCLI }
+	runUIUpgrade = func(only bool) (uiUpgradeResult, error) {
+		*ran, *skillOnly = true, only
+		return uiUpgradeResult{Updated: true, Output: "Skill  updated"}, nil
 	}
-	t.Cleanup(func() { detectUIInstallMethod, runUIUpgrade = oldDetect, oldRun })
-	return &ran
+	t.Cleanup(func() { detectUIInstallMethod, uiCLIUpdateAvailable, runUIUpgrade = oldDetect, oldCheck, oldRun })
+	return ran, skillOnly
 }
 
-const nixPendingOutput = "CLI  v1.0.0 → v1.1.0 available · " + versioncheck.NixUpgradeNote + ", run: nix profile upgrade skillshare\nSkill  updated"
+func postUpgrade() *httptest.ResponseRecorder {
+	rec := httptest.NewRecorder()
+	(&Server{}).handleUpgrade(rec, httptest.NewRequest(http.MethodPost, "/api/upgrade", nil))
+	return rec
+}
+
+func TestHandleUpgradeNixUpdatesOnlyTheSkill(t *testing.T) {
+	ran, skillOnly := stubNixUpgrade(t, versioncheck.InstallNixProfile, true)
+	postUpgrade()
+	if !*ran || !*skillOnly {
+		t.Fatalf("ran = %v skillOnly = %v, want a skill-only upgrade", *ran, *skillOnly)
+	}
+}
 
 func TestHandleUpgradeNixProfileReportsPendingCLI(t *testing.T) {
-	ran := stubNixUpgrade(t, versioncheck.InstallNixProfile, nixPendingOutput)
-
-	s := &Server{}
-	rec := httptest.NewRecorder()
-	s.handleUpgrade(rec, httptest.NewRequest(http.MethodPost, "/api/upgrade", nil))
-
-	if !*ran {
-		t.Fatal("upgrade should still run so the built-in skill updates")
-	}
-	if rec.Code != http.StatusConflict {
-		t.Fatalf("status = %d body = %s", rec.Code, rec.Body.String())
-	}
+	stubNixUpgrade(t, versioncheck.InstallNixProfile, true)
+	rec := postUpgrade()
 	body := rec.Body.String()
-	if !strings.Contains(body, `"error_code":"upgrade.nix"`) || !strings.Contains(body, `"command":"nix profile upgrade skillshare"`) {
-		t.Fatalf("response should carry the Nix code and command: %s", body)
+	if rec.Code != http.StatusConflict || !strings.Contains(body, `"error_code":"upgrade.nix"`) || !strings.Contains(body, `"command":"nix profile upgrade skillshare"`) {
+		t.Fatalf("status = %d body = %s", rec.Code, body)
 	}
 }
 
 func TestHandleUpgradeNixConfigReportsPendingCLI(t *testing.T) {
-	stubNixUpgrade(t, versioncheck.InstallNix, nixPendingOutput)
-
-	s := &Server{}
-	rec := httptest.NewRecorder()
-	s.handleUpgrade(rec, httptest.NewRequest(http.MethodPost, "/api/upgrade", nil))
-
+	stubNixUpgrade(t, versioncheck.InstallNix, true)
+	rec := postUpgrade()
 	body := rec.Body.String()
 	if rec.Code != http.StatusConflict || !strings.Contains(body, `"command":""`) || !strings.Contains(body, versioncheck.NixConfigUpgradeHint) {
 		t.Fatalf("status = %d body = %s", rec.Code, body)
 	}
 }
 
-func TestHandleUpgradeNixUpdatesSkillWhenCLICurrent(t *testing.T) {
-	ran := stubNixUpgrade(t, versioncheck.InstallNix, "CLI  v1.1.0, already up to date\nSkill  updated")
+func TestHandleUpgradeNixSucceedsWhenCLICurrent(t *testing.T) {
+	stubNixUpgrade(t, versioncheck.InstallNix, false)
+	if rec := postUpgrade(); rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body.String())
+	}
+}
 
-	s := &Server{}
-	rec := httptest.NewRecorder()
-	s.handleUpgrade(rec, httptest.NewRequest(http.MethodPost, "/api/upgrade", nil))
-
-	if !*ran || rec.Code != http.StatusOK {
-		t.Fatalf("ran = %v status = %d body = %s", *ran, rec.Code, rec.Body.String())
+func TestHandleUpgradeOtherInstallsUpgradeTheCLI(t *testing.T) {
+	_, skillOnly := stubNixUpgrade(t, versioncheck.InstallDirect, true)
+	if rec := postUpgrade(); rec.Code != http.StatusOK || *skillOnly {
+		t.Fatalf("status = %d skillOnly = %v, want a full upgrade", rec.Code, *skillOnly)
 	}
 }
