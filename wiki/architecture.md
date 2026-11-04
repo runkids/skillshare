@@ -19,6 +19,7 @@ skillshare's source of truth is either the global configuration directory (`~/.c
 | `ui/` | React 19 and Vite dashboard; its API client corresponds to `internal/server/` |
 | `website/` | Docusaurus public documentation and marketing pages |
 | `ai_docs/tests/` | Reproducible CLI E2E runbooks |
+| `herdr/` | Herdr panel mod; it parses the CLI's `--json` output (`list`, `diff`, `check`, `mcp list`, `plugin list`, `audit`), so changing those shapes means updating `herdr/skillshare/mods/skillshare/model.js` |
 | `skills/skillshare/` | Built-in skill for skillshare users, not internal development instructions |
 | `schemas/` | Public YAML/JSON schemas; inspect these when configuration shapes change |
 | `scripts/`, `Makefile`, `mise.toml` | Build, test, devcontainer, and verification entry points |

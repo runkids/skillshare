@@ -270,6 +270,10 @@ skillshare commit --dry-run
 skillshare ui
 ```
 
+**Herdr 面板** — 在 [Herdr](https://herdr.dev) 的 agents 旁使用 skillshare：更新、sync、經過 audit 的安裝和 source repository 都在一個面板裡
+
+[設定 Herdr 面板 →](https://skillshare.runkids.cc/docs/learn/with-herdr)
+
 [所有指令與指南 →](https://skillshare.runkids.cc/docs/reference/commands)
 
 ## 參與貢獻

@@ -42,13 +42,16 @@
       ]
     },
     "frontend": {
-      "description": "Change React, CSS, layout, or visual behavior in the dashboard or website.",
+      "description": "Change React, CSS, layout, or visual behavior in the dashboard, website, or Herdr panel.",
       "sources": [
         {
           "path": "wiki/frontend.md"
         },
         {
           "path": "website/AGENTS.md"
+        },
+        {
+          "path": "herdr/AGENTS.md"
         }
       ]
     },

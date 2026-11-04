@@ -270,6 +270,10 @@ skillshare commit --dry-run
 skillshare ui
 ```
 
+**Herdr 패널** — [Herdr](https://herdr.dev)의 에이전트 옆에 skillshare: 업데이트, sync, 감사를 거친 설치, 소스 저장소를 한 패널에서
+
+[Herdr 패널 설정 →](https://skillshare.runkids.cc/docs/learn/with-herdr)
+
 [모든 명령과 가이드 →](https://skillshare.runkids.cc/docs/reference/commands)
 
 ## 기여하기
