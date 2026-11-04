@@ -10,6 +10,7 @@ import (
 
 	"skillshare/internal/install"
 	"skillshare/internal/testutil"
+	"skillshare/internal/utils"
 )
 
 // --- update agents ---
@@ -159,6 +160,49 @@ func TestUpdate_Agents_RepeatedUpdatesKeepSource(t *testing.T) {
 	if got := readSource(); got != installedSource {
 		t.Errorf("source changed from %q to %q", installedSource, got)
 	}
+}
+
+// An agent whose source an earlier update erased (#777) cannot be checked;
+// update must say so and fail instead of reporting it up to date.
+func TestUpdate_Agents_ErasedSourceAsksToReinstall(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	agentsDir := createAgentSource(t, sb, map[string]string{"demo.md": "# Demo\n"})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+	hash, err := utils.FileHashFormatted(filepath.Join(agentsDir, "demo.md"))
+	if err != nil {
+		t.Fatalf("hash agent: %v", err)
+	}
+	store := install.NewMetadataStore()
+	store.Set("demo", &install.MetadataEntry{
+		Source:     "/agents/demo.md",
+		Kind:       install.MetadataKindAgent,
+		Type:       "unknown-subdir",
+		Subdir:     "agents/demo.md",
+		Version:    "abc1234",
+		FileHashes: map[string]string{"demo.md": hash},
+	})
+	if err := store.Save(agentsDir); err != nil {
+		t.Fatalf("save metadata: %v", err)
+	}
+
+	result := sb.RunCLI("update", "agents", "--all")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "reinstall this agent")
+}
+
+func TestUpdate_Agents_InvalidMetadataFails(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	agentsDir := createAgentSource(t, sb, map[string]string{"demo.md": "# Demo\n"})
+	sb.WriteFile(filepath.Join(agentsDir, install.MetadataFileName), "{invalid")
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("update", "agents", "--all")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "invalid metadata")
 }
 
 // --- uninstall agents ---

@@ -2,6 +2,7 @@ package check
 
 import (
 	"path/filepath"
+	"strings"
 
 	"skillshare/internal/git"
 	"skillshare/internal/install"
@@ -15,6 +16,7 @@ type AgentCheckResult struct {
 	Source   string `json:"source,omitempty"`
 	Version  string `json:"version,omitempty"`
 	RepoURL  string `json:"repoUrl,omitempty"`
+	Branch   string `json:"branch,omitempty"`
 	RepoPath string `json:"repoPath,omitempty"`
 	Status   string `json:"status"` // "up_to_date", "drifted", "dirty", "local", "error", "update_available"
 	Message  string `json:"message,omitempty"`
@@ -70,6 +72,9 @@ func checkTrackedAgentRepo(agentsDir string, d resource.DiscoveredResource) Agen
 	result.Source = repoURL
 	result.RepoURL = repoURL
 	result.Version = version
+	if branch, err := git.GetCurrentBranch(result.RepoPath); err == nil && branch != "HEAD" {
+		result.Branch = branch
+	}
 
 	if repoURL == "" || version == "" {
 		result.Status = "local"
@@ -103,6 +108,15 @@ func checkOneAgent(store *install.MetadataStore, sourcePath, relPath string) Age
 	result.Source = entry.Source
 	result.Version = entry.Version
 	result.RepoURL = entry.RepoURL
+	result.Branch = entry.Branch
+
+	// Updates before #777 was fixed wrote the source back without its
+	// repository (type "unknown-subdir"), leaving nothing to check against.
+	if entry.RepoURL == "" && strings.HasPrefix(entry.Type, "unknown") {
+		result.Status = "error"
+		result.Message = "source was lost by an earlier update; reinstall this agent"
+		return result
+	}
 
 	// Compare file hash
 	if entry.FileHashes == nil || entry.FileHashes[fileName] == "" {
@@ -128,61 +142,48 @@ func checkOneAgent(store *install.MetadataStore, sourcePath, relPath string) Age
 }
 
 // EnrichAgentResultsWithRemote checks agents that have RepoURL + Version
-// against their remote HEAD to detect available updates.
-// Uses ParallelCheckURLs for efficient batched remote probing.
+// against the remote head of the branch they were installed from.
+// Each remote branch is probed once; every agent is compared with its own version.
 func EnrichAgentResultsWithRemote(results []AgentCheckResult, onDone func()) {
-	// Collect unique repo URLs that have version info
-	type agentRef struct {
+	type remoteRef struct {
 		repoURL string
-		version string
-		indices []int
+		branch  string
 	}
-	urlMap := make(map[string]*agentRef)
+	groups := make(map[remoteRef][]int)
+	var refs []remoteRef
 	for i, r := range results {
 		if r.RepoURL == "" || r.Version == "" {
 			continue
 		}
-		if ref, ok := urlMap[r.RepoURL]; ok {
-			ref.indices = append(ref.indices, i)
-		} else {
-			urlMap[r.RepoURL] = &agentRef{
-				repoURL: r.RepoURL,
-				version: r.Version,
-				indices: []int{i},
-			}
+		ref := remoteRef{repoURL: r.RepoURL, branch: r.Branch}
+		if _, ok := groups[ref]; !ok {
+			refs = append(refs, ref)
 		}
+		groups[ref] = append(groups[ref], i)
 	}
 
-	if len(urlMap) == 0 {
+	if len(refs) == 0 {
 		return
 	}
 
-	// Build URL check inputs
-	var inputs []URLCheckInput
-	var refs []*agentRef
-	for _, ref := range urlMap {
-		inputs = append(inputs, URLCheckInput{RepoURL: ref.repoURL})
-		refs = append(refs, ref)
+	inputs := make([]URLCheckInput, len(refs))
+	for i, ref := range refs {
+		inputs[i] = URLCheckInput{RepoURL: ref.repoURL, Branch: ref.branch}
 	}
 
 	outputs := ParallelCheckURLs(inputs, onDone)
 
-	// Apply results
 	for i, out := range outputs {
-		ref := refs[i]
-		if out.Err != nil {
-			for _, idx := range ref.indices {
+		for _, idx := range groups[refs[i]] {
+			if out.Err != nil {
 				results[idx].Status = "error"
 				results[idx].Message = out.Err.Error()
+				continue
 			}
-			continue
-		}
-		if out.RemoteHash != "" && out.RemoteHash != ref.version {
-			for _, idx := range ref.indices {
-				if results[idx].Status == "up_to_date" {
-					results[idx].Status = "update_available"
-					results[idx].Message = "newer version available"
-				}
+			// The remote hash is abbreviated; a tracked repo records the full one.
+			if out.RemoteHash != "" && !strings.HasPrefix(results[idx].Version, out.RemoteHash) && results[idx].Status == "up_to_date" {
+				results[idx].Status = "update_available"
+				results[idx].Message = "newer version available"
 			}
 		}
 	}

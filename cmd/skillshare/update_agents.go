@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -94,8 +95,12 @@ func cmdUpdateAgents(args []string, cfg *config.Config, start time.Time) error {
 	tracked := collectTrackedAgentResults(results)
 
 	if len(tracked) == 0 {
+		err := agentUpdateError(0, reportUncheckedAgents(results, !opts.jsonOutput))
 		if opts.jsonOutput {
-			return jsonWriteResult(agentUpdateItemsFromCheckResults(results), nil)
+			return jsonWriteResult(agentUpdateItemsFromCheckResults(results), err)
+		}
+		if err != nil {
+			return err
 		}
 		ui.Done(ui.MarkNone, "No tracked agents to update (all are local)", 0)
 		return nil
@@ -118,10 +123,15 @@ func cmdUpdateAgents(args []string, cfg *config.Config, start time.Time) error {
 		}
 	}
 	finalItems := agentUpdateItemsFromCheckResults(results)
+	unchecked := reportUncheckedAgents(results, !opts.jsonOutput)
 
 	if len(updatable) == 0 {
+		err := agentUpdateError(0, unchecked)
 		if opts.jsonOutput {
-			return jsonWriteResult(finalItems, nil)
+			return jsonWriteResult(finalItems, err)
+		}
+		if err != nil {
+			return err
 		}
 		ui.Done(ui.MarkOK, "All agents are up to date", time.Since(start))
 		return nil
@@ -149,17 +159,9 @@ func cmdUpdateAgents(args []string, cfg *config.Config, start time.Time) error {
 	logUpdateAgentOp(config.ConfigPath(), len(updatable), updated, failed, opts.dryRun, start)
 
 	if opts.jsonOutput {
-		var cmdErr error
-		if failed > 0 {
-			cmdErr = fmt.Errorf("%d agent(s) failed to update", failed)
-		}
-		return jsonWriteResult(finalItems, cmdErr)
+		return jsonWriteResult(finalItems, agentUpdateError(failed, unchecked))
 	}
-
-	if failed > 0 {
-		return fmt.Errorf("%d agent(s) failed to update", failed)
-	}
-	return nil
+	return agentUpdateError(failed, unchecked)
 }
 
 // agentRepoKey groups agents by clone URL + branch + repo subdir so agents
@@ -772,8 +774,12 @@ func cmdUpdateAgentsProject(args []string, projectRoot string, start time.Time) 
 	tracked := collectTrackedAgentResults(results)
 
 	if len(tracked) == 0 {
+		err := agentUpdateError(0, reportUncheckedAgents(results, !opts.jsonOutput))
 		if opts.jsonOutput {
-			return jsonWriteResult(agentUpdateItemsFromCheckResults(results), nil)
+			return jsonWriteResult(agentUpdateItemsFromCheckResults(results), err)
+		}
+		if err != nil {
+			return err
 		}
 		ui.Done(ui.MarkNone, "No tracked project agents to update (all are local)", 0)
 		return nil
@@ -790,10 +796,15 @@ func cmdUpdateAgentsProject(args []string, projectRoot string, start time.Time) 
 		}
 	}
 	finalItems := agentUpdateItemsFromCheckResults(results)
+	unchecked := reportUncheckedAgents(results, !opts.jsonOutput)
 
 	if len(updatable) == 0 {
+		err := agentUpdateError(0, unchecked)
 		if opts.jsonOutput {
-			return jsonWriteResult(finalItems, nil)
+			return jsonWriteResult(finalItems, err)
+		}
+		if err != nil {
+			return err
 		}
 		ui.Done(ui.MarkOK, "All project agents are up to date", time.Since(start))
 		return nil
@@ -801,10 +812,10 @@ func cmdUpdateAgentsProject(args []string, projectRoot string, start time.Time) 
 
 	if opts.dryRun {
 		if opts.jsonOutput {
-			return jsonWriteResult(finalItems, nil)
+			return jsonWriteResult(finalItems, agentUpdateError(0, unchecked))
 		}
 		printAgentUpdatesAvailable(updatable)
-		return nil
+		return agentUpdateError(0, unchecked)
 	}
 
 	updatedItems, updated, failed := batchUpdateAgents(agentsDir, updatable, opts, projectRoot, !opts.jsonOutput, parseOptsFromProjectConfig(runtime.config))
@@ -813,18 +824,44 @@ func cmdUpdateAgentsProject(args []string, projectRoot string, start time.Time) 
 	logUpdateAgentOp(config.ProjectConfigPath(projectRoot), len(updatable), updated, failed, opts.dryRun, start)
 
 	if opts.jsonOutput {
-		var cmdErr error
-		if failed > 0 {
-			cmdErr = fmt.Errorf("%d agent(s) failed to update", failed)
-		}
-		return jsonWriteResult(finalItems, cmdErr)
+		return jsonWriteResult(finalItems, agentUpdateError(failed, unchecked))
 	}
 
 	printAgentUpdateDone(updated, failed, start)
-	if failed > 0 {
-		return fmt.Errorf("%d agent(s) failed to update", failed)
+	return agentUpdateError(failed, unchecked)
+}
+
+// reportUncheckedAgents lists the agents whose update status could not be
+// determined, so a failed check is not reported as up to date, and returns
+// how many there were.
+func reportUncheckedAgents(results []check.AgentCheckResult, verbose bool) int {
+	n := 0
+	for _, r := range results {
+		if r.Status != "error" {
+			continue
+		}
+		n++
+		if verbose {
+			ui.StepFail(r.Name, r.Message)
+		}
 	}
-	return nil
+	return n
+}
+
+// agentUpdateError reports agents that failed to update and agents whose
+// status could not be checked, or nil when there were none.
+func agentUpdateError(failed, unchecked int) error {
+	var parts []string
+	if failed > 0 {
+		parts = append(parts, fmt.Sprintf("%d agent(s) failed to update", failed))
+	}
+	if unchecked > 0 {
+		parts = append(parts, fmt.Sprintf("%d agent(s) could not be checked", unchecked))
+	}
+	if len(parts) == 0 {
+		return nil
+	}
+	return errors.New(strings.Join(parts, "; "))
 }
 
 // printAgentUpdatesAvailable lists what a dry run would update.
