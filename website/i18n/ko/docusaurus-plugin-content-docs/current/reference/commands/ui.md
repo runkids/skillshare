@@ -186,7 +186,7 @@ project mode(`-p`)로 실행할 때 대시보드는 다음과 같이 달라집�
 | PUT | `/api/skillignore` | `.skillignore` 내용 업데이트 |
 | GET | `/api/doctor` | 모든 상태 검사 실행(JSON) |
 | GET | `/api/health` | liveness probe. 서버가 준비되면 `200`을 반환합니다 |
-| GET | `/api/version` | 현재/최신 버전 + 업그레이드 가능 여부 |
+| GET | `/api/version` | 현재/최신 버전 + 업그레이드 가능 여부 + Nix 설치의 경우 CLI를 업데이트하는 명령(`nixUpgradeCommand`) |
 | POST | `/api/upgrade` | 제자리에서 `skillshare upgrade` 실행(바이너리가 dev build인 경우 `devMode: true` 반환, Nix 설치에서 새 CLI가 대기 중이면 코드 `upgrade.nix`와 함께 `409` 반환) |
 | POST | `/api/restart` | 로컬 UI 서버 재시작. 선택적으로 `{ "clearCache": true }` body를 전달하면 먼저 캐시된 UI 자산을 지웁니다 |
 
@@ -198,7 +198,7 @@ project mode(`-p`)로 실행할 때 대시보드는 다음과 같이 달라집�
 2. 새 바이너리가 준비되면 UI가 `POST /api/restart`를 호출하여 로컬 서버를 재시작합니다.
 3. 브라우저는 `GET /api/health`를 폴링하며 새 서버가 준비되면 자동으로 새로고침합니다.
 
-skillshare를 Nix로 설치한 경우에도 엔드포인트는 내장된 skillshare skill을 업데이트하지만 CLI 업데이트는 Nix에 맡깁니다. 새 CLI가 있으면 `409`(`upgrade.nix`)를 반환하고, 대화상자에 Nix로 업데이트하는 방법이 표시됩니다. 클릭하기 전 대화상자의 터미널 명령은 여전히 `skillshare upgrade`이며, Nix에서는 이 명령도 같은 안내를 출력합니다. [upgrade](./upgrade.md#nix-users)를 참고하세요.
+skillshare를 Nix로 설치한 경우에도 엔드포인트는 내장된 skillshare skill을 업데이트하지만 CLI 업데이트는 Nix에 맡깁니다. 새 CLI가 있으면 `409`(`upgrade.nix`)를 반환하고, 대화상자에 Nix로 업데이트하는 방법이 표시됩니다. 클릭하기 전부터 대화상자에 Nix로 CLI를 업데이트하는 방법이 표시됩니다. `nix profile` 설치에서는 `nix profile upgrade skillshare`, 그 외에는 Nix 구성 다시 빌드입니다. [upgrade](./upgrade.md#nix-users)를 참고하세요.
 
 실행 중인 바이너리가 개발 빌드(`version == "dev"`)인 경우, upgrade 엔드포인트는 `devMode: true`를 반환하고 UI는 디스크의 어떤 것도 수정하지 않은 채 재시작을 시뮬레이션합니다.
 

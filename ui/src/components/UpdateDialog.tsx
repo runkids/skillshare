@@ -7,7 +7,7 @@ import type { VersionCheck } from '../api/client';
 import DialogShell from './DialogShell';
 import Button from './Button';
 import { useT } from '../i18n';
-import { upgradeErrorMessage } from '../lib/upgradeError';
+import { nixUpdateNote, upgradeErrorMessage } from '../lib/upgradeError';
 
 const DISMISSED_KEY = 'ss-update-dialog-dismissed';
 
@@ -52,6 +52,7 @@ export default function UpdateDialog() {
   }, [hasUpdate, isMockMode]);
 
   if (!data || !hasUpdate) return null;
+  const nixNote = nixUpdateNote(data, t);
 
   const dismiss = () => {
     setOpen(false);
@@ -139,6 +140,7 @@ export default function UpdateDialog() {
               {t('updateDialog.copyCommand')}
             </Button>
           </div>
+          {nixNote && <p className="text-[13px] text-ink-2">{nixNote}</p>}
         </div>
         <p className="text-[13px] text-ink-2">{t('updateDialog.restartNote')}</p>
         {status && <p className={`text-[13px] ${updating ? 'text-ink-2' : 'text-bad'}`}>{status}</p>}
