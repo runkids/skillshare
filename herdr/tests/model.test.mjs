@@ -1,10 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseGitStatus, sourceLine, driftFrom, buildItems, groupItems, filterItems, cloneUrl, skillChoices, newerVersion, rowSub, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE } from "../skillshare/mods/skillshare/model.js";
+import { parseGitStatus, sourceLine, driftFrom, buildItems, groupItems, filterItems, cloneUrl, skillChoices, newerVersion, rowSub, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP } from "../skillshare/mods/skillshare/model.js";
 
 test("git status reads branch, ahead/behind and files", () => {
   const g = parseGitStatus("top /src\n## main...origin/main [ahead 1, behind 2]\n M a.md\n?? b/SKILL.md\n");
@@ -185,4 +185,24 @@ test("a job killed before it finishes reads as stopped", async (t) => {
   assert.ok(alive(d), "a running job should read as alive");
   process.kill(-jobPid(d), "SIGKILL");
   assert.ok(await until(() => !alive(d)), "a killed job should read as stopped");
+});
+
+test("SWEEP removes only old job folders whose job no longer runs", (t) => {
+  const tmp = mkdtempSync(join(tmpdir(), "ss-sweep-"));
+  const job = spawn("sleep", ["30"]);
+  t.after(() => { job.kill("SIGKILL"); rmSync(tmp, { recursive: true, force: true }); });
+  const gone = spawnSync("sh", ["-c", "echo $$"], { encoding: "utf8" }).stdout.trim();
+  const folder = (name, files, old) => {
+    const d = join(tmp, name);
+    mkdirSync(d);
+    for (const [f, v] of Object.entries(files)) writeFileSync(join(d, f), v);
+    if (old) utimesSync(d, new Date(Date.now() - 20 * 60 * 1000), new Date(Date.now() - 20 * 60 * 1000));
+  };
+  folder("skillshare-panel.done", { pid: gone, code: "0\n" }, true);
+  folder("skillshare-panel.killed", { pid: gone }, true);
+  folder("skillshare-panel.running", { pid: String(job.pid) }, true);
+  folder("skillshare-panel.recent", { pid: gone, code: "0\n" }, false);
+  folder("tmp.other", {}, true);
+  spawnSync("sh", ["-c", SWEEP], { env: { ...process.env, TMPDIR: tmp } });
+  assert.deepEqual(readdirSync(tmp).sort(), ["skillshare-panel.recent", "skillshare-panel.running", "tmp.other"]);
 });

@@ -9,7 +9,7 @@ import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { exec, hc, run, spaces, agents, focused, machines, shared, setShared, theme, settings, layout, openOverlay, closeOverlay, nextCommand, readTextFile, props as blockProps } from "herdr";
 import {
-  KINDS, SCOPES, START, START_SCRIPT, ALIVE, SNAPSHOT, parseSnapshot, GIT_STATUS, PROJECT, DISCOVER, AUDIT, PREVIEW, CONFLICTS, RESOLVE, ABORT, METADATA_STAGES, METADATA_WRITE, mergeMetadata, parseStages,
+  KINDS, SCOPES, START, START_SCRIPT, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, GIT_STATUS, PROJECT, DISCOVER, AUDIT, PREVIEW, CONFLICTS, RESOLVE, ABORT, METADATA_STAGES, METADATA_WRITE, mergeMetadata, parseStages,
   parseJSON, lastLine, failure, parseGitStatus, sourceLine, buildItems, rowSub, filterItems, groupItems, counts,
   cloneUrl, skillChoices, newerVersion, ago, auditMessage, driftFrom, parseDiscover, parseAudit, parsePreview, diffSides,
 } from "./model.js";
@@ -31,8 +31,11 @@ const sh = (script, args = [], on = null) => exec("sh", ["-c", `${PATHS}\n${scri
 const ss = (args, { on = null, cwd = null } = {}) => sh('cd "$1" 2>/dev/null || cd; shift; exec skillshare "$@"', [cwd ?? "", ...args], on);
 
 // Work that can take longer than an exec may (update, install, push, check): started detached
-// (START in model.js), polled until it writes its exit code or stops without one.
+// (START in model.js), polled until it writes its exit code or stops without one. The first job
+// on each machine also sweeps up folders an earlier, closed panel left behind.
+const swept = new Set();
 async function ssLong(args, { on = null, cwd = null } = {}, wait, script = null) {
+  if (!swept.has(on ?? "")) { swept.add(on ?? ""); sh(SWEEP, [], on); }
   const s = script ? await sh(START_SCRIPT, [cwd ?? "", ...script], on) : await sh(START, [cwd ?? "", ...args], on);
   const d = s.stdout.trim();
   if (s.code !== 0 || !d) return { code: s.code || 1, stdout: "", stderr: s.stderr || "Could not start skillshare" };
