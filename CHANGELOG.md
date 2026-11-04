@@ -1,19 +1,5 @@
 # Changelog
 
-## [0.28.4] - 2026-11-04
-
-### New Features
-
-- **Nix flake** — install the CLI with `nix profile add github:runkids/skillshare` (Nix 2.30+ with flakes; on older Nix or Lix use `nix profile install`) and update it with `nix profile upgrade skillshare`. NixOS and Home Manager configurations can use the flake's `overlays.default`. Thanks to @charitarthchugh for the implementation. Refs: #764.
-  ```bash
-  nix profile add github:runkids/skillshare
-  ```
-- **Skillshare panel for Herdr** — a panel beside your Herdr agents groups skills, agents, MCP servers and plugins into *Updates available*, *Needs sync* and *In sync*, installs from a repository URL after auditing a clone, pulls and pushes the source repository with a side-by-side conflict picker, and shows each machine's version and doctor warnings with Pull and sync and Update. Each machine runs its own work, one action at a time. See [Using skillshare in Herdr](https://skillshare.runkids.cc/docs/learn/with-herdr). Refs: #766, #773, #774, #775.
-
-### Changed
-
-- **Upgrades on Nix installs** — a binary under `/nix/store/` is read-only, so `skillshare upgrade` no longer tries to replace it. It still updates the built-in skill, then reports the CLI as up to date or prints `nix profile upgrade skillshare` (for a `nix profile` install) or a note to update your Nix configuration and rebuild, and exits `0`. The update notice and `doctor` suggest the same, and the dashboard's update dialog shows the Nix note before you click Update. Other install methods behave as before, including the `Run '…' to update` wording of the non-TTY update notice. Thanks to @charitarthchugh for the implementation. Refs: #764, #770, #771, #772.
-
 ## [0.28.3] - 2026-11-03
 
 ### New Features
