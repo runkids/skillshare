@@ -9,6 +9,37 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.28.3] - 2026-11-03
+
+### New Features
+
+- **Prose risk directives in audit** — five new HIGH rules catch narrowly phrased instructions that try to steer an agent: `anti-refusal` (comply despite safety policies), `prompt-leakage` (disclose the system prompt), `memory-poisoning` (persist a safety override in memory), `agent-snooping` (read or send another skill's or the agent's configuration without permission) and `persistence` (persist a payload, malware or backdoor). Ordinary security discussion and compliance wording stay clean. Custom rules in `audit-rules.yaml` can also set `confidence` from 0 to 1 by rule ID or pattern; rules without one default to 0.95. Thanks to @salmonumbrella for the implementation. Refs: #711.
+  ```yaml
+  rules:
+    - pattern: anti-refusal
+      confidence: 0.8
+  ```
+
+### Bug Fixes
+
+#### Audit
+
+- **Exit code `2` for scan errors** — `skillshare audit` now exits `2` when the scan itself fails (a usage, configuration or execution error), so CI can tell an incomplete scan from a finding, which still exits `1`. When both happen, the error wins, and the partial report is kept. Audits started from `list` use the same codes, and declining the large-scan confirmation exits `0` without scanning. Thanks to @salmonumbrella for the implementation. Refs: #686.
+- **Fewer false positives** — `prompt-injection-1` no longer reports a JavaScript `ignore: ['**/*.test.vue']` array or a typed Python parameter such as `root: Path, lang_filter: set[str] | None = None` as CRITICAL, which blocked `update --all` for some vuejs-ai and dotnet skills. `anti-refusal` no longer flags a line that only mentions security policies as a topic, such as "Always answer, even if the question mentions security policies." Thanks to @JasonLandbridge for the report. Refs: #749, #750, #748.
+
+#### Other
+
+- **`.DS_Store` no longer marks skills modified** — opening an installed skill in Finder or Explorer wrote `.DS_Store`, `Thumbs.db` or `desktop.ini` into it, so `check` reported the skill as modified, hid available updates, and `update` skipped it unless run with `--force`. These files are now ignored when detecting local changes; their content is still audited. Thanks to @Soren90912 for the report. Refs: #743, #744.
+- **Project install metadata is gitignored** — `.skillshare/skills/.metadata.json` and `.skillshare/agents/.metadata.json` were committed with the project, although the docs said they were ignored. A project install now adds them to the project `.gitignore`; existing projects get the rule on their next install. A project that already committed the file should run `git rm --cached .skillshare/skills/.metadata.json` once. Thanks to @Snurppa for the report. Refs: #759, #760.
+  ```bash
+  git rm --cached .skillshare/skills/.metadata.json
+  ```
+- **OMP plugin source changes sync in one pass** — when a shared plugin changed source, a machine that still had the old OMP runtime link could not sync: the replacement was blocked before the cleanup that would free it ran. `plugin sync` and `plugin update` now preview the old removal and the new install together and apply both, keeping the shared cache and settings. Thanks to @salmonumbrella for the report and the fix. Refs: #757, #758.
+  ```bash
+  skillshare plugin sync NAME --dry-run -g
+  ```
+- **Dashboard stays responsive during plugin and MCP checks** — switching pages or reloading while the Plugins page checked for updates, or while Pi extensions or an MCP check ran, froze the whole dashboard until the check finished. Other requests are now served meanwhile. Refs: #747.
+
 ## [0.28.2] - 2026-10-31
 
 
