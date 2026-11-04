@@ -1,7 +1,7 @@
 // What the panel shows, built from the skillshare CLI's JSON and git's porcelain output.
 // No Herdr imports, so `node --test herdr/tests` runs it.
 
-export const KINDS = [["skills", "Skills"], ["agents", "Agents"], ["mcp", "MCP"], ["plugins", "Plugins"]];
+export const KINDS = [["skills", "Skills"], ["agents", "Agents"], ["mcp", "MCP"], ["plugins", "Plugins"], ["hooks", "Hooks"]];
 export const SCOPES = [["all", "All"], ["project", "Project"], ["global", "Global"]];
 
 // Long work runs detached, its output kept in a temp folder (out, err, code, pid) that the
@@ -53,7 +53,8 @@ run() { n=$1; shift; s=$(date +%s); out=$(skillshare "$@" "$f" 2>/dev/null); pri
 run list list --all --json
 run diff diff --json
 run mcp mcp list --json
-run plugins plugin list --json`;
+run plugins plugin list --json
+run hooks hooks list --json`;
 
 // Sections of SNAPSHOT's output, parsed, plus how long each took.
 export function parseSnapshot(text) {
@@ -271,7 +272,40 @@ export function buildItems(scope, raw) {
       src: shortSource(p.source ?? bindings[0]?.id ?? "") || "plugin", version: p.version ?? bindings[0]?.version ?? null,
       state: pending.length ? "sync" : bindings.length ? "ok" : "missing", reason: pending.length ? `pending in ${pending.join(", ")}` : "", targets: Object.keys(p.bindings ?? {}) });
   }
+  const hooks = new Map();
+  const hook = (root, name) => {
+    const key = `${scope}:hooks:${root ? root + "/" : ""}${name}`;
+    if (!hooks.has(key)) hooks.set(key, { key, kind: "hooks", scope, root, name, label: name, targets: [], changes: [], declared: false });
+    return hooks.get(key);
+  };
+  for (const [root, source] of [["", raw.hooks?.source], ...Object.entries(raw.hooks?.source?.projects ?? {})]) {
+    for (const [name, entry] of Object.entries(source?.entries ?? {})) {
+      Object.assign(hook(root, name), { declared: true, disabled: entry.enabled === false, description: entry.description, targets: Object.keys(entry.bindings ?? {}) });
+    }
+  }
+  for (const [index, c] of (raw.hooks?.plan?.changes ?? []).entries()) {
+    const item = c.name ? hook(c.root ?? "", c.name) : { key: `${scope}:hooks:status:${index}`, kind: "hooks", scope, root: c.root ?? "", name: "Hook status", label: "Hook status", targets: [], changes: [], declared: false };
+    if (!c.name) hooks.set(item.key, item);
+    if (c.target && !item.targets.includes(c.target)) item.targets.push(c.target);
+    item.changes.push(c);
+  }
+  if (raw.hooks?.error && Array.isArray(raw.list)) hooks.set("error", { key: `${scope}:hooks:error`, kind: "hooks", scope, name: "Hook status", label: "Hook status", targets: [], changes: [], declared: false });
+  for (const item of hooks.values()) {
+    item.src = item.targets.join(", ") || "no agents";
+    const error = raw.hooks?.error || raw.hooks?.previewError;
+    item.lines = error ? [error] : item.changes.map((c) => `${c.target}: ${c.action}${c.message ? ` · ${c.message}` : ""}`);
+    item.reason = item.lines.join("; ");
+    item.state = !raw.hooks?.plan || item.changes.some((c) => !["unchanged", "inactive"].includes(c.action)) ? "sync" : item.disabled ? "off" : "ok";
+    items.push(item);
+  }
   return items;
+}
+
+// Only top-level declared hooks can be changed with the panel's scoped CLI actions.
+export function hookArgs(item, action) {
+  if (item.kind !== "hooks" || !item.declared || item.root || !["enable", "disable", "remove"].includes(action)) return null;
+  if ((action === "enable" && !item.disabled) || (action === "disable" && item.disabled)) return null;
+  return ["hooks", action, item.name, item.scope === "project" ? "-p" : "-g"];
 }
 
 // The line under a row's name.
@@ -280,7 +314,7 @@ export function rowSub(item, showScope) {
   if (item.state === "update") return `${pre}${item.version ? item.version.slice(0, 7) + " → newer" : "update available"}${item.behind ? ` · ↓${item.behind}` : ""}`;
   if (item.state === "missing") return `${pre}not synced yet`;
   // MCP and plugin reasons name targets; rows leave targets out, so those show in the open row only.
-  if (item.state === "sync") return `${pre}${(item.kind === "skills" || item.kind === "agents") && item.reason ? item.reason : "changed since last sync"}`;
+  if (item.state === "sync") return `${pre}${(item.kind === "skills" || item.kind === "agents" || item.kind === "hooks") && item.reason ? item.reason : "changed since last sync"}`;
   if (item.state === "off") return `${pre}disabled`;
   return `${pre}${item.src}${item.version && item.kind === "plugins" ? ` · ${item.version}` : ""}`;
 }
@@ -297,7 +331,7 @@ export function groupItems(items) {
 }
 
 export function counts(items) {
-  const c = { all: items.length, project: 0, global: 0, skills: 0, agents: 0, mcp: 0, plugins: 0 };
+  const c = { all: items.length, project: 0, global: 0, skills: 0, agents: 0, mcp: 0, plugins: 0, hooks: 0 };
   for (const i of items) { c[i.scope]++; c[i.kind]++; }
   return c;
 }

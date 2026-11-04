@@ -1,6 +1,6 @@
 # Herdr + skillshare
 
-Herdr's default window with a skillshare button in the tab bar and a skillshare panel beside the work area. The panel shows what the focused space's project and your global skillshare source hold: which skills, agents, MCP servers and plugins need an update or a sync. From the panel you can update, sync, install from a URL, uninstall, ask the focused agent to audit something, and sync the source repository both ways.
+Herdr's default window with a skillshare button in the tab bar and a skillshare panel beside the work area. The panel shows what the focused space's project and your global skillshare source hold: which skills, agents, MCP servers, plugins and hooks need an update or a sync. From the panel you can update, sync, install from a URL, uninstall, ask the focused agent to audit something, and sync the source repository both ways.
 
 ![Herdr + skillshare](preview.png)
 
@@ -16,13 +16,14 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
   - Resources:
     - the project card: a folder icon, the folder name, "follows the focused pane" and the machine as a pill; outside a project, "Global" and "<folder> is not a skillshare project";
     - in a skillshare project, an All · Project · Global switch with counts for the selected kind;
-    - a Skills · Agents · MCP · Plugins switch with counts;
+    - a Skills · Agents · MCP · Plugins · Hooks switch with counts;
     - a filter field and an Install button;
     - the list, the only part that scrolls, in three groups:
       - "Updates available · n" in `accent`, with Update all;
       - "Needs sync · n" in `blocked`, with Sync, or Sync project / Sync global when only one scope needs it;
       - "In sync · n" in `muted`.
-    - Each row is 48px: a dot (filled `accent`, `blocked` or `ansi2`; hollow `ansi1` when never synced or `muted` when disabled), the name, one line of detail with no target names, and a chevron. A row opens in place on `raised`.
+    - Each row is 48px: a dot (filled `accent`, `blocked` or `ansi2`; hollow `ansi1` when never synced or `muted` when disabled), the name, one line of detail (hook rows name their agents or planned changes), and a chevron. A row opens in place on `raised`.
+    - Hook rows expand to show agents, description, root and planned changes; nested-root and cleanup-only rows are read-only.
   - Machines: one card per Herdr machine, with its version, its source repository state, doctor errors and warnings when there are any, a Pull and sync button, and "Update to …" when a newer skillshare exists.
   - a 34px status line while work runs (work runs one at a time per machine; machines run side by side), with a spinning ring in `working`, or a notice: a done notice fades after 4 s, a warning or error stays until closed, and a stopped pull keeps a "Review conflicts" bar;
   - a 40px footer: the source state, such as "Source · n uncommitted · ↑n ↓n", "up to date" or "no remote" (`blocked` when it needs attention), and Sync both ways when the repository has an upstream.
@@ -47,7 +48,7 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
   - Pull, which stays disabled while there are uncommitted changes or nothing to pull;
   - Commit and push with a commit message field when files are uncommitted, or Push n commits when only commits are waiting.
 - When a pull stops on files both machines changed, the conflict dialog shows each file's two versions with the differing lines marked. You keep one version per file and then apply. `.metadata.json` merges per entry the way skillshare's own pull does, so only real files ask.
-- Uninstall, the audit hand-off, conflict choices and updating skillshare itself each ask first.
+- Hook changes (Enable, Disable and Remove), Uninstall, the audit hand-off, conflict choices and updating skillshare itself each ask first. Sync applies hook changes through `sync --all`.
 
 ## Built from
 

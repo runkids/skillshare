@@ -1,7 +1,7 @@
 # skillshare for Herdr
 
 A Herdr panel for the skillshare CLI. It shows what the focused space's project and the
-global source hold and what needs an update or a sync. It updates, syncs, installs from a
+global source hold—skills, agents, MCP servers, plugins and hooks—and what needs an update or a sync. It updates, syncs, installs from a
 URL, uninstalls, hands an audit to the focused agent, syncs the source repository both
 ways, and shows each Herdr machine's skillshare on a Machines tab.
 
@@ -26,7 +26,7 @@ shown or hidden state is a layout click, which Herdr keeps across spaces and res
 - It runs on the shown space's machine (`exec` with `on`), in the focused terminal's folder.
 - A folder with `.skillshare/config.yaml` or `skillshare/config.yaml` is a project; both
   scopes show and the All · Project · Global filter appears.
-- Per scope, one detached script runs `list --all`, `diff`, `mcp list` and `plugin list`
+- Per scope, one detached script runs `list --all`, `diff`, `mcp list`, `plugin list` and `hooks list`
   with `--json`. `check` and `check agents` run every 10 minutes. Git state comes from `git status` in the
   source repository, because the CLI has no JSON for it.
 - The CLI's install dry-run does not list a repository's skills, so the install dialog
@@ -38,6 +38,9 @@ shown or hidden state is a layout click, which Herdr keeps across spaces and res
   `push --pull` stops on files both sides changed, the panel reads both versions with
   `git show HEAD:<file>` and `git show @{u}:<file>`, puts the repository back, and asks
   which version to keep for each file.
+
+Hook rows show their agents and planned sync changes. Top-level declared hooks offer confirmed
+Enable, Disable and Remove actions; Sync applies them through `sync --all`.
 
 ## Tests
 

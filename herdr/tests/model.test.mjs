@@ -4,7 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseGitStatus, sourceLine, driftFrom, buildItems, groupItems, filterItems, cloneUrl, skillChoices, newerVersion, rowSub, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP } from "../skillshare/mods/skillshare/model.js";
+import { parseGitStatus, sourceLine, driftFrom, buildItems, hookArgs, counts, groupItems, filterItems, cloneUrl, skillChoices, newerVersion, rowSub, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP } from "../skillshare/mods/skillshare/model.js";
 
 test("git status reads branch, ahead/behind and files", () => {
   const g = parseGitStatus("top /src\n## main...origin/main [ahead 1, behind 2]\n M a.md\n?? b/SKILL.md\n");
@@ -39,6 +39,72 @@ test("rows get update, sync and missing states", () => {
 test("MCP servers need a sync when a target change is pending", () => {
   const items = buildItems("global", { mcp: { changes: [{ name: "m", target: "claude", action: "add" }, { name: "m", target: "codex", action: "unchanged" }] } });
   assert.equal(items[0].state, "sync");
+});
+
+test("hooks combine declarations and planned changes, including inactive and disabled entries", () => {
+  const items = buildItems("global", { hooks: { source: { entries: {
+    clean: { bindings: { claude: {} } }, disabled: { enabled: false, bindings: {} },
+    pending: { bindings: { codex: {} } }, inactive: { bindings: { git: {} } },
+    conflict: { bindings: { claude: {} } }, pruning: { enabled: false, bindings: { claude: {} } },
+  } }, plan: { changes: [
+    { name: "clean", target: "claude", action: "unchanged" },
+    { name: "pending", target: "codex", action: "add" },
+    { name: "inactive", target: "git", action: "inactive" },
+    { name: "conflict", target: "claude", action: "conflict", message: "import it or explicitly replace it" },
+    { name: "pruning", target: "claude", action: "remove" },
+    { name: "removed", target: "codex", action: "remove" },
+  ] } } });
+  const by = Object.fromEntries(items.map((i) => [i.name, i]));
+  assert.deepEqual(items.map((i) => i.state), ["ok", "off", "sync", "ok", "sync", "sync", "sync"]);
+  assert.equal(by.disabled.src, "no agents");
+  assert.equal(by.removed.declared, false);
+  assert.equal(by.conflict.reason, "claude: conflict · import it or explicitly replace it");
+  assert.equal(rowSub(by.conflict, true), `global · ${by.conflict.reason}`);
+  assert.equal(rowSub(by.clean, false), "claude");
+  assert.equal(counts(items).hooks, 7);
+  assert.deepEqual(Object.values(groupItems(items)).map((g) => g.length), [0, 4, 3]);
+  assert.deepEqual(filterItems(items, { scope: "all", kind: "hooks", query: "git" }).map((i) => i.name), ["inactive"]);
+});
+
+test("hook roots have distinct keys and nameless conflicts are read-only status rows", () => {
+  const items = buildItems("global", { hooks: { source: {
+    entries: { fmt: { bindings: {} } }, projects: { "/fixture/repo": { entries: { fmt: { bindings: { claude: {} } } } } },
+  }, plan: { changes: [{ root: "/fixture/repo", name: "fmt", target: "claude", action: "add" },
+    { root: "/fixture/repo", name: "", target: "git", action: "conflict", message: "root blocked" }] } } });
+  assert.equal(new Set(items.map((i) => i.key)).size, 3);
+  assert.equal(items[1].key, "global:hooks:/fixture/repo/fmt");
+  assert.equal(items[1].state, "sync");
+  assert.equal(items[2].label, "Hook status");
+  assert.equal(items[2].reason, "git: conflict · root blocked");
+  assert.equal(hookArgs(items[1], "disable"), null);
+  assert.equal(hookArgs(items[2], "remove"), null);
+});
+
+test("hook preview and inventory errors preserve panel read failures", () => {
+  const [item] = buildItems("project", { hooks: { source: { entries: { fmt: { bindings: {} } } }, previewError: "preflight failed" } });
+  assert.equal(item.state, "sync");
+  assert.equal(item.reason, "preflight failed");
+  const [status] = buildItems("project", { list: [], hooks: { error: "bad hook config" } });
+  assert.equal(status.state, "sync");
+  assert.equal(status.reason, "bad hook config");
+  assert.deepEqual(buildItems("project", { list: null, hooks: null }), []);
+  assert.deepEqual(buildItems("global", { list: null, hooks: { error: "missing config" } }), []);
+});
+
+test("hook actions use scoped argv without JSON and reject unsupported actions", () => {
+  for (const scope of ["global", "project"]) {
+    const item = { kind: "hooks", scope, name: "fmt", declared: true, disabled: false, root: "" };
+    const flag = scope === "project" ? "-p" : "-g";
+    assert.deepEqual(hookArgs(item, "disable"), ["hooks", "disable", "fmt", flag]);
+    assert.deepEqual(hookArgs(item, "remove"), ["hooks", "remove", "fmt", flag]);
+    assert.equal(hookArgs(item, "enable"), null);
+    assert.deepEqual(hookArgs({ ...item, disabled: true }, "enable"), ["hooks", "enable", "fmt", flag]);
+    assert.equal(hookArgs({ ...item, disabled: true }, "disable"), null);
+    assert.equal(hookArgs({ ...item, declared: false }, "remove"), null);
+    assert.equal(hookArgs({ ...item, root: "/fixture" }, "remove"), null);
+    assert.equal(hookArgs(item, "replace"), null);
+    assert.equal(hookArgs({ ...item, kind: "skills" }, "remove"), null);
+  }
 });
 
 test("groups split updates, sync work and the rest", () => {

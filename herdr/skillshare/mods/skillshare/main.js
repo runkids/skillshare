@@ -2,7 +2,7 @@
 // what needs an update or a sync, install from a URL, and git sync of the source both ways.
 // Roles (props.role): the panel (default); "toggle", the tab-bar button that shows or hides the
 // layout's "skillshare-panel" node; dialogs: "install", "uninstall", "audit", "source",
-// "syncboth", "conflict", "upgrade", "text". Dialogs hand long work to the panel through shared
+// "syncboth", "conflict", "upgrade", "text", "hook". Dialogs hand long work to the panel through shared
 // REQUEST, because an overlay's tasks end when it closes. Install is the exception: its dialog
 // shows each step, and the install itself runs detached, so closing the dialog does not stop it.
 import { View, div, image, svg } from "gpui-kit";
@@ -10,7 +10,7 @@ import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { exec, hc, run, spaces, agents, focused, machines, shared, setShared, theme, settings, layout, openOverlay, closeOverlay, nextCommand, readTextFile, props as blockProps } from "herdr";
 import {
   KINDS, SCOPES, START, START_SCRIPT, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, GIT_STATUS, PROJECT, DISCOVER, AUDIT, PREVIEW, CONFLICTS, RESOLVE, ABORT, METADATA_STAGES, METADATA_WRITE, mergeMetadata, parseStages,
-  parseJSON, lastLine, failure, parseGitStatus, sourceLine, buildItems, rowSub, filterItems, groupItems, counts,
+  parseJSON, lastLine, failure, parseGitStatus, sourceLine, buildItems, hookArgs, rowSub, filterItems, groupItems, counts,
   cloneUrl, skillChoices, newerVersion, ago, auditMessage, driftFrom, parseDiscover, parseAudit, parsePreview, diffSides,
 } from "./model.js";
 
@@ -224,7 +224,7 @@ export default class Skillshare extends View {
           const opt = { on, cwd: scope === "project" ? project : null }, f = flag(scope);
           const r = await ssLong(["__snapshot__"], opt, this.wait(cx), [SNAPSHOT, f]);
           const snap = parseSnapshot(r.stdout);
-          raw[scope] = { list: snap.list, diff: snap.diff, mcp: snap.mcp, plugins: snap.plugins, took: snap.took, error: Array.isArray(snap.list) ? null : failure(r, "skillshare list") };
+          raw[scope] = { list: snap.list, diff: snap.diff, mcp: snap.mcp, plugins: snap.plugins, hooks: snap.hooks, took: snap.took, error: Array.isArray(snap.list) ? null : failure(r, "skillshare list") };
         }));
         const status = parseJSON((await ss(["status", "--json", "-g"], { on })).stdout);
         const git = status?.source?.path ? parseGitStatus((await sh(GIT_STATUS, [status.source.path, network ? "fetch" : ""], on)).stdout) : { repo: false };
@@ -300,6 +300,13 @@ export default class Skillshare extends View {
             updated += j?.updated ?? (j?.agents ?? []).filter((a) => a.status === "updated").length ?? 0;
           }
           say("done", updated ? `Updated ${updated}. Targets get it on the next sync.` : "Already up to date");
+        } else if (req.op === "hook") {
+          const args = hookArgs(req.item, req.action);
+          if (!args) return say("error", "This hook action is unavailable.");
+          step(`Saving ${req.item.label}…`);
+          const r = await ssLong(args, opt(req.item.scope), wait);
+          if (r.code !== 0) return say("error", failure(r, "skillshare hooks"));
+          say("done", "Saved. Sync applies it.");
         } else if (req.op === "uninstall") {
           const it = req.item;
           step(`Uninstalling ${it.label}…`);
@@ -560,10 +567,16 @@ export default class Skillshare extends View {
     if (item.rel && item.rel !== item.label) lines.push(item.rel);
     if (item.state === "update") lines.push(item.behind ? `${item.behind} new commit${item.behind === 1 ? "" : "s"} upstream in ${item.src}. Updating changes the source; targets get it on the next sync.` : `A newer version is upstream in ${item.src}. Updating changes the source; targets get it on the next sync.`);
     if (item.state === "missing") lines.push("Not synced yet. The next sync gives it to every target your config names.");
-    if (item.state === "sync") lines.push(`Changed since the last sync${item.reason ? ` (${item.reason})` : ""}. The next sync updates your targets.`);
+    if (item.state === "sync" && item.kind !== "hooks") lines.push(`Changed since the last sync${item.reason ? ` (${item.reason})` : ""}. The next sync updates your targets.`);
     if (item.state === "off") lines.push("Disabled: targets don't get it.");
+    if (item.kind === "hooks") lines.push(`Agents: ${item.src}`, ...(item.description ? [item.description] : []), ...(item.root ? [`Root: ${item.root}`] : []), ...item.lines);
     const agent = this.receiver();
     const buttons = [];
+    for (const action of ["enable", "disable", "remove"]) {
+      if (!hookArgs(item, action)) continue;
+      const label = action[0].toUpperCase() + action.slice(1);
+      buttons.push(this.busyAt(ctx.on) ? disabledButton(`hook-busy-${action}`, label, t) : secondary(`hook-${action}-${item.key}`, label, t, () => openOverlay({ mod: "skillshare", kind: "dialog", width: 440, height: 230, props: { role: "hook", item, action, on: ctx.on, project: this.project } }), { quiet: true, color: action === "remove" ? t.ansi1 : t.foreground, px: 10 }));
+    }
     const skillish = item.kind === "skills" || item.kind === "agents";
     if (item.state === "update" && skillish) {
       buttons.push(this.busyAt(this.ctx?.on) ? disabledButton("u-busy", "Working…", t) : primary(`update-${item.key}`, "Update", t, () => request({ op: "update", on: ctx.on, project: this.project, updates: [{ kind: item.kind, scope: item.scope, name: item.update, label: item.label }] })));
@@ -742,6 +755,14 @@ export default class Skillshare extends View {
   renderDialog(cx) {
     const t = theme(), p = blockProps() ?? {}, close = () => closeOverlay(p.overlay);
     if (p.role === "install") return this.renderInstall(t, p, () => { this.closed = true; this.dropClone(p); close(); });
+    if (p.role === "hook") {
+      const it = p.item, label = p.action[0].toUpperCase() + p.action.slice(1);
+      const wording = { enable: "Publishes it again on the next sync.", disable: "Keeps the definition; the next sync removes its owned outputs.", remove: "Deletes the entry; the next sync prunes its owned outputs." };
+      const go = () => { request({ op: "hook", on: p.on, project: p.project, item: it, action: p.action }); close(); };
+      return dialogFrame(t, "hook", this.handle, `${label} “${it.label}”?`,
+        [note(t, `${it.scope} · ${p.on ?? "local"}`), note(t, wording[p.action], t.foreground)],
+        [dialogButton("cancel", "Cancel", t, close), dialogButton("go", label, t, go, p.action === "remove" ? "danger" : undefined)], close, null);
+    }
     if (p.role === "uninstall") {
       const it = p.item;
       const go = () => { request({ op: "uninstall", on: p.on, project: p.project, item: it }); close(); };
