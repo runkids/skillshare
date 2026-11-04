@@ -69,7 +69,7 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
 - Programs:
   - `skillshare` (found in `~/.local/bin`, `~/go/bin`, `/opt/homebrew/bin` or `/usr/local/bin`);
   - `git`, which clones the install URL you type from the network;
-  - `sh`, `mktemp` and `rm` for temp folders (`rm -rf` only on folders it made with `mktemp -d`);
+  - `sh`, `mktemp`, `find` and `rm` for temp folders (`rm -rf` only on folders it made with `mktemp -d`, named `skillshare-panel.*`);
   - `setsid` where it exists, `sleep`, `cat`, `kill -0`, `ps` and `grep` to run long commands detached and check they still run;
   - `hc send` for the audit hand-off.
 - Files read: only the temp folders it made, through `readTextFile`.
@@ -77,7 +77,7 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
 
 ## Watch out
 
-- Herdr stops an `exec` after 30 s. Long commands (the list snapshot, check, doctor, install, update, sync, pull, push, upgrade) run detached into a temp folder on that machine, and the panel polls for their exit code. Herdr ends an exec's whole process group when it returns, and hangs up programs that still carry the exec's `HC_SCOPE`, so each job drops `HC_SCOPE` and gets its own group (`setsid`, or sh job control where `setsid` is missing, as on macOS). The panel checks every 5 s that the job still runs, and reports "skillshare stopped before it finished" when it was killed instead of waiting the full 15 minutes.
+- Herdr stops an `exec` after 30 s. Long commands (the list snapshot, check, doctor, install, update, sync, pull, push, upgrade) run detached into a temp folder on that machine, and the panel polls for their exit code. Herdr ends an exec's whole process group when it returns, and hangs up programs that still carry the exec's `HC_SCOPE`, so each job drops `HC_SCOPE` and gets its own group (`setsid`, or sh job control where `setsid` is missing, as on macOS). The panel checks every 5 s that the job still runs, and reports "skillshare stopped before it finished" when it was killed instead of waiting the full 15 minutes. A panel closed mid-job never collects the result, so the first job on each machine removes `skillshare-panel.*` folders unchanged for 15 minutes whose job no longer runs.
 - The CLI has no JSON for git state. Git state comes from `git status --porcelain=v1 --branch`.
 - The CLI's install dry-run does not list a repository's skills, and `install --json` names a blocked skill without its findings. That is why the install dialog clones and audits on its own.
 - `install --json` overwrites a skill of the same name. The dialog asks before replacing one.

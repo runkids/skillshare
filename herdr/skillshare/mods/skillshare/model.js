@@ -13,19 +13,29 @@ export const SCOPES = [["all", "All"], ["project", "Project"], ["global", "Globa
 // hangs up programs that carry the exec's HC_SCOPE once the exec returns (git and gh, which
 // skillshare runs, died with exit 129), so the job drops it.
 const DETACH = 'unset HC_SCOPE; if command -v setsid >/dev/null 2>&1; then bg() { exec setsid "$@"; }; else set -m; bg() { exec "$@"; }; fi';
+// Named so SWEEP can tell the panel's job folders from anything else in the temp folder.
+const TEMP = 'd=$(mktemp -d "${TMPDIR:-/tmp}/skillshare-panel.XXXXXX")';
 const READY = 'i=0; while [ ! -s "$d/pid" ] && [ $i -lt 50 ]; do sleep 0.1; i=$((i+1)); done; printf %s "$d"';
 // sh -c START <name> <dir> <args...>: runs skillshare <args> in <dir>; prints the temp folder.
-export const START = `${DETACH}; d=$(mktemp -d); dir=$1; shift
+export const START = `${DETACH}; ${TEMP}; dir=$1; shift
 bg sh -c 'echo $$ >"$2/pid"; cd "$1" 2>/dev/null || cd; d=$2; shift 2; skillshare "$@" >"$d/out" 2>"$d/err" </dev/null; echo $? >"$d/code"' job "$dir" "$d" "$@" >/dev/null 2>&1 </dev/null &
 ${READY}`;
 // The same for a script of ours: sh -c START_SCRIPT <name> <dir> <script> <args...>.
-export const START_SCRIPT = `${DETACH}; d=$(mktemp -d); dir=$1; script=$2; shift 2
+export const START_SCRIPT = `${DETACH}; ${TEMP}; dir=$1; script=$2; shift 2
 bg sh -c 'echo $$ >"$1/pid"; d=$1; script=$2; shift 2; sh -c "$script" snapshot "$@" >"$d/out" 2>"$d/err" </dev/null; echo $? >"$d/code"' job "$d" "$script" "$dir" "$@" >/dev/null 2>&1 </dev/null &
 ${READY}`;
 // sh -c ALIVE <name> <temp folder>: fails when the job stopped without writing its exit code.
 // A killed job nobody reaps stays a zombie (a container without init) that kill -0 still finds,
 // so a zombie counts as stopped. Where ps has no -p (busybox), only kill -0 decides.
 export const ALIVE = '[ -s "$1/code" ] || { p=$(cat "$1/pid" 2>/dev/null); kill -0 "$p" 2>/dev/null && ! ps -o stat= -p "$p" 2>/dev/null | grep -q Z; } || [ -s "$1/code" ]';
+// sh -c SWEEP: removes job folders nobody will read: a panel that closed mid-job never collects
+// its result. Keeps a job that still runs and any folder changed in the last 15 minutes, the
+// longest a panel polls one.
+export const SWEEP = `for d in "\${TMPDIR:-/tmp}"/skillshare-panel.*; do
+  [ -d "$d" ] && [ -n "$(find "$d" -prune -mmin +15)" ] || continue
+  [ ! -s "$d/code" ] && sh -c '${ALIVE}' alive "$d" && continue
+  rm -rf "$d"
+done; exit 0`;
 
 // sh -c GIT_STATUS <name> <source dir> [fetch]: the repo holding the source, its branch line and
 // changed files. Prints "norepo" when the source is not in a git repository.
