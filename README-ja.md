@@ -278,6 +278,10 @@ skillshare commit --dry-run
 skillshare ui
 ```
 
+**Herdr パネル** — [Herdr](https://herdr.dev) のエージェントの横に skillshare：更新、sync、監査付きインストール、ソースリポジトリを 1 つのパネルで
+
+[Herdr パネルを設定 →](https://skillshare.runkids.cc/docs/learn/with-herdr)
+
 [すべてのコマンドとガイド →](https://skillshare.runkids.cc/docs/reference/commands)
 
 ## コントリビュート

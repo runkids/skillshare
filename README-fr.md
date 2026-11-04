@@ -279,6 +279,10 @@ skillshare commit --dry-run
 skillshare ui
 ```
 
+**Panneau Herdr** — skillshare à côté de vos agents dans [Herdr](https://herdr.dev) : mises à jour, sync, installations auditées et dépôt source dans un seul panneau
+
+[Configurer le panneau Herdr →](https://skillshare.runkids.cc/docs/learn/with-herdr)
+
 [Toutes les commandes et guides →](https://skillshare.runkids.cc/docs/reference/commands)
 
 ## Contribuer

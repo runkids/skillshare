@@ -279,6 +279,10 @@ skillshare commit --dry-run
 skillshare ui
 ```
 
+**Herdr-Panel** — skillshare neben deinen Agents in [Herdr](https://herdr.dev): Updates, Sync, geprüfte Installationen und das Quell-Repository in einem Panel
+
+[Herdr-Panel einrichten →](https://skillshare.runkids.cc/docs/learn/with-herdr)
+
 [Alle Befehle und Anleitungen →](https://skillshare.runkids.cc/docs/reference/commands)
 
 ## Mitwirken

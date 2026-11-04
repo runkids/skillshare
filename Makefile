@@ -1,4 +1,4 @@
-.PHONY: help build build-meta build-windows run test test-unit test-int test-docker test-docker-online test-redteam test-redteam-signal test-redteam-rules-signal playground playground-down devc devc-up devc-down devc-restart devc-reset devc-status dev-docker dev-docker-down docker-build docker-build-multiarch lint fmt fmt-check docs-check check install clean ui-install ui-build ui-dev build-all verify verify-shell verify-down verify-status verify-reset
+.PHONY: help build build-meta build-windows run test test-herdr test-unit test-int test-docker test-docker-online test-redteam test-redteam-signal test-redteam-rules-signal playground playground-down devc devc-up devc-down devc-restart devc-reset devc-status dev-docker dev-docker-down docker-build docker-build-multiarch lint fmt fmt-check docs-check check install clean ui-install ui-build ui-dev build-all verify verify-shell verify-down verify-status verify-reset
 
 help:
 	@echo "Common tasks:"
@@ -7,6 +7,7 @@ help:
 	@echo "  make test           # unit + integration tests"
 	@echo "  make test-unit      # unit tests only"
 	@echo "  make test-int       # integration tests only"
+	@echo "  make test-herdr     # Herdr panel mod tests (node)"
 	@echo "  make test-docker    # docker offline sandbox (build + unit + integration)"
 	@echo "  make test-docker-online  # docker online install/update tests"
 	@echo "  make test-redteam   # red team supply-chain security tests"
@@ -143,7 +144,10 @@ fmt-check:
 docs-check:
 	python3 scripts/ai-context.py check
 
-check: docs-check fmt-check lint test
+test-herdr:
+	node --test herdr/tests/*.test.mjs
+
+check: docs-check fmt-check lint test test-herdr
 
 install:
 	go install ./cmd/skillshare
