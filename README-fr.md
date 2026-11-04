@@ -116,6 +116,14 @@ brew install skillshare
 
 > **Astuce :** lancez `skillshare upgrade` pour passer à la dernière version. La commande détecte votre méthode d'installation et s'occupe du reste.
 
+### CLI : Nix
+
+```bash
+nix profile add github:runkids/skillshare
+```
+
+Mettez à jour avec `nix profile upgrade skillshare`. Nécessite Nix 2.30+ avec les flakes activés ; avec un Nix plus ancien ou Lix, utilisez `nix profile install`. Les configurations NixOS et Home Manager peuvent utiliser l'`overlays.default` du flake.
+
 ### GitHub Actions
 
 ```yaml

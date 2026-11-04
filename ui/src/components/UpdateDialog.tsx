@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { X, Copy, Check, CircleArrowUp } from 'lucide-react';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
-import { api, ApiError } from '../api/client';
+import { api } from '../api/client';
 import type { VersionCheck } from '../api/client';
 import DialogShell from './DialogShell';
 import Button from './Button';
 import { useT } from '../i18n';
+import { upgradeErrorMessage } from '../lib/upgradeError';
 
 const DISMISSED_KEY = 'ss-update-dialog-dismissed';
 
@@ -101,7 +102,7 @@ export default function UpdateDialog() {
       await api.restartApp({ clearCache: false });
       void waitForRestartThenReload();
     } catch (err) {
-      setStatus(err instanceof ApiError && err.code === 'upgrade.needs_sudo' ? t('updateDialog.needsSudo') : (err as Error).message);
+      setStatus(upgradeErrorMessage(err, t));
       setUpdating(false);
     }
   };

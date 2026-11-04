@@ -138,3 +138,62 @@ func TestHandleUpgradeNeedsSudoIsCoded(t *testing.T) {
 		t.Errorf("got %d %s, want 403 with upgrade.needs_sudo", rec.Code, rec.Body.String())
 	}
 }
+
+func stubNixUpgrade(t *testing.T, method versioncheck.InstallMethod, output string) *bool {
+	t.Helper()
+	oldDetect, oldRun := detectUIInstallMethod, runUIUpgrade
+	ran := false
+	detectUIInstallMethod = func() versioncheck.InstallMethod { return method }
+	runUIUpgrade = func() (uiUpgradeResult, error) {
+		ran = true
+		return uiUpgradeResult{Updated: true, Output: output}, nil
+	}
+	t.Cleanup(func() { detectUIInstallMethod, runUIUpgrade = oldDetect, oldRun })
+	return &ran
+}
+
+const nixPendingOutput = "CLI  v1.0.0 → v1.1.0 available · " + versioncheck.NixUpgradeNote + ", run: nix profile upgrade skillshare\nSkill  updated"
+
+func TestHandleUpgradeNixProfileReportsPendingCLI(t *testing.T) {
+	ran := stubNixUpgrade(t, versioncheck.InstallNixProfile, nixPendingOutput)
+
+	s := &Server{}
+	rec := httptest.NewRecorder()
+	s.handleUpgrade(rec, httptest.NewRequest(http.MethodPost, "/api/upgrade", nil))
+
+	if !*ran {
+		t.Fatal("upgrade should still run so the built-in skill updates")
+	}
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `"error_code":"upgrade.nix"`) || !strings.Contains(body, `"command":"nix profile upgrade skillshare"`) {
+		t.Fatalf("response should carry the Nix code and command: %s", body)
+	}
+}
+
+func TestHandleUpgradeNixConfigReportsPendingCLI(t *testing.T) {
+	stubNixUpgrade(t, versioncheck.InstallNix, nixPendingOutput)
+
+	s := &Server{}
+	rec := httptest.NewRecorder()
+	s.handleUpgrade(rec, httptest.NewRequest(http.MethodPost, "/api/upgrade", nil))
+
+	body := rec.Body.String()
+	if rec.Code != http.StatusConflict || !strings.Contains(body, `"command":""`) || !strings.Contains(body, versioncheck.NixConfigUpgradeHint) {
+		t.Fatalf("status = %d body = %s", rec.Code, body)
+	}
+}
+
+func TestHandleUpgradeNixUpdatesSkillWhenCLICurrent(t *testing.T) {
+	ran := stubNixUpgrade(t, versioncheck.InstallNix, "CLI  v1.1.0, already up to date\nSkill  updated")
+
+	s := &Server{}
+	rec := httptest.NewRecorder()
+	s.handleUpgrade(rec, httptest.NewRequest(http.MethodPost, "/api/upgrade", nil))
+
+	if !*ran || rec.Code != http.StatusOK {
+		t.Fatalf("ran = %v status = %d body = %s", *ran, rec.Code, rec.Body.String())
+	}
+}

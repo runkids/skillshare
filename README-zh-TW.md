@@ -116,6 +116,14 @@ brew install skillshare
 
 > **提示：** 執行 `skillshare upgrade` 更新到最新版。它會自動判斷你的安裝方式並處理後續步驟。
 
+### CLI：Nix
+
+```bash
+nix profile add github:runkids/skillshare
+```
+
+使用 `nix profile upgrade skillshare` 更新。需要啟用 flakes 的 Nix 2.30 以上版本；較舊的 Nix 或 Lix 請使用 `nix profile install`。NixOS 與 Home Manager 設定可以使用 flake 的 `overlays.default`。
+
 ### GitHub Actions
 
 ```yaml

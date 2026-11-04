@@ -945,6 +945,8 @@
   "syncResult.upToDate.other": "{count} targets already up to date",
   "updateDialog.copyCommand": "Copy command",
   "updateDialog.needsSudo": "Updating needs your password. Run skillshare upgrade in a terminal.",
+  "updateDialog.nixConfig": "skillshare is installed with Nix. Update skillshare in your Nix configuration and rebuild.",
+  "updateDialog.nixProfile": "skillshare is installed with Nix. Run {command} in a terminal.",
   "updateDialog.newVersion": "New version available",
   "updateDialog.restartDev": "DEV mode restart simulated.",
   "updateDialog.restartManual": "Updated. Restart with skillshare ui start if this page does not reconnect.",

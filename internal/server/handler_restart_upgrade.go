@@ -25,9 +25,10 @@ type uiUpgradeResult struct {
 }
 
 var (
-	runUIUpgrade         = defaultRunUIUpgrade
-	startUIRestartHelper = defaultStartUIRestartHelper
-	processExit          = os.Exit
+	detectUIInstallMethod = versioncheck.DetectCurrentInstallMethod
+	runUIUpgrade          = defaultRunUIUpgrade
+	startUIRestartHelper  = defaultStartUIRestartHelper
+	processExit           = os.Exit
 )
 
 func (s *Server) handleUpgrade(w http.ResponseWriter, r *http.Request) {
@@ -44,6 +45,16 @@ func (s *Server) handleUpgrade(w http.ResponseWriter, r *http.Request) {
 		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	// `upgrade` keeps a Nix-store binary and still updates the skill, so a
+	// newer CLI it could not install is reported with what to run instead.
+	if strings.Contains(result.Output, versioncheck.NixUpgradeNote) {
+		if method := detectUIInstallMethod(); method.IsNix() {
+			writeCodedError(w, http.StatusConflict, "upgrade.nix",
+				"skillshare is installed with Nix; "+method.UpgradeInstruction(),
+				map[string]string{"command": method.UpgradeCommand()})
+			return
+		}
 	}
 	writeJSON(w, map[string]any{
 		"ok":            true,

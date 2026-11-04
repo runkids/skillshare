@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ArrowUpCircle, CheckCircle2, ChevronDown, ChevronRight, Info, Pencil, RefreshCw, XCircle } from 'lucide-react';
-import { api, ApiError, type DoctorCheck } from '../api/client';
+import { api, type DoctorCheck } from '../api/client';
 import Button from '../components/Button';
 import CopyButton from '../components/CopyButton';
+import { upgradeErrorMessage } from '../lib/upgradeError';
 import PageHeader from '../components/PageHeader';
 import { PageSkeleton } from '../components/Skeleton';
 import { useAppContext } from '../context/AppContext';
@@ -74,7 +75,7 @@ export default function DoctorPage() {
       setUpgradeMessage(t('updateDialog.restartManual'));
       setUpgrading(false);
     } catch (e) {
-      setUpgradeMessage(e instanceof ApiError && e.code === 'upgrade.needs_sudo' ? t('updateDialog.needsSudo') : (e as Error).message);
+      setUpgradeMessage(upgradeErrorMessage(e, t));
       setUpgrading(false);
     }
   };

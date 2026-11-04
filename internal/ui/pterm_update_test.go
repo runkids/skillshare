@@ -25,7 +25,7 @@ func TestUpdateNotification_WritesToStderr(t *testing.T) {
 	}
 	os.Stdout = wOut
 
-	UpdateNotification("1.0.0", "2.0.0", "skillshare upgrade")
+	UpdateNotification("1.0.0", "2.0.0", "run: skillshare upgrade")
 
 	wErr.Close()
 	wOut.Close()

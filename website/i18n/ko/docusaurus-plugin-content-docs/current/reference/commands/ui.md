@@ -187,7 +187,7 @@ project mode(`-p`)로 실행할 때 대시보드는 다음과 같이 달라집�
 | GET | `/api/doctor` | 모든 상태 검사 실행(JSON) |
 | GET | `/api/health` | liveness probe. 서버가 준비되면 `200`을 반환합니다 |
 | GET | `/api/version` | 현재/최신 버전 + 업그레이드 가능 여부 |
-| POST | `/api/upgrade` | 제자리에서 `skillshare upgrade` 실행(바이너리가 dev build인 경우 `devMode: true` 반환) |
+| POST | `/api/upgrade` | 제자리에서 `skillshare upgrade` 실행(바이너리가 dev build인 경우 `devMode: true` 반환, Nix 설치에서는 코드 `upgrade.nix`와 함께 `409` 반환) |
 | POST | `/api/restart` | 로컬 UI 서버 재시작. 선택적으로 `{ "clearCache": true }` body를 전달하면 먼저 캐시된 UI 자산을 지웁니다 |
 
 ## 제자리 업그레이드
@@ -197,6 +197,8 @@ project mode(`-p`)로 실행할 때 대시보드는 다음과 같이 달라집�
 1. UI가 `POST /api/upgrade`를 호출하여 호스트에서 `skillshare upgrade`를 실행합니다.
 2. 새 바이너리가 준비되면 UI가 `POST /api/restart`를 호출하여 로컬 서버를 재시작합니다.
 3. 브라우저는 `GET /api/health`를 폴링하며 새 서버가 준비되면 자동으로 새로고침합니다.
+
+skillshare를 Nix로 설치한 경우 엔드포인트는 `409`(`upgrade.nix`)로 거부하고, 대화상자에 Nix로 업데이트하는 방법이 표시됩니다. [upgrade](./upgrade.md#nix-users)를 참고하세요.
 
 실행 중인 바이너리가 개발 빌드(`version == "dev"`)인 경우, upgrade 엔드포인트는 `devMode: true`를 반환하고 UI는 디스크의 어떤 것도 수정하지 않은 채 재시작을 시뮬레이션합니다.
 
@@ -279,7 +281,7 @@ skillshare ui -p
 
 ## Homebrew 참고 사항
 
-모든 설치 방법(Homebrew, 설치 스크립트, 수동 바이너리)은 런타임 UI 다운로드를 사용합니다. `skillshare ui`를 실행하면 최초 실행 시 GitHub에서 UI 자산을 자동으로 다운로드합니다. 이후에는 캐시된 자산이 오프라인으로 사용됩니다.
+모든 설치 방법(Homebrew, Nix, 설치 스크립트, 수동 바이너리)은 런타임 UI 다운로드를 사용합니다. `skillshare ui`를 실행하면 최초 실행 시 GitHub에서 UI 자산을 자동으로 다운로드합니다. 이후에는 캐시된 자산이 오프라인으로 사용됩니다.
 
 다운로드된 UI 캐시를 지우려면:
 
