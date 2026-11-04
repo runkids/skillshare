@@ -249,3 +249,33 @@ func TestComputeFileHashes_BrokenSymlinkReturnsError(t *testing.T) {
 		t.Fatalf("must not return partial hashes as successful: %v", hashes)
 	}
 }
+
+// Regression for #777: the repo source rebuilt from an agent's metadata must
+// reproduce that metadata's source when the agent is written back.
+func TestAgentRepoSource_RoundTripsAgentSource(t *testing.T) {
+	tests := []struct {
+		name       string
+		source     string
+		agentPath  string
+		repoSubdir string
+	}{
+		{"github whole repo", "github.com/you/repo/agents/demo.md", "agents/demo.md", ""},
+		{"github repo subdir", "github.com/you/repo/pack/agents/demo.md", "agents/demo.md", "pack"},
+		{"ssh whole repo", "git@github.com:you/repo.git//agents/demo.md", "agents/demo.md", ""},
+		{"ssh repo subdir", "git@github.com:you/repo.git//pack/agents/demo.md", "agents/demo.md", "pack"},
+		{"file whole repo", "file:///tmp/repo/agents/demo.md", "agents/demo.md", ""},
+		{"file repo subdir", "file:///tmp/repo//pack/agents/demo.md", "agents/demo.md", "pack"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source, err := AgentRepoSource(&MetadataEntry{Source: tt.source, Subdir: tt.agentPath}, ParseOptions{})
+			if err != nil {
+				t.Fatalf("AgentRepoSource: %v", err)
+			}
+			got := buildDiscoverySkillSource(source, tt.agentPath)
+			if got != tt.source || source.Subdir != tt.repoSubdir {
+				t.Errorf("got source %q subdir %q, want %q subdir %q", got, source.Subdir, tt.source, tt.repoSubdir)
+			}
+		})
+	}
+}

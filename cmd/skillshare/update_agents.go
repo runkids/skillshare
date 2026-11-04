@@ -184,6 +184,7 @@ func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *
 	store := install.LoadMetadataOrNew(agentsDir)
 	trackedRepos := map[string][]check.AgentCheckResult{}
 	groups := map[agentRepoKey][]check.AgentCheckResult{}
+	groupSources := map[agentRepoKey]*install.Source{}
 	var noRepo []check.AgentCheckResult
 	var items []agentUpdateItem
 	updated, failed := 0, 0
@@ -203,18 +204,19 @@ func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *
 			continue
 		}
 
-		source, parseErr := install.ParseSourceWithOptions(entry.Source, parseOpts)
+		source, parseErr := install.AgentRepoSource(entry, parseOpts)
 		if parseErr != nil {
 			noRepo = append(noRepo, r)
 			continue
 		}
-		repoSubdir := strings.TrimSuffix(source.Subdir, entry.Subdir)
-		repoSubdir = strings.TrimRight(repoSubdir, "/")
 
 		key := agentRepoKey{
-			cloneURL:   r.RepoURL,
-			branch:     entry.Branch,
-			repoSubdir: repoSubdir,
+			cloneURL:   source.CloneURL,
+			branch:     source.Branch,
+			repoSubdir: source.Subdir,
+		}
+		if _, ok := groupSources[key]; !ok {
+			groupSources[key] = source
 		}
 		groups[key] = append(groups[key], r)
 	}
@@ -273,11 +275,7 @@ func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *
 
 	// Batch: one clone per repo group
 	for key, members := range groups {
-		source := &install.Source{
-			CloneURL: key.cloneURL,
-			Subdir:   key.repoSubdir,
-			Branch:   key.branch,
-		}
+		source := groupSources[key]
 
 		var discovery *install.DiscoveryResult
 		var discErr error
@@ -412,15 +410,10 @@ func reinstallAgent(agentsDir string, r check.AgentCheckResult, store *install.M
 		return fmt.Errorf("no source metadata for agent %q", r.Name)
 	}
 
-	// Reconstruct the repo-level subdir for discovery.
-	source, parseErr := install.ParseSourceWithOptions(entry.Source, parseOpts)
+	source, parseErr := install.AgentRepoSource(entry, parseOpts)
 	if parseErr != nil {
 		return fmt.Errorf("invalid source: %w", parseErr)
 	}
-	source.ApplyRecordedBranch(entry.Branch)
-	repoSubdir := strings.TrimSuffix(source.Subdir, entry.Subdir)
-	repoSubdir = strings.TrimRight(repoSubdir, "/")
-	source.Subdir = repoSubdir
 
 	// Discover agents — use subdir-scoped discovery for monorepo installs.
 	var discovery *install.DiscoveryResult

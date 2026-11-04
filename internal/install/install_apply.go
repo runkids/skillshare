@@ -101,6 +101,24 @@ func buildDiscoveredAgentSource(discovery *DiscoveryResult, agent AgentInfo) *So
 	}
 }
 
+// AgentRepoSource rebuilds the repository-level source an agent was
+// discovered from. entry.Source is the agent's own source, which
+// buildDiscoverySkillSource formed by appending entry.Subdir (the agent's
+// path) to it, so the path is cut off before parsing.
+func AgentRepoSource(entry *MetadataEntry, opts ParseOptions) (*Source, error) {
+	raw := entry.Source
+	if root, ok := strings.CutSuffix(raw, "/"+entry.Subdir); entry.Subdir != "" && ok {
+		// Whole-repo SSH sources join the path with "//".
+		raw = strings.TrimSuffix(root, "/")
+	}
+	source, err := ParseSourceWithOptions(raw, opts)
+	if err != nil {
+		return nil, err
+	}
+	source.ApplyRecordedBranch(entry.Branch)
+	return source, nil
+}
+
 func writeDiscoveredAgentMetadata(discovery *DiscoveryResult, agent AgentInfo, destFile, sourceDir string) error {
 	source := buildDiscoveredAgentSource(discovery, agent)
 	meta := NewMetaFromSource(source)
