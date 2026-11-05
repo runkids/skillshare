@@ -45,7 +45,10 @@ Counts and groups include named hook entries and pending named cleanup, excludin
 notices. Notices follow the scope, kind and text filters and remain visible with zero entries.
 Nested hook rows show their full root to distinguish projects with the same folder name.
 “In sync” describes native file alignment; inactive hooks retain a warning dot and reason.
-Warnings and preview failures appear above the resource groups. When only an unnamed native
+Warnings and preview failures appear above the resource groups. When preview fails, named
+entries stay visible there as “sync status unknown”; they do not count as pending or in sync.
+Disabled state remains visible alongside diagnostics, and pending summaries omit unchanged
+targets while expanded details retain them. When only an unnamed native
 include needs work, “Native hook files need sync” offers Sync for its scope.
 Hook conflicts block `sync --all` for every resource kind; resolve them with the CLI or
 dashboard, then Sync again.

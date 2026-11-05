@@ -41,84 +41,49 @@ test("MCP servers need a sync when a target change is pending", () => {
   assert.equal(items[0].state, "sync");
 });
 
-test("hooks combine declarations and planned changes, including inactive and disabled entries", () => {
+test("hooks combine declarations and planned changes, including disabled entries", () => {
   const items = buildItems("global", { hooks: { source: { entries: {
     clean: { bindings: { claude: {} } }, disabled: { enabled: false, bindings: {} },
-    pending: { bindings: { codex: {} } }, inactive: { bindings: { git: {} } },
+    pending: { bindings: { codex: {} } },
     conflict: { bindings: { claude: {} } }, pruning: { enabled: false, bindings: { claude: {} } },
   } }, plan: { changes: [
     { name: "clean", target: "claude", action: "unchanged" },
     { name: "pending", target: "codex", action: "add" },
-    { name: "inactive", target: "git", action: "inactive" },
     { name: "conflict", target: "claude", action: "conflict", message: "import it or explicitly replace it" },
     { name: "pruning", target: "claude", action: "remove" },
     { name: "removed", target: "codex", action: "remove" },
   ] } } });
   const by = Object.fromEntries(items.map((i) => [i.name, i]));
-  assert.deepEqual(items.map((i) => i.state), ["ok", "off", "sync", "ok", "sync", "sync", "sync"]);
+  assert.deepEqual(items.map((i) => i.state), ["ok", "off", "sync", "sync", "sync", "sync"]);
   assert.equal(by.disabled.src, "no agents");
   assert.equal(by.removed.declared, false);
   assert.equal(by.conflict.reason, "claude: conflict · import it or explicitly replace it");
   assert.equal(rowSub(by.conflict, true), `global · ${by.conflict.reason}`);
   assert.equal(rowSub(by.clean, false), "claude");
-  assert.equal(counts(items).hooks, 7);
-  assert.deepEqual(Object.values(groupItems(items)).map((g) => g.length), [0, 4, 3]);
-  assert.deepEqual(filterItems(items, { scope: "all", kind: "hooks", query: "git" }).map((i) => i.name), ["inactive"]);
-});
-
-test("hook roots have distinct keys and nameless conflicts are read-only status rows", () => {
-  const items = buildItems("global", { hooks: { source: {
-    entries: { fmt: { bindings: {} } }, projects: { "/fixture/repo": { entries: { fmt: { bindings: { claude: {} } } } }, "/fixture/owned": { entries: {} } },
-  }, plan: { changes: [{ root: "/fixture/repo", name: "fmt", target: "claude", action: "add" },
-    { path: "/fixture/owned", root: "/fixture/owned", name: "", target: "", action: "conflict", message: "project has its own Skillshare config; manage its hooks there with -p" }] } } });
-  assert.equal(new Set(items.map((i) => i.key)).size, 3);
-  assert.equal(items[1].key, "global:hooks:/fixture/repo/fmt");
-  assert.equal(items[1].state, "sync");
-  assert.equal(items[2].label, "Hook status");
-  assert.equal(items[2].reason, "conflict · project has its own Skillshare config; manage its hooks there with -p");
-  assert.equal(rowSub(items[2], false), items[2].reason);
-  assert.equal(hookArgs(items[1], "disable"), null);
-  assert.equal(hookArgs(items[2], "remove"), null);
+  assert.equal(counts(items).hooks, 6);
+  assert.deepEqual(Object.values(groupItems(items)).map((g) => g.length), [0, 4, 2]);
+  assert.deepEqual(filterItems(items, { scope: "all", kind: "hooks", query: "codex" }).map((i) => i.name), ["pending", "removed"]);
 });
 
 test("hook preview and inventory errors preserve panel read failures", () => {
   const [item] = buildItems("project", { hooks: { source: { entries: { fmt: { bindings: {} } } }, previewError: "preflight failed" } });
-  assert.equal(item.state, "sync");
-  assert.equal(item.reason, "preflight failed");
+  assert.equal(item.state, "unknown");
+  assert.equal(rowSub(item, false), "sync status unknown");
   const [status] = buildItems("project", { list: [], hooks: { error: "bad hook config" } });
   assert.equal(status.notice, true);
   assert.equal(status.pending, false);
   assert.equal(status.reason, "bad hook config");
   assert.deepEqual(buildItems("project", { list: null, hooks: null }), []);
   assert.deepEqual(buildItems("global", { list: null, hooks: { error: "missing config" } }), []);
-});
-
-test("hook diagnostics survive unchanged Git outputs and plans without entry changes", () => {
-  const reason = "Git 2.53.0 cannot run config hooks; Git 2.54 or later is required";
-  const warning = "Git include is conditional; activation depends on its includeIf condition";
-  const items = buildItems("global", { list: [], hooks: { source: { entries: { fmt: { bindings: { git: {} } } } },
-    plan: { changes: [{ target: "git", path: "/fixture/gitconfig", name: "fmt", action: "unchanged", inactiveReason: reason }], warnings: [warning] } } });
-  assert.equal(items[0].state, "ok");
-  assert.ok(items[0].lines[0].includes(reason));
-  assert.ok(rowSub(items[0], false).includes(reason));
-  assert.ok(items.some((i) => i.lines.includes(warning) && rowSub(i, false).includes(warning)));
-  const warningsOnly = buildItems("global", { list: [], hooks: { source: { entries: {} }, plan: { changes: [], warnings: [warning] } } });
-  assert.equal(warningsOnly.length, 1);
-  assert.ok(warningsOnly[0].lines.includes(warning));
-  assert.equal(hookArgs(warningsOnly[0], "remove"), null);
-});
-
-test("hook cleanup preview errors remain visible after the last declaration is removed", () => {
   const raw = { list: [], hooks: { source: { entries: {} }, previewError: "parse /fixture/settings.json: invalid JSON" } };
-  const [item] = buildItems("global", raw);
-  assert.ok(item, "cleanup failure must not become an empty Hooks tab");
-  assert.equal(item.notice, true);
-  assert.equal(item.pending, false);
-  assert.deepEqual(item.lines, [raw.hooks.previewError]);
-  assert.equal(rowSub(item, false), raw.hooks.previewError);
-  assert.equal(hookArgs(item, "remove"), null);
-  assert.equal(groupItems([item]).sync.length, 0);
-  assert.equal(counts([item]).hooks, 0);
+  const [cleanup] = buildItems("global", raw);
+  assert.ok(cleanup, "cleanup failure must not become an empty Hooks tab");
+  assert.equal(cleanup.notice, true);
+  assert.equal(cleanup.pending, false);
+  assert.deepEqual(cleanup.lines, [raw.hooks.previewError]);
+  assert.equal(rowSub(cleanup, false), raw.hooks.previewError);
+  assert.equal(groupItems([cleanup]).sync.length, 0);
+  assert.equal(counts([cleanup]).hooks, 0);
   assert.deepEqual(buildItems("global", { ...raw, list: null }), []);
 });
 
@@ -137,6 +102,11 @@ test("hook notices stay filtered but never inflate named entry or group counts",
   const matched = filterItems(warnings, { scope: "all", kind: "hooks", query: "version" });
   assert.equal(matched.length, 1);
   assert.deepEqual(matched[0].lines, ["Git version too old"]);
+  const warning = "Git include is conditional; activation depends on its includeIf condition";
+  assert.ok(notices[0].lines.includes(warning) && rowSub(notices[0], false).includes(warning));
+  const warningsOnly = buildItems("global", { list: [], hooks: { source: { entries: {} }, plan: { changes: [], warnings: [warning] } } });
+  assert.equal(warningsOnly.length, 1);
+  assert.ok(warningsOnly[0].lines.includes(warning));
 });
 
 test("hook inactivity preserves its reason independently of pending native writes", () => {
@@ -149,6 +119,7 @@ test("hook inactivity preserves its reason independently of pending native write
       plan: { changes: [{ target: "git", path: "/fixture/gitconfig", name: "fmt", action, message, inactiveReason }] } } });
     assert.equal(item.state, state);
     assert.equal(item.diagnostic, true);
+    assert.ok(item.lines[0].includes(inactiveReason || message));
     assert.ok(rowSub(item, false).includes(inactiveReason || message));
   }
 });
@@ -170,7 +141,20 @@ test("root-wide conflicts reach every affected entry while full roots distinguis
   const [notice] = items.filter((i) => i.notice);
   assert.equal(notice.pending, false);
   assert.equal(notice.root, root);
-  assert.equal(hookArgs(notice, "remove"), null);
+  {
+    const items = buildItems("global", { hooks: { source: {
+      entries: { fmt: { bindings: {} } }, projects: { "/fixture/repo": { entries: { fmt: { bindings: { claude: {} } } } }, "/fixture/owned": { entries: {} } },
+    }, plan: { changes: [{ root: "/fixture/repo", name: "fmt", target: "claude", action: "add" },
+      { path: "/fixture/owned", root: "/fixture/owned", name: "", target: "", action: "conflict", message: "project has its own Skillshare config; manage its hooks there with -p" }] } } });
+    assert.equal(new Set(items.map((i) => i.key)).size, 3);
+    assert.equal(items[1].key, "global:hooks:/fixture/repo/fmt");
+    assert.equal(items[1].state, "sync");
+    assert.equal(items[2].label, "Hook status");
+    assert.equal(items[2].reason, "conflict · project has its own Skillshare config; manage its hooks there with -p");
+    assert.equal(rowSub(items[2], false), items[2].reason);
+    assert.equal(hookArgs(items[1], "disable"), null);
+    assert.equal(hookArgs(items[2], "remove"), null);
+  }
 });
 
 test("unnamed native includes carry pending scope without counting as hooks", () => {
@@ -201,6 +185,45 @@ printf '%s\\n' '{"source":{"entries":{}},"plan":{"changes":[]}}'
     assert.deepEqual(parseSnapshot(result.stdout).hooks.source.entries, {});
     assert.ok(readFileSync(join(dir, "calls"), "utf8").split("\n").includes(`hooks list --json ${flag}`));
   }
+});
+
+test("preview failures show unknown entry status and a single scope error without pending sync", () => {
+  const error = "parse /fixture/settings.json: invalid JSON";
+  const items = buildItems("global", { list: [], hooks: { source: { entries: {
+    fmt: { bindings: { claude: {} } }, lint: { bindings: {} }, disabled: { enabled: false, bindings: {} },
+  } }, previewError: error } });
+  const rows = items.filter((i) => !i.notice), notices = items.filter((i) => i.notice);
+  assert.equal(rows.length, 3);
+  assert.ok(rows.every((i) => i.state === "unknown" && !i.lines.includes(error)));
+  assert.equal(notices.length, 1);
+  assert.deepEqual(notices[0].lines, [error]);
+  assert.equal(notices[0].pending, false);
+  assert.equal(Object.values(groupItems(items)).flat().length, 0);
+  assert.equal(counts(items).hooks, 3);
+  assert.equal(rowSub(rows[0], false), "sync status unknown");
+  assert.equal(rowSub(rows[2], false), "disabled · sync status unknown");
+});
+
+test("disabled hook cleanup keeps disabled alongside runtime diagnostics", () => {
+  const reason = "Git 2.53.0 cannot run config hooks; Git 2.54 or later is required";
+  const [item] = buildItems("global", { hooks: { source: { entries: {
+    fmt: { enabled: false, bindings: { git: {} } }, live: { bindings: { git: {} } },
+  } }, plan: { changes: [{ target: "git", path: "/fixture/gitconfig", name: "fmt", action: "remove", inactiveReason: reason }] } } });
+  assert.equal(item.state, "sync");
+  assert.equal(item.disabled, true);
+  assert.equal(rowSub(item, false), `disabled · git: remove · ${reason}`);
+});
+
+test("pending hook summary omits unchanged targets but details retain them and inactivity", () => {
+  const [item] = buildItems("global", { hooks: { source: { entries: { fmt: { bindings: { claude: {}, codex: {}, git: {} } } } }, plan: { changes: [
+    { target: "claude", name: "fmt", action: "unchanged" }, { target: "codex", name: "fmt", action: "add" },
+    { target: "git", name: "fmt", action: "unchanged", inactiveReason: "include target not writable; add manually" },
+  ] } } });
+  assert.equal(item.state, "sync");
+  assert.ok(!rowSub(item, false).includes("claude: unchanged"));
+  assert.ok(rowSub(item, false).includes("codex: add"));
+  assert.ok(rowSub(item, false).includes("add manually"));
+  assert.ok(item.lines.includes("claude: unchanged"));
 });
 
 test("hook actions use scoped argv without JSON and reject unsupported actions", () => {

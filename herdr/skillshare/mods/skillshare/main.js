@@ -524,6 +524,8 @@ export default class Skillshare extends View {
       const syncLabel = scope === "all" ? (syncScopes.length > 1 ? "Sync" : `Sync ${syncScopes[0]}`) : `Sync ${scope}`;
       const sections = notices.map((i) => v_flex().px(14).py(4).gap(8)
         .child(warnBox(t, `${i.scope}${i.root ? ` · ${i.root}` : ""}: ${i.reason}${i.blocker ? " Resolve with the CLI or dashboard; Sync validates again before applying changes." : ""}`)));
+      const unknown = shown.filter((i) => !i.notice && i.state === "unknown");
+      sections.push(...unknown.map((i) => this.row(t, i, showScope, ctx)));
       if (groups.update.length) {
         sections.push(this.groupHeader(t, "update", `Updates available · ${groups.update.length}`, t.accent,
           primary("update-all", "Update all", t, () => this.updateAll(groups.update, ctx), { h: 26, px: 10, size: S().label })));
@@ -534,7 +536,7 @@ export default class Skillshare extends View {
           primary("sync-group", syncLabel, t, () => request({ op: "sync", on: ctx.on, project: this.project, scopes: syncScopes, plugins: groups.sync.some((i) => i.kind === "plugins") }), { h: 26, px: 10, size: S().label })));
         sections.push(...groups.sync.map((i) => this.row(t, i, showScope, ctx)));
       }
-      sections.push(this.groupHeader(t, "ok", `In sync · ${groups.ok.length}`, t.muted, null));
+      if (groups.ok.length || !unknown.length) sections.push(this.groupHeader(t, "ok", `In sync · ${groups.ok.length}`, t.muted, null));
       sections.push(...groups.ok.map((i) => this.row(t, i, showScope, ctx)));
       if (!shown.length) sections.push(div().px(14).py(8).child(note(t, this.query ? "Nothing matches the filter." : `No ${KINDS.find(([k]) => k === this.kind)[1].toLowerCase()} here yet.`)));
       list = v_flex().pt(4).pb(16).children(sections);
@@ -571,7 +573,7 @@ export default class Skillshare extends View {
     if (item.state === "update") lines.push(item.behind ? `${item.behind} new commit${item.behind === 1 ? "" : "s"} upstream in ${item.src}. Updating changes the source; targets get it on the next sync.` : `A newer version is upstream in ${item.src}. Updating changes the source; targets get it on the next sync.`);
     if (item.state === "missing") lines.push("Not synced yet. The next sync gives it to every target your config names.");
     if (item.state === "sync" && item.kind !== "hooks") lines.push(`Changed since the last sync${item.reason ? ` (${item.reason})` : ""}. The next sync updates your targets.`);
-    if (item.state === "off") lines.push("Disabled: targets don't get it.");
+    if (item.state === "off" || (item.kind === "hooks" && item.disabled)) lines.push("Disabled: targets don't get it.");
     if (item.kind === "hooks") lines.push(`Agents: ${item.src}`, ...(item.description ? [item.description] : []), ...(item.root ? [`Root: ${item.root}`] : []), ...item.lines);
     const agent = this.receiver();
     const buttons = [];

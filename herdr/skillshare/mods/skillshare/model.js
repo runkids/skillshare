@@ -301,18 +301,20 @@ export function buildItems(scope, raw) {
   const error = raw.hooks?.error || raw.hooks?.previewError;
   if (error && Array.isArray(raw.list)) status("error");
   for (const [index, warning] of (raw.hooks?.plan?.warnings ?? []).entries()) status(`warning:${index}`).warnings = [warning];
+  const changeLine = (c) => [[c.target, c.action].filter(Boolean).join(": "),
+    ...new Set([c.message, c.inactiveReason].filter(Boolean))].join(" · ");
   for (const item of hooks.values()) {
     item.src = item.targets.join(", ") || "no agents";
-    item.lines = error ? [error] : [...item.changes.map((c) => [
-      [c.target, c.action].filter(Boolean).join(": "), ...new Set([c.message, c.inactiveReason].filter(Boolean)),
-    ].join(" · ")), ...(item.warnings ?? [])];
+    const pending = item.changes.filter((c) => !["unchanged", "inactive"].includes(c.action));
+    item.lines = error ? (item.notice ? [error] : []) : [...item.changes.map(changeLine), ...(item.warnings ?? [])];
     item.diagnostic = Boolean(item.changes.some((c) => c.action === "inactive" || c.inactiveReason));
-    item.reason = item.lines.join("; ");
+    const summary = pending.length ? item.changes.filter((c) => c.action !== "unchanged" || c.inactiveReason) : item.changes;
+    item.reason = item.notice ? item.lines.join("; ") : summary.map(changeLine).join("; ");
     if (item.notice) {
       item.pending = item.changes.some((c) => ["add", "update", "remove", "adopt", "release"].includes(c.action));
       item.blocker = Boolean(error || item.changes.some((c) => c.action === "conflict"));
     }
-    item.state = !raw.hooks?.plan || item.changes.some((c) => !["unchanged", "inactive"].includes(c.action)) ? "sync" : item.disabled ? "off" : "ok";
+    item.state = !raw.hooks?.plan ? "unknown" : pending.length ? "sync" : item.disabled ? "off" : "ok";
     items.push(item);
   }
   return items;
@@ -328,11 +330,15 @@ export function hookArgs(item, action) {
 // The line under a row's name.
 export function rowSub(item, showScope) {
   const pre = showScope ? `${item.scope} · ` : "";
+  if (item.kind === "hooks") {
+    const disabled = item.disabled ? "disabled · " : "";
+    if (!item.notice && item.state === "unknown") return `${pre}${disabled}sync status unknown`;
+    if (item.state === "sync" || item.notice || item.diagnostic) return `${pre}${disabled}${item.reason}`;
+  }
   if (item.state === "update") return `${pre}${item.version ? item.version.slice(0, 7) + " → newer" : "update available"}${item.behind ? ` · ↓${item.behind}` : ""}`;
   if (item.state === "missing") return `${pre}not synced yet`;
   // MCP and plugin reasons name targets; rows leave targets out, so those show in the open row only.
   if (item.state === "sync") return `${pre}${(item.kind === "skills" || item.kind === "agents" || item.kind === "hooks") && item.reason ? item.reason : "changed since last sync"}`;
-  if (item.kind === "hooks" && (item.notice || item.diagnostic)) return `${pre}${item.reason}`;
   if (item.state === "off") return `${pre}disabled`;
   return `${pre}${item.src}${item.version && item.kind === "plugins" ? ` · ${item.version}` : ""}`;
 }
