@@ -8,14 +8,14 @@ import (
 	"strings"
 	"testing"
 
+	"skillshare/internal/config"
 	"skillshare/internal/install"
 )
 
-// branchSwitchFixture installs skills/foo from the dev branch of a remote whose
-// main branch has its own skills/foo.
-func branchSwitchFixture(t *testing.T) (*Server, string) {
+// installFromDev installs skills/foo into src from the dev branch of a remote
+// whose main branch has its own skills/foo, and returns the recorded source.
+func installFromDev(t *testing.T, s *Server, src string) string {
 	t.Helper()
-	s, src := newTestServer(t)
 	remote := t.TempDir()
 	initGitRepo(t, remote)
 	runGit(t, remote, "branch", "-M", "main")
@@ -42,9 +42,10 @@ func branchSwitchFixture(t *testing.T) (*Server, string) {
 	if err := os.WriteFile(filepath.Join(local, "SKILL.md"), []byte("---\nname: foo\n---\ndev body\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	source := "file://" + remote + "//skills/foo"
 	s.skillsStore = install.NewMetadataStore()
 	s.skillsStore.Set("foo", &install.MetadataEntry{
-		Source:  "file://" + remote + "//skills/foo",
+		Source:  source,
 		RepoURL: "file://" + remote,
 		Subdir:  "skills/foo",
 		Branch:  "dev",
@@ -52,7 +53,7 @@ func branchSwitchFixture(t *testing.T) (*Server, string) {
 	if err := s.skillsStore.Save(src); err != nil {
 		t.Fatal(err)
 	}
-	return s, src
+	return source
 }
 
 func postUpdate(s *Server, body string) *httptest.ResponseRecorder {
@@ -62,7 +63,8 @@ func postUpdate(s *Server, body string) *httptest.ResponseRecorder {
 }
 
 func TestHandleUpdate_BranchReinstallsFromThatBranch(t *testing.T) {
-	s, src := branchSwitchFixture(t)
+	s, src := newTestServer(t)
+	installFromDev(t, s, src)
 
 	results := updateResults(t, postUpdate(s, `{"name":"foo","branch":"main"}`), false)
 	if len(results) != 1 || results[0].Action != "updated" {
@@ -75,6 +77,42 @@ func TestHandleUpdate_BranchReinstallsFromThatBranch(t *testing.T) {
 	}
 	if !strings.Contains(string(got), "main body") || stored.GetByPath("foo").Branch != "main" {
 		t.Fatalf("SKILL.md = %q, recorded branch = %q; want main's content and branch", got, stored.GetByPath("foo").Branch)
+	}
+}
+
+// Only the switched skill's declaration moves; another skill whose local record
+// lags the shared config keeps what config.yaml says.
+func TestHandleUpdate_BranchMovesOnlyThatProjectDeclaration(t *testing.T) {
+	s, root := newTestProjectServerWithExtras(t, nil)
+	src := s.cfg.EffectiveSkillsSource()
+	source := installFromDev(t, s, src)
+	s.skillsStore.Set("bar", &install.MetadataEntry{Source: "github.com/o/r/bar", Branch: "old"})
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(src, "bar"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	s.projectCfg.Skills = []config.SkillEntry{
+		{Name: "foo", Source: source, Branch: "dev"},
+		{Name: "bar", Source: "github.com/o/r/bar", Branch: "new"},
+	}
+	if err := s.projectCfg.Save(root); err != nil {
+		t.Fatal(err)
+	}
+
+	updateResults(t, postUpdate(s, `{"name":"foo","branch":"main"}`), false)
+
+	loaded, err := config.LoadProject(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, skill := range loaded.Skills {
+		got[skill.Name] = skill.Branch
+	}
+	if got["foo"] != "main" || got["bar"] != "new" {
+		t.Fatalf("declared branches = %v, want foo on main and bar left on new", got)
 	}
 }
 

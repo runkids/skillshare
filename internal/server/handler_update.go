@@ -407,9 +407,18 @@ func (s *Server) switchSkillBranch(name, branch string, force, skipAudit bool) u
 	}
 	walk := s.skillsWalk()
 	result := s.reinstallRegularSkill(name, skillPath, branch, force, skipAudit, walk.Follow)
-	if result.Action == "updated" {
-		// A project's config.yaml declares the branch, so it follows the switch.
-		s.reconcileSkillsConfig(s.cfg.EffectiveSkillsSource())
+	if result.Action == "updated" && s.IsProjectMode() {
+		// config.yaml declares the branch teammates install from, so it follows
+		// the switch; other declarations stay as the shared file has them.
+		for i := range s.projectCfg.Skills {
+			if skill := &s.projectCfg.Skills[i]; skill.FullName() == name {
+				skill.Branch = branch
+				if err := s.projectCfg.Save(s.projectRoot); err != nil {
+					result.Message += "; failed to record the branch in config.yaml: " + err.Error()
+				}
+				break
+			}
+		}
 	}
 	return result
 }

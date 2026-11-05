@@ -190,7 +190,7 @@ export default function ResourceDetailPage() {
           : t('resourceDetail.toast.updated', { name: resource.name, message: item.message ?? '', auditInfo }), 'success');
         markUpToDate();
         clearAuditCache(queryClient);
-        await refreshResource();
+        await (branch ? invalidate(queryClient, 'skillBranchSwitched') : refreshResource());
       } else if (item?.action === 'up-to-date') {
         toast(t('resourceDetail.toast.upToDate', { name: resource.name }), 'info');
         markUpToDate();
