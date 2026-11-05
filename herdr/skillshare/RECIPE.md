@@ -26,7 +26,7 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
     - Hook rows expand to show agents, description, full root, planned changes and inactive reasons. Nested rows also show their full root before the status line; inactive rows use a warning dot even when native files are in sync. Nested-root and cleanup-only rows are read-only.
     - Hook notices appear once above the counted groups, follow the same filters, and show unnamed changes, plan warnings and preview failures even with zero entries. Unnamed native writes offer “Native hook files need sync”; warnings and conflicts are not pending native writes. If preview fails, named rows remain above the groups with “sync status unknown”, alongside the single scope error notice. Disabled rows retain their disabled label with diagnostics; pending summaries omit unchanged targets, which remain in details.
   - Machines: one card per Herdr machine, with its version, its source repository state, doctor errors and warnings when there are any, a Pull and sync button, and "Update to …" when a newer skillshare exists.
-  - a 34px status line while work runs (work runs one at a time per machine; machines run side by side), with a spinning ring in `working`, or a notice: a done notice fades after 4 s, a warning or error stays until closed, and a stopped pull keeps a "Review conflicts" bar;
+  - a 34px status line while work runs (work, installs included, runs one at a time per machine; machines run side by side), with a spinning ring in `working`, or a notice: a done notice fades after 4 s, a warning or error stays until closed, and a stopped pull keeps a "Review conflicts" bar;
   - a 40px footer: the source state, such as "Source · n uncommitted · ↑n ↓n", "up to date" or "no remote" (`blocked` when it needs attention), and Sync both ways when the repository has an upstream.
 - Dialogs open as Herdr overlays: install, uninstall, audit hand-off, source repository, sync both ways, pull conflicts, update skillshare, command output.
 
@@ -61,6 +61,10 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
 - `mods/skillshare/`:
   - `main.js` holds the panel and its roles (`props.role`): the panel by default, `toggle`, and the dialogs.
   - `model.js` holds the parsing and the shell scripts, with no Herdr imports.
+  - `jobs.js` runs skillshare: short reads as one `exec`, longer work detached and polled.
+  - `channel.js` passes requests from dialogs to the panel through `shared`, with one lock per machine and the notice line.
+  - `operations.js` holds the commands each request runs and the conflict handling of a pull.
+  - `loader.js` reads the Resources tab's data and the Machines cards.
   - `mark.svg` is the 16px mark, and `icons/` holds the stroke icons.
 - Herdr functions:
   - `exec` with `on`;

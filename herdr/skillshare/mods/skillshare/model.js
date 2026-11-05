@@ -28,11 +28,13 @@ ${READY}`;
 // A killed job nobody reaps stays a zombie (a container without init) that kill -0 still finds,
 // so a zombie counts as stopped. Where ps has no -p (busybox), only kill -0 decides.
 export const ALIVE = '[ -s "$1/code" ] || { p=$(cat "$1/pid" 2>/dev/null); kill -0 "$p" 2>/dev/null && ! ps -o stat= -p "$p" 2>/dev/null | grep -q Z; } || [ -s "$1/code" ]';
+// The longest the panel waits for one job (jobs.js), and so how old a job folder must be before
+// SWEEP may remove it.
+export const JOB_MINUTES = 15;
 // sh -c SWEEP: removes job folders nobody will read: a panel that closed mid-job never collects
-// its result. Keeps a job that still runs and any folder changed in the last 15 minutes, the
-// longest a panel polls one.
+// its result. Keeps a job that still runs and any folder changed in the last JOB_MINUTES.
 export const SWEEP = `for d in "\${TMPDIR:-/tmp}"/skillshare-panel.*; do
-  [ -d "$d" ] && [ -n "$(find "$d" -prune -mmin +15)" ] || continue
+  [ -d "$d" ] && [ -n "$(find "$d" -prune -mmin +${JOB_MINUTES})" ] || continue
   [ ! -s "$d/code" ] && sh -c '${ALIVE}' alive "$d" && continue
   rm -rf "$d"
 done; exit 0`;
@@ -159,6 +161,9 @@ export function parseStages(text) {
   }
   return out;
 }
+
+// The CLI flag for a scope.
+export const flag = (scope) => (scope === "project" ? "-p" : "-g");
 
 export function parseJSON(text, fallback = null) {
   try { return JSON.parse(text); } catch { return fallback; }

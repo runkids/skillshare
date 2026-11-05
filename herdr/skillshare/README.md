@@ -69,5 +69,5 @@ dashboard, then Sync again.
 
 ## Tests
 
-`make test-herdr` (`node --test herdr/tests/*.test.mjs`) covers `model.js`, which has no
-Herdr imports. It runs in `make check` and CI. Check `main.js` with `herdr-app check`.
+`make test-herdr` (`node --test herdr/tests/*.test.mjs`) covers `model.js`, `jobs.js`,
+`channel.js`, `operations.js` and `loader.js`, which have no Herdr imports. It runs in `make check` and CI. Check `main.js` with `herdr-app check`.

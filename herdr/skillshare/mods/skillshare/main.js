@@ -2,23 +2,25 @@
 // what needs an update or a sync, install from a URL, and git sync of the source both ways.
 // Roles (props.role): the panel (default); "toggle", the tab-bar button that shows or hides the
 // layout's "skillshare-panel" node; dialogs: "install", "uninstall", "audit", "source",
-// "syncboth", "conflict", "upgrade", "text", "hook". Dialogs hand long work to the panel through shared
-// REQUEST, because an overlay's tasks end when it closes. Install is the exception: its dialog
-// shows each step, and the install itself runs detached, so closing the dialog does not stop it.
+// "syncboth", "conflict", "upgrade", "text", "hook". Dialogs hand long work to the panel through
+// channel.js, because an overlay's tasks end when it closes. Install is the exception: its dialog
+// shows each step and takes the machine's lock itself, and the install runs detached, so closing
+// the dialog does not stop it.
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { exec, hc, run, spaces, agents, focused, machines, shared, setShared, theme, settings, layout, openOverlay, closeOverlay, nextCommand, readTextFile, props as blockProps } from "herdr";
 import {
-  KINDS, SCOPES, START, START_SCRIPT, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, GIT_STATUS, PROJECT, DISCOVER, AUDIT, PREVIEW, CONFLICTS, RESOLVE, ABORT, METADATA_STAGES, METADATA_WRITE, mergeMetadata, parseStages,
-  parseJSON, lastLine, failure, parseGitStatus, sourceLine, buildItems, hookArgs, rowSub, filterItems, groupItems, sourceGroups, counts,
-  cloneUrl, skillChoices, newerVersion, ago, auditMessage, driftFrom, parseDiscover, parseAudit, parsePreview, diffSides,
+  KINDS, SCOPES, DISCOVER, AUDIT,
+  parseJSON, lastLine, failure, flag, sourceLine, buildItems, hookArgs, rowSub, filterItems, groupItems, sourceGroups, counts,
+  cloneUrl, skillChoices, newerVersion, ago, auditMessage, parseDiscover, parseAudit,
 } from "./model.js";
+import { createRunner } from "./jobs.js";
+import { createChannel } from "./channel.js";
+import { operate } from "./operations.js";
+import { findProject, loadResources, loadChecks, loadMachine } from "./loader.js";
 
 const PANEL = "skillshare-panel"; // the layout node the toggle shows and hides; hidden state is the layout's, so it survives space switches
-const NOTICE = "skillshare.notice.v1"; // { kind, text, at }
-const REQUEST = "skillshare.request.v1"; // { id, op, ... }: work a dialog hands to the panel
 const RECENT = "skillshare.recent.v1"; // install sources, newest first
-const BUSY = "skillshare.busy.v1"; // what the panel is doing, so dialogs can wait
 const HIDE_DISABLED = "skillshare.hideDisabled.v1"; // false lists disabled rows; unset or true hides them
 const IN_SYNC_VIEW = "skillshare.inSyncView.v1"; // "list", or unset for In sync skills/agents grouped by source
 const POLL = 20000, CHECK_EVERY = 10 * 60 * 1000, MACHINES_POLL = 60000, NOTICE_MS = 4000;
@@ -26,45 +28,28 @@ const PATHS = 'PATH="$HOME/.local/bin:$HOME/go/bin:/opt/homebrew/bin:/usr/local/
 
 // ---- Running skillshare on the space's machine ----
 
-const sh = (script, args = [], on = null) => exec("sh", ["-c", `${PATHS}\n${script}`, "skillshare-panel", ...args], { on })
-  .catch((e) => ({ code: 127, stdout: "", stderr: String(e.message ?? e) }));
-
-// Short reads: one exec (Herdr stops an exec after 30 s).
-const ss = (args, { on = null, cwd = null } = {}) => sh('cd "$1" 2>/dev/null || cd; shift; exec skillshare "$@"', [cwd ?? "", ...args], on);
-
-// Work that can take longer than an exec may (update, install, push, check): started detached
-// (START in model.js), polled until it writes its exit code or stops without one. The first job
-// on each machine also sweeps up folders an earlier, closed panel left behind.
-const swept = new Set();
-async function ssLong(args, { on = null, cwd = null } = {}, wait, script = null) {
-  if (!swept.has(on ?? "")) { swept.add(on ?? ""); sh(SWEEP, [], on); }
-  const s = script ? await sh(START_SCRIPT, [cwd ?? "", ...script], on) : await sh(START, [cwd ?? "", ...args], on);
-  const d = s.stdout.trim();
-  if (s.code !== 0 || !d) return { code: s.code || 1, stdout: "", stderr: s.stderr || "Could not start skillshare" };
-  for (let i = 1; i <= 1800; i++) {
-    await wait(500);
-    const code = await readTextFile(`${d}/code`, { on }).catch(() => null);
-    if (code === null || code.trim() === "") {
-      // A job that was killed never writes its code, so check every 5 s that it still runs.
-      if (i % 10 === 0 && (await sh(ALIVE, [d], on)).code === 1) {
-        const err = await readTextFile(`${d}/err`, { on }).catch(() => null);
-        sh('rm -rf "$1"', [d], on);
-        return { code: 1, stdout: "", stderr: lastLine(err) || "skillshare stopped before it finished" };
-      }
-      continue;
-    }
-    const [stdout, stderr] = await Promise.all([readTextFile(`${d}/out`, { on }), readTextFile(`${d}/err`, { on })]);
-    sh('rm -rf "$1"', [d], on);
-    return { code: Number(code.trim()), stdout: stdout ?? "", stderr: stderr ?? "" };
-  }
-  return { code: 1, stdout: "", stderr: "skillshare took longer than 15 minutes" };
-}
+// Herdr's adapter for the job runner (jobs.js): every script gets the usual PATH.
+const runner = createRunner({
+  exec: (script, args, on) => exec("sh", ["-c", `${PATHS}\n${script}`, "skillshare-panel", ...args], { on })
+    .catch((e) => ({ code: 127, stdout: "", stderr: String(e.message ?? e) })),
+  readText: (path, on) => readTextFile(path, { on }),
+});
+const { sh } = runner;
+// What operations.js and loader.js run things with, from a view's task. With lock, the caller
+// holds that machine's lock (channel.js), and every command keeps it fresh.
+const machineIO = (cx, { lock } = {}) => {
+  const held = lock !== undefined, touch = () => { if (held) channel.touch(lock); };
+  return {
+    sh: (...a) => { touch(); return sh(...a); },
+    run: (...a) => { touch(); return runner.run(...a); },
+    job: (args, opt) => { touch(); return runner.job(args, { ...opt, sleep: (ms) => { touch(); return cx.sleep(ms); } }); },
+  };
+};
 
 // Work started from render. cx.spawn runs its body up to the first await at once, and
 // cx.notify() throws while a view renders, so the work starts after the render ends.
 const later = (cx, fn) => cx.spawn(async (cx) => { await cx.sleep(0); return fn(cx); });
 
-const flag = (scope) => (scope === "project" ? "-p" : "-g");
 const activeSpace = () => spaces().find((s) => s.active) ?? null;
 
 function S() {
@@ -162,14 +147,12 @@ const note = (t, text, color) => div().flex_none().text_size(S().secondary).text
 const monoBox = (t, id, text, grow = false) => div().id(id).when(grow, (el) => el.flex_1().min_h(0)).overflow_y_scrollbar().px(12).py(10).rounded(8)
   .border_1().border_color(t.border).bg(t.background).font_family(mono()).text_size(S().secondary).text_color(t.foreground).child(text);
 
-const isMetadata = (f) => f === ".metadata.json" || f.endsWith("/.metadata.json");
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const warnBox = (t, text) => div().flex_none().px(12).py(10).rounded(6).bg(t.selected).text_size(S().secondary).text_color(t.blocked).child(text);
 const sectionLabel = (t, text) => div().flex_none().text_size(S().label).font_semibold().text_color(t.muted).child(text);
 
-function request(op) {
-  setShared(REQUEST, { ...op, id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}` });
-}
+const channel = createChannel({ get: (k) => shared(k), set: (k, v) => setShared(k, v) });
+const request = (op) => channel.request(op);
 
 export default class Skillshare extends View {
   init(_props, cx) {
@@ -180,7 +163,7 @@ export default class Skillshare extends View {
 
     this.view = "resources"; this.scope = "all"; this.kind = "skills"; this.query = ""; this.open = null; this.expanded = new Set();
     this.ctx = null; this.project = null; this.raw = {}; this.items = []; this.git = null; this.loading = false; this.loadedAt = 0;
-    this.checks = {}; this.checkedAt = 0; this.busy = null; this.busyOn = new Map(); this.lastRequest = shared(REQUEST)?.id ?? null; this.shownNotice = null;
+    this.checks = {}; this.checkedAt = 0; this.nextRequest = channel.listen(); this.shownNotice = null;
     this.lastAgent = null; this.machines = {}; this.machinesAt = 0; this.version = null; this.token = 0;
     this.filter = InputState.new({ placeholder: "Filter by name or source" });
     this.filter.on("change", (_e, cx) => { this.query = this.filter.value(); cx.notify(); });
@@ -188,7 +171,7 @@ export default class Skillshare extends View {
     const hidden = () => Boolean(find(layout(), PANEL)?.hidden);
     cx.timer.every(POLL, (cx) => { if (!this.busyAt(this.ctx?.on) && !hidden()) this.refresh(cx, false); });
     cx.timer.every(1000, (cx) => {
-      const n = shared(NOTICE);
+      const n = channel.notice();
       if (n && (n.kind === "done" || n.kind === "info") && Date.now() - n.at > NOTICE_MS && this.shownNotice !== n.at) { this.shownNotice = n.at; cx.notify(); }
     });
     cx.timer.every(MACHINES_POLL, (cx) => { if (this.view === "machines" && !hidden()) this.loadMachines(cx); });
@@ -205,8 +188,6 @@ export default class Skillshare extends View {
     return { on: space.machine ?? null, folder: cwd ?? space.folder ?? "", spaceFolder: space.folder ?? "", space: space.id, spaceName: space.name };
   }
 
-  wait(cx) { return (ms) => cx.sleep(ms); }
-
   refresh(cx, network) {
     const ctx = this.ctx;
     if (!ctx || this.loading) return;
@@ -215,34 +196,21 @@ export default class Skillshare extends View {
     cx.spawn(async (cx) => {
       try {
         const { on, folder, spaceFolder } = ctx;
-        const proj = await sh(`for d in "$@"; do [ -n "$d" ] || continue; ${PROJECT.replace(/\$1/g, "$d")} && exit 0; done; true`, [folder, spaceFolder], on);
-        const project = proj.stdout.trim() || null;
+        const io = machineIO(cx);
+        const project = await findProject(io, on, [folder, spaceFolder]);
         if (token !== this.token) return;
         this.project = project; this.projectKnown = true; cx.notify();
-        const scopes = project ? ["project", "global"] : ["global"];
         const wantCheck = network || Date.now() - this.checkedAt > CHECK_EVERY || this.checkKey !== `${on}:${project}`;
-        const raw = {};
-        await Promise.all(scopes.map(async (scope) => {
-          const opt = { on, cwd: scope === "project" ? project : null }, f = flag(scope);
-          const r = await ssLong(["__snapshot__"], opt, this.wait(cx), [SNAPSHOT, f]);
-          const snap = parseSnapshot(r.stdout);
-          raw[scope] = { list: snap.list, diff: snap.diff, mcp: snap.mcp, plugins: snap.plugins, hooks: snap.hooks, took: snap.took, error: Array.isArray(snap.list) ? null : failure(r, "skillshare list") };
-        }));
-        const status = parseJSON((await ss(["status", "--json", "-g"], { on })).stdout);
-        const git = status?.source?.path ? parseGitStatus((await sh(GIT_STATUS, [status.source.path, network ? "fetch" : ""], on)).stdout) : { repo: false };
+        const res = await loadResources(io, on, project, network);
         if (token !== this.token) return;
-        this.project = project; this.raw = raw; this.git = git; this.version = status?.version ?? this.version;
-        this.rebuild(); this.loadedAt = Date.now(); this.error = raw.global?.error ?? raw.project?.error ?? null;
+        this.raw = res.raw; this.git = res.git; this.version = res.version ?? this.version; this.error = res.error;
+        this.rebuild(); this.loadedAt = Date.now();
         cx.notify();
         if (wantCheck) {
           this.checkKey = `${on}:${project}`; this.checkedAt = Date.now();
-          const wait = this.wait(cx);
-          for (const scope of scopes) {
-            const opt = { on, cwd: scope === "project" ? project : null }, f = flag(scope);
-            const [check, checkAgents] = await Promise.all([ssLong(["check", "--json", f], opt, wait), ssLong(["check", "agents", "--json", f], opt, wait)]);
-            if (token !== this.token) return;
-            this.checks[scope] = { check: parseJSON(check.stdout), checkAgents: parseJSON(checkAgents.stdout) };
-          }
+          const checks = await loadChecks(io, on, project);
+          if (token !== this.token) return;
+          this.checks = checks;
           this.rebuild(); cx.notify();
         }
       } catch (e) { this.error = String(e?.message ?? e); cx.notify(); } finally { if (token === this.token) this.loading = false; }
@@ -256,8 +224,7 @@ export default class Skillshare extends View {
   // ---- Work handed over by dialogs, and the panel's own buttons ----
 
   // Work runs one at a time per machine; machines don't wait for each other.
-  busyAt(on) { return this.busyOn.has(on ?? ""); }
-  showBusy() { this.busy = [...this.busyOn.values()].join(" · ") || null; setShared(BUSY, this.busy); }
+  busyAt(on) { return channel.busyAt(on); }
 
   perform(req, cx) {
     if (req.op === "show") {
@@ -267,131 +234,18 @@ export default class Skillshare extends View {
       if (!this.busyAt(this.ctx?.on)) this.refresh(cx, false);
       cx.notify(); return;
     }
-    if (this.busyAt(req.on)) { if (req.op !== "refresh") setShared(NOTICE, { kind: "warn", text: "skillshare is busy on that machine; try again when it finishes", at: Date.now() }); return; }
-    const say = (kind, text) => setShared(NOTICE, { kind, text, at: Date.now() });
+    if (!channel.claim(req.on, "Working…")) { if (req.op !== "refresh") channel.say("warn", "skillshare is busy on that machine; try again when it finishes"); return; }
     cx.spawn(async (cx) => {
-      const wait = this.wait(cx);
-      const key = req.on ?? "";
-      const step = (text) => { this.busyOn.set(key, text); this.showBusy(); cx.notify(); };
+      const step = (text) => { channel.step(req.on, text); cx.notify(); };
       try {
-        const on = req.on ?? null;
-        const opt = (scope) => ({ on, cwd: scope === "project" ? req.project : null });
-        if (req.op === "sync") {
-          for (const scope of req.scopes) {
-            step(`Syncing ${scope}…`);
-            const r = await ssLong(["sync", "--all", "--json", flag(scope)], opt(scope), wait);
-            if (r.code !== 0) return say("error", failure(r, "skillshare sync"));
-            if (req.plugins) {
-              const p = await ssLong(["sync", "plugins", "--json", flag(scope)], opt(scope), wait);
-              if (p.code !== 0) return say("error", failure(p, "skillshare sync plugins"));
-            }
-          }
-          say("done", req.scopes.length > 1 ? "Synced project and global" : `Synced ${req.scopes[0]}`);
-        } else if (req.op === "update") {
-          let updated = 0;
-          for (const u of req.updates) {
-            step(u.all ? `Updating all ${u.kind === "agents" ? "agents" : "skills"} (${u.scope})…` : `Updating ${u.label}…`);
-            const args = ["update", ...(u.kind === "agents" ? ["agents"] : []), ...(u.all ? ["--all"] : [u.name]), "--json", flag(u.scope)];
-            const r = await ssLong(args, opt(u.scope), wait);
-            const j = parseJSON(r.stdout);
-            const blocked = (j?.items ?? []).filter((i) => i.status === "security_blocked").map((i) => i.name);
-            if (blocked.length) return say("error", `Audit blocked ${blocked.join(", ")}. Ask an agent to audit it before updating.`);
-            if (r.code !== 0 && !j) return say("error", failure(r, "skillshare update"));
-            const failedItems = [...(j?.items ?? []), ...(j?.agents ?? [])].filter((i) => i.status === "failed");
-            if (failedItems.length) return say("error", `Could not update ${failedItems.map((i) => i.name).join(", ")}: ${failedItems[0].error ?? failedItems[0].message ?? "see skillshare update"}`);
-            updated += j?.updated ?? (j?.agents ?? []).filter((a) => a.status === "updated").length ?? 0;
-          }
-          say("done", updated ? `Updated ${updated}. Targets get it on the next sync.` : "Already up to date");
-        } else if (req.op === "hook") {
-          const args = hookArgs(req.item, req.action);
-          if (!args) return say("error", "This hook action is unavailable.");
-          step(`Saving ${req.item.label}…`);
-          const r = await ssLong(args, opt(req.item.scope), wait);
-          if (r.code !== 0) return say("error", failure(r, "skillshare hooks"));
-          say("done", "Saved. Sync applies it.");
-        } else if (req.op === "uninstall") {
-          const it = req.item;
-          step(`Uninstalling ${it.label}…`);
-          const kind = it.kind === "agents" ? ["agents"] : [];
-          const args = it.scope === "project" ? ["uninstall", ...kind, it.rel, "-p", "--force"] : ["uninstall", ...kind, it.rel, "--json", "-g"];
-          const r = await ssLong(args, opt(it.scope), wait);
-          const j = parseJSON(r.stdout);
-          if (r.code !== 0 || j?.failed?.length) return say("error", j?.failed?.length ? `Could not uninstall ${j.failed.join(", ")}` : failure(r, "skillshare uninstall"));
-          say("done", `Moved ${it.label} to the skillshare trash`);
-        } else if (req.op === "syncboth") {
-          step("Syncing both ways…");
-          const r = await ssLong(["push", "--pull", "-m", "Update skills from Herdr"], { on }, wait);
-          if (r.code === 0) { this.stopped = null; return say("done", "Synced both ways: pushed, pulled and synced targets"); }
-          const stop = await this.stopOnConflict(r, req.repo, on, step, true);
-          if (stop === "merged") {
-            step("Pushing…");
-            const p = await ssLong(["push", "--pull", "-m", "Update skills from Herdr"], { on }, wait);
-            if (p.code === 0) this.stopped = null;
-            return say(p.code === 0 ? "done" : "error", p.code === 0 ? "Merged skill records from both machines and synced both ways" : failure(p, "skillshare push"));
-          }
-          if (stop) return say("warn", "Pull stopped: both sides changed the same files. Nothing was pushed.");
-          say("error", failure(r, "skillshare push --pull"));
-        } else if (req.op === "pull") {
-          step("Pulling…");
-          const r = await ssLong(["pull"], { on }, wait);
-          if (r.code === 0) { this.stopped = null; return say("done", "Pulled and synced targets"); }
-          const stop = await this.stopOnConflict(r, req.repo, on, step, false);
-          if (stop === "merged") {
-            step("Syncing targets…");
-            const sy = await ssLong(["sync", "--all", "--json", "-g"], { on }, wait);
-            return say(sy.code === 0 ? "done" : "error", sy.code === 0 ? "Pulled, merged skill records from both machines, and synced targets" : failure(sy, "skillshare sync"));
-          }
-          if (stop) return say("warn", "Pull stopped: both sides changed the same files. Nothing changed yet.");
-          say("error", failure(r, "skillshare pull"));
-        } else if (req.op === "push") {
-          step(req.commit ? "Committing and pushing…" : "Pushing…");
-          const r = await ssLong(["push", "-m", req.message], { on }, wait);
-          say(r.code === 0 ? "done" : "error", r.code === 0 ? "Pushed to the remote" : failure(r, "skillshare push"));
-
-        } else if (req.op === "resolve") {
-          step("Applying your choices…");
-          const now = this.unmerged(await sh(CONFLICTS, [req.repo], on)).filter((f) => !isMetadata(f));
-          if (now.some((f) => !req.choices[f])) {
-            // The remote moved since the preview: other files conflict now. Ask again instead of guessing.
-            await sh(ABORT, [req.repo], on);
-            this.stopped = null;
-            if ((await this.stopOnConflict({ stdout: "conflict", stderr: "" }, req.repo, on, step, req.push)) === true) return say("warn", "The remote changed since you chose. Pick again.");
-            return say("error", "The remote changed since you chose; nothing changed");
-          }
-          const meta = await this.mergeMetadataFiles(req.repo, on);
-          if (meta) { await sh(ABORT, [req.repo], on); return say("error", meta); }
-          const r = await sh(RESOLVE, [req.repo, ...Object.entries(req.choices).map(([p, side]) => `${p}=${side}`)], on);
-          if (r.code !== 0) { await sh(ABORT, [req.repo], on); return say("error", lastLine(r.stderr) || "Could not apply the choices; nothing changed"); }
-          if (!req.push) {
-            // Stopped by a plain pull: merge the choices and sync, but leave pushing to the person.
-            step("Syncing targets…");
-            this.stopped = null;
-            const sy = await ssLong(["sync", "--all", "--json", "-g"], { on }, wait);
-            return say(sy.code === 0 ? "done" : "error", sy.code === 0 ? "Merged your choices and synced targets. Push when you're ready." : failure(sy, "skillshare sync"));
-          }
-          step("Pushing…");
-          const p = await ssLong(["push", "--pull", "-m", "Update skills from Herdr"], { on }, wait);
-          if (p.code === 0) this.stopped = null;
-          say(p.code === 0 ? "done" : "error", p.code === 0 ? "Resolved and synced both ways" : failure(p, "skillshare push"));
-        } else if (req.op === "pullsync") {
-          step(`Pulling on ${req.label}…`);
-          const r = await ssLong(["pull"], { on }, wait);
-          say(r.code === 0 ? "done" : "error", r.code === 0 ? `Pulled and synced on ${req.label}` : failure(r, "skillshare pull"));
-          this.machinesAt = 0;
-        } else if (req.op === "upgrade") {
-          step(`Updating skillshare on ${req.label}…`);
-          const r = await ssLong(["upgrade", "--cli", "--force"], { on }, wait);
-          say(r.code === 0 ? "done" : "error", r.code === 0 ? `Updated skillshare on ${req.label}` : failure(r, "skillshare upgrade"));
-          this.machinesAt = 0;
-        } else if (req.op === "text") {
-          step(req.busy);
-          const r = await ss(req.args, { on, cwd: req.cwd ?? null });
-          const out = String(r.stdout || r.stderr || "No output").replace(/\x1b\[[0-9;]*m/g, "");
-          openOverlay({ mod: "skillshare", kind: "dialog", width: 620, height: 520, props: { role: "text", title: req.title, text: out } });
-        }
+        const res = await operate(req, { ...machineIO(cx, { lock: req.on }), step });
+        if (res.conflict !== undefined) { this.stopped = res.conflict; if (res.conflict) this.openConflict(); }
+        if (res.overlay) openOverlay({ mod: "skillshare", kind: "dialog", width: 620, height: 520, props: { role: "text", ...res.overlay } });
+        if (res.machines) this.machinesAt = 0;
+        if (res.kind) channel.say(res.kind, res.text);
       } finally {
         if (["update", "uninstall", "syncboth", "resolve", "pull", "refresh"].includes(req.op)) this.checkedAt = 0; // their update state changed
-        this.busyOn.delete(key); this.showBusy();
+        channel.release(req.on);
         this.refresh(cx, false);
         if (this.view === "machines") this.loadMachines(cx);
         cx.notify();
@@ -410,26 +264,13 @@ export default class Skillshare extends View {
         const names = new Set([...machines().map((m) => m.name), ...spaces().map((sp) => sp.machine)].filter(Boolean));
         const list = [null, ...[...names].sort()];
         for (const k of Object.keys(this.machines)) if (k && !names.has(k)) delete this.machines[k];
-        const wait = this.wait(cx);
+        const io = machineIO(cx);
         await Promise.all(list.map(async (on) => {
           const key = on ?? "";
           const unavailable = on && machines().find((m) => m.name === on)?.layout === "unavailable";
           if (!this.machines[key]) this.machines[key] = { on, label: on ?? "this computer", here: !on, checking: true };
           if (unavailable) { this.machines[key] = { on, label: on, error: "Herdr can't reach this machine right now" }; cx.notify(); return; }
-          try {
-          const [host, doctor, diff, status] = await Promise.all([
-            on ? Promise.resolve({ stdout: on }) : sh("hostname -s"),
-            ssLong(["doctor", "--json", "-g"], { on }, wait), ss(["diff", "--json", "-g"], { on }), ss(["status", "--json", "-g"], { on }),
-          ]);
-          const st = parseJSON(status.stdout), d = parseJSON(doctor.stdout);
-          const git = st?.source?.path ? parseGitStatus((await sh(GIT_STATUS, [st.source.path], on)).stdout) : null;
-          this.machines[key] = {
-            on, label: on ?? (host.stdout.trim() || "this computer"), here: !on, missing: status.code === 127 || /not found/.test(status.stderr),
-            version: d?.version?.current ?? st?.version ?? null, latest: d?.version?.latest ?? null, update: Boolean(d?.version?.update_available),
-            doctor: d?.summary ?? null, targets: (st?.targets ?? []).filter((x) => x.skills_enabled !== false).length,
-            drift: driftFrom(parseJSON(diff.stdout)).size, git,
-          };
-          } catch (e) { this.machines[key] = { on, label: on ?? "this computer", here: !on, error: String(e?.message ?? e) }; }
+          try { this.machines[key] = await loadMachine(io, on); } catch (e) { this.machines[key] = { on, label: on ?? "this computer", here: !on, error: String(e?.message ?? e) }; }
           cx.notify();
         }));
         this.machinesAt = Date.now();
@@ -456,8 +297,8 @@ export default class Skillshare extends View {
       this.ctxKey = key; this.ctx = ctx; this.token++; this.items = []; this.raw = {}; this.loadedAt = 0; this.projectKnown = false; this.checks = {}; this.checkKey = null; this.git = null; this.project = null; this.loading = false; this.open = null;
       if (ctx) later(cx, (cx) => this.refresh(cx, false));
     }
-    const req = shared(REQUEST);
-    if (req?.id && req.id !== this.lastRequest) { this.lastRequest = req.id; const r = req; later(cx, (cx) => this.perform(r, cx)); }
+    const req = this.nextRequest();
+    if (req) later(cx, (cx) => this.perform(req, cx));
     if (this.view === "machines" && !this.machinesAt && !this.machinesLoading) later(cx, (cx) => this.loadMachines(cx));
     this.receiver();
 
@@ -702,10 +543,10 @@ export default class Skillshare extends View {
   }
 
   renderStatus(t) {
-    const n = shared(NOTICE);
-    if (this.busy) {
+    const n = channel.notice(), busy = channel.busyText();
+    if (busy) {
       return h_flex().h(34).flex_none().px(14).gap(7).items_center().border_t(1).border_color(t.border)
-        .text_size(S().secondary).text_color(t.working).child(icon("ring", 13, t.working).spin(900)).child(div().min_w(0).truncate().child(this.busy));
+        .text_size(S().secondary).text_color(t.working).child(icon("ring", 13, t.working).spin(900)).child(div().min_w(0).truncate().child(busy));
     }
     if (!n || ((n.kind === "done" || n.kind === "info") && Date.now() - n.at > NOTICE_MS)) {
       if (this.stopped) {
@@ -719,50 +560,7 @@ export default class Skillshare extends View {
     return h_flex().id("notice").h(34).flex_none().px(14).gap(7).items_center().border_t(1).border_color(t.border).text_size(S().secondary).text_color(color)
       .child(icon(n.kind === "done" ? "check" : "alert", 13, color)).child(div().flex_1().min_w(0).truncate().child(n.text))
       .child(h_flex().id("notice-x").size(20).justify_center().items_center().rounded(4).cursor_pointer().hover((s) => s.bg(t.hover))
-        .on_mouse_down("left", stop).on_click(() => setShared(NOTICE, null)).child(icon("close", 11, t.muted)));
-  }
-
-  // A pull that both sides changed: read the files both ways, put the repository back as it was,
-  // and ask which version to keep. Resolve replays the merge with the choices.
-  async stopOnConflict(r, repo, on, step, push) {
-    if (!repo || !/both changed|merge was undone|conflict/i.test(`${r.stdout}\n${r.stderr}`)) return false;
-    step("Reading conflicts…");
-    const all = this.unmerged(await sh(CONFLICTS, [repo], on));
-    const files = all.filter((f) => !isMetadata(f));
-    if (!files.length && all.length) {
-      // Only .metadata.json: merge it per entry the way skillshare's pull does, commit, carry on.
-      step("Merging skill records…");
-      let err = await this.mergeMetadataFiles(repo, on);
-      if (!err && (await sh(RESOLVE, [repo], on)).code !== 0) err = "Could not commit the merged skill records";
-      if (err) { await sh(ABORT, [repo], on); return false; }
-      return "merged";
-    }
-    await sh(ABORT, [repo], on);
-    if (!files.length) return false;
-    const shown = (lines) => lines && { lines: lines.slice(0, 120), cut: lines.length > 120 };
-    const previews = Object.fromEntries(Object.entries(parsePreview((await sh(PREVIEW, [repo, ...files], on)).stdout)).map(([f, v]) => {
-      const d = diffSides(v.local, v.remote);
-      return [f, { differ: d.differ, local: shown(d.local), remote: shown(d.remote) }];
-    }));
-    this.stopped = { on, repo, files, previews, push };
-    this.openConflict();
-    return true;
-  }
-
-  unmerged(r) {
-    return String(r.stdout ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
-  }
-
-  // Merges every conflicted .metadata.json in the merge in progress. Returns an error, or null.
-  async mergeMetadataFiles(repo, on) {
-    const files = this.unmerged(await sh('cd "$1" && git -c core.quotePath=false diff --name-only --diff-filter=U', [repo], on)).filter(isMetadata);
-    for (const f of files) {
-      let merged;
-      try { merged = mergeMetadata(...parseStages((await sh(METADATA_STAGES, [repo, f], on)).stdout)); } catch (e) { return `Could not merge ${f}: ${e.message ?? e}`; }
-      const w = await sh(METADATA_WRITE, [repo, f, merged], on);
-      if (w.code !== 0) return `Could not write ${f}: ${lastLine(w.stderr)}`;
-    }
-    return null;
+        .on_mouse_down("left", stop).on_click(() => channel.clearNotice()).child(icon("close", 11, t.muted)));
   }
 
   openConflict() {
@@ -836,7 +634,7 @@ export default class Skillshare extends View {
         cx.spawn(async (cx) => {
           const r = await hc(["send", p.address, p.text]).catch((e) => ({ code: 1, stderr: String(e.message ?? e) }));
           if (r.code === 0) {
-            setShared(NOTICE, { kind: "done", text: `Asked ${name} to audit ${p.item.label}`, at: Date.now() });
+            channel.say("done", `Asked ${name} to audit ${p.item.label}`);
             close(); run("agent.focus", { terminal: p.address }); return;
           }
           this.sending = false; this.failed = lastLine(r.stderr) || "Could not send"; cx.notify();
@@ -861,7 +659,7 @@ export default class Skillshare extends View {
       const canPull = g.upstream && !dirty && behind > 0;
       const pullLabel = ahead && behind ? "Pull and merge" : behind ? `Pull ${plural(behind, "commit")}` : "Pull";
       const pull = () => { request({ op: "pull", on: p.on, repo: g.top }); close(); };
-      const push = () => behind ? setShared(NOTICE, { kind: "warn", text: "Push rejected · origin has newer commits. Use Sync both ways.", at: Date.now() }) || close() : pushNow();
+      const push = () => behind ? channel.say("warn", "Push rejected · origin has newer commits. Use Sync both ways.") || close() : pushNow();
       const pushNow = () => { request({ op: "push", on: p.on, commit: dirty > 0, message: this.msg.value().trim() || "Update skills" }); close(); };
       const both = () => { close(); openOverlay({ mod: "skillshare", kind: "dialog", width: 460, height: 360, props: { role: "syncboth", on: p.on, repo: g.top, git: g } }); };
       const small = { h: 30, px: 12, size: S().secondary };
@@ -990,25 +788,28 @@ export default class Skillshare extends View {
     const p = blockProps() ?? {}, pr = this.prog;
     const opt = { on: p.on, cwd: this.scope === "project" ? p.project : null };
     cx.spawn(async (cx) => {
-      const wait = (ms) => cx.sleep(ms);
-      if (shared(BUSY)) { pr.error = "The panel is busy with skillshare. Try again when it finishes."; cx.notify(); return; }
-      if (pr.at === 1) {
-        const folders = pr.picks.map((x) => x.path).filter(Boolean);
-        const a = folders.length && this.dir
-          ? parseAudit((await ssLong(null, opt, wait, [AUDIT, this.dir, flag(this.scope), ...folders])).stdout, this.dir)
-          : { unknown: true, blocked: [], findings: [] };
-        if (this.prog !== pr || !this.dir) return; // closed or restarted while auditing: install nothing
-        if (a.blocked.length) { pr.blocked = a; cx.notify(); return; }
-        pr.at = 2; cx.notify();
-      }
-      const args = ["install", this.source, "--json", flag(this.scope), ...(pr.skills?.length ? ["--skill", pr.skills.join(",")] : []), ...(pr.force ? ["--force"] : [])];
-      const r = await ssLong(args, opt, wait);
-      const j = parseJSON(r.stdout);
-      if (j?.error || (!j && r.code !== 0)) pr.error = j?.error ?? failure(r, "skillshare install");
-      else if (j?.failed?.length) pr.error = `Installed ${plural(j.skills?.length ?? 0, "skill")}; ${j.failed.join(", ")} failed. The install's own audit can stop one.`;
-      else { pr.at = 3; pr.done = j?.skills ?? []; }
-      this.dropClone(p);
-      request({ op: "refresh" });
+      const { job } = machineIO(cx, { lock: p.on });
+      // The same lock the panel takes, so nothing else runs skillshare on that machine meanwhile.
+      if (!channel.claim(p.on, `Installing ${pr.label}…`)) { pr.error = "skillshare is busy on that machine. Try again when it finishes."; cx.notify(); return; }
+      try {
+        if (pr.at === 1) {
+          const folders = pr.picks.map((x) => x.path).filter(Boolean);
+          const a = folders.length && this.dir
+            ? parseAudit((await job([this.dir, flag(this.scope), ...folders], { ...opt, script: AUDIT })).stdout, this.dir)
+            : { unknown: true, blocked: [], findings: [] };
+          if (this.prog !== pr || !this.dir) return; // closed or restarted while auditing: install nothing
+          if (a.blocked.length) { pr.blocked = a; cx.notify(); return; }
+          pr.at = 2; cx.notify();
+        }
+        const args = ["install", this.source, "--json", flag(this.scope), ...(pr.skills?.length ? ["--skill", pr.skills.join(",")] : []), ...(pr.force ? ["--force"] : [])];
+        const r = await job(args, opt);
+        const j = parseJSON(r.stdout);
+        if (j?.error || (!j && r.code !== 0)) pr.error = j?.error ?? failure(r, "skillshare install");
+        else if (j?.failed?.length) pr.error = `Installed ${plural(j.skills?.length ?? 0, "skill")}; ${j.failed.join(", ")} failed. The install's own audit can stop one.`;
+        else { pr.at = 3; pr.done = j?.skills ?? []; }
+        this.dropClone(p);
+      } finally { channel.release(p.on); }
+      request({ op: "refresh", on: p.on });
       cx.notify();
     });
   }
