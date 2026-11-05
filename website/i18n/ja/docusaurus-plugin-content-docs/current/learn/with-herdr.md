@@ -15,6 +15,18 @@ sidebar_position: 8
 
 ## セットアップ
 
+### Herdr layouts から
+
+このレイアウトは [Herdr layouts](https://herdr.dev/layouts/runkids/skillshare--herdr--skillshare/) に掲載されています。Herdr 内のエージェントに次のプロンプトを貼り付けます。
+
+```text
+Read ~/.config/herdr-app/AGENTS.md, then add this layout: herdr.dev/layouts/runkids/skillshare--herdr--skillshare
+```
+
+エージェントはすべてのファイルを読んでからレイアウトを追加し、自分のレイアウトはそのまま残ります。レイアウトは `ctrl-shift-l` で切り替えます。
+
+### 手動で
+
 パネルは skillshare リポジトリの [`herdr/skillshare`](https://github.com/runkids/skillshare/tree/main/herdr/skillshare) にあります。
 
 1. `mods/skillshare/` を `~/.config/herdr-app/mods/skillshare/` にコピーします。

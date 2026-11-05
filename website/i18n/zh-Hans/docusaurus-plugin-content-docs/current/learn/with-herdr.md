@@ -15,6 +15,18 @@ sidebar_position: 8
 
 ## 设置
 
+### 从 Herdr layouts 安装
+
+这个 layout 已上架到 [Herdr layouts](https://herdr.dev/layouts/runkids/skillshare--herdr--skillshare/)。把下面这段 prompt 贴给 Herdr 里的 agent：
+
+```text
+Read ~/.config/herdr-app/AGENTS.md, then add this layout: herdr.dev/layouts/runkids/skillshare--herdr--skillshare
+```
+
+agent 会先读完所有文件再添加 layout，你自己的 layout 不会被改动。用 `ctrl-shift-l` 切换 layout。
+
+### 手动安装
+
 面板位于 skillshare 仓库的 [`herdr/skillshare`](https://github.com/runkids/skillshare/tree/main/herdr/skillshare)。
 
 1. 把 `mods/skillshare/` 复制到 `~/.config/herdr-app/mods/skillshare/`。

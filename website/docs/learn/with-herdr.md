@@ -15,6 +15,18 @@ sidebar_position: 8
 
 ## Setup
 
+### From Herdr layouts
+
+The layout is listed at [Herdr layouts](https://herdr.dev/layouts/runkids/skillshare--herdr--skillshare/). Paste this prompt into an agent in Herdr:
+
+```text
+Read ~/.config/herdr-app/AGENTS.md, then add this layout: herdr.dev/layouts/runkids/skillshare--herdr--skillshare
+```
+
+The agent reads every file before it adds the layout, and your own layout stays as it is. Switch layouts with `ctrl-shift-l`.
+
+### By hand
+
 The panel ships in the skillshare repository under [`herdr/skillshare`](https://github.com/runkids/skillshare/tree/main/herdr/skillshare).
 
 1. Copy `mods/skillshare/` to `~/.config/herdr-app/mods/skillshare/`.

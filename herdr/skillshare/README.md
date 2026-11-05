@@ -7,6 +7,14 @@ ways, and shows each Herdr machine's skillshare on a Machines tab.
 
 ## Install
 
+From [Herdr layouts](https://herdr.dev/layouts/runkids/skillshare--herdr--skillshare/), paste this prompt into an agent in Herdr:
+
+```text
+Read ~/.config/herdr-app/AGENTS.md, then add this layout: herdr.dev/layouts/runkids/skillshare--herdr--skillshare
+```
+
+By hand:
+
 1. Copy `mods/skillshare/` to `~/.config/herdr-app/mods/skillshare/`.
 2. Copy `layouts/herdr-skillshare.json` and `layouts/herdr-skillshare.png` to
    `~/.config/herdr-app/layouts/` and switch to it (`layout.switch {name: "herdr-skillshare"}`).

@@ -15,6 +15,18 @@ sidebar_position: 8
 
 ## 설정
 
+### Herdr layouts에서
+
+이 레이아웃은 [Herdr layouts](https://herdr.dev/layouts/runkids/skillshare--herdr--skillshare/)에 등록되어 있습니다. Herdr 안의 에이전트에 다음 프롬프트를 붙여 넣습니다.
+
+```text
+Read ~/.config/herdr-app/AGENTS.md, then add this layout: herdr.dev/layouts/runkids/skillshare--herdr--skillshare
+```
+
+에이전트는 모든 파일을 읽은 뒤 레이아웃을 추가하며, 기존 레이아웃은 그대로 유지됩니다. 레이아웃은 `ctrl-shift-l`로 전환합니다.
+
+### 직접 설치
+
 패널은 skillshare 저장소의 [`herdr/skillshare`](https://github.com/runkids/skillshare/tree/main/herdr/skillshare)에 있습니다.
 
 1. `mods/skillshare/`를 `~/.config/herdr-app/mods/skillshare/`에 복사합니다.
