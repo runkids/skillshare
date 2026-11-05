@@ -768,6 +768,9 @@ func (m arModel) renderRuleDetail(item arRuleItem) string {
 	row("Pattern", theme.Primary().Render(r.Pattern))
 	row("Severity", theme.SeverityStyle(r.Severity).Render(r.Severity))
 	row("Message", r.Message)
+	if len(r.Files) > 0 {
+		row("Files", strings.Join(r.Files, ", "))
+	}
 	row("Regex", r.Regex)
 
 	if r.Exclude != "" {

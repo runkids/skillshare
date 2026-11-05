@@ -32,6 +32,11 @@ export const auditFieldDocs: Record<string, FieldDoc> = {
     type: 'string',
     example: 'regex: \'(?i)(password|secret)\\s*[=:]\\s*\\S+\'',
   },
+  'rules.files': {
+    description: 'Optional case-insensitive Go path.Match globs. Basename globs match at any depth; globs with / match relative skill paths. Partial overrides inherit when omitted; [] clears the filter. A full regex replacement replaces the entire rule, including file scope. Recursive **, escapes, absolute paths and parent segments are rejected.',
+    type: 'string[]',
+    example: "files: ['*.py', 'scripts/*.php']",
+  },
   'rules.exclude': {
     description: 'Optional regular expression to exclude lines from matching. Lines matching this pattern are ignored even if they match the main regex.',
     type: 'string',

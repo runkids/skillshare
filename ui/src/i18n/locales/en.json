@@ -148,6 +148,7 @@
   "auditRules.confirm.message": "This will delete your audit-rules.yaml and restore all rules to their built-in defaults. This action cannot be undone.",
   "auditRules.confirm.title": "Reset All Custom Rules",
   "auditRules.detail.exclude": "Exclude",
+  "auditRules.detail.files": "Files",
   "auditRules.detail.regex": "Regex",
   "auditRules.detail.confidence": "Confidence",
   "auditRules.detail.overridden": "overridden",

@@ -484,3 +484,28 @@ SARIF 出力では、`ruleId` は SARIF の `ruleId` フィールドにマッピ
 - [`audit rules`](/docs/reference/commands/audit-rules) — ルールの管理とカスタマイズ
 - [Securing Your Skills](/docs/how-to/advanced/security) — チームおよび組織向けのセキュリティガイド
 - [CI/CD Skill Validation](/docs/how-to/recipes/ci-cd-skill-validation) — パイプライン自動化のレシピ
+
+## 機密の宛先とデシリアライズ {#sensitive-destinations}
+
+静的な証拠をレビュー用に報告します。SSRF、信頼できない入力、実行時の悪用を証明するものではありません。別名、DNS、リダイレクト、データの由来、任意の複数行構文は解決せず、ネットワーク要求やデシリアライズも実行しません。
+
+| ルール ID | 既定値 | 証拠 |
+|---|---|---|
+| `ssrf-metadata-0` | コード文脈とメタデータホスト宛てのリクエストは CRITICAL。文章および公開 URL のパス/クエリ内の言及は HIGH | 収集対象のすべてのテキスト内のメタデータホスト。ソースファイルと下記の対象 Markdown フェンスは、その他の言及に CRITICAL の文脈を与えます。認識されたリクエストが CRITICAL になるのは、解析した URL のホスト名がメタデータホストと一致する場合だけです。公開 URL のパスまたはクエリだけにメタデータアドレスがある場合は HIGH のままです。 |
+| `ssrf-internal-0` | MEDIUM | 既知の要求呼び出しや curl/wget のリテラル HTTP(S) 内部宛先 |
+| `ssrf-dynamic-0` | MEDIUM (0.6) | 要求入力を直接使うか、Python f-string / JavaScript テンプレートでホストを補間する要求。宛先は不明 |
+| `unsafe-deserialization-python` | HIGH | Python `pickle.load/loads`, `marshal.load/loads`, `dill.load/loads` |
+| `unsafe-deserialization-yaml` | HIGH | Python `yaml.load/load_all`, `unsafe_load/unsafe_load_all`, `full_load/full_load_all` |
+| `unsafe-deserialization-torch` | HIGH | 明示的な `weights_only=True` のない Python `torch.load` |
+| `unsafe-deserialization-php` | HIGH | PHP `unserialize` |
+| `unsafe-deserialization-ruby` | HIGH | Ruby `Marshal.load/restore` |
+| `unsafe-deserialization-js` | HIGH | JavaScript/TypeScript の `require('node-serialize')` または `from 'node-serialize'`。依存関係の利用方法を確認 |
+
+初期メタデータポリシー: `169.254.169.254`, `169.254.170.2`, `100.100.100.200`, `metadata.google.internal`, `fd00:ec2::254`。IPv6 は圧縮表記（角括弧あり・なし）を認識します。照合は言語フィルターおよびチュートリアル抑制から独立しています。文章、設定データ、テキストフェンスは HIGH です。言及だけなら既定の CRITICAL しきい値では警告となり、audit の失敗やインストールのブロックは起きませんが、HIGH しきい値ではブロックされます。ソースファイル（コメントを含む）、下記の対象 Markdown フェンス（言語指定なしを含む）では、それ以外のメタデータ言及が CRITICAL になります。認識されたリクエストが CRITICAL になるのは、解析した URL のホスト名がメタデータホストと一致する場合だけです。メタデータアドレスが公開 URL のパスまたはクエリにだけある場合は HIGH のままです。テキスト・設定フェンス内のリクエストも、解析したホスト名がメタデータホストと一致する場合だけ CRITICAL です。構文上のヒューリスティックであり、実行の有無は証明しません。明示的なグローバル・プロジェクト重大度指定が優先され、正規表現の完全置換ではコンテキスト検査なしで指定された重大度を使います。その他の符号化 IP 表記や別名は対象外です。
+
+メタデータのコード判定対象は `.sh`, `.bash`, `.zsh`, `.fish`, `.py`, `.js`, `.ts`, `.rb`, `.php`, `.php3`, `.php4`, `.php5`, `.phtml`, `.go`, `.rs`, `.swift`, `Makefile`, `Dockerfile`（大文字小文字を区別しない）と、先頭が shebang（`#!`、BOM は省略可）の収集対象ファイルです。拡張子のないメモは shebang がなければ、認識対象のリクエストを除き HIGH のままです。Markdown フェンスは言語未指定、これらの拡張子名、または `python`, `javascript`, `typescript`, `ruby`, `shell`, `console`, `golang`, `rust`, `makefile`, `dockerfile` の場合にコードと判定します。その他（`http`, `powershell`, `pwsh`, `node`, `jsx`, `tsx`, `java` を含む）は認識対象のリテラルリクエストがない限り HIGH です。IPv4 メタデータアドレスと `metadata.google.internal` の文末のピリオドを認識し、`.example.com` のようなホスト名の接尾辞には一致しません。
+
+
+内部宛先は標準 IPv4/IPv6（IPv4 マップ IPv6 を含む）、RFC1918・プライベート IPv6、ループバック、リンクローカル、未指定アドレス、および localhost と `.localhost`/`.internal`/`.local` のホストです。認識する要求形式: requests/httpx/axios HTTP methods, fetch, urlopen, urllib.request.urlopen, file_get_contents/fopen, Net::HTTP.get/post, URI.open, curl/wget。単純なシェル呼び出しに限ります。直接入力: `req/request.query/body/params/args/GET`, `$_GET/$_POST/$_REQUEST`, `params[...]`。通常の URL 変数だけでは動的ルールに一致しません。内部ルールは `.py`, `.js`, `.ts`, `.rb`, `.php` とシェル `.sh`, `.bash`, `.zsh`, `.fish` に適用し、動的ルールはシェルを除く同じ言語に適用します。
+
+デシリアライズは対応する `.py`, `.php`, `.rb`, `.js`, `.ts` ファイルだけが対象で、Markdown の本文・コードフェンスは対象外です。PHP の `.php3`, `.php4`, `.php5`, `.phtml` も認識します。拡張子は大文字小文字を区別しません。収集には既存のサイズ・深さ・バイナリー制限を適用します。`yaml.safe_load/safe_load_all` は陰性例です。`yaml.load/load_all` のトップレベル引数 `Loader=SafeLoader`, `Loader=CSafeLoader`, `Loader=yaml.SafeLoader`, `Loader=yaml.CSafeLoader`、または `torch.load` の `weights_only=True` は、その呼び出しだけを抑制します。 SafeLoader と CSafeLoader は第 2 位置引数でも認識されます。別の安全な呼び出し、文字列内のキーワード、ネスト内のキーワードは安全でない呼び出しを隠しません。不完全・複数行の呼び出しで安全オプションを確認できなければ警告を維持します。名前付きローダーや依存関係の信頼性を保証するものではありません。

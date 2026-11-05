@@ -483,3 +483,28 @@ JSON/SARIF 輸出中的每筆 finding 都包含：
 - [`audit rules`](/docs/reference/commands/audit-rules) — 規則管理與客製化
 - [Securing Your Skills](/docs/how-to/advanced/security) — 給團隊與組織的安全指南
 - [CI/CD Skill Validation](/docs/how-to/recipes/ci-cd-skill-validation) — Pipeline 自動化範例
+
+## 敏感目標與反序列化 {#sensitive-destinations}
+
+這些靜態發現提供供審查的證據，不證明 SSRF、不可信輸入或執行時期可利用性。不會解析別名、DNS、重新導向、資料來源或任意多行語法，也不會傳送網路請求或執行反序列化。
+
+| 規則 ID | 預設值 | 證據 |
+|---|---|---|
+| `ssrf-metadata-0` | 程式碼上下文及目標為中繼資料主機的請求為 CRITICAL；敘述和公開 URL 路徑/查詢中的提及為 HIGH | 所有允許掃描的文字中的中繼資料主機。原始碼及下文列出的 Markdown 程式碼圍欄會讓其他提及具有 CRITICAL 上下文。只有在辨識出的請求解析後 URL 主機名稱符合中繼資料主機時，請求才為 CRITICAL；公開 URL 僅在路徑或查詢中出現該位址時維持 HIGH。 |
+| `ssrf-internal-0` | MEDIUM | 已辨識的請求呼叫或 curl/wget 中的字面值 HTTP(S) 內部目標 |
+| `ssrf-dynamic-0` | MEDIUM (0.6) | 直接使用請求輸入，或以 Python f-string / JavaScript 範本插值建立主機的請求；目標未知 |
+| `unsafe-deserialization-python` | HIGH | Python `pickle.load/loads`、`marshal.load/loads`、`dill.load/loads` |
+| `unsafe-deserialization-yaml` | HIGH | Python `yaml.load/load_all`、`unsafe_load/unsafe_load_all`、`full_load/full_load_all` |
+| `unsafe-deserialization-torch` | HIGH | 未明確指定 `weights_only=True` 的 Python `torch.load` |
+| `unsafe-deserialization-php` | HIGH | PHP `unserialize` |
+| `unsafe-deserialization-ruby` | HIGH | Ruby `Marshal.load/restore` |
+| `unsafe-deserialization-js` | HIGH | JavaScript/TypeScript `require('node-serialize')` 或 `from 'node-serialize'`；相依套件證據需審查實際用法 |
+
+初始中繼資料策略辨識 `169.254.169.254`, `169.254.170.2`, `100.100.100.200`, `metadata.google.internal`, `fd00:ec2::254`；IPv6 支援帶括號或不帶括號的壓縮形式。中繼資料比對獨立於語言篩選和教學範例抑制。敘述、設定資料及文字圍欄為 HIGH，因此僅提及位址在預設 CRITICAL 門檻下只會警告，不會讓 audit 失敗或阻擋安裝；HIGH 門檻仍會阻擋。原始碼（包括註解）、下文列出的 Markdown 程式碼圍欄（包括未標示語言的圍欄）會讓其他中繼資料提及具有 CRITICAL 上下文。只有在辨識出的請求解析後 URL 主機名稱符合中繼資料主機時，請求才為 CRITICAL；若中繼資料位址只出現在公開 URL 的路徑或查詢中，則維持 HIGH。文字/設定圍欄中的請求也只有在解析後主機名稱符合中繼資料主機時才為 CRITICAL。這只是語法啟發式，無法確定請求是否執行。明確的全域/專案嚴重程度覆寫優先；完整自訂正規表示式替換直接採用設定的嚴重程度，不進行此上下文檢查。其他編碼 IP 形式和別名不在初始範圍內。
+
+中繼資料程式碼上下文辨識 `.sh`、`.bash`、`.zsh`、`.fish`、`.py`、`.js`、`.ts`、`.rb`、`.php`、`.php3`、`.php4`、`.php5`、`.phtml`、`.go`、`.rs`、`.swift`、`Makefile` 和 `Dockerfile`（不分大小寫），以及以首行 shebang（`#!`，前面可有 BOM）開頭的允許掃描檔案。沒有 shebang 的無副檔名筆記維持 HIGH，除非包含辨識出的請求。Markdown 圍欄限於未標示語言、上述副檔名，或 `python`、`javascript`、`typescript`、`ruby`、`shell`、`console`、`golang`、`rust`、`makefile`、`dockerfile`。其他標籤（包括 `http`、`powershell`、`pwsh`、`node`、`jsx`、`tsx`、`java`）維持 HIGH，除非辨識出的字面值請求以中繼資料為目標。IPv4 中繼資料位址或 `metadata.google.internal` 後的句尾句點可被辨識；`.example.com` 等主機名稱後綴不會匹配。
+
+
+內部目標包括標準 IPv4/IPv6（含 IPv4 對應 IPv6）、RFC1918/私有 IPv6、回環、鏈路本地、未指定地址，以及 localhost 和 `.localhost`/`.internal`/`.local` 主機。辨識的請求形式：requests/httpx/axios HTTP methods, fetch, urlopen, urllib.request.urlopen, file_get_contents/fopen, Net::HTTP.get/post, URI.open, curl/wget；shell 僅支援簡單呼叫。直接請求輸入指 `req/request.query/body/params/args/GET`, `$_GET/$_POST/$_REQUEST`, `params[...]`。普通 URL 變數不足以觸發動態規則。內部規則適用於 `.py`、`.js`、`.ts`、`.rb`、`.php` 和 shell 副檔名 `.sh`、`.bash`、`.zsh`、`.fish`；動態規則使用同樣的程式碼類型，但不含 shell。
+
+反序列化規則只適用於對應的 `.py`、`.php`、`.rb`、`.js`、`.ts` 檔案，不掃描 Markdown 本文或程式碼圍欄。也支援 PHP 別名 `.php3`、`.php4`、`.php5`、`.phtml`。副檔名比對不區分大小寫，檔案收集仍受現有大小、深度和二進位限制。`yaml.safe_load/safe_load_all` 是陰性例。`yaml.load/load_all` 的明確頂層引數 `Loader=SafeLoader`, `Loader=CSafeLoader`, `Loader=yaml.SafeLoader`, `Loader=yaml.CSafeLoader` 或 `torch.load` 的 `weights_only=True` 只抑制對應呼叫。 SafeLoader 與 CSafeLoader 也可作為第二個位置引數識別。其他安全呼叫、字串中的關鍵字和巢狀關鍵字都不會隱藏不安全呼叫。無法在同一行確認安全選項的不完整或多行呼叫仍會產生警告。這些簽章檢查不保證載入器名稱或相依套件可信。

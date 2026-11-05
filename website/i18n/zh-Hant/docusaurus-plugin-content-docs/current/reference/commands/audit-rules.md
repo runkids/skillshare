@@ -112,6 +112,7 @@ rules:
 | `regex` | 是* | 用於比對每一行的正規表示式 |
 | `confidence` | 否 | 0 到 1 的信心度；預設為 0.95 |
 | `exclude` | 否 | 若一行同時符合 `regex` 與 `exclude`，該發現項目會被抑制 |
+| `files` | 否 | 限制規則適用檔案的 glob 模式；詳見下方檔案範圍說明。 |
 | `enabled` | 否 | 設為 `false` 以停用規則。停用時只需要 `id`。 |
 
 *除非 `enabled: false`，否則為必要欄位。
@@ -168,7 +169,7 @@ skillshare audit rules init -p       # → .skillshare/audit-rules.yaml
 #            → project (.skillshare/audit-rules.yaml)
 #
 # Each rule needs: id, severity, pattern, message, regex.
-# Optional: exclude (suppress match), enabled (false to disable).
+# Optional: exclude (suppress match), files (scope), enabled (false to disable).
 
 rules:
   # Example: flag TODO comments as informational
@@ -401,6 +402,15 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 | `cross-skill-privilege-network` | cross-skill-privilege-network | MEDIUM |
 | `cross-skill-stealth` | cross-skill-stealth | HIGH |
 | `cross-skill-cred-interpreter` | cross-skill-cred-interpreter | MEDIUM |
+| `ssrf-metadata-0` | ssrf-metadata | CRITICAL / HIGH ([情境](/docs/understand/audit-engine#sensitive-destinations)) |
+| `ssrf-internal-0` | ssrf-internal | MEDIUM |
+| `ssrf-dynamic-0` | ssrf-dynamic | MEDIUM |
+| `unsafe-deserialization-python` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-yaml` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-torch` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-php` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-ruby` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-js` | unsafe-deserialization | HIGH |
 
 ## Subcommands
 
@@ -422,3 +432,15 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 - [Audit Engine](/docs/understand/audit-engine) — 引擎運作原理（威脅模型、風險評分、分層）
 - [Securing Your Skills](/docs/how-to/advanced/security) — 給團隊的安全指南
 - [CI/CD Skill Validation](/docs/how-to/recipes/ci-cd-skill-validation) — Pipeline 自動化操作手冊
+
+## 檔案適用範圍 {#file-applicability}
+
+選用的 `files` 清單採用 Go `path.Match` 語法（`*`、`?`、字元類別）。不含 `/` 的 `*.py` 比對任意深度的檔名；含 `/` 的 `scripts/*.php` 比對相對於掃描技能根目錄的完整路徑，`*` 不跨越 `/`，不區分大小寫。單檔掃描使用檔名；原始內容掃描使用傳入的檔名。此欄位只篩選已收集的檔案，不增加可掃描類型。
+
+絕對路徑、空模式、空路徑段和 `.`/`..`、反斜線、冒號、無效字元類別及遞迴 `**` 均會被拒絕，包括停用規則和沒有比對對象的覆寫。省略時保留繼承範圍，`files: []` 清除限制。支援 ID 和模式層級覆寫，ID 優先。完整正規表示式替換也會替換適用範圍和內建呼叫檢查。`audit rules --format json` 傳回非空的有效 `files` 清單。
+
+```yaml
+rules:
+  - id: unsafe-deserialization-python
+    files: ['*.py', 'scripts/*.txt']
+```
