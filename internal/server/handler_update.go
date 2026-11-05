@@ -24,6 +24,8 @@ type updateRequest struct {
 	Force     bool   `json:"force"`
 	All       bool   `json:"all"`
 	SkipAudit bool   `json:"skipAudit"`
+	// Branch reinstalls one skill from this branch of its recorded source.
+	Branch string `json:"branch,omitempty"`
 }
 
 type updateResultItem struct {
@@ -62,6 +64,11 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		if !errors.Is(err, errBodyTooLarge) {
 			writeError(w, http.StatusBadRequest, "invalid JSON body")
 		}
+		return
+	}
+
+	if body.Branch != "" && (body.All || body.Kind == "agent") {
+		writeError(w, http.StatusBadRequest, "branch applies to a single skill only")
 		return
 	}
 
@@ -117,7 +124,12 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result := s.updateSingleByKind(body.Name, body.Kind, body.Force, body.SkipAudit)
+	var result updateResultItem
+	if body.Branch != "" {
+		result = s.switchSkillBranch(body.Name, body.Branch, body.Force, body.SkipAudit)
+	} else {
+		result = s.updateSingleByKind(body.Name, body.Kind, body.Force, body.SkipAudit)
+	}
 	status := "ok"
 	msg := ""
 	if result.Action == "error" {
@@ -130,12 +142,16 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		status = "partial"
 		msg = result.Message
 	}
-	s.writeOpsLog("update", status, start, map[string]any{
+	logArgs := map[string]any{
 		"name":       body.Name,
 		"force":      body.Force,
 		"skip_audit": body.SkipAudit,
 		"scope":      "ui",
-	}, msg)
+	}
+	if body.Branch != "" {
+		logArgs["branch"] = body.Branch
+	}
+	s.writeOpsLog("update", status, start, logArgs, msg)
 	writeJSON(w, map[string]any{"results": []updateResultItem{result}})
 }
 
@@ -381,7 +397,39 @@ func trackedBlockMessage(e *install.AuditGateError) string {
 	return fmt.Sprintf("blocked by security audit — findings at/above %s detected (%s)", e.Threshold, e.RollbackNote())
 }
 
+// switchSkillBranch reinstalls a skill from another branch of its recorded
+// source. Tracked repos change branch with git checkout instead.
+func (s *Server) switchSkillBranch(name, branch string, force, skipAudit bool) updateResultItem {
+	name = path.Clean(filepath.ToSlash(name))
+	skillPath := filepath.Join(s.cfg.EffectiveSkillsSource(), name)
+	if entry := s.skillsStore.GetByPath(name); entry == nil || entry.Source == "" || entry.Tracked || install.IsTrackedCheckout(skillPath) {
+		return updateResultItem{Name: name, Action: "error", Message: "only a skill installed from a remote source can switch branch"}
+	}
+	walk := s.skillsWalk()
+	result := s.reinstallRegularSkill(name, skillPath, branch, force, skipAudit, walk.Follow)
+	if result.Action == "updated" && s.IsProjectMode() {
+		// config.yaml declares the branch teammates install from, so it follows
+		// the switch; other declarations stay as the shared file has them.
+		for i := range s.projectCfg.Skills {
+			if skill := &s.projectCfg.Skills[i]; skill.FullName() == name {
+				skill.Branch = branch
+				if err := s.projectCfg.Save(s.projectRoot); err != nil {
+					result.Message += "; failed to record the branch in config.yaml: " + err.Error()
+				}
+				break
+			}
+		}
+	}
+	return result
+}
+
 func (s *Server) updateRegularSkill(name, skillPath string, force, skipAudit bool, follow ...*sourcewalk.Follow) updateResultItem {
+	return s.reinstallRegularSkill(name, skillPath, "", force, skipAudit, follow...)
+}
+
+// reinstallRegularSkill reinstalls a skill from its recorded source, from
+// branch when set and from the recorded branch otherwise.
+func (s *Server) reinstallRegularSkill(name, skillPath, branch string, force, skipAudit bool, follow ...*sourcewalk.Follow) updateResultItem {
 	if refusal := s.refuseFollowedCheckout(name, skillPath, follow); refusal != nil {
 		return *refusal
 	}
@@ -400,7 +448,10 @@ func (s *Server) updateRegularSkill(name, skillPath string, force, skipAudit boo
 			Message: "invalid source: " + err.Error(),
 		}
 	}
-	source.ApplyRecordedBranch(entry.Branch)
+	if branch == "" {
+		branch = entry.Branch
+	}
+	source.ApplyRecordedBranch(branch)
 
 	sourceDir := s.cfg.EffectiveSkillsSource()
 	opts := install.InstallOptions{

@@ -281,3 +281,80 @@ func TestUpdate_GitSkillReinstallKeepsLocalEditWhenFetchFails(t *testing.T) {
 		t.Fatalf("local edit lost after failed update: %q", got)
 	}
 }
+
+// writeCommit writes SKILL.md (or removes it for an empty body) under rel and commits.
+func writeCommit(t *testing.T, repo, rel, body string) {
+	t.Helper()
+	dir := filepath.Join(repo, rel)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(dir, "SKILL.md")
+	if body == "" {
+		if err := os.Remove(file); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("no skill here\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	} else if err := os.WriteFile(file, []byte(body), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitAdd(t, repo, ".")
+	gitCommit(t, repo, "change "+rel)
+}
+
+func TestUpdate_RootGitSkillFollowsAnotherBranch(t *testing.T) {
+	repo := initTestRepo(t)
+	writeCommit(t, repo, ".", "---\nname: demo\n---\n# default\n")
+	runGit(t, repo, "branch", "other")
+	runGit(t, repo, "checkout", "other")
+	writeCommit(t, repo, ".", "---\nname: demo\n---\n# other\n")
+	runGit(t, repo, "checkout", "-")
+	sourceDir := t.TempDir()
+	dest := filepath.Join(sourceDir, "demo")
+	if err := cloneRepo("file://"+repo, dest, "", false, nil); err != nil {
+		t.Fatalf("clone failed: %v", err)
+	}
+	source, err := ParseSource("file://" + repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source.Branch = "other"
+
+	if _, err := Install(source, dest, InstallOptions{Update: true, Force: true, SourceDir: sourceDir, SkipAudit: true}); err != nil {
+		t.Fatalf("update failed: %v", err)
+	}
+	if got, _ := os.ReadFile(filepath.Join(dest, "SKILL.md")); !strings.Contains(string(got), "# other") {
+		t.Fatalf("SKILL.md = %q, want the other branch", got)
+	}
+}
+
+func TestUpdate_CandidateWithoutSkillFileKeepsTheInstall(t *testing.T) {
+	repo := initTestRepo(t)
+	writeCommit(t, repo, "skills/foo", "---\nname: foo\n---\n# kept\n")
+	runGit(t, repo, "checkout", "-b", "empty")
+	writeCommit(t, repo, "skills/foo", "")
+	runGit(t, repo, "checkout", "-")
+	sourceDir := t.TempDir()
+	dest := filepath.Join(sourceDir, "foo")
+	source, err := ParseSource("file://" + repo + "//skills/foo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Install(source, dest, InstallOptions{SourceDir: sourceDir, SkipAudit: true}); err != nil {
+		t.Fatalf("install failed: %v", err)
+	}
+	// An update parses the recorded source again; the install pinned this one's commit.
+	if source, err = ParseSource("file://" + repo + "//skills/foo"); err != nil {
+		t.Fatal(err)
+	}
+	source.Branch = "empty"
+
+	if _, err := Install(source, dest, InstallOptions{Update: true, Force: true, SourceDir: sourceDir, SkipAudit: true}); err == nil {
+		t.Fatal("expected the update to refuse a version without SKILL.md")
+	}
+	if got, _ := os.ReadFile(filepath.Join(dest, "SKILL.md")); !strings.Contains(string(got), "# kept") {
+		t.Fatalf("SKILL.md = %q, want the installed version kept", got)
+	}
+}

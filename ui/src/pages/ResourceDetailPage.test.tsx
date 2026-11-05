@@ -4,14 +4,16 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { expect, it, vi } from 'vitest';
 import { api, type Skill } from '../api/client';
+import { hubRefs } from '../api/hubDrafts';
 import { I18nProvider } from '../i18n';
 import { ToastProvider } from '../components/Toast';
 import ResourceDetailPage from './ResourceDetailPage';
 
 vi.mock('../api/client', async (load) => ({ ...await load<typeof import('../api/client')>(), api: {
   getSyncMatrix: vi.fn(), listTargets: vi.fn(), getResource: vi.fn(), listSkills: vi.fn(),
-  auditSkill: vi.fn(), diff: vi.fn(), batchUninstall: vi.fn(), moveResources: vi.fn(),
+  auditSkill: vi.fn(), diff: vi.fn(), batchUninstall: vi.fn(), moveResources: vi.fn(), update: vi.fn(),
 } }));
+vi.mock('../api/hubDrafts', () => ({ hubRefs: vi.fn() }));
 
 it('uninstalls only the linked skill from its detail page', async () => {
   const user = userEvent.setup();
@@ -105,4 +107,33 @@ it('keeps the move result open after the old name stops loading, and goes to the
 
   await user.click(screen.getByRole('button', { name: 'Later' }));
   await waitFor(() => expect(api.getResource).toHaveBeenCalledWith('archive__demo', undefined));
+});
+
+it('reinstalls from the default branch by name only after confirming', async () => {
+  const user = userEvent.setup();
+  const remote: Skill = {
+    name: 'foo', kind: 'skill', flatName: 'foo', relPath: 'foo', sourcePath: '/skills/foo', isInRepo: false,
+    source: 'github.com/o/r/skills/foo', repoUrl: 'https://github.com/o/r.git', branch: 'dev',
+  };
+  vi.mocked(api.getResource).mockResolvedValue({ resource: remote, skillMdContent: '', files: [] });
+  vi.mocked(api.listSkills).mockResolvedValue({ resources: [remote] });
+  vi.mocked(api.listTargets).mockResolvedValue({ targets: [], sourceSkillCount: 1 });
+  vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as never);
+  vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as never);
+  vi.mocked(api.auditSkill).mockResolvedValue({ result: { findings: [] } } as never);
+  vi.mocked(hubRefs).mockResolvedValue({ pinnable: true, current: '', defaultBranch: 'main', branches: ['dev', 'main'], tags: ['v1'] });
+  vi.mocked(api.update).mockResolvedValue({ results: [{ name: 'foo', action: 'updated' }] } as never);
+  render(<MemoryRouter initialEntries={['/skills/foo']}>
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <I18nProvider><ToastProvider><Routes>
+        <Route path="/skills/:name" element={<ResourceDetailPage />} />
+      </Routes></ToastProvider></I18nProvider>
+    </QueryClientProvider>
+  </MemoryRouter>);
+  await user.click(await screen.findByRole('combobox', { name: 'Branch' }));
+  await user.click(await screen.findByRole('option', { name: /^Default branch/ }));
+  const dialog = await screen.findByRole('dialog', { name: 'Switch branch' });
+  expect(api.update).not.toHaveBeenCalled();
+  await user.click(within(dialog).getByRole('button', { name: 'Switch and reinstall' }));
+  await waitFor(() => expect(api.update).toHaveBeenCalledWith({ name: 'foo', kind: 'skill', skipAudit: false, force: false, branch: 'main' }));
 });
