@@ -10,7 +10,7 @@ import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { exec, hc, run, spaces, agents, focused, machines, shared, setShared, theme, settings, layout, openOverlay, closeOverlay, nextCommand, readTextFile, props as blockProps } from "herdr";
 import {
   KINDS, SCOPES, START, START_SCRIPT, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, GIT_STATUS, PROJECT, DISCOVER, AUDIT, PREVIEW, CONFLICTS, RESOLVE, ABORT, METADATA_STAGES, METADATA_WRITE, mergeMetadata, parseStages,
-  parseJSON, lastLine, failure, parseGitStatus, sourceLine, buildItems, hookArgs, rowSub, filterItems, groupItems, counts,
+  parseJSON, lastLine, failure, parseGitStatus, sourceLine, buildItems, hookArgs, rowSub, filterItems, groupItems, sourceGroups, counts,
   cloneUrl, skillChoices, newerVersion, ago, auditMessage, driftFrom, parseDiscover, parseAudit, parsePreview, diffSides,
 } from "./model.js";
 
@@ -19,6 +19,8 @@ const NOTICE = "skillshare.notice.v1"; // { kind, text, at }
 const REQUEST = "skillshare.request.v1"; // { id, op, ... }: work a dialog hands to the panel
 const RECENT = "skillshare.recent.v1"; // install sources, newest first
 const BUSY = "skillshare.busy.v1"; // what the panel is doing, so dialogs can wait
+const HIDE_DISABLED = "skillshare.hideDisabled.v1"; // false lists disabled rows; unset or true hides them
+const IN_SYNC_VIEW = "skillshare.inSyncView.v1"; // "list", or unset for In sync skills/agents grouped by source
 const POLL = 20000, CHECK_EVERY = 10 * 60 * 1000, MACHINES_POLL = 60000, NOTICE_MS = 4000;
 const PATHS = 'PATH="$HOME/.local/bin:$HOME/go/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"; export PATH';
 
@@ -176,7 +178,7 @@ export default class Skillshare extends View {
     this.handle = cx.focus_handle();
     if (this.role !== "panel") return this.initDialog(cx);
 
-    this.view = "resources"; this.scope = "all"; this.kind = "skills"; this.query = ""; this.open = null;
+    this.view = "resources"; this.scope = "all"; this.kind = "skills"; this.query = ""; this.open = null; this.expanded = new Set();
     this.ctx = null; this.project = null; this.raw = {}; this.items = []; this.git = null; this.loading = false; this.loadedAt = 0;
     this.checks = {}; this.checkedAt = 0; this.busy = null; this.busyOn = new Map(); this.lastRequest = shared(REQUEST)?.id ?? null; this.shownNotice = null;
     this.lastAgent = null; this.machines = {}; this.machinesAt = 0; this.version = null; this.token = 0;
@@ -489,7 +491,11 @@ export default class Skillshare extends View {
     const scope = this.project ? this.scope : "global";
     const scoped = filterItems(all, { scope, kind: null, query: "" });
     const kc = counts(scoped);
-    const shown = filterItems(all, { scope, kind: this.kind, query: this.query });
+    // Hidden unless the person chose Show disabled.
+    const hideDisabled = shared(HIDE_DISABLED) !== false;
+    const listed = filterItems(all, { scope, kind: this.kind, query: this.query });
+    const disabled = listed.filter((i) => !i.notice && i.state === "off").length;
+    const shown = hideDisabled ? filterItems(listed, { scope, kind: this.kind, query: "", hideDisabled }) : listed;
     const groups = groupItems(shown), notices = shown.filter((i) => i.notice);
     const showScope = Boolean(this.project) && scope === "all";
     const folderName = (this.project ?? ctx.folder).split("/").filter(Boolean).pop() || "~";
@@ -536,9 +542,27 @@ export default class Skillshare extends View {
           primary("sync-group", syncLabel, t, () => request({ op: "sync", on: ctx.on, project: this.project, scopes: syncScopes, plugins: groups.sync.some((i) => i.kind === "plugins") }), { h: 26, px: 10, size: S().label })));
         sections.push(...groups.sync.map((i) => this.row(t, i, showScope, ctx)));
       }
-      if (groups.ok.length || !unknown.length) sections.push(this.groupHeader(t, "ok", `In sync · ${groups.ok.length}`, t.muted, null));
-      sections.push(...groups.ok.map((i) => this.row(t, i, showScope, ctx)));
-      if (!shown.length) sections.push(div().px(14).py(8).child(note(t, this.query ? "Nothing matches the filter." : `No ${KINDS.find(([k]) => k === this.kind)[1].toLowerCase()} here yet.`)));
+      const groupable = this.kind === "skills" || this.kind === "agents";
+      const bySource = groupable && shared(IN_SYNC_VIEW) !== "list";
+      if (groups.ok.length || !unknown.length || disabled) {
+        // View toggles are not routed through groupHeader's action, which a busy machine replaces.
+        sections.push(this.groupHeader(t, "ok", `In sync · ${groups.ok.length}`, t.muted, null)
+          .when(groupable && groups.ok.length > 0, (el) => el.child(this.viewSwitch(t, bySource)))
+          .when(disabled > 0, (el) => el.child(secondary("hide-disabled", `${hideDisabled ? "Show" : "Hide"} disabled · ${disabled}`, t,
+            (_e, cx) => { setShared(HIDE_DISABLED, !hideDisabled); cx.notify(); }, { h: 26, px: 8, size: S().label, quiet: true, color: t.muted }))));
+      }
+      if (bySource) {
+        const { groups: sources, rows } = sourceGroups(groups.ok);
+        for (const g of sources) {
+          const open = Boolean(this.query) || this.expanded.has(g.key);
+          sections.push(this.sourceNode(t, g, open));
+          if (open) sections.push(...g.items.map((i) => div().pl(16).child(this.row(t, i, showScope, ctx))));
+        }
+        sections.push(...rows.map((i) => this.row(t, i, showScope, ctx)));
+      } else {
+        sections.push(...groups.ok.map((i) => this.row(t, i, showScope, ctx)));
+      }
+      if (!shown.length) sections.push(div().px(14).py(8).child(note(t, listed.length ? "All disabled entries are hidden." : this.query ? "Nothing matches the filter." : `No ${KINDS.find(([k]) => k === this.kind)[1].toLowerCase()} here yet.`)));
       list = v_flex().pt(4).pb(16).children(sections);
     }
     return v_flex().flex_1().min_h(0).child(header).child(tools)
@@ -549,6 +573,27 @@ export default class Skillshare extends View {
     return h_flex().id(`group-${id}`).min_h(28).px(14).pt(10).pb(4).gap(8).items_center()
       .child(div().flex_1().text_size(S().label).font_semibold().text_color(color).child(label))
       .when(Boolean(action), (el) => el.child(this.busyAt(this.ctx?.on) ? disabledButton(`${id}-busy`, "Working…", t, { h: 26, px: 10, size: S().label }) : action));
+  }
+
+  viewSwitch(t, bySource) {
+    return h_flex().id("in-sync-view").flex_none().p(2).gap(2).rounded(6).bg(t.chrome).border_1().border_color(t.border)
+      .children([["list", "List"], ["source", "By source"]].map(([k, label]) => {
+        const on = (k === "source") === bySource;
+        return h_flex().id(`in-sync-view-${k}`).h(20).px(8).items_center().rounded(4).bg(on ? t.raised : t.chrome)
+          .text_size(S().label).text_color(on ? t.foreground : t.muted).cursor_pointer().hover((s) => s.text_color(t.foreground))
+          .on_mouse_down("left", stop).on_click((_e, cx) => { setShared(IN_SYNC_VIEW, k === "list" ? "list" : null); cx.notify(); })
+          .child(label);
+      }));
+  }
+
+  sourceNode(t, group, open) {
+    return h_flex().id(`src-${group.key}`).min_h(36).mx(8).px(10).gap(8).items_center().rounded(8).cursor_pointer()
+      .hover((s) => s.bg(t.hover)).on_mouse_down("left", stop)
+      .on_click((_e, cx) => { if (this.expanded.has(group.key)) this.expanded.delete(group.key); else this.expanded.add(group.key); cx.notify(); })
+      .child(icon(open ? "chevron-down" : "chevron-right", 14, t.muted))
+      .child(icon(group.repo ? "git" : "folder", 13, t.muted))
+      .child(div().flex_1().min_w(0).truncate().text_size(S().body).font_medium().child(group.label))
+      .child(div().flex_none().text_size(S().label).text_color(t.muted).child(String(group.items.length)));
   }
 
   row(t, item, showScope, ctx) {
@@ -575,6 +620,11 @@ export default class Skillshare extends View {
     if (item.state === "sync" && item.kind !== "hooks") lines.push(`Changed since the last sync${item.reason ? ` (${item.reason})` : ""}. The next sync updates your targets.`);
     if (item.state === "off" || (item.kind === "hooks" && item.disabled)) lines.push("Disabled: targets don't get it.");
     if (item.kind === "hooks") lines.push(`Agents: ${item.src}`, ...(item.description ? [item.description] : []), ...(item.root ? [`Root: ${item.root}`] : []), ...item.lines);
+    // Plugins and MCP servers have no actions here, so an opened row shows what the panel knows.
+    if (item.kind === "plugins" || item.kind === "mcp") {
+      if (item.kind === "plugins") lines.push(`Source: ${item.src}`, ...(item.version ? [`Version: ${item.version}`] : []));
+      lines.push(item.targets?.length ? `Targets: ${item.targets.join(", ")}` : "No targets yet.");
+    }
     const agent = this.receiver();
     const buttons = [];
     for (const action of ["enable", "disable", "remove"]) {

@@ -244,7 +244,7 @@ export function buildItems(scope, raw) {
     const item = {
       key: `${scope}:${kind}:${flat}`, kind, scope, name: flat, label: rel.split("/").pop(), rel,
       src: shortSource(check?.source ?? s.source) || (s.repoName ? `tracked repo ${s.repoName}` : rel.includes("/") ? rel : "local"),
-      disabled: Boolean(s.disabled), version: check?.version ?? null, state: "ok",
+      disabled: Boolean(s.disabled), version: check?.version ?? null, state: "ok", repo: s.repoName || null,
     };
     if (item.disabled) item.state = "off";
     else if (check?.status === "update_available" || repo?.status === "behind") {
@@ -343,9 +343,11 @@ export function rowSub(item, showScope) {
   return `${pre}${item.src}${item.version && item.kind === "plugins" ? ` · ${item.version}` : ""}`;
 }
 
-export function filterItems(items, { scope, kind, query }) {
+// hideDisabled drops disabled rows that need nothing; a disabled hook with pending changes stays.
+export function filterItems(items, { scope, kind, query, hideDisabled = false }) {
   const q = String(query ?? "").trim().toLowerCase();
   return items.filter((i) => (scope === "all" || i.scope === scope) && (!kind || i.kind === kind)
+    && !(hideDisabled && i.state === "off")
     && (!q || i.name.toLowerCase().includes(q) || i.src.toLowerCase().includes(q)
       || (i.kind === "hooks" && `${i.root ?? ""} ${i.reason ?? ""}`.toLowerCase().includes(q))));
 }
@@ -353,6 +355,33 @@ export function filterItems(items, { scope, kind, query }) {
 export function groupItems(items) {
   const by = (s) => items.filter((i) => !i.notice && s.includes(i.state)).sort((a, b) => a.label.localeCompare(b.label));
   return { update: by(["update"]), sync: by(["sync", "missing"]), ok: by(["ok", "off"]) };
+}
+
+// The repository a row came from: a tracked repo by name, a URL source by host/owner/repo
+// (github.com left out), anything else by its source text.
+function sourceLabel(item) {
+  if (item.repo) return { label: item.repo, repo: true };
+  const m = /^([^/\s]+\.[^/\s]+)\/([^/]+)\/([^/]+)/.exec(item.src);
+  if (!m) return { label: item.src, repo: false };
+  return { label: m[1] === "github.com" ? `${m[2]}/${m[3]}` : `${m[1]}/${m[2]}/${m[3]}`, repo: true };
+}
+
+// Sources with two or more rows become groups; the rest stay plain rows. Both sorted by label.
+// `repo` is false for a group of local rows.
+export function sourceGroups(items) {
+  const by = new Map();
+  for (const i of items) {
+    const { label, repo } = sourceLabel(i);
+    if (!by.has(label)) by.set(label, { repo, list: [] });
+    by.get(label).list.push(i);
+  }
+  const byLabel = (a, b) => a.label.localeCompare(b.label);
+  const groups = [], rows = [];
+  for (const [label, { repo, list }] of by) {
+    if (list.length > 1) groups.push({ key: `source:${label}`, label, repo, items: list.sort(byLabel) });
+    else rows.push(list[0]);
+  }
+  return { groups: groups.sort(byLabel), rows: rows.sort(byLabel) };
 }
 
 export function counts(items) {

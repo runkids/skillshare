@@ -58,6 +58,12 @@ entries stay visible there as “sync status unknown”; they do not count as pe
 Disabled state remains visible alongside diagnostics, and pending summaries omit unchanged
 targets while expanded details retain them. When only an unnamed native
 include needs work, “Native hook files need sync” offers Sync for its scope.
+
+Disabled rows are hidden by default; “In sync” offers Show disabled and Hide disabled when
+there are any. The choice is kept across restarts, and a disabled hook with pending changes
+stays listed. For skills and agents, “In sync” also switches between List and By source
+(the default), which folds rows from the same repository, or local ones, into collapsible
+groups. A source with one row stays a plain row, and a filter opens every group.
 Hook conflicts block `sync --all` for every resource kind; resolve them with the CLI or
 dashboard, then Sync again.
 

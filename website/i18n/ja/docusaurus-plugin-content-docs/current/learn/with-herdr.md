@@ -39,7 +39,7 @@ Read ~/.config/herdr-app/AGENTS.md, then add this layout: herdr.dev/layouts/runk
 
 パネルは Herdr が表示している space に追従し、その space のマシン上で、フォーカス中のターミナルのフォルダで skillshare を実行します。
 
-- **Resources** は skills、agents、MCP サーバー、plugins、hooks を「Updates available」「Needs sync」「In sync」に分けて表示します。`.skillshare/config.yaml` のあるプロジェクトでは、All · Project · Global でスコープを選べます。
+- **Resources** は skills、agents、MCP サーバー、plugins、hooks を「Updates available」「Needs sync」「In sync」に分けて表示します。`.skillshare/config.yaml` のあるプロジェクトでは、All · Project · Global でスコープを選べます。無効な項目は既定で非表示です。「In sync」の Show disabled で表示でき、選択は保存されます。skills と agents では、「In sync」が同じリポジトリの項目を折りたためるグループにまとめます。List に切り替えると一覧表示になります。
 - **行**はその場で開きます。skills と agents には Update、Diff、Uninstall と「Ask &lt;agent&gt; to audit…」があり、確認後にその項目を Herdr でフォーカス中のエージェントに渡します。 トップレベルで宣言された hooks には Enable、Disable、Remove があり、それぞれ確認後に保存され、Sync で適用されます。
 - hooks の件数には名前付きエントリと削除待ちが含まれ、診断通知はフィルターに従い、0 件でも別に表示されます。ファイルが同期済みでも無効な理由を表示し、入れ子の行にはプロジェクトのフルパスを表示します。ネイティブファイルのみの変更も Sync でき、hooks の競合は CLI またはダッシュボードで解決するまで全種類の同期をブロックします。 プレビューに失敗すると、エントリは同期状態が不明としてグループ外に表示され、スコープごとにエラー通知を 1 つ表示します。
 - **Install** はリポジトリ URL を受け取ります。複数の skills を含むリポジトリでは一覧から選べます。パネルはクローンに対して [`skillshare audit`](/docs/reference/commands/audit) を実行し、通過した場合だけインストールします。audit でブロックされると findings を表示し、「Install anyway」（`--force`）と「Ask &lt;agent&gt; to review…」を提示します。
