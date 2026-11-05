@@ -116,12 +116,27 @@ func (c *Config) MissingProjects() []string {
 // doctor find them like any other. Save leaves them out again.
 func (c *Config) expandProjects() error {
 	names := map[string]string{}
+	originsByName := map[string]map[string]bool{}
+	if c.projectOverlay != nil {
+		for root, project := range c.Projects {
+			name := project.ProjectName(root)
+			if originsByName[name] == nil {
+				originsByName[name] = map[string]bool{}
+			}
+			originsByName[name][c.projectOverlay.origins[root]] = true
+		}
+	}
 	for root, project := range c.Projects {
 		abs := expandPath(root)
 		if !filepath.IsAbs(abs) {
 			return fmt.Errorf("projects: %s must be an absolute path or start with ~", root)
 		}
 		name := project.ProjectName(root)
+		if originsByName[name]["local"] && originsByName[name]["shared"] {
+			if info, err := os.Stat(abs); err != nil || !info.IsDir() {
+				continue
+			}
+		}
 		if strings.ContainsAny(name, ProjectTargetSep+`/\`) {
 			return fmt.Errorf("projects: %s: name %q cannot contain %s, / or \\", root, name, ProjectTargetSep)
 		}
@@ -193,6 +208,7 @@ func (c *Config) OwnTargets() map[string]TargetConfig {
 func (c *Config) withoutProjectTargets() *Config {
 	out := *c
 	out.Targets = c.OwnTargets()
+	out.Projects = c.sharedProjectDeclarations()
 	for name, target := range out.Targets {
 		out.Targets[name] = target.withoutDerivedPaths()
 	}
@@ -212,7 +228,7 @@ func LoadWithoutProjects() (*Config, error) {
 
 // ValidateProjects reports whether projects could replace c.Projects, without changing c.
 func (c *Config) ValidateProjects(projects map[string]ManagedProject) error {
-	probe := Config{Targets: c.OwnTargets(), Projects: projects, TargetNaming: c.TargetNaming}
+	probe := Config{Targets: c.OwnTargets(), Projects: projects, TargetNaming: c.TargetNaming, projectOverlay: c.projectOverlay}
 	for _, project := range projects {
 		for _, rc := range []*ResourceTargetConfig{project.Skills, project.Agents} {
 			if rc != nil && !IsValidSyncMode(rc.Mode) {
@@ -257,9 +273,15 @@ func (c *Config) ConvertibleProjects() []ConvertibleProject {
 		return nil
 	}
 	home, _ := os.UserHomeDir()
+	homeID, _ := projectRootIdentity(home)
 	declared := map[string]bool{}
+	for _, root := range c.SharedProjectRoots() {
+		id, _ := projectRootIdentity(root)
+		declared[id] = true
+	}
 	for root := range c.Projects {
-		declared[expandPath(root)] = true
+		id, _ := projectRootIdentity(root)
+		declared[id] = true
 	}
 	withoutPath := func(rc ResourceTargetConfig) ResourceTargetConfig {
 		rc.Path = ""
@@ -274,7 +296,8 @@ func (c *Config) ConvertibleProjects() []ConvertibleProject {
 		target := c.Targets[name]
 		skills := target.SkillsConfig()
 		root, tool := projectToolForPath(specs, name, skills.Path)
-		if root == "" || root == home || declared[root] {
+		id, _ := projectRootIdentity(root)
+		if root == "" || id == homeID || declared[id] || c.HasLocalProject(root) {
 			continue
 		}
 		var agents *ResourceTargetConfig

@@ -22,7 +22,7 @@ func runProject(o projectOptions) error {
 	path := config.ReadOnlyConfigPath()
 	var release func()
 	confirmBeforeLock := o.action == "remove" && !o.dryRun && !o.yes
-	if !confirmBeforeLock && !o.dryRun && slices.Contains([]string{"add", "edit", "remove"}, o.action) {
+	if !confirmBeforeLock && !o.dryRun && slices.Contains([]string{"add", "edit", "remove", "localize"}, o.action) {
 		var err error
 		release, err = projects.LockConfig(context.Background(), path)
 		if err != nil {
@@ -139,7 +139,7 @@ func runProject(o projectOptions) error {
 			if info, err := os.Stat(config.ExpandPath(root)); err != nil || !info.IsDir() {
 				return fmt.Errorf("%w: %s", projects.ErrFolderNotFound, root)
 			}
-			candidate, err := projects.PrepareProjects(path, cfg, func(entries map[string]config.ManagedProject) error { entries[root] = entry; return nil })
+			candidate, err := projects.PrepareLocalProjects(path, cfg, func(entries map[string]config.ManagedProject) error { entries[root] = entry; return nil }, "")
 			if err != nil {
 				return err
 			}
@@ -182,6 +182,14 @@ func runProject(o projectOptions) error {
 			if !o.dryRun {
 				logProject(cfg, "sync", "sync", root, projectSyncStatus(result, opErr), opErr, start)
 			}
+		}
+	case "localize":
+		result.Result, opErr = service.Localize(root, o.dryRun)
+		if opErr != nil {
+			return opErr
+		}
+		if !o.dryRun && len(result.Affected) > 0 {
+			logProject(cfg, "project", "localize", root, "ok", nil, start)
 		}
 	case "sync":
 		item, err := service.Show(root)

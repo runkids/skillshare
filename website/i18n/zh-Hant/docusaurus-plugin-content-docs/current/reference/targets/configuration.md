@@ -629,6 +629,8 @@ Agent 檔案格式、同步行為與支援的 Target 詳情，請參閱 [Agents]
 
 ### `projects` {#projects}
 
+專案 CLI 的 add/edit/remove 與儀表板儲存只寫入本機註冊，不會重寫共用設定。共用 `projects:` 宣告繼續有效；相同正規化根目錄的本機項目會完整覆蓋共用項目。移除只在此機器隱藏共用項目，重新新增會解除隱藏。不同根目錄的名稱必須唯一，同一層的重複正規化根目錄會被拒絕。 `localize` 將共用項目複製到本機，不會刪除共用 YAML、解除連結或同步；重複執行不會變更。list/show 的文字與 JSON 提供 `origin`（shared/local）與 `originPath`。所有 project 命令都略過啟動遷移、清理與版本檢查。 儲存位置為 `$XDG_STATE_HOME/skillshare/projects/<identity>.yaml`；未指定時，Unix 使用 `~/.local/state/skillshare/projects`，Windows 使用 `%LOCALAPPDATA%\skillshare\state\projects`。請保持狀態目錄為本機位置。識別碼依解析後的設定檔目的地決定；設定檔符號連結別名共用狀態，搬移目的地會使用新註冊。讀取不建立檔案，無效版本或內容會拒絕載入。 CLI 與儀表板共用本機狀態鎖，最多等候 10 秒並在取得後重新載入。候選資料會在解除連結與寫入前檢查共用與本機快照；其他共用設定寫入者不受此保護。儀表板 Convert 是明確的共用設定變更，會拒絕已宣告、隱藏或本機覆蓋的根目錄。原始設定編輯器會先驗證提交內容與本機項目的合併結果。
+
 從這份 global config 取得 skills 與 agents 的 project 資料夾。這些資料夾不需要各自擁有 `.skillshare/`，在任何地方執行一次 `skillshare sync` 就會全部寫入。
 
 當 projects 應該拿到不同的 skills 時使用它。Global targets 已經會用同一組觸及每個 project，而 [project mode](/docs/understand/project-skills) 則會把設定保留在 project 的 repo 中給隊友使用。[多個 Projects，一份 Config](/docs/how-to/recipes/many-projects-one-config#scenario) 比較了這三種方式。

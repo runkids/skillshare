@@ -53,6 +53,9 @@ skillshare のディレクトリレイアウトとファイルの場所です。
         └── SKILL.md
 
 ~/.local/state/skillshare/   # XDG_STATE_HOME
+├── projects/                # マシンローカルのプロジェクト登録とロック
+│   ├── <config-identity>.yaml # ローカルプロジェクト登録
+│   └── <config-identity>.lock # プロジェクトの変更を直列化
 ├── plugins/<config-path-hash>/
 │   ├── state.json
 │   └── .operation.lock
@@ -72,6 +75,8 @@ skillshare のディレクトリレイアウトとファイルの場所です。
         ├── index.html
         └── assets/
 ```
+
+Windows のプロジェクト登録とロックは、既定で `%LOCALAPPDATA%\skillshare\state\projects\` に保存されます。`XDG_STATE_HOME` を明示すると、すべてのプラットフォームで `$XDG_STATE_HOME/skillshare/projects/` を使用します。このディレクトリはマシン内に保持してください。[ローカル登録と共有定義](../commands/project.md#local-registrations)を参照してください。
 
 ---
 
@@ -498,6 +503,7 @@ skillshare は XDG Base Directory Specification に従います。`XDG_CONFIG_HO
 | Backups | `~/.local/share/skillshare/backups/` |
 | Trash | `~/.local/share/skillshare/trash/` |
 | Logs | `~/.local/state/skillshare/logs/` |
+| プロジェクト登録とロック | `~/.local/state/skillshare/projects/` |
 | Version cache | `~/.cache/skillshare/version-check.json` |
 | UI cache | `~/.cache/skillshare/ui/{version}/` |
 | リンクの種類 | シンボリックリンク |
@@ -513,6 +519,7 @@ skillshare は XDG Base Directory Specification に従います。`XDG_CONFIG_HO
 | Backups | `%AppData%\skillshare\backups\` |
 | Trash | `%AppData%\skillshare\trash\` |
 | Logs | `%AppData%\skillshare\logs\` |
+| プロジェクト登録とロック | `%LOCALAPPDATA%\skillshare\state\projects\` |
 | Version cache | `%AppData%\skillshare\version-check.json` |
 | UI cache | `%AppData%\skillshare\ui\{version}\` |
 | リンクの種類 | フォルダーは NTFS Junctions、単一ファイルはシンボリックリンク（Developer Mode が必要、ない場合はコピー） |
@@ -526,7 +533,7 @@ skillshare は Unix システム上で [XDG Base Directory Specification](https:
 |-------------|-------------|---------------------|
 | `XDG_CONFIG_HOME` | `~/.config` | `skillshare/config.yaml`、`skillshare/skills/`（`.metadata.json` を含む）、`skillshare/agents/` |
 | `XDG_DATA_HOME` | `~/.local/share` | `skillshare/backups/`、`skillshare/trash/` |
-| `XDG_STATE_HOME` | `~/.local/state` | `skillshare/logs/` |
+| `XDG_STATE_HOME` | `~/.local/state` | `skillshare/logs/`, `skillshare/projects/` |
 | `XDG_CACHE_HOME` | `~/.cache` | `skillshare/ui/`（ダウンロードされた Web ダッシュボード） |
 
 ### Windows のパス
@@ -536,6 +543,7 @@ skillshare は Unix システム上で [XDG Base Directory Specification](https:
 | Config + Skills | `%AppData%\skillshare\` |
 | Data（バックアップ、trash） | `%AppData%\skillshare\` |
 | State（ログ） | `%AppData%\skillshare\` |
+| プロジェクト登録とロック | `%LOCALAPPDATA%\skillshare\state\projects\` |
 | Cache（UI） | `%AppData%\skillshare\` |
 
 ### 移行に関する注意

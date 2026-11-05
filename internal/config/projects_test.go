@@ -20,6 +20,7 @@ func loadWithProjects(t *testing.T, body string, dirs ...string) (*Config, strin
 	}
 	path := filepath.Join(root, "config.yaml")
 	t.Setenv("SKILLSHARE_CONFIG", path)
+	t.Setenv("XDG_STATE_HOME", filepath.Join(root, "state"))
 	data := "source: $ROOT/skills\ntargets: {}\nprojects:\n" + body
 	if err := os.WriteFile(path, []byte(strings.ReplaceAll(data, "$ROOT", root)), 0644); err != nil {
 		t.Fatal(err)

@@ -53,6 +53,9 @@ Directory layout and file locations for skillshare.
         └── SKILL.md
 
 ~/.local/state/skillshare/   # XDG_STATE_HOME
+├── projects/                # Machine-local project registrations and locks
+│   ├── <config-identity>.yaml # Local project registry
+│   └── <config-identity>.lock # Serializes project mutations
 ├── plugins/<config-path-hash>/
 │   ├── state.json           # Machine-local plugin receipts and migration hints
 │   └── .operation.lock      # Serializes plugin mutations for this config
@@ -72,6 +75,8 @@ Directory layout and file locations for skillshare.
         ├── index.html
         └── assets/
 ```
+
+On Windows, project registrations and their locks default to `%LOCALAPPDATA%\skillshare\state\projects\`. An explicit `XDG_STATE_HOME` places them under `$XDG_STATE_HOME/skillshare/projects/` on every platform. Keep this directory local to the machine; see [shared and local registrations](../commands/project.md#local-registrations).
 
 ---
 
@@ -469,6 +474,7 @@ See [Environment Variables](./environment-variables.md#xdg_config_home) for deta
 | Backups | `~/.local/share/skillshare/backups/` |
 | Trash | `~/.local/share/skillshare/trash/` |
 | Logs | `~/.local/state/skillshare/logs/` |
+| Project registrations and locks | `~/.local/state/skillshare/projects/` |
 | Version cache | `~/.cache/skillshare/version-check.json` |
 | UI cache | `~/.cache/skillshare/ui/{version}/` |
 | Link type | Symlinks |
@@ -484,6 +490,7 @@ See [Environment Variables](./environment-variables.md#xdg_config_home) for deta
 | Backups | `%AppData%\skillshare\backups\` |
 | Trash | `%AppData%\skillshare\trash\` |
 | Logs | `%AppData%\skillshare\logs\` |
+| Project registrations and locks | `%LOCALAPPDATA%\skillshare\state\projects\` |
 | Version cache | `%AppData%\skillshare\version-check.json` |
 | UI cache | `%AppData%\skillshare\ui\{version}\` |
 | Link type | NTFS Junctions for folders; symlinks for single files (need Developer Mode, otherwise copied) |
@@ -496,7 +503,7 @@ skillshare follows the [XDG Base Directory Specification](https://specifications
 |-------------|-------------|---------------------|
 | `XDG_CONFIG_HOME` | `~/.config` | `skillshare/config.yaml`, `skillshare/skills/` (includes `.metadata.json`), `skillshare/agents/` |
 | `XDG_DATA_HOME` | `~/.local/share` | `skillshare/backups/`, `skillshare/trash/` |
-| `XDG_STATE_HOME` | `~/.local/state` | `skillshare/logs/` |
+| `XDG_STATE_HOME` | `~/.local/state` | `skillshare/logs/`, `skillshare/projects/` |
 | `XDG_CACHE_HOME` | `~/.cache` | `skillshare/ui/` (downloaded web dashboard) |
 
 ### Windows Paths
@@ -506,6 +513,7 @@ skillshare follows the [XDG Base Directory Specification](https://specifications
 | Config + Skills | `%AppData%\skillshare\` |
 | Data (backups, trash) | `%AppData%\skillshare\` |
 | State (logs) | `%AppData%\skillshare\` |
+| Project registrations and locks | `%LOCALAPPDATA%\skillshare\state\projects\` |
 | Cache (UI) | `%AppData%\skillshare\` |
 
 ### Migration Note

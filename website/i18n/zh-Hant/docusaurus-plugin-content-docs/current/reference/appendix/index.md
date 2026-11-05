@@ -28,6 +28,7 @@ skillshare 的技術參考附錄。
 | `~/.local/share/skillshare/backups/` | 備份目錄 |
 | `~/.local/share/skillshare/trash/` | 軟刪除的 skills |
 | `~/.local/state/skillshare/logs/` | 操作與 audit 記錄 |
+| `~/.local/state/skillshare/projects/` | 本機專案註冊及鎖定 |
 | `~/.cache/skillshare/ui/` | 已下載的 web dashboard |
 
 ### 環境變數

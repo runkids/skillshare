@@ -69,8 +69,8 @@ func main() {
 	// console it reruns inside a hidden one so they do not each open a window.
 	relaunchInHiddenConsole(childproc.BindToProcess())
 
-	// Project reads, previews and JSON output change nothing, so they skip
-	// opportunistic maintenance too.
+	// Project commands must not migrate or rewrite shared config at startup,
+	// so they all skip opportunistic maintenance.
 	skipMaintenance := len(os.Args) > 1 && os.Args[1] == "project" && projectSkipsMaintenance(os.Args[2:])
 	if !skipMaintenance {
 		cleanupOldBinary()
@@ -232,7 +232,7 @@ func printUsage() {
 		}},
 		helpGroup{title: "Targets", rows: []helpRow{
 			{"target", "Add, remove and list Targets"},
-			{"project", "Manage project folders in the global config"},
+			{"project", "Manage shared and local project folders"},
 			{"diff", "Compare the source with a Target"},
 		}},
 		helpGroup{title: "History", rows: []helpRow{

@@ -257,6 +257,7 @@ $_skillshareCompleter = {
         @{ Name = 'edit'; Desc = 'Project edit' }
         @{ Name = 'sync'; Desc = 'Project sync' }
         @{ Name = 'remove'; Desc = 'Project remove' }
+        @{ Name = 'localize'; Desc = 'Copy shared registration to local state' }
     )
     $flags['project'] = '--target', '--name', '--skills', '--no-skills', '--agents', '--no-agents', '--skills-mode', '--agents-mode', '--skills-naming', '--skills-include', '--skills-exclude', '--agents-include', '--agents-exclude', '--sync', '--dry-run', '-n', '--yes', '--json', '--help', '-h', '--global', '-g'
     if ($cmd -eq 'project' -and $previousIndex -ge 0) {

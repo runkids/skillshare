@@ -144,6 +144,7 @@ nothing is downloaded again. It does not sync; run `sync` afterwards. Read
 
 ```bash
 skillshare project list --json
+skillshare project localize ~/work/existing --dry-run
 skillshare project add ~/work/app --target claude,codex --skills-mode copy --dry-run
 skillshare project add ~/work/app --target claude,codex --skills-mode copy --sync
 skillshare project edit app --skills-include 'frontend-*'

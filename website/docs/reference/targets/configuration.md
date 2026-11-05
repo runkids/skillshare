@@ -639,7 +639,9 @@ See [Agents](/docs/understand/agents) for details on agent file format, sync beh
 
 ### `projects` {#projects}
 
-Project folders that get skills and agents from this global config. The folders need no `.skillshare/` of their own, and one `skillshare sync` from anywhere writes them all.
+Shared project declarations that get skills and agents from this global config. The folders need no `.skillshare/` of their own, and one `skillshare sync` from anywhere writes them all.
+
+Routine `skillshare project add/edit/remove` and dashboard saves use a machine-local registry, leaving this shared section unchanged. Local entries replace the whole shared entry at the same normalized root; removals hide shared entries only on this machine. Names at distinct roots must remain unique. `project list/show` include `origin` and `originPath`. Use `project localize <project> --dry-run` then `project localize <project>` to copy a shared declaration locally without deleting it for other machines. See [local registrations](/docs/reference/commands/project#local-registrations) for storage and concurrency.
 
 Use it when projects should get different skills. Global targets already reach every project with the same set, and [project mode](/docs/understand/project-skills) keeps the setup in the project's repo for teammates. [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config#scenario) compares the three.
 

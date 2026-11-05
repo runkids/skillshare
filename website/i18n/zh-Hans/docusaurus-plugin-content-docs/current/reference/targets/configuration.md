@@ -629,6 +629,8 @@ Project mode 始终使用 `.skillshare/agents/`，不支持 `agents_source`。
 
 ### `projects` {#projects}
 
+项目 CLI 的 add/edit/remove 与仪表板保存只写入本机注册，不会重写共享配置。共享 `projects:` 声明继续有效；相同规范化根目录的本机项目会完整覆盖共享项目。移除只在此机器隐藏共享项目，重新添加会解除隐藏。不同根目录的名称必须唯一，同一层的重复规范化根目录会被拒绝。 `localize` 将共享项目复制到本机，不会删除共享 YAML、解除链接或同步；重复执行不会变更。list/show 的文本与 JSON 提供 `origin`（shared/local）与 `originPath`。所有 project 命令都跳过启动迁移、清理与版本检查。 存储位置为 `$XDG_STATE_HOME/skillshare/projects/<identity>.yaml`；未指定时，Unix 使用 `~/.local/state/skillshare/projects`，Windows 使用 `%LOCALAPPDATA%\skillshare\state\projects`。请保持状态目录为本机位置。标识由解析后的配置文件目标决定；配置符号链接别名共享状态，移动目标会使用新注册。读取不创建文件，无效版本或内容会拒绝加载。 CLI 与仪表板共享本机状态锁，最多等待 10 秒并在获取后重新加载。候选数据会在解除链接与写入前检查共享与本机快照；其他共享配置写入者不受此保护。仪表板 Convert 是明确的共享配置更改，会拒绝已声明、隐藏或本机覆盖的根目录。原始配置编辑器会先验证提交内容与本机项目的合并结果。
+
 从这份 global 配置获取 Skill 和 Agent 的项目文件夹。这些文件夹不需要自己的 `.skillshare/`，在任意目录下运行一次 `skillshare sync` 就能写入所有项目。
 
 当项目需要拿到不同的 Skill 时使用它。全局 Target 已经能让每个项目看到相同的一套内容，而 [Project mode](/docs/understand/project-skills) 把设置保留在项目仓库中，方便队友使用。[Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config#scenario) 比较了这三种方式。

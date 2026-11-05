@@ -88,7 +88,7 @@ func (s *Service) List() ([]Item, error) {
 	}
 	items := []Item{}
 	for root, p := range cfg.Projects {
-		items = append(items, item(root, p))
+		items = append(items, configItem(cfg, root, p))
 	}
 	sort.Slice(items, func(i, j int) bool {
 		if items[i].Name == items[j].Name {
@@ -129,7 +129,7 @@ func (s *Service) Show(key string) (Item, error) {
 	if err != nil {
 		return Item{}, err
 	}
-	return item(root, cfg.Projects[root]), nil
+	return configItem(cfg, root, cfg.Projects[root]), nil
 }
 
 // Put replaces a full project value and validates its effective YAML candidate.
@@ -162,12 +162,15 @@ func (s *Service) Put(root string, entry config.ManagedProject, opts PutOptions)
 			return Result{}, fmt.Errorf("%w: %s", ErrFolderNotFound, root)
 		}
 	}
-	c, err := PrepareProjects(s.path, cfg, func(p map[string]config.ManagedProject) error { p[root] = entry; return nil })
+	c, err := PrepareLocalProjects(s.path, cfg, func(p map[string]config.ManagedProject) error { p[root] = entry; return nil }, "")
 	if err != nil {
 		return Result{}, err
 	}
-	old := item(root, cfg.Projects[root])
+	old := configItem(cfg, root, cfg.Projects[root])
 	result := Result{Item: &old, Affected: c.Affected, Expanded: cfg, Registration: "kept"}
+	if err := c.Save.Check(); err != nil {
+		return result, err
+	}
 	if opts.Detach {
 		report, err := s.detachDeparting(cfg, c.Save.Expanded, c.Affected, opts.DryRun)
 		result.Detach = &report
@@ -181,7 +184,7 @@ func (s *Service) Put(root string, entry config.ManagedProject, opts PutOptions)
 		}
 		result.Registration = "updated"
 	}
-	v := item(root, c.Save.Expanded.Projects[root])
+	v := configItem(c.Save.Expanded, root, c.Save.Expanded.Projects[root])
 	result.Item = &v
 	result.Expanded = c.Save.Expanded
 	return result, nil
@@ -264,10 +267,13 @@ func (s *Service) Remove(key string, opts RemoveOptions) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	v := item(root, cfg.Projects[root])
+	v := configItem(cfg, root, cfg.Projects[root])
 	result := Result{Item: &v, Registration: "kept"}
-	c, err := PrepareProjects(s.path, cfg, func(p map[string]config.ManagedProject) error { delete(p, root); return nil })
+	c, err := PrepareLocalProjects(s.path, cfg, func(p map[string]config.ManagedProject) error { delete(p, root); return nil }, "")
 	if err != nil {
+		return result, err
+	}
+	if err := c.Save.Check(); err != nil {
 		return result, err
 	}
 	report, err := s.detachDeparting(cfg, c.Save.Expanded, c.Affected, opts.DryRun)

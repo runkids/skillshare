@@ -18,6 +18,8 @@ type SaveCandidate struct {
 	Expanded *Config
 	Err      error
 	path     string
+	private  bool
+	check    func() error
 }
 
 // PrepareSave runs Save's serializer without changing the caller or filesystem.
@@ -51,30 +53,45 @@ func PrepareSave(path string, next *Config) (*SaveCandidate, error) {
 	return c, c.Err
 }
 
+// Check refuses a stale local-project snapshot before any detach or write.
+func (c *SaveCandidate) Check() error {
+	if c.Err != nil {
+		return c.Err
+	}
+	if c.check != nil {
+		return c.check()
+	}
+	return nil
+}
+
 // Write atomically persists the already prepared Bytes without serializing again.
 // Resolving the destination keeps a symlinked config linked to its shared file.
 func (c *SaveCandidate) Write() error {
-	if c.Err != nil {
-		return c.Err
+	if err := c.Check(); err != nil {
+		return err
 	}
 	dest, err := utils.ConfigWritePath(c.path, false)
 	if err != nil {
 		return fmt.Errorf("failed to resolve config path: %w", err)
 	}
 	dir := filepath.Dir(dest)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	dirMode, fileMode := os.FileMode(0755), os.FileMode(0644)
+	if c.private {
+		dirMode, fileMode = 0700, 0600
+	}
+	if err := os.MkdirAll(dir, dirMode); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 	// Exclusive creation applies the process umask without changing global state.
 	tmpPath := filepath.Join(dir, ".skillshare-config-"+rand.Text())
-	tmp, err := os.OpenFile(tmpPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	tmp, err := os.OpenFile(tmpPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, fileMode)
 	if err != nil {
 		return fmt.Errorf("failed to create config temporary file: %w", err)
 	}
 	defer os.Remove(tmp.Name())
 	// Retain an existing config's permissions across atomic replacement. New
 	// configs keep the creation mode above, including the process umask.
-	if info, err := os.Stat(dest); err == nil {
+	if info, err := os.Stat(dest); err == nil && !c.private {
 		if err := tmp.Chmod(info.Mode().Perm()); err != nil {
 			_ = tmp.Close()
 			return fmt.Errorf("failed to set config permissions: %w", err)
@@ -90,6 +107,9 @@ func (c *SaveCandidate) Write() error {
 	}
 	if err := tmp.Close(); err != nil {
 		return fmt.Errorf("failed to close config: %w", err)
+	}
+	if err := c.Check(); err != nil {
+		return err
 	}
 	if err := os.Rename(tmp.Name(), dest); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)

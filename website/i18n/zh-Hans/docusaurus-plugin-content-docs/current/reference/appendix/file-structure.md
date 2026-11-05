@@ -53,6 +53,9 @@ skillshare 的目录布局与文件位置。
         └── SKILL.md
 
 ~/.local/state/skillshare/   # XDG_STATE_HOME
+├── projects/                # 本机项目注册及锁
+│   ├── <config-identity>.yaml # 本机项目注册表
+│   └── <config-identity>.lock # 串行化项目修改
 ├── plugins/<config-path-hash>/
 │   ├── state.json
 │   └── .operation.lock
@@ -72,6 +75,8 @@ skillshare 的目录布局与文件位置。
         ├── index.html
         └── assets/
 ```
+
+Windows 上的项目注册及锁默认存放在 `%LOCALAPPDATA%\skillshare\state\projects\`。显式设置 `XDG_STATE_HOME` 后，所有平台均使用 `$XDG_STATE_HOME/skillshare/projects/`。请将此目录保留在本机；参见[本机与共享注册](../commands/project.md#local-registrations)。
 
 ---
 
@@ -469,6 +474,7 @@ skillshare 遵循 XDG Base Directory Specification。可通过 `XDG_CONFIG_HOME`
 | Backups | `~/.local/share/skillshare/backups/` |
 | Trash | `~/.local/share/skillshare/trash/` |
 | Logs | `~/.local/state/skillshare/logs/` |
+| 项目注册及锁 | `~/.local/state/skillshare/projects/` |
 | Version cache | `~/.cache/skillshare/version-check.json` |
 | UI cache | `~/.cache/skillshare/ui/{version}/` |
 | Link type | 符号链接（Symlinks） |
@@ -484,6 +490,7 @@ skillshare 遵循 XDG Base Directory Specification。可通过 `XDG_CONFIG_HOME`
 | Backups | `%AppData%\skillshare\backups\` |
 | Trash | `%AppData%\skillshare\trash\` |
 | Logs | `%AppData%\skillshare\logs\` |
+| 项目注册及锁 | `%LOCALAPPDATA%\skillshare\state\projects\` |
 | Version cache | `%AppData%\skillshare\version-check.json` |
 | UI cache | `%AppData%\skillshare\ui\{version}\` |
 | Link type | 文件夹用 NTFS Junctions；单个文件用 symlinks（需要 Developer Mode，否则复制） |
@@ -496,7 +503,7 @@ skillshare 在 Unix 系统上遵循 [XDG Base Directory Specification](https://s
 |-------------|-------------|---------------------|
 | `XDG_CONFIG_HOME` | `~/.config` | `skillshare/config.yaml`、`skillshare/skills/`（含 `.metadata.json`）、`skillshare/agents/` |
 | `XDG_DATA_HOME` | `~/.local/share` | `skillshare/backups/`、`skillshare/trash/` |
-| `XDG_STATE_HOME` | `~/.local/state` | `skillshare/logs/` |
+| `XDG_STATE_HOME` | `~/.local/state` | `skillshare/logs/`, `skillshare/projects/` |
 | `XDG_CACHE_HOME` | `~/.cache` | `skillshare/ui/`（下载的 Web dashboard） |
 
 ### Windows Paths
@@ -506,6 +513,7 @@ skillshare 在 Unix 系统上遵循 [XDG Base Directory Specification](https://s
 | Config + Skills | `%AppData%\skillshare\` |
 | Data (backups, trash) | `%AppData%\skillshare\` |
 | State (logs) | `%AppData%\skillshare\` |
+| 项目注册及锁 | `%LOCALAPPDATA%\skillshare\state\projects\` |
 | Cache (UI) | `%AppData%\skillshare\` |
 
 ### Migration Note

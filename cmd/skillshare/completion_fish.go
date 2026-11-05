@@ -25,7 +25,7 @@ end
 
 # Project command
 complete -c skillshare -n __fish_skillshare_no_subcommand -a project -d 'Manage project folders'
-complete -c skillshare -n '__fish_skillshare_using_command project' -a 'list show add edit sync remove'
+complete -c skillshare -n '__fish_skillshare_using_command project' -a 'list show add edit sync remove localize'
 complete -c skillshare -n '__fish_skillshare_using_command project' -l target -r -a 'adal aiderdesk amp antigravity antigravity-cli astrbot augment autohand-code bob claude cline codearts codebuddy codestudio codex comate commandcode continue copilot cortex crush cursor deepagents deepseek-harness devin dexto droid firebender forgecode fx gemini gitlab-duo goose grok hermes iflow jazz junie kilocode kimchi kimi kimi-code kiro kode letta lingma mcpjam mux neovate omp ona openclaw opencode openhands pi pochi posit-assistant purecode qoder qoder-cn qwen reasonix replit roo rovodev tabnine trae trae-cn universal verdent vibe warp windsurf witsy xcode-claude xcode-codex zcode zed zencoder'
 complete -c skillshare -n '__fish_skillshare_using_command project' -l name -r
 complete -c skillshare -n '__fish_skillshare_using_command project' -l skills

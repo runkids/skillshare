@@ -148,3 +148,9 @@ Before changing code:
 3. If the CLI and Web API expose the same behavior, verify that they share domain logic.
 4. For state changes, inspect backup, rollback, oplog, dry-run, and audit implications.
 5. Load `documentation` for public contract changes, `cli-development` for implementation, and `testing` before execution.
+
+## Project registration overlay
+
+`Config` loads shared `projects` then a versioned machine-local overlay. Local entries replace whole normalized roots; exclusions hide shared entries only here. Effective `Projects` expands into targets for sync consumers. General Save/PrepareSave projects back to shared declarations; local registrations never leak into shared config. `internal/projects.Service` prepares atomic local candidates for CLI/dashboard CRUD, while explicit dashboard target conversion remains a shared single-file write and refuses hidden roots. Raw editor decoding validates the submitted shared document plus overlay.
+
+`ProjectStateDir` isolates Windows registrations from the default config Git root using LocalAppData. Registry and locks share `ProjectConfigIdentity`, keyed by the resolved config destination, including the legacy Windows migration alias. Prepared local writes check shared/local bytes and config-link destination before detach and rename. Shared-writer concurrency outside this service remains separate.

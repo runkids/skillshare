@@ -17,9 +17,9 @@ This recipe is for when projects should get **different** things:
 - A project should hold real copies of its skills so they can be committed, without committing any Skillshare config.
 - A tool you use only reads a folder inside the project.
 
-[Project mode](/docs/how-to/recipes/skill-per-project-workflow) also gives each project its own set. It keeps a `.skillshare/config.yaml` in every project, and you sync from inside each folder. `projects` in the global config gives the same result from one file on your machine:
+[Project mode](/docs/how-to/recipes/skill-per-project-workflow) also gives each project its own set. It keeps a `.skillshare/config.yaml` in every project, and you sync from inside each folder. Shared `projects` declarations and machine-local registrations give the same result with one sync:
 
-| | Global targets | Global `projects` | Project mode |
+| | Global targets | Registered projects | Project mode |
 |---|---|---|---|
 | **Who gets the skills** | Every project, the same set | The folders you list, a set each | That one project |
 | **Where the setup lives** | Your machine | Your machine | The project's repo |
@@ -32,6 +32,8 @@ Choose project mode when the setup should travel with the repo. Choose `projects
 ## Solution
 
 ### Skills and agents: `projects`
+
+The commands below save registrations on this machine and leave shared config untouched. Existing `projects:` YAML stays shared. A local edit overrides only that root; removal hides it only here. To freeze a shared registration locally, preview `skillshare project localize <project> --dry-run --json`, then run it without `--dry-run`. Other machines keep their shared declarations. Inspect `origin` and `originPath` with `project list --json`. See [storage and precedence](/docs/reference/commands/project#local-registrations).
 
 ```bash
 skillshare project add ~/work/project01 --target claude,codex \

@@ -78,7 +78,7 @@ skillshare sync -g       # Force global mode
 | **Git 整合** | 選用（`push`/`pull`） | Skills 直接 commit 進 project repo |
 | **範圍** | 機器上所有的 projects | 單一 repository |
 
-對於只屬於你自己的 projects，還有第三種選擇：把資料夾列在 global config 的 [`projects`](/docs/reference/targets/configuration#projects) 底下，可以使用 [`skillshare project add`](/docs/reference/commands/project)，也可以在 dashboard 的 **Projects** 頁面新增。每個資料夾都會有自己的一組 skills、agents 與 MCP servers，不會有任何東西加進 repo，而且一次 `sync` 就能全部更新。該選哪一種請參見[多個 Projects，一份 Config](/docs/how-to/recipes/many-projects-one-config#scenario)。
+個人專案資料夾可以透過 [`skillshare project add`](/docs/reference/commands/project) 或儀表板 **Projects** 頁面註冊。註冊保存在本機，共用 [`projects`](/docs/reference/targets/configuration#projects) YAML 仍受支援。不必新增 repo 設定，一次同步就能把各自的 skills 與 agents 分發到所有資料夾。MCP 與 hooks 保留獨立的共用宣告。參見[本機註冊優先順序](/docs/reference/commands/project#local-registrations)與[多個專案，一份設定](/docs/how-to/recipes/many-projects-one-config#scenario)。
 
 ---
 

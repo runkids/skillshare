@@ -151,7 +151,7 @@ func (s *Server) handleSaveProject(w http.ResponseWriter, r *http.Request) {
 		action = "add"
 	}
 	s.writeOpsLog("project", "ok", start, map[string]any{"action": action, "root": root, "scope": "ui"}, "")
-	writeJSON(w, map[string]any{"success": true, "root": root})
+	writeJSON(w, map[string]any{"success": true, "root": root, "origin": result.Item.Origin, "originPath": result.Item.OriginPath})
 }
 
 func (s *Server) handleRemoveProject(w http.ResponseWriter, r *http.Request) {
@@ -188,7 +188,7 @@ func (s *Server) handleRemoveProject(w http.ResponseWriter, r *http.Request) {
 	}
 	s.installGlobalConfig(result.Expanded)
 	s.writeOpsLog("project", "ok", start, map[string]any{"action": "remove", "root": root, "scope": "ui"}, "")
-	writeJSON(w, map[string]any{"success": true, "root": root})
+	writeJSON(w, map[string]any{"success": true, "root": root, "origin": result.Item.Origin, "originPath": result.Item.OriginPath})
 }
 
 // handleConvertProject moves the targets that write into one folder under projects.
@@ -238,7 +238,8 @@ func (s *Server) handleConvertProject(w http.ResponseWriter, r *http.Request) {
 		}
 		s.installGlobalConfig(candidate.Save.Expanded)
 		s.writeOpsLog("project", "ok", start, map[string]any{"action": "convert", "root": found.Root, "targets": found.Targets, "scope": "ui"}, "")
-		writeJSON(w, map[string]any{"success": true, "root": found.Root})
+		origin, originPath := candidate.Save.Expanded.ProjectOrigin(found.Root)
+		writeJSON(w, map[string]any{"success": true, "root": found.Root, "origin": origin, "originPath": originPath})
 		return
 	}
 	writeError(w, http.StatusNotFound, "no targets to convert for "+body.Root)

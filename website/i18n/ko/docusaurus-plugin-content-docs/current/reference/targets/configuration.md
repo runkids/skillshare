@@ -634,6 +634,8 @@ Agent 파일 형식, Sync 동작, 지원되는 Target에 대한 자세한 내용
 
 ### `projects` {#projects}
 
+CLI add/edit/remove와 대시보드 저장은 로컬 등록만 기록하며 공유 설정을 다시 쓰지 않습니다. 공유 `projects:` 선언은 계속 유효합니다. 정규화된 루트가 같으면 로컬 항목이 공유 항목 전체를 대체합니다. 삭제는 이 기기에서만 공유 항목을 숨기며 다시 추가하면 해제됩니다. 서로 다른 루트의 이름 중복과 같은 계층의 정규화된 루트 중복은 거부됩니다. `localize`는 공유 항목을 로컬로 복사하며 공유 YAML 삭제, 연결 해제 또는 동기화를 하지 않습니다. 반복 실행은 변경하지 않습니다. list/show의 텍스트와 JSON은 `origin`(shared/local)과 `originPath`를 제공합니다. 모든 project 명령은 시작 시 마이그레이션, 정리 및 버전 확인을 건너뜁니다. 저장 위치는 `$XDG_STATE_HOME/skillshare/projects/<identity>.yaml`입니다. 지정하지 않으면 Unix는 `~/.local/state/skillshare/projects`, Windows는 `%LOCALAPPDATA%\skillshare\state\projects`를 사용합니다. 상태 디렉터리는 로컬에 두세요. 식별자는 해석된 설정 파일 대상에 따르므로 설정 심볼릭 링크 별칭은 상태를 공유합니다. 대상을 이동하면 새 등록 영역을 사용합니다. 읽기는 파일을 만들지 않으며 잘못된 내용이나 버전은 거부합니다. CLI와 대시보드는 로컬 상태 잠금을 공유하고 최대 10초 기다린 후 다시 로드합니다. 연결 해제 및 쓰기 전에 공유 및 로컬 스냅샷을 확인합니다. 다른 공유 설정 작성자는 이 보호 밖에 있습니다. 대시보드 Convert는 명시적으로 공유 설정을 변경하며 이미 선언되었거나 숨겨졌거나 로컬에서 재정의된 루트를 거부합니다. 원시 설정 편집기는 저장 전에 제출 내용과 로컬 항목의 병합 결과를 검증합니다.
+
 이 global 설정에서 skill과 agent를 받는 프로젝트 폴더. 폴더는 자체 `.skillshare/`가 필요 없으며, 어디서든 `skillshare sync`를 한 번 실행하면 모두 기록됩니다.
 
 프로젝트마다 다른 skill을 받아야 할 때 사용하세요. Global target은 이미 모든 프로젝트에 같은 세트로 도달하고, [project mode](/docs/understand/project-skills)는 팀원을 위해 설정을 프로젝트 저장소에 보관합니다. [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config#scenario)에서 세 가지를 비교합니다.

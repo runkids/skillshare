@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"skillshare/internal/config"
 	ssync "skillshare/internal/sync"
 )
 
@@ -35,11 +36,23 @@ func projectJSONRequested(args []string) bool {
 	return false
 }
 
-// projectSkipsMaintenance reports whether a project invocation only reads,
-// previews or prints JSON, or fails before writing.
+// Read-only, preview and JSON invocations do not run startup maintenance.
 func projectSkipsMaintenance(args []string) bool {
 	o, err := parseProjectArgs(args)
-	return err != nil || o.json || o.dryRun || slices.Contains([]string{"help", "list", "show"}, o.action)
+	if err != nil || o.json || o.dryRun || slices.Contains([]string{"help", "list", "show"}, o.action) {
+		return true
+	}
+	if o.action == "edit" && len(o.values) == 0 && len(o.toggles) == 0 && !o.sync {
+		return true
+	}
+	for _, flag := range []string{"--skills-mode", "--agents-mode"} {
+		for _, mode := range o.values[flag] {
+			if mode != "" && !config.IsValidSyncMode(mode) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func cmdProject(args []string) error {
@@ -133,7 +146,7 @@ func parseProjectArgs(args []string) (projectOptions, error) {
 	if len(operands) > 0 {
 		o.action = operands[0]
 	}
-	if !slices.Contains([]string{"list", "show", "add", "edit", "sync", "remove"}, o.action) {
+	if !slices.Contains([]string{"list", "show", "add", "edit", "sync", "remove", "localize"}, o.action) {
 		return o, fmt.Errorf("unknown project command: %s", o.action)
 	}
 	want := 2
@@ -156,7 +169,7 @@ func parseProjectArgs(args []string) (projectOptions, error) {
 		return o, fmt.Errorf("--yes requires project remove")
 	}
 	if o.dryRun && (o.action == "list" || o.action == "show") {
-		return o, fmt.Errorf("--dry-run requires project add, edit, sync or remove")
+		return o, fmt.Errorf("--dry-run requires project add, edit, sync, remove or localize")
 	}
 	for _, kind := range []string{"skills", "agents"} {
 		if !o.toggles["--no-"+kind] {
@@ -181,9 +194,9 @@ func parseProjectArgs(args []string) (projectOptions, error) {
 }
 
 func printProjectHelp() {
-	printHelp("skillshare project [list|show|add|edit|sync|remove] [project] [options]", "Manage project folders in the global config. No project config is changed.",
+	printHelp("skillshare project [list|show|add|edit|sync|remove|localize] [project] [options]", "Manage machine-local registrations and shared project declarations. No project config is changed.",
 		helpGroup{title: "Commands", rows: []helpRow{
-			{"list", "List registered projects (default)"}, {"show <project>", "Show one project by name or root"}, {"add <root> --target T", "Register an existing project folder"}, {"edit <project>", "Change only the specified settings"}, {"sync <project>", "Sync skills and agents to this project"}, {"remove <project>", "Detach skills and remove the registration; agents stay"},
+			{"list", "List registered projects (default)"}, {"show <project>", "Show one project by name or root"}, {"add <root> --target T", "Register an existing project folder"}, {"edit <project>", "Change only the specified settings"}, {"localize <project>", "Copy a shared registration to local state; shared YAML stays"}, {"sync <project>", "Sync skills and agents to this project"}, {"remove <project>", "Detach skills and remove the registration; agents stay"},
 		}},
 		helpGroup{title: "Options", rows: []helpRow{
 			{"--target T", "Replace targets; repeat or use a comma list"}, {"--name N", "Set name; --name= restores the basename"}, {"--skills, --no-skills", "Turn skills on (add default) or off"}, {"--agents, --no-agents", "Turn agents on or off (add default)"}, {"--skills-mode, --agents-mode MODE", "merge, symlink or copy; empty inherits"}, {"--skills-naming NAMING", "flat, standard or prefixed; empty inherits"}, {"--skills-include, --skills-exclude P", "Replace filter list; repeat; empty clears"}, {"--agents-include, --agents-exclude P", "Replace filter list; repeat; empty clears"}, {"--sync", "Sync after add/edit; force is off"}, {"-n, --dry-run", "Preview without writing or prompting"}, {"--yes", "Skip remove confirmation (required with --json)"}, {"--json", "Output JSON"}, {"-g, --global", "Use the global config (always)"},
