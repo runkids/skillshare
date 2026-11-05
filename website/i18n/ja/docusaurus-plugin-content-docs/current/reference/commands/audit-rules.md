@@ -284,7 +284,7 @@ skillshare audit --json | jq '.skills[].findings'  # findings をプログラム
 
 :::note 構造チェック、tier チェック、Skill 間チェック
 
-`dangling-link`、`content-tampered`、`content-oversize`、`content-missing`、`content-unexpected` は**構造チェック**です（正規表現ではなく、ファイルシステムの検索とハッシュ比較）。`low-analyzability` は [Analyzability Score](/docs/understand/audit-engine#analyzability-score) から生成される**分析可能性の finding** です。`tier-stealth`、`tier-destructive-network`、`tier-network-heavy`、`tier-interpreter`、`tier-interpreter-network` は、[Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) プロファイルから生成される**ティアの組み合わせの finding** です。`cross-skill-*` の findings は、[Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection) から生成されます。これらはすべて下記の表に記載されていますが、`rules.yaml` には定義されていません。
+`dangling-link`、`reference-escapes-root`、`reference-check-incomplete`、`content-tampered`、`content-oversize`、`content-missing`、`content-unexpected` は**構造チェック**です（正規表現ではなく、ファイルシステムの検索とハッシュ比較）。`low-analyzability` は [Analyzability Score](/docs/understand/audit-engine#analyzability-score) から生成される**分析可能性の finding** です。`tier-stealth`、`tier-destructive-network`、`tier-network-heavy`、`tier-interpreter`、`tier-interpreter-network` は、[Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) プロファイルから生成される**ティアの組み合わせの finding** です。`cross-skill-*` の findings は、[Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection) から生成されます。これらはすべて下記の表に記載されていますが、`rules.yaml` には定義されていません。
 
 :::
 
@@ -384,6 +384,8 @@ skillshare audit --json | jq '.skills[].findings'  # findings をプログラム
 | `insecure-http-0` | insecure-http | LOW |
 | `external-link-0` | external-link | LOW |
 | `dangling-link` | dangling-link | LOW |
+| `reference-escapes-root` | reference-escapes-root | HIGH |
+| `reference-check-incomplete` | reference-check-incomplete | LOW |
 | `content-tampered` | content-tampered | MEDIUM |
 | `content-oversize` | content-oversize | MEDIUM |
 | `content-missing` | content-missing | LOW |

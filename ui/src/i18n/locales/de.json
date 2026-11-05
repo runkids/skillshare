@@ -350,6 +350,7 @@
   "doctor.check.agents_source": "Agents-Quelle",
   "doctor.check.backup": "Backups",
   "doctor.check.broken_symlinks": "Defekte Symlinks",
+  "doctor.check.bundled_references": "Referenzen im Skill-Paket",
   "doctor.check.cli_version": "CLI-Version",
   "doctor.check.duplicate_skills": "Doppelte Skills",
   "doctor.check.extras": "Extras",

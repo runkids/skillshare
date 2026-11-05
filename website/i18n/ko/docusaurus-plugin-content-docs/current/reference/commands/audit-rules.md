@@ -284,7 +284,7 @@ skillshare audit --json | jq '.skills[].findings'  # findings를 프로그래밍
 
 :::note 구조적, tier, cross-skill 검사
 
-`dangling-link`, `content-tampered`, `content-oversize`, `content-missing`, `content-unexpected`는 (정규식이 아닌 파일시스템 조회와 해시 비교를 수행하는) **구조적 검사**입니다. `low-analyzability`는 [Analyzability Score](/docs/understand/audit-engine#analyzability-score)에서 생성되는 **analyzability finding**입니다. `tier-stealth`, `tier-destructive-network`, `tier-network-heavy`, `tier-interpreter`, `tier-interpreter-network`는 [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) 프로파일에서 생성되는 **tier 조합 findings**입니다. `cross-skill-*` findings는 [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection)에서 생성됩니다. 이들은 모두 아래 표에 나타나지만 `rules.yaml`에는 정의되어 있지 않습니다.
+`dangling-link`, `reference-escapes-root`, `reference-check-incomplete`, `content-tampered`, `content-oversize`, `content-missing`, `content-unexpected`는 (정규식이 아닌 파일시스템 조회와 해시 비교를 수행하는) **구조적 검사**입니다. `low-analyzability`는 [Analyzability Score](/docs/understand/audit-engine#analyzability-score)에서 생성되는 **analyzability finding**입니다. `tier-stealth`, `tier-destructive-network`, `tier-network-heavy`, `tier-interpreter`, `tier-interpreter-network`는 [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) 프로파일에서 생성되는 **tier 조합 findings**입니다. `cross-skill-*` findings는 [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection)에서 생성됩니다. 이들은 모두 아래 표에 나타나지만 `rules.yaml`에는 정의되어 있지 않습니다.
 
 :::
 
@@ -384,6 +384,8 @@ skillshare audit --json | jq '.skills[].findings'  # findings를 프로그래밍
 | `insecure-http-0` | insecure-http | LOW |
 | `external-link-0` | external-link | LOW |
 | `dangling-link` | dangling-link | LOW |
+| `reference-escapes-root` | reference-escapes-root | HIGH |
+| `reference-check-incomplete` | reference-check-incomplete | LOW |
 | `content-tampered` | content-tampered | MEDIUM |
 | `content-oversize` | content-oversize | MEDIUM |
 | `content-missing` | content-missing | LOW |

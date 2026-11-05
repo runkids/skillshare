@@ -38,7 +38,7 @@ make playground
 | `audit-demo-ci-release` | `security/` | HIGH + MEDIUM（sudo、外部 URL） |
 | `audit-demo-debug-exfil` | `security/` | CRITICAL（凭证外泄） |
 | `audit-demo-external-link` | `security/` | LOW（外部 URL） |
-| `audit-demo-dangling-link` | `security/` | LOW（失效的本地链接） |
+| `audit-demo-dangling-link` | `security/` | LOW（缺失链接）+ HIGH（超出根目录） |
 
 ### 示例项目（`~/demo-project`）
 

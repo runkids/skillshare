@@ -137,7 +137,7 @@ skillshare audit --analyzer static --analyzer dataflow # 複数の analyzer
 | `tier` | Skill 単位 | Capability tier の組み合わせリスク分析 |
 | `integrity` | Skill 単位 | コンテンツハッシュ検証（SKILL.md の `file_hashes`） |
 | `metadata` | Skill 単位 | サプライチェーンの信頼性検証（publisher の不一致、権威の主張） |
-| `structure` | Skill 単位 | markdown のダングリングリンク検出 |
+| `structure` | Skill 単位 | ローカル Markdown リンク/画像と明示されたバンドル内パスの欠落、ルート外参照を検出 |
 | `cross-skill` | バンドル単位 | Skill 間のデータ流出・権限昇格分析 |
 
 config で設定することもできます。

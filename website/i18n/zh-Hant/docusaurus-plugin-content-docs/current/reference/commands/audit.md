@@ -137,7 +137,7 @@ skillshare audit --analyzer static --analyzer dataflow # Multiple analyzers
 | `tier` | Per-skill | 能力層級組合的風險分析 |
 | `integrity` | Per-skill | 內容雜湊驗證（SKILL.md 中的 `file_hashes`） |
 | `metadata` | Per-skill | 供應鏈信任驗證（發布者不符、權威性宣稱） |
-| `structure` | Per-skill | 偵測失效的 markdown 連結 |
+| `structure` | Per-skill | 檢查本機 Markdown 連結/圖片與明確宣告的套件路徑是否缺失，並偵測指向根目錄外的參照 |
 | `cross-skill` | Bundle | 跨 skill 的資料外洩與權限提升分析 |
 
 你也可以在 config 中設定：

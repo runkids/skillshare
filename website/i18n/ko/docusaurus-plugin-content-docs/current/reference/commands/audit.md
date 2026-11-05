@@ -137,7 +137,7 @@ skillshare audit --analyzer static --analyzer dataflow # 여러 분석기
 | `tier` | skill별 | 기능 등급(capability tier) 조합 위험 분석 |
 | `integrity` | skill별 | 콘텐츠 해시 검증 (SKILL.md의 `file_hashes`) |
 | `metadata` | skill별 | 공급망 신뢰 검증 (publisher 불일치, authority 주장) |
-| `structure` | skill별 | markdown 댕글링 링크 탐지 |
+| `structure` | skill별 | 로컬 Markdown 링크/이미지 및 명시된 번들 경로의 누락과 루트 외부 참조 감지 |
 | `cross-skill` | 번들 | Cross-skill 유출 및 권한 상승 분석 |
 
 config에서도 설정할 수 있습니다:

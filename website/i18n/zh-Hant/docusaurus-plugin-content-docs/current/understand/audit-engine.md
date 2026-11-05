@@ -86,6 +86,7 @@ Audit engine 會把 skill 目錄中每個以文字為主的檔案，拿去比對
 | `data-exfiltration` | 透過 `dig`/`nslookup`/`host`，在子網域中使用命令替換進行 DNS 資料外洩 |
 | `self-propagation` | 把 payload 散播到其他檔案或專案的自我複製指令 |
 | `hardcoded-secret` | 內嵌的 API 金鑰、token 與密碼：Google API 金鑰（`AIza...`）、AWS access key（`AKIA...`）、GitHub PAT（`ghp_`/`ghs_`/`github_pat_`）、Slack token（`xox[bporas]-`）、OpenAI 金鑰、Anthropic 金鑰、Stripe 金鑰、PEM 私鑰區塊，以及高熵值的一般 `api_key`/`secret_key`/`password` 賦值 |
+| `reference-escapes-root` | 明確參照解析到 skill 目錄之外 |
 
 > **為什麼是 high？** 隱藏的 Unicode 字元可以讓惡意指令在程式碼審查時看不見。雙向文字控制字元可以重新排列可見文字以偽裝惡意程式碼（Trojan Source）。Base64 混淆是常見的規避人工檢查手法。像 `rm -rf /` 這樣的破壞性命令可能造成無法復原的損害。`curl | bash` 是經典的遠端程式碼執行向量 — 抓取的內容會直接在你的 shell 中執行。Config/記憶檔案下毒會跨 AI session 持續存在。DNS 外洩把竊取的資料編碼在子網域查詢中。自我複製指令會建立 repository worm。Skill 檔案中的硬編碼機密資料（API 金鑰、token、私鑰）代表憑證已外洩或是刻意暴露憑證 — 兩者都是應該被審查的供應鏈風險。
 
@@ -146,19 +147,24 @@ Audit engine 會把 skill 目錄中每個以文字為主的檔案，拿去比對
 這些是嚴重程度較低的指標，會計入風險評分與報告：
 
 - `LOW`：較弱的可疑模式（例如命令中的非 HTTPS URL — 可能有中間人攻擊風險）
+- `LOW`: 無法檢查的參照也會報告為 LOW `reference-check-incomplete`。
 - `LOW`：**外部連結** — 指向外部 URL（`https://...`）的 markdown 連結，可能代表 prompt injection 向量或不必要的 token 消耗；localhost 連結不列入
-- `LOW`：**失效的本機連結** — 目標檔案或目錄在磁碟上不存在的損毀相對 markdown 連結
+- `LOW`：**遺失的套件參照** — Markdown 連結、圖片、明確或行內路徑的目標不存在
 - `LOW`：**content-missing** / **content-unexpected** — 內容完整性問題（見上方）
 - `INFO`：情境提示，例如 shell 串接模式（供分流／可見度使用）
 - `INFO`：**低可分析性** — skill 內容中可稽核的文字不到 70%（見 [Analyzability Score](#analyzability-score)）
 
 > 這些發現不會封鎖安裝，但會提高整體風險評分。有大量 LOW/INFO 發現的 skill 可能值得更仔細的檢查。
 
-#### 失效連結偵測
+#### 套件參照檢查
 
-Audit engine 也會對 `.md` 檔案執行**結構檢查**：擷取所有內嵌的 markdown 連結（`[label](target)`），並驗證本機相對目標是否存在於磁碟上。外部連結（`http://`、`https://`、`mailto:` 等）與純錨點（`#section`）會被略過。
+結構分析器會檢查本機 Markdown 連結與圖片，包括參照式連結。行內程式碼會檢查具有副檔名、不含空白或 glob／範本語法且以 `./`、`../`、`scripts/`、`references/` 或 `assets/` 開頭的路徑，以及明確的 `path:<target>` 宣告。標記為 `skillshare-paths` 的程式碼圍欄每行檢查一個路徑。未明確宣告的無副檔名範例、一般識別字、其他程式碼圍欄、未明確宣告的絕對路徑程式碼範例、URL（包括 `file:` URI）與純錨點均為刻意排除的例外。必要的絕對路徑應使用 Markdown 連結或明確的 `path:` 宣告。 Markdown 連結與圖片相對於所在文件的目錄解析。行內程式碼路徑、`path:` 宣告與 `skillshare-paths` 項目以 `./` 或 `../` 開頭時也相對於所在文件解析；其他相對程式碼路徑相對於 skill 根目錄解析，巢狀 Markdown 檔案中也一樣。
 
-這能抓出常見的品質問題，例如遺失的參照檔案、改名的路徑，或不完整的 skill 打包。每個損毀連結都會產生一筆模式為 `dangling-link` 的 `LOW` 嚴重程度發現。
+遺失的目標保留 LOW `dangling-link` 識別。父目錄遍歷、家目錄路徑、Windows 磁碟機路徑或符號連結元件離開 skill 目錄時，會產生 HIGH `reference-escapes-root`。允許套件目錄內的絕對路徑，也辨識從宣告的根目錄及其符號連結父目錄導出的等價寫法（例如 macOS 的 `/var` 與 `/private/var`）。檢查在宣告的根目錄內使用有上限的 `lstat`/`readlink`，不會讀取參照檔案的內容。不支援的路徑、無法讀取的中繼資料、符號連結循環或解析超過上限會產生 LOW `reference-check-incomplete`，不會宣稱目標遺失或安全。上限為每個路徑 4,096 位元組、256 個元件步驟與 40 次符號連結跳躍。Windows 原生分隔符會正規化；在其他主機上，除了可辨識的 Windows 磁碟機逸出，不支援反斜線路徑。保留原始行號與片段。 離開套件目錄的隱含行內程式碼範例會被忽略，末尾的 `:line` 會被移除。
+
+`/docs/foo` 等網站根連結指向技能目錄之外時，現在會產生 HIGH `reference-escapes-root`，而非原本的 LOW `dangling-link`。使用 `--threshold high` 時可能被封鎖。
+
+三個規則 ID 都支援在 `audit-rules.yaml` 設定 `enabled: false`，沿用其他結構檢查的全域／專案規則層。`doctor` 共用此分析器：遺失或未完成的參照列為警告，逸出列為錯誤，`doctor --json` 將其記錄在 `bundled_references`。兩種模式中探索到的 skill 都適用。
 
 ## 威脅類別深入解析
 

@@ -137,7 +137,7 @@ skillshare audit --analyzer static --analyzer dataflow # 使用多个分析器
 | `tier` | 逐 skill | 能力分级组合风险分析 |
 | `integrity` | 逐 skill | 内容哈希校验（SKILL.md 中的 `file_hashes`） |
 | `metadata` | 逐 skill | 供应链信任校验（发布者不匹配、权威性声明） |
-| `structure` | 逐 skill | 悬空 markdown 链接检测 |
+| `structure` | 逐 skill | 检查本地 Markdown 链接/图片和显式声明的捆绑路径是否缺失，并检测指向根目录外的引用 |
 | `cross-skill` | 整批 | 跨 skill 的外泄与权限提升分析 |
 
 你也可以在配置中设置：

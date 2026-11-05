@@ -86,6 +86,7 @@ audit engine 会用 100 多条内置规则（正则表达式模式、表驱动�
 | `data-exfiltration` | 通过 `dig`/`nslookup`/`host` 结合子域名中的命令替换进行的 DNS 数据渗出 |
 | `self-propagation` | 将 payload 传播到其他文件或项目的自我复制指令 |
 | `hardcoded-secret` | 内联的 API 密钥、令牌和密码：Google API 密钥（`AIza...`）、AWS 访问密钥（`AKIA...`）、GitHub PAT（`ghp_`/`ghs_`/`github_pat_`）、Slack 令牌（`xox[bporas]-`）、OpenAI 密钥、Anthropic 密钥、Stripe 密钥、PEM 私钥块，以及带有高熵值的通用 `api_key`/`secret_key`/`password` 赋值 |
+| `reference-escapes-root` | 显式引用解析到 skill 目录之外 |
 
 > **为什么是 high？** 隐藏的 Unicode 字符可以让恶意指令在代码审查中不可见。双向文本控制字符可以重新排列可见文本以伪装恶意代码（Trojan Source）。Base64 混淆是绕过人工检查的常见手段。像 `rm -rf /` 这样的破坏性命令可能造成不可逆的损害。`curl | bash` 是经典的远程代码执行向量——获取的内容会直接在你的 shell 中运行。配置/记忆文件污染会跨 AI 会话持续存在。DNS 渗出将窃取的数据编码在子域名查询中。自我传播指令会制造仓库蠕虫。skill 文件中的硬编码机密（API 密钥、令牌、私钥）表明凭证已泄露或存在故意的凭证暴露——两者都是应该审查的供应链风险。
 
@@ -146,19 +147,24 @@ audit engine 会用 100 多条内置规则（正则表达式模式、表驱动�
 这些是严重程度较低的指标，会计入风险评分和报告：
 
 - `LOW`：较弱的可疑模式（例如命令中的非 HTTPS URL——存在中间人攻击的可能）
+- `LOW`: 无法检查的引用也会报告为 LOW `reference-check-incomplete`。
 - `LOW`：**外部链接**——指向外部 URL（`https://...`）的 markdown 链接，可能表明存在 prompt injection 向量或不必要的 token 消耗；本地链接（localhost）除外
-- `LOW`：**悬空的本地链接**——目标文件或目录在磁盘上不存在的失效相对 markdown 链接
+- `LOW`：**缺失的捆绑引用**——Markdown 链接、图片、显式或行内路径的目标不存在
 - `LOW`：**content-missing** / **content-unexpected**——内容完整性问题（见上文）
 - `INFO`：诸如 shell 链式命令模式等上下文提示（用于分诊/可见性）
 - `INFO`：**低可分析性**——skill 内容中可审计文本的占比低于 70%（见 [Analyzability Score](#analyzability-score)）
 
 > 这些发现结果不会阻止安装，但会提高整体风险评分。有大量 LOW/INFO 发现结果的 skill 可能值得更仔细的检查。
 
-#### 悬空链接检测
+#### 捆绑引用检查
 
-audit engine 还会对 `.md` 文件执行**结构性检查**：提取所有内联 markdown 链接（`[label](target)`），并验证本地相对目标在磁盘上是否存在。外部链接（`http://`、`https://`、`mailto:` 等）和纯锚点（`#section`）会被跳过。
+结构分析器检查本地 Markdown 链接和图片，包括引用式链接。内联代码中，检查具有文件扩展名、不含空白或 glob／模板语法且以 `./`、`../`、`scripts/`、`references/` 或 `assets/` 开头的路径，以及显式 `path:<target>` 声明。标记为 `skillshare-paths` 的代码围栏中每行检查一个路径。未显式声明的无扩展名示例、普通标识符、其他代码围栏、未显式声明的绝对路径代码示例、URL（包括 `file:` URI）和纯锚点是有意排除的例外。必需的绝对路径应使用 Markdown 链接或显式 `path:` 声明。 Markdown 链接和图片相对于所在文档的目录解析。内联代码路径、`path:` 声明和 `skillshare-paths` 条目以 `./` 或 `../` 开头时也相对于所在文档解析；其他相对代码路径相对于 skill 根目录解析，嵌套 Markdown 文件中也一样。
 
-这能捕获常见的质量问题，如缺失的引用文件、重命名的路径或不完整的 skill 打包。每个失效链接会产生一条 `LOW` 严重级别、模式为 `dangling-link` 的发现结果。
+缺失目标保留 LOW `dangling-link` 标识。父目录遍历、主目录路径、Windows 驱动器路径或符号链接组件离开 skill 目录时，产生 HIGH `reference-escapes-root`。允许捆绑目录内的绝对路径，也识别从声明的根目录及其符号链接父目录导出的等价写法（例如 macOS 的 `/var` 与 `/private/var`）。检查在声明的根目录内使用有界的 `lstat`/`readlink`，不会读取引用文件的内容。不支持的路径、不可读元数据、符号链接循环或解析超限会产生 LOW `reference-check-incomplete`，而不会声称目标缺失或安全。限制为每个路径 4,096 字节、256 个组件步骤和 40 次符号链接跳转。Windows 原生分隔符会被规范化；在其他主机上，除可识别的 Windows 驱动器逃逸外，不支持反斜杠路径。保留原始行号与代码片段。 离开捆绑目录的隐式行内代码示例会被忽略，末尾的 `:line` 会被移除。
+
+`/docs/foo` 等站点根链接指向技能目录之外时，现在产生 HIGH `reference-escapes-root`，而非原来的 LOW `dangling-link`。使用 `--threshold high` 时可能被阻止。
+
+三个规则 ID 都支持在 `audit-rules.yaml` 中设置 `enabled: false`，沿用其他结构检查的全局／项目规则层。`doctor` 复用此分析器：缺失或未完成的引用为警告，逃逸为错误，`doctor --json` 将其记入 `bundled_references`。两种模式中发现的 skill 都适用。
 
 ## 威胁类别深入分析
 

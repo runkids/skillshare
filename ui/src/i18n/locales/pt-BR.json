@@ -344,6 +344,7 @@
   "doctor.check.agents_source": "Fonte dos Agentes",
   "doctor.check.backup": "Backups",
   "doctor.check.broken_symlinks": "Symlinks Quebrados",
+  "doctor.check.bundled_references": "Referências do pacote",
   "doctor.check.cli_version": "Versão da CLI",
   "doctor.check.duplicate_skills": "Skills Duplicadas",
   "doctor.check.extras": "Extras",
