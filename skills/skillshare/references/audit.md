@@ -66,7 +66,24 @@ Markdown is still scanned, including fenced code blocks. A shared Markdown parse
 
 HIGH findings warn at the default CRITICAL threshold and block at a HIGH threshold (the `strict` profile default). Some malicious wording can also match only the generic HIGH rule; use strict when that ambiguity must block. SDK parameter context is only a syntax heuristic. Credential access, data exfiltration, and other injection rules retain their configured severity.
 
-Explicit global or project severity overrides, including CRITICAL, take precedence over SDK parameter downgrades. Generic disclosure restrictions now use `prompt-injection-5`; overrides for `prompt-injection-4` apply only to explicit concealment. Built-in rule 5 excludes explicit-concealment phrases, not separate generic restrictions on the same line. Full custom regex replacements retain whole-line exclusion semantics. To make generic restrictions CRITICAL, override `prompt-injection-5`. For reviewed false positives, findings accepted with `--force` remain visible and are remembered for that resource; a different rule, file, or matched text requires acceptance again.
+Explicit global or project severity overrides, including CRITICAL, take precedence over SDK parameter downgrades. Generic disclosure restrictions now use `prompt-injection-5`; overrides for `prompt-injection-4` apply only to explicit concealment. Built-in rule 5 excludes explicit-concealment phrases, not separate generic restrictions on the same line. Full custom regex replacements retain whole-line exclusion semantics. To make generic restrictions CRITICAL, override `prompt-injection-5`. For reviewed false positives, findings accepted with `--force` remain visible and are remembered for that resource; a different rule, file, matched text, or detector-specific evidence requires fresh acceptance. For `whitespace-padding`, density findings use all eligible content in the file as evidence. Identical occurrences have separate acceptance keys; previously accepted padding findings require acceptance again.
+
+### Whitespace Padding
+
+The `static` analyzer reports `whitespace-padding`: 20+ consecutive blank lines
+followed by nonblank text (MEDIUM; 40+ HIGH), 80+ leading horizontal Unicode whitespace characters before text,
+more than 4096 eligible bytes at 95%+ whitespace, or 100+ identical nonblank
+lines immediately followed by different text (MEDIUM). Fenced and indented code and parsed
+Markdown table rows are exempt from padding accounting in Markdown (`.md`) files.
+Nonblank code/table lines still trigger a preceding blank run outside the block. Locations retain original LF-based line numbers,
+including when Unicode separators, vertical tab or form feed separate visual
+lines. An unclosed fence exempts content to EOF. Interior column alignment does
+not trigger the horizontal check. Adjacent horizontally padded lines produce one finding. This indicates hidden-content risk, not proof
+of malicious intent; density and repetition can also flag generated data.
+Findings affect risk scores, and HIGH findings block at a HIGH audit threshold.
+Disable or override severity/confidence by rule ID or pattern in global/project
+`audit-rules.yaml`; explicit severity applies to every form. Leave `regex` and
+`exclude` unset for this file-level detector.
 
 ## Config
 

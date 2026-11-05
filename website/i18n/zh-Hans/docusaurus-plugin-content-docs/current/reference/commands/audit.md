@@ -132,7 +132,7 @@ skillshare audit --analyzer static --analyzer dataflow # 使用多个分析器
 
 | 分析器 | 作用范围 | 说明 |
 |----------|-------|-------------|
-| `static` | 逐文件 | 基于正则表达式，依据 audit 规则进行模式匹配 |
+| `static` | 逐文件 | 正则表达式匹配及文件级空白填充检查 |
 | `dataflow` | 逐文件 | 对 shell 脚本和 markdown 代码块进行污点追踪 |
 | `tier` | 逐 skill | 能力分级组合风险分析 |
 | `integrity` | 逐 skill | 内容哈希校验（SKILL.md 中的 `file_hashes`） |
@@ -196,7 +196,7 @@ skillshare install /path/to/skill --skip-audit
 
 `skillshare update` 会将 tracked 仓库拉取到隔离的候选副本中，并在发布前运行安全 audit。达到或超过当前阈值（默认为 `audit.block_threshold`，或通过 `--audit-threshold` / `--threshold` / `-T` 覆盖）的发现结果会阻止发布，除非明确接受；拒绝时实际 checkout 保持不变。详情参见 [`update --skip-audit`](/docs/reference/commands/update#security-audit-gate)。
 
-你用 `--force` 接受的发现结果会针对该 skill 被记住，因此后续更新在同一条规则匹配到同一段文本时不会再次阻断。新的发现结果，或同一条规则匹配到不同的文本，仍会再次阻断。参见 [Accepted Findings](/docs/reference/commands/update#accepted-findings)。
+用 `--force` 接受的 findings 会针对该 skill 被记住。接受密钥忽略行号，并包含规则、文件、匹配文本及检测器专属证据。对于 `whitespace-padding`，填充隐藏的内容变化会生成新密钥；密度 finding 使用文件中所有符合条件的内容作为证据。详情参见 [Accepted Findings](/docs/reference/commands/update#accepted-findings)。
 
 当通过 install 更新 tracked 仓库时（`skillshare install <repo> --track --update`），会使用相同的阈值策略（`audit.block_threshold` 或 `--audit-threshold` / `--threshold` / `-T`）。
 

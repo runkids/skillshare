@@ -327,7 +327,7 @@ When you override the gate with `--force` (or answer `y` at the prompt), the fin
   1 previously accepted finding skipped
 ```
 
-A finding is matched by rule, file, and matched text — not by line number — so it stays accepted when unrelated content shifts. Any new finding, or the same rule matching different text, blocks again. This suits skills that legitimately quote attack strings as examples (security scanners, red-team docs) while still catching new payloads in later versions.
+Acceptance keys ignore line numbers and include the rule, file, matched text, and any detector-specific evidence. For `whitespace-padding`, changed padded content produces a new key; density findings use all eligible file content as evidence. New findings or changed evidence block again. This suits skills that legitimately quote attack strings as examples (security scanners, red-team docs) while still catching new payloads in later versions.
 
 You can override threshold per command with `--audit-threshold`, `--threshold`, or `-T`:
 

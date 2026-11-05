@@ -327,7 +327,7 @@ skillshare update --all --skip-audit
   1 previously accepted finding skipped
 ```
 
-一項發現是以規則、檔案與比對到的文字來比對 — 而非行號 — 因此即使無關內容有位移，它仍會維持已接受狀態。任何新的發現，或同一規則比對到不同文字，都會再次封鎖。這適合會合理引用攻擊字串作為範例的 skills（例如安全掃描工具、紅隊文件），同時仍能在後續版本中攔截新的 payload。
+接受金鑰會忽略行號，並包含規則、檔案、比對文字及偵測器專屬證據。對 `whitespace-padding` 而言，填充隱藏的內容改變時會產生新金鑰；密度 finding 會以檔案中所有符合條件的內容作為證據。新的 finding 或證據改變時會再次封鎖。這既適用於合理引用攻擊字串作為範例的 skills（例如安全掃描工具、紅隊文件），也能持續攔截後續版本中的新 payload。
 
 你可以用 `--audit-threshold`、`--threshold` 或 `-T` 針對單一指令覆寫門檻：
 

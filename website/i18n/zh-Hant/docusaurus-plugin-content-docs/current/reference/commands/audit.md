@@ -132,7 +132,7 @@ skillshare audit --analyzer static --analyzer dataflow # Multiple analyzers
 
 | Analyzer | Scope | Description |
 |----------|-------|-------------|
-| `static` | Per-file | 依 audit 規則做 regex 模式比對 |
+| `static` | Per-file | 正規表達式比對及檔案層級空白填充檢查 |
 | `dataflow` | Per-file | 針對 shell 腳本與 markdown 程式碼區塊做污染追蹤（taint tracking） |
 | `tier` | Per-skill | 能力層級組合的風險分析 |
 | `integrity` | Per-skill | 內容雜湊驗證（SKILL.md 中的 `file_hashes`） |
@@ -196,7 +196,7 @@ skillshare install /path/to/skill --skip-audit
 
 `skillshare update` 會將 tracked repos 拉取到隔離的候選副本中，並在發布前執行安全 audit。達到或超過目前啟用門檻（預設為 `audit.block_threshold`，或以 `--audit-threshold` / `--threshold` / `-T` 覆蓋）的發現項目會阻止發布，除非明確接受；拒絕時實際 checkout 保持不變。詳情參見 [`update --skip-audit`](/docs/reference/commands/update#security-audit-gate)。
 
-你用 `--force` 接受的發現項目會針對該 skill 被記住，之後的更新不會因為同一條規則比對到相同文字而再次阻擋。新的發現項目，或同一條規則比對到不同文字，仍會再次阻擋。參見 [Accepted Findings](/docs/reference/commands/update#accepted-findings)。
+以 `--force` 接受的 findings 會針對該 skill 記錄。接受金鑰會忽略行號，並包含規則、檔案、比對文字及偵測器專屬證據。對 `whitespace-padding` 而言，填充隱藏的內容改變時會產生新金鑰；密度 finding 會以檔案中所有符合條件的內容作為證據。詳情請參閱 [Accepted Findings](/docs/reference/commands/update#accepted-findings)。
 
 透過 install 更新 tracked repos 時（`skillshare install <repo> --track --update`），該關卡使用相同的門檻政策（`audit.block_threshold` 或 `--audit-threshold` / `--threshold` / `-T`）。
 
