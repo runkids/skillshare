@@ -132,7 +132,7 @@ skillshare audit --analyzer static --analyzer dataflow # 複数の analyzer
 
 | Analyzer | スコープ | 説明 |
 |----------|-------|-------------|
-| `static` | ファイル単位 | audit ルールに対する正規表現ベースのパターンマッチング |
+| `static` | ファイル単位 | 正規表現パターン照合とファイル単位の空白埋め込み検査 |
 | `dataflow` | ファイル単位 | shell スクリプトと markdown コードブロックの taint tracking |
 | `tier` | Skill 単位 | Capability tier の組み合わせリスク分析 |
 | `integrity` | Skill 単位 | コンテンツハッシュ検証（SKILL.md の `file_hashes`） |
@@ -196,7 +196,7 @@ install 時の audit をグローバルに無効化する config フラグはあ
 
 `skillshare update` は追跡中のリポジトリを隔離された候補に pull し、公開前に監査します。有効な閾値（デフォルトは `audit.block_threshold`、または `--audit-threshold` / `--threshold` / `-T` による上書き）以上の findings は、明示的に受け入れない限り公開をブロックします。拒否時は実際のチェックアウトを変更しません。詳細は [`update --skip-audit`](/docs/reference/commands/update#security-audit-gate) を参照してください。
 
-`--force` で受け入れた findings はその Skill について記憶されるため、後続の更新で同じルールが同じテキストに一致しても再びブロックされることはありません。新しい finding、または同じルールが異なるテキストに一致した場合は、再びブロックされます。詳細は [Accepted Findings](/docs/reference/commands/update#accepted-findings) を参照してください。
+`--force` で受け入れた findings はその Skill について記憶されます。承認キーは行番号を無視し、rule、ファイル、一致したテキスト、および検出器固有の証拠を含みます。`whitespace-padding` では、パディングされた内容が変わると新しいキーになり、密度 finding はファイル内の対象コンテンツ全体を証拠として使います。詳しくは [Accepted Findings](/docs/reference/commands/update#accepted-findings) を参照してください。
 
 install 経由で追跡中のリポジトリを更新する場合（`skillshare install <repo> --track --update`）、ゲートは同じ閾値ポリシー（`audit.block_threshold` または `--audit-threshold` / `--threshold` / `-T`）を使用します。
 

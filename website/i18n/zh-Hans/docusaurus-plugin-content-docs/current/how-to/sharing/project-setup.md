@@ -88,7 +88,7 @@ skillshare install anthropics/skills -s pdf --into tools -p
 远端 Skill 会：
 - 安装到 `.skillshare/skills/<name>/`（若使用 `--into` 则为 `.skillshare/skills/<into>/<name>/`）
 - 记录在 `.skillshare/config.yaml` 的 `skills:` 中
-- 加入 `.skillshare/.gitignore`（克隆下来的内容不会被 commit；`logs/`、`trash/` 与 `backups/` 默认会被忽略）
+- 加入 `.skillshare/.gitignore`（克隆下来的内容不会被 commit；`logs/`、`trash/`、`backups/` 与 `.metadata.json` 文件默认会被忽略）
 
 ### Step 4：Sync 到 Target
 
@@ -108,7 +108,7 @@ git commit -m "Add project-level skills"
 **会被 commit 的内容：**
 - `.skillshare/config.yaml` —— Target 与远端 Skill 清单
 - `.skillshare/skills.lock.json` —— 每个远端 Skill 固定的 commit，让所有人安装到相同版本
-- `.skillshare/.gitignore` —— 专案日志、trash、backup 与克隆 Skill 的忽略规则
+- `.skillshare/.gitignore` —— 专案日志、trash、backup、安装元数据与克隆 Skill 的忽略规则
 - `.skillshare/skills/<local-skills>/` —— 本地 Skill 内容
 
 **会被忽略的内容：**

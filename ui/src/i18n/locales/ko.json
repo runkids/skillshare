@@ -939,6 +939,8 @@
   "update.stale.pruned.other": "skill {count}개를 정리했습니다. 7일 안에 휴지통에서 복원할 수 있습니다.",
   "updateDialog.copyCommand": "명령 복사",
   "updateDialog.needsSudo": "업데이트하려면 비밀번호가 필요합니다. 터미널에서 skillshare upgrade 를 실행하세요.",
+  "updateDialog.nixConfig": "skillshare가 Nix로 설치되었습니다. Nix 설정에서 skillshare를 업데이트한 뒤 다시 빌드하세요.",
+  "updateDialog.nixProfile": "skillshare가 Nix로 설치되었습니다. 터미널에서 {command} 를 실행하세요.",
   "updateDialog.newVersion": "새 버전 사용 가능",
   "updateDialog.restartDev": "DEV 모드 재시작을 시뮬레이션했습니다.",
   "updateDialog.restartManual": "업데이트되었습니다. 이 페이지가 다시 연결되지 않으면 skillshare ui start로 다시 시작하세요.",

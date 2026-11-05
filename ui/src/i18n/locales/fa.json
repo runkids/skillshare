@@ -939,6 +939,8 @@
   "update.stale.pruned.other": "{count} skill پاک‌سازی شد. تا ۷ روز از سطل زباله قابل بازیابی است.",
   "updateDialog.copyCommand": "کپی دستور",
   "updateDialog.needsSudo": "به‌روزرسانی به گذرواژهٔ شما نیاز دارد. در ترمینال skillshare upgrade را اجرا کنید.",
+  "updateDialog.nixConfig": "skillshare با Nix نصب شده است. skillshare را در پیکربندی Nix خود به‌روز کنید و دوباره بسازید.",
+  "updateDialog.nixProfile": "skillshare با Nix نصب شده است. در ترمینال {command} را اجرا کنید.",
   "updateDialog.newVersion": "نسخه جدید موجود است",
   "updateDialog.restartDev": "راه‌اندازی مجدد در حالت DEV شبیه‌سازی شد.",
   "updateDialog.restartManual": "به‌روزرسانی شد. اگر این صفحه دوباره وصل نشد، با skillshare ui start دوباره راه‌اندازی کنید.",

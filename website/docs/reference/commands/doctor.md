@@ -364,6 +364,8 @@ Next
   brew upgrade skillshare  update to v1.3.0
 ```
 
+A `nix profile` install gets `nix profile upgrade skillshare` as its Next line. When NixOS or Home Manager provides skillshare, the Update row says to update your Nix configuration and rebuild, and there is no Next line for it.
+
 ## JSON Output
 
 Use `--json` for machine-readable output in CI pipelines and automation:

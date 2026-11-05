@@ -90,7 +90,7 @@ skillshare sync -g       # Force global mode
 │   ├── config.yaml              # Targets + settings (incl. extras)
 │   ├── skills.lock.json         # Commit each remote skill is pinned to (auto-managed, commit it)
 │   ├── skills/.metadata.json     # Runtime metadata (hashes, timestamps — auto-managed, gitignored)
-│   ├── .gitignore               # Ignores logs/, trash/, backups/, and cloned remote/tracked skill dirs
+│   ├── .gitignore               # Ignores logs/, trash/, backups/, .metadata.json, and cloned remote/tracked skill dirs
 │   ├── extras/                  # Extras source directories
 │   │   └── rules/               # e.g. extras init rules --target .claude/rules -p
 │   │       └── coding.md
@@ -204,7 +204,7 @@ skills:
 - `tracked: true`：以 `--track` 安裝（保留 `.git/` 的 git repo）。當有人執行 `skillshare install -p` 時，tracked skills 會連同完整 git 歷史一起 clone，讓 `skillshare update` 能正常運作。
 - `group`：子目錄路徑（對應到安裝時的 `--into`）。
 
-執行期 metadata（安裝時間戳記、檔案雜湊值、commit SHA）另外儲存在 `.skillshare/skills/.metadata.json` 中 — 此檔案為自動管理且被 gitignore。
+執行期 metadata（安裝時間戳記、檔案雜湊值、commit SHA）另外儲存在 `.skillshare/skills/.metadata.json` 中 — 此檔案為自動管理且被 gitignore。如果專案在這條規則出現前已經 commit 了它，請執行一次 `git rm --cached .skillshare/skills/.metadata.json` 停止追蹤。
 
 :::tip 可攜的 Skill Manifest
 `config.yaml` 就是宣告式的 skill manifest。在 project 中，把它 commit 進 git，任何人都能執行 `skillshare install -p && skillshare sync`。至於 global mode，由於 global config 不需要透過 git 分享，`.metadata.json` 就扮演 manifest 的角色。
@@ -291,7 +291,7 @@ Project mode 有一些刻意設計的限制：
 | Merge sync mode | ✓ | 預設，每個 skill 各自 symlink |
 | Copy sync mode | ✓ | 透過 `skillshare target <name> --mode copy -p` 針對個別 target 設定 |
 | Symlink sync mode | ✓ | 透過 `skillshare target <name> --mode symlink -p` 針對個別 target 設定 |
-| `--track` repos | ✓ | Clone 到 `.skillshare/skills/_repo/`，並加入 `.gitignore`（預設也會忽略 `logs/`、`trash/` 和 `backups/`） |
+| `--track` repos | ✓ | Clone 到 `.skillshare/skills/_repo/`，並加入 `.gitignore`（預設也會忽略 `logs/`、`trash/`、`backups/` 和 `.metadata.json` 檔案） |
 | `--discover` | ✓ | 偵測並將新的 targets 加入既有的 project config |
 | `push` / `pull` | ✗ | 直接對 project repo 使用 git |
 | `collect` | ✓ | 從 project targets 收集本機 skills 回 `.skillshare/skills/` |

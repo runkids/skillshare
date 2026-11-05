@@ -20,17 +20,31 @@ func ompEmptyRuntime(path string) error {
 	return nil
 }
 
-func (s *Service) prepareOMPInstall(ctx context.Context, h Host, c *Change) {
+// Preview may count only the exact link a verified earlier removal will free.
+// Apply still requires an empty destination after executing that removal.
+func ompPreviewRuntime(path string, cleanup *ompRemoval) error {
+	if cleanup != nil && cleanup.linkPresent && cleanup.link == path {
+		if err := ompSafePath(filepath.Dir(path)); err != nil {
+			return err
+		}
+		if target, err := os.Readlink(path); err == nil && target == cleanup.target {
+			return nil
+		}
+	}
+	return ompEmptyRuntime(path)
+}
+
+func (s *Service) prepareOMPInstall(ctx context.Context, h Host, c *Change, cleanup *ompRemoval) {
 	check := func() error {
 		ref := c.Binding.Commit
 		if ref == "" {
 			ref = c.Binding.SourceRef
 		}
-		root, source, cleanup, err := acquireRef(ctx, c.Binding.Source, ref)
+		root, source, releaseSource, err := acquireRef(ctx, c.Binding.Source, ref)
 		if err != nil {
 			return err
 		}
-		defer cleanup()
+		defer releaseSource()
 		d, err := discoverRoot(root, source, c.Binding.Entry)
 		if err != nil {
 			return err
@@ -51,7 +65,7 @@ func (s *Service) prepareOMPInstall(ctx context.Context, h Host, c *Change) {
 				runtimeRoot = filepath.Join(s.ProjectRoot, ".omp", "plugins")
 			}
 			c.ompRuntimePath = filepath.Join(runtimeRoot, "node_modules", filepath.FromSlash(module))
-			return ompEmptyRuntime(c.ompRuntimePath)
+			return ompPreviewRuntime(c.ompRuntimePath, cleanup)
 		}
 		return fmt.Errorf("OMP source no longer provides the reviewed plugin")
 	}

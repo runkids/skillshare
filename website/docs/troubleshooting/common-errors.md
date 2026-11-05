@@ -645,6 +645,16 @@ The same rule applies to `restore`: `restore is not supported in project mode (e
 
 **Solution:** Agent names must use only `a-z`, `0-9`, `_`, `-`, `.`. Rename the file (and update its `name:` field to match) so they share the same canonical name.
 
+### `source was lost by an earlier update; reinstall this agent` {#agent-source-lost}
+
+**Cause:** Older versions of `update agents` rewrote an agent's recorded source to `/agents/<name>.md` and dropped its repository URL ([#777](https://github.com/runkids/skillshare/issues/777)). Without the repository, the agent cannot be checked or updated.
+
+**Solution:** Install the agent again from its repository, which records the source correctly:
+
+```bash
+skillshare install <repo> --kind agent --all --force
+```
+
 ### `.agentignore` patterns not taking effect
 
 **Causes:**

@@ -289,13 +289,18 @@ func scanFileUnified(
 	activeRules []rule, profile *TierProfile,
 	hasStatic, hasDataflow, isShell bool,
 ) (staticFindings, dfFindings []Finding) {
+	if hasStatic && !isMarkdown {
+		staticFindings = scanWhitespacePadding(data, relPath, activeRules)
+	}
 	// A BOM at the very start is the file's encoding mark, not a hidden character.
 	text := utils.TrimBOM(string(data))
 
 	if isMarkdown {
-		return scanFileUnifiedMarkdown(text, relPath, activeRules, profile, hasStatic, hasDataflow)
+		sf, df := scanFileUnifiedMarkdown(text, relPath, activeRules, profile, hasStatic, hasDataflow)
+		return append(staticFindings, sf...), df
 	}
-	return scanFileUnifiedPlain(text, relPath, activeRules, profile, hasStatic, hasDataflow, isShell)
+	sf, df := scanFileUnifiedPlain(text, relPath, activeRules, profile, hasStatic, hasDataflow, isShell)
+	return append(staticFindings, sf...), df
 }
 
 // scanFileUnifiedMarkdown shares parsed code blocks across static, tier, and
@@ -306,6 +311,9 @@ func scanFileUnifiedMarkdown(
 	hasStatic, hasDataflow bool,
 ) (staticFindings, dfFindings []Finding) {
 	blocks := markdownCodeBlocks([]byte(text))
+	if hasStatic {
+		staticFindings = scanWhitespacePadding([]byte(text), relPath, activeRules, blocks)
+	}
 	for _, block := range blocks {
 		if profile != nil {
 			for _, line := range block.lines {

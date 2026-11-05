@@ -10,7 +10,8 @@ import (
 // merge where two machines both installed or updated skills. An entry changed
 // on one side only takes that side; changed on both, the later installed_at
 // wins (the remote on a tie), and an edit beats a delete. An empty base means
-// the file did not exist in the common ancestor.
+// the file did not exist in the common ancestor. The Herdr panel mirrors this
+// rule in herdr/skillshare/mods/skillshare/model.js (mergeMetadata); keep both in step.
 func MergeMetadata(base, ours, theirs []byte) ([]byte, error) {
 	parse := func(data []byte, side string) (*MetadataStore, error) {
 		store := NewMetadataStore()

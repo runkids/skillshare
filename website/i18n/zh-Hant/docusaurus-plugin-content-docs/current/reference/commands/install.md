@@ -268,7 +268,7 @@ skillshare install ./my-skill -p
 | 設定檔更新 | 自動協調 `config.yaml` 的 `skills:` | 自動協調 `.skillshare/config.yaml` 的 `skills:` |
 | 無參數 install | 安裝設定檔中列出的所有 skills | 安裝設定檔中列出的所有 skills |
 
-**Project mode 中的 tracked repos** 運作方式與 global 相同 — repo 會保留 `.git` 進行 clone，並加入 `.skillshare/.gitignore`（預設也會忽略 `.skillshare/logs/` 與 `.skillshare/trash/`）。`tracked: true` 旗標會自動記錄到 `.skillshare/config.yaml`：
+**Project mode 中的 tracked repos** 運作方式與 global 相同 — repo 會保留 `.git` 進行 clone，並加入 `.skillshare/.gitignore`（預設也會忽略 `.skillshare/logs/`、`.skillshare/trash/`、`.skillshare/backups/` 與 `.metadata.json` 檔案）。`tracked: true` 旗標會自動記錄到 `.skillshare/config.yaml`：
 
 ```bash
 skillshare install github.com/team/skills --track -p

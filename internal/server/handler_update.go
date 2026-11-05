@@ -8,7 +8,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"skillshare/internal/audit"
@@ -219,15 +218,10 @@ func (s *Server) updateAgent(name string, force, skipAudit bool) updateResultIte
 		}
 	}
 
-	source, err := install.ParseSourceWithOptions(entry.Source, s.parseOpts())
+	source, err := install.AgentRepoSource(entry, s.parseOpts())
 	if err != nil {
 		return updateResultItem{Name: metaKey, Kind: "agent", Action: "error", Message: "invalid source: " + err.Error()}
 	}
-	source.ApplyRecordedBranch(entry.Branch)
-
-	repoSubdir := strings.TrimSuffix(source.Subdir, entry.Subdir)
-	repoSubdir = strings.TrimRight(repoSubdir, "/")
-	source.Subdir = repoSubdir
 
 	var discovery *install.DiscoveryResult
 	if source.HasSubdir() {

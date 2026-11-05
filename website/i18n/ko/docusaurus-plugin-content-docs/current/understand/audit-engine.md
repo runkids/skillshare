@@ -44,7 +44,7 @@ flowchart TD
 
 `audit` 명령은 **게이트키퍼** 역할을 합니다 — skill 콘텐츠가 AI assistant에 도달하기 전에 알려진 위협 패턴을 스캔합니다. `install` 중 자동으로 실행되며 언제든 수동으로 호출할 수도 있습니다.
 
-`--force`로 차단을 무시하면 승인된 발견 사항(규칙, 파일, 일치한 텍스트)이 `.metadata.json`에 기록되어, 이후 `update` 실행 시 새로운 발견 사항만 계속 차단하고 이미 승인된 것은 차단하지 않습니다. [update — Accepted Findings](/docs/reference/commands/update#accepted-findings)를 참고하세요.
+`--force`로 차단을 무시하면 승인된 발견 사항(규칙, 파일, 일치한 텍스트와 탐지기별 증거)이 `.metadata.json`에 기록됩니다. 이후 `update`는 같은 증거의 finding을 건너뛰고 변경된 finding은 계속 탐지합니다. `whitespace-padding` 밀도 finding은 파일의 조건에 맞는 전체 내용을 증거로 사용합니다. 자세한 내용은 [update — Accepted Findings](/docs/reference/commands/update#accepted-findings)를 참고하세요.
 
 ## 탐지하는 것
 
@@ -105,6 +105,14 @@ audit engine은 skill 디렉터리의 모든 텍스트 기반 파일을 100개 �
 | `untrusted-install` | 신뢰할 수 없는 패키지 자동 실행: `npx -y`/`npx --yes` (npm), `pip install https://` (비-PyPI URL) |
 
 > **왜 medium인가?** 외부 URL에서 다운로드하는 skill은 악성 페이로드를 가져오는 것일 수 있습니다. 원시 IP 주소가 있는 URL은 DNS 기반 보안 통제와 도메인 차단 목록을 우회할 수 있습니다. markdown 링크 안의 `data:` URI는 무해해 보이는 라벨 뒤에 임베드된 HTML/JavaScript 페이로드를 숨길 수 있습니다. 신뢰할 수 없는 패키지 실행(`npx -y`)은 확인 없이 임의의 npm 패키지를 자동으로 설치하고 실행합니다. 그 외 보이지 않는 유니코드 문자는 텍스트 렌더링을 미묘하게 바꾸거나 콘텐츠를 숨길 수 있습니다.
+
+### 공백 패딩 {#whitespace-padding}
+
+`whitespace-padding`은 `static` 분석기의 파일 단위 검사입니다. 연속 빈 줄이 20–39개이면 MEDIUM, 40개 이상이면 HIGH입니다(바로 뒤에 비어 있지 않은 텍스트가 있는 경우만). 줄 시작의 연속 가로 Unicode 공백이 80자 이상이거나, 유효 콘텐츠가 4096바이트를 초과하고 공백 바이트가 95% 이상이거나, 동일한 비어 있지 않은 줄이 100개 이상 연속된 직후 다른 텍스트가 나오면 MEDIUM입니다. 열 정렬용 줄 내부 공백은 가로 공백 검사에 걸리지 않습니다. 빈 줄, 반복 및 연속된 가로 공백은 시작 줄에 한 건, 밀도는 첫 유효 줄에 보고합니다. 동일한 항목도 각각 별도의 승인 키를 사용합니다. 이전에 승인한 공백 패딩은 다시 승인해야 합니다.
+
+Markdown(`.md`) 파일에서는 펜스 및 들여쓰기 코드 블록과 파싱된 Markdown 표 행을 패딩 계산에서 제외합니다. 단, 코드나 표의 비어 있지 않은 줄 앞에 블록 외부의 빈 줄이 연속되면 해당 빈 줄은 검출합니다. 닫히지 않은 펜스는 CommonMark에 따라 파일 끝까지 제외합니다. Unicode White_Space 문자를 공백으로 계산하며 CRLF는 한 번의 줄바꿈입니다. CR, U+0085, U+2028, U+2029, 세로 탭, 폼 피드도 시각적 줄을 구분합니다. 보고 위치는 원본 LF 기반 줄 번호를 유지하므로 Unicode 구분자는 보고 줄 번호를 늘리지 않습니다. 경고는 콘텐츠가 가려질 위험을 뜻하며 악의의 증거는 아닙니다. 결과는 위험 점수에 영향을 주며 HIGH는 감사 임계값이 HIGH일 때 차단합니다. 밀도 및 반복 검사는 생성된 데이터에도 반응할 수 있으므로 문맥을 검토하세요.
+
+일반 전역/프로젝트 규칙에서 ID 또는 패턴으로 `whitespace-padding`을 비활성화하거나 심각도를 재정의할 수 있습니다. 명시적 심각도는 MEDIUM과 HIGH 기본값을 모두 대체합니다. 신뢰도 재정의도 적용됩니다. 이 감지기는 줄 정규식을 사용하지 않으므로 설정 시 `regex`와 `exclude`를 지정하지 마세요.
 
 ### MEDIUM: 콘텐츠 무결성
 
@@ -184,7 +192,7 @@ Output suppression은 Markdown 문맥과 별개로 일치한 근거에 따라 �
 
 공통 Markdown parser가 긴 fence와 닫히지 않은 블록을 포함한 코드 블록 범위를 인식합니다. 내용은 계속 static rules로 스캔하며 shell 블록은 command-tier와 dataflow 분석도 받습니다. 코드 블록 안에 있다는 사실은 신뢰의 근거가 아닙니다. HTML 블록과 주석 안의 fenced shell 예제도 같은 shell 분석을 받으며, taint는 각 블록 안으로 제한됩니다. HTML 블록에는 SDK 매개변수의 심각도 하향을 적용하지 않습니다.
 
-**규칙 재정의:** 일반적인 공개 제한은 이제 `prompt-injection-5`를 사용합니다. 기존 `prompt-injection-4` 재정의나 승인 기록은 새 규칙에 적용되지 않습니다. 일반적인 제한도 차단하려면 `prompt-injection-5`를 CRITICAL로 재정의하세요. 공개 제한 규칙의 심각도 재정의는 유지됩니다. Strict에서 검토한 오탐은 [Accepted Findings](../reference/commands/update.md#accepted-findings)를 사용할 수 있습니다. 규칙, 파일 또는 일치한 텍스트가 바뀌면 다시 승인해야 합니다. CRITICAL을 포함한 명시적 글로벌 또는 프로젝트 심각도 재정의가 SDK 매개변수의 심각도 하향보다 우선합니다. 내장 규칙 5는 명시적인 은폐 구문만 제외하고, 같은 줄의 별도 일반 공개 제한은 유지합니다. 규칙 4를 비활성화하거나 낮은 심각도로 변경해도 이 탐지는 유지됩니다. 사용자 정의 정규식으로 완전히 교체한 규칙은 기존의 전체 줄 제외 동작을 유지합니다.
+**규칙 재정의:** 일반적인 공개 제한은 이제 `prompt-injection-5`를 사용합니다. 기존 `prompt-injection-4` 재정의나 승인 기록은 새 규칙에 적용되지 않습니다. 일반적인 제한도 차단하려면 `prompt-injection-5`를 CRITICAL로 재정의하세요. 공개 제한 규칙의 심각도 재정의는 유지됩니다. Strict에서 검토한 오탐은 [Accepted Findings](../reference/commands/update.md#accepted-findings)를 사용할 수 있습니다. 규칙, 파일, 일치한 텍스트 또는 탐지기별 증거가 바뀌면 다시 승인해야 합니다. CRITICAL을 포함한 명시적 글로벌 또는 프로젝트 심각도 재정의가 SDK 매개변수의 심각도 하향보다 우선합니다. 내장 규칙 5는 명시적인 은폐 구문만 제외하고, 같은 줄의 별도 일반 공개 제한은 유지합니다. 규칙 4를 비활성화하거나 낮은 심각도로 변경해도 이 탐지는 유지됩니다. 사용자 정의 정규식으로 완전히 교체한 규칙은 기존의 전체 줄 제외 동작을 유지합니다.
 
 **방어:** 설치 전 항상 skill 파일을 검토하세요. `skillshare audit`을 사용해 알려진 인젝션 패턴을 탐지하세요. 조직 배포의 경우, 숨겨진 주석 인젝션까지 잡아내려면 `audit.block_threshold: HIGH`를 설정하세요.
 

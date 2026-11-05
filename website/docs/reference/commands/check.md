@@ -219,6 +219,8 @@ skillshare check agents --json       # JSON output for agents
 skillshare check agents -p           # Check project agents
 ```
 
+Each agent is compared with the branch it was installed from. An agent whose recorded source was lost by an earlier `update agents` reports `error` and asks you to reinstall it; see [Troubleshooting](/docs/troubleshooting/common-errors#agent-source-lost).
+
 Without the `agents` argument, `check` operates on skills only (default behavior). See [Agents](/docs/understand/agents) for background.
 
 ## See Also

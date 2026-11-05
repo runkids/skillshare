@@ -109,6 +109,9 @@ skillshare upgrade --dry-run    # Preview
 `upgrade --skill --force` installs without that prompt. Use this only when installation
 is requested. `init --skill` also opts in explicitly.
 
+**Nix installs:** the CLI binary is never replaced, even with `--force`; `upgrade` prints
+`nix profile upgrade skillshare` or says to rebuild the Nix configuration. The skill still updates.
+
 **After upgrading skill:** `skillshare sync`
 
 `list` and `status` warn when an enabled `follow_source_links` policy skips an unavailable first-level source link; healthy skills remain in the inventory. With `--json`, warnings go to stderr so stdout stays valid JSON.
