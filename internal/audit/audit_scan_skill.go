@@ -143,7 +143,7 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 		depth := relDepth(relPath)
 
 		if fi.IsDir() {
-			if path != skillPath && utils.IsHidden(fi.Name()) {
+			if path != skillPath && (fi.Name() == ".git" || fi.Name() == ".skillshare") {
 				return filepath.SkipDir
 			}
 			if depth > maxScanDepth {
@@ -161,9 +161,39 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 			return nil
 		}
 
-		// Collect ALL non-meta files for integrity check (before size/scannable filters).
 		normalizedRel := filepath.ToSlash(relPath)
-		// Install never pins OS metadata files, so they are not unexpected (#743).
+		// Header traversal may enter hidden directories, but the existing text
+		// and integrity scans retain their upstream hidden-directory boundary.
+		headerOnly := hiddenParent(normalizedRel)
+		skipped := fi.Size() > maxScanFileSize || !isScannable(fi.Name())
+		var data []byte
+		if fi.Mode().IsRegular() && fi.Name() != ".git" && !utils.IsOSMetadataFile(fi.Name()) {
+			var headerErr error
+			if !headerOnly && !skipped {
+				data, headerErr = os.ReadFile(path)
+				if headerErr == nil {
+					skipped, headerErr = result.inspectHeader(path, normalizedRel, normalizedRel, fi.Size(), hasStatic, disabled, data)
+				}
+			} else {
+				skipped, headerErr = result.inspectHeader(path, normalizedRel, normalizedRel, fi.Size(), hasStatic, disabled)
+			}
+			if headerErr != nil {
+				// Retain upstream's per-file read failure boundary: one locked
+				// or disappearing file must not discard the rest of the audit.
+				result.SkippedFiles++
+				skipped = true
+			}
+		} else if fi.Mode()&os.ModeSymlink != 0 {
+			if target, err := os.Stat(path); err == nil && target.IsDir() {
+				return nil
+			}
+		}
+		if headerOnly {
+			if fi.Mode().IsRegular() && !skipped {
+				result.SkippedFiles++
+			}
+			return nil
+		}
 		if !utils.IsOSMetadataFile(fi.Name()) {
 			allFiles[normalizedRel] = true
 		}
@@ -177,15 +207,21 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 
 		totalBytes += fi.Size()
 
-		if !isScannable(fi.Name()) {
+		if skipped {
 			return nil
 		}
 
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return nil
+		if data == nil {
+			var err error
+			data, err = os.ReadFile(path)
+			if err != nil {
+				result.SkippedFiles++
+				return nil
+			}
 		}
 		if isBinaryContent(data) {
+			result.BinaryFiles++
+			result.SkippedFiles++
 			return nil
 		}
 
@@ -483,26 +519,48 @@ func scanFileImpl(filePath string, activeRules []rule, disabled map[string]bool)
 		ScanTarget: filePath,
 		TotalBytes: fileSize,
 	}
-
+	skipped := fileSize > maxScanFileSize || !isScannable(info.Name())
+	var data []byte
+	// Stat preserves direct symlink text scans; Lstat gates only header reads.
+	if entry, err := os.Lstat(filePath); err == nil && entry.Mode().IsRegular() && info.Name() != ".skillshare-meta.json" && info.Name() != ".git" && !utils.IsOSMetadataFile(info.Name()) {
+		if !skipped {
+			data, err = os.ReadFile(filePath)
+			if err != nil {
+				return nil, fmt.Errorf("read file: %w", err)
+			}
+			skipped, err = result.inspectHeader(filePath, filepath.Base(filePath), filepath.Base(filePath), fileSize, true, disabled, data)
+		} else {
+			skipped, err = result.inspectHeader(filePath, filepath.Base(filePath), filepath.Base(filePath), fileSize, true, disabled)
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
 	// Keep parity with directory scan boundaries.
-	if fileSize > maxScanFileSize || !isScannable(info.Name()) {
+	if skipped {
 		// Non-scannable or oversized: nothing is auditable.
 		if fileSize > 0 {
 			result.Analyzability = 0.0
 		} else {
 			result.Analyzability = 1.0
 		}
+		StampFingerprints(result.Findings)
 		result.updateRisk()
 		return result, nil
 	}
 
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("read file: %w", err)
+	if data == nil {
+		data, err = os.ReadFile(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("read file: %w", err)
+		}
 	}
 	if isBinaryContent(data) {
 		// Binary content: counted in TotalBytes but not auditable.
+		result.BinaryFiles++
+		result.SkippedFiles++
 		result.Analyzability = 0.0
+		StampFingerprints(result.Findings)
 		result.updateRisk()
 		return result, nil
 	}
@@ -520,6 +578,7 @@ func scanFileImpl(filePath string, activeRules []rule, disabled map[string]bool)
 
 	isMarkdown := strings.EqualFold(filepath.Ext(info.Name()), ".md")
 	var dfFindings []Finding
+	headerFindings := result.Findings
 	if isMarkdown {
 		contentRules, linkRules := splitMarkdownLinkRules(resolvedRules)
 		result.Findings, dfFindings = scanFileUnified(data, filepath.Base(filePath), true,
@@ -535,6 +594,7 @@ func scanFileImpl(filePath string, activeRules []rule, disabled map[string]bool)
 		}
 	}
 
+	result.Findings = append(headerFindings, result.Findings...)
 	result.Findings = append(result.Findings,
 		DeduplicateDataflow(dfFindings, result.Findings)...)
 

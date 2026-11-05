@@ -95,10 +95,10 @@ export default function AuditPage() {
   };
 
   const results = (data?.results ?? [])
-    .filter((r) => r.skillName !== CROSS_SKILL && r.findings.length > 0)
+    .filter((r) => r.skillName !== CROSS_SKILL && (r.findings.length > 0 || (r.skippedFiles ?? 0) > 0))
     .map((r) => ({ ...r, findings: [...r.findings].sort((a, b) => rank(a.severity) - rank(b.severity)) }))
     .filter((r) => !only || r.findings.some((f) => f.severity === only))
-    .sort((a, b) => rank(a.findings[0].severity) - rank(b.findings[0].severity) || b.riskScore - a.riskScore);
+    .sort((a, b) => (a.findings.length ? rank(a.findings[0].severity) : 999) - (b.findings.length ? rank(b.findings[0].severity) : 999) || b.riskScore - a.riskScore);
   const findingCount = (data?.results ?? []).reduce((n, r) => n + (r.skillName === CROSS_SKILL ? 0 : r.findings.length), 0);
 
   const header = (
@@ -146,6 +146,9 @@ export default function AuditPage() {
         </div>
         {data && (
           <>
+            {(data.summary.skippedFiles ?? 0) > 0 && (
+              <span className="text-[13px] text-ink-2">{t(plural('audit.coverage', data.summary.skippedFiles ?? 0), { skipped: data.summary.skippedFiles ?? 0, binary: data.summary.binaryFiles ?? 0, oversized: data.summary.oversizedFiles ?? 0 })}</span>
+            )}
             <span className="flex-1" />
             <span className="text-[13px] text-ink-2">{t('audit.overallRisk')}</span>
             <span className="ss-prog w-[120px]"><i style={{ width: `${data.summary.riskScore}%` }} /></span>
@@ -204,7 +207,7 @@ export default function AuditPage() {
             </div>
           </div>
 
-          {findingCount === 0 ? (
+          {findingCount === 0 && results.length === 0 ? (
             <EmptyState icon={ShieldCheck} title={t(kind === 'agents' ? 'audit.empty.clean.agents' : 'audit.empty.clean.skills')} description={t('audit.empty.clean.hint', { threshold: data.summary.threshold })} />
           ) : (
             <div className="ss-list">
@@ -277,6 +280,7 @@ function ResultGroup({ result, kind, only, expanded, onToggle, onIgnore }: {
         <Link to={`/${kind === 'agents' ? 'agents' : 'skills'}/${encodeURIComponent(result.skillName)}`} className="truncate font-mono font-semibold">{result.skillName}</Link>
         {result.skillName.startsWith('_') && <span className="ss-tag">tracked</span>}
         <span className="flex-1" />
+        {(result.skippedFiles ?? 0) > 0 && <span className="text-[12px] text-ink-2">{t(plural('audit.coverage', result.skippedFiles ?? 0), { skipped: result.skippedFiles ?? 0, binary: result.binaryFiles ?? 0, oversized: result.oversizedFiles ?? 0 })}</span>}
         <span className="font-mono text-[12px] text-ink-3">{t('audit.risk', { score: result.riskScore })}</span>
         {result.isBlocked && <span className="ss-st bad">{t('audit.blocked')}</span>}
       </div>

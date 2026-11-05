@@ -1,4 +1,6 @@
 {
+  "audit.coverage.one": "{skipped} Datei übersprungen ({binary} binär, {oversized} zu groß)",
+  "audit.coverage.other": "{skipped} Dateien übersprungen ({binary} binär, {oversized} zu groß)",
   "sourceLinks.unlinkMessage": "Die Verknüpfung wird aus der Skill-Quelle entfernt, und der verknüpfte Ordner bleibt unverändert.",
   "sourceLinks.target": "Ziel",
   "sourceLinks.unlinkSkills": "Diese Skills werden bei der nächsten Synchronisierung aus allen Zielen entfernt.",

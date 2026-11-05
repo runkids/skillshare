@@ -1,4 +1,6 @@
 {
+  "audit.coverage.one": "{skipped} fichier ignoré ({binary} binaires, {oversized} trop volumineux)",
+  "audit.coverage.other": "{skipped} fichiers ignorés ({binary} binaires, {oversized} trop volumineux)",
   "sourceLinks.unlinkMessage": "Le lien est retiré de la source des skills et le dossier vers lequel il pointe reste inchangé.",
   "sourceLinks.target": "Cible",
   "sourceLinks.unlinkSkills": "Ces skills seront retirés de toutes les cibles lors de la prochaine synchronisation.",

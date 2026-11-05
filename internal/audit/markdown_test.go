@@ -271,3 +271,10 @@ func TestToMarkdown_NoScanErrorsRow(t *testing.T) {
 		t.Error("should not show scan errors when count is 0")
 	}
 }
+
+func TestMarkdownCoverageIncludesCleanResources(t *testing.T) {
+	result := ToMarkdown([]*Result{{SkillName: "clean", SkippedFiles: 2, BinaryFiles: 1, OversizedFiles: 1}}, MarkdownOptions{SkippedFiles: 2, BinaryFiles: 1, OversizedFiles: 1})
+	if !strings.Contains(result, "| clean | 2 | 1 | 1 |") {
+		t.Fatalf("missing resource coverage: %s", result)
+	}
+}

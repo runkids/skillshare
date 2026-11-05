@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"encoding/binary"
 	"os"
 	"path/filepath"
 	"testing"
@@ -175,4 +176,29 @@ func TestInstall_Track_InvalidNameRejected(t *testing.T) {
 	if sb.FileExists(filepath.Join(sb.SourcePath, "_..")) {
 		t.Error("invalid tracked repo name should not create repo directory")
 	}
+}
+
+func TestInstall_Track_DisguisedHeaderGate(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+	remoteDir := filepath.Join(sb.Root, "header-remote.git")
+	run(t, "", "git", "init", "--bare", remoteDir)
+	workDir := filepath.Join(sb.Root, "header-work")
+	run(t, sb.Root, "git", "clone", remoteDir, workDir)
+	os.MkdirAll(filepath.Join(workDir, "header-skill"), 0755)
+	os.WriteFile(filepath.Join(workDir, "header-skill", "SKILL.md"), []byte("---\nname: header-skill\n---\n# Header\n"), 0644)
+	elf := make([]byte, 64)
+	copy(elf, "\x7fELF\x02\x01\x01")
+	binary.LittleEndian.PutUint16(elf[16:18], 2)
+	binary.LittleEndian.PutUint16(elf[18:20], 62)
+	binary.LittleEndian.PutUint32(elf[20:24], 1)
+	binary.LittleEndian.PutUint16(elf[52:54], 64)
+	os.WriteFile(filepath.Join(workDir, "header-skill", "guide.png"), elf, 0644)
+	run(t, workDir, "git", "add", "-A")
+	run(t, workDir, "git", "commit", "-m", "add header fixture")
+	run(t, workDir, "git", "push", "origin", "HEAD")
+	result := sb.RunCLI("install", "file://"+remoteDir, "--track", "--name", "header-repo", "--audit-threshold", "high")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "blocked by security audit")
 }

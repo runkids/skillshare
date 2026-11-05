@@ -412,6 +412,28 @@ _cross-skill
   HIGH  stealth skill cleaner installed alongside high-risk skill backdoor — evasion risk
 ```
 
+## 실행 파일 및 아카이브 헤더 {#executable-headers}
+
+일반 파일의 처음 **512바이트**를 검사하고 PE 헤더가 범위 밖에 있으면 해당 위치에서 필요한 바이트만 추가로 읽습니다. 숨김 디렉터리와 `__pycache__`도 검사합니다. ELF, Mach-O, PE, WASM version 1, CPython 바이트코드, ZIP/JAR 및 위장 shebang을 식별합니다.
+
+- `disguised-executable`: **HIGH**. 문서·이미지·설정 확장자 또는 `.cache`/`__pycache__` 디렉터리 안의 실행 형식이나 shebang.
+- `python-bytecode`: **HIGH**. 일치하는 일반 Python 소스가 있으면 **MEDIUM**.
+- `executable-artifact`: **MEDIUM**. 그 외 네이티브 실행 형식이나 WASM.
+- `archive-artifact`: **INFO**. ZIP/JAR 서명이며 실행 동작의 증거는 아닙니다.
+- `uncertain-header`: **INFO**. 알 수 없는 바이트코드 유사 magic 또는 잘리거나 잘못된 헤더.
+
+위장 확장자는 `.md`, `.txt`, `.rst`, `.pdf`, `.doc`, `.docx`, `.rtf`, `.html`, `.json`, `.yaml`, `.yml`, `.toml`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.webp`, `.ico`, `.bmp`, `.tif`, `.tiff`입니다. 일반 `run.sh`나 확장자 없는 스크립트는 shebang만으로 보고하지 않으며 실행 권한도 근거로 사용하지 않습니다.
+
+고정 magic 표는 정식 CPython **3.6–3.14** 형식(16바이트 헤더와 지원 플래그)을 다룹니다. 유효하지 않은 UTF-8 또는 공백 이외의 제어 접두 바이트와 CRLF가 있는 미지의 magic은 디코딩하지 않고 불확실하다고 보고합니다. 표를 갱신하려면 태그가 있는 CPython 소스와 회귀 테스트가 필요하며 출처는 `internal/audit/header.go`에 있습니다.
+
+CPython 3.6은 플래그 없는 12바이트 헤더를 사용하며 3.7–3.14는 지원 플래그가 있는 16바이트 헤더를 사용합니다. 단일 파일 검사에서는 위장 분류에 파일 이름만 사용하며 상위 디렉터리는 영향을 주지 않습니다.
+
+기존 깊이 제한 6단계를 유지합니다. `.git`, `.skillshare`, `.skillshare-meta.json`, OS 메타데이터, 파일 심볼릭 링크와 특수 파일은 헤더를 읽지 않으며 디렉터리 링크도 따라가지 않습니다. 명시적으로 설정한 최상위 source link의 기존 해석 정책은 유지합니다. 파일 수 제한은 없으며 디렉터리 스캔은 헤더를 읽지 못한 파일을 skipped로 세고 다른 파일을 계속 검사합니다. 직접 지정한 파일을 읽지 못하면 오류를 반환합니다. 숨김 디렉터리 안에서는 헤더만 분류하고 텍스트 규칙이나 무결성 검사를 추가하지 않습니다. 파일 심볼릭 링크는 직접 파일 및 agent 감사를 포함해 기존 텍스트 검사를 유지합니다.
+
+헤더 분류는 실행 동작, 바이트코드 디코딩, 아카이브 내부를 분석하지 않습니다. 크기 초과 파일은 이 분류기의 헤더 검사만 받습니다. 각 규칙 ID는 `audit-rules.yaml`의 `enabled: false`로 비활성화할 수 있습니다.
+
+숨김 이름만으로는 위장으로 판정하지 않습니다. 일반 도구 스크립트는 탐지하지 않으며 `.venv/bin/python` 같은 네이티브 바이너리는 MEDIUM입니다. HIGH에는 문서·이미지·설정 확장자 또는 `.cache`/`__pycache__` 상위 디렉터리가 필요합니다. 링크와 특수 파일은 헤더 읽기를 생략했다는 이유만으로 `skippedFiles`에 포함하지 않습니다.
+
 ## Analyzability Score {#analyzability-score}
 
 스캔된 각 skill은 **analyzability score**(분석 가능성 점수)를 받습니다 — 전체 파일 바이트 중 감사 가능한 평문 바이트의 비율(0–100%)입니다. 이는 스캐너가 skill 콘텐츠의 얼마만큼을 검사할 수 있었는지 알려줍니다.
@@ -424,10 +446,9 @@ _cross-skill
 
 analyzability가 **70%** 미만으로 떨어지면, audit engine은 `low-analyzability` 패턴으로 `INFO` 레벨 발견 사항을 발생시킵니다. 이는 설치를 막지는 않지만 스캐너의 커버리지가 제한적임을 알려줍니다.
 
-계산에서 제외되는 파일:
-- 바이너리 파일 (이미지, `.wasm` 등)
-- 1MB를 초과하는 파일
-- `.metadata.json` (내부 메타데이터)
+1 MB 이하의 바이너리 및 미지원 파일은 `totalBytes`에 포함하지만 `auditableBytes`에는 포함하지 않습니다. 크기 초과 파일은 디렉터리의 바이트 비율에서 제외하며 내부 메타데이터와 제외 경로도 계산하지 않습니다.
+
+CLI, JSON, 대시보드 요약은 `binaryFiles`, `skippedFiles`, `oversizedFiles`를 별도로 보고합니다. `skippedFiles`는 전체 텍스트 분석을 하지 않은 파일(읽기 실패, 바이너리, 미지원 확장자, 크기 초과, 숨김 디렉터리의 일반 파일)입니다. `binaryFiles`는 바이너리·아카이브 형식 및 NUL을 포함한 헤더를 셉니다. 크기 초과 바이너리는 각 카운터에 한 번씩 포함됩니다. 헤더 바이트는 감사 가능한 텍스트로 계산하지 않습니다.
 
 ### 출력
 
@@ -449,7 +470,10 @@ JSON 출력에서 각 결과는 다음을 포함합니다:
 {
   "totalBytes": 12480,
   "auditableBytes": 10240,
-  "analyzability": 0.82
+  "analyzability": 0.82,
+  "binaryFiles": 2,
+  "skippedFiles": 3,
+  "oversizedFiles": 1
 }
 ```
 

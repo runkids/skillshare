@@ -31,6 +31,9 @@ type auditFindingResponse struct {
 }
 
 type auditResultResponse struct {
+	BinaryFiles    int                    `json:"binaryFiles"`
+	SkippedFiles   int                    `json:"skippedFiles"`
+	OversizedFiles int                    `json:"oversizedFiles"`
 	SkillName      string                 `json:"skillName"`
 	Findings       []auditFindingResponse `json:"findings"`
 	RiskScore      int                    `json:"riskScore"`
@@ -46,6 +49,9 @@ type auditResultResponse struct {
 }
 
 type auditSummary struct {
+	BinaryFiles      int            `json:"binaryFiles"`
+	SkippedFiles     int            `json:"skippedFiles"`
+	OversizedFiles   int            `json:"oversizedFiles"`
 	Total            int            `json:"total"`
 	Passed           int            `json:"passed"`
 	Warning          int            `json:"warning"`
@@ -210,6 +216,9 @@ func processAuditResults(skills []skillEntry, scanned []audit.ScanOutput, policy
 			}
 		}
 		sumAnalyzability += result.Analyzability
+		summary.BinaryFiles += result.BinaryFiles
+		summary.SkippedFiles += result.SkippedFiles
+		summary.OversizedFiles += result.OversizedFiles
 	}
 
 	status := "ok"
@@ -492,6 +501,9 @@ func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
 			RiskScore:        result.RiskScore,
 			RiskLabel:        result.RiskLabel,
 			AvgAnalyzability: result.Analyzability,
+			BinaryFiles:      result.BinaryFiles,
+			SkippedFiles:     result.SkippedFiles,
+			OversizedFiles:   result.OversizedFiles,
 			ByCategory:       byCat,
 			PolicyProfile:    string(policy.Profile),
 			PolicyDedupe:     string(policy.DedupeMode),
@@ -809,6 +821,9 @@ func toAuditResponse(result *audit.Result) auditResultResponse {
 		})
 	}
 	return auditResultResponse{
+		BinaryFiles:    result.BinaryFiles,
+		SkippedFiles:   result.SkippedFiles,
+		OversizedFiles: result.OversizedFiles,
 		SkillName:      result.SkillName,
 		Kind:           result.Kind,
 		Findings:       findings,

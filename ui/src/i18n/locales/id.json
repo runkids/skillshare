@@ -1,4 +1,6 @@
 {
+  "audit.coverage.one": "{skipped} file dilewati ({binary} biner, {oversized} terlalu besar)",
+  "audit.coverage.other": "{skipped} file dilewati ({binary} biner, {oversized} terlalu besar)",
   "sourceLinks.unlinkMessage": "Tautan dihapus dari sumber skill dan folder yang dituju tidak diubah.",
   "sourceLinks.target": "Tujuan",
   "sourceLinks.unlinkSkills": "Skill ini akan dihapus dari semua target pada sinkronisasi berikutnya.",

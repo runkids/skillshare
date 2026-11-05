@@ -285,7 +285,7 @@ skillshare audit --json | jq '.skills[].findings'  # findings를 프로그래밍
 
 :::note 구조적, tier, cross-skill 검사
 
-`dangling-link`, `reference-escapes-root`, `reference-check-incomplete`, `content-tampered`, `content-oversize`, `content-missing`, `content-unexpected`는 (정규식이 아닌 파일시스템 조회와 해시 비교를 수행하는) **구조적 검사**입니다. `low-analyzability`는 [Analyzability Score](/docs/understand/audit-engine#analyzability-score)에서 생성되는 **analyzability finding**입니다. `tier-stealth`, `tier-destructive-network`, `tier-network-heavy`, `tier-interpreter`, `tier-interpreter-network`는 [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) 프로파일에서 생성되는 **tier 조합 findings**입니다. `cross-skill-*` findings는 [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection)에서 생성됩니다. 이들은 모두 아래 표에 나타나지만 `rules.yaml`에는 정의되어 있지 않습니다.
+`dangling-link`, `reference-escapes-root`, `reference-check-incomplete`, `content-tampered`, `content-oversize`, `content-missing`, `content-unexpected`는 (정규식이 아닌 파일시스템 조회와 해시 비교를 수행하는) **구조적 검사**입니다. `low-analyzability`는 [Analyzability Score](/docs/understand/audit-engine#analyzability-score)에서 생성되는 **analyzability finding**입니다. `tier-stealth`, `tier-destructive-network`, `tier-network-heavy`, `tier-interpreter`, `tier-interpreter-network`는 [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) 프로파일에서 생성되는 **tier 조합 findings**입니다. `cross-skill-*` findings는 [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection)에서 생성됩니다. 헤더 검사는 [Executable and archive headers](/docs/understand/audit-engine#executable-headers)에 설명된 `disguised-executable`, `python-bytecode`, `executable-artifact`, `archive-artifact`, `uncertain-header`도 생성합니다. 이들은 모두 아래 표에 나타나지만 `rules.yaml`에는 정의되어 있지 않습니다.
 
 :::
 
@@ -402,6 +402,11 @@ skillshare audit --json | jq '.skills[].findings'  # findings를 프로그래밍
 | `cross-skill-privilege-network` | cross-skill-privilege-network | MEDIUM |
 | `cross-skill-stealth` | cross-skill-stealth | HIGH |
 | `cross-skill-cred-interpreter` | cross-skill-cred-interpreter | MEDIUM |
+| `disguised-executable` | disguised-executable | HIGH |
+| `python-bytecode` | python-bytecode | HIGH |
+| `executable-artifact` | executable-artifact | MEDIUM |
+| `archive-artifact` | archive-artifact | INFO |
+| `uncertain-header` | uncertain-header | INFO |
 | `ssrf-metadata-0` | ssrf-metadata | CRITICAL / HIGH ([문맥](/docs/understand/audit-engine#sensitive-destinations)) |
 | `ssrf-internal-0` | ssrf-internal | MEDIUM |
 | `ssrf-dynamic-0` | ssrf-dynamic | MEDIUM |

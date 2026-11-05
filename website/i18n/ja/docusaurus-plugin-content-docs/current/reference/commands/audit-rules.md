@@ -285,7 +285,7 @@ skillshare audit --json | jq '.skills[].findings'  # findings をプログラム
 
 :::note 構造チェック、tier チェック、Skill 間チェック
 
-`dangling-link`、`reference-escapes-root`、`reference-check-incomplete`、`content-tampered`、`content-oversize`、`content-missing`、`content-unexpected` は**構造チェック**です（正規表現ではなく、ファイルシステムの検索とハッシュ比較）。`low-analyzability` は [Analyzability Score](/docs/understand/audit-engine#analyzability-score) から生成される**分析可能性の finding** です。`tier-stealth`、`tier-destructive-network`、`tier-network-heavy`、`tier-interpreter`、`tier-interpreter-network` は、[Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) プロファイルから生成される**ティアの組み合わせの finding** です。`cross-skill-*` の findings は、[Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection) から生成されます。これらはすべて下記の表に記載されていますが、`rules.yaml` には定義されていません。
+`dangling-link`、`reference-escapes-root`、`reference-check-incomplete`、`content-tampered`、`content-oversize`、`content-missing`、`content-unexpected` は**構造チェック**です（正規表現ではなく、ファイルシステムの検索とハッシュ比較）。`low-analyzability` は [Analyzability Score](/docs/understand/audit-engine#analyzability-score) から生成される**分析可能性の finding** です。`tier-stealth`、`tier-destructive-network`、`tier-network-heavy`、`tier-interpreter`、`tier-interpreter-network` は、[Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) プロファイルから生成される**ティアの組み合わせの finding** です。`cross-skill-*` の findings は、[Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection) から生成されます。ヘッダー検査では、[Executable and archive headers](/docs/understand/audit-engine#executable-headers) で説明されている `disguised-executable`、`python-bytecode`、`executable-artifact`、`archive-artifact`、`uncertain-header` も生成されます。これらはすべて下記の表に記載されていますが、`rules.yaml` には定義されていません。
 
 :::
 
@@ -402,6 +402,11 @@ skillshare audit --json | jq '.skills[].findings'  # findings をプログラム
 | `cross-skill-privilege-network` | cross-skill-privilege-network | MEDIUM |
 | `cross-skill-stealth` | cross-skill-stealth | HIGH |
 | `cross-skill-cred-interpreter` | cross-skill-cred-interpreter | MEDIUM |
+| `disguised-executable` | disguised-executable | HIGH |
+| `python-bytecode` | python-bytecode | HIGH |
+| `executable-artifact` | executable-artifact | MEDIUM |
+| `archive-artifact` | archive-artifact | INFO |
+| `uncertain-header` | uncertain-header | INFO |
 | `ssrf-metadata-0` | ssrf-metadata | CRITICAL / HIGH ([コンテキスト](/docs/understand/audit-engine#sensitive-destinations)) |
 | `ssrf-internal-0` | ssrf-internal | MEDIUM |
 | `ssrf-dynamic-0` | ssrf-dynamic | MEDIUM |

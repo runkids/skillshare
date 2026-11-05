@@ -321,9 +321,9 @@ audit 會掃描 skill 目錄中的文字型檔案：
 - `.py`、`.js`、`.ts`、`.rb`、`.php`、`.php3`、`.php4`、`.php5`、`.phtml`、`.go`、`.rs`、`.swift`
 - 沒有副檔名的檔案（例如 `Makefile`、`Dockerfile`）
 
-掃描會遞迴進行每個 skill 目錄，因此 `SKILL.md`、巢狀的 `references/*.md` 與 `scripts/*.sh` 只要符合支援的文字檔類型，都會被檢查。
+文字掃描略過隱藏目錄，在其餘 skill 目錄內遞迴進行，因此 `SKILL.md`、巢狀的 `references/*.md` 與 `scripts/*.sh` 只要符合支援的文字檔類型，都會被檢查。
 
-二進位檔案（圖片、`.wasm` 等）與隱藏目錄（`.git`）會被略過。
+文字篩選前，audit 對每個一般檔案讀取前 512 位元組標頭，分類執行格式、CPython 位元組碼、ZIP/JAR 與偽裝的 shebang 腳本。隱藏目錄僅分類標頭，`__pycache__` 也在範圍內。檔案符號連結保留既有文字掃描；`.git`、`.skillshare`、內部與作業系統 metadata、連結與特殊檔案不讀取標頭。二進位與超大檔案不進行全文文字分析。摘要回報 `binaryFiles`、`skippedFiles`、`oversizedFiles`，計數可重疊。分類不分析執行行為或封存內容。格式、嚴重性與限制見[執行檔與封存檔標頭](../../understand/audit-engine.md#executable-headers)。 PE 標頭超出範圍時，在指定偏移處額外讀取有限位元組。
 
 ## 選項
 
