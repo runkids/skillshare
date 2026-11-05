@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { X, Copy, Check, CircleArrowUp } from 'lucide-react';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
-import { api, ApiError } from '../api/client';
+import { api } from '../api/client';
 import type { VersionCheck } from '../api/client';
 import DialogShell from './DialogShell';
 import Button from './Button';
 import { useT } from '../i18n';
+import { nixUpdateNote, upgradeErrorMessage } from '../lib/upgradeError';
 
 const DISMISSED_KEY = 'ss-update-dialog-dismissed';
 
@@ -51,6 +52,7 @@ export default function UpdateDialog() {
   }, [hasUpdate, isMockMode]);
 
   if (!data || !hasUpdate) return null;
+  const nixNote = nixUpdateNote(data, t);
 
   const dismiss = () => {
     setOpen(false);
@@ -101,7 +103,7 @@ export default function UpdateDialog() {
       await api.restartApp({ clearCache: false });
       void waitForRestartThenReload();
     } catch (err) {
-      setStatus(err instanceof ApiError && err.code === 'upgrade.needs_sudo' ? t('updateDialog.needsSudo') : (err as Error).message);
+      setStatus(upgradeErrorMessage(err, t));
       setUpdating(false);
     }
   };
@@ -138,6 +140,7 @@ export default function UpdateDialog() {
               {t('updateDialog.copyCommand')}
             </Button>
           </div>
+          {nixNote && <p className="text-[13px] text-ink-2">{nixNote}</p>}
         </div>
         <p className="text-[13px] text-ink-2">{t('updateDialog.restartNote')}</p>
         {status && <p className={`text-[13px] ${updating ? 'text-ink-2' : 'text-bad'}`}>{status}</p>}

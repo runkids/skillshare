@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.28.0 — 為每個 agent 各放一份 skill 的 tracked repo（`skills/claude/<skill>`、`skills/codex/<skill>`），現在在 merge 和 copy 模式下只會把各份同步到對應的 agent，摘要也只算一個 skill。`skillshare plugin update --all` 可以一次更新所有 tracked plugin，`update` 在 shallow partial clone 上也恢復正常。 [Releases](https://github.com/runkids/skillshare/releases) 和[更新紀錄](https://skillshare.runkids.cc/changelog)。
+> **最新版本**：v0.28.4 — 可以用 Nix 安裝：`nix profile add github:runkids/skillshare`。用 Nix 安裝時，`skillshare upgrade` 和 dashboard 的更新對話框不會替換 store 裡的執行檔，而是提示你執行 `nix profile upgrade skillshare`，或更新你的 Nix 設定。新的 [Herdr 面板](https://skillshare.runkids.cc/zh-Hant/docs/learn/with-herdr) 在 agent 旁邊顯示需要更新或同步的項目，並能在 Herdr 連線的每台機器上直接處理。[更新紀錄](https://skillshare.runkids.cc/changelog)。
 
 ## 為什麼用 skillshare
 
@@ -115,6 +115,14 @@ brew install skillshare
 ```
 
 > **提示：** 執行 `skillshare upgrade` 更新到最新版。它會自動判斷你的安裝方式並處理後續步驟。
+
+### CLI：Nix
+
+```bash
+nix profile add github:runkids/skillshare
+```
+
+使用 `nix profile upgrade skillshare` 更新。需要啟用 flakes 的 Nix 2.30 以上版本；較舊的 Nix 或 Lix 請使用 `nix profile install`。NixOS 與 Home Manager 設定可以使用 flake 的 `overlays.default`。
 
 ### GitHub Actions
 
@@ -269,6 +277,10 @@ skillshare commit --dry-run
 ```bash
 skillshare ui
 ```
+
+**Herdr 面板** — 在 [Herdr](https://herdr.dev) 的 agents 旁使用 skillshare：更新、sync、經過 audit 的安裝和 source repository 都在一個面板裡
+
+[設定 Herdr 面板 →](https://skillshare.runkids.cc/docs/learn/with-herdr)
 
 [所有指令與指南 →](https://skillshare.runkids.cc/docs/reference/commands)
 

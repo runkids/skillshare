@@ -60,6 +60,18 @@ skillshare upgrade
 brew upgrade skillshare
 ```
 
+## Nix 使用者 {#nix-users}
+
+如果透過 Nix 安裝，`skillshare upgrade` 不會更動 CLI，因為替換 Nix store 中的檔案會損壞 store。有新版本時，它會改為提示更新方式。透過 `nix profile add` 安裝時為：
+
+```bash
+nix profile upgrade skillshare
+```
+
+如果 skillshare 由 NixOS、Home Manager 或 overlay 設定提供，請在該設定中更新 skillshare（flake input 可用 `nix flake update skillshare`）並重新建置。儀表板的更新按鈕也會顯示相同的提示。
+
+內建 skill 仍可透過 `skillshare upgrade --skill` 更新。
+
 ## 範例
 
 ```bash

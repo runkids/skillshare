@@ -143,7 +143,7 @@ skillshare update agents --all --json
 }
 ```
 
-Possible agent `status` values include `updated`, `failed`, `skipped`, `up_to_date`, `update_available`, `dirty`, `drifted`, and `local`.
+Possible agent `status` values include `updated`, `failed`, `skipped`, `up_to_date`, `update_available`, `dirty`, `drifted`, `local`, and `error`. An `error` agent could not be checked, for example because its remote is unreachable or its metadata is unreadable. The command then exits with a non-zero code instead of reporting the agents as up to date.
 
 ## Updating Agents
 

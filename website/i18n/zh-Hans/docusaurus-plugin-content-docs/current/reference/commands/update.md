@@ -143,7 +143,7 @@ skillshare update agents --all --json
 }
 ```
 
-可能的 agent `status` 值包括 `updated`、`failed`、`skipped`、`up_to_date`、`update_available`、`dirty`、`drifted` 和 `local`。
+可能的 agent `status` 值包括 `updated`、`failed`、`skipped`、`up_to_date`、`update_available`、`dirty`、`drifted`、`local` 和 `error`。`error` 表示该 agent 无法检查，例如 remote 无法访问或 metadata 无法读取。此时命令不会把 agents 报告为最新，而是以非零退出码结束。
 
 ## 更新 Agents
 

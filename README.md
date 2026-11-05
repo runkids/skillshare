@@ -48,7 +48,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: v0.28.0 — Tracked repos that ship a separate copy of a skill per agent (`skills/claude/<skill>`, `skills/codex/<skill>`) now sync each copy only to its matching agent in merge and copy mode, and summaries count it as one skill. `skillshare plugin update --all` updates every tracked plugin at once, and `update` works again on shallow partial clones. [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: v0.28.4 — Install with Nix: `nix profile add github:runkids/skillshare`. On a Nix install, `skillshare upgrade` and the dashboard's update dialog tell you to run `nix profile upgrade skillshare`, or to update your Nix configuration, instead of replacing the store binary. A new [Herdr panel](https://skillshare.runkids.cc/docs/learn/with-herdr) shows what needs an update or a sync beside your agents, and acts on it on every machine Herdr connects to. [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
@@ -116,6 +116,14 @@ brew install skillshare
 ```
 
 > **Tip:** Run `skillshare upgrade` to update to the latest version. It auto-detects your install method and handles the rest.
+
+### CLI: Nix
+
+```bash
+nix profile add github:runkids/skillshare
+```
+
+Update with `nix profile upgrade skillshare`. Requires Nix 2.30+ with flakes enabled; on older Nix or Lix, use `nix profile install`. NixOS and Home Manager configurations can use the flake's `overlays.default`.
 
 ### GitHub Actions
 
@@ -272,6 +280,10 @@ skillshare commit --dry-run
 skillshare ui
 ```
 
+**Herdr panel** — skillshare beside your agents in [Herdr](https://herdr.dev): updates, sync, audited installs and the source repo in one panel
+
+[Set up the Herdr panel →](https://skillshare.runkids.cc/docs/learn/with-herdr)
+
 [All commands & guides →](https://skillshare.runkids.cc/docs/reference/commands)
 
 ## Contributing
@@ -387,6 +399,8 @@ Thanks to everyone who helped shape skillshare.
 <a href="https://github.com/jskswamy"><img src="https://github.com/jskswamy.png" width="50" style="border-radius:50%" alt="jskswamy"></a>
 <a href="https://github.com/heyAidy"><img src="https://github.com/heyAidy.png" width="50" style="border-radius:50%" alt="heyAidy"></a>
 <a href="https://github.com/trojanwk"><img src="https://github.com/trojanwk.png" width="50" style="border-radius:50%" alt="trojanwk"></a>
+<a href="https://github.com/charitarthchugh"><img src="https://github.com/charitarthchugh.png" width="50" style="border-radius:50%" alt="charitarthchugh"></a>
+<a href="https://github.com/servaasvdc"><img src="https://github.com/servaasvdc.png" width="50" style="border-radius:50%" alt="servaasvdc"></a>
 
 ---
 

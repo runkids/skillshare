@@ -90,7 +90,7 @@ skillshare sync -g       # Force global mode
 │   ├── config.yaml              # Targets + settings (incl. extras)
 │   ├── skills.lock.json         # 各リモート skill が固定されているコミット（自動管理、コミットしてください）
 │   ├── skills/.metadata.json     # Runtime metadata (hashes, timestamps — auto-managed, gitignored)
-│   ├── .gitignore               # Ignores logs/, trash/, backups/, and cloned remote/tracked skill dirs
+│   ├── .gitignore               # Ignores logs/, trash/, backups/, .metadata.json, and cloned remote/tracked skill dirs
 │   ├── extras/                  # Extras source directories
 │   │   └── rules/               # e.g. extras init rules --target .claude/rules -p
 │   │       └── coding.md
@@ -204,7 +204,7 @@ skills:
 - `tracked: true`: `--track` でインストールされた（`.git/` が保持された git リポジトリ）ことを示します。誰かが `skillshare install -p` を実行すると、tracked skill は完全な git 履歴とともに clone されるため、`skillshare update` が正しく機能します。
 - `group`: サブディレクトリのパス（インストール時の `--into` に対応）。
 
-ランタイムメタデータ（インストール時刻、ファイルハッシュ、コミット SHA）は `.skillshare/skills/.metadata.json` に別途保存されます — このファイルは自動管理され、gitignore されます。
+ランタイムメタデータ（インストール時刻、ファイルハッシュ、コミット SHA）は `.skillshare/skills/.metadata.json` に別途保存されます — このファイルは自動管理され、gitignore されます。このルールができる前にコミットしてしまったプロジェクトでは、一度 `git rm --cached .skillshare/skills/.metadata.json` を実行して追跡を止めてください。
 
 :::tip ポータブルな Skill マニフェスト
 `config.yaml` は宣言的な skill マニフェストです。プロジェクトでは、これを git にコミットすれば、誰でも `skillshare install -p && skillshare sync` を実行できます。Global mode では、`.metadata.json` がマニフェストとして機能します。グローバル config は git 経由で共有する必要がないためです。
@@ -291,7 +291,7 @@ Project mode には意図的な制限がいくつかあります。
 | Merge sync mode | ✓ | デフォルト、skill ごとの symlink |
 | Copy sync mode | ✓ | `skillshare target <name> --mode copy -p` で target ごとに設定 |
 | Symlink sync mode | ✓ | `skillshare target <name> --mode symlink -p` で target ごとに設定 |
-| `--track` リポジトリ | ✓ | `.skillshare/skills/_repo/` に clone され、`.gitignore` に追加される（`logs/`、`trash/`、`backups/` もデフォルトで無視される） |
+| `--track` リポジトリ | ✓ | `.skillshare/skills/_repo/` に clone され、`.gitignore` に追加される（`logs/`、`trash/`、`backups/`、`.metadata.json` ファイルもデフォルトで無視される） |
 | `--discover` | ✓ | 既存のプロジェクト config に新しい target を検出して追加 |
 | `push` / `pull` | ✗ | プロジェクトのリポジトリに対して git を直接使用してください |
 | `collect` | ✓ | プロジェクトの target からローカル skill を `.skillshare/skills/` に収集 |

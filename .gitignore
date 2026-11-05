@@ -21,6 +21,7 @@ Thumbs.db
 
 # Build and test output
 coverage.out
+/result
 tmp/
 __pycache__/
 .cache/

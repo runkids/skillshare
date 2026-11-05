@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **최신 버전**: v0.28.0 — agent별로 skill 사본을 따로 제공하는 tracked 저장소(`skills/claude/<skill>`, `skills/codex/<skill>`)는 이제 merge·copy 모드에서 각 사본을 해당 agent에만 동기화하고, 요약에서는 하나의 skill로 집계합니다. `skillshare plugin update --all`로 tracked plugin을 한 번에 업데이트할 수 있고, shallow partial clone에서도 `update`가 다시 동작합니다. [변경 기록](https://skillshare.runkids.cc/changelog)을 확인하세요.
+> **최신 버전**: v0.28.4 — Nix로 설치할 수 있습니다: `nix profile add github:runkids/skillshare`. Nix로 설치한 경우 `skillshare upgrade`와 대시보드의 업데이트 대화상자는 store의 바이너리를 바꾸지 않고 `nix profile upgrade skillshare` 실행이나 Nix 설정 업데이트를 안내합니다. 새 [Herdr 패널](https://skillshare.runkids.cc/ko/docs/learn/with-herdr)은 업데이트나 동기화가 필요한 항목을 agent 옆에 보여 주고, Herdr가 연결된 모든 머신에서 바로 처리합니다. [변경 기록](https://skillshare.runkids.cc/changelog)을 확인하세요.
 
 ## skillshare를 쓰는 이유
 
@@ -115,6 +115,14 @@ brew install skillshare
 ```
 
 > **팁:** `skillshare upgrade`를 실행하면 최신 버전으로 업데이트됩니다. 설치 방식을 자동으로 감지해 나머지를 처리합니다.
+
+### CLI: Nix
+
+```bash
+nix profile add github:runkids/skillshare
+```
+
+업데이트는 `nix profile upgrade skillshare`로 합니다. flakes가 활성화된 Nix 2.30 이상이 필요하며, 이전 Nix나 Lix에서는 `nix profile install`을 사용하세요. NixOS와 Home Manager 설정에서는 flake의 `overlays.default`를 사용할 수 있습니다.
 
 ### GitHub Actions
 
@@ -269,6 +277,10 @@ skillshare commit --dry-run
 ```bash
 skillshare ui
 ```
+
+**Herdr 패널** — [Herdr](https://herdr.dev)의 에이전트 옆에 skillshare: 업데이트, sync, 감사를 거친 설치, 소스 저장소를 한 패널에서
+
+[Herdr 패널 설정 →](https://skillshare.runkids.cc/docs/learn/with-herdr)
 
 [모든 명령과 가이드 →](https://skillshare.runkids.cc/docs/reference/commands)
 

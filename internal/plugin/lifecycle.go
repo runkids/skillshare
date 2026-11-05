@@ -204,7 +204,12 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 			return result, err
 		}
 		intent := decl.fingerprint()
-		if !declared && local.Applied != nil {
+		if (c.Action == "remove" || c.Action == "forget") && local.Pending != nil && local.Applied == nil {
+			// A crash may leave only the old install's pending receipt. Cleanup
+			// must retain that recipe identity until it succeeds, so a failed
+			// removal still requires replacement by the current declaration.
+			intent = local.Pending.Intent
+		} else if !declared && local.Applied != nil {
 			intent = local.Applied.Intent
 		}
 		b := c.Binding

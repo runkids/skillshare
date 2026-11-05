@@ -609,6 +609,16 @@ skillshare backup -p --all           # 效果相同（在 Project mode 下会收
 
 **解决方式：** agent 名称只能使用 `a-z`、`0-9`、`_`、`-`、`.`。重命名该文件（并同步更新 `name:` 字段），让两者使用同一个规范名称。
 
+### `source was lost by an earlier update; reinstall this agent` {#agent-source-lost}
+
+**原因：** 旧版本的 `update agents` 会把 agent 记录的 source 改写成 `/agents/<name>.md`，并丢失 repository URL（[#777](https://github.com/runkids/skillshare/issues/777)）。没有 repository，就无法检查或更新这个 agent。
+
+**解决方法：** 从 repository 重新安装 agent，source 会被正确记录：
+
+```bash
+skillshare install <repo> --kind agent --all --force
+```
+
 ### `.agentignore` patterns not taking effect
 
 **原因：**

@@ -361,6 +361,8 @@ Next
   brew upgrade skillshare  update to v1.3.0
 ```
 
+通过 `nix profile` 安装时，Next 行显示 `nix profile upgrade skillshare`。由 NixOS 或 Home Manager 提供 skillshare 时，Update 行会提示更新 Nix 配置并重新构建，不显示对应的 Next 行。
+
 ## JSON 输出
 
 在 CI 流水线和自动化中使用 `--json` 获取机器可读的输出：

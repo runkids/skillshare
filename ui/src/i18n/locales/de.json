@@ -938,6 +938,8 @@
   "update.stale.pruned.other": "{count} Skills gelöscht. Im Papierkorb 7 Tage lang wiederherstellbar.",
   "updateDialog.copyCommand": "Befehl kopieren",
   "updateDialog.needsSudo": "Für das Update wird dein Passwort benötigt. Führe skillshare upgrade in einem Terminal aus.",
+  "updateDialog.nixConfig": "skillshare ist mit Nix installiert. Aktualisiere skillshare in deiner Nix-Konfiguration und baue neu.",
+  "updateDialog.nixProfile": "skillshare ist mit Nix installiert. Führe {command} in einem Terminal aus.",
   "updateDialog.newVersion": "Neue Version verfügbar",
   "updateDialog.restartDev": "DEV-Modus-Neustart simuliert.",
   "updateDialog.restartManual": "Aktualisiert. Starte mit skillshare ui start neu, falls diese Seite keine Verbindung herstellt.",

@@ -938,6 +938,8 @@
   "update.stale.pruned.other": "{count} skill dihapus. Pulihkan dari Sampah dalam 7 hari.",
   "updateDialog.copyCommand": "Salin perintah",
   "updateDialog.needsSudo": "Pembaruan memerlukan kata sandi Anda. Jalankan skillshare upgrade di terminal.",
+  "updateDialog.nixConfig": "skillshare dipasang dengan Nix. Perbarui skillshare di konfigurasi Nix Anda lalu bangun ulang.",
+  "updateDialog.nixProfile": "skillshare dipasang dengan Nix. Jalankan {command} di terminal.",
   "updateDialog.newVersion": "Versi baru tersedia",
   "updateDialog.restartDev": "Mulai ulang mode DEV disimulasikan.",
   "updateDialog.restartManual": "Diperbarui. Jalankan ulang dengan skillshare ui start jika halaman ini tidak tersambung kembali.",

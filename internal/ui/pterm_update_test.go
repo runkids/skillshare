@@ -25,7 +25,7 @@ func TestUpdateNotification_WritesToStderr(t *testing.T) {
 	}
 	os.Stdout = wOut
 
-	UpdateNotification("1.0.0", "2.0.0", "skillshare upgrade")
+	UpdateNotification("1.0.0", "2.0.0", "skillshare upgrade", "")
 
 	wErr.Close()
 	wOut.Close()
@@ -43,5 +43,33 @@ func TestUpdateNotification_WritesToStderr(t *testing.T) {
 	}
 	if !strings.Contains(stderrBuf.String(), "1.0.0") || !strings.Contains(stderrBuf.String(), "2.0.0") {
 		t.Errorf("UpdateNotification should write version info to stderr, got: %s", stderrBuf.String())
+	}
+}
+
+func TestUpdateNotification_PlainRunLine(t *testing.T) {
+	tests := []struct {
+		name, cmd, hint, want string
+	}{
+		{name: "command", cmd: "brew upgrade skillshare", want: "  Run 'brew upgrade skillshare' to update\n"},
+		{name: "no single command", hint: "update skillshare in your Nix configuration and rebuild", want: "  Update skillshare in your Nix configuration and rebuild\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			oldStdout, oldStderr := os.Stdout, os.Stderr
+			r, w, err := os.Pipe()
+			if err != nil {
+				t.Fatal(err)
+			}
+			os.Stdout, os.Stderr = w, w // a pipe, not a terminal
+			UpdateNotification("1.0.0", "2.0.0", tt.cmd, tt.hint)
+			w.Close()
+			os.Stdout, os.Stderr = oldStdout, oldStderr
+
+			var buf bytes.Buffer
+			io.Copy(&buf, r)
+			if !strings.HasSuffix(buf.String(), tt.want) {
+				t.Errorf("got %q, want it to end with %q", buf.String(), tt.want)
+			}
+		})
 	}
 }

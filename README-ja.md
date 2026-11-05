@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新バージョン**：v0.28.0 — agent ごとに別の skill を持つ tracked repo（`skills/claude/<skill>`、`skills/codex/<skill>`）は、merge・copy モードでそれぞれ対応する agent にだけ同期され、サマリーでは 1 つの skill として数えられます。`skillshare plugin update --all` で tracked plugin をまとめて更新でき、shallow な partial clone でも `update` が再び動作します。 [Releases](https://github.com/runkids/skillshare/releases) と[変更履歴](https://skillshare.runkids.cc/changelog)をご覧ください。
+> **最新バージョン**：v0.28.4 — Nix でインストールできます：`nix profile add github:runkids/skillshare`。Nix でインストールした場合、`skillshare upgrade` とダッシュボードの更新ダイアログは store のバイナリを置き換えず、`nix profile upgrade skillshare` の実行、または Nix 設定の更新を案内します。新しい [Herdr パネル](https://skillshare.runkids.cc/ja/docs/learn/with-herdr) は、更新や同期が必要なものを agent の横に表示し、Herdr が接続するすべてのマシンでそのまま実行できます。[変更履歴](https://skillshare.runkids.cc/changelog)をご覧ください。
 
 ## skillshare を使う理由
 
@@ -115,6 +115,14 @@ brew install skillshare
 ```
 
 > **ヒント：** `skillshare upgrade` で最新版に更新できます。インストール方法を自動で判別し、残りの作業も行います。
+
+### CLI：Nix
+
+```bash
+nix profile add github:runkids/skillshare
+```
+
+更新には `nix profile upgrade skillshare` を使います。flakes を有効にした Nix 2.30 以降が必要です。古い Nix や Lix では `nix profile install` を使ってください。NixOS や Home Manager の設定では flake の `overlays.default` を使えます。
 
 ### GitHub Actions
 
@@ -269,6 +277,10 @@ skillshare commit --dry-run
 ```bash
 skillshare ui
 ```
+
+**Herdr パネル** — [Herdr](https://herdr.dev) のエージェントの横に skillshare：更新、sync、監査付きインストール、ソースリポジトリを 1 つのパネルで
+
+[Herdr パネルを設定 →](https://skillshare.runkids.cc/docs/learn/with-herdr)
 
 [すべてのコマンドとガイド →](https://skillshare.runkids.cc/docs/reference/commands)
 

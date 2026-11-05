@@ -143,7 +143,7 @@ skillshare update agents --all --json
 }
 ```
 
-取りうる agent の `status` の値には `updated`、`failed`、`skipped`、`up_to_date`、`update_available`、`dirty`、`drifted`、`local` が含まれます。
+取りうる agent の `status` の値には `updated`、`failed`、`skipped`、`up_to_date`、`update_available`、`dirty`、`drifted`、`local`、`error` が含まれます。`error` の Agent は、リモートに到達できない、metadata を読めないなどの理由で確認できなかったものです。この場合、コマンドは Agent を最新と報告せず、0 以外の終了コードで終了します。
 
 ## Agents の更新
 

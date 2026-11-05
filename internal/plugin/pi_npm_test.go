@@ -85,6 +85,9 @@ func fakePiNpm(t *testing.T, commands *[]string) *Service {
 			}
 		case "remove":
 			doc.Packages = slices.DeleteFunc(doc.Packages, func(entry json.RawMessage) bool { old, _ := source(entry); return old == args[1] })
+		default:
+			// Inventory reads settings while other targets' CLIs run; a read-only command must not rewrite them.
+			return nil, nil
 		}
 		raw, _ := json.Marshal(doc)
 		writePluginFile(t, filepath.Dir(settings), filepath.Base(settings), string(raw))

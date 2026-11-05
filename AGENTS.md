@@ -54,7 +54,7 @@ The router runs on the host and needs only Python 3.8+. On Windows, use `py` or 
 | `cli-development` | Adding or changing Go CLI commands, flags, handlers, TUIs, or mutating behavior |
 | `testing` | Building, testing, reproducing bugs, or using the devcontainer/ssenv |
 | `e2e-runbooks` | Writing or running `ai_docs/tests` E2E runbooks, or verifying on a Windows guest |
-| `frontend` | Changing React, CSS, layout, or visual behavior in `ui/` or `website/` |
+| `frontend` | Changing React, CSS, layout, or visual behavior in `ui/`, `website/`, or `herdr/` |
 | `documentation` | Updating README files, website docs, command flags, translations, or the built-in skill |
 | `release` | Writing changelogs or release notes, bumping versions, tagging, or releasing |
 | `audit` | Read-only consistency checks for flags, docs, tests, targets, handler splits, oplog, or Web API |
