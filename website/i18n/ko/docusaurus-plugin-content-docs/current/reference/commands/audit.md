@@ -132,12 +132,12 @@ skillshare audit --analyzer static --analyzer dataflow # 여러 분석기
 
 | Analyzer | 범위 | 설명 |
 |----------|-------|-------------|
-| `static` | 파일별 | audit 규칙에 대한 정규식 기반 패턴 매칭 |
+| `static` | 파일별 | 정규식 패턴 매칭 및 파일 단위 공백 패딩 검사 |
 | `dataflow` | 파일별 | shell 스크립트 및 markdown 코드 블록에 대한 taint tracking |
 | `tier` | skill별 | 기능 등급(capability tier) 조합 위험 분석 |
 | `integrity` | skill별 | 콘텐츠 해시 검증 (SKILL.md의 `file_hashes`) |
 | `metadata` | skill별 | 공급망 신뢰 검증 (publisher 불일치, authority 주장) |
-| `structure` | skill별 | markdown 댕글링 링크 탐지 |
+| `structure` | skill별 | 로컬 Markdown 링크/이미지 및 명시된 번들 경로의 누락과 루트 외부 참조 감지 |
 | `cross-skill` | 번들 | Cross-skill 유출 및 권한 상승 분석 |
 
 config에서도 설정할 수 있습니다:
@@ -196,7 +196,7 @@ skillshare install /path/to/skill --skip-audit
 
 `skillshare update`는 tracked repo를 격리된 후보에 pull하고 게시 전에 audit합니다. 활성 threshold(기본적으로 `audit.block_threshold`, 또는 `--audit-threshold` / `--threshold` / `-T` 재정의) 이상의 findings는 명시적으로 수락하지 않으면 게시를 차단합니다. 거부하면 실제 checkout은 변경되지 않습니다. 자세한 내용은 [`update --skip-audit`](/docs/reference/commands/update#security-audit-gate)를 참조하십시오.
 
-`--force`로 수락한 findings는 해당 skill에 대해 기억되므로, 이후 업데이트에서 동일한 규칙이 동일한 텍스트에 매칭되어도 차단되지 않습니다. 새로운 finding이나 동일한 규칙이 다른 텍스트에 매칭되는 경우에는 다시 차단됩니다. [Accepted Findings](/docs/reference/commands/update#accepted-findings)를 참조하십시오.
+`--force`로 수락한 findings는 해당 skill에 대해 기억됩니다. 승인 키는 줄 번호를 무시하고 rule, 파일, 일치한 텍스트와 탐지기별 증거를 포함합니다. `whitespace-padding`은 패딩된 내용이 바뀌면 새 키를 만들고, 밀도 finding은 파일의 조건에 맞는 전체 내용을 증거로 사용합니다. 자세한 내용은 [Accepted Findings](/docs/reference/commands/update#accepted-findings)를 참조하세요.
 
 install을 통해 tracked repo를 업데이트할 때(`skillshare install <repo> --track --update`), 게이트는 동일한 threshold 정책(`audit.block_threshold` 또는 `--audit-threshold` / `--threshold` / `-T`)을 사용합니다.
 

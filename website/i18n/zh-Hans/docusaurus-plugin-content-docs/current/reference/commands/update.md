@@ -143,7 +143,7 @@ skillshare update agents --all --json
 }
 ```
 
-可能的 agent `status` 值包括 `updated`、`failed`、`skipped`、`up_to_date`、`update_available`、`dirty`、`drifted` 和 `local`。
+可能的 agent `status` 值包括 `updated`、`failed`、`skipped`、`up_to_date`、`update_available`、`dirty`、`drifted`、`local` 和 `error`。`error` 表示该 agent 无法检查，例如 remote 无法访问或 metadata 无法读取。此时命令不会把 agents 报告为最新，而是以非零退出码结束。
 
 ## 更新 Agents
 
@@ -327,7 +327,7 @@ skillshare update --all --skip-audit
   1 previously accepted finding skipped
 ```
 
-一个 finding 是通过 rule、file 和匹配到的文本来判定的——而不是按行号——因此当无关内容发生偏移时，它仍会保持已接受状态。任何新的 finding，或同一 rule 匹配到不同文本，都会重新阻止。这适合那些合理地引用攻击字符串作为示例的 skills（安全扫描器、red-team 文档），同时仍能捕获后续版本中的新 payload。
+接受密钥忽略行号，并包含规则、文件、匹配文本及检测器专属证据。对于 `whitespace-padding`，填充隐藏的内容发生变化会生成新密钥；密度 finding 使用文件中所有符合条件的内容作为证据。新的 finding 或证据变化会再次阻断。这样既适用于合理引用攻击字符串作为示例的 skills（安全扫描器、red-team 文档），也能继续捕获后续版本中的新 payload。
 
 你可以通过 `--audit-threshold`、`--threshold` 或 `-T` 按命令覆盖阈值：
 

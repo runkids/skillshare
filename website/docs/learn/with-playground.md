@@ -38,7 +38,7 @@ This single command:
 | `audit-demo-ci-release` | `security/` | HIGH + MEDIUM (sudo, external URLs) |
 | `audit-demo-debug-exfil` | `security/` | CRITICAL (credential exfiltration) |
 | `audit-demo-external-link` | `security/` | LOW (external URLs) |
-| `audit-demo-dangling-link` | `security/` | LOW (broken local links) |
+| `audit-demo-dangling-link` | `security/` | LOW (missing links) + HIGH (root escape) |
 
 ### Demo Project (`~/demo-project`)
 

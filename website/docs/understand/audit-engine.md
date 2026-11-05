@@ -44,7 +44,7 @@ flowchart TD
 
 The `audit` command acts as a **gatekeeper** — scanning skill content for known threat patterns before they reach your AI assistant. It runs automatically during `install` and can be invoked manually at any time.
 
-Overriding a block with `--force` records the accepted findings (rule, file, and matched text) in `.metadata.json`, so later `update` runs stop blocking on them while still catching anything new. See [update — Accepted Findings](/docs/reference/commands/update#accepted-findings).
+Overriding a block with `--force` records the accepted findings (rule, file, matched text, and any detector-specific evidence) in `.metadata.json`, so later `update` runs skip the same evidence while still catching changed findings. For `whitespace-padding`, density findings use all eligible content in the file as evidence. Identical occurrences have separate acceptance keys; previously accepted padding findings require acceptance again after this change. See [update — Accepted Findings](/docs/reference/commands/update#accepted-findings).
 
 ## What It Detects
 
@@ -86,6 +86,7 @@ These patterns warrant **careful review**. They can indicate dangerous behavior 
 | `data-exfiltration` | DNS data exfiltration via `dig`/`nslookup`/`host` with command substitution in subdomain |
 | `self-propagation` | Self-replication instructions that spread payload to other files or projects |
 | `hardcoded-secret` | Inline API keys, tokens, and passwords: Google API keys (`AIza...`), AWS access keys (`AKIA...`), GitHub PATs (`ghp_`/`ghs_`/`github_pat_`), Slack tokens (`xox[bporas]-`), OpenAI keys, Anthropic keys, Stripe keys, PEM private key blocks, and generic `api_key`/`secret_key`/`password` assignments with high-entropy values |
+| `reference-escapes-root` | Explicit bundled references that resolve outside the skill directory |
 
 > **Why high?** Hidden Unicode characters can make malicious instructions invisible during code review. Bidirectional text control characters can reorder visible text to disguise malicious code (Trojan Source). Base64 obfuscation is a common technique to bypass human inspection. Destructive commands like `rm -rf /` can cause irreversible damage. `curl | bash` is the classic remote code execution vector — fetched content runs directly in your shell. Config/memory file poisoning persists across AI sessions. DNS exfiltration encodes stolen data in subdomain queries. Self-propagation instructions create repository worms. Hardcoded secrets (API keys, tokens, private keys) in skill files indicate either leaked credentials or intentional credential exposure — both are supply-chain risks that should be reviewed.
 
@@ -104,6 +105,14 @@ These patterns are **suspicious in context** — they may be legitimate but dese
 | `untrusted-install` | Auto-execute untrusted packages: `npx -y`/`npx --yes` (npm), `pip install https://` (non-PyPI URL) |
 
 > **Why medium?** A skill that downloads from external URLs could be pulling malicious payloads. URLs with raw IP addresses may bypass DNS-based security controls and domain blocklists. `data:` URIs in markdown links can hide embedded HTML/JavaScript payloads behind innocent-looking labels. Untrusted package execution (`npx -y`) auto-installs and runs arbitrary npm packages without confirmation. Additional invisible Unicode characters can subtly alter text rendering or hide content.
+
+### Whitespace Padding {#whitespace-padding}
+
+`whitespace-padding` is a file-level check in the `static` analyzer. It reports 20–39 consecutive blank lines at MEDIUM and 40 or more at HIGH, only when followed by nonblank text. Runs of at least 80 leading horizontal Unicode whitespace characters followed by text, more than 4096 eligible bytes with at least 95% whitespace bytes, and at least 100 identical consecutive nonblank lines immediately followed by different text are MEDIUM. Interior column alignment does not trigger the horizontal check. Blank, repeated, and adjacent horizontally padded lines produce one finding at the run start; density points to the first eligible line.
+
+In Markdown (`.md`) files, fenced and indented code blocks and parsed Markdown table rows are excluded from padding accounting. Nonblank code/table lines still trigger a preceding blank run outside the block. An unclosed fence exempts content through the end of the file, following CommonMark parsing. Other spacing is still checked. Unicode White_Space characters count as whitespace; CRLF is one break, and CR, U+0085, U+2028, U+2029, vertical tab and form feed also separate visual lines. Reported locations retain original LF-based line numbers, so a Unicode separator does not advance the reported line. A warning indicates hidden-content risk, not proof of malicious intent. Findings affect risk scores; HIGH findings block when the audit threshold is HIGH. Density and repetition can also flag generated data, so review the context.
+
+Disable `whitespace-padding` or set its severity by ID or pattern using the usual global/project rule overlays. An explicit severity overrides both MEDIUM and HIGH defaults. Confidence overrides also apply. This detector has no line regex; leave `regex` and `exclude` unset when configuring it.
 
 ### MEDIUM: Content Integrity
 
@@ -139,18 +148,22 @@ These are lower-severity indicators that contribute to risk scoring and reportin
 
 - `LOW`: weaker suspicious patterns (e.g., non-HTTPS URLs in commands — potential for man-in-the-middle attacks)
 - `LOW`: **external links** — markdown links pointing to external URLs (`https://...`), which may indicate prompt injection vectors or unnecessary token consumption; localhost links are excluded
-- `LOW`: **dangling local links** — broken relative markdown links whose target file or directory does not exist on disk
+- `LOW`: **bundled references** — missing local targets (`dangling-link`) and paths that could not be checked (`reference-check-incomplete`)
 - `LOW`: **content-missing** / **content-unexpected** — content integrity issues (see above)
 - `INFO`: contextual hints like shell chaining patterns (for triage / visibility)
 - `INFO`: **low analyzability** — less than 70% of the skill's content is auditable text (see [Analyzability Score](#analyzability-score))
 
 > These findings don't block installation but raise the overall risk score. A skill with many LOW/INFO findings may warrant closer inspection.
 
-#### Dangling Link Detection
+#### Bundled Reference Checks
 
-The audit engine also performs a **structural check** on `.md` files: it extracts all inline markdown links (`[label](target)`) and verifies that local relative targets exist on disk. External links (`http://`, `https://`, `mailto:`, etc.) and pure anchors (`#section`) are skipped.
+The structural analyzer checks local Markdown links and images, including reference-style links. It also checks inline code paths starting with `./`, `../`, `scripts/`, `references/`, or `assets/` (with a file extension, without whitespace, glob or template syntax), inline `path:<target>` declarations, and one path per line in a fence labelled `skillshare-paths`. Implicit extensionless examples, ordinary identifiers, other code fences, unmarked absolute code examples, URLs (including `file:` URIs), and pure anchors are intentional exceptions. A required absolute path belongs in a Markdown link or an explicit `path:` declaration. Markdown links and images resolve relative to their containing document. Inline code paths, `path:` declarations, and `skillshare-paths` entries beginning with `./` or `../` also resolve from the containing document; other relative code paths resolve from the skill root, including in nested Markdown files. For example, `../scripts/query_design.py` in `references/guide.md` names the same bundle member as `scripts/query_design.py`.
 
-This catches common quality issues like missing referenced files, renamed paths, or incomplete skill packaging. Each broken link produces a `LOW` severity finding with pattern `dangling-link`.
+Missing targets retain the LOW `dangling-link` identity. Explicit Markdown links, images, `path:` declarations and path-fence entries that leave the skill directory produce HIGH `reference-escapes-root` findings. Implicit inline-code examples that leave the bundle are ignored; a trailing `:line` is stripped from implicit file paths. Absolute paths inside the bundle are allowed, including equivalent spellings derived from the declared root and its symlinked ancestors (such as `/var` and `/private/var` on macOS). Checks use bounded `lstat`/`readlink` operations inside the declared root; referenced file contents are never read. Unsupported paths, unreadable metadata, symlink cycles, or resolution limits produce LOW `reference-check-incomplete`, rather than claiming the target is missing or safe. Limits are 4,096 bytes per path, 256 component steps, and 40 symlink hops; native Windows separators are normalized; on other hosts, backslash paths are unsupported except recognized Windows drive escapes. Source line numbers and original snippets are preserved.
+
+Site-root links such as `/docs/foo` are explicit absolute paths: when outside the skill root they now produce HIGH `reference-escapes-root` findings instead of LOW `dangling-link`. This can block scans at `--threshold high`.
+
+All three rule IDs support `enabled: false` in `audit-rules.yaml`, using the same global/project rule layers as other structural checks. `doctor` reuses this analyzer: missing or incomplete references are warnings, escapes are errors, and `doctor --json` records them under `bundled_references`. These checks apply to discovered skills in both modes.
 
 ## Threat Categories Deep Dive
 
@@ -178,7 +191,7 @@ Output suppression is classified by the evidence matched, independently of Markd
 
 A shared Markdown parser recognizes fenced code-block boundaries, including longer fences and unclosed blocks. Code-block contents remain subject to static rules; shell blocks also receive command-tier and dataflow analysis. Fenced shell samples in raw HTML blocks and comments receive the same shell analysis, with taint isolated per block; raw HTML blocks do not qualify for SDK parameter downgrades. Being inside a code block does not establish trust.
 
-**Rule overrides:** Explicit global or project severity overrides, including CRITICAL, take precedence over SDK parameter downgrades. Generic disclosure restrictions now use `prompt-injection-5`. An existing override or acceptance for `prompt-injection-4` applies only to findings from that rule, not the new generic rule. Override `prompt-injection-5` to CRITICAL to retain blocking of generic restrictions. Built-in rule 5 excludes explicit-concealment phrases, not separate generic restrictions on the same line, even when rule 4 is disabled or downgraded. Full custom regex replacements retain whole-line exclusion semantics. For reviewed false positives under strict policy, use the existing [Accepted Findings](../reference/commands/update.md#accepted-findings) mechanism; changed rule, file, or matched text requires acceptance again.
+**Rule overrides:** Explicit global or project severity overrides, including CRITICAL, take precedence over SDK parameter downgrades. Generic disclosure restrictions now use `prompt-injection-5`. An existing override or acceptance for `prompt-injection-4` applies only to findings from that rule, not the new generic rule. Override `prompt-injection-5` to CRITICAL to retain blocking of generic restrictions. Built-in rule 5 excludes explicit-concealment phrases, not separate generic restrictions on the same line, even when rule 4 is disabled or downgraded. Full custom regex replacements retain whole-line exclusion semantics. For reviewed false positives under strict policy, use the existing [Accepted Findings](../reference/commands/update.md#accepted-findings) mechanism; changed rule, file, matched text, or detector-specific evidence requires acceptance again.
 
 **Defense:** Always review skill files before installing. Use `skillshare audit` to detect known injection patterns. For organizational deployments, set `audit.block_threshold: HIGH` to catch hidden comment injections too.
 

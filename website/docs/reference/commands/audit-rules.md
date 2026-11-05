@@ -280,9 +280,11 @@ Use `id` values to override or disable specific built-in rules:
 Source of truth for regex-based rules:
 [`internal/audit/rules.yaml`](https://github.com/runkids/skillshare/blob/main/internal/audit/rules.yaml)
 
+The file-level `whitespace-padding` detector is also registered in `rules.yaml`. Its thresholds and exemptions are implemented in Go; configure its enabled state, severity or confidence without `regex` or `exclude`. See [Whitespace Padding](/docs/understand/audit-engine#whitespace-padding). Rules for this ID that set `regex` or `exclude` are rejected.
+
 :::note Structural, tier, and cross-skill checks
 
-`dangling-link`, `content-tampered`, `content-oversize`, `content-missing`, and `content-unexpected` are **structural checks** (filesystem lookups and hash comparisons, not regex). `low-analyzability` is an **analyzability finding** generated from the [Analyzability Score](/docs/understand/audit-engine#analyzability-score). `tier-stealth`, `tier-destructive-network`, `tier-network-heavy`, `tier-interpreter`, and `tier-interpreter-network` are **tier combination findings** generated from [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) profiles. `cross-skill-*` findings are generated from [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection). Header checks also generate `disguised-executable`, `python-bytecode`, `executable-artifact`, `archive-artifact`, and `uncertain-header` findings described in [Executable and archive headers](/docs/understand/audit-engine#executable-headers). All of these appear in the table below but are not defined in `rules.yaml`.
+`dangling-link`, `reference-escapes-root`, `reference-check-incomplete`, `content-tampered`, `content-oversize`, `content-missing`, and `content-unexpected` are **structural checks** (filesystem lookups and hash comparisons, not regex). `low-analyzability` is an **analyzability finding** generated from the [Analyzability Score](/docs/understand/audit-engine#analyzability-score). `tier-stealth`, `tier-destructive-network`, `tier-network-heavy`, `tier-interpreter`, and `tier-interpreter-network` are **tier combination findings** generated from [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) profiles. `cross-skill-*` findings are generated from [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection). Header checks also generate `disguised-executable`, `python-bytecode`, `executable-artifact`, `archive-artifact`, and `uncertain-header` findings described in [Executable and archive headers](/docs/understand/audit-engine#executable-headers). All of these appear in the table below but are not defined in `rules.yaml`.
 
 :::
 
@@ -373,6 +375,7 @@ Source of truth for regex-based rules:
 | `hardcoded-secret-9` | hardcoded-secret | HIGH |
 | `data-uri-0` | data-uri | MEDIUM |
 | `escape-obfuscation-0` | escape-obfuscation | MEDIUM |
+| `whitespace-padding` | whitespace-padding | MEDIUM (HIGH: ≥40 blank lines before nonblank text) |
 | `suspicious-fetch-0` | suspicious-fetch | MEDIUM |
 | `ip-address-url-0` | ip-address-url | MEDIUM |
 | `hidden-unicode-3` | hidden-unicode | MEDIUM |
@@ -381,6 +384,8 @@ Source of truth for regex-based rules:
 | `insecure-http-0` | insecure-http | LOW |
 | `external-link-0` | external-link | LOW |
 | `dangling-link` | dangling-link | LOW |
+| `reference-escapes-root` | reference-escapes-root | HIGH |
+| `reference-check-incomplete` | reference-check-incomplete | LOW |
 | `content-tampered` | content-tampered | MEDIUM |
 | `content-oversize` | content-oversize | MEDIUM |
 | `content-missing` | content-missing | LOW |

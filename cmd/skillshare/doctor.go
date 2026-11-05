@@ -214,7 +214,7 @@ func cmdDoctorProject(root string, jsonMode bool) error {
 		Audit:             rt.config.Audit,
 	}
 
-	runDoctorChecks(cfg, result, true)
+	runDoctorChecks(cfg, result, true, root)
 	checkExtras(rt.config.Extras, result, true, "", "", root, rt.config.EffectiveExtrasSource(root), func() error { return rt.config.ValidateExtras(root) })
 	checkNativeResources(nil, root, result)
 	ui.Section("Storage")
@@ -232,7 +232,7 @@ func cmdDoctorProject(root string, jsonMode bool) error {
 	return nil
 }
 
-func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool) {
+func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool, projectRoots ...string) {
 	// Single discovery pass for all checks (with .skillignore stats)
 	sp := ui.StartSpinner("Discovering skills...")
 	walk := cfg.SkillsWalk()
@@ -256,6 +256,11 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool) {
 
 	checkSkillsValidity(cfg.EffectiveSkillsSource(), walk, result, discovered)
 	checkSkillIntegrity(result, discovered, walk.Follow)
+	projectRoot := ""
+	if len(projectRoots) > 0 {
+		projectRoot = projectRoots[0]
+	}
+	checkSkillReferences(result, discovered, projectRoot, walk.Follow)
 	checkSkillTargetsField(result, discovered, targetNamesFromConfig(cfg.Targets))
 	targetCache := checkTargets(cfg, result, isProject)
 	printSymlinkCompatHint(cfg.Targets, cfg.Mode, isProject)
@@ -1531,7 +1536,7 @@ func checkVersionDoctor(cfg *config.Config, result *doctorResult, isProject bool
 // Uses the shared versioncheck.Check which handles caching, auth, and
 // proper semver comparison. Safe to call from a goroutine.
 func fetchDoctorUpdateResult() *versioncheck.CheckResult {
-	method := detectInstallMethod()
+	method := versioncheck.DetectCurrentInstallMethod()
 	if version == "" || version == "dev" {
 		return &versioncheck.CheckResult{
 			CurrentVersion:  "dev",
@@ -1547,8 +1552,15 @@ func printUpdateAvailable(update *versioncheck.CheckResult, result *doctorResult
 	if update == nil || !update.UpdateAvailable {
 		return
 	}
-	ui.Row(ui.MarkNone, "Update", ui.VersionLabel(update.CurrentVersion)+" → "+ui.VersionLabel(update.LatestVersion)+" available", doctorWidth)
-	result.suggest(update.InstallMethod.UpgradeCommand(), "update to "+ui.VersionLabel(update.LatestVersion))
+	available := ui.VersionLabel(update.CurrentVersion) + " → " + ui.VersionLabel(update.LatestVersion) + " available"
+	cmd := update.InstallMethod.UpgradeCommand()
+	if cmd == "" {
+		available += ui.DimText(" · " + versioncheck.NixConfigUpgradeHint)
+	}
+	ui.Row(ui.MarkNone, "Update", available, doctorWidth)
+	if cmd != "" {
+		result.suggest(cmd, "update to "+ui.VersionLabel(update.LatestVersion))
+	}
 }
 
 func printDoctorHelp() {

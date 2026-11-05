@@ -280,9 +280,11 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 基于正则表达式的规则的权威来源：
 [`internal/audit/rules.yaml`](https://github.com/runkids/skillshare/blob/main/internal/audit/rules.yaml)
 
+文件级检测器 `whitespace-padding` 也注册于 `rules.yaml`。阈值和豁免由 Go 实现；配置启用状态、严重程度或置信度时无需 `regex` 或 `exclude`。参见[空白填充](/docs/understand/audit-engine#whitespace-padding)。 为此 ID 设置 `regex` 或 `exclude` 的规则会被拒绝。
+
 :::note 结构性、分级和跨 skill 检查
 
-`dangling-link`、`content-tampered`、`content-oversize`、`content-missing` 和 `content-unexpected` 属于**结构性检查**（文件系统查找和哈希比较，而非正则表达式）。`low-analyzability` 是由 [Analyzability Score](/docs/understand/audit-engine#analyzability-score) 生成的**可分析性发现结果**。`tier-stealth`、`tier-destructive-network`、`tier-network-heavy`、`tier-interpreter` 和 `tier-interpreter-network` 是由 [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) profile 生成的**分级组合发现结果**。`cross-skill-*` 发现结果由 [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection) 生成。标头检查还会生成 [Executable and archive headers](/docs/understand/audit-engine#executable-headers) 中说明的 `disguised-executable`、`python-bytecode`、`executable-artifact`、`archive-artifact` 和 `uncertain-header` 发现结果。以上这些都出现在下面的表格中，但并未定义在 `rules.yaml` 里。
+`dangling-link`、`reference-escapes-root`、`reference-check-incomplete`、`content-tampered`、`content-oversize`、`content-missing` 和 `content-unexpected` 属于**结构性检查**（文件系统查找和哈希比较，而非正则表达式）。`low-analyzability` 是由 [Analyzability Score](/docs/understand/audit-engine#analyzability-score) 生成的**可分析性发现结果**。`tier-stealth`、`tier-destructive-network`、`tier-network-heavy`、`tier-interpreter` 和 `tier-interpreter-network` 是由 [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) profile 生成的**分级组合发现结果**。`cross-skill-*` 发现结果由 [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection) 生成。标头检查还会生成 [Executable and archive headers](/docs/understand/audit-engine#executable-headers) 中说明的 `disguised-executable`、`python-bytecode`、`executable-artifact`、`archive-artifact` 和 `uncertain-header` 发现结果。以上这些都出现在下面的表格中，但并未定义在 `rules.yaml` 里。
 
 :::
 
@@ -373,6 +375,7 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 | `hardcoded-secret-9` | hardcoded-secret | HIGH |
 | `data-uri-0` | data-uri | MEDIUM |
 | `escape-obfuscation-0` | escape-obfuscation | MEDIUM |
+| `whitespace-padding` | whitespace-padding | MEDIUM（非空白文字前空白行 ≥40: HIGH） |
 | `suspicious-fetch-0` | suspicious-fetch | MEDIUM |
 | `ip-address-url-0` | ip-address-url | MEDIUM |
 | `hidden-unicode-3` | hidden-unicode | MEDIUM |
@@ -381,6 +384,8 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 | `insecure-http-0` | insecure-http | LOW |
 | `external-link-0` | external-link | LOW |
 | `dangling-link` | dangling-link | LOW |
+| `reference-escapes-root` | reference-escapes-root | HIGH |
+| `reference-check-incomplete` | reference-check-incomplete | LOW |
 | `content-tampered` | content-tampered | MEDIUM |
 | `content-oversize` | content-oversize | MEDIUM |
 | `content-missing` | content-missing | LOW |

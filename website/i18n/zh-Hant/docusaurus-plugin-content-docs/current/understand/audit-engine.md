@@ -44,7 +44,7 @@ flowchart TD
 
 `audit` 命令扮演**守門員**的角色 — 在 skill 內容抵達你的 AI assistant 之前，先掃描已知的威脅模式。它會在 `install` 期間自動執行，也可以隨時手動呼叫。
 
-用 `--force` 覆寫封鎖時，會把已接受的發現（規則、檔案、比對到的文字）記錄在 `.metadata.json` 中，讓之後的 `update` 執行不再對這些項目封鎖，同時仍會攔截任何新出現的問題。詳見 [update — Accepted Findings](/docs/reference/commands/update#accepted-findings)。
+用 `--force` 覆寫封鎖時，會將已接受的發現（規則、檔案、比對文字及偵測器專屬證據）記錄在 `.metadata.json` 中。之後的 `update` 會略過證據相同的 finding，並繼續偵測證據已改變的 finding。對 `whitespace-padding` 而言，密度 finding 會以檔案中所有符合條件的內容作為證據。詳見 [update — Accepted Findings](/docs/reference/commands/update#accepted-findings)。
 
 ## 偵測範圍
 
@@ -86,6 +86,7 @@ Audit engine 會把 skill 目錄中每個以文字為主的檔案，拿去比對
 | `data-exfiltration` | 透過 `dig`/`nslookup`/`host`，在子網域中使用命令替換進行 DNS 資料外洩 |
 | `self-propagation` | 把 payload 散播到其他檔案或專案的自我複製指令 |
 | `hardcoded-secret` | 內嵌的 API 金鑰、token 與密碼：Google API 金鑰（`AIza...`）、AWS access key（`AKIA...`）、GitHub PAT（`ghp_`/`ghs_`/`github_pat_`）、Slack token（`xox[bporas]-`）、OpenAI 金鑰、Anthropic 金鑰、Stripe 金鑰、PEM 私鑰區塊，以及高熵值的一般 `api_key`/`secret_key`/`password` 賦值 |
+| `reference-escapes-root` | 明確參照解析到 skill 目錄之外 |
 
 > **為什麼是 high？** 隱藏的 Unicode 字元可以讓惡意指令在程式碼審查時看不見。雙向文字控制字元可以重新排列可見文字以偽裝惡意程式碼（Trojan Source）。Base64 混淆是常見的規避人工檢查手法。像 `rm -rf /` 這樣的破壞性命令可能造成無法復原的損害。`curl | bash` 是經典的遠端程式碼執行向量 — 抓取的內容會直接在你的 shell 中執行。Config/記憶檔案下毒會跨 AI session 持續存在。DNS 外洩把竊取的資料編碼在子網域查詢中。自我複製指令會建立 repository worm。Skill 檔案中的硬編碼機密資料（API 金鑰、token、私鑰）代表憑證已外洩或是刻意暴露憑證 — 兩者都是應該被審查的供應鏈風險。
 
@@ -104,6 +105,14 @@ Audit engine 會把 skill 目錄中每個以文字為主的檔案，拿去比對
 | `untrusted-install` | 自動執行不受信任的套件：`npx -y`/`npx --yes`（npm）、`pip install https://`（非 PyPI URL） |
 
 > **為什麼是 medium？** 從外部 URL 下載的 skill 可能是在拉取惡意 payload。使用原始 IP 位址的 URL 可能繞過以 DNS 為基礎的安全控制與網域封鎖清單。markdown 連結中的 `data:` URI 可以把嵌入的 HTML/JavaScript payload 藏在看似無害的標籤後面。不受信任的套件執行（`npx -y`）會在未經確認的情況下自動安裝並執行任意的 npm 套件。額外的不可見 Unicode 字元可能微妙地改變文字顯示或隱藏內容。
+
+### 空白填充 {#whitespace-padding}
+
+`whitespace-padding` 是 `static` 分析器的檔案層級檢查。連續 20–39 個空白行為 MEDIUM，40 行以上為 HIGH，但僅限後接非空白文字。行首至少 80 個連續水平 Unicode 空白字元、超過 4096 個有效位元組且空白位元組占比至少 95%，以及至少 100 個連續相同的非空白行後緊接不同文字，皆為 MEDIUM。行內用於欄位對齊的空白不會觸發水平檢查。空白行、重複行及相鄰水平填充行會在區段起點回報一次；密度檢查指向首個有效行。 相同的多處結果使用不同的接受鍵。先前接受的空白填充結果需要重新接受。
+
+在 Markdown（`.md`）檔案中，圍欄及縮排程式碼區塊與解析後的 Markdown 表格列不納入填充計算。但程式碼或表格的非空白行仍會觸發前方區塊外連續空白行的偵測。未關閉的圍欄依 CommonMark 規則豁免至檔案結尾。Unicode White_Space 字元視為空白；CRLF 視為一次換行，CR、U+0085、U+2028、U+2029、垂直定位字元及換頁字元也會分隔視覺行。回報位置保留原始 LF 行號，因此 Unicode 分隔符號不會增加回報行號。警告表示內容可能被隱藏，並非惡意意圖的證明。結果會影響風險分數；HIGH 結果會在稽核門檻為 HIGH 時阻擋。密度及重複檢查也可能標記產生的資料，請檢視上下文。
+
+可用一般全域／專案規則覆寫，依 ID 或模式停用 `whitespace-padding` 或設定嚴重程度。明確設定會覆寫 MEDIUM 和 HIGH 預設值，也支援信心值覆寫。此偵測器沒有逐行正規表示式；設定時請勿指定 `regex` 或 `exclude`。
 
 ### MEDIUM：內容完整性
 
@@ -138,19 +147,24 @@ Audit engine 會把 skill 目錄中每個以文字為主的檔案，拿去比對
 這些是嚴重程度較低的指標，會計入風險評分與報告：
 
 - `LOW`：較弱的可疑模式（例如命令中的非 HTTPS URL — 可能有中間人攻擊風險）
+- `LOW`: 無法檢查的參照也會報告為 LOW `reference-check-incomplete`。
 - `LOW`：**外部連結** — 指向外部 URL（`https://...`）的 markdown 連結，可能代表 prompt injection 向量或不必要的 token 消耗；localhost 連結不列入
-- `LOW`：**失效的本機連結** — 目標檔案或目錄在磁碟上不存在的損毀相對 markdown 連結
+- `LOW`：**遺失的套件參照** — Markdown 連結、圖片、明確或行內路徑的目標不存在
 - `LOW`：**content-missing** / **content-unexpected** — 內容完整性問題（見上方）
 - `INFO`：情境提示，例如 shell 串接模式（供分流／可見度使用）
 - `INFO`：**低可分析性** — skill 內容中可稽核的文字不到 70%（見 [Analyzability Score](#analyzability-score)）
 
 > 這些發現不會封鎖安裝，但會提高整體風險評分。有大量 LOW/INFO 發現的 skill 可能值得更仔細的檢查。
 
-#### 失效連結偵測
+#### 套件參照檢查
 
-Audit engine 也會對 `.md` 檔案執行**結構檢查**：擷取所有內嵌的 markdown 連結（`[label](target)`），並驗證本機相對目標是否存在於磁碟上。外部連結（`http://`、`https://`、`mailto:` 等）與純錨點（`#section`）會被略過。
+結構分析器會檢查本機 Markdown 連結與圖片，包括參照式連結。行內程式碼會檢查具有副檔名、不含空白或 glob／範本語法且以 `./`、`../`、`scripts/`、`references/` 或 `assets/` 開頭的路徑，以及明確的 `path:<target>` 宣告。標記為 `skillshare-paths` 的程式碼圍欄每行檢查一個路徑。未明確宣告的無副檔名範例、一般識別字、其他程式碼圍欄、未明確宣告的絕對路徑程式碼範例、URL（包括 `file:` URI）與純錨點均為刻意排除的例外。必要的絕對路徑應使用 Markdown 連結或明確的 `path:` 宣告。 Markdown 連結與圖片相對於所在文件的目錄解析。行內程式碼路徑、`path:` 宣告與 `skillshare-paths` 項目以 `./` 或 `../` 開頭時也相對於所在文件解析；其他相對程式碼路徑相對於 skill 根目錄解析，巢狀 Markdown 檔案中也一樣。
 
-這能抓出常見的品質問題，例如遺失的參照檔案、改名的路徑，或不完整的 skill 打包。每個損毀連結都會產生一筆模式為 `dangling-link` 的 `LOW` 嚴重程度發現。
+遺失的目標保留 LOW `dangling-link` 識別。父目錄遍歷、家目錄路徑、Windows 磁碟機路徑或符號連結元件離開 skill 目錄時，會產生 HIGH `reference-escapes-root`。允許套件目錄內的絕對路徑，也辨識從宣告的根目錄及其符號連結父目錄導出的等價寫法（例如 macOS 的 `/var` 與 `/private/var`）。檢查在宣告的根目錄內使用有上限的 `lstat`/`readlink`，不會讀取參照檔案的內容。不支援的路徑、無法讀取的中繼資料、符號連結循環或解析超過上限會產生 LOW `reference-check-incomplete`，不會宣稱目標遺失或安全。上限為每個路徑 4,096 位元組、256 個元件步驟與 40 次符號連結跳躍。Windows 原生分隔符會正規化；在其他主機上，除了可辨識的 Windows 磁碟機逸出，不支援反斜線路徑。保留原始行號與片段。 離開套件目錄的隱含行內程式碼範例會被忽略，末尾的 `:line` 會被移除。
+
+`/docs/foo` 等網站根連結指向技能目錄之外時，現在會產生 HIGH `reference-escapes-root`，而非原本的 LOW `dangling-link`。使用 `--threshold high` 時可能被封鎖。
+
+三個規則 ID 都支援在 `audit-rules.yaml` 設定 `enabled: false`，沿用其他結構檢查的全域／專案規則層。`doctor` 共用此分析器：遺失或未完成的參照列為警告，逸出列為錯誤，`doctor --json` 將其記錄在 `bundled_references`。兩種模式中探索到的 skill 都適用。
 
 ## 威脅類別深入解析
 
@@ -178,7 +192,7 @@ Output suppression 依命中的證據分級，不取決於 Markdown 上下文：
 
 共用 Markdown parser 辨識 fenced code block 的邊界，包括較長的 fence 與未閉合區塊。區塊內容仍接受 static rules 掃描，shell 區塊也接受 command-tier 與 dataflow 分析。位於程式碼區塊內不代表可信。 原始 HTML 區塊和註解內的 fenced shell 範例也會接受相同的 shell 分析，taint 限定在各程式碼區塊內；原始 HTML 區塊不適用 SDK 參數降級。
 
-**規則覆寫：** 一般揭露限制改用 `prompt-injection-5`。既有 `prompt-injection-4` 的覆寫或接受紀錄不會套用到新規則。將 `prompt-injection-5` 覆寫為 CRITICAL，可保留對一般限制的封鎖。揭露限制規則的嚴重程度覆寫會被遵守。Strict 下已審查的誤報可使用 [Accepted Findings](../reference/commands/update.md#accepted-findings)；規則、檔案或匹配文字改變後，必須重新接受。 明確設定的全域或專案嚴重程度覆寫，包括 CRITICAL，優先於 SDK 參數降級。 內建規則 5 僅排除明確隱瞞的片語，同一行中獨立的一般揭露限制仍會回報，即使規則 4 已停用或降級。 完整替換為自訂 regex 的規則仍保留整行排除語意。
+**規則覆寫：** 一般揭露限制改用 `prompt-injection-5`。既有 `prompt-injection-4` 的覆寫或接受紀錄不會套用到新規則。將 `prompt-injection-5` 覆寫為 CRITICAL，可保留對一般限制的封鎖。揭露限制規則的嚴重程度覆寫會被遵守。Strict 下已審查的誤報可使用 [Accepted Findings](../reference/commands/update.md#accepted-findings)；規則、檔案、匹配文字或偵測器專屬證據改變後，必須重新接受。 明確設定的全域或專案嚴重程度覆寫，包括 CRITICAL，優先於 SDK 參數降級。 內建規則 5 僅排除明確隱瞞的片語，同一行中獨立的一般揭露限制仍會回報，即使規則 4 已停用或降級。 完整替換為自訂 regex 的規則仍保留整行排除語意。
 
 **防禦方式：** 安裝前務必先審查 skill 檔案。使用 `skillshare audit` 偵測已知的注入模式。對於組織層級的部署，可設定 `audit.block_threshold: HIGH`，一併攔截隱藏在註解中的注入。
 

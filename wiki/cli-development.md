@@ -84,6 +84,8 @@ For a bug fix, prove that the test fails before the fix. Add an E2E runbook in `
 
 All command execution and isolation rules live in `testing`. Never run the CLI or tests on the host.
 
+The Nix flake also runs the unit tests, inside the Nix sandbox, which has `/bin/sh` but no `/bin/bash` or `/usr/bin/env`. A change to `go.sum` also needs a new `vendorHash`; see `release`.
+
 ## Web API
 
 When a dashboard endpoint is needed:

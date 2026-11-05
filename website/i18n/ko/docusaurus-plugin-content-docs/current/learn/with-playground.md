@@ -38,7 +38,7 @@ make playground
 | `audit-demo-ci-release` | `security/` | HIGH + MEDIUM (sudo, 외부 URL) |
 | `audit-demo-debug-exfil` | `security/` | CRITICAL (자격 증명 유출) |
 | `audit-demo-external-link` | `security/` | LOW (외부 URL) |
-| `audit-demo-dangling-link` | `security/` | LOW (깨진 로컬 링크) |
+| `audit-demo-dangling-link` | `security/` | LOW (누락된 링크) + HIGH (루트 이탈) |
 
 ### 데모 프로젝트 (`~/demo-project`)
 

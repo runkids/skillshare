@@ -59,6 +59,8 @@ Next
 
 For tracked repositories with agent variants, the Source line shows `N skills, M variants`: logical skills and physical copies. The `variant_routing` check warns when symlink mode exposes all variants instead of selecting by agent; use merge or copy mode for selective routing.
 
+Bundled references use the audit structural checker in both modes: missing or incomplete checks are warnings, root escapes are errors. Global/project `audit-rules.yaml` disables apply. JSON entries use `bundled_references` and include the rule ID, source file, line and snippet. See [bundled reference checks](../../understand/audit-engine.md).
+
 ## When to Use
 
 - Something isn't working and you don't know why
@@ -361,6 +363,8 @@ Next
   skillshare sync          bring the targets up to date
   brew upgrade skillshare  update to v1.3.0
 ```
+
+A `nix profile` install gets `nix profile upgrade skillshare` as its Next line. When NixOS or Home Manager provides skillshare, the Update row says to update your Nix configuration and rebuild, and there is no Next line for it.
 
 ## JSON Output
 

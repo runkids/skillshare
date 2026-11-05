@@ -59,6 +59,8 @@ Next
 
 エージェント別バリアントを含む追跡リポジトリでは、Source 行に `N skills, M variants`（論理スキル数と物理コピー数）が表示されます。`variant_routing` チェックは、symlink モードがエージェント別に選択せず全バリアントを公開する場合に警告します。選択的なルーティングには merge または copy モードを使用してください。
 
+バンドル参照は両モードで audit の構造チェックを使用します。不在・未完了は警告、ルート外への脱出はエラーです。グローバル／プロジェクトの `audit-rules.yaml` による無効化も適用されます。JSON の `bundled_references` にはルール ID、ファイル、行番号、スニペットを含みます。[参照チェック](../../understand/audit-engine.md)を参照してください。
+
 ## 使うタイミング
 
 - 何かがうまく動かないが、原因がわからないとき
@@ -356,6 +358,8 @@ Next
   skillshare sync          bring the targets up to date
   brew upgrade skillshare  update to v1.3.0
 ```
+
+`nix profile` でインストールした場合、Next 行は `nix profile upgrade skillshare` になります。NixOS や Home Manager が skillshare を提供している場合は、Update 行に Nix の設定を更新してリビルドするよう表示され、Next 行は出ません。
 
 ## JSON 出力
 

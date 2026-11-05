@@ -6,8 +6,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"skillshare/internal/install"
 	"skillshare/internal/testutil"
 )
 
@@ -115,6 +117,131 @@ func TestUpdate_Agents_HighFindingBlockedByThreshold(t *testing.T) {
 	if string(content) != "# Reviewer v1\n" {
 		t.Fatalf("expected blocked update to preserve original content, got %q", string(content))
 	}
+}
+
+// Regression for #777: an update must keep the agent's recorded source, so
+// the next upstream change is still found and pulled.
+func TestUpdate_Agents_RepeatedUpdatesKeepSource(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	repoDir := filepath.Join(sb.Home, "agent-repeat-repo")
+	agentFile := filepath.Join(repoDir, "agents", "demo.md")
+	sb.WriteFile(agentFile, "# Demo v1\n")
+	initGitRepo(t, repoDir)
+
+	sb.RunCLI("install", "file://"+repoDir, "--kind", "agent", "--all", "--skip-audit").AssertSuccess(t)
+
+	agentsDir := filepath.Join(filepath.Dir(sb.SourcePath), "agents")
+	readSource := func() string {
+		store, err := install.LoadMetadata(agentsDir)
+		if err != nil {
+			t.Fatalf("load agent metadata: %v", err)
+		}
+		entry := store.GetByPath("demo")
+		if entry == nil {
+			t.Fatal("no metadata entry for demo")
+		}
+		return entry.Source
+	}
+	installedSource := readSource()
+
+	for _, version := range []string{"v2", "v3"} {
+		sb.WriteFile(agentFile, "# Demo "+version+"\n")
+		run(t, repoDir, "git", "commit", "-am", "demo "+version)
+		sb.RunCLI("update", "agents", "--all", "--skip-audit").AssertSuccess(t)
+	}
+
+	if got := sb.ReadFile(filepath.Join(agentsDir, "demo.md")); got != "# Demo v3\n" {
+		t.Errorf("second update did not arrive, got %q", got)
+	}
+	if got := readSource(); got != installedSource {
+		t.Errorf("source changed from %q to %q", installedSource, got)
+	}
+}
+
+// An agent the #777 bug broke, next to one with an update: the update still
+// lands, the broken agent is listed with a reinstall hint, and the command
+// fails, in each mode and output format.
+func TestUpdate_Agents_LostSourceDoesNotBlockOthers(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		project, json bool
+		dryRun        bool
+	}{
+		{name: "global"},
+		{name: "global json", json: true},
+		{name: "global dry run", dryRun: true},
+		{name: "project", project: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+			repoDir := filepath.Join(sb.Home, "repo")
+			sb.WriteFile(filepath.Join(repoDir, "agents", "good.md"), "# Good v1\n")
+			sb.WriteFile(filepath.Join(repoDir, "agents", "lost.md"), "# Lost v1\n")
+			initGitRepo(t, repoDir)
+
+			dir, mode := sb.Home, "-g"
+			agentsDir := filepath.Join(filepath.Dir(sb.SourcePath), "agents")
+			if tc.project {
+				dir, mode = setupProjectWithAgents(t, sb), "-p"
+				agentsDir = filepath.Join(dir, ".skillshare", "agents")
+			}
+			sb.RunCLIInDir(dir, "install", "file://"+repoDir, "--kind", "agent", "--all", "--skip-audit", mode).AssertSuccess(t)
+
+			store, err := install.LoadMetadata(agentsDir)
+			if err != nil {
+				t.Fatalf("load metadata: %v", err)
+			}
+			lost := store.GetByPath("lost")
+			lost.Source, lost.Type, lost.RepoURL = "/agents/lost.md", "unknown-subdir", ""
+			if err := store.Save(agentsDir); err != nil {
+				t.Fatalf("save metadata: %v", err)
+			}
+			sb.WriteFile(filepath.Join(repoDir, "agents", "good.md"), "# Good v2\n")
+			run(t, repoDir, "git", "commit", "-am", "good v2")
+
+			args := []string{"update", "agents", "--all", "--skip-audit", mode}
+			if tc.json {
+				args = append(args, "--json")
+			}
+			if tc.dryRun {
+				args = append(args, "--dry-run")
+			}
+			result := sb.RunCLIInDir(dir, args...)
+			result.AssertFailure(t)
+			if tc.json {
+				assertPureJSON(t, strings.TrimSpace(result.Stdout))
+			}
+			result.AssertAnyOutputContains(t, install.ErrAgentSourceLost.Error())
+
+			want := "# Good v2\n"
+			if tc.dryRun {
+				want = "# Good v1\n"
+			}
+			if got := sb.ReadFile(filepath.Join(agentsDir, "good.md")); got != want {
+				t.Errorf("good agent: got %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+func TestUpdate_Agents_InvalidMetadataFails(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	agentsDir := createAgentSource(t, sb, map[string]string{"demo.md": "# Demo\n"})
+	sb.WriteFile(filepath.Join(agentsDir, install.MetadataFileName), "{invalid")
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("update", "agents", "--all")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "invalid metadata")
 }
 
 // --- uninstall agents ---

@@ -609,6 +609,16 @@ skillshare backup -p --all           # 위와 동일 (agent로 좁혀짐)
 
 **Solution:** Agent 이름은 `a-z`, `0-9`, `_`, `-`, `.`만 사용해야 합니다. 파일 이름을 바꾸고(`name:` 필드도 함께 업데이트해) 동일한 정식 이름을 공유하도록 하세요.
 
+### `source was lost by an earlier update; reinstall this agent` {#agent-source-lost}
+
+**원인:** 이전 버전의 `update agents`는 agent에 기록된 source를 `/agents/<name>.md`로 바꾸고 repository URL을 잃었습니다([#777](https://github.com/runkids/skillshare/issues/777)). repository가 없으므로 이 agent는 확인하거나 업데이트할 수 없습니다.
+
+**해결:** repository에서 agent를 다시 설치하면 source가 올바르게 기록됩니다:
+
+```bash
+skillshare install <repo> --kind agent --all --force
+```
+
 ### `.agentignore` patterns not taking effect
 
 **Causes:**

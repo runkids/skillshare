@@ -25,7 +25,7 @@ func ScanContentWithRules(content []byte, filename string, activeRules []rule) [
 		}
 	}
 
-	var findings []Finding
+	findings := scanWhitespacePadding(content, filename, activeRules)
 	// A BOM at the very start is the file's encoding mark, not a hidden character.
 	text := utils.TrimBOM(string(content))
 	lineNum := 0
@@ -77,7 +77,7 @@ func ScanMarkdownContentWithRules(content []byte, filename string, activeRules [
 		}
 	}
 
-	findings, _ := scanFileUnifiedMarkdown(utils.TrimBOM(string(content)), filename, activeRules, nil, true, false)
+	findings, _ := scanFileUnified(content, filename, true, activeRules, nil, true, false, false)
 	return findings
 }
 

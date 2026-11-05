@@ -90,7 +90,7 @@ skillshare sync -g       # Force global mode
 │   ├── config.yaml              # Targets + settings (incl. extras)
 │   ├── skills.lock.json         # Commit each remote skill is pinned to (auto-managed, commit it)
 │   ├── skills/.metadata.json     # Runtime metadata (hashes, timestamps — auto-managed, gitignored)
-│   ├── .gitignore               # Ignores logs/, trash/, backups/, and cloned remote/tracked skill dirs
+│   ├── .gitignore               # Ignores logs/, trash/, backups/, .metadata.json, and cloned remote/tracked skill dirs
 │   ├── extras/                  # Extras source directories
 │   │   └── rules/               # e.g. extras init rules --target .claude/rules -p
 │   │       └── coding.md
@@ -204,7 +204,7 @@ skills:
 - `tracked: true`: `--track`으로 설치됨 (`.git/`이 보존된 git repo). 누군가 `skillshare install -p`를 실행하면, tracked skill은 전체 git 히스토리와 함께 clone되어 `skillshare update`가 올바르게 동작합니다.
 - `group`: 하위 디렉터리 경로 (install 중 `--into`에 해당).
 
-런타임 메타데이터(설치 타임스탬프, 파일 해시, 커밋 SHA)는 `.skillshare/skills/.metadata.json`에 별도로 저장됩니다 — 이 파일은 자동으로 관리되며 gitignore됩니다.
+런타임 메타데이터(설치 타임스탬프, 파일 해시, 커밋 SHA)는 `.skillshare/skills/.metadata.json`에 별도로 저장됩니다 — 이 파일은 자동으로 관리되며 gitignore됩니다. 이 규칙이 생기기 전에 이미 커밋한 프로젝트라면 `git rm --cached .skillshare/skills/.metadata.json`를 한 번 실행해 추적을 중지하세요.
 
 :::tip 이식 가능한 Skill Manifest
 `config.yaml`은 선언적 skill manifest입니다. 프로젝트에서는 git에 커밋하면 누구나 `skillshare install -p && skillshare sync`를 실행할 수 있습니다. global mode의 경우, global config는 git으로 공유할 필요가 없으므로 `.metadata.json`이 manifest 역할을 합니다.
@@ -293,7 +293,7 @@ Project mode에는 의도적인 몇 가지 제한이 있습니다:
 | Merge sync mode | ✓ | 기본값, skill별 symlink |
 | Copy sync mode | ✓ | `skillshare target <name> --mode copy -p`를 통해 target별로 |
 | Symlink sync mode | ✓ | `skillshare target <name> --mode symlink -p`를 통해 target별로 |
-| `--track` repos | ✓ | `.skillshare/skills/_repo/`에 clone되어 `.gitignore`에 추가됨 (`logs/`, `trash/`, `backups/`도 기본적으로 무시됨) |
+| `--track` repos | ✓ | `.skillshare/skills/_repo/`에 clone되어 `.gitignore`에 추가됨 (`logs/`, `trash/`, `backups/`, `.metadata.json` 파일도 기본적으로 무시됨) |
 | `--discover` | ✓ | 기존 프로젝트 config에 새 target을 감지하여 추가 |
 | `push` / `pull` | ✗ | 프로젝트 repo에서 직접 git 사용 |
 | `collect` | ✓ | 프로젝트 target에서 로컬 skill을 `.skillshare/skills/`로 수집 |

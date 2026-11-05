@@ -76,6 +76,51 @@ func TestScanSkillFollowedRootLogicalMetadata(t *testing.T) {
 	t.Fatalf("logical source metadata was not checked: %+v", result.Findings)
 }
 
+func TestScanSkillFollowedRootBundledReferencesAcceptLogicalSpellings(t *testing.T) {
+	source := t.TempDir()
+	target := t.TempDir()
+	asset := filepath.Join(target, "asset.md")
+	if err := os.WriteFile(asset, []byte("# Fixture"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(source, "outside.md")
+	if err := os.WriteFile(outside, []byte("# Outside"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(source, "single-skill")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skip(err)
+	}
+	if err := os.Symlink(filepath.Join(link, "asset.md"), filepath.Join(target, "internal-alias")); err != nil {
+		t.Skip(err)
+	}
+	content := "# Fixture\n" +
+		"[logical root](" + filepath.Join(link, "asset.md") + ")\n" +
+		"[internal alias](internal-alias)\n" +
+		"[outside](" + outside + ")\n"
+	if err := os.WriteFile(filepath.Join(target, "SKILL.md"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := ScanSkillWithFollow(link, sourcewalk.NewFollow(source, nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	escapeFound := false
+	for _, finding := range result.Findings {
+		if finding.RuleID == "reference-escapes-root" && finding.Line == 4 {
+			escapeFound = true
+			continue
+		}
+		if finding.RuleID == "reference-escapes-root" || finding.RuleID == "dangling-link" {
+			t.Errorf("logical source spelling was rejected: %+v", finding)
+		}
+	}
+	if !escapeFound {
+		t.Fatalf("outside absolute reference was not rejected: %+v", result.Findings)
+	}
+}
+
 func TestHeaderFollowedRootAndAcceptance(t *testing.T) {
 	source, target := t.TempDir(), t.TempDir()
 	if err := os.WriteFile(filepath.Join(target, "guide.png"), testELF64Header(), 0644); err != nil {

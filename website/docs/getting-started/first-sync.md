@@ -42,8 +42,23 @@ curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh 
 irm https://raw.githubusercontent.com/runkids/skillshare/main/install.ps1 | iex
 ```
 
+**Nix (Linux / Apple Silicon macOS):**
+```bash
+nix profile add github:runkids/skillshare
+```
+
+Update with `nix profile upgrade skillshare`. Requires Nix 2.30+ with flakes enabled; on older Nix or Lix, use `nix profile install`. For NixOS or Home Manager, add the flake as an input and use its overlay:
+
+```nix
+# flake.nix
+inputs.skillshare.url = "github:runkids/skillshare";
+# NixOS or Home Manager module
+nixpkgs.overlays = [ inputs.skillshare.overlays.default ];
+environment.systemPackages = [ pkgs.skillshare ]; # or home.packages
+```
+
 :::tip Updating later
-`skillshare upgrade` detects how you installed (Homebrew, script, manual) and updates the CLI in place.
+`skillshare upgrade` detects how you installed (Homebrew, script, manual) and updates the CLI in place. For a Nix install, it leaves the CLI to Nix and says how to update it: `nix profile upgrade skillshare` for a `nix profile` install, or a rebuild of your NixOS or Home Manager configuration.
 :::
 
 ## 2. Initialize

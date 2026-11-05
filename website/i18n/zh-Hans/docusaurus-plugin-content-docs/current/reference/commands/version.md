@@ -30,7 +30,7 @@ skillshare version 0.16.6
 
 当有新版本可用时，`skillshare` 会在支持该功能的命令执行后显示更新通知。这个通知会**感知 Homebrew**：如果 skillshare 是通过 Homebrew 安装的，它会查询 `brew info` 获取最新的 formula 版本，并建议执行 `brew upgrade skillshare`；否则会检查 GitHub releases 并建议执行 `skillshare upgrade`。
 
-检测是自动进行的——skillshare 会解析自身可执行文件的路径，并检查它是否位于 Homebrew Cellar 前缀下（例如 `/opt/homebrew/Cellar/skillshare/`）。
+检测是自动进行的——skillshare 会解析自身可执行文件的路径，并检查它是否位于 Homebrew Cellar 前缀下（例如 `/opt/homebrew/Cellar/skillshare/`）。位于 `/nix/store/` 下的二进制文件会检查 GitHub releases。若二进制文件位于你的 `nix profile` 中，则建议执行 `nix profile upgrade skillshare`，否则提示你在 Nix 配置中更新 skillshare 并重新构建。
 
 版本检查结果会缓存 24 小时，缓存位置为 `~/.cache/skillshare/version-check.json`。
 
