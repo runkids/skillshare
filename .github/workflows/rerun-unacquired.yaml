@@ -1,0 +1,42 @@
+name: Rerun unacquired jobs
+
+# Hosted macOS arm64 runners are often short, and a job that waits too long
+# fails with "The job was not acquired by Runner of type hosted". That says
+# nothing about the code, so re-run that job once (its conclusion can be
+# "failure" or "cancelled"). Jobs that failed for any other reason are left alone.
+on:
+  workflow_run:
+    workflows: [Test, Nix darwin]
+    types: [completed]
+
+permissions:
+  actions: write
+  checks: read
+
+jobs:
+  rerun:
+    # Only the first attempt, and only runs from this repository.
+    if: >-
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.run_attempt == 1 &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Re-run a job no runner picked up
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          jobs=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate \
+            -q '.jobs[] | select(.conclusion == "failure" or .conclusion == "cancelled") | .id')
+          for job in $jobs; do
+            if gh api "repos/$REPO/check-runs/$job/annotations" -q '.[].message' |
+              grep -q 'was not acquired by Runner'; then
+              # One re-run per attempt: a second request fails while the first is running.
+              echo "Job $job in run $RUN_ID was never picked up by a runner; re-running it."
+              gh api -X POST "repos/$REPO/actions/jobs/$job/rerun"
+              exit 0
+            fi
+          done
+          echo "No unacquired job in run $RUN_ID; leaving it as is."

@@ -48,7 +48,8 @@ RUN chmod +x /entrypoint.sh
 WORKDIR /workspace
 
 COPY go.mod go.sum ./
-RUN go mod download
+# The module proxy sometimes drops a download mid-stream; retry before failing the build.
+RUN for i in 1 2 3; do go mod download && exit 0; echo "go mod download failed (attempt $i), retrying" >&2; sleep 10; done; exit 1
 RUN mkdir -p /go/build-cache /go/pkg/mod && chmod -R 0777 /go/build-cache /go/pkg/mod
 
 ENTRYPOINT ["/entrypoint.sh"]
