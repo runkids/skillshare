@@ -243,7 +243,8 @@ func writeProjectLock(projectRoot string, cfg *ProjectConfig, store *install.Met
 }
 
 // reconcileProjectConfigSkills syncs MetadataStore entries into ProjectConfig.Skills
-// so the declarative skill list in config.yaml stays in sync with installed skills.
+// so the declarative skill list in config.yaml stays in sync with installed skills,
+// including the branch a declared skill was last installed from.
 // Returns true if ProjectConfig.Skills was modified.
 func reconcileProjectConfigSkills(cfg *ProjectConfig, store *install.MetadataStore, live map[string]bool) bool {
 	existing := make(map[string]int, len(cfg.Skills))
@@ -262,7 +263,13 @@ func reconcileProjectConfigSkills(cfg *ProjectConfig, store *install.MetadataSto
 		if entry.Kind == "agent" {
 			continue
 		}
-		if _, ok := existing[name]; ok {
+		if i, ok := existing[name]; ok {
+			// A reinstall from another branch (install --branch --force, or the
+			// dashboard's branch switch) moves the declaration with it.
+			if s := &cfg.Skills[i]; !entry.Tracked && s.Source == entry.Source && s.Branch != entry.Branch {
+				s.Branch = entry.Branch
+				changed = true
+			}
 			continue
 		}
 		cfg.Skills = append(cfg.Skills, SkillEntry{

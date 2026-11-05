@@ -161,4 +161,5 @@ export const staleTimes = {
   doctor: 60 * 1000,        // 1min — health checks
   skillignore: 5 * 60 * 1000, // 5min — rarely changes
   agentignore: 5 * 60 * 1000, // 5min — rarely changes
+  refs: 5 * 60 * 1000,      // 5min — a source's branches and tags (ls-remote)
 };

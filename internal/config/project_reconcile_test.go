@@ -207,6 +207,36 @@ func TestReconcileProjectSkills_AddsToConfigSkills(t *testing.T) {
 	}
 }
 
+// A skill reinstalled from another branch keeps config.yaml naming that branch.
+func TestReconcileProjectSkills_UpdatesConfigSkillBranch(t *testing.T) {
+	root := t.TempDir()
+	skillsDir := filepath.Join(root, ".skillshare", "skills")
+	if err := os.MkdirAll(filepath.Join(skillsDir, "foo"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &ProjectConfig{
+		Targets: []ProjectTargetEntry{{Name: "claude"}},
+		Skills:  []SkillEntry{{Name: "foo", Source: "github.com/user/repo/foo", Branch: "dev"}},
+	}
+	if err := cfg.Save(root); err != nil {
+		t.Fatal(err)
+	}
+	store := install.NewMetadataStore()
+	store.Set("foo", &install.MetadataEntry{Source: "github.com/user/repo/foo", Branch: "main"})
+
+	if err := ReconcileProjectSkills(root, cfg, store, skillsDir); err != nil {
+		t.Fatalf("ReconcileProjectSkills failed: %v", err)
+	}
+
+	loaded, err := LoadProject(root)
+	if err != nil {
+		t.Fatalf("LoadProject failed: %v", err)
+	}
+	if len(loaded.Skills) != 1 || loaded.Skills[0].Branch != "main" {
+		t.Fatalf("config skills = %+v, want foo on branch main", loaded.Skills)
+	}
+}
+
 // Issue #157: reconcile should remove config skills for uninstalled skills
 func TestReconcileProjectSkills_PrunesConfigSkills(t *testing.T) {
 	root := t.TempDir()

@@ -688,6 +688,10 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
     const total = filtering ? groupTotals.get(id) : undefined;
     return total !== undefined && total !== n ? `${n} / ${countLabel(t, kind, total)}` : countLabel(t, kind, n);
   };
+  /** The branch a skill was installed from; a tracked repo's header already names its branch. */
+  const branchTag = (s: Skill) => s.branch && !s.isInRepo
+    ? <span className="ss-tag max-w-[40%]" title={s.branch}><GitBranch size={11} className="shrink-0" /><span className="truncate">{s.branch}</span></span>
+    : null;
   /** Marks the typed text inside a name; glob patterns match whole names, so they mark nothing. */
   const hit = (name: string) => {
     const i = query && !isGlob ? name.toLowerCase().indexOf(query.toLowerCase()) : -1;
@@ -730,6 +734,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
           <span className="flex min-w-0 items-center gap-2">
             <Link to={resourceHref(s)} className={`nm m truncate hover:underline ${s.disabled || context(s) ? 'text-ink-3' : ''}`}>{hit(s.name)}</Link>
             {s.manualOnly && <span className="ss-tag shrink-0" title={t('frontmatterEditor.field.disableModelInvocation.hint')}>manual only</span>}
+            {branchTag(s)}
             {pkg && pill(s, pkg)}
           </span>
           {(sub || desc) && (
@@ -762,6 +767,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
         {selectBox(s)}
         <Link to={resourceHref(s)} className={`nm m shrink-0 hover:underline ${s.disabled || context(s) ? 'text-ink-3' : ''}`}>{hit(s.name)}</Link>
         {s.manualOnly && <span className="ss-tag shrink-0" title={t('frontmatterEditor.field.disableModelInvocation.hint')}>manual only</span>}
+        {branchTag(s)}
         {pkg && pill(s, pkg)}
         {tone !== 'ok' && <span className="ss-tag shrink-0">{label}</span>}
         {desc && <span className={`ss-desc min-w-0 text-xs ${context(s) ? 'text-ink-3' : 'text-ink-2'}`} title={desc}>{desc}</span>}
@@ -822,6 +828,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
           <span className="flex items-center gap-2">
             <TargetStack names={synced} reachable={reachable} max={3} />
             {s.manualOnly && <span className="ss-tag shrink-0" title={t('frontmatterEditor.field.disableModelInvocation.hint')}>manual only</span>}
+            {branchTag(s)}
           </span>
           {status$(tone, label)}
         </div>

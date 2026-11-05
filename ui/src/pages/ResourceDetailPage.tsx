@@ -7,6 +7,7 @@ import {
   FolderInput, FolderOpen, Github, Globe, Pencil, Power, RefreshCw, ShieldAlert, ShieldCheck, Trash2, TriangleAlert, X,
 } from 'lucide-react';
 import { api, type AuditResult, type DiffTarget, type Skill, type SyncMatrixEntry } from '../api/client';
+import { hubRefs } from '../api/hubDrafts';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { clearAuditCache } from '../lib/auditCache';
 import { SEV, parseFindings, thresholdOf } from '../lib/auditMessage';
@@ -31,6 +32,8 @@ import { CODE_EXT, fileTree } from '../lib/fileTree';
 import MarkdownView, { ViewToggle } from '../components/MarkdownView';
 import { SkillDetailSkeleton } from '../components/Skeleton';
 import Spinner from '../components/Spinner';
+import { Select } from '../components/Select';
+import { refOptions } from '../components/hub/hubShared';
 import { SkillContextMenu, type ContextMenuItem } from '../components/TargetMenu';
 import { useToast } from '../components/Toast';
 import { SkillEditor } from '../components/skill-editor';
@@ -86,6 +89,10 @@ export default function ResourceDetailPage() {
   const [updating, setUpdating] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [blocked, setBlocked] = useState<string | null>(null);
+  // A branch picked in the sidebar waits here for confirmation.
+  const [branchTo, setBranchTo] = useState<string | null>(null);
+  // The branch being switched to, kept while a force or skip-audit retry may follow.
+  const [switchTo, setSwitchTo] = useState<string | null>(null);
   // The Updates tab links a modified skill here with ?changes=1 to show its edits.
   const [modified, setModified] = useState(() => searchParams.get('changes') === '1');
   const [raw, setRaw] = useState(false);
@@ -165,18 +172,22 @@ export default function ResourceDetailPage() {
     });
   };
 
-  const runUpdate = async (skipAudit: boolean, force = false) => {
+  const runUpdate = async (skipAudit: boolean, force = false, branch = switchTo ?? undefined) => {
     setUpdating(true);
     try {
       const target = repoOf(resource) ?? (isAgent ? resource.flatName : resource.relPath);
-      const res = await api.update({ name: target, kind: resource.kind, skipAudit, force });
+      const res = await api.update({ name: target, kind: resource.kind, skipAudit, force, branch });
       const item = res.results[0];
+      const retryable = item?.action === 'blocked' || (item?.action === 'skipped' && isForceRetryable(item.message));
+      if (!retryable) setSwitchTo(null);
       if (item?.action === 'updated') {
         setBlocked(null);
         const auditInfo = item.auditRiskLabel
           ? ` · Security: ${item.auditRiskLabel.toUpperCase()}${item.auditRiskScore ? ` (${item.auditRiskScore}/100)` : ''}`
           : '';
-        toast(t('resourceDetail.toast.updated', { name: resource.name, message: item.message ?? '', auditInfo }), 'success');
+        toast(branch
+          ? t('resourceDetail.toast.switchedBranch', { name: resource.name, branch, auditInfo })
+          : t('resourceDetail.toast.updated', { name: resource.name, message: item.message ?? '', auditInfo }), 'success');
         markUpToDate();
         clearAuditCache(queryClient);
         await refreshResource();
@@ -193,6 +204,7 @@ export default function ResourceDetailPage() {
         toast(item?.message ?? t('resourceDetail.toast.skipped'), 'warning');
       }
     } catch (e) {
+      setSwitchTo(null);
       toast((e as Error).message, 'error');
     } finally {
       setUpdating(false);
@@ -364,6 +376,8 @@ export default function ResourceDetailPage() {
               audit={audit}
               auditPending={auditQuery.isPending}
               auditHref={tabSearch('audit')}
+              branchBusy={updating}
+              onBranch={setBranchTo}
             />
             {!resource.disabled && <TargetsSection resource={resource} />}
           </div>
@@ -398,10 +412,23 @@ export default function ResourceDetailPage() {
         wide
         loading={updating}
         onConfirm={() => runUpdate(false, true).then(() => setModified(false))}
-        onCancel={() => setModified(false)}
+        onCancel={() => { setModified(false); setSwitchTo(null); }}
+      />
+      <ConfirmDialog
+        open={branchTo !== null}
+        title={t('resourceDetail.branch.title')}
+        message={t('resourceDetail.branch.message', { name: resource.name, branch: branchTo ?? '' })}
+        confirmText={t('resourceDetail.branch.confirm')}
+        loading={updating}
+        onConfirm={() => {
+          const branch = branchTo!;
+          setSwitchTo(branch);
+          void runUpdate(false, false, branch).then(() => setBranchTo(null));
+        }}
+        onCancel={() => setBranchTo(null)}
       />
       {blocked !== null && (
-        <BlockedDialog name={resource.name} message={blocked} loading={updating} onSkip={() => runUpdate(true)} onClose={() => setBlocked(null)} />
+        <BlockedDialog name={resource.name} message={blocked} loading={updating} onSkip={() => runUpdate(true)} onClose={() => { setBlocked(null); setSwitchTo(null); }} />
       )}
     </div>
       {moveDialog}
@@ -411,7 +438,40 @@ export default function ResourceDetailPage() {
 
 /* -- Sidebar -------------------------------------- */
 
-function MetaBox({ resource, frontmatter, body, fileCount, check, audit, auditPending, auditHref }: {
+/** Picks the branch to reinstall a skill from; the branches are listed once someone reaches for it. */
+function BranchPicker({ resource, busy, onPick }: { resource: Skill; busy: boolean; onPick: (branch: string) => void }) {
+  const t = useT();
+  const source = resource.source ?? '';
+  const [wanted, setWanted] = useState(false);
+  const refs = useQuery({
+    queryKey: queryKeys.hub.refs(source),
+    queryFn: () => hubRefs(source),
+    enabled: wanted,
+    staleTime: staleTimes.refs,
+  });
+  const current = resource.branch ?? '';
+  const fixed = refs.data?.pinnable === false;
+  return (
+    <div onPointerDownCapture={() => setWanted(true)} onFocusCapture={() => setWanted(true)} title={fixed ? t('hubs.ref.fixed') : undefined}>
+      <Select
+        size="sm"
+        align="end"
+        ariaLabel={t('resourceDetail.meta.branch')}
+        value={current}
+        // The default branch is sent by name, since an empty branch keeps the recorded one.
+        onChange={(v) => {
+          const branch = v || refs.data?.defaultBranch;
+          if (branch && branch !== current) onPick(branch);
+        }}
+        options={refOptions(t, refs.data && { ...refs.data, tags: [] }, current, refs.isFetching)}
+        disabled={busy || fixed}
+      />
+      {refs.isError && <span className="mt-1 block text-xs text-bad">{(refs.error as Error).message}</span>}
+    </div>
+  );
+}
+
+function MetaBox({ resource, frontmatter, body, fileCount, check, audit, auditPending, auditHref, branchBusy, onBranch }: {
   resource: Skill;
   frontmatter: Record<string, unknown>;
   body: string;
@@ -420,6 +480,8 @@ function MetaBox({ resource, frontmatter, body, fileCount, check, audit, auditPe
   audit?: AuditResult;
   auditPending: boolean;
   auditHref: string;
+  branchBusy: boolean;
+  onBranch: (branch: string) => void;
 }) {
   const t = useT();
   const { locale } = useI18n();
@@ -451,6 +513,10 @@ function MetaBox({ resource, frontmatter, body, fileCount, check, audit, auditPe
       </a>
     ) : resource.source ? <span className="block truncate font-mono">{resource.source}</span> : t('resourceDetail.meta.local'),
   ]);
+  // A tracked repo changes branch on the Git Sync page; other remote skills reinstall from the branch picked here.
+  if (!isAgent && remote && resource.source && !resource.isInRepo) {
+    rows.push([t('resourceDetail.meta.branch'), <BranchPicker resource={resource} busy={branchBusy} onPick={onBranch} />]);
+  }
   if (resource.source || resource.isInRepo) {
     rows.push([
       t('resourceDetail.meta.tracked'),
