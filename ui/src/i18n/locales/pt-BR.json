@@ -160,6 +160,7 @@
   "auditRules.confirm.message": "Isso excluirá seu audit-rules.yaml e restaurará todas as regras para seus padrões embutidos. Esta ação não pode ser desfeita.",
   "auditRules.confirm.title": "Redefinir Todas as Regras Personalizadas",
   "auditRules.detail.exclude": "Excluir",
+  "auditRules.detail.files": "Arquivos",
   "auditRules.detail.regex": "Regex",
   "auditRules.detail.confidence": "Confiança",
   "auditRules.detail.overridden": "substituída",

@@ -65,6 +65,7 @@ export interface AuditRulesResponse {
 }
 
 export interface CompiledRule {
+  files?: string[];
   confidence: number;
   confidenceOverridden: boolean;
   id: string;

@@ -160,6 +160,7 @@
   "auditRules.confirm.message": "audit-rules.yaml を削除し、すべてのルールを組み込みのデフォルトに戻します。この操作は元に戻せません。",
   "auditRules.confirm.title": "すべてのカスタムルールをリセット",
   "auditRules.detail.exclude": "除外",
+  "auditRules.detail.files": "ファイル",
   "auditRules.detail.regex": "正規表現",
   "auditRules.detail.confidence": "信頼度",
   "auditRules.detail.overridden": "上書き済み",

@@ -42,9 +42,9 @@ const (
 // categoryForPattern maps a rule pattern name to a broad category.
 func categoryForPattern(pattern string) string {
 	switch {
-	case strings.Contains(pattern, "injection") || strings.Contains(pattern, "hidden-comment") || pattern == "prompt-leakage" || pattern == "anti-refusal":
+	case strings.Contains(pattern, "injection") || strings.Contains(pattern, "unsafe-deserialization") || strings.Contains(pattern, "hidden-comment") || pattern == "prompt-leakage" || pattern == "anti-refusal":
 		return CategoryInjection
-	case strings.Contains(pattern, "exfiltration") || strings.Contains(pattern, "fetch-with-pipe") || pattern == "agent-snooping":
+	case strings.Contains(pattern, "exfiltration") || strings.Contains(pattern, "ssrf-") || strings.Contains(pattern, "fetch-with-pipe") || pattern == "agent-snooping":
 		return CategoryExfiltration
 	case strings.Contains(pattern, "credential") || strings.Contains(pattern, "hardcoded-secret"):
 		return CategoryCredential

@@ -160,6 +160,7 @@
   "auditRules.confirm.message": "Damit wird deine audit-rules.yaml gelöscht und alle Regeln auf die integrierten Standardwerte zurückgesetzt. Diese Aktion kann nicht rückgängig gemacht werden.",
   "auditRules.confirm.title": "Alle benutzerdefinierten Regeln zurücksetzen",
   "auditRules.detail.exclude": "Ausschließen",
+  "auditRules.detail.files": "Dateien",
   "auditRules.detail.regex": "Regex",
   "auditRules.detail.confidence": "Konfidenz",
   "auditRules.detail.overridden": "überschrieben",

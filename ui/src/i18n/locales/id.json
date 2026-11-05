@@ -160,6 +160,7 @@
   "auditRules.confirm.message": "Ini akan menghapus audit-rules.yaml Anda dan mengembalikan semua aturan ke default bawaan. Tindakan ini tidak dapat dibatalkan.",
   "auditRules.confirm.title": "Reset Semua Aturan Kustom",
   "auditRules.detail.exclude": "Kecualikan",
+  "auditRules.detail.files": "Berkas",
   "auditRules.detail.regex": "Regex",
   "auditRules.detail.confidence": "Kepercayaan",
   "auditRules.detail.overridden": "ditimpa",

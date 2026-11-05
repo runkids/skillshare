@@ -95,6 +95,9 @@ func SeverityRank(sev string) int {
 
 // rule defines a single compiled scanning pattern.
 type rule struct {
+	Files              []string
+	matchKind          string
+	requestRegex       *regexp.Regexp // embedded metadata request context
 	ID                 string
 	Severity           string
 	Pattern            string // rule name
@@ -114,17 +117,20 @@ const defaultRuleConfidence = 0.95
 
 // yamlRule is the YAML deserialization type for a single rule.
 type yamlRule struct {
-	ID                   string   `yaml:"id"`
-	Severity             string   `yaml:"severity"`
-	Pattern              string   `yaml:"pattern"`
-	Message              string   `yaml:"message"`
-	Confidence           *float64 `yaml:"confidence,omitempty"`
-	Regex                string   `yaml:"regex"`
-	Exclude              string   `yaml:"exclude,omitempty"`
-	Enabled              *bool    `yaml:"enabled,omitempty"` // nil = true; false = disable
-	severityOverridden   bool     `yaml:"-"`
-	confidenceOverridden bool     `yaml:"-"`
-	excludePhrase        bool     `yaml:"-"`
+	Files                fileGlobs `yaml:"files,omitempty"`
+	matchKind            string    `yaml:"-"`
+	requestRegex         string    `yaml:"-"`
+	ID                   string    `yaml:"id"`
+	Severity             string    `yaml:"severity"`
+	Pattern              string    `yaml:"pattern"`
+	Message              string    `yaml:"message"`
+	Confidence           *float64  `yaml:"confidence,omitempty"`
+	Regex                string    `yaml:"regex"`
+	Exclude              string    `yaml:"exclude,omitempty"`
+	Enabled              *bool     `yaml:"enabled,omitempty"` // nil = true; false = disable
+	severityOverridden   bool      `yaml:"-"`
+	confidenceOverridden bool      `yaml:"-"`
+	excludePhrase        bool      `yaml:"-"`
 }
 
 type rulesFile struct {
@@ -132,7 +138,7 @@ type rulesFile struct {
 }
 
 func (r rule) matchesLine(line string) bool {
-	if r.ID == ruleWhitespacePadding || !r.Regex.MatchString(line) {
+	if r.ID == ruleWhitespacePadding || !r.matchesSensitiveLine(line) {
 		return false
 	}
 	if r.Exclude == nil || !r.Exclude.MatchString(line) {
@@ -260,8 +266,21 @@ func parseBuiltinRulesYAML() ([]yamlRule, error) {
 		return nil, err
 	}
 	rules = append(rules, credentialYAMLRules()...)
+	var requestRegex string
+	for _, r := range rules {
+		if r.ID == "ssrf-internal-0" {
+			requestRegex = r.Regex
+		}
+	}
 	for i := range rules {
 		rules[i].excludePhrase = rules[i].ID == "prompt-injection-5"
+		switch rules[i].ID {
+		case "ssrf-metadata-0":
+			rules[i].matchKind = rules[i].ID
+			rules[i].requestRegex = requestRegex
+		case "ssrf-internal-0", "unsafe-deserialization-yaml", "unsafe-deserialization-torch", "unsafe-deserialization-php":
+			rules[i].matchKind = rules[i].ID
+		}
 	}
 	return rules, nil
 }
@@ -273,6 +292,9 @@ func parseRulesYAML(data []byte) ([]yamlRule, error) {
 		return nil, fmt.Errorf("parse YAML: %w", err)
 	}
 	for _, r := range f.Rules {
+		if err := validateRuleFiles(r.Files); err != nil {
+			return nil, fmt.Errorf("rule %q: %w", r.ID, err)
+		}
 		if r.ID == ruleWhitespacePadding && (r.Regex != "" || r.Exclude != "") {
 			return nil, fmt.Errorf("rule %q: regex and exclude are not supported", r.ID)
 		}
@@ -284,6 +306,9 @@ func parseRulesYAML(data []byte) ([]yamlRule, error) {
 func compileRules(yr []yamlRule) ([]rule, error) {
 	var rules []rule
 	for _, y := range yr {
+		if err := validateRuleFiles(y.Files); err != nil {
+			return nil, fmt.Errorf("rule %q: %w", y.ID, err)
+		}
 		if y.Enabled != nil && !*y.Enabled {
 			continue // disabled rule
 		}
@@ -308,6 +333,8 @@ func compileRules(yr []yamlRule) ([]rule, error) {
 		}
 
 		r := rule{
+			Files:              append([]string(nil), y.Files...),
+			matchKind:          y.matchKind,
 			ID:                 y.ID,
 			Severity:           sev,
 			Pattern:            y.Pattern,
@@ -318,6 +345,12 @@ func compileRules(yr []yamlRule) ([]rule, error) {
 			excludePhrase:      y.excludePhrase,
 		}
 		r.prefilter, r.prefilterFold = deriveRulePrefilter(y.Regex, re)
+		if y.requestRegex != "" {
+			r.requestRegex, err = regexp.Compile(y.requestRegex)
+			if err != nil {
+				return nil, fmt.Errorf("rule %q: invalid request context: %w", y.ID, err)
+			}
+		}
 		if y.Exclude != "" {
 			excl, err := regexp.Compile(y.Exclude)
 			if err != nil {
@@ -389,6 +422,9 @@ func mergeYAMLRules(base, overlay []yamlRule) []yamlRule {
 			if po.Enabled != nil && !*po.Enabled {
 				result[i].Enabled = po.Enabled
 			}
+			if po.Files != nil {
+				result[i].Files = po.Files
+			}
 			if po.Confidence != nil {
 				result[i].Confidence = po.Confidence
 				result[i].confidenceOverridden = true
@@ -417,6 +453,9 @@ func mergeYAMLRules(base, overlay []yamlRule) []yamlRule {
 					} else {
 						result[pos].Enabled = o.Enabled
 					}
+				}
+				if o.Files != nil {
+					result[pos].Files = o.Files
 				}
 				if o.Confidence != nil {
 					result[pos].Confidence = o.Confidence
@@ -469,7 +508,8 @@ func DefaultRulesTemplate() string {
 #   built-in → global (~/.config/skillshare/audit-rules.yaml) → project (.skillshare/audit-rules.yaml)
 #
 # Each rule needs: id, severity (CRITICAL/HIGH/MEDIUM/LOW/INFO), pattern, message, regex.
-# Optional: exclude (suppress match when line also matches), enabled (false to disable).
+# Optional: files (relative path.Match globs, e.g. ["*.py"]),
+# exclude (suppress match when line also matches), enabled (false to disable).
 
 rules:
   # Example: flag TODO comments as informational

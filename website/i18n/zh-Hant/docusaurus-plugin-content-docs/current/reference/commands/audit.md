@@ -318,7 +318,7 @@ audit 會掃描 skill 目錄中的文字型檔案：
 
 - `.md`、`.txt`、`.yaml`、`.yml`、`.json`、`.toml`
 - `.sh`、`.bash`、`.zsh`、`.fish`
-- `.py`、`.js`、`.ts`、`.rb`、`.go`、`.rs`
+- `.py`、`.js`、`.ts`、`.rb`、`.php`、`.php3`、`.php4`、`.php5`、`.phtml`、`.go`、`.rs`、`.swift`
 - 沒有副檔名的檔案（例如 `Makefile`、`Dockerfile`）
 
 文字掃描略過隱藏目錄，在其餘 skill 目錄內遞迴進行，因此 `SKILL.md`、巢狀的 `references/*.md` 與 `scripts/*.sh` 只要符合支援的文字檔類型，都會被檢查。

@@ -160,6 +160,7 @@
   "auditRules.confirm.message": "Esto eliminará tu audit-rules.yaml y restaurará todas las reglas a sus valores predeterminados. Esta acción no se puede deshacer.",
   "auditRules.confirm.title": "Restablecer todas las reglas personalizadas",
   "auditRules.detail.exclude": "Excluir",
+  "auditRules.detail.files": "Archivos",
   "auditRules.detail.regex": "Regex",
   "auditRules.detail.confidence": "Confianza",
   "auditRules.detail.overridden": "modificada",

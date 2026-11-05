@@ -4,7 +4,7 @@ import { auditFieldDocs } from '../auditFieldDocs';
 describe('auditFieldDocs', () => {
   it('has entries for all rule fields', () => {
     const required = ['rules', 'rules.id', 'rules.severity', 'rules.pattern',
-      'rules.message', 'rules.regex', 'rules.exclude', 'rules.enabled'];
+      'rules.message', 'rules.regex', 'rules.files', 'rules.exclude', 'rules.enabled'];
     for (const key of required) {
       expect(auditFieldDocs[key], `missing ${key}`).toBeDefined();
     }

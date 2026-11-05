@@ -112,6 +112,7 @@ rules:
 | `regex` | 예* | 각 줄에 대해 매칭할 정규식 |
 | `confidence` | 아니요 | 0에서 1 사이의 신뢰도; 기본값은 0.95 |
 | `exclude` | 아니오 | 줄이 `regex`와 `exclude` 둘 다에 매칭되면 finding이 억제됨 |
+| `files` | 아니오 | 규칙이 적용되는 파일을 제한하는 glob 패턴. 자세한 내용은 아래 파일 범위를 참조. |
 | `enabled` | 아니오 | 규칙을 비활성화하려면 `false`로 설정. 비활성화 시 `id`만 필요 |
 
 *`enabled: false`가 아닌 경우 필수.
@@ -168,7 +169,7 @@ skillshare audit rules init -p       # → .skillshare/audit-rules.yaml
 #            → project (.skillshare/audit-rules.yaml)
 #
 # Each rule needs: id, severity, pattern, message, regex.
-# Optional: exclude (suppress match), enabled (false to disable).
+# Optional: exclude (suppress match), files (scope), enabled (false to disable).
 
 rules:
   # Example: flag TODO comments as informational
@@ -406,6 +407,15 @@ skillshare audit --json | jq '.skills[].findings'  # findings를 프로그래밍
 | `executable-artifact` | executable-artifact | MEDIUM |
 | `archive-artifact` | archive-artifact | INFO |
 | `uncertain-header` | uncertain-header | INFO |
+| `ssrf-metadata-0` | ssrf-metadata | CRITICAL / HIGH ([문맥](/docs/understand/audit-engine#sensitive-destinations)) |
+| `ssrf-internal-0` | ssrf-internal | MEDIUM |
+| `ssrf-dynamic-0` | ssrf-dynamic | MEDIUM |
+| `unsafe-deserialization-python` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-yaml` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-torch` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-php` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-ruby` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-js` | unsafe-deserialization | HIGH |
 
 ## 하위 명령
 
@@ -427,3 +437,15 @@ skillshare audit --json | jq '.skills[].findings'  # findings를 프로그래밍
 - [Audit Engine](/docs/understand/audit-engine) — 엔진의 동작 방식 (위협 모델, 위험 점수, 등급)
 - [Securing Your Skills](/docs/how-to/advanced/security) — 팀을 위한 보안 가이드
 - [CI/CD Skill Validation](/docs/how-to/recipes/ci-cd-skill-validation) — 파이프라인 자동화 레시피
+
+## 파일 적용 범위 {#file-applicability}
+
+선택적 `files` 목록은 Go `path.Match` 문법(`*`, `?`, 문자 클래스)을 사용합니다. `/`가 없는 `*.py`는 모든 깊이의 파일 이름에, `/`가 있는 `scripts/*.php`는 스킬 루트 기준 전체 상대 경로에 일치합니다. `*`는 `/`를 넘지 않으며 대소문자를 구분하지 않습니다. 단일 파일 스캔은 파일 이름을, 원시 콘텐츠 스캔은 전달된 이름을 사용합니다. 기존 수집 파일만 필터링하며 확장자를 추가하지 않습니다.
+
+절대 경로, 빈 패턴, 빈 경로 요소와 `.`/`..`, 역슬래시, 콜론, 잘못된 문자 클래스, 재귀 `**`는 비활성 규칙과 대상 없는 재정의에서도 거부합니다. 생략하면 상속하고 `files: []`는 제한을 해제합니다. ID와 패턴 재정의를 지원하며 ID가 우선합니다. 전체 정규식 교체는 적용 범위와 내장 호출 검사도 교체합니다. `audit rules --format json`은 비어 있지 않은 유효 `files`를 반환합니다.
+
+```yaml
+rules:
+  - id: unsafe-deserialization-python
+    files: ['*.py', 'scripts/*.txt']
+```

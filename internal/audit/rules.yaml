@@ -385,6 +385,71 @@ rules:
     confidence: 0.85
     regex: '(?i)^\s*(?:(?:[-*+>]|\d+[.)])\s*)?(?:\*\*)?(?:install\s+a\s+cron\s+job\b|run\s+(?:crontab\s+-e|launchctl\s+load|systemctl\s+enable)\b|append\s+.{1,100}\s+to\s+~/\.(?:bashrc|zshrc|profile)\b).{0,100}\b(?:run|install|execute|launch|load)\s+(?:the\s+)?(?:payload\b(?:\s+(?:every|at|on|from|with)\b|\s*[.,;!]|\s*$)|(?:malware|backdoor)\b)|^\s*(?:(?:[-*+>]|\d+[.)])\s*)?(?:\*\*)?append\s+.{0,80}\b(?:payload|malware|backdoor)\b.{0,80}\s+to\s+~/\.(?:bashrc|zshrc|profile)\b'
 
+  # Sensitive destinations are evidence, not a runtime SSRF verdict. Metadata
+  # hosts deliberately remain visible in every admitted text format.
+  - id: ssrf-metadata-0
+    severity: CRITICAL
+    pattern: ssrf-metadata
+    message: "Cloud metadata host reference — review request context and possible credential exposure"
+    regex: '(?i)(?:^|[^a-z0-9_.])(?:169\.254\.(?:169\.254|170\.2)|100\.100\.100\.200|metadata\.google\.internal)(?:[^a-z0-9_.]|\.(?:[^a-z0-9_.]|$)|$)|(?:^|[^a-z0-9_.:]|[^0-9a-f:]:)fd00:ec2::254(?:[^a-z0-9_.:]|:(?:[^0-9a-f:]|$)|$)'
+
+  - id: ssrf-internal-0
+    severity: MEDIUM
+    pattern: ssrf-internal
+    message: "Request to a loopback, private, link-local or internal destination (static evidence)"
+    files: ['*.py', '*.js', '*.ts', '*.rb', '*.php', '*.php3', '*.php4', '*.php5', '*.phtml', '*.sh', '*.bash', '*.zsh', '*.fish']
+    regex: '(?:\b(?:requests|httpx|axios)\.(?:get|post|put|patch|delete|head|options)|\b(?:fetch|urlopen|file_get_contents|fopen)|\burllib\.request\.urlopen|\bNet::HTTP\.(?:get|post)|\bURI\.open)\s*\(\s*(?:URI\s*\(\s*)?["''](https?://[^"''\s]+)|\b(?:curl|wget)\b[^\n;|]*?["'']?(https?://[^"''\s;|)]+)'
+
+  - id: ssrf-dynamic-0
+    severity: MEDIUM
+    confidence: 0.6
+    pattern: ssrf-dynamic
+    message: "Dynamic request target — destination or validation unknown; review source and validation"
+    files: ['*.py', '*.js', '*.ts', '*.rb', '*.php', '*.php3', '*.php4', '*.php5', '*.phtml']
+    regex: '(?:\b(?:requests|httpx|axios)\.(?:get|post|put|patch|delete|head|options)|\b(?:fetch|urlopen|file_get_contents|fopen)|\burllib\.request\.urlopen|\bURI\.open)\s*\(\s*(?:(?:req|request)\.(?:query|body|params|args|GET)\b|\$_(?:GET|POST|REQUEST)\s*\[|params\s*\[|f["'']https?://\{|`https?://\$\{)'
+
+  - id: unsafe-deserialization-python
+    severity: HIGH
+    pattern: unsafe-deserialization
+    message: "Python pickle/marshal/dill deserialization can execute code with untrusted data"
+    files: ['*.py']
+    regex: '\b(?:pickle|marshal|dill)\.loads?\s*\('
+
+  - id: unsafe-deserialization-yaml
+    severity: HIGH
+    pattern: unsafe-deserialization
+    message: "Unsafe YAML loader or load call without an explicit SafeLoader/CSafeLoader"
+    files: ['*.py']
+    regex: '\byaml\.(?:load|load_all|unsafe_load|unsafe_load_all|full_load|full_load_all)\s*\('
+
+  - id: unsafe-deserialization-torch
+    severity: HIGH
+    pattern: unsafe-deserialization
+    message: "torch.load without explicit weights_only=True in this call"
+    files: ['*.py']
+    regex: '\btorch\.load\s*\('
+
+  - id: unsafe-deserialization-php
+    severity: HIGH
+    pattern: unsafe-deserialization
+    message: "PHP unserialize can instantiate objects from untrusted data"
+    files: ['*.php', '*.php3', '*.php4', '*.php5', '*.phtml']
+    regex: '(?i)\bunserialize\s*\('
+
+  - id: unsafe-deserialization-ruby
+    severity: HIGH
+    pattern: unsafe-deserialization
+    message: "Ruby Marshal.load/restore can execute code with untrusted data"
+    files: ['*.rb']
+    regex: '\bMarshal\.(?:load|restore)\s*\('
+
+  - id: unsafe-deserialization-js
+    severity: HIGH
+    pattern: unsafe-deserialization
+    message: "node-serialize dependency can deserialize executable values; review usage"
+    files: ['*.js', '*.ts']
+    regex: '(?:\brequire\s*\(\s*["'']node-serialize["'']\s*\)|\bfrom\s+["'']node-serialize["''])'
+
   # File-level detector: thresholds and Markdown exemptions live in Go.
   - id: whitespace-padding
     severity: MEDIUM
