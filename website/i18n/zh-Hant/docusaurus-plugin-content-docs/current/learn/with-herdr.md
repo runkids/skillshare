@@ -27,8 +27,9 @@ tab bar 會出現 **skillshare** 按鈕，用來顯示或隱藏面板。切換 s
 
 面板跟著 Herdr 顯示的 space 走，在該 space 的機器上、聚焦中 terminal 的資料夾裡執行 skillshare。
 
-- **Resources** 列出 skills、agents、MCP servers 和 plugins，分成「Updates available」、「Needs sync」、「In sync」三組。在有 `.skillshare/config.yaml` 的專案裡，可以用 All · Project · Global 切換 scope。
-- **列**會就地展開。skills 和 agents 提供 Update、Diff、Uninstall，以及「Ask &lt;agent&gt; to audit…」：確認後把該項目交給 Herdr 中聚焦的 agent。
+- **Resources** 列出 skills、agents、MCP servers、plugins 和 hooks，分成「Updates available」、「Needs sync」、「In sync」三組。在有 `.skillshare/config.yaml` 的專案裡，可以用 All · Project · Global 切換 scope。
+- **列**會就地展開。skills 和 agents 提供 Update、Diff、Uninstall，以及「Ask &lt;agent&gt; to audit…」：確認後把該項目交給 Herdr 中聚焦的 agent。 頂層宣告的 hooks 提供 Enable、Disable 和 Remove，每項都先確認；Sync 會套用儲存的變更。
+- hooks 計數包含具名項目和待清理項目；診斷通知使用相同篩選條件，零項目時也會分開顯示。檔案已同步時仍顯示無法執行的原因，巢狀列顯示完整專案路徑。僅原生檔案需要變更時也提供 Sync；hooks 衝突會阻止所有資源同步，需先在 CLI 或儀表板中解決。 預覽失敗時，項目會在分組外顯示同步狀態未知，每個範圍顯示一則錯誤通知。
 - **Install** 接受 repository URL。含多個 skills 的 repository 會列出清單讓你挑選。面板會先 clone，對 clone 執行 [`skillshare audit`](/docs/reference/commands/audit)，通過才安裝。audit 擋下時會顯示 findings，並提供「Install anyway」（`--force`）和「Ask &lt;agent&gt; to review…」。
 - **Source** 顯示 source repository 的狀態，對話框提供 Pull、Commit and push 和 Sync both ways。pull 遇到兩台機器都改過的檔案時，可以從左右對照預覽逐檔挑選要保留的版本。`.metadata.json` 會逐筆合併，與 [`skillshare pull`](/docs/reference/commands/pull) 的做法相同。
 - **Machines** 顯示每台 Herdr 機器的 skillshare 版本、source 狀態和 doctor 警告，提供 Pull and sync；有新版時也提供 Update。

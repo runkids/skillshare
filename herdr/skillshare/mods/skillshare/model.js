@@ -1,7 +1,7 @@
 // What the panel shows, built from the skillshare CLI's JSON and git's porcelain output.
 // No Herdr imports, so `node --test herdr/tests` runs it.
 
-export const KINDS = [["skills", "Skills"], ["agents", "Agents"], ["mcp", "MCP"], ["plugins", "Plugins"]];
+export const KINDS = [["skills", "Skills"], ["agents", "Agents"], ["mcp", "MCP"], ["plugins", "Plugins"], ["hooks", "Hooks"]];
 export const SCOPES = [["all", "All"], ["project", "Project"], ["global", "Global"]];
 
 // Long work runs detached, its output kept in a temp folder (out, err, code, pid) that the
@@ -53,7 +53,8 @@ run() { n=$1; shift; s=$(date +%s); out=$(skillshare "$@" "$f" 2>/dev/null); pri
 run list list --all --json
 run diff diff --json
 run mcp mcp list --json
-run plugins plugin list --json`;
+run plugins plugin list --json
+run hooks hooks list --json`;
 
 // Sections of SNAPSHOT's output, parsed, plus how long each took.
 export function parseSnapshot(text) {
@@ -271,16 +272,73 @@ export function buildItems(scope, raw) {
       src: shortSource(p.source ?? bindings[0]?.id ?? "") || "plugin", version: p.version ?? bindings[0]?.version ?? null,
       state: pending.length ? "sync" : bindings.length ? "ok" : "missing", reason: pending.length ? `pending in ${pending.join(", ")}` : "", targets: Object.keys(p.bindings ?? {}) });
   }
+  const hooks = new Map();
+  const status = (id, root = "") => {
+    const item = { key: `${scope}:hooks:status:${id}`, kind: "hooks", scope, root, name: "Hook status", label: "Hook status", targets: [], changes: [], declared: false, notice: true, pending: false };
+    hooks.set(item.key, item);
+    return item;
+  };
+  const hook = (root, name) => {
+    const key = `${scope}:hooks:${root ? root + "/" : ""}${name}`;
+    if (!hooks.has(key)) hooks.set(key, { key, kind: "hooks", scope, root, name, label: name, targets: [], changes: [], declared: false });
+    return hooks.get(key);
+  };
+  for (const [root, source] of [["", raw.hooks?.source], ...Object.entries(raw.hooks?.source?.projects ?? {})]) {
+    for (const [name, entry] of Object.entries(source?.entries ?? {})) {
+      Object.assign(hook(root, name), { declared: true, disabled: entry.enabled === false, description: entry.description, targets: Object.keys(entry.bindings ?? {}) });
+    }
+  }
+  for (const [index, c] of (raw.hooks?.plan?.changes ?? []).entries()) {
+    const item = c.name ? hook(c.root ?? "", c.name) : status(index, c.root ?? "");
+    if (c.target && !item.targets.includes(c.target)) item.targets.push(c.target);
+    item.changes.push(c);
+  }
+  for (const c of raw.hooks?.plan?.changes ?? []) {
+    if (!c.name && !c.target && c.action === "conflict") {
+      for (const row of hooks.values()) if (!row.notice && row.root === (c.root ?? "")) row.changes.push(c);
+    }
+  }
+  const error = raw.hooks?.error || raw.hooks?.previewError;
+  if (error && Array.isArray(raw.list)) status("error");
+  for (const [index, warning] of (raw.hooks?.plan?.warnings ?? []).entries()) status(`warning:${index}`).warnings = [warning];
+  const changeLine = (c) => [[c.target, c.action].filter(Boolean).join(": "),
+    ...new Set([c.message, c.inactiveReason].filter(Boolean))].join(" · ");
+  for (const item of hooks.values()) {
+    item.src = item.targets.join(", ") || "no agents";
+    const pending = item.changes.filter((c) => !["unchanged", "inactive"].includes(c.action));
+    item.lines = error ? (item.notice ? [error] : []) : [...item.changes.map(changeLine), ...(item.warnings ?? [])];
+    item.diagnostic = Boolean(item.changes.some((c) => c.action === "inactive" || c.inactiveReason));
+    const summary = pending.length ? item.changes.filter((c) => c.action !== "unchanged" || c.inactiveReason) : item.changes;
+    item.reason = item.notice ? item.lines.join("; ") : summary.map(changeLine).join("; ");
+    if (item.notice) {
+      item.pending = item.changes.some((c) => ["add", "update", "remove", "adopt", "release"].includes(c.action));
+      item.blocker = Boolean(error || item.changes.some((c) => c.action === "conflict"));
+    }
+    item.state = !raw.hooks?.plan ? "unknown" : pending.length ? "sync" : item.disabled ? "off" : "ok";
+    items.push(item);
+  }
   return items;
+}
+
+// Only top-level declared hooks can be changed with the panel's scoped CLI actions.
+export function hookArgs(item, action) {
+  if (item.kind !== "hooks" || !item.declared || item.root || !["enable", "disable", "remove"].includes(action)) return null;
+  if ((action === "enable" && !item.disabled) || (action === "disable" && item.disabled)) return null;
+  return ["hooks", action, item.name, item.scope === "project" ? "-p" : "-g"];
 }
 
 // The line under a row's name.
 export function rowSub(item, showScope) {
   const pre = showScope ? `${item.scope} · ` : "";
+  if (item.kind === "hooks") {
+    const disabled = item.disabled ? "disabled · " : "";
+    if (!item.notice && item.state === "unknown") return `${pre}${disabled}sync status unknown`;
+    if (item.state === "sync" || item.notice || item.diagnostic) return `${pre}${disabled}${item.reason}`;
+  }
   if (item.state === "update") return `${pre}${item.version ? item.version.slice(0, 7) + " → newer" : "update available"}${item.behind ? ` · ↓${item.behind}` : ""}`;
   if (item.state === "missing") return `${pre}not synced yet`;
   // MCP and plugin reasons name targets; rows leave targets out, so those show in the open row only.
-  if (item.state === "sync") return `${pre}${(item.kind === "skills" || item.kind === "agents") && item.reason ? item.reason : "changed since last sync"}`;
+  if (item.state === "sync") return `${pre}${(item.kind === "skills" || item.kind === "agents" || item.kind === "hooks") && item.reason ? item.reason : "changed since last sync"}`;
   if (item.state === "off") return `${pre}disabled`;
   return `${pre}${item.src}${item.version && item.kind === "plugins" ? ` · ${item.version}` : ""}`;
 }
@@ -288,17 +346,18 @@ export function rowSub(item, showScope) {
 export function filterItems(items, { scope, kind, query }) {
   const q = String(query ?? "").trim().toLowerCase();
   return items.filter((i) => (scope === "all" || i.scope === scope) && (!kind || i.kind === kind)
-    && (!q || i.name.toLowerCase().includes(q) || i.src.toLowerCase().includes(q)));
+    && (!q || i.name.toLowerCase().includes(q) || i.src.toLowerCase().includes(q)
+      || (i.kind === "hooks" && `${i.root ?? ""} ${i.reason ?? ""}`.toLowerCase().includes(q))));
 }
 
 export function groupItems(items) {
-  const by = (s) => items.filter((i) => s.includes(i.state)).sort((a, b) => a.label.localeCompare(b.label));
+  const by = (s) => items.filter((i) => !i.notice && s.includes(i.state)).sort((a, b) => a.label.localeCompare(b.label));
   return { update: by(["update"]), sync: by(["sync", "missing"]), ok: by(["ok", "off"]) };
 }
 
 export function counts(items) {
-  const c = { all: items.length, project: 0, global: 0, skills: 0, agents: 0, mcp: 0, plugins: 0 };
-  for (const i of items) { c[i.scope]++; c[i.kind]++; }
+  const c = { all: 0, project: 0, global: 0, skills: 0, agents: 0, mcp: 0, plugins: 0, hooks: 0 };
+  for (const i of items) { if (!i.notice) { c.all++; c[i.scope]++; c[i.kind]++; } }
   return c;
 }
 

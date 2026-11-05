@@ -2,7 +2,7 @@
 // what needs an update or a sync, install from a URL, and git sync of the source both ways.
 // Roles (props.role): the panel (default); "toggle", the tab-bar button that shows or hides the
 // layout's "skillshare-panel" node; dialogs: "install", "uninstall", "audit", "source",
-// "syncboth", "conflict", "upgrade", "text". Dialogs hand long work to the panel through shared
+// "syncboth", "conflict", "upgrade", "text", "hook". Dialogs hand long work to the panel through shared
 // REQUEST, because an overlay's tasks end when it closes. Install is the exception: its dialog
 // shows each step, and the install itself runs detached, so closing the dialog does not stop it.
 import { View, div, image, svg } from "gpui-kit";
@@ -10,7 +10,7 @@ import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { exec, hc, run, spaces, agents, focused, machines, shared, setShared, theme, settings, layout, openOverlay, closeOverlay, nextCommand, readTextFile, props as blockProps } from "herdr";
 import {
   KINDS, SCOPES, START, START_SCRIPT, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, GIT_STATUS, PROJECT, DISCOVER, AUDIT, PREVIEW, CONFLICTS, RESOLVE, ABORT, METADATA_STAGES, METADATA_WRITE, mergeMetadata, parseStages,
-  parseJSON, lastLine, failure, parseGitStatus, sourceLine, buildItems, rowSub, filterItems, groupItems, counts,
+  parseJSON, lastLine, failure, parseGitStatus, sourceLine, buildItems, hookArgs, rowSub, filterItems, groupItems, counts,
   cloneUrl, skillChoices, newerVersion, ago, auditMessage, driftFrom, parseDiscover, parseAudit, parsePreview, diffSides,
 } from "./model.js";
 
@@ -224,7 +224,7 @@ export default class Skillshare extends View {
           const opt = { on, cwd: scope === "project" ? project : null }, f = flag(scope);
           const r = await ssLong(["__snapshot__"], opt, this.wait(cx), [SNAPSHOT, f]);
           const snap = parseSnapshot(r.stdout);
-          raw[scope] = { list: snap.list, diff: snap.diff, mcp: snap.mcp, plugins: snap.plugins, took: snap.took, error: Array.isArray(snap.list) ? null : failure(r, "skillshare list") };
+          raw[scope] = { list: snap.list, diff: snap.diff, mcp: snap.mcp, plugins: snap.plugins, hooks: snap.hooks, took: snap.took, error: Array.isArray(snap.list) ? null : failure(r, "skillshare list") };
         }));
         const status = parseJSON((await ss(["status", "--json", "-g"], { on })).stdout);
         const git = status?.source?.path ? parseGitStatus((await sh(GIT_STATUS, [status.source.path, network ? "fetch" : ""], on)).stdout) : { repo: false };
@@ -300,6 +300,13 @@ export default class Skillshare extends View {
             updated += j?.updated ?? (j?.agents ?? []).filter((a) => a.status === "updated").length ?? 0;
           }
           say("done", updated ? `Updated ${updated}. Targets get it on the next sync.` : "Already up to date");
+        } else if (req.op === "hook") {
+          const args = hookArgs(req.item, req.action);
+          if (!args) return say("error", "This hook action is unavailable.");
+          step(`Saving ${req.item.label}…`);
+          const r = await ssLong(args, opt(req.item.scope), wait);
+          if (r.code !== 0) return say("error", failure(r, "skillshare hooks"));
+          say("done", "Saved. Sync applies it.");
         } else if (req.op === "uninstall") {
           const it = req.item;
           step(`Uninstalling ${it.label}…`);
@@ -483,7 +490,7 @@ export default class Skillshare extends View {
     const scoped = filterItems(all, { scope, kind: null, query: "" });
     const kc = counts(scoped);
     const shown = filterItems(all, { scope, kind: this.kind, query: this.query });
-    const groups = groupItems(shown);
+    const groups = groupItems(shown), notices = shown.filter((i) => i.notice);
     const showScope = Boolean(this.project) && scope === "all";
     const folderName = (this.project ?? ctx.folder).split("/").filter(Boolean).pop() || "~";
 
@@ -512,20 +519,24 @@ export default class Skillshare extends View {
         .child(note(t, this.error));
     } else {
       const scopesFor = (items) => [...new Set(items.map((i) => i.scope))];
-      const syncScopes = scope === "all" ? scopesFor(groups.sync).length ? scopesFor(groups.sync) : (this.project ? ["project", "global"] : ["global"]) : [scope];
+      const pending = [...groups.sync, ...notices.filter((i) => i.pending)];
+      const syncScopes = scope === "all" ? scopesFor(pending).length ? scopesFor(pending) : (this.project ? ["project", "global"] : ["global"]) : [scope];
       const syncLabel = scope === "all" ? (syncScopes.length > 1 ? "Sync" : `Sync ${syncScopes[0]}`) : `Sync ${scope}`;
-      const sections = [];
+      const sections = notices.map((i) => v_flex().px(14).py(4).gap(8)
+        .child(warnBox(t, `${i.scope}${i.root ? ` · ${i.root}` : ""}: ${i.reason}${i.blocker ? " Resolve with the CLI or dashboard; Sync validates again before applying changes." : ""}`)));
+      const unknown = shown.filter((i) => !i.notice && i.state === "unknown");
+      sections.push(...unknown.map((i) => this.row(t, i, showScope, ctx)));
       if (groups.update.length) {
         sections.push(this.groupHeader(t, "update", `Updates available · ${groups.update.length}`, t.accent,
           primary("update-all", "Update all", t, () => this.updateAll(groups.update, ctx), { h: 26, px: 10, size: S().label })));
         sections.push(...groups.update.map((i) => this.row(t, i, showScope, ctx)));
       }
-      if (groups.sync.length) {
-        sections.push(this.groupHeader(t, "sync", `Needs sync · ${groups.sync.length}`, t.blocked,
+      if (pending.length) {
+        sections.push(this.groupHeader(t, "sync", groups.sync.length ? `Needs sync · ${groups.sync.length}` : "Native hook files need sync", t.blocked,
           primary("sync-group", syncLabel, t, () => request({ op: "sync", on: ctx.on, project: this.project, scopes: syncScopes, plugins: groups.sync.some((i) => i.kind === "plugins") }), { h: 26, px: 10, size: S().label })));
         sections.push(...groups.sync.map((i) => this.row(t, i, showScope, ctx)));
       }
-      sections.push(this.groupHeader(t, "ok", `In sync · ${groups.ok.length}`, t.muted, null));
+      if (groups.ok.length || !unknown.length) sections.push(this.groupHeader(t, "ok", `In sync · ${groups.ok.length}`, t.muted, null));
       sections.push(...groups.ok.map((i) => this.row(t, i, showScope, ctx)));
       if (!shown.length) sections.push(div().px(14).py(8).child(note(t, this.query ? "Nothing matches the filter." : `No ${KINDS.find(([k]) => k === this.kind)[1].toLowerCase()} here yet.`)));
       list = v_flex().pt(4).pb(16).children(sections);
@@ -542,14 +553,15 @@ export default class Skillshare extends View {
 
   row(t, item, showScope, ctx) {
     const open = this.open === item.key;
-    const color = { update: t.accent, sync: t.blocked, missing: t.ansi1, ok: t.ansi2, off: t.muted }[item.state] ?? t.muted;
+    const color = item.diagnostic ? t.blocked : { update: t.accent, sync: t.blocked, missing: t.ansi1, ok: t.ansi2, off: t.muted }[item.state] ?? t.muted;
     const head = h_flex().id(`row-${item.key}`).min_h(48).px(10).py(6).gap(10).items_center().rounded(8).cursor_pointer()
       .when(!open, (el) => el.hover((s) => s.bg(t.hover)))
       .on_mouse_down("left", stop).on_click((_e, cx) => { this.open = open ? null : item.key; cx.notify(); })
       .child(dot(color, 8, item.state === "missing" || item.state === "off"))
       .child(v_flex().flex_1().min_w(0)
         .child(div().truncate().text_size(S().body).font_medium().text_color(item.state === "off" ? t.muted : t.foreground).child(item.label))
-        .child(div().truncate().text_size(S().secondary).text_color(t.muted).child(rowSub(item, showScope))))
+        .when(Boolean(item.root), (el) => el.child(div().text_size(S().secondary).text_color(t.muted).child(item.root)))
+        .child(div().truncate().text_size(S().secondary).text_color(item.diagnostic ? t.blocked : t.muted).child(rowSub(item, showScope))))
       .child(icon(open ? "chevron-down" : "chevron-right", 14, t.muted));
     if (!open) return div().mx(8).child(head);
     return v_flex().mx(8).rounded(8).bg(t.raised).child(head).child(this.details(t, item, ctx));
@@ -560,10 +572,16 @@ export default class Skillshare extends View {
     if (item.rel && item.rel !== item.label) lines.push(item.rel);
     if (item.state === "update") lines.push(item.behind ? `${item.behind} new commit${item.behind === 1 ? "" : "s"} upstream in ${item.src}. Updating changes the source; targets get it on the next sync.` : `A newer version is upstream in ${item.src}. Updating changes the source; targets get it on the next sync.`);
     if (item.state === "missing") lines.push("Not synced yet. The next sync gives it to every target your config names.");
-    if (item.state === "sync") lines.push(`Changed since the last sync${item.reason ? ` (${item.reason})` : ""}. The next sync updates your targets.`);
-    if (item.state === "off") lines.push("Disabled: targets don't get it.");
+    if (item.state === "sync" && item.kind !== "hooks") lines.push(`Changed since the last sync${item.reason ? ` (${item.reason})` : ""}. The next sync updates your targets.`);
+    if (item.state === "off" || (item.kind === "hooks" && item.disabled)) lines.push("Disabled: targets don't get it.");
+    if (item.kind === "hooks") lines.push(`Agents: ${item.src}`, ...(item.description ? [item.description] : []), ...(item.root ? [`Root: ${item.root}`] : []), ...item.lines);
     const agent = this.receiver();
     const buttons = [];
+    for (const action of ["enable", "disable", "remove"]) {
+      if (!hookArgs(item, action)) continue;
+      const label = action[0].toUpperCase() + action.slice(1);
+      buttons.push(this.busyAt(ctx.on) ? disabledButton(`hook-busy-${action}`, label, t) : secondary(`hook-${action}-${item.key}`, label, t, () => openOverlay({ mod: "skillshare", kind: "dialog", width: 440, height: 230, props: { role: "hook", item, action, on: ctx.on, project: this.project } }), { quiet: true, color: action === "remove" ? t.ansi1 : t.foreground, px: 10 }));
+    }
     const skillish = item.kind === "skills" || item.kind === "agents";
     if (item.state === "update" && skillish) {
       buttons.push(this.busyAt(this.ctx?.on) ? disabledButton("u-busy", "Working…", t) : primary(`update-${item.key}`, "Update", t, () => request({ op: "update", on: ctx.on, project: this.project, updates: [{ kind: item.kind, scope: item.scope, name: item.update, label: item.label }] })));
@@ -742,6 +760,14 @@ export default class Skillshare extends View {
   renderDialog(cx) {
     const t = theme(), p = blockProps() ?? {}, close = () => closeOverlay(p.overlay);
     if (p.role === "install") return this.renderInstall(t, p, () => { this.closed = true; this.dropClone(p); close(); });
+    if (p.role === "hook") {
+      const it = p.item, label = p.action[0].toUpperCase() + p.action.slice(1);
+      const wording = { enable: "Publishes it again on the next sync.", disable: "Keeps the definition; the next sync removes its owned outputs.", remove: "Deletes the entry; the next sync prunes its owned outputs." };
+      const go = () => { request({ op: "hook", on: p.on, project: p.project, item: it, action: p.action }); close(); };
+      return dialogFrame(t, "hook", this.handle, `${label} “${it.label}”?`,
+        [note(t, `${it.scope} · ${p.on ?? "local"}`), note(t, wording[p.action], t.foreground)],
+        [dialogButton("cancel", "Cancel", t, close), dialogButton("go", label, t, go, p.action === "remove" ? "danger" : undefined)], close, null);
+    }
     if (p.role === "uninstall") {
       const it = p.item;
       const go = () => { request({ op: "uninstall", on: p.on, project: p.project, item: it }); close(); };

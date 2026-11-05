@@ -1,7 +1,7 @@
 # skillshare for Herdr
 
 A Herdr panel for the skillshare CLI. It shows what the focused space's project and the
-global source hold and what needs an update or a sync. It updates, syncs, installs from a
+global source hold—skills, agents, MCP servers, plugins and hooks—and what needs an update or a sync. It updates, syncs, installs from a
 URL, uninstalls, hands an audit to the focused agent, syncs the source repository both
 ways, and shows each Herdr machine's skillshare on a Machines tab.
 
@@ -26,7 +26,7 @@ shown or hidden state is a layout click, which Herdr keeps across spaces and res
 - It runs on the shown space's machine (`exec` with `on`), in the focused terminal's folder.
 - A folder with `.skillshare/config.yaml` or `skillshare/config.yaml` is a project; both
   scopes show and the All · Project · Global filter appears.
-- Per scope, one detached script runs `list --all`, `diff`, `mcp list` and `plugin list`
+- Per scope, one detached script runs `list --all`, `diff`, `mcp list`, `plugin list` and `hooks list`
   with `--json`. `check` and `check agents` run every 10 minutes. Git state comes from `git status` in the
   source repository, because the CLI has no JSON for it.
 - The CLI's install dry-run does not list a repository's skills, so the install dialog
@@ -38,6 +38,20 @@ shown or hidden state is a layout click, which Herdr keeps across spaces and res
   `push --pull` stops on files both sides changed, the panel reads both versions with
   `git show HEAD:<file>` and `git show @{u}:<file>`, puts the repository back, and asks
   which version to keep for each file.
+
+Hook rows show their agents and planned sync changes. Top-level declared hooks offer confirmed
+Enable, Disable and Remove actions; Sync applies them through `sync --all`.
+Counts and groups include named hook entries and pending named cleanup, excluding diagnostic
+notices. Notices follow the scope, kind and text filters and remain visible with zero entries.
+Nested hook rows show their full root to distinguish projects with the same folder name.
+“In sync” describes native file alignment; inactive hooks retain a warning dot and reason.
+Warnings and preview failures appear above the resource groups. When preview fails, named
+entries stay visible there as “sync status unknown”; they do not count as pending or in sync.
+Disabled state remains visible alongside diagnostics, and pending summaries omit unchanged
+targets while expanded details retain them. When only an unnamed native
+include needs work, “Native hook files need sync” offers Sync for its scope.
+Hook conflicts block `sync --all` for every resource kind; resolve them with the CLI or
+dashboard, then Sync again.
 
 ## Tests
 
