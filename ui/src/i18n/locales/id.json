@@ -346,6 +346,7 @@
   "doctor.check.agents_source": "Sumber Agen",
   "doctor.check.backup": "Cadangan",
   "doctor.check.broken_symlinks": "Symlink Rusak",
+  "doctor.check.bundled_references": "Referensi dalam paket",
   "doctor.check.cli_version": "Versi CLI",
   "doctor.check.duplicate_skills": "Skill Duplikat",
   "doctor.check.extras": "Extras",

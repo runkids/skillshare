@@ -480,6 +480,7 @@
   "doctor.check.targets": "Targets",
   "doctor.check.sync_drift": "Sync Status",
   "doctor.check.broken_symlinks": "Broken Symlinks",
+  "doctor.check.bundled_references": "Bundled References",
   "doctor.check.duplicate_skills": "Duplicate Skills",
   "doctor.check.extras": "Extras",
   "doctor.check.mcp": "MCP Servers",

@@ -285,7 +285,7 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 
 :::note 结构性、分级和跨 skill 检查
 
-`dangling-link`、`content-tampered`、`content-oversize`、`content-missing` 和 `content-unexpected` 属于**结构性检查**（文件系统查找和哈希比较，而非正则表达式）。`low-analyzability` 是由 [Analyzability Score](/docs/understand/audit-engine#analyzability-score) 生成的**可分析性发现结果**。`tier-stealth`、`tier-destructive-network`、`tier-network-heavy`、`tier-interpreter` 和 `tier-interpreter-network` 是由 [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) profile 生成的**分级组合发现结果**。`cross-skill-*` 发现结果由 [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection) 生成。以上这些都出现在下面的表格中，但并未定义在 `rules.yaml` 里。
+`dangling-link`、`reference-escapes-root`、`reference-check-incomplete`、`content-tampered`、`content-oversize`、`content-missing` 和 `content-unexpected` 属于**结构性检查**（文件系统查找和哈希比较，而非正则表达式）。`low-analyzability` 是由 [Analyzability Score](/docs/understand/audit-engine#analyzability-score) 生成的**可分析性发现结果**。`tier-stealth`、`tier-destructive-network`、`tier-network-heavy`、`tier-interpreter` 和 `tier-interpreter-network` 是由 [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) profile 生成的**分级组合发现结果**。`cross-skill-*` 发现结果由 [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection) 生成。以上这些都出现在下面的表格中，但并未定义在 `rules.yaml` 里。
 
 :::
 
@@ -385,6 +385,8 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 | `insecure-http-0` | insecure-http | LOW |
 | `external-link-0` | external-link | LOW |
 | `dangling-link` | dangling-link | LOW |
+| `reference-escapes-root` | reference-escapes-root | HIGH |
+| `reference-check-incomplete` | reference-check-incomplete | LOW |
 | `content-tampered` | content-tampered | MEDIUM |
 | `content-oversize` | content-oversize | MEDIUM |
 | `content-missing` | content-missing | LOW |

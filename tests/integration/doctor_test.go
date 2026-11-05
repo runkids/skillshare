@@ -991,3 +991,18 @@ targets:
 	result.AssertSuccess(t)
 	result.AssertOutputNotContains(t, "not synced")
 }
+
+func TestDoctorBundledReferencesCleanJSON(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.CreateSkill("clean-reference", map[string]string{"SKILL.md": "---\nname: clean-reference\n---\n# Clean\n"})
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+	got := sb.RunCLI("doctor", "--json")
+	checks := parseDoctorJSON(t, got.Stdout).Checks
+	for _, check := range checks {
+		if check.Name == "bundled_references" && check.Status == "pass" {
+			return
+		}
+	}
+	t.Fatalf("clean bundled references pass missing: %+v", checks)
+}

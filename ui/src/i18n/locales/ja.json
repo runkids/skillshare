@@ -351,6 +351,7 @@
   "doctor.check.agents_source": "エージェントソース",
   "doctor.check.backup": "バックアップ",
   "doctor.check.broken_symlinks": "壊れたシンボリックリンク",
+  "doctor.check.bundled_references": "バンドル内の参照",
   "doctor.check.cli_version": "CLI バージョン",
   "doctor.check.duplicate_skills": "重複スキル",
   "doctor.check.extras": "Extras",

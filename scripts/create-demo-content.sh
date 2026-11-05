@@ -121,12 +121,12 @@ See the official docs for more details:
 The localhost link above should NOT trigger external-link findings.
 SKILL_EOF
 
-# security/audit-demo-dangling-link: LOW, broken local markdown links.
+# security/audit-demo-dangling-link: LOW missing links and a HIGH escape.
 mkdir -p "$SKILLS/security/audit-demo-dangling-link"
 cat > "$SKILLS/security/audit-demo-dangling-link/SKILL.md" << 'SKILL_EOF'
 ---
 name: audit-demo-dangling-link
-description: "[DEMO] Skill with broken local links (LOW)"
+description: "[DEMO] Skill with missing links (LOW) and a root escape (HIGH)"
 ---
 # Setup Guide
 
@@ -136,7 +136,7 @@ Follow these steps:
 2. Check the [configuration reference](config/reference.md)
 3. See [troubleshooting](../troubleshooting.md)
 
-None of these local files exist, so each link produces a dangling-link finding.
+The first two links are missing (LOW); the third escapes the skill root (HIGH).
 SKILL_EOF
 
 # devops/deploy-checklist: clean skill in a different category.

@@ -356,6 +356,7 @@
   "doctor.check.agents_source": "에이전트 소스",
   "doctor.check.backup": "백업",
   "doctor.check.broken_symlinks": "깨진 심볼릭 링크",
+  "doctor.check.bundled_references": "번들 내 참조",
   "doctor.check.cli_version": "CLI 버전",
   "doctor.check.duplicate_skills": "중복 Skills",
   "doctor.check.extras": "Extras",

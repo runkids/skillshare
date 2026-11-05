@@ -345,6 +345,7 @@
   "doctor.check.agents_source": "منبع عامل‌ها",
   "doctor.check.backup": "پشتیبان‌گیری",
   "doctor.check.broken_symlinks": "Symlink‌های شکسته",
+  "doctor.check.bundled_references": "ارجاع‌های بستهٔ مهارت",
   "doctor.check.cli_version": "نسخه CLI",
   "doctor.check.duplicate_skills": "اسکیل‌های تکراری",
   "doctor.check.extras": "Extras",

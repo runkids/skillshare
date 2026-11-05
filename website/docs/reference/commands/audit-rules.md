@@ -285,7 +285,7 @@ The file-level `whitespace-padding` detector is also registered in `rules.yaml`.
 
 :::note Structural, tier, and cross-skill checks
 
-`dangling-link`, `content-tampered`, `content-oversize`, `content-missing`, and `content-unexpected` are **structural checks** (filesystem lookups and hash comparisons, not regex). `low-analyzability` is an **analyzability finding** generated from the [Analyzability Score](/docs/understand/audit-engine#analyzability-score). `tier-stealth`, `tier-destructive-network`, `tier-network-heavy`, `tier-interpreter`, and `tier-interpreter-network` are **tier combination findings** generated from [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) profiles. `cross-skill-*` findings are generated from [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection). All of these appear in the table below but are not defined in `rules.yaml`.
+`dangling-link`, `reference-escapes-root`, `reference-check-incomplete`, `content-tampered`, `content-oversize`, `content-missing`, and `content-unexpected` are **structural checks** (filesystem lookups and hash comparisons, not regex). `low-analyzability` is an **analyzability finding** generated from the [Analyzability Score](/docs/understand/audit-engine#analyzability-score). `tier-stealth`, `tier-destructive-network`, `tier-network-heavy`, `tier-interpreter`, and `tier-interpreter-network` are **tier combination findings** generated from [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) profiles. `cross-skill-*` findings are generated from [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection). All of these appear in the table below but are not defined in `rules.yaml`.
 
 :::
 
@@ -385,6 +385,8 @@ The file-level `whitespace-padding` detector is also registered in `rules.yaml`.
 | `insecure-http-0` | insecure-http | LOW |
 | `external-link-0` | external-link | LOW |
 | `dangling-link` | dangling-link | LOW |
+| `reference-escapes-root` | reference-escapes-root | HIGH |
+| `reference-check-incomplete` | reference-check-incomplete | LOW |
 | `content-tampered` | content-tampered | MEDIUM |
 | `content-oversize` | content-oversize | MEDIUM |
 | `content-missing` | content-missing | LOW |

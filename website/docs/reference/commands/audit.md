@@ -137,7 +137,7 @@ skillshare audit --analyzer static --analyzer dataflow # Multiple analyzers
 | `tier` | Per-skill | Capability tier combination risk analysis |
 | `integrity` | Per-skill | Content hash verification (`file_hashes` in SKILL.md) |
 | `metadata` | Per-skill | Supply-chain trust verification (publisher mismatch, authority claims) |
-| `structure` | Per-skill | Dangling markdown link detection |
+| `structure` | Per-skill | Checks missing and out-of-root Markdown links/images and declared bundled paths |
 | `cross-skill` | Bundle | Cross-skill exfiltration and privilege escalation analysis |
 
 You can also set this in config:

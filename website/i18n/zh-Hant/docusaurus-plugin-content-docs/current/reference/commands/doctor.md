@@ -59,6 +59,8 @@ Next
 
 對於包含代理變體的追蹤儲存庫，Source 行顯示 `N skills, M variants`，分別代表邏輯技能數與實體副本數。`variant_routing` 檢查會在 symlink 模式公開所有變體而未依代理選擇時發出警告；選擇性路由請使用 merge 或 copy 模式。
 
+套件參照在兩種模式下使用 audit 結構檢查：遺失或未完成列為警告，逸出根目錄列為錯誤。沿用全域／專案 `audit-rules.yaml` 的停用設定。JSON 的 `bundled_references` 包含規則 ID、來源檔案、行號與片段。請參閱[參照檢查](../../understand/audit-engine.md)。
+
 ## 何時使用
 
 - 有東西無法運作但你不知道原因

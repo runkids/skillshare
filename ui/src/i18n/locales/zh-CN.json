@@ -351,6 +351,7 @@
   "doctor.check.agents_source": "Agent 来源",
   "doctor.check.backup": "备份",
   "doctor.check.broken_symlinks": "失效符号链接",
+  "doctor.check.bundled_references": "技能包内引用",
   "doctor.check.cli_version": "CLI 版本",
   "doctor.check.duplicate_skills": "重复 Skill",
   "doctor.check.extras": "附加设置",
