@@ -281,6 +281,8 @@ skillshare audit --json | jq '.skills[].findings'  # findings をプログラム
 正規表現ベースのルールの信頼できる情報源:
 [`internal/audit/rules.yaml`](https://github.com/runkids/skillshare/blob/main/internal/audit/rules.yaml)
 
+ファイル単位の検出器 `whitespace-padding` も `rules.yaml` に登録されています。しきい値と除外は Go で実装されており、有効状態・重大度・信頼度は `regex` や `exclude` を指定せずに設定します。[空白による埋め込み](/docs/understand/audit-engine#whitespace-padding)を参照してください。 この ID に `regex` または `exclude` を設定したルールは拒否されます。
+
 :::note 構造チェック、tier チェック、Skill 間チェック
 
 `dangling-link`、`content-tampered`、`content-oversize`、`content-missing`、`content-unexpected` は**構造チェック**です（正規表現ではなく、ファイルシステムの検索とハッシュ比較）。`low-analyzability` は [Analyzability Score](/docs/understand/audit-engine#analyzability-score) から生成される**分析可能性の finding** です。`tier-stealth`、`tier-destructive-network`、`tier-network-heavy`、`tier-interpreter`、`tier-interpreter-network` は、[Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) プロファイルから生成される**ティアの組み合わせの finding** です。`cross-skill-*` の findings は、[Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection) から生成されます。これらはすべて下記の表に記載されていますが、`rules.yaml` には定義されていません。
@@ -374,6 +376,7 @@ skillshare audit --json | jq '.skills[].findings'  # findings をプログラム
 | `hardcoded-secret-9` | hardcoded-secret | HIGH |
 | `data-uri-0` | data-uri | MEDIUM |
 | `escape-obfuscation-0` | escape-obfuscation | MEDIUM |
+| `whitespace-padding` | whitespace-padding | MEDIUM（非空行のテキスト前の空行 40 行以上: HIGH） |
 | `suspicious-fetch-0` | suspicious-fetch | MEDIUM |
 | `ip-address-url-0` | ip-address-url | MEDIUM |
 | `hidden-unicode-3` | hidden-unicode | MEDIUM |

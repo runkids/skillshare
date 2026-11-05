@@ -449,3 +449,9 @@ rules:
     message: "node-serialize dependency can deserialize executable values; review usage"
     files: ['*.js', '*.ts']
     regex: '(?:\brequire\s*\(\s*["'']node-serialize["'']\s*\)|\bfrom\s+["'']node-serialize["''])'
+
+  # File-level detector: thresholds and Markdown exemptions live in Go.
+  - id: whitespace-padding
+    severity: MEDIUM
+    pattern: whitespace-padding
+    message: "Padding may push instructions out of view; review context"

@@ -171,26 +171,12 @@ func main() {
 		// Check for updates (non-blocking, silent on errors)
 		// Skip for upgrade (just upgraded, old version in process) and doctor (has its own check)
 		if !skipMaintenance && cmd != "upgrade" && cmd != "doctor" {
-			method := detectInstallMethod()
+			method := versioncheck.DetectCurrentInstallMethod()
 			if result := versioncheck.Check(version, method); result != nil && result.UpdateAvailable {
-				ui.UpdateNotification(result.CurrentVersion, result.LatestVersion, result.InstallMethod.UpgradeCommand())
+				ui.UpdateNotification(result.CurrentVersion, result.LatestVersion, result.InstallMethod.UpgradeCommand(), versioncheck.NixConfigUpgradeHint)
 			}
 		}
 	}
-}
-
-// detectInstallMethod resolves the current executable path and determines
-// how skillshare was installed (Homebrew vs direct download).
-func detectInstallMethod() versioncheck.InstallMethod {
-	execPath, err := os.Executable()
-	if err != nil {
-		return versioncheck.InstallDirect
-	}
-	execPath, err = filepath.EvalSymlinks(execPath)
-	if err != nil {
-		return versioncheck.InstallDirect
-	}
-	return versioncheck.DetectInstallMethod(execPath)
 }
 
 func reportMigrationResults(results []config.MigrationResult) {

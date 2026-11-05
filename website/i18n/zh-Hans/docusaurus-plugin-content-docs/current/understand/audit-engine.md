@@ -44,7 +44,7 @@ flowchart TD
 
 `audit` 命令充当**看门人**——在 skill 内容到达你的 AI 助手之前，扫描其中已知的威胁模式。它会在 `install` 期间自动运行，也可以随时手动调用。
 
-用 `--force` 覆盖阻止行为会将接受的发现结果（rule、file 和匹配文本）记录到 `.metadata.json` 中，因此后续的 `update` 运行不会再对这些结果进行阻止，同时仍会捕获新出现的问题。见 [update — Accepted Findings](/docs/reference/commands/update#accepted-findings)。
+用 `--force` 覆盖阻止行为会将接受的发现结果（规则、文件、匹配文本及检测器专属证据）记录到 `.metadata.json` 中。后续 `update` 会跳过证据相同的 finding，同时继续检测证据已变化的 finding。对于 `whitespace-padding`，密度 finding 使用文件中所有符合条件的内容作为证据。详情见 [update — Accepted Findings](/docs/reference/commands/update#accepted-findings)。
 
 ## 它能检测什么
 
@@ -104,6 +104,14 @@ audit engine 会用 100 多条内置规则（正则表达式模式、表驱动�
 | `untrusted-install` | 自动执行不受信任的包：`npx -y`/`npx --yes`（npm）、`pip install https://`（非 PyPI URL） |
 
 > **为什么是 medium？** 从外部 URL 下载内容的 skill 可能拉取恶意 payload。带原始 IP 地址的 URL 可能绕过基于 DNS 的安全控制和域名黑名单。markdown 链接中的 `data:` URI 可以在看似无害的标签背后隐藏嵌入式 HTML/JavaScript payload。不受信任的包执行（`npx -y`）会在未经确认的情况下自动安装并运行任意 npm 包。其他不可见的 Unicode 字符可能微妙地改变文本渲染或隐藏内容。
+
+### 空白填充 {#whitespace-padding}
+
+`whitespace-padding` 是 `static` 分析器的文件级检查。连续 20–39 个空白行为 MEDIUM，40 行以上为 HIGH，但仅限后接非空白文字。行首至少 80 个连续水平 Unicode 空白字符、超过 4096 个有效字节且空白字节占比至少 95%，以及至少 100 个连续相同的非空白行后紧接不同文字，均为 MEDIUM。行内用于列对齐的空白不会触发水平检查。空白行、重复行及相邻水平填充行会在区段起点报告一次；密度检查指向首个有效行。 相同的多处结果使用不同的接受键。此前接受的空白填充结果需要重新接受。
+
+在 Markdown（`.md`）文件中，围栏及缩进代码块与解析后的 Markdown 表格行不纳入填充计算。但代码或表格的非空白行仍会触发前方区块外连续空白行的检测。未关闭的围栏依 CommonMark 规则豁免至文件结尾。Unicode White_Space 字符视为空白；CRLF 视为一次换行，CR、U+0085、U+2028、U+2029、垂直制表符及换页符也会分隔视觉行。报告位置保留原始 LF 行号，因此 Unicode 分隔符不会增加报告行号。警告表示内容可能被隐藏，并非恶意意图的证明。结果会影响风险分数；HIGH 结果会在审计阈值为 HIGH 时阻止操作。密度及重复检查也可能标记生成的数据，请检查上下文。
+
+可用一般全局／项目规则覆盖，按 ID 或模式禁用 `whitespace-padding` 或设置严重程度。显式设置会覆盖 MEDIUM 和 HIGH 默认值，也支持置信度覆盖。此检测器没有逐行正则表达式；配置时请勿指定 `regex` 或 `exclude`。
 
 ### MEDIUM：内容完整性
 
@@ -178,7 +186,7 @@ Output suppression 按匹配的证据分级，不取决于 Markdown 上下文：
 
 共用 Markdown parser 识别 fenced code block 的边界，包括较长的 fence 与未闭合区块。区块内容仍接受 static rules 扫描，shell 区块也接受 command-tier 与 dataflow 分析。位于代码块内不代表可信。 原始 HTML 块和注释内的 fenced shell 示例也会接受相同的 shell 分析，taint 限定在各代码块内；原始 HTML 块不适用 SDK 参数降级。
 
-**规则覆盖：** 一般披露限制改用 `prompt-injection-5`。既有 `prompt-injection-4` 的覆盖或接受记录不会应用到新规则。将 `prompt-injection-5` 覆盖为 CRITICAL，可保留对一般限制的阻止。披露限制规则的严重级别覆盖会被遵守。Strict 下已审查的误报可使用 [Accepted Findings](../reference/commands/update.md#accepted-findings)；规则、文件或匹配文字改变后，必须重新接受。 显式设置的全局或项目严重级别覆盖，包括 CRITICAL，优先于 SDK 参数降级。 内置规则 5 仅排除明确隐瞒的短语，同一行中独立的一般披露限制仍会报告，即使规则 4 已停用或降级。 完整替换为自定义 regex 的规则仍保留整行排除语义。
+**规则覆盖：** 一般披露限制改用 `prompt-injection-5`。既有 `prompt-injection-4` 的覆盖或接受记录不会应用到新规则。将 `prompt-injection-5` 覆盖为 CRITICAL，可保留对一般限制的阻止。披露限制规则的严重级别覆盖会被遵守。Strict 下已审查的误报可使用 [Accepted Findings](../reference/commands/update.md#accepted-findings)；规则、文件、匹配文字或检测器专属证据改变后，必须重新接受。 显式设置的全局或项目严重级别覆盖，包括 CRITICAL，优先于 SDK 参数降级。 内置规则 5 仅排除明确隐瞒的短语，同一行中独立的一般披露限制仍会报告，即使规则 4 已停用或降级。 完整替换为自定义 regex 的规则仍保留整行排除语义。
 
 **防御措施：** 安装前务必审查 skill 文件。使用 `skillshare audit` 检测已知的注入模式。对于组织级部署，设置 `audit.block_threshold: HIGH` 以同时捕获隐藏的注释注入。
 

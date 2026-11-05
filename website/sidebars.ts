@@ -24,6 +24,7 @@ const sidebars: SidebarsConfig = {
             'learn/with-devcontainer',
             'learn/with-playground',
             'learn/with-ai-coding-agents',
+            'learn/with-herdr',
           ],
         },
       ],

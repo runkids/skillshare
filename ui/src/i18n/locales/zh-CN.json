@@ -939,6 +939,8 @@
   "update.stale.pruned.other": "已清除 {count} 个 skills，7 天内可从回收站恢复。",
   "updateDialog.copyCommand": "复制命令",
   "updateDialog.needsSudo": "更新需要输入密码，请在终端执行 skillshare upgrade。",
+  "updateDialog.nixConfig": "skillshare 通过 Nix 安装。请在 Nix 配置中更新 skillshare 并重新构建。",
+  "updateDialog.nixProfile": "skillshare 通过 Nix 安装。请在终端运行 {command}。",
   "updateDialog.newVersion": "有新版本可用",
   "updateDialog.restartDev": "已模拟 DEV 模式重启。",
   "updateDialog.restartManual": "已更新。如果此页面没有重新连接，请执行 skillshare ui start 重启。",

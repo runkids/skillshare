@@ -570,17 +570,23 @@ func RenderInlineBar(done, total int) string {
 
 // UpdateNotification prints a colorful update notification.
 // upgradeCmd is the command the user should run (e.g. "brew upgrade skillshare"
-// or "skillshare upgrade").
-func UpdateNotification(currentVersion, latestVersion, upgradeCmd string) {
+// or "skillshare upgrade"). When no single command upgrades this install,
+// upgradeCmd is empty and hint says what to do instead.
+func UpdateNotification(currentVersion, latestVersion, upgradeCmd, hint string) {
+	runLine := fmt.Sprintf("  Run: %s", upgradeCmd)
+	plainLine := fmt.Sprintf("  Run '%s' to update", upgradeCmd)
+	if upgradeCmd == "" {
+		runLine = "  " + strings.ToUpper(hint[:1]) + hint[1:]
+		plainLine = runLine
+	}
 	if !IsTTY() {
 		fmt.Fprintf(os.Stderr, "\n! Update available: %s -> %s\n", currentVersion, latestVersion)
-		fmt.Fprintf(os.Stderr, "  Run '%s' to update\n", upgradeCmd)
+		fmt.Fprintln(os.Stderr, plainLine)
 		return
 	}
 
 	fmt.Fprintln(os.Stderr)
 	versionLine := fmt.Sprintf("  Version: %s -> %s", currentVersion, latestVersion)
-	runLine := fmt.Sprintf("  Run: %s", upgradeCmd)
 	w := DisplayWidth(versionLine)
 	if rw := DisplayWidth(runLine); rw > w {
 		w = rw

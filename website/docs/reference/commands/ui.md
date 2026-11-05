@@ -186,8 +186,8 @@ The web dashboard exposes a REST API at `/api/`. All endpoints return JSON.
 | PUT | `/api/skillignore` | Update `.skillignore` content |
 | GET | `/api/doctor` | Run all health checks (JSON) |
 | GET | `/api/health` | Liveness probe; returns `200` once the server is ready |
-| GET | `/api/version` | Current/latest version + whether an upgrade is available |
-| POST | `/api/upgrade` | Run `skillshare upgrade` in place (returns `devMode: true` when the binary is a dev build) |
+| GET | `/api/version` | Current/latest version, whether an upgrade is available, and, for a Nix install, the command that updates the CLI (`nixUpgradeCommand`) |
+| POST | `/api/upgrade` | Run `skillshare upgrade` in place (returns `devMode: true` when the binary is a dev build, and `409` with code `upgrade.nix` when a Nix install has a newer CLI waiting) |
 | POST | `/api/restart` | Restart the local UI server; optional `{ "clearCache": true }` body clears cached UI assets first |
 
 ## In-place Upgrade
@@ -197,6 +197,8 @@ When the dashboard detects that a newer CLI release is available, the **Update**
 1. The UI calls `POST /api/upgrade`, which runs `skillshare upgrade` on the host.
 2. Once the new binary is in place, the UI calls `POST /api/restart` to restart the local server.
 3. The browser polls `GET /api/health` and reloads automatically once the new server is ready.
+
+If skillshare is installed with Nix, the endpoint still updates the built-in skillshare skill but leaves the CLI to Nix. When a newer CLI is available, it answers `409` (`upgrade.nix`) and the dialog then shows how to update through Nix. Before you click, the dialog already notes how Nix updates the CLI: `nix profile upgrade skillshare` for a `nix profile` install, or a rebuild of your Nix configuration. See [upgrade](./upgrade.md#nix-users).
 
 If the running binary is a development build (`version == "dev"`), the upgrade endpoint returns `devMode: true` and the UI simulates a restart without modifying anything on disk.
 
@@ -279,7 +281,7 @@ The dashboard reads and writes `.skillshare/config.yaml`, syncs to project-local
 
 ## Homebrew Note
 
-All install methods (Homebrew, installer script, manual binary) use runtime UI download. When you run `skillshare ui`, it automatically downloads the UI assets from GitHub on first launch. After that, the cached assets are used offline.
+All install methods (Homebrew, Nix, installer script, manual binary) use runtime UI download. When you run `skillshare ui`, it automatically downloads the UI assets from GitHub on first launch. After that, the cached assets are used offline.
 
 To clear the downloaded UI cache:
 

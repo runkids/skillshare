@@ -281,6 +281,8 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 以正規表示式為基礎的規則，其真實來源為：
 [`internal/audit/rules.yaml`](https://github.com/runkids/skillshare/blob/main/internal/audit/rules.yaml)
 
+檔案層級偵測器 `whitespace-padding` 也註冊於 `rules.yaml`。門檻和豁免由 Go 實作；設定啟用狀態、嚴重程度或信心值時不需 `regex` 或 `exclude`。請參閱[空白填充](/docs/understand/audit-engine#whitespace-padding)。 為此 ID 設定 `regex` 或 `exclude` 的規則會被拒絕。
+
 :::note 結構性、分層與跨 skill 檢查
 
 `dangling-link`、`content-tampered`、`content-oversize`、`content-missing` 與 `content-unexpected` 是**結構性檢查**（檔案系統查找與雜湊比對，並非正規表示式）。`low-analyzability` 是由 [Analyzability Score](/docs/understand/audit-engine#analyzability-score) 產生的**可分析性發現項目**。`tier-stealth`、`tier-destructive-network`、`tier-network-heavy`、`tier-interpreter` 與 `tier-interpreter-network` 是由 [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) 設定檔產生的**分層組合發現項目**。`cross-skill-*` 發現項目是由 [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection) 產生。以上這些都會出現在下方表格中，但並未定義於 `rules.yaml` 中。
@@ -374,6 +376,7 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 | `hardcoded-secret-9` | hardcoded-secret | HIGH |
 | `data-uri-0` | data-uri | MEDIUM |
 | `escape-obfuscation-0` | escape-obfuscation | MEDIUM |
+| `whitespace-padding` | whitespace-padding | MEDIUM（非空白文字前空白行 ≥40: HIGH） |
 | `suspicious-fetch-0` | suspicious-fetch | MEDIUM |
 | `ip-address-url-0` | ip-address-url | MEDIUM |
 | `hidden-unicode-3` | hidden-unicode | MEDIUM |

@@ -44,7 +44,7 @@ flowchart TD
 
 The `audit` command acts as a **gatekeeper** — scanning skill content for known threat patterns before they reach your AI assistant. It runs automatically during `install` and can be invoked manually at any time.
 
-Overriding a block with `--force` records the accepted findings (rule, file, and matched text) in `.metadata.json`, so later `update` runs stop blocking on them while still catching anything new. See [update — Accepted Findings](/docs/reference/commands/update#accepted-findings).
+Overriding a block with `--force` records the accepted findings (rule, file, matched text, and any detector-specific evidence) in `.metadata.json`, so later `update` runs skip the same evidence while still catching changed findings. For `whitespace-padding`, density findings use all eligible content in the file as evidence. Identical occurrences have separate acceptance keys; previously accepted padding findings require acceptance again after this change. See [update — Accepted Findings](/docs/reference/commands/update#accepted-findings).
 
 ## What It Detects
 
@@ -104,6 +104,14 @@ These patterns are **suspicious in context** — they may be legitimate but dese
 | `untrusted-install` | Auto-execute untrusted packages: `npx -y`/`npx --yes` (npm), `pip install https://` (non-PyPI URL) |
 
 > **Why medium?** A skill that downloads from external URLs could be pulling malicious payloads. URLs with raw IP addresses may bypass DNS-based security controls and domain blocklists. `data:` URIs in markdown links can hide embedded HTML/JavaScript payloads behind innocent-looking labels. Untrusted package execution (`npx -y`) auto-installs and runs arbitrary npm packages without confirmation. Additional invisible Unicode characters can subtly alter text rendering or hide content.
+
+### Whitespace Padding {#whitespace-padding}
+
+`whitespace-padding` is a file-level check in the `static` analyzer. It reports 20–39 consecutive blank lines at MEDIUM and 40 or more at HIGH, only when followed by nonblank text. Runs of at least 80 leading horizontal Unicode whitespace characters followed by text, more than 4096 eligible bytes with at least 95% whitespace bytes, and at least 100 identical consecutive nonblank lines immediately followed by different text are MEDIUM. Interior column alignment does not trigger the horizontal check. Blank, repeated, and adjacent horizontally padded lines produce one finding at the run start; density points to the first eligible line.
+
+In Markdown (`.md`) files, fenced and indented code blocks and parsed Markdown table rows are excluded from padding accounting. Nonblank code/table lines still trigger a preceding blank run outside the block. An unclosed fence exempts content through the end of the file, following CommonMark parsing. Other spacing is still checked. Unicode White_Space characters count as whitespace; CRLF is one break, and CR, U+0085, U+2028, U+2029, vertical tab and form feed also separate visual lines. Reported locations retain original LF-based line numbers, so a Unicode separator does not advance the reported line. A warning indicates hidden-content risk, not proof of malicious intent. Findings affect risk scores; HIGH findings block when the audit threshold is HIGH. Density and repetition can also flag generated data, so review the context.
+
+Disable `whitespace-padding` or set its severity by ID or pattern using the usual global/project rule overlays. An explicit severity overrides both MEDIUM and HIGH defaults. Confidence overrides also apply. This detector has no line regex; leave `regex` and `exclude` unset when configuring it.
 
 ### MEDIUM: Content Integrity
 
@@ -178,7 +186,7 @@ Output suppression is classified by the evidence matched, independently of Markd
 
 A shared Markdown parser recognizes fenced code-block boundaries, including longer fences and unclosed blocks. Code-block contents remain subject to static rules; shell blocks also receive command-tier and dataflow analysis. Fenced shell samples in raw HTML blocks and comments receive the same shell analysis, with taint isolated per block; raw HTML blocks do not qualify for SDK parameter downgrades. Being inside a code block does not establish trust.
 
-**Rule overrides:** Explicit global or project severity overrides, including CRITICAL, take precedence over SDK parameter downgrades. Generic disclosure restrictions now use `prompt-injection-5`. An existing override or acceptance for `prompt-injection-4` applies only to findings from that rule, not the new generic rule. Override `prompt-injection-5` to CRITICAL to retain blocking of generic restrictions. Built-in rule 5 excludes explicit-concealment phrases, not separate generic restrictions on the same line, even when rule 4 is disabled or downgraded. Full custom regex replacements retain whole-line exclusion semantics. For reviewed false positives under strict policy, use the existing [Accepted Findings](../reference/commands/update.md#accepted-findings) mechanism; changed rule, file, or matched text requires acceptance again.
+**Rule overrides:** Explicit global or project severity overrides, including CRITICAL, take precedence over SDK parameter downgrades. Generic disclosure restrictions now use `prompt-injection-5`. An existing override or acceptance for `prompt-injection-4` applies only to findings from that rule, not the new generic rule. Override `prompt-injection-5` to CRITICAL to retain blocking of generic restrictions. Built-in rule 5 excludes explicit-concealment phrases, not separate generic restrictions on the same line, even when rule 4 is disabled or downgraded. Full custom regex replacements retain whole-line exclusion semantics. For reviewed false positives under strict policy, use the existing [Accepted Findings](../reference/commands/update.md#accepted-findings) mechanism; changed rule, file, matched text, or detector-specific evidence requires acceptance again.
 
 **Defense:** Always review skill files before installing. Use `skillshare audit` to detect known injection patterns. For organizational deployments, set `audit.block_threshold: HIGH` to catch hidden comment injections too.
 

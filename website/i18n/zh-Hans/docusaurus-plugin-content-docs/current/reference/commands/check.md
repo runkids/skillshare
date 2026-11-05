@@ -219,6 +219,8 @@ skillshare check agents --json       # agents 的 JSON 输出
 skillshare check agents -p           # 检查 project agents
 ```
 
+每个 agent 都会与安装时的分支比较。记录的 source 被之前的 `update agents` 弄丢的 agent 会报告 `error` 并提示重新安装，参见[故障排除](/docs/troubleshooting/common-errors#agent-source-lost)。
+
 不带 `agents` 参数时，`check` 仅对 skills 起作用（默认行为）。关于背景信息，参见 [Agents](/docs/understand/agents)。
 
 ## 另请参阅

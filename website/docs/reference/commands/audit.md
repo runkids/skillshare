@@ -132,7 +132,7 @@ skillshare audit --analyzer static --analyzer dataflow # Multiple analyzers
 
 | Analyzer | Scope | Description |
 |----------|-------|-------------|
-| `static` | Per-file | Regex-based pattern matching against audit rules |
+| `static` | Per-file | Regex pattern matching and file-level whitespace-padding checks |
 | `dataflow` | Per-file | Taint tracking for shell scripts and markdown code blocks |
 | `tier` | Per-skill | Capability tier combination risk analysis |
 | `integrity` | Per-skill | Content hash verification (`file_hashes` in SKILL.md) |
@@ -196,7 +196,7 @@ If both are provided, `--skip-audit` effectively wins because audit is not execu
 
 `skillshare update` pulls tracked repos into an isolated candidate and audits it before publication. Findings at or above the active threshold (`audit.block_threshold` by default, or `--audit-threshold` / `--threshold` / `-T` override) block publication unless explicitly accepted; rejection leaves the active checkout unchanged. See [`update --skip-audit`](/docs/reference/commands/update#security-audit-gate) for details.
 
-Findings you accept with `--force` are remembered for that skill, so later updates do not block on the same rule matching the same text. A new finding, or the same rule matching different text, blocks again. See [Accepted Findings](/docs/reference/commands/update#accepted-findings).
+Findings accepted with `--force` are remembered for that skill. Acceptance keys ignore line numbers and include the rule, file, matched text, and any detector-specific evidence. For `whitespace-padding`, changed padded content produces a new key; density findings use all eligible file content as evidence. See [Accepted Findings](/docs/reference/commands/update#accepted-findings).
 
 When updating tracked repos via install (`skillshare install <repo> --track --update`), the gate uses the same threshold policy (`audit.block_threshold` or `--audit-threshold` / `--threshold` / `-T`).
 

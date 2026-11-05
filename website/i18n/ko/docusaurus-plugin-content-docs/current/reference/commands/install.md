@@ -268,7 +268,7 @@ skillshare install ./my-skill -p
 | Config 업데이트 | `config.yaml`의 `skills:`를 자동으로 재조정 | `.skillshare/config.yaml`의 `skills:`를 자동으로 재조정 |
 | 인자 없는 install | config에 나열된 모든 skill 설치 | config에 나열된 모든 skill 설치 |
 
-**project 모드의 tracked repo**는 global과 동일하게 동작합니다 — repo는 `.git`이 보존된 채 clone되고 `.skillshare/.gitignore`에 추가됩니다(기본적으로 `.skillshare/logs/`와 `.skillshare/trash/`도 함께 무시됩니다). `tracked: true` 플래그는 `.skillshare/config.yaml`에 자동으로 기록됩니다.
+**project 모드의 tracked repo**는 global과 동일하게 동작합니다 — repo는 `.git`이 보존된 채 clone되고 `.skillshare/.gitignore`에 추가됩니다(기본적으로 `.skillshare/logs/`, `.skillshare/trash/`, `.skillshare/backups/`, `.metadata.json` 파일도 함께 무시됩니다). `tracked: true` 플래그는 `.skillshare/config.yaml`에 자동으로 기록됩니다.
 
 ```bash
 skillshare install github.com/team/skills --track -p

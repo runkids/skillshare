@@ -939,6 +939,8 @@
   "update.stale.pruned.other": "Se purgaron {count} skills. Restáuralos desde la papelera en 7 días.",
   "updateDialog.copyCommand": "Copiar comando",
   "updateDialog.needsSudo": "La actualización necesita tu contraseña. Ejecuta skillshare upgrade en una terminal.",
+  "updateDialog.nixConfig": "skillshare está instalado con Nix. Actualiza skillshare en tu configuración de Nix y vuelve a compilarla.",
+  "updateDialog.nixProfile": "skillshare está instalado con Nix. Ejecuta {command} en una terminal.",
   "updateDialog.newVersion": "Nueva versión disponible",
   "updateDialog.restartDev": "Reinicio en modo DEV simulado.",
   "updateDialog.restartManual": "Actualizado. Reinicia con skillshare ui start si esta página no se reconecta.",

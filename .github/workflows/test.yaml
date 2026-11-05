@@ -43,6 +43,9 @@ jobs:
       - name: Check AI context routes
         run: python3 scripts/ai-context.py check
 
+      - name: Herdr mod tests
+        run: make test-herdr
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:

@@ -42,8 +42,23 @@ curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh 
 irm https://raw.githubusercontent.com/runkids/skillshare/main/install.ps1 | iex
 ```
 
+**Nix (Linux / Apple Silicon macOS):**
+```bash
+nix profile add github:runkids/skillshare
+```
+
+업데이트는 `nix profile upgrade skillshare`로 합니다. flakes가 활성화된 Nix 2.30 이상이 필요하며, 이전 Nix나 Lix에서는 `nix profile install`을 사용하세요. NixOS나 Home Manager에서는 flake를 input으로 추가하고 overlay를 사용하세요.
+
+```nix
+# flake.nix
+inputs.skillshare.url = "github:runkids/skillshare";
+# NixOS or Home Manager module
+nixpkgs.overlays = [ inputs.skillshare.overlays.default ];
+environment.systemPackages = [ pkgs.skillshare ]; # or home.packages
+```
+
 :::tip 나중에 업데이트하기
-`skillshare upgrade`는 설치 방식(Homebrew, 스크립트, 수동)을 감지해 CLI를 제자리에서 업데이트합니다.
+`skillshare upgrade`는 설치 방식(Homebrew, 스크립트, 수동)을 감지해 CLI를 제자리에서 업데이트합니다. Nix로 설치한 경우에는 CLI를 Nix에 맡기고 업데이트 방법을 안내합니다. `nix profile`로 설치했다면 `nix profile upgrade skillshare`, NixOS나 Home Manager라면 설정을 다시 빌드하라고 안내합니다.
 :::
 
 ## 2. 초기화

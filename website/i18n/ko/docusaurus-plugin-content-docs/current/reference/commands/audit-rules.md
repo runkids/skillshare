@@ -281,6 +281,8 @@ skillshare audit --json | jq '.skills[].findings'  # findings를 프로그래밍
 정규식 기반 규칙의 소스:
 [`internal/audit/rules.yaml`](https://github.com/runkids/skillshare/blob/main/internal/audit/rules.yaml)
 
+파일 단위 감지기 `whitespace-padding`도 `rules.yaml`에 등록됩니다. 임계값과 예외는 Go로 구현되며 `regex` 또는 `exclude` 없이 활성 상태, 심각도, 신뢰도를 설정합니다. [공백 패딩](/docs/understand/audit-engine#whitespace-padding)을 참고하세요. 이 ID에 `regex` 또는 `exclude`를 설정한 규칙은 거부됩니다.
+
 :::note 구조적, tier, cross-skill 검사
 
 `dangling-link`, `content-tampered`, `content-oversize`, `content-missing`, `content-unexpected`는 (정규식이 아닌 파일시스템 조회와 해시 비교를 수행하는) **구조적 검사**입니다. `low-analyzability`는 [Analyzability Score](/docs/understand/audit-engine#analyzability-score)에서 생성되는 **analyzability finding**입니다. `tier-stealth`, `tier-destructive-network`, `tier-network-heavy`, `tier-interpreter`, `tier-interpreter-network`는 [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) 프로파일에서 생성되는 **tier 조합 findings**입니다. `cross-skill-*` findings는 [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection)에서 생성됩니다. 이들은 모두 아래 표에 나타나지만 `rules.yaml`에는 정의되어 있지 않습니다.
@@ -374,6 +376,7 @@ skillshare audit --json | jq '.skills[].findings'  # findings를 프로그래밍
 | `hardcoded-secret-9` | hardcoded-secret | HIGH |
 | `data-uri-0` | data-uri | MEDIUM |
 | `escape-obfuscation-0` | escape-obfuscation | MEDIUM |
+| `whitespace-padding` | whitespace-padding | MEDIUM (비어 있지 않은 텍스트 앞 빈 줄 ≥40개: HIGH) |
 | `suspicious-fetch-0` | suspicious-fetch | MEDIUM |
 | `ip-address-url-0` | ip-address-url | MEDIUM |
 | `hidden-unicode-3` | hidden-unicode | MEDIUM |

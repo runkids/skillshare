@@ -1531,7 +1531,7 @@ func checkVersionDoctor(cfg *config.Config, result *doctorResult, isProject bool
 // Uses the shared versioncheck.Check which handles caching, auth, and
 // proper semver comparison. Safe to call from a goroutine.
 func fetchDoctorUpdateResult() *versioncheck.CheckResult {
-	method := detectInstallMethod()
+	method := versioncheck.DetectCurrentInstallMethod()
 	if version == "" || version == "dev" {
 		return &versioncheck.CheckResult{
 			CurrentVersion:  "dev",
@@ -1547,8 +1547,15 @@ func printUpdateAvailable(update *versioncheck.CheckResult, result *doctorResult
 	if update == nil || !update.UpdateAvailable {
 		return
 	}
-	ui.Row(ui.MarkNone, "Update", ui.VersionLabel(update.CurrentVersion)+" → "+ui.VersionLabel(update.LatestVersion)+" available", doctorWidth)
-	result.suggest(update.InstallMethod.UpgradeCommand(), "update to "+ui.VersionLabel(update.LatestVersion))
+	available := ui.VersionLabel(update.CurrentVersion) + " → " + ui.VersionLabel(update.LatestVersion) + " available"
+	cmd := update.InstallMethod.UpgradeCommand()
+	if cmd == "" {
+		available += ui.DimText(" · " + versioncheck.NixConfigUpgradeHint)
+	}
+	ui.Row(ui.MarkNone, "Update", available, doctorWidth)
+	if cmd != "" {
+		result.suggest(cmd, "update to "+ui.VersionLabel(update.LatestVersion))
+	}
 }
 
 func printDoctorHelp() {

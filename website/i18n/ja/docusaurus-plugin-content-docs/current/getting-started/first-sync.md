@@ -42,8 +42,23 @@ curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh 
 irm https://raw.githubusercontent.com/runkids/skillshare/main/install.ps1 | iex
 ```
 
+**Nix（Linux / Apple Silicon macOS）:**
+```bash
+nix profile add github:runkids/skillshare
+```
+
+更新には `nix profile upgrade skillshare` を使います。flakes を有効にした Nix 2.30 以降が必要です。古い Nix や Lix では `nix profile install` を使ってください。NixOS や Home Manager では flake を input に追加し、overlay を使います。
+
+```nix
+# flake.nix
+inputs.skillshare.url = "github:runkids/skillshare";
+# NixOS or Home Manager module
+nixpkgs.overlays = [ inputs.skillshare.overlays.default ];
+environment.systemPackages = [ pkgs.skillshare ]; # or home.packages
+```
+
 :::tip あとから更新する
-`skillshare upgrade` はインストール方法（Homebrew、スクリプト、手動）を判別し、その場で CLI を更新します。
+`skillshare upgrade` はインストール方法（Homebrew、スクリプト、手動）を判別し、その場で CLI を更新します。Nix でインストールした場合は CLI を Nix に任せ、更新方法を表示します。`nix profile` でのインストールなら `nix profile upgrade skillshare`、NixOS や Home Manager なら設定のリビルドです。
 :::
 
 ## 2. 初期化する

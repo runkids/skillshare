@@ -143,7 +143,7 @@ skillshare update agents --all --json
 }
 ```
 
-取りうる agent の `status` の値には `updated`、`failed`、`skipped`、`up_to_date`、`update_available`、`dirty`、`drifted`、`local` が含まれます。
+取りうる agent の `status` の値には `updated`、`failed`、`skipped`、`up_to_date`、`update_available`、`dirty`、`drifted`、`local`、`error` が含まれます。`error` の Agent は、リモートに到達できない、metadata を読めないなどの理由で確認できなかったものです。この場合、コマンドは Agent を最新と報告せず、0 以外の終了コードで終了します。
 
 ## Agents の更新
 
@@ -327,7 +327,7 @@ skillshare update --all --skip-audit
   1 previously accepted finding skipped
 ```
 
-検出結果は行番号ではなく、rule・ファイル・一致したテキストによって照合されます。そのため、無関係な内容が変わっても受け入れ状態が維持されます。新しい検出結果、または同じ rule が異なるテキストに一致した場合は、再びブロックされます。これは、攻撃文字列を例として正当に引用する skill（security scanner や red-team のドキュメントなど）に適しており、それでいて後のバージョンで新しいペイロードを検知できます。
+承認キーは行番号を無視し、rule、ファイル、一致したテキスト、および検出器固有の証拠を含みます。`whitespace-padding` では、パディングされた内容が変わると新しいキーになります。密度 finding の証拠には、ファイル内の対象コンテンツ全体が含まれます。新しい finding や証拠が変わった finding は再びブロックされます。これは攻撃文字列を例として正当に引用する skill（security scanner や red-team のドキュメントなど）に適し、後のバージョンの新しいペイロードも引き続き検知できます。
 
 コマンドごとにしきい値を `--audit-threshold`、`--threshold`、または `-T` で上書きできます。
 
