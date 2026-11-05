@@ -15,6 +15,7 @@ import (
 func projectCandidateFixture(t *testing.T, body string) (string, *config.Config, string, []byte) {
 	t.Helper()
 	dir := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", filepath.Join(dir, "state"))
 	path := filepath.Join(dir, "config.yaml")
 	t.Setenv("SKILLSHARE_CONFIG", path)
 	data := []byte(strings.NewReplacer("$ROOT/", dir+string(filepath.Separator), "$ROOT", dir).Replace("# project collection\ntargets: {}\nprojects:\n" + body))

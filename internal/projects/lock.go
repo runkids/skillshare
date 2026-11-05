@@ -2,8 +2,6 @@ package projects
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -47,10 +45,13 @@ func LockConfig(ctx context.Context, path string) (func(), error) {
 // lockPath keys the lock by the resolved config file, so links to one config
 // share a lock and separate configs do not.
 func lockPath(dest string) (string, error) {
-	dir := filepath.Join(config.StateDir(), "projects")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	dir := filepath.Join(config.ProjectStateDir(), "projects")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", err
 	}
-	sum := sha256.Sum256([]byte(filepath.Clean(dest)))
-	return filepath.Join(dir, hex.EncodeToString(sum[:8])+".lock"), nil
+	id, err := config.ProjectConfigIdentity(dest)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, id+".lock"), nil
 }

@@ -227,6 +227,7 @@ make playground-down     # stop container
 | `~/.config/skillshare/agents/` | Agent source directory |
 | `~/.config/skillshare/extras/<name>/` | Extras source directories |
 | `~/.local/state/skillshare/logs/` | Operation and audit logs |
+| `~/.local/state/skillshare/projects/` | Machine-local project registrations and locks |
 | `~/.local/share/skillshare/backups/` | Backup directory |
 
 ---

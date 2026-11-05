@@ -162,8 +162,8 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 		}
 		warnings = w2
 	} else {
-		var testCfg config.Config
-		if err := yaml.Unmarshal([]byte(body.Raw), &testCfg); err != nil {
+		testCfg, err := config.DecodeReadOnly(s.configPath(), []byte(body.Raw))
+		if err != nil {
 			writeError(w, http.StatusBadRequest, "invalid YAML: "+err.Error())
 			return
 		}
@@ -172,7 +172,10 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		w2, validErr := config.ValidateConfig(&testCfg)
+		w2, validErr := config.ValidateConfig(testCfg)
+		if validErr == nil {
+			validErr = testCfg.ValidateProjects(testCfg.Projects)
+		}
 		if validErr == nil {
 			validErr = config.ValidateMCP(testCfg.MCP, testCfg.Sources.MCP, testCfg.AgentConfigDirTargets()...)
 		}

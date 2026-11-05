@@ -60,14 +60,16 @@ export XDG_DATA_HOME=~/my-data
 
 ### XDG_STATE_HOME
 
-覆盖状态目录（操作日志）。
+覆盖状态目录（操作日志、本机项目注册及其修改锁）。
 
 ```bash
 export XDG_STATE_HOME=~/my-state
-# skillshare 将使用 ~/my-state/skillshare/logs/
+# skillshare 将使用 ~/my-state/skillshare/logs/, ~/my-state/skillshare/projects/
 ```
 
 **默认值：** `~/.local/state/skillshare/`
+
+未设置时，Windows 上的项目注册及锁默认存放在 `%LOCALAPPDATA%\skillshare\state`。请将此覆盖路径保留在本机。参见[本机与共享注册](../commands/project.md#local-registrations)。
 
 ---
 
@@ -470,7 +472,7 @@ export GITHUB_TOKEN="ghp_your_token_here"
 | `SKILLSHARE_CNB_HOSTS` | 自定义 CNB 主机名（逗号分隔） | 无 |
 | `XDG_CONFIG_HOME` | 基础配置目录 | `~/.config`（Linux/macOS）、`%AppData%`（Windows） |
 | `XDG_DATA_HOME` | 数据目录（backups、trash） | `~/.local/share` |
-| `XDG_STATE_HOME` | 状态目录（logs） | `~/.local/state` |
+| `XDG_STATE_HOME` | 状态目录（日志、本机项目注册及锁） | `~/.local/state` |
 | `XDG_CACHE_HOME` | 缓存目录（版本检查、UI） | `~/.cache` |
 | `GITHUB_TOKEN` | GitHub API + git clone 认证 | 无 |
 | `GH_TOKEN` | GitHub API（`GITHUB_TOKEN` 的回退） | 无 |

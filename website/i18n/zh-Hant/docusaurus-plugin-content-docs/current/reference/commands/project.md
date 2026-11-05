@@ -4,7 +4,7 @@ sidebar_position: 21
 
 # project
 
-在 global config 中管理 project 資料夾，並把 skills 與 agents 同步進去，不需要在每個資料夾建立 `.skillshare/` 設定。
+使用共用設定與本機註冊管理專案資料夾並同步 skills 與 agents，不必在每個資料夾建立 `.skillshare/`。
 
 `project` 一律使用 global config，即使在 project 內執行也一樣。這和 `-p` / `--project` 不同：後者會選擇 repo 自己的設定，而且會被這個指令拒絕。如果隊友應該隨著 repo 一起拿到這套設定，請使用 [project mode](/docs/understand/project-skills)。
 
@@ -17,6 +17,7 @@ skillshare project show <project> --json
 skillshare project add <root> --target T [options]
 skillshare project edit <project> [options]
 skillshare project sync <project> [--dry-run] [--json]
+skillshare project localize <project> [--dry-run] [--json]
 skillshare project remove <project> [--yes] [--dry-run] [--json]
 ```
 
@@ -35,7 +36,7 @@ skillshare project remove <project> [--yes] [--dry-run] [--json]
 | `--skills-include P`, `--skills-exclude P` | add, edit | 重複指定以提供多個 glob pattern；會取代對應的清單；空值會清空清單 |
 | `--agents-include P`, `--agents-exclude P` | add, edit | Agents 套用相同的取代規則；filters 需要 merge 或 copy 模式 |
 | `--sync` | add, edit | 儲存後同步這個 project 的 skills 與 agents；不啟用 force |
-| `--dry-run`, `-n` | add, edit, sync, remove | 預覽，不寫入也不提示確認 |
+| `--dry-run`, `-n` | add, edit, sync, remove, localize | 預覽，不寫入也不提示確認 |
 | `--yes` | remove | 略過確認；非預覽情況下以 JSON 輸出移除時必須提供 |
 | `--json` | all | 結構化輸出；也請一併檢查程序的結束碼 |
 | `--global`, `-g` | all | 明確指定 global 範圍（也是這個指令的預設值） |
@@ -55,7 +56,7 @@ skillshare project add ~/work/shop-web --target claude,codex \
 skillshare project show shop-web --json
 ```
 
-儲存的項目屬於 [`projects`](/docs/reference/targets/configuration#projects)。共用的工具資料夾會被合併成同一個 sync target。一般的 `skillshare sync` 也會同步已註冊的 projects。
+儲存的註冊留在本機。共用 [`projects`](/docs/reference/targets/configuration#projects) 宣告仍受支援。
 
 停用 skills 的 project 永遠不會執行 skills 同步流程，在 global symlink 模式下也一樣。請求或啟用的資源選擇為空時，會直接成功，不進行探索、備份或 target 寫入。
 
@@ -68,7 +69,7 @@ skillshare project sync shop-web --dry-run --json
 skillshare project sync shop-web --json
 ```
 
-Add 與 edit 會在寫入前驗證完整的有效設定。YAML anchors 可能影響其他項目；變更結果會列出所有受影響的根路徑。沒有任何變化的 add 或 edit 會回傳 `applied: false` 與 `unchanged: true`，但仍會執行 `--sync`。以不同設定重複執行 add 會失敗，並提示改用 `project edit`。自訂名稱不能看起來像根路徑（例如 `~name`、`./name` 或 `C:name`）。
+Add 與 edit 會在寫入前驗證完整的有效設定。本機編輯只複製選取的項目，不會改變共用 YAML anchors 的其他根路徑。變更結果會列出受影響的根路徑。沒有任何變化的 add 或 edit 會回傳 `applied: false` 與 `unchanged: true`，但仍會執行 `--sync`。以不同設定重複執行 add 會失敗，並提示改用 `project edit`。自訂名稱不能看起來像根路徑（例如 `~name`、`./name` 或 `C:name`）。
 
 ### 移除註冊 {#remove}
 
@@ -87,20 +88,35 @@ CLI edit 會依相同規則分離被移出的 skill 路徑。只要專案的 ski
 |---------|-------------|
 | list | `projects` 陣列（沒有註冊時為空） |
 | show | `project` 物件 |
-| add, edit, remove | `action`、`project`、`applied`、`affected`、`warnings`；可選的 `sync` 或 `detach` |
+| add, edit, remove, localize | `action`、`project`、`applied`、`affected`、`warnings`；可選的 `sync` 或 `detach` |
 | sync | `action`、`project`、`sync`；預覽另外包含 `applied: false` |
 
 Project 物件包含 `root`（儲存時的寫法）、`path`（展開後的路徑）、`name`、`targets`、`skills`、`agents`、`groups`、`missing` 與 `hasOwnConfig`。省略或停用的資源為 `null`。啟用的資源會列出其設定。文字格式的 `project list` 與 `project show` 會回報開/關狀態。Sync 結果包含 `results`、`failed`、`warnings`，以及探索與 filter 的診斷資訊。
 
 某個 target 失敗時，sync 會回報已完成的 targets，並以結束碼 1 結束。Sync 預覽會在 `failed` 中回報衝突並以結束碼 0 結束；無效的輸入仍然會失敗。如果 add/edit 儲存成功但 sync 失敗，註冊會維持已儲存的狀態；修正 target 後再用 `project sync` 重試。找不到的 project 資料夾仍可以 edit，但無法 sync。
 
-Edit 與移除並非交易式操作：後續的分離或儲存失敗，可能會留下先前已完成的檔案系統變更。JSON 結果會回報已完成的 `detach`、`registration`（`kept`、`updated` 或 `removed`）以及 `error`。Edit 儲存失敗時為 `applied: false`，並描述已持久化的 project；儲存成功但之後 sync 失敗時仍為 `applied: true`。重試前請先檢查這些欄位。在任何變更發生前的失敗會使用錯誤 payload。List、show、預覽與 JSON 輸出會略過啟動時的 migration、清理與版本檢查；文字輸出的 add、edit、sync 與 remove 與其他指令一樣執行它們。
+Edit 與移除並非交易式操作：後續的分離或儲存失敗，可能會留下先前已完成的檔案系統變更。JSON 結果會回報已完成的 `detach`、`registration`（`kept`、`updated` 或 `removed`）以及 `error`。Edit 儲存失敗時為 `applied: false`，並描述已持久化的 project；儲存成功但之後 sync 失敗時仍為 `applied: true`。重試前請先檢查這些欄位。在任何變更發生前的失敗會使用錯誤 payload。所有 project 命令都略過啟動遷移、清理與版本檢查。
 
 這個指令只管理 skills 與 agents。MCP 的 project 設定與 hooks 使用各自的指令；它不會轉換 targets，也不會編輯 project 自己的設定。
 
+## 本機與共用註冊 {#local-registrations}
+
+專案 CLI 的 add/edit/remove 與儀表板儲存只寫入本機註冊，不會重寫共用設定。共用 `projects:` 宣告繼續有效；相同正規化根目錄的本機項目會完整覆蓋共用項目。移除只在此機器隱藏共用項目，重新新增會解除隱藏。不同根目錄的名稱必須唯一，同一層的重複正規化根目錄會被拒絕。
+
+```bash
+skillshare project localize shop-web --dry-run --json
+skillshare project localize shop-web --json
+```
+
+`localize` 將共用項目複製到本機，不會刪除共用 YAML、解除連結或同步；重複執行不會變更。list/show 的文字與 JSON 提供 `origin`（shared/local）與 `originPath`。所有 project 命令都略過啟動遷移、清理與版本檢查。
+
+儲存位置為 `$XDG_STATE_HOME/skillshare/projects/<identity>.yaml`；未指定時，Unix 使用 `~/.local/state/skillshare/projects`，Windows 使用 `%LOCALAPPDATA%\skillshare\state\projects`。請保持狀態目錄為本機位置。識別碼依解析後的設定檔目的地決定；設定檔符號連結別名共用狀態，搬移目的地會使用新註冊。讀取不建立檔案，無效版本或內容會拒絕載入。
+
+CLI 與儀表板共用本機狀態鎖，最多等候 10 秒並在取得後重新載入。候選資料會在解除連結與寫入前檢查共用與本機快照；其他共用設定寫入者不受此保護。儀表板 Convert 是明確的共用設定變更，會拒絕已宣告、隱藏或本機覆蓋的根目錄。原始設定編輯器會先驗證提交內容與本機項目的合併結果。
+
 ## 並行寫入 projects {#concurrency}
 
-CLI 與 dashboard 對 projects 的變更共用一把 `gofrs/flock` 鎖，鎖檔位於 skillshare 的 state 目錄中，依解析後的 global config 目的地區分；它們最多等待 10 秒，取得鎖之後會重新載入設定。Config 的 symlinks 共用同一把鎖。讀取與 dry run 不會建立或取得這把鎖。其他設定寫入者，包括 `target`、MCP、hooks 以及一般的 `Config.Save()` 呼叫端，都不在這個保護範圍內；透過這些路徑的並行寫入仍可能覆蓋變更。
+CLI 與儀表板共用本機狀態鎖，最多等候 10 秒並在取得後重新載入。候選資料會在解除連結與寫入前檢查共用與本機快照；其他共用設定寫入者不受此保護。儀表板 Convert 是明確的共用設定變更，會拒絕已宣告、隱藏或本機覆蓋的根目錄。原始設定編輯器會先驗證提交內容與本機項目的合併結果。
 
 ## 相關 {#related}
 

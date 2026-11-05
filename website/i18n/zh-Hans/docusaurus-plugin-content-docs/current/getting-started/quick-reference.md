@@ -224,6 +224,7 @@ make playground-down     # stop container
 | `~/.config/skillshare/agents/` | Agent Source 目录 |
 | `~/.config/skillshare/extras/<name>/` | Extras Source 目录 |
 | `~/.local/state/skillshare/logs/` | 操作日志与审计日志 |
+| `~/.local/state/skillshare/projects/` | 本机项目注册及锁 |
 | `~/.local/share/skillshare/backups/` | 备份目录 |
 
 ---

@@ -69,7 +69,7 @@ func projectSyncPayload(r *ssync.ExecuteResult, agentsSource string) *projectSyn
 	return p
 }
 func renderProjectResult(o projectOptions, r projectResult, err error, start time.Time) error {
-	unchanged := (o.action == "edit" || o.action == "add") && len(r.Affected) == 0
+	unchanged := (o.action == "edit" || o.action == "add" || o.action == "localize") && len(r.Affected) == 0
 	applied := !o.dryRun && r.Registration == "updated"
 	if o.action == "remove" {
 		applied = r.Registration == "removed"
@@ -156,9 +156,11 @@ func renderProjectResult(o projectOptions, r projectResult, err error, start tim
 	return err
 }
 func renderProjectItem(item projects.Item) {
-	width := ui.RowWidth("Project", "Root", "Targets", "Skills", "Agents")
+	width := ui.RowWidth("Project", "Root", "Origin", "Origin file", "Targets", "Skills", "Agents")
 	ui.Row(ui.MarkNone, "Project", item.Name, width)
 	ui.Row(ui.MarkNone, "Root", item.Root, width)
+	ui.Row(ui.MarkNone, "Origin", item.Origin, width)
+	ui.Row(ui.MarkNone, "Origin file", item.OriginPath, width)
 	ui.Row(ui.MarkNone, "Targets", strings.Join(item.Targets, ", "), width)
 	for _, kind := range []string{"Skills", "Agents"} {
 		r := item.Skills

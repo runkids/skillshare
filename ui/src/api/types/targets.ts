@@ -7,12 +7,15 @@ export interface ProjectResource {
 }
 
 export interface Project {
-  /** The key in config.yaml, as written */
+  /** The stored root key, as written */
   root: string;
   /** Absolute folder */
   path: string;
   name: string;
   customName?: string;
+  /** Absent for undeclared candidate rows and older servers. */
+  origin?: 'shared' | 'local';
+  originPath?: string;
   targets: string[];
   skills: ProjectResource | null;
   agents: ProjectResource | null;
@@ -23,6 +26,13 @@ export interface Project {
 }
 
 export type ProjectInput = Pick<Project, 'root' | 'targets' | 'skills' | 'agents'> & { name?: string; create?: boolean };
+
+export interface ProjectMutation {
+  success: boolean;
+  root: string;
+  origin: 'shared' | 'local';
+  originPath: string;
+}
 
 export interface ProjectList {
   projects: Project[];

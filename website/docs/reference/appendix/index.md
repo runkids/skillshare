@@ -28,6 +28,7 @@ Technical reference appendix for skillshare.
 | `~/.local/share/skillshare/backups/` | Backup directory |
 | `~/.local/share/skillshare/trash/` | Soft-deleted skills |
 | `~/.local/state/skillshare/logs/` | Operation and audit logs |
+| `~/.local/state/skillshare/projects/` | Machine-local project registrations and locks |
 | `~/.cache/skillshare/ui/` | Downloaded web dashboard |
 
 ### Environment Variables

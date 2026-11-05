@@ -98,7 +98,7 @@ export default function ProjectsPage() {
               <Link key={p.path} to={projectUrl(p.path, p.declared ? undefined : hooks.data?.source.projects?.[p.path] && !mcp.data?.source.projects?.[p.path] ? 'hooks' : 'mcp')} className="ss-r link !min-h-[56px]">
                 <span className="ss-cat target"><Folder size={16} /></span>
                 <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="font-semibold">{p.name}</span>
+                  <span className="font-semibold">{p.name} {p.origin && <span className="ss-tag" title={p.originPath}>{t(`projects.origin.${p.origin}`)}</span>}</span>
                   <span className="truncate font-mono text-[12px] text-ink-3" title={p.path}>{shortenHome(p.path)}</span>
                 </span>
                 <span className="w-[120px] shrink-0">

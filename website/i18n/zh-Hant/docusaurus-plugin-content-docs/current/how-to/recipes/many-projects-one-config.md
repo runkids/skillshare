@@ -6,6 +6,9 @@ sidebar_position: 8
 
 > 從 global config 把 skills 與 MCP servers 送進多個 project 資料夾，只需同步一次。
 
+
+專案 CLI 的 add/edit/remove 與儀表板儲存只寫入本機註冊，不會重寫共用設定。共用 `projects:` 宣告繼續有效；相同正規化根目錄的本機項目會完整覆蓋共用項目。移除只在此機器隱藏共用項目，重新新增會解除隱藏。不同根目錄的名稱必須唯一，同一層的重複正規化根目錄會被拒絕。 `localize` 將共用項目複製到本機，不會刪除共用 YAML、解除連結或同步；重複執行不會變更。list/show 的文字與 JSON 提供 `origin`（shared/local）與 `originPath`。所有 project 命令都略過啟動遷移、清理與版本檢查。
+
 ## 情境 {#scenario}
 
 像 `~/.claude/skills` 這樣的 global targets 會被每個 project 讀取，所以每個 project 看到的都是同一組 skills。如果這就是你要的效果，你不需要這份 recipe。
@@ -17,9 +20,9 @@ sidebar_position: 8
 - 某個 project 應該保留 skills 的實體副本以便 commit，但不 commit 任何 Skillshare config。
 - 你使用的某個工具只會讀取 project 內的某個資料夾。
 
-[Project mode](/docs/how-to/recipes/skill-per-project-workflow) 同樣能讓每個 project 擁有自己的一組。它會在每個 project 中保留一份 `.skillshare/config.yaml`，並且你要在每個資料夾內各自執行 sync。global config 中的 `projects` 則能用你機器上的一份檔案達到相同效果：
+共用宣告與本機註冊都能用一次同步為各個資料夾提供獨立設定。
 
-| | Global targets | Global `projects` | Project mode |
+| | Global targets | Registered projects | Project mode |
 |---|---|---|---|
 | **誰拿到 skills** | 每個 project，同一組 | 你列出的資料夾，各自一組 | 那一個 project |
 | **設定放在哪裡** | 你的機器 | 你的機器 | project 的 repo |

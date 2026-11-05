@@ -4,7 +4,7 @@ sidebar_position: 21
 
 # project
 
-各フォルダーに `.skillshare/` の設定を作らずに、global config で project フォルダーを管理し、そこへ Skill と Agent を sync します。
+各フォルダーに `.skillshare/` を作らずに、共有設定とローカル登録からプロジェクトへ Skill と Agent を同期します。
 
 `project` は project 内で実行した場合でも、常に global config を使います。これはリポジトリ自身の設定を選ぶ `-p` / `--project` とは異なり、このコマンドでは `-p` / `--project` は拒否されます。チームメイトにもリポジトリと一緒にセットアップを渡したい場合は、[project mode](/docs/understand/project-skills) を使ってください。
 
@@ -17,6 +17,7 @@ skillshare project show <project> --json
 skillshare project add <root> --target T [options]
 skillshare project edit <project> [options]
 skillshare project sync <project> [--dry-run] [--json]
+skillshare project localize <project> [--dry-run] [--json]
 skillshare project remove <project> [--yes] [--dry-run] [--json]
 ```
 
@@ -35,7 +36,7 @@ skillshare project remove <project> [--yes] [--dry-run] [--json]
 | `--skills-include P`, `--skills-exclude P` | add, edit | 繰り返して複数の glob パターンを指定します。対応するリストを置き換え、空の値で解除します |
 | `--agents-include P`, `--agents-exclude P` | add, edit | Agent 用で、置き換えの扱いは同じです。フィルタには merge または copy モードが必要です |
 | `--sync` | add, edit | 保存してから、この project の Skill と Agent を sync します。force はオフです |
-| `--dry-run`, `-n` | add, edit, sync, remove | 書き込みや確認なしでプレビューします |
+| `--dry-run`, `-n` | add, edit, sync, remove, localize | 書き込みや確認なしでプレビューします |
 | `--yes` | remove | 確認をスキップします。プレビュー以外で JSON 出力と一緒に削除するときは必須です |
 | `--json` | all | 構造化出力。プロセスの終了コードも確認してください |
 | `--global`, `-g` | all | global スコープを明示します（このコマンドのデフォルトでもあります） |
@@ -55,7 +56,7 @@ skillshare project add ~/work/shop-web --target claude,codex \
 skillshare project show shop-web --json
 ```
 
-保存されたエントリは [`projects`](/docs/reference/targets/configuration#projects) に属します。共有されたツールのフォルダーは 1 つの sync Target にまとめられます。通常の `skillshare sync` でも、登録済みの project が sync されます。
+保存した登録はこのマシンに残ります。共有 [`projects`](/docs/reference/targets/configuration#projects) 定義も引き続き利用できます。
 
 Skill を無効化した project では、global の symlink モードを含め、Skill の sync 処理は一切実行されません。要求された、または有効なリソースの選択が空の場合は、検出、バックアップ、Target への書き込みを行わずに成功します。
 
@@ -68,7 +69,7 @@ skillshare project sync shop-web --dry-run --json
 skillshare project sync shop-web --json
 ```
 
-add と edit は、書き込む前に有効な設定全体を検証します。YAML アンカーは他のエントリにも影響することがあるため、変更の結果には影響を受けたすべてのルートが列挙されます。何も変わらない add や edit は `applied: false` と `unchanged: true` を返し、それでも `--sync` は実行されます。異なる設定で add を繰り返すと失敗し、`project edit` を案内します。カスタム名はルートに見える形（例: `~name`、`./name`、`C:name`）にはできません。
+add と edit は、書き込む前に有効な設定全体を検証します。ローカルの編集は選択した項目だけをコピーし、共有 YAML アンカーの他のルートを変更しません。変更の結果には影響を受けたルートが列挙されます。何も変わらない add や edit は `applied: false` と `unchanged: true` を返し、それでも `--sync` は実行されます。異なる設定で add を繰り返すと失敗し、`project edit` を案内します。カスタム名はルートに見える形（例: `~name`、`./name`、`C:name`）にはできません。
 
 ### 登録の削除 {#remove}
 
@@ -87,20 +88,35 @@ CLI の edit は、外された Skill のパスも同じルールで切り離し
 |---------|-------------|
 | list | `projects` 配列（登録がない場合は空） |
 | show | `project` オブジェクト |
-| add, edit, remove | `action`、`project`、`applied`、`affected`、`warnings`。必要に応じて `sync` または `detach` |
+| add, edit, remove, localize | `action`、`project`、`applied`、`affected`、`warnings`。必要に応じて `sync` または `detach` |
 | sync | `action`、`project`、`sync`。プレビューでは `applied: false` も含みます |
 
 project オブジェクトには `root`（保存された表記）、`path`（展開済みのパス）、`name`、`targets`、`skills`、`agents`、`groups`、`missing`、`hasOwnConfig` が含まれます。省略または無効化されたリソースは `null` です。有効なリソースはその設定を公開します。テキスト形式の `project list` と `project show` はオン/オフの状態を表示します。sync の結果には `results`、`failed`、`warnings`、および検出・フィルタの診断情報が含まれます。
 
 Target が失敗すると、sync は完了した Target を報告しつつ終了コード 1 で終了します。sync のプレビューは競合を `failed` に報告して終了コード 0 で終了しますが、不正な入力は引き続き失敗します。add/edit の保存に成功して sync が失敗した場合、登録は保存されたままです。Target を修正してから `project sync` で再試行してください。見つからない project フォルダーも edit はできますが、sync はできません。
 
-edit と削除はトランザクションではありません。後続の切り離しや保存が失敗すると、それ以前のファイルシステムの変更が残ることがあります。JSON の結果には、完了した `detach`、`registration`（`kept`、`updated`、`removed`）、`error` が報告されます。edit の保存に失敗した場合は `applied: false` となり、永続化された project を記述します。保存に成功した後に sync が失敗した場合は `applied: true` のままです。再試行の前にこれらのフィールドを確認してください。変更が行われる前の失敗はエラーペイロードを使います。list、show、プレビュー、JSON 出力は起動時のマイグレーション、クリーンアップ、バージョン確認を行いません。テキスト出力の add、edit、sync、remove は他のコマンドと同様にそれらを実行します。
+edit と削除はトランザクションではありません。後続の切り離しや保存が失敗すると、それ以前のファイルシステムの変更が残ることがあります。JSON の結果には、完了した `detach`、`registration`（`kept`、`updated`、`removed`）、`error` が報告されます。edit の保存に失敗した場合は `applied: false` となり、永続化された project を記述します。保存に成功した後に sync が失敗した場合は `applied: true` のままです。再試行の前にこれらのフィールドを確認してください。変更が行われる前の失敗はエラーペイロードを使います。すべての project コマンドは起動時の移行、クリーンアップ、バージョン確認を省略します。
 
 このコマンドは Skill と Agent のみを管理します。MCP の project 設定と hooks はそれぞれ専用のコマンドを使います。Target の変換や、project 自身の設定の編集は行いません。
 
+## ローカル登録と共有定義 {#local-registrations}
+
+CLI の add/edit/remove とダッシュボードの保存はローカル登録だけを書き込み、共有設定を書き換えません。共有 `projects:` は引き続き有効です。同じ正規化ルートではローカル項目が共有項目全体を置き換えます。削除はこのマシンだけで共有項目を隠し、再追加で解除します。異なるルートの名前重複と同じ層の正規化ルート重複は拒否されます。
+
+```bash
+skillshare project localize shop-web --dry-run --json
+skillshare project localize shop-web --json
+```
+
+`localize` は共有項目をローカルにコピーし、共有 YAML の削除、切り離し、同期を行いません。繰り返しは変更なしです。list/show のテキストと JSON は `origin`（shared/local）と `originPath` を返します。すべての project コマンドは起動時の移行、クリーンアップ、バージョン確認を省略します。
+
+保存先は `$XDG_STATE_HOME/skillshare/projects/<identity>.yaml`、未指定なら Unix では `~/.local/state/skillshare/projects`、Windows では `%LOCALAPPDATA%\skillshare\state\projects` です。状態ディレクトリはローカルに保ってください。識別子は解決済み設定ファイルの保存先に基づき、設定シンボリックリンクの別名は状態を共有します。保存先の移動は新しい登録領域になります。読み取りはファイルを作成せず、不正な内容やバージョンは拒否します。
+
+CLI とダッシュボードはローカル状態のロックを共有し、最大 10 秒待ち、取得後に再読み込みします。切り離しと書き込み前に共有・ローカルのスナップショットを確認します。他の共有設定書き込みには適用されません。ダッシュボードの Convert は明示的に共有設定を変更し、既存、非表示、ローカル上書きのルートを拒否します。生の設定エディターは提出された内容とローカル項目の統合結果を保存前に検証します。
+
 ## project の同時書き込み {#concurrency}
 
-CLI とダッシュボードによる project の変更は、skillshare の state ディレクトリにある、解決済みの global config の保存先ごとの `gofrs/flock` ロックを共有し、最大 10 秒待機して、取得後に再読み込みします。config のシンボリックリンクも同じロックを共有します。読み取りと dry run はロックを作成も取得もしません。`target`、MCP、hooks、通常の `Config.Save()` 呼び出しなど、その他の config の書き込みはこの保護の対象外です。それらの経路での同時書き込みは、引き続き変更を上書きする可能性があります。
+CLI とダッシュボードはローカル状態のロックを共有し、最大 10 秒待ち、取得後に再読み込みします。切り離しと書き込み前に共有・ローカルのスナップショットを確認します。他の共有設定書き込みには適用されません。ダッシュボードの Convert は明示的に共有設定を変更し、既存、非表示、ローカル上書きのルートを拒否します。生の設定エディターは提出された内容とローカル項目の統合結果を保存前に検証します。
 
 ## 関連 {#related}
 

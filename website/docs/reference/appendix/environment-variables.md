@@ -60,14 +60,16 @@ export XDG_DATA_HOME=~/my-data
 
 ### XDG_STATE_HOME
 
-Override the state directory (operation logs).
+Override the state directory (operation logs, machine-local project registrations and their mutation locks).
 
 ```bash
 export XDG_STATE_HOME=~/my-state
-# skillshare will use ~/my-state/skillshare/logs/
+# skillshare will use ~/my-state/skillshare/logs/, ~/my-state/skillshare/projects/
 ```
 
 **Default:** `~/.local/state/skillshare/`
+
+When unset, project registrations and their locks default to `%LOCALAPPDATA%\skillshare\state` on Windows. Keep this override local to the machine. See [shared and local registrations](../commands/project.md#local-registrations).
 
 ---
 
@@ -470,7 +472,7 @@ export GITHUB_TOKEN="ghp_your_token_here"
 | `SKILLSHARE_CNB_HOSTS` | Custom CNB hostnames (comma-separated) | None |
 | `XDG_CONFIG_HOME` | Base config directory | `~/.config` (Linux/macOS), `%AppData%` (Windows) |
 | `XDG_DATA_HOME` | Data directory (backups, trash) | `~/.local/share` |
-| `XDG_STATE_HOME` | State directory (logs) | `~/.local/state` |
+| `XDG_STATE_HOME` | State directory (logs, local project registrations and locks) | `~/.local/state` |
 | `XDG_CACHE_HOME` | Cache directory (version check, UI) | `~/.cache` |
 | `GITHUB_TOKEN` | GitHub API + git clone auth | None |
 | `GH_TOKEN` | GitHub API (fallback for `GITHUB_TOKEN`) | None |

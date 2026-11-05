@@ -18,6 +18,8 @@ type Group struct {
 }
 
 type Item struct {
+	Origin       string    `json:"origin"`
+	OriginPath   string    `json:"originPath"`
 	Root         string    `json:"root"` // as written in config.yaml
 	Path         string    `json:"path"` // absolute
 	Name         string    `json:"name"`

@@ -4,8 +4,6 @@ package integration
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,24 +15,22 @@ import (
 	"time"
 
 	"github.com/gofrs/flock"
+	"skillshare/internal/config"
 	"skillshare/internal/testutil"
-	"skillshare/internal/utils"
 )
 
 // projectLockPath is where projects.LockConfig locks the sandbox config: the
 // state dir, keyed by the resolved config file.
 func projectLockPath(t *testing.T, sb *testutil.Sandbox) string {
 	t.Helper()
-	dest, err := utils.ConfigWritePath(sb.ConfigPath, false)
+	localPath, err := config.LocalProjectsPath(sb.ConfigPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	dir := filepath.Join(sb.Home, ".local", "state", "skillshare", "projects")
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(localPath), 0700); err != nil {
 		t.Fatal(err)
 	}
-	sum := sha256.Sum256([]byte(filepath.Clean(dest)))
-	return filepath.Join(dir, hex.EncodeToString(sum[:8])+".lock")
+	return strings.TrimSuffix(localPath, ".yaml") + ".lock"
 }
 
 func TestProject_AddRerunAndSync(t *testing.T) {
@@ -119,11 +115,15 @@ func TestProject_MutationWaitsAndReloads(t *testing.T) {
 		t.Fatalf("edit bypassed lock: %+v", r)
 	case <-time.After(150 * time.Millisecond):
 	}
-	raw, _ := os.ReadFile(sb.ConfigPath)
+	localPath, err := config.LocalProjectsPath(sb.ConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(localPath)
 	raw = bytes.Replace(raw, []byte("targets: [claude]"), []byte("targets: [claude, codex]"), 1)
-	// The serializer uses block sequences; add agents via an independent config edit.
-	raw = bytes.Replace(raw, []byte("skills: {}"), []byte("agents: {}\n    skills: {}"), 1)
-	if err := os.WriteFile(sb.ConfigPath, raw, 0644); err != nil {
+	// Add agents to the current local registry while holding its lock.
+	raw = bytes.Replace(raw, []byte("skills: {}"), []byte("skills: {}\n        agents: {}"), 1)
+	if err := os.WriteFile(localPath, raw, 0600); err != nil {
 		t.Fatal(err)
 	}
 	if err := gate.Unlock(); err != nil {
@@ -158,12 +158,16 @@ func TestProject_PartialEditSaveFailure(t *testing.T) {
 			if err := os.WriteFile(manifest, []byte("{}"), 0644); err != nil {
 				t.Fatal(err)
 			}
-			// The lock lives in the state dir, so only candidate temporary-file creation fails.
-			configDir := filepath.Dir(sb.ConfigPath)
+			// The existing lock remains usable; local candidate temporary-file creation fails.
+			localPath, err := config.LocalProjectsPath(sb.ConfigPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			configDir := filepath.Dir(localPath)
 			if err := os.Chmod(configDir, 0555); err != nil {
 				t.Fatal(err)
 			}
-			defer os.Chmod(configDir, 0755)
+			defer os.Chmod(configDir, 0700)
 			args := []string{"project", "edit", root, "--no-skills"}
 			if jsonOutput {
 				args = append(args, "--json")
@@ -344,7 +348,13 @@ func TestProject_RemovePromptDoesNotHoldLock(t *testing.T) {
 				t.Fatal("unanswered remove holds the mutation lock")
 			}
 			if change {
-				sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\nprojects:\n  " + filepath.ToSlash(root) + ":\n    name: changed\n    targets: [claude]\n    skills: {}\n")
+				localPath, err := config.LocalProjectsPath(sb.ConfigPath)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(localPath, []byte("version: 1\nprojects:\n  "+filepath.ToSlash(root)+":\n    name: changed\n    targets: [claude]\n    skills: {}\n"), 0600); err != nil {
+					t.Fatal(err)
+				}
 			}
 			if err := gate.Unlock(); err != nil {
 				t.Fatal(err)

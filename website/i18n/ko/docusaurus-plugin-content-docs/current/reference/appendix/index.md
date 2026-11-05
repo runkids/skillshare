@@ -28,6 +28,7 @@ skillshare 기술 레퍼런스 부록입니다.
 | `~/.local/share/skillshare/backups/` | 백업 디렉터리 |
 | `~/.local/share/skillshare/trash/` | 소프트 삭제된 Skill |
 | `~/.local/state/skillshare/logs/` | 작업 및 Audit 로그 |
+| `~/.local/state/skillshare/projects/` | 머신 로컬 프로젝트 등록 및 잠금 |
 | `~/.cache/skillshare/ui/` | 다운로드된 웹 대시보드 |
 
 ### 환경 변수

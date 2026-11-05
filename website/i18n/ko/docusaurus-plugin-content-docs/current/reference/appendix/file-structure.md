@@ -53,6 +53,9 @@ skillshare의 디렉터리 레이아웃과 파일 위치입니다.
         └── SKILL.md
 
 ~/.local/state/skillshare/   # XDG_STATE_HOME
+├── projects/                # 머신 로컬 프로젝트 등록 및 잠금
+│   ├── <config-identity>.yaml # 로컬 프로젝트 레지스트리
+│   └── <config-identity>.lock # 프로젝트 변경 직렬화
 ├── plugins/<config-path-hash>/
 │   ├── state.json
 │   └── .operation.lock
@@ -72,6 +75,8 @@ skillshare의 디렉터리 레이아웃과 파일 위치입니다.
         ├── index.html
         └── assets/
 ```
+
+Windows의 프로젝트 등록과 잠금은 기본적으로 `%LOCALAPPDATA%\skillshare\state\projects\`에 저장됩니다. `XDG_STATE_HOME`을 명시하면 모든 플랫폼에서 `$XDG_STATE_HOME/skillshare/projects/`를 사용합니다. 이 디렉터리는 머신 로컬로 유지하세요. [로컬 등록과 공유 선언](../commands/project.md#local-registrations)을 참고하세요.
 
 ---
 
@@ -469,6 +474,7 @@ skillshare는 XDG Base Directory Specification을 따릅니다. `XDG_CONFIG_HOME
 | 백업 | `~/.local/share/skillshare/backups/` |
 | 휴지통 | `~/.local/share/skillshare/trash/` |
 | 로그 | `~/.local/state/skillshare/logs/` |
+| 프로젝트 등록 및 잠금 | `~/.local/state/skillshare/projects/` |
 | 버전 캐시 | `~/.cache/skillshare/version-check.json` |
 | UI 캐시 | `~/.cache/skillshare/ui/{version}/` |
 | 링크 유형 | 심볼릭 링크 |
@@ -484,6 +490,7 @@ skillshare는 XDG Base Directory Specification을 따릅니다. `XDG_CONFIG_HOME
 | 백업 | `%AppData%\skillshare\backups\` |
 | 휴지통 | `%AppData%\skillshare\trash\` |
 | 로그 | `%AppData%\skillshare\logs\` |
+| 프로젝트 등록 및 잠금 | `%LOCALAPPDATA%\skillshare\state\projects\` |
 | 버전 캐시 | `%AppData%\skillshare\version-check.json` |
 | UI 캐시 | `%AppData%\skillshare\ui\{version}\` |
 | 링크 유형 | 폴더는 NTFS Junction, 단일 파일은 symlink (Developer Mode 필요, 없으면 복사) |
@@ -496,7 +503,7 @@ skillshare는 Unix 시스템에서 [XDG Base Directory Specification](https://sp
 |-------------|-------------|---------------------|
 | `XDG_CONFIG_HOME` | `~/.config` | `skillshare/config.yaml`, `skillshare/skills/` (`.metadata.json` 포함), `skillshare/agents/` |
 | `XDG_DATA_HOME` | `~/.local/share` | `skillshare/backups/`, `skillshare/trash/` |
-| `XDG_STATE_HOME` | `~/.local/state` | `skillshare/logs/` |
+| `XDG_STATE_HOME` | `~/.local/state` | `skillshare/logs/`, `skillshare/projects/` |
 | `XDG_CACHE_HOME` | `~/.cache` | `skillshare/ui/` (다운로드된 웹 대시보드) |
 
 ### Windows 경로
@@ -506,6 +513,7 @@ skillshare는 Unix 시스템에서 [XDG Base Directory Specification](https://sp
 | 설정 + Skill | `%AppData%\skillshare\` |
 | 데이터 (백업, 휴지통) | `%AppData%\skillshare\` |
 | 상태 (로그) | `%AppData%\skillshare\` |
+| 프로젝트 등록 및 잠금 | `%LOCALAPPDATA%\skillshare\state\projects\` |
 | 캐시 (UI) | `%AppData%\skillshare\` |
 
 ### 마이그레이션 참고 사항

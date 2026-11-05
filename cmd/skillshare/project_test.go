@@ -33,7 +33,7 @@ func TestProjectBareHelpSubcommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("project help returned error: %v", err)
 	}
-	if !strings.Contains(output, "Manage project folders") {
+	if !strings.Contains(output, "Manage machine-local registrations") {
 		t.Fatalf("project help output missing heading: %s", output)
 	}
 }
@@ -182,20 +182,22 @@ func TestProjectDisabledResourceJSON(t *testing.T) {
 	}
 }
 
-func TestProjectSkipsMaintenanceOnlyForReadsPreviewsAndJSON(t *testing.T) {
+func TestProjectMaintenanceForMutations(t *testing.T) {
 	for args, want := range map[string]bool{
-		"":                         true,
-		"list":                     true,
-		"show app":                 true,
-		"--help":                   true,
-		"sync app --dry-run":       true,
-		"edit app --name x --json": true,
-		"remove app --yes --json":  true,
-		"edit app --target --json": false,
-		"add /p --target claude":   false,
-		"edit app --name x":        false,
-		"sync app":                 false,
-		"remove app --yes":         false,
+		"":                           true,
+		"list":                       true,
+		"show app":                   true,
+		"--help":                     true,
+		"sync app --dry-run":         true,
+		"edit app --name x --json":   true,
+		"remove app --yes --json":    true,
+		"edit app --target --json":   false,
+		"add /p --target claude":     false,
+		"edit app --name x":          false,
+		"edit app":                   true,
+		"edit app --skills-mode bad": true,
+		"sync app":                   false,
+		"remove app --yes":           false,
 	} {
 		if got := projectSkipsMaintenance(strings.Fields(args)); got != want {
 			t.Errorf("%q: got %v, want %v", args, got, want)

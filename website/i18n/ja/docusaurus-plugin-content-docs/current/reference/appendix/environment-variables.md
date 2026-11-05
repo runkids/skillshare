@@ -62,14 +62,16 @@ export XDG_DATA_HOME=~/my-data
 
 ### XDG_STATE_HOME
 
-状態ディレクトリ（操作ログ）を上書きします。
+状態ディレクトリ（操作ログ、マシンローカルのプロジェクト登録と変更用ロック）を上書きします。
 
 ```bash
 export XDG_STATE_HOME=~/my-state
-# skillshare は ~/my-state/skillshare/logs/ を使うようになる
+# skillshare は ~/my-state/skillshare/logs/, ~/my-state/skillshare/projects/ を使うようになる
 ```
 
 **デフォルト:** `~/.local/state/skillshare/`
+
+未設定の場合、Windows のプロジェクト登録とロックは `%LOCALAPPDATA%\skillshare\state` に保存されます。この上書き先はマシン内に保持してください。[ローカル登録と共有定義](../commands/project.md#local-registrations)を参照してください。
 
 ---
 
@@ -502,7 +504,7 @@ export GITHUB_TOKEN="ghp_your_token_here"
 | `SKILLSHARE_CNB_HOSTS` | カスタム CNB ホスト名（カンマ区切り） | なし |
 | `XDG_CONFIG_HOME` | ベースとなる config ディレクトリ | `~/.config`（Linux/macOS）、`%AppData%`（Windows） |
 | `XDG_DATA_HOME` | データディレクトリ（バックアップ、trash） | `~/.local/share` |
-| `XDG_STATE_HOME` | 状態ディレクトリ（ログ） | `~/.local/state` |
+| `XDG_STATE_HOME` | 状態ディレクトリ（ログ、ローカルのプロジェクト登録とロック） | `~/.local/state` |
 | `XDG_CACHE_HOME` | キャッシュディレクトリ（バージョンチェック、UI） | `~/.cache` |
 | `GITHUB_TOKEN` | GitHub API + git clone 認証 | なし |
 | `GH_TOKEN` | GitHub API（`GITHUB_TOKEN` のフォールバック） | なし |

@@ -2,7 +2,6 @@ package projects
 
 import (
 	"fmt"
-	"reflect"
 	"slices"
 	"sort"
 
@@ -77,7 +76,7 @@ func affectedProjects(before, after map[string]config.ManagedProject) []string {
 	var affected []string
 	for root, old := range before {
 		next, exists := after[root]
-		if !exists || !sameProject(old, next) {
+		if !exists || !config.SameManagedProject(old, next) {
 			affected = append(affected, root)
 		}
 	}
@@ -88,23 +87,6 @@ func affectedProjects(before, after map[string]config.ManagedProject) []string {
 	}
 	sort.Strings(affected)
 	return affected
-}
-
-func sameProject(a, b config.ManagedProject) bool {
-	return a.Name == b.Name && slices.Equal(a.Targets, b.Targets) &&
-		sameProjectResource(a.Skills, b.Skills) && sameProjectResource(a.Agents, b.Agents)
-}
-
-func sameProjectResource(a, b *config.ResourceTargetConfig) bool {
-	if a == nil || b == nil {
-		return a == b
-	}
-	// Empty lists are omitted during serialization. They mean the same thing as
-	// nil, while a nil resource is different from an enabled empty resource.
-	x, y := *a, *b
-	x.Include, x.Exclude = nil, nil
-	y.Include, y.Exclude = nil, nil
-	return reflect.DeepEqual(x, y) && slices.Equal(a.Include, b.Include) && slices.Equal(a.Exclude, b.Exclude)
 }
 
 func validateProjectFilters(projects map[string]config.ManagedProject) error {
