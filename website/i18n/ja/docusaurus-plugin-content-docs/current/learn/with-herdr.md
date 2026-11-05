@@ -29,6 +29,7 @@ sidebar_position: 8
 
 - **Resources** は skills、agents、MCP サーバー、plugins、hooks を「Updates available」「Needs sync」「In sync」に分けて表示します。`.skillshare/config.yaml` のあるプロジェクトでは、All · Project · Global でスコープを選べます。
 - **行**はその場で開きます。skills と agents には Update、Diff、Uninstall と「Ask &lt;agent&gt; to audit…」があり、確認後にその項目を Herdr でフォーカス中のエージェントに渡します。 トップレベルで宣言された hooks には Enable、Disable、Remove があり、それぞれ確認後に保存され、Sync で適用されます。
+- hooks の件数には名前付きエントリと削除待ちが含まれ、診断通知はフィルターに従い、0 件でも別に表示されます。ファイルが同期済みでも無効な理由を表示し、入れ子の行にはプロジェクトのフルパスを表示します。ネイティブファイルのみの変更も Sync でき、hooks の競合は CLI またはダッシュボードで解決するまで全種類の同期をブロックします。
 - **Install** はリポジトリ URL を受け取ります。複数の skills を含むリポジトリでは一覧から選べます。パネルはクローンに対して [`skillshare audit`](/docs/reference/commands/audit) を実行し、通過した場合だけインストールします。audit でブロックされると findings を表示し、「Install anyway」（`--force`）と「Ask &lt;agent&gt; to review…」を提示します。
 - **Source** は source リポジトリの状態を表示します。ダイアログには Pull、Commit and push、Sync both ways があります。両方のマシンで変更されたファイルで pull が止まった場合は、左右の比較プレビューからファイルごとに残すバージョンを選べます。`.metadata.json` は [`skillshare pull`](/docs/reference/commands/pull) と同じくエントリごとにマージされます。
 - **Machines** は Herdr の各マシンの skillshare バージョン、source の状態、doctor の警告を表示し、Pull and sync と、新しいリリースがあれば Update を提供します。

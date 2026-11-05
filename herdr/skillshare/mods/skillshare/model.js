@@ -274,7 +274,7 @@ export function buildItems(scope, raw) {
   }
   const hooks = new Map();
   const status = (id, root = "") => {
-    const item = { key: `${scope}:hooks:status:${id}`, kind: "hooks", scope, root, name: "Hook status", label: "Hook status", targets: [], changes: [], declared: false };
+    const item = { key: `${scope}:hooks:status:${id}`, kind: "hooks", scope, root, name: "Hook status", label: "Hook status", targets: [], changes: [], declared: false, notice: true, pending: false };
     hooks.set(item.key, item);
     return item;
   };
@@ -293,16 +293,25 @@ export function buildItems(scope, raw) {
     if (c.target && !item.targets.includes(c.target)) item.targets.push(c.target);
     item.changes.push(c);
   }
+  for (const c of raw.hooks?.plan?.changes ?? []) {
+    if (!c.name && !c.target && c.action === "conflict") {
+      for (const row of hooks.values()) if (!row.notice && row.root === (c.root ?? "")) row.changes.push(c);
+    }
+  }
   const error = raw.hooks?.error || raw.hooks?.previewError;
-  if (error && !hooks.size && Array.isArray(raw.list)) status("error");
-  if (raw.hooks?.plan?.warnings?.length) status("warnings").warnings = raw.hooks.plan.warnings;
+  if (error && Array.isArray(raw.list)) status("error");
+  for (const [index, warning] of (raw.hooks?.plan?.warnings ?? []).entries()) status(`warning:${index}`).warnings = [warning];
   for (const item of hooks.values()) {
     item.src = item.targets.join(", ") || "no agents";
     item.lines = error ? [error] : [...item.changes.map((c) => [
       [c.target, c.action].filter(Boolean).join(": "), ...new Set([c.message, c.inactiveReason].filter(Boolean)),
     ].join(" · ")), ...(item.warnings ?? [])];
-    item.diagnostic = Boolean(item.warnings?.length || item.changes.some((c) => c.inactiveReason));
+    item.diagnostic = Boolean(item.changes.some((c) => c.action === "inactive" || c.inactiveReason));
     item.reason = item.lines.join("; ");
+    if (item.notice) {
+      item.pending = item.changes.some((c) => ["add", "update", "remove", "adopt", "release"].includes(c.action));
+      item.blocker = Boolean(error || item.changes.some((c) => c.action === "conflict"));
+    }
     item.state = !raw.hooks?.plan || item.changes.some((c) => !["unchanged", "inactive"].includes(c.action)) ? "sync" : item.disabled ? "off" : "ok";
     items.push(item);
   }
@@ -323,7 +332,7 @@ export function rowSub(item, showScope) {
   if (item.state === "missing") return `${pre}not synced yet`;
   // MCP and plugin reasons name targets; rows leave targets out, so those show in the open row only.
   if (item.state === "sync") return `${pre}${(item.kind === "skills" || item.kind === "agents" || item.kind === "hooks") && item.reason ? item.reason : "changed since last sync"}`;
-  if (item.kind === "hooks" && item.diagnostic) return `${pre}${item.reason}`;
+  if (item.kind === "hooks" && (item.notice || item.diagnostic)) return `${pre}${item.reason}`;
   if (item.state === "off") return `${pre}disabled`;
   return `${pre}${item.src}${item.version && item.kind === "plugins" ? ` · ${item.version}` : ""}`;
 }
@@ -331,17 +340,18 @@ export function rowSub(item, showScope) {
 export function filterItems(items, { scope, kind, query }) {
   const q = String(query ?? "").trim().toLowerCase();
   return items.filter((i) => (scope === "all" || i.scope === scope) && (!kind || i.kind === kind)
-    && (!q || i.name.toLowerCase().includes(q) || i.src.toLowerCase().includes(q)));
+    && (!q || i.name.toLowerCase().includes(q) || i.src.toLowerCase().includes(q)
+      || (i.kind === "hooks" && `${i.root ?? ""} ${i.reason ?? ""}`.toLowerCase().includes(q))));
 }
 
 export function groupItems(items) {
-  const by = (s) => items.filter((i) => s.includes(i.state)).sort((a, b) => a.label.localeCompare(b.label));
+  const by = (s) => items.filter((i) => !i.notice && s.includes(i.state)).sort((a, b) => a.label.localeCompare(b.label));
   return { update: by(["update"]), sync: by(["sync", "missing"]), ok: by(["ok", "off"]) };
 }
 
 export function counts(items) {
-  const c = { all: items.length, project: 0, global: 0, skills: 0, agents: 0, mcp: 0, plugins: 0, hooks: 0 };
-  for (const i of items) { c[i.scope]++; c[i.kind]++; }
+  const c = { all: 0, project: 0, global: 0, skills: 0, agents: 0, mcp: 0, plugins: 0, hooks: 0 };
+  for (const i of items) { if (!i.notice) { c.all++; c[i.scope]++; c[i.kind]++; } }
   return c;
 }
 

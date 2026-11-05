@@ -4,7 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseGitStatus, sourceLine, driftFrom, buildItems, hookArgs, counts, groupItems, filterItems, cloneUrl, skillChoices, newerVersion, rowSub, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP } from "../skillshare/mods/skillshare/model.js";
+import { parseGitStatus, sourceLine, driftFrom, buildItems, hookArgs, counts, groupItems, filterItems, cloneUrl, skillChoices, newerVersion, rowSub, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot } from "../skillshare/mods/skillshare/model.js";
 
 test("git status reads branch, ahead/behind and files", () => {
   const g = parseGitStatus("top /src\n## main...origin/main [ahead 1, behind 2]\n M a.md\n?? b/SKILL.md\n");
@@ -86,7 +86,8 @@ test("hook preview and inventory errors preserve panel read failures", () => {
   assert.equal(item.state, "sync");
   assert.equal(item.reason, "preflight failed");
   const [status] = buildItems("project", { list: [], hooks: { error: "bad hook config" } });
-  assert.equal(status.state, "sync");
+  assert.equal(status.notice, true);
+  assert.equal(status.pending, false);
   assert.equal(status.reason, "bad hook config");
   assert.deepEqual(buildItems("project", { list: null, hooks: null }), []);
   assert.deepEqual(buildItems("global", { list: null, hooks: { error: "missing config" } }), []);
@@ -111,12 +112,95 @@ test("hook cleanup preview errors remain visible after the last declaration is r
   const raw = { list: [], hooks: { source: { entries: {} }, previewError: "parse /fixture/settings.json: invalid JSON" } };
   const [item] = buildItems("global", raw);
   assert.ok(item, "cleanup failure must not become an empty Hooks tab");
-  assert.equal(item.state, "sync");
+  assert.equal(item.notice, true);
+  assert.equal(item.pending, false);
   assert.deepEqual(item.lines, [raw.hooks.previewError]);
   assert.equal(rowSub(item, false), raw.hooks.previewError);
   assert.equal(hookArgs(item, "remove"), null);
-  assert.equal(groupItems([item]).sync.length, 1);
+  assert.equal(groupItems([item]).sync.length, 0);
+  assert.equal(counts([item]).hooks, 0);
   assert.deepEqual(buildItems("global", { ...raw, list: null }), []);
+});
+
+test("hook notices stay filtered but never inflate named entry or group counts", () => {
+  const items = buildItems("project", { list: [], hooks: { source: { entries: { fmt: { bindings: { git: {} } } } },
+    plan: { changes: [], warnings: ["Git include is conditional; activation depends on its includeIf condition"] } } });
+  assert.deepEqual([counts(items).all, counts(items).project, counts(items).hooks], [1, 1, 1]);
+  assert.equal(Object.values(groupItems(items)).flat().length, 1);
+  const notices = items.filter((i) => i.notice);
+  assert.equal(notices.length, 1);
+  assert.equal(notices[0].pending, false);
+  assert.deepEqual(counts(notices), { all: 0, project: 0, global: 0, skills: 0, agents: 0, mcp: 0, plugins: 0, hooks: 0 });
+  assert.deepEqual(filterItems(items, { scope: "project", kind: "hooks", query: "conditional" }), notices);
+  assert.deepEqual(filterItems(items, { scope: "global", kind: "hooks", query: "conditional" }), []);
+  const warnings = buildItems("global", { hooks: { plan: { changes: [], warnings: ["conditional include", "Git version too old"] } } });
+  const matched = filterItems(warnings, { scope: "all", kind: "hooks", query: "version" });
+  assert.equal(matched.length, 1);
+  assert.deepEqual(matched[0].lines, ["Git version too old"]);
+});
+
+test("hook inactivity preserves its reason independently of pending native writes", () => {
+  for (const [action, message, inactiveReason, state] of [
+    ["inactive", "git not found; outputs skipped", "", "ok"],
+    ["unchanged", "", "Git 2.53 cannot run config hooks; Git 2.54 or later is required", "ok"],
+    ["add", "", "include target /fixture/gitconfig is not writable; add manually", "sync"],
+  ]) {
+    const [item] = buildItems("global", { hooks: { source: { entries: { fmt: { bindings: { git: {} } } } },
+      plan: { changes: [{ target: "git", path: "/fixture/gitconfig", name: "fmt", action, message, inactiveReason }] } } });
+    assert.equal(item.state, state);
+    assert.equal(item.diagnostic, true);
+    assert.ok(rowSub(item, false).includes(inactiveReason || message));
+  }
+});
+
+test("root-wide conflicts reach every affected entry while full roots distinguish names", () => {
+  const root = "/a/repo", other = "/b/repo", message = "project has its own Skillshare config; manage its hooks there with -p";
+  const items = buildItems("global", { hooks: { source: { entries: { fmt: { bindings: {} } }, projects: {
+    [root]: { entries: { fmt: { bindings: { claude: {} } }, lint: { bindings: {} } } },
+    [other]: { entries: { fmt: { bindings: {} } } },
+  } }, plan: { changes: [{ target: "", name: "", path: root, root, action: "conflict", message },
+    { target: "claude", name: "retired", path: "/fixture/settings.json", root, action: "remove" }] } } });
+  assert.equal(counts(items).hooks, 5);
+  assert.equal(new Set(items.map((i) => i.key)).size, 6);
+  const affected = items.filter((i) => i.root === root && !i.notice);
+  assert.equal(affected.length, 3);
+  assert.ok(affected.every((i) => i.state === "sync" && i.reason.includes(message)));
+  assert.equal(items.find((i) => i.root === other).state, "ok");
+  assert.equal(filterItems(items, { scope: "all", kind: "hooks", query: other }).length, 1);
+  const [notice] = items.filter((i) => i.notice);
+  assert.equal(notice.pending, false);
+  assert.equal(notice.root, root);
+  assert.equal(hookArgs(notice, "remove"), null);
+});
+
+test("unnamed native includes carry pending scope without counting as hooks", () => {
+  for (const [action, pending] of [["add", true], ["update", true], ["remove", true], ["adopt", true], ["release", true], ["unchanged", false], ["conflict", false]]) {
+    const [notice] = buildItems("project", { hooks: { source: { entries: {} }, plan: { changes: [
+      { target: "git", path: "/fixture/gitconfig", name: "", action, message: "update Skillshare include.path" },
+    ] } } });
+    assert.equal(notice.notice, true);
+    assert.equal(notice.pending, pending);
+    assert.equal(notice.scope, "project");
+    assert.equal(counts([notice]).all, 0);
+    assert.equal(Object.values(groupItems([notice])).flat().length, 0);
+  }
+});
+
+test("snapshot reads hooks with the chosen scope from a fixture CLI", (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "ss-snapshot-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  writeFileSync(join(dir, "skillshare"), `#!/bin/sh
+printf '%s\\n' "$*" >>"$HOME/calls"
+printf '%s\\n' '{"source":{"entries":{}},"plan":{"changes":[]}}'
+`, { mode: 0o755 });
+  const env = { ...process.env, HOME: dir, PATH: `${dir}:${process.env.PATH}` };
+  for (const key of ["CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR", "OPENCODE_CONFIG_DIR", "COPILOT_HOME", "GEMINI_CLI_HOME", "XDG_CONFIG_HOME"]) delete env[key];
+  for (const flag of ["-g", "-p"]) {
+    const result = spawnSync("sh", ["-c", SNAPSHOT, "test", dir, flag], { env, encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(parseSnapshot(result.stdout).hooks.source.entries, {});
+    assert.ok(readFileSync(join(dir, "calls"), "utf8").split("\n").includes(`hooks list --json ${flag}`));
+  }
 });
 
 test("hook actions use scoped argv without JSON and reject unsupported actions", () => {

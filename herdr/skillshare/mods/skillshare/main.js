@@ -490,7 +490,7 @@ export default class Skillshare extends View {
     const scoped = filterItems(all, { scope, kind: null, query: "" });
     const kc = counts(scoped);
     const shown = filterItems(all, { scope, kind: this.kind, query: this.query });
-    const groups = groupItems(shown);
+    const groups = groupItems(shown), notices = shown.filter((i) => i.notice);
     const showScope = Boolean(this.project) && scope === "all";
     const folderName = (this.project ?? ctx.folder).split("/").filter(Boolean).pop() || "~";
 
@@ -519,16 +519,18 @@ export default class Skillshare extends View {
         .child(note(t, this.error));
     } else {
       const scopesFor = (items) => [...new Set(items.map((i) => i.scope))];
-      const syncScopes = scope === "all" ? scopesFor(groups.sync).length ? scopesFor(groups.sync) : (this.project ? ["project", "global"] : ["global"]) : [scope];
+      const pending = [...groups.sync, ...notices.filter((i) => i.pending)];
+      const syncScopes = scope === "all" ? scopesFor(pending).length ? scopesFor(pending) : (this.project ? ["project", "global"] : ["global"]) : [scope];
       const syncLabel = scope === "all" ? (syncScopes.length > 1 ? "Sync" : `Sync ${syncScopes[0]}`) : `Sync ${scope}`;
-      const sections = [];
+      const sections = notices.map((i) => v_flex().px(14).py(4).gap(8)
+        .child(warnBox(t, `${i.scope}${i.root ? ` · ${i.root}` : ""}: ${i.reason}${i.blocker ? " Resolve with the CLI or dashboard; Sync validates again before applying changes." : ""}`)));
       if (groups.update.length) {
         sections.push(this.groupHeader(t, "update", `Updates available · ${groups.update.length}`, t.accent,
           primary("update-all", "Update all", t, () => this.updateAll(groups.update, ctx), { h: 26, px: 10, size: S().label })));
         sections.push(...groups.update.map((i) => this.row(t, i, showScope, ctx)));
       }
-      if (groups.sync.length) {
-        sections.push(this.groupHeader(t, "sync", `Needs sync · ${groups.sync.length}`, t.blocked,
+      if (pending.length) {
+        sections.push(this.groupHeader(t, "sync", groups.sync.length ? `Needs sync · ${groups.sync.length}` : "Native hook files need sync", t.blocked,
           primary("sync-group", syncLabel, t, () => request({ op: "sync", on: ctx.on, project: this.project, scopes: syncScopes, plugins: groups.sync.some((i) => i.kind === "plugins") }), { h: 26, px: 10, size: S().label })));
         sections.push(...groups.sync.map((i) => this.row(t, i, showScope, ctx)));
       }
@@ -549,14 +551,15 @@ export default class Skillshare extends View {
 
   row(t, item, showScope, ctx) {
     const open = this.open === item.key;
-    const color = { update: t.accent, sync: t.blocked, missing: t.ansi1, ok: t.ansi2, off: t.muted }[item.state] ?? t.muted;
+    const color = item.diagnostic ? t.blocked : { update: t.accent, sync: t.blocked, missing: t.ansi1, ok: t.ansi2, off: t.muted }[item.state] ?? t.muted;
     const head = h_flex().id(`row-${item.key}`).min_h(48).px(10).py(6).gap(10).items_center().rounded(8).cursor_pointer()
       .when(!open, (el) => el.hover((s) => s.bg(t.hover)))
       .on_mouse_down("left", stop).on_click((_e, cx) => { this.open = open ? null : item.key; cx.notify(); })
       .child(dot(color, 8, item.state === "missing" || item.state === "off"))
       .child(v_flex().flex_1().min_w(0)
         .child(div().truncate().text_size(S().body).font_medium().text_color(item.state === "off" ? t.muted : t.foreground).child(item.label))
-        .child(div().truncate().text_size(S().secondary).text_color(t.muted).child(rowSub(item, showScope))))
+        .when(Boolean(item.root), (el) => el.child(div().text_size(S().secondary).text_color(t.muted).child(item.root)))
+        .child(div().truncate().text_size(S().secondary).text_color(item.diagnostic ? t.blocked : t.muted).child(rowSub(item, showScope))))
       .child(icon(open ? "chevron-down" : "chevron-right", 14, t.muted));
     if (!open) return div().mx(8).child(head);
     return v_flex().mx(8).rounded(8).bg(t.raised).child(head).child(this.details(t, item, ctx));

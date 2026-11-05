@@ -41,7 +41,12 @@ shown or hidden state is a layout click, which Herdr keeps across spaces and res
 
 Hook rows show their agents and planned sync changes. Top-level declared hooks offer confirmed
 Enable, Disable and Remove actions; Sync applies them through `sync --all`.
-Inactive reasons and plan warnings remain visible even when the files are already in sync.
+Counts and groups include named hook entries and pending named cleanup, excluding diagnostic
+notices. Notices follow the scope, kind and text filters and remain visible with zero entries.
+Nested hook rows show their full root to distinguish projects with the same folder name.
+“In sync” describes native file alignment; inactive hooks retain a warning dot and reason.
+Warnings and preview failures appear above the resource groups. When only an unnamed native
+include needs work, “Native hook files need sync” offers Sync for its scope.
 Hook conflicts block `sync --all` for every resource kind; resolve them with the CLI or
 dashboard, then Sync again.
 
