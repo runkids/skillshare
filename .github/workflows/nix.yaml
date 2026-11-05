@@ -2,7 +2,8 @@ name: Nix
 
 # Keeps the flake building, including the Go unit tests in the Nix sandbox.
 # A hash mismatch after a go.sum change means vendorHash in nix/package.nix
-# needs the "got: sha256-..." value from the log.
+# needs the "got: sha256-..." value from the log. The darwin build is in
+# nix-darwin.yaml.
 on:
   push:
     branches: [main]
@@ -37,17 +38,3 @@ jobs:
 
       - name: Flake check
         run: nix flake check -L
-
-  # The unit tests do not run on macOS upstream either, so only build the
-  # package (with its version check) for aarch64-darwin.
-  build-darwin:
-    runs-on: macos-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
-
-      - name: Build
-        run: nix build -L .#skillshare
