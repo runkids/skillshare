@@ -4,7 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseGitStatus, sourceLine, driftFrom, buildItems, hookArgs, counts, groupItems, filterItems, cloneUrl, skillChoices, newerVersion, rowSub, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot } from "../skillshare/mods/skillshare/model.js";
+import { parseGitStatus, sourceLine, driftFrom, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, skillChoices, newerVersion, rowSub, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot } from "../skillshare/mods/skillshare/model.js";
 
 test("git status reads branch, ahead/behind and files", () => {
   const g = parseGitStatus("top /src\n## main...origin/main [ahead 1, behind 2]\n M a.md\n?? b/SKILL.md\n");
@@ -63,6 +63,37 @@ test("hooks combine declarations and planned changes, including disabled entries
   assert.equal(counts(items).hooks, 6);
   assert.deepEqual(Object.values(groupItems(items)).map((g) => g.length), [0, 4, 2]);
   assert.deepEqual(filterItems(items, { scope: "all", kind: "hooks", query: "codex" }).map((i) => i.name), ["pending", "removed"]);
+});
+
+test("hiding disabled rows keeps disabled entries that still need a sync", () => {
+  const items = [
+    { name: "on", src: "", scope: "global", kind: "skills", state: "ok" },
+    { name: "off", src: "", scope: "global", kind: "skills", state: "off", disabled: true },
+    { name: "off-pending", src: "", scope: "global", kind: "hooks", state: "sync", disabled: true },
+  ];
+  assert.deepEqual(filterItems(items, { scope: "all", kind: null, query: "", hideDisabled: true }).map((i) => i.name), ["on", "off-pending"]);
+});
+
+test("source groups collect a repository's rows and leave single sources as rows", () => {
+  const items = buildItems("global", { list: [
+    { name: "feature-radar-ref", source: "https://github.com/runkids/feature-radar/skills/feature-radar-ref" },
+    { name: "feature-radar", source: "github.com/runkids/feature-radar/skills/feature-radar" },
+    { name: "code-review", repoName: "_mattpocock-skills", relPath: "_mattpocock-skills/code-review" },
+    { name: "codebase-design", repoName: "_mattpocock-skills", relPath: "_mattpocock-skills/codebase-design" },
+    { name: "archify", source: "github.com/tt-a1i/archify/archify" },
+    { name: "mine" },
+  ] });
+  const { groups, rows } = sourceGroups(items);
+  assert.deepEqual(groups.map((g) => [g.label, g.items.map((i) => i.name)]), [
+    ["_mattpocock-skills", ["code-review", "codebase-design"]],
+    ["runkids/feature-radar", ["feature-radar", "feature-radar-ref"]],
+  ]);
+  assert.deepEqual(rows.map((i) => i.name), ["archify", "mine"]);
+});
+
+test("local rows group under a non-repository source", () => {
+  const { groups } = sourceGroups(buildItems("global", { list: [{ name: "a" }, { name: "b" }] }));
+  assert.deepEqual(groups.map((g) => [g.label, g.repo]), [["local", false]]);
 });
 
 test("hook preview and inventory errors preserve panel read failures", () => {

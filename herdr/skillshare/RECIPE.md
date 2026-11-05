@@ -21,12 +21,12 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
     - the list, the only part that scrolls, in three groups:
       - "Updates available · n" in `accent`, with Update all;
       - "Needs sync · n" in `blocked`, with Sync, or Sync project / Sync global when only one scope needs it;
-      - "In sync · n" in `muted`.
+      - "In sync · n" in `muted`, with a quiet Show disabled · n / Hide disabled · n toggle when the list has disabled rows. Disabled rows are hidden by default and the choice is kept in `shared`; disabled hooks with pending changes stay listed. For skills and agents it also has a List · By source switch, By source by default and kept in `shared`: rows sharing a repository (a tracked repo, or host/owner/repo of the source URL, with github.com left out) or the local source fold under a collapsed row with a chevron, a `git` or `folder` icon, the source and a count. Their rows are indented 16px; a source with one row stays a plain row. A filter opens every group.
     - Each row is 48px: a dot (filled `accent`, `blocked` or `ansi2`; hollow `ansi1` when never synced or `muted` when disabled), the name, one line of detail (hook rows name their agents or planned changes), and a chevron. A row opens in place on `raised`.
     - Hook rows expand to show agents, description, full root, planned changes and inactive reasons. Nested rows also show their full root before the status line; inactive rows use a warning dot even when native files are in sync. Nested-root and cleanup-only rows are read-only.
     - Hook notices appear once above the counted groups, follow the same filters, and show unnamed changes, plan warnings and preview failures even with zero entries. Unnamed native writes offer “Native hook files need sync”; warnings and conflicts are not pending native writes. If preview fails, named rows remain above the groups with “sync status unknown”, alongside the single scope error notice. Disabled rows retain their disabled label with diagnostics; pending summaries omit unchanged targets, which remain in details.
   - Machines: one card per Herdr machine, with its version, its source repository state, doctor errors and warnings when there are any, a Pull and sync button, and "Update to …" when a newer skillshare exists.
-  - a 34px status line while work runs (work runs one at a time per machine; machines run side by side), with a spinning ring in `working`, or a notice: a done notice fades after 4 s, a warning or error stays until closed, and a stopped pull keeps a "Review conflicts" bar;
+  - a 34px status line while work runs (work, installs included, runs one at a time per machine; machines run side by side), with a spinning ring in `working`, or a notice: a done notice fades after 4 s, a warning or error stays until closed, and a stopped pull keeps a "Review conflicts" bar;
   - a 40px footer: the source state, such as "Source · n uncommitted · ↑n ↓n", "up to date" or "no remote" (`blocked` when it needs attention), and Sync both ways when the repository has an upstream.
 - Dialogs open as Herdr overlays: install, uninstall, audit hand-off, source repository, sync both ways, pull conflicts, update skillshare, command output.
 
@@ -38,7 +38,7 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
   - skills and agents that have an update offer Update, and skills also See changes;
   - skills and agents that need a sync offer Diff;
   - skills and agents offer Uninstall, and "Ask <agent> to audit…" when Herdr knows an agent: the one focused, or the last one focused;
-  - MCP and plugin rows show their state and pending targets, with no actions; Sync handles them.
+  - MCP and plugin rows show their state and pending targets, with no actions; Sync handles them. An opened plugin row lists its source, version and targets; an opened MCP row its targets.
 - Hook conflicts block `sync --all` for every resource kind; resolve them in the CLI or dashboard before retrying.
 - Sync syncs the shown scope. With All, it syncs every scope that has work in the shown kind. On the Plugins tab it also runs `sync plugins`.
 - Install opens a URL dialog with recent sources:
@@ -61,6 +61,10 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
 - `mods/skillshare/`:
   - `main.js` holds the panel and its roles (`props.role`): the panel by default, `toggle`, and the dialogs.
   - `model.js` holds the parsing and the shell scripts, with no Herdr imports.
+  - `jobs.js` runs skillshare: short reads as one `exec`, longer work detached and polled.
+  - `channel.js` passes requests from dialogs to the panel through `shared`, with one lock per machine and the notice line.
+  - `operations.js` holds the commands each request runs and the conflict handling of a pull.
+  - `loader.js` reads the Resources tab's data and the Machines cards.
   - `mark.svg` is the 16px mark, and `icons/` holds the stroke icons.
 - Herdr functions:
   - `exec` with `on`;

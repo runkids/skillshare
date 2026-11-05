@@ -28,11 +28,13 @@ ${READY}`;
 // A killed job nobody reaps stays a zombie (a container without init) that kill -0 still finds,
 // so a zombie counts as stopped. Where ps has no -p (busybox), only kill -0 decides.
 export const ALIVE = '[ -s "$1/code" ] || { p=$(cat "$1/pid" 2>/dev/null); kill -0 "$p" 2>/dev/null && ! ps -o stat= -p "$p" 2>/dev/null | grep -q Z; } || [ -s "$1/code" ]';
+// The longest the panel waits for one job (jobs.js), and so how old a job folder must be before
+// SWEEP may remove it.
+export const JOB_MINUTES = 15;
 // sh -c SWEEP: removes job folders nobody will read: a panel that closed mid-job never collects
-// its result. Keeps a job that still runs and any folder changed in the last 15 minutes, the
-// longest a panel polls one.
+// its result. Keeps a job that still runs and any folder changed in the last JOB_MINUTES.
 export const SWEEP = `for d in "\${TMPDIR:-/tmp}"/skillshare-panel.*; do
-  [ -d "$d" ] && [ -n "$(find "$d" -prune -mmin +15)" ] || continue
+  [ -d "$d" ] && [ -n "$(find "$d" -prune -mmin +${JOB_MINUTES})" ] || continue
   [ ! -s "$d/code" ] && sh -c '${ALIVE}' alive "$d" && continue
   rm -rf "$d"
 done; exit 0`;
@@ -160,6 +162,9 @@ export function parseStages(text) {
   return out;
 }
 
+// The CLI flag for a scope.
+export const flag = (scope) => (scope === "project" ? "-p" : "-g");
+
 export function parseJSON(text, fallback = null) {
   try { return JSON.parse(text); } catch { return fallback; }
 }
@@ -244,7 +249,7 @@ export function buildItems(scope, raw) {
     const item = {
       key: `${scope}:${kind}:${flat}`, kind, scope, name: flat, label: rel.split("/").pop(), rel,
       src: shortSource(check?.source ?? s.source) || (s.repoName ? `tracked repo ${s.repoName}` : rel.includes("/") ? rel : "local"),
-      disabled: Boolean(s.disabled), version: check?.version ?? null, state: "ok",
+      disabled: Boolean(s.disabled), version: check?.version ?? null, state: "ok", repo: s.repoName || null,
     };
     if (item.disabled) item.state = "off";
     else if (check?.status === "update_available" || repo?.status === "behind") {
@@ -343,9 +348,11 @@ export function rowSub(item, showScope) {
   return `${pre}${item.src}${item.version && item.kind === "plugins" ? ` · ${item.version}` : ""}`;
 }
 
-export function filterItems(items, { scope, kind, query }) {
+// hideDisabled drops disabled rows that need nothing; a disabled hook with pending changes stays.
+export function filterItems(items, { scope, kind, query, hideDisabled = false }) {
   const q = String(query ?? "").trim().toLowerCase();
   return items.filter((i) => (scope === "all" || i.scope === scope) && (!kind || i.kind === kind)
+    && !(hideDisabled && i.state === "off")
     && (!q || i.name.toLowerCase().includes(q) || i.src.toLowerCase().includes(q)
       || (i.kind === "hooks" && `${i.root ?? ""} ${i.reason ?? ""}`.toLowerCase().includes(q))));
 }
@@ -353,6 +360,33 @@ export function filterItems(items, { scope, kind, query }) {
 export function groupItems(items) {
   const by = (s) => items.filter((i) => !i.notice && s.includes(i.state)).sort((a, b) => a.label.localeCompare(b.label));
   return { update: by(["update"]), sync: by(["sync", "missing"]), ok: by(["ok", "off"]) };
+}
+
+// The repository a row came from: a tracked repo by name, a URL source by host/owner/repo
+// (github.com left out), anything else by its source text.
+function sourceLabel(item) {
+  if (item.repo) return { label: item.repo, repo: true };
+  const m = /^([^/\s]+\.[^/\s]+)\/([^/]+)\/([^/]+)/.exec(item.src);
+  if (!m) return { label: item.src, repo: false };
+  return { label: m[1] === "github.com" ? `${m[2]}/${m[3]}` : `${m[1]}/${m[2]}/${m[3]}`, repo: true };
+}
+
+// Sources with two or more rows become groups; the rest stay plain rows. Both sorted by label.
+// `repo` is false for a group of local rows.
+export function sourceGroups(items) {
+  const by = new Map();
+  for (const i of items) {
+    const { label, repo } = sourceLabel(i);
+    if (!by.has(label)) by.set(label, { repo, list: [] });
+    by.get(label).list.push(i);
+  }
+  const byLabel = (a, b) => a.label.localeCompare(b.label);
+  const groups = [], rows = [];
+  for (const [label, { repo, list }] of by) {
+    if (list.length > 1) groups.push({ key: `source:${label}`, label, repo, items: list.sort(byLabel) });
+    else rows.push(list[0]);
+  }
+  return { groups: groups.sort(byLabel), rows: rows.sort(byLabel) };
 }
 
 export function counts(items) {
