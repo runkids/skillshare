@@ -508,6 +508,33 @@ JSON/SARIF 輸出中的每筆 finding 都包含：
 - [Securing Your Skills](/docs/how-to/advanced/security) — 給團隊與組織的安全指南
 - [CI/CD Skill Validation](/docs/how-to/recipes/ci-cd-skill-validation) — Pipeline 自動化範例
 
+## 隨附的 hooks 與設定 {#bundled-hooks-and-settings}
+
+`structure` 只檢查受稽核技能內的以下四個路徑。不讀取即時使用者設定，也不執行任何宣告。只接受一般檔案，拒絕通往技能根目錄以外的連結，每個檔案最多讀取 1,000,000 位元組，不遍歷其他隱藏目錄。宣告代表啟用後可能發生的行為，並不證明用戶端已載入。
+
+`hooks.json`, `hooks/hooks.json`, `.claude/settings.json`, `.claude/settings.local.json`
+
+支援 `hooks` 事件對應表（hooks.json 也接受直接對應表）、具型別的 command/HTTP 宣告陣列，以及包含 `hooks` 陣列的 matcher 群組。未知事件、prompt/agent 型別、無效 JSON、未支援結構、無法讀取或超過大小限制，都產生 INFO 覆蓋缺口診斷，依既有門檻處理。
+
+本機命令為 MEDIUM；網路命令（含 loopback）、遠端 POST、廣泛 allow 權限及 bypassPermissions、apiKeyHelper 與 statusLine 命令為 HIGH。單純提及 URL 不算網路呼叫；網路能力與 POST 並不證明資料外洩。狹窄 allow 與 deny/ask 不觸發此權限規則。所有輸出前先遮蔽引數及 URL，保留檔案、JSON 路徑、已辨識執行名稱與 SHA-256。詳細支援範圍請參閱英文版。
+
+無限制授權（例如 `*`、`Bash`、`Bash(*)`、`Bash(:*)`）為 HIGH；`Bash(npm run test:*)`、`Bash(git diff:*)`、`Read(./docs/**)` 與 `mcp__github__get_*` 不觸發此規則。整個 MCP 伺服器的 `mcp__server` 或 `mcp__server__*` 授權為 HIGH。hook 指令依 bash 語法解析，因此會追蹤引號、註解、命令替換、迴圈與 `bash -c` 腳本，且不會執行任何內容。解析器無法解析的指令會產生 `bundled-config-unparsed`，並依單字分類，因此其中的網路呼叫仍會被偵測到。hook 呼叫的腳本以及執行時才算出的值，仍可能需要手動審查。POST 旗標與目的地必須屬於同一個網路命令，後續的 `grep -F` 不算 POST 證據。
+
+隱藏設定只接受宣告分析，不加入文字規則掃描或可分析性位元組數。`hooks.json` 與 `hooks/hooks.json` 的既有文字發現也會遮蔽，因此指紋及接受鍵會改變，先前接受的發現需要重新接受。
+
+| ID | Severity | 隨附的 hooks 與設定 |
+|---------|---------|---------|
+| `bundled-hook-command` | MEDIUM | 生命週期命令 |
+| `bundled-network-command` | HIGH | 已辨識的網路執行名稱，包含 loopback |
+| `bundled-remote-post` | HIGH | HTTP hook，或 POST/data 旗標搭配非 loopback HTTP(S) 目的地 |
+| `bundled-permission` | HIGH | 廣泛 allow 權限、無限制工具授權或 bypassPermissions |
+| `bundled-helper-command` | HIGH | 設定中的 apiKeyHelper 或 statusLine 命令 |
+| `bundled-config-unparsed` | INFO | 未完整檢查此範圍，需要手動審查 |
+
+命令值設定只檢查 `apiKeyHelper` 與 `statusLine`，不檢查其他命令值設定。
+
+也支援 command hook 的字串 `args` 陣列。 規則 ID 支援透過 `audit rules` 停用及覆寫嚴重性。 [英文詳細說明](/docs/understand/audit-engine#bundled-hooks-and-settings)。
+
 ## 敏感目標與反序列化 {#sensitive-destinations}
 
 這些靜態發現提供供審查的證據，不證明 SSRF、不可信輸入或執行時期可利用性。不會解析別名、DNS、重新導向、資料來源或任意多行語法，也不會傳送網路請求或執行反序列化。

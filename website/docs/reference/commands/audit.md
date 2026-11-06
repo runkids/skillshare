@@ -148,7 +148,7 @@ skillshare audit --analyzer static --analyzer dataflow # Multiple analyzers
 | `tier` | Per-skill | Capability tier combination risk analysis |
 | `integrity` | Per-skill | Content hash verification (`file_hashes` in SKILL.md) |
 | `metadata` | Per-skill | Supply-chain trust verification (publisher mismatch, authority claims) |
-| `structure` | Per-skill | Checks missing and out-of-root Markdown links/images and declared bundled paths |
+| `structure` | Per-skill | Checks missing and out-of-root Markdown links/images and declared bundled paths; [bundled hooks/settings](/docs/understand/audit-engine#bundled-hooks-and-settings) |
 | `cross-skill` | Bundle | Cross-skill exfiltration and privilege escalation analysis |
 
 You can also set this in config:
@@ -334,7 +334,7 @@ The audit scans text-based files in skill directories:
 
 Text scanning skips hidden directories and is recursive within the remaining skill directory, so `SKILL.md`, nested `references/*.md`, and `scripts/*.sh` are all inspected when they match supported text file types.
 
-Before text filtering, audit checks the first 512 bytes of each regular file (and reads a bounded PE header at its declared offset when needed) to classify executables, CPython bytecode, ZIP/JAR archives, and disguised shebang scripts. Hidden directories receive header classification only; `__pycache__` is also included. Symlinked files retain their existing text scanning; `.git`, `.skillshare`, internal metadata, OS metadata, symlinks and special files are excluded from header reads. Binary and oversized files receive no full text analysis. Summaries report `binaryFiles`, `skippedFiles` and `oversizedFiles`; these counts overlap. Header classification does not analyze runtime behavior or archive contents. See [Executable and archive headers](../../understand/audit-engine.md#executable-headers) for formats, severity and limits.
+Before text filtering, audit checks the first 512 bytes of each regular file (and reads a bounded PE header at its declared offset when needed) to classify executables, CPython bytecode, ZIP/JAR archives, and disguised shebang scripts. Hidden directories receive header classification only; `__pycache__` is also included. Symlinked files retain their existing text scanning; `.git`, `.skillshare`, internal metadata, OS metadata, symlinks and special files are excluded from header reads. Binary and oversized files receive no full text analysis. Summaries report `binaryFiles`, `skippedFiles` and `oversizedFiles`; these counts overlap. Header classification does not analyze runtime behavior or archive contents. See [Executable and archive headers](../../understand/audit-engine.md#executable-headers) for formats, severity and limits. The structure analyzer also reads the skill’s `.claude/settings.json` and `.claude/settings.local.json` for [bundled hooks and settings](../../understand/audit-engine.md#bundled-hooks-and-settings).
 
 ## Options
 

@@ -287,10 +287,18 @@ The file-level `whitespace-padding` detector is also registered in `rules.yaml`.
 
 `dangling-link`, `reference-escapes-root`, `reference-check-incomplete`, `content-tampered`, `content-oversize`, `content-missing`, and `content-unexpected` are **structural checks** (filesystem lookups and hash comparisons, not regex). `low-analyzability` is an **analyzability finding** generated from the [Analyzability Score](/docs/understand/audit-engine#analyzability-score). `tier-stealth`, `tier-destructive-network`, `tier-network-heavy`, `tier-interpreter`, and `tier-interpreter-network` are **tier combination findings** generated from [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) profiles. `cross-skill-*` findings are generated from [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection). Header checks also generate `disguised-executable`, `python-bytecode`, `executable-artifact`, `archive-artifact`, and `uncertain-header` findings described in [Executable and archive headers](/docs/understand/audit-engine#executable-headers). All of these appear in the table below but are not defined in `rules.yaml`.
 
+`bundled-*` rules are structured JSON checks under `structure`, registered for listing, disabling, and severity overrides. Their metadata regex never matches text; see [bundled hooks and settings](/docs/understand/audit-engine#bundled-hooks-and-settings).
+
 :::
 
 | ID | Pattern | Severity |
 |----|---------|----------|
+| `bundled-hook-command` | bundled-hook-command | MEDIUM |
+| `bundled-network-command` | bundled-network-command | HIGH |
+| `bundled-remote-post` | bundled-remote-post | HIGH |
+| `bundled-permission` | bundled-permission | HIGH |
+| `bundled-helper-command` | bundled-helper-command | HIGH |
+| `bundled-config-unparsed` | bundled-config-unparsed | INFO |
 | `prompt-injection-0` | prompt-injection | CRITICAL |
 | `prompt-injection-1` | prompt-injection | CRITICAL |
 | `prompt-injection-2` | prompt-injection | HIGH |

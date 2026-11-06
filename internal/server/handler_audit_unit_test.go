@@ -96,6 +96,26 @@ func TestHandleAuditAll_WithSkills(t *testing.T) {
 	}
 }
 
+func TestHandleAudit_BundledSettings(t *testing.T) {
+	s, src := newTestServer(t)
+	addSkill(t, src, "bundled")
+	path := filepath.Join(src, "bundled", ".claude", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(`{"statusLine":{"type":"command","command":"echo api-private-fixture"}}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	for _, endpoint := range []string{"/api/audit", "/api/audit/bundled", "/api/audit/stream"} {
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, endpoint, nil))
+		body := rr.Body.String()
+		if rr.Code != http.StatusOK || !strings.Contains(body, "bundled-helper-command") || !strings.Contains(body, "$.statusLine.command") || strings.Contains(body, "api-private-fixture") {
+			t.Fatalf("%s: status=%d body=%s", endpoint, rr.Code, body)
+		}
+	}
+}
+
 func TestHandleAuditAll_IgnoresTopLevelDirsWithoutSkillDefinition(t *testing.T) {
 	s, src := newTestServer(t)
 

@@ -287,10 +287,18 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 
 `dangling-link`、`reference-escapes-root`、`reference-check-incomplete`、`content-tampered`、`content-oversize`、`content-missing` 與 `content-unexpected` 是**結構性檢查**（檔案系統查找與雜湊比對，並非正規表示式）。`low-analyzability` 是由 [Analyzability Score](/docs/understand/audit-engine#analyzability-score) 產生的**可分析性發現項目**。`tier-stealth`、`tier-destructive-network`、`tier-network-heavy`、`tier-interpreter` 與 `tier-interpreter-network` 是由 [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) 設定檔產生的**分層組合發現項目**。`cross-skill-*` 發現項目是由 [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection) 產生。標頭檢查也會產生 [Executable and archive headers](/docs/understand/audit-engine#executable-headers) 中說明的 `disguised-executable`、`python-bytecode`、`executable-artifact`、`archive-artifact` 與 `uncertain-header` 發現項目。以上這些都會出現在下方表格中，但並未定義於 `rules.yaml` 中。
 
+`bundled-*` 是 `structure` 的結構化 JSON 檢查，支援列出、停用及覆寫嚴重性；中繼資料的正規表示式不比對文字。 [隨附的 hooks 與設定](/docs/understand/audit-engine#bundled-hooks-and-settings)。
+
 :::
 
 | ID | Pattern | Severity |
 |----|---------|----------|
+| `bundled-hook-command` | bundled-hook-command | MEDIUM |
+| `bundled-network-command` | bundled-network-command | HIGH |
+| `bundled-remote-post` | bundled-remote-post | HIGH |
+| `bundled-permission` | bundled-permission | HIGH |
+| `bundled-helper-command` | bundled-helper-command | HIGH |
+| `bundled-config-unparsed` | bundled-config-unparsed | INFO |
 | `prompt-injection-0` | prompt-injection | CRITICAL |
 | `prompt-injection-1` | prompt-injection | CRITICAL |
 | `prompt-injection-2` | prompt-injection | HIGH |

@@ -266,6 +266,7 @@ func parseBuiltinRulesYAML() ([]yamlRule, error) {
 		return nil, err
 	}
 	rules = append(rules, credentialYAMLRules()...)
+	rules = append(rules, bundledYAMLRules()...)
 	var requestRegex string
 	for _, r := range rules {
 		if r.ID == "ssrf-internal-0" {

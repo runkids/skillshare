@@ -509,6 +509,33 @@ SARIF 出力では、`ruleId` は SARIF の `ruleId` フィールドにマッピ
 - [Securing Your Skills](/docs/how-to/advanced/security) — チームおよび組織向けのセキュリティガイド
 - [CI/CD Skill Validation](/docs/how-to/recipes/ci-cd-skill-validation) — パイプライン自動化のレシピ
 
+## 同梱フックと設定 {#bundled-hooks-and-settings}
+
+`structure` は監査対象スキル内の次の4パスだけを検査します。ライブのユーザー設定は読み取らず、コマンドは実行しません。通常ファイルに限定し、スキル外へのリンクを拒否し、各ファイルの読み取りを1,000,000バイトに制限します。他の隠しディレクトリは走査しません。宣言は有効化された場合の可能性を示し、現在の実行を証明しません。
+
+`hooks.json`, `hooks/hooks.json`, `.claude/settings.json`, `.claude/settings.local.json`
+
+フックは `hooks` のイベントマップ（hooks.json では直接のマップも可）、型付き command/HTTP 宣言の配列、または `hooks` 配列を持つマッチャーグループに対応します。未知のイベント、prompt/agent 型、不正な JSON、未対応の構造、読み取り失敗、サイズ超過は INFO 診断になります。診断は未検査の範囲を示し、既存の閾値に従います。
+
+ローカルコマンドは MEDIUM、ネットワーク対応コマンド（ループバックを含む）、リモート POST、広い allow 権限や bypassPermissions、apiKeyHelper と statusLine のコマンドは HIGH です。URL の単なる言及は通信とみなしません。通信や POST は情報流出の証拠ではありません。狭い allow と deny/ask は対象外です。引数と URL は全出力前に秘匿化し、ファイル、JSON パス、認識済み実行名、SHA-256 を残します。詳細と対応範囲は英語版を参照してください。
+
+無制限の許可（`*`、`Bash`、`Bash(*)`、`Bash(:*)` など）は HIGH です。`Bash(npm run test:*)`、`Bash(git diff:*)`、`Read(./docs/**)`、`mcp__github__get_*` は対象外です。MCP サーバー全体の `mcp__server` または `mcp__server__*` は HIGH です。フックのコマンドは bash として構文解析されるため、クォート、コメント、コマンド置換、ループ、`bash -c` のスクリプトも追跡されます。何も実行しません。解析できないコマンドは `bundled-config-unparsed` になり、単語ごとに分類されるため、その中のネットワーク呼び出しも検出されます。フックが呼び出すスクリプトや実行時に計算される値は、手動確認が必要な場合があります。POST フラグと宛先は同じネットワークコマンドにある必要があり、後続の `grep -F` は POST の証拠になりません。
+
+隠し設定には宣言解析のみを行い、テキストルールや分析可能性のバイト数には追加しません。`hooks.json` と `hooks/hooks.json` の既存テキスト検出は秘匿化されるため、フィンガープリントと承認キーが変わり、過去の承認には再承認が必要です。
+
+| ID | Severity | 同梱フックと設定 |
+|---------|---------|---------|
+| `bundled-hook-command` | MEDIUM | ライフサイクルのコマンド |
+| `bundled-network-command` | HIGH | 認識済みネットワーク実行名（ループバックを含む） |
+| `bundled-remote-post` | HIGH | HTTP フック、または POST/data フラグと非ループバック HTTP(S) 宛先 |
+| `bundled-permission` | HIGH | 広い allow 権限、無制限のツール許可、bypassPermissions |
+| `bundled-helper-command` | HIGH | 設定の apiKeyHelper または statusLine コマンド |
+| `bundled-config-unparsed` | INFO | 検査範囲が不完全なため手動確認が必要 |
+
+コマンド値の設定として検査するのは `apiKeyHelper` と `statusLine` のみで、それ以外は検査しません。
+
+command フックの文字列 `args` 配列にも対応します。 ルール ID は `audit rules` で無効化・重大度の上書きが可能です。 [英語版の詳細](/docs/understand/audit-engine#bundled-hooks-and-settings)。
+
 ## 機密の宛先とデシリアライズ {#sensitive-destinations}
 
 静的な証拠をレビュー用に報告します。SSRF、信頼できない入力、実行時の悪用を証明するものではありません。別名、DNS、リダイレクト、データの由来、任意の複数行構文は解決せず、ネットワーク要求やデシリアライズも実行しません。

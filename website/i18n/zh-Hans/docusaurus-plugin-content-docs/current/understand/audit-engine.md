@@ -508,6 +508,33 @@ JSON/SARIF 输出中的每条发现结果都包含：
 - [Securing Your Skills](/docs/how-to/advanced/security) —— 面向团队和组织的安全指南
 - [CI/CD Skill Validation](/docs/how-to/recipes/ci-cd-skill-validation) —— 流水线自动化方案
 
+## 随附的 hooks 与设置 {#bundled-hooks-and-settings}
+
+`structure` 只检查受审计技能内的以下四个路径。不读取实时用户设置，也不执行任何声明。只接受普通文件，拒绝通往技能根目录之外的链接，每个文件最多读取 1,000,000 字节，不遍历其他隐藏目录。声明表示启用后可能发生的行为，并不证明客户端已加载。
+
+`hooks.json`, `hooks/hooks.json`, `.claude/settings.json`, `.claude/settings.local.json`
+
+支持 `hooks` 事件映射（hooks.json 也接受直接映射）、有类型的 command/HTTP 声明数组，以及包含 `hooks` 数组的 matcher 组。未知事件、prompt/agent 类型、无效 JSON、未支持结构、无法读取或超出大小限制，都产生 INFO 覆盖缺口诊断，按现有阈值处理。
+
+本地命令为 MEDIUM；网络命令（含 loopback）、远程 POST、宽泛 allow 权限及 bypassPermissions、apiKeyHelper 与 statusLine 命令为 HIGH。仅提及 URL 不算网络调用；网络能力与 POST 并不证明数据泄露。狭窄 allow 与 deny/ask 不触发此权限规则。所有输出前先遮蔽参数及 URL，保留文件、JSON 路径、已识别执行名称与 SHA-256。详细支持范围请参阅英文版。
+
+无限制授权（例如 `*`、`Bash`、`Bash(*)`、`Bash(:*)`）为 HIGH；`Bash(npm run test:*)`、`Bash(git diff:*)`、`Read(./docs/**)` 与 `mcp__github__get_*` 不触发此规则。整个 MCP 服务器的 `mcp__server` 或 `mcp__server__*` 授权为 HIGH。hook 命令按 bash 语法解析，因此会跟踪引号、注释、命令替换、循环与 `bash -c` 脚本，且不会执行任何内容。解析器无法解析的命令会产生 `bundled-config-unparsed`，并按单词分类，因此其中的网络调用仍会被检测到。hook 调用的脚本以及运行时才计算出的值，仍可能需要手动审查。POST 标志与目标必须属于同一个网络命令，后续的 `grep -F` 不算 POST 证据。
+
+隐藏设置只接受声明分析，不加入文本规则扫描或可分析性字节数。`hooks.json` 与 `hooks/hooks.json` 的既有文本发现也会遮蔽，因此指纹及接受键会改变，先前接受的发现需要重新接受。
+
+| ID | Severity | 随附的 hooks 与设置 |
+|---------|---------|---------|
+| `bundled-hook-command` | MEDIUM | 生命周期命令 |
+| `bundled-network-command` | HIGH | 已识别的网络可执行名称，包含 loopback |
+| `bundled-remote-post` | HIGH | HTTP hook，或 POST/data 标志搭配非 loopback HTTP(S) 目标 |
+| `bundled-permission` | HIGH | 宽泛 allow 权限、无限制工具授权或 bypassPermissions |
+| `bundled-helper-command` | HIGH | 设置中的 apiKeyHelper 或 statusLine 命令 |
+| `bundled-config-unparsed` | INFO | 未完整检查此范围，需要手动审查 |
+
+命令值设置只检查 `apiKeyHelper` 和 `statusLine`，不检查其他命令值设置。
+
+也支持 command hook 的字符串 `args` 数组。 规则 ID 支持通过 `audit rules` 禁用及覆盖严重性。 [英文详细说明](/docs/understand/audit-engine#bundled-hooks-and-settings)。
+
 ## 敏感目标与反序列化 {#sensitive-destinations}
 
 这些静态发现提供供审查的证据，不证明 SSRF、不可信输入或运行时可利用性。不会解析别名、DNS、重定向、数据来源或任意多行语法，也不会发送网络请求或执行反序列化。
