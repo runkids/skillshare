@@ -518,7 +518,7 @@ JSON/SARIF 输出中的每条发现结果都包含：
 
 本地命令为 MEDIUM；网络命令（含 loopback）、远程 POST、宽泛 allow 权限及 bypassPermissions、apiKeyHelper 与 statusLine 命令为 HIGH。仅提及 URL 不算网络调用；网络能力与 POST 并不证明数据泄露。狭窄 allow 与 deny/ask 不触发此权限规则。所有输出前先遮蔽参数及 URL，保留文件、JSON 路径、已识别执行名称与 SHA-256。详细支持范围请参阅英文版。
 
-无限制授权（例如 `*`、`Bash`、`Bash(*)`、`Bash(:*)`）为 HIGH；`Bash(npm run test:*)`、`Bash(git diff:*)`、`Read(./docs/**)` 与 `mcp__github__get_*` 不触发此规则。整个 MCP 服务器的 `mcp__server` 或 `mcp__server__*` 授权为 HIGH。POST 标志与目标必须属于同一个网络命令片段，后续的 `grep -F` 不算 POST 证据。
+无限制授权（例如 `*`、`Bash`、`Bash(*)`、`Bash(:*)`）为 HIGH；`Bash(npm run test:*)`、`Bash(git diff:*)`、`Read(./docs/**)` 与 `mcp__github__get_*` 不触发此规则。整个 MCP 服务器的 `mcp__server` 或 `mcp__server__*` 授权为 HIGH。hook 命令按 bash 语法解析，因此会跟踪引号、注释、命令替换、循环与 `bash -c` 脚本，且不会执行任何内容。解析器无法解析的命令会产生 `bundled-config-unparsed`，并按单词分类，因此其中的网络调用仍会被检测到。hook 调用的脚本以及运行时才计算出的值，仍可能需要手动审查。POST 标志与目标必须属于同一个网络命令，后续的 `grep -F` 不算 POST 证据。
 
 隐藏设置只接受声明分析，不加入文本规则扫描或可分析性字节数。`hooks.json` 与 `hooks/hooks.json` 的既有文本发现也会遮蔽，因此指纹及接受键会改变，先前接受的发现需要重新接受。
 

@@ -518,7 +518,7 @@ JSON/SARIF 輸出中的每筆 finding 都包含：
 
 本機命令為 MEDIUM；網路命令（含 loopback）、遠端 POST、廣泛 allow 權限及 bypassPermissions、apiKeyHelper 與 statusLine 命令為 HIGH。單純提及 URL 不算網路呼叫；網路能力與 POST 並不證明資料外洩。狹窄 allow 與 deny/ask 不觸發此權限規則。所有輸出前先遮蔽引數及 URL，保留檔案、JSON 路徑、已辨識執行名稱與 SHA-256。詳細支援範圍請參閱英文版。
 
-無限制授權（例如 `*`、`Bash`、`Bash(*)`、`Bash(:*)`）為 HIGH；`Bash(npm run test:*)`、`Bash(git diff:*)`、`Read(./docs/**)` 與 `mcp__github__get_*` 不觸發此規則。整個 MCP 伺服器的 `mcp__server` 或 `mcp__server__*` 授權為 HIGH。POST 旗標與目的地必須屬於同一個網路命令片段，後續的 `grep -F` 不算 POST 證據。
+無限制授權（例如 `*`、`Bash`、`Bash(*)`、`Bash(:*)`）為 HIGH；`Bash(npm run test:*)`、`Bash(git diff:*)`、`Read(./docs/**)` 與 `mcp__github__get_*` 不觸發此規則。整個 MCP 伺服器的 `mcp__server` 或 `mcp__server__*` 授權為 HIGH。hook 指令依 bash 語法解析，因此會追蹤引號、註解、命令替換、迴圈與 `bash -c` 腳本，且不會執行任何內容。解析器無法解析的指令會產生 `bundled-config-unparsed`，並依單字分類，因此其中的網路呼叫仍會被偵測到。hook 呼叫的腳本以及執行時才算出的值，仍可能需要手動審查。POST 旗標與目的地必須屬於同一個網路命令，後續的 `grep -F` 不算 POST 證據。
 
 隱藏設定只接受宣告分析，不加入文字規則掃描或可分析性位元組數。`hooks.json` 與 `hooks/hooks.json` 的既有文字發現也會遮蔽，因此指紋及接受鍵會改變，先前接受的發現需要重新接受。
 

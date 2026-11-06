@@ -519,7 +519,7 @@ SARIF 出力では、`ruleId` は SARIF の `ruleId` フィールドにマッピ
 
 ローカルコマンドは MEDIUM、ネットワーク対応コマンド（ループバックを含む）、リモート POST、広い allow 権限や bypassPermissions、apiKeyHelper と statusLine のコマンドは HIGH です。URL の単なる言及は通信とみなしません。通信や POST は情報流出の証拠ではありません。狭い allow と deny/ask は対象外です。引数と URL は全出力前に秘匿化し、ファイル、JSON パス、認識済み実行名、SHA-256 を残します。詳細と対応範囲は英語版を参照してください。
 
-無制限の許可（`*`、`Bash`、`Bash(*)`、`Bash(:*)` など）は HIGH です。`Bash(npm run test:*)`、`Bash(git diff:*)`、`Read(./docs/**)`、`mcp__github__get_*` は対象外です。MCP サーバー全体の `mcp__server` または `mcp__server__*` は HIGH です。POST フラグと宛先は同じネットワークコマンド区間にある必要があり、後続の `grep -F` は POST の証拠になりません。
+無制限の許可（`*`、`Bash`、`Bash(*)`、`Bash(:*)` など）は HIGH です。`Bash(npm run test:*)`、`Bash(git diff:*)`、`Read(./docs/**)`、`mcp__github__get_*` は対象外です。MCP サーバー全体の `mcp__server` または `mcp__server__*` は HIGH です。フックのコマンドは bash として構文解析されるため、クォート、コメント、コマンド置換、ループ、`bash -c` のスクリプトも追跡されます。何も実行しません。解析できないコマンドは `bundled-config-unparsed` になり、単語ごとに分類されるため、その中のネットワーク呼び出しも検出されます。フックが呼び出すスクリプトや実行時に計算される値は、手動確認が必要な場合があります。POST フラグと宛先は同じネットワークコマンドにある必要があり、後続の `grep -F` は POST の証拠になりません。
 
 隠し設定には宣言解析のみを行い、テキストルールや分析可能性のバイト数には追加しません。`hooks.json` と `hooks/hooks.json` の既存テキスト検出は秘匿化されるため、フィンガープリントと承認キーが変わり、過去の承認には再承認が必要です。
 

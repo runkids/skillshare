@@ -12,6 +12,9 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"unicode"
+
+	"mvdan.cc/sh/v3/syntax"
 
 	"skillshare/internal/utils"
 )
@@ -237,8 +240,7 @@ func inspectBundledHook(value any, path, file string, emit bundledEmitter, gap f
 			gap(path + ".command: expected nonempty command")
 			return
 		}
-		var segments []string
-		substitutionsComplete := true
+		parsed := true
 		networkExecutable := ""
 		remotePOST := false
 		argsProvided := false
@@ -262,23 +264,19 @@ func inspectBundledHook(value any, path, file string, emit bundledEmitter, gap f
 						gap(path + ".args: expected string arguments")
 					}
 				}
-				var parsed bool
-				networkExecutable, remotePOST, parsed = bundledNetworkArgv(argv, strings.Join(argv, " "), 0)
+				networkExecutable, remotePOST, parsed = bundledNetworkArgv(argv, 0)
 				if !parsed {
-					gap(path + ".command: shell expansion inspection incomplete")
+					gap(path + ".command: shell parsing incomplete")
 				}
 			}
 		}
 		if !argsValid {
-			segments, substitutionsComplete = bundledCommandSegments(command)
-			var wordsComplete bool
-			networkExecutable, remotePOST, wordsComplete = bundledNetworkAnalysis(segments)
-			substitutionsComplete = substitutionsComplete && wordsComplete
+			networkExecutable, remotePOST, parsed = bundledShellNetwork(command, 0)
 			if argsProvided {
 				remotePOST = false
 			}
-			if !substitutionsComplete {
-				gap(path + ".command: shell expansion inspection incomplete")
+			if !parsed {
+				gap(path + ".command: shell parsing incomplete")
 			}
 		}
 		network := networkExecutable != ""
@@ -299,7 +297,7 @@ func inspectBundledHook(value any, path, file string, emit bundledEmitter, gap f
 			return
 		}
 		id := "bundled-network-command"
-		if bundledRemoteURL(destination) {
+		if bundledRemoteURL([]string{destination}) {
 			id = "bundled-remote-post"
 		}
 		emit(file, path+".url (HTTP hook POST)", id, bundledEvidence(destination))
@@ -314,7 +312,6 @@ var (
 	// Prefix/path wildcards constrain a grant; only unrestricted tool patterns
 	// and MCP tool groups belong to the HIGH broad-permission policy.
 	bundledBroad = regexp.MustCompile(`^(?:\*|Bash|Read|Write|Edit|WebFetch|(?:Bash|Read|Write|Edit|WebFetch)\(\*\)|Bash\(:\*\))$`)
-	bundledWords = regexp.MustCompile(`"(?:\\.|[^"\\])*"|'[^']*'|[^\s]+`)
 )
 
 func bundledBroadPermission(permission string) bool {
@@ -327,767 +324,165 @@ func bundledBroadPermission(permission string) bool {
 	return bundledBroad.MatchString(permission)
 }
 
-// Split common shell operators without breaking quoted/escaped arguments or
-// variable references, then inspect executable command substitutions too.
-// This is lexical inspection, not shell evaluation.
-const maxBundledShellExpansionDepth = 32
+// Nested shell scripts (`bash -c '...'`) are parsed again; this bounds that
+// recursion. Substitutions and compound commands need no limit of their own.
+const maxBundledShellDepth = 32
 
-type bundledCommandBody struct {
-	text              string
-	legacyBackticks   bool
-	substitutionsOnly bool
-}
-
-func bundledCommandSegments(command string) ([]string, bool) {
-	type pendingCommand struct {
-		text              string
-		depth             int
-		legacyBackticks   bool
-		substitutionsOnly bool
-	}
-	queue := []pendingCommand{{text: command}}
-	complete := true
-	var all []string
-	for i := 0; i < len(queue); i++ {
-		pending := queue[i]
-		bodies, parsed := bundledCommandSubstitutions(pending.text, pending.legacyBackticks)
-		if !parsed {
-			complete = false
-		}
-		for _, body := range bodies {
-			if pending.depth >= maxBundledShellExpansionDepth {
-				complete = false
-				continue
-			}
-			queue = append(queue, pendingCommand{
-				text:              body.text,
-				depth:             pending.depth + 1,
-				legacyBackticks:   body.legacyBackticks,
-				substitutionsOnly: body.substitutionsOnly,
-			})
-		}
-		if !pending.substitutionsOnly {
-			all = append(all, splitBundledCommandSegments(pending.text)...)
-		}
-	}
-	return all, complete
-}
-
-func splitBundledCommandSegments(command string) []string {
-	var segments []string
-	var quote byte
-	escaped := false
-	wordOpen := false
-	start := 0
-	for i := 0; i < len(command); i++ {
-		c := command[i]
-		if escaped {
-			escaped = false
-			if c != '\n' {
-				wordOpen = true
-			}
-			continue
-		}
-		if c == '\\' && quote != '\'' {
-			escaped = true
-			continue
-		}
-		if quote != 0 {
-			if c == quote {
-				quote = 0
-			}
-			wordOpen = true
-			continue
-		}
-		if end, comment := bundledShellCommentEnd(command, i, wordOpen); comment {
-			i = end - 1
-			continue
-		}
-		if c == '$' && i+2 < len(command) && command[i+1] == '(' && command[i+2] == '(' {
-			if _, end, ok := bundledArithmeticExpansion(command, i); ok {
-				i = end - 1
-				wordOpen = true
-				continue
-			}
-			return append(segments, command[start:])
-		}
-		if c == '$' && i+1 < len(command) && command[i+1] == '(' {
-			if _, end, ok := bundledCommandSubstitution(command, i); ok {
-				i = end - 1
-				wordOpen = true
-				continue
-			}
-			return append(segments, command[start:])
-		}
-		if quote == 0 && c == '(' && i+1 < len(command) && command[i+1] == '(' {
-			if _, end, ok := bundledArithmeticCommand(command, i); ok {
-				i = end - 1
-				wordOpen = false
-				continue
-			}
-			return append(segments, command[start:])
-		}
-		if c == '`' {
-			if _, end, ok := bundledBacktickSubstitution(command, i); ok {
-				i = end - 1
-				wordOpen = true
-				continue
-			}
-		}
-		switch c {
-		case '\'', '"':
-			quote = c
-			wordOpen = true
-		case ' ', '\t':
-			wordOpen = false
-		case '|', '&', ';', '(', ')', '\r', '\n':
-			segments = append(segments, command[start:i])
-			start = i + 1
-			wordOpen = false
-		default:
-			wordOpen = true
-		}
-	}
-	return append(segments, command[start:])
-}
-
-func bundledShellCommentEnd(command string, start int, wordOpen bool) (int, bool) {
-	if start >= len(command) || command[start] != '#' {
-		return 0, false
-	}
-	if wordOpen {
-		return 0, false
-	}
-	for end := start + 1; end < len(command); end++ {
-		if command[end] == '\n' {
-			return end, true
-		}
-	}
-	return len(command), true
-}
-
-func bundledCommandSubstitutions(command string, legacyBackticks bool) ([]bundledCommandBody, bool) {
-	var substitutions []bundledCommandBody
-	var quote byte
-	escaped := false
-	wordOpen := false
-	for i := 0; i < len(command); i++ {
-		c := command[i]
-		if escaped {
-			escaped = false
-			if c != '\n' {
-				wordOpen = true
-			}
-			continue
-		}
-		if quote == 0 {
-			if end, comment := bundledShellCommentEnd(command, i, wordOpen); comment {
-				i = end - 1
-				continue
-			}
-		}
-		if legacyBackticks && quote != '\'' && c == '\\' && i+1 < len(command) && command[i+1] == '`' {
-			body, end, ok := bundledEscapedBacktickSubstitution(command, i)
-			if !ok {
-				return substitutions, false
-			}
-			substitutions = append(substitutions, bundledCommandBody{text: body, legacyBackticks: true})
-			i = end - 1
-			wordOpen = true
-			continue
-		}
-		if c == '\\' && quote != '\'' {
-			escaped = true
-			continue
-		}
-		if quote == '\'' {
-			if c == '\'' {
-				quote = 0
-			}
-			wordOpen = true
-			continue
-		}
-		if c == '$' && i+1 < len(command) && command[i+1] == '(' {
-			if i+2 < len(command) && command[i+2] == '(' {
-				body, end, ok := bundledArithmeticExpansion(command, i)
-				if !ok {
-					return substitutions, false
-				}
-				substitutions = append(substitutions, bundledCommandBody{
-					text:              body,
-					legacyBackticks:   legacyBackticks,
-					substitutionsOnly: true,
-				})
-				i = end - 1
-				wordOpen = true
-				continue
-			}
-			if body, end, ok := bundledCommandSubstitution(command, i); ok {
-				substitutions = append(substitutions, bundledCommandBody{text: body})
-				i = end - 1
-				wordOpen = true
-				continue
-			}
-			return substitutions, false
-		}
-		if quote == 0 && c == '(' && i+1 < len(command) && command[i+1] == '(' {
-			body, end, ok := bundledArithmeticCommand(command, i)
-			if !ok {
-				return substitutions, false
-			}
-			substitutions = append(substitutions, bundledCommandBody{
-				text:              body,
-				legacyBackticks:   legacyBackticks,
-				substitutionsOnly: true,
-			})
-			i = end - 1
-			wordOpen = false
-			continue
-		}
-		if c == '`' {
-			if body, end, ok := bundledBacktickSubstitution(command, i); ok {
-				substitutions = append(substitutions, bundledCommandBody{text: body, legacyBackticks: true})
-				i = end - 1
-				wordOpen = true
-				continue
-			}
-			return substitutions, false
-		}
-		if quote == '"' {
-			if c == '"' {
-				quote = 0
-			}
-			wordOpen = true
-			continue
-		}
-		if c == '\'' || c == '"' {
-			quote = c
-			wordOpen = true
-			continue
-		}
-		switch c {
-		case ' ', '\t', '\r', '\n', '|', '&', ';', '(', ')', '<', '>':
-			wordOpen = false
-		default:
-			wordOpen = true
-		}
-	}
-	return substitutions, true
-}
-
-func bundledArithmeticExpansion(command string, start int) (string, int, bool) {
-	return bundledArithmeticBody(command, start+3)
-}
-
-func bundledArithmeticCommand(command string, start int) (string, int, bool) {
-	return bundledArithmeticBody(command, start+2)
-}
-
-func bundledArithmeticBody(command string, bodyStart int) (string, int, bool) {
-	depth := 0
-	var quote byte
-	escaped := false
-	for i := bodyStart; i < len(command); i++ {
-		c := command[i]
-		if escaped {
-			escaped = false
-			continue
-		}
-		if c == '\\' && quote != '\'' {
-			escaped = true
-			continue
-		}
-		if quote != 0 {
-			if c == quote {
-				quote = 0
-			}
-			continue
-		}
-		if c == '$' && i+1 < len(command) && command[i+1] == '(' && (i+2 >= len(command) || command[i+2] != '(') {
-			if _, end, ok := bundledCommandSubstitution(command, i); ok {
-				i = end - 1
-				continue
-			}
-			return "", 0, false
-		}
-		if c == '`' {
-			if _, end, ok := bundledBacktickSubstitution(command, i); ok {
-				i = end - 1
-				continue
-			}
-			return "", 0, false
-		}
-		if c == '\'' || c == '"' {
-			quote = c
-			continue
-		}
-		switch c {
-		case '(':
-			depth++
-		case ')':
-			if depth > 0 {
-				depth--
-				continue
-			}
-			if i+1 < len(command) && command[i+1] == ')' {
-				return command[bodyStart:i], i + 2, true
-			}
-			return "", 0, false
-		}
-	}
-	return "", 0, false
-}
-
-func bundledCommandSubstitution(command string, start int) (string, int, bool) {
-	depth := 1
-	var quote byte
-	escaped := false
-	wordOpen := false
-	var expansionDepths []int
-	for i := start + 2; i < len(command); i++ {
-		c := command[i]
-		if escaped {
-			escaped = false
-			if c != '\n' {
-				wordOpen = true
-			}
-			continue
-		}
-		if c == '\\' && quote != '\'' {
-			escaped = true
-			continue
-		}
-		if quote != 0 {
-			if c == quote {
-				quote = 0
-			}
-			wordOpen = true
-			continue
-		}
-		if end, comment := bundledShellCommentEnd(command, i, wordOpen); comment {
-			i = end - 1
-			continue
-		}
-		if c == '$' && i+1 < len(command) && command[i+1] == '(' {
-			expansionDepths = append(expansionDepths, depth)
-			wordOpen = false
-			continue
-		}
-		if c == '`' {
-			if _, end, ok := bundledBacktickSubstitution(command, i); ok {
-				i = end - 1
-				wordOpen = true
-				continue
-			}
-			return "", 0, false
-		}
-		if c == '\'' || c == '"' {
-			quote = c
-			wordOpen = true
-			continue
-		}
-		switch c {
-		case '(':
-			depth++
-			wordOpen = false
-		case ')':
-			if depth == 1 {
-				return command[start+2 : i], i + 1, true
-			}
-			depth--
-			expansionClose := len(expansionDepths) > 0 && depth == expansionDepths[len(expansionDepths)-1]
-			if expansionClose {
-				expansionDepths = expansionDepths[:len(expansionDepths)-1]
-				wordOpen = true
-			} else {
-				wordOpen = false
-			}
-		case ' ', '\t', '\r', '\n', '|', '&', ';', '<', '>':
-			wordOpen = false
-		default:
-			wordOpen = true
-		}
-	}
-	return "", 0, false
-}
-
-func bundledBacktickSubstitution(command string, start int) (string, int, bool) {
-	var quote byte
-	escaped := false
-	wordOpen := false
-	parenDepth := 0
-	var expansionDepths []int
-	for i := start + 1; i < len(command); i++ {
-		c := command[i]
-		if escaped {
-			escaped = false
-			if c != '\n' {
-				wordOpen = true
-			}
-			continue
-		}
-		if c == '\\' && quote != '\'' {
-			escaped = true
-			continue
-		}
-		if quote == 0 {
-			if end, comment := bundledShellCommentEnd(command, i, wordOpen); comment {
-				i = end - 1
-				continue
-			}
-			if c == '`' {
-				return command[start+1 : i], i + 1, true
-			}
-		}
-		if quote != 0 {
-			if c == quote {
-				quote = 0
-			}
-			wordOpen = true
-			continue
-		}
-		if c == '$' && i+1 < len(command) && command[i+1] == '(' {
-			expansionDepths = append(expansionDepths, parenDepth)
-			wordOpen = false
-			continue
-		}
-		if c == '\'' || c == '"' {
-			quote = c
-			wordOpen = true
-			continue
-		}
-		switch c {
-		case '(':
-			parenDepth++
-			wordOpen = false
-		case ')':
-			if parenDepth > 0 {
-				parenDepth--
-			}
-			if len(expansionDepths) > 0 && parenDepth == expansionDepths[len(expansionDepths)-1] {
-				expansionDepths = expansionDepths[:len(expansionDepths)-1]
-				wordOpen = true
-			} else {
-				wordOpen = false
-			}
-		case ' ', '\t', '\r', '\n', '|', '&', ';', '<', '>':
-			wordOpen = false
-		default:
-			wordOpen = true
-		}
-	}
-	return "", 0, false
-}
-
-func bundledEscapedBacktickSubstitution(command string, start int) (string, int, bool) {
-	var quote byte
-	escaped := false
-	wordOpen := false
-	parenDepth := 0
-	var expansionDepths []int
-	for i := start + 2; i+1 < len(command); i++ {
-		c := command[i]
-		if escaped {
-			escaped = false
-			if c != '\n' {
-				wordOpen = true
-			}
-			continue
-		}
-		if quote == 0 {
-			if end, comment := bundledShellCommentEnd(command, i, wordOpen); comment {
-				i = end - 1
-				continue
-			}
-		}
-		if quote == '\'' {
-			if c == '\'' {
-				quote = 0
-			}
-			wordOpen = true
-			continue
-		}
-		if c == '\\' {
-			if command[i+1] == '`' {
-				return command[start+2 : i], i + 2, true
-			}
-			escaped = true
-			continue
-		}
-		if quote == '"' {
-			if c == '"' {
-				quote = 0
-			}
-			wordOpen = true
-			continue
-		}
-		if c == '\'' || c == '"' {
-			quote = c
-			wordOpen = true
-			continue
-		}
-		if c == '$' && i+1 < len(command) && command[i+1] == '(' {
-			expansionDepths = append(expansionDepths, parenDepth)
-			wordOpen = false
-			continue
-		}
-		switch c {
-		case '(':
-			parenDepth++
-			wordOpen = false
-		case ')':
-			if parenDepth > 0 {
-				parenDepth--
-			}
-			if len(expansionDepths) > 0 && parenDepth == expansionDepths[len(expansionDepths)-1] {
-				expansionDepths = expansionDepths[:len(expansionDepths)-1]
-				wordOpen = true
-			} else {
-				wordOpen = false
-			}
-		case ' ', '\t', '\r', '\n', '|', '&', ';', '<', '>':
-			wordOpen = false
-		default:
-			wordOpen = true
-		}
-	}
-	return "", 0, false
-}
-
-func bundledNetworkExecutable(command string) string {
-	segments, _ := bundledCommandSegments(command)
-	network, _, _ := bundledNetworkAnalysis(segments)
-	return network
-}
-
-func bundledNetworkAnalysis(segments []string) (string, bool, bool) {
-	return bundledNetworkAnalysisDepth(segments, 0)
-}
-
-func bundledNetworkAnalysisDepth(segments []string, depth int) (string, bool, bool) {
-	if depth > maxBundledShellExpansionDepth {
+// bundledShellNetwork parses a hook command as bash and reports the first
+// network executable it runs, whether a network command POSTs to a remote
+// host, and whether the whole command parsed. Statements before a syntax error
+// are still inspected, as a shell runs them before it reaches the error.
+// Nothing is executed; quoting, comments, substitutions, loops and line
+// continuations follow the parser.
+func bundledShellNetwork(command string, depth int) (network string, post, complete bool) {
+	if depth > maxBundledShellDepth {
 		return "", false, false
 	}
-	network, remotePOST, complete := "", false, true
-	for _, segment := range segments {
-		words, parsed := bundledShellWords(segment)
-		name, post, nestedComplete := bundledNetworkArgv(words, segment, depth)
-		complete = complete && parsed && nestedComplete
+	complete = true
+	merge := func(name string, p, nestedComplete bool) {
+		complete = complete && nestedComplete
 		if network == "" {
 			network = name
 		}
-		remotePOST = remotePOST || post
+		post = post || p
 	}
-	return network, remotePOST, complete
+	visit := func(node syntax.Node) bool {
+		if stmt, ok := node.(*syntax.Stmt); ok {
+			// A script fed to a shell on stdin runs like `bash -c`.
+			if script, ok := bundledShellStdin(command, stmt); ok {
+				merge(bundledShellNetwork(script, depth+1))
+			}
+			return true
+		}
+		call, ok := node.(*syntax.CallExpr)
+		if !ok || len(call.Args) == 0 {
+			return true
+		}
+		words := make([]string, len(call.Args))
+		for i, word := range call.Args {
+			words[i] = bundledWordText(command, word)
+		}
+		merge(bundledNetworkArgv(words, depth))
+		return true
+	}
+	failed := false
+	// Drain the iterator after an error: it may yield again, and breaking out
+	// of the loop then panics.
+	for stmt, err := range syntax.NewParser().StmtsSeq(strings.NewReader(command)) {
+		if failed {
+			continue
+		}
+		if err != nil {
+			failed = true
+			// bash still runs some forms the parser rejects, such as an array
+			// element assigned before a command, so treat every word as a
+			// possible executable rather than trusting the partial parse.
+			name, p := bundledLexicalNetwork(command)
+			merge(name, p, false)
+			continue
+		}
+		syntax.Walk(stmt, visit)
+	}
+	return network, post, complete
 }
 
-// bundledShellWords keeps whitespace inside quotes and shell expansions within
-// one word, so an assignment value cannot shift executable detection.
-func bundledShellWords(command string) ([]string, bool) {
-	var words []string
-	start := -1
-	var quote byte
-	escaped := false
-	appendWord := func(end int) {
-		if start >= 0 {
-			words = append(words, command[start:end])
-			start = -1
+// bundledShellStdin returns the script a heredoc or here-string feeds to a
+// shell, as in `bash <<'EOF'`.
+func bundledShellStdin(src string, stmt *syntax.Stmt) (string, bool) {
+	call, ok := stmt.Cmd.(*syntax.CallExpr)
+	if !ok || len(call.Args) == 0 {
+		return "", false
+	}
+	switch strings.ToLower(filepath.Base(bundledWordText(src, call.Args[0]))) {
+	case "sh", "bash", "dash", "zsh", "ksh":
+	default:
+		return "", false
+	}
+	for _, r := range stmt.Redirs {
+		if r.N != nil && r.N.Value != "0" {
+			continue
+		}
+		switch {
+		case (r.Op == syntax.Hdoc || r.Op == syntax.DashHdoc) && r.Hdoc != nil && len(r.Hdoc.Parts) > 0:
+			// The raw body keeps line continuations for the nested parse.
+			return src[r.Hdoc.Pos().Offset():r.Hdoc.End().Offset()], true
+		case r.Op == syntax.WordHdoc && r.Word != nil:
+			return bundledWordText(src, r.Word), true
 		}
 	}
-	appendIncomplete := func(at int) []string {
-		if start < 0 {
-			start = at
-		}
-		appendWord(len(command))
-		return words
-	}
-	for i := 0; i < len(command); i++ {
-		c := command[i]
-		if escaped {
-			escaped = false
-			continue
-		}
-		if c == '\\' && quote != '\'' {
-			if start < 0 {
-				start = i
-			}
-			escaped = true
-			continue
-		}
-		if quote == '\'' {
-			if c == '\'' {
-				quote = 0
-			}
-			continue
-		}
-		if c == '$' {
-			if end, ok := bundledShellExpansionEnd(command, i); ok {
-				if start < 0 {
-					start = i
-				}
-				i = end - 1
-				continue
-			} else if bundledShellExpansionOpener(command, i) {
-				return appendIncomplete(i), false
-			}
-		}
-		if c == '`' {
-			if _, end, ok := bundledBacktickSubstitution(command, i); ok {
-				if start < 0 {
-					start = i
-				}
-				i = end - 1
-				continue
-			} else {
-				return appendIncomplete(i), false
-			}
-		}
-		if quote == '"' {
-			if c == '"' {
-				quote = 0
-			}
-			continue
-		}
-		if c == '\'' || c == '"' {
-			if start < 0 {
-				start = i
-			}
-			quote = c
-			continue
-		}
-		switch c {
-		case ' ', '\t', '\r', '\n':
-			appendWord(i)
-		default:
-			if start < 0 {
-				start = i
-			}
-		}
-	}
-	appendWord(len(command))
-	return words, true
+	return "", false
 }
 
-func bundledShellExpansionOpener(command string, start int) bool {
-	return start+1 < len(command) && command[start] == '$' && (command[start+1] == '(' || command[start+1] == '{')
-}
-
-func bundledShellExpansionEnd(command string, start int) (int, bool) {
-	if start+1 < len(command) && command[start] == '$' && command[start+1] == '{' {
-		return bundledParameterExpansionEnd(command, start)
-	}
-	return bundledShellCommandExpansionEnd(command, start)
-}
-
-func bundledShellCommandExpansionEnd(command string, start int) (int, bool) {
-	if start+2 < len(command) && command[start] == '$' && command[start+1] == '(' && command[start+2] == '(' {
-		_, end, ok := bundledArithmeticExpansion(command, start)
-		return end, ok
-	}
-	if start+1 < len(command) && command[start] == '$' && command[start+1] == '(' {
-		_, end, ok := bundledCommandSubstitution(command, start)
-		return end, ok
-	}
-	return 0, false
-}
-
-func bundledParameterExpansionEnd(command string, start int) (int, bool) {
-	depth := 1
-	var quote byte
-	quoteDepth := 0
-	escaped := false
-	for i := start + 2; i < len(command); i++ {
-		c := command[i]
-		if escaped {
-			escaped = false
-			continue
+func bundledLexicalNetwork(command string) (string, bool) {
+	words := strings.FieldsFunc(command, func(r rune) bool {
+		return unicode.IsSpace(r) || strings.ContainsRune(";|&()<>`\"'\\$", r)
+	})
+	for i, word := range words {
+		if name, ok := bundledNetworkName(word); ok {
+			return name, bundledPOSTArgs(words[i+1:])
 		}
-		if c == '\\' && quote != '\'' {
-			if quote != '"' || i+1 < len(command) && strings.ContainsRune("$`\"\\\n", rune(command[i+1])) {
-				escaped = true
-				continue
+	}
+	return "", false
+}
+
+// bundledNetworkName reports whether word names a network executable.
+func bundledNetworkName(word string) (string, bool) {
+	name := strings.TrimSuffix(strings.ToLower(filepath.Base(word)), ".exe")
+	tier, known := commandTiers[name]
+	return name, (known && tier == TierNetwork) || name == "http" || name == "https"
+}
+
+// bundledWordText returns a word as the shell would pass it, with quotes and
+// escapes removed. Expansions keep their source text, so `$URL` or `$(cmd)`
+// never reads as a literal executable or destination.
+func bundledWordText(src string, word *syntax.Word) string {
+	var b strings.Builder
+	var parts func([]syntax.WordPart, bool)
+	parts = func(list []syntax.WordPart, quoted bool) {
+		for _, part := range list {
+			switch part := part.(type) {
+			case *syntax.Lit:
+				b.WriteString(bundledUnescape(part.Value, quoted))
+			case *syntax.SglQuoted:
+				b.WriteString(part.Value)
+			case *syntax.DblQuoted:
+				parts(part.Parts, true)
+			default:
+				b.WriteString(src[part.Pos().Offset():part.End().Offset()])
 			}
 		}
-		if quote == '\'' {
-			if c == '\'' {
-				quote = 0
-			}
-			continue
-		}
-		if c == '$' && i+1 < len(command) && command[i+1] == '{' {
-			depth++
+	}
+	parts(word.Parts, false)
+	return b.String()
+}
+
+// bundledUnescape removes backslash escapes. Inside double quotes a backslash
+// escapes only $, `, ", \ and newline, and is kept before anything else.
+func bundledUnescape(s string, quoted bool) string {
+	if !strings.Contains(s, "\\") {
+		return s
+	}
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\\' && i+1 < len(s) && (!quoted || strings.IndexByte("$`\"\\\n", s[i+1]) >= 0) {
 			i++
-			continue
 		}
-		if quote == '"' {
-			if c == '"' {
-				quote = 0
-				continue
-			}
-			if c == '$' {
-				if end, ok := bundledShellCommandExpansionEnd(command, i); ok {
-					i = end - 1
-				} else if bundledShellExpansionOpener(command, i) {
-					return 0, false
-				}
-			} else if c == '`' {
-				if _, end, ok := bundledBacktickSubstitution(command, i); ok {
-					i = end - 1
-				} else {
-					return 0, false
-				}
-			} else if c == '}' && depth > quoteDepth {
-				depth--
-				if depth == 0 {
-					return i + 1, true
-				}
-			}
-			continue
-		}
-		if c == '$' {
-			if end, ok := bundledShellCommandExpansionEnd(command, i); ok {
-				i = end - 1
-				continue
-			} else if bundledShellExpansionOpener(command, i) {
-				return 0, false
-			}
-		}
-		if c == '`' {
-			if _, end, ok := bundledBacktickSubstitution(command, i); ok {
-				i = end - 1
-				continue
-			} else {
-				return 0, false
-			}
-		}
-		if c == '\'' || c == '"' {
-			quote = c
-			quoteDepth = depth
-			continue
-		}
-		if c == '}' {
-			depth--
-			if depth == 0 {
-				return i + 1, true
-			}
-		}
+		b.WriteByte(s[i])
 	}
-	return 0, false
+	return b.String()
 }
 
-// Inspect one executable position, unwrapping supported command prefixes.
-// Nested shell scripts are parsed as separate segments, not as echoed arguments.
-func bundledNetworkArgv(words []string, segment string, depth int) (string, bool, bool) {
+// Inspect one argv, unwrapping supported command prefixes. A nested shell
+// script (`bash -c '...'`) is parsed as a script, not read as arguments.
+func bundledNetworkArgv(words []string, depth int) (string, bool, bool) {
 	for len(words) > 0 {
-		word := strings.Trim(words[0], "\"'")
+		word := words[0]
 		words = words[1:]
 		if bundledAssignmentWord(word) {
 			continue
 		}
 		name := strings.TrimSuffix(strings.ToLower(filepath.Base(word)), ".exe")
 		switch name {
-		case "if", "then", "elif", "else", "!", "while", "until", "do", "{", "time":
-			continue
 		case "sudo", "env", "command", "exec", "nohup", "timeout", "xargs":
 			for len(words) > 0 && strings.HasPrefix(words[0], "-") {
 				option := words[0]
@@ -1118,16 +513,10 @@ func bundledNetworkArgv(words []string, segment string, depth int) (string, bool
 			continue
 		case "sh", "bash", "dash", "zsh", "ksh":
 			for len(words) > 0 {
-				option := strings.Trim(words[0], "\"'")
+				option := words[0]
 				words = words[1:]
 				if strings.HasPrefix(option, "-") && !strings.HasPrefix(option, "--") && strings.Contains(option[1:], "c") && len(words) > 0 {
-					body := words[0]
-					if len(body) >= 2 && (body[0] == '\'' || body[0] == '"') && body[len(body)-1] == body[0] {
-						body = body[1 : len(body)-1]
-					}
-					segments, complete := bundledCommandSegments(body)
-					network, post, parsed := bundledNetworkAnalysisDepth(segments, depth+1)
-					return network, post, complete && parsed
+					return bundledShellNetwork(words[0], depth+1)
 				}
 				if !strings.HasPrefix(option, "-") || option == "--" {
 					break
@@ -1148,14 +537,13 @@ func bundledNetworkArgv(words []string, segment string, depth int) (string, bool
 					continue
 				}
 				if slices.Contains([]string{"clone", "fetch", "pull", "push", "ls-remote"}, option) {
-					return "git", bundledPOST.MatchString(segment) && bundledRemoteURL(segment), true
+					return "git", bundledPOSTArgs(words), true
 				}
 				break
 			}
 		default:
-			tier, known := commandTiers[name]
-			if (known && tier == TierNetwork) || name == "http" || name == "https" {
-				return name, bundledPOST.MatchString(segment) && bundledRemoteURL(segment), true
+			if network, ok := bundledNetworkName(word); ok {
+				return network, bundledPOSTArgs(words), true
 			}
 		}
 		break
@@ -1163,61 +551,15 @@ func bundledNetworkArgv(words []string, segment string, depth int) (string, bool
 	return "", false, true
 }
 
-func bundledAssignmentWord(word string) bool {
-	equal := bundledAssignmentEquals(word)
-	if equal < 0 {
-		return false
-	}
-	name := word[:equal]
-	name = strings.TrimSuffix(name, "+")
-	if bundledShellIdentifier(name) {
-		return true
-	}
-	bracket := strings.IndexByte(name, '[')
-	if bracket <= 0 || !strings.HasSuffix(name, "]") || !bundledShellIdentifier(name[:bracket]) {
-		return false
-	}
-	return len(name[bracket+1:len(name)-1]) > 0
+// bundledPOSTArgs reports a POST or data flag together with a non-loopback
+// HTTP(S) destination among one command's arguments.
+func bundledPOSTArgs(args []string) bool {
+	return bundledPOST.MatchString(" "+strings.Join(args, " ")) && bundledRemoteURL(args)
 }
 
-func bundledAssignmentEquals(word string) int {
-	var quote byte
-	escaped := false
-	bracketDepth := 0
-	for i := 0; i < len(word); i++ {
-		c := word[i]
-		if escaped {
-			escaped = false
-			continue
-		}
-		if c == '\\' && quote != '\'' {
-			escaped = true
-			continue
-		}
-		if quote != 0 {
-			if c == quote {
-				quote = 0
-			}
-			continue
-		}
-		if c == '\'' || c == '"' {
-			quote = c
-			continue
-		}
-		switch c {
-		case '[':
-			bracketDepth++
-		case ']':
-			if bracketDepth > 0 {
-				bracketDepth--
-			}
-		case '=':
-			if bracketDepth == 0 {
-				return i
-			}
-		}
-	}
-	return -1
+func bundledAssignmentWord(word string) bool {
+	equal := strings.IndexByte(word, '=')
+	return equal > 0 && bundledShellIdentifier(strings.TrimSuffix(word[:equal], "+"))
 }
 
 func bundledShellIdentifier(name string) bool {
@@ -1238,14 +580,11 @@ func bundledShellIdentifier(name string) bool {
 	return true
 }
 
-func bundledRemoteURL(command string) bool {
-	// Exclude known option values (payloads, headers, proxy URLs, output paths)
-	// before interpreting positional URLs as destinations. This is a lexical
-	// heuristic, not shell evaluation; quoting remains in the source only.
-	words := bundledWords.FindAllString(command, -1)
-	for i := 0; i < len(words); i++ {
-		raw := strings.Trim(words[i], "\"'")
-		raw = strings.Trim(strings.TrimPrefix(raw, "--url="), "\"'")
+func bundledRemoteURL(args []string) bool {
+	// Skip known option values (payloads, headers, proxy URLs, output paths)
+	// before reading positional URLs as destinations.
+	for i := 0; i < len(args); i++ {
+		raw := strings.TrimPrefix(args[i], "--url=")
 		switch raw {
 		case "-d", "--data", "--data-raw", "--data-binary", "--data-urlencode", "--json", "-F", "--form", "--form-string", "-H", "--header", "-u", "--user", "-o", "--output", "-A", "--user-agent", "-e", "--referer", "-x", "--proxy", "-U", "--proxy-user", "-X", "--request", "--post-data", "--post-file":
 			i++
@@ -1270,7 +609,8 @@ func bundledRemoteURL(command string) bool {
 // Keep fixed executable vocabulary as evidence and a digest so changed commands
 // receive different acceptance fingerprints even when arguments are redacted.
 func bundledEvidence(command string) string {
-	return bundledEvidenceWithNetwork(command, bundledNetworkExecutable(command))
+	network, _, _ := bundledShellNetwork(command, 0)
+	return bundledEvidenceWithNetwork(command, network)
 }
 
 func bundledEvidenceWithNetwork(command, network string) string {

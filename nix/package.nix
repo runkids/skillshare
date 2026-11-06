@@ -44,7 +44,7 @@ buildGoModule (finalAttrs: {
   };
 
   # Update when go.sum changes; the Nix CI job prints the new value.
-  vendorHash = "sha256-vZxkLUP6E+tyat87VBpW3kr+JtXJizTHmEkiJDoZzbg=";
+  vendorHash = "sha256-mAfSa/IkHg/71YJvjiuQcgFAud7G362UimeuC3He0fo=";
 
   # go.mod pins the newest Go patch release, which nixpkgs may not ship yet.
   # Lower only the patch; a newer minor needs a newer toolchain.

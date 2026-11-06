@@ -518,7 +518,7 @@ SARIF 출력에서 `ruleId`는 SARIF의 `ruleId` 필드에 매핑되며, `finger
 
 로컬 명령은 MEDIUM입니다. 네트워크 명령(루프백 포함), 원격 POST, 넓은 allow 권한과 bypassPermissions, apiKeyHelper 및 statusLine 명령은 HIGH입니다. URL 언급만으로 통신으로 판단하지 않으며 통신과 POST가 유출을 증명하지 않습니다. 좁은 allow와 deny/ask는 제외합니다. 모든 출력 전에 인수와 URL을 가리고 파일, JSON 경로, 알려진 실행 이름, SHA-256을 남깁니다. 세부 범위는 영어 문서를 참조하세요.
 
-무제한 허용(`*`, `Bash`, `Bash(*)`, `Bash(:*)` 등)은 HIGH입니다. `Bash(npm run test:*)`, `Bash(git diff:*)`, `Read(./docs/**)`, `mcp__github__get_*`는 제외합니다. MCP 서버 전체의 `mcp__server` 또는 `mcp__server__*`는 HIGH입니다. POST 플래그와 대상은 같은 네트워크 명령 구간에 있어야 하며, 뒤따르는 `grep -F`는 POST 증거가 아닙니다.
+무제한 허용(`*`, `Bash`, `Bash(*)`, `Bash(:*)` 등)은 HIGH입니다. `Bash(npm run test:*)`, `Bash(git diff:*)`, `Read(./docs/**)`, `mcp__github__get_*`는 제외합니다. MCP 서버 전체의 `mcp__server` 또는 `mcp__server__*`는 HIGH입니다. 훅 명령은 bash로 구문 분석하므로 따옴표, 주석, 명령 치환, 반복문, `bash -c` 스크립트도 따라갑니다. 아무것도 실행하지 않습니다. 파서가 거부한 명령은 `bundled-config-unparsed`가 되고 단어 단위로 분류되므로, 그 안의 네트워크 호출도 탐지됩니다. 훅이 호출하는 스크립트와 실행 시 계산되는 값은 수동 검토가 필요할 수 있습니다. POST 플래그와 대상은 같은 네트워크 명령에 있어야 하며, 뒤따르는 `grep -F`는 POST 증거가 아닙니다.
 
 숨김 설정에는 선언 분석만 적용하며 텍스트 규칙과 분석 가능성 바이트 수에는 추가하지 않습니다. `hooks.json`과 `hooks/hooks.json`의 기존 텍스트 탐지는 가려지므로 지문과 승인 키가 변경되어 이전 승인을 다시 받아야 합니다.
 
