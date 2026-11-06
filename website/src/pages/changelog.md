@@ -11,25 +11,41 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ## [0.29.0] - 2026-11-06
 
-
 ### New Features
 
-* **audit:** add a display-only minimum severity ([#751](https://github.com/runkids/skillshare/issues/751)) ([4b31ecc](https://github.com/runkids/skillshare/commit/4b31eccb93a856bc05696b2254affebbe7612628))
-* **audit:** check bundled reference containment ([#754](https://github.com/runkids/skillshare/issues/754)) ([4ededca](https://github.com/runkids/skillshare/commit/4ededca4dd8101f1fa10b2834325f7ed2222e1ea))
-* **audit:** detect sensitive destinations and unsafe deserialization ([#753](https://github.com/runkids/skillshare/issues/753)) ([d699c3e](https://github.com/runkids/skillshare/commit/d699c3ef14b6d7e51bec76c3a3875d9bd464d8a9))
-* **audit:** detect whitespace padding that hides instructions ([#755](https://github.com/runkids/skillshare/issues/755)) ([9b58248](https://github.com/runkids/skillshare/commit/9b5824806e815886ef4df0ce29b1731a6da4b56f))
-* **audit:** identify disguised executable headers ([#756](https://github.com/runkids/skillshare/issues/756)) ([8d0a675](https://github.com/runkids/skillshare/commit/8d0a675b571e133989dce6a7df2fff61df675f11))
-* **audit:** inspect bundled hooks and settings ([#752](https://github.com/runkids/skillshare/issues/752)) ([1c27090](https://github.com/runkids/skillshare/commit/1c27090fd7a707ce7912f511e3e1f08efb57f887))
-* **audit:** keep an incomplete scan visible in Markdown, the TUI and the dashboard ([#786](https://github.com/runkids/skillshare/issues/786)) ([ddc33fb](https://github.com/runkids/skillshare/commit/ddc33fb8c76e4fb0d2abc8fddc5e1431466b9b6d))
-* **herdr:** add a Hooks tab to the skillshare panel ([#780](https://github.com/runkids/skillshare/issues/780)) ([5d05335](https://github.com/runkids/skillshare/commit/5d0533585325f9e7cae231c2a9a68319e704efc4))
-* **herdr:** hide disabled rows, group In sync by source, and split the panel into testable modules ([#782](https://github.com/runkids/skillshare/issues/782)) ([c677291](https://github.com/runkids/skillshare/commit/c677291e3ded3ef25cbd91196c1cd9cca0843317))
-* **ui:** show a skill's branch and switch it from the detail page ([#784](https://github.com/runkids/skillshare/issues/784)) ([5e90cf4](https://github.com/runkids/skillshare/commit/5e90cf4b71ddd2f2518852e68b00ded45f3953af))
+#### Audit
 
+- **Bundled hooks and settings** — `skillshare audit` now reads `hooks.json`, `hooks/hooks.json`, `.claude/settings.json` and `.claude/settings.local.json` inside a skill. Hook commands are reported as MEDIUM, and as HIGH when they reach the network or upload data. The `apiKeyHelper` and `statusLine` commands and unrestricted permissions such as `Bash(*)` or `bypassPermissions` are HIGH. Narrow entries such as `Bash(git diff:*)` stay clean, and credential values are redacted in findings. Thanks to @salmonumbrella for the implementation. Refs: #752.
+- **References that leave the skill** — Markdown links and images are now checked along with code paths and `path:` declarations. A reference that escapes the skill folder (through `..`, a home or drive path, or a symlink) is HIGH `reference-escapes-root`; a missing target stays LOW `dangling-link`. `doctor` uses the same check and reports escapes as errors. Thanks to @salmonumbrella for the implementation. Refs: #754.
+- **Sensitive destinations and unsafe deserialization** — nine new rules flag cloud metadata endpoints (CRITICAL), requests to internal or loopback hosts (MEDIUM), and unsafe deserialization such as Python `pickle` or unsafe YAML loaders, PHP `unserialize`, Ruby `Marshal.load` and `node-serialize` (HIGH). PHP files are now scanned too. A rule can now be limited to some files with the new `files` key. Thanks to @salmonumbrella for the implementation. Refs: #753.
+  ```yaml
+  rules:
+    - id: unsafe-deserialization-python
+      files: ['*.py', 'scripts/*.txt']
+  ```
+- **Whitespace padding** — the new `whitespace-padding` rule finds text pushed out of view: long runs of blank lines before more text (MEDIUM from 20 lines, HIGH from 40), 80 or more leading spaces, files that are almost all whitespace, and 100 or more repeated lines. Code blocks and tables in Markdown are exempt. Thanks to @salmonumbrella for the implementation. Refs: #755.
+- **Disguised executables** — each file's header is checked before its extension. A native executable, WASM module or shebang script named like a document, image or configuration file, or kept under `.cache` or `__pycache__`, is HIGH; other executables are MEDIUM, and compiled Python bytecode is HIGH unless its source sits beside it. Reports now also count skipped, binary and oversized files in every format. Thanks to @salmonumbrella for the implementation. Refs: #756.
+- **Display-only minimum severity** — `--min-severity` hides lower findings in the text report, the TUI and Markdown without changing risk scores, the blocking threshold, the exit code, or JSON and SARIF output. A clean or blocked skill stays listed even when every finding is hidden. Thanks to @salmonumbrella for the implementation. Refs: #751, #785.
+  ```bash
+  skillshare audit --min-severity high
+  ```
+- **Incomplete scans stay visible** — when a [followed source link](https://skillshare.runkids.cc/docs/reference/targets/configuration#follow_source_links) cannot be read, its skills are not scanned. Markdown reports now list those links under *Source links not followed*, the TUI summary line counts them, and the dashboard marks the scan *Scan incomplete* instead of reporting it as all clear. JSON already carried `warnings` and `incomplete: true`. Refs: #786.
+
+#### Dashboard
+
+- **Switch a skill's branch** — a skill installed with `install --branch` shows its branch in the Skills list, on its tile and on the Updates tab. Its detail page has a **Branch** picker that reinstalls the skill from another branch, with the same audit and local-changes check as an update. In a project, the new branch is also written to `.skillshare/config.yaml`. Thanks to @chung1912 for the report. Refs: #783, #784.
+
+#### Herdr panel
+
+- **Hooks tab** — the panel lists hooks next to skills, agents, MCP servers and plugins, syncs their changes, and can enable, disable or remove a top-level hook after asking. Thanks to @salmonumbrella for the implementation. Refs: #780.
+- **Tidier lists** — disabled rows are hidden until you choose *Show disabled*, and *In sync* skills and agents can be grouped by source repository. Opening a plugin or MCP row now shows its source, version and targets. Refs: #782.
 
 ### Bug Fixes
 
-* **audit:** keep clean resources visible under a display floor ([#785](https://github.com/runkids/skillshare/issues/785)) ([9c916df](https://github.com/runkids/skillshare/commit/9c916df66327fde74bcf9d6d9b0d6fccbe31c73f))
-* **projects:** keep registrations in machine-local state ([#769](https://github.com/runkids/skillshare/issues/769)) ([5dd9925](https://github.com/runkids/skillshare/commit/5dd9925c987985027b2848a0689755347c10f3eb))
+- **Project registrations stay on one machine** — `project add`, `edit` and `remove`, and the dashboard's Projects page, wrote registrations into the shared global config, so a config synced through Git carried one machine's project paths to the others. They are now kept in machine-local state (`~/.local/state/skillshare/projects` on macOS and Linux, `%LOCALAPPDATA%\skillshare\state\projects` on Windows). Existing shared `projects:` entries keep working; `project localize` copies one into local state without removing it for other machines. Thanks to @salmonumbrella for the fix. Refs: #769.
+  ```bash
+  skillshare project localize shop-web --dry-run
+  ```
 
 ## [0.28.4] - 2026-11-04
 
