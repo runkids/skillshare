@@ -2,6 +2,7 @@ package audit
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -167,6 +168,7 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 		// and integrity scans retain their upstream hidden-directory boundary.
 		headerOnly := hiddenParent(normalizedRel)
 		skipped := fi.Size() > maxScanFileSize || !isScannable(fi.Name())
+		special := isSpecialMode(fi.Mode())
 		var data []byte
 		if fi.Mode().IsRegular() && fi.Name() != ".git" && !utils.IsOSMetadataFile(fi.Name()) {
 			var headerErr error
@@ -185,8 +187,11 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 				skipped = true
 			}
 		} else if fi.Mode()&os.ModeSymlink != 0 {
-			if target, err := os.Stat(path); err == nil && target.IsDir() {
-				return nil
+			if target, err := os.Stat(path); err == nil {
+				if target.IsDir() {
+					return nil
+				}
+				special = isSpecialMode(target.Mode())
 			}
 		}
 		if headerOnly {
@@ -219,6 +224,12 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 
 		totalBytes += size
 
+		// Keep logical accounting and integrity membership without opening a
+		// stable special target (including one reached through a symlink).
+		if special {
+			result.SkippedFiles++
+			return nil
+		}
 		if skipped {
 			return nil
 		}
@@ -532,6 +543,9 @@ func scanFileImpl(filePath string, activeRules []rule, disabled map[string]bool)
 	if info.IsDir() {
 		return nil, fmt.Errorf("not a file: %s", filePath)
 	}
+	if isSpecialMode(info.Mode()) {
+		return nil, fmt.Errorf("special file cannot be audited: %s", filePath)
+	}
 
 	fileSize := info.Size()
 	result := &Result{
@@ -688,4 +702,8 @@ func ScanSkillsFilteredForProject(paths []string, projectRoot string, registry *
 		outputs[i].Result, outputs[i].Err = scanSkillImpl(path, rules, disabled, registry, follow)
 	}
 	return outputs, nil
+}
+
+func isSpecialMode(m fs.FileMode) bool {
+	return m&(fs.ModeNamedPipe|fs.ModeSocket|fs.ModeDevice|fs.ModeCharDevice) != 0
 }

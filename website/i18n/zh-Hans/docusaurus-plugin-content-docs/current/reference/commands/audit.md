@@ -334,7 +334,7 @@ audit 会扫描 skill 目录中的文本类文件：
 
 文本扫描跳过隐藏目录，在其余 skill 目录内递归进行，因此 `SKILL.md`、嵌套的 `references/*.md` 以及 `scripts/*.sh` 只要匹配受支持的文本文件类型，都会被检查。
 
-文本过滤前，audit 对每个普通文件读取前 512 字节头部，分类可执行格式、CPython 字节码、ZIP/JAR 和伪装的 shebang 脚本。隐藏目录仅进行头部分类，`__pycache__` 也在范围内。文件符号链接保留原有文本扫描；`.git`、`.skillshare`、内部及操作系统元数据、链接和特殊文件不读取头部。二进制及超大文件不进行全文文本分析。摘要报告 `binaryFiles`、`skippedFiles`、`oversizedFiles`，计数可重叠。分类不分析运行行为或归档内容。格式、严重性及限制见[可执行文件和归档头部](../../understand/audit-engine.md#executable-headers)。 PE 头部超出窗口时，在指定偏移处额外读取有限字节。 structure 分析器还会读取 skill 内的 `.claude/settings.json` 和 `.claude/settings.local.json`，用于[随附的 hooks 与设置](../../understand/audit-engine.md#bundled-hooks-and-settings)。
+文本过滤前，audit 对每个普通文件读取前 512 字节头部，分类可执行格式、CPython 字节码、ZIP/JAR 和伪装的 shebang 脚本。隐藏目录仅进行头部分类，`__pycache__` 也在范围内。指向非特殊文件的链接保留原有文本扫描；特殊目标会被跳过，直接审计会返回错误；`.git`、`.skillshare`、内部及操作系统元数据、链接和特殊文件不读取头部。二进制及超大文件不进行全文文本分析。摘要报告 `binaryFiles`、`skippedFiles`、`oversizedFiles`，计数可重叠。分类不分析运行行为或归档内容。格式、严重性及限制见[可执行文件和归档头部](../../understand/audit-engine.md#executable-headers)。 PE 头部超出窗口时，在指定偏移处额外读取有限字节。 structure 分析器还会读取 skill 内的 `.claude/settings.json` 和 `.claude/settings.local.json`，用于[随附的 hooks 与设置](../../understand/audit-engine.md#bundled-hooks-and-settings)。
 
 ## 选项
 

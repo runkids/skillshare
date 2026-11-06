@@ -120,7 +120,7 @@ Audit engine 會把 skill 目錄中每個以文字為主的檔案，拿去比對
 
 | 模式 | 嚴重程度 | 說明 |
 |---------|----------|------------|
-| `content-tampered` | MEDIUM | 檔案的 SHA-256 雜湊值與記錄的雜湊值不再相符 |
+| `content-tampered` | MEDIUM | 檔案的 SHA-256 雜湊值與記錄的雜湊值不再相符，或固定路徑現在指向特殊檔案 |
 | `content-oversize` | MEDIUM | 已釘選的檔案超過 1 MB 的掃描大小限制 |
 | `content-missing` | LOW | metadata 中記錄的檔案在磁碟上已不存在 |
 | `content-unexpected` | LOW | 出現了未記錄在 metadata 中的新檔案（`.DS_Store` 等作業系統 metadata 檔案除外） |
@@ -430,11 +430,11 @@ _cross-skill
 
 CPython 3.6 使用不含旗標的 12 位元組標頭；3.7–3.14 使用含支援旗標的 16 位元組標頭。 直接掃描檔案時，只使用檔名判斷偽裝，祖先目錄不影響結果。
 
-保留原有的六層深度限制。`.git`、`.skillshare`、`.skillshare-meta.json`、作業系統 metadata、檔案符號連結與特殊檔案不讀取標頭；目錄符號連結不會遍歷。明確設定的頂層來源連結沿用既有解析政策。沒有檔案數量上限；目錄掃描將標頭讀取失敗的檔案計入 skipped 並繼續掃描其他檔案；直接指定的檔案無法讀取時仍回傳錯誤。隱藏目錄內的檔案僅分類標頭，不新增文字規則或完整性掃描。檔案符號連結保留既有文字掃描，包括直接檔案與 agent 稽核。
+保留原有的六層深度限制。`.git`、`.skillshare`、`.skillshare-meta.json`、作業系統 metadata、檔案符號連結與特殊檔案不讀取標頭；目錄符號連結不會遍歷。明確設定的頂層來源連結沿用既有解析政策。沒有檔案數量上限；目錄掃描將標頭讀取失敗的檔案計入 skipped 並繼續掃描其他檔案；直接指定的檔案無法讀取時仍回傳錯誤。隱藏目錄內的檔案僅分類標頭，不新增文字規則或完整性掃描。指向非特殊檔案的連結保留既有文字掃描；特殊目標會被略過，直接稽核會回傳錯誤。
 
 標頭分類不分析執行時行為、不解碼位元組碼、不檢查封存成員。超大檔案僅接受此分類器的標頭檢查。可在 `audit-rules.yaml` 中依規則 ID 設定 `enabled: false` 來停用這些發現。
 
-隱藏名稱本身不表示偽裝：一般工具腳本保持無發現，`.venv/bin/python` 等原生二進位為 MEDIUM。HIGH 需要文件、圖片、設定副檔名或 `.cache`/`__pycache__` 父目錄。連結與特殊檔案不會僅因略過標頭讀取而計入 `skippedFiles`。
+隱藏名稱本身不表示偽裝：一般工具腳本保持無發現，`.venv/bin/python` 等原生二進位為 MEDIUM。HIGH 需要文件、圖片、設定副檔名或 `.cache`/`__pycache__` 父目錄。隱藏目錄外的特殊檔案及指向它們的連結計入 `skippedFiles`；其他連結不會僅因略過標頭讀取而計入。
 
 ## Analyzability Score {#analyzability-score}
 

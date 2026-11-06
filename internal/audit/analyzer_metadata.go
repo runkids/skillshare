@@ -135,7 +135,10 @@ func readSkillFrontmatter(skillMDPath string, fileCache map[string][]byte) (name
 	if cached, ok := fileCache["SKILL.md"]; ok {
 		data = cached
 	} else {
-		var err error
+		info, err := os.Stat(skillMDPath)
+		if err != nil || info.IsDir() || isSpecialMode(info.Mode()) {
+			return "", ""
+		}
 		data, err = os.ReadFile(skillMDPath)
 		if err != nil {
 			return "", ""

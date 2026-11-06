@@ -64,6 +64,20 @@ func checkContentIntegrity(skillPath string, cache map[string][]byte, allFiles m
 		if info.IsDir() {
 			continue
 		}
+		if isSpecialMode(info.Mode()) {
+			findings = append(findings, Finding{
+				Severity:   SeverityMedium,
+				Pattern:    "content-tampered",
+				Message:    fmt.Sprintf("pinned path resolves to a special file: %s", rel),
+				File:       rel,
+				Line:       0,
+				RuleID:     "content-tampered",
+				Analyzer:   AnalyzerIntegrity,
+				Category:   CategoryIntegrity,
+				Confidence: 1.0,
+			})
+			continue
+		}
 		if info.Size() > maxScanFileSize {
 			findings = append(findings, Finding{
 				Severity:   SeverityMedium,
