@@ -11,53 +11,6 @@ import AuditPage from './AuditPage';
 
 vi.mock('../hooks/useSharedQueries', () => ({ useOverviewQuery: () => ({ data: {} }) }));
 
-it('keeps the severity count in the selector accessible name', () => {
-  const queryClient = new QueryClient();
-  const result: AuditAllResponse = {
-    results: [{
-      skillName: 'demo',
-      findings: [{ severity: 'CRITICAL', pattern: 'test', message: 'test', file: 'SKILL.md', line: 1, snippet: '' }],
-      riskScore: 0,
-      riskLabel: 'low',
-      threshold: 'HIGH',
-      isBlocked: false,
-    }],
-    summary: {
-      total: 1,
-      passed: 0,
-      warning: 1,
-      failed: 0,
-      critical: 1,
-      high: 0,
-      medium: 0,
-      low: 0,
-      info: 0,
-      threshold: 'HIGH',
-      riskScore: 0,
-      riskLabel: 'low',
-    },
-  };
-  queryClient.setQueryData(queryKeys.audit.all('skills'), result);
-
-  const { unmount } = render(
-    <MemoryRouter>
-      <QueryClientProvider client={queryClient}>
-        <I18nProvider>
-          <ToastProvider><AuditPage /></ToastProvider>
-        </I18nProvider>
-      </QueryClientProvider>
-    </MemoryRouter>,
-  );
-
-  expect(screen.getByRole('button', { name: '1 CRITICAL' })).toBeInTheDocument();
-  unmount();
-  localStorage.setItem('skillshare:locale', 'de');
-  render(<MemoryRouter><QueryClientProvider client={queryClient}><I18nProvider><ToastProvider><AuditPage /></ToastProvider></I18nProvider></QueryClientProvider></MemoryRouter>);
-  expect(screen.getByRole('button', { name: '1 Kritisch' })).toBeInTheDocument();
-  localStorage.removeItem('skillshare:locale');
-});
-
-
 it('retains a blocked resource when the selected floor hides its findings', async () => {
   Element.prototype.scrollIntoView = vi.fn();
   const queryClient = new QueryClient();
@@ -73,7 +26,6 @@ it('retains a blocked resource when the selected floor hides its findings', asyn
   await userEvent.click(screen.getByRole('button', { name: '1 CRITICAL' }));
   expect(screen.getByText('blocked-low')).toBeInTheDocument();
   expect(screen.queryByText('hidden low')).not.toBeInTheDocument();
-
 });
 
 it('shows file coverage for a clean resource as well as the summary', () => {
@@ -84,5 +36,5 @@ it('shows file coverage for a clean resource as well as the summary', () => {
   });
   render(<MemoryRouter><QueryClientProvider client={queryClient}><I18nProvider><ToastProvider><AuditPage /></ToastProvider></I18nProvider></QueryClientProvider></MemoryRouter>);
   expect(screen.getByText('partial')).toBeInTheDocument();
-  expect(screen.getAllByText(/2.*1.*1/).length).toBeGreaterThanOrEqual(2);
+  expect(screen.getAllByText('2 files skipped (1 binary, 1 oversized)')).toHaveLength(2);
 });

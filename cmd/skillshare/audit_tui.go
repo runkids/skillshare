@@ -291,7 +291,7 @@ func newAuditTUIModel(
 	buildItems := func(results []*audit.Result, outputs []audit.ScanOutput, kind string) []auditItem {
 		items := make([]auditItem, 0, len(results))
 		for idx, r := range results {
-			if minSeverity != "" && !r.IsBlocked && len(audit.DisplayFindings(r.Findings, minSeverity)) == 0 {
+			if audit.HiddenByFloor(r, minSeverity) {
 				continue
 			}
 			var elapsed time.Duration

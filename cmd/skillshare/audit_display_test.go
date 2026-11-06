@@ -49,3 +49,12 @@ func TestAuditTUIAgentFloorKeepsBlocked(t *testing.T) {
 		t.Fatal(m.allItems, m.renderSummaryNote())
 	}
 }
+
+func TestAuditTUIFloorKeepsCleanResources(t *testing.T) {
+	clean := &audit.Result{SkillName: "clean"}
+	hidden := &audit.Result{SkillName: "low", Findings: []audit.Finding{{Severity: audit.SeverityLow}}}
+	m := newAuditTUIModel([]*audit.Result{clean, hidden}, nil, auditRunSummary{Scanned: 2, Passed: 1, Warning: 1, Low: 1}, nil, nil, auditRunSummary{}, auditTabSkills, audit.SeverityHigh)
+	if len(m.allItems) != 1 || m.allItems[0].result.SkillName != "clean" {
+		t.Fatal(m.allItems)
+	}
+}

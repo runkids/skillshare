@@ -55,7 +55,7 @@ func presentAuditResults(results []*audit.Result, elapsed []time.Duration, scanO
 			var shown []*audit.Result
 			var shownElapsed []time.Duration
 			for i, r := range results {
-				if r.IsBlocked || len(audit.DisplayFindings(r.Findings, opts.MinSeverity)) > 0 || (len(r.Findings) == 0 && !opts.Quiet && !suppressClean) {
+				if !audit.HiddenByFloor(r, opts.MinSeverity) && (len(r.Findings) > 0 || (!opts.Quiet && !suppressClean)) {
 					shown = append(shown, r)
 					shownElapsed = append(shownElapsed, elapsed[i])
 				}

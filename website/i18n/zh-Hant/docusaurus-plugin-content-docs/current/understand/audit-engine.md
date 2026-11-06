@@ -319,6 +319,8 @@ Output suppression 依命中的證據分級，不取決於 Markdown 上下文：
 
 換句話說，封鎖決策是**以嚴重程度門檻為基礎**，而整體風險則是為了分流情境**以分數／標籤為基礎**。
 
+使用 `skillshare audit --min-severity HIGH` 可在文字、TUI 與 Markdown 輸出中隱藏較低嚴重程度的發現。這個顯示下限（包含指定等級）不會改變封鎖、風險分數、結束碼、JSON 或 SARIF。若要更改封鎖門檻，請改用 `--threshold`。
+
 ### 封鎖與風險：決策演算法
 
 skillshare 會計算兩個相關但各自獨立的決策：
