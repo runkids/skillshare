@@ -103,30 +103,24 @@ func TestServiceRemove_LaterFailurePreservesReport(t *testing.T) {
 		t.Fatal("partial removal changed memory")
 	}
 }
+
+// Removing a config.yaml project writes config.yaml, so blocking that file
+// makes the save fail after the detach.
 func TestServiceRemove_SaveFailureKeepsMemory(t *testing.T) {
 	s, cfg, path, root, original := serviceFixture(t)
-	localPath, err := config.LocalProjectsPath(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	configDir := filepath.Dir(localPath)
-	if err := os.MkdirAll(configDir, 0700); err != nil {
-		t.Fatal(err)
-	}
-	moved := configDir + "-moved"
 	manifests := serviceTargetManifests(t, cfg)
 	calls := 0
-	s.DetachSkillsTarget = func(path string, opts ssync.DetachOptions) (ssync.DetachReport, error) {
-		detached, err := ssync.DetachSkillsTarget(path, opts)
+	s.DetachSkillsTarget = func(target string, opts ssync.DetachOptions) (ssync.DetachReport, error) {
+		detached, err := ssync.DetachSkillsTarget(target, opts)
 		if err != nil {
 			return detached, err
 		}
 		calls++
 		if calls == 1 {
-			if err := os.Rename(configDir, moved); err != nil {
+			if err := os.Rename(path, path+".kept"); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(configDir, []byte("blocked"), 0644); err != nil {
+			if err := os.Mkdir(path, 0755); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -148,7 +142,7 @@ func TestServiceRemove_SaveFailureKeepsMemory(t *testing.T) {
 	if _, ok := cfg.Projects[root]; !ok {
 		t.Fatal("save failure removed in-memory registration")
 	}
-	if got, _ := os.ReadFile(path); !bytes.Equal(got, original) {
+	if got, _ := os.ReadFile(path + ".kept"); !bytes.Equal(got, original) {
 		t.Fatal("save failure changed disk")
 	}
 }

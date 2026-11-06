@@ -187,8 +187,10 @@ func TestLocalProjectsMutationSequenceCases(t *testing.T) {
 					if !local {
 						want = shared
 					}
-					if !SameManagedProject(loaded.Projects[root], want) {
-						t.Fatalf("roundtrip lost values: %+v", loaded.Projects[root])
+					// config.yaml spells the key $ROOT/app, which differs from root on Windows.
+					key, _ := loaded.ProjectKey(root)
+					if !SameManagedProject(loaded.Projects[key], want) {
+						t.Fatalf("roundtrip lost values: %+v", loaded.Projects[key])
 					}
 				}
 			}
