@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import type { AuditFinding } from '../api/client';
-import { displayAuditFindings } from './auditDisplay';
+import { auditSourceLinkNote, displayAuditFindings } from './auditDisplay';
 
 const levels: AuditFinding['severity'][] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
 const findings = levels.map((severity) => ({ severity, pattern: severity, message: severity, file: 'SKILL.md', line: 1, snippet: '' }));
@@ -24,4 +24,10 @@ it('preserves minor collapsing unless expanded or a severity is selected', () =>
 it('handles all-hidden and empty findings', () => {
   expect(displayAuditFindings(findings.slice(3), 'HIGH', true)).toEqual([]);
   expect(displayAuditFindings([], 'HIGH', true)).toEqual([]);
+});
+
+it('words a scan by whether a source link could not be read', () => {
+  expect(auditSourceLinkNote({ warnings: ['a', 'b'], incomplete: true })).toEqual({ key: 'audit.sourceLinksIncomplete.other', count: 2 });
+  expect(auditSourceLinkNote({ warnings: ['a'] })).toEqual({ key: 'audit.sourceLinks.one', count: 1 });
+  expect(auditSourceLinkNote({})).toBeNull();
 });

@@ -14,7 +14,7 @@ import { formatRelativeTime, useI18n, useT, plural } from '../i18n';
 import { getCachedAuditResult } from '../lib/auditCache';
 import { queryKeys } from '../lib/queryKeys';
 import { useOverviewQuery } from '../hooks/useSharedQueries';
-import { AUDIT_SEVERITIES as SEVERITIES, auditSeverityRank as rank, displayAuditFindings } from '../lib/auditDisplay';
+import { AUDIT_SEVERITIES as SEVERITIES, auditSeverityRank as rank, auditSourceLinkNote, displayAuditFindings } from '../lib/auditDisplay';
 
 type Kind = 'skills' | 'agents';
 type Severity = AuditFinding['severity'];
@@ -48,6 +48,7 @@ export default function AuditPage() {
   const counts = { skills: (overview.data?.variantCount ?? overview.data?.skillCount), agents: overview.data?.agentCount };
   const installed = counts[kind];
   const data = getCachedAuditResult(queryClient, kind, installed);
+  const sourceLinkNote = data && auditSourceLinkNote(data);
   const scannedAt = queryClient.getQueryState(queryKeys.audit.all(kind))?.dataUpdatedAt;
 
   const scan = () => {
@@ -62,7 +63,9 @@ export default function AuditPage() {
         redraw((n) => n + 1);
         setScanning(false);
         setProgress(null);
+        const note = auditSourceLinkNote(res);
         if (res.summary.failed > 0) toast(t(plural('audit.toast.blocked', res.summary.failed), { count: res.summary.failed, threshold: res.summary.threshold }), 'warning');
+        else if (res.incomplete && note) toast(t(note.key, { count: note.count }), 'warning');
         else if (res.summary.total > 0 && res.results.every((r) => r.findings.length === 0)) toast(t('audit.toast.clean'), 'success');
       },
       (err) => {
@@ -149,9 +152,7 @@ export default function AuditPage() {
         </div>
         {data && (
           <>
-            {(data.warnings?.length ?? 0) > 0 && (
-              <span className="text-[13px] text-warn">{t(plural(data.incomplete ? 'audit.sourceLinksIncomplete' : 'audit.sourceLinks', data.warnings?.length ?? 0), { count: data.warnings?.length ?? 0 })}</span>
-            )}
+            {sourceLinkNote && <span className="text-[13px] text-warn">{t(sourceLinkNote.key, { count: sourceLinkNote.count })}</span>}
             {(data.summary.skippedFiles ?? 0) > 0 && (
               <span className="text-[13px] text-ink-2">{t(plural('audit.coverage', data.summary.skippedFiles ?? 0), { skipped: data.summary.skippedFiles ?? 0, binary: data.summary.binaryFiles ?? 0, oversized: data.summary.oversizedFiles ?? 0 })}</span>
             )}
