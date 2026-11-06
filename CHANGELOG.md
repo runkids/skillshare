@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.29.1](https://github.com/runkids/skillshare/compare/v0.29.0...v0.29.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **projects:** save new projects in config.yaml again ([#793](https://github.com/runkids/skillshare/issues/793)) ([51107fb](https://github.com/runkids/skillshare/commit/51107fb1ac17de41d89f268610491a17f0469439))
+* **ui:** let any git source switch branch on the skill detail page ([#790](https://github.com/runkids/skillshare/issues/790)) ([2c41fa5](https://github.com/runkids/skillshare/commit/2c41fa57ccf276a71b518b24fb97803aac7316e7)), closes [#787](https://github.com/runkids/skillshare/issues/787)
+
 ## [0.29.0] - 2026-11-06
 
 ### New Features
