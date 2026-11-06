@@ -334,10 +334,66 @@ const maxBundledShellDepth = 32
 // are still inspected, as a shell runs them before it reaches the error.
 // Nothing is executed; quoting, comments, substitutions, loops and line
 // continuations follow the parser.
-func bundledShellNetwork(command string, depth int) (network string, post, complete bool) {
+func bundledShellNetwork(command string, depth int) (string, bool, bool) {
+	cache := newBundledShellCache()
+	network, post, complete := cache.network(command, depth)
+	return cache.finish(command, network, post, complete)
+}
+
+type bundledShellResult struct {
+	network        string
+	post, complete bool
+}
+
+// maxBundledShellParseBytes bounds the source parsed for one hook command,
+// nested scripts included. Real hooks stay far below it.
+const maxBundledShellParseBytes = 1 << 20
+
+// bundledShellCache remembers nested scripts by text and depth and limits the
+// total parsing for one hook command. A script inside a substitution is
+// reached both by reparsing the outer shell's argument and by walking the
+// outer syntax tree, so without the cache the work doubles at every nesting
+// level, and without the budget deep nesting still costs quadratic time.
+type bundledShellCache struct {
+	results map[bundledShellKey]bundledShellResult
+	budget  int
+}
+
+func newBundledShellCache() *bundledShellCache {
+	return &bundledShellCache{results: map[bundledShellKey]bundledShellResult{}, budget: maxBundledShellParseBytes}
+}
+
+// finish completes a result for source. Once the budget ran out, nested
+// scripts were skipped, so source is also classified word by word and
+// reported as incompletely parsed.
+func (cache *bundledShellCache) finish(source, network string, post, complete bool) (string, bool, bool) {
+	if cache.budget >= 0 {
+		return network, post, complete
+	}
+	name, p := bundledLexicalNetwork(source)
+	if network == "" {
+		network = name
+	}
+	return network, post || p, false
+}
+
+type bundledShellKey struct {
+	command string
+	depth   int
+}
+
+func (cache *bundledShellCache) network(command string, depth int) (network string, post, complete bool) {
 	if depth > maxBundledShellDepth {
 		return "", false, false
 	}
+	key := bundledShellKey{command, depth}
+	if r, ok := cache.results[key]; ok {
+		return r.network, r.post, r.complete
+	}
+	if cache.budget -= len(command); cache.budget < 0 {
+		return "", false, false
+	}
+	defer func() { cache.results[key] = bundledShellResult{network, post, complete} }()
 	complete = true
 	merge := func(name string, p, nestedComplete bool) {
 		complete = complete && nestedComplete
@@ -350,7 +406,7 @@ func bundledShellNetwork(command string, depth int) (network string, post, compl
 		if stmt, ok := node.(*syntax.Stmt); ok {
 			// A script fed to a shell on stdin runs like `bash -c`.
 			if script, ok := bundledShellStdin(command, stmt); ok {
-				merge(bundledShellNetwork(script, depth+1))
+				merge(cache.network(script, depth+1))
 			}
 			return true
 		}
@@ -362,7 +418,7 @@ func bundledShellNetwork(command string, depth int) (network string, post, compl
 		for i, word := range call.Args {
 			words[i] = bundledWordText(command, word)
 		}
-		merge(bundledNetworkArgv(words, depth))
+		merge(bundledNetworkArgvCached(words, depth, cache))
 		return true
 	}
 	failed := false
@@ -398,6 +454,13 @@ func bundledShellStdin(src string, stmt *syntax.Stmt) (string, bool) {
 	default:
 		return "", false
 	}
+	args := make([]string, len(call.Args)-1)
+	for i, word := range call.Args[1:] {
+		args[i] = bundledWordText(src, word)
+	}
+	if !bundledShellReadsStdin(args) {
+		return "", false
+	}
 	for _, r := range stmt.Redirs {
 		if r.N != nil && r.N.Value != "0" {
 			continue
@@ -411,6 +474,35 @@ func bundledShellStdin(src string, stmt *syntax.Stmt) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// bundledShellReadsStdin reports whether a shell run with args reads its
+// script from stdin: with -s, or with neither -c nor a script file operand.
+func bundledShellReadsStdin(args []string) bool {
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "-" || arg == "--":
+			return i+1 == len(args)
+		case len(arg) > 1 && (arg[0] == '-' || arg[0] == '+') && arg[1] != '-':
+			if strings.ContainsRune(arg[1:], 'c') {
+				return false
+			}
+			if strings.ContainsRune(arg[1:], 's') {
+				return true
+			}
+			// -o and -O take the following word, as in -euo pipefail.
+			if strings.ContainsAny(arg[1:], "oO") {
+				i++
+			}
+		case arg == "--rcfile" || arg == "--init-file":
+			i++
+		case strings.HasPrefix(arg, "--"):
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func bundledLexicalNetwork(command string) (string, bool) {
@@ -475,6 +567,12 @@ func bundledUnescape(s string, quoted bool) string {
 // Inspect one argv, unwrapping supported command prefixes. A nested shell
 // script (`bash -c '...'`) is parsed as a script, not read as arguments.
 func bundledNetworkArgv(words []string, depth int) (string, bool, bool) {
+	cache := newBundledShellCache()
+	network, post, complete := bundledNetworkArgvCached(words, depth, cache)
+	return cache.finish(strings.Join(words, " "), network, post, complete)
+}
+
+func bundledNetworkArgvCached(words []string, depth int, cache *bundledShellCache) (string, bool, bool) {
 	for len(words) > 0 {
 		word := words[0]
 		words = words[1:]
@@ -516,7 +614,7 @@ func bundledNetworkArgv(words []string, depth int) (string, bool, bool) {
 				option := words[0]
 				words = words[1:]
 				if strings.HasPrefix(option, "-") && !strings.HasPrefix(option, "--") && strings.Contains(option[1:], "c") && len(words) > 0 {
-					return bundledShellNetwork(words[0], depth+1)
+					return cache.network(words[0], depth+1)
 				}
 				if !strings.HasPrefix(option, "-") || option == "--" {
 					break
