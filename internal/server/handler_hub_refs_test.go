@@ -39,6 +39,25 @@ func TestHubRefs_NotPinnable(t *testing.T) {
 	}
 }
 
+// A skill installed from an SSH or other-host remote can still switch branch
+// from its detail page (issue #787).
+func TestHubRefs_AnyGitListsUnpinnableRefs(t *testing.T) {
+	s, _ := newTestServer(t)
+	remote := t.TempDir()
+	initGitRepo(t, remote)
+	runGit(t, remote, "branch", "-M", "main")
+	runGit(t, remote, "branch", "dev")
+
+	rr := postHubRefs(t, s, `{"source":"file://`+remote+`//skills/foo","anyGit":true}`)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rr.Code, rr.Body.String())
+	}
+	want := `{"pinnable":false,"current":"","defaultBranch":"main","branches":["dev","main"],"tags":[]}`
+	if got := bytes.TrimSpace(rr.Body.Bytes()); string(got) != want {
+		t.Errorf("body = %s, want %s", got, want)
+	}
+}
+
 // Draft refs are read from the URLs alone, without asking the remote.
 func TestHubDraftRefs(t *testing.T) {
 	s, _ := newTestServer(t)

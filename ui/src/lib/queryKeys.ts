@@ -128,6 +128,7 @@ export const queryKeys = {
     draft: (id: string) => ['hub', 'drafts', id] as const,
     contents: (url: string) => ['hub', 'contents', url] as const,
     refs: (source: string) => ['hub', 'refs', source] as const,
+    gitRefs: (source: string) => ['hub', 'git-refs', source] as const,
     candidates: ['hub', 'candidates'] as const,
   },
   preview: (source: string) => ['preview', source] as const,

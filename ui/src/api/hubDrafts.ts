@@ -45,6 +45,8 @@ export const hubDrafts = {
 /** Lists a source's branches and tags; with `ref` ("" = default branch), also returns the source rewritten to it. */
 export const hubRefs = (source: string, ref?: string) =>
   apiFetch<HubRefs>('/hub/refs', json('POST', ref === undefined ? { source } : { source, ref }));
+/** Lists a git source's branches and tags, also when its URL cannot pin a ref (SSH, other hosts). */
+export const gitRefs = (source: string) => apiFetch<HubRefs>('/hub/refs', json('POST', { source, anyGit: true }));
 
 export function hubAddCommand(location: string, label: string): string {
   const quote = (s: string) => `'${s.replace(/'/g, `'"'"'`)}'`;

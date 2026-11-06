@@ -7,7 +7,7 @@ import {
   FolderInput, FolderOpen, Github, Globe, Pencil, Power, RefreshCw, ShieldAlert, ShieldCheck, Trash2, TriangleAlert, X,
 } from 'lucide-react';
 import { api, type AuditResult, type DiffTarget, type Skill, type SyncMatrixEntry } from '../api/client';
-import { hubRefs } from '../api/hubDrafts';
+import { gitRefs } from '../api/hubDrafts';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { clearAuditCache } from '../lib/auditCache';
 import { SEV, parseFindings, thresholdOf } from '../lib/auditMessage';
@@ -444,15 +444,14 @@ function BranchPicker({ resource, busy, onPick }: { resource: Skill; busy: boole
   const source = resource.source ?? '';
   const [wanted, setWanted] = useState(false);
   const refs = useQuery({
-    queryKey: queryKeys.hub.refs(source),
-    queryFn: () => hubRefs(source),
+    queryKey: queryKeys.hub.gitRefs(source),
+    queryFn: () => gitRefs(source),
     enabled: wanted,
     staleTime: staleTimes.refs,
   });
   const current = resource.branch ?? '';
-  const fixed = refs.data?.pinnable === false;
   return (
-    <div onPointerDownCapture={() => setWanted(true)} onFocusCapture={() => setWanted(true)} title={fixed ? t('hubs.ref.fixed') : undefined}>
+    <div onPointerDownCapture={() => setWanted(true)} onFocusCapture={() => setWanted(true)}>
       <Select
         size="sm"
         align="end"
@@ -464,7 +463,7 @@ function BranchPicker({ resource, busy, onPick }: { resource: Skill; busy: boole
           if (branch && branch !== current) onPick(branch);
         }}
         options={refOptions(t, refs.data && { ...refs.data, tags: [] }, current, refs.isFetching)}
-        disabled={busy || fixed}
+        disabled={busy}
       />
       {refs.isError && <span className="mt-1 block text-xs text-bad">{(refs.error as Error).message}</span>}
     </div>
