@@ -9,6 +9,17 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.29.1] - 2026-11-06
+
+### Bug Fixes
+
+- **New projects are saved in `config.yaml` again** — since 0.29.0, `project add` and the dashboard's **Add project** saved every project on the current machine only, so a project added on one machine never reached the others that share `config.yaml`. New projects go to `config.yaml` again. To keep one on this machine only, add it with `--machine-local`, or set `projects_storage: machine-local` to make that the default (`--shared` overrides it for one project). `project share` moves a machine-local project into `config.yaml`, and `project localize` still copies one to this machine. Edits and removals stay in the file that holds the project; removing this machine's copy of a project that `config.yaml` also declares keeps `config.yaml`'s version unless you add `--shared`. In the dashboard, **Saved to** at the bottom of the Add project dialog picks the file, and the target picker now filters as you type. Projects hidden by 0.29.0 stay as they are. Thanks to @chung1912 for the report. Refs: #792, #793.
+  ```bash
+  skillshare project add ~/work/scratch --target claude --machine-local
+  skillshare project share scratch
+  ```
+- **Switch branch for any git source** — the skill detail page's **Branch** picker was greyed out for skills installed from SSH remotes, Gitea or self-hosted HTTPS servers ("This source can only use its default branch"). It now lists the branches of any git source, so such a skill can move back to `main`. Thanks to @chung1912 for the report. Refs: #787, #790.
+
 ## [0.29.0] - 2026-11-06
 
 ### New Features
