@@ -348,7 +348,7 @@ audit 會掃描 skill 目錄中的文字型檔案：
 | `--profile` `<p>` | Audit profile preset: `default`, `strict`, `permissive` |
 | `--dedupe` `<mode>` | Dedup mode: `legacy`, `global` (default) |
 | `--analyzer` `<id>` | Only run specified analyzer (repeatable). IDs: `static`, `dataflow`, `tier`, `integrity`, `metadata`, `structure`, `cross-skill` |
-| `--format` `<f>` | Output format: `text` (default), `json`, `sarif`, `markdown`. 當某個[已跟進的 source 連結](../targets/configuration.md#follow_source_links)無法讀取時，JSON 會加入 `warnings` 與 `incomplete: true`，以免把部分掃描誤認為完整掃描 |
+| `--format` `<f>` | Output format: `text` (default), `json`, `sarif`, `markdown`. 當某個[已跟進的 source 連結](../targets/configuration.md#follow_source_links)無法讀取時，JSON 會加入 `warnings` 與 `incomplete: true`，以免把部分掃描誤認為完整掃描；Markdown 會在 **Source links not followed** 下列出這些連結，TUI 的摘要行則顯示其數量 |
 | `--json` | Output JSON (**deprecated**: use `--format json`) |
 | `--yes`, `-y` | Skip large-scan confirmation prompt (auto-confirms) |
 | `--quiet`, `-q` | Only show skills with findings + summary (suppress clean ✓ lines) |

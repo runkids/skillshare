@@ -1,6 +1,10 @@
 {
   "audit.coverage.one": "파일 {skipped}개 건너뜀(바이너리 {binary}개, 크기 초과 {oversized}개)",
   "audit.coverage.other": "파일 {skipped}개 건너뜀(바이너리 {binary}개, 크기 초과 {oversized}개)",
+  "audit.sourceLinks.one": "소스 링크 {count}개를 따라가지 못함",
+  "audit.sourceLinks.other": "소스 링크 {count}개를 따라가지 못함",
+  "audit.sourceLinksIncomplete.one": "스캔 미완료: 소스 링크 {count}개를 따라가지 못함",
+  "audit.sourceLinksIncomplete.other": "스캔 미완료: 소스 링크 {count}개를 따라가지 못함",
   "sourceLinks.unlinkMessage": "스킬 소스에서 링크를 제거하며 링크가 가리키는 폴더는 변경되지 않습니다.",
   "sourceLinks.target": "대상",
   "sourceLinks.unlinkSkills": "이 스킬들은 다음 동기화 시 모든 대상에서 제거됩니다.",

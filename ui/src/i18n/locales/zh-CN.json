@@ -1,6 +1,10 @@
 {
   "audit.coverage.one": "已跳过 {skipped} 个文件（二进制 {binary} 个，超出大小限制 {oversized} 个）",
   "audit.coverage.other": "已跳过 {skipped} 个文件（二进制 {binary} 个，超出大小限制 {oversized} 个）",
+  "audit.sourceLinks.one": "{count} 个 source 链接未跟随",
+  "audit.sourceLinks.other": "{count} 个 source 链接未跟随",
+  "audit.sourceLinksIncomplete.one": "扫描不完整：{count} 个 source 链接未跟随",
+  "audit.sourceLinksIncomplete.other": "扫描不完整：{count} 个 source 链接未跟随",
   "sourceLinks.unlinkMessage": "此链接会从 skills source 移除，它指向的文件夹不会被更改。",
   "sourceLinks.target": "目标",
   "sourceLinks.unlinkSkills": "这些 skills 会在下次同步时从所有 target 移除。",

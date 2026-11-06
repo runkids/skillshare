@@ -703,6 +703,16 @@ func (m auditTUIModel) renderSummaryNote() string {
 	}
 	dot := theme.Dim().Render(" · ")
 	var parts []string
+	if n := len(s.SourceWarnings); n > 0 {
+		label := fmt.Sprintf("%d source link not followed", n)
+		if n > 1 {
+			label = fmt.Sprintf("%d source links not followed", n)
+		}
+		if s.Incomplete {
+			label = "scan incomplete: " + label
+		}
+		parts = append(parts, theme.Warning().Render(label))
+	}
 	if m.minSeverity != "" {
 		results := m.skillResults
 		if m.activeTab == auditTabAgents {

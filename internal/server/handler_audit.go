@@ -347,10 +347,23 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	}
 	writeAuditLogTo(cfgPath, agg.Status, start, agg.LogArgs, agg.Message)
 
-	writeJSON(w, map[string]any{
+	writeJSON(w, withSourceLinkStatus(map[string]any{
 		"results": agg.Results,
 		"summary": agg.Summary,
-	})
+	}, walk))
+}
+
+// withSourceLinkStatus adds the source links walk did not follow, as
+// `skillshare audit --format json` does, so the dashboard does not show a
+// partial scan as a full one.
+func withSourceLinkStatus(payload map[string]any, walk sourcewalk.Options) map[string]any {
+	if warnings := sync.SourceLinkWarnings(walk, false); len(warnings) > 0 {
+		payload["warnings"] = warnings
+	}
+	if walk.Follow.Incomplete() {
+		payload["incomplete"] = true
+	}
+	return payload
 }
 
 func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {

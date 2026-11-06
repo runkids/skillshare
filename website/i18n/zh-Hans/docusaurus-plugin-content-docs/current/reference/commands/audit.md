@@ -348,7 +348,7 @@ audit 会扫描 skill 目录中的文本类文件：
 | `--profile` `<p>` | audit profile 预设：`default`、`strict`、`permissive` |
 | `--dedupe` `<mode>` | 去重模式：`legacy`、`global`（默认） |
 | `--analyzer` `<id>` | 仅运行指定的分析器（可重复）。可选 ID：`static`、`dataflow`、`tier`、`integrity`、`metadata`、`structure`、`cross-skill` |
-| `--format` `<f>` | 输出格式：`text`（默认）、`json`、`sarif`、`markdown`。当某个[被跟随的 Source 链接](../targets/configuration.md#follow_source_links)无法读取时，JSON 会加入 `warnings` 和 `incomplete: true`，以免把部分扫描误认为完整扫描 |
+| `--format` `<f>` | 输出格式：`text`（默认）、`json`、`sarif`、`markdown`。当某个[被跟随的 Source 链接](../targets/configuration.md#follow_source_links)无法读取时，JSON 会加入 `warnings` 和 `incomplete: true`，以免把部分扫描误认为完整扫描；Markdown 会在 **Source links not followed** 下列出这些链接，TUI 的摘要行则显示其数量 |
 | `--json` | 输出 JSON（**已废弃**：请改用 `--format json`） |
 | `--yes`, `-y` | 跳过大规模扫描确认提示（自动确认） |
 | `--quiet`, `-q` | 仅显示有发现结果的 skills 及摘要（隐藏干净的 ✓ 行） |

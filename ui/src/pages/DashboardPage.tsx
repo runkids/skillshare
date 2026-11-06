@@ -27,6 +27,7 @@ import type { AuditAllResponse, CheckResult, LogEntry, Overview, Target } from '
 import { pluginsApi } from '../api/plugins';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { clearAuditCache } from '../lib/auditCache';
+import { auditSourceLinkNote } from '../lib/auditDisplay';
 import { formatLogDetail } from '../lib/logFormat';
 import { formatDateTime, formatRelativeTime, useI18n, useT, plural } from '../i18n';
 import AgentIcon from '../components/AgentIcon';
@@ -328,7 +329,9 @@ function NeedsAttention({ targets, healths }: { targets: Target[]; healths: Heal
     try {
       const res = await api.auditAll('skills');
       queryClient.setQueryData(queryKeys.audit.all('skills'), res);
-      if (res.summary.critical + res.summary.high === 0) toast(t('dashboard.security.allClear'), 'success');
+      const note = auditSourceLinkNote(res);
+      if (res.incomplete && note) toast(t(note.key, { count: note.count }), 'warning');
+      else if (res.summary.critical + res.summary.high === 0) toast(t('dashboard.security.allClear'), 'success');
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
     } finally {
@@ -353,6 +356,10 @@ function NeedsAttention({ targets, healths }: { targets: Target[]; healths: Heal
   if (audit && audit.summary.critical + audit.summary.high > 0) {
     const names = audit.results.filter((r) => r.riskLabel === 'high' || r.riskLabel === 'critical').map((r) => r.skillName);
     rows.push({ key: 'audit', kind: 'bad', icon: ShieldAlert, title: t('dashboard.attention.audit', { count: audit.summary.critical + audit.summary.high }), sub: names.join(', '), action: t('dashboard.attention.review'), to: '/audit' });
+  }
+  const sourceLinkNote = audit?.incomplete && auditSourceLinkNote(audit);
+  if (sourceLinkNote) {
+    rows.push({ key: 'audit-incomplete', kind: 'warn', icon: TriangleAlert, title: t(sourceLinkNote.key, { count: sourceLinkNote.count }), sub: '', action: t('dashboard.attention.review'), to: '/audit' });
   }
   targets.forEach((tgt, i) => {
     if (healths[i].kind !== 'bad') return;
@@ -385,7 +392,7 @@ function NeedsAttention({ targets, healths }: { targets: Target[]; healths: Heal
             <span className={`ss-cat sm ${kind}`}><Icon size={14} /></span>
             <span className="flex flex-col min-w-0 flex-1">
               <span className="font-semibold">{title}</span>
-              <span className="font-mono text-[13px] text-ink-2 truncate">{sub}</span>
+              {sub && <span className="font-mono text-[13px] text-ink-2 truncate">{sub}</span>}
             </span>
             <Link to={to} className="ss-btn sm">{action}</Link>
           </div>

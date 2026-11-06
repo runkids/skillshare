@@ -55,6 +55,12 @@ targets:
 	if filtered.Stdout != jsonResult.Stdout {
 		t.Fatal("display floor changed incomplete JSON output")
 	}
+
+	md := sb.RunCLI("audit", "--format", "markdown", "--min-severity", "critical")
+	md.AssertSuccess(t)
+	if !strings.Contains(md.Stdout, "**Incomplete scan:**") || !strings.Contains(md.Stdout, "- "+warning+"\n") {
+		t.Fatalf("markdown report hid the incomplete scan:\n%s", md.Stdout)
+	}
 }
 
 func TestAudit_DisplayFloorFollowsSourceLinks(t *testing.T) {

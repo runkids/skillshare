@@ -1,6 +1,10 @@
 {
   "audit.coverage.one": "{skipped} ファイルをスキップ（バイナリ {binary}、サイズ超過 {oversized}）",
   "audit.coverage.other": "{skipped} ファイルをスキップ（バイナリ {binary}、サイズ超過 {oversized}）",
+  "audit.sourceLinks.one": "{count} 件のソースのリンクをたどれませんでした",
+  "audit.sourceLinks.other": "{count} 件のソースのリンクをたどれませんでした",
+  "audit.sourceLinksIncomplete.one": "スキャン未完了：{count} 件のソースのリンクをたどれませんでした",
+  "audit.sourceLinksIncomplete.other": "スキャン未完了：{count} 件のソースのリンクをたどれませんでした",
   "sourceLinks.unlinkMessage": "リンクをスキルのソースから削除しますが、リンク先のフォルダーは変更しません。",
   "sourceLinks.target": "リンク先",
   "sourceLinks.unlinkSkills": "これらのスキルは次回の同期ですべてのターゲットから削除されます。",

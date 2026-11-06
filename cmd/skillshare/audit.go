@@ -96,6 +96,17 @@ type auditRunSummary struct {
 	PolicyProfile    string         `json:"policyProfile,omitempty"`
 	PolicyDedupe     string         `json:"policyDedupe,omitempty"`
 	PolicyAnalyzers  []string       `json:"policyAnalyzers,omitempty"`
+
+	// SourceWarnings and Incomplete feed reports that show source-link
+	// warnings beside the results; JSON carries them at the top level.
+	SourceWarnings []string `json:"-"`
+	Incomplete     bool     `json:"-"`
+}
+
+// addSourceLinkWarnings records the source links walk did not follow.
+func (s *auditRunSummary) addSourceLinkWarnings(walk sourcewalk.Options) {
+	s.SourceWarnings = sync.SourceLinkWarnings(walk, false)
+	s.Incomplete = walk.Follow.Incomplete()
 }
 
 func (s auditRunSummary) toMarkdownOptions() audit.MarkdownOptions {
@@ -120,6 +131,8 @@ func (s auditRunSummary) toMarkdownOptions() audit.MarkdownOptions {
 		OversizedFiles:   s.OversizedFiles,
 		Profile:          s.PolicyProfile,
 		ByCategory:       s.ByCategory,
+		SourceWarnings:   s.SourceWarnings,
+		Incomplete:       s.Incomplete,
 	}
 }
 
@@ -314,6 +327,7 @@ func cmdAudit(args []string) (err error) {
 		}, "", "  ")
 		fmt.Println(string(out))
 	case formatMarkdown:
+		summary.addSourceLinkWarnings(opts.skillsWalk)
 		mdOpts := summary.toMarkdownOptions()
 		mdOpts.MinSeverity = opts.MinSeverity
 		md := audit.ToMarkdown(results, mdOpts)

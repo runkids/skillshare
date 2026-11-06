@@ -1,6 +1,10 @@
 {
   "audit.coverage.one": "{skipped} archivo omitido ({binary} binarios, {oversized} demasiado grandes)",
   "audit.coverage.other": "{skipped} archivos omitidos ({binary} binarios, {oversized} demasiado grandes)",
+  "audit.sourceLinks.one": "{count} enlace de la fuente sin seguir",
+  "audit.sourceLinks.other": "{count} enlaces de la fuente sin seguir",
+  "audit.sourceLinksIncomplete.one": "Análisis incompleto: {count} enlace de la fuente sin seguir",
+  "audit.sourceLinksIncomplete.other": "Análisis incompleto: {count} enlaces de la fuente sin seguir",
   "sourceLinks.unlinkMessage": "El enlace se elimina de la fuente de skills y la carpeta a la que apunta no se modifica.",
   "sourceLinks.target": "Destino",
   "sourceLinks.unlinkSkills": "Estos skills se eliminarán de todos los destinos en la próxima sincronización.",

@@ -28,6 +28,9 @@ type MarkdownOptions struct {
 
 	MinSeverity string // display-only, normalized severity; empty shows all
 
+	SourceWarnings []string // source links the scan did not follow
+	Incomplete     bool     // a source link could not be read, so its skills went unscanned
+
 	AvgAnalyzability float64
 	Profile          string
 	ByCategory       map[string]int
@@ -41,6 +44,7 @@ func ToMarkdown(results []*Result, opts MarkdownOptions) string {
 	writeHeader(&b, opts)
 	writeSummaryTable(&b, opts)
 	writeCoverageTable(&b, results)
+	writeSourceLinkWarnings(&b, opts)
 	if opts.MinSeverity != "" {
 		visible, hidden := DisplayCounts(results, opts.MinSeverity)
 		fmt.Fprintf(&b, "\nFindings: %d visible, %d hidden (minimum %s).\n", visible, hidden, opts.MinSeverity)
@@ -144,6 +148,21 @@ func writeCoverageTable(b *strings.Builder, results []*Result) {
 	b.WriteString("\n## File coverage by resource\n\n| Resource | Skipped | Binary | Oversized |\n|---|---:|---:|---:|\n")
 	for _, r := range rows {
 		fmt.Fprintf(b, "| %s | %d | %d | %d |\n", escapeMarkdownTable(r.SkillName), r.SkippedFiles, r.BinaryFiles, r.OversizedFiles)
+	}
+}
+
+// writeSourceLinkWarnings keeps an incomplete scan visible: the tables and the
+// display floor describe only what was scanned.
+func writeSourceLinkWarnings(b *strings.Builder, opts MarkdownOptions) {
+	if len(opts.SourceWarnings) == 0 {
+		return
+	}
+	b.WriteString("\n## Source links not followed\n\n")
+	if opts.Incomplete {
+		b.WriteString("**Incomplete scan:** a source link could not be read, so the skills behind it were not scanned.\n\n")
+	}
+	for _, w := range opts.SourceWarnings {
+		fmt.Fprintf(b, "- %s\n", w)
 	}
 }
 
