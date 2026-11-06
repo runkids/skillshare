@@ -468,7 +468,7 @@ When analyzability drops below **70%**, the audit engine emits an `INFO`-level f
 
 Binary and unsupported files up to 1 MB count toward `totalBytes`, but not `auditableBytes`. Oversized files are excluded from the directory byte ratio; internal metadata and excluded paths are not counted.
 
-CLI, JSON and dashboard summaries separately report `binaryFiles`, `skippedFiles`, and `oversizedFiles`. `skippedFiles` counts files without full text analysis, including read failures, binaries, unsupported extensions, oversized files and regular files below hidden directories. Links and special files are not counted merely because header reads skip them. `binaryFiles` includes recognized binary/archive headers and NUL-containing headers. These counts overlap: an oversized binary contributes to all three, once per counter. Header bytes never count as auditable text.
+CLI, JSON and dashboard summaries separately report `binaryFiles`, `skippedFiles`, and `oversizedFiles`. `skippedFiles` counts files without full text analysis, including read failures, binaries, unsupported extensions, oversized files and regular files below hidden directories. Links and special files are not counted merely because header reads skip them. `binaryFiles` includes recognized binary/archive headers and NUL-containing headers. These counts overlap: an oversized binary contributes to all three, once per counter. Header bytes never count as auditable text. Markdown reports add a `Skipped files` summary row and a `File coverage by resource` table, and SARIF runs carry the per-resource counts in `runs[].properties.skillshareCoverage`.
 
 ### Output
 

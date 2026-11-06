@@ -112,7 +112,7 @@ rules:
 | `regex` | 是* | 用于匹配每一行的正则表达式 |
 | `confidence` | 否 | 0 到 1 的置信度；默认为 0.95 |
 | `exclude` | 否 | 如果某一行同时匹配 `regex` 和 `exclude`，该发现结果会被抑制 |
-| `files` | 否 | 限制规则适用文件的 glob 模式；详见下方文件范围说明。 |
+| `files` | 否 | 限制规则适用文件的 glob 模式；详见[文件适用范围](#file-applicability)。 |
 | `enabled` | 否 | 设为 `false` 以禁用某条规则。禁用时只需提供 `id`。 |
 
 *除非 `enabled: false`，否则为必填。

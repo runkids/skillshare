@@ -169,6 +169,8 @@ Summary includes severity breakdown (`c/h/m/l/i`) and threat category breakdown 
 
 `Failed` counts skills at/above threshold. `Warning` counts skills with findings below threshold.
 
+When a followed source link cannot be read, its skills go unscanned: JSON adds `warnings` and `incomplete: true`, Markdown lists the links under **Source links not followed**, the TUI summary line counts them, and the dashboard marks the scan **Scan incomplete**.
+
 ## Logging
 
 Audit results are logged to `audit.log` (JSONL). View with:
