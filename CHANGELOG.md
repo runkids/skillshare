@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.29.1](https://github.com/runkids/skillshare/compare/v0.29.0...v0.29.1) (2026-11-06)
+## [0.29.1] - 2026-11-06
 
 
 ### Bug Fixes
