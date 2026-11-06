@@ -319,6 +319,8 @@ Output suppression 按匹配的证据分级，不取决于 Markdown 上下文：
 
 换句话说，阻止决策是**基于严重级别阈值**的，而综合风险是**基于评分/标签**的，用于分诊上下文。
 
+使用 `skillshare audit --min-severity HIGH` 可在文本、TUI 和 Markdown 输出中隐藏较低严重级别的发现结果。这个显示下限（包含指定级别）不会改变阻止、风险评分、退出码、JSON 或 SARIF。如需更改阻止阈值，请使用 `--threshold`。
+
 ### 阻止与风险：决策算法
 
 skillshare 会计算两个相关但相互独立的决策：

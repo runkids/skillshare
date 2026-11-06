@@ -28,7 +28,6 @@ const MINOR = rank('MEDIUM');
 export default function AuditPage() {
   const t = useT();
   const { locale } = useI18n();
-  const severityLabels: Record<Severity, string> = { CRITICAL: t('audit.severity.critical'), HIGH: t('audit.severity.high'), MEDIUM: t('audit.severity.medium'), LOW: t('audit.severity.low'), INFO: t('audit.severity.info') };
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const overview = useOverviewQuery();
@@ -188,7 +187,7 @@ export default function AuditPage() {
                     type="button"
                     className="!py-3.5 text-left"
                     aria-pressed={only === s}
-                    aria-label={t('audit.filter.severityCount', { count: n, severity: severityLabels[s] })}
+                    aria-label={`${n} ${s}`}
                     disabled={n === 0 && !minimum && only !== s}
                     title={t(only === s ? 'audit.filter.clear' : minimum ? 'audit.filter.minimumHint' : 'audit.filter.only', { severity: s })}
                     onClick={() => setOnly(only === s ? null : s)}

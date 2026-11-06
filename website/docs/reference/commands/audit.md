@@ -37,7 +37,7 @@ skillshare audit --format markdown --min-severity medium
 
 `--min-severity <level>` shows findings at or above `critical`, `high`, `medium`, `low`, or `info` (case-insensitive; severity aliases such as `h` also work). The default shows all findings. It applies only to terminal findings, including the TUI, and Markdown tables/snippets. Human reports show visible and hidden counts even when every finding is hidden. Scores, maximum severity (`summary.maxSeverity`), block thresholds, exit codes, scan errors and incomplete-scan warnings still describe the full scan. JSON and SARIF ignore the display floor and keep their complete output unchanged; no display metadata or top-level severity alias is added.
 
-In the dashboard, choose **Minimum severity** in the existing severity filter, then select a severity count to show that level and above. **Exact severity** preserves the previous selection behavior. Click the selected severity again to clear it. Without a selection, LOW/INFO findings retain their per-resource expander; visible/hidden counts include collapsed findings. Filtering never rescans or changes policy, scores or blocked status.
+In the dashboard, choose **Minimum severity** in the severity filter, then select a severity count to show that level and above. **Exact severity** preserves the previous selection behavior. Click the selected severity again to clear it. Without a selection, LOW/INFO findings retain their per-resource expander; visible/hidden counts include collapsed findings. Filtering never rescans or changes policy, scores or blocked status.
 
 ## When to Use
 

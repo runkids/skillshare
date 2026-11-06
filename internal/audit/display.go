@@ -16,6 +16,13 @@ func DisplayFindings(findings []Finding, minSeverity string) []Finding {
 	return visible
 }
 
+// HiddenByFloor reports whether a display floor hides r entirely: it has
+// findings, all below the floor, and is not blocked. Clean and blocked
+// results stay visible.
+func HiddenByFloor(r *Result, minSeverity string) bool {
+	return minSeverity != "" && !r.IsBlocked && len(r.Findings) > 0 && len(DisplayFindings(r.Findings, minSeverity)) == 0
+}
+
 // DisplayCounts reports finding counts before and after applying a display floor.
 func DisplayCounts(results []*Result, minSeverity string) (visible, hidden int) {
 	for _, r := range results {
