@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.28.4 — 可以用 Nix 安裝：`nix profile add github:runkids/skillshare`。用 Nix 安裝時，`skillshare upgrade` 和 dashboard 的更新對話框不會替換 store 裡的執行檔，而是提示你執行 `nix profile upgrade skillshare`，或更新你的 Nix 設定。新的 [Herdr 面板](https://skillshare.runkids.cc/zh-Hant/docs/learn/with-herdr) 在 agent 旁邊顯示需要更新或同步的項目，並能在 Herdr 連線的每台機器上直接處理。[更新紀錄](https://skillshare.runkids.cc/changelog)。
+> **最新版本**：v0.29.0 — [`skillshare audit`](https://skillshare.runkids.cc/zh-Hant/docs/reference/commands/audit) 更深入地檢查 skill 附帶的內容：附帶的 hooks 與設定檔裡的指令、指向 skill 資料夾之外的連結、偽裝成文件或圖片的執行檔與位元組碼、用空白填充藏起來的指示、雲端中繼資料與內部請求目標，以及不安全的反序列化。`--min-severity` 只精簡報告，不改變阻擋安裝的標準；略過了無法讀取的 source 連結的掃描，現在會在每種報告裡註明。在 dashboard 中，skill 的詳細頁會顯示它的分支，並能直接切換。[更新紀錄](https://skillshare.runkids.cc/changelog)。
 
 ## 為什麼用 skillshare
 
