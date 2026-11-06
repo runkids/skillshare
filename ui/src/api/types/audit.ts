@@ -51,6 +51,9 @@ export interface AuditSummary {
 export interface AuditAllResponse {
   results: AuditResult[];
   summary: AuditSummary;
+  /** Source links the scan did not follow; incomplete when one could not be read. */
+  warnings?: string[];
+  incomplete?: boolean;
 }
 
 export interface AuditSkillResponse {

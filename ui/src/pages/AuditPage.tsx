@@ -149,6 +149,9 @@ export default function AuditPage() {
         </div>
         {data && (
           <>
+            {(data.warnings?.length ?? 0) > 0 && (
+              <span className="text-[13px] text-warn">{t(plural(data.incomplete ? 'audit.sourceLinksIncomplete' : 'audit.sourceLinks', data.warnings?.length ?? 0), { count: data.warnings?.length ?? 0 })}</span>
+            )}
             {(data.summary.skippedFiles ?? 0) > 0 && (
               <span className="text-[13px] text-ink-2">{t(plural('audit.coverage', data.summary.skippedFiles ?? 0), { skipped: data.summary.skippedFiles ?? 0, binary: data.summary.binaryFiles ?? 0, oversized: data.summary.oversizedFiles ?? 0 })}</span>
             )}

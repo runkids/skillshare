@@ -1,6 +1,10 @@
 {
   "audit.coverage.one": "{skipped} file skipped ({binary} binary, {oversized} oversized)",
   "audit.coverage.other": "{skipped} files skipped ({binary} binary, {oversized} oversized)",
+  "audit.sourceLinks.one": "{count} source link not followed",
+  "audit.sourceLinks.other": "{count} source links not followed",
+  "audit.sourceLinksIncomplete.one": "Scan incomplete: {count} source link not followed",
+  "audit.sourceLinksIncomplete.other": "Scan incomplete: {count} source links not followed",
   "sourceLinks.unlinkMessage": "The link is removed from the skills source, and the folder it points at is not touched.",
   "sourceLinks.target": "Target",
   "sourceLinks.unlinkSkills": "These skills leave every target on the next sync.",

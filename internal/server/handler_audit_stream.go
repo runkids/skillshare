@@ -92,8 +92,8 @@ func (s *Server) handleAuditStream(w http.ResponseWriter, r *http.Request) {
 	s.writeAuditLog(agg.Status, start, agg.LogArgs, agg.Message)
 
 	// 5. Send final result (no concurrent writers at this point)
-	safeSend("done", map[string]any{
+	safeSend("done", withSourceLinkStatus(map[string]any{
 		"results": agg.Results,
 		"summary": agg.Summary,
-	})
+	}, walk))
 }

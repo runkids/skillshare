@@ -143,3 +143,23 @@ func TestSetTargetsRefusesNestedSkillLink(t *testing.T) {
 		}
 	}
 }
+
+func TestHandleAuditAll_ReportsUnfollowedSourceLink(t *testing.T) {
+	s, source := newUpdateFollowServer(t, false, true)
+	addSkill(t, source, "healthy")
+	if err := os.Symlink(filepath.Join(t.TempDir(), "missing"), filepath.Join(source, "gone")); err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	s.handleAuditAll(rr, httptest.NewRequest(http.MethodGet, "/api/audit", nil))
+	var resp struct {
+		Warnings   []string `json:"warnings"`
+		Incomplete bool     `json:"incomplete"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if !resp.Incomplete || len(resp.Warnings) != 1 || !strings.Contains(resp.Warnings[0], "source link gone not followed: target is missing") {
+		t.Fatalf("partial scan reported as complete: %s", rr.Body.String())
+	}
+}
