@@ -422,6 +422,10 @@ type Config struct {
 	CNBHosts       []string            `yaml:"cnb_hosts,omitempty"`
 	GiteaHosts     []string            `yaml:"gitea_hosts,omitempty"`
 
+	// ProjectsStorage is where a new project is saved: "shared" (config.yaml,
+	// the default) or "machine-local" (this machine's project registry).
+	ProjectsStorage string `yaml:"projects_storage,omitempty"`
+
 	// PreserveTildeOnSave folds $HOME prefixes back to ~ when serializing the
 	// config to YAML. Useful when the config is shared via dotfiles across
 	// machines or users. The in-memory config is unaffected; Load() still
@@ -787,6 +791,9 @@ func decodeConfig(path string, data []byte, persist bool) (*Config, error) {
 		return nil, fmt.Errorf("invalid audit.block_threshold: %w", err)
 	}
 	cfg.Audit.BlockThreshold = threshold
+	if !slices.Contains([]string{"", ProjectsStorageShared, ProjectsStorageMachineLocal}, cfg.ProjectsStorage) {
+		return nil, fmt.Errorf("invalid projects_storage %q (valid: %s, %s)", cfg.ProjectsStorage, ProjectsStorageShared, ProjectsStorageMachineLocal)
+	}
 
 	// Validate and normalize gitlab_hosts (config file only; env var merged at read time)
 	hosts, err := normalizeGitLabHosts(cfg.GitLabHosts)

@@ -7,8 +7,6 @@ sidebar_position: 8
 > global config から、1 回の sync で複数の project フォルダーに Skill と MCP サーバーを配布する。
 
 
-CLI の add/edit/remove とダッシュボードの保存はローカル登録だけを書き込み、共有設定を書き換えません。共有 `projects:` は引き続き有効です。同じ正規化ルートではローカル項目が共有項目全体を置き換えます。削除はこのマシンだけで共有項目を隠し、再追加で解除します。異なるルートの名前重複と同じ層の正規化ルート重複は拒否されます。 `localize` は共有項目をローカルにコピーし、共有 YAML の削除、切り離し、同期を行いません。繰り返しは変更なしです。list/show のテキストと JSON は `origin`（shared/local）と `originPath` を返します。すべての project コマンドは起動時の移行、クリーンアップ、バージョン確認を省略します。
-
 ## シナリオ {#scenario}
 
 `~/.claude/skills` のような global Target はすべての project で読み込まれるため、どの project からも同じ Skill が見えます。それで構わないなら、このレシピは必要ありません。
@@ -20,12 +18,12 @@ CLI の add/edit/remove とダッシュボードの保存はローカル登録�
 - Skillshare の config はコミットせず、Skill の実体だけを project 内に置いてコミットできるようにしたい場合。
 - 使っているツールが project 内の特定のフォルダーしか読まない場合。
 
-共有定義とマシン固有の登録で、1 回の同期から各フォルダーに個別の設定を配信できます。
+global config の `projects` で、1 回の同期から各フォルダーに個別の設定を配信できます。
 
 | | Global targets | Registered projects | Project mode |
 |---|---|---|---|
 | **Skill を受け取るのは** | すべての project、同じセット | 列挙したフォルダー、それぞれ別のセット | その project だけ |
-| **セットアップの置き場所** | 自分のマシン | 自分のマシン | project のリポジトリ |
+| **セットアップの置き場所** | global config | global config、またはこのマシンだけ | project のリポジトリ |
 | **チームメイトに渡るか** | いいえ | いいえ | はい、クローンすれば |
 | **project に追加されるファイル** | なし | sync された Skill と Agent のみ | `.skillshare/` と sync されたファイル |
 | **Sync** | どこからでも `sync` を 1 回 | どこからでも `sync` を 1 回 | 各 project 内で `sync` |
@@ -35,6 +33,8 @@ CLI の add/edit/remove とダッシュボードの保存はローカル登録�
 ## 解決策
 
 ### Skill と Agent: `projects`
+
+以下のコマンドは project を global の `config.yaml` の `projects` に保存するため、そのファイルを使うすべてのマシンに反映されます。このマシンにしかないフォルダーには `--machine-local` を付けてください。これをデフォルトにするには [`projects_storage: machine-local`](/docs/reference/targets/configuration#projects-storage) を設定します。保存済みの project は `skillshare project localize` または `skillshare project share` で移動できます。`origin` と `originPath` は `project list --json` で確認できます。[project の保存先](/docs/reference/commands/project#local-registrations)を参照してください。
 
 ```bash
 skillshare project add ~/work/project01 --target claude,codex \
@@ -59,7 +59,7 @@ skillshare project sync project01 --dry-run --json
 skillshare project sync project01
 ```
 
-[`skillshare project`](/docs/reference/commands/project) でプロジェクトの登録・編集・同期・削除を行うか、ダッシュボードの **プロジェクト** ページを使用してください。各フィールドは [`projects`](/docs/reference/targets/configuration#projects) を参照してください。
+[`skillshare project`](/docs/reference/commands/project) でプロジェクトの追加・編集・同期・削除を行うか、ダッシュボードの **プロジェクト** ページを使用してください。各フィールドは [`projects`](/docs/reference/targets/configuration#projects) を参照してください。
 
 ### MCP サーバー: `mcp.projects`
 

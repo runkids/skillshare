@@ -24,10 +24,15 @@ func projectRequest(t *testing.T, s *Server, method, url, body string) *httptest
 
 func addProject(t *testing.T, s *Server, root string) {
 	t.Helper()
+	addProjectIn(t, s, root, "")
+}
+
+func addProjectIn(t *testing.T, s *Server, root, storage string) {
+	t.Helper()
 	if err := os.MkdirAll(root, 0755); err != nil {
 		t.Fatal(err)
 	}
-	body := `{"create":true,"root":"` + root + `","targets":["claude","codex"],"skills":{"mode":"copy","include":["team-*"],"exclude":[]}}`
+	body := `{"create":true,"storage":"` + storage + `","root":"` + root + `","targets":["claude","codex"],"skills":{"mode":"copy","include":["team-*"],"exclude":[]}}`
 	if rr := projectRequest(t, s, http.MethodPut, "/api/projects", body); rr.Code != http.StatusOK {
 		t.Fatalf("add project: %d %s", rr.Code, rr.Body)
 	}
@@ -155,11 +160,7 @@ func TestProjectReplacementParity(t *testing.T) {
 			if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
 				t.Fatal(err)
 			}
-			localPath, err := config.LocalProjectsPath(s.configPath())
-			if err != nil {
-				t.Fatal(err)
-			}
-			if rr.Code != 200 || !response.Success || response.Root != root || response.Origin != "local" || response.OriginPath != localPath {
+			if rr.Code != 200 || !response.Success || response.Root != root || response.Origin != "shared" || response.OriginPath != s.configPath() {
 				t.Fatalf("replacement: %d %s", rr.Code, rr.Body)
 			}
 			p := s.cfg.Projects[root]
@@ -174,8 +175,12 @@ func TestProjectReplacementParity(t *testing.T) {
 			if err := json.Unmarshal(listed.Body.Bytes(), &envelope); err != nil {
 				t.Fatal(err)
 			}
-			if len(envelope) != 3 || envelope["projects"] == nil || envelope["convertible"] == nil || envelope["tools"] == nil {
+			if len(envelope) != 5 || envelope["projects"] == nil || envelope["convertible"] == nil || envelope["tools"] == nil || string(envelope["storage"]) != `"shared"` {
 				t.Fatalf("list envelope: %s", listed.Body)
+			}
+			var paths map[string]string
+			if err := json.Unmarshal(envelope["storagePaths"], &paths); err != nil || paths["shared"] != s.configPath() || !strings.HasSuffix(paths["local"], ".yaml") {
+				t.Fatalf("storagePaths: %s", envelope["storagePaths"])
 			}
 		})
 	}
@@ -263,7 +268,7 @@ func TestProjectsHTTP_RootOnlyLookupAndStatusParity(t *testing.T) {
 func TestProjectsHTTP_NormalizedSharedRootIsOverriddenLocally(t *testing.T) {
 	s, src := newTestServer(t)
 	root := filepath.Join(filepath.Dir(src), "app")
-	addProject(t, s, root)
+	addProjectIn(t, s, root, "local")
 	alias := root + string(filepath.Separator) + "."
 	raw := "source: " + src + "\ntargets: {}\nprojects:\n  " + alias + ": {name: shared, targets: [codex], skills: {}}\n"
 	if err := os.WriteFile(s.configPath(), []byte(raw), 0644); err != nil {
@@ -321,8 +326,50 @@ func TestProjectMutationResponsesIncludeOrigin(t *testing.T) {
 		if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
 			t.Fatal(err)
 		}
-		if rr.Code != 200 || response.Origin != "local" || response.OriginPath == "" {
+		if rr.Code != 200 || response.Origin != "shared" || response.OriginPath == "" {
 			t.Fatalf("%s: %d %s", method, rr.Code, rr.Body)
 		}
+	}
+}
+
+// Removing a project this machine overrides keeps config.yaml's copy unless
+// shared=true asks to remove it there too.
+func TestRemoveProject_LocalOverrideKeepsSharedCopy(t *testing.T) {
+	for _, shared := range []bool{false, true} {
+		s, src := newTestServer(t)
+		root := filepath.Join(filepath.Dir(src), "app")
+		addProjectIn(t, s, root, "local")
+		raw := "source: " + src + "\ntargets: {}\nprojects:\n  " + root + ": {targets: [codex], skills: {}}\n"
+		if err := os.WriteFile(s.configPath(), []byte(raw), 0644); err != nil {
+			t.Fatal(err)
+		}
+		url := "/api/projects?root=" + root
+		if shared {
+			url += "&shared=true"
+		}
+		rr := projectRequest(t, s, http.MethodDelete, url, "")
+		var response struct{ Remaining bool }
+		if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil || rr.Code != http.StatusOK {
+			t.Fatalf("shared=%v: %d %s", shared, rr.Code, rr.Body)
+		}
+		after, _ := os.ReadFile(s.configPath())
+		if kept := strings.Contains(string(after), root); response.Remaining == shared || kept == shared {
+			t.Fatalf("shared=%v: remaining %v, config.yaml keeps project %v", shared, response.Remaining, kept)
+		}
+	}
+}
+
+func TestSaveProject_StorageFollowsSettingByDefault(t *testing.T) {
+	s, src := newTestServer(t)
+	if err := os.WriteFile(s.configPath(), []byte("source: "+src+"\ntargets: {}\nprojects_storage: machine-local\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	root := filepath.Join(filepath.Dir(src), "app")
+	addProjectIn(t, s, root, "")
+	if after, _ := os.ReadFile(s.configPath()); strings.Contains(string(after), root) {
+		t.Fatal("projects_storage: machine-local still saved the project in config.yaml")
+	}
+	if rr := projectRequest(t, s, http.MethodGet, "/api/projects", ""); !strings.Contains(rr.Body.String(), `"origin":"local"`) {
+		t.Fatalf("project is not machine-local: %s", rr.Body)
 	}
 }

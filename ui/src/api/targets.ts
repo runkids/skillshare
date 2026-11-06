@@ -7,7 +7,7 @@ export const targetsApi = {
   listTargets: (scope?: 'projects' | 'all') => apiFetch<{ targets: Target[]; sourceSkillCount: number }>(`/targets${scope ? `?scope=${scope}` : ''}`),
   listProjects: () => apiFetch<ProjectList>('/projects'),
   saveProject: (project: ProjectInput) => apiFetch<ProjectMutation>('/projects', { method: 'PUT', body: JSON.stringify(project) }),
-  removeProject: (root: string) => apiFetch<ProjectMutation>(`/projects?root=${encodeURIComponent(root)}`, { method: 'DELETE' }),
+  removeProject: (root: string, shared = false) => apiFetch<ProjectMutation>(`/projects?root=${encodeURIComponent(root)}${shared ? '&shared=true' : ''}`, { method: 'DELETE' }),
   convertProject: (root: string) => apiFetch<ProjectMutation>('/projects/convert', { method: 'POST', body: JSON.stringify({ root }) }),
   /** skillsEnabled false adds a target that skillshare writes no skills to, and creates no skills folder. */
   addTarget: (name: string, path: string, agentPath?: string, instructions?: TargetInstructionsSetup, skillsEnabled = true) =>

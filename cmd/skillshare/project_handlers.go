@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"reflect"
 	"slices"
@@ -21,8 +22,8 @@ func runProject(o projectOptions) error {
 	start := time.Now()
 	path := config.ReadOnlyConfigPath()
 	var release func()
-	confirmBeforeLock := o.action == "remove" && !o.dryRun && !o.yes
-	if !confirmBeforeLock && !o.dryRun && slices.Contains([]string{"add", "edit", "remove", "localize"}, o.action) {
+	confirmBeforeLock := !o.dryRun && !o.yes && (o.action == "remove" || o.action == "share" && !o.json)
+	if !confirmBeforeLock && !o.dryRun && slices.Contains([]string{"add", "edit", "remove", "localize", "share"}, o.action) {
 		var err error
 		release, err = projects.LockConfig(context.Background(), path)
 		if err != nil {
@@ -96,15 +97,24 @@ func runProject(o projectOptions) error {
 		renderProjectItem(item)
 		return nil
 	}
+	// A dry run previews the replacement it would otherwise ask about.
+	replace := o.yes || o.dryRun
 	if confirmBeforeLock {
-		confirmedEntry := cfg.Projects[root]
-		ok, err := ui.ConfirmAction("Remove project "+root+"?", false)
+		confirmed := cfg.ProjectLayerState(root)
+		question, err := projectConfirmation(o, service, root)
 		if err != nil {
 			return err
 		}
-		if !ok {
-			ui.Cancelled("removed")
-			return nil
+		if question != "" {
+			ok, err := ui.ConfirmAction(question, false)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				ui.Cancelled(map[string]string{"remove": "removed", "share": "moved"}[o.action])
+				return nil
+			}
+			replace = true
 		}
 		// A person can leave the prompt open indefinitely. Hold the shared lock
 		// only after consent, then re-resolve and reject a changed registration.
@@ -118,8 +128,8 @@ func runProject(o projectOptions) error {
 			return err
 		}
 		latestRoot, err := projects.Find(cfg.Projects, o.token, cwd, home)
-		if err != nil || latestRoot != root || !reflect.DeepEqual(confirmedEntry, cfg.Projects[latestRoot]) {
-			return fmt.Errorf("project changed while confirming; retry project remove")
+		if err != nil || latestRoot != root || !reflect.DeepEqual(confirmed, cfg.ProjectLayerState(latestRoot)) {
+			return fmt.Errorf("project changed while confirming; retry project %s", o.action)
 		}
 	}
 	var result projectResult
@@ -135,24 +145,34 @@ func runProject(o projectOptions) error {
 			return err
 		}
 		create := o.action == "add"
+		storage := ""
+		if o.machineLocal {
+			storage = projects.OriginLocal
+		} else if o.shared {
+			storage = projects.OriginShared
+		}
 		if _, exists := cfg.Projects[root]; create && exists {
+			// Adding the same project again is a no-op, so scripts can rerun it.
 			if info, err := os.Stat(config.ExpandPath(root)); err != nil || !info.IsDir() {
 				return fmt.Errorf("%w: %s", projects.ErrFolderNotFound, root)
 			}
-			candidate, err := projects.PrepareLocalProjects(path, cfg, func(entries map[string]config.ManagedProject) error { entries[root] = entry; return nil }, "")
+			preview, err := service.Put(root, entry, projects.PutOptions{DryRun: true})
 			if err != nil {
 				return err
 			}
-			if len(candidate.Affected) > 0 {
+			if len(preview.Affected) > 0 {
 				return fmt.Errorf("%w: %s; use skillshare project edit", projects.ErrExists, root)
+			}
+			if origin, _ := cfg.ProjectOrigin(root); storage != "" && storage != origin {
+				return fmt.Errorf("%w: %s is saved %s; use skillshare project %s", projects.ErrExists, root, projectStorageLabel(origin), map[string]string{projects.OriginLocal: "localize", projects.OriginShared: "share"}[storage])
 			}
 			item, err := service.Show(root)
 			if err != nil {
 				return err
 			}
-			result.Result = projects.Result{Item: &item, Affected: candidate.Affected, Expanded: candidate.Save.Expanded, Registration: "kept", Detach: &projects.DetachReport{}}
+			result.Result = projects.Result{Item: &item, Expanded: cfg, Registration: "kept", Detach: &projects.DetachReport{}}
 		} else {
-			result.Result, opErr = service.Put(root, entry, projects.PutOptions{Create: create, DryRun: o.dryRun, Detach: true})
+			result.Result, opErr = service.Put(root, entry, projects.PutOptions{Create: create, DryRun: o.dryRun, Detach: true, Storage: storage})
 		}
 		if release != nil {
 			release()
@@ -163,33 +183,45 @@ func runProject(o projectOptions) error {
 				return opErr
 			}
 			if !o.dryRun {
-				logProject(cfg, "project", o.action, root, "partial", opErr, start)
+				logProject(cfg, "project", o.action, root, "partial", opErr, start, nil)
 			}
 			return renderProjectResult(o, result, opErr, start)
 		}
 		if !o.dryRun && len(result.Affected) > 0 {
-			logProject(cfg, "project", o.action, root, "ok", nil, start)
+			logProject(cfg, "project", o.action, root, "ok", nil, start, nil)
 		}
 		if o.sync {
 			// Dry-run sync must use the unsaved candidate, including renamed targets.
 			cfg = result.Expanded
-			synced, syncErr := syncProject(cfg, root, o.dryRun)
+			// Re-adding a hidden project restores config.yaml's key, which may be spelled differently.
+			syncRoot := root
+			if result.Item != nil {
+				syncRoot = result.Item.Root
+			}
+			synced, syncErr := syncProject(cfg, syncRoot, o.dryRun)
 			result.Sync = synced
 			if synced != nil {
 				result.Warnings = append(result.Warnings, synced.Warnings...)
 			}
 			opErr = projectSyncError(synced, syncErr, o.dryRun)
 			if !o.dryRun {
-				logProject(cfg, "sync", "sync", root, projectSyncStatus(result, opErr), opErr, start)
+				logProject(cfg, "sync", "sync", root, projectSyncStatus(result, opErr), opErr, start, nil)
 			}
 		}
-	case "localize":
-		result.Result, opErr = service.Localize(root, o.dryRun)
+	case "localize", "share":
+		if o.action == "localize" {
+			result.Result, opErr = service.Localize(root, o.dryRun)
+		} else {
+			result.Result, opErr = service.Share(root, projects.ShareOptions{DryRun: o.dryRun, Replace: replace})
+		}
+		if errors.Is(opErr, projects.ErrSharedDiffers) {
+			return fmt.Errorf("%w; rerun with --yes to replace them", opErr)
+		}
 		if opErr != nil {
 			return opErr
 		}
-		if !o.dryRun && len(result.Affected) > 0 {
-			logProject(cfg, "project", "localize", root, "ok", nil, start)
+		if result.Registration == "updated" {
+			logProject(cfg, "project", o.action, root, "ok", nil, start, nil)
 		}
 	case "sync":
 		item, err := service.Show(root)
@@ -203,13 +235,13 @@ func runProject(o projectOptions) error {
 		}
 		opErr = projectSyncError(result.Sync, opErr, o.dryRun)
 		if !o.dryRun {
-			logProject(cfg, "sync", "sync", root, projectSyncStatus(result, opErr), opErr, start)
+			logProject(cfg, "sync", "sync", root, projectSyncStatus(result, opErr), opErr, start, nil)
 		}
 		if opErr != nil && result.Sync == nil {
 			return opErr
 		}
 	case "remove":
-		result.Result, opErr = service.Remove(root, projects.RemoveOptions{DryRun: o.dryRun})
+		result.Result, opErr = service.Remove(root, projects.RemoveOptions{DryRun: o.dryRun, Shared: o.shared})
 		changed := result.Detach != nil && (len(result.Detach.Removed) > 0 || len(result.Detach.CopiedBack) > 0)
 		if opErr != nil && !changed {
 			return opErr
@@ -219,7 +251,7 @@ func runProject(o projectOptions) error {
 			if opErr != nil {
 				status = "partial"
 			}
-			logProject(cfg, "project", "remove", root, status, opErr, start)
+			logProject(cfg, "project", "remove", root, status, opErr, start, map[string]any{"shared": o.shared})
 		}
 	}
 	return renderProjectResult(o, result, opErr, start)
@@ -345,12 +377,14 @@ func projectSyncStatus(result projectResult, err error) string {
 	return statusFromErr(err)
 }
 
-func logProject(cfg *config.Config, command, action, root, status string, err error, start time.Time) {
+// extra adds action-specific args, such as whether a remove also dropped config.yaml's copy.
+func logProject(cfg *config.Config, command, action, root, status string, err error, start time.Time, extra map[string]any) {
 	if action == "edit" {
 		action = "update"
 	}
 	e := oplog.NewEntry(command, status, time.Since(start))
 	e.Args = map[string]any{"action": action, "root": root, "scope": "cli"}
+	maps.Copy(e.Args, extra)
 	if err != nil {
 		e.Message = err.Error()
 	}

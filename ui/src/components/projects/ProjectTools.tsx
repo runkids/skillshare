@@ -17,7 +17,7 @@ interface Props {
 export default function ProjectTools({ tools, common, selected, onChange, disabled }: Props) {
   const t = useT();
   const names = tools.map((x) => x.name);
-  // ponytail: no search box; the tools on this machine come first. Add one if 60+ rows gets slow to scan.
+  // The tools on this machine come first; the search box finds the rest.
   const ordered = [...names.filter((x) => common.includes(x)), ...names.filter((x) => !common.includes(x))];
   return (
     <Select
@@ -27,6 +27,7 @@ export default function ProjectTools({ tools, common, selected, onChange, disabl
       placeholder={t('projects.tools.choose')}
       options={ordered.map((name) => ({ value: name, label: targetLabel(name), icon: <AgentIcon target={name} size={13} /> }))}
       disabled={disabled}
+      search={{ placeholder: t('projects.tools.search'), empty: t('projects.tools.noMatch'), clear: t('resources.search.clear') }}
     />
   );
 }

@@ -4,7 +4,7 @@ sidebar_position: 21
 
 # project
 
-각 폴더에 `.skillshare/`를 만들지 않고 공유 설정과 로컬 등록으로 프로젝트의 스킬과 agent를 동기화합니다.
+각 폴더에 `.skillshare/`를 만들지 않고, global 설정이 스킬과 agent를 동기화하는 프로젝트 폴더를 관리합니다. 프로젝트는 이 기기에만 보관하도록 선택하지 않는 한 `config.yaml`에 저장됩니다.
 
 `project`는 프로젝트 안에서 실행하더라도 항상 global 설정을 사용합니다. 이는 저장소 자체의 설정을 선택하는 `-p` / `--project`와 다르며, 이 명령어에서 `-p` / `--project`는 거부됩니다. 팀원이 저장소와 함께 설정을 받아야 한다면 [project mode](/docs/understand/project-skills)를 사용하세요.
 
@@ -18,7 +18,8 @@ skillshare project add <root> --target T [options]
 skillshare project edit <project> [options]
 skillshare project sync <project> [--dry-run] [--json]
 skillshare project localize <project> [--dry-run] [--json]
-skillshare project remove <project> [--yes] [--dry-run] [--json]
+skillshare project share <project> [--yes] [--dry-run] [--json]
+skillshare project remove <project> [--shared] [--yes] [--dry-run] [--json]
 ```
 
 `add`에는 존재하는 폴더와 하나 이상의 target이 필요합니다. 나머지 명령어는 유효한 프로젝트 이름(사용자 지정 이름 또는 폴더 basename)이나 루트 경로를 받습니다. 루트를 명시적으로 선택하려면 상대 경로 앞에 `./` 또는 `../`를 붙이세요. 접두사 없는 토큰이 한 프로젝트의 이름과 다른 프로젝트의 루트에 모두 일치하면, 명령어는 하나를 고르지 않고 두 후보를 모두 보고합니다. 심볼릭 링크 별칭은 별도의 등록으로 유지됩니다.
@@ -35,9 +36,11 @@ skillshare project remove <project> [--yes] [--dry-run] [--json]
 | `--skills-naming NAMING` | add, edit | `flat`, `standard`, `prefixed` 중 하나. 빈 값은 상속으로 돌아갑니다 |
 | `--skills-include P`, `--skills-exclude P` | add, edit | 여러 glob 패턴은 반복해서 지정합니다. 해당 목록을 교체하며, 빈 값은 목록을 지웁니다 |
 | `--agents-include P`, `--agents-exclude P` | add, edit | agent에 대해 같은 교체 규칙을 적용합니다. 필터에는 merge 또는 copy mode가 필요합니다 |
+| `--machine-local` | add | `config.yaml`이 아니라 이 기기에만 저장합니다 |
+| `--shared` | add, remove | add: [`projects_storage`](#local-registrations)가 `machine-local`이어도 `config.yaml`에 저장합니다. remove: 이 기기가 재정의한 프로젝트의 `config.yaml` 사본도 함께 제거합니다 |
 | `--sync` | add, edit | 저장한 뒤 이 프로젝트의 skill과 agent를 동기화합니다. force는 꺼져 있습니다 |
-| `--dry-run`, `-n` | add, edit, sync, remove, localize | 쓰기나 확인 없이 미리 봅니다 |
-| `--yes` | remove | 확인을 건너뜁니다. 미리보기가 아닌 상태에서 JSON으로 제거할 때 필수입니다 |
+| `--dry-run`, `-n` | add, edit, sync, remove, localize, share | 쓰기나 확인 없이 미리 봅니다 |
+| `--yes` | remove, share | 확인을 건너뜁니다. 미리보기가 아닌 상태에서 JSON으로 제거할 때 필수입니다. share는 `config.yaml`에 같은 프로젝트의 다른 설정이 있을 때만 묻습니다 |
 | `--json` | all | 구조화된 출력. 프로세스 종료 코드도 함께 확인하세요 |
 | `--global`, `-g` | all | global 범위를 명시합니다(이 명령어의 기본값이기도 합니다) |
 | `--help`, `-h` | all | 도움말을 표시합니다 |
@@ -56,7 +59,7 @@ skillshare project add ~/work/shop-web --target claude,codex \
 skillshare project show shop-web --json
 ```
 
-저장한 등록은 이 기기에 유지됩니다. 공유 [`projects`](/docs/reference/targets/configuration#projects) 선언도 계속 지원됩니다.
+프로젝트는 `config.yaml`의 [`projects`](/docs/reference/targets/configuration#projects) 아래에 저장되므로 그 파일을 쓰는 모든 기기에 적용됩니다. 이 기기에만 있는 폴더에는 `--machine-local`을 붙이세요. [프로젝트 저장 위치](#local-registrations)를 참고하세요. 공유된 도구 폴더는 하나의 sync target으로 묶입니다. 일반 `skillshare sync`도 모든 프로젝트를 동기화합니다.
 
 skill이 꺼진 프로젝트는 global symlink mode를 포함해 skill 동기화 단계를 전혀 실행하지 않습니다. 요청되었거나 켜진 리소스 선택이 비어 있으면 탐색, 백업, target 쓰기 없이 성공합니다.
 
@@ -69,16 +72,18 @@ skillshare project sync shop-web --dry-run --json
 skillshare project sync shop-web --json
 ```
 
-add와 edit은 쓰기 전에 유효한 전체 설정을 검증합니다. 로컬 편집은 선택한 항목만 복사하므로 공유 YAML 앵커의 다른 루트는 변경되지 않습니다. 변경 결과에는 영향을 받은 루트가 나열됩니다. 아무것도 바뀌지 않는 add나 edit은 `applied: false`와 `unchanged: true`를 반환하며, `--sync`는 그대로 수행합니다. 다른 설정으로 add를 반복하면 실패하고 `project edit`을 안내합니다. 사용자 지정 이름은 루트처럼 보이면 안 됩니다(예: `~name`, `./name`, `C:name`).
+add와 edit은 쓰기 전에 유효한 전체 설정을 검증합니다. 편집은 프로젝트가 저장된 곳, 즉 `config.yaml` 또는 이 기기에 저장됩니다. `config.yaml`에서 YAML 앵커로 선언된 프로젝트를 편집하면 그 앵커의 별칭도 함께 바뀝니다. 변경 결과에는 영향을 받은 루트가 나열됩니다. 아무것도 바뀌지 않는 add나 edit은 `applied: false`와 `unchanged: true`를 반환하며, `--sync`는 그대로 수행합니다. 다른 설정으로 add를 반복하면 실패하고 `project edit`을 안내합니다. 사용자 지정 이름은 루트처럼 보이면 안 됩니다(예: `~name`, `./name`, `C:name`).
 
-### 등록 제거 {#remove}
+### 프로젝트 제거 {#remove}
 
 ```bash
 skillshare project remove shop-web --dry-run --json
 skillshare project remove shop-web --yes --json
 ```
 
-제거는 등록을 지우기 전에 skill을 분리합니다. 폴더 전체 링크는 제거되고, merge mode 링크는 source 내용이 존재하는 동안 로컬 사본이 되며, copy mode 파일은 남기고 manifest만 제거합니다. 남아 있는 활성 target이 여전히 소유한 경로는 유지됩니다.
+제거는 프로젝트가 저장된 곳에서 삭제합니다. `config.yaml`에서 프로젝트를 제거하면 그 파일을 쓰는 모든 기기에서 제거되며, 확인 메시지에도 그렇게 표시됩니다. 이 기기가 `config.yaml` 프로젝트를 재정의한 경우에는 이 기기의 사본만 삭제합니다. `config.yaml` 버전이 다시 적용되며 JSON 결과는 `remaining`에 이를 보고합니다. `--shared`를 붙이면 둘 다 제거합니다.
+
+제거는 프로젝트를 지우기 전에 skill을 분리합니다. 폴더 전체 링크는 제거되고, merge mode 링크는 source 내용이 존재하는 동안 로컬 사본이 되며, copy mode 파일은 남기고 manifest만 제거합니다. 남아 있는 활성 target이 여전히 소유한 경로는 유지됩니다.
 
 CLI edit은 빠진 skill 경로를 같은 규칙으로 분리합니다. 프로젝트의 skill이 꺼진 상태라면 이름 변경이나 agent 설정만 바꾸는 편집을 포함한 모든 CLI edit이 남은 skill 경로도 분리합니다. 앞서 대시보드에서 skill을 껐더라도 동일하며, 복사 복원과 남아 있는 활성 target의 경로 소유권 규칙은 그대로 적용됩니다. 대시보드 저장은 skill을 분리하지 않습니다. Agent 파일은 그대로 남습니다. 미리보기와 결과에는 제거, 복사 복원, 유지된 경로가 나열됩니다.
 
@@ -88,10 +93,10 @@ CLI edit은 빠진 skill 경로를 같은 규칙으로 분리합니다. 프로�
 |---------|-------------|
 | list | `projects` 배열(등록된 프로젝트가 없으면 비어 있음) |
 | show | `project` 객체 |
-| add, edit, remove, localize | `action`, `project`, `applied`, `affected`, `warnings`; 선택적으로 `sync` 또는 `detach` |
+| add, edit, remove, localize, share | `action`, `project`, `applied`, `affected`, `warnings`; 선택적으로 `sync`, `detach`, 또는 `remaining`(remove) |
 | sync | `action`, `project`, `sync`; 미리보기에는 `applied: false`도 포함 |
 
-프로젝트 객체에는 `root`(저장된 표기), `path`(확장된 경로), `name`, `targets`, `skills`, `agents`, `groups`, `missing`, `hasOwnConfig`가 포함됩니다. 생략되었거나 꺼진 리소스는 `null`입니다. 켜진 리소스는 해당 설정을 노출합니다. 텍스트 형식의 `project list`와 `project show`는 켜짐/꺼짐 상태를 보고합니다. sync 결과에는 `results`, `failed`, `warnings`, 그리고 탐색/필터 진단 정보가 포함됩니다.
+프로젝트 객체에는 `root`(저장된 표기), `path`(확장된 경로), `name`, `targets`, `skills`, `agents`, `groups`, `missing`, `hasOwnConfig`, `origin`(`shared` 또는 `local`), `originPath`(소유 파일), `sharedCopy`(`config.yaml`에도 선언된 로컬 프로젝트)가 포함됩니다. 생략되었거나 꺼진 리소스는 `null`입니다. 켜진 리소스는 해당 설정을 노출합니다. 텍스트 형식의 `project list`와 `project show`는 켜짐/꺼짐 상태를 보고합니다. sync 결과에는 `results`, `failed`, `warnings`, 그리고 탐색/필터 진단 정보가 포함됩니다.
 
 target 하나가 실패하면 sync는 완료된 target을 보고하면서 종료 코드 1로 끝납니다. sync 미리보기는 충돌을 `failed`에 보고하고 종료 코드 0으로 끝나지만, 잘못된 입력은 여전히 실패합니다. add/edit 저장은 성공했지만 sync가 실패하면 등록은 저장된 상태로 남습니다. target을 수정한 뒤 `project sync`로 다시 시도하세요. 없는 프로젝트 폴더도 edit은 할 수 있지만 sync는 할 수 없습니다.
 
@@ -99,24 +104,33 @@ edit과 제거는 트랜잭션이 아닙니다. 이후의 분리나 저장이 �
 
 이 명령어는 skill과 agent만 관리합니다. MCP 프로젝트 설정과 hook은 각각 전용 명령어를 사용하며, target을 변환하거나 프로젝트 자체 설정을 편집하지 않습니다.
 
-## 로컬 등록과 공유 선언 {#local-registrations}
+## 프로젝트 저장 위치 {#local-registrations}
 
-CLI add/edit/remove와 대시보드 저장은 로컬 등록만 기록하며 공유 설정을 다시 쓰지 않습니다. 공유 `projects:` 선언은 계속 유효합니다. 정규화된 루트가 같으면 로컬 항목이 공유 항목 전체를 대체합니다. 삭제는 이 기기에서만 공유 항목을 숨기며 다시 추가하면 해제됩니다. 서로 다른 루트의 이름 중복과 같은 계층의 정규화된 루트 중복은 거부됩니다.
+프로젝트는 두 곳 중 한 곳에 저장됩니다.
+
+- **`config.yaml`**(`origin: shared`, 기본값). 이 설정 파일을 쓰는 모든 기기에 프로젝트가 적용됩니다. 예를 들어 dotfiles나 `skillshare push`를 사용하는 경우입니다.
+- **이 기기에만**(`origin: local`). 설정 디렉터리 밖의 레지스트리이며, 한 기기에만 있는 폴더를 위한 것입니다.
+
+`project add`는 `--machine-local`을 붙이지 않으면 `config.yaml`에 저장합니다. 기기 전용을 기본값으로 바꾸려면 `config.yaml`에 [`projects_storage: machine-local`](/docs/reference/targets/configuration#projects-storage)을 설정하세요. 이 경우 `--shared`로 프로젝트 하나만 `config.yaml`에 저장할 수 있습니다. 대시보드의 **프로젝트 추가** 대화상자도 같은 선택지를 제공하며 이 설정을 초기값으로 사용합니다. 편집과 제거는 프로젝트가 저장된 곳에서 이루어집니다.
+
+저장된 프로젝트를 두 곳 사이에서 옮깁니다.
 
 ```bash
-skillshare project localize shop-web --dry-run --json
-skillshare project localize shop-web --json
+skillshare project localize shop-web --dry-run --json   # keep a copy on this machine only
+skillshare project share shop-web --dry-run --json      # move it into config.yaml
 ```
 
-`localize`는 공유 항목을 로컬로 복사하며 공유 YAML 삭제, 연결 해제 또는 동기화를 하지 않습니다. 반복 실행은 변경하지 않습니다. list/show의 텍스트와 JSON은 `origin`(shared/local)과 `originPath`를 제공합니다. 모든 project 명령은 시작 시 마이그레이션, 정리 및 버전 확인을 건너뜁니다.
+`localize`는 `config.yaml` 프로젝트를 `config.yaml` 변경, 연결 해제, 동기화 없이 이 기기로 복사합니다. 다른 기기는 `config.yaml` 버전을 계속 쓰고, 이 기기는 자신의 사본을 씁니다. `share`는 기기 전용 프로젝트를 `config.yaml`에 쓰고 로컬 사본을 삭제합니다. `config.yaml`에 같은 프로젝트가 다른 설정으로 이미 있으면 `share`는 교체하기 전에 묻습니다. `--yes`를 쓰면 묻지 않고 교체합니다. 둘 다 프로젝트가 이미 해당 위치에 있으면 아무것도 하지 않으며, 어느 쪽도 동기화하지 않습니다.
+
+로컬 프로젝트는 정규화된 루트(`~` 확장, 경로 정리, 프로젝트 심볼릭 링크 루트는 별도)가 같은 `config.yaml` 항목 전체를 대체합니다. v0.29.0에서 저장된 제거는 해당 기기에서 `config.yaml` 프로젝트를 숨겼으며, 프로젝트를 다시 추가할 때까지 숨겨진 상태로 남습니다. 서로 다른 루트의 이름 중복과 같은 계층의 정규화된 루트 중복은 거부됩니다. 프로젝트의 MCP 서버와 hooks는 프로젝트 자체가 어디에 저장되든 항상 `config.yaml`의 `mcp.projects`와 `hooks.projects` 아래에 있습니다.
 
 저장 위치는 `$XDG_STATE_HOME/skillshare/projects/<identity>.yaml`입니다. 지정하지 않으면 Unix는 `~/.local/state/skillshare/projects`, Windows는 `%LOCALAPPDATA%\skillshare\state\projects`를 사용합니다. 상태 디렉터리는 로컬에 두세요. 식별자는 해석된 설정 파일 대상에 따르므로 설정 심볼릭 링크 별칭은 상태를 공유합니다. 대상을 이동하면 새 등록 영역을 사용합니다. 읽기는 파일을 만들지 않으며 잘못된 내용이나 버전은 거부합니다.
 
-CLI와 대시보드는 로컬 상태 잠금을 공유하고 최대 10초 기다린 후 다시 로드합니다. 연결 해제 및 쓰기 전에 공유 및 로컬 스냅샷을 확인합니다. 다른 공유 설정 작성자는 이 보호 밖에 있습니다. 대시보드 Convert는 명시적으로 공유 설정을 변경하며 이미 선언되었거나 숨겨졌거나 로컬에서 재정의된 루트를 거부합니다. 원시 설정 편집기는 저장 전에 제출 내용과 로컬 항목의 병합 결과를 검증합니다.
+대시보드 Convert는 일반 target을 `config.yaml`의 `projects` 선언으로 한 번의 쓰기에서 교체합니다. 이미 선언되었거나, 로컬에서 재정의되었거나, 이 기기에서 숨겨진 루트는 변환할 수 없습니다. 원시 설정 편집기는 저장 전에 제출한 YAML과 이 기기의 프로젝트를 합친 결과를 검증합니다.
 
 ## 동시 프로젝트 쓰기 {#concurrency}
 
-CLI와 대시보드는 로컬 상태 잠금을 공유하고 최대 10초 기다린 후 다시 로드합니다. 연결 해제 및 쓰기 전에 공유 및 로컬 스냅샷을 확인합니다. 다른 공유 설정 작성자는 이 보호 밖에 있습니다. 대시보드 Convert는 명시적으로 공유 설정을 변경하며 이미 선언되었거나 숨겨졌거나 로컬에서 재정의된 루트를 거부합니다. 원시 설정 편집기는 저장 전에 제출 내용과 로컬 항목의 병합 결과를 검증합니다.
+CLI와 대시보드는 로컬 상태 잠금을 공유하고 최대 10초 기다린 후 다시 로드합니다. 연결 해제 및 쓰기 전에 공유 및 로컬 스냅샷을 확인합니다. 다른 공유 설정 작성자는 이 보호 밖에 있습니다. 대시보드 Convert는 명시적으로 공유 설정을 변경하며 이미 선언되었거나 숨겨졌거나 로컬에서 재정의된 루트를 거부합니다. 원시 설정 편집기는 저장 전에 제출 내용과 로컬 항목의 병합 결과를 검증합니다. `share`처럼 두 곳을 모두 바꾸는 작업은 `config.yaml`을 먼저, 로컬 레지스트리를 나중에 쓰므로 중단되어도 프로젝트가 사라지지 않습니다.
 
 ## 관련 문서 {#related}
 

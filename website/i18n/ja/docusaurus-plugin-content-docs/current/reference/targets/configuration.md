@@ -658,9 +658,9 @@ Agent ファイルフォーマット、Sync の挙動、対応する Target の�
 
 ### `projects` {#projects}
 
-CLI の add/edit/remove とダッシュボードの保存はローカル登録だけを書き込み、共有設定を書き換えません。共有 `projects:` は引き続き有効です。同じ正規化ルートではローカル項目が共有項目全体を置き換えます。削除はこのマシンだけで共有項目を隠し、再追加で解除します。異なるルートの名前重複と同じ層の正規化ルート重複は拒否されます。 `localize` は共有項目をローカルにコピーし、共有 YAML の削除、切り離し、同期を行いません。繰り返しは変更なしです。list/show のテキストと JSON は `origin`（shared/local）と `originPath` を返します。すべての project コマンドは起動時の移行、クリーンアップ、バージョン確認を省略します。 保存先は `$XDG_STATE_HOME/skillshare/projects/<identity>.yaml`、未指定なら Unix では `~/.local/state/skillshare/projects`、Windows では `%LOCALAPPDATA%\skillshare\state\projects` です。状態ディレクトリはローカルに保ってください。識別子は解決済み設定ファイルの保存先に基づき、設定シンボリックリンクの別名は状態を共有します。保存先の移動は新しい登録領域になります。読み取りはファイルを作成せず、不正な内容やバージョンは拒否します。 CLI とダッシュボードはローカル状態のロックを共有し、最大 10 秒待ち、取得後に再読み込みします。切り離しと書き込み前に共有・ローカルのスナップショットを確認します。他の共有設定書き込みには適用されません。ダッシュボードの Convert は明示的に共有設定を変更し、既存、非表示、ローカル上書きのルートを拒否します。生の設定エディターは提出された内容とローカル項目の統合結果を保存前に検証します。
-
 この global config から Skill と Agent を受け取る project フォルダー。フォルダー自身に `.skillshare/` は不要で、どこからでも `skillshare sync` を 1 回実行するだけですべてに書き込まれます。
+
+`skillshare project add` とダッシュボードの **プロジェクトを追加** は新しい project をここに保存するため、この設定を使うすべてのマシンに反映されます。project はこのファイルの外、このマシンだけに保存することもできます。`project add --machine-local` を渡すか、ダッシュボードの **プロジェクトを追加** で下部の **保存先** で **このマシンのみ** を選ぶか、[`projects_storage`](#projects-storage) を設定します。編集と削除は project が保存されている場所で行われます。マシン固有の project は、同じ正規化ルートのここにある項目全体を置き換え、異なるルートの名前は一意でなければなりません。`project list/show` は `origin` と `originPath` を含みます。[project の保存先](/docs/reference/commands/project#local-registrations)を参照してください。
 
 project ごとに異なる Skill を持たせたい場合に使います。global Target はすでに同じセットをすべての project に届けており、[project mode](/docs/understand/project-skills) はチームメイトのために project のリポジトリ内にセットアップを保持します。[多数の Project を 1 つの Config で](/docs/how-to/recipes/many-projects-one-config#scenario)ではこの 3 つを比較しています。
 
@@ -700,10 +700,25 @@ projects:
 - **出力での名前表記。** `sync`、`status`、`diff`、`doctor`、`backup` は project の Target を `<name>@<target>`（例: `shop-web@claude`）の形で表示します。`name` に `@`、`/`、`\` は使えず、2つの project で同じ名前は共有できません。
 - **Agent** は project 用の Agent フォルダーを持つツールにのみ書き込まれます。`agents` があり `skills` がない project は Agent だけを sync します。
 - **見つからないフォルダーはスキップされます。** グローバルの Skill 同期では、見つからない project フォルダーの数を 1 件の警告にまとめ、移動または削除した project を再作成しません。`skillshare project list` で全件を確認するか、`skillshare project list --json` で各項目の `missing` フィールドを取得できます。
-- **`target` と `collect` は project に触れません。** `skillshare target` は `targets` セクションのみを一覧・編集し、`collect` は project 自身の Skill を Source に取り込みません。[`skillshare project`](/docs/reference/commands/project) でプロジェクトの登録・編集・同期・削除を行うか、ダッシュボードの **プロジェクト** ページを使用してください。
+- **`target` と `collect` は project に触れません。** `skillshare target` は `targets` セクションのみを一覧・編集し、`collect` は project 自身の Skill を Source に取り込みません。[`skillshare project`](/docs/reference/commands/project) でプロジェクトの追加・編集・同期・削除を行うか、ダッシュボードの **プロジェクト** ページを使用してください。
 - `targets` フロントマターフィールドを持つ Skill はツールと照合されるため、`targets: [claude]` は `shop-web@claude` に届きます。
 
 同じフォルダーの MCP サーバーは、同じフォルダーをキーとして [`mcp.projects`](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config) に一覧されます。手順は[多数の Project を 1 つの Config で](/docs/how-to/recipes/many-projects-one-config)を参照してください。
+
+### `projects_storage` {#projects-storage}
+
+新しい project の保存先です。
+
+| 値 | 効果 |
+|-------|--------|
+| `shared`（デフォルト） | このファイルの `projects` 配下。この config を使うすべてのマシンに project が反映されます。 |
+| `machine-local` | このマシンの project レジストリ（設定ディレクトリの外）。他のマシンには表示されません。 |
+
+```yaml
+projects_storage: machine-local
+```
+
+他のマシンにはあまり存在しないフォルダーを追加する場合は `machine-local` を使います。`skillshare project add --shared` または `--machine-local` で 1 つの project についてこの設定を上書きでき、ダッシュボードの **プロジェクトを追加** ダイアログもこの設定を初期値にします。既存の project はそのままの場所に残ります。移動するには `skillshare project share` または `skillshare project localize` を使います。[project の保存先](/docs/reference/commands/project#local-registrations)を参照してください。
 
 ### `extras` {#extras}
 

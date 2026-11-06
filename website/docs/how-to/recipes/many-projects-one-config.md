@@ -17,12 +17,12 @@ This recipe is for when projects should get **different** things:
 - A project should hold real copies of its skills so they can be committed, without committing any Skillshare config.
 - A tool you use only reads a folder inside the project.
 
-[Project mode](/docs/how-to/recipes/skill-per-project-workflow) also gives each project its own set. It keeps a `.skillshare/config.yaml` in every project, and you sync from inside each folder. Shared `projects` declarations and machine-local registrations give the same result with one sync:
+[Project mode](/docs/how-to/recipes/skill-per-project-workflow) also gives each project its own set. It keeps a `.skillshare/config.yaml` in every project, and you sync from inside each folder. `projects` in the global config gives the same result with one sync:
 
 | | Global targets | Registered projects | Project mode |
 |---|---|---|---|
 | **Who gets the skills** | Every project, the same set | The folders you list, a set each | That one project |
-| **Where the setup lives** | Your machine | Your machine | The project's repo |
+| **Where the setup lives** | The global config | The global config, or this machine only | The project's repo |
 | **Teammates get it** | No | No | Yes, by cloning |
 | **Files added to the project** | None | Only the synced skills and agents | `.skillshare/` plus the synced files |
 | **Sync** | One `sync` from anywhere | One `sync` from anywhere | `sync` inside each project |
@@ -33,7 +33,7 @@ Choose project mode when the setup should travel with the repo. Choose `projects
 
 ### Skills and agents: `projects`
 
-The commands below save registrations on this machine and leave shared config untouched. Existing `projects:` YAML stays shared. A local edit overrides only that root; removal hides it only here. To freeze a shared registration locally, preview `skillshare project localize <project> --dry-run --json`, then run it without `--dry-run`. Other machines keep their shared declarations. Inspect `origin` and `originPath` with `project list --json`. See [storage and precedence](/docs/reference/commands/project#local-registrations).
+The commands below save the project under `projects` in the global `config.yaml`, so every machine that uses that file gets it. For a folder that exists on this machine only, add `--machine-local`; to make that the default, set [`projects_storage: machine-local`](/docs/reference/targets/configuration#projects-storage). Move a saved project with `skillshare project localize` or `skillshare project share`. Inspect `origin` and `originPath` with `project list --json`. See [where projects are saved](/docs/reference/commands/project#local-registrations).
 
 ```bash
 skillshare project add ~/work/project01 --target claude,codex \
@@ -58,7 +58,7 @@ skillshare project sync project01 --dry-run --json
 skillshare project sync project01
 ```
 
-Use [`skillshare project`](/docs/reference/commands/project) to add, edit, sync, or remove project registrations, or use the dashboard’s **Projects** page. See [`projects`](/docs/reference/targets/configuration#projects) for every field.
+Use [`skillshare project`](/docs/reference/commands/project) to add, edit, sync, or remove projects, or use the dashboard’s **Projects** page. See [`projects`](/docs/reference/targets/configuration#projects) for every field.
 
 ### MCP servers: `mcp.projects`
 

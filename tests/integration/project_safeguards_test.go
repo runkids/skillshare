@@ -115,17 +115,8 @@ func TestProject_MutationWaitsAndReloads(t *testing.T) {
 		t.Fatalf("edit bypassed lock: %+v", r)
 	case <-time.After(150 * time.Millisecond):
 	}
-	localPath, err := config.LocalProjectsPath(sb.ConfigPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	raw, _ := os.ReadFile(localPath)
-	raw = bytes.Replace(raw, []byte("targets: [claude]"), []byte("targets: [claude, codex]"), 1)
-	// Add agents to the current local registry while holding its lock.
-	raw = bytes.Replace(raw, []byte("skills: {}"), []byte("skills: {}\n        agents: {}"), 1)
-	if err := os.WriteFile(localPath, raw, 0600); err != nil {
-		t.Fatal(err)
-	}
+	// Add agents to the project in config.yaml while holding its lock.
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\nprojects:\n  " + filepath.ToSlash(other) + ":\n    targets: [codex]\n    skills: {}\n  " + filepath.ToSlash(root) + ":\n    targets: [claude, codex]\n    skills: {}\n    agents: {}\n")
 	if err := gate.Unlock(); err != nil {
 		t.Fatal(err)
 	}
@@ -158,12 +149,8 @@ func TestProject_PartialEditSaveFailure(t *testing.T) {
 			if err := os.WriteFile(manifest, []byte("{}"), 0644); err != nil {
 				t.Fatal(err)
 			}
-			// The existing lock remains usable; local candidate temporary-file creation fails.
-			localPath, err := config.LocalProjectsPath(sb.ConfigPath)
-			if err != nil {
-				t.Fatal(err)
-			}
-			configDir := filepath.Dir(localPath)
+			// The lock stays usable; creating the config.yaml temporary file fails.
+			configDir := filepath.Dir(sb.ConfigPath)
 			if err := os.Chmod(configDir, 0555); err != nil {
 				t.Fatal(err)
 			}

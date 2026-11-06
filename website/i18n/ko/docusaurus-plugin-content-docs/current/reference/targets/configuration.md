@@ -634,9 +634,9 @@ Agent 파일 형식, Sync 동작, 지원되는 Target에 대한 자세한 내용
 
 ### `projects` {#projects}
 
-CLI add/edit/remove와 대시보드 저장은 로컬 등록만 기록하며 공유 설정을 다시 쓰지 않습니다. 공유 `projects:` 선언은 계속 유효합니다. 정규화된 루트가 같으면 로컬 항목이 공유 항목 전체를 대체합니다. 삭제는 이 기기에서만 공유 항목을 숨기며 다시 추가하면 해제됩니다. 서로 다른 루트의 이름 중복과 같은 계층의 정규화된 루트 중복은 거부됩니다. `localize`는 공유 항목을 로컬로 복사하며 공유 YAML 삭제, 연결 해제 또는 동기화를 하지 않습니다. 반복 실행은 변경하지 않습니다. list/show의 텍스트와 JSON은 `origin`(shared/local)과 `originPath`를 제공합니다. 모든 project 명령은 시작 시 마이그레이션, 정리 및 버전 확인을 건너뜁니다. 저장 위치는 `$XDG_STATE_HOME/skillshare/projects/<identity>.yaml`입니다. 지정하지 않으면 Unix는 `~/.local/state/skillshare/projects`, Windows는 `%LOCALAPPDATA%\skillshare\state\projects`를 사용합니다. 상태 디렉터리는 로컬에 두세요. 식별자는 해석된 설정 파일 대상에 따르므로 설정 심볼릭 링크 별칭은 상태를 공유합니다. 대상을 이동하면 새 등록 영역을 사용합니다. 읽기는 파일을 만들지 않으며 잘못된 내용이나 버전은 거부합니다. CLI와 대시보드는 로컬 상태 잠금을 공유하고 최대 10초 기다린 후 다시 로드합니다. 연결 해제 및 쓰기 전에 공유 및 로컬 스냅샷을 확인합니다. 다른 공유 설정 작성자는 이 보호 밖에 있습니다. 대시보드 Convert는 명시적으로 공유 설정을 변경하며 이미 선언되었거나 숨겨졌거나 로컬에서 재정의된 루트를 거부합니다. 원시 설정 편집기는 저장 전에 제출 내용과 로컬 항목의 병합 결과를 검증합니다.
-
 이 global 설정에서 skill과 agent를 받는 프로젝트 폴더. 폴더는 자체 `.skillshare/`가 필요 없으며, 어디서든 `skillshare sync`를 한 번 실행하면 모두 기록됩니다.
+
+`skillshare project add`와 대시보드의 **프로젝트 추가**는 새 프로젝트를 여기에 저장하므로 이 설정을 쓰는 모든 기기에 적용됩니다. 프로젝트는 이 파일 밖, 이 기기에만 보관할 수도 있습니다. `project add --machine-local`을 지정하거나, 대시보드의 **프로젝트 추가**에서 아래쪽 **저장 위치**에서 **이 기기에만**을 고르거나, [`projects_storage`](#projects-storage)를 설정하세요. 편집과 제거는 프로젝트가 저장된 곳에서 이루어집니다. 기기 전용 프로젝트는 정규화된 루트가 같은 여기의 항목 전체를 대체하며, 서로 다른 루트의 이름은 고유해야 합니다. `project list/show`는 `origin`과 `originPath`를 포함합니다. [프로젝트 저장 위치](/docs/reference/commands/project#local-registrations)를 참고하세요.
 
 프로젝트마다 다른 skill을 받아야 할 때 사용하세요. Global target은 이미 모든 프로젝트에 같은 세트로 도달하고, [project mode](/docs/understand/project-skills)는 팀원을 위해 설정을 프로젝트 저장소에 보관합니다. [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config#scenario)에서 세 가지를 비교합니다.
 
@@ -676,10 +676,25 @@ projects:
 - **출력에 표시되는 이름.** `sync`, `status`, `diff`, `doctor`, `backup`은 프로젝트의 target을 `<name>@<target>` 형태로 표시합니다. 예: `shop-web@claude`. `name`에는 `@`, `/`, `\`를 포함할 수 없으며, 두 프로젝트가 같은 이름을 공유할 수 없습니다.
 - **Agent**는 프로젝트 agent 폴더가 있는 tool에만 기록됩니다. `agents`만 있고 `skills`가 없는 프로젝트는 agent만 동기화합니다.
 - **폴더가 없으면 건너뜁니다.** 전역 Skill 동기화는 없는 프로젝트 폴더 수를 경고 한 줄로 요약하며, 이동하거나 삭제한 프로젝트를 다시 만들지 않습니다. `skillshare project list`로 전체 목록을 확인하거나 `skillshare project list --json`으로 각 항목의 `missing` 필드를 읽을 수 있습니다.
-- **`target`과 `collect`는 프로젝트를 건드리지 않습니다.** `skillshare target`은 `targets` 섹션만 나열하고 편집하며, `collect`는 프로젝트 자체 skill을 source로 가져오지 않습니다. [`skillshare project`](/docs/reference/commands/project)로 프로젝트 등록을 추가·편집·동기화·제거하거나 대시보드의 **프로젝트** 페이지를 사용하세요.
+- **`target`과 `collect`는 프로젝트를 건드리지 않습니다.** `skillshare target`은 `targets` 섹션만 나열하고 편집하며, `collect`는 프로젝트 자체 skill을 source로 가져오지 않습니다. [`skillshare project`](/docs/reference/commands/project)로 프로젝트를 추가·편집·동기화·제거하거나 대시보드의 **프로젝트** 페이지를 사용하세요.
 - `targets` frontmatter 필드가 있는 skill은 tool을 기준으로 매칭되므로, `targets: [claude]`는 `shop-web@claude`에 도달합니다.
 
 같은 폴더의 MCP 서버는 같은 폴더를 키로 하는 [`mcp.projects`](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config) 아래에 나열됩니다. 단계별 설정은 [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config)를 참고하세요.
+
+### `projects_storage` {#projects-storage}
+
+새 프로젝트를 저장할 위치입니다.
+
+| 값 | 효과 |
+|-------|--------|
+| `shared`(기본값) | 이 파일의 `projects` 아래. 이 설정을 쓰는 모든 기기에 프로젝트가 적용됩니다. |
+| `machine-local` | 설정 디렉터리 밖에 있는 이 기기의 프로젝트 레지스트리. 다른 기기에는 보이지 않습니다. |
+
+```yaml
+projects_storage: machine-local
+```
+
+추가하는 폴더가 다른 기기에는 거의 없을 때 `machine-local`을 사용하세요. `skillshare project add --shared` 또는 `--machine-local`로 프로젝트 하나에 대해 이 설정을 재정의할 수 있으며, 대시보드의 **프로젝트 추가** 대화상자도 이 설정을 초기값으로 사용합니다. 기존 프로젝트는 있던 곳에 그대로 남으며, `skillshare project share` 또는 `skillshare project localize`로 옮깁니다. [프로젝트 저장 위치](/docs/reference/commands/project#local-registrations)를 참고하세요.
 
 ### `extras` {#extras}
 

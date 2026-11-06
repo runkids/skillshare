@@ -7,8 +7,6 @@ sidebar_position: 8
 > 從 global config 把 skills 與 MCP servers 送進多個 project 資料夾，只需同步一次。
 
 
-專案 CLI 的 add/edit/remove 與儀表板儲存只寫入本機註冊，不會重寫共用設定。共用 `projects:` 宣告繼續有效；相同正規化根目錄的本機項目會完整覆蓋共用項目。移除只在此機器隱藏共用項目，重新新增會解除隱藏。不同根目錄的名稱必須唯一，同一層的重複正規化根目錄會被拒絕。 `localize` 將共用項目複製到本機，不會刪除共用 YAML、解除連結或同步；重複執行不會變更。list/show 的文字與 JSON 提供 `origin`（shared/local）與 `originPath`。所有 project 命令都略過啟動遷移、清理與版本檢查。
-
 ## 情境 {#scenario}
 
 像 `~/.claude/skills` 這樣的 global targets 會被每個 project 讀取，所以每個 project 看到的都是同一組 skills。如果這就是你要的效果，你不需要這份 recipe。
@@ -20,12 +18,12 @@ sidebar_position: 8
 - 某個 project 應該保留 skills 的實體副本以便 commit，但不 commit 任何 Skillshare config。
 - 你使用的某個工具只會讀取 project 內的某個資料夾。
 
-共用宣告與本機註冊都能用一次同步為各個資料夾提供獨立設定。
+global config 中的 `projects` 能用一次同步為各個資料夾提供獨立設定。
 
 | | Global targets | Registered projects | Project mode |
 |---|---|---|---|
 | **誰拿到 skills** | 每個 project，同一組 | 你列出的資料夾，各自一組 | 那一個 project |
-| **設定放在哪裡** | 你的機器 | 你的機器 | project 的 repo |
+| **設定放在哪裡** | global config | global config，或僅限本機 | project 的 repo |
 | **隊友拿得到嗎** | 否 | 否 | 是，clone 就有 |
 | **加進 project 的檔案** | 無 | 只有同步的 skills 與 agents | `.skillshare/` 加上同步的檔案 |
 | **Sync** | 在任何地方執行一次 `sync` | 在任何地方執行一次 `sync` | 在每個 project 內執行 `sync` |
@@ -35,6 +33,8 @@ sidebar_position: 8
 ## 解決方案
 
 ### Skills 與 agents：`projects`
+
+以下指令會把專案儲存到 global `config.yaml` 的 `projects` 下，因此使用該檔案的每台機器都會取得它。對於只存在於本機的資料夾，請加上 `--machine-local`；若想把它設為預設，請設定 [`projects_storage: machine-local`](/docs/reference/targets/configuration#projects-storage)。用 `skillshare project localize` 或 `skillshare project share` 移動已儲存的專案。可用 `project list --json` 檢視 `origin` 與 `originPath`。請參閱[專案的儲存位置](/docs/reference/commands/project#local-registrations)。
 
 ```bash
 skillshare project add ~/work/project01 --target claude,codex \
@@ -59,7 +59,7 @@ skillshare project sync project01 --dry-run --json
 skillshare project sync project01
 ```
 
-使用 [`skillshare project`](/docs/reference/commands/project) 新增、編輯、同步或移除專案註冊，也可以使用 dashboard 的 **Projects** 頁面。完整欄位請參見 [`projects`](/docs/reference/targets/configuration#projects)。
+使用 [`skillshare project`](/docs/reference/commands/project) 新增、編輯、同步或移除專案，也可以使用 dashboard 的 **Projects** 頁面。完整欄位請參見 [`projects`](/docs/reference/targets/configuration#projects)。
 
 ### MCP servers：`mcp.projects`
 

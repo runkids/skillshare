@@ -33,7 +33,7 @@ func TestProjectBareHelpSubcommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("project help returned error: %v", err)
 	}
-	if !strings.Contains(output, "Manage machine-local registrations") {
+	if !strings.Contains(output, "Manage the project folders the global config syncs to") {
 		t.Fatalf("project help output missing heading: %s", output)
 	}
 }

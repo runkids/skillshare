@@ -7,7 +7,6 @@ import { api, type ProjectList, type ProjectResource } from '../api/client';
 import { mcpApi, mcpTargets } from '../api/mcp';
 import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
-import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import { PageSkeleton } from '../components/Skeleton';
@@ -17,7 +16,7 @@ import HooksScope from '../components/hooks/HooksScope';
 import MCPProjectView from '../components/mcp/MCPProjectView';
 import { targetLabel } from '../components/mcp/mcpView';
 import ProjectSyncDialog from '../components/projects/ProjectSyncDialog';
-import ProjectOriginNotice from '../components/projects/ProjectOriginNotice';
+import RemoveProjectDialog from '../components/projects/RemoveProjectDialog';
 import ProjectTools from '../components/projects/ProjectTools';
 import { removeProject } from '../components/projects/projectActions';
 import TargetOmpExtensions from '../components/targets/TargetOmpExtensions';
@@ -55,7 +54,8 @@ export default function ProjectDetailPage() {
       />
     );
   }
-  return <ProjectEditor key={root} project={project} tools={list.data.tools} mcp={mcp.data} hooks={hooks.data} hooksError={hooks.error?.message} />;
+  // Removing this machine's copy brings config.yaml's version back; a new key drops the old draft.
+  return <ProjectEditor key={`${root}:${project.origin}`} project={project} tools={list.data.tools} mcp={mcp.data} hooks={hooks.data} hooksError={hooks.error?.message} />;
 }
 
 function ProjectEditor({ project, tools, mcp, hooks, hooksError }: { project: ProjectRow; tools: ProjectList['tools']; mcp: MCPList | undefined; hooks: HookInventory | undefined; hooksError?: string }) {
@@ -120,11 +120,18 @@ function ProjectEditor({ project, tools, mcp, hooks, hooksError }: { project: Pr
   };
   const mcpEntry = mcp?.source.projects?.[project.path];
   const hooksEntry = hooks?.source.projects?.[project.path];
-  const remove = async () => {
+  const remove = async (alsoShared: boolean) => {
     setBusy(true);
     try {
-      await removeProject(project, { mcp: Boolean(mcpEntry), hooks: Boolean(hooksEntry) });
+      const sharedStays = await removeProject(project, { mcp: Boolean(mcpEntry), hooks: Boolean(hooksEntry) }, alsoShared);
       refresh();
+      if (sharedStays) {
+        // The config.yaml version applies again, so the page stays.
+        toast(t('projects.removedLocal', { name: project.name }), 'success');
+        setRemoving(false);
+        setBusy(false);
+        return;
+      }
       toast(t('projects.removed', { name: project.name }), 'success');
       navigate('/projects');
     } catch (e) {
@@ -191,7 +198,6 @@ function ProjectEditor({ project, tools, mcp, hooks, hooksError }: { project: Pr
       />
 
       <div className="mb-6 flex flex-col gap-3 empty:hidden">
-        <ProjectOriginNotice origin={project.origin} originPath={project.originPath} />
         {project.missing && <div className="ss-note bad"><span className="flex-1">{t('projects.note.missing')}</span></div>}
         {project.hasOwnConfig && <div className="ss-note warn"><span className="flex-1">{t('projects.note.ownConfig')}</span></div>}
       </div>
@@ -268,16 +274,7 @@ function ProjectEditor({ project, tools, mcp, hooks, hooksError }: { project: Pr
 
       <ProjectSyncDialog open={syncing} onClose={() => setSyncing(false)} project={project} targets={targets.data?.targets} />
 
-      <ConfirmDialog
-        open={removing}
-        loading={busy}
-        variant="danger"
-        title={t('projects.removeTitle', { name: project.name })}
-        message={<p>{t(project.declared ? 'projects.removeMessage' : 'projects.removeSharedMessage')}</p>}
-        confirmText={t('projects.remove')}
-        onCancel={() => setRemoving(false)}
-        onConfirm={() => void remove()}
-      />
+      {removing && <RemoveProjectDialog project={project} loading={busy} onCancel={() => setRemoving(false)} onConfirm={(alsoShared) => void remove(alsoShared)} />}
     </div>
   );
 }

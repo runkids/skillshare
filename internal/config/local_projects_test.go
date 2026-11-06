@@ -5,6 +5,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -74,7 +75,7 @@ func TestLocalProjectLoadsWithReplicatedMissingSharedName(t *testing.T) {
 	local := filepath.Join(base, "local", "app")
 	entries := maps.Clone(cfg.Projects)
 	entries[local] = ManagedProject{Targets: []string{"claude"}, Skills: &ResourceTargetConfig{}}
-	candidate, err := PrepareLocalProjects(ConfigPath(), cfg, entries, "")
+	candidate, err := prepareLocal(ConfigPath(), cfg, entries)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +99,7 @@ func TestLocalProjectsOverlayAndSaveIsolation(t *testing.T) {
 	path := ConfigPath()
 	original, _ := os.ReadFile(path)
 	entries := map[string]ManagedProject{filepath.Join(root, "app"): {Name: "local", Targets: []string{"codex"}, Skills: &ResourceTargetConfig{}}}
-	c, err := PrepareLocalProjects(path, cfg, entries, "")
+	c, err := prepareLocal(path, cfg, entries)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,11 +146,11 @@ func TestLocalProjectsRejectStaleSnapshots(t *testing.T) {
 				t.Fatal(err)
 			}
 			entries := map[string]ManagedProject{filepath.Join(root, "app"): {Targets: []string{"claude"}, Skills: &ResourceTargetConfig{}}}
-			first, err := PrepareLocalProjects(ConfigPath(), cfg, entries, "")
+			first, err := prepareLocal(ConfigPath(), cfg, entries)
 			if err != nil {
 				t.Fatal(err)
 			}
-			second, err := PrepareLocalProjects(ConfigPath(), cfg, entries, "")
+			second, err := prepareLocal(ConfigPath(), cfg, entries)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -286,7 +287,7 @@ func TestLocalProjectsConfigLinksAndSnapshotIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	candidate, err := PrepareLocalProjects(alias, loaded, map[string]ManagedProject{filepath.Join(root, "app"): {Targets: []string{"claude"}, Skills: &ResourceTargetConfig{}}}, "")
+	candidate, err := prepareLocal(alias, loaded, map[string]ManagedProject{filepath.Join(root, "app"): {Targets: []string{"claude"}, Skills: &ResourceTargetConfig{}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -300,7 +301,7 @@ func TestLocalProjectsConfigLinksAndSnapshotIdentity(t *testing.T) {
 		t.Fatal("identical-byte retarget accepted")
 	}
 	// A caller may not reuse a snapshot belonging to a different config.
-	if _, err := PrepareLocalProjects(other, cfg, cfg.Projects, ""); err == nil {
+	if _, err := prepareLocal(other, cfg, cfg.Projects); err == nil {
 		t.Fatal("mismatched config snapshot accepted")
 	}
 }
@@ -344,5 +345,47 @@ func TestLocalProjectsRefuseRegistryRedirection(t *testing.T) {
 				t.Fatal("read changed shared config")
 			}
 		})
+	}
+}
+
+// prepareLocal declares on this machine every entry that differs from cfg.
+func prepareLocal(path string, cfg *Config, entries map[string]ManagedProject) (*SaveCandidate, error) {
+	return PrepareProjectLayers(path, cfg, func(l *ProjectLayers) error {
+		for root, p := range entries {
+			if old, ok := cfg.Projects[root]; !ok || !SameManagedProject(old, p) {
+				l.SetLocal(root, p)
+			}
+		}
+		return nil
+	})
+}
+
+// Sharing a local project leaves the merged entry unchanged, so a command that
+// confirmed before the share must compare each layer, not the merged view.
+func TestProjectLayerStateSeesOwnershipChange(t *testing.T) {
+	cfg, root, err := loadWithProjects(t, "  $ROOT/app:\n    targets: [claude]\n    skills: {}\n", "app")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path, app := ConfigPath(), filepath.Join(root, "app")
+	local := ManagedProject{Targets: []string{"codex"}, Skills: &ResourceTargetConfig{}}
+	write := func(edit func(*ProjectLayers)) *Config {
+		t.Helper()
+		c, err := PrepareProjectLayers(path, cfg, func(l *ProjectLayers) error { edit(l); return nil })
+		if err == nil {
+			err = c.Write()
+		}
+		if err == nil {
+			cfg, err = LoadReadOnlyPath(path)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		return cfg
+	}
+	before := write(func(l *ProjectLayers) { l.SetLocal(app, local) }).ProjectLayerState(app)
+	after := write(func(l *ProjectLayers) { l.SetShared(app, local); l.ClearLocal(app) }).ProjectLayerState(app)
+	if reflect.DeepEqual(before, after) {
+		t.Fatalf("state unchanged after the project moved to config.yaml: %+v", after)
 	}
 }

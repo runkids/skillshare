@@ -13,25 +13,188 @@ import (
 	"skillshare/internal/utils"
 )
 
-// PrepareLocalProjects snapshots a registration-only edit. entries is the full
-// desired effective map; forceRoot explicitly adopts an unchanged shared entry.
-// Its Expanded view uses these exact candidate bytes, not the old disk overlay.
-func PrepareLocalProjects(path string, cfg *Config, entries map[string]ManagedProject, forceRoot string) (*SaveCandidate, error) {
-	c := &SaveCandidate{private: true}
+// ProjectLayers holds the declarations behind Config.Projects. Shared is the
+// projects section of config.yaml, hidden entries included; Local and Excluded
+// are this machine's registry. Its methods match roots by identity, so ~/app
+// and its expanded spelling are the same project.
+type ProjectLayers struct {
+	Shared   map[string]ManagedProject
+	Local    map[string]ManagedProject
+	Excluded []string
+}
+
+func layerKey(entries map[string]ManagedProject, root string) (string, bool) {
+	id, err := projectRootIdentity(root)
+	if err != nil {
+		return "", false
+	}
+	for key := range entries {
+		if other, _ := projectRootIdentity(key); other == id {
+			return key, true
+		}
+	}
+	return "", false
+}
+
+// SharedKey returns the key config.yaml declares root under.
+func (l ProjectLayers) SharedKey(root string) (string, bool) { return layerKey(l.Shared, root) }
+
+// SetShared keeps the spelling config.yaml already uses for root.
+func (l *ProjectLayers) SetShared(root string, p ManagedProject) {
+	if key, ok := l.SharedKey(root); ok {
+		root = key
+	}
+	l.Shared[root] = p
+}
+
+// DeleteShared removes root from config.yaml.
+func (l *ProjectLayers) DeleteShared(root string) {
+	if key, ok := l.SharedKey(root); ok {
+		delete(l.Shared, key)
+	}
+}
+
+// ClearLocal drops this machine's declaration and exclusion of root, so the
+// config.yaml declaration, if any, applies again.
+func (l *ProjectLayers) ClearLocal(root string) {
+	id, _ := projectRootIdentity(root)
+	for key := range l.Local {
+		if other, _ := projectRootIdentity(key); other == id {
+			delete(l.Local, key)
+		}
+	}
+	l.Excluded = slices.DeleteFunc(l.Excluded, func(key string) bool { other, _ := projectRootIdentity(key); return other == id })
+}
+
+// SetLocal declares root on this machine only, replacing any exclusion.
+func (l *ProjectLayers) SetLocal(root string, p ManagedProject) {
+	l.ClearLocal(root)
+	l.Local[root] = p
+}
+
+// PrepareProjectLayers snapshots an edit of both project layers without writing.
+// Write saves config.yaml before the local registry, so an interrupted write
+// keeps every project: one moved to config.yaml stays local until it is there.
+// The candidate's Expanded view uses the exact bytes that Write persists.
+func PrepareProjectLayers(path string, cfg *Config, edit func(*ProjectLayers) error) (*SaveCandidate, error) {
+	c := &SaveCandidate{}
 	if cfg == nil {
 		c.Err = fmt.Errorf("cannot prepare projects for a nil config")
 		return c, c.Err
 	}
+	o, err := projectSnapshot(path, cfg)
+	if err != nil {
+		c.Err = err
+		return c, err
+	}
+	// Both layers start from the bytes the snapshot verified on disk, so an
+	// entry changed in place through cfg.Projects cannot hide an edit.
+	state, err := decodeLocalProjects(o.raw)
+	var oldLocal []byte
+	if err == nil {
+		oldLocal, err = yaml.Marshal(state)
+	}
+	if err != nil {
+		c.Err = err
+		return c, err
+	}
+	sharedBase, err := projectsSection(o.sharedRaw)
+	if err != nil {
+		c.Err = err
+		return c, err
+	}
+	sharedCopy, err := projectsSection(o.sharedRaw)
+	if err != nil {
+		c.Err = err
+		return c, err
+	}
+	layers := ProjectLayers{Shared: sharedCopy, Local: state.Projects, Excluded: state.Excluded}
+	if err := edit(&layers); err != nil {
+		c.Err = err
+		return c, err
+	}
+	for _, entries := range []map[string]ManagedProject{layers.Shared, layers.Local} {
+		if _, err := projectRootIndex(entries); err != nil {
+			c.Err = err
+			return c, err
+		}
+	}
+	state = localProjects{Version: 1, Projects: layers.Local, Excluded: slices.Sorted(slices.Values(layers.Excluded))}
+	localBytes, err := yaml.Marshal(state)
+	if err == nil {
+		// Normalize the effective view exactly as a subsequent read will see it.
+		state, err = decodeLocalProjects(localBytes)
+	}
+	if err != nil {
+		c.Err = err
+		return c, err
+	}
+	overlay := *o
+	overlay.state = state
+	localChanged := !bytes.Equal(localBytes, oldLocal)
+	if localChanged {
+		overlay.raw = localBytes
+	}
+	var sharedBytes []byte
+	sharedChanged := !sameDeclarations(sharedBase, layers.Shared)
+	if sharedChanged {
+		next := *cfg
+		next.projectOverlay = nil
+		next.Projects = layers.Shared
+		if sharedBytes, err = serializeConfig(path, &next); err != nil {
+			c.Err = err
+			return c, err
+		}
+		if overlay.shared, err = projectsSection(sharedBytes); err != nil {
+			c.Err = fmt.Errorf("failed to parse prepared config: %w", err)
+			return c, c.Err
+		}
+		overlay.sharedRaw = sharedBytes
+	}
+	next := *cfg
+	next.Projects, overlay.origins, err = mergeLocalProjects(overlay.shared, state)
+	if err != nil {
+		c.Err = err
+		return c, err
+	}
+	next.projectOverlay = &overlay
+	next.Targets = cfg.OwnTargets()
+	if err := next.ValidateProjects(next.Projects); err != nil {
+		c.Err = err
+		return c, err
+	}
+	if err := next.expandProjects(); err != nil {
+		c.Err = err
+		return c, err
+	}
+	next.Targets = WithSharedSkillsTargets(next.Targets, next.Mode)
+
+	local := &SaveCandidate{Bytes: localBytes, Expanded: &next, path: o.path, private: true, check: o.check, noop: !localChanged && !sharedChanged}
+	if !sharedChanged {
+		return local, nil
+	}
+	c = &SaveCandidate{Bytes: sharedBytes, Expanded: &next, path: path, check: o.check}
+	if localChanged {
+		// After config.yaml is replaced, the registry write expects the new bytes.
+		after := *o
+		after.sharedRaw = sharedBytes
+		local.check = after.check
+		c.then = local
+	}
+	return c, nil
+}
+
+// projectSnapshot returns a private copy of cfg's overlay, loading it when cfg
+// was built in memory, and refuses one that is stale or belongs elsewhere.
+func projectSnapshot(path string, cfg *Config) (*projectOverlay, error) {
 	next := *cfg
 	if next.projectOverlay == nil {
 		raw, err := os.ReadFile(path)
 		if err != nil {
-			c.Err = err
-			return c, err
+			return nil, err
 		}
 		if err := next.loadLocalProjects(path, raw); err != nil {
-			c.Err = err
-			return c, err
+			return nil, err
 		}
 	}
 	snapshot := *next.projectOverlay
@@ -42,87 +205,40 @@ func PrepareLocalProjects(path string, cfg *Config, entries map[string]ManagedPr
 	}
 	selected, identityErr := LocalProjectsPath(path)
 	if err != nil || identityErr != nil || !utils.PathsEqual(dest, o.destination) || !utils.PathsEqual(selected, o.path) {
-		c.Err = fmt.Errorf("project snapshot belongs to a different config or state location; reload it")
-		return c, c.Err
+		return nil, fmt.Errorf("project snapshot belongs to a different config or state location; reload it")
 	}
 	o.configPath = path
-	c.path = o.path
-	c.check = o.check
-	if err := c.Check(); err != nil {
-		c.Err = err
-		return c, err
+	if err := o.check(); err != nil {
+		return nil, err
 	}
-	if _, err := projectRootIndex(entries); err != nil {
-		c.Err = err
-		return c, err
+	return o, nil
+}
+
+// projectsSection decodes the projects of a config.yaml document as Load does.
+func projectsSection(raw []byte) (map[string]ManagedProject, error) {
+	var doc struct {
+		Projects map[string]ManagedProject `yaml:"projects"`
 	}
-	// Serialize/decode isolates nested resources and list backing arrays.
-	raw, err := yaml.Marshal(o.state)
-	if err != nil {
-		c.Err = err
-		return c, err
+	if err := yaml.Unmarshal(raw, &doc); err != nil {
+		return nil, err
 	}
-	state, err := decodeLocalProjects(raw)
-	if err != nil {
-		c.Err = err
-		return c, err
+	if doc.Projects == nil {
+		doc.Projects = map[string]ManagedProject{}
 	}
-	erase := func(root string) {
-		id, _ := projectRootIdentity(root)
-		for key := range state.Projects {
-			other, _ := projectRootIdentity(key)
-			if id == other {
-				delete(state.Projects, key)
-			}
-		}
-		state.Excluded = slices.DeleteFunc(state.Excluded, func(key string) bool { other, _ := projectRootIdentity(key); return id == other })
+	return doc.Projects, nil
+}
+
+func sameDeclarations(a, b map[string]ManagedProject) bool {
+	if len(a) != len(b) {
+		return false
 	}
-	sharedIndex, _ := projectRootIndex(o.shared)
-	for root := range cfg.Projects {
-		if _, kept := entries[root]; kept {
-			continue
-		}
-		erase(root)
-		id, _ := projectRootIdentity(root)
-		if _, shared := sharedIndex[id]; shared {
-			state.Excluded = append(state.Excluded, root)
+	for root, p := range a {
+		other, ok := b[root]
+		if !ok || !SameManagedProject(p, other) {
+			return false
 		}
 	}
-	for root, p := range entries {
-		if old, ok := cfg.Projects[root]; ok && SameManagedProject(old, p) && root != forceRoot {
-			continue
-		}
-		erase(root)
-		state.Projects[root] = p
-	}
-	slices.Sort(state.Excluded)
-	c.Bytes, c.Err = yaml.Marshal(state)
-	if c.Err != nil {
-		return c, c.Err
-	}
-	// Normalize the effective view exactly as a subsequent read will see it.
-	state, c.Err = decodeLocalProjects(c.Bytes)
-	if c.Err != nil {
-		return c, c.Err
-	}
-	overlay := *o
-	overlay.state = state
-	overlay.raw = c.Bytes
-	next.Projects, overlay.origins, c.Err = mergeLocalProjects(o.shared, state)
-	if c.Err != nil {
-		return c, c.Err
-	}
-	next.projectOverlay = &overlay
-	next.Targets = cfg.OwnTargets()
-	if c.Err = next.ValidateProjects(next.Projects); c.Err != nil {
-		return c, c.Err
-	}
-	if c.Err = next.expandProjects(); c.Err != nil {
-		return c, c.Err
-	}
-	next.Targets = WithSharedSkillsTargets(next.Targets, next.Mode)
-	c.Expanded = &next
-	return c, nil
+	return true
 }
 
 func (o *projectOverlay) check() error {

@@ -629,9 +629,9 @@ Project mode 始终使用 `.skillshare/agents/`，不支持 `agents_source`。
 
 ### `projects` {#projects}
 
-项目 CLI 的 add/edit/remove 与仪表板保存只写入本机注册，不会重写共享配置。共享 `projects:` 声明继续有效；相同规范化根目录的本机项目会完整覆盖共享项目。移除只在此机器隐藏共享项目，重新添加会解除隐藏。不同根目录的名称必须唯一，同一层的重复规范化根目录会被拒绝。 `localize` 将共享项目复制到本机，不会删除共享 YAML、解除链接或同步；重复执行不会变更。list/show 的文本与 JSON 提供 `origin`（shared/local）与 `originPath`。所有 project 命令都跳过启动迁移、清理与版本检查。 存储位置为 `$XDG_STATE_HOME/skillshare/projects/<identity>.yaml`；未指定时，Unix 使用 `~/.local/state/skillshare/projects`，Windows 使用 `%LOCALAPPDATA%\skillshare\state\projects`。请保持状态目录为本机位置。标识由解析后的配置文件目标决定；配置符号链接别名共享状态，移动目标会使用新注册。读取不创建文件，无效版本或内容会拒绝加载。 CLI 与仪表板共享本机状态锁，最多等待 10 秒并在获取后重新加载。候选数据会在解除链接与写入前检查共享与本机快照；其他共享配置写入者不受此保护。仪表板 Convert 是明确的共享配置更改，会拒绝已声明、隐藏或本机覆盖的根目录。原始配置编辑器会先验证提交内容与本机项目的合并结果。
-
 从这份 global 配置获取 Skill 和 Agent 的项目文件夹。这些文件夹不需要自己的 `.skillshare/`，在任意目录下运行一次 `skillshare sync` 就能写入所有项目。
+
+`skillshare project add` 和仪表板的 **添加项目** 会把新项目保存在这里，因此使用该配置的每台机器都会获得它。项目也可以只保存在本机、不写入此文件：传入 `project add --machine-local`、在仪表板的 **添加项目** 底部的 **保存到** 选择 **只存在这台机器**，或设置 [`projects_storage`](#projects-storage)。编辑和移除都在项目所保存的位置进行。本机项目会完整替换这里相同规范化根目录的条目，不同根目录的名称必须唯一。`project list/show` 包含 `origin` 和 `originPath`。参见[项目的保存位置](/docs/reference/commands/project#local-registrations)。
 
 当项目需要拿到不同的 Skill 时使用它。全局 Target 已经能让每个项目看到相同的一套内容，而 [Project mode](/docs/understand/project-skills) 把设置保留在项目仓库中，方便队友使用。[Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config#scenario) 比较了这三种方式。
 
@@ -671,10 +671,25 @@ projects:
 - **输出中的名称。** `sync`、`status`、`diff`、`doctor` 和 `backup` 会把一个项目的 targets 显示为 `<name>@<target>`，例如 `shop-web@claude`。`name` 不能包含 `@`、`/` 或 `\`，且两个项目不能共用同一个名称。
 - **Agent** 只会写入拥有 project Agent 目录的工具。只设置了 `agents`、没有设置 `skills` 的项目只会 sync Agent。
 - **缺失的文件夹会被跳过。** 全局 Skill 同步只用一条警告汇总缺失的项目文件夹数量，不会重新创建你已经移动或删除的项目。运行 `skillshare project list` 查看完整列表，或用 `skillshare project list --json` 读取各项的 `missing` 字段。
-- **`target` 和 `collect` 不会改动 projects。** `skillshare target` 只列出并编辑 `targets` 部分，`collect` 也不会把项目自己的 Skill 拉回 Source。使用 [`skillshare project`](/docs/reference/commands/project) 添加、编辑、同步或移除项目注册，也可以使用仪表盘的 **Projects** 页面。
+- **`target` 和 `collect` 不会改动 projects。** `skillshare target` 只列出并编辑 `targets` 部分，`collect` 也不会把项目自己的 Skill 拉回 Source。使用 [`skillshare project`](/docs/reference/commands/project) 添加、编辑、同步或移除项目，也可以使用仪表盘的 **Projects** 页面。
 - 带有 `targets` frontmatter 字段的 Skill 会与工具进行匹配，因此 `targets: [claude]` 能到达 `shop-web@claude`。
 
 同样，这些文件夹下的 MCP server 列在 [`mcp.projects`](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config) 中，以相同的文件夹作为 key。完整的分步设置参见 [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config)。
+
+### `projects_storage` {#projects-storage}
+
+新项目的保存位置。
+
+| 值 | 效果 |
+|-------|--------|
+| `shared`（默认） | 保存在此文件的 `projects` 下。使用该配置的每台机器都会获得该项目。 |
+| `machine-local` | 保存在本机的项目注册表中，位于配置目录之外。其他机器看不到。 |
+
+```yaml
+projects_storage: machine-local
+```
+
+当你添加的文件夹很少存在于其他机器上时，请使用 `machine-local`。`skillshare project add --shared` 或 `--machine-local` 可为单个项目覆盖该设置，仪表板的 **添加项目** 对话框也以该设置作为初始值。已有的项目保持原位；用 `skillshare project share` 或 `skillshare project localize` 移动。参见[项目的保存位置](/docs/reference/commands/project#local-registrations)。
 
 ### `extras` {#extras}
 

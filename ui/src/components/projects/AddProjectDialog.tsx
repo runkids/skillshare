@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Check, Folder, X } from 'lucide-react';
-import { api, type ProjectList } from '../../api/client';
+import { api, type ProjectList, type ProjectStorage } from '../../api/client';
 import { hooksApi } from '../../api/hooks';
 import { mcpApi, mcpTargets } from '../../api/mcp';
 import Button from '../Button';
+import { Select } from '../Select';
 import DialogShell from '../DialogShell';
 import { useT, plural } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
@@ -13,6 +14,10 @@ import { toolGroups } from './projectView';
 interface Props {
   tools: ProjectList['tools'];
   common: string[];
+  /** The layer a new project goes to unless the user picks the other */
+  defaultStorage?: ProjectStorage;
+  /** The file each layer is saved in */
+  storagePaths?: Record<ProjectStorage, string>;
   /** Absolute paths of the projects that exist */
   existing: string[];
   onClose: () => void;
@@ -23,11 +28,12 @@ const PARTS = ['skills', 'agents', 'mcp', 'hooks'] as const;
 type PartName = (typeof PARTS)[number];
 
 /** Add one folder to projects. Filters and MCP servers are edited on the project's page. */
-export default function AddProjectDialog({ tools, common, existing, onClose, onAdded }: Props) {
+export default function AddProjectDialog({ tools, common, defaultStorage = 'shared', storagePaths, existing, onClose, onAdded }: Props) {
   const t = useT();
   const [path, setPath] = useState('');
   const [targets, setTargets] = useState<string[]>([]);
   const [parts, setParts] = useState<Record<PartName, boolean>>({ skills: true, agents: false, mcp: false, hooks: false });
+  const [storage, setStorage] = useState<ProjectStorage>(defaultStorage);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -47,13 +53,22 @@ export default function AddProjectDialog({ tools, common, existing, onClose, onA
     return t(`projects.add.${p}Hint`);
   };
 
+  const where = (layer: ProjectStorage) => {
+    const full = storagePaths?.[layer];
+    return full ? { detail: shortenHome(full), detailTitle: full } : {};
+  };
+  const storageOptions = [
+    { value: 'shared', label: 'config.yaml', mono: true, description: t('projects.add.storageShared'), ...where('shared') },
+    { value: 'local', label: t('projects.add.storageLocal'), triggerLabel: t('projects.add.storageLocalShort'), description: t('projects.add.storageLocalHint'), ...where('local') },
+  ];
+
   const save = async () => {
     if (!canSave) return;
     setSaving(true);
     setError('');
     const all = { mode: '', include: [], exclude: [] };
     try {
-      const saved = await api.saveProject({ create: true, root, targets, skills: parts.skills ? all : null, agents: parts.agents ? all : null });
+      const saved = await api.saveProject({ create: true, storage, root, targets, skills: parts.skills ? all : null, agents: parts.agents ? all : null });
       if (parts.mcp) {
         const clients = mcpTargets.filter((x) => targets.includes(x));
         await mcpApi.save({ project: root, settings: { targets: clients.length > 0 ? clients : undefined } });
@@ -86,15 +101,16 @@ export default function AddProjectDialog({ tools, common, existing, onClose, onA
           <span className="text-[13px] font-semibold">{t('projects.targets')}</span>
           <ProjectTools tools={tools} common={common} selected={targets} onChange={setTargets} disabled={saving} />
           <span className="hp">{t('projects.add.targetsHint')}</span>
+          {folders > 0 && <span className="hp">{t(plural('projects.add.writes', folders), { count: folders })}</span>}
         </div>
         <div className="ss-fld">
           <span className="text-[13px] font-semibold">{t('projects.add.parts')}</span>
-          <div className="flex flex-col gap-2.5">
-            {PARTS.map((p) => (
-              <button key={p} type="button" role="checkbox" aria-checked={parts[p]} className={`ss-pick text-left ${parts[p] ? 'on' : ''}`} onClick={() => setParts({ ...parts, [p]: !parts[p] })} disabled={saving}>
+          <div className="ss-list">
+            {PARTS.map((p, i) => (
+              <button key={p} type="button" role="checkbox" aria-checked={parts[p]} className={`flex min-h-[52px] w-full items-center gap-3 px-4 py-2 text-left ${i > 0 ? 'border-t border-line-soft' : ''}`} onClick={() => setParts({ ...parts, [p]: !parts[p] })} disabled={saving}>
                 <span className={`ss-chk ${parts[p] ? 'on' : ''}`}>{parts[p] && <Check size={12} strokeWidth={3} />}</span>
-                <span className="flex flex-col gap-0.5">
-                  <span className="font-semibold">{p === 'mcp' ? 'MCP' : p === 'hooks' ? 'Hooks' : p === 'agents' ? 'Agents' : 'Skills'}</span>
+                <span className="flex flex-col gap-px">
+                  <span className="text-[14px] font-semibold">{p === 'mcp' ? 'MCP' : p === 'hooks' ? 'Hooks' : p === 'agents' ? 'Agents' : 'Skills'}</span>
                   <span className="text-[13px] text-ink-2">{partHint(p)}</span>
                 </span>
               </button>
@@ -104,7 +120,10 @@ export default function AddProjectDialog({ tools, common, existing, onClose, onA
         {error && <div className="ss-note bad"><span className="flex-1">{error}</span></div>}
       </form>
       <div className="df">
-        <span className="flex-1 text-[13px] text-ink-2">{folders > 0 && t(plural('projects.add.writes', folders), { count: folders })}</span>
+        <span className="flex flex-1 items-center gap-1 text-[13px] text-ink-3">
+          {t('projects.add.savedTo')}
+          <Select quiet up ariaLabel={t('projects.add.savedTo')} value={storage} onChange={(v) => setStorage(v as ProjectStorage)} options={storageOptions} disabled={saving} />
+        </span>
         <Button variant="ghost" onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
         <Button type="submit" form="add-project" variant="primary" loading={saving} disabled={!canSave}>{t('projects.add.submit')}</Button>
       </div>

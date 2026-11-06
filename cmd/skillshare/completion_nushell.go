@@ -48,7 +48,7 @@ def "nu-complete skillshare commands" [] {
 }
 
 # Project command
-def "nu-complete skillshare project" [] { [list show add edit sync remove localize] }
+def "nu-complete skillshare project" [] { [list show add edit sync remove localize share] }
 def "nu-complete skillshare project-naming" [] { [flat standard prefixed] }
 def "nu-complete skillshare project-target" [] { [adal aiderdesk amp antigravity antigravity-cli astrbot augment autohand-code bob claude cline codearts codebuddy codestudio codex comate commandcode continue copilot cortex crush cursor deepagents deepseek-harness devin dexto droid firebender forgecode fx gemini gitlab-duo goose grok hermes iflow jazz junie kilocode kimchi kimi kimi-code kiro kode letta lingma mcpjam mux neovate omp ona openclaw opencode openhands pi pochi posit-assistant purecode qoder qoder-cn qwen reasonix replit roo rovodev tabnine trae trae-cn universal verdent vibe warp windsurf witsy xcode-claude xcode-codex zcode zed zencoder] }
 
@@ -68,6 +68,8 @@ export extern "skillshare project" [
     --skills-exclude: string
     --agents-include: string
     --agents-exclude: string
+    --machine-local
+    --shared
     --sync
     --dry-run(-n)
     --yes

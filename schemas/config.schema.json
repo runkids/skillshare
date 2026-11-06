@@ -103,6 +103,12 @@
         }
       ]
     },
+    "projects_storage": {
+      "type": "string",
+      "enum": ["shared", "machine-local"],
+      "default": "shared",
+      "description": "Where skillshare project add and the dashboard save a new project. shared writes it under projects in this file, so every machine that uses this config gets it. machine-local keeps it in this machine's project registry instead. project add --shared or --machine-local overrides it for one project."
+    },
     "projects": {
       "type": "object",
       "description": "Project folders to sync skills and agents into from this global config. Keys are absolute paths or start with ~. Each target's project path is used (for example .claude/skills), so the folder needs no .skillshare/. MCP servers for the same folder go under mcp.projects.",

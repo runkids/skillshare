@@ -245,6 +245,60 @@ func (c *Config) ProjectOrigin(root string) (string, string) {
 	return "shared", ReadOnlyConfigPath()
 }
 
+// Values of projects_storage.
+const (
+	ProjectsStorageShared       = "shared"
+	ProjectsStorageMachineLocal = "machine-local"
+)
+
+// NewProjectOrigin is the origin projects_storage gives a new project.
+func (c *Config) NewProjectOrigin() string {
+	if c.ProjectsStorage == ProjectsStorageMachineLocal {
+		return "local"
+	}
+	return "shared"
+}
+
+// HasSharedProject reports whether config.yaml declares root, including a
+// declaration this machine overrides or hides.
+func (c *Config) HasSharedProject(root string) bool {
+	shared := c.Projects
+	if c.projectOverlay != nil {
+		shared = c.projectOverlay.shared
+	}
+	_, ok := layerKey(shared, root)
+	return ok
+}
+
+// ProjectLayerState is root's declaration in each layer. A command that asks
+// before it locks compares it again afterwards: a share or localize from
+// another terminal can move the project between layers without changing the
+// merged entry.
+type ProjectLayerState struct {
+	Effective ManagedProject
+	Origin    string
+	Shared    *ManagedProject
+}
+
+// ProjectLayerState reports root's effective entry, owning layer and
+// config.yaml declaration.
+func (c *Config) ProjectLayerState(root string) ProjectLayerState {
+	state := ProjectLayerState{Effective: c.Projects[root]}
+	state.Origin, _ = c.ProjectOrigin(root)
+	shared := c.Projects
+	if c.projectOverlay != nil {
+		shared = c.projectOverlay.shared
+	}
+	if key, ok := layerKey(shared, root); ok {
+		p := shared[key]
+		state.Shared = &p
+	}
+	return state
+}
+
+// ProjectKey returns the key c.Projects uses for root.
+func (c *Config) ProjectKey(root string) (string, bool) { return layerKey(c.Projects, root) }
+
 // HasLocalProject includes exclusions, so conversion cannot discard ordinary
 // targets while their replacement declaration would remain hidden.
 func (c *Config) HasLocalProject(root string) bool {

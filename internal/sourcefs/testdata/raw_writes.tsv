@@ -105,10 +105,10 @@ internal/config/registry.go	(*Registry).Save	os.MkdirAll	dir	source-unmigrated
 internal/config/registry.go	(*Registry).Save	os.WriteFile	path	source-unmigrated
 internal/config/registry.go	MigrateRegistryToSource	os.Remove	oldPath	source-unmigrated
 internal/config/registry.go	MigrateRegistryToSource	os.WriteFile	newPath	source-unmigrated
-internal/config/save_candidate.go	(*SaveCandidate).Write	os.MkdirAll	dir	config
-internal/config/save_candidate.go	(*SaveCandidate).Write	os.OpenFile	tmpPath	config
-internal/config/save_candidate.go	(*SaveCandidate).Write	os.Remove	tmp.Name()	config
-internal/config/save_candidate.go	(*SaveCandidate).Write	os.Rename	tmp.Name(), dest	config
+internal/config/save_candidate.go	(*SaveCandidate).write	os.MkdirAll	dir	config
+internal/config/save_candidate.go	(*SaveCandidate).write	os.OpenFile	tmpPath	config
+internal/config/save_candidate.go	(*SaveCandidate).write	os.Remove	tmp.Name()	config
+internal/config/save_candidate.go	(*SaveCandidate).write	os.Rename	tmp.Name(), dest	config
 internal/git/info.go	resolveMetadataConflicts	os.WriteFile	filepath.Join(dir, path)	source-unmigrated
 internal/git/scope.go	DisableNestedRepo	os.Rename	gitDir, disabled	source-unmigrated
 internal/git/scope.go	InitScopeRepo	os.MkdirAll	dir	source-unmigrated

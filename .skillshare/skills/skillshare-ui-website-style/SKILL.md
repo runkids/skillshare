@@ -173,7 +173,7 @@ Shared components in `ui/src/components/` wrap the `ss-*` classes. Use the compo
 | `DialogShell` | `.ss-scrim` `.ss-dlg` | `open`, `onClose`, `maxWidth="sm".."7xl"`, `padding`, `preventClose?`, `ariaLabel`. Use `padding="none"` with `.dh` / `.db` / `.df` children for the standard header, body and footer |
 | `ConfirmDialog` | `DialogShell` | `open`, `onConfirm`, `onCancel`, `title`, `message`, `variant="default\|danger"`, `loading?`, `wide?` |
 | `Input`, `Textarea` | `.ss-fld` `.ss-inp` | `label?`, `size="sm\|md"` + native props. `Input.tsx` re-exports `Checkbox` and `Select` |
-| `Select` | `.ss-inp` + `.ss-menu` | `label?`, `value`, `onChange`, `options[]` (`description?`), `size`, `prefix?` |
+| `Select` | `.ss-inp` + `.ss-menu` | `label?`, `value`, `onChange`, `options[]` (`description?`, `triggerLabel?`, `detail?`), `size`, `prefix?`, `quiet` (footer menu without a box), `up`, `search` (type-to-filter) |
 | `Checkbox` | `.ss-chk` | `label` (required), `checked`, `onChange`, `indeterminate?`, `hideLabel?` for row selection |
 | `SegmentedControl` | `.ss-seg` | `value`, `onChange`, `options[]` (`count?`, `title?` for icon-only), `colorFn?` |
 | `Pagination` | `.ss-pager` | `page`, `totalPages`, `onPageChange`, `rangeText?`, `pageSize?` |
