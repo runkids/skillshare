@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Dernière version** : v0.28.4 — Installation avec Nix : `nix profile add github:runkids/skillshare`. Sur une installation Nix, `skillshare upgrade` et la boîte de dialogue de mise à jour du dashboard vous indiquent de lancer `nix profile upgrade skillshare`, ou de mettre à jour votre configuration Nix, au lieu de remplacer le binaire du store. Un nouveau [panneau Herdr](https://skillshare.runkids.cc/docs/learn/with-herdr) affiche à côté de vos agents ce qui doit être mis à jour ou synchronisé, et s'en charge sur chaque machine à laquelle Herdr se connecte. [Toutes les versions →](https://github.com/runkids/skillshare/releases)
+> **Dernière version** : v0.29.0 — [`skillshare audit`](https://skillshare.runkids.cc/docs/reference/commands/audit) examine de plus près ce qu'un skill embarque : commandes des hooks et réglages fournis, liens qui sortent du dossier du skill, exécutables et bytecode déguisés en documents ou en images, espaces qui cachent des instructions, métadonnées cloud et cibles de requêtes internes, et désérialisation non sûre. `--min-severity` raccourcit le rapport sans changer ce qui bloque une installation, et une analyse qui a sauté un lien de la source suivi mais illisible le signale désormais dans chaque rapport. Dans le dashboard, la page de détail d'un skill affiche sa branche et permet d'en changer. [Toutes les versions →](https://github.com/runkids/skillshare/releases)
 
 ## Pourquoi skillshare
 

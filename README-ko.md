@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **최신 버전**: v0.28.4 — Nix로 설치할 수 있습니다: `nix profile add github:runkids/skillshare`. Nix로 설치한 경우 `skillshare upgrade`와 대시보드의 업데이트 대화상자는 store의 바이너리를 바꾸지 않고 `nix profile upgrade skillshare` 실행이나 Nix 설정 업데이트를 안내합니다. 새 [Herdr 패널](https://skillshare.runkids.cc/ko/docs/learn/with-herdr)은 업데이트나 동기화가 필요한 항목을 agent 옆에 보여 주고, Herdr가 연결된 모든 머신에서 바로 처리합니다. [변경 기록](https://skillshare.runkids.cc/changelog)을 확인하세요.
+> **최신 버전**: v0.29.0 — [`skillshare audit`](https://skillshare.runkids.cc/ko/docs/reference/commands/audit)가 skill에 함께 담긴 내용을 더 깊이 검사합니다: 번들된 hooks와 설정 파일의 명령, skill 폴더 밖을 가리키는 링크, 문서나 이미지로 위장한 실행 파일과 바이트코드, 지시를 숨기는 공백 채우기, 클라우드 메타데이터와 내부 요청 대상, 안전하지 않은 역직렬화를 찾아냅니다. `--min-severity`는 설치를 막는 기준은 그대로 두고 보고서만 줄이며, 읽을 수 없는 source link를 건너뛴 스캔은 이제 모든 보고서에서 그 사실을 알려 줍니다. 대시보드에서는 skill 상세 페이지에 브랜치가 표시되고 거기서 바꿀 수 있습니다. [변경 기록](https://skillshare.runkids.cc/changelog)을 확인하세요.
 
 ## skillshare를 쓰는 이유
 

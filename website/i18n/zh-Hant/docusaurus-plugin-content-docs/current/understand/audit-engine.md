@@ -450,7 +450,7 @@ CPython 3.6 使用不含旗標的 12 位元組標頭；3.7–3.14 使用含支�
 
 不超過 1 MB 的二進位與不支援檔案計入 `totalBytes`，但不計入 `auditableBytes`。超大檔案不計入目錄的位元組比例；內部 metadata 與排除路徑也不計入。
 
-CLI、JSON 與儀表板摘要分別回報 `binaryFiles`、`skippedFiles`、`oversizedFiles`。`skippedFiles` 表示未進行全文文字分析的檔案，包括讀取失敗、二進位、不支援副檔名、超大檔案及隱藏目錄內的一般檔案。`binaryFiles` 包含已辨識的二進位／封存標頭及含 NUL 的標頭。計數會重疊：超大二進位檔案在三個計數器各計一次。標頭位元組不計入可稽核文字。
+CLI、JSON 與儀表板摘要分別回報 `binaryFiles`、`skippedFiles`、`oversizedFiles`。`skippedFiles` 表示未進行全文文字分析的檔案，包括讀取失敗、二進位、不支援副檔名、超大檔案及隱藏目錄內的一般檔案。`binaryFiles` 包含已辨識的二進位／封存標頭及含 NUL 的標頭。計數會重疊：超大二進位檔案在三個計數器各計一次。標頭位元組不計入可稽核文字。Markdown 報告會多出 `Skipped files` 摘要列與 `File coverage by resource` 表格，SARIF 的 run 則在 `runs[].properties.skillshareCoverage` 中記錄每個資源的計數。
 
 ### 輸出
 

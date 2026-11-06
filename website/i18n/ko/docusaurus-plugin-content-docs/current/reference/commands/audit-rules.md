@@ -112,7 +112,7 @@ rules:
 | `regex` | 예* | 각 줄에 대해 매칭할 정규식 |
 | `confidence` | 아니요 | 0에서 1 사이의 신뢰도; 기본값은 0.95 |
 | `exclude` | 아니오 | 줄이 `regex`와 `exclude` 둘 다에 매칭되면 finding이 억제됨 |
-| `files` | 아니오 | 규칙이 적용되는 파일을 제한하는 glob 패턴. 자세한 내용은 아래 파일 범위를 참조. |
+| `files` | 아니오 | 규칙이 적용되는 파일을 제한하는 glob 패턴. 자세한 내용은 [파일 적용 범위](#file-applicability)를 참조. |
 | `enabled` | 아니오 | 규칙을 비활성화하려면 `false`로 설정. 비활성화 시 `id`만 필요 |
 
 *`enabled: false`가 아닌 경우 필수.

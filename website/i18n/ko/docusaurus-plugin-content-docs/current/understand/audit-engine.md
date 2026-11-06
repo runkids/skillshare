@@ -450,7 +450,7 @@ analyzability가 **70%** 미만으로 떨어지면, audit engine은 `low-analyza
 
 1 MB 이하의 바이너리 및 미지원 파일은 `totalBytes`에 포함하지만 `auditableBytes`에는 포함하지 않습니다. 크기 초과 파일은 디렉터리의 바이트 비율에서 제외하며 내부 메타데이터와 제외 경로도 계산하지 않습니다.
 
-CLI, JSON, 대시보드 요약은 `binaryFiles`, `skippedFiles`, `oversizedFiles`를 별도로 보고합니다. `skippedFiles`는 전체 텍스트 분석을 하지 않은 파일(읽기 실패, 바이너리, 미지원 확장자, 크기 초과, 숨김 디렉터리의 일반 파일)입니다. `binaryFiles`는 바이너리·아카이브 형식 및 NUL을 포함한 헤더를 셉니다. 크기 초과 바이너리는 각 카운터에 한 번씩 포함됩니다. 헤더 바이트는 감사 가능한 텍스트로 계산하지 않습니다.
+CLI, JSON, 대시보드 요약은 `binaryFiles`, `skippedFiles`, `oversizedFiles`를 별도로 보고합니다. `skippedFiles`는 전체 텍스트 분석을 하지 않은 파일(읽기 실패, 바이너리, 미지원 확장자, 크기 초과, 숨김 디렉터리의 일반 파일)입니다. `binaryFiles`는 바이너리·아카이브 형식 및 NUL을 포함한 헤더를 셉니다. 크기 초과 바이너리는 각 카운터에 한 번씩 포함됩니다. 헤더 바이트는 감사 가능한 텍스트로 계산하지 않습니다. Markdown 보고서에는 `Skipped files` 요약 행과 `File coverage by resource` 표가 추가되고, SARIF run은 리소스별 개수를 `runs[].properties.skillshareCoverage`에 담습니다.
 
 ### 출력
 

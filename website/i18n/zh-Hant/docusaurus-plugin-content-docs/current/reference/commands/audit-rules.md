@@ -112,7 +112,7 @@ rules:
 | `regex` | 是* | 用於比對每一行的正規表示式 |
 | `confidence` | 否 | 0 到 1 的信心度；預設為 0.95 |
 | `exclude` | 否 | 若一行同時符合 `regex` 與 `exclude`，該發現項目會被抑制 |
-| `files` | 否 | 限制規則適用檔案的 glob 模式；詳見下方檔案範圍說明。 |
+| `files` | 否 | 限制規則適用檔案的 glob 模式；詳見[檔案適用範圍](#file-applicability)。 |
 | `enabled` | 否 | 設為 `false` 以停用規則。停用時只需要 `id`。 |
 
 *除非 `enabled: false`，否則為必要欄位。

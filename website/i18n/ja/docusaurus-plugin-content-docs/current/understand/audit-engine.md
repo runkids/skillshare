@@ -451,7 +451,7 @@ Analyzability が **70%** を下回ると、audit エンジンはパターン `l
 
 1 MB 以下のバイナリ・未対応ファイルは `totalBytes` に含め、`auditableBytes` には含めません。サイズ超過ファイルはディレクトリのバイト比率から除外し、内部メタデータと対象外パスも計算しません。
 
-CLI・JSON・ダッシュボードのサマリーは `binaryFiles`、`skippedFiles`、`oversizedFiles` を別々に報告します。`skippedFiles` は全文テキスト解析をしなかったファイル（読み取り失敗、バイナリ、未対応拡張子、サイズ超過、隠しディレクトリ内の通常ファイル）です。`binaryFiles` はバイナリ・アーカイブ形式と NUL を含むヘッダーを数えます。サイズ超過バイナリは各カウンターに 1 回ずつ加算します。ヘッダーのバイトは解析可能なテキストに含めません。
+CLI・JSON・ダッシュボードのサマリーは `binaryFiles`、`skippedFiles`、`oversizedFiles` を別々に報告します。`skippedFiles` は全文テキスト解析をしなかったファイル（読み取り失敗、バイナリ、未対応拡張子、サイズ超過、隠しディレクトリ内の通常ファイル）です。`binaryFiles` はバイナリ・アーカイブ形式と NUL を含むヘッダーを数えます。サイズ超過バイナリは各カウンターに 1 回ずつ加算します。ヘッダーのバイトは解析可能なテキストに含めません。Markdown レポートには `Skipped files` のサマリー行と `File coverage by resource` の表が加わり、SARIF の run はリソースごとの件数を `runs[].properties.skillshareCoverage` に持ちます。
 
 ### 出力
 

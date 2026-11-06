@@ -112,7 +112,7 @@ rules:
 | `regex` | Yes* | Regular expression to match against each line |
 | `confidence` | No | Confidence between 0 and 1; defaults to 0.95 |
 | `exclude` | No | If a line matches both `regex` and `exclude`, the finding is suppressed |
-| `files` | No | File glob patterns that limit where the rule applies; see File Scoping below. |
+| `files` | No | File glob patterns that limit where the rule applies; see [File Applicability](#file-applicability). |
 | `enabled` | No | Set to `false` to disable a rule. Only `id` is required when disabling. |
 
 *Required unless `enabled: false`.
