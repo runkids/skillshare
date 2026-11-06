@@ -28,6 +28,17 @@ skillshare audit --analyzer static      # static 분석기만 실행
 skillshare audit --analyzer static --analyzer dataflow  # 여러 분석기
 ```
 
+## 표시할 최소 심각도
+
+```bash
+skillshare audit --min-severity high
+skillshare audit --format markdown --min-severity medium
+```
+
+`--min-severity <level>`은 `critical`, `high`, `medium`, `low`, `info` 중 지정한 수준 이상의 결과를 표시합니다(대소문자 무시, `h` 같은 별칭 지원). 기본값은 모든 결과를 표시합니다. 터미널(TUI 포함)과 Markdown 표 및 코드 조각에만 적용되며, 모든 결과가 숨겨져도 표시/숨김 개수를 보여 줍니다. 점수, `summary.maxSeverity`, 차단 판단, 종료 코드, 스캔 오류 및 불완전한 스캔 경고는 전체 결과를 유지합니다. JSON과 SARIF는 이 플래그를 무시하며 추가 메타데이터 없이 전체 출력을 그대로 유지합니다.
+
+대시보드에서 심각도 필터를 **최소 심각도**로 바꾸고 심각도 개수를 선택하면 해당 수준 이상을 표시합니다. **정확한 심각도**는 기존의 정확히 일치하는 선택을 유지합니다. 선택한 심각도를 다시 클릭하면 선택이 해제됩니다. 선택이 없으면 LOW/INFO 접기가 유지되며 숨김 개수에 포함됩니다. 필터는 재스캔하거나 정책, 점수, 차단 상태를 변경하지 않습니다.
+
 ## 사용 시점
 
 - 새 skill 설치 후 보안 findings 검토
@@ -333,6 +344,7 @@ audit는 skill 디렉터리 내 텍스트 기반 파일을 스캔합니다:
 | `-p`, `--project` | project 수준 skill 스캔 |
 | `-g`, `--global` | global skill 스캔 |
 | `--threshold` `<t>`, `-T` `<t>` | 차단 threshold: `critical`\|`high`\|`medium`\|`low`\|`info` (약어: `c`\|`h`\|`m`\|`l`\|`i`, 그리고 `crit`, `med`) |
+| `--min-severity <level>` | 지정 심각도 이상 표시. 점수, 차단 및 기계 판독 출력은 유지 |
 | `--profile` `<p>` | Audit 프로파일 프리셋: `default`, `strict`, `permissive` |
 | `--dedupe` `<mode>` | Dedup 모드: `legacy`, `global` (기본값) |
 | `--analyzer` `<id>` | 지정한 분석기만 실행 (반복 가능). ID: `static`, `dataflow`, `tier`, `integrity`, `metadata`, `structure`, `cross-skill` |

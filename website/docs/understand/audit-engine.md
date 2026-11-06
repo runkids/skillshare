@@ -318,6 +318,8 @@ Even though a CRITICAL finding is present, the score reflects the aggregate risk
 
 In other words, block decisions are **severity-threshold based**, while aggregate risk is **score/label based** for triage context.
 
+Use `skillshare audit --min-severity HIGH` to hide lower-severity findings in text, TUI, and Markdown output. This inclusive display floor does not change blocking, risk scores, exit codes, JSON, or SARIF. Use `--threshold` to change the blocking threshold instead.
+
 ### Blocking vs Risk: Decision Algorithms
 
 skillshare computes two related but independent decisions:

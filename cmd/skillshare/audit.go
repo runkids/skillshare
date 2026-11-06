@@ -49,6 +49,7 @@ type auditOptions struct {
 	Yes             bool
 	NoTUI           bool
 	Threshold       string
+	MinSeverity     string   // display-only; never used by policy or machine output
 	Profile         string   // --profile: default/strict/permissive
 	Dedupe          string   // --dedupe: legacy/global
 	Analyzers       []string // --analyzer: repeatable allowlist
@@ -139,7 +140,7 @@ func cmdAudit(args []string) (err error) {
 	}()
 	start := time.Now()
 
-	mode, rest, err := parseModeArgs(args, "--format", "--threshold", "-T", "--group", "-G", "--profile", "--dedupe", "--analyzer", "--pattern", "--severity")
+	mode, rest, err := parseModeArgs(args, "--format", "--min-severity", "--threshold", "-T", "--group", "-G", "--profile", "--dedupe", "--analyzer", "--pattern", "--severity")
 	if err != nil {
 		return err
 	}
@@ -268,9 +269,9 @@ func cmdAudit(args []string) (err error) {
 	case !hasTargets:
 		results, summary, err = auditInstalled(sourcePath, agentsSourcePath, modeString(mode), projectRoot, threshold, kind, opts, registry)
 	case isSinglePath:
-		results, summary, err = auditPath(opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, opts.PolicyLine, registry, opts.skillsWalk.Follow)
+		results, summary, err = auditPath(opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, opts.PolicyLine, opts.MinSeverity, registry, opts.skillsWalk.Follow)
 	case isSingleName:
-		results, summary, err = auditSkillByName(auditScanRoot(kind, sourcePath, agentsSourcePath), opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, opts.PolicyLine, kind, registry, opts.skillsWalk)
+		results, summary, err = auditSkillByName(auditScanRoot(kind, sourcePath, agentsSourcePath), opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, opts.PolicyLine, kind, registry, opts.skillsWalk, opts.MinSeverity)
 	default:
 		results, summary, err = auditFiltered(sourcePath, agentsSourcePath, opts.Targets, opts.Groups, modeString(mode), projectRoot, threshold, kind, opts, registry)
 	}
@@ -313,7 +314,9 @@ func cmdAudit(args []string) (err error) {
 		}, "", "  ")
 		fmt.Println(string(out))
 	case formatMarkdown:
-		md := audit.ToMarkdown(results, summary.toMarkdownOptions())
+		mdOpts := summary.toMarkdownOptions()
+		mdOpts.MinSeverity = opts.MinSeverity
+		md := audit.ToMarkdown(results, mdOpts)
 		fmt.Print(md)
 	}
 
@@ -355,6 +358,16 @@ func parseAuditArgs(args []string) (auditOptions, bool, error) {
 			opts.Yes = true
 		case "--no-tui":
 			opts.NoTUI = true
+		case "--min-severity":
+			if i+1 >= len(args) {
+				return opts, false, fmt.Errorf("%s requires a value", arg)
+			}
+			i++
+			severity, err := audit.NormalizeSeverity(args[i])
+			if err != nil {
+				return opts, false, fmt.Errorf("--min-severity: %w", err)
+			}
+			opts.MinSeverity = severity
 		case "--threshold", "-T":
 			if i+1 >= len(args) {
 				return opts, false, fmt.Errorf("%s requires a value", arg)
@@ -593,6 +606,7 @@ func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold s
 	if len(skillPaths) == 0 {
 		if spinner != nil {
 			ui.Done(ui.MarkNone, fmt.Sprintf("No %s found", kind.Noun(2)), 0)
+			printAuditDisplayCounts(nil, opts.MinSeverity)
 		}
 		return []*audit.Result{}, base, nil
 	}
@@ -827,7 +841,7 @@ func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, 
 	return results, summary, nil
 }
 
-func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format, policyLine string, kind resourceKindFilter, reg *audit.Registry, skillsWalk sourcewalk.Options) ([]*audit.Result, auditRunSummary, error) {
+func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format, policyLine string, kind resourceKindFilter, reg *audit.Registry, skillsWalk sourcewalk.Options, minSeverity string) ([]*audit.Result, auditRunSummary, error) {
 	summary := auditRunSummary{
 		Scope:     "single",
 		Skill:     name,
@@ -864,13 +878,13 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format, po
 	summary.Mode = mode
 	if format == formatText {
 		printAuditHeader(mode, sourcePath, threshold, policyLine)
-		printSkillResult(result, kind, elapsed)
+		printSkillResult(result, kind, elapsed, minSeverity)
 	}
 
 	return []*audit.Result{result}, summary, nil
 }
 
-func auditPath(rawPath, mode, projectRoot, threshold, format, policyLine string, reg *audit.Registry, follow ...*sourcewalk.Follow) ([]*audit.Result, auditRunSummary, error) {
+func auditPath(rawPath, mode, projectRoot, threshold, format, policyLine, minSeverity string, reg *audit.Registry, follow ...*sourcewalk.Follow) ([]*audit.Result, auditRunSummary, error) {
 	absPath, err := filepath.Abs(rawPath)
 	if err != nil {
 		absPath = rawPath
@@ -899,7 +913,7 @@ func auditPath(rawPath, mode, projectRoot, threshold, format, policyLine string,
 	summary.Mode = mode
 	if format == formatText {
 		printAuditHeader(mode, absPath, threshold, policyLine)
-		printSkillResult(result, kindSkills, elapsed)
+		printSkillResult(result, kindSkills, elapsed, minSeverity)
 	}
 	return []*audit.Result{result}, summary, nil
 }

@@ -287,6 +287,10 @@ def "nu-complete skillshare audit-threshold" [] {
     ["low" "medium" "high" "critical"]
 }
 
+def "nu-complete skillshare audit-min-severity" [] {
+    ["critical" "high" "medium" "low" "info"]
+}
+
 def "nu-complete skillshare audit-format" [] {
     ["text" "json" "sarif" "markdown"]
 }
@@ -642,6 +646,7 @@ export extern "skillshare trash" [
 
 # Audit
 export extern "skillshare audit" [
+    --min-severity: string@"nu-complete skillshare audit-min-severity" # Display minimum severity
     subcommand?: string@"nu-complete skillshare audit"
     --init-rules             # Initialize audit rules
     --json                   # JSON output

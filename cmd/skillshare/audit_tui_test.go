@@ -19,7 +19,7 @@ func testAuditModel() auditTUIModel {
 		{SkillName: "docs"},
 	}
 	summary := auditRunSummary{Mode: "global", Scanned: 2, Passed: 1, Failed: 1}
-	m := newAuditTUIModel(results, nil, summary, nil, nil, auditRunSummary{}, auditTabSkills)
+	m := newAuditTUIModel(results, nil, summary, nil, nil, auditRunSummary{}, auditTabSkills, "")
 	m.termWidth = 120
 	return m
 }
@@ -30,6 +30,19 @@ func TestAuditTitleLine_ShowsScopeCountsAndTabs(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("title line %q is missing %q", got, want)
 		}
+	}
+}
+
+func TestAuditTitleLine_ShowsScanErrorsPerTab(t *testing.T) {
+	m := newAuditTUIModel(nil, nil, auditRunSummary{ScanErrors: 2}, nil, nil, auditRunSummary{ScanErrors: 1}, auditTabSkills, "HIGH")
+	m.termWidth = 120
+	if got := xansi.Strip(m.renderTitleLine()); !strings.Contains(got, "2 scan errors") {
+		t.Fatalf("skills title missing scan errors: %q", got)
+	}
+	m.activeTab = auditTabAgents
+	m.switchTab()
+	if got := xansi.Strip(m.renderTitleLine()); !strings.Contains(got, "1 scan error") {
+		t.Fatalf("agents title missing scan error: %q", got)
 	}
 }
 
@@ -65,7 +78,7 @@ func auditModelWithFiles(t *testing.T) auditTUIModel {
 		{Severity: "MEDIUM", Pattern: "env-access", File: "SKILL.md", Line: 3},
 		{Severity: "CRITICAL", Pattern: "curl-pipe-shell", File: "scripts/run.sh", Line: 50},
 	}}}
-	m := newAuditTUIModel(results, nil, auditRunSummary{Scanned: 1}, nil, nil, auditRunSummary{}, auditTabSkills)
+	m := newAuditTUIModel(results, nil, auditRunSummary{Scanned: 1}, nil, nil, auditRunSummary{}, auditTabSkills, "")
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
 	return next.(auditTUIModel)
 }

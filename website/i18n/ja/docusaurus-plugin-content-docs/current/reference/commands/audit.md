@@ -28,6 +28,17 @@ skillshare audit --analyzer static      # static analyzer のみ実行
 skillshare audit --analyzer static --analyzer dataflow  # 複数の analyzer
 ```
 
+## 表示する最低重大度
+
+```bash
+skillshare audit --min-severity high
+skillshare audit --format markdown --min-severity medium
+```
+
+`--min-severity <level>` は `critical`、`high`、`medium`、`low`、`info` の指定値以上の検出結果を表示します（大文字小文字を区別せず、`h` などの略称も使用可能）。既定ではすべて表示します。端末（TUI を含む）と Markdown の表・スニペットだけに適用され、すべて非表示でも表示件数と非表示件数を示します。スコア、`summary.maxSeverity`、ブロック判定、終了コード、スキャンエラー、不完全なスキャンの警告は全結果に基づきます。JSON と SARIF はこのフラグを無視し、追加メタデータなしで完全な出力を維持します。
+
+ダッシュボードでは重大度フィルターを「最低重大度」に切り替え、重大度の件数を選択すると、その値以上を表示します。「指定した重大度のみ」は従来の完全一致選択です。選択中の重大度を再度クリックすると解除されます。未選択時は LOW/INFO の折りたたみを維持し、非表示件数に含めます。フィルターは再スキャンやポリシー、スコア、ブロック状態を変更しません。
+
 ## 使うタイミング
 
 - 新しい Skill をインストールした後にセキュリティの findings を確認する
@@ -333,6 +344,7 @@ audit は Skill ディレクトリ内のテキストベースのファイルを�
 | `-p`, `--project` | project レベルの Skill をスキャン |
 | `-g`, `--global` | グローバルな Skill をスキャン |
 | `--threshold` `<t>`, `-T` `<t>` | ブロック閾値: `critical`\|`high`\|`medium`\|`low`\|`info`（省略形: `c`\|`h`\|`m`\|`l`\|`i`、加えて `crit`, `med`） |
+| `--min-severity <level>` | 指定した重大度以上を表示。スコア・判定・機械可読出力は変更しません |
 | `--profile` `<p>` | Audit プロファイルのプリセット: `default`, `strict`, `permissive` |
 | `--dedupe` `<mode>` | 重複排除モード: `legacy`, `global`（デフォルト） |
 | `--analyzer` `<id>` | 指定した analyzer のみ実行（複数指定可）。ID: `static`, `dataflow`, `tier`, `integrity`, `metadata`, `structure`, `cross-skill` |

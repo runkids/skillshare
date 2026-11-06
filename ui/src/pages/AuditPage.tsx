@@ -14,13 +14,12 @@ import { formatRelativeTime, useI18n, useT, plural } from '../i18n';
 import { getCachedAuditResult } from '../lib/auditCache';
 import { queryKeys } from '../lib/queryKeys';
 import { useOverviewQuery } from '../hooks/useSharedQueries';
+import { AUDIT_SEVERITIES as SEVERITIES, auditSeverityRank as rank, displayAuditFindings } from '../lib/auditDisplay';
 
 type Kind = 'skills' | 'agents';
 type Severity = AuditFinding['severity'];
 
-const SEVERITIES: Severity[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
 const SEV_CLASS: Record<Severity, string> = { CRITICAL: 'c', HIGH: 'h', MEDIUM: 'md', LOW: 'l', INFO: 'n' };
-const rank = (s: Severity) => SEVERITIES.indexOf(s);
 // Cross-skill analysis is a derived insight, not a scanned resource.
 const CROSS_SKILL = '_cross-skill';
 // LOW and INFO are the long tail; they stay behind a per-resource expander.
@@ -29,12 +28,14 @@ const MINOR = rank('MEDIUM');
 export default function AuditPage() {
   const t = useT();
   const { locale } = useI18n();
+  const severityLabels: Record<Severity, string> = { CRITICAL: t('audit.severity.critical'), HIGH: t('audit.severity.high'), MEDIUM: t('audit.severity.medium'), LOW: t('audit.severity.low'), INFO: t('audit.severity.info') };
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const overview = useOverviewQuery();
 
   const [kind, setKind] = useState<Kind>('skills');
   const [only, setOnly] = useState<Severity | null>(null);
+  const [minimum, setMinimum] = useState(false);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [scanning, setScanning] = useState(false);
   const [progress, setProgress] = useState<{ scanned: number; total: number } | null>(null);
@@ -96,10 +97,13 @@ export default function AuditPage() {
 
   const results = (data?.results ?? [])
     .filter((r) => r.skillName !== CROSS_SKILL && (r.findings.length > 0 || (r.skippedFiles ?? 0) > 0))
-    .map((r) => ({ ...r, findings: [...r.findings].sort((a, b) => rank(a.severity) - rank(b.severity)) }))
-    .filter((r) => !only || r.findings.some((f) => f.severity === only))
-    .sort((a, b) => (a.findings.length ? rank(a.findings[0].severity) : 999) - (b.findings.length ? rank(b.findings[0].severity) : 999) || b.riskScore - a.riskScore);
+    .map((r) => ({ ...r, findings: displayAuditFindings(r.findings, only, minimum)
+      .sort((a, b) => rank(a.severity) - rank(b.severity)) }))
+    .filter((r) => (minimum && only !== null && r.isBlocked) || r.findings.length > 0 || (!only && (r.skippedFiles ?? 0) > 0))
+    .sort((a, b) => (a.findings[0] ? rank(a.findings[0].severity) : SEVERITIES.length) - (b.findings[0] ? rank(b.findings[0].severity) : SEVERITIES.length) || b.riskScore - a.riskScore);
   const findingCount = (data?.results ?? []).reduce((n, r) => n + (r.skillName === CROSS_SKILL ? 0 : r.findings.length), 0);
+
+  const visibleCount = results.reduce((n, r) => n + displayAuditFindings(r.findings, null, false, !!only || open.has(r.skillName)).length, 0);
 
   const header = (
     <PageHeader
@@ -184,8 +188,9 @@ export default function AuditPage() {
                     type="button"
                     className="!py-3.5 text-left"
                     aria-pressed={only === s}
-                    disabled={n === 0}
-                    title={t(only === s ? 'audit.filter.clear' : 'audit.filter.only', { severity: s })}
+                    aria-label={t('audit.filter.severityCount', { count: n, severity: severityLabels[s] })}
+                    disabled={n === 0 && !minimum && only !== s}
+                    title={t(only === s ? 'audit.filter.clear' : minimum ? 'audit.filter.minimumHint' : 'audit.filter.only', { severity: s })}
                     onClick={() => setOnly(only === s ? null : s)}
                   >
                     <span className="flex flex-col items-start gap-1.5">
@@ -207,7 +212,21 @@ export default function AuditPage() {
             </div>
           </div>
 
+          <div className="flex flex-wrap items-center gap-3">
+            <Select
+              label={t('audit.filter.label')}
+              value={minimum ? 'minimum' : 'exact'}
+              onChange={(value) => setMinimum(value === 'minimum')}
+              options={[
+                { value: 'exact', label: t('audit.filter.exact') },
+                { value: 'minimum', label: t('audit.filter.minimum') },
+              ]}
+            />
+            <span className="text-[13px] text-ink-2" aria-live="polite">{t('audit.filter.counts', { visible: visibleCount, hidden: findingCount - visibleCount })}</span>
+          </div>
+
           {findingCount === 0 && results.length === 0 ? (
+
             <EmptyState icon={ShieldCheck} title={t(kind === 'agents' ? 'audit.empty.clean.agents' : 'audit.empty.clean.skills')} description={t('audit.empty.clean.hint', { threshold: data.summary.threshold })} />
           ) : (
             <div className="ss-list">
@@ -270,7 +289,7 @@ function ResultGroup({ result, kind, only, expanded, onToggle, onIgnore }: {
   onIgnore: (f: AuditFinding) => void;
 }) {
   const t = useT();
-  const shown = only ? result.findings.filter((f) => f.severity === only) : result.findings.filter((f) => expanded || rank(f.severity) <= MINOR);
+  const shown = displayAuditFindings(result.findings, null, false, !!only || expanded);
   const hidden = only ? 0 : result.findings.length - result.findings.filter((f) => rank(f.severity) <= MINOR).length;
 
   return (
