@@ -89,6 +89,8 @@ func presentAuditResults(results []*audit.Result, elapsed []time.Duration, scanO
 	}
 
 	if useTUI {
+		// The warnings printed before the TUI are hidden while it is open.
+		summary.addSourceLinkWarnings(opts.skillsWalk)
 		if tuiCtx != nil {
 			tuiCtx.minSeverity = opts.MinSeverity
 			return launchAuditTUIWithTabs(results, scanOutputs, summary, tuiCtx)
@@ -155,6 +157,9 @@ func launchAuditTUIWithTabs(results []*audit.Result, scanOutputs []audit.ScanOut
 	}
 
 	otherSummary.ScanErrors = otherScanErrors
+	if otherKindFilter == kindSkills {
+		otherSummary.addSourceLinkWarnings(ctx.skillsWalk)
+	}
 
 	// Filter out synthetic _cross-skill result — it's not a real resource.
 	var filteredResults []*audit.Result

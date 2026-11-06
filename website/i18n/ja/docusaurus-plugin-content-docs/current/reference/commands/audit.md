@@ -348,7 +348,7 @@ audit は Skill ディレクトリ内のテキストベースのファイルを�
 | `--profile` `<p>` | Audit プロファイルのプリセット: `default`, `strict`, `permissive` |
 | `--dedupe` `<mode>` | 重複排除モード: `legacy`, `global`（デフォルト） |
 | `--analyzer` `<id>` | 指定した analyzer のみ実行（複数指定可）。ID: `static`, `dataflow`, `tier`, `integrity`, `metadata`, `structure`, `cross-skill` |
-| `--format` `<f>` | 出力フォーマット: `text`（デフォルト）, `json`, `sarif`, `markdown`。[たどられた source リンク](../targets/configuration.md#follow_source_links)を読み取れなかった場合、JSON には `warnings` と `incomplete: true` が追加され、部分的なスキャンが完全なスキャンと誤認されないようになります |
+| `--format` `<f>` | 出力フォーマット: `text`（デフォルト）, `json`, `sarif`, `markdown`。[たどられた source リンク](../targets/configuration.md#follow_source_links)を読み取れなかった場合、JSON には `warnings` と `incomplete: true` が追加され、部分的なスキャンが完全なスキャンと誤認されないようになります。Markdown ではそのリンクを **Source links not followed** に列挙し、TUI のサマリー行にはその件数が表示されます |
 | `--json` | JSON を出力（**非推奨**: `--format json` を使用） |
 | `--yes`, `-y` | 大規模スキャンの確認プロンプトをスキップ（自動確認） |
 | `--quiet`, `-q` | findings のある Skill とサマリーのみ表示（クリーンな ✓ 行を抑制） |

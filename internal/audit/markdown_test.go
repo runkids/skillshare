@@ -278,3 +278,30 @@ func TestMarkdownCoverageIncludesCleanResources(t *testing.T) {
 		t.Fatalf("missing resource coverage: %s", result)
 	}
 }
+
+func TestToMarkdown_SourceLinkWarningsSurviveTheFloor(t *testing.T) {
+	t.Parallel()
+
+	md := ToMarkdown(nil, MarkdownOptions{
+		Mode:           "global",
+		Threshold:      "CRITICAL",
+		RiskLabel:      "clean",
+		MinSeverity:    SeverityCritical,
+		SourceWarnings: []string{"source link _dev not followed: target is missing"},
+		Incomplete:     true,
+	})
+
+	if !strings.Contains(md, "**Incomplete scan:**") || !strings.Contains(md, "- source link _dev not followed: target is missing\n") {
+		t.Fatal(md)
+	}
+}
+
+func TestToMarkdown_NoSourceLinkSection(t *testing.T) {
+	t.Parallel()
+
+	md := ToMarkdown(nil, MarkdownOptions{Mode: "global", Threshold: "CRITICAL", RiskLabel: "clean"})
+
+	if strings.Contains(md, "Source links") {
+		t.Fatal(md)
+	}
+}

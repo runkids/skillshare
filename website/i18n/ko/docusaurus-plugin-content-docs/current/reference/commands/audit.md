@@ -348,7 +348,7 @@ audit는 skill 디렉터리 내 텍스트 기반 파일을 스캔합니다:
 | `--profile` `<p>` | Audit 프로파일 프리셋: `default`, `strict`, `permissive` |
 | `--dedupe` `<mode>` | Dedup 모드: `legacy`, `global` (기본값) |
 | `--analyzer` `<id>` | 지정한 분석기만 실행 (반복 가능). ID: `static`, `dataflow`, `tier`, `integrity`, `metadata`, `structure`, `cross-skill` |
-| `--format` `<f>` | 출력 형식: `text` (기본값), `json`, `sarif`, `markdown`. [따라간 source 링크](../targets/configuration.md#follow_source_links)를 읽을 수 없을 때 JSON에는 `warnings`와 `incomplete: true`가 추가되어, 부분 스캔이 전체 스캔으로 오인되지 않습니다 |
+| `--format` `<f>` | 출력 형식: `text` (기본값), `json`, `sarif`, `markdown`. [따라간 source 링크](../targets/configuration.md#follow_source_links)를 읽을 수 없을 때 JSON에는 `warnings`와 `incomplete: true`가 추가되어, 부분 스캔이 전체 스캔으로 오인되지 않습니다. Markdown은 해당 링크를 **Source links not followed** 아래에 나열하고, TUI 요약 줄에는 그 개수가 표시됩니다 |
 | `--json` | JSON 출력 (**사용 중단 예정**: `--format json` 사용) |
 | `--yes`, `-y` | 대규모 스캔 확인 프롬프트 건너뛰기 (자동 확인) |
 | `--quiet`, `-q` | findings가 있는 skill과 요약만 표시 (정상 ✓ 줄 숨김) |

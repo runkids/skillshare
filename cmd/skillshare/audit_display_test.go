@@ -58,3 +58,12 @@ func TestAuditTUIFloorKeepsCleanResources(t *testing.T) {
 		t.Fatal(m.allItems)
 	}
 }
+
+func TestAuditTUIShowsIncompleteScan(t *testing.T) {
+	summary := auditRunSummary{Scanned: 2, SourceWarnings: []string{"source link _dev not followed: target is missing"}, Incomplete: true}
+	m := newAuditTUIModel([]*audit.Result{{SkillName: "a"}, {SkillName: "b"}}, nil, summary, nil, nil, auditRunSummary{}, auditTabSkills, audit.SeverityHigh)
+	m.termWidth = 180
+	if note := m.renderSummaryNote(); !strings.Contains(note, "scan incomplete: 1 source link not followed") {
+		t.Fatal(note)
+	}
+}
