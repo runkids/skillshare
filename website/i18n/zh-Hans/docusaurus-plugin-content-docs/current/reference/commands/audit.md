@@ -137,7 +137,7 @@ skillshare audit --analyzer static --analyzer dataflow # 使用多个分析器
 | `tier` | 逐 skill | 能力分级组合风险分析 |
 | `integrity` | 逐 skill | 内容哈希校验（SKILL.md 中的 `file_hashes`） |
 | `metadata` | 逐 skill | 供应链信任校验（发布者不匹配、权威性声明） |
-| `structure` | 逐 skill | 检查本地 Markdown 链接/图片和显式声明的捆绑路径是否缺失，并检测指向根目录外的引用 |
+| `structure` | 逐 skill | 检查本地 Markdown 链接/图片和显式声明的捆绑路径是否缺失，并检测指向根目录外的引用; [随附的 hooks 与设置](/docs/understand/audit-engine#bundled-hooks-and-settings) |
 | `cross-skill` | 整批 | 跨 skill 的外泄与权限提升分析 |
 
 你也可以在配置中设置：
@@ -323,7 +323,7 @@ audit 会扫描 skill 目录中的文本类文件：
 
 文本扫描跳过隐藏目录，在其余 skill 目录内递归进行，因此 `SKILL.md`、嵌套的 `references/*.md` 以及 `scripts/*.sh` 只要匹配受支持的文本文件类型，都会被检查。
 
-文本过滤前，audit 对每个普通文件读取前 512 字节头部，分类可执行格式、CPython 字节码、ZIP/JAR 和伪装的 shebang 脚本。隐藏目录仅进行头部分类，`__pycache__` 也在范围内。文件符号链接保留原有文本扫描；`.git`、`.skillshare`、内部及操作系统元数据、链接和特殊文件不读取头部。二进制及超大文件不进行全文文本分析。摘要报告 `binaryFiles`、`skippedFiles`、`oversizedFiles`，计数可重叠。分类不分析运行行为或归档内容。格式、严重性及限制见[可执行文件和归档头部](../../understand/audit-engine.md#executable-headers)。 PE 头部超出窗口时，在指定偏移处额外读取有限字节。
+文本过滤前，audit 对每个普通文件读取前 512 字节头部，分类可执行格式、CPython 字节码、ZIP/JAR 和伪装的 shebang 脚本。隐藏目录仅进行头部分类，`__pycache__` 也在范围内。文件符号链接保留原有文本扫描；`.git`、`.skillshare`、内部及操作系统元数据、链接和特殊文件不读取头部。二进制及超大文件不进行全文文本分析。摘要报告 `binaryFiles`、`skippedFiles`、`oversizedFiles`，计数可重叠。分类不分析运行行为或归档内容。格式、严重性及限制见[可执行文件和归档头部](../../understand/audit-engine.md#executable-headers)。 PE 头部超出窗口时，在指定偏移处额外读取有限字节。 structure 分析器还会读取 skill 内的 `.claude/settings.json` 和 `.claude/settings.local.json`，用于[随附的 hooks 与设置](../../understand/audit-engine.md#bundled-hooks-and-settings)。
 
 ## 选项
 

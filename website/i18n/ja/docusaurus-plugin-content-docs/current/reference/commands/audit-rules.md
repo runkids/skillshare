@@ -287,10 +287,18 @@ skillshare audit --json | jq '.skills[].findings'  # findings をプログラム
 
 `dangling-link`、`reference-escapes-root`、`reference-check-incomplete`、`content-tampered`、`content-oversize`、`content-missing`、`content-unexpected` は**構造チェック**です（正規表現ではなく、ファイルシステムの検索とハッシュ比較）。`low-analyzability` は [Analyzability Score](/docs/understand/audit-engine#analyzability-score) から生成される**分析可能性の finding** です。`tier-stealth`、`tier-destructive-network`、`tier-network-heavy`、`tier-interpreter`、`tier-interpreter-network` は、[Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) プロファイルから生成される**ティアの組み合わせの finding** です。`cross-skill-*` の findings は、[Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection) から生成されます。ヘッダー検査では、[Executable and archive headers](/docs/understand/audit-engine#executable-headers) で説明されている `disguised-executable`、`python-bytecode`、`executable-artifact`、`archive-artifact`、`uncertain-header` も生成されます。これらはすべて下記の表に記載されていますが、`rules.yaml` には定義されていません。
 
+`bundled-*` は `structure` の構造化 JSON チェックです。ルール一覧、無効化、重大度の上書きに対応し、メタデータの正規表現はテキストに一致しません。 [同梱フックと設定](/docs/understand/audit-engine#bundled-hooks-and-settings)。
+
 :::
 
 | ID | パターン | 重大度 |
 |----|---------|----------|
+| `bundled-hook-command` | bundled-hook-command | MEDIUM |
+| `bundled-network-command` | bundled-network-command | HIGH |
+| `bundled-remote-post` | bundled-remote-post | HIGH |
+| `bundled-permission` | bundled-permission | HIGH |
+| `bundled-helper-command` | bundled-helper-command | HIGH |
+| `bundled-config-unparsed` | bundled-config-unparsed | INFO |
 | `prompt-injection-0` | prompt-injection | CRITICAL |
 | `prompt-injection-1` | prompt-injection | CRITICAL |
 | `prompt-injection-2` | prompt-injection | HIGH |

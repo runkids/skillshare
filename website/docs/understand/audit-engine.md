@@ -411,6 +411,25 @@ _cross-skill
   HIGH  stealth skill cleaner installed alongside high-risk skill backdoor — evasion risk
 ```
 
+## Bundled hooks and settings {#bundled-hooks-and-settings}
+
+The `structure` analyzer inspects exactly `hooks.json`, `hooks/hooks.json`, `.claude/settings.json`, and `.claude/settings.local.json` inside the audited skill. Reads stay within the resolved skill root, accept regular files only, and stop at 1,000,000 bytes per file. Other hidden trees remain excluded. No live user settings are read and no declaration is executed.
+
+Supported hooks use an event map under `hooks` (or a bare event map in `hooks.json`), with arrays of typed command/HTTP hooks (including command hooks with a string `args` array) or matcher groups containing a `hooks` array. Known Claude lifecycle events are supported; unknown events, prompt/agent hooks, malformed JSON, unsupported shapes, unreadable paths, and oversized files produce a coverage diagnostic. Unrelated settings keys are ignored. These findings describe what could run **if activated**; a bundled file does not establish that a client loaded it.
+
+| Rule ID | Default | Meaning |
+|---------|---------|---------|
+| `bundled-hook-command` | MEDIUM | Lifecycle shell command |
+| `bundled-network-command` | HIGH | Recognized network executable, including loopback calls |
+| `bundled-remote-post` | HIGH | HTTP hook or recognized POST/data flag with a non-loopback HTTP(S) destination |
+| `bundled-permission` | HIGH | Unrestricted allow entries (`*`, bare Bash/Read/Write/Edit/WebFetch, their `(*)` forms, or `Bash(:*)`), MCP server-wide tool grants (`mcp__server` or `mcp__server__*`), or `bypassPermissions` mode |
+| `bundled-helper-command` | HIGH | Settings `apiKeyHelper` string or `statusLine` command object |
+| `bundled-config-unparsed` | INFO | Surface was not fully inspected; manual review needed |
+
+A URL mentioned by `echo` is not a network call. Hook commands are parsed as bash, so quoting, comments, command substitutions, loops and `bash -c` scripts are followed; nothing is executed. A command the parser rejects gets a `bundled-config-unparsed` diagnostic and is classified by its words, so a network call in it still counts. Scripts the hook calls and values computed at run time may still need manual review. POST flags and the remote destination must belong to the same network command; a later `grep -F` does not turn a GET into a POST. Network capability and remote POST do not prove exfiltration. Narrow allow entries such as `Bash(npm run test:*)`, `Bash(git diff:*)`, `Read(./docs/**)`, and `mcp__github__get_*`, and deny/ask lists do not trigger the broad-permission rule. Command-valued settings inspection is limited to `apiKeyHelper` and `statusLine` in the two settings files; other command-valued settings are not inspected.
+
+Findings carry the file and event/helper JSON path in `message`. To keep credentials out of all reports and logs, arbitrary command arguments and URLs are redacted before findings leave the scanner; snippets retain a recognized executable, POST/destination-scope evidence, and SHA-256 digests for change tracking. Existing text-rule findings in `hooks.json` and `hooks/hooks.json` are also redacted. This changes their fingerprints and acceptance keys, so previously accepted text findings in those files require acceptance again. Hidden `.claude/settings*.json` files receive declaration analysis only; ordinary text-rule coverage and analyzability byte counts retain their existing hidden-directory exclusions. Inspect the original file locally for the full command. Rule IDs appear in `audit rules` and support normal disabling and severity overrides. INFO diagnostics follow the existing threshold policy: they block only at an INFO threshold unless overridden.
+
 ## Executable and archive headers {#executable-headers}
 
 Before text extension and size filters, the static analyzer checks the first **512 bytes** of each regular file, including hidden directories and `__pycache__`. It recognizes ELF, Mach-O (including universal headers), PE (with a bounded extra read when its header lies beyond that window), WASM version 1, CPython bytecode, ZIP/JAR signatures, and shebang scripts under document, image, configuration or cache paths.

@@ -1,26 +1,25 @@
 package audit
 
-// structureAnalyzer wraps dangling link detection for markdown files.
-// Runs at skill scope after all markdown files have been collected.
+// structureAnalyzer inspects bundled declarations and dangling Markdown links.
+// Runs at skill scope after file collection.
 type structureAnalyzer struct{}
 
 func (a *structureAnalyzer) ID() string           { return AnalyzerStructure }
 func (a *structureAnalyzer) Scope() AnalyzerScope { return ScopeSkill }
 
 func (a *structureAnalyzer) Analyze(ctx *AnalyzeContext) ([]Finding, error) {
+	findings, err := (&bundledAnalyzer{}).Analyze(ctx)
 	if ctx.DisabledIDs["dangling-link"] && ctx.DisabledIDs["reference-escapes-root"] && ctx.DisabledIDs["reference-check-incomplete"] {
-		return nil, nil
+		return findings, err
 	}
 	root := ctx.ReferenceRoot
 	if root == "" {
 		root = ctx.SkillPath
 	}
-	findings := checkBundledReferences(root, ctx.MDFiles, ctx.MDLinks, ctx.SkillPath)
-	kept := findings[:0]
-	for _, f := range findings {
+	for _, f := range checkBundledReferences(root, ctx.MDFiles, ctx.MDLinks, ctx.SkillPath) {
 		if !ctx.DisabledIDs[f.RuleID] {
-			kept = append(kept, f)
+			findings = append(findings, f)
 		}
 	}
-	return kept, nil
+	return findings, err
 }
