@@ -9,6 +9,28 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.29.0] - 2026-11-06
+
+
+### New Features
+
+* **audit:** add a display-only minimum severity ([#751](https://github.com/runkids/skillshare/issues/751)) ([4b31ecc](https://github.com/runkids/skillshare/commit/4b31eccb93a856bc05696b2254affebbe7612628))
+* **audit:** check bundled reference containment ([#754](https://github.com/runkids/skillshare/issues/754)) ([4ededca](https://github.com/runkids/skillshare/commit/4ededca4dd8101f1fa10b2834325f7ed2222e1ea))
+* **audit:** detect sensitive destinations and unsafe deserialization ([#753](https://github.com/runkids/skillshare/issues/753)) ([d699c3e](https://github.com/runkids/skillshare/commit/d699c3ef14b6d7e51bec76c3a3875d9bd464d8a9))
+* **audit:** detect whitespace padding that hides instructions ([#755](https://github.com/runkids/skillshare/issues/755)) ([9b58248](https://github.com/runkids/skillshare/commit/9b5824806e815886ef4df0ce29b1731a6da4b56f))
+* **audit:** identify disguised executable headers ([#756](https://github.com/runkids/skillshare/issues/756)) ([8d0a675](https://github.com/runkids/skillshare/commit/8d0a675b571e133989dce6a7df2fff61df675f11))
+* **audit:** inspect bundled hooks and settings ([#752](https://github.com/runkids/skillshare/issues/752)) ([1c27090](https://github.com/runkids/skillshare/commit/1c27090fd7a707ce7912f511e3e1f08efb57f887))
+* **audit:** keep an incomplete scan visible in Markdown, the TUI and the dashboard ([#786](https://github.com/runkids/skillshare/issues/786)) ([ddc33fb](https://github.com/runkids/skillshare/commit/ddc33fb8c76e4fb0d2abc8fddc5e1431466b9b6d))
+* **herdr:** add a Hooks tab to the skillshare panel ([#780](https://github.com/runkids/skillshare/issues/780)) ([5d05335](https://github.com/runkids/skillshare/commit/5d0533585325f9e7cae231c2a9a68319e704efc4))
+* **herdr:** hide disabled rows, group In sync by source, and split the panel into testable modules ([#782](https://github.com/runkids/skillshare/issues/782)) ([c677291](https://github.com/runkids/skillshare/commit/c677291e3ded3ef25cbd91196c1cd9cca0843317))
+* **ui:** show a skill's branch and switch it from the detail page ([#784](https://github.com/runkids/skillshare/issues/784)) ([5e90cf4](https://github.com/runkids/skillshare/commit/5e90cf4b71ddd2f2518852e68b00ded45f3953af))
+
+
+### Bug Fixes
+
+* **audit:** keep clean resources visible under a display floor ([#785](https://github.com/runkids/skillshare/issues/785)) ([9c916df](https://github.com/runkids/skillshare/commit/9c916df66327fde74bcf9d6d9b0d6fccbe31c73f))
+* **projects:** keep registrations in machine-local state ([#769](https://github.com/runkids/skillshare/issues/769)) ([5dd9925](https://github.com/runkids/skillshare/commit/5dd9925c987985027b2848a0689755347c10f3eb))
+
 ## [0.28.4] - 2026-11-04
 
 ### New Features
