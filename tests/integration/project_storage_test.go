@@ -4,6 +4,7 @@ package integration
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -183,6 +184,24 @@ func TestProjectStorage_RemoveSharedIsLogged(t *testing.T) {
 	if args, _ := logs[len(logs)-1]["args"].(map[string]any); args["shared"] != true {
 		t.Fatalf("remove --shared log args: %v", logs[len(logs)-1])
 	}
+}
+
+// A project v0.29.0 hid comes back under config.yaml's own key, which --sync
+// must use even when the add spelled the folder differently.
+func TestProjectStorage_ReaddHiddenProjectSyncs(t *testing.T) {
+	sb, root := projectFixture(t)
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\nprojects:\n  ~/app:\n    targets: [claude]\n    skills: {}\n")
+	registry, err := config.LocalProjectsPath(sb.ConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(registry), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(registry, []byte("version: 1\nexcluded:\n  - "+root+"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	sb.RunCLI("project", "add", root, "--target", "claude", "--sync", "--json").AssertSuccess(t)
 }
 
 func TestProjectStorage_FlagValidation(t *testing.T) {

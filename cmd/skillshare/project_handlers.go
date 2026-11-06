@@ -100,7 +100,7 @@ func runProject(o projectOptions) error {
 	// A dry run previews the replacement it would otherwise ask about.
 	replace := o.yes || o.dryRun
 	if confirmBeforeLock {
-		confirmedEntry := cfg.Projects[root]
+		confirmed := cfg.ProjectLayerState(root)
 		question, err := projectConfirmation(o, service, root)
 		if err != nil {
 			return err
@@ -128,7 +128,7 @@ func runProject(o projectOptions) error {
 			return err
 		}
 		latestRoot, err := projects.Find(cfg.Projects, o.token, cwd, home)
-		if err != nil || latestRoot != root || !reflect.DeepEqual(confirmedEntry, cfg.Projects[latestRoot]) {
+		if err != nil || latestRoot != root || !reflect.DeepEqual(confirmed, cfg.ProjectLayerState(latestRoot)) {
 			return fmt.Errorf("project changed while confirming; retry project %s", o.action)
 		}
 	}
@@ -193,7 +193,12 @@ func runProject(o projectOptions) error {
 		if o.sync {
 			// Dry-run sync must use the unsaved candidate, including renamed targets.
 			cfg = result.Expanded
-			synced, syncErr := syncProject(cfg, root, o.dryRun)
+			// Re-adding a hidden project restores config.yaml's key, which may be spelled differently.
+			syncRoot := root
+			if result.Item != nil {
+				syncRoot = result.Item.Root
+			}
+			synced, syncErr := syncProject(cfg, syncRoot, o.dryRun)
 			result.Sync = synced
 			if synced != nil {
 				result.Warnings = append(result.Warnings, synced.Warnings...)

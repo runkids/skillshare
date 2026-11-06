@@ -5,6 +5,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -357,4 +358,34 @@ func prepareLocal(path string, cfg *Config, entries map[string]ManagedProject) (
 		}
 		return nil
 	})
+}
+
+// Sharing a local project leaves the merged entry unchanged, so a command that
+// confirmed before the share must compare each layer, not the merged view.
+func TestProjectLayerStateSeesOwnershipChange(t *testing.T) {
+	cfg, root, err := loadWithProjects(t, "  $ROOT/app:\n    targets: [claude]\n    skills: {}\n", "app")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path, app := ConfigPath(), filepath.Join(root, "app")
+	local := ManagedProject{Targets: []string{"codex"}, Skills: &ResourceTargetConfig{}}
+	write := func(edit func(*ProjectLayers)) *Config {
+		t.Helper()
+		c, err := PrepareProjectLayers(path, cfg, func(l *ProjectLayers) error { edit(l); return nil })
+		if err == nil {
+			err = c.Write()
+		}
+		if err == nil {
+			cfg, err = LoadReadOnlyPath(path)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		return cfg
+	}
+	before := write(func(l *ProjectLayers) { l.SetLocal(app, local) }).ProjectLayerState(app)
+	after := write(func(l *ProjectLayers) { l.SetShared(app, local); l.ClearLocal(app) }).ProjectLayerState(app)
+	if reflect.DeepEqual(before, after) {
+		t.Fatalf("state unchanged after the project moved to config.yaml: %+v", after)
+	}
 }
