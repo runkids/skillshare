@@ -2,6 +2,8 @@
 
 Scan skills for prompt injection, data exfiltration, credential access, destructive commands, obfuscation, suspicious URLs, and broken local links. Use `audit rules --no-tui` for the installed rule set.
 
+Local references in Markdown links/images, code paths with a file extension (prefixes `./`, `../`, `scripts/`, `references/`, or `assets/`), explicit `path:` declarations, and `skillshare-paths` fences are checked within the skill directory. Markdown links/images are document-relative. Code paths, `path:` declarations and path fences use the containing document for leading `./` or `../`; other relative code paths use the skill root, even in nested Markdown files. Absolute in-bundle paths accept equivalent spellings derived from the root and its symlinked ancestors. Missing targets remain LOW `dangling-link`; explicit reference escapes are HIGH `reference-escapes-root`; implicit inline-code paths outside the bundle are ignored and trailing `:line` suffixes are stripped; unreadable, unsupported or bounded-out checks are LOW `reference-check-incomplete`. Implicit glob/template and extensionless examples, URLs, anchors, ordinary identifiers and unmarked absolute code examples are excluded. Use `path:` or a path fence for required directories and extensionless files. Disable individual IDs with `enabled: false` in `audit-rules.yaml`. `doctor` uses the same checker and reports escapes as errors, missing/incomplete checks as warnings.
+
 ## Usage
 
 ```bash
@@ -66,7 +68,24 @@ Markdown is still scanned, including fenced code blocks. A shared Markdown parse
 
 HIGH findings warn at the default CRITICAL threshold and block at a HIGH threshold (the `strict` profile default). Some malicious wording can also match only the generic HIGH rule; use strict when that ambiguity must block. SDK parameter context is only a syntax heuristic. Credential access, data exfiltration, and other injection rules retain their configured severity.
 
-Explicit global or project severity overrides, including CRITICAL, take precedence over SDK parameter downgrades. Generic disclosure restrictions now use `prompt-injection-5`; overrides for `prompt-injection-4` apply only to explicit concealment. Built-in rule 5 excludes explicit-concealment phrases, not separate generic restrictions on the same line. Full custom regex replacements retain whole-line exclusion semantics. To make generic restrictions CRITICAL, override `prompt-injection-5`. For reviewed false positives, findings accepted with `--force` remain visible and are remembered for that resource; a different rule, file, or matched text requires acceptance again.
+Explicit global or project severity overrides, including CRITICAL, take precedence over SDK parameter downgrades. Generic disclosure restrictions now use `prompt-injection-5`; overrides for `prompt-injection-4` apply only to explicit concealment. Built-in rule 5 excludes explicit-concealment phrases, not separate generic restrictions on the same line. Full custom regex replacements retain whole-line exclusion semantics. To make generic restrictions CRITICAL, override `prompt-injection-5`. For reviewed false positives, findings accepted with `--force` remain visible and are remembered for that resource; a different rule, file, matched text, or detector-specific evidence requires fresh acceptance. For `whitespace-padding`, density findings use all eligible content in the file as evidence. Identical occurrences have separate acceptance keys; previously accepted padding findings require acceptance again.
+
+### Whitespace Padding
+
+The `static` analyzer reports `whitespace-padding`: 20+ consecutive blank lines
+followed by nonblank text (MEDIUM; 40+ HIGH), 80+ leading horizontal Unicode whitespace characters before text,
+more than 4096 eligible bytes at 95%+ whitespace, or 100+ identical nonblank
+lines immediately followed by different text (MEDIUM). Fenced and indented code and parsed
+Markdown table rows are exempt from padding accounting in Markdown (`.md`) files.
+Nonblank code/table lines still trigger a preceding blank run outside the block. Locations retain original LF-based line numbers,
+including when Unicode separators, vertical tab or form feed separate visual
+lines. An unclosed fence exempts content to EOF. Interior column alignment does
+not trigger the horizontal check. Adjacent horizontally padded lines produce one finding. This indicates hidden-content risk, not proof
+of malicious intent; density and repetition can also flag generated data.
+Findings affect risk scores, and HIGH findings block at a HIGH audit threshold.
+Disable or override severity/confidence by rule ID or pattern in global/project
+`audit-rules.yaml`; explicit severity applies to every form. Leave `regex` and
+`exclude` unset for this file-level detector.
 
 ## Bundled hooks and settings
 
@@ -156,3 +175,36 @@ Audit results are logged to `audit.log` (JSONL). View with:
 ```bash
 skillshare log --audit
 ```
+
+## File headers and coverage
+
+Before text extension/size filters, the static analyzer checks the first 512 header
+bytes per regular file, with a bounded extra read at a PE header offset when needed, including hidden paths and `__pycache__`. Disguised native
+executables/WASM and shebang scripts are HIGH; ordinary executable artifacts are
+MEDIUM; recognized CPython 3.6–3.14 bytecode is HIGH, or MEDIUM when a matching regular Python source exists. ZIP/JAR signatures and uncertain
+headers are INFO. This does not analyze runtime behavior or archive members.
+`.git`, `.skillshare`, internal/OS metadata, symlinks and special files are excluded
+from header reads; the existing source-link policy and six-level depth limit stay
+in effect. There is no file-count cap; directory scans count header read failures as skipped
+and continue. An unreadable direct-file target still returns an error. Hidden
+directories receive header classification only; file symlinks keep existing text
+scanning. Hidden names alone do not imply disguise. HIGH requires a document,
+image or configuration extension or a `.cache`/`__pycache__` parent directory;
+other native binaries, including `.venv/bin/python`, are MEDIUM.
+JSON results and summaries expose `binaryFiles`, `skippedFiles`, `oversizedFiles`;
+CLI and dashboard summaries show the same counts; the dashboard, Markdown and SARIF also report per-resource counts. Skipped includes read failures, binary,
+unsupported, oversized and regular files below hidden directories, so the counters
+overlap. Links and special files are not counted just for skipping header reads. Header
+bytes are not auditable text. The rules `disguised-executable`, `python-bytecode`,
+`executable-artifact`, `archive-artifact`, `uncertain-header` can be disabled by ID
+with `enabled: false` in `audit-rules.yaml`.
+
+Direct-file disguise classification uses the filename, not ancestor directories.
+
+## Sensitive Destinations and Deserializers
+
+Metadata hosts are detected in every admitted text format. Prose, configuration data and text fences are HIGH; recognized source files, shebang scripts and the code fences listed below give other metadata mentions CRITICAL context. A recognized request is CRITICAL only when its parsed URL hostname matches a metadata host; a public URL with a metadata address only in its path or query stays HIGH. HIGH warns at the default CRITICAL threshold and blocks at a HIGH threshold. Explicit severity overrides take precedence; full custom regex replacements use their configured severity. Internal literal request targets are MEDIUM; direct request-input targets or interpolated hosts are MEDIUM with confidence 0.6. Language-scoped unsafe Python/PHP/Ruby/JavaScript deserialization is HIGH. Python YAML SafeLoader/CSafeLoader and torch `weights_only=True` are recognized only in the matching call. These are static signatures, not runtime SSRF or data-provenance guarantees.
+
+Metadata code context recognizes `.sh`, `.bash`, `.zsh`, `.fish`, `.py`, `.js`, `.ts`, `.rb`, `.php`, `.php3`, `.php4`, `.php5`, `.phtml`, `.go`, `.rs`, `.swift`, `Makefile` and `Dockerfile` (case-insensitive). Markdown fences qualify when unlabelled or labelled with one of those extension names, or `python`, `javascript`, `typescript`, `ruby`, `shell`, `console`, `golang`, `rust`, `makefile`, `dockerfile`. Other fence labels (including `http`, `powershell`, `pwsh`, `node`, `jsx`, `tsx`, `java`) retain HIGH unless a recognized literal request targets metadata. Terminal sentence periods after IPv4 metadata addresses or the recognized metadata hostname are accepted; hostname suffixes such as `.example.com` do not match. Extensionless notes without a first-line shebang remain HIGH unless a recognized request targets metadata; a shebang after an initial BOM is recognized.
+
+Custom rules accept `files: ['*.py', 'scripts/*.php']`: basename globs match any depth; slash-containing Go `path.Match` globs match relative paths. Matching is case-insensitive; `**`, escapes, absolute and parent paths are rejected. Omitting `files` in a partial override inherits the existing filter; `files: []` clears it. A full regex replacement replaces the whole rule, so omitted `files` removes the built-in scope and built-in call/context inspection does not apply. Inspect effective applicability with `audit rules --format json`.

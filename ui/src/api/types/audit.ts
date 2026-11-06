@@ -15,6 +15,9 @@ export interface AuditFinding {
 }
 
 export interface AuditResult {
+  binaryFiles?: number;
+  skippedFiles?: number;
+  oversizedFiles?: number;
   skillName: string;
   kind?: 'skill' | 'agent';
   findings: AuditFinding[];
@@ -26,6 +29,9 @@ export interface AuditResult {
 }
 
 export interface AuditSummary {
+  binaryFiles?: number;
+  skippedFiles?: number;
+  oversizedFiles?: number;
   total: number;
   passed: number;
   warning: number;
@@ -59,6 +65,7 @@ export interface AuditRulesResponse {
 }
 
 export interface CompiledRule {
+  files?: string[];
   confidence: number;
   confidenceOverridden: boolean;
   id: string;

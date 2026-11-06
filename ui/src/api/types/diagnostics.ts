@@ -3,6 +3,8 @@ export interface VersionCheck {
   cliLatest?: string;
   cliUpdateAvailable: boolean;
   cliDevMode?: boolean;
+  /** Set for a Nix install: the command that updates the CLI, or "" when a Nix configuration provides it. */
+  nixUpgradeCommand?: string | null;
   skillVersion: string;
   skillLatest?: string;
   skillUpdateAvailable: boolean;

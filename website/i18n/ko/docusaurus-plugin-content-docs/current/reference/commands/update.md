@@ -143,7 +143,7 @@ skillshare update agents --all --json
 }
 ```
 
-가능한 agent `status` 값에는 `updated`, `failed`, `skipped`, `up_to_date`, `update_available`, `dirty`, `drifted`, `local`이 포함됩니다.
+가능한 agent `status` 값에는 `updated`, `failed`, `skipped`, `up_to_date`, `update_available`, `dirty`, `drifted`, `local`, `error`가 포함됩니다. `error` agent는 remote에 연결할 수 없거나 metadata를 읽을 수 없는 등의 이유로 확인하지 못한 agent입니다. 이 경우 명령은 agent를 최신 상태로 보고하지 않고 0이 아닌 종료 코드로 끝납니다.
 
 ## Agent 업데이트
 
@@ -327,7 +327,7 @@ skillshare update --all --skip-audit
   1 previously accepted finding skipped
 ```
 
-finding은 줄 번호가 아니라 rule, 파일, 일치한 텍스트로 매칭되므로 관련 없는 내용이 바뀌어도 수락된 상태로 유지됩니다. 새로운 finding이나 동일한 rule이 다른 텍스트와 일치하는 경우에는 다시 차단됩니다. 이는 공격 문자열을 예시로 정당하게 인용하는 skill(보안 스캐너, red-team 문서)에 적합하면서도, 이후 버전에서 새로운 payload는 계속 탐지합니다.
+승인 키는 줄 번호를 무시하고 rule, 파일, 일치한 텍스트와 탐지기별 증거를 포함합니다. `whitespace-padding`은 패딩된 내용이 바뀌면 새 키를 만듭니다. 밀도 finding은 파일의 조건에 맞는 전체 내용을 증거로 사용합니다. 새로운 finding이나 증거가 바뀐 finding은 다시 차단됩니다. 공격 문자열을 예시로 정당하게 인용하는 skill(보안 스캐너, red-team 문서)에 적합하면서도 이후 버전의 새 payload를 계속 탐지합니다.
 
 `--audit-threshold`, `--threshold`, 또는 `-T`로 명령별로 threshold를 재정의할 수 있습니다:
 

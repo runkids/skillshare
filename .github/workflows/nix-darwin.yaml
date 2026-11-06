@@ -1,0 +1,41 @@
+name: Nix darwin
+
+# Builds the flake package for aarch64-darwin. Hosted macOS arm64 runners are
+# often unavailable, so this runs only when the flake inputs change; Go code on
+# macOS is covered by integration-test (macos-latest) in test.yaml. The unit
+# tests do not run on macOS upstream either, so this only builds the package
+# (with its version check).
+on:
+  push:
+    branches: [main]
+    paths: &nix-paths
+      - "flake.nix"
+      - "flake.lock"
+      - "nix/**"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/nix-darwin.yaml"
+  pull_request:
+    branches: [main]
+    paths: *nix-paths
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('nix-darwin-pr-{0}', github.event.pull_request.number) || format('nix-darwin-{0}', github.run_id) }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-darwin:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Build
+        run: nix build -L .#skillshare

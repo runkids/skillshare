@@ -78,7 +78,7 @@ skillshare sync -g       # Force global mode
 | **Git integration** | Optional (`push`/`pull`) | Skills committed directly to project repo |
 | **Scope** | All projects on machine | Single repository |
 
-There is a third option for projects that are yours alone: list the folders under [`projects`](/docs/reference/targets/configuration#projects) in the global config, with [`skillshare project add`](/docs/reference/commands/project) or on the dashboard's **Projects** page. Each folder gets its own set of skills, agents and MCP servers, nothing is added to the repo, and one `sync` updates them all. See [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config#scenario) for when to pick which.
+Register personal project folders with [`skillshare project add`](/docs/reference/commands/project) or the dashboard’s **Projects** page. These registrations stay machine-local; shared [`projects`](/docs/reference/targets/configuration#projects) YAML remains supported. Each folder gets its own skills and agents with one sync, without a repository config. MCP and hooks keep their separate shared declarations. See [local registration precedence](/docs/reference/commands/project#local-registrations) and [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config#scenario).
 
 ---
 
@@ -90,7 +90,7 @@ There is a third option for projects that are yours alone: list the folders unde
 │   ├── config.yaml              # Targets + settings (incl. extras)
 │   ├── skills.lock.json         # Commit each remote skill is pinned to (auto-managed, commit it)
 │   ├── skills/.metadata.json     # Runtime metadata (hashes, timestamps — auto-managed, gitignored)
-│   ├── .gitignore               # Ignores logs/, trash/, backups/, and cloned remote/tracked skill dirs
+│   ├── .gitignore               # Ignores logs/, trash/, backups/, .metadata.json, and cloned remote/tracked skill dirs
 │   ├── extras/                  # Extras source directories
 │   │   └── rules/               # e.g. extras init rules --target .claude/rules -p
 │   │       └── coding.md
@@ -204,7 +204,7 @@ skills:
 - `tracked: true`: Installed with `--track` (git repo with `.git/` preserved). When someone runs `skillshare install -p`, tracked skills are cloned with full git history so `skillshare update` works correctly.
 - `group`: Subdirectory path (corresponds to `--into` during install).
 
-Runtime metadata (install timestamps, file hashes, commit SHAs) is stored separately in `.skillshare/skills/.metadata.json` — this file is auto-managed and gitignored.
+Runtime metadata (install timestamps, file hashes, commit SHAs) is stored separately in `.skillshare/skills/.metadata.json` — this file is auto-managed and gitignored. A project that committed it before this rule existed should run `git rm --cached .skillshare/skills/.metadata.json` once to stop tracking it.
 
 :::tip Portable Skill Manifest
 `config.yaml` is the declarative skill manifest. In a project, commit it to git and anyone can run `skillshare install -p && skillshare sync`. For global mode, `.metadata.json` serves as the manifest since global config doesn't need to be shared via git.
@@ -291,7 +291,7 @@ Project mode has some intentional limitations:
 | Merge sync mode | ✓ | Default, per-skill symlinks |
 | Copy sync mode | ✓ | Per-target via `skillshare target <name> --mode copy -p` |
 | Symlink sync mode | ✓ | Per-target via `skillshare target <name> --mode symlink -p` |
-| `--track` repos | ✓ | Cloned to `.skillshare/skills/_repo/`, added to `.gitignore` (`logs/`, `trash/`, and `backups/` are also ignored by default) |
+| `--track` repos | ✓ | Cloned to `.skillshare/skills/_repo/`, added to `.gitignore` (`logs/`, `trash/`, `backups/`, and the `.metadata.json` files are also ignored by default) |
 | `--discover` | ✓ | Detect and add new targets to existing project config |
 | `push` / `pull` | ✗ | Use git directly on the project repo |
 | `collect` | ✓ | Collect local skills from project targets to `.skillshare/skills/` |

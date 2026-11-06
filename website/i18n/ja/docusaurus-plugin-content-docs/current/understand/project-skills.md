@@ -78,7 +78,7 @@ skillshare sync -g       # Force global mode
 | **Git integration** | 任意（`push`/`pull`） | Skill はプロジェクトのリポジトリに直接コミットされる |
 | **Scope** | マシン上のすべてのプロジェクト | 単一リポジトリ |
 
-自分だけのプロジェクトであれば、第三の選択肢もあります。グローバル config の [`projects`](/docs/reference/targets/configuration#projects) の下にフォルダーを列挙する方法です。[`skillshare project add`](/docs/reference/commands/project) またはダッシュボードの **プロジェクト** ページから登録できます。各フォルダーは独自の skill、agent、MCP サーバーのセットを持ち、リポジトリには何も追加されず、`sync` を 1 回実行するだけですべてが更新されます。どちらを選ぶべきかは[多数の Project を 1 つの Config で](/docs/how-to/recipes/many-projects-one-config#scenario)を参照してください。
+個人用のフォルダーは [`skillshare project add`](/docs/reference/commands/project) またはダッシュボードの **Projects** で登録できます。登録はマシン固有で、共有 [`projects`](/docs/reference/targets/configuration#projects) YAML も引き続き利用できます。リポジトリ設定を追加せず、1 回の同期で各フォルダーに Skill と Agent を配信します。MCP と hooks は別の共有定義を使います。[ローカル登録の優先順位](/docs/reference/commands/project#local-registrations)と[多数の Project を 1 つの Config で](/docs/how-to/recipes/many-projects-one-config#scenario)を参照してください。
 
 ---
 
@@ -90,7 +90,7 @@ skillshare sync -g       # Force global mode
 │   ├── config.yaml              # Targets + settings (incl. extras)
 │   ├── skills.lock.json         # 各リモート skill が固定されているコミット（自動管理、コミットしてください）
 │   ├── skills/.metadata.json     # Runtime metadata (hashes, timestamps — auto-managed, gitignored)
-│   ├── .gitignore               # Ignores logs/, trash/, backups/, and cloned remote/tracked skill dirs
+│   ├── .gitignore               # Ignores logs/, trash/, backups/, .metadata.json, and cloned remote/tracked skill dirs
 │   ├── extras/                  # Extras source directories
 │   │   └── rules/               # e.g. extras init rules --target .claude/rules -p
 │   │       └── coding.md
@@ -204,7 +204,7 @@ skills:
 - `tracked: true`: `--track` でインストールされた（`.git/` が保持された git リポジトリ）ことを示します。誰かが `skillshare install -p` を実行すると、tracked skill は完全な git 履歴とともに clone されるため、`skillshare update` が正しく機能します。
 - `group`: サブディレクトリのパス（インストール時の `--into` に対応）。
 
-ランタイムメタデータ（インストール時刻、ファイルハッシュ、コミット SHA）は `.skillshare/skills/.metadata.json` に別途保存されます — このファイルは自動管理され、gitignore されます。
+ランタイムメタデータ（インストール時刻、ファイルハッシュ、コミット SHA）は `.skillshare/skills/.metadata.json` に別途保存されます — このファイルは自動管理され、gitignore されます。このルールができる前にコミットしてしまったプロジェクトでは、一度 `git rm --cached .skillshare/skills/.metadata.json` を実行して追跡を止めてください。
 
 :::tip ポータブルな Skill マニフェスト
 `config.yaml` は宣言的な skill マニフェストです。プロジェクトでは、これを git にコミットすれば、誰でも `skillshare install -p && skillshare sync` を実行できます。Global mode では、`.metadata.json` がマニフェストとして機能します。グローバル config は git 経由で共有する必要がないためです。
@@ -291,7 +291,7 @@ Project mode には意図的な制限がいくつかあります。
 | Merge sync mode | ✓ | デフォルト、skill ごとの symlink |
 | Copy sync mode | ✓ | `skillshare target <name> --mode copy -p` で target ごとに設定 |
 | Symlink sync mode | ✓ | `skillshare target <name> --mode symlink -p` で target ごとに設定 |
-| `--track` リポジトリ | ✓ | `.skillshare/skills/_repo/` に clone され、`.gitignore` に追加される（`logs/`、`trash/`、`backups/` もデフォルトで無視される） |
+| `--track` リポジトリ | ✓ | `.skillshare/skills/_repo/` に clone され、`.gitignore` に追加される（`logs/`、`trash/`、`backups/`、`.metadata.json` ファイルもデフォルトで無視される） |
 | `--discover` | ✓ | 既存のプロジェクト config に新しい target を検出して追加 |
 | `push` / `pull` | ✗ | プロジェクトのリポジトリに対して git を直接使用してください |
 | `collect` | ✓ | プロジェクトの target からローカル skill を `.skillshare/skills/` に収集 |

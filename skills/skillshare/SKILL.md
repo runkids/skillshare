@@ -9,7 +9,7 @@ description: |
   noninteractive automation, and guidance for the terminal UI.
 argument-hint: "[command] [target] [--json] [--dry-run] [-p|-g]"
 metadata:
-  version: v0.28.2
+  version: v0.28.4
 ---
 
 # Skillshare CLI
@@ -144,6 +144,7 @@ nothing is downloaded again. It does not sync; run `sync` afterwards. Read
 
 ```bash
 skillshare project list --json
+skillshare project localize ~/work/existing --dry-run
 skillshare project add ~/work/app --target claude,codex --skills-mode copy --dry-run
 skillshare project add ~/work/app --target claude,codex --skills-mode copy --sync
 skillshare project edit app --skills-include 'frontend-*'
@@ -208,6 +209,7 @@ references for a single task.
 | Install/update/uninstall/move/new | [install.md](references/install.md) |
 | Status/diff/list/search/check | [status.md](references/status.md) |
 | Security audit | [audit.md](references/audit.md) |
+| Reviewing an untrusted skill before install | [audit-review.md](references/audit-review.md) |
 | Trash | [trash.md](references/trash.md) |
 | Operation log | [log.md](references/log.md) |
 | Targets | [targets.md](references/targets.md) |

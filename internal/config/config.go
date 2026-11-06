@@ -407,19 +407,20 @@ type Config struct {
 	TargetNaming string                  `yaml:"target_naming,omitempty"`
 	Targets      map[string]TargetConfig `yaml:"targets"`
 	// Projects are project folders synced from this config, keyed by root as written.
-	Projects      map[string]ManagedProject `yaml:"projects,omitempty"`
-	Extras        []ExtraConfig             `yaml:"extras,omitempty"`
-	Ignore        []string                  `yaml:"ignore,omitempty"`
-	Audit         AuditConfig               `yaml:"audit,omitempty"`
-	Hub           HubConfig                 `yaml:"hub,omitempty"`
-	Log           LogConfig                 `yaml:"log,omitempty"`
-	Backup        BackupConfig              `yaml:"backup,omitempty"`
-	ContextBudget ContextBudgetConfig       `yaml:"context_budget,omitempty"`
-	TUI           *bool                     `yaml:"tui,omitempty"` // nil = default true
-	GitLabHosts   []string                  `yaml:"gitlab_hosts,omitempty"`
-	AzureHosts    []string                  `yaml:"azure_hosts,omitempty"`
-	CNBHosts      []string                  `yaml:"cnb_hosts,omitempty"`
-	GiteaHosts    []string                  `yaml:"gitea_hosts,omitempty"`
+	Projects       map[string]ManagedProject `yaml:"projects,omitempty"`
+	projectOverlay *projectOverlay
+	Extras         []ExtraConfig       `yaml:"extras,omitempty"`
+	Ignore         []string            `yaml:"ignore,omitempty"`
+	Audit          AuditConfig         `yaml:"audit,omitempty"`
+	Hub            HubConfig           `yaml:"hub,omitempty"`
+	Log            LogConfig           `yaml:"log,omitempty"`
+	Backup         BackupConfig        `yaml:"backup,omitempty"`
+	ContextBudget  ContextBudgetConfig `yaml:"context_budget,omitempty"`
+	TUI            *bool               `yaml:"tui,omitempty"` // nil = default true
+	GitLabHosts    []string            `yaml:"gitlab_hosts,omitempty"`
+	AzureHosts     []string            `yaml:"azure_hosts,omitempty"`
+	CNBHosts       []string            `yaml:"cnb_hosts,omitempty"`
+	GiteaHosts     []string            `yaml:"gitea_hosts,omitempty"`
 
 	// PreserveTildeOnSave folds $HOME prefixes back to ~ when serializing the
 	// config to YAML. Useful when the config is shared via dotfiles across
@@ -857,6 +858,9 @@ func decodeConfig(path string, data []byte, persist bool) (*Config, error) {
 	}
 
 	if err := cfg.expandAgentConfigDirs(); err != nil {
+		return nil, err
+	}
+	if err := cfg.loadLocalProjects(path, data); err != nil {
 		return nil, err
 	}
 	if err := cfg.expandProjects(); err != nil {

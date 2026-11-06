@@ -16,8 +16,9 @@ type sarifLog struct {
 }
 
 type sarifRun struct {
-	Tool    sarifTool     `json:"tool"`
-	Results []sarifResult `json:"results"`
+	Tool       sarifTool      `json:"tool"`
+	Results    []sarifResult  `json:"results"`
+	Properties map[string]any `json:"properties,omitempty"`
 }
 
 type sarifTool struct {
@@ -103,8 +104,10 @@ func ToSARIF(results []*Result, opts SARIFOptions) *sarifLog {
 	ruleIndex := map[string]int{} // pattern → index in rules slice
 	var rules []sarifReportingDesc
 	var sarifResults []sarifResult
+	var coverage []map[string]any
 
 	for _, r := range results {
+		coverage = append(coverage, map[string]any{"resource": r.SkillName, "binaryFiles": r.BinaryFiles, "skippedFiles": r.SkippedFiles, "oversizedFiles": r.OversizedFiles})
 		for _, f := range r.Findings {
 			// Use RuleID when available, fall back to Pattern.
 			ruleID := f.RuleID
@@ -119,9 +122,22 @@ func ToSARIF(results []*Result, opts SARIFOptions) *sarifLog {
 				ruleIndex[ruleID] = idx
 
 				mapping := severityToSARIF[f.Severity]
+				description := f.Message
+				switch ruleID {
+				case "executable-artifact":
+					description = "Executable artifact detected; runtime behavior has not been analyzed"
+				case "disguised-executable":
+					description = "Executable artifact detected in a disguised location; runtime behavior has not been analyzed"
+				case "python-bytecode":
+					description = "Python bytecode detected; runtime behavior has not been analyzed"
+				case "archive-artifact":
+					description = "Archive signature detected; contents have not been inspected"
+				case "uncertain-header":
+					description = "Uncertain executable or bytecode header detected"
+				}
 				rules = append(rules, sarifReportingDesc{
 					ID:               ruleID,
-					ShortDescription: sarifMessage{Text: f.Message},
+					ShortDescription: sarifMessage{Text: description},
 					DefaultConfig:    sarifDefaultConf{Level: mapping.level},
 					Properties:       sarifRuleProps{SecuritySeverity: mapping.secSev},
 				})
@@ -190,7 +206,8 @@ func ToSARIF(results []*Result, opts SARIFOptions) *sarifLog {
 						Rules:          rules,
 					},
 				},
-				Results: sarifResults,
+				Results:    sarifResults,
+				Properties: map[string]any{"skillshareCoverage": coverage},
 			},
 		},
 	}

@@ -1,0 +1,40 @@
+name: Nix
+
+# Keeps the flake building, including the Go unit tests in the Nix sandbox.
+# A hash mismatch after a go.sum change means vendorHash in nix/package.nix
+# needs the "got: sha256-..." value from the log. The darwin build is in
+# nix-darwin.yaml.
+on:
+  push:
+    branches: [main]
+    paths-ignore: &docs-paths
+      - "website/**"
+      - "video/**"
+      - "wiki/**"
+      - "proposals/**"
+      - "ai_docs/**"
+      - "**/*.md"
+  pull_request:
+    branches: [main]
+    paths-ignore: *docs-paths
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('nix-pr-{0}', github.event.pull_request.number) || format('nix-{0}', github.run_id) }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Flake check
+        run: nix flake check -L

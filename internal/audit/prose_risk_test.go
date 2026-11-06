@@ -238,6 +238,7 @@ func TestProseRiskCategories(t *testing.T) {
 	for _, tc := range []struct{ pattern, want string }{
 		{"anti-refusal", CategoryInjection}, {"prompt-leakage", CategoryInjection},
 		{"agent-snooping", CategoryExfiltration}, {"memory-poisoning", CategoryRisk}, {"persistence", CategoryRisk},
+		{"ssrf-internal", CategoryExfiltration}, {"ssrf-metadata", CategoryExfiltration}, {"unsafe-deserialization", CategoryInjection},
 	} {
 		if got := categoryForPattern(tc.pattern); got != tc.want {
 			t.Errorf("%s: got %s, want %s", tc.pattern, got, tc.want)

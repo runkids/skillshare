@@ -78,7 +78,7 @@ skillshare sync -g       # Force global mode
 | **Git integration** | 可选(`push`/`pull`) | Skills 直接提交到项目仓库 |
 | **Scope** | 机器上的所有项目 | 单一仓库 |
 
-对于只属于你自己的项目，还有第三种选择：把这些文件夹列在全局配置的 [`projects`](/docs/reference/targets/configuration#projects) 下，可以使用 [`skillshare project add`](/docs/reference/commands/project)，也可以在仪表盘的 **Projects** 页面添加。每个文件夹都会拿到自己的一份 Skill、Agent 和 MCP server，不会有任何内容添加到仓库中，一次 `sync` 就能更新它们全部。参见 [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config#scenario)，了解该如何选择。
+个人项目文件夹可以通过 [`skillshare project add`](/docs/reference/commands/project) 或仪表板 **Projects** 页面注册。注册保存在本机，共享 [`projects`](/docs/reference/targets/configuration#projects) YAML 仍受支持。无需添加仓库配置，一次同步就能把各自的 skills 与 agents 分发到所有文件夹。MCP 与 hooks 保留独立的共享声明。参见[本机注册优先级](/docs/reference/commands/project#local-registrations)与[多个项目，一份配置](/docs/how-to/recipes/many-projects-one-config#scenario)。
 
 ---
 
@@ -90,7 +90,7 @@ skillshare sync -g       # Force global mode
 │   ├── config.yaml              # Targets + settings (incl. extras)
 │   ├── skills.lock.json         # Commit each remote skill is pinned to (auto-managed, commit it)
 │   ├── skills/.metadata.json     # Runtime metadata (hashes, timestamps — auto-managed, gitignored)
-│   ├── .gitignore               # Ignores logs/, trash/, backups/, and cloned remote/tracked skill dirs
+│   ├── .gitignore               # Ignores logs/, trash/, backups/, .metadata.json, and cloned remote/tracked skill dirs
 │   ├── extras/                  # Extras source directories
 │   │   └── rules/               # e.g. extras init rules --target .claude/rules -p
 │   │       └── coding.md
@@ -204,7 +204,7 @@ skills:
 - `tracked: true`:使用 `--track` 安装(保留 `.git/` 的 git 仓库)。当有人运行 `skillshare install -p` 时,tracked skills 会连同完整的 git 历史一起被克隆,以便 `skillshare update` 能正常工作。
 - `group`:子目录路径(对应安装时的 `--into`)。
 
-运行时元数据(安装时间戳、文件哈希、commit SHA)单独存储在 `.skillshare/skills/.metadata.json` 中——此文件是自动管理的,并被 gitignore。
+运行时元数据(安装时间戳、文件哈希、commit SHA)单独存储在 `.skillshare/skills/.metadata.json` 中——此文件是自动管理的,并被 gitignore。如果项目在这条规则出现前已经 commit 了它,请执行一次 `git rm --cached .skillshare/skills/.metadata.json` 停止追踪。
 
 :::tip 可移植的 Skill 清单
 `config.yaml` 是声明式的 skill manifest。在项目中,将其提交到 git,任何人都可以运行 `skillshare install -p && skillshare sync`。对于 Global mode,由于全局配置不需要通过 git 共享,`.metadata.json` 就充当了这个 manifest。
@@ -291,7 +291,7 @@ Project mode 存在一些有意为之的限制:
 | Merge sync 模式 | ✓ | 默认,逐个 Skill 的符号链接 |
 | Copy sync 模式 | ✓ | 通过 `skillshare target <name> --mode copy -p` 按 Target 设置 |
 | Symlink sync 模式 | ✓ | 通过 `skillshare target <name> --mode symlink -p` 按 Target 设置 |
-| `--track` 仓库 | ✓ | 克隆到 `.skillshare/skills/_repo/`,并加入 `.gitignore`(默认也会忽略 `logs/`、`trash/` 和 `backups/`) |
+| `--track` 仓库 | ✓ | 克隆到 `.skillshare/skills/_repo/`,并加入 `.gitignore`(默认也会忽略 `logs/`、`trash/`、`backups/` 和 `.metadata.json` 文件) |
 | `--discover` | ✓ | 检测并将新 Target 添加到现有项目配置中 |
 | `push` / `pull` | ✗ | 直接对项目仓库使用 git |
 | `collect` | ✓ | 将本地 Skill 从 project targets 收集回 `.skillshare/skills/` |

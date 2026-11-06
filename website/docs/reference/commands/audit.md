@@ -132,12 +132,12 @@ skillshare audit --analyzer static --analyzer dataflow # Multiple analyzers
 
 | Analyzer | Scope | Description |
 |----------|-------|-------------|
-| `static` | Per-file | Regex-based pattern matching against audit rules |
+| `static` | Per-file | Regex pattern matching and file-level whitespace-padding checks |
 | `dataflow` | Per-file | Taint tracking for shell scripts and markdown code blocks |
 | `tier` | Per-skill | Capability tier combination risk analysis |
 | `integrity` | Per-skill | Content hash verification (`file_hashes` in SKILL.md) |
 | `metadata` | Per-skill | Supply-chain trust verification (publisher mismatch, authority claims) |
-| `structure` | Per-skill | Dangling markdown link detection; [bundled hooks/settings](/docs/understand/audit-engine#bundled-hooks-and-settings) |
+| `structure` | Per-skill | Checks missing and out-of-root Markdown links/images and declared bundled paths; [bundled hooks/settings](/docs/understand/audit-engine#bundled-hooks-and-settings) |
 | `cross-skill` | Bundle | Cross-skill exfiltration and privilege escalation analysis |
 
 You can also set this in config:
@@ -196,7 +196,7 @@ If both are provided, `--skip-audit` effectively wins because audit is not execu
 
 `skillshare update` pulls tracked repos into an isolated candidate and audits it before publication. Findings at or above the active threshold (`audit.block_threshold` by default, or `--audit-threshold` / `--threshold` / `-T` override) block publication unless explicitly accepted; rejection leaves the active checkout unchanged. See [`update --skip-audit`](/docs/reference/commands/update#security-audit-gate) for details.
 
-Findings you accept with `--force` are remembered for that skill, so later updates do not block on the same rule matching the same text. A new finding, or the same rule matching different text, blocks again. See [Accepted Findings](/docs/reference/commands/update#accepted-findings).
+Findings accepted with `--force` are remembered for that skill. Acceptance keys ignore line numbers and include the rule, file, matched text, and any detector-specific evidence. For `whitespace-padding`, changed padded content produces a new key; density findings use all eligible file content as evidence. See [Accepted Findings](/docs/reference/commands/update#accepted-findings).
 
 When updating tracked repos via install (`skillshare install <repo> --track --update`), the gate uses the same threshold policy (`audit.block_threshold` or `--audit-threshold` / `--threshold` / `-T`).
 
@@ -318,12 +318,12 @@ The audit scans text-based files in skill directories:
 
 - `.md`, `.txt`, `.yaml`, `.yml`, `.json`, `.toml`
 - `.sh`, `.bash`, `.zsh`, `.fish`
-- `.py`, `.js`, `.ts`, `.rb`, `.go`, `.rs`
+- `.py`, `.js`, `.ts`, `.rb`, `.php`, `.php3`, `.php4`, `.php5`, `.phtml`, `.go`, `.rs`, `.swift`
 - Files without extensions (e.g., `Makefile`, `Dockerfile`)
 
-Scanning is recursive within each skill directory, so `SKILL.md`, nested `references/*.md`, and `scripts/*.sh` are all inspected when they match supported text file types.
+Text scanning skips hidden directories and is recursive within the remaining skill directory, so `SKILL.md`, nested `references/*.md`, and `scripts/*.sh` are all inspected when they match supported text file types.
 
-Binary files (images, `.wasm`, etc.) and hidden directories (`.git`) are skipped, except that the structure analyzer reads the skill’s `.claude/settings.json` and `.claude/settings.local.json`.
+Before text filtering, audit checks the first 512 bytes of each regular file (and reads a bounded PE header at its declared offset when needed) to classify executables, CPython bytecode, ZIP/JAR archives, and disguised shebang scripts. Hidden directories receive header classification only; `__pycache__` is also included. Symlinked files retain their existing text scanning; `.git`, `.skillshare`, internal metadata, OS metadata, symlinks and special files are excluded from header reads. Binary and oversized files receive no full text analysis. Summaries report `binaryFiles`, `skippedFiles` and `oversizedFiles`; these counts overlap. Header classification does not analyze runtime behavior or archive contents. See [Executable and archive headers](../../understand/audit-engine.md#executable-headers) for formats, severity and limits. The structure analyzer also reads the skill’s `.claude/settings.json` and `.claude/settings.local.json` for [bundled hooks and settings](../../understand/audit-engine.md#bundled-hooks-and-settings).
 
 ## Options
 

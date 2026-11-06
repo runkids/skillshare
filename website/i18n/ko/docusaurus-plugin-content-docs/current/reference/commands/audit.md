@@ -132,12 +132,12 @@ skillshare audit --analyzer static --analyzer dataflow # 여러 분석기
 
 | Analyzer | 범위 | 설명 |
 |----------|-------|-------------|
-| `static` | 파일별 | audit 규칙에 대한 정규식 기반 패턴 매칭 |
+| `static` | 파일별 | 정규식 패턴 매칭 및 파일 단위 공백 패딩 검사 |
 | `dataflow` | 파일별 | shell 스크립트 및 markdown 코드 블록에 대한 taint tracking |
 | `tier` | skill별 | 기능 등급(capability tier) 조합 위험 분석 |
 | `integrity` | skill별 | 콘텐츠 해시 검증 (SKILL.md의 `file_hashes`) |
 | `metadata` | skill별 | 공급망 신뢰 검증 (publisher 불일치, authority 주장) |
-| `structure` | skill별 | markdown 댕글링 링크 탐지; [번들 훅과 설정](/docs/understand/audit-engine#bundled-hooks-and-settings) |
+| `structure` | skill별 | 로컬 Markdown 링크/이미지 및 명시된 번들 경로의 누락과 루트 외부 참조 감지; [번들 훅과 설정](/docs/understand/audit-engine#bundled-hooks-and-settings) |
 | `cross-skill` | 번들 | Cross-skill 유출 및 권한 상승 분석 |
 
 config에서도 설정할 수 있습니다:
@@ -196,7 +196,7 @@ skillshare install /path/to/skill --skip-audit
 
 `skillshare update`는 tracked repo를 격리된 후보에 pull하고 게시 전에 audit합니다. 활성 threshold(기본적으로 `audit.block_threshold`, 또는 `--audit-threshold` / `--threshold` / `-T` 재정의) 이상의 findings는 명시적으로 수락하지 않으면 게시를 차단합니다. 거부하면 실제 checkout은 변경되지 않습니다. 자세한 내용은 [`update --skip-audit`](/docs/reference/commands/update#security-audit-gate)를 참조하십시오.
 
-`--force`로 수락한 findings는 해당 skill에 대해 기억되므로, 이후 업데이트에서 동일한 규칙이 동일한 텍스트에 매칭되어도 차단되지 않습니다. 새로운 finding이나 동일한 규칙이 다른 텍스트에 매칭되는 경우에는 다시 차단됩니다. [Accepted Findings](/docs/reference/commands/update#accepted-findings)를 참조하십시오.
+`--force`로 수락한 findings는 해당 skill에 대해 기억됩니다. 승인 키는 줄 번호를 무시하고 rule, 파일, 일치한 텍스트와 탐지기별 증거를 포함합니다. `whitespace-padding`은 패딩된 내용이 바뀌면 새 키를 만들고, 밀도 finding은 파일의 조건에 맞는 전체 내용을 증거로 사용합니다. 자세한 내용은 [Accepted Findings](/docs/reference/commands/update#accepted-findings)를 참조하세요.
 
 install을 통해 tracked repo를 업데이트할 때(`skillshare install <repo> --track --update`), 게이트는 동일한 threshold 정책(`audit.block_threshold` 또는 `--audit-threshold` / `--threshold` / `-T`)을 사용합니다.
 
@@ -318,12 +318,12 @@ audit는 skill 디렉터리 내 텍스트 기반 파일을 스캔합니다:
 
 - `.md`, `.txt`, `.yaml`, `.yml`, `.json`, `.toml`
 - `.sh`, `.bash`, `.zsh`, `.fish`
-- `.py`, `.js`, `.ts`, `.rb`, `.go`, `.rs`
+- `.py`, `.js`, `.ts`, `.rb`, `.php`, `.php3`, `.php4`, `.php5`, `.phtml`, `.go`, `.rs`, `.swift`
 - 확장자가 없는 파일 (예: `Makefile`, `Dockerfile`)
 
-스캔은 각 skill 디렉터리 내에서 재귀적으로 수행되므로, `SKILL.md`, 중첩된 `references/*.md`, `scripts/*.sh` 모두 지원되는 텍스트 파일 형식에 해당하면 검사됩니다.
+텍스트 스캔은 숨김 디렉터리를 제외하고 각 skill 디렉터리 내에서 재귀적으로 수행되므로, `SKILL.md`, 중첩된 `references/*.md`, `scripts/*.sh` 모두 지원되는 텍스트 파일 형식에 해당하면 검사됩니다.
 
-바이너리 파일(이미지, `.wasm` 등)과 숨김 디렉터리(`.git`)는 건너뜁니다. 단, structure 분석기는 skill의 `.claude/settings.json`과 `.claude/settings.local.json`을 읽습니다.
+텍스트 필터링 전에 audit은 일반 파일마다 처음 512바이트를 읽어 실행 형식, CPython 바이트코드, ZIP/JAR, 위장 shebang 스크립트를 분류합니다. 숨김 디렉터리에서는 헤더만 분류하며 `__pycache__`도 포함합니다. 파일 심볼릭 링크는 기존 텍스트 검사를 유지합니다. `.git`, `.skillshare`, 내부·OS 메타데이터, 링크 및 특수 파일은 헤더를 읽지 않습니다. 바이너리와 크기 초과 파일은 전체 텍스트 분석을 하지 않습니다. 요약의 `binaryFiles`, `skippedFiles`, `oversizedFiles`는 중복 집계될 수 있습니다. 실행 동작과 아카이브 내부는 분석하지 않습니다. 형식·심각도·제한은 [실행 파일 및 아카이브 헤더](../../understand/audit-engine.md#executable-headers)를 참고하세요. PE 헤더가 범위 밖에 있으면 해당 위치에서 필요한 바이트만 추가로 읽습니다. structure 분석기는 [번들 훅과 설정](../../understand/audit-engine.md#bundled-hooks-and-settings)을 위해 skill의 `.claude/settings.json`과 `.claude/settings.local.json`도 읽습니다.
 
 ## 옵션
 

@@ -70,6 +70,7 @@ const TARGETS: Label[] = [...T, 'projects', 'config', 'overview', 'diff', 'syncM
 
 const stale: Record<QueryEvent, Label[] | { args: string[]; stale: Label[] }> = {
   skillsChanged: [...S, 'overview', 'diff'],
+  skillBranchSwitched: [...S, 'overview', 'diff', 'config'],
   skillEdited: { args: ['a'], stale: S },
   installDialogClosed: S,
   reposChanged: [...S, 'overview', 'trash'],

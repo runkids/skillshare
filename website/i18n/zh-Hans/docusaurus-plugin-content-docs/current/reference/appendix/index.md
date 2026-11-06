@@ -28,6 +28,7 @@ skillshare 的技术参考附录。
 | `~/.local/share/skillshare/backups/` | Backup 目录 |
 | `~/.local/share/skillshare/trash/` | 被软删除的 skills |
 | `~/.local/state/skillshare/logs/` | 操作与审计日志 |
+| `~/.local/state/skillshare/projects/` | 本机项目注册及锁 |
 | `~/.cache/skillshare/ui/` | 下载的 Web dashboard |
 
 ### Environment Variables

@@ -1,14 +1,14 @@
 import { apiFetch } from './http';
 import type { TargetInstructionsSetup } from './types/instructions';
-import type { ProjectInput, ProjectList, SkillsDetach, SkillsOffPreview, Target } from './types/targets';
+import type { ProjectInput, ProjectList, ProjectMutation, SkillsDetach, SkillsOffPreview, Target } from './types/targets';
 
 export const targetsApi = {
   /** Own targets by default. 'projects' lists the targets of projects alone, 'all' what a sync writes. */
   listTargets: (scope?: 'projects' | 'all') => apiFetch<{ targets: Target[]; sourceSkillCount: number }>(`/targets${scope ? `?scope=${scope}` : ''}`),
   listProjects: () => apiFetch<ProjectList>('/projects'),
-  saveProject: (project: ProjectInput) => apiFetch<{ success: boolean; root: string }>('/projects', { method: 'PUT', body: JSON.stringify(project) }),
-  removeProject: (root: string) => apiFetch<{ success: boolean }>(`/projects?root=${encodeURIComponent(root)}`, { method: 'DELETE' }),
-  convertProject: (root: string) => apiFetch<{ success: boolean; root: string }>('/projects/convert', { method: 'POST', body: JSON.stringify({ root }) }),
+  saveProject: (project: ProjectInput) => apiFetch<ProjectMutation>('/projects', { method: 'PUT', body: JSON.stringify(project) }),
+  removeProject: (root: string) => apiFetch<ProjectMutation>(`/projects?root=${encodeURIComponent(root)}`, { method: 'DELETE' }),
+  convertProject: (root: string) => apiFetch<ProjectMutation>('/projects/convert', { method: 'POST', body: JSON.stringify({ root }) }),
   /** skillsEnabled false adds a target that skillshare writes no skills to, and creates no skills folder. */
   addTarget: (name: string, path: string, agentPath?: string, instructions?: TargetInstructionsSetup, skillsEnabled = true) =>
     apiFetch<{ success: boolean }>('/targets', {

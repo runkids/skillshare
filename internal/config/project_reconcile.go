@@ -14,9 +14,36 @@ import (
 // ReconcileProjectSkills scans the project source directory recursively for
 // remotely-installed skills (those with install metadata or tracked repos)
 // and ensures they are present in the MetadataStore.
-// It also updates the project directory's .gitignore for each tracked skill.
+// It also updates the project directory's .gitignore for each tracked skill
+// and for the skills and agents metadata files.
 func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store *install.MetadataStore, sourcePath string) error {
-	return reconcileProjectSkills(projectRoot, projectCfg, store, sourcePath, true)
+	if err := reconcileProjectSkills(projectRoot, projectCfg, store, sourcePath, true); err != nil {
+		return err
+	}
+	agentsSource := filepath.Join(projectdir.Resolve(projectRoot), "agents")
+	if projectCfg != nil {
+		agentsSource = projectCfg.EffectiveAgentsSource(projectRoot)
+	}
+	return ignoreProjectMetadata(projectRoot, sourcePath, agentsSource)
+}
+
+// ignoreProjectMetadata keeps each source's .metadata.json out of Git. It
+// records this machine's installs (hashes, timestamps) for folders that are
+// themselves ignored; teammates share config.yaml and skills.lock.json instead.
+func ignoreProjectMetadata(projectRoot string, sourcePaths ...string) error {
+	for _, sourcePath := range sourcePaths {
+		if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+			continue
+		}
+		gitignoreDir, prefix := ProjectGitignoreTarget(projectRoot, sourcePath)
+		if gitignoreDir == "" {
+			continue
+		}
+		if err := install.UpdateGitIgnoreFiles(gitignoreDir, []string{prefix + "/" + install.MetadataFileName}); err != nil {
+			return fmt.Errorf("failed to update .gitignore: %w", err)
+		}
+	}
+	return nil
 }
 
 // AdoptMovedProjectSkills follows hand-moved declared skills without pruning

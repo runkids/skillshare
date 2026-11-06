@@ -60,14 +60,16 @@ export XDG_DATA_HOME=~/my-data
 
 ### XDG_STATE_HOME
 
-상태 디렉터리(작업 로그)를 재정의합니다.
+상태 디렉터리(작업 로그, 머신 로컬 프로젝트 등록 및 변경 잠금)를 재정의합니다.
 
 ```bash
 export XDG_STATE_HOME=~/my-state
-# skillshare는 ~/my-state/skillshare/logs/를 사용합니다
+# skillshare는 ~/my-state/skillshare/logs/, ~/my-state/skillshare/projects/를 사용합니다
 ```
 
 **기본값:** `~/.local/state/skillshare/`
+
+설정하지 않으면 Windows의 프로젝트 등록과 잠금은 `%LOCALAPPDATA%\skillshare\state`에 저장됩니다. 이 재정의 경로는 머신 로컬로 유지하세요. [로컬 등록과 공유 선언](../commands/project.md#local-registrations)을 참고하세요.
 
 ---
 
@@ -470,7 +472,7 @@ export GITHUB_TOKEN="ghp_your_token_here"
 | `SKILLSHARE_CNB_HOSTS` | 커스텀 CNB 호스트명 (쉼표로 구분) | 없음 |
 | `XDG_CONFIG_HOME` | 기본 설정 디렉터리 | `~/.config` (Linux/macOS), `%AppData%` (Windows) |
 | `XDG_DATA_HOME` | 데이터 디렉터리 (백업, 휴지통) | `~/.local/share` |
-| `XDG_STATE_HOME` | 상태 디렉터리 (로그) | `~/.local/state` |
+| `XDG_STATE_HOME` | 상태 디렉터리 (로그, 로컬 프로젝트 등록 및 잠금) | `~/.local/state` |
 | `XDG_CACHE_HOME` | 캐시 디렉터리 (버전 확인, UI) | `~/.cache` |
 | `GITHUB_TOKEN` | GitHub API + git clone 인증 | 없음 |
 | `GH_TOKEN` | GitHub API (`GITHUB_TOKEN`의 대체 값) | 없음 |

@@ -20,13 +20,9 @@ func normalizeSnippet(s string) string {
 }
 
 // ComputeFingerprint returns a stable sha256 hex hash for a finding.
-// Formula: sha256(lower(ruleId|pattern|analyzer|file|line|normalizedSnippet))
+// Formula: sha256(lower(ruleId|pattern|analyzer|file|line|normalizedSnippet[|acceptanceContext]))
 func ComputeFingerprint(f Finding) string {
-	parts := []string{
-		f.RuleID, f.Pattern, f.Analyzer,
-		f.File, strconv.Itoa(f.Line),
-		normalizeSnippet(f.Snippet),
-	}
+	parts := []string{f.RuleID, f.Pattern, f.Analyzer, f.File, strconv.Itoa(f.Line), normalizeSnippet(f.Snippet)}
 	if f.acceptanceContext != "" {
 		parts = append(parts, f.acceptanceContext)
 	}

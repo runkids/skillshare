@@ -305,3 +305,11 @@ snapshot proof. Removed or changed targets retain local cleanup evidence until
 success; account changes require resolving the old native context. Failures and
 retries stay local. Changed-byte checks do not merge simultaneous Syncthing intent
 edits. Native settings, authentication and trust remain private to each host.
+
+When a shared source-managed target changes source, `plugin sync NAME` (or
+`plugin update NAME`) reviews cleanup and replacement together. For OMP, a runtime
+link is treated as about to be freed only when the same plan verifies its old
+installation owns that exact link. Cleanup runs before the replacement installs;
+shared cache and plugin settings are retained. Foreign links, real directories,
+and competing owners still block replacement. If cleanup or installation fails,
+run sync again to retry the remaining local work.

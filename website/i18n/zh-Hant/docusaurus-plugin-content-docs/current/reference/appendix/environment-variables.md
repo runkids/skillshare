@@ -60,14 +60,16 @@ export XDG_DATA_HOME=~/my-data
 
 ### XDG_STATE_HOME
 
-覆寫 state 目錄（操作記錄）。
+覆寫 state 目錄（操作記錄、本機專案註冊及其修改鎖定）。
 
 ```bash
 export XDG_STATE_HOME=~/my-state
-# skillshare 將會使用 ~/my-state/skillshare/logs/
+# skillshare 將會使用 ~/my-state/skillshare/logs/, ~/my-state/skillshare/projects/
 ```
 
 **預設值：** `~/.local/state/skillshare/`
+
+未設定時，Windows 上的專案註冊及鎖定預設存放在 `%LOCALAPPDATA%\skillshare\state`。請將此覆寫路徑保留在本機。參閱[本機與共用註冊](../commands/project.md#local-registrations)。
 
 ---
 
@@ -470,7 +472,7 @@ export GITHUB_TOKEN="ghp_your_token_here"
 | `SKILLSHARE_CNB_HOSTS` | 自訂 CNB 主機名稱（逗號分隔） | 無 |
 | `XDG_CONFIG_HOME` | 基礎設定目錄 | `~/.config`（Linux/macOS）、`%AppData%`（Windows） |
 | `XDG_DATA_HOME` | 資料目錄（backups、trash） | `~/.local/share` |
-| `XDG_STATE_HOME` | State 目錄（logs） | `~/.local/state` |
+| `XDG_STATE_HOME` | State 目錄（記錄、本機專案註冊及鎖定） | `~/.local/state` |
 | `XDG_CACHE_HOME` | 快取目錄（版本檢查、UI） | `~/.cache` |
 | `GITHUB_TOKEN` | GitHub API + git clone 驗證 | 無 |
 | `GH_TOKEN` | GitHub API（`GITHUB_TOKEN` 的備援） | 無 |

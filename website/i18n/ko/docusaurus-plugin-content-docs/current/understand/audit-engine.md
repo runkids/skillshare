@@ -44,7 +44,7 @@ flowchart TD
 
 `audit` 명령은 **게이트키퍼** 역할을 합니다 — skill 콘텐츠가 AI assistant에 도달하기 전에 알려진 위협 패턴을 스캔합니다. `install` 중 자동으로 실행되며 언제든 수동으로 호출할 수도 있습니다.
 
-`--force`로 차단을 무시하면 승인된 발견 사항(규칙, 파일, 일치한 텍스트)이 `.metadata.json`에 기록되어, 이후 `update` 실행 시 새로운 발견 사항만 계속 차단하고 이미 승인된 것은 차단하지 않습니다. [update — Accepted Findings](/docs/reference/commands/update#accepted-findings)를 참고하세요.
+`--force`로 차단을 무시하면 승인된 발견 사항(규칙, 파일, 일치한 텍스트와 탐지기별 증거)이 `.metadata.json`에 기록됩니다. 이후 `update`는 같은 증거의 finding을 건너뛰고 변경된 finding은 계속 탐지합니다. `whitespace-padding` 밀도 finding은 파일의 조건에 맞는 전체 내용을 증거로 사용합니다. 자세한 내용은 [update — Accepted Findings](/docs/reference/commands/update#accepted-findings)를 참고하세요.
 
 ## 탐지하는 것
 
@@ -86,6 +86,7 @@ audit engine은 skill 디렉터리의 모든 텍스트 기반 파일을 100개 �
 | `data-exfiltration` | 서브도메인에 명령 치환을 사용한 `dig`/`nslookup`/`host`를 통한 DNS 데이터 유출 |
 | `self-propagation` | 다른 파일이나 프로젝트로 페이로드를 전파하는 자기 복제 지침 |
 | `hardcoded-secret` | 인라인 API 키, 토큰, 비밀번호: Google API 키(`AIza...`), AWS 액세스 키(`AKIA...`), GitHub PAT(`ghp_`/`ghs_`/`github_pat_`), Slack 토큰(`xox[bporas]-`), OpenAI 키, Anthropic 키, Stripe 키, PEM 개인 키 블록, 그리고 높은 엔트로피 값을 가진 일반적인 `api_key`/`secret_key`/`password` 할당 |
+| `reference-escapes-root` | 명시적 참조가 skill 디렉터리 밖으로 나가는 경우 |
 
 > **왜 high인가?** 숨겨진 유니코드 문자는 코드 리뷰 중 악성 지침을 보이지 않게 만들 수 있습니다. 양방향 텍스트 제어 문자는 보이는 텍스트의 순서를 바꿔 악성 코드를 위장할 수 있습니다(Trojan Source). Base64 난독화는 사람의 검사를 우회하는 일반적인 기법입니다. `rm -rf /` 같은 파괴적인 명령은 되돌릴 수 없는 손상을 일으킬 수 있습니다. `curl | bash`는 고전적인 원격 코드 실행 벡터입니다 — 가져온 콘텐츠가 셸에서 바로 실행됩니다. Config/메모리 파일 오염은 AI 세션 전반에 걸쳐 지속됩니다. DNS 유출은 훔친 데이터를 서브도메인 쿼리에 인코딩합니다. 자기 전파 지침은 저장소 웜을 만듭니다. skill 파일에 하드코딩된 비밀 정보(API 키, 토큰, 개인 키)는 유출된 자격 증명이거나 의도적인 자격 증명 노출을 나타내며 — 둘 다 검토가 필요한 공급망 위험입니다.
 
@@ -104,6 +105,14 @@ audit engine은 skill 디렉터리의 모든 텍스트 기반 파일을 100개 �
 | `untrusted-install` | 신뢰할 수 없는 패키지 자동 실행: `npx -y`/`npx --yes` (npm), `pip install https://` (비-PyPI URL) |
 
 > **왜 medium인가?** 외부 URL에서 다운로드하는 skill은 악성 페이로드를 가져오는 것일 수 있습니다. 원시 IP 주소가 있는 URL은 DNS 기반 보안 통제와 도메인 차단 목록을 우회할 수 있습니다. markdown 링크 안의 `data:` URI는 무해해 보이는 라벨 뒤에 임베드된 HTML/JavaScript 페이로드를 숨길 수 있습니다. 신뢰할 수 없는 패키지 실행(`npx -y`)은 확인 없이 임의의 npm 패키지를 자동으로 설치하고 실행합니다. 그 외 보이지 않는 유니코드 문자는 텍스트 렌더링을 미묘하게 바꾸거나 콘텐츠를 숨길 수 있습니다.
+
+### 공백 패딩 {#whitespace-padding}
+
+`whitespace-padding`은 `static` 분석기의 파일 단위 검사입니다. 연속 빈 줄이 20–39개이면 MEDIUM, 40개 이상이면 HIGH입니다(바로 뒤에 비어 있지 않은 텍스트가 있는 경우만). 줄 시작의 연속 가로 Unicode 공백이 80자 이상이거나, 유효 콘텐츠가 4096바이트를 초과하고 공백 바이트가 95% 이상이거나, 동일한 비어 있지 않은 줄이 100개 이상 연속된 직후 다른 텍스트가 나오면 MEDIUM입니다. 열 정렬용 줄 내부 공백은 가로 공백 검사에 걸리지 않습니다. 빈 줄, 반복 및 연속된 가로 공백은 시작 줄에 한 건, 밀도는 첫 유효 줄에 보고합니다. 동일한 항목도 각각 별도의 승인 키를 사용합니다. 이전에 승인한 공백 패딩은 다시 승인해야 합니다.
+
+Markdown(`.md`) 파일에서는 펜스 및 들여쓰기 코드 블록과 파싱된 Markdown 표 행을 패딩 계산에서 제외합니다. 단, 코드나 표의 비어 있지 않은 줄 앞에 블록 외부의 빈 줄이 연속되면 해당 빈 줄은 검출합니다. 닫히지 않은 펜스는 CommonMark에 따라 파일 끝까지 제외합니다. Unicode White_Space 문자를 공백으로 계산하며 CRLF는 한 번의 줄바꿈입니다. CR, U+0085, U+2028, U+2029, 세로 탭, 폼 피드도 시각적 줄을 구분합니다. 보고 위치는 원본 LF 기반 줄 번호를 유지하므로 Unicode 구분자는 보고 줄 번호를 늘리지 않습니다. 경고는 콘텐츠가 가려질 위험을 뜻하며 악의의 증거는 아닙니다. 결과는 위험 점수에 영향을 주며 HIGH는 감사 임계값이 HIGH일 때 차단합니다. 밀도 및 반복 검사는 생성된 데이터에도 반응할 수 있으므로 문맥을 검토하세요.
+
+일반 전역/프로젝트 규칙에서 ID 또는 패턴으로 `whitespace-padding`을 비활성화하거나 심각도를 재정의할 수 있습니다. 명시적 심각도는 MEDIUM과 HIGH 기본값을 모두 대체합니다. 신뢰도 재정의도 적용됩니다. 이 감지기는 줄 정규식을 사용하지 않으므로 설정 시 `regex`와 `exclude`를 지정하지 마세요.
 
 ### MEDIUM: 콘텐츠 무결성
 
@@ -138,19 +147,24 @@ audit engine은 skill 디렉터리의 모든 텍스트 기반 파일을 100개 �
 이는 위험 점수와 보고에 기여하는 낮은 심각도의 지표입니다:
 
 - `LOW`: 약한 의심 패턴 (예: 명령 내 비-HTTPS URL — 중간자 공격 가능성)
+- `LOW`: 검사할 수 없는 참조도 LOW `reference-check-incomplete`로 보고합니다.
 - `LOW`: **외부 링크** — 외부 URL(`https://...`)을 가리키는 markdown 링크. 프롬프트 인젝션 벡터나 불필요한 토큰 소비를 나타낼 수 있음. localhost 링크는 제외
-- `LOW`: **끊어진 로컬 링크** — 대상 파일이나 디렉터리가 디스크에 존재하지 않는 깨진 상대 markdown 링크
+- `LOW`: **없는 번들 참조** — Markdown 링크, 이미지, 명시적 또는 인라인 경로의 대상이 없는 경우
 - `LOW`: **content-missing** / **content-unexpected** — 콘텐츠 무결성 문제 (위 참고)
 - `INFO`: 셸 체이닝 패턴 같은 문맥적 힌트 (분류/가시성 목적)
 - `INFO`: **낮은 분석 가능성** — skill 콘텐츠의 70% 미만이 감사 가능한 텍스트임 ([Analyzability Score](#analyzability-score) 참고)
 
 > 이 발견 사항들은 설치를 막지 않지만 전체 위험 점수를 높입니다. LOW/INFO 발견 사항이 많은 skill은 더 면밀한 검사가 필요할 수 있습니다.
 
-#### 끊어진 링크 탐지
+#### 번들 참조 검사
 
-audit engine은 `.md` 파일에 대해 **구조적 검사**도 수행합니다: 모든 인라인 markdown 링크(`[label](target)`)를 추출하여 로컬 상대 대상이 디스크에 존재하는지 확인합니다. 외부 링크(`http://`, `https://`, `mailto:` 등)와 순수 앵커(`#section`)는 건너뜁니다.
+구조 분석기는 참조 형식을 포함한 로컬 Markdown 링크와 이미지를 검사합니다. 인라인 코드에서는 공백·glob·템플릿 구문 없이 파일 확장자가 있고 `./`, `../`, `scripts/`, `references/`, `assets/`로 시작하는 경로와 명시적인 `path:<target>` 선언을 검사합니다. `skillshare-paths`로 표시한 펜스에서는 한 줄에 경로 하나를 검사합니다. 명시적 선언이 없는 확장자 없는 예제, 일반 식별자, 다른 코드 펜스, 명시적 표시가 없는 절대 경로 코드 예제, URL(`file:` URI 포함), 앵커만 있는 참조는 의도적으로 제외합니다. 필수 절대 경로는 Markdown 링크나 `path:` 선언으로 지정합니다. Markdown 링크와 이미지는 해당 문서의 디렉터리를 기준으로 해석합니다. 인라인 코드 경로, `path:` 선언, `skillshare-paths` 항목도 `./` 또는 `../`로 시작하면 해당 문서를 기준으로 해석합니다. 그 밖의 상대 코드 경로는 중첩된 Markdown 파일에서도 skill 루트를 기준으로 해석합니다.
 
-이는 누락된 참조 파일, 이름이 변경된 경로, 불완전한 skill 패키징 같은 흔한 품질 문제를 잡아냅니다. 각 깨진 링크는 `dangling-link` 패턴으로 `LOW` 심각도 발견 사항을 생성합니다.
+없는 대상은 기존 LOW `dangling-link`를 유지합니다. 상위 경로, 홈 경로, Windows 드라이브 경로 또는 심볼릭 링크 구성 요소가 skill 디렉터리 밖으로 나가면 HIGH `reference-escapes-root`를 생성합니다. 번들 내부의 절대 경로는 허용하며, 선언된 루트와 심볼릭 링크가 포함된 상위 디렉터리에서 도출한 동등한 표기(macOS의 `/var`와 `/private/var` 등)도 인식합니다. 선언된 루트 안에서 횟수가 제한된 `lstat`/`readlink`를 사용하며 참조 파일 내용은 읽지 않습니다. 미지원 경로, 읽을 수 없는 메타데이터, 링크 순환, 해석 한도 초과는 LOW `reference-check-incomplete`로 보고하며, 대상이 없거나 안전하다고 판단하지 않습니다. 한도는 경로당 4,096바이트, 구성 요소 256단계, 심볼릭 링크 40홉입니다. Windows의 기본 구분자는 정규화합니다. 다른 호스트에서는 인식 가능한 Windows 드라이브 이탈을 제외한 역슬래시 경로를 지원하지 않습니다. 원본 줄 번호와 스니펫을 보존합니다. 암시적 인라인 코드 예시가 번들 밖으로 나가면 무시하고 끝의 `:line`은 제거합니다.
+
+`/docs/foo` 같은 사이트 루트 링크가 스킬 밖을 가리키면 기존 LOW `dangling-link` 대신 HIGH `reference-escapes-root`가 발생합니다. `--threshold high`에서는 차단될 수 있습니다.
+
+세 규칙 ID 모두 `audit-rules.yaml`의 `enabled: false`를 지원하며 다른 구조 검사와 같은 전역/프로젝트 설정을 사용합니다. `doctor`도 같은 분석기를 사용합니다. 누락 또는 미완료는 경고, 루트 이탈은 오류이며, `doctor --json`은 `bundled_references`로 기록합니다. 두 모드에서 발견된 skill에 적용됩니다.
 
 ## 위협 카테고리 심층 분석
 
@@ -178,7 +192,7 @@ Output suppression은 Markdown 문맥과 별개로 일치한 근거에 따라 �
 
 공통 Markdown parser가 긴 fence와 닫히지 않은 블록을 포함한 코드 블록 범위를 인식합니다. 내용은 계속 static rules로 스캔하며 shell 블록은 command-tier와 dataflow 분석도 받습니다. 코드 블록 안에 있다는 사실은 신뢰의 근거가 아닙니다. HTML 블록과 주석 안의 fenced shell 예제도 같은 shell 분석을 받으며, taint는 각 블록 안으로 제한됩니다. HTML 블록에는 SDK 매개변수의 심각도 하향을 적용하지 않습니다.
 
-**규칙 재정의:** 일반적인 공개 제한은 이제 `prompt-injection-5`를 사용합니다. 기존 `prompt-injection-4` 재정의나 승인 기록은 새 규칙에 적용되지 않습니다. 일반적인 제한도 차단하려면 `prompt-injection-5`를 CRITICAL로 재정의하세요. 공개 제한 규칙의 심각도 재정의는 유지됩니다. Strict에서 검토한 오탐은 [Accepted Findings](../reference/commands/update.md#accepted-findings)를 사용할 수 있습니다. 규칙, 파일 또는 일치한 텍스트가 바뀌면 다시 승인해야 합니다. CRITICAL을 포함한 명시적 글로벌 또는 프로젝트 심각도 재정의가 SDK 매개변수의 심각도 하향보다 우선합니다. 내장 규칙 5는 명시적인 은폐 구문만 제외하고, 같은 줄의 별도 일반 공개 제한은 유지합니다. 규칙 4를 비활성화하거나 낮은 심각도로 변경해도 이 탐지는 유지됩니다. 사용자 정의 정규식으로 완전히 교체한 규칙은 기존의 전체 줄 제외 동작을 유지합니다.
+**규칙 재정의:** 일반적인 공개 제한은 이제 `prompt-injection-5`를 사용합니다. 기존 `prompt-injection-4` 재정의나 승인 기록은 새 규칙에 적용되지 않습니다. 일반적인 제한도 차단하려면 `prompt-injection-5`를 CRITICAL로 재정의하세요. 공개 제한 규칙의 심각도 재정의는 유지됩니다. Strict에서 검토한 오탐은 [Accepted Findings](../reference/commands/update.md#accepted-findings)를 사용할 수 있습니다. 규칙, 파일, 일치한 텍스트 또는 탐지기별 증거가 바뀌면 다시 승인해야 합니다. CRITICAL을 포함한 명시적 글로벌 또는 프로젝트 심각도 재정의가 SDK 매개변수의 심각도 하향보다 우선합니다. 내장 규칙 5는 명시적인 은폐 구문만 제외하고, 같은 줄의 별도 일반 공개 제한은 유지합니다. 규칙 4를 비활성화하거나 낮은 심각도로 변경해도 이 탐지는 유지됩니다. 사용자 정의 정규식으로 완전히 교체한 규칙은 기존의 전체 줄 제외 동작을 유지합니다.
 
 **방어:** 설치 전 항상 skill 파일을 검토하세요. `skillshare audit`을 사용해 알려진 인젝션 패턴을 탐지하세요. 조직 배포의 경우, 숨겨진 주석 인젝션까지 잡아내려면 `audit.block_threshold: HIGH`를 설정하세요.
 
@@ -398,6 +412,28 @@ _cross-skill
   HIGH  stealth skill cleaner installed alongside high-risk skill backdoor — evasion risk
 ```
 
+## 실행 파일 및 아카이브 헤더 {#executable-headers}
+
+일반 파일의 처음 **512바이트**를 검사하고 PE 헤더가 범위 밖에 있으면 해당 위치에서 필요한 바이트만 추가로 읽습니다. 숨김 디렉터리와 `__pycache__`도 검사합니다. ELF, Mach-O, PE, WASM version 1, CPython 바이트코드, ZIP/JAR 및 위장 shebang을 식별합니다.
+
+- `disguised-executable`: **HIGH**. 문서·이미지·설정 확장자 또는 `.cache`/`__pycache__` 디렉터리 안의 실행 형식이나 shebang.
+- `python-bytecode`: **HIGH**. 일치하는 일반 Python 소스가 있으면 **MEDIUM**.
+- `executable-artifact`: **MEDIUM**. 그 외 네이티브 실행 형식이나 WASM.
+- `archive-artifact`: **INFO**. ZIP/JAR 서명이며 실행 동작의 증거는 아닙니다.
+- `uncertain-header`: **INFO**. 알 수 없는 바이트코드 유사 magic 또는 잘리거나 잘못된 헤더.
+
+위장 확장자는 `.md`, `.txt`, `.rst`, `.pdf`, `.doc`, `.docx`, `.rtf`, `.html`, `.json`, `.yaml`, `.yml`, `.toml`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.webp`, `.ico`, `.bmp`, `.tif`, `.tiff`입니다. 일반 `run.sh`나 확장자 없는 스크립트는 shebang만으로 보고하지 않으며 실행 권한도 근거로 사용하지 않습니다.
+
+고정 magic 표는 정식 CPython **3.6–3.14** 형식(16바이트 헤더와 지원 플래그)을 다룹니다. 유효하지 않은 UTF-8 또는 공백 이외의 제어 접두 바이트와 CRLF가 있는 미지의 magic은 디코딩하지 않고 불확실하다고 보고합니다. 표를 갱신하려면 태그가 있는 CPython 소스와 회귀 테스트가 필요하며 출처는 `internal/audit/header.go`에 있습니다.
+
+CPython 3.6은 플래그 없는 12바이트 헤더를 사용하며 3.7–3.14는 지원 플래그가 있는 16바이트 헤더를 사용합니다. 단일 파일 검사에서는 위장 분류에 파일 이름만 사용하며 상위 디렉터리는 영향을 주지 않습니다.
+
+기존 깊이 제한 6단계를 유지합니다. `.git`, `.skillshare`, `.skillshare-meta.json`, OS 메타데이터, 파일 심볼릭 링크와 특수 파일은 헤더를 읽지 않으며 디렉터리 링크도 따라가지 않습니다. 명시적으로 설정한 최상위 source link의 기존 해석 정책은 유지합니다. 파일 수 제한은 없으며 디렉터리 스캔은 헤더를 읽지 못한 파일을 skipped로 세고 다른 파일을 계속 검사합니다. 직접 지정한 파일을 읽지 못하면 오류를 반환합니다. 숨김 디렉터리 안에서는 헤더만 분류하고 텍스트 규칙이나 무결성 검사를 추가하지 않습니다. 파일 심볼릭 링크는 직접 파일 및 agent 감사를 포함해 기존 텍스트 검사를 유지합니다.
+
+헤더 분류는 실행 동작, 바이트코드 디코딩, 아카이브 내부를 분석하지 않습니다. 크기 초과 파일은 이 분류기의 헤더 검사만 받습니다. 각 규칙 ID는 `audit-rules.yaml`의 `enabled: false`로 비활성화할 수 있습니다.
+
+숨김 이름만으로는 위장으로 판정하지 않습니다. 일반 도구 스크립트는 탐지하지 않으며 `.venv/bin/python` 같은 네이티브 바이너리는 MEDIUM입니다. HIGH에는 문서·이미지·설정 확장자 또는 `.cache`/`__pycache__` 상위 디렉터리가 필요합니다. 링크와 특수 파일은 헤더 읽기를 생략했다는 이유만으로 `skippedFiles`에 포함하지 않습니다.
+
 ## Analyzability Score {#analyzability-score}
 
 스캔된 각 skill은 **analyzability score**(분석 가능성 점수)를 받습니다 — 전체 파일 바이트 중 감사 가능한 평문 바이트의 비율(0–100%)입니다. 이는 스캐너가 skill 콘텐츠의 얼마만큼을 검사할 수 있었는지 알려줍니다.
@@ -410,10 +446,9 @@ _cross-skill
 
 analyzability가 **70%** 미만으로 떨어지면, audit engine은 `low-analyzability` 패턴으로 `INFO` 레벨 발견 사항을 발생시킵니다. 이는 설치를 막지는 않지만 스캐너의 커버리지가 제한적임을 알려줍니다.
 
-계산에서 제외되는 파일:
-- 바이너리 파일 (이미지, `.wasm` 등)
-- 1MB를 초과하는 파일
-- `.metadata.json` (내부 메타데이터)
+1 MB 이하의 바이너리 및 미지원 파일은 `totalBytes`에 포함하지만 `auditableBytes`에는 포함하지 않습니다. 크기 초과 파일은 디렉터리의 바이트 비율에서 제외하며 내부 메타데이터와 제외 경로도 계산하지 않습니다.
+
+CLI, JSON, 대시보드 요약은 `binaryFiles`, `skippedFiles`, `oversizedFiles`를 별도로 보고합니다. `skippedFiles`는 전체 텍스트 분석을 하지 않은 파일(읽기 실패, 바이너리, 미지원 확장자, 크기 초과, 숨김 디렉터리의 일반 파일)입니다. `binaryFiles`는 바이너리·아카이브 형식 및 NUL을 포함한 헤더를 셉니다. 크기 초과 바이너리는 각 카운터에 한 번씩 포함됩니다. 헤더 바이트는 감사 가능한 텍스트로 계산하지 않습니다.
 
 ### 출력
 
@@ -435,7 +470,10 @@ JSON 출력에서 각 결과는 다음을 포함합니다:
 {
   "totalBytes": 12480,
   "auditableBytes": 10240,
-  "analyzability": 0.82
+  "analyzability": 0.82,
+  "binaryFiles": 2,
+  "skippedFiles": 3,
+  "oversizedFiles": 1
 }
 ```
 
@@ -496,3 +534,28 @@ SARIF 출력에서 `ruleId`는 SARIF의 `ruleId` 필드에 매핑되며, `finger
 명령 값을 가진 설정 중 `apiKeyHelper`와 `statusLine`만 검사하며, 다른 명령 설정은 검사하지 않습니다.
 
 command 훅의 문자열 `args` 배열도 지원합니다. 규칙 ID는 `audit rules` 비활성화 및 심각도 재정의를 지원합니다. [영어 세부 설명](/docs/understand/audit-engine#bundled-hooks-and-settings)。
+
+## 민감한 대상과 역직렬화 {#sensitive-destinations}
+
+정적 증거를 검토 대상으로 보고합니다. SSRF, 신뢰할 수 없는 입력 또는 런타임 악용 가능성을 입증하지 않습니다. 별칭, DNS, 리디렉션, 데이터 출처, 임의의 여러 줄 구문을 해석하지 않으며 네트워크 요청이나 역직렬화를 실행하지 않습니다.
+
+| 규칙 ID | 기본값 | 증거 |
+|---|---|---|
+| `ssrf-metadata-0` | 코드 문맥과 메타데이터 호스트 대상 요청은 CRITICAL, 산문 및 공개 URL 경로/쿼리의 언급은 HIGH | 모든 수집 대상 텍스트의 메타데이터 호스트. 소스 파일과 아래 목록의 Markdown 펜스는 그 밖의 언급에 CRITICAL 문맥을 부여합니다. 인식된 요청은 파싱한 URL 호스트 이름이 메타데이터 호스트와 일치할 때만 CRITICAL이며, 공개 URL의 경로/쿼리에만 주소가 있으면 HIGH입니다. |
+| `ssrf-internal-0` | MEDIUM | 알려진 요청 호출 또는 curl/wget의 리터럴 HTTP(S) 내부 대상 |
+| `ssrf-dynamic-0` | MEDIUM (0.6) | 요청 입력을 직접 사용하거나 Python f-string / JavaScript 템플릿으로 호스트를 보간하는 요청. 대상은 알 수 없음 |
+| `unsafe-deserialization-python` | HIGH | Python `pickle.load/loads`, `marshal.load/loads`, `dill.load/loads` |
+| `unsafe-deserialization-yaml` | HIGH | Python `yaml.load/load_all`, `unsafe_load/unsafe_load_all`, `full_load/full_load_all` |
+| `unsafe-deserialization-torch` | HIGH | 명시적인 `weights_only=True`가 없는 Python `torch.load` |
+| `unsafe-deserialization-php` | HIGH | PHP `unserialize` |
+| `unsafe-deserialization-ruby` | HIGH | Ruby `Marshal.load/restore` |
+| `unsafe-deserialization-js` | HIGH | JavaScript/TypeScript `require('node-serialize')` 또는 `from 'node-serialize'`. 의존성 사용 검토 필요 |
+
+초기 메타데이터 정책: `169.254.169.254`, `169.254.170.2`, `100.100.100.200`, `metadata.google.internal`, `fd00:ec2::254`. IPv6는 압축 표기(대괄호 유무 모두)를 인식합니다. 일치는 언어 필터 및 튜토리얼 억제와 독립적입니다. 산문, 설정 데이터와 텍스트 펜스는 HIGH이므로 언급만으로는 기본 CRITICAL 임계값에서 경고하며 audit 실패나 설치 차단이 발생하지 않습니다. HIGH 임계값에서는 차단됩니다. 소스 파일(주석 포함), 아래 목록의 Markdown 펜스(언어 미지정 포함)는 그 밖의 메타데이터 언급에 CRITICAL 문맥을 부여합니다. 인식된 요청은 파싱한 URL 호스트 이름이 메타데이터 호스트와 일치할 때만 CRITICAL입니다. 메타데이터 주소가 공개 URL의 경로나 쿼리에만 있으면 HIGH로 남습니다. 텍스트/설정 펜스 안의 요청도 파싱한 호스트 이름이 메타데이터 호스트와 일치할 때만 CRITICAL입니다. 구문 휴리스틱이며 실제 실행 여부를 증명하지 않습니다. 명시적 전역/프로젝트 심각도 재정의가 우선하며, 전체 정규식 교체는 문맥 검사 없이 설정된 심각도를 사용합니다. 다른 인코딩 IP 표기나 별칭은 범위 밖입니다.
+
+메타데이터 코드 문맥은 `.sh`, `.bash`, `.zsh`, `.fish`, `.py`, `.js`, `.ts`, `.rb`, `.php`, `.php3`, `.php4`, `.php5`, `.phtml`, `.go`, `.rs`, `.swift`, `Makefile`, `Dockerfile`(대소문자 무시)과 첫 줄이 shebang(`#!`, 선택적 BOM 뒤)인 수집 대상 파일을 인식합니다. 확장자 없는 메모는 shebang이나 인식된 요청이 없으면 HIGH를 유지합니다. Markdown 펜스는 언어 미지정, 위 확장자 이름 또는 `python`, `javascript`, `typescript`, `ruby`, `shell`, `console`, `golang`, `rust`, `makefile`, `dockerfile`일 때 코드로 인식합니다. 그 외(`http`, `powershell`, `pwsh`, `node`, `jsx`, `tsx`, `java` 포함)는 인식된 리터럴 요청이 없는 한 HIGH입니다. IPv4 메타데이터 주소나 `metadata.google.internal` 뒤의 문장 마침표는 허용하며 `.example.com` 같은 호스트명 접미사는 일치하지 않습니다.
+
+
+내부 대상은 표준 IPv4/IPv6(IPv4 매핑 IPv6 포함), RFC1918/사설 IPv6, 루프백, 링크 로컬, 미지정 주소, localhost 및 `.localhost`/`.internal`/`.local` 호스트입니다. 인식하는 요청 형식: requests/httpx/axios HTTP methods, fetch, urlopen, urllib.request.urlopen, file_get_contents/fopen, Net::HTTP.get/post, URI.open, curl/wget. 셸은 단순 호출만 지원합니다. 직접 입력: `req/request.query/body/params/args/GET`, `$_GET/$_POST/$_REQUEST`, `params[...]`. 일반 URL 변수만으로는 동적 규칙이 작동하지 않습니다. 내부 규칙은 `.py`, `.js`, `.ts`, `.rb`, `.php` 및 셸 `.sh`, `.bash`, `.zsh`, `.fish`에 적용됩니다. 동적 규칙은 셸을 제외한 같은 언어에 적용됩니다.
+
+역직렬화는 해당 `.py`, `.php`, `.rb`, `.js`, `.ts` 파일만 검사하며 Markdown 본문이나 코드 펜스는 제외합니다. PHP 별칭 `.php3`, `.php4`, `.php5`, `.phtml`도 인식합니다. 확장자는 대소문자를 구분하지 않습니다. 기존 크기/깊이/바이너리 제한이 적용됩니다. `yaml.safe_load/safe_load_all`은 음성 사례입니다. `yaml.load/load_all`의 최상위 인수 `Loader=SafeLoader`, `Loader=CSafeLoader`, `Loader=yaml.SafeLoader`, `Loader=yaml.CSafeLoader` 또는 `torch. SafeLoader와 CSafeLoader는 두 번째 위치 인수로도 인식합니다.load`의 `weights_only=True`는 그 호출만 억제합니다. 다른 안전한 호출, 문자열 속 키워드, 중첩된 키워드는 안전하지 않은 호출을 숨기지 않습니다. 불완전한 호출이나 여러 줄 호출에서 안전 옵션을 확인할 수 없으면 경고를 유지합니다. 로더 이름이나 의존성의 신뢰성을 보장하지 않습니다.

@@ -303,3 +303,74 @@ func TestHandlePatchConfig_ModeKeepsUnexpandedProjectPrefixedNamingValid(t *test
 		t.Fatalf("global merge under a project inheriting prefixed: got %d %s, want 400", rr.Code, rr.Body.String())
 	}
 }
+
+// Raw shared edits must be valid together with registrations on this machine.
+func TestHandlePutConfig_LocalProjectConflicts(t *testing.T) {
+	for _, kind := range []string{"name", "mode"} {
+		t.Run(kind, func(t *testing.T) {
+			s, src := newTestServer(t)
+			t.Setenv("XDG_STATE_HOME", t.TempDir())
+			root := filepath.Join(filepath.Dir(src), "app")
+			addProject(t, s, root)
+			raw := "source: " + src + "\nmode: merge\ntargets: {}\n"
+			if kind == "name" {
+				if err := os.MkdirAll(root+"-other", 0755); err != nil {
+					t.Fatal(err)
+				}
+				raw += "projects:\n  " + root + "-other:\n    name: app\n    targets: [claude]\n    skills: {}\n"
+			} else {
+				if err := os.WriteFile(s.configPath(), []byte("source: "+src+"\nmode: copy\ntargets: {}\n"), 0644); err != nil {
+					t.Fatal(err)
+				}
+				if err := s.reloadProjectsReadOnly(); err != nil {
+					t.Fatal(err)
+				}
+				p := s.cfg.Projects[root]
+				p.Skills.TargetNaming = "prefixed"
+				p.Skills.Mode = ""
+				candidate, err := config.PrepareLocalProjects(s.configPath(), s.cfg, map[string]config.ManagedProject{root: p}, "")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := candidate.Write(); err != nil {
+					t.Fatal(err)
+				}
+				raw = "source: " + src + "\nmode: symlink\ntargets: {}\n"
+			}
+			before, err := os.ReadFile(s.configPath())
+			if err != nil {
+				t.Fatal(err)
+			}
+			body, _ := json.Marshal(map[string]string{"raw": raw})
+			rr := projectRequest(t, s, http.MethodPut, "/api/config", string(body))
+			if rr.Code != http.StatusBadRequest {
+				t.Fatalf("%d %s", rr.Code, rr.Body)
+			}
+			after, _ := os.ReadFile(s.configPath())
+			if string(after) != string(before) {
+				t.Fatal("invalid replacement was written")
+			}
+		})
+	}
+}
+
+func TestHandlePutConfig_RepairsInvalidSharedFileWithLocalProjects(t *testing.T) {
+	s, src := newTestServer(t)
+	addProject(t, s, filepath.Join(filepath.Dir(src), "app"))
+	if err := os.WriteFile(s.configPath(), []byte("targets: [invalid YAML\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	raw := "source: " + src + "\nmode: copy\ntargets: {}\n"
+	body, _ := json.Marshal(map[string]string{"raw": raw})
+	rr := projectRequest(t, s, http.MethodPut, "/api/config", string(body))
+	if rr.Code != 200 {
+		t.Fatalf("%d %s", rr.Code, rr.Body)
+	}
+	if len(s.cfg.Projects) != 1 {
+		t.Fatal("repair lost local registration")
+	}
+	got, _ := os.ReadFile(s.configPath())
+	if string(got) != raw {
+		t.Fatal("repair leaked local state or changed submitted bytes")
+	}
+}

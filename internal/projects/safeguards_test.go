@@ -50,6 +50,7 @@ func TestServiceRemove_SkillsOffProjectDetaches(t *testing.T) {
 	if err := os.MkdirAll(root, 0755); err != nil {
 		t.Fatal(err)
 	}
+	t.Setenv("XDG_STATE_HOME", filepath.Join(dir, "state"))
 	cfg, err := config.LoadReadOnly()
 	if err != nil {
 		t.Fatal(err)
@@ -174,7 +175,7 @@ func TestServiceEdit_SaveFailureReportsCompletedDetach(t *testing.T) {
 	}
 }
 
-func TestServiceEdit_AnchorDepartures(t *testing.T) {
+func TestServiceEdit_LocalOverrideDoesNotPropagateSharedAnchors(t *testing.T) {
 	path, _, dir, _ := projectCandidateFixture(t, "  $ROOT/a: &shared\n    targets: [claude, codex]\n    skills: {}\n  $ROOT/z: *shared\n")
 	for _, name := range []string{"a", "z"} {
 		if err := os.MkdirAll(filepath.Join(dir, name), 0755); err != nil {
@@ -193,7 +194,7 @@ func TestServiceEdit_AnchorDepartures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Affected) != 2 || result.Detach == nil || len(result.Detach.Removed) != 2 {
-		t.Fatalf("inherited departing paths left managed: %+v", result)
+	if len(result.Affected) != 1 || result.Detach == nil || len(result.Detach.Removed) != 1 {
+		t.Fatalf("local edit affected another shared declaration: %+v", result)
 	}
 }

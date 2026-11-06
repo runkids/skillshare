@@ -112,6 +112,7 @@ rules:
 | `regex` | はい* | 各行と照合する正規表現 |
 | `confidence` | いいえ | 0 から 1 の信頼度。既定値は 0.95 |
 | `exclude` | いいえ | 行が `regex` と `exclude` の両方に一致した場合、finding は抑制される |
+| `files` | いいえ | ルールを適用するファイルを絞り込む glob パターン。詳細は後述のファイルスコープを参照。 |
 | `enabled` | いいえ | `false` に設定するとルールを無効化する。無効化する場合は `id` のみが必要。 |
 
 *`enabled: false` の場合を除き必須。
@@ -168,7 +169,7 @@ skillshare audit rules init -p       # → .skillshare/audit-rules.yaml
 #            → project (.skillshare/audit-rules.yaml)
 #
 # Each rule needs: id, severity, pattern, message, regex.
-# Optional: exclude (suppress match), enabled (false to disable).
+# Optional: exclude (suppress match), files (scope), enabled (false to disable).
 
 rules:
   # Example: flag TODO comments as informational
@@ -280,9 +281,11 @@ skillshare audit --json | jq '.skills[].findings'  # findings をプログラム
 正規表現ベースのルールの信頼できる情報源:
 [`internal/audit/rules.yaml`](https://github.com/runkids/skillshare/blob/main/internal/audit/rules.yaml)
 
+ファイル単位の検出器 `whitespace-padding` も `rules.yaml` に登録されています。しきい値と除外は Go で実装されており、有効状態・重大度・信頼度は `regex` や `exclude` を指定せずに設定します。[空白による埋め込み](/docs/understand/audit-engine#whitespace-padding)を参照してください。 この ID に `regex` または `exclude` を設定したルールは拒否されます。
+
 :::note 構造チェック、tier チェック、Skill 間チェック
 
-`dangling-link`、`content-tampered`、`content-oversize`、`content-missing`、`content-unexpected` は**構造チェック**です（正規表現ではなく、ファイルシステムの検索とハッシュ比較）。`low-analyzability` は [Analyzability Score](/docs/understand/audit-engine#analyzability-score) から生成される**分析可能性の finding** です。`tier-stealth`、`tier-destructive-network`、`tier-network-heavy`、`tier-interpreter`、`tier-interpreter-network` は、[Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) プロファイルから生成される**ティアの組み合わせの finding** です。`cross-skill-*` の findings は、[Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection) から生成されます。これらはすべて下記の表に記載されていますが、`rules.yaml` には定義されていません。
+`dangling-link`、`reference-escapes-root`、`reference-check-incomplete`、`content-tampered`、`content-oversize`、`content-missing`、`content-unexpected` は**構造チェック**です（正規表現ではなく、ファイルシステムの検索とハッシュ比較）。`low-analyzability` は [Analyzability Score](/docs/understand/audit-engine#analyzability-score) から生成される**分析可能性の finding** です。`tier-stealth`、`tier-destructive-network`、`tier-network-heavy`、`tier-interpreter`、`tier-interpreter-network` は、[Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) プロファイルから生成される**ティアの組み合わせの finding** です。`cross-skill-*` の findings は、[Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection) から生成されます。ヘッダー検査では、[Executable and archive headers](/docs/understand/audit-engine#executable-headers) で説明されている `disguised-executable`、`python-bytecode`、`executable-artifact`、`archive-artifact`、`uncertain-header` も生成されます。これらはすべて下記の表に記載されていますが、`rules.yaml` には定義されていません。
 
 `bundled-*` は `structure` の構造化 JSON チェックです。ルール一覧、無効化、重大度の上書きに対応し、メタデータの正規表現はテキストに一致しません。 [同梱フックと設定](/docs/understand/audit-engine#bundled-hooks-and-settings)。
 
@@ -381,6 +384,7 @@ skillshare audit --json | jq '.skills[].findings'  # findings をプログラム
 | `hardcoded-secret-9` | hardcoded-secret | HIGH |
 | `data-uri-0` | data-uri | MEDIUM |
 | `escape-obfuscation-0` | escape-obfuscation | MEDIUM |
+| `whitespace-padding` | whitespace-padding | MEDIUM（非空行のテキスト前の空行 40 行以上: HIGH） |
 | `suspicious-fetch-0` | suspicious-fetch | MEDIUM |
 | `ip-address-url-0` | ip-address-url | MEDIUM |
 | `hidden-unicode-3` | hidden-unicode | MEDIUM |
@@ -389,6 +393,8 @@ skillshare audit --json | jq '.skills[].findings'  # findings をプログラム
 | `insecure-http-0` | insecure-http | LOW |
 | `external-link-0` | external-link | LOW |
 | `dangling-link` | dangling-link | LOW |
+| `reference-escapes-root` | reference-escapes-root | HIGH |
+| `reference-check-incomplete` | reference-check-incomplete | LOW |
 | `content-tampered` | content-tampered | MEDIUM |
 | `content-oversize` | content-oversize | MEDIUM |
 | `content-missing` | content-missing | LOW |
@@ -404,6 +410,20 @@ skillshare audit --json | jq '.skills[].findings'  # findings をプログラム
 | `cross-skill-privilege-network` | cross-skill-privilege-network | MEDIUM |
 | `cross-skill-stealth` | cross-skill-stealth | HIGH |
 | `cross-skill-cred-interpreter` | cross-skill-cred-interpreter | MEDIUM |
+| `disguised-executable` | disguised-executable | HIGH |
+| `python-bytecode` | python-bytecode | HIGH |
+| `executable-artifact` | executable-artifact | MEDIUM |
+| `archive-artifact` | archive-artifact | INFO |
+| `uncertain-header` | uncertain-header | INFO |
+| `ssrf-metadata-0` | ssrf-metadata | CRITICAL / HIGH ([コンテキスト](/docs/understand/audit-engine#sensitive-destinations)) |
+| `ssrf-internal-0` | ssrf-internal | MEDIUM |
+| `ssrf-dynamic-0` | ssrf-dynamic | MEDIUM |
+| `unsafe-deserialization-python` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-yaml` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-torch` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-php` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-ruby` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-js` | unsafe-deserialization | HIGH |
 
 ## サブコマンド
 
@@ -425,3 +445,15 @@ skillshare audit --json | jq '.skills[].findings'  # findings をプログラム
 - [Audit Engine](/docs/understand/audit-engine) — エンジンの仕組み（脅威モデル、リスクスコアリング、ティア分類）
 - [Securing Your Skills](/docs/how-to/advanced/security) — チーム向けセキュリティガイド
 - [CI/CD Skill Validation](/docs/how-to/recipes/ci-cd-skill-validation) — パイプライン自動化のレシピ
+
+## ファイルへの適用 {#file-applicability}
+
+任意の `files` リストは Go `path.Match` 構文（`*`、`?`、文字クラス）を使用します。`*.py` のように `/` がなければ任意の深さのベース名に、`scripts/*.php` のように `/` があればスキルのルートからの相対パス全体に一致します。`*` は `/` を越えず、大文字と小文字を区別しません。単一ファイルではベース名、コンテンツスキャンでは指定されたファイル名を使います。収集済みファイルだけを絞り込み、拡張子を追加しません。
+
+絶対パス、空のパターン、空・`.`・`..` のパス要素、バックスラッシュ、コロン、不正な文字クラス、再帰的な `**` は、無効なルールや対象のない上書きでも拒否されます。省略すると継承し、`files: []` は制限を解除します。ID とパターンの上書きが可能で、ID が優先します。正規表現全体を置き換えると適用範囲と組み込みの呼び出し検査も置き換わります。`audit rules --format json` は空でない実効 `files` を返します。
+
+```yaml
+rules:
+  - id: unsafe-deserialization-python
+    files: ['*.py', 'scripts/*.txt']
+```

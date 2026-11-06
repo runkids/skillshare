@@ -223,6 +223,7 @@ make playground-down     # 停止容器
 | `~/.config/skillshare/agents/` | Agent source 目錄 |
 | `~/.config/skillshare/extras/<name>/` | Extras source 目錄 |
 | `~/.local/state/skillshare/logs/` | 操作與稽核日誌 |
+| `~/.local/state/skillshare/projects/` | 本機專案註冊及鎖定 |
 | `~/.local/share/skillshare/backups/` | 備份目錄 |
 
 ---

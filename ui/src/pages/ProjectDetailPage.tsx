@@ -17,7 +17,9 @@ import HooksScope from '../components/hooks/HooksScope';
 import MCPProjectView from '../components/mcp/MCPProjectView';
 import { targetLabel } from '../components/mcp/mcpView';
 import ProjectSyncDialog from '../components/projects/ProjectSyncDialog';
+import ProjectOriginNotice from '../components/projects/ProjectOriginNotice';
 import ProjectTools from '../components/projects/ProjectTools';
+import { removeProject } from '../components/projects/projectActions';
 import TargetOmpExtensions from '../components/targets/TargetOmpExtensions';
 import TargetPiExtensions from '../components/targets/TargetPiExtensions';
 import { projectHealth, projectRows, toolGroups, type ProjectRow } from '../components/projects/projectView';
@@ -121,9 +123,7 @@ function ProjectEditor({ project, tools, mcp, hooks, hooksError }: { project: Pr
   const remove = async () => {
     setBusy(true);
     try {
-      if (project.declared) await api.removeProject(project.root);
-      if (mcpEntry) await mcpApi.save({ project: project.path, remove: true });
-      if (hooksEntry) await hooksApi.save({ project: project.path, remove: true });
+      await removeProject(project, { mcp: Boolean(mcpEntry), hooks: Boolean(hooksEntry) });
       refresh();
       toast(t('projects.removed', { name: project.name }), 'success');
       navigate('/projects');
@@ -191,6 +191,7 @@ function ProjectEditor({ project, tools, mcp, hooks, hooksError }: { project: Pr
       />
 
       <div className="mb-6 flex flex-col gap-3 empty:hidden">
+        <ProjectOriginNotice origin={project.origin} originPath={project.originPath} />
         {project.missing && <div className="ss-note bad"><span className="flex-1">{t('projects.note.missing')}</span></div>}
         {project.hasOwnConfig && <div className="ss-note warn"><span className="flex-1">{t('projects.note.ownConfig')}</span></div>}
       </div>
@@ -272,7 +273,7 @@ function ProjectEditor({ project, tools, mcp, hooks, hooksError }: { project: Pr
         loading={busy}
         variant="danger"
         title={t('projects.removeTitle', { name: project.name })}
-        message={<p>{t('projects.removeMessage')}</p>}
+        message={<p>{t(project.declared ? 'projects.removeMessage' : 'projects.removeSharedMessage')}</p>}
         confirmText={t('projects.remove')}
         onCancel={() => setRemoving(false)}
         onConfirm={() => void remove()}

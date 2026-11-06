@@ -507,3 +507,54 @@ func TestAdoptMovedProjectSkills_KeepsDestinationDeclaration(t *testing.T) {
 		t.Errorf("skills = %+v, want only the existing destination declaration %+v", cfg.Skills, declared)
 	}
 }
+
+// TestReconcileProjectSkills_IgnoresMetadataFiles verifies that both install
+// metadata files are kept out of Git, also in projects whose .gitignore
+// predates the rule (#759).
+func TestReconcileProjectSkills_IgnoresMetadataFiles(t *testing.T) {
+	root := t.TempDir()
+	skillshareDir := filepath.Join(root, ".skillshare")
+	skillsDir := filepath.Join(skillshareDir, "skills")
+	for _, dir := range []string{skillsDir, filepath.Join(skillshareDir, "agents")} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := ReconcileProjectSkills(root, &ProjectConfig{}, install.NewMetadataStore(), skillsDir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(skillshareDir, ".gitignore"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, rule := range []string{"skills/.metadata.json", "agents/.metadata.json"} {
+		if !strings.Contains(string(data), rule+"\n") {
+			t.Errorf(".gitignore = %q, want rule %q", data, rule)
+		}
+	}
+}
+
+// TestReconcileProjectSkills_IgnoresCustomSourceMetadata verifies that the
+// metadata rule follows a skills source configured outside .skillshare/.
+func TestReconcileProjectSkills_IgnoresCustomSourceMetadata(t *testing.T) {
+	root := t.TempDir()
+	skillsDir := filepath.Join(root, "vendor", "skills")
+	if err := os.MkdirAll(skillsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &ProjectConfig{Sources: ProjectSources{Skills: "vendor/skills"}}
+
+	if err := ReconcileProjectSkills(root, cfg, install.NewMetadataStore(), skillsDir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(root, ".gitignore"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "vendor/skills/.metadata.json\n") {
+		t.Errorf("project .gitignore = %q, want rule vendor/skills/.metadata.json", data)
+	}
+}

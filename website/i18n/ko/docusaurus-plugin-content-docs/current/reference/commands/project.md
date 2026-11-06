@@ -4,7 +4,7 @@ sidebar_position: 21
 
 # project
 
-각 폴더에 `.skillshare/` 설정을 만들지 않고, global 설정에서 프로젝트 폴더를 관리하고 그 폴더로 skill과 agent를 동기화합니다.
+각 폴더에 `.skillshare/`를 만들지 않고 공유 설정과 로컬 등록으로 프로젝트의 스킬과 agent를 동기화합니다.
 
 `project`는 프로젝트 안에서 실행하더라도 항상 global 설정을 사용합니다. 이는 저장소 자체의 설정을 선택하는 `-p` / `--project`와 다르며, 이 명령어에서 `-p` / `--project`는 거부됩니다. 팀원이 저장소와 함께 설정을 받아야 한다면 [project mode](/docs/understand/project-skills)를 사용하세요.
 
@@ -17,6 +17,7 @@ skillshare project show <project> --json
 skillshare project add <root> --target T [options]
 skillshare project edit <project> [options]
 skillshare project sync <project> [--dry-run] [--json]
+skillshare project localize <project> [--dry-run] [--json]
 skillshare project remove <project> [--yes] [--dry-run] [--json]
 ```
 
@@ -35,7 +36,7 @@ skillshare project remove <project> [--yes] [--dry-run] [--json]
 | `--skills-include P`, `--skills-exclude P` | add, edit | 여러 glob 패턴은 반복해서 지정합니다. 해당 목록을 교체하며, 빈 값은 목록을 지웁니다 |
 | `--agents-include P`, `--agents-exclude P` | add, edit | agent에 대해 같은 교체 규칙을 적용합니다. 필터에는 merge 또는 copy mode가 필요합니다 |
 | `--sync` | add, edit | 저장한 뒤 이 프로젝트의 skill과 agent를 동기화합니다. force는 꺼져 있습니다 |
-| `--dry-run`, `-n` | add, edit, sync, remove | 쓰기나 확인 없이 미리 봅니다 |
+| `--dry-run`, `-n` | add, edit, sync, remove, localize | 쓰기나 확인 없이 미리 봅니다 |
 | `--yes` | remove | 확인을 건너뜁니다. 미리보기가 아닌 상태에서 JSON으로 제거할 때 필수입니다 |
 | `--json` | all | 구조화된 출력. 프로세스 종료 코드도 함께 확인하세요 |
 | `--global`, `-g` | all | global 범위를 명시합니다(이 명령어의 기본값이기도 합니다) |
@@ -55,7 +56,7 @@ skillshare project add ~/work/shop-web --target claude,codex \
 skillshare project show shop-web --json
 ```
 
-저장된 항목은 [`projects`](/docs/reference/targets/configuration#projects)에 속합니다. 공유된 tool 폴더는 하나의 sync target으로 묶입니다. 일반 `skillshare sync`도 등록된 프로젝트를 동기화합니다.
+저장한 등록은 이 기기에 유지됩니다. 공유 [`projects`](/docs/reference/targets/configuration#projects) 선언도 계속 지원됩니다.
 
 skill이 꺼진 프로젝트는 global symlink mode를 포함해 skill 동기화 단계를 전혀 실행하지 않습니다. 요청되었거나 켜진 리소스 선택이 비어 있으면 탐색, 백업, target 쓰기 없이 성공합니다.
 
@@ -68,7 +69,7 @@ skillshare project sync shop-web --dry-run --json
 skillshare project sync shop-web --json
 ```
 
-add와 edit은 쓰기 전에 유효한 전체 설정을 검증합니다. YAML 앵커는 다른 항목에도 영향을 줄 수 있으므로, 변경 결과에는 영향을 받은 모든 루트가 나열됩니다. 아무것도 바뀌지 않는 add나 edit은 `applied: false`와 `unchanged: true`를 반환하며, `--sync`는 그대로 수행합니다. 다른 설정으로 add를 반복하면 실패하고 `project edit`을 안내합니다. 사용자 지정 이름은 루트처럼 보이면 안 됩니다(예: `~name`, `./name`, `C:name`).
+add와 edit은 쓰기 전에 유효한 전체 설정을 검증합니다. 로컬 편집은 선택한 항목만 복사하므로 공유 YAML 앵커의 다른 루트는 변경되지 않습니다. 변경 결과에는 영향을 받은 루트가 나열됩니다. 아무것도 바뀌지 않는 add나 edit은 `applied: false`와 `unchanged: true`를 반환하며, `--sync`는 그대로 수행합니다. 다른 설정으로 add를 반복하면 실패하고 `project edit`을 안내합니다. 사용자 지정 이름은 루트처럼 보이면 안 됩니다(예: `~name`, `./name`, `C:name`).
 
 ### 등록 제거 {#remove}
 
@@ -87,20 +88,35 @@ CLI edit은 빠진 skill 경로를 같은 규칙으로 분리합니다. 프로�
 |---------|-------------|
 | list | `projects` 배열(등록된 프로젝트가 없으면 비어 있음) |
 | show | `project` 객체 |
-| add, edit, remove | `action`, `project`, `applied`, `affected`, `warnings`; 선택적으로 `sync` 또는 `detach` |
+| add, edit, remove, localize | `action`, `project`, `applied`, `affected`, `warnings`; 선택적으로 `sync` 또는 `detach` |
 | sync | `action`, `project`, `sync`; 미리보기에는 `applied: false`도 포함 |
 
 프로젝트 객체에는 `root`(저장된 표기), `path`(확장된 경로), `name`, `targets`, `skills`, `agents`, `groups`, `missing`, `hasOwnConfig`가 포함됩니다. 생략되었거나 꺼진 리소스는 `null`입니다. 켜진 리소스는 해당 설정을 노출합니다. 텍스트 형식의 `project list`와 `project show`는 켜짐/꺼짐 상태를 보고합니다. sync 결과에는 `results`, `failed`, `warnings`, 그리고 탐색/필터 진단 정보가 포함됩니다.
 
 target 하나가 실패하면 sync는 완료된 target을 보고하면서 종료 코드 1로 끝납니다. sync 미리보기는 충돌을 `failed`에 보고하고 종료 코드 0으로 끝나지만, 잘못된 입력은 여전히 실패합니다. add/edit 저장은 성공했지만 sync가 실패하면 등록은 저장된 상태로 남습니다. target을 수정한 뒤 `project sync`로 다시 시도하세요. 없는 프로젝트 폴더도 edit은 할 수 있지만 sync는 할 수 없습니다.
 
-edit과 제거는 트랜잭션이 아닙니다. 이후의 분리나 저장이 실패하면 그 이전의 파일 시스템 변경이 남을 수 있습니다. JSON 결과는 완료된 `detach`, `registration`(`kept`, `updated`, `removed`), `error`를 보고합니다. edit 저장이 실패하면 `applied: false`이며 영속화된 프로젝트를 설명합니다. 저장이 성공한 뒤 sync가 실패하면 `applied: true`가 유지됩니다. 다시 시도하기 전에 이 필드들을 확인하세요. 변경이 일어나기 전의 실패는 오류 payload를 사용합니다. list, show, 미리보기, JSON 출력은 시작 시 migration, 정리, 버전 확인을 건너뜁니다. 텍스트 출력의 add, edit, sync, remove는 다른 명령과 같이 이를 실행합니다.
+edit과 제거는 트랜잭션이 아닙니다. 이후의 분리나 저장이 실패하면 그 이전의 파일 시스템 변경이 남을 수 있습니다. JSON 결과는 완료된 `detach`, `registration`(`kept`, `updated`, `removed`), `error`를 보고합니다. edit 저장이 실패하면 `applied: false`이며 영속화된 프로젝트를 설명합니다. 저장이 성공한 뒤 sync가 실패하면 `applied: true`가 유지됩니다. 다시 시도하기 전에 이 필드들을 확인하세요. 변경이 일어나기 전의 실패는 오류 payload를 사용합니다. 모든 project 명령은 시작 시 마이그레이션, 정리 및 버전 확인을 건너뜁니다.
 
 이 명령어는 skill과 agent만 관리합니다. MCP 프로젝트 설정과 hook은 각각 전용 명령어를 사용하며, target을 변환하거나 프로젝트 자체 설정을 편집하지 않습니다.
 
+## 로컬 등록과 공유 선언 {#local-registrations}
+
+CLI add/edit/remove와 대시보드 저장은 로컬 등록만 기록하며 공유 설정을 다시 쓰지 않습니다. 공유 `projects:` 선언은 계속 유효합니다. 정규화된 루트가 같으면 로컬 항목이 공유 항목 전체를 대체합니다. 삭제는 이 기기에서만 공유 항목을 숨기며 다시 추가하면 해제됩니다. 서로 다른 루트의 이름 중복과 같은 계층의 정규화된 루트 중복은 거부됩니다.
+
+```bash
+skillshare project localize shop-web --dry-run --json
+skillshare project localize shop-web --json
+```
+
+`localize`는 공유 항목을 로컬로 복사하며 공유 YAML 삭제, 연결 해제 또는 동기화를 하지 않습니다. 반복 실행은 변경하지 않습니다. list/show의 텍스트와 JSON은 `origin`(shared/local)과 `originPath`를 제공합니다. 모든 project 명령은 시작 시 마이그레이션, 정리 및 버전 확인을 건너뜁니다.
+
+저장 위치는 `$XDG_STATE_HOME/skillshare/projects/<identity>.yaml`입니다. 지정하지 않으면 Unix는 `~/.local/state/skillshare/projects`, Windows는 `%LOCALAPPDATA%\skillshare\state\projects`를 사용합니다. 상태 디렉터리는 로컬에 두세요. 식별자는 해석된 설정 파일 대상에 따르므로 설정 심볼릭 링크 별칭은 상태를 공유합니다. 대상을 이동하면 새 등록 영역을 사용합니다. 읽기는 파일을 만들지 않으며 잘못된 내용이나 버전은 거부합니다.
+
+CLI와 대시보드는 로컬 상태 잠금을 공유하고 최대 10초 기다린 후 다시 로드합니다. 연결 해제 및 쓰기 전에 공유 및 로컬 스냅샷을 확인합니다. 다른 공유 설정 작성자는 이 보호 밖에 있습니다. 대시보드 Convert는 명시적으로 공유 설정을 변경하며 이미 선언되었거나 숨겨졌거나 로컬에서 재정의된 루트를 거부합니다. 원시 설정 편집기는 저장 전에 제출 내용과 로컬 항목의 병합 결과를 검증합니다.
+
 ## 동시 프로젝트 쓰기 {#concurrency}
 
-CLI와 대시보드의 프로젝트 변경은 skillshare state 디렉터리에 있는, 해석된 global 설정 저장 위치별 `gofrs/flock` 잠금을 공유하고, 최대 10초 동안 기다린 뒤 잠금을 얻으면 다시 로드합니다. 설정 심볼릭 링크도 같은 잠금을 공유합니다. 읽기와 dry run은 잠금을 만들거나 얻지 않습니다. `target`, MCP, hook, 일반적인 `Config.Save()` 호출자 등 다른 설정 쓰기 경로는 이 보호 범위 밖에 있으므로, 그 경로를 통한 동시 쓰기는 여전히 변경 사항을 덮어쓸 수 있습니다.
+CLI와 대시보드는 로컬 상태 잠금을 공유하고 최대 10초 기다린 후 다시 로드합니다. 연결 해제 및 쓰기 전에 공유 및 로컬 스냅샷을 확인합니다. 다른 공유 설정 작성자는 이 보호 밖에 있습니다. 대시보드 Convert는 명시적으로 공유 설정을 변경하며 이미 선언되었거나 숨겨졌거나 로컬에서 재정의된 루트를 거부합니다. 원시 설정 편집기는 저장 전에 제출 내용과 로컬 항목의 병합 결과를 검증합니다.
 
 ## 관련 문서 {#related}
 

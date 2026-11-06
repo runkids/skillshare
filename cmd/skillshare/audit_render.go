@@ -199,6 +199,7 @@ func printSkillResultLine(result *audit.Result, elapsed time.Duration, width int
 // risk, and closes with whether the skill is blocked.
 func printSkillResult(result *audit.Result, kind resourceKindFilter, elapsed time.Duration) {
 	if len(result.Findings) == 0 {
+		printAuditCoverage(result.BinaryFiles, result.SkippedFiles, result.OversizedFiles, ui.RowWidth("Skipped"))
 		printAuditDone(auditRunSummary{Passed: 1, Threshold: result.Threshold}, kind, result.SkillName, elapsed)
 		return
 	}
@@ -220,6 +221,7 @@ func printSkillResult(result *audit.Result, kind resourceKindFilter, elapsed tim
 	width := ui.RowWidth(labels...)
 	ui.Row(ui.MarkNone, "Risk", ui.Colorize(riskColor(result.RiskLabel), fmt.Sprintf("%s %d/100", strings.ToUpper(result.RiskLabel), result.RiskScore)), width)
 	ui.Row(ui.MarkNone, "Auditable", fmt.Sprintf("%.0f%%", result.Analyzability*100), width)
+	printAuditCoverage(result.BinaryFiles, result.SkippedFiles, result.OversizedFiles, width)
 	if !result.TierProfile.IsEmpty() {
 		ui.Row(ui.MarkNone, "Commands", result.TierProfile.String(), width)
 	}
@@ -277,6 +279,7 @@ func printAuditSummary(summary auditRunSummary, kind resourceKindFilter) {
 	}
 	risk := ui.Colorize(riskColor(summary.RiskLabel), fmt.Sprintf("%s %d/100", strings.ToUpper(summary.RiskLabel), summary.RiskScore))
 	ui.Row(ui.MarkNone, "Risk", risk+ui.DimText(fmt.Sprintf(" · %.0f%% auditable", summary.AvgAnalyzability*100)), width)
+	printAuditCoverage(summary.BinaryFiles, summary.SkippedFiles, summary.OversizedFiles, width)
 }
 
 // printAuditDone closes an audit: blocked when a finding reaches the
@@ -453,4 +456,11 @@ func printAuditHelp() {
 			helpRow{"skillshare audit agents", "Scan agents only"},
 		),
 	)
+}
+
+// printAuditCoverage reports files that did not receive full text analysis.
+func printAuditCoverage(binary, skipped, oversized, width int) {
+	if skipped > 0 {
+		ui.Row(ui.MarkNone, "Skipped", fmt.Sprintf("%s (%d binary, %d oversized)", plural(skipped, "file"), binary, oversized), width)
+	}
 }

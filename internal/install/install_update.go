@@ -3,7 +3,9 @@ package install
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"skillshare/internal/audit"
 )
@@ -15,7 +17,7 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 	// installs. Legacy installs of repo-root orchestrators (root SKILL.md plus
 	// child skills) used to be full repository clones; migrate those through the
 	// discovery installer so the root skill becomes SKILL.md-only.
-	if source.IsGit() && !source.HasSubdir() && IsGitRepo(destPath) {
+	if source.IsGit() && !source.HasSubdir() && IsGitRepo(destPath) && checkoutOnBranch(destPath, source.Branch) {
 		if hasDescendantSkillFile(destPath) {
 			migrated, err := updateRepoRootOrchestrator(source, destPath, result, opts)
 			if migrated || err != nil {
@@ -142,6 +144,11 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 	if err != nil {
 		// Installation failed - original skill is preserved
 		return nil, err
+	}
+	// A branch or upstream commit that dropped SKILL.md would replace a skill
+	// with a plain folder.
+	if skillFileExists(destPath) && !skillFileExists(tempDest) {
+		return nil, fmt.Errorf("the new version has no SKILL.md; kept the installed skill")
 	}
 
 	// Propagate audit results and warnings from inner install
@@ -289,4 +296,15 @@ func repoRootOrchestratorRoot(discovery *DiscoveryResult) (SkillInfo, bool) {
 		}
 	}
 	return SkillInfo{}, false
+}
+
+// checkoutOnBranch reports whether a pull keeps a checkout on branch. An empty
+// branch is the remote default the clone tracks, and a commit pin is checked
+// out detached on purpose; any other branch needs a fresh clone.
+func checkoutOnBranch(repoPath, branch string) bool {
+	if branch == "" || IsCommitSHA(branch) {
+		return true
+	}
+	out, err := exec.Command("git", "-C", repoPath, "rev-parse", "--abbrev-ref", "HEAD").Output()
+	return err == nil && strings.TrimSpace(string(out)) == branch
 }

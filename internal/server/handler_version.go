@@ -17,6 +17,7 @@ func (s *Server) handleVersionCheck(w http.ResponseWriter, r *http.Request) {
 	isProjectMode := projectRoot != ""
 
 	cliVersion := versioncheck.Version
+	method := detectUIInstallMethod()
 	cliUpdateAvailable := false
 	var cliLatest *string
 	cliDevMode := cliVersion == "" || cliVersion == "dev"
@@ -30,6 +31,14 @@ func (s *Server) handleVersionCheck(w http.ResponseWriter, r *http.Request) {
 		// CLI version check (uses 24h cache)
 		cliUpdateAvailable = result.UpdateAvailable
 		cliLatest = &result.LatestVersion
+	}
+
+	// `skillshare upgrade` updates both everywhere but leaves a Nix-store CLI
+	// to Nix, so the dialog also says how Nix updates it.
+	var nixUpgradeCommand *string
+	if method.IsNix() {
+		command := method.UpgradeCommand()
+		nixUpgradeCommand = &command
 	}
 
 	// Skill version (local) — always check global source for built-in skill
@@ -56,6 +65,7 @@ func (s *Server) handleVersionCheck(w http.ResponseWriter, r *http.Request) {
 		"cliLatest":            cliLatest,
 		"cliUpdateAvailable":   cliUpdateAvailable,
 		"cliDevMode":           cliDevMode,
+		"nixUpgradeCommand":    nixUpgradeCommand,
 		"skillVersion":         skillVersion,
 		"skillLatest":          skillLatest,
 		"skillUpdateAvailable": skillUpdateAvailable,

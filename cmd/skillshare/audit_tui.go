@@ -695,6 +695,9 @@ func (m auditTUIModel) renderSummaryNote() string {
 		parts = append(parts, threats)
 	}
 	parts = append(parts, theme.Dim().Render(fmt.Sprintf("%.0f%% auditable", s.AvgAnalyzability*100)))
+	if s.SkippedFiles > 0 {
+		parts = append(parts, theme.Dim().Render(fmt.Sprintf("%d skipped (%d binary, %d oversized)", s.SkippedFiles, s.BinaryFiles, s.OversizedFiles)))
+	}
 	if s.PolicyProfile != "" {
 		parts = append(parts, theme.Dim().Render("policy ")+tuiColorizeProfile(s.PolicyProfile))
 	}
@@ -755,6 +758,10 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 		row("Auditable", theme.Warning().Render(auditableText))
 	} else {
 		row("Auditable", theme.Dim().Render("—"))
+	}
+
+	if r.SkippedFiles > 0 {
+		row("Skipped", theme.Dim().Render(fmt.Sprintf("%s (%d binary, %d oversized)", plural(r.SkippedFiles, "file"), r.BinaryFiles, r.OversizedFiles)))
 	}
 
 	// Commands — tier profile

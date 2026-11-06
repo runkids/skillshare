@@ -10,6 +10,40 @@ import (
 	"testing"
 )
 
+func TestHandleAudit_HeaderCoverage(t *testing.T) {
+	s, src := newTestServer(t)
+	addSkill(t, src, "headers")
+	data := append([]byte("\x7fELF\x02\x01\x01"), make([]byte, 57)...)
+	if err := os.WriteFile(filepath.Join(src, "headers", "guide.png"), data, 0644); err != nil {
+		t.Fatal(err)
+	}
+	for _, route := range []string{"/api/audit", "/api/audit/headers"} {
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, route, nil))
+		if rr.Code != http.StatusOK {
+			t.Fatalf("%s: %d %s", route, rr.Code, rr.Body.String())
+		}
+		var body struct {
+			Results []auditResultResponse `json:"results"`
+			Result  auditResultResponse   `json:"result"`
+			Summary auditSummary          `json:"summary"`
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		if body.Summary.BinaryFiles != 1 || body.Summary.SkippedFiles != 1 || body.Summary.OversizedFiles != 0 {
+			t.Fatalf("missing summary coverage: %s", rr.Body.String())
+		}
+		result := body.Result
+		if len(body.Results) > 0 {
+			result = body.Results[0]
+		}
+		if result.BinaryFiles != 1 || result.SkippedFiles != 1 {
+			t.Fatalf("missing result coverage: %s", rr.Body.String())
+		}
+	}
+}
+
 func TestHandleAuditAll_EmptySource(t *testing.T) {
 	s, _ := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/api/audit", nil)

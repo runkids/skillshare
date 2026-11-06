@@ -42,15 +42,15 @@ const (
 // categoryForPattern maps a rule pattern name to a broad category.
 func categoryForPattern(pattern string) string {
 	switch {
-	case strings.Contains(pattern, "injection") || strings.Contains(pattern, "hidden-comment") || pattern == "prompt-leakage" || pattern == "anti-refusal":
+	case strings.Contains(pattern, "injection") || strings.Contains(pattern, "unsafe-deserialization") || strings.Contains(pattern, "hidden-comment") || pattern == "prompt-leakage" || pattern == "anti-refusal":
 		return CategoryInjection
-	case strings.Contains(pattern, "exfiltration") || strings.Contains(pattern, "fetch-with-pipe") || pattern == "agent-snooping":
+	case strings.Contains(pattern, "exfiltration") || strings.Contains(pattern, "ssrf-") || strings.Contains(pattern, "fetch-with-pipe") || pattern == "agent-snooping":
 		return CategoryExfiltration
 	case strings.Contains(pattern, "credential") || strings.Contains(pattern, "hardcoded-secret"):
 		return CategoryCredential
 	case strings.Contains(pattern, "obfuscation") || strings.Contains(pattern, "escape-obfuscation") ||
 		strings.Contains(pattern, "invisible-payload") || strings.Contains(pattern, "hidden-unicode") ||
-		strings.Contains(pattern, "data-uri"):
+		strings.Contains(pattern, "data-uri") || pattern == ruleWhitespacePadding:
 		return CategoryObfuscation
 	case strings.Contains(pattern, "destructive") || strings.Contains(pattern, "shell-execution") ||
 		strings.Contains(pattern, "dynamic-code-exec") || strings.Contains(pattern, "shell-chain"):
@@ -76,11 +76,12 @@ type Finding struct {
 	Snippet  string `json:"snippet"` // trimmed matched line (no truncation)
 
 	// Phase 2 fields — analyzer traceability and deduplication.
-	RuleID            string  `json:"ruleId,omitempty"`       // stable rule identifier
-	Analyzer          string  `json:"analyzer,omitempty"`     // static|dataflow|tier|integrity|structure|cross-skill
-	Category          string  `json:"category,omitempty"`     // injection|exfiltration|credential|obfuscation|...
-	Confidence        float64 `json:"confidence,omitempty"`   // 0~1
-	Fingerprint       string  `json:"fingerprint,omitempty"`  // sha256 stable hash for deduplication
-	Acknowledged      bool    `json:"acknowledged,omitempty"` // previously accepted via --force; excluded from blocking
-	acceptanceContext string  `json:"-"`
+	RuleID       string  `json:"ruleId,omitempty"`       // stable rule identifier
+	Analyzer     string  `json:"analyzer,omitempty"`     // static|dataflow|tier|integrity|structure|cross-skill
+	Category     string  `json:"category,omitempty"`     // injection|exfiltration|credential|obfuscation|...
+	Confidence   float64 `json:"confidence,omitempty"`   // 0~1
+	Fingerprint  string  `json:"fingerprint,omitempty"`  // sha256 stable hash for deduplication
+	Acknowledged bool    `json:"acknowledged,omitempty"` // previously accepted via --force; excluded from blocking
+
+	acceptanceContext string `json:"-"` // detector-specific identity material, never included in reports
 }

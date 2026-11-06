@@ -44,7 +44,7 @@ flowchart TD
 
 `audit` 命令扮演**守門員**的角色 — 在 skill 內容抵達你的 AI assistant 之前，先掃描已知的威脅模式。它會在 `install` 期間自動執行，也可以隨時手動呼叫。
 
-用 `--force` 覆寫封鎖時，會把已接受的發現（規則、檔案、比對到的文字）記錄在 `.metadata.json` 中，讓之後的 `update` 執行不再對這些項目封鎖，同時仍會攔截任何新出現的問題。詳見 [update — Accepted Findings](/docs/reference/commands/update#accepted-findings)。
+用 `--force` 覆寫封鎖時，會將已接受的發現（規則、檔案、比對文字及偵測器專屬證據）記錄在 `.metadata.json` 中。之後的 `update` 會略過證據相同的 finding，並繼續偵測證據已改變的 finding。對 `whitespace-padding` 而言，密度 finding 會以檔案中所有符合條件的內容作為證據。詳見 [update — Accepted Findings](/docs/reference/commands/update#accepted-findings)。
 
 ## 偵測範圍
 
@@ -86,6 +86,7 @@ Audit engine 會把 skill 目錄中每個以文字為主的檔案，拿去比對
 | `data-exfiltration` | 透過 `dig`/`nslookup`/`host`，在子網域中使用命令替換進行 DNS 資料外洩 |
 | `self-propagation` | 把 payload 散播到其他檔案或專案的自我複製指令 |
 | `hardcoded-secret` | 內嵌的 API 金鑰、token 與密碼：Google API 金鑰（`AIza...`）、AWS access key（`AKIA...`）、GitHub PAT（`ghp_`/`ghs_`/`github_pat_`）、Slack token（`xox[bporas]-`）、OpenAI 金鑰、Anthropic 金鑰、Stripe 金鑰、PEM 私鑰區塊，以及高熵值的一般 `api_key`/`secret_key`/`password` 賦值 |
+| `reference-escapes-root` | 明確參照解析到 skill 目錄之外 |
 
 > **為什麼是 high？** 隱藏的 Unicode 字元可以讓惡意指令在程式碼審查時看不見。雙向文字控制字元可以重新排列可見文字以偽裝惡意程式碼（Trojan Source）。Base64 混淆是常見的規避人工檢查手法。像 `rm -rf /` 這樣的破壞性命令可能造成無法復原的損害。`curl | bash` 是經典的遠端程式碼執行向量 — 抓取的內容會直接在你的 shell 中執行。Config/記憶檔案下毒會跨 AI session 持續存在。DNS 外洩把竊取的資料編碼在子網域查詢中。自我複製指令會建立 repository worm。Skill 檔案中的硬編碼機密資料（API 金鑰、token、私鑰）代表憑證已外洩或是刻意暴露憑證 — 兩者都是應該被審查的供應鏈風險。
 
@@ -104,6 +105,14 @@ Audit engine 會把 skill 目錄中每個以文字為主的檔案，拿去比對
 | `untrusted-install` | 自動執行不受信任的套件：`npx -y`/`npx --yes`（npm）、`pip install https://`（非 PyPI URL） |
 
 > **為什麼是 medium？** 從外部 URL 下載的 skill 可能是在拉取惡意 payload。使用原始 IP 位址的 URL 可能繞過以 DNS 為基礎的安全控制與網域封鎖清單。markdown 連結中的 `data:` URI 可以把嵌入的 HTML/JavaScript payload 藏在看似無害的標籤後面。不受信任的套件執行（`npx -y`）會在未經確認的情況下自動安裝並執行任意的 npm 套件。額外的不可見 Unicode 字元可能微妙地改變文字顯示或隱藏內容。
+
+### 空白填充 {#whitespace-padding}
+
+`whitespace-padding` 是 `static` 分析器的檔案層級檢查。連續 20–39 個空白行為 MEDIUM，40 行以上為 HIGH，但僅限後接非空白文字。行首至少 80 個連續水平 Unicode 空白字元、超過 4096 個有效位元組且空白位元組占比至少 95%，以及至少 100 個連續相同的非空白行後緊接不同文字，皆為 MEDIUM。行內用於欄位對齊的空白不會觸發水平檢查。空白行、重複行及相鄰水平填充行會在區段起點回報一次；密度檢查指向首個有效行。 相同的多處結果使用不同的接受鍵。先前接受的空白填充結果需要重新接受。
+
+在 Markdown（`.md`）檔案中，圍欄及縮排程式碼區塊與解析後的 Markdown 表格列不納入填充計算。但程式碼或表格的非空白行仍會觸發前方區塊外連續空白行的偵測。未關閉的圍欄依 CommonMark 規則豁免至檔案結尾。Unicode White_Space 字元視為空白；CRLF 視為一次換行，CR、U+0085、U+2028、U+2029、垂直定位字元及換頁字元也會分隔視覺行。回報位置保留原始 LF 行號，因此 Unicode 分隔符號不會增加回報行號。警告表示內容可能被隱藏，並非惡意意圖的證明。結果會影響風險分數；HIGH 結果會在稽核門檻為 HIGH 時阻擋。密度及重複檢查也可能標記產生的資料，請檢視上下文。
+
+可用一般全域／專案規則覆寫，依 ID 或模式停用 `whitespace-padding` 或設定嚴重程度。明確設定會覆寫 MEDIUM 和 HIGH 預設值，也支援信心值覆寫。此偵測器沒有逐行正規表示式；設定時請勿指定 `regex` 或 `exclude`。
 
 ### MEDIUM：內容完整性
 
@@ -138,19 +147,24 @@ Audit engine 會把 skill 目錄中每個以文字為主的檔案，拿去比對
 這些是嚴重程度較低的指標，會計入風險評分與報告：
 
 - `LOW`：較弱的可疑模式（例如命令中的非 HTTPS URL — 可能有中間人攻擊風險）
+- `LOW`: 無法檢查的參照也會報告為 LOW `reference-check-incomplete`。
 - `LOW`：**外部連結** — 指向外部 URL（`https://...`）的 markdown 連結，可能代表 prompt injection 向量或不必要的 token 消耗；localhost 連結不列入
-- `LOW`：**失效的本機連結** — 目標檔案或目錄在磁碟上不存在的損毀相對 markdown 連結
+- `LOW`：**遺失的套件參照** — Markdown 連結、圖片、明確或行內路徑的目標不存在
 - `LOW`：**content-missing** / **content-unexpected** — 內容完整性問題（見上方）
 - `INFO`：情境提示，例如 shell 串接模式（供分流／可見度使用）
 - `INFO`：**低可分析性** — skill 內容中可稽核的文字不到 70%（見 [Analyzability Score](#analyzability-score)）
 
 > 這些發現不會封鎖安裝，但會提高整體風險評分。有大量 LOW/INFO 發現的 skill 可能值得更仔細的檢查。
 
-#### 失效連結偵測
+#### 套件參照檢查
 
-Audit engine 也會對 `.md` 檔案執行**結構檢查**：擷取所有內嵌的 markdown 連結（`[label](target)`），並驗證本機相對目標是否存在於磁碟上。外部連結（`http://`、`https://`、`mailto:` 等）與純錨點（`#section`）會被略過。
+結構分析器會檢查本機 Markdown 連結與圖片，包括參照式連結。行內程式碼會檢查具有副檔名、不含空白或 glob／範本語法且以 `./`、`../`、`scripts/`、`references/` 或 `assets/` 開頭的路徑，以及明確的 `path:<target>` 宣告。標記為 `skillshare-paths` 的程式碼圍欄每行檢查一個路徑。未明確宣告的無副檔名範例、一般識別字、其他程式碼圍欄、未明確宣告的絕對路徑程式碼範例、URL（包括 `file:` URI）與純錨點均為刻意排除的例外。必要的絕對路徑應使用 Markdown 連結或明確的 `path:` 宣告。 Markdown 連結與圖片相對於所在文件的目錄解析。行內程式碼路徑、`path:` 宣告與 `skillshare-paths` 項目以 `./` 或 `../` 開頭時也相對於所在文件解析；其他相對程式碼路徑相對於 skill 根目錄解析，巢狀 Markdown 檔案中也一樣。
 
-這能抓出常見的品質問題，例如遺失的參照檔案、改名的路徑，或不完整的 skill 打包。每個損毀連結都會產生一筆模式為 `dangling-link` 的 `LOW` 嚴重程度發現。
+遺失的目標保留 LOW `dangling-link` 識別。父目錄遍歷、家目錄路徑、Windows 磁碟機路徑或符號連結元件離開 skill 目錄時，會產生 HIGH `reference-escapes-root`。允許套件目錄內的絕對路徑，也辨識從宣告的根目錄及其符號連結父目錄導出的等價寫法（例如 macOS 的 `/var` 與 `/private/var`）。檢查在宣告的根目錄內使用有上限的 `lstat`/`readlink`，不會讀取參照檔案的內容。不支援的路徑、無法讀取的中繼資料、符號連結循環或解析超過上限會產生 LOW `reference-check-incomplete`，不會宣稱目標遺失或安全。上限為每個路徑 4,096 位元組、256 個元件步驟與 40 次符號連結跳躍。Windows 原生分隔符會正規化；在其他主機上，除了可辨識的 Windows 磁碟機逸出，不支援反斜線路徑。保留原始行號與片段。 離開套件目錄的隱含行內程式碼範例會被忽略，末尾的 `:line` 會被移除。
+
+`/docs/foo` 等網站根連結指向技能目錄之外時，現在會產生 HIGH `reference-escapes-root`，而非原本的 LOW `dangling-link`。使用 `--threshold high` 時可能被封鎖。
+
+三個規則 ID 都支援在 `audit-rules.yaml` 設定 `enabled: false`，沿用其他結構檢查的全域／專案規則層。`doctor` 共用此分析器：遺失或未完成的參照列為警告，逸出列為錯誤，`doctor --json` 將其記錄在 `bundled_references`。兩種模式中探索到的 skill 都適用。
 
 ## 威脅類別深入解析
 
@@ -178,7 +192,7 @@ Output suppression 依命中的證據分級，不取決於 Markdown 上下文：
 
 共用 Markdown parser 辨識 fenced code block 的邊界，包括較長的 fence 與未閉合區塊。區塊內容仍接受 static rules 掃描，shell 區塊也接受 command-tier 與 dataflow 分析。位於程式碼區塊內不代表可信。 原始 HTML 區塊和註解內的 fenced shell 範例也會接受相同的 shell 分析，taint 限定在各程式碼區塊內；原始 HTML 區塊不適用 SDK 參數降級。
 
-**規則覆寫：** 一般揭露限制改用 `prompt-injection-5`。既有 `prompt-injection-4` 的覆寫或接受紀錄不會套用到新規則。將 `prompt-injection-5` 覆寫為 CRITICAL，可保留對一般限制的封鎖。揭露限制規則的嚴重程度覆寫會被遵守。Strict 下已審查的誤報可使用 [Accepted Findings](../reference/commands/update.md#accepted-findings)；規則、檔案或匹配文字改變後，必須重新接受。 明確設定的全域或專案嚴重程度覆寫，包括 CRITICAL，優先於 SDK 參數降級。 內建規則 5 僅排除明確隱瞞的片語，同一行中獨立的一般揭露限制仍會回報，即使規則 4 已停用或降級。 完整替換為自訂 regex 的規則仍保留整行排除語意。
+**規則覆寫：** 一般揭露限制改用 `prompt-injection-5`。既有 `prompt-injection-4` 的覆寫或接受紀錄不會套用到新規則。將 `prompt-injection-5` 覆寫為 CRITICAL，可保留對一般限制的封鎖。揭露限制規則的嚴重程度覆寫會被遵守。Strict 下已審查的誤報可使用 [Accepted Findings](../reference/commands/update.md#accepted-findings)；規則、檔案、匹配文字或偵測器專屬證據改變後，必須重新接受。 明確設定的全域或專案嚴重程度覆寫，包括 CRITICAL，優先於 SDK 參數降級。 內建規則 5 僅排除明確隱瞞的片語，同一行中獨立的一般揭露限制仍會回報，即使規則 4 已停用或降級。 完整替換為自訂 regex 的規則仍保留整行排除語意。
 
 **防禦方式：** 安裝前務必先審查 skill 檔案。使用 `skillshare audit` 偵測已知的注入模式。對於組織層級的部署，可設定 `audit.block_threshold: HIGH`，一併攔截隱藏在註解中的注入。
 
@@ -398,6 +412,28 @@ _cross-skill
   HIGH  stealth skill cleaner installed alongside high-risk skill backdoor — evasion risk
 ```
 
+## 執行檔與封存檔標頭 {#executable-headers}
+
+檢查每個一般檔案的前 **512 位元組**；PE 標頭超出範圍時，在指定偏移處額外讀取有限位元組。包含隱藏目錄和 `__pycache__`。辨識 ELF、Mach-O、PE、WASM version 1、CPython 位元組碼、ZIP/JAR 與偽裝 shebang。
+
+- `disguised-executable`：**HIGH**。文件、圖片、設定副檔名或 `.cache`/`__pycache__` 目錄下的執行格式或 shebang。
+- `python-bytecode`：**HIGH**。存在相符的一般 Python 原始檔時為 **MEDIUM**。
+- `executable-artifact`：**MEDIUM**。其他原生執行格式或 WASM。
+- `archive-artifact`：**INFO**。ZIP/JAR 簽章，不代表可執行行為。
+- `uncertain-header`：**INFO**。未知的類位元組碼 magic，或截斷、無效的標頭。
+
+偽裝副檔名為 `.md`、`.txt`、`.rst`、`.pdf`、`.doc`、`.docx`、`.rtf`、`.html`、`.json`、`.yaml`、`.yml`、`.toml`、`.png`、`.jpg`、`.jpeg`、`.gif`、`.svg`、`.webp`、`.ico`、`.bmp`、`.tif`、`.tiff`。一般 `run.sh` 或無副檔名腳本不會僅因 shebang 被回報，也不以執行權限作為判斷依據。
+
+固定 magic 表支援正式版 CPython **3.6–3.14**。前綴含無效 UTF-8 或非空白控制字元且帶 CRLF 的未知 magic 會標記為不確定，不進行解碼。更新表必須核對帶標籤的 CPython 原始碼並新增迴歸測試，來源記錄於 `internal/audit/header.go`。
+
+CPython 3.6 使用不含旗標的 12 位元組標頭；3.7–3.14 使用含支援旗標的 16 位元組標頭。 直接掃描檔案時，只使用檔名判斷偽裝，祖先目錄不影響結果。
+
+保留原有的六層深度限制。`.git`、`.skillshare`、`.skillshare-meta.json`、作業系統 metadata、檔案符號連結與特殊檔案不讀取標頭；目錄符號連結不會遍歷。明確設定的頂層來源連結沿用既有解析政策。沒有檔案數量上限；目錄掃描將標頭讀取失敗的檔案計入 skipped 並繼續掃描其他檔案；直接指定的檔案無法讀取時仍回傳錯誤。隱藏目錄內的檔案僅分類標頭，不新增文字規則或完整性掃描。檔案符號連結保留既有文字掃描，包括直接檔案與 agent 稽核。
+
+標頭分類不分析執行時行為、不解碼位元組碼、不檢查封存成員。超大檔案僅接受此分類器的標頭檢查。可在 `audit-rules.yaml` 中依規則 ID 設定 `enabled: false` 來停用這些發現。
+
+隱藏名稱本身不表示偽裝：一般工具腳本保持無發現，`.venv/bin/python` 等原生二進位為 MEDIUM。HIGH 需要文件、圖片、設定副檔名或 `.cache`/`__pycache__` 父目錄。連結與特殊檔案不會僅因略過標頭讀取而計入 `skippedFiles`。
+
 ## Analyzability Score {#analyzability-score}
 
 每個被掃描的 skill 都會收到一個**可分析性分數** — 可稽核純文字位元組佔總檔案位元組的比例（0–100%）。這告訴你掃描器實際能夠檢視的 skill 內容比例。
@@ -410,10 +446,9 @@ _cross-skill
 
 當可分析性低於 **70%** 時，audit engine 會發出一筆模式為 `low-analyzability` 的 `INFO` 等級發現。這不會封鎖安裝，但代表掃描器的涵蓋範圍有限。
 
-以下檔案不計入計算：
-- 二進位檔案（圖片、`.wasm` 等）
-- 超過 1 MB 的檔案
-- `.metadata.json`（內部 metadata）
+不超過 1 MB 的二進位與不支援檔案計入 `totalBytes`，但不計入 `auditableBytes`。超大檔案不計入目錄的位元組比例；內部 metadata 與排除路徑也不計入。
+
+CLI、JSON 與儀表板摘要分別回報 `binaryFiles`、`skippedFiles`、`oversizedFiles`。`skippedFiles` 表示未進行全文文字分析的檔案，包括讀取失敗、二進位、不支援副檔名、超大檔案及隱藏目錄內的一般檔案。`binaryFiles` 包含已辨識的二進位／封存標頭及含 NUL 的標頭。計數會重疊：超大二進位檔案在三個計數器各計一次。標頭位元組不計入可稽核文字。
 
 ### 輸出
 
@@ -435,7 +470,10 @@ Auditable: 92% avg
 {
   "totalBytes": 12480,
   "auditableBytes": 10240,
-  "analyzability": 0.82
+  "analyzability": 0.82,
+  "binaryFiles": 2,
+  "skippedFiles": 3,
+  "oversizedFiles": 1
 }
 ```
 
@@ -496,3 +534,28 @@ JSON/SARIF 輸出中的每筆 finding 都包含：
 命令值設定只檢查 `apiKeyHelper` 與 `statusLine`，不檢查其他命令值設定。
 
 也支援 command hook 的字串 `args` 陣列。 規則 ID 支援透過 `audit rules` 停用及覆寫嚴重性。 [英文詳細說明](/docs/understand/audit-engine#bundled-hooks-and-settings)。
+
+## 敏感目標與反序列化 {#sensitive-destinations}
+
+這些靜態發現提供供審查的證據，不證明 SSRF、不可信輸入或執行時期可利用性。不會解析別名、DNS、重新導向、資料來源或任意多行語法，也不會傳送網路請求或執行反序列化。
+
+| 規則 ID | 預設值 | 證據 |
+|---|---|---|
+| `ssrf-metadata-0` | 程式碼上下文及目標為中繼資料主機的請求為 CRITICAL；敘述和公開 URL 路徑/查詢中的提及為 HIGH | 所有允許掃描的文字中的中繼資料主機。原始碼及下文列出的 Markdown 程式碼圍欄會讓其他提及具有 CRITICAL 上下文。只有在辨識出的請求解析後 URL 主機名稱符合中繼資料主機時，請求才為 CRITICAL；公開 URL 僅在路徑或查詢中出現該位址時維持 HIGH。 |
+| `ssrf-internal-0` | MEDIUM | 已辨識的請求呼叫或 curl/wget 中的字面值 HTTP(S) 內部目標 |
+| `ssrf-dynamic-0` | MEDIUM (0.6) | 直接使用請求輸入，或以 Python f-string / JavaScript 範本插值建立主機的請求；目標未知 |
+| `unsafe-deserialization-python` | HIGH | Python `pickle.load/loads`、`marshal.load/loads`、`dill.load/loads` |
+| `unsafe-deserialization-yaml` | HIGH | Python `yaml.load/load_all`、`unsafe_load/unsafe_load_all`、`full_load/full_load_all` |
+| `unsafe-deserialization-torch` | HIGH | 未明確指定 `weights_only=True` 的 Python `torch.load` |
+| `unsafe-deserialization-php` | HIGH | PHP `unserialize` |
+| `unsafe-deserialization-ruby` | HIGH | Ruby `Marshal.load/restore` |
+| `unsafe-deserialization-js` | HIGH | JavaScript/TypeScript `require('node-serialize')` 或 `from 'node-serialize'`；相依套件證據需審查實際用法 |
+
+初始中繼資料策略辨識 `169.254.169.254`, `169.254.170.2`, `100.100.100.200`, `metadata.google.internal`, `fd00:ec2::254`；IPv6 支援帶括號或不帶括號的壓縮形式。中繼資料比對獨立於語言篩選和教學範例抑制。敘述、設定資料及文字圍欄為 HIGH，因此僅提及位址在預設 CRITICAL 門檻下只會警告，不會讓 audit 失敗或阻擋安裝；HIGH 門檻仍會阻擋。原始碼（包括註解）、下文列出的 Markdown 程式碼圍欄（包括未標示語言的圍欄）會讓其他中繼資料提及具有 CRITICAL 上下文。只有在辨識出的請求解析後 URL 主機名稱符合中繼資料主機時，請求才為 CRITICAL；若中繼資料位址只出現在公開 URL 的路徑或查詢中，則維持 HIGH。文字/設定圍欄中的請求也只有在解析後主機名稱符合中繼資料主機時才為 CRITICAL。這只是語法啟發式，無法確定請求是否執行。明確的全域/專案嚴重程度覆寫優先；完整自訂正規表示式替換直接採用設定的嚴重程度，不進行此上下文檢查。其他編碼 IP 形式和別名不在初始範圍內。
+
+中繼資料程式碼上下文辨識 `.sh`、`.bash`、`.zsh`、`.fish`、`.py`、`.js`、`.ts`、`.rb`、`.php`、`.php3`、`.php4`、`.php5`、`.phtml`、`.go`、`.rs`、`.swift`、`Makefile` 和 `Dockerfile`（不分大小寫），以及以首行 shebang（`#!`，前面可有 BOM）開頭的允許掃描檔案。沒有 shebang 的無副檔名筆記維持 HIGH，除非包含辨識出的請求。Markdown 圍欄限於未標示語言、上述副檔名，或 `python`、`javascript`、`typescript`、`ruby`、`shell`、`console`、`golang`、`rust`、`makefile`、`dockerfile`。其他標籤（包括 `http`、`powershell`、`pwsh`、`node`、`jsx`、`tsx`、`java`）維持 HIGH，除非辨識出的字面值請求以中繼資料為目標。IPv4 中繼資料位址或 `metadata.google.internal` 後的句尾句點可被辨識；`.example.com` 等主機名稱後綴不會匹配。
+
+
+內部目標包括標準 IPv4/IPv6（含 IPv4 對應 IPv6）、RFC1918/私有 IPv6、回環、鏈路本地、未指定地址，以及 localhost 和 `.localhost`/`.internal`/`.local` 主機。辨識的請求形式：requests/httpx/axios HTTP methods, fetch, urlopen, urllib.request.urlopen, file_get_contents/fopen, Net::HTTP.get/post, URI.open, curl/wget；shell 僅支援簡單呼叫。直接請求輸入指 `req/request.query/body/params/args/GET`, `$_GET/$_POST/$_REQUEST`, `params[...]`。普通 URL 變數不足以觸發動態規則。內部規則適用於 `.py`、`.js`、`.ts`、`.rb`、`.php` 和 shell 副檔名 `.sh`、`.bash`、`.zsh`、`.fish`；動態規則使用同樣的程式碼類型，但不含 shell。
+
+反序列化規則只適用於對應的 `.py`、`.php`、`.rb`、`.js`、`.ts` 檔案，不掃描 Markdown 本文或程式碼圍欄。也支援 PHP 別名 `.php3`、`.php4`、`.php5`、`.phtml`。副檔名比對不區分大小寫，檔案收集仍受現有大小、深度和二進位限制。`yaml.safe_load/safe_load_all` 是陰性例。`yaml.load/load_all` 的明確頂層引數 `Loader=SafeLoader`, `Loader=CSafeLoader`, `Loader=yaml.SafeLoader`, `Loader=yaml.CSafeLoader` 或 `torch.load` 的 `weights_only=True` 只抑制對應呼叫。 SafeLoader 與 CSafeLoader 也可作為第二個位置引數識別。其他安全呼叫、字串中的關鍵字和巢狀關鍵字都不會隱藏不安全呼叫。無法在同一行確認安全選項的不完整或多行呼叫仍會產生警告。這些簽章檢查不保證載入器名稱或相依套件可信。

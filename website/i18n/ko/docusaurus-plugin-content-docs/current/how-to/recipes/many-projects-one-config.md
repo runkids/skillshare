@@ -6,6 +6,9 @@ sidebar_position: 8
 
 > 한 번의 sync로 global 설정에서 여러 프로젝트 폴더에 Skill과 MCP 서버를 보내세요.
 
+
+CLI add/edit/remove와 대시보드 저장은 로컬 등록만 기록하며 공유 설정을 다시 쓰지 않습니다. 공유 `projects:` 선언은 계속 유효합니다. 정규화된 루트가 같으면 로컬 항목이 공유 항목 전체를 대체합니다. 삭제는 이 기기에서만 공유 항목을 숨기며 다시 추가하면 해제됩니다. 서로 다른 루트의 이름 중복과 같은 계층의 정규화된 루트 중복은 거부됩니다. `localize`는 공유 항목을 로컬로 복사하며 공유 YAML 삭제, 연결 해제 또는 동기화를 하지 않습니다. 반복 실행은 변경하지 않습니다. list/show의 텍스트와 JSON은 `origin`(shared/local)과 `originPath`를 제공합니다. 모든 project 명령은 시작 시 마이그레이션, 정리 및 버전 확인을 건너뜁니다.
+
 ## 시나리오 {#scenario}
 
 `~/.claude/skills`와 같은 Global target은 모든 프로젝트에서 읽히므로, 모든 프로젝트가 같은 skill을 보게 됩니다. 그것이 원하는 바라면 이 recipe는 필요하지 않습니다.
@@ -17,9 +20,9 @@ sidebar_position: 8
 - 프로젝트가 Skillshare 설정은 커밋하지 않으면서, skill의 실제 사본을 커밋할 수 있어야 합니다.
 - 사용하는 tool이 프로젝트 내부의 폴더 하나만 읽습니다.
 
-[Project mode](/docs/how-to/recipes/skill-per-project-workflow)도 프로젝트마다 고유한 세트를 제공합니다. 모든 프로젝트에 `.skillshare/config.yaml`을 두고, 각 폴더 안에서 sync합니다. global 설정의 `projects`는 여러분의 머신에 있는 파일 하나로 같은 결과를 냅니다:
+공유 선언과 기기별 등록은 한 번의 동기화로 각 폴더에 개별 설정을 제공합니다.
 
-| | Global targets | Global `projects` | Project mode |
+| | Global targets | Registered projects | Project mode |
 |---|---|---|---|
 | **Skill을 받는 대상** | 모든 프로젝트, 동일한 세트 | 나열한 폴더들, 폴더마다 별도 세트 | 해당 프로젝트 하나 |
 | **설정이 저장되는 위치** | 내 머신 | 내 머신 | 프로젝트 저장소 |

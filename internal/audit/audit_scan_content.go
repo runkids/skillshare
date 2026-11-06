@@ -25,11 +25,29 @@ func ScanContentWithRules(content []byte, filename string, activeRules []rule) [
 		}
 	}
 
-	var findings []Finding
+	activeRules = rulesForFile(activeRules, filename)
+	findings := scanWhitespacePadding(content, filename, activeRules)
 	// A BOM at the very start is the file's encoding mark, not a hidden character.
 	text := utils.TrimBOM(string(content))
+	// Admitted scripts need not have an extension. A first-line shebang is
+	// code evidence; extensionless notes without one retain prose severity.
+	scriptContext := strings.HasPrefix(text, "#!")
+	var blocks []markdownCodeBlock
+	if strings.EqualFold(filepath.Ext(filename), ".md") {
+		for _, r := range activeRules {
+			if r.usesMetadataContext() {
+				blocks = markdownCodeBlocks([]byte(text))
+				break
+			}
+		}
+	}
+	blockIndex := 0
 	lineNum := 0
 	for start := 0; start <= len(text); {
+		for blockIndex < len(blocks) && lineNum >= blocks[blockIndex].end {
+			blockIndex++
+		}
+		codeContext := scriptContext || (blockIndex < len(blocks) && lineNum >= blocks[blockIndex].start && metadataCodeFence(blocks[blockIndex].language))
 		lineNum++
 		end := strings.IndexByte(text[start:], '\n')
 		var line string
@@ -48,7 +66,7 @@ func ScanContentWithRules(content []byte, filename string, activeRules []rule) [
 			}
 			if r.matchesLine(line) {
 				findings = append(findings, Finding{
-					Severity:   r.Severity,
+					Severity:   r.findingSeverity(line, filename, codeContext),
 					Pattern:    r.Pattern,
 					Message:    r.Message,
 					File:       filename,
@@ -77,7 +95,7 @@ func ScanMarkdownContentWithRules(content []byte, filename string, activeRules [
 		}
 	}
 
-	findings, _ := scanFileUnifiedMarkdown(utils.TrimBOM(string(content)), filename, activeRules, nil, true, false)
+	findings, _ := scanFileUnified(content, filename, true, activeRules, nil, true, false, false)
 	return findings
 }
 

@@ -146,7 +146,20 @@ func TestProjectReplacementParity(t *testing.T) {
 				t.Fatalf("seed: %d %s", rr.Code, rr.Body)
 			}
 			rr = projectRequest(t, s, http.MethodPut, "/api/projects", `{"root":"`+root+`","targets":["claude"],`+tc.replacement+`}`)
-			if rr.Code != 200 || strings.TrimSpace(rr.Body.String()) != `{"root":"`+root+`","success":true}` {
+			var response struct {
+				Success    bool   `json:"success"`
+				Root       string `json:"root"`
+				Origin     string `json:"origin"`
+				OriginPath string `json:"originPath"`
+			}
+			if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
+				t.Fatal(err)
+			}
+			localPath, err := config.LocalProjectsPath(s.configPath())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if rr.Code != 200 || !response.Success || response.Root != root || response.Origin != "local" || response.OriginPath != localPath {
 				t.Fatalf("replacement: %d %s", rr.Code, rr.Body)
 			}
 			p := s.cfg.Projects[root]
@@ -181,7 +194,7 @@ func TestSaveProject_EffectiveCandidateRejectedWithoutMutation(t *testing.T) {
 	if err := os.WriteFile(config.ConfigPath(), raw, 0644); err != nil {
 		t.Fatal(err)
 	}
-	rr := projectRequest(t, s, http.MethodPut, "/api/projects", `{"root":"`+root+`","name":"shared","targets":["claude"],"skills":{}}`)
+	rr := projectRequest(t, s, http.MethodPut, "/api/projects", `{"root":"`+root+`","name":"other","targets":["claude"],"skills":{}}`)
 	if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), "both named") {
 		t.Fatalf("effective validation: %d %s", rr.Code, rr.Body)
 	}
@@ -247,25 +260,69 @@ func TestProjectsHTTP_RootOnlyLookupAndStatusParity(t *testing.T) {
 	}
 }
 
-func TestProjectsHTTP_AmbiguousRootsRejected(t *testing.T) {
+func TestProjectsHTTP_NormalizedSharedRootIsOverriddenLocally(t *testing.T) {
 	s, src := newTestServer(t)
 	root := filepath.Join(filepath.Dir(src), "app")
 	addProject(t, s, root)
 	alias := root + string(filepath.Separator) + "."
-	p := s.cfg.Projects[root]
-	p.Name = "secondary"
-	s.cfg.Projects[alias] = p
-	if err := s.cfg.Save(); err != nil {
+	raw := "source: " + src + "\ntargets: {}\nprojects:\n  " + alias + ": {name: shared, targets: [codex], skills: {}}\n"
+	if err := os.WriteFile(s.configPath(), []byte(raw), 0644); err != nil {
 		t.Fatal(err)
 	}
-	for _, tc := range []struct{ method, url, body string }{
-		{http.MethodPut, "/api/projects", `{"root":"` + root + `","targets":["claude"],"skills":{}}`},
-		{http.MethodDelete, "/api/projects?root=" + root, ""},
-		{http.MethodPost, "/api/sync", `{"project":"` + root + `","dryRun":true}`},
-	} {
-		rr := projectRequest(t, s, tc.method, tc.url, tc.body)
-		if rr.Code != 400 || !strings.Contains(rr.Body.String(), "ambiguous project") {
-			t.Fatalf("%s %s: %d %s", tc.method, tc.url, rr.Code, rr.Body)
+	rr := projectRequest(t, s, http.MethodGet, "/api/projects", "")
+	if rr.Code != 200 || !strings.Contains(rr.Body.String(), `"origin":"local"`) {
+		t.Fatalf("%d %s", rr.Code, rr.Body)
+	}
+	if len(s.cfg.Projects) != 1 {
+		t.Fatal(s.cfg.Projects)
+	}
+}
+
+func TestConvertProject_ExcludedRootKeepsOrdinaryTargets(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "app")
+	s, _ := newTestServerWithTargets(t, map[string]string{"old-claude": filepath.Join(root, ".claude", "skills")})
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	local, err := config.LocalProjectsPath(s.configPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(local), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(local, []byte("version: 1\nexcluded:\n  - "+root+"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.ReadFile(s.configPath())
+	rr := projectRequest(t, s, http.MethodPost, "/api/projects/convert", `{"root":"`+root+`"}`)
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("%d %s", rr.Code, rr.Body)
+	}
+	after, _ := os.ReadFile(s.configPath())
+	if !bytes.Equal(before, after) {
+		t.Fatal("conversion wrote hidden replacement")
+	}
+}
+
+func TestProjectMutationResponsesIncludeOrigin(t *testing.T) {
+	s, src := newTestServer(t)
+	root := filepath.Join(filepath.Dir(src), "app")
+	if err := os.MkdirAll(root, 0755); err != nil {
+		t.Fatal(err)
+	}
+	for _, method := range []string{http.MethodPut, http.MethodDelete} {
+		url := "/api/projects"
+		body := `{"create":true,"root":"` + root + `","targets":["claude"],"skills":{}}`
+		if method == http.MethodDelete {
+			url += "?root=" + root
+			body = ""
+		}
+		rr := projectRequest(t, s, method, url, body)
+		var response struct{ Origin, OriginPath string }
+		if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
+			t.Fatal(err)
+		}
+		if rr.Code != 200 || response.Origin != "local" || response.OriginPath == "" {
+			t.Fatalf("%s: %d %s", method, rr.Code, rr.Body)
 		}
 	}
 }

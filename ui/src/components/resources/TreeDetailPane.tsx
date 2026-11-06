@@ -83,6 +83,7 @@ export default function TreeDetailPane({ kind, subject, busy, onToggleAll, onTog
     path = skill.relPath.slice(0, Math.max(0, skill.relPath.lastIndexOf('/')));
     title = skill.name;
     tracked = skill.isInRepo;
+    meta = skill.isInRepo ? '' : skill.branch ?? '';
   } else {
     title = t('resources.tree.pane.selected', { what: count(skills.length) });
   }

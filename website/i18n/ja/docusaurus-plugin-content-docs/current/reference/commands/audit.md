@@ -132,12 +132,12 @@ skillshare audit --analyzer static --analyzer dataflow # 複数の analyzer
 
 | Analyzer | スコープ | 説明 |
 |----------|-------|-------------|
-| `static` | ファイル単位 | audit ルールに対する正規表現ベースのパターンマッチング |
+| `static` | ファイル単位 | 正規表現パターン照合とファイル単位の空白埋め込み検査 |
 | `dataflow` | ファイル単位 | shell スクリプトと markdown コードブロックの taint tracking |
 | `tier` | Skill 単位 | Capability tier の組み合わせリスク分析 |
 | `integrity` | Skill 単位 | コンテンツハッシュ検証（SKILL.md の `file_hashes`） |
 | `metadata` | Skill 単位 | サプライチェーンの信頼性検証（publisher の不一致、権威の主張） |
-| `structure` | Skill 単位 | markdown のダングリングリンク検出; [同梱フックと設定](/docs/understand/audit-engine#bundled-hooks-and-settings) |
+| `structure` | Skill 単位 | ローカル Markdown リンク/画像と明示されたバンドル内パスの欠落、ルート外参照を検出; [同梱フックと設定](/docs/understand/audit-engine#bundled-hooks-and-settings) |
 | `cross-skill` | バンドル単位 | Skill 間のデータ流出・権限昇格分析 |
 
 config で設定することもできます。
@@ -196,7 +196,7 @@ install 時の audit をグローバルに無効化する config フラグはあ
 
 `skillshare update` は追跡中のリポジトリを隔離された候補に pull し、公開前に監査します。有効な閾値（デフォルトは `audit.block_threshold`、または `--audit-threshold` / `--threshold` / `-T` による上書き）以上の findings は、明示的に受け入れない限り公開をブロックします。拒否時は実際のチェックアウトを変更しません。詳細は [`update --skip-audit`](/docs/reference/commands/update#security-audit-gate) を参照してください。
 
-`--force` で受け入れた findings はその Skill について記憶されるため、後続の更新で同じルールが同じテキストに一致しても再びブロックされることはありません。新しい finding、または同じルールが異なるテキストに一致した場合は、再びブロックされます。詳細は [Accepted Findings](/docs/reference/commands/update#accepted-findings) を参照してください。
+`--force` で受け入れた findings はその Skill について記憶されます。承認キーは行番号を無視し、rule、ファイル、一致したテキスト、および検出器固有の証拠を含みます。`whitespace-padding` では、パディングされた内容が変わると新しいキーになり、密度 finding はファイル内の対象コンテンツ全体を証拠として使います。詳しくは [Accepted Findings](/docs/reference/commands/update#accepted-findings) を参照してください。
 
 install 経由で追跡中のリポジトリを更新する場合（`skillshare install <repo> --track --update`）、ゲートは同じ閾値ポリシー（`audit.block_threshold` または `--audit-threshold` / `--threshold` / `-T`）を使用します。
 
@@ -318,12 +318,12 @@ audit は Skill ディレクトリ内のテキストベースのファイルを�
 
 - `.md`, `.txt`, `.yaml`, `.yml`, `.json`, `.toml`
 - `.sh`, `.bash`, `.zsh`, `.fish`
-- `.py`, `.js`, `.ts`, `.rb`, `.go`, `.rs`
+- `.py`, `.js`, `.ts`, `.rb`, `.php`, `.php3`, `.php4`, `.php5`, `.phtml`, `.go`, `.rs`, `.swift`
 - 拡張子のないファイル（例: `Makefile`, `Dockerfile`）
 
-スキャンは各 Skill ディレクトリ内で再帰的に行われるため、サポート対象のテキストファイルタイプに一致する限り、`SKILL.md`、ネストした `references/*.md`、`scripts/*.sh` もすべて検査されます。
+テキストスキャンは隠しディレクトリを除き、各 Skill ディレクトリ内で再帰的に行われるため、サポート対象のテキストファイルタイプに一致する限り、`SKILL.md`、ネストした `references/*.md`、`scripts/*.sh` もすべて検査されます。
 
-バイナリファイル（画像、`.wasm` など）と隠しディレクトリ（`.git`）はスキップされます。ただし structure アナライザーは skill 内の `.claude/settings.json` と `.claude/settings.local.json` を読み取ります。
+テキストの絞り込み前に、audit は通常ファイルごとに先頭 512 バイトを読み、実行形式、CPython バイトコード、ZIP/JAR、偽装した shebang スクリプトを分類します。隠しディレクトリはヘッダー分類のみで、`__pycache__` も対象です。ファイルのシンボリックリンクは従来のテキスト解析を維持します。`.git`、`.skillshare`、内部・OS メタデータ、リンクと特殊ファイルはヘッダーを読みません。バイナリとサイズ超過ファイルは全文テキスト解析しません。サマリーは `binaryFiles`、`skippedFiles`、`oversizedFiles` を報告し、これらは重複して数えられます。実行動作とアーカイブ内部は解析しません。形式・重大度・上限は[実行形式とアーカイブのヘッダー](../../understand/audit-engine.md#executable-headers)を参照してください。 PE ヘッダーが範囲外の場合は、その位置から必要なバイト数だけ追加で読み取ります。 structure アナライザーは [同梱フックと設定](../../understand/audit-engine.md#bundled-hooks-and-settings) のために skill 内の `.claude/settings.json` と `.claude/settings.local.json` も読み取ります。
 
 ## オプション
 

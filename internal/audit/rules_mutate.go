@@ -83,7 +83,7 @@ func removeEntryByID(rules []yamlRule, id string) []yamlRule {
 	for _, r := range rules {
 		if r.ID == id {
 			r.Enabled = nil
-			if r.Severity == "" && r.Confidence == nil && r.Regex == "" && r.Pattern == "" && r.Message == "" && r.Exclude == "" {
+			if r.Severity == "" && r.Confidence == nil && r.Regex == "" && r.Pattern == "" && r.Message == "" && r.Exclude == "" && r.Files == nil {
 				continue
 			}
 		}
@@ -110,7 +110,7 @@ func removePatternEntry(rules []yamlRule, pattern string) []yamlRule {
 	for _, r := range rules {
 		if isPatternLevel(r) && r.Pattern == pattern {
 			r.Enabled = nil
-			if r.Severity == "" && r.Confidence == nil {
+			if r.Severity == "" && r.Confidence == nil && r.Files == nil {
 				continue
 			}
 		}
@@ -224,7 +224,7 @@ func clearDisableForPattern(rules []yamlRule, pattern string) []yamlRule {
 		if belongsToPattern && r.Enabled != nil && !*r.Enabled {
 			r.Enabled = nil
 			// Drop entry if it has no other overrides.
-			if r.Severity == "" && r.Regex == "" && r.Confidence == nil {
+			if r.Severity == "" && r.Regex == "" && r.Confidence == nil && r.Files == nil {
 				continue
 			}
 		}

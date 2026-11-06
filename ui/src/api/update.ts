@@ -2,7 +2,7 @@ import { apiFetch, BASE, createSSEStream } from './http';
 import type { UpdateResultItem, UpdateStreamSummary } from './types/update';
 
 export const updateApi = {
-  update: (opts: { name?: string; kind?: 'skill' | 'agent'; force?: boolean; all?: boolean; skipAudit?: boolean }) =>
+  update: (opts: { name?: string; kind?: 'skill' | 'agent'; force?: boolean; all?: boolean; skipAudit?: boolean; branch?: string }) =>
     apiFetch<{ results: UpdateResultItem[] }>('/update', {
       method: 'POST',
       body: JSON.stringify(opts),

@@ -144,7 +144,7 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 		depth := relDepth(relPath)
 
 		if fi.IsDir() {
-			if path != skillPath && utils.IsHidden(fi.Name()) {
+			if path != skillPath && (fi.Name() == ".git" || fi.Name() == ".skillshare") {
 				return filepath.SkipDir
 			}
 			if depth > maxScanDepth {
@@ -162,25 +162,53 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 			return nil
 		}
 
-		// Collect ALL non-meta files for integrity check (before size/scannable filters).
 		normalizedRel := filepath.ToSlash(relPath)
-		// Install never pins OS metadata files, so they are not unexpected (#743).
+		// Header traversal may enter hidden directories, but the existing text
+		// and integrity scans retain their upstream hidden-directory boundary.
+		headerOnly := hiddenParent(normalizedRel)
+		skipped := fi.Size() > maxScanFileSize || !isScannable(fi.Name())
+		var data []byte
+		if fi.Mode().IsRegular() && fi.Name() != ".git" && !utils.IsOSMetadataFile(fi.Name()) {
+			var headerErr error
+			if !headerOnly && !skipped {
+				data, headerErr = os.ReadFile(path)
+				if headerErr == nil {
+					skipped, headerErr = result.inspectHeader(path, normalizedRel, normalizedRel, fi.Size(), hasStatic, disabled, data)
+				}
+			} else {
+				skipped, headerErr = result.inspectHeader(path, normalizedRel, normalizedRel, fi.Size(), hasStatic, disabled)
+			}
+			if headerErr != nil {
+				// Retain upstream's per-file read failure boundary: one locked
+				// or disappearing file must not discard the rest of the audit.
+				result.SkippedFiles++
+				skipped = true
+			}
+		} else if fi.Mode()&os.ModeSymlink != 0 {
+			if target, err := os.Stat(path); err == nil && target.IsDir() {
+				return nil
+			}
+		}
+		if headerOnly {
+			if fi.Mode().IsRegular() && !skipped {
+				result.SkippedFiles++
+			}
+			return nil
+		}
 		if !utils.IsOSMetadataFile(fi.Name()) {
 			allFiles[normalizedRel] = true
 		}
 
-		var data []byte
 		bundled := isBundledConfig(normalizedRel)
 		size := fi.Size()
 		if bundled {
 			// Reuse the confined, bounded read; failed reads must not fall back
 			// to an unconfined open. Count target bytes for an in-root link.
-			var ok bool
-			data, ok = fileCache[normalizedRel]
+			cached, ok := fileCache[normalizedRel]
 			if !ok {
 				return nil
 			}
-			size = int64(len(data))
+			data, size = cached, int64(len(cached))
 		}
 		// Files exceeding maxScanFileSize are excluded from totalBytes so that
 		// analyzability reflects the ratio among files the scanner considers,
@@ -191,18 +219,21 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 
 		totalBytes += size
 
-		if !isScannable(fi.Name()) {
+		if skipped {
 			return nil
 		}
 
-		if !bundled {
+		if data == nil {
 			var err error
 			data, err = os.ReadFile(path)
 			if err != nil {
+				result.SkippedFiles++
 				return nil
 			}
 		}
 		if isBinaryContent(data) {
+			result.BinaryFiles++
+			result.SkippedFiles++
 			return nil
 		}
 
@@ -258,6 +289,7 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 	// --- Skill-scope analyzers (via registry) ---
 	result.TierProfile = skillTierProfile
 	skillCtx := &AnalyzeContext{
+		ReferenceRoot:      skillPath,
 		SkillPath:          logicalPath, // Central metadata belongs to the logical source.
 		MDFiles:            mdFiles,
 		FileCache:          fileCache,
@@ -313,13 +345,18 @@ func scanFileUnified(
 	activeRules []rule, profile *TierProfile,
 	hasStatic, hasDataflow, isShell bool,
 ) (staticFindings, dfFindings []Finding) {
+	if hasStatic && !isMarkdown {
+		staticFindings = scanWhitespacePadding(data, relPath, activeRules)
+	}
 	// A BOM at the very start is the file's encoding mark, not a hidden character.
 	text := utils.TrimBOM(string(data))
 
 	if isMarkdown {
-		return scanFileUnifiedMarkdown(text, relPath, activeRules, profile, hasStatic, hasDataflow)
+		sf, df := scanFileUnifiedMarkdown(text, relPath, activeRules, profile, hasStatic, hasDataflow)
+		return append(staticFindings, sf...), df
 	}
-	return scanFileUnifiedPlain(text, relPath, activeRules, profile, hasStatic, hasDataflow, isShell)
+	sf, df := scanFileUnifiedPlain(text, relPath, activeRules, profile, hasStatic, hasDataflow, isShell)
+	return append(staticFindings, sf...), df
 }
 
 // scanFileUnifiedMarkdown shares parsed code blocks across static, tier, and
@@ -329,7 +366,11 @@ func scanFileUnifiedMarkdown(
 	activeRules []rule, profile *TierProfile,
 	hasStatic, hasDataflow bool,
 ) (staticFindings, dfFindings []Finding) {
+	activeRules = rulesForFile(activeRules, relPath)
 	blocks := markdownCodeBlocks([]byte(text))
+	if hasStatic {
+		staticFindings = scanWhitespacePadding([]byte(text), relPath, activeRules, blocks)
+	}
 	for _, block := range blocks {
 		if profile != nil {
 			for _, line := range block.lines {
@@ -345,6 +386,7 @@ func scanFileUnifiedMarkdown(
 	}
 
 	tutorialPath := isLikelyTutorialPath(relPath)
+	scriptContext := strings.HasPrefix(text, "#!")
 	blockIndex, lineNum := 0, 0
 	for line := range strings.SplitSeq(text, "\n") {
 		for blockIndex < len(blocks) && lineNum >= blocks[blockIndex].end {
@@ -352,6 +394,7 @@ func scanFileUnifiedMarkdown(
 		}
 		inCodeFence := blockIndex < len(blocks) && lineNum >= blocks[blockIndex].start
 		parameterContext := inCodeFence && !blocks[blockIndex].inHTML
+		metadataContext := scriptContext || (inCodeFence && metadataCodeFence(blocks[blockIndex].language))
 		nextLine := ""
 		if inCodeFence {
 			block := blocks[blockIndex]
@@ -369,8 +412,12 @@ func scanFileUnifiedMarkdown(
 			if shouldSuppressTutorialExample(r.Pattern, line, inCodeFence, tutorialPath) {
 				continue
 			}
+			severity := r.findingSeverity(line, relPath, metadataContext)
+			if severity == r.Severity {
+				severity = markdownFindingSeverity(r, line, parameterContext, nextLine)
+			}
 			staticFindings = append(staticFindings, Finding{
-				Severity: markdownFindingSeverity(r, line, parameterContext, nextLine),
+				Severity: severity,
 				Pattern:  r.Pattern, Message: r.Message, File: relPath, Line: lineNum,
 				Snippet: strings.TrimSpace(line), RuleID: r.ID, Analyzer: AnalyzerStatic,
 				Category: categoryForPattern(r.Pattern), Confidence: r.Confidence,
@@ -388,9 +435,11 @@ func scanFileUnifiedPlain(
 	activeRules []rule, profile *TierProfile,
 	hasStatic, hasDataflow, isShell bool,
 ) (staticFindings, dfFindings []Finding) {
+	activeRules = rulesForFile(activeRules, relPath)
 	// For shell dataflow, collect all lines to pass to analyzeShellBlock.
 	var allLines []string
 	collectLines := hasDataflow && isShell
+	scriptContext := strings.HasPrefix(text, "#!")
 
 	lineNum := 0
 	for start := 0; start <= len(text); {
@@ -428,7 +477,7 @@ func scanFileUnifiedPlain(
 				}
 				if r.matchesLine(line) {
 					staticFindings = append(staticFindings, Finding{
-						Severity:   r.Severity,
+						Severity:   r.findingSeverity(line, relPath, scriptContext),
 						Pattern:    r.Pattern,
 						Message:    r.Message,
 						File:       relPath,
@@ -490,26 +539,48 @@ func scanFileImpl(filePath string, activeRules []rule, disabled map[string]bool)
 		ScanTarget: filePath,
 		TotalBytes: fileSize,
 	}
-
+	skipped := fileSize > maxScanFileSize || !isScannable(info.Name())
+	var data []byte
+	// Stat preserves direct symlink text scans; Lstat gates only header reads.
+	if entry, err := os.Lstat(filePath); err == nil && entry.Mode().IsRegular() && info.Name() != ".skillshare-meta.json" && info.Name() != ".git" && !utils.IsOSMetadataFile(info.Name()) {
+		if !skipped {
+			data, err = os.ReadFile(filePath)
+			if err != nil {
+				return nil, fmt.Errorf("read file: %w", err)
+			}
+			skipped, err = result.inspectHeader(filePath, filepath.Base(filePath), filepath.Base(filePath), fileSize, true, disabled, data)
+		} else {
+			skipped, err = result.inspectHeader(filePath, filepath.Base(filePath), filepath.Base(filePath), fileSize, true, disabled)
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
 	// Keep parity with directory scan boundaries.
-	if fileSize > maxScanFileSize || !isScannable(info.Name()) {
+	if skipped {
 		// Non-scannable or oversized: nothing is auditable.
 		if fileSize > 0 {
 			result.Analyzability = 0.0
 		} else {
 			result.Analyzability = 1.0
 		}
+		StampFingerprints(result.Findings)
 		result.updateRisk()
 		return result, nil
 	}
 
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("read file: %w", err)
+	if data == nil {
+		data, err = os.ReadFile(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("read file: %w", err)
+		}
 	}
 	if isBinaryContent(data) {
 		// Binary content: counted in TotalBytes but not auditable.
+		result.BinaryFiles++
+		result.SkippedFiles++
 		result.Analyzability = 0.0
+		StampFingerprints(result.Findings)
 		result.updateRisk()
 		return result, nil
 	}
@@ -527,6 +598,7 @@ func scanFileImpl(filePath string, activeRules []rule, disabled map[string]bool)
 
 	isMarkdown := strings.EqualFold(filepath.Ext(info.Name()), ".md")
 	var dfFindings []Finding
+	headerFindings := result.Findings
 	if isMarkdown {
 		contentRules, linkRules := splitMarkdownLinkRules(resolvedRules)
 		result.Findings, dfFindings = scanFileUnified(data, filepath.Base(filePath), true,
@@ -542,6 +614,7 @@ func scanFileImpl(filePath string, activeRules []rule, disabled map[string]bool)
 		}
 	}
 
+	result.Findings = append(headerFindings, result.Findings...)
 	result.Findings = append(result.Findings,
 		DeduplicateDataflow(dfFindings, result.Findings)...)
 
@@ -563,7 +636,7 @@ func isScannable(name string) bool {
 	switch ext {
 	case ".md", ".txt", ".yaml", ".yml", ".json", ".toml",
 		".sh", ".bash", ".zsh", ".fish",
-		".py", ".js", ".ts", ".rb", ".go", ".rs", ".swift":
+		".py", ".js", ".ts", ".rb", ".php", ".php3", ".php4", ".php5", ".phtml", ".go", ".rs", ".swift":
 		return true
 	}
 	// Also scan files without extension (e.g. Makefile, Dockerfile)
@@ -600,4 +673,19 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+// ScanSkillsFilteredForProject loads project policy once for a set of skills.
+// Results retain their input order and per-skill errors.
+func ScanSkillsFilteredForProject(paths []string, projectRoot string, registry *Registry, follow *sourcewalk.Follow) ([]ScanOutput, error) {
+	rules, err := RulesWithProject(projectRoot)
+	if err != nil {
+		return nil, fmt.Errorf("load project rules: %w", err)
+	}
+	disabled := disabledIDsForProject(projectRoot)
+	outputs := make([]ScanOutput, len(paths))
+	for i, path := range paths {
+		outputs[i].Result, outputs[i].Err = scanSkillImpl(path, rules, disabled, registry, follow)
+	}
+	return outputs, nil
 }

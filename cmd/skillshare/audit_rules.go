@@ -111,6 +111,9 @@ func printAuditRulesTable(rules []audit.CompiledRule) error {
 			disabledCount++
 			value = ui.DimText(r.Severity + pad + "  " + r.Pattern + " · disabled")
 		}
+		if len(r.Files) > 0 {
+			value += "  " + ui.DimText(strings.Join(r.Files, ", "))
+		}
 		ui.Row(ui.MarkNone, r.ID, value, width)
 	}
 	text := plural(len(rules), "rule")

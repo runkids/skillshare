@@ -6,6 +6,9 @@ sidebar_position: 8
 
 > 通过 global 配置，一次 sync 就把 Skill 和 MCP server 发送到多个项目文件夹。
 
+
+项目 CLI 的 add/edit/remove 与仪表板保存只写入本机注册，不会重写共享配置。共享 `projects:` 声明继续有效；相同规范化根目录的本机项目会完整覆盖共享项目。移除只在此机器隐藏共享项目，重新添加会解除隐藏。不同根目录的名称必须唯一，同一层的重复规范化根目录会被拒绝。 `localize` 将共享项目复制到本机，不会删除共享 YAML、解除链接或同步；重复执行不会变更。list/show 的文本与 JSON 提供 `origin`（shared/local）与 `originPath`。所有 project 命令都跳过启动迁移、清理与版本检查。
+
 ## Scenario
 
 全局 Target 例如 `~/.claude/skills` 会被每个项目读取，因此所有项目看到的都是同一套 Skill。如果这正是你想要的效果，就不需要这份 recipe。
@@ -17,9 +20,9 @@ sidebar_position: 8
 - 某个项目需要保留 Skill 的真实副本以便提交，但不想提交任何 Skillshare 配置。
 - 你使用的某个工具只读取项目内部的某个文件夹。
 
-[Project mode](/docs/how-to/recipes/skill-per-project-workflow) 同样能让每个项目拥有自己的一套内容：它会在每个项目中保留一份 `.skillshare/config.yaml`，需要在各个文件夹内部分别 sync。global 配置中的 `projects` 能在你机器上的一份文件里做到同样的效果：
+共享声明与本机注册都能用一次同步为各个文件夹提供独立设置。
 
-| | 全局 Target | 全局 `projects` | Project mode |
+| | Global targets | Registered projects | Project mode |
 |---|---|---|---|
 | **谁会拿到 Skill** | 每个项目，相同的一套 | 你列出的文件夹，各自一套 | 仅这一个项目 |
 | **配置保存在哪里** | 你的机器 | 你的机器 | 项目的仓库 |

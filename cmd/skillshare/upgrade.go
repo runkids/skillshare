@@ -115,6 +115,12 @@ func cmdUpgrade(args []string) error {
 	return nil
 }
 
+// Swapped in tests to fake the install location and the latest release.
+var (
+	upgradeExecPath    = resolveExecPath
+	fetchLatestRelease = versionpkg.FetchLatestRelease
+)
+
 // upgradeRowWidth lines up the CLI and Skill rows.
 var upgradeRowWidth = ui.RowWidth("CLI", "Skill")
 
@@ -153,13 +159,13 @@ func upgradeCLIBinary(dryRun, force bool) (string, error) {
 	start := time.Now()
 	current := ui.VersionLabel(version)
 
-	execPath, err := resolveExecPath()
+	execPath, err := upgradeExecPath()
 	if err != nil {
 		return "", err
 	}
 
-	// Check if installed via Homebrew
-	if versionpkg.DetectInstallMethod(execPath) == versionpkg.InstallBrew {
+	method := versionpkg.DetectInstallMethod(execPath)
+	if method == versionpkg.InstallBrew {
 		if dryRun {
 			printUpgradeRow(ui.MarkNone, "CLI", current+" · would run brew upgrade skillshare", time.Time{})
 			return "", nil
@@ -169,7 +175,7 @@ func upgradeCLIBinary(dryRun, force bool) (string, error) {
 
 	// Get latest version from GitHub
 	spinner := ui.StartSpinner("Checking latest version...")
-	release, err := versionpkg.FetchLatestRelease()
+	release, err := fetchLatestRelease()
 	spinner.Stop()
 
 	var latestVersion string
@@ -185,8 +191,15 @@ func upgradeCLIBinary(dryRun, force bool) (string, error) {
 		latestVersion = release.Version
 	}
 
-	if version == latestVersion && !force {
+	// --force reinstalls the same version, which only skillshare's own installs can do.
+	if version == latestVersion && (!force || method.IsNix()) {
 		printUpgradeRow(ui.MarkOK, "CLI", current+", already up to date", time.Time{})
+		return "", nil
+	}
+
+	// Replacing a file in the Nix store would corrupt it, so Nix updates it instead.
+	if method.IsNix() {
+		printUpgradeRow(ui.MarkWarn, "CLI", fmt.Sprintf("%s → v%s available · installed with Nix, %s", current, latestVersion, method.UpgradeInstruction()), time.Time{})
 		return "", nil
 	}
 

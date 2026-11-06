@@ -21,6 +21,9 @@ type Result struct {
 	TotalBytes     int64       `json:"totalBytes"`
 	AuditableBytes int64       `json:"auditableBytes"`
 	Analyzability  float64     `json:"analyzability"` // AuditableBytes / TotalBytes (1.0 when TotalBytes == 0)
+	BinaryFiles    int         `json:"binaryFiles"`   // Opaque binary headers, including recognized archives.
+	SkippedFiles   int         `json:"skippedFiles"`  // Files excluded from full text analysis (includes binaries and oversized files).
+	OversizedFiles int         `json:"oversizedFiles"`
 	TierProfile    TierProfile `json:"tierProfile"`
 }
 

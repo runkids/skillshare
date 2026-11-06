@@ -44,7 +44,7 @@ flowchart TD
 
 `audit` コマンドは **ゲートキーパー**として機能し、AI アシスタントに届く前に skill の内容を既知の脅威パターンに照らしてスキャンします。`install` 実行時に自動的に動作するほか、いつでも手動で実行できます。
 
-`--force` でブロックを上書きすると、承認された findings（ルール、ファイル、マッチしたテキスト）が `.metadata.json` に記録されます。これにより、以降の `update` 実行ではそれらをブロックしなくなる一方で、新たに検出されたものは引き続き検出されます。詳細は [update — Accepted Findings](/docs/reference/commands/update#accepted-findings) を参照してください。
+`--force` でブロックを上書きすると、承認された findings（ルール、ファイル、一致したテキスト、検出器固有の証拠）が `.metadata.json` に記録されます。以降の `update` は同じ証拠の finding をスキップし、変化した finding を引き続き検出します。`whitespace-padding` の密度 finding では、ファイル内の対象コンテンツ全体が証拠になります。詳しくは [update — Accepted Findings](/docs/reference/commands/update#accepted-findings) を参照してください。
 
 ## 検出対象
 
@@ -86,6 +86,7 @@ Audit エンジンは、skill ディレクトリ内のすべてのテキスト�
 | `data-exfiltration` | サブドメイン内のコマンド置換を使った `dig`/`nslookup`/`host` による DNS データ流出 |
 | `self-propagation` | ペイロードを他のファイルやプロジェクトに拡散させる自己複製の指示 |
 | `hardcoded-secret` | インラインの API キー、トークン、パスワード：Google API キー（`AIza...`）、AWS アクセスキー（`AKIA...`）、GitHub PAT（`ghp_`/`ghs_`/`github_pat_`）、Slack トークン（`xox[bporas]-`）、OpenAI キー、Anthropic キー、Stripe キー、PEM 秘密鍵ブロック、および高エントロピー値を持つ汎用的な `api_key`/`secret_key`/`password` 代入 |
+| `reference-escapes-root` | 明示的な参照が skill ディレクトリの外へ出る場合 |
 
 > **なぜ HIGH なのか？** 隠された Unicode 文字は、コードレビュー時に悪意ある指示を見えなくすることがあります。双方向テキスト制御文字は、表示上のテキストを並べ替えて悪意あるコードを偽装できます（Trojan Source）。Base64 難読化は人間による検査を回避する一般的な手法です。`rm -rf /` のような破壊的コマンドは取り返しのつかない被害をもたらす可能性があります。`curl | bash` は古典的なリモートコード実行のベクターであり、取得したコンテンツがあなたのシェルで直接実行されます。設定/メモリファイルの汚染は AI セッションをまたいで持続します。DNS 流出はサブドメインクエリに盗まれたデータをエンコードします。自己拡散の指示はリポジトリ型ワームを生み出します。skill ファイル内のハードコードされたシークレット（API キー、トークン、秘密鍵）は、漏洩した認証情報か意図的な認証情報の露出のいずれかを示しており、どちらもレビューすべきサプライチェーンリスクです。
 
@@ -104,6 +105,14 @@ Audit エンジンは、skill ディレクトリ内のすべてのテキスト�
 | `untrusted-install` | 信頼できないパッケージの自動実行：`npx -y`/`npx --yes`（npm）、`pip install https://`（非 PyPI の URL） |
 
 > **なぜ MEDIUM なのか？** 外部 URL からダウンロードする skill は、悪意あるペイロードを取得している可能性があります。生の IP アドレスを含む URL は、DNS ベースのセキュリティ制御やドメインブロックリストを回避する可能性があります。markdown リンク内の `data:` URI は、無害に見えるラベルの裏に埋め込まれた HTML/JavaScript のペイロードを隠すことができます。信頼できないパッケージの実行（`npx -y`）は、確認なしに任意の npm パッケージを自動インストール・実行します。その他の不可視 Unicode 文字は、テキストのレンダリングを微妙に変えたりコンテンツを隠したりする可能性があります。
+
+### 空白による埋め込み {#whitespace-padding}
+
+`whitespace-padding` は `static` アナライザーのファイル単位の検査です。連続する空行が 20–39 行なら MEDIUM、40 行以上なら HIGH です（直後に空行でないテキストがある場合のみ）。行頭の連続する水平 Unicode 空白が 80 文字以上、有効な内容が 4096 バイトを超え空白バイトが 95% 以上、または同一の非空行が 100 行以上連続した直後に異なるテキストがある場合は MEDIUM です。列揃え用の行内空白は水平空白の検査対象になりません。空行、反復、および連続する水平空白は開始行に一件、密度は最初の有効行に報告します。 同じ箇所が複数ある場合は別々の承認キーを使います。以前承認した空白パディングは再承認が必要です。
+
+Markdown（`.md`）ファイルでは、フェンス付き・インデントされたコードブロックと解析された Markdown 表の行は、集計から除外します。ただし、コードや表の非空行の前にブロック外の空行が連続している場合、その空行は検出します。閉じていないフェンスは CommonMark に従いファイル末尾まで除外します。Unicode White_Space を空白とし、CRLF は一つの改行として扱います。CR、U+0085、U+2028、U+2029、垂直タブ、改ページも視覚的な行を区切ります。報告位置は元の LF に基づく行番号を維持するため、Unicode 区切りでは報告行番号は増えません。警告は内容が見えにくいリスクを示し、悪意の証明ではありません。検出結果はリスクスコアに影響し、HIGH は監査しきい値が HIGH の場合にブロックします。密度と反復は生成データにも反応するため、文脈を確認してください。
+
+通常のグローバル／プロジェクト規則で、ID またはパターンによる無効化や重大度の上書きができます。明示的な重大度は MEDIUM と HIGH の両方の既定値を上書きします。信頼度の上書きも適用されます。この検出器は行単位の正規表現を使わないため、設定で `regex` と `exclude` は指定しないでください。
 
 ### MEDIUM：コンテンツ完全性
 
@@ -138,19 +147,24 @@ Authority language のチェックは、よく知られた組織（Anthropic、O
 これらは深刻度の低い指標であり、リスクスコアリングとレポートに寄与します。
 
 - `LOW`：より弱い不審なパターン（例：コマンド内の非 HTTPS URL — 中間者攻撃の可能性）
+- `LOW`: 検査できない参照も LOW `reference-check-incomplete` として報告します。
 - `LOW`：**外部リンク** — 外部 URL（`https://...`）を指す markdown リンク。プロンプトインジェクションのベクターや不要なトークン消費を示す可能性がある。localhost へのリンクは除外される
-- `LOW`：**ダングリングなローカルリンク** — 対象のファイルやディレクトリがディスク上に存在しない、壊れた相対 markdown リンク
+- `LOW`：**欠落した同梱参照** — Markdown リンク、画像、明示的またはインラインのパスの対象が存在しない場合
 - `LOW`：**content-missing** / **content-unexpected** — コンテンツ完全性の問題（上記参照）
 - `INFO`：シェルの連結パターンなどの文脈的なヒント（トリアージ／可視性のため）
 - `INFO`：**analyzability の低さ** — skill のコンテンツのうち audit 可能なテキストが 70% 未満（[Analyzability Score](#analyzability-score) を参照）
 
 > これらの finding はインストールをブロックしませんが、全体のリスクスコアを引き上げます。LOW/INFO の finding が多い skill は、より詳しく確認する価値があるかもしれません。
 
-#### ダングリングリンクの検出
+#### バンドル参照のチェック
 
-Audit エンジンは `.md` ファイルに対して **構造チェック**も行います。インラインの markdown リンク（`[label](target)`）をすべて抽出し、ローカルの相対的なターゲットがディスク上に存在するかを確認します。外部リンク（`http://`、`https://`、`mailto:` など）と純粋なアンカー（`#section`）はスキップされます。
+構造アナライザーはローカルの Markdown リンクと画像（参照形式も含む）を検査します。インラインコードでは、空白・glob・テンプレート構文を含まず、ファイル拡張子があり `./`、`../`、`scripts/`、`references/`、`assets/` で始まるパスと、明示的な `path:<target>` を検査します。`skillshare-paths` と指定したフェンスでは、1 行につき 1 パスを検査します。暗黙の拡張子なしのコード例、通常の識別子、その他のコードフェンス、明示指定のない絶対パスのコード例、URL（`file:` URI を含む）、アンカーのみの参照は意図的に除外します。必須の絶対パスは Markdown リンクまたは `path:` 宣言で指定します。 Markdown リンクと画像は記載された文書のディレクトリを基準に解決します。インラインコードのパス、`path:` 宣言、`skillshare-paths` の項目も、`./` または `../` で始まる場合は記載された文書を基準に解決します。その他の相対コードパスは、ネストした Markdown ファイルでも skill ルートを基準に解決します。
 
-これにより、参照されているファイルの欠落、パスのリネーム、不完全な skill パッケージングといった、よくある品質問題を検出できます。壊れたリンクごとに、パターン `dangling-link` を持つ `LOW` 深刻度の finding が生成されます。
+存在しない対象は従来どおり LOW の `dangling-link` です。親への移動、ホームパス、Windows ドライブパス、シンボリックリンクの構成要素が skill ディレクトリの外へ出る場合は HIGH の `reference-escapes-root` になります。バンドル内の絶対パスは許可され、宣言されたルートとそのシンボリックリンクを含む親から導出した同等の表記（macOS の `/var` と `/private/var` など）も認識します。宣言されたルート内で回数を制限した `lstat`/`readlink` を使用し、参照先ファイルの内容は読みません。未対応のパス、読み取れないメタデータ、リンクの循環、解決回数の上限は LOW の `reference-check-incomplete` として報告し、不在や安全とは判断しません。上限はパスあたり 4,096 バイト、256 構成要素ステップ、40 リンクホップです。Windows の区切り文字は正規化します。他のホストでは、認識可能な Windows ドライブの脱出を除き、バックスラッシュのパスは未対応です。元の行番号とスニペットを保持します。 暗黙のインラインコード例が外へ出る場合は無視し、末尾の `:line` は除去します。
+
+`/docs/foo` のようなサイトルートリンクがスキル外を指す場合、従来の LOW `dangling-link` ではなく HIGH `reference-escapes-root` になります。`--threshold high` ではブロックされることがあります。
+
+3 つのルール ID はすべて `audit-rules.yaml` の `enabled: false` に対応し、他の構造チェックと同じグローバル／プロジェクト設定を使います。`doctor` も同じアナライザーを使い、不在・未完了は警告、脱出はエラーとして扱います。`doctor --json` では `bundled_references` に記録します。両モードで検出された skill に適用します。
 
 ## 脅威カテゴリの詳細
 
@@ -178,7 +192,7 @@ Output suppression は Markdown の文脈とは独立して、一致した証拠
 
 共通の Markdown parser が、長いフェンスや閉じられていないブロックを含むコードブロックの範囲を認識します。内容は引き続き static rules でスキャンされ、shell ブロックでは command-tier と dataflow も解析されます。コードブロック内であることは信頼の根拠になりません。 HTML ブロックやコメント内の fenced shell サンプルも同じ shell 分析の対象となり、taint は各ブロック内に限定されます。HTML ブロック内では SDK パラメーターの深刻度を下げません。
 
-**ルール上書き：** 一般的な開示制限は `prompt-injection-5` を使用します。既存の `prompt-injection-4` の上書きや承認記録は新しいルールには適用されません。一般的な制限もブロックするには `prompt-injection-5` を CRITICAL に上書きします。開示制限ルールの深刻度の上書きは維持されます。Strict でレビュー済みの誤検知には [Accepted Findings](../reference/commands/update.md#accepted-findings) を使えます。ルール、ファイル、一致したテキストが変わると再承認が必要です。 CRITICAL を含むグローバルまたはプロジェクトの明示的な深刻度の上書きは、SDK パラメーターの深刻度変更より優先されます。 組み込みルール 5 は明示的な隠蔽のフレーズだけを除外し、同じ行の別の一般的な開示制限は維持します。ルール 4 を無効化または低い深刻度に変更しても、この検出は維持されます。 完全なカスタム正規表現の置き換えでは、行全体を除外する従来の動作を維持します。
+**ルール上書き：** 一般的な開示制限は `prompt-injection-5` を使用します。既存の `prompt-injection-4` の上書きや承認記録は新しいルールには適用されません。一般的な制限もブロックするには `prompt-injection-5` を CRITICAL に上書きします。開示制限ルールの深刻度の上書きは維持されます。Strict でレビュー済みの誤検知には [Accepted Findings](../reference/commands/update.md#accepted-findings) を使えます。ルール、ファイル、一致したテキスト、または検出器固有の証拠が変わると再承認が必要です。 CRITICAL を含むグローバルまたはプロジェクトの明示的な深刻度の上書きは、SDK パラメーターの深刻度変更より優先されます。 組み込みルール 5 は明示的な隠蔽のフレーズだけを除外し、同じ行の別の一般的な開示制限は維持します。ルール 4 を無効化または低い深刻度に変更しても、この検出は維持されます。 完全なカスタム正規表現の置き換えでは、行全体を除外する従来の動作を維持します。
 
 **防御策：** インストール前には必ず skill ファイルをレビューしてください。`skillshare audit` を使って既知のインジェクションパターンを検出します。組織的なデプロイでは、隠されたコメントインジェクションも検出するために `audit.block_threshold: HIGH` を設定してください。
 
@@ -399,6 +413,28 @@ _cross-skill
   HIGH  stealth skill cleaner installed alongside high-risk skill backdoor — evasion risk
 ```
 
+## 実行形式とアーカイブのヘッダー {#executable-headers}
+
+通常ファイルの先頭 **512 バイト**を検査し、PE ヘッダーが範囲外の場合はその位置から必要なバイト数だけ追加で読み取ります。隠しディレクトリと `__pycache__` も対象です。ELF、Mach-O、PE、WASM version 1、CPython バイトコード、ZIP/JAR、偽装 shebang を識別します。
+
+- `disguised-executable`: **HIGH**。文書・画像・設定用の拡張子、または `.cache`/`__pycache__` 内のパスに実行形式や shebang がある場合。
+- `python-bytecode`: **HIGH**。対応する通常の Python ソースがあれば **MEDIUM**。
+- `executable-artifact`: **MEDIUM**。その他のネイティブ実行形式や WASM。
+- `archive-artifact`: **INFO**。ZIP/JAR シグネチャ。実行可能な動作を示すものではありません。
+- `uncertain-header`: **INFO**。未知のバイトコード風 magic、不完全または不正なヘッダー。
+
+対象拡張子は `.md`, `.txt`, `.rst`, `.pdf`, `.doc`, `.docx`, `.rtf`, `.html`, `.json`, `.yaml`, `.yml`, `.toml`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.webp`, `.ico`, `.bmp`, `.tif`, `.tiff` です。通常の `run.sh` や拡張子のないスクリプトは shebang だけでは報告されず、実行権限も判定根拠にしません。
+
+固定 magic 表は正式版 CPython **3.6–3.14**を扱います。不正な UTF-8 または空白以外の制御文字を先頭に持ち、CRLF が続く未知の magic は不確実として報告し、デコードしません。表の更新にはタグ付き CPython ソースと回帰テストが必要です。出典は `internal/audit/header.go` に記録しています。
+
+CPython 3.6 はフラグのない 12 バイトのヘッダーを使い、3.7–3.14 は対応フラグを含む 16 バイトのヘッダーを使います。 単一ファイルのスキャンでは偽装判定にファイル名のみを使用し、親ディレクトリは影響しません。
+
+深さは従来どおり 6 階層です。`.git`、`.skillshare`、`.skillshare-meta.json`、OS メタデータ、ファイルのシンボリックリンクと特殊ファイルはヘッダーを読みません。ディレクトリのリンクもたどりません。設定済みの最上位 source link の解決規則は維持します。ファイル数の上限はありません。ディレクトリのスキャンではヘッダーを読み取れないファイルを skipped として数え、他のファイルの解析を続けます。直接指定したファイルが読めない場合はエラーになります。隠しディレクトリ内ではヘッダーのみを分類し、テキストルールや整合性チェックの対象は増やしません。ファイルのシンボリックリンクは、直接ファイル・agent の監査を含め、従来のテキスト解析を維持します。
+
+この分類は実行時の動作、バイトコードのデコード、アーカイブ内部を解析しません。サイズ超過ファイルはこの分類器によるヘッダー検査のみです。各ルール ID は `audit-rules.yaml` の `enabled: false` で無効化できます。
+
+隠し名だけでは偽装と判定しません。通常のツール用スクリプトは検出されず、`.venv/bin/python` などのネイティブバイナリは MEDIUM です。HIGH には文書・画像・設定用の拡張子、または `.cache`/`__pycache__` の親ディレクトリが必要です。リンク・特殊ファイルは、ヘッダー読み取りを省略しただけでは `skippedFiles` に数えません。
+
 ## 分析可能性スコア(Analyzability Score) {#analyzability-score}
 
 スキャンされた各 skill は **analyzability score**（分析可能性スコア）を受け取ります — これは audit 可能なプレーンテキストのバイト数と全ファイルバイト数との比率（0〜100%）です。これは、スキャナーが skill のコンテンツのうちどれだけを検査できたかを示します。
@@ -411,10 +447,9 @@ _cross-skill
 
 Analyzability が **70%** を下回ると、audit エンジンはパターン `low-analyzability` を持つ `INFO` レベルの finding を発します。これはインストールをブロックしませんが、スキャナーのカバレッジが限定的であることを示します。
 
-計算から除外されるファイル：
-- バイナリファイル（画像、`.wasm` など）
-- 1 MB を超えるファイル
-- `.metadata.json`（内部メタデータ）
+1 MB 以下のバイナリ・未対応ファイルは `totalBytes` に含め、`auditableBytes` には含めません。サイズ超過ファイルはディレクトリのバイト比率から除外し、内部メタデータと対象外パスも計算しません。
+
+CLI・JSON・ダッシュボードのサマリーは `binaryFiles`、`skippedFiles`、`oversizedFiles` を別々に報告します。`skippedFiles` は全文テキスト解析をしなかったファイル（読み取り失敗、バイナリ、未対応拡張子、サイズ超過、隠しディレクトリ内の通常ファイル）です。`binaryFiles` はバイナリ・アーカイブ形式と NUL を含むヘッダーを数えます。サイズ超過バイナリは各カウンターに 1 回ずつ加算します。ヘッダーのバイトは解析可能なテキストに含めません。
 
 ### 出力
 
@@ -436,7 +471,10 @@ JSON 出力では、各結果に以下が含まれます。
 {
   "totalBytes": 12480,
   "auditableBytes": 10240,
-  "analyzability": 0.82
+  "analyzability": 0.82,
+  "binaryFiles": 2,
+  "skippedFiles": 3,
+  "oversizedFiles": 1
 }
 ```
 
@@ -497,3 +535,28 @@ SARIF 出力では、`ruleId` は SARIF の `ruleId` フィールドにマッピ
 コマンド値の設定として検査するのは `apiKeyHelper` と `statusLine` のみで、それ以外は検査しません。
 
 command フックの文字列 `args` 配列にも対応します。 ルール ID は `audit rules` で無効化・重大度の上書きが可能です。 [英語版の詳細](/docs/understand/audit-engine#bundled-hooks-and-settings)。
+
+## 機密の宛先とデシリアライズ {#sensitive-destinations}
+
+静的な証拠をレビュー用に報告します。SSRF、信頼できない入力、実行時の悪用を証明するものではありません。別名、DNS、リダイレクト、データの由来、任意の複数行構文は解決せず、ネットワーク要求やデシリアライズも実行しません。
+
+| ルール ID | 既定値 | 証拠 |
+|---|---|---|
+| `ssrf-metadata-0` | コード文脈とメタデータホスト宛てのリクエストは CRITICAL。文章および公開 URL のパス/クエリ内の言及は HIGH | 収集対象のすべてのテキスト内のメタデータホスト。ソースファイルと下記の対象 Markdown フェンスは、その他の言及に CRITICAL の文脈を与えます。認識されたリクエストが CRITICAL になるのは、解析した URL のホスト名がメタデータホストと一致する場合だけです。公開 URL のパスまたはクエリだけにメタデータアドレスがある場合は HIGH のままです。 |
+| `ssrf-internal-0` | MEDIUM | 既知の要求呼び出しや curl/wget のリテラル HTTP(S) 内部宛先 |
+| `ssrf-dynamic-0` | MEDIUM (0.6) | 要求入力を直接使うか、Python f-string / JavaScript テンプレートでホストを補間する要求。宛先は不明 |
+| `unsafe-deserialization-python` | HIGH | Python `pickle.load/loads`, `marshal.load/loads`, `dill.load/loads` |
+| `unsafe-deserialization-yaml` | HIGH | Python `yaml.load/load_all`, `unsafe_load/unsafe_load_all`, `full_load/full_load_all` |
+| `unsafe-deserialization-torch` | HIGH | 明示的な `weights_only=True` のない Python `torch.load` |
+| `unsafe-deserialization-php` | HIGH | PHP `unserialize` |
+| `unsafe-deserialization-ruby` | HIGH | Ruby `Marshal.load/restore` |
+| `unsafe-deserialization-js` | HIGH | JavaScript/TypeScript の `require('node-serialize')` または `from 'node-serialize'`。依存関係の利用方法を確認 |
+
+初期メタデータポリシー: `169.254.169.254`, `169.254.170.2`, `100.100.100.200`, `metadata.google.internal`, `fd00:ec2::254`。IPv6 は圧縮表記（角括弧あり・なし）を認識します。照合は言語フィルターおよびチュートリアル抑制から独立しています。文章、設定データ、テキストフェンスは HIGH です。言及だけなら既定の CRITICAL しきい値では警告となり、audit の失敗やインストールのブロックは起きませんが、HIGH しきい値ではブロックされます。ソースファイル（コメントを含む）、下記の対象 Markdown フェンス（言語指定なしを含む）では、それ以外のメタデータ言及が CRITICAL になります。認識されたリクエストが CRITICAL になるのは、解析した URL のホスト名がメタデータホストと一致する場合だけです。メタデータアドレスが公開 URL のパスまたはクエリにだけある場合は HIGH のままです。テキスト・設定フェンス内のリクエストも、解析したホスト名がメタデータホストと一致する場合だけ CRITICAL です。構文上のヒューリスティックであり、実行の有無は証明しません。明示的なグローバル・プロジェクト重大度指定が優先され、正規表現の完全置換ではコンテキスト検査なしで指定された重大度を使います。その他の符号化 IP 表記や別名は対象外です。
+
+メタデータのコード判定対象は `.sh`, `.bash`, `.zsh`, `.fish`, `.py`, `.js`, `.ts`, `.rb`, `.php`, `.php3`, `.php4`, `.php5`, `.phtml`, `.go`, `.rs`, `.swift`, `Makefile`, `Dockerfile`（大文字小文字を区別しない）と、先頭が shebang（`#!`、BOM は省略可）の収集対象ファイルです。拡張子のないメモは shebang がなければ、認識対象のリクエストを除き HIGH のままです。Markdown フェンスは言語未指定、これらの拡張子名、または `python`, `javascript`, `typescript`, `ruby`, `shell`, `console`, `golang`, `rust`, `makefile`, `dockerfile` の場合にコードと判定します。その他（`http`, `powershell`, `pwsh`, `node`, `jsx`, `tsx`, `java` を含む）は認識対象のリテラルリクエストがない限り HIGH です。IPv4 メタデータアドレスと `metadata.google.internal` の文末のピリオドを認識し、`.example.com` のようなホスト名の接尾辞には一致しません。
+
+
+内部宛先は標準 IPv4/IPv6（IPv4 マップ IPv6 を含む）、RFC1918・プライベート IPv6、ループバック、リンクローカル、未指定アドレス、および localhost と `.localhost`/`.internal`/`.local` のホストです。認識する要求形式: requests/httpx/axios HTTP methods, fetch, urlopen, urllib.request.urlopen, file_get_contents/fopen, Net::HTTP.get/post, URI.open, curl/wget。単純なシェル呼び出しに限ります。直接入力: `req/request.query/body/params/args/GET`, `$_GET/$_POST/$_REQUEST`, `params[...]`。通常の URL 変数だけでは動的ルールに一致しません。内部ルールは `.py`, `.js`, `.ts`, `.rb`, `.php` とシェル `.sh`, `.bash`, `.zsh`, `.fish` に適用し、動的ルールはシェルを除く同じ言語に適用します。
+
+デシリアライズは対応する `.py`, `.php`, `.rb`, `.js`, `.ts` ファイルだけが対象で、Markdown の本文・コードフェンスは対象外です。PHP の `.php3`, `.php4`, `.php5`, `.phtml` も認識します。拡張子は大文字小文字を区別しません。収集には既存のサイズ・深さ・バイナリー制限を適用します。`yaml.safe_load/safe_load_all` は陰性例です。`yaml.load/load_all` のトップレベル引数 `Loader=SafeLoader`, `Loader=CSafeLoader`, `Loader=yaml.SafeLoader`, `Loader=yaml.CSafeLoader`、または `torch.load` の `weights_only=True` は、その呼び出しだけを抑制します。 SafeLoader と CSafeLoader は第 2 位置引数でも認識されます。別の安全な呼び出し、文字列内のキーワード、ネスト内のキーワードは安全でない呼び出しを隠しません。不完全・複数行の呼び出しで安全オプションを確認できなければ警告を維持します。名前付きローダーや依存関係の信頼性を保証するものではありません。

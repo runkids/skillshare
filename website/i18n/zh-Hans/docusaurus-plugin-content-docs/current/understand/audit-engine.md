@@ -44,7 +44,7 @@ flowchart TD
 
 `audit` 命令充当**看门人**——在 skill 内容到达你的 AI 助手之前，扫描其中已知的威胁模式。它会在 `install` 期间自动运行，也可以随时手动调用。
 
-用 `--force` 覆盖阻止行为会将接受的发现结果（rule、file 和匹配文本）记录到 `.metadata.json` 中，因此后续的 `update` 运行不会再对这些结果进行阻止，同时仍会捕获新出现的问题。见 [update — Accepted Findings](/docs/reference/commands/update#accepted-findings)。
+用 `--force` 覆盖阻止行为会将接受的发现结果（规则、文件、匹配文本及检测器专属证据）记录到 `.metadata.json` 中。后续 `update` 会跳过证据相同的 finding，同时继续检测证据已变化的 finding。对于 `whitespace-padding`，密度 finding 使用文件中所有符合条件的内容作为证据。详情见 [update — Accepted Findings](/docs/reference/commands/update#accepted-findings)。
 
 ## 它能检测什么
 
@@ -86,6 +86,7 @@ audit engine 会用 100 多条内置规则（正则表达式模式、表驱动�
 | `data-exfiltration` | 通过 `dig`/`nslookup`/`host` 结合子域名中的命令替换进行的 DNS 数据渗出 |
 | `self-propagation` | 将 payload 传播到其他文件或项目的自我复制指令 |
 | `hardcoded-secret` | 内联的 API 密钥、令牌和密码：Google API 密钥（`AIza...`）、AWS 访问密钥（`AKIA...`）、GitHub PAT（`ghp_`/`ghs_`/`github_pat_`）、Slack 令牌（`xox[bporas]-`）、OpenAI 密钥、Anthropic 密钥、Stripe 密钥、PEM 私钥块，以及带有高熵值的通用 `api_key`/`secret_key`/`password` 赋值 |
+| `reference-escapes-root` | 显式引用解析到 skill 目录之外 |
 
 > **为什么是 high？** 隐藏的 Unicode 字符可以让恶意指令在代码审查中不可见。双向文本控制字符可以重新排列可见文本以伪装恶意代码（Trojan Source）。Base64 混淆是绕过人工检查的常见手段。像 `rm -rf /` 这样的破坏性命令可能造成不可逆的损害。`curl | bash` 是经典的远程代码执行向量——获取的内容会直接在你的 shell 中运行。配置/记忆文件污染会跨 AI 会话持续存在。DNS 渗出将窃取的数据编码在子域名查询中。自我传播指令会制造仓库蠕虫。skill 文件中的硬编码机密（API 密钥、令牌、私钥）表明凭证已泄露或存在故意的凭证暴露——两者都是应该审查的供应链风险。
 
@@ -104,6 +105,14 @@ audit engine 会用 100 多条内置规则（正则表达式模式、表驱动�
 | `untrusted-install` | 自动执行不受信任的包：`npx -y`/`npx --yes`（npm）、`pip install https://`（非 PyPI URL） |
 
 > **为什么是 medium？** 从外部 URL 下载内容的 skill 可能拉取恶意 payload。带原始 IP 地址的 URL 可能绕过基于 DNS 的安全控制和域名黑名单。markdown 链接中的 `data:` URI 可以在看似无害的标签背后隐藏嵌入式 HTML/JavaScript payload。不受信任的包执行（`npx -y`）会在未经确认的情况下自动安装并运行任意 npm 包。其他不可见的 Unicode 字符可能微妙地改变文本渲染或隐藏内容。
+
+### 空白填充 {#whitespace-padding}
+
+`whitespace-padding` 是 `static` 分析器的文件级检查。连续 20–39 个空白行为 MEDIUM，40 行以上为 HIGH，但仅限后接非空白文字。行首至少 80 个连续水平 Unicode 空白字符、超过 4096 个有效字节且空白字节占比至少 95%，以及至少 100 个连续相同的非空白行后紧接不同文字，均为 MEDIUM。行内用于列对齐的空白不会触发水平检查。空白行、重复行及相邻水平填充行会在区段起点报告一次；密度检查指向首个有效行。 相同的多处结果使用不同的接受键。此前接受的空白填充结果需要重新接受。
+
+在 Markdown（`.md`）文件中，围栏及缩进代码块与解析后的 Markdown 表格行不纳入填充计算。但代码或表格的非空白行仍会触发前方区块外连续空白行的检测。未关闭的围栏依 CommonMark 规则豁免至文件结尾。Unicode White_Space 字符视为空白；CRLF 视为一次换行，CR、U+0085、U+2028、U+2029、垂直制表符及换页符也会分隔视觉行。报告位置保留原始 LF 行号，因此 Unicode 分隔符不会增加报告行号。警告表示内容可能被隐藏，并非恶意意图的证明。结果会影响风险分数；HIGH 结果会在审计阈值为 HIGH 时阻止操作。密度及重复检查也可能标记生成的数据，请检查上下文。
+
+可用一般全局／项目规则覆盖，按 ID 或模式禁用 `whitespace-padding` 或设置严重程度。显式设置会覆盖 MEDIUM 和 HIGH 默认值，也支持置信度覆盖。此检测器没有逐行正则表达式；配置时请勿指定 `regex` 或 `exclude`。
 
 ### MEDIUM：内容完整性
 
@@ -138,19 +147,24 @@ audit engine 会用 100 多条内置规则（正则表达式模式、表驱动�
 这些是严重程度较低的指标，会计入风险评分和报告：
 
 - `LOW`：较弱的可疑模式（例如命令中的非 HTTPS URL——存在中间人攻击的可能）
+- `LOW`: 无法检查的引用也会报告为 LOW `reference-check-incomplete`。
 - `LOW`：**外部链接**——指向外部 URL（`https://...`）的 markdown 链接，可能表明存在 prompt injection 向量或不必要的 token 消耗；本地链接（localhost）除外
-- `LOW`：**悬空的本地链接**——目标文件或目录在磁盘上不存在的失效相对 markdown 链接
+- `LOW`：**缺失的捆绑引用**——Markdown 链接、图片、显式或行内路径的目标不存在
 - `LOW`：**content-missing** / **content-unexpected**——内容完整性问题（见上文）
 - `INFO`：诸如 shell 链式命令模式等上下文提示（用于分诊/可见性）
 - `INFO`：**低可分析性**——skill 内容中可审计文本的占比低于 70%（见 [Analyzability Score](#analyzability-score)）
 
 > 这些发现结果不会阻止安装，但会提高整体风险评分。有大量 LOW/INFO 发现结果的 skill 可能值得更仔细的检查。
 
-#### 悬空链接检测
+#### 捆绑引用检查
 
-audit engine 还会对 `.md` 文件执行**结构性检查**：提取所有内联 markdown 链接（`[label](target)`），并验证本地相对目标在磁盘上是否存在。外部链接（`http://`、`https://`、`mailto:` 等）和纯锚点（`#section`）会被跳过。
+结构分析器检查本地 Markdown 链接和图片，包括引用式链接。内联代码中，检查具有文件扩展名、不含空白或 glob／模板语法且以 `./`、`../`、`scripts/`、`references/` 或 `assets/` 开头的路径，以及显式 `path:<target>` 声明。标记为 `skillshare-paths` 的代码围栏中每行检查一个路径。未显式声明的无扩展名示例、普通标识符、其他代码围栏、未显式声明的绝对路径代码示例、URL（包括 `file:` URI）和纯锚点是有意排除的例外。必需的绝对路径应使用 Markdown 链接或显式 `path:` 声明。 Markdown 链接和图片相对于所在文档的目录解析。内联代码路径、`path:` 声明和 `skillshare-paths` 条目以 `./` 或 `../` 开头时也相对于所在文档解析；其他相对代码路径相对于 skill 根目录解析，嵌套 Markdown 文件中也一样。
 
-这能捕获常见的质量问题，如缺失的引用文件、重命名的路径或不完整的 skill 打包。每个失效链接会产生一条 `LOW` 严重级别、模式为 `dangling-link` 的发现结果。
+缺失目标保留 LOW `dangling-link` 标识。父目录遍历、主目录路径、Windows 驱动器路径或符号链接组件离开 skill 目录时，产生 HIGH `reference-escapes-root`。允许捆绑目录内的绝对路径，也识别从声明的根目录及其符号链接父目录导出的等价写法（例如 macOS 的 `/var` 与 `/private/var`）。检查在声明的根目录内使用有界的 `lstat`/`readlink`，不会读取引用文件的内容。不支持的路径、不可读元数据、符号链接循环或解析超限会产生 LOW `reference-check-incomplete`，而不会声称目标缺失或安全。限制为每个路径 4,096 字节、256 个组件步骤和 40 次符号链接跳转。Windows 原生分隔符会被规范化；在其他主机上，除可识别的 Windows 驱动器逃逸外，不支持反斜杠路径。保留原始行号与代码片段。 离开捆绑目录的隐式行内代码示例会被忽略，末尾的 `:line` 会被移除。
+
+`/docs/foo` 等站点根链接指向技能目录之外时，现在产生 HIGH `reference-escapes-root`，而非原来的 LOW `dangling-link`。使用 `--threshold high` 时可能被阻止。
+
+三个规则 ID 都支持在 `audit-rules.yaml` 中设置 `enabled: false`，沿用其他结构检查的全局／项目规则层。`doctor` 复用此分析器：缺失或未完成的引用为警告，逃逸为错误，`doctor --json` 将其记入 `bundled_references`。两种模式中发现的 skill 都适用。
 
 ## 威胁类别深入分析
 
@@ -178,7 +192,7 @@ Output suppression 按匹配的证据分级，不取决于 Markdown 上下文：
 
 共用 Markdown parser 识别 fenced code block 的边界，包括较长的 fence 与未闭合区块。区块内容仍接受 static rules 扫描，shell 区块也接受 command-tier 与 dataflow 分析。位于代码块内不代表可信。 原始 HTML 块和注释内的 fenced shell 示例也会接受相同的 shell 分析，taint 限定在各代码块内；原始 HTML 块不适用 SDK 参数降级。
 
-**规则覆盖：** 一般披露限制改用 `prompt-injection-5`。既有 `prompt-injection-4` 的覆盖或接受记录不会应用到新规则。将 `prompt-injection-5` 覆盖为 CRITICAL，可保留对一般限制的阻止。披露限制规则的严重级别覆盖会被遵守。Strict 下已审查的误报可使用 [Accepted Findings](../reference/commands/update.md#accepted-findings)；规则、文件或匹配文字改变后，必须重新接受。 显式设置的全局或项目严重级别覆盖，包括 CRITICAL，优先于 SDK 参数降级。 内置规则 5 仅排除明确隐瞒的短语，同一行中独立的一般披露限制仍会报告，即使规则 4 已停用或降级。 完整替换为自定义 regex 的规则仍保留整行排除语义。
+**规则覆盖：** 一般披露限制改用 `prompt-injection-5`。既有 `prompt-injection-4` 的覆盖或接受记录不会应用到新规则。将 `prompt-injection-5` 覆盖为 CRITICAL，可保留对一般限制的阻止。披露限制规则的严重级别覆盖会被遵守。Strict 下已审查的误报可使用 [Accepted Findings](../reference/commands/update.md#accepted-findings)；规则、文件、匹配文字或检测器专属证据改变后，必须重新接受。 显式设置的全局或项目严重级别覆盖，包括 CRITICAL，优先于 SDK 参数降级。 内置规则 5 仅排除明确隐瞒的短语，同一行中独立的一般披露限制仍会报告，即使规则 4 已停用或降级。 完整替换为自定义 regex 的规则仍保留整行排除语义。
 
 **防御措施：** 安装前务必审查 skill 文件。使用 `skillshare audit` 检测已知的注入模式。对于组织级部署，设置 `audit.block_threshold: HIGH` 以同时捕获隐藏的注释注入。
 
@@ -398,6 +412,28 @@ _cross-skill
   HIGH  stealth skill cleaner installed alongside high-risk skill backdoor — evasion risk
 ```
 
+## 可执行文件和归档头部 {#executable-headers}
+
+检查每个普通文件的前 **512 字节**；PE 头部超出窗口时，在指定偏移处额外读取有限字节。包括隐藏目录和 `__pycache__`。识别 ELF、Mach-O、PE、WASM version 1、CPython 字节码、ZIP/JAR 和伪装 shebang。
+
+- `disguised-executable`：**HIGH**。文档、图片、配置扩展名或 `.cache`/`__pycache__` 目录下的可执行格式或 shebang。
+- `python-bytecode`：**HIGH**。存在匹配的普通 Python 源文件时为 **MEDIUM**。
+- `executable-artifact`：**MEDIUM**。其他本机可执行格式或 WASM。
+- `archive-artifact`：**INFO**。ZIP/JAR 签名，不代表可执行行为。
+- `uncertain-header`：**INFO**。未知的类字节码 magic，或截断、无效的头部。
+
+伪装扩展名为 `.md`、`.txt`、`.rst`、`.pdf`、`.doc`、`.docx`、`.rtf`、`.html`、`.json`、`.yaml`、`.yml`、`.toml`、`.png`、`.jpg`、`.jpeg`、`.gif`、`.svg`、`.webp`、`.ico`、`.bmp`、`.tif`、`.tiff`。普通 `run.sh` 或无扩展名脚本不会仅因 shebang 被报告，也不以执行权限作为判断依据。
+
+固定 magic 表支持正式版 CPython **3.6–3.14**。前缀包含无效 UTF-8 或非空白控制字符并带 CRLF 的未知 magic 会标记为不确定，不进行解码。更新表必须核对带标签的 CPython 源码并添加回归测试，来源记录在 `internal/audit/header.go`。
+
+CPython 3.6 使用不含标志的 12 字节头部；3.7–3.14 使用含受支持标志的 16 字节头部。 直接扫描文件时，仅使用文件名判断伪装，祖先目录不会影响结果。
+
+保留原有的六层深度限制。`.git`、`.skillshare`、`.skillshare-meta.json`、操作系统元数据、文件符号链接和特殊文件不读取头部；目录符号链接不会遍历。明确配置的顶层源链接继续使用原有解析策略。没有文件数量上限；目录扫描将头部读取失败的文件计入 skipped 并继续扫描其他文件；直接指定的文件无法读取时仍返回错误。隐藏目录中的文件仅分类头部，不增加文本规则或完整性扫描。文件符号链接保留原有文本扫描，包括直接文件和 agent 审计。
+
+头部分类不分析运行时行为、不解码字节码、不检查归档成员。超大文件仅接受此分类器的头部检查。可在 `audit-rules.yaml` 中按规则 ID 设置 `enabled: false` 来禁用这些发现。
+
+隐藏名称本身不表示伪装：普通工具脚本保持无发现，`.venv/bin/python` 等原生二进制为 MEDIUM。HIGH 需要文档、图片、配置扩展名或 `.cache`/`__pycache__` 父目录。链接和特殊文件不会仅因跳过头部读取而计入 `skippedFiles`。
+
 ## Analyzability Score {#analyzability-score}
 
 每个被扫描的 skill 都会获得一个**可分析性评分**——可审计明文字节占文件总字节数的比例（0–100%）。这体现了扫描器能够检查到该 skill 内容的比例。
@@ -410,10 +446,9 @@ _cross-skill
 
 当可分析性低于 **70%** 时，audit engine 会发出一条模式为 `low-analyzability` 的 `INFO` 级别发现结果。这不会阻止安装，但表明扫描器的覆盖范围有限。
 
-以下文件被排除在计算之外：
-- 二进制文件（图片、`.wasm` 等）
-- 超过 1 MB 的文件
-- `.metadata.json`（内部元数据）
+不超过 1 MB 的二进制及不支持的文件计入 `totalBytes`，但不计入 `auditableBytes`。超大文件不计入目录的字节比例；内部元数据及排除路径也不计入。
+
+CLI、JSON 和仪表盘摘要分别报告 `binaryFiles`、`skippedFiles`、`oversizedFiles`。`skippedFiles` 表示未做全文文本分析的文件，包括读取失败、二进制、不支持的扩展名、超大文件及隐藏目录中的普通文件。`binaryFiles` 包括已识别的二进制／归档头部及含 NUL 的头部。计数会重叠：超大二进制文件在三个计数器中各计一次。头部字节不计入可审计文本。
 
 ### 输出
 
@@ -435,7 +470,10 @@ Auditable: 92% avg
 {
   "totalBytes": 12480,
   "auditableBytes": 10240,
-  "analyzability": 0.82
+  "analyzability": 0.82,
+  "binaryFiles": 2,
+  "skippedFiles": 3,
+  "oversizedFiles": 1
 }
 ```
 
@@ -496,3 +534,28 @@ JSON/SARIF 输出中的每条发现结果都包含：
 命令值设置只检查 `apiKeyHelper` 和 `statusLine`，不检查其他命令值设置。
 
 也支持 command hook 的字符串 `args` 数组。 规则 ID 支持通过 `audit rules` 禁用及覆盖严重性。 [英文详细说明](/docs/understand/audit-engine#bundled-hooks-and-settings)。
+
+## 敏感目标与反序列化 {#sensitive-destinations}
+
+这些静态发现提供供审查的证据，不证明 SSRF、不可信输入或运行时可利用性。不会解析别名、DNS、重定向、数据来源或任意多行语法，也不会发送网络请求或执行反序列化。
+
+| 规则 ID | 默认值 | 证据 |
+|---|---|---|
+| `ssrf-metadata-0` | 代码上下文和目标为元数据主机的请求为 CRITICAL；散文及公共 URL 路径/查询中的提及为 HIGH | 所有允许扫描的文本中的元数据主机。源文件和下文列出的 Markdown 代码围栏会让其他提及具有 CRITICAL 上下文。只有当识别请求解析后的 URL 主机名匹配元数据主机时，请求才为 CRITICAL；公共 URL 仅在路径或查询中出现该地址时保持 HIGH。 |
+| `ssrf-internal-0` | MEDIUM | 已识别的请求调用或 curl/wget 中的字面量 HTTP(S) 内部目标 |
+| `ssrf-dynamic-0` | MEDIUM (0.6) | 直接使用请求输入，或以 Python f-string / JavaScript 模板插值构建主机的请求；目标未知 |
+| `unsafe-deserialization-python` | HIGH | Python `pickle.load/loads`、`marshal.load/loads`、`dill.load/loads` |
+| `unsafe-deserialization-yaml` | HIGH | Python `yaml.load/load_all`、`unsafe_load/unsafe_load_all`、`full_load/full_load_all` |
+| `unsafe-deserialization-torch` | HIGH | 未明确指定 `weights_only=True` 的 Python `torch.load` |
+| `unsafe-deserialization-php` | HIGH | PHP `unserialize` |
+| `unsafe-deserialization-ruby` | HIGH | Ruby `Marshal.load/restore` |
+| `unsafe-deserialization-js` | HIGH | JavaScript/TypeScript `require('node-serialize')` 或 `from 'node-serialize'`；依赖证据需审查实际用法 |
+
+初始元数据策略识别 `169.254.169.254`, `169.254.170.2`, `100.100.100.200`, `metadata.google.internal`, `fd00:ec2::254`；IPv6 支持带括号或不带括号的压缩形式。元数据匹配独立于语言过滤和教程抑制。散文、配置数据及文本围栏为 HIGH，因此仅提及地址在默认 CRITICAL 阈值下只会警告，不会使 audit 失败或阻止安装；HIGH 阈值仍会阻止。源文件（包括注释）、下文列出的 Markdown 代码围栏（包括未标注语言的围栏）会让其他元数据提及具有 CRITICAL 上下文。只有当识别请求解析后的 URL 主机名匹配元数据主机时，请求才为 CRITICAL；若元数据地址只出现在公共 URL 的路径或查询中，则保持 HIGH。文本/配置围栏中的请求也只有在解析后的主机名匹配元数据主机时才为 CRITICAL。这只是语法启发式，无法确定请求是否执行。显式全局/项目严重级别覆盖优先；完整自定义正则替换直接使用配置的严重级别，不进行此上下文检查。其他编码 IP 形式和别名不在初始范围内。
+
+元数据代码上下文识别 `.sh`、`.bash`、`.zsh`、`.fish`、`.py`、`.js`、`.ts`、`.rb`、`.php`、`.php3`、`.php4`、`.php5`、`.phtml`、`.go`、`.rs`、`.swift`、`Makefile` 和 `Dockerfile`（不区分大小写），以及以首行 shebang（`#!`，前面可有 BOM）开头的允许扫描的文件。没有 shebang 的无扩展名笔记保持 HIGH，除非包含识别出的请求。Markdown 围栏限于未标注语言、上述扩展名，或 `python`、`javascript`、`typescript`、`ruby`、`shell`、`console`、`golang`、`rust`、`makefile`、`dockerfile`。其他标签（包括 `http`、`powershell`、`pwsh`、`node`、`jsx`、`tsx`、`java`）保持 HIGH，除非识别出的字面量请求以元数据为目标。IPv4 元数据地址或 `metadata.google.internal` 后的句末句点可被识别；`.example.com` 等主机名后缀不会匹配。
+
+
+内部目标包括标准 IPv4/IPv6（含 IPv4 映射 IPv6）、RFC1918/私有 IPv6、回环、链路本地、未指定地址，以及 localhost 和 `.localhost`/`.internal`/`.local` 主机。识别的请求形式：requests/httpx/axios HTTP methods, fetch, urlopen, urllib.request.urlopen, file_get_contents/fopen, Net::HTTP.get/post, URI.open, curl/wget；shell 仅支持简单调用。直接请求输入指 `req/request.query/body/params/args/GET`, `$_GET/$_POST/$_REQUEST`, `params[...]`。普通 URL 变量不足以触发动态规则。内部规则适用于 `.py`、`.js`、`.ts`、`.rb`、`.php` 和 shell 扩展名 `.sh`、`.bash`、`.zsh`、`.fish`；动态规则使用同样的代码类型，但不含 shell。
+
+反序列化规则只适用于对应的 `.py`、`.php`、`.rb`、`.js`、`.ts` 文件，不扫描 Markdown 正文或代码围栏。还支持 PHP 别名 `.php3`、`.php4`、`.php5`、`.phtml`。扩展名匹配不区分大小写，文件收集仍受现有大小、深度和二进制限制。`yaml.safe_load/safe_load_all` 是阴性例。`yaml.load/load_all` 的显式顶层参数 `Loader=SafeLoader`, `Loader=CSafeLoader`, `Loader=yaml.SafeLoader`, `Loader=yaml.CSafeLoader` 或 `torch.load` 的 `weights_only=True` 只抑制对应调用。 SafeLoader 和 CSafeLoader 也可作为第二个位置参数识别。其他安全调用、字符串中的关键字和嵌套关键字都不会隐藏不安全调用。无法在同一行确认安全选项的不完整或多行调用仍会产生警告。这些签名检查不保证加载器名称或依赖可信。

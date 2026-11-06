@@ -38,7 +38,7 @@ make playground
 | `audit-demo-ci-release` | `security/` | HIGH + MEDIUM（sudo、外部 URL） |
 | `audit-demo-debug-exfil` | `security/` | CRITICAL（認証情報の流出） |
 | `audit-demo-external-link` | `security/` | LOW（外部 URL） |
-| `audit-demo-dangling-link` | `security/` | LOW（壊れたローカルリンク） |
+| `audit-demo-dangling-link` | `security/` | LOW（欠落したリンク）+ HIGH（ルート外への参照） |
 
 ### デモプロジェクト（`~/demo-project`）
 

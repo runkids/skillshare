@@ -112,6 +112,7 @@ rules:
 | `regex` | 是* | 用於比對每一行的正規表示式 |
 | `confidence` | 否 | 0 到 1 的信心度；預設為 0.95 |
 | `exclude` | 否 | 若一行同時符合 `regex` 與 `exclude`，該發現項目會被抑制 |
+| `files` | 否 | 限制規則適用檔案的 glob 模式；詳見下方檔案範圍說明。 |
 | `enabled` | 否 | 設為 `false` 以停用規則。停用時只需要 `id`。 |
 
 *除非 `enabled: false`，否則為必要欄位。
@@ -168,7 +169,7 @@ skillshare audit rules init -p       # → .skillshare/audit-rules.yaml
 #            → project (.skillshare/audit-rules.yaml)
 #
 # Each rule needs: id, severity, pattern, message, regex.
-# Optional: exclude (suppress match), enabled (false to disable).
+# Optional: exclude (suppress match), files (scope), enabled (false to disable).
 
 rules:
   # Example: flag TODO comments as informational
@@ -280,9 +281,11 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 以正規表示式為基礎的規則，其真實來源為：
 [`internal/audit/rules.yaml`](https://github.com/runkids/skillshare/blob/main/internal/audit/rules.yaml)
 
+檔案層級偵測器 `whitespace-padding` 也註冊於 `rules.yaml`。門檻和豁免由 Go 實作；設定啟用狀態、嚴重程度或信心值時不需 `regex` 或 `exclude`。請參閱[空白填充](/docs/understand/audit-engine#whitespace-padding)。 為此 ID 設定 `regex` 或 `exclude` 的規則會被拒絕。
+
 :::note 結構性、分層與跨 skill 檢查
 
-`dangling-link`、`content-tampered`、`content-oversize`、`content-missing` 與 `content-unexpected` 是**結構性檢查**（檔案系統查找與雜湊比對，並非正規表示式）。`low-analyzability` 是由 [Analyzability Score](/docs/understand/audit-engine#analyzability-score) 產生的**可分析性發現項目**。`tier-stealth`、`tier-destructive-network`、`tier-network-heavy`、`tier-interpreter` 與 `tier-interpreter-network` 是由 [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) 設定檔產生的**分層組合發現項目**。`cross-skill-*` 發現項目是由 [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection) 產生。以上這些都會出現在下方表格中，但並未定義於 `rules.yaml` 中。
+`dangling-link`、`reference-escapes-root`、`reference-check-incomplete`、`content-tampered`、`content-oversize`、`content-missing` 與 `content-unexpected` 是**結構性檢查**（檔案系統查找與雜湊比對，並非正規表示式）。`low-analyzability` 是由 [Analyzability Score](/docs/understand/audit-engine#analyzability-score) 產生的**可分析性發現項目**。`tier-stealth`、`tier-destructive-network`、`tier-network-heavy`、`tier-interpreter` 與 `tier-interpreter-network` 是由 [Command Safety Tiering](/docs/understand/audit-engine#command-safety-tiering) 設定檔產生的**分層組合發現項目**。`cross-skill-*` 發現項目是由 [Cross-Skill Interaction Detection](/docs/understand/audit-engine#cross-skill-interaction-detection) 產生。標頭檢查也會產生 [Executable and archive headers](/docs/understand/audit-engine#executable-headers) 中說明的 `disguised-executable`、`python-bytecode`、`executable-artifact`、`archive-artifact` 與 `uncertain-header` 發現項目。以上這些都會出現在下方表格中，但並未定義於 `rules.yaml` 中。
 
 `bundled-*` 是 `structure` 的結構化 JSON 檢查，支援列出、停用及覆寫嚴重性；中繼資料的正規表示式不比對文字。 [隨附的 hooks 與設定](/docs/understand/audit-engine#bundled-hooks-and-settings)。
 
@@ -381,6 +384,7 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 | `hardcoded-secret-9` | hardcoded-secret | HIGH |
 | `data-uri-0` | data-uri | MEDIUM |
 | `escape-obfuscation-0` | escape-obfuscation | MEDIUM |
+| `whitespace-padding` | whitespace-padding | MEDIUM（非空白文字前空白行 ≥40: HIGH） |
 | `suspicious-fetch-0` | suspicious-fetch | MEDIUM |
 | `ip-address-url-0` | ip-address-url | MEDIUM |
 | `hidden-unicode-3` | hidden-unicode | MEDIUM |
@@ -389,6 +393,8 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 | `insecure-http-0` | insecure-http | LOW |
 | `external-link-0` | external-link | LOW |
 | `dangling-link` | dangling-link | LOW |
+| `reference-escapes-root` | reference-escapes-root | HIGH |
+| `reference-check-incomplete` | reference-check-incomplete | LOW |
 | `content-tampered` | content-tampered | MEDIUM |
 | `content-oversize` | content-oversize | MEDIUM |
 | `content-missing` | content-missing | LOW |
@@ -404,6 +410,20 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 | `cross-skill-privilege-network` | cross-skill-privilege-network | MEDIUM |
 | `cross-skill-stealth` | cross-skill-stealth | HIGH |
 | `cross-skill-cred-interpreter` | cross-skill-cred-interpreter | MEDIUM |
+| `disguised-executable` | disguised-executable | HIGH |
+| `python-bytecode` | python-bytecode | HIGH |
+| `executable-artifact` | executable-artifact | MEDIUM |
+| `archive-artifact` | archive-artifact | INFO |
+| `uncertain-header` | uncertain-header | INFO |
+| `ssrf-metadata-0` | ssrf-metadata | CRITICAL / HIGH ([情境](/docs/understand/audit-engine#sensitive-destinations)) |
+| `ssrf-internal-0` | ssrf-internal | MEDIUM |
+| `ssrf-dynamic-0` | ssrf-dynamic | MEDIUM |
+| `unsafe-deserialization-python` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-yaml` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-torch` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-php` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-ruby` | unsafe-deserialization | HIGH |
+| `unsafe-deserialization-js` | unsafe-deserialization | HIGH |
 
 ## Subcommands
 
@@ -425,3 +445,15 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 - [Audit Engine](/docs/understand/audit-engine) — 引擎運作原理（威脅模型、風險評分、分層）
 - [Securing Your Skills](/docs/how-to/advanced/security) — 給團隊的安全指南
 - [CI/CD Skill Validation](/docs/how-to/recipes/ci-cd-skill-validation) — Pipeline 自動化操作手冊
+
+## 檔案適用範圍 {#file-applicability}
+
+選用的 `files` 清單採用 Go `path.Match` 語法（`*`、`?`、字元類別）。不含 `/` 的 `*.py` 比對任意深度的檔名；含 `/` 的 `scripts/*.php` 比對相對於掃描技能根目錄的完整路徑，`*` 不跨越 `/`，不區分大小寫。單檔掃描使用檔名；原始內容掃描使用傳入的檔名。此欄位只篩選已收集的檔案，不增加可掃描類型。
+
+絕對路徑、空模式、空路徑段和 `.`/`..`、反斜線、冒號、無效字元類別及遞迴 `**` 均會被拒絕，包括停用規則和沒有比對對象的覆寫。省略時保留繼承範圍，`files: []` 清除限制。支援 ID 和模式層級覆寫，ID 優先。完整正規表示式替換也會替換適用範圍和內建呼叫檢查。`audit rules --format json` 傳回非空的有效 `files` 清單。
+
+```yaml
+rules:
+  - id: unsafe-deserialization-python
+    files: ['*.py', 'scripts/*.txt']
+```

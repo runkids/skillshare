@@ -60,6 +60,18 @@ You can also use Homebrew directly:
 brew upgrade skillshare
 ```
 
+## Nix Users {#nix-users}
+
+If you installed with Nix, `skillshare upgrade` leaves the CLI alone, because replacing a file in the Nix store would corrupt it. When a newer version exists, it tells you how to get it instead. For `nix profile add`, that is:
+
+```bash
+nix profile upgrade skillshare
+```
+
+When a NixOS, Home Manager or overlay configuration provides skillshare, update skillshare in that configuration (for a flake input, `nix flake update skillshare`) and rebuild. The dashboard's upgrade button shows the same advice.
+
+`skillshare upgrade --skill` still updates the built-in skill.
+
 ## Examples
 
 ```bash

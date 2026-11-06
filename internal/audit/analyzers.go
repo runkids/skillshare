@@ -35,6 +35,7 @@ type AnalyzeContext struct {
 	IsShell    bool
 
 	// --- Skill-scope fields (populated after Walk completes) ---
+	ReferenceRoot      string // physical bundle root for contained reference checks
 	SkillPath          string
 	SourceURL          string // git clone URL from .skillshare-meta.json (empty for local)
 	MDFiles            []mdFileInfo

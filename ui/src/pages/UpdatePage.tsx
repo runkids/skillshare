@@ -493,6 +493,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
     <span className="flex flex-wrap md:flex-nowrap items-baseline gap-x-3 gap-y-1 min-w-0 flex-1">
       <span className="nm m truncate max-w-full md:shrink-0 md:max-w-[60%]">{unit.label}</span>
       {unit.isRepo && <span className="ss-tag self-center">tracked</span>}
+      {unit.items[0]?.branch && <span className="ss-tag self-center max-w-[40%]" title={unit.items[0].branch}><GitBranch size={11} className="shrink-0" /><span className="truncate">{unit.items[0].branch}</span></span>}
       <span className="basis-full md:basis-auto font-mono text-xs text-ink-3 truncate">{sourceLabel(unit.source)}</span>
     </span>
   );

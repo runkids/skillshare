@@ -88,6 +88,9 @@ type auditRunSummary struct {
 	RiskScore        int            `json:"riskScore"`
 	RiskLabel        string         `json:"riskLabel,omitempty"`
 	AvgAnalyzability float64        `json:"avgAnalyzability"`
+	BinaryFiles      int            `json:"binaryFiles"`
+	SkippedFiles     int            `json:"skippedFiles"`
+	OversizedFiles   int            `json:"oversizedFiles"`
 	ByCategory       map[string]int `json:"byCategory,omitempty"`
 	PolicyProfile    string         `json:"policyProfile,omitempty"`
 	PolicyDedupe     string         `json:"policyDedupe,omitempty"`
@@ -111,6 +114,9 @@ func (s auditRunSummary) toMarkdownOptions() audit.MarkdownOptions {
 		Threshold:        s.Threshold,
 		Mode:             s.Mode,
 		AvgAnalyzability: s.AvgAnalyzability,
+		BinaryFiles:      s.BinaryFiles,
+		SkippedFiles:     s.SkippedFiles,
+		OversizedFiles:   s.OversizedFiles,
 		Profile:          s.PolicyProfile,
 		ByCategory:       s.ByCategory,
 	}
@@ -1015,6 +1021,9 @@ func summarizeAuditResults(total int, results []*audit.Result, threshold string)
 			}
 		}
 		sumAnalyzability += r.Analyzability
+		summary.BinaryFiles += r.BinaryFiles
+		summary.SkippedFiles += r.SkippedFiles
+		summary.OversizedFiles += r.OversizedFiles
 	}
 	summary.RiskScore = maxRisk
 	summary.RiskLabel = audit.RiskLabelFromScoreAndMaxSeverity(maxRisk, maxSeverity)
@@ -1049,6 +1058,9 @@ func recountSummary(results []*audit.Result, threshold string, prev auditRunSumm
 		ScanErrors:       prev.ScanErrors,
 		Threshold:        threshold,
 		AvgAnalyzability: prev.AvgAnalyzability,
+		BinaryFiles:      prev.BinaryFiles,
+		SkippedFiles:     prev.SkippedFiles,
+		OversizedFiles:   prev.OversizedFiles,
 		PolicyProfile:    prev.PolicyProfile,
 		PolicyDedupe:     prev.PolicyDedupe,
 		PolicyAnalyzers:  prev.PolicyAnalyzers,

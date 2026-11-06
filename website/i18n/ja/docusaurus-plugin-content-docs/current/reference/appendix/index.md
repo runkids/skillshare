@@ -28,6 +28,7 @@ skillshare の技術リファレンス Appendix です。
 | `~/.local/share/skillshare/backups/` | バックアップディレクトリ |
 | `~/.local/share/skillshare/trash/` | ソフトデリートされた Skill |
 | `~/.local/state/skillshare/logs/` | 操作ログと監査ログ |
+| `~/.local/state/skillshare/projects/` | マシンローカルのプロジェクト登録とロック |
 | `~/.cache/skillshare/ui/` | ダウンロードされた Web ダッシュボード |
 
 ### 環境変数

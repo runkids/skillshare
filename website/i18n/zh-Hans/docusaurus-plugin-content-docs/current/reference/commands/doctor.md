@@ -59,6 +59,8 @@ Next
 
 对于包含代理变体的跟踪仓库，Source 行显示 `N skills, M variants`，分别表示逻辑技能数和物理副本数。`variant_routing` 检查会在 symlink 模式公开所有变体而不按代理选择时发出警告；选择性路由请使用 merge 或 copy 模式。
 
+捆绑引用在两种模式下使用 audit 结构检查：缺失或未完成为警告，逃逸根目录为错误。沿用全局／项目 `audit-rules.yaml` 的禁用设置。JSON 的 `bundled_references` 包含规则 ID、源文件、行号与片段。参见[引用检查](../../understand/audit-engine.md)。
+
 ## 何时使用
 
 - 某些功能无法工作，但你不知道原因
@@ -360,6 +362,8 @@ Next
   skillshare sync          bring the targets up to date
   brew upgrade skillshare  update to v1.3.0
 ```
+
+通过 `nix profile` 安装时，Next 行显示 `nix profile upgrade skillshare`。由 NixOS 或 Home Manager 提供 skillshare 时，Update 行会提示更新 Nix 配置并重新构建，不显示对应的 Next 行。
 
 ## JSON 输出
 

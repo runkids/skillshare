@@ -224,6 +224,7 @@ make playground-down     # コンテナを停止
 | `~/.config/skillshare/agents/` | Agent の Source ディレクトリ |
 | `~/.config/skillshare/extras/<name>/` | extras の Source ディレクトリ |
 | `~/.local/state/skillshare/logs/` | 操作ログと監査ログ |
+| `~/.local/state/skillshare/projects/` | マシンローカルのプロジェクト登録とロック |
 | `~/.local/share/skillshare/backups/` | バックアップディレクトリ |
 
 ---

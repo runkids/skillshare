@@ -132,12 +132,12 @@ skillshare audit --analyzer static --analyzer dataflow # 使用多个分析器
 
 | 分析器 | 作用范围 | 说明 |
 |----------|-------|-------------|
-| `static` | 逐文件 | 基于正则表达式，依据 audit 规则进行模式匹配 |
+| `static` | 逐文件 | 正则表达式匹配及文件级空白填充检查 |
 | `dataflow` | 逐文件 | 对 shell 脚本和 markdown 代码块进行污点追踪 |
 | `tier` | 逐 skill | 能力分级组合风险分析 |
 | `integrity` | 逐 skill | 内容哈希校验（SKILL.md 中的 `file_hashes`） |
 | `metadata` | 逐 skill | 供应链信任校验（发布者不匹配、权威性声明） |
-| `structure` | 逐 skill | 悬空 markdown 链接检测; [随附的 hooks 与设置](/docs/understand/audit-engine#bundled-hooks-and-settings) |
+| `structure` | 逐 skill | 检查本地 Markdown 链接/图片和显式声明的捆绑路径是否缺失，并检测指向根目录外的引用; [随附的 hooks 与设置](/docs/understand/audit-engine#bundled-hooks-and-settings) |
 | `cross-skill` | 整批 | 跨 skill 的外泄与权限提升分析 |
 
 你也可以在配置中设置：
@@ -196,7 +196,7 @@ skillshare install /path/to/skill --skip-audit
 
 `skillshare update` 会将 tracked 仓库拉取到隔离的候选副本中，并在发布前运行安全 audit。达到或超过当前阈值（默认为 `audit.block_threshold`，或通过 `--audit-threshold` / `--threshold` / `-T` 覆盖）的发现结果会阻止发布，除非明确接受；拒绝时实际 checkout 保持不变。详情参见 [`update --skip-audit`](/docs/reference/commands/update#security-audit-gate)。
 
-你用 `--force` 接受的发现结果会针对该 skill 被记住，因此后续更新在同一条规则匹配到同一段文本时不会再次阻断。新的发现结果，或同一条规则匹配到不同的文本，仍会再次阻断。参见 [Accepted Findings](/docs/reference/commands/update#accepted-findings)。
+用 `--force` 接受的 findings 会针对该 skill 被记住。接受密钥忽略行号，并包含规则、文件、匹配文本及检测器专属证据。对于 `whitespace-padding`，填充隐藏的内容变化会生成新密钥；密度 finding 使用文件中所有符合条件的内容作为证据。详情参见 [Accepted Findings](/docs/reference/commands/update#accepted-findings)。
 
 当通过 install 更新 tracked 仓库时（`skillshare install <repo> --track --update`），会使用相同的阈值策略（`audit.block_threshold` 或 `--audit-threshold` / `--threshold` / `-T`）。
 
@@ -318,12 +318,12 @@ audit 会扫描 skill 目录中的文本类文件：
 
 - `.md`、`.txt`、`.yaml`、`.yml`、`.json`、`.toml`
 - `.sh`、`.bash`、`.zsh`、`.fish`
-- `.py`、`.js`、`.ts`、`.rb`、`.go`、`.rs`
+- `.py`、`.js`、`.ts`、`.rb`、`.php`、`.php3`、`.php4`、`.php5`、`.phtml`、`.go`、`.rs`、`.swift`
 - 没有扩展名的文件（例如 `Makefile`、`Dockerfile`）
 
-扫描在每个 skill 目录内是递归的，因此 `SKILL.md`、嵌套的 `references/*.md` 以及 `scripts/*.sh` 只要匹配受支持的文本文件类型，都会被检查。
+文本扫描跳过隐藏目录，在其余 skill 目录内递归进行，因此 `SKILL.md`、嵌套的 `references/*.md` 以及 `scripts/*.sh` 只要匹配受支持的文本文件类型，都会被检查。
 
-二进制文件（图片、`.wasm` 等）和隐藏目录（`.git`）会被跳过，但 structure 分析器会读取 skill 内的 `.claude/settings.json` 和 `.claude/settings.local.json`。
+文本过滤前，audit 对每个普通文件读取前 512 字节头部，分类可执行格式、CPython 字节码、ZIP/JAR 和伪装的 shebang 脚本。隐藏目录仅进行头部分类，`__pycache__` 也在范围内。文件符号链接保留原有文本扫描；`.git`、`.skillshare`、内部及操作系统元数据、链接和特殊文件不读取头部。二进制及超大文件不进行全文文本分析。摘要报告 `binaryFiles`、`skippedFiles`、`oversizedFiles`，计数可重叠。分类不分析运行行为或归档内容。格式、严重性及限制见[可执行文件和归档头部](../../understand/audit-engine.md#executable-headers)。 PE 头部超出窗口时，在指定偏移处额外读取有限字节。 structure 分析器还会读取 skill 内的 `.claude/settings.json` 和 `.claude/settings.local.json`，用于[随附的 hooks 与设置](../../understand/audit-engine.md#bundled-hooks-and-settings)。
 
 ## 选项
 

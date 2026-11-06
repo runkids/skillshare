@@ -21,6 +21,7 @@ func serviceFixture(t *testing.T) (*Service, *config.Config, string, string, []b
 	if err := os.MkdirAll(root, 0755); err != nil {
 		t.Fatal(err)
 	}
+	t.Setenv("XDG_STATE_HOME", filepath.Join(dir, "state"))
 	// Expansion excludes missing roots, so reload after creating the folder.
 	cfg, err := config.LoadReadOnly()
 	if err != nil {
@@ -96,12 +97,12 @@ func TestServiceRemove_LaterFailurePreservesReport(t *testing.T) {
 }
 func TestServiceRemove_SaveFailureKeepsMemory(t *testing.T) {
 	s, cfg, path, root, original := serviceFixture(t)
-	configDir := filepath.Join(filepath.Dir(path), "config-dir")
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	localPath, err := config.LocalProjectsPath(path)
+	if err != nil {
 		t.Fatal(err)
 	}
-	s.path = filepath.Join(configDir, "config.yaml")
-	if err := os.WriteFile(s.path, original, 0644); err != nil {
+	configDir := filepath.Dir(localPath)
+	if err := os.MkdirAll(configDir, 0700); err != nil {
 		t.Fatal(err)
 	}
 	moved := configDir + "-moved"
@@ -139,7 +140,7 @@ func TestServiceRemove_SaveFailureKeepsMemory(t *testing.T) {
 	if _, ok := cfg.Projects[root]; !ok {
 		t.Fatal("save failure removed in-memory registration")
 	}
-	if got, _ := os.ReadFile(filepath.Join(moved, "config.yaml")); !bytes.Equal(got, original) {
+	if got, _ := os.ReadFile(path); !bytes.Equal(got, original) {
 		t.Fatal("save failure changed disk")
 	}
 }
@@ -290,40 +291,18 @@ func serviceTargetManifests(t *testing.T, cfg *config.Config) []string {
 	return paths
 }
 
-func TestServicePut_ResolvedDeclaredKeyWithRootAliases(t *testing.T) {
-	s, cfg, path, root, _ := serviceFixture(t)
+func TestServicePut_RejectsDuplicateNormalizedSharedRoots(t *testing.T) {
+	_, cfg, path, root, original := serviceFixture(t)
 	entry := cfg.Projects[root]
 	entry.Name = "primary"
-	entry.Targets = []string{"claude"}
 	cfg.Projects[root] = entry
-	alias := root + string(filepath.Separator) + "."
-	other := entry
-	other.Name = "secondary"
-	cfg.Projects[alias] = other
-	candidate, err := config.PrepareSave(path, cfg)
-	if err != nil {
-		t.Fatal(err)
+	entry.Name = "secondary"
+	cfg.Projects[root+string(filepath.Separator)+"."] = entry
+	if _, err := config.PrepareSave(path, cfg); err == nil {
+		t.Fatal("duplicate normalized roots accepted")
 	}
-	if err := candidate.Write(); err != nil {
-		t.Fatal(err)
-	}
-	s.load = config.LoadReadOnly
-	entry.Skills = &config.ResourceTargetConfig{Mode: "copy"}
-	result, err := s.Put(root, entry, PutOptions{})
-	if err != nil {
-		t.Fatalf("resolved declared key rejected: %v", err)
-	}
-	if result.Item.Root != root || len(result.Affected) != 1 || result.Affected[0] != root {
-		t.Fatalf("wrong declaration edited: %+v", result)
-	}
-	removed, err := s.Remove(alias, RemoveOptions{DryRun: true})
-	if err != nil || removed.Item.Root != alias {
-		t.Fatalf("resolved key rejected by Remove: %+v %v", removed, err)
-	}
-	_, err = s.Put(root, entry, PutOptions{Create: true})
-	var ambiguous *AmbiguousError
-	if !errors.As(err, &ambiguous) || len(ambiguous.Candidates) != 2 {
-		t.Fatalf("Create did not check root identity: %v", err)
+	if raw, _ := os.ReadFile(path); !bytes.Equal(raw, original) {
+		t.Fatal("invalid candidate changed shared YAML")
 	}
 }
 
@@ -332,42 +311,11 @@ func TestServiceExactKeysWindows(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("native Windows path identity")
 	}
-	s, cfg, path, root, _ := serviceFixture(t)
+	_, cfg, path, root, _ := serviceFixture(t)
 	entry := cfg.Projects[root]
-	entry.Name = "primary"
-	entry.Targets = []string{"claude"}
-	cfg.Projects[root] = entry
-	alias := strings.ToUpper(root)
-	if alias == root {
-		alias = strings.ToLower(root)
-	}
-	other := entry
-	other.Name = "secondary"
-	cfg.Projects[alias] = other
-	c, err := config.PrepareSave(path, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := c.Write(); err != nil {
-		t.Fatal(err)
-	}
-	s.load = config.LoadReadOnly
-	entry.Skills = &config.ResourceTargetConfig{Mode: "copy"}
-	put, err := s.Put(root, entry, PutOptions{})
-	if err != nil || put.Item.Root != root {
-		t.Fatalf("exact Put: %+v %v", put, err)
-	}
-	removed, err := s.Remove(alias, RemoveOptions{DryRun: true})
-	if err != nil || removed.Item.Root != alias || len(removed.Expanded.Projects) != 1 {
-		t.Fatalf("exact Remove: %+v %v", removed, err)
-	}
-	loaded, err := config.LoadReadOnly()
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = FindRoot(loaded.Projects, root, filepath.Dir(root), filepath.Dir(root))
-	var ambiguous *AmbiguousError
-	if !errors.As(err, &ambiguous) || len(ambiguous.Candidates) != 2 {
-		t.Fatalf("root ambiguity lost: %v", err)
+	entry.Name = "case-alias"
+	cfg.Projects[strings.ToUpper(root)] = entry
+	if _, err := config.PrepareSave(path, cfg); err == nil {
+		t.Fatal("case-equivalent roots accepted")
 	}
 }

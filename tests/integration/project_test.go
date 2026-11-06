@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"skillshare/internal/config"
 	"skillshare/internal/testutil"
 )
 
@@ -182,7 +183,7 @@ func TestProject_ReadOnlyLegacyWholeInvocation(t *testing.T) {
 	if b, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("build: %v %s", err, b)
 	}
-	// Text add, edit, sync and remove run startup maintenance like other commands.
+	// Every project invocation preserves legacy shared state at startup.
 	for _, tc := range []struct {
 		args     []string
 		readOnly bool
@@ -193,8 +194,8 @@ func TestProject_ReadOnlyLegacyWholeInvocation(t *testing.T) {
 		{[]string{"list", "--json"}, true},
 		{[]string{"edit", "app", "--json"}, true},
 		{[]string{"edit", "app", "--skills-mode", "bad", "--json"}, true},
-		{[]string{"edit", "app"}, false},
-		{[]string{"edit", "app", "--skills-mode", "bad"}, false},
+		{[]string{"edit", "app"}, true},
+		{[]string{"edit", "app", "--skills-mode", "bad"}, true},
 	} {
 		args := tc.args
 		t.Run(strings.Join(args, "_"), func(t *testing.T) {
@@ -245,7 +246,7 @@ func TestProject_LegacyMutationAndAnchors(t *testing.T) {
 	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\nskills:\n  - name: legacy\n    source: github.com/a/b\n    custom: keep\nprojects:\n  " + root + ": &shared\n    targets: [claude]\n    skills: {}\n  ~/other: *shared\n")
 	r := sb.RunCLI("project", "edit", "app", "--skills-mode", "copy", "--json")
 	r.AssertSuccess(t)
-	if len(projectJSON(t, r)["affected"].([]any)) != 2 {
+	if len(projectJSON(t, r)["affected"].([]any)) != 1 {
 		t.Fatal(r.Stdout)
 	}
 	b, _ := os.ReadFile(sb.ConfigPath)
@@ -261,8 +262,11 @@ func TestProject_LegacyMutationAndAnchors(t *testing.T) {
 	if !strings.Contains(string(b), "*shared") || !strings.Contains(string(b), "custom: keep") {
 		t.Fatal(string(b))
 	}
+	if err := os.MkdirAll(filepath.Join(sb.Home, "other"), 0755); err != nil {
+		t.Fatal(err)
+	}
 	before := projectTree(t, sb.Home)
-	r = sb.RunCLI("project", "edit", "app", "--name", "duplicate", "--json")
+	r = sb.RunCLI("project", "edit", "app", "--name", "other", "--json")
 	r.AssertFailure(t)
 	projectJSON(t, r)
 	if !reflect.DeepEqual(before, projectTree(t, sb.Home)) {
@@ -600,7 +604,11 @@ func TestProject_EditKeepsStoredAgentSymlinkFilters(t *testing.T) {
 	// The dashboard saves symlink agents with filters; unrelated CLI edits must still work.
 	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\nprojects:\n  " + root + ":\n    targets: [claude]\n    agents:\n      mode: symlink\n      include: [team-*]\n")
 	sb.RunCLI("project", "edit", "app", "--name", "renamed", "--json").AssertSuccess(t)
-	b, _ := os.ReadFile(sb.ConfigPath)
+	localPath, err := config.LocalProjectsPath(sb.ConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(localPath)
 	if !strings.Contains(string(b), "name: renamed") || !strings.Contains(string(b), "team-*") {
 		t.Fatalf("edit lost settings:\n%s", b)
 	}
@@ -665,5 +673,79 @@ func TestProject_MissingRootsRemainInspectableAfterSync(t *testing.T) {
 	r.AssertSuccess(t)
 	for _, path := range missing {
 		r.AssertOutputContains(t, "Project folder is missing: "+path)
+	}
+}
+
+func TestProject_LocalOverlaySharedSymlinkAndSecondMachine(t *testing.T) {
+	sb, root := projectFixture(t)
+	shared := filepath.Join(sb.Home, "shared.yaml")
+	original := "source: " + sb.SourcePath + "\nmode: copy\ntargets: {}\nprojects:\n  " + root + ": {name: shared, targets: [claude], skills: {}}\n"
+	if err := os.WriteFile(shared, []byte(original), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(sb.ConfigPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(shared, sb.ConfigPath); err != nil {
+		t.Skipf("config symlink unavailable: %v", err)
+	}
+	check := func() {
+		t.Helper()
+		b, err := os.ReadFile(shared)
+		if err != nil || string(b) != original {
+			t.Fatalf("shared changed: %v %s", err, b)
+		}
+		i, err := os.Lstat(sb.ConfigPath)
+		if err != nil || i.Mode()&os.ModeSymlink == 0 {
+			t.Fatal("config link replaced")
+		}
+	}
+	r := sb.RunCLI("project", "localize", "shared", "--dry-run", "--json")
+	r.AssertSuccess(t)
+	if p := projectJSON(t, r)["project"].(map[string]any); p["origin"] != "local" {
+		t.Fatal(p)
+	}
+	check()
+	sb.RunCLI("project", "localize", "shared", "--json").AssertSuccess(t)
+	check()
+	r = sb.RunCLI("project", "localize", "shared", "--json")
+	r.AssertSuccess(t)
+	if projectJSON(t, r)["unchanged"] != true {
+		t.Fatal(r.Stdout)
+	}
+	sb.RunCLI("project", "edit", "shared", "--name", "private", "--json").AssertSuccess(t)
+	check()
+	sb.RunCLI("project", "remove", "private", "--yes", "--json").AssertSuccess(t)
+	check()
+	r = sb.RunCLI("project", "list", "--json")
+	r.AssertSuccess(t)
+	if len(projectJSON(t, r)["projects"].([]any)) != 0 {
+		t.Fatal(r.Stdout)
+	}
+	firstHome := sb.Home
+	secondHome := filepath.Join(sb.Root, "second-home")
+	if err := os.MkdirAll(secondHome, 0755); err != nil {
+		t.Fatal(err)
+	}
+	saved := map[string]string{}
+	for key, rel := range map[string]string{"HOME": "", "USERPROFILE": "", "XDG_CONFIG_HOME": ".config", "XDG_STATE_HOME": ".local/state", "XDG_DATA_HOME": ".local/share", "XDG_CACHE_HOME": ".cache"} {
+		saved[key] = os.Getenv(key)
+		sb.SetEnv(key, filepath.Join(secondHome, rel))
+	}
+	sb.Home = secondHome
+	r = sb.RunCLI("project", "show", "shared", "--json")
+	r.AssertSuccess(t)
+	if p := projectJSON(t, r)["project"].(map[string]any); p["origin"] != "shared" {
+		t.Fatal(p)
+	}
+	sb.Home = firstHome
+	for key, value := range saved {
+		sb.SetEnv(key, value)
+	}
+	sb.CreateSkill("demo", map[string]string{"SKILL.md": "---\nname: demo\ndescription: fixture\n---\n# Demo\n"})
+	sb.RunCLI("project", "add", root, "--target", "claude", "--skills-mode", "copy", "--sync", "--json").AssertSuccess(t)
+	check()
+	if _, err := os.Stat(filepath.Join(root, ".claude", "skills", "demo", "SKILL.md")); err != nil {
+		t.Fatal(err)
 	}
 }
