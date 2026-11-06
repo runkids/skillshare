@@ -18,8 +18,10 @@ type Group struct {
 }
 
 type Item struct {
-	Origin       string    `json:"origin"`
-	OriginPath   string    `json:"originPath"`
+	Origin     string `json:"origin"`
+	OriginPath string `json:"originPath"`
+	// SharedCopy marks a local project that config.yaml also declares.
+	SharedCopy   bool      `json:"sharedCopy"`
 	Root         string    `json:"root"` // as written in config.yaml
 	Path         string    `json:"path"` // absolute
 	Name         string    `json:"name"`

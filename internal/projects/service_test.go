@@ -36,14 +36,22 @@ func serviceFixture(t *testing.T) (*Service, *config.Config, string, string, []b
 	return NewService(path, func() (*config.Config, error) { return cfg, nil }), cfg, path, root, original
 }
 func TestServiceRemove_InvalidCandidateBeforeDetach(t *testing.T) {
-	s, cfg, path, root, original := serviceFixture(t)
-	cfg.Projects[filepath.Join(filepath.Dir(root), "missing")] = config.ManagedProject{Targets: []string{"claude"}, Skills: &config.ResourceTargetConfig{Include: []string{"["}}}
+	path, _, dir, original := projectCandidateFixture(t, "  $ROOT/app:\n    targets: [claude]\n    skills: {}\n  $ROOT/missing:\n    targets: [claude]\n    skills: {include: [\"[\"]}\n")
+	root := filepath.Join(dir, "app")
+	if err := os.MkdirAll(root, 0755); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.LoadReadOnly()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := NewService(path, func() (*config.Config, error) { return cfg, nil })
 	calls := 0
 	s.DetachSkillsTarget = func(string, ssync.DetachOptions) (ssync.DetachReport, error) {
 		calls++
 		return ssync.DetachReport{}, nil
 	}
-	_, err := s.Remove(root, RemoveOptions{})
+	_, err = s.Remove(root, RemoveOptions{})
 	if err == nil {
 		t.Fatal("invalid removal candidate accepted")
 	}

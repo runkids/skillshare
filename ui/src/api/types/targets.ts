@@ -16,6 +16,8 @@ export interface Project {
   /** Absent for undeclared candidate rows and older servers. */
   origin?: 'shared' | 'local';
   originPath?: string;
+  /** A local project that config.yaml also declares; removing this machine's copy brings the shared one back. */
+  sharedCopy?: boolean;
   targets: string[];
   skills: ProjectResource | null;
   agents: ProjectResource | null;
@@ -25,13 +27,17 @@ export interface Project {
   hasOwnConfig: boolean;
 }
 
-export type ProjectInput = Pick<Project, 'root' | 'targets' | 'skills' | 'agents'> & { name?: string; create?: boolean };
+export type ProjectInput = Pick<Project, 'root' | 'targets' | 'skills' | 'agents'> & { name?: string; create?: boolean; /** Where a new project is saved; used only with `create`. */ storage?: ProjectStorage };
+
+export type ProjectStorage = 'shared' | 'local';
 
 export interface ProjectMutation {
   success: boolean;
   root: string;
   origin: 'shared' | 'local';
   originPath: string;
+  /** Removal only: config.yaml's copy still applies. */
+  remaining?: boolean;
 }
 
 export interface ProjectList {
@@ -40,6 +46,10 @@ export interface ProjectList {
   convertible: { root: string; targets: string[]; tools: string[]; agents: boolean }[];
   /** Every tool with a project skills path, relative to the project folder */
   tools: { name: string; skillsPath: string; agentsPath: string }[];
+  /** Where a new project is saved by default */
+  storage?: ProjectStorage;
+  /** The file each layer is saved in */
+  storagePaths?: Record<ProjectStorage, string>;
 }
 
 export interface Target {

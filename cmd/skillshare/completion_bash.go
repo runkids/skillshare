@@ -89,8 +89,8 @@ _skillshare() {
 
     # Project command
     if [[ "${cmd}" == project ]]; then
-        local project_subcmds="list show add edit sync remove localize"
-        local project_flags="--target --name --skills --no-skills --agents --no-agents --skills-mode --agents-mode --skills-naming --skills-include --skills-exclude --agents-include --agents-exclude --sync --dry-run -n --yes --json --help -h --global -g"
+        local project_subcmds="list show add edit sync remove localize share"
+        local project_flags="--target --name --skills --no-skills --agents --no-agents --skills-mode --agents-mode --skills-naming --skills-include --skills-exclude --agents-include --agents-exclude --machine-local --shared --sync --dry-run -n --yes --json --help -h --global -g"
         case "${prev}" in
             --skills-mode|--agents-mode) COMPREPLY=($(compgen -W "merge symlink copy" -- "${cur}")); return ;;
             --skills-naming) COMPREPLY=($(compgen -W "flat standard prefixed" -- "${cur}")); return ;;

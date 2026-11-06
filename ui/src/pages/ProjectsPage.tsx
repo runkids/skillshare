@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, ChevronRight, Folder, Folders, Plus } from 'lucide-react';
+import { ArrowRight, ChevronRight, Folder, Folders, HardDrive, Plus } from 'lucide-react';
 import { api, type ProjectList } from '../api/client';
 import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
@@ -98,7 +98,7 @@ export default function ProjectsPage() {
               <Link key={p.path} to={projectUrl(p.path, p.declared ? undefined : hooks.data?.source.projects?.[p.path] && !mcp.data?.source.projects?.[p.path] ? 'hooks' : 'mcp')} className="ss-r link !min-h-[56px]">
                 <span className="ss-cat target"><Folder size={16} /></span>
                 <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="font-semibold">{p.name} {p.origin && <span className="ss-tag" title={p.originPath}>{t(`projects.origin.${p.origin}`)}</span>}</span>
+                  <span className="font-semibold">{p.name} {p.origin === 'local' && <span className="ss-tag" title={p.originPath}><HardDrive size={11} aria-hidden="true" />{t('projects.origin.local')}</span>}</span>
                   <span className="truncate font-mono text-[12px] text-ink-3" title={p.path}>{shortenHome(p.path)}</span>
                 </span>
                 <span className="w-[120px] shrink-0">
@@ -146,6 +146,8 @@ export default function ProjectsPage() {
         <AddProjectDialog
           tools={list.data.tools}
           common={common}
+          defaultStorage={list.data.storage}
+          storagePaths={list.data.storagePaths}
           existing={rows.filter((p) => p.declared).map((p) => p.path)}
           onClose={() => setAdding(false)}
           onAdded={(root) => {

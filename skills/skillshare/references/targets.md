@@ -114,7 +114,7 @@ targets:
 
 ## Project Folders From the Global Config (`projects`)
 
-Use when projects should get **different** skills. Global targets already give every project the same set; project mode (`-p`) keeps the setup in the repo for teammates. For personal projects, register folders with `skillshare project add`; registrations stay machine-local. Shared `projects:` declarations in global YAML remain supported. One `skillshare sync` writes them all.
+Use when projects should get **different** skills. Global targets already give every project the same set; project mode (`-p`) keeps the setup in the repo for teammates. For personal projects, add folders with `skillshare project add`; they are saved under `projects:` in the global config, or on this machine only with `--machine-local`. One `skillshare sync` writes them all.
 
 ```yaml
 projects:
@@ -129,11 +129,9 @@ projects:
 - `skillshare target` and `collect` ignore these; use `skillshare project` or the dashboard's Projects page.
 - MCP for the same folders lives under `mcp.projects` (see [mcp.md](mcp.md)).
 
-### Manage registrations with `project`
+### Manage projects with `project`
 
 ```bash
-skillshare project localize shop-web --dry-run --json
-skillshare project localize shop-web --json
 skillshare project list --json
 skillshare project show shop-web --json
 skillshare project add ~/work/shop-web --target claude,codex --skills-mode copy --agents --dry-run
@@ -143,6 +141,9 @@ skillshare project edit shop-web --name= --skills-mode= --skills-naming=
 skillshare project sync shop-web --json
 skillshare project remove shop-web --dry-run --json
 skillshare project remove shop-web --yes --json
+skillshare project add ~/work/scratch --target claude --machine-local --dry-run
+skillshare project localize shop-web --dry-run --json
+skillshare project share scratch --dry-run --json
 ```
 
 Always global (explicit `-g` accepted, `-p` rejected), even inside a project. Add requires
@@ -159,7 +160,7 @@ when it is omitted from the project. Enabling an existing resource keeps its set
 `--skills-naming` accepts flat, standard or prefixed; empty inherits. There is no agents
 naming flag, and agents filters with symlink mode are rejected.
 
-`--dry-run` / `-n` previews add/edit/sync/remove/localize without writes or prompts. `--sync`
+`--dry-run` / `-n` previews add/edit/sync/remove/localize/share without writes or prompts. `--sync`
 on add/edit saves first and syncs only that project, without force. On sync failure,
 exit 1 does not undo the saved registration: inspect `sync.failed` and retry with
 `project sync`. List JSON is `{ "projects": [] }`, show JSON wraps `project`, and
@@ -262,8 +263,8 @@ all agent files. Partial failures report completed detach work and whether the
 registration was saved. CLI and dashboard project mutations share a config
 lock and reload after acquisition; other config writers remain outside it.
 
-## Local project registration storage
+## Where projects are saved
 
-Project CLI and dashboard CRUD never rewrite shared config. Local entries replace whole shared entries at a normalized root; local removal masks shared entries here only, and add clears the mask. `localize` copies shared intent locally without detach, sync, or shared deletion; repeats are noops. JSON adds `origin` and `originPath`. All project commands skip startup maintenance. Storage: `$XDG_STATE_HOME/skillshare/projects/<identity>.yaml`, otherwise `~/.local/state/skillshare/projects` on Unix or `%LOCALAPPDATA%\skillshare\state\projects` on Windows. Identity follows the resolved config destination, so config symlink aliases share state. Moving the destination starts fresh. Reads create nothing; invalid state fails closed. Duplicate names at distinct roots and duplicate normalized roots in one layer fail.
+A project is saved in `config.yaml` (`origin: shared`, default) or in this machine's registry (`origin: local`). `project add --machine-local` saves on this machine only; `projects_storage: machine-local` in `config.yaml` makes that the default, and `add --shared` overrides it. Edits and removals stay where the project is saved; removing a `config.yaml` project removes it for every machine using that file. A local entry replaces the whole `config.yaml` entry at a normalized root (`sharedCopy: true` in JSON); removing it deletes only the local copy, the `config.yaml` version applies again (`remaining` in JSON), and `remove --shared` deletes both. `localize` copies a `config.yaml` project to this machine without detach, sync, or `config.yaml` changes. `share` moves a local project into `config.yaml` and deletes the local copy; when `config.yaml` has different settings it asks, and needs `--yes` with `--json`. Both repeat as noops. Exclusions saved by v0.29.0 stay until the project is added again. JSON adds `origin` and `originPath`. All project commands skip startup maintenance. Storage: `$XDG_STATE_HOME/skillshare/projects/<identity>.yaml`, otherwise `~/.local/state/skillshare/projects` on Unix or `%LOCALAPPDATA%\skillshare\state\projects` on Windows. Identity follows the resolved config destination, so config symlink aliases share state. Moving the destination starts fresh. Reads create nothing; invalid state fails closed. Duplicate names at distinct roots and duplicate normalized roots in one layer fail.
 
-The dashboard Convert action explicitly changes shared intent and refuses locally hidden or overridden roots. Raw editor submissions are validated with the local overlay. Project mutations lock and reload; candidates reject changed shared/local snapshots before detach or write. General shared writers do not use this concurrency guard.
+The dashboard Convert action writes `config.yaml` and refuses locally hidden or overridden roots. Raw editor submissions are validated with the local overlay. Project mutations lock and reload; candidates reject changed shared/local snapshots before detach or write. General shared writers do not use this concurrency guard.

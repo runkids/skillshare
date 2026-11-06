@@ -639,9 +639,9 @@ See [Agents](/docs/understand/agents) for details on agent file format, sync beh
 
 ### `projects` {#projects}
 
-Shared project declarations that get skills and agents from this global config. The folders need no `.skillshare/` of their own, and one `skillshare sync` from anywhere writes them all.
+Project folders that get skills and agents from this global config. The folders need no `.skillshare/` of their own, and one `skillshare sync` from anywhere writes them all.
 
-Routine `skillshare project add/edit/remove` and dashboard saves use a machine-local registry, leaving this shared section unchanged. Local entries replace the whole shared entry at the same normalized root; removals hide shared entries only on this machine. Names at distinct roots must remain unique. `project list/show` include `origin` and `originPath`. Use `project localize <project> --dry-run` then `project localize <project>` to copy a shared declaration locally without deleting it for other machines. See [local registrations](/docs/reference/commands/project#local-registrations) for storage and concurrency.
+`skillshare project add` and the dashboard's **Add project** save new projects here, so every machine that uses this config gets them. A project can instead be kept on this machine only, outside this file: pass `project add --machine-local`, pick **This machine only** under **Saved to** in the dashboard's **Add project** dialog, or set [`projects_storage`](#projects-storage). Edits and removals stay where the project is saved. A machine-local project replaces the whole entry here at the same normalized root, and names at distinct roots must remain unique. `project list/show` include `origin` and `originPath`. See [where projects are saved](/docs/reference/commands/project#local-registrations).
 
 Use it when projects should get different skills. Global targets already reach every project with the same set, and [project mode](/docs/understand/project-skills) keeps the setup in the project's repo for teammates. [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config#scenario) compares the three.
 
@@ -681,10 +681,25 @@ Each entry in `targets` is a [supported target](./supported-targets.md) name. Sk
 - **Names in output.** `sync`, `status`, `diff`, `doctor` and `backup` show a project's targets as `<name>@<target>`, for example `shop-web@claude`. `name` cannot contain `@`, `/` or `\`, and two projects cannot share one.
 - **Agents** are written only for tools that have a project agents folder. A project with `agents` and no `skills` syncs agents alone.
 - **A missing folder is skipped.** Global skill sync reports one warning with the number of missing project folders and never recreates a project you moved or deleted. Run `skillshare project list` to inspect the full list, or `skillshare project list --json` to read each entry's `missing` field.
-- **`target` and `collect` leave projects alone.** `skillshare target` lists and edits the `targets` section only, and `collect` does not pull a project's own skills into the source. Use [`skillshare project`](/docs/reference/commands/project) to add, edit, sync, or remove project registrations, or use the dashboard’s **Projects** page.
+- **`target` and `collect` leave projects alone.** `skillshare target` lists and edits the `targets` section only, and `collect` does not pull a project's own skills into the source. Use [`skillshare project`](/docs/reference/commands/project) to add, edit, sync, or remove projects, or use the dashboard’s **Projects** page.
 - Skills with a `targets` frontmatter field are matched against the tool, so `targets: [claude]` reaches `shop-web@claude`.
 
 MCP servers for the same folders are listed under [`mcp.projects`](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config), keyed by the same folder. For a step-by-step setup see [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config).
+
+### `projects_storage` {#projects-storage}
+
+Where a new project is saved.
+
+| Value | Effect |
+|-------|--------|
+| `shared` (default) | Under `projects` in this file. Every machine that uses this config gets the project. |
+| `machine-local` | In this machine's project registry, outside the config directory. Other machines do not see it. |
+
+```yaml
+projects_storage: machine-local
+```
+
+Use `machine-local` when the folders you add rarely exist on your other machines. `skillshare project add --shared` or `--machine-local` overrides the setting for one project, and the dashboard's **Add project** dialog starts from it. Existing projects stay where they are; move one with `skillshare project share` or `skillshare project localize`. See [where projects are saved](/docs/reference/commands/project#local-registrations).
 
 ### `extras` {#extras}
 

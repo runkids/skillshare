@@ -7,8 +7,6 @@ sidebar_position: 8
 > 通过 global 配置，一次 sync 就把 Skill 和 MCP server 发送到多个项目文件夹。
 
 
-项目 CLI 的 add/edit/remove 与仪表板保存只写入本机注册，不会重写共享配置。共享 `projects:` 声明继续有效；相同规范化根目录的本机项目会完整覆盖共享项目。移除只在此机器隐藏共享项目，重新添加会解除隐藏。不同根目录的名称必须唯一，同一层的重复规范化根目录会被拒绝。 `localize` 将共享项目复制到本机，不会删除共享 YAML、解除链接或同步；重复执行不会变更。list/show 的文本与 JSON 提供 `origin`（shared/local）与 `originPath`。所有 project 命令都跳过启动迁移、清理与版本检查。
-
 ## Scenario
 
 全局 Target 例如 `~/.claude/skills` 会被每个项目读取，因此所有项目看到的都是同一套 Skill。如果这正是你想要的效果，就不需要这份 recipe。
@@ -20,12 +18,12 @@ sidebar_position: 8
 - 某个项目需要保留 Skill 的真实副本以便提交，但不想提交任何 Skillshare 配置。
 - 你使用的某个工具只读取项目内部的某个文件夹。
 
-共享声明与本机注册都能用一次同步为各个文件夹提供独立设置。
+global 配置中的 `projects` 能用一次同步为各个文件夹提供独立设置。
 
 | | Global targets | Registered projects | Project mode |
 |---|---|---|---|
 | **谁会拿到 Skill** | 每个项目，相同的一套 | 你列出的文件夹，各自一套 | 仅这一个项目 |
-| **配置保存在哪里** | 你的机器 | 你的机器 | 项目的仓库 |
+| **配置保存在哪里** | global 配置 | global 配置，或仅本机 | 项目的仓库 |
 | **队友能不能拿到** | 否 | 否 | 是，通过 clone 获得 |
 | **会给项目添加哪些文件** | 无 | 只有被 sync 的 Skill 和 Agent | `.skillshare/` 加上被 sync 的文件 |
 | **Sync** | 在任意位置运行一次 `sync` | 在任意位置运行一次 `sync` | 在每个项目内部运行 `sync` |
@@ -35,6 +33,8 @@ sidebar_position: 8
 ## Solution
 
 ### Skill 与 Agent：`projects`
+
+以下命令会把项目保存到 global `config.yaml` 的 `projects` 下，因此使用该文件的每台机器都会获得它。对于只存在于本机的文件夹，请加上 `--machine-local`；若想把它设为默认，请设置 [`projects_storage: machine-local`](/docs/reference/targets/configuration#projects-storage)。用 `skillshare project localize` 或 `skillshare project share` 移动已保存的项目。可用 `project list --json` 查看 `origin` 与 `originPath`。参见[项目的保存位置](/docs/reference/commands/project#local-registrations)。
 
 ```bash
 skillshare project add ~/work/project01 --target claude,codex \
@@ -59,7 +59,7 @@ skillshare project sync project01 --dry-run --json
 skillshare project sync project01
 ```
 
-使用 [`skillshare project`](/docs/reference/commands/project) 添加、编辑、同步或移除项目注册，也可以使用仪表盘的 **Projects** 页面。完整字段参见 [`projects`](/docs/reference/targets/configuration#projects)。
+使用 [`skillshare project`](/docs/reference/commands/project) 添加、编辑、同步或移除项目，也可以使用仪表盘的 **Projects** 页面。完整字段参见 [`projects`](/docs/reference/targets/configuration#projects)。
 
 ### MCP server：`mcp.projects`
 

@@ -49,7 +49,7 @@ skillshare log --no-tui | less    # 手动通过 pager 分页
 
 调用这些 API 的 Web UI 操作，其记录方式与 CLI 操作相同。
 
-`project` 记录会包含 `action`（`add`、`update`、`remove`、`localize`，或仪表盘的 `convert`）和项目的 `root`，因此可以看出是哪个项目发生了变更。`skillshare project sync` 会记录为带有这两个字段的 `sync` 条目。
+`project` 记录会包含 `action`（`add`、`update`、`remove`、`localize`、`share`，或仪表盘的 `convert`）和项目的 `root`，因此可以看出是哪个项目发生了变更。`remove` 还会记录 `shared`，同时移除了 `config.yaml` 中的副本时为 true。`skillshare project sync` 会记录为带有这两个字段的 `sync` 条目。
 
 ## 日志类型
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"skillshare/internal/config"
@@ -175,7 +176,9 @@ func TestServiceEdit_SaveFailureReportsCompletedDetach(t *testing.T) {
 	}
 }
 
-func TestServiceEdit_LocalOverrideDoesNotPropagateSharedAnchors(t *testing.T) {
+// An edit saved in config.yaml changes the aliases of its anchor, and Affected
+// reports them, as it did before machine-local projects existed.
+func TestServiceEdit_SharedAnchorReportsAliases(t *testing.T) {
 	path, _, dir, _ := projectCandidateFixture(t, "  $ROOT/a: &shared\n    targets: [claude, codex]\n    skills: {}\n  $ROOT/z: *shared\n")
 	for _, name := range []string{"a", "z"} {
 		if err := os.MkdirAll(filepath.Join(dir, name), 0755); err != nil {
@@ -194,7 +197,14 @@ func TestServiceEdit_LocalOverrideDoesNotPropagateSharedAnchors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Affected) != 1 || result.Detach == nil || len(result.Detach.Removed) != 1 {
-		t.Fatalf("local edit affected another shared declaration: %+v", result)
+	if len(result.Affected) != 2 || result.Detach == nil {
+		t.Fatalf("shared edit hid an anchored alias: %+v", result)
+	}
+	loaded, err := config.LoadReadOnly()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(loaded.Projects, result.Expanded.Projects) {
+		t.Fatal("persisted view disagrees with candidate")
 	}
 }

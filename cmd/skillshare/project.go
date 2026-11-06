@@ -15,6 +15,7 @@ var projectValueFlags = []string{"--target", "--name", "--skills-mode", "--skill
 type projectOptions struct {
 	action, token           string
 	json, dryRun, yes, sync bool
+	machineLocal, shared    bool
 	values                  map[string][]string
 	toggles                 map[string]bool
 }
@@ -133,6 +134,10 @@ func parseProjectArgs(args []string) (projectOptions, error) {
 			o.yes = true
 		case "--sync":
 			o.sync = true
+		case "--machine-local":
+			o.machineLocal = true
+		case "--shared":
+			o.shared = true
 		case "--skills", "--no-skills", "--agents", "--no-agents":
 			o.toggles[arg] = true
 		default:
@@ -146,7 +151,7 @@ func parseProjectArgs(args []string) (projectOptions, error) {
 	if len(operands) > 0 {
 		o.action = operands[0]
 	}
-	if !slices.Contains([]string{"list", "show", "add", "edit", "sync", "remove", "localize"}, o.action) {
+	if !slices.Contains([]string{"list", "show", "add", "edit", "sync", "remove", "localize", "share"}, o.action) {
 		return o, fmt.Errorf("unknown project command: %s", o.action)
 	}
 	want := 2
@@ -165,11 +170,20 @@ func parseProjectArgs(args []string) (projectOptions, error) {
 	if o.action != "add" && o.action != "edit" && (len(o.values) > 0 || len(o.toggles) > 0 || o.sync) {
 		return o, fmt.Errorf("settings and --sync require project add or edit")
 	}
-	if o.yes && o.action != "remove" {
-		return o, fmt.Errorf("--yes requires project remove")
+	if o.yes && o.action != "remove" && o.action != "share" {
+		return o, fmt.Errorf("--yes requires project remove or share")
+	}
+	if o.machineLocal && o.action != "add" {
+		return o, fmt.Errorf("--machine-local requires project add; use project localize for a saved project")
+	}
+	if o.shared && o.action != "add" && o.action != "remove" {
+		return o, fmt.Errorf("--shared requires project add or remove; use project share for a saved project")
+	}
+	if o.machineLocal && o.shared {
+		return o, fmt.Errorf("--machine-local and --shared are contradictory")
 	}
 	if o.dryRun && (o.action == "list" || o.action == "show") {
-		return o, fmt.Errorf("--dry-run requires project add, edit, sync, remove or localize")
+		return o, fmt.Errorf("--dry-run requires project add, edit, sync, remove, localize or share")
 	}
 	for _, kind := range []string{"skills", "agents"} {
 		if !o.toggles["--no-"+kind] {
@@ -194,12 +208,12 @@ func parseProjectArgs(args []string) (projectOptions, error) {
 }
 
 func printProjectHelp() {
-	printHelp("skillshare project [list|show|add|edit|sync|remove|localize] [project] [options]", "Manage machine-local registrations and shared project declarations. No project config is changed.",
+	printHelp("skillshare project [list|show|add|edit|sync|remove|localize|share] [project] [options]", "Manage the project folders the global config syncs to. A project is saved in config.yaml unless it is kept on this machine only. No project config is changed.",
 		helpGroup{title: "Commands", rows: []helpRow{
-			{"list", "List registered projects (default)"}, {"show <project>", "Show one project by name or root"}, {"add <root> --target T", "Register an existing project folder"}, {"edit <project>", "Change only the specified settings"}, {"localize <project>", "Copy a shared registration to local state; shared YAML stays"}, {"sync <project>", "Sync skills and agents to this project"}, {"remove <project>", "Detach skills and remove the registration; agents stay"},
+			{"list", "List registered projects (default)"}, {"show <project>", "Show one project by name or root"}, {"add <root> --target T", "Add an existing project folder"}, {"edit <project>", "Change only the specified settings, where they are saved"}, {"localize <project>", "Keep a copy on this machine only; config.yaml stays"}, {"share <project>", "Move a machine-only project into config.yaml"}, {"sync <project>", "Sync skills and agents to this project"}, {"remove <project>", "Detach skills and remove the project; agents stay"},
 		}},
 		helpGroup{title: "Options", rows: []helpRow{
-			{"--target T", "Replace targets; repeat or use a comma list"}, {"--name N", "Set name; --name= restores the basename"}, {"--skills, --no-skills", "Turn skills on (add default) or off"}, {"--agents, --no-agents", "Turn agents on or off (add default)"}, {"--skills-mode, --agents-mode MODE", "merge, symlink or copy; empty inherits"}, {"--skills-naming NAMING", "flat, standard or prefixed; empty inherits"}, {"--skills-include, --skills-exclude P", "Replace filter list; repeat; empty clears"}, {"--agents-include, --agents-exclude P", "Replace filter list; repeat; empty clears"}, {"--sync", "Sync after add/edit; force is off"}, {"-n, --dry-run", "Preview without writing or prompting"}, {"--yes", "Skip remove confirmation (required with --json)"}, {"--json", "Output JSON"}, {"-g, --global", "Use the global config (always)"},
+			{"--target T", "Replace targets; repeat or use a comma list"}, {"--name N", "Set name; --name= restores the basename"}, {"--skills, --no-skills", "Turn skills on (add default) or off"}, {"--agents, --no-agents", "Turn agents on or off (add default)"}, {"--skills-mode, --agents-mode MODE", "merge, symlink or copy; empty inherits"}, {"--skills-naming NAMING", "flat, standard or prefixed; empty inherits"}, {"--skills-include, --skills-exclude P", "Replace filter list; repeat; empty clears"}, {"--agents-include, --agents-exclude P", "Replace filter list; repeat; empty clears"}, {"--machine-local", "Add: save on this machine only, not in config.yaml"}, {"--shared", "Add: save in config.yaml despite projects_storage; remove: also remove config.yaml's copy"}, {"--sync", "Sync after add/edit; force is off"}, {"-n, --dry-run", "Preview without writing or prompting"}, {"--yes", "Skip the remove or share confirmation (remove --json requires it)"}, {"--json", "Output JSON"}, {"-g, --global", "Use the global config (always)"},
 		}},
 	)
 }

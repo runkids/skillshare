@@ -49,7 +49,7 @@ skillshare log --no-tui | less    # 수동으로 pager에 파이프
 
 이 API들을 호출하는 Web UI 작업도 CLI 작업과 동일하게 기록됩니다.
 
-`project` 항목에는 `action`(`add`, `update`, `remove`, `localize`, 또는 대시보드의 `convert`)과 프로젝트 `root`가 기록되므로 어떤 프로젝트가 변경되었는지 알 수 있습니다. `skillshare project sync`는 같은 두 필드를 가진 `sync` 항목으로 기록됩니다.
+`project` 항목에는 `action`(`add`, `update`, `remove`, `localize`, `share`, 또는 대시보드의 `convert`)과 프로젝트 `root`가 기록되므로 어떤 프로젝트가 변경되었는지 알 수 있습니다. `remove`는 `shared`도 기록하며, `config.yaml`의 사본도 함께 제거했으면 true입니다. `skillshare project sync`는 같은 두 필드를 가진 `sync` 항목으로 기록됩니다.
 
 ## 로그 종류
 

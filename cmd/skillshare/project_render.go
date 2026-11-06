@@ -32,6 +32,7 @@ type projectResultJSON struct {
 	Sync         *projectSyncJSON       `json:"sync,omitempty"`
 	Detach       *projects.DetachReport `json:"detach,omitempty"`
 	Registration string                 `json:"registration,omitempty"`
+	Remaining    *projects.Item         `json:"remaining,omitempty"`
 	Error        string                 `json:"error,omitempty"`
 }
 
@@ -69,12 +70,12 @@ func projectSyncPayload(r *ssync.ExecuteResult, agentsSource string) *projectSyn
 	return p
 }
 func renderProjectResult(o projectOptions, r projectResult, err error, start time.Time) error {
-	unchanged := (o.action == "edit" || o.action == "add" || o.action == "localize") && len(r.Affected) == 0
+	unchanged := (o.action == "edit" || o.action == "add" || o.action == "localize" || o.action == "share") && len(r.Affected) == 0
 	applied := !o.dryRun && r.Registration == "updated"
 	if o.action == "remove" {
 		applied = r.Registration == "removed"
 	}
-	p := projectResultJSON{Action: o.action, Project: r.Item, Applied: &applied, Unchanged: unchanged, Affected: projectSlice(r.Affected), Warnings: projectSlice(r.Warnings), Registration: r.Registration}
+	p := projectResultJSON{Action: o.action, Project: r.Item, Applied: &applied, Unchanged: unchanged, Affected: projectSlice(r.Affected), Warnings: projectSlice(r.Warnings), Registration: r.Registration, Remaining: r.Remaining}
 	if r.Sync != nil {
 		agentsSource := ""
 		if r.Expanded != nil {
@@ -143,6 +144,9 @@ func renderProjectResult(o projectOptions, r projectResult, err error, start tim
 	for _, warning := range r.Warnings {
 		ui.Warning("%s", warning)
 	}
+	if r.Remaining != nil {
+		ui.Note("config.yaml still declares " + r.Remaining.Root + "; its settings apply again.")
+	}
 	if o.dryRun {
 		ui.DryRun()
 	} else if unchanged {
@@ -159,7 +163,11 @@ func renderProjectItem(item projects.Item) {
 	width := ui.RowWidth("Project", "Root", "Origin", "Origin file", "Targets", "Skills", "Agents")
 	ui.Row(ui.MarkNone, "Project", item.Name, width)
 	ui.Row(ui.MarkNone, "Root", item.Root, width)
-	ui.Row(ui.MarkNone, "Origin", item.Origin, width)
+	origin := item.Origin
+	if item.SharedCopy {
+		origin += " (config.yaml also declares it)"
+	}
+	ui.Row(ui.MarkNone, "Origin", origin, width)
 	ui.Row(ui.MarkNone, "Origin file", item.OriginPath, width)
 	ui.Row(ui.MarkNone, "Targets", strings.Join(item.Targets, ", "), width)
 	for _, kind := range []string{"Skills", "Agents"} {

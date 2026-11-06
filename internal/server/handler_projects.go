@@ -26,6 +26,9 @@ type projectBody struct {
 	Agents  *projectResource `json:"agents"`
 	// Create refuses a root that is already declared.
 	Create bool `json:"create"`
+	// Storage is "shared" or "local" for a new project; empty follows
+	// projects_storage. Edits stay where the project is saved.
+	Storage string `json:"storage"`
 }
 
 func (r *projectResource) config() *config.ResourceTargetConfig {
@@ -82,7 +85,15 @@ func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
 	}
 	sort.Slice(tools, func(i, j int) bool { return tools[i].Name < tools[j].Name })
 
-	writeJSON(w, map[string]any{"projects": items, "convertible": offers, "tools": tools})
+	localPath, err := config.LocalProjectsPath(s.configPath())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	// storagePaths names the file each storage choice writes, so the add
+	// dialog can say where a new project is saved.
+	storagePaths := map[string]string{projects.OriginShared: s.configPath(), projects.OriginLocal: localPath}
+	writeJSON(w, map[string]any{"projects": items, "convertible": offers, "tools": tools, "storage": s.cfg.NewProjectOrigin(), "storagePaths": storagePaths})
 }
 
 // handleSaveProject adds a project or replaces the one declared under the same root.
@@ -130,7 +141,7 @@ func (s *Server) handleSaveProject(w http.ResponseWriter, r *http.Request) {
 		}
 		root = body.Root
 	}
-	result, err := s.projectService().Put(root, config.ManagedProject{Name: body.Name, Targets: body.Targets, Skills: body.Skills.config(), Agents: body.Agents.config()}, projects.PutOptions{Create: body.Create})
+	result, err := s.projectService().Put(root, config.ManagedProject{Name: body.Name, Targets: body.Targets, Skills: body.Skills.config(), Agents: body.Agents.config()}, projects.PutOptions{Create: body.Create, Storage: body.Storage})
 	if err != nil {
 		status := http.StatusBadRequest
 		switch {
@@ -181,14 +192,15 @@ func (s *Server) handleRemoveProject(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "project not found: "+root)
 		return
 	}
-	result, err := s.projectService().Remove(root, projects.RemoveOptions{})
+	shared := r.URL.Query().Get("shared") == "true"
+	result, err := s.projectService().Remove(root, projects.RemoveOptions{Shared: shared})
 	if err != nil {
 		s.writeProjectFailure(w, http.StatusInternalServerError, result, err, start, "remove", root)
 		return
 	}
 	s.installGlobalConfig(result.Expanded)
-	s.writeOpsLog("project", "ok", start, map[string]any{"action": "remove", "root": root, "scope": "ui"}, "")
-	writeJSON(w, map[string]any{"success": true, "root": root, "origin": result.Item.Origin, "originPath": result.Item.OriginPath})
+	s.writeOpsLog("project", "ok", start, map[string]any{"action": "remove", "root": root, "shared": shared, "scope": "ui"}, "")
+	writeJSON(w, map[string]any{"success": true, "root": root, "origin": result.Item.Origin, "originPath": result.Item.OriginPath, "remaining": result.Remaining != nil})
 }
 
 // handleConvertProject moves the targets that write into one folder under projects.

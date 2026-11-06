@@ -78,7 +78,7 @@ skillshare sync -g       # Force global mode
 | **Git 통합** | 선택 사항 (`push`/`pull`) | skill이 프로젝트 repo에 직접 커밋됨 |
 | **범위** | 머신 상의 모든 프로젝트 | 단일 저장소 |
 
-개인 프로젝트 폴더는 [`skillshare project add`](/docs/reference/commands/project) 또는 대시보드의 **Projects**에서 등록하세요. 등록은 이 기기에 저장되며 공유 [`projects`](/docs/reference/targets/configuration#projects) YAML도 계속 지원됩니다. 저장소 설정을 추가하지 않고 한 번의 동기화로 각 폴더에 스킬과 agent를 배포합니다. MCP와 hooks는 별도의 공유 선언을 유지합니다. [로컬 등록 우선순위](/docs/reference/commands/project#local-registrations)와 [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config#scenario)를 참고하세요.
+개인 프로젝트 폴더는 [`skillshare project add`](/docs/reference/commands/project) 또는 대시보드의 **Projects**에서 추가하세요. global 설정의 [`projects`](/docs/reference/targets/configuration#projects)에 저장되며, 원하면 이 기기에만 저장할 수도 있습니다. 저장소 설정을 추가하지 않고 한 번의 동기화로 각 폴더에 스킬과 agent를 배포합니다. MCP와 hooks는 global 설정에서 별도의 선언을 유지합니다. [프로젝트 저장 위치](/docs/reference/commands/project#local-registrations)와 [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config#scenario)를 참고하세요.
 
 ---
 

@@ -35,6 +35,8 @@ func TestCompletion_ProjectLocalize_AllShells(t *testing.T) {
 		result := sb.RunCLI("completion", shell)
 		result.AssertSuccess(t)
 		result.AssertOutputContains(t, "localize")
+		result.AssertOutputContains(t, "share")
+		result.AssertOutputContains(t, "machine-local")
 	}
 }
 

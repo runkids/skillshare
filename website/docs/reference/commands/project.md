@@ -4,7 +4,7 @@ sidebar_position: 21
 
 # project
 
-Manage shared and machine-local project folders and sync skills and agents into them, without creating a `.skillshare/` configuration in each folder.
+Manage the project folders the global config syncs skills and agents into, without creating a `.skillshare/` configuration in each folder. A project is saved in `config.yaml` unless you keep it on this machine only.
 
 `project` always uses the global config, even when run inside a project. This differs from `-p` / `--project`, which selects a repo's own configuration and is rejected by this command. Use [project mode](/docs/understand/project-skills) when teammates should receive the setup with the repo.
 
@@ -18,7 +18,8 @@ skillshare project add <root> --target T [options]
 skillshare project edit <project> [options]
 skillshare project sync <project> [--dry-run] [--json]
 skillshare project localize <project> [--dry-run] [--json]
-skillshare project remove <project> [--yes] [--dry-run] [--json]
+skillshare project share <project> [--yes] [--dry-run] [--json]
+skillshare project remove <project> [--shared] [--yes] [--dry-run] [--json]
 ```
 
 `add` requires an existing folder and at least one target. Other commands accept the effective project name (custom name or folder basename) or its root path. Prefix relative paths with `./` or `../` to select a root explicitly. If a bare token matches one project's name and another project's root, the command reports both candidates instead of choosing one. Symlink aliases stay separate registrations.
@@ -35,9 +36,11 @@ skillshare project remove <project> [--yes] [--dry-run] [--json]
 | `--skills-naming NAMING` | add, edit | `flat`, `standard`, or `prefixed`; empty value inherits |
 | `--skills-include P`, `--skills-exclude P` | add, edit | Repeat for multiple glob patterns; replaces the corresponding list; empty value clears it |
 | `--agents-include P`, `--agents-exclude P` | add, edit | Same replacement semantics for agents; filters require merge or copy mode |
+| `--machine-local` | add | Save on this machine only, not in `config.yaml` |
+| `--shared` | add, remove | add: save in `config.yaml` even when [`projects_storage`](#local-registrations) is `machine-local`. remove: also remove `config.yaml`'s copy of a project this machine overrides |
 | `--sync` | add, edit | Save, then sync this project's skills and agents; force is off |
-| `--dry-run`, `-n` | add, edit, sync, remove, localize | Preview without writing or prompting |
-| `--yes` | remove | Skip confirmation; required for removal with JSON unless previewing |
+| `--dry-run`, `-n` | add, edit, sync, remove, localize, share | Preview without writing or prompting |
+| `--yes` | remove, share | Skip confirmation; required for removal with JSON unless previewing. share asks only when `config.yaml` has different settings for the project |
 | `--json` | all | Structured output; check the process exit code as well |
 | `--global`, `-g` | all | Explicit global scope (also the default for this command) |
 | `--help`, `-h` | all | Show help |
@@ -56,7 +59,7 @@ skillshare project add ~/work/shop-web --target claude,codex \
 skillshare project show shop-web --json
 ```
 
-The saved registration stays on this machine; shared [`projects`](/docs/reference/targets/configuration#projects) declarations remain supported. Shared tool folders are grouped into one sync target. A normal `skillshare sync` also syncs registered projects.
+The project is saved under [`projects`](/docs/reference/targets/configuration#projects) in `config.yaml`, so every machine that uses that file gets it. Add `--machine-local` for a folder that exists on this machine only; see [where projects are saved](#local-registrations). Shared tool folders are grouped into one sync target. A normal `skillshare sync` also syncs every project.
 
 Projects with skills disabled never run the skills pass, including in global symlink mode. An empty requested/enabled resource selection succeeds without discovery, backups or target writes.
 
@@ -69,16 +72,18 @@ skillshare project sync shop-web --dry-run --json
 skillshare project sync shop-web --json
 ```
 
-Add and edit validate the full effective configuration before writing. Local edits copy the selected entry, so shared YAML anchors do not change other roots. Mutation results list every affected root. A no-op add or edit returns `applied: false` and `unchanged: true`, and still honors `--sync`. Repeating add with different settings fails and points at `project edit`. Custom names must not look like roots (for example `~name`, `./name`, or `C:name`).
+Add and edit validate the full effective configuration before writing. An edit is saved where the project is: in `config.yaml`, or on this machine for a machine-local project. In `config.yaml`, editing a project declared through a YAML anchor also changes the aliases of that anchor. Mutation results list every affected root. A no-op add or edit returns `applied: false` and `unchanged: true`, and still honors `--sync`. Repeating add with different settings fails and points at `project edit`. Custom names must not look like roots (for example `~name`, `./name`, or `C:name`).
 
-### Remove a registration {#remove}
+### Remove a project {#remove}
 
 ```bash
 skillshare project remove shop-web --dry-run --json
 skillshare project remove shop-web --yes --json
 ```
 
-Removal detaches skills before removing the registration. A whole-folder link is removed; merge-mode links become local copies while their source content exists; copy-mode files remain and their manifest is removed. A path still owned by a surviving enabled target is retained.
+Removal deletes the project where it is saved. Removing a project from `config.yaml` removes it for every machine that uses that file, and the confirmation says so. When this machine overrides a `config.yaml` project, removal deletes only this machine's copy: the `config.yaml` version applies again and the JSON result reports it under `remaining`. Add `--shared` to remove both.
+
+Removal detaches skills before removing the project. A whole-folder link is removed; merge-mode links become local copies while their source content exists; copy-mode files remain and their manifest is removed. A path still owned by a surviving enabled target is retained.
 
 CLI edits detach dropped skill paths by the same rules. While a project's skills remain off, any CLI edit, including a rename or an agents-only edit, also detaches its remaining skill paths, even if skills were turned off earlier in the dashboard. Copy-back and surviving enabled-target ownership rules still apply. Dashboard saves never detach skills. Agent files remain in place. The preview and result list removed, copied-back, and retained paths.
 
@@ -88,10 +93,10 @@ CLI edits detach dropped skill paths by the same rules. While a project's skills
 |---------|-------------|
 | list | `projects` array (empty when none are registered) |
 | show | `project` object |
-| add, edit, remove, localize | `action`, `project`, `applied`, `affected`, `warnings`; optional `sync` or `detach` |
+| add, edit, remove, localize, share | `action`, `project`, `applied`, `affected`, `warnings`; optional `sync`, `detach`, or `remaining` (remove) |
 | sync | `action`, `project`, `sync`; previews also have `applied: false` |
 
-Project objects include `root` (stored spelling), `path` (expanded path), `name`, `targets`, `skills`, `agents`, `groups`, `missing`, and `hasOwnConfig`, `origin` (`shared` or `local`), and `originPath` (the owning file). An omitted or disabled resource is `null`. Enabled resources expose their settings. Text `project list` and `project show` report the on/off state and origin. The sync result includes `results`, `failed`, `warnings`, and discovery/filter diagnostics.
+Project objects include `root` (stored spelling), `path` (expanded path), `name`, `targets`, `skills`, `agents`, `groups`, `missing`, and `hasOwnConfig`, `origin` (`shared` or `local`), `originPath` (the owning file), and `sharedCopy` (a local project that `config.yaml` also declares). An omitted or disabled resource is `null`. Enabled resources expose their settings. Text `project list` and `project show` report the on/off state and origin. The sync result includes `results`, `failed`, `warnings`, and discovery/filter diagnostics.
 
 A failed target makes sync exit 1 while reporting completed targets. Sync previews report conflicts in `failed` and exit 0; invalid input still fails. If add/edit saves successfully but its sync fails, the registration stays saved; fix the target and retry with `project sync`. A missing project folder can still be edited, but cannot be synced.
 
@@ -99,24 +104,33 @@ Edits and removals are not transactional: a later detach or save failure can lea
 
 This command manages skills and agents only. MCP project settings and hooks use their own commands; it does not convert targets or edit a project's own config.
 
-## Shared and local registrations {#local-registrations}
+## Where projects are saved {#local-registrations}
 
-Add, edit, remove, and dashboard project saves write only a machine-local registry. They never rewrite shared config. Local entries replace the entire shared entry at the same normalized root (`~` expanded, path cleaned; project symlink roots stay separate). Removing an entry hides any shared declaration at that root on this machine. Adding it again clears that exclusion. Duplicate names at different roots and duplicate normalized roots within one layer are rejected.
+A project is saved in one of two places:
+
+- **`config.yaml`** (`origin: shared`, the default). Every machine that uses this config file gets the project, for example through dotfiles or `skillshare push`.
+- **This machine only** (`origin: local`). A registry outside the config directory, for a folder that exists on one machine.
+
+`project add` uses `config.yaml` unless you pass `--machine-local`. To make machine-local the default, set [`projects_storage: machine-local`](/docs/reference/targets/configuration#projects-storage) in `config.yaml`; `--shared` then saves one project in `config.yaml`. The dashboard's **Add project** dialog offers the same choice and starts from this setting. Edits and removals stay in the place the project is saved.
+
+Move a saved project between the two places:
 
 ```bash
-skillshare project localize shop-web --dry-run --json
-skillshare project localize shop-web --json
+skillshare project localize shop-web --dry-run --json   # keep a copy on this machine only
+skillshare project share shop-web --dry-run --json      # move it into config.yaml
 ```
 
-`localize` copies a shared entry into local state without deleting shared YAML, detaching files, or syncing. Repeating it is a no-op. Other machines keep using the shared declaration. This does not remove old declarations from the shared file; review those separately when every machine is ready.
+`localize` copies a `config.yaml` project to this machine without changing `config.yaml`, detaching files, or syncing. Other machines keep the `config.yaml` version; this machine uses its copy. `share` writes a machine-local project into `config.yaml` and deletes the local copy. When `config.yaml` already has the project with different settings, `share` asks before replacing them; `--yes` replaces them without asking. Both are no-ops when the project is already in that place, and neither syncs.
+
+A local project replaces the whole `config.yaml` entry at the same normalized root (`~` expanded, path cleaned; project symlink roots stay separate). Removals saved by v0.29.0 hid a `config.yaml` project on that machine; they stay hidden until the project is added again. Duplicate names at different roots and duplicate normalized roots within one layer are rejected. A project's MCP servers and hooks are always under `mcp.projects` and `hooks.projects` in `config.yaml`, wherever the project itself is saved.
 
 The versioned registry is `projects/<config-identity>.yaml` under `$XDG_STATE_HOME/skillshare` when set, otherwise `~/.local/state/skillshare` on macOS/Linux or `%LOCALAPPDATA%\skillshare\state` on Windows. Keep explicit state overrides local. The identity follows the resolved absolute config destination: config symlink aliases share state, different config files do not, and moving the destination starts a new registry. Reads create no state files. Malformed or unsupported registry versions fail closed.
 
-The dashboard's **Convert** action remains an explicit shared-config change: it replaces ordinary targets with a shared `projects` declaration in one write. Roots already declared, locally overridden, or excluded cannot be converted. The raw config editor validates submitted shared YAML together with local registrations before writing it.
+The dashboard's **Convert** action replaces ordinary targets with a `config.yaml` `projects` declaration in one write. Roots already declared, locally overridden, or hidden on this machine cannot be converted. The raw config editor validates submitted YAML together with this machine's projects before writing it.
 
 ## Concurrent project writers {#concurrency}
 
-CLI and dashboard project mutations share a `gofrs/flock` lock beside the local registry in its state directory, keyed by the resolved global config destination, wait up to 10 seconds, and reload after acquiring it. Config symlinks share the same lock. Reads and dry runs do not create or acquire it. Candidates reject local or shared snapshots changed since loading before detach or write. Other shared-config writers, including `target`, MCP, hooks, and ordinary `Config.Save()` callers, remain outside this protection; concurrent writes through those paths can still overwrite changes.
+CLI and dashboard project mutations share a `gofrs/flock` lock beside the local registry in its state directory, keyed by the resolved global config destination, wait up to 10 seconds, and reload after acquiring it. Config symlinks share the same lock. Reads and dry runs do not create or acquire it. Candidates reject local or shared snapshots changed since loading before detach or write. A change to both places, such as `share`, writes `config.yaml` first and the local registry second, so an interrupted write never loses the project. Other shared-config writers, including `target`, MCP, hooks, and ordinary `Config.Save()` callers, remain outside this protection; concurrent writes through those paths can still overwrite changes.
 
 ## Related {#related}
 

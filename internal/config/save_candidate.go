@@ -20,7 +20,14 @@ type SaveCandidate struct {
 	path     string
 	private  bool
 	check    func() error
+	// then is written after this candidate; noop marks a candidate whose
+	// files already hold Bytes, so Write does nothing.
+	then *SaveCandidate
+	noop bool
 }
+
+// Changed reports whether Write would change any file.
+func (c *SaveCandidate) Changed() bool { return !c.noop }
 
 // PrepareSave runs Save's serializer without changing the caller or filesystem.
 // Existing comments, anchors and aliases participate in the effective result, so
@@ -31,6 +38,17 @@ func PrepareSave(path string, next *Config) (*SaveCandidate, error) {
 		c.Err = fmt.Errorf("cannot prepare a nil config")
 		return c, c.Err
 	}
+	data, err := serializeConfig(path, next)
+	if err != nil {
+		c.Err = err
+		return c, c.Err
+	}
+	c.Bytes = data
+	c.Expanded, c.Err = decodeConfig(path, data, false)
+	return c, c.Err
+}
+
+func serializeConfig(path string, next *Config) ([]byte, error) {
 	payload := next.withoutProjectTargets()
 	if next.PreserveTildeOnSave {
 		payload = payload.cloneForSave()
@@ -45,12 +63,9 @@ func PrepareSave(path string, next *Config) (*SaveCandidate, error) {
 	}
 	data, err := marshalConfigFile(path, value, schemaComment)
 	if err != nil {
-		c.Err = fmt.Errorf("failed to marshal config: %w", err)
-		return c, c.Err
+		return nil, fmt.Errorf("failed to marshal config: %w", err)
 	}
-	c.Bytes = data
-	c.Expanded, c.Err = decodeConfig(path, data, false)
-	return c, c.Err
+	return data, nil
 }
 
 // Check refuses a stale local-project snapshot before any detach or write.
@@ -67,6 +82,21 @@ func (c *SaveCandidate) Check() error {
 // Write atomically persists the already prepared Bytes without serializing again.
 // Resolving the destination keeps a symlinked config linked to its shared file.
 func (c *SaveCandidate) Write() error {
+	if c.noop {
+		return c.Check()
+	}
+	if err := c.write(); err != nil {
+		return err
+	}
+	if c.then != nil {
+		if err := c.then.write(); err != nil {
+			return fmt.Errorf("saved %s, but not %s: %w", c.path, c.then.path, err)
+		}
+	}
+	return nil
+}
+
+func (c *SaveCandidate) write() error {
 	if err := c.Check(); err != nil {
 		return err
 	}

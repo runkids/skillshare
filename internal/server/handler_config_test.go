@@ -311,7 +311,7 @@ func TestHandlePutConfig_LocalProjectConflicts(t *testing.T) {
 			s, src := newTestServer(t)
 			t.Setenv("XDG_STATE_HOME", t.TempDir())
 			root := filepath.Join(filepath.Dir(src), "app")
-			addProject(t, s, root)
+			addProjectIn(t, s, root, "local")
 			raw := "source: " + src + "\nmode: merge\ntargets: {}\n"
 			if kind == "name" {
 				if err := os.MkdirAll(root+"-other", 0755); err != nil {
@@ -328,7 +328,7 @@ func TestHandlePutConfig_LocalProjectConflicts(t *testing.T) {
 				p := s.cfg.Projects[root]
 				p.Skills.TargetNaming = "prefixed"
 				p.Skills.Mode = ""
-				candidate, err := config.PrepareLocalProjects(s.configPath(), s.cfg, map[string]config.ManagedProject{root: p}, "")
+				candidate, err := config.PrepareProjectLayers(s.configPath(), s.cfg, func(l *config.ProjectLayers) error { l.SetLocal(root, p); return nil })
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -356,7 +356,7 @@ func TestHandlePutConfig_LocalProjectConflicts(t *testing.T) {
 
 func TestHandlePutConfig_RepairsInvalidSharedFileWithLocalProjects(t *testing.T) {
 	s, src := newTestServer(t)
-	addProject(t, s, filepath.Join(filepath.Dir(src), "app"))
+	addProjectIn(t, s, filepath.Join(filepath.Dir(src), "app"), "local")
 	if err := os.WriteFile(s.configPath(), []byte("targets: [invalid YAML\n"), 0644); err != nil {
 		t.Fatal(err)
 	}

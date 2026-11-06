@@ -78,7 +78,7 @@ skillshare sync -g       # Force global mode
 | **Git integration** | 任意（`push`/`pull`） | Skill はプロジェクトのリポジトリに直接コミットされる |
 | **Scope** | マシン上のすべてのプロジェクト | 単一リポジトリ |
 
-個人用のフォルダーは [`skillshare project add`](/docs/reference/commands/project) またはダッシュボードの **Projects** で登録できます。登録はマシン固有で、共有 [`projects`](/docs/reference/targets/configuration#projects) YAML も引き続き利用できます。リポジトリ設定を追加せず、1 回の同期で各フォルダーに Skill と Agent を配信します。MCP と hooks は別の共有定義を使います。[ローカル登録の優先順位](/docs/reference/commands/project#local-registrations)と[多数の Project を 1 つの Config で](/docs/how-to/recipes/many-projects-one-config#scenario)を参照してください。
+個人用のフォルダーは [`skillshare project add`](/docs/reference/commands/project) またはダッシュボードの **Projects** で追加できます。global config の [`projects`](/docs/reference/targets/configuration#projects) に保存され、選べばこのマシンだけにも保存できます。リポジトリ設定を追加せず、1 回の同期で各フォルダーに Skill と Agent を配信します。MCP と hooks は global config の別の定義を使います。[project の保存先](/docs/reference/commands/project#local-registrations)と[多数の Project を 1 つの Config で](/docs/how-to/recipes/many-projects-one-config#scenario)を参照してください。
 
 ---
 

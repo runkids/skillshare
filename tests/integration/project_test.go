@@ -14,7 +14,6 @@ import (
 	"strings"
 	"testing"
 
-	"skillshare/internal/config"
 	"skillshare/internal/testutil"
 )
 
@@ -246,7 +245,7 @@ func TestProject_LegacyMutationAndAnchors(t *testing.T) {
 	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\nskills:\n  - name: legacy\n    source: github.com/a/b\n    custom: keep\nprojects:\n  " + root + ": &shared\n    targets: [claude]\n    skills: {}\n  ~/other: *shared\n")
 	r := sb.RunCLI("project", "edit", "app", "--skills-mode", "copy", "--json")
 	r.AssertSuccess(t)
-	if len(projectJSON(t, r)["affected"].([]any)) != 1 {
+	if len(projectJSON(t, r)["affected"].([]any)) != 2 {
 		t.Fatal(r.Stdout)
 	}
 	b, _ := os.ReadFile(sb.ConfigPath)
@@ -604,11 +603,7 @@ func TestProject_EditKeepsStoredAgentSymlinkFilters(t *testing.T) {
 	// The dashboard saves symlink agents with filters; unrelated CLI edits must still work.
 	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\nprojects:\n  " + root + ":\n    targets: [claude]\n    agents:\n      mode: symlink\n      include: [team-*]\n")
 	sb.RunCLI("project", "edit", "app", "--name", "renamed", "--json").AssertSuccess(t)
-	localPath, err := config.LocalProjectsPath(sb.ConfigPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	b, _ := os.ReadFile(localPath)
+	b, _ := os.ReadFile(sb.ConfigPath)
 	if !strings.Contains(string(b), "name: renamed") || !strings.Contains(string(b), "team-*") {
 		t.Fatalf("edit lost settings:\n%s", b)
 	}
@@ -717,10 +712,11 @@ func TestProject_LocalOverlaySharedSymlinkAndSecondMachine(t *testing.T) {
 	check()
 	sb.RunCLI("project", "remove", "private", "--yes", "--json").AssertSuccess(t)
 	check()
-	r = sb.RunCLI("project", "list", "--json")
+	// Removing this machine's copy brings back the config.yaml version.
+	r = sb.RunCLI("project", "show", "shared", "--json")
 	r.AssertSuccess(t)
-	if len(projectJSON(t, r)["projects"].([]any)) != 0 {
-		t.Fatal(r.Stdout)
+	if p := projectJSON(t, r)["project"].(map[string]any); p["origin"] != "shared" {
+		t.Fatal(p)
 	}
 	firstHome := sb.Home
 	secondHome := filepath.Join(sb.Root, "second-home")
@@ -743,9 +739,18 @@ func TestProject_LocalOverlaySharedSymlinkAndSecondMachine(t *testing.T) {
 		sb.SetEnv(key, value)
 	}
 	sb.CreateSkill("demo", map[string]string{"SKILL.md": "---\nname: demo\ndescription: fixture\n---\n# Demo\n"})
-	sb.RunCLI("project", "add", root, "--target", "claude", "--skills-mode", "copy", "--sync", "--json").AssertSuccess(t)
+	sb.RunCLI("project", "localize", "shared", "--json").AssertSuccess(t)
+	sb.RunCLI("project", "edit", "shared", "--skills-mode", "copy", "--sync", "--json").AssertSuccess(t)
 	check()
 	if _, err := os.Stat(filepath.Join(root, ".claude", "skills", "demo", "SKILL.md")); err != nil {
 		t.Fatal(err)
+	}
+	// Moving it into config.yaml writes through the link.
+	sb.RunCLI("project", "share", "shared", "--yes", "--json").AssertSuccess(t)
+	if b, _ := os.ReadFile(shared); !strings.Contains(string(b), "mode: copy") {
+		t.Fatalf("share did not write the linked config:\n%s", b)
+	}
+	if i, err := os.Lstat(sb.ConfigPath); err != nil || i.Mode()&os.ModeSymlink == 0 {
+		t.Fatal("config link replaced")
 	}
 }

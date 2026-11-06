@@ -25,14 +25,19 @@ var ErrDetach = errors.New("failed to detach skills")
 // PutOptions controls creation and preparation without persistence.
 // Detach also detaches the skills of project targets the edit removes or
 // turns off; the dashboard leaves it unset, so its saves never detach.
+// Storage picks the layer of a new project (OriginShared or OriginLocal); empty
+// uses projects_storage. An edit always stays in the layer that declares it.
 type PutOptions struct {
-	Create bool
-	DryRun bool
-	Detach bool
+	Create  bool
+	DryRun  bool
+	Detach  bool
+	Storage string
 }
 
 // RemoveOptions requests a detach and candidate preview when DryRun is set.
-type RemoveOptions struct{ DryRun bool }
+// Removing a project this machine overrides drops only the local copy, so the
+// config.yaml declaration applies again, unless Shared removes it as well.
+type RemoveOptions struct{ DryRun, Shared bool }
 type DetachReport = ssync.DetachReport
 
 // Result retains prepared state and any completed work, including on failure.
@@ -43,6 +48,9 @@ type Result struct {
 	Registration string
 	Expanded     *config.Config
 	Warnings     []string
+	// Remaining is the config.yaml declaration that applies after Remove
+	// dropped only this machine's copy.
+	Remaining *Item
 }
 
 // Service owns project operations. Exact declared keys identify entries after
@@ -162,7 +170,25 @@ func (s *Service) Put(root string, entry config.ManagedProject, opts PutOptions)
 			return Result{}, fmt.Errorf("%w: %s", ErrFolderNotFound, root)
 		}
 	}
-	c, err := PrepareLocalProjects(s.path, cfg, func(p map[string]config.ManagedProject) error { p[root] = entry; return nil }, "")
+	storage := opts.Storage
+	if !opts.Create {
+		storage, _ = cfg.ProjectOrigin(root)
+	} else if storage == "" {
+		storage = cfg.NewProjectOrigin()
+	}
+	if storage != OriginShared && storage != OriginLocal {
+		return Result{}, fmt.Errorf("invalid project storage %q (valid: %s, %s)", storage, OriginShared, OriginLocal)
+	}
+	c, err := PrepareLayers(s.path, cfg, func(l *config.ProjectLayers) error {
+		if storage == OriginLocal {
+			l.SetLocal(root, entry)
+		} else {
+			// A re-added project is no longer hidden on this machine.
+			l.SetShared(root, entry)
+			l.ClearLocal(root)
+		}
+		return nil
+	})
 	if err != nil {
 		return Result{}, err
 	}
@@ -178,13 +204,10 @@ func (s *Service) Put(root string, entry config.ManagedProject, opts PutOptions)
 			return result, err
 		}
 	}
-	if !opts.DryRun && len(c.Affected) > 0 {
-		if err := c.Save.Write(); err != nil {
-			return result, fmt.Errorf("%w: %w", ErrSave, err)
-		}
-		result.Registration = "updated"
+	if err := commit(c, opts.DryRun, &result, "updated"); err != nil {
+		return result, err
 	}
-	v := configItem(c.Save.Expanded, root, c.Save.Expanded.Projects[root])
+	v := resultItem(c.Save.Expanded, root)
 	result.Item = &v
 	result.Expanded = c.Save.Expanded
 	return result, nil
@@ -269,7 +292,16 @@ func (s *Service) Remove(key string, opts RemoveOptions) (Result, error) {
 	}
 	v := configItem(cfg, root, cfg.Projects[root])
 	result := Result{Item: &v, Registration: "kept"}
-	c, err := PrepareLocalProjects(s.path, cfg, func(p map[string]config.ManagedProject) error { delete(p, root); return nil }, "")
+	keepShared := v.SharedCopy && !opts.Shared
+	c, err := PrepareLayers(s.path, cfg, func(l *config.ProjectLayers) error {
+		if v.Origin == OriginLocal {
+			l.ClearLocal(root)
+		}
+		if !keepShared {
+			l.DeleteShared(root)
+		}
+		return nil
+	})
 	if err != nil {
 		return result, err
 	}
@@ -289,7 +321,12 @@ func (s *Service) Remove(key string, opts RemoveOptions) (Result, error) {
 	}
 	result.Affected = c.Affected
 	result.Expanded = c.Save.Expanded
-	result.Warnings = leftoverWarnings(cfg, root)
+	if keepShared {
+		remaining := resultItem(c.Save.Expanded, root)
+		result.Remaining = &remaining
+	} else {
+		result.Warnings = leftoverWarnings(cfg, root)
+	}
 	return result, nil
 }
 func field(node *yaml.Node, key string) *yaml.Node {

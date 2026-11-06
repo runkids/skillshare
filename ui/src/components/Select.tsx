@@ -1,6 +1,6 @@
 import { Fragment, useState, useRef, useEffect, useCallback, useId, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronDown, X } from 'lucide-react';
+import { Check, ChevronDown, Search, X } from 'lucide-react';
 
 export interface SelectOption {
   value: string;
@@ -21,6 +21,12 @@ export interface SelectOption {
   mono?: boolean;
   /** Draws a line above the option, to set it apart from the ones before it. */
   separated?: boolean;
+  /** Trigger text when this option is chosen, if shorter than the label. */
+  triggerLabel?: string;
+  /** A monospace line under the description, e.g. a file path. */
+  detail?: string;
+  /** Full text of `detail` for a tooltip, when `detail` is shortened. */
+  detailTitle?: string;
 }
 
 interface SelectProps {
@@ -51,6 +57,12 @@ interface SelectProps {
   columns?: boolean;
   /** Marks the trigger as a field with a problem, like an input with `err`. */
   invalid?: boolean;
+  /** A quiet button instead of a field, for a setting that sits in a footer. */
+  quiet?: boolean;
+  /** Open the menu above the trigger even when there is room below. */
+  up?: boolean;
+  /** A text box at the top of the menu that filters options by label or value. */
+  search?: { placeholder: string; empty: string; clear: string };
 }
 
 const selectTriggerSizes = {
@@ -68,13 +80,18 @@ interface DropdownPos {
   bottom?: number;
 }
 
-export function Select({ label, ariaLabel, value = '', onChange, values, onChangeValues, placeholder, options, className = '', size = 'md', disabled = false, prefix, chip, align = 'start', columns = false, invalid = false }: SelectProps) {
+export function Select({ label, ariaLabel, value = '', onChange, values, onChangeValues, placeholder, options, className = '', size = 'md', disabled = false, prefix, chip, align = 'start', columns = false, invalid = false, quiet = false, up = false, search }: SelectProps) {
   const labelId = useId();
+  const listId = useId();
   const [open, setOpen] = useState(false);
   const [focusIdx, setFocusIdx] = useState(-1);
   const [pos, setPos] = useState<DropdownPos | null>(null);
+  const [query, setQuery] = useState('');
   const triggerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const needle = query.trim().toLowerCase();
+  const shown = needle ? options.filter((o) => o.label.toLowerCase().includes(needle) || o.value.toLowerCase().includes(needle)) : options;
 
   const isOn = (v: string) => (values ? values.includes(v) : v === value);
   const chosen = options.filter((o) => isOn(o.value));
@@ -91,11 +108,11 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
     const dropdownHeight = Math.min(options.length * 48, 256); // rough est, max 16rem
-    const minWidth = columns ? Math.max(rect.width, 520) : hasDescriptions ? Math.max(rect.width, 240) : rect.width;
+    const minWidth = columns ? Math.max(rect.width, 520) : quiet ? Math.max(rect.width, 460) : hasDescriptions ? Math.max(rect.width, 240) : rect.width;
 
     // Vertical: prefer below, flip up if not enough space below but enough above.
     const spaceBelow = window.innerHeight - rect.bottom;
-    const dropUp = spaceBelow < dropdownHeight + 8 && rect.top > dropdownHeight;
+    const dropUp = up || spaceBelow < dropdownHeight + 8 && rect.top > dropdownHeight;
 
     // Horizontal: left-align to the trigger (or right-align with align="end",
     // so a wide menu grows leftward); clamp so the popup never overflows
@@ -111,7 +128,7 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
       top: dropUp ? undefined : rect.bottom + 4,
       bottom: dropUp ? window.innerHeight - rect.top + 4 : undefined,
     });
-  }, [options.length, hasDescriptions, align, columns]);
+  }, [options.length, hasDescriptions, align, columns, quiet, up]);
 
   // Open the menu, computing position from the live trigger rect first so the
   // portal renders already positioned (no mispositioned flash, no setState in
@@ -142,9 +159,11 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
       const target = e.target as Node;
       if (
         triggerRef.current && !triggerRef.current.contains(target) &&
-        listRef.current && !listRef.current.contains(target)
+        listRef.current && !listRef.current.contains(target) &&
+        !menuRef.current?.contains(target)
       ) {
         setOpen(false);
+        setQuery('');
       }
     };
     document.addEventListener('mousedown', handler);
@@ -169,7 +188,16 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
     }
     onChange?.(val);
     setOpen(false);
+    setQuery('');
   }, [onChange, onChangeValues, values, options]);
+
+  // Closing clears the search and, when focus was in the search box, returns it to the trigger.
+  const close = useCallback(() => {
+    setOpen(false);
+    if (!search) return;
+    setQuery('');
+    if (menuRef.current?.contains(document.activeElement)) triggerRef.current?.querySelector('button')?.focus();
+  }, [search]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     switch (e.key) {
@@ -179,7 +207,7 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
           openMenu();
           setFocusIdx(0);
         } else {
-          setFocusIdx((i) => Math.min(i + 1, options.length - 1));
+          setFocusIdx((i) => Math.min(i + 1, shown.length - 1));
         }
         break;
       case 'ArrowUp':
@@ -190,9 +218,11 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
         break;
       case 'Enter':
       case ' ':
+        // Typing a space into the search box is text, not a pick.
+        if (e.key === ' ' && search && open) break;
         e.preventDefault();
-        if (open && focusIdx >= 0) {
-          select(options[focusIdx].value);
+        if (open && focusIdx >= 0 && shown[focusIdx]) {
+          select(shown[focusIdx].value);
         } else {
           openMenu();
           setFocusIdx(Math.max(0, options.findIndex((o) => isOn(o.value))));
@@ -201,17 +231,91 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
       case 'Escape':
         // An open menu takes the key; the dialog around it stays.
         if (open) e.stopPropagation();
-        setOpen(false);
+        close();
+        break;
+      case 'Tab':
+        // The menu sits outside the dialog, so Tab from the search box would leave it; close and move on from the trigger.
+        if (open && search) close();
         break;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- isOn reads value and values
-  }, [open, focusIdx, options, value, values, select, openMenu]);
+  }, [open, focusIdx, options, shown, search, value, values, select, openMenu, close]);
 
   const toggle = () => {
     if (disabled) return;
-    if (open) { setOpen(false); }
+    if (open) { close(); }
     else { openMenu(); setFocusIdx(options.findIndex((o) => isOn(o.value))); }
   };
+  const maxHeight = columns ? '20rem' : '16rem';
+  const menuClass = `ss-menu fixed z-[9999] !w-auto animate-dropdown-in ${size === 'sm' ? 'text-xs' : 'text-[13px]'}`;
+  // At least as wide as the trigger; wider for description options so they
+  // wrap nicely. Bounded so long descriptions never stretch the dropdown
+  // across the page.
+  const menuStyle = pos ? {
+    left: pos.left,
+    right: pos.right,
+    top: pos.top,
+    bottom: pos.bottom,
+    minWidth: pos.minWidth,
+    maxWidth: columns ? 'min(40rem, calc(100vw - 1rem))' : quiet ? 'min(30rem, calc(100vw - 1rem))' : 'min(22rem, calc(100vw - 1rem))',
+  } : undefined;
+  const menuList = pos && (
+        <ul
+          ref={listRef}
+          id={listId}
+          role="listbox"
+          aria-label={search ? ariaLabel ?? label : undefined}
+          aria-multiselectable={values ? true : undefined}
+          className={search ? 'flex min-h-0 flex-col overflow-auto' : `${menuClass} overflow-auto`}
+          style={search ? { maxHeight } : { ...menuStyle, maxHeight }}
+        >
+          {shown.map((opt, i) => {
+            const isSelected = isOn(opt.value);
+            const isFocused = i === focusIdx;
+            const heading = opt.group && opt.group !== shown[i - 1]?.group ? opt.group : '';
+            return (
+              <Fragment key={opt.value}>
+              {heading && <li role="presentation" className="px-2 pt-2 pb-1 text-xs font-semibold text-ink-3">{heading}</li>}
+              {opt.separated && <li role="presentation" className="mx-1.5 my-1 h-px shrink-0 bg-line-soft" />}
+              <li
+                role="option"
+                aria-selected={isSelected}
+                aria-disabled={opt.disabled || undefined}
+                className={`min-h-8 shrink-0 rounded-[7px] flex ${quiet ? 'items-start gap-2.5 p-2.5' : 'items-center gap-2 px-2 py-1.5'} ${opt.disabled ? 'cursor-not-allowed text-ink-3' : isFocused ? 'cursor-pointer bg-sel text-sel-ink' : isSelected || quiet ? 'cursor-pointer text-ink' : 'cursor-pointer text-ink-2'}`}
+                onMouseEnter={() => setFocusIdx(i)}
+                onMouseDown={(e) => { e.preventDefault(); select(opt.value); }}
+              >
+                <span className={`w-4 shrink-0 flex items-center justify-center ${quiet ? 'h-5' : ''}`}>
+                  {isSelected && <Check size={quiet ? 16 : size === 'sm' ? 12 : 14} />}
+                </span>
+                {opt.icon && <span className="flex shrink-0 items-center">{opt.icon}</span>}
+                {columns ? (
+                  <>
+                    <span className={`w-[160px] shrink-0 truncate font-mono ${isSelected ? 'font-medium' : ''}`}>{opt.label}</span>
+                    <span className={`min-w-0 flex-1 truncate ${isFocused && !opt.disabled ? '' : 'text-ink-2'}`}>{opt.description}</span>
+                    {opt.badge && <span className="ss-tag shrink-0 !font-sans">{opt.badge}</span>}
+                  </>
+                ) : (
+                <span className="flex-1 min-w-0">
+                  <span className={`block truncate ${opt.mono ? 'font-mono' : ''} ${quiet ? `font-semibold leading-5 ${opt.mono ? 'text-[13px]' : 'text-sm'}` : isSelected ? 'font-medium' : ''}`}>
+                    {opt.label}
+                    {opt.note && <span className="font-normal opacity-70"> {opt.note}</span>}
+                  </span>
+                  {opt.description && (
+                    <span className={`block mt-0.5 ${quiet ? 'text-[13px] text-ink-2' : `text-xs ${isFocused && !opt.disabled ? 'opacity-70' : 'text-ink-3'}`}`}>
+                      {opt.description}
+                    </span>
+                  )}
+                  {opt.detail && <span className="mt-0.5 block truncate font-mono text-xs text-ink-3" title={opt.detailTitle}>{opt.detail}</span>}
+                </span>
+                )}
+                {opt.trailing && <span className={`shrink-0 text-xs ${isFocused && !opt.disabled ? 'opacity-70' : 'text-ink-3'}`}>{opt.trailing}</span>}
+              </li>
+              </Fragment>
+            );
+          })}
+        </ul>
+  );
   const chipSet = chip && value !== chip.clearValue;
 
   return (
@@ -243,6 +347,21 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
             </button>
           )}
         </span>
+      ) : quiet ? (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={toggle}
+          onKeyDown={handleKeyDown}
+          className={`inline-flex h-[30px] cursor-pointer items-center gap-1 rounded-[8px] px-2 text-[13px] font-semibold text-ink outline-none hover:bg-sel disabled:cursor-not-allowed disabled:opacity-50 ${open ? 'bg-sel' : 'bg-transparent'} ${chosen[0]?.mono ? 'font-mono' : ''}`}
+          role="combobox"
+          aria-label={ariaLabel}
+          aria-expanded={open}
+          aria-haspopup="listbox"
+        >
+          <span className="truncate">{chosen[0]?.triggerLabel ?? selectedLabel}</span>
+          <ChevronDown size={14} className={`shrink-0 text-ink-2 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+        </button>
       ) : (
       <button
         type="button"
@@ -274,69 +393,38 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
       </button>
       )}
       {open && pos && createPortal(
-        <ul
-          ref={listRef}
-          role="listbox"
-          aria-multiselectable={values ? true : undefined}
-          className={`ss-menu fixed z-[9999] !w-auto overflow-auto animate-dropdown-in ${size === 'sm' ? 'text-xs' : 'text-[13px]'}`}
-          style={{
-            left: pos.left,
-            right: pos.right,
-            top: pos.top,
-            bottom: pos.bottom,
-            maxHeight: columns ? '20rem' : '16rem',
-            // At least as wide as the trigger; wider for description options so
-            // they wrap nicely. Bounded so long descriptions never stretch the
-            // dropdown across the page.
-            minWidth: pos.minWidth,
-            maxWidth: columns ? 'min(40rem, calc(100vw - 1rem))' : 'min(22rem, calc(100vw - 1rem))',
-          }}
-        >
-          {options.map((opt, i) => {
-            const isSelected = isOn(opt.value);
-            const isFocused = i === focusIdx;
-            const heading = opt.group && opt.group !== options[i - 1]?.group ? opt.group : '';
-            return (
-              <Fragment key={opt.value}>
-              {heading && <li role="presentation" className="px-2 pt-2 pb-1 text-xs font-semibold text-ink-3">{heading}</li>}
-              {opt.separated && <li role="presentation" className="mx-1.5 my-1 h-px shrink-0 bg-line-soft" />}
-              <li
-                role="option"
-                aria-selected={isSelected}
-                aria-disabled={opt.disabled || undefined}
-                className={`min-h-8 shrink-0 px-2 py-1.5 rounded-[7px] flex items-center gap-2 ${opt.disabled ? 'cursor-not-allowed text-ink-3' : isFocused ? 'cursor-pointer bg-sel text-sel-ink' : isSelected ? 'cursor-pointer text-ink' : 'cursor-pointer text-ink-2'}`}
-                onMouseEnter={() => setFocusIdx(i)}
-                onMouseDown={(e) => { e.preventDefault(); select(opt.value); }}
-              >
-                <span className="w-4 shrink-0 flex items-center justify-center">
-                  {isSelected && <Check size={size === 'sm' ? 12 : 14} />}
-                </span>
-                {opt.icon && <span className="flex shrink-0 items-center">{opt.icon}</span>}
-                {columns ? (
-                  <>
-                    <span className={`w-[160px] shrink-0 truncate font-mono ${isSelected ? 'font-medium' : ''}`}>{opt.label}</span>
-                    <span className={`min-w-0 flex-1 truncate ${isFocused && !opt.disabled ? '' : 'text-ink-2'}`}>{opt.description}</span>
-                    {opt.badge && <span className="ss-tag shrink-0 !font-sans">{opt.badge}</span>}
-                  </>
-                ) : (
-                <span className="flex-1 min-w-0">
-                  <span className={`block truncate ${opt.mono ? 'font-mono' : ''} ${isSelected ? 'font-medium' : ''}`}>
-                    {opt.label}
-                    {opt.note && <span className="font-normal opacity-70"> {opt.note}</span>}
-                  </span>
-                  {opt.description && (
-                    <span className={`block text-xs mt-0.5 ${isFocused && !opt.disabled ? 'opacity-70' : 'text-ink-3'}`}>
-                      {opt.description}
-                    </span>
-                  )}
-                </span>
-                )}
-                {opt.trailing && <span className={`shrink-0 text-xs ${isFocused && !opt.disabled ? 'opacity-70' : 'text-ink-3'}`}>{opt.trailing}</span>}
-              </li>
-              </Fragment>
-            );
-          })}
-        </ul>,
+        search ? (
+          <div ref={menuRef} className={menuClass} style={menuStyle}>
+            <label className="mb-1 flex h-8 shrink-0 items-center gap-2 rounded-[7px] bg-sunken px-2 text-ink-3">
+              <Search size={14} aria-hidden className="shrink-0" />
+              <input
+                autoFocus
+                type="search"
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); setFocusIdx(0); }}
+                onKeyDown={handleKeyDown}
+                placeholder={search.placeholder}
+                aria-label={search.placeholder}
+                aria-controls={listId}
+                className="min-w-0 flex-1 bg-transparent text-ink outline-none placeholder:text-ink-3 [&::-webkit-search-cancel-button]:appearance-none"
+              />
+              {query && (
+                <button
+                  type="button"
+                  // Keep focus in the search box.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { setQuery(''); setFocusIdx(0); }}
+                  aria-label={search.clear}
+                  className="grid size-5 shrink-0 cursor-pointer place-items-center rounded-[5px] text-ink-3 hover:text-ink"
+                >
+                  <X size={13} aria-hidden />
+                </button>
+              )}
+            </label>
+            {menuList}
+            {shown.length === 0 && <p className="px-2 py-1.5 text-ink-3">{search.empty}</p>}
+          </div>
+        ) : menuList,
         document.body,
       )}
     </div>

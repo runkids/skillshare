@@ -138,7 +138,7 @@ func TestLocalProjectsSharedProjectionCases(t *testing.T) {
 	}
 }
 
-// Prepared, persisted and reloaded views agree across remove and re-add.
+// Prepared, persisted and reloaded views agree across localize, reset and redo.
 func TestLocalProjectsMutationSequenceCases(t *testing.T) {
 	_, base, err := loadWithProjects(t, "  $ROOT/app: {targets: [claude], skills: {}}\n", "app")
 	if err != nil {
@@ -146,6 +146,7 @@ func TestLocalProjectsMutationSequenceCases(t *testing.T) {
 	}
 	root := filepath.Join(base, "app")
 	path := ConfigPath()
+	shared := ManagedProject{Targets: []string{"claude"}, Skills: &ResourceTargetConfig{}}
 	for _, n := range []int{-1, 0, 42} {
 		for _, choice := range []bool{false, true} {
 			for _, choice2 := range []bool{false, true} {
@@ -156,12 +157,19 @@ func TestLocalProjectsMutationSequenceCases(t *testing.T) {
 				if choice2 {
 					p.Agents = &ResourceTargetConfig{Mode: "merge", Exclude: []string{fmt.Sprintf("agent-%d", n)}}
 				}
-				for _, entries := range []map[string]ManagedProject{{root: p}, {}, {root: p}} {
+				for _, local := range []bool{true, false, true} {
 					cfg, err := LoadReadOnlyPath(path)
 					if err != nil {
 						t.Fatal(err)
 					}
-					c, err := PrepareLocalProjects(path, cfg, entries, "")
+					c, err := PrepareProjectLayers(path, cfg, func(l *ProjectLayers) error {
+						if local {
+							l.SetLocal(root, p)
+						} else {
+							l.ClearLocal(root)
+						}
+						return nil
+					})
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -175,11 +183,11 @@ func TestLocalProjectsMutationSequenceCases(t *testing.T) {
 					if !reflect.DeepEqual(loaded.Projects, c.Expanded.Projects) || !reflect.DeepEqual(loaded.Targets, c.Expanded.Targets) {
 						t.Fatal("persisted view disagrees with candidate")
 					}
-					if len(entries) == 0 {
-						if len(loaded.Projects) != 0 {
-							t.Fatal("shared root reappeared")
-						}
-					} else if !reflect.DeepEqual(loaded.Projects[root], p) {
+					want := p
+					if !local {
+						want = shared
+					}
+					if !SameManagedProject(loaded.Projects[root], want) {
 						t.Fatalf("roundtrip lost values: %+v", loaded.Projects[root])
 					}
 				}

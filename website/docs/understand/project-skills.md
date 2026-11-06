@@ -78,7 +78,7 @@ skillshare sync -g       # Force global mode
 | **Git integration** | Optional (`push`/`pull`) | Skills committed directly to project repo |
 | **Scope** | All projects on machine | Single repository |
 
-Register personal project folders with [`skillshare project add`](/docs/reference/commands/project) or the dashboard’s **Projects** page. These registrations stay machine-local; shared [`projects`](/docs/reference/targets/configuration#projects) YAML remains supported. Each folder gets its own skills and agents with one sync, without a repository config. MCP and hooks keep their separate shared declarations. See [local registration precedence](/docs/reference/commands/project#local-registrations) and [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config#scenario).
+Add personal project folders with [`skillshare project add`](/docs/reference/commands/project) or the dashboard’s **Projects** page. They are saved under [`projects`](/docs/reference/targets/configuration#projects) in the global config, or on this machine only when you choose. Each folder gets its own skills and agents with one sync, without a repository config. MCP and hooks keep their own declarations in the global config. See [where projects are saved](/docs/reference/commands/project#local-registrations) and [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config#scenario).
 
 ---
 

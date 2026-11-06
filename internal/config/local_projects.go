@@ -245,6 +245,34 @@ func (c *Config) ProjectOrigin(root string) (string, string) {
 	return "shared", ReadOnlyConfigPath()
 }
 
+// Values of projects_storage.
+const (
+	ProjectsStorageShared       = "shared"
+	ProjectsStorageMachineLocal = "machine-local"
+)
+
+// NewProjectOrigin is the origin projects_storage gives a new project.
+func (c *Config) NewProjectOrigin() string {
+	if c.ProjectsStorage == ProjectsStorageMachineLocal {
+		return "local"
+	}
+	return "shared"
+}
+
+// HasSharedProject reports whether config.yaml declares root, including a
+// declaration this machine overrides or hides.
+func (c *Config) HasSharedProject(root string) bool {
+	shared := c.Projects
+	if c.projectOverlay != nil {
+		shared = c.projectOverlay.shared
+	}
+	_, ok := layerKey(shared, root)
+	return ok
+}
+
+// ProjectKey returns the key c.Projects uses for root.
+func (c *Config) ProjectKey(root string) (string, bool) { return layerKey(c.Projects, root) }
+
 // HasLocalProject includes exclusions, so conversion cannot discard ordinary
 // targets while their replacement declaration would remain hidden.
 func (c *Config) HasLocalProject(root string) bool {

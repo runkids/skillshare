@@ -7,8 +7,6 @@ sidebar_position: 8
 > 한 번의 sync로 global 설정에서 여러 프로젝트 폴더에 Skill과 MCP 서버를 보내세요.
 
 
-CLI add/edit/remove와 대시보드 저장은 로컬 등록만 기록하며 공유 설정을 다시 쓰지 않습니다. 공유 `projects:` 선언은 계속 유효합니다. 정규화된 루트가 같으면 로컬 항목이 공유 항목 전체를 대체합니다. 삭제는 이 기기에서만 공유 항목을 숨기며 다시 추가하면 해제됩니다. 서로 다른 루트의 이름 중복과 같은 계층의 정규화된 루트 중복은 거부됩니다. `localize`는 공유 항목을 로컬로 복사하며 공유 YAML 삭제, 연결 해제 또는 동기화를 하지 않습니다. 반복 실행은 변경하지 않습니다. list/show의 텍스트와 JSON은 `origin`(shared/local)과 `originPath`를 제공합니다. 모든 project 명령은 시작 시 마이그레이션, 정리 및 버전 확인을 건너뜁니다.
-
 ## 시나리오 {#scenario}
 
 `~/.claude/skills`와 같은 Global target은 모든 프로젝트에서 읽히므로, 모든 프로젝트가 같은 skill을 보게 됩니다. 그것이 원하는 바라면 이 recipe는 필요하지 않습니다.
@@ -20,12 +18,12 @@ CLI add/edit/remove와 대시보드 저장은 로컬 등록만 기록하며 공�
 - 프로젝트가 Skillshare 설정은 커밋하지 않으면서, skill의 실제 사본을 커밋할 수 있어야 합니다.
 - 사용하는 tool이 프로젝트 내부의 폴더 하나만 읽습니다.
 
-공유 선언과 기기별 등록은 한 번의 동기화로 각 폴더에 개별 설정을 제공합니다.
+global 설정의 `projects`는 한 번의 동기화로 각 폴더에 개별 설정을 제공합니다.
 
 | | Global targets | Registered projects | Project mode |
 |---|---|---|---|
 | **Skill을 받는 대상** | 모든 프로젝트, 동일한 세트 | 나열한 폴더들, 폴더마다 별도 세트 | 해당 프로젝트 하나 |
-| **설정이 저장되는 위치** | 내 머신 | 내 머신 | 프로젝트 저장소 |
+| **설정이 저장되는 위치** | global 설정 | global 설정 또는 이 기기에만 | 프로젝트 저장소 |
 | **팀원도 받는지** | 아니요 | 아니요 | 예, clone하면 받음 |
 | **프로젝트에 추가되는 파일** | 없음 | 동기화된 skill과 agent만 | `.skillshare/`와 동기화된 파일 |
 | **Sync** | 어디서든 `sync` 한 번 | 어디서든 `sync` 한 번 | 각 프로젝트 안에서 `sync` |
@@ -35,6 +33,8 @@ CLI add/edit/remove와 대시보드 저장은 로컬 등록만 기록하며 공�
 ## 해결 방법
 
 ### Skill과 Agent: `projects`
+
+아래 명령은 프로젝트를 global `config.yaml`의 `projects`에 저장하므로 그 파일을 쓰는 모든 기기에 적용됩니다. 이 기기에만 있는 폴더에는 `--machine-local`을 붙이세요. 이를 기본값으로 하려면 [`projects_storage: machine-local`](/docs/reference/targets/configuration#projects-storage)을 설정하세요. 저장된 프로젝트는 `skillshare project localize` 또는 `skillshare project share`로 옮깁니다. `origin`과 `originPath`는 `project list --json`으로 확인합니다. [프로젝트 저장 위치](/docs/reference/commands/project#local-registrations)를 참고하세요.
 
 ```bash
 skillshare project add ~/work/project01 --target claude,codex \
@@ -59,7 +59,7 @@ skillshare project sync project01 --dry-run --json
 skillshare project sync project01
 ```
 
-[`skillshare project`](/docs/reference/commands/project)로 프로젝트 등록을 추가·편집·동기화·제거하거나 대시보드의 **프로젝트** 페이지를 사용하세요. 모든 필드는 [`projects`](/docs/reference/targets/configuration#projects)를 참고하세요.
+[`skillshare project`](/docs/reference/commands/project)로 프로젝트를 추가·편집·동기화·제거하거나 대시보드의 **프로젝트** 페이지를 사용하세요. 모든 필드는 [`projects`](/docs/reference/targets/configuration#projects)를 참고하세요.
 
 ### MCP 서버: `mcp.projects`
 
