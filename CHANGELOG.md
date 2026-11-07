@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.2] - 2026-11-07
+
+
+### Bug Fixes
+
+* **audit:** reject special targets before reading content ([#796](https://github.com/runkids/skillshare/issues/796)) ([c19ff80](https://github.com/runkids/skillshare/commit/c19ff80611c20e9b69392ad4e4aeaf491d5036b7))
+
 ## [0.29.1] - 2026-11-06
 
 ### Bug Fixes
