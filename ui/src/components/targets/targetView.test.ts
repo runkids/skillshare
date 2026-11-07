@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SyncMatrixEntry, Target } from '../../api/client';
-import { joinList, targetHealth, targetSkipHints, targetWarning, togglePatterns } from './targetView';
+import { joinList, searchEntries, targetHealth, targetSkipHints, targetWarning, togglePatterns } from './targetView';
 
 const target = (over: Partial<Target>): Target => ({
   name: 'claude', path: '~/.claude/skills', mode: 'merge', targetNaming: 'flat', status: 'merged',
@@ -24,6 +24,14 @@ describe('targetHealth', () => {
 
   it('ignores the skills folder of a target with skills off, counting only its agents', () => {
     expect(targetHealth(target({ skillsEnabled: false, status: 'not exist', expectedSkillCount: 9, agentExpectedCount: 1 }))).toEqual({ state: 'pending', pending: 1 });
+  });
+});
+
+describe('searchEntries', () => {
+  it('matches part of a name in any case, and an agent by its name without the extension', () => {
+    const rows = [row('frontend/React-Doctor', 'synced'), row('react.md', 'synced', 'agent'), row('archify', 'excluded')];
+    expect(searchEntries(rows, ' react ').map((e) => e.skill)).toEqual(['frontend/React-Doctor', 'react.md']);
+    expect(searchEntries(rows, '.md')).toEqual([]);
   });
 });
 

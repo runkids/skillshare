@@ -1,12 +1,12 @@
 import { Fragment, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Search } from 'lucide-react';
 import type { SyncMatrixEntry } from '../../api/client';
 import AgentIcon from '../AgentIcon';
 import Spinner from '../Spinner';
 import { useI18n, useT, plural } from '../../i18n';
 import PatternInput from './PatternInput';
-import { joinList, patternName, togglePatterns } from './targetView';
+import { joinList, patternName, searchEntries, togglePatterns } from './targetView';
 
 type Kind = 'skill' | 'agent' | 'file';
 const MODES = ['merge', 'copy', 'symlink'] as const;
@@ -39,8 +39,22 @@ interface Props {
 export default function FilterSection({ kind, mode, name, include, exclude, onChange, entries, loaded, loading, error, disabled, alsoReadBy = [], readsFrom = [], includeWarning }: Props) {
   const { t, locale } = useI18n();
   const [help, setHelp] = useState(false);
+  const [query, setQuery] = useState('');
+  // Switching between skills and agents starts a new search.
+  const [queryKind, setQueryKind] = useState(kind);
+  if (queryKind !== kind) {
+    setQueryKind(kind);
+    setQuery('');
+  }
   const files = kind === 'file';
   const synced = entries.filter((e) => e.status === 'synced').length;
+  const shown = searchEntries(entries, query);
+  /** Marks the searched text inside a row name. */
+  const hit = (name: string) => {
+    const q = query.trim();
+    const i = q ? name.toLowerCase().indexOf(q.toLowerCase()) : -1;
+    return i < 0 ? name : <>{name.slice(0, i)}<mark className="ss-hit">{name.slice(i, i + q.length)}</mark>{name.slice(i + q.length)}</>;
+  };
 
   const reason = (e: SyncMatrixEntry) => {
     switch (e.status) {
@@ -119,9 +133,17 @@ export default function FilterSection({ kind, mode, name, include, exclude, onCh
       ) : entries.length > 0 && (
         // The result of the filters, set apart from the fields that shape it.
         <div className="mt-2 flex flex-col gap-3 border-t border-line pt-5">
-          <div className="flex flex-col gap-0.5">
-            <h3 className="text-[14px] font-semibold">{t('targetDetail.previewCount', { count: entries.length })}</h3>
-            <p className="text-[13px] text-ink-3">{t(files ? 'targetDetail.clickHintFiles' : 'targetDetail.clickHint')}</p>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="flex flex-col gap-0.5">
+              <h3 className="text-[14px] font-semibold">
+                {query.trim() ? t('targetDetail.previewCountSearch', { shown: shown.length, count: entries.length }) : t('targetDetail.previewCount', { count: entries.length })}
+              </h3>
+              <p className="text-[13px] text-ink-3">{t(files ? 'targetDetail.clickHintFiles' : 'targetDetail.clickHint')}</p>
+            </div>
+            <label className="ss-inp h-[34px] w-full sm:w-[240px]">
+              <Search size={15} className="shrink-0 text-ink-3" />
+              <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t(`targetDetail.search.${kind}s`)} aria-label={t(`targetDetail.search.${kind}s`)} />
+            </label>
           </div>
           <div className="ss-list !shadow-none">
             <div className="ss-lh">
@@ -130,12 +152,13 @@ export default function FilterSection({ kind, mode, name, include, exclude, onCh
               <span className="w-[96px]">{t('targetDetail.result')}</span>
             </div>
             <div className="max-h-[340px] overflow-y-auto">
-              {entries.map((e) => {
+              {shown.length === 0 && <p className="px-4 py-3 text-[13px] text-ink-3">{t('targetDetail.searchNoMatches', { query: query.trim() })}</p>}
+              {shown.map((e) => {
                 const next = togglePatterns(e, include, exclude);
                 const on = e.status === 'synced';
                 const cells = (
                   <>
-                    <span className={`min-w-0 flex-1 truncate font-mono text-[13px] font-semibold ${on ? '' : 'text-ink-2'}`}>{patternName(e)}</span>
+                    <span className={`min-w-0 flex-1 truncate font-mono text-[13px] font-semibold ${on ? '' : 'text-ink-2'}`}>{hit(patternName(e))}</span>
                     <span className="w-[170px] shrink-0 truncate font-mono text-[12px] text-ink-2" title={reason(e)}>{reason(e)}</span>
                     <span className="w-[96px] shrink-0"><span className={`ss-st ${on ? 'ok' : 'off'}`}>{t(on ? 'targetDetail.synced' : 'targetDetail.notSynced')}</span></span>
                   </>
