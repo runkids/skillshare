@@ -31,6 +31,12 @@ export function targetHealth(target: Target): { state: TargetState; pending: num
 /** Filter patterns match agent names without the .md extension. */
 export const patternName = (entry: SyncMatrixEntry) => (entry.kind === 'agent' ? entry.skill.replace(/\.md$/, '') : entry.skill);
 
+/** Preview rows whose pattern name contains the search text, ignoring case. */
+export function searchEntries(entries: SyncMatrixEntry[], query: string) {
+  const q = query.trim().toLowerCase();
+  return q ? entries.filter((e) => patternName(e).toLowerCase().includes(q)) : entries;
+}
+
 /**
  * The filter edit a click on a preview row makes, or null when naming the row can't change its result
  * (a wildcard exclude, or a resource that declares its own targets).
