@@ -120,7 +120,7 @@ Skills installed or updated via `skillshare install` or `skillshare update` have
 
 | Pattern | Severity | Description |
 |---------|----------|------------|
-| `content-tampered` | MEDIUM | A file's SHA-256 hash no longer matches the recorded hash |
+| `content-tampered` | MEDIUM | A file's SHA-256 hash no longer matches the recorded hash, or the pinned path now resolves to a special file |
 | `content-oversize` | MEDIUM | A pinned file exceeds the 1 MB scan size limit |
 | `content-missing` | LOW | A file recorded in metadata no longer exists on disk |
 | `content-unexpected` | LOW | A new file exists that was not recorded in metadata (OS metadata files such as `.DS_Store` are ignored) |
@@ -450,7 +450,7 @@ The pinned magic table covers final CPython **3.6–3.14** formats. Unknown CRLF
 
 CPython 3.6 uses a 12-byte header without flags; versions 3.7–3.14 use a 16-byte header and supported flags. For direct-file scans only the filename is used for disguise classification; ancestor directories do not affect the result.
 
-The existing depth limit remains six directory levels. `.git`, `.skillshare`, `.skillshare-meta.json`, OS metadata, file symlinks and special files are excluded from header reads; directory symlinks are not traversed. Explicitly configured first-level source links retain their existing resolution policy. There is no file-count cap; directory scans count files with header read errors as skipped and continue scanning other files; an unreadable direct-file target still returns an error. Files below hidden directories receive header classification only, without gaining text-rule or integrity scanning. Symlinked files retain their existing text scanning, including direct-file and agent audits.
+The existing depth limit remains six directory levels. `.git`, `.skillshare`, `.skillshare-meta.json`, OS metadata, file symlinks and special files are excluded from header reads; directory symlinks are not traversed. Explicitly configured first-level source links retain their existing resolution policy. There is no file-count cap; directory scans count files with header read errors as skipped and continue scanning other files; an unreadable direct-file target still returns an error. Files below hidden directories receive header classification only, without gaining text-rule or integrity scanning. Symlinks to non-special files retain their existing text scanning; special targets are skipped and direct audits of them return an error, including direct-file and agent audits.
 
 Header classification does not analyze runtime behavior, decode bytecode, or inspect archive members. Oversized files receive only a header check from this classifier. These findings belong to the `static` analyzer and can be disabled by rule ID with `enabled: false` in `audit-rules.yaml`.
 
@@ -468,7 +468,7 @@ When analyzability drops below **70%**, the audit engine emits an `INFO`-level f
 
 Binary and unsupported files up to 1 MB count toward `totalBytes`, but not `auditableBytes`. Oversized files are excluded from the directory byte ratio; internal metadata and excluded paths are not counted.
 
-CLI, JSON and dashboard summaries separately report `binaryFiles`, `skippedFiles`, and `oversizedFiles`. `skippedFiles` counts files without full text analysis, including read failures, binaries, unsupported extensions, oversized files and regular files below hidden directories. Links and special files are not counted merely because header reads skip them. `binaryFiles` includes recognized binary/archive headers and NUL-containing headers. These counts overlap: an oversized binary contributes to all three, once per counter. Header bytes never count as auditable text. Markdown reports add a `Skipped files` summary row and a `File coverage by resource` table, and SARIF runs carry the per-resource counts in `runs[].properties.skillshareCoverage`.
+CLI, JSON and dashboard summaries separately report `binaryFiles`, `skippedFiles`, and `oversizedFiles`. `skippedFiles` counts files without full text analysis, including read failures, binaries, unsupported extensions, oversized files and regular files below hidden directories. Special files and links to special targets outside hidden directories count as skipped; other links are not counted merely because header reads skip them. `binaryFiles` includes recognized binary/archive headers and NUL-containing headers. These counts overlap: an oversized binary contributes to all three, once per counter. Header bytes never count as auditable text. Markdown reports add a `Skipped files` summary row and a `File coverage by resource` table, and SARIF runs carry the per-resource counts in `runs[].properties.skillshareCoverage`.
 
 ### Output
 
