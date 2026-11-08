@@ -13,12 +13,15 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+	"unicode"
+	"unicode/utf16"
 )
 
 // A live probe speaks MCP revision 2026-07-28 and falls back to the initialize handshake of
@@ -58,16 +61,23 @@ func (s *Service) checkLive(source *Source, report *CheckReport, opts CheckOptio
 		timeout = DefaultLiveTimeout
 	}
 	slots := make(chan struct{}, liveConcurrency)
-	baseline := s.loadToolBaseline(len(report.Servers), opts.AcceptTools)
+	baseline := s.loadToolBaseline(source, len(report.Servers), opts)
 	var wg sync.WaitGroup
 	for i := range report.Servers {
 		result := &report.Servers[i]
 		server := checkKey{result.Project, result.Name}.server(source)
 		if reason := liveSkipReason(server, result.Findings); reason != "" {
 			result.Findings = append(result.Findings, CheckFinding{Level: "info", Check: "live", Message: reason})
+			if opts.StrictTools && !server.Disabled {
+				result.Findings = append(result.Findings, CheckFinding{Level: "error", Check: "tool-change", Message: "strict tool checking requires a complete live observation"})
+			}
 			continue
 		}
-		p := newLiveProbe(server, result.Project, timeout, opts)
+		root := result.Project
+		if root == "" {
+			root = s.configProjectRoot()
+		}
+		p := newLiveProbe(server, root, timeout, opts)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -76,8 +86,13 @@ func (s *Service) checkLive(source *Source, report *CheckReport, opts CheckOptio
 			live, finding := p.run()
 			result.Live = live
 			result.Findings = append(result.Findings, finding)
+			if live == nil && opts.StrictTools {
+				result.Findings = append(result.Findings, CheckFinding{Level: "error", Check: "tool-change", Message: "strict tool checking requires a complete live observation"})
+			}
 			if live != nil {
-				result.Findings = append(result.Findings, baseline.compare(i, result.Project, result.Name, p.toolHashes)...)
+				review, findings := baseline.compare(i, result.Project, result.Name, server, contractObservation{Tools: p.toolContracts, Command: p.resolvedCommand, Dir: p.dir, Live: p.observedLive, Secrets: p.secrets})
+				result.Contract = review
+				result.Findings = append(result.Findings, findings...)
 			}
 		}()
 	}
@@ -106,12 +121,15 @@ type liveProbe struct {
 	headers http.Header
 	// secrets are the resolved env, header and token values, longest first.
 	secrets []string
-	// toolHashes is each listed tool's definition hash by redacted name, set by a probe.
-	toolHashes map[string]string
+	// Contracts exist only after a complete, unambiguous inventory.
+	toolContracts   map[string]ToolContract
+	resolvedCommand string
+	observedLive    *CheckLive
 }
 
 func newLiveProbe(server Server, root string, timeout time.Duration, opts CheckOptions) *liveProbe {
-	p := &liveProbe{server: server, timeout: timeout, env: map[string]string{}, headers: http.Header{}}
+	p := &liveProbe{server: server, timeout: timeout, env: map[string]string{}, headers: http.Header{}, toolContracts: map[string]ToolContract{}}
+	p.dir, _ = os.Getwd()
 	if root != "" {
 		p.dir, _ = expandHome(root)
 	}
@@ -126,26 +144,32 @@ func newLiveProbe(server Server, root string, timeout time.Duration, opts CheckO
 		value, _ := opts.LookupEnv(v.FromEnv)
 		return value
 	}
-	// A value shorter than four characters is no credential, and hiding every "1" or
-	// "on" would garble the rest of the message.
+	// Every nonempty environment-backed credential is confidential, including short values.
 	keep := func(value string) {
-		if len(value) >= 4 && !slices.Contains(p.secrets, value) {
+		if value != "" && !slices.Contains(p.secrets, value) {
 			p.secrets = append(p.secrets, value)
 		}
 	}
 	for key, v := range server.Env {
 		p.env[key] = resolve(v)
-		keep(p.env[key])
+		if v.FromEnv != "" || sensitiveKey.MatchString(key) {
+			keep(p.env[key])
+		}
 	}
 	for key, v := range server.Headers {
 		value := resolve(v)
 		p.headers.Set(key, value)
-		keep(value)
+		if v.FromEnv != "" || sensitiveKey.MatchString(key) {
+			keep(value)
+		}
 	}
 	if server.BearerToken != nil {
 		token := resolve(*server.BearerToken)
 		p.headers.Set("Authorization", "Bearer "+token)
 		keep(token)
+	}
+	for _, value := range opts.knownSecrets {
+		keep(value)
 	}
 	slices.SortFunc(p.secrets, func(a, b string) int { return len(b) - len(a) })
 	return p
@@ -154,9 +178,33 @@ func newLiveProbe(server Server, root string, timeout time.Duration, opts CheckO
 // redact removes every configured value from text a server or the network produced.
 func (p *liveProbe) redact(text string) string {
 	for _, secret := range p.secrets {
-		text = strings.ReplaceAll(text, secret, "[redacted]")
+		if secret != "" {
+			text = strings.ReplaceAll(text, secret, "[redacted]")
+		}
 	}
-	return text
+	return safeLiveText(text)
+}
+
+// safeLiveText makes terminal and bidi controls visible without changing stored contracts.
+func safeLiveText(text string) string {
+	var b strings.Builder
+	for _, r := range text {
+		if unicode.IsControl(r) || unicode.In(r, unicode.Cf) {
+			if r <= 0xffff {
+				fmt.Fprintf(&b, "\\u%04x", r)
+			} else {
+				a, z := utf16.EncodeRune(r)
+				fmt.Fprintf(&b, "\\u%04x\\u%04x", a, z)
+			}
+		} else {
+			b.WriteRune(r)
+		}
+		if b.Len() > 8192 {
+			b.WriteString(" [diagnostic truncated]")
+			break
+		}
+	}
+	return b.String()
 }
 
 func (p *liveProbe) run() (*CheckLive, CheckFinding) {
@@ -183,6 +231,13 @@ func (p *liveProbe) run() (*CheckLive, CheckFinding) {
 
 // probe returns what the server reported about itself, with configured values redacted.
 func (p *liveProbe) probe() (*CheckLive, error) {
+	identity := p.server
+	identity.Env, identity.Headers, identity.BearerToken = nil, nil, nil
+	material, _ := json.Marshal(identity)
+	var declarations any
+	if decodeLiveJSON(material, &declarations) != nil || containsLiveSecret(declarations, p.secrets) {
+		return nil, badReply("connection identity contains a configured credential; use environment-backed references")
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), p.timeout)
 	defer cancel()
 	var live *CheckLive
@@ -195,17 +250,90 @@ func (p *liveProbe) probe() (*CheckLive, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Identity material cannot contain known credential bytes either. Avoid hashing
+	// environment/header declarations here; baseline approval validates their references.
+	material, _ = json.Marshal(struct {
+		Server   Server
+		Info     LiveServerInfo
+		Protocol string
+	}{identity, live.ServerInfo, live.ProtocolVersion})
+	var decoded any
+	if err := decodeLiveJSON(material, &decoded); err != nil {
+		return nil, badReply("invalid connection identity")
+	}
+	if containsLiveSecret(decoded, p.secrets) {
+		return nil, badReply("configured credential appeared in connection identity; use environment references and remove credential-bearing metadata")
+	}
+	copyLive := *live
+	p.observedLive = &copyLive
 	live.ProtocolVersion = p.redact(live.ProtocolVersion)
 	live.ServerInfo.Name = p.redact(live.ServerInfo.Name)
 	live.ServerInfo.Version = p.redact(live.ServerInfo.Version)
-	// The pin file is keyed by the redacted name, so a configured value never reaches it.
-	hashes := map[string]string{}
-	for i, name := range live.ToolNames {
-		live.ToolNames[i] = p.redact(name)
-		hashes[live.ToolNames[i]] = p.toolHashes[name]
-	}
-	p.toolHashes = hashes
 	return live, nil
+}
+
+// sourceLiveSecrets protects diagnostics and every selected probe from all
+// credential references declared by this source, including other server scopes.
+func sourceLiveSecrets(source *Source, opts CheckOptions) []string {
+	seen := map[string]bool{}
+	var secrets []string
+	add := func(servers map[string]Server) {
+		for _, server := range servers {
+			p := newLiveProbe(server, "", DefaultLiveTimeout, opts)
+			for _, secret := range p.secrets {
+				if secret != "" && !seen[secret] {
+					seen[secret] = true
+					secrets = append(secrets, secret)
+				}
+			}
+		}
+	}
+	add(source.Servers)
+	for _, project := range source.Projects {
+		add(project.Servers)
+	}
+	slices.SortFunc(secrets, func(a, b string) int { return len(b) - len(a) })
+	return secrets
+}
+
+func serverHasKnownSecret(server Server, root, name string, secrets []string) bool {
+	server.Env, server.Headers, server.BearerToken = nil, nil, nil
+	raw, _ := json.Marshal(struct {
+		Server     Server
+		Root, Name string
+	}{server, root, name})
+	var value any
+	return decodeLiveJSON(raw, &value) != nil || containsLiveSecret(value, secrets)
+}
+
+func containsLiveSecret(value any, secrets []string) bool {
+	contains := func(s string) bool {
+		for _, secret := range secrets {
+			if secret != "" && strings.Contains(s, secret) {
+				return true
+			}
+		}
+		return false
+	}
+	switch v := value.(type) {
+	case string:
+		return contains(v)
+	case json.Number:
+		return contains(v.String())
+	case []any:
+		for _, item := range v {
+			if containsLiveSecret(item, secrets) {
+				return true
+			}
+		}
+	case map[string]any:
+		for key, item := range v {
+			if contains(key) || containsLiveSecret(item, secrets) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // DraftProbe is a live probe of a server definition that is not saved.
@@ -230,22 +358,29 @@ func ProbeDraft(server Server, root string, opts CheckOptions) (DraftProbe, erro
 	// Only the connection matters; a half-written tool policy must not stop a probe.
 	server = Server{Transport: server.Transport, Command: server.Command, Args: server.Args, URL: server.URL,
 		Env: server.Env, Headers: server.Headers, BearerToken: server.BearerToken}
-	if err := server.Validate("draft"); err != nil {
-		return DraftProbe{}, err
-	}
-	if missing := checkEnv(server, opts.LookupEnv); len(missing) > 0 {
-		return DraftProbe{ErrorKind: "auth", Error: missing[0].Message}, nil
-	}
-	for _, f := range checkLaunch(server, CheckOptions{SkipDNS: true, LookPath: opts.LookPath}) {
-		if f.Level == "error" {
-			return DraftProbe{ErrorKind: "command", Error: f.Message}, nil
-		}
-	}
 	timeout := opts.Timeout
 	if timeout <= 0 {
 		timeout = DefaultLiveTimeout
 	}
 	p := newLiveProbe(server, root, timeout, opts)
+	if err := server.Validate("draft"); err != nil {
+		return DraftProbe{}, errors.New(p.redact(err.Error()))
+	}
+	if serverHasKnownSecret(server, root, "", p.secrets) {
+		message := "connection identity contains a configured credential; use environment-backed references"
+		if contractHasSecret(root, p.secrets) {
+			message = "project scope contains a configured credential; no review is available"
+		}
+		return DraftProbe{ErrorKind: "protocol", Error: message}, nil
+	}
+	if missing := checkEnv(server, opts.LookupEnv); len(missing) > 0 {
+		return DraftProbe{ErrorKind: "auth", Error: p.redact(missing[0].Message)}, nil
+	}
+	for _, f := range checkLaunch(server, CheckOptions{SkipDNS: true, LookPath: opts.LookPath}) {
+		if f.Level == "error" {
+			return DraftProbe{ErrorKind: "command", Error: p.redact(f.Message)}, nil
+		}
+	}
 	live, err := p.probe()
 	if err != nil {
 		return DraftProbe{ErrorKind: liveErrorKind(err), Error: p.redact(err.Error())}, nil
@@ -298,10 +433,12 @@ type rpcConn interface {
 }
 
 type rpcMessage struct {
-	ID     json.RawMessage `json:"id,omitempty"`
-	Method string          `json:"method,omitempty"`
-	Result json.RawMessage `json:"result,omitempty"`
-	Error  *rpcError       `json:"error,omitempty"`
+	JSONRPC string `json:"jsonrpc"`
+	invalid error
+	ID      json.RawMessage `json:"id,omitempty"`
+	Method  string          `json:"method,omitempty"`
+	Result  json.RawMessage `json:"result,omitempty"`
+	Error   *rpcError       `json:"error,omitempty"`
 }
 
 type rpcError struct {
@@ -310,7 +447,7 @@ type rpcError struct {
 	Data    json.RawMessage `json:"data,omitempty"`
 }
 
-func (e *rpcError) Error() string { return fmt.Sprintf("JSON-RPC error %d: %s", e.Code, e.Message) }
+func (e *rpcError) Error() string { return fmt.Sprintf("JSON-RPC error %d", e.Code) }
 
 // modern reports a code from the range the MCP specification reserves, which only a
 // 2026-07-28 or later server sends; any other error to server/discover means a legacy server.
@@ -338,20 +475,71 @@ func callResult(ctx context.Context, conn rpcConn, method string, params, out an
 	if err != nil {
 		return err
 	}
-	var kind struct {
-		ResultType string `json:"resultType"`
-	}
-	if err := json.Unmarshal(raw, &kind); err != nil {
-		return badReply("%s returned an invalid result", method)
+	var fields map[string]json.RawMessage
+	if decodeJSONBounded(raw, &fields, contractJSONDepth+8) != nil || fields == nil || !exactLiveFields(fields, "resultType", "tools", "nextCursor", "supportedVersions", "capabilities", "_meta", "protocolVersion", "serverInfo") {
+		return badReply("%s returned ambiguous or invalid fields", method)
 	}
 	// Servers before 2026-07-28 leave resultType out; that means complete.
-	if kind.ResultType != "" && kind.ResultType != "complete" {
-		return badReply("%s returned resultType %q", method, kind.ResultType)
+	if kind, exists := fields["resultType"]; exists {
+		var resultType string
+		if json.Unmarshal(kind, &resultType) != nil || resultType != "complete" {
+			return badReply("%s returned a non-complete result type", method)
+		}
 	}
-	if err := json.Unmarshal(raw, out); err != nil {
+	if cursor, exists := fields["nextCursor"]; exists {
+		var value string
+		if string(cursor) == "null" || json.Unmarshal(cursor, &value) != nil {
+			return badReply("%s returned an invalid pagination cursor", method)
+		}
+	}
+	if method == "initialize" {
+		if !validLiveServerInfo(fields["serverInfo"]) {
+			return badReply("initialize returned invalid server information")
+		}
+	}
+	if method == "server/discover" {
+		if raw, exists := fields["_meta"]; exists {
+			var meta map[string]json.RawMessage
+			const infoKey = "io.modelcontextprotocol/serverInfo"
+			if decodeLiveJSON(raw, &meta) != nil || meta == nil || !exactLiveFields(meta, infoKey) {
+				return badReply("server/discover returned invalid server information")
+			}
+			if info, present := meta[infoKey]; present && !validLiveServerInfo(info) {
+				return badReply("server/discover returned invalid server information")
+			}
+		}
+	}
+	if caps, exists := fields["capabilities"]; exists {
+		var capabilities map[string]json.RawMessage
+		if json.Unmarshal(caps, &capabilities) != nil || capabilities == nil {
+			return badReply("%s returned invalid capabilities", method)
+		}
+		if tools, exists := capabilities["tools"]; exists {
+			var capability map[string]json.RawMessage
+			if json.Unmarshal(tools, &capability) != nil || capability == nil {
+				return badReply("%s returned an invalid tools capability", method)
+			}
+		}
+	}
+	if err := decodeJSONBounded(raw, out, contractJSONDepth+8); err != nil {
 		return badReply("%s returned an invalid result", method)
 	}
 	return nil
+}
+
+func validLiveServerInfo(raw json.RawMessage) bool {
+	var info map[string]json.RawMessage
+	if decodeLiveJSON(raw, &info) != nil || info == nil || !exactLiveFields(info, "name", "version") {
+		return false
+	}
+	for _, key := range []string{"name", "version"} {
+		var value string
+		raw, ok := info[key]
+		if !ok || string(raw) == "null" || json.Unmarshal(raw, &value) != nil {
+			return false
+		}
+	}
+	return true
 }
 
 // handshake asks the server who it is and counts its tools. discoverWait, when set, is how
@@ -394,7 +582,7 @@ func (p *liveProbe) discover(ctx context.Context, conn rpcConn, wait time.Durati
 			return nil, unsupportedVersions(data.Supported)
 		}
 		return nil, err
-	case errors.As(err, &rerr), fallback(err):
+	case errors.As(err, &rerr) && rerr.Code == -32601, fallback(err):
 		return nil, nil
 	case wait > 0 && dctx.Err() != nil && ctx.Err() == nil:
 		return nil, nil
@@ -404,9 +592,12 @@ func (p *liveProbe) discover(ctx context.Context, conn rpcConn, wait time.Durati
 	if !slices.Contains(result.SupportedVersions, liveProtocolVersion) {
 		return nil, unsupportedVersions(result.SupportedVersions)
 	}
+	if result.Capabilities == nil {
+		return nil, badReply("server/discover omitted capabilities")
+	}
 	live := &CheckLive{ProtocolVersion: liveProtocolVersion, ServerInfo: result.Meta.ServerInfo}
 	if _, ok := result.Capabilities["tools"]; ok {
-		live.ToolNames, p.toolHashes, err = listTools(ctx, conn, p.modernParams)
+		live.ToolNames, p.toolContracts, err = listTools(ctx, conn, p.modernParams, p.secrets)
 		live.Tools = len(live.ToolNames)
 	}
 	return live, err
@@ -427,6 +618,9 @@ func (p *liveProbe) initialize(ctx context.Context, conn rpcConn) (*CheckLive, e
 	if err := callResult(ctx, conn, "initialize", params, &result); err != nil {
 		return nil, fmt.Errorf("initialize: %w", err)
 	}
+	if result.ProtocolVersion == "" || result.Capabilities == nil {
+		return nil, badReply("initialize returned an incomplete result")
+	}
 	conn.legacy(result.ProtocolVersion)
 	if err := conn.notify(ctx, "notifications/initialized", map[string]any{}); err != nil {
 		return nil, fmt.Errorf("notifications/initialized: %w", err)
@@ -434,12 +628,12 @@ func (p *liveProbe) initialize(ctx context.Context, conn rpcConn) (*CheckLive, e
 	live := &CheckLive{ProtocolVersion: result.ProtocolVersion, ServerInfo: result.ServerInfo}
 	if _, ok := result.Capabilities["tools"]; ok {
 		var err error
-		live.ToolNames, p.toolHashes, err = listTools(ctx, conn, func(cursor string) map[string]any {
+		live.ToolNames, p.toolContracts, err = listTools(ctx, conn, func(cursor string) map[string]any {
 			if cursor == "" {
 				return map[string]any{}
 			}
 			return map[string]any{"cursor": cursor}
-		})
+		}, p.secrets)
 		if err != nil {
 			return nil, err
 		}
@@ -448,27 +642,62 @@ func (p *liveProbe) initialize(ctx context.Context, conn rpcConn) (*CheckLive, e
 	return live, nil
 }
 
-// listTools returns the tool names and, by name, a hash of each tool's definition.
-func listTools(ctx context.Context, conn rpcConn, params func(cursor string) map[string]any) ([]string, map[string]string, error) {
-	names, hashes, cursor := []string{}, map[string]string{}, ""
+const (
+	liveMaxTools     = 4096
+	liveMaxInventory = 4 << 20
+)
+
+// listTools succeeds only after the entire bounded inventory has been received.
+func listTools(ctx context.Context, conn rpcConn, params func(cursor string) map[string]any, secrets []string) ([]string, map[string]ToolContract, error) {
+	names, tools, cursor := []string{}, map[string]ToolContract{}, ""
+	seen := map[string]bool{}
+	total, canonicalTotal := 0, 0
 	for range liveMaxPages {
+		if err := ctx.Err(); err != nil {
+			return nil, nil, err
+		}
 		var page struct {
-			Tools      []liveTool `json:"tools"`
-			NextCursor string     `json:"nextCursor"`
+			Tools      []json.RawMessage `json:"tools"`
+			NextCursor string            `json:"nextCursor"`
 		}
 		if err := callResult(ctx, conn, "tools/list", params(cursor), &page); err != nil {
 			return nil, nil, fmt.Errorf("tools/list: %w", err)
 		}
-		for _, tool := range page.Tools {
-			names = append(names, tool.Name)
-			hashes[tool.Name] = tool.hash()
+		if page.Tools == nil {
+			return nil, nil, badReply("tools/list must return an array of tools")
+		}
+		for _, raw := range page.Tools {
+			if err := ctx.Err(); err != nil {
+				return nil, nil, err
+			}
+			total += len(raw)
+			if total > liveMaxInventory || len(tools) >= liveMaxTools {
+				return nil, nil, badReply("tool inventory exceeds its byte or tool limit")
+			}
+			name, contract, err := captureTool(raw, secrets)
+			if err != nil {
+				return nil, nil, badReply("tool inventory rejected: %v", err)
+			}
+			canonicalTotal += len(contract.Definition)
+			if canonicalTotal > liveMaxInventory {
+				return nil, nil, badReply("canonical tool inventory exceeds its byte limit")
+			}
+			if _, exists := tools[name]; exists {
+				return nil, nil, badReply("tool inventory contains duplicate names")
+			}
+			names = append(names, name)
+			tools[name] = contract
 		}
 		if page.NextCursor == "" {
-			break
+			return names, tools, nil
 		}
+		if seen[page.NextCursor] {
+			return nil, nil, badReply("tool inventory repeated a pagination cursor")
+		}
+		seen[page.NextCursor] = true
 		cursor = page.NextCursor
 	}
-	return names, hashes, nil
+	return nil, nil, badReply("tool inventory is incomplete at the page limit")
 }
 
 // stdio starts the server, probes it over stdin/stdout, and always stops it again.
@@ -477,6 +706,27 @@ func (p *liveProbe) stdio(ctx context.Context) (*CheckLive, error) {
 	if err != nil {
 		return nil, err
 	}
+	if p.dir == "" {
+		return nil, badReply("cannot determine the server working directory")
+	}
+	if !filepath.IsAbs(command) {
+		if strings.ContainsAny(command, "/\\") {
+			command = filepath.Join(p.dir, command)
+		} else {
+			command, err = exec.LookPath(command)
+			if err != nil {
+				return nil, err
+			}
+			command, err = filepath.Abs(command)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	if containsLiveSecret([]any{command, p.dir}, p.secrets) {
+		return nil, badReply("connection identity contains a configured credential; use environment-backed references")
+	}
+	p.resolvedCommand = command
 	cmd := exec.Command(command, p.server.Args...)
 	cmd.Dir = p.dir
 	cmd.Env = os.Environ()
@@ -530,7 +780,9 @@ func (p *liveProbe) stdio(ctx context.Context) (*CheckLive, error) {
 		case <-time.After(liveGrace):
 		}
 		if lines := stderr.lastLines(liveStderrLines); lines != "" {
-			err = fmt.Errorf("%w; stderr: %s", err, lines)
+			// A tail can split an encoded or long credential. Do not expose the
+			// server's arbitrary diagnostic payload as part of approval output.
+			err = fmt.Errorf("%w; server diagnostic output omitted", err)
 		}
 	}
 	return live, err
@@ -555,7 +807,7 @@ func stopGroup(cmd *exec.Cmd, stdin io.Closer, exited <-chan struct{}) {
 }
 
 type stdioConn struct {
-	stdin   io.Writer
+	stdin   io.WriteCloser
 	msgs    chan rpcMessage
 	stop    chan struct{}
 	exited  <-chan struct{}
@@ -563,20 +815,44 @@ type stdioConn struct {
 	nextID  int
 }
 
-func newStdioConn(stdin io.Writer, stdout io.Reader, exited <-chan struct{}, waitErr *error) *stdioConn {
+func newStdioConn(stdin io.WriteCloser, stdout io.Reader, exited <-chan struct{}, waitErr *error) *stdioConn {
 	c := &stdioConn{stdin: stdin, msgs: make(chan rpcMessage), stop: make(chan struct{}), exited: exited, waitErr: waitErr}
 	go func() {
 		defer close(c.msgs)
 		scanner := bufio.NewScanner(stdout)
 		scanner.Buffer(make([]byte, 64<<10), liveMaxMessage)
 		for scanner.Scan() {
-			var msg rpcMessage
-			// Only responses matter; lines that are not JSON-RPC are skipped.
-			if json.Unmarshal(scanner.Bytes(), &msg) != nil || len(msg.ID) == 0 || msg.Method != "" {
+			raw := scanner.Bytes()
+			// Plain logging lines are allowed, but JSON-RPC-looking envelopes fail closed.
+			if !bytes.HasPrefix(bytes.TrimSpace(raw), []byte("{")) {
+				continue
+			}
+			msg, err := decodeRPCMessage(raw)
+			if err != nil {
+				var fields map[string]json.RawMessage
+				if decodeJSONBounded(raw, &fields, contractJSONDepth+8) == nil {
+					var envelope, id, outcome bool
+					for key := range fields {
+						switch {
+						case strings.EqualFold(key, "jsonrpc"):
+							envelope = true
+						case strings.EqualFold(key, "id"):
+							id = true
+						case strings.EqualFold(key, "result"), strings.EqualFold(key, "error"):
+							outcome = true
+						}
+					}
+					if !envelope && !(id && outcome) {
+						continue
+					}
+				}
+				msg = &rpcMessage{invalid: err}
+			}
+			if err == nil && msg.Method != "" {
 				continue
 			}
 			select {
-			case c.msgs <- msg:
+			case c.msgs <- *msg:
 			case <-c.stop:
 				return
 			}
@@ -585,12 +861,33 @@ func newStdioConn(stdin io.Writer, stdout io.Reader, exited <-chan struct{}, wai
 	return c
 }
 
-func (c *stdioConn) write(message any) error {
+func (c *stdioConn) write(ctx context.Context, message any) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	data, err := json.Marshal(message)
 	if err != nil {
 		return err
 	}
-	if _, err := c.stdin.Write(append(data, '\n')); err != nil {
+	// Closing the process pipe interrupts a blocked write. Wait for the watcher
+	// before returning so it cannot close stdin during a later request. A timed
+	// out blocked write makes this transport unusable; stdio then stops the group.
+	finished, watched := make(chan struct{}), make(chan struct{})
+	go func() {
+		defer close(watched)
+		select {
+		case <-ctx.Done():
+			_ = c.stdin.Close()
+		case <-finished:
+		}
+	}()
+	n, err := c.stdin.Write(append(data, '\n'))
+	close(finished)
+	<-watched
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if err != nil || n != len(data)+1 {
 		return c.exitError()
 	}
 	return nil
@@ -599,7 +896,7 @@ func (c *stdioConn) write(message any) error {
 func (c *stdioConn) call(ctx context.Context, method string, params any) (json.RawMessage, error) {
 	c.nextID++
 	id := strconv.Itoa(c.nextID)
-	if err := c.write(rpcRequest(c.nextID, method, params)); err != nil {
+	if err := c.write(ctx, rpcRequest(c.nextID, method, params)); err != nil {
 		return nil, err
 	}
 	for {
@@ -609,6 +906,9 @@ func (c *stdioConn) call(ctx context.Context, method string, params any) (json.R
 		case msg, ok := <-c.msgs:
 			if !ok {
 				return nil, c.exitError()
+			}
+			if msg.invalid != nil {
+				return nil, msg.invalid
 			}
 			if string(msg.ID) != id {
 				continue
@@ -621,8 +921,8 @@ func (c *stdioConn) call(ctx context.Context, method string, params any) (json.R
 	}
 }
 
-func (c *stdioConn) notify(_ context.Context, method string, params any) error {
-	return c.write(map[string]any{"jsonrpc": "2.0", "method": method, "params": params})
+func (c *stdioConn) notify(ctx context.Context, method string, params any) error {
+	return c.write(ctx, map[string]any{"jsonrpc": "2.0", "method": method, "params": params})
 }
 
 func (c *stdioConn) legacy(string) {}
@@ -676,7 +976,7 @@ func (b *tailBuffer) lastLines(n int) string {
 
 // http probes a Streamable HTTP endpoint. It never follows an authorization challenge.
 func (p *liveProbe) http(ctx context.Context) (*CheckLive, error) {
-	conn := &httpConn{client: &http.Client{}, url: p.server.URL, headers: p.headers, protocol: liveProtocolVersion}
+	conn := &httpConn{client: &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, url: p.server.URL, headers: p.headers, protocol: liveProtocolVersion}
 	defer conn.close(ctx)
 	return p.handshake(ctx, conn, 0, func(err error) bool {
 		var status *httpStatusError
@@ -752,7 +1052,7 @@ func (c *httpConn) call(ctx context.Context, method string, params any) (json.Ra
 		return nil, err
 	}
 	defer resp.Body.Close()
-	body := io.LimitReader(resp.Body, liveMaxMessage)
+	body := &io.LimitedReader{R: resp.Body, N: liveMaxMessage + 1}
 	status := &httpStatusError{code: resp.StatusCode}
 	var msg *rpcMessage
 	switch {
@@ -760,17 +1060,30 @@ func (c *httpConn) call(ctx context.Context, method string, params any) (json.Ra
 		if strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream") {
 			msg, err = readSSE(body, strconv.Itoa(c.nextID))
 		} else {
-			msg = &rpcMessage{}
-			err = json.NewDecoder(body).Decode(msg)
+			var raw []byte
+			raw, err = io.ReadAll(body)
+			if err == nil {
+				msg, err = decodeRPCMessage(raw)
+			}
 		}
-		if err != nil || (msg.Error == nil && msg.Result == nil) {
+		if body.N <= 0 || err != nil || msg == nil || string(msg.ID) != strconv.Itoa(c.nextID) || msg.Method != "" {
 			return nil, badReply("%s: the response is not a JSON-RPC response", method)
 		}
 	case status.fallsBack():
 		// A modern server explains a rejection in a JSON-RPC error body.
-		msg = &rpcMessage{}
-		if json.NewDecoder(body).Decode(msg) != nil || msg.Error == nil {
+		raw, readErr := io.ReadAll(body)
+		if body.N <= 0 {
+			return nil, badReply("MCP response exceeds its byte limit")
+		}
+		msg, err = decodeRPCMessage(raw)
+		if readErr != nil || err != nil {
+			if strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") || bytes.HasPrefix(bytes.TrimSpace(raw), []byte("{")) || bytes.HasPrefix(bytes.TrimSpace(raw), []byte("[")) {
+				return nil, badReply("invalid discovery response")
+			}
 			return nil, status
+		}
+		if msg.Error == nil || string(msg.ID) != strconv.Itoa(c.nextID) {
+			return nil, badReply("invalid discovery response")
 		}
 	default:
 		return nil, status
@@ -816,14 +1129,19 @@ func readSSE(r io.Reader, id string) (*rpcMessage, error) {
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 64<<10), liveMaxMessage)
 	var data []string
+	var invalid error
 	dispatch := func() *rpcMessage {
 		defer func() { data = nil }()
-		var msg rpcMessage
-		if len(data) == 0 || json.Unmarshal([]byte(strings.Join(data, "\n")), &msg) != nil {
+		if len(data) == 0 {
+			return nil
+		}
+		msg, err := decodeRPCMessage([]byte(strings.Join(data, "\n")))
+		if err != nil {
+			invalid = err
 			return nil
 		}
 		if string(msg.ID) == id && msg.Method == "" {
-			return &msg
+			return msg
 		}
 		return nil
 	}
@@ -834,12 +1152,18 @@ func readSSE(r io.Reader, id string) (*rpcMessage, error) {
 			if msg := dispatch(); msg != nil {
 				return msg, nil
 			}
+			if invalid != nil {
+				return nil, invalid
+			}
 		case strings.HasPrefix(line, "data:"):
 			data = append(data, strings.TrimPrefix(strings.TrimPrefix(line, "data:"), " "))
 		}
 	}
-	if msg := dispatch(); msg != nil {
-		return msg, nil
+	if len(data) != 0 {
+		return nil, badReply("the event stream ended before the response event was complete")
+	}
+	if invalid != nil {
+		return nil, invalid
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, err

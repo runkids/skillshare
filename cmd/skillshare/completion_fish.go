@@ -83,6 +83,8 @@ complete -c skillshare -n '__fish_skillshare_using_command mcp' -l tools-deny -r
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l pi-options -r -d 'Other Pi built-in per-server fields as JSON'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l no-dns -d 'Skip host lookups'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l live -d 'check: start or call each server'
+complete -c skillshare -n '__fish_skillshare_using_command mcp' -l strict-tools -d 'check --live: fail on untrusted or changed contracts'
+complete -c skillshare -n '__fish_skillshare_using_command mcp' -l root -r -d 'check: exact project root, empty for global'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l accept-tools -d 'check --live: accept the tools a server lists as the new baseline'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l timeout -r -d 'check --live: per-server timeout'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l http -r -d 'serve: Streamable HTTP listen address'

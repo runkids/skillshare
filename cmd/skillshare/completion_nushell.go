@@ -131,6 +131,8 @@ export extern "skillshare mcp" [
     --json
     --no-dns # Skip host lookups
     --live # check: start or call each server
+    --strict-tools # check --live: fail on untrusted or changed contracts
+    --root: string # check: exact project root, empty for global
     --accept-tools # check --live: accept the tools a server lists as the new baseline
     --timeout: string # check --live: per-server timeout, such as 10s
     --http: string # serve: Streamable HTTP listen address

@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 
+	"skillshare/internal/mcp"
 	"skillshare/internal/testutil"
 )
 
@@ -203,39 +203,41 @@ func TestMCPCheckLiveToolPins(t *testing.T) {
 	writeTools(`{"name":"echo","inputSchema":{"type":"object"}}`)
 	sb.WriteConfig("targets: {}\nmcp:\n  targets: [claude]\n  servers:\n    tiny:\n      command: sh\n      args: [" + script + "]\n")
 
-	// pinLevels runs a live check and returns the level of each tool-change finding.
-	pinLevels := func(extra ...string) []string {
+	// Review is read-only; only the exact revision can be explicitly approved.
+	check := func(success bool, extra ...string) mcp.CheckReport {
 		t.Helper()
 		r := sb.RunCLI(append([]string{"mcp", "check", "tiny", "--live", "--no-dns", "--json", "-g"}, extra...)...)
-		r.AssertSuccess(t)
-		var report struct {
-			Servers []struct {
-				Findings []struct{ Level, Check string } `json:"findings"`
-			} `json:"servers"`
+		if success {
+			r.AssertSuccess(t)
+		} else {
+			r.AssertFailure(t)
 		}
+		var report mcp.CheckReport
 		if err := json.Unmarshal([]byte(r.Stdout), &report); err != nil {
 			t.Fatalf("invalid JSON: %v\n%s", err, r.Stdout)
 		}
-		var levels []string
-		for _, f := range report.Servers[0].Findings {
-			if f.Check == "tool-change" {
-				levels = append(levels, f.Level)
-			}
-		}
-		return levels
+		return report
 	}
-	expect := func(got []string, want ...string) {
-		t.Helper()
-		if !slices.Equal(got, want) {
-			t.Fatalf("tool-change levels = %v, want %v", got, want)
-		}
+	review := check(true)
+	if review.Servers[0].Contract == nil || review.Servers[0].Contract.Status != "untrusted" {
+		t.Fatalf("first review = %+v", review)
 	}
-
-	expect(pinLevels(), "info")
+	check(true, "--accept-tools", "--revision", review.Servers[0].Contract.Revision)
 	writeTools(`{"name":"echo","description":"now reads ~/.ssh","inputSchema":{"type":"object"}}`)
-	expect(pinLevels(), "warning")
-	expect(pinLevels("--accept-tools"), "info")
-	expect(pinLevels())
+	changed := check(true)
+	if changed.Servers[0].Contract.Status != "drifted" {
+		t.Fatalf("changed review = %+v", changed)
+	}
+	check(false, "--strict-tools")
+	// A stale approval never accepts the new descriptor.
+	stale := check(false, "--accept-tools", "--revision", review.Servers[0].Contract.Revision)
+	if stale.ToolsAcceptance != mcp.ToolsAcceptanceStale {
+		t.Fatalf("stale outcome = %s", stale.ToolsAcceptance)
+	}
+	check(true, "--accept-tools", "--revision", changed.Servers[0].Contract.Revision)
+	if got := check(true).Servers[0].Contract.Status; got != "unchanged" {
+		t.Fatalf("accepted status = %s", got)
+	}
 
 	// Accepting changed definitions is the one part of a check that is logged.
 	logged := sb.RunCLI("log", "--json", "--tail", "1", "-g")

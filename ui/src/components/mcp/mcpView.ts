@@ -2,6 +2,14 @@ import { mcpOffTargets, mcpTargets } from '../../api/mcp';
 import type { MCPPlan, MCPServer, MCPToolPolicy } from '../../api/mcp';
 import { plural } from '../../i18n';
 
+/** Descriptor and diagnostic text must not hide terminal or formatting controls. */
+export function visibleMCPText(text: string): string {
+  return text.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, (c) => {
+    const point = c.codePointAt(0)!;
+    return point <= 0xffff ? `\\u${point.toString(16).padStart(4, '0')}` : `\\u{${point.toString(16)}}`;
+  });
+}
+
 export type MCPChange = MCPPlan['changes'][number];
 
 export interface MatrixRow {
@@ -427,3 +435,86 @@ export const mcpNotice = (t: (key: string, params?: Record<string, string>) => s
 /** A project's Agent files to list: those sync writes (the project's targets, and the ones its own servers pick), and any other already there. */
 export const projectFileTargets = (targets: readonly string[], servers: Record<string, MCPServer>, existing: readonly string[], paths: Record<string, string>) =>
   [...new Set([...targets, ...Object.values(servers).flatMap((s) => s.targets ?? targets), ...existing])].filter((x) => paths[x]).sort();
+
+export const scopeCredentialMessage = 'project scope contains a configured credential; no review is available';
+export const scopeCredentialKey = 'mcp.contract.message.scopeCredential';
+export const identityCredentialMessage = 'connection identity contains a configured credential; use environment-backed references';
+type ProbeT = (key: string, params?: Record<string, string>) => string;
+
+// Shared live-check and draft-probe protocol reasons. The method wrappers
+// are Skillshare call sites, not a parser for arbitrary endpoint prose.
+const protocolMessages = new Map<string, string>([
+  [identityCredentialMessage, 'mcp.contract.protocol.identityCredential'],
+  ['invalid connection identity', 'mcp.contract.protocol.identityInvalid'],
+  ['configured credential appeared in connection identity; use environment references and remove credential-bearing metadata', 'mcp.contract.protocol.identityMetadataCredential'],
+  ['server/discover omitted capabilities', 'mcp.contract.protocol.discoveryCapabilities'],
+  ['initialize returned an incomplete result', 'mcp.contract.protocol.initializeIncomplete'],
+  ['initialize returned invalid server information', 'mcp.contract.protocol.serverInfoInvalid'],
+  ['server/discover returned invalid server information', 'mcp.contract.protocol.discoveryInfoInvalid'],
+  ['tools/list must return an array of tools', 'mcp.contract.protocol.toolsArray'],
+  ['tool inventory exceeds its byte or tool limit', 'mcp.contract.protocol.inventoryLimit'],
+  ['tool inventory rejected: invalid MCP tool contract', 'mcp.contract.protocol.inventoryInvalid'],
+  ['canonical tool inventory exceeds its byte limit', 'mcp.contract.protocol.canonicalLimit'],
+  ['tool inventory contains duplicate names', 'mcp.contract.protocol.duplicateTools'],
+  ['tool inventory repeated a pagination cursor', 'mcp.contract.protocol.cursorRepeated'],
+  ['tool inventory is incomplete at the page limit', 'mcp.contract.protocol.pagesIncomplete'],
+  ['cannot determine the server working directory', 'mcp.contract.protocol.workingDirectory'],
+  ['MCP response exceeds its byte limit', 'mcp.contract.protocol.responseLimit'],
+  ['invalid discovery response', 'mcp.contract.protocol.discoveryInvalid'],
+  ['the event stream ended before the response event was complete', 'mcp.contract.protocol.eventIncomplete'],
+  ['the event stream ended without a response', 'mcp.contract.protocol.eventMissing'],
+  ['invalid JSON-RPC envelope', 'mcp.contract.protocol.rpcEnvelope'],
+  ['ambiguous JSON-RPC fields', 'mcp.contract.protocol.rpcFields'],
+  ['invalid JSON-RPC version or fields', 'mcp.contract.protocol.rpcVersion'],
+  ['invalid JSON-RPC request or notification', 'mcp.contract.protocol.rpcNotification'],
+  ['invalid JSON-RPC response', 'mcp.contract.protocol.rpcResponse'],
+  ['invalid JSON-RPC result', 'mcp.contract.protocol.rpcResult'],
+  ['invalid JSON-RPC error', 'mcp.contract.protocol.rpcError'],
+  ['server exited early', 'mcp.contract.protocol.processExited'],
+  ['server closed its output', 'mcp.contract.protocol.outputClosed'],
+]);
+const protocolMethodMessages = new Map<string, string>([
+  [' returned ambiguous or invalid fields', 'mcp.contract.protocol.resultFields'],
+  [' returned a non-complete result type', 'mcp.contract.protocol.resultIncomplete'],
+  [' returned an invalid pagination cursor', 'mcp.contract.protocol.cursorInvalid'],
+  [' returned invalid capabilities', 'mcp.contract.protocol.capabilitiesInvalid'],
+  [' returned an invalid tools capability', 'mcp.contract.protocol.toolsCapabilityInvalid'],
+  [' returned an invalid result', 'mcp.contract.protocol.resultInvalid'],
+  [': the response is not a JSON-RPC response', 'mcp.contract.protocol.responseNotRPC'],
+]);
+const probeMethods = ['server/discover', 'initialize', 'notifications/initialized', 'tools/list'] as const;
+
+export function protocolDetail(t: ProbeT, detail: string, depth = 0): string | undefined {
+  if (depth >= 4) return undefined;
+  const key = protocolMessages.get(detail);
+  if (key) return t(key);
+  for (const method of probeMethods) {
+    if (!detail.startsWith(method)) continue;
+    const key = protocolMethodMessages.get(detail.slice(method.length));
+    if (key) return t(key, { method });
+    const prefix = `${method}: `;
+    if (detail.startsWith(prefix)) {
+      const translated = protocolDetail(t, detail.slice(prefix.length), depth + 1);
+      return translated === undefined ? undefined : prefix + translated;
+    }
+  }
+  const omitted = '; server diagnostic output omitted';
+  if (detail.endsWith(omitted)) {
+    const translated = protocolDetail(t, detail.slice(0, -omitted.length), depth + 1);
+    return translated === undefined ? undefined : translated + t('mcp.contract.protocol.diagnosticOmitted');
+  }
+  const rpc = /^JSON-RPC error (-?\d+)$/.exec(detail);
+  if (rpc) return t('mcp.contract.protocol.rpcCode', { code: rpc[1] });
+  const timeout = /^no answer within ((?:\d+(?:\.\d+)?(?:ns|µs|ms|s|m|h))+)$/.exec(detail);
+  if (timeout) return t('mcp.contract.protocol.timeout', { duration: timeout[1] });
+  const versions = /^server supports protocol version\(s\) ([\s\S]*); skillshare probes (\d{4}-\d{2}-\d{2}) or the initialize handshake$/.exec(detail);
+  if (versions) return t('mcp.contract.protocol.versions', { versions: versions[1], version: versions[2] });
+  const exit = /^server exited early \(([^\n]*)\)$/.exec(detail);
+  if (exit) return t('mcp.contract.protocol.exitDetail', { detail: exit[1] });
+  return undefined;
+}
+
+/** Translate only known probe details; preserve unknown endpoint diagnostics. */
+export function describeProbeDetail(t: ProbeT, detail: string): string {
+  return detail === scopeCredentialMessage ? t(scopeCredentialKey) : protocolDetail(t, detail) ?? detail;
+}

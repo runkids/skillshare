@@ -76,15 +76,15 @@ func TestMCPLiveHelperServer(t *testing.T) {
 			reply(msg.ID, map[string]any{"resultType": "complete", "supportedVersions": []string{"2026-07-28"}, "capabilities": map[string]any{"tools": map[string]any{}},
 				"_meta": map[string]any{"io.modelcontextprotocol/serverInfo": map[string]string{"name": "helper", "version": "1.2.3"}}})
 		case mode == "modern" && msg.Method == "tools/list" && msg.Params.Cursor == "":
-			reply(msg.ID, map[string]any{"resultType": "complete", "tools": []map[string]string{{"name": "a"}}, "nextCursor": "page2"})
+			reply(msg.ID, map[string]any{"resultType": "complete", "tools": []map[string]any{{"name": "a", "inputSchema": map[string]any{"type": "object"}}}, "nextCursor": "page2"})
 		case mode == "modern" && msg.Method == "tools/list":
-			reply(msg.ID, map[string]any{"resultType": "complete", "tools": []map[string]string{{"name": "b"}}})
+			reply(msg.ID, map[string]any{"resultType": "complete", "tools": []map[string]any{{"name": "b", "inputSchema": map[string]any{"type": "object"}}}})
 		case msg.Method == "initialize":
 			reply(msg.ID, map[string]any{"protocolVersion": "2025-11-25", "capabilities": map[string]any{"tools": map[string]any{}}, "serverInfo": map[string]string{"name": "legacy", "version": "0.9"}})
 		case msg.Method == "notifications/initialized":
 			initialized = true
 		case msg.Method == "tools/list" && initialized:
-			reply(msg.ID, map[string]any{"tools": []map[string]string{{"name": "a"}, {"name": "b"}, {"name": "c"}}})
+			reply(msg.ID, map[string]any{"tools": []map[string]any{{"name": "a", "inputSchema": map[string]any{"type": "object"}}, {"name": "b", "inputSchema": map[string]any{"type": "object"}}, {"name": "c", "inputSchema": map[string]any{"type": "object"}}}})
 		case mode == "silent":
 			// Some legacy servers never answer a request they do not know.
 		default:
@@ -176,7 +176,7 @@ func TestLiveStdioExitReportsRedactedStderr(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, f := liveOf(t, report)
-	if f.Level != "error" || !strings.Contains(f.Message, "exit status 3") || !strings.Contains(f.Message, "token [redacted] rejected") || report.Summary.Errors != 1 {
+	if f.Level != "error" || !strings.Contains(f.Message, "exit status 3") || !strings.Contains(f.Message, "server diagnostic output omitted") || report.Summary.Errors != 1 {
 		t.Fatalf("finding = %+v", f)
 	}
 	assertNoSecret(t, report)
@@ -265,7 +265,7 @@ func TestLiveHTTPDiscoverJSON(t *testing.T) {
 			t.Errorf("missing protocol version header")
 		}
 		w.Header().Set("Content-Type", "application/json")
-		result := map[string]any{"resultType": "complete", "tools": []any{map[string]string{"name": "x"}}}
+		result := map[string]any{"resultType": "complete", "tools": []any{map[string]any{"name": "x", "inputSchema": map[string]any{"type": "object"}}}}
 		if req.Method == "server/discover" {
 			result = map[string]any{"resultType": "complete", "supportedVersions": []string{"2026-07-28"}, "capabilities": map[string]any{"tools": map[string]any{}},
 				"_meta": map[string]any{"io.modelcontextprotocol/serverInfo": map[string]string{"name": "remote", "version": "2"}}}
@@ -310,7 +310,7 @@ func TestLiveHTTPFallsBackToInitialize(t *testing.T) {
 		case r.Header.Get("MCP-Protocol-Version") != "2025-06-18":
 			http.Error(w, "wrong protocol version", http.StatusBadRequest)
 		default:
-			_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": map[string]any{"tools": []any{map[string]string{"name": "x"}, map[string]string{"name": "y"}}}})
+			_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": map[string]any{"tools": []any{map[string]any{"name": "x", "inputSchema": map[string]any{"type": "object"}}, map[string]any{"name": "y", "inputSchema": map[string]any{"type": "object"}}}}})
 		}
 	})
 	want := CheckLive{ProtocolVersion: "2025-06-18", ServerInfo: LiveServerInfo{Name: "old", Version: "1"}, Tools: 2, ToolNames: []string{"x", "y"}}
