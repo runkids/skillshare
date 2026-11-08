@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.29.2] - 2026-11-08
+
+### New Features
+
+- **Search the filter preview** — the include/exclude preview on a project's **Skills** and **Agents** tabs, on each target's page and in the Extras **Edit target** dialog has a search box. It narrows the rows by name, ignoring case, marks the matching text and shows **Preview · 3 of 24**; clicking a row still includes or excludes it. The filters and their summary still cover every row, and switching between **Skills** and **Agents** clears the search. Thanks to @chung1912 for the request. Refs: #798, #799.
+
+### Bug Fixes
+
+- **Audit no longer hangs on a named pipe** — a FIFO, socket or device inside a skill could block `skillshare audit`, and the audit that runs during install, indefinitely. Audit now reads only regular files: special files, and links to them, are counted as skipped and the scan continues; auditing a special file directly returns an error; and a path pinned by integrity checks that now resolves to a special file reports `content-tampered`. Links to ordinary files are scanned as before. Thanks to @salmonumbrella for the report and the fix. Refs: #795, #796.
+- **No stray scrollbar on the Skills tabs** — in the Clean style, a small dark scrollbar no longer shows at the right end of the Skills and Agents tab bar; the tabs still scroll sideways on a narrow screen. Refs: #799.
+
 ## [0.29.1] - 2026-11-06
 
 ### Bug Fixes
