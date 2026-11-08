@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.29.2](https://github.com/runkids/skillshare/compare/v0.29.1...v0.29.2) (2026-11-08)
+## [0.29.2] - 2026-11-08
 
 
 * **ui:** describe the filter preview search ([f3dec2f](https://github.com/runkids/skillshare/commit/f3dec2fde924fbab31a142e761b33d849c7dea24))
