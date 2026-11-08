@@ -2,18 +2,14 @@
 
 ## [0.29.2] - 2026-11-08
 
-
-* **ui:** describe the filter preview search ([f3dec2f](https://github.com/runkids/skillshare/commit/f3dec2fde924fbab31a142e761b33d849c7dea24))
-
-
 ### New Features
 
-* **ui:** search the include/exclude preview list ([#799](https://github.com/runkids/skillshare/issues/799)) ([228efb4](https://github.com/runkids/skillshare/commit/228efb4fcaec37280af1745ebf6e2fd1f86fa515))
-
+- **Search the filter preview** — the include/exclude preview on a project's **Skills** and **Agents** tabs, on each target's page and in the Extras **Edit target** dialog has a search box. It narrows the rows by name, ignoring case, marks the matching text and shows **Preview · 3 of 24**; clicking a row still includes or excludes it. The filters and their summary still cover every row, and switching between **Skills** and **Agents** clears the search. Thanks to @chung1912 for the request. Refs: #798, #799.
 
 ### Bug Fixes
 
-* **audit:** reject special targets before reading content ([#796](https://github.com/runkids/skillshare/issues/796)) ([c19ff80](https://github.com/runkids/skillshare/commit/c19ff80611c20e9b69392ad4e4aeaf491d5036b7))
+- **Audit no longer hangs on a named pipe** — a FIFO, socket or device inside a skill could block `skillshare audit`, and the audit that runs during install, indefinitely. Audit now reads only regular files: special files, and links to them, are counted as skipped and the scan continues; auditing a special file directly returns an error; and a path pinned by integrity checks that now resolves to a special file reports `content-tampered`. Links to ordinary files are scanned as before. Thanks to @salmonumbrella for the report and the fix. Refs: #795, #796.
+- **No stray scrollbar on the Skills tabs** — in the Clean style, a small dark scrollbar no longer shows at the right end of the Skills and Agents tab bar; the tabs still scroll sideways on a narrow screen. Refs: #799.
 
 ## [0.29.1] - 2026-11-06
 
