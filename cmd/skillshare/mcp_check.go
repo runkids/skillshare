@@ -15,7 +15,7 @@ import (
 	"skillshare/internal/ui"
 )
 
-const mcpCheckUsage = "skillshare mcp check [name...] [--json] [--no-dns] [--live [--timeout <duration>] [--strict-tools] [--root <path>] [--accept-tools --revision <id>]]"
+const mcpCheckUsage = "skillshare mcp check [name...] [--json] [--no-dns] [--live [--timeout <duration>] [--strict-tools] [--root <path>] [--verify-key <file>] [--sign-unsigned] [--accept-tools --revision <id> [--signing-key <file>]]]"
 
 // runMCPCheck writes no config file. Only --live starts servers or sends requests to them, and
 // only --live reads or writes the tool baseline in the state dir. Only --accept-tools, which
@@ -37,6 +37,28 @@ func runMCPCheck(service *mcp.Service, args []string) error {
 			opts.AcceptTools = true
 		case arg == "--strict-tools":
 			opts.StrictTools = true
+		case arg == "--sign-unsigned":
+			opts.SignUnsigned = true
+		case arg == "--verify-key" || arg == "--signing-key":
+			if i+1 >= len(args) || args[i+1] == "" {
+				return fmt.Errorf("%s requires a key file", arg)
+			}
+			i++
+			if arg == "--verify-key" {
+				opts.VerifyKeyPath = args[i]
+			} else {
+				opts.SigningKeyPath = args[i]
+			}
+		case strings.HasPrefix(arg, "--verify-key="):
+			opts.VerifyKeyPath = strings.TrimPrefix(arg, "--verify-key=")
+			if opts.VerifyKeyPath == "" {
+				return fmt.Errorf("--verify-key requires a key file")
+			}
+		case strings.HasPrefix(arg, "--signing-key="):
+			opts.SigningKeyPath = strings.TrimPrefix(arg, "--signing-key=")
+			if opts.SigningKeyPath == "" {
+				return fmt.Errorf("--signing-key requires a key file")
+			}
 		case arg == "--revision" || arg == "--root":
 			if i+1 >= len(args) {
 				return fmt.Errorf("%s requires a value", arg)
@@ -66,6 +88,15 @@ func runMCPCheck(service *mcp.Service, args []string) error {
 		default:
 			opts.Names = append(opts.Names, arg)
 		}
+	}
+	if (opts.VerifyKeyPath != "" || opts.SigningKeyPath != "" || opts.SignUnsigned) && !opts.Live {
+		return fmt.Errorf("--verify-key, --signing-key and --sign-unsigned require --live")
+	}
+	if opts.SigningKeyPath != "" && (!opts.AcceptTools || opts.VerifyKeyPath == "") {
+		return fmt.Errorf("--signing-key requires --accept-tools and --verify-key")
+	}
+	if opts.SignUnsigned && opts.VerifyKeyPath == "" {
+		return fmt.Errorf("--sign-unsigned requires --verify-key")
 	}
 	if opts.AcceptTools && !opts.Live {
 		return fmt.Errorf("--accept-tools only applies with --live")

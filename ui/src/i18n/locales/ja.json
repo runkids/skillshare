@@ -3714,5 +3714,11 @@
   "mcp.contract.message.invalidAcceptanceResponse": "無効な MCP 承認応答です",
   "mcp.contract.message.unknownAcceptance": "MCP 承認の結果が不明です。承認する前に再度プローブしてください",
   "mcp.contract.protocol.discoveryInfoInvalid": "server/discover が無効なサーバー情報を返しました",
-  "mcp.contract.message.sourceIdentityUnavailable": "MCP ソース ID を取得できません。ソースパスと認証情報の参照を確認してください"
+  "mcp.contract.message.sourceIdentityUnavailable": "MCP ソース ID を取得できません。ソースパスと認証情報の参照を確認してください",
+  "mcp.contract.message.signingKey": "MCP ベースラインの鍵が無効か読み取れません。安全なファイル権限を持つ Ed25519 PEM 鍵を使用してください",
+  "mcp.contract.message.verifyRequired": "署名済みの MCP ツールのベースラインは、CLI で --verify-key を使って検証する必要があります",
+  "mcp.contract.message.signatureInvalid": "MCP ツールのベースラインの署名を検証できませんでした。正しい外部検証鍵を指定してください",
+  "mcp.contract.message.unsignedReview": "未署名の MCP ツールのベースラインは、署名前に --sign-unsigned で明示的にレビューする必要があります",
+  "mcp.contract.message.signerRequired": "署名済みの MCP ツールのベースラインを承認するには、対応する --signing-key と --verify-key が必要です",
+  "mcp.contract.message.migrationRequired": "--sign-unsigned には、既存の未署名の MCP ツールのベースラインが必要です"
 }

@@ -3714,5 +3714,11 @@
   "mcp.contract.message.invalidAcceptanceResponse": "유효하지 않은 MCP 승인 응답입니다",
   "mcp.contract.message.unknownAcceptance": "MCP 승인 결과를 알 수 없습니다. 승인하기 전에 프로브를 다시 실행하세요",
   "mcp.contract.protocol.discoveryInfoInvalid": "server/discover가 유효하지 않은 서버 정보를 반환했습니다",
-  "mcp.contract.message.sourceIdentityUnavailable": "MCP 소스 식별 정보를 사용할 수 없습니다. 소스 경로와 자격 증명 참조를 확인하세요"
+  "mcp.contract.message.sourceIdentityUnavailable": "MCP 소스 식별 정보를 사용할 수 없습니다. 소스 경로와 자격 증명 참조를 확인하세요",
+  "mcp.contract.message.signingKey": "MCP 기준 키가 유효하지 않거나 읽을 수 없습니다. 안전한 파일 권한이 설정된 Ed25519 PEM 키를 사용하세요",
+  "mcp.contract.message.verifyRequired": "서명된 MCP 도구 기준은 CLI에서 --verify-key로 검증해야 합니다",
+  "mcp.contract.message.signatureInvalid": "MCP 도구 기준 서명을 검증할 수 없습니다. 올바른 외부 검증 키를 제공하세요",
+  "mcp.contract.message.unsignedReview": "서명되지 않은 MCP 도구 기준은 서명 전에 --sign-unsigned로 명시적으로 검토해야 합니다",
+  "mcp.contract.message.signerRequired": "서명된 MCP 도구 기준을 승인하려면 서로 일치하는 --signing-key와 --verify-key가 필요합니다",
+  "mcp.contract.message.migrationRequired": "--sign-unsigned에는 기존의 서명되지 않은 MCP 도구 기준이 필요합니다"
 }

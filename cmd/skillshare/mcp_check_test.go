@@ -12,6 +12,19 @@ import (
 	"skillshare/internal/oplog"
 )
 
+func TestMCPCheckEmptySelectionStillFailsInvalidVerifier(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, "config.yaml")
+	if err := os.WriteFile(path, []byte("mcp:\n  targets: []\n  servers: {}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	s := &mcp.Service{ConfigPath: path, Home: home, StateDir: filepath.Join(home, "state"), Platform: "linux"}
+	err := runMCPCheck(s, []string{"--live", "--root=", "--verify-key", filepath.Join(home, "missing-verify.pem")})
+	if err == nil || strings.Contains(err.Error(), "missing-verify.pem") {
+		t.Fatalf("invalid empty-scope verifier: %v", err)
+	}
+}
+
 func TestLogMCPAcceptToolsListsUnsavedBaselinesAsFailed(t *testing.T) {
 	for _, failed := range []mcp.CheckServer{
 		{Name: "unsaved", Contract: &mcp.ContractReview{Status: "error"}},
@@ -56,6 +69,31 @@ func TestSafeMCPCheckTextEscapesAstralFormatRunes(t *testing.T) {
 	} {
 		if got := safeMCPCheckText(tc.input); got != tc.want {
 			t.Fatalf("safeMCPCheckText(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}
+
+func TestMCPCheckSigningFlagsRequireLiveExplicitAcceptance(t *testing.T) {
+	service := &mcp.Service{ConfigPath: filepath.Join(t.TempDir(), "missing.yaml")}
+	for _, args := range [][]string{
+		{"--verify-key", "fixture.pem"}, {"--verify-key=fixture.pem"},
+		{"--live", "--signing-key", "fixture.pem"},
+		{"--live", "--verify-key", "fixture.pem", "--signing-key", "fixture.pem"},
+		{"--live", "--sign-unsigned"}, {"--live", "--verify-key"},
+		{"--live", "--signing-key"}, {"--live", "--verify-key="},
+		{"--live", "--signing-key="},
+	} {
+		if err := runMCPCheck(service, args); err == nil || strings.Contains(err.Error(), "missing.yaml") {
+			t.Fatalf("flags not refused before config load: %v: %v", args, err)
+		}
+	}
+}
+
+func TestMCPCheckKeyPathsCannotBecomeModeFlags(t *testing.T) {
+	for _, flag := range []string{"--verify-key", "--signing-key"} {
+		service, rest, err := mcpContext([]string{"--global", "check", flag, "-p"})
+		if err != nil || service.ProjectRoot != "" || strings.Join(rest, " ") != "check "+flag+" -p" {
+			t.Fatalf("key path consumed as mode: %s: %v %v", flag, rest, err)
 		}
 	}
 }

@@ -131,6 +131,9 @@ export extern "skillshare mcp" [
     --json
     --no-dns # Skip host lookups
     --live # check: start or call each server
+    --verify-key: string # check --live: external Ed25519 public key
+    --signing-key: string # check --live --accept-tools: matching private key
+    --sign-unsigned # check --live: review migration of an unsigned baseline
     --strict-tools # check --live: fail on untrusted or changed contracts
     --root: string # check: exact project root, empty for global
     --accept-tools # check --live: accept the tools a server lists as the new baseline

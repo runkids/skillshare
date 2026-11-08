@@ -3714,5 +3714,11 @@
   "mcp.contract.message.invalidAcceptanceResponse": "MCP 接受响应无效",
   "mcp.contract.message.unknownAcceptance": "MCP 接受结果未知；接受前请重新探测",
   "mcp.contract.protocol.discoveryInfoInvalid": "server/discover 返回了无效的服务器信息",
-  "mcp.contract.message.sourceIdentityUnavailable": "MCP 来源身份不可用；请检查来源路径和凭据引用"
+  "mcp.contract.message.sourceIdentityUnavailable": "MCP 来源身份不可用；请检查来源路径和凭据引用",
+  "mcp.contract.message.signingKey": "MCP 基准密钥无效或不可读；请使用具有安全文件权限的 Ed25519 PEM 密钥",
+  "mcp.contract.message.verifyRequired": "已签名的 MCP 工具基准必须通过 CLI 使用 --verify-key 验证",
+  "mcp.contract.message.signatureInvalid": "无法验证 MCP 工具基准签名；请提供正确的外部验证密钥",
+  "mcp.contract.message.unsignedReview": "未签名的 MCP 工具基准必须先明确使用 --sign-unsigned 审查，才能签名",
+  "mcp.contract.message.signerRequired": "接受已签名的 MCP 工具基准需要匹配的 --signing-key 和 --verify-key",
+  "mcp.contract.message.migrationRequired": "--sign-unsigned 需要现有且未签名的 MCP 工具基准"
 }

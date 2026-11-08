@@ -57,6 +57,9 @@ skillshare sync --all
 | `--root PATH` | 与 `check` 一起使用：精确选择配置的 `mcp.projects` 根目录；`--root ""` 只选择当前配置列表，省略则观察所有作用域 |
 | `--strict-tools` | 与 `check --live` 一起使用：untrusted、legacy 或漂移视为 error |
 | `--accept-tools` | 与 `check --live` 一起使用：以审阅所得 `--revision` 批准一个明确命名的 server；同名跨作用域时必须选择 root。参见[工具契约](#pin-tool-definitions) |
+| `--verify-key FILE` | 与 `check --live` 一起使用：以外部 Ed25519 PKIX PEM 公钥验证状态库；每次受保护检查都必须提供 |
+| `--signing-key FILE` | 与 `check --live --accept-tools` 一起使用：以匹配 `--verify-key` 的 Ed25519 PKCS8 PEM 私钥签名 |
+| `--sign-unsigned` | 与 `check --live --verify-key` 一起使用：显式预览现有未签名库的迁移；接受还需匹配的签名密钥与迁移 revision |
 | `--http ADDR` | 与 `serve` 一起使用：在 `ADDR` 上以 Streamable HTTP 监听，而不使用 stdio，同时提供 [Executor skill 索引](#executor)。参见[下文](#serve-skills-over-mcp) |
 | `--http-allow-insecure` | 使用 `serve --http` 时：显式允许可信私有网络上的明文 HTTP，并在启动时警告；默认关闭 |
 | `--tls-cert FILE`, `--tls-key FILE` | 与 `serve --http` 一起使用：以这个 PEM 证书和私钥提供 HTTPS；未显式允许时，监听非 loopback 地址必须提供 |
@@ -793,7 +796,39 @@ Version-2 记录绑定规范化配置/源身份、root/name、完整 server 声�
 不要通过删除或移动信任状态绕过失败。
 
 这是对声明契约的单次观察，不验证可执行文件内容、环境中未声明的值或引用值变化；不能检测契约未变的恶意实现，
-也不会隔离或阻断原生客户端调用。本切片状态库未签名，不能认证本地修改；签名属于后续切片，当前命令不提供。
+也不会隔离或阻断原生客户端调用。未签名状态不能认证本地修改；可选签名依赖独立信任的外部验证公钥，不能检测回滚到较旧的有效签名状态。
+
+### 验证和签名基线 {#signed-tool-baselines}
+
+**每次受保护的实时检查**都提供 `--verify-key FILE`：仅接受 Ed25519 PKIX PEM 公钥（`PUBLIC KEY`）。
+`--signing-key FILE` 仅在显式 `--accept-tools --revision REVIEW_REVISION --verify-key FILE` 时使用，
+仅接受匹配的 Ed25519 PKCS8 PEM 私钥（`PRIVATE KEY`）。三个签名相关参数都要求 `--live`。
+Skillshare 不生成密钥，不把密钥或路径持久化到配置/状态。公钥及其必用策略须独立于可编辑的状态库受信任；同处提交的公钥不会自动成为信任起点。
+
+| 现有状态库 | 行为 |
+|---|---|
+| 不存在 | 有验证公钥时可作不写入的 untrusted 预览；首次签名接受需匹配私钥及已审阅 revision |
+| 未签名、无验证公钥 | 保留普通未签名流程，不能认证蓄意本地修改 |
+| 未签名、有验证公钥 | 除 `--sign-unsigned` 显式迁移预览外均失败；接受还需匹配私钥和迁移 revision |
+| 有效签名 | 每次检查需正确外部公钥；接受还需匹配私钥；验证过的无变化接受保留全部字节 |
+| 签名库无验证公钥、无效签名、错误/未知格式 | 失败并保留文件，不发批准 revision；迁移无法绕过 |
+
+迁移**现有未签名库**时，在仅带验证公钥的预览和后续显式签名接受中都加上 `--sign-unsigned`。
+即使所选未签名记录未变，迁移预览仍为 `legacy`，签名接受前 `--strict-tools` 失败。
+迁移签署所选已审阅记录，并把**所有未选中的 V2 记录**降为 `legacy-unsigned` 证据；数据保留，
+但各自需要独立重新审阅并接受才能恢复信任。revision 绑定迁移模式及整个状态库转换，普通未签名预览 revision 不能授权迁移。
+迁移后移除该参数：`--sign-unsigned` 也拒绝不存在或已有有效签名的状态库。
+
+同一原子 V2 状态库内含一个可选 `signature`（`algorithm: "Ed25519"`，base64 `value`）。
+签名输入为 `skillshare-mcp-pins-v2\n`（末尾一个换行）加不含 signature 的整个封装的确定性紧凑 JSON。
+信任前及锁内写入前重读均验证与解析相同的有界字节。未知算法/字段、格式错误签名均失败。
+
+密钥须为不超过 64 KiB 的常规文件，只含一个未加密 PEM 块，不接受符号链接。
+Unix 拒绝带 group/other 权限的私钥；Windows 无法执行该 Unix mode 检查，应自行用 ACL 保护。
+密钥错误不暴露路径或材料；私钥不传给 server、API/UI 或报告。
+同时移除签名并省略外部验证策略会让状态看似未签名，须在外部强制每次使用验证公钥。
+签名不证明实现安全，不提供运行时阻断或回滚新鲜度。API/仪表盘不接收密钥输入，签名库须用 CLI 验证，不提供信任操作。
+
 
 ### 仪表盘与 API 审阅 {#contract-review-dashboard}
 

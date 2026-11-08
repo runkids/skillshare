@@ -18,3 +18,7 @@ Hegel's tagged Go module embeds its native property engine; no production
 runtime is added. The command may refresh this module's dependency files.
 All network endpoints are local inert `httptest` fixtures; no real MCP service,
 user configuration or reference-project fixture is used.
+
+The signing property generates ephemeral Ed25519 keys and mutates a valid
+signed record policy while preserving contract hashes. Verification must refuse
+revision/acceptance and preserve the fixture store byte-for-byte.

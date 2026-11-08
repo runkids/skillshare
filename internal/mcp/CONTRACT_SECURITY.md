@@ -1,9 +1,8 @@
 # MCP contract review security
 
-This note describes the unsigned contract-review slice implemented by
+This note describes contract review and optional externally anchored signing in
 `check_contract.go`, `check_contract_diff.go`, `check_pins.go`,
-`check_pins_identity.go` and `check_live.go`. Signing is a separate planned
-slice; this implementation has no signing or verification-key flags.
+`check_pins_identity.go`, `check_pins_signature.go` and `check_live.go`.
 
 ## Threat model and enforcement boundary
 
@@ -134,7 +133,8 @@ stored privately, not suitable as a public manifest.
 
 State remains at `<StateDir>/mcp/tool-pins.json`, written atomically with mode
 0600. The envelope contains `version: 2`, `servers` (untouched legacy hash
-evidence), and `records`. Unknown/missing envelope or record fields, invalid
+evidence), and `records`, plus an optional `signature` in V2. Unknown/missing
+envelope or record fields, invalid
 snapshots/hashes, unsupported versions, oversized files, symlinks and
 nonregular files are refused. Unreadable or newer stores are preserved.
 Inspect the file or restore a valid backup; deleting/moving trust to bypass an
@@ -166,6 +166,73 @@ V1 `servers` entries are evidence only and never silently become reviewed V2
 records. Explicit acceptance writes one V2 record and retains legacy evidence
 and other records. Reaccepting an identical approved record is a verified
 no-op that preserves the store bytes.
+
+## Externally anchored signed stores
+
+`--verify-key FILE` accepts an Ed25519 PKIX PEM `PUBLIC KEY`. Only explicit
+`--accept-tools --revision ID` may load `--signing-key FILE`, an Ed25519 PKCS8
+PEM `PRIVATE KEY` matching that verifier. All signing options require `--live`.
+Keys are never provisioned automatically or persisted, including their paths,
+in config/state. The external verifier and required-use policy must be trusted
+independently; a key committed beside mutable state is not a trust bootstrap.
+
+Key reads are limited to 64 KiB, one unencrypted PEM block without headers or
+extra content, and regular files with link/replacement checks. Unix private
+keys with any group/other permissions are refused. Windows skips that Unix
+mode check; operator-managed ACL protection remains necessary. Fixed generic
+errors exclude paths, key material and raw OS/parser diagnostics. Private key
+bytes are not forwarded to probes, API/UI, reports or logs.
+
+V2 has one optional `signature: {algorithm: "Ed25519", value: BASE64}` inside
+its atomic JSON envelope, with no sidecar. The signing preimage is the literal
+`skillshare-mcp-pins-v2\n` domain prefix (one terminating newline) followed by
+deterministic compact JSON of the entire unsigned envelope, excluding the
+signature and trailing serialization newline. This is the native store
+serialization, not descriptor-default expansion or a PIN-SPEC/RFC 8785 claim.
+Verification parses and verifies the same immutable bounded read before
+trusting any scope, and repeats against the locked reread before writing.
+Duplicate/unknown fields, unsupported versions/algorithms and malformed
+signatures fail closed. An unchanged verified acceptance preserves every byte,
+including the signature.
+
+| State | Required behavior |
+|---|---|
+| Missing store + verifier | Untrusted read-only preview; matching signer and reviewed revision for first signed acceptance |
+| Unsigned store, no verifier | Existing unsigned workflow; no deliberate local-tampering protection |
+| Unsigned store + verifier | Error except explicit `--sign-unsigned` migration preview; matching signer and migration revision also required for acceptance |
+| Valid signed store | Correct external verifier on every check; matching signer also required for acceptance |
+| Signed store without verifier | CLI verification required; no comparison/approval revision or API/UI trust action |
+| Bad signature, unknown algorithm, malformed store | Error, preservation, no migration bypass |
+
+`--sign-unsigned` only accepts existing unsigned stores; missing or signed
+stores are refused, even when the signature is valid. Every migration preview
+is `legacy` with identity review required, including a matching selected
+unsigned record; strict mode fails until signed acceptance. It proposes a
+whole-store migration: accept the selected reviewed record and downgrade ALL
+unselected V2 records to policy `legacy-unsigned`. Their complete evidence
+survives, but requires independent review and reacceptance to regain trust.
+Legacy V1 evidence is retained. The revision preimage binds migration mode and
+the entire proposed transformation, so a normal unsigned review token cannot
+be replayed to authorize signing. Migration is never an identical-record
+no-op; ordinary no-op applies only once the intended protection mode is met.
+
+The fixed refusals below are errors even without strict mode and before live
+probing; the report prefixes them with `tool contracts could not be compared:`.
+They do not expose key paths or raw parser/OS diagnostics.
+
+| Generic refusal | Required review action |
+|---|---|
+| `MCP baseline key is invalid or unreadable; use an Ed25519 PEM key with safe file permissions` | Check the supplied key format, regular-file bounds and private permissions |
+| `signed MCP tool baseline requires CLI verification with --verify-key` | Use CLI verification with the independently trusted public key |
+| `MCP tool baseline signature could not be verified; supply the correct external verification key` | Check the external anchor and investigate state integrity; preserve the failed store |
+| `unsigned MCP tool baseline requires explicit --sign-unsigned review before signing` | Independently review the explicit migration, including all unselected-record downgrades |
+| `accepting signed MCP tool baselines requires a matching --signing-key and --verify-key` | Supply matching Ed25519 keys only for explicit reviewed acceptance |
+| `--sign-unsigned requires an existing unsigned MCP tool baseline` | Omit migration for missing or signed stores; it is not an integrity bypass |
+
+Signatures authenticate payload integrity relative to the supplied anchor.
+They provide no executable attestation, call-time enforcement or rollback
+freshness. Stripping a signature AND omitting the external verification policy
+can appear unsigned; protected callers must always supply their verifier.
 
 ## Revision-bound authority
 
@@ -215,6 +282,10 @@ a typed persisted outcome; stale review returns 409, other refusal 422,
 and malformed requests 400. Snapshots use `definitionText`, with the split
 hashes unchanged; raw `definition` stays in CLI/store output.
 
+The API/dashboard carry no key inputs. Signed-store live checks require CLI
+verification and cannot expose a trust action; use the CLI with the external
+verifier and, for approval, the matching signer.
+
 Static **Check** stays static. **Review live tools** only opens a confirmation;
 **Probe live tools** explicitly connects. Expandable full snapshots, grades
 and audit findings render as inert text with formatting controls visible,
@@ -229,8 +300,8 @@ The primary conceptual reference is
 Its inspected root [LICENSE](https://github.com/Paraphern/rugsnare/blob/db0bb6a7021c17f0dd9b26457f65b686a87d24db/LICENSE)
 is Apache-2.0, copyright 2026 Paraphern; no NOTICE file was present in the
 inspected tree. Split contract dimensions, readable drift, identity/policy
-binding and explicit review informed independently authored Go code and
-inert test fixtures. No RugSnare source, translated source, fixture or golden
+binding, externally anchored signatures and explicit review informed
+independently authored Go code and inert test fixtures. No RugSnare source, translated source, fixture or golden
 vector was copied. The native number/array/default rules, hash dimensions,
 identity and store/revision format intentionally differ. The
 [PIN-SPEC](https://github.com/Paraphern/rugsnare/blob/db0bb6a7021c17f0dd9b26457f65b686a87d24db/docs/PIN-SPEC.md)
@@ -247,6 +318,7 @@ were reused. Its separate third-party notices do not license its MCP engine
 for incorporation into this MIT repository.
 
 Verification commands and fixture-only scenarios are in
-[the contract-review runbook](../../ai_docs/tests/mcp-contract-review_runbook.md).
+[the contract-review runbook](../../ai_docs/tests/mcp-contract-review_runbook.md)
+and [the signing runbook](../../ai_docs/tests/mcp-signing_runbook.md).
 Authored tests and source inspection are not runtime evidence; execution is
 pending until the supported devcontainer or remote CI runs them.

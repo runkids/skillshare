@@ -3714,5 +3714,11 @@
   "mcp.contract.message.invalidAcceptanceResponse": "Resposta de aceitação MCP inválida",
   "mcp.contract.message.unknownAcceptance": "O resultado da aceitação MCP é desconhecido; faça uma nova sondagem antes de aceitar",
   "mcp.contract.protocol.discoveryInfoInvalid": "server/discover retornou informações de servidor inválidas",
-  "mcp.contract.message.sourceIdentityUnavailable": "A identidade da origem MCP está indisponível; examine o caminho de origem e as referências a credenciais"
+  "mcp.contract.message.sourceIdentityUnavailable": "A identidade da origem MCP está indisponível; examine o caminho de origem e as referências a credenciais",
+  "mcp.contract.message.signingKey": "A chave da referência MCP é inválida ou ilegível; use uma chave Ed25519 PEM com permissões de arquivo seguras",
+  "mcp.contract.message.verifyRequired": "A referência assinada de ferramentas MCP exige verificação pela CLI com --verify-key",
+  "mcp.contract.message.signatureInvalid": "Não foi possível verificar a assinatura da referência de ferramentas MCP; forneça a chave de verificação externa correta",
+  "mcp.contract.message.unsignedReview": "A referência não assinada de ferramentas MCP exige uma revisão explícita com --sign-unsigned antes da assinatura",
+  "mcp.contract.message.signerRequired": "Aceitar referências assinadas de ferramentas MCP exige --signing-key e --verify-key correspondentes",
+  "mcp.contract.message.migrationRequired": "--sign-unsigned exige uma referência de ferramentas MCP existente e não assinada"
 }

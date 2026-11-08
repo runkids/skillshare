@@ -15,7 +15,7 @@ func backupMCPSource(path string) (string, error) {
 }
 
 func mcpContext(args []string) (*mcp.Service, []string, error) {
-	mode, rest, err := parseModeArgs(args, "--url", "--target", "--from", "--file", "--revision", "--tools-allow", "--tools-deny", "--pi-options", "--timeout", "--root")
+	mode, rest, err := parseModeArgs(args, "--url", "--target", "--from", "--file", "--revision", "--tools-allow", "--tools-deny", "--pi-options", "--timeout", "--root", "--verify-key", "--signing-key")
 	if err != nil {
 		return nil, nil, err
 	}

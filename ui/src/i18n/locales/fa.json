@@ -3714,5 +3714,11 @@
   "mcp.contract.message.invalidAcceptanceResponse": "پاسخ پذیرش MCP نامعتبر است",
   "mcp.contract.message.unknownAcceptance": "نتیجهٔ پذیرش MCP نامشخص است؛ پیش از پذیرش، دوباره بررسی کنید",
   "mcp.contract.protocol.discoveryInfoInvalid": "server/discover اطلاعات نامعتبری از سرور برگرداند",
-  "mcp.contract.message.sourceIdentityUnavailable": "هویت منبع MCP در دسترس نیست؛ مسیر منبع و ارجاع های اطلاعات احراز هویت را بررسی کنید"
+  "mcp.contract.message.sourceIdentityUnavailable": "هویت منبع MCP در دسترس نیست؛ مسیر منبع و ارجاع های اطلاعات احراز هویت را بررسی کنید",
+  "mcp.contract.message.signingKey": "کلید مبنای MCP نامعتبر یا ناخواناست؛ از یک کلید Ed25519 PEM با مجوزهای امن فایل استفاده کنید",
+  "mcp.contract.message.verifyRequired": "مبنای امضا شدهٔ ابزارهای MCP باید از طریق CLI با --verify-key اعتبارسنجی شود",
+  "mcp.contract.message.signatureInvalid": "اعتبارسنجی امضای مبنای ابزارهای MCP ممکن نیست؛ کلید اعتبارسنجی خارجی درست را ارائه کنید",
+  "mcp.contract.message.unsignedReview": "مبنای بدون امضای ابزارهای MCP پیش از امضا به بازبینی صریح با --sign-unsigned نیاز دارد",
+  "mcp.contract.message.signerRequired": "پذیرش مبناهای امضا شدهٔ ابزارهای MCP به --signing-key و --verify-key منطبق با هم نیاز دارد",
+  "mcp.contract.message.migrationRequired": "--sign-unsigned به یک مبنای موجود و بدون امضای ابزارهای MCP نیاز دارد"
 }

@@ -61,11 +61,15 @@ type CheckOptions struct {
 	Root        *string
 	Revision    string
 	StrictTools bool
-	Names       []string
-	SkipDNS     bool
-	LookupEnv   func(string) (string, bool)
-	LookPath    func(string) (string, error)
-	LookupHost  func(context.Context, string) ([]string, error)
+	// Key paths are local-only inputs, never configuration, probe arguments or report fields.
+	VerifyKeyPath  string
+	SigningKeyPath string
+	SignUnsigned   bool
+	Names          []string
+	SkipDNS        bool
+	LookupEnv      func(string) (string, bool)
+	LookPath       func(string) (string, error)
+	LookupHost     func(context.Context, string) ([]string, error)
 	// Live starts each stdio server and sends requests to each remote one, after the
 	// static checks; nothing else in a check does either.
 	Live bool
@@ -236,7 +240,9 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 		result.Findings = append(result.Findings, syncFinding(c))
 	}
 	if opts.Live {
-		s.checkLive(source, report, opts)
+		if err := s.checkLive(source, report, opts); err != nil {
+			return nil, errors.New(redactor.redact(err.Error()))
+		}
 	}
 	for i := range report.Servers {
 		result := &report.Servers[i]
@@ -266,6 +272,15 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 
 // validateToolCheckOptions applies to every caller, including the API and direct Service users.
 func validateToolCheckOptions(opts CheckOptions) error {
+	if (opts.VerifyKeyPath != "" || opts.SigningKeyPath != "" || opts.SignUnsigned) && !opts.Live {
+		return fmt.Errorf("--verify-key, --signing-key and --sign-unsigned require --live")
+	}
+	if opts.SigningKeyPath != "" && (!opts.AcceptTools || opts.VerifyKeyPath == "") {
+		return fmt.Errorf("--signing-key requires --accept-tools and --verify-key")
+	}
+	if opts.SignUnsigned && opts.VerifyKeyPath == "" {
+		return fmt.Errorf("--sign-unsigned requires --verify-key")
+	}
 	if opts.AcceptTools {
 		if !opts.Live || len(opts.Names) != 1 || opts.Names[0] == "" || !toolHashValid(opts.Revision) {
 			return fmt.Errorf("--accept-tools requires --live, one explicit server name and a 64-character lowercase hexadecimal --revision")

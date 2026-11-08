@@ -57,6 +57,9 @@ skillshare sync --all
 | `--root PATH` | With `check`: select one exact configured `mcp.projects` root; `--root ""` selects this configuration's own server list. Omit to observe all scopes |
 | `--strict-tools` | With `check --live`: untrusted, legacy or changed contracts are errors instead of warnings |
 | `--accept-tools` | With `check --live`: approve one named server at the reviewed `--revision`; select its root when the name occurs in multiple scopes. See [below](#pin-tool-definitions) |
+| `--verify-key FILE` | With `check --live`: require an external Ed25519 PKIX PEM public key to verify the baseline. Required on every signed-store check |
+| `--signing-key FILE` | With `check --live --accept-tools`: sign using an Ed25519 PKCS8 PEM private key matching `--verify-key` |
+| `--sign-unsigned` | With `check --live --verify-key`: explicitly preview migration of an existing unsigned store; acceptance also requires the matching signer and migration revision |
 | `--http ADDR` | With `serve`: listen for Streamable HTTP on `ADDR` instead of using stdio, and also serve the [Executor skill index](#executor). See [below](#serve-skills-over-mcp) |
 | `--http-allow-insecure` | With `serve --http`: allow the bearer token over plain HTTP off loopback on a trusted private network; logs a warning. Default: off |
 | `--tls-cert FILE`, `--tls-key FILE` | With `serve --http`: serve HTTPS with this PEM certificate and key; required off loopback unless explicitly opted out |
@@ -899,9 +902,68 @@ trust state to bypass a failure.
 
 This is a point-in-time review of advertised contracts. It does not attest executable
 bytes, ambient environment or referenced value changes, detect malicious implementation
-behind unchanged contracts, or quarantine/block native-client calls. The store in this
-slice is unsigned and does not authenticate local edits. Signing is a separate planned
-slice and is not available through these commands.
+behind unchanged contracts, or quarantine/block native-client calls. Unsigned state
+cannot authenticate local edits. Optional signatures require an external verification
+policy as described below; they do not provide rollback freshness.
+
+### Verify and sign baselines {#signed-tool-baselines}
+
+Supply `--verify-key FILE` on **every protected live check**. It accepts only an
+Ed25519 public key in PKIX PEM (`PUBLIC KEY`). Explicit approval can additionally
+use `--signing-key FILE`, an Ed25519 PKCS8 PEM private key (`PRIVATE KEY`) matching
+the verifier. Signing requires `--accept-tools`, `--revision` and `--verify-key`;
+all three signing flags require `--live`. Skillshare neither provisions keys nor
+persists keys or their paths in configuration or the baseline. Keep the verifier
+and the policy requiring it independently trusted; a key merely committed beside
+an editable baseline is not an implicit trust bootstrap.
+
+For keys already supplied through your own trusted process, review first:
+
+```bash
+skillshare mcp check docs --live --root "" --verify-key /trusted/review-public.pem --json
+# Review the complete report, then use its contract.revision:
+skillshare mcp check docs --live --root "" --verify-key /trusted/review-public.pem --signing-key /private/review-private.pem --accept-tools --revision REVIEW_REVISION
+```
+
+These are key-file inputs, not key-generation or provisioning commands.
+
+| Existing store | Observation and acceptance |
+|---|---|
+| Missing | A verifier permits an untrusted preview without writing. First signed acceptance needs a matching signer and the reviewed revision; omit `--sign-unsigned` |
+| Unsigned, without verifier | Ordinary unsigned review/approval remains available, without protection against deliberate local edits |
+| Unsigned, with verifier | Fails unless `--sign-unsigned` explicitly requests migration preview. Acceptance also needs the matching signer and the migration revision |
+| Valid signed | Every observation needs the correct external verifier. Acceptance also needs the matching signer; identical approval is a verified byte-preserving no-op |
+| Signed, without verifier; invalid signature; malformed/unknown format | Fails without replacement or an approval revision. Migration cannot bypass these failures |
+
+For an **existing unsigned store**, add `--sign-unsigned` to both the verifier-only
+preview and the subsequent explicit signed acceptance. Every migration preview is
+`legacy` and requires review, even if the selected unsigned record matches;
+`--strict-tools` fails until signed acceptance. Review the whole migration:
+it signs the selected reviewed record and changes **every unselected V2 record** to
+`legacy-unsigned` evidence. Those records retain their data but need independent
+review and reacceptance before becoming trusted again. The revision binds this
+whole-store transformation and migration mode; an ordinary unsigned preview's
+revision cannot authorize it. Remove `--sign-unsigned` after migration: it refuses
+missing stores and even valid signed stores.
+
+One optional `signature` object (`algorithm: "Ed25519"`, base64 `value`) is embedded
+in the same version-2 atomic store. Its preimage is the literal domain prefix
+`skillshare-mcp-pins-v2\n` (ending with one newline) followed by deterministic compact
+JSON of the entire store envelope excluding `signature`. Verification uses the same
+bounded bytes that are parsed before trusting records, and repeats on the locked
+reread before a write. Unknown algorithms/fields and malformed signatures fail.
+No-op approval preserves the signature and all saved bytes.
+
+Key inputs must be regular files, not symlinks, at most 64 KiB, with one unencrypted
+PEM block. Unix refuses private files with group/other permission bits; Windows
+cannot enforce that Unix mode check, so protect the file with appropriate ACLs.
+Key errors are generic and omit key paths and material. Private key bytes are not
+forwarded to MCP servers, the API, dashboard or reports.
+
+Signatures authenticate the saved payload against the supplied key. They do not
+prove implementation safety or stop rollback to an older valid signed store.
+Stripping a signature **and** omitting the external verifier policy can make state
+look unsigned; always enforce the verifier outside the editable store.
 
 ### Dashboard and API review {#contract-review-dashboard}
 
@@ -912,7 +974,10 @@ audit findings and expandable full snapshots as inert text; metadata links and i
 are not activated. **Load tools** in the server editor remains a separate draft probe
 that saves no trust.
 
-**Trust this inventory** approves one server using its exact root and returned revision.
+The API/dashboard accept no key inputs. A signed store requires CLI
+verification with `--verify-key`; the dashboard offers no trust action for it.
+For unsigned stores, **Trust this inventory** approves one server using its exact
+root and returned revision.
 A stale or failed approval requires a new live review. After an approval, probe again
 before approving another server because the baseline store revision has changed.
 

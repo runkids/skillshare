@@ -117,9 +117,38 @@ skillshare mcp serve --check [--target NAME]         # List skipped, editable an
   Local-protected `POST /api/mcp/check {name,root,revision}` returns 200/accepted only
   for typed persisted success, 409 for stale, 422 for refusal (400 for malformed
   requests). API snapshots are exact `definitionText` strings to preserve numbers.
+- Optional signing: every protected live check supplies `--verify-key FILE` (Ed25519
+  PKIX PEM `PUBLIC KEY`). Explicit `--accept-tools --revision REVIEW_REVISION` can
+  add `--signing-key FILE` (matching Ed25519 PKCS8 PEM `PRIVATE KEY`). These inputs
+  require `--live`; a signing key requires both explicit acceptance and a verifier.
+  Skillshare never provisions keys or persists them/their paths in state/config.
+  Keep verifier distribution and its required-use policy independently trusted.
+- Missing store plus verifier permits an untrusted preview; first signed acceptance
+  requires the matching signer. Existing unsigned state plus verifier fails unless
+  `--sign-unsigned` requests explicit migration preview. Use the same flag for signed
+  acceptance with matching signer and the migration revision. Migration signs the
+  selected record and downgrades ALL unselected V2 records to `legacy-unsigned`
+  evidence, preserving data but requiring independent re-review/reacceptance.
+  Revision binds mode and the whole-store transformation; a plain unsigned review
+  token is insufficient. Migration preview is always `legacy`, including a matching
+  unsigned record; `--strict-tools` fails before signed acceptance.
+  `--sign-unsigned` refuses missing and signed stores.
+- A signed store requires the correct external verifier before comparison, then
+  verification of the locked reread before saving. Acceptance needs the matching
+  signer. Missing verifier, bad signature, unknown algorithm/fields and malformed
+  state are errors with no approval revision; migration cannot bypass them.
+  One optional signature `{algorithm: "Ed25519", value: BASE64}` shares the atomic
+  V2 envelope. Sign domain `skillshare-mcp-pins-v2\n` plus deterministic compact
+  envelope JSON excluding signature. Verified no-op preserves all bytes.
+- Keys are bounded regular files (64 KiB), one unencrypted PEM block, no symlinks.
+  Unix refuses group/other permissions on private keys; Windows needs operator
+  ACL protection because Unix mode checks do not apply. Errors omit paths/material;
+  private keys never reach probes, API/UI or reports. Signed-store API/dashboard
+  review requires CLI verification and offers no trust action.
 - This is point-in-time advertised-contract review, without call-time blocking or
-  quarantine. Unchanged contracts cannot prove implementation safety. The store is
-  unsigned; signing is a later slice and is not available here.
+  quarantine. Unchanged contracts cannot prove implementation safety. Signatures
+  provide no rollback freshness. Stripping signature AND omitting external verifier
+  policy can look unsigned; a committed key is not automatic trust bootstrap.
 - `mcp serve` serves skills to Agents that cannot reach the synced folders (VMs, MCP
   gateways): stdio by default, global unless `-p`. `--target NAME` applies that target's
   filters. Skipped skills (`SKILL.md` a link or not starting with frontmatter, name not matching

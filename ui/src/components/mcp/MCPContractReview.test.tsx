@@ -12,6 +12,34 @@ import { queryKeys } from '../../lib/queryKeys';
 
 vi.mock('../../api/mcpCheck', async (load) => ({ ...await load<typeof import('../../api/mcpCheck')>(), mcpCheckApi: { review: vi.fn(), accept: vi.fn() } }));
 beforeEach(() => { vi.resetAllMocks(); localStorage.setItem(LOCALE_STORAGE_KEY, 'en'); });
+
+it('localizes a top-level signed-store refusal in Persian without control escapes for an empty selected scope', async () => {
+  vi.mocked(mcpCheckApi.review).mockRejectedValue(new ApiError(400, 'signed MCP tool baseline requires CLI verification with --verify-key'));
+  const user = userEvent.setup(); show('', 'fa');
+  await user.click(screen.getByRole('button', { name: 'بررسی زندهٔ ابزارها' }));
+  const refusal = await screen.findByRole('alert');
+  expect(refusal.textContent).toBe('مبنای امضا شدهٔ ابزارهای MCP باید از طریق CLI با --verify-key اعتبارسنجی شود');
+  expect(refusal.textContent).not.toContain('\\u200c');
+  expect(screen.queryByRole('button', { name: 'اعتماد به این فهرست' })).not.toBeInTheDocument();
+  expect(mcpCheckApi.accept).not.toHaveBeenCalled();
+});
+
+it.each([
+  ['MCP baseline key is invalid or unreadable; use an Ed25519 PEM key with safe file permissions', 'MCP 基準金鑰無效或無法讀取；請使用具有安全檔案權限的 Ed25519 PEM 金鑰'],
+  ['signed MCP tool baseline requires CLI verification with --verify-key', '已簽署的 MCP 工具基準必須透過 CLI 使用 --verify-key 驗證'],
+  ['MCP tool baseline signature could not be verified; supply the correct external verification key', '無法驗證 MCP 工具基準簽章；請提供正確的外部驗證金鑰'],
+  ['unsigned MCP tool baseline requires explicit --sign-unsigned review before signing', '未簽署的 MCP 工具基準必須先明確使用 --sign-unsigned 檢閱，才能簽署'],
+  ['accepting signed MCP tool baselines requires a matching --signing-key and --verify-key', '接受已簽署的 MCP 工具基準需要相符的 --signing-key 與 --verify-key'],
+  ['--sign-unsigned requires an existing unsigned MCP tool baseline', '--sign-unsigned 需要現有且未簽署的 MCP 工具基準'],
+])('shows localized signing refusal with no dashboard trust (%s)', async (reason, translated) => {
+  vi.mocked(mcpCheckApi.review).mockResolvedValue({ servers: [{ name: 'docs', ok: false, findings: [{ level: 'error', check: 'tool-change', target: '', message: 'tool contracts could not be compared: ' + reason }], contract: { status: 'error' } }], summary: { errors: 1, warnings: 0 } });
+  const user = userEvent.setup(); show('', 'zh-TW');
+  await user.click(screen.getByRole('button', { name: '探測即時工具' }));
+  expect(await screen.findByText(translated)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '信任這份清單' })).toBeDisabled();
+  expect(mcpCheckApi.accept).not.toHaveBeenCalled();
+});
+
 const review = (revision = 'reviewed'): MCPCheckReport => ({ servers: [{
   name: 'docs', project: '/exact/root', ok: true, findings: [], live: { tools: 1 },
   contract: { status: 'untrusted', revision, policy: 'skillshare-contract-v2', identityChanged: true,

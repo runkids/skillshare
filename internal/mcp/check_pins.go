@@ -26,9 +26,10 @@ const (
 // Legacy hashes remain evidence only. Records bind complete explicitly approved
 // contracts to one canonical source/configuration, effective root and server.
 type toolPinFile struct {
-	Version int                                     `json:"version"`
-	Servers map[string]map[string]map[string]string `json:"servers"`
-	Records map[string]toolPinRecord                `json:"records,omitempty"`
+	Version   int                                     `json:"version"`
+	Servers   map[string]map[string]map[string]string `json:"servers"`
+	Records   map[string]toolPinRecord                `json:"records,omitempty"`
+	Signature *toolPinSignature                       `json:"signature,omitempty"`
 }
 
 type toolPinRecord struct {
@@ -109,6 +110,12 @@ func parseToolPins(data []byte) (toolPinFile, error) {
 	envelopeKeys := []string{"version", "servers"}
 	if pins.Version == 2 {
 		envelopeKeys = append(envelopeKeys, "records")
+		if raw, ok := shape["signature"]; ok {
+			if validateToolPinSignature(raw, pins.Signature) != nil {
+				return pins, errToolPins
+			}
+			envelopeKeys = append(envelopeKeys, "signature")
+		}
 	}
 	if !exactToolPinFields(shape, envelopeKeys...) {
 		return pins, errToolPins
@@ -239,7 +246,7 @@ func (s *Service) readToolPins() (toolPinFile, error) {
 	if !exists {
 		return emptyToolPins(), nil
 	}
-	return parseToolPins(data)
+	return parseProtectedToolPins(data, toolPinKeys{}, false)
 }
 
 type contractObservation struct {
@@ -258,9 +265,11 @@ type toolBaseline struct {
 	opts               CheckOptions
 	config, configRoot string
 	before             []byte
+	beforeDigest       string
 	existed            bool
 	updates            []*toolPinRecord
 	stale              []bool
+	keys               toolPinKeys
 }
 
 func (s *Service) loadToolBaseline(source *Source, servers int, opts CheckOptions) *toolBaseline {
@@ -269,16 +278,25 @@ func (s *Service) loadToolBaseline(source *Source, servers int, opts CheckOption
 		b.err = errToolPins
 		return b
 	}
+	b.keys, b.err = loadToolPinKeys(opts)
+	if b.err != nil {
+		return b
+	}
 	b.config, b.err = toolConfigIdentity(source, opts.knownSecrets)
 	if b.err != nil {
 		return b
 	}
 	b.before, b.existed, b.err = readToolPinBytes(s.toolPinsPath())
 	if b.err == nil {
+		// Immutable before compare runs concurrently for the selected servers.
+		b.beforeDigest = digest(b.before)
 		if b.existed {
-			b.pins, b.err = parseToolPins(b.before)
+			b.pins, b.err = parseProtectedToolPins(b.before, b.keys, opts.SignUnsigned)
 		} else {
 			b.pins = emptyToolPins()
+			if opts.SignUnsigned {
+				b.err = errToolPinMigration
+			}
 		}
 	}
 	return b
@@ -353,6 +371,18 @@ func (b *toolBaseline) compare(i int, root, name string, server Server, now cont
 		}
 	}
 	switch {
+	case b.opts.SignUnsigned:
+		// The external anchor has not authenticated any of this unsigned evidence.
+		// Even a previously approved matching record requires migration review.
+		review.Status = "legacy"
+		review.IdentityChanged = true
+		if pinned {
+			review.Changes, review.Omitted = compareContracts(old.Tools, now.Tools)
+		}
+	case pinned && old.Policy == "legacy-unsigned":
+		review.Status = "legacy"
+		review.IdentityChanged = true
+		review.Changes, review.Omitted = compareContracts(old.Tools, now.Tools)
 	case pinned:
 		review.IdentityChanged = old.Identity != identity || old.Policy != contractPolicy
 		review.Changes, review.Omitted = compareContracts(old.Tools, now.Tools)
@@ -367,11 +397,26 @@ func (b *toolBaseline) compare(i int, root, name string, server Server, now cont
 	}
 	// Bind the complete record and the exact pre-probe store snapshot. Source
 	// bytes stay in memory for CheckUnchanged; they never become a public hash.
+	// Ordinary updates are determined by this record and the immutable store.
+	// Only migration also binds the entire proposed downgrade transformation;
+	// do not copy/serialize the whole store for each ordinary server review.
+	proposalDigest := ""
+	if b.opts.SignUnsigned {
+		proposal := proposedToolPins(b.pins, record, true)
+		proposed, err := marshalToolPins(proposal)
+		if err != nil {
+			return fail("tool contracts could not be compared: " + errToolPins.Error())
+		}
+		proposalDigest = digest(proposed)
+	}
 	payload, _ := json.Marshal(struct {
-		Record toolPinRecord `json:"record"`
-		Store  string        `json:"store"`
-		Exists bool          `json:"exists"`
-	}{record, digest(b.before), b.existed})
+		Record       toolPinRecord `json:"record"`
+		Store        string        `json:"store"`
+		Exists       bool          `json:"exists"`
+		SignUnsigned bool          `json:"signUnsigned"`
+		Verifier     string        `json:"verifier"`
+		Proposal     string        `json:"proposal"`
+	}{record, b.beforeDigest, b.existed, b.opts.SignUnsigned, digest(b.keys.verify), proposalDigest})
 	review.Revision = digest(payload)
 	if b.opts.AcceptTools {
 		if !b.opts.Live || len(b.opts.Names) != 1 || b.opts.Names[0] != name || !toolHashValid(b.opts.Revision) {
@@ -452,7 +497,7 @@ func (b *toolBaseline) save(s *Service, report *CheckReport) {
 		}
 		pins := emptyToolPins()
 		if exists {
-			pins, err = parseToolPins(current)
+			pins, err = parseProtectedToolPins(current, b.keys, b.opts.SignUnsigned)
 			if err != nil {
 				return err
 			}
@@ -462,15 +507,19 @@ func (b *toolBaseline) save(s *Service, report *CheckReport) {
 		}
 		record := *b.updates[0]
 		key := toolRecordKey(record.Config, record.Root, record.Name)
-		if old, ok := pins.Records[key]; ok {
+		if old, ok := pins.Records[key]; ok && !b.opts.SignUnsigned {
 			before, _ := json.Marshal(old)
 			after, _ := json.Marshal(record)
 			if bytes.Equal(before, after) {
 				return nil
 			}
 		}
-		pins.Version = 2
-		pins.Records[key] = record
+		pins = proposedToolPins(pins, record, b.opts.SignUnsigned)
+		if len(b.keys.verify) != 0 {
+			if err := signToolPins(&pins, b.keys); err != nil {
+				return err
+			}
+		}
 		data, err := marshalToolPins(pins)
 		if err != nil {
 			return err
@@ -497,11 +546,12 @@ func marshalToolPins(pins toolPinFile) ([]byte, error) {
 	// Compact encoding preserves canonical RawMessage snapshots. Emit empty
 	// records explicitly for a complete v2 envelope.
 	type envelope struct {
-		Version int                                     `json:"version"`
-		Servers map[string]map[string]map[string]string `json:"servers"`
-		Records map[string]toolPinRecord                `json:"records"`
+		Version   int                                     `json:"version"`
+		Servers   map[string]map[string]map[string]string `json:"servers"`
+		Records   map[string]toolPinRecord                `json:"records"`
+		Signature *toolPinSignature                       `json:"signature,omitempty"`
 	}
-	data, err := json.Marshal(envelope{pins.Version, pins.Servers, pins.Records})
+	data, err := json.Marshal(envelope{pins.Version, pins.Servers, pins.Records, pins.Signature})
 	if err != nil {
 		return nil, fmt.Errorf("could not encode MCP tool baseline")
 	}

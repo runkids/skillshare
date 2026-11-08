@@ -3714,5 +3714,11 @@
   "mcp.contract.message.invalidAcceptanceResponse": "MCP 接受回應無效",
   "mcp.contract.message.unknownAcceptance": "無法確認 MCP 接受結果；再次接受前請重新探測",
   "mcp.contract.protocol.discoveryInfoInvalid": "server/discover 傳回無效的伺服器資訊",
-  "mcp.contract.message.sourceIdentityUnavailable": "無法確認 MCP 來源識別；請檢查來源路徑與憑證參照"
+  "mcp.contract.message.sourceIdentityUnavailable": "無法確認 MCP 來源識別；請檢查來源路徑與憑證參照",
+  "mcp.contract.message.signingKey": "MCP 基準金鑰無效或無法讀取；請使用具有安全檔案權限的 Ed25519 PEM 金鑰",
+  "mcp.contract.message.verifyRequired": "已簽署的 MCP 工具基準必須透過 CLI 使用 --verify-key 驗證",
+  "mcp.contract.message.signatureInvalid": "無法驗證 MCP 工具基準簽章；請提供正確的外部驗證金鑰",
+  "mcp.contract.message.unsignedReview": "未簽署的 MCP 工具基準必須先明確使用 --sign-unsigned 檢閱，才能簽署",
+  "mcp.contract.message.signerRequired": "接受已簽署的 MCP 工具基準需要相符的 --signing-key 與 --verify-key",
+  "mcp.contract.message.migrationRequired": "--sign-unsigned 需要現有且未簽署的 MCP 工具基準"
 }

@@ -3714,5 +3714,11 @@
   "mcp.contract.message.invalidAcceptanceResponse": "Ungültige MCP-Akzeptanzantwort",
   "mcp.contract.message.unknownAcceptance": "Das Ergebnis der MCP-Akzeptanz ist unbekannt; vor dem Akzeptieren erneut abfragen",
   "mcp.contract.protocol.discoveryInfoInvalid": "server/discover hat ungültige Serverinformationen zurückgegeben",
-  "mcp.contract.message.sourceIdentityUnavailable": "Die MCP-Quellidentität ist nicht verfügbar; prüfe den Quellpfad und die Zugangsdatenverweise"
+  "mcp.contract.message.sourceIdentityUnavailable": "Die MCP-Quellidentität ist nicht verfügbar; prüfe den Quellpfad und die Zugangsdatenverweise",
+  "mcp.contract.message.signingKey": "Der Schlüssel der MCP-Referenz ist ungültig oder nicht lesbar; verwende einen Ed25519-PEM-Schlüssel mit sicheren Dateiberechtigungen",
+  "mcp.contract.message.verifyRequired": "Die signierte MCP-Tool-Referenz muss über die CLI mit --verify-key verifiziert werden",
+  "mcp.contract.message.signatureInvalid": "Die Signatur der MCP-Tool-Referenz konnte nicht verifiziert werden; gib den richtigen externen Verifikationsschlüssel an",
+  "mcp.contract.message.unsignedReview": "Eine unsignierte MCP-Tool-Referenz muss vor dem Signieren ausdrücklich mit --sign-unsigned geprüft werden",
+  "mcp.contract.message.signerRequired": "Zum Akzeptieren signierter MCP-Tool-Referenzen sind zueinander passende Schlüssel für --signing-key und --verify-key erforderlich",
+  "mcp.contract.message.migrationRequired": "--sign-unsigned erfordert eine vorhandene unsignierte MCP-Tool-Referenz"
 }

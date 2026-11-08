@@ -3714,5 +3714,11 @@
   "mcp.contract.message.invalidAcceptanceResponse": "Respons penerimaan MCP tidak valid",
   "mcp.contract.message.unknownAcceptance": "Hasil penerimaan MCP tidak diketahui; periksa lagi sebelum menerima",
   "mcp.contract.protocol.discoveryInfoInvalid": "server/discover mengembalikan informasi server yang tidak valid",
-  "mcp.contract.message.sourceIdentityUnavailable": "Identitas sumber MCP tidak tersedia; periksa jalur sumber dan referensi kredensial"
+  "mcp.contract.message.sourceIdentityUnavailable": "Identitas sumber MCP tidak tersedia; periksa jalur sumber dan referensi kredensial",
+  "mcp.contract.message.signingKey": "Kunci acuan MCP tidak valid atau tidak dapat dibaca; gunakan kunci Ed25519 PEM dengan izin berkas yang aman",
+  "mcp.contract.message.verifyRequired": "Acuan alat MCP yang ditandatangani harus diverifikasi melalui CLI dengan --verify-key",
+  "mcp.contract.message.signatureInvalid": "Tanda tangan acuan alat MCP tidak dapat diverifikasi; berikan kunci verifikasi eksternal yang benar",
+  "mcp.contract.message.unsignedReview": "Acuan alat MCP yang belum ditandatangani memerlukan tinjauan eksplisit dengan --sign-unsigned sebelum ditandatangani",
+  "mcp.contract.message.signerRequired": "Penerimaan acuan alat MCP yang ditandatangani memerlukan --signing-key dan --verify-key yang cocok",
+  "mcp.contract.message.migrationRequired": "--sign-unsigned memerlukan acuan alat MCP yang sudah ada dan belum ditandatangani"
 }

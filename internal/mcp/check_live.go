@@ -56,13 +56,27 @@ type LiveServerInfo struct {
 }
 
 // checkLive probes, a few at a time, each selected server that passed the static checks.
-func (s *Service) checkLive(source *Source, report *CheckReport, opts CheckOptions) {
+func (s *Service) checkLive(source *Source, report *CheckReport, opts CheckOptions) error {
 	timeout := opts.Timeout
 	if timeout <= 0 {
 		timeout = DefaultLiveTimeout
 	}
 	slots := make(chan struct{}, liveConcurrency)
 	baseline := s.loadToolBaseline(source, len(report.Servers), opts)
+	// Integrity is a prerequisite of the protected check, including when a
+	// server is disabled, unreachable or would only return an auth warning.
+	if baseline.err != nil {
+		if len(report.Servers) == 0 {
+			return baseline.err
+		}
+		for i := range report.Servers {
+			result := &report.Servers[i]
+			result.Contract = &ContractReview{Status: "error", Policy: contractPolicy}
+			result.Findings = append(result.Findings, CheckFinding{Level: "error", Check: "tool-change", Message: "tool contracts could not be compared: " + baseline.err.Error()})
+		}
+		baseline.save(s, report)
+		return nil
+	}
 	var wg sync.WaitGroup
 	for i := range report.Servers {
 		result := &report.Servers[i]
@@ -99,6 +113,7 @@ func (s *Service) checkLive(source *Source, report *CheckReport, opts CheckOptio
 	}
 	wg.Wait()
 	baseline.save(s, report)
+	return nil
 }
 
 func liveSkipReason(server Server, findings []CheckFinding) string {

@@ -7,8 +7,9 @@ inert fixtures: strict capture and complete pagination, directional changes,
 bounded audit, credential refusal, exact configuration/root identity,
 first observation without writes, revision-bound approval and stale/write
 failure preservation. Cover CLI integration, the local-protected API and the
-explicit dashboard confirmation/approval flow. Signing is a subsequent slice
-and is not covered as an available capability.
+explicit dashboard confirmation/approval flow. Optional signing is covered by
+the separate [ephemeral-key signing runbook](mcp-signing_runbook.md); this
+runbook keeps the unsigned workflow coverage.
 
 **Execution status: pending.** This runbook was authored from source only.
 No step below has a recorded runtime result; expected assertions are test
@@ -221,7 +222,8 @@ Expected:
 - Dashboard opens inertly, only explicit probing starts servers, and typed
   persisted approval is the only accepted outcome. Re-probe after stale/failure.
 - Website build and locale consistency checks have actual results before
-  claiming documentation build success. Signing remains outside this slice.
+  claiming documentation build success. Signed-store coverage is in the separate
+  signing runbook.
 
 ## Cleanup and report
 

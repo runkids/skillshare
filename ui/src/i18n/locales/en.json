@@ -3714,5 +3714,11 @@
   "mcp.contract.message.invalidAcceptanceResponse": "invalid MCP acceptance response",
   "mcp.contract.message.unknownAcceptance": "MCP acceptance outcome is unknown; probe again before accepting",
   "mcp.contract.protocol.discoveryInfoInvalid": "server/discover returned invalid server information",
-  "mcp.contract.message.sourceIdentityUnavailable": "MCP source identity is unavailable; inspect the source path and credential references"
+  "mcp.contract.message.sourceIdentityUnavailable": "MCP source identity is unavailable; inspect the source path and credential references",
+  "mcp.contract.message.signingKey": "MCP baseline key is invalid or unreadable; use an Ed25519 PEM key with safe file permissions",
+  "mcp.contract.message.verifyRequired": "signed MCP tool baseline requires CLI verification with --verify-key",
+  "mcp.contract.message.signatureInvalid": "MCP tool baseline signature could not be verified; supply the correct external verification key",
+  "mcp.contract.message.unsignedReview": "unsigned MCP tool baseline requires explicit --sign-unsigned review before signing",
+  "mcp.contract.message.signerRequired": "accepting signed MCP tool baselines requires a matching --signing-key and --verify-key",
+  "mcp.contract.message.migrationRequired": "--sign-unsigned requires an existing unsigned MCP tool baseline"
 }

@@ -57,6 +57,9 @@ skillshare sync --all
 | `--root PATH` | 搭配 `check`：精確選擇設定的 `mcp.projects` 根目錄；`--root ""` 只選目前設定清單，省略則觀察全部範圍 |
 | `--strict-tools` | 搭配 `check --live`：untrusted、legacy 或漂移視為 error |
 | `--accept-tools` | 搭配 `check --live`：以審閱所得 `--revision` 核准一個明確命名的 server；同名跨範圍時必須選擇 root。參見[工具契約](#pin-tool-definitions) |
+| `--verify-key FILE` | 搭配 `check --live`：以外部 Ed25519 PKIX PEM 公鑰驗證狀態庫；每次受保護檢查皆須提供 |
+| `--signing-key FILE` | 搭配 `check --live --accept-tools`：以符合 `--verify-key` 的 Ed25519 PKCS8 PEM 私鑰簽章 |
+| `--sign-unsigned` | 搭配 `check --live --verify-key`：明確預覽既有未簽章庫的遷移；接受另需相符簽章金鑰及遷移 revision |
 | `--http ADDR` | 搭配 `serve` 使用：在 `ADDR` 上以 Streamable HTTP 監聽，而不使用 stdio，同時提供 [Executor skill 索引](#executor)。參見[下方說明](#serve-skills-over-mcp) |
 | `--http-allow-insecure` | 使用 `serve --http` 時：明確允許可信任私有網路上的明文 HTTP，並在啟動時警告；預設關閉 |
 | `--tls-cert FILE`, `--tls-key FILE` | 搭配 `serve --http` 使用：以這組 PEM 憑證與金鑰提供 HTTPS；未明確允許時，非 loopback 位址必須設定 |
@@ -762,7 +765,39 @@ Version-2 記錄綁定正規化設定/來源身分、root/name、完整 server �
 不要透過刪除或移動信任狀態繞過失敗。
 
 這是對宣告契約的單次觀察，不驗證執行檔內容、環境中未宣告的值或引用值變化；無法偵測契約未變的惡意實作，
-也不會隔離或阻擋原生客戶端呼叫。本切片狀態庫未簽章，無法驗證本機修改；簽章屬後續切片，目前命令未提供。
+也不會隔離或阻擋原生客戶端呼叫。未簽章狀態無法驗證本機修改；選用簽章依賴獨立信任的外部驗證公鑰，無法偵測回復到較舊的有效簽章狀態。
+
+### 驗證與簽章基準 {#signed-tool-baselines}
+
+**每次受保護的即時檢查**皆提供 `--verify-key FILE`：僅接受 Ed25519 PKIX PEM 公鑰（`PUBLIC KEY`）。
+`--signing-key FILE` 僅在明確 `--accept-tools --revision REVIEW_REVISION --verify-key FILE` 時使用，
+僅接受相符的 Ed25519 PKCS8 PEM 私鑰（`PRIVATE KEY`）。三個簽章相關參數皆要求 `--live`。
+Skillshare 不產生金鑰，不把金鑰或路徑持久化到設定/狀態。公鑰及其必用政策須獨立於可編輯的狀態庫受信任；一起提交的公鑰不會自動成為信任起點。
+
+| 既有狀態庫 | 行為 |
+|---|---|
+| 不存在 | 有驗證公鑰時可作不寫入的 untrusted 預覽；首次簽章接受需相符私鑰及已審閱 revision |
+| 未簽章、無驗證公鑰 | 保留普通未簽章流程，無法驗證蓄意本機修改 |
+| 未簽章、有驗證公鑰 | 除 `--sign-unsigned` 明確遷移預覽外皆失敗；接受另需相符私鑰及遷移 revision |
+| 有效簽章 | 每次檢查需正確外部公鑰；接受另需相符私鑰；驗證過的無變更接受保留全部位元組 |
+| 簽章庫無驗證公鑰、無效簽章、錯誤/未知格式 | 失敗並保留檔案，不發核准 revision；遷移無法繞過 |
+
+遷移**既有未簽章庫**時，在僅帶驗證公鑰的預覽及後續明確簽章接受中皆加上 `--sign-unsigned`。
+即使所選未簽章記錄未變，遷移預覽仍為 `legacy`，簽章接受前 `--strict-tools` 失敗。
+遷移簽署所選已審閱記錄，並把**所有未選取的 V2 記錄**降為 `legacy-unsigned` 證據；保留資料，
+但各自需獨立重新審閱及接受才能恢復信任。revision 綁定遷移模式及整個狀態庫轉換，普通未簽章預覽 revision 無法授權遷移。
+遷移後移除該參數：`--sign-unsigned` 也拒絕不存在或已有有效簽章的狀態庫。
+
+同一原子 V2 狀態庫內含一個選用 `signature`（`algorithm: "Ed25519"`，base64 `value`）。
+簽章輸入為 `skillshare-mcp-pins-v2\n`（末尾一個換行）加不含 signature 的整個封裝的確定性精簡 JSON。
+信任前及鎖內寫入前重讀皆驗證與解析相同的有界位元組。未知演算法/欄位及格式錯誤簽章皆失敗。
+
+金鑰須為不超過 64 KiB 的一般檔案，只含一個未加密 PEM 區塊，不接受符號連結。
+Unix 拒絕帶 group/other 權限的私鑰；Windows 無法執行該 Unix mode 檢查，應自行用 ACL 保護。
+金鑰錯誤不暴露路徑或材料；私鑰不傳給 server、API/UI 或報告。
+同時移除簽章並省略外部驗證政策會讓狀態看似未簽章，須在外部強制每次使用驗證公鑰。
+簽章不證明實作安全，不提供執行時阻擋或回復新鮮度。API/儀表板不接收金鑰輸入，簽章庫須用 CLI 驗證，不提供信任操作。
+
 
 ### 儀表板與 API 審閱 {#contract-review-dashboard}
 

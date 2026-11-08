@@ -136,6 +136,9 @@ func TestCompletion_MCPCheck_AllShells(t *testing.T) {
 			result.AssertOutputContains(t, "goose hermes junie")
 		}
 		result.AssertOutputContains(t, "strict-tools")
+		result.AssertOutputContains(t, "verify-key")
+		result.AssertOutputContains(t, "signing-key")
+		result.AssertOutputContains(t, "sign-unsigned")
 		if shell == "fish" {
 			result.AssertOutputContains(t, "-l root")
 		} else {
@@ -323,7 +326,7 @@ COMP_WORDS=(skillshare mcp check --)
 COMP_CWORD=3
 _skillshare
 printf '%s\n' "${COMPREPLY[@]}"
-`, "bash", destPath), "--live", "--accept-tools", "--timeout", "--no-dns", "--strict-tools", "--root")
+`, "bash", destPath), "--live", "--accept-tools", "--timeout", "--no-dns", "--strict-tools", "--root", "--verify-key", "--signing-key", "--sign-unsigned")
 }
 
 // zshCapture completes a command line in an interactive zsh under zpty and prints each
@@ -393,7 +396,7 @@ func TestCompletion_Fish_CompletesMCPCheck(t *testing.T) {
 	}
 
 	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare mcp '"), "add", "check", "edit", "import", "list", "remove", "restore")
-	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare mcp check --'"), "--no-dns", "--live", "--accept-tools", "--timeout", "--strict-tools", "--root")
+	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare mcp check --'"), "--no-dns", "--live", "--accept-tools", "--timeout", "--strict-tools", "--root", "--verify-key", "--signing-key", "--sign-unsigned")
 	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare mcp add --'"), "--url", "--target", "--sync", "--replace", "--dry-run", "--json", "--no-tui")
 	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare backup '"), "files", "agents")
 	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare hub index --'"), "--audit", "--full")
@@ -422,7 +425,7 @@ func TestCompletion_Zsh_CompletesMCPCheck(t *testing.T) {
 
 	completeIn(t, "zsh", "-n", filepath.Join(dir, "_skillshare"))
 	assertCandidates(t, completeIn(t, "zsh", "-f", capture, dir, "skillshare mcp "), "add", "check", "edit", "import", "list", "remove", "restore")
-	assertCandidates(t, completeIn(t, "zsh", "-f", capture, dir, "skillshare mcp check --"), "--no-dns", "--live", "--accept-tools", "--timeout", "--strict-tools", "--root")
+	assertCandidates(t, completeIn(t, "zsh", "-f", capture, dir, "skillshare mcp check --"), "--no-dns", "--live", "--accept-tools", "--timeout", "--strict-tools", "--root", "--verify-key", "--signing-key", "--sign-unsigned")
 	assertCandidates(t, completeIn(t, "zsh", "-f", capture, dir, "skillshare backup "), "files", "agents")
 	assertCandidates(t, completeIn(t, "zsh", "-f", capture, dir, "skillshare backup files "), "list", "show", "restore")
 	assertCandidates(t, completeIn(t, "zsh", "-f", capture, dir, "skillshare hub index --"), "--audit", "--full")

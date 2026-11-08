@@ -120,6 +120,9 @@ _skillshare() {
                         '--json[JSON output]' \
                         '--no-dns[Skip host lookups]' \
                         '--live[check: start or call each server]' \
+                        '--verify-key[check --live: external Ed25519 public key]:file:_files' \
+                        '--signing-key[check --live --accept-tools: matching private key]:file:_files' \
+                        '--sign-unsigned[check --live: review migration of an unsigned baseline]' \
                         '--strict-tools[check --live: fail on untrusted or changed contracts]' \
                         '--root[check: exact project root, empty for global]:root:_files -/' \
                         '--accept-tools[check --live: accept the tools a server lists as the new baseline]' \
