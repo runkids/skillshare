@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -97,6 +98,98 @@ func TestDiscoverSourceSkills_SkipsTargetDotDirs(t *testing.T) {
 	}
 	if len(skills) != 2 || !got["ffmpeg-skill"] || !got[".claude/skills/host-skill"] {
 		t.Fatalf("expected ffmpeg-skill and .claude/skills/host-skill only, got %+v", skills)
+	}
+}
+
+func TestDiscoverSourceSkills_TrackedRepoAgentsSkills(t *testing.T) {
+	orig := sourcewalk.TargetDotDirs
+	sourcewalk.TargetDotDirs = map[string]bool{".agents": true, ".claude": true}
+	defer func() { sourcewalk.TargetDotDirs = orig }()
+	src := t.TempDir()
+	repo := filepath.Join(src, "_repo")
+	if err := os.MkdirAll(filepath.Join(repo, ".git"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []string{".agents", ".agents/skills/one", ".agents/skills/two", "skills/regular", ".agents/other/no", "skills/regular/.agents/skills/no", ".claude/skills/no"} {
+		writeSkillMD(t, filepath.Join(repo, p), "---\nname: test\n---\n")
+	}
+	for _, discover := range []struct {
+		name string
+		run  func(string) ([]DiscoveredSkill, error)
+	}{
+		{"full", func(s string) ([]DiscoveredSkill, error) { return DiscoverSourceSkills(s) }},
+		{"lite", func(s string) ([]DiscoveredSkill, error) {
+			skills, _, err := DiscoverSourceSkillsLite(s)
+			return skills, err
+		}},
+		{"stats", func(s string) ([]DiscoveredSkill, error) {
+			skills, _, err := DiscoverSourceSkillsWithStats(s)
+			return skills, err
+		}},
+		{"all", func(s string) ([]DiscoveredSkill, error) { return DiscoverSourceSkillsAll(s) }},
+	} {
+		t.Run(discover.name, func(t *testing.T) {
+			skills, err := discover.run(src)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := map[string]bool{}
+			for _, s := range skills {
+				got[s.RelPath] = true
+				if !s.IsInRepo || s.RepoRelPath != "_repo" || s.SourcePath != filepath.Join(src, s.RelPath) {
+					t.Errorf("incorrect tracked identity: %+v", s)
+				}
+				if s.FlatName != strings.ReplaceAll(s.RelPath, "/", "__") {
+					t.Errorf("incorrect flattened name: %+v", s)
+				}
+			}
+			for _, p := range []string{"_repo/.agents/skills/one", "_repo/.agents/skills/two", "_repo/skills/regular"} {
+				if !got[p] {
+					t.Errorf("missing %s: %v", p, got)
+				}
+			}
+			if len(got) != 3 {
+				t.Errorf("unexpected skills: %v", got)
+			}
+		})
+	}
+}
+
+func TestDiscoverSourceSkills_RepoAgentsSkillsIgnoreAndLinks(t *testing.T) {
+	orig := sourcewalk.TargetDotDirs
+	sourcewalk.TargetDotDirs = map[string]bool{".agents": true}
+	defer func() { sourcewalk.TargetDotDirs = orig }()
+
+	for _, tracked := range []bool{false, true} {
+		t.Run(fmt.Sprintf("tracked=%t", tracked), func(t *testing.T) {
+			src := t.TempDir()
+			repo := src
+			prefix := ""
+			if tracked {
+				repo = filepath.Join(src, "group", "_repo")
+				prefix = "group/_repo/"
+				if err := os.MkdirAll(filepath.Join(repo, ".git"), 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			writeSkillMD(t, filepath.Join(repo, ".agents/skills/visible"), "# Visible")
+			writeSkillMD(t, filepath.Join(repo, ".agents/skills/ignored"), "# Ignored")
+			if err := os.WriteFile(filepath.Join(repo, ".skillignore"), []byte(".agents/skills/ignored\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			outside := t.TempDir()
+			writeSkillMD(t, outside, "# Linked")
+			if err := os.Symlink(outside, filepath.Join(repo, ".agents/skills/linked")); err != nil {
+				t.Fatal(err)
+			}
+			skills, err := DiscoverSourceSkills(src)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(skills) != 1 || skills[0].RelPath != prefix+".agents/skills/visible" {
+				t.Fatalf("expected only the visible skill, got %+v", skills)
+			}
+		})
 	}
 }
 

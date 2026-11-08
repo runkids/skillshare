@@ -253,7 +253,13 @@ func discoverSkillsByDirectory(repoPath string, includeRoot bool) []SkillInfo {
 		// so filtering it would discover nothing at all.
 		if info.IsDir() {
 			name := info.Name()
-			if name == ".git" || (path != repoPath && TargetDotDirs[name]) {
+			// Authored skills may live in the repository's .agents/skills anchor.
+			// Other .agents content and target copies inside skills stay excluded.
+			repoAgents := name == ".agents" && filepath.Dir(path) == repoPath
+			if name == ".git" || (path != repoPath && TargetDotDirs[name] && !repoAgents) {
+				return filepath.SkipDir
+			}
+			if TargetDotDirs[".agents"] && filepath.Dir(path) == filepath.Join(repoPath, ".agents") && name != "skills" {
 				return filepath.SkipDir
 			}
 		}
@@ -261,6 +267,9 @@ func discoverSkillsByDirectory(repoPath string, includeRoot bool) []SkillInfo {
 		// Check if this is a SKILL.md file
 		if !info.IsDir() && info.Name() == "SKILL.md" {
 			skillDir := filepath.Dir(path)
+			if TargetDotDirs[".agents"] && skillDir == filepath.Join(repoPath, ".agents") {
+				return nil
+			}
 			relPath, _ := filepath.Rel(repoPath, skillDir)
 			fm := utils.ParseFrontmatterFields(path, []string{"description", "license"})
 

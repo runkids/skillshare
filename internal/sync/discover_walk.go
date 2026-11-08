@@ -185,7 +185,15 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 
 		// Skip .git and nested target dotdirs (.claude, .cursor, ...) so a skill
 		// that ships its own target copies is not re-discovered as nested skills.
-		if (info.IsDir() && info.Name() == ".git") || sourcewalk.SkipTargetDotDir(walkRoot, path, info) {
+		// A tracked checkout can ship authored skills in its root .agents/skills.
+		// Keep skipping agent directories nested inside individual skills.
+		parentRel, _ := filepath.Rel(walkRoot, filepath.Dir(path))
+		parentRel = filepath.ToSlash(parentRel)
+		repoAgents := info.IsDir() && info.Name() == ".agents" && repoRoots[parentRel]
+		if (info.IsDir() && info.Name() == ".git") || (!repoAgents && sourcewalk.SkipTargetDotDir(walkRoot, path, info)) {
+			return filepath.SkipDir
+		}
+		if sourcewalk.TargetDotDirs[".agents"] && info.IsDir() && filepath.Base(filepath.Dir(path)) == ".agents" && repoRoots[filepath.ToSlash(filepath.Dir(parentRel))] && info.Name() != "skills" {
 			return filepath.SkipDir
 		}
 
@@ -252,6 +260,9 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 		// Look for SKILL.md files
 		if !info.IsDir() && info.Name() == "SKILL.md" {
 			skillDir := filepath.Dir(path)
+			if sourcewalk.TargetDotDirs[".agents"] && filepath.Base(skillDir) == ".agents" && repoRoots[filepath.ToSlash(filepath.Dir(parentRel))] {
+				return nil
+			}
 			relPath, err := filepath.Rel(walkRoot, skillDir)
 			if err != nil {
 				return nil
