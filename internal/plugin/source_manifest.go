@@ -18,6 +18,7 @@ type manifestSpec struct{ path, target string }
 
 func inspect(root string, explicit ...string) (Candidate, error) {
 	c := Candidate{Targets: []string{}, Components: []string{}, TargetInfo: map[string]TargetPackage{}}
+	var claudeFields map[string]json.RawMessage
 	specs := []manifestSpec{{".codex-plugin/plugin.json", "codex"}, {".claude-plugin/plugin.json", "claude"}, {".omp-plugin/plugin.json", "omp"}, {".cursor-plugin/plugin.json", "cursor"}, {"package.json", "pi"}, {"package.json", "opencode"}, {".plugin/plugin.json", "copilot"}, {".github/plugin/plugin.json", "copilot"}, {".grok-plugin/plugin.json", "grok"}, {"kimi.plugin.json", "kimi"}, {".kimi-plugin/plugin.json", "kimi"}, {".devin-plugin/plugin.json", "devin"}, {".hermes-plugin/plugin.yaml", "hermes"}, {"plugin.json", "codex"}, {"package.json", "omp"}}
 	for _, spec := range specs {
 		data, err := os.ReadFile(filepath.Join(root, spec.path))
@@ -121,6 +122,9 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 				c.Name, c.Description, c.Version = name, desc, info.Version
 			}
 			info.Components = manifestComponents(root, spec.target, m, info.Components)
+			if spec.target == "claude" {
+				claudeFields = m
+			}
 		}
 		// The first native manifest wins; explicit invalid manifests remain errors. Codex is the
 		// exception: it installs from a portable root plugin.json ahead of .codex-plugin/plugin.json,
@@ -145,6 +149,19 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 				}
 				c.TargetInfo["codex"] = codex
 			}
+		}
+	}
+	// Codex reads a Claude manifest when none of its own comes first, but only the fields it
+	// understands, so Claude's other components (agents, for example) are not offered to it.
+	if claude, ok := c.TargetInfo["claude"]; ok && claude.Problem == "" && claudeFields != nil {
+		if codexUsesClaudeManifest(root) {
+			fields := map[string]json.RawMessage{}
+			for _, key := range []string{"skills", "commands", "hooks", "mcpServers", "apps"} {
+				if raw, ok := claudeFields[key]; ok {
+					fields[key] = raw
+				}
+			}
+			c.TargetInfo["codex"] = TargetPackage{Manifest: claude.Manifest, Version: claude.Version, Logo: codexLogo(root, claudeFields["interface"]), Components: manifestComponents(root, "codex", fields, []string{})}
 		}
 	}
 	if info, ok := c.TargetInfo["claude"]; ok && info.Problem == "" {
@@ -216,6 +233,46 @@ func claudeEntryFields(fields map[string]json.RawMessage) map[string]json.RawMes
 }
 
 func isDirectory(path string) bool { info, err := os.Stat(path); return err == nil && info.IsDir() }
+
+// codexUsesClaudeManifest follows Codex 0.166 (find_plugin_manifest_path): a root plugin.json
+// with an Agent Plugins schema comes first, then .codex-plugin/plugin.json, then
+// .claude-plugin/plugin.json. A location that is present but linked or not a regular file ends
+// the search, so a later manifest never stands in for it. An unrelated or malformed root
+// plugin.json is ignored, but an unsupported Agent Plugins schema is not.
+func codexUsesClaudeManifest(root string) bool {
+	path := filepath.Join(root, "plugin.json")
+	if info, err := os.Lstat(path); !os.IsNotExist(err) {
+		if err != nil || !info.Mode().IsRegular() {
+			return false
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return false
+		}
+		var fields map[string]json.RawMessage
+		var schema string
+		if json.Unmarshal(data, &fields) == nil {
+			_ = json.Unmarshal(fields["$schema"], &schema)
+		}
+		if strings.HasPrefix(schema, "https://agent-plugins.org/schemas/") {
+			return false
+		}
+	}
+	for _, dir := range []string{".codex-plugin", ".claude-plugin"} {
+		info, err := os.Lstat(filepath.Join(root, dir))
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil || !info.IsDir() {
+			return false
+		}
+		if info, err = os.Lstat(filepath.Join(root, dir, "plugin.json")); os.IsNotExist(err) {
+			continue
+		}
+		return err == nil && info.Mode().IsRegular() && dir == ".claude-plugin"
+	}
+	return false
+}
 
 func manifestComponents(root, target string, m map[string]json.RawMessage, components []string) []string {
 	if target == "pi" || target == "opencode" {
