@@ -51,7 +51,10 @@ func pythonInertLines(filename, text string) []bool {
 			if quote != "" {
 				switch {
 				case c == '\\':
-					j++
+					// In an f-string a backslash does not stop a brace from opening or closing a field.
+					if !fstring || j+1 >= len(line) || (line[j+1] != '{' && line[j+1] != '}') {
+						j++
+					}
 				case fstring && field > 0 && (c == '"' || c == '\'' || c == '#'):
 					return inert // a nested string or comment can hide where the field ends
 				case fstring && field > 0 && c == '{':
