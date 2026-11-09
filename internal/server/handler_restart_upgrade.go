@@ -168,7 +168,7 @@ func defaultStartUIRestartHelper(args []string, dir string) error {
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(exe, args...)
+	cmd := exec.Command(restartExecutable(exe), args...)
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	cmd.Stdin = nil
@@ -179,6 +179,18 @@ func defaultStartUIRestartHelper(args []string, dir string) error {
 		return err
 	}
 	return cmd.Process.Release()
+}
+
+// restartExecutable returns the binary that starts the restarted dashboard.
+// A Homebrew binary runs from a versioned Cellar keg that `brew upgrade`
+// deletes, so it restarts through the link Homebrew keeps at
+// <prefix>/bin/skillshare, which points at the installed version.
+func restartExecutable(exe string) string {
+	if versioncheck.DetectInstallMethod(exe) != versioncheck.InstallBrew {
+		return exe
+	}
+	prefix, _, _ := strings.Cut(exe, "/Cellar/")
+	return prefix + "/bin/skillshare"
 }
 
 func restartRequestAllowed(r *http.Request, serverAddr string) bool {
