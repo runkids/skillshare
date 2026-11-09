@@ -223,7 +223,7 @@ SKILLSHARE_UI_BASE_PATH=/skillshare skillshare ui --host 0.0.0.0 --no-open
 ```nginx
 location /skillshare/ {
     proxy_pass http://127.0.0.1:19420;
-    proxy_set_header Host $host;
+    proxy_set_header Host $http_host;
     proxy_set_header X-Real-IP $remote_addr;
 }
 ```
@@ -235,6 +235,8 @@ handle_path /skillshare/* {
     reverse_proxy 127.0.0.1:19420
 }
 ```
+
+両方の例のように、ブラウザの `Host` ヘッダーをポートも含めてそのまま渡してください。リクエストの `Origin` が `Host` と一致しない場合、ダッシュボードは変更を拒否します。これにより、他の Web サイトがブラウザ経由で変更を行うことを防ぎます。Caddy はデフォルトで `Host` を保持します。`header_up Host` で書き換えないでください。
 
 :::tip
 `--base-path` を使わない場合、ダッシュボードは従来どおり動作します — `localhost:19420` への直接アクセスに追加の設定は不要です。

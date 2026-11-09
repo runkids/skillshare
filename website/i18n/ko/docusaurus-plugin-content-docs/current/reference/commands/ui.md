@@ -223,7 +223,7 @@ SKILLSHARE_UI_BASE_PATH=/skillshare skillshare ui --host 0.0.0.0 --no-open
 ```nginx
 location /skillshare/ {
     proxy_pass http://127.0.0.1:19420;
-    proxy_set_header Host $host;
+    proxy_set_header Host $http_host;
     proxy_set_header X-Real-IP $remote_addr;
 }
 ```
@@ -235,6 +235,8 @@ handle_path /skillshare/* {
     reverse_proxy 127.0.0.1:19420
 }
 ```
+
+두 예시처럼 브라우저의 `Host` 헤더를 포트까지 포함해 그대로 전달하세요. 요청의 `Origin`이 `Host`와 일치하지 않으면 대시보드는 변경을 거부합니다. 이렇게 해서 다른 웹사이트가 브라우저를 통해 변경하지 못하게 합니다. Caddy는 기본적으로 `Host`를 유지합니다. `header_up Host`로 바꾸지 마세요.
 
 :::tip
 `--base-path` 없이는 대시보드가 이전과 동일하게 동작합니다 — `localhost:19420`에서 직접 접속할 때는 별도 설정이 필요 없습니다.
