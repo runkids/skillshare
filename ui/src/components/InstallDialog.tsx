@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { api, ApiError, type DiscoverResult, type DiscoveredSkill, type HubSavedEntry, type SearchResult } from '../api/client';
 import { clearAuditCache } from '../lib/auditCache';
-import { isAuditBlock, parseFindings, thresholdOf, type Finding } from '../lib/auditMessage';
+import { isAuditBlock, parseFindings, statusNote, thresholdOf, type Finding, type StatusNote } from '../lib/auditMessage';
 import { parseSkillMarkdown } from '../lib/frontmatter';
 import { parseSkillsAddCommand, requestedSkills } from '../lib/skillsAddCommand';
 import type { SkillsAddCommand } from '../lib/skillsAddCommand';
@@ -33,7 +33,7 @@ import MarkdownView, { ViewToggle } from './MarkdownView';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { existingFolders, linkPrefix, skillNameFromSource } from '../lib/moveFolders';
 import { formatSkillDisplayName } from '../lib/resourceNames';
-import { useI18n, useT } from '../i18n';
+import { plural, useI18n, useT } from '../i18n';
 import Button from './Button';
 import ConfigInstallPanel from './ConfigInstallPanel';
 import { Checkbox } from './Checkbox';
@@ -183,6 +183,20 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   // These keys are not named `.one`/`.other`, so `plural` does not fit them.
   const countLabel = (k: Kind, n: number) => t(`resources.count.${k}${n === 1 ? '' : 's'}`, { count: n });
   const findingsLabel = (n: number) => t(n === 1 ? 'install.finding' : 'install.findings', { count: n });
+  const noteText = (n: StatusNote) => {
+    switch (n.key) {
+      case 'forced':
+        return t('install.warnings.forced', { threshold: n.value });
+      case 'accepted':
+        return t(plural('install.warnings.accepted', Number(n.value)), { count: Number(n.value) });
+      case 'belowThreshold':
+        return t('install.warnings.belowThreshold', { threshold: n.value });
+      case 'skipped':
+        return t('install.warnings.skipped');
+      default:
+        return n.text;
+    }
+  };
   const compact = new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 });
   const locked = busy !== null && busy !== 'search';
   const src = source.trim();
@@ -556,11 +570,34 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
     ({ title, sub, body, foot } = newFolder);
     onBack = newFolder.back;
   } else if (view === 'warnings') {
+    const findings = warnings.filter((f) => f.severity);
+    const notes = new Map<string, string[]>();
+    for (const n of warnings.filter((f) => !f.severity).map((f) => statusNote(f.message))) {
+      const name = n.name ?? '';
+      notes.set(name, [...(notes.get(name) ?? []), noteText(n)]);
+    }
     title = t('install.warnings.title');
     body = (
       <>
-        <p className="text-[13px] text-ink-2">{t('install.warnings.message')}</p>
-        <FindingList findings={warnings} showName header={findingsLabel(warnings.length)} />
+        {notes.size > 0 && (
+          <div className="ss-note inf">
+            <Info size={16} />
+            <ul className="flex flex-1 flex-col gap-1">
+              {[...notes].map(([name, texts]) => (
+                <li key={name} className="flex flex-col">
+                  {name && <b className="font-mono">{name}</b>}
+                  {texts.map((text, i) => <span key={i}>{text}</span>)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {findings.length > 0 && (
+          <>
+            <p className="text-[13px] text-ink-2">{t('install.warnings.message')}</p>
+            <FindingList findings={findings} showName header={findingsLabel(findings.length)} />
+          </>
+        )}
       </>
     );
     foot = <Button variant="primary" onClick={() => (tab === 'url' ? onClose() : setView(null))}>{t('install.done')}</Button>;

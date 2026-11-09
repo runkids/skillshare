@@ -9,6 +9,25 @@ const FINDING = /(?:^|: )(?:audit )?(CRITICAL|HIGH|MEDIUM|LOW|INFO): (.*?)(?: \(
 // The Go side appends this note to a finding lowered on an inert Python line; the dashboard shows its own translation.
 const LOWERED = / \(lowered from CRITICAL[^()]*\)$/;
 
+/** A line of an install's warnings that is not a finding. Batch installs prefix it with the skill name. */
+export type StatusNote = { name?: string; text: string; key?: 'forced' | 'accepted' | 'belowThreshold' | 'skipped'; value?: string };
+
+// The audit status lines internal/install writes, so the dashboard can show its own translation.
+const STATUS: [RegExp, NonNullable<StatusNote['key']>][] = [
+  [/^(?:(.+?): )?audit findings at\/above block threshold \((\w+)\); proceeding due to --force$/, 'forced'],
+  [/^(?:(.+?): )?recorded (\d+) accepted finding\(s\); future updates won't block on them$/, 'accepted'],
+  [/^(?:(.+?): )?audit findings detected, but none at\/above block threshold \((\w+)\)$/, 'belowThreshold'],
+  [/^(?:(.+?): )?audit skipped \(--skip-audit\)$/, 'skipped'],
+];
+
+export function statusNote(line: string): StatusNote {
+  for (const [re, key] of STATUS) {
+    const m = line.match(re);
+    if (m) return { name: m[1], text: line, key, value: m[2] };
+  }
+  return { text: line };
+}
+
 export const isAuditBlock = (msg: string) => msg.includes('security audit failed');
 export const thresholdOf = (msg: string) => msg.match(/at\/above (\w+)/)?.[1] ?? '';
 
