@@ -2366,6 +2366,7 @@
   "hubs.view.edit": "編集",
   "hubs.view.share": "共有",
   "hubs.view.more": "その他の操作",
+  "hubs.view.refresh": "更新",
   "hubs.view.version": "バージョン",
   "hubs.view.delete": "Hub を削除",
   "hubs.view.deleteHint": "この Hub を完全に削除しますか？インストール済みの skills や公開先のファイルには影響しません。",

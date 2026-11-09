@@ -2366,6 +2366,7 @@
   "hubs.view.edit": "编辑",
   "hubs.view.share": "分享",
   "hubs.view.more": "更多操作",
+  "hubs.view.refresh": "刷新",
   "hubs.view.version": "版本",
   "hubs.view.delete": "删除 Hub",
   "hubs.view.deleteHint": "要永久删除这个 Hub 吗？已安装的 skills 和放在别处的文件不受影响。",

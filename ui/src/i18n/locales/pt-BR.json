@@ -2366,6 +2366,7 @@
   "hubs.view.edit": "Editar",
   "hubs.view.share": "Compartilhar",
   "hubs.view.more": "Mais ações",
+  "hubs.view.refresh": "Atualizar",
   "hubs.view.version": "Versão",
   "hubs.view.delete": "Excluir Hub",
   "hubs.view.deleteHint": "Excluir este Hub permanentemente? Skills instalados e arquivos hospedados não são afetados.",
