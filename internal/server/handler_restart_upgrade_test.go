@@ -61,7 +61,7 @@ func TestMCPRequestAllowed(t *testing.T) {
 			if tt.fetchSite != "" {
 				req.Header.Set("Sec-Fetch-Site", tt.fetchSite)
 			}
-			if got := mcpRequestAllowed(req, tt.serverAddr); got != tt.want {
+			if got := (&Server{addr: tt.serverAddr}).mcpRequestAllowed(req); got != tt.want {
 				t.Fatalf("mcpRequestAllowed = %v, want %v", got, tt.want)
 			}
 		})

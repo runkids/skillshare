@@ -432,7 +432,7 @@ make docker-build-multiarch                # linux/amd64 + linux/arm64（低速�
 
 `docker-build` は自分のマシンのアーキテクチャ向けのイメージのみを生成します — Apple Silicon で作った arm64 イメージは x86 サーバーでは動きません。レジストリにプッシュする場合は `docker-build-multiarch` を使い、どのプラットフォームでも適切なイメージが自動的に選ばれるようにします。
 
-本番イメージは PID 1 として `tini` を使用し、non-root ユーザー（UID 10001）で実行され、ヘルスチェックを含み、初回起動時に設定を自動初期化します。デフォルトコマンド: `skillshare ui -g --host 0.0.0.0 --no-open`。
+本番イメージは PID 1 として `tini` を使用し、non-root ユーザー（UID 10001）で実行され、ヘルスチェックを含み、初回起動時に設定を自動初期化します。デフォルトコマンド: `skillshare ui -g --host 0.0.0.0 --no-open`。 `localhost` や IP アドレスではなくドメイン名で開くには、`SKILLSHARE_UI_TRUSTED_ORIGINS` を設定してください。[リバースプロキシ](/docs/reference/commands/ui#reverse-proxy) を参照してください。
 
 公開されたイメージは GHCR で利用可能です（タグプッシュ時に自動的にプッシュされます）。
 

@@ -8,8 +8,8 @@ Manage named hooks and synchronize each receiving Agent's or Git's native config
 Use the dashboard's **Hooks** page to add, edit, import, enable or disable entries,
 then preview before syncing. Hooks also appear in destination **Targets** and
 **Projects**, **Sync**, and **Settings → Backups**. The **Hooks** page works only
-when the browser opens the dashboard by `localhost` or an IP address; see
-[Reverse Proxy](/docs/reference/commands/ui#reverse-proxy).
+when the browser opens the dashboard by `localhost`, an IP address or a trusted
+origin; see [Reverse Proxy](/docs/reference/commands/ui#reverse-proxy).
 
 Use a hook row's menu to view the native configuration or code for each target,
 including script files and destination paths. This read-only preview shows that

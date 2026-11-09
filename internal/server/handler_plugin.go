@@ -47,7 +47,7 @@ func pluginAccounts(cfg *config.Config) map[string]plugin.Account {
 
 func (s *Server) requireLocalPlugin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !mcpRequestAllowed(r, s.addr) {
+		if !s.mcpRequestAllowed(r) {
 			writeError(w, http.StatusForbidden, "Plugin management is available only from the local dashboard")
 			return
 		}

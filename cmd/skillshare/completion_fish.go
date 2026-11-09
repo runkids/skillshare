@@ -431,6 +431,7 @@ complete -c skillshare -n '__fish_skillshare_using_command ui' -l port -r -d 'Se
 complete -c skillshare -n '__fish_skillshare_using_command ui' -l host -r -d 'Set host'
 complete -c skillshare -n '__fish_skillshare_using_command ui' -a 'start stop' -d 'Background UI server'
 complete -c skillshare -n '__fish_skillshare_using_command ui' -l base-path -s b -r -d 'Base path prefix for reverse proxy'
+complete -c skillshare -n '__fish_skillshare_using_command ui' -l trusted-origin -r -d 'Also answer at this origin'
 complete -c skillshare -n '__fish_skillshare_using_command ui' -l no-open -d 'Do not open browser'
 complete -c skillshare -n '__fish_skillshare_using_command ui' -l clear-cache -d 'Clear cached UI assets'
 complete -c skillshare -n '__fish_skillshare_using_command ui' -l app -d 'Open as app window (start only)'

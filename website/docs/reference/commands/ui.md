@@ -38,6 +38,7 @@ Opens `http://127.0.0.1:19420` in your default browser.
 | `--port <port>` | `19420` | HTTP server port |
 | `--host <host>` | `127.0.0.1` | Bind address (use `0.0.0.0` for Docker) |
 | `-b`, `--base-path <path>` | | Sub-path for reverse proxy (e.g., `/skillshare`) |
+| `--trusted-origin <url>` | | Another address the dashboard answers at, such as `https://tools.example.com` behind a [reverse proxy](#reverse-proxy). Repeat for more |
 | `--no-open` | `false` | Don't open browser automatically |
 | `--app` | `false` | Open the dashboard as a desktop-style Chromium app window when available (`start` mode only) |
 | `--clear-cache` | | In the foreground form: clear cached UI assets and exit. Combined with `start`: clear cache, then start in the background |
@@ -206,17 +207,19 @@ If the auto-reload doesn't complete, the dialog tells you to run `skillshare ui 
 
 ## Reverse Proxy {#reverse-proxy}
 
-If you run the dashboard on a shared server behind a reverse proxy (e.g., homelab, internal tools platform), use `--base-path` to serve it under a sub-path alongside other services:
+If you run the dashboard on a shared server behind a reverse proxy (e.g., homelab, internal tools platform), pass the address you open in the browser with `--trusted-origin`, and use `--base-path` to serve it under a sub-path alongside other services:
 
 ```bash
-skillshare ui --base-path /skillshare --host 0.0.0.0 --no-open
+skillshare ui --base-path /skillshare --host 0.0.0.0 --trusted-origin https://tools.example.com --no-open
 ```
 
-Or via environment variable:
+Or via environment variables:
 
 ```bash
-SKILLSHARE_UI_BASE_PATH=/skillshare skillshare ui --host 0.0.0.0 --no-open
+SKILLSHARE_UI_BASE_PATH=/skillshare SKILLSHARE_UI_TRUSTED_ORIGINS=https://tools.example.com skillshare ui --host 0.0.0.0 --no-open
 ```
+
+The dashboard answers only at `localhost`, an IP address such as `http://192.168.1.20:19420`, the name given with `--host`, and each trusted origin. Any other domain name gets 403, because a DNS rebinding attack points a domain name it controls at your machine. Give each origin as a scheme and host, plus the port when it is not the default, such as `https://tools.example.com` or `http://nas.local:8080`. Repeat `--trusted-origin`, or separate origins with commas in `SKILLSHARE_UI_TRUSTED_ORIGINS`. Anyone who can reach a trusted address can use the whole dashboard, including the MCP, Hooks and Plugins pages that write commands Agents run, so list only addresses you control and restrict who can reach them at the proxy.
 
 ### Nginx
 
@@ -236,14 +239,10 @@ handle_path /skillshare/* {
 }
 ```
 
-Keep the browser's `Host` header, including its port, as both examples do. The dashboard refuses a change when the request's `Origin` does not match its `Host`, so another website cannot make changes through your browser. Caddy keeps `Host` by default; do not rewrite it with `header_up Host`.
+Keep the browser's `Host` header, including its port, as both examples do. The dashboard matches `Host` against the trusted origins, and refuses a change when the request's `Origin` does not match its `Host`, so another website cannot make changes through your browser. Caddy keeps `Host` by default; do not rewrite it with `header_up Host`.
 
 :::tip
 Without `--base-path`, the dashboard behaves identically to before — no configuration needed for direct access on `localhost:19420`.
-:::
-
-:::note MCP and Hooks settings
-The MCP and Hooks pages work only when the browser opens the dashboard by `localhost` or an IP address, such as `http://192.168.1.20:19420`. Through a domain name, including a reverse proxy, MCP and Hooks requests return 403: both write commands that Agents run, and DNS rebinding attacks always use a domain name. To manage MCP or Hooks settings on a remote machine, forward the port with `ssh -L 19420:127.0.0.1:19420 HOST` and open `http://localhost:19420`.
 :::
 
 ## Docker Usage

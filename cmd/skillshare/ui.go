@@ -31,13 +31,16 @@ const (
 )
 
 type uiBackgroundOptions struct {
-	mode       runMode
-	host       string
-	port       string
-	basePath   string
-	noOpen     bool
-	appWindow  bool
-	clearCache bool
+	mode     runMode
+	host     string
+	port     string
+	basePath string
+	// trustedOrigins hold the --trusted-origin values as given; startUIInBackground resolves
+	// them, so a mistyped value cannot stop `ui stop` from working.
+	trustedOrigins []string
+	noOpen         bool
+	appWindow      bool
+	clearCache     bool
 }
 
 type currentUIState struct {
@@ -52,7 +55,7 @@ func cmdUI(args []string) error {
 		return nil
 	}
 
-	mode, rest, err := parseModeArgs(args, "--port", "--host", "--base-path", "-b")
+	mode, rest, err := parseModeArgs(args, "--port", "--host", "--base-path", "-b", "--trusted-origin")
 	if err != nil {
 		return err
 	}
@@ -76,6 +79,7 @@ func cmdUI(args []string) error {
 	port := "19420"
 	host := "127.0.0.1"
 	basePath := ""
+	var trustedOrigins []string
 	noOpen := false
 	clearCache := false
 
@@ -102,6 +106,13 @@ func cmdUI(args []string) error {
 			} else {
 				return fmt.Errorf("--base-path requires a value")
 			}
+		case "--trusted-origin":
+			if i+1 < len(rest) {
+				i++
+				trustedOrigins = append(trustedOrigins, rest[i])
+			} else {
+				return fmt.Errorf("--trusted-origin requires a value")
+			}
 		case "--no-open":
 			noOpen = true
 		case "--clear-cache":
@@ -123,6 +134,10 @@ func cmdUI(args []string) error {
 	if basePath == "" {
 		basePath = os.Getenv("SKILLSHARE_UI_BASE_PATH")
 	}
+	trustedOrigins, err = resolveUITrustedOrigins(trustedOrigins)
+	if err != nil {
+		return err
+	}
 
 	// Auto-detect project mode
 	mode = resolveUIMode(mode)
@@ -132,9 +147,9 @@ func cmdUI(args []string) error {
 	url := uiURL(uiBackgroundOptions{host: host, port: port, basePath: basePath})
 
 	if mode == modeProject {
-		return startProjectUI(addr, url, basePath, noOpen)
+		return startProjectUI(addr, url, basePath, trustedOrigins, noOpen)
 	}
-	return startGlobalUI(addr, url, basePath, noOpen)
+	return startGlobalUI(addr, url, basePath, trustedOrigins, noOpen)
 }
 
 func splitUIMode(args []string) (string, []string) {
@@ -151,6 +166,7 @@ func parseUIBackgroundOptions(mode runMode, args []string) (uiBackgroundOptions,
 		port:     envOrDefaultUI("SKILLSHARE_UI_PORT", "19420"),
 		basePath: envOrDefaultUI("SKILLSHARE_UI_BASE_PATH", ""),
 	}
+	var trustedOrigins []string
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--port":
@@ -177,6 +193,13 @@ func parseUIBackgroundOptions(mode runMode, args []string) (uiBackgroundOptions,
 			}
 			opts.basePath = value
 			i = next
+		case "--trusted-origin":
+			value, next, err := requireUIFlagValue(args, i, "--trusted-origin")
+			if err != nil {
+				return uiBackgroundOptions{}, err
+			}
+			trustedOrigins = append(trustedOrigins, value)
+			i = next
 		case "--no-open":
 			opts.noOpen = true
 		case "--app":
@@ -190,7 +213,21 @@ func parseUIBackgroundOptions(mode runMode, args []string) (uiBackgroundOptions,
 	if err := validateUIPort(opts.port); err != nil {
 		return uiBackgroundOptions{}, err
 	}
+	opts.trustedOrigins = trustedOrigins
 	return opts, nil
+}
+
+// resolveUITrustedOrigins uses the --trusted-origin values, or SKILLSHARE_UI_TRUSTED_ORIGINS
+// (comma-separated) when none were given, as --base-path falls back to its variable.
+func resolveUITrustedOrigins(flags []string) ([]string, error) {
+	if len(flags) == 0 {
+		for _, value := range strings.Split(os.Getenv("SKILLSHARE_UI_TRUSTED_ORIGINS"), ",") {
+			if value = strings.TrimSpace(value); value != "" {
+				flags = append(flags, value)
+			}
+		}
+	}
+	return server.ParseTrustedOrigins(flags)
 }
 
 func requireUIFlagValue(args []string, index int, name string) (string, int, error) {
@@ -240,6 +277,11 @@ func resolveRememberedUIOptions(opts uiBackgroundOptions) uiBackgroundOptions {
 
 func startUIInBackground(opts uiBackgroundOptions) error {
 	opts.mode = resolveUIMode(opts.mode)
+	origins, err := resolveUITrustedOrigins(opts.trustedOrigins)
+	if err != nil {
+		return err
+	}
+	opts.trustedOrigins = origins
 	if uiServerReady(opts) {
 		_ = writeCurrentUIState(opts)
 		url := uiURL(opts)
@@ -317,7 +359,7 @@ func cmdUIStop(opts uiBackgroundOptions) error {
 }
 
 func cmdUIRestart(args []string) error {
-	mode, rest, err := parseModeArgs(args, "--port", "--host", "--base-path", "-b")
+	mode, rest, err := parseModeArgs(args, "--port", "--host", "--base-path", "-b", "--trusted-origin")
 	if err != nil {
 		return err
 	}
@@ -336,6 +378,9 @@ func uiChildArgs(opts uiBackgroundOptions) []string {
 	args := []string{"ui", "--no-open", "--host", opts.host, "--port", opts.port}
 	if opts.basePath != "" {
 		args = append(args, "--base-path", opts.basePath)
+	}
+	for _, origin := range opts.trustedOrigins {
+		args = append(args, "--trusted-origin", origin)
 	}
 	if opts.mode == modeProject {
 		args = append(args, "--project")
@@ -635,7 +680,7 @@ func ensureUIAvailable() (string, error) {
 	return dir, nil
 }
 
-func startProjectUI(addr, url, basePath string, noOpen bool) error {
+func startProjectUI(addr, url, basePath string, trustedOrigins []string, noOpen bool) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get working directory: %w", err)
@@ -673,6 +718,7 @@ func startProjectUI(addr, url, basePath string, noOpen bool) error {
 	}
 
 	srv := server.NewProject(cfg, rt.config, cwd, addr, basePath, uiDir)
+	srv.SetTrustedOrigins(trustedOrigins)
 	if !noOpen {
 		srv.SetOnReady(func() {
 			ui.Success("Opening %s in your browser... (project mode)", url)
@@ -682,7 +728,7 @@ func startProjectUI(addr, url, basePath string, noOpen bool) error {
 	return srv.Start()
 }
 
-func startGlobalUI(addr, url, basePath string, noOpen bool) error {
+func startGlobalUI(addr, url, basePath string, trustedOrigins []string, noOpen bool) error {
 	cfg, err := loadUIConfig()
 	if err != nil {
 		return err
@@ -694,6 +740,7 @@ func startGlobalUI(addr, url, basePath string, noOpen bool) error {
 	}
 
 	srv := server.New(cfg, addr, basePath, uiDir)
+	srv.SetTrustedOrigins(trustedOrigins)
 	if !noOpen {
 		srv.SetOnReady(func() {
 			ui.Success("Opening %s in your browser...", url)
@@ -796,6 +843,7 @@ func printUIHelp() {
 			{"--port <port>", "Server port (default: 19420)"},
 			{"--host <host>", "Server host (default: 127.0.0.1)"},
 			{"-b, --base-path", "Base path prefix for reverse proxy"},
+			{"--trusted-origin <url>", "Also answer at this origin, such as a reverse proxy domain (repeatable)"},
 			{"--no-open", "Don't open browser automatically"},
 			{"--app", "Open as desktop-style app window when supported (start only)"},
 			{"--clear-cache", "Clear cached UI assets and exit (foreground) or before start"},
@@ -807,6 +855,7 @@ func printUIHelp() {
 			helpRow{"skillshare ui start", "Start dashboard in background"},
 			helpRow{"skillshare ui stop", "Stop background dashboard"},
 			helpRow{"skillshare ui --port 8080", "Launch on custom port"},
+			helpRow{"skillshare ui start --trusted-origin https://skills.example.com", "Serve behind a reverse proxy at that domain"},
 			helpRow{"skillshare ui --no-open", "Launch without opening browser"},
 			helpRow{"skillshare ui -p", "Launch in project mode"},
 			helpRow{"skillshare ui --clear-cache", "Clear cached UI files"},

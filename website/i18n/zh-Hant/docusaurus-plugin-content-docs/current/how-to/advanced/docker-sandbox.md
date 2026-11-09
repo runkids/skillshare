@@ -432,7 +432,7 @@ make docker-build-multiarch                # linux/amd64 + linux/arm64（速度�
 
 `docker-build` 只會產生你機器架構專用的映像檔 — 從 Apple Silicon 建置出的 arm64 映像檔無法在 x86 伺服器上執行。推送到 registry 時請使用 `docker-build-multiarch`，讓任何平台都能自動取得正確的映像檔。
 
-正式環境映像檔使用 `tini` 作為 PID 1，以非 root 使用者（UID 10001）執行，內含 healthcheck，並在第一次執行時自動初始化設定。預設指令：`skillshare ui -g --host 0.0.0.0 --no-open`。
+正式環境映像檔使用 `tini` 作為 PID 1，以非 root 使用者（UID 10001）執行，內含 healthcheck，並在第一次執行時自動初始化設定。預設指令：`skillshare ui -g --host 0.0.0.0 --no-open`。 若要以網域名稱而非 `localhost` 或 IP 位址開啟，請設定 `SKILLSHARE_UI_TRUSTED_ORIGINS`；參見 [Reverse Proxy](/docs/reference/commands/ui#reverse-proxy)。
 
 已發布的映像檔可在 GHCR 上取得（在打 tag 時自動推送）：
 

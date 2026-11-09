@@ -38,6 +38,7 @@ skillshare ui stop             # 停止后台 server
 | `--port <port>` | `19420` | HTTP server 端口 |
 | `--host <host>` | `127.0.0.1` | 绑定地址（Docker 请使用 `0.0.0.0`） |
 | `-b`, `--base-path <path>` | | 反向代理用的子路径（例如 `/skillshare`） |
+| `--trusted-origin <url>` | | dashboard 响应的另一个地址，例如 [反向代理](#reverse-proxy) 后面的 `https://tools.example.com`。可重复指定多个 |
 | `--no-open` | `false` | 不自动打开浏览器 |
 | `--app` | `false` | 在可用时以桌面风格的 Chromium app 窗口打开 dashboard（仅 `start` 模式） |
 | `--clear-cache` | | 前台形式下：清除缓存的 UI 资源并退出。与 `start` 结合：先清除缓存，再在后台启动 |
@@ -207,17 +208,19 @@ web dashboard 在 `/api/` 下暴露一个 REST API。所有端点都返回 JSON�
 
 ## 反向代理 {#reverse-proxy}
 
-如果你在共享服务器（例如家庭实验室、内部工具平台）上运行 dashboard，并处于反向代理之后，可以用 `--base-path` 把它挂载在子路径下，与其他服务共存：
+如果你在共享服务器（例如家庭实验室、内部工具平台）上运行 dashboard，并处于反向代理之后，可以用 `--trusted-origin` 传入你在浏览器中打开的地址，并用 `--base-path` 把它挂载在子路径下，与其他服务共存：
 
 ```bash
-skillshare ui --base-path /skillshare --host 0.0.0.0 --no-open
+skillshare ui --base-path /skillshare --host 0.0.0.0 --trusted-origin https://tools.example.com --no-open
 ```
 
 或者通过环境变量：
 
 ```bash
-SKILLSHARE_UI_BASE_PATH=/skillshare skillshare ui --host 0.0.0.0 --no-open
+SKILLSHARE_UI_BASE_PATH=/skillshare SKILLSHARE_UI_TRUSTED_ORIGINS=https://tools.example.com skillshare ui --host 0.0.0.0 --no-open
 ```
+
+dashboard 只在 `localhost`、形如 `http://192.168.1.20:19420` 的 IP 地址、`--host` 指定的名称以及每个 trusted origin 上响应。其他域名会得到 403，因为 DNS rebinding 攻击会把它控制的域名指向你的机器。每个 origin 写成协议加主机，端口不是默认值时再加端口，例如 `https://tools.example.com` 或 `http://nas.local:8080`。可重复使用 `--trusted-origin`，或在 `SKILLSHARE_UI_TRUSTED_ORIGINS` 中用逗号分隔。能访问某个 trusted 地址的人可以使用整个 dashboard，包括会写入 Agent 所执行命令的 MCP、Hooks 与 Plugins 页面，因此只列出你自己控制的地址，并在代理处限制谁能访问它们。
 
 ### Nginx
 
@@ -237,14 +240,10 @@ handle_path /skillshare/* {
 }
 ```
 
-如两个示例所示，请保留浏览器的 `Host` 头，包括端口。请求的 `Origin` 与 `Host` 不一致时，dashboard 会拒绝变更，这样其他网站就无法通过你的浏览器进行变更。Caddy 默认保留 `Host`，不要用 `header_up Host` 改写它。
+如两个示例所示，请保留浏览器的 `Host` 头，包括端口。dashboard 会把 `Host` 与 trusted origin 比对，并且请求的 `Origin` 与 `Host` 不一致时，dashboard 会拒绝变更，这样其他网站就无法通过你的浏览器进行变更。Caddy 默认保留 `Host`，不要用 `header_up Host` 改写它。
 
 :::tip
 不使用 `--base-path` 时，dashboard 的行为与以前完全一致——直接访问 `localhost:19420` 不需要任何配置。
-:::
-
-:::note MCP 与 Hooks 设置
-MCP 与 Hooks 页面只有在浏览器通过 `localhost` 或 IP 地址打开 dashboard 时才能工作，例如 `http://192.168.1.20:19420`。通过域名访问时（包括通过反向代理），MCP 与 Hooks 请求会返回 403：两者都会写入 Agent 执行的命令，而 DNS rebinding 攻击总是使用域名。要在远程机器上管理 MCP 或 Hooks 设置，用 `ssh -L 19420:127.0.0.1:19420 HOST` 转发端口，然后打开 `http://localhost:19420`。
 :::
 
 ## Docker 使用方式
