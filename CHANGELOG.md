@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.30.1](https://github.com/runkids/skillshare/compare/v0.30.0...v0.30.1) (2026-11-09)
+
+
+* **release:** release the Hubs refresh button as a patch ([4304395](https://github.com/runkids/skillshare/commit/4304395439c3c90ede9e3d452bdc246581eaaffc))
+
+
+### New Features
+
+* **ui:** add a refresh button to the Hubs page ([#814](https://github.com/runkids/skillshare/issues/814)) ([0580bd7](https://github.com/runkids/skillshare/commit/0580bd79bde4c890f564b09ec6c815d2dc4a6ee5))
+
+
+### Performance
+
+* **plugin:** check every plugin at once and skip sources that did not move ([#812](https://github.com/runkids/skillshare/issues/812)) ([2bc791e](https://github.com/runkids/skillshare/commit/2bc791ed1929dae348b1ae4900cb377fc0f9b85a))
+
 ## [0.30.0] - 2026-11-09
 
 ### Breaking Changes
