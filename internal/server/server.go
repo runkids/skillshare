@@ -113,7 +113,7 @@ func New(cfg *config.Config, addr, basePath, uiDistDir string) *Server {
 	}
 	s.snapshotFollow()
 	s.registerRoutes()
-	s.handler = s.withConfigAutoReload(s.mux)
+	s.handler = rejectCrossSiteWrites(s.withConfigAutoReload(s.mux))
 	s.wrapBasePath()
 	return s
 }
@@ -145,7 +145,7 @@ func NewProject(cfg *config.Config, projectCfg *config.ProjectConfig, projectRoo
 	_, s.unresolvedTargets = config.ResolveValidProjectTargets(projectRoot, projectCfg)
 	s.snapshotFollow()
 	s.registerRoutes()
-	s.handler = s.withConfigAutoReload(s.mux)
+	s.handler = rejectCrossSiteWrites(s.withConfigAutoReload(s.mux))
 	s.wrapBasePath()
 	return s
 }
@@ -587,7 +587,7 @@ func (s *Server) registerRoutes() {
 
 	// Update & Check
 	s.mux.HandleFunc("POST /api/update", s.handleUpdate)
-	s.mux.HandleFunc("GET /api/update/stream", s.handleUpdateStream)
+	s.mux.HandleFunc("GET /api/update/stream", requireSameOrigin(s.handleUpdateStream))
 	s.mux.HandleFunc("GET /api/check/stream", s.handleCheckStream)
 	s.mux.HandleFunc("GET /api/check", s.handleCheck)
 

@@ -224,7 +224,7 @@ SKILLSHARE_UI_BASE_PATH=/skillshare skillshare ui --host 0.0.0.0 --no-open
 ```nginx
 location /skillshare/ {
     proxy_pass http://127.0.0.1:19420;
-    proxy_set_header Host $host;
+    proxy_set_header Host $http_host;
     proxy_set_header X-Real-IP $remote_addr;
 }
 ```
@@ -236,6 +236,8 @@ handle_path /skillshare/* {
     reverse_proxy 127.0.0.1:19420
 }
 ```
+
+如两个示例所示，请保留浏览器的 `Host` 头，包括端口。请求的 `Origin` 与 `Host` 不一致时，dashboard 会拒绝变更，这样其他网站就无法通过你的浏览器进行变更。Caddy 默认保留 `Host`，不要用 `header_up Host` 改写它。
 
 :::tip
 不使用 `--base-path` 时，dashboard 的行为与以前完全一致——直接访问 `localhost:19420` 不需要任何配置。

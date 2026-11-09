@@ -223,7 +223,7 @@ SKILLSHARE_UI_BASE_PATH=/skillshare skillshare ui --host 0.0.0.0 --no-open
 ```nginx
 location /skillshare/ {
     proxy_pass http://127.0.0.1:19420;
-    proxy_set_header Host $host;
+    proxy_set_header Host $http_host;
     proxy_set_header X-Real-IP $remote_addr;
 }
 ```
@@ -235,6 +235,8 @@ handle_path /skillshare/* {
     reverse_proxy 127.0.0.1:19420
 }
 ```
+
+Keep the browser's `Host` header, including its port, as both examples do. The dashboard refuses a change when the request's `Origin` does not match its `Host`, so another website cannot make changes through your browser. Caddy keeps `Host` by default; do not rewrite it with `header_up Host`.
 
 :::tip
 Without `--base-path`, the dashboard behaves identically to before — no configuration needed for direct access on `localhost:19420`.
