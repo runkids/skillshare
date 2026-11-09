@@ -396,6 +396,61 @@ func TestNestedRepos_DetectsSubdirGitOnly(t *testing.T) {
 	}
 }
 
+// Tracked repos are listed in the managed .gitignore block, so `git add -A`
+// never stages them and they must not block commit/push (issue #820). A nested
+// repo already committed as a gitlink is still staged, so it stays reported.
+func TestNestedRepos_SkipsGitignoredRepos(t *testing.T) {
+	dir := t.TempDir()
+	gitExec(t, dir, "init", "-q")
+	for _, sub := range []string{"skills/_caveman", "skills/_日本", "skills/manual", "committed"} {
+		gitExec(t, dir, "init", "-q", sub)
+	}
+	gitExec(t, filepath.Join(dir, "committed"), "commit", "-q", "--allow-empty", "-m", "init")
+	gitExec(t, dir, "add", "committed")
+	ignore := "# BEGIN SKILLSHARE MANAGED - DO NOT EDIT\n_caveman/\n_日本/\n# END SKILLSHARE MANAGED\n"
+	if err := os.WriteFile(filepath.Join(dir, "skills", ".gitignore"), []byte(ignore), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("committed/\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := NestedRepos(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"committed", filepath.Join("skills", "manual")}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("want %v, got %v", want, got)
+	}
+}
+
+// A nested repo under a directory still recorded as a gitlink makes git refuse
+// to answer for that path; the ignored tracked repo must still be skipped.
+func TestNestedRepos_SkipsGitignoredReposBesideGitlinkError(t *testing.T) {
+	dir := t.TempDir()
+	gitExec(t, dir, "init", "-q")
+	gitExec(t, dir, "init", "-q", "old")
+	gitExec(t, filepath.Join(dir, "old"), "commit", "-q", "--allow-empty", "-m", "init")
+	gitExec(t, dir, "add", "old")
+	if err := os.Rename(filepath.Join(dir, "old", ".git"), filepath.Join(dir, "old", ".git.disabled")); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "init", "-q", "old/inner")
+	gitExec(t, dir, "init", "-q", "skills/_caveman")
+	if err := os.WriteFile(filepath.Join(dir, "skills", ".gitignore"), []byte("_caveman/\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := NestedRepos(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join("old", "inner"); len(got) != 1 || got[0] != want {
+		t.Errorf("want [%s], got %v", want, got)
+	}
+}
+
 func TestEnsureConfigUntracked_RemovesTrackedConfig(t *testing.T) {
 	dir := t.TempDir()
 	gitExec(t, dir, "init")
