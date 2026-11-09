@@ -32,6 +32,7 @@ func ScanContentWithRules(content []byte, filename string, activeRules []rule) [
 	// Admitted scripts need not have an extension. A first-line shebang is
 	// code evidence; extensionless notes without one retain prose severity.
 	scriptContext := strings.HasPrefix(text, "#!")
+	var inert []bool
 	var blocks []markdownCodeBlock
 	if strings.EqualFold(filepath.Ext(filename), ".md") {
 		for _, r := range activeRules {
@@ -66,7 +67,7 @@ func ScanContentWithRules(content []byte, filename string, activeRules []rule) [
 			}
 			if r.matchesLine(line) {
 				findings = append(findings, Finding{
-					Severity:   r.findingSeverity(line, filename, codeContext),
+					Severity:   r.inertSeverity(r.findingSeverity(line, filename, codeContext), &inert, filename, text, lineNum),
 					Pattern:    r.Pattern,
 					Message:    r.Message,
 					File:       filename,

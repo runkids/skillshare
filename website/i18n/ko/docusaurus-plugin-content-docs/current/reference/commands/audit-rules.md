@@ -310,24 +310,24 @@ skillshare audit --json | jq '.skills[].findings'  # findings를 프로그래밍
 | `data-exfiltration-1` | data-exfiltration | CRITICAL |
 | `data-exfiltration-2` | data-exfiltration | MEDIUM |
 | `data-exfiltration-3` | data-exfiltration | HIGH |
-| `credential-access-ssh-private-key` | credential-access | CRITICAL |
-| `credential-access-env-file` | credential-access | CRITICAL |
-| `credential-access-aws-credentials` | credential-access | CRITICAL |
-| `credential-access-etc-shadow` | credential-access | CRITICAL |
-| `credential-access-git-credentials` | credential-access | CRITICAL |
-| `credential-access-netrc` | credential-access | CRITICAL |
-| `credential-access-gnupg` | credential-access | CRITICAL |
-| `credential-access-kube-config` | credential-access | CRITICAL |
-| `credential-access-vault-token` | credential-access | CRITICAL |
-| `credential-access-terraform-creds` | credential-access | CRITICAL |
-| `credential-access-gnome-keyring` | credential-access | CRITICAL |
-| `credential-access-npmrc` | credential-access | CRITICAL |
-| `credential-access-pypirc` | credential-access | CRITICAL |
-| `credential-access-gem-credentials` | credential-access | CRITICAL |
-| `credential-access-ssl-private` | credential-access | CRITICAL |
-| `credential-access-ssh-host-key` | credential-access | CRITICAL |
-| `credential-access-pgpass` | credential-access | CRITICAL |
-| `credential-access-mysql-cnf` | credential-access | CRITICAL |
+| `credential-access-ssh-private-key` | credential-access | CRITICAL / HIGH ([문맥](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-env-file` | credential-access | CRITICAL / HIGH ([문맥](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-aws-credentials` | credential-access | CRITICAL / HIGH ([문맥](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-etc-shadow` | credential-access | CRITICAL / HIGH ([문맥](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-git-credentials` | credential-access | CRITICAL / HIGH ([문맥](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-netrc` | credential-access | CRITICAL / HIGH ([문맥](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-gnupg` | credential-access | CRITICAL / HIGH ([문맥](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-kube-config` | credential-access | CRITICAL / HIGH ([문맥](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-vault-token` | credential-access | CRITICAL / HIGH ([문맥](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-terraform-creds` | credential-access | CRITICAL / HIGH ([문맥](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-gnome-keyring` | credential-access | CRITICAL / HIGH ([문맥](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-npmrc` | credential-access | CRITICAL / HIGH ([문맥](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-pypirc` | credential-access | CRITICAL / HIGH ([문맥](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-gem-credentials` | credential-access | CRITICAL / HIGH ([문맥](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-ssl-private` | credential-access | CRITICAL / HIGH ([문맥](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-ssh-host-key` | credential-access | CRITICAL / HIGH ([문맥](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-pgpass` | credential-access | CRITICAL / HIGH ([문맥](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-mysql-cnf` | credential-access | CRITICAL / HIGH ([문맥](/docs/understand/audit-engine#credential-access)) |
 | `credential-access-etc-passwd` | credential-access | MEDIUM |
 | `credential-access-azure-creds` | credential-access | HIGH |
 | `credential-access-gcloud-creds` | credential-access | HIGH |

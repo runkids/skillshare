@@ -208,7 +208,7 @@ A shared Markdown parser recognizes fenced code-block boundaries, including long
 
 **Defense:** Block skills that combine network commands with secret references. Use custom rules to add organization-specific secret patterns to the detection list.
 
-### Credential Access
+### Credential Access {#credential-access}
 
 **What it is:** Direct file reads targeting known credential storage locations.
 
@@ -218,6 +218,8 @@ A shared Markdown parser recognizes fenced code-block boundaries, including long
 - Reading SSH keys and config (`~/.ssh/id_rsa`, `~/.ssh/config`)
 - Reading `.env` files (application secrets)
 - Reading AWS credentials (`~/.aws/credentials`)
+
+In `.py` files, a CRITICAL credential match on a line that holds only a comment, or inside a string that is a whole statement such as a docstring, is reported as HIGH. Python never runs those lines, so a security tool that names credential paths in its own documentation warns without failing audit at the default CRITICAL threshold; it still blocks under a HIGH threshold. f-strings, strings inside brackets or after a line continuation, assigned strings, and code followed by a trailing comment keep CRITICAL. A file that references `__doc__` or `getdoc` keeps CRITICAL throughout, and so do lines after a single-quoted string left open at a line end (a backslash continuation or a multi-line f-string field). Other file types, Markdown, and other rules are unchanged. Explicit severity overrides and full custom regex replacements keep their configured severity. This is a tokenizer heuristic, not proof that the file is safe.
 
 **Defense:** These patterns should never appear in legitimate AI skills. Any skill accessing credential files should be treated as malicious.
 
