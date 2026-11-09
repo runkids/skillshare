@@ -187,6 +187,20 @@ func TestCodexReadsAClaudeOnlyPackage(t *testing.T) {
 	}
 }
 
+// A Claude package with nothing Codex reads, such as agents only, is not offered to Codex.
+func TestCodexSkipsAClaudePackageWithNothingItReads(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, ".claude-plugin/plugin.json", `{"name":"rev","agents":["./agents/r.md"]}`)
+	writeFile(t, root, "agents/r.md", "---\nname: r\n---\n")
+	d, err := Discover(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := d.Candidates[0]; slices.Contains(c.Targets, "codex") || !slices.Contains(c.Targets, "claude") {
+		t.Fatalf("targets = %v", c.Targets)
+	}
+}
+
 // Codex stops at the first manifest location that is present, valid or not, so a Claude
 // manifest never stands in for a Codex one that is broken, unsupported or linked.
 func TestCodexClaudeFallbackKeepsManifestPrecedence(t *testing.T) {

@@ -300,6 +300,7 @@ Copilot 與 Antigravity CLI 的安裝使用已檢視過的本機快照。匯入�
   安裝，所以 Skillshare 預期該 manifest 的版本，沒有版本時預期 `1.0.0`。兩者都沒有、
   但有 `.claude-plugin/plugin.json` 的套件也會提供給 Codex：Codex 會自行讀取該 manifest，
   只使用它支援的部分，例如 skills 與 MCP 伺服器，所以 Claude 的 agent 不會提供給 Codex。
+  沒有這些部分的套件（例如只有 agent）不會提供給 Codex。
   Skillshare 不會轉換或改寫套件。和 Codex 一樣，格式錯誤或無關的根目錄 `plugin.json` 會被忽略。
   明確的 `.codex-plugin/plugin.json` 或可辨識的 Agent Plugins 根目錄 manifest，即使無效、
   不支援或是連結，也不會被 Claude manifest 取代。

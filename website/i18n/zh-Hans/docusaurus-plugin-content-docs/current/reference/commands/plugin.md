@@ -298,6 +298,7 @@ Skillshare 从不提供原生信任的批准 flags。
   Skillshare 预期该 manifest 的版本，没有版本时预期 `1.0.0`。两者都没有、但有
   `.claude-plugin/plugin.json` 的 package 也会提供给 Codex：Codex 会自行读取该 manifest，
   只使用它支持的部分，例如 skills 和 MCP 服务器，所以 Claude 的 agent 不会提供给 Codex。
+  没有这些部分的 package（例如只有 agent）不会提供给 Codex。
   Skillshare 不会转换或改写 package。和 Codex 一样，格式错误或无关的根目录 `plugin.json` 会被忽略。
   明确的 `.codex-plugin/plugin.json` 或可识别的 Agent Plugins 根目录 manifest，即使无效、
   不支持或是链接，也不会被 Claude manifest 取代。

@@ -459,8 +459,9 @@ never supplies native trust approval flags.
   when it has none.
   A package with neither is offered to Codex when it has `.claude-plugin/plugin.json`:
   Codex reads that manifest itself and uses only the parts it supports, such as
-  skills and MCP servers, so Claude agents are not offered to Codex. Skillshare
-  does not convert or rewrite the package. A malformed or unrelated root
+  skills and MCP servers, so Claude agents are not offered to Codex. A package
+  with none of those parts, such as one with only agents, is not offered to Codex.
+  Skillshare does not convert or rewrite the package. A malformed or unrelated root
   `plugin.json` is ignored, as in Codex. An explicit `.codex-plugin/plugin.json` or
   recognized Agent Plugins root manifest is never replaced by the Claude manifest,
   even when invalid, unsupported, or linked.
