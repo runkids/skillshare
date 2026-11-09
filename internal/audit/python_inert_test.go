@@ -33,6 +33,7 @@ func TestPythonInertCredentialSeverity(t *testing.T) {
 		{"raw single-quoted docstring", "hook.py", "def f():\n    r'''" + cmd + "'''  # example", SeverityHigh},
 		{"escaped quote inside docstring", "hook.py", "\"\"\"a \\\"\"\" still open\n" + cmd + "\n\"\"\"", SeverityHigh},
 		{"single-quoted docstring", "hook.py", "def f():\n    \"Blocks " + cmd + ".\"", SeverityHigh},
+		{"docstring after plain f-strings", "hook.py", "print(f\"{x!r:>{w}} {{ok}}\")\ndef f():\n    \"\"\"" + cmd + "\"\"\"", SeverityHigh},
 		{"CRLF docstring", "hook.py", "def f():\r\n    \"\"\"Example:\r\n    " + cmd + "\r\n    \"\"\"\r\n", SeverityHigh},
 		{"comment", "hook.PY", "x = 1\n    # e.g. " + cmd, SeverityHigh},
 		{"comment inside call", "hook.py", "run(\n    # " + cmd + "\n    args,\n)", SeverityHigh},
@@ -48,6 +49,8 @@ func TestPythonInertCredentialSeverity(t *testing.T) {
 		{"unclosed string", "hook.py", "\"\"\"\n" + cmd, SeverityCritical},
 		{"backslash-continued string", "hook.py", "x = '\\\n# '; os.system('" + cmd + "')", SeverityCritical},
 		{"multi-line f-string field", "hook.py", "c = f\"{\n'''" + cmd + "'''\n}\"", SeverityCritical},
+		{"bare CR line break", "hook.py", "import os\n# example\ros.system('" + cmd + "')\n", SeverityCritical},
+		{"nested quote in f-string field", "hook.py", "f\"\"\"{os.system(\n    \"\"\"#\"\"\"\n    \"; " + cmd + "\"\n)}\"\"\"", SeverityCritical},
 		{"docstring read back", "hook.py", "\"\"\"" + cmd + "\"\"\"\nimport os; os.system(__doc__)", SeverityCritical},
 		{"shell comment keeps severity", "hook.sh", "# " + cmd, SeverityCritical},
 	} {

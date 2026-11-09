@@ -14,18 +14,22 @@ var pyStatementString = regexp.MustCompile(`^(?i:rb|br|[rub])?("""|'''|"|')`)
 // line holds only a comment or part of a string that is a whole statement,
 // such as a docstring. Python never runs either. A string inside brackets,
 // after a line continuation, or followed by more code does not qualify.
-// A file that reads docstrings back gets no inert lines, and lines after a
-// single-quoted string left open at a line end (a backslash continuation or a
-// multi-line f-string field) stay code. This is a tokenizer heuristic, not
-// proof that the file is safe.
+// Where the tokenizer cannot follow Python, it stops marking lines: a file
+// that reads docstrings back or uses bare CR line breaks gets none, and lines
+// stay code after a single-quoted string left open at a line end, or an f- or
+// t-string replacement field that holds a quote or does not close. This is a
+// tokenizer heuristic, not proof that the file is safe.
 func pythonInertLines(filename, text string) []bool {
 	if !strings.EqualFold(filepath.Ext(filename), ".py") ||
-		strings.Contains(text, "__doc__") || strings.Contains(text, "getdoc") {
+		strings.Contains(text, "__doc__") || strings.Contains(text, "getdoc") ||
+		strings.Count(text, "\r") != strings.Count(text, "\r\n") {
 		return nil
 	}
 	lines := strings.Split(text, "\n")
 	inert := make([]bool, len(lines))
 	var quote string  // delimiter of a string still open at the line start
+	fstring := false  // the open string is an f- or t-string
+	field := 0        // replacement-field brace depth inside that string
 	var pending []int // lines of an open statement string
 	stmt := false     // the open or just-closed string is a whole statement
 	depth := 0
@@ -45,9 +49,22 @@ func pythonInertLines(filename, text string) []bool {
 		for j := 0; j < len(line); j++ {
 			c := line[j]
 			if quote != "" {
-				if c == '\\' {
+				switch {
+				case c == '\\':
 					j++
-				} else if strings.HasPrefix(line[j:], quote) {
+				case fstring && field > 0 && (c == '"' || c == '\''):
+					return inert // a nested string can hide where the field ends
+				case fstring && field > 0 && c == '{':
+					field++
+				case fstring && field > 0 && c == '}':
+					field--
+				case fstring && (c == '{' || c == '}') && strings.HasPrefix(line[j+1:], string(c)):
+					j++ // literal {{ or }}
+				case fstring && c == '{':
+					field = 1
+				case fstring && c == '}':
+					return inert
+				case strings.HasPrefix(line[j:], quote):
 					j += len(quote) - 1
 					quote = ""
 				}
@@ -67,6 +84,9 @@ func pythonInertLines(filename, text string) []bool {
 				} else {
 					code = true
 				}
+				prefix := strings.ToLower(line[max(j-2, 0):j])
+				fstring = strings.HasSuffix(prefix, "f") || strings.HasSuffix(prefix, "t") ||
+					prefix == "fr" || prefix == "tr"
 				quote = line[j : j+1]
 				if triple := strings.Repeat(quote, 3); strings.HasPrefix(line[j:], triple) {
 					quote = triple

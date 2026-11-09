@@ -73,7 +73,7 @@ Explicit global or project severity overrides, including CRITICAL, take preceden
 
 ### Python Comments and Docstrings
 
-In `.py` files, built-in CRITICAL `credential-access` matches on comment-only lines, or inside a string that is a whole statement such as a docstring, are reported as HIGH. f-strings, assigned or argument strings, and code before a trailing comment keep CRITICAL, as does every line of a file that references `__doc__` or `getdoc`. Explicit severity overrides and full custom regex replacements keep their configured severity. Markdown, other file types, and other rules are unchanged.
+In `.py` files, built-in CRITICAL `credential-access` matches on comment-only lines, or inside a string that is a whole statement such as a docstring, are reported as HIGH. f-strings, assigned or argument strings, and code before a trailing comment keep CRITICAL, as does every line of a file that references `__doc__` or `getdoc` or uses bare CR line breaks, and every line after an f-string replacement field that holds a quote or does not close. Explicit severity overrides and full custom regex replacements keep their configured severity. Markdown, other file types, and other rules are unchanged.
 
 ### Whitespace Padding
 

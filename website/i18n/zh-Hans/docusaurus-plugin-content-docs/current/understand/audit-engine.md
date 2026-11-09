@@ -220,7 +220,7 @@ Output suppression 按匹配的证据分级，不取决于 Markdown 上下文：
 - 读取 `.env` 文件（应用机密信息）
 - 读取 AWS 凭证（`~/.aws/credentials`）
 
-在 `.py` 文件中，只包含注释的行，或整条语句就是一个字符串（例如 docstring）中的 CRITICAL 凭证匹配，会报告为 HIGH。Python 不会执行这些行，因此在自身文档中提到凭证路径的安全工具，在默认 CRITICAL 阈值下只会警告，不会让 audit 失败；在 HIGH 阈值下仍会阻止。f-string、括号内或续行之后的字符串、被赋值的字符串，以及行尾注释前还有代码的行，仍为 CRITICAL。引用 `__doc__` 或 `getdoc` 的文件整份保持 CRITICAL；在行尾仍未闭合的单行字符串（反斜杠续行或跨多行的 f-string 字段）之后的行也保持 CRITICAL。其他文件类型、Markdown 与其他规则不受影响。明确的 severity override 与包含 regex 的完整自定义替换会保留其配置的 severity。这是基于 tokenizer 的启发式判断，不代表文件安全。
+在 `.py` 文件中，只包含注释的行，或整条语句就是一个字符串（例如 docstring）中的 CRITICAL 凭证匹配，会报告为 HIGH。Python 不会执行这些行，因此在自身文档中提到凭证路径的安全工具，在默认 CRITICAL 阈值下只会警告，不会让 audit 失败；在 HIGH 阈值下仍会阻止。f-string、括号内或续行之后的字符串、被赋值的字符串，以及行尾注释前还有代码的行，仍为 CRITICAL。引用 `__doc__` 或 `getdoc`，或使用单独 CR 换行的文件，整份保持 CRITICAL；在行尾仍未闭合的单行字符串（反斜杠续行），或包含引号、未闭合的 f-string 替换字段之后的行，也保持 CRITICAL。其他文件类型、Markdown 与其他规则不受影响。明确的 severity override 与包含 regex 的完整自定义替换会保留其配置的 severity。这是基于 tokenizer 的启发式判断，不代表文件安全。
 
 **防御措施：** 这些模式不应出现在合法的 AI skill 中。任何访问凭证文件的 skill 都应被视为恶意的。
 
