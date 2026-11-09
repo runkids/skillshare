@@ -209,7 +209,7 @@ Output suppression は Markdown の文脈とは独立して、一致した証拠
 
 **防御策：** ネットワークコマンドとシークレット参照を組み合わせた skill をブロックしてください。カスタムルールを使って、組織固有のシークレットパターンを検出リストに追加できます。
 
-### 認証情報アクセス
+### 認証情報アクセス {#credential-access}
 
 **内容：** 既知の認証情報保存場所を対象とした直接的なファイル読み取り。
 
@@ -219,6 +219,8 @@ Output suppression は Markdown の文脈とは独立して、一致した証拠
 - SSH キーおよび設定の読み取り（`~/.ssh/id_rsa`、`~/.ssh/config`）
 - `.env` ファイル（アプリケーションのシークレット）の読み取り
 - AWS 認証情報（`~/.aws/credentials`）の読み取り
+
+`.py` ファイルでは、コメントだけの行、または docstring のように文全体が 1 つの文字列である箇所での CRITICAL な認証情報マッチは HIGH として報告されます。Python はこれらの行を実行しないため、自身のドキュメントで認証情報のパスに言及するセキュリティツールは、デフォルトの CRITICAL しきい値では audit を失敗させずに警告します。HIGH しきい値ではブロックされます。f-string、括弧内や行継続の後の文字列、代入された文字列、末尾コメントの前にコードがある行は CRITICAL のままです。`__doc__` または `getdoc` を参照するファイル、または単独の CR で改行するファイルは全体が CRITICAL のままです。行末で閉じられていない単一引用符の文字列（バックスラッシュによる継続）や、引用符や `#` を含む、または閉じられていない f-string の置換フィールドより後の行も CRITICAL のままです。他のファイル形式、Markdown、他のルールは変わりません。明示的な severity override と regex を含む完全なカスタム置き換えは、設定された severity を維持します。これはトークナイザーによるヒューリスティックであり、ファイルが安全である証明ではありません。テキスト出力、TUI、ダッシュボードはこうした検出結果に CRITICAL から引き下げたことを表示し、`audit rules` は対象のルールに `HIGH in Python comments and docstrings` と表示します。
 
 **防御策：** これらのパターンは正当な AI skill には決して現れないはずです。認証情報ファイルにアクセスする skill はすべて悪意があるものとして扱うべきです。
 
@@ -499,10 +501,11 @@ JSON/SARIF 出力の各 finding には以下が含まれます。
 | `category` | string | 脅威カテゴリ：`injection`、`exfiltration`、`credential`、`obfuscation`、`privilege`、`integrity`、`trust`、`structure`、`risk` |
 | `confidence` | float | 信頼度スコア（0〜1）。Static：0.95、Dataflow：0.85 |
 | `fingerprint` | string | 重複排除と追跡のための安定した SHA-256 ハッシュ |
+| `severityContext` | string | `severity` がルール本来の値より低い理由。`python-inert`: Python のコメントまたは docstring 内の組み込み credential-access の一致で、`CRITICAL` から `HIGH` に引き下げ（[詳細](#credential-access)） |
 
-`ruleId`、`analyzer`、`category`、`confidence`、`fingerprint` の各フィールドは、空の場合 JSON から省略されます（後方互換性のため）。
+`ruleId`、`analyzer`、`category`、`confidence`、`fingerprint`、`severityContext` の各フィールドは、空の場合 JSON から省略されます（後方互換性のため）。
 
-SARIF 出力では、`ruleId` は SARIF の `ruleId` フィールドにマッピングされ、`fingerprint` は各結果の `fingerprints` プロパティに含まれます。
+SARIF 出力では、`ruleId` は SARIF の `ruleId` フィールドにマッピングされ、`fingerprint` は各結果の `fingerprints` プロパティに含まれます。`severityContext` は各結果の `properties` に含まれます。
 
 ## 関連項目
 

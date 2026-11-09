@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'reac
 import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import type { Components } from 'react-markdown';
 import {
-  ChevronDown, ChevronRight, CircleArrowUp, CircleCheck, Copy, Ellipsis, ExternalLink, File, FileCode2, FileText, Folder,
+  ArrowDown, ChevronDown, ChevronRight, CircleArrowUp, CircleCheck, Copy, Ellipsis, ExternalLink, File, FileCode2, FileText, Folder,
   FolderInput, FolderOpen, Github, Globe, Pencil, Power, RefreshCw, ShieldAlert, ShieldCheck, Trash2, TriangleAlert, X,
 } from 'lucide-react';
 import { api, type AuditResult, type DiffTarget, type Skill, type SyncMatrixEntry } from '../api/client';
@@ -894,6 +894,12 @@ function AuditTab({ query, files, tabSearch }: {
                     <span className="ss-code block !overflow-x-auto !py-2.5">
                       {f.line > 0 && <span className="ln">{f.line}</span>}
                       {f.snippet}
+                    </span>
+                  )}
+                  {f.severityContext === 'python-inert' && (
+                    <span className="flex items-start gap-1.5 text-xs text-ink-2">
+                      <ArrowDown size={14} aria-hidden="true" className="mt-0.5 shrink-0" />
+                      {t('audit.severityContext.pythonInert')}
                     </span>
                   )}
                   {where && <span className="truncate font-mono text-xs text-ink-3">{where}</span>}

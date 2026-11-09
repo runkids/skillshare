@@ -167,6 +167,9 @@ func ToSARIF(results []*Result, opts SARIFOptions) *sarifLog {
 			if f.Confidence > 0 {
 				props["confidence"] = f.Confidence
 			}
+			if f.SeverityContext != "" {
+				props["severityContext"] = f.SeverityContext
+			}
 			if len(props) > 0 {
 				sr.Properties = props
 			}

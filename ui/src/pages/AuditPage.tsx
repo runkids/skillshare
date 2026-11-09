@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Bot, Puzzle, ShieldCheck } from 'lucide-react';
+import { AlertCircle, ArrowDown, Bot, Puzzle, ShieldCheck } from 'lucide-react';
 import { api, type AuditFinding, type AuditResult } from '../api/client';
 import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -315,6 +315,12 @@ function ResultGroup({ result, kind, only, expanded, onToggle, onIgnore }: {
               <div className="ss-code max-w-full overflow-x-auto !px-3.5 !py-2.5">
                 <span className="ln">{f.line}</span>{f.snippet}
               </div>
+            )}
+            {f.severityContext === 'python-inert' && (
+              <span className="flex items-start gap-1.5 text-[12px] text-ink-2">
+                <ArrowDown size={14} aria-hidden="true" className="mt-0.5 shrink-0" />
+                {t('audit.severityContext.pythonInert')}
+              </span>
             )}
             <span className="truncate font-mono text-[12px] text-ink-3" title={f.file}>
               {f.file}:{f.line}{(f.ruleId || f.pattern) && ` · ${t('audit.rule', { rule: f.ruleId || f.pattern })}`}

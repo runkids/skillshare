@@ -28,6 +28,8 @@ type auditFindingResponse struct {
 	Category    string  `json:"category,omitempty"`
 	Confidence  float64 `json:"confidence,omitempty"`
 	Fingerprint string  `json:"fingerprint,omitempty"`
+
+	SeverityContext string `json:"severityContext,omitempty"`
 }
 
 type auditResultResponse struct {
@@ -820,17 +822,18 @@ func toAuditResponse(result *audit.Result) auditResultResponse {
 	findings := make([]auditFindingResponse, 0, len(result.Findings))
 	for _, f := range result.Findings {
 		findings = append(findings, auditFindingResponse{
-			Severity:    f.Severity,
-			Pattern:     f.Pattern,
-			Message:     f.Message,
-			File:        f.File,
-			Line:        f.Line,
-			Snippet:     f.Snippet,
-			RuleID:      f.RuleID,
-			Analyzer:    f.Analyzer,
-			Category:    f.Category,
-			Confidence:  f.Confidence,
-			Fingerprint: f.Fingerprint,
+			Severity:        f.Severity,
+			Pattern:         f.Pattern,
+			Message:         f.Message,
+			File:            f.File,
+			Line:            f.Line,
+			Snippet:         f.Snippet,
+			RuleID:          f.RuleID,
+			Analyzer:        f.Analyzer,
+			Category:        f.Category,
+			Confidence:      f.Confidence,
+			Fingerprint:     f.Fingerprint,
+			SeverityContext: f.SeverityContext,
 		})
 	}
 	return auditResultResponse{

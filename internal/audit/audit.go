@@ -39,6 +39,39 @@ const (
 	CategoryTrust        = "trust"
 )
 
+// SeverityContextPythonInert marks a built-in credential-access match that
+// Python never runs (a comment-only line or a docstring), reported as HIGH
+// instead of CRITICAL.
+const SeverityContextPythonInert = "python-inert"
+
+// SeverityContextNote explains a finding's SeverityContext in one line for
+// text output; empty when there is nothing to explain.
+func SeverityContextNote(context string) string {
+	if context == SeverityContextPythonInert {
+		return "lowered from CRITICAL: Python never runs comments or docstrings"
+	}
+	return ""
+}
+
+// RuleContextNote describes a compiled rule's SeverityContext for rule
+// listings; empty when no context lowers the rule.
+// ExplainedMessage is the finding message followed by its severity-context note
+// in parentheses, if any. Text outputs that end a line with "(file:line)" use it
+// so that parsers still find the location at the end.
+func (f Finding) ExplainedMessage() string {
+	if note := SeverityContextNote(f.SeverityContext); note != "" {
+		return f.Message + " (" + note + ")"
+	}
+	return f.Message
+}
+
+func RuleContextNote(context string) string {
+	if context == SeverityContextPythonInert {
+		return "HIGH in Python comments and docstrings"
+	}
+	return ""
+}
+
 // categoryForPattern maps a rule pattern name to a broad category.
 func categoryForPattern(pattern string) string {
 	switch {
@@ -82,6 +115,10 @@ type Finding struct {
 	Confidence   float64 `json:"confidence,omitempty"`   // 0~1
 	Fingerprint  string  `json:"fingerprint,omitempty"`  // sha256 stable hash for deduplication
 	Acknowledged bool    `json:"acknowledged,omitempty"` // previously accepted via --force; excluded from blocking
+
+	// SeverityContext names why Severity is lower than the rule's configured
+	// severity; empty when it is not. See SeverityContextPythonInert.
+	SeverityContext string `json:"severityContext,omitempty"`
 
 	acceptanceContext string `json:"-"` // detector-specific identity material, never included in reports
 }

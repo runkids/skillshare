@@ -209,7 +209,7 @@ Output suppression 依命中的證據分級，不取決於 Markdown 上下文：
 
 **防禦方式：** 封鎖同時結合網路命令與機密資料參照的 skills。可使用自訂規則，把組織專屬的機密資料模式加入偵測清單。
 
-### 憑證存取
+### 憑證存取 {#credential-access}
 
 **是什麼：** 直接讀取已知憑證儲存位置的檔案。
 
@@ -219,6 +219,8 @@ Output suppression 依命中的證據分級，不取決於 Markdown 上下文：
 - 讀取 SSH 金鑰與設定（`~/.ssh/id_rsa`、`~/.ssh/config`）
 - 讀取 `.env` 檔案（應用程式機密資料）
 - 讀取 AWS 憑證（`~/.aws/credentials`）
+
+在 `.py` 檔案中，只有註解的行，或整個陳述式就是一個字串（例如 docstring）中的 CRITICAL 憑證匹配，會回報為 HIGH。Python 不會執行這些行，因此在自身文件中提到憑證路徑的安全工具，在預設 CRITICAL 門檻下只會警告，不會讓 audit 失敗；在 HIGH 門檻下仍會阻擋。f-string、括號內或續行之後的字串、被指派的字串，以及行尾註解前還有程式碼的行，仍為 CRITICAL。引用 `__doc__` 或 `getdoc`，或使用單獨 CR 換行的檔案，整份維持 CRITICAL；在行尾仍未閉合的單行字串（反斜線續行），或包含引號或 `#`、未閉合的 f-string 替換欄位之後的行，也維持 CRITICAL。其他檔案類型、Markdown 與其他規則不受影響。明確的 severity override 與包含 regex 的完整自訂替換會保留其設定的 severity。這是以 tokenizer 為基礎的啟發式判斷，不代表檔案安全。文字輸出、TUI 和儀表板會把這類結果標為從 CRITICAL 降級，`audit rules` 會在適用的規則上顯示 `HIGH in Python comments and docstrings`。
 
 **防禦方式：** 這些模式不應該出現在正當的 AI skill 中。任何會存取憑證檔案的 skill 都應被視為惡意。
 
@@ -498,10 +500,11 @@ JSON/SARIF 輸出中的每筆 finding 都包含：
 | `category` | string | 威脅類別：`injection`、`exfiltration`、`credential`、`obfuscation`、`privilege`、`integrity`、`trust`、`structure`、`risk` |
 | `confidence` | float | 信心分數（0–1）。Static：0.95，Dataflow：0.85 |
 | `fingerprint` | string | 用於去重複與追蹤的穩定 SHA-256 雜湊值 |
+| `severityContext` | string | `severity` 低於規則本身等級的原因。`python-inert`：內建 credential-access 規則在 Python 註解或 docstring 中的比對，從 `CRITICAL` 降為 `HIGH`（[詳情](#credential-access)） |
 
-`ruleId`、`analyzer`、`category`、`confidence`、`fingerprint` 欄位若為空值，會在 JSON 中被省略（向下相容）。
+`ruleId`、`analyzer`、`category`、`confidence`、`fingerprint`、`severityContext` 欄位若為空值，會在 JSON 中被省略（向下相容）。
 
-在 SARIF 輸出中，`ruleId` 會對應到 SARIF 的 `ruleId` 欄位，而 `fingerprint` 會包含在每筆結果的 `fingerprints` 屬性中。
+在 SARIF 輸出中，`ruleId` 會對應到 SARIF 的 `ruleId` 欄位，而 `fingerprint` 會包含在每筆結果的 `fingerprints` 屬性中。`severityContext` 會包含在每筆結果的 `properties` 中。
 
 ## 延伸閱讀
 

@@ -71,6 +71,10 @@ HIGH findings warn at the default CRITICAL threshold and block at a HIGH thresho
 
 Explicit global or project severity overrides, including CRITICAL, take precedence over SDK parameter downgrades. Generic disclosure restrictions now use `prompt-injection-5`; overrides for `prompt-injection-4` apply only to explicit concealment. Built-in rule 5 excludes explicit-concealment phrases, not separate generic restrictions on the same line. Full custom regex replacements retain whole-line exclusion semantics. To make generic restrictions CRITICAL, override `prompt-injection-5`. For reviewed false positives, findings accepted with `--force` remain visible and are remembered for that resource; a different rule, file, matched text, or detector-specific evidence requires fresh acceptance. For `whitespace-padding`, density findings use all eligible content in the file as evidence. Identical occurrences have separate acceptance keys; previously accepted padding findings require acceptance again.
 
+### Python Comments and Docstrings
+
+In `.py` files, built-in CRITICAL `credential-access` matches on comment-only lines, or inside a string that is a whole statement such as a docstring, are reported as HIGH. f-strings, assigned or argument strings, and code before a trailing comment keep CRITICAL, as does every line of a file that references `__doc__` or `getdoc` or uses bare CR line breaks, and every line after an f-string replacement field that holds a quote or `#` or does not close. Explicit severity overrides and full custom regex replacements keep their configured severity. Markdown, other file types, and other rules are unchanged. Text output, the TUIs and the dashboard mark such findings as lowered from CRITICAL (`severityContext: python-inert` in JSON and SARIF), and `audit rules` shows the context on each affected rule.
+
 ### Whitespace Padding
 
 The `static` analyzer reports `whitespace-padding`: 20+ consecutive blank lines

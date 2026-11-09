@@ -208,7 +208,7 @@ A shared Markdown parser recognizes fenced code-block boundaries, including long
 
 **Defense:** Block skills that combine network commands with secret references. Use custom rules to add organization-specific secret patterns to the detection list.
 
-### Credential Access
+### Credential Access {#credential-access}
 
 **What it is:** Direct file reads targeting known credential storage locations.
 
@@ -218,6 +218,8 @@ A shared Markdown parser recognizes fenced code-block boundaries, including long
 - Reading SSH keys and config (`~/.ssh/id_rsa`, `~/.ssh/config`)
 - Reading `.env` files (application secrets)
 - Reading AWS credentials (`~/.aws/credentials`)
+
+In `.py` files, a CRITICAL credential match on a line that holds only a comment, or inside a string that is a whole statement such as a docstring, is reported as HIGH. Python never runs those lines, so a security tool that names credential paths in its own documentation warns without failing audit at the default CRITICAL threshold; it still blocks under a HIGH threshold. f-strings, strings inside brackets or after a line continuation, assigned strings, and code followed by a trailing comment keep CRITICAL. A file that references `__doc__` or `getdoc`, or uses bare CR line breaks, keeps CRITICAL throughout, and so do lines after a single-quoted string left open at a line end (a backslash continuation) or an f-string replacement field that holds a quote or `#` or does not close. Other file types, Markdown, and other rules are unchanged. Explicit severity overrides and full custom regex replacements keep their configured severity. This is a tokenizer heuristic, not proof that the file is safe. Text output, the TUIs and the dashboard mark such a finding as lowered from CRITICAL, and `audit rules` shows `HIGH in Python comments and docstrings` on each rule this applies to.
 
 **Defense:** These patterns should never appear in legitimate AI skills. Any skill accessing credential files should be treated as malicious.
 
@@ -516,10 +518,11 @@ Each finding in JSON/SARIF output includes:
 | `category` | string | Threat category: `injection`, `exfiltration`, `credential`, `obfuscation`, `privilege`, `integrity`, `trust`, `structure`, `risk` |
 | `confidence` | float | Confidence score (0–1). Static: 0.95, Dataflow: 0.85 |
 | `fingerprint` | string | Stable SHA-256 hash for deduplication and tracking |
+| `severityContext` | string | Why `severity` is lower than the rule's own. `python-inert`: a built-in credential-access match in a Python comment or docstring, lowered from `CRITICAL` to `HIGH` ([details](#credential-access)) |
 
-Fields `ruleId`, `analyzer`, `category`, `confidence`, and `fingerprint` are omitted from JSON when empty (backward compatible).
+Fields `ruleId`, `analyzer`, `category`, `confidence`, `fingerprint`, and `severityContext` are omitted from JSON when empty (backward compatible).
 
-In SARIF output, `ruleId` maps to the SARIF `ruleId` field, and `fingerprint` is included in the `fingerprints` property of each result.
+In SARIF output, `ruleId` maps to the SARIF `ruleId` field, and `fingerprint` is included in the `fingerprints` property of each result. `severityContext` appears in each result's `properties`.
 
 ## See Also
 

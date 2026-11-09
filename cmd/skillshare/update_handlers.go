@@ -37,7 +37,7 @@ func runTrackedRepoUpdate(uc *updateContext, repoPath string, onProgress func(st
 		}
 		for _, f := range res.Audit.Findings {
 			if !f.Acknowledged && audit.SeverityRank(f.Severity) <= audit.SeverityRank(res.Threshold) {
-				ui.Warning("[%s] %s (%s:%d)", f.Severity, f.Message, f.File, f.Line)
+				ui.Warning("[%s] %s (%s:%d)", f.Severity, f.ExplainedMessage(), f.File, f.Line)
 			}
 		}
 	}

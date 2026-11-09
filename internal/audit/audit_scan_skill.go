@@ -451,6 +451,7 @@ func scanFileUnifiedPlain(
 	var allLines []string
 	collectLines := hasDataflow && isShell
 	scriptContext := strings.HasPrefix(text, "#!")
+	var inert []bool
 
 	lineNum := 0
 	for start := 0; start <= len(text); {
@@ -487,17 +488,19 @@ func scanFileUnifiedPlain(
 					continue
 				}
 				if r.matchesLine(line) {
+					sev, sevContext := r.inertSeverity(r.findingSeverity(line, relPath, scriptContext), &inert, relPath, text, lineNum)
 					staticFindings = append(staticFindings, Finding{
-						Severity:   r.findingSeverity(line, relPath, scriptContext),
-						Pattern:    r.Pattern,
-						Message:    r.Message,
-						File:       relPath,
-						Line:       lineNum,
-						Snippet:    strings.TrimSpace(line),
-						RuleID:     r.ID,
-						Analyzer:   AnalyzerStatic,
-						Category:   categoryForPattern(r.Pattern),
-						Confidence: r.Confidence,
+						Severity:        sev,
+						SeverityContext: sevContext,
+						Pattern:         r.Pattern,
+						Message:         r.Message,
+						File:            relPath,
+						Line:            lineNum,
+						Snippet:         strings.TrimSpace(line),
+						RuleID:          r.ID,
+						Analyzer:        AnalyzerStatic,
+						Category:        categoryForPattern(r.Pattern),
+						Confidence:      r.Confidence,
 					})
 				}
 			}

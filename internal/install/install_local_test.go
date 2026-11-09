@@ -673,3 +673,17 @@ func TestInstallFromDiscovery_SubdirRootPreservesSiblingFiles(t *testing.T) {
 		t.Errorf("expected child skill directory to be excluded from subdir root install, err=%v", err)
 	}
 }
+
+func TestAuditMessagesExplainLoweredSeverity(t *testing.T) {
+	f := audit.Finding{Severity: audit.SeverityHigh, Message: "Reading accessing AWS credentials", File: "hook.py", Line: 3, Snippet: "# cat ~/.aws/credentials", SeverityContext: audit.SeverityContextPythonInert}
+	outputs := map[string]string{
+		"warning": auditFindingWarning(f),
+		"blocked": strings.Join(blockedFindingDetails([]audit.Finding{f}, audit.SeverityHigh), "\n"),
+	}
+	for name, got := range outputs {
+		first, _, _ := strings.Cut(got, "\n")
+		if !strings.Contains(first, "lowered from CRITICAL") || !strings.HasSuffix(first, "(hook.py:3)") {
+			t.Errorf("%s message should explain the lowered severity and still end with its location:\n%s", name, got)
+		}
+	}
+}
