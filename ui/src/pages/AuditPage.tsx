@@ -7,6 +7,7 @@ import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
+import Reveal from '../components/Reveal';
 import { Select } from '../components/Select';
 import Spinner from '../components/Spinner';
 import { useToast } from '../components/Toast';
@@ -22,8 +23,6 @@ type Severity = AuditFinding['severity'];
 const SEV_CLASS: Record<Severity, string> = { CRITICAL: 'c', HIGH: 'h', MEDIUM: 'md', LOW: 'l', INFO: 'n' };
 // Cross-skill analysis is a derived insight, not a scanned resource.
 const CROSS_SKILL = '_cross-skill';
-// LOW and INFO are the long tail; they stay behind a per-resource expander.
-const MINOR = rank('MEDIUM');
 
 export default function AuditPage() {
   const t = useT();
@@ -164,18 +163,25 @@ export default function AuditPage() {
         )}
       </div>
 
-      {scanning && (
-        <div className="ss-note inf !items-center">
-          <Spinner size="sm" />
-          <span className="flex-1">{t(kind === 'agents' ? 'audit.scanning.agents' : 'audit.scanning.skills')}</span>
-          {progress && progress.total > 0 && (
-            <>
-              <span className="ss-prog w-[160px]"><i style={{ width: `${(progress.scanned / progress.total) * 100}%` }} /></span>
-              <span className="font-mono text-[13px]">{progress.scanned} / {progress.total}</span>
-            </>
-          )}
+      {/* The note grows in and shrinks away instead of shoving the results down and back. The negative margin
+          cancels the page's 28px flex gap and the padding restores it inside the reveal, so the gap opens with it;
+          the right-hand pair leaves room for Playful's offset shadow, which the reveal would otherwise clip.
+          It waits 400ms before growing, so a quick rescan (a threshold change) finishes on the button's spinner
+          without bobbing the list down and back up. */}
+      <Reveal open={scanning} className={`-mb-[28px] -mr-1 ${scanning ? 'delay-[400ms]' : ''}`}>
+        <div className="pb-[28px] pr-1">
+          <div className="ss-note inf !items-center">
+            <Spinner size="sm" />
+            <span className="flex-1">{t(kind === 'agents' ? 'audit.scanning.agents' : 'audit.scanning.skills')}</span>
+            {progress && progress.total > 0 && (
+              <>
+                <span className="ss-prog w-[160px]"><i style={{ width: `${(progress.scanned / progress.total) * 100}%` }} /></span>
+                <span className="font-mono text-[13px]">{progress.scanned} / {progress.total}</span>
+              </>
+            )}
+          </div>
         </div>
-      )}
+      </Reveal>
 
       {error && <div className="ss-note bad"><AlertCircle size={16} /><span className="flex-1 break-words">{error}</span></div>}
 
@@ -293,8 +299,34 @@ function ResultGroup({ result, kind, only, expanded, onToggle, onIgnore }: {
   onIgnore: (f: AuditFinding) => void;
 }) {
   const t = useT();
-  const shown = displayAuditFindings(result.findings, null, false, !!only || expanded);
-  const hidden = only ? 0 : result.findings.length - result.findings.filter((f) => rank(f.severity) <= MINOR).length;
+  // A severity filter shows every match; otherwise LOW and INFO wait behind the expander and grow in under the rest.
+  const major = displayAuditFindings(result.findings, null, false, !!only);
+  const minor = result.findings.filter((f) => !major.includes(f));
+  const row = (f: AuditFinding, i: number) => (
+    <div key={`${f.file}:${f.line}:${i}`} className="ss-r !items-start !py-3.5">
+      <span className="w-[74px] shrink-0 pt-px"><span className={`ss-sev ${SEV_CLASS[f.severity]}`}>{f.severity}</span></span>
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <span className="text-[13.5px] font-semibold">{f.message}</span>
+        {f.snippet && (
+          <div className="ss-code max-w-full overflow-x-auto !px-3.5 !py-2.5">
+            <span className="ln">{f.line}</span>{f.snippet}
+          </div>
+        )}
+        {f.severityContext === 'python-inert' && (
+          <span className="flex items-start gap-1.5 text-[12px] text-ink-2">
+            <ArrowDown size={14} aria-hidden="true" className="mt-0.5 shrink-0" />
+            {t('audit.severityContext.pythonInert')}
+          </span>
+        )}
+        <span className="truncate font-mono text-[12px] text-ink-3" title={f.file}>
+          {f.file}:{f.line}{(f.ruleId || f.pattern) && ` · ${t('audit.rule', { rule: f.ruleId || f.pattern })}`}
+        </span>
+      </div>
+      {(f.ruleId || f.pattern) && (
+        <Button variant="ghost" size="sm" onClick={() => onIgnore(f)}>{t('audit.ignore.button')}</Button>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -307,34 +339,12 @@ function ResultGroup({ result, kind, only, expanded, onToggle, onIgnore }: {
         <span className="font-mono text-[12px] text-ink-3">{t('audit.risk', { score: result.riskScore })}</span>
         {result.isBlocked && <span className="ss-st bad">{t('audit.blocked')}</span>}
       </div>
-      {shown.map((f, i) => (
-        <div key={`${f.file}:${f.line}:${i}`} className="ss-r !items-start !py-3.5">
-          <span className="w-[74px] shrink-0 pt-px"><span className={`ss-sev ${SEV_CLASS[f.severity]}`}>{f.severity}</span></span>
-          <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <span className="text-[13.5px] font-semibold">{f.message}</span>
-            {f.snippet && (
-              <div className="ss-code max-w-full overflow-x-auto !px-3.5 !py-2.5">
-                <span className="ln">{f.line}</span>{f.snippet}
-              </div>
-            )}
-            {f.severityContext === 'python-inert' && (
-              <span className="flex items-start gap-1.5 text-[12px] text-ink-2">
-                <ArrowDown size={14} aria-hidden="true" className="mt-0.5 shrink-0" />
-                {t('audit.severityContext.pythonInert')}
-              </span>
-            )}
-            <span className="truncate font-mono text-[12px] text-ink-3" title={f.file}>
-              {f.file}:{f.line}{(f.ruleId || f.pattern) && ` · ${t('audit.rule', { rule: f.ruleId || f.pattern })}`}
-            </span>
-          </div>
-          {(f.ruleId || f.pattern) && (
-            <Button variant="ghost" size="sm" onClick={() => onIgnore(f)}>{t('audit.ignore.button')}</Button>
-          )}
-        </div>
-      ))}
-      {hidden > 0 && (
+      {major.map(row)}
+      {/* Keyed by the filter so a filter change swaps the rows at once instead of shrinking away a copy of them. */}
+      <Reveal key={only ?? ''} open={expanded && minor.length > 0} className="ss-rv">{minor.map(row)}</Reveal>
+      {minor.length > 0 && (
         <button type="button" className="ss-r w-full text-left text-[13px] text-ink-2" aria-expanded={expanded} onClick={onToggle}>
-          <span className="ml-[74px]">{t(expanded ? 'audit.minor.hide' : plural('audit.minor.show', hidden), { count: hidden })}</span>
+          <span className="ml-[74px]">{t(expanded ? 'audit.minor.hide' : plural('audit.minor.show', minor.length), { count: minor.length })}</span>
         </button>
       )}
     </>

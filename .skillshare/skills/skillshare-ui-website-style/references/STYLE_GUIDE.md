@@ -132,7 +132,8 @@ One primary per view. A destructive action always goes through `ConfirmDialog`.
 | Page entry | `animate-page-in`: a 120ms fade with no movement, since navigation is frequent |
 | In-page reveal (status swap, expanded group) | `animate-fade-in` |
 | Dialog, dropdown | `animate-dialog-in`, `animate-dropdown-in` |
-| Hover and press | Built into `.ss-btn`, `.ss-ib`, `.ss-r.link`, `.ss-counts`. Add none |
+| Block that opens and closes (disclosure, status note) | `Reveal`. Give a note for a quick operation a `delay-[400ms]` while open, so a fast run never bobs the content below |
+| Hover and press | Built into `.ss-btn`, `.ss-ib`, `.ss-r.link`, `.ss-counts`. Add none. Playful hover lifts only under `(hover: hover) and (pointer: fine)` |
 | Style or mode switch | `html.theme-transitioning`, applied by `ThemeContext` |
 
 Motion confirms an interaction. Nothing animates on its own except the skeleton shimmer and the spinner.

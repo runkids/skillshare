@@ -240,6 +240,8 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 /* The right margin plus a nested row's 12px padding lines its actions up with the top-level rows' 16px. */
 .ss-pk-top { --lift: 9px; margin: -13px 4px 8px 16px; }
 .ss-pk-top+.ss-r { border-top: var(--sep); }
+/* Rows revealed inside a list keep the separators a plain run of rows would have. */
+.ss-r+.ss-rv>div>.ss-r:first-child, .ss-rv+.ss-r { border-top: var(--sep); }
 .ss-pk { --guide: -8px; --elbow: 6px; --tl: color-mix(in srgb, var(--ink) 10%, var(--surface)); padding: var(--lift) 0 0 16px; }
 .ss-pk .ss-collapse { --lift: 4px; margin-top: -4px; }
 .ss-pk .ss-pk { padding-left: 0; }
@@ -303,7 +305,7 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 .ss-note.live { position: relative; overflow: hidden; transition: background .45s; }
 @media (prefers-reduced-motion: reduce) {
   .ss-bar.indet>span, .ss-rowbar::after, .ss-r.flash, .ss-pop { animation: none; }
-  .ss-bar>span, .ss-collapse, .ss-collapse .ss-r, .ss-note.live { transition: none; }
+  .ss-bar>span, .ss-prog i, .ss-collapse, .ss-collapse .ss-r, .ss-note.live { transition: none; }
 }
 .ss-note { display: flex; align-items: flex-start; gap: 10px; padding: 11px 14px; border-radius: 10px; background: var(--sunken); border: 1px solid var(--line); font-size: 13px; line-height: 1.5; }
 :root[data-theme="playful"] .ss-note { border: 2px solid var(--line); border-radius: 12px; }
@@ -444,7 +446,7 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 :root[data-theme="playful"] .ss-top { border: 2px solid var(--line); color: var(--ink); box-shadow: 3px 3px 0 var(--line); }
 :root[data-theme="playful"] .ss-top:hover { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--line); }
 .ss-prog { height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; display: flex; }
-.ss-prog i { background: var(--accent); border-radius: 99px; }
+.ss-prog i { background: var(--accent); border-radius: 99px; transition: width .45s cubic-bezier(.3,.7,.3,1); }
 :root[data-theme="playful"] .ss-prog { height: 12px; background: var(--surface); border: 2px solid var(--line); }
 :root[data-theme="playful"] .ss-prog i { border-radius: 0; background: repeating-linear-gradient(-45deg, var(--accent) 0 5px, transparent 5px 8px); }
 .ss-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 40px 24px; text-align: center; border: 1.5px dashed var(--line-2); border-radius: 12px; color: var(--ink-2); }
@@ -498,7 +500,11 @@ b.ok, svg.ok { color: var(--ok); }
 span.warn, b.warn, svg.warn { color: var(--warn); }
 span.bad, b.bad, svg.bad { color: var(--bad); }
 .ss-btn:hover:not(:disabled) { filter: brightness(.94); }
-:root[data-theme="playful"] .ss-btn:hover:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--line); filter: none; }
+:root[data-theme="playful"] .ss-btn:hover:not(:disabled) { filter: none; }
+/* Lifts and sinks only under a real pointer, so a tap does not leave the control stuck out of place. */
+@media (hover: hover) and (pointer: fine) {
+  :root[data-theme="playful"] .ss-btn:hover:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--line); }
+}
 .ss-btn:disabled { opacity: .42; }
 .ss-btn .spin { width: 13px; height: 13px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; }
 .ss-btn .spin + svg { display: none; }
@@ -700,12 +706,20 @@ button:disabled { cursor: not-allowed; }
 /* A row whose name is the link: the whole row lights up, as if the row were the link. */
 .ss-rl { cursor: pointer; }
 .ss-r:has(>.ss-rl:hover) { background: var(--sunken); }
-.ss-counts>a { transition: background-color .12s, transform .12s, box-shadow .12s; }
+.ss-counts>:is(a, button) { transition: background-color .12s, transform .12s, box-shadow .12s; }
 .ss-counts>a .lbl { font-size: 13px; color: var(--ink-2); }
 :root:not([data-theme="playful"]) .ss-counts>a:hover { background: var(--sunken); }
 :root:not([data-theme="playful"]) .ss-counts>a:first-child { border-radius: 12px 0 0 12px; }
 :root:not([data-theme="playful"]) .ss-counts>a:last-child { border-radius: 0 12px 12px 0; }
-:root[data-theme="playful"] .ss-counts>a:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--line); }
+@media (hover: hover) and (pointer: fine) {
+  :root[data-theme="playful"] .ss-counts>a:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--line); }
+}
+/* A count that filters lights on hover, gives under the press and stays tinted while its filter is on. */
+.ss-counts>button:not(:disabled, [aria-pressed="true"]):hover { background: var(--sunken); }
+.ss-counts>button:not(:disabled):active { transform: scale(.98); }
+.ss-counts>button[aria-pressed="true"] { background: var(--accent-bg); }
+:root:not([data-theme="playful"]) .ss-counts>button:first-child { border-radius: 12px 0 0 12px; }
+:root:not([data-theme="playful"]) .ss-counts>button:last-child { border-radius: 0 12px 12px 0; }
 .ss-sw { transition: background-color .15s; }
 /* The knob slides rather than jumps: on moves it the track's inner width minus the knob's, mixed half
    that. Mixed centers by transform too, so a change between any two states is one slide. */
