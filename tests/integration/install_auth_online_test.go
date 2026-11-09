@@ -115,8 +115,9 @@ targets: {}
 		t.Fatal("tracked repo should be installed")
 	}
 
-	// Update should succeed — git pull with token injection
-	updateResult := sb.RunCLI("install", "_auth-tracked-test", "--update")
+	// Update should succeed — git pull with token injection. It may pull
+	// commits pushed during the clone, so it needs --force like the install.
+	updateResult := sb.RunCLI("install", "_auth-tracked-test", "--update", "--force")
 	updateResult.AssertSuccess(t)
 
 	// Verify no token leaks
