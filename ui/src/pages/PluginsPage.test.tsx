@@ -6,7 +6,7 @@ import { pluginsApi, type PluginInventory } from '../api/plugins';
 import { ToastProvider } from '../components/Toast';
 import { MemoryRouter } from 'react-router-dom';
 
-vi.mock('../api/plugins', async (importOriginal) => ({ ...await importOriginal<typeof import('../api/plugins')>(), pluginsApi: { list: vi.fn(), files: vi.fn(), file: vi.fn(), discover: vi.fn(), preview: vi.fn(), apply: vi.fn(), update: vi.fn(), stopUpdate: vi.fn() } }));
+vi.mock('../api/plugins', async (importOriginal) => ({ ...await importOriginal<typeof import('../api/plugins')>(), pluginsApi: { list: vi.fn(), files: vi.fn(), file: vi.fn(), discover: vi.fn(), preview: vi.fn(), check: vi.fn(), apply: vi.fn(), update: vi.fn(), stopUpdate: vi.fn() } }));
 vi.mock('../i18n', async (importOriginal) => ({ ...await importOriginal<typeof import('../i18n')>(), useT: () => (key: string) => key }));
 vi.mock('../context/AppContext', () => ({ useAppContext: () => ({ isProjectMode: false }) }));
 vi.mock('../components/plugins/PluginAddDialog', () => ({ default: ({ initialTargets }: { initialTargets?: string[] }) => <div role="dialog" aria-label="add">{initialTargets?.join(',')}</div> }));
@@ -142,11 +142,13 @@ describe('PluginsPage', () => {
       hosts: [{ target: 'pi', version: '0.99.2', status: 'ready', installed: [{ id: 'npm:driver', version: '1.0.0', enabled: true }, { id: 'npm:tail', version: '2.0.0', enabled: true }] }],
     });
     // The check the page runs on its own.
-    vi.mocked(pluginsApi.preview).mockResolvedValueOnce({ revision: 'r', blocked: false, changes: [
-      { name: 'driver', target: 'pi', id: 'npm:driver', action: 'update-available', binding: { id: 'npm:driver', version: '1.1.0' } },
-      { name: 'tail', target: 'pi', id: 'npm:tail', action: 'update-available', binding: { id: 'npm:tail', version: '2.1.0' } },
-      { name: 'tail', target: 'codex', id: 'tail@market', action: 'update-available', binding: { id: 'tail@market', version: '2.1.0' } },
-    ] });
+    vi.mocked(pluginsApi.check).mockImplementationOnce(async (on) => {
+      on({ name: 'driver', plan: { revision: 'a', blocked: false, changes: [{ name: 'driver', target: 'pi', id: 'npm:driver', action: 'update-available', binding: { id: 'npm:driver', version: '1.1.0' } }] } });
+      on({ name: 'tail', plan: { revision: 'b', blocked: false, changes: [
+        { name: 'tail', target: 'pi', id: 'npm:tail', action: 'update-available', binding: { id: 'npm:tail', version: '2.1.0' } },
+        { name: 'tail', target: 'codex', id: 'tail@market', action: 'update-available', binding: { id: 'tail@market', version: '2.1.0' } },
+      ] } });
+    });
   };
   it('checks for updates on its own and sends every plugin ticked in one batch', async () => {
     twoBehind();
@@ -222,8 +224,7 @@ describe('PluginsPage', () => {
   it('still blocks an unsafe OMP plan but allows a reviewed fresh install without a special confirmation', async () => {
     synced.targets = [{ name: 'omp' }, { name: 'omp-work', agent: 'omp' }];
     vi.mocked(pluginsApi.list).mockResolvedValue(omp({ omp: { id: 'guard', source: 'owner/guard', sync: false } }, [{ id: 'guard', enabled: true }]));
-    // The page checks for updates on its own first.
-    vi.mocked(pluginsApi.preview).mockResolvedValueOnce({ revision: 'c', blocked: false, changes: [] }).mockResolvedValueOnce({ revision: 'r1', blocked: true, changes: [{ name: 'guard', target: 'omp', id: 'guard', action: 'blocked', message: 'OMP scoped removal cannot verify this installation or runtime ownership.', messageKey: 'plugins.error.ompRemovalOwnership' }] });
+    vi.mocked(pluginsApi.preview).mockResolvedValueOnce({ revision: 'r1', blocked: true, changes: [{ name: 'guard', target: 'omp', id: 'guard', action: 'blocked', message: 'OMP scoped removal cannot verify this installation or runtime ownership.', messageKey: 'plugins.error.ompRemovalOwnership' }] });
     mount();
     fireEvent.click(await screen.findByRole('button', { name: 'plugins.sync' }));
     const dialog = await screen.findByRole('dialog', { name: 'plugins.preview' });

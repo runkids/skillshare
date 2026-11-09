@@ -122,7 +122,10 @@ components are not also copied into standalone Skillshare sources.
 ## Updates and recovery {#updates-and-recovery}
 
 The Plugins page checks for updates when it opens, and **Check updates** checks
-again on demand. A row whose source has a newer version shows `old → new`, and
+again on demand. Plugins are checked at the same time: each row shows its result
+as soon as its own check finishes, and the header counts the plugins checked so
+far. A plugin that cannot be checked shows **Check failed**, including one whose
+Agent's CLI does not answer within 60 seconds; hover it for the reason. A row whose source has a newer version shows `old → new`, and
 the header button reads **Update N**. It opens one dialog that lists every plugin
 with an update, ticked by default, with the Agents it is installed on; untick a
 plugin or an Agent to leave it out. **Update N plugins** runs the picks one at a

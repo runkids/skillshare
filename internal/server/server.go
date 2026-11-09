@@ -635,6 +635,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/plugins/discover", s.requireLocalPlugin(s.handlePluginDiscover))
 	s.mux.HandleFunc("POST /api/plugins/preview", s.requireLocalPlugin(s.handlePluginPreview))
 	s.mux.HandleFunc("POST /api/plugins/apply", s.requireLocalPlugin(s.handlePluginApply))
+	s.mux.HandleFunc("GET /api/plugins/check/stream", s.requireLocalPlugin(s.handlePluginCheckStream))
 	s.mux.HandleFunc("POST /api/plugins/update/stream", s.requireLocalPlugin(s.handlePluginUpdateStream))
 	s.mux.HandleFunc("POST /api/plugins/update/stop", s.requireLocalPlugin(s.handlePluginUpdateStop))
 	s.mux.HandleFunc("GET /api/mcp", s.requireLocalMCP(s.handleMCPList))

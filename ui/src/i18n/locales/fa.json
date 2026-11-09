@@ -2581,6 +2581,7 @@
   "plugins.noChanges": "بدون تغییر",
   "plugins.apply": "اعمال تغییرات",
   "plugins.checkingUpdates": "در حال بررسی به‌روزرسانی‌ها…",
+  "plugins.checkFailed": "بررسی ناموفق بود",
   "plugins.updateCount.one": "به‌روزرسانی {count}",
   "plugins.updateCount.other": "به‌روزرسانی {count}",
   "plugins.updateDialog.title": "به‌روزرسانی plugin‌ها",

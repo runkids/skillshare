@@ -230,6 +230,34 @@ func (s *Server) handlePluginUpdateStream(w http.ResponseWriter, r *http.Request
 	send("done", map[string]string{"failure": failure})
 }
 
+// pluginCheckTimeout bounds an update check, so an Agent CLI or source that does not answer
+// fails its own plugins in time instead of keeping the page waiting.
+const pluginCheckTimeout = 60 * time.Second
+
+// handlePluginCheckStream checks every plugin at once and sends each plugin's plan as soon as it
+// is ready, so the page marks rows while slower plugins are still being checked.
+func (s *Server) handlePluginCheckStream(w http.ResponseWriter, r *http.Request) {
+	send, ok := initSSE(w)
+	if !ok {
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), pluginCheckTimeout)
+	defer cancel()
+	err := s.pluginServiceSnapshot().Check(ctx, plugin.Request{Action: "check"}, func(name string, p *plugin.Plan, err error) {
+		out := map[string]any{"name": name, "plan": p}
+		if err != nil {
+			code, params := plugin.ErrorKey(err)
+			out["error"], out["error_code"], out["error_params"] = err.Error(), code, params
+		}
+		send("plan", out)
+	})
+	failure := ""
+	if err != nil {
+		failure = err.Error()
+	}
+	send("done", map[string]string{"failure": failure})
+}
+
 // handlePluginUpdateStop lets the plugin under way finish and starts no other.
 func (s *Server) handlePluginUpdateStop(w http.ResponseWriter, _ *http.Request) {
 	s.pluginStop.Store(true)

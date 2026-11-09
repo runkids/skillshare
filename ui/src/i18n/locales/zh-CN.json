@@ -2581,6 +2581,7 @@
   "plugins.noChanges": "没有更改",
   "plugins.apply": "应用更改",
   "plugins.checkingUpdates": "正在检查更新…",
+  "plugins.checkFailed": "检查失败",
   "plugins.updateCount.one": "更新 {count} 个",
   "plugins.updateCount.other": "更新 {count} 个",
   "plugins.updateDialog.title": "更新 plugin",

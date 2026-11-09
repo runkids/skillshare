@@ -441,7 +441,9 @@ skillshare plugin update review --source-ref v1.1.0 --target claude --dry-run --
 
 Shared bindings record `source_ref`; the resolved `commit` stays in the local receipt. Installation uses the
 locally reviewed commit; `check` and `update` resolve the configured ref again, so a branch
-can advance while a commit remains pinned. `--revision` is a preview token, not
+can advance while a commit remains pinned. Without a configured ref, `check` first asks the
+remote which commit its default branch points at, and downloads the source only when that
+commit differs from the installed one. `--revision` is a preview token, not
 a Git ref. `--entry` is relative to each candidate's package root and must already
 exist; it does not trigger a build or package-manager install.
 

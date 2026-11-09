@@ -2581,6 +2581,7 @@
   "plugins.noChanges": "変更なし",
   "plugins.apply": "変更を適用",
   "plugins.checkingUpdates": "更新を確認中…",
+  "plugins.checkFailed": "確認に失敗",
   "plugins.updateCount.one": "{count} 件を更新",
   "plugins.updateCount.other": "{count} 件を更新",
   "plugins.updateDialog.title": "plugin を更新",

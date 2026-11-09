@@ -321,7 +321,7 @@ func TestPluginHostStateExplicitRefValidatedBeforeWrites(t *testing.T) {
 				if n := strings.Count(string(raw), " clone --depth 1 -- "); n != 1 {
 					t.Fatalf("effective declaration acquired %d times in one preview", n)
 				}
-				if s.discoveries != nil {
+				if s.reads != nil {
 					t.Fatal("preview cache escaped operation")
 				}
 				if _, err := s.Apply(context.Background(), req, p.Revision); err != nil {
