@@ -2366,6 +2366,7 @@
   "hubs.view.edit": "Edit",
   "hubs.view.share": "Bagikan",
   "hubs.view.more": "Tindakan lain",
+  "hubs.view.refresh": "Segarkan",
   "hubs.view.version": "Versi",
   "hubs.view.delete": "Hapus Hub",
   "hubs.view.deleteHint": "Hapus Hub ini secara permanen? Skills yang terpasang dan file yang di-host tidak terpengaruh.",

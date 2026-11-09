@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Search, Tag } from 'lucide-react';
+import { RefreshCw, Search, Tag } from 'lucide-react';
 import { api } from '../../api/client';
 import type { SearchResult } from '../../api/client';
 import { hubDrafts } from '../../api/hubDrafts';
@@ -114,6 +114,19 @@ export default function HubView({ title, draftId, url, actions }: Props) {
               <Search size={14} className="shrink-0 text-ink-3" />
               <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('hubs.browse.filter')} aria-label={t('hubs.browse.filter')} />
             </span>
+            {/* The hosted list is cached for two minutes; this fetches it again now. */}
+            {!draftId && (
+              <button
+                type="button"
+                className="ss-btn !w-[34px] !px-0"
+                aria-label={t('hubs.view.refresh')}
+                title={t('hubs.view.refresh')}
+                disabled={hosted.isFetching}
+                onClick={() => void hosted.refetch()}
+              >
+                <RefreshCw size={15} className={hosted.isFetching ? 'animate-spin' : ''} />
+              </button>
+            )}
             {actions}
           </span>
         </div>

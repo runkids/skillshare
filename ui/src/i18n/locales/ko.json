@@ -2366,6 +2366,7 @@
   "hubs.view.edit": "편집",
   "hubs.view.share": "공유",
   "hubs.view.more": "더 보기",
+  "hubs.view.refresh": "새로고침",
   "hubs.view.version": "버전",
   "hubs.view.delete": "Hub 삭제",
   "hubs.view.deleteHint": "이 Hub를 영구히 삭제할까요? 설치된 skills와 호스팅된 파일은 영향을 받지 않습니다.",

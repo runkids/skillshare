@@ -2366,6 +2366,7 @@
   "hubs.view.edit": "ویرایش",
   "hubs.view.share": "هم‌رسانی",
   "hubs.view.more": "کارهای بیشتر",
+  "hubs.view.refresh": "تازه‌سازی",
   "hubs.view.version": "نسخه",
   "hubs.view.delete": "حذف Hub",
   "hubs.view.deleteHint": "این Hub برای همیشه حذف شود؟ skills نصب‌شده و فایل‌های میزبانی‌شده تغییری نمی‌کنند.",

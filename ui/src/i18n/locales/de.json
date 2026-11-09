@@ -2366,6 +2366,7 @@
   "hubs.view.edit": "Bearbeiten",
   "hubs.view.share": "Teilen",
   "hubs.view.more": "Weitere Aktionen",
+  "hubs.view.refresh": "Aktualisieren",
   "hubs.view.version": "Version",
   "hubs.view.delete": "Hub löschen",
   "hubs.view.deleteHint": "Diesen Hub endgültig löschen? Installierte Skills und gehostete Dateien bleiben unberührt.",
