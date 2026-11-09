@@ -76,8 +76,9 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
    .ss-wrap the 28px flex gap already does it, and both together left a 56px hole. */
 .ss-pgh { margin-bottom: 28px; }
 .ss-wrap > .ss-pgh { margin-bottom: 0; }
-.ss-ph { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
-.ss-ph .tt { display: flex; flex-direction: column; gap: 6px; }
+/* The title keeps at least 280px; when the actions do not fit beside it they wrap below. */
+.ss-ph { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
+.ss-ph .tt { display: flex; flex: 1 1 280px; flex-direction: column; gap: 6px; }
 .ss-ph p { color: var(--ink-2); }
 :root[data-theme="playful"] .ss-ph h1 span { background: linear-gradient(transparent 58%, var(--pa) 58%, var(--pa) 92%, transparent 92%); padding: 0 4px; margin: 0 -4px; }
 :root[data-theme="playful"].dark .ss-ph h1 span { background: linear-gradient(transparent 58%, rgba(232,168,76,.45) 58%, rgba(232,168,76,.45) 92%, transparent 92%); }
