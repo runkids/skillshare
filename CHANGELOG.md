@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.30.2] - 2026-11-09
+
+### Bug Fixes
+
+- **Python docstrings that mention credential paths no longer block installs** — the `credential-access-*` audit rules match whole lines, so a Python docstring that only mentioned `~/.aws/credentials` counted as a CRITICAL read and blocked the skill at the default threshold. In `.py` files, a match on a comment-only line or inside a docstring is now HIGH: it still shows, and still blocks when the threshold is HIGH. Strings that code can use, such as arguments, assignments and f-strings, stay CRITICAL, and so does every line of a file that reads `__doc__`; a severity you set for the rule applies everywhere. `audit` output, the audit TUIs, install and update warnings and the dashboard say the finding was lowered from CRITICAL, and JSON and SARIF carry `severityContext: "python-inert"`. Thanks to @mfjramirezf for the report. Refs: #817, #819.
+- **Update now restarts the dashboard on Homebrew installs** — on a Homebrew install, **Update now** runs `brew upgrade`, which removes the versioned folder the dashboard was running from, so the restart failed and the old version kept running. The dashboard now restarts through Homebrew's `skillshare` link, which points at the new version. Other installs restart as before. Thanks to @ndeybach for the report. Refs: #815, #816.
+- **Root-scope commit and push no longer stop at tracked repos** — with `git_root: root`, `skillshare commit` and `push` aborted with "nested git repositories must be disabled first" for every tracked repo, although tracked repos are listed in the managed `.gitignore` block and Git never uploads them. Renaming their `.git` as suggested also broke `skillshare update`. Nested repos that Git ignores are now skipped, so they no longer appear in the warning or on the dashboard's Git Sync page. A nested repo that Git would still commit, such as a skill you cloned by hand or one already committed as a submodule, still stops the push. Thanks to @ndeybach for the report. Refs: #820, #821.
+
 ## [0.30.1] - 2026-11-09
 
 ### New Features
