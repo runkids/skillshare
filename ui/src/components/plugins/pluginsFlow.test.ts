@@ -202,6 +202,28 @@ describe('plugins flow', () => {
     expect(now().updates).toEqual({ driver: { 'claude-work': expect.anything() }, tail: { pi: expect.anything() } });
   });
 
+  const offered = (p: PluginPlan | null) => (p?.changes ?? []).filter((c) => c.action === 'update-available').map((c) => `${c.name}:${c.target}`);
+
+  it('offers in the update dialog an update a broken-off check found', async () => {
+    vi.mocked(pluginsApi.check).mockImplementationOnce(async (on) => {
+      on({ name: 'driver', plan: plan('a', { name: 'driver', target: 'claude', action: 'update-available', binding: { id: 'driver@m', version: '2.0.0' } }) });
+      throw new Error('stream closed');
+    });
+    const { now } = flow();
+    await act(() => now().check());
+    expect(offered(now().checked)).toEqual(['driver:claude']);
+  });
+
+  it('offers in the update dialog an update kept for an Agent the check could not reach', async () => {
+    const found = (target: string) => ({ name: 'driver', target, action: 'update-available', binding: { id: 'driver@m', version: '2.0.0' } });
+    checks({ name: 'driver', plan: plan('a', found('claude'), found('claude-work')) });
+    checks({ name: 'driver', plan: { ...plan('b', { name: 'driver', target: 'claude', action: 'noop' }, { name: 'driver', target: 'claude-work', action: 'blocked', messageKey: 'plugins.error.timeout' }), blocked: true } });
+    const { now } = flow();
+    await act(() => now().check());
+    await act(() => now().check());
+    expect(offered(now().checked)).toEqual(['driver:claude-work']);
+  });
+
   it('tells whether a check came back, so a check the user asked for can open its result', async () => {
     const { now } = flow();
     await act(async () => expect(await now().check()).toBe(true));

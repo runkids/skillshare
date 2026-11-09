@@ -70,6 +70,28 @@ function withChecked(updates: Updates, name: string, plan: PluginPlan | null): U
 }
 
 /**
+ * What the update dialog offers: each plugin's check answer in name order, where an update kept from an earlier check,
+ * for an Agent this check could not reach or a plugin it never answered for, stands in for what this check said.
+ */
+export function checkedPlan(plans: Record<string, PluginPlan>, updates: Updates): PluginPlan | null {
+  const names = [...new Set([...Object.keys(plans), ...Object.keys(updates)])].sort();
+  if (names.length === 0) return null;
+  const changes = names.flatMap((name) => {
+    const kept = updates[name] ?? {};
+    const answered = (plans[name]?.changes ?? []).filter((c) => !(c.action === 'blocked' && kept[c.target]));
+    const offered = Object.entries(kept)
+      .filter(([target]) => !answered.some((c) => c.target === target && c.action === 'update-available'))
+      .map(([target, u]) => ({
+        name, target, id: u.id ?? '', action: 'update-available',
+        message: 'Source content changed; review an update before applying.', messageKey: 'plugins.note.sourceChanged',
+        binding: { id: u.id ?? '', version: u.version, commit: u.commit, digest: u.digest, source: u.source, sourceRef: u.sourceRef, plugin: u.plugin, entry: u.entry },
+      }));
+    return [...answered, ...offered];
+  });
+  return { revision: names.map((n) => plans[n]?.revision ?? '').join(''), blocked: changes.some((c) => c.action === 'blocked'), changes };
+}
+
+/**
  * An Agent comes off once the result reports it updated, or already there (noop); one that
  * failed, was skipped, or never ran because the apply stopped first keeps its Update action.
  */
@@ -168,7 +190,8 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
   const [result, setResult] = useState<PluginResult | null>(null);
   // What the last check found to update. An applied update takes its Agents off.
   const [updates, setUpdates] = useState<Updates>({});
-  const [checked, setChecked] = useState<PluginPlan | null>(null);
+  // Each plugin's answer to the last check, for the update dialog.
+  const [checkedPlans, setCheckedPlans] = useState<Record<string, PluginPlan>>({});
   const [checking, setChecking] = useState(false);
   // How many plugins the check under way has answered for, and why each it could not check failed.
   const [checkProgress, setCheckProgress] = useState({ done: 0, total: 0 });
@@ -199,14 +222,13 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
         setCheckFailures((f) => { const next = { ...f }; delete next[name]; return why ? { ...next, [name]: why } : next; });
         setCheckProgress((p) => ({ ...p, done: p.done + 1 }));
       });
-      // A finished check also drops plugins it no longer reports, and lists the plan in name order as the server does.
-      const names = Object.keys(plans).sort();
+      // A finished check also drops plugins it no longer reports.
       setUpdates((u) => Object.fromEntries(Object.entries(u).filter(([n]) => answered.has(n))));
       setCheckFailures(failed);
-      setChecked({ revision: names.map((n) => plans[n].revision).join(''), blocked: names.some((n) => plans[n].blocked), changes: names.flatMap((n) => plans[n].changes) });
+      setCheckedPlans(plans);
       return true;
     }
-    catch (e) { if (!quiet) setFailure((e as Error).message); return false; }
+    catch (e) { setCheckedPlans((before) => ({ ...before, ...plans })); if (!quiet) setFailure((e as Error).message); return false; }
     finally { setChecking(false); }
   };
   /**
@@ -317,7 +339,7 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
 
   const outcomes = result?.result?.results ?? [];
   return {
-    busy, working, failure, review, updates, outcomes, checked, checking, checkProgress, checkFailures, batch,
+    busy, working, failure, review, updates, outcomes, checked: checkedPlan(checkedPlans, updates), checking, checkProgress, checkFailures, batch,
     preview, begin, apply, selectTarget, check, updateMany, importMany,
     stopBatch: () => { pluginsApi.stopUpdate().catch((e: Error) => setFailure(e.message)); },
     closeBatch: () => setBatch(null),
