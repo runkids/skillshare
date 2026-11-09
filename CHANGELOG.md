@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.30.1](https://github.com/runkids/skillshare/compare/v0.30.0...v0.30.1) (2026-11-09)
+## [0.30.1] - 2026-11-09
 
 
 * **release:** release the Hubs refresh button as a patch ([4304395](https://github.com/runkids/skillshare/commit/4304395439c3c90ede9e3d452bdc246581eaaffc))
