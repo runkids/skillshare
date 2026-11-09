@@ -51,6 +51,7 @@ func TestPythonInertCredentialSeverity(t *testing.T) {
 		{"multi-line f-string field", "hook.py", "c = f\"{\n'''" + cmd + "'''\n}\"", SeverityCritical},
 		{"bare CR line break", "hook.py", "import os\n# example\ros.system('" + cmd + "')\n", SeverityCritical},
 		{"nested quote in f-string field", "hook.py", "f\"\"\"{os.system(\n    \"\"\"#\"\"\"\n    \"; " + cmd + "\"\n)}\"\"\"", SeverityCritical},
+		{"comment in f-string field", "hook.py", "f\"\"\"{os.system(\n# } \"\"\"#\n\"; " + cmd + "\"\n)}\"\"\"", SeverityCritical},
 		{"docstring read back", "hook.py", "\"\"\"" + cmd + "\"\"\"\nimport os; os.system(__doc__)", SeverityCritical},
 		{"shell comment keeps severity", "hook.sh", "# " + cmd, SeverityCritical},
 	} {

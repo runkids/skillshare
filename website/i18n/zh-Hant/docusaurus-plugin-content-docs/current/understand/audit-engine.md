@@ -220,7 +220,7 @@ Output suppression 依命中的證據分級，不取決於 Markdown 上下文：
 - 讀取 `.env` 檔案（應用程式機密資料）
 - 讀取 AWS 憑證（`~/.aws/credentials`）
 
-在 `.py` 檔案中，只有註解的行，或整個陳述式就是一個字串（例如 docstring）中的 CRITICAL 憑證匹配，會回報為 HIGH。Python 不會執行這些行，因此在自身文件中提到憑證路徑的安全工具，在預設 CRITICAL 門檻下只會警告，不會讓 audit 失敗；在 HIGH 門檻下仍會阻擋。f-string、括號內或續行之後的字串、被指派的字串，以及行尾註解前還有程式碼的行，仍為 CRITICAL。引用 `__doc__` 或 `getdoc`，或使用單獨 CR 換行的檔案，整份維持 CRITICAL；在行尾仍未閉合的單行字串（反斜線續行），或包含引號、未閉合的 f-string 替換欄位之後的行，也維持 CRITICAL。其他檔案類型、Markdown 與其他規則不受影響。明確的 severity override 與包含 regex 的完整自訂替換會保留其設定的 severity。這是以 tokenizer 為基礎的啟發式判斷，不代表檔案安全。文字輸出、TUI 和儀表板會把這類結果標為從 CRITICAL 降級，`audit rules` 會在適用的規則上顯示 `HIGH in Python comments and docstrings`。
+在 `.py` 檔案中，只有註解的行，或整個陳述式就是一個字串（例如 docstring）中的 CRITICAL 憑證匹配，會回報為 HIGH。Python 不會執行這些行，因此在自身文件中提到憑證路徑的安全工具，在預設 CRITICAL 門檻下只會警告，不會讓 audit 失敗；在 HIGH 門檻下仍會阻擋。f-string、括號內或續行之後的字串、被指派的字串，以及行尾註解前還有程式碼的行，仍為 CRITICAL。引用 `__doc__` 或 `getdoc`，或使用單獨 CR 換行的檔案，整份維持 CRITICAL；在行尾仍未閉合的單行字串（反斜線續行），或包含引號或 `#`、未閉合的 f-string 替換欄位之後的行，也維持 CRITICAL。其他檔案類型、Markdown 與其他規則不受影響。明確的 severity override 與包含 regex 的完整自訂替換會保留其設定的 severity。這是以 tokenizer 為基礎的啟發式判斷，不代表檔案安全。文字輸出、TUI 和儀表板會把這類結果標為從 CRITICAL 降級，`audit rules` 會在適用的規則上顯示 `HIGH in Python comments and docstrings`。
 
 **防禦方式：** 這些模式不應該出現在正當的 AI skill 中。任何會存取憑證檔案的 skill 都應被視為惡意。
 

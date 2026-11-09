@@ -52,8 +52,8 @@ func pythonInertLines(filename, text string) []bool {
 				switch {
 				case c == '\\':
 					j++
-				case fstring && field > 0 && (c == '"' || c == '\''):
-					return inert // a nested string can hide where the field ends
+				case fstring && field > 0 && (c == '"' || c == '\'' || c == '#'):
+					return inert // a nested string or comment can hide where the field ends
 				case fstring && field > 0 && c == '{':
 					field++
 				case fstring && field > 0 && c == '}':
