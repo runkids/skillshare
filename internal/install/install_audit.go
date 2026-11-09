@@ -72,14 +72,7 @@ func auditInstalledResource(
 	}
 
 	for _, f := range scanResult.Findings {
-		msg := fmt.Sprintf("audit %s: %s (%s:%d)", f.Severity, f.Message, f.File, f.Line)
-		if f.Acknowledged {
-			msg += " (accepted earlier)"
-		}
-		if f.Snippet != "" {
-			msg += fmt.Sprintf("\n       %q", f.Snippet)
-		}
-		result.Warnings = append(result.Warnings, msg)
+		result.Warnings = append(result.Warnings, auditFindingWarning(f))
 	}
 
 	if scanResult.IsBlocked && !opts.AuditOverride {
@@ -200,14 +193,7 @@ func auditTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallOp
 	}
 
 	for _, f := range scanResult.Findings {
-		msg := fmt.Sprintf("audit %s: %s (%s:%d)", f.Severity, f.Message, f.File, f.Line)
-		if f.Acknowledged {
-			msg += " (accepted earlier)"
-		}
-		if f.Snippet != "" {
-			msg += fmt.Sprintf("\n       %q", f.Snippet)
-		}
-		result.Warnings = append(result.Warnings, msg)
+		result.Warnings = append(result.Warnings, auditFindingWarning(f))
 	}
 
 	if scanResult.IsBlocked && !opts.AuditOverride {
@@ -498,14 +484,7 @@ func auditTrackedRepoUpdate(candidate *GitUpdateCandidate, result *TrackedRepoRe
 	}
 
 	for _, f := range scanResult.Findings {
-		msg := fmt.Sprintf("audit %s: %s (%s:%d)", f.Severity, f.Message, f.File, f.Line)
-		if f.Acknowledged {
-			msg += " (accepted earlier)"
-		}
-		if f.Snippet != "" {
-			msg += fmt.Sprintf("\n       %q", f.Snippet)
-		}
-		result.Warnings = append(result.Warnings, msg)
+		result.Warnings = append(result.Warnings, auditFindingWarning(f))
 	}
 
 	if res.Overridden {
@@ -533,6 +512,18 @@ func recordAcceptedWarning(sourceDir, path string, res *audit.Result, threshold 
 	return []string{fmt.Sprintf("recorded %d accepted finding(s); future updates won't block on them", n)}
 }
 
+// auditFindingWarning formats one finding as an install warning.
+func auditFindingWarning(f audit.Finding) string {
+	msg := fmt.Sprintf("audit %s: %s (%s:%d)", f.Severity, f.ExplainedMessage(), f.File, f.Line)
+	if f.Acknowledged {
+		msg += " (accepted earlier)"
+	}
+	if f.Snippet != "" {
+		msg += fmt.Sprintf("\n       %q", f.Snippet)
+	}
+	return msg
+}
+
 func blockedFindingDetails(findings []audit.Finding, threshold string) []string {
 	var details []string
 	for _, f := range findings {
@@ -540,7 +531,7 @@ func blockedFindingDetails(findings []audit.Finding, threshold string) []string 
 			continue
 		}
 		if audit.SeverityRank(f.Severity) <= audit.SeverityRank(threshold) {
-			detail := fmt.Sprintf("  %s: %s (%s:%d)", f.Severity, f.Message, f.File, f.Line)
+			detail := fmt.Sprintf("  %s: %s (%s:%d)", f.Severity, f.ExplainedMessage(), f.File, f.Line)
 			if f.Snippet != "" {
 				detail += fmt.Sprintf("\n    %q", f.Snippet)
 			}

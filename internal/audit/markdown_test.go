@@ -305,3 +305,19 @@ func TestToMarkdown_NoSourceLinkSection(t *testing.T) {
 		t.Fatal(md)
 	}
 }
+
+func TestToMarkdown_ExplainsLoweredSeverity(t *testing.T) {
+	results := []*Result{{SkillName: "sentinel", Findings: []Finding{
+		{Severity: SeverityHigh, Pattern: "credential-access", Message: "m", File: "hook.py", Line: 3, Snippet: "# cat ~/.aws/credentials", SeverityContext: SeverityContextPythonInert},
+	}}}
+	md := ToMarkdown(results, MarkdownOptions{})
+	for _, line := range strings.Split(md, "\n") {
+		if strings.HasPrefix(line, "| 1 |") {
+			if !strings.Contains(line, "lowered from CRITICAL") {
+				t.Fatalf("findings table row does not explain the lowered severity: %s", line)
+			}
+			return
+		}
+	}
+	t.Fatalf("no findings table row:\n%s", md)
+}

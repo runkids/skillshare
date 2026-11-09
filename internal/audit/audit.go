@@ -44,6 +44,34 @@ const (
 // instead of CRITICAL.
 const SeverityContextPythonInert = "python-inert"
 
+// SeverityContextNote explains a finding's SeverityContext in one line for
+// text output; empty when there is nothing to explain.
+func SeverityContextNote(context string) string {
+	if context == SeverityContextPythonInert {
+		return "lowered from CRITICAL: Python never runs comments or docstrings"
+	}
+	return ""
+}
+
+// RuleContextNote describes a compiled rule's SeverityContext for rule
+// listings; empty when no context lowers the rule.
+// ExplainedMessage is the finding message followed by its severity-context note
+// in parentheses, if any. Text outputs that end a line with "(file:line)" use it
+// so that parsers still find the location at the end.
+func (f Finding) ExplainedMessage() string {
+	if note := SeverityContextNote(f.SeverityContext); note != "" {
+		return f.Message + " (" + note + ")"
+	}
+	return f.Message
+}
+
+func RuleContextNote(context string) string {
+	if context == SeverityContextPythonInert {
+		return "HIGH in Python comments and docstrings"
+	}
+	return ""
+}
+
 // categoryForPattern maps a rule pattern name to a broad category.
 func categoryForPattern(pattern string) string {
 	switch {

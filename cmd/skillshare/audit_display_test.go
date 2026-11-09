@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	xansi "github.com/charmbracelet/x/ansi"
+
 	"skillshare/internal/audit"
 )
 
@@ -65,5 +67,27 @@ func TestAuditTUIShowsIncompleteScan(t *testing.T) {
 	m.termWidth = 180
 	if note := m.renderSummaryNote(); !strings.Contains(note, "scan incomplete: 1 source link not followed") {
 		t.Fatal(note)
+	}
+}
+
+func TestLoweredFindingExplainsItself(t *testing.T) {
+	f := audit.Finding{Severity: audit.SeverityHigh, Pattern: "credential-access", Message: "Reading accessing AWS credentials", File: "hook.py", Line: 3, Snippet: "# cat ~/.aws/credentials", SeverityContext: audit.SeverityContextPythonInert}
+	r := &audit.Result{SkillName: "sentinel", Threshold: audit.SeverityCritical, Findings: []audit.Finding{f}}
+	outputs := map[string]string{
+		"text":   captureStdout(t, func() { printSkillResult(r, kindSkills, 0, "") }),
+		"tui":    xansi.Strip(testAuditModel().renderDetailContent(auditItem{result: r})),
+		"update": strings.Join(batchAuditEntryFromAuditResult("sentinel", r, false).warnings, "\n"),
+	}
+	files := testAuditModel()
+	files.findings, files.finding = []audit.Finding{f}, 0
+	outputs["tui files"] = xansi.Strip(files.findingNote())
+	for name, got := range outputs {
+		if !strings.Contains(got, "lowered from CRITICAL") {
+			t.Errorf("%s output does not explain the lowered severity:\n%s", name, got)
+		}
+	}
+	groups := groupAuditFindings(digestInstallWarnings(batchAuditEntryFromAuditResult("sentinel", r, false).warnings))
+	if len(groups) != 1 || len(groups[0].locations) != 1 || groups[0].locations[0] != "hook.py:3" {
+		t.Errorf("update warning no longer parses its location: %+v", groups)
 	}
 }

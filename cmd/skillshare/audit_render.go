@@ -228,6 +228,9 @@ func printSkillResult(result *audit.Result, kind resourceKindFilter, elapsed tim
 			ui.Note(meta)
 		}
 		ui.Note(fmt.Sprintf("%q", f.Snippet))
+		if note := audit.SeverityContextNote(f.SeverityContext); note != "" {
+			ui.Note(note)
+		}
 		fmt.Println()
 	}
 

@@ -55,7 +55,7 @@ func batchAuditEntryFromAuditResult(name string, ar *audit.Result, skipAudit boo
 	}
 	// Convert findings to warning strings (same format as install_audit.go)
 	for _, f := range ar.Findings {
-		msg := fmt.Sprintf("audit %s: %s (%s:%d)", f.Severity, f.Message, f.File, f.Line)
+		msg := fmt.Sprintf("audit %s: %s (%s:%d)", f.Severity, f.ExplainedMessage(), f.File, f.Line)
 		if f.Snippet != "" {
 			msg += fmt.Sprintf("\n       %q", f.Snippet)
 		}

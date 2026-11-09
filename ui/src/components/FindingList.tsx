@@ -1,7 +1,9 @@
-import { Info } from 'lucide-react';
+import { ArrowDown, Info } from 'lucide-react';
+import { useT } from '../i18n';
 import { SEV, type Finding } from '../lib/auditMessage';
 
 export default function FindingList({ findings, header, showName }: { findings: Finding[]; header: string; showName: boolean }) {
+  const t = useT();
   return (
     <div className="ss-list !shadow-none max-h-[320px] !overflow-y-auto">
       <div className="ss-lh"><span className="flex-1">{header}</span></div>
@@ -14,6 +16,12 @@ export default function FindingList({ findings, header, showName }: { findings: 
             </span>
             <div className="flex min-w-0 flex-1 flex-col gap-px">
               <span className="break-words font-semibold">{f.message}</span>
+              {f.lowered && (
+                <span className="flex items-start gap-1.5 text-[12px] text-ink-2">
+                  <ArrowDown size={14} aria-hidden="true" className="mt-0.5 shrink-0" />
+                  {t('audit.severityContext.pythonInert')}
+                </span>
+              )}
               {where && <span className="truncate font-mono text-xs text-ink-3">{where}</span>}
               {f.snippet && <span className="truncate font-mono text-xs text-ink-3">{f.snippet}</span>}
             </div>
