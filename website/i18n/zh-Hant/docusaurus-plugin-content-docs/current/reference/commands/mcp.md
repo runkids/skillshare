@@ -993,10 +993,9 @@ export default defineApp({ app: { accounts: { skillshare } } }, async (ctx) => (
   因此衝突訊息會說明這是殘留項目並指出是哪個檔案，並在明確的匯入或取代時
   接手它；終端機與 dashboard 上的那則衝突都可以這麼做。若該檔案只是讀不到，
   例如位於未掛載的磁碟上，仍視為擁有者還在。
-- Dashboard 的 MCP 設定只有在瀏覽器以 `localhost` 或 IP 位址開啟
-  dashboard 時才能運作。透過網域名稱存取時（包括 reverse
-  proxy），MCP 請求會回傳 403，因為 DNS rebinding 攻擊一律使用
-  網域名稱。
+- Dashboard 的 MCP 設定只有在瀏覽器以 `localhost`、IP 位址或 trusted origin
+  開啟 dashboard 時才能運作。其他網域名稱會回傳 403，因為 DNS rebinding 攻擊一律使用
+  網域名稱；參見 [Reverse Proxy](/docs/reference/commands/ui#reverse-proxy)。
 - 憑證使用環境參照；沒有機密儲存庫、OAuth session 同步、
   持續性健康監控、套件安裝、gateway、registry 或 plugin 同步功能。
   `mcp check --live` 是唯一會啟動或呼叫已設定 server 的指令；

@@ -190,30 +190,35 @@ func TestCompletion_Subcommands_AllShells(t *testing.T) {
 			`extras_subcmds="init list remove collect source memory"`,
 			`audit_rules_subcmds="disable enable severity reset init"`,
 			`ui_subcmds="start stop"`,
+			"--base-path -b --trusted-origin",
 		},
 		"zsh": {
 			"'files:Versions of single files skillshare rewrote'",
 			"'1:files command:(list show restore)'",
 			"'1:rules command:(disable enable severity reset init)'",
 			"'1:subcommand:(start stop)'",
+			"'*--trusted-origin[Also answer at this origin]:origin:'",
 		},
 		"fish": {
 			"backup' -a files",
 			"backup files' -a 'list show restore'",
 			"audit rules' -a 'disable enable severity reset init'",
 			"ui' -a 'start stop'",
+			"ui' -l trusted-origin -r",
 		},
 		"powershell": {
 			"'backup files' = @(",
 			"'audit rules' = @(",
 			"@{ Name = 'start'; Desc = 'Start a background UI server' }",
 			"@{ Name = 'plugins'; Desc = 'Sync plugins' }",
+			"'-b', '--trusted-origin'",
 		},
 		"nushell": {
 			`export extern "skillshare backup files"`,
 			`export extern "skillshare audit rules"`,
 			`export extern "skillshare status"`,
 			`subcommand?: string@"nu-complete skillshare ui"`,
+			"--trusted-origin: string",
 		},
 	} {
 		result := sb.RunCLI("completion", shell)

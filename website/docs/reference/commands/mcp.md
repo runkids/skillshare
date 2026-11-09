@@ -1129,9 +1129,9 @@ stderr when it starts.
   in the dashboard. A file that only cannot be read, such as one on a drive that is
   not mounted, still counts as the owner being there.
 - The dashboard's MCP settings work only when the browser opens the dashboard by
-  `localhost` or an IP address. Through a domain name, including a reverse
-  proxy, MCP requests return 403, because DNS rebinding attacks always use a
-  domain name.
+  `localhost`, an IP address or a trusted origin. Any other domain name gets
+  403, because DNS rebinding attacks always use a domain name; see
+  [Reverse Proxy](/docs/reference/commands/ui#reverse-proxy).
 - Credentials use environment references; no secret store, OAuth session sync,
   continuous health monitoring, package installation, gateway, registry or plugin sync.
   `mcp check --live` is the only command that starts or calls a configured server;

@@ -25,9 +25,14 @@ type Server struct {
 	skillsStore *install.MetadataStore
 	agentsStore *install.MetadataStore
 	addr        string
-	mux         *http.ServeMux
-	handler     http.Handler
-	mu          sync.RWMutex // protects config: Lock for writes/reloads, RLock for reads
+	// trustedOrigins are the origins besides localhost and IP addresses the dashboard answers at.
+	trustedOrigins []string
+	// refusedHosts are the Hosts servedHandler has logged, so each is logged once.
+	refusedMu    sync.Mutex
+	refusedHosts map[string]bool
+	mux          *http.ServeMux
+	handler      http.Handler
+	mu           sync.RWMutex // protects config: Lock for writes/reloads, RLock for reads
 
 	startTime time.Time // for uptime reporting in health check
 
@@ -441,7 +446,7 @@ func (s *Server) StartWithContext(ctx context.Context) error {
 	}
 
 	srv := &http.Server{
-		Handler:           s.handler,
+		Handler:           s.servedHandler(),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,

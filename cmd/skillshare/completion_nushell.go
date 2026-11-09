@@ -718,6 +718,7 @@ export extern "skillshare ui" [
     --port: int              # Set port
     --host: string           # Set host
     --base-path(-b): string  # Base path prefix for reverse proxy
+    --trusted-origin: string # Also answer at this origin
     --no-open                # Do not open browser
     --clear-cache            # Clear cached UI assets
     --app                    # Open as app window (start only)

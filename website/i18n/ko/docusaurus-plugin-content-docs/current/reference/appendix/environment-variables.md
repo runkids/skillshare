@@ -158,6 +158,20 @@ SKILLSHARE_UI_BASE_PATH=/skillshare skillshare ui --host 0.0.0.0 --no-open
 
 Nginx 및 Caddy 예제는 [리버스 프록시](/docs/reference/commands/ui#reverse-proxy)를 참고하세요.
 
+### SKILLSHARE_UI_TRUSTED_ORIGINS
+
+`localhost`와 IP 주소 외에 웹 대시보드가 응답하는 주소를 쉼표로 구분해 지정합니다. reverse proxy의 도메인 등입니다.
+
+```bash
+SKILLSHARE_UI_TRUSTED_ORIGINS=https://tools.example.com skillshare ui --host 0.0.0.0 --no-open
+```
+
+`--trusted-origin https://tools.example.com`과 동일합니다. 플래그가 주어지면 이 변수는 무시됩니다.
+
+**기본값:** 없음
+
+[리버스 프록시](/docs/reference/commands/ui#reverse-proxy)를 참고하세요.
+
 ---
 
 ## GitHub API
@@ -466,6 +480,7 @@ export GITHUB_TOKEN="ghp_your_token_here"
 |----------|---------|---------|
 | `SKILLSHARE_CONFIG` | 설정 파일 경로 | `~/.config/skillshare/config.yaml` |
 | `SKILLSHARE_UI_BASE_PATH` | 리버스 프록시용 웹 UI 하위 경로 | 없음 |
+| `SKILLSHARE_UI_TRUSTED_ORIGINS` | localhost와 IP 외에 웹 UI가 응답하는 주소(쉼표로 구분) | 없음 |
 | `SKILLSHARE_GITLAB_HOSTS` | 커스텀 GitLab 호스트명 (쉼표로 구분) | 없음 |
 | `SKILLSHARE_AZURE_HOSTS` | 커스텀 Azure DevOps Server 호스트명 (쉼표로 구분) | 없음 |
 | `SKILLSHARE_GITEA_HOSTS` | 커스텀 Gitea 호스트명 (쉼표로 구분) | 없음 |

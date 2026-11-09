@@ -677,6 +677,7 @@ _skillshare() {
                         '--host[Set host]:host:' \
                         '--base-path[Base path prefix for reverse proxy]:path:' \
                         '-b[Base path prefix for reverse proxy]:path:' \
+                        '*--trusted-origin[Also answer at this origin]:origin:' \
                         '--no-open[Do not open browser]' \
                         '--clear-cache[Clear cached UI assets]' \
                         '--app[Open as app window (start only)]' \

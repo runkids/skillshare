@@ -1043,9 +1043,10 @@ export default defineApp({ app: { accounts: { skillshare } } }, async (ctx) => (
   표시하며, 터미널에서든 대시보드의 충돌에서든 명시적인 import나 replace로 이를
   가져옵니다. 마운트되지 않은 드라이브에 있는 파일처럼 읽기만 불가능한 경우는
   여전히 소유자가 존재하는 것으로 간주됩니다.
-- 대시보드의 MCP 설정은 브라우저가 `localhost`나 IP 주소로 대시보드를 열 때만
-  동작합니다. 리버스 프록시를 포함한 도메인 이름을 통하면 MCP 요청은 403을
-  반환합니다. DNS rebinding 공격은 항상 도메인 이름을 사용하기 때문입니다.
+- 대시보드의 MCP 설정은 브라우저가 `localhost`, IP 주소 또는 trusted origin으로
+  대시보드를 열 때만 동작합니다. 그 밖의 도메인 이름은 403을 받습니다.
+  DNS rebinding 공격은 항상 도메인 이름을 사용하기 때문입니다.
+  [리버스 프록시](/docs/reference/commands/ui#reverse-proxy)를 참고하세요.
 - 자격 증명은 환경 참조를 사용합니다. 시크릿 저장소, OAuth 세션 동기화, 지속적인
   상태 모니터링, 패키지 설치, 게이트웨이, 레지스트리, 플러그인 동기화는 없습니다.
   구성된 서버를 시작하거나 호출하는 명령은 `mcp check --live`뿐입니다.

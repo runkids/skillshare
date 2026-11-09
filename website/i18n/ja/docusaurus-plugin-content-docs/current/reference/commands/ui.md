@@ -38,6 +38,7 @@ skillshare ui stop             # バックグラウンドサーバーを停止
 | `--port <port>` | `19420` | HTTP サーバーのポート |
 | `--host <host>` | `127.0.0.1` | バインドアドレス（Docker の場合は `0.0.0.0` を使用） |
 | `-b`, `--base-path <path>` | | リバースプロキシ用のサブパス（例: `/skillshare`） |
+| `--trusted-origin <url>` | | ダッシュボードが応答するもう 1 つのアドレス。リバースプロキシ（[reverse proxy](#reverse-proxy)）の背後なら `https://tools.example.com` など。複数指定する場合は繰り返します |
 | `--no-open` | `false` | ブラウザを自動的に開かない |
 | `--app` | `false` | 可能な場合、ダッシュボードをデスクトップ風の Chromium アプリウィンドウとして開く（`start` モードのみ） |
 | `--clear-cache` | | フォアグラウンド形式の場合: キャッシュされた UI アセットをクリアして終了。`start` と組み合わせた場合: キャッシュをクリアしてからバックグラウンドで起動 |
@@ -206,17 +207,19 @@ skillshare を Nix でインストールしている場合も、エンドポイ�
 
 ## リバースプロキシ {#reverse-proxy}
 
-共有サーバー（ホームラボ、社内ツールプラットフォームなど）でダッシュボードを実行し、リバースプロキシの背後に置く場合は、`--base-path` を使って他のサービスと並ぶサブパスの下で配信できます。
+共有サーバー（ホームラボ、社内ツールプラットフォームなど）でダッシュボードを実行し、リバースプロキシの背後に置く場合は、ブラウザで開くアドレスを `--trusted-origin` で渡し、`--base-path` を使って他のサービスと並ぶサブパスの下で配信できます。
 
 ```bash
-skillshare ui --base-path /skillshare --host 0.0.0.0 --no-open
+skillshare ui --base-path /skillshare --host 0.0.0.0 --trusted-origin https://tools.example.com --no-open
 ```
 
 または環境変数を使う場合:
 
 ```bash
-SKILLSHARE_UI_BASE_PATH=/skillshare skillshare ui --host 0.0.0.0 --no-open
+SKILLSHARE_UI_BASE_PATH=/skillshare SKILLSHARE_UI_TRUSTED_ORIGINS=https://tools.example.com skillshare ui --host 0.0.0.0 --no-open
 ```
+
+ダッシュボードが応答するのは、`localhost`、`http://192.168.1.20:19420` のような IP アドレス、`--host` で指定した名前、そして各 trusted origin のみです。それ以外のドメイン名は 403 になります。DNS rebinding 攻撃は、攻撃者が管理するドメイン名をあなたのマシンに向けるためです。各 origin はスキームとホスト、既定以外のポートならポートも含めて指定します（例: `https://tools.example.com`、`http://nas.local:8080`）。`--trusted-origin` を繰り返すか、`SKILLSHARE_UI_TRUSTED_ORIGINS` にカンマ区切りで指定します。trusted なアドレスに到達できる人は、Agent が実行するコマンドを書き込む MCP、Hooks、Plugins ページを含むダッシュボード全体を使えます。自分で管理しているアドレスだけを列挙し、プロキシで到達できる相手を制限してください。
 
 ### Nginx
 
@@ -236,14 +239,10 @@ handle_path /skillshare/* {
 }
 ```
 
-両方の例のように、ブラウザの `Host` ヘッダーをポートも含めてそのまま渡してください。リクエストの `Origin` が `Host` と一致しない場合、ダッシュボードは変更を拒否します。これにより、他の Web サイトがブラウザ経由で変更を行うことを防ぎます。Caddy はデフォルトで `Host` を保持します。`header_up Host` で書き換えないでください。
+両方の例のように、ブラウザの `Host` ヘッダーをポートも含めてそのまま渡してください。ダッシュボードは `Host` を trusted origin と照合し、リクエストの `Origin` が `Host` と一致しない場合、ダッシュボードは変更を拒否します。これにより、他の Web サイトがブラウザ経由で変更を行うことを防ぎます。Caddy はデフォルトで `Host` を保持します。`header_up Host` で書き換えないでください。
 
 :::tip
 `--base-path` を使わない場合、ダッシュボードは従来どおり動作します — `localhost:19420` への直接アクセスに追加の設定は不要です。
-:::
-
-:::note MCP と Hooks の設定
-MCP と Hooks のページは、ブラウザが `localhost` または `http://192.168.1.20:19420` のような IP アドレスでダッシュボードを開いている場合にのみ動作します。リバースプロキシを含め、ドメイン名経由の場合、MCP と Hooks のリクエストは 403 を返します: どちらも Agent が実行するコマンドを書き込み、DNS リバインディング攻撃は常にドメイン名を使うためです。リモートマシンで MCP や Hooks の設定を管理するには、`ssh -L 19420:127.0.0.1:19420 HOST` でポートをフォワードし、`http://localhost:19420` を開いてください。
 :::
 
 ## Docker での使用

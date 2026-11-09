@@ -169,6 +169,20 @@ SKILLSHARE_UI_BASE_PATH=/skillshare skillshare ui --host 0.0.0.0 --no-open
 Nginx と Caddy の例については [リバースプロキシ](/docs/reference/commands/ui#reverse-proxy) を
 参照してください。
 
+### SKILLSHARE_UI_TRUSTED_ORIGINS
+
+`localhost` と IP アドレス以外でウェブダッシュボードが応答するアドレスを、カンマ区切りで指定します。リバースプロキシのドメインなどです。
+
+```bash
+SKILLSHARE_UI_TRUSTED_ORIGINS=https://tools.example.com skillshare ui --host 0.0.0.0 --no-open
+```
+
+`--trusted-origin https://tools.example.com` と同等です。フラグが指定された場合、この環境変数は無視されます。
+
+**デフォルト:** なし
+
+[リバースプロキシ](/docs/reference/commands/ui#reverse-proxy) を参照してください。
+
 ---
 
 ## GitHub API
@@ -498,6 +512,7 @@ export GITHUB_TOKEN="ghp_your_token_here"
 |----------|---------|---------|
 | `SKILLSHARE_CONFIG` | Config ファイルのパス | `~/.config/skillshare/config.yaml` |
 | `SKILLSHARE_UI_BASE_PATH` | リバースプロキシ用の Web UI サブパス | なし |
+| `SKILLSHARE_UI_TRUSTED_ORIGINS` | localhost と IP 以外で Web UI が応答するアドレス（カンマ区切り） | なし |
 | `SKILLSHARE_GITLAB_HOSTS` | カスタム GitLab ホスト名（カンマ区切り） | なし |
 | `SKILLSHARE_AZURE_HOSTS` | カスタム Azure DevOps Server ホスト名（カンマ区切り） | なし |
 | `SKILLSHARE_GITEA_HOSTS` | カスタム Gitea ホスト名（カンマ区切り） | なし |

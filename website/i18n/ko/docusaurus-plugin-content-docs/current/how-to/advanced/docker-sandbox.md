@@ -432,7 +432,7 @@ make docker-build-multiarch                # linux/amd64 + linux/arm64 (느림, 
 
 `docker-build`는 사용 중인 머신 아키텍처의 이미지만 생성합니다 — Apple Silicon에서 만든 arm64 이미지는 x86 서버에서 실행되지 않습니다. 레지스트리에 푸시할 때는 모든 플랫폼이 올바른 이미지를 자동으로 받도록 `docker-build-multiarch`를 사용하세요.
 
-production 이미지는 PID 1로 `tini`를 사용하고, non-root 사용자(UID 10001)로 실행되며, healthcheck를 포함하고, 첫 실행 시 config를 자동 초기화합니다. 기본 명령어: `skillshare ui -g --host 0.0.0.0 --no-open`.
+production 이미지는 PID 1로 `tini`를 사용하고, non-root 사용자(UID 10001)로 실행되며, healthcheck를 포함하고, 첫 실행 시 config를 자동 초기화합니다. 기본 명령어: `skillshare ui -g --host 0.0.0.0 --no-open`. `localhost`나 IP 주소가 아닌 도메인 이름으로 열려면 `SKILLSHARE_UI_TRUSTED_ORIGINS`를 설정하세요. [리버스 프록시](/docs/reference/commands/ui#reverse-proxy)를 참고하세요.
 
 게시된 이미지는 GHCR에서 확인할 수 있습니다 (태그 시 자동으로 푸시됨).
 

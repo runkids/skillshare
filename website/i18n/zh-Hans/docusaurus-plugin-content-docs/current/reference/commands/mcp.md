@@ -1020,10 +1020,9 @@ export default defineApp({ app: { accounts: { skillshare } } }, async (ctx) => (
   这是一个残留条目，并指出是哪个文件，然后在你执行显式的导入或替换时
   接管它；在终端中和在仪表盘的那条冲突上都可以这样做。只是读取不到的
   文件，例如位于未挂载的磁盘上，仍然算作拥有者还在。
-- 仪表盘的 MCP 设置只有在浏览器通过 `localhost` 或 IP 地址打开
-  仪表盘时才能工作。通过域名访问，包括反向
-  代理，MCP 请求会返回 403，因为 DNS 重绑定攻击总是使用
-  域名。
+- 仪表盘的 MCP 设置只有在浏览器通过 `localhost`、IP 地址或 trusted origin
+  打开仪表盘时才能工作。其他域名会得到 403，因为 DNS 重绑定攻击总是使用
+  域名；参见 [Reverse Proxy](/docs/reference/commands/ui#reverse-proxy)。
 - 凭据使用环境引用；没有密钥存储、OAuth 会话同步、
   持续健康监控、软件包安装、gateway、注册表或插件同步。
   `mcp check --live` 是唯一会启动或调用已配置 server 的命令；

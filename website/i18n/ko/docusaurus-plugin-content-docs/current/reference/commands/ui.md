@@ -38,6 +38,7 @@ skillshare ui stop             # 백그라운드 서버 중지
 | `--port <port>` | `19420` | HTTP 서버 포트 |
 | `--host <host>` | `127.0.0.1` | 바인딩 주소(Docker에서는 `0.0.0.0` 사용) |
 | `-b`, `--base-path <path>` | | reverse proxy용 하위 경로(예: `/skillshare`) |
+| `--trusted-origin <url>` | | 대시보드가 응답하는 또 다른 주소. [reverse proxy](#reverse-proxy) 뒤의 `https://tools.example.com` 등. 여러 개는 반복해서 지정 |
 | `--no-open` | `false` | 브라우저를 자동으로 열지 않음 |
 | `--app` | `false` | 가능한 경우 대시보드를 데스크톱 스타일의 Chromium 앱 창으로 엽니다(`start` mode 전용) |
 | `--clear-cache` | | 포그라운드 형태에서는 캐시된 UI 자산을 지우고 종료합니다. `start`와 함께 사용하면 캐시를 지운 후 백그라운드에서 시작합니다 |
@@ -206,17 +207,19 @@ skillshare를 Nix로 설치한 경우에도 엔드포인트는 내장된 skillsh
 
 ## 리버스 프록시 {#reverse-proxy}
 
-공유 서버에서 reverse proxy(예: 홈랩, 내부 도구 플랫폼) 뒤에 대시보드를 실행하는 경우, `--base-path`를 사용하여 다른 서비스와 함께 하위 경로에서 서비스할 수 있습니다:
+공유 서버에서 reverse proxy(예: 홈랩, 내부 도구 플랫폼) 뒤에 대시보드를 실행하는 경우, 브라우저로 여는 주소를 `--trusted-origin`으로 전달하고, `--base-path`를 사용하여 다른 서비스와 함께 하위 경로에서 서비스할 수 있습니다:
 
 ```bash
-skillshare ui --base-path /skillshare --host 0.0.0.0 --no-open
+skillshare ui --base-path /skillshare --host 0.0.0.0 --trusted-origin https://tools.example.com --no-open
 ```
 
 또는 환경 변수를 통해:
 
 ```bash
-SKILLSHARE_UI_BASE_PATH=/skillshare skillshare ui --host 0.0.0.0 --no-open
+SKILLSHARE_UI_BASE_PATH=/skillshare SKILLSHARE_UI_TRUSTED_ORIGINS=https://tools.example.com skillshare ui --host 0.0.0.0 --no-open
 ```
+
+대시보드는 `localhost`, `http://192.168.1.20:19420` 같은 IP 주소, `--host`로 지정한 이름, 그리고 각 trusted origin에서만 응답합니다. 그 밖의 도메인 이름은 403을 받습니다. DNS rebinding 공격은 공격자가 제어하는 도메인 이름을 내 머신으로 향하게 하기 때문입니다. 각 origin은 스킴과 호스트로 지정하고, 기본 포트가 아니면 포트도 포함합니다(예: `https://tools.example.com`, `http://nas.local:8080`). `--trusted-origin`을 반복하거나 `SKILLSHARE_UI_TRUSTED_ORIGINS`에 쉼표로 구분해 지정합니다. trusted 주소에 접근할 수 있는 사람은 Agent가 실행하는 명령을 기록하는 MCP, Hooks, Plugins 페이지를 포함해 대시보드 전체를 사용할 수 있으므로, 직접 제어하는 주소만 나열하고 프록시에서 접근 가능한 대상을 제한하세요.
 
 ### Nginx
 
@@ -236,14 +239,10 @@ handle_path /skillshare/* {
 }
 ```
 
-두 예시처럼 브라우저의 `Host` 헤더를 포트까지 포함해 그대로 전달하세요. 요청의 `Origin`이 `Host`와 일치하지 않으면 대시보드는 변경을 거부합니다. 이렇게 해서 다른 웹사이트가 브라우저를 통해 변경하지 못하게 합니다. Caddy는 기본적으로 `Host`를 유지합니다. `header_up Host`로 바꾸지 마세요.
+두 예시처럼 브라우저의 `Host` 헤더를 포트까지 포함해 그대로 전달하세요. 대시보드는 `Host`를 trusted origin과 대조하고, 요청의 `Origin`이 `Host`와 일치하지 않으면 대시보드는 변경을 거부합니다. 이렇게 해서 다른 웹사이트가 브라우저를 통해 변경하지 못하게 합니다. Caddy는 기본적으로 `Host`를 유지합니다. `header_up Host`로 바꾸지 마세요.
 
 :::tip
 `--base-path` 없이는 대시보드가 이전과 동일하게 동작합니다 — `localhost:19420`에서 직접 접속할 때는 별도 설정이 필요 없습니다.
-:::
-
-:::note MCP 및 Hooks 설정
-MCP 및 Hooks 페이지는 브라우저가 `localhost` 또는 `http://192.168.1.20:19420`과 같은 IP 주소로 대시보드를 열 때만 동작합니다. reverse proxy를 포함해 도메인 이름을 통하면 MCP 및 Hooks 요청은 403을 반환합니다: 둘 다 Agent가 실행하는 명령을 기록하고, DNS 리바인딩 공격은 항상 도메인 이름을 사용하기 때문입니다. 원격 머신에서 MCP 또는 Hooks 설정을 관리하려면 `ssh -L 19420:127.0.0.1:19420 HOST`로 포트를 포워딩한 후 `http://localhost:19420`을 여세요.
 :::
 
 ## Docker 사용법

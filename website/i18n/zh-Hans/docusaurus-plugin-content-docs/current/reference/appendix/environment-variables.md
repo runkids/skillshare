@@ -158,6 +158,20 @@ SKILLSHARE_UI_BASE_PATH=/skillshare skillshare ui --host 0.0.0.0 --no-open
 
 参见 [Reverse Proxy](/docs/reference/commands/ui#reverse-proxy) 获取 Nginx 与 Caddy 的示例。
 
+### SKILLSHARE_UI_TRUSTED_ORIGINS
+
+以逗号分隔的地址列表，除 `localhost` 和 IP 地址外，Web dashboard 还会在这些地址上响应，例如反向代理的域名。
+
+```bash
+SKILLSHARE_UI_TRUSTED_ORIGINS=https://tools.example.com skillshare ui --host 0.0.0.0 --no-open
+```
+
+等同于 `--trusted-origin https://tools.example.com`。指定该 flag 时，此变量会被忽略。
+
+**默认值：** 无
+
+参见 [Reverse Proxy](/docs/reference/commands/ui#reverse-proxy)。
+
 ---
 
 ## GitHub API
@@ -466,6 +480,7 @@ export GITHUB_TOKEN="ghp_your_token_here"
 |----------|---------|---------|
 | `SKILLSHARE_CONFIG` | 配置文件路径 | `~/.config/skillshare/config.yaml` |
 | `SKILLSHARE_UI_BASE_PATH` | 反向代理下 Web UI 的子路径 | 无 |
+| `SKILLSHARE_UI_TRUSTED_ORIGINS` | Web UI 在 localhost 和 IP 之外响应的地址（逗号分隔） | 无 |
 | `SKILLSHARE_GITLAB_HOSTS` | 自定义 GitLab 主机名（逗号分隔） | 无 |
 | `SKILLSHARE_AZURE_HOSTS` | 自定义 Azure DevOps Server 主机名（逗号分隔） | 无 |
 | `SKILLSHARE_GITEA_HOSTS` | 自定义 Gitea 主机名（逗号分隔） | 无 |
