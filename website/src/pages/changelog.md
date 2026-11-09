@@ -11,21 +11,26 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ## [0.30.0] - 2026-11-09
 
+### Breaking Changes
 
-### ⚠ BREAKING CHANGES
-
-* **server:** a dashboard opened by a domain name, such as a reverse proxy, a Tailscale or mDNS name, or a Docker service name, now returns 403 on every page until that address is trusted, for example with `skillshare ui start --trusted-origin https://skills.example.com`.
+- **The dashboard answers only at addresses you trust** — the web dashboard now answers only at `localhost`, an IP address, the name given with `--host`, and the origins you trust, so a DNS rebinding page cannot reach it. A dashboard opened by any other domain name, such as a reverse proxy, a Tailscale or mDNS name, a hosts-file alias or a Docker service name from another container, returns 403 on every page until you trust that address. Opening it by `localhost`, `127.0.0.1` or a LAN IP works as before. A refused browser shows the setting to copy, and the server log names each refused address once. To migrate, stop the dashboard and start it again with the address you open, keeping your other flags:
+  ```bash
+  skillshare ui stop
+  skillshare ui start --trusted-origin https://skills.example.com
+  ```
+  Refs: #809, #811.
 
 ### New Features
 
-* **server:** answer only at localhost, IP addresses and trusted origins ([#811](https://github.com/runkids/skillshare/issues/811)) ([e9dc4d0](https://github.com/runkids/skillshare/commit/e9dc4d03601cd92459ebfebc32b8739081e89eab))
-
+- **Trusted origins behind a reverse proxy** — `--trusted-origin` (repeatable) or `SKILLSHARE_UI_TRUSTED_ORIGINS` (comma-separated) lists the exact origins the dashboard answers at: a scheme and host, plus the port when it is not the default. Every page works through a trusted origin, including MCP, Hooks and Plugins, which used to refuse any domain name. The setting comes only from the command line or the environment, never `config.yaml`, so the dashboard cannot widen its own trust; `ui start` and restarts from the dashboard keep it. Keep the browser's `Host` header at the proxy, as the Nginx and Caddy examples do. Thanks to @LloydPowell771 for the request. Refs: #809, #811.
+  ```bash
+  SKILLSHARE_UI_TRUSTED_ORIGINS=https://skills.example.com skillshare ui start
+  ```
 
 ### Bug Fixes
 
-* **plugin:** discover Codex-compatible Claude manifests ([#806](https://github.com/runkids/skillshare/issues/806)) ([6e1fc67](https://github.com/runkids/skillshare/commit/6e1fc67d71a478733e12a2d4daecb3722928e0dd)), closes [#805](https://github.com/runkids/skillshare/issues/805)
-* **plugin:** keep Codex off packages and folders it cannot use ([#808](https://github.com/runkids/skillshare/issues/808)) ([bfbc06a](https://github.com/runkids/skillshare/commit/bfbc06a6640994b85f017b73889edb81d2d7679c))
-* **server:** refuse dashboard changes sent from other sites ([#810](https://github.com/runkids/skillshare/issues/810)) ([ec9b3e6](https://github.com/runkids/skillshare/commit/ec9b3e688c5c59e367d7f925ab9d85c3c60c6199))
+- **The dashboard refuses changes sent from other websites** — a web page could send a form or a `no-cors` request to the local dashboard and, when the browser let it through, add targets, install, sync, commit, push or upgrade. Every change, and the update stream, now must come from the dashboard itself; `curl` and other clients that send no browser headers work as before. A reverse proxy must keep the browser's `Host` header, including its port. Refs: #810.
+- **Codex picks up plugins that ship only a Claude manifest** — `skillshare plugin` now offers Codex a package that has only `.claude-plugin/plugin.json`, such as Matt Pocock's skills. Codex reads that manifest itself and uses the parts it supports, such as skills and MCP servers; a package with none of those, such as one with only agents, is not offered to Codex. An explicit `.codex-plugin/plugin.json` or Agent Plugins manifest still comes first, and Skillshare does not rewrite the package. Thanks to @nathanvale for the report and the fix. Refs: #805, #806, #808.
 
 ## [0.29.2] - 2026-11-08
 
