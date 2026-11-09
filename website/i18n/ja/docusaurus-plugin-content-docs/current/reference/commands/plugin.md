@@ -276,7 +276,7 @@ skillshare plugin add ./package --entry dist/plugin.js --target opencode --no-tu
 skillshare plugin update review --source-ref v1.1.0 --target claude --dry-run --json
 ```
 
-共有バインディングには `source_ref` を記録し、解決済みの `commit` はローカルの記録に保存します。インストールには reviewed されたコミットが使われます。`check` と `update` は設定された ref を再度解決するため、コミットが固定されたままブランチが進むことがあります。`--revision` は Git ref ではなくプレビュートークンです。`--entry` は各候補の package ルートからの相対パスであり、既に存在している必要があります。ビルドや package manager のインストールをトリガーすることはありません。
+共有バインディングには `source_ref` を記録し、解決済みの `commit` はローカルの記録に保存します。インストールには reviewed されたコミットが使われます。`check` と `update` は設定された ref を再度解決するため、コミットが固定されたままブランチが進むことがあります。ref を設定していない場合、`check` はまずリモートのデフォルトブランチが指す commit を問い合わせ、インストール済みの commit と異なるときだけソースをダウンロードします。`--revision` は Git ref ではなくプレビュートークンです。`--entry` は各候補の package ルートからの相対パスであり、既に存在している必要があります。ビルドや package manager のインストールをトリガーすることはありません。
 
 Copilot と Antigravity CLI のインストールは、reviewed されたローカルスナップショットを使用します。インポートには再インストール用の reviewed source がありません。削除後は、ネイティブクライアントでインストールしてから再度 sync してください。Grok もインストール/再インストール前にネイティブな trust が必要です。Skillshare はネイティブな trust の承認フラグを提供しません。
 

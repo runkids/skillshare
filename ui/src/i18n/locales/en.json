@@ -2581,6 +2581,7 @@
   "plugins.noChanges": "No changes",
   "plugins.apply": "Apply changes",
   "plugins.checkingUpdates": "Checking for updates…",
+  "plugins.checkFailed": "Check failed",
   "plugins.updateCount.one": "Update {count}",
   "plugins.updateCount.other": "Update {count}",
   "plugins.updateDialog.title": "Update plugins",

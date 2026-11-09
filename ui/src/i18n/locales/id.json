@@ -2581,6 +2581,7 @@
   "plugins.noChanges": "Tidak ada perubahan",
   "plugins.apply": "Terapkan perubahan",
   "plugins.checkingUpdates": "Memeriksa pembaruan…",
+  "plugins.checkFailed": "Gagal memeriksa",
   "plugins.updateCount.one": "Perbarui {count}",
   "plugins.updateCount.other": "Perbarui {count}",
   "plugins.updateDialog.title": "Perbarui plugin",

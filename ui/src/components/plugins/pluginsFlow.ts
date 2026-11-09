@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { bindingVersion, byPlugin, pluginsApi, syncAction, targetMap } from '../../api/plugins';
 import type { PluginInventory, PluginOutcome, PluginPlan, PluginRequest, PluginResult, PluginTarget, PluginUpdate, PluginUpdateEvent } from '../../api/plugins';
+import { ApiError } from '../../api/client';
 import type { useT } from '../../i18n';
 import { keyedMessage } from './outcomeText';
 import { pluginErrorMessage } from './pluginError';
@@ -56,6 +57,16 @@ export function updatesFound(plan: PluginPlan) {
   const found: Updates = {};
   for (const c of plan.changes) if (c.action === 'update-available') (found[c.name] ??= {})[c.target] = { version: c.binding?.version ?? '', commit: c.binding?.commit, digest: c.binding?.digest, id: c.binding?.id, source: c.binding?.source, sourceRef: c.binding?.sourceRef, plugin: c.binding?.plugin, entry: c.binding?.entry };
   return found;
+}
+
+/** What one plugin's check answer leaves of updates: an Agent the check could not reach keeps the update found before. */
+function withChecked(updates: Updates, name: string, plan: PluginPlan | null): Updates {
+  const before = updates[name] ?? {};
+  const found = plan ? updatesFound(plan)[name] ?? {} : { ...before };
+  for (const c of plan?.changes ?? []) if (c.name === name && c.action === 'blocked' && before[c.target]) found[c.target] = before[c.target];
+  const next = { ...updates };
+  if (Object.keys(found).length) next[name] = found; else delete next[name];
+  return next;
 }
 
 /**
@@ -159,14 +170,42 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
   const [updates, setUpdates] = useState<Updates>({});
   const [checked, setChecked] = useState<PluginPlan | null>(null);
   const [checking, setChecking] = useState(false);
+  // How many plugins the check under way has answered for, and why each it could not check failed.
+  const [checkProgress, setCheckProgress] = useState({ done: 0, total: 0 });
+  const [checkFailures, setCheckFailures] = useState<Record<string, string>>({});
   // The batch update under way or just finished, one row per plugin, until the dialog closes.
   const [batch, setBatch] = useState<BatchItem[] | null>(null);
 
-  /** A check is read-only and opens nothing: it only marks the rows. Quiet, as on page load, it also keeps its error to itself. */
-  /** Resolves whether the check came back, so a check the user asked for can show its result. */
+  /**
+   * A check is read-only and opens nothing: each plugin marks its row as soon as the server has checked it, and one the
+   * server could not check says why on its row. An Agent the check could not reach, and a plugin a broken-off check
+   * never answered for, keep what the last check found. Quiet, as on page load, it keeps its error to itself. Resolves whether the check came back, so a check the
+   * user asked for can show its result.
+   */
   const check = async (quiet = false) => {
     setChecking(true); if (!quiet) setFailure('');
-    try { const plan = await pluginsApi.preview({ action: 'check' }); setUpdates(updatesFound(plan)); setChecked(plan); return true; }
+    setCheckProgress({ done: 0, total: Object.keys(inventory?.packages ?? {}).length });
+    const plans: Record<string, PluginPlan> = {};
+    const answered = new Set<string>();
+    const failed: Record<string, string> = {};
+    try {
+      await pluginsApi.check(({ name, plan, error, error_code, error_params }) => {
+        const why = error ? pluginErrorMessage(new ApiError(200, error, { code: error_code, params: error_params }), t)
+          : plan?.blocked ? blockedText(t, plan) : '';
+        answered.add(name);
+        if (plan) plans[name] = plan;
+        if (why) failed[name] = why;
+        setUpdates((u) => withChecked(u, name, plan));
+        setCheckFailures((f) => { const next = { ...f }; delete next[name]; return why ? { ...next, [name]: why } : next; });
+        setCheckProgress((p) => ({ ...p, done: p.done + 1 }));
+      });
+      // A finished check also drops plugins it no longer reports, and lists the plan in name order as the server does.
+      const names = Object.keys(plans).sort();
+      setUpdates((u) => Object.fromEntries(Object.entries(u).filter(([n]) => answered.has(n))));
+      setCheckFailures(failed);
+      setChecked({ revision: names.map((n) => plans[n].revision).join(''), blocked: names.some((n) => plans[n].blocked), changes: names.flatMap((n) => plans[n].changes) });
+      return true;
+    }
     catch (e) { if (!quiet) setFailure((e as Error).message); return false; }
     finally { setChecking(false); }
   };
@@ -278,7 +317,7 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
 
   const outcomes = result?.result?.results ?? [];
   return {
-    busy, working, failure, review, updates, outcomes, checked, checking, batch,
+    busy, working, failure, review, updates, outcomes, checked, checking, checkProgress, checkFailures, batch,
     preview, begin, apply, selectTarget, check, updateMany, importMany,
     stopBatch: () => { pluginsApi.stopUpdate().catch((e: Error) => setFailure(e.message)); },
     closeBatch: () => setBatch(null),

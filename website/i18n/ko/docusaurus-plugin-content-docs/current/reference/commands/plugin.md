@@ -204,7 +204,7 @@ skillshare plugin add ./package --entry dist/plugin.js --target opencode --no-tu
 skillshare plugin update review --source-ref v1.1.0 --target claude --dry-run --json
 ```
 
-공유 바인딩은 `source_ref`를 기록하고 해석된 `commit`은 로컬 기록에 저장합니다. 설치는 검토된 commit을 사용합니다. `check`와 `update`는 구성된 ref를 다시 해석하므로, commit이 고정된 상태에서도 브랜치는 진행될 수 있습니다. `--revision`은 Git ref가 아니라 미리보기 토큰입니다. `--entry`는 각 후보의 패키지 루트를 기준으로 하며 이미 존재해야 합니다. 이는 빌드나 패키지 매니저 설치를 트리거하지 않습니다.
+공유 바인딩은 `source_ref`를 기록하고 해석된 `commit`은 로컬 기록에 저장합니다. 설치는 검토된 commit을 사용합니다. `check`와 `update`는 구성된 ref를 다시 해석하므로, commit이 고정된 상태에서도 브랜치는 진행될 수 있습니다. ref를 설정하지 않았다면 `check`는 먼저 원격의 기본 브랜치가 가리키는 commit을 확인하고, 설치된 commit과 다를 때만 소스를 다운로드합니다. `--revision`은 Git ref가 아니라 미리보기 토큰입니다. `--entry`는 각 후보의 패키지 루트를 기준으로 하며 이미 존재해야 합니다. 이는 빌드나 패키지 매니저 설치를 트리거하지 않습니다.
 
 Copilot과 Antigravity CLI 설치는 검토된 로컬 스냅샷을 사용합니다. import된 항목은 재설치를 위한 검토된 source가 없습니다: 제거 후에는 네이티브 클라이언트에서 설치하고 다시 sync하세요. Grok도 설치/재설치 전에 네이티브 trust가 필요합니다. Skillshare는 네이티브 trust 승인 플래그를 절대 제공하지 않습니다.
 

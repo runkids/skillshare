@@ -282,7 +282,7 @@ skillshare plugin update review --source-ref v1.1.0 --target claude --dry-run --
 ```
 
 共享绑定记录 `source_ref`；解析出的 `commit` 保存在本机记录。安装使用的是已审阅的 commit；`check` 和 `update`
-会重新解析配置的 ref，因此分支可以继续推进，而 commit 则保持锁定。`--revision` 是一个预览
+会重新解析配置的 ref，因此分支可以继续推进，而 commit 则保持锁定。没有配置 ref 时，`check` 会先询问远端默认分支指向哪个 commit，只有与已安装的 commit 不同时才下载来源。`--revision` 是一个预览
 token，而不是 Git ref。`--entry` 是相对于每个候选 package root 的路径，且必须已存在；
 它不会触发构建或 package manager 安装。
 

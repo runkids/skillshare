@@ -147,10 +147,10 @@ func (s *Service) recordPiEntry(ctx context.Context, target string, b *Binding) 
 var npmRegistry = "https://registry.npmjs.org"
 
 // npmVersions is the installed and latest plain X.Y.Z versions of an npm package added without a version, nil
-// where either is unknown. latests holds the registry's answers for one preview.
+// where either is unknown. The registry is asked once per package for each operation.
 // ponytail: asks the public registry only; a package from a private registry or an .npmrc
 // scope reads as unknown, and the check falls back to the native client.
-func (s *Service) npmVersions(ctx context.Context, target, id string, h Host, latests map[string][]int) (installed, latest []int) {
+func (s *Service) npmVersions(ctx context.Context, target, id string, h Host) (installed, latest []int) {
 	// Pi keeps a package added with a version, range or tag to that spec; only one added
 	// without a version follows npm's latest.
 	name, spec := npmSpec(id)
@@ -169,11 +169,7 @@ func (s *Service) npmVersions(ctx context.Context, target, id string, h Host, la
 	if installed == nil {
 		return nil, nil
 	}
-	latest, ok := latests[name]
-	if !ok {
-		latest = plainVersion(npmLatest(ctx, name))
-		latests[name] = latest
-	}
+	latest, _ = s.reads.latests.get(name, func() ([]int, error) { return plainVersion(npmLatest(ctx, name)), nil })
 	return installed, latest
 }
 

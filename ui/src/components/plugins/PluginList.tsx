@@ -24,6 +24,8 @@ interface Props {
   pi?: boolean;
   /** The version and commit each plugin's source has, from the last update check. */
   updates?: Record<string, Record<PluginTarget, PluginUpdate>>;
+  /** Why the last update check could not check a plugin, by name. */
+  checkFailures?: Record<string, string>;
   busy: boolean;
   /** `name:target` of the selection being applied right now. */
   working: string;
@@ -44,7 +46,7 @@ export default function PluginList(props: Props) {
   );
 }
 
-function Row({ name, pi, inventory, updates, busy, working, onToggle, onMenu, onAdd, onBlocked }: Props & { name: string }) {
+function Row({ name, pi, inventory, updates, checkFailures, busy, working, onToggle, onMenu, onAdd, onBlocked }: Props & { name: string }) {
   const t = useT();
   const { isProjectMode } = useAppContext();
   const pluginTargets = targetMap(inventory.targetDefinitions);
@@ -118,6 +120,7 @@ function Row({ name, pi, inventory, updates, busy, working, onToggle, onMenu, on
             {behind.length > 0 && (
               <button type="button" className="ss-more min-h-6 shrink-0 disabled:opacity-50" disabled={busy} onClick={() => onAdd({ action: 'update', name, targets: behind }, name)}>{t('plugins.update')}</button>
             )}
+            {checkFailures?.[name] && <span className="ss-tag warn shrink-0" title={checkFailures[name]}>{t('plugins.checkFailed')}<span className="sr-only">: {checkFailures[name]}</span></span>}
             {bindings.some(([target, b]) => syncAction(b, inventory.hosts.find((h) => h.target === target))) && <span className="ss-tag warn">{t('plugins.pending')}</span>}
             {bindings.some(([target, b]) => bindingStatus(b, inventory.hosts.find((h) => h.target === target)) === 'plugins.importRetained') && <span className="ss-tag">{t('plugins.importRetained')}</span>}
             {bindings.length === 0 && <span className="ss-tag">{t('plugins.noAgentsYet')}</span>}

@@ -58,12 +58,9 @@ func acquireRef(ctx context.Context, source, ref string) (string, string, func()
 	if isNpmSource(source) {
 		return "", "", cleanup, fmt.Errorf("npm packages can't be previewed: Pi downloads them when it installs them. Add one to a Pi target with: skillshare plugin add %s --target pi", source)
 	}
-	if githubPattern.MatchString(source) {
-		source = "https://github.com/" + source + ".git"
-	}
-	u, err := url.Parse(source)
-	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
-		return "", "", cleanup, fmt.Errorf("use an existing directory, owner/repo, or HTTPS Git URL without credentials")
+	source, err := remoteURL(source)
+	if err != nil {
+		return "", "", cleanup, err
 	}
 	root, err := os.MkdirTemp("", "skillshare-plugin-")
 	if err != nil {
@@ -160,6 +157,36 @@ func Discover(ctx context.Context, source string) (*Discovery, error) {
 
 func DiscoverRef(ctx context.Context, source, ref string) (*Discovery, error) {
 	return DiscoverOptions(ctx, source, ref, "")
+}
+
+// remoteURL is the HTTPS address of a remote Git source, which may be written owner/repo.
+func remoteURL(source string) (string, error) {
+	if githubPattern.MatchString(source) {
+		source = "https://github.com/" + source + ".git"
+	}
+	u, err := url.Parse(source)
+	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return "", fmt.Errorf("use an existing directory, owner/repo, or HTTPS Git URL without credentials")
+	}
+	return source, nil
+}
+
+// remoteHead is the commit a remote Git source's default branch points at, read without downloading it.
+func remoteHead(ctx context.Context, source string) (string, error) {
+	source, err := remoteURL(source)
+	if err != nil {
+		return "", err
+	}
+	out, err := runCommand(ctx, "", nil, "git", "ls-remote", source, "HEAD")
+	if err != nil {
+		return "", err
+	}
+	for line := range strings.SplitSeq(string(out), "\n") {
+		if commit, name, ok := strings.Cut(strings.TrimSpace(line), "\t"); ok && name == "HEAD" {
+			return commit, nil
+		}
+	}
+	return "", fmt.Errorf("%s names no default branch", source)
 }
 
 func DiscoverOptions(ctx context.Context, source, ref, entry string) (*Discovery, error) {

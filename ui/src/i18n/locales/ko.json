@@ -2581,6 +2581,7 @@
   "plugins.noChanges": "변경 없음",
   "plugins.apply": "변경 적용",
   "plugins.checkingUpdates": "업데이트 확인 중…",
+  "plugins.checkFailed": "확인 실패",
   "plugins.updateCount.one": "{count}개 업데이트",
   "plugins.updateCount.other": "{count}개 업데이트",
   "plugins.updateDialog.title": "plugin 업데이트",

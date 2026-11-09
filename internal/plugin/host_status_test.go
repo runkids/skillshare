@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 // The dashboard groups Agents by remedy, so a missing CLI has to stay distinguishable
@@ -107,6 +108,34 @@ func TestGitFailureNamesTheCauseWithoutItsOutput(t *testing.T) {
 func TestRunCommandReadsVersionFromStderr(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "pi"), []byte("#!/bin/sh\necho 0.73.1 >&2\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	out, err := runCommand(context.Background(), dir, nil, filepath.Join(dir, "pi"), "--version")
+	if err != nil || strings.TrimSpace(string(out)) != "0.73.1" {
+		t.Fatalf("version = %q %v", out, err)
+	}
+}
+
+// A CLI that is a shim starting the real client keeps its output open in the child; a cancelled
+// command still has to return, or the check never marks the Agent as timed out.
+func TestRunCommandReturnsWhenCancelledWhileAChildStillHoldsItsOutput(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "claude"), []byte("#!/bin/sh\nsleep 60\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	_, err := runCommand(ctx, dir, nil, filepath.Join(dir, "claude"), "--version")
+	if key, _ := ErrorKey(err); key != "plugins.error.timeout" || time.Since(start) > 15*time.Second {
+		t.Fatalf("returned %v after %s", err, time.Since(start))
+	}
+}
+
+// A CLI that answers and exits while a helper it started keeps its output open still answered.
+func TestRunCommandKeepsAnAnswerWhenAHelperOutlivesTheCLI(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "pi"), []byte("#!/bin/sh\necho 0.73.1\nsleep 5 &\n"), 0755); err != nil {
 		t.Fatal(err)
 	}
 	out, err := runCommand(context.Background(), dir, nil, filepath.Join(dir, "pi"), "--version")

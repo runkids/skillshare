@@ -2,15 +2,17 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { pluginsApi } from '../../api/plugins';
 import { ApiError } from '../../api/client';
-import type { PluginInventory, PluginPlan, PluginUpdateEvent } from '../../api/plugins';
+import type { PluginCheckEvent, PluginInventory, PluginPlan, PluginUpdateEvent } from '../../api/plugins';
 import { changedRuns, failureText, importPackageNames, importRequest, piPackageTest, reviewChanges, syncTodo, updatesFound, updatedTargets, updatesLeft, updatesPending, usePluginsFlow, versionMoves } from './pluginsFlow';
 
-vi.mock('../../api/plugins', async (importOriginal) => ({ ...await importOriginal<typeof import('../../api/plugins')>(), pluginsApi: { preview: vi.fn(), apply: vi.fn(), update: vi.fn(), stopUpdate: vi.fn() } }));
+vi.mock('../../api/plugins', async (importOriginal) => ({ ...await importOriginal<typeof import('../../api/plugins')>(), pluginsApi: { preview: vi.fn(), check: vi.fn(), apply: vi.fn(), update: vi.fn(), stopUpdate: vi.fn() } }));
 
 const t = (key: string) => key;
 const plan = (revision: string, ...changes: Partial<PluginPlan['changes'][number]>[]): PluginPlan =>
   ({ revision, blocked: false, changes: changes.map((c) => ({ name: 'demo', target: 'codex', id: 'demo@market', action: 'selection', ...c })) });
 const ok = { result: { results: [] }, failure: '' };
+/** The server's check stream: each plugin's answer, in the order given. */
+const checks = (...events: PluginCheckEvent[]) => vi.mocked(pluginsApi.check).mockImplementationOnce(async (on) => { events.forEach(on); });
 /** The server's stream for a batch: each plugin starts, then ends with the given result. */
 const streams = (...ends: Omit<Extract<PluginUpdateEvent, { event: 'result' }>, 'event'>[]) =>
   vi.mocked(pluginsApi.update).mockImplementation(async (_items, on) => {
@@ -117,7 +119,7 @@ describe('plugins flow', () => {
   it('remembers what a check found, opens no review, and takes an Agent off once its batch update is applied', async () => {
     const observed = { id: '/owned/driver', source: 'https://fixture.invalid/driver.git', sourceRef: 'main', plugin: 'driver', entry: 'entry.js', version: '1.1.0', commit: 'abc', digest: 'reviewed-digest' };
     const found = { name: 'driver', target: 'pi', binding: observed };
-    vi.mocked(pluginsApi.preview).mockResolvedValueOnce(plan('r', { ...found, action: 'update-available' }));
+    checks({ name: 'driver', plan: plan('r', { ...found, action: 'update-available' }) });
     streams({ name: 'driver', plan: plan('r2', { ...found, action: 'update' }), result: { results: [{ name: 'driver', target: 'pi', status: 'installed' }] }, failure: '', stale: false });
     const { now, onPreviewed } = flow();
     await act(() => now().check());
@@ -162,10 +164,48 @@ describe('plugins flow', () => {
     expect(versionMoves(inventory, 'tail', [{ target: 'pi', version: '1.1.0' }, { target: 'claude', version: '1.1.0' }]).shared).toBe(false);
   });
 
+  it('marks each plugin as the check answers for it, and says why one could not be checked', async () => {
+    const found = { name: 'driver', target: 'pi', binding: { id: 'npm:driver', version: '1.1.0' } };
+    checks(
+      { name: 'driver', plan: plan('a', { ...found, action: 'update-available' }) },
+      { name: 'tail', plan: null, error: 'git timed out', error_code: 'plugins.error.timeout' },
+      { name: 'guard', plan: { ...plan('b', { name: 'guard', action: 'blocked', messageKey: 'plugins.note.accountChanged' }), blocked: true } },
+    );
+    const inventory = { hosts: [], targetDefinitions: [], packages: { driver: { bindings: {} }, tail: { bindings: {} }, guard: { bindings: {} } } };
+    const { result } = renderHook(() => usePluginsFlow({ t, inventory, refresh: vi.fn(), onPreviewed: vi.fn() }));
+    await act(() => result.current.check(true));
+    expect(result.current.updates).toEqual({ driver: { pi: { version: '1.1.0', id: 'npm:driver' } } });
+    expect(result.current.checkFailures).toEqual({ tail: 'plugins.error.timeout', guard: 'plugins.note.accountChanged' });
+    expect(result.current.checkProgress).toEqual({ done: 3, total: 3 });
+  });
+
+  it('keeps what the last check found for plugins a broken-off check never answered for', async () => {
+    const found = (name: string) => ({ name, target: 'pi', action: 'update-available', binding: { id: `npm:${name}`, version: '2.0.0' } });
+    checks({ name: 'driver', plan: plan('a', found('driver')) }, { name: 'tail', plan: plan('b', found('tail')) });
+    vi.mocked(pluginsApi.check).mockImplementationOnce(async (on) => { on({ name: 'driver', plan: plan('c', { name: 'driver', action: 'noop' }) }); throw new Error('stream closed'); });
+    const { now } = flow();
+    await act(() => now().check());
+    await act(() => now().check());
+    expect(Object.keys(now().updates)).toEqual(['tail']);
+  });
+
+  it('keeps an update the last check found on an Agent this check could not reach', async () => {
+    const found = (target: string) => ({ name: 'driver', target, action: 'update-available', binding: { id: 'driver@m', version: '2.0.0' } });
+    checks({ name: 'driver', plan: plan('a', found('claude'), found('claude-work')) }, { name: 'tail', plan: plan('b', { ...found('pi'), name: 'tail' }) });
+    checks(
+      { name: 'driver', plan: { ...plan('c', { name: 'driver', target: 'claude', action: 'noop' }, { name: 'driver', target: 'claude-work', action: 'blocked', messageKey: 'plugins.error.timeout' }), blocked: true } },
+      { name: 'tail', plan: null, error: 'pi timed out', error_code: 'plugins.error.timeout' },
+    );
+    const { now } = flow();
+    await act(() => now().check());
+    await act(() => now().check());
+    expect(now().updates).toEqual({ driver: { 'claude-work': expect.anything() }, tail: { pi: expect.anything() } });
+  });
+
   it('tells whether a check came back, so a check the user asked for can open its result', async () => {
     const { now } = flow();
     await act(async () => expect(await now().check()).toBe(true));
-    vi.mocked(pluginsApi.preview).mockRejectedValueOnce(new Error('offline'));
+    vi.mocked(pluginsApi.check).mockRejectedValueOnce(new Error('offline'));
     await act(async () => expect(await now().check()).toBe(false));
   });
 
@@ -182,7 +222,7 @@ describe('plugins flow', () => {
 
   it('keeps a plugin whose update came back skipped on the list, as not updated', async () => {
     const found = { name: 'driver', target: 'pi', binding: { id: 'npm:driver', version: '1.1.0' } };
-    vi.mocked(pluginsApi.preview).mockResolvedValueOnce(plan('r', { ...found, action: 'update-available' }));
+    checks({ name: 'driver', plan: plan('r', { ...found, action: 'update-available' }) });
     streams({ name: 'driver', plan: plan('u', { ...found, action: 'update' }), result: { results: [{ name: 'driver', target: 'pi', status: 'skipped', message: 'marketplace gone' }] }, failure: '', stale: false });
     const { now } = flow();
     await act(() => now().check());
@@ -216,9 +256,8 @@ describe('plugins flow', () => {
 
 
   it('drops a plugin whose source moved since the check and checks again, showing why that check failed', async () => {
-    vi.mocked(pluginsApi.preview)
-      .mockResolvedValueOnce(plan('r', { name: 'driver', target: 'pi', action: 'update-available', binding: { id: 'npm:driver', version: '1.1.0' } }))
-      .mockRejectedValueOnce(new Error('offline'));
+    checks({ name: 'driver', plan: plan('r', { name: 'driver', target: 'pi', action: 'update-available', binding: { id: 'npm:driver', version: '1.1.0' } }) });
+    vi.mocked(pluginsApi.check).mockRejectedValueOnce(new Error('offline'));
     streams({ name: 'driver', plan: plan('u'), result: null, failure: 'source changed since the check; check again', stale: true });
     const { now } = flow();
     await act(() => now().check());
