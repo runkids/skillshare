@@ -4,7 +4,7 @@ sidebar_position: 4
 
 # hooks
 
-管理具名 hooks，将各 Agent 的原生定义同步到配置文件。Dashboard 的 **Hooks** 提供新增、编辑、导入、启用／停用、预览与同步；“目标”、“项目”、“同步”及“设置 → 备份”也有对应入口。
+管理具名 hooks，将各 Agent 的原生定义同步到配置文件。Dashboard 的 **Hooks** 提供新增、编辑、导入、启用／停用、预览与同步；“目标”、“项目”、“同步”及“设置 → 备份”也有对应入口。**Hooks** 页面只有在浏览器通过 `localhost` 或 IP 地址打开 dashboard 时才能工作，参见 [Reverse Proxy](/docs/reference/commands/ui#reverse-proxy)。
 
 从 hook 每行的菜单可查看各目标的原生配置或代码，包括脚本文件与目标路径。此只读预览仅显示该 hook 的内容，共享文件会保留其他配置。停用的 hook 仍可查看，但不会发布。
 

@@ -240,8 +240,8 @@ handle_path /skillshare/* {
 `--base-path` 없이는 대시보드가 이전과 동일하게 동작합니다 — `localhost:19420`에서 직접 접속할 때는 별도 설정이 필요 없습니다.
 :::
 
-:::note MCP 설정
-MCP 페이지는 브라우저가 `localhost` 또는 `http://192.168.1.20:19420`과 같은 IP 주소로 대시보드를 열 때만 동작합니다. reverse proxy를 포함해 도메인 이름을 통하면 MCP 요청은 403을 반환합니다: DNS 리바인딩 공격은 항상 도메인 이름을 사용하기 때문입니다. 원격 머신에서 MCP 설정을 관리하려면 `ssh -L 19420:127.0.0.1:19420 HOST`로 포트를 포워딩한 후 `http://localhost:19420`을 여세요.
+:::note MCP 및 Hooks 설정
+MCP 및 Hooks 페이지는 브라우저가 `localhost` 또는 `http://192.168.1.20:19420`과 같은 IP 주소로 대시보드를 열 때만 동작합니다. reverse proxy를 포함해 도메인 이름을 통하면 MCP 및 Hooks 요청은 403을 반환합니다: 둘 다 Agent가 실행하는 명령을 기록하고, DNS 리바인딩 공격은 항상 도메인 이름을 사용하기 때문입니다. 원격 머신에서 MCP 또는 Hooks 설정을 관리하려면 `ssh -L 19420:127.0.0.1:19420 HOST`로 포트를 포워딩한 후 `http://localhost:19420`을 여세요.
 :::
 
 ## Docker 사용법

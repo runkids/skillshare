@@ -4,7 +4,7 @@ sidebar_position: 4
 
 # hooks
 
-名前付き hooks を管理し、各 Agent のネイティブ設定に同期します。Dashboard の **Hooks** で追加、編集、インポート、有効／無効、プレビュー、同期を行えます。**Targets**、**Projects**、**Sync**、**Settings → Backups** にも表示されます。
+名前付き hooks を管理し、各 Agent のネイティブ設定に同期します。Dashboard の **Hooks** で追加、編集、インポート、有効／無効、プレビュー、同期を行えます。**Targets**、**Projects**、**Sync**、**Settings → Backups** にも表示されます。**Hooks** ページは、ブラウザが `localhost` または IP アドレスでダッシュボードを開いている場合にのみ動作します。[リバースプロキシ](/docs/reference/commands/ui#reverse-proxy) を参照してください。
 
 hook の行メニューから、各ターゲットのネイティブ設定やコード、スクリプトファイルと出力先を確認できます。この読み取り専用プレビューには、その hook の内容だけを表示します。共有ファイルの他の設定は保持されます。無効な hook も確認できますが、公開されません。
 

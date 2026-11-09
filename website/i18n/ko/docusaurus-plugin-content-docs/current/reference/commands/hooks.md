@@ -4,7 +4,7 @@ sidebar_position: 4
 
 # hooks
 
-이름이 있는 hooks를 관리하고 각 Agent의 네이티브 설정에 동기화합니다. Dashboard의 **Hooks**에서 추가, 편집, 가져오기, 활성화／비활성화, 미리보기와 동기화를 할 수 있습니다. **Targets**, **Projects**, **Sync**, **Settings → Backups**에도 표시됩니다.
+이름이 있는 hooks를 관리하고 각 Agent의 네이티브 설정에 동기화합니다. Dashboard의 **Hooks**에서 추가, 편집, 가져오기, 활성화／비활성화, 미리보기와 동기화를 할 수 있습니다. **Targets**, **Projects**, **Sync**, **Settings → Backups**에도 표시됩니다. **Hooks** 페이지는 브라우저가 `localhost` 또는 IP 주소로 대시보드를 열 때만 동작합니다. [리버스 프록시](/docs/reference/commands/ui#reverse-proxy)를 참고하세요.
 
 hook 행의 메뉴에서 각 대상의 네이티브 설정이나 코드, 스크립트 파일과 출력 경로를 확인할 수 있습니다. 이 읽기 전용 미리보기는 해당 hook의 내용만 표시하며 공유 파일의 다른 설정은 유지합니다. 비활성화된 hook도 확인할 수 있지만 게시하지 않습니다.
 

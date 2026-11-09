@@ -241,8 +241,8 @@ handle_path /skillshare/* {
 不使用 `--base-path` 时，dashboard 的行为与以前完全一致——直接访问 `localhost:19420` 不需要任何配置。
 :::
 
-:::note MCP 设置
-MCP 页面只有在浏览器通过 `localhost` 或 IP 地址打开 dashboard 时才能工作，例如 `http://192.168.1.20:19420`。通过域名访问时（包括通过反向代理），MCP 请求会返回 403：DNS rebinding 攻击总是使用域名。要在远程机器上管理 MCP 设置，用 `ssh -L 19420:127.0.0.1:19420 HOST` 转发端口，然后打开 `http://localhost:19420`。
+:::note MCP 与 Hooks 设置
+MCP 与 Hooks 页面只有在浏览器通过 `localhost` 或 IP 地址打开 dashboard 时才能工作，例如 `http://192.168.1.20:19420`。通过域名访问时（包括通过反向代理），MCP 与 Hooks 请求会返回 403：两者都会写入 Agent 执行的命令，而 DNS rebinding 攻击总是使用域名。要在远程机器上管理 MCP 或 Hooks 设置，用 `ssh -L 19420:127.0.0.1:19420 HOST` 转发端口，然后打开 `http://localhost:19420`。
 :::
 
 ## Docker 使用方式
