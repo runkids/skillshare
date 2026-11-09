@@ -162,7 +162,7 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 :root[data-theme="playful"].dark .ss-tgl .ic>i { background: var(--pa); color: #1B1916; }
 .ss-sw { width: 34px; height: 20px; flex: none; padding: 2px; display: flex; border-radius: 99px; background: var(--line-2); }
 .ss-sw i { width: 16px; height: 16px; border-radius: 99px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
-.ss-sw.on { background: var(--ink); justify-content: flex-end; }
+.ss-sw.on { background: var(--ink); }
 .ss-sw.sm { width: 28px; height: 16px; }
 .ss-sw.sm i { width: 12px; height: 12px; }
 .ss-sw.on i { background: var(--surface); }
@@ -668,6 +668,9 @@ span.bad, b.bad, svg.bad { color: var(--bad); }
 button:not(:disabled), summary { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
 .ss-btn { transition: filter .12s, transform .12s, box-shadow .12s; }
+.ss-btn:active:not(:disabled) { transform: scale(.97); }
+/* A playful button stands on a hard shadow, so a press pushes it flat onto the shadow instead. */
+:root[data-theme="playful"] .ss-btn:not(.ghost, .ss-bulk *, .ss-toast *):active:not(:disabled) { transform: translate(3px, 3px); box-shadow: none; }
 :root[data-theme="playful"] .ss-btn:disabled { transform: none; box-shadow: var(--sh-btn); }
 /* Frameless buttons have nothing to cast a shadow from, and the hover and disabled rules above outrank
    their box-shadow: none, so without this a lone shadow arc appears under them. */
@@ -704,6 +707,11 @@ button:disabled { cursor: not-allowed; }
 :root:not([data-theme="playful"]) .ss-counts>a:last-child { border-radius: 0 12px 12px 0; }
 :root[data-theme="playful"] .ss-counts>a:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--line); }
 .ss-sw { transition: background-color .15s; }
+/* The knob slides rather than jumps: each distance is the track's inner width minus the knob's. */
+.ss-sw i { transition: transform .15s cubic-bezier(.3,.7,.3,1), background-color .15s; }
+.ss-sw.on i { transform: translateX(14px); }
+.ss-sw.sm.on i { transform: translateX(12px); }
+:root[data-theme="playful"] .ss-sw.on i { transform: translateX(16px); }
 .ss-sw:disabled { opacity: .42; }
 .ss-chk-input:focus-visible + .ss-chk { outline: 2px solid var(--accent); outline-offset: 2px; }
 .ss-more { font-size: 13px; font-weight: 500; color: var(--accent); }
@@ -711,5 +719,11 @@ button:disabled { cursor: not-allowed; }
 .ss-hand { font: 400 17px/1.15 var(--fh); color: var(--ink-2); }
 .ss-pinnote { transition: transform .12s; }
 a.ss-pinnote:hover { transform: translate(-1px, -1px); }
+/* The floating selection bar rises from the bottom edge when the first item is picked. */
+.ss-bulk:not(.static) { transition: transform .25s cubic-bezier(.3,.7,.3,1), opacity .2s ease-out; }
+@starting-style { .ss-bulk:not(.static) { opacity: 0; transform: translateX(-50%) translateY(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  @starting-style { .ss-bulk:not(.static) { transform: translateX(-50%); } }
+}
 
 }

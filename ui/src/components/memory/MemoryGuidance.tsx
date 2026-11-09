@@ -42,7 +42,7 @@ function CopyGuidanceMenu({ instructions }: { instructions: MemoryInstructions }
       <button type="button" className="ss-btn ghost sm" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
         <Copy size={12} strokeWidth={2.5} />{t('memory.copyInstructions')}<ChevronDown size={14} />
       </button>
-      {open && <div role="menu" className="ss-menu absolute right-0 top-full z-50 mt-1 !w-[320px]">
+      {open && <div role="menu" className="ss-menu absolute right-0 top-full z-50 mt-1 !w-[320px] animate-dropdown-in">
         {MODES.map((mode) => <button key={mode} type="button" role="menuitem" className="!h-auto flex-col !items-start !gap-0.5 !py-2" onClick={() => void copy(mode)}>
           <span className="font-mono text-[13px] font-semibold text-ink">{mode}</span>
           <span className="text-[12.5px] leading-snug text-ink-2">{t(`memory.mode.${mode}`)}</span>

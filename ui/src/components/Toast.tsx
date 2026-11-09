@@ -46,7 +46,7 @@ const iconColors = {
 };
 
 const TOAST_DURATION = 4000;
-const EXIT_DURATION = 300;
+const EXIT_DURATION = 200;
 
 function ToastItem({
   toast: t,

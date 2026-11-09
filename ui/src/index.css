@@ -177,12 +177,18 @@ html.theme-transitioning :is(.ss-box, .ss-list, .ss-btn, .ss-tag, .ss-inp, .ss-d
   animation: skeleton-shimmer 1.8s ease-in-out infinite;
 }
 
-/* Toast exit */
+/* Toast exit: back down the way it came in. Toast.tsx EXIT_DURATION matches the duration. */
 @keyframes toastOut {
-  to { opacity: 0; transform: translateX(100%); }
+  to { opacity: 0; transform: translateY(8px) scale(0.97); }
+}
+@keyframes toastFadeOut {
+  to { opacity: 0; }
 }
 .animate-toast-out {
-  animation: toastOut 0.3s ease-in forwards;
+  animation: toastOut 0.2s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-toast-out { animation-name: toastFadeOut; }
 }
 
 /* Toast progress bar */
