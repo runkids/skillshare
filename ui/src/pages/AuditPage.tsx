@@ -217,7 +217,8 @@ export default function AuditPage() {
 
           <div className="flex flex-wrap items-center gap-3">
             <Select
-              label={t('audit.filter.label')}
+              prefix={t('audit.filter.label')}
+              ariaLabel={t('audit.filter.label')}
               value={minimum ? 'minimum' : 'exact'}
               onChange={(value) => setMinimum(value === 'minimum')}
               options={[
