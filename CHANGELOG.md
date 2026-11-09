@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.30.0](https://github.com/runkids/skillshare/compare/v0.29.2...v0.30.0) (2026-11-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* **server:** a dashboard opened by a domain name, such as a reverse proxy, a Tailscale or mDNS name, or a Docker service name, now returns 403 on every page until that address is trusted, for example with `skillshare ui start --trusted-origin https://skills.example.com`.
+
+### New Features
+
+* **server:** answer only at localhost, IP addresses and trusted origins ([#811](https://github.com/runkids/skillshare/issues/811)) ([e9dc4d0](https://github.com/runkids/skillshare/commit/e9dc4d03601cd92459ebfebc32b8739081e89eab))
+
+
+### Bug Fixes
+
+* **plugin:** discover Codex-compatible Claude manifests ([#806](https://github.com/runkids/skillshare/issues/806)) ([6e1fc67](https://github.com/runkids/skillshare/commit/6e1fc67d71a478733e12a2d4daecb3722928e0dd)), closes [#805](https://github.com/runkids/skillshare/issues/805)
+* **plugin:** keep Codex off packages and folders it cannot use ([#808](https://github.com/runkids/skillshare/issues/808)) ([bfbc06a](https://github.com/runkids/skillshare/commit/bfbc06a6640994b85f017b73889edb81d2d7679c))
+* **server:** refuse dashboard changes sent from other sites ([#810](https://github.com/runkids/skillshare/issues/810)) ([ec9b3e6](https://github.com/runkids/skillshare/commit/ec9b3e688c5c59e367d7f925ab9d85c3c60c6199))
+
 ## [0.29.2] - 2026-11-08
 
 ### New Features
