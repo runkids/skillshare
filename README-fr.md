@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Dernière version** : v0.29.0 — [`skillshare audit`](https://skillshare.runkids.cc/docs/reference/commands/audit) examine de plus près ce qu'un skill embarque : commandes des hooks et réglages fournis, liens qui sortent du dossier du skill, exécutables et bytecode déguisés en documents ou en images, espaces qui cachent des instructions, métadonnées cloud et cibles de requêtes internes, et désérialisation non sûre. `--min-severity` raccourcit le rapport sans changer ce qui bloque une installation, et une analyse qui a sauté un lien de la source suivi mais illisible le signale désormais dans chaque rapport. Dans le dashboard, la page de détail d'un skill affiche sa branche et permet d'en changer. [Toutes les versions →](https://github.com/runkids/skillshare/releases)
+> **Dernière version** : v0.30.0 — Le dashboard web refuse les modifications qu'un autre site envoie via votre navigateur et ne répond que sur `localhost`, une adresse IP et les adresses auxquelles vous faites confiance, si bien qu'une page de DNS rebinding ne peut pas non plus l'atteindre. Derrière un reverse proxy, lancez-le avec [`--trusted-origin`](https://skillshare.runkids.cc/docs/reference/commands/ui#reverse-proxy) et toutes les pages fonctionnent via votre domaine, MCP, Hooks et Plugins compris ; un dashboard ouvert via un autre nom de domaine a désormais besoin de ce réglage. [`skillshare plugin`](https://skillshare.runkids.cc/docs/reference/commands/plugin) propose aussi à Codex les plugins qui ne fournissent qu'un manifeste Claude, avec les skills et les serveurs MCP que Codex peut utiliser. [Toutes les versions →](https://github.com/runkids/skillshare/releases)
 
 ## Pourquoi skillshare
 

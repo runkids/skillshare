@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.29.0 — [`skillshare audit`](https://skillshare.runkids.cc/zh-Hans/docs/reference/commands/audit) 更深入地检查 skill 附带的内容：附带的 hooks 和设置文件里的命令、指向 skill 文件夹之外的链接、伪装成文档或图片的可执行文件和字节码、用空白填充隐藏的指令、云端元数据和内部请求目标，以及不安全的反序列化。`--min-severity` 只精简报告，不改变阻止安装的标准；跳过了无法读取的 source 链接的扫描，现在会在每种报告里注明。在 dashboard 中，skill 的详情页会显示它的分支，并可以直接切换。[更新记录](https://skillshare.runkids.cc/changelog)。
+> **最新版本**：v0.30.0 — Web dashboard 会拒绝其他网站通过你的浏览器发来的更改，并且只响应 `localhost`、IP 地址以及你信任的地址，因此 DNS rebinding 页面同样无法访问它。在反向代理后面，用 [`--trusted-origin`](https://skillshare.runkids.cc/zh-Hans/docs/reference/commands/ui#reverse-proxy) 启动，所有页面（包括 MCP、Hooks 和 Plugins）都能通过你的域名正常使用；用其他任何域名打开的 dashboard 现在需要这项设置。[`skillshare plugin`](https://skillshare.runkids.cc/zh-Hans/docs/reference/commands/plugin) 还会把只附带 Claude 清单的插件提供给 Codex，并带上 Codex 能使用的 skill 和 MCP 服务器。[更新记录](https://skillshare.runkids.cc/changelog)。
 
 ## 为什么用 skillshare
 
