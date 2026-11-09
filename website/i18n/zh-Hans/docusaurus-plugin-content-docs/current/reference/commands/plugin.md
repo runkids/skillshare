@@ -79,7 +79,7 @@ JSON 输出包含来源路径和原生标识符。不要在来源 URL 中放置�
 | Target | Format | Global | Project | Update |
 |---|---|:---:|:---:|---|
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | Native update |
-| Codex | `.codex-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | 刷新经审核的来源后再次 add，仅限在 Codex 中为启用状态 |
+| Codex | `.codex-plugin/plugin.json`, Agent Plugins root manifest, or Claude manifest | Yes | No | 刷新经审核的来源后再次 add，仅限在 Codex 中为启用状态 |
 | Cursor | `.cursor-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Replace reviewed local copy |
 | Antigravity Desktop | Root `plugin.json` with an explicit name | Yes | Yes | Replace reviewed local copy |
 | Pi | `package.json` with `pi` resources, or `pi-package` keyword and conventional resource folders | Yes | Yes, with native project trust | Refresh managed source snapshot |
@@ -295,7 +295,12 @@ Skillshare 从不提供原生信任的批准 flags。
 - Claude 需要其原生的 `.claude-plugin/plugin.json` package。
 - Codex 接受 `.codex-plugin/plugin.json` 以及可识别的、便携的 root
   `plugin.json` packages。两者都有的 package，Codex 会从便携的 root `plugin.json` 安装，所以
-  Skillshare 预期该 manifest 的版本，没有版本时预期 `1.0.0`。仅限 Claude 的 package 不会被静默转换。
+  Skillshare 预期该 manifest 的版本，没有版本时预期 `1.0.0`。两者都没有、但有
+  `.claude-plugin/plugin.json` 的 package 也会提供给 Codex：Codex 会自行读取该 manifest，
+  只使用它支持的部分，例如 skills 和 MCP 服务器，所以 Claude 的 agent 不会提供给 Codex。
+  Skillshare 不会转换或改写 package。和 Codex 一样，格式错误或无关的根目录 `plugin.json` 会被忽略。
+  明确的 `.codex-plugin/plugin.json` 或可识别的 Agent Plugins 根目录 manifest，即使无效、
+  不支持或是链接，也不会被 Claude manifest 取代。
 - Sources 可能包含带有本地 plugin 条目的 marketplace。原生
   catalogs 会按 plugin 名称合并，并保留各 target 的包路径；外部
   条目会连同说明一起报告，提示直接添加其 repository 或原生安装后再导入。基于命令的 sources

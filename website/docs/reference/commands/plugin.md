@@ -86,7 +86,7 @@ the CLI exits nonzero when any target fails. Inspect the result before retrying.
 | Target | Format | Global | Project | Update |
 |---|---|:---:|:---:|---|
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | Native update |
-| Codex | `.codex-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Refresh reviewed source and add it again, only if enabled in Codex |
+| Codex | `.codex-plugin/plugin.json`, Agent Plugins root manifest, or Claude manifest | Yes | No | Refresh reviewed source and add it again, only if enabled in Codex |
 | Cursor | `.cursor-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Replace reviewed local copy |
 | Antigravity Desktop | Root `plugin.json` with an explicit name | Yes | Yes | Replace reviewed local copy |
 | Pi | `package.json` with `pi` resources, or `pi-package` keyword and conventional resource folders | Yes | Yes, with native project trust | Refresh managed source snapshot |
@@ -457,7 +457,13 @@ never supplies native trust approval flags.
   `plugin.json` packages. When a package has both, Codex installs from the portable
   root `plugin.json`, so Skillshare expects that manifest's version, or `1.0.0`
   when it has none.
-  A Claude-only package is not silently converted.
+  A package with neither is offered to Codex when it has `.claude-plugin/plugin.json`:
+  Codex reads that manifest itself and uses only the parts it supports, such as
+  skills and MCP servers, so Claude agents are not offered to Codex. Skillshare
+  does not convert or rewrite the package. A malformed or unrelated root
+  `plugin.json` is ignored, as in Codex. An explicit `.codex-plugin/plugin.json` or
+  recognized Agent Plugins root manifest is never replaced by the Claude manifest,
+  even when invalid, unsupported, or linked.
 - Sources may contain a marketplace with local plugin entries. Native
   catalogs are merged by plugin name, retaining each target's package path; external
   entries are reported with instructions to add their repository directly or

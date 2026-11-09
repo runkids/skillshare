@@ -201,21 +201,34 @@ func TestClaudeCatalogEntryCarriesStrictDefinition(t *testing.T) {
 }
 
 func TestDiscoverUsesEachAgentsOwnCatalogPath(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, root, ".agents/plugins/marketplace.json", `{"name":"market","plugins":[{"name":"ctx","source":{"source":"local","path":"./plugins/codex/ctx"}}]}`)
-	writeFile(t, root, ".claude-plugin/marketplace.json", `{"name":"market","plugins":[{"name":"ctx","source":"./plugins/claude/ctx"}]}`)
-	for _, dir := range []string{"plugins/codex/ctx", "plugins/claude/ctx"} {
-		writeFile(t, root, dir+"/.claude-plugin/plugin.json", `{"name":"ctx"}`)
-		writeFile(t, root, dir+"/skills/x/SKILL.md", "---\nname: x\ndescription: X\n---\n")
-	}
-	writeFile(t, root, "plugins/codex/ctx/.codex-plugin/plugin.json", `{"name":"ctx","skills":"./skills"}`)
-	d, err := Discover(context.Background(), root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	c := d.Candidates[0]
-	if len(d.Candidates) != 1 || c.Problem != "" || c.pathFor("codex") != "plugins/codex/ctx" || c.pathFor("claude") != "plugins/claude/ctx" {
-		t.Fatalf("per-Agent paths not kept: %+v", d.Candidates)
+	for name, manifest := range map[string]string{
+		"valid":   `{"name":"ctx","skills":"./skills"}`,
+		"invalid": "{",
+	} {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			writeFile(t, root, ".agents/plugins/marketplace.json", `{"name":"market","plugins":[{"name":"ctx","source":{"source":"local","path":"./plugins/codex/ctx"}}]}`)
+			writeFile(t, root, ".claude-plugin/marketplace.json", `{"name":"market","plugins":[{"name":"ctx","source":"./plugins/claude/ctx"}]}`)
+			for _, dir := range []string{"plugins/codex/ctx", "plugins/claude/ctx"} {
+				writeFile(t, root, dir+"/.claude-plugin/plugin.json", `{"name":"ctx"}`)
+				writeFile(t, root, dir+"/skills/x/SKILL.md", "---\nname: x\ndescription: X\n---\n")
+			}
+			writeFile(t, root, "plugins/codex/ctx/.codex-plugin/plugin.json", manifest)
+			d, err := Discover(context.Background(), root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(d.Candidates) != 1 {
+				t.Fatalf("candidates = %+v", d.Candidates)
+			}
+			c := d.Candidates[0]
+			if c.Problem != "" || c.pathFor("codex") != "plugins/codex/ctx" || c.pathFor("claude") != "plugins/claude/ctx" {
+				t.Fatalf("per-Agent paths not kept: %+v", d.Candidates)
+			}
+			if name == "invalid" && (slices.Contains(c.Targets, "codex") || c.TargetInfo["codex"].ProblemKey != "plugins.problem.invalidManifest") {
+				t.Fatalf("invalid own-catalog package bypassed: %+v", c)
+			}
+		})
 	}
 }
 

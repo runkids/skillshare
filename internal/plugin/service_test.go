@@ -789,6 +789,46 @@ func TestCodexUpdateAddsThePluginAgain(t *testing.T) {
 	}
 }
 
+// Codex installs a Claude-only package from the snapshot as it is; Skillshare writes no Codex manifest.
+func TestCodexAddsAClaudeOnlyPackageUnchanged(t *testing.T) {
+	agents := &fakeAgents{version: "1.3.2"}
+	s := agents.service(t)
+	source := t.TempDir()
+	files := map[string]string{
+		".claude-plugin/plugin.json":     `{"name":"skills","version":"1.3.2","skills":["./skills/tdd"]}`,
+		"skills/tdd/SKILL.md":            "---\nname: tdd\ndescription: TDD\n---\nRead references/guide.md and ../../docs/shared.md.\n",
+		"skills/tdd/references/guide.md": "Required skill reference.\n",
+		"skills/tdd/agents/openai.yaml":  "policy:\n  allow_implicit_invocation: false\n",
+		"docs/shared.md":                 "Required package-level resource.\n",
+	}
+	for path, data := range files {
+		writeFile(t, source, path, data)
+	}
+	r := Request{Action: "add", Source: source, Targets: []string{"codex"}}
+	p, err := s.Preview(context.Background(), r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	i := slices.IndexFunc(p.Changes, func(c Change) bool { return c.Target == "codex" && c.Action == "install" })
+	if p.Blocked || i < 0 || p.Changes[i].Binding.Version != "1.3.2" || !slices.Equal(p.Changes[i].Binding.Components, []string{"skills"}) {
+		t.Fatalf("Codex plan: %+v", p.Changes)
+	}
+	applyPluginRequest(t, s, r)
+	if len(agents.markets["codex"]) != 1 || len(agents.installed["codex"]) != 1 {
+		t.Fatalf("not installed: %+v %+v", agents.markets, agents.installed)
+	}
+	for _, snapshot := range agents.markets["codex"] {
+		for path, want := range files {
+			if got, err := os.ReadFile(filepath.Join(snapshot, "content", path)); err != nil || string(got) != want {
+				t.Fatalf("package file %s changed: %q %v", path, got, err)
+			}
+		}
+		if _, err := os.Lstat(filepath.Join(snapshot, "content", ".codex-plugin")); !os.IsNotExist(err) {
+			t.Fatalf("Codex manifest written: %v", err)
+		}
+	}
+}
+
 // Adding would turn a plugin disabled in Codex back on, so the update skips it, and the
 // other Agents of the plugin are still updated.
 func TestCodexUpdateSkipsADisabledPlugin(t *testing.T) {

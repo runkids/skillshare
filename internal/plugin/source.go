@@ -372,7 +372,7 @@ var catalogOwner = map[string]string{".agents/plugins/marketplace.json": "codex"
 // folder. An Agent keeps the folder found first, unless its own catalog says otherwise.
 func mergeCatalogPath(kept *Candidate, c Candidate, owner string) {
 	for target, info := range c.TargetInfo {
-		if existing, ok := kept.TargetInfo[target]; info.Problem != "" || (ok && existing.Problem == "" && target != owner) {
+		if _, ok := kept.TargetInfo[target]; info.Problem != "" || (ok && target != owner) {
 			continue
 		}
 		info.Path = c.Path
