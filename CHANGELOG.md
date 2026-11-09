@@ -2,18 +2,13 @@
 
 ## [0.30.1] - 2026-11-09
 
-
-* **release:** release the Hubs refresh button as a patch ([4304395](https://github.com/runkids/skillshare/commit/4304395439c3c90ede9e3d452bdc246581eaaffc))
-
-
 ### New Features
 
-* **ui:** add a refresh button to the Hubs page ([#814](https://github.com/runkids/skillshare/issues/814)) ([0580bd7](https://github.com/runkids/skillshare/commit/0580bd79bde4c890f564b09ec6c815d2dc4a6ee5))
-
+- **Refresh a hub's list** — the Hubs page keeps a hub's skill list for two minutes; a new refresh button next to the filter fetches it again now, so a newly pushed `skillshare-hub.json` shows without reloading the page. The current list stays on screen while it loads, and an error appears above the list if the fetch fails. Saved hubs and the built-in Skillshare Hub have the button; your own Hubs are local and do not need it. Git hubs (`git@…`) are cloned again on every fetch; the built-in hub's file on `raw.githubusercontent.com` can stay cached for a few minutes after an update. Refs: #814.
 
 ### Performance
 
-* **plugin:** check every plugin at once and skip sources that did not move ([#812](https://github.com/runkids/skillshare/issues/812)) ([2bc791e](https://github.com/runkids/skillshare/commit/2bc791ed1929dae348b1ae4900cb377fc0f9b85a))
+- **The Plugins page checks every plugin at once** — the update check used to read every Agent CLI and clone every source one after another. Every plugin is now checked at the same time: each row shows its result as soon as its own check finishes, and the header counts the plugins checked so far. A source with no pinned ref is compared first with `git ls-remote`, and nothing is downloaded when its default branch still points at the installed commit; in one test, three unchanged GitHub plugins on two Agents went from 4.3s with three clones to 0.6s with none. `skillshare plugin check` uses the same shortcut. An Agent CLI that does not answer within 60 seconds marks only its own plugins **Check failed**, with the reason on hover, and a check no longer hangs when the Agent CLI is an npm, mise or volta shim. The **Update N** dialog now offers every update the header counts, including after a check that broke off or could not reach an Agent. Refs: #812.
 
 ## [0.30.0] - 2026-11-09
 
