@@ -232,6 +232,47 @@ func TestDiscoverUsesEachAgentsOwnCatalogPath(t *testing.T) {
 	}
 }
 
+// Codex reads only its own catalog, so a folder it rejects there is not replaced by the Claude
+// catalog's folder, even when nothing else in the rejected folder is installable.
+func TestCodexCatalogRejectionIsNotReplacedByClaudeFolder(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, ".agents/plugins/marketplace.json", `{"name":"market","plugins":[{"name":"ctx","source":{"source":"local","path":"./plugins/codex/ctx"}}]}`)
+	writeFile(t, root, ".claude-plugin/marketplace.json", `{"name":"market","plugins":[{"name":"ctx","source":"./plugins/claude/ctx"}]}`)
+	writeFile(t, root, "plugins/codex/ctx/.codex-plugin/plugin.json", "{")
+	writeFile(t, root, "plugins/claude/ctx/.claude-plugin/plugin.json", `{"name":"ctx"}`)
+	for _, dir := range []string{"plugins/codex/ctx", "plugins/claude/ctx"} {
+		writeFile(t, root, dir+"/skills/x/SKILL.md", "---\nname: x\ndescription: X\n---\n")
+	}
+	d, err := Discover(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := d.Candidates[0]; len(d.Candidates) != 1 || slices.Contains(c.Targets, "codex") || !slices.Contains(c.Targets, "claude") {
+		t.Fatalf("candidates = %+v", d.Candidates)
+	}
+}
+
+// Another Agent rejected in the first catalog's folder still installs from a later catalog's folder.
+func TestRejectedTargetUsesALaterCatalogFolder(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, ".agents/plugins/marketplace.json", `{"name":"market","plugins":[{"name":"ctx","source":{"source":"local","path":"./plugins/codex/ctx"}}]}`)
+	writeFile(t, root, ".claude-plugin/marketplace.json", `{"name":"market","plugins":[{"name":"ctx","source":"./plugins/claude/ctx"}]}`)
+	writeFile(t, root, "plugins/codex/ctx/.codex-plugin/plugin.json", `{"name":"ctx"}`)
+	writeFile(t, root, "plugins/codex/ctx/.cursor-plugin/plugin.json", "{")
+	writeFile(t, root, "plugins/claude/ctx/.claude-plugin/plugin.json", `{"name":"ctx"}`)
+	writeFile(t, root, "plugins/claude/ctx/.cursor-plugin/plugin.json", `{"name":"ctx"}`)
+	for _, dir := range []string{"plugins/codex/ctx", "plugins/claude/ctx"} {
+		writeFile(t, root, dir+"/skills/x/SKILL.md", "---\nname: x\ndescription: X\n---\n")
+	}
+	d, err := Discover(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := d.Candidates[0]; !slices.Contains(c.Targets, "cursor") || c.pathFor("cursor") != "plugins/claude/ctx" {
+		t.Fatalf("cursor = %+v", c.TargetInfo["cursor"])
+	}
+}
+
 func TestSourceBreaksCrossDirectoryLinkCycle(t *testing.T) {
 	root := fixture(t)
 	for _, dir := range []string{"a", "b"} {

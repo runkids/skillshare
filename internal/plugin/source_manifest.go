@@ -161,7 +161,10 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 					fields[key] = raw
 				}
 			}
-			c.TargetInfo["codex"] = TargetPackage{Manifest: claude.Manifest, Version: claude.Version, Logo: codexLogo(root, claudeFields["interface"]), Components: manifestComponents(root, "codex", fields, []string{})}
+			// A package with nothing Codex reads, such as agents only, is not offered to it.
+			if components := manifestComponents(root, "codex", fields, []string{}); len(components) > 0 {
+				c.TargetInfo["codex"] = TargetPackage{Manifest: claude.Manifest, Version: claude.Version, Logo: codexLogo(root, claudeFields["interface"]), Components: components}
+			}
 		}
 	}
 	if info, ok := c.TargetInfo["claude"]; ok && info.Problem == "" {
