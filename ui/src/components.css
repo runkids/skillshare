@@ -520,10 +520,11 @@ span.bad, b.bad, svg.bad { color: var(--bad); }
 :root[data-theme="playful"] .ss-tabs { border-bottom: 0; gap: 8px; }
 :root[data-theme="playful"] .ss-tabs>* { margin: 0; padding: 0 14px; height: 34px; border: 2px solid transparent; border-radius: 999px; }
 :root[data-theme="playful"] .ss-tabs>*.on { background: var(--pa); color: var(--sel-ink); border-color: var(--line); box-shadow: 3px 3px 0 var(--line); }
-/* Tabs with controls on the right; the bar carries the underline so it spans the controls too */
-.ss-tabbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); }
+/* Tabs with controls on the right; the bar carries the underline so it spans the controls too.
+   Controls that do not fit wrap above the tabs, so the tabs stay on the line. */
+.ss-tabbar { display: flex; flex-wrap: wrap-reverse; align-items: flex-end; justify-content: space-between; gap: 8px 16px; border-bottom: 1px solid var(--line); }
 .ss-tabbar>.ss-tabs { border-bottom: 0; }
-.ss-tabbar>:not(.ss-tabs) { margin-bottom: 6px; }
+.ss-tabbar>:not(.ss-tabs) { margin-bottom: 6px; margin-left: auto; }
 :root[data-theme="playful"] .ss-tabbar { align-items: center; border-bottom: 0; }
 :root[data-theme="playful"] .ss-tabbar>:not(.ss-tabs) { margin-bottom: 0; }
 :root[data-theme="playful"] .ss-tabs .ss-cnt { height: auto; padding: 1px 6px; border: 1.5px solid currentColor; box-shadow: none; background: transparent; color: inherit; opacity: .8; }

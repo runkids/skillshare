@@ -347,7 +347,7 @@ export default function ResourceDetailPage() {
       )}
 
       {tab === 'doc' ? (
-        <div className="grid grid-cols-[minmax(0,1fr)_330px] items-start gap-8">
+        <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_330px]">
           <div className="flex min-w-0 flex-col gap-[18px]">
             <div className="ss-tabbar">
               {tabs}
@@ -767,7 +767,7 @@ function FilesTab({ resource, files, skillMd, tabSearch, components, raw, onRaw 
   };
 
   return (
-    <div className="grid grid-cols-[240px_minmax(0,1fr)] items-start gap-6">
+    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
       <div className="flex flex-col gap-0.5">
         {tree.map((row) => {
           const Icon = row.folder ? Folder : row.label.endsWith('.md') ? FileText : CODE_EXT.test(row.label) ? FileCode2 : File;
