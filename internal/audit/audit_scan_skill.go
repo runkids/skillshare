@@ -488,17 +488,19 @@ func scanFileUnifiedPlain(
 					continue
 				}
 				if r.matchesLine(line) {
+					sev, sevContext := r.inertSeverity(r.findingSeverity(line, relPath, scriptContext), &inert, relPath, text, lineNum)
 					staticFindings = append(staticFindings, Finding{
-						Severity:   r.inertSeverity(r.findingSeverity(line, relPath, scriptContext), &inert, relPath, text, lineNum),
-						Pattern:    r.Pattern,
-						Message:    r.Message,
-						File:       relPath,
-						Line:       lineNum,
-						Snippet:    strings.TrimSpace(line),
-						RuleID:     r.ID,
-						Analyzer:   AnalyzerStatic,
-						Category:   categoryForPattern(r.Pattern),
-						Confidence: r.Confidence,
+						Severity:        sev,
+						SeverityContext: sevContext,
+						Pattern:         r.Pattern,
+						Message:         r.Message,
+						File:            relPath,
+						Line:            lineNum,
+						Snippet:         strings.TrimSpace(line),
+						RuleID:          r.ID,
+						Analyzer:        AnalyzerStatic,
+						Category:        categoryForPattern(r.Pattern),
+						Confidence:      r.Confidence,
 					})
 				}
 			}

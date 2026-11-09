@@ -55,10 +55,14 @@ func TestPythonInertCredentialSeverity(t *testing.T) {
 		{"shell comment keeps severity", "hook.sh", "# " + cmd, SeverityCritical},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			wantContext := ""
+			if tc.severity == SeverityHigh {
+				wantContext = SeverityContextPythonInert
+			}
 			check := func(path string, findings []Finding) {
 				t.Helper()
-				if len(findings) != 1 || findings[0].RuleID != "credential-access-aws-credentials" || findings[0].Severity != tc.severity {
-					t.Fatalf("%s: want one %s aws finding, got %+v", path, tc.severity, findings)
+				if len(findings) != 1 || findings[0].RuleID != "credential-access-aws-credentials" || findings[0].Severity != tc.severity || findings[0].SeverityContext != wantContext {
+					t.Fatalf("%s: want one %s aws finding with context %q, got %+v", path, tc.severity, wantContext, findings)
 				}
 			}
 			check("content", ScanContentWithRules([]byte(tc.content), tc.file, rules))
@@ -104,6 +108,17 @@ func TestPythonInertCredentialOverrides(t *testing.T) {
 			found := ScanContentWithRules(content, "hook.py", credentialRules(t, rules))
 			if len(found) != 1 || found[0].Severity != tc.severity {
 				t.Fatalf("want %s, got %+v", tc.severity, found)
+			}
+			for layer, layers := range map[string][2][]yamlRule{"global": {overlay, nil}, "project": {nil, overlay}} {
+				listed, err := buildCompiledList(base, layers[0], layers[1])
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, r := range listed {
+					if r.ID == "credential-access-aws-credentials" && (r.SeverityContext != "") != (tc.severity == SeverityHigh) {
+						t.Fatalf("%s rule list context %q disagrees with scanned severity %s", layer, r.SeverityContext, tc.severity)
+					}
+				}
 			}
 		})
 	}

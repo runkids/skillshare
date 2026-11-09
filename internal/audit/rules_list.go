@@ -20,6 +20,9 @@ type CompiledRule struct {
 	Exclude              string   `json:"exclude,omitempty"`
 	Enabled              bool     `json:"enabled"`
 	Source               string   `json:"source"` // "builtin", "global", "project"
+	// SeverityContext names a context that lowers this rule's findings,
+	// e.g. SeverityContextPythonInert; empty when none applies.
+	SeverityContext string `json:"severityContext,omitempty"`
 }
 
 // PatternGroup summarizes rules grouped by pattern name.
@@ -101,6 +104,11 @@ func buildCompiledList(base, globalUser, projectUser []yamlRule) ([]CompiledRule
 		source := determineSource(yr.ID, yr.Pattern, globalOverrides, projectOverrides,
 			globalPatternOverrides, projectPatternOverrides)
 
+		var severityContext string
+		if lowersInPython(yr.pythonInertContext, yr.severityOverridden, sev) {
+			severityContext = SeverityContextPythonInert
+		}
+
 		confidence := defaultRuleConfidence
 		if yr.Confidence != nil {
 			confidence = *yr.Confidence
@@ -117,6 +125,7 @@ func buildCompiledList(base, globalUser, projectUser []yamlRule) ([]CompiledRule
 			Exclude:              yr.Exclude,
 			Enabled:              enabled,
 			Source:               source,
+			SeverityContext:      severityContext,
 		})
 	}
 	return result, nil

@@ -500,10 +500,11 @@ JSON/SARIF 출력의 각 finding에는 다음이 포함됩니다:
 | `category` | string | 위협 카테고리: `injection`, `exfiltration`, `credential`, `obfuscation`, `privilege`, `integrity`, `trust`, `structure`, `risk` |
 | `confidence` | float | 신뢰도 점수 (0–1). Static: 0.95, Dataflow: 0.85 |
 | `fingerprint` | string | 중복 제거와 추적을 위한 안정적인 SHA-256 해시 |
+| `severityContext` | string | `severity`가 규칙 본래 값보다 낮은 이유. `python-inert`: Python 주석이나 docstring 안의 내장 credential-access 일치로, `CRITICAL`에서 `HIGH`로 낮춤 ([자세히](#credential-access)) |
 
-`ruleId`, `analyzer`, `category`, `confidence`, `fingerprint` 필드는 비어 있을 때 JSON에서 생략됩니다 (하위 호환).
+`ruleId`, `analyzer`, `category`, `confidence`, `fingerprint`, `severityContext` 필드는 비어 있을 때 JSON에서 생략됩니다 (하위 호환).
 
-SARIF 출력에서 `ruleId`는 SARIF의 `ruleId` 필드에 매핑되며, `fingerprint`는 각 결과의 `fingerprints` 속성에 포함됩니다.
+SARIF 출력에서 `ruleId`는 SARIF의 `ruleId` 필드에 매핑되며, `fingerprint`는 각 결과의 `fingerprints` 속성에 포함됩니다. `severityContext`는 각 결과의 `properties`에 포함됩니다.
 
 ## 참고
 

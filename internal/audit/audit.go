@@ -39,6 +39,11 @@ const (
 	CategoryTrust        = "trust"
 )
 
+// SeverityContextPythonInert marks a built-in credential-access match that
+// Python never runs (a comment-only line or a docstring), reported as HIGH
+// instead of CRITICAL.
+const SeverityContextPythonInert = "python-inert"
+
 // categoryForPattern maps a rule pattern name to a broad category.
 func categoryForPattern(pattern string) string {
 	switch {
@@ -82,6 +87,10 @@ type Finding struct {
 	Confidence   float64 `json:"confidence,omitempty"`   // 0~1
 	Fingerprint  string  `json:"fingerprint,omitempty"`  // sha256 stable hash for deduplication
 	Acknowledged bool    `json:"acknowledged,omitempty"` // previously accepted via --force; excluded from blocking
+
+	// SeverityContext names why Severity is lower than the rule's configured
+	// severity; empty when it is not. See SeverityContextPythonInert.
+	SeverityContext string `json:"severityContext,omitempty"`
 
 	acceptanceContext string `json:"-"` // detector-specific identity material, never included in reports
 }

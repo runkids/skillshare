@@ -66,17 +66,19 @@ func ScanContentWithRules(content []byte, filename string, activeRules []rule) [
 				continue
 			}
 			if r.matchesLine(line) {
+				sev, sevContext := r.inertSeverity(r.findingSeverity(line, filename, codeContext), &inert, filename, text, lineNum)
 				findings = append(findings, Finding{
-					Severity:   r.inertSeverity(r.findingSeverity(line, filename, codeContext), &inert, filename, text, lineNum),
-					Pattern:    r.Pattern,
-					Message:    r.Message,
-					File:       filename,
-					Line:       lineNum,
-					Snippet:    strings.TrimSpace(line),
-					RuleID:     r.ID,
-					Analyzer:   AnalyzerStatic,
-					Category:   categoryForPattern(r.Pattern),
-					Confidence: r.Confidence,
+					Severity:        sev,
+					SeverityContext: sevContext,
+					Pattern:         r.Pattern,
+					Message:         r.Message,
+					File:            filename,
+					Line:            lineNum,
+					Snippet:         strings.TrimSpace(line),
+					RuleID:          r.ID,
+					Analyzer:        AnalyzerStatic,
+					Category:        categoryForPattern(r.Pattern),
+					Confidence:      r.Confidence,
 				})
 			}
 		}

@@ -296,6 +296,18 @@ function RuleRow({ rule, hits, expanded, onExpand, onToggle, onSeverity }: {
             <dd>{rule.confidence}{rule.confidenceOverridden && ` (${t('auditRules.detail.overridden')})`}</dd>
             <dt>{t('auditRules.detail.source')}</dt>
             <dd>{rule.source}</dd>
+            {rule.severityContext === 'python-inert' && (
+              <>
+                <dt>{t('auditRules.detail.context')}</dt>
+                <dd className="flex flex-col gap-1">
+                  <span className="flex items-center gap-2"><span className="ss-sev h">HIGH</span>{t('auditRules.detail.pythonInert')}</span>
+                  <span className="text-ink-2">
+                    {t('auditRules.detail.pythonInertNote')}{' '}
+                    <a className="text-link underline" href="https://skillshare.runkids.cc/docs/understand/audit-engine#credential-access" target="_blank" rel="noopener noreferrer">{t('auditRules.detail.contextDocs')}</a>
+                  </span>
+                </dd>
+              </>
+            )}
             {hits && (
               <>
                 <dt>{t('auditRules.detail.matches')}</dt>

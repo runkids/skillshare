@@ -500,10 +500,11 @@ JSON/SARIF 輸出中的每筆 finding 都包含：
 | `category` | string | 威脅類別：`injection`、`exfiltration`、`credential`、`obfuscation`、`privilege`、`integrity`、`trust`、`structure`、`risk` |
 | `confidence` | float | 信心分數（0–1）。Static：0.95，Dataflow：0.85 |
 | `fingerprint` | string | 用於去重複與追蹤的穩定 SHA-256 雜湊值 |
+| `severityContext` | string | `severity` 低於規則本身等級的原因。`python-inert`：內建 credential-access 規則在 Python 註解或 docstring 中的比對，從 `CRITICAL` 降為 `HIGH`（[詳情](#credential-access)） |
 
-`ruleId`、`analyzer`、`category`、`confidence`、`fingerprint` 欄位若為空值，會在 JSON 中被省略（向下相容）。
+`ruleId`、`analyzer`、`category`、`confidence`、`fingerprint`、`severityContext` 欄位若為空值，會在 JSON 中被省略（向下相容）。
 
-在 SARIF 輸出中，`ruleId` 會對應到 SARIF 的 `ruleId` 欄位，而 `fingerprint` 會包含在每筆結果的 `fingerprints` 屬性中。
+在 SARIF 輸出中，`ruleId` 會對應到 SARIF 的 `ruleId` 欄位，而 `fingerprint` 會包含在每筆結果的 `fingerprints` 屬性中。`severityContext` 會包含在每筆結果的 `properties` 中。
 
 ## 延伸閱讀
 

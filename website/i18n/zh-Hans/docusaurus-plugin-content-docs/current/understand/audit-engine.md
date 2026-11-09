@@ -500,10 +500,11 @@ JSON/SARIF 输出中的每条发现结果都包含：
 | `category` | string | 威胁类别：`injection`、`exfiltration`、`credential`、`obfuscation`、`privilege`、`integrity`、`trust`、`structure`、`risk` |
 | `confidence` | float | 置信度评分（0–1）。Static：0.95，Dataflow：0.85 |
 | `fingerprint` | string | 用于去重和追踪的稳定 SHA-256 哈希 |
+| `severityContext` | string | `severity` 低于规则本身级别的原因。`python-inert`：内置 credential-access 规则在 Python 注释或 docstring 中的匹配，从 `CRITICAL` 降为 `HIGH`（[详情](#credential-access)） |
 
-当 `ruleId`、`analyzer`、`category`、`confidence` 和 `fingerprint` 为空时，会从 JSON 中省略（向后兼容）。
+当 `ruleId`、`analyzer`、`category`、`confidence`、`fingerprint` 和 `severityContext` 为空时，会从 JSON 中省略（向后兼容）。
 
-在 SARIF 输出中，`ruleId` 映射到 SARIF 的 `ruleId` 字段，`fingerprint` 包含在每个结果的 `fingerprints` 属性中。
+在 SARIF 输出中，`ruleId` 映射到 SARIF 的 `ruleId` 字段，`fingerprint` 包含在每个结果的 `fingerprints` 属性中。`severityContext` 包含在每个结果的 `properties` 中。
 
 ## 另见
 

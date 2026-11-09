@@ -425,6 +425,8 @@ The file-level `whitespace-padding` detector is also registered in `rules.yaml`.
 | `unsafe-deserialization-ruby` | unsafe-deserialization | HIGH |
 | `unsafe-deserialization-js` | unsafe-deserialization | HIGH |
 
+In `audit rules --format json`, rules marked *context* above carry `"severityContext": "python-inert"` while they keep their built-in CRITICAL severity and regex. Setting a severity or replacing the regex removes it, because the downgrade no longer applies.
+
 ## Subcommands
 
 | Subcommand | Description |

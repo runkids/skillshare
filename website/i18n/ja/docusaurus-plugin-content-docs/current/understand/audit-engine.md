@@ -501,10 +501,11 @@ JSON/SARIF 出力の各 finding には以下が含まれます。
 | `category` | string | 脅威カテゴリ：`injection`、`exfiltration`、`credential`、`obfuscation`、`privilege`、`integrity`、`trust`、`structure`、`risk` |
 | `confidence` | float | 信頼度スコア（0〜1）。Static：0.95、Dataflow：0.85 |
 | `fingerprint` | string | 重複排除と追跡のための安定した SHA-256 ハッシュ |
+| `severityContext` | string | `severity` がルール本来の値より低い理由。`python-inert`: Python のコメントまたは docstring 内の組み込み credential-access の一致で、`CRITICAL` から `HIGH` に引き下げ（[詳細](#credential-access)） |
 
-`ruleId`、`analyzer`、`category`、`confidence`、`fingerprint` の各フィールドは、空の場合 JSON から省略されます（後方互換性のため）。
+`ruleId`、`analyzer`、`category`、`confidence`、`fingerprint`、`severityContext` の各フィールドは、空の場合 JSON から省略されます（後方互換性のため）。
 
-SARIF 出力では、`ruleId` は SARIF の `ruleId` フィールドにマッピングされ、`fingerprint` は各結果の `fingerprints` プロパティに含まれます。
+SARIF 出力では、`ruleId` は SARIF の `ruleId` フィールドにマッピングされ、`fingerprint` は各結果の `fingerprints` プロパティに含まれます。`severityContext` は各結果の `properties` に含まれます。
 
 ## 関連項目
 

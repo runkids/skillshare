@@ -130,15 +130,22 @@ func pythonInertLines(filename, text string) []bool {
 // that names credential paths in its comments or docstrings is not blocked at
 // the default threshold. Explicit severity overrides and custom replacements
 // keep their configured severity. Lines are tokenized on the first such match.
-func (r rule) inertSeverity(severity string, inert *[]bool, filename, text string, line int) string {
-	if !r.pythonInertContext || r.severityOverridden || severity != SeverityCritical {
-		return severity
+// The second result is the finding's SeverityContext.
+func (r rule) inertSeverity(severity string, inert *[]bool, filename, text string, line int) (string, string) {
+	if !lowersInPython(r.pythonInertContext, r.severityOverridden, severity) {
+		return severity, ""
 	}
 	if *inert == nil {
 		*inert = pythonInertLines(filename, text)
 	}
 	if *inert != nil && (*inert)[line-1] {
-		return SeverityHigh
+		return SeverityHigh, SeverityContextPythonInert
 	}
-	return severity
+	return severity, ""
+}
+
+// lowersInPython reports whether a rule's matches on inert Python lines are
+// lowered from CRITICAL to HIGH. The scanner and the rule list share it.
+func lowersInPython(pythonInertContext, severityOverridden bool, severity string) bool {
+	return pythonInertContext && !severityOverridden && severity == SeverityCritical
 }

@@ -425,6 +425,8 @@ skillshare audit --json | jq '.skills[].findings'  # findings をプログラム
 | `unsafe-deserialization-ruby` | unsafe-deserialization | HIGH |
 | `unsafe-deserialization-js` | unsafe-deserialization | HIGH |
 
+`audit rules --format json` では、上表で *コンテキスト* が付いたルールは、組み込みの CRITICAL と正規表現のままである間 `"severityContext": "python-inert"` を持ちます。重大度を指定するか正規表現を置き換えると、引き下げが適用されなくなるため消えます。
+
 ## サブコマンド
 
 | サブコマンド | 説明 |

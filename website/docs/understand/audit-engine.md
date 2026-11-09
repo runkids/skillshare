@@ -518,10 +518,11 @@ Each finding in JSON/SARIF output includes:
 | `category` | string | Threat category: `injection`, `exfiltration`, `credential`, `obfuscation`, `privilege`, `integrity`, `trust`, `structure`, `risk` |
 | `confidence` | float | Confidence score (0–1). Static: 0.95, Dataflow: 0.85 |
 | `fingerprint` | string | Stable SHA-256 hash for deduplication and tracking |
+| `severityContext` | string | Why `severity` is lower than the rule's own. `python-inert`: a built-in credential-access match in a Python comment or docstring, lowered from `CRITICAL` to `HIGH` ([details](#credential-access)) |
 
-Fields `ruleId`, `analyzer`, `category`, `confidence`, and `fingerprint` are omitted from JSON when empty (backward compatible).
+Fields `ruleId`, `analyzer`, `category`, `confidence`, `fingerprint`, and `severityContext` are omitted from JSON when empty (backward compatible).
 
-In SARIF output, `ruleId` maps to the SARIF `ruleId` field, and `fingerprint` is included in the `fingerprints` property of each result.
+In SARIF output, `ruleId` maps to the SARIF `ruleId` field, and `fingerprint` is included in the `fingerprints` property of each result. `severityContext` appears in each result's `properties`.
 
 ## See Also
 

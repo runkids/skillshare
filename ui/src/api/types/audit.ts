@@ -12,6 +12,8 @@ export interface AuditFinding {
   category?: string;
   confidence?: number;
   fingerprint?: string;
+  /** Why severity is below the rule's own; 'python-inert' lowers CRITICAL to HIGH. */
+  severityContext?: string;
 }
 
 export interface AuditResult {
@@ -79,6 +81,8 @@ export interface CompiledRule {
   exclude?: string;
   enabled: boolean;
   source: string;
+  /** Context that lowers this rule's findings, such as 'python-inert'. */
+  severityContext?: string;
 }
 
 export interface PatternGroup {

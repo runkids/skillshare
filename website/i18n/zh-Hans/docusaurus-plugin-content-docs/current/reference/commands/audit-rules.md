@@ -425,6 +425,8 @@ skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmat
 | `unsafe-deserialization-ruby` | unsafe-deserialization | HIGH |
 | `unsafe-deserialization-js` | unsafe-deserialization | HIGH |
 
+在 `audit rules --format json` 中，上表标有 *上下文* 的规则在保持内置 CRITICAL 级别和正则时带有 `"severityContext": "python-inert"`。设置严重级别或替换正则后，降级不再适用，该字段随之消失。
+
 ## 子命令
 
 | 子命令 | 说明 |

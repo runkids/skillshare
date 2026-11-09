@@ -425,6 +425,8 @@ skillshare audit --json | jq '.skills[].findings'  # findings를 프로그래밍
 | `unsafe-deserialization-ruby` | unsafe-deserialization | HIGH |
 | `unsafe-deserialization-js` | unsafe-deserialization | HIGH |
 
+`audit rules --format json`에서 위 표의 *문맥* 표시 규칙은 내장 CRITICAL 심각도와 정규식을 유지하는 동안 `"severityContext": "python-inert"`를 가집니다. 심각도를 지정하거나 정규식을 교체하면 낮춤이 적용되지 않으므로 사라집니다.
+
 ## 하위 명령
 
 | 하위 명령 | 설명 |
