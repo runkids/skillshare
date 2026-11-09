@@ -75,7 +75,7 @@ export default function BackupPage() {
   const create = useCreateBackup();
 
   return (
-    <div className="ss-wrap animate-fade-in">
+    <div className="ss-wrap animate-page-in">
       <PageHeader
         className="!mb-0"
         title={t('layout.nav.settings')}

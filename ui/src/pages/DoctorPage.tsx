@@ -91,10 +91,10 @@ export default function DoctorPage() {
     </>
   );
 
-  if (isPending) return <div className="ss-wrap animate-fade-in">{header}<PageSkeleton /></div>;
+  if (isPending) return <div className="ss-wrap animate-page-in">{header}<PageSkeleton /></div>;
   if (error) {
     return (
-      <div className="ss-wrap animate-fade-in">
+      <div className="ss-wrap animate-page-in">
         {header}
         <div className="ss-note bad"><span className="flex-1">{t('doctor.error.failedToLoad', { error: error.message })}</span></div>
       </div>
@@ -111,7 +111,7 @@ export default function DoctorPage() {
   ].filter(Boolean).join(', ');
 
   return (
-    <div className="ss-wrap animate-fade-in">
+    <div className="ss-wrap animate-page-in">
       {header}
 
       <div className="flex items-center justify-between gap-6">

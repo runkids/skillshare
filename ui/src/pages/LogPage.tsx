@@ -106,7 +106,7 @@ export default function LogPage() {
   const reset = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPage(0); setOpen(null); };
 
   return (
-    <div className="ss-wrap animate-fade-in">
+    <div className="ss-wrap animate-page-in">
       <PageHeader
         className="!mb-0"
         title={t('layout.nav.settings')}

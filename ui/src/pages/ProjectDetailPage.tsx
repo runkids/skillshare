@@ -176,7 +176,7 @@ function ProjectEditor({ project, tools, mcp, hooks, hooksError }: { project: Pr
     : toolGroups(tools, draft.targets).map((g) => ({ tools: g.tools, path: g.skillsPath }));
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-page-in">
       <PageHeader
         crumbs={[{ label: t('projects.title'), to: '/projects' }, { label: project.name }]}
         title={project.name}

@@ -74,7 +74,7 @@ export default function SettingsPage() {
   const logLimit = cfg.Log?.MaxEntries ?? 1000;
 
   return (
-    <div className="ss-wrap animate-fade-in">
+    <div className="ss-wrap animate-page-in">
       <PageHeader
         className="!mb-0"
         title={t('layout.nav.settings')}

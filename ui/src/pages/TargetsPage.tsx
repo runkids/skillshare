@@ -83,7 +83,7 @@ export default function TargetsPage() {
   const addButton = <Button variant="primary" onClick={() => setAdding({})}><Plus size={15} />{t('targets.addTarget')}</Button>;
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-page-in">
       <PageHeader title={t('targets.title')} subtitle={t('targets.subtitle')} actions={<span data-tour="targets-grid">{addButton}</span>} />
 
       {isPending ? (

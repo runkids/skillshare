@@ -169,7 +169,7 @@ export default function PluginsPage() {
   );
 
   return (
-    <div className="ss-wrap animate-fade-in">
+    <div className="ss-wrap animate-page-in">
       <PageHeader title={t('plugins.title')} subtitle={t('plugins.subtitle')} actions={<>
         {shareable.length > 0 && <Button variant="ghost" disabled={busy} onClick={() => setSharing(shareable.map((p) => p.name))}><Share2 size={15} />{t('plugins.share')}</Button>}
         {packages.length > 0 && (checking

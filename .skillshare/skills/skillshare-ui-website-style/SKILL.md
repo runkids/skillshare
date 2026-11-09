@@ -118,7 +118,7 @@ Tailwind utilities are for layout inside these (`flex`, `gap-*`, `min-w-0`, `w-[
 ### Page structure
 
 ```tsx
-<div className="ss-wrap animate-fade-in">
+<div className="ss-wrap animate-page-in">
   <PageHeader title={t('x.title')} subtitle={t('x.subtitle')} actions={<>...</>} />
 
   {/* optional: tabs, or tabs with controls on the right */}
@@ -252,7 +252,7 @@ Two separate treatments share one palette in `website/src/css/custom.css`.
 
 ## Checklist
 
-- [ ] Root is `.ss-wrap animate-fade-in`; `PageHeader` first, without `icon`
+- [ ] Root is `.ss-wrap animate-page-in`; `PageHeader` first, without `icon`
 - [ ] No hardcoded colours, radii or shadows; no legacy token names added
 - [ ] Shared components used where they exist; lists are `.ss-list` / `.ss-r`
 - [ ] Errors are `.ss-note bad`, empty states are `EmptyState`, destructive actions go through `ConfirmDialog`

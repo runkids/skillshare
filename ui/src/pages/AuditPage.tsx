@@ -129,7 +129,7 @@ export default function AuditPage() {
   );
 
   return (
-    <div className="ss-wrap animate-fade-in">
+    <div className="ss-wrap animate-page-in">
       {header}
 
       <nav className="ss-tabs" aria-label={t('audit.header.title')} data-tour="audit-summary">

@@ -109,7 +109,7 @@ export default function AuditRulesPage() {
 
   if (yamlView) {
     return (
-      <div className="ss-wrap animate-fade-in">
+      <div className="ss-wrap animate-page-in">
         {header}
         {tabs}
         <div className="flex flex-wrap items-center gap-3">
@@ -130,7 +130,7 @@ export default function AuditRulesPage() {
   }
 
   return (
-    <div className="ss-wrap animate-fade-in">
+    <div className="ss-wrap animate-page-in">
       {header}
       {tabs}
 

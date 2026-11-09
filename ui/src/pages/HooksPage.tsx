@@ -9,7 +9,7 @@ export default function HooksPage() {
   const { data, error, isPending } = useHooksQuery();
   if (isPending) return <PageSkeleton />;
   return (
-    <div className="animate-fade-in">
+    <div className="animate-page-in">
       {error && <div className="ss-note bad mb-4"><span className="flex-1">{error.message}</span></div>}
       {data ? (
         <HooksScope data={data} header={(actions) => <PageHeader title={t('hooks.title')} subtitle={t('hooks.subtitle')} actions={actions} />} />

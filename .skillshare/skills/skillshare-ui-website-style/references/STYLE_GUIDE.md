@@ -66,7 +66,7 @@ Both styles ship in light and dark. Dark is not an inversion: Playful dark repla
 
 ## 5. Layout
 
-- Root: `.ss-wrap animate-fade-in`. 1080px column, 28px between sections.
+- Root: `.ss-wrap animate-page-in`. 1080px column, 28px between sections.
 - Order: `PageHeader` → tabs or toolbar → notes → content → dialogs.
 - Spacing between sections comes from `.ss-wrap`. Spacing inside a section comes from the `ss-*` class. Reach for a Tailwind margin last.
 - Toolbar: `flex flex-wrap items-center gap-3`; search first, then `SegmentedControl`, then `Select`.
@@ -129,7 +129,8 @@ One primary per view. A destructive action always goes through `ConfirmDialog`.
 
 | Context | Value |
 |---------|-------|
-| Page entry | `animate-fade-in` |
+| Page entry | `animate-page-in`: a 120ms fade with no movement, since navigation is frequent |
+| In-page reveal (status swap, expanded group) | `animate-fade-in` |
 | Dialog, dropdown | `animate-dialog-in`, `animate-dropdown-in` |
 | Hover and press | Built into `.ss-btn`, `.ss-ib`, `.ss-r.link`, `.ss-counts`. Add none |
 | Style or mode switch | `html.theme-transitioning`, applied by `ThemeContext` |

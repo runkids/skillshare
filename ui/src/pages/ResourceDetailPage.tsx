@@ -309,7 +309,7 @@ export default function ResourceDetailPage() {
 
   return (
     <>
-    <div className="animate-fade-in">
+    <div className="animate-page-in">
       <PageHeader
         crumbs={[{ label: t(isAgent ? 'layout.nav.agents' : 'layout.nav.skills'), to: listPath }, { label: resource.name }]}
         title={resource.name}

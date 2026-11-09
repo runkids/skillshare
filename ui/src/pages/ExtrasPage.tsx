@@ -616,7 +616,7 @@ export default function ExtrasPage() {
   const sharedCount = (data?.extras ?? []).length - extras.length;
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-page-in">
       <PageHeader
         title={t('extras.title')}
         subtitle={t(isProjectMode ? 'extras.subtitle.project' : 'extras.subtitle.global')}

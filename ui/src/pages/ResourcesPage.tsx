@@ -999,7 +999,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   const hiddenCount = selectedItems.filter((s) => !drawn.has(s.flatName)).length;
 
   return (
-    <div className={`ss-wrap animate-fade-in ${tab === 'installed' && count > 0 ? 'pb-16' : ''}`}>
+    <div className={`ss-wrap animate-page-in ${tab === 'installed' && count > 0 ? 'pb-16' : ''}`}>
       <PageHeader
         className="!mb-0"
         title={t(isAgent ? 'layout.nav.agents' : 'layout.nav.skills')}
