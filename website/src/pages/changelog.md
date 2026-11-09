@@ -9,6 +9,28 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.30.2] - 2026-11-09
+
+
+### New Features
+
+* **ui:** give buttons, switches and floating bars motion that follows them ([16799be](https://github.com/runkids/skillshare/commit/16799be11daa59e0a7041c854407be3889b44211))
+
+
+### Bug Fixes
+
+* **audit:** report credential paths in Python comments and docstrings as HIGH ([#819](https://github.com/runkids/skillshare/issues/819)) ([037c794](https://github.com/runkids/skillshare/commit/037c7943cfa93f56ec9c55e384745c1808916db6)), closes [#817](https://github.com/runkids/skillshare/issues/817)
+* **git:** skip gitignored tracked repos in the root-scope nested repo check ([#821](https://github.com/runkids/skillshare/issues/821)) ([bb514c9](https://github.com/runkids/skillshare/commit/bb514c9432fe52492395b295520b588fa19a252f)), closes [#820](https://github.com/runkids/skillshare/issues/820)
+* **server:** restart the dashboard through Homebrew's link after an upgrade ([#816](https://github.com/runkids/skillshare/issues/816)) ([8632fe6](https://github.com/runkids/skillshare/commit/8632fe685fd4ed5e467d8bdaf3cd2ff00a43699d)), closes [#815](https://github.com/runkids/skillshare/issues/815)
+* **test:** keep the online tracked-update test independent of new pushes ([#822](https://github.com/runkids/skillshare/issues/822)) ([b41ad00](https://github.com/runkids/skillshare/commit/b41ad00ed821e9be8d105528c7e035c714e4bfad))
+* **ui:** give the audit page's filters and scan feedback motion ([a96d6f4](https://github.com/runkids/skillshare/commit/a96d6f4538a5978da8076f7549cbd67fa84b4caf))
+* **ui:** put the audit severity filter on one line with its counts ([4613692](https://github.com/runkids/skillshare/commit/4613692dc1c119b33e4f4f15571f6c6ab7726223))
+* **ui:** shorten the page entrance and respect reduced motion ([689b561](https://github.com/runkids/skillshare/commit/689b561bfcee0e660bb0d436a1cf4c1a267e1b7e))
+* **ui:** show install status lines above the warning list ([9f9f268](https://github.com/runkids/skillshare/commit/9f9f26885af758e96ba508064459fe5c809bd740))
+* **ui:** stack the skill detail columns on narrow screens ([9346879](https://github.com/runkids/skillshare/commit/934687958618e56253b75407b5c385e8d24032c0))
+* **ui:** stop the mixed switch knob overshooting its track ([23bbefd](https://github.com/runkids/skillshare/commit/23bbefdb756428f13dcd975fdfa9413a1e8be7bd))
+* **ui:** wrap page header actions below the title on narrow screens ([21dd8d0](https://github.com/runkids/skillshare/commit/21dd8d000c2d78d7f4e8e0aea35b01b87b7fa1e6))
+
 ## [0.30.1] - 2026-11-09
 
 ### New Features
