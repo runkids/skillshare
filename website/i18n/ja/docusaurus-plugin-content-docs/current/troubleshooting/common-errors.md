@@ -314,10 +314,11 @@ skillshare sync -p
 
 ### `nested git repositories must be disabled first`
 
-**原因:** `git_root: root` の場合、サブディレクトリ（例: `skills/_org/` 配下の Tracked された
-Skill リポジトリ）が独自の `.git` を持っている。Git はこれを **空のサブモジュール** として
+**原因:** `git_root: root` の場合、Git が無視していないサブディレクトリ（例: 手動で clone した
+Skill）が独自の `.git` を持っている。Git はこれを **空のサブモジュール** として
 アップロードし、そのファイルを黙って失ってしまうため、それぞれのネストされたリポジトリが無効化
-されるまで `commit`/`push` は中止されます。
+されるまで `commit`/`push` は中止されます。`--track` でインストールした Tracked リポジトリは
+管理対象の `.gitignore` ブロックに記載されるため、すでにコミット済みでない限りスキップされます。
 
 **解決策:**
 ```bash

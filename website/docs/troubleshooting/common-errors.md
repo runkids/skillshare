@@ -320,7 +320,7 @@ skillshare sync -p
 
 ### `nested git repositories must be disabled first`
 
-**Cause:** With `git_root: root`, a subdirectory (e.g. a tracked skill repo under `skills/_org/`) has its own `.git`. Git would upload it as an **empty submodule**, silently dropping its files, so `commit`/`push` abort until each nested repo is disabled.
+**Cause:** With `git_root: root`, a subdirectory that Git does not ignore (e.g. a skill you cloned by hand) has its own `.git`. Git would upload it as an **empty submodule**, silently dropping its files, so `commit`/`push` abort until each nested repo is disabled. Tracked repositories installed with `--track` are listed in the managed `.gitignore` block, so they are skipped unless they were already committed.
 
 **Solution:**
 ```bash

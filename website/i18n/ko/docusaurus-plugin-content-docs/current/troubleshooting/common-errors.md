@@ -290,7 +290,7 @@ skillshare sync -p
 
 ### `nested git repositories must be disabled first`
 
-**Cause:** `git_root: root`에서, 하위 디렉터리(예: `skills/_org/` 아래의 tracked skill repo)가 자체 `.git`을 가지고 있습니다. Git은 이를 **빈 submodule**로 업로드해 조용히 파일을 누락시키므로, 각 중첩 repo가 비활성화될 때까지 `commit`/`push`가 중단됩니다.
+**Cause:** `git_root: root`에서, Git이 무시하지 않는 하위 디렉터리(예: 직접 clone한 skill)가 자체 `.git`을 가지고 있습니다. Git은 이를 **빈 submodule**로 업로드해 조용히 파일을 누락시키므로, 각 중첩 repo가 비활성화될 때까지 `commit`/`push`가 중단됩니다. `--track`으로 설치한 tracked repo는 관리되는 `.gitignore` 블록에 등록되므로, 이미 커밋된 경우가 아니라면 건너뜁니다.
 
 **Solution:**
 ```bash

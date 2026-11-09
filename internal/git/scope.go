@@ -574,7 +574,9 @@ func snapshotConfig(path string) (put func() (replaced bool, err error), err err
 // itself) that contain their own .git. Git records such directories as gitlinks
 // (submodules) on commit, silently dropping all of their files — so callers warn
 // about them before staging a root-scope repo. The walk prunes at each match and
-// skips .git / .git.disabled internals; results are sorted.
+// skips .git / .git.disabled internals; results are sorted. Repos that git
+// ignores and does not track (such as tracked skill repos in the managed
+// .gitignore block) are left out, because staging never adds them.
 func NestedRepos(dir string) ([]string, error) {
 	root := filepath.Clean(dir)
 	found := make([]string, 0)
@@ -590,13 +592,26 @@ func NestedRepos(dir string) ([]string, error) {
 		}
 		if _, statErr := os.Stat(filepath.Join(path, ".git")); statErr == nil {
 			rel, _ := filepath.Rel(root, path)
-			found = append(found, rel)
+			if !isIgnoredUntracked(root, rel) {
+				found = append(found, rel)
+			}
 			return filepath.SkipDir // don't descend into a nested repo
 		}
 		return nil
 	})
 	sort.Strings(found)
 	return found, err
+}
+
+// isIgnoredUntracked reports whether the repo at dir ignores path and does not
+// track it. Without --no-index, check-ignore treats a tracked path as not
+// ignored, so a nested repo already committed as a gitlink is still reported.
+// Each path is checked on its own: git refuses the whole query when one path
+// lies inside a gitlink. Any error counts as not ignored, keeping the warning.
+func isIgnoredUntracked(dir, path string) bool {
+	cmd := exec.Command("git", "check-ignore", "-q", "--", filepath.ToSlash(path))
+	cmd.Dir = dir
+	return cmd.Run() == nil
 }
 
 // DisableNestedRepo neutralizes a nested git repo at dir/sub by renaming its
