@@ -10,8 +10,8 @@ export default function Reveal({ open, className = '', children }: { open: boole
   if (open && children !== held) setHeld(children);
   useEffect(() => {
     if (open) return;
-    // Matches the .ss-collapse.grow transition in components.css.
-    const timer = setTimeout(() => setHeld(null), 250);
+    // Outlasts the .ss-collapse.grow.shut transition in components.css (100ms delay + 250ms).
+    const timer = setTimeout(() => setHeld(null), 370);
     return () => clearTimeout(timer);
   }, [open]);
   if (!open && held == null) return null;

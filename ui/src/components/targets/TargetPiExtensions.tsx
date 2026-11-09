@@ -16,6 +16,7 @@ import EmptyState from '../EmptyState';
 import ExtensionsReviewDialog from './ExtensionsReviewDialog';
 import { PageSkeleton } from '../Skeleton';
 import Tooltip from '../Tooltip';
+import { bulkGhost } from '../../lib/exitGhost';
 
 type T = ReturnType<typeof useT>;
 type Scope = PiExtensionChange['scope'];
@@ -91,7 +92,7 @@ function ExtensionsView({ name, view, applied, setApplied, t }: { name: string; 
       </p>
 
       {changes.length > 0 && (
-        <div className="ss-bulk" role="toolbar" aria-label={pendingLabel}>
+        <div ref={bulkGhost} className="ss-bulk" role="toolbar" aria-label={pendingLabel}>
           <b>{pendingLabel}</b>
           <span className="text-ink-3 max-md:hidden">{t('targetDetail.piExtensions.pending.nothingYet')}</span>
           <span className="dv" />

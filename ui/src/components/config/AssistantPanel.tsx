@@ -7,6 +7,7 @@ import ErrorList from './ErrorList';
 import FieldDocs from './FieldDocs';
 import StructureTree from './StructureTree';
 import DiffPreview from './DiffPreview';
+import { segSlide } from '../../lib/segSlide';
 
 type View = 'field' | 'structure' | 'changes';
 
@@ -113,7 +114,7 @@ export default function AssistantPanel({
         </>
       ) : (
         <>
-          <div className="ss-seg w-full [&>*]:flex-1 [&>*]:justify-center [&>*]:!px-2" role="radiogroup" aria-label={t('settings.tab.files')}>
+          <div ref={segSlide} className="ss-seg w-full [&>*]:flex-1 [&>*]:justify-center [&>*]:!px-2" role="radiogroup" aria-label={t('settings.tab.files')}>
             {VIEWS.map((v) => (
               <button key={v} type="button" role="radio" aria-checked={view === v} className={view === v ? 'on' : ''} onClick={() => setView(v)}>
                 {t(`config.panel.tab.${v}`)}

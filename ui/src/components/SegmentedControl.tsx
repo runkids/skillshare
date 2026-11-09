@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { segSlide } from '../lib/segSlide';
 
 interface Option<T extends string> {
   value: T;
@@ -23,7 +24,7 @@ interface SegmentedControlProps<T extends string> {
 
 export default function SegmentedControl<T extends string>({ value, onChange, options, colorFn, className = '' }: SegmentedControlProps<T>) {
   return (
-    <div className={`ss-seg flex-wrap ${className}`}>
+    <div ref={segSlide} className={`ss-seg flex-wrap ${className}`}>
       {options.map((opt) => {
         const on = value === opt.value;
         const color = on ? colorFn?.(opt.value) : undefined;

@@ -9,6 +9,7 @@ import StructureTree from '../config/StructureTree';
 import DiffPreview from '../config/DiffPreview';
 import RegexTester from './RegexTester';
 import { auditFieldDocs } from '../../lib/auditFieldDocs';
+import { segSlide } from '../../lib/segSlide';
 
 type View = 'field' | 'structure' | 'changes' | 'test';
 
@@ -94,7 +95,7 @@ export default function AuditAssistantPanel({
         </>
       ) : (
         <>
-          <div className="ss-seg self-start" role="radiogroup" aria-label={t('audit.tab.rules')}>
+          <div ref={segSlide} className="ss-seg self-start" role="radiogroup" aria-label={t('audit.tab.rules')}>
             {VIEWS.map((v) => (
               <button key={v} type="button" role="radio" aria-checked={view === v} className={view === v ? 'on' : ''} onClick={() => setView(v)}>
                 {t(`config.panel.tab.${v}`)}

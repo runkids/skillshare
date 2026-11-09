@@ -25,6 +25,7 @@ import { BoxHeader, InstructionsPreview } from './ViewTabs';
 import { useSaveShortcut } from './useSaveShortcut';
 import { connectedTo, instructionsErrorMessage, importDecor, setupPathOf, setupPathProblem, sharedOfImport } from './instructionsView';
 import { invalidate } from '../../lib/queryEvents';
+import { useMenuPresence } from '../../hooks/usePresence';
 
 
 // The page's bottom padding, and the least height the tab keeps on a short window.
@@ -407,6 +408,7 @@ function ChangeMenu({ target, current, linked, files }: { target: string; curren
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const menu = useMenuPresence(open);
   const [picked, setPicked] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -453,8 +455,8 @@ function ChangeMenu({ target, current, linked, files }: { target: string; curren
       <button type="button" className="ss-btn ghost sm" aria-haspopup="menu" aria-expanded={open} disabled={busy} onClick={() => setOpen(!open)}>
         {t('instructions.card.change')}<ChevronDown size={13} />
       </button>
-      {open && (
-        <div role="menu" aria-label={t('instructions.card.change')} className="ss-menu absolute right-0 top-full z-50 mt-1 !w-60 animate-dropdown-in">
+      {menu.shown && (
+        <div role="menu" aria-label={t('instructions.card.change')} {...menu.exitProps} className={`ss-menu absolute right-0 top-full z-50 mt-1 !w-60 origin-top-right ${menu.motion}`}>
           {files.map((n) => (
             <button key={n} type="button" role="menuitemradio" aria-checked={n === current} onClick={() => pick(n)}>
               <span className="min-w-0 flex-1 truncate font-mono">{n}</span>

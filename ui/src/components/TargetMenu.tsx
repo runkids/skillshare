@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronRight, Target } from 'lucide-react';
 import { useT } from '../i18n';
 import { useAvailableTargetsQuery } from '../hooks/useSharedQueries';
+import { useHeldWhileClosing, useMenuPresence } from '../hooks/usePresence';
 
 /* ------------------------------------------------------------------ */
 /*  Context menu item types                                           */
@@ -55,19 +56,23 @@ export function SkillContextMenu({
   onClose,
 }: SkillContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const [position, setPosition] = useState({ top: 0, left: 0, origin: 'top left' });
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const menu = useMenuPresence(open);
+  // Callers clear items as they close; the fading menu keeps showing the last open list.
+  const shownItems = useHeldWhileClosing(items, open);
 
-  // Reset expanded submenu when menu opens/closes
+  // Collapse the submenu once the menu is gone, so a closing menu fades out as it was
   useEffect(() => {
-    if (!open) setExpandedKey(null);
-  }, [open]);
+    if (!menu.shown) setExpandedKey(null);
+  }, [menu.shown]);
 
   // Viewport collision detection
   useLayoutEffect(() => {
     if (!open || !anchorPoint || !menuRef.current) return;
     const menu = menuRef.current;
-    const rect = menu.getBoundingClientRect();
+    // offsetWidth/Height, not getBoundingClientRect: the menu is still at its scaled-down first animation frame.
+    const rect = { width: menu.offsetWidth, height: menu.offsetHeight };
     let top = anchorPoint.y;
     let left = align === 'end' ? Math.max(8, anchorPoint.x - rect.width) : anchorPoint.x;
     if (top + rect.height > window.innerHeight - 8) {
@@ -76,7 +81,8 @@ export function SkillContextMenu({
     if (left + rect.width > window.innerWidth - 8) {
       left = Math.max(8, anchorPoint.x - rect.width);
     }
-    setPosition({ top, left });
+    // Grow out of the corner that touches the anchor, whichever way the menu flipped.
+    setPosition({ top, left, origin: `${top < anchorPoint.y ? 'bottom' : 'top'} ${left < anchorPoint.x ? 'right' : 'left'}` });
   }, [open, anchorPoint, align]);
 
   // Close on Escape (submenu first, then parent)
@@ -100,27 +106,28 @@ export function SkillContextMenu({
     return () => window.removeEventListener('scroll', handler, true);
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!menu.shown) return null;
 
   // Portal to body to escape any ancestor transform/filter that breaks position:fixed.
   // A transparent overlay behind the menu intercepts clicks so they don't
   // propagate to underlying Links — first click only dismisses the menu.
   return createPortal(
     <>
-      <div
+      {open && <div
         className="fixed inset-0 z-[99]"
         onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}
         onContextMenu={(e) => { e.preventDefault(); onClose(); }}
-      />
+      />}
       <div
         ref={menuRef}
-        className="ss-menu fixed z-[100] !w-auto min-w-[190px] max-h-[70vh] overflow-y-auto animate-dropdown-in"
-        style={{ top: position.top, left: position.left }}
+        {...menu.exitProps}
+        className={`ss-menu fixed z-[100] !w-auto min-w-[190px] max-h-[70vh] overflow-y-auto ${menu.motion}`}
+        style={{ top: position.top, left: position.left, transformOrigin: position.origin }}
         role="menu"
       >
-        {items.map((item, i) => (
+        {shownItems.map((item, i) => (
           <Fragment key={item.key}>
-            {item.danger && !items[i - 1]?.danger && i > 0 && <hr />}
+            {item.danger && !shownItems[i - 1]?.danger && i > 0 && <hr />}
             {item.items ? (
               <SubmenuTrigger
                 item={item}
@@ -130,6 +137,7 @@ export function SkillContextMenu({
                 onCollapse={() => setExpandedKey((k) => (k === item.key ? null : k))}
                 onClose={onClose}
                 parentMenuRef={menuRef}
+                closing={menu.closing}
               />
             ) : (
               <button
@@ -167,6 +175,7 @@ function SubmenuTrigger({
   onCollapse,
   onClose,
   parentMenuRef,
+  closing,
 }: {
   item: ContextMenuItem;
   expanded: boolean;
@@ -174,6 +183,7 @@ function SubmenuTrigger({
   onCollapse: () => void;
   onClose: () => void;
   parentMenuRef: React.RefObject<HTMLDivElement | null>;
+  closing: boolean;
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [subPos, setSubPos] = useState<{ top: number; left: number } | null>(null);
@@ -229,7 +239,8 @@ function SubmenuTrigger({
       {/* Submenu panel — portaled to body to escape parent's transform containing block */}
       {expanded && subPos && createPortal(
         <div
-          className="ss-menu fixed z-[101] !w-auto min-w-[176px] max-h-64 overflow-y-auto"
+          {...(closing ? { inert: true, 'aria-hidden': true } : {})}
+          className={`ss-menu fixed z-[101] !w-auto min-w-[176px] max-h-64 overflow-y-auto ${closing ? 'animate-dropdown-out' : ''}`}
           style={{ top: subPos.top, left: subPos.left }}
           role="menu"
           onMouseEnter={handleSubEnter}
@@ -288,8 +299,6 @@ export default function TargetMenu({
 }: TargetMenuProps) {
   const t = useT();
   const { data: availableData } = useAvailableTargetsQuery({ enabled: open });
-
-  if (!open) return null;
 
   const targets = (availableData?.targets ?? []).filter((t) => t.installed);
   const isAllSelected = isUniform && (!currentTargets || currentTargets.length === 0);

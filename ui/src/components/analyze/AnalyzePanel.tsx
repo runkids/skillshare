@@ -13,6 +13,7 @@ import Spinner from '../Spinner';
 import { useT } from '../../i18n';
 import { formatSkillDisplayName } from '../../lib/resourceNames';
 import { queryKeys, staleTimes } from '../../lib/queryKeys';
+import { segSlide } from '../../lib/segSlide';
 
 const STEP = 100;
 const MANAGED_ONLY_KEY = 'skillshare:analyze-managed-only';
@@ -112,7 +113,7 @@ export default function AnalyzePanel() {
           <Search size={15} className="text-ink-3" />
           <input value={search} onChange={(e) => { setSearch(e.target.value); setLimit(STEP); }} placeholder={t('analyze.search')} aria-label={t('analyze.search')} />
         </label>
-        <div className="ss-seg" role="tablist">
+        <div ref={segSlide} className="ss-seg" role="tablist">
           <button type="button" role="tab" aria-selected={!onlyIssues} className={onlyIssues ? '' : 'on'} onClick={() => { setOnlyIssues(false); setLimit(STEP); }}>
             {t('analyze.filter.all')}
           </button>

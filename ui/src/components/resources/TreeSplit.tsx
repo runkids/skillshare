@@ -9,6 +9,11 @@ const DEFAULT = 380;
 const STEP = 16;
 
 const clamp = (w: number) => Math.min(MAX, Math.max(MIN, Math.round(w)));
+// Dragged past either end, the divider still follows with growing resistance instead of stopping dead.
+const rubber = (w: number) => {
+  const band = (o: number) => (o * (MAX - MIN) * 0.55) / (MAX - MIN + 0.55 * o);
+  return Math.round(w < MIN ? MIN - band(MIN - w) : w > MAX ? MAX + band(w - MAX) : w);
+};
 
 function loadWidth(): number {
   try {
@@ -27,6 +32,8 @@ export default function TreeSplit({ tree, pane }: { tree: ReactNode; pane: React
   const t = useT();
   const [width, setWidth] = useState(loadWidth);
   const drag = useRef<{ x: number; w: number } | null>(null);
+  // Springs back to the nearest end after a drag released past it.
+  const [settling, setSettling] = useState(false);
 
   const set = (w: number) => {
     const next = clamp(w);
@@ -36,18 +43,22 @@ export default function TreeSplit({ tree, pane }: { tree: ReactNode; pane: React
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     drag.current = { x: e.clientX, w: width };
+    setSettling(false);
     e.currentTarget.setPointerCapture?.(e.pointerId);
     e.preventDefault();
   };
   const onPointerMove = (e: PointerEvent) => {
-    if (drag.current) setWidth(clamp(drag.current.w + e.clientX - drag.current.x));
+    if (drag.current) setWidth(rubber(drag.current.w + e.clientX - drag.current.x));
   };
   const onPointerUp = (e: PointerEvent) => {
     if (!drag.current) return;
-    set(drag.current.w + e.clientX - drag.current.x);
+    const raw = drag.current.w + e.clientX - drag.current.x;
+    setSettling(rubber(raw) !== clamp(raw));
+    set(raw);
     drag.current = null;
   };
   const onKeyDown = (e: KeyboardEvent) => {
+    setSettling(false);
     const delta = { ArrowLeft: -STEP, ArrowRight: STEP }[e.key];
     if (delta) { set(width + delta); e.preventDefault(); }
     else if (e.key === 'Home') { set(MIN); e.preventDefault(); }
@@ -56,7 +67,7 @@ export default function TreeSplit({ tree, pane }: { tree: ReactNode; pane: React
 
   return (
     <div className="ss-list ss-split">
-      <div className="lp" style={{ width }}>{tree}</div>
+      <div className={`lp${settling ? ' settle' : ''}`} style={{ width }} onTransitionEnd={(e) => { if (e.target === e.currentTarget) setSettling(false); }} onAnimationEnd={(e) => { if (e.target === e.currentTarget) setSettling(false); }}>{tree}</div>
       <div
         role="separator"
         aria-orientation="vertical"
