@@ -313,6 +313,8 @@ See [Project Setup](/docs/how-to/sharing/project-setup) for the full guide.
 skillshare install anthropics/skills --json
 ```
 
+For an explicit, untracked skill source, add `--dry-run --json` to read a `planned` array of `{name, path}` objects without installing. Names are the CLI's install names; Git paths are relative to the repository root (including any selected subdirectory), and a local skill uses `.`. The plan follows discovery, `.skillignore`, and selection rules. Without a selection filter, JSON mode selects all skills. `skills` still reports only installed names and stays empty in a dry run. A discovered source with no selected skills returns `planned: []`; tracked and config-based installs do not provide this field.
+
 ```json
 {
   "source": "anthropics/skills",

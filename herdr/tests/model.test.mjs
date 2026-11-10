@@ -4,7 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseGitStatus, sourceLine, driftFrom, targetDrift, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, skillChoices, newerVersion, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, rowState, previewTargets, splitFrontmatter, mcpServer, targetList, mapLanes, needsBothWays, READ_SKILL, eligibleTargets, syncScopes, overviewAnswer, remoteLine, waitingNames, releaseTag, panelUpdate, updateState, PANEL_UPDATE, toggleArgs, optimistic, shownRows, endedRequests, afterRead, afterChecks } from "../skillshare/mods/skillshare/model.js";
+import { parseGitStatus, sourceLine, driftFrom, targetDrift, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, installResult, newerVersion, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, rowState, previewTargets, splitFrontmatter, mcpServer, targetList, mapLanes, needsBothWays, READ_SKILL, eligibleTargets, syncScopes, overviewAnswer, remoteLine, waitingNames, releaseTag, panelUpdate, updateState, PANEL_UPDATE, toggleArgs, optimistic, shownRows, endedRequests, afterRead, afterChecks, DISCOVER } from "../skillshare/mods/skillshare/model.js";
 import { VERSION } from "../skillshare/mods/skillshare/version.js";
 
 test("git status reads branch, ahead/behind and files", () => {
@@ -280,8 +280,32 @@ test("a path inside a repo names a single skill", () => {
   assert.equal(cloneUrl("github.com/o/r/skills/x").single, true);
 });
 
-test("skill folders become pickable names", () => {
-  assert.deepEqual(skillChoices([".", "skills/a"]), [{ path: "skills/a", name: "a" }]);
+test("discovery uses CLI install names and paths, including root skills", () => {
+  const choices = [{ name: "custom-tool", path: "skills" }, { name: "root", path: "." }];
+  assert.deepEqual(parseDiscover(`@dir /tmp/x\n${JSON.stringify({ planned: choices })}`), { dir: "/tmp/x", choices, error: null });
+});
+
+test("discovery requires CLI plans and rejects ambiguous install names", () => {
+  assert.match(parseDiscover('@dir /tmp/x\n{"skills":[]}').error, /upgrade/i);
+  assert.deepEqual(parseDiscover('@dir /tmp/x\n{"planned":[]}').choices, []);
+  const planned = [{ name: "design", path: "a/design" }, { name: "Design", path: "b/Design" }];
+  assert.match(parseDiscover(`@dir /tmp/x\n${JSON.stringify({ planned })}`).error, /ambiguous/i);
+  assert.equal(parseDiscover('@dir /tmp/x\n{"error":"skills not found"}').error, "skills not found");
+});
+
+test("install results never report a nonzero exit as success, including older CLIs", () => {
+  for (const body of [{ skills: [], failed: [] }, { skills: ["a"], failed: [] }, { skills: ["a"], failed: ["b"] }]) {
+    const result = installResult({ code: 1, stdout: JSON.stringify(body), stderr: "" });
+    assert.ok(result.error);
+    assert.equal(result.done, null);
+    assert.match(result.error, /exited with 1/);
+    if (body.skills.length) assert.match(result.error, /a/);
+  }
+  assert.equal(installResult({ code: 1, stdout: '{"error":"blocked"}' }).error, "blocked");
+  assert.deepEqual(installResult({ code: 0, stdout: '{"skills":[]}' }), { done: [], error: null });
+  assert.deepEqual(installResult({ code: 0, stdout: '{"skills":["a"]}' }), { done: ["a"], error: null });
+  assert.match(installResult({ code: 0, stdout: '{"skills":["a"],"failed":["b"]}' }).error, /b failed/);
+  assert.ok(installResult({ code: 0, stdout: 'not JSON' }).error);
 });
 
 test("versions compare numerically", () => {
@@ -307,8 +331,31 @@ test("a tree URL names the skill folder inside the repo", () => {
   assert.deepEqual([c.path, c.branch], ["skills/x", "dev"]);
 });
 
-test("discovery keeps the clone folder apart from the skill folders", () => {
-  assert.deepEqual(parseDiscover("@dir /tmp/x\nskills/a\n"), { dir: "/tmp/x", paths: ["skills/a"] });
+test("discovery script asks the scoped CLI for its plan, never scans the clone", (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "ss-discover-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  writeFileSync(join(dir, "git"), '#!/bin/sh\nfor last; do :; done\nmkdir -p "$last"\nprintf "%s\\n" "$@" >"$HOME/git-args"\n', { mode: 0o755 });
+  writeFileSync(join(dir, "skillshare"), '#!/bin/sh\nprintf "%s\\n" "$@" >"$HOME/cli-args"\npwd >"$HOME/cwd"\nprintf \'%s\\n\' \'{"planned":[{"name":"custom-tool","path":"packs/skills"}]}\'\nexit "${CLI_EXIT:-0}"\n', { mode: 0o755 });
+  const env = { ...process.env, HOME: dir, TMPDIR: dir, PATH: `${dir}:${process.env.PATH}` };
+  for (const scope of ["-g", "-p"]) {
+    const r = spawnSync("sh", ["-c", DISCOVER, "test", dir, "o/r/tree/dev/packs", "https://github.com/o/r.git", "dev", scope], { env, encoding: "utf8" });
+    assert.equal(r.status, 0, r.stderr);
+    const result = parseDiscover(r.stdout);
+    assert.deepEqual(result.choices, [{ name: "custom-tool", path: "packs/skills" }]);
+    assert.ok(existsSync(join(result.dir, "r")));
+    assert.equal(readFileSync(join(dir, "cwd"), "utf8").trim(), dir);
+    assert.deepEqual(readFileSync(join(dir, "cli-args"), "utf8").trim().split("\n"), ["install", "o/r/tree/dev/packs", "--dry-run", "--json", "--kind", "skill", scope]);
+    assert.ok(readFileSync(join(dir, "git-args"), "utf8").includes("-b\ndev\n"));
+  }
+  const failed = spawnSync("sh", ["-c", DISCOVER, "test", dir, "o/r", "url", "", "-g"], { env: { ...env, CLI_EXIT: "1" }, encoding: "utf8" });
+  assert.equal(failed.status, 1);
+  assert.ok(parseDiscover(failed.stdout).dir);
+});
+
+test("discovery keeps the clone folder available when a preview fails", () => {
+  const result = parseDiscover('@dir /tmp/x\n{"error":"cannot read repository"}');
+  assert.equal(result.dir, "/tmp/x");
+  assert.equal(result.error, "cannot read repository");
 });
 
 test("a blocked audit lists its findings with paths inside the repo", () => {

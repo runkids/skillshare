@@ -27,14 +27,15 @@ type installArgs struct {
 
 // installJSONOutput is the JSON representation for install --json output.
 type installJSONOutput struct {
-	Source   string   `json:"source"`
-	Tracked  bool     `json:"tracked"`
-	DryRun   bool     `json:"dry_run"`
-	Into     string   `json:"into,omitempty"`
-	Skills   []string `json:"skills"`
-	Failed   []string `json:"failed"`
-	Duration string   `json:"duration"`
-	Error    string   `json:"error,omitempty"`
+	Source   string                 `json:"source"`
+	Tracked  bool                   `json:"tracked"`
+	DryRun   bool                   `json:"dry_run"`
+	Into     string                 `json:"into,omitempty"`
+	Skills   []string               `json:"skills"`
+	Failed   []string               `json:"failed"`
+	Duration string                 `json:"duration"`
+	Error    string                 `json:"error,omitempty"`
+	Planned  *[]installPlannedSkill `json:"planned,omitempty"`
 }
 
 type installLogSummary struct {
@@ -43,6 +44,7 @@ type installLogSummary struct {
 	SkillCount      int
 	InstalledSkills []string
 	FailedSkills    []string
+	PlannedSkills   []installPlannedSkill
 	DryRun          bool
 	Tracked         bool
 	Into            string
@@ -578,6 +580,9 @@ func installOutputJSON(summary installLogSummary, start time.Time, installErr er
 		Skills:   summary.InstalledSkills,
 		Failed:   summary.FailedSkills,
 		Duration: formatDuration(start),
+	}
+	if summary.PlannedSkills != nil {
+		output.Planned = &summary.PlannedSkills
 	}
 	if installErr != nil {
 		output.Error = installErr.Error()
