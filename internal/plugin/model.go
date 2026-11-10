@@ -62,6 +62,14 @@ type Request struct {
 	All       bool     `json:"all,omitempty"`
 }
 
+// isolatesTargets reports whether a failed binding is skipped with its reason
+// while the others apply: update --all, and an update of one package across
+// several Agents, where one blocked Agent must not hold back the rest. An
+// update naming a single target stays blocked.
+func (r Request) isolatesTargets() bool {
+	return r.All || r.Action == "update" && len(r.Targets) != 1
+}
+
 // ProblemKey names the sentence the dashboard can translate and ProblemArgs fill its
 // {placeholders}. Problem stays the English the CLI prints, and is the fallback.
 type TargetPackage struct {
@@ -242,6 +250,7 @@ type Change struct {
 	// piRecordAfter records the entry Pi writes on install, which keeps another version's filters.
 	piRecordAfter bool
 	batchError    bool
+	ompRefresh    bool   // either half of an OMP update's removal and fresh reinstall
 	Name          string `json:"name"`
 	Target        string `json:"target"`
 	ID            string `json:"id"`

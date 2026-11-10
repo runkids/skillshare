@@ -112,7 +112,7 @@ func TestOMPTargetTakesTheClaudeManifestAndItsExtensions(t *testing.T) {
 		t.Fatalf("claude components changed: %v", c.TargetInfo["claude"].Components)
 	}
 	def := slices.IndexFunc(TargetDefinitions(), func(d TargetDefinition) bool { return d.Target == "omp" })
-	if def < 0 || !TargetDefinitions()[def].Project || len(TargetDefinitions()[def].Operations) != 7 {
+	if def < 0 || !TargetDefinitions()[def].Project || len(TargetDefinitions()[def].Operations) != 8 {
 		t.Fatalf("omp definition: %+v", TargetDefinitions())
 	}
 }
@@ -199,7 +199,8 @@ func TestOMPAddReadsSourceBehindLinkedDirectory(t *testing.T) {
 // omp deletes a plugin's cache folder on uninstall and replaces it on upgrade, checking only the
 // registries visible from its working directory. A project elsewhere that installed the same
 // identity is invisible, so Skillshare never runs those commands. Scoped removal uses
-// its non-destructive adapter; reinstall chooses a new cache identity.
+// its non-destructive adapter; reinstall chooses a new cache identity, and an
+// update is that removal plus reinstall, so it blocks when removal cannot be verified.
 func TestOMPNeverRunsCacheDestructiveNativeCommands(t *testing.T) {
 	agents := &fakeAgents{version: "1.0.0"}
 	s := agents.service(t)
@@ -211,10 +212,11 @@ func TestOMPNeverRunsCacheDestructiveNativeCommands(t *testing.T) {
 		t.Fatal(err)
 	}
 	bumpDemo(t, source, agents)
-	for _, r := range []Request{{Action: "update", Name: "demo", Targets: []string{"omp"}}, {Action: "remove", Name: "demo"}} {
+	// Without --target the update isolates Agents, but with no other Agent left to update it stays blocked.
+	for _, r := range []Request{{Action: "update", Name: "demo", Targets: []string{"omp"}}, {Action: "update", Name: "demo"}, {Action: "remove", Name: "demo"}} {
 		p, err := s.Preview(context.Background(), r)
-		if err != nil || !p.Blocked || p.Changes[0].MessageKey != map[string]string{"update": "plugins.error.ompNativeDestructive", "remove": "plugins.error.ompRemovalSafety"}[r.Action] {
-			t.Fatalf("%s was not blocked: %+v %v", r.Action, p, err)
+		if err != nil || !p.Blocked || p.Changes[0].MessageKey != "plugins.error.ompRemovalSafety" {
+			t.Fatalf("%s %v was not blocked: %+v %v", r.Action, r.Targets, p, err)
 		}
 		if _, err := s.Apply(context.Background(), r, p.Revision); err == nil {
 			t.Fatalf("%s applied", r.Action)
@@ -256,9 +258,9 @@ func TestOMPNeverRunsCacheDestructiveNativeCommands(t *testing.T) {
 	}
 }
 
-func TestOMPTargetDoesNotAdvertiseUpdate(t *testing.T) {
+func TestOMPTargetAdvertisesUpdate(t *testing.T) {
 	i := slices.IndexFunc(TargetDefinitions(), func(d TargetDefinition) bool { return d.Target == "omp" })
-	if d := TargetDefinitions()[i]; slices.Contains(d.Operations, "update") || d.ReasonKey != "plugins.reason.omp" {
+	if d := TargetDefinitions()[i]; !slices.Contains(d.Operations, "update") || d.ReasonKey != "plugins.reason.omp" {
 		t.Fatalf("omp definition: %+v", d)
 	}
 }

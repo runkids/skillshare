@@ -77,6 +77,8 @@ func (s *Service) prepareOMPInstall(ctx context.Context, h Host, c *Change, clea
 // Reinstalls use a new marketplace/cache identity instead of replacing the
 // retained cache an invisible project can still use. Preview chooses the same
 // first free identity until native state changes and invalidates its revision.
+// A refresh never keeps its identity: OMP installs from the catalog cached when
+// the marketplace was added, which still names the old version.
 func ompFreshCache(h Host, c *Change) error {
 	if err := ompSafePath(h.ompCacheRoot); err != nil {
 		return err
@@ -89,7 +91,11 @@ func ompFreshCache(h Host, c *Change) error {
 	if !ok || !validOMPName(name) {
 		return fmt.Errorf("invalid OMP plugin identity")
 	}
-	for attempt := 0; attempt < 100; attempt++ {
+	first := 0
+	if c.ompRefresh {
+		first = 1
+	}
+	for attempt := first; attempt < 100; attempt++ {
 		candidate := original
 		if attempt > 0 {
 			candidate = name + "@skillshare-" + hash([]byte(fmt.Sprintf("%s\x00reinstall\x00%d", original, attempt)))[:16]

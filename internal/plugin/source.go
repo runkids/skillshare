@@ -311,10 +311,12 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 					found.block("plugins.problem.noManifest", name+": "+err.Error(), nil)
 				case found.Name != name:
 					// Claude installs under the catalog's name; Codex refuses the mismatch.
+					// pi installs by path and skillshare keys its binding by the catalog name,
+					// so the npm name never reaches it.
 					// ponytail: other Agents are unverified, so they are blocked too; unblock one once its CLI is checked.
 					args := map[string]string{"name": name, "manifest": found.Name}
 					for target, info := range found.TargetInfo {
-						if target != "claude" && !(target == "omp" && ompPackage) && info.Problem == "" {
+						if target != "claude" && target != "pi" && !(target == "omp" && ompPackage) && info.Problem == "" {
 							info.block("plugins.problem.catalogNameDiffers", "Catalog and manifest names differ for "+name, args)
 							found.TargetInfo[target] = info
 						}

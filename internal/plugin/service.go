@@ -489,7 +489,7 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 						p.Changes = append(p.Changes, Change{Name: name, Target: target, Binding: b, Action: "native-check", Message: "Installation required on this machine; sync to review and install the source.", MessageKey: "plugins.note.installRequired"})
 						continue
 					}
-					c, err := s.sourceChange(ctx, name, target, decl, r.All, nil)
+					c, err := s.sourceChange(ctx, name, target, decl, r.isolatesTargets(), nil)
 					if err != nil {
 						return nil, err
 					}
@@ -560,10 +560,27 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 					c.Message = "Imported installation has no reinstall source; install it in the native client, then sync again."
 					c.MessageKey = "plugins.note.importInstallRequired"
 				}
-				if c.Action == "forget" && agent != "omp" || c.Action == "selection" {
+				switch {
+				case c.Action == "forget" && agent != "omp" || c.Action == "selection":
 					p.Changes = append(p.Changes, c)
-				} else {
-
+				case c.Action == "update" && agent == "omp" && exists && b.Source != "":
+					// OMP's native upgrade replaces cache another project may still use.
+					// Refresh the way a source change does: remove only this scope's
+					// registration, keep the cache, and install the new commit under a
+					// cache identity no project uses.
+					removal := s.prepareChange(ctx, r, d, host, Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "remove", Message: "Remove the previous local installation before reconciling current intent.", MessageKey: "plugins.note.replaceLocal", ompRefresh: true}, nil)
+					if removal.Action != "remove" {
+						// Installing over a registration that stays would be the destructive upgrade.
+						appendPrepared(removal)
+						break
+					}
+					c.Action, c.ompRefresh = "install", true
+					replacement := s.prepareChange(ctx, r, d, host, c, removal.ompRemoval)
+					if replacement.Action != "blocked" && replacement.Action != "skip" {
+						appendPrepared(removal)
+					}
+					appendPrepared(replacement)
+				default:
 					appendChange(c)
 				}
 			}
@@ -583,6 +600,16 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 			if c.ID != "" && name != c.Name && pack.Bindings[c.Target].ID == c.ID {
 				c.Action = "blocked"
 				c.Message = "This native plugin is already managed by package " + name
+				p.Blocked = true
+			}
+		}
+	}
+	// Isolating a failed Agent only lets the others update. When none of them has
+	// anything to do, the update is blocked as it was before isolation.
+	if !r.All && r.isolatesTargets() && !slices.ContainsFunc(p.Changes, func(c Change) bool { return c.Action != "noop" && c.Action != "skip" }) {
+		for i, c := range p.Changes {
+			if c.batchError {
+				p.Changes[i].Action, p.Changes[i].batchError = "blocked", false
 				p.Blocked = true
 			}
 		}
@@ -670,7 +697,7 @@ func (s *Service) prepareChange(ctx context.Context, r Request, d *document, hos
 	h := host(c.Target)
 	agent := s.agentOf(c.Target)
 	failChange := func(message, key string, args map[string]string) {
-		if r.All {
+		if r.isolatesTargets() {
 			c.Action, c.batchError = "skip", true
 		} else {
 			c.Action = "blocked"
@@ -784,17 +811,18 @@ func (s *Service) prepareChange(ctx context.Context, r Request, d *document, hos
 	// Skips above are not native commands; what is left for omp must not destroy a shared cache.
 	if agent == "omp" && h.Error == "" {
 		ompGuard(h, &c)
-		if r.All && c.Action == "blocked" && c.MessageKey == "plugins.error.ompNativeDestructive" && len(r.Targets) == 0 {
-			c.Action = "skip"
-		}
 		if c.Action == "install" {
 			s.prepareOMPInstall(ctx, h, &c, cleanup)
 		}
 		if c.Action == "remove" || c.Action == "uninstall" || c.Action == "forget" {
 			s.prepareOMPRemoval(h, &c)
 		}
+		// update --all has always passed over OMP updates it cannot make; keep that for a refresh it cannot verify.
+		if r.All && c.Action == "blocked" && (c.MessageKey == "plugins.error.ompNativeDestructive" || c.ompRefresh) && len(r.Targets) == 0 {
+			c.Action = "skip"
+		}
 	}
-	if r.All && c.Action == "blocked" {
+	if r.isolatesTargets() && c.Action == "blocked" {
 		c.Action, c.batchError = "skip", true
 	}
 	return c
@@ -850,7 +878,7 @@ func (s *Service) checkOrUpdate(ctx context.Context, r Request, c Change, action
 	}
 	disc, err := s.discover(ctx, source, ref, entry)
 	if err != nil {
-		if !r.All {
+		if !r.isolatesTargets() {
 			return c, err
 		}
 		key, args := ErrorKey(err)
@@ -861,11 +889,11 @@ func (s *Service) checkOrUpdate(ctx context.Context, r Request, c Change, action
 
 	candidate, candidateErr := updateCandidate(disc, plugin, agent)
 	if candidateErr != nil {
-		if candidate == nil && !r.All {
+		if candidate == nil && !r.isolatesTargets() {
 			return c, candidateErr
 		}
 		c.Action = "blocked"
-		if r.All {
+		if r.isolatesTargets() {
 			c.Action, c.batchError = "skip", true
 		}
 		c.Message = candidateErr.Error()
