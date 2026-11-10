@@ -4,7 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseGitStatus, sourceLine, driftFrom, targetDrift, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, skillChoices, newerVersion, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, rowState, previewTargets, splitFrontmatter, mcpServer, targetList, mapLanes, needsBothWays, READ_SKILL, eligibleTargets, syncScopes, overviewAnswer, remoteLine, waitingNames, releaseTag, panelUpdate, updateState, PANEL_UPDATE, toggleArgs } from "../skillshare/mods/skillshare/model.js";
+import { parseGitStatus, sourceLine, driftFrom, targetDrift, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, skillChoices, newerVersion, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, rowState, previewTargets, splitFrontmatter, mcpServer, targetList, mapLanes, needsBothWays, READ_SKILL, eligibleTargets, syncScopes, overviewAnswer, remoteLine, waitingNames, releaseTag, panelUpdate, updateState, PANEL_UPDATE, toggleArgs, optimistic } from "../skillshare/mods/skillshare/model.js";
 import { VERSION } from "../skillshare/mods/skillshare/version.js";
 
 test("git status reads branch, ahead/behind and files", () => {
@@ -646,4 +646,58 @@ test("a skill or agent is disabled and enabled by its own path, in its scope", (
 test("a row offers only the change it can take", () => {
   const [skill] = buildItems("global", { list: [{ name: "archify", relPath: "archify", kind: "skill" }] });
   assert.deepEqual([toggleArgs(skill, "enable"), toggleArgs({ kind: "mcp", name: "m", scope: "global" }, "disable")], [null, null]);
+});
+
+// Rows as the panel holds them: two skills, one waiting for an update and one for a sync, per scope.
+const held = (scope) => buildItems(scope, {
+  list: [{ name: "archify", relPath: "archify", kind: "skill" }, { name: "figlens", relPath: "figlens", kind: "skill" }, { name: "draft", relPath: "draft", kind: "skill", disabled: true }],
+  check: { skills: [{ name: "archify", status: "update_available" }] },
+  diff: { targets: [{ name: "claude", items: [{ name: "figlens", kind: "skill", action: "modify", is_sync: true }] }] },
+});
+const states = (items) => items.map((i) => `${i.label}:${i.doing ?? i.state}`);
+
+test("the rows start as the test expects", () => {
+  assert.deepEqual(states(held("global")), ["archify:update", "figlens:sync", "draft:off"]);
+});
+
+test("a disable shows the row off, and an enable shows it on, before skillshare answers", () => {
+  const items = held("global");
+  const off = optimistic(items, { op: "toggle", action: "disable", item: items[1] });
+  const on = optimistic(items, { op: "toggle", action: "enable", item: items[2] });
+  assert.deepEqual([states(off), states(on)], [["archify:update", "figlens:off", "draft:off"], ["archify:update", "figlens:sync", "draft:ok"]]);
+});
+
+test("an uninstall and a hook removal take the row away at once", () => {
+  const items = [...held("global"), { key: "global:hooks:lint", kind: "hooks", scope: "global", name: "lint", label: "lint", state: "ok" }];
+  const gone = optimistic(optimistic(items, { op: "uninstall", item: items[0] }), { op: "hook", action: "remove", item: items[3] });
+  assert.deepEqual(states(gone), ["figlens:sync", "draft:off"]);
+});
+
+test("an update and a sync only say they are running: they can still fail", () => {
+  const items = held("global");
+  const updating = optimistic(items, { op: "update", updates: [{ kind: "skills", scope: "global", name: "archify" }] });
+  const syncing = optimistic(items, { op: "sync", scopes: ["global"] });
+  assert.deepEqual([states(updating), states(syncing)], [["archify:updating", "figlens:sync", "draft:off"], ["archify:update", "figlens:syncing", "draft:off"]]);
+});
+
+test("a running row says so in its one short state", () => {
+  const [row] = optimistic(held("global"), { op: "update", updates: [{ kind: "skills", scope: "global", name: "archify" }] });
+  assert.equal(rowState(row, true), "global · updating…");
+});
+
+test("an installed skill is listed before the next read, once", () => {
+  const items = held("global");
+  const req = { op: "refresh", added: [{ name: "pdf", scope: "global", source: "https://github.com/acme/skills" }, { name: "archify", scope: "global", source: "x" }] };
+  assert.deepEqual(optimistic(items, req).slice(3).map((i) => [i.key, i.state, i.src]), [["global:skills:pdf", "ok", "github.com/acme/skills"]]);
+});
+
+test("another project's rows are left alone", () => {
+  const items = held("project");
+  const req = { op: "uninstall", project: "/a", item: items[0] };
+  assert.deepEqual([optimistic(items, req, "/b").length, optimistic(items, req, "/a").length], [3, 2]);
+});
+
+test("Update all marks every row of that kind and scope that has an update", () => {
+  const rows = optimistic(held("global"), { op: "update", updates: [{ kind: "skills", scope: "global", all: true }] });
+  assert.deepEqual(states(rows), ["archify:updating", "figlens:sync", "draft:off"]);
 });
