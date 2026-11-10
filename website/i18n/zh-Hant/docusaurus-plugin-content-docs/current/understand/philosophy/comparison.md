@@ -4,188 +4,62 @@ sidebar_position: 9
 
 # 比較 Skill 管理方式
 
-本頁比較 AI CLI skill 管理的兩種主要架構方式：**命令式**（每次操作各自安裝）與**宣告式**（config + sync）。
+**Vercel 的 `npx skills`** 和 **Skillshare** 都能跨多個 AI 工具管理 skills。差別不是「一個只能安裝，另一個才能同步」，而是你需要管理 skills，還是更完整的 AI 工作環境。
 
-如果你正在評估工具或考慮換用其他方案，這篇分析能幫助你理解兩者在設計上的根本差異。
+本頁依據已發布的 **skills v1.7.6** [套件資訊](https://registry.npmjs.org/skills/1.7.6)及其[官方 CLI 文件](https://github.com/vercel-labs/skills/blob/7a5e920bead4b1039a6d6df5d7e1163b7b09423a/docs/commands.md)。實驗性命令可能變更或移除；這是指定版本的比較，不是對所有安裝工具的概括。
 
-## 架構總覽
+## 架構概覽
 
-### 命令式（每次操作各自安裝）
+### npx skills：發現與管理 skills
 
-命令式工具採用每次操作各自安裝的模式 — 每次安裝都是獨立的操作：
+[skills.sh](https://skills.sh) 提供發現入口。CLI 支援多 agent、專案與全域安裝、指向共用副本的 symlink 或獨立複本，以及更新檢查與更新。Agent 選擇及確認可透過旗標提供，不一定需要互動提示。
 
-```
-tool add owner/repo → select agents → choose method → done
-tool add owner/repo → select agents → choose method → done
-tool add owner/repo → select agents → choose method → done
-```
+它也會以 lock 檔案記錄已安裝的 skills。實驗性命令支援專案還原與 npm 同步，因此不能將它描述為沒有持久狀態或只能安裝。
 
-每個操作都需要使用者輸入。沒有任何持久化狀態能描述「什麼東西該裝在哪裡」。
+### Skillshare：跨工具管理工作環境
 
-### 宣告式（Config + Sync）
+Skillshare 將來源資源與 target 設定分開，再同步到各工具。除了 skills，也管理 agent 定義、rules 等 extras、MCP 連線設定，以及支援用戶端的原生 hooks。本地 Web dashboard 提供視覺化管理介面。
 
-skillshare 採用宣告式模式 — 你只需定義一次期望狀態，然後執行 sync：
-
-```yaml
-# config.yaml — define once
-source: ~/.config/skillshare/skills
-targets:
-  claude: ~/.claude
-  cursor: ~/.cursor/skills
-  codex: ~/.codex/skills
-```
-
-```bash
-skillshare sync  # reconcile actual state to desired state
-```
-
-一個命令，沒有提示，每次結果都一致可預期。
+真正的差別是將這些資源一起納入跨工具、跨機器與團隊工作流程，而不是獨有的 symlink 或多 agent 安裝能力。資源格式與用戶端能力仍有差異，並非每種資源都適用於每個工具。
 
 ## 功能比較
 
-| 能力 | 命令式（每次操作各自安裝） | 宣告式（skillshare） |
-|------------|------------------------|--------------------------|
-| **設定** | 沒有設定檔；每次執行都會提示 | `config.yaml` — 設定一次，永久沿用 |
-| **Agent 選擇** | 每次都要互動式提示 | 定義在設定中；`sync` 一次處理全部 |
-| **安裝方式** | 每次操作各自選擇 copy/symlink | 設定中的 `sync_mode`（merge、copy 或 symlink） |
-| **單一事實來源** | Skills 各自獨立複製到每個 agent | Source 目錄 → symlink 到所有 targets |
-| **從單一 agent 移除 skill** | 可能刪除 source 檔案，波及其他 agent | 只影響該 target 的 symlink |
-| **可重現的設定** | 沒有內建方式能在新機器上還原 | `config.yaml` + source 目錄 = 完整還原 |
-| **Project-scoped skills** | Lock 檔案只追蹤全域範圍 | `skillshare init -p` 提供每個 repo 各自的 skills |
-| **跨機器同步** | 手動（透過 dotfiles 同步 lock 檔案） | 內建 `push` / `pull` 搭配 git |
-| **雙向流動** | 單向（僅安裝） | `collect` 能把 targets 上的改進拉回來 |
-| **區分自製與已安裝 skills** | 混在同一個目錄裡 | Tracked repos 使用 `_` 前綴 |
-| **離線操作** | CLI 本身就需要 npx + 網路 | 單一執行檔，安裝後可離線運作 |
-| **Web 儀表板** | 無 | `skillshare ui` — 視覺化管理 |
-| **備份／還原** | 無 | `skillshare backup` / `skillshare restore` |
-| **Git 平台支援** | update/check 僅限 GitHub（寫死使用 GitHub Trees API） | 任何 Git remote — GitHub、GitLab、Bitbucket、Azure DevOps、Gitea、AtomGit、Gitee、自架伺服器 |
-| **執行環境依賴** | Node.js + npm | 無（單一 Go 執行檔） |
+| 能力 | npx skills v1.7.6 | Skillshare |
+|------|------------------|------------|
+| **發現** | skills.sh 與 `skills find` | CLI 搜尋與本地 Web dashboard |
+| **多 agent 與範圍** | 多 agent；專案與全域安裝 | 設定中的 targets；專案與全域模式 |
+| **共用 skill 檔案** | 指向共用副本的 symlink；可選 copy | 來源目錄搭配 merge、copy 或整個目錄的 symlink 模式 |
+| **更新** | `skills check` 與 `skills update` | `skillshare check` 與 `skillshare update` |
+| **專案還原** | 實驗性 `skills experimental_install` 從 `skills-lock.json` 還原支援的來源 | 宣告式 skill 設定與來源資源；見 [manifest](/docs/understand/declarative-manifest) |
+| **npm 專案同步** | 實驗性 `skills experimental_sync` 讀取已安裝依賴與 `package.json` 的 skill 宣告 | 來源到 target 的同步；不是相同的 npm 依賴工作流程 |
+| **跨機器工作流程** | 專案 lock 還原與 npm 同步可協助重建專案 skills | Git `push` / `pull`，範圍由 `git_root` 決定 |
+| **Skills 以外** | 所引用的 CLI 文件以 skills 為主 | Agent 定義、rules 等 extras、MCP 設定與支援用戶端的 hooks |
+| **本地管理與復原** | 所引用的 CLI 文件未列出本地 dashboard 或 target 備份命令 | `skillshare ui`、target 備份與還原，以及受管理檔案復原 |
+| **執行環境** | Node.js 與 npm/npx | Go 執行檔；Git 工作流程需要 Git |
 
-## 常見痛點的解法
+### 實驗性命令涵蓋什麼
 
-### 「我每次安裝都要重新選一次 agent」
+- **`experimental_install`** 將支援的 lock 項目還原到 `.agents/skills/`。它不會安裝 npm 依賴，也不會為還原的 skills 建立 agent 專用連結。除非明確要求重新安裝，否則保留既有 skills。Frozen-lock 模式會檢查內容 hash，且為 CI 預設。
+- **`experimental_sync`** 連結已安裝 npm 依賴附帶的 skills，並解析 `package.json` 的 skill 宣告。它以 `skills-lock.json` 追蹤這些項目、移除不再提供的 skills，並保留另外安裝的 skills。使用 copy 時，依賴更新後需要再次同步。
 
-用 skillshare，你只需要設定一次 targets：
-
-```yaml
-targets:
-  claude: ~/.claude
-  cursor: ~/.cursor/skills
-```
-
-之後每次 `sync`、`install` 或 `collect` 都知道要送去哪裡。不會再有提示。
-
-### 「從一個 agent 移除 skill 會弄壞其他 agent」
-
-在命令式工具中，從一個 agent 移除 skill 可能會刪掉共用的 source 檔案，讓其他 agent 留下損毀的 symlink。
-
-skillshare 的架構完全避免了這個問題 — source 目錄是唯一的事實來源。Target 的 symlink 都指**向** source。移除一個 target 只會移除該 target 自己的 symlink；source 檔案不受影響。
-
-```
-Source: ~/.config/skillshare/skills/my-skill/SKILL.md  (always preserved)
-  ├── ~/.claude/skills/my-skill → symlink to source  ✓
-  ├── ~/.cursor/skills/my-skill  → symlink to source  ✓  (unaffected)
-  └── ~/.codex/skills/my-skill  → symlink to source  ✓  (unaffected)
-```
-
-### 「我沒辦法在新機器上還原我的設定」
-
-用 skillshare，你的整套設定都是可攜的：
-
-1. 把 `~/.config/skillshare/`（source + config）納入版本控制
-2. 在新機器上：`git clone` 你的設定 repo
-3. 執行 `skillshare sync`
-
-所有 targets 會立即被重新建立。
-
-### 「Update 和 check 在 GitLab / Bitbucket / Azure DevOps 上不能用」
-
-命令式工具通常依賴 GitHub Trees API 來做更新檢查，這代表 `update` 和 `check` 會默默略過來自非 GitHub 來源的 skills。
-
-skillshare 使用**本機 git 操作**（`git fetch` + tree hash 比對）— 可以搭配任何 Git remote 運作，包括 GitLab、Bitbucket、Azure DevOps、Gitea、AtomGit、Gitee，以及任何自架的伺服器。不需要平台專屬的 API。
-
-```bash
-# All of these support install, update, and check:
-skillshare install https://gitlab.com/team/skills
-skillshare install git@bitbucket.org:company/private-skills.git
-skillshare install https://git.mycompany.com/org/repo
-skillshare update   # checks all sources, regardless of host
-```
-
-### 「大型 repository clone 起來要花超久」
-
-skillshare 預設對非 tracked 的安裝使用淺層 clone（`--depth 1`），大幅縮短下載時間。若 tracked repo 需要完整歷史紀錄，可使用 `--track`。
-
-### 「我的 skills 散落在各個 agent 目錄裡」
-
-skillshare 把所有東西集中在一個地方：
-
-```
-~/.config/skillshare/skills/
-├── my-custom-skill/          # Your own skills
-├── react-best-practices/     # Installed skills
-├── _team-repo/               # Tracked repos (prefixed with _)
-│   ├── frontend-guidelines/
-│   └── code-review/
-└── _another-org-repo/
-```
-
-`_` 前綴清楚區分了 tracked（團隊／組織）repo 與你個人的 skills。
-
-## 遷移至 skillshare
-
-如果你已經在使用其他的 skill 管理工具：
-
-### 步驟 1：安裝 skillshare
-
-```bash
-# macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
-```
-
-只有安裝器顯示 PATH 設定提示時，才需要依提示設定後再執行下方指令。沒有 PATH 警告就不需要額外設定。
-
-```bash
-
-# Homebrew
-brew install skillshare
-```
-
-### 步驟 2：初始化並收集既有 skills
-
-```bash
-skillshare init              # Creates config and detects targets
-skillshare collect --all     # Imports existing skills from all detected targets
-```
-
-### 步驟 3：Sync
-
-```bash
-skillshare sync              # Symlinks source skills to all targets
-```
-
-你現有的 skills 現在都集中在同一個地方管理了。詳細步驟請見 [遷移指南](/docs/how-to/advanced/migration)。
+這些確實是同步與還原能力，但不是整套 AI 工具設定的備份。
 
 ## 選擇合適的工具
 
-**在以下情況選擇命令式工具：**
-- 你很少安裝 skill，也不介意互動式提示
-- 你只使用一種 AI CLI
-- 你不需要跨機器或團隊協作的工作流程
+**繼續使用 npx skills**：如果主要需求是發現、安裝與更新公開或私有 skills，即使同時使用多個 agent 也很合理。若希望 skills 跟隨 npm 專案依賴，且能接受此工作流程仍屬實驗性，也適合考慮。
 
-**在以下情況選擇 skillshare：**
-- 你同時使用多種 AI CLI，並希望它們保持同步
-- 你想要一次設定、之後就不用再管
-- 你在多台機器上工作
-- 你會與團隊或組織分享 skills
-- 你需要 skills 的備份、還原與版本控制
-- 你把 skills 放在 GitLab、Bitbucket、Azure DevOps 或自架 Git 上
-- 你偏好單一執行檔、不想有執行環境依賴
-- 你不希望安裝／下載活動被追蹤到你本機工作流程之外
+**選擇 Skillshare**：當問題不只是安裝 skills，例如：「我同時用 Claude Code 和 Codex，希望把受管理的 skills、rules、MCP 設定與支援的 hooks 帶到另一台電腦。」它的來源／target 設定、Git 工作流程、本地 dashboard 與復原工具服務於這個較廣的管理需求。
 
----
+可攜性仍需要設定：選擇 Git 範圍、在新機器設定 targets，並另外準備憑證與外部依賴。`push` 預設只處理 skills 來源，不會自動發布全部設定或備份整台機器。見 [Git root 範圍](/docs/reference/commands/push)與 [sync](/docs/reference/commands/sync)。
+
+## 遷移至 Skillshare
+
+不必立刻取代運作良好的安裝工具。只移交希望由 Skillshare 管理的資源，並避免兩個工具同時更新或移除同一個受管理的 skill。
+
+目前遷移並非無損的 lock 匯入：收集的 skills 是本地副本，不保留原始 repository 的追蹤資訊。若需要後續透過 Skillshare 更新，請從記錄的來源重新安裝。移交管理權前先備份與預覽；請遵循 [npx skills 遷移指南](/docs/how-to/advanced/migration)，不要將 collect 本身視為完整遷移。
 
 ## 延伸閱讀
 
-- [Migration](/docs/how-to/advanced/migration) — 遷移指南
-- [Core Concepts](/docs/understand) — skillshare 如何運作
+- [遷移](/docs/how-to/advanced/migration)
+- [核心概念](/docs/understand)
+- [備份](/docs/reference/commands/backup)

@@ -4,188 +4,62 @@ sidebar_position: 9
 
 # Comparing Skill Management Approaches
 
-This page compares the two main architectural approaches to AI CLI skill management: **imperative** (install-per-command) and **declarative** (config + sync).
+Both **Vercel's `npx skills`** and **Skillshare** manage skills across multiple AI tools. The difference is not “one installs, the other syncs.” Choose by what you need to manage: skills, or a broader AI working environment.
 
-If you're evaluating tools or considering a switch, this breakdown will help you understand the fundamental design differences.
+This comparison uses the published **skills v1.7.6** [package metadata](https://registry.npmjs.org/skills/1.7.6) and its [official CLI reference](https://github.com/vercel-labs/skills/blob/7a5e920bead4b1039a6d6df5d7e1163b7b09423a/docs/commands.md). Experimental commands may change or disappear; this is a versioned comparison, not a claim about every installer.
 
 ## Architecture at a Glance
 
-### Imperative (Install-per-command)
+### npx skills: Skill discovery and management
 
-Imperative tools use an install-per-command model — each install is a standalone operation:
+[skills.sh](https://skills.sh) provides a discovery entry point. The CLI supports multiple agents, project and global installation, symlinks to a canonical copy or independent copies, update checks, and updates. Agent selection and confirmation can be supplied through flags; interactive prompts are not mandatory.
 
-```
-tool add owner/repo → select agents → choose method → done
-tool add owner/repo → select agents → choose method → done
-tool add owner/repo → select agents → choose method → done
-```
+It also records installed skills in lock files. Its experimental commands support project restoration and npm-based synchronization, so it is not accurate to describe it as stateless or install-only.
 
-Every operation requires user input. There's no persistent state describing "what should be installed where."
+### Skillshare: A managed environment across tools
 
-### Declarative (Config + Sync)
+Skillshare keeps source resources and target configuration separate, then synchronizes them to your tools. Beyond skills, it manages agent definitions, rules and other extras, MCP connection settings, and native hooks for supported clients. A local Web dashboard provides a visual management interface.
 
-skillshare uses a declarative model — you define your desired state once, then sync:
-
-```yaml
-# config.yaml — define once
-source: ~/.config/skillshare/skills
-targets:
-  claude: ~/.claude
-  cursor: ~/.cursor/skills
-  codex: ~/.codex/skills
-```
-
-```bash
-skillshare sync  # reconcile actual state to desired state
-```
-
-One command, no prompts, deterministic results every time.
+The useful distinction is managing these resources together across tools, machines, and team workflows—not exclusive ownership of symlinks or multi-agent installation. Resource formats and client capabilities still differ; not every resource works in every tool.
 
 ## Feature Comparison
 
-| Capability | Imperative (install-per-command) | Declarative (skillshare) |
-|------------|------------------------|--------------------------|
-| **Configuration** | No config file; prompts on every run | `config.yaml` — set once, reuse forever |
-| **Agent selection** | Interactive prompt each time | Defined in config; `sync` handles all |
-| **Install method** | Choose copy/symlink per operation | `sync_mode` in config (merge, copy, or symlink) |
-| **Single source of truth** | Skills copied to each agent independently | Source directory → symlinks to all targets |
-| **Removing a skill from one agent** | May delete source files, breaking other agents | Only affects that target's symlink |
-| **Reproducible setup** | No built-in way to restore on new machine | `config.yaml` + source dir = full restore |
-| **Project-scoped skills** | Lock file tracks global only | `skillshare init -p` for per-repo skills |
-| **Cross-machine sync** | Manual (sync lock file via dotfiles) | Built-in `push` / `pull` with git |
-| **Bidirectional flow** | One-way (install only) | `collect` pulls improvements back from targets |
-| **Separating own vs installed skills** | Mixed in same directory | Tracked repos use `_` prefix |
-| **Offline operation** | Requires npx + network for CLI itself | Single binary, works offline after install |
-| **Web dashboard** | None | `skillshare ui` — visual management |
-| **Backup / restore** | None | `skillshare backup` / `skillshare restore` |
-| **Git platform support** | GitHub only for update/check (hardcoded to GitHub Trees API) | Any Git remote — GitHub, GitLab, Bitbucket, Azure DevOps, Gitea, AtomGit, Gitee, self-hosted |
-| **Runtime dependency** | Node.js + npm | None (single Go binary) |
+| Capability | npx skills v1.7.6 | Skillshare |
+|------------|------------------|------------|
+| **Discovery** | skills.sh and `skills find` | CLI search and local Web dashboard |
+| **Multiple agents and scopes** | Multiple agents; project and global installs | Configured targets; project and global modes |
+| **Shared skill files** | Symlinks to a canonical copy; copy option | Source directory with merge, copy, or directory-symlink modes |
+| **Updates** | `skills check` and `skills update` | `skillshare check` and `skillshare update` |
+| **Project restoration** | Experimental `skills experimental_install` restores supported sources from `skills-lock.json` | Declarative skill configuration and source resources; see [manifest](/docs/understand/declarative-manifest) |
+| **npm project sync** | Experimental `skills experimental_sync` reads installed dependencies and `package.json` skill declarations | Source-to-target synchronization; not the same npm dependency workflow |
+| **Cross-machine workflow** | Project lock restoration and npm sync can help rebuild project skills | Git-backed `push` / `pull`, scoped by `git_root` |
+| **Beyond skills** | The cited CLI reference focuses on skills | Agent definitions, extras such as rules, MCP settings, and hooks for supported clients |
+| **Local management and recovery** | The cited CLI reference does not document a local dashboard or target-backup commands | `skillshare ui`, target backups and restore, plus managed-file recovery |
+| **Runtime** | Node.js and npm/npx | Go binary; Git required for Git-backed operations |
 
-## Common Pain Points Solved
+### What the experimental commands cover
 
-### "I have to select agents every time I install"
+- **`experimental_install`** restores supported lock entries into `.agents/skills/`. It does not install npm dependencies or create agent-specific links for restored skills. Existing skills are left alone unless explicitly reinstalled. Frozen-lock mode checks content hashes and is the default in CI.
+- **`experimental_sync`** links skills shipped by installed npm dependencies and resolves skill declarations in `package.json`. It tracks these in `skills-lock.json`, removes skills no longer provided, and preserves separately added skills. Copies require another sync after dependency updates.
 
-With skillshare, you configure targets once:
-
-```yaml
-targets:
-  claude: ~/.claude
-  cursor: ~/.cursor/skills
-```
-
-Then every `sync`, `install`, or `collect` knows where to go. No prompts.
-
-### "Removing a skill from one agent breaks the others"
-
-In imperative tools, removing a skill from one agent may delete the shared source files, leaving other agents with broken symlinks.
-
-skillshare's architecture prevents this entirely — the source directory is the single truth. Target symlinks point **to** the source. Removing a target only removes that target's symlinks; source files are untouched.
-
-```
-Source: ~/.config/skillshare/skills/my-skill/SKILL.md  (always preserved)
-  ├── ~/.claude/skills/my-skill → symlink to source  ✓
-  ├── ~/.cursor/skills/my-skill  → symlink to source  ✓  (unaffected)
-  └── ~/.codex/skills/my-skill  → symlink to source  ✓  (unaffected)
-```
-
-### "I can't restore my setup on a new machine"
-
-With skillshare, your entire setup is portable:
-
-1. Version-control `~/.config/skillshare/` (source + config)
-2. On a new machine: `git clone` your config repo
-3. Run `skillshare sync`
-
-All targets are recreated instantly.
-
-### "Update and check don't work with GitLab / Bitbucket / Azure DevOps"
-
-Imperative tools often rely on the GitHub Trees API for update checks, which means `update` and `check` silently skip skills from non-GitHub sources.
-
-skillshare uses **local git operations** (`git fetch` + tree hash comparison) — it works with any Git remote, including GitLab, Bitbucket, Azure DevOps, Gitea, AtomGit, Gitee, and any self-hosted instance. No platform-specific API is required.
-
-```bash
-# All of these support install, update, and check:
-skillshare install https://gitlab.com/team/skills
-skillshare install git@bitbucket.org:company/private-skills.git
-skillshare install https://git.mycompany.com/org/repo
-skillshare update   # checks all sources, regardless of host
-```
-
-### "Clone takes forever on large repositories"
-
-skillshare uses shallow clones (`--depth 1`) by default for non-tracked installs, reducing download time significantly. For tracked repos that need full history, use `--track`.
-
-### "My skills are scattered across agent directories"
-
-skillshare keeps everything in one place:
-
-```
-~/.config/skillshare/skills/
-├── my-custom-skill/          # Your own skills
-├── react-best-practices/     # Installed skills
-├── _team-repo/               # Tracked repos (prefixed with _)
-│   ├── frontend-guidelines/
-│   └── code-review/
-└── _another-org-repo/
-```
-
-The `_` prefix clearly separates tracked (team/org) repos from your personal skills.
-
-## Migrating to skillshare
-
-If you're already using another skill manager:
-
-### Step 1: Install skillshare
-
-```bash
-# macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
-```
-
-If the installer prints PATH setup instructions, follow them before running the commands below. If it prints no PATH warning, no extra setup is needed.
-
-```bash
-
-# Homebrew
-brew install skillshare
-```
-
-### Step 2: Initialize and collect existing skills
-
-```bash
-skillshare init              # Creates config and detects targets
-skillshare collect --all     # Imports existing skills from all detected targets
-```
-
-### Step 3: Sync
-
-```bash
-skillshare sync              # Symlinks source skills to all targets
-```
-
-Your existing skills are now managed from one place. For a detailed walkthrough, see the [Migration Guide](/docs/how-to/advanced/migration).
+These are real synchronization and restoration capabilities, but they are not a backup of an entire AI tool configuration.
 
 ## Choosing the Right Tool
 
-**Choose an imperative tool if:**
-- You install skills rarely and don't mind interactive prompts
-- You only use one AI CLI
-- You don't need cross-machine or team workflows
+**Stay with npx skills** if you mainly want to discover, install, and update public or private skills—even across several agents. It is also a reasonable fit when you want skills to follow npm project dependencies and accept the experimental status of that workflow.
 
-**Choose skillshare if:**
-- You use multiple AI CLIs and want them in sync
-- You want a set-and-forget configuration
-- You work across multiple machines
-- You share skills with a team or organization
-- You want backup, restore, and version control for your skills
-- You host skills on GitLab, Bitbucket, Azure DevOps, or self-hosted Git
-- You prefer a single binary with no runtime dependencies
-- You don't want installation/download activity tracked outside your local workflow
+**Choose Skillshare** when the problem extends beyond installing skills: “I use Claude Code and Codex, and I want to carry my managed skills, rules, MCP settings, and supported hooks to another machine.” Its source/target configuration, Git workflows, local dashboard, and recovery tools address that broader management job.
 
----
+Portability still needs setup: choose the Git scope, configure targets on the destination, and provision credentials and external dependencies separately. `push` defaults to the skills source; it does not automatically publish all configuration or back up the whole machine. See [Git root scope](/docs/reference/commands/push#git-root-scope) and [sync](/docs/reference/commands/sync).
+
+## Migrating to Skillshare
+
+You do not need to replace a working installer immediately. Move only the resources you want Skillshare to own, and avoid having both tools update or remove the same managed skill.
+
+Migration is not currently a lossless lock import: collected skills are local copies without the original repository tracking. Reinstall from the recorded source if you need subsequent Skillshare updates. Back up and preview before handing over ownership; follow the [npx skills migration guide](/docs/how-to/advanced/migration#from-npx-skills) rather than treating collection alone as a complete migration.
 
 ## See Also
 
-- [Migration](/docs/how-to/advanced/migration) — Migration guide
-- [Core Concepts](/docs/understand) — How skillshare works
+- [Migration](/docs/how-to/advanced/migration)
+- [Core Concepts](/docs/understand)
+- [Backup](/docs/reference/commands/backup)

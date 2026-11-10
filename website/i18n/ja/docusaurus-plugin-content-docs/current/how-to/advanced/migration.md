@@ -82,73 +82,113 @@ skillshare sync
 
 ---
 
-## `npx skills` からの移行
+## `npx skills` からの移行 {#from-npx-skills}
 
-[npx skills CLI](https://github.com/vercel-labs/skills)（`npx skills add ...`）で Skill をインストールしていた場合、skillshare は同じディレクトリを引き継げます。[両方のツールを併用](/docs/troubleshooting/faq#using-universal-alongside-npx-skills)し、skillshare で管理したい Skill だけを移すこともできます。
+既存 skills は `npx skills` で管理し続けても、選んだ skills を Skillshare に引き継いでも構いません。両方とも複数 agent とグローバル／プロジェクトのインストールに対応しています。移行の理由は Skillshare の広いリソース管理が必要だからであり、もう一方がインストール専用だからではありません。[比較](/docs/understand/philosophy/comparison)を参照してください。
 
-`npx skills` のファイルの保存場所:
+**npx lock の自動インポートや管理権の自動移行はありません。** Collect はローカルの skill ファイルを保存しますが、取得元の追跡情報は引き継ぎません。リポジトリから再インストールすると Skillshare の追跡情報が作られますが、既存インストールとは内容が異なる場合があります。
+
+以下のパスと lock フィールドは **skills v1.7.6** に基づきます：[グローバル lock のソース](https://github.com/vercel-labs/skills/blob/7a5e920bead4b1039a6d6df5d7e1163b7b09423a/src/skill-lock.ts)、[プロジェクト lock のソース](https://github.com/vercel-labs/skills/blob/7a5e920bead4b1039a6d6df5d7e1163b7b09423a/src/local-lock.ts)、[CLI リファレンス](https://github.com/vercel-labs/skills/blob/7a5e920bead4b1039a6d6df5d7e1163b7b09423a/docs/commands.md)。
 
 | 項目 | Global | Project |
 |------|--------|---------|
-| Skill ファイル | `~/.agents/skills/<name>/`（実ディレクトリ） | `.agents/skills/<name>/` |
-| Agent ディレクトリ | 上記ファイルへのシンボリックリンク（例: `~/.claude/skills/<name>`） | 同じ |
-| ロックファイル | `~/.agents/.skill-lock.json`（または `$XDG_STATE_HOME/skills/.skill-lock.json`） | `skills-lock.json` |
+| 共通 skill の場所 | `~/.agents/skills/<name>/` | `.agents/skills/<name>/` |
+| Agent ディレクトリ | 通常は共通 skills へのリンク。`--copy` は独立したコピーを作成 | 同じ |
+| Lock ファイル | 設定されていれば `$XDG_STATE_HOME/skills/.skill-lock.json`、それ以外は `~/.agents/.skill-lock.json` | `skills-lock.json` |
 
-`--copy` でインストールした Skill は、シンボリックリンクではなく各 Agent ディレクトリ内の実ディレクトリになります。
+`experimental_sync` が作る skills は、実ディレクトリではなく npm 依存関係へのリンクの場合があります。収集前に実際のパスを確認してください。
 
-### ステップ 1: skillshare を初期化する
+### ステップ 1: 範囲を決め、元の構成を保存する
 
-```bash
-skillshare init
-```
+ステップ 2–5 は明示的に**グローバルモード**（`-g`）を使います。プロジェクトのインストールには下のプロジェクト向け説明を使ってください。
 
-### ステップ 2: 既存の Skill をバックアップする
+初期化や同期の前に：
 
-```bash
-skillshare backup
-```
+- 各ツールが管理する skills を決め、移行中は更新・削除・自動同期ジョブを停止します。
+- 元の skill ディレクトリ、実際の内容、symlink 構成を別途スナップショットとして保存します。上書きする可能性がある既存の Skillshare source も含めてください。
+- 該当する npx lock を別途保存します。npm プロジェクトでは `package.json` とパッケージマネージャーの lock も保存します。これらは取得元と依存関係の記録であり、ローカル編集のバックアップではありません。
 
-### ステップ 3: Skill を収集する
+引き継ぎを検証するまでスナップショットを保持してください。古い lock を削除したり、後片付けとして `npx skills remove` を実行したりしないでください。
 
-`collect` は実ディレクトリをコピーし、シンボリックリンクはスキップします。そのため、Agent ディレクトリ内のシンボリックリンクが二重に収集されることはありません。
+### ステップ 2: コピーせずに初期化し、バックアップを確認する
 
-```bash
-skillshare collect universal --dry-run   # プレビュー
-skillshare collect universal             # ~/.agents/skills
-```
-
-`--copy` を使っていた場合や、他の Agent ディレクトリにも Skill がある場合は、代わりに `skillshare collect --all` を実行し、[手動管理からの移行](#手動管理からの移行)の説明に従って重複を処理してください。
-
-収集した Skill は単なるローカルコピーです。どのリポジトリから来たかを記録していないため、`skillshare update` では更新できません。
-
-### ステップ 4: 更新を続けたい Skill を再インストールする（任意）
-
-ロックファイルには各 Skill の取得元が記録されています。`source` はリポジトリ、`skillPath` はその中の場所です。
+Skillshare が未初期化の場合、**stdin と stdout の両方が端末につながった対話環境**で以下を実行してください。パイプや自動化では実行しないでください。これらのフラグは初回同期を無効にせず、非対話の初期化では targets が選択されると自動同期します。
 
 ```bash
-cat ~/.agents/.skill-lock.json
-
-# "source": "anthropics/skills", "skillPath": "skills/pdf/SKILL.md"
-skillshare install anthropics/skills/skills/pdf
+skillshare init -g --no-copy --no-skill --no-git
 ```
 
-ステップ 3 で Skill がすでに Source に存在する場合は `--force` を使ってください。
-
-### ステップ 5: Sync する
+管理する targets を選び、`~/.agents/skills` に対応する `universal` を含めてください。この手順では merge mode を使用します。初回同期を尋ねられたら断ってください。設定済みの場合はリセットせず、source、[targets](/docs/reference/commands/target)、モードを確認します。
 
 ```bash
-skillshare sync
+skillshare backup -g --dry-run
+skillshare backup -g
+skillshare backup -g --list
 ```
 
-merge mode では、Sync は Target（`~/.agents/skills`）内の同名の実ディレクトリを保持し、保持されたローカル Skill として報告します。`~/.claude/skills` など他の Agent ディレクトリにある `npx skills` のシンボリックリンクは、skillshare の Source を指すように張り替えられます。実ディレクトリもシンボリックリンクに置き換えるには、ステップ 3 で収集した後に次を実行します:
+出力の失敗を確認し、実際の skill ファイルが含まれていることを確かめます。Target バックアップは **symlink をスキップ**し、リンク先の内容や target ディレクトリ外の npx lock は保存しません。ステップ 1 のスナップショットを補うもので、代わりにはなりません。
+
+### ステップ 3: ローカルコピーか取得元の追跡を選ぶ
+
+**現在のファイルを保持する：**実ディレクトリを持つ target からプレビューして収集します。
 
 ```bash
-skillshare sync --force
+skillshare collect universal -g --dry-run
+skillshare collect universal -g
 ```
 
-`sync --force` は何かを置き換える前に Target をバックアップします。これ以降、それらの Skill は skillshare だけで管理してください。`npx skills` は独自のロックファイルでインストールを追跡しているため、それらの Skill に対して `npx skills update` や `npx skills remove` を実行しないでください。
+これは target 内の対象となる skills すべてを収集し、選んだ 1 つだけを収集するものではありません。特定 agent のディレクトリにコピーがある場合は、その設定済み target 名に置き換えます。`collect --all -g` は全 targets から収集する場合だけ使ってください。一部だけ引き継ぐ場合は、選んだ実 skill ディレクトリだけを Skillshare source にコピーします。
 
-`npx skills` を使っている Project では、移動するディレクトリを `.agents/skills/` として[コミット済みの Project Skill からの移行](#コミット済みの-project-skill-からの移行)に従ってください。
+Collect は `node_modules` へのリンクを含む skill symlink をスキップします。npm 管理を続けるか、リンク先の実 skill ディレクトリを明示的にローカルスナップショットとしてコピーしてください。そのコピーはパッケージ更新に追従しなくなります。強制しない限り、source に既存の名前もスキップします。スキップ／失敗の結果を確認し、重複内容は自分で比較してください。プレビューは lock を解釈する競合レポートではありません。`collect --force` で無条件に勝者を決めないでください。
+
+収集した skills にはリポジトリの追跡情報が取り込まれないため、`skillshare update` で元の取得元から更新できません。
+
+**取得元からの更新を続ける：**インストール前に保存した lock の各項目を確認します。`sourceType` は Git、npm、ローカルなどを区別し、`sourceUrl`、`ref`、`skillPath` に追加情報がある場合があります。すべての項目にリポジトリや `skillPath` があるわけではありません。
+
+たとえば GitHub の項目 `source: "anthropics/skills"`、`skillPath: "skills/pdf/SKILL.md"` は、そのファイルを含む skill ディレクトリに対応します。
+
+```bash
+skillshare install anthropics/skills/skills/pdf -g --dry-run
+skillshare install anthropics/skills/skills/pdf -g
+```
+
+Lock に Git ref が記録されている場合は、上の両コマンドに `--branch <recorded-ref>` を追加してください（[install](/docs/reference/commands/install) を参照）。指定しない場合、この例はリモートのデフォルトブランチを使います。これは新規インストールであり、npx の内容 hash を再現するものではありません。保存済みファイルと比較し、ローカル編集を統合してください。収集した skill がすでに宛先にある場合は、いったん止めて解決します。強制インストールは編集を上書きし audit のブロックも上書きする可能性があるため、安易に使わないでください。npm やローカルの項目は別途ソースを判断し、単純に `owner/repo` に変換しないでください。
+
+### ステップ 4: プレビューし、明示的に管理を引き継ぐ
+
+```bash
+skillshare sync -g --dry-run
+```
+
+`universal` だけでなく、**設定済みの全 targets** を確認します。Merge mode は同名のローカルディレクトリを保持しますが、同名の agent symlink は force なしでも Skillshare source に張り替えられる場合があります。引き継ぐ予定の skills だけに影響することを確認してから適用します。
+
+```bash
+skillshare sync -g
+```
+
+保持された実ディレクトリもリンクに置き換える場合は、source が希望のバージョンであり、元のスナップショットが完全であることを先に確認してください。
+
+```bash
+skillshare sync -g --force --dry-run
+# Apply only after reviewing every replacement:
+skillshare sync -g --force
+```
+
+Force は設定済み targets 全体に作用し、skill 単位の移行スイッチではありません。まだ npx skills が管理するリソースがプレビューに含まれていたら停止してください。管理対象を分離し、[併用の説明](/docs/troubleshooting/faq#using-universal-alongside-npx-skills)を参照してください。
+
+### ステップ 5: 検証し、管理者を 1 つにする
+
+結果のファイル／リンクを確認し、各 AI ツールで期待した skills が読み込まれることを確かめます。`skillshare status -g` を実行し、保持されたローカル skills や警告を確認してください。Sync の成功だけでは全 skills の移行を証明できません。
+
+Skillshare は古い npx lock の項目を削除しません。引き継ぎ後は移行済み skills に `npx skills update`、`remove`、`experimental_install`、`experimental_sync` を使わないでください。一部移行の場合は、それらを含む無指定の一括コマンドを避けてください。
+
+元に戻す場合は両ツールを停止し、保存した元ファイル、リンク構成、lock をまとめて復元します。Skillshare の target バックアップはローカルファイルの復旧に役立ちますが、元の npx symlink や lock を単独では再現できません。
+
+### プロジェクトのインストールと npm 同期
+
+変更前に、未コミット・無視対象のローカル編集も含めてプロジェクトファイルと lock を保存します。`skillshare init -p` で初期化し、プロジェクト targets を設定してから、上記のグローバルコマンドではなく `collect`、`install`、`sync` に `-p` を付けて使います。追跡情報と symlink の制約は同じです。プロジェクトモードでは skill-target のバックアップを作成しないため、検証済みスナップショットか、必要なファイルを実際に含むバージョン管理を使ってください。
+
+`package.json` の scripts や CI が `experimental_sync` を呼び出す場合、重複する skills を引き継ぐ前にジョブと skill 宣言を調整します。そうしないと次の依存関係インストールで再リンクされる可能性があります。npm の skills を npx skills に任せ続けても構いません。リンクを `.skillshare/skills/` にコピーするだけで独立した管理になったと思わないでください。
 
 ---
 

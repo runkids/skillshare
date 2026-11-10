@@ -2,190 +2,64 @@
 sidebar_position: 9
 ---
 
-# Skill 管理アプローチの比較
+# Skill 管理方法の比較
 
-このページでは、AI CLI の Skill 管理における 2 つの主要なアーキテクチャアプローチ、**命令型**（コマンドごとのインストール）と**宣言型**（config + sync）を比較します。
+**Vercel の `npx skills`** と **Skillshare** は、どちらも複数の AI ツールで skills を管理できます。違いは「一方はインストールだけ、もう一方は同期できる」ではありません。skills を管理したいのか、より広い AI 作業環境を管理したいのかで選びましょう。
 
-ツールを評価中の方や乗り換えを検討している方は、この比較で根本的な設計の違いを理解できます。
+本ページは、公開済みの **skills v1.7.6** の[パッケージ情報](https://registry.npmjs.org/skills/1.7.6)と[公式 CLI リファレンス](https://github.com/vercel-labs/skills/blob/7a5e920bead4b1039a6d6df5d7e1163b7b09423a/docs/commands.md)に基づきます。実験的なコマンドは変更・削除される可能性があります。すべてのインストーラーについての一般論ではなく、特定バージョンの比較です。
 
-## アーキテクチャの概観
+## アーキテクチャの概要
 
-### 命令型（コマンドごとのインストール）
+### npx skills：skills の発見と管理
 
-命令型ツールはコマンドごとのインストールモデルを採用しており、各インストールは独立した操作です。
+[skills.sh](https://skills.sh) は skills を見つける入口です。CLI は複数 agent、プロジェクト／グローバルのインストール、共通コピーへの symlink または独立したコピー、更新確認と更新に対応します。Agent の選択と確認はフラグでも指定でき、対話操作は必須ではありません。
 
-```
-tool add owner/repo → select agents → choose method → done
-tool add owner/repo → select agents → choose method → done
-tool add owner/repo → select agents → choose method → done
-```
+インストール済み skills は lock ファイルにも記録されます。実験的なコマンドはプロジェクトの復元と npm ベースの同期に対応するため、状態を持たない、またはインストール専用という説明は正確ではありません。
 
-すべての操作でユーザー入力が必要です。「どこに何をインストールすべきか」を記述する永続的な状態は存在しません。
+### Skillshare：ツールをまたぐ作業環境の管理
 
-### 宣言型（Config + Sync）
+Skillshare は source リソースと target 設定を分け、各ツールへ同期します。Skills に加え、agent 定義、rules などの extras、MCP 接続設定、対応クライアントのネイティブ hooks を管理します。ローカル Web dashboard から視覚的に管理できます。
 
-skillshare は宣言型モデルを採用しています。望ましい状態を一度定義すれば、あとは sync するだけです。
-
-```yaml
-# config.yaml — define once
-source: ~/.config/skillshare/skills
-targets:
-  claude: ~/.claude
-  cursor: ~/.cursor/skills
-  codex: ~/.codex/skills
-```
-
-```bash
-skillshare sync  # reconcile actual state to desired state
-```
-
-コマンド 1 つ、プロンプトなし、常に決定的な結果が得られます。
+違いは、これらをツール・マシン・チーム間のワークフローでまとめて管理することです。Symlink や複数 agent へのインストールは独自機能ではありません。リソース形式とクライアントの機能には違いがあり、すべてのリソースがすべてのツールで動くわけではありません。
 
 ## 機能比較
 
-| 機能 | 命令型（コマンドごとのインストール） | 宣言型（skillshare） |
-|------------|------------------------|--------------------------|
-| **設定** | 設定ファイルなし。実行のたびにプロンプトが表示される | `config.yaml` — 一度設定すれば以後も再利用可能 |
-| **Agent 選択** | 毎回インタラクティブなプロンプト | config 内で定義済み。`sync` がすべて処理 |
-| **インストール方法** | 操作ごとに copy/symlink を選択 | config 内の `sync_mode`（merge、copy、symlink） |
-| **単一の信頼できる情報源** | Skill が各 agent に個別にコピーされる | Source ディレクトリ → 全 Target へのシンボリックリンク |
-| **1 つの agent から Skill を削除する場合** | Source ファイルが削除され、他の agent が壊れることがある | その Target のシンボリックリンクにのみ影響 |
-| **再現可能なセットアップ** | 新しいマシンで復元する組み込みの方法がない | `config.yaml` + Source ディレクトリで完全復元 |
-| **プロジェクトスコープの Skill** | ロックファイルはグローバルのみ追跡 | `skillshare init -p` でリポジトリごとの Skill |
-| **クロスマシン同期** | 手動（dotfiles 経由でロックファイルを同期） | git を使った組み込みの `push` / `pull` |
-| **双方向のフロー** | 一方向（インストールのみ） | `collect` が Target 側の改善を取り込む |
-| **自作 Skill とインストール済み Skill の分離** | 同じディレクトリに混在 | Tracked repo は `_` 接頭辞を使用 |
-| **オフライン動作** | CLI 自体に npx とネットワークが必要 | 単一バイナリで、インストール後はオフラインで動作 |
-| **Web ダッシュボード** | なし | `skillshare ui` — ビジュアル管理 |
-| **バックアップ / 復元** | なし | `skillshare backup` / `skillshare restore` |
-| **Git プラットフォーム対応** | update/check は GitHub のみ（GitHub Trees API にハードコード） | GitHub、GitLab、Bitbucket、Azure DevOps、Gitea、AtomGit、Gitee、セルフホストなど任意の Git remote |
-| **ランタイム依存** | Node.js + npm | なし（単一の Go バイナリ） |
+| 機能 | npx skills v1.7.6 | Skillshare |
+|------|------------------|------------|
+| **発見** | skills.sh と `skills find` | CLI 検索とローカル Web dashboard |
+| **複数 agent とスコープ** | 複数 agent、プロジェクト／グローバルのインストール | 設定済み targets、プロジェクト／グローバルモード |
+| **Skill ファイルの共有** | 共通コピーへの symlink、copy オプション | Source ディレクトリと merge、copy、ディレクトリ全体の symlink モード |
+| **更新** | `skills check` と `skills update` | `skillshare check` と `skillshare update` |
+| **プロジェクト復元** | 実験的な `skills experimental_install` が `skills-lock.json` の対応ソースを復元 | 宣言的な skill 設定と source リソース。[manifest](/docs/understand/declarative-manifest) を参照 |
+| **npm プロジェクト同期** | 実験的な `skills experimental_sync` がインストール済み依存関係と `package.json` の skill 宣言を読む | Source から target への同期。同じ npm 依存関係ワークフローではない |
+| **マシン間のワークフロー** | プロジェクト lock の復元と npm 同期でプロジェクト skills の再構築を支援 | Git の `push` / `pull`。範囲は `git_root` で決定 |
+| **Skills 以外** | 引用した CLI 文書は skills が中心 | Agent 定義、rules などの extras、MCP 設定、対応クライアントの hooks |
+| **ローカル管理と復旧** | 引用した CLI 文書にローカル dashboard や target バックアップのコマンドは記載されていない | `skillshare ui`、target のバックアップ／復元、管理対象ファイルの復旧 |
+| **実行環境** | Node.js と npm/npx | Go バイナリ。Git 操作には Git が必要 |
 
-## よくある課題の解決
+### 実験的なコマンドの範囲
 
-### 「インストールのたびに agent を選び直さないといけない」
+- **`experimental_install`** は対応する lock エントリーを `.agents/skills/` に復元します。npm 依存関係のインストールや、復元した skills の agent 専用リンクの作成は行いません。明示的に再インストールしない限り既存 skills は保持されます。Frozen-lock モードでは内容の hash を検証し、CI ではこれがデフォルトです。
+- **`experimental_sync`** はインストール済み npm 依存関係に含まれる skills をリンクし、`package.json` の skill 宣言を解決します。`skills-lock.json` で追跡し、提供されなくなった skills を削除し、別途追加した skills は保持します。Copy の場合、依存関係の更新後に再同期が必要です。
 
-skillshare では、Target を一度だけ設定します。
-
-```yaml
-targets:
-  claude: ~/.claude
-  cursor: ~/.cursor/skills
-```
-
-以降、`sync`、`install`、`collect` はどこに反映すべきか把握しています。プロンプトは不要です。
-
-### 「1 つの agent から Skill を削除すると他が壊れる」
-
-命令型ツールでは、1 つの agent から Skill を削除すると共有の Source ファイルが削除され、他の agent のシンボリックリンクが壊れることがあります。
-
-skillshare のアーキテクチャはこれを完全に防ぎます。Source ディレクトリが唯一の真実であり、Target のシンボリックリンクは Source を**指す**だけです。Target を削除してもそのシンボリックリンクが消えるだけで、Source ファイルは無傷です。
-
-```
-Source: ~/.config/skillshare/skills/my-skill/SKILL.md  (always preserved)
-  ├── ~/.claude/skills/my-skill → symlink to source  ✓
-  ├── ~/.cursor/skills/my-skill  → symlink to source  ✓  (unaffected)
-  └── ~/.codex/skills/my-skill  → symlink to source  ✓  (unaffected)
-```
-
-### 「新しいマシンでセットアップを復元できない」
-
-skillshare なら、セットアップ全体を持ち運べます。
-
-1. `~/.config/skillshare/`（Source + config）をバージョン管理する
-2. 新しいマシンで、config リポジトリを `git clone` する
-3. `skillshare sync` を実行する
-
-すべての Target が即座に再現されます。
-
-### 「update と check が GitLab / Bitbucket / Azure DevOps で動かない」
-
-命令型ツールは更新チェックを GitHub Trees API に依存していることが多く、`update` と `check` が GitHub 以外のソースの Skill を黙ってスキップしてしまいます。
-
-skillshare は**ローカルの git 操作**（`git fetch` + ツリーハッシュ比較）を使用するため、GitLab、Bitbucket、Azure DevOps、Gitea、AtomGit、Gitee、任意のセルフホストインスタンスを含む、あらゆる Git remote で動作します。プラットフォーム固有の API は不要です。
-
-```bash
-# All of these support install, update, and check:
-skillshare install https://gitlab.com/team/skills
-skillshare install git@bitbucket.org:company/private-skills.git
-skillshare install https://git.mycompany.com/org/repo
-skillshare update   # checks all sources, regardless of host
-```
-
-### 「大きなリポジトリの clone に時間がかかりすぎる」
-
-skillshare は、tracked でないインストールに対してデフォルトで shallow clone（`--depth 1`）を使用し、ダウンロード時間を大幅に短縮します。完全な履歴が必要な tracked repo には `--track` を使用してください。
-
-### 「Skill が各 agent のディレクトリに散らばっている」
-
-skillshare はすべてを 1 か所にまとめます。
-
-```
-~/.config/skillshare/skills/
-├── my-custom-skill/          # Your own skills
-├── react-best-practices/     # Installed skills
-├── _team-repo/               # Tracked repos (prefixed with _)
-│   ├── frontend-guidelines/
-│   └── code-review/
-└── _another-org-repo/
-```
-
-`_` 接頭辞により、tracked（チーム/組織）の repo と個人の Skill が明確に区別されます。
-
-## skillshare への移行
-
-すでに別の Skill マネージャーを使用している場合は、以下の手順に従ってください。
-
-### ステップ 1: skillshare をインストールする
-
-```bash
-# macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
-```
-
-インストーラーが PATH 設定の案内を表示した場合のみ、その案内に従ってから以下のコマンドを実行してください。PATH の警告がなければ追加の設定は不要です。
-
-```bash
-
-# Homebrew
-brew install skillshare
-```
-
-### ステップ 2: 初期化して既存の Skill を取り込む
-
-```bash
-skillshare init              # Creates config and detects targets
-skillshare collect --all     # Imports existing skills from all detected targets
-```
-
-### ステップ 3: Sync する
-
-```bash
-skillshare sync              # Symlinks source skills to all targets
-```
-
-これで既存の Skill が 1 か所から管理できるようになりました。詳しい手順は[移行ガイド](/docs/how-to/advanced/migration)を参照してください。
+これらは実際の同期・復元機能ですが、AI ツール設定全体のバックアップではありません。
 
 ## 適切なツールの選び方
 
-**次の場合は命令型ツールを選びましょう。**
-- Skill をたまにしかインストールせず、インタラクティブなプロンプトが気にならない
-- 使用している AI CLI が 1 つだけである
-- クロスマシンやチームでのワークフローが不要である
+**npx skills を使い続ける**：主な目的が公開・非公開 skills の発見、インストール、更新なら、複数 agent を使う場合も合理的です。Skills を npm プロジェクトの依存関係に追従させたく、実験的なワークフローを受け入れられる場合にも適しています。
 
-**次の場合は skillshare を選びましょう。**
-- 複数の AI CLI を使用しており、それらを同期させたい
-- 一度設定したら放置できる構成を望んでいる
-- 複数のマシンで作業している
-- チームや組織で Skill を共有している
-- Skill のバックアップ、復元、バージョン管理をしたい
-- GitLab、Bitbucket、Azure DevOps、またはセルフホストの Git で Skill をホストしている
-- ランタイム依存のない単一バイナリを好む
-- ローカルワークフローの外でインストール/ダウンロードの活動が追跡されるのを望まない
+**Skillshare を選ぶ**：たとえば「Claude Code と Codex を使っていて、管理対象の skills、rules、MCP 設定、対応する hooks を別のマシンに持っていきたい」場合です。Source／target 設定、Git ワークフロー、ローカル dashboard、復旧ツールが、この広い管理ニーズに対応します。
 
----
+移行先でも準備は必要です。Git の範囲を選び、targets を設定し、認証情報と外部依存関係を別途用意してください。`push` のデフォルトは skills の source であり、全設定の公開やマシン全体のバックアップは行いません。[Git root の範囲](/docs/reference/commands/push)と [sync](/docs/reference/commands/sync) を参照してください。
+
+## Skillshare への移行
+
+正常に動いているインストーラーをすぐに置き換える必要はありません。Skillshare に管理させたいリソースだけを移し、同じ管理対象 skill を両ツールで更新・削除しないでください。
+
+現在の移行は、情報をすべて保持する lock インポートではありません。収集した skills はローカルコピーであり、元リポジトリの追跡情報を保持しません。Skillshare で更新を続けたい場合は、記録されたソースから再インストールしてください。管理を移す前にバックアップとプレビューを行い、収集だけで完了とせず [npx skills 移行ガイド](/docs/how-to/advanced/migration)に従ってください。
 
 ## 関連項目
 
-- [移行](/docs/how-to/advanced/migration) — 移行ガイド
-- [コアコンセプト](/docs/understand) — skillshare の仕組み
+- [移行](/docs/how-to/advanced/migration)
+- [コアコンセプト](/docs/understand)
+- [バックアップ](/docs/reference/commands/backup)
