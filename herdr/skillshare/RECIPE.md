@@ -1,8 +1,10 @@
 # Herdr + skillshare
 
-Herdr's default window with a skillshare button in the tab bar and a skillshare panel beside the work area. The panel shows what the focused space's project and your global skillshare source hold: which skills, agents, MCP servers, plugins and hooks need an update or a sync. From the panel you can update, sync, install from a URL, uninstall, ask the focused agent to audit something, and sync the source repository both ways.
+skillshare beside your agents. Herdr's default window gains a skillshare button in the tab bar and a panel beside the work area that shows which of your skills, agents, MCP servers, plugins and hooks need an update or a sync, in the focused space's project and in your global source. From the panel you update, sync, install from a URL with an audit first, uninstall, ask the focused agent to audit something, sync the source repository both ways, and check skillshare on every Herdr machine.
 
 ![Herdr + skillshare](preview.png)
+
+skillshare keeps one source of skills, agents, MCP servers, plugins and hooks and syncs it to Claude Code, Codex, Gemini CLI and the other AI coding tools you use. New to it? Start with the [main README](../../README.md); this folder's [README](README.md) covers installing the panel.
 
 ## What you see
 

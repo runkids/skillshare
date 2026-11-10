@@ -7,4 +7,4 @@ A Herdr mod and layout for skillshare. Herdr runs mods in QuickJS with its own U
 - `main.js` imports `herdr`; check it with `herdr-app check <mod folder>` on a machine with Herdr. QuickJS rejects `??` mixed with `||`/`&&` without parentheses, which node accepts.
 - Use Herdr theme tokens only. Never keep a `cx` past its callback, call `setShared`/`notify` during render, or pass `null` to `.child`.
 - `model.js` parses the CLI's `--json` output (`loader.js` reads a few `status` and `doctor` fields) and mirrors `internal/install/metadata_merge.go`. Change both sides together.
-- Keep `README.md`, `RECIPE.md` and the code in step. `RECIPE.md` describes only what the build does; `preview.png` is the design board's Main page, not a capture of private data.
+- Keep `README.md`, `RECIPE.md` and the code in step. `RECIPE.md` describes only what the build does; `preview.png` is the design board's Main page, not a capture of private data. Redraw `panels.png` and the site copy too.

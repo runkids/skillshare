@@ -1,9 +1,26 @@
 # skillshare for Herdr
 
-A Herdr panel for the skillshare CLI. It shows what the focused space's project and the
-global source hold—skills, agents, MCP servers, plugins and hooks—and what needs an update or a sync. It updates, syncs, installs from a
-URL, uninstalls, hands an audit to the focused agent, syncs the source repository both
-ways, and shows each Herdr machine's skillshare on a Machines tab.
+![The skillshare panel in Herdr: what needs an update or a sync, hooks for every agent, and every machine](panels.png)
+
+[skillshare](../../README.md) keeps your skills, agents, MCP servers, plugins and hooks in one
+source you control and syncs them to Claude Code, Codex, Gemini CLI and the other AI coding tools
+you use. This panel puts it beside your agents in [Herdr](https://herdr.dev):
+
+- **See what is out of date.** The focused space's project and your global source, grouped into
+  Updates available, Needs sync and In sync.
+- **Fix it without leaving Herdr.** Update, sync, uninstall, or install from a URL; every install
+  is audited first, and a blocked one shows its findings before anything is written.
+- **Ask your agent.** Hand an audit of any skill to the focused agent.
+- **Every machine.** The Machines tab shows each Herdr machine's version, source state and drift,
+  with Pull and sync.
+- **The source repository.** Pull, push or sync both ways, and pick a version per file when both
+  sides changed it.
+
+New to skillshare? Start with the [main README](../../README.md) or the
+[docs](https://skillshare.runkids.cc/docs/learn/with-herdr). If the panel saves you time, a star on
+[runkids/skillshare](https://github.com/runkids/skillshare) helps other people find it.
+
+![Herdr with the skillshare panel beside a Claude Code session](preview.png)
 
 ## Install
 
