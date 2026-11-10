@@ -73,14 +73,13 @@ export function parseSnapshot(text) {
 // sh -c PROJECT <name> <folder>: prints the folder when skillshare treats it as a project.
 export const PROJECT = '[ -f "$1/.skillshare/config.yaml" ] || [ -f "$1/skillshare/config.yaml" ] && printf "%s" "$1"';
 
-// sh -c DISCOVER <name> <git url> [branch]: "@dir <temp folder>" (the clone is kept in <temp>/r for the
-// audit step; the caller removes it), then the skill folders, one per line ("." for a skill at
-// the root). The CLI's install dry-run does not list them.
-export const DISCOVER = `d=$(mktemp -d)
-GIT_TERMINAL_PROMPT=0 git clone -q --depth 1 \${2:+-b "$2"} "$1" "$d/r" >/dev/null 2>"$d/err" || { tail -n 1 "$d/err" >&2; rm -rf "$d"; exit 1; }
+// Through START_SCRIPT: DISCOVER <cwd> <source> <git url> <branch> <-g|-p>.
+// Keep a clone for audit, then ask the CLI for canonical names and repository-relative paths.
+export const DISCOVER = `${TEMP}
+GIT_TERMINAL_PROMPT=0 git clone -q --depth 1 \${4:+-b "$4"} "$3" "$d/r" >/dev/null 2>"$d/err" || { tail -n 1 "$d/err" >&2; rm -rf "$d"; exit 1; }
 echo "@dir $d"
-cd "$d/r" || exit 1
-find . -name SKILL.md -not -path './.git/*' -not -path '*/node_modules/*' | sed 's|/SKILL.md$||; s|^\\./||' | sort`;
+cd "$1" 2>/dev/null || cd
+skillshare install "$2" --dry-run --json --kind skill "$5"`;
 
 // Through START_SCRIPT: AUDIT <cwd> <temp folder> <-g|-p> <skill folders...>. One
 // "@@ <folder>" line, then that folder's `skillshare audit <path> --json`, per folder.
@@ -577,9 +576,18 @@ export function cloneUrl(source) {
   return { url: `https://${repo}.git`, single, path, branch: onBranch && parts[4] ? parts[4] : "" };
 }
 
-// Skill folders → what `install --skill` takes (the folder's own name).
-export function skillChoices(paths) {
-  return paths.filter((p) => p && p !== ".").map((p) => ({ path: p, name: p.split("/").pop() }));
+// Keep exit status authoritative even with valid JSON from an older CLI.
+export function installResult(r) {
+  const j = parseJSON(r.stdout), done = j?.skills ?? [], failed = j?.failed ?? [];
+  if (j?.error) return { done: null, error: j.error };
+  if (r.code !== 0) {
+    const details = [done.length ? `Installed: ${done.join(", ")}.` : "", failed.length ? `Failed: ${failed.join(", ")}.` : "", lastLine(r.stderr)].filter(Boolean);
+    details.push(`skillshare install exited with ${r.code}.`);
+    return { done: null, error: details.join(" ") };
+  }
+  if (failed.length) return { done: null, error: `Installed ${done.length} skill(s); ${failed.join(", ")} failed. The install's own audit can stop one.` };
+  if (!j) return { done: null, error: failure(r, "skillshare install returned no JSON") };
+  return { done, error: null };
 }
 
 export function newerVersion(a, b) {
@@ -644,11 +652,23 @@ export function auditMessage(item) {
   return `Audit the ${item.kind === "agents" ? "agent" : "skill"} "${item.name}": run \`skillshare audit ${kind}${item.name}${flag} --json\` and \`skillshare diff${flag}\`. Summarize what changed and any findings, then wait for me.`;
 }
 
-// DISCOVER's output → the kept clone folder and the skill folders in it.
+// DISCOVER's output → the audit clone and the CLI's exact install plan. Never fall back
+// to filesystem discovery: it can audit one directory and install a different one.
 export function parseDiscover(text) {
-  const lines = String(text ?? "").split("\n").map((l) => l.trim()).filter(Boolean);
+  const lines = String(text ?? "").trim().split("\n");
   const dir = lines[0]?.startsWith("@dir ") ? lines.shift().slice(5) : null;
-  return { dir, paths: lines };
+  const j = parseJSON(lines.join("\n"));
+  const fail = (error) => ({ dir, choices: [], error });
+  if (j?.error) return fail(j.error);
+  if (!Array.isArray(j?.planned)) return fail("Upgrade skillshare on this machine: this CLI does not provide an install plan.");
+  const names = new Set();
+  for (const skill of j.planned) {
+    if (!skill.name || !skill.path) return fail("The CLI returned an incomplete install plan.");
+    const key = skill.name.toLowerCase();
+    if (names.has(key)) return fail(`Ambiguous install name: ${skill.name}. Use an explicit skill URL instead.`);
+    names.add(key);
+  }
+  return { dir, choices: j.planned, error: null };
 }
 
 const SEVERITY = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"];

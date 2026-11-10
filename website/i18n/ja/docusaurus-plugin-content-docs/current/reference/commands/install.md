@@ -307,6 +307,8 @@ skillshare sync
 skillshare install anthropics/skills --json
 ```
 
+明示的に指定した非追跡の skill ソースでは、`--dry-run --json` を追加すると、インストールせずに `{name, path}` の `planned` 配列を取得できます。名前は CLI のインストール名です。Git のパスはリポジトリのルートからの相対パス（選択したサブディレクトリを含む）で、ローカル skill は `.` を使用します。検出、`.skillignore`、選択のルールが適用され、JSON モードではフィルターがなければ全選択になります。`skills` は引き続きインストール済みの名前のみを報告し、dry-run では空です。検出後に選択された skill がなければ `planned: []` を返します。追跡および設定ファイルからのインストールでは、このフィールドは提供されません。
+
 ```json
 {
   "source": "anthropics/skills",

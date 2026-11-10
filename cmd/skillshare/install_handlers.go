@@ -165,6 +165,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		return logSummary, err
 	}
 	defer install.CleanupDiscovery(discovery)
+	logSummary.planSkills(source, nil)
 
 	treeSpinner.Stop()
 	ui.StepDone("Source", sourceLabel(source.Raw))
@@ -211,6 +212,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 			skill.Name = opts.Name
 		}
 		ui.StepContinue("Found", fmt.Sprintf("1 skill: %s", skill.Name))
+		logSummary.planSkills(source, []install.SkillInfo{skill})
 
 		renderSkillMeta(skill)
 
@@ -295,6 +297,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 			}
 			skill.Name = opts.Name
 		}
+		logSummary.planSkills(source, []install.SkillInfo{skill})
 
 		renderSkillMeta(skill)
 
@@ -343,6 +346,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		}
 
 		if opts.DryRun {
+			logSummary.planSkills(source, selected)
 			if err := checkIntoFolder(cfg.EffectiveSkillsSource(), opts); err != nil {
 				return logSummary, err
 			}
@@ -857,6 +861,7 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 
 	// Set the name in source for display
 	source.Name = skillName
+	logSummary.planSkills(source, []install.SkillInfo{{Name: skillName, Path: "."}})
 
 	// Determine destination path
 	destPath := destWithInto(cfg.EffectiveSkillsSource(), opts, skillName)

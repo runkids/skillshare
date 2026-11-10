@@ -12,7 +12,7 @@ import { exec, hc, run, spaces, agents, focused, machines, shared, setShared, th
 import {
   KINDS, SCOPES, DISCOVER, AUDIT,
   parseJSON, lastLine, failure, flag, sourceLine, buildItems, hookArgs, toggleArgs, rowState, previewTargets, eligibleTargets, targetList, waitsForSync, syncScopes, overviewAnswer, remoteLine, waitingNames, mapLanes, needsBothWays, filterItems, groupItems, sourceGroups, counts,
-  cloneUrl, skillChoices, newerVersion, panelUpdate, updateState, ago, auditMessage, parseDiscover, parseAudit,
+  cloneUrl, installResult, newerVersion, panelUpdate, updateState, ago, auditMessage, parseDiscover, parseAudit,
 } from "./model.js";
 import { createRunner } from "./jobs.js";
 import { createChannel, EVERY } from "./channel.js";
@@ -1086,20 +1086,20 @@ export default class Skillshare extends View {
     this.dropClone(p);
     this.discovering = true; this.error = null; cx.notify();
     cx.spawn(async (cx) => {
-      const r = await sh(DISCOVER, [target.url, ...(target.branch ? [target.branch] : [])], p.on);
+      const { job } = machineIO(cx);
+      const r = await job([source, target.url, target.branch ?? "", flag(this.scope)], {
+        on: p.on, cwd: this.scope === "project" ? p.project : null, script: DISCOVER,
+      });
       this.discovering = false;
-      if (this.closed) { const d = parseDiscover(r.stdout).dir; if (d) sh('rm -rf "$1"', [d], p.on); return; }
-      if (r.code !== 0) { this.error = lastLine(r.stderr) || lastLine(r.stdout) || "Could not read the repository"; cx.notify(); return; }
-      const { dir, paths } = parseDiscover(r.stdout);
+      const { dir, choices, error } = parseDiscover(r.stdout);
       this.dir = dir; this.source = source;
-      const repoName = target.url.replace(/\.git$/, "").split("/").pop();
-      if (target.single) {
-        const folder = target.path.replace(/\/SKILL\.md$/, "");
-        return this.startInstall(cx, [{ path: paths.includes(folder) ? folder : null, name: folder.split("/").pop() }], null);
+      if (this.closed) { this.dropClone(p); return; }
+      if (r.code !== 0 || error) {
+        this.dropClone(p);
+        this.error = r.code !== 0 ? (lastLine(r.stderr) || error || "Could not read the repository") : error;
+        cx.notify(); return;
       }
-      if (paths.includes(".")) return this.startInstall(cx, [{ path: ".", name: repoName }], null);
-      const choices = skillChoices(paths);
-      if (!choices.length) { this.dropClone(p); this.error = "No SKILL.md in this repository."; cx.notify(); return; }
+      if (!choices.length) { this.dropClone(p); this.error = "No installable skills in this repository."; cx.notify(); return; }
       if (choices.length === 1) return this.startInstall(cx, choices, null);
       this.found = choices; this.picked = new Set(); this.step = "pick"; cx.notify();
     });
@@ -1138,12 +1138,11 @@ export default class Skillshare extends View {
           if (a.blocked.length) { pr.blocked = a; cx.notify(); return; }
           pr.at = 2; cx.notify();
         }
-        const args = ["install", this.source, "--json", flag(this.scope), ...(pr.skills?.length ? ["--skill", pr.skills.join(",")] : []), ...(pr.force ? ["--force"] : [])];
+        const args = ["install", this.source, "--json", "--kind", "skill", flag(this.scope), ...(pr.skills?.length ? ["--skill", pr.skills.join(",")] : []), ...(pr.force ? ["--force"] : [])];
         const r = await job(args, opt);
-        const j = parseJSON(r.stdout);
-        if (j?.error || (!j && r.code !== 0)) pr.error = j?.error ?? failure(r, "skillshare install");
-        else if (j?.failed?.length) pr.error = `Installed ${plural(j.skills?.length ?? 0, "skill")}; ${j.failed.join(", ")} failed. The install's own audit can stop one.`;
-        else { pr.at = 3; pr.done = j?.skills ?? []; }
+        const result = installResult(r);
+        if (result.error) pr.error = result.error;
+        else { pr.at = 3; pr.done = result.done; }
         this.dropClone(p);
       } finally { channel.release(p.on); }
       request({ op: "refresh", on: p.on });

@@ -52,9 +52,10 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
 - Hook conflicts block `sync --all` for every resource kind; resolve them in the CLI or dashboard before retrying.
 - Sync, on Overview, syncs every scope that has something waiting in the scope the switch shows, and also runs `sync plugins` when a plugin waits. Sync in Library does the same, and with nothing waiting it syncs the shown scope again.
 - The install button opens a URL dialog with recent sources:
-  - a repository with several skills shows a pick list, marking the ones that would replace an installed skill;
+  - a repository with several skills shows a pick list from the CLI's `install --dry-run --json --kind skill` plan (`planned`), marking replacements; names and paths follow the CLI's discovery and ignore rules. Ambiguous names are refused. Older CLIs without the plan must be upgraded on that machine;
   - a progress view then runs Download (a shallow clone), Audit (`skillshare audit <path> --json` on the clone) and Install;
-  - a blocked audit stops before anything is written and shows its findings, with "Ask <agent> to review…", Cancel and Install anyway (`--force`).
+  - a blocked audit stops before anything is written and shows its findings, with "Ask <agent> to review…", Cancel and Install anyway (`--force`);
+  - any non-zero install exit is a failure, even if the JSON has no `error` (older CLIs).
 - The source dialog lists uncommitted files and offers:
   - Sync both ways…;
   - Pull, which stays disabled while there are uncommitted changes or nothing to pull;
@@ -102,7 +103,7 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
 
 - Herdr stops an `exec` after 30 s. Long commands (the list snapshot, check, doctor, install, update, sync, pull, push, upgrade, the panel update) run detached into a temp folder on that machine, and the panel polls for their exit code. Herdr ends an exec's whole process group when it returns, and hangs up programs that still carry the exec's `HC_SCOPE`, so each job drops `HC_SCOPE` and gets its own group (`setsid`, or sh job control where `setsid` is missing, as on macOS). The panel checks every 5 s that the job still runs, and reports "skillshare stopped before it finished" when it was killed instead of waiting the full 15 minutes. A panel closed mid-job never collects the result, so the first job on each machine removes `skillshare-panel.*` folders unchanged for 15 minutes whose job no longer runs.
 - The CLI has no JSON for git state. Git state comes from `git status --porcelain=v1 --branch`.
-- The CLI's install dry-run does not list a repository's skills, and `install --json` names a blocked skill without its findings. That is why the install dialog clones and audits on its own.
+- The CLI's dry-run `planned` field owns skill discovery; the dialog does not scan for skills itself. `install --json` names a blocked skill without its findings, so the dialog keeps a separate clone for audit. Preview, audit and install fetch separately; a moving upstream branch can change between them.
 - `install --json` overwrites a skill of the same name. The dialog asks before replacing one.
 - Keep the panel out of the `panel` stack. Herdr's tabs mod restores that stack per space, so a panel there closes on every space switch.
 - `cx.notify()` throws during `render`, and `cx.spawn` runs its body up to its first `await` at once, so work started from `render` waits for the render to end first (`later`). Otherwise the error is swallowed and the button does nothing.

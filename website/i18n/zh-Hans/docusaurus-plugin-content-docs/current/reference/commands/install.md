@@ -307,6 +307,8 @@ skillshare sync
 skillshare install anthropics/skills --json
 ```
 
+对明确指定、非跟踪的 skill 来源，加上 `--dry-run --json` 可取得 `planned` 数组，包含 `{name, path}`，不会安装。名称是 CLI 的安装名称；Git 路径相对于仓库根目录（包含选取的子目录），本地 skill 使用 `.`。列表遵循发现、`.skillignore` 和选择规则；JSON 模式未指定筛选条件时会全选。`skills` 仍只报告已安装名称，在 dry-run 中保持空数组。发现后没有选中的 skill 时返回 `planned: []`；跟踪与配置文件安装不提供此字段。
+
 ```json
 {
   "source": "anthropics/skills",
