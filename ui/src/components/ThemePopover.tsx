@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { SunMoon, Sun, Moon, Monitor, Check } from 'lucide-react';
 import { useTheme, type Style, type ModePreference } from '../context/ThemeContext';
 import { useT } from '../i18n';
+import { segSlide } from '../lib/segSlide';
+import { useMenuPresence } from '../hooks/usePresence';
 
 const styles: { value: Style; label: string }[] = [
   { value: 'clean', label: 'theme.clean' },
@@ -37,6 +39,7 @@ export default function ThemePopover() {
   const t = useT();
   const { style, setStyle, modePreference, setModePreference } = useTheme();
   const [open, setOpen] = useState(false);
+  const menu = useMenuPresence(open);
   const containerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -95,12 +98,12 @@ export default function ThemePopover() {
         <SunMoon size={16} />
       </button>
 
-      {open && (
+      {menu.shown && (
         <div
           ref={panelRef}
           role="dialog"
           aria-label={t('theme.settings')}
-          className="ss-menu absolute left-0 bottom-full mb-3 z-50 !w-[264px] !p-3 gap-2 animate-dropdown-in"
+          {...menu.exitProps} className={`ss-menu absolute left-0 bottom-full mb-3 z-50 origin-bottom-left !w-[264px] !p-3 gap-2 ${menu.motion}`}
         >
           <span className="text-xs font-semibold text-ink-3">{t('theme.style')}</span>
           <div role="radiogroup" aria-label={t('theme.style')} className="flex gap-1.5">
@@ -127,7 +130,7 @@ export default function ThemePopover() {
             })}
           </div>
           <span className="text-xs font-semibold text-ink-3 mt-1">{t('theme.mode')}</span>
-          <div role="radiogroup" aria-label={t('theme.mode')} className="ss-seg !flex">
+          <div ref={segSlide} role="radiogroup" aria-label={t('theme.mode')} className="ss-seg !flex">
             {modes.map((m) => {
               const on = modePreference === m.value;
               const Icon = m.icon;

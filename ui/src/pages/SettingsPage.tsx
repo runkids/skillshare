@@ -12,6 +12,7 @@ import { shortenHome } from '../lib/paths';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useOverviewQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
+import { segSlide } from '../lib/segSlide';
 
 const MODES = ['merge', 'copy', 'symlink'];
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
@@ -100,7 +101,7 @@ export default function SettingsPage() {
                   <b>{t('settings.source.mode')}</b>
                   <span>{t('settings.source.modeHint')}</span>
                 </div>
-                <div className="ss-seg shrink-0" role="radiogroup" aria-label={t('settings.source.mode')}>
+                <div ref={segSlide} className="ss-seg shrink-0" role="radiogroup" aria-label={t('settings.source.mode')}>
                   {MODES.map((m) => {
                     const on = (cfg.Mode || 'merge') === m;
                     return (
@@ -123,7 +124,7 @@ export default function SettingsPage() {
                 <b>{t('settings.appearance.style')}</b>
                 <span>{t('settings.appearance.styleHint')}</span>
               </div>
-              <div className="ss-seg shrink-0" role="radiogroup" aria-label={t('settings.appearance.style')}>
+              <div ref={segSlide} className="ss-seg shrink-0" role="radiogroup" aria-label={t('settings.appearance.style')}>
                 {(['clean', 'playful'] as Style[]).map((s) => (
                   <button key={s} type="button" role="radio" aria-checked={style === s} className={style === s ? 'on' : ''} onClick={() => setStyle(s)}>
                     {t(`settings.appearance.style.${s}`)}
@@ -133,7 +134,7 @@ export default function SettingsPage() {
             </div>
             <div className="ss-setrow">
               <div className="l"><b>{t('settings.appearance.theme')}</b></div>
-              <div className="ss-seg shrink-0" role="radiogroup" aria-label={t('settings.appearance.theme')}>
+              <div ref={segSlide} className="ss-seg shrink-0" role="radiogroup" aria-label={t('settings.appearance.theme')}>
                 {(['light', 'dark', 'system'] as ModePreference[]).map((m) => (
                   <button key={m} type="button" role="radio" aria-checked={modePreference === m} className={modePreference === m ? 'on' : ''} onClick={() => setModePreference(m)}>
                     {t(`settings.appearance.theme.${m}`)}

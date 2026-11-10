@@ -11,6 +11,7 @@ import { PageSkeleton } from '../Skeleton';
 import { messagesByLocale, useT, plural } from '../../i18n';
 import { queryKeys } from '../../lib/queryKeys';
 import { fileName, shortenHome } from '../../lib/paths';
+import { bulkGhost } from '../../lib/exitGhost';
 
 type T = ReturnType<typeof useT>;
 type Pending = Record<string, boolean>;
@@ -101,7 +102,7 @@ function ExtensionsView({ name, view, pending, setPending, applied, setApplied, 
       )}
 
       {changes.length > 0 && (
-        <div className="ss-bulk" role="toolbar" aria-label={pendingLabel}>
+        <div ref={bulkGhost} className="ss-bulk" role="toolbar" aria-label={pendingLabel}>
           <b>{pendingLabel}</b>
           <span className="text-ink-3 max-md:hidden">{t('targetDetail.ompExtensions.pending.nothingYet')}</span>
           <span className="dv" />

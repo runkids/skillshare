@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { FilePlus, Plus, Upload } from 'lucide-react';
 import Button from '../Button';
 import { useT } from '../../i18n';
+import { useMenuPresence } from '../../hooks/usePresence';
 
 interface Props {
   /** Rejects with a message the menu shows under the field. */
@@ -14,11 +15,15 @@ interface Props {
 export default function AddHubMenu({ onAdd, onCreate, onImport }: Props) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  const menu = useMenuPresence(open);
   const [url, setURL] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const urlInput = useRef<HTMLInputElement>(null);
+  // autoFocus would miss a reopen during the fade-out, when the panel never unmounted.
+  useEffect(() => { if (open) urlInput.current?.focus(); }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -68,8 +73,8 @@ export default function AddHubMenu({ onAdd, onCreate, onImport }: Props) {
         <Plus size={14} />
         {t('hubs.addOrCreate')}
       </button>
-      {open && (
-        <div role="menu" aria-label={t('hubs.addOrCreate')} className="ss-menu absolute left-0 top-full z-50 mt-2 !w-[400px] animate-dropdown-in">
+      {menu.shown && (
+        <div role="menu" aria-label={t('hubs.addOrCreate')} {...menu.exitProps} className={`ss-menu absolute left-0 top-full z-50 mt-2 !w-[400px] origin-top-left ${menu.motion}`}>
           <form
             className="flex flex-col gap-2 px-2.5 pt-2.5 pb-3"
             onSubmit={(e) => { e.preventDefault(); void add(); }}
@@ -79,7 +84,7 @@ export default function AddHubMenu({ onAdd, onCreate, onImport }: Props) {
               <span className="ss-inp min-w-0 flex-1">
                 <input
                   id="hub-add-url"
-                  autoFocus
+                  ref={urlInput}
                   value={url}
                   disabled={busy}
                   placeholder={t('install.hubs.urlPlaceholder')}

@@ -16,6 +16,7 @@ import { getCachedAuditResult } from '../lib/auditCache';
 import { queryKeys } from '../lib/queryKeys';
 import { useOverviewQuery } from '../hooks/useSharedQueries';
 import { AUDIT_SEVERITIES as SEVERITIES, auditSeverityRank as rank, auditSourceLinkNote, displayAuditFindings } from '../lib/auditDisplay';
+import { segSlide } from '../lib/segSlide';
 
 type Kind = 'skills' | 'agents';
 type Severity = AuditFinding['severity'];
@@ -140,7 +141,7 @@ export default function AuditPage() {
       </nav>
 
       <div className="flex flex-wrap items-center gap-3">
-        <div className="ss-seg" role="tablist">
+        <div ref={segSlide} className="ss-seg" role="tablist">
           {(['skills', 'agents'] as Kind[]).map((k) => (
             <button key={k} type="button" role="tab" aria-selected={kind === k} className={kind === k ? 'on' : ''} disabled={scanning} onClick={() => setKind(k)}>
               {k === 'skills' ? <Puzzle size={14} /> : <Bot size={14} />}

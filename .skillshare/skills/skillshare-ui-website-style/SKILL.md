@@ -47,7 +47,7 @@ Set by `ui/src/context/ThemeContext.tsx`, switched in `ThemePopover.tsx`. `?them
 
 All four looks come from CSS variables alone. A page that uses only tokens and `ss-*` classes gets all four for free; a hardcoded colour, radius or shadow breaks three of them.
 
-- Clean: system font, 1px hairlines, soft shadows, ink-coloured primary button.
+- Clean: system font, 1px hairlines, soft shadows, ink-coloured primary button. Only layers that float over scrolling content are frosted glass (menus, `.ss-hud`, the stuck `.ss-stickbar`); the page, cards and sidebar stay solid.
 - Playful: Kalam headings, 2px ink borders, hard offset shadows, dashed separators, yellow primary, pastel accents, dot-grid background, sticky-note tiles.
 - Style-only markup: `.ss-only-clean` / `.ss-only-playful` (Dashboard shows a count strip in Clean and a pin board in Playful).
 
@@ -68,6 +68,8 @@ Defined per look at the top of `ui/src/components.css`. `ui/src/index.css` expos
 | Type | `--f` `--fh` `--fm` `--h1` `--h2` | Body, heading (Kalam in Playful), mono, heading shorthands |
 | Shape | `--r-ctl` `--r-btn` `--r-box` `--r-tag` | Controls, buttons (pill), boxes, tags |
 | Shadow | `--sh-box` `--sh-btn` `--sh-float` `--sh-dialog` | Boxes, buttons, menus and toasts, dialogs |
+| Motion | `--spring` `--spring-bounce` | `linear()` easings for springy transitions: `--spring` critically damped, `--spring-bounce` for a release that carried momentum. Defined on `:root` beside the components that use them |
+| Glass | `--glass-menu` `--glass-bar` `--mat` `--mat-menu` | **Clean only.** Translucent fill and blur for menus and the sticky toolbar; `prefers-reduced-transparency` turns them solid |
 
 Tailwind names: `bg` `side` `surface` `sunken` `ink` `ink-2` `ink-3` `line` `line-2` `line-soft` `sel` `pri` `on-pri` `ok` `warn` `bad` (with `-bg`) and `link` / `link-bg` for `--accent`.
 
@@ -100,14 +102,14 @@ State and variant are short modifier classes on the same element: `.on` (selecte
 | Page | `.ss-wrap` (1080px column, 28px gap), `.ss-pgh` + `.ss-ph` (header, via `PageHeader`), `.ss-crumb`, `.ss-sec` (section heading row; `h2` inside, `.more` link on the right), `.ss-h1` `.ss-h2`, `.ss-hand` (Kalam aside) |
 | Shell | `.ss-side` `.ss-wm` `.ss-nvg` `.ss-nv` `.ss-sidefoot` — `Layout.tsx` only |
 | Buttons | `.ss-btn` + `.pri` `.ghost` `.dng` + `.sm` `.lg`; `.ss-ib` (30px icon button); `.ss-more` (text link) |
-| Forms | `.ss-fld` (label + control + `.hp` help), `.ss-inp` (+ `.area` `.err`, `.k` key hint), `.ss-chk` (+ `.rad`), `.ss-sw` (switch; `.on`, `.mix` when only some are on), `.ss-tgl` (icon toggle), `.ss-seg` (+ `.ic` icon-only) |
+| Forms | `.ss-fld` (label + control + `.hp` help), `.ss-inp` (+ `.area` `.err`, `.k` key hint), `.ss-chk` (+ `.rad`), `.ss-sw` (switch; `.on`, `.mix` when only some are on), `.ss-tgl` (icon toggle), `.ss-seg` (+ `.ic` icon-only; give it `ref={segSlide}` from `lib/segSlide` so the Clean pill slides) |
 | Navigation | `.ss-tabs`, `.ss-tabbar` (tabs with controls on the right), `.ss-pager`, `.ss-menu` (+ `.hv` `.dng`, `hr`, `.k`) |
 | Lists | `.ss-list` (framed container), `.ss-lh` (column header), `.ss-gh` (group header), `.ss-r` (row; `.link` clickable, `.sel`, `.fold`; `.nm` name, `.nm.m` mono name), `.ss-plain` (rows without side padding), `.ss-split` (tree view box: `.lp` tree, `.dv` divider, `.rp` detail pane), `.ss-tn` (tree row; `.sel`, `.in` inside a selected folder, `.off`; indent with `--d`) |
 | Boxes | `.ss-box` (card, via `Card`), `.ss-tiles` + `.ss-tile` (grid; sticky notes in Playful), `.ss-kv` (`dl` key/value), `.ss-setrow` (settings row), `.ss-counts` (stat strip) |
 | Status | `.ss-st` (dot + text; `.ok` `.warn` `.bad` `.off`, `.wrap` for long messages), `.ss-tag` (mono label; `.ok` `.warn` `.bad` `.inf`), `.ss-sev` (audit severity; `.c` `.h` `.md` `.l` `.n`), `.ss-cnt` (count) |
 | Icons | `.ss-cat` (kind tile; `.skill` `.agent` `.extra` `.mcp` `.plugin` `.target`, tones, `.sm`), `.ss-at` (agent or tool logo; `.lg`), `.ss-stack` (overlapping logos) |
 | Feedback | `.ss-note` (+ `.warn` `.bad` `.inf`), `.ss-empty` (via `EmptyState`), `.ss-prog`, `.ss-skel`, `.ss-toast`, `.ss-tip` |
-| Overlays | `.ss-scrim` + `.ss-dlg` with `.dh` `.db` `.df` (via `DialogShell`), `.ss-bulk` (selection toolbar), `.ss-top` |
+| Overlays | `.ss-scrim` + `.ss-dlg` with `.dh` `.db` `.df` (via `DialogShell`), `.ss-bulk` (selection toolbar), `.ss-hud` (hint while the shortcut modifier is held), `.ss-top` |
 | Content | `.ss-prose` (rendered markdown), `.ss-code` (+ `.ln` `.cur`), `.ss-pre`, `.ss-ed` (editor) |
 | Dashboard | `.ss-board` `.ss-pin` `.ss-pinnote` `.ss-squig` — Playful pin board |
 

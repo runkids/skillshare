@@ -31,6 +31,7 @@ import {
   instructionsErrorMessage, instructionsWarningMessage, blockMode, connectExtras, connectPlan, connectedTo, modeOptions, needsSync, pickedMode, restorePlan, rowHint, saveCopiesSummary, staleLocations, statusTone, usesOf,
 } from './instructionsView';
 import { invalidate } from '../../lib/queryEvents';
+import { bulkGhost } from '../../lib/exitGhost';
 
 const PREVIEW_LINES = 8;
 type Pending = { title: string; message: ReactNode; confirm: string; danger?: boolean; run: () => Promise<void> };
@@ -506,7 +507,7 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
       )}
 
       {chosen.length > 0 && (
-        <div className="ss-bulk" role="toolbar" aria-label={t('instructions.shared.selected', { count: chosen.length })}>
+        <div ref={bulkGhost} className="ss-bulk" role="toolbar" aria-label={t('instructions.shared.selected', { count: chosen.length })}>
           <b>{t('instructions.shared.selectedShort', { count: chosen.length })}</b>
           <span className="dv" />
           <Button variant="secondary" size="sm" disabled={busy || bulkOff.length === 0} title={bulkOff.length === 0 ? t('instructions.shared.noneOff', { name }) : undefined}

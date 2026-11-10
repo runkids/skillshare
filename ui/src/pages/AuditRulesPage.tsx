@@ -16,6 +16,7 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import AuditRulesYaml from './AuditRulesYaml';
 import { useOverviewQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
+import { segSlide } from '../lib/segSlide';
 
 const PROFILES = ['default', 'strict', 'permissive'];
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
@@ -136,7 +137,7 @@ export default function AuditRulesPage() {
 
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-[13px] text-ink-2">{t('auditRules.profile.label')}</span>
-        <div className="ss-seg" role="radiogroup" aria-label={t('auditRules.profile.label')}>
+        <div ref={segSlide} className="ss-seg" role="radiogroup" aria-label={t('auditRules.profile.label')}>
           {PROFILES.map((p) => (
             <button
               key={p}

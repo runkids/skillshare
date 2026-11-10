@@ -1,6 +1,7 @@
 import { Fragment, useState, useRef, useEffect, useCallback, useId, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Search, X } from 'lucide-react';
+import { useMenuPresence } from '../hooks/usePresence';
 
 export interface SelectOption {
   value: string;
@@ -84,6 +85,7 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
   const labelId = useId();
   const listId = useId();
   const [open, setOpen] = useState(false);
+  const menu = useMenuPresence(open);
   const [focusIdx, setFocusIdx] = useState(-1);
   const [pos, setPos] = useState<DropdownPos | null>(null);
   const [query, setQuery] = useState('');
@@ -133,8 +135,10 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
   // Open the menu, computing position from the live trigger rect first so the
   // portal renders already positioned (no mispositioned flash, no setState in
   // an effect body).
+  // The search clears on open, not on close, so a closing menu fades out as it was.
   const openMenu = useCallback(() => {
     computePos();
+    setQuery('');
     setOpen(true);
   }, [computePos]);
 
@@ -163,7 +167,6 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
         !menuRef.current?.contains(target)
       ) {
         setOpen(false);
-        setQuery('');
       }
     };
     document.addEventListener('mousedown', handler);
@@ -188,14 +191,12 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
     }
     onChange?.(val);
     setOpen(false);
-    setQuery('');
   }, [onChange, onChangeValues, values, options]);
 
-  // Closing clears the search and, when focus was in the search box, returns it to the trigger.
+  // Closing returns focus to the trigger when it was in the search box.
   const close = useCallback(() => {
     setOpen(false);
     if (!search) return;
-    setQuery('');
     if (menuRef.current?.contains(document.activeElement)) triggerRef.current?.querySelector('button')?.focus();
   }, [search]);
 
@@ -247,7 +248,7 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
     else { openMenu(); setFocusIdx(options.findIndex((o) => isOn(o.value))); }
   };
   const maxHeight = columns ? '20rem' : '16rem';
-  const menuClass = `ss-menu fixed z-[9999] !w-auto animate-dropdown-in ${size === 'sm' ? 'text-xs' : 'text-[13px]'}`;
+  const menuClass = `ss-menu fixed z-[9999] !w-auto ${menu.motion} ${size === 'sm' ? 'text-xs' : 'text-[13px]'}`;
   // At least as wide as the trigger; wider for description options so they
   // wrap nicely. Bounded so long descriptions never stretch the dropdown
   // across the page.
@@ -257,6 +258,7 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
     top: pos.top,
     bottom: pos.bottom,
     minWidth: pos.minWidth,
+    transformOrigin: `${pos.bottom !== undefined ? 'bottom' : 'top'} ${pos.right !== undefined ? 'right' : 'left'}`,
     maxWidth: columns ? 'min(40rem, calc(100vw - 1rem))' : quiet ? 'min(30rem, calc(100vw - 1rem))' : 'min(22rem, calc(100vw - 1rem))',
   } : undefined;
   const menuList = pos && (
@@ -266,6 +268,7 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
           role="listbox"
           aria-label={search ? ariaLabel ?? label : undefined}
           aria-multiselectable={values ? true : undefined}
+          {...(search ? {} : menu.exitProps)}
           className={search ? 'flex min-h-0 flex-col overflow-auto' : `${menuClass} overflow-auto`}
           style={search ? { maxHeight } : { ...menuStyle, maxHeight }}
         >
@@ -392,9 +395,9 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
         />
       </button>
       )}
-      {open && pos && createPortal(
+      {menu.shown && pos && createPortal(
         search ? (
-          <div ref={menuRef} className={menuClass} style={menuStyle}>
+          <div key={open ? 'open' : 'closing'} ref={menuRef} {...menu.exitProps} className={menuClass} style={menuStyle}>
             <label className="mb-1 flex h-8 shrink-0 items-center gap-2 rounded-[7px] bg-sunken px-2 text-ink-3">
               <Search size={14} aria-hidden className="shrink-0" />
               <input

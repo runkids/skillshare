@@ -1,4 +1,5 @@
 import { useTour } from './TourProvider';
+import { dialogGhost } from '../../lib/exitGhost';
 
 export default function TourOverlay() {
   const { isActive, currentStep, targetRect, isWaiting, skipTour } = useTour();
@@ -13,7 +14,7 @@ export default function TourOverlay() {
   const showSpinner = isWaiting && currentStep === 0;
 
   return (
-    <div className="fixed inset-0 z-[60]" onClick={handleClick} aria-hidden="true">
+    <div ref={dialogGhost} className="fixed inset-0 z-[60]" onClick={handleClick} aria-hidden="true">
       {!targetRect || isWaiting ? (
         <div className="absolute inset-0 bg-black/50 transition-opacity duration-200">
           {showSpinner && (

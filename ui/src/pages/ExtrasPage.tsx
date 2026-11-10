@@ -26,6 +26,7 @@ import { isAgentsExtra } from '../components/instructions/instructionsView';
 import { useAvailableTargetsQuery, useOverviewQuery } from '../hooks/useSharedQueries';
 import { EditExtraDialog, EditTargetDialog, FILE_MODES, MODES, applyDraftChange, joinFile } from '../components/extras/ExtraEditDialogs';
 import { invalidate } from '../lib/queryEvents';
+import { segSlide } from '../lib/segSlide';
 
 /** A file name typed where a path would be wrong. */
 const isPathLike = (name: string) => /[\\/]/.test(name);
@@ -282,7 +283,7 @@ function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir, fold
           </div>
           <div className="ss-fld">
             <span id="extra-kind" className="text-[13px] font-semibold">{t('extras.modal.sync')}</span>
-            <div className="ss-seg self-start" role="radiogroup" aria-labelledby="extra-kind">
+            <div ref={segSlide} className="ss-seg self-start" role="radiogroup" aria-labelledby="extra-kind">
               {[false, true].map((on) => (
                 <button key={String(on)} type="button" role="radio" aria-checked={single === on} className={single === on ? 'on' : ''} onClick={() => switchKind(on)} disabled={saving}>
                   {on ? <FileText size={14} /> : <Folder size={14} />}

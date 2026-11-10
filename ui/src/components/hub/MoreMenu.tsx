@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { MoreHorizontal } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useMenuPresence } from '../../hooks/usePresence';
 
 interface Item {
   label: string;
@@ -12,6 +13,7 @@ interface Item {
 /** The rarely used actions of a hub, behind one icon button. */
 export default function MoreMenu({ label, items }: { label: string; items: Item[] }) {
   const [open, setOpen] = useState(false);
+  const menu = useMenuPresence(open);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -43,8 +45,8 @@ export default function MoreMenu({ label, items }: { label: string; items: Item[
       >
         <MoreHorizontal size={16} />
       </button>
-      {open && (
-        <div role="menu" aria-label={label} className="ss-menu absolute right-0 top-full z-50 mt-1 !w-44 animate-dropdown-in">
+      {menu.shown && (
+        <div role="menu" aria-label={label} {...menu.exitProps} className={`ss-menu absolute right-0 top-full z-50 mt-1 !w-44 origin-top-right ${menu.motion}`}>
           {items.map(({ label: text, icon: Icon, onClick, danger }) => (
             <button key={text} type="button" role="menuitem" className={danger ? 'dng' : ''} onClick={() => { setOpen(false); onClick(); }}>
               <Icon size={15} />

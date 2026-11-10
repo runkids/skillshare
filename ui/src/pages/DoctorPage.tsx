@@ -15,6 +15,7 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { SettingsTabs } from './SettingsPage';
 import { useOverviewQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
+import { segSlide } from '../lib/segSlide';
 
 type Filter = 'all' | 'error' | 'warning' | 'pass';
 
@@ -124,7 +125,7 @@ export default function DoctorPage() {
         </div>
       </div>
 
-      <div className="ss-seg self-start" role="radiogroup" aria-label={t('doctor.filter.all')}>
+      <div ref={segSlide} className="ss-seg self-start" role="radiogroup" aria-label={t('doctor.filter.all')}>
         {FILTERS.map((f) => (
           <button
             key={f}

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Languages } from 'lucide-react';
 import { messagesByLocale, supportedLocales, useI18n, type Locale } from '../i18n';
+import { useMenuPresence } from '../hooks/usePresence';
 
 export default function LanguagePopover() {
   const { locale, setLocale, t } = useI18n();
   const [open, setOpen] = useState(false);
+  const menu = useMenuPresence(open);
   const containerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -62,12 +64,12 @@ export default function LanguagePopover() {
         <Languages size={16} />
       </button>
 
-      {open && (
+      {menu.shown && (
         <div
           ref={panelRef}
           role="radiogroup"
           aria-label={t('language.settings')}
-          className="ss-menu absolute left-0 bottom-full mb-3 z-50 !w-[300px] max-w-[calc(100vw-6rem)] max-h-[calc(100dvh-8rem)] overflow-y-auto animate-dropdown-in"
+          {...menu.exitProps} className={`ss-menu absolute left-0 bottom-full mb-3 z-50 origin-bottom-left !w-[300px] max-w-[calc(100vw-6rem)] max-h-[calc(100dvh-8rem)] overflow-y-auto ${menu.motion}`}
         >
           {localeOptions.map((entry) => {
             const on = locale === entry.code;
