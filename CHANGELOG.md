@@ -2,25 +2,27 @@
 
 ## [0.30.4] - 2026-11-10
 
-
 ### New Features
 
-* **herdr:** answer "what needs me" first and preview every row ([#836](https://github.com/runkids/skillshare/issues/836)) ([819546f](https://github.com/runkids/skillshare/commit/819546f12467c0fd63032f458b5e3c96604c4df2))
-* **herdr:** enable and disable skills and agents from the panel ([#843](https://github.com/runkids/skillshare/issues/843)) ([833373f](https://github.com/runkids/skillshare/commit/833373f1a72ed2a99ed64559ca08e2e5ab216cf9))
-* **herdr:** let the panel update itself from the latest release ([#839](https://github.com/runkids/skillshare/issues/839)) ([4be28c1](https://github.com/runkids/skillshare/commit/4be28c12588316df1f97ce1c1236100ae38afe7d))
-* **herdr:** name the targets behind a collapsed map line on hover ([#842](https://github.com/runkids/skillshare/issues/842)) ([22b9096](https://github.com/runkids/skillshare/commit/22b90966a1270e8aa651ca5ed7d2eddf8d87a5e7))
-* **herdr:** show an operation's outcome before skillshare answers ([#844](https://github.com/runkids/skillshare/issues/844)) ([68fd285](https://github.com/runkids/skillshare/commit/68fd28597fe3ee2585fefc8d558090a8a89cea9d))
+#### Herdr panel
 
+- **Overview and Library** — the panel now opens on **Overview**: one headline that says whether anything needs you, one **Sync** button, a map from the source to every target, and only the rows that need attention. **Library** holds the full lists, with its own Sync beside the filter. A row shows a name and one short state; clicking it opens a preview with its document, its targets and its details. MCP previews show the names of env, header and token entries, never their values. A machine with uncommitted or unpushed work offers a sync both ways, and warnings and errors clear after 8 seconds. Refs: #836.
+- **Enable and disable from the panel** — the preview of a skill or an agent offers **Disable**, or **Enable** when it is off. The panel asks first, then runs `skillshare disable` or `skillshare enable` for that entry, and the next sync applies it. If another pattern in your ignore files still decides the other way, the panel says the entry did not change instead of reporting success. Refs: #843.
+- **The panel updates itself** — the panel now carries the skillshare version it shipped with and, while shown, checks once an hour for a newer published release. When there is one, the header shows **Update panel**, which replaces the panel's folder with the one from that release and reloads it. The files it replaces are kept once in `.bak-update-<version>` inside the panel's folder. Refs: #839.
+- **Results show at once** — disabling, enabling, uninstalling and changing a hook show their outcome as soon as you confirm, and a finished install lists its skills without waiting for the next read. An update or a sync can still be stopped by an audit or a failed target, so their rows say "updating…" or "syncing…" until skillshare answers. A failed operation puts the rows back. Refs: #844.
+- **Targets behind a collapsed map line** — the Overview map draws at most six lines, so with more targets the last one reads "2 others" or "+3 more". Resting the pointer on it now lists those targets with their state. Refs: #842.
 
 ### Bug Fixes
 
-* **audit:** resolve a nested skill's references against its own root ([#845](https://github.com/runkids/skillshare/issues/845)) ([bce18d2](https://github.com/runkids/skillshare/commit/bce18d2e19b5513605b0d5553d1017e78a2e0a53)), closes [#834](https://github.com/runkids/skillshare/issues/834)
-* **cli:** report why uninstall and install fail under --json ([#835](https://github.com/runkids/skillshare/issues/835)) ([816938c](https://github.com/runkids/skillshare/commit/816938c09c90080042791dc9aad0a0bfdd263674))
-* **herdr:** align install discovery with CLI planning ([#841](https://github.com/runkids/skillshare/issues/841)) ([709f5ce](https://github.com/runkids/skillshare/commit/709f5ce8962cb89cdd69fbee86ea8151c673c173)), closes [#838](https://github.com/runkids/skillshare/issues/838)
-* **herdr:** keep the header pill clear of the Update panel button ([#840](https://github.com/runkids/skillshare/issues/840)) ([4776ca7](https://github.com/runkids/skillshare/commit/4776ca7ada5d728403cc3a81c460faf3471c697c))
-* **install:** report why an install failed in --json output ([#831](https://github.com/runkids/skillshare/issues/831)) ([176a236](https://github.com/runkids/skillshare/commit/176a236249ffcc0df0fdf04f8647290a265e0e8b))
-* **plugin:** let OMP and Pi plugin updates through without uninstalling ([#833](https://github.com/runkids/skillshare/issues/833)) ([#837](https://github.com/runkids/skillshare/issues/837)) ([4556438](https://github.com/runkids/skillshare/commit/455643857556e77a741b4cd1b065bf8c3173d09e))
-* **ui:** prevent rows bleeding through sticky toolbar edge ([#830](https://github.com/runkids/skillshare/issues/830)) ([5da2b49](https://github.com/runkids/skillshare/commit/5da2b49bfb29c83acc2676595f344971d7febf92))
+- **A nested skill's references are checked against its own folder** — when `skillshare audit` scanned a parent skill, it resolved the links of a skill nested inside it against the parent. A valid `references/ok.md` in the nested skill was reported as a dangling link, and a `../SKILL.md` that leaves the nested skill was not reported as an escape, so auditing the parent disagreed with auditing the nested skill directly. Both now give the same findings, and `doctor` reports each finding once instead of once for the nested skill and again for its parent. Thanks to @salmonumbrella for the report. Refs: #834, #845.
+- **OMP and Pi plugins update without uninstalling first** — `skillshare plugin update` blocked every Oh My Pi plugin, so moving one to a new commit meant uninstalling it. An update now removes Skillshare's own installation and installs the new version, and one `plugin update --all` can refresh several OMP plugins. Pi plugins were blocked whenever the catalog name differed from the name in `package.json`, for example after an upstream npm rename; that check is gone. When a plugin is installed on several Agents and one of them cannot update, the others still update, each failure is listed with its reason, and the command exits non-zero. Thanks to @salmonumbrella for the report. Refs: #833, #837.
+- **`install --json` and `uninstall --json` say why they failed** — a failed `install --json` printed empty `skills` and `failed` lists with exit code 1 and no reason. The JSON now has an `error` field, in global and project mode. `uninstall --json` has the same field with each failed name and its reason, and `uninstall -p --json` now prints only JSON instead of text and a prompt. An install from one source or from config in which every skill fails now exits non-zero and names each skill and reason; if some skills install or are skipped, it still exits 0. Refs: #831, #835.
+- **The Herdr panel offers the skills the CLI would install** — installing from a repository URL in the panel listed every folder with a `SKILL.md`, including copies under `.claude/skills/` that `skillshare install` skips, so picking one could end as a success with nothing installed or install a different skill of the same name. The panel now asks the CLI for its plan, and a failed install is shown as a failure. For your own scripts, `install --dry-run --json` returns the same plan in a `planned` list of names and paths. Thanks to @andrenagusch for the report. Refs: #838, #841.
+  ```bash
+  skillshare install owner/repo --dry-run --json
+  ```
+- **The Herdr panel's header no longer overlaps** — with **Update panel** showing, the button was drawn over the folder and machine label. The label now shortens with an ellipsis. Refs: #840.
+- **Rows no longer show through the dashboard toolbar's lower edge** — in the Clean style, list rows were visible through the bottom edge of the toolbar that sticks while you scroll. The toolbar now keeps its blur across its full height. Refs: #830.
 
 ## [0.30.3] - 2026-11-10
 
