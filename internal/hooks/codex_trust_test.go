@@ -389,6 +389,53 @@ func TestCodexTrustKeepsReceiptsForParkedHomes(t *testing.T) {
 	}
 }
 
+func TestCodexTrustCoalescesSymlinkedHomes(t *testing.T) {
+	e, f := trustEnv(t)
+	codex := filepath.Join(e.home, ".codex")
+	path := filepath.Join(codex, "hooks.json")
+	alias := filepath.Join(e.home, "codex-alias")
+	must(t, os.Symlink(codex, alias))
+	save(t, e.service, Mutation{Name: "owned", Entry: codexTrustEntry(t, "echo owned")})
+	trustActions(t, e.service)
+
+	owner, err := filepath.Abs(e.service.ConfigPath)
+	must(t, err)
+	var saved codexTrustState
+	must(t, json.Unmarshal([]byte(read(t, e.service.codexTrustPath())), &saved))
+	pathKey := codexTrustHomeKey(owner, path)
+	home := saved.Homes[pathKey]
+	if home.Path != path || len(saved.Homes) != 1 {
+		t.Fatalf("initial trust homes = %+v", saved.Homes)
+	}
+	aliasPath := filepath.Join(alias, "hooks.json")
+	home.Path = aliasPath
+	saved.Homes[codexTrustHomeKey(owner, aliasPath)] = home
+	data, err := json.Marshal(saved)
+	must(t, err)
+	write(t, e.service.codexTrustPath(), string(data))
+
+	// A later sync through CODEX_HOME's symlink stores the alias spelling in the ledger.
+	e.service.ConfigDirs["codex"] = alias
+	save(t, e.service, Mutation{Name: "owned", Entry: codexTrustEntry(t, "echo owned")})
+	starts := 0
+	e.service.CodexAppServer = func(home string) (CodexAppServer, error) {
+		starts++
+		return f.start(home)
+	}
+	trust, err := e.service.TrustCodex()
+	if err != nil || len(trust) != 1 || trust[0].Action != "unchanged" {
+		t.Fatalf("symlinked home trust = %+v, %v", trust, err)
+	}
+	if starts != 1 {
+		t.Fatalf("Codex app-server starts = %d, want 1", starts)
+	}
+	must(t, json.Unmarshal([]byte(read(t, e.service.codexTrustPath())), &saved))
+	canonicalPathKey := codexTrustHomeKey(owner, canonicalPath(path))
+	if len(saved.Homes) != 1 || saved.Homes[canonicalPathKey].Path != canonicalPath(path) {
+		t.Fatalf("symlinked trust homes were not coalesced: %+v", saved.Homes)
+	}
+}
+
 func TestCodexTrustKeepsParkedReceiptsWhenDuplicateCountsAreAmbiguous(t *testing.T) {
 	e, _ := trustEnv(t)
 	codex := filepath.Join(e.home, ".codex")
@@ -554,6 +601,57 @@ func TestCodexTrustMigratesLegacyStateForRemovedHooks(t *testing.T) {
 	must(t, json.Unmarshal([]byte(data), &state))
 	if len(state.Homes) != 0 {
 		t.Fatalf("legacy trust metadata remains after cleanup: %+v", state.Homes)
+	}
+}
+
+func TestCodexTrustCoalescesLegacySymlinkedHomesForRemovedHooks(t *testing.T) {
+	e, f := trustEnv(t)
+	codex := filepath.Join(e.home, ".codex")
+	path := filepath.Join(codex, "hooks.json")
+	alias := filepath.Join(e.home, "codex-alias")
+	if err := os.Symlink(codex, alias); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	save(t, e.service, Mutation{Name: "owned", Entry: codexTrustEntry(t, "echo owned")})
+	server, err := f.start(codex)
+	must(t, err)
+	listed, err := server.ListHooks()
+	must(t, err)
+	keys := map[string]string{}
+	for _, hook := range listed {
+		keys[hook.Key] = hook.CurrentHash
+	}
+	must(t, server.SetTrust(keys))
+	legacy, err := json.Marshal(map[string]any{
+		"version": 1,
+		"homes": map[string]any{
+			path:                               map[string]any{"target": "codex", "keys": keys},
+			filepath.Join(alias, "hooks.json"): map[string]any{"target": "codex", "keys": keys},
+		},
+	})
+	must(t, err)
+	write(t, e.service.codexTrustPath(), string(legacy))
+	save(t, e.service, Mutation{Name: "owned", Remove: true})
+
+	starts := 0
+	e.service.CodexAppServer = func(home string) (CodexAppServer, error) {
+		starts++
+		return f.start(home)
+	}
+	trust, err := e.service.TrustCodex()
+	if err != nil || len(trust) != 1 || trust[0].Action != "cleared" {
+		t.Fatalf("legacy symlink cleanup = %+v, %v", trust, err)
+	}
+	if starts != 1 {
+		t.Fatalf("Codex app-server starts = %d, want 1", starts)
+	}
+	if trustedHash(t, codex, "session_start:0:0") != "" {
+		t.Fatal("legacy symlink cleanup left the removed hook trusted")
+	}
+	var saved codexTrustState
+	must(t, json.Unmarshal([]byte(read(t, e.service.codexTrustPath())), &saved))
+	if len(saved.Homes) != 0 {
+		t.Fatalf("legacy trust receipts remain: %+v", saved.Homes)
 	}
 }
 

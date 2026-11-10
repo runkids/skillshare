@@ -91,6 +91,8 @@ func (s *Service) TrustCodex() ([]CodexTrust, error) {
 		return nil, fmt.Errorf("Codex trust state is invalid: %s", s.codexTrustPath())
 	}
 	saved.Version = 2
+	coalesceCodexTrustHomes(saved.Homes, owner)
+	coalesceCodexTrustHomes(saved.Homes, "")
 	homes := map[string]string{}
 	perFile := map[string]map[string]record{}
 	owned := map[string]map[string]record{}
@@ -115,7 +117,9 @@ func (s *Service) TrustCodex() ([]CodexTrust, error) {
 			parked[file][key] = r
 			continue // A parked record's home moved or is missing.
 		}
-		homes[r.Path] = r.Target
+		if target, ok := homes[file]; !ok || r.Target < target {
+			homes[file] = r.Target
+		}
 		if owned[file] == nil {
 			owned[file] = map[string]record{}
 		}
@@ -123,8 +127,9 @@ func (s *Service) TrustCodex() ([]CodexTrust, error) {
 	}
 	for _, home := range saved.Homes {
 		if home.Owner == owner {
-			if _, ok := homes[home.Path]; !ok {
-				homes[home.Path] = home.Target
+			path := canonicalPath(home.Path)
+			if _, ok := homes[path]; !ok {
+				homes[path] = home.Target
 			}
 		}
 	}
@@ -195,6 +200,57 @@ func (s *Service) TrustCodex() ([]CodexTrust, error) {
 
 func codexTrustHomeKey(owner, path string) string { return owner + "\x00" + path }
 
+// coalesceCodexTrustHomes migrates active-owner receipts to the physical hooks.json
+// path, so a real path and its symlink cannot trigger duplicate app-server runs.
+func coalesceCodexTrustHomes(homes map[string]codexTrustHome, owner string) {
+	grouped := map[string][]codexTrustHome{}
+	for _, key := range sortedKeys(homes) {
+		home := homes[key]
+		if home.Owner != owner {
+			continue
+		}
+		path := home.Path
+		if path == "" && owner == "" {
+			path = key
+		}
+		if path == "" {
+			continue
+		}
+		path = canonicalPath(path)
+		grouped[path] = append(grouped[path], home)
+		delete(homes, key)
+	}
+	for _, path := range sortedKeys(grouped) {
+		group := grouped[path]
+		merged := group[0]
+		merged.Owner = owner
+		merged.Path = path
+		merged.Keys = map[string]string{}
+		conflicts := map[string]bool{}
+		for _, home := range group {
+			if home.Target < merged.Target {
+				merged.Target = home.Target
+			}
+			for key, hash := range home.Keys {
+				if conflicts[key] {
+					continue
+				}
+				if existing, ok := merged.Keys[key]; ok && existing != hash {
+					delete(merged.Keys, key)
+					conflicts[key] = true
+					continue
+				}
+				merged.Keys[key] = hash
+			}
+		}
+		key := codexTrustHomeKey(owner, path)
+		if owner == "" {
+			key = path
+		}
+		homes[key] = merged
+	}
+}
+
 // trustCodexHome locates groups against all records for one hooks.json, then trusts
 // only the active owner's groups. It clears trust recorded earlier for positions they
 // left and keeps receipts for still-owned registrations parked at this path.
@@ -214,9 +270,6 @@ func (s *Service) trustCodexHome(target, path string, records, owned, parked map
 			position := codexEventKey(records[key].Event) + ":" + strconv.Itoa(index)
 			if _, ok := owned[key]; ok {
 				positions[position] = records[key].Entry
-			}
-			if _, ok := parked[key]; ok {
-				parkedPositions[position] = true
 			}
 		}
 		// Duplicate counts can make locate reject an otherwise matching parked
