@@ -444,7 +444,8 @@ export default class Skillshare extends View {
       .child(h_flex().h(44).flex_none().pl(14).pr(8).gap(8).items_center()
         .child(image("mods/skillshare/mark.svg").w(18).h(18).flex_none())
         .child(div().flex_none().text_size(S().title).font_semibold().child("skillshare"))
-        .children([where ? h_flex().min_w(0).child(pill(where, t)) : null].filter(Boolean))
+        // The pill gives way first: it shortens with an ellipsis when the update button needs the room.
+        .children([where ? div().min_w(0).truncate().px(8).py(2).rounded(10).bg(t.selected).text_size(S().label).text_color(t.muted).child(where) : null].filter(Boolean))
         .child(div().flex_1())
         .when(Boolean(newPanel), (el) => el.child(secondary("panel-update", "Update panel", t, () => openDialog({ width: 440, height: 250, props: { role: "panelupdate", from: VERSION, to: newPanel } }), { h: 24, px: 8, size: S().label })))
         .when(Boolean(this.version), (el) => el.child(div().flex_none().text_size(S().secondary).text_color(t.muted).child(`v${String(this.version).replace(/^v/, "")}`)))
