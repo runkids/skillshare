@@ -11,7 +11,7 @@ import { v_flex, h_flex, InputState, Input, TextView } from "gpui-base";
 import { exec, hc, run, spaces, agents, focused, machines, shared, setShared, theme, settings, layout, openOverlay, closeOverlay, nextCommand, readTextFile, knownAgents, props as blockProps } from "herdr";
 import {
   KINDS, SCOPES, DISCOVER, AUDIT,
-  parseJSON, lastLine, failure, flag, sourceLine, buildItems, hookArgs, rowState, previewTargets, eligibleTargets, targetList, mapLanes, needsBothWays, filterItems, groupItems, sourceGroups, counts, targetDrift,
+  parseJSON, lastLine, failure, flag, sourceLine, buildItems, hookArgs, rowState, previewTargets, eligibleTargets, targetList, waitsForSync, syncScopes, mapLanes, needsBothWays, filterItems, groupItems, sourceGroups, counts, targetDrift,
   cloneUrl, skillChoices, newerVersion, ago, auditMessage, parseDiscover, parseAudit,
 } from "./model.js";
 import { createRunner } from "./jobs.js";
@@ -438,7 +438,7 @@ export default class Skillshare extends View {
         pending.length ? `${plural(pending.length, "resource")} waiting${lag.length ? ` for ${names(lag)}` : ""}` : `waiting on ${names(lag)}`]
       : [icon("check", 20, t.ansi2), "Everything is in sync", `${plural(kc.all, "resource")} · ${plural(targets.list.length, "target")}`];
     const hot = new Set(pending.map((x) => x.kind));
-    const sync = () => request({ op: "sync", on: ctx.on, project: this.project, scopes: [...new Set([...pending.map((i) => i.scope), ...targets.scopes])], plugins: waiting.some((i) => i.kind === "plugins") });
+    const sync = () => request({ op: "sync", on: ctx.on, project: this.project, scopes: syncScopes(this.items, this.raw, scope), plugins: waiting.some((i) => i.kind === "plugins") });
     const hero = v_flex().flex_none().px(14).py(16).gap(14).border_b(1).border_color(t.border)
       .child(h_flex().min_h(40).gap(10).items_center()
         .child(h_flex().size(20).flex_none().justify_center().items_center().child(mark))
@@ -479,10 +479,9 @@ export default class Skillshare extends View {
     const kinds = h_flex().flex_none().px(14).pt(6).border_b(1).border_color(t.border)
       .children(KINDS.map(([k, label]) => tab(t, `kind-${k}`, `${label} ${kc[k]}`, this.kind === k, (_e, cx) => { this.kind = k; cx.notify(); }, { h: 30, gap: 14, size: S().secondary })));
     // Sync is always here: it syncs the scopes with something waiting in the shown scope, or the shown scope itself.
-    const waits = filterItems(all, { scope, kind: null, query: "" }).filter((i) => (i.notice ? i.pending : i.state === "sync" || i.state === "missing"));
-    const syncScopes = waits.length ? [...new Set(waits.map((i) => i.scope))] : scope === "all" ? Object.keys(this.raw) : [scope];
-    const sync = () => request({ op: "sync", on: ctx.on, project: this.project, scopes: syncScopes, plugins: waits.some((i) => i.kind === "plugins") });
-    const syncButton = this.busyAt(ctx.on) ? disabledButton("sync-busy", "Working…", t, { h: 30 }) : (waits.length ? primary : secondary)("sync-library", "Sync", t, sync, { h: 30, px: 12 });
+    const waits = filterItems(all, { scope, kind: null, query: "" }).filter(waitsForSync), due = waits.length || this.targetList(scope).scopes.length;
+    const sync = () => request({ op: "sync", on: ctx.on, project: this.project, scopes: syncScopes(all, this.raw, scope), plugins: waits.some((i) => i.kind === "plugins") });
+    const syncButton = this.busyAt(ctx.on) ? disabledButton("sync-busy", "Working…", t, { h: 30 }) : (due ? primary : secondary)("sync-library", "Sync", t, sync, { h: 30, px: 12 });
     const tools = h_flex().flex_none().px(14).pt(10).pb(2).gap(6)
       .child(h_flex().flex_1().min_w(0).h(30).px(10).gap(8).items_center().rounded(6).border_1().border_color(t.border).bg(t.chrome)
         .child(icon("search", 14, t.muted))

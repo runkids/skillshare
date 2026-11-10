@@ -4,7 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseGitStatus, sourceLine, driftFrom, targetDrift, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, skillChoices, newerVersion, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, rowState, previewTargets, splitFrontmatter, mcpServer, targetList, mapLanes, needsBothWays, READ_SKILL, eligibleTargets } from "../skillshare/mods/skillshare/model.js";
+import { parseGitStatus, sourceLine, driftFrom, targetDrift, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, skillChoices, newerVersion, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, rowState, previewTargets, splitFrontmatter, mcpServer, targetList, mapLanes, needsBothWays, READ_SKILL, eligibleTargets, syncScopes } from "../skillshare/mods/skillshare/model.js";
 
 test("git status reads branch, ahead/behind and files", () => {
   const g = parseGitStatus("top /src\n## main...origin/main [ahead 1, behind 2]\n M a.md\n?? b/SKILL.md\n");
@@ -525,4 +525,19 @@ test("an agent's targets are the ones that take agents", () => {
   assert.deepEqual(eligibleTargets({ kind: "agents", state: "ok", targets: [] }, one), ["claude"]);
   assert.deepEqual(eligibleTargets({ kind: "agents", state: "sync", targets: ["cursor"] }, one), ["claude", "cursor"]);
   assert.deepEqual(eligibleTargets({ kind: "skills", state: "ok" }, one), ["claude", "codex"]);
+});
+
+test("Sync runs in every scope with a waiting row or a waiting target", () => {
+  const orphan = { targets: [{ name: "claude", items: [{ name: "gone", kind: "skill", action: "remove", is_sync: true }] }] };
+  const raw = { global: { diff: { targets: [] } }, project: { diff: orphan } };
+  const items = [{ scope: "global", kind: "skills", state: "missing" }, { scope: "project", kind: "skills", state: "ok" }];
+  assert.deepEqual(syncScopes(items, raw), ["global", "project"]);
+  assert.deepEqual(syncScopes(items, raw, "global"), ["global"]);
+  assert.deepEqual(syncScopes([{ scope: "global", kind: "hooks", notice: true, pending: true }], { global: {}, project: {} }), ["global"]);
+});
+
+test("with nothing waiting, Sync runs in the shown scopes", () => {
+  const raw = { global: { diff: { targets: [] } }, project: { diff: { targets: [] } } };
+  assert.deepEqual(syncScopes([{ scope: "global", kind: "skills", state: "ok" }], raw), ["global", "project"]);
+  assert.deepEqual(syncScopes([], raw, "project"), ["project"]);
 });

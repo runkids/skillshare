@@ -250,6 +250,19 @@ export function targetList(raw, scope = "all") {
   return { known, scopes, list: [...by].map(([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name)) };
 }
 
+// A row Sync would act on: a waiting resource, or a hook notice with native changes.
+export const waitsForSync = (i) => (i.notice ? Boolean(i.pending) : i.state === "sync" || i.state === "missing");
+
+// The scopes Sync runs in for the shown scope: every one with a waiting row or a waiting target
+// (a target can wait with no row left, as after an uninstall); with nothing waiting, the shown ones.
+export function syncScopes(items, raw, scope = "all") {
+  const shown = (s) => scope === "all" || s === scope;
+  const out = new Set(items.filter((i) => shown(i.scope) && waitsForSync(i)).map((i) => i.scope));
+  for (const s of targetList(raw, scope).scopes) out.add(s);
+  if (!out.size) for (const s of Object.keys(raw ?? {})) if (shown(s)) out.add(s);
+  return [...out].sort();
+}
+
 // The map's lines, max at most: waiting targets first, then the ones in sync. What does not fit
 // becomes a count: [{ name, n, wait } | { more, wait }].
 export function mapLanes(targets, max = 6) {
