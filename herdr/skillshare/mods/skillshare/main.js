@@ -11,7 +11,7 @@ import { v_flex, h_flex, InputState, Input, TextView, HoverCard } from "gpui-bas
 import { exec, hc, run, spaces, agents, focused, machines, shared, setShared, theme, settings, layout, openOverlay, closeOverlay, nextCommand, readTextFile, knownAgents, props as blockProps } from "herdr";
 import {
   KINDS, SCOPES, DISCOVER, AUDIT,
-  parseJSON, lastLine, failure, flag, sourceLine, buildItems, hookArgs, toggleArgs, rowState, previewTargets, eligibleTargets, targetList, waitsForSync, syncScopes, overviewAnswer, remoteLine, waitingNames, mapLanes, needsBothWays, filterItems, groupItems, sourceGroups, counts,
+  parseJSON, lastLine, failure, flag, sourceLine, buildItems, shownRows, endedRequests, afterRead, afterChecks, hookArgs, toggleArgs, rowState, previewTargets, eligibleTargets, targetList, waitsForSync, syncScopes, overviewAnswer, remoteLine, waitingNames, mapLanes, needsBothWays, filterItems, groupItems, sourceGroups, counts,
   cloneUrl, installResult, newerVersion, panelUpdate, updateState, ago, auditMessage, parseDiscover, parseAudit,
 } from "./model.js";
 import { createRunner } from "./jobs.js";
@@ -260,7 +260,7 @@ export default class Skillshare extends View {
     if (this.role !== "panel") return this.initDialog(cx);
 
     this.view = "overview"; this.scope = "all"; this.kind = "skills"; this.query = ""; this.expanded = new Set();
-    this.ctx = null; this.project = null; this.raw = {}; this.items = []; this.git = null; this.loading = false; this.loadedAt = 0;
+    this.ctx = null; this.project = null; this.raw = {}; this.items = []; this.pending = []; this.git = null; this.loading = false; this.loadedAt = 0;
     this.checks = {}; this.checkedAt = 0; this.nextRequest = channel.listen(); this.shownNotice = null;
     this.lastAgent = null; this.machines = {}; this.machinesAt = 0; this.version = null; this.token = 0;
     this.latest = null; this.latestAt = 0;
@@ -308,7 +308,7 @@ export default class Skillshare extends View {
     const ctx = this.ctx;
     if (!ctx || this.loading) return;
     this.loading = true;
-    const token = this.token;
+    const token = this.token, ended = endedRequests(this.pending);
     cx.spawn(async (cx) => {
       try {
         const { on, folder, spaceFolder } = ctx;
@@ -320,16 +320,22 @@ export default class Skillshare extends View {
         const res = await loadResources(io, on, project, network);
         if (token !== this.token) return;
         this.raw = res.raw; this.git = res.git; this.version = res.version ?? this.version; this.error = res.error;
+        const { pending, late } = afterRead(this.pending, ended, wantCheck);
+        this.pending = pending;
         this.rebuild(); this.loadedAt = Date.now();
         cx.notify();
         if (wantCheck) {
           this.checkKey = `${on}:${project}`; this.checkedAt = Date.now();
           const checks = await loadChecks(io, on, project);
           if (token !== this.token) return;
-          this.checks = checks;
+          this.checks = checks; this.pending = afterChecks(this.pending, late);
           this.rebuild(); cx.notify();
         }
-      } catch (e) { this.error = String(e?.message ?? e); cx.notify(); } finally { if (token === this.token) this.loading = false; }
+      } catch (e) { this.error = String(e?.message ?? e); this.pending = afterRead(this.pending, ended, false).pending; this.rebuild(); cx.notify(); } finally {
+        if (token === this.token) this.loading = false;
+        // A request that ended while this read ran is not in it: read again, or its rows stay a guess.
+        if (token === this.token && endedRequests(this.pending).length) this.refresh(cx, false);
+      }
     });
   }
 
@@ -343,7 +349,8 @@ export default class Skillshare extends View {
   }
 
   rebuild() {
-    this.items = Object.entries(this.raw).flatMap(([scope, r]) => buildItems(scope, { ...r, ...(this.checks[scope] ?? {}) }));
+    const read = Object.entries(this.raw).flatMap(([scope, r]) => buildItems(scope, { ...r, ...(this.checks[scope] ?? {}) }));
+    this.items = shownRows(read, this.pending, this.ctx?.on, this.project);
   }
 
   // ---- Work handed over by dialogs, and the panel's own buttons ----
@@ -361,6 +368,8 @@ export default class Skillshare extends View {
     }
     if (!channel.claim(req.on, "Working…")) { if (req.op !== "refresh") channel.say("warn", "skillshare is busy on that machine; try again when it finishes"); return; }
     if (req.op === "panel") setShared(UPDATING, { to: req.to, at: Date.now() });
+    this.pending.push(req); this.rebuild(); cx.notify();
+    const drop = () => { this.pending = this.pending.filter((r) => r !== req); this.rebuild(); };
     cx.spawn(async (cx) => {
       const step = (text) => { channel.step(req.on, text); cx.notify(); };
       try {
@@ -371,7 +380,9 @@ export default class Skillshare extends View {
         if (res.overlay) openDialog({ width: 620, height: 520, props: { role: "text", ...res.overlay } });
         if (res.machines) this.machinesAt = 0;
         if (res.kind) channel.say(res.kind, res.text);
-      } finally {
+        if (res.kind === "error") drop(); // it did not happen: the rows go back at once
+      } catch (e) { drop(); throw e; } finally {
+        req.ended = true;
         if (["update", "uninstall", "syncboth", "resolve", "pull", "refresh"].includes(req.op)) this.checkedAt = 0; // their update state changed
         channel.release(req.on);
         this.refresh(cx, false);
@@ -548,7 +559,7 @@ export default class Skillshare extends View {
       if (groups.sync.length) sections.push(this.groupHeader(t, "sync", `NEEDS SYNC · ${groups.sync.length}`, t.blocked, null), ...rows(groups.sync));
       if (groups.update.length) {
         sections.push(this.groupHeader(t, "update", `UPDATE AVAILABLE · ${groups.update.length}`, t.accent,
-          groups.update.length > 1 ? secondary("update-all", "Update all", t, () => this.updateAll(groups.update, ctx), { h: 24, px: 9, size: S().label }) : null), ...rows(groups.update));
+          groups.update.filter((i) => !i.doing).length > 1 ? secondary("update-all", "Update all", t, () => this.updateAll(groups.update, ctx), { h: 24, px: 9, size: S().label }) : null), ...rows(groups.update));
       }
       const groupable = this.kind === "skills" || this.kind === "agents", bySource = groupable && shared(IN_SYNC_VIEW) !== "list";
       if (live.length) sections.push(this.groupHeader(t, "ok", `IN SYNC · ${live.length}`, t.muted, null).when(groupable, (el) => el.child(this.viewSwitch(t, bySource))));
@@ -631,7 +642,7 @@ export default class Skillshare extends View {
   // A row is a name and one short state. Everything else, and every action, is in its preview.
   row(t, item, showScope, ctx) {
     const color = item.notice || item.diagnostic ? t.blocked : { update: t.accent, sync: t.blocked, missing: t.ansi1, ok: t.ansi2, off: t.muted }[item.state] ?? t.muted;
-    const update = item.state === "update" && (item.kind === "skills" || item.kind === "agents") && !this.busyAt(ctx.on)
+    const update = item.state === "update" && !item.doing && (item.kind === "skills" || item.kind === "agents") && !this.busyAt(ctx.on)
       ? secondary(`update-${item.key}`, "Update", t, (_e, cx) => { cx.stop_propagation(); request({ op: "update", on: ctx.on, project: this.project, updates: [{ kind: item.kind, scope: item.scope, name: item.update, label: item.label }] }); }, { h: 24, px: 9, size: S().label })
       : null;
     return line(t, `row-${item.key}`, dot(color, 8, item.state === "missing" || item.state === "off"), item.notice ? item.reason || item.label : item.label,
@@ -920,7 +931,7 @@ export default class Skillshare extends View {
       lead.push(action === "remove" ? textButton(`${role}-remove`, label, t, open, t.ansi1) : dialogButton(`${role}-${action}`, label, t, open));
     }
     const buttons = [];
-    if (it.state === "update" && skillish) {
+    if (it.state === "update" && !it.doing && skillish) {
       if (it.kind === "skills") buttons.push(dialogButton("changes", "See changes", t, ask({ op: "text", on: p.on, cwd, busy: `Reading changes in ${it.label}…`, title: `Changes in “${it.label}”`, args: ["check", it.update, "--diff", flag(it.scope)] })));
       buttons.push(dialogButton("update", p.busy ? "Working…" : "Update", t, ask({ op: "update", on: p.on, project: p.project, updates: [{ kind: it.kind, scope: it.scope, name: it.update, label: it.label }] }), "primary", !p.busy));
     } else {
@@ -1145,7 +1156,7 @@ export default class Skillshare extends View {
         else { pr.at = 3; pr.done = result.done; }
         this.dropClone(p);
       } finally { channel.release(p.on); }
-      request({ op: "refresh", on: p.on });
+      request({ op: "refresh", on: p.on, project: p.project, added: (pr.done ?? []).map((name) => ({ name, scope: this.scope, source: this.source })) });
       cx.notify();
     });
   }

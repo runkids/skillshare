@@ -420,10 +420,50 @@ export function toggleArgs(item, action) {
   return [action, item.path, ...(item.kind === "agents" ? ["--kind", "agent"] : []), flag(item.scope)];
 }
 
+// The rows as they will be once a running request lands, so the list answers the click and not
+// the read that follows it. req: what the panel was asked ({ op, item, action, updates, scopes,
+// plugins, added, project }); project: the folder the rows are for, since project rows of
+// another folder are not these rows. What cannot fail quietly is shown done: a disable, an
+// enable, a removal. An update and a sync can be stopped (an audit, a conflict), so their rows
+// only say they are running (`doing`). The read after the request replaces all of it; a request
+// that fails is simply dropped, and the rows are back as they were.
+export function optimistic(items, req, project = req.project) {
+  const ours = (i) => i.scope !== "project" || (req.project ?? null) === (project ?? null);
+  const one = (change) => items.flatMap((i) => (i.key === req.item?.key && ours(i) ? change(i) : [i]));
+  const doing = (text, hit) => items.map((i) => (ours(i) && hit(i) ? { ...i, doing: text } : i));
+  const able = (i) => [{ ...i, disabled: req.action === "disable", state: req.action === "disable" ? "off" : "ok" }];
+  if (req.op === "toggle") return one(able);
+  if (req.op === "hook") return one(req.action === "remove" ? () => [] : able);
+  if (req.op === "uninstall") return one(() => []);
+  if (req.op === "update") return doing("updating", (i) => i.state === "update" && (req.updates ?? []).some((u) => u.kind === i.kind && u.scope === i.scope && (u.all || u.name === i.update)));
+  if (req.op === "sync") return doing("syncing", (i) => !i.notice && waitsForSync(i) && (req.scopes ?? []).includes(i.scope) && (i.kind !== "plugins" || req.plugins));
+  if (req.op === "refresh" && req.added?.length) {
+    const fresh = req.added.filter((a) => ours(a) && !items.some((i) => i.kind === "skills" && i.scope === a.scope && i.label === a.name));
+    return [...items, ...fresh.map((a) => ({ key: `${a.scope}:skills:${a.name}`, kind: "skills", scope: a.scope, name: a.name, label: a.name, rel: a.name, path: a.name, src: shortSource(a.source) || "local", disabled: false, version: null, state: "ok", repo: null }))];
+  }
+  return items;
+}
+
+// The panel keeps every request from the click until a read newer than its end has landed.
+// These four decide what that list holds; main.js only stores it.
+// The rows to show on machine `on`: what was read, with that machine's requests laid over it.
+export const shownRows = (read, pending, on, project) => pending.filter((r) => (r.on ?? null) === (on ?? null)).reduce((items, r) => optimistic(items, r, project), read);
+// The requests a read starting now is newer than. One that ends later is not in that read.
+export const endedRequests = (pending) => pending.filter((r) => r.ended);
+// After a read's list has landed. ended: endedRequests when it started; checking: the same read
+// also runs the update checks. An update shows in the checks, so its request stays (late) until
+// afterChecks. Anything still ended in what is left needs one more read.
+export function afterRead(pending, ended, checking) {
+  const late = checking ? ended.filter((r) => r.op === "update") : [];
+  return { pending: pending.filter((r) => !ended.includes(r) || late.includes(r)), late };
+}
+export const afterChecks = (pending, late) => pending.filter((r) => !late.includes(r));
+
 // A row's one short state; everything longer is in its preview.
 export function rowState(item, showScope) {
   const pre = showScope ? `${item.scope} · ` : "";
   if (item.notice) return item.scope;
+  if (item.doing) return `${pre}${item.doing}…`;
   const state = { update: "update available", missing: "new", sync: "changed", unknown: "sync status unknown" }[item.state];
   if (state) return pre + state;
   if (item.state === "off") return `${pre}disabled`;
