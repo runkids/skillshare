@@ -109,6 +109,8 @@ _team-skills/
 自動フラット化は追跡リポジトリだけでなく、**すべての Skill** で機能します。個人の Skill もフォルダで整理できます。詳しくは [フォルダで整理する](/docs/understand/source-and-targets#organize-with-folders-auto-flattening) を参照してください。
 :::
 
+追跡リポジトリ内の `.claude/skills/` や `.agents/skills/` などのターゲットディレクトリには通常リポジトリの Skill のコピーが置かれるため、sync はそれらをスキップします。例外は Skill がルートの `.agents/skills/` にしかないリポジトリで、その Skill は検出されます。たとえば `_psychopomp/.agents/skills/explainer-motion/` は `_psychopomp__.agents__skills__explainer-motion` として同期されます。
+
 ---
 
 ## 新規クローン後の復元 {#rehydrating-after-a-fresh-clone}

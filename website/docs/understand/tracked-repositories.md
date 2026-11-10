@@ -109,6 +109,8 @@ _team-skills/
 Auto-flattening works for **all skills**, not just tracked repos. You can organize your personal skills in folders too. See [Organize with Folders](/docs/understand/source-and-targets#organize-with-folders-auto-flattening).
 :::
 
+Target directories inside a tracked repo, such as `.claude/skills/` or `.agents/skills/`, usually hold copies of the repo's skills, so sync skips them. The exception is a repo whose only skills are in its root `.agents/skills/`: those skills are discovered, so `_psychopomp/.agents/skills/explainer-motion/` syncs as `_psychopomp__.agents__skills__explainer-motion`.
+
 ---
 
 ## Rehydrating After a Fresh Clone {#rehydrating-after-a-fresh-clone}

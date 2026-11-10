@@ -4,6 +4,7 @@
 package sourcewalk
 
 import (
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -28,6 +29,42 @@ func SkipTargetDotDir(walkRoot, path string, info os.FileInfo) bool {
 		return false
 	}
 	return filepath.Dir(path) != walkRoot
+}
+
+var errSkillFound = errors.New("skill found")
+
+// AgentsSkillsDir returns repoRoot/.agents/skills when the repository authors
+// its skills there. .agents is usually a target copy of skills/, so it counts
+// only when no SKILL.md exists elsewhere in the repository outside .git and
+// the target dot dirs in dotDirs. Ignore rules are not applied: a repository
+// whose authored skills are all ignored must not fall back to its copies.
+func AgentsSkillsDir(repoRoot string, dotDirs map[string]bool) (string, bool) {
+	if !dotDirs[".agents"] {
+		return "", false
+	}
+	dir := filepath.Join(repoRoot, ".agents", "skills")
+	if info, err := os.Lstat(dir); err != nil || !info.IsDir() {
+		return "", false
+	}
+	// Scan the resolved root: filepath.Walk does not descend into a root that
+	// is a link, which would hide the authored skills of a linked repository.
+	root := utils.ResolveSymlink(repoRoot)
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() && path != root && (info.Name() == ".git" || dotDirs[info.Name()]) {
+			return filepath.SkipDir
+		}
+		if !info.IsDir() && info.Name() == "SKILL.md" {
+			return errSkillFound
+		}
+		return nil
+	})
+	if err != nil {
+		return "", false
+	}
+	return dir, true
 }
 
 // Options is the operation's traversal policy. The zero value follows no links.

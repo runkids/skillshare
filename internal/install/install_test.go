@@ -3,12 +3,12 @@ package install
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"errors"
 	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -17,78 +17,62 @@ func TestDiscoverSkills_RepoAgentsSkills(t *testing.T) {
 	orig := TargetDotDirs
 	TargetDotDirs = map[string]bool{".agents": true, ".claude": true}
 	defer func() { TargetDotDirs = orig }()
-	repo := t.TempDir()
-	for _, p := range []string{".agents", ".agents/skills/one", ".agents/skills/two", ".agents/other/no", "skills/regular", "skills/regular/.agents/skills/no"} {
-		dir := filepath.Join(repo, p)
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: test\n---\n"), 0644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	got := map[string]bool{}
-	for _, skill := range discoverSkills(repo, false) {
-		got[skill.Path] = true
-	}
-	for _, p := range []string{".agents/skills/one", ".agents/skills/two", "skills/regular"} {
-		if !got[p] {
-			t.Errorf("missing %s: %v", p, got)
-		}
-	}
-	if len(got) != 3 {
-		t.Errorf("unexpected skills: %v", got)
-	}
-	source, err := ParseSource(repo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	discovery, err := DiscoverLocal(source)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(discovery.Skills) != 3 {
-		t.Errorf("plain local discovery: %+v", discovery.Skills)
-	}
-}
 
-func FuzzDiscoverSkills_RepoAgentsSkills(f *testing.F) {
-	f.Add([]byte("psychopomp"))
-	f.Add([]byte("explainer-motion"))
-	f.Fuzz(func(t *testing.T, data []byte) {
-		orig := TargetDotDirs
-		TargetDotDirs = map[string]bool{".agents": true}
-		defer func() { TargetDotDirs = orig }()
-		repo := t.TempDir()
-		name := hex.EncodeToString(data)
-		// Bound the filesystem name, without excluding fuzz inputs.
-		if len(name) > 64 {
-			name = name[:64]
-		}
-		if name == "" {
-			name = "empty"
-		}
-		for _, anchor := range []string{"skills", ".agents/skills"} {
-			dir := filepath.Join(repo, anchor, name)
-			if err := os.MkdirAll(dir, 0755); err != nil {
-				t.Fatal(err)
+	tests := []struct {
+		name   string
+		skills []string
+		ignore string
+		want   []string
+	}{
+		{
+			name:   "only .agents/skills",
+			skills: []string{".agents/skills/one", ".agents/skills/two", ".agents/other/no", ".agents/skills/one/.claude/skills/no"},
+			want:   []string{".agents/skills/one", ".agents/skills/two"},
+		},
+		{
+			name:   "skills and .agents/skills copies",
+			skills: []string{"skills/x", ".agents/skills/x"},
+			want:   []string{"skills/x"},
+		},
+		{
+			name:   ".agents/skills skill ignored",
+			skills: []string{".agents/skills/one", ".agents/skills/two"},
+			ignore: ".agents/skills/two\n",
+			want:   []string{".agents/skills/one"},
+		},
+		{
+			name:   "authored skills ignored",
+			skills: []string{"skills/x", ".agents/skills/x"},
+			ignore: "skills/x\n",
+			want:   nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := t.TempDir()
+			for _, p := range tt.skills {
+				dir := filepath.Join(repo, p)
+				if err := os.MkdirAll(dir, 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# Skill"), 0644); err != nil {
+					t.Fatal(err)
+				}
 			}
-			if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# Skill"), 0644); err != nil {
-				t.Fatal(err)
+			if tt.ignore != "" {
+				if err := os.WriteFile(filepath.Join(repo, ".skillignore"), []byte(tt.ignore), 0644); err != nil {
+					t.Fatal(err)
+				}
 			}
-		}
-		discovery, err := DiscoverLocal(&Source{Type: SourceTypeLocalPath, Path: repo})
-		if err != nil {
-			t.Fatal(err)
-		}
-		got := make(map[string]string)
-		for _, skill := range discovery.Skills {
-			got[skill.Path] = skill.Name
-		}
-		if len(discovery.Skills) != 2 || got["skills/"+name] != name || got[".agents/skills/"+name] != name {
-			t.Fatalf("both anchors must preserve paths and directory names, got %+v", discovery.Skills)
-		}
-	})
+			var got []string
+			for _, skill := range discoverSkills(repo, true) {
+				got = append(got, skill.Path)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("discoverSkills() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
 func TestDiscoverSkills_RootOnly(t *testing.T) {

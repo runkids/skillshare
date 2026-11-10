@@ -127,7 +127,7 @@ $ skillshare install anthropics/skills
   ↑↓ move · space toggle · ctrl+a all · enter confirm · / filter · esc cancel
 ```
 
-ディスカバリーは `.git` のみをスキップし、すべてのディレクトリを `SKILL.md` ファイルについてスキャンします。つまり、`.curated/` や `.system/` のような隠しディレクトリ内の Skill も自動的に検出されます。複数の Skill が見つかった場合、選択プロンプトは同じフォルダの Skill をまとめて並べ、各 Skill の説明とフォルダを表示します。リストが長いときは `/` で絞り込めます。
+ディスカバリーは、`.git` と、通常リポジトリの Skill のコピーを置く `.claude/` や `.agents/` などのターゲットディレクトリを除き、すべてのディレクトリを `SKILL.md` ファイルについてスキャンします。`.curated/` や `.system/` のようなその他の隠しディレクトリはスキャンされるため、その中の Skill も自動的に検出されます。ほかに Skill がないリポジトリでは、代わりにルートの `.agents/skills/` がスキャンされます。複数の Skill が見つかった場合、選択プロンプトは同じフォルダの Skill をまとめて並べ、各 Skill の説明とフォルダを表示します。リストが長いときは `/` で絞り込めます。
 
 リポジトリのルートに `.skillignore` ファイルがある場合、一致する Skill はディスカバリーから自動的に除外されます。詳細は下記の [.skillignore](#skillignore) を参照してください。
 

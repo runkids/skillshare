@@ -109,6 +109,8 @@ _team-skills/
 자동 평탄화는 **모든 skill**에 적용되며, tracked repo에만 국한되지 않습니다. 개인 skill도 폴더로 정리할 수 있습니다. [폴더로 정리하기](/docs/understand/source-and-targets#organize-with-folders-auto-flattening)를 참고하세요.
 :::
 
+tracked repo 안의 `.claude/skills/`나 `.agents/skills/` 같은 타깃 디렉터리는 보통 repo skill의 복사본을 담고 있으므로 sync가 건너뜁니다. 예외는 skill이 루트의 `.agents/skills/`에만 있는 repo로, 이 경우 그 skill이 발견됩니다. 예를 들어 `_psychopomp/.agents/skills/explainer-motion/`은 `_psychopomp__.agents__skills__explainer-motion`으로 동기화됩니다.
+
 ---
 
 ## 새 Clone 이후 복구하기 {#rehydrating-after-a-fresh-clone}

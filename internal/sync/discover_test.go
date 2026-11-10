@@ -106,12 +106,25 @@ func TestDiscoverSourceSkills_TrackedRepoAgentsSkills(t *testing.T) {
 	sourcewalk.TargetDotDirs = map[string]bool{".agents": true, ".claude": true}
 	defer func() { sourcewalk.TargetDotDirs = orig }()
 	src := t.TempDir()
-	repo := filepath.Join(src, "_repo")
-	if err := os.MkdirAll(filepath.Join(repo, ".git"), 0755); err != nil {
-		t.Fatal(err)
+	// _repo authors its skills only in .agents/skills; _both ships
+	// .agents/skills copies of its skills/ and _ignored ignores its only
+	// authored skill, so neither falls back to the copies.
+	repos := map[string][]string{
+		"_repo":    {".agents", ".agents/skills/one", ".agents/skills/two", ".agents/other/no", ".agents/skills/one/.claude/skills/no", ".claude/skills/no"},
+		"_both":    {"skills/regular", ".agents/skills/regular", "skills/regular/.agents/skills/no"},
+		"_ignored": {"skills/hidden", ".agents/skills/hidden"},
 	}
-	for _, p := range []string{".agents", ".agents/skills/one", ".agents/skills/two", "skills/regular", ".agents/other/no", "skills/regular/.agents/skills/no", ".claude/skills/no"} {
-		writeSkillMD(t, filepath.Join(repo, p), "---\nname: test\n---\n")
+	for name, paths := range repos {
+		repo := filepath.Join(src, name)
+		if err := os.MkdirAll(filepath.Join(repo, ".git"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		for _, p := range paths {
+			writeSkillMD(t, filepath.Join(repo, p), "---\nname: test\n---\n")
+		}
+	}
+	if err := os.WriteFile(filepath.Join(src, "_ignored", ".skillignore"), []byte("skills/hidden\n"), 0644); err != nil {
+		t.Fatal(err)
 	}
 	for _, discover := range []struct {
 		name string
@@ -135,15 +148,19 @@ func TestDiscoverSourceSkills_TrackedRepoAgentsSkills(t *testing.T) {
 			}
 			got := map[string]bool{}
 			for _, s := range skills {
+				if s.Disabled {
+					continue
+				}
 				got[s.RelPath] = true
-				if !s.IsInRepo || s.RepoRelPath != "_repo" || s.SourcePath != filepath.Join(src, s.RelPath) {
+				repo, _, _ := strings.Cut(s.RelPath, "/")
+				if !s.IsInRepo || s.RepoRelPath != repo || s.SourcePath != filepath.Join(src, s.RelPath) {
 					t.Errorf("incorrect tracked identity: %+v", s)
 				}
 				if s.FlatName != strings.ReplaceAll(s.RelPath, "/", "__") {
 					t.Errorf("incorrect flattened name: %+v", s)
 				}
 			}
-			for _, p := range []string{"_repo/.agents/skills/one", "_repo/.agents/skills/two", "_repo/skills/regular"} {
+			for _, p := range []string{"_repo/.agents/skills/one", "_repo/.agents/skills/two", "_both/skills/regular"} {
 				if !got[p] {
 					t.Errorf("missing %s: %v", p, got)
 				}

@@ -13,6 +13,10 @@ a valid `SKILL.md` frontmatter `name` is used, lowercased with spaces normalized
 or conflicting frontmatter names fall back to the directory name. `--name` overrides the default; updates
 preserve existing install names. Tracked repository naming is unchanged.
 
+Discovery skips target directories such as `.claude/` and `.agents/`, which usually
+hold copies of a repository's skills. A repository with no other skills has its
+root `.agents/skills/` discovered instead.
+
 ### Source Formats
 
 ```bash

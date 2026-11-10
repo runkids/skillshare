@@ -127,7 +127,7 @@ $ skillshare install anthropics/skills
   ↑↓ move · space toggle · ctrl+a all · enter confirm · / filter · esc cancel
 ```
 
-Discovery는 `.git`만 건너뛰고 모든 디렉터리에서 `SKILL.md` 파일을 스캔합니다. 즉 `.curated/`나 `.system/`과 같은 숨김 디렉터리 안의 skill도 자동으로 발견됩니다. 여러 skill이 발견되면, 선택 화면은 같은 폴더의 skill을 함께 나열하고 각 skill의 설명과 폴더를 보여 줍니다. 목록이 길면 `/`로 필터링할 수 있습니다.
+Discovery는 `.git`과, 보통 저장소 skill의 복사본을 담는 `.claude/`, `.agents/` 같은 타깃 디렉터리를 제외한 모든 디렉터리에서 `SKILL.md` 파일을 스캔합니다. `.curated/`나 `.system/`과 같은 그 밖의 숨김 디렉터리는 스캔되므로 그 안의 skill도 자동으로 발견됩니다. 다른 skill이 없는 저장소는 대신 루트의 `.agents/skills/`를 스캔합니다. 여러 skill이 발견되면, 선택 화면은 같은 폴더의 skill을 함께 나열하고 각 skill의 설명과 폴더를 보여 줍니다. 목록이 길면 `/`로 필터링할 수 있습니다.
 
 repository 루트에 `.skillignore` 파일이 있으면, 일치하는 skill은 discovery에서 자동으로 제외됩니다. 아래 [.skillignore](#skillignore)를 참고하세요.
 
