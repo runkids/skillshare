@@ -18,8 +18,13 @@ import (
 // marketplaces and plugin settings stay intact, including on partial retries.
 type ompRemoval struct {
 	root, id, version, cacheRoot, link, target, revision string
-	files                                                []*ompRemovalFile
-	linkPresent                                          bool
+	// subject fingerprints only this installation's own entries, manifest and link.
+	subject     string
+	files       []*ompRemovalFile
+	linkPresent bool
+	// rebase lets apply accept native files that an earlier change in the same
+	// apply rewrote, as long as this installation's own state is unchanged.
+	rebase bool
 }
 type ompRemovalFile struct {
 	path       string
@@ -226,6 +231,7 @@ func (s *Service) ompRemovalPlan(b Binding, cacheRoot string) (*ompRemoval, erro
 		}
 	}
 	p.files = append(p.files, cfg, manifest)
+	own := [][]byte{plugins[b.ID], runtimePlugins[module], pkg.raw, []byte(module)}
 	if err := ompRemovalPrune(reg, "plugins", b.ID); err != nil {
 		return nil, err
 	}
@@ -265,6 +271,7 @@ func (s *Service) ompRemovalPlan(b Binding, cacheRoot string) (*ompRemoval, erro
 	}
 	fmt.Fprintf(&fingerprint, "%s\x00%s\x00%t", p.link, p.target, p.linkPresent)
 	p.revision = hash(fingerprint.Bytes())
+	p.subject = hash(append(bytes.Join(own, []byte{0}), fmt.Sprintf("\x00%s\x00%s\x00%t", p.link, p.target, p.linkPresent)...))
 	return p, nil
 }
 
@@ -325,9 +332,11 @@ func (s *Service) applyOMPRemoval(p *ompRemoval) error {
 	if err != nil {
 		return err
 	}
-	if current.revision != p.revision {
+	if current.revision != p.revision && !(p.rebase && current.subject == p.subject) {
 		return fmt.Errorf("OMP native files changed; preview removal again")
 	}
+	// Prune what the files hold now; it equals the preview unless a rebase applies.
+	p = current
 	root, err := os.OpenRoot(p.root)
 	if err != nil {
 		return err
