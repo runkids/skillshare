@@ -21,6 +21,8 @@
     { "type": "refactor", "hidden": true }
   ],
   "packages": {
-    ".": {}
+    ".": {
+      "extra-files": ["herdr/skillshare/mods/skillshare/version.js"]
+    }
   }
 }

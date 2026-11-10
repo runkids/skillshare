@@ -35,6 +35,12 @@ The panel ships in the skillshare repository under [`herdr/skillshare`](https://
 
 A **skillshare** button appears in the tab bar. It shows and hides the panel, and the panel stays open or closed as you switch spaces.
 
+## Updating the Panel
+
+While it is shown, the panel asks GitHub once an hour for the latest skillshare release. When a newer one is published, its header shows **Update panel**. It asks first, replaces the files in `~/.config/herdr-app/mods/skillshare/` with the ones that release ships, and Herdr reloads the panel. The files it replaced are kept in that folder's `.bak-update-<version>`; changes you made to them are not carried over. Your layout is not touched.
+
+A panel installed before this button existed has no update check. Copy `mods/skillshare/` from the latest release over `~/.config/herdr-app/mods/skillshare/` once by hand; later updates come from the button.
+
 ## What the Panel Does
 
 The panel follows the space Herdr shows. It runs skillshare on that space's machine, in the focused terminal's folder.

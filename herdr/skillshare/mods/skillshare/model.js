@@ -580,6 +580,47 @@ export function newerVersion(a, b) {
   return a;
 }
 
+// ---- The panel's own update ----
+
+const REPO = "https://github.com/runkids/skillshare";
+// sh -c LATEST_RELEASE: prints where GitHub's "latest release" link lands (…/releases/tag/vX.Y.Z).
+// The link instead of the API: it has no rate limit, and it names only a published release, never
+// the tag of a draft.
+export const LATEST_RELEASE = `curl -fsSLI --max-time 15 -o /dev/null -w '%{url_effective}' ${REPO}/releases/latest`;
+export const releaseTag = (url) => /\/releases\/tag\/(v\d+\.\d+\.\d+)\s*$/.exec(String(url ?? ""))?.[1] ?? null;
+// The release to offer: `latest` when it is newer than this panel, else null.
+export const panelUpdate = (version, latest) => (latest && newerVersion(version, latest) !== version ? latest : null);
+
+// sh -c PANEL_UPDATE <name> <dir> <tag> <from> [repo]: replaces the panel's files in Herdr's home
+// on this computer with the ones release <tag> ships. It first checks the folder holds the
+// running panel (version <from>): a renamed panel leaves another mod under this name. The files it
+// replaces are copied once to .bak-update-<from> inside the folder (hidden, so Herdr does not load
+// it), so a retry keeps the first copy. Herdr reloads the panel on every file it saves, so
+// main.js goes after the modules it imports and version.js last: the build that reads the new
+// version has every new file.
+export const PANEL_UPDATE = `set -e
+tag=$2; from=$3; repo=\${4:-${REPO}.git}; dest="\${HERDR_APP_HOME:-$HOME/.config/herdr-app}/mods/skillshare"
+grep -qsF '"'"$from"'"' "$dest/version.js" || { echo "The panel is not in $dest; update it by hand" >&2; exit 1; }
+t=$(mktemp -d "\${TMPDIR:-/tmp}/skillshare-panel.XXXXXX"); trap 'rm -rf "$t"' EXIT
+export GIT_TERMINAL_PROMPT=0
+{ git clone -q --depth 1 --filter=blob:none --sparse --branch "$tag" "$repo" "$t/repo" && git -C "$t/repo" sparse-checkout set herdr/skillshare/mods/skillshare; } >/dev/null 2>&1 || {
+  rm -rf "$t/repo"; git clone -q --depth 1 --branch "$tag" "$repo" "$t/repo"; }
+src="$t/repo/herdr/skillshare/mods/skillshare"
+[ -f "$src/main.js" ] && [ -f "$src/version.js" ] || { echo "Release $tag has no panel update" >&2; exit 1; }
+bak="$dest/.bak-update-$from"
+[ -d "$bak" ] || { rm -rf "$bak.tmp"; mkdir "$bak.tmp"; cp -R "$dest"/* "$bak.tmp/"; mv "$bak.tmp" "$bak"; }
+for f in "$src"/*; do case "\${f##*/}" in main.js|version.js) ;; *) cp -R "$f" "$dest/" ;; esac; done
+cp "$src/main.js" "$dest/main.js"; cp "$src/version.js" "$dest/version.js"`;
+
+// What a panel update left in shared for the build that loads after it ({ to, at }): "done" when
+// this build is the one it installed, "stale" when the update never finished, else null (it is
+// still copying files).
+export function updateState(record, version, now = Date.now()) {
+  if (!record?.to) return null;
+  if (String(record.to).replace(/^v/, "") === version) return "done";
+  return now - (record.at ?? 0) > JOB_MINUTES * 60 * 1000 ? "stale" : null;
+}
+
 export function ago(ms) {
   const s = Math.max(0, Math.round(ms / 1000));
   if (s < 60) return `${s}s ago`;

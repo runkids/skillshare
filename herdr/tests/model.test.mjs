@@ -4,7 +4,8 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseGitStatus, sourceLine, driftFrom, targetDrift, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, skillChoices, newerVersion, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, rowState, previewTargets, splitFrontmatter, mcpServer, targetList, mapLanes, needsBothWays, READ_SKILL, eligibleTargets, syncScopes, overviewAnswer, remoteLine, waitingNames } from "../skillshare/mods/skillshare/model.js";
+import { parseGitStatus, sourceLine, driftFrom, targetDrift, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, skillChoices, newerVersion, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, rowState, previewTargets, splitFrontmatter, mcpServer, targetList, mapLanes, needsBothWays, READ_SKILL, eligibleTargets, syncScopes, overviewAnswer, remoteLine, waitingNames, releaseTag, panelUpdate, updateState, PANEL_UPDATE } from "../skillshare/mods/skillshare/model.js";
+import { VERSION } from "../skillshare/mods/skillshare/version.js";
 
 test("git status reads branch, ahead/behind and files", () => {
   const g = parseGitStatus("top /src\n## main...origin/main [ahead 1, behind 2]\n M a.md\n?? b/SKILL.md\n");
@@ -574,4 +575,61 @@ test("a machine card says what its remote and its targets wait for", () => {
   const waits = ["a", "b", "c", "d"].map((name, i) => ({ name, n: i + 1 }));
   assert.equal(waitingNames(waits), "a 1 · b 2 · c 3 · +1 more");
   assert.equal(waitingNames(waits.slice(0, 2)), "a 1 · b 2");
+});
+
+test("the latest release link gives its tag, and any other link none", () => {
+  assert.deepEqual([releaseTag("https://github.com/runkids/skillshare/releases/tag/v0.31.0"), releaseTag("https://github.com/runkids/skillshare/releases")], ["v0.31.0", null]);
+});
+
+test("a panel update is offered only for a newer release", () => {
+  assert.deepEqual([panelUpdate("0.30.3", "v0.31.0"), panelUpdate("0.31.0", "v0.31.0"), panelUpdate("0.31.0", "v0.30.3"), panelUpdate("0.31.0", null)], ["v0.31.0", null, null, null]);
+});
+
+test("the build an update installed reports it, and an unfinished update goes stale", () => {
+  const at = 1000, min = 60 * 1000;
+  assert.deepEqual([updateState({ to: "v0.31.0", at }, "0.31.0", at), updateState({ to: "v0.31.0", at }, "0.30.3", at + min), updateState({ to: "v0.31.0", at }, "0.30.3", at + 16 * min), updateState(null, "0.30.3")],
+    ["done", null, "stale", null]);
+});
+
+test("the panel's version is the release Release Please last wrote", () => {
+  const manifest = JSON.parse(readFileSync(new URL("../../.github/release-please-manifest.json", import.meta.url), "utf8"));
+  assert.equal(VERSION, manifest["."]);
+});
+
+// Runs PANEL_UPDATE from 0.0.1 to a local release v9.9.9 holding `shipped`, over a Herdr home
+// whose mods/skillshare holds `installed`. Returns the result, the folder, and a reader.
+function panelUpdate999(t, shipped, installed) {
+  const root = mkdtempSync(join(tmpdir(), "ss-panel-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const repo = join(root, "repo"), dest = join(root, "home/mods/skillshare");
+  const put = (dir, files) => { for (const [f, text] of Object.entries(files)) { mkdirSync(join(dir, f, ".."), { recursive: true }); writeFileSync(join(dir, f), text); } };
+  put(repo, { "README.md": "repo", ...shipped }); put(dest, installed);
+  const git = (...a) => spawnSync("git", ["-C", repo, "-c", "user.name=t", "-c", "user.email=t@example.com", ...a]);
+  git("init", "-q"); git("add", "."); git("commit", "-qm", "release"); git("tag", "v9.9.9");
+  const r = spawnSync("sh", ["-c", PANEL_UPDATE, "test", "", "v9.9.9", "0.0.1", repo], { env: { ...process.env, HERDR_APP_HOME: join(root, "home"), TMPDIR: root }, encoding: "utf8" });
+  return { r, root, dest, read: (f) => readFileSync(join(dest, f), "utf8"), said: r.stderr.trim().split("\n").pop() };
+}
+const MOD = "herdr/skillshare/mods/skillshare";
+const SHIPPED = { [`${MOD}/main.js`]: "new", [`${MOD}/version.js`]: 'VERSION = "9.9.9"', [`${MOD}/icons/a.svg`]: "icon" };
+const INSTALLED = { "main.js": "old", "version.js": 'VERSION = "0.0.1"' };
+
+test("PANEL_UPDATE installs the release's panel and keeps the files it replaced", (t) => {
+  const { r, root, read } = panelUpdate999(t, SHIPPED, INSTALLED);
+  assert.deepEqual([r.status, read("main.js"), read("version.js"), read("icons/a.svg"), read(".bak-update-0.0.1/main.js"), readdirSync(root).sort()],
+    [0, "new", 'VERSION = "9.9.9"', "icon", "old", ["home", "repo"]]);
+});
+
+test("PANEL_UPDATE keeps the copy an earlier attempt made", (t) => {
+  const { r, read } = panelUpdate999(t, SHIPPED, { ...INSTALLED, "main.js": "half", ".bak-update-0.0.1/main.js": "old" });
+  assert.deepEqual([r.status, read(".bak-update-0.0.1/main.js")], [0, "old"]);
+});
+
+test("PANEL_UPDATE leaves the panel alone when the release has none", (t) => {
+  const { r, said, dest } = panelUpdate999(t, {}, INSTALLED);
+  assert.deepEqual([r.status, said, readdirSync(dest).sort()], [1, "Release v9.9.9 has no panel update", ["main.js", "version.js"]]);
+});
+
+test("PANEL_UPDATE leaves another mod under the panel's name alone", (t) => {
+  const { r, said, dest, read } = panelUpdate999(t, SHIPPED, { "main.js": "someone else's" });
+  assert.deepEqual([r.status, said, read("main.js")], [1, `The panel is not in ${dest}; update it by hand`, "someone else's"]);
 });

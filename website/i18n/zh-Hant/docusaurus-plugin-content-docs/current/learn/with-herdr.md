@@ -35,6 +35,12 @@ agent 會先讀過所有檔案再加入 layout，你自己的 layout 不會被�
 
 tab bar 會出現 **skillshare** 按鈕，用來顯示或隱藏面板。切換 space 時，面板會維持原本的開關狀態。
 
+## 更新面板
+
+面板顯示時，每小時向 GitHub 查詢一次最新的 skillshare release。有新的 release 發布時，面板標題列會出現 **Update panel**。它會先詢問，再用該 release 附帶的檔案取代 `~/.config/herdr-app/mods/skillshare/` 裡的檔案，接著 Herdr 會重新載入面板。被取代的檔案保留在該資料夾的 `.bak-update-<version>`；你對這些檔案做的修改不會保留。你的 layout 不會被更動。
+
+在這個按鈕出現之前安裝的面板不會檢查更新。請手動把最新 release 的 `mods/skillshare/` 複製到 `~/.config/herdr-app/mods/skillshare/` 一次；之後的更新就能用按鈕完成。
+
 ## 面板功能
 
 面板跟著 Herdr 顯示的 space 走，在該 space 的機器上、聚焦中 terminal 的資料夾裡執行 skillshare。

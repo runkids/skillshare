@@ -35,6 +35,12 @@ Read ~/.config/herdr-app/AGENTS.md, then add this layout: herdr.dev/layouts/runk
 
 タブバーに **skillshare** ボタンが表示され、パネルの表示と非表示を切り替えます。space を切り替えても、パネルの開閉状態はそのまま残ります。
 
+## パネルの更新
+
+パネルは表示中、1 時間に 1 回 GitHub に最新の skillshare リリースを問い合わせます。新しいリリースが公開されると、パネルのヘッダーに **Update panel** が表示されます。確認のあと、`~/.config/herdr-app/mods/skillshare/` のファイルをそのリリースに含まれるものに置き換え、Herdr がパネルを再読み込みします。置き換えられたファイルはそのフォルダーの `.bak-update-<version>` に残ります。それらのファイルに加えた変更は引き継がれません。レイアウトは変更されません。
+
+このボタンが追加される前にインストールしたパネルは更新を確認しません。一度だけ手動で最新リリースの `mods/skillshare/` を `~/.config/herdr-app/mods/skillshare/` に上書きコピーしてください。以降の更新はボタンから行えます。
+
 ## パネルでできること
 
 パネルは Herdr が表示している space に追従し、その space のマシン上で、フォーカス中のターミナルのフォルダで skillshare を実行します。

@@ -75,3 +75,9 @@ test("resolving after the remote moved asks again instead of guessing", async ()
   const r = await operate({ op: "resolve", repo: "/src", push: true, choices: { "skills/a/SKILL.md": "local" } }, io);
   assert.deepEqual([r.kind, r.conflict?.files, calls.includes(RESOLVE)], ["warn", ["skills/a/SKILL.md", "skills/b/SKILL.md"], false]);
 });
+
+test("a panel update that fails says why", async () => {
+  const { io, calls } = machine({ jobs: { "v0.31.0 0.30.3": { code: 1, stderr: "Release v0.31.0 has no panel update" } } });
+  const r = await operate({ op: "panel", on: null, from: "0.30.3", to: "v0.31.0" }, io);
+  assert.deepEqual([r, calls], [{ kind: "error", text: "Release v0.31.0 has no panel update" }, ["v0.31.0 0.30.3"]]);
+});

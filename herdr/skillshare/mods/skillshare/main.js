@@ -2,7 +2,7 @@
 // what needs an update or a sync, install from a URL, and git sync of the source both ways.
 // Roles (props.role): the panel (default); "toggle", the tab-bar button that shows or hides the
 // layout's "skillshare-panel" node; dialogs: "install", "uninstall", "audit", "source",
-// "syncboth", "conflict", "upgrade", "text", "hook". Dialogs hand long work to the panel through
+// "syncboth", "conflict", "upgrade", "panelupdate", "text", "hook". Dialogs hand long work to the panel through
 // channel.js, because an overlay's tasks end when it closes. Install is the exception: its dialog
 // shows each step and takes the machine's lock itself, and the install runs detached, so closing
 // the dialog does not stop it.
@@ -12,17 +12,19 @@ import { exec, hc, run, spaces, agents, focused, machines, shared, setShared, th
 import {
   KINDS, SCOPES, DISCOVER, AUDIT,
   parseJSON, lastLine, failure, flag, sourceLine, buildItems, hookArgs, rowState, previewTargets, eligibleTargets, targetList, waitsForSync, syncScopes, overviewAnswer, remoteLine, waitingNames, mapLanes, needsBothWays, filterItems, groupItems, sourceGroups, counts,
-  cloneUrl, skillChoices, newerVersion, ago, auditMessage, parseDiscover, parseAudit,
+  cloneUrl, skillChoices, newerVersion, panelUpdate, updateState, ago, auditMessage, parseDiscover, parseAudit,
 } from "./model.js";
 import { createRunner } from "./jobs.js";
 import { createChannel } from "./channel.js";
 import { operate } from "./operations.js";
-import { findProject, loadResources, loadChecks, loadMachine, loadPreview, loadFile } from "./loader.js";
+import { findProject, loadResources, loadChecks, loadMachine, loadLatestRelease, loadPreview, loadFile } from "./loader.js";
+import { VERSION } from "./version.js";
 
 const PANEL = "skillshare-panel"; // the layout node the toggle shows and hides; hidden state is the layout's, so it survives space switches
 const RECENT = "skillshare.recent.v1"; // install sources, newest first
 const IN_SYNC_VIEW = "skillshare.inSyncView.v1"; // "list", or unset for In sync skills/agents grouped by source
-const POLL = 20000, CHECK_EVERY = 10 * 60 * 1000, MACHINES_POLL = 60000, NOTICE_MS = 4000, PROBLEM_MS = 8000;
+const UPDATING = "skillshare.panelUpdate.v1"; // { to, at } while the panel replaces its own files, for the build that loads after
+const POLL = 20000, CHECK_EVERY = 10 * 60 * 1000, RELEASE_EVERY = 60 * 60 * 1000, MACHINES_POLL = 60000, NOTICE_MS = 4000, PROBLEM_MS = 8000;
 // Every notice leaves by itself; a problem stays twice as long so it can be read.
 const expired = (n) => Date.now() - n.at > (n.kind === "warn" || n.kind === "error" ? PROBLEM_MS : NOTICE_MS);
 const PATHS = 'PATH="$HOME/.local/bin:$HOME/go/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"; export PATH';
@@ -261,11 +263,29 @@ export default class Skillshare extends View {
     this.ctx = null; this.project = null; this.raw = {}; this.items = []; this.git = null; this.loading = false; this.loadedAt = 0;
     this.checks = {}; this.checkedAt = 0; this.nextRequest = channel.listen(); this.shownNotice = null;
     this.lastAgent = null; this.machines = {}; this.machinesAt = 0; this.version = null; this.token = 0;
+    this.latest = null; this.latestAt = 0;
     this.filter = InputState.new({ placeholder: "Filter by name or source" });
     this.filter.on("change", (_e, cx) => { this.query = this.filter.value(); cx.notify(); });
     // No remote work while the panel is hidden; showing it again refreshes (see render).
     const hidden = () => Boolean(find(layout(), PANEL)?.hidden);
-    cx.timer.every(POLL, (cx) => { if (!this.busyAt(this.ctx?.on) && !hidden()) this.refresh(cx, false); });
+    cx.timer.every(POLL, (cx) => {
+      if (hidden()) return;
+      if (!this.busyAt(this.ctx?.on)) this.refresh(cx, false);
+      if (Date.now() - this.latestAt > RELEASE_EVERY) this.checkRelease(cx);
+    });
+    // Herdr reloads the panel as an update saves its files, which ends the build that started it
+    // before it can report. The build the update installed reports for it.
+    later(cx, (cx) => {
+      const state = updateState(shared(UPDATING), VERSION);
+      if (!state) return;
+      setShared(UPDATING, null);
+      if (state === "done") {
+        // The lock is the ended build's unless other work took it since.
+        if (/^Updating the panel/.test(channel.textAt(null) ?? "")) channel.release(null);
+        channel.say("done", `Updated the panel to v${VERSION}`);
+      }
+      cx.notify();
+    });
     cx.timer.every(1000, (cx) => {
       const n = channel.notice();
       if (n && expired(n) && this.shownNotice !== n.at) { this.shownNotice = n.at; cx.notify(); }
@@ -313,6 +333,15 @@ export default class Skillshare extends View {
     });
   }
 
+  // Whether a newer skillshare release exists, and so a newer panel.
+  checkRelease(cx) {
+    this.latestAt = Date.now();
+    cx.spawn(async (cx) => {
+      const tag = await loadLatestRelease(machineIO(cx));
+      if (tag) { this.latest = tag; cx.notify(); }
+    });
+  }
+
   rebuild() {
     this.items = Object.entries(this.raw).flatMap(([scope, r]) => buildItems(scope, { ...r, ...(this.checks[scope] ?? {}) }));
   }
@@ -331,10 +360,13 @@ export default class Skillshare extends View {
       cx.notify(); return;
     }
     if (!channel.claim(req.on, "Working…")) { if (req.op !== "refresh") channel.say("warn", "skillshare is busy on that machine; try again when it finishes"); return; }
+    if (req.op === "panel") setShared(UPDATING, { to: req.to, at: Date.now() });
     cx.spawn(async (cx) => {
       const step = (text) => { channel.step(req.on, text); cx.notify(); };
       try {
         const res = await operate(req, { ...machineIO(cx, { lock: req.on }), step });
+        // Still here, so this build reports; a build ended by the reload leaves the record for the next.
+        if (req.op === "panel") setShared(UPDATING, null);
         if (res.conflict !== undefined) { this.stopped = res.conflict; if (res.conflict) this.openConflict(); }
         if (res.overlay) openDialog({ width: 620, height: 520, props: { role: "text", ...res.overlay } });
         if (res.machines) this.machinesAt = 0;
@@ -403,6 +435,8 @@ export default class Skillshare extends View {
     if (shownNow && this.wasHidden && ctx) later(cx, (cx) => this.refresh(cx, false));
     this.wasHidden = !shownNow;
     const folderName = ctx ? (this.project ?? ctx.folder).split("/").filter(Boolean).pop() || "~" : null;
+    // Offered only while nothing runs: the reload ends every job's poll.
+    const newPanel = channel.busyText() ? null : panelUpdate(VERSION, this.latest);
     const where = ctx ? `${this.project ? folderName : this.projectKnown ? "global" : folderName} · ${ctx.on ?? "this computer"}` : null;
     return v_flex().id("skillshare").track_focus(this.handle).size_full().min_h(0).rounded(10).overflow_hidden()
       .bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(S().body)
@@ -411,6 +445,7 @@ export default class Skillshare extends View {
         .child(div().flex_none().text_size(S().title).font_semibold().child("skillshare"))
         .children([where ? h_flex().min_w(0).child(pill(where, t)) : null].filter(Boolean))
         .child(div().flex_1())
+        .when(Boolean(newPanel), (el) => el.child(secondary("panel-update", "Update panel", t, () => openDialog({ width: 440, height: 250, props: { role: "panelupdate", from: VERSION, to: newPanel } }), { h: 24, px: 8, size: S().label })))
         .when(Boolean(this.version), (el) => el.child(div().flex_none().text_size(S().secondary).text_color(t.muted).child(`v${String(this.version).replace(/^v/, "")}`)))
         .when(Boolean(node), (el) => el.child(h_flex().id("close").size(24).flex_none().justify_center().items_center().rounded(6).cursor_pointer().hover((s) => s.bg(t.hover))
           .on_mouse_down("left", stop).on_click(() => run("layout.hide", { id: PANEL })).child(icon("close", 14, t.muted)))))
@@ -1010,6 +1045,13 @@ export default class Skillshare extends View {
       const go = () => { request({ op: "upgrade", on: p.on, label: p.label }); close(); };
       return dialogFrame(t, "upgrade", this.handle, `Update skillshare on ${p.label}?`,
         [note(t, `Replaces skillshare v${String(p.from ?? "?").replace(/^v/, "")} with v${String(p.to).replace(/^v/, "")} on ${p.label} (skillshare upgrade --cli).`, t.foreground)],
+        [dialogButton("cancel", "Cancel", t, close), dialogButton("go", "Update", t, go, "primary")], close, go);
+    }
+    if (p.role === "panelupdate") {
+      const go = () => { request({ op: "panel", on: null, from: p.from, to: p.to }); close(); };
+      return dialogFrame(t, "panelupdate", this.handle, `Update the panel to ${p.to}?`,
+        [note(t, `Replaces the skillshare panel v${p.from} in Herdr's mods folder on this computer with the one skillshare ${p.to} ships. The panel reloads when it is done.`, t.foreground),
+          note(t, `The files it replaces are kept in the panel's .bak-update-${p.from} folder. Changes you made to them are not carried over.`)],
         [dialogButton("cancel", "Cancel", t, close), dialogButton("go", "Update", t, go, "primary")], close, go);
     }
     if (p.role === "text") {

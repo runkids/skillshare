@@ -48,6 +48,21 @@ The panel lives in its own layout node instead of the per-space `panel` stack. H
 restores that stack per space, so a panel there closes when you switch spaces. This node's
 shown or hidden state is a layout click, which Herdr keeps across spaces and restarts.
 
+## Update
+
+When a newer skillshare release is published, the panel's header shows **Update panel**. It asks
+first, then replaces the files in `~/.config/herdr-app/mods/skillshare/` with the ones that release
+ships, and Herdr reloads the panel. The files it replaced are kept in that folder's
+`.bak-update-<version>`; changes you made to them are not carried over. The layout is not touched.
+
+A panel installed before this button existed has no update check. Update it once by hand: copy
+`mods/skillshare/` from the latest release over `~/.config/herdr-app/mods/skillshare/`, or paste this prompt into an
+agent in Herdr:
+
+```text
+Read ~/.config/herdr-app/AGENTS.md, then replace the files in mods/skillshare with the ones in herdr/skillshare/mods/skillshare of the latest release of https://github.com/runkids/skillshare (the tag that /releases/latest lands on), overwriting the mod that is there.
+```
+
 ## How it reads
 
 - It runs on the shown space's machine (`exec` with `on`), in the focused terminal's folder.
@@ -61,6 +76,10 @@ shown or hidden state is a layout click, which Herdr keeps across spaces and res
   `skillshare audit <path> --json` on that clone, because `install --json` names a blocked
   skill but not its findings. A block shows the findings before anything is written;
   "Install anyway" reruns the install with `--force`.
+- The panel's version is `mods/skillshare/version.js`, the skillshare release it shipped with.
+  Once an hour while shown, the panel asks where `github.com/runkids/skillshare/releases/latest`
+  lands (`curl`, on this computer) and offers the update when that release is newer. The update
+  clones only the mod's folder at that release's tag.
 - The source dialog runs `skillshare pull` and `skillshare push -m`. When a pull or
   `push --pull` stops on files both sides changed, the panel reads both versions with
   `git show HEAD:<file>` and `git show @{u}:<file>`, puts the repository back, and asks
