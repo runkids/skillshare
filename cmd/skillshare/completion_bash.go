@@ -107,7 +107,7 @@ _skillshare() {
     # End project command
 
     if [[ "${cmd}" == mcp && ( "${prev}" == --target || "${prev}" == --from ) ]]; then
-        COMPREPLY=($(compgen -W "claude codex cursor vscode opencode kilocode grok antigravity amp claude-desktop cline copilot factory gemini goose junie kiro lmstudio warp windsurf pi omp" -- "${cur}"))
+        COMPREPLY=($(compgen -W "claude codex cursor vscode opencode kilocode grok antigravity amp claude-desktop cline copilot factory gemini goose hermes junie kiro lmstudio warp windsurf pi omp" -- "${cur}"))
         return
     fi
     if [[ "${cmd}" == target && "${prev}" == --agent ]]; then

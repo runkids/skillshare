@@ -289,10 +289,10 @@ func DetectedAccounts(accounts map[string]Account) []string {
 // ConfigDirsFromEnv reads the Agent directory overrides Agents themselves honor.
 func ConfigDirsFromEnv() map[string]string {
 	dirs := map[string]string{}
-	for key, env := range map[string]string{"pi": "PI_CODING_AGENT_DIR", "omp": "PI_CODING_AGENT_DIR", "codex": "CODEX_HOME", "claude": "CLAUDE_CONFIG_DIR", "opencode": "OPENCODE_CONFIG_DIR", "grok": "GROK_HOME", "copilot": "COPILOT_HOME", "cline": "CLINE_DIR", "cline-data": "CLINE_DATA_DIR", "cline-mcp": "CLINE_MCP_SETTINGS_PATH", "xdg": "XDG_CONFIG_HOME", "appdata": "APPDATA"} {
+	for key, env := range map[string]string{"pi": "PI_CODING_AGENT_DIR", "omp": "PI_CODING_AGENT_DIR", "codex": "CODEX_HOME", "claude": "CLAUDE_CONFIG_DIR", "opencode": "OPENCODE_CONFIG_DIR", "grok": "GROK_HOME", "copilot": "COPILOT_HOME", "hermes": "HERMES_HOME", "localappdata": "LOCALAPPDATA", "cline": "CLINE_DIR", "cline-data": "CLINE_DATA_DIR", "cline-mcp": "CLINE_MCP_SETTINGS_PATH", "xdg": "XDG_CONFIG_HOME", "appdata": "APPDATA"} {
 		value := strings.TrimSpace(os.Getenv(env))
 		// The XDG spec says a relative XDG_CONFIG_HOME is invalid and must be ignored.
-		if value == "" || (key == "xdg" || key == "appdata") && !filepath.IsAbs(value) {
+		if value == "" || (key == "xdg" || key == "appdata" || key == "localappdata") && !filepath.IsAbs(value) {
 			continue
 		}
 		dirs[key] = value

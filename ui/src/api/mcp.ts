@@ -1,6 +1,6 @@
 import { apiFetch } from './client';
 
-export const mcpTargets = ['claude', 'codex', 'cursor', 'vscode', 'opencode', 'kilocode', 'grok', 'antigravity', 'amp', 'claude-desktop', 'cline', 'copilot', 'factory', 'gemini', 'goose', 'junie', 'kiro', 'lmstudio', 'warp', 'windsurf', 'pi', 'omp'] as const;
+export const mcpTargets = ['claude', 'codex', 'cursor', 'vscode', 'opencode', 'kilocode', 'grok', 'antigravity', 'amp', 'claude-desktop', 'cline', 'copilot', 'factory', 'gemini', 'goose', 'hermes', 'junie', 'kiro', 'lmstudio', 'warp', 'windsurf', 'pi', 'omp'] as const;
 export type MCPValue = string | { fromEnv: string };
 /** A scope's defaults. A save replaces them, so a value left out is cleared. */
 export interface MCPSettings { targets?: string[] }

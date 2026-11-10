@@ -102,8 +102,8 @@ _skillshare() {
                         '--tools-allow[Only these tools, comma-separated, * matches any characters; empty clears]:tools:' \
                         '--tools-deny[Never these tools, comma-separated, * matches any characters; empty clears]:tools:' \
                         '--pi-options[Other Pi built-in per-server fields as JSON]:json:' \
-                        '--target[Receiving client]:target:(claude codex cursor vscode opencode kilocode grok antigravity amp claude-desktop cline copilot factory gemini goose junie kiro lmstudio warp windsurf pi omp)' \
-                        '--from[Import client]:target:(claude codex cursor vscode opencode kilocode grok antigravity amp claude-desktop cline copilot factory gemini goose junie kiro lmstudio warp windsurf pi omp)' \
+                        '--target[Receiving client]:target:(claude codex cursor vscode opencode kilocode grok antigravity amp claude-desktop cline copilot factory gemini goose hermes junie kiro lmstudio warp windsurf pi omp)' \
+                        '--from[Import client]:target:(claude codex cursor vscode opencode kilocode grok antigravity amp claude-desktop cline copilot factory gemini goose hermes junie kiro lmstudio warp windsurf pi omp)' \
                         '--url[MCP endpoint]:url:' \
                         '--file[Import file]:file:_files' \
                         '--sync[Sync after saving]' \

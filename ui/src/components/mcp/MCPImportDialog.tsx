@@ -29,7 +29,7 @@ const SNIPPET_PLACEHOLDER = `{
   }
 }`;
 const TOML = /^\s*\[mcp_servers[.\]]/m;
-const GOOSE_YAML = /^extensions\s*:/m;
+const MCP_YAML = /^(?:extensions|mcp_servers)\s*:/m;
 
 /** Pretty-printed JSON, or null when the text isn't plain JSON (comments and trailing commas still import fine). */
 function formatJSON(text: string) {
@@ -137,7 +137,7 @@ function ImportSourceEditor({ content, pasted, tomlFrom, query, saving, onConten
   const t = useT();
   const { toast } = useToast();
   const tomlInput = TOML.test(content);
-  const yamlInput = GOOSE_YAML.test(content);
+  const yamlInput = MCP_YAML.test(content);
   const formatted = tomlInput || !content.trim() ? null : formatJSON(content);
   return (
     <>
@@ -193,7 +193,7 @@ function SnippetStatus({ pasted, tomlFrom, query, onTomlFrom }: { pasted: string
       {query.error ? (
         <span className="ss-st bad wrap min-w-0">{describeError(t, query.error.message)}</span>
       ) : query.data ? (
-        <span className="ss-st ok">{t(plural('mcp.detected', candidates.length), { format: toml ? 'TOML' : GOOSE_YAML.test(pasted) ? 'YAML' : 'JSON', count: candidates.length })}</span>
+        <span className="ss-st ok">{t(plural('mcp.detected', candidates.length), { format: toml ? 'TOML' : MCP_YAML.test(pasted) ? 'YAML' : 'JSON', count: candidates.length })}</span>
       ) : (
         <span className="text-ink-3">{t('mcp.reading')}</span>
       )}
@@ -249,7 +249,7 @@ function ImportCandidateList({ tab, candidates, selection, query, saving, onPick
             <span className="flex min-w-0 flex-1 flex-col gap-px">
               <span className="font-mono text-[13px] font-semibold">{c.name}</span>
               <span className="truncate font-mono text-xs text-ink-3" title={describeEndpoint(c.server)}>{describeEndpoint(c.server)}</span>
-              {[...new Set(c.problems)].map((p) => <span key={p} className="text-xs text-bad">{p}</span>)}
+              {[...new Set(c.problems)].map((p) => <span key={p} className="text-xs text-bad">{describeError(t, p)}</span>)}
               {[...new Set(c.warnings)].map((w) => <span key={w} className="text-xs text-warn">{w}</span>)}
             </span>
             {exists(c) ? (

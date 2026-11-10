@@ -11,7 +11,7 @@ import (
 // instead of flattening those relationships when editing an owned extension.
 func plainYAML(node *yaml.Node) error {
 	if node.Kind == yaml.AliasNode || node.Tag == "!!merge" {
-		return fmt.Errorf("Goose MCP configuration must not use YAML aliases or merges")
+		return fmt.Errorf("MCP YAML configuration must not use aliases or merges")
 	}
 	for _, child := range node.Content {
 		if err := plainYAML(child); err != nil {
@@ -27,12 +27,13 @@ func (n *Native) editYAML(changes map[string]map[string]any) ([]byte, error) {
 	if err := parseYAML(n.data, &doc); err != nil {
 		return nil, err
 	}
-	if field(&doc, "extensions") == nil {
-		if err := put(&doc, "extensions", map[string]any{}); err != nil {
+	key := nativeKey(n.Target)
+	if field(&doc, key) == nil {
+		if err := put(&doc, key, map[string]any{}); err != nil {
 			return nil, err
 		}
 	}
-	extensions := field(&doc, "extensions")
+	extensions := field(&doc, key)
 	for _, name := range sortedKeys(changes) {
 		entry := changes[name]
 		if entry != nil {

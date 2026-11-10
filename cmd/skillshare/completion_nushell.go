@@ -88,7 +88,7 @@ def "nu-complete skillshare mcp" [] {
 }
 
 def "nu-complete skillshare mcp-target" [] {
-    [claude codex cursor vscode opencode kilocode grok antigravity amp claude-desktop cline copilot factory gemini goose junie kiro lmstudio warp windsurf pi omp]
+    [claude codex cursor vscode opencode kilocode grok antigravity amp claude-desktop cline copilot factory gemini goose hermes junie kiro lmstudio warp windsurf pi omp]
 }
 
 def "nu-complete skillshare account-agent" [] {

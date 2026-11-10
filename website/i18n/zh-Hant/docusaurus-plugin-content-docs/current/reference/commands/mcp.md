@@ -44,7 +44,7 @@ skillshare sync --all
 | `--tools-deny TOOLS` | 永遠排除這些工具，以逗號分隔；優先於 allow；`""` 會清除。參見[工具政策](#tool-policy) |
 | `--pi-options JSON` | Pi 內建 MCP 的其他單一 server 欄位，以 JSON 物件表示。參見 [Pi](#pi-options) |
 | `--from CLIENT` | 要匯入的既有 client，或 `--file` 的格式 |
-| `--file PATH` | 原生 JSON/JSONC、TOML 或 Goose YAML；`.toml` 預設為 Codex，其他格式會從其 MCP 區段偵測；使用 `--from` 可明確指定格式 |
+| `--file PATH` | 原生 JSON/JSONC、TOML 或 Goose/Hermes YAML；`.toml` 預設為 Codex，其他格式會從其 MCP 區段偵測；使用 `--from` 可明確指定格式 |
 | `--sync` | 儲存並同步；非互動式的 add/import/remove 預設只會儲存 |
 | `--keep-files` | 搭配 `remove`：停止管理該 server，並讓它在各 Agent 中的項目維持原樣。不可與 `--sync` 併用。參見[下方說明](#stop-managing-a-server) |
 | `--replace` | 在 add/import 期間明確取代既有的 source 定義；在 import 時，若匯入的 client 項目不同也會一併改寫 |
@@ -102,7 +102,7 @@ Add、edit、remove 與 import 在 **Save and sync** 或 **Save only** 之前會
 
 Client ID 有 `claude`、`codex`、`cursor`、`vscode`、`opencode`、`kilocode`、
 `grok`、`antigravity`、`amp`、`claude-desktop`、`cline`、`copilot`、`factory`、`gemini`、
-`goose`、`junie`、`kiro`、`lmstudio`、`warp`、`windsurf`、`pi` 與 `omp`。
+`goose`、`hermes`、`junie`、`kiro`、`lmstudio`、`warp`、`windsurf`、`pi` 與 `omp`。
 `--target` 與 `--from` 也接受 `agy` 與 `antigravity-cli`（其他指令對 Antigravity CLI 的稱呼），
 並視為 `antigravity`；source 中儲存的是 `antigravity`。
 `grok` 指的是官方的 xAI Grok CLI。Server 名稱使用字母、
@@ -193,12 +193,15 @@ skillshare mcp edit docs --target claude   # 恢復同步
 | [Factory Droid](https://docs.factory.ai/harness/mcp) | `~/.factory/mcp.json` | `.factory/mcp.json` | `mcpServers` |
 | [Gemini CLI](https://geminicli.com/docs/tools/mcp-server/) | `~/.gemini/settings.json` | `.gemini/settings.json` | `mcpServers` |
 | [Goose](https://block.github.io/goose/docs/guides/config-files/) | `~/.config/goose/config.yaml` | 僅限 Global | `extensions`（YAML） |
+| [Hermes Agent](https://hermes-agent.nousresearch.com/docs/reference/mcp-config-reference) | `~/.hermes/config.yaml` | 僅限 Global | `mcp_servers` (YAML) |
 | [Junie](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html) | `~/.junie/mcp/mcp.json` | `.junie/mcp/mcp.json` | `mcpServers` |
 | [Kiro](https://kiro.dev/docs/mcp/configuration/) | `~/.kiro/settings/mcp.json` | `.kiro/settings/mcp.json` | `mcpServers` |
 | [LM Studio](https://lmstudio.ai/docs/app/mcp) | `~/.lmstudio/mcp.json` | 僅限 Global | `mcpServers` |
 | [Warp](https://docs.warp.dev/agents/capabilities/mcp/) | `~/.warp/.mcp.json` | `.warp/.mcp.json` | `mcpServers` |
 | [Windsurf (Cascade)](https://docs.devin.ai/desktop/cascade/mcp) | `~/.codeium/windsurf/mcp_config.json` | 僅限 Global | `mcpServers` |
 | [Oh My Pi (OMP)](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/mcp-config.md) | `~/.omp/agent/mcp.json` | `.omp/mcp.json` | `mcpServers` |
+
+Hermes 僅支援 Global MCP，使用 `mcp_servers`（YAML）；支援 stdio 與 Streamable HTTP，拒絕匯入 SSE。絕對路徑 `HERMES_HOME` 可選擇其他 home/profile；未指定時使用 default profile，Windows 預設為 `%LOCALAPPDATA%/hermes`。不自動追蹤 active profile、`--profile` 或 `HERMES_DATA_DIR_SUFFIX`。`fromEnv` 寫為 `${VAR}`，env/header 匯入也接受 `${env:VAR}`。使用 `options.hermes: {auth: oauth}` 啟用原生 OAuth；匯入會保留 `auth`／`oauth`，其中的明文憑證會阻擋匯入，請先改為完整的 `${VAR}` 參照。其他未映射欄位會產生警告。登入、`.env`、token 與 refresh state 由 Hermes 管理，在相同 profile 執行 `hermes mcp login NAME`。YAML 保留規則與限制同 Goose。
 
 Dashboard 的 server 表單編輯 HTTP headers 的方式與環境變數相同，
 包括 `fromEnv` 參照。Server 選單中的 **View what each Agent gets**，以及其表單中檔案數量旁的同名選項，

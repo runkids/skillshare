@@ -231,7 +231,7 @@ $_skillshareCompleter = {
     $previousIndex = $elements.Count - 1
     if ($wordToComplete -ne '') { $previousIndex-- }
     if ($cmd -eq 'mcp' -and $previousIndex -ge 0 -and $elements[$previousIndex] -in @('--target', '--from')) {
-        @('claude', 'codex', 'cursor', 'vscode', 'opencode', 'kilocode', 'grok', 'antigravity', 'amp', 'claude-desktop', 'cline', 'copilot', 'factory', 'gemini', 'goose', 'junie', 'kiro', 'lmstudio', 'warp', 'windsurf', 'pi', 'omp') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+        @('claude', 'codex', 'cursor', 'vscode', 'opencode', 'kilocode', 'grok', 'antigravity', 'amp', 'claude-desktop', 'cline', 'copilot', 'factory', 'gemini', 'goose', 'hermes', 'junie', 'kiro', 'lmstudio', 'warp', 'windsurf', 'pi', 'omp') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
             [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
         }
         return
