@@ -7,7 +7,7 @@
 // shows each step and takes the machine's lock itself, and the install runs detached, so closing
 // the dialog does not stop it.
 import { View, div, image, svg } from "gpui-kit";
-import { v_flex, h_flex, InputState, Input, TextView } from "gpui-base";
+import { v_flex, h_flex, InputState, Input, TextView, HoverCard } from "gpui-base";
 import { exec, hc, run, spaces, agents, focused, machines, shared, setShared, theme, settings, layout, openOverlay, closeOverlay, nextCommand, readTextFile, knownAgents, props as blockProps } from "herdr";
 import {
   KINDS, SCOPES, DISCOVER, AUDIT,
@@ -584,16 +584,27 @@ export default class Skillshare extends View {
         .loop("opacity", PULSE);
     }
     const state = moving ? "flow" : "wait";
-    const rows = mapLanes(targets).map((r) => (r.wait
-      ? { name: r.name ?? `+${r.more} more`, text: moving ? "syncing" : r.name ? `${r.n} to sync` : "to sync", wait: true, quiet: !r.name }
-      : { name: r.name ?? plural(r.more, "other"), text: r.name ? null : "in sync", quiet: !r.name }));
+    const say = (r) => (r.wait
+      ? { name: r.name ?? `+${r.more} more`, text: moving ? "syncing" : r.name ? `${r.n} to sync` : "to sync", wait: true, quiet: !r.name, rest: r.rest }
+      : { name: r.name ?? plural(r.more, "other"), text: r.name ? null : "in sync", quiet: !r.name, rest: r.rest });
+    const rows = mapLanes(targets).map(say);
+    const cells = (r) => [dot(r.wait ? t.blocked : t.ansi2), r.quiet ? null : agentIcon(t, r.name, 16),
+      div().flex_1().min_w(0).truncate().text_size(S().body).font_medium().text_color(r.quiet ? t.muted : t.foreground).child(r.name),
+      r.text ? small(r.text, r.wait ? t.blocked : t.muted) : icon("check", 13, t.muted)].filter(Boolean);
+    // A collapsed line names its targets when the pointer rests on it, drawn as the lines they
+    // would have been. The card hangs under the line, inset so its dots continue the column above.
+    const others = (r, el) => HoverCard.new(`map-rest-${r.wait ? "wait" : "ok"}`).anchor("top_left").open_delay(250).trigger(el)
+      .content(div().pl(MAP_INSET + 54 + 9 - 13).child(v_flex().w(220).py(6).rounded(10).border_1().border_color(t.input).bg(t.popover)
+        .children(r.rest.map((x) => h_flex().h(28).px(12).gap(9).items_center().children(cells(say({ ...x, wait: Boolean(x.n) })))))));
     return frame(KINDS.map(([k, label], i) => cell(i, v_flex().id(`have-${k}`)).cursor_pointer().hover((s) => s.bg(t.hover)).active((s) => s.bg(t.selected))
       .on_mouse_down("left", stop).on_click((_e, cx) => { this.view = "library"; this.kind = k; cx.notify(); })
       .child(div().text_size(S().dialog + 2).font_semibold().text_color(hot.has(k) ? t.blocked : kc[k] ? t.foreground : t.muted).child(String(kc[k])))
       .child(div().text_size(S().label).text_color(hot.has(k) ? t.blocked : t.muted).child(label))),
-    rows.map((r, i) => lane(i === rows.length - 1, syncLine(t, r.wait ? state : "ok"), [dot(r.wait ? t.blocked : t.ansi2), r.quiet ? null : agentIcon(t, r.name, 16),
-      div().flex_1().min_w(0).truncate().text_size(S().body).font_medium().text_color(r.quiet ? t.muted : t.foreground).child(r.name),
-      r.text ? small(r.text, r.wait ? t.blocked : t.muted) : icon("check", 13, t.muted)])));
+    rows.map((r, i) => {
+      const el = lane(i === rows.length - 1, syncLine(t, r.wait ? state : "ok"), cells(r));
+      return r.rest ? others(r, el) : el;
+    }));
+
   }
 
   groupHeader(t, id, label, color, action) {
