@@ -92,20 +92,34 @@ func (s *Service) TrustCodex() ([]CodexTrust, error) {
 	}
 	saved.Version = 2
 	homes := map[string]string{}
+	perFile := map[string]map[string]record{}
 	owned := map[string]map[string]record{}
+	parked := map[string]map[string]record{}
 	for key, r := range state.Records {
-		if r.Owner != owner || r.Root != "" || s.agentOf(r.Target) != "codex" {
+		if r.Root != "" || s.agentOf(r.Target) != "codex" {
+			continue
+		}
+		file := canonicalPath(r.Path)
+		if perFile[file] == nil {
+			perFile[file] = map[string]record{}
+		}
+		perFile[file][key] = r
+		if r.Owner != owner {
 			continue
 		}
 		sc, _ := s.forTarget(r.Target)
 		if path, err := sc.nativePath("codex"); err != nil || !samePath(path, r.Path) {
+			if parked[file] == nil {
+				parked[file] = map[string]record{}
+			}
+			parked[file][key] = r
 			continue // A parked record's home moved or is missing.
 		}
 		homes[r.Path] = r.Target
-		if owned[r.Path] == nil {
-			owned[r.Path] = map[string]record{}
+		if owned[file] == nil {
+			owned[file] = map[string]record{}
 		}
-		owned[r.Path][key] = r
+		owned[file][key] = r
 	}
 	for _, home := range saved.Homes {
 		if home.Owner == owner {
@@ -120,7 +134,8 @@ func (s *Service) TrustCodex() ([]CodexTrust, error) {
 			continue // A missing account home is skipped, as sync skips it.
 		}
 		homeKey := codexTrustHomeKey(owner, path)
-		results, keys, err := s.trustCodexHome(homes[path], path, owned[path], saved.Homes[homeKey].Keys)
+		file := canonicalPath(path)
+		results, keys, err := s.trustCodexHome(homes[path], path, perFile[file], owned[file], parked[file], saved.Homes[homeKey].Keys)
 		out = append(out, results...)
 		if err != nil {
 			return out, fmt.Errorf("%s: %w", homes[path], err)
@@ -149,7 +164,7 @@ func (s *Service) TrustCodex() ([]CodexTrust, error) {
 		if info, err := os.Stat(filepath.Dir(path)); err != nil || !info.IsDir() {
 			continue
 		}
-		results, _, err := s.trustCodexHome(home.Target, path, nil, home.Keys)
+		results, _, err := s.trustCodexHome(home.Target, path, nil, nil, nil, home.Keys)
 		out = append(out, results...)
 		if err != nil {
 			return out, fmt.Errorf("%s: %w", home.Target, err)
@@ -180,10 +195,12 @@ func (s *Service) TrustCodex() ([]CodexTrust, error) {
 
 func codexTrustHomeKey(owner, path string) string { return owner + "\x00" + path }
 
-// trustCodexHome trusts the owned groups of one hooks.json and clears trust recorded
-// earlier for positions they left. It returns the keys whose trust it now holds.
-func (s *Service) trustCodexHome(target, path string, records map[string]record, written map[string]string) ([]CodexTrust, map[string]string, error) {
+// trustCodexHome locates groups against all records for one hooks.json, then trusts
+// only the active owner's groups. It clears trust recorded earlier for positions they
+// left and keeps receipts for still-owned registrations parked at this path.
+func (s *Service) trustCodexHome(target, path string, records, owned, parked map[string]record, written map[string]string) ([]CodexTrust, map[string]string, error) {
 	positions := map[string]string{}
+	parkedPositions := map[string]bool{}
 	data, exists, _, err := safeRead(path)
 	if err != nil {
 		return nil, nil, err
@@ -194,7 +211,22 @@ func (s *Service) trustCodexHome(target, path string, records map[string]record,
 			return nil, nil, err
 		}
 		for key, index := range locate(doc, records) {
-			positions[codexEventKey(records[key].Event)+":"+strconv.Itoa(index)] = records[key].Entry
+			position := codexEventKey(records[key].Event) + ":" + strconv.Itoa(index)
+			if _, ok := owned[key]; ok {
+				positions[position] = records[key].Entry
+			}
+			if _, ok := parked[key]; ok {
+				parkedPositions[position] = true
+			}
+		}
+		// Duplicate counts can make locate reject an otherwise matching parked
+		// registration. Keep its receipt only at positions with the same group hash.
+		for _, r := range parked {
+			for index, item := range doc.events[r.Event] {
+				if elementHash(item) == r.Hash {
+					parkedPositions[codexEventKey(r.Event)+":"+strconv.Itoa(index)] = true
+				}
+			}
 		}
 	}
 	start := s.CodexAppServer
@@ -224,8 +256,12 @@ func (s *Service) trustCodexHome(target, path string, records map[string]record,
 			continue
 		}
 		here[h.Key] = h
-		entry, ok := positions[codexPosition(h.Key)]
+		position := codexPosition(h.Key)
+		entry, ok := positions[position]
 		if !ok {
+			if parkedPositions[position] && written[h.Key] == h.CurrentHash {
+				keep[h.Key] = h.CurrentHash
+			}
 			continue
 		}
 		result := CodexTrust{Target: target, Entry: entry, Key: h.Key, Action: "unchanged", Disabled: !h.Enabled}

@@ -294,6 +294,169 @@ func TestCodexTrustIsScopedByConfigOwner(t *testing.T) {
 	}
 }
 
+func TestCodexTrustLocatesIdenticalHooksAcrossConfigOwners(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		alias bool
+	}{{name: "shared path"}, {name: "symlink alias", alias: true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			e, _ := trustEnv(t)
+			first := e.service
+			second := *first
+			second.ConfigPath = filepath.Join(filepath.Dir(e.config), "other.yaml")
+			write(t, second.ConfigPath, "targets: {}\n")
+			codex := filepath.Join(e.home, ".codex")
+			hooksPath := filepath.Join(codex, "hooks.json")
+			if tc.alias {
+				must(t, os.MkdirAll(codex, 0755))
+				alias := filepath.Join(e.home, "codex-alias")
+				if err := os.Symlink(codex, alias); err != nil {
+					t.Skipf("symlink unavailable: %v", err)
+				}
+				second.ConfigDirs = map[string]string{"codex": alias}
+				hooksPath = filepath.Join(alias, "hooks.json")
+			}
+
+			save(t, first, Mutation{Name: "first", Entry: codexTrustEntry(t, "echo shared")})
+			save(t, &second, Mutation{Name: "second", Entry: codexTrustEntry(t, "echo different")})
+			save(t, &second, Mutation{Name: "second", Entry: codexTrustEntry(t, "echo shared")})
+
+			trust, err := second.TrustCodex()
+			if err != nil || len(trust) != 1 || trust[0].Entry != "second" || trust[0].Action != "trusted" {
+				t.Fatalf("second config trust = %+v, %v", trust, err)
+			}
+			firstOwner, err := filepath.Abs(first.ConfigPath)
+			must(t, err)
+			secondOwner, err := filepath.Abs(second.ConfigPath)
+			must(t, err)
+			state, _, err := second.loadLedger()
+			must(t, err)
+			firstIndex, secondIndex := -1, -1
+			for _, r := range state.Records {
+				if r.Owner == firstOwner && r.Entry == "first" {
+					firstIndex = r.Index
+				}
+				if r.Owner == secondOwner && r.Entry == "second" {
+					secondIndex = r.Index
+				}
+			}
+			if firstIndex < 0 || secondIndex < 0 || firstIndex == secondIndex {
+				t.Fatalf("hook indexes = first:%d second:%d", firstIndex, secondIndex)
+			}
+			firstKey := fmt.Sprintf("%s:session_start:%d:0", hooksPath, firstIndex)
+			secondKey := fmt.Sprintf("%s:session_start:%d:0", hooksPath, secondIndex)
+			if trust[0].Key != secondKey {
+				t.Fatalf("trusted key = %q, want second config's %q", trust[0].Key, secondKey)
+			}
+			hashes, err := codexTrustedHashes(filepath.Join(codex, "config.toml"))
+			must(t, err)
+			if hashes[firstKey] != "" || hashes[secondKey] == "" {
+				t.Fatalf("trust hashes = %+v; want only second config's key", hashes)
+			}
+		})
+	}
+}
+
+func TestCodexTrustKeepsReceiptsForParkedHomes(t *testing.T) {
+	e, _ := trustEnv(t)
+	codex := filepath.Join(e.home, ".codex")
+	save(t, e.service, Mutation{Name: "owned", Entry: codexTrustEntry(t, "echo owned")})
+	trustActions(t, e.service)
+	key := filepath.Join(codex, "hooks.json") + ":session_start:0:0"
+	ownedHash := trustedHash(t, codex, "session_start:0:0")
+
+	// Switching CODEX_HOME parks the existing registration until the old home is active again.
+	other := filepath.Join(e.home, ".codex-other")
+	must(t, os.MkdirAll(other, 0755))
+	e.service.ConfigDirs["codex"] = other
+	if _, err := e.service.TrustCodex(); err != nil {
+		t.Fatal(err)
+	}
+	var saved codexTrustState
+	must(t, json.Unmarshal([]byte(read(t, e.service.codexTrustPath())), &saved))
+	if saved.Homes[codexTrustHomeKey(e.service.ConfigPath, filepath.Join(codex, "hooks.json"))].Keys[key] != ownedHash {
+		t.Fatalf("parked receipt was discarded: %+v", saved.Homes)
+	}
+
+	e.service.ConfigDirs["codex"] = ""
+	save(t, e.service, Mutation{Name: "owned", Remove: true})
+	trust, err := e.service.TrustCodex()
+	if err != nil || len(trust) != 1 || trust[0].Action != "cleared" {
+		t.Fatalf("restored home cleanup = %+v, %v", trust, err)
+	}
+	if trustedHash(t, codex, "session_start:0:0") != "" {
+		t.Fatal("restored home kept trust after its hook was removed")
+	}
+}
+
+func TestCodexTrustKeepsParkedReceiptsWhenDuplicateCountsAreAmbiguous(t *testing.T) {
+	e, _ := trustEnv(t)
+	codex := filepath.Join(e.home, ".codex")
+	path := filepath.Join(codex, "hooks.json")
+	save(t, e.service, Mutation{Name: "owned", Entry: codexTrustEntry(t, "echo owned")})
+	trustActions(t, e.service)
+	key := path + ":session_start:0:0"
+	ownedHash := trustedHash(t, codex, "session_start:0:0")
+
+	groups := events(t, path, true)["SessionStart"]
+	original := slices.Clone(groups)
+	groups = append(slices.Clone(groups), groups[0])
+	data, err := json.Marshal(map[string]any{"hooks": map[string]any{"SessionStart": groups}})
+	must(t, err)
+	write(t, path, string(data))
+
+	other := filepath.Join(e.home, ".codex-other")
+	must(t, os.MkdirAll(other, 0755))
+	e.service.ConfigDirs["codex"] = other
+	if trust, err := e.service.TrustCodex(); err != nil || len(trust) != 0 {
+		t.Fatalf("parked duplicate trust = %+v, %v", trust, err)
+	}
+	var saved codexTrustState
+	must(t, json.Unmarshal([]byte(read(t, e.service.codexTrustPath())), &saved))
+	if saved.Homes[codexTrustHomeKey(e.service.ConfigPath, path)].Keys[key] != ownedHash {
+		t.Fatalf("ambiguous parked receipt was discarded: %+v", saved.Homes)
+	}
+
+	data, err = json.Marshal(map[string]any{"hooks": map[string]any{"SessionStart": original}})
+	must(t, err)
+	write(t, path, string(data))
+	e.service.ConfigDirs["codex"] = ""
+	save(t, e.service, Mutation{Name: "owned", Remove: true})
+	trust, err := e.service.TrustCodex()
+	if err != nil || len(trust) != 1 || trust[0].Action != "cleared" {
+		t.Fatalf("restored ambiguous receipt cleanup = %+v, %v", trust, err)
+	}
+}
+
+func TestCodexTrustClearsRemovedReceiptsWhileAnotherHookIsParked(t *testing.T) {
+	e, _ := trustEnv(t)
+	codex := filepath.Join(e.home, ".codex")
+	save(t, e.service, Mutation{Name: "kept", Entry: codexTrustEntry(t, "echo kept")})
+	save(t, e.service, Mutation{Name: "removed", Entry: codexTrustEntry(t, "echo removed")})
+	trust, err := e.service.TrustCodex()
+	if err != nil || len(trust) != 2 {
+		t.Fatalf("initial trust = %+v, %v", trust, err)
+	}
+	keptHash := trustedHash(t, codex, "session_start:0:0")
+	removedHash := trustedHash(t, codex, "session_start:1:0")
+	if keptHash == "" || removedHash == "" {
+		t.Fatal("initial trust hashes are missing")
+	}
+
+	// An ordinary sync removes one registration without reconciling its saved trust.
+	save(t, e.service, Mutation{Name: "removed", Remove: true})
+	other := filepath.Join(e.home, ".codex-other")
+	must(t, os.MkdirAll(other, 0755))
+	e.service.ConfigDirs["codex"] = other
+	trust, err = e.service.TrustCodex()
+	if err != nil || len(trust) != 1 || trust[0].Action != "cleared" {
+		t.Fatalf("parked cleanup = %+v, %v", trust, err)
+	}
+	if trustedHash(t, codex, "session_start:0:0") != keptHash || trustedHash(t, codex, "session_start:1:0") != "" {
+		t.Fatal("parked receipt cleanup changed the kept trust or retained removed trust")
+	}
+}
+
 func TestCodexTrustRevalidatesHooksSnapshotAfterList(t *testing.T) {
 	e, f := trustEnv(t)
 	codex := filepath.Join(e.home, ".codex")
