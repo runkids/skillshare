@@ -107,6 +107,7 @@ complete -c skillshare -n '__fish_skillshare_using_command hooks' -l from -r -d 
 complete -c skillshare -n '__fish_skillshare_using_command hooks' -l sync -d 'Sync after saving'
 complete -c skillshare -n '__fish_skillshare_using_command hooks' -l replace -d 'Replace an existing entry'
 complete -c skillshare -n '__fish_skillshare_using_command hooks' -l keep-files -d 'remove: leave Agent entries as they are'
+complete -c skillshare -n '__fish_skillshare_using_command hooks' -l trust -d 'sync: record Codex trust'
 complete -c skillshare -n '__fish_skillshare_using_command hooks' -l revision -r -d 'Preview revision'
 complete -c skillshare -n '__fish_skillshare_using_command hooks' -s n -l dry-run -d 'Preview changes'
 complete -c skillshare -n '__fish_skillshare_using_command hooks' -l json -d 'JSON output'

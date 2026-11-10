@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -208,6 +209,8 @@ func TestHooksRejectsInapplicableArguments(t *testing.T) {
 		{"hooks", "bogus"},
 		{"hooks", "list", "--unknown"},
 		{"hooks", "edit", "bash-log", "--keep-files"},
+		{"hooks", "list", "--trust"},
+		{"sync", "hooks", "--trust"},
 	} {
 		sb.RunCLI(append(args, "-g")...).AssertFailure(t)
 	}
@@ -441,4 +444,72 @@ func TestHooksAccountTargets_ReportsConfigLoadError(t *testing.T) {
 	r.AssertFailure(t)
 	r.AssertOutputContains(t, "invalid audit.block_threshold")
 	r.AssertOutputNotContains(t, `unsupported Agent "codex-2"`)
+}
+
+// fakeCodexAppServer answers initialize, hooks/list (one untrusted handler at
+// SessionStart group 0) and config/batchWrite, logging each batch to batch.log.
+const fakeCodexAppServer = `#!/bin/sh
+[ "$1" = app-server ] || exit 2
+while IFS= read -r line; do
+  case "$line" in
+    *'"method":"initialize"'*) echo '{"id":1,"result":{}}' ;;
+    *'"method":"hooks/list"'*) printf '{"id":2,"result":{"data":[{"hooks":[{"key":"%s/hooks.json:session_start:0:0","sourcePath":"%s/hooks.json","enabled":true,"currentHash":"sha256:fake","trustStatus":"untrusted"}]}]}}\n' "$CODEX_HOME" "$CODEX_HOME" ;;
+    *'"method":"config/batchWrite"'*) printf '%s\n' "$line" >> "$CODEX_HOME/batch.log"; echo '{"id":3,"result":{}}' ;;
+  esac
+done
+`
+
+func TestHooksSyncTrustRecordsCodexTrust(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake codex is a shell script")
+	}
+	sb := newHooksSandbox(t)
+	defer sb.Cleanup()
+	sb.SetEnv("CODEX_HOME", "")
+	entry := filepath.Join(sb.Root, "entry.yaml")
+	sb.WriteFile(entry, "bindings:\n  codex:\n    events:\n      SessionStart:\n        - hooks:\n            - type: command\n              command: echo trust-test\n")
+	sb.RunCLI("hooks", "add", "start", "--file", entry, "-g").AssertSuccess(t)
+	codexHome := filepath.Join(sb.Home, ".codex")
+
+	// Without codex on PATH the files are still written, and the failure says so.
+	path := os.Getenv("PATH")
+	sb.SetEnv("PATH", t.TempDir())
+	r := sb.RunCLI("hooks", "sync", "--trust", "-g")
+	r.AssertFailure(t)
+	r.AssertAnyOutputContains(t, "Codex trust was not recorded")
+	if !strings.Contains(sb.ReadFile(filepath.Join(codexHome, "hooks.json")), "trust-test") {
+		t.Fatal("hooks.json not written")
+	}
+
+	bin := t.TempDir()
+	sb.WriteFile(filepath.Join(bin, "codex"), fakeCodexAppServer)
+	if err := os.Chmod(filepath.Join(bin, "codex"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	os.Setenv("PATH", bin+string(os.PathListSeparator)+path) // Cleanup restores the original PATH.
+	r = sb.RunCLI("hooks", "sync", "--trust", "--json", "-g")
+	r.AssertSuccess(t)
+	var result struct {
+		CodexTrust []struct{ Target, Entry, Key, Action string } `json:"codexTrust"`
+	}
+	if err := json.Unmarshal([]byte(r.Stdout), &result); err != nil || len(result.CodexTrust) != 1 {
+		t.Fatalf("result: %v\n%s", err, r.Stdout)
+	}
+	if got := result.CodexTrust[0]; got.Target != "codex" || got.Entry != "start" || got.Action != "trusted" {
+		t.Fatalf("trust = %+v", got)
+	}
+	batch := sb.ReadFile(filepath.Join(codexHome, "batch.log"))
+	want := `"keyPath":"hooks.state.\"` + codexHome + `/hooks.json:session_start:0:0\".trusted_hash","mergeStrategy":"replace","value":"sha256:fake"`
+	if !strings.Contains(batch, want) {
+		t.Fatalf("batchWrite = %s\nwant %s", batch, want)
+	}
+
+	// Trust is opt-in: a plain sync never starts Codex.
+	if err := os.Remove(filepath.Join(codexHome, "batch.log")); err != nil {
+		t.Fatal(err)
+	}
+	sb.RunCLI("hooks", "sync", "-g").AssertSuccess(t)
+	if _, err := os.Stat(filepath.Join(codexHome, "batch.log")); !os.IsNotExist(err) {
+		t.Fatal("sync without --trust wrote Codex trust")
+	}
 }

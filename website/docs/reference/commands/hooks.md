@@ -30,6 +30,7 @@ skillshare hooks enable check --sync
 skillshare hooks sync --dry-run --json
 skillshare hooks sync
 skillshare hooks sync check --replace --dry-run
+skillshare hooks sync --trust -g
 skillshare sync hooks --dry-run --json
 skillshare sync hooks
 skillshare hooks remove check --sync
@@ -58,6 +59,7 @@ not one transaction.
 | `--sync` | Save and synchronize the mutation |
 | `--keep-files` | With `remove`: stop managing the hook and leave its native entries as they are. Not with `--sync`. See [below](#stop-managing-a-hook) |
 | `--replace` | Explicitly replace an existing source entry or conflicting native output for that entry |
+| `--trust` | With `hooks sync` in global mode: also record Codex trust for the hooks Skillshare owns. See [Codex trust](#codex-trust) |
 | `--dry-run`, `-n` | Preview without saving or writing native configuration |
 | `--json` | Structured output |
 | `--revision ID` | Require the matching preview revision |
@@ -278,7 +280,28 @@ bindings still name it; remove those bindings too before the next hooks sync.
 Import from an account with `skillshare hooks import --from codex-2 -g --json`.
 The dashboard labels it **codex-2 (Codex)** and uses Codex's events and editor.
 Each Codex home needs its own review and trust of changed hooks in `/hooks`;
-sync never changes trust or executes a hook.
+sync never changes trust or executes a hook unless you pass `--trust`.
+
+### Codex trust {#codex-trust}
+
+Codex runs a user-level hook only after it is trusted, and keeps that trust in
+the same home's `config.toml` as `hooks.state."<hooks.json>:<event>:<group>:<handler>".trusted_hash`.
+The key is the hook's position, so a hook Skillshare adds or moves starts
+untrusted, and `codex exec` skips it.
+
+```bash
+skillshare hooks sync --trust -g
+```
+
+After writing, `--trust` records trust for the hooks Skillshare owns in every
+Codex home it manages, account homes included. It asks Codex for each hook's
+hash through `codex app-server`, the same calls the `/hooks` review uses, so
+`codex` must be on `PATH`. Only `trusted_hash` changes: a hook you disabled in
+Codex stays disabled and is reported, and hooks Skillshare does not own are left
+alone. When a Skillshare hook moves or is removed, the next `--trust` sync clears
+the trust it recorded for the old position, unless that trust has changed since.
+If Codex cannot be reached, the hook files are still written and the command
+fails, saying trust was not recorded. Project hooks are not covered.
 
 ## Git hooks
 
@@ -412,4 +435,5 @@ not replace your source definition. Use **Settings → Backups → Hooks** or
 **Synced** describes configuration written by Skillshare. Restart or reload the
 Agent as its native workflow requires; native trust, enabling hooks and code
 compatibility remain controlled by that Agent. Skillshare never executes hook
-commands during management or changes native trust automatically.
+commands during management or changes native trust automatically; only
+[`--trust`](#codex-trust) records Codex trust, when you ask for it.

@@ -81,7 +81,10 @@ Outputs outside the target's current home, missing homes and removed targets
 keep their ownership and files with a warning; explicitly preview and run
 `hooks sync NAME --replace -g` to release parked ownership without editing files.
 Import uses the account key: `hooks import --from codex-2 -g --json`.
-Each Codex home must trust its own changed hooks through `/hooks`.
+Each Codex home must trust its own changed hooks through `/hooks`, or run
+`hooks sync --trust -g` (needs `codex` on PATH) to record trust for the hooks
+Skillshare owns in every global Codex home; it only sets `trusted_hash`, and clears
+the trust it recorded when a hook moves or is removed.
 
 ## Git config hooks
 

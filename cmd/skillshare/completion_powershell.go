@@ -220,7 +220,7 @@ $_skillshareCompleter = {
         'new' = '--pattern', '-P', '--dry-run', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
         'search' = '--json', '--list', '-l', '--hub', '--limit', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
         'tui' = '--help', '-h'
-        'hooks' = '--file', '--from', '--sync', '--replace', '--keep-files', '--revision', '--dry-run', '-n', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
+        'hooks' = '--file', '--from', '--sync', '--replace', '--keep-files', '--trust', '--revision', '--dry-run', '-n', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'completion' = '--install', '--help', '-h'
     }
 

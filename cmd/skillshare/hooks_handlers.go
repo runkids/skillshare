@@ -34,6 +34,9 @@ func runHooks(service *hooks.Service, sub string, o hooksOptions) error {
 		}
 		return finishHooksMutation(service, "hooks remove", hooks.Mutation{Name: o.name, Remove: true, Replace: o.replace, Unmanage: o.keepFiles}, o)
 	case "sync":
+		if o.trust && service.ProjectRoot != "" {
+			return fmt.Errorf("--trust records trust in global Codex homes only; run it with -g")
+		}
 		o.sync = true
 		// A name only scopes --replace; the sync itself covers every entry.
 		return finishHooksMutation(service, "hooks sync", hooks.Mutation{Name: o.name, Replace: o.replace}, o)
@@ -209,6 +212,11 @@ func finishHooksMutation(service *hooks.Service, command string, mutation hooks.
 	}
 	start := time.Now()
 	result, err := service.Mutate(mutation, p.Revision, o.sync)
+	if err == nil && o.trust {
+		if result.CodexTrust, err = service.TrustCodex(); err != nil {
+			err = fmt.Errorf("hook files were written, but Codex trust was not recorded: %w", err)
+		}
+	}
 	logHooksOp(service.ConfigPath, command, start, err)
 	return printHooksResult(result, err, o)
 }
@@ -357,6 +365,7 @@ func printHooksResult(result *hooks.Result, err error, o hooksOptions) error {
 		for _, id := range result.BackupIDs {
 			ui.Note("backup " + id)
 		}
+		printHooksTrust(result.CodexTrust)
 		if err == nil && !o.sync {
 			fmt.Println()
 			ui.Done(ui.MarkOK, "Saved the hooks source", 0)
@@ -368,6 +377,42 @@ func printHooksResult(result *hooks.Result, err error, o hooksOptions) error {
 		}
 	}
 	return err
+}
+
+// printHooksTrust prints one row per Codex hook sync --trust looked at.
+func printHooksTrust(trust []hooks.CodexTrust) {
+	if len(trust) == 0 {
+		return
+	}
+	ui.Section("Codex trust")
+	labels := make([]string, len(trust))
+	for i, t := range trust {
+		labels[i] = hooksTrustLabel(t)
+	}
+	width := ui.RowWidth(labels...)
+	for _, t := range trust {
+		mark, value := ui.MarkOK, t.Action
+		if t.Action == "cleared" {
+			mark = ui.MarkNone
+		}
+		if t.Disabled {
+			mark, value = ui.MarkWarn, value+", disabled in Codex"
+		}
+		ui.Row(mark, hooksTrustLabel(t), value+"  "+ui.DimText(t.Target+"  "+t.Key), width)
+	}
+	for _, t := range trust {
+		if t.Disabled {
+			ui.Note("Codex skips disabled hooks; enable them in /hooks")
+			break
+		}
+	}
+}
+
+func hooksTrustLabel(t hooks.CodexTrust) string {
+	if t.Entry != "" {
+		return t.Entry
+	}
+	return t.Target
 }
 
 func printHooksCandidates(candidates []hooks.Candidate, asJSON bool) error {
