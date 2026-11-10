@@ -194,13 +194,16 @@ headers are INFO. This does not analyze runtime behavior or archive members.
 from header reads; the existing source-link policy and six-level depth limit stay
 in effect. There is no file-count cap; directory scans count header read failures as skipped
 and continue. An unreadable direct-file target still returns an error. Hidden
-directories receive header classification only; links to non-special files keep existing text scanning. Special targets are
+directories inside a skill receive header classification only. A whole-repository
+scan (`install --track`, tracked updates) text-scans skills found in hidden
+directories such as `.agents/skills/` or `.curated/`, but not target copies.
+Links to non-special files keep existing text scanning. Special targets are
 skipped; direct audits of them return an error. Hidden names alone do not imply disguise. HIGH requires a document,
 image or configuration extension or a `.cache`/`__pycache__` parent directory;
 other native binaries, including `.venv/bin/python`, are MEDIUM.
 JSON results and summaries expose `binaryFiles`, `skippedFiles`, `oversizedFiles`;
 CLI and dashboard summaries show the same counts; the dashboard, Markdown and SARIF also report per-resource counts. Skipped includes read failures, binary,
-unsupported, oversized and regular files below hidden directories, so the counters
+unsupported, oversized and regular files below hidden directories inside a skill, so the counters
 overlap. Special files and links to special targets outside hidden directories count as skipped; other links are not counted just for skipping header reads. Header
 bytes are not auditable text. The rules `disguised-executable`, `python-bytecode`,
 `executable-artifact`, `archive-artifact`, `uncertain-header` can be disabled by ID

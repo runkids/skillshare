@@ -432,7 +432,7 @@ _cross-skill
 
 CPython 3.6 使用不含旗標的 12 位元組標頭；3.7–3.14 使用含支援旗標的 16 位元組標頭。 直接掃描檔案時，只使用檔名判斷偽裝，祖先目錄不影響結果。
 
-保留原有的六層深度限制。`.git`、`.skillshare`、`.skillshare-meta.json`、作業系統 metadata、檔案符號連結與特殊檔案不讀取標頭；目錄符號連結不會遍歷。明確設定的頂層來源連結沿用既有解析政策。沒有檔案數量上限；目錄掃描將標頭讀取失敗的檔案計入 skipped 並繼續掃描其他檔案；直接指定的檔案無法讀取時仍回傳錯誤。隱藏目錄內的檔案僅分類標頭，不新增文字規則或完整性掃描。指向非特殊檔案的連結保留既有文字掃描，直接檔案與 agent 稽核也一樣；特殊目標會被略過，直接檔案或 agent 稽核會回傳錯誤。
+保留原有的六層深度限制。`.git`、`.skillshare`、`.skillshare-meta.json`、作業系統 metadata、檔案符號連結與特殊檔案不讀取標頭；目錄符號連結不會遍歷。明確設定的頂層來源連結沿用既有解析政策。沒有檔案數量上限；目錄掃描將標頭讀取失敗的檔案計入 skipped 並繼續掃描其他檔案；直接指定的檔案無法讀取時仍回傳錯誤。skill 內隱藏目錄中的檔案僅分類標頭，不新增文字規則或完整性掃描。指向非特殊檔案的連結保留既有文字掃描，直接檔案與 agent 稽核也一樣；特殊目標會被略過，直接檔案或 agent 稽核會回傳錯誤。
 
 標頭分類不分析執行時行為、不解碼位元組碼、不檢查封存成員。超大檔案僅接受此分類器的標頭檢查。可在 `audit-rules.yaml` 中依規則 ID 設定 `enabled: false` 來停用這些發現。
 
@@ -452,7 +452,7 @@ CPython 3.6 使用不含旗標的 12 位元組標頭；3.7–3.14 使用含支�
 
 不超過 1 MB 的二進位與不支援檔案計入 `totalBytes`，但不計入 `auditableBytes`。超大檔案不計入目錄的位元組比例；內部 metadata 與排除路徑也不計入。
 
-CLI、JSON 與儀表板摘要分別回報 `binaryFiles`、`skippedFiles`、`oversizedFiles`。`skippedFiles` 表示未進行全文文字分析的檔案，包括讀取失敗、二進位、不支援副檔名、超大檔案及隱藏目錄內的一般檔案。`binaryFiles` 包含已辨識的二進位／封存標頭及含 NUL 的標頭。計數會重疊：超大二進位檔案在三個計數器各計一次。標頭位元組不計入可稽核文字。Markdown 報告會多出 `Skipped files` 摘要列與 `File coverage by resource` 表格，SARIF 的 run 則在 `runs[].properties.skillshareCoverage` 中記錄每個資源的計數。
+CLI、JSON 與儀表板摘要分別回報 `binaryFiles`、`skippedFiles`、`oversizedFiles`。`skippedFiles` 表示未進行全文文字分析的檔案，包括讀取失敗、二進位、不支援副檔名、超大檔案及 skill 內隱藏目錄中的一般檔案。`binaryFiles` 包含已辨識的二進位／封存標頭及含 NUL 的標頭。計數會重疊：超大二進位檔案在三個計數器各計一次。標頭位元組不計入可稽核文字。Markdown 報告會多出 `Skipped files` 摘要列與 `File coverage by resource` 表格，SARIF 的 run 則在 `runs[].properties.skillshareCoverage` 中記錄每個資源的計數。
 
 ### 輸出
 

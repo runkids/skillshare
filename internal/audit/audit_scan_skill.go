@@ -133,6 +133,7 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 	hasDataflow := registry.Has(AnalyzerDataflow)
 	dfEnabled := hasDataflow && !disabled[patternDataflowTaint]
 
+	roots := newSkillRoots(skillPath)
 	err = filepath.Walk(skillPath, func(path string, fi os.FileInfo, walkErr error) error {
 		if walkErr != nil {
 			return nil
@@ -151,6 +152,7 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 			if depth > maxScanDepth {
 				return filepath.SkipDir
 			}
+			roots.visit(path, filepath.ToSlash(relPath))
 			return nil
 		}
 
@@ -165,8 +167,9 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 
 		normalizedRel := filepath.ToSlash(relPath)
 		// Header traversal may enter hidden directories, but the existing text
-		// and integrity scans retain their upstream hidden-directory boundary.
-		headerOnly := hiddenParent(normalizedRel)
+		// and integrity scans retain their upstream hidden-directory boundary,
+		// measured inside the skill that holds the file.
+		headerOnly := hiddenParent(roots.within(normalizedRel))
 		skipped := fi.Size() > maxScanFileSize || !isScannable(fi.Name())
 		special := isSpecialMode(fi.Mode())
 		var data []byte
