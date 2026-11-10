@@ -275,10 +275,10 @@ export function mapLanes(targets, max = 6) {
   const pending = targets.filter((x) => x.n), fine = targets.filter((x) => !x.n);
   const slots = fine.length ? max - 1 : max;
   const rows = (pending.length <= slots ? pending : pending.slice(0, slots - 1)).map((x) => ({ name: x.name, n: x.n, wait: true }));
-  if (pending.length > rows.length) rows.push({ more: pending.length - rows.length, wait: true });
+  if (pending.length > rows.length) rows.push({ more: pending.length - rows.length, wait: true, rest: pending.slice(rows.length) });
   const room = max - rows.length, named = fine.length <= room ? fine : fine.slice(0, room - 1);
   rows.push(...named.map((x) => ({ name: x.name, n: 0, wait: false })));
-  if (fine.length > named.length) rows.push({ more: fine.length - named.length, wait: false });
+  if (fine.length > named.length) rows.push({ more: fine.length - named.length, wait: false, rest: fine.slice(named.length) });
   return rows;
 }
 
