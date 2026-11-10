@@ -54,11 +54,14 @@ shown or hidden state is a layout click, which Herdr keeps across spaces and res
 - Per scope, one detached script runs `list --all`, `diff`, `mcp list`, `plugin list` and `hooks list`
   with `--json`. `check` and `check agents` run every 10 minutes. Git state comes from `git status` in the
   source repository, because the CLI has no JSON for it.
-- The CLI's install dry-run does not list a repository's skills, so the install dialog
-  shallow-clones the repository to a temp folder to offer the pick list. It then runs
-  `skillshare audit <path> --json` on that clone, because `install --json` names a blocked
-  skill but not its findings. A block shows the findings before anything is written;
-  "Install anyway" reruns the install with `--force`.
+- The install dialog reads canonical names and repository-relative paths from
+  `skillshare install <source> --dry-run --json --kind skill` (`planned`), so its pick list
+  follows the CLI's discovery and ignore rules. Older CLIs without `planned` must be
+  upgraded on that machine before installing through the panel. Ambiguous names are refused.
+  A separate shallow clone is kept for `skillshare audit <path> --json`, so a block shows
+  findings before anything is written; "Install anyway" runs the install with `--force`.
+  Any non-zero install exit is shown as a failure, even when an older CLI omits `error`.
+  Preview, audit and install fetch separately; a moving upstream branch can change between them.
 - The source dialog runs `skillshare pull` and `skillshare push -m`. When a pull or
   `push --pull` stops on files both sides changed, the panel reads both versions with
   `git show HEAD:<file>` and `git show @{u}:<file>`, puts the repository back, and asks

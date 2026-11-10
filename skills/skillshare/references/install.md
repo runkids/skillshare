@@ -17,6 +17,15 @@ Discovery skips target directories such as `.claude/` and `.agents/`, which usua
 hold copies of a repository's skills. A repository with no other skills has its
 root `.agents/skills/` discovered instead.
 
+For an explicit, untracked skill source, `install <source> --dry-run --json`
+returns `planned: [{name, path}]`: canonical install names and repository-relative
+Git paths (including a selected subdirectory), or `.` for a local skill. Use this
+instead of scanning for `SKILL.md` or guessing names. Discovery, `.skillignore`, and
+selection rules apply; without a filter JSON mode selects all. `skills` remains
+empty during dry-run. An empty discovered selection returns `planned: []`;
+tracked and config-based installs omit the field. Check the exit status as well
+as `error`, including when consuming JSON from older CLIs.
+
 ### Source Formats
 
 ```bash
