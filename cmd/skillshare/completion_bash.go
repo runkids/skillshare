@@ -66,7 +66,7 @@ _skillshare() {
     local hub_add_flags="--label -l --help -h"
     local hub_default_flags="--reset --help -h"
     local log_flags="--audit -a --clear -c --json --no-tui --stats --cmd --status --since --tail -t --help -h"
-    local ui_flags="--port --host --base-path -b --no-open --clear-cache --app --help -h"
+    local ui_flags="--port --host --base-path -b --trusted-origin --no-open --clear-cache --app --help -h"
     local tui_flags="--help -h"
     local enable_flags="--dry-run -n --kind --help -h"
     local disable_flags="--dry-run -n --kind --help -h"
@@ -107,7 +107,7 @@ _skillshare() {
     # End project command
 
     if [[ "${cmd}" == mcp && ( "${prev}" == --target || "${prev}" == --from ) ]]; then
-        COMPREPLY=($(compgen -W "claude codex cursor vscode opencode kilocode grok antigravity amp claude-desktop cline copilot factory gemini goose junie kiro lmstudio warp windsurf pi omp" -- "${cur}"))
+        COMPREPLY=($(compgen -W "claude codex cursor vscode opencode kilocode grok antigravity amp claude-desktop cline copilot factory gemini goose hermes junie kiro lmstudio warp windsurf pi omp" -- "${cur}"))
         return
     fi
     if [[ "${cmd}" == target && "${prev}" == --agent ]]; then

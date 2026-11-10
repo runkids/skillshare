@@ -432,7 +432,7 @@ make docker-build-multiarch                # linux/amd64 + linux/arm64（较慢�
 
 `docker-build` 只会生成适用于你机器架构的镜像 — 在 Apple Silicon 上构建的 arm64 镜像无法在 x86 服务器上运行。推送到镜像仓库时使用 `docker-build-multiarch`，这样任何平台都能自动获取正确的镜像。
 
-生产镜像使用 `tini` 作为 PID 1，以非 root 用户（UID 10001）运行，包含健康检查，并在首次运行时自动初始化配置。默认命令：`skillshare ui -g --host 0.0.0.0 --no-open`。
+生产镜像使用 `tini` 作为 PID 1，以非 root 用户（UID 10001）运行，包含健康检查，并在首次运行时自动初始化配置。默认命令：`skillshare ui -g --host 0.0.0.0 --no-open`。 若要通过域名而不是 `localhost` 或 IP 地址打开，请设置 `SKILLSHARE_UI_TRUSTED_ORIGINS`；参见 [Reverse Proxy](/docs/reference/commands/ui#reverse-proxy)。
 
 已发布的镜像可在 GHCR 获取（打 tag 时自动推送）：
 

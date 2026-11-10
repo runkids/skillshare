@@ -46,7 +46,7 @@ const iconColors = {
 };
 
 const TOAST_DURATION = 4000;
-const EXIT_DURATION = 300;
+const EXIT_DURATION = 200;
 
 function ToastItem({
   toast: t,
@@ -88,7 +88,7 @@ function ToastItem({
 
   return (
     <div
-      className={`ss-toast relative !flex !h-auto min-h-[42px] !items-start py-2.5 overflow-hidden ${exiting ? 'animate-toast-out' : 'animate-fade-in'}`}
+      className={`ss-toast relative !flex !h-auto min-h-[42px] !items-start py-2.5 overflow-hidden ${exiting ? 'animate-toast-out' : 'animate-toast-in'}`}
       onMouseEnter={() => { setPaused(true); pauseTimer(); }}
       onMouseLeave={() => { setPaused(false); startTimer(); }}
     >
@@ -109,7 +109,9 @@ function ToastItem({
         <div
           className="h-full bg-white/25"
           style={{
-            animation: paused ? 'none' : `toastProgress ${duration}ms linear forwards`,
+            // Paused, not removed: the bar holds where it is and resumes with the timer.
+            animation: `toastProgress ${duration}ms linear forwards`,
+            animationPlayState: paused ? 'paused' : 'running',
           }}
         />
       </div>

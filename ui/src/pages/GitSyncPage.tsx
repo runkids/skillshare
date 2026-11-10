@@ -171,17 +171,17 @@ export default function GitSyncPage() {
 
   if (isProjectMode) {
     return (
-      <div className="animate-fade-in">
+      <div className="animate-page-in">
         {header()}
         <EmptyState icon={GitBranch} title={t('gitSync.projectMode.title')} description={t('gitSync.projectMode.description')} />
       </div>
     );
   }
-  if (isPending) return <div className="animate-fade-in">{header()}<PageSkeleton /></div>;
-  if (error || !status) return <div className="animate-fade-in">{header()}<div className="ss-note bad"><AlertCircle size={16} /><span className="flex-1">{error?.message}</span></div></div>;
+  if (isPending) return <div className="animate-page-in">{header()}<PageSkeleton /></div>;
+  if (error || !status) return <div className="animate-page-in">{header()}<div className="ss-note bad"><AlertCircle size={16} /><span className="flex-1">{error?.message}</span></div></div>;
   if (!status.gitInstalled) {
     return (
-      <div className="animate-fade-in">
+      <div className="animate-page-in">
         {header()}
         <EmptyState icon={AlertTriangle} title={t('gitSync.gitNotInstalled.title')} description={t('gitSync.gitNotInstalled.hint')} />
       </div>
@@ -199,7 +199,7 @@ export default function GitSyncPage() {
   const pullLabel = diverged ? t('gitSync.actions.pullMerge') : status.behind > 0 ? t(plural('gitSync.actions.pullCommits', status.behind), { count: status.behind }) : t('gitSync.actions.pull');
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-page-in">
       {header(status.isRepo && (
         <span data-tour="git-actions" className="flex items-center gap-2.5">
           {status.hasRemote && !status.isDirty && status.ahead > 0 && status.behind === 0 && (

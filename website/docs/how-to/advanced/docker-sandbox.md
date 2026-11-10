@@ -432,7 +432,7 @@ make docker-build-multiarch                # linux/amd64 + linux/arm64 (slow, fo
 
 `docker-build` only produces an image for your machine's architecture — an arm64 image from Apple Silicon won't run on x86 servers. Use `docker-build-multiarch` when pushing to a registry so any platform gets the right image automatically.
 
-The production image uses `tini` as PID 1, runs as a non-root user (UID 10001), includes a healthcheck, and auto-initialises config on first run. Default command: `skillshare ui -g --host 0.0.0.0 --no-open`.
+The production image uses `tini` as PID 1, runs as a non-root user (UID 10001), includes a healthcheck, and auto-initialises config on first run. Default command: `skillshare ui -g --host 0.0.0.0 --no-open`. To open it by a domain name rather than `localhost` or an IP address, set `SKILLSHARE_UI_TRUSTED_ORIGINS`; see [Reverse Proxy](/docs/reference/commands/ui#reverse-proxy).
 
 Published images are available on GHCR (pushed automatically on tag):
 

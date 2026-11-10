@@ -66,7 +66,7 @@ Both styles ship in light and dark. Dark is not an inversion: Playful dark repla
 
 ## 5. Layout
 
-- Root: `.ss-wrap animate-fade-in`. 1080px column, 28px between sections.
+- Root: `.ss-wrap animate-page-in`. 1080px column, 28px between sections.
 - Order: `PageHeader` → tabs or toolbar → notes → content → dialogs.
 - Spacing between sections comes from `.ss-wrap`. Spacing inside a section comes from the `ss-*` class. Reach for a Tailwind margin last.
 - Toolbar: `flex flex-wrap items-center gap-3`; search first, then `SegmentedControl`, then `Select`.
@@ -129,9 +129,14 @@ One primary per view. A destructive action always goes through `ConfirmDialog`.
 
 | Context | Value |
 |---------|-------|
-| Page entry | `animate-fade-in` |
-| Dialog, dropdown | `animate-dialog-in`, `animate-dropdown-in` |
-| Hover and press | Built into `.ss-btn`, `.ss-ib`, `.ss-r.link`, `.ss-counts`. Add none |
+| Page entry | `animate-page-in`: a 120ms fade with no movement, since navigation is frequent |
+| In-page reveal (status swap, expanded group) | `animate-fade-in` |
+| Dialog, dropdown | `animate-dialog-in`, `animate-dropdown-in` (it scales, so give the menu an `origin-*` class or `transformOrigin` at the corner touching its trigger); render the menu through `useMenuPresence(open)` (`hooks/usePresence`) so closing fades out with `animate-dropdown-out` |
+| Layer its caller unmounts (dialog, floating bar) | `DialogShell` already exits through `dialogGhost`; a `.ss-bulk` takes `ref={bulkGhost}` (`lib/exitGhost`), which plays the exit on a frozen copy; a hand-made overlay takes `ref={dialogGhost}`. No copy plays when the layer's page goes with it |
+| Toast | `useToast()` already renders `.ss-toast` with `animate-toast-in` (rises 12px over 320ms) |
+| Springy control (switch knob, segment pill, settling divider) | `var(--spring)` (critically damped, duration 1.23 x response) or `var(--spring-bounce)` |
+| Block that opens and closes (disclosure, status note) | `Reveal`. Give a note for a quick operation a `delay-[400ms]` while open, so a fast run never bobs the content below |
+| Hover and press | Built into `.ss-btn`, `.ss-ib`, `.ss-r.link`, `.ss-counts`. Add none. Playful hover lifts only under `(hover: hover) and (pointer: fine)` |
 | Style or mode switch | `html.theme-transitioning`, applied by `ThemeContext` |
 
 Motion confirms an interaction. Nothing animates on its own except the skeleton shimmer and the spinner.

@@ -15,6 +15,7 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { SettingsTabs } from './SettingsPage';
 import { useOverviewQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
+import { segSlide } from '../lib/segSlide';
 
 type Filter = 'all' | 'error' | 'warning' | 'pass';
 
@@ -91,10 +92,10 @@ export default function DoctorPage() {
     </>
   );
 
-  if (isPending) return <div className="ss-wrap animate-fade-in">{header}<PageSkeleton /></div>;
+  if (isPending) return <div className="ss-wrap animate-page-in">{header}<PageSkeleton /></div>;
   if (error) {
     return (
-      <div className="ss-wrap animate-fade-in">
+      <div className="ss-wrap animate-page-in">
         {header}
         <div className="ss-note bad"><span className="flex-1">{t('doctor.error.failedToLoad', { error: error.message })}</span></div>
       </div>
@@ -111,7 +112,7 @@ export default function DoctorPage() {
   ].filter(Boolean).join(', ');
 
   return (
-    <div className="ss-wrap animate-fade-in">
+    <div className="ss-wrap animate-page-in">
       {header}
 
       <div className="flex items-center justify-between gap-6">
@@ -124,7 +125,7 @@ export default function DoctorPage() {
         </div>
       </div>
 
-      <div className="ss-seg self-start" role="radiogroup" aria-label={t('doctor.filter.all')}>
+      <div ref={segSlide} className="ss-seg self-start" role="radiogroup" aria-label={t('doctor.filter.all')}>
         {FILTERS.map((f) => (
           <button
             key={f}

@@ -59,8 +59,12 @@ func detectJSONFormat(data []byte) string {
 	v, err := hujson.Parse(data)
 	if err != nil {
 		var doc yaml.Node
-		if parseYAML(data, &doc) == nil && field(&doc, "extensions") != nil {
-			return "goose"
+		if parseYAML(data, &doc) == nil {
+			for _, target := range []string{"goose", "hermes"} {
+				if field(&doc, nativeKey(target)) != nil {
+					return target
+				}
+			}
 		}
 		return "claude" // ParseNative reports the syntax error.
 	}
@@ -116,7 +120,7 @@ func detectJSONFormat(data []byte) string {
 	if kind == "local" && document["command"] != nil {
 		return "copilot"
 	}
-	for _, target := range []string{"goose", "amp", "claude", "vscode", "opencode"} {
+	for _, target := range []string{"goose", "hermes", "amp", "claude", "vscode", "opencode"} {
 		if _, ok := document[nativeKey(target)]; ok {
 			return target
 		}
@@ -162,7 +166,7 @@ func importNative(target string, data []byte, singleName string, adapter, piProj
 			native.Entries[name] = entry.(map[string]any)
 		}
 	}
-	if len(native.Entries) == 0 && singleName != "" && !isTOMLTarget(target) && target != "goose" {
+	if len(native.Entries) == 0 && singleName != "" && !isTOMLTarget(target) && !isYAMLTarget(target) {
 		v := native.json.Clone()
 		v.Standardize()
 		var entry PiOptions
@@ -251,6 +255,17 @@ func importNative(target string, data []byte, singleName string, adapter, piProj
 			}
 		}
 		allowed := map[string]bool{"type": true, "command": true, "args": true, "url": true, "env": true, "headers": true}
+		if target == "hermes" {
+			for _, key := range []string{"auth", "oauth"} {
+				if value, set := entry[key]; set {
+					allowed[key] = true
+					if c.Server.Options == nil {
+						c.Server.Options = map[string]map[string]any{"hermes": {}}
+					}
+					c.Server.Options["hermes"][key] = value
+				}
+			}
+		}
 		if target == "codex" {
 			allowed = map[string]bool{"command": true, "args": true, "url": true, "env": true, "env_vars": true, "http_headers": true, "env_http_headers": true, "bearer_token_env_var": true}
 		}

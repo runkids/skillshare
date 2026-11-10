@@ -82,6 +82,10 @@ func runCommand(ctx context.Context, dir string, env []string, bin string, args 
 	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, bin, args...)
+	// A CLI that is a shim leaves the real client holding its output after it is killed; stop
+	// waiting for that output soon after, or a cancelled command never returns. A CLI that
+	// exits on its own while a helper it started keeps the output open has still answered.
+	cmd.WaitDelay = 2 * time.Second
 	cmd.Dir = dir
 	// No shell, inherited stdin, or automatic native trust/command confirmation.
 	cmd.Env = append(append(os.Environ(), "GIT_TERMINAL_PROMPT=0"), env...)
@@ -91,7 +95,11 @@ func runCommand(ctx context.Context, dir string, env []string, bin string, args 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
+	err := cmd.Run()
+	if errors.Is(err, exec.ErrWaitDelay) && ctx.Err() == nil {
+		err = nil
+	}
+	if err != nil {
 		if errors.Is(err, exec.ErrNotFound) || missingPath(bin, err) {
 			return nil, agentError{cause: ErrCLIMissing, key: "plugins.error.cliMissing", message: fmt.Sprintf("%s CLI is not installed or not on PATH on the machine running Skillshare; install it there before syncing plugins", bin)}
 		}

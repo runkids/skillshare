@@ -26,8 +26,8 @@ func (s *Server) hooksService() *hooks.Service {
 // requireLocalHooks applies the MCP DNS-rebinding guard: hooks write commands that Agents run.
 func (s *Server) requireLocalHooks(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !mcpRequestAllowed(r, s.addr) {
-			writeError(w, http.StatusForbidden, "Hooks settings are available only when the dashboard is opened by localhost or an IP address, not a domain name")
+		if !s.mcpRequestAllowed(r) {
+			writeError(w, http.StatusForbidden, "Hooks settings are available only from the dashboard itself, opened by localhost, an IP address or a trusted origin")
 			return
 		}
 		next(w, r)

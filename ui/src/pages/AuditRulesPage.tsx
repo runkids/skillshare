@@ -16,6 +16,7 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import AuditRulesYaml from './AuditRulesYaml';
 import { useOverviewQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
+import { segSlide } from '../lib/segSlide';
 
 const PROFILES = ['default', 'strict', 'permissive'];
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
@@ -109,7 +110,7 @@ export default function AuditRulesPage() {
 
   if (yamlView) {
     return (
-      <div className="ss-wrap animate-fade-in">
+      <div className="ss-wrap animate-page-in">
         {header}
         {tabs}
         <div className="flex flex-wrap items-center gap-3">
@@ -130,13 +131,13 @@ export default function AuditRulesPage() {
   }
 
   return (
-    <div className="ss-wrap animate-fade-in">
+    <div className="ss-wrap animate-page-in">
       {header}
       {tabs}
 
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-[13px] text-ink-2">{t('auditRules.profile.label')}</span>
-        <div className="ss-seg" role="radiogroup" aria-label={t('auditRules.profile.label')}>
+        <div ref={segSlide} className="ss-seg" role="radiogroup" aria-label={t('auditRules.profile.label')}>
           {PROFILES.map((p) => (
             <button
               key={p}
@@ -296,6 +297,18 @@ function RuleRow({ rule, hits, expanded, onExpand, onToggle, onSeverity }: {
             <dd>{rule.confidence}{rule.confidenceOverridden && ` (${t('auditRules.detail.overridden')})`}</dd>
             <dt>{t('auditRules.detail.source')}</dt>
             <dd>{rule.source}</dd>
+            {rule.severityContext === 'python-inert' && (
+              <>
+                <dt>{t('auditRules.detail.context')}</dt>
+                <dd className="flex flex-col gap-1">
+                  <span className="flex items-center gap-2"><span className="ss-sev h">HIGH</span>{t('auditRules.detail.pythonInert')}</span>
+                  <span className="text-ink-2">
+                    {t('auditRules.detail.pythonInertNote')}{' '}
+                    <a className="text-link underline" href="https://skillshare.runkids.cc/docs/understand/audit-engine#credential-access" target="_blank" rel="noopener noreferrer">{t('auditRules.detail.contextDocs')}</a>
+                  </span>
+                </dd>
+              </>
+            )}
             {hits && (
               <>
                 <dt>{t('auditRules.detail.matches')}</dt>

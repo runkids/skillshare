@@ -152,6 +152,9 @@ func (s *Server) uiRestartHelperArgs(clearCache bool) ([]string, error) {
 	if clearCache {
 		args = append(args, "--clear-cache")
 	}
+	for _, origin := range s.trustedOrigins {
+		args = append(args, "--trusted-origin", origin)
+	}
 	if s.IsProjectMode() {
 		args = append(args, "--project")
 	} else {
@@ -165,7 +168,7 @@ func defaultStartUIRestartHelper(args []string, dir string) error {
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(exe, args...)
+	cmd := exec.Command(restartExecutable(exe), args...)
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	cmd.Stdin = nil
@@ -176,6 +179,18 @@ func defaultStartUIRestartHelper(args []string, dir string) error {
 		return err
 	}
 	return cmd.Process.Release()
+}
+
+// restartExecutable returns the binary that starts the restarted dashboard.
+// A Homebrew binary runs from a versioned Cellar keg that `brew upgrade`
+// deletes, so it restarts through the link Homebrew keeps at
+// <prefix>/bin/skillshare, which points at the installed version.
+func restartExecutable(exe string) string {
+	if versioncheck.DetectInstallMethod(exe) != versioncheck.InstallBrew {
+		return exe
+	}
+	prefix, _, _ := strings.Cut(exe, "/Cellar/")
+	return prefix + "/bin/skillshare"
 }
 
 func restartRequestAllowed(r *http.Request, serverAddr string) bool {
@@ -201,21 +216,16 @@ func restartRequestAllowed(r *http.Request, serverAddr string) bool {
 }
 
 // MCP settings can hold stdio commands an agent runs. DNS rebinding makes Origin
-// match an attacker Host on any bind (0.0.0.0 in Docker included), but it always
-// needs a domain name, so the Host must be localhost or an IP literal.
-func mcpRequestAllowed(r *http.Request, serverAddr string) bool {
-	if !restartRequestAllowed(r, serverAddr) {
-		return false
-	}
-	host, _ := splitHostPortDefault(r.Host)
-	host = strings.TrimSuffix(strings.Trim(host, "[]"), ".")
-	return strings.EqualFold(host, "localhost") || net.ParseIP(host) != nil
+// match an attacker Host on any bind (0.0.0.0 in Docker included), so these routes
+// check the Host themselves too, not only through servedHandler.
+func (s *Server) mcpRequestAllowed(r *http.Request) bool {
+	return restartRequestAllowed(r, s.addr) && s.hostAllowed(r)
 }
 
 func (s *Server) requireLocalMCP(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !mcpRequestAllowed(r, s.addr) {
-			writeError(w, http.StatusForbidden, "MCP settings are available only when the dashboard is opened by localhost or an IP address, not a domain name")
+		if !s.mcpRequestAllowed(r) {
+			writeError(w, http.StatusForbidden, "MCP settings are available only from the dashboard itself, opened by localhost, an IP address or a trusted origin")
 			return
 		}
 		next(w, r)

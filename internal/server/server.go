@@ -25,9 +25,14 @@ type Server struct {
 	skillsStore *install.MetadataStore
 	agentsStore *install.MetadataStore
 	addr        string
-	mux         *http.ServeMux
-	handler     http.Handler
-	mu          sync.RWMutex // protects config: Lock for writes/reloads, RLock for reads
+	// trustedOrigins are the origins besides localhost and IP addresses the dashboard answers at.
+	trustedOrigins []string
+	// refusedHosts are the Hosts servedHandler has logged, so each is logged once.
+	refusedMu    sync.Mutex
+	refusedHosts map[string]bool
+	mux          *http.ServeMux
+	handler      http.Handler
+	mu           sync.RWMutex // protects config: Lock for writes/reloads, RLock for reads
 
 	startTime time.Time // for uptime reporting in health check
 
@@ -113,7 +118,7 @@ func New(cfg *config.Config, addr, basePath, uiDistDir string) *Server {
 	}
 	s.snapshotFollow()
 	s.registerRoutes()
-	s.handler = s.withConfigAutoReload(s.mux)
+	s.handler = rejectCrossSiteWrites(s.withConfigAutoReload(s.mux))
 	s.wrapBasePath()
 	return s
 }
@@ -145,7 +150,7 @@ func NewProject(cfg *config.Config, projectCfg *config.ProjectConfig, projectRoo
 	_, s.unresolvedTargets = config.ResolveValidProjectTargets(projectRoot, projectCfg)
 	s.snapshotFollow()
 	s.registerRoutes()
-	s.handler = s.withConfigAutoReload(s.mux)
+	s.handler = rejectCrossSiteWrites(s.withConfigAutoReload(s.mux))
 	s.wrapBasePath()
 	return s
 }
@@ -441,7 +446,7 @@ func (s *Server) StartWithContext(ctx context.Context) error {
 	}
 
 	srv := &http.Server{
-		Handler:           s.handler,
+		Handler:           s.servedHandler(),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -587,7 +592,7 @@ func (s *Server) registerRoutes() {
 
 	// Update & Check
 	s.mux.HandleFunc("POST /api/update", s.handleUpdate)
-	s.mux.HandleFunc("GET /api/update/stream", s.handleUpdateStream)
+	s.mux.HandleFunc("GET /api/update/stream", requireSameOrigin(s.handleUpdateStream))
 	s.mux.HandleFunc("GET /api/check/stream", s.handleCheckStream)
 	s.mux.HandleFunc("GET /api/check", s.handleCheck)
 
@@ -630,6 +635,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/plugins/discover", s.requireLocalPlugin(s.handlePluginDiscover))
 	s.mux.HandleFunc("POST /api/plugins/preview", s.requireLocalPlugin(s.handlePluginPreview))
 	s.mux.HandleFunc("POST /api/plugins/apply", s.requireLocalPlugin(s.handlePluginApply))
+	s.mux.HandleFunc("GET /api/plugins/check/stream", s.requireLocalPlugin(s.handlePluginCheckStream))
 	s.mux.HandleFunc("POST /api/plugins/update/stream", s.requireLocalPlugin(s.handlePluginUpdateStream))
 	s.mux.HandleFunc("POST /api/plugins/update/stop", s.requireLocalPlugin(s.handlePluginUpdateStop))
 	s.mux.HandleFunc("GET /api/mcp", s.requireLocalMCP(s.handleMCPList))

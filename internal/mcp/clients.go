@@ -32,6 +32,7 @@ var clientFormats = map[string]clientFormat{
 	"factory":        {key: "mcpServers", localType: "stdio", remoteType: "http", urlKey: "url", refPrefix: "${", globalPath: ".factory/mcp.json", projectPath: ".factory/mcp.json"},
 	"gemini":         {key: "mcpServers", urlKey: "httpUrl", refPrefix: "${", globalPath: ".gemini/settings.json", projectPath: ".gemini/settings.json"},
 	"goose":          {key: "extensions", localType: "stdio", remoteType: "streamable_http", urlKey: "uri", globalPath: ".config/goose/config.yaml"},
+	"hermes":         {key: "mcp_servers", urlKey: "url", refPrefix: "${", globalPath: ".hermes/config.yaml"},
 	"junie":          {key: "mcpServers", urlKey: "url", globalPath: ".junie/mcp/mcp.json", projectPath: ".junie/mcp/mcp.json"},
 	"kiro":           {key: "mcpServers", urlKey: "url", refPrefix: "${", globalPath: ".kiro/settings/mcp.json", projectPath: ".kiro/settings/mcp.json"},
 	"lmstudio":       {key: "mcpServers", urlKey: "url", globalPath: ".lmstudio/mcp.json"},
@@ -76,6 +77,20 @@ func (s *Service) additionalClientPath(target string, format clientFormat) (stri
 		appdata = filepath.Join(home, "AppData", "Roaming")
 	}
 	switch target {
+	case "hermes":
+		if dir := s.ConfigDirs["hermes"]; dir != "" {
+			if !filepath.IsAbs(dir) {
+				return "", fmt.Errorf("HERMES_HOME must be absolute")
+			}
+			return filepath.Join(dir, "config.yaml"), nil
+		}
+		if platform == "windows" {
+			base := s.ConfigDirs["localappdata"]
+			if base == "" {
+				base = filepath.Join(home, "AppData", "Local")
+			}
+			return filepath.Join(base, "hermes", "config.yaml"), nil
+		}
 	case "claude-desktop":
 		switch platform {
 		case "darwin":
@@ -228,6 +243,9 @@ func renderAdditionalClient(target string, format clientFormat, s Server) (map[s
 }
 
 func additionalManagedFields(target string) []string {
+	if target == "hermes" {
+		return []string{"type", "transport", "command", "args", "env", "url", "headers", "enabled", "disabled"}
+	}
 	if target == "pi" {
 		return []string{"type", "command", "args", "env", "url", "headers", "transport", "disabled", "enabled"}
 	}

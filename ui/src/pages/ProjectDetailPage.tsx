@@ -176,7 +176,7 @@ function ProjectEditor({ project, tools, mcp, hooks, hooksError }: { project: Pr
     : toolGroups(tools, draft.targets).map((g) => ({ tools: g.tools, path: g.skillsPath }));
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-page-in">
       <PageHeader
         crumbs={[{ label: t('projects.title'), to: '/projects' }, { label: project.name }]}
         title={project.name}
@@ -216,7 +216,7 @@ function ProjectEditor({ project, tools, mcp, hooks, hooksError }: { project: Pr
         hooksError ? (
           <div className="ss-note bad"><span className="flex-1">{hooksError}</span></div>
         ) : hooks && hooksEntry ? (
-          <HooksScope data={hooks} project={project.path} header={(actions) => <div className="ss-tabbar mb-7 flex-wrap">{tabs}{actions}</div>} />
+          <HooksScope data={hooks} project={project.path} header={(actions) => <div className="ss-tabbar mb-7">{tabs}{actions}</div>} />
         ) : (
           <EmptyState icon={Webhook} title={t('projects.hooks.emptyTitle')} description={t('projects.hooks.emptyDescription')} action={<Button variant="primary" onClick={() => void manageHooks()} loading={busy}>{t('projects.hooks.manage')}</Button>} />
         )

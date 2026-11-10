@@ -233,7 +233,7 @@ func writeSkillSection(b *strings.Builder, r *Result, blocked bool, minSeverity 
 			escapeMarkdownTable(f.Pattern),
 			escapeMarkdownTable(analyzer),
 			escapeMarkdownTable(category),
-			escapeMarkdownTable(f.Message),
+			escapeMarkdownTable(f.ExplainedMessage()),
 			escapeMarkdownTable(findingLocation(f)),
 		)
 	}

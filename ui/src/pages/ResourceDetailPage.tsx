@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'reac
 import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import type { Components } from 'react-markdown';
 import {
-  ChevronDown, ChevronRight, CircleArrowUp, CircleCheck, Copy, Ellipsis, ExternalLink, File, FileCode2, FileText, Folder,
+  ArrowDown, ChevronDown, ChevronRight, CircleArrowUp, CircleCheck, Copy, Ellipsis, ExternalLink, File, FileCode2, FileText, Folder,
   FolderInput, FolderOpen, Github, Globe, Pencil, Power, RefreshCw, ShieldAlert, ShieldCheck, Trash2, TriangleAlert, X,
 } from 'lucide-react';
 import { api, type AuditResult, type DiffTarget, type Skill, type SyncMatrixEntry } from '../api/client';
@@ -309,7 +309,7 @@ export default function ResourceDetailPage() {
 
   return (
     <>
-    <div className="animate-fade-in">
+    <div className="animate-page-in">
       <PageHeader
         crumbs={[{ label: t(isAgent ? 'layout.nav.agents' : 'layout.nav.skills'), to: listPath }, { label: resource.name }]}
         title={resource.name}
@@ -347,7 +347,7 @@ export default function ResourceDetailPage() {
       )}
 
       {tab === 'doc' ? (
-        <div className="grid grid-cols-[minmax(0,1fr)_330px] items-start gap-8">
+        <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_330px]">
           <div className="flex min-w-0 flex-col gap-[18px]">
             <div className="ss-tabbar">
               {tabs}
@@ -767,7 +767,7 @@ function FilesTab({ resource, files, skillMd, tabSearch, components, raw, onRaw 
   };
 
   return (
-    <div className="grid grid-cols-[240px_minmax(0,1fr)] items-start gap-6">
+    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
       <div className="flex flex-col gap-0.5">
         {tree.map((row) => {
           const Icon = row.folder ? Folder : row.label.endsWith('.md') ? FileText : CODE_EXT.test(row.label) ? FileCode2 : File;
@@ -894,6 +894,12 @@ function AuditTab({ query, files, tabSearch }: {
                     <span className="ss-code block !overflow-x-auto !py-2.5">
                       {f.line > 0 && <span className="ln">{f.line}</span>}
                       {f.snippet}
+                    </span>
+                  )}
+                  {f.severityContext === 'python-inert' && (
+                    <span className="flex items-start gap-1.5 text-xs text-ink-2">
+                      <ArrowDown size={14} aria-hidden="true" className="mt-0.5 shrink-0" />
+                      {t('audit.severityContext.pythonInert')}
                     </span>
                   )}
                   {where && <span className="truncate font-mono text-xs text-ink-3">{where}</span>}

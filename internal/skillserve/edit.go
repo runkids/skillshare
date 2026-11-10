@@ -425,7 +425,7 @@ func writeFindings(b *strings.Builder, findings []markedFinding) {
 		if f.Acknowledged {
 			state += ", accepted"
 		}
-		fmt.Fprintf(b, "- [%s] %s %s %s:%d %s\n", state, f.Severity, f.Pattern, f.File, f.Line, f.Message)
+		fmt.Fprintf(b, "- [%s] %s %s %s:%d %s\n", state, f.Severity, f.Pattern, f.File, f.Line, f.ExplainedMessage())
 	}
 }
 

@@ -38,6 +38,7 @@ skillshare ui stop             # 백그라운드 서버 중지
 | `--port <port>` | `19420` | HTTP 서버 포트 |
 | `--host <host>` | `127.0.0.1` | 바인딩 주소(Docker에서는 `0.0.0.0` 사용) |
 | `-b`, `--base-path <path>` | | reverse proxy용 하위 경로(예: `/skillshare`) |
+| `--trusted-origin <url>` | | 대시보드가 응답하는 또 다른 주소. [reverse proxy](#reverse-proxy) 뒤의 `https://tools.example.com` 등. 여러 개는 반복해서 지정 |
 | `--no-open` | `false` | 브라우저를 자동으로 열지 않음 |
 | `--app` | `false` | 가능한 경우 대시보드를 데스크톱 스타일의 Chromium 앱 창으로 엽니다(`start` mode 전용) |
 | `--clear-cache` | | 포그라운드 형태에서는 캐시된 UI 자산을 지우고 종료합니다. `start`와 함께 사용하면 캐시를 지운 후 백그라운드에서 시작합니다 |
@@ -89,7 +90,7 @@ skillshare ui start --clear-cache
 | **Dashboard** | skill, agent, extras, MCP 서버, hook, plugin, target의 개수와 주의가 필요한 항목. 커밋되지 않은 변경 사항이 있거나 git 상태를 읽을 수 없는 tracked repo를 제거하면 이유를 알려 주고 다시 확인한 뒤 repo를 그대로 휴지통으로 옮깁니다(`uninstall --force`와 같음) |
 | **Sync** | target별로 기록 전에 모든 변경 사항을 미리 봅니다. 포함할 부분(Skills, Agents, Extras, MCP)을 선택합니다. target 내부에서 편집된 파일은 **Force**가 켜져 있지 않은 한 유지됩니다. target에만 존재하는 항목은 여기서 source로 다시 수집할 수 있습니다. 각 sync는 먼저 target 폴더를 백업합니다. target이 실패해도 다른 target은 sync됩니다. 실패한 target은 해당 부분(Skills, Agents, Extras, Config)과 오류와 함께 다른 경고보다 위에 표시되고, 흔한 원인(다른 곳을 가리키는 symlink, 권한 거부, 읽기 전용 파일 시스템, 없는 파일이나 폴더, 잘못된 target 설정)에는 쉬운 설명도 붙으며, 다른 곳을 가리키는 Skills symlink에는 **Force 켜기**가 제공되며, 변경 목록에서도 해당 target이 표시됩니다. 모든 target이 실패해도 같은 방식으로 표시됩니다. **마지막 동기화** 카드에는 가장 최근 sync에서 실패한 target이 표시됩니다. 같은 변경을 받는 target들은 한 카드로 묶이고 skill이 폴더별로 나열됩니다. **Discard all**은 확인 후, 아직 어떤 target에도 전달되지 않은 skill을 휴지통으로 옮깁니다. target의 `include` 필터가 어떤 skill과도 일치하지 않으면 그 target이 skill을 하나도 받지 못한다는 알림이 표시되고, **Edit filter**로 그 필터를 설정하는 곳을 열 수 있습니다. Git Sync도 pull 후에 같은 알림을 표시합니다 |
 | **Git Sync** | source repo를 commit하고 push하며, 아직 remote에 없는 커밋을 push하고, pull합니다. 페이지를 열면 remote에서 fetch하므로 **Pull** 버튼에 remote에 있는 커밋 수가 표시됩니다. Pull은 [`pull`](/docs/reference/commands/pull)과 마찬가지로 repo scope가 담고 있는 것(`skills`, `agents`, `extras`, 또는 `root`)을 동기화합니다. **Sync both ways**는 로컬 변경 사항을 commit하고, pull해 병합하고, target을 동기화한 뒤 push합니다([`push --pull`](/docs/reference/commands/push#push-and-pull-together)과 같음). 충돌이 발생하면 push하기 전에 멈춥니다. remote에 더 새로운 커밋이 있어 push가 거부되면 오류 알림에서 **Pull**을 제공합니다. 첫 pull이 remote와 병합할 수 없을 때는 로컬 파일을 remote 브랜치로 교체하는 force pull을 제공합니다 |
-| **Hubs** | Skills 페이지에서 접근합니다. 내장 hub, 저장된 hub, 내 Hub(**내 Hub**)를 나열하며, 하나를 선택해 Skill을 필터링하고 설치합니다. **Hub 추가 또는 만들기**는 기존 hub 추가, 새 Hub 만들기, `skillshare-hub.json` 가져오기를 합니다. 내 Hub는 **편집**으로 변경하고 **공유**로 인덱스를 다운로드하고 `hub add` 명령을 만듭니다. [`hub`](/docs/reference/commands/hub) 참고 |
+| **Hubs** | Skills 페이지에서 접근합니다. 내장 hub, 저장된 hub, 내 Hub(**내 Hub**)를 나열하며, 하나를 선택해 Skill을 필터링하고 설치합니다. **Hub 추가 또는 만들기**는 기존 hub 추가, 새 Hub 만들기, `skillshare-hub.json` 가져오기를 합니다. 내 Hub는 **편집**으로 변경하고 **공유**로 인덱스를 다운로드하고 `hub add` 명령을 만듭니다. 저장된 hub와 내장 hub는 **새로고침**으로 2분 캐시를 기다리지 않고 목록을 다시 불러옵니다. [`hub`](/docs/reference/commands/hub) 참고 |
 | **Skills** / **Agents** | 설치된 항목, **Updates** 탭, **Trash** 탭. Skills에는 각 skill이 target의 context에 추가하는 토큰 수를 추정하는 **Analyze** 탭도 있습니다. **Install**은 GitHub를 검색하거나 URL 또는 경로에서 설치합니다. 메뉴에는 생성 마법사를 여는 **New skill**과 **Link folder**도 있습니다. config에 아직 설치되지 않은 항목이 있으면 **Updates** 탭과 설치 대화 상자에 **Install all**이 표시되며, 인자 없는 [`install`](/docs/reference/commands/install)과 같이 동작합니다. 확인을 실행한 후에는 소스 repo에서 삭제된 skill이 **Prune**, **Prune all**과 함께 표시되어 휴지통으로 옮길 수 있습니다. **Link folder**는 [`link`](/docs/reference/commands/link)처럼 폴더를 skills source에 링크합니다. 경로, 선택적인 링크 이름, 그리고 `follow_source_links`가 꺼져 있는 동안에는 이를 켜는 체크박스를 받으며, 거부된 폴더에는 명령과 같은 이유를 표시합니다. 링크된 폴더는 링크 아이콘과 가리키는 폴더가 표시된 별도 그룹으로 나열됩니다. 그 행의 아이콘 버튼(마우스를 올리면 링크 아이콘이 링크 해제 아이콘으로 바뀜)은 확인을 거친 뒤 [`unlink`](/docs/reference/commands/unlink)처럼 링크를 해제합니다. 폴더 자체는 건드리지 않으며 링크는 **Trash** 탭에서 복원할 수 있습니다. 링크된 폴더 안의 skill은 개별로 제거할 수 있으며, 그 폴더에서 trash로 옮겨집니다. 링크된 폴더에는 **Update repo**와 **Uninstall repo**가 없습니다. 목록과 카드 보기는 **Folder**(tracked repo, `frontend/react` 같은 폴더, 또는 **Root**)로 필터링하고 **Folder**로 그룹화할 수 있으며, Root가 먼저 오고 나머지 폴더는 이름 A→Z 순입니다. 목록 보기에서는 다른 skill의 폴더 안에 있는 skill이 그 skill 아래에 표시됩니다. 패키지 이름 뒤의 개수 버튼을 누르면 그 skill들이 아래에 열리고 옅은 트리 선으로 패키지와 이어지며(패키지는 처음에 접혀 있음), 더 깊은 패키지는 한 단계 더 들여쓰기됩니다. 검색하면 일치 항목이 있는 패키지가 열리고 `1 / 3` 같은 개수를 보여 주며, 이름에서 일치하는 부분을 강조합니다. 검색 중에 닫은 패키지는 검색이 바뀌면 다시 열리고, 그 전에 열어 둔 패키지는 그대로 유지됩니다. 페이지 나눔은 최상위 행만 셉니다. 각 행에는 frontmatter의 `description`이 한 줄로 표시되고, 행에 키보드 포커스가 있으면 전체가 표시됩니다. **그룹 및 정렬** → **표시** → **설명**으로 숨길 수 있습니다. **모두 펼치기** / **모두 접기**는 패키지도 열고 닫으며, 선택 바는 선택했지만 보이지 않는 항목 수를 알려 줍니다. 상세 페이지는 이름을 클릭할 때만 열립니다. 패키지를 제거하면 그 폴더 안의 skill도 trash로 옮겨지며, 확인 창에 그 개수가 표시됩니다. **tree** 보기는 왼쪽에 source 폴더를, 오른쪽에 상세 정보를 보여 줍니다. 폴더나 skill을 클릭해 선택하고, Cmd/Ctrl 클릭으로 선택에 추가하고, Shift 클릭으로 범위를 선택하며, skill을 더블클릭하면 열립니다. 오른쪽에서는 선택한 모든 항목을 스위치 하나로 켜거나 끄고(`.skillignore.local`의 `!` 규칙이 켜 둔 채로 유지하는 항목은 이유와 함께 실패로 보고됩니다), targets를 설정하며(tracked repo와 그 하위 폴더 포함), 각 skill을 개별 스위치와 함께 나열합니다. tracked repo에는 **Update repo**와 **Uninstall repo**도 있습니다. `disable-model-invocation: true`가 설정된 skill은 목록, 타일, 상세 페이지에 **manual only** 태그가 표시되며, 이는 [`list`](/docs/reference/commands/list)에서 `m`으로 전환하는 것과 같은 상태입니다. 원격 기본 브랜치가 아닌 브랜치에서 설치한 skill(`install --branch`)은 목록, 타일, **Updates** 탭에 그 브랜치가 태그로 표시됩니다. 원격 소스에서 설치한 skill의 상세 페이지에서는(tracked repo 제외, tracked repo는 **Git Sync**에서 브랜치를 바꿉니다) **Branch**에 소스의 브랜치가 나열됩니다. 호스트와 관계없이 모든 Git 원격(HTTPS 또는 SSH)에서 사용할 수 있습니다. 브랜치를 고르면 확인을 거친 뒤 update와 같은 보안 감사와 로컬 변경 검사를 거쳐 그 브랜치에서 다시 설치합니다. 그 브랜치에 해당 skill이 없으면 현재 설치가 그대로 유지됩니다. 프로젝트에서는 전환에 성공하면 그 브랜치가 `.skillshare/config.yaml`에도 기록되어 팀원도 그 브랜치에서 설치합니다. skill 편집기에서 **Add field**는 각 frontmatter 필드가 하는 역할을 설명합니다. **Sync skills** / **Sync agents**는 미리 본 뒤 해당 종류만 모든 target에 동기화합니다. 업데이트, 제거 또는 collect 후에는 **Sync Now**에서 같은 대화상자가 열립니다. 파일 브라우저는 연결된 source 링크 자체가 skill의 루트인 경우에도 링크를 통해 `SKILL.md`와 첨부 파일을 나열합니다. |
 | **Extras** | **폴더**: skill과 함께 동기화되는 rules, commands, 기타 폴더. **Edit target**으로 target의 폴더, 파일 이름, 모드, flatten 설정, [파일 필터](./extras.md#choosing-files)를 미리 보며 바꿀 수 있고, **Edit extra**로 extra 이름을 바꾸거나 다른 소스 폴더를 가리키게 할 수 있습니다. **AGENTS.md**: global 모드에서는 공유 `AGENTS.md`와 그것을 쓰는 target, 프로젝트에서는 프로젝트의 `./AGENTS.md`와 각 target이 그것을 읽는지 여부. [여러 도구에서 하나의 AGENTS.md 공유하기](../../how-to/daily-tasks/sharing-instructions.md)를 참고하세요  **Memory**: [메모리 공유 가이드](../../how-to/daily-tasks/sharing-memory.md)(영어 스크린샷). 노트 검색, 미리 보기, 편집, 삭제, INDEX 링크, 충돌 시 초안 보존, Backup Files 기록과 복원, **Connect to agents** → **Review changes** → **Apply changes**. 설정 상태는 읽기를 증명하지 않습니다 |
 | **MCP** | 서버당 한 행이며, 동기화 대상인 Agent가 chip으로 표시되며, 행의 카운트 버튼을 누르면 해당 토글이 열립니다. **서버 추가**는 URL, command, 붙여넣은 snippet 또는 파일을 받습니다. **target에서 가져오기**는 설치된 Agent가 이미 가지고 있는 것을 읽어옵니다. 각 서버의 메뉴에는 **각 Agent에 기록될 설정 보기**가 있어 source와 모든 Agent의 파일을 나열하고, 선택한 파일을 저장되지 않은 편집을 포함해 보여줍니다. 충돌 시 **해당 Agent에서 가져오기** 또는 **원본으로 덮어쓰기**를 제공합니다. 서버 대화상자의 **도구** 섹션은 [도구 정책](./mcp.md#tool-policy)을 설정합니다: 저장 여부와 관계없이 대화상자의 현재 설정으로 서버를 한 번 시작해 도구를 선택할 수 있는 목록으로 보여 주는 **도구 불러오기**, `*` 패턴용 **제외 규칙** 행이 있습니다. 이 섹션은 정책 일부를 적용하지 않는 선택된 Agent를 각각 나열하며, 정책이 설정되면 행에 태그가 표시됩니다. Pi 서버의 경우, 대화상자에는 [Pi 내장 MCP](./mcp.md#pi) 설정도 있습니다: 도구 노출 방식과 기타 Pi 설정이며, 이 설정은 [`piOptions`](./mcp.md#pi-options)를 JSON으로 받고 도움말은 정보 툴팁에 있습니다. **기본값**은 `mcp.targets`를 편집합니다. Sync 박스의 **Sync MCP**는 대기 중인 변경 사항을 나열하고 MCP 설정 파일만 작성하며, 각 파일의 백업을 남깁니다. 그 아래에서 [**검사**](./mcp.md#check-servers-before-an-agent-starts-them)는 서버를 검사하고, **백업 및 복원**는 그 백업을 미리 보고 복원합니다. |
@@ -206,24 +207,26 @@ skillshare를 Nix로 설치한 경우에도 엔드포인트는 내장된 skillsh
 
 ## 리버스 프록시 {#reverse-proxy}
 
-공유 서버에서 reverse proxy(예: 홈랩, 내부 도구 플랫폼) 뒤에 대시보드를 실행하는 경우, `--base-path`를 사용하여 다른 서비스와 함께 하위 경로에서 서비스할 수 있습니다:
+공유 서버에서 reverse proxy(예: 홈랩, 내부 도구 플랫폼) 뒤에 대시보드를 실행하는 경우, 브라우저로 여는 주소를 `--trusted-origin`으로 전달하고, `--base-path`를 사용하여 다른 서비스와 함께 하위 경로에서 서비스할 수 있습니다:
 
 ```bash
-skillshare ui --base-path /skillshare --host 0.0.0.0 --no-open
+skillshare ui --base-path /skillshare --host 0.0.0.0 --trusted-origin https://tools.example.com --no-open
 ```
 
 또는 환경 변수를 통해:
 
 ```bash
-SKILLSHARE_UI_BASE_PATH=/skillshare skillshare ui --host 0.0.0.0 --no-open
+SKILLSHARE_UI_BASE_PATH=/skillshare SKILLSHARE_UI_TRUSTED_ORIGINS=https://tools.example.com skillshare ui --host 0.0.0.0 --no-open
 ```
+
+대시보드는 `localhost`, `http://192.168.1.20:19420` 같은 IP 주소, `--host`로 지정한 이름, 그리고 각 trusted origin에서만 응답합니다. 그 밖의 도메인 이름은 403을 받습니다. DNS rebinding 공격은 공격자가 제어하는 도메인 이름을 내 머신으로 향하게 하기 때문입니다. 각 origin은 스킴과 호스트로 지정하고, 기본 포트가 아니면 포트도 포함합니다(예: `https://tools.example.com`, `http://nas.local:8080`). `--trusted-origin`을 반복하거나 `SKILLSHARE_UI_TRUSTED_ORIGINS`에 쉼표로 구분해 지정합니다. trusted 주소에 접근할 수 있는 사람은 Agent가 실행하는 명령을 기록하는 MCP, Hooks, Plugins 페이지를 포함해 대시보드 전체를 사용할 수 있으므로, 직접 제어하는 주소만 나열하고 프록시에서 접근 가능한 대상을 제한하세요.
 
 ### Nginx
 
 ```nginx
 location /skillshare/ {
     proxy_pass http://127.0.0.1:19420;
-    proxy_set_header Host $host;
+    proxy_set_header Host $http_host;
     proxy_set_header X-Real-IP $remote_addr;
 }
 ```
@@ -236,12 +239,10 @@ handle_path /skillshare/* {
 }
 ```
 
+두 예시처럼 브라우저의 `Host` 헤더를 포트까지 포함해 그대로 전달하세요. 대시보드는 `Host`를 trusted origin과 대조하고, 요청의 `Origin`이 `Host`와 일치하지 않으면 대시보드는 변경을 거부합니다. 이렇게 해서 다른 웹사이트가 브라우저를 통해 변경하지 못하게 합니다. Caddy는 기본적으로 `Host`를 유지합니다. `header_up Host`로 바꾸지 마세요.
+
 :::tip
 `--base-path` 없이는 대시보드가 이전과 동일하게 동작합니다 — `localhost:19420`에서 직접 접속할 때는 별도 설정이 필요 없습니다.
-:::
-
-:::note MCP 설정
-MCP 페이지는 브라우저가 `localhost` 또는 `http://192.168.1.20:19420`과 같은 IP 주소로 대시보드를 열 때만 동작합니다. reverse proxy를 포함해 도메인 이름을 통하면 MCP 요청은 403을 반환합니다: DNS 리바인딩 공격은 항상 도메인 이름을 사용하기 때문입니다. 원격 머신에서 MCP 설정을 관리하려면 `ssh -L 19420:127.0.0.1:19420 HOST`로 포트를 포워딩한 후 `http://localhost:19420`을 여세요.
 :::
 
 ## Docker 사용법

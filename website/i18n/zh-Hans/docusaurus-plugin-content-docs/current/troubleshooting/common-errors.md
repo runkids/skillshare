@@ -290,7 +290,7 @@ skillshare sync -p
 
 ### `nested git repositories must be disabled first`
 
-**原因：** 当 `git_root: root` 时，某个子目录（例如 `skills/_org/` 下被 track 的 skill 仓库）自带 `.git`。Git 会把它当成一个**空的 submodule** 上传，导致其中的文件被悄悄丢弃，因此在每个嵌套仓库被停用之前，`commit`/`push` 会中止。
+**原因：** 当 `git_root: root` 时，某个未被 Git 忽略的子目录（例如手动 clone 的 skill）自带 `.git`。Git 会把它当成一个**空的 submodule** 上传，导致其中的文件被悄悄丢弃，因此在每个嵌套仓库被停用之前，`commit`/`push` 会中止。用 `--track` 安装的 track 仓库会列在受管理的 `.gitignore` 区块中，因此除非已经提交过，否则会被跳过。
 
 **解决方式：**
 ```bash

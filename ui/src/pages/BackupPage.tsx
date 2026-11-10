@@ -29,6 +29,7 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { SettingsTabs } from './SettingsPage';
 import { useHooksQuery, useMcpQuery, useOverviewQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
+import { segSlide } from '../lib/segSlide';
 
 const CONFLICTS_SHOWN = 6;
 const TABS = ['folders', 'files', 'mcp', 'hooks'] as const;
@@ -75,7 +76,7 @@ export default function BackupPage() {
   const create = useCreateBackup();
 
   return (
-    <div className="ss-wrap animate-fade-in">
+    <div className="ss-wrap animate-page-in">
       <PageHeader
         className="!mb-0"
         title={t('layout.nav.settings')}
@@ -84,7 +85,7 @@ export default function BackupPage() {
       <SettingsTabs current="backup" />
 
       <div className="flex items-center gap-4">
-        <nav className="ss-seg" aria-label={t('backup.tabs')}>
+        <nav ref={segSlide} className="ss-seg" aria-label={t('backup.tabs')}>
           {TABS.map((k) => (
             <Link key={k} to={k === 'folders' ? '?' : `?tab=${k}`} replace className={tab === k ? 'on' : ''} aria-current={tab === k ? 'page' : undefined}>
               {t(`backup.tab.${k}`)}

@@ -72,7 +72,7 @@ JSON 出力には source パスとネイティブ識別子が含まれます。s
 | Target | フォーマット | Global | Project | Update |
 |---|---|:---:|:---:|---|
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | ネイティブ update |
-| Codex | `.codex-plugin/plugin.json` または Agent Plugins ルートマニフェスト | Yes | No | レビュー済みの Source を更新して再度 add。Codex で有効な場合のみ |
+| Codex | `.codex-plugin/plugin.json`、Agent Plugins ルートマニフェスト、または Claude マニフェスト | Yes | No | レビュー済みの Source を更新して再度 add。Codex で有効な場合のみ |
 | Cursor | `.cursor-plugin/plugin.json` または Agent Plugins ルートマニフェスト | Yes | No | reviewed されたローカルコピーを置き換え |
 | Antigravity Desktop | 明示的な name を持つルート `plugin.json` | Yes | Yes | reviewed されたローカルコピーを置き換え |
 | Pi | `pi` resources を持つ `package.json`、または `pi-package` キーワードと慣例的な resource フォルダ | Yes | Yes（ネイティブな project trust が必要） | 管理下 source スナップショットを更新 |
@@ -276,14 +276,14 @@ skillshare plugin add ./package --entry dist/plugin.js --target opencode --no-tu
 skillshare plugin update review --source-ref v1.1.0 --target claude --dry-run --json
 ```
 
-共有バインディングには `source_ref` を記録し、解決済みの `commit` はローカルの記録に保存します。インストールには reviewed されたコミットが使われます。`check` と `update` は設定された ref を再度解決するため、コミットが固定されたままブランチが進むことがあります。`--revision` は Git ref ではなくプレビュートークンです。`--entry` は各候補の package ルートからの相対パスであり、既に存在している必要があります。ビルドや package manager のインストールをトリガーすることはありません。
+共有バインディングには `source_ref` を記録し、解決済みの `commit` はローカルの記録に保存します。インストールには reviewed されたコミットが使われます。`check` と `update` は設定された ref を再度解決するため、コミットが固定されたままブランチが進むことがあります。ref を設定していない場合、`check` はまずリモートのデフォルトブランチが指す commit を問い合わせ、インストール済みの commit と異なるときだけソースをダウンロードします。`--revision` は Git ref ではなくプレビュートークンです。`--entry` は各候補の package ルートからの相対パスであり、既に存在している必要があります。ビルドや package manager のインストールをトリガーすることはありません。
 
 Copilot と Antigravity CLI のインストールは、reviewed されたローカルスナップショットを使用します。インポートには再インストール用の reviewed source がありません。削除後は、ネイティブクライアントでインストールしてから再度 sync してください。Grok もインストール/再インストール前にネイティブな trust が必要です。Skillshare はネイティブな trust の承認フラグを提供しません。
 
 ## 互換性と制約
 
 - Claude はネイティブな `.claude-plugin/plugin.json` package を必要とします。
-- Codex は `.codex-plugin/plugin.json` と、認識可能なポータブルなルート `plugin.json` package を受け付けます。両方を含む package では Codex がポータブルなルート `plugin.json` からインストールするため、Skillshare はその manifest のバージョンを、ない場合は `1.0.0` を想定します。Claude 専用の package が黙って変換されることはありません。
+- Codex は `.codex-plugin/plugin.json` と、認識可能なポータブルなルート `plugin.json` package を受け付けます。両方を含む package では Codex がポータブルなルート `plugin.json` からインストールするため、Skillshare はその manifest のバージョンを、ない場合は `1.0.0` を想定します。どちらもなく `.claude-plugin/plugin.json` を持つ package も Codex に提供されます。Codex がその manifest を自身で読み、skills や MCP サーバーなど対応する部分だけを使うため、Claude の agent は Codex に提供されません。agent だけの package など、対応する部分を持たない package は Codex に提供されません。Skillshare は package を変換も書き換えもしません。Codex と同様に、不正な JSON または無関係なルート `plugin.json` は無視されます。明示的な `.codex-plugin/plugin.json` または認識可能な Agent Plugins ルート manifest は、無効、非対応、またはリンクであっても Claude の manifest で置き換えられることはありません。
 - source にはローカル plugin エントリを含むマーケットプレイスが含まれる場合があります。ネイティブカタログは plugin 名でマージされ、target ごとの package パスを保持します。外部エントリはそのリポジトリを直接追加するか、ネイティブにインストールしてインポートするよう指示とともに報告されます。コマンドベースの source は自動承認されません。
 - 完全な source スナップショットは、plugin のスクリプト、アセット、および安全な相対 symlink（`AGENTS.md → CLAUDE.md` を含む）を保持します。絶対パス、脱出、dangling、循環、`.git` を参照する symlink や特殊ファイルは拒否されます。source は 20,000 ファイルおよび 100 MiB に制限されます。
 - ネイティブインストールは、ランタイムでの有効化を証明するものではありません。Agent を再起動/再読み込みし、その Agent 内で認証または hook trust を完了してください。

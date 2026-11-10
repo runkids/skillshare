@@ -2,6 +2,8 @@ package plugin
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 )
@@ -160,6 +162,102 @@ func TestCodexKeepsNativeLogoUnderPortableManifest(t *testing.T) {
 	}
 	if got := d.Candidates[0].TargetInfo["codex"].Logo; got != "data:image/png;base64,cG5nLWJ5dGVz" {
 		t.Fatalf("native logo lost: %q", got)
+	}
+}
+
+// Codex 0.166 reads .claude-plugin/plugin.json when it finds no manifest of its own, such as
+// mattpocock/skills, which lists each skill. It reads only some fields: agents stay Claude's.
+func TestCodexReadsAClaudeOnlyPackage(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, ".claude-plugin/plugin.json", `{"name":"skills","version":"1.3.2","skills":["./skills/engineering/tdd","./skills/productivity/grill-me"],"agents":["./agents/reviewer.md"]}`)
+	writeFile(t, root, "skills/engineering/tdd/SKILL.md", "---\nname: tdd\ndescription: TDD\n---\n")
+	writeFile(t, root, "skills/productivity/grill-me/SKILL.md", "---\nname: grill-me\ndescription: Grill\n---\n")
+	writeFile(t, root, "agents/reviewer.md", "---\nname: reviewer\n---\n")
+	d, err := Discover(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := d.Candidates[0]
+	codex := c.TargetInfo["codex"]
+	if !slices.Contains(c.Targets, "codex") || codex.Manifest != ".claude-plugin/plugin.json" || codex.Version != "1.3.2" || !slices.Equal(codex.Components, []string{"skills"}) {
+		t.Fatalf("Codex package: %+v", codex)
+	}
+	if claude := c.TargetInfo["claude"]; !slices.Contains(c.Targets, "claude") || !slices.Equal(claude.Components, []string{"agents", "skills"}) {
+		t.Fatalf("Claude package changed: %+v", claude)
+	}
+}
+
+// A Claude package with nothing Codex reads, such as agents only, is not offered to Codex.
+func TestCodexSkipsAClaudePackageWithNothingItReads(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, ".claude-plugin/plugin.json", `{"name":"rev","agents":["./agents/r.md"]}`)
+	writeFile(t, root, "agents/r.md", "---\nname: r\n---\n")
+	d, err := Discover(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := d.Candidates[0]; slices.Contains(c.Targets, "codex") || !slices.Contains(c.Targets, "claude") {
+		t.Fatalf("targets = %v", c.Targets)
+	}
+}
+
+// Codex stops at the first manifest location that is present, valid or not, so a Claude
+// manifest never stands in for a Codex one that is broken, unsupported or linked.
+func TestCodexClaudeFallbackKeepsManifestPrecedence(t *testing.T) {
+	link := func(target, name string) func(*testing.T, string) {
+		return func(t *testing.T, root string) {
+			path := filepath.Join(root, name)
+			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(target, path); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	file := func(name, data string) func(*testing.T, string) {
+		return func(t *testing.T, root string) { writeFile(t, root, name, data) }
+	}
+	for _, tc := range []struct {
+		name, manifest string
+		setup          func(*testing.T, string)
+	}{
+		{"own manifest", ".codex-plugin/plugin.json", file(".codex-plugin/plugin.json", `{"name":"demo","version":"2.0.0"}`)},
+		{"portable manifest", "plugin.json", file("plugin.json", `{"$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","name":"demo"}`)},
+		{"unrelated root plugin.json", ".claude-plugin/plugin.json", file("plugin.json", `{"name":"demo"}`)},
+		{"unrelated root schema", ".claude-plugin/plugin.json", file("plugin.json", `{"$schema":"https://example.com/custom.schema.json","name":"demo"}`)},
+		{"malformed unrelated root", ".claude-plugin/plugin.json", file("plugin.json", "{")},
+		{"malformed own manifest", "", file(".codex-plugin/plugin.json", "{")},
+		{"own manifest is a folder", "", file(".codex-plugin/plugin.json/x", "")},
+		{"unsupported portable schema", "", file("plugin.json", `{"$schema":"https://agent-plugins.org/schemas/2.0.0/plugin.schema.json","name":"demo"}`)},
+		{"linked own manifest", "", link("../missing.json", ".codex-plugin/plugin.json")},
+		{"linked own folder", "", link("elsewhere", ".codex-plugin")},
+		{"linked root plugin.json", "", link(".claude-plugin/plugin.json", "plugin.json")},
+		{"linked Claude manifest", "", link("../claude.json", ".claude-plugin/plugin.json")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			writeFile(t, root, "skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo\n---\n")
+			writeFile(t, root, "claude.json", `{"name":"demo","version":"1.0.0"}`)
+			writeFile(t, root, "elsewhere/README.md", "")
+			writeFile(t, root, ".claude-plugin/plugin.json", `{"name":"demo","version":"1.0.0"}`)
+			tc.setup(t, root)
+			d, err := Discover(context.Background(), root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			c := d.Candidates[0]
+			if !slices.Contains(c.Targets, "claude") {
+				t.Fatalf("Claude lost: %+v", c)
+			}
+			got, offered := c.TargetInfo["codex"], slices.Contains(c.Targets, "codex")
+			if offered != (tc.manifest != "") || offered && got.Manifest != tc.manifest {
+				t.Fatalf("Codex package = %+v, want manifest %q", got, tc.manifest)
+			}
+		})
 	}
 }
 

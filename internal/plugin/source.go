@@ -58,12 +58,9 @@ func acquireRef(ctx context.Context, source, ref string) (string, string, func()
 	if isNpmSource(source) {
 		return "", "", cleanup, fmt.Errorf("npm packages can't be previewed: Pi downloads them when it installs them. Add one to a Pi target with: skillshare plugin add %s --target pi", source)
 	}
-	if githubPattern.MatchString(source) {
-		source = "https://github.com/" + source + ".git"
-	}
-	u, err := url.Parse(source)
-	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
-		return "", "", cleanup, fmt.Errorf("use an existing directory, owner/repo, or HTTPS Git URL without credentials")
+	source, err := remoteURL(source)
+	if err != nil {
+		return "", "", cleanup, err
 	}
 	root, err := os.MkdirTemp("", "skillshare-plugin-")
 	if err != nil {
@@ -162,6 +159,36 @@ func DiscoverRef(ctx context.Context, source, ref string) (*Discovery, error) {
 	return DiscoverOptions(ctx, source, ref, "")
 }
 
+// remoteURL is the HTTPS address of a remote Git source, which may be written owner/repo.
+func remoteURL(source string) (string, error) {
+	if githubPattern.MatchString(source) {
+		source = "https://github.com/" + source + ".git"
+	}
+	u, err := url.Parse(source)
+	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return "", fmt.Errorf("use an existing directory, owner/repo, or HTTPS Git URL without credentials")
+	}
+	return source, nil
+}
+
+// remoteHead is the commit a remote Git source's default branch points at, read without downloading it.
+func remoteHead(ctx context.Context, source string) (string, error) {
+	source, err := remoteURL(source)
+	if err != nil {
+		return "", err
+	}
+	out, err := runCommand(ctx, "", nil, "git", "ls-remote", source, "HEAD")
+	if err != nil {
+		return "", err
+	}
+	for line := range strings.SplitSeq(string(out), "\n") {
+		if commit, name, ok := strings.Cut(strings.TrimSpace(line), "\t"); ok && name == "HEAD" {
+			return commit, nil
+		}
+	}
+	return "", fmt.Errorf("%s names no default branch", source)
+}
+
 func DiscoverOptions(ctx context.Context, source, ref, entry string) (*Discovery, error) {
 	root, normalized, cleanup, err := acquireRef(ctx, source, ref)
 	if err != nil {
@@ -196,6 +223,7 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("Skipped %d broken or unsafe links; they are left out of the install: %s", len(skipped), strings.Join(links, ", ")))
 	}
 	seenAt := map[string]int{}
+	codexListed := map[string]bool{}
 	var ompCatalog map[string]Candidate
 	// Read all native catalogs; the same package may be advertised more than once.
 	for _, path := range []string{".agents/plugins/marketplace.json", ".omp-plugin/marketplace.json", ".claude-plugin/marketplace.json", ".cursor-plugin/marketplace.json", ".github/plugin/marketplace.json", ".plugin/marketplace.json", "marketplace.json"} {
@@ -325,6 +353,11 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 				case previous == "":
 					result.Candidates[i] = c
 				case result.Candidates[i].Problem != "":
+					// Codex reads only its own catalog, so a folder it rejected there is not replaced.
+					if codexListed[c.Name] {
+						delete(c.TargetInfo, "codex")
+						c.collectTargets()
+					}
 					result.Candidates[i] = c
 				case c.Problem == "":
 					mergeCatalogPath(&result.Candidates[i], c, catalogOwner[path])
@@ -332,6 +365,7 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 				continue
 			}
 			seenAt[c.Name] = len(result.Candidates)
+			codexListed[c.Name] = path == ".agents/plugins/marketplace.json"
 			result.Candidates = append(result.Candidates, c)
 		}
 	}
@@ -369,10 +403,11 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 var catalogOwner = map[string]string{".agents/plugins/marketplace.json": "codex", ".omp-plugin/marketplace.json": "omp", ".claude-plugin/marketplace.json": "claude", ".cursor-plugin/marketplace.json": "cursor", ".github/plugin/marketplace.json": "copilot", ".plugin/marketplace.json": "copilot"}
 
 // mergeCatalogPath folds in the same plugin advertised by another catalog, possibly in another
-// folder. An Agent keeps the folder found first, unless its own catalog says otherwise.
+// folder. An Agent keeps the folder found first, unless its own catalog says otherwise or that
+// folder was rejected. Codex reads only its own catalog, so a folder rejected there stays rejected.
 func mergeCatalogPath(kept *Candidate, c Candidate, owner string) {
 	for target, info := range c.TargetInfo {
-		if existing, ok := kept.TargetInfo[target]; info.Problem != "" || (ok && existing.Problem == "" && target != owner) {
+		if existing, ok := kept.TargetInfo[target]; info.Problem != "" || (ok && target != owner && (existing.Problem == "" || target == "codex")) {
 			continue
 		}
 		info.Path = c.Path

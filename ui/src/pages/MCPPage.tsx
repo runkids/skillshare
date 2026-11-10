@@ -390,7 +390,7 @@ export default function MCPPage() {
   return (
     <MCPTargetOrder.Provider value={order}>
     <MCPAccountAgents.Provider value={accountAgents}>
-    <div className="animate-fade-in">
+    <div className="animate-page-in">
       <MCPHeader source={data?.source} onImport={() => setImporting({})} onAdd={() => { setAddingOff(false); setAddMode('form'); setEditing(''); }} />
 
       <MCPPageErrors error={error} previewError={data?.previewError} />

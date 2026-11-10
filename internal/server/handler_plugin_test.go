@@ -154,6 +154,35 @@ func TestPluginListIncludesUnboundNativeImport(t *testing.T) {
 	}
 }
 
+// The check stream sends each plugin's plan on its own, then says it is done.
+func TestPluginCheckStreamSendsEachPlugin(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	service := s.pluginService()
+	if err := os.WriteFile(service.ConfigPath, []byte("plugins:\n  version: 2\n  packages:\n    one:\n      bindings:\n        omp: {imported: true}\n    two:\n      bindings:\n        omp: {imported: true}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	s.handlePluginCheckStream(w, httptest.NewRequest(http.MethodGet, "/api/plugins/check/stream", nil))
+	var names []string
+	for block := range strings.SplitSeq(w.Body.String(), "\n\n") {
+		event, data, ok := strings.Cut(strings.TrimPrefix(block, "event: "), "\ndata: ")
+		if !ok || event != "plan" {
+			continue
+		}
+		var got struct {
+			Name string       `json:"name"`
+			Plan *plugin.Plan `json:"plan"`
+		}
+		if err := json.Unmarshal([]byte(data), &got); err != nil || got.Plan == nil || len(got.Plan.Changes) != 1 {
+			t.Fatalf("plan event %q: %v", data, err)
+		}
+		names = append(names, got.Name)
+	}
+	if slices.Sort(names); !slices.Equal(names, []string{"one", "two"}) || !strings.HasSuffix(w.Body.String(), "event: done\ndata: {\"failure\":\"\"}\n\n") {
+		t.Fatalf("stream %v: %s", names, w.Body.String())
+	}
+}
+
 func TestPluginPreviewPreservesLocalizedError(t *testing.T) {
 	s, _ := newTestServerWithExtras(t, nil, "")
 	w := httptest.NewRecorder()

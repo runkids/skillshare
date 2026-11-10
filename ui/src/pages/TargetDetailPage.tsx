@@ -233,7 +233,7 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
   };
   const subtitle = tab === 'file' ? openFile?.abs ?? '' : tab === 'mcp' ? mcpPath ?? '' : tab === 'hooks' ? hooksPath || '' : tab === 'instructions' ? (instructions.data?.supported ? instructions.data.path ?? '' : '') : agent ? target.agentPath ?? '' : target.path;
   return (
-    <div className="animate-fade-in">
+    <div className="animate-page-in">
       <PageHeader
         crumbs={[{ label: t('targets.title'), to: '/targets' }, { label: target.name }]}
         title={target.name}

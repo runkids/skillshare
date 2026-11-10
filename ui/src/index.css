@@ -131,14 +131,21 @@ html.theme-transitioning :is(.ss-box, .ss-list, .ss-btn, .ss-tag, .ss-inp, .ss-d
   animation: fadeInUp 0.2s ease-out;
 }
 
-/* Dropdown open animation */
+/* Dropdown open animation: grows out of its trigger (set transform-origin on the menu). */
 @keyframes dropdownIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(-4px) scale(0.96); }
+  to { opacity: 1; transform: none; }
 }
 
 .animate-dropdown-in {
-  animation: dropdownIn 0.15s ease-out;
+  animation: dropdownIn 0.2s cubic-bezier(0.22, 0.9, 0.24, 1);
+}
+/* Closing only fades; useMenuPresence keeps the menu mounted for these 0.12s. */
+@keyframes dropdownOut {
+  to { opacity: 0; }
+}
+.animate-dropdown-out {
+  animation: dropdownOut 0.12s ease-out forwards;
 }
 
 /* Dialog entrance */
@@ -149,14 +156,34 @@ html.theme-transitioning :is(.ss-box, .ss-list, .ss-btn, .ss-tag, .ss-inp, .ss-d
 .animate-dialog-in {
   animation: dialogIn 0.2s ease-out;
 }
+/* Reduced motion keeps each entrance's fade and drops its movement. It sits before the step rules
+   so their own reduced-motion `animation: none` still wins on a dialog changing step. */
+@keyframes fadeIn {
+  from { opacity: 0; }
+}
+/* A toast rises 12px from the bottom edge. */
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(12px); }
+}
+.animate-toast-in {
+  animation: toastIn 0.32s cubic-bezier(0.22, 0.9, 0.24, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in, .animate-dropdown-in, .animate-dialog-in, .animate-toast-in { animation-name: fadeIn; }
+}
+
+/* Page entry: navigation is frequent, so only a short fade softens the swap, with no movement. */
+.animate-page-in {
+  animation: fadeIn 0.12s ease-out;
+}
 
 /* A dialog changing step: the new content slides in from the side it was reached from. */
 @keyframes stepFwd {
-  from { opacity: 0; transform: translateX(14px); }
+  from { opacity: 0; transform: translateX(16px); }
   to { opacity: 1; transform: translateX(0); }
 }
 @keyframes stepBack {
-  from { opacity: 0; transform: translateX(-14px); }
+  from { opacity: 0; transform: translateX(-16px); }
   to { opacity: 1; transform: translateX(0); }
 }
 /* After .animate-dialog-in, so it also replaces the entrance of a dialog opened from another dialog. */
@@ -177,12 +204,18 @@ html.theme-transitioning :is(.ss-box, .ss-list, .ss-btn, .ss-tag, .ss-inp, .ss-d
   animation: skeleton-shimmer 1.8s ease-in-out infinite;
 }
 
-/* Toast exit */
+/* Toast exit: back down the way it came in. Toast.tsx EXIT_DURATION matches the duration. */
 @keyframes toastOut {
-  to { opacity: 0; transform: translateX(100%); }
+  to { opacity: 0; transform: translateY(8px) scale(0.97); }
+}
+@keyframes toastFadeOut {
+  to { opacity: 0; }
 }
 .animate-toast-out {
-  animation: toastOut 0.3s ease-in forwards;
+  animation: toastOut 0.2s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-toast-out { animation-name: toastFadeOut; }
 }
 
 /* Toast progress bar */

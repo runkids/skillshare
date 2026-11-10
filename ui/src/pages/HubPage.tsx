@@ -155,7 +155,7 @@ export default function HubPage() {
   }
 
   return (
-    <div className="ss-wrap animate-fade-in">
+    <div className="ss-wrap animate-page-in">
       <PageHeader title={t('hubs.title')} subtitle={t('hubs.subtitle')} backTo="/skills" />
       <div className="grid grid-cols-[280px_minmax(0,1fr)] items-start gap-7">
         <HubList

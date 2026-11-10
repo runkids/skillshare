@@ -48,7 +48,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: v0.29.0 — [`skillshare audit`](https://skillshare.runkids.cc/docs/reference/commands/audit) looks deeper into what a skill bundles: commands in bundled hooks and settings, links that leave the skill folder, executables and bytecode disguised as documents or images, whitespace padding that hides instructions, cloud metadata and internal request targets, and unsafe deserialization. `--min-severity` trims the report without changing what blocks an install, and a scan that skipped an unreadable followed source link now says so in every report. On the dashboard, a skill's detail page shows its branch and switches it. [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: v0.30.0 — The web dashboard refuses changes that another website sends through your browser, and answers only at `localhost`, an IP address and the addresses you trust, so a DNS rebinding page cannot reach it either. Behind a reverse proxy, start it with [`--trusted-origin`](https://skillshare.runkids.cc/docs/reference/commands/ui#reverse-proxy) and every page works through your domain, MCP, Hooks and Plugins included; a dashboard opened by any other domain name now needs this setting. [`skillshare plugin`](https://skillshare.runkids.cc/docs/reference/commands/plugin) also offers Codex the plugins that ship only a Claude manifest, with the skills and MCP servers Codex can use. [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
@@ -329,6 +329,8 @@ Thanks to everyone who helped shape skillshare.
 <a href="https://github.com/dstotijn"><img src="https://github.com/dstotijn.png" width="50" style="border-radius:50%" alt="dstotijn"></a>
 <a href="https://github.com/ipruning"><img src="https://github.com/ipruning.png" width="50" style="border-radius:50%" alt="ipruning"></a>
 <a href="https://github.com/massukio"><img src="https://github.com/massukio.png" width="50" style="border-radius:50%" alt="massukio"></a>
+<a href="https://github.com/nathanvale"><img src="https://github.com/nathanvale.png" width="50" style="border-radius:50%" alt="nathanvale"></a>
+<a href="https://github.com/LloydPowell771"><img src="https://github.com/LloydPowell771.png" width="50" style="border-radius:50%" alt="LloydPowell771"></a>
 <a href="https://github.com/kevincobain2000"><img src="https://github.com/kevincobain2000.png" width="50" style="border-radius:50%" alt="kevincobain2000"></a>
 <a href="https://github.com/StephenPAdams"><img src="https://github.com/StephenPAdams.png" width="50" style="border-radius:50%" alt="StephenPAdams"></a>
 <a href="https://github.com/mk-imagine"><img src="https://github.com/mk-imagine.png" width="50" style="border-radius:50%" alt="mk-imagine"></a>

@@ -15,6 +15,8 @@ import type { DiffLine } from '../instructions/instructionsView';
 import { useToast } from '../Toast';
 import { invalidate } from '../../lib/queryEvents';
 import MemoryTools from './MemoryTools';
+import { segSlide } from '../../lib/segSlide';
+import { useMenuPresence } from '../../hooks/usePresence';
 
 const MODES: MemoryUpdateMode[] = ['passive', 'active'];
 
@@ -23,6 +25,7 @@ function CopyGuidanceMenu({ instructions }: { instructions: MemoryInstructions }
   const t = useT();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
+  const menu = useMenuPresence(open);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -42,7 +45,7 @@ function CopyGuidanceMenu({ instructions }: { instructions: MemoryInstructions }
       <button type="button" className="ss-btn ghost sm" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
         <Copy size={12} strokeWidth={2.5} />{t('memory.copyInstructions')}<ChevronDown size={14} />
       </button>
-      {open && <div role="menu" className="ss-menu absolute right-0 top-full z-50 mt-1 !w-[320px]">
+      {menu.shown && <div role="menu" {...menu.exitProps} className={`ss-menu absolute right-0 top-full z-50 mt-1 !w-[320px] origin-top-right ${menu.motion}`}>
         {MODES.map((mode) => <button key={mode} type="button" role="menuitem" className="!h-auto flex-col !items-start !gap-0.5 !py-2" onClick={() => void copy(mode)}>
           <span className="font-mono text-[13px] font-semibold text-ink">{mode}</span>
           <span className="text-[12.5px] leading-snug text-ink-2">{t(`memory.mode.${mode}`)}</span>
@@ -176,7 +179,7 @@ export default function MemoryGuidance({ initialized, instructions, root }: { in
                     {requested.includes(target.name) && <span className="ss-tag !border-transparent !bg-[var(--accent-bg)] !text-accent">pending</span>}
                     <span className={`text-right text-[12.5px] ${target.state === 'outdated' || target.state === 'broken' ? 'text-warn' : 'text-ink-3'}`}>{statusText(target)}</span>
                   </label>
-                  <div role="radiogroup" aria-label={t('memory.updateMode', { target: target.name })} className={`ss-seg ${modeOff ? 'opacity-40' : ''}`}>
+                  <div ref={segSlide} role="radiogroup" aria-label={t('memory.updateMode', { target: target.name })} className={`ss-seg ${modeOff ? 'opacity-40' : ''}`}>
                     {MODES.map((mode) => <button key={mode} type="button" role="radio" aria-checked={modeOf(target) === mode} disabled={modeOff}
                       className={`font-mono ${modeOf(target) === mode ? 'on' : ''}`} onClick={() => setMode(target, mode)}>{mode}</button>)}
                   </div>

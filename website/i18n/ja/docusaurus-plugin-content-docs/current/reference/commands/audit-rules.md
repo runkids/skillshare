@@ -310,24 +310,24 @@ skillshare audit --json | jq '.skills[].findings'  # findings をプログラム
 | `data-exfiltration-1` | data-exfiltration | CRITICAL |
 | `data-exfiltration-2` | data-exfiltration | MEDIUM |
 | `data-exfiltration-3` | data-exfiltration | HIGH |
-| `credential-access-ssh-private-key` | credential-access | CRITICAL |
-| `credential-access-env-file` | credential-access | CRITICAL |
-| `credential-access-aws-credentials` | credential-access | CRITICAL |
-| `credential-access-etc-shadow` | credential-access | CRITICAL |
-| `credential-access-git-credentials` | credential-access | CRITICAL |
-| `credential-access-netrc` | credential-access | CRITICAL |
-| `credential-access-gnupg` | credential-access | CRITICAL |
-| `credential-access-kube-config` | credential-access | CRITICAL |
-| `credential-access-vault-token` | credential-access | CRITICAL |
-| `credential-access-terraform-creds` | credential-access | CRITICAL |
-| `credential-access-gnome-keyring` | credential-access | CRITICAL |
-| `credential-access-npmrc` | credential-access | CRITICAL |
-| `credential-access-pypirc` | credential-access | CRITICAL |
-| `credential-access-gem-credentials` | credential-access | CRITICAL |
-| `credential-access-ssl-private` | credential-access | CRITICAL |
-| `credential-access-ssh-host-key` | credential-access | CRITICAL |
-| `credential-access-pgpass` | credential-access | CRITICAL |
-| `credential-access-mysql-cnf` | credential-access | CRITICAL |
+| `credential-access-ssh-private-key` | credential-access | CRITICAL / HIGH ([コンテキスト](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-env-file` | credential-access | CRITICAL / HIGH ([コンテキスト](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-aws-credentials` | credential-access | CRITICAL / HIGH ([コンテキスト](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-etc-shadow` | credential-access | CRITICAL / HIGH ([コンテキスト](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-git-credentials` | credential-access | CRITICAL / HIGH ([コンテキスト](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-netrc` | credential-access | CRITICAL / HIGH ([コンテキスト](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-gnupg` | credential-access | CRITICAL / HIGH ([コンテキスト](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-kube-config` | credential-access | CRITICAL / HIGH ([コンテキスト](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-vault-token` | credential-access | CRITICAL / HIGH ([コンテキスト](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-terraform-creds` | credential-access | CRITICAL / HIGH ([コンテキスト](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-gnome-keyring` | credential-access | CRITICAL / HIGH ([コンテキスト](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-npmrc` | credential-access | CRITICAL / HIGH ([コンテキスト](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-pypirc` | credential-access | CRITICAL / HIGH ([コンテキスト](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-gem-credentials` | credential-access | CRITICAL / HIGH ([コンテキスト](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-ssl-private` | credential-access | CRITICAL / HIGH ([コンテキスト](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-ssh-host-key` | credential-access | CRITICAL / HIGH ([コンテキスト](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-pgpass` | credential-access | CRITICAL / HIGH ([コンテキスト](/docs/understand/audit-engine#credential-access)) |
+| `credential-access-mysql-cnf` | credential-access | CRITICAL / HIGH ([コンテキスト](/docs/understand/audit-engine#credential-access)) |
 | `credential-access-etc-passwd` | credential-access | MEDIUM |
 | `credential-access-azure-creds` | credential-access | HIGH |
 | `credential-access-gcloud-creds` | credential-access | HIGH |
@@ -424,6 +424,8 @@ skillshare audit --json | jq '.skills[].findings'  # findings をプログラム
 | `unsafe-deserialization-php` | unsafe-deserialization | HIGH |
 | `unsafe-deserialization-ruby` | unsafe-deserialization | HIGH |
 | `unsafe-deserialization-js` | unsafe-deserialization | HIGH |
+
+`audit rules --format json` では、上表で *コンテキスト* が付いたルールは、組み込みの CRITICAL と正規表現のままである間 `"severityContext": "python-inert"` を持ちます。重大度を指定するか正規表現を置き換えると、引き下げが適用されなくなるため消えます。
 
 ## サブコマンド
 

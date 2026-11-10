@@ -24,6 +24,27 @@ func TestUIRestartHelperArgsPreservesAddressBasePathAndMode(t *testing.T) {
 	}
 }
 
+func TestRestartExecutable(t *testing.T) {
+	tests := []struct {
+		name string
+		exe  string
+		want string
+	}{
+		{"linuxbrew keg", "/home/linuxbrew/.linuxbrew/Cellar/skillshare/0.28.4/bin/skillshare", "/home/linuxbrew/.linuxbrew/bin/skillshare"},
+		{"apple silicon keg", "/opt/homebrew/Cellar/skillshare/0.30.0/bin/skillshare", "/opt/homebrew/bin/skillshare"},
+		{"intel keg", "/usr/local/Cellar/skillshare/0.30.0/bin/skillshare", "/usr/local/bin/skillshare"},
+		{"homebrew link", "/opt/homebrew/bin/skillshare", "/opt/homebrew/bin/skillshare"},
+		{"direct install", "/home/user/.local/bin/skillshare", "/home/user/.local/bin/skillshare"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := restartExecutable(tt.exe); got != tt.want {
+				t.Fatalf("restartExecutable(%q) = %q, want %q", tt.exe, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRestartRequestAllowedRejectsCrossSite(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/restart", strings.NewReader(`{}`))
 	req.RemoteAddr = "203.0.113.10:1234"
@@ -61,7 +82,7 @@ func TestMCPRequestAllowed(t *testing.T) {
 			if tt.fetchSite != "" {
 				req.Header.Set("Sec-Fetch-Site", tt.fetchSite)
 			}
-			if got := mcpRequestAllowed(req, tt.serverAddr); got != tt.want {
+			if got := (&Server{addr: tt.serverAddr}).mcpRequestAllowed(req); got != tt.want {
 				t.Fatalf("mcpRequestAllowed = %v, want %v", got, tt.want)
 			}
 		})

@@ -74,7 +74,7 @@ export default function ProjectsPage() {
   const addButton = <Button variant="primary" onClick={() => setAdding(true)}><Plus size={15} />{t('projects.add.title')}</Button>;
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-page-in">
       <PageHeader title={t('projects.title')} subtitle={t('projects.subtitle')} actions={addButton} />
 
       {list.error ? (

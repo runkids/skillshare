@@ -31,7 +31,7 @@ The dashboard supports Clean and Playful styles plus light, dark, and system mod
 
 ## Dashboard Composition
 
-- Use `ss-wrap animate-fade-in` on the page root and place `PageHeader` first.
+- Use `ss-wrap animate-page-in` on the page root and place `PageHeader` first.
 - Prefer `ss-list` and `ss-r` for lists, `ss-note bad` for errors, and `EmptyState` for empty states.
 - Use existing shared components such as `Button`, `IconButton`, `Card`, `DialogShell`, `ConfirmDialog`, `Input`, `Select`, `Checkbox`, `Pagination`, and `Tooltip`.
 - Route destructive actions through `ConfirmDialog`; never use `window.confirm()`.

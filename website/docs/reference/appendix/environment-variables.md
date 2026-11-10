@@ -158,6 +158,20 @@ Equivalent to `--base-path /skillshare`. The flag takes precedence if both are s
 
 See [Reverse Proxy](/docs/reference/commands/ui#reverse-proxy) for Nginx and Caddy examples.
 
+### SKILLSHARE_UI_TRUSTED_ORIGINS
+
+Comma-separated addresses the web dashboard answers at besides `localhost` and IP addresses, such as the domain of a reverse proxy.
+
+```bash
+SKILLSHARE_UI_TRUSTED_ORIGINS=https://tools.example.com skillshare ui --host 0.0.0.0 --no-open
+```
+
+Equivalent to `--trusted-origin https://tools.example.com`. When the flag is given, the variable is ignored.
+
+**Default:** None
+
+See [Reverse Proxy](/docs/reference/commands/ui#reverse-proxy).
+
 ---
 
 ## GitHub API
@@ -466,6 +480,7 @@ export GITHUB_TOKEN="ghp_your_token_here"
 |----------|---------|---------|
 | `SKILLSHARE_CONFIG` | Config file path | `~/.config/skillshare/config.yaml` |
 | `SKILLSHARE_UI_BASE_PATH` | Web UI sub-path for reverse proxy | None |
+| `SKILLSHARE_UI_TRUSTED_ORIGINS` | Web UI addresses besides localhost and IPs (comma-separated) | None |
 | `SKILLSHARE_GITLAB_HOSTS` | Custom GitLab hostnames (comma-separated) | None |
 | `SKILLSHARE_AZURE_HOSTS` | Custom Azure DevOps Server hostnames (comma-separated) | None |
 | `SKILLSHARE_GITEA_HOSTS` | Custom Gitea hostnames (comma-separated) | None |

@@ -128,7 +128,7 @@ mcp:
 | `disabled` | `true` only, no connection fields, and a project must be in scope: project mode, or a root under `mcp.projects`. See [Turn off a global server in one project](#turn-off-a-global-server-in-one-project) |
 
 Client IDs: `claude`, `codex`, `cursor`, `vscode`, `opencode`, `kilocode`, `grok`,
-`antigravity`, `amp`, `claude-desktop`, `cline`, `copilot`, `factory`, `gemini`, `goose`,
+`antigravity`, `amp`, `claude-desktop`, `cline`, `copilot`, `factory`, `gemini`, `goose`, `hermes`,
 `junie`, `kiro`, `lmstudio`, `warp`, `windsurf`, `pi`, `omp`. `--target` and `--from` also take `agy` and
 `antigravity-cli` as `antigravity`. Scope and transport support vary by
 client; the website's MCP command reference lists every native destination and limit.
@@ -260,6 +260,26 @@ setups usually go wrong.
   as untrusted and drops the whole file if it contains an `{env:VARIABLE}` reference,
   so a server using `fromEnv` or `bearerToken` is refused for Kilo in project mode.
   Define it in global mode.
+
+### Hermes Agent
+
+- MCP target/import ID: `hermes`; global only. Writes named `mcp_servers` entries
+  in `~/.hermes/config.yaml` (`%LOCALAPPDATA%/hermes/config.yaml` on Windows).
+- An absolute `HERMES_HOME` selects another home/profile. Without it, use the
+  default profile; active-profile files, `--profile` and `HERMES_DATA_DIR_SUFFIX`
+  are not followed. No project MCP destination.
+- Stdio and Streamable HTTP use native `command`/`args`/`env` and `url`/`headers`.
+  `fromEnv` writes `${VAR}`; env/header import also accepts `${env:VAR}`.
+  SSE imports are blocked. Other unmapped native fields produce import warnings.
+- Set `options.hermes: {auth: oauth}` for OAuth. Import preserves `auth` and
+  `oauth` in `options.hermes`, rejecting literal credentials there; use
+  whole-value `${VAR}` references. Hermes owns login, `.env`, tokens and refresh:
+  complete `hermes mcp login NAME` in the same profile. Sync never copies these
+  files. Portable tool-policy gaps are reported; native filters can use options.
+- YAML edits keep unrelated settings, comments and unmanaged servers, but may
+  reformat the document. Aliases, merges, duplicate keys and multiple documents
+  block editing, as with Goose. Preview, ownership, backups and removal use the
+  shared MCP workflow.
 
 ### Pi
 

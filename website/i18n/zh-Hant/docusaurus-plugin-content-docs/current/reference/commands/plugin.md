@@ -78,7 +78,7 @@ JSON 輸出包含 source 路徑與原生識別碼。請勿在 source URL 中放�
 | Target | Format | Global | Project | Update |
 |---|---|:---:|:---:|---|
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | 原生更新 |
-| Codex | `.codex-plugin/plugin.json` 或 Agent Plugins 根目錄 manifest | Yes | No | 重新整理已審閱的來源後再次 add，僅限在 Codex 中為啟用狀態 |
+| Codex | `.codex-plugin/plugin.json`、Agent Plugins 根目錄 manifest 或 Claude manifest | Yes | No | 重新整理已審閱的來源後再次 add，僅限在 Codex 中為啟用狀態 |
 | Cursor | `.cursor-plugin/plugin.json` 或 Agent Plugins 根目錄 manifest | Yes | No | 取代已檢視的本機複本 |
 | Antigravity Desktop | 帶有明確名稱的根目錄 `plugin.json` | Yes | Yes | 取代已檢視的本機複本 |
 | Pi | 含 `pi` resources 的 `package.json`，或帶有 `pi-package` 關鍵字與慣用 resource 資料夾 | Yes | Yes，需原生專案信任 | 重新整理受管理的 source 快照 |
@@ -285,7 +285,7 @@ skillshare plugin update review --source-ref v1.1.0 --target claude --dry-run --
 ```
 
 共用綁定會記錄 `source_ref`；解析後的 `commit` 保存在本機記錄。安裝使用的是已檢視過的 commit；`check` 與
-`update` 會重新解析設定的 ref，因此某個 branch 可以持續前進，而 commit 仍維持固定。`--revision`
+`update` 會重新解析設定的 ref，因此某個 branch 可以持續前進，而 commit 仍維持固定。沒有設定 ref 時，`check` 會先問遠端預設 branch 指向哪個 commit，只有和已安裝的 commit 不同時才下載來源。`--revision`
 是預覽用的 token，不是 Git ref。`--entry` 是相對於各候選項套件根目錄的路徑，且必須已經存在；
 它不會觸發 build 或 package manager 安裝。
 
@@ -297,8 +297,13 @@ Copilot 與 Antigravity CLI 的安裝使用已檢視過的本機快照。匯入�
 
 - Claude 需要其原生的 `.claude-plugin/plugin.json` 套件。
 - Codex 接受 `.codex-plugin/plugin.json` 以及可辨識的可攜式根目錄 `plugin.json` 套件。兩者都有的套件，Codex 會從可攜式根目錄 `plugin.json`
-  安裝，所以 Skillshare 預期該 manifest 的版本，沒有版本時預期 `1.0.0`。僅限
-  Claude 的套件不會被靜默轉換。
+  安裝，所以 Skillshare 預期該 manifest 的版本，沒有版本時預期 `1.0.0`。兩者都沒有、
+  但有 `.claude-plugin/plugin.json` 的套件也會提供給 Codex：Codex 會自行讀取該 manifest，
+  只使用它支援的部分，例如 skills 與 MCP 伺服器，所以 Claude 的 agent 不會提供給 Codex。
+  沒有這些部分的套件（例如只有 agent）不會提供給 Codex。
+  Skillshare 不會轉換或改寫套件。和 Codex 一樣，格式錯誤或無關的根目錄 `plugin.json` 會被忽略。
+  明確的 `.codex-plugin/plugin.json` 或可辨識的 Agent Plugins 根目錄 manifest，即使無效、
+  不支援或是連結，也不會被 Claude manifest 取代。
 - Source 可能包含帶有本機 plugin 項目的 marketplace。原生 catalog 會依 plugin 名稱合併，
   並保留各 target 的套件路徑；外部項目會附上說明，指引你直接加入其 repository，或以原生方式安裝後
   再匯入。以指令為基礎的 source 不會自動核准。

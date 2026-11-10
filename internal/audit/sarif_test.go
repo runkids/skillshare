@@ -112,6 +112,18 @@ func TestToSARIF_Findings(t *testing.T) {
 	}
 }
 
+func TestToSARIF_SeverityContextProperty(t *testing.T) {
+	t.Parallel()
+
+	log := ToSARIF([]*Result{{SkillName: "s", Findings: []Finding{
+		{Severity: SeverityHigh, Pattern: "credential-access", Message: "m", File: "hook.py", Line: 1, SeverityContext: SeverityContextPythonInert},
+	}}}, SARIFOptions{})
+
+	if got := log.Runs[0].Results[0].Properties["severityContext"]; got != SeverityContextPythonInert {
+		t.Fatalf("properties.severityContext = %v, want %q", got, SeverityContextPythonInert)
+	}
+}
+
 func TestToSARIF_SeverityMapping(t *testing.T) {
 	t.Parallel()
 

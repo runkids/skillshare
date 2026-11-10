@@ -6,7 +6,7 @@ import { plural, useT } from '../i18n';
 import { useInstallFromConfig } from '../hooks/useInstallFromConfig';
 
 /** Rows finish one after another, so results read top to bottom. */
-const stagger = (i: number): CSSProperties => ({ animationDelay: `${i * 90}ms`, animationFillMode: 'both' });
+const stagger = (i: number): CSSProperties => ({ animationDelay: `${i * 50}ms`, animationFillMode: 'both' });
 
 /** Install dialog section: what config records but the disk lacks, installed in one go. */
 export default function ConfigInstallPanel() {

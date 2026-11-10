@@ -83,6 +83,8 @@ import TrashPage from './TrashPage';
 import UpdatePage, { countUpdates, updateUnits, useCheckStatuses } from './UpdatePage';
 import { useDiffQuery, useSkillsQuery, useSyncedTargetsQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
+import { bulkGhost } from '../lib/exitGhost';
+import { useHeldWhileClosing } from '../hooks/usePresence';
 
 type Kind = Skill['kind'];
 type StatusFilter = 'all' | 'enabled' | 'disabled';
@@ -298,6 +300,8 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   const [treeSel, setTreeSel] = useState<Set<string>>(new Set());
   const [anchor, setAnchor] = useState<string | null>(null);
   const [menu, setMenu] = useState<MenuState | null>(null);
+  // The last opened menu, still rendered while it fades out after menu goes back to null.
+  const shownMenu = useHeldWhileClosing(menu, menu !== null);
   const [uninstalling, setUninstalling] = useState<Skill[] | null>(null);
   // Skills picked for the move dialog (with how many selected ones cannot move), or a whole folder.
   const [moving, setMoving] = useState<{ skills?: Skill[]; folder?: string; skipped?: number } | null>(null);
@@ -999,7 +1003,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   const hiddenCount = selectedItems.filter((s) => !drawn.has(s.flatName)).length;
 
   return (
-    <div className={`ss-wrap animate-fade-in ${tab === 'installed' && count > 0 ? 'pb-16' : ''}`}>
+    <div className={`ss-wrap animate-page-in ${tab === 'installed' && count > 0 ? 'pb-16' : ''}`}>
       <PageHeader
         className="!mb-0"
         title={t(isAgent ? 'layout.nav.agents' : 'layout.nav.skills')}
@@ -1211,7 +1215,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
           </div>
 
           {count > 0 && (
-            <div className="ss-bulk" role="toolbar" aria-label={t('resources.select.count', { count })}>
+            <div ref={bulkGhost} className="ss-bulk" role="toolbar" aria-label={t('resources.select.count', { count })}>
               <b>{t('resources.select.count', { count })}</b>
               {hiddenCount > 0 && <span className="text-ink-3">{t('resources.select.hidden', { count: hiddenCount })}</span>}
               <span className="dv" />
@@ -1246,64 +1250,64 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
             </div>
           )}
 
-          {menu?.mode === 'item' && (
+          {shownMenu?.mode === 'item' && (
             <TargetMenu
-              open
-              anchorPoint={menu.point}
-              currentTargets={menu.skill.targets ?? null}
+              open={menu?.mode === 'item'}
+              anchorPoint={shownMenu.point}
+              currentTargets={shownMenu.skill.targets ?? null}
               label={t('resources.contextMenu.availableIn')}
               showTargets={!isAgent}
-              onSelect={(target) => setTargets.mutate({ name: menu.skill.flatName, target })}
+              onSelect={(target) => setTargets.mutate({ name: shownMenu.skill.flatName, target })}
               onClose={() => setMenu(null)}
               extraItems={[
-                { key: 'detail', label: t('resources.contextMenu.viewDetail'), icon: <ExternalLink size={14} />, onSelect: () => navigate(resourceHref(menu.skill)) },
+                { key: 'detail', label: t('resources.contextMenu.viewDetail'), icon: <ExternalLink size={14} />, onSelect: () => navigate(resourceHref(shownMenu.skill)) },
                 {
                   key: 'toggle',
-                  label: t(menu.skill.disabled ? 'resources.contextMenu.enable' : 'resources.contextMenu.disable'),
-                  icon: menu.skill.disabled ? <CircleCheck size={14} /> : <Power size={14} />,
-                  onSelect: () => toggleOne.mutate({ s: menu.skill, disable: !menu.skill.disabled }),
+                  label: t(shownMenu.skill.disabled ? 'resources.contextMenu.enable' : 'resources.contextMenu.disable'),
+                  icon: shownMenu.skill.disabled ? <CircleCheck size={14} /> : <Power size={14} />,
+                  onSelect: () => toggleOne.mutate({ s: shownMenu.skill, disable: !shownMenu.skill.disabled }),
                 },
-                ...(!isAgent && canMove(menu.skill)
-                  ? [{ key: 'move', label: t('move.menu.skill'), icon: <FolderInput size={14} />, onSelect: () => setMoving({ skills: [menu.skill] }) }]
+                ...(!isAgent && canMove(shownMenu.skill)
+                  ? [{ key: 'move', label: t('move.menu.skill'), icon: <FolderInput size={14} />, onSelect: () => setMoving({ skills: [shownMenu.skill] }) }]
                   : []),
                 {
                   key: 'uninstall',
-                  label: t(menu.skill.isInRepo && !isAgent && !sourceLinkOf(menu.skill) ? 'resources.contextMenu.uninstallRepo' : 'resources.contextMenu.uninstall'),
+                  label: t(shownMenu.skill.isInRepo && !isAgent && !sourceLinkOf(shownMenu.skill) ? 'resources.contextMenu.uninstallRepo' : 'resources.contextMenu.uninstall'),
                   icon: <Trash2 size={14} />,
                   danger: true,
-                  onSelect: () => setUninstalling([menu.skill]),
+                  onSelect: () => setUninstalling([shownMenu.skill]),
                 },
               ]}
             />
           )}
-          {menu?.mode === 'folder' && (
+          {shownMenu?.mode === 'folder' && (
             <TargetMenu
-              open
+              open={menu?.mode === 'folder'}
               flat
-              anchorPoint={menu.point}
-              currentTargets={menu.summary.targets}
-              isUniform={menu.summary.isUniform}
-              onSelect={(target) => setFolderTargets.mutate({ folder: menu.path, target })}
+              anchorPoint={shownMenu.point}
+              currentTargets={shownMenu.summary.targets}
+              isUniform={shownMenu.summary.isUniform}
+              onSelect={(target) => setFolderTargets.mutate({ folder: shownMenu.path, target })}
               onClose={() => setMenu(null)}
             />
           )}
-          {menu?.mode === 'skill' && (
+          {shownMenu?.mode === 'skill' && (
             <TargetMenu
-              open
+              open={menu?.mode === 'skill'}
               flat
-              anchorPoint={menu.point}
-              currentTargets={menu.skill.targets ?? null}
-              onSelect={(target) => setTargets.mutate({ name: menu.skill.flatName, target })}
+              anchorPoint={shownMenu.point}
+              currentTargets={shownMenu.skill.targets ?? null}
+              onSelect={(target) => setTargets.mutate({ name: shownMenu.skill.flatName, target })}
               onClose={() => setMenu(null)}
             />
           )}
-          {menu?.mode === 'bulk' && (
-            <TargetMenu open flat anchorPoint={menu.point} currentTargets={null} isUniform={false} onSelect={(target) => setManyTargets(menu.names, target)} onClose={() => setMenu(null)} />
+          {shownMenu?.mode === 'bulk' && (
+            <TargetMenu open={menu?.mode === 'bulk'} flat anchorPoint={shownMenu.point} currentTargets={null} isUniform={false} onSelect={(target) => setManyTargets(shownMenu.names, target)} onClose={() => setMenu(null)} />
           )}
-          {menu?.mode === 'add' && (
+          {shownMenu?.mode === 'add' && (
             <SkillContextMenu
-              open
-              anchorPoint={menu.point}
+              open={menu?.mode === 'add'}
+              anchorPoint={shownMenu.point}
               align="end"
               onClose={() => setMenu(null)}
               items={[
@@ -1314,30 +1318,30 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
             />
           )}
 
-          {menu?.mode === 'moveFolder' && (
+          {shownMenu?.mode === 'moveFolder' && (
             <SkillContextMenu
-              open
-              anchorPoint={menu.point}
+              open={menu?.mode === 'moveFolder'}
+              anchorPoint={shownMenu.point}
               onClose={() => setMenu(null)}
-              items={[{ key: 'move-folder', label: t('move.menu.folder'), icon: <FolderInput size={14} />, onSelect: () => setMoving({ folder: menu.path }) }]}
+              items={[{ key: 'move-folder', label: t('move.menu.folder'), icon: <FolderInput size={14} />, onSelect: () => setMoving({ folder: shownMenu.path }) }]}
             />
           )}
-          {menu?.mode === 'repo' && (
+          {shownMenu?.mode === 'repo' && (
             <SkillContextMenu
-              open
-              anchorPoint={menu.point}
+              open={menu?.mode === 'repo'}
+              anchorPoint={shownMenu.point}
               onClose={() => setMenu(null)}
               items={[{
                 key: 'update-repo',
                 label: t('resources.repo.update'),
                 icon: <RefreshCw size={14} />,
-                onSelect: () => { if (updating === null) update(menu.repo); },
+                onSelect: () => { if (updating === null) update(shownMenu.repo); },
               }, {
                 key: 'uninstall-repo',
                 label: t('resources.contextMenu.uninstallRepo'),
                 icon: <Trash2 size={14} />,
                 danger: true,
-                onSelect: () => setUninstalling(items.filter((s) => repoOf(s) === menu.repo)),
+                onSelect: () => setUninstalling(items.filter((s) => repoOf(s) === shownMenu.repo)),
               }]}
             />
           )}

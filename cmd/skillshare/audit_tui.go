@@ -565,7 +565,7 @@ func (m auditTUIModel) findingNote() string {
 	f := m.findings[m.finding]
 	return theme.Dim().Render(fmt.Sprintf("%d/%d ", m.finding+1, len(m.findings))) +
 		theme.SeverityStyle(f.Severity).Render(strings.ToUpper(f.Severity)) + " " +
-		theme.Primary().Bold(true).Render(f.Pattern) + theme.Dim().Render(" · "+f.Message)
+		theme.Primary().Bold(true).Render(f.Pattern) + theme.Dim().Render(" · "+f.ExplainedMessage())
 }
 
 func (m auditTUIModel) View() string {
@@ -876,6 +876,10 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 				gutter := theme.Dim().Render("    │ ")
 				b.WriteString(gutter)
 				b.WriteString(theme.Warning().Render(f.Snippet))
+				b.WriteString("\n")
+			}
+			if note := audit.SeverityContextNote(f.SeverityContext); note != "" {
+				b.WriteString(theme.Dim().Render("    " + note))
 				b.WriteString("\n")
 			}
 

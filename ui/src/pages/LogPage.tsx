@@ -18,6 +18,7 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { SettingsTabs } from './SettingsPage';
 import { useOverviewQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
+import { segSlide } from '../lib/segSlide';
 
 type LogTab = 'all' | 'ops' | 'audit';
 
@@ -106,7 +107,7 @@ export default function LogPage() {
   const reset = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPage(0); setOpen(null); };
 
   return (
-    <div className="ss-wrap animate-fade-in">
+    <div className="ss-wrap animate-page-in">
       <PageHeader
         className="!mb-0"
         title={t('layout.nav.settings')}
@@ -119,7 +120,7 @@ export default function LogPage() {
           <Search size={15} className="text-ink-3" />
           <input value={search} onChange={(e) => reset(setSearch)(e.target.value)} placeholder={t('log.search.placeholder')} aria-label={t('log.search.placeholder')} />
         </label>
-        <div className="ss-seg" role="radiogroup" aria-label={t('log.title')}>
+        <div ref={segSlide} className="ss-seg" role="radiogroup" aria-label={t('log.title')}>
           {TABS.map((v) => (
             <button key={v} type="button" role="radio" aria-checked={tab === v} className={tab === v ? 'on' : ''} onClick={() => reset(setTab)(v)}>
               {t(`log.tab.${v}`)}

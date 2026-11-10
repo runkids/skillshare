@@ -209,7 +209,7 @@ Output suppression은 Markdown 문맥과 별개로 일치한 근거에 따라 �
 
 **방어:** 네트워크 명령과 비밀 정보 참조를 결합한 skill을 차단하세요. 커스텀 규칙을 사용해 조직 고유의 비밀 정보 패턴을 탐지 목록에 추가하세요.
 
-### 자격 증명 접근
+### 자격 증명 접근 {#credential-access}
 
 **정의:** 알려진 자격 증명 저장 위치를 대상으로 하는 직접적인 파일 읽기.
 
@@ -219,6 +219,8 @@ Output suppression은 Markdown 문맥과 별개로 일치한 근거에 따라 �
 - SSH 키와 설정 읽기 (`~/.ssh/id_rsa`, `~/.ssh/config`)
 - `.env` 파일 읽기 (애플리케이션 비밀 정보)
 - AWS 자격 증명 읽기 (`~/.aws/credentials`)
+
+`.py` 파일에서 주석만 있는 줄, 또는 docstring처럼 문 전체가 하나의 문자열인 곳에서 발생한 CRITICAL 자격 증명 매치는 HIGH로 보고됩니다. Python은 이 줄들을 실행하지 않으므로, 자체 문서에서 자격 증명 경로를 언급하는 보안 도구는 기본 CRITICAL 임계값에서 audit을 실패시키지 않고 경고만 합니다. HIGH 임계값에서는 여전히 차단됩니다. f-string, 괄호 안이나 줄 연속 뒤의 문자열, 할당된 문자열, 끝 주석 앞에 코드가 있는 줄은 CRITICAL을 유지합니다. `__doc__` 또는 `getdoc`을 참조하거나 단독 CR로 줄을 바꾸는 파일은 전체가 CRITICAL을 유지합니다. 줄 끝에서 닫히지 않은 단일 따옴표 문자열(백슬래시 줄 연속) 또는 따옴표나 `#`을 포함하거나 닫히지 않은 f-string 치환 필드 이후의 줄도 CRITICAL을 유지합니다. 다른 파일 형식, Markdown, 다른 규칙은 변경되지 않습니다. 명시적 severity override와 regex를 포함한 완전한 사용자 정의 교체는 설정된 severity를 유지합니다. 이는 토크나이저 휴리스틱이며 파일이 안전하다는 증거가 아닙니다. 텍스트 출력, TUI, 대시보드는 이런 결과에 CRITICAL에서 낮췄다고 표시하고, `audit rules`는 해당 규칙에 `HIGH in Python comments and docstrings`를 표시합니다.
 
 **방어:** 이 패턴들은 정당한 AI skill에 절대 나타나서는 안 됩니다. 자격 증명 파일에 접근하는 skill은 악성으로 취급해야 합니다.
 
@@ -498,10 +500,11 @@ JSON/SARIF 출력의 각 finding에는 다음이 포함됩니다:
 | `category` | string | 위협 카테고리: `injection`, `exfiltration`, `credential`, `obfuscation`, `privilege`, `integrity`, `trust`, `structure`, `risk` |
 | `confidence` | float | 신뢰도 점수 (0–1). Static: 0.95, Dataflow: 0.85 |
 | `fingerprint` | string | 중복 제거와 추적을 위한 안정적인 SHA-256 해시 |
+| `severityContext` | string | `severity`가 규칙 본래 값보다 낮은 이유. `python-inert`: Python 주석이나 docstring 안의 내장 credential-access 일치로, `CRITICAL`에서 `HIGH`로 낮춤 ([자세히](#credential-access)) |
 
-`ruleId`, `analyzer`, `category`, `confidence`, `fingerprint` 필드는 비어 있을 때 JSON에서 생략됩니다 (하위 호환).
+`ruleId`, `analyzer`, `category`, `confidence`, `fingerprint`, `severityContext` 필드는 비어 있을 때 JSON에서 생략됩니다 (하위 호환).
 
-SARIF 출력에서 `ruleId`는 SARIF의 `ruleId` 필드에 매핑되며, `fingerprint`는 각 결과의 `fingerprints` 속성에 포함됩니다.
+SARIF 출력에서 `ruleId`는 SARIF의 `ruleId` 필드에 매핑되며, `fingerprint`는 각 결과의 `fingerprints` 속성에 포함됩니다. `severityContext`는 각 결과의 `properties`에 포함됩니다.
 
 ## 참고
 

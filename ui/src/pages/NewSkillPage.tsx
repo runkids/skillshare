@@ -116,7 +116,7 @@ export default function NewSkillPage() {
   const sourceDir = overview?.source.replace(/\/+$/, '').split('/').pop() || 'skills';
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-page-in">
       <PageHeader
         title={t('newSkill.title')}
         subtitle={t('newSkill.subtitle')}

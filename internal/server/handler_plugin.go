@@ -47,7 +47,7 @@ func pluginAccounts(cfg *config.Config) map[string]plugin.Account {
 
 func (s *Server) requireLocalPlugin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !mcpRequestAllowed(r, s.addr) {
+		if !s.mcpRequestAllowed(r) {
 			writeError(w, http.StatusForbidden, "Plugin management is available only from the local dashboard")
 			return
 		}
@@ -227,6 +227,34 @@ func (s *Server) handlePluginUpdateStream(w http.ResponseWriter, r *http.Request
 		failure = "Plugin update completed, but configuration reload failed"
 	}
 	s.mu.Unlock()
+	send("done", map[string]string{"failure": failure})
+}
+
+// pluginCheckTimeout bounds an update check, so an Agent CLI or source that does not answer
+// fails its own plugins in time instead of keeping the page waiting.
+const pluginCheckTimeout = 60 * time.Second
+
+// handlePluginCheckStream checks every plugin at once and sends each plugin's plan as soon as it
+// is ready, so the page marks rows while slower plugins are still being checked.
+func (s *Server) handlePluginCheckStream(w http.ResponseWriter, r *http.Request) {
+	send, ok := initSSE(w)
+	if !ok {
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), pluginCheckTimeout)
+	defer cancel()
+	err := s.pluginServiceSnapshot().Check(ctx, plugin.Request{Action: "check"}, func(name string, p *plugin.Plan, err error) {
+		out := map[string]any{"name": name, "plan": p}
+		if err != nil {
+			code, params := plugin.ErrorKey(err)
+			out["error"], out["error_code"], out["error_params"] = err.Error(), code, params
+		}
+		send("plan", out)
+	})
+	failure := ""
+	if err != nil {
+		failure = err.Error()
+	}
 	send("done", map[string]string{"failure": failure})
 }
 

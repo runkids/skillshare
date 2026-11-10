@@ -58,6 +58,8 @@ COLOR_USAGE = {
     "c-target-bg": "Kind tile background for targets.",
     "c-plugin": "Kind tile icon for plugins and Pi packages.",
     "c-plugin-bg": "Kind tile background for plugins.",
+    "glass-menu": "Frosted menus and floating hints (with --mat-menu blur).",
+    "glass-bar": "Frosted sticky toolbar over scrolling content (with --mat blur).",
 }
 # Color-valued variables deliberately left out of the design system.
 COLOR_SKIP = {"line-soft", "dots"}

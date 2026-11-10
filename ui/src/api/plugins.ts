@@ -1,5 +1,5 @@
 import { apiFetch } from './client';
-import { BASE, parseApiErrorPayload } from './http';
+import { BASE, createSSEStream, parseApiErrorPayload } from './http';
 
 export type PluginTarget = string;
 /** `npm`: the target installs npm:<package> sources (Pi, or a Pi account that runs pi). */
@@ -99,6 +99,9 @@ export type PluginUpdateEvent =
   | { event: 'result'; name: string; plan: PluginPlan | null; result: PluginResult['result']; failure: string; stale: boolean }
   | { event: 'done'; failure: string };
 
+/** One plugin's answer from the update check: its plan, or why it could not be checked. */
+export interface PluginCheckEvent { name: string; plan: PluginPlan | null; error?: string; error_code?: string; error_params?: Record<string, string> }
+
 /** Reads the server's event stream for a batch update until `done`. EventSource (createSSEStream) cannot POST the picks, so fetch reads the stream. */
 async function updateStream(items: PluginUpdateItem[], on: (e: PluginUpdateEvent) => void) {
   const res = await fetch(BASE + '/plugins/update/stream', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }) });
@@ -136,6 +139,11 @@ export const pluginsApi = {
   files: (name: string) => apiFetch<{ files: string[] }>(`/plugins/${encodeURIComponent(name)}/files`),
   file: (name: string, path: string) => apiFetch<{ content: string }>(`/plugins/${encodeURIComponent(name)}/files/${path.split('/').map(encodeURIComponent).join('/')}`),
   preview: (request: PluginRequest) => post<PluginPlan>('/plugins/preview', { request }),
+  /** Checks every plugin at once on the server; each plugin's answer arrives through `on` as soon as it is ready. */
+  check: (on: (e: PluginCheckEvent) => void) => new Promise<void>((resolve, reject) => {
+    createSSEStream(BASE + '/plugins/check/stream', { plan: on, done: (d: { failure: string }) => (d.failure ? reject(new Error(d.failure)) : resolve()) },
+      reject, 'The update check stopped before it finished.');
+  }),
   apply: (request: PluginRequest, revision: string) => post<PluginResult>('/plugins/apply', { request, revision }),
   /** Updates the plugins one after another on the server; each one's progress arrives through `on`. */
   update: updateStream,

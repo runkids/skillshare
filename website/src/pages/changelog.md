@@ -9,6 +9,58 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.30.2] - 2026-11-09
+
+### Bug Fixes
+
+- **Python docstrings that mention credential paths no longer block installs** — the `credential-access-*` audit rules match whole lines, so a Python docstring that only mentioned `~/.aws/credentials` counted as a CRITICAL read and blocked the skill at the default threshold. In `.py` files, a match on a comment-only line or inside a docstring is now HIGH: it still shows, and still blocks when the threshold is HIGH. Strings that code can use, such as arguments, assignments and f-strings, stay CRITICAL, and so does every line of a file that reads `__doc__`; a severity you set for the rule applies everywhere. `audit` output, the audit TUIs, install and update warnings and the dashboard say the finding was lowered from CRITICAL, and JSON and SARIF carry `severityContext: "python-inert"`. Thanks to @mfjramirezf for the report. Refs: #817, #819.
+- **Update now restarts the dashboard on Homebrew installs** — on a Homebrew install, **Update now** runs `brew upgrade`, which removes the versioned folder the dashboard was running from, so the restart failed and the old version kept running. The dashboard now restarts through Homebrew's `skillshare` link, which points at the new version. Other installs restart as before. Thanks to @ndeybach for the report. Refs: #815, #816.
+- **Root-scope commit and push no longer stop at tracked repos** — with `git_root: root`, `skillshare commit` and `push` aborted with "nested git repositories must be disabled first" for every tracked repo, although tracked repos are listed in the managed `.gitignore` block and Git never uploads them. Renaming their `.git` as suggested also broke `skillshare update`. Nested repos that Git ignores are now skipped, so they no longer appear in the warning or on the dashboard's Git Sync page. A nested repo that Git would still commit, such as a skill you cloned by hand or one already committed as a submodule, still stops the push. Thanks to @ndeybach for the report. Refs: #820, #821.
+
+## [0.30.1] - 2026-11-09
+
+### New Features
+
+- **Refresh a hub's list** — the Hubs page keeps a hub's skill list for two minutes; a new refresh button next to the filter fetches it again now, so a newly pushed `skillshare-hub.json` shows without reloading the page. The current list stays on screen while it loads, and an error appears above the list if the fetch fails. Saved hubs and the built-in Skillshare Hub have the button; your own Hubs are local and do not need it. Git hubs (`git@…`) are cloned again on every fetch; the built-in hub's file on `raw.githubusercontent.com` can stay cached for a few minutes after an update. Refs: #814.
+
+### Performance
+
+- **The Plugins page checks every plugin at once** — the update check used to read every Agent CLI and clone every source one after another. Every plugin is now checked at the same time: each row shows its result as soon as its own check finishes, and the header counts the plugins checked so far. A source with no pinned ref is compared first with `git ls-remote`, and nothing is downloaded when its default branch still points at the installed commit; in one test, three unchanged GitHub plugins on two Agents went from 4.3s with three clones to 0.6s with none. `skillshare plugin check` uses the same shortcut. An Agent CLI that does not answer within 60 seconds marks only its own plugins **Check failed**, with the reason on hover, and a check no longer hangs when the Agent CLI is an npm, mise or volta shim. The **Update N** dialog now offers every update the header counts, including after a check that broke off or could not reach an Agent. Refs: #812.
+
+## [0.30.0] - 2026-11-09
+
+### Breaking Changes
+
+- **The dashboard answers only at addresses you trust** — the web dashboard now answers only at `localhost`, an IP address, the name given with `--host`, and the origins you trust, so a DNS rebinding page cannot reach it. A dashboard opened by any other domain name, such as a reverse proxy, a Tailscale or mDNS name, a hosts-file alias or a Docker service name from another container, returns 403 on every page until you trust that address. Opening it by `localhost`, `127.0.0.1` or a LAN IP works as before. A refused browser shows the setting to copy, and the server log names each refused address once. To migrate, stop the dashboard and start it again with the address you open, keeping your other flags:
+  ```bash
+  skillshare ui stop
+  skillshare ui start --trusted-origin https://skills.example.com
+  ```
+  Refs: #809, #811.
+
+### New Features
+
+- **Trusted origins behind a reverse proxy** — `--trusted-origin` (repeatable) or `SKILLSHARE_UI_TRUSTED_ORIGINS` (comma-separated) lists the exact origins the dashboard answers at: a scheme and host, plus the port when it is not the default. Every page works through a trusted origin, including MCP, Hooks and Plugins, which used to refuse any domain name. The setting comes only from the command line or the environment, never `config.yaml`, so the dashboard cannot widen its own trust; `ui start` and restarts from the dashboard keep it. Keep the browser's `Host` header at the proxy, as the Nginx and Caddy examples do. Thanks to @LloydPowell771 for the request. Refs: #809, #811.
+  ```bash
+  SKILLSHARE_UI_TRUSTED_ORIGINS=https://skills.example.com skillshare ui start
+  ```
+
+### Bug Fixes
+
+- **The dashboard refuses changes sent from other websites** — a web page could send a form or a `no-cors` request to the local dashboard and, when the browser let it through, add targets, install, sync, commit, push or upgrade. Every change, and the update stream, now must come from the dashboard itself; `curl` and other clients that send no browser headers work as before. A reverse proxy must keep the browser's `Host` header, including its port. Refs: #810.
+- **Codex picks up plugins that ship only a Claude manifest** — `skillshare plugin` now offers Codex a package that has only `.claude-plugin/plugin.json`, such as Matt Pocock's skills. Codex reads that manifest itself and uses the parts it supports, such as skills and MCP servers; a package with none of those, such as one with only agents, is not offered to Codex. An explicit `.codex-plugin/plugin.json` or Agent Plugins manifest still comes first, and Skillshare does not rewrite the package. Thanks to @nathanvale for the report and the fix. Refs: #805, #806, #808.
+
+## [0.29.2] - 2026-11-08
+
+### New Features
+
+- **Search the filter preview** — the include/exclude preview on a project's **Skills** and **Agents** tabs, on each target's page and in the Extras **Edit target** dialog has a search box. It narrows the rows by name, ignoring case, marks the matching text and shows **Preview · 3 of 24**; clicking a row still includes or excludes it. The filters and their summary still cover every row, and switching between **Skills** and **Agents** clears the search. Thanks to @chung1912 for the request. Refs: #798, #799.
+
+### Bug Fixes
+
+- **Audit no longer hangs on a named pipe** — a FIFO, socket or device inside a skill could block `skillshare audit`, and the audit that runs during install, indefinitely. Audit now reads only regular files: special files, and links to them, are counted as skipped and the scan continues; auditing a special file directly returns an error; and a path pinned by integrity checks that now resolves to a special file reports `content-tampered`. Links to ordinary files are scanned as before. Thanks to @salmonumbrella for the report and the fix. Refs: #795, #796.
+- **No stray scrollbar on the Skills tabs** — in the Clean style, a small dark scrollbar no longer shows at the right end of the Skills and Agents tab bar; the tabs still scroll sideways on a narrow screen. Refs: #799.
+
 ## [0.29.1] - 2026-11-06
 
 ### Bug Fixes

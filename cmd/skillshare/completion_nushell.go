@@ -88,7 +88,7 @@ def "nu-complete skillshare mcp" [] {
 }
 
 def "nu-complete skillshare mcp-target" [] {
-    [claude codex cursor vscode opencode kilocode grok antigravity amp claude-desktop cline copilot factory gemini goose junie kiro lmstudio warp windsurf pi omp]
+    [claude codex cursor vscode opencode kilocode grok antigravity amp claude-desktop cline copilot factory gemini goose hermes junie kiro lmstudio warp windsurf pi omp]
 }
 
 def "nu-complete skillshare account-agent" [] {
@@ -718,6 +718,7 @@ export extern "skillshare ui" [
     --port: int              # Set port
     --host: string           # Set host
     --base-path(-b): string  # Base path prefix for reverse proxy
+    --trusted-origin: string # Also answer at this origin
     --no-open                # Do not open browser
     --clear-cache            # Clear cached UI assets
     --app                    # Open as app window (start only)

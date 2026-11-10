@@ -14,6 +14,8 @@
   --r-ctl: 8px; --r-btn: 999px; --r-box: 12px; --r-tag: 5px; --bw: 1px;
   --sh-box: 0 1px 2px rgba(20,19,18,.04); --sh-btn: none; --sh-float: 0 12px 32px rgba(20,19,18,.16), 0 0 0 1px rgba(20,19,18,.06); --sh-dialog: 0 24px 64px rgba(20,19,18,.24), 0 0 0 1px rgba(20,19,18,.06);
   --isw: 1.75; --dots: transparent;
+  --glass-menu: rgba(255,255,255,.76); --glass-bar: rgba(247,246,243,.72);
+  --mat: blur(20px) saturate(180%); --mat-menu: blur(24px) saturate(180%);
 }
 :root:not([data-theme="playful"]).dark {
   --bg: #111110; --side: #161514; --surface: #1C1B19; --sunken: #181715; --ink: #EDEBE6; --ink-2: #A9A59D; --ink-3: #8B877F;
@@ -22,6 +24,13 @@
   --ok: #5CC98A; --ok-bg: #14261C; --warn: #F0B840; --warn-bg: #2A2110; --bad: #F2837A; --bad-bg: #2E1716;
   --c-skill: #8FB4EC; --c-skill-bg: #1A2535; --c-agent: #F2937F; --c-agent-bg: #2E1A16; --c-extra: #A3CF62; --c-extra-bg: #1D2612; --c-mcp: #BFA0F0; --c-mcp-bg: #231A33; --c-target: #5CC98A; --c-target-bg: #14261C; --c-plugin: #F09CCB; --c-plugin-bg: #2E1726;
   --sh-box: none; --sh-float: 0 12px 32px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.08); --sh-dialog: 0 24px 64px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.08);
+  --glass-menu: rgba(38,37,34,.76); --glass-bar: rgba(17,17,16,.72);
+}
+/* Reduce transparency: every material turns back into the solid surface it floats over. */
+@media (prefers-reduced-transparency: reduce) {
+  :root:not([data-theme="playful"]), :root:not([data-theme="playful"]).dark {
+    --glass-menu: var(--surface); --glass-bar: var(--bg); --mat: none; --mat-menu: none;
+  }
 }
 :root[data-theme="playful"] {
   --bg: #FFF8E8; --side: #FFF8E8; --surface: #FFFDF8; --sunken: #F8EDD6; --ink: #26201A; --ink-2: #574F44; --ink-3: #7A705F;
@@ -48,6 +57,9 @@
 }
 
 /* Diffs are the one place the Clean style uses colour: removed lines red, added lines green. */
+/* Spring easings: --spring is critically damped (no overshoot); its duration is 1.23 x the spring's
+   response (.37s for .30, .43s for .35, .49s for .40). --spring-bounce is damping .8, response .30, over .36s. */
+:root { --spring: linear(0, 0.041, 0.135, 0.249, 0.365, 0.474, 0.571, 0.654, 0.724, 0.781, 0.828, 0.866, 0.895, 0.919, 0.937, 0.952, 0.963, 0.972, 0.979, 0.984, 0.988, 0.991, 0.993, 0.995, 1); --spring-bounce: linear(0, 0.041, 0.137, 0.261, 0.392, 0.517, 0.63, 0.726, 0.806, 0.868, 0.917, 0.952, 0.977, 0.995, 1.005, 1.012, 1.014, 1.015, 1.014, 1.013, 1.011, 1.009, 1.007, 1.005, 1); }
 :root { --diff-add: var(--ok); --diff-add-bg: var(--ok-bg); --diff-del: var(--bad); --diff-del-bg: var(--bad-bg); }
 
 /* Base */
@@ -76,8 +88,9 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
    .ss-wrap the 28px flex gap already does it, and both together left a 56px hole. */
 .ss-pgh { margin-bottom: 28px; }
 .ss-wrap > .ss-pgh { margin-bottom: 0; }
-.ss-ph { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
-.ss-ph .tt { display: flex; flex-direction: column; gap: 6px; }
+/* The title keeps at least 280px; when the actions do not fit beside it they wrap below. */
+.ss-ph { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
+.ss-ph .tt { display: flex; flex: 1 1 280px; flex-direction: column; gap: 6px; }
 .ss-ph p { color: var(--ink-2); }
 :root[data-theme="playful"] .ss-ph h1 span { background: linear-gradient(transparent 58%, var(--pa) 58%, var(--pa) 92%, transparent 92%); padding: 0 4px; margin: 0 -4px; }
 :root[data-theme="playful"].dark .ss-ph h1 span { background: linear-gradient(transparent 58%, rgba(232,168,76,.45) 58%, rgba(232,168,76,.45) 92%, transparent 92%); }
@@ -161,12 +174,10 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 :root[data-theme="playful"].dark .ss-tgl .ic>i { background: var(--pa); color: #1B1916; }
 .ss-sw { width: 34px; height: 20px; flex: none; padding: 2px; display: flex; border-radius: 99px; background: var(--line-2); }
 .ss-sw i { width: 16px; height: 16px; border-radius: 99px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
-.ss-sw.on { background: var(--ink); justify-content: flex-end; }
-.ss-sw.sm { width: 28px; height: 16px; }
-.ss-sw.sm i { width: 12px; height: 12px; }
+.ss-sw.on { background: var(--ink); }
 .ss-sw.on i { background: var(--surface); }
 /* Some of the items it covers are on: half-tone track, centered knob with a dash. */
-.ss-sw.mix { justify-content: center; background: var(--ink-3); }
+.ss-sw.mix { background: var(--ink-3); }
 .ss-sw.mix i { display: grid; place-items: center; }
 .ss-sw.mix i::after { content: ''; width: 8px; height: 2px; border-radius: 1px; background: var(--ink-3); }
 :root[data-theme="playful"] .ss-sw { width: 38px; height: 22px; background: var(--surface); border: 2px solid var(--line); padding: 2px; }
@@ -239,6 +250,8 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 /* The right margin plus a nested row's 12px padding lines its actions up with the top-level rows' 16px. */
 .ss-pk-top { --lift: 9px; margin: -13px 4px 8px 16px; }
 .ss-pk-top+.ss-r { border-top: var(--sep); }
+/* Rows revealed inside a list keep the separators a plain run of rows would have. */
+.ss-r+.ss-rv>div>.ss-r:first-child, .ss-rv+.ss-r { border-top: var(--sep); }
 .ss-pk { --guide: -8px; --elbow: 6px; --tl: color-mix(in srgb, var(--ink) 10%, var(--surface)); padding: var(--lift) 0 0 16px; }
 .ss-pk .ss-collapse { --lift: 4px; margin-top: -4px; }
 .ss-pk .ss-pk { padding-left: 0; }
@@ -281,28 +294,30 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 .ss-rowbar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; overflow: hidden; }
 .ss-rowbar::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 30%; background: var(--ink); animation: ss-indet 1s ease-in-out infinite; }
 .ss-r.flash { animation: ss-flash 1.1s ease-out; }
-.ss-pop { animation: ss-pop .4s cubic-bezier(.3,1.6,.5,1); }
+.ss-pop { animation: ss-pop .32s cubic-bezier(.22,.9,.24,1); }
 @keyframes ss-indet { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
 @keyframes ss-flash { from { background: var(--ok-bg); } to { background: transparent; } }
-@keyframes ss-pop { from { transform: scale(.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes ss-pop { from { transform: scale(.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 /* Collapse a block to nothing: wrap it in .ss-collapse and add .shut */
 .ss-collapse { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .45s cubic-bezier(.3,.7,.3,1), opacity .3s; }
 .ss-collapse>* { overflow: hidden; min-height: 0; }
 .ss-collapse.shut { grid-template-rows: 0fr; opacity: 0; }
 /* A disclosure grows open from nothing and shrinks shut, quicker than a removal; its margins close with it. */
 .ss-collapse.grow { transition: grid-template-rows .25s cubic-bezier(.3,.7,.3,1), opacity .2s, margin .25s cubic-bezier(.3,.7,.3,1); }
-.ss-collapse.grow.shut { margin-block: 0; }
+/* Shutting, the content fades first and the height follows. Reveal.tsx waits for the whole of it. */
+.ss-collapse.grow.shut { margin-block: 0; transition: opacity .12s, grid-template-rows .25s cubic-bezier(.3,.7,.3,1) .1s, margin .25s cubic-bezier(.3,.7,.3,1) .1s; }
 @starting-style { .ss-collapse.grow:not(.shut) { grid-template-rows: 0fr; opacity: 0; margin-block: 0; } }
 /* A removed row slides out, then its .ss-collapse wrapper closes the gap */
-.ss-collapse.out { grid-template-rows: 0fr; transition-delay: .2s; }
-.ss-collapse.out .ss-r { transform: translateX(-32px); opacity: 0; }
-.ss-collapse .ss-r { transition: transform .26s cubic-bezier(.5,0,.75,0), opacity .22s, background .3s; }
+/* --d staggers the rows of one batch: each row and its gap start that much later. */
+.ss-collapse.out { grid-template-rows: 0fr; transition-duration: .25s, .3s; transition-delay: calc(.18s + var(--d, 0s)); }
+.ss-collapse.out .ss-r { transform: translateX(-24px); opacity: 0; transition-delay: var(--d, 0s); }
+.ss-collapse .ss-r { transition: transform .22s cubic-bezier(.5,0,.75,0), opacity .22s, background .3s; }
 .ss-note.ok { background: var(--ok-bg); border-color: transparent; }
 .ss-note.ok>svg { color: var(--ok); }
 .ss-note.live { position: relative; overflow: hidden; transition: background .45s; }
 @media (prefers-reduced-motion: reduce) {
   .ss-bar.indet>span, .ss-rowbar::after, .ss-r.flash, .ss-pop { animation: none; }
-  .ss-bar>span, .ss-collapse, .ss-collapse .ss-r, .ss-note.live { transition: none; }
+  .ss-bar>span, .ss-prog i, .ss-collapse, .ss-collapse .ss-r, .ss-note.live { transition: none; }
 }
 .ss-note { display: flex; align-items: flex-start; gap: 10px; padding: 11px 14px; border-radius: 10px; background: var(--sunken); border: 1px solid var(--line); font-size: 13px; line-height: 1.5; }
 :root[data-theme="playful"] .ss-note { border: 2px solid var(--line); border-radius: 12px; }
@@ -415,7 +430,11 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 .ss-pinnote.src a:hover { background: color-mix(in srgb, currentColor 13%, transparent); }
 .ss-squig { display: block; margin-top: -2px; color: #C8372D; }
 .ss-tabs .ss-cnt { position: relative; top: 0; }
-.ss-scrim { position: fixed; z-index: 60; inset: 0; background: rgba(20,19,18,.36); display: grid; place-items: center; }
+.ss-scrim { position: fixed; z-index: 60; inset: 0; background: rgba(20,19,18,.36); display: grid; place-items: center; animation: ss-fade-in .2s ease-out; }
+/* The backdrop darkens first; closing, it lightens as the dialog shrinks back (dialogGhost in lib/exitGhost.ts). */
+@keyframes ss-fade-in { from { opacity: 0; } }
+/* An exit copy (lib/exitGhost.ts) must not replay its entrances; its exit runs on the Web Animations API. */
+.ss-ghost, .ss-ghost * { animation: none !important; transition: none !important; }
 :root:not([data-theme="playful"]) .ss-scrim { backdrop-filter: blur(3px); }
 .ss-dlg { width: 440px; display: flex; flex-direction: column; background: var(--surface); border: var(--frame); border-radius: 16px; box-shadow: var(--sh-dialog); overflow: hidden; }
 :root[data-theme="playful"] .ss-dlg { border-radius: 16px; }
@@ -443,7 +462,7 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 :root[data-theme="playful"] .ss-top { border: 2px solid var(--line); color: var(--ink); box-shadow: 3px 3px 0 var(--line); }
 :root[data-theme="playful"] .ss-top:hover { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--line); }
 .ss-prog { height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; display: flex; }
-.ss-prog i { background: var(--accent); border-radius: 99px; }
+.ss-prog i { background: var(--accent); border-radius: 99px; transition: width .45s cubic-bezier(.3,.7,.3,1); }
 :root[data-theme="playful"] .ss-prog { height: 12px; background: var(--surface); border: 2px solid var(--line); }
 :root[data-theme="playful"] .ss-prog i { border-radius: 0; background: repeating-linear-gradient(-45deg, var(--accent) 0 5px, transparent 5px 8px); }
 .ss-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 40px 24px; text-align: center; border: 1.5px dashed var(--line-2); border-radius: 12px; color: var(--ink-2); }
@@ -497,7 +516,11 @@ b.ok, svg.ok { color: var(--ok); }
 span.warn, b.warn, svg.warn { color: var(--warn); }
 span.bad, b.bad, svg.bad { color: var(--bad); }
 .ss-btn:hover:not(:disabled) { filter: brightness(.94); }
-:root[data-theme="playful"] .ss-btn:hover:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--line); filter: none; }
+:root[data-theme="playful"] .ss-btn:hover:not(:disabled) { filter: none; }
+/* Lifts and sinks only under a real pointer, so a tap does not leave the control stuck out of place. */
+@media (hover: hover) and (pointer: fine) {
+  :root[data-theme="playful"] .ss-btn:hover:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--line); }
+}
 .ss-btn:disabled { opacity: .42; }
 .ss-btn .spin { width: 13px; height: 13px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; }
 .ss-btn .spin + svg { display: none; }
@@ -519,10 +542,11 @@ span.bad, b.bad, svg.bad { color: var(--bad); }
 :root[data-theme="playful"] .ss-tabs { border-bottom: 0; gap: 8px; }
 :root[data-theme="playful"] .ss-tabs>* { margin: 0; padding: 0 14px; height: 34px; border: 2px solid transparent; border-radius: 999px; }
 :root[data-theme="playful"] .ss-tabs>*.on { background: var(--pa); color: var(--sel-ink); border-color: var(--line); box-shadow: 3px 3px 0 var(--line); }
-/* Tabs with controls on the right; the bar carries the underline so it spans the controls too */
-.ss-tabbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); }
+/* Tabs with controls on the right; the bar carries the underline so it spans the controls too.
+   Controls that do not fit wrap above the tabs, so the tabs stay on the line. */
+.ss-tabbar { display: flex; flex-wrap: wrap-reverse; align-items: flex-end; justify-content: space-between; gap: 8px 16px; border-bottom: 1px solid var(--line); }
 .ss-tabbar>.ss-tabs { border-bottom: 0; }
-.ss-tabbar>:not(.ss-tabs) { margin-bottom: 6px; }
+.ss-tabbar>:not(.ss-tabs) { margin-bottom: 6px; margin-left: auto; }
 :root[data-theme="playful"] .ss-tabbar { align-items: center; border-bottom: 0; }
 :root[data-theme="playful"] .ss-tabbar>:not(.ss-tabs) { margin-bottom: 0; }
 :root[data-theme="playful"] .ss-tabs .ss-cnt { height: auto; padding: 1px 6px; border: 1.5px solid currentColor; box-shadow: none; background: transparent; color: inherit; opacity: .8; }
@@ -579,6 +603,10 @@ span.bad, b.bad, svg.bad { color: var(--bad); }
 :root[data-theme="playful"] .ss-r.fold { background: var(--pe); }
 /* Skills tree view: framed box with the tree left, a detail pane right and a draggable divider. */
 .ss-split { display: flex; height: clamp(420px, calc(100vh - 260px), 760px); }
+.ss-split .lp.settle { transition: width .36s var(--spring-bounce); }
+/* Reduced motion: no spring, just a brief fade as the pane takes its limit. */
+@media (prefers-reduced-motion: reduce) { .ss-split .lp.settle { transition: none; animation: ss-settle-fade .2s ease-out; } }
+@keyframes ss-settle-fade { from { opacity: .5; } }
 .ss-split>.lp { flex: none; min-width: 0; overflow: auto; padding: 6px; }
 .ss-split>.rp { flex: 1 1 0; min-width: 0; overflow: auto; }
 .ss-split>.dv { position: relative; flex: none; width: 9px; margin: 0 -4px; z-index: 1; cursor: col-resize; touch-action: none; }
@@ -665,7 +693,10 @@ span.bad, b.bad, svg.bad { color: var(--bad); }
 /* A button should read as clickable; the browser default cursor does not say that. */
 button:not(:disabled), summary { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
-.ss-btn { transition: filter .12s, transform .12s, box-shadow .12s; }
+.ss-btn { transition: filter .12s, transform .1s ease-out, box-shadow .12s; }
+.ss-btn:active:not(:disabled) { transform: scale(.97); }
+/* A playful button stands on a hard shadow, so a press pushes it flat onto the shadow instead. */
+:root[data-theme="playful"] .ss-btn:not(.ghost, .ss-bulk *, .ss-toast *):active:not(:disabled) { transform: translate(3px, 3px); box-shadow: none; }
 :root[data-theme="playful"] .ss-btn:disabled { transform: none; box-shadow: var(--sh-btn); }
 /* Frameless buttons have nothing to cast a shadow from, and the hover and disabled rules above outrank
    their box-shadow: none, so without this a lone shadow arc appears under them. */
@@ -695,13 +726,29 @@ button:disabled { cursor: not-allowed; }
 /* A row whose name is the link: the whole row lights up, as if the row were the link. */
 .ss-rl { cursor: pointer; }
 .ss-r:has(>.ss-rl:hover) { background: var(--sunken); }
-.ss-counts>a { transition: background-color .12s, transform .12s, box-shadow .12s; }
+.ss-counts>:is(a, button) { transition: background-color .12s, transform .12s, box-shadow .12s; }
 .ss-counts>a .lbl { font-size: 13px; color: var(--ink-2); }
 :root:not([data-theme="playful"]) .ss-counts>a:hover { background: var(--sunken); }
 :root:not([data-theme="playful"]) .ss-counts>a:first-child { border-radius: 12px 0 0 12px; }
 :root:not([data-theme="playful"]) .ss-counts>a:last-child { border-radius: 0 12px 12px 0; }
-:root[data-theme="playful"] .ss-counts>a:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--line); }
+@media (hover: hover) and (pointer: fine) {
+  :root[data-theme="playful"] .ss-counts>a:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--line); }
+}
+/* A count that filters lights on hover, gives under the press and stays tinted while its filter is on. */
+.ss-counts>button:not(:disabled, [aria-pressed="true"]):hover { background: var(--sunken); }
+.ss-counts>button:not(:disabled):active { transform: scale(.97); }
+.ss-counts>button[aria-pressed="true"] { background: var(--accent-bg); }
+:root:not([data-theme="playful"]) .ss-counts>button:first-child { border-radius: 12px 0 0 12px; }
+:root:not([data-theme="playful"]) .ss-counts>button:last-child { border-radius: 0 12px 12px 0; }
 .ss-sw { transition: background-color .15s; }
+/* The knob slides rather than jumps: on moves it the track's inner width minus the knob's, mixed half
+   that. Mixed centers by transform too, so a change between any two states is one slide. */
+.ss-sw i { transition: transform .37s var(--spring), background-color .15s; }
+@media (prefers-reduced-motion: reduce) { .ss-sw i { transition: background-color .15s; } }
+.ss-sw.on i { transform: translateX(14px); }
+:root[data-theme="playful"] .ss-sw.on i { transform: translateX(16px); }
+.ss-sw.mix i { transform: translateX(7px); }
+:root[data-theme="playful"] .ss-sw.mix i { transform: translateX(8px); }
 .ss-sw:disabled { opacity: .42; }
 .ss-chk-input:focus-visible + .ss-chk { outline: 2px solid var(--accent); outline-offset: 2px; }
 .ss-more { font-size: 13px; font-weight: 500; color: var(--accent); }
@@ -709,5 +756,33 @@ button:disabled { cursor: not-allowed; }
 .ss-hand { font: 400 17px/1.15 var(--fh); color: var(--ink-2); }
 .ss-pinnote { transition: transform .12s; }
 a.ss-pinnote:hover { transform: translate(-1px, -1px); }
+/* The floating selection bar rises from the bottom edge like a material arriving: blur 6 -> 0 and
+   scale .97 -> 1 with the rise. It leaves the same way (bulkGhost in lib/exitGhost.ts). */
+.ss-bulk:not(.static) { transition: transform .49s var(--spring), filter .49s var(--spring), opacity .2s ease-out; }
+@starting-style { .ss-bulk:not(.static) { opacity: 0; transform: translateX(-50%) translateY(100%) scale(.97); filter: blur(6px); } }
+@media (prefers-reduced-motion: reduce) {
+  .ss-bulk:not(.static) { transition: opacity .15s ease-out; }
+  @starting-style { .ss-bulk:not(.static) { transform: translateX(-50%); filter: none; } }
+}
+
+/* The hint shown while the shortcut modifier is held. */
+.ss-hud { display: inline-flex; align-items: center; gap: 16px; padding: 10px 18px; background: var(--surface); border: var(--frame); border-radius: 14px; box-shadow: var(--sh-float); font-size: 13px; color: var(--ink-2); }
+
+/* Clean materials: only layers that float over scrolling content are frosted glass (menus, the
+   shortcut hint, the sticky toolbar); the page, cards and sidebar stay solid. The toolbar paints its
+   glass on a ::before so it is not a backdrop root: a menu opened inside it still blurs the page. */
+:root:not([data-theme="playful"]) .ss-stickbar { background: none; }
+/* Stuck, the glass fades out at its lower edge instead of ending on a hard 1px line. */
+:root:not([data-theme="playful"]) .ss-stickbar.stuck { box-shadow: none; }
+:root:not([data-theme="playful"]) .ss-stickbar.stuck::before { -webkit-mask-image: linear-gradient(#000 calc(100% - 12px), transparent); mask-image: linear-gradient(#000 calc(100% - 12px), transparent); }
+:root:not([data-theme="playful"]) .ss-stickbar::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--glass-bar); backdrop-filter: var(--mat); -webkit-backdrop-filter: var(--mat); }
+:root:not([data-theme="playful"]) :is(.ss-menu, .ss-hud) { background: var(--glass-menu); border-color: transparent; backdrop-filter: var(--mat-menu); -webkit-backdrop-filter: var(--mat-menu); }
+:root:not([data-theme="playful"]) .ss-menu { padding: 6px; border-radius: 14px; }
+/* Clean segmented controls: the selected surface is one pill that slides between segments (segSlide). */
+:root:not([data-theme="playful"]) .ss-seg[data-slide] { position: relative; isolation: isolate; }
+:root:not([data-theme="playful"]) .ss-seg[data-slide]::before { content: ''; position: absolute; z-index: -1; top: 0; left: 0; width: var(--seg-w); height: var(--seg-h); transform: translate(var(--seg-x), var(--seg-y)); border-radius: 7px; background: var(--surface); box-shadow: 0 1px 2px rgba(20,19,18,.12); }
+:root:not([data-theme="playful"]) .ss-seg[data-slide="move"]::before { transition: transform .43s var(--spring), width .43s var(--spring), height .43s var(--spring); }
+:root:not([data-theme="playful"]) .ss-seg[data-slide]>.on { background: transparent; box-shadow: none; }
+@media (prefers-reduced-motion: reduce) { :root:not([data-theme="playful"]) .ss-seg[data-slide="move"]::before { transition: none; } }
 
 }

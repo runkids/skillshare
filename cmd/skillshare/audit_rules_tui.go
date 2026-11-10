@@ -767,6 +767,10 @@ func (m arModel) renderRuleDetail(item arRuleItem) string {
 
 	row("Pattern", theme.Primary().Render(r.Pattern))
 	row("Severity", theme.SeverityStyle(r.Severity).Render(r.Severity))
+	if note := audit.RuleContextNote(r.SeverityContext); note != "" {
+		row("Context", theme.Dim().Render(note))
+		row("", theme.Dim().Render("setting a severity applies it everywhere"))
+	}
 	row("Message", r.Message)
 	if len(r.Files) > 0 {
 		row("Files", strings.Join(r.Files, ", "))

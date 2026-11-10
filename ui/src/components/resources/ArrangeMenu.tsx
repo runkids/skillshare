@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowDownUp, Check } from 'lucide-react';
 import { useT } from '../../i18n';
+import { useMenuPresence } from '../../hooks/usePresence';
 
 interface Choice {
   value: string;
@@ -31,6 +32,7 @@ interface ArrangeMenuProps {
 export default function ArrangeMenu({ group, sort, display }: ArrangeMenuProps) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  const menu = useMenuPresence(open);
   const ref = useRef<HTMLDivElement>(null);
   const label = group ? t('resources.toolbar.arrange') : sort.label;
 
@@ -85,8 +87,8 @@ export default function ArrangeMenu({ group, sort, display }: ArrangeMenuProps) 
       >
         <ArrowDownUp size={16} />
       </button>
-      {open && (
-        <div role="menu" aria-label={label} className="ss-menu absolute right-0 top-full mt-1 z-50 !w-[200px] animate-dropdown-in">
+      {menu.shown && (
+        <div role="menu" aria-label={label} {...menu.exitProps} className={`ss-menu absolute right-0 top-full mt-1 z-50 !w-[200px] origin-top-right ${menu.motion}`}>
           {group && section(group)}
           {group && <hr />}
           {section(sort)}
@@ -97,7 +99,7 @@ export default function ArrangeMenu({ group, sort, display }: ArrangeMenuProps) 
               {display.options.map((o) => (
                 <button key={o.label} type="button" role="menuitemcheckbox" aria-checked={o.checked} className="text-ink" onClick={o.onChange}>
                   <span className="flex-1">{o.label}</span>
-                  <span className={`ss-sw sm ${o.checked ? 'on' : ''}`} aria-hidden><i /></span>
+                  {o.checked && <Check size={14} />}
                 </button>
               ))}
             </>

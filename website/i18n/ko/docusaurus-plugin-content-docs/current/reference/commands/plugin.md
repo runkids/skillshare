@@ -72,7 +72,7 @@ JSON 출력에는 source 경로와 네이티브 식별자가 포함됩니다. so
 | Target | Format | Global | Project | Update |
 |---|---|:---:|:---:|---|
 | Claude Code | `.claude-plugin/plugin.json` | 예 | 예 | 네이티브 업데이트 |
-| Codex | `.codex-plugin/plugin.json` 또는 Agent Plugins 루트 매니페스트 | 예 | 아니요 | 검토된 Source를 갱신한 뒤 다시 add, Codex에서 활성화된 경우에만 |
+| Codex | `.codex-plugin/plugin.json`, Agent Plugins 루트 매니페스트, 또는 Claude 매니페스트 | 예 | 아니요 | 검토된 Source를 갱신한 뒤 다시 add, Codex에서 활성화된 경우에만 |
 | Cursor | `.cursor-plugin/plugin.json` 또는 Agent Plugins 루트 매니페스트 | 예 | 아니요 | 검토된 로컬 사본 교체 |
 | Antigravity Desktop | 명시적 이름이 있는 루트 `plugin.json` | 예 | 예 | 검토된 로컬 사본 교체 |
 | Pi | `pi` 리소스가 있는 `package.json`, 또는 `pi-package` 키워드와 관례적인 리소스 폴더 | 예 | 예, 네이티브 project trust 사용 시 | 관리되는 source 스냅샷 새로고침 |
@@ -204,14 +204,14 @@ skillshare plugin add ./package --entry dist/plugin.js --target opencode --no-tu
 skillshare plugin update review --source-ref v1.1.0 --target claude --dry-run --json
 ```
 
-공유 바인딩은 `source_ref`를 기록하고 해석된 `commit`은 로컬 기록에 저장합니다. 설치는 검토된 commit을 사용합니다. `check`와 `update`는 구성된 ref를 다시 해석하므로, commit이 고정된 상태에서도 브랜치는 진행될 수 있습니다. `--revision`은 Git ref가 아니라 미리보기 토큰입니다. `--entry`는 각 후보의 패키지 루트를 기준으로 하며 이미 존재해야 합니다. 이는 빌드나 패키지 매니저 설치를 트리거하지 않습니다.
+공유 바인딩은 `source_ref`를 기록하고 해석된 `commit`은 로컬 기록에 저장합니다. 설치는 검토된 commit을 사용합니다. `check`와 `update`는 구성된 ref를 다시 해석하므로, commit이 고정된 상태에서도 브랜치는 진행될 수 있습니다. ref를 설정하지 않았다면 `check`는 먼저 원격의 기본 브랜치가 가리키는 commit을 확인하고, 설치된 commit과 다를 때만 소스를 다운로드합니다. `--revision`은 Git ref가 아니라 미리보기 토큰입니다. `--entry`는 각 후보의 패키지 루트를 기준으로 하며 이미 존재해야 합니다. 이는 빌드나 패키지 매니저 설치를 트리거하지 않습니다.
 
 Copilot과 Antigravity CLI 설치는 검토된 로컬 스냅샷을 사용합니다. import된 항목은 재설치를 위한 검토된 source가 없습니다: 제거 후에는 네이티브 클라이언트에서 설치하고 다시 sync하세요. Grok도 설치/재설치 전에 네이티브 trust가 필요합니다. Skillshare는 네이티브 trust 승인 플래그를 절대 제공하지 않습니다.
 
 ## 호환성과 경계
 
 - Claude는 자체 네이티브 `.claude-plugin/plugin.json` 패키지를 요구합니다.
-- Codex는 `.codex-plugin/plugin.json`과 인식된 portable root `plugin.json` 패키지를 받아들입니다. 둘 다 있는 패키지는 Codex가 portable root `plugin.json`에서 설치하므로, Skillshare는 그 manifest의 버전을, 없으면 `1.0.0`을 예상합니다. Claude 전용 패키지는 자동으로 변환되지 않습니다.
+- Codex는 `.codex-plugin/plugin.json`과 인식된 portable root `plugin.json` 패키지를 받아들입니다. 둘 다 있는 패키지는 Codex가 portable root `plugin.json`에서 설치하므로, Skillshare는 그 manifest의 버전을, 없으면 `1.0.0`을 예상합니다. 둘 다 없고 `.claude-plugin/plugin.json`이 있는 패키지도 Codex에 제공됩니다. Codex가 그 manifest를 직접 읽고 skills와 MCP 서버처럼 지원하는 부분만 사용하므로, Claude agent는 Codex에 제공되지 않습니다. agent만 있는 패키지처럼 지원하는 부분이 없는 패키지는 Codex에 제공되지 않습니다. Skillshare는 패키지를 변환하거나 다시 쓰지 않습니다. Codex와 마찬가지로 잘못된 JSON 또는 관련 없는 루트 `plugin.json`은 무시됩니다. 명시적인 `.codex-plugin/plugin.json` 또는 인식된 Agent Plugins 루트 manifest는 잘못되었거나 지원되지 않거나 링크이더라도 Claude manifest로 대체되지 않습니다.
 - Source에는 local plugin entry가 있는 marketplace가 포함될 수 있습니다. 네이티브 카탈로그는 plugin 이름으로 병합되며 target별 package 경로를 유지합니다. 외부 entry는 저장소를 직접 추가하거나 네이티브로 설치한 후 import하라는 안내와 함께 보고됩니다. command 기반 source는 자동으로 승인되지 않습니다.
 - 완전한 source 스냅샷은 plugin 스크립트, asset, 그리고 안전한 상대 symlink(`AGENTS.md → CLAUDE.md` 포함)를 유지합니다. 절대 경로, 범위를 벗어나는(escaping), 끊어진(dangling), 순환(cyclic), `.git`을 참조하는 링크와 특수 파일은 거부됩니다. source는 20,000개 파일과 100MiB로 제한됩니다.
 - 네이티브 설치가 런타임 활성화의 증거는 아닙니다. Agent를 재시작/다시 로드하고 해당 Agent에서 인증 또는 hook trust를 완료하세요.

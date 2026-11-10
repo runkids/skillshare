@@ -208,7 +208,7 @@ $_skillshareCompleter = {
         'audit' = '--min-severity', '--init-rules', '--json', '--format', '--quiet', '-q', '--yes', '-y', '--no-tui', '--threshold', '-T', '--group', '-G', '--profile', '--dedupe', '--analyzer', '--pattern', '--severity', '--disabled', '--help', '-h', '--project', '-p', '--global', '-g'
         'hub' = '--source', '-s', '--output', '-o', '--full', '--audit', '--label', '-l', '--reset', '--help', '-h', '--project', '-p', '--global', '-g'
         'log' = '--audit', '-a', '--clear', '-c', '--json', '--no-tui', '--stats', '--cmd', '--status', '--since', '--tail', '-t', '--help', '-h', '--project', '-p', '--global', '-g'
-        'ui' = '--port', '--host', '--base-path', '-b', '--no-open', '--clear-cache', '--app', '--help', '-h', '--project', '-p', '--global', '-g'
+        'ui' = '--port', '--host', '--base-path', '-b', '--trusted-origin', '--no-open', '--clear-cache', '--app', '--help', '-h', '--project', '-p', '--global', '-g'
         'enable' = '--dry-run', '-n', '--kind', '--help', '-h', '--project', '-p', '--global', '-g'
         'disable' = '--dry-run', '-n', '--kind', '--help', '-h', '--project', '-p', '--global', '-g'
         'analyze' = '--verbose', '-v', '--filter', '--no-tui', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
@@ -231,7 +231,7 @@ $_skillshareCompleter = {
     $previousIndex = $elements.Count - 1
     if ($wordToComplete -ne '') { $previousIndex-- }
     if ($cmd -eq 'mcp' -and $previousIndex -ge 0 -and $elements[$previousIndex] -in @('--target', '--from')) {
-        @('claude', 'codex', 'cursor', 'vscode', 'opencode', 'kilocode', 'grok', 'antigravity', 'amp', 'claude-desktop', 'cline', 'copilot', 'factory', 'gemini', 'goose', 'junie', 'kiro', 'lmstudio', 'warp', 'windsurf', 'pi', 'omp') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+        @('claude', 'codex', 'cursor', 'vscode', 'opencode', 'kilocode', 'grok', 'antigravity', 'amp', 'claude-desktop', 'cline', 'copilot', 'factory', 'gemini', 'goose', 'hermes', 'junie', 'kiro', 'lmstudio', 'warp', 'windsurf', 'pi', 'omp') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
             [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
         }
         return

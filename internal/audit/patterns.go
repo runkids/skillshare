@@ -107,6 +107,7 @@ type rule struct {
 	Exclude            *regexp.Regexp // if non-nil, suppress match when this also matches
 	severityOverridden bool
 	excludePhrase      bool
+	pythonInertContext bool // built-in credential rule; see inertSeverity
 	// prefilter is a conservative literal that must appear in a candidate line
 	// before running the full regex. Empty means no fast prefilter is available.
 	prefilter     string
@@ -131,6 +132,7 @@ type yamlRule struct {
 	severityOverridden   bool      `yaml:"-"`
 	confidenceOverridden bool      `yaml:"-"`
 	excludePhrase        bool      `yaml:"-"`
+	pythonInertContext   bool      `yaml:"-"`
 }
 
 type rulesFile struct {
@@ -275,6 +277,7 @@ func parseBuiltinRulesYAML() ([]yamlRule, error) {
 	}
 	for i := range rules {
 		rules[i].excludePhrase = rules[i].ID == "prompt-injection-5"
+		rules[i].pythonInertContext = rules[i].Pattern == "credential-access"
 		switch rules[i].ID {
 		case "ssrf-metadata-0":
 			rules[i].matchKind = rules[i].ID
@@ -344,6 +347,7 @@ func compileRules(yr []yamlRule) ([]rule, error) {
 			Regex:              re,
 			severityOverridden: y.severityOverridden,
 			excludePhrase:      y.excludePhrase,
+			pythonInertContext: y.pythonInertContext,
 		}
 		r.prefilter, r.prefilterFold = deriveRulePrefilter(y.Regex, re)
 		if y.requestRegex != "" {

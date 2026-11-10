@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { dialogGhost } from '../lib/exitGhost';
 
 const maxWidthClass = {
   sm: 'max-w-sm',
@@ -70,6 +71,7 @@ export default function DialogShell({
 
   return createPortal(
     <div
+      ref={dialogGhost}
       className="ss-scrim p-4"
       role="dialog"
       aria-modal="true"

@@ -44,7 +44,7 @@ skillshare sync --all
 | `--tools-deny TOOLS` | これらのツールを常に除外する。カンマ区切り。allow より優先。`""` でクリア。[ツールポリシー](#tool-policy)を参照 |
 | `--pi-options JSON` | Pi の内蔵 MCP のその他のサーバー別フィールドを JSON オブジェクトで指定する。[Pi](#pi-options)を参照 |
 | `--from CLIENT` | インポート元の既存クライアント、または `--file` のフォーマット |
-| `--file PATH` | ネイティブの JSON/JSONC、TOML、または Goose の YAML。`.toml` はデフォルトで Codex とみなされ、他のフォーマットはその MCP セクションから検出される。明示的な方言を指定するには `--from` を使う |
+| `--file PATH` | ネイティブの JSON/JSONC、TOML、または Goose/Hermes の YAML。`.toml` はデフォルトで Codex とみなされ、他のフォーマットはその MCP セクションから検出される。明示的な方言を指定するには `--from` を使う |
 | `--sync` | 保存して同期する。非インタラクティブな add/import/remove ではそうしない限り保存のみ |
 | `--keep-files` | `remove` と併用: サーバーの管理をやめ、Agent のエントリはそのまま残す。`--sync` とは併用できない。[下記](#stop-managing-a-server)を参照 |
 | `--replace` | add/import 中に既存の source 定義を明示的に置き換える。import では、インポート元クライアントのエントリが異なる場合にそれも書き換える |
@@ -103,7 +103,7 @@ Add、edit、remove、import では、**Save and sync** または **Save only** 
 
 クライアント ID は `claude`、`codex`、`cursor`、`vscode`、`opencode`、`kilocode`、
 `grok`、`antigravity`、`amp`、`claude-desktop`、`cline`、`copilot`、`factory`、`gemini`、
-`goose`、`junie`、`kiro`、`lmstudio`、`warp`、`windsurf`、`pi`、`omp` です。
+`goose`、`hermes`、`junie`、`kiro`、`lmstudio`、`warp`、`windsurf`、`pi`、`omp` です。
 `--target` と `--from` は、他のコマンドが Antigravity CLI に使う名前 `agy` と `antigravity-cli` も
 `antigravity` として受け付けます。source には `antigravity` が保存されます。
 `grok` は公式の xAI Grok CLI を意味します。サーバー名には文字、
@@ -195,12 +195,15 @@ Grok の場合、名前は文字またはアンダースコアで始まり、文
 | [Factory Droid](https://docs.factory.ai/harness/mcp) | `~/.factory/mcp.json` | `.factory/mcp.json` | `mcpServers` |
 | [Gemini CLI](https://geminicli.com/docs/tools/mcp-server/) | `~/.gemini/settings.json` | `.gemini/settings.json` | `mcpServers` |
 | [Goose](https://block.github.io/goose/docs/guides/config-files/) | `~/.config/goose/config.yaml` | Global のみ | `extensions`（YAML） |
+| [Hermes Agent](https://hermes-agent.nousresearch.com/docs/reference/mcp-config-reference) | `~/.hermes/config.yaml` | Global のみ | `mcp_servers` (YAML) |
 | [Junie](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html) | `~/.junie/mcp/mcp.json` | `.junie/mcp/mcp.json` | `mcpServers` |
 | [Kiro](https://kiro.dev/docs/mcp/configuration/) | `~/.kiro/settings/mcp.json` | `.kiro/settings/mcp.json` | `mcpServers` |
 | [LM Studio](https://lmstudio.ai/docs/app/mcp) | `~/.lmstudio/mcp.json` | Global のみ | `mcpServers` |
 | [Warp](https://docs.warp.dev/agents/capabilities/mcp/) | `~/.warp/.mcp.json` | `.warp/.mcp.json` | `mcpServers` |
 | [Windsurf (Cascade)](https://docs.devin.ai/desktop/cascade/mcp) | `~/.codeium/windsurf/mcp_config.json` | Global のみ | `mcpServers` |
 | [Oh My Pi (OMP)](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/mcp-config.md) | `~/.omp/agent/mcp.json` | `.omp/mcp.json` | `mcpServers` |
+
+Hermes は Global MCP のみ対応し、`mcp_servers`（YAML）を使用します。stdio と Streamable HTTP に対応し、SSE のインポートは拒否します。絶対パスの `HERMES_HOME` で別の home/profile を選択できます。未指定時は default profile（Windows は `%LOCALAPPDATA%/hermes`）を使い、active profile、`--profile`、`HERMES_DATA_DIR_SUFFIX` は追跡しません。`fromEnv` は `${VAR}` を出力し、env/header のインポートは `${env:VAR}` も受け付けます。OAuth は `options.hermes: {auth: oauth}` で指定します。インポートでは `auth`／`oauth` を保持しますが、平文の認証情報は拒否するため、値全体を `${VAR}` 参照に置き換えてください。その他の未対応フィールドは警告されます。ログイン、`.env`、token、refresh state は Hermes が管理します。同じ profile で `hermes mcp login NAME` を実行してください。YAML の保持と制限は Goose と同じです。
 
 ダッシュボードのサーバーフォームは、HTTP ヘッダーを環境変数と同じ方法で編集し、`fromEnv` 参照にも対応します。サーバーのメニューとフォーム内のファイル数の横にある **View what each Agent gets** は、選択したクライアントに対して Sync が書き込む予定のネイティブテキストを読み取り専用で表示します。フォーム内では、まだ保存されていない編集内容が反映されます。secret は参照のままです。
 
@@ -896,8 +899,8 @@ export default defineApp({ app: { accounts: { skillshare } } }, async (ctx) => (
   そのエントリを解放しないため、競合はそのエントリが取り残されていることを伝え、該当するファイルの名前を示します。そして
   ターミナルでも、ダッシュボードのその競合からでも、明示的なインポートまたは replace によってそれを引き継げます。
   マウントされていないドライブ上のファイルなど、読み取れないだけのファイルは、所有者がまだ存在しているものとみなされます。
-- ダッシュボードの MCP 設定は、ブラウザがダッシュボードを `localhost` または IP アドレスで開いている場合にのみ機能します。ドメイン名経由（reverse proxy を含む）では、MCP リクエストは 403 を返します。
-  なぜなら DNS rebinding 攻撃は常にドメイン名を使うからです。
+- ダッシュボードの MCP 設定は、ブラウザがダッシュボードを `localhost`、IP アドレス、または trusted origin で開いている場合にのみ機能します。それ以外のドメイン名は 403 になります。
+  なぜなら DNS rebinding 攻撃は常にドメイン名を使うからです。[リバースプロキシ](/docs/reference/commands/ui#reverse-proxy) を参照してください。
 - 認証情報は環境変数参照を使用します。secret ストア、OAuth セッション同期、
   継続的なヘルスモニタリング、package のインストール、gateway、レジストリ、plugin の同期はありません。
   設定済みのサーバーを起動したり呼び出したりするコマンドは `mcp check --live` だけです。

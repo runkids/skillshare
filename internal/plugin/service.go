@@ -22,13 +22,9 @@ func (s *Service) managedRoot() string {
 // discover shares a reviewed source within one preview (including recursive adds)
 // or the existing update batch, without caching it across standalone previews.
 func (s *Service) discover(ctx context.Context, source, ref, entry string) (*Discovery, error) {
-	key := source + "\x00" + ref + "\x00" + entry
-	if d, seen := s.discoveries[key]; seen {
-		return d, s.discoveryErrs[key]
-	}
-	d, err := DiscoverOptions(ctx, source, ref, entry)
-	s.discoveries[key], s.discoveryErrs[key] = d, err
-	return d, err
+	return s.reads.sources.get(source+"\x00"+ref+"\x00"+entry, func() (*Discovery, error) {
+		return DiscoverOptions(ctx, source, ref, entry)
+	})
 }
 
 // updateCandidate preserves the selected update's missing/unsupported distinction.
@@ -124,6 +120,9 @@ func (s *Service) validate(r Request) error {
 }
 
 func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
+	if r.Action == "check" && r.Name == "" {
+		return s.checkAll(ctx, r)
+	}
 	return s.preview(ctx, r, nil)
 }
 
@@ -139,9 +138,9 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 		return nil, err
 	}
 	// Recursive source previews share this operation's discoveries, not receiver lifetime.
-	if s.discoveries == nil {
+	if s.reads == nil {
 		preview := *s
-		preview.discoveries, preview.discoveryErrs = map[string]*Discovery{}, map[string]error{}
+		preview.reads = &reads{}
 		s = &preview
 	}
 	d, err := s.load()
@@ -154,11 +153,17 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 		if h, ok := hosts[target]; ok {
 			return h
 		}
-		h := s.host(ctx, target)
+		h := s.sharedHost(ctx, target)
 		hosts[target] = h
 		return h
 	}
-	s.adoptLegacy(d, host)
+	// A check of one plugin proves only its own leftover installs, so an Agent another plugin
+	// left something on cannot hold it up.
+	var own []string
+	if r.Action == "check" && r.Name != "" {
+		own = append(own, r.Name)
+	}
+	s.adoptLegacy(d, host, own...)
 	// ownMarket reports whether the marketplace Skillshare registered for b is still in place.
 	ownMarket := func(target string, b Binding) bool {
 		_, market, _ := strings.Cut(b.ID, "@")
@@ -396,7 +401,6 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 			names = append(names, name)
 		}
 		slices.Sort(names)
-		latests := map[string][]int{}
 		for _, name := range names {
 			if r.Name != "" && r.Name != name {
 				continue
@@ -543,7 +547,7 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 					c.Message = "Save sync selection only. Run sync to install or remove this managed target."
 					c.MessageKey = "plugins.note.selection"
 				case "check", "update":
-					c, err = s.checkOrUpdate(ctx, r, c, action, decl, declared, exists, host(target), latests)
+					c, err = s.checkOrUpdate(ctx, r, c, action, decl, declared, exists, host(target))
 					if err != nil {
 						return nil, err
 					}
@@ -796,7 +800,7 @@ func (s *Service) prepareChange(ctx context.Context, r Request, d *document, hos
 	return c
 }
 
-func (s *Service) checkOrUpdate(ctx context.Context, r Request, c Change, action string, decl declaration, declared, exists bool, host Host, latests map[string][]int) (Change, error) {
+func (s *Service) checkOrUpdate(ctx context.Context, r Request, c Change, action string, decl declaration, declared, exists bool, host Host) (Change, error) {
 	b, target := c.Binding, c.Target
 	agent := s.agentOf(target)
 	if !b.Selected() {
@@ -810,7 +814,7 @@ func (s *Service) checkOrUpdate(ctx context.Context, r Request, c Change, action
 	}
 	if b.Source == "" && (r.Action != "check" || !declared || b.Imported || decl.Imported || isNpmSource(decl.Source)) {
 		// An npm package has no source snapshot to compare; npm names its latest version instead.
-		installed, latest := s.npmVersions(ctx, target, b.ID, host, latests)
+		installed, latest := s.npmVersions(ctx, target, b.ID, host)
 		known := installed != nil && latest != nil
 		if known && slices.Compare(latest, installed) <= 0 {
 			c.Action = "noop"
@@ -839,6 +843,10 @@ func (s *Service) checkOrUpdate(ctx context.Context, r Request, c Change, action
 	}
 	if r.SourceRef != "" {
 		ref = r.SourceRef
+	}
+	if r.Action == "check" && s.sourceUnmoved(ctx, b, source, ref, plugin, entry) {
+		c.Action, c.Components = "noop", b.Components
+		return c, nil
 	}
 	disc, err := s.discover(ctx, source, ref, entry)
 	if err != nil {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bot, Check, CircleAlert, CircleArrowUp, CircleCheck, Download, FolderX, GitBranch, Link, Loader2, Puzzle, RefreshCw, ShieldAlert, Trash2, X } from 'lucide-react';
 import { Link as RouterLink } from 'react-router-dom';
@@ -374,7 +374,8 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
       return;
     }
     for (const u of gone) setPrune(u.name, 'out');
-    // ponytail: matches the .ss-collapse.out transition in components.css; change both together.
+    // ponytail: matches the .ss-collapse.out transition in components.css (each row 60ms after the
+    // last, gap closing from 180ms over 300ms); change both together.
     setTimeout(() => {
       setStatuses((prev) => {
         const next = new Map(prev);
@@ -384,7 +385,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
       for (const u of gone) setPrune(u.name);
       setPruned((n) => n + gone.length);
       void invalidate(queryClient, 'skillsUninstalled');
-    }, 520);
+    }, 180 + 60 * (gone.length - 1) + 300);
   }, [setPrune, setStatuses, toast, queryClient]);
 
   /* -- Render -- */
@@ -637,11 +638,12 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
               </Button>
             </div>
             <div className="ss-list">
-              {staleUnits.map((unit, i) => {
+              {staleUnits.map((unit) => {
                 const p = pruning.get(unit.name);
+                const order = staleUnits.filter((u) => pruning.get(u.name) === 'out').indexOf(unit);
                 return (
                   // Rows of one Prune all leave one after another.
-                  <div key={unit.name} className={`ss-collapse ${p === 'out' ? 'out' : ''}`} style={{ transitionDelay: p === 'out' ? `${i * 60}ms` : undefined }}>
+                  <div key={unit.name} className={`ss-collapse ${p === 'out' ? 'out' : ''}`} style={p === 'out' ? { '--d': `${order * 60}ms` } as CSSProperties : undefined}>
                     <div className={`ss-r flex-wrap md:flex-nowrap ${p ? 'updating' : ''}`}>
                       {unitIcon(unit)}
                       {unitName(unit)}

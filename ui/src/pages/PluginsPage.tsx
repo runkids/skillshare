@@ -58,7 +58,7 @@ export default function PluginsPage() {
   const [browsing, setBrowsing] = useState<{ name: string; source?: string } | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
   const refresh = () => void invalidate(cache, 'pluginsChanged');
-  const { busy, working, failure, review, updates, outcomes, checked, checking, batch, pendingUpdates, preview, begin, apply, selectTarget, check, updateMany, importMany, stopBatch, closeBatch, closeReview, clearResult, todo, active, idle, changed, isPi } =
+  const { busy, working, failure, review, updates, outcomes, checked, checking, checkProgress, checkFailures, batch, pendingUpdates, preview, begin, apply, selectTarget, check, updateMany, importMany, stopBatch, closeBatch, closeReview, clearResult, todo, active, idle, changed, isPi } =
     usePluginsFlow({ t, inventory: data, refresh, onPreviewed: () => { setAdding(null); setImporting(false); } });
   const [updating, setUpdating] = useState(false);
   // Once per visit, as soon as there is a plugin to ask about: the rows say what has a new version without a click.
@@ -110,7 +110,7 @@ export default function PluginsPage() {
   const piPackages = names.filter(isPi);
   const plugins = names.filter((name) => !isPi(name));
   const list = (shown: string[], pi?: boolean) => data && (
-    <PluginList inventory={data} names={shown} pi={pi} updates={updates} busy={busy} working={working} onToggle={(name, target, on) => void selectTarget(name, target, on)} onMenu={openMenu} onAdd={begin} onBlocked={(name, source) => setAdding({ name, source, bound: data.packages[name]?.bindings, recorded: data.packages[name] })} />
+    <PluginList inventory={data} names={shown} pi={pi} updates={updates} checkFailures={checkFailures} busy={busy} working={working} onToggle={(name, target, on) => void selectTarget(name, target, on)} onMenu={openMenu} onAdd={begin} onBlocked={(name, source) => setAdding({ name, source, bound: data.packages[name]?.bindings, recorded: data.packages[name] })} />
   );
   const importHosts = (data?.hosts ?? []).map((h) => {
     const locked = !pluginTargets[h.target]?.operations.includes('import');
@@ -169,11 +169,11 @@ export default function PluginsPage() {
   );
 
   return (
-    <div className="ss-wrap animate-fade-in">
+    <div className="ss-wrap animate-page-in">
       <PageHeader title={t('plugins.title')} subtitle={t('plugins.subtitle')} actions={<>
         {shareable.length > 0 && <Button variant="ghost" disabled={busy} onClick={() => setSharing(shareable.map((p) => p.name))}><Share2 size={15} />{t('plugins.share')}</Button>}
         {packages.length > 0 && (checking
-          ? <span className="flex items-center gap-1.5 px-3 text-[13px] text-ink-3"><Spinner size="sm" />{t('plugins.checkingUpdates')}</span>
+          ? <span className="flex items-center gap-1.5 px-3 text-[13px] text-ink-3"><Spinner size="sm" />{t('plugins.checkingUpdates')}{checkProgress.total > 0 && <span className="tabular-nums">{checkProgress.done}/{checkProgress.total}</span>}</span>
           : <Button variant="ghost" disabled={busy} onClick={() => (updatable > 0 ? setUpdating(true) : void check().then((ok) => ok && setUpdating(true)))}><RefreshCw size={15} />{updatable > 0 ? t(plural('plugins.updateCount', updatable), { count: updatable }) : t('plugins.check')}</Button>)}
         {addActions}
       </>} />

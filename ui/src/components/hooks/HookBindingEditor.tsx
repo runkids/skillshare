@@ -14,6 +14,7 @@ import {
   commandPlaceholder, commandVariables, completionContext, eventDescription, eventHasMatcher, fieldNames, formatJson, lineOf, lintNative, timeoutUnit,
 } from './hookCatalog';
 import type { HookCatalog, HookDiagnostic } from './hookCatalog';
+import { dialogGhost } from '../../lib/exitGhost';
 
 interface Props {
   agent: string;
@@ -176,7 +177,7 @@ function Expandable({ title, tools, children }: { title: string; tools: (expande
   const [expanded, setExpanded] = useState(false);
   return (
     <>
-      {expanded && <div className="fixed inset-0 z-[70] bg-[rgba(20,19,18,.36)]" aria-hidden="true" onClick={() => setExpanded(false)} />}
+      {expanded && <div ref={dialogGhost} className="animate-[ss-fade-in_.2s_ease-out] fixed inset-0 z-[70] bg-[rgba(20,19,18,.36)]" aria-hidden="true" onClick={() => setExpanded(false)} />}
       <div
         role={expanded ? 'group' : undefined}
         aria-label={expanded ? title : undefined}

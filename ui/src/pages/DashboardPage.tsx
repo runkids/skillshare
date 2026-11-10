@@ -41,6 +41,7 @@ import { useRepoUpdate } from '../hooks/useRepoUpdate';
 import { useHooksQuery, useMcpQuery, useOverviewQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
 import MemoryOverview from '../components/memory/MemoryOverview';
+import { useHeldWhileClosing, useMenuPresence } from '../hooks/usePresence';
 
 const STAR_CTA_DISMISSED_KEY = 'skillshare.dashboard.starCta.dismissed';
 
@@ -133,7 +134,7 @@ export default function DashboardPage() {
   ].filter(Boolean).join(' ');
 
   return (
-    <div className="ss-wrap animate-fade-in">
+    <div className="ss-wrap animate-page-in">
       <PageHeader
         className="!mb-0"
         title={t('dashboard.title')}
@@ -456,6 +457,10 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
   const { data: check } = useQuery<CheckResult>({ queryKey: queryKeys.check, queryFn: () => api.check(), enabled: false, staleTime: Infinity });
   const behind = new Set(check?.tracked_repos.filter((r) => r.status === 'behind').map((r) => r.name));
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const menu = useMenuPresence(menuFor !== null);
+  // The repo whose menu is still fading out after menuFor went back to null.
+  const heldMenuFor = useHeldWhileClosing(menuFor, menuFor !== null);
+  const menuShownFor = menu.shown ? heldMenuFor : null;
   const [toDelete, setToDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [refusal, setRefusal] = useState<keyof typeof forceableRefusals | null>(null);
@@ -521,8 +526,8 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
               <button type="button" className="ss-ib" aria-label={t('dashboard.trackedRepos.actions')} aria-expanded={menuFor === repo.name} onClick={() => setMenuFor(menuFor === repo.name ? null : repo.name)}>
                 <Ellipsis size={16} />
               </button>
-              {menuFor === repo.name && (
-                <div className="ss-menu absolute right-0 top-full mt-1 z-20 !w-44 animate-dropdown-in" role="menu">
+              {menuShownFor === repo.name && (
+                <div {...menu.exitProps} className={`ss-menu absolute right-0 top-full mt-1 z-20 !w-44 origin-top-right ${menu.motion}`} role="menu">
                   <button type="button" role="menuitem" className="dng" onClick={() => { setMenuFor(null); setToDelete(repo.name); setRefusal(null); }}>
                     <Trash2 size={15} />
                     {t('dashboard.trackedRepos.uninstall')}

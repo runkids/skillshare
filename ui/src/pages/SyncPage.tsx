@@ -279,7 +279,7 @@ export default function SyncPage() {
   };
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-page-in">
       <div className="grid grid-cols-[minmax(0,1fr)_280px] items-start gap-8">
         <div className="flex min-w-0 flex-col gap-4">
           <PageHeader className="!mb-0" title={t('sync.title')} subtitle={t('sync.subtitle')} />
