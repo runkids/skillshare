@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"skillshare/internal/skillignore"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 	"skillshare/internal/validate"
 )
@@ -242,7 +243,7 @@ func applySkillInstallNames(skills []SkillInfo, repoPath, rootName string) {
 func discoverSkillsByDirectory(repoPath string, includeRoot bool) []SkillInfo {
 	var skills []SkillInfo
 
-	filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
+	visit := func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -285,7 +286,13 @@ func discoverSkillsByDirectory(repoPath string, includeRoot bool) []SkillInfo {
 		}
 
 		return nil
-	})
+	}
+	filepath.Walk(repoPath, visit)
+	if len(skills) == 0 {
+		if dir, ok := sourcewalk.AgentsSkillsDir(repoPath, TargetDotDirs); ok {
+			filepath.Walk(dir, visit)
+		}
+	}
 
 	// Apply .skillignore filtering.
 	// Skill paths are directories (they contain SKILL.md), so pass isDir=true.

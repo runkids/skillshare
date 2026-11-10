@@ -127,7 +127,7 @@ $ skillshare install anthropics/skills
   ↑↓ move · space toggle · ctrl+a all · enter confirm · / filter · esc cancel
 ```
 
-Discovery 会扫描所有目录以查找 `SKILL.md` 文件，仅跳过 `.git`。这意味着位于隐藏目录（如 `.curated/` 或 `.system/`）中的 Skill 也会被自动发现。当发现多个 Skill 时，选择提示会把同一文件夹中的 Skill 排在一起，并显示每个 Skill 的描述和所在文件夹；列表较长时按 `/` 筛选。
+Discovery 会扫描所有目录以查找 `SKILL.md` 文件，但会跳过 `.git` 以及 `.claude/`、`.agents/` 等目标目录，这些目录通常存放仓库中 Skill 的副本。其他隐藏目录（如 `.curated/` 或 `.system/`）会被扫描，其中的 Skill 也会被自动发现。如果仓库没有其他 Skill，则改为扫描根目录的 `.agents/skills/`。当发现多个 Skill 时，选择提示会把同一文件夹中的 Skill 排在一起，并显示每个 Skill 的描述和所在文件夹；列表较长时按 `/` 筛选。
 
 如果仓库根目录下存在 `.skillignore` 文件，匹配的 Skill 会被自动从 discovery 中排除。参见下方的 [.skillignore](#skillignore)。
 

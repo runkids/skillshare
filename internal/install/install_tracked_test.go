@@ -648,6 +648,48 @@ func TestInstallTrackedRepo_UpdateAcceptsSourceThatIsTheDestination(t *testing.T
 	}
 }
 
+// TestInstallTrackedRepo_CountsRepoAgentsSkills covers issue #800: a repo that
+// authors its skills only in .agents/skills reports them on install and update.
+func TestInstallTrackedRepo_CountsRepoAgentsSkills(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	orig := TargetDotDirs
+	TargetDotDirs = map[string]bool{".agents": true}
+	defer func() { TargetDotDirs = orig }()
+
+	tmp := t.TempDir()
+	work := filepath.Join(tmp, "work")
+	mustRunGit(t, "", "init", "-b", "main", work)
+	mustRunGit(t, work, "config", "user.email", "test@test.com")
+	mustRunGit(t, work, "config", "user.name", "Test")
+	for _, name := range []string{"one", "two"} {
+		dir := filepath.Join(work, ".agents", "skills", name)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# "+name), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mustRunGit(t, work, "add", ".")
+	mustRunGit(t, work, "commit", "-m", "init")
+	remote := filepath.Join(tmp, "remote.git")
+	mustRunGit(t, "", "clone", "--bare", work, remote)
+
+	source := &Source{Type: SourceTypeGitHTTPS, Raw: fileURL(remote), CloneURL: fileURL(remote)}
+	sourceDir := t.TempDir()
+	for _, opts := range []InstallOptions{{Name: "foo"}, {Name: "foo", Update: true}} {
+		result, err := InstallTrackedRepo(source, sourceDir, opts)
+		if err != nil {
+			t.Fatalf("InstallTrackedRepo(update=%t): %v", opts.Update, err)
+		}
+		if result.SkillCount != 2 {
+			t.Errorf("update=%t: SkillCount = %d (%v), want 2", opts.Update, result.SkillCount, result.Skills)
+		}
+	}
+}
+
 func TestInstallTrackedRepo_ForceReportsRootSkillUnderFinalName(t *testing.T) {
 	remoteURL := makeRemote(t, "")
 	sourceDir := t.TempDir()

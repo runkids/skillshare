@@ -246,3 +246,41 @@ func TestReadDirLogicalErrorPaths(t *testing.T) {
 		t.Fatalf("ReadDir error: %v != %v", gotErr, wantErr)
 	}
 }
+
+// TestAgentsSkillsDirThroughLinkedRoot checks that a repository reached
+// through a link (a followed source link, or `install ./link`) is scanned
+// for authored skills instead of being treated as empty.
+func TestAgentsSkillsDirThroughLinkedRoot(t *testing.T) {
+	dotDirs := map[string]bool{".agents": true}
+	for _, tt := range []struct {
+		name   string
+		skills []string
+		want   bool
+	}{
+		{"authored skills", []string{"skills/x", ".agents/skills/x"}, false},
+		{"only .agents/skills", []string{".agents/skills/x"}, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := t.TempDir()
+			for _, p := range tt.skills {
+				if err := os.MkdirAll(filepath.Join(repo, p), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(repo, p, "SKILL.md"), []byte("# x"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			link := filepath.Join(t.TempDir(), "repo")
+			if err := os.Symlink(repo, link); err != nil {
+				t.Fatal(err)
+			}
+			dir, ok := AgentsSkillsDir(link, dotDirs)
+			if ok != tt.want {
+				t.Fatalf("AgentsSkillsDir() ok = %v, want %v", ok, tt.want)
+			}
+			if ok && dir != filepath.Join(link, ".agents", "skills") {
+				t.Errorf("AgentsSkillsDir() dir = %q, want it under the link", dir)
+			}
+		})
+	}
+}

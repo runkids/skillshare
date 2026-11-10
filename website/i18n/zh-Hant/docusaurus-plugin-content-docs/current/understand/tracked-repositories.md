@@ -109,6 +109,8 @@ _team-skills/
 自動扁平化適用於**所有 skills**，不只是 tracked repos。你也可以用資料夾整理自己的個人 skills。詳見 [Organize with Folders](/docs/understand/source-and-targets#organize-with-folders-auto-flattening)。
 :::
 
+Tracked repo 中的 `.claude/skills/`、`.agents/skills/` 等 target 目錄通常放的是 repo 中 skills 的副本，所以 sync 會跳過它們。例外是 skills 只放在根目錄 `.agents/skills/` 的 repo：這些 skills 會被發現，例如 `_psychopomp/.agents/skills/explainer-motion/` 會同步為 `_psychopomp__.agents__skills__explainer-motion`。
+
 ---
 
 ## 全新 Clone 之後的復原 {#rehydrating-after-a-fresh-clone}

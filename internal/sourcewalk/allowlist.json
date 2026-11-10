@@ -529,6 +529,14 @@
   },
   {
     "file": "internal/install/install_discovery.go",
+    "function": "discoverSkillsByDirectory",
+    "callee": "filepath.Walk",
+    "root": "dir",
+    "reason": "clone",
+    "note": "Repository-root .agents/skills when the repository has no other skills"
+  },
+  {
+    "file": "internal/install/install_discovery.go",
     "function": "scanAgentDir",
     "callee": "filepath.Walk",
     "root": "dir",
@@ -808,6 +816,14 @@
     "note": "Contents of a first-level link the follow policy validated; paths are remapped to the logical link path"
   },
   {
+    "file": "internal/sourcewalk/walk.go",
+    "function": "AgentsSkillsDir",
+    "callee": "filepath.Walk",
+    "root": "root",
+    "reason": "git-root",
+    "note": "Check whether a repository has skills outside .agents and target dot dirs"
+  },
+  {
     "file": "internal/sync/agent_sync.go",
     "function": "FindLocalAgents",
     "callee": "os.ReadDir",
@@ -982,6 +998,14 @@
     "root": "src",
     "reason": "target",
     "note": "Merge existing target contents into source during migration"
+  },
+  {
+    "file": "internal/sync/discover_walk.go",
+    "function": "walkRepoAgentsSkills",
+    "callee": "filepath.Walk",
+    "root": "dir",
+    "reason": "git-root",
+    "note": "Tracked repository's .agents/skills when the repository has no other skills; links are not followed"
   },
   {
     "file": "internal/targetsummary/agents.go",

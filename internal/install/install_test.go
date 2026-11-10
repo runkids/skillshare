@@ -8,9 +8,72 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
+
+func TestDiscoverSkills_RepoAgentsSkills(t *testing.T) {
+	orig := TargetDotDirs
+	TargetDotDirs = map[string]bool{".agents": true, ".claude": true}
+	defer func() { TargetDotDirs = orig }()
+
+	tests := []struct {
+		name   string
+		skills []string
+		ignore string
+		want   []string
+	}{
+		{
+			name:   "only .agents/skills",
+			skills: []string{".agents/skills/one", ".agents/skills/two", ".agents/other/no", ".agents/skills/one/.claude/skills/no"},
+			want:   []string{".agents/skills/one", ".agents/skills/two"},
+		},
+		{
+			name:   "skills and .agents/skills copies",
+			skills: []string{"skills/x", ".agents/skills/x"},
+			want:   []string{"skills/x"},
+		},
+		{
+			name:   ".agents/skills skill ignored",
+			skills: []string{".agents/skills/one", ".agents/skills/two"},
+			ignore: ".agents/skills/two\n",
+			want:   []string{".agents/skills/one"},
+		},
+		{
+			name:   "authored skills ignored",
+			skills: []string{"skills/x", ".agents/skills/x"},
+			ignore: "skills/x\n",
+			want:   nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := t.TempDir()
+			for _, p := range tt.skills {
+				dir := filepath.Join(repo, p)
+				if err := os.MkdirAll(dir, 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# Skill"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if tt.ignore != "" {
+				if err := os.WriteFile(filepath.Join(repo, ".skillignore"), []byte(tt.ignore), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var got []string
+			for _, skill := range discoverSkills(repo, true) {
+				got = append(got, skill.Path)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("discoverSkills() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
 func TestDiscoverSkills_RootOnly(t *testing.T) {
 	// Setup: repo with SKILL.md at root only

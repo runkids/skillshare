@@ -178,7 +178,7 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 		}
 	}
 
-	err := sourcewalk.Walk(walkRoot, opts.walk, func(path string, info os.FileInfo, err error) error {
+	visit := func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // Skip inaccessible paths
 		}
@@ -345,8 +345,11 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 		}
 
 		return nil
-	})
-
+	}
+	err := sourcewalk.Walk(walkRoot, opts.walk, visit)
+	if err == nil {
+		err = walkRepoAgentsSkills(walkRoot, repoRoots, skills, visit)
+	}
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to walk source directory: %w", err)
 	}
@@ -357,6 +360,32 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 	}
 
 	return skills, trackedRepos, stats, nil
+}
+
+// walkRepoAgentsSkills walks the .agents/skills directory of each tracked repo
+// that yielded no skills, for repositories that author their skills only there.
+func walkRepoAgentsSkills(walkRoot string, repoRoots map[string]bool, skills []DiscoveredSkill, visit filepath.WalkFunc) error {
+	found := make(map[string]bool, len(repoRoots))
+	for _, s := range skills {
+		found[s.RepoRelPath] = true
+	}
+	roots := make([]string, 0, len(repoRoots))
+	for root := range repoRoots {
+		if !found[root] {
+			roots = append(roots, root)
+		}
+	}
+	sort.Strings(roots)
+	for _, root := range roots {
+		dir, ok := sourcewalk.AgentsSkillsDir(filepath.Join(walkRoot, filepath.FromSlash(root)), sourcewalk.TargetDotDirs)
+		if !ok {
+			continue
+		}
+		if err := filepath.Walk(dir, visit); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // applyTargetOverrides replaces the frontmatter targets of tracked-repo skills

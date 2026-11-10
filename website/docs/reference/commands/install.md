@@ -129,7 +129,7 @@ $ skillshare install anthropics/skills
   ↑↓ move · space toggle · ctrl+a all · enter confirm · / filter · esc cancel
 ```
 
-Discovery scans all directories for `SKILL.md` files, skipping only `.git`. This means skills inside hidden directories like `.curated/` or `.system/` are discovered automatically. When multiple skills are found, the prompt lists skills from the same folder together and shows each one's description and folder; press `/` to narrow a long list.
+Discovery scans all directories for `SKILL.md` files except `.git` and target directories such as `.claude/` and `.agents/`, which usually hold copies of the repository's skills. Other hidden directories like `.curated/` or `.system/` are scanned, so their skills are discovered automatically. A repository with no other skills has its root `.agents/skills/` scanned instead. When multiple skills are found, the prompt lists skills from the same folder together and shows each one's description and folder; press `/` to narrow a long list.
 
 If the repository contains a `.skillignore` file at its root, matching skills are automatically excluded from discovery. See [.skillignore](#skillignore) below.
 
