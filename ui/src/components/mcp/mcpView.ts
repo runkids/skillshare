@@ -115,6 +115,10 @@ export const describeMessage = (t: (key: string) => string, message = '') => {
 // What the server says about a snippet or file it cannot read. It words them for a sync,
 // where "target was not changed" matters; a paste has no target to change.
 const importErrorKeys: Record<string, string> = {
+  'invalid hermes YAML configuration': 'mcp.importError.yaml',
+  'MCP YAML configuration must not use aliases or merges': 'mcp.importError.yamlAliases',
+  'HERMES_HOME must be absolute': 'mcp.hermesHomeAbsolute',
+  'Hermes transport is not supported; only stdio and Streamable HTTP can be imported': 'mcp.hermesTransportUnsupported',
   'invalid JSON/JSONC; target was not changed': 'mcp.importError.json',
   'invalid server JSON': 'mcp.importError.json',
   'invalid TOML; target was not changed': 'mcp.importError.toml',
@@ -357,7 +361,7 @@ export const reachOf = (server: MCPServer, defaults: string[]) =>
 
 /** Display names for the MCP clients, as in their own docs. */
 export const targetLabel = (target: string) =>
-  ({ pi: 'Pi', omp: 'Oh My Pi', claude: 'Claude', codex: 'Codex', cursor: 'Cursor', vscode: 'VS Code', opencode: 'OpenCode', kilocode: 'Kilo Code', grok: 'Grok', antigravity: 'Antigravity', amp: 'Amp', 'claude-desktop': 'Claude Desktop', cline: 'Cline', commandcode: 'Command Code', copilot: 'Copilot CLI', droid: 'Droid', factory: 'Factory', gemini: 'Gemini CLI', goose: 'Goose', junie: 'Junie', kiro: 'Kiro', lmstudio: 'LM Studio', warp: 'Warp', windsurf: 'Windsurf', zed: 'Zed' })[target] ?? target;
+  ({ pi: 'Pi', omp: 'Oh My Pi', claude: 'Claude', codex: 'Codex', cursor: 'Cursor', vscode: 'VS Code', opencode: 'OpenCode', kilocode: 'Kilo Code', grok: 'Grok', antigravity: 'Antigravity', amp: 'Amp', 'claude-desktop': 'Claude Desktop', cline: 'Cline', commandcode: 'Command Code', copilot: 'Copilot CLI', droid: 'Droid', factory: 'Factory', gemini: 'Gemini CLI', goose: 'Goose', hermes: 'Hermes Agent', junie: 'Junie', kiro: 'Kiro', lmstudio: 'LM Studio', warp: 'Warp', windsurf: 'Windsurf', zed: 'Zed' })[target] ?? target;
 
 /** Splits a command line into words, honouring single and double quotes. */
 // ponytail: no backslash escapes; a word holding both quote kinds needs the YAML config.

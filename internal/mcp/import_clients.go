@@ -17,6 +17,14 @@ func normalizeClientImport(target string, entry map[string]any, c *Candidate) {
 	if !ok {
 		return
 	}
+	if target == "hermes" {
+		if transport, set := entry["transport"]; set {
+			if transport != "http" && transport != "streamable-http" {
+				c.Problems = append(c.Problems, "Hermes transport is not supported; only stdio and Streamable HTTP can be imported")
+			}
+			delete(entry, "transport")
+		}
+	}
 	if target == "gemini" && entry["url"] != nil {
 		c.Problems = append(c.Problems, "Gemini url uses SSE; only httpUrl (Streamable HTTP) is supported")
 	}

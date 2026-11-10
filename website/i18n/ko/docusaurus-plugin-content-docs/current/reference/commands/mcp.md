@@ -44,7 +44,7 @@ skillshare sync --all
 | `--tools-deny TOOLS` | 이 도구는 항상 제외, 쉼표로 구분; allow보다 우선; `""`는 값을 지웁니다. [도구 정책](#tool-policy) 참고 |
 | `--pi-options JSON` | Pi 내장 MCP의 그 밖의 서버별 필드를 JSON 객체로 지정. [Pi](#pi-options) 참고 |
 | `--from CLIENT` | import할 기존 client, 또는 `--file`의 형식 |
-| `--file PATH` | 네이티브 JSON/JSONC, TOML 또는 Goose YAML; `.toml`은 기본적으로 Codex로 처리되며, 다른 형식은 MCP 섹션에서 감지됨; 명시적인 방언을 지정하려면 `--from` 사용 |
+| `--file PATH` | 네이티브 JSON/JSONC, TOML 또는 Goose/Hermes YAML; `.toml`은 기본적으로 Codex로 처리되며, 다른 형식은 MCP 섹션에서 감지됨; 명시적인 방언을 지정하려면 `--from` 사용 |
 | `--sync` | 저장 후 동기화; noninteractive add/import/remove는 그렇지 않으면 저장만 함 |
 | `--keep-files` | `remove`와 함께 사용: 서버 관리를 멈추고 Agent 항목은 그대로 둡니다. `--sync`와 함께 쓸 수 없습니다. [아래](#stop-managing-a-server) 참고 |
 | `--replace` | add/import 중 기존 source 정의를 명시적으로 교체; import 시 가져온 client의 항목이 다르면 이것도 다시 작성 |
@@ -130,7 +130,7 @@ source가 한 번 저장되기 전에 검증되며, 이후의 네이티브 파�
 
 Client ID는 `claude`, `codex`, `cursor`, `vscode`, `opencode`, `kilocode`,
 `grok`, `antigravity`, `amp`, `claude-desktop`, `cline`, `copilot`, `factory`, `gemini`,
-`goose`, `junie`, `kiro`, `lmstudio`, `warp`, `windsurf`, `pi`, `omp`입니다.
+`goose`, `hermes`, `junie`, `kiro`, `lmstudio`, `warp`, `windsurf`, `pi`, `omp`입니다.
 `--target`과 `--from`은 다른 명령이 Antigravity CLI를 부르는 이름인 `agy`와 `antigravity-cli`도
 `antigravity`로 받으며, source에는 `antigravity`가 저장됩니다.
 `grok`은 공식 xAI Grok CLI를 의미합니다. 서버 이름은 문자, 숫자, 점, 밑줄, 하이픈을
@@ -222,12 +222,15 @@ client에서 동작합니다.
 | [Factory Droid](https://docs.factory.ai/harness/mcp) | `~/.factory/mcp.json` | `.factory/mcp.json` | `mcpServers` |
 | [Gemini CLI](https://geminicli.com/docs/tools/mcp-server/) | `~/.gemini/settings.json` | `.gemini/settings.json` | `mcpServers` |
 | [Goose](https://block.github.io/goose/docs/guides/config-files/) | `~/.config/goose/config.yaml` | Global only | `extensions` (YAML) |
+| [Hermes Agent](https://hermes-agent.nousresearch.com/docs/reference/mcp-config-reference) | `~/.hermes/config.yaml` | Global only | `mcp_servers` (YAML) |
 | [Junie](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html) | `~/.junie/mcp/mcp.json` | `.junie/mcp/mcp.json` | `mcpServers` |
 | [Kiro](https://kiro.dev/docs/mcp/configuration/) | `~/.kiro/settings/mcp.json` | `.kiro/settings/mcp.json` | `mcpServers` |
 | [LM Studio](https://lmstudio.ai/docs/app/mcp) | `~/.lmstudio/mcp.json` | Global only | `mcpServers` |
 | [Warp](https://docs.warp.dev/agents/capabilities/mcp/) | `~/.warp/.mcp.json` | `.warp/.mcp.json` | `mcpServers` |
 | [Windsurf (Cascade)](https://docs.devin.ai/desktop/cascade/mcp) | `~/.codeium/windsurf/mcp_config.json` | Global only | `mcpServers` |
 | [Oh My Pi (OMP)](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/mcp-config.md) | `~/.omp/agent/mcp.json` | `.omp/mcp.json` | `mcpServers` |
+
+Hermes는 Global MCP만 지원하며 `mcp_servers`(YAML)를 사용합니다. stdio와 Streamable HTTP를 지원하고 SSE 가져오기는 거부합니다. 절대 경로 `HERMES_HOME`으로 다른 home/profile을 선택할 수 있습니다. 지정하지 않으면 default profile(Windows: `%LOCALAPPDATA%/hermes`)을 사용하며 active profile, `--profile`, `HERMES_DATA_DIR_SUFFIX`는 추적하지 않습니다. `fromEnv`는 `${VAR}`를 출력하고 env/header 가져오기는 `${env:VAR}`도 허용합니다. OAuth는 `options.hermes: {auth: oauth}`로 설정합니다. 가져오기는 `auth`/`oauth`를 유지하지만 일반 텍스트 자격 증명은 거부하므로 전체 값을 `${VAR}` 참조로 바꾸세요. 다른 매핑되지 않은 필드는 경고합니다. 로그인, `.env`, token 및 refresh state는 Hermes가 관리합니다. 같은 profile에서 `hermes mcp login NAME`을 실행하세요. YAML 보존 규칙과 제한은 Goose와 같습니다.
 
 대시보드의 서버 폼은 `fromEnv` 참조를 포함해 HTTP 헤더를 환경 변수와 동일한 방식으로
 편집합니다. 서버 메뉴와 폼의 파일 개수 옆에 있는 **View what each Agent gets**는,

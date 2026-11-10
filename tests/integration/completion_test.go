@@ -119,6 +119,12 @@ func TestCompletion_MCPCheck_AllShells(t *testing.T) {
 		result.AssertOutputContains(t, "no-dns")
 		result.AssertOutputContains(t, "live")
 		result.AssertOutputContains(t, "accept-tools")
+		// Match the MCP client list, rather than Hermes's independent skill/plugin target lists.
+		if shell == "powershell" {
+			result.AssertOutputContains(t, "'goose', 'hermes', 'junie'")
+		} else {
+			result.AssertOutputContains(t, "goose hermes junie")
+		}
 		result.AssertOutputContains(t, "timeout")
 		for _, flag := range []string{"tools-allow", "tools-deny", "http-allow-insecure"} {
 			result.AssertOutputContains(t, flag)

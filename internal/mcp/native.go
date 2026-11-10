@@ -42,6 +42,8 @@ func claudeProject(root string) string { return "/projects/" + pointerKey(root) 
 
 func isTOMLTarget(target string) bool { return target == "codex" || target == "grok" }
 
+func isYAMLTarget(target string) bool { return target == "goose" || target == "hermes" }
+
 func nativeKey(target string) string {
 	if format, ok := clientFormats[target]; ok {
 		return format.key
@@ -98,7 +100,7 @@ func ParseNative(target string, data []byte) (*Native, error) {
 	}
 	n := &Native{Target: target, data: data, Entries: map[string]map[string]any{}}
 	var document map[string]any
-	if target == "goose" {
+	if isYAMLTarget(target) {
 		if len(data) == 0 {
 			data = []byte("{}\n")
 			n.data = data
@@ -110,7 +112,7 @@ func ParseNative(target string, data []byte) (*Native, error) {
 			return nil, err
 		}
 		if err := n.yaml.Decode(&document); err != nil {
-			return nil, fmt.Errorf("invalid Goose YAML configuration")
+			return nil, fmt.Errorf("invalid %s YAML configuration", target)
 		}
 	} else if isTOMLTarget(target) {
 		if err := toml.Unmarshal(data, &document); err != nil {
@@ -191,7 +193,7 @@ func (n *Native) Edit(changes map[string]map[string]any) ([]byte, error) {
 	if isTOMLTarget(n.Target) {
 		return n.editTOML(changes)
 	}
-	if n.Target == "goose" {
+	if isYAMLTarget(n.Target) {
 		return n.editYAML(changes)
 	}
 	v := n.json.Clone()
@@ -286,7 +288,7 @@ func (n *Native) editOffList(v hujson.Value, root string, changes map[string]map
 // entries out, or a minifier's work. An entry someone formatted by hand has line breaks
 // and is left alone.
 func (n *Native) cramped(name string) bool {
-	if isTOMLTarget(n.Target) || n.Target == "goose" || n.json.Value == nil || strings.HasPrefix(n.Target, claudeOffPrefix) {
+	if isTOMLTarget(n.Target) || isYAMLTarget(n.Target) || n.json.Value == nil || strings.HasPrefix(n.Target, claudeOffPrefix) {
 		return false
 	}
 	v := n.json.Find("/" + nativeKey(n.Target) + "/" + pointerKey(name))

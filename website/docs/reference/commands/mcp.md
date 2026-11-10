@@ -44,7 +44,7 @@ skillshare sync --all
 | `--tools-deny TOOLS` | Never these tools, separated by commas; beats allow; `""` clears. See [Tool policy](#tool-policy) |
 | `--pi-options JSON` | Other per-server fields of Pi's built-in MCP, as a JSON object. See [Pi](#pi-options) |
 | `--from CLIENT` | Existing client to import, or the format of `--file` |
-| `--file PATH` | Native JSON/JSONC, TOML or Goose YAML; `.toml` defaults to Codex, other formats are detected from their MCP section; use `--from` for an explicit dialect |
+| `--file PATH` | Native JSON/JSONC, TOML or Goose/Hermes YAML; `.toml` defaults to Codex, other formats are detected from their MCP section; use `--from` for an explicit dialect |
 | `--sync` | Save and synchronize; noninteractive add/import/remove otherwise save only |
 | `--keep-files` | With `remove`: stop managing the server and leave its Agent entries as they are. Not with `--sync`. See [below](#stop-managing-a-server) |
 | `--replace` | Explicitly replace an existing source definition during add/import; on import, also rewrite the imported client's entry when it differs |
@@ -134,7 +134,7 @@ Skillshare config. The schema is `schemas/mcp.schema.json` in the repository.
 
 Client IDs are `claude`, `codex`, `cursor`, `vscode`, `opencode`, `kilocode`,
 `grok`, `antigravity`, `amp`, `claude-desktop`, `cline`, `copilot`, `factory`, `gemini`,
-`goose`, `junie`, `kiro`, `lmstudio`, `warp`, `windsurf`, `pi`, and `omp`.
+`goose`, `hermes`, `junie`, `kiro`, `lmstudio`, `warp`, `windsurf`, `pi`, and `omp`.
 `--target` and `--from` also take `agy` and `antigravity-cli`, the names other
 commands use for the Antigravity CLI, as `antigravity`; the source stores `antigravity`.
 `grok` means the official xAI Grok CLI. Server names use letters,
@@ -231,6 +231,7 @@ Names such as `company-docs` work across all supported clients.
 | [Factory Droid](https://docs.factory.ai/harness/mcp) | `~/.factory/mcp.json` | `.factory/mcp.json` | `mcpServers` |
 | [Gemini CLI](https://geminicli.com/docs/tools/mcp-server/) | `~/.gemini/settings.json` | `.gemini/settings.json` | `mcpServers` |
 | [Goose](https://block.github.io/goose/docs/guides/config-files/) | `~/.config/goose/config.yaml` | Global only | `extensions` (YAML) |
+| [Hermes Agent](https://hermes-agent.nousresearch.com/docs/reference/mcp-config-reference) | `~/.hermes/config.yaml` | Global only | `mcp_servers` (YAML) |
 | [Junie](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html) | `~/.junie/mcp/mcp.json` | `.junie/mcp/mcp.json` | `mcpServers` |
 | [Kiro](https://kiro.dev/docs/mcp/configuration/) | `~/.kiro/settings/mcp.json` | `.kiro/settings/mcp.json` | `mcpServers` |
 | [LM Studio](https://lmstudio.ai/docs/app/mcp) | `~/.lmstudio/mcp.json` | Global only | `mcpServers` |
@@ -299,6 +300,31 @@ Additional client details:
   formatting. Aliases, merges, duplicate keys and multiple documents block edits.
   Built-in extensions and keychain `env_keys` cannot be imported as portable MCP
   connections.
+- Hermes supports stdio and Streamable HTTP; SSE imports are rejected. It uses
+  `${VAR}` references for `fromEnv`; import also accepts `${env:VAR}` in env and
+  headers. YAML preservation and restrictions are the same as Goose above.
+  Global sync/import honors an absolute `HERMES_HOME`; otherwise it uses the
+  default profile (`~/.hermes`, or `%LOCALAPPDATA%/hermes` on Windows).
+  Skillshare does not follow Hermes's active-profile file, `--profile`, or
+  `HERMES_DATA_DIR_SUFFIX`; set `HERMES_HOME` explicitly for another profile.
+  Hermes has no project MCP destination in Skillshare.
+  Set `options.hermes.auth: oauth` for native OAuth. Import keeps `auth` and
+  `oauth` under `options.hermes`; literal credentials there block import, so
+  replace them with whole-value `${VAR}` references first. Other native fields
+  are reported as not imported. Login, tokens, `.env` and refresh state stay
+  managed by Hermes; complete `hermes mcp login NAME` in the same Hermes profile.
+
+  ```yaml
+  mcp:
+    servers:
+      linear:
+        url: https://mcp.linear.app/mcp
+        targets: [claude, codex, hermes]
+        options:
+          hermes:
+            auth: oauth
+  ```
+
 - Claude Code skips a server named `workspace`, `claude-in-chrome` or `computer-use`,
   which it reserves for built-in servers. It also never sends its own credentials to a
   remote server: `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `AWS_BEARER_TOKEN_BEDROCK`,

@@ -26,6 +26,10 @@ describe('MCP view helpers', () => {
     expect(mcpTargets).toContain('antigravity');
     expect(targetLabel('antigravity')).toBe('Antigravity');
   });
+
+  it('offers Hermes as a receiving and import target for its native YAML file', () => {
+    expect(mcpTargets).toContain('hermes');
+  });
   it('keeps source servers and adds rows for entries only the plan removes', () => {
     const plan: MCPPlan = { revision: 'r', sourcePath: '/c.yaml', blocked: false, changes: [change('docs', 'claude', 'unchanged'), change('old', 'codex', 'remove')] };
     const rows = buildMatrix({ docs: { url: 'https://docs.example/mcp' } }, plan);
@@ -79,6 +83,10 @@ describe('MCP view helpers', () => {
     const t = (key: string) => `[${key}]`;
     expect(describeError(t, 'invalid JSON/JSONC; target was not changed')).toBe('[mcp.importError.json]');
     expect(describeError(t, 'invalid TOML; target was not changed')).toBe('[mcp.importError.toml]');
+    expect(describeError(t, 'invalid hermes YAML configuration')).toBe('[mcp.importError.yaml]');
+    expect(describeError(t, 'MCP YAML configuration must not use aliases or merges')).toBe('[mcp.importError.yamlAliases]');
+    expect(describeError(t, 'HERMES_HOME must be absolute')).toBe('[mcp.hermesHomeAbsolute]');
+    expect(describeError(t, 'Hermes transport is not supported; only stdio and Streamable HTTP can be imported')).toBe('[mcp.hermesTransportUnsupported]');
     expect(describeError(t, 'no MCP entries found; select the matching client format')).toBe('[mcp.importError.noEntries]');
     expect(describeError(t, 'something else')).toBe('something else');
   });
