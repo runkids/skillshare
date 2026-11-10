@@ -11,7 +11,7 @@ import { v_flex, h_flex, InputState, Input, TextView } from "gpui-base";
 import { exec, hc, run, spaces, agents, focused, machines, shared, setShared, theme, settings, layout, openOverlay, closeOverlay, nextCommand, readTextFile, knownAgents, props as blockProps } from "herdr";
 import {
   KINDS, SCOPES, DISCOVER, AUDIT,
-  parseJSON, lastLine, failure, flag, sourceLine, buildItems, hookArgs, rowState, previewTargets, eligibleTargets, targetList, waitsForSync, syncScopes, mapLanes, needsBothWays, filterItems, groupItems, sourceGroups, counts, targetDrift,
+  parseJSON, lastLine, failure, flag, sourceLine, buildItems, hookArgs, rowState, previewTargets, eligibleTargets, targetList, waitsForSync, syncScopes, overviewAnswer, remoteLine, waitingNames, mapLanes, needsBothWays, filterItems, groupItems, sourceGroups, counts,
   cloneUrl, skillChoices, newerVersion, ago, auditMessage, parseDiscover, parseAudit,
 } from "./model.js";
 import { createRunner } from "./jobs.js";
@@ -106,10 +106,31 @@ function syncLine(t, state, grow) {
   const dash = div().flex_none().font_family(mono()).text_size(11).text_color(t.blocked);
   return state === "flow" ? dash.frames(FLOW, 140) : dash.loop("opacity", { from: 0.35, to: 1, period: 1800 }).child(FLOW[0]);
 }
-// At most three waiting targets by name; the rest become a count.
-const SHOWN_TARGETS = 3;
 
 const pill = (text, t) => h_flex().h(20).px(8).flex_none().items_center().rounded(10).bg(t.selected).text_size(S().label).text_color(t.muted).child(text);
+
+// A small switch of text pills; the picked one sits on raised.
+function pills(t, id, options, value, onPick, o = {}) {
+  const r = o.r ?? 7;
+  return h_flex().id(id).flex_none().p(2).gap(2).rounded(r).bg(t.chrome).border_1().border_color(t.border).children(options.map(([k, label]) => {
+    const on = k === value;
+    return h_flex().id(`${id}-${k}`).h(o.h ?? 22).px(o.px ?? 6).items_center().rounded(r - 2).bg(on ? t.raised : t.chrome).text_size(S().label).text_color(on ? t.foreground : t.muted).when(on && !o.plain, (el) => el.font_semibold())
+      .cursor_pointer().hover((s) => s.text_color(t.foreground)).on_mouse_down("left", stop).on_click((_e, cx) => onPick(k, cx)).child(label);
+  }));
+}
+
+// A placeholder block, the pulse every placeholder shares, and the map's trunk: it drops from the
+// box above and stops at the last line's middle (bg hides the rest).
+const bone = (t, w, h = 10) => div().w(w).h(h).flex_none().rounded(4).bg(t.raised);
+const PULSE = { from: 0.5, to: 1, period: 1200 };
+const MAP_INSET = 18;
+const mapLane = (t, last, bg, line, rest) => h_flex().h(32).pl(MAP_INSET).gap(9).items_center()
+  .child(h_flex().h_full().flex_none().items_center()
+    .child(h_flex().w(14).h_full().flex_none().items_center()
+      .child(v_flex().w(2).h_full().flex_none().child(div().w(2).flex_1().bg(t.border)).child(div().w(2).flex_1().bg(last ? bg : t.border)))
+      .child(div().w(12).h(2).flex_none().bg(t.border)))
+    .child(line))
+  .children(rest.filter(Boolean));
 
 function segmented(id, options, value, t, onPick) {
   return h_flex().id(id).w_full().p(2).gap(2).rounded(8).bg(t.chrome).border_1().border_color(t.border).children(options.map(([key, label]) => {
@@ -201,7 +222,7 @@ function line(t, id, mark, name, sub, onClick, action = null, quiet = false) {
 }
 
 // Rows that are still being read, in the shape the rows will have.
-const skeleton = (t, n) => v_flex().pt(10).loop("opacity", { from: 0.5, to: 1, period: 1200 })
+const skeleton = (t, n) => v_flex().pt(10).loop("opacity", PULSE)
   .children(Array.from({ length: n }, (_, i) => h_flex().h(46).mx(8).px(10).gap(10).items_center().child(dot(t.border))
     .child(v_flex().flex_1().gap(7).child(div().w([150, 110, 170, 130, 96, 140][i % 6]).h(10).rounded(4).bg(t.raised)).child(div().w([210, 160, 120, 190, 150, 170][i % 6]).h(8).rounded(4).bg(t.raised)))));
 
@@ -407,16 +428,7 @@ export default class Skillshare extends View {
   // Which source the lists show. A folder with no project only has the global one, so it says so.
   scopeSwitch(t) {
     if (!this.project) return div().flex_none().text_size(S().label).text_color(t.muted).child(this.projectKnown ? "Global" : "");
-    return h_flex().id("scope").flex_none().p(2).gap(2).rounded(7).bg(t.chrome).border_1().border_color(t.border).children(SCOPES.map(([k, label]) => {
-      const on = k === this.scope;
-      return h_flex().id(`scope-${k}`).h(22).px(6).items_center().rounded(5).bg(on ? t.raised : t.chrome).text_size(S().label).text_color(on ? t.foreground : t.muted).when(on, (el) => el.font_semibold())
-        .cursor_pointer().hover((s) => s.text_color(t.foreground)).on_mouse_down("left", stop).on_click((_e, cx) => { this.scope = k; cx.notify(); }).child(label);
-    }));
-  }
-
-  // What the panel knows about each target, most waiting first: { known, list: [{ name, n }] }.
-  targetList(scope = "all") {
-    return targetList(this.raw, scope);
+    return pills(t, "scope", SCOPES, this.scope, (k, cx) => { this.scope = k; cx.notify(); });
   }
 
   // The answer first, one action, the map, then only what needs you.
@@ -428,15 +440,11 @@ export default class Skillshare extends View {
     const waiting = all.filter((i) => !i.notice && (i.state === "sync" || i.state === "missing")).sort(byLabel);
     const updates = all.filter((i) => !i.notice && i.state === "update").sort(byLabel), notices = all.filter((i) => i.notice);
     const pending = [...waiting, ...notices.filter((i) => i.pending)];
-    const targets = this.targetList(scope), lag = targets.list.filter((x) => x.n);
+    const targets = targetList(this.raw, scope, this.items), lag = targets.list.filter((x) => x.n);
     const busy = this.busyAt(ctx.on), moving = Boolean(busy) && /^Sync/.test(channel.textAt(ctx.on) ?? "");
-    const names = (list) => (list.length <= 2 ? list.map((x) => x.name).join(" and ") : `${list[0].name}, ${list[1].name} and ${list.length - 2} more`);
-    const [mark, headline, sub] = loading ? [icon("ring", 20, t.muted).spin(900), "Reading skillshare", "one moment"]
-      : failed ? [icon("alert", 20, t.ansi1), "skillshare could not be read", this.error]
-      : moving ? [icon("ring", 20, t.blocked).spin(900), lag.length ? `Syncing ${plural(lag.length, "target")}` : "Syncing", lag.length ? names(lag) : "every target"]
-      : pending.length || lag.length ? [icon("alert", 20, t.blocked), lag.length ? `${plural(lag.length, "target")} need${lag.length === 1 ? "s" : ""} a sync` : `${plural(pending.length, "resource")} to sync`,
-        pending.length ? `${plural(pending.length, "resource")} waiting${lag.length ? ` for ${names(lag)}` : ""}` : `waiting on ${names(lag)}`]
-      : [icon("check", 20, t.ansi2), "Everything is in sync", `${plural(kc.all, "resource")} · ${plural(targets.list.length, "target")}`];
+    const { kind: answer, headline, sub } = overviewAnswer({ loading, failed, error: this.error, moving, pending: pending.length, lag, total: kc.all, targets: targets.list.length });
+    const mark = { loading: () => icon("ring", 20, t.muted).spin(900), failed: () => icon("alert", 20, t.ansi1), moving: () => icon("ring", 20, t.blocked).spin(900),
+      waiting: () => icon("alert", 20, t.blocked), ok: () => icon("check", 20, t.ansi2) }[answer]();
     const hot = new Set(pending.map((x) => x.kind));
     const sync = () => request({ op: "sync", on: ctx.on, project: this.project, scopes: syncScopes(this.items, this.raw, scope), plugins: waiting.some((i) => i.kind === "plugins") });
     const hero = v_flex().flex_none().px(14).py(16).gap(14).border_b(1).border_color(t.border)
@@ -479,9 +487,11 @@ export default class Skillshare extends View {
     const kinds = h_flex().flex_none().px(14).pt(6).border_b(1).border_color(t.border)
       .children(KINDS.map(([k, label]) => tab(t, `kind-${k}`, `${label} ${kc[k]}`, this.kind === k, (_e, cx) => { this.kind = k; cx.notify(); }, { h: 30, gap: 14, size: S().secondary })));
     // Sync is always here: it syncs the scopes with something waiting in the shown scope, or the shown scope itself.
-    const waits = filterItems(all, { scope, kind: null, query: "" }).filter(waitsForSync), due = waits.length || this.targetList(scope).scopes.length;
+    const waits = filterItems(all, { scope, kind: null, query: "" }).filter(waitsForSync), due = waits.length || targetList(this.raw, scope).scopes.length;
     const sync = () => request({ op: "sync", on: ctx.on, project: this.project, scopes: syncScopes(all, this.raw, scope), plugins: waits.some((i) => i.kind === "plugins") });
-    const syncButton = this.busyAt(ctx.on) ? disabledButton("sync-busy", "Working…", t, { h: 30 }) : (due ? primary : secondary)("sync-library", "Sync", t, sync, { h: 30, px: 12 });
+    // Nothing is read yet: there is no scope to sync.
+    const syncButton = !Object.keys(this.raw).length ? disabledButton("sync-wait", "Sync", t, { h: 30 })
+      : this.busyAt(ctx.on) ? disabledButton("sync-busy", "Working…", t, { h: 30 }) : (due ? primary : secondary)("sync-library", "Sync", t, sync, { h: 30, px: 12 });
     const tools = h_flex().flex_none().px(14).pt(10).pb(2).gap(6)
       .child(h_flex().flex_1().min_w(0).h(30).px(10).gap(8).items_center().rounded(6).border_1().border_color(t.border).bg(t.chrome)
         .child(icon("search", 14, t.muted))
@@ -525,22 +535,16 @@ export default class Skillshare extends View {
   // name, the rest by name or as a count. A count that has something waiting turns amber, so the
   // map agrees with the headline for every kind. Loading draws the same shape empty.
   syncMap(t, targets, kc, moving, loading, hot = new Set()) {
-    const INSET = 18;
     const small = (text, color) => div().flex_none().text_size(S().label).text_color(color).child(text);
-    // The trunk drops from the source and stops at the last line's middle.
-    const branch = (last) => h_flex().w(14).h_full().flex_none().items_center()
-      .child(v_flex().w(2).h_full().flex_none().child(div().w(2).flex_1().bg(t.border)).child(div().w(2).flex_1().bg(last ? t.background : t.border)))
-      .child(div().w(12).h(2).flex_none().bg(t.border));
-    const lane = (last, line, rest) => h_flex().h(32).pl(INSET).gap(9).items_center()
-      .child(h_flex().h_full().flex_none().items_center().child(branch(last)).child(line)).children(rest.filter(Boolean));
+    const lane = (last, line, rest) => mapLane(t, last, t.background, line, rest);
     const frame = (cells, lanes) => v_flex().id("sync-map").flex_none()
       .child(h_flex().flex_none().rounded(10).overflow_hidden().border_1().border_color(t.border).bg(t.chrome).children(cells))
-      .child(div().ml(INSET).w(2).h(10).flex_none().bg(t.border)).children(lanes);
+      .child(div().ml(MAP_INSET).w(2).h(10).flex_none().bg(t.border)).children(lanes);
     const cell = (i, el) => el.flex_1().min_w(0).h(58).gap(3).items_center().justify_center().when(i > 0, (x) => x.border_l(1).border_color(t.border));
     if (loading) {
       return frame(KINDS.map((_k, i) => cell(i, v_flex()).child(div().w(22).h(13).rounded(4).bg(t.raised)).child(div().w(36).h(8).rounded(4).bg(t.raised))),
         [84, 60, 72, 66].map((w, i) => lane(i === 3, div().w(40).h(2).flex_none().bg(t.border), [dot(t.border), div().w(w).h(9).rounded(4).bg(t.raised)])))
-        .loop("opacity", { from: 0.5, to: 1, period: 1200 });
+        .loop("opacity", PULSE);
     }
     const state = moving ? "flow" : "wait";
     const rows = mapLanes(targets).map((r) => (r.wait
@@ -562,14 +566,8 @@ export default class Skillshare extends View {
   }
 
   viewSwitch(t, bySource) {
-    return h_flex().id("in-sync-view").flex_none().p(2).gap(2).rounded(6).bg(t.chrome).border_1().border_color(t.border)
-      .children([["list", "List"], ["source", "By source"]].map(([k, label]) => {
-        const on = (k === "source") === bySource;
-        return h_flex().id(`in-sync-view-${k}`).h(20).px(8).items_center().rounded(4).bg(on ? t.raised : t.chrome)
-          .text_size(S().label).text_color(on ? t.foreground : t.muted).cursor_pointer().hover((s) => s.text_color(t.foreground))
-          .on_mouse_down("left", stop).on_click((_e, cx) => { setShared(IN_SYNC_VIEW, k === "list" ? "list" : null); cx.notify(); })
-          .child(label);
-      }));
+    return pills(t, "in-sync-view", [["list", "List"], ["source", "By source"]], bySource ? "source" : "list",
+      (k, cx) => { setShared(IN_SYNC_VIEW, k === "list" ? "list" : null); cx.notify(); }, { h: 20, px: 8, r: 6, plain: true }); // plain: its labels must not change width when picked
   }
 
   sourceNode(t, group, open) {
@@ -625,7 +623,6 @@ export default class Skillshare extends View {
   renderMachines(t) {
     const list = Object.values(this.machines).sort((a, b) => (a.here ? -1 : b.here ? 1 : a.label.localeCompare(b.label)));
     const latest = list.reduce((v, m) => (m.version ? (v ? newerVersion(v, m.version) : m.version) : v), null);
-    const bone = (w, h = 10) => div().w(w).h(h).flex_none().rounded(4).bg(t.raised);
     const cards = list.map((m) => {
             const newer = m.update && m.latest ? m.latest : latest && m.version && newerVersion(latest, m.version) !== m.version ? latest : null;
       // Two lines in the Overview map's grammar: Remote into Source, Source into Targets. Each
@@ -634,7 +631,7 @@ export default class Skillshare extends View {
       const waits = m.pending ?? [], drift = m.drift > 0, late = Boolean(m.git?.behind);
       // Uncommitted or unpushed work on that machine: a plain pull would refuse, so the card offers both ways.
       const dirty = m.git?.files?.length ?? 0, ahead = m.git?.ahead ?? 0, local = Boolean(dirty || ahead);
-      const remote = [late ? `↓${m.git.behind} behind` : null, dirty ? `${dirty} uncommitted` : null, ahead ? `↑${ahead} to push` : null].filter(Boolean).join(" · ") || "up to date";
+      const remote = remoteLine(m.git);
       const lane = (from, to, text, warn, moving) => h_flex().h(26).gap(8).items_center()
         .child(div().w(52).flex_none().text_size(S().secondary).text_color(t.muted).child(from))
         .child(syncLine(t, moving ? "flow" : warn ? "wait" : "ok")).child(dot(warn ? t.blocked : t.ansi2))
@@ -642,7 +639,7 @@ export default class Skillshare extends View {
         .child(div().flex_none().text_size(S().label).text_color(warn ? t.blocked : t.muted).child(moving ? (from === "Remote" ? "pulling" : "syncing") : text));
       const ok = !m.missing && !m.checking && !m.error, attention = ok && (late || drift || local);
       const mark = m.checking ? icon("ring", 13, t.muted).spin(900) : dot(m.error ? t.ansi1 : m.missing ? t.muted : attention ? t.blocked : t.ansi2, 8, Boolean(m.missing));
-      const who = waits.slice(0, SHOWN_TARGETS).map((x) => `${x.name} ${x.n}`).join(" · ") + (waits.length > SHOWN_TARGETS ? ` · +${waits.length - SHOWN_TARGETS} more` : "");
+      const who = waitingNames(waits);
       const health = m.doctor?.errors ? [plural(m.doctor.errors, "error"), t.ansi1] : m.doctor?.warnings ? [plural(m.doctor.warnings, "warning"), t.muted] : null;
       const pull = () => request({ op: "pullsync", on: m.on, label: m.label });
       const both = () => openDialog({ width: 460, height: 360, props: { role: "syncboth", on: m.on, repo: m.git?.top ?? null, git: m.git, label: m.here ? null : m.label } });
@@ -670,10 +667,10 @@ export default class Skillshare extends View {
     return v_flex().flex_1().min_h(0)
       .child(div().id("machines").flex_1().min_h(0).overflow_y_scrollbar()
         .child(v_flex().p(10).gap(10)
-          .children(cards.length ? cards : [0, 1].map((i) => v_flex().rounded(10).border_1().border_color(t.border).bg(t.chrome).loop("opacity", { from: 0.5, to: 1, period: 1200 })
-            .child(h_flex().h(40).px(12).gap(8).items_center().child(dot(t.border)).child(bone(i ? 84 : 132)).child(div().flex_1()).child(bone(44, 8)))
+          .children(cards.length ? cards : [0, 1].map((i) => v_flex().rounded(10).border_1().border_color(t.border).bg(t.chrome).loop("opacity", PULSE)
+            .child(h_flex().h(40).px(12).gap(8).items_center().child(dot(t.border)).child(bone(t, i ? 84 : 132)).child(div().flex_1()).child(bone(t, 44, 8)))
             .child(v_flex().px(12).pb(6).children([[70, 56], [78, 44]].map(([a, b]) => h_flex().h(26).gap(8).items_center()
-              .child(bone(44, 8)).child(div().w(40).h(2).flex_none().bg(t.border)).child(dot(t.border)).child(bone(a)).child(div().flex_1()).child(bone(b, 8)))))
+              .child(bone(t, 44, 8)).child(div().w(40).h(2).flex_none().bg(t.border)).child(dot(t.border)).child(bone(t, a)).child(div().flex_1()).child(bone(t, b, 8)))))
             .child(h_flex().h(44).px(12).items_center().border_t(1).border_color(t.border).child(div().w(104).h(26).rounded(6).bg(t.raised)))))));
   }
 
@@ -808,15 +805,14 @@ export default class Skillshare extends View {
     const card = (rows) => v_flex().flex_none().rounded(8).overflow_hidden().border_1().border_color(t.border).bg(t.chrome)
       .children(rows.map((r, i) => h_flex().px(14).py(9).gap(14).items_start().text_size(S().secondary).when(i > 0, (el) => el.border_t(1).border_color(t.border))
         .child(div().w(96).flex_none().text_color(t.muted).child(r.key)).child(div().flex_1().min_w(0).child(r.value || "—"))));
-    const bar = (w, h = 10) => div().w(w).h(h).rounded(4).bg(t.raised);
     const scroll = (id, inner) => div().id(id).flex_1().min_w(0).h_full().overflow_y_scrollbar().child(inner);
     const page = (parts) => v_flex().px(24).py(20).gap(14).children(parts.filter(Boolean));
     const waitingFor = d.loading && (pane === "main" || pane === "details");
 
     let body;
     if (waitingFor) {
-      body = [scroll("pane", page([v_flex().gap(12).loop("opacity", { from: 0.5, to: 1, period: 1200 })
-        .children([220, 520, 480, 340].map((w) => bar(w))).child(div().h(8)).children([160, 500, 420, 460, 260].map((w) => bar(w)))]))];
+      body = [scroll("pane", page([v_flex().gap(12).loop("opacity", PULSE)
+        .children([220, 520, 480, 340].map((w) => bone(t, w))).child(div().h(8)).children([160, 500, 420, 460, 260].map((w) => bone(t, w)))]))];
     } else if (d.error && pane !== "targets") {
       body = [scroll("pane", v_flex().pt(110).gap(10).items_center().child(icon("alert", 22, t.ansi1)).child(div().text_size(S().dialog).font_semibold().child("This could not be read"))
         .child(div().px(40).text_size(S().secondary).text_color(t.muted).child(d.error)).child(secondary("retry", "Try again", t, (_e, cx) => this.loadDoc(cx))))];
@@ -826,14 +822,9 @@ export default class Skillshare extends View {
         it.blocker ? quietNote("Resolve with the CLI or the dashboard. Sync validates again before it applies anything.") : null]))];
     } else if (pane === "targets") {
       // The Overview map's grammar, for this one thing: it on top, a line down to each place it goes.
-      const INSET = 18;
-      const branch = (last) => h_flex().w(14).h_full().flex_none().items_center()
-        .child(v_flex().w(2).h_full().flex_none().child(div().w(2).flex_1().bg(t.border)).child(div().w(2).flex_1().bg(last ? t.popover : t.border)))
-        .child(div().w(12).h(2).flex_none().bg(t.border));
-      const lane = (r, i) => h_flex().h(32).pl(INSET).gap(9).items_center()
-        .child(h_flex().h_full().flex_none().items_center().child(branch(i === targets.length - 1)).child(syncLine(t, r.warn ? "wait" : "ok")))
-        .child(dot(r.warn ? t.blocked : t.ansi2)).child(agentIcon(t, r.name, 16)).child(div().flex_1().min_w(0).truncate().font_medium().child(r.name))
-        .child(r.warn || r.text !== "in sync" ? div().flex_none().text_size(S().label).text_color(r.warn ? t.blocked : t.muted).child(r.text) : icon("check", 13, t.muted));
+      const lane = (r, i) => mapLane(t, i === targets.length - 1, t.popover, syncLine(t, r.warn ? "wait" : "ok"), [dot(r.warn ? t.blocked : t.ansi2), agentIcon(t, r.name, 16),
+        div().flex_1().min_w(0).truncate().font_medium().child(r.name),
+        r.text !== "in sync" ? div().flex_none().text_size(S().label).text_color(r.warn ? t.blocked : t.muted).child(r.text) : icon("check", 13, t.muted)]);
       const said = it.state === "off" ? "Disabled, so it is not sent anywhere" : !targets.length ? `No ${whom}s yet` : waiting.length ? `${waiting.length} of ${plural(targets.length, whom)} waiting for a sync` : `In sync with ${plural(targets.length, whom)}`;
       const how = { mcp: "Sync writes this server into each target's own MCP file.", hooks: "One definition. Sync writes each agent's native hook file.", plugins: "Each agent installs the plugin; skillshare keeps them the same." }[it.kind];
       body = [scroll("pane", page([
@@ -841,7 +832,7 @@ export default class Skillshare extends View {
         targets.length ? v_flex().pt(6)
           .child(h_flex().h(52).px(14).gap(10).items_center().rounded(10).border_1().border_color(t.border).bg(t.chrome)
             .child(dot(color, 9, it.state === "missing" || it.state === "off")).child(div().flex_1().min_w(0).truncate().font_semibold().child(it.label)).child(quietNote([kindName, it.scope].join(" · "))))
-          .child(div().ml(INSET).w(2).h(10).flex_none().bg(t.border)).children(targets.map(lane)) : null,
+          .child(div().ml(MAP_INSET).w(2).h(10).flex_none().bg(t.border)).children(targets.map(lane)) : null,
         how ? quietNote(how) : null]))];
     } else if (pane === "details") {
       body = [scroll("pane", page([d.meta?.length ? card(d.meta) : quietNote("This file declares no frontmatter."),

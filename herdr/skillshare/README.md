@@ -41,7 +41,7 @@ By hand:
    - a toggle block to the tab bar row:
      `{ "id": "skillshare-toggle", "type": "block", "content": { "mod": "skillshare", "props": { "role": "toggle" } }, "size": { "px": 118 } }`
    - a column beside the work area:
-     `{ "id": "skillshare-panel", "type": "column", "children": [{ "id": "skillshare", "type": "block", "content": { "mod": "skillshare" } }], "size": { "px": 400 }, "min": 320, "max": 720 }`
+     `{ "id": "skillshare-panel", "type": "column", "children": [{ "id": "skillshare", "type": "block", "content": { "mod": "skillshare" } }], "size": { "px": 400 }, "min": 380, "max": 720 }`
 3. Run `herdr-app check ~/.config/herdr-app/mods/skillshare`.
 
 The panel lives in its own layout node instead of the per-space `panel` stack. Herdr's tabs mod
@@ -69,9 +69,8 @@ shown or hidden state is a layout click, which Herdr keeps across spaces and res
 - A preview reads on the item's machine: a skill's file names (40 at most) and the first 60 kB of
   the file shown, an agent's `.md`, or the MCP source file. Env, header and bearer-token values are
   replaced before the dialog gets them, so it shows names only.
-- The map's target names come from `status --json` and `diff --json`. Its per-target counts cover
-  skills and agents, which is what `diff` reports; a count in the source row turns amber when an
-  MCP server, plugin or hook waits.
+- The map's target names come from `status --json` and `diff --json`. A target's count is what
+  `diff` reports for skills and agents, plus each MCP server, plugin or hook that waits on it.
 
 Overview lists only what needs you: what waits for a sync, what has an update, hook notices, and
 machines that are behind once the Machines tab has read them. Library lists everything by kind,

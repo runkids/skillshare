@@ -236,8 +236,10 @@ export function targetDrift(diff) {
 
 // Every target of the shown scopes and what still waits on it, most waiting first:
 // { known, list: [{ name, n }], scopes }. raw: { [scope]: { diff, targets } }; diff leaves out targets
-// that share another's folder, so targets adds the configured names. known: a diff answered; scopes: the ones with a waiting target.
-export function targetList(raw, scope = "all") {
+// that share another's folder, so targets adds the configured names. diff counts skills and agents only, so a waiting MCP
+// server, plugin or hook in items adds one to each target it waits on. known: a diff answered;
+// scopes: the ones with a waiting target.
+export function targetList(raw, scope = "all", items = []) {
   const by = new Map();
   let known = false;
   const scopes = [];
@@ -246,6 +248,10 @@ export function targetList(raw, scope = "all") {
     if (raw[s]?.diff?.targets) known = true;
     for (const x of targetDrift(raw[s]?.diff)) { by.set(x.name, (by.get(x.name) ?? 0) + x.n); if (x.n && !scopes.includes(s)) scopes.push(s); }
     for (const name of raw[s]?.targets ?? []) if (!by.has(name)) by.set(name, 0);
+  }
+  for (const i of items) {
+    if (!(scope === "all" || i.scope === scope) || i.notice || !waitsForSync(i) || !["mcp", "plugins", "hooks"].includes(i.kind)) continue;
+    for (const r of previewTargets(i)) if (r.warn && by.has(r.name)) by.set(r.name, by.get(r.name) + 1);
   }
   return { known, scopes, list: [...by].map(([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name)) };
 }
@@ -275,6 +281,29 @@ export function mapLanes(targets, max = 6) {
   if (fine.length > named.length) rows.push({ more: fine.length - named.length, wait: false });
   return rows;
 }
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const andMore = (list) => (list.length <= 2 ? list.map((x) => x.name).join(" and ") : `${list[0].name}, ${list[1].name} and ${list.length - 2} more`);
+
+// Overview's answer in two lines: { kind, headline, sub }, kind one of loading, failed, moving,
+// waiting, ok. pending: rows Sync would act on; lag: targets with something waiting.
+export function overviewAnswer({ loading, failed, error, moving, pending = 0, lag = [], total = 0, targets = 0 }) {
+  if (loading) return { kind: "loading", headline: "Reading skillshare", sub: "one moment" };
+  if (failed) return { kind: "failed", headline: "skillshare could not be read", sub: error ?? "" };
+  if (moving) return { kind: "moving", headline: lag.length ? `Syncing ${plural(lag.length, "target")}` : "Syncing", sub: lag.length ? andMore(lag) : "every target" };
+  if (pending || lag.length) {
+    return { kind: "waiting", headline: lag.length ? `${plural(lag.length, "target")} need${lag.length === 1 ? "s" : ""} a sync` : `${plural(pending, "resource")} to sync`,
+      sub: pending ? `${plural(pending, "resource")} waiting${lag.length ? ` for ${andMore(lag)}` : ""}` : `waiting on ${andMore(lag)}` };
+  }
+  return { kind: "ok", headline: "Everything is in sync", sub: `${plural(total, "resource")} · ${plural(targets, "target")}` };
+}
+
+// A machine card's remote line, and the targets that wait on it by name (max at most).
+export function remoteLine(git) {
+  const dirty = git?.files?.length ?? 0;
+  return [git?.behind ? `↓${git.behind} behind` : null, dirty ? `${dirty} uncommitted` : null, git?.ahead ? `↑${git.ahead} to push` : null].filter(Boolean).join(" · ") || "up to date";
+}
+export const waitingNames = (waits, max = 3) => waits.slice(0, max).map((x) => `${x.name} ${x.n}`).join(" · ") + (waits.length > max ? ` · +${waits.length - max} more` : "");
 
 // A machine with uncommitted or unpushed work and an upstream: a plain pull would refuse, so it syncs both ways.
 export const needsBothWays = (git) => Boolean((git?.files?.length || git?.ahead) && git?.upstream);
@@ -398,8 +427,9 @@ export function rowState(item, showScope) {
 
 // The targets a skill or an agent can go to in its scope, by name. one: raw[scope], whose
 // skillTargets and agentTargets come from status; a target the item waits on is always one.
+// diff's targets stand in only when status named none: diff also lists targets that take agents alone.
 export function eligibleTargets(item, one) {
-  const base = item.kind === "agents" ? one?.agentTargets ?? [] : [...(one?.diff?.targets ?? []).map((x) => x.name), ...(one?.skillTargets ?? [])];
+  const base = item.kind === "agents" ? one?.agentTargets ?? [] : one?.skillTargets?.length ? one.skillTargets : (one?.diff?.targets ?? []).map((x) => x.name);
   return [...new Set([...base, ...(item.state === "off" ? [] : item.targets ?? [])])].sort();
 }
 

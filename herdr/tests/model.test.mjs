@@ -4,7 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseGitStatus, sourceLine, driftFrom, targetDrift, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, skillChoices, newerVersion, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, rowState, previewTargets, splitFrontmatter, mcpServer, targetList, mapLanes, needsBothWays, READ_SKILL, eligibleTargets, syncScopes } from "../skillshare/mods/skillshare/model.js";
+import { parseGitStatus, sourceLine, driftFrom, targetDrift, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, skillChoices, newerVersion, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, rowState, previewTargets, splitFrontmatter, mcpServer, targetList, mapLanes, needsBothWays, READ_SKILL, eligibleTargets, syncScopes, overviewAnswer, remoteLine, waitingNames } from "../skillshare/mods/skillshare/model.js";
 
 test("git status reads branch, ahead/behind and files", () => {
   const g = parseGitStatus("top /src\n## main...origin/main [ahead 1, behind 2]\n M a.md\n?? b/SKILL.md\n");
@@ -525,6 +525,10 @@ test("an agent's targets are the ones that take agents", () => {
   assert.deepEqual(eligibleTargets({ kind: "agents", state: "ok", targets: [] }, one), ["claude"]);
   assert.deepEqual(eligibleTargets({ kind: "agents", state: "sync", targets: ["cursor"] }, one), ["claude", "cursor"]);
   assert.deepEqual(eligibleTargets({ kind: "skills", state: "ok" }, one), ["claude", "codex"]);
+  // diff also lists a target that takes agents alone; a skill does not go there
+  const agentsOnly = { diff: { targets: [{ name: "claude", items: [] }, { name: "x", items: [] }] }, skillTargets: ["claude"], agentTargets: ["claude", "x"] };
+  assert.deepEqual(eligibleTargets({ kind: "skills", state: "ok" }, agentsOnly), ["claude"]);
+  assert.deepEqual(eligibleTargets({ kind: "skills", state: "ok" }, { diff: agentsOnly.diff }), ["claude", "x"]);
 });
 
 test("Sync runs in every scope with a waiting row or a waiting target", () => {
@@ -540,4 +544,34 @@ test("with nothing waiting, Sync runs in the shown scopes", () => {
   const raw = { global: { diff: { targets: [] } }, project: { diff: { targets: [] } } };
   assert.deepEqual(syncScopes([{ scope: "global", kind: "skills", state: "ok" }], raw), ["global", "project"]);
   assert.deepEqual(syncScopes([], raw, "project"), ["project"]);
+});
+
+test("a waiting MCP server, plugin or hook shows on the targets it waits on", () => {
+  const raw = { global: { diff: { targets: [{ name: "claude", items: [] }, { name: "codex", items: [] }] }, targets: ["claude", "codex", "cursor"] } };
+  const items = [
+    { scope: "global", kind: "mcp", state: "sync", targets: ["claude", "codex"], reason: "pending in codex: create" },
+    { scope: "global", kind: "hooks", state: "sync", targets: ["claude"], changes: [{ target: "claude", action: "add" }, { target: "git", action: "add" }] },
+    { scope: "global", kind: "plugins", state: "ok", targets: ["cursor"], reason: "" },
+  ];
+  assert.deepEqual(targetList(raw, "all", items).list, [{ name: "claude", n: 1 }, { name: "codex", n: 1 }, { name: "cursor", n: 0 }]);
+  assert.deepEqual(targetList(raw, "project", items).list, []);
+});
+
+test("Overview's answer agrees with what waits", () => {
+  const lag = [{ name: "claude", n: 2 }, { name: "codex", n: 1 }, { name: "pi", n: 1 }];
+  assert.deepEqual(overviewAnswer({ loading: true }), { kind: "loading", headline: "Reading skillshare", sub: "one moment" });
+  assert.deepEqual(overviewAnswer({ failed: true, error: "config not found" }), { kind: "failed", headline: "skillshare could not be read", sub: "config not found" });
+  assert.deepEqual(overviewAnswer({ pending: 4, lag }), { kind: "waiting", headline: "3 targets need a sync", sub: "4 resources waiting for claude, codex and 1 more" });
+  assert.deepEqual(overviewAnswer({ pending: 0, lag: lag.slice(0, 1) }), { kind: "waiting", headline: "1 target needs a sync", sub: "waiting on claude" });
+  assert.deepEqual(overviewAnswer({ pending: 1 }), { kind: "waiting", headline: "1 resource to sync", sub: "1 resource waiting" });
+  assert.deepEqual(overviewAnswer({ moving: true, pending: 2, lag: lag.slice(0, 2) }), { kind: "moving", headline: "Syncing 2 targets", sub: "claude and codex" });
+  assert.deepEqual(overviewAnswer({ total: 88, targets: 6 }), { kind: "ok", headline: "Everything is in sync", sub: "88 resources · 6 targets" });
+});
+
+test("a machine card says what its remote and its targets wait for", () => {
+  assert.equal(remoteLine({ behind: 2, files: ["a"], ahead: 1 }), "↓2 behind · 1 uncommitted · ↑1 to push");
+  assert.equal(remoteLine({ files: [] }), "up to date");
+  const waits = ["a", "b", "c", "d"].map((name, i) => ({ name, n: i + 1 }));
+  assert.equal(waitingNames(waits), "a 1 · b 2 · c 3 · +1 more");
+  assert.equal(waitingNames(waits.slice(0, 2)), "a 1 · b 2");
 });
