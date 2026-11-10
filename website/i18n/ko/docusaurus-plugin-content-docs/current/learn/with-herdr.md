@@ -39,12 +39,13 @@ Read ~/.config/herdr-app/AGENTS.md, then add this layout: herdr.dev/layouts/runk
 
 패널은 Herdr가 보여 주는 space를 따라가며, 그 space의 머신에서 포커스된 터미널의 폴더를 기준으로 skillshare를 실행합니다.
 
-- **Resources**는 skills, agents, MCP 서버, plugins, hooks를 "Updates available", "Needs sync", "In sync"로 나누어 보여 줍니다. `.skillshare/config.yaml`이 있는 프로젝트에서는 All · Project · Global로 범위를 고릅니다. 비활성화된 항목은 기본적으로 숨겨지며, "In sync"의 Show disabled로 표시할 수 있고 선택은 저장됩니다. skills와 agents는 "In sync"에서 같은 저장소의 항목을 접을 수 있는 그룹으로 묶으며, List로 바꾸면 목록으로 보여 줍니다.
-- **행**은 그 자리에서 펼쳐집니다. skills와 agents에는 Update, Diff, Uninstall, 그리고 확인 후 해당 항목을 Herdr에서 포커스된 에이전트에 넘기는 "Ask &lt;agent&gt; to audit…"가 있습니다. 최상위에 선언된 hooks는 확인 후 Enable, Disable, Remove를 제공하며, 저장된 변경은 Sync로 적용합니다.
-- hooks 개수에는 이름이 있는 항목과 정리 대기 항목이 포함되며, 진단 알림은 같은 필터를 따르고 항목이 0개여도 별도로 표시됩니다. 파일이 동기화되어도 비활성 이유를 표시하며, 중첩 행에는 전체 프로젝트 경로를 표시합니다. 네이티브 파일만 변경된 경우에도 Sync를 제공하며, hooks 충돌은 CLI나 대시보드에서 해결할 때까지 모든 리소스의 동기화를 차단합니다. 미리보기에 실패하면 항목은 그룹 밖에서 동기화 상태를 알 수 없음으로 표시되며, 범위별 오류 알림을 하나 표시합니다.
+- **Overview**는 먼저 답을 보여 줍니다. "Everything is in sync"이거나, 동기화가 필요한 타깃의 수와 Sync 버튼 하나입니다. 그 아래에는 source에 있는 종류별 개수와 각 타깃으로 이어지는 줄이 있어 어느 타깃이 대기 중인지 알 수 있습니다. 탭의 나머지에는 처리가 필요한 것만 나열합니다. 동기화를 기다리는 항목, 업데이트가 있는 항목, hooks 알림입니다. `.skillshare/config.yaml`이 있는 프로젝트에서는 탭 옆의 All · Project · Global로 범위를 고릅니다.
+- **Library**는 skills, agents, MCP 서버, plugins, hooks를 "Needs sync", "Update available", "In sync"로 나누고, 비활성화된 항목은 "Off"로 묶어 보여 줍니다. skills와 agents는 "In sync"에서 같은 저장소의 항목을 접을 수 있는 그룹으로 묶으며, List로 바꾸면 목록으로 보여 줍니다.
+- **행**을 열면 미리보기가 나타납니다. skill은 `SKILL.md`와 파일을, MCP 서버는 비밀 값을 가린 설정을 보여 주고, 미리보기의 Targets 탭은 타깃별 상태를 보여 줍니다. skills와 agents에는 Update, Diff, Uninstall, 그리고 확인 후 해당 항목을 Herdr에서 포커스된 에이전트에 넘기는 "Ask &lt;agent&gt; to audit…"가 있습니다. 최상위에 선언된 hooks는 확인 후 Enable, Disable, Remove를 제공하며, 저장된 변경은 Sync로 적용합니다.
+- hooks 개수에는 이름이 있는 항목과 정리 대기 항목이 포함되며, 진단 알림은 별도의 행으로 표시됩니다. hooks 충돌은 CLI나 대시보드에서 해결할 때까지 모든 리소스의 동기화를 차단합니다. 계획을 읽을 수 없으면 항목은 그룹 밖에서 동기화 상태를 알 수 없음으로 표시됩니다.
 - **Install**은 저장소 URL을 받습니다. skills가 여러 개인 저장소는 목록에서 고를 수 있습니다. 패널은 클론에 [`skillshare audit`](/docs/reference/commands/audit)을 실행하고 통과한 경우에만 설치합니다. audit에 막히면 findings와 함께 "Install anyway"(`--force`)와 "Ask &lt;agent&gt; to review…"를 보여 줍니다.
 - **Source**는 source 저장소의 상태를 보여 주며, 대화상자에서 Pull, Commit and push, Sync both ways를 제공합니다. 두 머신이 모두 바꾼 파일 때문에 pull이 멈추면, 좌우 비교 미리보기에서 파일마다 남길 버전을 고릅니다. `.metadata.json`은 [`skillshare pull`](/docs/reference/commands/pull)과 같은 방식으로 항목별로 병합됩니다.
-- **Machines**는 Herdr 각 머신의 skillshare 버전, source 상태, doctor 경고를 보여 주고, Pull and sync와 새 릴리스가 있을 때 Update를 제공합니다.
+- **Machines**는 Herdr 각 머신의 skillshare 버전, remote, source, 타깃 상태와 doctor 경고를 보여 주고, Pull and sync와 새 릴리스가 있을 때 Update를 제공합니다. 커밋하지 않았거나 push하지 않은 변경이 있는 머신에는 일반 pull이 거부되므로 대신 Sync both ways를 제공합니다.
 
 패널은 표시되는 동안 20초마다 새로 고치고 10분마다 `skillshare check`를 실행하며, 숨겨져 있을 때는 아무것도 하지 않습니다.
 

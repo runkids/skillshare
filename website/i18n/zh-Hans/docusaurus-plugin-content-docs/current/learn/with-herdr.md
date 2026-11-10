@@ -39,12 +39,13 @@ tab bar 会出现 **skillshare** 按钮，用来显示或隐藏面板。切换 s
 
 面板跟随 Herdr 显示的 space，在该 space 的机器上、聚焦中 terminal 的文件夹里运行 skillshare。
 
-- **Resources** 列出 skills、agents、MCP servers、plugins 和 hooks，分为“Updates available”“Needs sync”“In sync”三组。在有 `.skillshare/config.yaml` 的项目中，可以用 All · Project · Global 切换 scope。已禁用的项目默认隐藏，可以用“In sync”的 Show disabled 显示，并记住你的选择。对于 skills 和 agents，“In sync”会把同一个仓库的项目收进可折叠的分组；切换到 List 则显示为平铺列表。
-- **行**会就地展开。skills 和 agents 提供 Update、Diff、Uninstall，以及“Ask &lt;agent&gt; to audit…”：确认后把该项交给 Herdr 中聚焦的 agent。 顶层声明的 hooks 提供 Enable、Disable 和 Remove，每项都先确认；Sync 会应用保存的更改。
-- hooks 计数包含具名条目和待清理条目；诊断通知使用相同筛选条件，零条目时也会单独显示。文件已同步时仍显示无法运行的原因，嵌套行显示完整项目路径。仅原生文件需要更改时也提供 Sync；hooks 冲突会阻止所有资源同步，需先在 CLI 或仪表板中解决。 预览失败时，条目会在分组外显示同步状态未知，每个范围显示一条错误通知。
+- **Overview** 先给出答案：“Everything is in sync”，或者有多少个 target 需要同步，并提供一个 Sync 按钮。下面列出 source 中每种资源的数量，以及通向每个 target 的一行，可以看出哪些 target 在等待同步。标签页其余部分只列出需要你处理的内容：等待同步的、有更新的，以及 hooks 通知。在有 `.skillshare/config.yaml` 的项目中，标签页旁边的 All · Project · Global 可以切换 scope。
+- **Library** 列出 skills、agents、MCP servers、plugins 和 hooks，分为“Needs sync”“Update available”“In sync”三组，已禁用的项目归入“Off”。对于 skills 和 agents，“In sync”会把同一个仓库的项目收进可折叠的分组；切换到 List 则显示为平铺列表。
+- **行**会打开预览。skill 显示其 `SKILL.md` 和文件，MCP server 显示隐藏了密钥值的设置，预览的 Targets 标签页显示各 target 的状态。skills 和 agents 提供 Update、Diff、Uninstall，以及“Ask &lt;agent&gt; to audit…”：确认后把该项交给 Herdr 中聚焦的 agent。顶层声明的 hooks 提供 Enable、Disable 和 Remove，每项都先确认；Sync 会应用保存的更改。
+- hooks 计数包含具名条目和待清理条目；诊断通知有单独的行。hooks 冲突会阻止所有资源同步，需先在 CLI 或仪表板中解决。无法读取计划时，条目会在分组外显示同步状态未知。
 - **Install** 接受仓库 URL。包含多个 skills 的仓库会列出清单供你挑选。面板会先 clone，对 clone 运行 [`skillshare audit`](/docs/reference/commands/audit)，通过才安装。audit 拦下时会显示 findings，并提供“Install anyway”（`--force`）和“Ask &lt;agent&gt; to review…”。
 - **Source** 显示 source 仓库的状态，对话框提供 Pull、Commit and push 和 Sync both ways。pull 遇到两台机器都改过的文件时，可以从左右对照预览逐个文件选择要保留的版本。`.metadata.json` 会逐条合并，与 [`skillshare pull`](/docs/reference/commands/pull) 的做法相同。
-- **Machines** 显示每台 Herdr 机器的 skillshare 版本、source 状态和 doctor 警告，提供 Pull and sync；有新版本时也提供 Update。
+- **Machines** 显示每台 Herdr 机器的 skillshare 版本、remote、source 和 target 状态以及 doctor 警告，提供 Pull and sync；有新版本时也提供 Update。有未提交或未推送更改的机器会改为提供 Sync both ways，因为普通的 pull 会被拒绝。
 
 面板显示时每 20 秒刷新一次，每 10 分钟运行 `skillshare check`，隐藏时不做任何事。
 

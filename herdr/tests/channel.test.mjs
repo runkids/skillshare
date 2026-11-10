@@ -64,3 +64,9 @@ test("a busy value left by an older panel reads as free", () => {
   store.set(BUSY, "Syncing global…");
   assert.equal(panel.claim(null, "Installing…"), true);
 });
+
+test("a machine's own work reads back by machine", () => {
+  const { list: [panel] } = channels();
+  panel.claim("mini", "Syncing global…");
+  assert.deepEqual([panel.textAt("mini"), panel.textAt(null)], ["Syncing global…", null]);
+});
