@@ -2,7 +2,7 @@
 // their output reads, and what to tell the person. No Herdr imports and no view state: main.js
 // takes the lock, shows progress and the result, and the tests pass a fake machine.
 import {
-  hookArgs, failure, parseJSON, lastLine, flag, PANEL_UPDATE, CONFLICTS, ABORT, RESOLVE, PREVIEW, METADATA_STAGES, METADATA_WRITE,
+  hookArgs, toggleArgs, failure, parseJSON, lastLine, flag, PANEL_UPDATE, CONFLICTS, ABORT, RESOLVE, PREVIEW, METADATA_STAGES, METADATA_WRITE,
   mergeMetadata, parseStages, parsePreview, diffSides,
 } from "./model.js";
 
@@ -65,6 +65,23 @@ const OPS = {
     step(`Saving ${req.item.label}…`);
     const r = await job(args, at(req, req.item.scope));
     return outcome(r, "Saved. Sync applies it.", "skillshare hooks");
+  },
+
+  async toggle(req, { job, step }) {
+    const it = req.item, args = toggleArgs(it, req.action);
+    if (!args) return error("This action is unavailable.");
+    step(`${req.action === "enable" ? "Enabling" : "Disabling"} ${it.label}…`);
+    const r = await job(args, at(req, it.scope));
+    if (r.code !== 0) return error(failure(r, `skillshare ${req.action}`));
+    // Exit 0 only says the entry's own line was written. A glob, a folder pattern or a negation in
+    // the .local file can still decide the other way, so the list is what answers.
+    const kind = it.kind === "agents" ? "agent" : "skill", want = req.action === "disable";
+    const now = (parseJSON((await job(["list", "--all", "--json", flag(it.scope)], at(req, it.scope))).stdout) ?? []).find?.((x) => (x.kind ?? "skill") === kind && (x.relPath ?? x.name) === it.path);
+    if (now && Boolean(now.disabled) !== want) {
+      const file = kind === "agent" ? ".agentignore" : ".skillignore";
+      return error(`${it.label} is still ${want ? "enabled" : "disabled"}: another pattern in ${file} or ${file}.local decides it. Edit that file.`);
+    }
+    return done(want ? `Disabled ${it.label}. The next sync removes it from your targets.` : `Enabled ${it.label}. The next sync sends it to your targets.`);
   },
 
   async uninstall(req, { job, step }) {

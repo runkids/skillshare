@@ -10,7 +10,7 @@ you use. This panel puts it beside your agents in [Herdr](https://herdr.dev):
   in the source and a line to every target that shows which ones are waiting.
 - **Read before you act.** Click any row to preview it: a skill's `SKILL.md` and files, an agent, an
   MCP server's settings with secret values hidden, a hook, a plugin, and the targets each goes to.
-- **Fix it without leaving Herdr.** Update, sync, uninstall, or install from a URL; every install
+- **Fix it without leaving Herdr.** Update, sync, enable or disable, uninstall, or install from a URL; every install
   is audited first, and a blocked one shows its findings before anything is written.
 - **Ask your agent.** Hand an audit of any skill to the focused agent.
 - **Every machine.** The Machines tab shows each Herdr machine's version, its remote, source and

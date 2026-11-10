@@ -1,6 +1,6 @@
 # Herdr + skillshare
 
-skillshare beside your agents. Herdr's default window gains a skillshare button in the tab bar and a panel beside the work area that shows which of your skills, agents, MCP servers, plugins and hooks need an update or a sync, in the focused space's project and in your global source. From the panel you update, sync, install from a URL with an audit first, uninstall, ask the focused agent to audit something, sync the source repository both ways, and check skillshare on every Herdr machine.
+skillshare beside your agents. Herdr's default window gains a skillshare button in the tab bar and a panel beside the work area that shows which of your skills, agents, MCP servers, plugins and hooks need an update or a sync, in the focused space's project and in your global source. From the panel you update, sync, install from a URL with an audit first, enable or disable a skill or agent, uninstall, ask the focused agent to audit something, sync the source repository both ways, and check skillshare on every Herdr machine.
 
 ![Herdr + skillshare](preview.png)
 
@@ -30,7 +30,7 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
   - a 40px footer: the source state, such as "Source · n uncommitted · ↑n ↓n", "up to date" or "no remote" (`blocked` when it needs attention), and Sync both ways when the repository has an upstream.
 - Loading draws the content's own shape: the map with empty counts and four lines, list rows, machine cards. Each pulses once every 1.2 s.
 - Motion is Herdr's native kind: the status line's height slides (180 ms) so the list does not jump, a waiting line breathes and a syncing one flows, a dialog fades in and rises 8px (200 ms) and fades out (150 ms) before it closes, and buttons and rows show a pressed state.
-- Dialogs open as Herdr overlays with `frame: "none"`, so each draws its own card: a 56px header (title, one line under it, an Esc keycap and a close button), the body, and a 54px footer with quiet actions at the left and one primary button at the right. They are: preview, install, hook change, uninstall, audit hand-off, source repository, sync both ways, pull conflicts, update skillshare, update the panel, command output.
+- Dialogs open as Herdr overlays with `frame: "none"`, so each draws its own card: a 56px header (title, one line under it, an Esc keycap and a close button), the body, and a 54px footer with quiet actions at the left and one primary button at the right. They are: preview, install, hook change, enable or disable, uninstall, audit hand-off, source repository, sync both ways, pull conflicts, update skillshare, update the panel, command output.
   - Preview (760×560) has one tab per question, so no pane shares its width:
     - Document (Settings for an MCP server, Definition for a hook, About for a plugin): a skill's `SKILL.md` rendered as Markdown, with a file list at the left only when the skill has other files; an agent's file; an MCP server's transport, command, arguments and the names of its env, headers and token; a hook's description, agents and native files; a plugin's source and version.
     - Targets n (Agents n for hooks and plugins): the item on top and a line down to each target, as on Overview.
@@ -45,7 +45,7 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
 - Clicking a row opens its preview. Its footer holds what you can do:
   - skills and agents that have an update offer Update, and skills also See changes;
   - skills and agents that need a sync offer Diff;
-  - skills and agents offer Uninstall, and "Ask <agent> to audit…" when Herdr knows an agent: the one focused, or the last one focused;
+  - skills and agents offer Disable, or Enable when disabled (`skillshare disable` / `enable` with the entry's own path, `--kind agent` for an agent; the next sync applies it), Uninstall, and "Ask <agent> to audit…" when Herdr knows an agent: the one focused, or the last one focused;
   - top-level declared hooks offer Enable, Disable and Remove;
   - MCP and plugin previews have no actions; Sync handles them.
 - A preview reads on the item's machine: the skill's file names (40 at most) and the first 60 kB of the file shown, an agent's `.md`, or the MCP source file `mcp list --json` names. Env, header and bearer-token values are replaced before the dialog gets them, so it shows names only.
@@ -61,7 +61,7 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
   - Commit and push with a commit message field when files are uncommitted, or Push n commits when only commits are waiting.
 - When a pull stops on files both machines changed, the conflict dialog shows each file's two versions with the differing lines marked. You keep one version per file and then apply. `.metadata.json` merges per entry the way skillshare's own pull does, so only real files ask.
 - The panel updates itself. `version.js` holds the skillshare release it shipped with. Once an hour while shown it asks, on this computer, where `github.com/runkids/skillshare/releases/latest` lands, and offers "Update panel" when that release is newer. The update clones only `herdr/skillshare/mods/skillshare` at that tag, checks that `mods/skillshare` in Herdr's home holds this panel's version, copies the current files once to the mod folder's `.bak-update-<version>`, and copies the new files in with `main.js` after its modules and `version.js` last. Herdr reloads the panel, and the new build says "Updated the panel to v…". The layout is not touched.
-- Hook changes (Enable, Disable and Remove), Uninstall, the audit hand-off, conflict choices, updating skillshare itself and updating the panel each ask first. Sync applies hook changes through `sync --all`.
+- Hook changes (Enable, Disable and Remove), enabling or disabling a skill or agent, Uninstall, the audit hand-off, conflict choices, updating skillshare itself and updating the panel each ask first. Sync applies hook changes through `sync --all`.
 
 ## Built from
 
@@ -110,6 +110,8 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
 - If a `skillshare` mod is already installed, rename this one and the `mod` names in the layout.
 - Saving a mod's file reloads it and ends the running build's tasks, so the build that starts a panel update never sees it finish. It leaves `{ to, at }` in `shared`, and the build whose `version.js` matches reports the result and gives the lock back. That is why `version.js` is copied last, why the button hides while any work runs, and why the update holds the lock of every machine until the reloaded panel gives it back: work started on another machine meanwhile would lose its remaining steps.
 - The dialog's role is `panelupdate`: `panel` is the role a block without one gets, so a dialog with it would draw a second panel.
+- `enable` and `disable` exit 0 once the entry's own line in `.skillignore` or `.agentignore` is written or was not there. A glob, a folder pattern or a negation in the `.local` file can still decide the other way, so the panel reads `list --all --json` afterwards and reports an entry that did not change.
+- The dialog role for enabling or disabling a skill or agent is `able`, not `toggle`: `toggle` is the tab-bar button's role.
 - A layout clone is never updated: rebuild from this recipe on a new Herdr version.
 
 ## Done when
