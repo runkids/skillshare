@@ -47,7 +47,7 @@ tab bar 會出現 **skillshare** 按鈕，用來顯示或隱藏面板。切換 s
 
 - **Overview** 先給出答案：「Everything is in sync」，或是有多少個 target 需要同步，並提供一個 Sync 按鈕。下面列出 source 中每種資源的數量，以及通往每個 target 的一列，可以看出哪些 target 在等待同步。分頁其餘部分只列出需要你處理的內容：等待同步的、有更新的，以及 hooks 通知。在有 `.skillshare/config.yaml` 的專案裡，分頁旁邊的 All · Project · Global 可以切換 scope。
 - **Library** 列出 skills、agents、MCP servers、plugins 和 hooks，分成「Needs sync」、「Update available」、「In sync」三組，已停用的項目歸入「Off」。對於 skills 和 agents，「In sync」會把同一個 repo 的項目收進可收合的分組；切換到 List 則顯示為平鋪清單。
-- **列**會開啟預覽。skill 顯示其 `SKILL.md` 和檔案，MCP server 顯示隱藏了機密值的設定，預覽的 Targets 分頁顯示各 target 的狀態。skills 和 agents 提供 Update、Diff、Uninstall，以及「Ask &lt;agent&gt; to audit…」：確認後把該項目交給 Herdr 中聚焦的 agent。頂層宣告的 hooks 提供 Enable、Disable 和 Remove，每項都先確認；Sync 會套用儲存的變更。
+- **列**會開啟預覽。skill 顯示其 `SKILL.md` 和檔案，MCP server 顯示隱藏了機密值的設定，預覽的 Targets 分頁顯示各 target 的狀態。skills 和 agents 提供 Update、Diff、Disable（已停用的則是 Enable；下次 sync 時套用）、Uninstall，以及「Ask &lt;agent&gt; to audit…」：確認後把該項目交給 Herdr 中聚焦的 agent。頂層宣告的 hooks 提供 Enable、Disable 和 Remove，每項都先確認；Sync 會套用儲存的變更。
 - hooks 計數包含具名項目和待清理項目；診斷通知有獨立的列。hooks 衝突會阻止所有資源同步，需先在 CLI 或儀表板中解決。無法讀取計畫時，項目會在分組外顯示同步狀態未知。
 - **Install** 接受 repository URL。含多個 skills 的 repository 會列出清單讓你挑選。面板會先 clone，對 clone 執行 [`skillshare audit`](/docs/reference/commands/audit)，通過才安裝。audit 擋下時會顯示 findings，並提供「Install anyway」（`--force`）和「Ask &lt;agent&gt; to review…」。
 - **Source** 顯示 source repository 的狀態，對話框提供 Pull、Commit and push 和 Sync both ways。pull 遇到兩台機器都改過的檔案時，可以從左右對照預覽逐檔挑選要保留的版本。`.metadata.json` 會逐筆合併，與 [`skillshare pull`](/docs/reference/commands/pull) 的做法相同。

@@ -2,7 +2,7 @@
 // what needs an update or a sync, install from a URL, and git sync of the source both ways.
 // Roles (props.role): the panel (default); "toggle", the tab-bar button that shows or hides the
 // layout's "skillshare-panel" node; dialogs: "install", "uninstall", "audit", "source",
-// "syncboth", "conflict", "upgrade", "panelupdate", "text", "hook". Dialogs hand long work to the panel through
+// "syncboth", "conflict", "upgrade", "panelupdate", "text", "hook", "able". Dialogs hand long work to the panel through
 // channel.js, because an overlay's tasks end when it closes. Install is the exception: its dialog
 // shows each step and takes the machine's lock itself, and the install runs detached, so closing
 // the dialog does not stop it.
@@ -11,7 +11,7 @@ import { v_flex, h_flex, InputState, Input, TextView } from "gpui-base";
 import { exec, hc, run, spaces, agents, focused, machines, shared, setShared, theme, settings, layout, openOverlay, closeOverlay, nextCommand, readTextFile, knownAgents, props as blockProps } from "herdr";
 import {
   KINDS, SCOPES, DISCOVER, AUDIT,
-  parseJSON, lastLine, failure, flag, sourceLine, buildItems, hookArgs, rowState, previewTargets, eligibleTargets, targetList, waitsForSync, syncScopes, overviewAnswer, remoteLine, waitingNames, mapLanes, needsBothWays, filterItems, groupItems, sourceGroups, counts,
+  parseJSON, lastLine, failure, flag, sourceLine, buildItems, hookArgs, toggleArgs, rowState, previewTargets, eligibleTargets, targetList, waitsForSync, syncScopes, overviewAnswer, remoteLine, waitingNames, mapLanes, needsBothWays, filterItems, groupItems, sourceGroups, counts,
   cloneUrl, skillChoices, newerVersion, panelUpdate, updateState, ago, auditMessage, parseDiscover, parseAudit,
 } from "./model.js";
 import { createRunner } from "./jobs.js";
@@ -903,10 +903,10 @@ export default class Skillshare extends View {
       if (p.agent) lead.push(dialogButton("audit", `Ask ${p.agent.name} to audit…`, t, then({ width: 480, height: 380, props: { role: "audit", address: p.agent.address, name: p.agent.name, item: it, text: auditMessage(it) } })));
       lead.push(textButton("uninstall", "Uninstall", t, then({ width: 440, height: 230, props: { role: "uninstall", item: it, on: p.on, project: p.project } }), t.ansi1));
     }
-    for (const action of ["enable", "disable", "remove"]) {
-      if (!hookArgs(it, action)) continue;
-      const label = action[0].toUpperCase() + action.slice(1), open = then({ width: 440, height: 230, props: { role: "hook", item: it, action, on: p.on, project: p.project } });
-      lead.push(action === "remove" ? textButton("hook-remove", label, t, open, t.ansi1) : dialogButton(`hook-${action}`, label, t, open));
+    for (const [role, args] of [["able", toggleArgs], ["hook", hookArgs]]) for (const action of ["enable", "disable", "remove"]) {
+      if (!args(it, action)) continue;
+      const label = action[0].toUpperCase() + action.slice(1), open = then({ width: 440, height: 230, props: { role, item: it, action, on: p.on, project: p.project } });
+      lead.push(action === "remove" ? textButton(`${role}-remove`, label, t, open, t.ansi1) : dialogButton(`${role}-${action}`, label, t, open));
     }
     const buttons = [];
     if (it.state === "update" && skillish) {
@@ -925,10 +925,12 @@ export default class Skillshare extends View {
     const request = (op) => { if (!this.gone) channel.request(op); }; // nothing more is asked once it is closing
     if (p.role === "preview") return this.renderPreview(t, p, close);
     if (p.role === "install") return this.renderInstall(t, p, () => { this.closed = true; this.dropClone(p); close(); });
-    if (p.role === "hook") {
-      const it = p.item, label = p.action[0].toUpperCase() + p.action.slice(1);
-      const wording = { enable: "Publishes it again on the next sync.", disable: "Keeps the definition; the next sync removes its owned outputs.", remove: "Deletes the entry; the next sync prunes its owned outputs." };
-      const go = () => { request({ op: "hook", on: p.on, project: p.project, item: it, action: p.action }); close(); };
+    if (p.role === "hook" || p.role === "able") { // "able": a skill or agent; "toggle" is the tab-bar button's role
+      const it = p.item, hook = p.role === "hook", label = p.action[0].toUpperCase() + p.action.slice(1);
+      const wording = hook
+        ? { enable: "Publishes it again on the next sync.", disable: "Keeps the definition; the next sync removes its owned outputs.", remove: "Deletes the entry; the next sync prunes its owned outputs." }
+        : { enable: "The next sync sends it to your targets again.", disable: "Keeps it in the source; the next sync removes it from your targets." };
+      const go = () => { request({ op: hook ? "hook" : "toggle", on: p.on, project: p.project, item: it, action: p.action }); close(); };
       return dialogFrame(t, "hook", this.handle, `${label} “${it.label}”?`,
         [note(t, `${it.scope} · ${p.on ?? "local"}`), note(t, wording[p.action], t.foreground)],
         [dialogButton("cancel", "Cancel", t, close), dialogButton("go", label, t, go, p.action === "remove" ? "danger" : undefined)], close, null);
