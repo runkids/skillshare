@@ -445,6 +445,21 @@ export function optimistic(items, req, project = req.project) {
   return items;
 }
 
+// The panel keeps every request from the click until a read newer than its end has landed.
+// These four decide what that list holds; main.js only stores it.
+// The rows to show on machine `on`: what was read, with that machine's requests laid over it.
+export const shownRows = (read, pending, on, project) => pending.filter((r) => (r.on ?? null) === (on ?? null)).reduce((items, r) => optimistic(items, r, project), read);
+// The requests a read starting now is newer than. One that ends later is not in that read.
+export const endedRequests = (pending) => pending.filter((r) => r.ended);
+// After a read's list has landed. ended: endedRequests when it started; checking: the same read
+// also runs the update checks. An update shows in the checks, so its request stays (late) until
+// afterChecks. Anything still ended in what is left needs one more read.
+export function afterRead(pending, ended, checking) {
+  const late = checking ? ended.filter((r) => r.op === "update") : [];
+  return { pending: pending.filter((r) => !ended.includes(r) || late.includes(r)), late };
+}
+export const afterChecks = (pending, late) => pending.filter((r) => !late.includes(r));
+
 // A row's one short state; everything longer is in its preview.
 export function rowState(item, showScope) {
   const pre = showScope ? `${item.scope} · ` : "";

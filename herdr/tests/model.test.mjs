@@ -4,7 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseGitStatus, sourceLine, driftFrom, targetDrift, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, skillChoices, newerVersion, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, rowState, previewTargets, splitFrontmatter, mcpServer, targetList, mapLanes, needsBothWays, READ_SKILL, eligibleTargets, syncScopes, overviewAnswer, remoteLine, waitingNames, releaseTag, panelUpdate, updateState, PANEL_UPDATE, toggleArgs, optimistic } from "../skillshare/mods/skillshare/model.js";
+import { parseGitStatus, sourceLine, driftFrom, targetDrift, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, skillChoices, newerVersion, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, rowState, previewTargets, splitFrontmatter, mcpServer, targetList, mapLanes, needsBothWays, READ_SKILL, eligibleTargets, syncScopes, overviewAnswer, remoteLine, waitingNames, releaseTag, panelUpdate, updateState, PANEL_UPDATE, toggleArgs, optimistic, shownRows, endedRequests, afterRead, afterChecks } from "../skillshare/mods/skillshare/model.js";
 import { VERSION } from "../skillshare/mods/skillshare/version.js";
 
 test("git status reads branch, ahead/behind and files", () => {
@@ -700,4 +700,37 @@ test("another project's rows are left alone", () => {
 test("Update all marks every row of that kind and scope that has an update", () => {
   const rows = optimistic(held("global"), { op: "update", updates: [{ kind: "skills", scope: "global", all: true }] });
   assert.deepEqual(states(rows), ["archify:updating", "figlens:sync", "draft:off"]);
+});
+
+// The panel's requests while one read runs: `ended` is what had ended when the read started.
+const uninstall = (items, more = {}) => ({ op: "uninstall", item: items[0], ...more });
+
+test("a request that ends while a read runs outlives that read and asks for another", () => {
+  const items = held("global"), req = uninstall(items);
+  const ended = endedRequests([req]); // the read starts while the request still runs
+  req.ended = true;
+  const left = afterRead([req], ended, false).pending;
+  assert.deepEqual([left, endedRequests(left).length, states(shownRows(items, left, null, null))], [[req], 1, ["figlens:sync", "draft:off"]]);
+});
+
+test("a read that started after a request ended replaces its rows", () => {
+  const req = uninstall(held("global"), { ended: true });
+  assert.deepEqual(afterRead([req], endedRequests([req]), true), { pending: [], late: [] });
+});
+
+test("an update's rows wait for the checks that the same read brings", () => {
+  const items = held("global"), req = { op: "update", ended: true, updates: [{ kind: "skills", scope: "global", name: "archify" }] };
+  const { pending, late } = afterRead([req], endedRequests([req]), true);
+  assert.deepEqual([states(shownRows(items, pending, null, null)), afterChecks(pending, late), afterRead([req], [req], false).pending],
+    [["archify:updating", "figlens:sync", "draft:off"], [], []]);
+});
+
+test("a failed request dropped from the list puts its rows back", () => {
+  const items = held("global"), req = uninstall(items);
+  assert.deepEqual([states(shownRows(items, [req], null, null)).length, states(shownRows(items, [], null, null)).length], [2, 3]);
+});
+
+test("a request on another machine does not touch this machine's rows", () => {
+  const items = held("global");
+  assert.equal(shownRows(items, [uninstall(items, { on: "mac-mini" })], null, null).length, 3);
 });

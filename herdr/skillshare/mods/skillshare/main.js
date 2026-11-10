@@ -11,7 +11,7 @@ import { v_flex, h_flex, InputState, Input, TextView } from "gpui-base";
 import { exec, hc, run, spaces, agents, focused, machines, shared, setShared, theme, settings, layout, openOverlay, closeOverlay, nextCommand, readTextFile, knownAgents, props as blockProps } from "herdr";
 import {
   KINDS, SCOPES, DISCOVER, AUDIT,
-  parseJSON, lastLine, failure, flag, sourceLine, buildItems, optimistic, hookArgs, toggleArgs, rowState, previewTargets, eligibleTargets, targetList, waitsForSync, syncScopes, overviewAnswer, remoteLine, waitingNames, mapLanes, needsBothWays, filterItems, groupItems, sourceGroups, counts,
+  parseJSON, lastLine, failure, flag, sourceLine, buildItems, shownRows, endedRequests, afterRead, afterChecks, hookArgs, toggleArgs, rowState, previewTargets, eligibleTargets, targetList, waitsForSync, syncScopes, overviewAnswer, remoteLine, waitingNames, mapLanes, needsBothWays, filterItems, groupItems, sourceGroups, counts,
   cloneUrl, skillChoices, newerVersion, panelUpdate, updateState, ago, auditMessage, parseDiscover, parseAudit,
 } from "./model.js";
 import { createRunner } from "./jobs.js";
@@ -308,7 +308,7 @@ export default class Skillshare extends View {
     const ctx = this.ctx;
     if (!ctx || this.loading) return;
     this.loading = true;
-    const token = this.token, ended = this.pending.filter((r) => r.ended); // this read is newer than these requests
+    const token = this.token, ended = endedRequests(this.pending);
     cx.spawn(async (cx) => {
       try {
         const { on, folder, spaceFolder } = ctx;
@@ -320,22 +320,21 @@ export default class Skillshare extends View {
         const res = await loadResources(io, on, project, network);
         if (token !== this.token) return;
         this.raw = res.raw; this.git = res.git; this.version = res.version ?? this.version; this.error = res.error;
-        // An update shows in the checks, which land after the list: its rows wait for them.
-        const late = wantCheck ? ended.filter((r) => r.op === "update") : [];
-        this.pending = this.pending.filter((r) => !ended.includes(r) || late.includes(r));
+        const { pending, late } = afterRead(this.pending, ended, wantCheck);
+        this.pending = pending;
         this.rebuild(); this.loadedAt = Date.now();
         cx.notify();
         if (wantCheck) {
           this.checkKey = `${on}:${project}`; this.checkedAt = Date.now();
           const checks = await loadChecks(io, on, project);
           if (token !== this.token) return;
-          this.checks = checks; this.pending = this.pending.filter((r) => !late.includes(r));
+          this.checks = checks; this.pending = afterChecks(this.pending, late);
           this.rebuild(); cx.notify();
         }
-      } catch (e) { this.error = String(e?.message ?? e); this.pending = this.pending.filter((r) => !ended.includes(r)); this.rebuild(); cx.notify(); } finally {
+      } catch (e) { this.error = String(e?.message ?? e); this.pending = afterRead(this.pending, ended, false).pending; this.rebuild(); cx.notify(); } finally {
         if (token === this.token) this.loading = false;
         // A request that ended while this read ran is not in it: read again, or its rows stay a guess.
-        if (token === this.token && this.pending.some((r) => r.ended)) this.refresh(cx, false);
+        if (token === this.token && endedRequests(this.pending).length) this.refresh(cx, false);
       }
     });
   }
@@ -351,8 +350,7 @@ export default class Skillshare extends View {
 
   rebuild() {
     const read = Object.entries(this.raw).flatMap(([scope, r]) => buildItems(scope, { ...r, ...(this.checks[scope] ?? {}) }));
-    // Requests still running, or ended and not yet read back, show their outcome on this machine's rows.
-    this.items = this.pending.filter((r) => (r.on ?? null) === (this.ctx?.on ?? null)).reduce((items, r) => optimistic(items, r, this.project), read);
+    this.items = shownRows(read, this.pending, this.ctx?.on, this.project);
   }
 
   // ---- Work handed over by dialogs, and the panel's own buttons ----
