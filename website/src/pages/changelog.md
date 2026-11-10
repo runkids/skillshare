@@ -9,6 +9,28 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.30.4] - 2026-11-10
+
+
+### New Features
+
+* **herdr:** answer "what needs me" first and preview every row ([#836](https://github.com/runkids/skillshare/issues/836)) ([819546f](https://github.com/runkids/skillshare/commit/819546f12467c0fd63032f458b5e3c96604c4df2))
+* **herdr:** enable and disable skills and agents from the panel ([#843](https://github.com/runkids/skillshare/issues/843)) ([833373f](https://github.com/runkids/skillshare/commit/833373f1a72ed2a99ed64559ca08e2e5ab216cf9))
+* **herdr:** let the panel update itself from the latest release ([#839](https://github.com/runkids/skillshare/issues/839)) ([4be28c1](https://github.com/runkids/skillshare/commit/4be28c12588316df1f97ce1c1236100ae38afe7d))
+* **herdr:** name the targets behind a collapsed map line on hover ([#842](https://github.com/runkids/skillshare/issues/842)) ([22b9096](https://github.com/runkids/skillshare/commit/22b90966a1270e8aa651ca5ed7d2eddf8d87a5e7))
+* **herdr:** show an operation's outcome before skillshare answers ([#844](https://github.com/runkids/skillshare/issues/844)) ([68fd285](https://github.com/runkids/skillshare/commit/68fd28597fe3ee2585fefc8d558090a8a89cea9d))
+
+
+### Bug Fixes
+
+* **audit:** resolve a nested skill's references against its own root ([#845](https://github.com/runkids/skillshare/issues/845)) ([bce18d2](https://github.com/runkids/skillshare/commit/bce18d2e19b5513605b0d5553d1017e78a2e0a53)), closes [#834](https://github.com/runkids/skillshare/issues/834)
+* **cli:** report why uninstall and install fail under --json ([#835](https://github.com/runkids/skillshare/issues/835)) ([816938c](https://github.com/runkids/skillshare/commit/816938c09c90080042791dc9aad0a0bfdd263674))
+* **herdr:** align install discovery with CLI planning ([#841](https://github.com/runkids/skillshare/issues/841)) ([709f5ce](https://github.com/runkids/skillshare/commit/709f5ce8962cb89cdd69fbee86ea8151c673c173)), closes [#838](https://github.com/runkids/skillshare/issues/838)
+* **herdr:** keep the header pill clear of the Update panel button ([#840](https://github.com/runkids/skillshare/issues/840)) ([4776ca7](https://github.com/runkids/skillshare/commit/4776ca7ada5d728403cc3a81c460faf3471c697c))
+* **install:** report why an install failed in --json output ([#831](https://github.com/runkids/skillshare/issues/831)) ([176a236](https://github.com/runkids/skillshare/commit/176a236249ffcc0df0fdf04f8647290a265e0e8b))
+* **plugin:** let OMP and Pi plugin updates through without uninstalling ([#833](https://github.com/runkids/skillshare/issues/833)) ([#837](https://github.com/runkids/skillshare/issues/837)) ([4556438](https://github.com/runkids/skillshare/commit/455643857556e77a741b4cd1b065bf8c3173d09e))
+* **ui:** prevent rows bleeding through sticky toolbar edge ([#830](https://github.com/runkids/skillshare/issues/830)) ([5da2b49](https://github.com/runkids/skillshare/commit/5da2b49bfb29c83acc2676595f344971d7febf92))
+
 ## [0.30.3] - 2026-11-10
 
 ### New Features
