@@ -3,7 +3,7 @@
 // and the tests pass a fake machine.
 //   io.job(args, { on, cwd, script }): skillshare (or a script of ours) run detached;
 //   io.run(args, { on, cwd }): a short read; io.sh(script, args, on): one exec of a script.
-import { SNAPSHOT, parseSnapshot, GIT_STATUS, PROJECT, READ_SKILL, READ_FILE, parseJSON, failure, flag, parseGitStatus, driftFrom, targetDrift, splitFrontmatter, mcpServer } from "./model.js";
+import { SNAPSHOT, parseSnapshot, GIT_STATUS, PROJECT, READ_SKILL, READ_FILE, LATEST_RELEASE, releaseTag, parseJSON, failure, flag, parseGitStatus, driftFrom, targetDrift, splitFrontmatter, mcpServer } from "./model.js";
 
 const scopesOf = (project) => (project ? ["project", "global"] : ["global"]);
 const at = (on, project, scope) => ({ on, cwd: scope === "project" ? project : null });
@@ -63,6 +63,12 @@ export async function loadMachine(io, on) {
     doctor: d?.summary ?? null, targets: (st?.targets ?? []).filter((x) => x.skills_enabled !== false).length,
     drift: driftFrom(df).size, pending: targetDrift(df).filter((x) => x.n), git,
   };
+}
+
+// The latest published skillshare release ("v1.2.3"), asked from this computer; null when GitHub
+// can't be reached.
+export async function loadLatestRelease({ sh }) {
+  return releaseTag((await sh(LATEST_RELEASE)).stdout);
 }
 
 // What a preview shows beyond the row: a skill's files and SKILL.md, an agent's file, or an MCP

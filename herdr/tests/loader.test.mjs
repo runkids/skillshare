@@ -4,8 +4,8 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { findProject, loadResources, loadMachine, loadPreview, loadFile } from "../skillshare/mods/skillshare/loader.js";
-import { SNAPSHOT, GIT_STATUS, READ_SKILL, READ_FILE } from "../skillshare/mods/skillshare/model.js";
+import { findProject, loadResources, loadMachine, loadLatestRelease, loadPreview, loadFile } from "../skillshare/mods/skillshare/loader.js";
+import { SNAPSHOT, GIT_STATUS, READ_SKILL, READ_FILE, LATEST_RELEASE } from "../skillshare/mods/skillshare/model.js";
 
 // A fake machine answering by command: `jobs` and `runs` keyed by skillshare args joined by
 // spaces (a snapshot by its scope flag), `scripts` by script. `seen` records each call's options.
@@ -97,4 +97,10 @@ test("another file of a skill is Markdown only when its name says so", async () 
 test("a skill with more files than the list holds still offers SKILL.md", async () => {
   const { io } = machine({ runs: { "status --json -g": { stdout: JSON.stringify({ source: { path: "/src" } }) } }, scripts: { [READ_SKILL]: { stdout: "assets/a.png\n@@\nBody\n" } } });
   assert.deepEqual((await loadPreview(io, null, null, { kind: "skills", scope: "global", rel: "x" })).files, ["SKILL.md", "assets/a.png"]);
+});
+
+test("the latest release is the tag GitHub's link lands on, or none when it can't be reached", async () => {
+  const up = machine({ scripts: { [LATEST_RELEASE]: { stdout: "https://github.com/runkids/skillshare/releases/tag/v0.31.0" } } });
+  const down = machine({ scripts: { [LATEST_RELEASE]: { code: 6, stdout: "" } } });
+  assert.deepEqual([await loadLatestRelease(up.io), await loadLatestRelease(down.io)], ["v0.31.0", null]);
 });

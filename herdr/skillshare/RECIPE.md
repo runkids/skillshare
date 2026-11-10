@@ -13,7 +13,7 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
 - **Sidebar**, 268px: Herdr's own brand bar, Spaces, Agents and footer.
 - **Work column**: the tab bar row, now `tabs` (weight 1) beside a 118px `skillshare-toggle` block. The toggle draws the 16px skillshare mark and "skillshare", on `selected` while the panel shows. Under it the shown tab and Herdr's Files/Changes side panel, then the status bar.
 - **skillshare panel**, a 400px column (380–720px, the narrowest the tab row fits) right of the work area, top to bottom:
-  - a 44px header: the mark, "skillshare", a pill with the folder (or "global" outside a project) and the machine, the CLI version in `muted`, and a close button;
+  - a 44px header: the mark, "skillshare", a pill with the folder (or "global" outside a project) and the machine, an "Update panel" button when a newer skillshare release is published and nothing is running, the CLI version in `muted`, and a close button;
   - Overview, Library and Machines tabs, the shown one underlined in `foreground`. At the row's right, a skillshare project gets an All · Project · Global switch that Overview and Library share; outside a project it says "Global". On Machines the same place says when the machines were last checked.
   - Overview:
     - a headline with its mark: "Reading skillshare", "Everything is in sync", "n targets need a sync" (or "n resources to sync" when only MCP servers, plugins or hooks wait), or "Syncing n targets"; a primary Sync button while something waits;
@@ -30,7 +30,7 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
   - a 40px footer: the source state, such as "Source · n uncommitted · ↑n ↓n", "up to date" or "no remote" (`blocked` when it needs attention), and Sync both ways when the repository has an upstream.
 - Loading draws the content's own shape: the map with empty counts and four lines, list rows, machine cards. Each pulses once every 1.2 s.
 - Motion is Herdr's native kind: the status line's height slides (180 ms) so the list does not jump, a waiting line breathes and a syncing one flows, a dialog fades in and rises 8px (200 ms) and fades out (150 ms) before it closes, and buttons and rows show a pressed state.
-- Dialogs open as Herdr overlays with `frame: "none"`, so each draws its own card: a 56px header (title, one line under it, an Esc keycap and a close button), the body, and a 54px footer with quiet actions at the left and one primary button at the right. They are: preview, install, hook change, uninstall, audit hand-off, source repository, sync both ways, pull conflicts, update skillshare, command output.
+- Dialogs open as Herdr overlays with `frame: "none"`, so each draws its own card: a 56px header (title, one line under it, an Esc keycap and a close button), the body, and a 54px footer with quiet actions at the left and one primary button at the right. They are: preview, install, hook change, uninstall, audit hand-off, source repository, sync both ways, pull conflicts, update skillshare, update the panel, command output.
   - Preview (760×560) has one tab per question, so no pane shares its width:
     - Document (Settings for an MCP server, Definition for a hook, About for a plugin): a skill's `SKILL.md` rendered as Markdown, with a file list at the left only when the skill has other files; an agent's file; an MCP server's transport, command, arguments and the names of its env, headers and token; a hook's description, agents and native files; a plugin's source and version.
     - Targets n (Agents n for hooks and plugins): the item on top and a line down to each target, as on Overview.
@@ -60,7 +60,8 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
   - Pull, which stays disabled while there are uncommitted changes or nothing to pull;
   - Commit and push with a commit message field when files are uncommitted, or Push n commits when only commits are waiting.
 - When a pull stops on files both machines changed, the conflict dialog shows each file's two versions with the differing lines marked. You keep one version per file and then apply. `.metadata.json` merges per entry the way skillshare's own pull does, so only real files ask.
-- Hook changes (Enable, Disable and Remove), Uninstall, the audit hand-off, conflict choices and updating skillshare itself each ask first. Sync applies hook changes through `sync --all`.
+- The panel updates itself. `version.js` holds the skillshare release it shipped with. Once an hour while shown it asks, on this computer, where `github.com/runkids/skillshare/releases/latest` lands, and offers "Update panel" when that release is newer. The update clones only `herdr/skillshare/mods/skillshare` at that tag, checks that `mods/skillshare` in Herdr's home holds this panel's version, copies the current files once to the mod folder's `.bak-update-<version>`, and copies the new files in with `main.js` after its modules and `version.js` last. Herdr reloads the panel, and the new build says "Updated the panel to v…". The layout is not touched.
+- Hook changes (Enable, Disable and Remove), Uninstall, the audit hand-off, conflict choices, updating skillshare itself and updating the panel each ask first. Sync applies hook changes through `sync --all`.
 
 ## Built from
 
@@ -75,6 +76,7 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
   - `channel.js` passes requests from dialogs to the panel through `shared`, with one lock per machine and the notice line.
   - `operations.js` holds the commands each request runs and the conflict handling of a pull.
   - `loader.js` reads the panel's data, the Machines cards and what a preview shows.
+  - `version.js` is the panel's version; Release Please rewrites it in every release.
   - `mark.svg` is the 16px mark, and `icons/` holds the stroke icons and the `omp` and `universal` marks.
 - Herdr functions:
   - `exec` with `on`;
@@ -85,17 +87,20 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
 - Commands: `layout.toggle`, `layout.hide`, `agent.focus`.
 - Programs:
   - `skillshare` (found in `~/.local/bin`, `~/go/bin`, `/opt/homebrew/bin` or `/usr/local/bin`);
-  - `git`, which clones the install URL you type from the network;
+  - `git`, which clones the install URL you type from the network, and the skillshare repository for a panel update;
+  - `curl`, which asks GitHub for the latest release;
   - `find`, `sed`, `sort` and `head` to list a previewed skill's files and read the first 60 kB of one;
-  - `sh`, `mktemp`, `find` and `rm` for temp folders (`rm -rf` only on folders it made with `mktemp -d`, named `skillshare-panel.*`);
+  - `sh`, `mktemp`, `find` and `rm` for temp folders (`rm -rf` only on folders it made with `mktemp -d`, named `skillshare-panel.*`, and on an unfinished `.bak-update-<version>.tmp` in its own folder);
+  - `cp`, `mkdir`, `mv` and `grep` for a panel update;
   - `setsid` where it exists, `sleep`, `cat`, `kill -0`, `ps` and `grep` to run long commands detached and check they still run;
   - `hc send` for the audit hand-off.
 - Files read: the temp folders it made, through `readTextFile`; and, for a preview, the skill, agent or MCP source file you opened.
+- Files written: on a panel update, its own folder in Herdr's home (`mods/skillshare/`, with `.bak-update-<version>` inside).
 - Its look is Herdr's: theme tokens only, no theme or fonts of its own.
 
 ## Watch out
 
-- Herdr stops an `exec` after 30 s. Long commands (the list snapshot, check, doctor, install, update, sync, pull, push, upgrade) run detached into a temp folder on that machine, and the panel polls for their exit code. Herdr ends an exec's whole process group when it returns, and hangs up programs that still carry the exec's `HC_SCOPE`, so each job drops `HC_SCOPE` and gets its own group (`setsid`, or sh job control where `setsid` is missing, as on macOS). The panel checks every 5 s that the job still runs, and reports "skillshare stopped before it finished" when it was killed instead of waiting the full 15 minutes. A panel closed mid-job never collects the result, so the first job on each machine removes `skillshare-panel.*` folders unchanged for 15 minutes whose job no longer runs.
+- Herdr stops an `exec` after 30 s. Long commands (the list snapshot, check, doctor, install, update, sync, pull, push, upgrade, the panel update) run detached into a temp folder on that machine, and the panel polls for their exit code. Herdr ends an exec's whole process group when it returns, and hangs up programs that still carry the exec's `HC_SCOPE`, so each job drops `HC_SCOPE` and gets its own group (`setsid`, or sh job control where `setsid` is missing, as on macOS). The panel checks every 5 s that the job still runs, and reports "skillshare stopped before it finished" when it was killed instead of waiting the full 15 minutes. A panel closed mid-job never collects the result, so the first job on each machine removes `skillshare-panel.*` folders unchanged for 15 minutes whose job no longer runs.
 - The CLI has no JSON for git state. Git state comes from `git status --porcelain=v1 --branch`.
 - The CLI's install dry-run does not list a repository's skills, and `install --json` names a blocked skill without its findings. That is why the install dialog clones and audits on its own.
 - `install --json` overwrites a skill of the same name. The dialog asks before replacing one.
@@ -103,6 +108,8 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
 - `cx.notify()` throws during `render`, and `cx.spawn` runs its body up to its first `await` at once, so work started from `render` waits for the render to end first (`later`). Otherwise the error is swallowed and the button does nothing.
 - QuickJS rejects `??` mixed with `||` or `&&` without parentheses. `herdr-app check` catches it; `node --check` does not.
 - If a `skillshare` mod is already installed, rename this one and the `mod` names in the layout.
+- Saving a mod's file reloads it and ends the running build's tasks, so the build that starts a panel update never sees it finish. It leaves `{ to, at }` in `shared`, and the build whose `version.js` matches reports the result and gives the lock back. That is why `version.js` is copied last, why the button hides while any work runs, and why the update holds the lock of every machine until the reloaded panel gives it back: work started on another machine meanwhile would lose its remaining steps.
+- The dialog's role is `panelupdate`: `panel` is the role a block without one gets, so a dialog with it would draw a second panel.
 - A layout clone is never updated: rebuild from this recipe on a new Herdr version.
 
 ## Done when
@@ -112,3 +119,4 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
 - The tab bar shows Files, Changes and skillshare. The skillshare button shows the panel, and a second click hides it. Switching spaces keeps it as it was.
 - In a skillshare project the tab row shows the All · Project · Global switch. Outside one it says "Global" and shows the global source.
 - Clicking a row opens its preview, and Esc fades it out.
+- With `version.js` set below the latest release, the header shows "Update panel" within a minute of the panel showing; confirming replaces the files, keeps `.bak-update-<version>`, and the reloaded panel says "Updated the panel to v…".

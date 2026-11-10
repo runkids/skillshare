@@ -35,6 +35,12 @@ Read ~/.config/herdr-app/AGENTS.md, then add this layout: herdr.dev/layouts/runk
 
 탭 바에 **skillshare** 버튼이 나타나 패널을 표시하거나 숨깁니다. space를 전환해도 패널의 열림 상태는 그대로 유지됩니다.
 
+## 패널 업데이트
+
+패널은 표시되는 동안 한 시간에 한 번 GitHub에 최신 skillshare 릴리스를 확인합니다. 새 릴리스가 게시되면 패널 헤더에 **Update panel**이 나타납니다. 먼저 확인을 받은 뒤 `~/.config/herdr-app/mods/skillshare/`의 파일을 해당 릴리스에 포함된 파일로 교체하고, Herdr가 패널을 다시 불러옵니다. 교체된 파일은 그 폴더의 `.bak-update-<version>`에 보관됩니다. 그 파일에 직접 한 변경은 유지되지 않습니다. 레이아웃은 바뀌지 않습니다.
+
+이 버튼이 생기기 전에 설치한 패널은 업데이트를 확인하지 않습니다. 최신 릴리스의 `mods/skillshare/`를 `~/.config/herdr-app/mods/skillshare/`에 한 번 직접 덮어써 주세요. 이후 업데이트는 버튼으로 할 수 있습니다.
+
 ## 패널 기능
 
 패널은 Herdr가 보여 주는 space를 따라가며, 그 space의 머신에서 포커스된 터미널의 폴더를 기준으로 skillshare를 실행합니다.
