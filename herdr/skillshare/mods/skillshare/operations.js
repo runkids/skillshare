@@ -2,7 +2,7 @@
 // their output reads, and what to tell the person. No Herdr imports and no view state: main.js
 // takes the lock, shows progress and the result, and the tests pass a fake machine.
 import {
-  hookArgs, failure, parseJSON, lastLine, flag, CONFLICTS, ABORT, RESOLVE, PREVIEW, METADATA_STAGES, METADATA_WRITE,
+  hookArgs, failure, parseJSON, lastLine, flag, PANEL_UPDATE, CONFLICTS, ABORT, RESOLVE, PREVIEW, METADATA_STAGES, METADATA_WRITE,
   mergeMetadata, parseStages, parsePreview, diffSides,
 } from "./model.js";
 
@@ -147,6 +147,12 @@ const OPS = {
   async upgrade(req, { job, step }, on) {
     step(`Updating skillshare on ${req.label}…`);
     return { ...outcome(await job(["upgrade", "--cli", "--force"], { on }), `Updated skillshare on ${req.label}`, "skillshare upgrade"), machines: true };
+  },
+
+  // The panel's own files, always on this computer: Herdr's home is here, whatever machine is shown.
+  async panel(req, { job, step }) {
+    step(`Updating the panel to ${req.to}…`);
+    return outcome(await job([req.to, req.from], { on: null, script: PANEL_UPDATE }), `Updated the panel to ${req.to}`, "The panel update");
   },
 
   async text(req, { run, step }, on) {

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createChannel, BUSY } from "../skillshare/mods/skillshare/channel.js";
+import { createChannel, BUSY, EVERY } from "../skillshare/mods/skillshare/channel.js";
 
 // A channel over an in-memory map, standing in for Herdr's shared values. One map shared by
 // several channels is the panel and a dialog.
@@ -63,4 +63,19 @@ test("a busy value left by an older panel reads as free", () => {
   const { store, list: [panel] } = channels();
   store.set(BUSY, "Syncing global…");
   assert.equal(panel.claim(null, "Installing…"), true);
+});
+
+test("a machine's own work reads back by machine", () => {
+  const { list: [panel] } = channels();
+  panel.claim("mini", "Syncing global…");
+  assert.deepEqual([panel.textAt("mini"), panel.textAt(null)], ["Syncing global…", null]);
+});
+
+test("a lock on every machine waits for all work and then holds each machine", () => {
+  const { list: [ch] } = channels();
+  ch.claim("mini", "Syncing…");
+  const early = ch.claim(EVERY, "Updating the panel…");
+  ch.release("mini");
+  const taken = ch.claim(EVERY, "Updating the panel…");
+  assert.deepEqual([early, taken, ch.busyAt(null), ch.claim("mini", "Syncing…"), ch.textAt("mini")], [false, true, true, false, "Updating the panel…"]);
 });

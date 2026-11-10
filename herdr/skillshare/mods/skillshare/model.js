@@ -227,6 +227,86 @@ export function driftFrom(diff) {
   return out;
 }
 
+// What each target still needs, most first: [{ name, n }]; n is 0 for a target in sync.
+export function targetDrift(diff) {
+  return (diff?.targets ?? []).map((t) => ({ name: t.name, n: (t.items ?? []).filter((i) => i.is_sync).length }))
+    .sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+}
+
+// Every target of the shown scopes and what still waits on it, most waiting first:
+// { known, list: [{ name, n }], scopes }. raw: { [scope]: { diff, targets } }; diff leaves out targets
+// that share another's folder, so targets adds the configured names. diff counts skills and agents only, so a waiting MCP
+// server, plugin or hook in items adds one to each target it waits on. known: a diff answered;
+// scopes: the ones with a waiting target.
+export function targetList(raw, scope = "all", items = []) {
+  const by = new Map();
+  let known = false;
+  const scopes = [];
+  for (const s of Object.keys(raw ?? {})) {
+    if (scope !== "all" && s !== scope) continue;
+    if (raw[s]?.diff?.targets) known = true;
+    for (const x of targetDrift(raw[s]?.diff)) { by.set(x.name, (by.get(x.name) ?? 0) + x.n); if (x.n && !scopes.includes(s)) scopes.push(s); }
+    for (const name of raw[s]?.targets ?? []) if (!by.has(name)) by.set(name, 0);
+  }
+  for (const i of items) {
+    if (!(scope === "all" || i.scope === scope) || i.notice || !waitsForSync(i) || !["mcp", "plugins", "hooks"].includes(i.kind)) continue;
+    for (const r of previewTargets(i)) if (r.warn && by.has(r.name)) by.set(r.name, by.get(r.name) + 1);
+  }
+  return { known, scopes, list: [...by].map(([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name)) };
+}
+
+// A row Sync would act on: a waiting resource, or a hook notice with native changes.
+export const waitsForSync = (i) => (i.notice ? Boolean(i.pending) : i.state === "sync" || i.state === "missing");
+
+// The scopes Sync runs in for the shown scope: every one with a waiting row or a waiting target
+// (a target can wait with no row left, as after an uninstall); with nothing waiting, the shown ones.
+export function syncScopes(items, raw, scope = "all") {
+  const shown = (s) => scope === "all" || s === scope;
+  const out = new Set(items.filter((i) => shown(i.scope) && waitsForSync(i)).map((i) => i.scope));
+  for (const s of targetList(raw, scope).scopes) out.add(s);
+  if (!out.size) for (const s of Object.keys(raw ?? {})) if (shown(s)) out.add(s);
+  return [...out].sort();
+}
+
+// The map's lines, max at most: waiting targets first, then the ones in sync. What does not fit
+// becomes a count: [{ name, n, wait } | { more, wait }].
+export function mapLanes(targets, max = 6) {
+  const pending = targets.filter((x) => x.n), fine = targets.filter((x) => !x.n);
+  const slots = fine.length ? max - 1 : max;
+  const rows = (pending.length <= slots ? pending : pending.slice(0, slots - 1)).map((x) => ({ name: x.name, n: x.n, wait: true }));
+  if (pending.length > rows.length) rows.push({ more: pending.length - rows.length, wait: true });
+  const room = max - rows.length, named = fine.length <= room ? fine : fine.slice(0, room - 1);
+  rows.push(...named.map((x) => ({ name: x.name, n: 0, wait: false })));
+  if (fine.length > named.length) rows.push({ more: fine.length - named.length, wait: false });
+  return rows;
+}
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const andMore = (list) => (list.length <= 2 ? list.map((x) => x.name).join(" and ") : `${list[0].name}, ${list[1].name} and ${list.length - 2} more`);
+
+// Overview's answer in two lines: { kind, headline, sub }, kind one of loading, failed, moving,
+// waiting, ok. pending: rows Sync would act on; lag: targets with something waiting.
+export function overviewAnswer({ loading, failed, error, moving, pending = 0, lag = [], total = 0, targets = 0 }) {
+  if (loading) return { kind: "loading", headline: "Reading skillshare", sub: "one moment" };
+  if (failed) return { kind: "failed", headline: "skillshare could not be read", sub: error ?? "" };
+  if (moving) return { kind: "moving", headline: lag.length ? `Syncing ${plural(lag.length, "target")}` : "Syncing", sub: lag.length ? andMore(lag) : "every target" };
+  if (pending || lag.length) {
+    return { kind: "waiting", headline: lag.length ? `${plural(lag.length, "target")} need${lag.length === 1 ? "s" : ""} a sync` : `${plural(pending, "resource")} to sync`,
+      sub: pending ? `${plural(pending, "resource")} waiting${lag.length ? ` for ${andMore(lag)}` : ""}` : `waiting on ${andMore(lag)}` };
+  }
+  return { kind: "ok", headline: "Everything is in sync", sub: `${plural(total, "resource")} · ${plural(targets, "target")}` };
+}
+
+// A machine card's remote line, and the targets that wait on it by name (max at most).
+export function remoteLine(git) {
+  const dirty = git?.files?.length ?? 0;
+  return [git?.behind ? `↓${git.behind} behind` : null, dirty ? `${dirty} uncommitted` : null, git?.ahead ? `↑${git.ahead} to push` : null].filter(Boolean).join(" · ") || "up to date";
+}
+export const waitingNames = (waits, max = 3) => waits.slice(0, max).map((x) => `${x.name} ${x.n}`).join(" · ") + (waits.length > max ? ` · +${waits.length - max} more` : "");
+
+// A machine with uncommitted or unpushed work and an upstream: a plain pull would refuse, so it syncs both ways.
+export const needsBothWays = (git) => Boolean((git?.files?.length || git?.ahead) && git?.upstream);
+
 const shortSource = (s) => String(s ?? "").replace(/^https?:\/\//, "").replace(/\.git(\/|$)/, "$1").replace(/\/$/, "");
 
 // One scope's rows for every kind. `raw` holds each command's parsed JSON (missing ones are null).
@@ -331,27 +411,103 @@ export function hookArgs(item, action) {
   return ["hooks", action, item.name, item.scope === "project" ? "-p" : "-g"];
 }
 
-// The line under a row's name.
-export function rowSub(item, showScope) {
+// A row's one short state; everything longer is in its preview.
+export function rowState(item, showScope) {
   const pre = showScope ? `${item.scope} · ` : "";
-  if (item.kind === "hooks") {
-    const disabled = item.disabled ? "disabled · " : "";
-    if (!item.notice && item.state === "unknown") return `${pre}${disabled}sync status unknown`;
-    if (item.state === "sync" || item.notice || item.diagnostic) return `${pre}${disabled}${item.reason}`;
-  }
-  if (item.state === "update") return `${pre}${item.version ? item.version.slice(0, 7) + " → newer" : "update available"}${item.behind ? ` · ↓${item.behind}` : ""}`;
-  if (item.state === "missing") return `${pre}not synced yet`;
-  // MCP and plugin reasons name targets; rows leave targets out, so those show in the open row only.
-  if (item.state === "sync") return `${pre}${(item.kind === "skills" || item.kind === "agents" || item.kind === "hooks") && item.reason ? item.reason : "changed since last sync"}`;
+  if (item.notice) return item.scope;
+  const state = { update: "update available", missing: "new", sync: "changed", unknown: "sync status unknown" }[item.state];
+  if (state) return pre + state;
   if (item.state === "off") return `${pre}disabled`;
-  return `${pre}${item.src}${item.version && item.kind === "plugins" ? ` · ${item.version}` : ""}`;
+  if (item.diagnostic) return `${pre}inactive on an agent`;
+  if (item.kind === "mcp" || item.kind === "hooks") { const n = item.targets?.length ?? 0; return `${pre}${n} ${item.kind === "mcp" ? "target" : "agent"}${n === 1 ? "" : "s"}`; }
+  const src = sourceLabel(item).label;
+  return `${pre}${src}${item.version && item.kind === "plugins" ? ` · ${item.version}` : ""}`;
 }
 
-// hideDisabled drops disabled rows that need nothing; a disabled hook with pending changes stays.
-export function filterItems(items, { scope, kind, query, hideDisabled = false }) {
+// The targets a skill or an agent can go to in its scope, by name. one: raw[scope], whose
+// skillTargets and agentTargets come from status; a target the item waits on is always one.
+// diff's targets stand in only when status named none: diff also lists targets that take agents alone.
+export function eligibleTargets(item, one) {
+  const base = item.kind === "agents" ? one?.agentTargets ?? [] : one?.skillTargets?.length ? one.skillTargets : (one?.diff?.targets ?? []).map((x) => x.name);
+  return [...new Set([...base, ...(item.state === "off" ? [] : item.targets ?? [])])].sort();
+}
+
+// Who gets an item and what each still needs, waiting first: [{ name, text, warn }].
+// names: every target of the item's scope, for skills and agents (their rows name only the waiting ones).
+export function previewTargets(item, names = []) {
+  let rows;
+  if (item.kind === "hooks") {
+    const by = new Map((item.targets ?? []).map((n) => [n, { name: n, text: "in sync", warn: false }]));
+    for (const c of item.changes ?? []) if (c.target) by.set(c.target, { name: c.target, text: c.action === "unchanged" ? "in sync" : c.action, warn: !["unchanged", "inactive"].includes(c.action) });
+    rows = [...by.values()];
+  } else if (item.kind === "mcp" || item.kind === "plugins") {
+    const waits = new Map(String(item.reason ?? "").replace(/^pending in /, "").split(", ").filter(Boolean).map((x) => { const [n, a] = x.split(": "); return [n, a ?? "pending"]; }));
+    rows = (item.targets ?? []).map((n) => ({ name: n, text: waits.get(n) ?? "in sync", warn: waits.has(n) }));
+  } else {
+    const waits = new Set(item.targets ?? []);
+    rows = names.map((n) => ({ name: n, text: item.state === "off" ? "disabled" : waits.has(n) ? "needs sync" : "in sync", warn: item.state !== "off" && waits.has(n) }));
+  }
+  return rows.sort((a, b) => Number(b.warn) - Number(a.warn) || a.name.localeCompare(b.name));
+}
+
+// sh -c READ_SKILL <name> <dir>: its files (40 at most), "@@", then SKILL.md's first 60 kB.
+export const READ_SKILL = `cd "$1" 2>/dev/null || exit 3
+find . -type f -not -path './.git/*' | sed 's|^\\./||' | sort | head -40
+echo @@
+head -c 60000 SKILL.md 2>/dev/null`;
+// sh -c READ_FILE <name> <path>: a file's first 60 kB.
+export const READ_FILE = 'head -c 60000 "$1" 2>/dev/null';
+
+// A Markdown file's frontmatter as rows, and the text after it: { meta: [{ key, value }], body }.
+export function splitFrontmatter(text) {
+  const m = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(String(text ?? ""));
+  if (!m) return { meta: [], body: String(text ?? "") };
+  const meta = [];
+  for (const line of m[1].split(/\r?\n/)) {
+    const top = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(line);
+    if (top) meta.push({ key: top[1], value: /^[>|][+-]?$/.test(top[2]) ? "" : top[2].replace(/^(["'])(.*)\1$/, "$2") });
+    else if (meta.length && /^\s+\S/.test(line)) { const last = meta[meta.length - 1]; last.value = `${last.value} ${line.trim().replace(/^- /, "")}`.trim(); }
+  }
+  return { meta, body: String(text ?? "").slice(m[0].length) };
+}
+
+// One server's settings out of the MCP source file, as rows. Values under env, headers and
+// bearerToken are never returned: only their names.
+const SECRET = /^(env|headers|bearerToken)$/, MASK = "••••••••";
+export function mcpServer(text, name) {
+  const lines = String(text ?? "").split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith("#"));
+  const depth = (l) => l.match(/^ */)[0].length, bare = (k) => k.trim().replace(/^(["'])(.*)\1$/, "$2");
+  // The file can hold several server lists (the global one, and one per project root): the first that names it wins.
+  let start = -1, child = null;
+  for (let at = 0; at < lines.length && start < 0; at++) {
+    if (!/^\s*servers:\s*$/.test(lines[at])) continue;
+    child = null;
+    for (let j = at + 1; j < lines.length && depth(lines[j]) > depth(lines[at]); j++) {
+      child ??= depth(lines[j]);
+      if (depth(lines[j]) === child && bare(lines[j].replace(/:\s*$/, "")) === name) { start = j; break; }
+    }
+  }
+  if (start < 0) return null;
+  const rows = [];
+  let field = null;
+  for (let j = start + 1; j < lines.length && depth(lines[j]) > child; j++) {
+    field ??= depth(lines[j]);
+    const s = lines[j].trim(), last = rows[rows.length - 1];
+    if (depth(lines[j]) === field) {
+      const m = /^([^:]+):\s*(.*)$/.exec(s);
+      if (m) rows.push({ key: bare(m[1]), secret: SECRET.test(bare(m[1])), parts: m[2] ? [SECRET.test(bare(m[1])) ? MASK : m[2].replace(/^\[(.*)\]$/, "$1")] : [], inner: null });
+    } else if (last) {
+      last.inner ??= depth(lines[j]);
+      if (depth(lines[j]) !== last.inner) continue;
+      last.parts.push(last.secret ? `${bare(s.replace(/^- /, "").split(":")[0])} = ${MASK}` : bare(s.replace(/^- /, "")));
+    }
+  }
+  return rows.map((r) => ({ key: r.key, value: r.parts.join(r.secret ? ", " : " ") }));
+}
+
+export function filterItems(items, { scope, kind, query }) {
   const q = String(query ?? "").trim().toLowerCase();
   return items.filter((i) => (scope === "all" || i.scope === scope) && (!kind || i.kind === kind)
-    && !(hideDisabled && i.state === "off")
     && (!q || i.name.toLowerCase().includes(q) || i.src.toLowerCase().includes(q)
       || (i.kind === "hooks" && `${i.root ?? ""} ${i.reason ?? ""}`.toLowerCase().includes(q))));
 }
@@ -430,6 +586,47 @@ export function newerVersion(a, b) {
   const x = n(a), y = n(b);
   for (let i = 0; i < 3; i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) > (y[i] ?? 0) ? a : b;
   return a;
+}
+
+// ---- The panel's own update ----
+
+const REPO = "https://github.com/runkids/skillshare";
+// sh -c LATEST_RELEASE: prints where GitHub's "latest release" link lands (…/releases/tag/vX.Y.Z).
+// The link instead of the API: it has no rate limit, and it names only a published release, never
+// the tag of a draft.
+export const LATEST_RELEASE = `curl -fsSLI --max-time 15 -o /dev/null -w '%{url_effective}' ${REPO}/releases/latest`;
+export const releaseTag = (url) => /\/releases\/tag\/(v\d+\.\d+\.\d+)\s*$/.exec(String(url ?? ""))?.[1] ?? null;
+// The release to offer: `latest` when it is newer than this panel, else null.
+export const panelUpdate = (version, latest) => (latest && newerVersion(version, latest) !== version ? latest : null);
+
+// sh -c PANEL_UPDATE <name> <dir> <tag> <from> [repo]: replaces the panel's files in Herdr's home
+// on this computer with the ones release <tag> ships. It first checks the folder holds the
+// running panel (version <from>): a renamed panel leaves another mod under this name. The files it
+// replaces are copied once to .bak-update-<from> inside the folder (hidden, so Herdr does not load
+// it), so a retry keeps the first copy. Herdr reloads the panel on every file it saves, so
+// main.js goes after the modules it imports and version.js last: the build that reads the new
+// version has every new file.
+export const PANEL_UPDATE = `set -e
+tag=$2; from=$3; repo=\${4:-${REPO}.git}; dest="\${HERDR_APP_HOME:-$HOME/.config/herdr-app}/mods/skillshare"
+grep -qsF '"'"$from"'"' "$dest/version.js" || { echo "The panel is not in $dest; update it by hand" >&2; exit 1; }
+t=$(mktemp -d "\${TMPDIR:-/tmp}/skillshare-panel.XXXXXX"); trap 'rm -rf "$t"' EXIT
+export GIT_TERMINAL_PROMPT=0
+{ git clone -q --depth 1 --filter=blob:none --sparse --branch "$tag" "$repo" "$t/repo" && git -C "$t/repo" sparse-checkout set herdr/skillshare/mods/skillshare; } >/dev/null 2>&1 || {
+  rm -rf "$t/repo"; git clone -q --depth 1 --branch "$tag" "$repo" "$t/repo"; }
+src="$t/repo/herdr/skillshare/mods/skillshare"
+[ -f "$src/main.js" ] && [ -f "$src/version.js" ] || { echo "Release $tag has no panel update" >&2; exit 1; }
+bak="$dest/.bak-update-$from"
+[ -d "$bak" ] || { rm -rf "$bak.tmp"; mkdir "$bak.tmp"; cp -R "$dest"/* "$bak.tmp/"; mv "$bak.tmp" "$bak"; }
+for f in "$src"/*; do case "\${f##*/}" in main.js|version.js) ;; *) cp -R "$f" "$dest/" ;; esac; done
+cp "$src/main.js" "$dest/main.js"; cp "$src/version.js" "$dest/version.js"`;
+
+// What a panel update left in shared for the build that loads after it ({ to, at }): "done" when
+// this build is the one it installed, "stale" when the update never finished, else null (it is
+// still copying files).
+export function updateState(record, version, now = Date.now()) {
+  if (!record?.to) return null;
+  if (String(record.to).replace(/^v/, "") === version) return "done";
+  return now - (record.at ?? 0) > JOB_MINUTES * 60 * 1000 ? "stale" : null;
 }
 
 export function ago(ms) {
