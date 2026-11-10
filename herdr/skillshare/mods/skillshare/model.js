@@ -228,6 +228,44 @@ export function driftFrom(diff) {
   return out;
 }
 
+// What each target still needs, most first: [{ name, n }]; n is 0 for a target in sync.
+export function targetDrift(diff) {
+  return (diff?.targets ?? []).map((t) => ({ name: t.name, n: (t.items ?? []).filter((i) => i.is_sync).length }))
+    .sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+}
+
+// Every target of the shown scopes and what still waits on it, most waiting first:
+// { known, list: [{ name, n }], scopes }. raw: { [scope]: { diff, targets } }; diff leaves out targets
+// that share another's folder, so targets adds the configured names. known: a diff answered; scopes: the ones with a waiting target.
+export function targetList(raw, scope = "all") {
+  const by = new Map();
+  let known = false;
+  const scopes = [];
+  for (const s of Object.keys(raw ?? {})) {
+    if (scope !== "all" && s !== scope) continue;
+    if (raw[s]?.diff?.targets) known = true;
+    for (const x of targetDrift(raw[s]?.diff)) { by.set(x.name, (by.get(x.name) ?? 0) + x.n); if (x.n && !scopes.includes(s)) scopes.push(s); }
+    for (const name of raw[s]?.targets ?? []) if (!by.has(name)) by.set(name, 0);
+  }
+  return { known, scopes, list: [...by].map(([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name)) };
+}
+
+// The map's lines, max at most: waiting targets first, then the ones in sync. What does not fit
+// becomes a count: [{ name, n, wait } | { more, wait }].
+export function mapLanes(targets, max = 6) {
+  const pending = targets.filter((x) => x.n), fine = targets.filter((x) => !x.n);
+  const slots = fine.length ? max - 1 : max;
+  const rows = (pending.length <= slots ? pending : pending.slice(0, slots - 1)).map((x) => ({ name: x.name, n: x.n, wait: true }));
+  if (pending.length > rows.length) rows.push({ more: pending.length - rows.length, wait: true });
+  const room = max - rows.length, named = fine.length <= room ? fine : fine.slice(0, room - 1);
+  rows.push(...named.map((x) => ({ name: x.name, n: 0, wait: false })));
+  if (fine.length > named.length) rows.push({ more: fine.length - named.length, wait: false });
+  return rows;
+}
+
+// A machine with uncommitted or unpushed work and an upstream: a plain pull would refuse, so it syncs both ways.
+export const needsBothWays = (git) => Boolean((git?.files?.length || git?.ahead) && git?.upstream);
+
 const shortSource = (s) => String(s ?? "").replace(/^https?:\/\//, "").replace(/\.git(\/|$)/, "$1").replace(/\/$/, "");
 
 // One scope's rows for every kind. `raw` holds each command's parsed JSON (missing ones are null).
@@ -332,27 +370,95 @@ export function hookArgs(item, action) {
   return ["hooks", action, item.name, item.scope === "project" ? "-p" : "-g"];
 }
 
-// The line under a row's name.
-export function rowSub(item, showScope) {
+// A row's one short state; everything longer is in its preview.
+export function rowState(item, showScope) {
   const pre = showScope ? `${item.scope} · ` : "";
-  if (item.kind === "hooks") {
-    const disabled = item.disabled ? "disabled · " : "";
-    if (!item.notice && item.state === "unknown") return `${pre}${disabled}sync status unknown`;
-    if (item.state === "sync" || item.notice || item.diagnostic) return `${pre}${disabled}${item.reason}`;
-  }
-  if (item.state === "update") return `${pre}${item.version ? item.version.slice(0, 7) + " → newer" : "update available"}${item.behind ? ` · ↓${item.behind}` : ""}`;
-  if (item.state === "missing") return `${pre}not synced yet`;
-  // MCP and plugin reasons name targets; rows leave targets out, so those show in the open row only.
-  if (item.state === "sync") return `${pre}${(item.kind === "skills" || item.kind === "agents" || item.kind === "hooks") && item.reason ? item.reason : "changed since last sync"}`;
+  if (item.notice) return item.scope;
+  const state = { update: "update available", missing: "new", sync: "changed", unknown: "sync status unknown" }[item.state];
+  if (state) return pre + state;
   if (item.state === "off") return `${pre}disabled`;
-  return `${pre}${item.src}${item.version && item.kind === "plugins" ? ` · ${item.version}` : ""}`;
+  if (item.diagnostic) return `${pre}inactive on an agent`;
+  if (item.kind === "mcp" || item.kind === "hooks") { const n = item.targets?.length ?? 0; return `${pre}${n} ${item.kind === "mcp" ? "target" : "agent"}${n === 1 ? "" : "s"}`; }
+  const src = sourceLabel(item).label;
+  return `${pre}${src}${item.version && item.kind === "plugins" ? ` · ${item.version}` : ""}`;
 }
 
-// hideDisabled drops disabled rows that need nothing; a disabled hook with pending changes stays.
-export function filterItems(items, { scope, kind, query, hideDisabled = false }) {
+// Who gets an item and what each still needs, waiting first: [{ name, text, warn }].
+// names: every target of the item's scope, for skills and agents (their rows name only the waiting ones).
+export function previewTargets(item, names = []) {
+  let rows;
+  if (item.kind === "hooks") {
+    const by = new Map((item.targets ?? []).map((n) => [n, { name: n, text: "in sync", warn: false }]));
+    for (const c of item.changes ?? []) if (c.target) by.set(c.target, { name: c.target, text: c.action === "unchanged" ? "in sync" : c.action, warn: !["unchanged", "inactive"].includes(c.action) });
+    rows = [...by.values()];
+  } else if (item.kind === "mcp" || item.kind === "plugins") {
+    const waits = new Map(String(item.reason ?? "").replace(/^pending in /, "").split(", ").filter(Boolean).map((x) => { const [n, a] = x.split(": "); return [n, a ?? "pending"]; }));
+    rows = (item.targets ?? []).map((n) => ({ name: n, text: waits.get(n) ?? "in sync", warn: waits.has(n) }));
+  } else {
+    const waits = new Set(item.targets ?? []), all = item.state === "missing";
+    rows = names.map((n) => ({ name: n, text: item.state === "off" ? "disabled" : all || waits.has(n) ? "needs sync" : "in sync", warn: item.state !== "off" && (all || waits.has(n)) }));
+  }
+  return rows.sort((a, b) => Number(b.warn) - Number(a.warn) || a.name.localeCompare(b.name));
+}
+
+// sh -c READ_SKILL <name> <dir>: its files (40 at most), "@@", then SKILL.md's first 60 kB.
+export const READ_SKILL = `cd "$1" 2>/dev/null || exit 3
+find . -type f -not -path './.git/*' | sed 's|^\\./||' | sort | head -40
+echo @@
+head -c 60000 SKILL.md 2>/dev/null`;
+// sh -c READ_FILE <name> <path>: a file's first 60 kB.
+export const READ_FILE = 'head -c 60000 "$1" 2>/dev/null';
+
+// A Markdown file's frontmatter as rows, and the text after it: { meta: [{ key, value }], body }.
+export function splitFrontmatter(text) {
+  const m = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(String(text ?? ""));
+  if (!m) return { meta: [], body: String(text ?? "") };
+  const meta = [];
+  for (const line of m[1].split(/\r?\n/)) {
+    const top = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(line);
+    if (top) meta.push({ key: top[1], value: /^[>|][+-]?$/.test(top[2]) ? "" : top[2].replace(/^(["'])(.*)\1$/, "$2") });
+    else if (meta.length && /^\s+\S/.test(line)) { const last = meta[meta.length - 1]; last.value = `${last.value} ${line.trim().replace(/^- /, "")}`.trim(); }
+  }
+  return { meta, body: String(text ?? "").slice(m[0].length) };
+}
+
+// One server's settings out of the MCP source file, as rows. Values under env, headers and
+// bearerToken are never returned: only their names.
+const SECRET = /^(env|headers|bearerToken)$/, MASK = "••••••••";
+export function mcpServer(text, name) {
+  const lines = String(text ?? "").split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith("#"));
+  const depth = (l) => l.match(/^ */)[0].length, bare = (k) => k.trim().replace(/^(["'])(.*)\1$/, "$2");
+  // The file can hold several server lists (the global one, and one per project root): the first that names it wins.
+  let start = -1, child = null;
+  for (let at = 0; at < lines.length && start < 0; at++) {
+    if (!/^\s*servers:\s*$/.test(lines[at])) continue;
+    child = null;
+    for (let j = at + 1; j < lines.length && depth(lines[j]) > depth(lines[at]); j++) {
+      child ??= depth(lines[j]);
+      if (depth(lines[j]) === child && bare(lines[j].replace(/:\s*$/, "")) === name) { start = j; break; }
+    }
+  }
+  if (start < 0) return null;
+  const rows = [];
+  let field = null;
+  for (let j = start + 1; j < lines.length && depth(lines[j]) > child; j++) {
+    field ??= depth(lines[j]);
+    const s = lines[j].trim(), last = rows[rows.length - 1];
+    if (depth(lines[j]) === field) {
+      const m = /^([^:]+):\s*(.*)$/.exec(s);
+      if (m) rows.push({ key: bare(m[1]), secret: SECRET.test(bare(m[1])), parts: m[2] ? [SECRET.test(bare(m[1])) ? MASK : m[2].replace(/^\[(.*)\]$/, "$1")] : [], inner: null });
+    } else if (last) {
+      last.inner ??= depth(lines[j]);
+      if (depth(lines[j]) !== last.inner) continue;
+      last.parts.push(last.secret ? `${bare(s.replace(/^- /, "").split(":")[0])} = ${MASK}` : bare(s.replace(/^- /, "")));
+    }
+  }
+  return rows.map((r) => ({ key: r.key, value: r.parts.join(r.secret ? ", " : " ") }));
+}
+
+export function filterItems(items, { scope, kind, query }) {
   const q = String(query ?? "").trim().toLowerCase();
   return items.filter((i) => (scope === "all" || i.scope === scope) && (!kind || i.kind === kind)
-    && !(hideDisabled && i.state === "off")
     && (!q || i.name.toLowerCase().includes(q) || i.src.toLowerCase().includes(q)
       || (i.kind === "hooks" && `${i.root ?? ""} ${i.reason ?? ""}`.toLowerCase().includes(q))));
 }

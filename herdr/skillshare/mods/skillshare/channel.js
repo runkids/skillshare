@@ -15,7 +15,7 @@ export const BUSY = "skillshare.busy.v1"; // { [machine]: { text, at } }; "" is 
 //   touch(on): the holder is still at work; call it before each command (it writes at most every
 //     10 s). A lock untouched for staleMs is dropped: a dialog's task ends without a word when the
 //     dialog closes, and a lock outlives a Herdr restart in shared.
-//   busyAt(on), busyText(): read the locks.
+//   busyAt(on), textAt(on), busyText(): read the locks.
 //   say(kind, text), notice(), clearNotice(): the notice line ("done", "info", "warn", "error").
 // Writes must not happen while a view renders; reads may.
 export function createChannel({ get, set, now = Date.now, staleMs = 60 * 1000 }) {
@@ -38,6 +38,7 @@ export function createChannel({ get, set, now = Date.now, staleMs = 60 * 1000 })
       };
     },
     busyAt,
+    textAt: (on) => locks()[key(on)]?.text ?? null,
     busyText: () => Object.values(locks()).map((l) => l.text).join(" · ") || null,
     claim(on, text) {
       const l = locks();

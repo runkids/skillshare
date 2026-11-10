@@ -1,18 +1,20 @@
 # skillshare for Herdr
 
-![The skillshare panel in Herdr: what needs an update or a sync, hooks for every agent, and every machine](panels.png)
+![The skillshare panel in Herdr: what needs a sync and a line to every target, everything installed, and every machine](panels.png)
 
 [skillshare](../../README.md) keeps your skills, agents, MCP servers, plugins and hooks in one
 source you control and syncs them to Claude Code, Codex, Gemini CLI and the other AI coding tools
 you use. This panel puts it beside your agents in [Herdr](https://herdr.dev):
 
-- **See what is out of date.** The focused space's project and your global source, grouped into
-  Updates available, Needs sync and In sync.
+- **See what needs you.** Overview answers in one line, with one Sync button, a count of everything
+  in the source and a line to every target that shows which ones are waiting.
+- **Read before you act.** Click any row to preview it: a skill's `SKILL.md` and files, an agent, an
+  MCP server's settings with secret values hidden, a hook, a plugin, and the targets each goes to.
 - **Fix it without leaving Herdr.** Update, sync, uninstall, or install from a URL; every install
   is audited first, and a blocked one shows its findings before anything is written.
 - **Ask your agent.** Hand an audit of any skill to the focused agent.
-- **Every machine.** The Machines tab shows each Herdr machine's version, source state and drift,
-  with Pull and sync.
+- **Every machine.** The Machines tab shows each Herdr machine's version, its remote, source and
+  targets, with Pull and sync, or Sync both ways when that machine has work of its own.
 - **The source repository.** Pull, push or sync both ways, and pick a version per file when both
   sides changed it.
 
@@ -50,7 +52,7 @@ shown or hidden state is a layout click, which Herdr keeps across spaces and res
 
 - It runs on the shown space's machine (`exec` with `on`), in the focused terminal's folder.
 - A folder with `.skillshare/config.yaml` or `skillshare/config.yaml` is a project; both
-  scopes show and the All · Project · Global filter appears.
+  scopes show and the All · Project · Global switch appears beside the tabs.
 - Per scope, one detached script runs `list --all`, `diff`, `mcp list`, `plugin list` and `hooks list`
   with `--json`. `check` and `check agents` run every 10 minutes. Git state comes from `git status` in the
   source repository, because the CLI has no JSON for it.
@@ -64,24 +66,26 @@ shown or hidden state is a layout click, which Herdr keeps across spaces and res
   `git show HEAD:<file>` and `git show @{u}:<file>`, puts the repository back, and asks
   which version to keep for each file.
 
-Hook rows show their agents and planned sync changes. Top-level declared hooks offer confirmed
-Enable, Disable and Remove actions; Sync applies them through `sync --all`.
-Counts and groups include named hook entries and pending named cleanup, excluding diagnostic
-notices. Notices follow the scope, kind and text filters and remain visible with zero entries.
-Nested hook rows show their full root to distinguish projects with the same folder name.
-“In sync” describes native file alignment; inactive hooks retain a warning dot and reason.
-Warnings and preview failures appear above the resource groups. When preview fails, named
-entries stay visible there as “sync status unknown”; they do not count as pending or in sync.
-Disabled state remains visible alongside diagnostics, and pending summaries omit unchanged
-targets while expanded details retain them. When only an unnamed native
-include needs work, “Native hook files need sync” offers Sync for its scope.
+- A preview reads on the item's machine: a skill's file names (40 at most) and the first 60 kB of
+  the file shown, an agent's `.md`, or the MCP source file. Env, header and bearer-token values are
+  replaced before the dialog gets them, so it shows names only.
+- The map's target names come from `status --json` and `diff --json`. Its per-target counts cover
+  skills and agents, which is what `diff` reports; a count in the source row turns amber when an
+  MCP server, plugin or hook waits.
 
-Disabled rows are hidden by default; “In sync” offers Show disabled and Hide disabled when
-there are any. The choice is kept across restarts, and a disabled hook with pending changes
-stays listed. For skills and agents, “In sync” also switches between List and By source
-(the default), which folds rows from the same repository, or local ones, into collapsible
-groups. A source with one row stays a plain row, and a filter opens every group.
-Hook conflicts block `sync --all` for every resource kind; resolve them with the CLI or
+Overview lists only what needs you: what waits for a sync, what has an update, hook notices, and
+machines that are behind once the Machines tab has read them. Library lists everything by kind,
+in Need a look, Needs sync, Update available, In sync and Off; disabled rows are always under Off.
+For skills and agents, In sync switches between List and By source (the default), which folds
+rows from the same repository, or local ones, into collapsible groups. A source with one row stays
+a plain row, and a filter opens every group.
+
+Hook rows name their agents or planned changes, and their preview shows the description, agents
+and native files. Top-level declared hooks offer confirmed Enable, Disable and Remove actions;
+Sync applies them through `sync --all`. Counts include named hook entries and pending named
+cleanup, excluding diagnostic notices, which get rows of their own. When a preview of the plan
+fails, named entries stay listed as “sync status unknown”; they do not count as pending or in
+sync. Hook conflicts block `sync --all` for every resource kind; resolve them with the CLI or
 dashboard, then Sync again.
 
 ## Tests

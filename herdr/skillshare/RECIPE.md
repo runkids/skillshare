@@ -13,37 +13,45 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
 - **Sidebar**, 268px: Herdr's own brand bar, Spaces, Agents and footer.
 - **Work column**: the tab bar row, now `tabs` (weight 1) beside a 118px `skillshare-toggle` block. The toggle draws the 16px skillshare mark and "skillshare", on `selected` while the panel shows. Under it the shown tab and Herdr's Files/Changes side panel, then the status bar.
 - **skillshare panel**, a 400px column (320–720px) right of the work area, top to bottom:
-  - a 42px header: the mark, "skillshare", the CLI version in `muted`, and a close button;
-  - Resources and Machines tabs, the shown one underlined in `foreground`;
-  - Resources:
-    - the project card: a folder icon, the folder name, "follows the focused pane" and the machine as a pill; outside a project, "Global" and "<folder> is not a skillshare project";
-    - in a skillshare project, an All · Project · Global switch with counts for the selected kind;
-    - a Skills · Agents · MCP · Plugins · Hooks switch with counts (named hook entries, including pending cleanup; notices do not count);
-    - a filter field and an Install button;
-    - the list, the only part that scrolls, in three groups:
-      - "Updates available · n" in `accent`, with Update all;
-      - "Needs sync · n" in `blocked`, with Sync, or Sync project / Sync global when only one scope needs it;
-      - "In sync · n" in `muted`, with a quiet Show disabled · n / Hide disabled · n toggle when the list has disabled rows. Disabled rows are hidden by default and the choice is kept in `shared`; disabled hooks with pending changes stay listed. For skills and agents it also has a List · By source switch, By source by default and kept in `shared`: rows sharing a repository (a tracked repo, or host/owner/repo of the source URL, with github.com left out) or the local source fold under a collapsed row with a chevron, a `git` or `folder` icon, the source and a count. Their rows are indented 16px; a source with one row stays a plain row. A filter opens every group.
-    - Each row is 48px: a dot (filled `accent`, `blocked` or `ansi2`; hollow `ansi1` when never synced or `muted` when disabled), the name, one line of detail (hook rows name their agents or planned changes), and a chevron. A row opens in place on `raised`.
-    - Hook rows expand to show agents, description, full root, planned changes and inactive reasons. Nested rows also show their full root before the status line; inactive rows use a warning dot even when native files are in sync. Nested-root and cleanup-only rows are read-only.
-    - Hook notices appear once above the counted groups, follow the same filters, and show unnamed changes, plan warnings and preview failures even with zero entries. Unnamed native writes offer “Native hook files need sync”; warnings and conflicts are not pending native writes. If preview fails, named rows remain above the groups with “sync status unknown”, alongside the single scope error notice. Disabled rows retain their disabled label with diagnostics; pending summaries omit unchanged targets, which remain in details.
-  - Machines: one card per Herdr machine, with its version, its source repository state, doctor errors and warnings when there are any, a Pull and sync button, and "Update to …" when a newer skillshare exists.
-  - a 34px status line while work runs (work, installs included, runs one at a time per machine; machines run side by side), with a spinning ring in `working`, or a notice: a done notice fades after 4 s, a warning or error stays until closed, and a stopped pull keeps a "Review conflicts" bar;
+  - a 44px header: the mark, "skillshare", a pill with the folder (or "global" outside a project) and the machine, the CLI version in `muted`, and a close button;
+  - Overview, Library and Machines tabs, the shown one underlined in `foreground`. At the row's right, a skillshare project gets an All · Project · Global switch that Overview and Library share; outside a project it says "Global". On Machines the same place says when the machines were last checked.
+  - Overview:
+    - a headline with its mark: "Reading skillshare", "Everything is in sync", "n targets need a sync" (or "n resources to sync" when only MCP servers, plugins or hooks wait), or "Syncing n targets"; a primary Sync button while something waits;
+    - the map: a row of five counts (Skills · Agents · MCP · Plugins · Hooks). Each opens Library on that kind, and turns `blocked` when that kind has something waiting. Under it, one 32px line runs down to each target: a status dot, the agent's mark, the name, and a check or "n to sync". It draws at most six lines, waiting targets first; targets that do not fit become a count ("+n more", "n others"). Target names come from `status --json` and `diff --json`; the per-target counts cover skills and agents, which is what `diff` reports. A waiting line is dashed in `blocked` and flows while a sync runs.
+    - the agent's mark is Herdr's own program icon, found by the target's name or its `<agent>-` prefix; `omp` and `universal` use the two colour marks in `icons/`, and anything else the generic agent icon;
+    - then only what needs you: "WAITING TO SYNC · n", "UPDATE AVAILABLE · n" with Update on each row, "HOOKS NEED A LOOK · n", and "MACHINES · n" once the Machines tab has read them.
+  - Library:
+    - Skills · Agents · MCP · Plugins · Hooks tabs with counts (named hook entries, including pending cleanup; notices do not count);
+    - a filter field and a 30px install button;
+    - the list, the only part that scrolls: rows whose sync state is unknown, then "NEED A LOOK · n" (hook notices), "NEEDS SYNC · n" in `blocked`, "UPDATE AVAILABLE · n" in `accent` with Update all when there are several, "IN SYNC · n", and "OFF · n" for disabled rows. For skills and agents "IN SYNC" has a List · By source switch, By source by default and kept in `shared`: rows sharing a repository (a tracked repo, or host/owner/repo of the source URL, with github.com left out) or the local source fold under a collapsed row with a chevron, a `git` or `folder` icon, the source and a count. A source with one row stays a plain row, and a filter opens every group.
+    - Each row is 46px: a dot (filled `accent`, `blocked` or `ansi2`; hollow `ansi1` when never synced or `muted` when disabled), the name, one short state, and a chevron. A row with an update also has Update. Clicking a row opens its preview; rows do not open in place.
+  - Machines: one card per Herdr machine. Its header has a status dot, the name, "this computer" and the version (a pill when a newer skillshare exists). Two lines follow in the map's grammar, Remote to Source and Source to its targets, each with its state at the right, and the targets that wait by name, three at most. The footer has Pull and sync, or Sync both ways when that machine has uncommitted or unpushed work and an upstream (a plain pull would refuse), "Update to …" when a newer skillshare exists, and the doctor's errors or warnings. While the first check runs, two card-shaped placeholders pulse.
+  - a 34px status line while work runs (work, installs included, runs one at a time per machine; machines run side by side), with a spinning ring in `working`, or a notice: a done notice clears after 4 s and a warning or error after 8 s, and a stopped pull keeps a "Review conflicts" bar;
   - a 40px footer: the source state, such as "Source · n uncommitted · ↑n ↓n", "up to date" or "no remote" (`blocked` when it needs attention), and Sync both ways when the repository has an upstream.
-- Dialogs open as Herdr overlays: install, uninstall, audit hand-off, source repository, sync both ways, pull conflicts, update skillshare, command output.
+- Loading draws the content's own shape: the map with empty counts and four lines, list rows, machine cards. Each pulses once every 1.2 s.
+- Motion is Herdr's native kind: the status line's height slides (180 ms) so the list does not jump, a waiting line breathes and a syncing one flows, a dialog fades in and rises 8px (200 ms) and fades out (150 ms) before it closes, and buttons and rows show a pressed state.
+- Dialogs open as Herdr overlays with `frame: "none"`, so each draws its own card: a 56px header (title, one line under it, an Esc keycap and a close button), the body, and a 54px footer with quiet actions at the left and one primary button at the right. They are: preview, install, hook change, uninstall, audit hand-off, source repository, sync both ways, pull conflicts, update skillshare, command output.
+  - Preview (760×560) has one tab per question, so no pane shares its width:
+    - Document (Settings for an MCP server, Definition for a hook, About for a plugin): a skill's `SKILL.md` rendered as Markdown, with a file list at the left only when the skill has other files; an agent's file; an MCP server's transport, command, arguments and the names of its env, headers and token; a hook's description, agents and native files; a plugin's source and version.
+    - Targets n (Agents n for hooks and plugins): the item on top and a line down to each target, as on Overview.
+    - Details, for skills and agents: the frontmatter as rows, and where the files are.
+    - A hook notice has no tabs: it shows what the notice says.
+  - Install shows its four steps (Source, Choose, Audit, Install) above the body.
 
 ## How it behaves
 
 - The panel follows the space the window shows. It runs the CLI on that space's machine, in the focused terminal's folder or the space's folder. A folder with `.skillshare/config.yaml` or `skillshare/config.yaml` is a project. It refreshes every 20 s while shown and runs `skillshare check` every 10 minutes. It does no work while hidden.
 - The toggle and the close button run `layout.toggle` / `layout.hide {id: "skillshare-panel"}`. The node's hidden state is a layout click, so the panel stays open or closed across space switches and restarts.
-- Clicking a row opens it:
+- Clicking a row opens its preview. Its footer holds what you can do:
   - skills and agents that have an update offer Update, and skills also See changes;
   - skills and agents that need a sync offer Diff;
   - skills and agents offer Uninstall, and "Ask <agent> to audit…" when Herdr knows an agent: the one focused, or the last one focused;
-  - MCP and plugin rows show their state and pending targets, with no actions; Sync handles them. An opened plugin row lists its source, version and targets; an opened MCP row its targets.
+  - top-level declared hooks offer Enable, Disable and Remove;
+  - MCP and plugin previews have no actions; Sync handles them.
+- A preview reads on the item's machine: the skill's file names (40 at most) and the first 60 kB of the file shown, an agent's `.md`, or the MCP source file `mcp list --json` names. Env, header and bearer-token values are replaced before the dialog gets them, so it shows names only.
 - Hook conflicts block `sync --all` for every resource kind; resolve them in the CLI or dashboard before retrying.
-- Sync syncs the shown scope. With All, it syncs every scope that has work in the shown kind. On the Plugins tab it also runs `sync plugins`.
-- Install opens a URL dialog with recent sources:
+- Sync, on Overview, syncs every scope that has something waiting in the scope the switch shows, and also runs `sync plugins` when a plugin waits.
+- The install button opens a URL dialog with recent sources:
   - a repository with several skills shows a pick list, marking the ones that would replace an installed skill;
   - a progress view then runs Download (a shallow clone), Audit (`skillshare audit <path> --json` on the clone) and Install;
   - a blocked audit stops before anything is written and shows its findings, with "Ask <agent> to review…", Cancel and Install anyway (`--force`).
@@ -66,22 +74,23 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
   - `jobs.js` runs skillshare: short reads as one `exec`, longer work detached and polled.
   - `channel.js` passes requests from dialogs to the panel through `shared`, with one lock per machine and the notice line.
   - `operations.js` holds the commands each request runs and the conflict handling of a pull.
-  - `loader.js` reads the Resources tab's data and the Machines cards.
-  - `mark.svg` is the 16px mark, and `icons/` holds the stroke icons.
+  - `loader.js` reads the panel's data, the Machines cards and what a preview shows.
+  - `mark.svg` is the 16px mark, and `icons/` holds the stroke icons and the `omp` and `universal` marks.
 - Herdr functions:
   - `exec` with `on`;
   - `readTextFile`;
-  - `spaces`, `focused`, `machines`, `agents`, `layout`;
+  - `spaces`, `focused`, `machines`, `agents`, `knownAgents`, `layout`;
   - `shared` / `setShared`, `settings`, `theme`, `props`;
   - `openOverlay` / `closeOverlay`, `nextCommand`, `run`, `hc`.
 - Commands: `layout.toggle`, `layout.hide`, `agent.focus`.
 - Programs:
   - `skillshare` (found in `~/.local/bin`, `~/go/bin`, `/opt/homebrew/bin` or `/usr/local/bin`);
   - `git`, which clones the install URL you type from the network;
+  - `find`, `sed`, `sort` and `head` to list a previewed skill's files and read the first 60 kB of one;
   - `sh`, `mktemp`, `find` and `rm` for temp folders (`rm -rf` only on folders it made with `mktemp -d`, named `skillshare-panel.*`);
   - `setsid` where it exists, `sleep`, `cat`, `kill -0`, `ps` and `grep` to run long commands detached and check they still run;
   - `hc send` for the audit hand-off.
-- Files read: only the temp folders it made, through `readTextFile`.
+- Files read: the temp folders it made, through `readTextFile`; and, for a preview, the skill, agent or MCP source file you opened.
 - Its look is Herdr's: theme tokens only, no theme or fonts of its own.
 
 ## Watch out
@@ -101,4 +110,5 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
 - `herdr-app check ~/.config/herdr-app/mods/skillshare` passes.
 - `layout.switch {name: "herdr-skillshare"}` shows the layout with no `herdr-skillshare.error`.
 - The tab bar shows Files, Changes and skillshare. The skillshare button shows the panel, and a second click hides it. Switching spaces keeps it as it was.
-- In a skillshare project the panel shows the All · Project · Global switch with real counts. Outside one, it says the folder is not a skillshare project and shows the global source.
+- In a skillshare project the tab row shows the All · Project · Global switch. Outside one it says "Global" and shows the global source.
+- Clicking a row opens its preview, and Esc fades it out.

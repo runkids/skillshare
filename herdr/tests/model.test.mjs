@@ -4,7 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseGitStatus, sourceLine, driftFrom, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, skillChoices, newerVersion, rowSub, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot } from "../skillshare/mods/skillshare/model.js";
+import { parseGitStatus, sourceLine, driftFrom, targetDrift, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, skillChoices, newerVersion, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, rowState, previewTargets, splitFrontmatter, mcpServer, targetList, mapLanes, needsBothWays, READ_SKILL } from "../skillshare/mods/skillshare/model.js";
 
 test("git status reads branch, ahead/behind and files", () => {
   const g = parseGitStatus("top /src\n## main...origin/main [ahead 1, behind 2]\n M a.md\n?? b/SKILL.md\n");
@@ -58,20 +58,10 @@ test("hooks combine declarations and planned changes, including disabled entries
   assert.equal(by.disabled.src, "no agents");
   assert.equal(by.removed.declared, false);
   assert.equal(by.conflict.reason, "claude: conflict · import it or explicitly replace it");
-  assert.equal(rowSub(by.conflict, true), `global · ${by.conflict.reason}`);
-  assert.equal(rowSub(by.clean, false), "claude");
+  assert.equal(by.clean.src, "claude");
   assert.equal(counts(items).hooks, 6);
   assert.deepEqual(Object.values(groupItems(items)).map((g) => g.length), [0, 4, 2]);
   assert.deepEqual(filterItems(items, { scope: "all", kind: "hooks", query: "codex" }).map((i) => i.name), ["pending", "removed"]);
-});
-
-test("hiding disabled rows keeps disabled entries that still need a sync", () => {
-  const items = [
-    { name: "on", src: "", scope: "global", kind: "skills", state: "ok" },
-    { name: "off", src: "", scope: "global", kind: "skills", state: "off", disabled: true },
-    { name: "off-pending", src: "", scope: "global", kind: "hooks", state: "sync", disabled: true },
-  ];
-  assert.deepEqual(filterItems(items, { scope: "all", kind: null, query: "", hideDisabled: true }).map((i) => i.name), ["on", "off-pending"]);
 });
 
 test("source groups collect a repository's rows and leave single sources as rows", () => {
@@ -99,7 +89,7 @@ test("local rows group under a non-repository source", () => {
 test("hook preview and inventory errors preserve panel read failures", () => {
   const [item] = buildItems("project", { hooks: { source: { entries: { fmt: { bindings: {} } } }, previewError: "preflight failed" } });
   assert.equal(item.state, "unknown");
-  assert.equal(rowSub(item, false), "sync status unknown");
+  assert.equal(rowState(item, false), "sync status unknown");
   const [status] = buildItems("project", { list: [], hooks: { error: "bad hook config" } });
   assert.equal(status.notice, true);
   assert.equal(status.pending, false);
@@ -112,7 +102,6 @@ test("hook preview and inventory errors preserve panel read failures", () => {
   assert.equal(cleanup.notice, true);
   assert.equal(cleanup.pending, false);
   assert.deepEqual(cleanup.lines, [raw.hooks.previewError]);
-  assert.equal(rowSub(cleanup, false), raw.hooks.previewError);
   assert.equal(groupItems([cleanup]).sync.length, 0);
   assert.equal(counts([cleanup]).hooks, 0);
   assert.deepEqual(buildItems("global", { ...raw, list: null }), []);
@@ -134,7 +123,7 @@ test("hook notices stay filtered but never inflate named entry or group counts",
   assert.equal(matched.length, 1);
   assert.deepEqual(matched[0].lines, ["Git version too old"]);
   const warning = "Git include is conditional; activation depends on its includeIf condition";
-  assert.ok(notices[0].lines.includes(warning) && rowSub(notices[0], false).includes(warning));
+  assert.ok(notices[0].lines.includes(warning) && notices[0].reason.includes(warning));
   const warningsOnly = buildItems("global", { list: [], hooks: { source: { entries: {} }, plan: { changes: [], warnings: [warning] } } });
   assert.equal(warningsOnly.length, 1);
   assert.ok(warningsOnly[0].lines.includes(warning));
@@ -151,7 +140,7 @@ test("hook inactivity preserves its reason independently of pending native write
     assert.equal(item.state, state);
     assert.equal(item.diagnostic, true);
     assert.ok(item.lines[0].includes(inactiveReason || message));
-    assert.ok(rowSub(item, false).includes(inactiveReason || message));
+    assert.ok(item.reason.includes(inactiveReason || message));
   }
 });
 
@@ -182,7 +171,6 @@ test("root-wide conflicts reach every affected entry while full roots distinguis
     assert.equal(items[1].state, "sync");
     assert.equal(items[2].label, "Hook status");
     assert.equal(items[2].reason, "conflict · project has its own Skillshare config; manage its hooks there with -p");
-    assert.equal(rowSub(items[2], false), items[2].reason);
     assert.equal(hookArgs(items[1], "disable"), null);
     assert.equal(hookArgs(items[2], "remove"), null);
   }
@@ -231,8 +219,8 @@ test("preview failures show unknown entry status and a single scope error withou
   assert.equal(notices[0].pending, false);
   assert.equal(Object.values(groupItems(items)).flat().length, 0);
   assert.equal(counts(items).hooks, 3);
-  assert.equal(rowSub(rows[0], false), "sync status unknown");
-  assert.equal(rowSub(rows[2], false), "disabled · sync status unknown");
+  assert.equal(rowState(rows[0], false), "sync status unknown");
+  assert.equal(rowState(rows[2], false), "sync status unknown");
 });
 
 test("disabled hook cleanup keeps disabled alongside runtime diagnostics", () => {
@@ -242,7 +230,7 @@ test("disabled hook cleanup keeps disabled alongside runtime diagnostics", () =>
   } }, plan: { changes: [{ target: "git", path: "/fixture/gitconfig", name: "fmt", action: "remove", inactiveReason: reason }] } } });
   assert.equal(item.state, "sync");
   assert.equal(item.disabled, true);
-  assert.equal(rowSub(item, false), `disabled · git: remove · ${reason}`);
+  assert.equal(item.reason, `git: remove · ${reason}`);
 });
 
 test("pending hook summary omits unchanged targets but details retain them and inactivity", () => {
@@ -251,9 +239,9 @@ test("pending hook summary omits unchanged targets but details retain them and i
     { target: "git", name: "fmt", action: "unchanged", inactiveReason: "include target not writable; add manually" },
   ] } } });
   assert.equal(item.state, "sync");
-  assert.ok(!rowSub(item, false).includes("claude: unchanged"));
-  assert.ok(rowSub(item, false).includes("codex: add"));
-  assert.ok(rowSub(item, false).includes("add manually"));
+  assert.ok(!item.reason.includes("claude: unchanged"));
+  assert.ok(item.reason.includes("codex: add"));
+  assert.ok(item.reason.includes("add manually"));
   assert.ok(item.lines.includes("claude: unchanged"));
 });
 
@@ -300,7 +288,8 @@ test("versions compare numerically", () => {
 });
 
 test("the row line names the scope only when both show", () => {
-  assert.equal(rowSub({ state: "missing", scope: "global" }, true), "global · not synced yet");
+  assert.equal(rowState({ state: "missing", scope: "global" }, true), "global · new");
+  assert.equal(rowState({ state: "missing", scope: "global" }, false), "new");
 });
 
 test("a branch name with dots keeps its upstream", () => {
@@ -368,8 +357,7 @@ test("MCP and plugin rows name no targets", () => {
     mcp: { changes: [{ name: "github", target: "claude", action: "add" }, { name: "github", target: "codex", action: "update" }] },
     plugins: { packages: { lint: { bindings: { claude: { pending: true } } } } },
   });
-  const subs = items.map((i) => rowSub(i, false));
-  assert.deepEqual(subs, ["changed since last sync", "changed since last sync"]);
+  assert.deepEqual(items.map((i) => rowState(i, false)), ["changed", "changed"]);
 });
 
 // ---- Detached jobs (START, ALIVE) ----
@@ -443,4 +431,84 @@ test("SWEEP removes only old job folders whose job no longer runs", (t) => {
   folder("tmp.other", {}, true);
   spawnSync("sh", ["-c", SWEEP], { env: { ...process.env, TMPDIR: tmp } });
   assert.deepEqual(readdirSync(tmp).sort(), ["skillshare-panel.recent", "skillshare-panel.running", "tmp.other"]);
+});
+
+test("targetDrift counts what each target still needs, most first", () => {
+  const d = targetDrift({ targets: [
+    { name: "claude", items: [] },
+    { name: "codex", items: [{ action: "add", name: "a", kind: "skill", is_sync: true }, { action: "remove", name: "local", kind: "skill", is_sync: false }] },
+  ] });
+  assert.deepEqual(d, [{ name: "codex", n: 1 }, { name: "claude", n: 0 }]);
+});
+
+test("a row says one short state and leaves the detail to its preview", () => {
+  const base = { kind: "skills", scope: "global", src: "github.com/runkids/archify", state: "ok" };
+  assert.equal(rowState(base, true), "global · runkids/archify");
+  assert.equal(rowState({ ...base, state: "sync", reason: "content changed in 3 files" }, false), "changed");
+  assert.equal(rowState({ ...base, kind: "mcp", targets: ["claude", "codex"] }, false), "2 targets");
+});
+
+test("a preview lists every target, the waiting ones first", () => {
+  const skill = { kind: "skills", state: "sync", targets: ["codex"] };
+  assert.deepEqual(previewTargets(skill, ["claude", "codex"]), [{ name: "codex", text: "needs sync", warn: true }, { name: "claude", text: "in sync", warn: false }]);
+  const mcp = { kind: "mcp", state: "sync", targets: ["claude", "gemini"], reason: "gemini: create" };
+  assert.deepEqual(previewTargets(mcp).map((r) => `${r.name} ${r.text}`), ["gemini create", "claude in sync"]);
+});
+
+test("frontmatter becomes rows and the rest is the document", () => {
+  const { meta, body } = splitFrontmatter("---\nname: archify\ndescription: >\n  Diagrams\n  as HTML\n---\n# Archify\n");
+  assert.deepEqual(meta, [{ key: "name", value: "archify" }, { key: "description", value: "Diagrams as HTML" }]);
+  assert.equal(body, "# Archify\n");
+});
+
+test("an MCP server's secret values never leave the source file", () => {
+  const yaml = "mcp:\n  servers:\n    other:\n      command: x\n    context7:\n      command: npx\n      args:\n        - -y\n        - '@upstash/context7-mcp'\n      env:\n        API_KEY: sk-live-123\n      bearerToken: abc\n";
+  const rows = mcpServer(yaml, "context7");
+  assert.deepEqual(rows, [{ key: "command", value: "npx" }, { key: "args", value: "-y @upstash/context7-mcp" }, { key: "env", value: "API_KEY = ••••••••" }, { key: "bearerToken", value: "••••••••" }]);
+  assert.equal(JSON.stringify(rows).includes("sk-live"), false);
+});
+
+test("the map lists configured targets diff leaves out, in the shown scope only", () => {
+  const raw = {
+    global: { diff: { targets: [{ name: "claude", items: [{ is_sync: true }, { is_sync: true }] }, { name: "cursor", items: [] }] }, targets: ["claude", "codex", "cursor"] },
+    project: { diff: { targets: [{ name: "claude", items: [{ is_sync: true }] }] }, targets: ["pi"] },
+  };
+  assert.deepEqual(targetList(raw).list, [{ name: "claude", n: 3 }, { name: "codex", n: 0 }, { name: "cursor", n: 0 }, { name: "pi", n: 0 }]);
+  assert.deepEqual(targetList(raw, "project"), { known: true, scopes: ["project"], list: [{ name: "claude", n: 1 }, { name: "pi", n: 0 }] });
+  assert.deepEqual(targetList(raw).scopes, ["global", "project"]);
+  assert.equal(targetList({ global: { diff: null, targets: ["claude"] } }).known, false);
+});
+
+test("the map never draws more lines than it has room for", () => {
+  const t = (name, n = 0) => ({ name, n });
+  const six = ["a", "b", "c", "d", "e", "f"].map((x) => t(x));
+  assert.deepEqual(mapLanes(six).map((r) => r.name), ["a", "b", "c", "d", "e", "f"]);
+  assert.deepEqual(mapLanes([...six, t("g")]).map((r) => r.name ?? r.more), ["a", "b", "c", "d", "e", 2]);
+  const waiting = ["a", "b", "c", "d", "e", "f", "g"].map((x) => t(x, 1));
+  assert.deepEqual(mapLanes(waiting).map((r) => r.name ?? r.more), ["a", "b", "c", "d", "e", 2]);
+  const mixed = mapLanes([...waiting, t("x"), t("y")]);
+  assert.deepEqual(mixed.map((r) => [r.name ?? r.more, r.wait]), [["a", true], ["b", true], ["c", true], ["d", true], [3, true], [2, false]]);
+});
+
+test("a machine with work of its own syncs both ways only when it has an upstream", () => {
+  assert.equal(needsBothWays({ files: ["a"], upstream: "origin/main" }), true);
+  assert.equal(needsBothWays({ files: [], ahead: 2, upstream: "origin/main" }), true);
+  assert.equal(needsBothWays({ files: ["a"], upstream: null }), false);
+  assert.equal(needsBothWays({ files: [], ahead: 0, behind: 3, upstream: "origin/main" }), false);
+});
+
+test("reading a skill lists its files, then SKILL.md, and fails on a missing folder", (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "ss-skill-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  mkdirSync(join(dir, "refs")); mkdirSync(join(dir, ".git"));
+  writeFileSync(join(dir, "SKILL.md"), "---\nname: x\n---\nBody\n"); writeFileSync(join(dir, "refs", "a.md"), "a"); writeFileSync(join(dir, ".git", "HEAD"), "x");
+  const read = (d) => spawnSync("sh", ["-c", READ_SKILL, "test", d], { encoding: "utf8" });
+  assert.equal(read(dir).stdout, "SKILL.md\nrefs/a.md\n@@\n---\nname: x\n---\nBody\n");
+  assert.equal(read(join(dir, "none")).status, 3);
+});
+
+test("an MCP server declared only under a project root is still found", () => {
+  const yaml = "mcp:\n  servers:\n    other:\n      command: x\n  projects:\n    ~/work/app:\n      servers:\n        local:\n          command: node\n          env:\n            KEY: secret-1\n";
+  assert.deepEqual(mcpServer(yaml, "local"), [{ key: "command", value: "node" }, { key: "env", value: "KEY = ••••••••" }]);
+  assert.equal(mcpServer(yaml, "none"), null);
 });
