@@ -326,7 +326,7 @@ export function buildItems(scope, raw) {
     const repo = s.repoName ? behind.get(s.repoName) : null;
     const d = drift.get(`${kind}:${flat}`);
     const item = {
-      key: `${scope}:${kind}:${flat}`, kind, scope, name: flat, label: rel.split("/").pop(), rel,
+      key: `${scope}:${kind}:${flat}`, kind, scope, name: flat, label: rel.split("/").pop(), rel, path: String(s.relPath ?? s.name),
       src: shortSource(check?.source ?? s.source) || (s.repoName ? `tracked repo ${s.repoName}` : rel.includes("/") ? rel : "local"),
       disabled: Boolean(s.disabled), version: check?.version ?? null, state: "ok", repo: s.repoName || null,
     };
@@ -409,6 +409,15 @@ export function hookArgs(item, action) {
   if (item.kind !== "hooks" || !item.declared || item.root || !["enable", "disable", "remove"].includes(action)) return null;
   if ((action === "enable" && !item.disabled) || (action === "disable" && item.disabled)) return null;
   return ["hooks", action, item.name, item.scope === "project" ? "-p" : "-g"];
+}
+
+// Enabling or disabling a skill or agent → skillshare's args, or null when the row can't take
+// that change. The pattern is the entry's own path (an agent's keeps its .md), as the dashboard
+// writes it, so enable removes exactly what disable added.
+export function toggleArgs(item, action) {
+  if (!["skills", "agents"].includes(item.kind) || !item.path) return null;
+  if (action !== (item.disabled ? "enable" : "disable")) return null;
+  return [action, item.path, ...(item.kind === "agents" ? ["--kind", "agent"] : []), flag(item.scope)];
 }
 
 // A row's one short state; everything longer is in its preview.
