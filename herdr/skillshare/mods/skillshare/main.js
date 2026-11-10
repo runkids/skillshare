@@ -395,7 +395,7 @@ export default class Skillshare extends View {
           .on_mouse_down("left", stop).on_click(() => run("layout.hide", { id: PANEL })).child(icon("close", 14, t.muted)))))
       .child(h_flex().flex_none().px(14).items_center().border_b(1).border_color(t.border)
         .children([["overview", "Overview"], ["library", "Library"], ["machines", "Machines"]].map(([k, label]) =>
-          tab(t, `view-${k}`, label, this.view === k, (_e, cx) => { this.view = k; if (k === "machines") this.machinesAt = 0; cx.notify(); })))
+          tab(t, `view-${k}`, label, this.view === k, (_e, cx) => { this.view = k; if (k === "machines") this.machinesAt = 0; cx.notify(); }, { gap: 12 })))
         .child(div().flex_1()).children([this.view === "machines"
           ? (this.machinesAt ? div().flex_none().text_size(S().label).text_color(t.muted).child(Date.now() - this.machinesAt < 60000 ? "Checked just now" : `Checked ${ago(Date.now() - this.machinesAt)}`) : null)
           : ctx ? this.scopeSwitch(t) : null].filter(Boolean)))
@@ -409,7 +409,7 @@ export default class Skillshare extends View {
     if (!this.project) return div().flex_none().text_size(S().label).text_color(t.muted).child(this.projectKnown ? "Global" : "");
     return h_flex().id("scope").flex_none().p(2).gap(2).rounded(7).bg(t.chrome).border_1().border_color(t.border).children(SCOPES.map(([k, label]) => {
       const on = k === this.scope;
-      return h_flex().id(`scope-${k}`).h(22).px(8).items_center().rounded(5).bg(on ? t.raised : t.chrome).text_size(S().label).text_color(on ? t.foreground : t.muted).when(on, (el) => el.font_semibold())
+      return h_flex().id(`scope-${k}`).h(22).px(6).items_center().rounded(5).bg(on ? t.raised : t.chrome).text_size(S().label).text_color(on ? t.foreground : t.muted).when(on, (el) => el.font_semibold())
         .cursor_pointer().hover((s) => s.text_color(t.foreground)).on_mouse_down("left", stop).on_click((_e, cx) => { this.scope = k; cx.notify(); }).child(label);
     }));
   }
@@ -478,10 +478,16 @@ export default class Skillshare extends View {
 
     const kinds = h_flex().flex_none().px(14).pt(6).border_b(1).border_color(t.border)
       .children(KINDS.map(([k, label]) => tab(t, `kind-${k}`, `${label} ${kc[k]}`, this.kind === k, (_e, cx) => { this.kind = k; cx.notify(); }, { h: 30, gap: 14, size: S().secondary })));
+    // Sync is always here: it syncs the scopes with something waiting in the shown scope, or the shown scope itself.
+    const waits = filterItems(all, { scope, kind: null, query: "" }).filter((i) => (i.notice ? i.pending : i.state === "sync" || i.state === "missing"));
+    const syncScopes = waits.length ? [...new Set(waits.map((i) => i.scope))] : scope === "all" ? Object.keys(this.raw) : [scope];
+    const sync = () => request({ op: "sync", on: ctx.on, project: this.project, scopes: syncScopes, plugins: waits.some((i) => i.kind === "plugins") });
+    const syncButton = this.busyAt(ctx.on) ? disabledButton("sync-busy", "Working…", t, { h: 30 }) : (waits.length ? primary : secondary)("sync-library", "Sync", t, sync, { h: 30, px: 12 });
     const tools = h_flex().flex_none().px(14).pt(10).pb(2).gap(6)
       .child(h_flex().flex_1().min_w(0).h(30).px(10).gap(8).items_center().rounded(6).border_1().border_color(t.border).bg(t.chrome)
         .child(icon("search", 14, t.muted))
         .child(Input.new(this.filter).flex_1().min_w(0).h_full().text_size(S().secondary).text_color(t.foreground)))
+      .child(syncButton)
       .child(h_flex().id("install").size(30).flex_none().justify_center().items_center().rounded(6).border_1().border_color(t.border).cursor_pointer()
         .hover((s) => s.bg(t.hover)).active((s) => s.bg(t.selected)).on_mouse_down("left", stop).on_click(() => this.openInstall(ctx)).child(icon("plus", 13, t.foreground)));
 
@@ -492,12 +498,8 @@ export default class Skillshare extends View {
     } else {
       const rows = (items) => items.map((i) => this.row(t, i, showScope, ctx));
       const sections = [...rows(unknown)];
-      // Sync covers what this list shows waiting; with no waiting row, a notice with native changes carries it.
-      const pending = [...groups.sync, ...notices.filter((i) => i.pending)], syncScopes = [...new Set(pending.map((i) => i.scope))];
-      const syncButton = () => secondary("sync-group", this.project && syncScopes.length === 1 ? `Sync ${syncScopes[0]}` : "Sync", t,
-        () => request({ op: "sync", on: ctx.on, project: this.project, scopes: syncScopes, plugins: groups.sync.some((i) => i.kind === "plugins") }), { h: 24, px: 9, size: S().label });
-      if (notices.length) sections.push(this.groupHeader(t, "notices", `NEED A LOOK · ${notices.length}`, t.muted, pending.length && !groups.sync.length ? syncButton() : null), ...rows(notices));
-      if (groups.sync.length) sections.push(this.groupHeader(t, "sync", `NEEDS SYNC · ${groups.sync.length}`, t.blocked, syncButton()), ...rows(groups.sync));
+      if (notices.length) sections.push(this.groupHeader(t, "notices", `NEED A LOOK · ${notices.length}`, t.muted, null), ...rows(notices));
+      if (groups.sync.length) sections.push(this.groupHeader(t, "sync", `NEEDS SYNC · ${groups.sync.length}`, t.blocked, null), ...rows(groups.sync));
       if (groups.update.length) {
         sections.push(this.groupHeader(t, "update", `UPDATE AVAILABLE · ${groups.update.length}`, t.accent,
           groups.update.length > 1 ? secondary("update-all", "Update all", t, () => this.updateAll(groups.update, ctx), { h: 24, px: 9, size: S().label }) : null), ...rows(groups.update));

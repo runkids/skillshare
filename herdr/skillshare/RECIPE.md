@@ -12,7 +12,7 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
 
 - **Sidebar**, 268px: Herdr's own brand bar, Spaces, Agents and footer.
 - **Work column**: the tab bar row, now `tabs` (weight 1) beside a 118px `skillshare-toggle` block. The toggle draws the 16px skillshare mark and "skillshare", on `selected` while the panel shows. Under it the shown tab and Herdr's Files/Changes side panel, then the status bar.
-- **skillshare panel**, a 400px column (320–720px) right of the work area, top to bottom:
+- **skillshare panel**, a 400px column (380–720px, the narrowest the tab row fits) right of the work area, top to bottom:
   - a 44px header: the mark, "skillshare", a pill with the folder (or "global" outside a project) and the machine, the CLI version in `muted`, and a close button;
   - Overview, Library and Machines tabs, the shown one underlined in `foreground`. At the row's right, a skillshare project gets an All · Project · Global switch that Overview and Library share; outside a project it says "Global". On Machines the same place says when the machines were last checked.
   - Overview:
@@ -22,8 +22,8 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
     - then only what needs you: "WAITING TO SYNC · n", "UPDATE AVAILABLE · n" with Update on each row, "HOOKS NEED A LOOK · n", and "MACHINES · n" once the Machines tab has read them.
   - Library:
     - Skills · Agents · MCP · Plugins · Hooks tabs with counts (named hook entries, including pending cleanup; notices do not count);
-    - a filter field and a 30px install button;
-    - the list, the only part that scrolls: rows whose sync state is unknown, then "NEED A LOOK · n" (hook notices), "NEEDS SYNC · n" in `blocked` with Sync (Sync project or Sync global when only one scope of a project waits), "UPDATE AVAILABLE · n" in `accent` with Update all when there are several, "IN SYNC · n", and "OFF · n" for disabled rows. For skills and agents "IN SYNC" has a List · By source switch, By source by default and kept in `shared`: rows sharing a repository (a tracked repo, or host/owner/repo of the source URL, with github.com left out) or the local source fold under a collapsed row with a chevron, a `git` or `folder` icon, the source and a count. A source with one row stays a plain row, and a filter opens every group.
+    - a filter field, a Sync button (primary while something waits) and a 30px install button;
+    - the list, the only part that scrolls: rows whose sync state is unknown, then "NEED A LOOK · n" (hook notices), "NEEDS SYNC · n" in `blocked`, "UPDATE AVAILABLE · n" in `accent` with Update all when there are several, "IN SYNC · n", and "OFF · n" for disabled rows. For skills and agents "IN SYNC" has a List · By source switch, By source by default and kept in `shared`: rows sharing a repository (a tracked repo, or host/owner/repo of the source URL, with github.com left out) or the local source fold under a collapsed row with a chevron, a `git` or `folder` icon, the source and a count. A source with one row stays a plain row, and a filter opens every group.
     - Each row is 46px: a dot (filled `accent`, `blocked` or `ansi2`; hollow `ansi1` when never synced or `muted` when disabled), the name, one short state, and a chevron. A row with an update also has Update. Clicking a row opens its preview; rows do not open in place.
   - Machines: one card per Herdr machine. Its header has a status dot, the name, "this computer" and the version (a pill when a newer skillshare exists). Two lines follow in the map's grammar, Remote to Source and Source to its targets, each with its state at the right, and the targets that wait by name, three at most. The footer has Pull and sync, or Sync both ways when that machine has uncommitted or unpushed work and an upstream (a plain pull would refuse), "Update to …" when a newer skillshare exists, and the doctor's errors or warnings. While the first check runs, two card-shaped placeholders pulse.
   - a 34px status line while work runs (work, installs included, runs one at a time per machine; machines run side by side), with a spinning ring in `working`, or a notice: a done notice clears after 4 s and a warning or error after 8 s, and a stopped pull keeps a "Review conflicts" bar;
@@ -50,7 +50,7 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
   - MCP and plugin previews have no actions; Sync handles them.
 - A preview reads on the item's machine: the skill's file names (40 at most) and the first 60 kB of the file shown, an agent's `.md`, or the MCP source file `mcp list --json` names. Env, header and bearer-token values are replaced before the dialog gets them, so it shows names only.
 - Hook conflicts block `sync --all` for every resource kind; resolve them in the CLI or dashboard before retrying.
-- Sync, on Overview, syncs every scope that has something waiting in the scope the switch shows, and also runs `sync plugins` when a plugin waits. Sync in Library does the same for the rows the list shows waiting.
+- Sync, on Overview, syncs every scope that has something waiting in the scope the switch shows, and also runs `sync plugins` when a plugin waits. Sync in Library does the same, and with nothing waiting it syncs the shown scope again.
 - The install button opens a URL dialog with recent sources:
   - a repository with several skills shows a pick list, marking the ones that would replace an installed skill;
   - a progress view then runs Download (a shallow clone), Audit (`skillshare audit <path> --json` on the clone) and Install;
@@ -66,7 +66,7 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
 
 - `layouts/herdr-skillshare.json`: a `layout.clone` of `main` (Herdr 0.1.12, `cloned_from` recorded) with two changes:
   - the tab bar block becomes `{ "id": "tabs-row", "type": "row", "size": { "px": 42 }, "resizable": false, "children": [ the tabs block with "size": { "weight": 1 }, { "id": "skillshare-toggle", "type": "block", "content": { "mod": "skillshare", "props": { "role": "toggle" } }, "size": { "px": 118 } } ] }`;
-  - `work-body` gains `{ "id": "skillshare-panel", "type": "column", "size": { "px": 400 }, "min": 320, "max": 720, "children": [{ "id": "skillshare", "type": "block", "content": { "mod": "skillshare" } }] }`.
+  - `work-body` gains `{ "id": "skillshare-panel", "type": "column", "size": { "px": 400 }, "min": 380, "max": 720, "children": [{ "id": "skillshare", "type": "block", "content": { "mod": "skillshare" } }] }`.
   - Root `"preview": "layouts/herdr-skillshare.png"` is the picture Settings shows.
 - `mods/skillshare/`:
   - `main.js` holds the panel and its roles (`props.role`): the panel by default, `toggle`, and the dialogs.
