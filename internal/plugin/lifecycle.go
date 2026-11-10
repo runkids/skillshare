@@ -138,6 +138,8 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 	result := &Result{Results: []Outcome{}}
 	failures := []error{}
 	failed := map[string]bool{}
+	// OMP targets an earlier change in this apply already wrote natively.
+	ompWritten := map[string]bool{}
 	restores := map[string]piRestoreReceipt{}
 	for _, c := range p.Changes {
 		key := c.Name + "\x00" + c.Target
@@ -223,7 +225,15 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 			return result, errors.Join(append(failures, err)...)
 		}
 		c.piRestores = restores
+		if c.ompRemoval != nil && ompWritten[c.Target] {
+			removal := *c.ompRemoval
+			removal.rebase = true
+			c.ompRemoval = &removal
+		}
 		applyErr := s.applyChange(ctx, c, &b)
+		if s.agentOf(c.Target) == "omp" {
+			ompWritten[c.Target] = true
+		}
 		if applyErr != nil {
 			outcome.Status, outcome.Message = "failed", applyErr.Error()
 			outcome.MessageKey, outcome.MessageArgs = ErrorKey(applyErr)

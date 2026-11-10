@@ -45,7 +45,7 @@ skillshare plugin remove review --no-tui
 | `enable / disable [NAME]` | 次の sync に target を含める / 除外する |
 | `remove [NAME]` | 管理下のバインディングをアンインストールし、その定義を削除 |
 
-引数なしのコマンドはターミナルで不足している入力をプロンプトします。非インタラクティブな変更コマンドには明示的な入力が必要です。`sync` と `check` はすべての package を対象に動作でき、`update` は `--all`（`-a`）を指定するとすべての管理下 package を更新します。`sync --all` は plugin を含み**ません** — `sync plugins` を明示的に使ってください。
+引数なしのコマンドはターミナルで不足している入力をプロンプトします。非インタラクティブな変更コマンドには明示的な入力が必要です。`sync` と `check` はすべての package を対象に動作でき、`update` は `--all`（`-a`）を指定するとすべての管理下 package を更新します。1 つの package を複数の Agent で更新する場合（`--target` なし、または 2 つ以上）も Agent ごとに同じように動作します。更新できない Agent は理由とともに失敗として報告され、ほかの Agent は更新され、コマンドは 0 以外で終了します。ほかに更新する Agent がない場合や、`--target` を 1 つだけ指定した場合は、更新はブロックされます。`sync --all` は plugin を含み**ません** — `sync plugins` を明示的に使ってください。
 
 ## オプション
 
@@ -76,7 +76,7 @@ JSON 出力には source パスとネイティブ識別子が含まれます。s
 | Cursor | `.cursor-plugin/plugin.json` または Agent Plugins ルートマニフェスト | Yes | No | reviewed されたローカルコピーを置き換え |
 | Antigravity Desktop | 明示的な name を持つルート `plugin.json` | Yes | Yes | reviewed されたローカルコピーを置き換え |
 | Pi | `pi` resources を持つ `package.json`、または `pi-package` キーワードと慣例的な resource フォルダ | Yes | Yes（ネイティブな project trust が必要） | 管理下 source スナップショットを更新 |
-| Oh My Pi | ネイティブ互換のメタデータを持つ、マーケットプレイス経由のローカル/Git plugin | 新しい cache へのインストール/再インストール、インポート、スコープを限定した削除 | OMP の project アンカーで | 更新はブロック。削除しても共有 cache は保持 |
+| Oh My Pi | ネイティブ互換のメタデータを持つ、マーケットプレイス経由のローカル/Git plugin | 新しい cache へのインストール/再インストール、インポート、スコープを限定した削除 | OMP の project アンカーで | 更新は新しい cache に再インストール。削除しても共有 cache は保持 |
 | OpenCode | SDK 依存を持つ `package.json`、`.opencode/plugins/` エントリ、または明示的な `--entry` | Yes | Yes | 管理下 source スナップショットを更新 |
 
 | Antigravity CLI | `agy` に受け入れられるネイティブルートマニフェストまたは Claude マニフェスト | Yes | No | reviewed された source を更新（ネイティブな enabled 状態がわかっており enabled の場合のみ） |
@@ -174,7 +174,9 @@ Skillshare はそれを通すために権限を変更しません。extension �
 
 アダプタは Skillshare の削除を直列化し、ネイティブファイルのリビジョンを確認しますが、
 OMP の plugin コマンドはそのロックに参加しません。ネイティブの plugin 変更を並行して実行しないでください。これは複数ファイルにまたがるアトミックなネイティブトランザクションではありません。
-非破壊的な upgrade 契約が利用可能になるまで、**更新はブロックされたまま**です。
+更新で OMP のネイティブ upgrade が実行されることはありません。同じアダプタでこのスコープの登録を削除し、
+レビュー済みの commit を新しい cache identity にインストールするため、保持された cache はほかのプロジェクトのために残ります。
+削除を検証できない場合、更新はブロックされます。`update --all` は理由を示してスキップします。
 インポートされたコードが、レビュー済みの source なしに upgrade されることはありません。
 
 project の操作では、選択したルートが OMP ネイティブの project アンカーと一致する必要があります。

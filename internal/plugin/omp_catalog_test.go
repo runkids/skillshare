@@ -172,6 +172,22 @@ func TestOMPCatalogAliasKeepsOtherTargetNameValidation(t *testing.T) {
 	}
 }
 
+// pi installs by path, so an npm name the catalog does not use (issue #833:
+// npm refused "kata-pi") does not change the package skillshare manages.
+func TestCatalogNameDiffersStillOffersPi(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, ".omp-plugin/marketplace.json", `{"name":"kata","plugins":[{"name":"kata-pi","source":"./plugins/pi"}]}`)
+	writeFile(t, root, "plugins/pi/package.json", `{"name":"@dangerboi/kata-pi","version":"1.7.1","pi":{"extensions":["./kata.ts"]}}`)
+	writeFile(t, root, "plugins/pi/kata.ts", "export default function () {}")
+	d, err := Discover(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := d.Candidates[0]; c.Name != "kata-pi" || !slices.Contains(c.Targets, "pi") || c.TargetInfo["pi"].Problem != "" {
+		t.Fatalf("pi blocked by the npm name: %+v", c)
+	}
+}
+
 func TestOMPHybridPackagePreservesClaudeComponents(t *testing.T) {
 	root := fixture(t)
 	writeFile(t, root, ".claude-plugin/plugin.json", `{"name":"demo","hooks":"./custom-hooks.json","mcpServers":{"demo":{"command":"demo"}}}`)

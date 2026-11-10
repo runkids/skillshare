@@ -461,11 +461,11 @@ func sourceChangeFailure(name, target string, all bool, err error) (Change, erro
 func (s *Service) sourceReplacementChanges(ctx context.Context, r Request, name, target string, decl declaration, declared bool, removal Change) ([]Change, error) {
 	changes := []Change{removal}
 	if r.Action != "remove" && declared && (decl.Sync == nil || *decl.Sync) && !decl.Imported {
-		c, err := s.sourceChange(ctx, name, target, decl, r.All, removal.ompRemoval)
+		c, err := s.sourceChange(ctx, name, target, decl, r.isolatesTargets(), removal.ompRemoval)
 		if err != nil {
 			return nil, err
 		}
-		if r.All && c.Action == "blocked" {
+		if r.isolatesTargets() && c.Action == "blocked" {
 			c.Action, c.batchError = "skip", true
 		}
 		if c.batchError {

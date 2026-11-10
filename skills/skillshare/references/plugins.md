@@ -123,7 +123,8 @@ skillshare plugin remove demo --dry-run --json -g
 `update --all` (`-a`) updates all managed packages (optionally filtered by `--target`);
 it cannot be combined with a package name or `--source-ref`. In `--all` mode, broken
 sources or unavailable targets are isolated to the affected bindings so healthy packages
-still update while any failure returns a nonzero exit code.
+still update while any failure returns a nonzero exit code. `update NAME` for several
+targets (no `--target`, or more than one) isolates them the same way; with nothing else to update, or one `--target`, it blocks.
 `remove NAME --target` uninstalls that binding. `remove NAME` without `--target`, once
 no Agent holds it, drops the package from Skillshare entirely.
 
@@ -180,7 +181,10 @@ cannot reach, says why, and still updates the other targets.
   ownership or metadata blocks removal, Windows requires private
   native ACLs, and interrupted removal can be retried. Do not run native plugin
   mutations concurrently; their writer does not share the adapter lock.
-  Updates remain blocked, and imported code is not upgraded without a reviewed source. Native `.omp-plugin/marketplace.json` catalogs take precedence; Claude catalogs
+  Updates never run OMP's native upgrade: they remove the scope's registration with the
+  same adapter and install the reviewed commit under a fresh cache identity. An update whose
+  removal cannot be verified is blocked (`update --all` skips it); imported code is not
+  upgraded without a reviewed source. Native `.omp-plugin/marketplace.json` catalogs take precedence; Claude catalogs
   are a fallback only when no OMP catalog exists, not when an entry is missing or invalid.
   Catalog entries can point to `package.json` with `omp.extensions` or `pi.extensions`, using the catalog
   plugin name even if the npm name differs or is absent. Each target keeps its own
