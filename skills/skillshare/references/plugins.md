@@ -129,7 +129,7 @@ targets (no `--target`, or more than one) isolates them the same way; with nothi
 no Agent holds it, drops the package from Skillshare entirely.
 
 Claude supports native updates; Codex re-adds the reviewed snapshot unless the plugin is disabled in Codex. Cursor/Antigravity replace managed
-local copies; Pi/OpenCode refresh reviewed source snapshots. Imported Codex plugins update by upgrading their marketplace; imported Pi packages through `pi update`, global only. Imported OpenCode v1 packages must be updated natively. OpenCode v2 global
+local copies; Pi/OpenCode refresh reviewed source snapshots; OMP removes its scoped registration and reinstalls the reviewed commit. Imported Codex plugins update by upgrading their marketplace; imported Pi packages through `pi update`, global only. Imported OpenCode v1 packages must be updated natively. OpenCode v2 global
 imports may use native update; project imports may not. Copilot and Antigravity CLI source updates
 require known native enabled state; Grok updates natively. Project mode supports Claude, Antigravity, Pi,
 OMP and OpenCode, never falling back to global scope. An update skips a target it
