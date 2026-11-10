@@ -332,9 +332,9 @@ audit는 skill 디렉터리 내 텍스트 기반 파일을 스캔합니다:
 - `.py`, `.js`, `.ts`, `.rb`, `.php`, `.php3`, `.php4`, `.php5`, `.phtml`, `.go`, `.rs`, `.swift`
 - 확장자가 없는 파일 (예: `Makefile`, `Dockerfile`)
 
-텍스트 스캔은 숨김 디렉터리를 제외하고 각 skill 디렉터리 내에서 재귀적으로 수행되므로, `SKILL.md`, 중첩된 `references/*.md`, `scripts/*.sh` 모두 지원되는 텍스트 파일 형식에 해당하면 검사됩니다.
+텍스트 스캔은 숨김 디렉터리를 제외하고 각 skill 디렉터리 내에서 재귀적으로 수행되므로, `SKILL.md`, 중첩된 `references/*.md`, `scripts/*.sh` 모두 지원되는 텍스트 파일 형식에 해당하면 검사됩니다. 저장소 전체 스캔(`install --track`과 tracked repo 업데이트 시의 감사)에서는 숨김 디렉터리를 저장소 안의 각 skill을 기준으로 판단하므로, `.agents/skills/`나 `.curated/` 안의 skill도 텍스트 스캔을 받고 `.claude/skills/` 같은 타깃 복사본은 계속 헤더만 검사합니다.
 
-텍스트 필터링 전에 audit은 일반 파일마다 처음 512바이트를 읽어 실행 형식, CPython 바이트코드, ZIP/JAR, 위장 shebang 스크립트를 분류합니다. 숨김 디렉터리에서는 헤더만 분류하며 `__pycache__`도 포함합니다. 특수 파일이 아닌 대상을 가리키는 링크는 기존 텍스트 검사를 유지합니다. 특수 파일 대상은 건너뛰며 직접 감사하면 오류가 발생합니다. `.git`, `.skillshare`, 내부·OS 메타데이터, 링크 및 특수 파일은 헤더를 읽지 않습니다. 바이너리와 크기 초과 파일은 전체 텍스트 분석을 하지 않습니다. 요약의 `binaryFiles`, `skippedFiles`, `oversizedFiles`는 중복 집계될 수 있습니다. 실행 동작과 아카이브 내부는 분석하지 않습니다. 형식·심각도·제한은 [실행 파일 및 아카이브 헤더](../../understand/audit-engine.md#executable-headers)를 참고하세요. PE 헤더가 범위 밖에 있으면 해당 위치에서 필요한 바이트만 추가로 읽습니다. structure 분석기는 [번들 훅과 설정](../../understand/audit-engine.md#bundled-hooks-and-settings)을 위해 skill의 `.claude/settings.json`과 `.claude/settings.local.json`도 읽습니다.
+텍스트 필터링 전에 audit은 일반 파일마다 처음 512바이트를 읽어 실행 형식, CPython 바이트코드, ZIP/JAR, 위장 shebang 스크립트를 분류합니다. skill 내부의 숨김 디렉터리에서는 헤더만 분류하며 `__pycache__`도 포함합니다. 특수 파일이 아닌 대상을 가리키는 링크는 기존 텍스트 검사를 유지합니다. 특수 파일 대상은 건너뛰며 직접 감사하면 오류가 발생합니다. `.git`, `.skillshare`, 내부·OS 메타데이터, 링크 및 특수 파일은 헤더를 읽지 않습니다. 바이너리와 크기 초과 파일은 전체 텍스트 분석을 하지 않습니다. 요약의 `binaryFiles`, `skippedFiles`, `oversizedFiles`는 중복 집계될 수 있습니다. 실행 동작과 아카이브 내부는 분석하지 않습니다. 형식·심각도·제한은 [실행 파일 및 아카이브 헤더](../../understand/audit-engine.md#executable-headers)를 참고하세요. PE 헤더가 범위 밖에 있으면 해당 위치에서 필요한 바이트만 추가로 읽습니다. structure 분석기는 [번들 훅과 설정](../../understand/audit-engine.md#bundled-hooks-and-settings)을 위해 skill의 `.claude/settings.json`과 `.claude/settings.local.json`도 읽습니다.
 
 ## 옵션
 

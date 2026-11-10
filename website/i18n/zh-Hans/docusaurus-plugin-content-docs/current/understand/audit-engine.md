@@ -432,7 +432,7 @@ _cross-skill
 
 CPython 3.6 使用不含标志的 12 字节头部；3.7–3.14 使用含受支持标志的 16 字节头部。 直接扫描文件时，仅使用文件名判断伪装，祖先目录不会影响结果。
 
-保留原有的六层深度限制。`.git`、`.skillshare`、`.skillshare-meta.json`、操作系统元数据、文件符号链接和特殊文件不读取头部；目录符号链接不会遍历。明确配置的顶层源链接继续使用原有解析策略。没有文件数量上限；目录扫描将头部读取失败的文件计入 skipped 并继续扫描其他文件；直接指定的文件无法读取时仍返回错误。隐藏目录中的文件仅分类头部，不增加文本规则或完整性扫描。指向非特殊文件的链接保留原有文本扫描，直接文件和 agent 审计也一样；特殊目标会被跳过，直接文件或 agent 审计会返回错误。
+保留原有的六层深度限制。`.git`、`.skillshare`、`.skillshare-meta.json`、操作系统元数据、文件符号链接和特殊文件不读取头部；目录符号链接不会遍历。明确配置的顶层源链接继续使用原有解析策略。没有文件数量上限；目录扫描将头部读取失败的文件计入 skipped 并继续扫描其他文件；直接指定的文件无法读取时仍返回错误。skill 内隐藏目录中的文件仅分类头部，不增加文本规则或完整性扫描。指向非特殊文件的链接保留原有文本扫描，直接文件和 agent 审计也一样；特殊目标会被跳过，直接文件或 agent 审计会返回错误。
 
 头部分类不分析运行时行为、不解码字节码、不检查归档成员。超大文件仅接受此分类器的头部检查。可在 `audit-rules.yaml` 中按规则 ID 设置 `enabled: false` 来禁用这些发现。
 
@@ -452,7 +452,7 @@ CPython 3.6 使用不含标志的 12 字节头部；3.7–3.14 使用含受支�
 
 不超过 1 MB 的二进制及不支持的文件计入 `totalBytes`，但不计入 `auditableBytes`。超大文件不计入目录的字节比例；内部元数据及排除路径也不计入。
 
-CLI、JSON 和仪表盘摘要分别报告 `binaryFiles`、`skippedFiles`、`oversizedFiles`。`skippedFiles` 表示未做全文文本分析的文件，包括读取失败、二进制、不支持的扩展名、超大文件及隐藏目录中的普通文件。`binaryFiles` 包括已识别的二进制／归档头部及含 NUL 的头部。计数会重叠：超大二进制文件在三个计数器中各计一次。头部字节不计入可审计文本。Markdown 报告会多出 `Skipped files` 摘要行和 `File coverage by resource` 表格，SARIF 的 run 则在 `runs[].properties.skillshareCoverage` 中记录每个资源的计数。
+CLI、JSON 和仪表盘摘要分别报告 `binaryFiles`、`skippedFiles`、`oversizedFiles`。`skippedFiles` 表示未做全文文本分析的文件，包括读取失败、二进制、不支持的扩展名、超大文件及 skill 内隐藏目录中的普通文件。`binaryFiles` 包括已识别的二进制／归档头部及含 NUL 的头部。计数会重叠：超大二进制文件在三个计数器中各计一次。头部字节不计入可审计文本。Markdown 报告会多出 `Skipped files` 摘要行和 `File coverage by resource` 表格，SARIF 的 run 则在 `runs[].properties.skillshareCoverage` 中记录每个资源的计数。
 
 ### 输出
 
