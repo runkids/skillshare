@@ -5,6 +5,10 @@
 export const REQUEST = "skillshare.request.v1"; // { id, op, ... }
 export const NOTICE = "skillshare.notice.v1"; // { kind, text, at }
 export const BUSY = "skillshare.busy.v1"; // { [machine]: { text, at } }; "" is this computer
+// Every machine at once, as `on` for claim, step, touch and release: the panel replacing its own
+// files ends the work on all of them. It is taken only when nothing is locked, and while held
+// every machine is busy.
+export const EVERY = "*";
 
 // createChannel({ get, set, now }): get(key) and set(key, value) read and write shared values.
 //   request(op): hands op to the panel.
@@ -25,7 +29,8 @@ export function createChannel({ get, set, now = Date.now, staleMs = 60 * 1000 })
     if (!b || typeof b !== "object" || Array.isArray(b)) return {}; // older panels kept a string here
     return Object.fromEntries(Object.entries(b).filter(([, l]) => l && now() - l.at < staleMs));
   };
-  const busyAt = (on) => key(on) in locks();
+  const held = (l, on) => l[key(on)] ?? l[EVERY] ?? null;
+  const busyAt = (on) => Boolean(held(locks(), on));
   return {
     request(op) { set(REQUEST, { ...op, id: `${now()}-${Math.random().toString(36).slice(2, 7)}` }); },
     listen() {
@@ -38,11 +43,11 @@ export function createChannel({ get, set, now = Date.now, staleMs = 60 * 1000 })
       };
     },
     busyAt,
-    textAt: (on) => locks()[key(on)]?.text ?? null,
+    textAt: (on) => held(locks(), on)?.text ?? null,
     busyText: () => Object.values(locks()).map((l) => l.text).join(" · ") || null,
     claim(on, text) {
       const l = locks();
-      if (key(on) in l) return false;
+      if (on === EVERY ? Object.keys(l).length : held(l, on)) return false;
       set(BUSY, { ...l, [key(on)]: { text, at: now() } });
       return true;
     },

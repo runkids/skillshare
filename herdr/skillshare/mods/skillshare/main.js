@@ -15,7 +15,7 @@ import {
   cloneUrl, skillChoices, newerVersion, panelUpdate, updateState, ago, auditMessage, parseDiscover, parseAudit,
 } from "./model.js";
 import { createRunner } from "./jobs.js";
-import { createChannel } from "./channel.js";
+import { createChannel, EVERY } from "./channel.js";
 import { operate } from "./operations.js";
 import { findProject, loadResources, loadChecks, loadMachine, loadLatestRelease, loadPreview, loadFile } from "./loader.js";
 import { VERSION } from "./version.js";
@@ -281,7 +281,7 @@ export default class Skillshare extends View {
       setShared(UPDATING, null);
       if (state === "done") {
         // The lock is the ended build's unless other work took it since.
-        if (/^Updating the panel/.test(channel.textAt(null) ?? "")) channel.release(null);
+        if (/^Updating the panel/.test(channel.textAt(EVERY) ?? "")) channel.release(EVERY);
         channel.say("done", `Updated the panel to v${VERSION}`);
       }
       cx.notify();
@@ -435,7 +435,8 @@ export default class Skillshare extends View {
     if (shownNow && this.wasHidden && ctx) later(cx, (cx) => this.refresh(cx, false));
     this.wasHidden = !shownNow;
     const folderName = ctx ? (this.project ?? ctx.folder).split("/").filter(Boolean).pop() || "~" : null;
-    // Offered only while nothing runs: the reload ends every job's poll.
+    // Offered only while nothing runs: the reload ends every job's poll. The update then holds
+    // every machine's lock (EVERY), so nothing starts until the reloaded panel gives it back.
     const newPanel = channel.busyText() ? null : panelUpdate(VERSION, this.latest);
     const where = ctx ? `${this.project ? folderName : this.projectKnown ? "global" : folderName} · ${ctx.on ?? "this computer"}` : null;
     return v_flex().id("skillshare").track_focus(this.handle).size_full().min_h(0).rounded(10).overflow_hidden()
@@ -1048,7 +1049,7 @@ export default class Skillshare extends View {
         [dialogButton("cancel", "Cancel", t, close), dialogButton("go", "Update", t, go, "primary")], close, go);
     }
     if (p.role === "panelupdate") {
-      const go = () => { request({ op: "panel", on: null, from: p.from, to: p.to }); close(); };
+      const go = () => { request({ op: "panel", on: EVERY, from: p.from, to: p.to }); close(); };
       return dialogFrame(t, "panelupdate", this.handle, `Update the panel to ${p.to}?`,
         [note(t, `Replaces the skillshare panel v${p.from} in Herdr's mods folder on this computer with the one skillshare ${p.to} ships. The panel reloads when it is done.`, t.foreground),
           note(t, `The files it replaces are kept in the panel's .bak-update-${p.from} folder. Changes you made to them are not carried over.`)],

@@ -108,7 +108,7 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
 - `cx.notify()` throws during `render`, and `cx.spawn` runs its body up to its first `await` at once, so work started from `render` waits for the render to end first (`later`). Otherwise the error is swallowed and the button does nothing.
 - QuickJS rejects `??` mixed with `||` or `&&` without parentheses. `herdr-app check` catches it; `node --check` does not.
 - If a `skillshare` mod is already installed, rename this one and the `mod` names in the layout.
-- Saving a mod's file reloads it and ends the running build's tasks, so the build that starts a panel update never sees it finish. It leaves `{ to, at }` in `shared`, and the build whose `version.js` matches reports the result and gives the lock back. That is why `version.js` is copied last, and why the button hides while any work runs.
+- Saving a mod's file reloads it and ends the running build's tasks, so the build that starts a panel update never sees it finish. It leaves `{ to, at }` in `shared`, and the build whose `version.js` matches reports the result and gives the lock back. That is why `version.js` is copied last, why the button hides while any work runs, and why the update holds the lock of every machine until the reloaded panel gives it back: work started on another machine meanwhile would lose its remaining steps.
 - The dialog's role is `panelupdate`: `panel` is the role a block without one gets, so a dialog with it would draw a second panel.
 - A layout clone is never updated: rebuild from this recipe on a new Herdr version.
 
