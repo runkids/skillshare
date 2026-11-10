@@ -772,9 +772,8 @@ a.ss-pinnote:hover { transform: translate(-1px, -1px); }
    shortcut hint, the sticky toolbar); the page, cards and sidebar stay solid. The toolbar paints its
    glass on a ::before so it is not a backdrop root: a menu opened inside it still blurs the page. */
 :root:not([data-theme="playful"]) .ss-stickbar { background: none; }
-/* Stuck, the glass fades out at its lower edge instead of ending on a hard 1px line. */
+/* Keep the glass continuous through the lower edge so scrolled rows stay blurred. */
 :root:not([data-theme="playful"]) .ss-stickbar.stuck { box-shadow: none; }
-:root:not([data-theme="playful"]) .ss-stickbar.stuck::before { -webkit-mask-image: linear-gradient(#000 calc(100% - 12px), transparent); mask-image: linear-gradient(#000 calc(100% - 12px), transparent); }
 :root:not([data-theme="playful"]) .ss-stickbar::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--glass-bar); backdrop-filter: var(--mat); -webkit-backdrop-filter: var(--mat); }
 :root:not([data-theme="playful"]) :is(.ss-menu, .ss-hud) { background: var(--glass-menu); border-color: transparent; backdrop-filter: var(--mat-menu); -webkit-backdrop-filter: var(--mat-menu); }
 :root:not([data-theme="playful"]) .ss-menu { padding: 6px; border-radius: 14px; }
