@@ -32,6 +32,7 @@ type installJSONOutput struct {
 	Skills   []string `json:"skills"`
 	Failed   []string `json:"failed"`
 	Duration string   `json:"duration"`
+	Error    string   `json:"error,omitempty"`
 }
 
 type installLogSummary struct {
@@ -549,6 +550,9 @@ func installOutputJSON(summary installLogSummary, start time.Time, installErr er
 		Skills:   summary.InstalledSkills,
 		Failed:   summary.FailedSkills,
 		Duration: formatDuration(start),
+	}
+	if installErr != nil {
+		output.Error = installErr.Error()
 	}
 	return writeJSONResult(&output, installErr)
 }

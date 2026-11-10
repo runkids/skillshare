@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -69,6 +70,41 @@ func TestInstall_Track_BlocksCritical(t *testing.T) {
 	repoPath := filepath.Join(sb.SourcePath, "_evil-repo")
 	if sb.FileExists(repoPath) {
 		t.Error("tracked repo should be removed after audit block")
+	}
+}
+
+func TestInstall_JSONReportsAuditBlock(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		project bool
+		args    []string
+	}{
+		{name: "global tracked", args: []string{"--track", "--name", "evil-repo"}},
+		{name: "global plain"},
+		{name: "project tracked", project: true, args: []string{"--track", "--name", "evil-repo"}},
+		{name: "project plain", project: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			setupGlobalConfig(sb)
+
+			repoURL := setupBareRepoWithCriticalContent(t, sb, "json-critical")
+			args := append([]string{"install", repoURL, "--json"}, tc.args...)
+			var result *testutil.Result
+			if tc.project {
+				result = sb.RunCLIInDir(sb.SetupProjectDir("claude"), append(args, "-p")...)
+			} else {
+				result = sb.RunCLI(args...)
+			}
+
+			result.AssertFailure(t)
+			assertPureJSON(t, strings.TrimSpace(result.Stdout))
+			msg, _ := parseJSON(t, result.Stdout)["error"].(string)
+			if !strings.Contains(msg, "blocked by security audit") {
+				t.Errorf("expected error field to report the audit block, got: %s", result.Stdout)
+			}
+		})
 	}
 }
 

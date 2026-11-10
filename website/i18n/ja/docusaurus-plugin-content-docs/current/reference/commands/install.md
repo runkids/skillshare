@@ -299,7 +299,7 @@ skillshare sync
 | `--project` | `-p` | プロジェクトの `.skillshare/skills/` へインストール |
 | `--global` | `-g` | グローバルの `~/.config/skillshare/skills/` へインストール |
 | `--dry-run` | `-n` | プレビューのみ |
-| `--json` | | JSON として出力（`--force` を暗黙的に有効化。`--skill`/`--agent` フィルタが指定されない場合、非インタラクティブ選択も暗黙的に有効化） |
+| `--json` | | JSON として出力（`--force` と同様に既存の skill を上書きできるが、監査によるブロックは引き続き適用。`--skill`/`--agent` フィルタが指定されない場合、非インタラクティブ選択も暗黙的に有効化） |
 
 ## JSON 出力
 
@@ -350,6 +350,20 @@ skillshare install github.com/user/agents --kind agent --json
   "skills": ["reviewer", "tutor"],
   "failed": [],
   "duration": "1.234s"
+}
+```
+
+tracked リポジトリや単一の skill がセキュリティ監査にブロックされた場合など、インストール全体が失敗すると、コマンドは 0 以外で終了し、`error` フィールドに理由が入ります。複数の skill を含むソースでは、ブロックまたは失敗した skill は `failed` に記録され、コマンドは 0 で終了します。監査の検出結果があってもインストールするには `--force` を付けます。
+
+```json
+{
+  "source": "github.com/user/evil-skills",
+  "tracked": true,
+  "dry_run": false,
+  "skills": [],
+  "failed": [],
+  "duration": "0.412s",
+  "error": "blocked by security audit (use --force to override)"
 }
 ```
 

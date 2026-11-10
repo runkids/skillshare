@@ -299,7 +299,7 @@ skillshare sync
 | `--project` | `-p` | 프로젝트 `.skillshare/skills/`에 설치 |
 | `--global` | `-g` | global `~/.config/skillshare/skills/`에 설치 |
 | `--dry-run` | `-n` | 미리보기만 |
-| `--json` | | JSON으로 출력 (`--force`를 암시함; `--skill`/`--agent` 필터가 없을 때는 비인터랙티브 선택도 암시함) |
+| `--json` | | JSON으로 출력 (`--force`처럼 기존 skill 덮어쓰기를 허용하지만 보안 감사 차단은 그대로 적용됨; `--skill`/`--agent` 필터가 없을 때는 비인터랙티브 선택도 암시함) |
 
 ## JSON 출력
 
@@ -350,6 +350,20 @@ skillshare install github.com/user/agents --kind agent --json
   "skills": ["reviewer", "tutor"],
   "failed": [],
   "duration": "1.234s"
+}
+```
+
+tracked 저장소나 단일 skill이 보안 감사에 차단되는 등 설치 전체가 실패하면 명령은 0이 아닌 코드로 종료되고 `error` 필드에 이유가 담깁니다. 여러 skill이 있는 소스에서는 차단되거나 실패한 skill이 `failed`에 기록되고 명령은 0으로 종료됩니다. 감사 결과가 있어도 설치하려면 `--force`를 추가하세요.
+
+```json
+{
+  "source": "github.com/user/evil-skills",
+  "tracked": true,
+  "dry_run": false,
+  "skills": [],
+  "failed": [],
+  "duration": "0.412s",
+  "error": "blocked by security audit (use --force to override)"
 }
 ```
 

@@ -299,7 +299,7 @@ skillshare sync
 | `--project` | `-p` | 安裝到專案的 `.skillshare/skills/` |
 | `--global` | `-g` | 安裝到全域的 `~/.config/skillshare/skills/` |
 | `--dry-run` | `-n` | 只預覽 |
-| `--json` | | 以 JSON 輸出（隱含 `--force`；若未指定 `--skill`/`--agent` 篩選，也隱含非互動式選擇） |
+| `--json` | | 以 JSON 輸出（和 `--force` 一樣允許覆寫既有 skill，但安全稽核的阻擋仍然有效；若未指定 `--skill`/`--agent` 篩選，也隱含非互動式選擇） |
 
 ## JSON 輸出
 
@@ -350,6 +350,20 @@ skillshare install github.com/user/agents --kind agent --json
   "skills": ["reviewer", "tutor"],
   "failed": [],
   "duration": "1.234s"
+}
+```
+
+整個安裝失敗時，例如 tracked repo 或單一 skill 被安全稽核擋下，指令會以非零狀態結束，`error` 欄位說明原因。來源有多個 skill 時，被擋下或失敗的 skill 會列在 `failed`，指令仍以 0 結束。若要在有稽核發現時仍然安裝，請加上 `--force`。
+
+```json
+{
+  "source": "github.com/user/evil-skills",
+  "tracked": true,
+  "dry_run": false,
+  "skills": [],
+  "failed": [],
+  "duration": "0.412s",
+  "error": "blocked by security audit (use --force to override)"
 }
 ```
 
