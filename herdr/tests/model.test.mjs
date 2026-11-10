@@ -4,7 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseGitStatus, sourceLine, driftFrom, targetDrift, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, skillChoices, newerVersion, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, rowState, previewTargets, splitFrontmatter, mcpServer, targetList, mapLanes, needsBothWays, READ_SKILL } from "../skillshare/mods/skillshare/model.js";
+import { parseGitStatus, sourceLine, driftFrom, targetDrift, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, skillChoices, newerVersion, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, rowState, previewTargets, splitFrontmatter, mcpServer, targetList, mapLanes, needsBothWays, READ_SKILL, eligibleTargets } from "../skillshare/mods/skillshare/model.js";
 
 test("git status reads branch, ahead/behind and files", () => {
   const g = parseGitStatus("top /src\n## main...origin/main [ahead 1, behind 2]\n M a.md\n?? b/SKILL.md\n");
@@ -511,4 +511,18 @@ test("an MCP server declared only under a project root is still found", () => {
   const yaml = "mcp:\n  servers:\n    other:\n      command: x\n  projects:\n    ~/work/app:\n      servers:\n        local:\n          command: node\n          env:\n            KEY: secret-1\n";
   assert.deepEqual(mcpServer(yaml, "local"), [{ key: "command", value: "node" }, { key: "env", value: "KEY = ••••••••" }]);
   assert.equal(mcpServer(yaml, "none"), null);
+});
+
+test("a skill new to one target waits only there", () => {
+  const one = { diff: { targets: [{ name: "claude", items: [] }, { name: "cursor", items: [{ name: "x", kind: "skill", action: "add", is_sync: true }] }] }, skillTargets: ["claude", "codex", "cursor"] };
+  const [item] = buildItems("global", { list: [{ name: "x", kind: "skill" }], diff: one.diff });
+  assert.equal(item.state, "missing");
+  assert.deepEqual(previewTargets(item, eligibleTargets(item, one)).map((r) => [r.name, r.text]), [["cursor", "needs sync"], ["claude", "in sync"], ["codex", "in sync"]]);
+});
+
+test("an agent's targets are the ones that take agents", () => {
+  const one = { diff: { targets: [{ name: "claude", items: [] }, { name: "codex", items: [] }] }, skillTargets: ["claude", "codex"], agentTargets: ["claude"] };
+  assert.deepEqual(eligibleTargets({ kind: "agents", state: "ok", targets: [] }, one), ["claude"]);
+  assert.deepEqual(eligibleTargets({ kind: "agents", state: "sync", targets: ["cursor"] }, one), ["claude", "cursor"]);
+  assert.deepEqual(eligibleTargets({ kind: "skills", state: "ok" }, one), ["claude", "codex"]);
 });

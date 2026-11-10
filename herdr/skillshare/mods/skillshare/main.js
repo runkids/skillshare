@@ -11,7 +11,7 @@ import { v_flex, h_flex, InputState, Input, TextView } from "gpui-base";
 import { exec, hc, run, spaces, agents, focused, machines, shared, setShared, theme, settings, layout, openOverlay, closeOverlay, nextCommand, readTextFile, knownAgents, props as blockProps } from "herdr";
 import {
   KINDS, SCOPES, DISCOVER, AUDIT,
-  parseJSON, lastLine, failure, flag, sourceLine, buildItems, hookArgs, rowState, previewTargets, targetList, mapLanes, needsBothWays, filterItems, groupItems, sourceGroups, counts, targetDrift,
+  parseJSON, lastLine, failure, flag, sourceLine, buildItems, hookArgs, rowState, previewTargets, eligibleTargets, targetList, mapLanes, needsBothWays, filterItems, groupItems, sourceGroups, counts, targetDrift,
   cloneUrl, skillChoices, newerVersion, ago, auditMessage, parseDiscover, parseAudit,
 } from "./model.js";
 import { createRunner } from "./jobs.js";
@@ -590,8 +590,7 @@ export default class Skillshare extends View {
   openPreview(item, ctx) {
     try {
       const a = this.receiver();
-      const names = [...new Set([...(this.raw[item.scope]?.diff?.targets ?? []).map((x) => x.name), ...(this.raw[item.scope]?.targets ?? [])])].sort();
-      openDialog({ width: 760, height: 560, props: { role: "preview", item, on: ctx.on, project: this.project, targets: previewTargets(item, names),
+      openDialog({ width: 760, height: 560, props: { role: "preview", item, on: ctx.on, project: this.project, targets: previewTargets(item, eligibleTargets(item, this.raw[item.scope])),
         mcpPath: this.raw[item.scope]?.mcp?.sourcePath ?? null, busy: Boolean(this.busyAt(ctx.on)),
         agent: a ? { address: a.address, name: a.program?.name ?? "the agent" } : null } });
     } catch (e) { channel.say("error", `Preview could not open: ${e?.message ?? e}`); }

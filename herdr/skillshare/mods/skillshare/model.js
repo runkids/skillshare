@@ -383,6 +383,13 @@ export function rowState(item, showScope) {
   return `${pre}${src}${item.version && item.kind === "plugins" ? ` · ${item.version}` : ""}`;
 }
 
+// The targets a skill or an agent can go to in its scope, by name. one: raw[scope], whose
+// skillTargets and agentTargets come from status; a target the item waits on is always one.
+export function eligibleTargets(item, one) {
+  const base = item.kind === "agents" ? one?.agentTargets ?? [] : [...(one?.diff?.targets ?? []).map((x) => x.name), ...(one?.skillTargets ?? [])];
+  return [...new Set([...base, ...(item.state === "off" ? [] : item.targets ?? [])])].sort();
+}
+
 // Who gets an item and what each still needs, waiting first: [{ name, text, warn }].
 // names: every target of the item's scope, for skills and agents (their rows name only the waiting ones).
 export function previewTargets(item, names = []) {
@@ -395,8 +402,8 @@ export function previewTargets(item, names = []) {
     const waits = new Map(String(item.reason ?? "").replace(/^pending in /, "").split(", ").filter(Boolean).map((x) => { const [n, a] = x.split(": "); return [n, a ?? "pending"]; }));
     rows = (item.targets ?? []).map((n) => ({ name: n, text: waits.get(n) ?? "in sync", warn: waits.has(n) }));
   } else {
-    const waits = new Set(item.targets ?? []), all = item.state === "missing";
-    rows = names.map((n) => ({ name: n, text: item.state === "off" ? "disabled" : all || waits.has(n) ? "needs sync" : "in sync", warn: item.state !== "off" && (all || waits.has(n)) }));
+    const waits = new Set(item.targets ?? []);
+    rows = names.map((n) => ({ name: n, text: item.state === "off" ? "disabled" : waits.has(n) ? "needs sync" : "in sync", warn: item.state !== "off" && waits.has(n) }));
   }
   return rows.sort((a, b) => Number(b.warn) - Number(a.warn) || a.name.localeCompare(b.name));
 }

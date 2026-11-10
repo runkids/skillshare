@@ -55,10 +55,11 @@ test("a machine card counts targets that take skills and the source's git state"
 });
 
 test("each scope's target names come from its own status", async () => {
-  const names = (...n) => ({ stdout: JSON.stringify({ targets: n.map((name) => ({ name })) }) });
+  const names = (...n) => ({ stdout: JSON.stringify({ targets: [...n.map((name) => ({ name })), { name: "off", skills_enabled: false }], agents: { targets: [{ name: n[0] }] } }) });
   const { io } = machine({ jobs: { "snapshot -p": snapshot([]), "snapshot -g": snapshot([]) }, runs: { "status --json -g": names("claude", "codex"), "status --json -p": names("cursor") } });
   const { raw } = await loadResources(io, null, "/work/app", false);
-  assert.deepEqual([raw.global.targets, raw.project.targets], [["claude", "codex"], ["cursor"]]);
+  assert.deepEqual([raw.global.targets, raw.project.targets], [["claude", "codex", "off"], ["cursor", "off"]]);
+  assert.deepEqual([raw.global.skillTargets, raw.global.agentTargets, raw.project.agentTargets], [["claude", "codex"], ["claude"], ["cursor"]]);
 });
 
 test("a skill's preview has its files and its document without the frontmatter", async () => {

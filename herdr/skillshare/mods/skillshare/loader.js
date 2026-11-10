@@ -15,13 +15,15 @@ export async function findProject({ sh }, on, folders) {
 }
 
 // Every scope's resources, the source's git state and the CLI version, in one pass:
-// { raw: { [scope]: { list, diff, mcp, plugins, hooks, targets, took, error } }, git, version, error }.
+// { raw: { [scope]: { list, diff, mcp, plugins, hooks, targets, skillTargets, agentTargets, took, error } }, git, version, error }.
 // network also fetches the source's remote, so ahead/behind is current.
 export async function loadResources(io, on, project, network) {
   const raw = {};
   const statusRead = io.run(["status", "--json", "-g"], { on });
   const projectRead = project ? io.run(["status", "--json", "-p"], at(on, project, "project")) : null;
-  const names = (st) => (st?.targets ?? []).map((x) => x.name).filter(Boolean);
+  // targets: every configured one; skillTargets: those that take skills; agentTargets: those that take agents.
+  const names = (list) => (list ?? []).map((x) => x.name).filter(Boolean);
+  const put = (one, st) => { if (one) Object.assign(one, { targets: names(st?.targets), skillTargets: names((st?.targets ?? []).filter((x) => x.skills_enabled !== false)), agentTargets: names(st?.agents?.targets) }); };
   await Promise.all(scopesOf(project).map(async (scope) => {
     const r = await io.job([flag(scope)], { ...at(on, project, scope), script: SNAPSHOT });
     const snap = parseSnapshot(r.stdout);
@@ -29,8 +31,8 @@ export async function loadResources(io, on, project, network) {
   }));
   const status = parseJSON((await statusRead).stdout);
   // diff leaves out targets that share another's folder, so the configured names come from status.
-  if (raw.global) raw.global.targets = names(status);
-  if (raw.project && projectRead) raw.project.targets = names(parseJSON((await projectRead).stdout));
+  put(raw.global, status);
+  if (projectRead) put(raw.project, parseJSON((await projectRead).stdout));
   const git = status?.source?.path ? parseGitStatus((await io.sh(GIT_STATUS, [status.source.path, network ? "fetch" : ""], on)).stdout) : { repo: false };
   return { raw, git, version: status?.version ?? null, error: raw.global?.error ?? raw.project?.error ?? null };
 }
