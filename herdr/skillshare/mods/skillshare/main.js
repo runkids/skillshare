@@ -492,8 +492,12 @@ export default class Skillshare extends View {
     } else {
       const rows = (items) => items.map((i) => this.row(t, i, showScope, ctx));
       const sections = [...rows(unknown)];
-      if (notices.length) sections.push(this.groupHeader(t, "notices", `NEED A LOOK · ${notices.length}`, t.muted, null), ...rows(notices));
-      if (groups.sync.length) sections.push(this.groupHeader(t, "sync", `NEEDS SYNC · ${groups.sync.length}`, t.blocked, null), ...rows(groups.sync));
+      // Sync covers what this list shows waiting; with no waiting row, a notice with native changes carries it.
+      const pending = [...groups.sync, ...notices.filter((i) => i.pending)], syncScopes = [...new Set(pending.map((i) => i.scope))];
+      const syncButton = () => secondary("sync-group", this.project && syncScopes.length === 1 ? `Sync ${syncScopes[0]}` : "Sync", t,
+        () => request({ op: "sync", on: ctx.on, project: this.project, scopes: syncScopes, plugins: groups.sync.some((i) => i.kind === "plugins") }), { h: 24, px: 9, size: S().label });
+      if (notices.length) sections.push(this.groupHeader(t, "notices", `NEED A LOOK · ${notices.length}`, t.muted, pending.length && !groups.sync.length ? syncButton() : null), ...rows(notices));
+      if (groups.sync.length) sections.push(this.groupHeader(t, "sync", `NEEDS SYNC · ${groups.sync.length}`, t.blocked, syncButton()), ...rows(groups.sync));
       if (groups.update.length) {
         sections.push(this.groupHeader(t, "update", `UPDATE AVAILABLE · ${groups.update.length}`, t.accent,
           groups.update.length > 1 ? secondary("update-all", "Update all", t, () => this.updateAll(groups.update, ctx), { h: 24, px: 9, size: S().label }) : null), ...rows(groups.update));
