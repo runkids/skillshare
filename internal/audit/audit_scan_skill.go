@@ -16,6 +16,9 @@ type mdFileInfo struct {
 	relPath string
 	data    []byte
 	absDir  string // absolute directory containing this file
+	// skillDir is the slash path, below the scan root, of the nested skill
+	// that holds this file; "" when the scan root itself holds it.
+	skillDir string
 }
 
 // ScanSkill scans all scannable files in a skill directory using global rules.
@@ -259,9 +262,10 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 		isMarkdown := strings.EqualFold(filepath.Ext(fi.Name()), ".md")
 		if isMarkdown {
 			mdFiles = append(mdFiles, mdFileInfo{
-				relPath: relPath,
-				data:    data,
-				absDir:  filepath.Dir(path),
+				relPath:  relPath,
+				data:     data,
+				absDir:   filepath.Dir(path),
+				skillDir: roots.owner(normalizedRel),
 			})
 		}
 

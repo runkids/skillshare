@@ -153,3 +153,40 @@ func TestDoctorBundledReferencesInvalidProjectRulesWithoutSkills(t *testing.T) {
 		t.Fatalf("invalid rules reported clean: %+v", result.checks)
 	}
 }
+
+// A nested skill is scanned on its own and again inside its parent; each
+// physical finding is reported once.
+func TestDoctorBundledReferencesNestedSkillReportedOnce(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	audit.ResetGlobalCache()
+	t.Cleanup(audit.ResetGlobalCache)
+	parent := filepath.Join(t.TempDir(), "parent")
+	child := filepath.Join(parent, "child")
+	if err := os.MkdirAll(filepath.Join(child, "references"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	for path, text := range map[string]string{
+		filepath.Join(parent, "SKILL.md"):           "# Parent\n",
+		filepath.Join(child, "SKILL.md"):            "# Child\nRead `references/ok.md`.\n[missing](references/missing.md)\n[escape](../SKILL.md)\n",
+		filepath.Join(child, "references", "ok.md"): "Present.\n",
+	} {
+		if err := os.WriteFile(path, []byte(text), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	skills := []sync.DiscoveredSkill{{SourcePath: parent, RelPath: "parent"}, {SourcePath: child, RelPath: "parent/child"}}
+	for _, project := range []bool{false, true} {
+		t.Run(map[bool]string{false: "global", true: "project"}[project], func(t *testing.T) {
+			projectRoot := ""
+			if project {
+				projectRoot = t.TempDir()
+			}
+			result := &doctorResult{}
+			captureStdout(t, func() { checkSkillReferences(result, skills, projectRoot, nil) })
+			if result.errors != 1 || result.warnings != 1 || len(result.checks) != 2 {
+				t.Fatalf("nested skill findings: %+v", result)
+			}
+		})
+	}
+}

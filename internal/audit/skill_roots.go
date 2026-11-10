@@ -54,12 +54,21 @@ func (r *skillRoots) visit(dir, relPath string) {
 	r.dirs[relPath] = true
 }
 
-// within returns relPath relative to the deepest recorded skill containing it.
-func (r *skillRoots) within(relPath string) string {
+// owner returns the deepest recorded skill containing relPath, or "" when
+// the scan root itself holds it.
+func (r *skillRoots) owner(relPath string) string {
 	for dir := path.Dir(relPath); dir != "."; dir = path.Dir(dir) {
 		if r.dirs[dir] {
-			return strings.TrimPrefix(relPath, dir+"/")
+			return dir
 		}
+	}
+	return ""
+}
+
+// within returns relPath relative to the deepest recorded skill containing it.
+func (r *skillRoots) within(relPath string) string {
+	if dir := r.owner(relPath); dir != "" {
+		return strings.TrimPrefix(relPath, dir+"/")
 	}
 	return relPath
 }
