@@ -13,7 +13,7 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
 - **Sidebar**, 268px: Herdr's own brand bar, Spaces, Agents and footer.
 - **Work column**: the tab bar row, now `tabs` (weight 1) beside a 118px `skillshare-toggle` block. The toggle draws the 16px skillshare mark and "skillshare", on `selected` while the panel shows. Under it the shown tab and Herdr's Files/Changes side panel, then the status bar.
 - **skillshare panel**, a 400px column (380–720px, the narrowest the tab row fits) right of the work area, top to bottom:
-  - a 44px header: the mark, "skillshare", a pill with the folder (or "global" outside a project) and the machine, an "Update panel" button when a newer skillshare release is published and nothing is running, the CLI version in `muted`, and a close button;
+  - a 44px header: the mark, "skillshare", a pill with the folder (or "global" outside a project) and the machine, which shortens with an ellipsis when the row runs out of room, an "Update panel" button when a newer skillshare release is published and nothing is running, the CLI version in `muted`, and a close button;
   - Overview, Library and Machines tabs, the shown one underlined in `foreground`. At the row's right, a skillshare project gets an All · Project · Global switch that Overview and Library share; outside a project it says "Global". On Machines the same place says when the machines were last checked.
   - Overview:
     - a headline with its mark: "Reading skillshare", "Everything is in sync", "n targets need a sync" (or "n resources to sync" when only MCP servers, plugins or hooks wait), or "Syncing n targets"; a primary Sync button while something waits;
