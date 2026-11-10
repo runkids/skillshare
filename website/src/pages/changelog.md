@@ -9,6 +9,20 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.30.3] - 2026-11-10
+
+
+### New Features
+
+* **mcp:** add Hermes Agent sync and import target ([#826](https://github.com/runkids/skillshare/issues/826)) ([cafd99e](https://github.com/runkids/skillshare/commit/cafd99e59578c9aff32db3e7c9cdfe86f6b8e372)), closes [#825](https://github.com/runkids/skillshare/issues/825)
+* **ui:** frost floating layers and let dashboard motion follow springs ([a27bf1c](https://github.com/runkids/skillshare/commit/a27bf1cb21315cb4450f102dec644d7dd9026cc0))
+
+
+### Bug Fixes
+
+* **audit:** text-scan hidden-directory skills in tracked repo gates ([#827](https://github.com/runkids/skillshare/issues/827)) ([c74a35d](https://github.com/runkids/skillshare/commit/c74a35dd4b4cc15cd3abd4d2ce586a58b383b87b))
+* **discovery:** find repository-root .agents/skills ([#801](https://github.com/runkids/skillshare/issues/801)) ([71ff2d9](https://github.com/runkids/skillshare/commit/71ff2d9e14077fa9ecb670bfb235ef380d152e28)), closes [#800](https://github.com/runkids/skillshare/issues/800)
+
 ## [0.30.2] - 2026-11-09
 
 ### Bug Fixes
