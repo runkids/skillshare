@@ -148,10 +148,31 @@ func extractMarkdownImageLinks(data []byte) []markdownLink {
 	return links
 }
 
+// checkBundledReferences resolves and contains each file's references within
+// the skill that holds it, so a nested skill gets the same result inside a
+// parent scan as when it is scanned directly.
 func checkBundledReferences(root string, files []mdFileInfo, mdLinks map[string][]markdownLink, logicalRoots ...string) []Finding {
-	checker := newBundledPathChecker(root, logicalRoots...)
+	checkers := map[string]bundledPathChecker{}
 	var findings []Finding
 	for _, f := range files {
+		skillDir := filepath.FromSlash(f.skillDir)
+		checker, ok := checkers[f.skillDir]
+		if !ok {
+			var owned []string
+			for _, logicalRoot := range logicalRoots {
+				if logicalRoot != "" {
+					owned = append(owned, filepath.Join(logicalRoot, skillDir))
+				}
+			}
+			checker = newBundledPathChecker(filepath.Join(root, skillDir), owned...)
+			checkers[f.skillDir] = checker
+		}
+		fileDir := filepath.Dir(f.relPath)
+		if skillDir != "" {
+			if rel, err := filepath.Rel(skillDir, fileDir); err == nil {
+				fileDir = rel
+			}
+		}
 		links := mdLinks[f.relPath]
 		if mdLinks == nil {
 			links = extractMarkdownLinks(f.data)
@@ -183,7 +204,7 @@ func checkBundledReferences(root string, files []mdFileInfo, mdLinks map[string]
 			}
 			inspect := func(path string) string {
 				if !link.fromRoot && !strings.HasPrefix(filepath.ToSlash(path), "/") && !filepath.IsAbs(path) && !isDriveReference(path) && !strings.HasPrefix(path, "~/") {
-					path = filepath.Join(filepath.Dir(f.relPath), ".") + string(filepath.Separator) + path
+					path = filepath.Join(fileDir, ".") + string(filepath.Separator) + path
 				}
 				return checker.inspect(path)
 			}

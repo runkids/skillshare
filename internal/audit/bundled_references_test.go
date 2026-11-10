@@ -1,8 +1,10 @@
 package audit
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -352,5 +354,47 @@ func TestBundledReferenceMaintainerCases(t *testing.T) {
 	files := []mdFileInfo{{relPath: "SKILL.md", absDir: root, data: []byte(text)}}
 	if findings := checkBundledReferences(root, files, nil); len(findings) != 0 {
 		t.Fatalf("ordinary docs: %+v", findings)
+	}
+}
+
+// A nested skill's references resolve against its own root, so a parent scan
+// reports what a direct scan of the child reports.
+func TestBundledReferencesNestedSkillUsesOwnRoot(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	ResetGlobalCache()
+	t.Cleanup(ResetGlobalCache)
+	parent := filepath.Join(t.TempDir(), "parent")
+	child := filepath.Join(parent, "child")
+	if err := os.MkdirAll(filepath.Join(child, "references"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	for path, text := range map[string]string{
+		filepath.Join(parent, "SKILL.md"):               "# Parent\n",
+		filepath.Join(child, "SKILL.md"):                "# Child\nRead `references/ok.md`.\n[missing](references/missing.md)\n[escape](../SKILL.md)\n",
+		filepath.Join(child, "references", "ok.md"):     "Present.\n",
+		filepath.Join(child, "references", "nested.md"): "See `references/ok.md` and [up](../SKILL.md).\n",
+	} {
+		if err := os.WriteFile(path, []byte(text), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	registry := DefaultRegistry().ForPolicy(Policy{EnabledAnalyzers: []string{AnalyzerStructure}})
+	scan := func(root, prefix string) map[string]bool {
+		result, err := ScanSkillFiltered(root, registry)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := map[string]bool{}
+		for _, f := range result.Findings {
+			got[fmt.Sprintf("%s:%d:%s", strings.TrimPrefix(filepath.ToSlash(f.File), prefix), f.Line, f.RuleID)] = true
+		}
+		return got
+	}
+	want := map[string]bool{"SKILL.md:3:dangling-link": true, "SKILL.md:4:reference-escapes-root": true}
+	if got := scan(child, ""); !reflect.DeepEqual(got, want) {
+		t.Fatalf("child scan: %v", got)
+	}
+	if got := scan(parent, "child/"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("parent scan: %v", got)
 	}
 }

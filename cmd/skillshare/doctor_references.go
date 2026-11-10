@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"path"
+	"path/filepath"
 	"strings"
 
 	"skillshare/internal/audit"
@@ -46,6 +48,8 @@ func checkSkillReferences(result *doctorResult, skills []sync.DiscoveredSkill, p
 		return
 	}
 	checksBefore := len(result.checks)
+	// A nested skill is scanned on its own and again inside its parent.
+	reported := map[string]bool{}
 	for i, skill := range skills {
 		var scan *audit.Result
 		var err error
@@ -64,6 +68,11 @@ func checkSkillReferences(result *doctorResult, skills []sync.DiscoveredSkill, p
 			if f.Analyzer != audit.AnalyzerStructure {
 				continue
 			}
+			key := fmt.Sprintf("%s:%d:%s:%s", path.Join(filepath.ToSlash(skill.RelPath), filepath.ToSlash(f.File)), f.Line, f.RuleID, f.Message)
+			if reported[key] {
+				continue
+			}
+			reported[key] = true
 			status, mark := checkWarning, ui.MarkWarn
 			if f.Severity == audit.SeverityHigh {
 				status, mark = checkError, ui.MarkFail
