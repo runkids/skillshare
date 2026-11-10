@@ -2,17 +2,18 @@
 
 ## [0.30.3] - 2026-11-10
 
-
 ### New Features
 
-* **mcp:** add Hermes Agent sync and import target ([#826](https://github.com/runkids/skillshare/issues/826)) ([cafd99e](https://github.com/runkids/skillshare/commit/cafd99e59578c9aff32db3e7c9cdfe86f6b8e372)), closes [#825](https://github.com/runkids/skillshare/issues/825)
-* **ui:** frost floating layers and let dashboard motion follow springs ([a27bf1c](https://github.com/runkids/skillshare/commit/a27bf1cb21315cb4450f102dec644d7dd9026cc0))
-
+- **Hermes Agent as an MCP target** — `skillshare mcp` can now sync servers to Hermes Agent and import them from it. Skillshare writes named entries under `mcp_servers` in `~/.hermes/config.yaml` and keeps the file's other settings, comments and the servers it does not manage. Stdio and Streamable HTTP servers and environment references are supported; set `options.hermes.auth: oauth` to use Hermes's own OAuth login, which Hermes keeps managing. An absolute `HERMES_HOME` selects another profile. Hermes is global only, and SSE servers are refused on import. Thanks to @LloydPowell771 for the request. Refs: #825, #826.
+  ```bash
+  skillshare mcp import docs --from hermes --target claude --target codex --sync
+  ```
+- **Frosted menus and spring motion in the dashboard** — in the Clean style, menus, the shortcut HUD and the toolbar that sticks while you scroll are now translucent; pages, cards and the sidebar stay solid, and with reduced transparency turned on everything is solid again. Menus fade out instead of vanishing, dialogs and the selection bar play their exit, the segmented-control pill slides between segments, and switches move on spring curves. With reduced motion only a short fade remains. A toast's countdown now holds where it is while you hover.
 
 ### Bug Fixes
 
-* **audit:** text-scan hidden-directory skills in tracked repo gates ([#827](https://github.com/runkids/skillshare/issues/827)) ([c74a35d](https://github.com/runkids/skillshare/commit/c74a35dd4b4cc15cd3abd4d2ce586a58b383b87b))
-* **discovery:** find repository-root .agents/skills ([#801](https://github.com/runkids/skillshare/issues/801)) ([71ff2d9](https://github.com/runkids/skillshare/commit/71ff2d9e14077fa9ecb670bfb235ef380d152e28)), closes [#800](https://github.com/runkids/skillshare/issues/800)
+- **Tracked repos that keep their skills in `.agents/skills` are found** — a repository whose skills live only in its root `.agents/skills/`, for example one installed with `skillshare install owner/repo/.agents/skills --track`, showed 0 skills and sync linked nothing, because `.agents` is skipped as the folder other tools sync copies into. That folder now counts when the repository has no other skills, both in tracked repos and in install's skill list. Repositories that commit `.agents/skills` as a copy of their `skills/` folder still get only the `skills/` versions, without duplicates. Thanks to @salmonumbrella for the report and the fix. Refs: #800, #801.
+- **Tracked installs and updates audit skills in hidden folders** — `install --track` and tracked-repo updates audit the whole repository, and files below hidden folders got only a header check, so a skill in a folder such as `.curated/` or `.agents/skills/` reached your Agents without its text being scanned. Those skills now get the same full scan `skillshare audit` gives them, so a tracked install or update can be blocked by a finding in them. Copies in target folders such as `.claude/skills/`, and hidden folders inside a skill, are checked as before. Refs: #827.
 
 ## [0.30.2] - 2026-11-09
 
