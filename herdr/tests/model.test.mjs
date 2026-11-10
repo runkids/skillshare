@@ -4,7 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseGitStatus, sourceLine, driftFrom, targetDrift, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, skillChoices, newerVersion, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, rowState, previewTargets, splitFrontmatter, mcpServer, targetList, mapLanes, needsBothWays, READ_SKILL, eligibleTargets, syncScopes, overviewAnswer, remoteLine, waitingNames, releaseTag, panelUpdate, updateState, PANEL_UPDATE } from "../skillshare/mods/skillshare/model.js";
+import { parseGitStatus, sourceLine, driftFrom, targetDrift, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, skillChoices, newerVersion, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, rowState, previewTargets, splitFrontmatter, mcpServer, targetList, mapLanes, needsBothWays, READ_SKILL, eligibleTargets, syncScopes, overviewAnswer, remoteLine, waitingNames, releaseTag, panelUpdate, updateState, PANEL_UPDATE, toggleArgs } from "../skillshare/mods/skillshare/model.js";
 import { VERSION } from "../skillshare/mods/skillshare/version.js";
 
 test("git status reads branch, ahead/behind and files", () => {
@@ -638,4 +638,17 @@ test("a collapsed map line keeps the targets it stands for", () => {
   const t = (name, n = 0) => ({ name, n });
   const rows = mapLanes([...["a", "b", "c", "d", "e", "f", "g"].map((x) => t(x, 2)), t("x"), t("y")]);
   assert.deepEqual(rows.filter((r) => r.more).map((r) => r.rest), [[t("e", 2), t("f", 2), t("g", 2)], [t("x"), t("y")]]);
+
+test("a skill or agent is disabled and enabled by its own path, in its scope", () => {
+  const items = buildItems("project", { list: [
+    { name: "react-tips", relPath: "frontend/react-tips", kind: "skill" },
+    { name: "reviewer.md", relPath: "reviewer.md", kind: "agent", disabled: true },
+  ] });
+  assert.deepEqual([toggleArgs(items[0], "disable"), toggleArgs(items[1], "enable")],
+    [["disable", "frontend/react-tips", "-p"], ["enable", "reviewer.md", "--kind", "agent", "-p"]]);
+});
+
+test("a row offers only the change it can take", () => {
+  const [skill] = buildItems("global", { list: [{ name: "archify", relPath: "archify", kind: "skill" }] });
+  assert.deepEqual([toggleArgs(skill, "enable"), toggleArgs({ kind: "mcp", name: "m", scope: "global" }, "disable")], [null, null]);
 });

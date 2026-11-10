@@ -81,3 +81,23 @@ test("a panel update that fails says why", async () => {
   const r = await operate({ op: "panel", on: null, from: "0.30.3", to: "v0.31.0" }, io);
   assert.deepEqual([r, calls], [{ kind: "error", text: "Release v0.31.0 has no panel update" }, ["v0.31.0 0.30.3"]]);
 });
+
+const listed = (...rows) => ({ stdout: JSON.stringify(rows) });
+
+test("disabling a skill says the next sync removes it", async () => {
+  const { io, calls } = machine({ jobs: { "list --all --json -g": listed({ name: "archify", kind: "skill", relPath: "archify", disabled: true }) } });
+  const r = await operate({ op: "toggle", action: "disable", item: { kind: "skills", scope: "global", path: "archify", label: "archify", disabled: false } }, io);
+  assert.deepEqual([r, calls], [{ kind: "done", text: "Disabled archify. The next sync removes it from your targets." }, ["disable archify -g", "list --all --json -g"]]);
+});
+
+test("a skill another pattern keeps disabled is not reported as enabled", async () => {
+  const { io } = machine({ jobs: { "list --all --json -g": listed({ name: "idea", kind: "skill", relPath: "drafts/idea", disabled: true }) } });
+  const r = await operate({ op: "toggle", action: "enable", item: { kind: "skills", scope: "global", path: "drafts/idea", label: "idea", disabled: true } }, io);
+  assert.deepEqual(r, { kind: "error", text: "idea is still disabled: another pattern in .skillignore or .skillignore.local decides it. Edit that file." });
+});
+
+test("an agent another pattern keeps enabled is not reported as disabled", async () => {
+  const { io } = machine({ jobs: { "list --all --json -p": listed({ name: "tutor.md", kind: "agent", relPath: "tutor.md" }) } });
+  const r = await operate({ op: "toggle", action: "disable", project: "/w", item: { kind: "agents", scope: "project", path: "tutor.md", label: "tutor", disabled: false } }, io);
+  assert.deepEqual(r, { kind: "error", text: "tutor is still enabled: another pattern in .agentignore or .agentignore.local decides it. Edit that file." });
+});
