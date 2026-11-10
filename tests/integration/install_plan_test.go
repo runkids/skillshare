@@ -11,6 +11,48 @@ import (
 	"skillshare/internal/testutil"
 )
 
+func TestInstall_JSON_PlannedFromMetadata(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		mode := "global"
+		if project {
+			mode = "project"
+		}
+		t.Run(mode, func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+			cwd, dest, flag := sb.Root, sb.SourcePath, "-g"
+			if project {
+				cwd = sb.SetupProjectDir("claude")
+				dest, flag = filepath.Join(cwd, ".skillshare", "skills"), "-p"
+			}
+			repo := filepath.Join(sb.Root, "collection")
+			content := "---\nname: Canonical Tool\n---\n# Tool"
+			sb.WriteFile(filepath.Join(repo, "packs/skills/SKILL.md"), content)
+			initGitRepo(t, repo)
+			sb.RunCLIInDir(cwd, "install", "file://"+repo+"//packs/skills", "--name", "renamed-tool", "--json", flag).AssertSuccess(t)
+			result := sb.RunCLIInDir(cwd, "install", "renamed-tool", "--dry-run", "--json", flag)
+			result.AssertSuccess(t)
+			var out struct {
+				Planned []struct {
+					Name string `json:"name"`
+					Path string `json:"path"`
+				} `json:"planned"`
+				Skills []string `json:"skills"`
+			}
+			if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil {
+				t.Fatal(err)
+			}
+			if len(out.Planned) != 1 || out.Planned[0].Name != "renamed-tool" || out.Planned[0].Path != "packs/skills" || len(out.Skills) != 0 {
+				t.Fatalf("metadata-resolved plan: %s", result.Stdout)
+			}
+			if got := sb.ReadFile(filepath.Join(dest, "renamed-tool/SKILL.md")); got != content {
+				t.Fatalf("preview changed the installed skill: %q", got)
+			}
+		})
+	}
+}
+
 func TestInstall_JSON_PlannedOmitted(t *testing.T) {
 	for _, project := range []bool{false, true} {
 		for _, tracked := range []bool{false, true} {
