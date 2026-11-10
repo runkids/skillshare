@@ -49,7 +49,7 @@ target 会保存该选择。下一次 `sync plugins` 会移除其受管理的安
 | `remove [NAME]` | Uninstall managed bindings and remove their definitions |
 
 裸命令会在终端中提示缺失的输入。非交互式的变更命令需要显式输入。
-`sync` 和 `check` 可以对所有 packages 进行操作；`update` 传入 `--all`（`-a`）时会更新所有受管理的 packages。`sync --all` **不**包含 plugins；请显式使用
+`sync` 和 `check` 可以对所有 packages 进行操作；`update` 传入 `--all`（`-a`）时会更新所有受管理的 packages。为多个 Agent 更新单个 package 时（不带 `--target`，或指定多个），各个 Agent 也按同样的方式处理：无法更新的 Agent 会连同原因报告为失败，其他 Agent 照常更新，命令以非零状态退出。没有其他 Agent 需要更新，或只指定一个 `--target` 时，更新会被阻止。`sync --all` **不**包含 plugins；请显式使用
 `sync plugins`。
 
 ## 选项
@@ -83,7 +83,7 @@ JSON 输出包含来源路径和原生标识符。不要在来源 URL 中放置�
 | Cursor | `.cursor-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Replace reviewed local copy |
 | Antigravity Desktop | Root `plugin.json` with an explicit name | Yes | Yes | Replace reviewed local copy |
 | Pi | `package.json` with `pi` resources, or `pi-package` keyword and conventional resource folders | Yes | Yes, with native project trust | Refresh managed source snapshot |
-| Oh My Pi | Marketplace-backed local/Git plugins with native-compatible metadata | Fresh-cache install/reinstall, import and scoped removal | At OMP's project anchor | Updates blocked; removal retains shared cache |
+| Oh My Pi | Marketplace-backed local/Git plugins with native-compatible metadata | Fresh-cache install/reinstall, import and scoped removal | At OMP's project anchor | Updates reinstall into fresh cache; removal retains shared cache |
 | OpenCode | `package.json` with an SDK dependency, `.opencode/plugins/` entry, or explicit `--entry` | Yes | Yes | Refresh managed source snapshot |
 
 | Antigravity CLI | Native root manifest or Claude manifest accepted by `agy` | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
@@ -181,8 +181,10 @@ Skillshare 绑定；另一个 plugin 的 `node_modules` 目录不会阻止它。
 写入还需要可验证的私有 ACL；Skillshare 不会为了通过检查而更改权限。不会运行任何 extension 代码。
 
 适配器会将 Skillshare 的移除操作串行化，并检查原生文件的 revision，但 OMP 的 plugin 命令不参与
-它的锁；请不要同时运行原生 plugin 变更操作。这不是一个原子的多文件原生事务。在出现非破坏性的
-upgrade 契约之前，**更新仍会被阻止**；没有经审核的来源，导入的代码永远不会被升级。
+它的锁；请不要同时运行原生 plugin 变更操作。这不是一个原子的多文件原生事务。
+更新从不运行 OMP 原生的 upgrade：它用同一个适配器移除这个 scope 的注册，再把经审核的 commit
+安装到新的 cache identity，因此保留的 cache 会继续留给其他项目。无法验证移除时，更新会被阻止；
+`update --all` 会跳过它并说明原因。没有经审核的来源，导入的代码永远不会被升级。
 
 项目操作要求所选的根目录与 OMP 原生的项目锚点相符；它们绝不会悄悄地安装到 global 或某个上层项目中。
 原生 profile/config-root 覆盖（`PI_CONFIG_DIR`、`PI_CODING_AGENT_DIR`、`OMP_PROFILE` 或

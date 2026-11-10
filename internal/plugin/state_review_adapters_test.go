@@ -69,8 +69,9 @@ func TestSharedRefReconcileAndAccountChangeAcrossAdapters(t *testing.T) {
 				t.Fatal(err)
 			}
 			if agent == "omp" {
-				if !p.Blocked || len(p.Changes) != 1 || p.Changes[0].MessageKey != "plugins.error.ompNativeDestructive" {
-					t.Fatalf("OMP lost its non-destructive update guard: %+v", p)
+				// The fake host has no verifiable native registration, so the refresh's removal blocks.
+				if !p.Blocked || len(p.Changes) != 1 || p.Changes[0].MessageKey != "plugins.error.ompRemovalSafety" {
+					t.Fatalf("OMP refresh ran without a verified removal: %+v", p)
 				}
 				if _, err := s.Apply(context.Background(), Request{Action: "sync"}, p.Revision); err == nil {
 					t.Fatal("OMP destructive reconcile applied")

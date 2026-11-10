@@ -57,6 +57,10 @@ removed. `remove NAME` without `--target` removes it from Skillshare.
 Bare commands prompt for missing inputs in a terminal. Noninteractive mutation
 commands require explicit inputs. `sync` and `check` may operate on all packages;
 `update` updates all managed packages when passed `--all` (`-a`).
+Updating one package for several Agents (no `--target`, or more than one) works the
+same way per Agent: an Agent that cannot update is reported as failed with its reason,
+the others still update, and the command exits non-zero. When no other Agent has
+anything to update, or the update names a single `--target`, it is blocked instead.
 `sync --all` does **not** include plugins; use `sync plugins` explicitly.
 
 ## Options
@@ -90,7 +94,7 @@ the CLI exits nonzero when any target fails. Inspect the result before retrying.
 | Cursor | `.cursor-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Replace reviewed local copy |
 | Antigravity Desktop | Root `plugin.json` with an explicit name | Yes | Yes | Replace reviewed local copy |
 | Pi | `package.json` with `pi` resources, or `pi-package` keyword and conventional resource folders | Yes | Yes, with native project trust | Refresh managed source snapshot |
-| Oh My Pi | Marketplace-backed local/Git plugins with native-compatible metadata | Fresh-cache install/reinstall, import and scoped removal | At OMP's project anchor | Updates blocked; removal retains shared cache |
+| Oh My Pi | Marketplace-backed local/Git plugins with native-compatible metadata | Fresh-cache install/reinstall, import and scoped removal | At OMP's project anchor | Updates reinstall into fresh cache; removal retains shared cache |
 | OpenCode | `package.json` with an SDK dependency, `.opencode/plugins/` entry, or explicit `--entry` | Yes | Yes | Refresh managed source snapshot |
 
 | Antigravity CLI | Native root manifest or Claude manifest accepted by `agy` | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
@@ -214,8 +218,11 @@ Skillshare does not change permissions to make them pass. No extension code runs
 The adapter serializes Skillshare removals and checks native file revisions, but
 OMP's plugin commands do not participate in its lock; do not run native plugin
 mutations concurrently. This is not an atomic multi-file native transaction.
-**Updates remain blocked** until a non-destructive upgrade contract is available;
-imported code is never upgraded without a reviewed source.
+An update never runs OMP's native upgrade. It removes this scope's registration with
+the same adapter, then installs the reviewed commit under a fresh cache identity, so
+the retained cache stays for other projects. When the removal cannot be verified,
+the update is blocked; `update --all` skips it with the reason. Imported code is
+never upgraded without a reviewed source.
 
 Project operations require the selected root to match OMP's native project
 anchor; they never silently install globally or in an ancestor project. Native

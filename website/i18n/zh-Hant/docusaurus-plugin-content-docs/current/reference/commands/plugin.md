@@ -49,7 +49,7 @@ target 會儲存這個選擇。下一次 `sync plugins` 會移除其受管理的
 | `remove [NAME]` | 解除安裝受管理的綁定並移除其定義 |
 
 在終端機中執行不帶參數的指令會提示輸入缺少的內容。非互動式的異動指令則需要明確的輸入。
-`sync` 和 `check` 可以對所有套件操作；`update` 傳入 `--all`（`-a`）時會更新所有受管理的套件。`sync --all` **不會**包含 plugin；請明確使用 `sync plugins`。
+`sync` 和 `check` 可以對所有套件操作；`update` 傳入 `--all`（`-a`）時會更新所有受管理的套件。為多個 Agent 更新單一套件時（不帶 `--target`，或指定多個），各個 Agent 也以同樣方式處理：無法更新的 Agent 會連同原因回報為失敗，其他 Agent 照常更新，指令以非零狀態結束。沒有其他 Agent 需要更新，或只指定一個 `--target` 時，更新會被擋下。`sync --all` **不會**包含 plugin；請明確使用 `sync plugins`。
 
 ## Options
 
@@ -82,7 +82,7 @@ JSON 輸出包含 source 路徑與原生識別碼。請勿在 source URL 中放�
 | Cursor | `.cursor-plugin/plugin.json` 或 Agent Plugins 根目錄 manifest | Yes | No | 取代已檢視的本機複本 |
 | Antigravity Desktop | 帶有明確名稱的根目錄 `plugin.json` | Yes | Yes | 取代已檢視的本機複本 |
 | Pi | 含 `pi` resources 的 `package.json`，或帶有 `pi-package` 關鍵字與慣用 resource 資料夾 | Yes | Yes，需原生專案信任 | 重新整理受管理的 source 快照 |
-| Oh My Pi | 以 marketplace 為基礎、具有原生相容 metadata 的本機/Git plugins | 全新 cache 的安裝/重新安裝、匯入與限定 scope 的移除 | 在 OMP 的 project anchor | 更新被擋下；移除時保留共用 cache |
+| Oh My Pi | 以 marketplace 為基礎、具有原生相容 metadata 的本機/Git plugins | 全新 cache 的安裝/重新安裝、匯入與限定 scope 的移除 | 在 OMP 的 project anchor | 更新會重新安裝到全新 cache；移除時保留共用 cache |
 | OpenCode | 含 SDK 依賴的 `package.json`、`.opencode/plugins/` 項目，或明確的 `--entry` | Yes | Yes | 重新整理受管理的 source 快照 |
 
 | Antigravity CLI | `agy` 接受的原生根目錄 manifest 或 Claude manifest | Yes | No | 重新整理已檢視的 source，僅在原生啟用狀態已知且為啟用時 |
@@ -183,8 +183,9 @@ Forget 只會移除過時的 Skillshare 綁定；其他 plugin 的 `node_modules
 
 Adapter 會將 Skillshare 的移除操作序列化並檢查原生檔案的版本，但 OMP 的 plugin 指令
 不參與它的鎖；請勿同時執行原生 plugin 變更。這不是原子性的多檔案原生交易。
-在有非破壞性的升級契約之前，**更新仍會被擋下**；匯入的程式碼絕不會在沒有已審閱 source 的
-情況下升級。
+更新絕不會執行 OMP 原生的 upgrade：它用同一個 adapter 移除這個 scope 的註冊，再把已審閱的 commit
+安裝到全新的 cache identity，因此保留的 cache 會繼續留給其他專案。無法驗證移除時，更新會被擋下；
+`update --all` 會略過它並說明原因。匯入的程式碼絕不會在沒有已審閱 source 的情況下升級。
 
 Project 操作要求所選的根目錄與 OMP 原生的 project anchor 相符；絕不會默默改為全域安裝或
 安裝到上層 project。原生 profile/config 根目錄覆寫（`PI_CONFIG_DIR`、`PI_CODING_AGENT_DIR`、

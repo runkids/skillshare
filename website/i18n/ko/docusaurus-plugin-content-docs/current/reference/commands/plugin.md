@@ -45,7 +45,7 @@ skillshare plugin remove review --no-tui
 | `enable / disable [NAME]` | 다음 sync에 target을 포함/제외 |
 | `remove [NAME]` | 관리되는 바인딩을 제거하고 정의를 삭제 |
 
-인수 없는 명령은 터미널에서 누락된 입력을 프롬프트로 요청합니다. 비대화형 변경 명령은 명시적인 입력이 필요합니다. `sync`와 `check`는 모든 패키지에 대해 동작할 수 있으며, `update`는 `--all`(`-a`)을 지정하면 관리되는 모든 패키지를 업데이트합니다. `sync --all`은 plugin을 포함하지 **않습니다**. `sync plugins`를 명시적으로 사용하세요.
+인수 없는 명령은 터미널에서 누락된 입력을 프롬프트로 요청합니다. 비대화형 변경 명령은 명시적인 입력이 필요합니다. `sync`와 `check`는 모든 패키지에 대해 동작할 수 있으며, `update`는 `--all`(`-a`)을 지정하면 관리되는 모든 패키지를 업데이트합니다. 패키지 하나를 여러 Agent에 대해 업데이트할 때(`--target` 없이, 또는 둘 이상 지정)도 Agent별로 같은 방식으로 동작합니다. 업데이트할 수 없는 Agent는 이유와 함께 실패로 보고되고, 다른 Agent는 업데이트되며, 명령은 0이 아닌 코드로 종료됩니다. 업데이트할 다른 Agent가 없거나 `--target`을 하나만 지정하면 업데이트는 차단됩니다. `sync --all`은 plugin을 포함하지 **않습니다**. `sync plugins`를 명시적으로 사용하세요.
 
 ## 옵션
 
@@ -76,7 +76,7 @@ JSON 출력에는 source 경로와 네이티브 식별자가 포함됩니다. so
 | Cursor | `.cursor-plugin/plugin.json` 또는 Agent Plugins 루트 매니페스트 | 예 | 아니요 | 검토된 로컬 사본 교체 |
 | Antigravity Desktop | 명시적 이름이 있는 루트 `plugin.json` | 예 | 예 | 검토된 로컬 사본 교체 |
 | Pi | `pi` 리소스가 있는 `package.json`, 또는 `pi-package` 키워드와 관례적인 리소스 폴더 | 예 | 예, 네이티브 project trust 사용 시 | 관리되는 source 스냅샷 새로고침 |
-| Oh My Pi | 네이티브 호환 메타데이터를 가진 marketplace 기반 로컬/Git plugin | 새 cache 설치/재설치, import, scope 단위 제거 | OMP의 project anchor에서 | 업데이트 차단, 제거 시 공유 cache 유지 |
+| Oh My Pi | 네이티브 호환 메타데이터를 가진 marketplace 기반 로컬/Git plugin | 새 cache 설치/재설치, import, scope 단위 제거 | OMP의 project anchor에서 | 업데이트는 새 cache에 재설치, 제거 시 공유 cache 유지 |
 | OpenCode | SDK dependency가 있는 `package.json`, `.opencode/plugins/` entry, 또는 명시적 `--entry` | 예 | 예 | 관리되는 source 스냅샷 새로고침 |
 
 | Antigravity CLI | `agy`가 허용하는 네이티브 루트 매니페스트 또는 Claude 매니페스트 | 예 | 아니요 | 네이티브 활성화 상태가 확인되고 활성화된 경우에만 검토된 source를 새로고침 |
@@ -134,7 +134,7 @@ skillshare plugin import demo@my-market --from omp --dry-run --json -g
 
 제거하려면 검증된 18.6.1+ 메타데이터 계약, 일치하는 설치 버전, 모호하지 않은 JSON, 증명된 런타임 링크 소유권이 필요합니다. 실제 모듈 폴더, 외부 링크, npm dependency 충돌, 모호한 런타임 소유자는 거부됩니다. cache manifest가 없으면 adapter는 scope-local 링크가 해당 설치의 cache를 가리키는 고유한 runtime-lock 키를 요구합니다. marketplace 이름을 추측하지 않으며, 실제 런타임 링크가 여전히 설치된 상태에서 성공을 보고하지도 않습니다. 검증할 수 없는 활성 설치는 계속 차단됩니다. 네이티브 uninstall이 이미 cache, 등록, 런타임 링크/선택을 제거했다면 Forget은 오래된 Skillshare binding만 삭제합니다. 다른 plugin의 `node_modules` 디렉터리는 이를 막지 않습니다. 네이티브 파일이 바뀌면 미리보기는 무효가 됩니다. 일부만 완료된 제거는 전체 네이티브 설정 백업을 저장하지 않고 유지된 cache와 binding identity에서 다시 시도할 수 있습니다. Windows에서 쓰려면 추가로 검증 가능한 비공개 ACL이 필요합니다. Skillshare는 통과시키기 위해 권한을 변경하지 않습니다. extension 코드는 실행되지 않습니다.
 
-adapter는 Skillshare의 제거 작업을 직렬화하고 네이티브 파일 revision을 확인하지만, OMP의 plugin 명령은 그 lock에 참여하지 않습니다. 네이티브 plugin 변경을 동시에 실행하지 마세요. 이것은 여러 파일에 걸친 atomic 네이티브 트랜잭션이 아닙니다. 파괴적이지 않은 upgrade 계약이 마련될 때까지 **업데이트는 계속 차단됩니다**. import된 코드는 검토한 source 없이 업그레이드되지 않습니다.
+adapter는 Skillshare의 제거 작업을 직렬화하고 네이티브 파일 revision을 확인하지만, OMP의 plugin 명령은 그 lock에 참여하지 않습니다. 네이티브 plugin 변경을 동시에 실행하지 마세요. 이것은 여러 파일에 걸친 atomic 네이티브 트랜잭션이 아닙니다. 업데이트는 OMP의 네이티브 upgrade를 실행하지 않습니다. 같은 adapter로 이 scope의 등록을 제거한 뒤 검토한 commit을 새 cache identity에 설치하므로, 유지된 cache는 다른 프로젝트를 위해 남습니다. 제거를 검증할 수 없으면 업데이트는 차단되고, `update --all`은 이유와 함께 건너뜁니다. import된 코드는 검토한 source 없이 업그레이드되지 않습니다.
 
 project 작업은 선택한 루트가 OMP의 네이티브 project anchor와 일치해야 합니다. 조용히 global이나 상위 프로젝트에 설치하지 않습니다. 네이티브 profile/config-root override(`PI_CONFIG_DIR`, `PI_CODING_AGENT_DIR`, `OMP_PROFILE` 또는 `PI_PROFILE`)가 있으면 plugin 관리가 차단됩니다. 네이티브 cache 위치가 바뀌면 기존 미리보기는 무효가 됩니다. 임의의 계정 `config_dir`은 OMP의 plugin store를 바꾸지 않으므로 OMP 계정 plugin target은 지원되지 않습니다.
 
