@@ -633,3 +633,9 @@ test("PANEL_UPDATE leaves another mod under the panel's name alone", (t) => {
   const { r, said, dest, read } = panelUpdate999(t, SHIPPED, { "main.js": "someone else's" });
   assert.deepEqual([r.status, said, read("main.js")], [1, `The panel is not in ${dest}; update it by hand`, "someone else's"]);
 });
+
+test("a collapsed map line keeps the targets it stands for", () => {
+  const t = (name, n = 0) => ({ name, n });
+  const rows = mapLanes([...["a", "b", "c", "d", "e", "f", "g"].map((x) => t(x, 2)), t("x"), t("y")]);
+  assert.deepEqual(rows.filter((r) => r.more).map((r) => r.rest), [[t("e", 2), t("f", 2), t("g", 2)], [t("x"), t("y")]]);
+});
