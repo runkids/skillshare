@@ -305,7 +305,7 @@ See [Project Setup](/docs/how-to/sharing/project-setup) for the full guide.
 | `--project` | `-p` | Install into project `.skillshare/skills/` |
 | `--global` | `-g` | Install into global `~/.config/skillshare/skills/` |
 | `--dry-run` | `-n` | Preview only |
-| `--json` | | Output as JSON (implies `--force`; also implies non-interactive selection when no `--skill`/`--agent` filter is given) |
+| `--json` | | Output as JSON (permits overwriting existing skills like `--force`, but audit blocking still applies; also implies non-interactive selection when no `--skill`/`--agent` filter is given) |
 
 ## JSON Output
 
@@ -356,6 +356,20 @@ skillshare install github.com/user/agents --kind agent --json
   "skills": ["reviewer", "tutor"],
   "failed": [],
   "duration": "1.234s"
+}
+```
+
+When the install fails as a whole, for example when the security audit blocks a tracked repository or a single skill, the command exits non-zero and the `error` field says why. When a source has several skills, the ones that are blocked or fail are listed in `failed` instead, and the command still exits 0. Add `--force` to install despite audit findings.
+
+```json
+{
+  "source": "github.com/user/evil-skills",
+  "tracked": true,
+  "dry_run": false,
+  "skills": [],
+  "failed": [],
+  "duration": "0.412s",
+  "error": "blocked by security audit (use --force to override)"
 }
 ```
 
