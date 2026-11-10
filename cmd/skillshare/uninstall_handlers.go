@@ -165,6 +165,17 @@ func cleanupUninstallTrash(mode *uninstallMode) {
 // runUninstallSkills resolves, checks, confirms and removes skills for either
 // mode. rawArgs feed the oplog entry.
 func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []string, start time.Time) error {
+	// In JSON mode the UI goes to /dev/null; each JSON write flushes it first.
+	jsonUI := newJSONUISuppressor(opts.jsonOutput)
+	defer jsonUI.Flush()
+	jsonError := func(err error) error {
+		jsonUI.Flush()
+		return writeJSONError(err)
+	}
+	jsonResult := func(removed, failed []string, skipped int, dryRun bool, err error) error {
+		jsonUI.Flush()
+		return uninstallOutputJSON(removed, failed, skipped, dryRun, start, err)
+	}
 	// --- Phase 1: RESOLVE ---
 	var targets []*uninstallTarget
 	seen := map[string]bool{} // dedup by path
@@ -182,7 +193,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 			}
 			discoverErr := fmt.Errorf("failed to discover skills: %w", err)
 			if opts.jsonOutput {
-				return writeJSONError(discoverErr)
+				return jsonError(discoverErr)
 			}
 			return discoverErr
 		}
@@ -192,7 +203,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 		if len(discovered) == 0 {
 			noSkillsErr := fmt.Errorf("%s", mode.emptySourceErr)
 			if opts.jsonOutput {
-				return writeJSONError(noSkillsErr)
+				return jsonError(noSkillsErr)
 			}
 			return noSkillsErr
 		}
@@ -272,7 +283,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 	if !opts.all && looksLikeShellGlob(opts.skillNames, resolveWarnings) {
 		globErr := fmt.Errorf("shell glob expansion detected")
 		if opts.jsonOutput {
-			return writeJSONError(globErr)
+			return jsonError(globErr)
 		}
 		ui.Warning("It looks like '*' was expanded by your shell into file names.")
 		ui.Note("To uninstall all skills, use: skillshare uninstall --all")
@@ -288,7 +299,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 			noTargetsErr = fmt.Errorf("no skills found")
 		}
 		if opts.jsonOutput {
-			return writeJSONError(noTargetsErr)
+			return jsonError(noTargetsErr)
 		}
 		return noTargetsErr
 	}
@@ -307,7 +318,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 			continue // tracked-repo state, reported in the pre-flight phase
 		}
 		if opts.jsonOutput {
-			return writeJSONError(err)
+			return jsonError(err)
 		}
 		return err
 	}
@@ -346,7 +357,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 				statusErr := gitErr
 				if single {
 					if opts.jsonOutput {
-						return writeJSONError(statusErr)
+						return jsonError(statusErr)
 					}
 					if mode.preflight.singleStatus != nil {
 						mode.preflight.singleStatus(statusErr)
@@ -368,7 +379,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 				dirtyErr := fmt.Errorf("uncommitted changes detected, use --force to override")
 				if single {
 					if opts.jsonOutput {
-						return writeJSONError(dirtyErr)
+						return jsonError(dirtyErr)
 					}
 					ui.Error("Repository has uncommitted changes!")
 					ui.Note("Use --force to uninstall anyway, or commit/stash your changes first")
@@ -399,7 +410,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 				preflightErr = fmt.Errorf("%s", strings.Join(preflightFailed, "; "))
 			}
 			if opts.jsonOutput {
-				return writeJSONError(preflightErr)
+				return jsonError(preflightErr)
 			}
 			return preflightErr
 		}
@@ -413,7 +424,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 				dryRunNames[i] = t.name
 			}
 			logUninstallOp(mode.configPath, uninstallOpNames(rawArgs), 0, start, nil)
-			return uninstallOutputJSON(dryRunNames, nil, preflightSkipped, true, start, nil)
+			return jsonResult(dryRunNames, nil, preflightSkipped, true, nil)
 		}
 		names := make([]string, len(targets))
 		for i, t := range targets {
@@ -521,7 +532,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 
 	var finalErr error
 	if len(failed) > 0 && len(succeeded) == 0 {
-		finalErr = fmt.Errorf("all uninstalls failed")
+		finalErr = fmt.Errorf("all uninstalls failed: %s", strings.Join(failed, "; "))
 	}
 	// Partial failure: report but exit success (skip & continue)
 
@@ -532,7 +543,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 		for i, t := range succeeded {
 			removedNames[i] = t.name
 		}
-		return uninstallOutputJSON(removedNames, failed, preflightSkipped, opts.dryRun, start, finalErr)
+		return jsonResult(removedNames, failed, preflightSkipped, opts.dryRun, finalErr)
 	}
 	return finalErr
 }

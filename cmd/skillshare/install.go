@@ -1,12 +1,14 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"skillshare/internal/audit"
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
@@ -51,8 +53,34 @@ type installLogSummary struct {
 
 type installBatchSummary struct {
 	InstalledSkills []string
+	SkippedSkills   int
 	FailedSkills    []string
-	Err             error // the batch could not start, e.g. a refused --into folder
+	Failures        []install.SkillFailure // why each FailedSkills entry failed
+	Err             error                  // the batch could not start, e.g. a refused --into folder
+}
+
+// allSkillsFailedError reports an install in which every skill failed, so the
+// exit code and --json show it. succeeded counts installed and skipped skills;
+// any success makes the install partial, which still succeeds.
+func allSkillsFailedError(succeeded int, failures []install.SkillFailure) error {
+	if succeeded > 0 || len(failures) == 0 {
+		return nil
+	}
+	reasons := make([]string, len(failures))
+	blocked := false
+	for i, f := range failures {
+		reason := firstWarningLine(f.Err.Error())
+		if errors.Is(f.Err, audit.ErrBlocked) {
+			reason = "blocked by security audit"
+			blocked = true
+		}
+		reasons[i] = f.Name + ": " + reason
+	}
+	err := fmt.Errorf("%s failed to install: %s", plural(len(failures), "skill"), strings.Join(reasons, "; "))
+	if blocked {
+		err = fmt.Errorf("%w (use --force to override)", err)
+	}
+	return err
 }
 
 // parseInstallArgs parses install command arguments

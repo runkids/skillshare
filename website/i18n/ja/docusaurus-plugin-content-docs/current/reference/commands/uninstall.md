@@ -52,7 +52,7 @@ flowchart TD
 | `--dry-run, -n` | 変更を加えずにプレビュー |
 | `--project, -p` | カレントディレクトリの project レベルの config を使用 |
 | `--global, -g` | global config を使用（`~/.config/skillshare`） |
-| `--json` | global mode: JSON を出力し確認をスキップ；未コミットの変更がある tracked repositories には引き続き `--force` が必要 |
+| `--json` | JSON を出力し確認をスキップ；未コミットの変更がある tracked repositories には引き続き `--force` が必要 |
 | `--help, -h` | ヘルプを表示 |
 
 ## JSON 出力
@@ -76,6 +76,8 @@ skillshare uninstall my-skill another-skill --json
 ```bash
 skillshare uninstall --all --json --dry-run
 ```
+
+すべての skill のアンインストールに失敗すると、コマンドは 0 以外で終了し、`error` フィールドに各 skill 名と理由が入ります。一部だけ失敗した場合は、`failed` に名前と理由が記録され、コマンドは 0 で終了します。`uninstall agents --json` は agent が 1 つでも失敗すると 0 以外で終了し、失敗した名前を `failed` に、それぞれの理由を `error` に入れます。JSON 出力は project mode（`-p`）でも使えます。
 
 ## 複数の Skill
 

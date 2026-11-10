@@ -52,7 +52,7 @@ flowchart TD
 | `--dry-run, -n` | Preview without making changes |
 | `--project, -p` | Use project-level config in current directory |
 | `--global, -g` | Use global config (`~/.config/skillshare`) |
-| `--json` | Global mode: output JSON and skip confirmation; dirty tracked repositories still require `--force` |
+| `--json` | Output JSON and skip confirmation; dirty tracked repositories still require `--force` |
 | `--help, -h` | Show help |
 
 ## JSON Output
@@ -76,6 +76,8 @@ Combine with `--dry-run` to preview:
 ```bash
 skillshare uninstall --all --json --dry-run
 ```
+
+When every skill fails to uninstall, the command exits non-zero and the `error` field names each skill with its reason; when only some fail, they are listed in `failed` with their reasons and the command exits 0. `uninstall agents --json` exits non-zero when any agent fails, lists the failed names in `failed`, and gives each reason in `error`. JSON output works in project mode (`-p`) too.
 
 ## Multiple Skills
 

@@ -144,6 +144,9 @@ func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptio
 
 	spinner.Stop()
 	fmt.Println()
+	if err := allSkillsFailedError(len(result.InstalledSkills)+result.Skipped, result.Failures); err != nil {
+		return summary, err
+	}
 	ui.Done(ui.MarkOK, buildConfigInstallSummary(result), time.Since(spinner.Started()))
 	ui.Next("skillshare sync", "link them into your targets")
 

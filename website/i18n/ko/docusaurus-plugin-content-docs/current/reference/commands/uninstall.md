@@ -52,7 +52,7 @@ flowchart TD
 | `--dry-run, -n` | 변경 없이 미리보기 |
 | `--project, -p` | 현재 디렉터리의 project 레벨 config 사용 |
 | `--global, -g` | global config 사용(`~/.config/skillshare`) |
-| `--json` | Global mode: JSON을 출력하고 확인을 건너뜀; dirty한 tracked repository는 여전히 `--force`가 필요함 |
+| `--json` | JSON을 출력하고 확인을 건너뜀; dirty한 tracked repository는 여전히 `--force`가 필요함 |
 | `--help, -h` | 도움말 표시 |
 
 ## JSON Output
@@ -76,6 +76,8 @@ skillshare uninstall my-skill another-skill --json
 ```bash
 skillshare uninstall --all --json --dry-run
 ```
+
+모든 skill의 제거가 실패하면 명령은 0이 아닌 코드로 종료되고 `error` 필드에 각 skill 이름과 이유가 담깁니다. 일부만 실패하면 `failed`에 이름과 이유가 기록되고 명령은 0으로 종료됩니다. `uninstall agents --json`은 agent가 하나라도 실패하면 0이 아닌 코드로 종료되고, 실패한 이름을 `failed`에, 각각의 이유를 `error`에 담습니다. JSON 출력은 project mode(`-p`)에서도 사용할 수 있습니다.
 
 ## 여러 Skill 제거
 

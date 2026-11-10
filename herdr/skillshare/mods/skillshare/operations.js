@@ -71,10 +71,11 @@ const OPS = {
     const it = req.item;
     step(`Uninstalling ${it.label}…`);
     const kind = it.kind === "agents" ? ["agents"] : [];
-    const args = it.scope === "project" ? ["uninstall", ...kind, it.rel, "-p", "--force"] : ["uninstall", ...kind, it.rel, "--json", "-g"];
+    const args = it.scope === "project" ? ["uninstall", ...kind, it.rel, "-p", "--force", "--json"] : ["uninstall", ...kind, it.rel, "--json", "-g"];
     const r = await job(args, at(req, it.scope));
-    const j = parseJSON(r.stdout);
-    if (r.code !== 0 || j?.failed?.length) return error(j?.failed?.length ? `Could not uninstall ${j.failed.join(", ")}` : failure(r, "skillshare uninstall"));
+    if (r.code !== 0) return error(failure(r, "skillshare uninstall"));
+    const failed = parseJSON(r.stdout)?.failed;
+    if (failed?.length) return error(`Could not uninstall ${failed.join(", ")}`);
     return done(`Moved ${it.label} to the skillshare trash`);
   },
 

@@ -35,6 +35,7 @@ type uninstallJSONOutput struct {
 	Skipped  int      `json:"skipped"`
 	DryRun   bool     `json:"dry_run"`
 	Duration string   `json:"duration"`
+	Error    string   `json:"error,omitempty"`
 }
 
 // uninstallTarget holds resolved target information
@@ -437,24 +438,6 @@ func cmdUninstall(args []string) error {
 	// Extract kind filter (e.g. "skillshare uninstall agents myagent").
 	kind, rest := parseKindArg(rest)
 
-	if mode == modeProject {
-		if kind == kindAgents {
-			projectCfg, loadErr := config.LoadProject(cwd)
-			if loadErr != nil {
-				return fmt.Errorf("failed to load project config: %w", loadErr)
-			}
-			agentsDir := projectCfg.EffectiveAgentsSource(cwd)
-			opts, _, _ := parseUninstallArgs(rest)
-			if opts == nil {
-				opts = &uninstallOptions{skillNames: rest}
-			}
-			opts.force = opts.force || opts.jsonOutput
-			err := cmdUninstallAgents(agentsDir, opts, config.ProjectConfigPath(cwd), trash.ProjectAgentTrashDir(cwd), start)
-			return err
-		}
-		return cmdUninstallProject(rest, cwd)
-	}
-
 	opts, showHelp, parseErr := parseUninstallArgs(rest)
 	if showHelp {
 		printUninstallHelp()
@@ -462,6 +445,24 @@ func cmdUninstall(args []string) error {
 	}
 	if parseErr != nil {
 		return parseErr
+	}
+
+	if mode == modeProject {
+		if kind == kindAgents {
+			projectCfg, loadErr := config.LoadProject(cwd)
+			if loadErr != nil {
+				loadErr = fmt.Errorf("failed to load project config: %w", loadErr)
+				if opts.jsonOutput {
+					return writeJSONError(loadErr)
+				}
+				return loadErr
+			}
+			agentsDir := projectCfg.EffectiveAgentsSource(cwd)
+			opts.force = opts.force || opts.jsonOutput
+			err := cmdUninstallAgents(agentsDir, opts, config.ProjectConfigPath(cwd), trash.ProjectAgentTrashDir(cwd), start)
+			return err
+		}
+		return cmdUninstallProject(rest, cwd)
 	}
 
 	cfg, err := config.Load()
@@ -527,6 +528,9 @@ func uninstallOutputJSON(removed, failed []string, skipped int, dryRun bool, sta
 		DryRun:   dryRun,
 		Duration: formatDuration(start),
 	}
+	if uninstallErr != nil {
+		output.Error = uninstallErr.Error()
+	}
 	return writeJSONResult(&output, uninstallErr)
 }
 
@@ -575,7 +579,7 @@ func printUninstallHelp() {
 			{"-G, --group <name>", "Remove all skills in a group (prefix match, repeatable)"},
 			{"-f, --force", "Skip confirmation and ignore uncommitted changes"},
 			{"-n, --dry-run", "Preview without making changes"},
-			{"--json", "Global mode: output JSON and skip confirmation"},
+			{"--json", "Output JSON and skip confirmation"},
 			{"-p, --project", "Use project-level config in current directory"},
 			{"-g, --global", "Use global config (~/.config/skillshare)"},
 		}},

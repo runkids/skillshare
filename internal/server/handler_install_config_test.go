@@ -6,10 +6,12 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/oplog"
 )
 
 func TestHandleMissingConfigEntries_ListsAbsentEntries(t *testing.T) {
@@ -40,6 +42,22 @@ func TestHandleInstallFromConfig_NothingMissing(t *testing.T) {
 	s.handleInstallFromConfig(rr, httptest.NewRequest(http.MethodPost, "/api/install/from-config", nil))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestHandleInstallFromConfig_AllFailedLogsError(t *testing.T) {
+	s, src := newTestServer(t)
+	store := install.LoadMetadataOrNew(src)
+	store.Set("broken", &install.MetadataEntry{Source: ""})
+	if err := store.Save(src); err != nil {
+		t.Fatalf("save metadata: %v", err)
+	}
+
+	rr := httptest.NewRecorder()
+	s.handleInstallFromConfig(rr, httptest.NewRequest(http.MethodPost, "/api/install/from-config", nil))
+	entries, _ := oplog.Read(s.configPath(), oplog.OpsFile, 10)
+	if len(entries) != 1 || entries[0].Status != "error" || !strings.Contains(entries[0].Message, "broken: ") {
+		t.Errorf("oplog = %+v, want one error entry naming the skill", entries)
 	}
 }
 

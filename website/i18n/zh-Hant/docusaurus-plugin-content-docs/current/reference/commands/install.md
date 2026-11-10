@@ -353,7 +353,7 @@ skillshare install github.com/user/agents --kind agent --json
 }
 ```
 
-整個安裝失敗時，例如 tracked repo 或單一 skill 被安全稽核擋下，指令會以非零狀態結束，`error` 欄位說明原因。來源有多個 skill 時，被擋下或失敗的 skill 會列在 `failed`，指令仍以 0 結束。若要在有稽核發現時仍然安裝，請加上 `--force`。
+整個安裝失敗時，例如 tracked repo、單一 skill，或來源或 config 裡的所有 skill 都被安全稽核擋下，指令會以非零狀態結束，`error` 欄位列出每個失敗的 skill 及原因。只有部分 skill 失敗時，它們會列在 `failed`，指令以 0 結束。若要在有稽核發現時仍然安裝，請加上 `--force`。
 
 ```json
 {
