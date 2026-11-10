@@ -16,9 +16,11 @@ import (
 // fakeCodex stands in for `codex app-server`: it lists every handler in a home's
 // hooks.json under Codex's key format and keeps hooks.state in that home's config.toml.
 type fakeCodex struct {
-	t        *testing.T
-	disabled map[string]bool
-	writes   []map[string]string
+	t           *testing.T
+	disabled    map[string]bool
+	writes      []map[string]string
+	beforeList  func(home string)
+	setTrustErr error
 }
 
 var fakeCodexEvents = map[string]string{"SessionStart": "session_start", "Stop": "stop"}
@@ -46,6 +48,9 @@ func (s *fakeCodexServer) state() map[string]map[string]any {
 }
 
 func (s *fakeCodexServer) ListHooks() ([]CodexHook, error) {
+	if s.f.beforeList != nil {
+		s.f.beforeList(s.home)
+	}
 	path := filepath.Join(s.home, "hooks.json")
 	if !exists(path) {
 		return nil, nil
@@ -71,6 +76,9 @@ func (s *fakeCodexServer) ListHooks() ([]CodexHook, error) {
 }
 
 func (s *fakeCodexServer) SetTrust(hashes map[string]string) error {
+	if s.f.setTrustErr != nil {
+		return s.f.setTrustErr
+	}
 	s.f.writes = append(s.f.writes, hashes)
 	state := s.state()
 	for key, hash := range hashes {
@@ -238,4 +246,155 @@ func TestCodexCallSkipsServerRequestsWithTheSameID(t *testing.T) {
 	if string(got) != `{"ok":true}` {
 		t.Fatalf("result = %s", got)
 	}
+}
+
+func TestCodexTrustIsScopedByConfigOwner(t *testing.T) {
+	e, f := trustEnv(t)
+	first := e.service
+	second := *first
+	second.ConfigPath = filepath.Join(filepath.Dir(e.config), "other.yaml")
+	write(t, second.ConfigPath, "targets: {}\n")
+	codex := filepath.Join(e.home, ".codex")
+
+	save(t, first, Mutation{Name: "first", Entry: codexTrustEntry(t, "echo first")})
+	trust, err := second.TrustCodex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(trust) != 0 || len(f.writes) != 0 || exists(filepath.Join(codex, "config.toml")) {
+		t.Fatalf("second config trusted first config's hook: trust=%+v writes=%v", trust, f.writes)
+	}
+
+	trust, err = first.TrustCodex()
+	if err != nil || len(trust) != 1 || trust[0].Action != "trusted" {
+		t.Fatalf("first trust = %+v, %v", trust, err)
+	}
+	firstHash := trustedHash(t, codex, "session_start:0:0")
+
+	save(t, &second, Mutation{Name: "second", Entry: codexTrustEntry(t, "echo second")})
+	trust, err = second.TrustCodex()
+	if err != nil || len(trust) != 1 || trust[0].Entry != "second" || trust[0].Action != "trusted" {
+		t.Fatalf("second trust = %+v, %v", trust, err)
+	}
+	secondHash := trustedHash(t, codex, "session_start:1:0")
+	if firstHash == "" || secondHash == "" {
+		t.Fatalf("missing per-config trust: first=%q second=%q", firstHash, secondHash)
+	}
+
+	save(t, first, Mutation{Name: "first", Remove: true})
+	trust, err = first.TrustCodex()
+	if err != nil || len(trust) != 1 || trust[0].Action != "cleared" {
+		t.Fatalf("first removal trust = %+v, %v", trust, err)
+	}
+	if got := trustedHash(t, codex, "session_start:0:0"); got != "" {
+		t.Fatalf("first config's trust remains: %q", got)
+	}
+	if got := trustedHash(t, codex, "session_start:1:0"); got != secondHash {
+		t.Fatalf("second config's trust changed: %q, want %q", got, secondHash)
+	}
+}
+
+func TestCodexTrustRevalidatesHooksSnapshotAfterList(t *testing.T) {
+	e, f := trustEnv(t)
+	codex := filepath.Join(e.home, ".codex")
+	path := filepath.Join(codex, "hooks.json")
+	save(t, e.service, Mutation{Name: "owned", Entry: codexTrustEntry(t, "echo owned")})
+	f.beforeList = func(home string) {
+		groups := events(t, path, true)["SessionStart"]
+		groups = append([]any{map[string]any{"hooks": []any{map[string]any{"type": "command", "command": "echo foreign"}}}}, groups...)
+		data, err := json.Marshal(map[string]any{"hooks": map[string]any{"SessionStart": groups}})
+		must(t, err)
+		write(t, path, string(data))
+	}
+
+	trust, err := e.service.TrustCodex()
+	if err == nil || !strings.Contains(err.Error(), "changed") {
+		t.Fatalf("trust = %+v, err = %v; expected changed hooks.json to fail closed", trust, err)
+	}
+	if len(f.writes) != 0 || exists(filepath.Join(codex, "config.toml")) {
+		t.Fatalf("stale snapshot was trusted: trust=%+v writes=%v", trust, f.writes)
+	}
+}
+
+func TestCodexTrustDoesNotReportUnconfirmedEdits(t *testing.T) {
+	e, f := trustEnv(t)
+	codex := filepath.Join(e.home, ".codex")
+	save(t, e.service, Mutation{Name: "owned", Entry: codexTrustEntry(t, "echo owned")})
+	f.setTrustErr = fmt.Errorf("batch write failed")
+	trust, err := e.service.TrustCodex()
+	if err == nil {
+		t.Fatal("expected failed config/batchWrite")
+	}
+	for _, result := range trust {
+		if result.Action == "trusted" || result.Action == "cleared" {
+			t.Fatalf("reported an unconfirmed edit: %+v", result)
+		}
+	}
+	if len(trust) != 0 || exists(filepath.Join(codex, "config.toml")) {
+		t.Fatalf("failed write reported or applied trust: trust=%+v", trust)
+	}
+
+	f.setTrustErr = nil
+	trust, err = e.service.TrustCodex()
+	if err != nil || len(trust) != 1 || trust[0].Action != "trusted" {
+		t.Fatalf("successful trust = %+v, %v", trust, err)
+	}
+	ownedHash := trustedHash(t, codex, "session_start:0:0")
+	save(t, e.service, Mutation{Name: "owned", Remove: true})
+	f.setTrustErr = fmt.Errorf("batch write failed")
+	trust, err = e.service.TrustCodex()
+	if err == nil {
+		t.Fatal("expected failed clear")
+	}
+	for _, result := range trust {
+		if result.Action == "cleared" {
+			t.Fatalf("reported an unconfirmed clear: %+v", result)
+		}
+	}
+	if len(trust) != 0 || trustedHash(t, codex, "session_start:0:0") != ownedHash {
+		t.Fatalf("failed clear reported or changed trust: trust=%+v", trust)
+	}
+}
+
+func TestCodexTrustMigratesLegacyStateForRemovedHooks(t *testing.T) {
+	e, f := trustEnv(t)
+	codex := filepath.Join(e.home, ".codex")
+	save(t, e.service, Mutation{Name: "owned", Entry: codexTrustEntry(t, "echo owned")})
+	server, err := f.start(codex)
+	must(t, err)
+	listed, err := server.ListHooks()
+	must(t, err)
+	keys := map[string]string{}
+	for _, hook := range listed {
+		keys[hook.Key] = hook.CurrentHash
+	}
+	must(t, server.SetTrust(keys))
+	legacy, err := json.Marshal(map[string]any{
+		"version": 1,
+		"homes": map[string]any{
+			filepath.Join(codex, "hooks.json"): map[string]any{"target": "codex", "keys": keys},
+		},
+	})
+	must(t, err)
+	write(t, e.service.codexTrustPath(), string(legacy))
+
+	save(t, e.service, Mutation{Name: "owned", Remove: true})
+	trust, err := e.service.TrustCodex()
+	if err != nil || len(trust) != 1 || trust[0].Action != "cleared" {
+		t.Fatalf("legacy removal trust = %+v, %v", trust, err)
+	}
+	if got := trustedHash(t, codex, "session_start:0:0"); got != "" {
+		t.Fatalf("legacy trust remains after removal: %q", got)
+	}
+	data := read(t, e.service.codexTrustPath())
+	var state codexTrustState
+	must(t, json.Unmarshal([]byte(data), &state))
+	if len(state.Homes) != 0 {
+		t.Fatalf("legacy trust metadata remains after cleanup: %+v", state.Homes)
+	}
+}
+
+func codexTrustEntry(t *testing.T, command string) *Entry {
+	t.Helper()
+	return entry(t, fmt.Sprintf(`{"bindings":{"codex":{"events":{"SessionStart":[{"hooks":[{"type":"command","command":%q}]}]}}}}`, command))
 }

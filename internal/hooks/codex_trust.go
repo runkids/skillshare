@@ -2,6 +2,7 @@ package hooks
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -55,6 +56,8 @@ type codexTrustState struct {
 }
 
 type codexTrustHome struct {
+	Owner  string            `json:"owner"`
+	Path   string            `json:"path"`
 	Target string            `json:"target"`
 	Keys   map[string]string `json:"keys"`
 }
@@ -77,16 +80,21 @@ func (s *Service) TrustCodex() ([]CodexTrust, error) {
 	if err != nil {
 		return nil, err
 	}
-	saved := codexTrustState{Version: 1, Homes: map[string]codexTrustHome{}}
+	owner, err := filepath.Abs(s.ConfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("resolve hooks config owner: %w", err)
+	}
+	saved := codexTrustState{Version: 2, Homes: map[string]codexTrustHome{}}
 	if data, exists, _, err := safeRead(s.codexTrustPath()); err != nil {
 		return nil, err
 	} else if exists && (json.Unmarshal(data, &saved) != nil || saved.Homes == nil) {
 		return nil, fmt.Errorf("Codex trust state is invalid: %s", s.codexTrustPath())
 	}
+	saved.Version = 2
 	homes := map[string]string{}
 	owned := map[string]map[string]record{}
 	for key, r := range state.Records {
-		if r.Root != "" || s.agentOf(r.Target) != "codex" {
+		if r.Owner != owner || r.Root != "" || s.agentOf(r.Target) != "codex" {
 			continue
 		}
 		sc, _ := s.forTarget(r.Target)
@@ -99,9 +107,11 @@ func (s *Service) TrustCodex() ([]CodexTrust, error) {
 		}
 		owned[r.Path][key] = r
 	}
-	for path, home := range saved.Homes {
-		if _, ok := homes[path]; !ok {
-			homes[path] = home.Target
+	for _, home := range saved.Homes {
+		if home.Owner == owner {
+			if _, ok := homes[home.Path]; !ok {
+				homes[home.Path] = home.Target
+			}
 		}
 	}
 	out := []CodexTrust{}
@@ -109,22 +119,66 @@ func (s *Service) TrustCodex() ([]CodexTrust, error) {
 		if info, err := os.Stat(filepath.Dir(path)); err != nil || !info.IsDir() {
 			continue // A missing account home is skipped, as sync skips it.
 		}
-		results, keys, err := s.trustCodexHome(homes[path], path, owned[path], saved.Homes[path].Keys)
+		homeKey := codexTrustHomeKey(owner, path)
+		results, keys, err := s.trustCodexHome(homes[path], path, owned[path], saved.Homes[homeKey].Keys)
 		out = append(out, results...)
 		if err != nil {
 			return out, fmt.Errorf("%s: %w", homes[path], err)
 		}
 		if len(keys) == 0 {
-			delete(saved.Homes, path)
+			delete(saved.Homes, homeKey)
 		} else {
-			saved.Homes[path] = codexTrustHome{Target: homes[path], Keys: keys}
+			saved.Homes[homeKey] = codexTrustHome{Owner: owner, Path: path, Target: homes[path], Keys: keys}
 		}
+		if err := writeJSONFile(s.codexTrustPath(), saved); err != nil {
+			return out, err
+		}
+	}
+	// Version 1 did not store config ownership. Reconcile those entries only as
+	// stale trust to clear; never use them to select a hook that should be trusted.
+	legacyChanged := false
+	for _, key := range sortedKeys(saved.Homes) {
+		home := saved.Homes[key]
+		if home.Owner != "" {
+			continue
+		}
+		path := key
+		if home.Path != "" {
+			path = home.Path
+		}
+		if info, err := os.Stat(filepath.Dir(path)); err != nil || !info.IsDir() {
+			continue
+		}
+		results, _, err := s.trustCodexHome(home.Target, path, nil, home.Keys)
+		out = append(out, results...)
+		if err != nil {
+			return out, fmt.Errorf("%s: %w", home.Target, err)
+		}
+		current, err := codexTrustedHashes(filepath.Join(filepath.Dir(path), "config.toml"))
+		if err != nil {
+			return out, err
+		}
+		for hookKey, hash := range home.Keys {
+			if current[hookKey] != hash {
+				delete(home.Keys, hookKey)
+			}
+		}
+		if len(home.Keys) == 0 {
+			delete(saved.Homes, key)
+		} else {
+			saved.Homes[key] = home
+		}
+		legacyChanged = true
+	}
+	if legacyChanged {
 		if err := writeJSONFile(s.codexTrustPath(), saved); err != nil {
 			return out, err
 		}
 	}
 	return out, nil
 }
+
+func codexTrustHomeKey(owner, path string) string { return owner + "\x00" + path }
 
 // trustCodexHome trusts the owned groups of one hooks.json and clears trust recorded
 // earlier for positions they left. It returns the keys whose trust it now holds.
@@ -155,6 +209,13 @@ func (s *Service) trustCodexHome(target, path string, records map[string]record,
 	listed, err := server.ListHooks()
 	if err != nil {
 		return nil, nil, err
+	}
+	current, currentExists, _, err := safeRead(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	if exists != currentExists || !bytes.Equal(data, current) {
+		return nil, nil, fmt.Errorf("%s changed while Codex hooks were being listed; run hooks sync --trust again", path)
 	}
 	results := []CodexTrust{}
 	edits, keep, here := map[string]string{}, map[string]string{}, map[string]CodexHook{}
@@ -193,7 +254,13 @@ func (s *Service) trustCodexHome(target, path string, records map[string]record,
 	}
 	if len(edits) > 0 {
 		if err := server.SetTrust(edits); err != nil {
-			return results, written, err
+			unchanged := results[:0]
+			for _, result := range results {
+				if result.Action == "unchanged" {
+					unchanged = append(unchanged, result)
+				}
+			}
+			return unchanged, written, err
 		}
 	}
 	return results, keep, nil
