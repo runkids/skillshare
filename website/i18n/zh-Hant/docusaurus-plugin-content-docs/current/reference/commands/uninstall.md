@@ -52,7 +52,7 @@ flowchart TD
 | `--dry-run, -n` | 預覽而不實際變更 |
 | `--project, -p` | 使用目前目錄的專案層級設定 |
 | `--global, -g` | 使用全域設定（`~/.config/skillshare`） |
-| `--json` | Global mode：以 JSON 輸出並跳過確認；有未提交變更的 tracked repositories 仍需要 `--force` |
+| `--json` | 以 JSON 輸出並跳過確認；有未提交變更的 tracked repositories 仍需要 `--force` |
 | `--help, -h` | 顯示說明 |
 
 ## JSON 輸出
@@ -76,6 +76,8 @@ skillshare uninstall my-skill another-skill --json
 ```bash
 skillshare uninstall --all --json --dry-run
 ```
+
+所有 skill 都解除安裝失敗時，指令會以非零狀態結束，`error` 欄位列出每個 skill 及其原因；只有部分失敗時，它們會連同原因列在 `failed`，指令以 0 結束。`uninstall agents --json` 只要有 agent 失敗就會以非零狀態結束，把失敗的名稱列在 `failed`，並在 `error` 中說明每一個的原因。JSON 輸出在 project mode（`-p`）也能使用。
 
 ## 多個 Skills
 

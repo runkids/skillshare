@@ -665,6 +665,175 @@ func TestUninstall_JSON_NoSkillsFound_ReturnsJSONError(t *testing.T) {
 	}
 }
 
+func TestUninstall_JSON_AllFailedReportsError(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("needs a directory the test user cannot write")
+	}
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+	sb.CreateSkill("stuck", map[string]string{"SKILL.md": "# Stuck"})
+	lockDir(t, filepath.Join(sb.Home, ".local", "share", "skillshare", "trash"))
+
+	result := sb.RunCLI("uninstall", "stuck", "--json")
+	result.AssertFailure(t)
+	assertPureJSON(t, strings.TrimSpace(result.Stdout))
+	if msg, _ := parseJSON(t, result.Stdout)["error"].(string); !strings.Contains(msg, "stuck: ") {
+		t.Errorf("expected error field to name the skill and its reason, got: %s", result.Stdout)
+	}
+}
+
+func TestUninstall_Project_JSON_PureOutput(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	root := sb.SetupProjectDir("claude")
+	sb.CreateProjectSkill(root, "one", map[string]string{"SKILL.md": "# One"})
+
+	result := sb.RunCLIInDir(root, "uninstall", "one", "-p", "--json")
+	result.AssertSuccess(t)
+	assertPureJSON(t, strings.TrimSpace(result.Stdout))
+	if removed, _ := parseJSON(t, result.Stdout)["removed"].([]any); len(removed) != 1 {
+		t.Errorf("expected one removed skill, got: %s", result.Stdout)
+	}
+}
+
+// The first -p command in a folder initializes the project; its banner must
+// not reach stdout under --json.
+func TestUninstall_Project_JSON_PureOnFirstRun(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	root := filepath.Join(sb.Root, "fresh")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	result := sb.RunCLIInDir(root, "uninstall", "nosuch", "-p", "--json")
+	result.AssertFailure(t)
+	assertPureJSON(t, strings.TrimSpace(result.Stdout))
+}
+
+func TestUninstall_Project_JSON_FailureReportsError(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("needs a directory the test user cannot write")
+	}
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	root := sb.SetupProjectDir("claude")
+	sb.CreateProjectSkill(root, "stuck", map[string]string{"SKILL.md": "# Stuck"})
+	lockDir(t, filepath.Join(root, ".skillshare", "trash"))
+
+	result := sb.RunCLIInDir(root, "uninstall", "stuck", "-p", "--json")
+	result.AssertFailure(t)
+	assertPureJSON(t, strings.TrimSpace(result.Stdout))
+	if msg, _ := parseJSON(t, result.Stdout)["error"].(string); !strings.Contains(msg, "stuck: ") {
+		t.Errorf("expected error field to name the skill and its reason, got: %s", result.Stdout)
+	}
+}
+
+func TestUninstall_Agents_Project_RejectsUnknownOption(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	root := sb.SetupProjectDir("claude")
+
+	result := sb.RunCLIInDir(root, "uninstall", "-p", "agents", "--bogus")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "unknown option: --bogus")
+}
+
+func TestUninstall_Agents_JSON_WritesOplog(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	createAgentSource(t, sb, map[string]string{"tutor.md": "# Tutor agent"})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	sb.RunCLI("uninstall", "-g", "agents", "tutor", "--json").AssertSuccess(t)
+	if e := lastUninstallOp(t, sb.ConfigPath); e == nil || e.Status != "ok" {
+		t.Errorf("JSON agent uninstall should log an ok entry, got %+v", e)
+	}
+}
+
+func TestUninstall_Agents_JSON_FailureReportsReason(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("needs a directory the test user cannot write")
+	}
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	createAgentSource(t, sb, map[string]string{"tutor.md": "# Tutor agent"})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	lockDir(t, filepath.Join(sb.Home, ".local", "share", "skillshare", "trash", "agents"))
+
+	result := sb.RunCLI("uninstall", "-g", "agents", "tutor", "--json")
+	result.AssertFailure(t)
+	assertPureJSON(t, strings.TrimSpace(result.Stdout))
+	msg, _ := parseJSON(t, result.Stdout)["error"].(string)
+	if !strings.Contains(msg, "tutor: ") || !strings.Contains(msg, "permission denied") {
+		t.Errorf("expected error field to name the agent and its reason, got: %s", result.Stdout)
+	}
+}
+
+func TestUninstall_Agents_JSON_NotFoundReportsError(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	createAgentSource(t, sb, map[string]string{"tutor.md": "# Tutor agent"})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("uninstall", "-g", "agents", "missing", "--json")
+	result.AssertFailure(t)
+	assertPureJSON(t, strings.TrimSpace(result.Stdout))
+	if msg, _ := parseJSON(t, result.Stdout)["error"].(string); !strings.Contains(msg, "not found") {
+		t.Errorf("expected not-found error, got: %s", result.Stdout)
+	}
+}
+
+func TestUninstall_Agents_JSON_PureOutput(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	createAgentSource(t, sb, map[string]string{"tutor.md": "# Tutor agent"})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("uninstall", "-g", "agents", "tutor", "--json")
+	result.AssertSuccess(t)
+	assertPureJSON(t, strings.TrimSpace(result.Stdout))
+	if removed, _ := parseJSON(t, result.Stdout)["removed"].([]any); len(removed) != 1 {
+		t.Errorf("expected tutor in removed, got: %s", result.Stdout)
+	}
+}
+
+func TestUninstall_Agents_JSON_ProjectPureOutput(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	root := sb.SetupProjectDir("claude")
+	sb.WriteFile(filepath.Join(root, ".skillshare", "agents", "tutor.md"), "# Tutor agent")
+
+	result := sb.RunCLIInDir(root, "uninstall", "-p", "agents", "tutor", "--json")
+	result.AssertSuccess(t)
+	assertPureJSON(t, strings.TrimSpace(result.Stdout))
+}
+
+func TestUninstall_Agents_JSON_AllWithNoAgents(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	createAgentSource(t, sb, map[string]string{})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("uninstall", "-g", "agents", "--all", "--json")
+	result.AssertSuccess(t)
+	assertPureJSON(t, strings.TrimSpace(result.Stdout))
+}
+
+// lockDir creates dir and makes it read-only until the test ends.
+func lockDir(t *testing.T, dir string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(dir, 0755) })
+}
+
 func TestUninstall_JSON_AllEmpty_ReturnsJSONError(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

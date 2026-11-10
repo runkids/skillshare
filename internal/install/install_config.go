@@ -175,6 +175,13 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 
 	store := LoadMetadataOrNew(sourcePath)
 	moved := 0
+	fail := func(name string, err error) {
+		if !opts.Quiet {
+			ui.StepFail(name, err.Error())
+		}
+		result.FailedSkills = append(result.FailedSkills, name)
+		result.Failures = append(result.Failures, SkillFailure{Name: name, Err: err})
+	}
 
 	for _, skill := range ctx.ConfigSkills() {
 		_, bareName := skill.EffectiveParts()
@@ -208,10 +215,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 			}
 			if IsGitRepo(destPath) {
 				if err := relockGitRepo(destPath, locked, opts); err != nil {
-					if !opts.Quiet {
-						ui.StepFail(displayName, err.Error())
-					}
-					result.FailedSkills = append(result.FailedSkills, displayName)
+					fail(displayName, err)
 					continue
 				}
 				if !opts.Quiet {
@@ -236,10 +240,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 
 		source, err := ParseSourceWithOptions(skill.Source, parseOpts)
 		if err != nil {
-			if !opts.Quiet {
-				ui.StepFail(displayName, fmt.Sprintf("invalid source: %v", err))
-			}
-			result.FailedSkills = append(result.FailedSkills, displayName)
+			fail(displayName, fmt.Errorf("invalid source: %w", err))
 			continue
 		}
 		source.Name = bareName
@@ -262,10 +263,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 
 		source, err := ParseSourceWithOptions(skill.Source, parseOpts)
 		if err != nil {
-			if !opts.Quiet {
-				ui.StepFail(displayName, fmt.Sprintf("invalid source: %v", err))
-			}
-			result.FailedSkills = append(result.FailedSkills, displayName)
+			fail(displayName, fmt.Errorf("invalid source: %w", err))
 			continue
 		}
 		source.Name = bareName
@@ -273,8 +271,8 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 		source.Commit = opts.Lock.CommitFor(displayName, skill.Source)
 
 		installed := installTrackedFromConfig(source, sourcePath, displayName, groupDir, opts)
-		if installed.failed {
-			result.FailedSkills = append(result.FailedSkills, displayName)
+		if installed.err != nil {
+			fail(displayName, installed.err)
 			continue
 		}
 		if opts.DryRun {
@@ -297,11 +295,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 		if cloneErr != nil {
 			// Clone failed — mark all skills in group as failed.
 			for _, e := range group.skills {
-				displayName := e.dto.FullName()
-				if !opts.Quiet {
-					ui.StepFail(displayName, fmt.Sprintf("clone failed: %v", cloneErr))
-				}
-				result.FailedSkills = append(result.FailedSkills, displayName)
+				fail(e.dto.FullName(), fmt.Errorf("clone failed: %w", cloneErr))
 			}
 			continue
 		}
@@ -320,29 +314,20 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 			}
 
 			if err := validate.SkillName(bareName); err != nil {
-				if !opts.Quiet {
-					ui.StepFail(displayName, fmt.Sprintf("invalid name: %v", err))
-				}
-				result.FailedSkills = append(result.FailedSkills, displayName)
+				fail(displayName, fmt.Errorf("invalid name: %w", err))
 				continue
 			}
 
 			if groupDir != "" {
 				if err := sourcefs.MkdirAllIn(sourcePath, filepath.FromSlash(groupDir), opts.SourceFollow); err != nil {
-					if !opts.Quiet {
-						ui.StepFail(displayName, fmt.Sprintf("failed to create group directory: %v", err))
-					}
-					result.FailedSkills = append(result.FailedSkills, displayName)
+					fail(displayName, fmt.Errorf("failed to create group directory: %w", err))
 					continue
 				}
 			}
 
 			_, err := InstallFromDiscovery(discovery, skill, destPath, e.optsFor(opts))
 			if err != nil {
-				if !opts.Quiet {
-					ui.StepFail(displayName, err.Error())
-				}
-				result.FailedSkills = append(result.FailedSkills, displayName)
+				fail(displayName, err)
 				continue
 			}
 
@@ -373,9 +358,8 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 		displayName := e.dto.FullName()
 		destPath := filepath.Join(sourcePath, filepath.FromSlash(displayName))
 
-		ok := installPlainFromConfig(ctx, e.source, sourcePath, destPath, displayName, bareName, groupDir, e.optsFor(opts))
-		if !ok {
-			result.FailedSkills = append(result.FailedSkills, displayName)
+		if err := installPlainFromConfig(ctx, e.source, sourcePath, destPath, displayName, bareName, groupDir, e.optsFor(opts)); err != nil {
+			fail(displayName, err)
 			continue
 		}
 		if opts.DryRun {
@@ -451,7 +435,7 @@ func movedCopyOf(store *MetadataStore, sourcePath string, skill SkillEntryDTO, f
 // trackedInstallOutcome captures the result of a single tracked-repo install
 // within the config loop.
 type trackedInstallOutcome struct {
-	failed     bool
+	err        error    // why the install failed; the caller reports it
 	action     string   // only meaningful on dry-run
 	skills     []string // skills names to record
 	skillCount int      // skills discovered in the repo
@@ -474,10 +458,7 @@ func installTrackedFromConfig(
 
 	trackedResult, err := InstallTrackedRepo(source, sourcePath, trackOpts)
 	if err != nil {
-		if !opts.Quiet {
-			ui.StepFail(displayName, err.Error())
-		}
-		return trackedInstallOutcome{failed: true}
+		return trackedInstallOutcome{err: err}
 	}
 
 	if opts.DryRun {
@@ -496,7 +477,7 @@ func installTrackedFromConfig(
 }
 
 // installPlainFromConfig installs a single non-tracked skill from config.
-// Returns true on success, false on failure (UI messages emitted internally).
+// It returns why the install failed; the caller reports it.
 func installPlainFromConfig(
 	ctx InstallContext,
 	source *Source,
@@ -506,37 +487,28 @@ func installPlainFromConfig(
 	bareName string,
 	groupDir string,
 	opts InstallOptions,
-) bool {
+) error {
 	if err := validate.SkillName(bareName); err != nil {
-		if !opts.Quiet {
-			ui.StepFail(displayName, fmt.Sprintf("invalid name: %v", err))
-		}
-		return false
+		return fmt.Errorf("invalid name: %w", err)
 	}
 
 	// Ensure group directory exists.
 	if groupDir != "" {
 		if err := sourcefs.MkdirAllIn(sourcePath, filepath.FromSlash(groupDir), opts.SourceFollow); err != nil {
-			if !opts.Quiet {
-				ui.StepFail(displayName, fmt.Sprintf("failed to create group directory: %v", err))
-			}
-			return false
+			return fmt.Errorf("failed to create group directory: %w", err)
 		}
 	}
 
 	result, err := Install(source, destPath, opts)
 	if err != nil {
-		if !opts.Quiet {
-			ui.StepFail(displayName, err.Error())
-		}
-		return false
+		return err
 	}
 
 	if opts.DryRun {
 		if !opts.Quiet {
 			ui.StepDone(displayName, result.Action)
 		}
-		return true
+		return nil
 	}
 
 	if err := ctx.PostInstallSkill(displayName); err != nil {
@@ -546,5 +518,5 @@ func installPlainFromConfig(
 	if !opts.Quiet {
 		ui.StepDone(displayName, "installed")
 	}
-	return true
+	return nil
 }

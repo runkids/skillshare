@@ -7,7 +7,7 @@ Validates that `--json` mode outputs pure JSON to stdout (no UI noise) and that 
 - `ss status --json` / `ss status --project --json`
 - `ss sync --json` / `ss sync --all --json`
 - `ss install --json` (local path)
-- `ss uninstall --json` (success + error paths)
+- `ss uninstall --json` (success + error paths), `ss uninstall -p --json`, `ss uninstall agents --json`
 - `ss diff --json`
 - `ss collect --json`
 - `ss update --json --dry-run`
@@ -286,9 +286,40 @@ Expected:
 - HAS_TARGETS=OK
 - PURE_JSON=OK
 
+### Step 17: uninstall -p --json outputs pure JSON on a fresh project
+
+The first `-p` command initializes the project; its banner must stay off stdout.
+
+```bash
+rm -rf /tmp/json-proj && mkdir -p /tmp/json-proj && cd /tmp/json-proj
+OUTPUT=$(ss uninstall nosuch -p --json 2>/dev/null) || true
+echo "$OUTPUT" | jq -e ".error" && echo "ERROR_FIELD=OK" || echo "ERROR_FIELD=FAIL"
+FIRST=$(echo "$OUTPUT" | head -c1)
+[ "$FIRST" = "{" ] && echo "PURE_JSON=OK" || echo "PURE_JSON=FAIL"
+```
+
+Expected:
+- exit_code: 0
+- ERROR_FIELD=OK
+- PURE_JSON=OK
+
+### Step 18: uninstall agents --json reports a missing agent
+
+```bash
+OUTPUT=$(ss uninstall agents nosuch --json -g 2>/dev/null) || true
+echo "$OUTPUT" | jq -e ".error" && echo "ERROR_FIELD=OK" || echo "ERROR_FIELD=FAIL"
+FIRST=$(echo "$OUTPUT" | head -c1)
+[ "$FIRST" = "{" ] && echo "PURE_JSON=OK" || echo "PURE_JSON=FAIL"
+```
+
+Expected:
+- exit_code: 0
+- ERROR_FIELD=OK
+- PURE_JSON=OK
+
 ## Pass Criteria
 
-- All 16 steps PASS
+- All 18 steps PASS
 - All `--json` outputs start with `{` or `[` (pure JSON)
 - Error paths return JSON error envelope with non-zero exit code
 - Non-JSON commands still produce human-readable output

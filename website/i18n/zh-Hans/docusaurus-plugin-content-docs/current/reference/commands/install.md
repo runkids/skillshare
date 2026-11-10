@@ -353,7 +353,7 @@ skillshare install github.com/user/agents --kind agent --json
 }
 ```
 
-整个安装失败时，例如 tracked 仓库或单个 skill 被安全审计拦截，命令以非零状态退出，`error` 字段说明原因。来源包含多个 skill 时，被拦截或失败的 skill 会列在 `failed` 中，命令仍以 0 退出。要在有审计发现的情况下仍然安装，请加上 `--force`。
+整个安装失败时，例如 tracked 仓库、单个 skill，或来源或 config 中的所有 skill 都被安全审计拦截，命令以非零状态退出，`error` 字段列出每个失败的 skill 及原因。只有部分 skill 失败时，它们会列在 `failed` 中，命令以 0 退出。要在有审计发现的情况下仍然安装，请加上 `--force`。
 
 ```json
 {

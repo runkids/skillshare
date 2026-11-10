@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"skillshare/internal/config"
@@ -103,7 +104,15 @@ func (s *Server) handleInstallFromConfig(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		status, msg = "error", err.Error()
 	} else if len(result.FailedSkills) > 0 {
+		// Match the CLI: nothing installed is an error, with each skill's reason.
 		status = "partial"
+		if len(result.InstalledSkills)+result.Skipped == 0 {
+			reasons := make([]string, len(result.Failures))
+			for i, f := range result.Failures {
+				reasons[i] = f.Name + ": " + f.Err.Error()
+			}
+			status, msg = "error", strings.Join(reasons, "; ")
+		}
 	}
 	s.writeOpsLog("install", status, start, map[string]any{
 		"source":           "config",

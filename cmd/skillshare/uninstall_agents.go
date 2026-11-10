@@ -17,17 +17,28 @@ import (
 
 // cmdUninstallAgents removes agents from the source directory by moving them to agent trash.
 func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string, trashBase string, start time.Time) error {
+	// In JSON mode the UI goes to /dev/null and every outcome is one JSON object.
+	jsonUI := newJSONUISuppressor(opts.jsonOutput)
+	defer jsonUI.Flush()
+	fail := func(err error) error {
+		if !opts.jsonOutput {
+			return err
+		}
+		jsonUI.Flush()
+		return writeJSONError(err)
+	}
+
 	if _, err := os.Stat(agentsDir); err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("agents source directory does not exist: %s", agentsDir)
+			return fail(fmt.Errorf("agents source directory does not exist: %s", agentsDir))
 		}
-		return fmt.Errorf("cannot access agents source: %w", err)
+		return fail(fmt.Errorf("cannot access agents source: %w", err))
 	}
 
 	// Discover all agents for resolution
 	discovered, discErr := resource.AgentKind{}.Discover(agentsDir)
 	if discErr != nil {
-		return fmt.Errorf("failed to discover agents: %w", discErr)
+		return fail(fmt.Errorf("failed to discover agents: %w", discErr))
 	}
 
 	// Resolve targets
@@ -35,6 +46,10 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 	if opts.all {
 		targets = discovered
 		if len(targets) == 0 {
+			if opts.jsonOutput {
+				jsonUI.Flush()
+				return uninstallOutputJSON(nil, nil, 0, opts.dryRun, start, nil)
+			}
 			ui.Done(ui.MarkNone, "No agents found", 0)
 			return nil
 		}
@@ -49,7 +64,7 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 				}
 			}
 			if !found {
-				return fmt.Errorf("agent %q not found in %s", input, agentsDir)
+				return fail(fmt.Errorf("agent %q not found in %s", input, agentsDir))
 			}
 		}
 
@@ -57,10 +72,10 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 		if len(opts.groups) > 0 {
 			groupFiltered, err := filterDiscoveredAgentsByGroups(discovered, opts.groups, agentsDir)
 			if err != nil {
-				return err
+				return fail(err)
 			}
 			if len(groupFiltered) == 0 {
-				return fmt.Errorf("no agents found in group(s): %s", strings.Join(opts.groups, ", "))
+				return fail(fmt.Errorf("no agents found in group(s): %s", strings.Join(opts.groups, ", ")))
 			}
 			// Deduplicate against already-resolved name targets
 			seen := make(map[string]bool, len(targets))
@@ -76,7 +91,7 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 	}
 
 	if len(targets) == 0 {
-		return fmt.Errorf("specify agent name(s), --group, or --all")
+		return fail(fmt.Errorf("specify agent name(s), --group, or --all"))
 	}
 
 	// Confirmation (unless --force or --json)
@@ -109,6 +124,7 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 	store, _ := install.LoadMetadata(agentsDir)
 	var removed []string
 	var failed []string
+	var reasons []string
 	width := 0
 	for _, t := range targets {
 		width = max(width, ui.RowWidth(strings.TrimSuffix(t.RelPath, ".md")))
@@ -133,30 +149,23 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 		if errs[i] != nil {
 			ui.Row(ui.MarkFail, displayName, errs[i].Error(), width)
 			failed = append(failed, displayName)
+			reasons = append(reasons, displayName+": "+errs[i].Error())
 			continue
 		}
 		ui.Row(ui.MarkOK, displayName, ui.DimText("→ trash, kept 7 days"), width)
 		removed = append(removed, displayName)
 	}
 
+	logUninstallAgentOp(cfgPath, removed, len(removed), len(failed), opts.dryRun, start)
+
 	// JSON output
 	if opts.jsonOutput {
-		output := struct {
-			Removed  []string `json:"removed"`
-			Failed   []string `json:"failed"`
-			DryRun   bool     `json:"dry_run"`
-			Duration string   `json:"duration"`
-		}{
-			Removed:  removed,
-			Failed:   failed,
-			DryRun:   opts.dryRun,
-			Duration: formatDuration(start),
-		}
 		var jsonErr error
 		if len(failed) > 0 {
-			jsonErr = fmt.Errorf("%d agent(s) failed to uninstall", len(failed))
+			jsonErr = fmt.Errorf("%d agent(s) failed to uninstall: %s", len(failed), strings.Join(reasons, "; "))
 		}
-		return writeJSONResult(&output, jsonErr)
+		jsonUI.Flush()
+		return uninstallOutputJSON(removed, failed, 0, opts.dryRun, start, jsonErr)
 	}
 
 	// Summary
@@ -185,9 +194,6 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 		}
 		ui.Next("skillshare sync agents", "remove them from your targets", restore, "undo")
 	}
-
-	// Oplog
-	logUninstallAgentOp(cfgPath, removed, len(removed), len(failed), opts.dryRun, start)
 
 	if len(failed) > 0 {
 		return fmt.Errorf("%d agent(s) failed to uninstall", len(failed))

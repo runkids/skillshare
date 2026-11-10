@@ -30,6 +30,19 @@ test("an update the audit blocks names the skill", async () => {
   assert.deepEqual(r, { kind: "error", text: "Audit blocked figlens. Ask an agent to audit it before updating." });
 });
 
+test("an uninstall that fails says why", async () => {
+  const error = "1 agent(s) failed to uninstall: tutor: permission denied";
+  const { io } = machine({ jobs: { "uninstall agents tutor --json -g": { code: 1, stdout: JSON.stringify({ removed: [], failed: ["tutor"], error }) } } });
+  const r = await operate({ op: "uninstall", item: { kind: "agents", scope: "global", rel: "tutor", label: "tutor" } }, io);
+  assert.deepEqual(r, { kind: "error", text: error });
+});
+
+test("a project uninstall asks for JSON", async () => {
+  const { io, calls } = machine({ jobs: { "uninstall a -p --force --json": { stdout: JSON.stringify({ removed: ["a"], failed: [] }) } } });
+  const r = await operate({ op: "uninstall", project: "/p", item: { kind: "skills", scope: "project", rel: "a", label: "a" } }, io);
+  assert.deepEqual([r.kind, calls], ["done", ["uninstall a -p --force --json"]]);
+});
+
 test("a failed sync of one scope leaves the next unsynced", async () => {
   const { io, calls } = machine({ jobs: { "sync --all --json -p": { code: 1, stderr: "hook conflict" } } });
   await operate({ op: "sync", scopes: ["project", "global"], project: "/p" }, io);

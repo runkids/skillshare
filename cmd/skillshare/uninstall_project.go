@@ -24,13 +24,24 @@ func cmdUninstallProject(args []string, root string) error {
 		return err
 	}
 
+	// Auto-init and the gitignore backfill may print; runUninstallSkills
+	// suppresses its own output.
+	setupUI := newJSONUISuppressor(opts.jsonOutput)
+	defer setupUI.Flush()
+	fail := func(err error) error {
+		if !opts.jsonOutput {
+			return err
+		}
+		setupUI.Flush()
+		return writeJSONError(err)
+	}
 	if err := ensureProjectConfig(root); err != nil {
-		return err
+		return fail(err)
 	}
 
 	projectCfg, loadErr := config.LoadProject(root)
 	if loadErr != nil {
-		return fmt.Errorf("failed to load project config: %w", loadErr)
+		return fail(fmt.Errorf("failed to load project config: %w", loadErr))
 	}
 	sourceDir := projectCfg.EffectiveSkillsSource(root)
 	gitignoreDir, gitignorePrefix := config.ProjectGitignoreTarget(root, sourceDir)
@@ -43,9 +54,7 @@ func cmdUninstallProject(args []string, root string) error {
 
 	// Backward compat: ensure operational dirs are gitignored for projects created before v0.17.3.
 	_ = ensureProjectGitignore(projectdir.Resolve(root), false)
-
-	// --json is global-only; project mode prints text and still confirms.
-	opts.jsonOutput = false
+	setupUI.Flush()
 
 	targetNames := make([]string, len(projectCfg.Targets))
 	for i, t := range projectCfg.Targets {

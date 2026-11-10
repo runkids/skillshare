@@ -3,7 +3,6 @@
 package integration
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -178,22 +177,22 @@ func TestUninstallModes_GitignoreEntries(t *testing.T) {
 	}
 }
 
-func TestUninstallModes_ProjectIgnoresJSONFlag(t *testing.T) {
+func TestUninstallModes_ProjectJSONKeepsDirtyRepoWithoutForce(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 	projectRoot := sb.SetupProjectDir("claude")
-	sb.CreateProjectSkill(projectRoot, "keep", map[string]string{"SKILL.md": "# Keep"})
+	repoName := setupProjectTrackedRepo(t, sb, projectRoot, "dirty", false)
+	repoPath := filepath.Join(projectRoot, ".skillshare", "skills", repoName)
+	sb.WriteFile(filepath.Join(repoPath, "dirty.txt"), "uncommitted")
 
-	// Project mode neither emits JSON nor treats --json as --force.
-	result := sb.RunCLIInDirWithInput(projectRoot, "n\n", "uninstall", "keep", "--json", "-p")
-	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Uninstall keep from the project?")
-	var out map[string]any
-	if json.Unmarshal([]byte(result.Stdout), &out) == nil {
-		t.Errorf("project uninstall should not print JSON, got %s", result.Stdout)
+	// --json skips the prompt but, like global mode, is not --force.
+	result := sb.RunCLIInDir(projectRoot, "uninstall", repoName, "--json", "-p")
+	result.AssertFailure(t)
+	if msg, _ := parseJSON(t, result.Stdout)["error"].(string); !strings.Contains(msg, "uncommitted changes") {
+		t.Errorf("expected the dirty-repo error, got: %s", result.Stdout)
 	}
-	if !sb.FileExists(filepath.Join(projectRoot, ".skillshare", "skills", "keep")) {
-		t.Error("declined prompt must keep the skill")
+	if !sb.FileExists(repoPath) {
+		t.Error("dirty tracked repo must stay without --force")
 	}
 }
 

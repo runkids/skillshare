@@ -362,7 +362,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		logSummary.FailedSkills = append(logSummary.FailedSkills, batchSummary.FailedSkills...)
 		logSummary.SkillCount = len(logSummary.InstalledSkills)
 		installDiscoveredAgents(discovery, cfg, opts)
-		return logSummary, nil
+		return logSummary, allSkillsFailedError(len(batchSummary.InstalledSkills)+batchSummary.SkippedSkills, batchSummary.Failures)
 	}
 
 	if opts.DryRun {
@@ -405,7 +405,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 	logSummary.SkillCount = len(logSummary.InstalledSkills)
 	installDiscoveredAgents(discovery, cfg, opts)
 
-	return logSummary, nil
+	return logSummary, allSkillsFailedError(len(batchSummary.InstalledSkills)+batchSummary.SkippedSkills, batchSummary.Failures)
 }
 
 func resolveSkillUpdateNames(skills []install.SkillInfo, source *install.Source, cfg *config.Config, opts install.InstallOptions) error {
@@ -522,8 +522,10 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 			summary.InstalledSkills = append(summary.InstalledSkills, r.skill.Name)
 		case r.skipped:
 			// Same-repo skips are not failures; exclude from FailedSkills.
+			summary.SkippedSkills++
 		default:
 			summary.FailedSkills = append(summary.FailedSkills, r.skill.Name)
+			summary.Failures = append(summary.Failures, install.SkillFailure{Name: r.skill.Name, Err: r.err})
 		}
 	}
 	return summary
@@ -984,8 +986,8 @@ func installFromGlobalConfig(cfg *config.Config, opts install.InstallOptions) (i
 	// Show failed details
 	if len(result.FailedSkills) > 0 {
 		fmt.Println()
-		for _, name := range result.FailedSkills {
-			ui.StepFail(name, "install failed")
+		for _, f := range result.Failures {
+			ui.StepFail(f.Name, firstWarningLine(f.Err.Error()))
 		}
 	}
 
@@ -993,7 +995,7 @@ func installFromGlobalConfig(cfg *config.Config, opts install.InstallOptions) (i
 		ui.Next("skillshare sync", "link them into your targets")
 	}
 
-	return summary, nil
+	return summary, allSkillsFailedError(len(result.InstalledSkills)+result.Skipped, result.Failures)
 }
 
 // renderSkillMeta prints the skill's description and license; the Install

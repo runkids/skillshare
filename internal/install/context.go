@@ -81,4 +81,11 @@ type ConfigInstallResult struct {
 	SkippedRepos        int
 	InstalledSkills     []string
 	FailedSkills        []string
+	Failures            []SkillFailure // why each FailedSkills entry failed
+}
+
+// SkillFailure is one skill that failed to install and the reason.
+type SkillFailure struct {
+	Name string
+	Err  error
 }
