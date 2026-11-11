@@ -318,6 +318,143 @@ func TestCheckProject_All_ChecksAgentsWithoutSkillsDir(t *testing.T) {
 	result.AssertAnyOutputContains(t, "reviewer")
 }
 
+func TestCheck_UnknownName_JSON_Fails(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	behindTrackedRepo(t, sb)
+
+	assertJSONError(t, sb.RunCLI("check", "no-such-skill", "--json"), "no-such-skill")
+}
+
+// assertJSONError fails unless the command exited 1 with stdout holding one
+// JSON object whose error names want.
+func assertJSONError(t *testing.T, result *testutil.Result, want string) {
+	t.Helper()
+	result.AssertExitCode(t, 1)
+	var out struct {
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil {
+		t.Fatalf("stdout is not one JSON object: %v\n%s", err, result.Stdout)
+	}
+	if !strings.Contains(out.Error, want) {
+		t.Errorf("error = %q, want it to contain %q", out.Error, want)
+	}
+}
+
+func TestCheck_JSON_TwoUnknownNames_NamesBoth(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	behindTrackedRepo(t, sb)
+
+	result := sb.RunCLI("check", "first-typo", "second-typo", "--json")
+	assertJSONError(t, result, "first-typo")
+	assertJSONError(t, result, "second-typo")
+}
+
+func TestCheck_JSON_UnknownGroup_Fails(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	behindTrackedRepo(t, sb)
+
+	assertJSONError(t, sb.RunCLI("check", "--group", "no-such-group", "--json"), "no-such-group")
+}
+
+func TestCheck_JSON_GroupOfLocalSkillsOnly_Fails(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	behindTrackedRepo(t, sb)
+	localSkill := filepath.Join(sb.SourcePath, "mine", "notes")
+	os.MkdirAll(localSkill, 0755)
+	os.WriteFile(filepath.Join(localSkill, "SKILL.md"), []byte("---\nname: notes\n---\n# Notes"), 0644)
+
+	for _, args := range [][]string{{"check", "mine", "--json"}, {"check", "--group", "mine", "--json"}} {
+		assertJSONError(t, sb.RunCLI(args...), "no updatable skills in group")
+	}
+}
+
+func TestCheck_JSON_UnknownName_ExitCodeFlag_Fails(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	behindTrackedRepo(t, sb)
+
+	assertJSONError(t, sb.RunCLI("check", "no-such-skill", "--json", "--exit-code"), "no-such-skill")
+}
+
+func TestCheck_JSON_InvalidFlagCombination_IsJSON(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	behindTrackedRepo(t, sb)
+
+	assertJSONError(t, sb.RunCLI("check", "--all", "_test-repo", "--json"), "--all cannot be combined")
+}
+
+func TestCheckProject_JSON_UnknownName_Fails(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+
+	assertJSONError(t, sb.RunCLIInDir(projectRoot, "check", "-p", "no-such-skill", "--json"), "no-such-skill")
+}
+
+func TestCheckProject_JSON_NoProjectConfig_IsJSON(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	emptyDir := filepath.Join(sb.Root, "not-a-project")
+	os.MkdirAll(emptyDir, 0755)
+
+	assertJSONError(t, sb.RunCLIInDir(emptyDir, "check", "-p", "--json"), "no project config")
+}
+
+func TestCheck_GroupName_JSON_KeepsStdoutJSON(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	behindTrackedRepo(t, sb)
+	groupSkill := filepath.Join(sb.SourcePath, "frontend", "ui-kit")
+	os.MkdirAll(groupSkill, 0755)
+	os.WriteFile(filepath.Join(groupSkill, "SKILL.md"), []byte("---\nname: ui-kit\n---\n# UI"), 0644)
+	store, err := install.LoadMetadata(sb.SourcePath)
+	if err != nil {
+		t.Fatalf("load metadata: %v", err)
+	}
+	store.Set("frontend/ui-kit", &install.MetadataEntry{Source: "owner/repo", Group: "frontend"})
+	if err := store.Save(sb.SourcePath); err != nil {
+		t.Fatalf("save metadata: %v", err)
+	}
+
+	result := sb.RunCLI("check", "frontend", "--json")
+	if !json.Valid([]byte(result.Stdout)) {
+		t.Errorf("stdout is not JSON:\n%s", result.Stdout)
+	}
+	if !strings.Contains(result.Stdout, "ui-kit") {
+		t.Errorf("the group should expand to ui-kit, got:\n%s", result.Stdout)
+	}
+}
+
+func TestCheck_UnknownNameBesideKnown_JSON_KeepsStdoutJSON(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	behindTrackedRepo(t, sb)
+
+	result := sb.RunCLI("check", "_test-repo", "no-such-skill", "--json")
+	result.AssertSuccess(t)
+	var out struct {
+		TrackedRepos []struct {
+			Name string `json:"name"`
+		} `json:"tracked_repos"`
+		Warnings []string `json:"warnings"`
+	}
+	if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil {
+		t.Fatalf("stdout is not one JSON object: %v\n%s", err, result.Stdout)
+	}
+	if len(out.TrackedRepos) != 1 {
+		t.Errorf("tracked_repos = %+v, want _test-repo", out.TrackedRepos)
+	}
+	if len(out.Warnings) != 1 || !strings.Contains(out.Warnings[0], "no-such-skill") {
+		t.Errorf("warnings = %q, want one naming no-such-skill", out.Warnings)
+	}
+}
+
 func TestCheck_ExitCode_RejectsDiff(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

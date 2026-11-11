@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -44,6 +43,8 @@ type checkOutput struct {
 	Skills       []checkSkillResult `json:"skills"`
 	// Agents is set only by --all, so check --json keeps its shape.
 	Agents *[]check.AgentCheckResult `json:"agents,omitempty"`
+	// Warnings names the requested names and groups that were skipped.
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 // checkOptions holds parsed arguments for check command
@@ -177,6 +178,17 @@ func splitURLBranch(key string) (url, branch string) {
 }
 
 func cmdCheck(args []string) error {
+	err := runCheckCommand(args)
+	// With --json every failure is a JSON object on stdout, including the
+	// ones found before any check ran (bad flags, missing config).
+	var silent *jsonSilentError
+	if err != nil && isStructuredOutput(args) && !errors.As(err, &silent) {
+		return writeJSONError(err)
+	}
+	return err
+}
+
+func runCheckCommand(args []string) error {
 	start := time.Now()
 
 	mode, rest, err := parseModeArgs(args, "--group", "-G")
@@ -590,7 +602,9 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, walks .
 				resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: no updatable skills in group", name))
 				continue
 			}
-			ui.Note(fmt.Sprintf("'%s' is a group — expanding to %s", name, plural(len(groupMatches), "updatable skill")))
+			if !opts.json {
+				ui.Note(fmt.Sprintf("'%s' is a group — expanding to %s", name, plural(len(groupMatches), "updatable skill")))
+			}
 			for _, m := range groupMatches {
 				if !seen[m.name] {
 					seen[m.name] = true
@@ -633,23 +647,27 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, walks .
 		resolveSpinner.Stop()
 	}
 
-	for _, w := range resolveWarnings {
-		ui.Warning("%s", w)
+	// With --json stdout carries the result only: skipped names go in its
+	// warnings field, or in the error when nothing is left to check.
+	if !opts.json {
+		for _, w := range resolveWarnings {
+			ui.Warning("%s", w)
+		}
 	}
 
 	if len(targets) == 0 {
-		if opts.json {
-			out, _ := json.MarshalIndent(checkOutput{
-				TrackedRepos: []checkRepoResult{},
-				Skills:       []checkSkillResult{},
-			}, "", "  ")
-			fmt.Println(string(out))
-			return nil
-		}
+		err := fmt.Errorf("no skills found")
 		if len(resolveWarnings) > 0 {
-			return fmt.Errorf("no valid skills to check")
+			err = fmt.Errorf("no valid skills to check")
 		}
-		return fmt.Errorf("no skills found")
+		if opts.json {
+			// An empty result would read as "all clear".
+			if len(resolveWarnings) > 0 {
+				err = fmt.Errorf("%w: %s", err, strings.Join(resolveWarnings, "; "))
+			}
+			return writeJSONError(err)
+		}
+		return err
 	}
 
 	var follow *sourcewalk.Follow
@@ -709,6 +727,7 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, walks .
 		output := checkOutput{
 			TrackedRepos: repoResults,
 			Skills:       skillResults,
+			Warnings:     resolveWarnings,
 		}
 		if output.TrackedRepos == nil {
 			output.TrackedRepos = []checkRepoResult{}

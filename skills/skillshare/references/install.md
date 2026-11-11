@@ -180,6 +180,11 @@ skillshare check -p          # Check project skills
 skillshare check my-skill --diff  # Show local edits vs the installed version
 ```
 
+With `--json`, a failure is one object on stdout, `{"error": "..."}`, with exit
+code 1: a name or group that matches nothing to check, an invalid flag
+combination, or a missing config. When some names match and others do not, the
+result lists the skipped ones in `warnings`.
+
 - **Tracked repos:** Fetches from origin, shows commits behind
 - **Remote skills:** Compares installed version with remote HEAD
 - **Modified skills:** Remote skills edited since install are `modified`; `update` skips them until `--force`. `check <name> --diff` shows the edits
