@@ -58,6 +58,45 @@ func isDiscoverySkillSource(entry *MetadataEntry, source *Source, skillPath stri
 		repoURLsMatch(entry.RepoURL, source.CloneURL) && entry.Subdir == filepath.ToSlash(skillPath)
 }
 
+// RecordedSource parses the source a skill's entry was installed from.
+// Installs from before #859 recorded a skill picked out of a repository as
+// "<repo>/<path>", which GitLab, Bitbucket and file:// sources parse as a
+// repository of its own. The entry's recorded repository and path then say
+// what was installed, and the source is rebuilt in the form that parses back.
+func RecordedSource(entry *MetadataEntry, opts ParseOptions) (*Source, error) {
+	source, _, err := recordedSource(entry, opts)
+	return source, err
+}
+
+// RecordedSourceString is the source string that installs what entry
+// records: entry.Source, or the rebuilt one when RecordedSource repairs it.
+func RecordedSourceString(entry *MetadataEntry, opts ParseOptions) string {
+	if source, repaired, err := recordedSource(entry, opts); err == nil && repaired {
+		return source.Raw
+	}
+	return entry.Source
+}
+
+func recordedSource(entry *MetadataEntry, opts ParseOptions) (source *Source, repaired bool, err error) {
+	source, err = ParseSourceWithOptions(entry.Source, opts)
+	if err != nil || entry.Subdir == "" || source.Subdir != "" || repoURLsMatch(source.CloneURL, entry.RepoURL) {
+		return source, false, err
+	}
+	repoRaw, ok := strings.CutSuffix(entry.Source, "/"+entry.Subdir)
+	if !ok {
+		return source, false, nil
+	}
+	repo, err := ParseSourceWithOptions(repoRaw, opts)
+	if err != nil || repo.HasSubdir() || !repoURLsMatch(repo.CloneURL, entry.RepoURL) {
+		return source, false, nil
+	}
+	rebuilt, err := ParseSourceWithOptions(buildDiscoverySkillSource(repo, entry.Subdir), opts)
+	if err != nil || rebuilt.Subdir != entry.Subdir {
+		return source, false, nil
+	}
+	return rebuilt, true, nil
+}
+
 func discoverySourceRoot(discovery *DiscoveryResult) string {
 	if discovery.Source != nil && discovery.Source.Type == SourceTypeLocalPath {
 		return discovery.RepoPath

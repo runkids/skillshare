@@ -63,7 +63,7 @@ func LocalChanges(entry *MetadataEntry, parseOpts ParseOptions, dir string, foll
 		if commit == "" {
 			return nil, errors.New("no recorded commit to compare with")
 		}
-		source, err := ParseSourceWithOptions(entry.Source, parseOpts)
+		source, err := RecordedSource(entry, parseOpts)
 		if err != nil {
 			return nil, fmt.Errorf("invalid source: %w", err)
 		}

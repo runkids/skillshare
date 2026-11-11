@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/sourcewalk"
 	ssync "skillshare/internal/sync"
@@ -44,6 +45,17 @@ func cmdUpdateProject(args []string, root string) (*updateResult, error) {
 	// An update is what moves the lockfile forward.
 	if !opts.dryRun {
 		defer trackProjectLock(runtime)()
+		// Runs before the lockfile is written, which pins by the config's source.
+		before := install.LoadMetadataOrNew(runtime.sourcePath)
+		defer func() {
+			// The update may have saved the config through another copy (--prune).
+			if fresh, err := config.LoadProject(root); err == nil {
+				*runtime.config = *fresh
+			}
+			if err := config.FollowRepairedSources(root, runtime.config, before, install.LoadMetadataOrNew(runtime.sourcePath), parseOptsFromProjectConfig(runtime.config)); err != nil {
+				ui.Warning("Could not update the project config: %v", err)
+			}
+		}()
 	}
 
 	if opts.all {

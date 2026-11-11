@@ -592,6 +592,44 @@ func TestReconcileProjectInstall_ConfigFollowsReinstalledSource(t *testing.T) {
 	}
 }
 
+// Regression for #862: when an update rewrites a record whose source did not
+// parse back, the config entry that declared that source follows it. A
+// declaration a teammate changed, and a record that only changed its spelling,
+// stay as they are.
+func TestFollowRepairedSources(t *testing.T) {
+	const old, repaired = "file:///srv/skills/x", "file:///srv/skills//x"
+	for _, tt := range []struct {
+		name     string
+		declared string
+		was      install.MetadataEntry
+		now      string
+		want     string
+	}{
+		{"declares the old record", old, install.MetadataEntry{Source: old, RepoURL: "file:///srv/skills", Subdir: "x"}, repaired, repaired},
+		{"changed by a teammate", "other/repo/x", install.MetadataEntry{Source: old, RepoURL: "file:///srv/skills", Subdir: "x"}, repaired, "other/repo/x"},
+		{"record respelled by a batch update", "org/skills/x", install.MetadataEntry{Source: "org/skills/x", RepoURL: "https://github.com/org/skills.git", Subdir: "x"}, "https://github.com/org/skills.git/x", "org/skills/x"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			cfg := &ProjectConfig{
+				Targets: []ProjectTargetEntry{{Name: "claude"}},
+				Skills:  []SkillEntry{{Name: "x", Source: tt.declared}},
+			}
+			before := install.NewMetadataStore()
+			before.Set("x", &tt.was)
+			store := install.NewMetadataStore()
+			store.Set("x", &install.MetadataEntry{Source: tt.now, RepoURL: tt.was.RepoURL, Subdir: "x"})
+
+			if err := FollowRepairedSources(root, cfg, before, store, install.ParseOptions{}); err != nil {
+				t.Fatalf("FollowRepairedSources: %v", err)
+			}
+			if got := cfg.Skills[0].Source; got != tt.want {
+				t.Errorf("config source = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 // A teammate's change to config.yaml must survive an install of another skill
 // on a machine whose copy still comes from the old source.
 func TestReconcileProjectInstall_KeepsDeclarationOfUntouchedSkill(t *testing.T) {

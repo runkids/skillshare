@@ -186,6 +186,32 @@ func TestDraftCandidatesLocalPathsAndMetadata(t *testing.T) {
 	}
 }
 
+// Regression for #862: a record written before #859 is published with the
+// source that installs it, by the draft and by the index.
+func TestPublishedSourceOfRecordBefore859(t *testing.T) {
+	root := t.TempDir()
+	os.MkdirAll(filepath.Join(root, "x"), 0755)
+	os.WriteFile(filepath.Join(root, "x", "SKILL.md"), []byte("---\nname: x\ndescription: d\n---\n# x"), 0644)
+	os.WriteFile(filepath.Join(root, ".metadata.json"), []byte(`{"version":1,"entries":{"x":{"source":"https://gitlab.com/team/skills/x","repo_url":"https://gitlab.com/team/skills.git","subdir":"x"}}}`), 0644)
+	const want = "https://gitlab.com/team/skills.git/x"
+
+	entries, err := DraftCandidates(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || field(entries[0].Data, "source") != want || field(entries[0].Data, "skill") != "" {
+		t.Errorf("draft source=%q skill=%q, want source %q and no skill", field(entries[0].Data, "source"), field(entries[0].Data, "skill"), want)
+	}
+
+	idx, err := BuildIndex(root, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(idx.Skills) != 1 || idx.Skills[0].Source != want {
+		t.Errorf("index skills = %+v, want source %q", idx.Skills, want)
+	}
+}
+
 func TestDraftCandidatesTrackedRepository(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, "_team", "skills", "review")

@@ -214,7 +214,7 @@ func updateRegularSkill(uc *updateContext, skillName string) (updateResult, erro
 
 	startUpdate := time.Now()
 	// Parse source and reinstall
-	source, err := install.ParseSourceWithOptions(meta.Source, uc.parseOpts)
+	source, err := install.RecordedSource(meta, uc.parseOpts)
 	if err != nil {
 		return updateResult{skipped: 1}, fmt.Errorf("invalid source in metadata: %w", err)
 	}
@@ -317,7 +317,7 @@ func updateSkillFromMeta(uc *updateContext, skillPath string, cachedMeta *instal
 		}
 	}
 
-	source, err := install.ParseSourceWithOptions(meta.Source, uc.parseOpts)
+	source, err := install.RecordedSource(meta, uc.parseOpts)
 	if err != nil {
 		return false, nil, nil
 	}
