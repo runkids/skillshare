@@ -9,6 +9,16 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.30.5] - 2026-11-11
+
+
+* release as 0.30.5 ([0d97002](https://github.com/runkids/skillshare/commit/0d970022f7fb3991b223f0fdc8967feb2beb6537))
+
+
+### New Features
+
+* **updates:** allow opting out of automatic version checks ([#847](https://github.com/runkids/skillshare/issues/847)) ([adf6c9e](https://github.com/runkids/skillshare/commit/adf6c9ecb3983d392a1bbb0b54afb4e24921f39b))
+
 ## [0.30.4] - 2026-11-10
 
 ### New Features

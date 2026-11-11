@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.30.5](https://github.com/runkids/skillshare/compare/v0.30.4...v0.30.5) (2026-11-11)
+## [0.30.5] - 2026-11-11
 
 
 * release as 0.30.5 ([0d97002](https://github.com/runkids/skillshare/commit/0d970022f7fb3991b223f0fdc8967feb2beb6537))
