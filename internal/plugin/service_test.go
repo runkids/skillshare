@@ -1126,12 +1126,31 @@ func TestPluginUpdateAllValidationAndPartialFailureIsolation(t *testing.T) {
 		}
 	}
 
-	// Bump both sources and update all in one pass.
+	// OMP inventory is present, but this fake has no native registry proving ownership.
+	// The batch must report that failure while updating both healthy Claude bindings.
+	oldOMP := readState(t, s).packages["demo"].Bindings["omp"]
 	bumpDemo(t, sourceA, agents)
 	writeFile(t, sourceB, ".claude-plugin/plugin.json", `{"name":"other","version":"2.0.0","skills":"./skills"}`)
 	writeFile(t, sourceB, "skills/other/SKILL.md", "---\nname: other\n---\nother v2")
 	same := unchanged(t, s.ConfigPath)
-	applyPluginRequest(t, s, Request{Action: "update", All: true})
+	req := Request{Action: "update", All: true}
+	plan, err := s.Preview(context.Background(), req)
+	if err != nil || plan.Blocked || !slices.ContainsFunc(plan.Changes, func(c Change) bool {
+		return c.Name == "demo" && c.Target == "omp" && c.Failed && strings.Contains(c.Message, "inventory and native registration disagree")
+	}) {
+		t.Fatalf("batch preview did not isolate the unverifiable OMP target: %+v %v", plan, err)
+	}
+	result, err := s.Apply(context.Background(), req, plan.Revision)
+	if err == nil || !strings.Contains(err.Error(), "inventory and native registration disagree") || result == nil || len(result.Results) != 3 {
+		t.Fatalf("batch did not report the OMP failure: %+v %v", result, err)
+	}
+	for _, want := range []struct{ name, target, status string }{{"demo", "claude", "installed"}, {"demo", "omp", "failed"}, {"other", "claude", "installed"}} {
+		if !slices.ContainsFunc(result.Results, func(o Outcome) bool {
+			return o.Name == want.name && o.Target == want.target && o.Status == want.status && (want.status != "failed" || strings.Contains(o.Message, "inventory and native registration disagree"))
+		}) {
+			t.Fatalf("batch outcome missing %+v: %+v", want, result.Results)
+		}
+	}
 	same()
 	cfg, err := s.load()
 	if err != nil {
@@ -1139,6 +1158,10 @@ func TestPluginUpdateAllValidationAndPartialFailureIsolation(t *testing.T) {
 	}
 	if cfg.packages["demo"].Bindings["claude"].Version != "2.0.0" || cfg.packages["other"].Bindings["claude"].Version != "2.0.0" {
 		t.Fatalf("update --all did not update all packages: %+v", cfg.packages)
+	}
+
+	if got := cfg.packages["demo"].Bindings["omp"]; got.ID != oldOMP.ID || got.Version != oldOMP.Version || got.Digest != oldOMP.Digest {
+		t.Fatalf("failed OMP binding changed: before=%+v after=%+v", oldOMP, got)
 	}
 
 	// Remove sourceA on disk so its discovery fails, while bumping sourceB to 3.0.0.
@@ -1149,7 +1172,6 @@ func TestPluginUpdateAllValidationAndPartialFailureIsolation(t *testing.T) {
 	writeFile(t, sourceB, "skills/other/SKILL.md", "---\nname: other\n---\nother v3")
 
 	agents.version = "3.0.0"
-	var result *Result
 	var applyErr error
 	_ = s.WithDiscoveryCache(func() error {
 		req := Request{Action: "update", All: true}

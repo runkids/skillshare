@@ -253,8 +253,10 @@ func TestOMPNeverRunsCacheDestructiveNativeCommands(t *testing.T) {
 		t.Fatal(err)
 	}
 	applyPluginRequest(t, s, Request{Action: "add", Source: source, Targets: []string{"omp"}})
-	if len(agents.commands) != 1 || !strings.HasPrefix(agents.commands[0], "omp plugin install ") {
-		t.Fatalf("fresh install: %q", agents.commands)
+	_, market, _ := strings.Cut(id, "@")
+	want := []string{"omp plugin marketplace update " + market, "omp plugin install " + id + " --scope user"}
+	if !slices.Equal(agents.commands, want) {
+		t.Fatalf("fresh install commands %q, want %q", agents.commands, want)
 	}
 }
 
