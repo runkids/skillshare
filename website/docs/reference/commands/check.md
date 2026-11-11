@@ -39,7 +39,7 @@ result=$(skillshare check --json)
 
 ## Exit Status
 
-`check` exits with code `1` if any checked item has status `error` (for example, an unreachable remote or a missing local source). Available updates, stale items, and local modifications alone do not cause failure. With `--json`, stdout still contains the complete results; inspect each item's `status` and `message` for details.
+`check` exits with code `1` if any checked item has status `error` (for example, an unreachable remote or a missing local source). Available updates, stale items, and local modifications alone do not cause failure. With `--json`, stdout still contains the complete results; inspect each item's `status` and `message` for details. When the names or groups you pass match nothing to check, `check` exits with code `1`; with `--json` it prints `{"error": "..."}` in place of the results. With `--json`, a name that is skipped while others are checked is listed in a `warnings` array in the result. Any other failure with `--json`, such as an invalid flag combination or a missing config, is reported as the same `error` object.
 
 Pass `--exit-code` to also exit with code `1` when every item could be checked but something is not up to date: an available update, a stale or locally modified skill, or a tracked repository that is behind, has uncommitted changes, or is missing. Only items whose status is `local` (nothing to compare) are left out; a skill installed from a local path whose source has changed is an available update and does count. The same applies to `check agents` and `check --all`, where an agent whose file changed since install also counts. It works with `--json` and cannot be combined with `--diff`.
 
