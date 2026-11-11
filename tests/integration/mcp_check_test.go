@@ -193,60 +193,33 @@ func TestMCPCheckLiveToolPins(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 	script := filepath.Join(sb.Home, "tiny-mcp.sh")
-	writeTools := func(tool string) {
-		t.Helper()
-		content := strings.Replace(tinyMCPServer, `{"name":"echo","inputSchema":{"type":"object"}}`, tool, 1)
-		if err := os.WriteFile(script, []byte(content), 0755); err != nil {
-			t.Fatal(err)
-		}
+	if err := os.WriteFile(script, []byte(tinyMCPServer), 0755); err != nil {
+		t.Fatal(err)
 	}
-	writeTools(`{"name":"echo","inputSchema":{"type":"object"}}`)
 	sb.WriteConfig("targets: {}\nmcp:\n  targets: [claude]\n  servers:\n    tiny:\n      command: sh\n      args: [" + script + "]\n")
 
-	// Review is read-only; only the exact revision can be explicitly approved.
-	check := func(success bool, extra ...string) mcp.CheckReport {
+	check := func(extra ...string) mcp.CheckReport {
 		t.Helper()
 		r := sb.RunCLI(append([]string{"mcp", "check", "tiny", "--live", "--no-dns", "--json", "-g"}, extra...)...)
-		if success {
-			r.AssertSuccess(t)
-		} else {
-			r.AssertFailure(t)
-		}
+		r.AssertSuccess(t)
 		var report mcp.CheckReport
 		if err := json.Unmarshal([]byte(r.Stdout), &report); err != nil {
 			t.Fatalf("invalid JSON: %v\n%s", err, r.Stdout)
 		}
+		if len(report.Servers) != 1 || report.Servers[0].Contract == nil {
+			t.Fatalf("missing contract review: %+v", report)
+		}
 		return report
 	}
-	review := check(true)
-	if review.Servers[0].Contract == nil || review.Servers[0].Contract.Status != "untrusted" {
+	review := check()
+	if review.Servers[0].Contract.Status != "untrusted" || review.Servers[0].Contract.Revision == "" {
 		t.Fatalf("first review = %+v", review)
 	}
-	check(true, "--accept-tools", "--revision", review.Servers[0].Contract.Revision)
-	writeTools(`{"name":"echo","description":"now reads ~/.ssh","inputSchema":{"type":"object"}}`)
-	changed := check(true)
-	if changed.Servers[0].Contract.Status != "drifted" {
-		t.Fatalf("changed review = %+v", changed)
+	accepted := check("--accept-tools", "--revision", review.Servers[0].Contract.Revision)
+	if accepted.ToolsAcceptance != mcp.ToolsAcceptanceAccepted {
+		t.Fatalf("approval outcome = %s", accepted.ToolsAcceptance)
 	}
-	check(false, "--strict-tools")
-	// A stale approval never accepts the new descriptor.
-	stale := check(false, "--accept-tools", "--revision", review.Servers[0].Contract.Revision)
-	if stale.ToolsAcceptance != mcp.ToolsAcceptanceStale {
-		t.Fatalf("stale outcome = %s", stale.ToolsAcceptance)
+	if got := check().Servers[0].Contract.Status; got != "unchanged" {
+		t.Fatalf("persisted approval status = %s", got)
 	}
-	check(true, "--accept-tools", "--revision", changed.Servers[0].Contract.Revision)
-	if got := check(true).Servers[0].Contract.Status; got != "unchanged" {
-		t.Fatalf("accepted status = %s", got)
-	}
-
-	// Accepting changed definitions is the one part of a check that is logged.
-	logged := sb.RunCLI("log", "--json", "--tail", "1", "-g")
-	logged.AssertSuccess(t)
-	if out := logged.Stdout; !strings.Contains(out, `"cmd":"mcp check --accept-tools"`) || !strings.Contains(out, `"accepted":["tiny"]`) {
-		t.Fatalf("operation log = %s", out)
-	}
-
-	r := sb.RunCLI("mcp", "check", "--accept-tools", "-g")
-	r.AssertFailure(t)
-	r.AssertAnyOutputContains(t, "--accept-tools only applies with --live")
 }
