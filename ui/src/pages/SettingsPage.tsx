@@ -81,6 +81,7 @@ export default function SettingsPage() {
   const updatePolicy = useUpdatePolicy();
   const manualCheck = useQuery({ queryKey: queryKeys.manualVersionCheck, queryFn: () => api.getVersionCheck(true), enabled: false, retry: false });
   const policy = updatePolicy.data;
+  const manualResult = manualCheck.error ? undefined : manualCheck.data;
 
 
   return (
@@ -147,12 +148,12 @@ export default function SettingsPage() {
             </div>
           </div>
           {manualCheck.error && <p className="ss-note bad">{t('dashboard.version.couldNotCheck')}</p>}
-          {manualCheck.data && <p className="ss-note inf" role="status">
-            {manualCheck.data.cliUpdateAvailable || manualCheck.data.skillUpdateAvailable
-              ? t('settings.updates.available', { cli: manualCheck.data.cliLatest ?? manualCheck.data.cliVersion, skill: manualCheck.data.skillLatest ?? manualCheck.data.skillVersion })
+          {manualResult && <p className="ss-note inf" role="status">
+            {manualResult.cliUpdateAvailable || manualResult.skillUpdateAvailable
+              ? t('settings.updates.available', { cli: manualResult.cliLatest ?? manualResult.cliVersion, skill: manualResult.skillLatest ?? manualResult.skillVersion })
               : t('settings.updates.current')}
           </p>}
-          {(manualCheck.data?.cliUpdateAvailable || manualCheck.data?.skillUpdateAvailable) && <Button variant="primary" onClick={() => setManualUpgrade(manualCheck.data!)}>{t('updateDialog.updateNow')}</Button>}
+          {manualResult && (manualResult.cliUpdateAvailable || manualResult.skillUpdateAvailable) && <Button variant="primary" onClick={() => setManualUpgrade(manualResult)}>{t('updateDialog.updateNow')}</Button>}
           {manualUpgrade && <UpdateDialog manualData={manualUpgrade} onDismiss={() => setManualUpgrade(null)} />}
         </section>
 

@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -52,6 +53,79 @@ func TestVersionCheckRechecksPolicyBeforePublishing(t *testing.T) {
 	}
 	if calls != 1 || body["autoCheckEnabled"] != false || body["cliUpdateAvailable"] != false || body["cliLatest"] != nil {
 		t.Fatalf("inflight opt-out leaked: calls=%d body=%s", calls, rec.Body.String())
+	}
+}
+
+func TestManualVersionCheckSkillResult(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		mode := "global"
+		if project {
+			mode = "project"
+		}
+		for _, tt := range []struct {
+			name         string
+			status       int
+			body         string
+			networkError bool
+			wantStatus   int
+		}{
+			{name: "network failure", networkError: true, wantStatus: http.StatusBadGateway},
+			{name: "HTTP failure", status: http.StatusServiceUnavailable, wantStatus: http.StatusBadGateway},
+			{name: "missing version", status: http.StatusOK, body: "---\nname: skillshare\n---\n", wantStatus: http.StatusBadGateway},
+			{name: "current", status: http.StatusOK, body: "---\nmetadata:\n  version: 1.0.0\n---\n", wantStatus: http.StatusOK},
+		} {
+			t.Run(mode+"/"+tt.name, func(t *testing.T) {
+				t.Setenv(config.AutoUpdateCheckEnv, "false")
+				source := t.TempDir()
+				if err := os.MkdirAll(filepath.Join(source, "skillshare"), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(source, "skillshare", "SKILL.md"), []byte("---\nmetadata:\n  version: 1.0.0\n---\n"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				path := filepath.Join(t.TempDir(), "config.yaml")
+				if err := os.WriteFile(path, []byte("source: "+source+"\n"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				t.Setenv("SKILLSHARE_CONFIG", path)
+				oldVersion, oldTransport := versioncheck.Version, http.DefaultTransport
+				versioncheck.Version = "1.0.0"
+				t.Cleanup(func() { versioncheck.Version = oldVersion; http.DefaultTransport = oldTransport })
+				calls := 0
+				http.DefaultTransport = updateRoundTrip(func(r *http.Request) (*http.Response, error) {
+					calls++
+					status, body := http.StatusOK, `{"tag_name":"v1.0.0"}`
+					if r.URL.String() == versioncheck.SkillSourceURL {
+						if tt.networkError {
+							return nil, errors.New("skill request failed")
+						}
+						status, body = tt.status, tt.body
+					}
+					return &http.Response{StatusCode: status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body)), Request: r}, nil
+				})
+				s := &Server{cfg: &config.Config{Source: source}}
+				if project {
+					s.projectRoot = t.TempDir()
+					s.cfg.Source = t.TempDir()
+				}
+				rec := httptest.NewRecorder()
+				s.handleVersionCheck(rec, httptest.NewRequest(http.MethodGet, "/api/version?manual=true", nil))
+				if rec.Code != tt.wantStatus || calls != 2 {
+					t.Fatalf("status=%d calls=%d body=%s", rec.Code, calls, rec.Body.String())
+				}
+				var body map[string]any
+				if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+					t.Fatal(err)
+				}
+				if tt.wantStatus != http.StatusOK {
+					if body["error"] != "failed to check built-in skill version" {
+						t.Fatalf("missing check failure: %s", rec.Body.String())
+					}
+				} else if body["skillLatest"] != "1.0.0" || body["skillUpdateAvailable"] != false || body["cliUpdateAvailable"] != false {
+					t.Fatalf("current versions not verified: %s", rec.Body.String())
+				}
+			})
+		}
 	}
 }
 

@@ -86,6 +86,10 @@ func (s *Server) handleVersionCheck(w http.ResponseWriter, r *http.Request) {
 		var remote string
 		if manual {
 			remote = versioncheck.FetchRemoteSkillVersion()
+			if remote == "" {
+				writeError(w, http.StatusBadGateway, "failed to check built-in skill version")
+				return
+			}
 		} else {
 			remote = versioncheck.CachedRemoteSkillVersion()
 		}
