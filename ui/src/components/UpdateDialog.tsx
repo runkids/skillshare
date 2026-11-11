@@ -41,7 +41,7 @@ export default function UpdateDialog({ manualData, onDismiss }: { manualData?: V
 
   const data = manualData ?? (isMockMode ? mockData : realData);
   // Dev builds always report a simulated update; stay quiet unless ?update-test asks for the flow.
-  const hasUpdate = (!!manualData || isMockMode || policy.data?.enabled === true) && (!!manualData || data?.autoCheckEnabled !== false) && !data?.cliDevMode && (data?.cliUpdateAvailable || data?.skillUpdateAvailable);
+  const hasUpdate = (!!manualData || isMockMode || policy.data?.enabled === true) && (!!manualData || data?.autoCheckEnabled !== false) && (!!manualData || !data?.cliDevMode) && (data?.cliUpdateAvailable || data?.skillUpdateAvailable);
 
   useEffect(() => {
     if (!hasUpdate) return;

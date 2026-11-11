@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"skillshare/internal/config"
 	versioncheck "skillshare/internal/version"
@@ -55,10 +56,14 @@ func TestDoctorOptOutSuppressesBufferedUpdates(t *testing.T) {
 	if out != "" {
 		t.Fatalf("buffered text notice leaked: %s", out)
 	}
-	result := &doctorResult{checks: []doctorCheck{
+	result := &doctorResult{warnings: 2, start: time.Now(), next: []string{"skillshare upgrade --skill", "update the built-in skill", "skillshare sync", "sync targets"}, updateCommands: []string{"skillshare upgrade --skill"}, checks: []doctorCheck{
 		{Name: "skill_version", Status: checkWarning, Message: "update", UpdateAvailable: true},
 		{Name: "config", Status: checkWarning, Message: "unrelated warning"},
 	}}
+	out = captureStdout(t, func() { printDoctorSummary(result) })
+	if strings.Contains(out, "upgrade") || !strings.Contains(out, "1 warning") || !strings.Contains(out, "skillshare sync") {
+		t.Fatalf("buffered summary leaked update or hid diagnostics: %s", out)
+	}
 	ch := make(chan *versioncheck.CheckResult, 1)
 	ch <- update
 	out = captureStdout(t, func() {

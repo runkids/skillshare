@@ -34,7 +34,7 @@ describe('UpdateDialog', () => {
     vi.mocked(api.getUpdatePolicy).mockResolvedValueOnce({ enabled: false, configured: false, envOverride: false });
     render(
       <QueryClientProvider client={queryClient}><I18nProvider>
-        <UpdateDialog manualData={{ autoCheckEnabled: false, cliVersion: '1.0.0', cliLatest: '9.9.9', cliUpdateAvailable: true, skillVersion: '', skillUpdateAvailable: false }} />
+        <UpdateDialog manualData={{ autoCheckEnabled: false, cliDevMode: true, cliVersion: '1.0.0', cliLatest: '9.9.9', cliUpdateAvailable: true, skillVersion: '', skillUpdateAvailable: false }} />
       </I18nProvider></QueryClientProvider>,
     );
     await userEvent.click(await screen.findByRole('button', { name: /Update now/ }));
