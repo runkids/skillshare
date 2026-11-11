@@ -9,6 +9,28 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.30.6] - 2026-11-11
+
+
+### New Features
+
+* **check:** add --exit-code to fail when anything is not up to date ([#865](https://github.com/runkids/skillshare/issues/865)) ([8abf3f5](https://github.com/runkids/skillshare/commit/8abf3f50ed1097237de938058e6cd45734ab8cc9))
+* **herdr:** offer skillshare as a standalone mod ([#857](https://github.com/runkids/skillshare/issues/857)) ([e317483](https://github.com/runkids/skillshare/commit/e317483459bcbe4d565b44cf656533937f87574c))
+* **ui:** keep update check results inside the Settings version row ([#849](https://github.com/runkids/skillshare/issues/849)) ([b97206e](https://github.com/runkids/skillshare/commit/b97206e9465c78d4afe674f782a3326cab8b3ace))
+
+
+### Bug Fixes
+
+* **check:** keep --json output valid when a name or group does not resolve ([#868](https://github.com/runkids/skillshare/issues/868)) ([55161e4](https://github.com/runkids/skillshare/commit/55161e44babe76290c6cbd34a1a4fd2af6da51dd))
+* **check:** make --all check agents as well as skills ([#867](https://github.com/runkids/skillshare/issues/867)) ([53bac42](https://github.com/runkids/skillshare/commit/53bac422436115de9b34b30fd09d9563653edbcb))
+* **git:** keep a caller's GIT_DIR out of skillshare's git commands ([#854](https://github.com/runkids/skillshare/issues/854)) ([828ba93](https://github.com/runkids/skillshare/commit/828ba93f274551f5dc43e4aee45fe521efc88cc9))
+* **herdr:** load panel resources progressively ([#855](https://github.com/runkids/skillshare/issues/855)) ([dab075c](https://github.com/runkids/skillshare/commit/dab075c1431b4dd0b218f23f9a5518613efa8694))
+* **install:** record a per-skill source every host can install again ([#863](https://github.com/runkids/skillshare/issues/863)) ([3872cb5](https://github.com/runkids/skillshare/commit/3872cb5525e2da36609e8730b2516a25275ca4e0))
+* **project:** keep config.yaml true after reinstall, uninstall and fresh-clone installs ([#860](https://github.com/runkids/skillshare/issues/860)) ([769087b](https://github.com/runkids/skillshare/commit/769087b882b82b2399b92db7796083c23890a013))
+* **security:** enforce credential and filesystem trust boundaries ([#861](https://github.com/runkids/skillshare/issues/861)) ([c040917](https://github.com/runkids/skillshare/commit/c040917bc73b3b500defe32a0a2934d99eea208f))
+* **test:** harden red-team assertions and mutation checks ([#856](https://github.com/runkids/skillshare/issues/856)) ([eb3ca52](https://github.com/runkids/skillshare/commit/eb3ca528fcac200524e51e83ae67c10822b3791a))
+* **update:** repair skill sources recorded before the per-skill source fix ([#866](https://github.com/runkids/skillshare/issues/866)) ([9f43310](https://github.com/runkids/skillshare/commit/9f43310a3d68f6434a7a08f4ecc99fcab60c9ef9)), closes [#862](https://github.com/runkids/skillshare/issues/862)
+
 ## [0.30.5] - 2026-11-11
 
 ### New Features
