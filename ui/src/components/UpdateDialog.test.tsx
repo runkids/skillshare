@@ -32,7 +32,7 @@ describe('UpdateDialog', () => {
   it('allows an explicitly requested upgrade while automatic checks are disabled', async () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     vi.mocked(api.getUpdatePolicy).mockResolvedValueOnce({ enabled: false, configured: false, envOverride: false });
-    vi.mocked(api.upgradeApp).mockResolvedValueOnce({ devMode: true, cliUpdated: true, cliVersion: '9.9.9' });
+    vi.mocked(api.upgradeApp).mockResolvedValueOnce({ ok: true, updated: true, devMode: true, latestVersion: '9.9.9' });
     const onDismiss = vi.fn();
     render(
       <QueryClientProvider client={queryClient}><I18nProvider>
