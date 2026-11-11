@@ -219,3 +219,21 @@ func gitRun(t *testing.T, dir string, args ...string) {
 		t.Fatalf("git %v failed: %s\n%s", args, err, out)
 	}
 }
+
+// Git exports GIT_DIR to hooks; `git init --bare` honors it and would turn the
+// caller's repository bare (#852).
+func TestFetchRemoteTreeHashes_IgnoresCallerGitDir(t *testing.T) {
+	remote := setupBareRepoWithSubdir(t, "skills/my-skill", "SKILL.md", "# Test Skill")
+	host := filepath.Join(t.TempDir(), "host")
+	if out, err := exec.Command("git", "init", "-q", host).CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+
+	t.Setenv("GIT_DIR", filepath.Join(host, ".git"))
+	FetchRemoteTreeHashes("file://" + remote)
+
+	out, _ := exec.Command("git", "config", "--file", filepath.Join(host, ".git", "config"), "core.bare").Output()
+	if string(out) != "false\n" {
+		t.Errorf("caller repository core.bare = %q, want false", out)
+	}
+}

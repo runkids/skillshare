@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -12,6 +11,7 @@ import (
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
+	"skillshare/internal/gitenv"
 	"skillshare/internal/install"
 	"skillshare/internal/resource"
 	"skillshare/internal/skillignore"
@@ -830,7 +830,7 @@ func checkSyncDrift(cfg *config.Config, result *doctorResult, discovered []sync.
 
 // checkGitStatus checks if source is a git repo and its status
 func checkGitStatus(source string, result *doctorResult) {
-	cmd := exec.Command("git", "rev-parse", "--is-inside-work-tree")
+	cmd := gitenv.Command("rev-parse", "--is-inside-work-tree")
 	cmd.Dir = source
 	if err := cmd.Run(); err != nil {
 		ui.Row(ui.MarkWarn, "Git", "not initialized (recommended for backup)", doctorWidth)
@@ -840,7 +840,7 @@ func checkGitStatus(source string, result *doctorResult) {
 	}
 
 	// Check for uncommitted changes
-	cmd = exec.Command("git", "status", "--porcelain")
+	cmd = gitenv.Command("status", "--porcelain")
 	cmd.Dir = source
 	output, err := cmd.Output()
 	if err != nil {
@@ -859,7 +859,7 @@ func checkGitStatus(source string, result *doctorResult) {
 	}
 
 	// Check for remote
-	cmd = exec.Command("git", "remote")
+	cmd = gitenv.Command("remote")
 	cmd.Dir = source
 	output, err = cmd.Output()
 	if err == nil && len(strings.TrimSpace(string(output))) == 0 {

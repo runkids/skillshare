@@ -3,12 +3,12 @@ package main
 import (
 	"errors"
 	"fmt"
-	"os/exec"
 	"strings"
 	"time"
 
 	"skillshare/internal/config"
 	gitops "skillshare/internal/git"
+	"skillshare/internal/gitenv"
 	"skillshare/internal/oplog"
 	"skillshare/internal/ui"
 )
@@ -66,7 +66,7 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 	}
 
 	// Check for uncommitted changes
-	cmd := exec.Command("git", "status", "--porcelain")
+	cmd := gitenv.Command("status", "--porcelain")
 	cmd.Dir = source
 	output, err := cmd.Output()
 	if err != nil {

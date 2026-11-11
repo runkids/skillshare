@@ -3,11 +3,11 @@ package install
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"skillshare/internal/audit"
+	"skillshare/internal/gitenv"
 )
 
 func handleUpdate(source *Source, destPath string, result *InstallResult, opts InstallOptions) (*InstallResult, error) {
@@ -305,6 +305,6 @@ func checkoutOnBranch(repoPath, branch string) bool {
 	if branch == "" || IsCommitSHA(branch) {
 		return true
 	}
-	out, err := exec.Command("git", "-C", repoPath, "rev-parse", "--abbrev-ref", "HEAD").Output()
+	out, err := gitenv.Command("-C", repoPath, "rev-parse", "--abbrev-ref", "HEAD").Output()
 	return err == nil && strings.TrimSpace(string(out)) == branch
 }

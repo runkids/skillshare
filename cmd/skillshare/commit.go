@@ -2,18 +2,18 @@ package main
 
 import (
 	"fmt"
-	"os/exec"
 	"strings"
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/gitenv"
 	"skillshare/internal/oplog"
 	"skillshare/internal/ui"
 )
 
 // checkGitWorktree verifies source is a git worktree without requiring a remote.
 func checkGitWorktree(sourcePath string, spinner *ui.Spinner) error {
-	cmd := exec.Command("git", "rev-parse", "--is-inside-work-tree")
+	cmd := gitenv.Command("rev-parse", "--is-inside-work-tree")
 	cmd.Dir = sourcePath
 	if err := cmd.Run(); err != nil {
 		spinner.Fail("Source is not a git repository")

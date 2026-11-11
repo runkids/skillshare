@@ -3,10 +3,10 @@ package install
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"skillshare/internal/gitenv"
 	"skillshare/internal/sourcewalk"
 )
 
@@ -120,7 +120,7 @@ func StageGitUpdate(repoPath string, discard bool) (_ *GitUpdateCandidate, err e
 	}
 	files := make(map[string]bool)
 	for _, args := range commands {
-		cmd := exec.Command("git", args...)
+		cmd := gitenv.Command(args...)
 		cmd.Dir = repoPath
 		out, e := cmd.Output()
 		if e != nil {
@@ -217,7 +217,7 @@ func applyGitCandidatePatches(repoPath string, patches []string) error {
 		if i == 0 {
 			args = append(args, "--index")
 		}
-		cmd := exec.Command("git", args...)
+		cmd := gitenv.Command(args...)
 		cmd.Dir, cmd.Stdin = repoPath, strings.NewReader(patch)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("cannot apply local edits: %w: %s", err, out)
@@ -232,7 +232,7 @@ func gitCandidateState(repoPath string) (state [3]string, err error) {
 		{"diff", "--binary", "--cached", "HEAD"},
 		{"diff", "--binary"},
 	} {
-		cmd := exec.Command("git", args...)
+		cmd := gitenv.Command(args...)
 		cmd.Dir = repoPath
 		out, e := cmd.Output()
 		if e != nil {

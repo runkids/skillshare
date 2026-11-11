@@ -1110,3 +1110,21 @@ func TestFirstPull_EmptyRemoteReportsNoBranches(t *testing.T) {
 		t.Fatalf("FirstPull() error = %v, want ErrNoRemoteBranches", err)
 	}
 }
+
+// Git exports GIT_DIR to hooks; commands on a skillshare repo must still act
+// on that repo (#852).
+func TestGetCurrentFullHash_IgnoresCallerGitDir(t *testing.T) {
+	repo := initTestRepo(t)
+	caller := initTestRepo(t)
+	runGit(t, caller, "commit", "--allow-empty", "-m", "caller")
+	want := runGit(t, repo, "rev-parse", "HEAD")
+
+	t.Setenv("GIT_DIR", filepath.Join(caller, ".git"))
+	got, err := GetCurrentFullHash(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Errorf("GetCurrentFullHash() = %s, want %s from the repo, not GIT_DIR", got, want)
+	}
+}

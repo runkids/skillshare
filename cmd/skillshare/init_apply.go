@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"skillshare/internal/config"
 	gitops "skillshare/internal/git"
+	"skillshare/internal/gitenv"
 	"skillshare/internal/install"
 	"skillshare/internal/sourcefs"
 	ssync "skillshare/internal/sync"
@@ -170,7 +170,7 @@ func applyRemote(p *initPlan, res *initResult, hadRepo bool) {
 }
 
 func gitOutput(dir string, args ...string) (string, error) {
-	cmd := exec.Command("git", args...)
+	cmd := gitenv.Command(args...)
 	cmd.Dir = dir
 	out, err := cmd.Output()
 	return strings.TrimSpace(string(out)), err

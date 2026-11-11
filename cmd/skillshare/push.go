@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -11,6 +10,7 @@ import (
 
 	"skillshare/internal/config"
 	gitops "skillshare/internal/git"
+	"skillshare/internal/gitenv"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
 	"skillshare/internal/ui"
@@ -53,7 +53,7 @@ func parsePushArgs(args []string) *pushOptions {
 
 // checkGitRepo verifies source is a git repo with remote
 func checkGitRepo(sourcePath string, spinner *ui.Spinner) error {
-	cmd := exec.Command("git", "rev-parse", "--is-inside-work-tree")
+	cmd := gitenv.Command("rev-parse", "--is-inside-work-tree")
 	cmd.Dir = sourcePath
 	if err := cmd.Run(); err != nil {
 		spinner.Fail("Source is not a git repository")
@@ -61,7 +61,7 @@ func checkGitRepo(sourcePath string, spinner *ui.Spinner) error {
 		return fmt.Errorf("not a git repository")
 	}
 
-	cmd = exec.Command("git", "remote")
+	cmd = gitenv.Command("remote")
 	cmd.Dir = sourcePath
 	output, err := cmd.Output()
 	if err != nil || strings.TrimSpace(string(output)) == "" {
@@ -76,7 +76,7 @@ func checkGitRepo(sourcePath string, spinner *ui.Spinner) error {
 
 // getGitChanges returns uncommitted changes
 func getGitChanges(sourcePath string) (string, error) {
-	cmd := exec.Command("git", "status", "--porcelain")
+	cmd := gitenv.Command("status", "--porcelain")
 	cmd.Dir = sourcePath
 	output, err := cmd.Output()
 	if err != nil {
@@ -89,7 +89,7 @@ func getGitChanges(sourcePath string) (string, error) {
 func stageAndCommit(sourcePath, skills, operation, message string, spinner *ui.Spinner) error {
 	printSourceLinkWarnings(sourcePath, skills, operation, spinner)
 	spinner.Update("Staging changes...")
-	cmd := exec.Command("git", "add", "-A")
+	cmd := gitenv.Command("add", "-A")
 	cmd.Dir = sourcePath
 	if err := cmd.Run(); err != nil {
 		spinner.Fail("Failed to stage changes")
@@ -97,7 +97,7 @@ func stageAndCommit(sourcePath, skills, operation, message string, spinner *ui.S
 	}
 
 	spinner.Update("Committing...")
-	cmd = exec.Command("git", "commit", "-m", message)
+	cmd = gitenv.Command("commit", "-m", message)
 	cmd.Dir = sourcePath
 	if err := cmd.Run(); err != nil {
 		spinner.Fail("Failed to commit")
@@ -115,18 +115,18 @@ func commitConfigSafety(source string) error {
 	if !gitignoreOnlyGainedConfigRule(source) {
 		return fmt.Errorf(".gitignore changed while pulling; commit it, then run: skillshare push")
 	}
-	add := exec.Command("git", "add", "--", ".gitignore")
+	add := gitenv.Command("add", "--", ".gitignore")
 	add.Dir = source
 	if err := add.Run(); err != nil {
 		return fmt.Errorf("failed to stage .gitignore: %w", err)
 	}
-	staged := exec.Command("git", "diff", "--cached", "--quiet")
+	staged := gitenv.Command("diff", "--cached", "--quiet")
 	staged.Dir = source
 	if staged.Run() == nil {
 		return nil // nothing to commit
 	}
 	// Commit the index as staged: a pathspec would re-add config.yaml from disk.
-	commit := exec.Command("git", "commit", "-m", "Keep config.yaml out of version control")
+	commit := gitenv.Command("commit", "-m", "Keep config.yaml out of version control")
 	commit.Dir = source
 	if out, err := commit.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to commit config.yaml safety changes: %w: %s", err, strings.TrimSpace(string(out)))
@@ -138,7 +138,7 @@ func commitConfigSafety(source string) error {
 // staged version only by appended config.yaml lines, the change
 // EnsureConfigUntracked makes.
 func gitignoreOnlyGainedConfigRule(source string) bool {
-	show := exec.Command("git", "show", ":.gitignore")
+	show := gitenv.Command("show", ":.gitignore")
 	show.Dir = source
 	base, _ := show.Output() // missing from the index: EnsureConfigUntracked created it
 	cur, err := os.ReadFile(filepath.Join(source, ".gitignore"))
@@ -194,9 +194,9 @@ func gitPush(sourcePath string, spinner *ui.Spinner) error {
 	spinner.Update("Pushing to remote...")
 
 	authEnv := gitops.AuthEnvForRepo(sourcePath)
-	cmd := exec.Command("git", gitops.PushArgs(sourcePath, authEnv)...)
+	cmd := gitenv.Command(gitops.PushArgs(sourcePath, authEnv)...)
 	cmd.Dir = sourcePath
-	cmd.Env = append(os.Environ(), "LC_ALL=C")
+	cmd.Env = append(cmd.Env, "LC_ALL=C")
 	if len(authEnv) > 0 {
 		cmd.Env = append(cmd.Env, authEnv...)
 	}
@@ -401,7 +401,7 @@ func porcelainChange(line string) string {
 // "origin" before the first push sets one. It never prints the remote URL,
 // which can carry credentials.
 func pushDestination(sourcePath string) string {
-	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+	cmd := gitenv.Command("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
 	cmd.Dir = sourcePath
 	if out, err := cmd.Output(); err == nil {
 		if upstream := strings.TrimSpace(string(out)); upstream != "" {

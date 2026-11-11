@@ -628,3 +628,20 @@ func TestAdoptMovedGlobalSkills_NestedSameNameLeavesLiveRecord(t *testing.T) {
 		t.Errorf("entries = %v, want only the live top-level record", store.List())
 	}
 }
+
+// Git exports GIT_DIR to hooks; install's reconcile must record the tracked
+// repo's origin, not the caller's (#852).
+func TestGitRemoteOrigin_IgnoresCallerGitDir(t *testing.T) {
+	root := t.TempDir()
+	repo := filepath.Join(root, "repo")
+	caller := filepath.Join(root, "caller")
+	testutil.RunGit(t, "", "init", "-q", repo)
+	testutil.RunGit(t, repo, "remote", "add", "origin", "https://example.com/repo.git")
+	testutil.RunGit(t, "", "init", "-q", caller)
+	testutil.RunGit(t, caller, "remote", "add", "origin", "https://example.com/caller.git")
+
+	t.Setenv("GIT_DIR", filepath.Join(caller, ".git"))
+	if got := gitRemoteOrigin(repo); got != "https://example.com/repo.git" {
+		t.Errorf("gitRemoteOrigin() = %q, want the repo's origin", got)
+	}
+}
