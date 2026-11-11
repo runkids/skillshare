@@ -41,6 +41,8 @@ result=$(skillshare check --json)
 
 只要任一受檢項目的狀態為 `error`（例如無法連線遠端或本機來源不存在），`check` 就會以代碼 `1` 結束。僅有可用更新、過期項目或本機修改不會造成失敗。使用 `--json` 時，stdout 仍會包含完整結果；請查看各項目的 `status` 與 `message`。
 
+傳入 `--exit-code` 後，即使所有項目都能完成檢查，只要有項目不是最新，也會以結束代碼 `1` 結束：有可用更新、stale 或本地被修改的 skill，或者落後、有未提交變更、遺失的追蹤儲存庫。只有狀態為 `local`（沒有可比較的對象）的項目不計入；從本地路徑安裝的 skill 若來源已變更，屬於可用更新，會計入。`check agents` 同樣適用，安裝後檔案被修改的 agent 也計入。可與 `--json` 一起使用，不能與 `--diff` 同時使用。
+
 ## 執行內容
 
 `check` 會檢查你的 source 目錄，並回報以下項目的更新狀態：
@@ -130,6 +132,7 @@ skillshare check frontend               # 自動偵測為群組
 | `--global`, `-g` | 檢查 global skills（`~/.config/skillshare`） |
 | `--json` | 以 JSON 輸出（供 scripting/CI 使用） |
 | `--diff` | 針對指定的 skills，以行 diff 的形式顯示自安裝以來每個被修改的檔案（與已安裝版本比較）。需要指定名稱或 `--group`；不能與 `--json` 同時使用 |
+| `--exit-code` | 只要有任何項目不是最新，就以結束代碼 `1` 結束（供 CI 使用）。不能與 `--diff` 同時使用 |
 | `--help`, `-h` | 顯示說明 |
 
 :::tip 自動偵測

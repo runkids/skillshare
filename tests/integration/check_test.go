@@ -72,36 +72,147 @@ targets: {}
 func TestCheck_TrackedRepo_Behind(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-
-	sb.WriteConfig(`source: ` + sb.SourcePath + `
-targets: {}
-`)
-
-	// Create a "remote" bare repo
-	remoteRepo := filepath.Join(sb.Root, "remote-repo.git")
-	gitInit(t, remoteRepo, true)
-
-	// Clone it as a tracked repo
-	trackedPath := filepath.Join(sb.SourcePath, "_test-repo")
-	gitClone(t, remoteRepo, trackedPath)
-
-	// Create initial content and push
-	os.MkdirAll(filepath.Join(trackedPath, "my-skill"), 0755)
-	os.WriteFile(filepath.Join(trackedPath, "my-skill", "SKILL.md"), []byte("# Test"), 0644)
-	gitAddCommit(t, trackedPath, "initial")
-	gitPush(t, trackedPath)
-
-	// Clone another working copy, make commits, push them
-	otherClone := filepath.Join(sb.Root, "other-clone")
-	gitClone(t, remoteRepo, otherClone)
-	os.WriteFile(filepath.Join(otherClone, "my-skill", "SKILL.md"), []byte("# Updated"), 0644)
-	gitAddCommit(t, otherClone, "update from other")
-	gitPush(t, otherClone)
+	behindTrackedRepo(t, sb)
 
 	// Now tracked repo is behind
 	result := sb.RunCLI("check")
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "behind")
+}
+
+// behindTrackedRepo sets up a tracked repo that is one commit behind its remote.
+func behindTrackedRepo(t *testing.T, sb *testutil.Sandbox) {
+	t.Helper()
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+	remoteRepo := filepath.Join(sb.Root, "remote-repo.git")
+	gitInit(t, remoteRepo, true)
+	trackedPath := filepath.Join(sb.SourcePath, "_test-repo")
+	gitClone(t, remoteRepo, trackedPath)
+	os.MkdirAll(filepath.Join(trackedPath, "my-skill"), 0755)
+	os.WriteFile(filepath.Join(trackedPath, "my-skill", "SKILL.md"), []byte("# Test"), 0644)
+	gitAddCommit(t, trackedPath, "initial")
+	gitPush(t, trackedPath)
+	otherClone := filepath.Join(sb.Root, "other-clone")
+	gitClone(t, remoteRepo, otherClone)
+	os.WriteFile(filepath.Join(otherClone, "my-skill", "SKILL.md"), []byte("# Updated"), 0644)
+	gitAddCommit(t, otherClone, "update from other")
+	gitPush(t, otherClone)
+}
+
+func TestCheck_ExitCode_FailsWhenBehind(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	behindTrackedRepo(t, sb)
+
+	result := sb.RunCLI("check", "--exit-code")
+	result.AssertExitCode(t, 1)
+	result.AssertAnyOutputContains(t, "1 item not up to date")
+}
+
+func TestCheck_ExitCode_JSONKeepsResults(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	behindTrackedRepo(t, sb)
+
+	result := sb.RunCLI("check", "--json", "--exit-code")
+	result.AssertExitCode(t, 1)
+
+	var output struct {
+		TrackedRepos []struct {
+			Status string `json:"status"`
+		} `json:"tracked_repos"`
+	}
+	if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
+		t.Fatalf("failed to parse JSON output: %v\noutput: %s", err, result.Stdout)
+	}
+	if len(output.TrackedRepos) != 1 || output.TrackedRepos[0].Status != "behind" {
+		t.Errorf("expected one behind repo, got %+v", output.TrackedRepos)
+	}
+}
+
+func TestCheck_ExitCode_SucceedsWhenUpToDate(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+	sb.CreateSkill("local-skill", map[string]string{"SKILL.md": "# Local"})
+	writeMetaEntry(t, filepath.Join(sb.SourcePath, "local-skill"), &install.MetadataEntry{
+		Source: "/local/path",
+		Type:   "local",
+	})
+
+	sb.RunCLI("check", "--exit-code").AssertSuccess(t)
+}
+
+func TestCheck_ExitCode_SingleNameFailsWhenBehind(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	behindTrackedRepo(t, sb)
+
+	result := sb.RunCLI("check", "_test-repo", "--exit-code")
+	result.AssertExitCode(t, 1)
+	result.AssertAnyOutputContains(t, "1 item not up to date")
+}
+
+func TestCheckProject_ExitCode_FailsOnceSourceChanges(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+	skillFile := filepath.Join(projectRoot, "vendor", "team-skill", "SKILL.md")
+	sb.WriteFile(skillFile, "---\nname: team-skill\n---\n# v1")
+	sb.RunCLIInDir(projectRoot, "install", "./vendor/team-skill", "-p").AssertSuccess(t)
+
+	sb.RunCLIInDir(projectRoot, "check", "-p", "--exit-code").AssertSuccess(t)
+
+	sb.WriteFile(skillFile, "---\nname: team-skill\n---\n# v2")
+	sb.RunCLIInDir(projectRoot, "check", "-p", "--exit-code").AssertExitCode(t, 1)
+}
+
+func TestCheck_Agents_ExitCode_FailsWhenDrifted(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+	agentsDir := filepath.Join(filepath.Dir(sb.SourcePath), "agents")
+	os.MkdirAll(agentsDir, 0755)
+	os.WriteFile(filepath.Join(agentsDir, "tutor.md"), []byte("# Tutor, edited"), 0644)
+	store, err := install.LoadMetadata(agentsDir)
+	if err != nil {
+		t.Fatalf("load agent metadata: %v", err)
+	}
+	store.Set("tutor", &install.MetadataEntry{
+		Source:     "owner/agents",
+		Kind:       "agent",
+		FileHashes: map[string]string{"tutor.md": "sha256:0000"},
+	})
+	if err := store.Save(agentsDir); err != nil {
+		t.Fatalf("save agent metadata: %v", err)
+	}
+
+	sb.RunCLI("check", "agents").AssertSuccess(t)
+
+	result := sb.RunCLI("check", "agents", "--exit-code")
+	result.AssertExitCode(t, 1)
+	result.AssertAnyOutputContains(t, "1 item not up to date")
+}
+
+func TestCheck_ExitCode_RejectsDiff(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("check", "x", "--diff", "--exit-code")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "--exit-code cannot be combined with --diff")
 }
 
 func TestCheck_TrackedRepo_TokenEnvDoesNotBreakFileFetch(t *testing.T) {

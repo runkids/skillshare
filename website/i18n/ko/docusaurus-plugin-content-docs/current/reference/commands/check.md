@@ -41,6 +41,8 @@ result=$(skillshare check --json)
 
 검사한 항목 중 하나라도 상태가 `error`이면(예: 원격 저장소에 연결할 수 없거나 로컬 소스가 없음) `check`는 코드 `1`로 종료합니다. 사용 가능한 업데이트, 오래된 항목, 로컬 수정만으로는 실패하지 않습니다. `--json`을 사용해도 stdout에 전체 결과가 출력됩니다. 각 항목의 `status`와 `message`를 확인하세요.
 
+`--exit-code`를 지정하면 모든 항목을 확인할 수 있었더라도 최신이 아닌 항목이 있을 때 종료 코드 `1`로 종료합니다. 사용 가능한 업데이트, stale이거나 로컬에서 수정된 skill, 뒤처졌거나 커밋되지 않은 변경이 있거나 없어진 추적 저장소가 해당합니다. 제외되는 것은 상태가 `local`(비교 대상 없음)인 항목뿐입니다. 로컬 경로에서 설치한 skill의 소스가 변경되면 사용 가능한 업데이트로 셉니다. `check agents`에도 동일하게 적용되며, 설치 이후 파일이 변경된 agent도 해당합니다. `--json`과 함께 사용할 수 있으며 `--diff`와는 함께 사용할 수 없습니다.
+
 ## 동작 내용
 
 `check`는 source 디렉터리를 검사하여 다음 항목의 업데이트 상태를 보고합니다.
@@ -130,6 +132,7 @@ skillshare check frontend               # Auto-detected as group
 | `--global`, `-g` | global skill 확인(`~/.config/skillshare`) |
 | `--json` | JSON으로 출력(스크립팅/CI용) |
 | `--diff` | 지정한 skill에 대해 설치 이후 변경된 각 파일을 설치된 버전과의 줄 단위 diff로 보여줍니다. 이름 또는 `--group`이 필요하며 `--json`과 함께 사용할 수 없습니다 |
+| `--exit-code` | 최신이 아닌 항목이 하나라도 있으면 종료 코드 `1`로 종료합니다(CI용). `--diff`와 함께 사용할 수 없습니다 |
 | `--help`, `-h` | 도움말 표시 |
 
 :::tip Auto-detection

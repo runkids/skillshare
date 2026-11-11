@@ -508,6 +508,7 @@ _skillshare() {
                         '1:scope:(agents)' \
                         '--json[JSON output]' \
                         '--diff[Show changes since install]' \
+                        '--exit-code[Exit 1 when anything is not up to date]' \
                         '--all[Check all]' \
                         '--group[Check by group]:group:' \
                         '-G[Check by group]:group:' \

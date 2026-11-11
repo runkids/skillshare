@@ -161,6 +161,23 @@ func TestCompletion_CheckDiff_AllShells(t *testing.T) {
 	}
 }
 
+func TestCompletion_CheckExitCode_AllShells(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	for shell, flag := range map[string]string{
+		"bash":       `--diff --exit-code `,
+		"zsh":        "'--exit-code[Exit 1 when anything is not up to date]'",
+		"fish":       "check' -l exit-code",
+		"powershell": "'--diff', '--exit-code'",
+		"nushell":    "--exit-code              # Exit 1 when anything is not up to date",
+	} {
+		result := sb.RunCLI("completion", shell)
+		result.AssertSuccess(t)
+		result.AssertOutputContains(t, flag)
+	}
+}
+
 func TestCompletion_TargetCLIFlag_AllShells(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
