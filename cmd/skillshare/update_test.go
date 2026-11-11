@@ -26,7 +26,9 @@ func TestBatchUpdateTrackedAgents_ConfiguredHosts(t *testing.T) {
 			testutil.SeedRemoteBranch(t, base, remote, "main", map[string]string{"reviewer.md": "# Original agent\n"})
 			root := filepath.Join(base, "agents")
 			checkout := filepath.Join(root, "_repo")
-			testutil.RunGit(t, "", "clone", remote, checkout)
+			// The private transport replaces global Git config; keep checkout
+			// line endings stable when it disables the Windows autocrlf default.
+			testutil.RunGit(t, "", "clone", "--config", "core.autocrlf=false", remote, checkout)
 			before := testutil.RunGit(t, checkout, "rev-parse", "HEAD")
 			const updated = "# Updated reviewer\nReview changes carefully.\n"
 			seed := filepath.Join(base, "seed-main")
