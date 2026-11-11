@@ -1,4 +1,7 @@
 export interface VersionCheck {
+  autoCheckEnabled?: boolean;
+  autoCheckConfigured?: boolean;
+  autoCheckEnvOverride?: boolean;
   cliVersion: string;
   cliLatest?: string;
   cliUpdateAvailable: boolean;
@@ -12,6 +15,7 @@ export interface VersionCheck {
 
 // Doctor health check types
 export interface DoctorCheck {
+  update_available?: boolean;
   name: string;
   status: 'pass' | 'warning' | 'error' | 'info';
   message: string;

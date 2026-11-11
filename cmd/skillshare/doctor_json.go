@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 
+	"skillshare/internal/config"
+
 	versioncheck "skillshare/internal/version"
 )
 
@@ -16,11 +18,12 @@ const (
 
 // doctorCheck represents a single health check result for JSON output.
 type doctorCheck struct {
-	Name        string   `json:"name"`
-	Status      string   `json:"status"` // checkPass, checkWarning, checkError
-	Message     string   `json:"message"`
-	Details     []string `json:"details,omitempty"`
-	Suggestions []string `json:"suggestions,omitempty"`
+	Name            string   `json:"name"`
+	Status          string   `json:"status"` // checkPass, checkWarning, checkError
+	Message         string   `json:"message"`
+	Details         []string `json:"details,omitempty"`
+	Suggestions     []string `json:"suggestions,omitempty"`
+	UpdateAvailable bool     `json:"update_available,omitempty"`
 }
 
 type doctorOutput struct {
@@ -78,8 +81,19 @@ func buildDoctorOutput(result *doctorResult) doctorOutput {
 // Shared by cmdDoctorGlobal and cmdDoctorProject.
 func finalizeDoctorJSON(restoreUI func(), result *doctorResult, updateCh <-chan *versioncheck.CheckResult) error {
 	restoreUI()
-	output := buildDoctorOutput(result)
 	updateResult := <-updateCh
+	if !config.AutoUpdateCheckEnabled() {
+		updateResult = nil
+		quiet := *result
+		quiet.checks = nil
+		for _, check := range result.checks {
+			if !check.UpdateAvailable {
+				quiet.checks = append(quiet.checks, check)
+			}
+		}
+		result = &quiet
+	}
+	output := buildDoctorOutput(result)
 	output.Version = &doctorVersion{Current: version}
 	if updateResult != nil && updateResult.UpdateAvailable {
 		output.Version.Latest = updateResult.LatestVersion
@@ -87,8 +101,10 @@ func finalizeDoctorJSON(restoreUI func(), result *doctorResult, updateCh <-chan 
 	}
 	if version == "" || version == "dev" {
 		output.Version.DevMode = true
-		output.Version.Latest = "dev-ui-flow"
-		output.Version.UpdateAvailable = true
+		if updateResult != nil {
+			output.Version.Latest = "dev-ui-flow"
+			output.Version.UpdateAvailable = true
+		}
 	}
 	if result.errors > 0 {
 		return writeJSONResult(output, fmt.Errorf("doctor found %d error(s)", result.errors))

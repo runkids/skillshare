@@ -26,11 +26,12 @@ import (
 
 // doctorResult tracks issues and warnings
 type doctorResult struct {
-	errors   int
-	warnings int
-	checks   []doctorCheck
-	start    time.Time
-	next     []string // command and reason pairs for the closing Next
+	errors         int
+	warnings       int
+	checks         []doctorCheck
+	start          time.Time
+	next           []string // command and reason pairs for the closing Next
+	updateCommands []string // Suggestions belonging to automatic version notices.
 }
 
 // doctorWidth aligns the labels of doctor's fixed rows.
@@ -56,6 +57,11 @@ func (r *doctorResult) addCheckWithSuggestions(name, status, message string, det
 
 func (r *doctorResult) addInfo(name, message string) {
 	r.addCheck(name, checkInfo, message, nil)
+}
+
+func (r *doctorResult) suggestUpdate(cmd, why string) {
+	r.suggest(cmd, why)
+	r.updateCommands = append(r.updateCommands, cmd)
 }
 
 // suggest adds a command to the closing Next, once each and at most three.
@@ -118,7 +124,7 @@ func cmdDoctorGlobal(jsonMode bool) error {
 	updateCh := make(chan *versioncheck.CheckResult, 1)
 	go func() { updateCh <- fetchDoctorUpdateResult() }()
 	skillCh := make(chan string, 1)
-	go func() { skillCh <- versioncheck.CachedRemoteSkillVersion() }()
+	go func() { skillCh <- fetchDoctorSkillVersion() }()
 
 	var restoreUI func()
 	if jsonMode {
@@ -174,7 +180,7 @@ func cmdDoctorProject(root string, jsonMode bool) error {
 	updateCh := make(chan *versioncheck.CheckResult, 1)
 	go func() { updateCh <- fetchDoctorUpdateResult() }()
 	skillCh := make(chan string, 1)
-	go func() { skillCh <- versioncheck.CachedRemoteSkillVersion() }()
+	go func() { skillCh <- fetchDoctorSkillVersion() }()
 
 	var restoreUI func()
 	if jsonMode {
@@ -272,6 +278,21 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool, p
 }
 
 func printDoctorSummary(result *doctorResult) {
+	if !config.AutoUpdateCheckEnabled() {
+		quiet := *result
+		quiet.next = nil
+		for i := 0; i+1 < len(result.next); i += 2 {
+			if !slices.Contains(result.updateCommands, result.next[i]) {
+				quiet.next = append(quiet.next, result.next[i:i+2]...)
+			}
+		}
+		for _, check := range result.checks {
+			if check.UpdateAvailable && check.Status == checkWarning {
+				quiet.warnings--
+			}
+		}
+		result = &quiet
+	}
 	fmt.Println()
 	took := time.Since(result.start)
 	switch {
@@ -1521,10 +1542,11 @@ func checkVersionDoctor(cfg *config.Config, result *doctorResult, isProject bool
 		return
 	}
 
-	if remote := <-remoteSkill; versioncheck.SkillOutdated(localVersion, remote) {
+	if remote := <-remoteSkill; config.AutoUpdateCheckEnabled() && versioncheck.SkillOutdated(localVersion, remote) {
 		ui.Row(ui.MarkWarn, "Skill", localVersion+" → "+remote+" available", doctorWidth)
-		result.suggest("skillshare upgrade --skill", "update the built-in skill")
+		result.suggestUpdate("skillshare upgrade --skill", "update the built-in skill")
 		result.addCheck("skill_version", checkWarning, fmt.Sprintf("Skill: %s (%s available)", localVersion, remote), nil)
+		result.checks[len(result.checks)-1].UpdateAvailable = true
 		result.addWarning()
 		return
 	}
@@ -1535,7 +1557,17 @@ func checkVersionDoctor(cfg *config.Config, result *doctorResult, isProject bool
 // fetchDoctorUpdateResult checks if a newer version is available.
 // Uses the shared versioncheck.Check which handles caching, auth, and
 // proper semver comparison. Safe to call from a goroutine.
+func fetchDoctorSkillVersion() string {
+	if !config.AutoUpdateCheckEnabled() {
+		return ""
+	}
+	return versioncheck.CachedRemoteSkillVersion()
+}
+
 func fetchDoctorUpdateResult() *versioncheck.CheckResult {
+	if !config.AutoUpdateCheckEnabled() {
+		return nil
+	}
 	method := versioncheck.DetectCurrentInstallMethod()
 	if version == "" || version == "dev" {
 		return &versioncheck.CheckResult{
@@ -1549,7 +1581,7 @@ func fetchDoctorUpdateResult() *versioncheck.CheckResult {
 }
 
 func printUpdateAvailable(update *versioncheck.CheckResult, result *doctorResult) {
-	if update == nil || !update.UpdateAvailable {
+	if update == nil || !update.UpdateAvailable || !config.AutoUpdateCheckEnabled() {
 		return
 	}
 	available := ui.VersionLabel(update.CurrentVersion) + " → " + ui.VersionLabel(update.LatestVersion) + " available"
@@ -1559,7 +1591,7 @@ func printUpdateAvailable(update *versioncheck.CheckResult, result *doctorResult
 	}
 	ui.Row(ui.MarkNone, "Update", available, doctorWidth)
 	if cmd != "" {
-		result.suggest(cmd, "update to "+ui.VersionLabel(update.LatestVersion))
+		result.suggestUpdate(cmd, "update to "+ui.VersionLabel(update.LatestVersion))
 	}
 }
 

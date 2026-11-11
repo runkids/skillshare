@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/exec"
 
+	"skillshare/internal/config"
+
 	"skillshare/internal/theme"
 )
 
@@ -36,8 +38,12 @@ func (s *Server) handleDoctor(w http.ResponseWriter, r *http.Request) {
 	// internal env var so doctor reports "auto-detected", not "set via
 	// SKILLSHARE_THEME" — the user didn't set anything.
 	tm := theme.Get()
+	globalConfigPath := s.configPath()
+	if s.IsProjectMode() {
+		globalConfigPath = config.ReadOnlyConfigPath()
+	}
 	cmd.Env = append(os.Environ(),
-		"SKILLSHARE_CONFIG="+s.configPath(),
+		"SKILLSHARE_CONFIG="+globalConfigPath,
 		"_SKILLSHARE_THEME_FORWARDED="+string(tm.Mode),
 	)
 

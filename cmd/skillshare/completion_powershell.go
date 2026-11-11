@@ -30,6 +30,7 @@ $_skillshareCompleter = {
             @{ Name = 'doctor'; Desc = 'Check environment and diagnose issues' }
             @{ Name = 'target'; Desc = 'Manage targets' }
             @{ Name = 'project'; Desc = 'Manage project folders' }
+            @{ Name = 'updates'; Desc = 'Control automatic version checks' }
             @{ Name = 'upgrade'; Desc = 'Upgrade CLI and/or skillshare skill' }
             @{ Name = 'update'; Desc = 'Update skills/agents or tracked repositories' }
             @{ Name = 'check'; Desc = 'Check for available updates' }
@@ -177,6 +178,11 @@ $_skillshareCompleter = {
         'update' = @(
             @{ Name = 'agents'; Desc = 'Update agents' }
         )
+        'updates' = @(
+            @{ Name = 'on'; Desc = 'Enable automatic version checks' }
+            @{ Name = 'off'; Desc = 'Disable automatic version checks' }
+            @{ Name = 'check'; Desc = 'Check the CLI version now' }
+        )
         'tui' = @(
             @{ Name = 'on'; Desc = 'Enable TUI mode' }
             @{ Name = 'off'; Desc = 'Disable TUI mode' }
@@ -219,6 +225,7 @@ $_skillshareCompleter = {
         'status' = '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'new' = '--pattern', '-P', '--dry-run', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
         'search' = '--json', '--list', '-l', '--hub', '--limit', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
+        'updates' = '--json', '--help', '-h'
         'tui' = '--help', '-h'
         'hooks' = '--file', '--from', '--sync', '--replace', '--keep-files', '--revision', '--dry-run', '-n', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'completion' = '--install', '--help', '-h'

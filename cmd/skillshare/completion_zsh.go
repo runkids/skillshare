@@ -28,6 +28,7 @@ _skillshare() {
         'doctor:Check environment and diagnose issues'
         'target:Manage targets'
         'project:Manage project folders'
+        'updates:Control automatic version checks'
         'upgrade:Upgrade CLI and/or skillshare skill'
         'update:Update skills/agents or tracked repositories'
         'check:Check for available updates'
@@ -65,6 +66,9 @@ _skillshare() {
             ;;
         args)
             case ${words[1]} in
+                updates)
+                    _arguments '1:action:(on off check)' '--json[Output JSON]' '--help[Show help]' '-h[Show help]'
+                    ;;
                 init)
                     _arguments \
                         '--source[Set source directory]:path:_files -/' \

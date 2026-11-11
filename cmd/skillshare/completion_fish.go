@@ -50,6 +50,10 @@ complete -c skillshare -n '__fish_skillshare_using_command project' -l global -s
 # End project command
 
 # Commands
+complete -c skillshare -n __fish_skillshare_no_subcommand -a updates -d 'Control automatic version checks'
+complete -c skillshare -n '__fish_skillshare_using_command updates' -a 'on off check'
+complete -c skillshare -n '__fish_skillshare_using_command updates' -l json
+complete -c skillshare -n '__fish_skillshare_using_command updates' -l help -s h
 complete -c skillshare -n __fish_skillshare_no_subcommand -a init -d 'Initialize skillshare'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a install -d 'Install skills/agents from local path or git repo'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a uninstall -d 'Remove skills/agents from source directory'

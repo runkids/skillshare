@@ -3,6 +3,10 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import PageHeader from '../components/PageHeader';
+import Button from '../components/Button';
+import UpdateDialog from '../components/UpdateDialog';
+import type { VersionCheck } from '../api/client';
+import { useUpdatePolicy } from '../hooks/useUpdatePolicy';
 import { Select } from '../components/Select';
 import { useToast } from '../components/Toast';
 import { useAppContext } from '../context/AppContext';
@@ -59,9 +63,10 @@ export default function SettingsPage() {
   const config = useQuery({ queryKey: queryKeys.config, queryFn: () => api.getConfig(), staleTime: staleTimes.config });
   const cfg = (config.data?.config ?? {}) as ConfigShape;
   const [threshold, setThreshold] = useState<string | null>(null);
+  const [manualUpgrade, setManualUpgrade] = useState<VersionCheck | null>(null);
 
   const patch = useMutation({
-    mutationFn: (body: { mode?: string; logMaxEntries?: number }) => api.patchConfig(body),
+    mutationFn: (body: { mode?: string; logMaxEntries?: number; autoUpdateCheck?: boolean }) => api.patchConfig(body),
     onSuccess: () => { void invalidate(queryClient, 'settingsSaved'); toast(t('settings.toast.saved'), 'success'); },
     onError: (e: Error) => toast(e.message, 'error'),
   });
@@ -73,6 +78,11 @@ export default function SettingsPage() {
 
   const home = isProjectMode ? projectRoot : overview.data?.configDir;
   const logLimit = cfg.Log?.MaxEntries ?? 1000;
+  const updatePolicy = useUpdatePolicy();
+  const manualCheck = useQuery({ queryKey: queryKeys.manualVersionCheck, queryFn: () => api.getVersionCheck(true), enabled: false, retry: false });
+  const policy = updatePolicy.data;
+  const manualResult = manualCheck.error ? undefined : manualCheck.data;
+
 
   return (
     <div className="ss-wrap animate-page-in">
@@ -114,6 +124,37 @@ export default function SettingsPage() {
               </div>
             )}
           </div>
+        </section>
+
+        <section>
+          <div className="ss-sec"><h2 className="ss-h2">{t('settings.updates.title')}</h2></div>
+          <div className="ss-list">
+            <div className="ss-setrow">
+              <div className="l">
+                <b id="auto-update-label">{t('settings.updates.auto')}</b>
+                <span>{t(policy?.envOverride ? 'settings.updates.environment' : isProjectMode ? 'settings.updates.global' : 'settings.updates.hint')}</span>
+              </div>
+              <button type="button" role="switch" aria-labelledby="auto-update-label" aria-checked={policy?.enabled ?? true}
+                className={`ss-sw ${policy?.enabled !== false ? 'on' : ''}`}
+                disabled={!policy || isProjectMode || policy.envOverride || patch.isPending}
+                onClick={() => patch.mutate({ autoUpdateCheck: !policy?.enabled })}><i /></button>
+            </div>
+            <div className="ss-setrow">
+              <div className="l">
+                <b>{t('settings.updates.manual')}</b>
+                <span>{t('settings.updates.manualHint')}</span>
+              </div>
+              <Button variant="secondary" loading={manualCheck.isFetching} onClick={() => { void manualCheck.refetch(); }}>{t('settings.updates.check')}</Button>
+            </div>
+          </div>
+          {manualCheck.error && <p className="ss-note bad">{t('dashboard.version.couldNotCheck')}</p>}
+          {manualResult && <p className="ss-note inf" role="status">
+            {manualResult.cliUpdateAvailable || manualResult.skillUpdateAvailable
+              ? t('settings.updates.available', { cli: manualResult.cliLatest ?? manualResult.cliVersion, skill: manualResult.skillLatest ?? manualResult.skillVersion })
+              : t('settings.updates.current')}
+          </p>}
+          {manualResult && (manualResult.cliUpdateAvailable || manualResult.skillUpdateAvailable) && <Button variant="primary" onClick={() => setManualUpgrade(manualResult)}>{t('updateDialog.updateNow')}</Button>}
+          {manualUpgrade && <UpdateDialog manualData={manualUpgrade} onDismiss={() => setManualUpgrade(null)} />}
         </section>
 
         <section>

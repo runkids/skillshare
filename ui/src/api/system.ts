@@ -2,7 +2,8 @@ import { apiFetch } from './http';
 import type { AnalyzeResponse, DoctorResponse, VersionCheck } from './types/diagnostics';
 
 export const systemApi = {
-  getVersionCheck: () => apiFetch<VersionCheck>('/version'),
+  getUpdatePolicy: () => apiFetch<{ enabled: boolean; configured: boolean; envOverride: boolean }>('/update-settings'),
+  getVersionCheck: (manual = false) => apiFetch<VersionCheck>(manual ? '/version?manual=true' : '/version'),
   upgradeApp: () => apiFetch<{ ok: boolean; updated: boolean; devMode?: boolean; latestVersion?: string; output?: string }>('/upgrade', { method: 'POST' }),
   restartApp: (opts?: { clearCache?: boolean }) =>
     apiFetch<{ ok: boolean; restarting: boolean }>('/restart', {

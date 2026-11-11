@@ -42,6 +42,7 @@ var commands = map[string]func([]string) error{
 	"target":       cmdTarget,
 	"project":      cmdProject,
 	"upgrade":      cmdUpgrade,
+	"updates":      cmdUpdates,
 	"update":       cmdUpdate,
 	"check":        cmdCheck,
 	"new":          cmdNew,
@@ -71,7 +72,7 @@ func main() {
 
 	// Project commands must not migrate or rewrite shared config at startup,
 	// so they all skip opportunistic maintenance.
-	skipMaintenance := len(os.Args) > 1 && os.Args[1] == "project" && projectSkipsMaintenance(os.Args[2:])
+	skipMaintenance := len(os.Args) > 1 && (os.Args[1] == "updates" || os.Args[1] == "project" && projectSkipsMaintenance(os.Args[2:]))
 	if !skipMaintenance {
 		cleanupOldBinary()
 	}
@@ -170,9 +171,9 @@ func main() {
 
 		// Check for updates (non-blocking, silent on errors)
 		// Skip for upgrade (just upgraded, old version in process) and doctor (has its own check)
-		if !skipMaintenance && cmd != "upgrade" && cmd != "doctor" {
+		if !skipMaintenance && cmd != "upgrade" && cmd != "doctor" && cmd != "updates" && config.AutoUpdateCheckEnabled() {
 			method := versioncheck.DetectCurrentInstallMethod()
-			if result := versioncheck.Check(version, method); result != nil && result.UpdateAvailable {
+			if result := versioncheck.Check(version, method); result != nil && result.UpdateAvailable && config.AutoUpdateCheckEnabled() {
 				ui.UpdateNotification(result.CurrentVersion, result.LatestVersion, result.InstallMethod.UpgradeCommand(), versioncheck.NixConfigUpgradeHint)
 			}
 		}
@@ -242,7 +243,7 @@ func printUsage() {
 			{"log", "See what ran"},
 		}},
 		helpGroup{title: "Git", rows: []helpRow{{"commit · push · pull", ""}}},
-		helpGroup{title: "CLI", rows: []helpRow{{"upgrade · hub · tui · completion · version", ""}}},
+		helpGroup{title: "CLI", rows: []helpRow{{"upgrade · updates · hub · tui · completion · version", ""}}},
 		helpGroup{title: "Common options", rows: []helpRow{
 			{"-p, --project", "Use this project's config"},
 			{"-g, --global", "Use the global config"},

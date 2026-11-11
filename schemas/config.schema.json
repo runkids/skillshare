@@ -27,6 +27,14 @@
       "default": "~/.config/skillshare/extras",
       "examples": ["~/.config/skillshare/extras"]
     },
+    "updates": {
+      "type": "object",
+      "description": "Automatic version checks and notifications for the CLI, built-in skill and desktop app. Manual checks and upgrades remain available.",
+      "additionalProperties": false,
+      "properties": {
+        "auto_check": { "type": "boolean", "default": true, "description": "Overridden by SKILLSHARE_AUTO_UPDATE_CHECK." }
+      }
+    },
     "log": {
       "type": "object",
       "description": "Operation log retention.",
