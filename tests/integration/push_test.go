@@ -288,3 +288,32 @@ func commitAll(t *testing.T, dir, message string) {
 	testutil.RunGit(t, dir, "add", "-A")
 	testutil.RunGit(t, dir, "commit", "-m", message, "--allow-empty")
 }
+
+// Git exports GIT_DIR to hooks; push run from one must commit in the source
+// repo, not the hook's repository (#852).
+func TestPush_IgnoresCallerGitDir(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+	bareRepo := filepath.Join(sb.Home, "remote.git")
+	testutil.RunGit(t, "", "init", "--bare", bareRepo)
+	testutil.RunGit(t, sb.SourcePath, "init")
+	testutil.RunGit(t, sb.SourcePath, "remote", "add", "origin", bareRepo)
+	testutil.ConfigureGitUser(t, sb.SourcePath)
+
+	caller := filepath.Join(sb.Home, "caller")
+	testutil.RunGit(t, "", "init", caller)
+	testutil.ConfigureGitUser(t, caller)
+	testutil.RunGit(t, caller, "remote", "add", "origin", filepath.Join(sb.Home, "caller-remote.git"))
+	testutil.RunGit(t, caller, "commit", "--allow-empty", "-m", "caller")
+
+	sb.CreateSkill("pushed-skill", map[string]string{"SKILL.md": "# Pushed"})
+	sb.RunCLIEnv(map[string]string{"GIT_DIR": filepath.Join(caller, ".git")}, "push", "-m", "Test push")
+
+	if got := testutil.RunGit(t, caller, "rev-list", "--count", "HEAD"); got != "1" {
+		t.Errorf("caller repository has %s commits, want 1", got)
+	}
+}

@@ -3,10 +3,10 @@ package git
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"skillshare/internal/gitenv"
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
@@ -32,11 +32,11 @@ func SourceLinkWarnings(root, skills, operation string) []string {
 			continue
 		}
 		path := filepath.ToSlash(filepath.Join(rel, entry.Name()))
-		indexed := exec.Command("git", "--literal-pathspecs", "ls-files", "--error-unmatch", "--", path)
+		indexed := gitenv.Command("--literal-pathspecs", "ls-files", "--error-unmatch", "--", path)
 		indexed.Dir = root
 		inIndex := indexed.Run() == nil
 		if !inIndex {
-			ignored := exec.Command("git", "check-ignore", "-q", "--", path)
+			ignored := gitenv.Command("check-ignore", "-q", "--", path)
 			ignored.Dir = root
 			if ignored.Run() == nil {
 				continue

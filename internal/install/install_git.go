@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"skillshare/internal/gitenv"
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
@@ -75,8 +76,8 @@ const gitCommandTimeout = 180 * time.Second
 // gitCommand creates an exec.Cmd for git with GIT_TERMINAL_PROMPT=0
 // to prevent interactive credential prompts that hang CLI spinners and web UI.
 func gitCommand(ctx context.Context, args ...string) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, "git", args...)
-	cmd.Env = append(os.Environ(),
+	cmd := gitenv.CommandContext(ctx, args...)
+	cmd.Env = append(cmd.Env,
 		"GIT_TERMINAL_PROMPT=0",
 		"GIT_ASKPASS=",
 		"SSH_ASKPASS=",
@@ -294,7 +295,7 @@ func checkoutCommit(repoPath, sha string, shallow bool, extraEnv []string, onPro
 }
 
 func isShallowRepo(repoPath string) bool {
-	cmd := exec.Command("git", "rev-parse", "--is-shallow-repository")
+	cmd := gitenv.Command("rev-parse", "--is-shallow-repository")
 	cmd.Dir = repoPath
 	out, err := cmd.Output()
 	return err == nil && strings.TrimSpace(string(out)) == "true"
@@ -302,7 +303,7 @@ func isShallowRepo(repoPath string) bool {
 
 // isDetachedHead reports whether HEAD points at a commit rather than a branch.
 func isDetachedHead(repoPath string) bool {
-	cmd := exec.Command("git", "symbolic-ref", "-q", "HEAD")
+	cmd := gitenv.Command("symbolic-ref", "-q", "HEAD")
 	cmd.Dir = repoPath
 	return cmd.Run() != nil
 }
@@ -491,7 +492,7 @@ func gitForcePull(repoPath string, onProgress ProgressCallback) error {
 
 // getRemoteURL returns the fetch URL for the "origin" remote, or "".
 func getRemoteURL(repoPath string) string {
-	cmd := exec.Command("git", "remote", "get-url", "origin")
+	cmd := gitenv.Command("remote", "get-url", "origin")
 	cmd.Dir = repoPath
 	out, err := cmd.Output()
 	if err != nil {
@@ -502,7 +503,7 @@ func getRemoteURL(repoPath string) string {
 
 // getGitCommit returns the current HEAD commit hash
 func getGitCommit(repoPath string) (string, error) {
-	cmd := exec.Command("git", "rev-parse", "--short", "HEAD")
+	cmd := gitenv.Command("rev-parse", "--short", "HEAD")
 	cmd.Dir = repoPath
 	output, err := cmd.Output()
 	if err != nil {
@@ -516,7 +517,7 @@ func getGitCommit(repoPath string) (string, error) {
 // imports internal/install (for AuthEnvForURL), so the reverse import would
 // create a cycle.
 func getGitFullHash(repoPath string) (string, error) {
-	cmd := exec.Command("git", "rev-parse", "HEAD")
+	cmd := gitenv.Command("rev-parse", "HEAD")
 	cmd.Dir = repoPath
 	out, err := cmd.Output()
 	if err != nil {
@@ -555,7 +556,7 @@ func validateTrackedRepoDirName(name string) error {
 // NOTE: duplicates git.ResetHard — kept here to avoid import cycle
 // (internal/git imports internal/install).
 func gitResetHard(repoPath, rev string) error {
-	cmd := exec.Command("git", "reset", "--hard", rev)
+	cmd := gitenv.Command("reset", "--hard", rev)
 	cmd.Dir = repoPath
 	return cmd.Run()
 }
@@ -572,14 +573,14 @@ func getSubdirTreeHash(repoPath, subdir string) string {
 	}
 	// Strip leading "/" from subdir — git rev-parse doesn't accept absolute paths
 	subdir = strings.TrimPrefix(subdir, "/")
-	cmd := exec.Command("git", "rev-parse", "HEAD:"+subdir)
+	cmd := gitenv.Command("rev-parse", "HEAD:"+subdir)
 	cmd.Dir = repoPath
 	out, err := cmd.Output()
 	if err != nil {
 		return ""
 	}
 	// shortcut: a symlink whose target stays inside the subdir also disables the tree hash, resolve link targets if that costs too many reinstalls.
-	lsCmd := exec.Command("git", "ls-tree", "-r", "HEAD:"+subdir)
+	lsCmd := gitenv.Command("ls-tree", "-r", "HEAD:"+subdir)
 	lsCmd.Dir = repoPath
 	entries, err := lsCmd.Output()
 	if err != nil || hasSymlinkEntry(string(entries)) {

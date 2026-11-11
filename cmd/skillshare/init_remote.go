@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
 	gitops "skillshare/internal/git"
+	"skillshare/internal/gitenv"
 	ssync "skillshare/internal/sync"
 )
 
@@ -52,7 +52,7 @@ func inspectRemote(url string) *remoteRepo {
 	ctx, cancel := context.WithTimeout(context.Background(), remoteInspectTimeout)
 	defer cancel()
 	repo := filepath.Join(tmp, "repo")
-	cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", "--quiet", "--", url, repo)
+	cmd := gitenv.CommandContext(ctx, "clone", "--depth", "1", "--quiet", "--", url, repo)
 	cmd.Env = remoteFetchEnv(url)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
@@ -108,7 +108,7 @@ func remoteFailureReason(out string) string {
 func pullRemote(gitRoot, url string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), remoteFetchTimeout*4)
 	defer cancel()
-	fetch := exec.CommandContext(ctx, "git", "fetch", "origin")
+	fetch := gitenv.CommandContext(ctx, "fetch", "origin")
 	fetch.Dir = gitRoot
 	fetch.Env = remoteFetchEnv(url)
 	if out, err := fetch.CombinedOutput(); err != nil {
@@ -124,20 +124,20 @@ func pullRemote(gitRoot, url string) error {
 // resetToRemoteBranch checks out origin/<branch> and tracks it so push and
 // pull work without naming the remote.
 func resetToRemoteBranch(gitRoot, branch string) error {
-	reset := exec.Command("git", "reset", "--hard", "origin/"+branch)
+	reset := gitenv.Command("reset", "--hard", "origin/"+branch)
 	reset.Dir = gitRoot
 	if out, err := reset.CombinedOutput(); err != nil {
 		return fmt.Errorf("git reset failed: %s", strings.TrimSpace(string(out)))
 	}
 	local := "main"
-	current := exec.Command("git", "branch", "--show-current")
+	current := gitenv.Command("branch", "--show-current")
 	current.Dir = gitRoot
 	if out, err := current.Output(); err == nil {
 		if b := strings.TrimSpace(string(out)); b != "" {
 			local = b
 		}
 	}
-	track := exec.Command("git", "branch", "--set-upstream-to=origin/"+branch, local)
+	track := gitenv.Command("branch", "--set-upstream-to=origin/"+branch, local)
 	track.Dir = gitRoot
 	track.Run() // best-effort
 	return nil

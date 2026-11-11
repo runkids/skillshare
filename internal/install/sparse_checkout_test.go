@@ -35,10 +35,53 @@ func TestSparseCloneSubdir_FileURL(t *testing.T) {
 		t.Skip("git does not support sparse-checkout")
 	}
 
+	remote := sparseFixtureRemote(t)
+	dest := filepath.Join(t.TempDir(), "clone")
+
+	if err := sparseCloneSubdir("file://"+remote, "skills/one", dest, "", nil, nil); err != nil {
+		t.Fatalf("sparseCloneSubdir() error = %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dest, "skills", "one", "SKILL.md")); err != nil {
+		t.Fatalf("expected sparse path file to exist: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dest, "other", "README.md")); err == nil {
+		t.Fatalf("expected non-sparse path to be absent")
+	}
+}
+
+// Git exports GIT_DIR to hooks in a linked worktree; a hook running install
+// must not turn on sparse checkout in that repository (#852).
+func TestSparseCloneSubdir_IgnoresCallerGitDir(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	if !gitSupportsSparseCheckout() {
+		t.Skip("git does not support sparse-checkout")
+	}
+
+	remote := sparseFixtureRemote(t)
+	host := filepath.Join(t.TempDir(), "host")
+	mustRunGit(t, "", "init", host)
+	mustRunGit(t, host, "-c", "user.email=test@test.com", "-c", "user.name=Test", "commit", "--allow-empty", "-m", "init")
+	dest := filepath.Join(t.TempDir(), "clone")
+
+	t.Setenv("GIT_DIR", filepath.Join(host, ".git"))
+	if err := sparseCloneSubdir("file://"+remote, "skills/one", dest, "", nil, nil); err != nil {
+		t.Fatalf("sparseCloneSubdir() error = %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(host, ".git", "info", "sparse-checkout")); err == nil {
+		t.Fatal("sparse checkout was set up in the caller's repository")
+	}
+}
+
+// sparseFixtureRemote returns a bare repository holding skills/one and other.
+func sparseFixtureRemote(t *testing.T) string {
+	t.Helper()
 	tmp := t.TempDir()
 	work := filepath.Join(tmp, "work")
 	remote := filepath.Join(tmp, "remote.git")
-	dest := filepath.Join(tmp, "clone")
 
 	mustRunGit(t, "", "init", work)
 	mustRunGit(t, work, "config", "user.email", "test@test.com")
@@ -60,17 +103,7 @@ func TestSparseCloneSubdir_FileURL(t *testing.T) {
 	mustRunGit(t, work, "add", ".")
 	mustRunGit(t, work, "commit", "-m", "init")
 	mustRunGit(t, "", "clone", "--bare", work, remote)
-
-	if err := sparseCloneSubdir("file://"+remote, "skills/one", dest, "", nil, nil); err != nil {
-		t.Fatalf("sparseCloneSubdir() error = %v", err)
-	}
-
-	if _, err := os.Stat(filepath.Join(dest, "skills", "one", "SKILL.md")); err != nil {
-		t.Fatalf("expected sparse path file to exist: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(dest, "other", "README.md")); err == nil {
-		t.Fatalf("expected non-sparse path to be absent")
-	}
+	return remote
 }
 
 func mustRunGit(t *testing.T, dir string, args ...string) {

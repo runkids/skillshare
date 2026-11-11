@@ -2,13 +2,14 @@ package install
 
 import (
 	"fmt"
-	"os/exec"
 	"strconv"
 	"strings"
+
+	"skillshare/internal/gitenv"
 )
 
 func gitSupportsSparseCheckout() bool {
-	out, err := exec.Command("git", "--version").Output()
+	out, err := gitenv.Command("--version").Output()
 	if err != nil {
 		return false
 	}

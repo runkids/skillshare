@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"skillshare/internal/audit"
+	"skillshare/internal/gitenv"
 )
 
 // LockFileName sits next to the project config and is meant to be committed.
@@ -155,7 +155,7 @@ func resetTrackedToCommit(repoPath, sha string, extraEnv []string) error {
 }
 
 func gitOutput(repoPath string, args ...string) (string, error) {
-	cmd := exec.Command("git", args...)
+	cmd := gitenv.Command(args...)
 	cmd.Dir = repoPath
 	out, err := cmd.Output()
 	return strings.TrimSpace(string(out)), err

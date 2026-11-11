@@ -3,12 +3,12 @@ package git
 import (
 	"bytes"
 	"fmt"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"unicode/utf8"
 
+	"skillshare/internal/gitenv"
 	"skillshare/internal/install"
 )
 
@@ -55,7 +55,7 @@ func PullWithResolution(repoPath string, resolution *PullResolution) (*UpdateInf
 
 func conflictVersion(dir, path string, stage int) ConflictVersion {
 	ref := fmt.Sprintf(":%d:%s", stage, path)
-	size := exec.Command("git", "cat-file", "-s", ref)
+	size := gitenv.Command("cat-file", "-s", ref)
 	size.Dir = dir
 	out, err := size.Output()
 	if err != nil {
@@ -65,7 +65,7 @@ func conflictVersion(dir, path string, stage int) ConflictVersion {
 	if err != nil || n > 16*1024 {
 		return ConflictVersion{NoPreview: true}
 	}
-	show := exec.Command("git", "show", ref)
+	show := gitenv.Command("show", ref)
 	show.Dir = dir
 	out, err = show.Output()
 	if err != nil || bytes.IndexByte(out, 0) >= 0 || !utf8.Valid(out) {
@@ -78,7 +78,7 @@ func resolvePullConflicts(dir string, paths []string, resolution *PullResolution
 	metadata := make([]string, 0)
 	conflict := &PullConflictError{RepoPath: dir}
 	conflict.LocalHash, _ = GetCurrentFullHash(dir)
-	remote := exec.Command("git", "rev-parse", "MERGE_HEAD")
+	remote := gitenv.Command("rev-parse", "MERGE_HEAD")
 	remote.Dir = dir
 	out, _ := remote.Output()
 	conflict.RemoteHash = strings.TrimSpace(string(out))
@@ -110,13 +110,13 @@ func resolvePullConflicts(dir string, paths []string, resolution *PullResolution
 			if version.Deleted {
 				args = []string{"rm", "--", file.Path}
 			}
-			cmd := exec.Command("git", args...)
+			cmd := gitenv.Command(args...)
 			cmd.Dir = dir
 			if out, err := cmd.CombinedOutput(); err != nil {
 				return fmt.Errorf("resolve %s: %w: %s", file.Path, err, out)
 			}
 			if !version.Deleted {
-				add := exec.Command("git", "add", "--", file.Path)
+				add := gitenv.Command("add", "--", file.Path)
 				add.Dir = dir
 				if err := add.Run(); err != nil {
 					return err
