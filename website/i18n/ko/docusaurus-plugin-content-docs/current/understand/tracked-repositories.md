@@ -183,18 +183,13 @@ skillshare uninstall _team-skills
 
 Tracked repo는 project mode에서도 동작합니다. repo는 `.skillshare/skills/`에 clone되어 `.skillshare/.gitignore`에 추가됩니다 (tracked repo의 git 히스토리가 여러분 프로젝트의 git과 충돌하지 않도록). Project 로그(`.skillshare/logs/`), trash(`.skillshare/trash/`), backup(`.skillshare/backups/`), 설치 메타데이터(`.skillshare/skills/.metadata.json`)도 기본적으로 무시됩니다.
 
-Tracked repo를 설치하면 `.skillshare/.metadata.json`에 `tracked: true`가 자동으로 기록되어, 새 팀원이 `skillshare install -p`를 통해 올바른 clone 동작을 얻을 수 있습니다:
+Tracked repo를 설치하면 `.skillshare/config.yaml`에 `tracked: true`가 자동으로 기록되어, 새 팀원이 `skillshare install -p`를 통해 올바른 clone 동작을 얻을 수 있습니다:
 
-```json
-{
-  "skills": [
-    {
-      "name": "_team-shared-skills",
-      "source": "github.com/team/shared-skills",
-      "tracked": true
-    }
-  ]
-}
+```yaml
+skills:
+  - name: _team-shared-skills
+    source: github.com/team/shared-skills
+    tracked: true
 ```
 
 ```bash

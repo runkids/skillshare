@@ -1245,17 +1245,17 @@ Skill をインストールすると、skillshare はそのメタデータを一
 
 ```json
 {
-  "skills": [
-    {
-      "name": "pdf",
+  "version": 1,
+  "entries": {
+    "pdf": {
       "source": "anthropics/skills/skills/pdf",
-      "type": "github",
+      "type": "github-subdir",
       "installed_at": "2026-01-20T15:30:00Z",
       "repo_url": "https://github.com/anthropics/skills.git",
       "subdir": "skills/pdf",
       "version": "abc1234"
     }
-  ]
+  }
 }
 ```
 
@@ -1263,7 +1263,7 @@ Skill をインストールすると、skillshare はそのメタデータを一
 
 | フィールド | 説明 |
 |-------|-------------|
-| `name` | Skill ディレクトリ名 |
+| エントリのキー | Source ディレクトリからの Skill の相対パス（例: `pdf`、`frontend/react-skill`） |
 | `source` | 元のインストール Source の入力値 |
 | `type` | Source の種類（`github`、`local` など） |
 | `installed_at` | インストールのタイムスタンプ |

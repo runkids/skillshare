@@ -129,27 +129,45 @@ ignore:
 ~/.config/skillshare/skills/.metadata.json
 ```
 
-儲存已安裝與 tracked skills 的 metadata。存放在 source 目錄內，方便透過 git 同步以支援多機器設定。由 `install`、`uninstall` 與 `update` **自動管理** — 請勿手動編輯。
+儲存已安裝與 tracked skills 的 metadata。存放在 source 目錄內，方便透過 git 同步以支援多機器設定。Agents source 也有一份同格式的 `.metadata.json`。在 project 模式下，`.skillshare/skills/.metadata.json` 與 `.skillshare/agents/.metadata.json` 會被加入 `.gitignore`：它們記錄的是本機的安裝狀態，團隊成員之間改以 `config.yaml` 與 `skills.lock.json` 共享。由 `install`、`uninstall` 與 `update` **自動管理** — 請勿手動編輯。
 
 ### 內容
 
 ```json
 {
-  "skills": [
-    {
-      "name": "pdf",
-      "source": "anthropics/skills/skills/pdf"
+  "version": 1,
+  "entries": {
+    "pdf": {
+      "source": "anthropics/skills/skills/pdf",
+      "type": "github-subdir",
+      "installed_at": "2026-11-01T10:00:00Z",
+      "repo_url": "https://github.com/anthropics/skills.git",
+      "subdir": "skills/pdf",
+      "version": "a1b2c3d",
+      "commit": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+      "file_hashes": { "SKILL.md": "sha256:…" }
     },
-    {
-      "name": "_team-skills",
+    "_team-skills": {
       "source": "github.com/team/skills",
       "tracked": true
     }
-  ]
+  },
+  "audit_accepted": { "pdf": ["…"] },
+  "target_overrides": { "_team-skills/frontend/ui": ["claude"] }
 }
 ```
 
-每個項目記錄 skill 名稱與其安裝來源。Tracked repos（以 `_` 為前綴）會包含完整的儲存庫 URL，供 `update` 與 `check` 操作使用。
+`entries` 底下的每個 key 是 skill 相對於 source 目錄的路徑。
+
+| 欄位 | 用途 |
+|---|---|
+| `source`、`type`、`repo_url`、`subdir`、`branch` | Skill 的來源，讓 `update` 與 `check` 知道要從哪裡取得 |
+| `kind`、`tracked`、`group` | `kind` 在 agent 項目中為 `agent`，skill 項目則省略；`tracked` 標示 tracked repo（以 `_` 為前綴）；`group` 是項目安裝到的資料夾 |
+| `version`、`commit`、`tree_hash` | 已安裝的版本；`commit` 是完整 SHA，project 模式會把它鎖定在 `skills.lock.json` |
+| `file_hashes` | 各檔案的 hash，`audit` 用來偵測檔案是否被修改 |
+| `installed_at`、`layout` | 安裝時間，以及 local install 是單一檔案還是目錄 |
+| `audit_accepted` | 透過 `--force` 接受的 audit findings，項目被改寫時仍會保留 |
+| `target_overrides` | 在 dashboard 為 tracked repo 內的 skill 設定的 targets，讓該 repo 的 `SKILL.md` 保持不變 |
 
 ---
 

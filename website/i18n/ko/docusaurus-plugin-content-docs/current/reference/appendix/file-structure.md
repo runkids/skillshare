@@ -129,27 +129,45 @@ ignore:
 ~/.config/skillshare/skills/.metadata.json
 ```
 
-설치되고 Tracked된 Skill에 대한 메타데이터를 저장합니다. Source 디렉터리 내부에 위치하여 여러 머신 설정을 위해 git으로 Sync할 수 있습니다. `install`, `uninstall`, `update`에 의해 **자동 관리**되므로 수동으로 편집하지 마세요.
+설치되고 Tracked된 Skill에 대한 메타데이터를 저장합니다. Source 디렉터리 내부에 위치하여 여러 머신 설정을 위해 git으로 Sync할 수 있습니다. Agents Source에도 같은 형식의 `.metadata.json`이 있습니다. Project 모드에서는 `.skillshare/skills/.metadata.json`과 `.skillshare/agents/.metadata.json`이 `.gitignore`에 추가됩니다. 이 파일들은 이 머신의 설치 상태를 기록하며, 팀원 간에는 대신 `config.yaml`과 `skills.lock.json`을 공유합니다. `install`, `uninstall`, `update`에 의해 **자동 관리**되므로 수동으로 편집하지 마세요.
 
 ### 내용
 
 ```json
 {
-  "skills": [
-    {
-      "name": "pdf",
-      "source": "anthropics/skills/skills/pdf"
+  "version": 1,
+  "entries": {
+    "pdf": {
+      "source": "anthropics/skills/skills/pdf",
+      "type": "github-subdir",
+      "installed_at": "2026-11-01T10:00:00Z",
+      "repo_url": "https://github.com/anthropics/skills.git",
+      "subdir": "skills/pdf",
+      "version": "a1b2c3d",
+      "commit": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+      "file_hashes": { "SKILL.md": "sha256:…" }
     },
-    {
-      "name": "_team-skills",
+    "_team-skills": {
       "source": "github.com/team/skills",
       "tracked": true
     }
-  ]
+  },
+  "audit_accepted": { "pdf": ["…"] },
+  "target_overrides": { "_team-skills/frontend/ui": ["claude"] }
 }
 ```
 
-각 항목은 Skill 이름과 설치 Source를 기록합니다. Tracked 저장소(`_` 접두사)에는 `update` 및 `check` 작업을 위한 전체 저장소 URL이 포함됩니다.
+`entries` 아래의 각 키는 Source 디렉터리 기준 Skill의 상대 경로입니다.
+
+| 필드 | 용도 |
+|---|---|
+| `source`, `type`, `repo_url`, `subdir`, `branch` | Skill의 출처. `update`와 `check`가 무엇을 가져올지 판단하는 데 사용합니다 |
+| `kind`, `tracked`, `group` | `kind`는 Agent 항목이면 `agent`이고 Skill에서는 생략됩니다. `tracked`는 Tracked 저장소(`_` 접두사)를 표시하고, `group`은 항목이 설치된 폴더입니다 |
+| `version`, `commit`, `tree_hash` | 설치된 리비전. `commit`은 전체 SHA이며, Project 모드에서는 `skills.lock.json`에 고정됩니다 |
+| `file_hashes` | 파일별 hash. `audit`가 변경된 파일을 감지하는 데 사용합니다 |
+| `installed_at`, `layout` | 설치 시각과 로컬 설치가 단일 파일인지 디렉터리인지 여부 |
+| `audit_accepted` | `--force`로 수락한 audit 결과. 항목이 다시 작성되어도 유지됩니다 |
+| `target_overrides` | Tracked 저장소 안의 Skill에 Dashboard에서 지정한 Targets. 저장소의 `SKILL.md`는 변경되지 않습니다 |
 
 ---
 

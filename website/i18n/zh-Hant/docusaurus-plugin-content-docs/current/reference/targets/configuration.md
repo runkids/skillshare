@@ -1176,17 +1176,17 @@ SKILLSHARE_CONFIG=~/custom-config.yaml skillshare status
 
 ```json
 {
-  "skills": [
-    {
-      "name": "pdf",
+  "version": 1,
+  "entries": {
+    "pdf": {
       "source": "anthropics/skills/skills/pdf",
-      "type": "github",
+      "type": "github-subdir",
       "installed_at": "2026-01-20T15:30:00Z",
       "repo_url": "https://github.com/anthropics/skills.git",
       "subdir": "skills/pdf",
       "version": "abc1234"
     }
-  ]
+  }
 }
 ```
 
@@ -1194,7 +1194,7 @@ SKILLSHARE_CONFIG=~/custom-config.yaml skillshare status
 
 | 欄位 | 說明 |
 |-------|-------------|
-| `name` | Skill 目錄名稱 |
+| 項目 key | Skill 相對於 source 目錄的路徑（例如 `pdf`、`frontend/react-skill`） |
 | `source` | 原始的安裝來源輸入值 |
 | `type` | Source 類型（`github`、`local` 等） |
 | `installed_at` | 安裝時間戳記 |

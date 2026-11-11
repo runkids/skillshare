@@ -129,27 +129,45 @@ See [Configuration](/docs/reference/targets/configuration) for full reference.
 ~/.config/skillshare/skills/.metadata.json
 ```
 
-Stores metadata about installed and tracked skills. Lives inside the source directory so it can be synced via git for multi-machine setups. **Auto-managed** by `install`, `uninstall`, and `update` — don't edit manually.
+Stores metadata about installed and tracked skills. Lives inside the source directory so it can be synced via git for multi-machine setups. The agents source keeps its own `.metadata.json` with the same format. In project mode, `.skillshare/skills/.metadata.json` and `.skillshare/agents/.metadata.json` are added to `.gitignore`: they describe this machine's installs, and teammates share `config.yaml` and `skills.lock.json` instead. **Auto-managed** by `install`, `uninstall`, and `update` — don't edit manually.
 
 ### Contents
 
 ```json
 {
-  "skills": [
-    {
-      "name": "pdf",
-      "source": "anthropics/skills/skills/pdf"
+  "version": 1,
+  "entries": {
+    "pdf": {
+      "source": "anthropics/skills/skills/pdf",
+      "type": "github-subdir",
+      "installed_at": "2026-11-01T10:00:00Z",
+      "repo_url": "https://github.com/anthropics/skills.git",
+      "subdir": "skills/pdf",
+      "version": "a1b2c3d",
+      "commit": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+      "file_hashes": { "SKILL.md": "sha256:…" }
     },
-    {
-      "name": "_team-skills",
+    "_team-skills": {
       "source": "github.com/team/skills",
       "tracked": true
     }
-  ]
+  },
+  "audit_accepted": { "pdf": ["…"] },
+  "target_overrides": { "_team-skills/frontend/ui": ["claude"] }
 }
 ```
 
-Each entry records the skill name and its install source. Tracked repos (prefixed with `_`) include the full repository URL for `update` and `check` operations.
+Each key under `entries` is the skill's path relative to the source directory.
+
+| Field | Purpose |
+|---|---|
+| `source`, `type`, `repo_url`, `subdir`, `branch` | Where the skill came from, so `update` and `check` know what to fetch |
+| `kind`, `tracked`, `group` | `kind` is `agent` for agent entries and omitted for skills; `tracked` marks a tracked repo (prefixed with `_`); `group` is the folder an entry was installed into |
+| `version`, `commit`, `tree_hash` | The installed revision; `commit` is the full SHA, which project mode pins in `skills.lock.json` |
+| `file_hashes` | Per-file hashes that `audit` uses to detect changed files |
+| `installed_at`, `layout` | Install time, and whether a local install is a single file or a directory |
+| `audit_accepted` | Audit findings you accepted with `--force`, kept when an entry is rewritten |
+| `target_overrides` | Targets set from the dashboard for skills inside a tracked repo, so the repo's `SKILL.md` stays untouched |
 
 ---
 
