@@ -48,7 +48,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusForbidden, "SSH hub sources must be added first via 'skillshare hub add'")
 			return
 		}
-		results, err = search.SearchFromIndexURL(query, limit, hubParam)
+		results, err = search.SearchFromIndexURL(query, limit, hubParam, parseOpts)
 	default:
 		// GitHub search always needs a limit
 		if limit <= 0 {

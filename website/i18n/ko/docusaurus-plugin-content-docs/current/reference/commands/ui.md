@@ -6,6 +6,8 @@ sidebar_position: 1
 
 시각적인 Skill 관리를 위한 웹 대시보드를 실행합니다.
 
+원격 검색(`GET /api/search`)과 설치 미리 보기(`GET /api/preview`)는 변경 작업과 같은 origin 검사를 사용하며, cross-site 브라우저 요청은 가져오기 전에 거부합니다. 브라우저 origin/fetch 헤더가 없는 직접 클라이언트는 계속 지원됩니다. GitHub API 인증 정보는 HTTPS `api.github.com`, `raw.githubusercontent.com`의 기본 포트 또는 443으로 제한되며 cross-origin 리디렉션에서는 제거됩니다.
+
 ```bash
 skillshare ui                  # 포그라운드에서 실행
 skillshare ui start            # 백그라운드 서버 시작(또는 기존 서버 재사용)

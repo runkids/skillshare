@@ -24,8 +24,8 @@ func rejectCrossSiteWrites(next http.Handler) http.Handler {
 	})
 }
 
-// requireSameOrigin applies the same check to a GET route that changes state, such as an
-// update stream that EventSource can only open with GET.
+// requireSameOrigin protects sensitive GET routes: update streams and remote
+// reads that can send credentials to a request-selected destination.
 func requireSameOrigin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !sameOriginRequest(r) {

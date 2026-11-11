@@ -310,7 +310,7 @@ func handleExistingInit(opts *initOptions) (bool, error) {
 				}
 			}
 		}
-		setupGitRemote(gitRoot, opts.remoteURL, opts.dryRun, opts.noGit)
+		setupGitRemote(gitRoot, opts.remoteURL, opts.dryRun, opts.noGit, parseOptsFromConfig(cfg))
 		if opts.dryRun {
 			fmt.Println()
 			ui.DryRun()
@@ -622,7 +622,7 @@ func commitSourceFiles(sourcePath, skills string) error {
 	return nil
 }
 
-func setupGitRemote(sourcePath, remoteURL string, dryRun, noGit bool) bool {
+func setupGitRemote(sourcePath, remoteURL string, dryRun, noGit bool, parseOpts install.ParseOptions) bool {
 	// Check if git is initialized
 	gitDir := filepath.Join(sourcePath, ".git")
 	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
@@ -660,10 +660,10 @@ func setupGitRemote(sourcePath, remoteURL string, dryRun, noGit bool) bool {
 		ui.Row(ui.MarkNone, "Remote", "would add origin → "+remoteURL, gitRowWidth)
 		return false
 	}
-	return addRemote(sourcePath, remoteURL)
+	return addRemote(sourcePath, remoteURL, parseOpts)
 }
 
-func addRemote(sourcePath, remoteURL string) bool {
+func addRemote(sourcePath, remoteURL string, parseOpts install.ParseOptions) bool {
 	// SetOrAddRemote validates the URL (rejecting flag-smuggling values that
 	// begin with "-") and passes "--" before positional args. setupGitRemote
 	// has already confirmed origin is absent, so this takes the add path.
@@ -675,7 +675,7 @@ func addRemote(sourcePath, remoteURL string) bool {
 	ui.Row(ui.MarkOK, "Remote", "origin → "+remoteURL, gitRowWidth)
 
 	// Try to fetch and auto-pull if remote has existing skills
-	hadSkills := tryPullAfterRemoteSetup(sourcePath, remoteURL)
+	hadSkills := tryPullAfterRemoteSetup(sourcePath, remoteURL, parseOpts)
 	if !hadSkills {
 		ui.Next("skillshare push", "share your skills")
 	}
@@ -683,7 +683,7 @@ func addRemote(sourcePath, remoteURL string) bool {
 }
 
 // remoteFetchEnv returns env vars for non-interactive remote checks.
-func remoteFetchEnv(remoteURL string) []string {
+func remoteFetchEnv(remoteURL string, parseOpts install.ParseOptions) []string {
 	env := gitenv.Environ()
 	env = append(env,
 		"GIT_TERMINAL_PROMPT=0",
@@ -695,7 +695,7 @@ func remoteFetchEnv(remoteURL string) []string {
 	if v, ok := os.LookupEnv("GIT_SSH_COMMAND"); !ok || strings.TrimSpace(v) == "" {
 		env = append(env, "GIT_SSH_COMMAND=ssh -o BatchMode=yes -o ConnectTimeout=8")
 	}
-	if authEnv := install.AuthEnvForURL(remoteURL); len(authEnv) > 0 {
+	if authEnv := install.AuthEnvForURL(remoteURL, parseOpts); len(authEnv) > 0 {
 		env = append(env, authEnv...)
 	}
 	return env
@@ -703,7 +703,7 @@ func remoteFetchEnv(remoteURL string) []string {
 
 // tryPullAfterRemoteSetup attempts to fetch from remote and pull if it has content.
 // Returns true if remote had content (pulled or warned), false if remote is empty/unreachable.
-func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
+func tryPullAfterRemoteSetup(sourcePath, remoteURL string, parseOpts install.ParseOptions) bool {
 	spinner := ui.StartSpinner("Checking remote for existing skills...")
 
 	// Try to fetch (inject HTTPS token auth when available)
@@ -711,7 +711,7 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 	defer cancel()
 	fetchCmd := gitenv.CommandContext(fetchCtx, "fetch", "origin")
 	fetchCmd.Dir = sourcePath
-	fetchCmd.Env = remoteFetchEnv(remoteURL)
+	fetchCmd.Env = remoteFetchEnv(remoteURL, parseOpts)
 	if output, err := fetchCmd.CombinedOutput(); err != nil {
 		spinner.Stop()
 		if errors.Is(fetchCtx.Err(), context.DeadlineExceeded) {

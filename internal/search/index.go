@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
+	ghclient "skillshare/internal/github"
 	"skillshare/internal/install"
 )
 
@@ -42,9 +42,9 @@ type hubSourceContext struct {
 
 // SearchFromIndexURL searches skills from a private index.json URL or local path.
 // A limit of 0 means no limit (return all results).
-func SearchFromIndexURL(query string, limit int, indexURL string) ([]SearchResult, error) {
+func SearchFromIndexURL(query string, limit int, indexURL string, opts install.ParseOptions) ([]SearchResult, error) {
 	hubCtx := hubSourceContextFromURL(indexURL)
-	doc, err := loadIndex(indexURL)
+	doc, err := loadIndex(indexURL, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +231,7 @@ func invalidHubJSONError(source string, err error) error {
 	return fmt.Errorf("hub index at %s is not valid JSON — expected a skillshare-hub.json file (the URL may return an HTML page instead of raw JSON): %w", source, err)
 }
 
-func loadIndex(indexURL string) (*indexDocument, error) {
+func loadIndex(indexURL string, opts install.ParseOptions) (*indexDocument, error) {
 	s := strings.TrimSpace(indexURL)
 	if s == "" {
 		return nil, fmt.Errorf("hub URL is required")
@@ -241,12 +241,12 @@ func loadIndex(indexURL string) (*indexDocument, error) {
 	// shallowly and read the index file from it. Auth is handled by the user's
 	// SSH agent/keys, which works for private and enterprise (GHE) hosts.
 	if install.IsSSHURL(s) {
-		return loadIndexViaSSH(s)
+		return loadIndexViaSSH(s, opts)
 	}
 
 	if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
-		client := &http.Client{Timeout: 15 * time.Second}
-		req, err := buildHubRequest(s)
+		client := ghclient.NewClient()
+		req, err := buildHubRequest(s, opts)
 		if err != nil {
 			return nil, err
 		}
@@ -281,8 +281,8 @@ func loadIndex(indexURL string) (*indexDocument, error) {
 // reading the index file. The index path within the repo is taken from the
 // //path suffix (e.g. git@host:org/repo.git//hubs/team.json); when absent it
 // defaults to skillshare-hub.json at the repo root.
-func loadIndexViaSSH(indexURL string) (*indexDocument, error) {
-	src, err := install.ParseSource(indexURL)
+func loadIndexViaSSH(indexURL string, opts install.ParseOptions) (*indexDocument, error) {
+	src, err := install.ParseSourceWithOptions(indexURL, opts)
 	if err != nil {
 		return nil, fmt.Errorf("parse hub source: %w", err)
 	}
@@ -290,19 +290,19 @@ func loadIndexViaSSH(indexURL string) (*indexDocument, error) {
 	if rel == "" {
 		rel = defaultHubIndexFile
 	}
-	return readIndexFromGitClone(src.CloneURL, rel)
+	return readIndexFromGitClone(src.CloneURL, rel, opts)
 }
 
 // readIndexFromGitClone shallow-clones cloneURL into a temp dir, reads relPath
 // from the clone, and parses it as a hub index document. relPath must stay
 // within the repo (no absolute paths or parent traversal).
-func readIndexFromGitClone(cloneURL, relPath string) (*indexDocument, error) {
+func readIndexFromGitClone(cloneURL, relPath string, opts install.ParseOptions) (*indexDocument, error) {
 	clean := filepath.Clean(relPath)
 	if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
 		return nil, fmt.Errorf("invalid hub index path: %s", relPath)
 	}
 
-	dir, err := install.ShallowCloneToTemp(cloneURL, "")
+	dir, err := install.ShallowCloneToTemp(cloneURL, "", opts)
 	if err != nil {
 		return nil, fmt.Errorf("clone hub repo: %w", err)
 	}
@@ -408,17 +408,17 @@ func gitLabWebToAPIRawURL(u *url.URL) (string, bool) {
 	), true
 }
 
-func buildHubRequest(indexURL string) (*http.Request, error) {
+func buildHubRequest(indexURL string, opts install.ParseOptions) (*http.Request, error) {
 	req, err := http.NewRequest("GET", normalizeHubURL(indexURL), nil)
 	if err != nil {
 		return nil, err
 	}
-	applyHubAuthHeaders(req)
+	applyHubAuthHeaders(req, opts)
 	return req, nil
 }
 
-func applyHubAuthHeaders(req *http.Request) {
-	token, username := install.ResolveTokenForURL(req.URL.String())
+func applyHubAuthHeaders(req *http.Request, opts install.ParseOptions) {
+	token, username := install.ResolveTokenForURL(req.URL.String(), opts)
 	if token == "" {
 		return
 	}

@@ -41,8 +41,8 @@ type SkillPreview struct {
 // GitHub-family hosts (github.com and GitHub Enterprise) use the REST Contents
 // API at the host's own API base; all other platforms (GitLab, Bitbucket,
 // Azure, SSH, …) fall back to a shallow git clone so their SKILL.md renders too.
-func FetchPreview(client *http.Client, source, branch string) (*SkillPreview, error) {
-	src, err := install.ParseSource(source)
+func FetchPreview(client *http.Client, source, branch string, opts install.ParseOptions) (*SkillPreview, error) {
+	src, err := install.ParseSourceWithOptions(source, opts)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrPreviewUnsupported, err)
 	}
@@ -50,6 +50,7 @@ func FetchPreview(client *http.Client, source, branch string) (*SkillPreview, er
 }
 
 func fetchPreviewFromSource(client *http.Client, src *install.Source, source, branch string) (*SkillPreview, error) {
+	opts := install.ParseOptions{CNBHosts: src.CNBHosts, GiteaHosts: src.GiteaHosts}
 	if branch == "" {
 		branch = src.Branch
 	}
@@ -57,10 +58,10 @@ func fetchPreviewFromSource(client *http.Client, src *install.Source, source, br
 	if apiBase := src.GitHubAPIBase(); apiBase != "" {
 		owner, repo := src.GitHubOwner(), src.GitHubRepo()
 		if owner != "" && repo != "" {
-			if src.Type == install.SourceTypeGitSSH && previewToken(src.CloneURL, apiBase) == "" {
+			if src.Type == install.SourceTypeGitSSH && previewToken(apiBase, opts) == "" {
 				return fetchViaClone(src, source, branch)
 			}
-			preview, err := fetchViaContentsAPI(client, apiBase, src.CloneURL, owner, repo, src.Subdir, branch)
+			preview, err := fetchViaContentsAPI(client, apiBase, owner, repo, src.Subdir, branch, opts)
 			if err == nil || src.Type != install.SourceTypeGitSSH {
 				return preview, err
 			}
@@ -71,10 +72,10 @@ func fetchPreviewFromSource(client *http.Client, src *install.Source, source, br
 }
 
 // fetchViaContentsAPI fetches SKILL.md through the GitHub/GHE Contents API at
-// the given API base. cloneURL is used only to resolve a host-appropriate auth
-// token. The path parameter is the subdirectory within the repo (empty for root).
-func fetchViaContentsAPI(client *http.Client, apiBase, cloneURL, owner, repo, path, branch string) (*SkillPreview, error) {
-	token := previewToken(cloneURL, apiBase)
+// the given API base. Authorization is resolved for that exact destination.
+// The path parameter is the subdirectory within the repo (empty for root).
+func fetchViaContentsAPI(client *http.Client, apiBase, owner, repo, path, branch string, opts install.ParseOptions) (*SkillPreview, error) {
+	token := previewToken(apiBase, opts)
 
 	skillPath := "SKILL.md"
 	if path != "" && path != "." {
@@ -109,7 +110,7 @@ func fetchViaContentsAPI(client *http.Client, apiBase, cloneURL, owner, repo, pa
 		// Hub sources use install shorthands (e.g. "owner/repo/critique")
 		// where the actual file may be at "source/skills/critique/SKILL.md".
 		if resolved := resolveSkillPath(client, apiBase, token, owner, repo, path, branch); resolved != "" {
-			return fetchViaContentsAPI(client, apiBase, cloneURL, owner, repo, resolved, branch)
+			return fetchViaContentsAPI(client, apiBase, owner, repo, resolved, branch, opts)
 		}
 		return nil, fmt.Errorf("%w: %s/%s/%s", ErrSkillNotFound, owner, repo, path)
 	}
@@ -156,7 +157,7 @@ func fetchViaClone(src *install.Source, source, branch string) (*SkillPreview, e
 		return nil, fmt.Errorf("%w: %s", ErrPreviewUnsupported, source)
 	}
 
-	dir, err := install.ShallowCloneToTemp(src.CloneURL, branch)
+	dir, err := install.ShallowCloneToTemp(src.CloneURL, branch, install.ParseOptions{CNBHosts: src.CNBHosts, GiteaHosts: src.GiteaHosts})
 	if err != nil {
 		return nil, fmt.Errorf("%w: clone %s: %v", ErrPreviewUnsupported, source, err)
 	}
@@ -259,33 +260,19 @@ func buildPreview(body, source, owner, repo string) *SkillPreview {
 	return preview
 }
 
-// previewToken resolves an auth token for the Contents API request. It prefers
-// a host-specific token (GITHUB_TOKEN, GHE token via SKILLSHARE_GIT_TOKEN, …)
-// and falls back to `gh auth token` only for github.com.
-func previewToken(cloneURL, apiBase string) string {
-	if t, _ := install.ResolveTokenForURL(cloneURL); t != "" {
+// previewToken authorizes the actual Contents API origin, including its scheme
+// and port. The GitHub CLI fallback is limited to the public HTTPS API origin.
+func previewToken(apiBase string, opts install.ParseOptions) string {
+	if t, _ := install.ResolveTokenForURL(apiBase, opts); t != "" {
 		return t
 	}
-	if lookupURL := previewTokenLookupURL(cloneURL); lookupURL != "" {
-		if t, _ := install.ResolveTokenForURL(lookupURL); t != "" {
-			return t
-		}
-	}
-	if apiBase == "https://api.github.com" {
+	u, err := url.Parse(apiBase)
+	if err == nil && strings.EqualFold(u.Scheme, "https") &&
+		strings.EqualFold(u.Hostname(), "api.github.com") &&
+		(u.Port() == "" || u.Port() == "443") && u.User == nil {
 		return ghclient.GetToken()
 	}
 	return ""
-}
-
-func previewTokenLookupURL(cloneURL string) string {
-	if _, host, ok := install.SSHIdentity(cloneURL); ok {
-		return "https://" + host + "/"
-	}
-	u, err := url.Parse(strings.TrimSpace(cloneURL))
-	if err != nil || u.Hostname() == "" {
-		return ""
-	}
-	return "https://" + u.Hostname() + "/"
 }
 
 // newContentsRequest builds a GET request for the GitHub/GHE REST API with the

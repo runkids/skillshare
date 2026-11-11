@@ -18,13 +18,15 @@ skillshare 会从环境变量中检测 token，平台专属变量的优先级高
 
 | Platform | Environment Variable |
 |----------|---------------------|
-| GitHub / GitHub Enterprise | `GITHUB_TOKEN` |
-| GitLab / Self-hosted GitLab | `GITLAB_TOKEN` |
+| `github.com` | `GITHUB_TOKEN` |
+| `gitlab.com` | `GITLAB_TOKEN` |
 | Bitbucket | `BITBUCKET_TOKEN`（+ 可选的 `BITBUCKET_USERNAME`） |
 | Azure DevOps | `AZURE_DEVOPS_TOKEN` |
 | Gitea / Self-hosted Gitea | `GITEA_TOKEN` |
 | CNB | `CNB_TOKEN` |
 | 任意平台（fallback） | `SKILLSHARE_GIT_TOKEN` |
+
+平台令牌仅发送到使用 HTTPS 默认端口（或 443）的 `github.com`、`gitlab.com`、`bitbucket.org`、`dev.azure.com`、`*.visualstudio.com`、`gitea.com` 和 `cnb.cool`。自建 Gitea/CNB 即使名称包含平台名，也必须在 `gitea_hosts`/`cnb_hosts` 中配置准确主机名。自建 GitHub/GitLab 等主机应使用按主机配置的 Git credential helper，或仅为目标调用设置 `SKILLSHARE_GIT_TOKEN`。此通用回退可发送给**任何 HTTPS 来源**；类似平台的名称不会授权发送平台令牌。
 
 ```bash
 # 选项 A：Git credential helper（推荐用于 GitHub）
@@ -80,8 +82,8 @@ skillshare sync     # 推送到 Targets
 
 - **选择性安装**：`skillshare install your-org/internal-skills --skill code-review` 只安装一个 Skill
 - **CI/CD token**：在流水线中，通过 CI secrets 设置对应平台的环境变量（例如 `GITHUB_TOKEN`）
-- **Self-hosted GitLab**：设置 `GITLAB_TOKEN` 并使用 HTTPS URL：`skillshare install https://gitlab.internal.com/team/skills.git --track`
-- **Self-hosted Gitea**：设置 `GITEA_TOKEN`。如果主机名不包含 `gitea`，还需将其列入 [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts)
+- **自建 GitHub/GitLab**：使用按主机配置的 Git credential helper，或仅为此次调用提供令牌：`SKILLSHARE_GIT_TOKEN=your-token skillshare install https://gitlab.internal.com/team/skills.git --track`。`GITHUB_TOKEN`/`GITLAB_TOKEN` 不会发送给自建实例。
+- **自建 Gitea**：设置 `GITEA_TOKEN`，并始终将准确主机名列入 [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts)。
 - **Gitee / AtomGit**：通过 HTTPS URL 配合 `SKILLSHARE_GIT_TOKEN` 支持
 
 ## Related

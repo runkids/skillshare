@@ -32,6 +32,7 @@ func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 	sourceDir := s.skillsSource()
 	projectRoot := s.projectRoot
 	walk := s.skillsWalk()
+	parseOpts := s.parseOpts()
 	s.mu.RUnlock()
 
 	// Immediate feedback before the potentially slow discovery walk.
@@ -82,12 +83,12 @@ func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 		default:
 		}
 
-		repoResults = append(repoResults, checkTrackedRepo(repo, filepath.Join(sourceDir, repo)))
+		repoResults = append(repoResults, checkTrackedRepo(repo, filepath.Join(sourceDir, repo), parseOpts))
 		checked.Add(1)
 	}
 
 	// --- Phase 2: Check skills by remote (1 work unit per remote) ---
-	resolved, err := plan.Run(ctx, check.Options{OnRemoteDone: func(int) { checked.Add(1) }})
+	resolved, err := plan.Run(ctx, check.Options{ParseOptions: parseOpts, OnRemoteDone: func(int) { checked.Add(1) }})
 
 	// Stop ticker
 	close(done)

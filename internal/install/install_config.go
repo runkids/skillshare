@@ -168,6 +168,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 		CNBHosts:    ctx.CNBHosts(),
 		GiteaHosts:  ctx.GiteaHosts(),
 	}
+	opts.ParseOptions = parseOpts
 
 	// ── Classify skills: tracked / plain (groupable vs singles) ──
 	var tracked []SkillEntryDTO

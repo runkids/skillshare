@@ -6,6 +6,8 @@ sidebar_position: 1
 
 启动 web dashboard 以可视化管理 skills。
 
+远程搜索（`GET /api/search`）和安装预览（`GET /api/preview`）使用与修改操作相同的来源检查，在获取前拒绝跨站浏览器请求。仍支持不带浏览器 origin/fetch 请求头的直接客户端。GitHub API 凭据仅用于 HTTPS `api.github.com` 和 `raw.githubusercontent.com` 的默认端口或 443；跨来源重定向会移除认证信息。
+
 ```bash
 skillshare ui                  # 在前台运行
 skillshare ui start            # 启动（或复用）一个后台 server

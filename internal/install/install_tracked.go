@@ -83,6 +83,7 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 	if err := resolveWebRef(source); err != nil {
 		return nil, err
 	}
+	opts.ParseOptions.CNBHosts, opts.ParseOptions.GiteaHosts = source.CNBHosts, source.GiteaHosts
 
 	// Determine repo name: opts.Name (--name or the name recorded in config) >
 	// TrackName (owner-repo, so two repos both called "skills" don't collide) >
@@ -302,12 +303,12 @@ func updateTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallO
 		return nil, err
 	}
 
-	candidate, err := StageGitUpdate(repoPath, false)
+	candidate, err := StageGitUpdate(repoPath, false, opts.ParseOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stage update: %w", err)
 	}
 	defer candidate.Close()
-	if err := gitPull(candidate.Path, opts.OnProgress); err != nil {
+	if err := gitPull(candidate.Path, AuthEnvForURL(getRemoteURL(repoPath), opts.ParseOptions), opts.OnProgress); err != nil {
 		return nil, fmt.Errorf("failed to update: %w", err)
 	}
 

@@ -70,7 +70,7 @@ func TestShallowCloneToTemp(t *testing.T) {
 	gitAdd(t, src, ".")
 	gitCommit(t, src, "init")
 
-	dir, err := ShallowCloneToTemp(src, "")
+	dir, err := ShallowCloneToTemp(src, "", ParseOptions{})
 	if err != nil {
 		t.Fatalf("ShallowCloneToTemp: %v", err)
 	}
@@ -82,7 +82,7 @@ func TestShallowCloneToTemp(t *testing.T) {
 }
 
 func TestShallowCloneToTemp_BadURL(t *testing.T) {
-	dir, err := ShallowCloneToTemp(t.TempDir()+"/does-not-exist", "")
+	dir, err := ShallowCloneToTemp(t.TempDir()+"/does-not-exist", "", ParseOptions{})
 	if err == nil {
 		t.Fatalf("expected error cloning nonexistent repo, got dir %q", dir)
 	}

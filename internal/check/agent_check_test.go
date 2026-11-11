@@ -18,7 +18,7 @@ func TestEnrichAgentResultsWithRemote_Failure(t *testing.T) {
 		{Name: "current", RepoURL: missingRepo, Version: "abc", Status: "up_to_date"},
 		{Name: "edited", RepoURL: missingRepo, Version: "abc", Status: "drifted"},
 	}
-	EnrichAgentResultsWithRemote(results, nil)
+	EnrichAgentResultsWithRemote(results, nil, install.ParseOptions{})
 	for _, r := range results {
 		if r.Status != "error" || r.Message == "" {
 			t.Errorf("remote failure must be reported: %+v", r)
@@ -195,7 +195,7 @@ func TestEnrichAgentResultsWithRemote_ComparesEachAgentAtItsBranch(t *testing.T)
 		{Name: "stale", RepoURL: repo, Version: oldMain, Status: "up_to_date"},
 		{Name: "on-dev", RepoURL: repo, Branch: "dev", Version: dev, Status: "up_to_date"},
 	}
-	EnrichAgentResultsWithRemote(results, nil)
+	EnrichAgentResultsWithRemote(results, nil, install.ParseOptions{})
 
 	want := map[string]string{"current": "up_to_date", "stale": "update_available", "on-dev": "up_to_date"}
 	for _, r := range results {
@@ -258,7 +258,7 @@ func TestCheckAgents_TrackedRepoComparedAtItsBranch(t *testing.T) {
 	git(agentsDir, "clone", "-q", "-b", "dev", origin, "_repo")
 
 	results := CheckAgents(agentsDir)
-	EnrichAgentResultsWithRemote(results, nil)
+	EnrichAgentResultsWithRemote(results, nil, install.ParseOptions{})
 	if len(results) != 1 || results[0].Status != "up_to_date" || results[0].Branch != "dev" {
 		t.Fatalf("expected the tracked agent up to date on dev, got %+v", results)
 	}

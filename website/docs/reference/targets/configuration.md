@@ -852,7 +852,7 @@ SKILLSHARE_AZURE_HOSTS=azuredevops.mycompany.com skillshare install \
 
 ### `gitea_hosts`
 
-Hostnames of self-hosted Gitea instances. Hosts containing `gitea` in the name, such as `gitea.com` or `gitea.company.com`, are detected automatically. This field is only needed for other custom domains.
+Self-hosted Gitea requires an exact hostname in [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts) to authorize `GITEA_TOKEN`, even when the name contains `gitea`. Provider authentication requires HTTPS on the default port or 443.
 
 ```yaml
 gitea_hosts:

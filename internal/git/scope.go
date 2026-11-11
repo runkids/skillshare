@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"skillshare/internal/gitenv"
+	"skillshare/internal/install"
 )
 
 // WriteScopeGitignore ensures a .gitignore at dir. If none exists it writes a
@@ -243,7 +244,7 @@ func (e *UnpushedConfigHistoryError) Error() string {
 // `push --pull` can integrate first. Deletions alone are safe; combined merge
 // diffs check new resolutions without treating config inherited from upstream
 // as a new local change. The check never changes the index, worktree, or refs.
-func CheckUnpushedConfigHistory(dir string) error {
+func CheckUnpushedConfigHistory(dir string, opts install.ParseOptions) error {
 	head := gitenv.Command("rev-parse", "--verify", "--quiet", "HEAD")
 	head.Dir = dir
 	if err := head.Run(); err != nil {
@@ -258,7 +259,7 @@ func CheckUnpushedConfigHistory(dir string) error {
 	args := []string{"--no-replace-objects", "log", "--format=%x00%h", "--full-history", "--root",
 		"-c", "--diff-filter=AMT", "--no-renames", "--no-show-signature", "--raw"}
 	cmd := gitenv.Command()
-	live, rejected, ok := liveRemoteCommits(dir, remote, branch)
+	live, rejected, ok := liveRemoteCommits(dir, remote, branch, opts)
 	if rejected {
 		return nil
 	}
@@ -313,7 +314,7 @@ func CheckUnpushedConfigHistory(dir string) error {
 // remote-tracking refs can be stale after the remote was rewritten to drop a
 // leaked config.yaml, so they are only the fallback (ok=false) when the remote
 // cannot be reached, in which case the push itself fails too.
-func liveRemoteCommits(dir, remote, branch string) (objects []string, rejected, ok bool) {
+func liveRemoteCommits(dir, remote, branch string, opts install.ParseOptions) (objects []string, rejected, ok bool) {
 	getURLs := gitenv.Command("remote", "get-url", "--push", "--all", remote)
 	getURLs.Dir = dir
 	out, err := getURLs.Output()
@@ -326,7 +327,7 @@ func liveRemoteCommits(dir, remote, branch string) (objects []string, rejected, 
 	for _, url := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		lsRemote := gitenv.Command("ls-remote", "--symref", url)
 		lsRemote.Dir = dir
-		lsRemote.Env = append(lsRemote.Env, AuthEnvForRepo(dir)...)
+		lsRemote.Env = append(lsRemote.Env, install.AuthEnvForURL(url, opts)...)
 		refs, err := lsRemote.Output()
 		if err != nil {
 			return nil, false, false
