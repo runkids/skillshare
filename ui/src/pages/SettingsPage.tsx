@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import PageHeader from '../components/PageHeader';
 import Button from '../components/Button';
+import UpdateDialog from '../components/UpdateDialog';
+import type { VersionCheck } from '../api/client';
 import { useUpdatePolicy } from '../hooks/useUpdatePolicy';
 import { Select } from '../components/Select';
 import { useToast } from '../components/Toast';
@@ -61,6 +63,7 @@ export default function SettingsPage() {
   const config = useQuery({ queryKey: queryKeys.config, queryFn: () => api.getConfig(), staleTime: staleTimes.config });
   const cfg = (config.data?.config ?? {}) as ConfigShape;
   const [threshold, setThreshold] = useState<string | null>(null);
+  const [manualUpgrade, setManualUpgrade] = useState<VersionCheck | null>(null);
 
   const patch = useMutation({
     mutationFn: (body: { mode?: string; logMaxEntries?: number; autoUpdateCheck?: boolean }) => api.patchConfig(body),
@@ -143,12 +146,14 @@ export default function SettingsPage() {
               <Button variant="secondary" loading={manualCheck.isFetching} onClick={() => { void manualCheck.refetch(); }}>{t('settings.updates.check')}</Button>
             </div>
           </div>
-          {manualCheck.error && <p className="ss-note bad">{manualCheck.error.message}</p>}
+          {manualCheck.error && <p className="ss-note bad">{t('dashboard.version.couldNotCheck')}</p>}
           {manualCheck.data && <p className="ss-note inf" role="status">
             {manualCheck.data.cliUpdateAvailable || manualCheck.data.skillUpdateAvailable
               ? t('settings.updates.available', { cli: manualCheck.data.cliLatest ?? manualCheck.data.cliVersion, skill: manualCheck.data.skillLatest ?? manualCheck.data.skillVersion })
               : t('settings.updates.current')}
           </p>}
+          {(manualCheck.data?.cliUpdateAvailable || manualCheck.data?.skillUpdateAvailable) && <Button variant="primary" onClick={() => setManualUpgrade(manualCheck.data!)}>{t('updateDialog.updateNow')}</Button>}
+          {manualUpgrade && <UpdateDialog manualData={manualUpgrade} onDismiss={() => setManualUpgrade(null)} />}
         </section>
 
         <section>

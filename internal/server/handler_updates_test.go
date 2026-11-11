@@ -37,8 +37,15 @@ func TestVersionCheckRechecksPolicyBeforePublishing(t *testing.T) {
 		}
 		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"tag_name":"v9.9.9"}`)), Request: r}, nil
 	})
+	source := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(source, "skillshare"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, "skillshare", "SKILL.md"), []byte("---\nmetadata:\n  version: 1.0.0\n---\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	rec := httptest.NewRecorder()
-	(&Server{cfg: &config.Config{Source: t.TempDir()}}).handleVersionCheck(rec, httptest.NewRequest(http.MethodGet, "/api/version", nil))
+	(&Server{cfg: &config.Config{Source: source}}).handleVersionCheck(rec, httptest.NewRequest(http.MethodGet, "/api/version", nil))
 	var body map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)

@@ -444,7 +444,12 @@ func checkSkillVersion(cfg *config.Config) {
 		fmt.Println(statusLine("Version", skill))
 		return
 	}
-	switch remoteVersion := versioncheck.CachedRemoteSkillVersion(); {
+	remoteVersion := versioncheck.CachedRemoteSkillVersion()
+	if !config.AutoUpdateCheckEnabled() {
+		fmt.Println(statusLine("Version", skill))
+		return
+	}
+	switch {
 	case remoteVersion == "":
 		// Offline: show the local version only.
 		fmt.Println(statusLine("Version", skill))

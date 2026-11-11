@@ -82,7 +82,7 @@ func (s *Server) handleVersionCheck(w http.ResponseWriter, r *http.Request) {
 	// Skill version (remote) — uses 24h cache, network call with 3s timeout
 	var skillLatest *string
 	skillUpdateAvailable := false
-	if check && skillVersion != "" {
+	if check && skillVersion != "" && (manual || config.AutoUpdateCheckEnabled()) {
 		var remote string
 		if manual {
 			remote = versioncheck.FetchRemoteSkillVersion()

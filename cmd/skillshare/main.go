@@ -173,7 +173,7 @@ func main() {
 		// Skip for upgrade (just upgraded, old version in process) and doctor (has its own check)
 		if !skipMaintenance && cmd != "upgrade" && cmd != "doctor" && cmd != "updates" && config.AutoUpdateCheckEnabled() {
 			method := versioncheck.DetectCurrentInstallMethod()
-			if result := versioncheck.Check(version, method); result != nil && result.UpdateAvailable {
+			if result := versioncheck.Check(version, method); result != nil && result.UpdateAvailable && config.AutoUpdateCheckEnabled() {
 				ui.UpdateNotification(result.CurrentVersion, result.LatestVersion, result.InstallMethod.UpgradeCommand(), versioncheck.NixConfigUpgradeHint)
 			}
 		}

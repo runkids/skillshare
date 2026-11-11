@@ -15,6 +15,7 @@ export interface VersionCheck {
 
 // Doctor health check types
 export interface DoctorCheck {
+  update_available?: boolean;
   name: string;
   status: 'pass' | 'warning' | 'error' | 'info';
   message: string;

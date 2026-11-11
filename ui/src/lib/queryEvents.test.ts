@@ -96,6 +96,7 @@ const stale: Record<QueryEvent, Label[] | { args: string[]; stale: Label[] }> = 
   targetFileRemoved: { args: ['claude'], stale: ['targetFiles'] },
 
   configSaved: ['policy', 'version', 'config', ...M, 'overview', ...T, ...S, ...X, 'extrasDiff', 'diff', 'syncMatrix', 'doctor', 'instructions', 'memory', 'memoryOverview'],
+  updatePolicyChanged: ['version', 'doctor'],
   settingsSaved: ['policy', 'config', 'version', 'doctor'],
   skillignoreSaved: ['skillignore', 'diff', 'overview', ...S, 'doctor'],
   agentignoreSaved: ['agentignore', 'diff', 'overview', ...S, 'doctor'],

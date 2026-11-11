@@ -1521,10 +1521,11 @@ func checkVersionDoctor(cfg *config.Config, result *doctorResult, isProject bool
 		return
 	}
 
-	if remote := <-remoteSkill; versioncheck.SkillOutdated(localVersion, remote) {
+	if remote := <-remoteSkill; config.AutoUpdateCheckEnabled() && versioncheck.SkillOutdated(localVersion, remote) {
 		ui.Row(ui.MarkWarn, "Skill", localVersion+" → "+remote+" available", doctorWidth)
 		result.suggest("skillshare upgrade --skill", "update the built-in skill")
 		result.addCheck("skill_version", checkWarning, fmt.Sprintf("Skill: %s (%s available)", localVersion, remote), nil)
+		result.checks[len(result.checks)-1].UpdateAvailable = true
 		result.addWarning()
 		return
 	}
@@ -1559,7 +1560,7 @@ func fetchDoctorUpdateResult() *versioncheck.CheckResult {
 }
 
 func printUpdateAvailable(update *versioncheck.CheckResult, result *doctorResult) {
-	if update == nil || !update.UpdateAvailable {
+	if update == nil || !update.UpdateAvailable || !config.AutoUpdateCheckEnabled() {
 		return
 	}
 	available := ui.VersionLabel(update.CurrentVersion) + " → " + ui.VersionLabel(update.LatestVersion) + " available"

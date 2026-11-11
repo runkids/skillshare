@@ -16,6 +16,8 @@ import { SettingsTabs } from './SettingsPage';
 import { useOverviewQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
 import { segSlide } from '../lib/segSlide';
+import { useUpdatePolicy } from '../hooks/useUpdatePolicy';
+import { doctorWithUpdatePolicy } from '../lib/doctorUpdates';
 
 type Filter = 'all' | 'error' | 'warning' | 'pass';
 
@@ -36,7 +38,9 @@ export default function DoctorPage() {
   const [upgradeMessage, setUpgradeMessage] = useState<string | null>(null);
 
   const overview = useOverviewQuery();
-  const { data, isPending, error, isFetching, refetch } = useQuery({ queryKey: queryKeys.doctor, queryFn: () => api.doctor(), staleTime: staleTimes.doctor });
+  const policy = useUpdatePolicy();
+  const { data: rawData, isPending, error, isFetching, refetch } = useQuery({ queryKey: queryKeys.doctor, queryFn: () => api.doctor(), staleTime: staleTimes.doctor });
+  const data = useMemo(() => rawData && doctorWithUpdatePolicy(rawData, policy.data?.enabled === true), [rawData, policy.data?.enabled]);
 
   const checks = useMemo(() => {
     const all = data?.checks ?? [];
@@ -163,11 +167,11 @@ export default function DoctorPage() {
             </span>
           </span>
           {upgradeMessage && <span className="text-[13px] text-ink-2">{upgradeMessage}</span>}
-          {data!.version.update_available ? (
+          {policy.data?.enabled === true && (data!.version.update_available ? (
             <Button variant="primary" size="sm" onClick={upgrade} loading={upgrading}><ArrowUpCircle size={14} />{t('updateDialog.updateNow')}</Button>
           ) : (
             <span className="ss-st ok">{t('dashboard.version.upToDate')}</span>
-          )}
+          ))}
         </div>
       )}
     </div>

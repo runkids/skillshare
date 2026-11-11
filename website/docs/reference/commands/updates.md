@@ -64,6 +64,9 @@ and require a CLI upgrade to enable the switch. Environment opt-out still works.
 `skillshare updates check`, Web Settings' **Check for updates**, desktop **Check**,
 and [upgrade](/docs/reference/commands/upgrade) remain available.
 Manual results are shown where requested, without re-enabling automatic notifications.
+Web Settings offers **Update now** after an explicit check finds an update. Cached
+Doctor update notices are hidden too; JSON checks mark these with `update_available: true`
+so unrelated diagnostic warnings remain visible.
 Desktop skill, agent, plugin and repository source checks are not release-version checks
 and are unchanged.
 
