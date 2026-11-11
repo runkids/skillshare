@@ -458,9 +458,12 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 
 	modeStr := "global"
 	cfgPath := config.ConfigPath()
+	// Loaded before the installs, so the reconcile sees what they changed.
+	var projectRT *projectRuntime
 	if mode == modeProject {
 		modeStr = "project"
 		cfgPath = config.ProjectConfigPath(cwd)
+		projectRT, _ = loadProjectRuntime(cwd)
 	}
 
 	// Group by repo: skills sharing the same CloneURL are cloned once.
@@ -545,8 +548,8 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 
 	// Phase 3: reconcile once after all installs.
 	if mode == modeProject {
-		if runtime, err := loadProjectRuntime(cwd); err == nil {
-			_ = reconcileProjectRemoteSkills(runtime)
+		if projectRT != nil {
+			_ = reconcileProjectInstalledSkills(projectRT)
 		}
 	} else {
 		store, _ := install.LoadMetadataWithMigration(cfg.EffectiveSkillsSource(), "")

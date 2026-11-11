@@ -79,6 +79,8 @@ The manifest stays in sync with your actual skill collection:
 
 In project mode, `config.yaml` and `skills.lock.json` are updated. In global mode, `.metadata.json` is updated. You never need to edit the manifest manually (though you can).
 
+An entry for a skill this machine has not installed yet (for example on a fresh clone) is kept, so `skillshare install` can still install it; it leaves the manifest only when you uninstall the skill or delete its installed folder.
+
 ## Skill Entry Fields
 
 Each entry in the `skills:` list has these fields:

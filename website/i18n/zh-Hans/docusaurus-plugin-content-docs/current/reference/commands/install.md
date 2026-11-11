@@ -268,6 +268,8 @@ skillshare install ./my-skill -p
 | Config update | 自动协调 `config.yaml` 中的 `skills:` | 自动协调 `.skillshare/config.yaml` 中的 `skills:` |
 | No-arg install | 安装配置中列出的所有 Skill | 安装配置中列出的所有 Skill |
 
+从另一个 source 或分支重新安装同一个 Skill 时（卸载之后，或用 `--force` 覆盖现有副本），它在 `.skillshare/config.yaml` 中的条目和 `skills.lock.json` 中的 pin 会被替换，队友因此会从新的 source 安装。其他条目不会被这台机器的安装记录改写。
+
 **Project mode 下的 tracked repo** 与 global 模式工作方式相同 —— 仓库会保留 `.git` 克隆下来，并添加到 `.skillshare/.gitignore` 中（该文件默认还会忽略 `.skillshare/logs/`、`.skillshare/trash/`、`.skillshare/backups/` 和 `.metadata.json` 文件）。`tracked: true` 标记会自动记录到 `.skillshare/config.yaml` 中：
 
 ```bash

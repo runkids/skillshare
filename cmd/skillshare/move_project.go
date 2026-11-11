@@ -32,6 +32,8 @@ func projectMoveMode(root string) (*moveMode, error) {
 		projectRoot:     root,
 		gitignoreDir:    gitignoreDir,
 		gitignorePrefix: prefix,
-		reconcile:       func() error { return config.ReconcileProjectSkills(root, cfg, store, sourceDir) },
+		reconcile: func(moved map[string]string) error {
+			return config.ReconcileProjectMove(root, cfg, store, sourceDir, moved)
+		},
 	}, nil
 }

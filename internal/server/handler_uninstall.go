@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
@@ -256,6 +257,17 @@ func (s *Server) uninstallSkills(items []uninstall.Item, force bool) []uninstall
 	}
 	if out.SaveErr != nil {
 		log.Printf("warning: failed to save metadata: %v", out.SaveErr)
+	}
+	if s.IsProjectMode() {
+		var removed []string
+		for _, r := range out.Results {
+			if r.Err == nil {
+				removed = append(removed, r.Item.Name)
+			}
+		}
+		if err := config.ForgetProjectSkills(s.projectRoot, s.projectCfg, removed); err != nil {
+			log.Printf("warning: failed to update project config after uninstall: %v", err)
+		}
 	}
 	return out.Results
 }

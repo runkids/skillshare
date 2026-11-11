@@ -207,7 +207,8 @@ func TestReconcileProjectSkills_AddsToConfigSkills(t *testing.T) {
 	}
 }
 
-// Issue #157: reconcile should remove config skills for uninstalled skills
+// Issue #157: reconcile should remove config skills whose folder was deleted
+// after this machine installed them.
 func TestReconcileProjectSkills_PrunesConfigSkills(t *testing.T) {
 	root := t.TempDir()
 	skillsDir := filepath.Join(root, ".skillshare", "skills")
@@ -230,6 +231,7 @@ func TestReconcileProjectSkills_PrunesConfigSkills(t *testing.T) {
 
 	store := install.NewMetadataStore()
 	store.Set("alive", &install.MetadataEntry{Source: "github.com/user/alive"})
+	store.Set("gone", &install.MetadataEntry{Source: "github.com/user/gone"})
 
 	if err := ReconcileProjectSkills(root, cfg, store, skillsDir); err != nil {
 		t.Fatalf("ReconcileProjectSkills failed: %v", err)
@@ -412,7 +414,7 @@ func TestReconcileProjectSkills_MovedSkillKeepsGroupAndPin(t *testing.T) {
 	store.Set("demo", &install.MetadataEntry{Source: "github.com/user/repo/demo", Commit: installed})
 	store.MovePath("demo", "grp/demo")
 
-	if err := ReconcileProjectSkills(root, cfg, store, skillsDir); err != nil {
+	if err := ReconcileProjectMove(root, cfg, store, skillsDir, map[string]string{"demo": "grp/demo"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -556,5 +558,134 @@ func TestReconcileProjectSkills_IgnoresCustomSourceMetadata(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "vendor/skills/.metadata.json\n") {
 		t.Errorf("project .gitignore = %q, want rule vendor/skills/.metadata.json", data)
+	}
+}
+
+// Issue #858: a skill installed again from another source must not leave the
+// old source in the committed config.
+func TestReconcileProjectInstall_ConfigFollowsReinstalledSource(t *testing.T) {
+	root := t.TempDir()
+	skillsDir := filepath.Join(root, ".skillshare", "skills")
+	if err := os.MkdirAll(filepath.Join(skillsDir, "my-skill"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &ProjectConfig{
+		Targets: []ProjectTargetEntry{{Name: "claude"}},
+		Skills:  []SkillEntry{{Name: "my-skill", Source: "old.example.com/team/skills/my-skill"}},
+	}
+	before := install.NewMetadataStore()
+	before.Set("my-skill", &install.MetadataEntry{Source: "old.example.com/team/skills/my-skill"})
+	store := install.NewMetadataStore()
+	store.Set("my-skill", &install.MetadataEntry{Source: "new.example.com/team/skills/my-skill", Branch: "main"})
+
+	if err := ReconcileProjectInstall(root, cfg, before, store, skillsDir); err != nil {
+		t.Fatalf("ReconcileProjectInstall failed: %v", err)
+	}
+
+	loaded, err := LoadProject(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := SkillEntry{Name: "my-skill", Source: "new.example.com/team/skills/my-skill", Branch: "main"}
+	if len(loaded.Skills) != 1 || loaded.Skills[0] != want {
+		t.Errorf("config skills = %+v, want [%+v]", loaded.Skills, want)
+	}
+}
+
+// A teammate's change to config.yaml must survive an install of another skill
+// on a machine whose copy still comes from the old source.
+func TestReconcileProjectInstall_KeepsDeclarationOfUntouchedSkill(t *testing.T) {
+	root := t.TempDir()
+	skillsDir := filepath.Join(root, ".skillshare", "skills")
+	if err := os.MkdirAll(filepath.Join(skillsDir, "my-skill"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &ProjectConfig{
+		Targets: []ProjectTargetEntry{{Name: "claude"}},
+		Skills:  []SkillEntry{{Name: "my-skill", Source: "new.example.com/team/skills/my-skill"}},
+	}
+	store := install.NewMetadataStore()
+	store.Set("my-skill", &install.MetadataEntry{Source: "old.example.com/team/skills/my-skill"})
+
+	if err := ReconcileProjectInstall(root, cfg, store, store, skillsDir); err != nil {
+		t.Fatalf("ReconcileProjectInstall failed: %v", err)
+	}
+
+	if got := cfg.Skills[0].Source; got != "new.example.com/team/skills/my-skill" {
+		t.Errorf("config source = %q, want the declared one kept", got)
+	}
+}
+
+// An uninstalled skill must leave the config and the lockfile, or the next
+// `install -p` brings it back; a group folder covers the skills below it.
+func TestForgetProjectSkills_DropsEntriesAndPins(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, ".skillshare")
+	cfg := &ProjectConfig{
+		Targets: []ProjectTargetEntry{{Name: "claude"}},
+		Skills: []SkillEntry{
+			{Name: "gone", Source: "example.com/r/gone"},
+			{Name: "gone-too", Source: "example.com/r/gone-too"},
+			{Name: "a", Group: "grp", Source: "example.com/r/a"},
+			{Name: "gone", Kind: "agent", Source: "example.com/r/agents/gone.md"},
+		},
+	}
+	if err := cfg.Save(root); err != nil {
+		t.Fatal(err)
+	}
+	lock := &install.Lock{Skills: map[string]install.LockEntry{
+		"gone":     {Source: "example.com/r/gone", Commit: "c1"},
+		"gone-too": {Source: "example.com/r/gone-too", Commit: "c2"},
+		"grp/a":    {Source: "example.com/r/a", Commit: "c3"},
+	}}
+	if err := lock.Save(dir); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := ForgetProjectSkills(root, cfg, []string{"gone", "grp"}); err != nil {
+		t.Fatalf("ForgetProjectSkills failed: %v", err)
+	}
+
+	loaded, err := LoadProject(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var kept []string
+	for _, s := range loaded.Skills {
+		kept = append(kept, s.EffectiveKind()+":"+s.FullName())
+	}
+	if got, want := strings.Join(kept, " "), "skill:gone-too agent:gone"; got != want {
+		t.Errorf("config skills = %q, want %q", got, want)
+	}
+	pins, err := install.LoadLock(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := pins.Skills["gone-too"]; !ok || len(pins.Skills) != 1 {
+		t.Errorf("lock pins = %v, want only gone-too", pins.Skills)
+	}
+}
+
+// On a fresh clone the config declares skills this machine has not installed
+// yet. Reconciling after another install must keep them for `install -p`.
+func TestReconcileProjectSkills_KeepsDeclaredSkillsNotInstalledHere(t *testing.T) {
+	root := t.TempDir()
+	skillsDir := filepath.Join(root, ".skillshare", "skills")
+	if err := os.MkdirAll(filepath.Join(skillsDir, "added"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &ProjectConfig{
+		Targets: []ProjectTargetEntry{{Name: "claude"}},
+		Skills:  []SkillEntry{{Name: "pending", Source: "github.com/user/pending"}},
+	}
+	store := install.NewMetadataStore()
+	store.Set("added", &install.MetadataEntry{Source: "github.com/user/added"})
+
+	if err := ReconcileProjectSkills(root, cfg, store, skillsDir); err != nil {
+		t.Fatalf("ReconcileProjectSkills failed: %v", err)
+	}
+
+	if len(cfg.Skills) != 2 || cfg.Skills[0].Name != "pending" {
+		t.Errorf("config skills = %+v, want pending kept and added appended", cfg.Skills)
 	}
 }
