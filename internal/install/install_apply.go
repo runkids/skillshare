@@ -12,7 +12,9 @@ import (
 )
 
 // buildDiscoverySkillSource constructs metadata Source string for a skill
-// selected from a discovery result.
+// selected from a discovery result. The string is shared through the project
+// config, so ParseSource must split it back into the same repository and
+// subdirectory (#859).
 func buildDiscoverySkillSource(source *Source, skillPath string) string {
 	if skillPath == "." {
 		return source.Raw
@@ -20,11 +22,39 @@ func buildDiscoverySkillSource(source *Source, skillPath string) string {
 	if source.HasSubdir() {
 		return source.Raw + "/" + skillPath
 	}
-	// Whole-repo SSH sources encode subdir using //path.
-	if source.Type == SourceTypeGitSSH {
-		return source.Raw + "//" + skillPath
+	repo := strings.TrimRight(source.Raw, "/")
+	switch {
+	// Whole-repo SSH and file:// sources encode subdir using //path.
+	case source.Type == SourceTypeGitSSH, strings.HasPrefix(source.CloneURL, "file://"):
+		return repo + "//" + skillPath
+	// GitLab and Bitbucket paths have no fixed depth: without ".git" or a web
+	// URL marker the parser takes every segment as the repository.
+	case source.webHost != "" && !strings.HasSuffix(repo, ".git") && !hasWebURLMarker(source.webHost, repo):
+		return repo + ".git/" + skillPath
 	}
-	return source.Raw + "/" + skillPath
+	return repo + "/" + skillPath
+}
+
+// hasWebURLMarker reports whether raw is a GitLab (/-/tree/ref) or Bitbucket
+// (/src/ref) web URL, which parseGitHTTPS splits at the marker in the path.
+func hasWebURLMarker(webHost, raw string) bool {
+	m := gitHTTPSPattern.FindStringSubmatch(raw)
+	if m == nil {
+		return false
+	}
+	return strings.Contains(m[3], "/-/") || webHost == "bitbucket" && strings.Contains(m[3], "/src/")
+}
+
+// isDiscoverySkillSource reports whether entry records skillPath of source.
+// Installs from before #859 recorded a single-slash source, which GitLab,
+// Bitbucket and file:// hosts also use for a repository of its own, so that
+// form counts only when the recorded repository and path agree.
+func isDiscoverySkillSource(entry *MetadataEntry, source *Source, skillPath string) bool {
+	if entry.Source == buildDiscoverySkillSource(source, skillPath) {
+		return true
+	}
+	return entry.Source == source.Raw+"/"+skillPath &&
+		repoURLsMatch(entry.RepoURL, source.CloneURL) && entry.Subdir == filepath.ToSlash(skillPath)
 }
 
 func discoverySourceRoot(discovery *DiscoveryResult) string {
@@ -127,7 +157,7 @@ func AgentRepoSource(entry *MetadataEntry, opts ParseOptions) (*Source, error) {
 		if !ok {
 			break
 		}
-		// Whole-repo SSH sources join the path with "//".
+		// Whole-repo SSH and file:// sources join the path with "//".
 		raw = strings.TrimSuffix(root, "/")
 	}
 	source, err := ParseSourceWithOptions(raw, opts)
@@ -403,7 +433,7 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 			// fullSource URL (which isn't a valid install target).
 			hint := buildForceHint(discovery.Source.Raw, opts.Into)
 			meta := LoadMetadataOrNew(opts.SourceDir).GetByPath(filepath.Join(opts.Into, filepath.Base(destPath)))
-			knownUpdate := opts.Update && meta != nil && meta.Source == fullSource && meta.Group == opts.Into && !meta.Tracked && meta.EffectiveKind() == "skill"
+			knownUpdate := opts.Update && meta != nil && isDiscoverySkillSource(meta, discovery.Source, skill.Path) && meta.Group == opts.Into && !meta.Tracked && meta.EffectiveKind() == "skill"
 			if !knownUpdate {
 				if err := checkExistingConflict(destPath, discovery.Source.CloneURL, hint); err != nil {
 					return nil, err
