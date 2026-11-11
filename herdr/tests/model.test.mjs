@@ -653,12 +653,13 @@ test("the panel's version is the release Release Please last wrote", () => {
 
 // Runs PANEL_UPDATE from 0.0.1 to a local release v9.9.9 holding `shipped`, over a Herdr home
 // whose mods/skillshare holds `installed`. Returns the result, the folder, and a reader.
-function panelUpdate999(t, shipped, installed) {
+function panelUpdate999(t, shipped, installed, homeFiles = {}) {
   const root = mkdtempSync(join(tmpdir(), "ss-panel-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const repo = join(root, "repo"), dest = join(root, "home/mods/skillshare");
   const put = (dir, files) => { for (const [f, text] of Object.entries(files)) { mkdirSync(join(dir, f, ".."), { recursive: true }); writeFileSync(join(dir, f), text); } };
   put(repo, { "README.md": "repo", ...shipped }); put(dest, installed);
+  put(join(root, "home"), homeFiles);
   const git = (...a) => spawnSync("git", ["-C", repo, "-c", "user.name=t", "-c", "user.email=t@example.com", ...a]);
   git("init", "-q"); git("add", "."); git("commit", "-qm", "release"); git("tag", "v9.9.9");
   const r = spawnSync("sh", ["-c", PANEL_UPDATE, "test", "", "v9.9.9", "0.0.1", repo], { env: { ...process.env, HERDR_APP_HOME: join(root, "home"), TMPDIR: root }, encoding: "utf8" });
@@ -672,6 +673,18 @@ test("PANEL_UPDATE installs the release's panel and keeps the files it replaced"
   const { r, root, read } = panelUpdate999(t, SHIPPED, INSTALLED);
   assert.deepEqual([r.status, read("main.js"), read("version.js"), read("icons/a.svg"), read(".bak-update-0.0.1/main.js"), readdirSync(root).sort()],
     [0, "new", 'VERSION = "9.9.9"', "icon", "old", ["home", "repo"]]);
+});
+
+test("PANEL_UPDATE preserves custom layouts and unrelated mods for either installation", (t) => {
+  const custom = {
+    "layouts/herdr-skillshare.json": '{"id":"status","content":{"mod":"status-usage"}}',
+    "layouts/my-layout.json": '{"id":"my-layout","children":[]}',
+    "mods/status-usage/main.js": "custom usage meters",
+  };
+  const shipped = { ...SHIPPED, "herdr/skillshare/layouts/herdr-skillshare.json": "default layout" };
+  const { r, root } = panelUpdate999(t, shipped, INSTALLED, custom);
+  assert.equal(r.status, 0, r.stderr);
+  for (const [name, content] of Object.entries(custom)) assert.equal(readFileSync(join(root, "home", name), "utf8"), content);
 });
 
 test("PANEL_UPDATE keeps the copy an earlier attempt made", (t) => {

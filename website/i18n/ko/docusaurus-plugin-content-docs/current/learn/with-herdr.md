@@ -15,6 +15,16 @@ sidebar_position: 8
 
 ## 설정
 
+### Mod: 현재 레이아웃 유지 (권장)
+
+독립 [Mod 패키지](https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod)를 사용하면 전체 창을 교체하지 않고 패널을 추가할 수 있습니다. Herdr 안의 에이전트에 다음 프롬프트를 붙여 넣습니다.
+
+```text
+Read ~/.config/herdr-app/AGENTS.md, then add this mod from https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod. Follow its RECIPE.md: add only the skillshare toggle and panel to my current layout, preserving my status bar, usage meters and all other customizations. Reuse existing skillshare nodes instead of duplicating them.
+```
+
+이 패키지에는 `layouts/` 폴더가 없습니다. 레시피는 skillshare 버튼과 패널만 추가하거나 재사용하며, 상태 표시줄, CLI 사용량 표시, 테마와 다른 사용자 설정을 보존합니다. Herdr 기본 레이아웃은 복제한 뒤 수정합니다.
+
 ### Herdr layouts에서
 
 이 레이아웃은 [Herdr layouts](https://herdr.dev/layouts/runkids/skillshare--herdr--skillshare/)에 등록되어 있습니다. Herdr 안의 에이전트에 다음 프롬프트를 붙여 넣습니다.
@@ -36,6 +46,8 @@ Read ~/.config/herdr-app/AGENTS.md, then add this layout: herdr.dev/layouts/runk
 탭 바에 **skillshare** 버튼이 나타나 패널을 표시하거나 숨깁니다. space를 전환해도 패널의 열림 상태는 그대로 유지됩니다.
 
 ## 패널 업데이트
+
+어느 방법으로 설치했든 에이전트로 업데이트할 때는 설치된 skillshare mod만 백업하고 교체합니다. 현재 선택된 레이아웃, 모든 레이아웃, 사용자 상태 표시줄, 사용량 표시, 설정, 키 바인딩과 다른 mod를 보존하세요. 레이아웃 조정이 필요해도 전체 레이아웃을 다시 적용하지 말고 skillshare 자체 노드만 병합합니다.
 
 패널은 표시되는 동안 한 시간에 한 번 GitHub에 최신 skillshare 릴리스를 확인합니다. 새 릴리스가 게시되면 패널 헤더에 **Update panel**이 나타납니다. 먼저 확인을 받은 뒤 `~/.config/herdr-app/mods/skillshare/`의 파일을 해당 릴리스에 포함된 파일로 교체하고, Herdr가 패널을 다시 불러옵니다. 교체된 파일은 그 폴더의 `.bak-update-<version>`에 보관됩니다. 그 파일에 직접 한 변경은 유지되지 않습니다. 레이아웃은 바뀌지 않습니다.
 

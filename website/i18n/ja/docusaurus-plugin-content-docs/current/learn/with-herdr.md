@@ -15,6 +15,16 @@ sidebar_position: 8
 
 ## セットアップ
 
+### Mod：今のレイアウトを保つ（推奨）
+
+独立した [Mod パッケージ](https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod) を使えば、ウィンドウ全体を置き換えずにパネルを追加できます。Herdr 内のエージェントに次のプロンプトを貼り付けます。
+
+```text
+Read ~/.config/herdr-app/AGENTS.md, then add this mod from https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod. Follow its RECIPE.md: add only the skillshare toggle and panel to my current layout, preserving my status bar, usage meters and all other customizations. Reuse existing skillshare nodes instead of duplicating them.
+```
+
+このパッケージに `layouts/` フォルダーはありません。レシピは skillshare のボタンとパネルだけを追加または再利用し、ステータスバー、CLI の使用量表示、テーマなどのカスタマイズを保ちます。Herdr 標準のレイアウトは複製してから編集します。
+
 ### Herdr layouts から
 
 このレイアウトは [Herdr layouts](https://herdr.dev/layouts/runkids/skillshare--herdr--skillshare/) に掲載されています。Herdr 内のエージェントに次のプロンプトを貼り付けます。
@@ -36,6 +46,8 @@ Read ~/.config/herdr-app/AGENTS.md, then add this layout: herdr.dev/layouts/runk
 タブバーに **skillshare** ボタンが表示され、パネルの表示と非表示を切り替えます。space を切り替えても、パネルの開閉状態はそのまま残ります。
 
 ## パネルの更新
+
+どちらの方法でインストールした場合も、エージェントによる更新ではインストール済みの skillshare mod だけをバックアップして置き換えます。選択中のレイアウト、すべてのレイアウト、独自のステータスバー、使用量表示、設定、キー割り当て、他の mod を保ってください。レイアウトの調整が必要な場合も、完全なレイアウトを再適用せず、skillshare 自身のノードだけをマージします。
 
 パネルは表示中、1 時間に 1 回 GitHub に最新の skillshare リリースを問い合わせます。新しいリリースが公開されると、パネルのヘッダーに **Update panel** が表示されます。確認のあと、`~/.config/herdr-app/mods/skillshare/` のファイルをそのリリースに含まれるものに置き換え、Herdr がパネルを再読み込みします。置き換えられたファイルはそのフォルダーの `.bak-update-<version>` に残ります。それらのファイルに加えた変更は引き継がれません。レイアウトは変更されません。
 
