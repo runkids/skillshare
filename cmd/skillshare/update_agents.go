@@ -751,12 +751,12 @@ func runAgentUpdates(scope agentUpdateScope, results []check.AgentCheckResult, o
 	}
 
 	if opts.jsonOutput {
-		check.EnrichAgentResultsWithRemote(tracked, nil)
+		check.EnrichAgentResultsWithRemote(tracked, nil, scope.parseOpts)
 	} else {
 		// Stopped after the check, not per remote: agents with nothing to
 		// ask a remote about never call back.
 		sp := ui.StartSpinner("Checking " + plural(len(tracked), "agent") + " for updates...")
-		check.EnrichAgentResultsWithRemote(tracked, nil)
+		check.EnrichAgentResultsWithRemote(tracked, nil, scope.parseOpts)
 		sp.Stop()
 	}
 	mergeTrackedAgentResults(results, tracked)

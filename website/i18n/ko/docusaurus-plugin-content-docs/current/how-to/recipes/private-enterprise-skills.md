@@ -18,13 +18,15 @@ skillshare는 환경 변수에서 토큰을 감지하며, 플랫폼별 변수가
 
 | 플랫폼 | 환경 변수 |
 |----------|---------------------|
-| GitHub / GitHub Enterprise | `GITHUB_TOKEN` |
-| GitLab / 자체 호스팅 GitLab | `GITLAB_TOKEN` |
+| `github.com` | `GITHUB_TOKEN` |
+| `gitlab.com` | `GITLAB_TOKEN` |
 | Bitbucket | `BITBUCKET_TOKEN` (+ 선택적 `BITBUCKET_USERNAME`) |
 | Azure DevOps | `AZURE_DEVOPS_TOKEN` |
 | Gitea / 자체 호스팅 Gitea | `GITEA_TOKEN` |
 | CNB | `CNB_TOKEN` |
 | 모든 플랫폼 (대체) | `SKILLSHARE_GIT_TOKEN` |
+
+공급자 토큰은 HTTPS 기본 포트(또는 443)의 `github.com`, `gitlab.com`, `bitbucket.org`, `dev.azure.com`, `*.visualstudio.com`, `gitea.com`, `cnb.cool`에만 전송됩니다. 자체 호스팅 Gitea/CNB는 이름에 공급자 이름이 포함되어도 `gitea_hosts`/`cnb_hosts`에 정확한 호스트명을 등록해야 합니다. 자체 호스팅 GitHub/GitLab 등에는 호스트별 Git credential helper를 사용하거나 해당 실행에만 `SKILLSHARE_GIT_TOKEN`을 설정하세요. 이 범용 폴백은 **모든 HTTPS 소스**에 전송될 수 있습니다. 공급자처럼 보이는 이름만으로는 공급자 토큰 전송이 허용되지 않습니다.
 
 ```bash
 # 옵션 A: Git credential helper (GitHub에 권장)
@@ -80,8 +82,8 @@ skillshare sync     # Target에 반영
 
 - **선택적 설치**: `skillshare install your-org/internal-skills --skill code-review`는 하나의 Skill만 설치합니다
 - **CI/CD 토큰**: 파이프라인에서는 CI 시크릿으로부터 플랫폼별 환경 변수(예: `GITHUB_TOKEN`)를 설정하세요
-- **자체 호스팅 GitLab**: `GITLAB_TOKEN`을 설정하고 HTTPS URL을 사용하세요: `skillshare install https://gitlab.internal.com/team/skills.git --track`
-- **자체 호스팅 Gitea**: `GITEA_TOKEN`을 설정하세요. 호스트명에 `gitea`가 포함되어 있지 않다면 [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts)에도 등록하세요
+- **자체 호스팅 GitHub/GitLab**: 호스트별 Git credential helper를 사용하거나 해당 실행에만 지정하세요: `SKILLSHARE_GIT_TOKEN=your-token skillshare install https://gitlab.internal.com/team/skills.git --track`. `GITHUB_TOKEN`/`GITLAB_TOKEN`은 자체 호스팅에 전송되지 않습니다.
+- **자체 호스팅 Gitea**: `GITEA_TOKEN`을 설정하고 항상 정확한 호스트명을 [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts)에 등록하세요.
 - **Gitee / AtomGit**: `SKILLSHARE_GIT_TOKEN`을 사용한 HTTPS URL로 지원됩니다
 
 ## 관련 문서

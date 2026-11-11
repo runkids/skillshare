@@ -131,6 +131,8 @@ $ skillshare install anthropics/skills
 
 Discovery scans all directories for `SKILL.md` files except `.git` and target directories such as `.claude/` and `.agents/`, which usually hold copies of the repository's skills. Other hidden directories like `.curated/` or `.system/` are scanned, so their skills are discovered automatically. A repository with no other skills has its root `.agents/skills/` scanned instead. When multiple skills are found, the prompt lists skills from the same folder together and shows each one's description and folder; press `/` to narrow a long list.
 
+The `.agents/skills/` fallback requires both `.agents` and `skills` to be real directories, not symlinks or junctions, even with `follow_source_links: true`. An intentionally followed repository root remains supported. Discovered agent installs and updates reject intermediate or final destination links; audits run before publication, and a blocked audit leaves existing agent contents unchanged.
+
 If the repository contains a `.skillignore` file at its root, matching skills are automatically excluded from discovery. See [.skillignore](#skillignore) below.
 
 If a skill's `SKILL.md` includes a `license:` frontmatter field, the license is shown in the selection prompt (e.g., `my-skill (MIT)`) and in the confirmation screen for single-skill installs.
@@ -547,13 +549,17 @@ skillshare install https://github.com/org/private-skills.git --track
 
 | Platform | Env Var | Token Type |
 |----------|---------|------------|
-| GitHub | `GITHUB_TOKEN` | Personal access token (`repo` scope) |
-| GitLab | `GITLAB_TOKEN` | Personal access or CI job token |
+| `github.com` | `GITHUB_TOKEN` | Personal access token (`repo` scope) |
+| `gitlab.com` | `GITLAB_TOKEN` | Personal access or CI job token |
 | Bitbucket | `BITBUCKET_TOKEN` | Repository token, or app password (with `BITBUCKET_USERNAME`) |
 | Azure DevOps | `AZURE_DEVOPS_TOKEN` | Personal Access Token (Code: Read scope) |
 | Gitea | `GITEA_TOKEN` | Access token (repository: Read) |
 | CNB | `CNB_TOKEN` | Access token with repository read permission |
 | Any host | `SKILLSHARE_GIT_TOKEN` | Generic fallback |
+
+Provider tokens are sent only over HTTPS on the default port (or 443): `github.com`, `gitlab.com`, `bitbucket.org`, `dev.azure.com`, `*.visualstudio.com`, `gitea.com`, and `cnb.cool`. Self-hosted Gitea/CNB requires an exact hostname in `gitea_hosts`/`cnb_hosts`, even if its name contains the provider name. For self-hosted GitHub/GitLab or other hosts, use a host-scoped Git credential helper, or set `SKILLSHARE_GIT_TOKEN` only for the intended invocation. That generic fallback can be sent to **any HTTPS source**; provider-looking names do not authorize provider tokens.
+
+Provider tokens are sent only over HTTPS on the default port (or 443): `github.com`, `gitlab.com`, `bitbucket.org`, `dev.azure.com`, `*.visualstudio.com`, `gitea.com`, and `cnb.cool`. Self-hosted Gitea/CNB requires an exact hostname in `gitea_hosts`/`cnb_hosts`, even if its name contains the provider name. For self-hosted GitHub/GitLab or other hosts, use a host-scoped Git credential helper, or set `SKILLSHARE_GIT_TOKEN` only for the intended invocation. That generic fallback can be sent to **any HTTPS source**; provider-looking names do not authorize provider tokens.
 
 Platform-specific variables take priority over `SKILLSHARE_GIT_TOKEN`.
 

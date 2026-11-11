@@ -18,13 +18,15 @@ skillshare detects tokens from environment variables, with platform-specific var
 
 | Platform | Environment Variable |
 |----------|---------------------|
-| GitHub / GitHub Enterprise | `GITHUB_TOKEN` |
-| GitLab / Self-hosted GitLab | `GITLAB_TOKEN` |
+| `github.com` | `GITHUB_TOKEN` |
+| `gitlab.com` | `GITLAB_TOKEN` |
 | Bitbucket | `BITBUCKET_TOKEN` (+ optional `BITBUCKET_USERNAME`) |
 | Azure DevOps | `AZURE_DEVOPS_TOKEN` |
 | Gitea / Self-hosted Gitea | `GITEA_TOKEN` |
 | CNB | `CNB_TOKEN` |
 | Any platform (fallback) | `SKILLSHARE_GIT_TOKEN` |
+
+Provider tokens are sent only over HTTPS on the default port (or 443): `github.com`, `gitlab.com`, `bitbucket.org`, `dev.azure.com`, `*.visualstudio.com`, `gitea.com`, and `cnb.cool`. Self-hosted Gitea/CNB requires an exact hostname in `gitea_hosts`/`cnb_hosts`, even if its name contains the provider name. For self-hosted GitHub/GitLab or other hosts, use a host-scoped Git credential helper, or set `SKILLSHARE_GIT_TOKEN` only for the intended invocation. That generic fallback can be sent to **any HTTPS source**; provider-looking names do not authorize provider tokens.
 
 ```bash
 # Option A: Git credential helper (recommended for GitHub)
@@ -80,8 +82,8 @@ skillshare sync     # Push to targets
 
 - **Selective install**: `skillshare install your-org/internal-skills --skill code-review` installs only one skill
 - **CI/CD token**: In pipelines, set the platform-specific env var (e.g., `GITHUB_TOKEN`) from CI secrets
-- **Self-hosted GitLab**: Set `GITLAB_TOKEN` and use HTTPS URL: `skillshare install https://gitlab.internal.com/team/skills.git --track`
-- **Self-hosted Gitea**: Set `GITEA_TOKEN`. If the hostname does not contain `gitea`, also list it in [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts)
+- **Self-hosted GitHub/GitLab**: Use a host-scoped Git credential helper, or provide the token only for this invocation: `SKILLSHARE_GIT_TOKEN=your-token skillshare install https://gitlab.internal.com/team/skills.git --track`. `GITHUB_TOKEN`/`GITLAB_TOKEN` are not sent to self-hosted instances.
+- **Self-hosted Gitea**: Set `GITEA_TOKEN` and always list the exact hostname in [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts).
 - **Gitee / AtomGit**: Supported via HTTPS URLs with `SKILLSHARE_GIT_TOKEN`
 
 ## Related

@@ -13,6 +13,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/skillpkg"
+	"skillshare/internal/sourcewalk"
 )
 
 func writeFile(t *testing.T, path, content string) {
@@ -146,6 +147,100 @@ func TestBuild_SkipsParentOfExcludedNestedSkill(t *testing.T) {
 	}
 	if len(c.Skills) != 0 || !hasWarning(c, "suite/child") {
 		t.Errorf("skills=%v warnings=%v, want suite skipped because of excluded child", c.Skills, c.Skipped)
+	}
+}
+
+func TestBuild_RefusesAgentsFallbackAliasesOfExcludedSkills(t *testing.T) {
+	orig := sourcewalk.TargetDotDirs
+	sourcewalk.TargetDotDirs = map[string]bool{".agents": true}
+	defer func() { sourcewalk.TargetDotDirs = orig }()
+
+	for _, component := range []string{".agents", "skills"} {
+		for _, follow := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/follow=%t", component, follow), func(t *testing.T) {
+				hub := t.TempDir()
+				src := filepath.Join(hub, "skills")
+				writeFile(t, filepath.Join(src, "private", "SKILL.md"), skillMD("private"))
+				writeFile(t, filepath.Join(src, "private", "secret.txt"), "excluded-private-marker")
+				repo := filepath.Join(src, "_public")
+				if err := os.MkdirAll(filepath.Join(repo, ".git"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				link := filepath.Join(repo, ".agents")
+				if component == "skills" {
+					if err := os.MkdirAll(link, 0o755); err != nil {
+						t.Fatal(err)
+					}
+					link = filepath.Join(link, "skills")
+				}
+				// .agents points to hub; skills points to the skills source.
+				if err := os.Symlink("../..", link); err != nil {
+					t.Fatal(err)
+				}
+				b := &Builder{Source: src, Target: "claude", Skills: &config.ResourceTargetConfig{Include: []string{"_public__*"}}}
+				if follow {
+					b.Walk.Follow = sourcewalk.NewFollow(src, nil)
+				}
+				c, err := b.Build()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(c.Skills) != 0 {
+					t.Errorf("excluded skill published through fallback alias: %v", c.Skills)
+				}
+				for _, prefix := range []string{"private", "_public/.agents/skills/private"} {
+					if _, ok := c.Skill("skill://" + prefix + "/SKILL.md"); ok {
+						t.Errorf("excluded skill published at %s", prefix)
+					}
+					uri := "skill://" + prefix + "/secret.txt"
+					if c.Revision(uri) != "" {
+						t.Errorf("excluded file listed at %s", uri)
+					}
+					if data, err := c.Read(uri); err == nil || len(data) != 0 {
+						t.Errorf("Read(%s) = %q, %v; want rejection", uri, data, err)
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestBuild_ServesRealAgentsFallbackThroughFollowedRepoRoot(t *testing.T) {
+	orig := sourcewalk.TargetDotDirs
+	sourcewalk.TargetDotDirs = map[string]bool{".agents": true}
+	defer func() { sourcewalk.TargetDotDirs = orig }()
+
+	for _, followedRoot := range []bool{false, true} {
+		t.Run(fmt.Sprintf("followed=%t", followedRoot), func(t *testing.T) {
+			src := t.TempDir()
+			repo := filepath.Join(src, "_public")
+			if followedRoot {
+				repo = t.TempDir()
+				if err := os.Symlink(repo, filepath.Join(src, "_public")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := os.MkdirAll(filepath.Join(repo, ".git"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, filepath.Join(repo, ".agents", "skills", "public", "SKILL.md"), skillMD("public"))
+			writeFile(t, filepath.Join(repo, ".agents", "skills", "public", "reference.txt"), "public-marker")
+			b := &Builder{Source: src, Target: "claude", Skills: &config.ResourceTargetConfig{Include: []string{"_public__*"}}}
+			if followedRoot {
+				b.Walk.Follow = sourcewalk.NewFollow(src, nil)
+			}
+			c, err := b.Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			const prefix = "skill://_public/.agents/skills/public/"
+			if len(c.Skills) != 1 || find(c, prefix+"SKILL.md") == nil {
+				t.Fatalf("real fallback not published: skills=%v warnings=%v", c.Skills, c.Skipped)
+			}
+			if data, err := c.Read(prefix + "reference.txt"); err != nil || string(data) != "public-marker" {
+				t.Errorf("Read real fallback = %q, %v", data, err)
+			}
+		})
 	}
 }
 

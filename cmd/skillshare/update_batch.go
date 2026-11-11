@@ -31,6 +31,7 @@ func (uc *updateContext) isProject() bool {
 
 func (uc *updateContext) makeInstallOpts() install.InstallOptions {
 	opts := install.InstallOptions{
+		ParseOptions:   uc.parseOpts,
 		Force:          true,
 		AuditOverride:  uc.opts.force,
 		Reinstall:      uc.opts.force,

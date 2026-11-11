@@ -284,3 +284,63 @@ func TestAgentsSkillsDirThroughLinkedRoot(t *testing.T) {
 		})
 	}
 }
+
+func TestAgentsSkillsDirRequiresRealDirectories(t *testing.T) {
+	dotDirs := map[string]bool{".agents": true}
+	for _, linkedRoot := range []bool{false, true} {
+		rootName := "real root"
+		if linkedRoot {
+			rootName = "linked root"
+		}
+		t.Run(rootName, func(t *testing.T) {
+			for _, tt := range []struct {
+				name      string
+				component string
+				link      bool
+				want      bool
+			}{
+				{name: "real fallback", want: true},
+				{name: "linked .agents", component: ".agents", link: true},
+				{name: "linked skills", component: ".agents/skills", link: true},
+				{name: "file .agents", component: ".agents"},
+				{name: "file skills", component: ".agents/skills"},
+			} {
+				t.Run(tt.name, func(t *testing.T) {
+					repo := t.TempDir()
+					if tt.want {
+						write(t, filepath.Join(repo, ".agents", "skills", "x", "SKILL.md"))
+					} else {
+						component := filepath.Join(repo, filepath.FromSlash(tt.component))
+						if err := os.MkdirAll(filepath.Dir(component), 0755); err != nil {
+							t.Fatal(err)
+						}
+						if tt.link {
+							outside := t.TempDir()
+							write(t, filepath.Join(outside, "skills", "x", "SKILL.md"))
+							target := outside
+							if tt.component == ".agents/skills" {
+								target = filepath.Join(outside, "skills")
+							}
+							symlink(t, target, component)
+						} else {
+							write(t, component)
+						}
+					}
+					root := repo
+					if linkedRoot {
+						root = filepath.Join(t.TempDir(), "repo")
+						symlink(t, repo, root)
+					}
+					dir, ok := AgentsSkillsDir(root, dotDirs)
+					wantDir := ""
+					if tt.want {
+						wantDir = filepath.Join(root, ".agents", "skills")
+					}
+					if ok != tt.want || dir != wantDir {
+						t.Fatalf("AgentsSkillsDir() = %q, %v; want %q, %v", dir, ok, wantDir, tt.want)
+					}
+				})
+			}
+		})
+	}
+}

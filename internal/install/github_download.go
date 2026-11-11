@@ -230,18 +230,18 @@ func fetchLatestCommitHash(owner, repo, apiBase string, source *Source) (string,
 
 	// Fallback for edge cases (e.g. GHE API path differences): use git ls-remote.
 	if source != nil && source.CloneURL != "" {
-		return getRemoteHeadCommit(source.CloneURL)
+		return getRemoteHeadCommit(source.CloneURL, source.authEnv())
 	}
 
 	return "", fmt.Errorf("failed to fetch latest commit hash")
 }
 
-func getRemoteHeadCommit(cloneURL string) (string, error) {
+func getRemoteHeadCommit(cloneURL string, extraEnv []string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), gitCommandTimeout)
 	defer cancel()
 
 	cmd := gitCommand(ctx, "ls-remote", cloneURL, "HEAD")
-	cmd.Env = append(cmd.Env, authEnv(cloneURL)...)
+	cmd.Env = append(cmd.Env, extraEnv...)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err

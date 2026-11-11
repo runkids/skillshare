@@ -160,7 +160,7 @@ func applyRemote(p *initPlan, res *initResult, hadRepo bool) {
 		res.warnings = append(res.warnings, fmt.Sprintf("%s already had a git repo, so the remote's skills were not pulled. Run: skillshare pull", utils.FoldHomePath(res.gitRoot)))
 		return
 	}
-	if err := pullRemote(res.gitRoot, p.remoteURL); err != nil {
+	if err := pullRemote(res.gitRoot, p.remoteURL, parseOptsFromConfig(res.cfg)); err != nil {
 		res.pullErr = err
 		return
 	}

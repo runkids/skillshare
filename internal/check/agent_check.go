@@ -142,7 +142,7 @@ func checkOneAgent(store *install.MetadataStore, sourcePath, relPath string) Age
 // EnrichAgentResultsWithRemote checks agents that have RepoURL + Version
 // against the remote head of the branch they were installed from.
 // Each remote branch is probed once; every agent is compared with its own version.
-func EnrichAgentResultsWithRemote(results []AgentCheckResult, onDone func()) {
+func EnrichAgentResultsWithRemote(results []AgentCheckResult, onDone func(), parseOpts install.ParseOptions) {
 	groups := make(map[remoteKey][]int)
 	var refs []remoteKey
 	for i, r := range results {
@@ -162,7 +162,7 @@ func EnrichAgentResultsWithRemote(results []AgentCheckResult, onDone func()) {
 
 	inputs := make([]URLCheckInput, len(refs))
 	for i, ref := range refs {
-		inputs[i] = URLCheckInput{RepoURL: ref.url, Branch: ref.branch}
+		inputs[i] = URLCheckInput{RepoURL: ref.url, Branch: ref.branch, ParseOptions: parseOpts}
 	}
 
 	outputs := ParallelCheckURLs(inputs, onDone)

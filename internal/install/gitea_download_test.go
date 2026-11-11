@@ -28,7 +28,7 @@ func TestGiteaDownloadDir_WritesNestedFiles(t *testing.T) {
 	defer srv.Close()
 
 	dest := t.TempDir()
-	if err := giteaDownloadDirRecursive(srv.Client(), srv.URL+"/api/v1", "o", "r", "skills", dest, nil); err != nil {
+	if err := giteaDownloadDirRecursive(srv.Client(), nil, srv.URL+"/api/v1", "o", "r", "skills", dest, nil); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dest, "ref", "a.md"))
@@ -49,7 +49,7 @@ func TestGiteaDownloadDir_RefusesDownloadURLOnAnotherHost(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	err := giteaDownloadDirRecursive(srv.Client(), srv.URL+"/api/v1", "o", "r", "", t.TempDir(), nil)
+	err := giteaDownloadDirRecursive(srv.Client(), nil, srv.URL+"/api/v1", "o", "r", "", t.TempDir(), nil)
 	if err == nil || !strings.Contains(err.Error(), "not on the API host") {
 		t.Fatalf("err = %v", err)
 	}
@@ -64,7 +64,7 @@ func TestGiteaDownloadDir_RefusesTraversalName(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	if err := giteaDownloadDirRecursive(srv.Client(), srv.URL, "o", "r", "", t.TempDir(), nil); err == nil {
+	if err := giteaDownloadDirRecursive(srv.Client(), nil, srv.URL, "o", "r", "", t.TempDir(), nil); err == nil {
 		t.Fatal("expected an error for a \"..\" name")
 	}
 }
@@ -84,11 +84,69 @@ func TestCNBDownloadDir_WritesBlobFromTree(t *testing.T) {
 	defer srv.Close()
 
 	dest := t.TempDir()
-	if err := cnbDownloadDirRecursive(srv.Client(), srv.URL, "org/repo", "skills", dest, nil); err != nil {
+	if err := cnbDownloadDirRecursive(srv.Client(), nil, srv.URL, "org/repo", "skills", dest, nil); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dest, "SKILL.md"))
 	if err != nil || string(got) != "hello" {
 		t.Fatalf("file = %q, %v", got, err)
+	}
+}
+
+func TestForgeRequestsScopeProviderCredentials(t *testing.T) {
+	tests := []struct {
+		name, url, variable, want string
+		hosts                     []string
+		request                   func(string, []string) (*http.Request, error)
+	}{
+		{"Gitea public", "https://gitea.com/api/v1/repos/o/r", "GITEA_TOKEN", "token audit-dummy", nil, giteaNewRequest},
+		{"Gitea lookalike", "https://gitea.attacker.invalid/api/v1/repos/o/r", "GITEA_TOKEN", "", nil, giteaNewRequest},
+		{"Gitea explicit", "https://forge.company.invalid/api/v1/repos/o/r", "GITEA_TOKEN", "token audit-dummy", []string{"forge.company.invalid"}, giteaNewRequest},
+		{"Gitea plaintext", "http://forge.company.invalid/api/v1/repos/o/r", "GITEA_TOKEN", "", []string{"forge.company.invalid"}, giteaNewRequest},
+		{"CNB public", "https://cnb.cool/o/r/-/git/contents", "CNB_TOKEN", "Bearer audit-dummy", nil, cnbNewRequest},
+		{"CNB lookalike", "https://cnb.cool.attacker.invalid/o/r/-/git/contents", "CNB_TOKEN", "", nil, cnbNewRequest},
+		{"CNB explicit", "https://forge.company.invalid/o/r/-/git/contents", "CNB_TOKEN", "Bearer audit-dummy", []string{"forge.company.invalid"}, cnbNewRequest},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resetAuthTestEnv(t)
+			t.Setenv(tt.variable, "audit-dummy")
+			req, err := tt.request(tt.url, tt.hosts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := req.Header.Get("Authorization"); got != tt.want {
+				t.Fatalf("Authorization = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestForgeFallbackPreservesCredentialOrigin(t *testing.T) {
+	for _, sourceURL := range []string{
+		"http://forge.company.invalid/o/r.git",
+		"https://forge.company.invalid:8443/o/r.git",
+	} {
+		t.Run(sourceURL, func(t *testing.T) {
+			resetAuthTestEnv(t)
+			t.Setenv("GITEA_TOKEN", "audit-dummy")
+			t.Setenv("CNB_TOKEN", "audit-dummy")
+			source := &Source{CloneURL: sourceURL}
+			for _, constructor := range []struct {
+				base    string
+				request func(string, []string) (*http.Request, error)
+			}{
+				{giteaAPIBase(source), giteaNewRequest},
+				{forgeAPIOrigin(source), cnbNewRequest},
+			} {
+				req, err := constructor.request(constructor.base, []string{"forge.company.invalid"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got := req.Header.Get("Authorization"); got != "" {
+					t.Fatalf("fallback changed credential origin: %s received authorization", req.URL)
+				}
+			}
+		})
 	}
 }

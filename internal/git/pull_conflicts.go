@@ -49,8 +49,8 @@ func (e *PullConflictError) Error() string {
 }
 
 // PullWithResolution retries a pull with the user's reviewed choices, preserving both histories.
-func PullWithResolution(repoPath string, resolution *PullResolution) (*UpdateInfo, error) {
-	return pullWithResolution(repoPath, AuthEnvForRepo(repoPath), nil, resolution)
+func PullWithResolution(repoPath string, resolution *PullResolution, opts install.ParseOptions) (*UpdateInfo, error) {
+	return pullWithResolution(repoPath, AuthEnvForRepo(repoPath, opts), nil, resolution)
 }
 
 func conflictVersion(dir, path string, stage int) ConflictVersion {

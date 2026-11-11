@@ -190,6 +190,8 @@ SKILLSHARE_UI_TRUSTED_ORIGINS=https://tools.example.com skillshare ui --host 0.0
 
 ### GITHUB_TOKEN
 
+공급자 토큰은 HTTPS 기본 포트(또는 443)의 `github.com`, `gitlab.com`, `bitbucket.org`, `dev.azure.com`, `*.visualstudio.com`, `gitea.com`, `cnb.cool`에만 전송됩니다. 자체 호스팅 Gitea/CNB는 이름에 공급자 이름이 포함되어도 `gitea_hosts`/`cnb_hosts`에 정확한 호스트명을 등록해야 합니다. 자체 호스팅 GitHub/GitLab 등에는 호스트별 Git credential helper를 사용하거나 해당 실행에만 `SKILLSHARE_GIT_TOKEN`을 설정하세요. 이 범용 폴백은 **모든 HTTPS 소스**에 전송될 수 있습니다. 공급자처럼 보이는 이름만으로는 공급자 토큰 전송이 허용되지 않습니다.
+
 GitHub 개인 액세스 토큰입니다.
 
 **사용처:**
@@ -348,7 +350,7 @@ skillshare install https://gitea.com/org/skills.git --track
 $env:GITEA_TOKEN = "your_token"
 ```
 
-토큰은 설치 대상 호스트에만 전송됩니다. 이름에 `gitea`가 포함되지 않은 자체 호스팅 인스턴스는 [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts) 설정이 필요하며, 그렇지 않으면 해당 호스트에는 `SKILLSHARE_GIT_TOKEN`이 사용됩니다.
+자체 호스팅 Gitea는 이름에 `gitea`가 포함되어도 `GITEA_TOKEN` 전송을 위해 [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts)에 정확한 호스트명을 등록해야 합니다. 공급자 인증은 HTTPS 기본 포트 또는 443으로 제한됩니다.
 
 ### CNB_TOKEN
 

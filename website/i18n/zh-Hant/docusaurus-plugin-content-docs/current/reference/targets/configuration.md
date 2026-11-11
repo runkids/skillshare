@@ -842,7 +842,7 @@ SKILLSHARE_AZURE_HOSTS=azuredevops.mycompany.com skillshare install \
 
 ### `gitea_hosts`
 
-自架的 Gitea 實例主機名稱。名稱中包含 `gitea` 的主機，例如 `gitea.com` 或 `gitea.company.com`，會自動被偵測。此欄位只在其他自訂網域時才需要。
+自架 Gitea 即使名稱包含 `gitea`，也必須在 [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts) 中設定完整相符的主機名稱才能傳送 `GITEA_TOKEN`。平台認證僅支援 HTTPS 預設連接埠或 443。
 
 ```yaml
 gitea_hosts:

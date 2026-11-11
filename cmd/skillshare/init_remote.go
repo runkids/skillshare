@@ -9,8 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"skillshare/internal/config"
 	gitops "skillshare/internal/git"
 	"skillshare/internal/gitenv"
+	"skillshare/internal/install"
 	ssync "skillshare/internal/sync"
 )
 
@@ -53,7 +55,7 @@ func inspectRemote(url string) *remoteRepo {
 	defer cancel()
 	repo := filepath.Join(tmp, "repo")
 	cmd := gitenv.CommandContext(ctx, "clone", "--depth", "1", "--quiet", "--", url, repo)
-	cmd.Env = remoteFetchEnv(url)
+	cmd.Env = remoteFetchEnv(url, parseOptsFromConfig(&config.Config{}))
 	if out, err := cmd.CombinedOutput(); err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			r.reason = "timed out"
@@ -105,12 +107,12 @@ func remoteFailureReason(out string) string {
 
 // pullRemote fetches origin and moves the repo at gitRoot onto the remote's
 // default branch. The caller must make sure gitRoot holds no work of its own.
-func pullRemote(gitRoot, url string) error {
+func pullRemote(gitRoot, url string, parseOpts install.ParseOptions) error {
 	ctx, cancel := context.WithTimeout(context.Background(), remoteFetchTimeout*4)
 	defer cancel()
 	fetch := gitenv.CommandContext(ctx, "fetch", "origin")
 	fetch.Dir = gitRoot
-	fetch.Env = remoteFetchEnv(url)
+	fetch.Env = remoteFetchEnv(url, parseOpts)
 	if out, err := fetch.CombinedOutput(); err != nil {
 		return fmt.Errorf("fetch failed: %s", remoteFailureReason(string(out)))
 	}

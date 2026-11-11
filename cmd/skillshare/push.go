@@ -190,10 +190,10 @@ func hintGitRemoteError(output string) {
 }
 
 // gitPush pushes to remote, auto-setting upstream on first push.
-func gitPush(sourcePath string, spinner *ui.Spinner) error {
+func gitPush(sourcePath string, spinner *ui.Spinner, opts install.ParseOptions) error {
 	spinner.Update("Pushing to remote...")
 
-	authEnv := gitops.AuthEnvForRepo(sourcePath)
+	authEnv := gitops.AuthEnvForRepo(sourcePath, opts)
 	cmd := gitenv.Command(gitops.PushArgs(sourcePath, authEnv)...)
 	cmd.Dir = sourcePath
 	cmd.Env = append(cmd.Env, "LC_ALL=C")
@@ -251,7 +251,7 @@ func cmdPush(args []string) (err error) {
 		return err
 	}
 	if cfg.GitRoot == "root" {
-		if err := gitops.CheckUnpushedConfigHistory(source); err != nil {
+		if err := gitops.CheckUnpushedConfigHistory(source, parseOptsFromConfig(cfg)); err != nil {
 			spinner.Fail("Cannot safely push config.yaml history")
 			return err
 		}
@@ -318,7 +318,7 @@ func cmdPush(args []string) (err error) {
 	if opts.pull {
 		pullStart := time.Now()
 		spinner = ui.StartSpinner("Pulling from remote...")
-		info, _, err := integrateRemote(source, false, cfg.GitRoot == "root", spinner)
+		info, _, err := integrateRemote(source, false, cfg.GitRoot == "root", spinner, parseOptsFromConfig(cfg))
 		if err != nil {
 			if hasChanges {
 				ui.Note("Your changes are committed locally; resolve, then run: skillshare push --pull")
@@ -351,12 +351,12 @@ func cmdPush(args []string) (err error) {
 	}
 
 	if cfg.GitRoot == "root" {
-		if err := gitops.CheckUnpushedConfigHistory(source); err != nil {
+		if err := gitops.CheckUnpushedConfigHistory(source, parseOptsFromConfig(cfg)); err != nil {
 			return err
 		}
 	}
 	spinner = ui.StartSpinner("Pushing to remote...")
-	if err := gitPush(source, spinner); err != nil {
+	if err := gitPush(source, spinner, parseOptsFromConfig(cfg)); err != nil {
 		return err
 	}
 

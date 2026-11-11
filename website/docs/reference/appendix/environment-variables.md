@@ -197,6 +197,8 @@ See [Reverse Proxy](/docs/reference/commands/ui#reverse-proxy).
 
 GitHub personal access token.
 
+Provider tokens are sent only over HTTPS on the default port (or 443): `github.com`, `gitlab.com`, `bitbucket.org`, `dev.azure.com`, `*.visualstudio.com`, `gitea.com`, and `cnb.cool`. Self-hosted Gitea/CNB requires an exact hostname in `gitea_hosts`/`cnb_hosts`, even if its name contains the provider name. For self-hosted GitHub/GitLab or other hosts, use a host-scoped Git credential helper, or set `SKILLSHARE_GIT_TOKEN` only for the intended invocation. That generic fallback can be sent to **any HTTPS source**; provider-looking names do not authorize provider tokens.
+
 **Used for:**
 - GitHub API requests (`skillshare search`, `skillshare upgrade`, version check)
 - **Git clone authentication** — automatically injected when installing private repos via HTTPS
@@ -353,7 +355,7 @@ skillshare install https://gitea.com/org/skills.git --track
 $env:GITEA_TOKEN = "your_token"
 ```
 
-The token is sent only to the host you install from. A self-hosted instance on a domain without `gitea` in its name needs [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts), otherwise `SKILLSHARE_GIT_TOKEN` is used for it.
+Self-hosted Gitea requires an exact hostname in [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts) to authorize `GITEA_TOKEN`, even when the name contains `gitea`. Provider authentication requires HTTPS on the default port or 443.
 
 ### CNB_TOKEN
 

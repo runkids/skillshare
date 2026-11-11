@@ -26,13 +26,25 @@ func (e *RateLimitError) Error() string {
 	return msg
 }
 
-// NewClient creates an HTTP client for GitHub/GHE APIs.
+// NewClient keeps provider authorization on the initial forge API or hub origin.
 func NewClient() *http.Client {
-	return &http.Client{Timeout: 15 * time.Second}
+	return &http.Client{
+		Timeout: 15 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return fmt.Errorf("stopped after 10 redirects")
+			}
+			if req.URL.Scheme != via[0].URL.Scheme || !strings.EqualFold(req.URL.Host, via[0].URL.Host) {
+				req.Header.Del("Authorization")
+				req.Header.Del("PRIVATE-TOKEN")
+			}
+			return nil
+		},
+	}
 }
 
-// NewRequest creates a GET request with default GitHub headers and optional
-// token auth (GITHUB_TOKEN / GH_TOKEN / gh auth token).
+// NewRequest creates a GET request with default GitHub headers. GitHub
+// credentials are attached only to its public API and raw-content HTTPS origins.
 func NewRequest(url string) (*http.Request, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -41,8 +53,13 @@ func NewRequest(url string) (*http.Request, error) {
 
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
-	if token := GetToken(); token != "" {
-		req.Header.Set("Authorization", "token "+token)
+	if req.URL.Scheme == "https" && (req.URL.Port() == "" || req.URL.Port() == "443") {
+		switch strings.ToLower(req.URL.Hostname()) {
+		case "api.github.com", "raw.githubusercontent.com":
+			if token := GetToken(); token != "" {
+				req.Header.Set("Authorization", "token "+token)
+			}
+		}
 	}
 
 	return req, nil

@@ -167,13 +167,8 @@ internal/install/github_download.go	writeDownloadedFile	os.OpenFile	destPath	clo
 internal/install/gitignore.go	writeGitignoreLines	os.WriteFile	path	source-unmigrated
 internal/install/install.go	<package>	os.RemoveAll	<ref>	source-unmigrated
 internal/install/install.go	<package>	os.RemoveAll	<ref>	source-unmigrated
-internal/install/install_apply.go	UpdateAgentFromDiscovery	os.MkdirAll	filepath.Dir(destFile)	agents
-internal/install/install_apply.go	UpdateAgentFromDiscovery	os.MkdirTemp	""	tmp
-internal/install/install_apply.go	UpdateAgentFromDiscovery	os.RemoveAll	tempDir	tmp
-internal/install/install_apply.go	UpdateAgentFromDiscovery	os.Rename	tempFile, destFile	agents
-internal/install/install_apply.go	UpdateAgentFromDiscovery	os.WriteFile	destFile	agents
-internal/install/install_apply.go	installAgentFromDiscoveryInternal	os.MkdirAll	filepath.Dir(destFile)	agents
-internal/install/install_apply.go	installAgentFromDiscoveryInternal	os.WriteFile	destFile	agents
+internal/install/install_apply.go	installAgentFromDiscoveryInternal	os.MkdirTemp	""	tmp
+internal/install/install_apply.go	installAgentFromDiscoveryInternal	os.RemoveAll	tempDir	tmp
 internal/install/install_apply.go	installFromDiscoveryInternal	os.MkdirAll	workDest	source-unmigrated
 internal/install/install_apply.go	installFromDiscoveryInternal	os.MkdirTemp	""	tmp
 internal/install/install_apply.go	installFromDiscoveryInternal	os.RemoveAll	tempDir	tmp
@@ -543,3 +538,4 @@ internal/version/check.go	saveCacheAt	os.WriteFile	cachePath	config
 internal/config/config.go	(*Config).Save	os.MkdirAll	dir	config
 internal/config/config.go	(*Config).Save	os.WriteFile	path	config
 internal/plugin/state.go	(*Service).saveState	os.MkdirAll	s.managedRoot()	config
+internal/testutil/private_git.go	ServePrivateGit	os.Mkdir	filepath.Join(root, "org")	test-helper
