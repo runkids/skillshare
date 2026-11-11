@@ -473,24 +473,17 @@ func TestOMPStaleCatalogRecovery(t *testing.T) {
 	writeFile(t, cacheDir, "catalog.json", `{"version":"2.6.0"}`)
 	run := s.Run
 	failInstall, failRefresh, adds, installs := true, true, 0, 0
+	registeredSnapshot := ""
 	s.Run = func(ctx context.Context, dir string, env []string, bin string, args ...string) ([]byte, error) {
 		if bin == "omp" && len(args) > 2 && args[1] == "marketplace" && args[2] == "add" {
 			adds++
-			if adds > 1 {
-				raw, err := os.ReadFile(filepath.Join(source, "package.json"))
-				if err != nil {
-					t.Fatal(err)
-				}
-				if err := os.WriteFile(filepath.Join(cacheDir, "catalog.json"), raw, 0600); err != nil {
-					t.Fatal(err)
-				}
-			}
+			registeredSnapshot = args[3]
 		}
 		if bin == "omp" && len(args) > 2 && args[1] == "marketplace" && args[2] == "update" {
 			if failRefresh {
 				return nil, errors.New("catalog refresh failed")
 			}
-			raw, err := os.ReadFile(filepath.Join(source, "package.json"))
+			raw, err := os.ReadFile(filepath.Join(registeredSnapshot, "content", "package.json"))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -505,7 +498,7 @@ func TestOMPStaleCatalogRecovery(t *testing.T) {
 			installs++
 			var cached struct{ Version string }
 			raw, err := os.ReadFile(filepath.Join(cacheDir, "catalog.json"))
-			if err != nil || json.Unmarshal(raw, &cached) != nil || cached.Version != "2.9.1" && cached.Version != "2.9.2" {
+			if err != nil || json.Unmarshal(raw, &cached) != nil || cached.Version != "2.9.1" {
 				t.Fatalf("native install used stale catalog: %s %v", raw, err)
 			}
 		}
@@ -527,24 +520,21 @@ func TestOMPStaleCatalogRecovery(t *testing.T) {
 	b := hostPackages(t, s)["demo"].Bindings["omp"]
 	reg := readJSON(t, filepath.Join(root, "installed_plugins.json"))
 	entry := reg["plugins"].(map[string]any)[b.ID].([]any)[0].(map[string]any)
-	if b.Version != "2.9.1" || entry["version"] != "2.9.1" || entry["installPath"] != ompCachePath(filepath.Join(os.Getenv("HOME"), ".omp/plugins/cache/plugins"), b.ID, "2.9.1") {
-		t.Fatalf("wrong reviewed/native version: %+v %+v", b, entry)
+	var cached struct{ Version string }
+	cachedRaw, err := os.ReadFile(filepath.Join(cacheDir, "catalog.json"))
+	if err != nil || json.Unmarshal(cachedRaw, &cached) != nil {
+		t.Fatalf("cached catalog: %s %v", cachedRaw, err)
 	}
-	setVersion("2.9.2")
-	applyPluginRequest(t, s, Request{Action: "update", Name: "demo"})
-	b = hostPackages(t, s)["demo"].Bindings["omp"]
-	reg = readJSON(t, filepath.Join(root, "installed_plugins.json"))
-	entry = reg["plugins"].(map[string]any)[b.ID].([]any)[0].(map[string]any)
-	if b.Version != "2.9.2" || entry["version"] != "2.9.2" {
-		t.Fatalf("update lost native version: %+v %+v", b, entry)
+	if b.Version != "2.9.1" || entry["version"] != cached.Version || entry["installPath"] != ompCachePath(filepath.Join(os.Getenv("HOME"), ".omp/plugins/cache/plugins"), b.ID, cached.Version) {
+		t.Fatalf("wrong reviewed/native version: %+v %+v", b, entry)
 	}
 }
 
 func TestOMPMismatchedNativeVersionRemoval(t *testing.T) {
 	for _, project := range []bool{false, true} {
-		for _, mode := range []string{"normal", "interrupted", "pending-only"} {
+		for _, mode := range []string{"normal", "interrupted", "pending-only", "update-all", "deselect"} {
 			t.Run(fmt.Sprintf("project=%t/mode=%s", project, mode), func(t *testing.T) {
-				s, _, root, old := ompSourceChangeFixture(t, project, "demo-runtime")
+				s, source, root, old := ompSourceChangeFixture(t, project, "demo-runtime")
 				cacheRoot := filepath.Join(os.Getenv("HOME"), ".omp/plugins/cache/plugins")
 				oldCache := ompCachePath(cacheRoot, old.ID, old.Version)
 				nativeCache := ompCachePath(cacheRoot, old.ID, "0.9.0")
@@ -576,13 +566,21 @@ func TestOMPMismatchedNativeVersionRemoval(t *testing.T) {
 						t.Fatal(err)
 					}
 				}
-				receiveOMPSource(t, s, ompReplacementSource(t, "demo-runtime"))
 				r := Request{Action: "sync", Name: "demo"}
+				switch mode {
+				case "update-all":
+					writeFile(t, source, "skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo\n---\nUpdated")
+					r = Request{Action: "update", All: true}
+				case "deselect":
+					applyPluginRequest(t, s, Request{Action: "disable", Name: "demo", Targets: []string{"omp"}})
+				default:
+					receiveOMPSource(t, s, ompReplacementSource(t, "demo-runtime"))
+				}
 				p, err := s.Preview(context.Background(), r)
-				if err != nil || p.Blocked || len(p.Changes) != 2 {
+				if err != nil || p.Blocked || len(p.Changes) != map[bool]int{true: 1, false: 2}[mode == "deselect"] {
 					t.Fatalf("preview: %+v %v", p, err)
 				}
-				if mode != "normal" {
+				if mode == "interrupted" || mode == "pending-only" || mode == "update-all" {
 					release, err := ompAcquireLock(filepath.Join(root, "installed_plugins.json"))
 					if err != nil {
 						t.Fatal(err)
@@ -605,11 +603,38 @@ func TestOMPMismatchedNativeVersionRemoval(t *testing.T) {
 						t.Fatalf("retry preview lost reviewed identity: %+v %v", p, err)
 					}
 				}
-				if _, err := s.Apply(context.Background(), r, p.Revision); err != nil {
-					t.Fatalf("apply: %v", err)
+				result, err := s.Apply(context.Background(), r, p.Revision)
+				if err != nil {
+					t.Fatalf("apply: %+v %v", result, err)
 				}
-				if _, err := os.Stat(filepath.Join(nativeCache, "package.json")); err != nil {
-					t.Fatalf("shared cache lost: %v", err)
+				reg = readJSON(t, filepath.Join(root, "installed_plugins.json"))
+				if _, exists := reg["plugins"].(map[string]any)[old.ID]; exists {
+					t.Fatal("old native registration remains")
+				}
+				if mode == "deselect" {
+					if _, err := os.Lstat(link); !os.IsNotExist(err) {
+						t.Fatalf("old link remains: %v", err)
+					}
+					local := readState(t, s).state.Bindings["demo"]["omp"]
+					if local.Applied == nil || local.Applied.Binding.Version != old.Version {
+						t.Fatalf("uninstall lost reviewed version: %+v", local.Applied)
+					}
+					applyPluginRequest(t, s, Request{Action: "enable", Name: "demo", Targets: []string{"omp"}})
+					applyPluginRequest(t, s, Request{Action: "sync", Name: "demo"})
+				}
+				b := hostPackages(t, s)["demo"].Bindings["omp"]
+				reg = readJSON(t, filepath.Join(root, "installed_plugins.json"))
+				newEntry, exists := reg["plugins"].(map[string]any)[b.ID]
+				if !exists || (mode != "deselect" && b.ID == old.ID) {
+					t.Fatalf("replacement registration missing: %+v", b)
+				}
+				newPath := newEntry.([]any)[0].(map[string]any)["installPath"].(string)
+				newLink, err := os.Readlink(link)
+				if err != nil || newLink == nativeCache || newLink != newPath {
+					t.Fatalf("replacement link missing or still old: %s %v", newLink, err)
+				}
+				if mode == "update-all" && (len(result.Results) != 2 || result.Results[1].Status != "installed") {
+					t.Fatalf("retry outcome: %+v", result)
 				}
 			})
 		}

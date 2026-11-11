@@ -560,10 +560,12 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 					c.Message = "Imported installation has no reinstall source; install it in the native client, then sync again."
 					c.MessageKey = "plugins.note.importInstallRequired"
 				}
+				local := d.state.Bindings[name][target]
+				pendingRemoval := local.Pending != nil && (local.Pending.Action == "remove" || local.Pending.Action == "forget" || local.Pending.Action == "uninstall") && local.Pending.Store == s.storeIdentity(target) && local.Pending.Binding.ID == b.ID
 				switch {
 				case c.Action == "forget" && agent != "omp" || c.Action == "selection":
 					p.Changes = append(p.Changes, c)
-				case c.Action == "update" && agent == "omp" && exists && b.Source != "":
+				case agent == "omp" && b.Source != "" && (c.Action == "update" && exists || r.Action == "update" && c.Action == "install" && pendingRemoval):
 					// OMP's native upgrade replaces cache another project may still use.
 					// Refresh the way a source change does: remove only this scope's
 					// registration, keep the cache, and install the new commit under a

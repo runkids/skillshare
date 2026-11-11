@@ -211,7 +211,16 @@ func TestOMPRemovalRejectsUnverifiedNativeIdentity(t *testing.T) {
 			case "foreign path":
 				path = filepath.Join(t.TempDir(), "foreign")
 			case "unsafe version":
-				version = "../other"
+				version = "nested/other"
+				path = ompCachePath(filepath.Join(os.Getenv("HOME"), ".omp/plugins/cache/plugins"), b.ID, version)
+				writeFile(t, path, "package.json", `{"name":"demo-runtime","version":"nested/other"}`)
+				link := filepath.Join(root, "node_modules", "demo-runtime")
+				if err := os.Remove(link); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(path, link); err != nil {
+					t.Fatal(err)
+				}
 			}
 			entry := map[string]string{"scope": scope, "installPath": path, "version": version}
 			entries := []any{entry}

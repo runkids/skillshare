@@ -49,7 +49,7 @@ skillshare plugin remove review --no-tui
 
 ## オプション
 
-失敗を含むドライランは全プランを表示して 0 以外で終了し、JSON の変更には `failed: true` が付きます。意図的なスキップは保留のままです。
+失敗を含むドライランは全プランを表示して 0 以外で終了し、分離された失敗には JSON で `failed: true` が付きます。意図的なスキップは保留のままです。
 
 | オプション | 意味 |
 |---|---|
@@ -138,7 +138,7 @@ skillshare plugin import demo@my-market --from omp --dry-run --json -g
 ランタイムの package 名は、マーケットプレイス名だけでなく、レビュー済みの source から決まります。既存のモジュールディレクトリやリンクは
 置き換えられずにインストールをブロックします。配置先はプレビューに紐付けられ、インストール前に再確認されます。
 アダプタは plugin のツリーをまとめて保ち、
-ネイティブのマーケットプレイスインストールを使います。カタログは `.omp-plugin/marketplace.json` を優先し、OMP カタログが存在しない場合に限り
+ネイティブのマーケットプレイスインストールを使い、結果の登録を検証します。カタログは `.omp-plugin/marketplace.json` を優先し、OMP カタログが存在しない場合に限り
 `.claude-plugin/marketplace.json` にフォールバックします。OMP entry は `package.json` に
 `omp.extensions` または `pi.extensions` を宣言した package を参照でき、npm 名が異なる場合や未指定でも marketplace の
 plugin 名を使います。各カタログが同名 plugin を別のフォルダに置く場合、OMP は独自のパス、

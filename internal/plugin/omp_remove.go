@@ -199,14 +199,14 @@ func (s *Service) ompRemovalPlan(b Binding, cacheRoot string) (*ompRemoval, erro
 		}
 	}
 	for id, raw := range plugins {
+		if id == b.ID {
+			continue // This entry was validated before choosing the cache.
+		}
 		var entries []struct{ Scope, InstallPath, Version string }
 		if json.Unmarshal(raw, &entries) != nil || len(entries) != 1 {
 			return nil, fmt.Errorf("ambiguous OMP installed entries")
 		}
 		e := entries[0]
-		if id == b.ID {
-			continue // This entry was validated before choosing the cache.
-		}
 		other, _, valid := strings.Cut(id, "@")
 		if !valid || !filepath.IsAbs(e.InstallPath) || ompSafePath(e.InstallPath) != nil {
 			return nil, fmt.Errorf("another OMP runtime owner cannot be verified")

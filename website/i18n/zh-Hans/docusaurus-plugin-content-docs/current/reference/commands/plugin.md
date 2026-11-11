@@ -54,7 +54,7 @@ target 会保存该选择。下一次 `sync plugins` 会移除其受管理的安
 
 ## 选项
 
-包含失败的预演会输出完整计划并以非零状态退出；JSON 变更包含 `failed: true`。有意跳过的目标仍保持待处理。
+包含失败的预演会输出完整计划并以非零状态退出；隔离的失败在 JSON 中包含 `failed: true`。有意跳过的目标仍保持待处理。
 
 | Option | Meaning |
 |---|---|
@@ -153,7 +153,7 @@ skillshare plugin import demo@my-market --from omp --dry-run --json -g
 安装需要 OMP **18.6.1+**、经审核的本地/Git 来源、一个经过验证且从未使用过的 cache 目标位置，
 以及一个尚不存在的作用域本地运行时目标位置。运行时 package 名称来自经审核的来源，而不仅仅是
 marketplace 名称。已存在的模块目录或链接会阻止安装，而不会被替换；目标位置会绑定到预览，并在
-安装前再次检查。适配器会让 plugin 树保持完整，使用原生 marketplace 安装。
+安装前再次检查。适配器会让 plugin 树保持完整，使用原生 marketplace 安装，并验证产生的注册。
 Catalog 优先使用 `.omp-plugin/marketplace.json`，仅在 OMP catalog 不存在时回退到
 `.claude-plugin/marketplace.json`。OMP entry 可以指向在 `package.json` 中声明 `omp.extensions` 或 `pi.extensions`
 的包；即使 npm 名称不同或缺失，也会使用 marketplace 的 plugin 名称。

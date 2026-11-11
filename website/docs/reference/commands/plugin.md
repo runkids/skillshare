@@ -172,7 +172,7 @@ The runtime package name comes from the reviewed source, not just the marketplac
 name. Existing module directories or links block installation rather than being
 replaced; the destination is bound to the preview and checked again before install.
 The adapter keeps the plugin tree together,
-uses native marketplace installation. Catalogs can use
+uses native marketplace installation, and verifies the resulting registration. Catalogs can use
 `.omp-plugin/marketplace.json`, with `.claude-plugin/marketplace.json` as a fallback
 only when no OMP catalog exists. An OMP catalog entry can point to a package with
 `omp.extensions` or `pi.extensions` in `package.json`; its marketplace name identifies the plugin even
@@ -501,7 +501,7 @@ never supplies native trust approval flags.
   installed from that marketplace, as Codex also does when it starts.
 - An update reports a failed target and its reason while continuing healthy targets;
   intentional skips remain pending for a later sync. A dry run prints the complete
-  plan and exits nonzero on failure; JSON changes include `failed: true`.
+  plan and exits nonzero on failure; isolated failures include `failed: true` in JSON.
 - Imported plugins retain their original marketplace identity. `check` cannot
   infer release availability for an imported plugin without a source, except an npm
   package in Pi, which it checks against npm. If an

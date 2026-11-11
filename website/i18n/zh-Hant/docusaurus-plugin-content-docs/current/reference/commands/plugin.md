@@ -53,7 +53,7 @@ target 會儲存這個選擇。下一次 `sync plugins` 會移除其受管理的
 
 ## Options
 
-包含失敗的預演會輸出完整計畫並以非零狀態結束；JSON 變更包含 `failed: true`。有意略過的目標仍保持待處理。
+包含失敗的預演會輸出完整計畫並以非零狀態結束；隔離的失敗在 JSON 中包含 `failed: true`。有意略過的目標仍保持待處理。
 
 | Option | Meaning |
 |---|---|
@@ -153,7 +153,7 @@ skillshare plugin import demo@my-market --from omp --dry-run --json -g
 安裝需要 OMP **18.6.1+**、已審閱的本機/Git source、一個經過驗證且先前未使用過的 cache
 目的地，以及尚不存在的 scope 本機 runtime 目的地。Runtime 套件名稱來自已審閱的 source，
 而不只是 marketplace 名稱。既有的 module 目錄或連結會擋下安裝，而不會被取代；目的地會綁定
-到預覽，並在安裝前再次檢查。Adapter 會讓 plugin 樹保持完整，使用原生 marketplace 安裝。Catalog 優先使用 `.omp-plugin/marketplace.json`，只有在 OMP catalog 不存在時才退回
+到預覽，並在安裝前再次檢查。Adapter 會讓 plugin 樹保持完整，使用原生 marketplace 安裝，並驗證產生的註冊結果。Catalog 優先使用 `.omp-plugin/marketplace.json`，只有在 OMP catalog 不存在時才退回
 `.claude-plugin/marketplace.json`。OMP entry 可以指向在 `package.json` 宣告 `omp.extensions` 或 `pi.extensions`
 的套件；即使 npm 名稱不同或未提供，也會使用 marketplace 的 plugin 名稱。
 不同 catalog 將同名 plugin 放在不同目錄時，OMP 會保留自己的路徑、版本與 components。
