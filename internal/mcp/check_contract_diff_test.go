@@ -102,37 +102,40 @@ func TestCompareContractsBoundsDiagnosticLocations(t *testing.T) {
 	}
 }
 
-func TestCompareContractsMixedOmissionAccounting(t *testing.T) {
+func TestCompareContractsOmissionAccounting(t *testing.T) {
 	fieldsA, fieldsB := []string{}, []string{}
 	for i := 0; i < 225; i++ {
 		fieldsA = append(fieldsA, fmt.Sprintf(`"k%03d":0`, i))
 		fieldsB = append(fieldsB, fmt.Sprintf(`"k%03d":1`, i))
 	}
-	a := capturedContract(t, `,"description":"one","extension":{`+strings.Join(fieldsA, ",")+`}`)
-	b := capturedContract(t, `,"description":"two","extension":{`+strings.Join(fieldsB, ",")+`}`)
-	changes, omitted := compareContracts(map[string]ToolContract{"fixture": a}, map[string]ToolContract{"fixture": b})
-	if len(changes) != 200 || omitted != 26 {
-		t.Fatal("mixed details lost", len(changes), omitted)
+	mixedOld := map[string]ToolContract{"fixture": capturedContract(t, `,"description":"one","extension":{`+strings.Join(fieldsA, ",")+`}`)}
+	mixedNew := map[string]ToolContract{"fixture": capturedContract(t, `,"description":"two","extension":{`+strings.Join(fieldsB, ",")+`}`)}
+	many := map[string]ToolContract{}
+	for i := 0; i < 230; i++ {
+		many[fmt.Sprintf("tool-%03d", i)] = capturedContract(t, "")
 	}
-	t.Run("CompareContractsCountsEveryOmittedDetail", func(t *testing.T) {
-		old, now := map[string]ToolContract{}, map[string]ToolContract{}
-		for i := 0; i < 230; i++ {
-			now[fmt.Sprintf("tool-%03d", i)] = capturedContract(t, "")
-		}
-		changes, omitted := compareContracts(old, now)
-		if len(changes) != 200 || omitted != 30 {
-			t.Fatal(len(changes), omitted)
-		}
-		changes, omitted = compareContracts(now, old)
-		if len(changes) != 200 || omitted != 30 {
-			t.Fatal(len(changes), omitted)
-		}
-		for _, c := range changes {
-			if c.Grade != "BREAKING" {
-				t.Fatal(c)
+	for _, tt := range []struct {
+		name     string
+		old, now map[string]ToolContract
+		omitted  int
+		grade    string
+	}{
+		{"mixed", mixedOld, mixedNew, 26, ""},
+		{"added", nil, many, 30, ""},
+		{"removed", many, nil, 30, "BREAKING"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			changes, omitted := compareContracts(tt.old, tt.now)
+			if len(changes) != 200 || omitted != tt.omitted {
+				t.Fatal(len(changes), omitted)
 			}
-		}
-	})
+			for _, change := range changes {
+				if tt.grade != "" && change.Grade != tt.grade {
+					t.Fatal(change)
+				}
+			}
+		})
+	}
 }
 
 func TestCompareContractsExactNumericExtremes(t *testing.T) {
@@ -152,28 +155,16 @@ func TestCompareContractsExactNumericExtremes(t *testing.T) {
 	}
 }
 
-func TestCompareContractsNumericEnumsNeverInferLexicalDirection(t *testing.T) {
-	for _, tt := range []struct{ before, after string }{
-		{`[1,1.0]`, `[1]`},
-		{`[1]`, `[1,1.0]`},
-		{`[1e0,1.00]`, `[1.00]`},
-		{`[0,-0]`, `[0]`},
-		{`[{"x":[1]},{"x":[1.0]}]`, `[{"x":[1]}]`},
-		{`[[{"x":1}]]`, `[[{"x":1}],[{"x":1.0}]]`},
-		{`["one"]`, `["one",{"nested":{"value":1}}]`},
-		{`[1]`, `[1,2]`},
-	} {
-		a := schemaContract(t, `{"properties":{"x":{"enum":`+tt.before+`}}}`)
-		b := schemaContract(t, `{"properties":{"x":{"enum":`+tt.after+`}}}`)
-		changes, _ := compareContracts(map[string]ToolContract{"fixture": a}, map[string]ToolContract{"fixture": b})
-		if len(changes) != 1 || changes[0].Grade != "UNKNOWN" || changes[0].Path != "/inputSchema/properties/x/enum" {
-			t.Fatal("numeric enum given lexical direction", tt, changes)
-		}
-		if a.Hash == b.Hash || a.InputHash == b.InputHash {
-			t.Fatal("numeric enum fingerprint lexemes lost", tt)
-		}
-	}
+func TestCompareContractsEnumDirections(t *testing.T) {
 	for _, tt := range []struct{ before, after, grade string }{
+		{`[1,1.0]`, `[1]`, "UNKNOWN"},
+		{`[1]`, `[1,1.0]`, "UNKNOWN"},
+		{`[1e0,1.00]`, `[1.00]`, "UNKNOWN"},
+		{`[0,-0]`, `[0]`, "UNKNOWN"},
+		{`[{"x":[1]},{"x":[1.0]}]`, `[{"x":[1]}]`, "UNKNOWN"},
+		{`[[{"x":1}]]`, `[[{"x":1}],[{"x":1.0}]]`, "UNKNOWN"},
+		{`["one"]`, `["one",{"nested":{"value":1}}]`, "UNKNOWN"},
+		{`[1]`, `[1,2]`, "UNKNOWN"},
 		{`["one"]`, `["one","two"]`, "EXPANDED"},
 		{`["one","two"]`, `["one"]`, "BREAKING"},
 		{`[{"x":["one"]}]`, `[{"x":["one"]},false,null]`, "EXPANDED"},
@@ -181,8 +172,11 @@ func TestCompareContractsNumericEnumsNeverInferLexicalDirection(t *testing.T) {
 		a := schemaContract(t, `{"properties":{"x":{"enum":`+tt.before+`}}}`)
 		b := schemaContract(t, `{"properties":{"x":{"enum":`+tt.after+`}}}`)
 		changes, _ := compareContracts(map[string]ToolContract{"fixture": a}, map[string]ToolContract{"fixture": b})
-		if len(changes) != 1 || changes[0].Grade != tt.grade {
-			t.Fatal("nonnumeric subset direction lost", tt, changes)
+		if len(changes) != 1 || changes[0].Grade != tt.grade || changes[0].Path != "/inputSchema/properties/x/enum" {
+			t.Fatal("enum direction", tt, changes)
+		}
+		if a.Hash == b.Hash || a.InputHash == b.InputHash {
+			t.Fatal("enum fingerprint lost", tt)
 		}
 	}
 }

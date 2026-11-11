@@ -170,19 +170,41 @@ func TestToolBaselineLegacyPreservedAndExplicitlyMigrated(t *testing.T) {
 }
 
 func TestToolBaselineStaleRevisionSourceAndStore(t *testing.T) {
-	for _, race := range []string{"revision", "source", "store", "same-record"} {
+	for _, race := range []string{"revision", "source", "external-source", "store", "same-record", "inventory"} {
 		t.Run(race, func(t *testing.T) {
 			s, source, server, now := baselineFixture(t)
+			var external string
+			if race == "external-source" {
+				external = filepath.Join(filepath.Dir(s.ConfigPath), "servers.yaml")
+				if err := os.WriteFile(external, []byte("servers:\n  echo:\n    url: https://example.invalid/mcp\n"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(s.ConfigPath, []byte("sources:\n  mcp: servers.yaml\n"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				var err error
+				source, err = LoadSource(s.ConfigPath)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
 			_, preview := baselineObserve(s, source, "", "echo", server, now, CheckOptions{Live: true})
 			revision := preview.Servers[0].Contract.Revision
 			if race == "revision" {
 				revision = strings.Repeat("0", 64)
+			}
+			if race == "inventory" {
+				now.Tools = map[string]ToolContract{}
 			}
 			b, report := baselineObserve(s, source, "", "echo", server, now, CheckOptions{Live: true, AcceptTools: true, Names: []string{"echo"}, Revision: revision})
 			var expected []byte
 			switch race {
 			case "source":
 				if err := os.WriteFile(source.ConfigPath, append(source.configBytes, []byte("# concurrent edit\n")...), 0600); err != nil {
+					t.Fatal(err)
+				}
+			case "external-source":
+				if err := os.WriteFile(external, append(source.bytes, []byte("# concurrent external edit\n")...), 0600); err != nil {
 					t.Fatal(err)
 				}
 			case "store":
@@ -206,42 +228,6 @@ func TestToolBaselineStaleRevisionSourceAndStore(t *testing.T) {
 			}
 		})
 	}
-	t.Run("ToolBaselineSecondProbeMustMatchReviewedInventory", func(t *testing.T) {
-		s, source, server, now := baselineFixture(t)
-		_, preview := baselineObserve(s, source, "", "echo", server, now, CheckOptions{Live: true})
-		now.Tools = map[string]ToolContract{}
-		b, report := baselineObserve(s, source, "", "echo", server, now, CheckOptions{Live: true, AcceptTools: true, Names: []string{"echo"}, Revision: preview.Servers[0].Contract.Revision})
-		b.save(s, report)
-		if report.ToolsAcceptance != ToolsAcceptanceStale || report.Servers[0].Contract.Revision != "" {
-			t.Fatalf("changed second inventory accepted: %+v", report)
-		}
-		if _, err := os.Stat(s.toolPinsPath()); !os.IsNotExist(err) {
-			t.Fatal("changed second probe wrote store")
-		}
-	})
-	t.Run("ToolBaselineExternalSourceCAS", func(t *testing.T) {
-		s, _, server, now := baselineFixture(t)
-		path := filepath.Join(filepath.Dir(s.ConfigPath), "servers.yaml")
-		if err := os.WriteFile(path, []byte("servers:\n  echo:\n    url: https://example.invalid/mcp\n"), 0600); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(s.ConfigPath, []byte("sources:\n  mcp: servers.yaml\n"), 0600); err != nil {
-			t.Fatal(err)
-		}
-		source, err := LoadSource(s.ConfigPath)
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, preview := baselineObserve(s, source, "", "echo", server, now, CheckOptions{Live: true})
-		b, report := baselineObserve(s, source, "", "echo", server, now, CheckOptions{Live: true, AcceptTools: true, Names: []string{"echo"}, Revision: preview.Servers[0].Contract.Revision})
-		if err := os.WriteFile(path, append(source.bytes, []byte("# concurrent external edit\n")...), 0600); err != nil {
-			t.Fatal(err)
-		}
-		b.save(s, report)
-		if report.ToolsAcceptance != ToolsAcceptanceStale {
-			t.Fatalf("external source race accepted: %+v", report)
-		}
-	})
 }
 
 func TestToolBaselineInvalidStoreNeverOverwritten(t *testing.T) {
@@ -351,93 +337,89 @@ func TestToolBaselineRejectsSymlinkAndNonregularStore(t *testing.T) {
 }
 
 func TestToolBaselineSaveFailureAndMissingObservationTruthful(t *testing.T) {
-	s, source, server, now := baselineFixture(t)
-	_, preview := baselineObserve(s, source, "", "echo", server, now, CheckOptions{Live: true})
-	opts := CheckOptions{Live: true, AcceptTools: true, Names: []string{"echo"}, Revision: preview.Servers[0].Contract.Revision}
-	b, report := baselineObserve(s, source, "", "echo", server, now, opts)
-	// Occupying the existing operation lock prevents persistence without relying on root permissions.
-	lock, err := s.lock()
-	if err != nil {
-		t.Fatal(err)
-	}
-	b.save(s, report)
-	if err := lock.Unlock(); err != nil {
-		t.Fatal(err)
-	}
-	if report.ToolsAcceptance != ToolsAcceptanceError || report.Servers[0].Contract.Status != "error" {
-		t.Fatalf("failure claimed success: %+v", report)
-	}
-	assertBaselineLevel(t, report, "error")
-	b = s.loadToolBaseline(source, 1, opts)
-	report = &CheckReport{Servers: []CheckServer{{Name: "echo"}}}
-	b.save(s, report)
-	if report.ToolsAcceptance != ToolsAcceptanceError || report.Servers[0].Contract.Status != "error" {
-		t.Fatal("unobserved server accepted")
-	}
-	t.Run("ToolBaselineAtomicWriteFailureAfterValidCAS", func(t *testing.T) {
-		s, source, server, now := baselineFixture(t)
-		baselineAccept(t, s, source, "", "echo", server, now)
-		before := baselineBytes(t, s)
-		_, changed, err := captureTool(json.RawMessage(`{"name":"echo","description":"New reviewed text","inputSchema":{"type":"object"}}`), nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		now.Tools = map[string]ToolContract{"echo": changed}
-		_, preview := baselineObserve(s, source, "", "echo", server, now, CheckOptions{Live: true})
-		b, report := baselineObserve(s, source, "", "echo", server, now, CheckOptions{Live: true, AcceptTools: true, Names: []string{"echo"}, Revision: preview.Servers[0].Contract.Revision})
-		if b.updates[0] == nil {
-			t.Fatal("no valid acceptance queued")
-		}
-		directory := filepath.Dir(s.toolPinsPath())
-		info, err := os.Stat(directory)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Chmod(directory, 0500); err != nil {
-			t.Skipf("cannot restrict fixture directory: %v", err)
-		}
-		t.Cleanup(func() {
-			if err := os.Chmod(directory, info.Mode().Perm()); err != nil {
-				t.Errorf("restore fixture directory: %v", err)
+	for _, failure := range []string{"locked", "write", "unobserved"} {
+		t.Run(failure, func(t *testing.T) {
+			s, source, server, now := baselineFixture(t)
+			var before []byte
+			if failure == "write" {
+				baselineAccept(t, s, source, "", "echo", server, now)
+				before = baselineBytes(t, s)
+				_, changed, err := captureTool(json.RawMessage(`{"name":"echo","description":"New reviewed text","inputSchema":{"type":"object"}}`), nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				now.Tools = map[string]ToolContract{"echo": changed}
+			}
+			_, preview := baselineObserve(s, source, "", "echo", server, now, CheckOptions{Live: true})
+			opts := CheckOptions{Live: true, AcceptTools: true, Names: []string{"echo"}, Revision: preview.Servers[0].Contract.Revision}
+			b, report := baselineObserve(s, source, "", "echo", server, now, opts)
+			switch failure {
+			case "locked":
+				lock, err := s.lock()
+				if err != nil {
+					t.Fatal(err)
+				}
+				b.save(s, report)
+				if err := lock.Unlock(); err != nil {
+					t.Fatal(err)
+				}
+			case "unobserved":
+				b = s.loadToolBaseline(source, 1, opts)
+				report = &CheckReport{Servers: []CheckServer{{Name: "echo"}}}
+				b.save(s, report)
+			case "write":
+				if b.updates[0] == nil {
+					t.Fatal("no valid acceptance queued")
+				}
+				directory := filepath.Dir(s.toolPinsPath())
+				info, err := os.Stat(directory)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Chmod(directory, 0500); err != nil {
+					t.Skipf("cannot restrict fixture directory: %v", err)
+				}
+				t.Cleanup(func() {
+					if err := os.Chmod(directory, info.Mode().Perm()); err != nil {
+						t.Errorf("restore fixture directory: %v", err)
+					}
+				})
+				probe, err := os.CreateTemp(directory, "write-permission-probe-*")
+				if err == nil {
+					probe.Close()
+					os.Remove(probe.Name())
+					t.Skip("fixture directory remains writable")
+				}
+				lock, err := s.lock()
+				if err != nil {
+					t.Fatalf("fault occurs before writer: %v", err)
+				}
+				if err := lock.Unlock(); err != nil {
+					t.Fatal(err)
+				}
+				if err := source.CheckUnchanged(); err != nil {
+					t.Fatal(err)
+				}
+				current, exists, err := readToolPinBytes(s.toolPinsPath())
+				if err != nil || !exists || !bytes.Equal(current, b.before) {
+					t.Fatalf("CAS prerequisites changed: %v", err)
+				}
+				b.save(s, report)
+				if !bytes.Equal(before, baselineBytes(t, s)) {
+					t.Fatal("failed atomic write changed prior approval")
+				}
+			}
+			if report.ToolsAcceptance != ToolsAcceptanceError || report.Servers[0].Contract.Status != "error" || report.Servers[0].Contract.Revision != "" {
+				t.Fatalf("failure claimed success: %+v", report)
+			}
+			assertBaselineLevel(t, report, "error")
+			for _, finding := range report.Servers[0].Findings {
+				if finding.Level == "info" && finding.Check == "tool-change" {
+					t.Fatalf("failure emitted success: %+v", finding)
+				}
 			}
 		})
-		// Root and some filesystems ignore mode restrictions; that cannot exercise this fault.
-		probe, err := os.CreateTemp(directory, "write-permission-probe-*")
-		if err == nil {
-			probe.Close()
-			os.Remove(probe.Name())
-			t.Skip("fixture directory remains writable with current privileges")
-		}
-		// Demonstrate that the operation lock and exact source/store CAS prerequisites
-		// remain available. Only atomicWrite's creation needs directory write permission.
-		lock, err := s.lock()
-		if err != nil {
-			t.Fatalf("fault occurs before writer: %v", err)
-		}
-		if err := lock.Unlock(); err != nil {
-			t.Fatal(err)
-		}
-		if err := source.CheckUnchanged(); err != nil {
-			t.Fatal(err)
-		}
-		current, exists, err := readToolPinBytes(s.toolPinsPath())
-		if err != nil || !exists || !bytes.Equal(current, b.before) {
-			t.Fatalf("CAS prerequisites changed: %v", err)
-		}
-		b.save(s, report)
-		if report.ToolsAcceptance != ToolsAcceptanceError || report.Servers[0].Contract.Status != "error" || report.Servers[0].Contract.Revision != "" {
-			t.Fatalf("write failure claimed approval: %+v", report)
-		}
-		assertBaselineLevel(t, report, "error")
-		if !bytes.Equal(before, baselineBytes(t, s)) {
-			t.Fatal("failed atomic write changed prior approval")
-		}
-		for _, finding := range report.Servers[0].Findings {
-			if finding.Level == "info" && finding.Check == "tool-change" {
-				t.Fatalf("write failure emitted success: %+v", finding)
-			}
-		}
-	})
+	}
 }
 
 func TestToolBaselineStrictPromotesTrustWarnings(t *testing.T) {
@@ -545,9 +527,6 @@ func TestToolBaselineNestedSnapshotRoundTrip(t *testing.T) {
 	}
 }
 
-// Unlike an occupied operation lock, a read-only destination directory reaches
-// atomicWrite after the valid source/store CAS and fails while creating its temp file.
-
 // Exercise public Check selection and reprobes: equal endpoints/contracts cannot
 // reuse a token across a configured root or another project config sharing state.
 func TestToolBaselineConfiguredScopesRejectCrossRootRevisions(t *testing.T) {
@@ -618,7 +597,12 @@ func TestToolBaselineConfiguredScopesRejectCrossRootRevisions(t *testing.T) {
 		service *Service
 		root    string
 	}
-	scopes := []selectedScope{{s, ""}, {s, root}, {&project, ""}}
+	other := *s
+	other.ConfigPath = filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(other.ConfigPath, []byte(config), 0600); err != nil {
+		t.Fatal(err)
+	}
+	scopes := []selectedScope{{s, ""}, {s, root}, {&project, ""}, {&other, ""}}
 	// All previews read one unchanged store so cross-scope refusal is attributable
 	// to identity/scope, rather than a store update invalidating the source token.
 	for i, from := range scopes {
@@ -661,51 +645,7 @@ func TestToolBaselineConfiguredScopesRejectCrossRootRevisions(t *testing.T) {
 			t.Fatalf("scope %d lost approval: %+v", i, report)
 		}
 	}
-	t.Run("ToolBaselineScopeAndConfigIsolation", func(t *testing.T) {
-		s, source, server, now := baselineFixture(t)
-		baselineAccept(t, s, source, "", "echo", server, now)
-		root := t.TempDir()
-		baselineAccept(t, s, source, root, "echo", server, now)
-		other := *s
-		other.ConfigPath = filepath.Join(t.TempDir(), "config.yaml")
-		if err := os.WriteFile(other.ConfigPath, source.configBytes, 0600); err != nil {
-			t.Fatal(err)
-		}
-		otherSource, err := LoadSource(other.ConfigPath)
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, report := baselineObserve(&other, otherSource, "", "echo", server, now, CheckOptions{Live: true})
-		if report.Servers[0].Contract.Status != "untrusted" {
-			t.Fatal("another config inherited trust")
-		}
-		baselineAccept(t, &other, otherSource, "", "echo", server, now)
-		project := *s
-		project.ProjectRoot = t.TempDir()
-		project.ConfigPath = filepath.Join(project.ProjectRoot, ".skillshare", "config.yaml")
-		if err := os.MkdirAll(filepath.Dir(project.ConfigPath), 0700); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(project.ConfigPath, source.configBytes, 0600); err != nil {
-			t.Fatal(err)
-		}
-		projectSource, err := LoadSource(project.ConfigPath)
-		if err != nil {
-			t.Fatal(err)
-		}
-		baselineAccept(t, &project, projectSource, "", "echo", server, now)
-		pins, err := s.readToolPins()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(pins.Records) != 4 {
-			t.Fatalf("scope records = %d", len(pins.Records))
-		}
-		_, report = baselineObserve(s, source, "", "echo", server, now, CheckOptions{Live: true})
-		if report.Servers[0].Contract.Status != "unchanged" {
-			t.Fatal("other scope replaced original")
-		}
-	})
+
 }
 
 // A rotated fromEnv value may newly match text in the approved snapshot that

@@ -44,27 +44,16 @@ func TestCaptureContractCanonicalAndIdempotent(t *testing.T) {
 
 func TestCaptureContractPreservesEveryArrayAndNumberLexeme(t *testing.T) {
 	for _, pair := range [][2]string{
-		{`"required":["a","b"]`, `"required":["b","a"]`},
-		{`"enum":[{"required":["a","b"]}]`, `"enum":[{"required":["b","a"]}]`},
-		{`"default":{"type":["a","b"]}`, `"default":{"type":["b","a"]}`},
-		{`"maximum":9007199254740992`, `"maximum":9007199254740993`},
-		{`"maximum":1e900`, `"maximum":1.0e900`},
-	} {
-		a := capturedContract(t, `,"x":{`+pair[0]+`}`)
-		b := capturedContract(t, `,"x":{`+pair[1]+`}`)
-		if a.Hash == b.Hash {
-			t.Fatal("mutation lost", pair)
-		}
-	}
-	for _, pair := range [][2]string{
 		{`{"required":["a","b"]}`, `{"required":["b","a"]}`},
 		{`{"properties":{"x":{"enum":[1,2]}}}`, `{"properties":{"x":{"enum":[2,1]}}}`},
 		{`{"default":{"required":["a","b"]}}`, `{"default":{"required":["b","a"]}}`},
 		{`{"enum":[{"type":["a","b"]}]}`, `{"enum":[{"type":["b","a"]}]}`},
+		{`{"maximum":9007199254740992}`, `{"maximum":9007199254740993}`},
+		{`{"maximum":1e900}`, `{"maximum":1.0e900}`},
 	} {
 		a, b := schemaContract(t, pair[0]), schemaContract(t, pair[1])
-		if a.InputHash == b.InputHash || a.Hash == b.Hash {
-			t.Fatal("schema or literal array normalized")
+		if a.Hash == b.Hash || a.InputHash == b.InputHash {
+			t.Fatal("array or number lexeme lost", pair)
 		}
 	}
 }

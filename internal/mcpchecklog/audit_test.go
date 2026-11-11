@@ -23,15 +23,19 @@ func TestWriteAuditRecordsOutcomeWithoutDescriptorOrDiagnosticData(t *testing.T)
 	if err := WriteAudit(path, time.Now(), nil, errors.New("fixture-secret")); err != nil {
 		t.Fatal(err)
 	}
+	refused := &mcp.CheckReport{ToolsAcceptance: mcp.ToolsAcceptanceError, Servers: []mcp.CheckServer{{Contract: &mcp.ContractReview{Status: "error", Tools: map[string]mcp.ToolContract{}}}}}
+	if err := WriteAudit(path, time.Now(), refused, nil); err != nil {
+		t.Fatal(err)
+	}
 	entries, err := oplog.Read(path, oplog.AuditFile, 0)
-	if err != nil || len(entries) != 2 {
+	if err != nil || len(entries) != 3 {
 		t.Fatalf("entries=%v error=%v", entries, err)
 	}
-	if entries[0].Status != "error" || entries[1].Status != "ok" || entries[1].Command != "mcp contract review" {
+	if entries[0].Status != "error" || entries[0].Args["accepted"] != false || entries[1].Status != "error" || entries[2].Status != "ok" || entries[2].Command != "mcp contract review" {
 		t.Fatalf("outcomes=%v", entries)
 	}
-	if entries[1].Args["tools"] != float64(1) || entries[1].Args["findings"] != float64(1) || entries[1].Args["accepted"] != true {
-		t.Fatalf("counts=%v", entries[1].Args)
+	if entries[2].Args["tools"] != float64(1) || entries[2].Args["findings"] != float64(1) || entries[2].Args["accepted"] != true {
+		t.Fatalf("counts=%v", entries[2].Args)
 	}
 	raw, err := os.ReadFile(filepath.Join(oplog.LogDir(path), oplog.AuditFile))
 	if err != nil {
@@ -40,16 +44,5 @@ func TestWriteAuditRecordsOutcomeWithoutDescriptorOrDiagnosticData(t *testing.T)
 	if strings.Contains(string(raw), "fixture-secret") {
 		t.Fatal("audit log contains untrusted metadata")
 	}
-	t.Run("WriteAuditRefusalWithSafeCurrentSnapshotIsNotSuccess", func(t *testing.T) {
-		t.Setenv("XDG_STATE_HOME", t.TempDir())
-		path := filepath.Join(t.TempDir(), "config.yaml")
-		report := &mcp.CheckReport{ToolsAcceptance: mcp.ToolsAcceptanceError, Servers: []mcp.CheckServer{{Contract: &mcp.ContractReview{Status: "error", Tools: map[string]mcp.ToolContract{}}}}}
-		if err := WriteAudit(path, time.Now(), report, nil); err != nil {
-			t.Fatal(err)
-		}
-		entries, err := oplog.Read(path, oplog.AuditFile, 0)
-		if err != nil || len(entries) != 1 || entries[0].Status != "error" || entries[0].Args["accepted"] != false {
-			t.Fatalf("entries=%v error=%v", entries, err)
-		}
-	})
+
 }

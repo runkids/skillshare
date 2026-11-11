@@ -13,38 +13,24 @@ import (
 )
 
 func TestLogMCPAcceptToolsListsUnsavedBaselinesAsFailed(t *testing.T) {
-	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
-	report := &mcp.CheckReport{ToolsAcceptance: mcp.ToolsAcceptanceError, Servers: []mcp.CheckServer{
-		{Name: "saved", Contract: &mcp.ContractReview{Status: "accepted"}},
+	for _, failed := range []mcp.CheckServer{
 		{Name: "unsaved", Contract: &mcp.ContractReview{Status: "error"}},
-	}}
-	logMCPAcceptTools(cfgPath, time.Now(), report, nil)
-
-	entries, err := oplog.Read(cfgPath, oplog.OpsFile, 1)
-	if err != nil || len(entries) != 1 {
-		t.Fatalf("entries = %+v, err = %v", entries, err)
+		{Name: "broken", Findings: []mcp.CheckFinding{{Level: "error", Check: "command", Message: "command nope was not found on PATH"}}},
+	} {
+		t.Run(failed.Name, func(t *testing.T) {
+			cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+			report := &mcp.CheckReport{ToolsAcceptance: mcp.ToolsAcceptanceError, Servers: []mcp.CheckServer{{Name: "saved", Contract: &mcp.ContractReview{Status: "accepted"}}, failed}}
+			logMCPAcceptTools(cfgPath, time.Now(), report, nil)
+			entries, err := oplog.Read(cfgPath, oplog.OpsFile, 1)
+			if err != nil || len(entries) != 1 {
+				t.Fatalf("entries = %+v, err = %v", entries, err)
+			}
+			e := entries[0]
+			if e.Status != "error" || len(e.Args["accepted"].([]any)) != 1 || e.Args["accepted"].([]any)[0] != "saved" || e.Args["failed"].([]any)[0] != failed.Name {
+				t.Fatalf("entry = %+v", e)
+			}
+		})
 	}
-	e := entries[0]
-	if e.Status != "error" || len(e.Args["accepted"].([]any)) != 1 || e.Args["accepted"].([]any)[0] != "saved" || e.Args["failed"].([]any)[0] != "unsaved" {
-		t.Fatalf("entry = %+v", e)
-	}
-	t.Run("LogMCPAcceptToolsCountsFirstPinsAndReportErrors", func(t *testing.T) {
-		cfgPath := filepath.Join(t.TempDir(), "config.yaml")
-		report := &mcp.CheckReport{ToolsAcceptance: mcp.ToolsAcceptanceError, Servers: []mcp.CheckServer{
-			{Name: "new", Contract: &mcp.ContractReview{Status: "accepted"}},
-			{Name: "broken", Findings: []mcp.CheckFinding{{Level: "error", Check: "command", Message: "command nope was not found on PATH"}}},
-		}}
-		logMCPAcceptTools(cfgPath, time.Now(), report, nil)
-
-		entries, err := oplog.Read(cfgPath, oplog.OpsFile, 1)
-		if err != nil || len(entries) != 1 {
-			t.Fatalf("entries = %+v, err = %v", entries, err)
-		}
-		e := entries[0]
-		if e.Status != "error" || e.Args["accepted"].([]any)[0] != "new" || e.Args["failed"].([]any)[0] != "broken" {
-			t.Fatalf("entry = %+v", e)
-		}
-	})
 }
 
 func TestMCPCheckJSONControlsRemainLosslessAndInert(t *testing.T) {

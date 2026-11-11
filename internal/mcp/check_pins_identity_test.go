@@ -170,9 +170,6 @@ func TestToolBaselineCanonicalConfigAliasAndSourceIdentity(t *testing.T) {
 	}
 }
 
-// An HTTP connection never launches a process in the caller's directory.
-// Binding that unused observation would falsely drift and stale a reviewed token.
-
 func sourcePathPrivacyEndpoint(t *testing.T) string {
 	t.Helper()
 	endpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

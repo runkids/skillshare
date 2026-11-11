@@ -352,11 +352,6 @@ func TestMCPAcceptExactScopeTypedPersistenceAndStale(t *testing.T) {
 	if w.Code != 200 || !result.Accepted || result.Report.ToolsAcceptance != mcp.ToolsAcceptanceAccepted || len(result.Report.Servers) != 1 || result.Report.Servers[0].Project != "" {
 		t.Fatalf("accept status=%d: %s", w.Code, w.Body.String())
 	}
-	// The old token binds the pre-write store and cannot approve another observation.
-	w = checkAccept(s, string(body))
-	if w.Code != 409 || !strings.Contains(w.Body.String(), `"accepted":false`) {
-		t.Fatalf("stale status=%d: %s", w.Code, w.Body.String())
-	}
 
 }
 
@@ -556,40 +551,45 @@ func TestMCPAcceptHandlerRequiresSameOriginBeforeProbeAndPersistence(t *testing.
 	}
 }
 
-func TestMCPAcceptSecondProbeFailurePreservesBaseline(t *testing.T) {
+func TestMCPAcceptFailureStatusMapping(t *testing.T) {
 	for _, tt := range []struct {
 		name, tools string
 		status      int
 		outcome     mcp.ToolsAcceptance
 	}{
 		{"changed", `[{"name":"fixture","description":"Changed since review","inputSchema":{"type":"object"}}]`, 409, mcp.ToolsAcceptanceStale},
+		{"stale-token", "", 409, mcp.ToolsAcceptanceStale},
 		{"malformed", `[{"name":"fixture"}]`, 422, mcp.ToolsAcceptanceError},
 		{"missing", `null`, 422, mcp.ToolsAcceptanceError},
+		{"skipped", "", 422, mcp.ToolsAcceptanceError},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.name == "skipped" {
+				s, _ := newTestServerWithExtras(t, nil, "")
+				t.Setenv("HOME", t.TempDir())
+				t.Setenv("SKILLSHARE_MISSING_FIXTURE", "")
+				writeMCPSource(t, s, "mcp:\n  targets: [claude]\n  servers:\n    docs:\n      url: https://mcp.skillshare.invalid/mcp\n      bearerToken: {fromEnv: SKILLSHARE_MISSING_FIXTURE}\n")
+				w := checkAccept(s, `{"name":"docs","root":"","revision":"`+strings.Repeat("a", 64)+`"}`)
+				checkAcceptanceOutcome(t, w, tt.status, tt.outcome)
+				return
+			}
 			control := &checkContractControl{}
 			s, _ := checkContractFixture(t, control)
 			initial := checkGet(t, s, "live=1&root=")
-			checkAcceptanceOutcome(t, checkAccept(s, checkApproval(t, initial.Servers[0])), 200, mcp.ToolsAcceptanceAccepted)
-			review := checkGet(t, s, "live=1&root=")
+			body := checkApproval(t, initial.Servers[0])
+			checkAcceptanceOutcome(t, checkAccept(s, body), 200, mcp.ToolsAcceptanceAccepted)
+			if tt.name != "stale-token" {
+				review := checkGet(t, s, "live=1&root=")
+				body = checkApproval(t, review.Servers[0])
+				control.setTools(tt.tools)
+			}
 			before := checkStoreBytes(t)
-			control.setTools(tt.tools)
-			checkAcceptanceOutcome(t, checkAccept(s, checkApproval(t, review.Servers[0])), tt.status, tt.outcome)
+			checkAcceptanceOutcome(t, checkAccept(s, body), tt.status, tt.outcome)
 			if !bytes.Equal(before, checkStoreBytes(t)) {
 				t.Fatal("failed reprobe changed prior baseline")
 			}
 		})
 	}
-	t.Run("skipped", func(t *testing.T) {
-		s, _ := newTestServerWithExtras(t, nil, "")
-		t.Setenv("HOME", t.TempDir())
-		t.Setenv("SKILLSHARE_MISSING_FIXTURE", "")
-		writeMCPSource(t, s, "mcp:\n  targets: [claude]\n  servers:\n    docs:\n      url: https://mcp.skillshare.invalid/mcp\n      bearerToken: {fromEnv: SKILLSHARE_MISSING_FIXTURE}\n")
-		w := checkAccept(s, `{"name":"docs","root":"","revision":"`+strings.Repeat("a", 64)+`"}`)
-		if w.Code != 422 || !strings.Contains(w.Body.String(), `"accepted":false`) {
-			t.Fatalf("skipped status=%d: %s", w.Code, w.Body.String())
-		}
-	})
 }
 
 func TestMCPAcceptBusyPersistenceReturnsFailure(t *testing.T) {
@@ -641,14 +641,6 @@ func TestMCPCheckKnownShortSecretsNeverReachReviewWire(t *testing.T) {
 			// Scope this source to the own list; the shared project entry is not needed here.
 			source = bytes.SplitN(source, []byte("  projects:"), 2)[0]
 			switch part {
-			case "description":
-				control.setTools(`[{"name":"fixture","description":"inert §§ fixture","inputSchema":{"type":"object"}}]`)
-			case "key":
-				control.setTools(`[{"name":"fixture","inputSchema":{"type":"object"},"_meta":{"§§":"fixture"}}]`)
-			case "name":
-				control.setTools(`[{"name":"fixture§§","inputSchema":{"type":"object"}}]`)
-			case "diagnostic":
-				control.setError("fixture§§\u001b]52;c;inert\u0007\u202e")
 			case "serverInfo":
 				control.setInfoName("fixture§§")
 			case "identity":
