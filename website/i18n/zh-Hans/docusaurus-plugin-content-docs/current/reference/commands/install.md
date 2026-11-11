@@ -553,8 +553,6 @@ skillshare install https://github.com/org/private-skills.git --track
 
 平台令牌仅发送到使用 HTTPS 默认端口（或 443）的 `github.com`、`gitlab.com`、`bitbucket.org`、`dev.azure.com`、`*.visualstudio.com`、`gitea.com` 和 `cnb.cool`。自建 Gitea/CNB 即使名称包含平台名，也必须在 `gitea_hosts`/`cnb_hosts` 中配置准确主机名。自建 GitHub/GitLab 等主机应使用按主机配置的 Git credential helper，或仅为目标调用设置 `SKILLSHARE_GIT_TOKEN`。此通用回退可发送给**任何 HTTPS 来源**；类似平台的名称不会授权发送平台令牌。
 
-平台令牌仅发送到使用 HTTPS 默认端口（或 443）的 `github.com`、`gitlab.com`、`bitbucket.org`、`dev.azure.com`、`*.visualstudio.com`、`gitea.com` 和 `cnb.cool`。自建 Gitea/CNB 即使名称包含平台名，也必须在 `gitea_hosts`/`cnb_hosts` 中配置准确主机名。自建 GitHub/GitLab 等主机应使用按主机配置的 Git credential helper，或仅为目标调用设置 `SKILLSHARE_GIT_TOKEN`。此通用回退可发送给**任何 HTTPS 来源**；类似平台的名称不会授权发送平台令牌。
-
 平台专属变量的优先级高于 `SKILLSHARE_GIT_TOKEN`。
 
 token 通过限定于该主机的 credential helper 传给 git，因此不会出现在 `ps` 输出等进程参数中。token 作用于某个主机期间，git 不会向你自己的 credential helper 或钥匙串查询该主机，也不会在其中存储任何内容。

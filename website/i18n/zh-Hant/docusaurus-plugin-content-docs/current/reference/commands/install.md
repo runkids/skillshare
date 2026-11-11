@@ -553,8 +553,6 @@ skillshare install https://github.com/org/private-skills.git --track
 
 平台權杖僅傳送至使用 HTTPS 預設連接埠（或 443）的 `github.com`、`gitlab.com`、`bitbucket.org`、`dev.azure.com`、`*.visualstudio.com`、`gitea.com` 和 `cnb.cool`。自架 Gitea/CNB 即使名稱包含平台名，也必須在 `gitea_hosts`/`cnb_hosts` 中設定完整相符的主機名稱。自架 GitHub/GitLab 等主機應使用依主機設定的 Git credential helper，或僅為目標呼叫設定 `SKILLSHARE_GIT_TOKEN`。此通用 fallback 可傳送給**任何 HTTPS 來源**；類似平台的名稱不會授權傳送平台權杖。
 
-平台權杖僅傳送至使用 HTTPS 預設連接埠（或 443）的 `github.com`、`gitlab.com`、`bitbucket.org`、`dev.azure.com`、`*.visualstudio.com`、`gitea.com` 和 `cnb.cool`。自架 Gitea/CNB 即使名稱包含平台名，也必須在 `gitea_hosts`/`cnb_hosts` 中設定完整相符的主機名稱。自架 GitHub/GitLab 等主機應使用依主機設定的 Git credential helper，或僅為目標呼叫設定 `SKILLSHARE_GIT_TOKEN`。此通用 fallback 可傳送給**任何 HTTPS 來源**；類似平台的名稱不會授權傳送平台權杖。
-
 平台專屬的變數優先於 `SKILLSHARE_GIT_TOKEN`。
 
 token 會透過限定於該主機的 credential helper 傳給 git，因此不會出現在 `ps` 輸出等行程參數中。token 套用於某個主機期間，git 不會向你自己的 credential helper 或鑰匙圈查詢該主機，也不會在其中儲存任何內容。

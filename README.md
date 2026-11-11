@@ -48,7 +48,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: v0.30.5 — Choose your own update schedule: `skillshare updates off` disables automatic release checks and notifications in the CLI and web dashboard. Manual checks and upgrades remain available. [Configuration and environment override →](https://skillshare.runkids.cc/docs/reference/commands/updates) · [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: v0.30.6 — Catch outdated skills in CI: `skillshare check --exit-code` exits with code 1 when anything it checks is not up to date, and `check --all` now checks agents as well as skills, so one CI step covers both. [check reference →](https://skillshare.runkids.cc/docs/reference/commands/check) · [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
@@ -403,6 +403,8 @@ Thanks to everyone who helped shape skillshare.
 <a href="https://github.com/trojanwk"><img src="https://github.com/trojanwk.png" width="50" style="border-radius:50%" alt="trojanwk"></a>
 <a href="https://github.com/charitarthchugh"><img src="https://github.com/charitarthchugh.png" width="50" style="border-radius:50%" alt="charitarthchugh"></a>
 <a href="https://github.com/servaasvdc"><img src="https://github.com/servaasvdc.png" width="50" style="border-radius:50%" alt="servaasvdc"></a>
+<a href="https://github.com/tomerzcod7"><img src="https://github.com/tomerzcod7.png" width="50" style="border-radius:50%" alt="tomerzcod7"></a>
+<a href="https://github.com/ErykJakubik"><img src="https://github.com/ErykJakubik.png" width="50" style="border-radius:50%" alt="ErykJakubik"></a>
 
 ---
 

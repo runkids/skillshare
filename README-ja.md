@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新バージョン**：v0.30.5 — 更新するタイミングを自分で選べます。`skillshare updates off` で CLI と Web ダッシュボードの自動バージョン確認と通知を無効にできます。手動の確認とアップグレードは引き続き利用できます。[設定と環境変数 →](https://skillshare.runkids.cc/ja/docs/reference/commands/updates) · [変更履歴 →](https://skillshare.runkids.cc/changelog)
+> **最新バージョン**：v0.30.6 — CI で古いスキルを検出できます。`skillshare check --exit-code` は、確認対象のいずれかが最新でないとき終了コード 1 を返します。`check --all` はスキルに加えてエージェントも確認するようになり、1 つの CI ステップで両方をカバーできます。[check リファレンス →](https://skillshare.runkids.cc/ja/docs/reference/commands/check) · [変更履歴 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare を使う理由
 
