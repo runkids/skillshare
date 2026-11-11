@@ -76,6 +76,42 @@ func TestUpdates_GlobalPreferenceAndDoctor(t *testing.T) {
 	}
 }
 
+func TestUpdates_JSONFailures(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	for _, tt := range []struct {
+		name      string
+		args      []string
+		malformed bool
+	}{
+		{name: "unknown action", args: []string{"updates", "--json", "unknown"}},
+		{name: "late JSON flag", args: []string{"updates", "off", "on", "--json"}},
+		{name: "early JSON flag", args: []string{"updates", "--json", "off", "on"}},
+		{name: "read error", args: []string{"updates", "--json"}, malformed: true},
+		{name: "save error", args: []string{"updates", "off", "--json"}, malformed: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			data := "source: " + sb.SourcePath + "\nmode: copy\ntargets: {}\n"
+			if tt.malformed {
+				data = "updates: ["
+			}
+			if err := os.WriteFile(sb.ConfigPath, []byte(data), 0600); err != nil {
+				t.Fatal(err)
+			}
+			result := sb.RunCLI(tt.args...)
+			var payload struct {
+				Error string `json:"error"`
+			}
+			if result.ExitCode != 1 || result.Stderr != "" {
+				t.Fatalf("unexpected exit/stderr: %+v", result)
+			}
+			if err := json.Unmarshal([]byte(result.Stdout), &payload); err != nil || payload.Error == "" {
+				t.Fatalf("JSON error contaminated: %q / %v", result.Stdout, err)
+			}
+		})
+	}
+}
+
 func TestUpdates_RejectsUnexpectedArguments(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

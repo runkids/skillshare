@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 	"time"
 
 	"skillshare/internal/config"
@@ -10,15 +11,20 @@ import (
 	versioncheck "skillshare/internal/version"
 )
 
-func cmdUpdates(args []string) error {
+func cmdUpdates(args []string) (err error) {
 	if wantsHelp(args) {
 		printUpdatesHelp()
 		return nil
 	}
-	action, jsonMode := "", false
+	jsonMode := slices.Contains(args, "--json")
+	defer func() {
+		if jsonMode && err != nil {
+			err = writeJSONError(err)
+		}
+	}()
+	action := ""
 	for _, arg := range args {
 		if arg == "--json" {
-			jsonMode = true
 			continue
 		}
 		if action != "" {
