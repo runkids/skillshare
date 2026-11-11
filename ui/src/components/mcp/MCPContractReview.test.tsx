@@ -7,6 +7,7 @@ import { mcpCheckApi, MCPToolsAcceptanceError, type MCPCheckReport } from '../..
 import { I18nProvider, LOCALE_STORAGE_KEY } from '../../i18n';
 import MCPContractReview from './MCPContractReview';
 import { MCPRailActions } from './MCPSyncBox';
+import { serversFor } from './useMCPCheck';
 import { queryKeys } from '../../lib/queryKeys';
 
 vi.mock('../../api/mcpCheck', async (load) => ({ ...await load<typeof import('../../api/mcpCheck')>(), mcpCheckApi: { review: vi.fn(), accept: vi.fn() } }));
@@ -505,4 +506,20 @@ it('keeps refusal context and visible controls for unknown adapter diagnostics',
   expect(alert.textContent).toContain('vendor diagnostic\\u202e');
   expect(alert.textContent).not.toContain('\u202e');
   expect(screen.getByRole('button', { name: 'Trust this inventory' })).toBeDisabled();
+});
+
+
+it('associates and approves the exact project root while escaping it for display', async () => {
+  const root = '/project\u202e\u001b';
+  const report = review(); report.servers[0].project = root;
+  expect(serversFor(report, root)).toHaveLength(1);
+  expect(serversFor(report, '/project\\u202e\\u001b')).toHaveLength(0);
+  vi.mocked(mcpCheckApi.review).mockResolvedValue(report);
+  vi.mocked(mcpCheckApi.accept).mockResolvedValue({ accepted: true, report: { ...report, toolsAcceptance: 'accepted' } });
+  const user = userEvent.setup(); show(root);
+  await user.click(screen.getByRole('button', { name: 'Probe live tools' }));
+  const trust = await screen.findByRole('button', { name: 'Trust this inventory' });
+  expect(screen.getByRole('dialog').textContent).toContain('/project\\u202e\\u001b');
+  await user.click(trust);
+  expect(mcpCheckApi.accept).toHaveBeenCalledExactlyOnceWith({ name: 'docs', root, revision: 'reviewed' });
 });

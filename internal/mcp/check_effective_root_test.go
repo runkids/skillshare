@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -184,5 +185,33 @@ func TestCheckRejectsCredentialInEffectiveProjectRoot(t *testing.T) {
 		if err != nil || strings.Contains(string(payload), secret) || !bytes.Equal(before, baselineBytes(t, s)) {
 			t.Fatal("baseline comparison leaked the root or changed approval bytes")
 		}
+	}
+}
+
+func TestCheckProjectScopePreservesControlsAndRedactsCredentials(t *testing.T) {
+	const secret = "scope-fixture-secret"
+	for _, tc := range []struct {
+		name, suffix string
+		redacted     bool
+	}{
+		{"controls", "project\u202e\x1b", false},
+		{"credential", "project-" + secret + "\u202e", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := filepath.Join(t.TempDir(), tc.suffix)
+			config := fmt.Sprintf("mcp:\n  targets: []\n  servers:\n    credentials:\n      command: fixture\n      env:\n        TOKEN: {fromEnv: FIXTURE_TOKEN}\n  projects:\n    %q:\n      targets: []\n      servers:\n        entry:\n          disabled: true\n", root)
+			s := checkService(t, config)
+			report, err := s.Check(CheckOptions{Root: &root, SkipDNS: true, LookupEnv: func(key string) (string, bool) { return secret, key == "FIXTURE_TOKEN" }})
+			if err != nil || len(report.Servers) != 1 {
+				t.Fatalf("check: %v", err)
+			}
+			got := report.Servers[0].Project
+			if !tc.redacted && got != root {
+				t.Fatalf("scope changed: got %q want %q", got, root)
+			}
+			if tc.redacted && (strings.Contains(got, secret) || !strings.Contains(got, "[redacted]") || report.Summary.Errors == 0) {
+				t.Fatalf("scope not refused and redacted: %q", got)
+			}
+		})
 	}
 }

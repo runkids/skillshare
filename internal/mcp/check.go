@@ -240,7 +240,12 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 	}
 	for i := range report.Servers {
 		result := &report.Servers[i]
-		result.Name, result.Project = redactor.redact(result.Name), redactor.redact(result.Project)
+		result.Name = redactor.redact(result.Name)
+		// Project is an operational scope key, so preserve its exact bytes unless
+		// it contains a credential and the review has already been refused.
+		if contractHasSecret(result.Project, opts.knownSecrets) {
+			result.Project = redactor.redact(result.Project)
+		}
 		for j := range result.Findings {
 			f := &result.Findings[j]
 			f.Message, f.Subject, f.Target = redactor.redact(f.Message), redactor.redact(f.Subject), redactor.redact(f.Target)
