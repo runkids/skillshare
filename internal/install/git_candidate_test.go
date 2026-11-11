@@ -43,7 +43,7 @@ func testGitUpdateCandidatePreservesLocalChanges(t *testing.T, autocrlf, worktre
 		t.Fatal(err)
 	}
 	before := testutil.RunGit(t, repo, "status", "--porcelain")
-	candidate, err := StageGitUpdate(repo, false)
+	candidate, err := StageGitUpdate(repo, false, ParseOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func testGitUpdateCandidatePreservesLocalChanges(t *testing.T, autocrlf, worktre
 	}
 	// Use a fast-forward candidate; git itself refuses divergent merges with
 	// staged local changes, just as it did before staging was introduced.
-	if err := gitPull(candidate.Path, nil); err != nil {
+	if err := gitPull(candidate.Path, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	revision, err := getGitFullHash(candidate.Path)
@@ -145,12 +145,12 @@ func TestGitUpdateCandidateFailedPublicationPreservesCheckout(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			candidate, err := StageGitUpdate(repo, force)
+			candidate, err := StageGitUpdate(repo, force, ParseOptions{})
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer candidate.Close()
-			if err := gitPull(candidate.Path, nil); err != nil {
+			if err := gitPull(candidate.Path, nil, nil); err != nil {
 				t.Fatal(err)
 			}
 			revision := testutil.RunGit(t, candidate.Path, "rev-parse", "HEAD")

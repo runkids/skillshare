@@ -129,6 +129,8 @@ $ skillshare install anthropics/skills
 
 ディスカバリーは、`.git` と、通常リポジトリの Skill のコピーを置く `.claude/` や `.agents/` などのターゲットディレクトリを除き、すべてのディレクトリを `SKILL.md` ファイルについてスキャンします。`.curated/` や `.system/` のようなその他の隠しディレクトリはスキャンされるため、その中の Skill も自動的に検出されます。ほかに Skill がないリポジトリでは、代わりにルートの `.agents/skills/` がスキャンされます。複数の Skill が見つかった場合、選択プロンプトは同じフォルダの Skill をまとめて並べ、各 Skill の説明とフォルダを表示します。リストが長いときは `/` で絞り込めます。
 
+`.agents/skills/` のフォールバックでは、`.agents` と `skills` の両方が実ディレクトリである必要があります。`follow_source_links: true` でもシンボリックリンクやジャンクションは拒否されます。意図的にたどるリポジトリルートは引き続き対応します。検出した Agent のインストールと更新は保存先の途中または末尾のリンクを拒否し、公開前に監査します。監査でブロックされた場合、既存の Agent の内容は変わりません。
+
 リポジトリのルートに `.skillignore` ファイルがある場合、一致する Skill はディスカバリーから自動的に除外されます。詳細は下記の [.skillignore](#skillignore) を参照してください。
 
 Skill の `SKILL.md` に `license:` フロントマターフィールドが含まれている場合、そのライセンスは選択プロンプト（例: `my-skill (MIT)`）と、単一 Skill インストール時の確認画面に表示されます。
@@ -543,11 +545,15 @@ skillshare install https://github.com/org/private-skills.git --track
 
 | プラットフォーム | 環境変数 | トークンの種類 |
 |----------|---------|------------|
-| GitHub | `GITHUB_TOKEN` | Personal access token（`repo` スコープ） |
-| GitLab | `GITLAB_TOKEN` | Personal access token または CI job token |
+| `github.com` | `GITHUB_TOKEN` | Personal access token（`repo` スコープ） |
+| `gitlab.com` | `GITLAB_TOKEN` | Personal access token または CI job token |
 | Bitbucket | `BITBUCKET_TOKEN` | Repository token、または app password（`BITBUCKET_USERNAME` と併用） |
 | Azure DevOps | `AZURE_DEVOPS_TOKEN` | Personal Access Token（Code: Read スコープ） |
 | 任意のホスト | `SKILLSHARE_GIT_TOKEN` | 汎用フォールバック |
+
+プロバイダーのトークンは HTTPS の既定ポート（または 443）でのみ送信されます。対象は `github.com`、`gitlab.com`、`bitbucket.org`、`dev.azure.com`、`*.visualstudio.com`、`gitea.com`、`cnb.cool` です。セルフホストの Gitea/CNB は、名前にプロバイダー名を含む場合も `gitea_hosts`/`cnb_hosts` に正確なホスト名の登録が必要です。セルフホストの GitHub/GitLab などにはホスト別の Git credential helper を使うか、対象の実行時だけ `SKILLSHARE_GIT_TOKEN` を設定してください。この汎用フォールバックは**任意の HTTPS ソース**に送信されます。名前による判定だけではプロバイダートークンの送信は許可されません。
+
+プロバイダーのトークンは HTTPS の既定ポート（または 443）でのみ送信されます。対象は `github.com`、`gitlab.com`、`bitbucket.org`、`dev.azure.com`、`*.visualstudio.com`、`gitea.com`、`cnb.cool` です。セルフホストの Gitea/CNB は、名前にプロバイダー名を含む場合も `gitea_hosts`/`cnb_hosts` に正確なホスト名の登録が必要です。セルフホストの GitHub/GitLab などにはホスト別の Git credential helper を使うか、対象の実行時だけ `SKILLSHARE_GIT_TOKEN` を設定してください。この汎用フォールバックは**任意の HTTPS ソース**に送信されます。名前による判定だけではプロバイダートークンの送信は許可されません。
 
 プラットフォーム固有の環境変数は `SKILLSHARE_GIT_TOKEN` より優先されます。
 

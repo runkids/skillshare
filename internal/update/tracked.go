@@ -55,7 +55,8 @@ func (e *Error) Unwrap() error { return e.Err }
 type TrackedRepoOptions struct {
 	// SourceDir is the source root that holds the repo's metadata and accepted
 	// findings.
-	SourceDir string
+	SourceDir    string
+	ParseOptions install.ParseOptions
 	// Force discards uncommitted changes, pulls with a hard reset and lets
 	// audit findings through. It never overrides a scan that could not run.
 	Force       bool
@@ -121,7 +122,7 @@ func TrackedRepo(repoPath string, opts TrackedRepoOptions) (*TrackedRepoResult, 
 		return res, nil
 	}
 
-	candidate, err := install.StageGitUpdate(repoPath, opts.Force)
+	candidate, err := install.StageGitUpdate(repoPath, opts.Force, opts.ParseOptions)
 	if err != nil {
 		return res, &Error{Stage: StagePull, Err: err}
 	}
@@ -131,7 +132,7 @@ func TrackedRepo(repoPath string, opts TrackedRepoOptions) (*TrackedRepoResult, 
 	if opts.Force {
 		pull = git.ForcePullWithProgress
 	}
-	info, err := pull(candidate.Path, git.AuthEnvForRepo(repoPath), opts.OnProgress)
+	info, err := pull(candidate.Path, git.AuthEnvForRepo(repoPath, opts.ParseOptions), opts.OnProgress)
 	if err != nil {
 		return res, &Error{Stage: StagePull, Err: err}
 	}
@@ -158,7 +159,7 @@ func TrackedRepo(repoPath string, opts TrackedRepoOptions) (*TrackedRepoResult, 
 	}
 
 	if !info.UpToDate {
-		res.Warnings = install.SubmoduleWarnings(repoPath, git.AuthEnvForRepo(repoPath))
+		res.Warnings = install.SubmoduleWarnings(repoPath, git.AuthEnvForRepo(repoPath, opts.ParseOptions))
 	}
 
 	res.MetadataChanged, res.MetadataErr = refreshMetadata(repoPath, opts)

@@ -453,38 +453,35 @@ func cloneFallbackSourcesForNestedGitLabURL(source *Source) []Source {
 // shallow (depth 1) clone, injecting auth env for the URL. The caller owns the
 // returned directory and must remove it. branch may be empty to use the remote
 // default. On error the temp directory is removed and an empty path returned.
-func ShallowCloneToTemp(cloneURL, branch string) (string, error) {
+func ShallowCloneToTemp(cloneURL, branch string, opts ParseOptions) (string, error) {
 	dir, err := os.MkdirTemp("", "skillshare-clone-*")
 	if err != nil {
 		return "", err
 	}
-	if err := cloneRepo(cloneURL, dir, branch, true, nil); err != nil {
+	if err := cloneRepoWithEnv(cloneURL, dir, branch, true, AuthEnvForURL(cloneURL, opts), nil); err != nil {
 		cleanupTempRepo(dir)
 		return "", err
 	}
 	return dir, nil
 }
 
-// gitPull performs a git pull (quiet mode).
-// If the remote uses HTTPS and a token is available, it injects
-// authentication via GIT_CONFIG env vars (same mechanism as cloneRepo).
-func gitPull(repoPath string, onProgress ProgressCallback) error {
-	remoteURL := getRemoteURL(repoPath)
+// gitPull performs a quiet pull with the operation's resolved credentials.
+func gitPull(repoPath string, extraEnv []string, onProgress ProgressCallback) error {
 	args := []string{"pull", "--quiet"}
 	if onProgress != nil {
 		args = []string{"pull", "--progress"}
 	}
-	return runGitCommandWithProgress(args, repoPath, authEnv(remoteURL), onProgress)
+	return runGitCommandWithProgress(args, repoPath, extraEnv, onProgress)
 }
 
 // gitForcePull moves the checkout to its upstream branch, discarding local
 // edits. It fetches first, so a failed fetch leaves the edits in place.
-func gitForcePull(repoPath string, onProgress ProgressCallback) error {
+func gitForcePull(repoPath string, extraEnv []string, onProgress ProgressCallback) error {
 	args := []string{"fetch", "--quiet"}
 	if onProgress != nil {
 		args = []string{"fetch", "--progress"}
 	}
-	if err := runGitCommandWithProgress(args, repoPath, authEnv(getRemoteURL(repoPath)), onProgress); err != nil {
+	if err := runGitCommandWithProgress(args, repoPath, extraEnv, onProgress); err != nil {
 		return err
 	}
 	return runGitCommandEnv([]string{"reset", "--hard", "--quiet", "@{u}"}, repoPath, nil)

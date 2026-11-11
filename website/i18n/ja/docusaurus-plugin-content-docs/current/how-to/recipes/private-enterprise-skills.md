@@ -20,13 +20,15 @@ skillshare は環境変数からトークンを検出します。プラットフ
 
 | プラットフォーム | 環境変数 |
 |----------|---------------------|
-| GitHub / GitHub Enterprise | `GITHUB_TOKEN` |
-| GitLab / セルフホストの GitLab | `GITLAB_TOKEN` |
+| `github.com` | `GITHUB_TOKEN` |
+| `gitlab.com` | `GITLAB_TOKEN` |
 | Bitbucket | `BITBUCKET_TOKEN`（+ 任意で `BITBUCKET_USERNAME`） |
 | Azure DevOps | `AZURE_DEVOPS_TOKEN` |
 | Gitea / セルフホストの Gitea | `GITEA_TOKEN` |
 | CNB | `CNB_TOKEN` |
 | 任意のプラットフォーム（フォールバック） | `SKILLSHARE_GIT_TOKEN` |
+
+プロバイダーのトークンは HTTPS の既定ポート（または 443）でのみ送信されます。対象は `github.com`、`gitlab.com`、`bitbucket.org`、`dev.azure.com`、`*.visualstudio.com`、`gitea.com`、`cnb.cool` です。セルフホストの Gitea/CNB は、名前にプロバイダー名を含む場合も `gitea_hosts`/`cnb_hosts` に正確なホスト名の登録が必要です。セルフホストの GitHub/GitLab などにはホスト別の Git credential helper を使うか、対象の実行時だけ `SKILLSHARE_GIT_TOKEN` を設定してください。この汎用フォールバックは**任意の HTTPS ソース**に送信されます。名前による判定だけではプロバイダートークンの送信は許可されません。
 
 ```bash
 # オプション A: Git credential helper（GitHub に推奨）
@@ -84,10 +86,8 @@ skillshare sync     # Target にプッシュする
   は1つの Skill のみをインストールする
 - **CI/CD トークン**: パイプラインでは、CI シークレットからプラットフォーム固有の環境変数
   （例: `GITHUB_TOKEN`）を設定する
-- **セルフホストの GitLab**: `GITLAB_TOKEN` を設定し、HTTPS URL を使う:
-  `skillshare install https://gitlab.internal.com/team/skills.git --track`
-- **セルフホストの Gitea**: `GITEA_TOKEN` を設定する。ホスト名に `gitea` が含まれない場合は、
-  [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts) にも列挙する
+- **セルフホストの GitHub/GitLab**: ホスト別の Git credential helper を使うか、対象の実行時だけ指定します: `SKILLSHARE_GIT_TOKEN=your-token skillshare install https://gitlab.internal.com/team/skills.git --track`。`GITHUB_TOKEN`/`GITLAB_TOKEN` はセルフホストへ送信されません。
+- **セルフホストの Gitea**: `GITEA_TOKEN` を設定し、必ず正確なホスト名を [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts) に登録します。
 - **Gitee / AtomGit**: `SKILLSHARE_GIT_TOKEN` を使った HTTPS URL 経由で対応
 
 ## 関連項目

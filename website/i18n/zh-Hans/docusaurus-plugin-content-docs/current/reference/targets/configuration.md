@@ -842,7 +842,7 @@ SKILLSHARE_AZURE_HOSTS=azuredevops.mycompany.com skillshare install \
 
 ### `gitea_hosts`
 
-自建 Gitea 实例的主机名。名称中包含 `gitea` 的主机，例如 `gitea.com` 或 `gitea.company.com`，会被自动检测。此字段仅在使用其他自定义域名时才需要。
+自建 Gitea 即使名称包含 `gitea`，也必须在 [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts) 中配置准确主机名才能发送 `GITEA_TOKEN`。平台认证仅支持 HTTPS 默认端口或 443。
 
 ```yaml
 gitea_hosts:

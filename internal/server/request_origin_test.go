@@ -72,3 +72,30 @@ func TestCrossSiteUpdateStreamIsRefused(t *testing.T) {
 		t.Fatalf("status = %d: %s", rr.Code, rr.Body.String())
 	}
 }
+
+func TestCrossSitePreviewIsRefused(t *testing.T) {
+	s, _ := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/preview?source=https://github.attacker.invalid/demo/skill", nil)
+	req.Host = "127.0.0.1:19420"
+	req.Header.Set("Origin", "https://untrusted-page.invalid")
+	req.Header.Set("Sec-Fetch-Site", "cross-site")
+	rr := httptest.NewRecorder()
+	s.servedHandler().ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("cross-site preview status = %d, want 403: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestCrossSiteHubSearchIsRefused(t *testing.T) {
+	t.Setenv("SKILLSHARE_GIT_TOKEN", "audit-dummy-token")
+	s, _ := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/search?hub=https://untrusted.invalid/index.json", nil)
+	req.Host = "127.0.0.1:19420"
+	req.Header.Set("Origin", "https://untrusted-page.invalid")
+	req.Header.Set("Sec-Fetch-Site", "cross-site")
+	rr := httptest.NewRecorder()
+	s.servedHandler().ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("cross-site hub search status = %d, want 403: %s", rr.Code, rr.Body.String())
+	}
+}

@@ -6,6 +6,8 @@ sidebar_position: 1
 
 Launch the web dashboard for visual skill management.
 
+Remote searches (`GET /api/search`) and install previews (`GET /api/preview`) use the same origin checks as mutations: cross-site browser requests are refused before fetching. Direct clients without browser origin/fetch headers remain supported. GitHub API credentials are restricted to HTTPS `api.github.com` and `raw.githubusercontent.com` on the default port or 443; authorization is removed on cross-origin redirects.
+
 ```bash
 skillshare ui                  # Run in the foreground
 skillshare ui start            # Start (or reuse) a background server

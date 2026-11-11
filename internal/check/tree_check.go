@@ -15,13 +15,13 @@ import (
 //
 // Returns nil on any error (unsupported git version, network failure, etc.)
 // so callers can fall back to commit-level comparison.
-func FetchRemoteTreeHashes(repoURL string) map[string]string {
-	return FetchRemoteTreeHashesForRef(repoURL, "")
+func FetchRemoteTreeHashes(repoURL string, opts install.ParseOptions) map[string]string {
+	return FetchRemoteTreeHashesForRef(repoURL, "", opts)
 }
 
 // FetchRemoteTreeHashesForRef is FetchRemoteTreeHashes for a specific branch.
 // An empty ref means the remote HEAD.
-func FetchRemoteTreeHashesForRef(repoURL, ref string) map[string]string {
+func FetchRemoteTreeHashesForRef(repoURL, ref string, opts install.ParseOptions) map[string]string {
 	if ref == "" {
 		ref = "HEAD"
 	}
@@ -44,7 +44,7 @@ func FetchRemoteTreeHashesForRef(repoURL, ref string) map[string]string {
 	fetchCmd := gitenv.Command(fetchArgs...)
 	fetchCmd.Dir = tmpDir
 	// Inject auth env for private repos
-	if extraEnv := install.AuthEnvForURL(repoURL); len(extraEnv) > 0 {
+	if extraEnv := install.AuthEnvForURL(repoURL, opts); len(extraEnv) > 0 {
 		fetchCmd.Env = append(fetchCmd.Env, extraEnv...)
 	}
 	if out, err := fetchCmd.CombinedOutput(); err != nil {

@@ -230,8 +230,8 @@ func scanGitProgress(data []byte, atEOF bool) (advance int, token []byte, err er
 }
 
 // PullWithAuth runs git pull with token auth env inferred from origin remote.
-func PullWithAuth(repoPath string) (*UpdateInfo, error) {
-	return PullWithEnv(repoPath, AuthEnvForRepo(repoPath))
+func PullWithAuth(repoPath string, opts install.ParseOptions) (*UpdateInfo, error) {
+	return PullWithEnv(repoPath, AuthEnvForRepo(repoPath, opts))
 }
 
 // PullWithProgress runs git pull and optionally streams progress lines to
@@ -559,8 +559,8 @@ func Commit(dir, msg string) error {
 
 // PushRemoteWithAuth pushes to the default remote with token auth env inferred
 // from origin remote.
-func PushRemoteWithAuth(dir string) error {
-	return PushRemoteWithEnv(dir, AuthEnvForRepo(dir))
+func PushRemoteWithAuth(dir string, opts install.ParseOptions) error {
+	return PushRemoteWithEnv(dir, AuthEnvForRepo(dir, opts))
 }
 
 // PushRemoteWithEnv pushes to the default remote with additional environment
@@ -685,8 +685,8 @@ var ErrRemoteTracksConfig = errors.New("remote tracks config.yaml")
 // branch. Local content is kept by merging the remote history (it may be
 // unrelated); with force, or with nothing local, the branch is reset to the
 // remote instead. Returns ErrNoRemoteBranches while origin is still empty.
-func FirstPull(dir string, force bool) (*UpdateInfo, error) {
-	authEnv := AuthEnvForRepo(dir)
+func FirstPull(dir string, force bool, opts install.ParseOptions) (*UpdateInfo, error) {
+	authEnv := AuthEnvForRepo(dir, opts)
 	fetch := gitenv.Command("fetch", "origin")
 	fetch.Dir = dir
 	fetch.Env = append(append(fetch.Env, "LC_ALL=C"), authEnv...)
@@ -864,8 +864,8 @@ func GetBehindCount(repoPath string) (int, error) {
 
 // GetBehindCountWithAuth fetches from origin and returns how many commits local
 // is behind, injecting HTTPS token auth based on origin remote when available.
-func GetBehindCountWithAuth(repoPath string) (int, error) {
-	return GetBehindCountWithEnv(repoPath, AuthEnvForRepo(repoPath))
+func GetBehindCountWithAuth(repoPath string, opts install.ParseOptions) (int, error) {
+	return GetBehindCountWithEnv(repoPath, AuthEnvForRepo(repoPath, opts))
 }
 
 // GetBehindCountWithEnv is like GetBehindCount but with additional env vars.
@@ -894,8 +894,8 @@ func GetRemoteHeadHash(repoURL string) (string, error) {
 
 // GetRemoteHeadHashWithAuth returns remote HEAD hash with HTTPS token auth
 // injection when token env vars are available.
-func GetRemoteHeadHashWithAuth(repoURL string) (string, error) {
-	return GetRemoteHeadHashWithEnv(repoURL, install.AuthEnvForURL(repoURL))
+func GetRemoteHeadHashWithAuth(repoURL string, opts install.ParseOptions) (string, error) {
+	return GetRemoteHeadHashWithEnv(repoURL, install.AuthEnvForURL(repoURL, opts))
 }
 
 // remoteHashTimeout bounds lightweight remote probes used by check/status flows.
@@ -918,8 +918,8 @@ func GetRemoteRefHash(repoURL, branch string) (string, error) {
 }
 
 // GetRemoteRefHashWithAuth returns the remote ref hash with HTTPS token auth.
-func GetRemoteRefHashWithAuth(repoURL, branch string) (string, error) {
-	return GetRemoteRefHashWithEnv(repoURL, branch, install.AuthEnvForURL(repoURL))
+func GetRemoteRefHashWithAuth(repoURL, branch string, opts install.ParseOptions) (string, error) {
+	return GetRemoteRefHashWithEnv(repoURL, branch, install.AuthEnvForURL(repoURL, opts))
 }
 
 // GetRemoteRefHashWithEnv returns the hash of a specific ref (branch, tag, or
@@ -1011,8 +1011,8 @@ func abbrevHash(hash string) string {
 }
 
 // ForcePullWithAuth runs force-pull flow with token auth env inferred from origin remote.
-func ForcePullWithAuth(repoPath string) (*UpdateInfo, error) {
-	return ForcePullWithEnv(repoPath, AuthEnvForRepo(repoPath))
+func ForcePullWithAuth(repoPath string, opts install.ParseOptions) (*UpdateInfo, error) {
+	return ForcePullWithEnv(repoPath, AuthEnvForRepo(repoPath, opts))
 }
 
 // ForcePullWithProgress runs fetch+hard-reset and optionally streams fetch
@@ -1073,9 +1073,9 @@ func ForcePullWithEnv(repoPath string, extraEnv []string) (*UpdateInfo, error) {
 }
 
 // AuthEnvForRepo returns HTTPS token auth env vars for the repo's origin remote.
-func AuthEnvForRepo(repoPath string) []string {
+func AuthEnvForRepo(repoPath string, opts install.ParseOptions) []string {
 	url, _ := GetRemoteURL(repoPath)
-	return install.AuthEnvForURL(url)
+	return install.AuthEnvForURL(url, opts)
 }
 
 // GetRemoteURL returns the fetch URL for the "origin" remote.

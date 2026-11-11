@@ -61,7 +61,7 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 		if _, followed := opts.SourceFollow.Resolve(destPath); opts.Reinstall && !followed {
 			pull = gitForcePull
 		}
-		if err := pull(destPath, opts.OnProgress); err != nil {
+		if err := pull(destPath, source.authEnv(), opts.OnProgress); err != nil {
 			return nil, fmt.Errorf("failed to update: %w", err)
 		}
 

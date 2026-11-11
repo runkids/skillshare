@@ -23,20 +23,9 @@ func TestSourceType_String(t *testing.T) {
 	}
 }
 
-func TestAuthEnvForURL_NoToken(t *testing.T) {
-	// With no environment tokens set, AuthEnvForURL should return empty
-	t.Setenv("GITHUB_TOKEN", "")
-	t.Setenv("GH_TOKEN", "")
-	t.Setenv("GITLAB_TOKEN", "")
-	env := AuthEnvForURL("https://github.com/user/repo.git")
-	// Should not panic; may return empty or contain config entries
-	_ = env
-}
-
 func TestResolveTokenForURL_NoToken(t *testing.T) {
-	t.Setenv("GITHUB_TOKEN", "")
-	t.Setenv("GH_TOKEN", "")
-	token, username := ResolveTokenForURL("https://github.com/user/repo.git")
+	resetAuthTestEnv(t)
+	token, username := ResolveTokenForURL("https://github.com/user/repo.git", ParseOptions{})
 	if token != "" {
 		t.Errorf("expected empty token, got %q", token)
 	}

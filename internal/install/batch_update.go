@@ -37,7 +37,7 @@ func UpdateSkillsFromRepo(repoURL, branch string, skillTargets map[string]string
 		return nil, fmt.Errorf("repoURL is required")
 	}
 
-	source, err := ParseSource(repoURL)
+	source, err := ParseSourceWithOptions(repoURL, opts.ParseOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse repo URL %q: %w", repoURL, err)
 	}

@@ -6,6 +6,8 @@ sidebar_position: 1
 
 視覚的な Skill 管理のための Web ダッシュボードを起動します。
 
+リモート検索（`GET /api/search`）とインストールのプレビュー（`GET /api/preview`）は変更操作と同じ origin チェックを使い、別サイトからのブラウザー要求は取得前に拒否します。ブラウザーの origin/fetch ヘッダーを持たない直接クライアントは引き続き対応します。GitHub API の認証情報は HTTPS の `api.github.com` と `raw.githubusercontent.com`（既定ポートまたは 443）に限定され、別 origin へのリダイレクト時は認証情報を削除します。
+
 ```bash
 skillshare ui                  # フォアグラウンドで実行
 skillshare ui start            # バックグラウンドサーバーを起動（既存があれば再利用）

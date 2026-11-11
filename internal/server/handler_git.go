@@ -223,7 +223,7 @@ func (s *Server) handleGitBranches(w http.ResponseWriter, r *http.Request) {
 
 	// Optional: fetch from remote first to discover new branches
 	if r.URL.Query().Get("fetch") == "true" && git.HasRemote(src) {
-		if err := git.FetchWithEnv(src, git.AuthEnvForRepo(src)); err != nil {
+		if err := git.FetchWithEnv(src, git.AuthEnvForRepo(src, s.parseOpts())); err != nil {
 			writeError(w, http.StatusInternalServerError, "git fetch failed: "+err.Error())
 			return
 		}
@@ -319,7 +319,7 @@ func (s *Server) handleGitCheckout(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch before checkout to ensure remote refs are up to date
 	if git.HasRemote(src) {
-		if err := git.FetchWithEnv(src, git.AuthEnvForRepo(src)); err != nil {
+		if err := git.FetchWithEnv(src, git.AuthEnvForRepo(src, s.parseOpts())); err != nil {
 			s.writeOpsLog("checkout", "error", start, map[string]any{
 				"branch": body.Branch,
 				"scope":  "ui",
@@ -536,7 +536,7 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 	if s.rootConfigHistoryGuard(w, src) {
 		return
 	}
-	if err := git.PushRemoteWithAuth(src); err != nil {
+	if err := git.PushRemoteWithAuth(src, s.parseOpts()); err != nil {
 		if errors.Is(err, git.ErrPushRejected) {
 			// The UI offers a pull for this code.
 			s.writeOpsLog("push", "error", start, args, err.Error())
@@ -557,7 +557,7 @@ func (s *Server) rootConfigHistoryGuard(w http.ResponseWriter, src string) bool 
 	if s.cfg.GitRoot != "root" {
 		return false
 	}
-	if err := git.CheckUnpushedConfigHistory(src); err != nil {
+	if err := git.CheckUnpushedConfigHistory(src, s.parseOpts()); err != nil {
 		var historyErr *git.UnpushedConfigHistoryError
 		if errors.As(err, &historyErr) {
 			writeCodedError(w, http.StatusConflict, "unpushed_config_history", err.Error(), nil)
@@ -749,7 +749,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		info, err = git.PullWithResolution(src, body.Resolution)
+		info, err = git.PullWithResolution(src, body.Resolution, s.parseOpts())
 		// A restore failure joins the pull's own error so a conflict is still
 		// reported as one and the failure is logged below.
 		var restoreErr error
@@ -760,7 +760,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "conflict resolution requires an upstream branch")
 			return
 		}
-		info, err = git.FirstPull(src, body.Force)
+		info, err = git.FirstPull(src, body.Force, s.parseOpts())
 	}
 	if errors.Is(err, git.ErrNoRemoteBranches) {
 		// Sync both ways pushes on this code, like push --pull.

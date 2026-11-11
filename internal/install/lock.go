@@ -168,7 +168,7 @@ func relockGitRepo(repoPath, sha string, opts InstallOptions) error {
 	if err != nil || before == "" {
 		return fmt.Errorf("cannot read the current commit of %s", repoPath)
 	}
-	if err := resetTrackedToCommit(repoPath, sha, AuthEnvForURL(getRemoteURL(repoPath))); err != nil {
+	if err := resetTrackedToCommit(repoPath, sha, AuthEnvForURL(getRemoteURL(repoPath), opts.ParseOptions)); err != nil {
 		return err
 	}
 	if opts.SkipAudit {

@@ -134,7 +134,7 @@ Expected:
 - jq: (.keys | index("local-skill")) == null
 - jq: .group == "grp"
 - jq: .local_group == "grp"
-- jq: .source == "file:///tmp/ss-move-git.git/git-skill"
+- jq: .source == "file:///tmp/ss-move-git.git//git-skill"
 - jq: .commit == 40
 - jq: (.dirs | contains("git-skill"))
 
@@ -176,7 +176,7 @@ ss check git-skill --json
 Expected:
 - exit_code: 0
 - jq: .skills[0].name == "grp/git-skill"
-- jq: .skills[0].source == "file:///tmp/ss-move-git.git/git-skill"
+- jq: .skills[0].source == "file:///tmp/ss-move-git.git//git-skill"
 
 ### 11. Move the whole folder
 

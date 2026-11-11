@@ -73,10 +73,9 @@ func detectPlatform(cloneURL string) Platform {
 	return PlatformUnknown
 }
 
-// resolveToken looks up a token from environment variables based on the
-// detected platform. Platform-specific vars take priority over the generic
-// SKILLSHARE_GIT_TOKEN. Returns empty strings if no token is available or
-// the URL is not HTTPS.
+// resolveToken looks up HTTPS credentials. Provider tokens require a trusted
+// host; platform-name heuristics are only for parsing, never authorization.
+// SKILLSHARE_GIT_TOKEN remains an explicit fallback for any HTTPS source.
 func resolveToken(cloneURL string) (token, username string) {
 	return resolveTokenWithOptions(cloneURL, nil, nil)
 }
@@ -86,7 +85,7 @@ func resolveTokenWithOptions(cloneURL string, cnbHosts, giteaHosts []string) (to
 		return "", ""
 	}
 
-	platform := detectPlatformWithOptions(cloneURL, cnbHosts, giteaHosts)
+	platform := credentialPlatform(cloneURL, cnbHosts, giteaHosts)
 	switch platform {
 	case PlatformGitHub:
 		if t := os.Getenv("GITHUB_TOKEN"); t != "" {
@@ -126,7 +125,7 @@ func resolveTokenWithOptions(cloneURL string, cnbHosts, giteaHosts []string) (to
 		if u := urlUsername(cloneURL); u != "" {
 			return t, u
 		}
-		switch platform {
+		switch detectPlatformWithOptions(cloneURL, cnbHosts, giteaHosts) {
 		case PlatformGitLab:
 			return t, "oauth2"
 		case PlatformBitbucket:
@@ -136,6 +135,40 @@ func resolveTokenWithOptions(cloneURL string, cnbHosts, giteaHosts []string) (to
 		}
 	}
 	return "", ""
+}
+
+// credentialPlatform binds provider credentials to their public HTTPS origin,
+// or an explicitly configured CNB/Gitea host, not a provider-looking name.
+func credentialPlatform(rawURL string, cnbHosts, giteaHosts []string) Platform {
+	u, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || !strings.EqualFold(u.Scheme, "https") || (u.Port() != "" && u.Port() != "443") {
+		return PlatformUnknown
+	}
+	host := strings.ToLower(u.Hostname())
+	switch host {
+	case "github.com", "api.github.com", "raw.githubusercontent.com":
+		return PlatformGitHub
+	case "gitlab.com":
+		return PlatformGitLab
+	case "bitbucket.org":
+		return PlatformBitbucket
+	case "dev.azure.com":
+		return PlatformAzureDevOps
+	case "cnb.cool":
+		return PlatformCNB
+	case "gitea.com":
+		return PlatformGitea
+	}
+	if strings.HasSuffix(host, ".visualstudio.com") {
+		return PlatformAzureDevOps
+	}
+	if hostMatchesAny(host, cnbHosts) {
+		return PlatformCNB
+	}
+	if hostMatchesAny(host, giteaHosts) {
+		return PlatformGitea
+	}
+	return PlatformUnknown
 }
 
 // authEnv returns environment variables that give git the token through a
@@ -187,14 +220,14 @@ const (
 
 // AuthEnvForURL returns git auth injection env for HTTPS clone/pull URLs.
 // Returns nil when no token is available or URL is not HTTPS.
-func AuthEnvForURL(cloneURL string) []string {
-	return authEnv(cloneURL)
+func AuthEnvForURL(cloneURL string, opts ParseOptions) []string {
+	return authEnvWithOptions(cloneURL, opts.CNBHosts, opts.GiteaHosts)
 }
 
 // ResolveTokenForURL returns token credentials resolved from env vars for the
 // provided HTTPS URL. Returns empty strings when no token is available.
-func ResolveTokenForURL(cloneURL string) (token, username string) {
-	return resolveToken(cloneURL)
+func ResolveTokenForURL(cloneURL string, opts ParseOptions) (token, username string) {
+	return resolveTokenWithOptions(cloneURL, opts.CNBHosts, opts.GiteaHosts)
 }
 
 // DetectPlatformForURL identifies the git hosting platform for a URL.

@@ -882,8 +882,7 @@ SKILLSHARE_AZURE_HOSTS=azuredevops.mycompany.com skillshare install \
 
 ### `gitea_hosts`
 
-セルフホストの Gitea インスタンスのホスト名。`gitea.com` や `gitea.company.com` のように名前に
-`gitea` を含むホストは自動的に検出されます。このフィールドは他のカスタムドメインでのみ必要です。
+セルフホストの Gitea は、名前に `gitea` を含む場合も `GITEA_TOKEN` の送信に [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts) への正確なホスト名の登録が必要です。プロバイダー認証は HTTPS の既定ポートまたは 443 に限定されます。
 
 ```yaml
 gitea_hosts:

@@ -65,8 +65,8 @@ func dashboardSkillResults(results []check.SkillResult) []skillCheckResult {
 
 // checkTrackedRepo checks one tracked repo with the same logic as the CLI:
 // auth-aware fetch and a reported dirty-check error.
-func checkTrackedRepo(name, repoPath string) repoCheckResult {
-	out := check.ParallelCheckRepos([]check.RepoCheckInput{{Name: name, RepoPath: repoPath}}, nil)[0]
+func checkTrackedRepo(name, repoPath string, parseOpts install.ParseOptions) repoCheckResult {
+	out := check.ParallelCheckRepos([]check.RepoCheckInput{{Name: name, RepoPath: repoPath, ParseOptions: parseOpts}}, nil)[0]
 	return repoCheckResult{Name: out.Name, Status: out.Status, Behind: out.Behind, Message: out.Message}
 }
 
@@ -76,6 +76,7 @@ func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
 	sourceDir := s.skillsSource()
 	projectRoot := s.projectRoot
 	walk := s.skillsWalk()
+	parseOpts := s.parseOpts()
 	s.mu.RUnlock()
 
 	repos, linked := dashboardRepos(sourceDir, walk)
@@ -83,11 +84,11 @@ func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
 
 	var repoResults []repoCheckResult
 	for _, repo := range repos {
-		repoResults = append(repoResults, checkTrackedRepo(repo, filepath.Join(sourceDir, repo)))
+		repoResults = append(repoResults, checkTrackedRepo(repo, filepath.Join(sourceDir, repo), parseOpts))
 	}
 
 	// Without a context the check runs to completion, so the error is always nil.
-	resolved, _ := plan.Run(context.Background(), check.Options{})
+	resolved, _ := plan.Run(context.Background(), check.Options{ParseOptions: parseOpts})
 	skillResults := dashboardSkillResults(resolved)
 
 	if repoResults == nil {

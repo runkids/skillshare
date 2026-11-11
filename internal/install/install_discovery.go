@@ -182,7 +182,7 @@ func ExistingSkillInstallName(sourceDir string, source *Source, skill SkillInfo,
 	var existing string
 	for _, key := range store.List() {
 		entry := store.Get(key)
-		if entry.Tracked || entry.EffectiveKind() != "skill" || entry.Source != fullSource {
+		if entry.Tracked || entry.EffectiveKind() != "skill" || !isDiscoverySkillSource(entry, source, skill.Path) {
 			continue
 		}
 		rel := KeyToRelPath(key, entry)

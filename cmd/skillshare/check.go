@@ -55,7 +55,7 @@ type checkOptions struct {
 	// exit 1, so CI can gate on it without parsing --json.
 	exitCode bool
 
-	parseOpts install.ParseOptions // how --diff parses recorded sources
+	parseOpts install.ParseOptions // source parsing and remote credential authorization
 }
 
 // collectCheckItems reads metadata and partitions items for parallel checking.
@@ -63,12 +63,13 @@ type checkOptions struct {
 // without a remote are already resolved (no network needed).
 // projectRoot is the base of relative local sources; "" in global mode.
 // follow resolves linked skill directories before they are hashed.
-func collectCheckItems(sourceDir, projectRoot string, repos []string, skills []string, follow *sourcewalk.Follow) ([]check.RepoCheckInput, *check.Resolution) {
+func collectCheckItems(sourceDir, projectRoot string, repos []string, skills []string, follow *sourcewalk.Follow, parseOpts install.ParseOptions) ([]check.RepoCheckInput, *check.Resolution) {
 	var repoInputs []check.RepoCheckInput
 	for _, repo := range repos {
 		repoInputs = append(repoInputs, check.RepoCheckInput{
-			Name:     repo,
-			RepoPath: filepath.Join(sourceDir, repo),
+			Name:         repo,
+			RepoPath:     filepath.Join(sourceDir, repo),
+			ParseOptions: parseOpts,
 		})
 	}
 
@@ -85,10 +86,11 @@ func collectCheckItems(sourceDir, projectRoot string, repos []string, skills []s
 
 // resolveCheckSkills asks the remotes of a planned skill check in parallel,
 // reporting the skill count of each finished remote to progressBar (may be nil).
-func resolveCheckSkills(plan *check.Resolution, progressBar *ui.ProgressBar) []checkSkillResult {
+func resolveCheckSkills(plan *check.Resolution, progressBar *ui.ProgressBar, parseOpts install.ParseOptions) []checkSkillResult {
 	// Without a context the check runs to completion, so the error is always nil.
 	resolved, _ := plan.Run(context.Background(), check.Options{
-		Parallel: true,
+		ParseOptions: parseOpts,
+		Parallel:     true,
 		OnRemoteDone: func(skills int) {
 			if progressBar != nil {
 				progressBar.Add(skills)
@@ -218,7 +220,7 @@ func cmdCheck(args []string) error {
 				logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, err)
 				return err
 			}
-			cmdErr := renderAgentCheck(projectCfg.EffectiveAgentsSource(cwd), opts.groups, opts.json, opts.exitCode)
+			cmdErr := renderAgentCheck(projectCfg.EffectiveAgentsSource(cwd), opts.groups, opts.json, opts.exitCode, parseOptsFromProjectConfig(projectCfg))
 			logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, cmdErr)
 			return cmdErr
 		}
@@ -235,14 +237,14 @@ func cmdCheck(args []string) error {
 	// Agent-only check: scan agents source directory and skip repo checks.
 	if kind == kindAgents {
 		agentsDir := cfg.EffectiveAgentsSource()
-		cmdErr := renderAgentCheck(agentsDir, opts.groups, opts.json, opts.exitCode)
+		cmdErr := renderAgentCheck(agentsDir, opts.groups, opts.json, opts.exitCode, parseOptsFromConfig(cfg))
 		logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, cmdErr)
 		return cmdErr
 	}
 
 	// No names and no groups → check all (existing behavior)
 	if len(opts.names) == 0 && len(opts.groups) == 0 {
-		cmdErr := runCheck(cfg.EffectiveSkillsSource(), "", opts.json, opts.exitCode, targetNamesFromConfig(cfg.Targets), cfg.SkillsWalk())
+		cmdErr := runCheck(cfg.EffectiveSkillsSource(), "", opts.json, opts.exitCode, targetNamesFromConfig(cfg.Targets), cfg.SkillsWalk(), parseOptsFromConfig(cfg))
 		logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, cmdErr)
 		return cmdErr
 	}
@@ -273,7 +275,7 @@ func logCheckOp(cfgPath string, repos, skills, updatesAvailable, errors int, sco
 	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
 
-func runCheck(sourceDir, projectRoot string, jsonOutput, exitCode bool, extraTargetNames []string, walk sourcewalk.Options) error {
+func runCheck(sourceDir, projectRoot string, jsonOutput, exitCode bool, extraTargetNames []string, walk sourcewalk.Options, parseOpts install.ParseOptions) error {
 	start := time.Now()
 
 	var scanSpinner *ui.Spinner
@@ -313,7 +315,7 @@ func runCheck(sourceDir, projectRoot string, jsonOutput, exitCode bool, extraTar
 	}
 
 	// Collect & group
-	repoInputs, plan := collectCheckItems(sourceDir, projectRoot, repos, skills, walk.Follow)
+	repoInputs, plan := collectCheckItems(sourceDir, projectRoot, repos, skills, walk.Follow, parseOpts)
 
 	if scanSpinner != nil {
 		scanSpinner.Stop()
@@ -335,7 +337,7 @@ func runCheck(sourceDir, projectRoot string, jsonOutput, exitCode bool, extraTar
 	}
 
 	repoOutputs := check.ParallelCheckRepos(repoInputs, repoOnDone)
-	skillResults := resolveCheckSkills(plan, progressBar)
+	skillResults := resolveCheckSkills(plan, progressBar, parseOpts)
 
 	if progressBar != nil {
 		progressBar.Stop()
@@ -630,7 +632,7 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, walks .
 		}
 	}
 
-	repoInputs, plan := collectCheckItems(sourceDir, projectRoot, repoNames, skillNames, follow)
+	repoInputs, plan := collectCheckItems(sourceDir, projectRoot, repoNames, skillNames, follow, opts.parseOpts)
 
 	total := len(repoInputs) + plan.RemoteSkills()
 	isSingle := len(targets) == 1
@@ -653,7 +655,7 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, walks .
 	}
 
 	repoOutputs := check.ParallelCheckRepos(repoInputs, repoOnDone)
-	skillResults := resolveCheckSkills(plan, progressBar)
+	skillResults := resolveCheckSkills(plan, progressBar, opts.parseOpts)
 
 	if progressBar != nil {
 		progressBar.Stop()
@@ -821,7 +823,7 @@ func formatSourceShort(source string) string {
 
 // renderAgentCheck runs CheckAgents and displays results (text or JSON).
 // If groups is non-empty, only agents in those group subdirectories are shown.
-func renderAgentCheck(agentsDir string, groups []string, jsonMode, exitCode bool) error {
+func renderAgentCheck(agentsDir string, groups []string, jsonMode, exitCode bool, parseOpts install.ParseOptions) error {
 	agentResults := check.CheckAgents(agentsDir)
 
 	if len(groups) > 0 {
@@ -845,10 +847,10 @@ func renderAgentCheck(agentsDir string, groups []string, jsonMode, exitCode bool
 	}
 	if len(tracked) > 0 {
 		if jsonMode {
-			check.EnrichAgentResultsWithRemote(tracked, nil)
+			check.EnrichAgentResultsWithRemote(tracked, nil, parseOpts)
 		} else {
 			sp := ui.StartSpinner(fmt.Sprintf("Checking %s...", plural(len(tracked), "tracked agent")))
-			check.EnrichAgentResultsWithRemote(tracked, nil)
+			check.EnrichAgentResultsWithRemote(tracked, nil, parseOpts)
 			sp.Stop()
 		}
 		for i, idx := range trackedIndices {

@@ -847,7 +847,7 @@ SKILLSHARE_AZURE_HOSTS=azuredevops.mycompany.com skillshare install \
 
 ### `gitea_hosts`
 
-Self-hosted Gitea 인스턴스의 호스트명. `gitea.com`이나 `gitea.company.com`처럼 이름에 `gitea`가 포함된 호스트는 자동으로 감지됩니다. 이 필드는 다른 custom 도메인에만 필요합니다.
+자체 호스팅 Gitea는 이름에 `gitea`가 포함되어도 `GITEA_TOKEN` 전송을 위해 [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts)에 정확한 호스트명을 등록해야 합니다. 공급자 인증은 HTTPS 기본 포트 또는 443으로 제한됩니다.
 
 ```yaml
 gitea_hosts:

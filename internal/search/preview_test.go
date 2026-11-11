@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -63,7 +64,7 @@ func TestFetchViaContentsAPI_Success(t *testing.T) {
 	})
 	defer srv.Close()
 
-	preview, err := fetchViaContentsAPI(srv.Client(), srv.URL, "", "o", "r", "skills/foo", "")
+	preview, err := fetchViaContentsAPI(srv.Client(), srv.URL, "o", "r", "skills/foo", "", install.ParseOptions{})
 	if err != nil {
 		t.Fatalf("fetchViaContentsAPI: %v", err)
 	}
@@ -100,7 +101,7 @@ func TestFetchViaContentsAPI_TreeFallback(t *testing.T) {
 	})
 	defer srv.Close()
 
-	preview, err := fetchViaContentsAPI(srv.Client(), srv.URL, "", "o", "r", "critique", "")
+	preview, err := fetchViaContentsAPI(srv.Client(), srv.URL, "o", "r", "critique", "", install.ParseOptions{})
 	if err != nil {
 		t.Fatalf("fetchViaContentsAPI: %v", err)
 	}
@@ -118,7 +119,7 @@ func TestFetchViaContentsAPI_NotFound(t *testing.T) {
 	})
 	defer srv.Close()
 
-	_, err := fetchViaContentsAPI(srv.Client(), srv.URL, "", "o", "r", "missing", "")
+	_, err := fetchViaContentsAPI(srv.Client(), srv.URL, "o", "r", "missing", "", install.ParseOptions{})
 	if !errors.Is(err, ErrSkillNotFound) {
 		t.Fatalf("err = %v, want ErrSkillNotFound", err)
 	}
@@ -240,12 +241,12 @@ func TestFetchPreviewFromSource_SSHContentsAPIFailureFallsBackToClone(t *testing
 	}
 }
 
-func TestPreviewToken_ResolvesEnvForSSHGitHubSource(t *testing.T) {
+func TestPreviewToken_ResolvesEnvForPublicGitHubAPI(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "ghp_test")
 	t.Setenv("GH_TOKEN", "")
 	t.Setenv("SKILLSHARE_GIT_TOKEN", "")
 
-	got := previewToken("git@github.com:o/r.git", "https://api.github.com")
+	got := previewToken("https://api.github.com", install.ParseOptions{})
 	if got != "ghp_test" {
 		t.Fatalf("previewToken() = %q, want ghp_test", got)
 	}
@@ -298,5 +299,81 @@ func writeFile(t *testing.T, root, rel, content string) {
 	}
 	if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
+	}
+}
+
+type previewCredentialTransport struct {
+	t          *testing.T
+	host, auth string
+}
+
+func (p previewCredentialTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	if r.URL.Host != p.host || r.Header.Get("Authorization") != p.auth {
+		p.t.Fatalf("credential destination = %s, Authorization = %q", r.URL.Host, r.Header.Get("Authorization"))
+	}
+	body := `{"stargazers_count":0}`
+	if strings.Contains(r.URL.Path, "/contents/") {
+		body = contentsJSON(p.t, sampleSkillMD)
+	}
+	return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body)), Request: r}, nil
+}
+
+func TestFetchPreviewDoesNotAuthorizeProviderLookalikes(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "audit-dummy-token")
+	t.Setenv("GH_TOKEN", "")
+	t.Setenv("SKILLSHARE_GIT_TOKEN", "")
+	for _, tt := range []struct {
+		source, host, auth string
+	}{
+		{"https://github.attacker.invalid/o/r", "github.attacker.invalid", ""},
+		{"https://github.com/o/r", "api.github.com", "token audit-dummy-token"},
+		{"http://github.com/o/r", "api.github.com", "token audit-dummy-token"},
+		{"https://github.com:8443/o/r", "api.github.com", "token audit-dummy-token"},
+	} {
+		t.Run(tt.host, func(t *testing.T) {
+			client := &http.Client{Transport: previewCredentialTransport{t, tt.host, tt.auth}}
+			preview, err := FetchPreview(client, tt.source, "", install.ParseOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if preview.Content != sampleSkillMD {
+				t.Fatalf("preview content = %q, want fixture", preview.Content)
+			}
+		})
+	}
+}
+
+func TestContentsPreview_ExactCredentialDestination(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "github-preview-token")
+	t.Setenv("GH_TOKEN", "")
+	t.Setenv("CNB_TOKEN", "cnb-preview-token")
+	t.Setenv("GITEA_TOKEN", "gitea-preview-token")
+	t.Setenv("SKILLSHARE_GIT_TOKEN", "")
+	opts := install.ParseOptions{
+		CNBHosts:   []string{"cnb.corp.example"},
+		GiteaHosts: []string{"forge.corp.example"},
+	}
+	for _, tt := range []struct {
+		apiBase, host, auth string
+	}{
+		{"https://api.github.com", "api.github.com", "token github-preview-token"},
+		{"http://api.github.com", "api.github.com", ""},
+		{"https://api.github.com:8443", "api.github.com:8443", ""},
+		{"https://cnb.corp.example", "cnb.corp.example", "token cnb-preview-token"},
+		{"https://forge.corp.example", "forge.corp.example", "token gitea-preview-token"},
+		{"http://forge.corp.example", "forge.corp.example", ""},
+		{"https://forge.corp.example:8443", "forge.corp.example:8443", ""},
+		{"https://gitea.attacker.invalid", "gitea.attacker.invalid", ""},
+	} {
+		t.Run(tt.apiBase, func(t *testing.T) {
+			client := &http.Client{Transport: previewCredentialTransport{t, tt.host, tt.auth}}
+			preview, err := fetchViaContentsAPI(client, tt.apiBase, "org", "repo", "", "", opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if preview.Content != sampleSkillMD {
+				t.Fatal("preview did not return the requested skill")
+			}
+		})
 	}
 }

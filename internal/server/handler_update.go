@@ -314,10 +314,11 @@ func (s *Server) updateTrackedRepo(name, repoPath, sourceDir string, force, skip
 		return *refusal
 	}
 	opts := update.TrackedRepoOptions{
-		SourceDir: sourceDir,
-		Force:     force,
-		SkipAudit: skipAudit,
-		Threshold: s.updateAuditThreshold(),
+		ParseOptions: s.parseOpts(),
+		SourceDir:    sourceDir,
+		Force:        force,
+		SkipAudit:    skipAudit,
+		Threshold:    s.updateAuditThreshold(),
 	}
 	if len(follow) > 0 {
 		opts.Follow = follow[0]
