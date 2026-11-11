@@ -29,7 +29,7 @@ Skillshare は source リソースと target 設定を分け、各ツールへ�
 | **発見** | skills.sh と `skills find` | CLI 検索とローカル Web dashboard |
 | **複数 agent とスコープ** | 複数 agent、プロジェクト／グローバルのインストール | 設定済み targets、プロジェクト／グローバルモード |
 | **Skill ファイルの共有** | 共通コピーへの symlink、copy オプション | Source ディレクトリと merge、copy、ディレクトリ全体の symlink モード |
-| **更新** | `skills check`（更新またはローカル変更があれば終了コード 1）と `skills update` | `skillshare check` と `skillshare update` |
+| **更新** | `skills check`（更新またはローカル変更があれば終了コード 1）と `skills update` | `skillshare check`（`--exit-code` を付けると、最新でないものがあれば終了コード 1）と `skillshare update` |
 | **プロジェクト復元** | 実験的な `skills experimental_install`（ソースなしの `skills install` でも実行可能）が `skills-lock.json` の対応ソースを復元 | 宣言的な skill 設定と source リソース。[manifest](/docs/understand/declarative-manifest) を参照 |
 | **npm プロジェクト同期** | 実験的な `skills experimental_sync` がインストール済み依存関係と `package.json` の skill 宣言を読む | Source から target への同期。同じ npm 依存関係ワークフローではない |
 | **マシン間のワークフロー** | プロジェクト lock の復元と npm 同期でプロジェクト skills の再構築を支援 | Git の `push` / `pull`。範囲は `git_root` で決定 |

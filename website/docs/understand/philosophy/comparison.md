@@ -29,7 +29,7 @@ The useful distinction is managing these resources together across tools, machin
 | **Discovery** | skills.sh and `skills find` | CLI search and local Web dashboard |
 | **Multiple agents and scopes** | Multiple agents; project and global installs | Configured targets; project and global modes |
 | **Shared skill files** | Symlinks to a canonical copy; copy option | Source directory with merge, copy, or directory-symlink modes |
-| **Updates** | `skills check` (exits 1 on updates or local changes) and `skills update` | `skillshare check` and `skillshare update` |
+| **Updates** | `skills check` (exits 1 on updates or local changes) and `skills update` | `skillshare check` (add `--exit-code` to exit 1 when anything is not up to date) and `skillshare update` |
 | **Project restoration** | Experimental `skills experimental_install` (or `skills install` with no source) restores supported sources from `skills-lock.json` | Declarative skill configuration and source resources; see [manifest](/docs/understand/declarative-manifest) |
 | **npm project sync** | Experimental `skills experimental_sync` reads installed dependencies and `package.json` skill declarations | Source-to-target synchronization; not the same npm dependency workflow |
 | **Cross-machine workflow** | Project lock restoration and npm sync can help rebuild project skills | Git-backed `push` / `pull`, scoped by `git_root` |
