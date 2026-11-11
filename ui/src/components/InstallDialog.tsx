@@ -163,8 +163,9 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   const isInstalledResult = (result: SearchResult) => {
     if (!result.skill) return isInstalled(kind, result.source);
     const source = sourceKey(result.source);
+    // "/" also covers the "//" join; see discoveredSources.
     return (skillsData?.resources ?? []).some((item) => item.kind === kind && item.name === result.skill && item.source
-      && (sourceKey(item.source) === source || sourceKey(item.source).startsWith(`${source}/`)));
+      && (sourceKey(item.source) === source || ['/', '.git/'].some((join) => sourceKey(item.source!).startsWith(source + join))));
   };
 
   const { data: hubConfig } = useQuery({
