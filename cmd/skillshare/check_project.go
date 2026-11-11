@@ -30,7 +30,7 @@ func cmdCheckProject(root string, opts *checkOptions) error {
 
 	// No names and no groups → check all (existing behavior)
 	if len(opts.names) == 0 && len(opts.groups) == 0 {
-		return runCheck(sourcePath, root, opts.json, extraNames, projectSkillsWalk(root, projectCfg))
+		return runCheck(sourcePath, root, opts.json, opts.exitCode, extraNames, projectSkillsWalk(root, projectCfg))
 	}
 
 	// Filtered check

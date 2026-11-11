@@ -173,6 +173,7 @@ Check for available updates and validate skill metadata.
 ```bash
 skillshare check             # Show update status for all repos/skills
 skillshare check --json      # JSON output (CI-friendly)
+skillshare check --exit-code # Exit 1 when anything is not up to date (CI gate)
 skillshare check -p          # Check project skills
 skillshare check my-skill --diff  # Show local edits vs the installed version
 ```
