@@ -553,8 +553,6 @@ skillshare install https://github.com/org/private-skills.git --track
 
 공급자 토큰은 HTTPS 기본 포트(또는 443)의 `github.com`, `gitlab.com`, `bitbucket.org`, `dev.azure.com`, `*.visualstudio.com`, `gitea.com`, `cnb.cool`에만 전송됩니다. 자체 호스팅 Gitea/CNB는 이름에 공급자 이름이 포함되어도 `gitea_hosts`/`cnb_hosts`에 정확한 호스트명을 등록해야 합니다. 자체 호스팅 GitHub/GitLab 등에는 호스트별 Git credential helper를 사용하거나 해당 실행에만 `SKILLSHARE_GIT_TOKEN`을 설정하세요. 이 범용 폴백은 **모든 HTTPS 소스**에 전송될 수 있습니다. 공급자처럼 보이는 이름만으로는 공급자 토큰 전송이 허용되지 않습니다.
 
-공급자 토큰은 HTTPS 기본 포트(또는 443)의 `github.com`, `gitlab.com`, `bitbucket.org`, `dev.azure.com`, `*.visualstudio.com`, `gitea.com`, `cnb.cool`에만 전송됩니다. 자체 호스팅 Gitea/CNB는 이름에 공급자 이름이 포함되어도 `gitea_hosts`/`cnb_hosts`에 정확한 호스트명을 등록해야 합니다. 자체 호스팅 GitHub/GitLab 등에는 호스트별 Git credential helper를 사용하거나 해당 실행에만 `SKILLSHARE_GIT_TOKEN`을 설정하세요. 이 범용 폴백은 **모든 HTTPS 소스**에 전송될 수 있습니다. 공급자처럼 보이는 이름만으로는 공급자 토큰 전송이 허용되지 않습니다.
-
 플랫폼별 변수가 `SKILLSHARE_GIT_TOKEN`보다 우선합니다.
 
 token은 호스트 범위의 credential helper를 통해 git에 전달되므로 `ps` 출력 같은 프로세스 인자에 나타나지 않습니다. 호스트에 token이 적용되는 동안 git은 해당 호스트에 대해 사용자의 credential helper나 키체인에 묻지 않으며 아무것도 저장하지 않습니다.

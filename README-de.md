@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Neueste Version**: v0.30.5 — Bestimmen Sie Ihren Update-Zeitplan selbst: `skillshare updates off` deaktiviert automatische Versionsprüfungen und Benachrichtigungen in CLI und Web-Dashboard. Manuelle Prüfungen und Upgrades bleiben verfügbar. [Konfiguration und Umgebungsvariable →](https://skillshare.runkids.cc/docs/reference/commands/updates) · [Alle Releases →](https://github.com/runkids/skillshare/releases)
+> **Neueste Version**: v0.30.6 — Veraltete Skills im CI erkennen: `skillshare check --exit-code` beendet sich mit Code 1, sobald etwas Geprüftes nicht aktuell ist, und `check --all` prüft jetzt neben Skills auch Agents, sodass ein CI-Schritt beides abdeckt. [check-Referenz →](https://skillshare.runkids.cc/docs/reference/commands/check) · [Alle Releases →](https://github.com/runkids/skillshare/releases)
 
 ## Warum skillshare
 
