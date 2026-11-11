@@ -589,3 +589,37 @@ func TestToolConnectionIdentityPreservesValidUnicodeAndOmitsHTTPLaunch(t *testin
 		t.Fatalf("unused HTTP launch bytes affected identity: %v", err)
 	}
 }
+
+func TestToolConnectionIdentityIgnoresClientSelection(t *testing.T) {
+	s, source, server, now := baselineFixture(t)
+	server.Targets = TargetList{"claude"}
+	first, err := toolConnectionIdentity(server, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	baselineAccept(t, s, source, "", "echo", server, now)
+	for _, tc := range []struct {
+		name     string
+		targets  TargetList
+		disabled bool
+	}{
+		{"other target", TargetList{"codex"}, false},
+		{"explicitly empty", TargetList{}, false},
+		{"disabled", TargetList{"claude"}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			changed := server
+			changed.Targets, changed.Disabled = tc.targets, tc.disabled
+			identity, err := toolConnectionIdentity(changed, now)
+			if err != nil || identity != first {
+				t.Fatalf("selection changed identity: %v", err)
+			}
+			if !tc.disabled {
+				_, report := baselineObserve(s, source, "", "echo", changed, now, CheckOptions{Live: true})
+				if review := report.Servers[0].Contract; review.Status != "unchanged" || review.IdentityChanged {
+					t.Fatalf("selection changed approval: %+v", review)
+				}
+			}
+		})
+	}
+}

@@ -86,7 +86,7 @@ func toolReferencesOnly(server Server) bool {
 }
 
 // Hash declarations, never resolved credentials. Actual command/cwd and the
-// endpoint's self-reported identity complement the complete Server declaration.
+// endpoint's self-reported identity complement the connection declarations.
 // This does not attest executable bytes, ambient env or referenced runtime values.
 // The live probe rejects known credential echoes before making this observation.
 func toolConnectionIdentity(server Server, now contractObservation) (string, error) {
@@ -100,16 +100,30 @@ func toolConnectionIdentity(server Server, now contractObservation) (string, err
 		}
 		command, dir = now.Command, now.Dir
 	}
+	// Client selection and disabled project overrides do not describe the connection.
+	type connectionDeclaration struct {
+		Transport   string                    `json:"transport,omitempty"`
+		Command     string                    `json:"command,omitempty"`
+		Args        []string                  `json:"args,omitempty"`
+		URL         string                    `json:"url,omitempty"`
+		Env         map[string]Value          `json:"env,omitempty"`
+		Headers     map[string]Value          `json:"headers,omitempty"`
+		BearerToken *Value                    `json:"bearerToken,omitempty"`
+		Tools       ToolPolicy                `json:"tools,omitzero"`
+		PiOptions   PiOptions                 `json:"piOptions,omitempty"`
+		Options     map[string]map[string]any `json:"options,omitempty"`
+	}
+	declaration := connectionDeclaration{server.Transport, server.Command, server.Args, server.URL, server.Env, server.Headers, server.BearerToken, server.Tools, server.PiOptions, server.Options}
 	// Remote connections do not use the caller's cwd or launch an executable.
 	// Including those unused observations would spuriously stale HTTP approvals.
 	data, err := json.Marshal(struct {
-		Policy   string         `json:"policy"`
-		Server   Server         `json:"server"`
-		Command  string         `json:"command,omitempty"`
-		Dir      string         `json:"dir,omitempty"`
-		Protocol string         `json:"protocol"`
-		Info     LiveServerInfo `json:"serverInfo"`
-	}{contractPolicy, server, command, dir, now.Live.ProtocolVersion, now.Live.ServerInfo})
+		Policy   string                `json:"policy"`
+		Server   connectionDeclaration `json:"server"`
+		Command  string                `json:"command,omitempty"`
+		Dir      string                `json:"dir,omitempty"`
+		Protocol string                `json:"protocol"`
+		Info     LiveServerInfo        `json:"serverInfo"`
+	}{contractPolicy, declaration, command, dir, now.Live.ProtocolVersion, now.Live.ServerInfo})
 	if err != nil {
 		return "", errors.New("MCP connection identity is unavailable")
 	}
