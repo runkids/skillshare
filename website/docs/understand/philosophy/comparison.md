@@ -6,7 +6,7 @@ sidebar_position: 9
 
 Both **Vercel's `npx skills`** and **Skillshare** manage skills across multiple AI tools. The difference is not “one installs, the other syncs.” Choose by what you need to manage: skills, or a broader AI working environment.
 
-This comparison uses the published **skills v1.7.6** [package metadata](https://registry.npmjs.org/skills/1.7.6) and its [official CLI reference](https://github.com/vercel-labs/skills/blob/7a5e920bead4b1039a6d6df5d7e1163b7b09423a/docs/commands.md). Experimental commands may change or disappear; this is a versioned comparison, not a claim about every installer.
+This comparison uses the published **skills v1.8.1** [package metadata](https://registry.npmjs.org/skills/1.8.1) and its [official CLI reference](https://github.com/vercel-labs/skills/blob/e781cb4d07433dfe1d19e924ed45cc61738c55ec/docs/commands.md). Experimental commands may change or disappear; this is a versioned comparison, not a claim about every installer.
 
 ## Architecture at a Glance
 
@@ -24,13 +24,13 @@ The useful distinction is managing these resources together across tools, machin
 
 ## Feature Comparison
 
-| Capability | npx skills v1.7.6 | Skillshare |
+| Capability | npx skills v1.8.1 | Skillshare |
 |------------|------------------|------------|
 | **Discovery** | skills.sh and `skills find` | CLI search and local Web dashboard |
 | **Multiple agents and scopes** | Multiple agents; project and global installs | Configured targets; project and global modes |
 | **Shared skill files** | Symlinks to a canonical copy; copy option | Source directory with merge, copy, or directory-symlink modes |
-| **Updates** | `skills check` and `skills update` | `skillshare check` and `skillshare update` |
-| **Project restoration** | Experimental `skills experimental_install` restores supported sources from `skills-lock.json` | Declarative skill configuration and source resources; see [manifest](/docs/understand/declarative-manifest) |
+| **Updates** | `skills check` (exits 1 on updates or local changes) and `skills update` | `skillshare check` and `skillshare update` |
+| **Project restoration** | Experimental `skills experimental_install` (or `skills install` with no source) restores supported sources from `skills-lock.json` | Declarative skill configuration and source resources; see [manifest](/docs/understand/declarative-manifest) |
 | **npm project sync** | Experimental `skills experimental_sync` reads installed dependencies and `package.json` skill declarations | Source-to-target synchronization; not the same npm dependency workflow |
 | **Cross-machine workflow** | Project lock restoration and npm sync can help rebuild project skills | Git-backed `push` / `pull`, scoped by `git_root` |
 | **Beyond skills** | The cited CLI reference focuses on skills | Agent definitions, extras such as rules, MCP settings, and hooks for supported clients |
@@ -39,7 +39,7 @@ The useful distinction is managing these resources together across tools, machin
 
 ### What the experimental commands cover
 
-- **`experimental_install`** restores supported lock entries into `.agents/skills/`. It does not install npm dependencies or create agent-specific links for restored skills. Existing skills are left alone unless explicitly reinstalled. Frozen-lock mode checks content hashes and is the default in CI.
+- **`experimental_install`** (also run as `skills install` with no source) restores supported lock entries into `.agents/skills/` and links them into agent directories (copies for skills recorded in copy mode): those given with `--agent`, otherwise the agents last selected, otherwise the agents it detects. It does not install npm dependencies. Installed skills whose files match the lock's content hash are not fetched again and only get the agent links they are missing; skills whose files differ are restored from their source, and `--force` reinstalls every skill. Frozen-lock mode checks content hashes and is the default in CI.
 - **`experimental_sync`** links skills shipped by installed npm dependencies and resolves skill declarations in `package.json`. It tracks these in `skills-lock.json`, removes skills no longer provided, and preserves separately added skills. Copies require another sync after dependency updates.
 
 These are real synchronization and restoration capabilities, but they are not a backup of an entire AI tool configuration.

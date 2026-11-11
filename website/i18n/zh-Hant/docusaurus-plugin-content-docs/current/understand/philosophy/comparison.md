@@ -6,7 +6,7 @@ sidebar_position: 9
 
 **Vercel 的 `npx skills`** 和 **Skillshare** 都能跨多個 AI 工具管理 skills。差別不是「一個只能安裝，另一個才能同步」，而是你需要管理 skills，還是更完整的 AI 工作環境。
 
-本頁依據已發布的 **skills v1.7.6** [套件資訊](https://registry.npmjs.org/skills/1.7.6)及其[官方 CLI 文件](https://github.com/vercel-labs/skills/blob/7a5e920bead4b1039a6d6df5d7e1163b7b09423a/docs/commands.md)。實驗性命令可能變更或移除；這是指定版本的比較，不是對所有安裝工具的概括。
+本頁依據已發布的 **skills v1.8.1** [套件資訊](https://registry.npmjs.org/skills/1.8.1)及其[官方 CLI 文件](https://github.com/vercel-labs/skills/blob/e781cb4d07433dfe1d19e924ed45cc61738c55ec/docs/commands.md)。實驗性命令可能變更或移除；這是指定版本的比較，不是對所有安裝工具的概括。
 
 ## 架構概覽
 
@@ -24,13 +24,13 @@ Skillshare 將來源資源與 target 設定分開，再同步到各工具。除�
 
 ## 功能比較
 
-| 能力 | npx skills v1.7.6 | Skillshare |
+| 能力 | npx skills v1.8.1 | Skillshare |
 |------|------------------|------------|
 | **發現** | skills.sh 與 `skills find` | CLI 搜尋與本地 Web dashboard |
 | **多 agent 與範圍** | 多 agent；專案與全域安裝 | 設定中的 targets；專案與全域模式 |
 | **共用 skill 檔案** | 指向共用副本的 symlink；可選 copy | 來源目錄搭配 merge、copy 或整個目錄的 symlink 模式 |
-| **更新** | `skills check` 與 `skills update` | `skillshare check` 與 `skillshare update` |
-| **專案還原** | 實驗性 `skills experimental_install` 從 `skills-lock.json` 還原支援的來源 | 宣告式 skill 設定與來源資源；見 [manifest](/docs/understand/declarative-manifest) |
+| **更新** | `skills check`（有更新或本地修改時以結束代碼 1 結束）與 `skills update` | `skillshare check` 與 `skillshare update` |
+| **專案還原** | 實驗性 `skills experimental_install`（或不帶來源的 `skills install`）從 `skills-lock.json` 還原支援的來源 | 宣告式 skill 設定與來源資源；見 [manifest](/docs/understand/declarative-manifest) |
 | **npm 專案同步** | 實驗性 `skills experimental_sync` 讀取已安裝依賴與 `package.json` 的 skill 宣告 | 來源到 target 的同步；不是相同的 npm 依賴工作流程 |
 | **跨機器工作流程** | 專案 lock 還原與 npm 同步可協助重建專案 skills | Git `push` / `pull`，範圍由 `git_root` 決定 |
 | **Skills 以外** | 所引用的 CLI 文件以 skills 為主 | Agent 定義、rules 等 extras、MCP 設定與支援用戶端的 hooks |
@@ -39,7 +39,7 @@ Skillshare 將來源資源與 target 設定分開，再同步到各工具。除�
 
 ### 實驗性命令涵蓋什麼
 
-- **`experimental_install`** 將支援的 lock 項目還原到 `.agents/skills/`。它不會安裝 npm 依賴，也不會為還原的 skills 建立 agent 專用連結。除非明確要求重新安裝，否則保留既有 skills。Frozen-lock 模式會檢查內容 hash，且為 CI 預設。
+- **`experimental_install`**（也可用不帶來源的 `skills install` 執行）將支援的 lock 項目還原到 `.agents/skills/`，並連結到 agent 目錄（以 copy 模式記錄的 skills 則為複製）：優先使用 `--agent` 指定的 agent，其次是上次選擇的 agent，再其次是偵測到的 agent。它不會安裝 npm 依賴。已安裝且檔案與 lock 內容 hash 一致的 skills 不會重新取得，只補上缺少的 agent 連結；內容不一致的 skills 會從來源還原，`--force` 則重新安裝所有 skills。Frozen-lock 模式會檢查內容 hash，且為 CI 預設。
 - **`experimental_sync`** 連結已安裝 npm 依賴附帶的 skills，並解析 `package.json` 的 skill 宣告。它以 `skills-lock.json` 追蹤這些項目、移除不再提供的 skills，並保留另外安裝的 skills。使用 copy 時，依賴更新後需要再次同步。
 
 這些確實是同步與還原能力，但不是整套 AI 工具設定的備份。
