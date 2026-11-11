@@ -11,7 +11,8 @@ import { Select } from '../components/Select';
 import { useToast } from '../components/Toast';
 import { useAppContext } from '../context/AppContext';
 import { useTheme, type ModePreference, type Style } from '../context/ThemeContext';
-import { supportedLocales, useI18n, useT, type Locale } from '../i18n';
+import { Download, RotateCw } from 'lucide-react';
+import { formatDateTime, supportedLocales, useI18n, useT, type Locale } from '../i18n';
 import { shortenHome } from '../lib/paths';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useOverviewQuery } from '../hooks/useSharedQueries';
@@ -82,6 +83,11 @@ export default function SettingsPage() {
   const manualCheck = useQuery({ queryKey: queryKeys.manualVersionCheck, queryFn: () => api.getVersionCheck(true), enabled: false, retry: false });
   const policy = updatePolicy.data;
   const manualResult = manualCheck.error ? undefined : manualCheck.data;
+  // Installed versions come from the shared local check, so they show before any manual check.
+  const versionCheck = useQuery({ queryKey: queryKeys.versionCheck, queryFn: () => api.getVersionCheck(), staleTime: staleTimes.version });
+  const installed = manualResult ?? versionCheck.data;
+  const updateAvailable = !!manualResult && (manualResult.cliUpdateAvailable || manualResult.skillUpdateAvailable);
+  const ver = (s?: string) => (s && /^\d/.test(s) ? `v${s}` : s);
 
 
   return (
@@ -139,21 +145,45 @@ export default function SettingsPage() {
                 disabled={!policy || isProjectMode || policy.envOverride || patch.isPending}
                 onClick={() => patch.mutate({ autoUpdateCheck: !policy?.enabled })}><i /></button>
             </div>
-            <div className="ss-setrow">
-              <div className="l">
-                <b>{t('settings.updates.manual')}</b>
-                <span>{t('settings.updates.manualHint')}</span>
+            <div className="ss-setrow flex-wrap gap-y-3">
+              <div className="l basis-64 gap-1.5">
+                <b>{t('settings.updates.version')}</b>
+                {installed && (
+                  <div className="flex flex-wrap gap-1.5">
+                    <code className={`ss-tag${manualResult?.cliUpdateAvailable ? ' warn' : ''}`}>
+                      CLI {ver(installed.cliVersion)}{manualResult?.cliUpdateAvailable && manualResult.cliLatest ? ` → ${ver(manualResult.cliLatest)}` : ''}
+                    </code>
+                    {installed.skillVersion && (
+                      <code className={`ss-tag${manualResult?.skillUpdateAvailable ? ' warn' : ''}`}>
+                        Skill {ver(installed.skillVersion)}{manualResult?.skillUpdateAvailable && manualResult.skillLatest ? ` → ${ver(manualResult.skillLatest)}` : ''}
+                      </code>
+                    )}
+                  </div>
+                )}
+                {manualCheck.error ? (
+                  <div className="ss-st bad wrap" role="status">{t('settings.updates.error')}</div>
+                ) : manualResult ? (
+                  <div className={`ss-st wrap ${updateAvailable ? 'warn' : 'ok'}`} role="status">
+                    <div>
+                      {t(updateAvailable ? 'settings.updates.available' : 'settings.updates.current')}
+                      <small className="text-[13px] font-normal text-ink-3"> · {t('settings.updates.checkedAt', { time: formatDateTime(manualCheck.dataUpdatedAt, locale, { hour: '2-digit', minute: '2-digit', hour12: false }) })}</small>
+                    </div>
+                  </div>
+                ) : (
+                  <span>{t('settings.updates.manualHint')}</span>
+                )}
               </div>
-              <Button variant="secondary" loading={manualCheck.isFetching} onClick={() => { void manualCheck.refetch(); }}>{t('settings.updates.check')}</Button>
+              <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                <Button variant="secondary" loading={manualCheck.isFetching} onClick={() => { void manualCheck.refetch(); }}>
+                  {!manualCheck.isFetching && <RotateCw size={14} />}
+                  {t(manualCheck.error ? 'settings.updates.retry' : manualResult ? 'settings.updates.recheck' : 'settings.updates.check')}
+                </Button>
+                {manualResult && updateAvailable && (
+                  <Button variant="primary" onClick={() => setManualUpgrade(manualResult)}><Download size={14} />{t('updateDialog.updateNow')}</Button>
+                )}
+              </div>
             </div>
           </div>
-          {manualCheck.error && <p className="ss-note bad">{t('dashboard.version.couldNotCheck')}</p>}
-          {manualResult && <p className="ss-note inf" role="status">
-            {manualResult.cliUpdateAvailable || manualResult.skillUpdateAvailable
-              ? t('settings.updates.available', { cli: manualResult.cliLatest ?? manualResult.cliVersion, skill: manualResult.skillLatest ?? manualResult.skillVersion })
-              : t('settings.updates.current')}
-          </p>}
-          {manualResult && (manualResult.cliUpdateAvailable || manualResult.skillUpdateAvailable) && <Button variant="primary" onClick={() => setManualUpgrade(manualResult)}>{t('updateDialog.updateNow')}</Button>}
           {manualUpgrade && <UpdateDialog manualData={manualUpgrade} onDismiss={() => setManualUpgrade(null)} />}
         </section>
 
