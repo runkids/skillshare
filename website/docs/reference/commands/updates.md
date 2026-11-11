@@ -5,7 +5,9 @@ sidebar_position: 4
 # updates
 
 Control automatic version checks and update notifications for the CLI, built-in skill,
-web dashboard and desktop app. This is a **global preference**, including in project mode.
+web dashboard and compatible desktop app releases. This is a **global preference**, including in project mode.
+Desktop controls require an app release that includes [skillshare-app#126](https://github.com/runkids/skillshare-app/pull/126).
+Upgrading the CLI alone does not disable automatic checks in older desktop builds.
 
 ## Usage
 
@@ -52,7 +54,7 @@ The web UI does not automatically show an update dialog or version-status badges
 An already-open dashboard refreshes the local preference every five seconds (without
 checking releases), so turning checks off from the CLI or app also hides existing prompts.
 
-In Web **Settings → General** and desktop **Settings → Updates**, the automatic-check
+In Web **Settings → General** and compatible desktop **Settings → Updates**, the automatic-check
 switch writes the same global preference. An environment override locks the switch.
 The desktop app refreshes external preference changes within a minute and hides
 version badges as well as native version notifications. Its CLI must support

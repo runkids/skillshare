@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.30.0 — Web dashboard 会拒绝其他网站通过你的浏览器发来的更改，并且只响应 `localhost`、IP 地址以及你信任的地址，因此 DNS rebinding 页面同样无法访问它。在反向代理后面，用 [`--trusted-origin`](https://skillshare.runkids.cc/zh-Hans/docs/reference/commands/ui#reverse-proxy) 启动，所有页面（包括 MCP、Hooks 和 Plugins）都能通过你的域名正常使用；用其他任何域名打开的 dashboard 现在需要这项设置。[`skillshare plugin`](https://skillshare.runkids.cc/zh-Hans/docs/reference/commands/plugin) 还会把只附带 Claude 清单的插件提供给 Codex，并带上 Codex 能使用的 skill 和 MCP 服务器。[更新记录](https://skillshare.runkids.cc/changelog)。
+> **最新版本**：v0.30.5 — 按自己的时间安排更新：`skillshare updates off` 可关闭 CLI 与 Web dashboard 的自动版本检查和通知，手动检查与升级仍然可用。[配置与环境变量 →](https://skillshare.runkids.cc/zh-Hans/docs/reference/commands/updates) · [更新记录 →](https://skillshare.runkids.cc/changelog)
 
 ## 为什么用 skillshare
 
