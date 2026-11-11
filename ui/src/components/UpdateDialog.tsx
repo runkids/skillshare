@@ -100,6 +100,7 @@ export default function UpdateDialog({ manualData, onDismiss }: { manualData?: V
         await new Promise((resolve) => setTimeout(resolve, 900));
         setUpdating(false);
         setOpen(false);
+        onDismiss?.();
         return;
       }
       setStatus(t('updateDialog.restarting', {}, 'Restarting local UI server…'));

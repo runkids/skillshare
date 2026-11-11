@@ -32,13 +32,16 @@ describe('UpdateDialog', () => {
   it('allows an explicitly requested upgrade while automatic checks are disabled', async () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     vi.mocked(api.getUpdatePolicy).mockResolvedValueOnce({ enabled: false, configured: false, envOverride: false });
+    vi.mocked(api.upgradeApp).mockResolvedValueOnce({ devMode: true, cliUpdated: true, cliVersion: '9.9.9' });
+    const onDismiss = vi.fn();
     render(
       <QueryClientProvider client={queryClient}><I18nProvider>
-        <UpdateDialog manualData={{ autoCheckEnabled: false, cliDevMode: true, cliVersion: '1.0.0', cliLatest: '9.9.9', cliUpdateAvailable: true, skillVersion: '', skillUpdateAvailable: false }} />
+        <UpdateDialog onDismiss={onDismiss} manualData={{ autoCheckEnabled: false, cliDevMode: true, cliVersion: '1.0.0', cliLatest: '9.9.9', cliUpdateAvailable: true, skillVersion: '', skillUpdateAvailable: false }} />
       </I18nProvider></QueryClientProvider>,
     );
     await userEvent.click(await screen.findByRole('button', { name: /Update now/ }));
     await waitFor(() => expect(api.upgradeApp).toHaveBeenCalled());
+    await waitFor(() => expect(onDismiss).toHaveBeenCalledOnce(), { timeout: 2000 });
   });
 
   it('keeps the UI the upgrade just downloaded when restarting', async () => {
