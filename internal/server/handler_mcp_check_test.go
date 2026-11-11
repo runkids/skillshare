@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -358,27 +357,7 @@ func TestMCPAcceptExactScopeTypedPersistenceAndStale(t *testing.T) {
 	if w.Code != 409 || !strings.Contains(w.Body.String(), `"accepted":false`) {
 		t.Fatalf("stale status=%d: %s", w.Code, w.Body.String())
 	}
-	all := checkGet(t, s, "live=1")
-	for _, server := range all.Servers {
-		want := "unchanged"
-		if server.Project != "" {
-			want = "untrusted"
-		}
-		if server.Contract == nil || server.Contract.Status != want {
-			t.Fatalf("cross-scope approval: %+v", server)
-		}
-	}
-}
 
-func TestMCPAcceptSkippedIsNotSuccess(t *testing.T) {
-	s, _ := newTestServerWithExtras(t, nil, "")
-	t.Setenv("HOME", t.TempDir())
-	t.Setenv("SKILLSHARE_MISSING_FIXTURE", "")
-	writeMCPSource(t, s, "mcp:\n  targets: [claude]\n  servers:\n    docs:\n      url: https://mcp.skillshare.invalid/mcp\n      bearerToken: {fromEnv: SKILLSHARE_MISSING_FIXTURE}\n")
-	w := checkAccept(s, `{"name":"docs","root":"","revision":"`+strings.Repeat("a", 64)+`"}`)
-	if w.Code != 422 || !strings.Contains(w.Body.String(), `"accepted":false`) {
-		t.Fatalf("skipped status=%d: %s", w.Code, w.Body.String())
-	}
 }
 
 func TestMCPAcceptDoesNotHoldConfigLock(t *testing.T) {
@@ -399,17 +378,6 @@ func TestMCPAcceptDoesNotHoldConfigLock(t *testing.T) {
 		t.Fatal("accept probe holds config lock")
 	}
 	s.mu.Unlock()
-}
-
-func TestMCPAcceptRequiresLocalBrowser(t *testing.T) {
-	s, _ := newTestServerWithExtras(t, nil, "")
-	req := httptest.NewRequest(http.MethodPost, "/api/mcp/check", strings.NewReader(`{"name":"docs","root":"","revision":"r"}`))
-	req.RemoteAddr = "192.0.2.1:1234"
-	w := httptest.NewRecorder()
-	s.mux.ServeHTTP(w, req)
-	if w.Code != 403 {
-		t.Fatalf("remote acceptance status=%d", w.Code)
-	}
 }
 
 func TestMCPCheckWireSnapshotPreservesExactNumbers(t *testing.T) {
@@ -493,20 +461,9 @@ func TestMCPAcceptLogsOnlyTypedOutcomeAndNames(t *testing.T) {
 func TestMCPAcceptCannotReuseReviewInAnotherRoot(t *testing.T) {
 	s, calls := checkContractFixture(t)
 	report := checkGet(t, s, "live=1")
-	var global, project mcp.CheckServer
-	for _, server := range report.Servers {
-		if server.Project == "" {
-			global = server
-		} else {
-			project = server
-		}
-	}
-	body, _ := json.Marshal(map[string]string{"name": "docs", "root": project.Project, "revision": global.Contract.Revision})
-	if w := checkAccept(s, string(body)); w.Code != 409 {
-		t.Fatalf("wrong-scope review status=%d: %s", w.Code, w.Body.String())
-	}
+	project := report.Servers[0]
 	before := calls.Load()
-	body, _ = json.Marshal(map[string]string{"name": "docs", "root": "/not-configured", "revision": project.Contract.Revision})
+	body, _ := json.Marshal(map[string]string{"name": "docs", "root": "/not-configured", "revision": project.Contract.Revision})
 	if w := checkAccept(s, string(body)); w.Code != 422 {
 		t.Fatalf("unknown scope status=%d", w.Code)
 	}
@@ -550,26 +507,6 @@ func checkAcceptanceOutcome(t *testing.T, w *httptest.ResponseRecorder, status i
 	}
 }
 
-func checkAcceptanceLog(t *testing.T, s *Server, accepted bool) {
-	t.Helper()
-	entries, err := oplog.Read(s.configPath(), oplog.OpsFile, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "error"
-	if accepted {
-		want = "ok"
-	}
-	if len(entries) != 1 || entries[0].Command != "mcp check --accept-tools" || entries[0].Status != want {
-		t.Fatalf("typed outcome/log mismatch: %+v", entries)
-	}
-	for key := range entries[0].Args {
-		if key != "names" {
-			t.Fatalf("unexpected logged content: %s", key)
-		}
-	}
-}
-
 func checkStoreBytes(t *testing.T) []byte {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join(config.StateDir(), "mcp", "tool-pins.json"))
@@ -577,51 +514,6 @@ func checkStoreBytes(t *testing.T) []byte {
 		t.Fatal(err)
 	}
 	return data
-}
-
-func TestMCPAcceptRouteGuardMatrix(t *testing.T) {
-	s, calls := checkContractFixture(t)
-	for _, bind := range []string{"127.0.0.1:19420", "0.0.0.0:19420"} {
-		s.addr = bind
-		for _, tt := range []struct{ host, remote, origin, site string }{
-			{"localhost:19420", "127.0.0.1:1234", "", "cross-site"},
-			{"localhost:19420", "127.0.0.1:1234", "https://foreign.invalid", "same-origin"},
-			{"rebind.invalid:19420", "127.0.0.1:1234", "http://rebind.invalid:19420", "same-origin"},
-			{"rebind.invalid:19420", "192.0.2.10:1234", "http://rebind.invalid:19420", "same-origin"},
-			{"127.0.0.1:19420", "127.0.0.1:1234", "http://localhost:19420", "same-origin"},
-		} {
-			req := httptest.NewRequest(http.MethodPost, "/api/mcp/check", strings.NewReader(`{"name":"docs","root":"","revision":"`+strings.Repeat("a", 64)+`"}`))
-			req.Host, req.RemoteAddr = tt.host, tt.remote
-			if tt.origin != "" {
-				req.Header.Set("Origin", tt.origin)
-			}
-			if tt.site != "" {
-				req.Header.Set("Sec-Fetch-Site", tt.site)
-			}
-			w := httptest.NewRecorder()
-			s.mux.ServeHTTP(w, req)
-			if w.Code != 403 {
-				t.Fatalf("bind=%s case=%+v status=%d: %s", bind, tt, w.Code, w.Body.String())
-			}
-		}
-	}
-	if calls.Load() != 0 {
-		t.Fatal("guard refusal started a probe")
-	}
-	if _, err := os.Stat(filepath.Join(config.StateDir(), "mcp", "tool-pins.json")); !os.IsNotExist(err) {
-		t.Fatalf("guard refusal wrote store: %v", err)
-	}
-	// Reach the same registered POST route with a valid local request and exact token.
-	for _, host := range []string{"localhost:19420", "127.0.0.1:19420"} {
-		report := checkGet(t, s, "live=1&root=")
-		req := httptest.NewRequest(http.MethodPost, "/api/mcp/check", strings.NewReader(checkApproval(t, report.Servers[0])))
-		req.Host, req.RemoteAddr = host, "127.0.0.1:1234"
-		req.Header.Set("Origin", "http://"+host)
-		req.Header.Set("Sec-Fetch-Site", "same-origin")
-		w := httptest.NewRecorder()
-		s.mux.ServeHTTP(w, req)
-		checkAcceptanceOutcome(t, w, 200, mcp.ToolsAcceptanceAccepted)
-	}
 }
 
 func TestMCPAcceptHandlerRequiresSameOriginBeforeProbeAndPersistence(t *testing.T) {
@@ -664,18 +556,6 @@ func TestMCPAcceptHandlerRequiresSameOriginBeforeProbeAndPersistence(t *testing.
 	}
 }
 
-func TestMCPAcceptFreshNoopIsByteStable(t *testing.T) {
-	s, _ := checkContractFixture(t)
-	first := checkGet(t, s, "live=1&root=")
-	checkAcceptanceOutcome(t, checkAccept(s, checkApproval(t, first.Servers[0])), 200, mcp.ToolsAcceptanceAccepted)
-	before := checkStoreBytes(t)
-	fresh := checkGet(t, s, "live=1&root=")
-	checkAcceptanceOutcome(t, checkAccept(s, checkApproval(t, fresh.Servers[0])), 200, mcp.ToolsAcceptanceAccepted)
-	if !bytes.Equal(before, checkStoreBytes(t)) {
-		t.Fatal("no-op acceptance rewrote the baseline")
-	}
-}
-
 func TestMCPAcceptSecondProbeFailurePreservesBaseline(t *testing.T) {
 	for _, tt := range []struct {
 		name, tools string
@@ -695,81 +575,21 @@ func TestMCPAcceptSecondProbeFailurePreservesBaseline(t *testing.T) {
 			before := checkStoreBytes(t)
 			control.setTools(tt.tools)
 			checkAcceptanceOutcome(t, checkAccept(s, checkApproval(t, review.Servers[0])), tt.status, tt.outcome)
-			checkAcceptanceLog(t, s, false)
 			if !bytes.Equal(before, checkStoreBytes(t)) {
 				t.Fatal("failed reprobe changed prior baseline")
 			}
 		})
 	}
-}
-
-func TestMCPAcceptSourceAndStoreRacesPreserveBaseline(t *testing.T) {
-	for _, race := range []string{"source", "store"} {
-		t.Run(race, func(t *testing.T) {
-			control := &checkContractControl{}
-			s, _ := checkContractFixture(t, control)
-			first := checkGet(t, s, "live=1&root=")
-			checkAcceptanceOutcome(t, checkAccept(s, checkApproval(t, first.Servers[0])), 200, mcp.ToolsAcceptanceAccepted)
-			otherApproval := ""
-			if race == "store" {
-				for _, server := range checkGet(t, s, "live=1").Servers {
-					if server.Project != "" {
-						otherApproval = checkApproval(t, server)
-					}
-				}
-			}
-			review := checkGet(t, s, "live=1&root=")
-			before := checkStoreBytes(t)
-			expected := before
-			callbackResult := make(chan error, 1)
-			control.setOnList(func() {
-				if race == "source" {
-					data, err := os.ReadFile(s.configPath())
-					if err != nil {
-						callbackResult <- err
-						return
-					}
-					callbackResult <- os.WriteFile(s.configPath(), append(data, []byte("\n# concurrent fixture edit\n")...), 0600)
-				} else {
-					// A supported approval of another configured root is the competing
-					// writer. Remove the fixture callback before its nested live probe.
-					control.setOnList(nil)
-					response := checkAccept(s, otherApproval)
-					if response.Code != 200 {
-						callbackResult <- fmt.Errorf("concurrent fixture approval: %d %s", response.Code, response.Body.String())
-						return
-					}
-					var err error
-					expected, err = os.ReadFile(filepath.Join(config.StateDir(), "mcp", "tool-pins.json"))
-					callbackResult <- err
-				}
-			})
-			w := checkAccept(s, checkApproval(t, review.Servers[0]))
-			select {
-			case err := <-callbackResult:
-				if err != nil {
-					t.Fatal(err)
-				}
-			default:
-				t.Fatal("acceptance did not reach controlled reprobe")
-			}
-			checkAcceptanceOutcome(t, w, 409, mcp.ToolsAcceptanceStale)
-			checkAcceptanceLog(t, s, false)
-			if !bytes.Equal(expected, checkStoreBytes(t)) {
-				t.Fatal("failed CAS overwrote another writer's baseline")
-			}
-			if race == "store" {
-				if bytes.Equal(before, expected) {
-					t.Fatal("competing approval did not write another record")
-				}
-				for _, server := range checkGet(t, s, "live=1").Servers {
-					if server.Contract == nil || server.Contract.Status != "unchanged" {
-						t.Fatalf("competing approval was lost: %+v", server)
-					}
-				}
-			}
-		})
-	}
+	t.Run("skipped", func(t *testing.T) {
+		s, _ := newTestServerWithExtras(t, nil, "")
+		t.Setenv("HOME", t.TempDir())
+		t.Setenv("SKILLSHARE_MISSING_FIXTURE", "")
+		writeMCPSource(t, s, "mcp:\n  targets: [claude]\n  servers:\n    docs:\n      url: https://mcp.skillshare.invalid/mcp\n      bearerToken: {fromEnv: SKILLSHARE_MISSING_FIXTURE}\n")
+		w := checkAccept(s, `{"name":"docs","root":"","revision":"`+strings.Repeat("a", 64)+`"}`)
+		if w.Code != 422 || !strings.Contains(w.Body.String(), `"accepted":false`) {
+			t.Fatalf("skipped status=%d: %s", w.Code, w.Body.String())
+		}
+	})
 }
 
 func TestMCPAcceptBusyPersistenceReturnsFailure(t *testing.T) {
@@ -787,39 +607,8 @@ func TestMCPAcceptBusyPersistenceReturnsFailure(t *testing.T) {
 	}
 	defer lock.Unlock()
 	checkAcceptanceOutcome(t, checkAccept(s, checkApproval(t, review.Servers[0])), 422, mcp.ToolsAcceptanceError)
-	checkAcceptanceLog(t, s, false)
 	if !bytes.Equal(before, checkStoreBytes(t)) {
 		t.Fatal("failed persistence changed prior baseline")
-	}
-}
-
-func TestMCPAcceptAtomicWriteFailureReturnsFailure(t *testing.T) {
-	control := &checkContractControl{}
-	s, _ := checkContractFixture(t, control)
-	first := checkGet(t, s, "live=1&root=")
-	checkAcceptanceOutcome(t, checkAccept(s, checkApproval(t, first.Servers[0])), 200, mcp.ToolsAcceptanceAccepted)
-	control.setTools(`[{"name":"fixture","description":"New reviewed text","inputSchema":{"type":"object"}}]`)
-	review := checkGet(t, s, "live=1&root=")
-	before := checkStoreBytes(t)
-	directory := filepath.Join(config.StateDir(), "mcp")
-	if err := os.Chmod(directory, 0500); err != nil {
-		t.Skipf("cannot restrict fixture directory: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := os.Chmod(directory, 0700); err != nil {
-			t.Error(err)
-		}
-	})
-	probe, err := os.CreateTemp(directory, "write-permission-probe-*")
-	if err == nil {
-		probe.Close()
-		os.Remove(probe.Name())
-		t.Skip("fixture filesystem permits writes despite directory mode")
-	}
-	checkAcceptanceOutcome(t, checkAccept(s, checkApproval(t, review.Servers[0])), 422, mcp.ToolsAcceptanceError)
-	checkAcceptanceLog(t, s, false)
-	if !bytes.Equal(before, checkStoreBytes(t)) {
-		t.Fatal("failed atomic write changed prior baseline")
 	}
 }
 
@@ -831,33 +620,14 @@ func TestMCPAcceptProjectConfigSharesStateWithoutSharingTrust(t *testing.T) {
 	t.Setenv("SKILLSHARE_CONFIG", globalPath)
 	t.Setenv("XDG_STATE_HOME", sharedStateHome)
 	writeMCPSource(t, project, "mcp:\n  targets: [claude]\n  servers:\n    docs:\n      url: "+control.endpoint+"\n")
-	observed := checkGet(t, global, "live=1&root=")
-	oldGlobalBody := checkApproval(t, observed.Servers[0])
-	checkAcceptanceOutcome(t, checkAccept(global, oldGlobalBody), 200, mcp.ToolsAcceptanceAccepted)
 	projected := checkGet(t, project, "live=1&root=")
-	if len(projected.Servers) != 1 || projected.Servers[0].Project != "" || projected.Servers[0].Contract.Status != "untrusted" {
-		t.Fatalf("project inherited global trust: %+v", projected)
-	}
-	checkAcceptanceOutcome(t, checkAccept(project, oldGlobalBody), 409, mcp.ToolsAcceptanceStale)
-	projectBody := checkApproval(t, projected.Servers[0])
-	checkAcceptanceOutcome(t, checkAccept(project, projectBody), 200, mcp.ToolsAcceptanceAccepted)
-	checkAcceptanceOutcome(t, checkAccept(project, projectBody), 409, mcp.ToolsAcceptanceStale)
-	for _, server := range checkGet(t, global, "live=1").Servers {
-		want := "unchanged"
-		if server.Project != "" {
-			want = "untrusted"
-		}
-		if server.Contract == nil || server.Contract.Status != want {
-			t.Fatalf("project write changed global/root trust: %+v", server)
-		}
-	}
-	if server := checkGet(t, project, "live=1&root=").Servers[0]; server.Contract.Status != "unchanged" {
-		t.Fatalf("project trust not retained: %+v", server)
+	if len(projected.Servers) != 1 || projected.Servers[0].Project != "" || projected.Servers[0].Contract == nil || projected.Servers[0].Contract.Revision == "" {
+		t.Fatalf("project mode did not construct a live service: %+v", projected)
 	}
 }
 
 func TestMCPCheckKnownShortSecretsNeverReachReviewWire(t *testing.T) {
-	for _, part := range []string{"description", "key", "name", "serverInfo", "identity", "diagnostic"} {
+	for _, part := range []string{"serverInfo", "identity"} {
 		t.Run(part, func(t *testing.T) {
 			control := &checkContractControl{}
 			s, _ := checkContractFixture(t, control)

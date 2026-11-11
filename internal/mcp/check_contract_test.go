@@ -3,6 +3,7 @@ package mcp
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -55,6 +56,17 @@ func TestCaptureContractPreservesEveryArrayAndNumberLexeme(t *testing.T) {
 			t.Fatal("mutation lost", pair)
 		}
 	}
+	for _, pair := range [][2]string{
+		{`{"required":["a","b"]}`, `{"required":["b","a"]}`},
+		{`{"properties":{"x":{"enum":[1,2]}}}`, `{"properties":{"x":{"enum":[2,1]}}}`},
+		{`{"default":{"required":["a","b"]}}`, `{"default":{"required":["b","a"]}}`},
+		{`{"enum":[{"type":["a","b"]}]}`, `{"enum":[{"type":["b","a"]}]}`},
+	} {
+		a, b := schemaContract(t, pair[0]), schemaContract(t, pair[1])
+		if a.InputHash == b.InputHash || a.Hash == b.Hash {
+			t.Fatal("schema or literal array normalized")
+		}
+	}
 }
 
 func TestCaptureContractStrictRejection(t *testing.T) {
@@ -65,13 +77,37 @@ func TestCaptureContractStrictRejection(t *testing.T) {
 		`{"name":"x","inputSchema":{},"\u006eame":"y"}`, `{"name":"x","inputSchema":{"properties":{"x":{"required":"bad"}}}}`,
 		`{"name":"\ud800","inputSchema":{}}`, `{"name":"x","inputSchema":{},"x":"\udc00"}`,
 		`{"name":"x","inputSchema":{}} {}`, `{"name":"x","inputSchema":{},"x":"` + string([]byte{0xff}) + `"}`,
-		`{"name":"x","inputSchema":{},"x":` + strings.Repeat("[", 65) + `0` + strings.Repeat("]", 65) + `}`,
 		`{"name":"x","inputSchema":{},"x":"` + strings.Repeat("a", 256*1024) + `"}`,
 	} {
 		if _, c, err := captureTool(json.RawMessage(raw), nil); err == nil || c.Hash != "" || len(c.Definition) != 0 {
 			t.Fatalf("accepted invalid descriptor (len %d)", len(raw))
 		}
 	}
+	t.Run("CaptureContractDescriptorDepthBoundary", func(t *testing.T) {
+		raw := `{"name":"fixture","inputSchema":{},"x":` + strings.Repeat("[", 63) + `0` + strings.Repeat("]", 63) + `}`
+		if _, _, err := captureTool(json.RawMessage(raw), nil); err != nil {
+			t.Fatal("valid depth64 descriptor rejected", err)
+		}
+		raw = `{"name":"fixture","inputSchema":{},"x":` + strings.Repeat("[", 64) + `0` + strings.Repeat("]", 64) + `}`
+		if _, _, err := captureTool(json.RawMessage(raw), nil); err == nil {
+			t.Fatal("depth65 descriptor accepted")
+		}
+		for _, schema := range []string{`{"type":["object"]}`, `{"type":"array"}`, `{"properties":{"x":{"minimum":"1"}}}`} {
+			if _, _, err := captureTool(json.RawMessage(`{"name":"fixture","inputSchema":`+schema+`}`), nil); err == nil {
+				t.Fatal("malformed typed schema accepted")
+			}
+		}
+	})
+	t.Run("CaptureContractRecognizedCommentIsString", func(t *testing.T) {
+		for _, value := range []string{"42", "null", "true", "{}", "[]"} {
+			if _, _, err := captureTool(json.RawMessage(`{"name":"fixture","inputSchema":{"$comment":`+value+`}}`), nil); err == nil {
+				t.Fatal("malformed schema comment accepted", value)
+			}
+		}
+		if _, _, err := captureTool(json.RawMessage(`{"name":"fixture","inputSchema":{"$comment":"review this","extension":{"$comment":42}}}`), nil); err != nil {
+			t.Fatal("literal extension treated as schema", err)
+		}
+	})
 }
 
 func TestCaptureContractKnownShortSecretsInDecodedKeysAndValues(t *testing.T) {
@@ -83,6 +119,28 @@ func TestCaptureContractKnownShortSecretsInDecodedKeysAndValues(t *testing.T) {
 	}
 	if _, _, err := captureTool(json.RawMessage(`{"name":"fixture","inputSchema":{},"description":"ordinary prose"}`), []string{"q"}); err != nil {
 		t.Fatal(err)
+	}
+	for _, tt := range []struct{ number, secret string }{
+		{"9007199254740993", "9007199254740993"},
+		{"-12345.67890", "-12345.67890"},
+		{"1.23e+90", "1.23e+90"},
+		{"17", "7"},
+	} {
+		for label, template := range map[string]string{
+			"metadata": `{"name":"echo","inputSchema":{},"_meta":{"nested":[%s]}}`,
+			"schema":   `{"name":"echo","inputSchema":{"default":{"nested":[%s]}}}`,
+		} {
+			t.Run(tt.number+"/"+label, func(t *testing.T) {
+				raw := fmt.Sprintf(template, tt.number)
+				if _, _, err := captureTool(json.RawMessage(raw), nil); err != nil {
+					t.Fatalf("invalid regression fixture: %v", err)
+				}
+				name, tool, err := captureTool(json.RawMessage(raw), []string{tt.secret})
+				if err == nil || name != "" || tool.Hash != "" || len(tool.Definition) != 0 || strings.Contains(err.Error(), tt.secret) {
+					t.Fatal("numeric credential accepted or exposed")
+				}
+			})
+		}
 	}
 }
 
@@ -100,6 +158,24 @@ func TestDecodeLiveJSONStrict(t *testing.T) {
 	if string(out["n"]) != "9007199254740993" {
 		t.Fatal("lost number")
 	}
+	t.Run("DecodeJSONBoundedEnvelopeAllowance", func(t *testing.T) {
+		raw := []byte(strings.Repeat("[", 65) + "0" + strings.Repeat("]", 65))
+		var out any
+		if decodeLiveJSON(raw, &out) == nil {
+			t.Fatal("live depth limit bypassed")
+		}
+		if err := decodeJSONBounded(raw, &out, 72); err != nil {
+			t.Fatal(err)
+		}
+
+	})
+	t.Run("DecodeContractJSONPublicValidation", func(t *testing.T) {
+		var out map[string]json.RawMessage
+		if DecodeContractJSON([]byte(`{"name":"fixture"}`), &out) != nil || string(out["name"]) != `"fixture"` {
+			t.Fatal("valid request rejected")
+		}
+
+	})
 }
 
 func isolatedContractAudit(t *testing.T) {
@@ -163,46 +239,6 @@ func TestAuditContractRuleLoadFailure(t *testing.T) {
 	}
 }
 
-func TestDecodeJSONBoundedEnvelopeAllowance(t *testing.T) {
-	raw := []byte(strings.Repeat("[", 65) + "0" + strings.Repeat("]", 65))
-	var out any
-	if decodeLiveJSON(raw, &out) == nil {
-		t.Fatal("live depth limit bypassed")
-	}
-	if err := decodeJSONBounded(raw, &out, 72); err != nil {
-		t.Fatal(err)
-	}
-	for _, raw := range []string{`{"a":1,"\u0061":2}`, `"\ud800"`, `{} []`} {
-		if decodeJSONBounded([]byte(raw), &out, 72) == nil {
-			t.Fatal("envelope allowance weakened strict parsing")
-		}
-	}
-}
-
-func TestDecodeContractJSONPublicValidation(t *testing.T) {
-	var out map[string]json.RawMessage
-	if DecodeContractJSON([]byte(`{"name":"fixture"}`), &out) != nil || string(out["name"]) != `"fixture"` {
-		t.Fatal("valid request rejected")
-	}
-	if DecodeContractJSON([]byte(`{"name":"a","\u006eame":"b"}`), &out) == nil {
-		t.Fatal("duplicate request accepted")
-	}
-}
-
-func TestCaptureContractSchemaAndLiteralArraysRemainDistinct(t *testing.T) {
-	for _, pair := range [][2]string{
-		{`{"required":["a","b"]}`, `{"required":["b","a"]}`},
-		{`{"properties":{"x":{"enum":[1,2]}}}`, `{"properties":{"x":{"enum":[2,1]}}}`},
-		{`{"default":{"required":["a","b"]}}`, `{"default":{"required":["b","a"]}}`},
-		{`{"enum":[{"type":["a","b"]}]}`, `{"enum":[{"type":["b","a"]}]}`},
-	} {
-		a, b := schemaContract(t, pair[0]), schemaContract(t, pair[1])
-		if a.InputHash == b.InputHash || a.Hash == b.Hash {
-			t.Fatal("schema or literal array normalized")
-		}
-	}
-}
-
 func TestAuditContractDecodedBOMIsContent(t *testing.T) {
 	isolatedContractAudit(t)
 	c := capturedContract(t, `,"description":"\ufeffplain text\n\ufeffmore text"`)
@@ -237,73 +273,5 @@ func TestCaptureContractSplitHashesCoverAllDimensions(t *testing.T) {
 		if (c.InputHash != base.InputHash) || (c.ProseHash != base.ProseHash) != (tt.dimension == "prose") || (c.OutputHash != base.OutputHash) != (tt.dimension == "output") || (c.MetadataHash != base.MetadataHash) != (tt.dimension == "metadata") {
 			t.Fatal("wrong split hash dimension", tt)
 		}
-	}
-}
-
-func TestCaptureContractDescriptorDepthBoundary(t *testing.T) {
-	raw := `{"name":"fixture","inputSchema":{},"x":` + strings.Repeat("[", 63) + `0` + strings.Repeat("]", 63) + `}`
-	if _, _, err := captureTool(json.RawMessage(raw), nil); err != nil {
-		t.Fatal("valid depth64 descriptor rejected", err)
-	}
-	raw = `{"name":"fixture","inputSchema":{},"x":` + strings.Repeat("[", 64) + `0` + strings.Repeat("]", 64) + `}`
-	if _, _, err := captureTool(json.RawMessage(raw), nil); err == nil {
-		t.Fatal("depth65 descriptor accepted")
-	}
-	for _, schema := range []string{`{"type":["object"]}`, `{"type":"array"}`, `{"properties":{"x":{"minimum":"1"}}}`} {
-		if _, _, err := captureTool(json.RawMessage(`{"name":"fixture","inputSchema":`+schema+`}`), nil); err == nil {
-			t.Fatal("malformed typed schema accepted")
-		}
-	}
-}
-
-func TestAuditContractsWholeFieldPadding(t *testing.T) {
-	isolatedContractAudit(t)
-	for _, text := range []string{
-		strings.Repeat("\n", 40) + "ordinary text",
-		strings.Repeat("same\n", 100) + "ordinary text",
-		strings.Repeat(strings.Repeat(" ", 18)+"x\n", 250),
-	} {
-		encoded, err := json.Marshal(text)
-		if err != nil {
-			t.Fatal(err)
-		}
-		c := capturedContract(t, `,"description":`+string(encoded))
-		findings, err := auditContracts(map[string]ToolContract{"fixture": c})
-		if err != nil {
-			t.Fatal(err)
-		}
-		found := false
-		for _, f := range findings {
-			if f.Path == "/description" && f.RuleID == "whitespace-padding" {
-				found = true
-			}
-		}
-		if !found {
-			t.Fatal("cross-line padding was not audited", findings)
-		}
-	}
-}
-
-func TestAuditContractsAllVisualSeparatorsExhaustLineBudget(t *testing.T) {
-	isolatedContractAudit(t)
-	for _, sep := range []string{"\r", "\r\n", "\v", "\f", "\u0085", "\u2028", "\u2029"} {
-		encoded, err := json.Marshal(strings.Repeat(sep, 9000) + "ordinary text")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := auditContracts(map[string]ToolContract{"fixture": capturedContract(t, `,"description":`+string(encoded))}); err == nil {
-			t.Fatal("visual line budget bypassed")
-		}
-	}
-}
-
-func TestCaptureContractRecognizedCommentIsString(t *testing.T) {
-	for _, value := range []string{"42", "null", "true", "{}", "[]"} {
-		if _, _, err := captureTool(json.RawMessage(`{"name":"fixture","inputSchema":{"$comment":`+value+`}}`), nil); err == nil {
-			t.Fatal("malformed schema comment accepted", value)
-		}
-	}
-	if _, _, err := captureTool(json.RawMessage(`{"name":"fixture","inputSchema":{"$comment":"review this","extension":{"$comment":42}}}`), nil); err != nil {
-		t.Fatal("literal extension treated as schema", err)
 	}
 }

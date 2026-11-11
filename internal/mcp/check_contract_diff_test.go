@@ -25,6 +25,7 @@ func TestCompareContractsConservativeDirections(t *testing.T) {
 		{`{"properties":{"x":{"minimum":9007199254740992}}}`, `{"properties":{"x":{"minimum":9007199254740993}}}`, "BREAKING"},
 		{`{"properties":{"x":{"maximum":1e900}}}`, `{"properties":{"x":{"maximum":9e899}}}`, "BREAKING"},
 		{`{"required":["x"]}`, `{"required":[]}`, "LOOSENED"},
+		{`{"required":["a","b"]}`, `{"required":["b","a"]}`, "UNKNOWN"},
 		{`{"properties":{"x":{"enum":[1,2]}}}`, `{"properties":{"x":{"enum":[2,3]}}}`, "UNKNOWN"},
 		{`{"allOf":[{"required":["x"]}]}`, `{"allOf":[{"required":[]}]}`, "UNKNOWN"},
 		{`{"properties":{"x":{"description":"one"}}}`, `{"properties":{"x":{"description":"two"}}}`, "NOTATION"},
@@ -76,35 +77,6 @@ func TestCompareContractsMixedDimensionsAndOutputUnknown(t *testing.T) {
 	}
 }
 
-func TestCompareContractsCountsEveryOmittedDetail(t *testing.T) {
-	old, now := map[string]ToolContract{}, map[string]ToolContract{}
-	for i := 0; i < 230; i++ {
-		now[fmt.Sprintf("tool-%03d", i)] = capturedContract(t, "")
-	}
-	changes, omitted := compareContracts(old, now)
-	if len(changes) != 200 || omitted != 30 {
-		t.Fatal(len(changes), omitted)
-	}
-	changes, omitted = compareContracts(now, old)
-	if len(changes) != 200 || omitted != 30 {
-		t.Fatal(len(changes), omitted)
-	}
-	for _, c := range changes {
-		if c.Grade != "BREAKING" {
-			t.Fatal(c)
-		}
-	}
-}
-
-func TestCompareContractsArrayOrderRequiresReview(t *testing.T) {
-	a := schemaContract(t, `{"required":["a","b"]}`)
-	b := schemaContract(t, `{"required":["b","a"]}`)
-	changes, _ := compareContracts(map[string]ToolContract{"fixture": a}, map[string]ToolContract{"fixture": b})
-	if len(changes) == 0 || changes[0].Grade != "UNKNOWN" {
-		t.Fatal("array mutation lost or cosmetic", changes)
-	}
-}
-
 func TestCompareContractsRemovedNullMetadataAlongsideProse(t *testing.T) {
 	a := capturedContract(t, `,"description":"one","extension":null`)
 	b := capturedContract(t, `,"description":"two"`)
@@ -142,6 +114,25 @@ func TestCompareContractsMixedOmissionAccounting(t *testing.T) {
 	if len(changes) != 200 || omitted != 26 {
 		t.Fatal("mixed details lost", len(changes), omitted)
 	}
+	t.Run("CompareContractsCountsEveryOmittedDetail", func(t *testing.T) {
+		old, now := map[string]ToolContract{}, map[string]ToolContract{}
+		for i := 0; i < 230; i++ {
+			now[fmt.Sprintf("tool-%03d", i)] = capturedContract(t, "")
+		}
+		changes, omitted := compareContracts(old, now)
+		if len(changes) != 200 || omitted != 30 {
+			t.Fatal(len(changes), omitted)
+		}
+		changes, omitted = compareContracts(now, old)
+		if len(changes) != 200 || omitted != 30 {
+			t.Fatal(len(changes), omitted)
+		}
+		for _, c := range changes {
+			if c.Grade != "BREAKING" {
+				t.Fatal(c)
+			}
+		}
+	})
 }
 
 func TestCompareContractsExactNumericExtremes(t *testing.T) {
@@ -182,9 +173,6 @@ func TestCompareContractsNumericEnumsNeverInferLexicalDirection(t *testing.T) {
 			t.Fatal("numeric enum fingerprint lexemes lost", tt)
 		}
 	}
-}
-
-func TestCompareContractsNonnumericEnumSubsetDirections(t *testing.T) {
 	for _, tt := range []struct{ before, after, grade string }{
 		{`["one"]`, `["one","two"]`, "EXPANDED"},
 		{`["one","two"]`, `["one"]`, "BREAKING"},

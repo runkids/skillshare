@@ -170,7 +170,7 @@ func TestLiveStdioFallsBackWhenDiscoverIsUnanswered(t *testing.T) {
 	}
 }
 
-func TestLiveStdioExitReportsRedactedStderr(t *testing.T) {
+func TestLiveStdioExitOmitsServerDiagnosticOutput(t *testing.T) {
 	report, err := checkService(t, liveConfig("crash", nil)).Check(liveCheck(10*time.Second, tokenEnv))
 	if err != nil {
 		t.Fatal(err)

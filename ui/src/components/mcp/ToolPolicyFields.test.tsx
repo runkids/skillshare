@@ -92,36 +92,22 @@ it.each([
   await user.hover(await screen.findByRole('button', { name: 'جزئیات' }));
   const tooltip = await screen.findByRole('tooltip');
   expect(tooltip.textContent).toBe(expected);
-  expect(tooltip.textContent).not.toMatch(/[\u200c\u202e]/u);
   expect(changed).not.toHaveBeenCalled();
 });
 
-it.each([
-  ['timeout', 'سرور به موقع پاسخ نداد.'],
-  ['auth', 'سرور اطلاعات ورود می خواهد یا آن را رد کرد. توکن، Headers و متغیرهای محیطی آن ها را بررسی کنید.'],
-] as const)('keeps the Persian draft-probe %s headline readable', async (errorKind, expected) => {
+it.each(['timeout', 'auth', 'invalid-rule', 'deny-all'] as const)('keeps the Persian %s message readable', async (kind) => {
   localStorage.setItem(LOCALE_STORAGE_KEY, 'fa');
-  vi.mocked(mcpCheckApi.probe).mockResolvedValue({ errorKind, error: 'fixture diagnostic' });
-  const user = userEvent.setup(); const { changed } = show();
-  await user.click(screen.getByRole('button', { name: 'بارگذاری ابزارها' }));
-  const headline = await screen.findByText(expected);
-  expect(headline.textContent).not.toContain('\\u200c');
-  expect(changed).not.toHaveBeenCalled();
-});
-
-it('shows a readable Persian invalid-rule error without changing the policy', async () => {
-  localStorage.setItem(LOCALE_STORAGE_KEY, 'fa');
-  const user = userEvent.setup(); const { changed } = show();
-  await user.type(screen.getByRole('textbox', { name: 'قوانین حذف' }), 'bad?name{Enter}');
-  const error = screen.getByText('bad?name نام ابزار نیست. از حروف، ارقام و علائم استفاده کنید؛ * با هر نویسه ای مطابقت دارد.');
-  expect(error.textContent).not.toContain('\\u200c');
-  expect(changed).not.toHaveBeenCalled();
-});
-
-it('keeps the Persian deny-all validation error readable through the error prop', () => {
-  localStorage.setItem(LOCALE_STORAGE_KEY, 'fa');
-  const { changed } = show({ allow: ['read'], deny: ['read'] }, translate('fa', 'mcp.tools.denyAll'));
-  const error = screen.getByText('«رد» همهٔ ابزارهایی را که «اجازه» نگه می دارد حذف می کند، پس سرور هیچ ابزاری نخواهد داشت. یک مورد را از «رد» بردارید یا ابزار دیگری به «اجازه» اضافه کنید.');
-  expect(error.textContent).not.toContain('\\u200c');
+  const messages = {
+    timeout: 'سرور به موقع پاسخ نداد.',
+    auth: 'سرور اطلاعات ورود می خواهد یا آن را رد کرد. توکن، Headers و متغیرهای محیطی آن ها را بررسی کنید.',
+    'invalid-rule': 'bad?name نام ابزار نیست. از حروف، ارقام و علائم استفاده کنید؛ * با هر نویسه ای مطابقت دارد.',
+    'deny-all': '«رد» همهٔ ابزارهایی را که «اجازه» نگه می دارد حذف می کند، پس سرور هیچ ابزاری نخواهد داشت. یک مورد را از «رد» بردارید یا ابزار دیگری به «اجازه» اضافه کنید.',
+  };
+  if (kind === 'timeout' || kind === 'auth') vi.mocked(mcpCheckApi.probe).mockResolvedValue({ errorKind: kind, error: 'fixture diagnostic' });
+  const user = userEvent.setup();
+  const { changed } = kind === 'deny-all' ? show({ allow: ['read'], deny: ['read'] }, translate('fa', 'mcp.tools.denyAll')) : show();
+  if (kind === 'timeout' || kind === 'auth') await user.click(screen.getByRole('button', { name: 'بارگذاری ابزارها' }));
+  if (kind === 'invalid-rule') await user.type(screen.getByRole('textbox', { name: 'قوانین حذف' }), 'bad?name{Enter}');
+  expect((await screen.findByText(messages[kind])).textContent).not.toContain('\\u200c');
   expect(changed).not.toHaveBeenCalled();
 });

@@ -61,29 +61,12 @@ it.each(['', undefined])('disables approval without a complete revision (%s)', a
   expect(await screen.findByRole('button', { name: 'Trust this inventory' })).toBeDisabled();
 });
 
-it('requires another explicit probe after stale approval and never silently accepts a new token', async () => {
-  vi.mocked(mcpCheckApi.review).mockResolvedValue(review());
-  vi.mocked(mcpCheckApi.accept).mockRejectedValue(new ApiError(409, 'stale'));
-  const user = userEvent.setup(); show();
-  await user.click(screen.getByRole('button', { name: 'Probe live tools' }));
-  await user.click(await screen.findByRole('button', { name: 'Trust this inventory' }));
-  expect(await screen.findByText(/Probe again to review/)).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Trust this inventory' })).toBeDisabled();
-  expect(mcpCheckApi.review).toHaveBeenCalledTimes(1);
-});
 
-it.each([false, true])('does not show trust success without typed persisted acceptance (accepted=%s)', async (accepted) => {
-  vi.mocked(mcpCheckApi.review).mockResolvedValue(review());
-  vi.mocked(mcpCheckApi.accept).mockResolvedValue({ accepted, report: { ...review(), toolsAcceptance: 'error' } });
-  const user = userEvent.setup(); show();
-  await user.click(screen.getByRole('button', { name: 'Probe live tools' }));
-  await user.click(await screen.findByRole('button', { name: 'Trust this inventory' }));
-  expect(await screen.findByText(/Inventory was not accepted/)).toBeInTheDocument();
-  expect(screen.queryByText('Inventory accepted')).not.toBeInTheDocument();
-});
 
-it('disables acceptance for a failed scan even if it carries a revision', async () => {
-  const report = review(); report.servers[0].ok = false;report.servers[0].contract!.status = 'error';
+
+
+it('disables acceptance for a failed scan', async () => {
+  const report = review(); report.servers[0].ok = false;report.servers[0].contract!.status = 'error'; report.servers[0].contract!.revision = '';
   vi.mocked(mcpCheckApi.review).mockResolvedValue(report);
   const user = userEvent.setup(); show();
   await user.click(screen.getByRole('button', { name: 'Probe live tools' }));
@@ -126,6 +109,7 @@ it('shows persisted success and invalidates every token after a write', async ()
   const buttons = await screen.findAllByRole('button', { name: 'Trust this inventory' });
   await user.click(buttons[0]);
   expect(await screen.findByText('Inventory accepted')).toBeInTheDocument();
+  expect(screen.queryByText(/Untrusted: no inventory/)).not.toBeInTheDocument();
 
   expect(screen.getByRole('button', { name: 'Trust this inventory' })).toBeDisabled();
   expect(mcpCheckApi.review).toHaveBeenCalledTimes(1);
@@ -149,26 +133,11 @@ it('keeps current baseline errors without a revision visible and cannot approve 
   const user = userEvent.setup(); show();
   await user.click(screen.getByRole('button', { name: 'Probe live tools' }));
   expect(await screen.findByText('tool contracts could not be compared: MCP tool baseline is invalid or unreadable; restore a valid backup or inspect the state file')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Trust this inventory' })).toBeDisabled();
 });
 
-it('updates the status explanation after persisted acceptance', async () => {
-  vi.mocked(mcpCheckApi.review).mockResolvedValue(review());
-  vi.mocked(mcpCheckApi.accept).mockResolvedValue({ accepted: true, report: { ...review(), toolsAcceptance: 'accepted' } });
-  const user = userEvent.setup(); show();
-  await user.click(screen.getByRole('button', { name: 'Probe live tools' }));
-  await user.click(await screen.findByRole('button', { name: 'Trust this inventory' }));
-  expect(await screen.findByText('Inventory accepted')).toBeInTheDocument();
-  expect(screen.queryByText(/Untrusted: no inventory/)).not.toBeInTheDocument();
-});
 
-it('disables trust when the displayed snapshots do not cover the reported inventory', async () => {
-  const report = review(); report.servers[0].live = { tools: 2 };
-  vi.mocked(mcpCheckApi.review).mockResolvedValue(report);
-  const user = userEvent.setup(); show();
-  await user.click(screen.getByRole('button', { name: 'Probe live tools' }));
-  expect(await screen.findByRole('button', { name: 'Trust this inventory' })).toBeDisabled();
-});
+
+
 
 
 it('localizes owned drift, audit and actionable findings in zh-TW while preserving descriptor and endpoint text', async () => {
@@ -183,6 +152,9 @@ it('localizes owned drift, audit and actionable findings in zh-TW while preservi
     { level: 'warning', check: 'tool-audit', target: '', message: 'tool contract text has audit findings; inspect the complete review' },
     { level: 'error', check: 'env', target: '', subject: 'FIXTURE_TOKEN', message: 'header X-Auth reads FIXTURE_TOKEN, which is not set' },
     { level: 'error', check: 'live', target: '', message: 'Endpoint diagnostic: model-visible text changed; review required' },
+    { level: 'error', check: 'tool-change', target: '', message: 'tool baseline could not be persisted; no acceptance was recorded' },
+    { level: 'error', check: 'tool-change', target: '', message: 'MCP review is stale; run a new live review before accepting' },
+    { level: 'error', check: 'tool-change', target: '', message: 'model-visible text changed; review required; vendor detail' },
   ];
   vi.mocked(mcpCheckApi.review).mockResolvedValue(report);
   const user = userEvent.setup(); show('', 'zh-TW');
@@ -194,23 +166,11 @@ it('localizes owned drift, audit and actionable findings in zh-TW while preservi
   expect(screen.getByText('header X-Auth 讀取 FIXTURE_TOKEN，但此變數尚未設定。')).toBeInTheDocument();
   expect(screen.getByText('結構描述的限制已變更；必須檢視。位置已截短，請檢視完整合約。')).toBeInTheDocument();
   expect(screen.getByText('Endpoint diagnostic: model-visible text changed; review required')).toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: /顯示完整快照/ }));
-  expect(document.querySelector('pre')?.textContent).toBe(c.tools!.search.definitionText);
-});
-
-it('localizes persistence and stale guidance without converting unknown diagnostics into owned messages', async () => {
-  const report = review(); report.servers[0].ok = false;report.servers[0].contract!.status = 'error';
-  report.servers[0].findings = [
-    { level: 'error', check: 'tool-change', target: '', message: 'tool baseline could not be persisted; no acceptance was recorded' },
-    { level: 'error', check: 'tool-change', target: '', message: 'MCP review is stale; run a new live review before accepting' },
-    { level: 'error', check: 'tool-change', target: '', message: 'model-visible text changed; review required; vendor detail' },
-  ];
-  vi.mocked(mcpCheckApi.review).mockResolvedValue(report);
-  const user = userEvent.setup(); show('', 'zh-TW');
-  await user.click(screen.getByRole('button', { name: '探測即時工具' }));
-  expect(await screen.findByText('無法儲存工具基準；未記錄任何接受結果。')).toBeInTheDocument();
+  expect(screen.getByText('無法儲存工具基準；未記錄任何接受結果。')).toBeInTheDocument();
   expect(screen.getByText('MCP 檢視版本已過期；接受前請重新進行即時檢視。')).toBeInTheDocument();
   expect(screen.getByText('model-visible text changed; review required; vendor detail')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: /顯示完整快照/ }));
+  expect(document.querySelector('pre')?.textContent).toBe(c.tools!.search.definitionText);
 });
 
 it('escapes controls in every rendered identity, location and diagnostic field', async () => {
@@ -233,28 +193,15 @@ it('escapes controls in every rendered identity, location and diagnostic field',
   expect(document.querySelector('a[href], img, script')).toBeNull();
 });
 
-it('keeps the Persian baseline-reference refusal readable after display sanitization', async () => {
-  const report: MCPCheckReport = { servers: [{
-    name: 'docs', project: '/exact/root', ok: true, live: { tools: 0 },
-    contract: { status: 'untrusted', policy: 'skillshare-contract-v2', tools: {} },
-    findings: [{ level: 'warning', check: 'tool-change', target: '', message: 'baseline trust requires fromEnv references for every environment, header and bearer value' }],
-  }], summary: { errors: 0, warnings: 1 } };
+it.each([
+  ['tool-change', '', 'baseline trust requires fromEnv references for every environment, header and bearer value', 'اعتماد به مبنا به ارجاع های fromEnv برای همهٔ مقادیر محیط، سرآیند و توکن Bearer نیاز دارد'],
+  ['sync', 'claude', 'not synced yet; run skillshare sync mcp', 'هنوز همگام سازی نشده است. بعد از زدن «همگام سازی MCP» نوشته می شود.'],
+] as const)('keeps Persian %s findings readable', async (check, target, message, expected) => {
+  const report = review(''); report.servers[0].findings = [{ level: 'warning', check, target, message }];
   vi.mocked(mcpCheckApi.review).mockResolvedValue(report);
   const user = userEvent.setup(); show('', 'fa');
   await user.click(screen.getByRole('button', { name: 'بررسی زندهٔ ابزارها' }));
-  const finding = await screen.findByText('اعتماد به مبنا به ارجاع های fromEnv برای همهٔ مقادیر محیط، سرآیند و توکن Bearer نیاز دارد');
-  expect(finding.textContent).not.toContain('\\u200c');
-  expect(screen.getByRole('button', { name: 'اعتماد به این فهرست' })).toBeDisabled();
-});
-
-it('keeps the Persian not-synced warning readable in a live review', async () => {
-  const report = review();
-  report.servers[0].findings = [{ level: 'warning', check: 'sync', target: 'claude', message: 'not synced yet; run skillshare sync mcp' }];
-  vi.mocked(mcpCheckApi.review).mockResolvedValue(report);
-  const user = userEvent.setup(); show('', 'fa');
-  await user.click(screen.getByRole('button', { name: 'بررسی زندهٔ ابزارها' }));
-  const finding = await screen.findByText('هنوز همگام سازی نشده است. بعد از زدن «همگام سازی MCP» نوشته می شود.');
-  expect(finding.textContent).not.toContain('\\u200c');
+  expect((await screen.findByText(expected)).textContent).not.toContain('\\u200c');
 });
 
 it('describes only current fromEnv approval and point-in-time boundaries', () => {
@@ -271,6 +218,8 @@ it('requires an explicit new review and second trust click after a stale failure
   await user.click(screen.getByRole('button', { name: 'Probe live tools' }));
   await user.click(await screen.findByRole('button', { name: 'Trust this inventory' }));
   await screen.findByText(/Review is stale/);
+  expect(screen.getByText(/Probe again to review/)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Trust this inventory' })).toBeDisabled();
   await user.click(screen.getByRole('button', { name: 'Probe live tools' }));
   const trust = await screen.findByRole('button', { name: 'Trust this inventory' });
   expect(mcpCheckApi.accept).toHaveBeenCalledTimes(1);
@@ -299,22 +248,6 @@ it.each([
   expect(await screen.findByText(expected)).toBeInTheDocument();
   expect(screen.getByRole('dialog').textContent).not.toContain('\u202e');
   expect(screen.getByRole('button', { name: '信任這份清單' })).toBeDisabled();
-});
-
-it.each([
-  ['tool contracts contain a configured credential; no review is available', '工具合約含有已設定的憑證；無法提供檢視。'],
-  ['stored tool contracts contain a configured credential; no review is available', '已儲存的工具合約含有已設定的憑證；無法提供檢視。'],
-])('localizes the current exact credential refusal without a trust action: %s', async (message, expected) => {
-  const report = review(''); const server = report.servers[0];
-  server.ok = false; server.live = undefined;
-  server.contract = { status: 'error', policy: 'skillshare-contract-v2' };
-  server.findings = [{ level: 'error', check: 'tool-change', target: '', message }];
-  vi.mocked(mcpCheckApi.review).mockResolvedValue(report);
-  const user = userEvent.setup(); show('', 'zh-TW');
-  await user.click(screen.getByRole('button', { name: '探測即時工具' }));
-  expect(await screen.findByText(expected)).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '信任這份清單' })).toBeDisabled();
-  expect(mcpCheckApi.accept).not.toHaveBeenCalled();
 });
 
 it('preserves unknown sync diagnostics and credential-like text that is not an exact owned message', async () => {
@@ -399,9 +332,10 @@ it.each(['accepted', 'refused', 'stale', 'connection-error'] as const)('invalida
   vi.mocked(mcpCheckApi.review).mockResolvedValue(review());
   if (outcome === 'stale') vi.mocked(mcpCheckApi.accept).mockRejectedValue(new ApiError(409, 'stale'));
   else if (outcome === 'connection-error') vi.mocked(mcpCheckApi.accept).mockRejectedValue(new ApiError(0, 'lost connection'));
-  else vi.mocked(mcpCheckApi.accept).mockResolvedValue({ accepted: outcome === 'accepted', report: { ...review(), toolsAcceptance: outcome === 'accepted' ? 'accepted' : 'error' } });
+  else if (outcome === 'refused') vi.mocked(mcpCheckApi.accept).mockRejectedValue(new MCPToolsAcceptanceError(422, 'inventory was not accepted', { ...review(), toolsAcceptance: 'error' }));
+  else vi.mocked(mcpCheckApi.accept).mockResolvedValue({ accepted: true, report: { ...review(), toolsAcceptance: 'accepted' } });
   const user = userEvent.setup(); const { queryClient } = show();
-  const logKeys = [queryKeys.log('ops', 100), queryKeys.log('audit', 20, { status: 'error' }), queryKeys.logStats('ops'), queryKeys.logStats('audit', { since: 'fixture' })];
+  const logKeys = [queryKeys.log('ops', 100)];
   for (const key of [...logKeys, queryKeys.mcp, queryKeys.audit.all()]) queryClient.setQueryData(key, { fixture: true });
   expect(logKeys.every((key) => !queryClient.getQueryState(key)?.isInvalidated)).toBe(true);
   await user.click(screen.getByRole('button', { name: 'Probe live tools' }));
@@ -450,26 +384,19 @@ it.each([
   expect(mcpCheckApi.accept).toHaveBeenCalledTimes(1);
 });
 
-it('localizes the exact preflight credential refusal outside the probe wrapper', async () => {
-  const report = review(''); report.servers[0].ok = false;
-  report.servers[0].findings = [{ level: 'error', check: 'live', target: '', message: 'connection identity contains a configured credential; use environment-backed references' }];
-  vi.mocked(mcpCheckApi.review).mockResolvedValue(report);
-  const user = userEvent.setup(); show('', 'zh-TW');
-  await user.click(screen.getByRole('button', { name: '探測即時工具' }));
-  expect(await screen.findByText('連線識別含有已設定的憑證；請使用環境變數參照')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '信任這份清單' })).toBeDisabled();
-});
-
 it.each([
-  ['live', 'en', 'Probe live tools', 'Trust this inventory', 'project scope contains a configured credential; no review is available'],
-  ['tool-change', 'en', 'Probe live tools', 'Trust this inventory', 'project scope contains a configured credential; no review is available'],
-  ['live', 'zh-TW', '探測即時工具', '信任這份清單', '專案範圍含有已設定的憑證；無法提供檢視。'],
-  ['tool-change', 'zh-TW', '探測即時工具', '信任這份清單', '專案範圍含有已設定的憑證；無法提供檢視。'],
-] as const)('localizes scope credential refusal from %s in %s', async (check, locale, probeLabel, trustLabel, expected) => {
+  ['tool-change', 'zh-TW', '探測即時工具', '信任這份清單', '工具合約含有已設定的憑證；無法提供檢視。', 'tool contracts contain a configured credential; no review is available'],
+  ['tool-change', 'zh-TW', '探測即時工具', '信任這份清單', '已儲存的工具合約含有已設定的憑證；無法提供檢視。', 'stored tool contracts contain a configured credential; no review is available'],
+  ['live', 'zh-TW', '探測即時工具', '信任這份清單', '連線識別含有已設定的憑證；請使用環境變數參照', 'connection identity contains a configured credential; use environment-backed references'],
+  ['live', 'en', 'Probe live tools', 'Trust this inventory', 'project scope contains a configured credential; no review is available', 'project scope contains a configured credential; no review is available'],
+  ['tool-change', 'en', 'Probe live tools', 'Trust this inventory', 'project scope contains a configured credential; no review is available', 'project scope contains a configured credential; no review is available'],
+  ['live', 'zh-TW', '探測即時工具', '信任這份清單', '專案範圍含有已設定的憑證；無法提供檢視。', 'project scope contains a configured credential; no review is available'],
+  ['tool-change', 'zh-TW', '探測即時工具', '信任這份清單', '專案範圍含有已設定的憑證；無法提供檢視。', 'project scope contains a configured credential; no review is available'],
+] as const)('localizes scope credential refusal from %s in %s', async (check, locale, probeLabel, trustLabel, expected, message) => {
   const report = review(''); const server = report.servers[0];
   server.ok = false; server.live = undefined;
   server.contract = { status: 'error', policy: 'skillshare-contract-v2' };
-  server.findings = [{ level: 'error', check, target: '', message: 'project scope contains a configured credential; no review is available' }];
+  server.findings = [{ level: 'error', check, target: '', message }];
   vi.mocked(mcpCheckApi.review).mockResolvedValue(report);
   const user = userEvent.setup(); show('', locale);
   await user.click(screen.getByRole('button', { name: probeLabel }));

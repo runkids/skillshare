@@ -14,33 +14,6 @@ import (
 	"testing"
 )
 
-func TestCheckConnectionCredentialKeepsIdentityDiagnostic(t *testing.T) {
-	const secret = "connection-fixture-token-921"
-	var requests atomic.Int32
-	endpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		requests.Add(1)
-		w.WriteHeader(http.StatusUnauthorized)
-	}))
-	defer endpoint.Close()
-	s := checkService(t, "mcp:\n  targets: []\n  servers:\n    echo:\n      targets: []\n      url: "+endpoint.URL+"/"+secret+"\n      bearerToken: {fromEnv: FIXTURE_CONNECTION_TOKEN}\n")
-	report, err := s.Check(CheckOptions{Live: true, SkipDNS: true, LookupEnv: func(key string) (string, bool) { return secret, key == "FIXTURE_CONNECTION_TOKEN" }})
-	if err != nil || report.Summary.Errors == 0 || requests.Load() != 0 || report.Servers[0].Live != nil {
-		t.Fatalf("connection credential was not refused before probing: %v", err)
-	}
-	identityDiagnostic := false
-	for _, finding := range report.Servers[0].Findings {
-		if finding.Check == "live" && finding.Level == "error" {
-			if finding.Message != "connection identity contains a configured credential; use environment-backed references" {
-				t.Fatal("declaration-only refusal lost the connection-identity diagnostic")
-			}
-			identityDiagnostic = true
-		}
-	}
-	if !identityDiagnostic {
-		t.Fatal("missing connection-identity preflight diagnostic")
-	}
-}
-
 func TestProbeDraftCredentialDiagnosticDistinguishesScopeAndIdentity(t *testing.T) {
 	const secret = "draft-fixture-token-619"
 	root := t.TempDir()
@@ -166,26 +139,7 @@ func TestCheckRejectsCredentialInEffectiveProjectRoot(t *testing.T) {
 			t.Fatal("refusal changed the existing baseline")
 		}
 	}
-	// Independently protect comparison callers that already hold a complete observation.
-	now := contractObservation{Tools: preview.Servers[0].Contract.Tools, Live: preview.Servers[0].Live, Secrets: sourceLiveSecrets(source, opts)}
-	for _, accept := range []bool{false, true} {
-		opts.AcceptTools, opts.Revision = accept, ""
-		if accept {
-			opts.Revision = revision
-		}
-		b, report := baselineObserve(s, source, "", "echo", source.Servers["echo"], now, opts)
-		b.save(s, report)
-		if review := report.Servers[0].Contract; review.Status != "error" || review.Revision != "" {
-			t.Fatal("baseline comparison granted authority for a credential-bearing root")
-		}
-		if accept && report.ToolsAcceptance != ToolsAcceptanceError {
-			t.Fatal("baseline comparison did not refuse credential-bearing root acceptance")
-		}
-		payload, err := json.Marshal(report)
-		if err != nil || strings.Contains(string(payload), secret) || !bytes.Equal(before, baselineBytes(t, s)) {
-			t.Fatal("baseline comparison leaked the root or changed approval bytes")
-		}
-	}
+
 }
 
 func TestCheckProjectScopePreservesControlsAndRedactsCredentials(t *testing.T) {

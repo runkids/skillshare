@@ -40,17 +40,16 @@ func TestWriteAuditRecordsOutcomeWithoutDescriptorOrDiagnosticData(t *testing.T)
 	if strings.Contains(string(raw), "fixture-secret") {
 		t.Fatal("audit log contains untrusted metadata")
 	}
-}
-
-func TestWriteAuditRefusalWithSafeCurrentSnapshotIsNotSuccess(t *testing.T) {
-	t.Setenv("XDG_STATE_HOME", t.TempDir())
-	path := filepath.Join(t.TempDir(), "config.yaml")
-	report := &mcp.CheckReport{ToolsAcceptance: mcp.ToolsAcceptanceError, Servers: []mcp.CheckServer{{Contract: &mcp.ContractReview{Status: "error", Tools: map[string]mcp.ToolContract{}}}}}
-	if err := WriteAudit(path, time.Now(), report, nil); err != nil {
-		t.Fatal(err)
-	}
-	entries, err := oplog.Read(path, oplog.AuditFile, 0)
-	if err != nil || len(entries) != 1 || entries[0].Status != "error" || entries[0].Args["accepted"] != false {
-		t.Fatalf("entries=%v error=%v", entries, err)
-	}
+	t.Run("WriteAuditRefusalWithSafeCurrentSnapshotIsNotSuccess", func(t *testing.T) {
+		t.Setenv("XDG_STATE_HOME", t.TempDir())
+		path := filepath.Join(t.TempDir(), "config.yaml")
+		report := &mcp.CheckReport{ToolsAcceptance: mcp.ToolsAcceptanceError, Servers: []mcp.CheckServer{{Contract: &mcp.ContractReview{Status: "error", Tools: map[string]mcp.ToolContract{}}}}}
+		if err := WriteAudit(path, time.Now(), report, nil); err != nil {
+			t.Fatal(err)
+		}
+		entries, err := oplog.Read(path, oplog.AuditFile, 0)
+		if err != nil || len(entries) != 1 || entries[0].Status != "error" || entries[0].Args["accepted"] != false {
+			t.Fatalf("entries=%v error=%v", entries, err)
+		}
+	})
 }

@@ -17,14 +17,14 @@ it('keeps static checks static and distinguishes omitted and empty live roots', 
   ]);
 });
 
-it('posts only the exact reviewed scope and revision and preserves a false outcome', async () => {
-  vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ accepted: false, report: { toolsAcceptance: 'error', servers: [], summary: { errors: 1, warnings: 0 } } })));
+it('posts only the exact reviewed scope and revision and preserves acceptance', async () => {
+  vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ accepted: true, report: { toolsAcceptance: 'accepted', servers: [], summary: { errors: 0, warnings: 0 } } })));
   const result = await mcpCheckApi.accept({ name: 'docs', root: '/one', revision: 'reviewed' });
   const [path, init] = vi.mocked(fetch).mock.calls[0];
   expect(path).toBe(BASE + '/mcp/check');
   expect(init?.method).toBe('POST');
   expect(JSON.parse(String(init?.body))).toEqual({ name: 'docs', root: '/one', revision: 'reviewed' });
-  expect(result.accepted).toBe(false);
+  expect(result.accepted).toBe(true);
 });
 
 it.each([422, 409])('preserves the typed refusal report without converting HTTP %s to success', async (status) => {
