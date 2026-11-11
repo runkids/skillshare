@@ -68,8 +68,12 @@ Read ~/.config/herdr-app/AGENTS.md, then replace the files in mods/skillshare wi
 - It runs on the shown space's machine (`exec` with `on`), in the focused terminal's folder.
 - A folder with `.skillshare/config.yaml` or `skillshare/config.yaml` is a project; both
   scopes show and the All · Project · Global switch appears beside the tabs.
-- Per scope, one detached script runs `list --all`, `diff`, `mcp list`, `plugin list` and `hooks list`
-  with `--json`. `check` and `check agents` run every 10 minutes. Git state comes from `git status` in the
+- Per scope, independent detached reads run `list --all`, `diff`, `mcp list`, `plugin list` and
+  `hooks list` with `--json`. Each result appears as soon as it is ready; a slow plugin inventory
+  does not hold up other resources or the source's Git state. Refreshes keep existing rows visible.
+  Pending or failed inventories show `…` instead of zero, and sync states remain unconfirmed until
+  the reads succeed. Read errors stay visible beside the available data; the next refresh retries.
+  `check` and `check agents` run every 10 minutes. Git state comes from `git status` in the
   source repository, because the CLI has no JSON for it.
 - The install dialog reads canonical names and repository-relative paths from
   `skillshare install <source> --dry-run --json --kind skill` (`planned`), so its pick list

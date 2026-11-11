@@ -48,28 +48,6 @@ cd "$top"
 echo "top $top"
 git status --porcelain=v1 --branch --untracked-files=all`;
 
-// sh -c SNAPSHOT <name> <dir> <-p|-g>: every read for one scope in one trip, each section headed
-// "@@<name> <seconds>" so a slow command shows.
-export const SNAPSHOT = `cd "$1" 2>/dev/null || cd; f=$2
-run() { n=$1; shift; s=$(date +%s); out=$(skillshare "$@" "$f" 2>/dev/null); printf '@@%s %s\\n%s\\n' "$n" "$(( $(date +%s) - s ))" "$out"; }
-run list list --all --json
-run diff diff --json
-run mcp mcp list --json
-run plugins plugin list --json
-run hooks hooks list --json`;
-
-// Sections of SNAPSHOT's output, parsed, plus how long each took.
-export function parseSnapshot(text) {
-  const out = { took: {} };
-  for (const part of String(text ?? "").split(/^@@/m).slice(1)) {
-    const nl = part.indexOf("\n");
-    const [name, secs] = part.slice(0, nl).split(" ");
-    out[name] = parseJSON(part.slice(nl + 1));
-    out.took[name] = Number(secs);
-  }
-  return out;
-}
-
 // sh -c PROJECT <name> <folder>: prints the folder when skillshare treats it as a project.
 export const PROJECT = '[ -f "$1/.skillshare/config.yaml" ] || [ -f "$1/skillshare/config.yaml" ] && printf "%s" "$1"';
 
@@ -202,6 +180,7 @@ export function parseGitStatus(text) {
 // The source line in the footer, and whether it needs attention.
 export function sourceLine(git) {
   if (!git) return { text: "Source · checking…", warn: false };
+  if (git.error) return { text: "Source · could not be read", warn: true };
   if (!git.repo) return { text: "Source · not a git repository", warn: false };
   const parts = [];
   if (git.files.length) parts.push(`${git.files.length} uncommitted`);
@@ -245,7 +224,12 @@ export function targetList(raw, scope = "all", items = []) {
   for (const s of Object.keys(raw ?? {})) {
     if (scope !== "all" && s !== scope) continue;
     if (raw[s]?.diff?.targets) known = true;
-    for (const x of targetDrift(raw[s]?.diff)) { by.set(x.name, (by.get(x.name) ?? 0) + x.n); if (x.n && !scopes.includes(s)) scopes.push(s); }
+    const unknown = raw[s]?.pending?.includes("diff") || raw[s]?.errors?.diff;
+    for (const x of targetDrift(raw[s]?.diff)) {
+      const n = unknown ? 0 : x.n;
+      by.set(x.name, (by.get(x.name) ?? 0) + n);
+      if (n && !scopes.includes(s)) scopes.push(s);
+    }
     for (const name of raw[s]?.targets ?? []) if (!by.has(name)) by.set(name, 0);
   }
   for (const i of items) {
@@ -286,15 +270,33 @@ const andMore = (list) => (list.length <= 2 ? list.map((x) => x.name).join(" and
 
 // Overview's answer in two lines: { kind, headline, sub }, kind one of loading, failed, moving,
 // waiting, ok. pending: rows Sync would act on; lag: targets with something waiting.
-export function overviewAnswer({ loading, failed, error, moving, pending = 0, lag = [], total = 0, targets = 0 }) {
+export function overviewAnswer({ loading, failed, error, moving, reading = [], incomplete = false, pending = 0, lag = [], total = 0, targets = 0 }) {
   if (loading) return { kind: "loading", headline: "Reading skillshare", sub: "one moment" };
   if (failed) return { kind: "failed", headline: "skillshare could not be read", sub: error ?? "" };
   if (moving) return { kind: "moving", headline: lag.length ? `Syncing ${plural(lag.length, "target")}` : "Syncing", sub: lag.length ? andMore(lag) : "every target" };
+  if (reading.length) return { kind: "loading", headline: "Reading skillshare", sub: `Still reading ${reading.join(", ")} · other resources are available` };
+  if (incomplete) return { kind: "failed", headline: "Some sync states are unconfirmed", sub: "Available resources are shown below" };
   if (pending || lag.length) {
     return { kind: "waiting", headline: lag.length ? `${plural(lag.length, "target")} need${lag.length === 1 ? "s" : ""} a sync` : `${plural(pending, "resource")} to sync`,
       sub: pending ? `${plural(pending, "resource")} waiting${lag.length ? ` for ${andMore(lag)}` : ""}` : `waiting on ${andMore(lag)}` };
   }
   return { kind: "ok", headline: "Everything is in sync", sub: `${plural(total, "resource")} · ${plural(targets, "target")}` };
+}
+
+// Loading/error state for the shown scopes. A kind's count is unknown until all its
+// inventories answer; diff/status affect sync confidence but not inventory counts.
+export function resourceProgress(raw, scope = "all") {
+  const pending = new Set(), errors = [], unknown = new Set();
+  let available = false;
+  const kinds = { list: ["skills", "agents"], mcp: ["mcp"], plugins: ["plugins"], hooks: ["hooks"] };
+  for (const [s, one] of Object.entries(raw)) {
+    if (scope !== "all" && scope !== s) continue;
+    available ||= Object.keys(kinds).some((key) => one[key] != null);
+    for (const key of one.pending ?? []) pending.add(key);
+    for (const [key, message] of Object.entries(one.errors ?? {})) errors.push(`${s} ${key}: ${message}`);
+    for (const [key, names] of Object.entries(kinds)) if ((one.pending ?? []).includes(key) || one.errors?.[key]) for (const name of names) unknown.add(name);
+  }
+  return { pending: [...pending], errors, unknown, available, incomplete: Boolean(pending.size || errors.length) };
 }
 
 // A machine card's remote line, and the targets that wait on it by name (max at most).
@@ -401,6 +403,15 @@ export function buildItems(scope, raw) {
     item.state = !raw.hooks?.plan ? "unknown" : pending.length ? "sync" : item.disabled ? "off" : "ok";
     items.push(item);
   }
+  if (raw.pending || raw.errors) {
+    for (const item of items) {
+      const keys = item.kind === "skills" || item.kind === "agents" ? ["list", "diff", "status"] : [item.kind];
+      if (!item.notice && item.state !== "off" && keys.some((key) => raw.pending?.includes(key) || raw.errors?.[key])) {
+        item.cachedState = item.state;
+        item.state = "unknown";
+      }
+    }
+  }
   return items;
 }
 
@@ -496,6 +507,7 @@ export function previewTargets(item, names = []) {
     const waits = new Set(item.targets ?? []);
     rows = names.map((n) => ({ name: n, text: item.state === "off" ? "disabled" : waits.has(n) ? "needs sync" : "in sync", warn: item.state !== "off" && waits.has(n) }));
   }
+  if (item.state === "unknown") rows = rows.map((row) => ({ ...row, text: "sync status unknown", warn: false }));
   return rows.sort((a, b) => Number(b.warn) - Number(a.warn) || a.name.localeCompare(b.name));
 }
 

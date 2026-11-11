@@ -4,7 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseGitStatus, sourceLine, driftFrom, targetDrift, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, installResult, newerVersion, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, SNAPSHOT, parseSnapshot, rowState, previewTargets, splitFrontmatter, mcpServer, targetList, mapLanes, needsBothWays, READ_SKILL, eligibleTargets, syncScopes, overviewAnswer, remoteLine, waitingNames, releaseTag, panelUpdate, updateState, PANEL_UPDATE, toggleArgs, optimistic, shownRows, endedRequests, afterRead, afterChecks, DISCOVER } from "../skillshare/mods/skillshare/model.js";
+import { parseGitStatus, sourceLine, driftFrom, targetDrift, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, installResult, newerVersion, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, rowState, previewTargets, splitFrontmatter, mcpServer, targetList, mapLanes, needsBothWays, READ_SKILL, eligibleTargets, syncScopes, overviewAnswer, resourceProgress, remoteLine, waitingNames, releaseTag, panelUpdate, updateState, PANEL_UPDATE, toggleArgs, optimistic, shownRows, endedRequests, afterRead, afterChecks, DISCOVER } from "../skillshare/mods/skillshare/model.js";
 import { VERSION } from "../skillshare/mods/skillshare/version.js";
 
 test("git status reads branch, ahead/behind and files", () => {
@@ -190,21 +190,29 @@ test("unnamed native includes carry pending scope without counting as hooks", ()
   }
 });
 
-test("snapshot reads hooks with the chosen scope from a fixture CLI", (t) => {
-  const dir = mkdtempSync(join(tmpdir(), "ss-snapshot-"));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
-  writeFileSync(join(dir, "skillshare"), `#!/bin/sh
-printf '%s\\n' "$*" >>"$HOME/calls"
-printf '%s\\n' '{"source":{"entries":{}},"plan":{"changes":[]}}'
-`, { mode: 0o755 });
-  const env = { ...process.env, HOME: dir, PATH: `${dir}:${process.env.PATH}` };
-  for (const key of ["CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR", "OPENCODE_CONFIG_DIR", "COPILOT_HOME", "GEMINI_CLI_HOME", "XDG_CONFIG_HOME"]) delete env[key];
-  for (const flag of ["-g", "-p"]) {
-    const result = spawnSync("sh", ["-c", SNAPSHOT, "test", dir, flag], { env, encoding: "utf8" });
-    assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(parseSnapshot(result.stdout).hooks.source.entries, {});
-    assert.ok(readFileSync(join(dir, "calls"), "utf8").split("\n").includes(`hooks list --json ${flag}`));
+test("partial inventories keep unknown counts and sync verdicts scoped", () => {
+  const raw = { global: { list: [], pending: ["plugins"], errors: {} }, project: { list: [], pending: [], errors: { hooks: "unavailable" } } };
+  const global = resourceProgress(raw, "global"), all = resourceProgress(raw);
+  assert.deepEqual([...global.unknown], ["plugins"]);
+  assert.deepEqual(all.pending, ["plugins"]);
+  assert.deepEqual([...all.unknown], ["plugins", "hooks"]);
+  assert.deepEqual(all.errors, ["project hooks: unavailable"]);
+  assert.equal(global.available, true);
+  assert.equal(global.incomplete, true);
+  assert.notEqual(overviewAnswer({ reading: global.pending, incomplete: true }).kind, "ok");
+  assert.notEqual(overviewAnswer({ incomplete: true }).kind, "ok");
+  assert.equal(resourceProgress({ global: { list: [], pending: [], errors: {} } }).incomplete, false);
+});
+
+test("pending or failed reads never mark cached rows or previews as in sync", () => {
+  for (const raw of [{ pending: ["diff"] }, { errors: { status: "unavailable" } }]) {
+    const [item] = buildItems("global", { list: [{ name: "a" }], ...raw });
+    assert.equal(item.state, "unknown");
+    assert.equal(previewTargets(item, ["claude"])[0].text, "sync status unknown");
   }
+  const [plugin] = buildItems("global", { plugins: { packages: { test: { bindings: { codex: {} } } } }, pending: ["plugins"] });
+  assert.equal(plugin.state, "unknown");
+  assert.equal(previewTargets(plugin)[0].text, "sync status unknown");
 });
 
 test("preview failures show unknown entry status and a single scope error without pending sync", () => {

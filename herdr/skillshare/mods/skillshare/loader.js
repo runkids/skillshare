@@ -3,7 +3,7 @@
 // and the tests pass a fake machine.
 //   io.job(args, { on, cwd, script }): skillshare (or a script of ours) run detached;
 //   io.run(args, { on, cwd }): a short read; io.sh(script, args, on): one exec of a script.
-import { SNAPSHOT, parseSnapshot, GIT_STATUS, PROJECT, READ_SKILL, READ_FILE, LATEST_RELEASE, releaseTag, parseJSON, failure, flag, parseGitStatus, driftFrom, targetDrift, splitFrontmatter, mcpServer } from "./model.js";
+import { GIT_STATUS, PROJECT, READ_SKILL, READ_FILE, LATEST_RELEASE, releaseTag, parseJSON, failure, flag, parseGitStatus, driftFrom, targetDrift, splitFrontmatter, mcpServer } from "./model.js";
 
 const scopesOf = (project) => (project ? ["project", "global"] : ["global"]);
 const at = (on, project, scope) => ({ on, cwd: scope === "project" ? project : null });
@@ -14,27 +14,52 @@ export async function findProject({ sh }, on, folders) {
   return r.stdout.trim() || null;
 }
 
-// Every scope's resources, the source's git state and the CLI version, in one pass:
-// { raw: { [scope]: { list, diff, mcp, plugins, hooks, targets, skillTargets, agentTargets, took, error } }, git, version, error }.
-// network also fetches the source's remote, so ahead/behind is current.
-export async function loadResources(io, on, project, network) {
+// Each read publishes independently. Keep the previous values during refresh, but track
+// pending and failed sections separately so a stale value never claims a fresh sync verdict.
+export async function loadResources(io, on, project, network, progress = () => {}, previous = {}) {
+  const commands = { list: ["list", "--all"], diff: ["diff"], mcp: ["mcp", "list"], plugins: ["plugin", "list"], hooks: ["hooks", "list"], status: ["status"] };
   const raw = {};
-  const statusRead = io.run(["status", "--json", "-g"], { on });
-  const projectRead = project ? io.run(["status", "--json", "-p"], at(on, project, "project")) : null;
-  // targets: every configured one; skillTargets: those that take skills; agentTargets: those that take agents.
+  for (const scope of scopesOf(project)) raw[scope] = { ...previous[scope], pending: Object.keys(commands), errors: {}, took: {}, error: null };
+  let git = null, version = null;
+  const snapshot = () => ({ raw: Object.fromEntries(Object.entries(raw).map(([scope, one]) => [scope, { ...one, pending: [...one.pending], errors: { ...one.errors }, took: { ...one.took } }])), git, version,
+    error: Object.entries(raw).flatMap(([scope, one]) => Object.entries(one.errors).map(([name, message]) => `${scope} ${name}: ${message}`)).join("\n") || null });
+  const publish = () => progress(snapshot());
   const names = (list) => (list ?? []).map((x) => x.name).filter(Boolean);
-  const put = (one, st) => { if (one) Object.assign(one, { targets: names(st?.targets), skillTargets: names((st?.targets ?? []).filter((x) => x.skills_enabled !== false)), agentTargets: names(st?.agents?.targets) }); };
-  await Promise.all(scopesOf(project).map(async (scope) => {
-    const r = await io.job([flag(scope)], { ...at(on, project, scope), script: SNAPSHOT });
-    const snap = parseSnapshot(r.stdout);
-    raw[scope] = { list: snap.list, diff: snap.diff, mcp: snap.mcp, plugins: snap.plugins, hooks: snap.hooks, took: snap.took, error: Array.isArray(snap.list) ? null : failure(r, "skillshare list") };
-  }));
-  const status = parseJSON((await statusRead).stdout);
-  // diff leaves out targets that share another's folder, so the configured names come from status.
-  put(raw.global, status);
-  if (projectRead) put(raw.project, parseJSON((await projectRead).stdout));
-  const git = status?.source?.path ? parseGitStatus((await io.sh(GIT_STATUS, [status.source.path, network ? "fetch" : ""], on)).stdout) : { repo: false };
-  return { raw, git, version: status?.version ?? null, error: raw.global?.error ?? raw.project?.error ?? null };
+  publish();
+  await Promise.all(scopesOf(project).flatMap((scope) => Object.entries(commands).map(async ([name, args]) => {
+    const one = raw[scope], start = Date.now(), opt = at(on, project, scope);
+    let status;
+    try {
+      const r = await (name === "status" ? io.run([...args, "--json", flag(scope)], opt) : io.job([...args, "--json", flag(scope)], opt));
+      const value = parseJSON(r.stdout);
+      if (r.code !== 0 || value == null || (name === "list" && !Array.isArray(value))) throw new Error(failure(r, `skillshare ${args.join(" ")}`));
+      if (name === "status") {
+        status = value;
+        Object.assign(one, { targets: names(value.targets), skillTargets: names((value.targets ?? []).filter((x) => x.skills_enabled !== false)), agentTargets: names(value.agents?.targets) });
+        if (scope === "global") version = value.version ?? null;
+      } else one[name] = value;
+    } catch (e) {
+      one.errors[name] = String(e?.message ?? e);
+      if (name === "list") one.error = one.errors[name];
+    } finally {
+      one.pending = one.pending.filter((key) => key !== name);
+      one.took[name] = (Date.now() - start) / 1000;
+      publish();
+    }
+    // Source state does not wait for any resource inventory (especially native plugins).
+    if (name === "status" && scope === "global") {
+      try {
+        if (one.errors.status) git = { error: one.errors.status };
+        else if (!status?.source?.path) git = { repo: false };
+        else {
+          const r = await io.sh(GIT_STATUS, [status.source.path, network ? "fetch" : ""], on);
+          git = r.code === 0 ? parseGitStatus(r.stdout) : { error: failure(r, "git status") };
+        }
+      } catch (e) { git = { error: String(e?.message ?? e) }; }
+      publish();
+    }
+  })));
+  return snapshot();
 }
 
 // What has an update upstream, per scope: { [scope]: { check, checkAgents } }. Slow: it asks
