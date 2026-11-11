@@ -58,6 +58,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	defer s.trackProjectLock()()
+	defer s.followRepairedSources()()
 
 	var body updateRequest
 	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
@@ -440,7 +441,7 @@ func (s *Server) reinstallRegularSkill(name, skillPath, branch string, force, sk
 	if !force && entry.LocallyModified(skillPath, follow...) {
 		return updateResultItem{Name: name, Action: "skipped", Message: "has local changes since install (try force update)"}
 	}
-	source, err := install.ParseSourceWithOptions(entry.Source, s.parseOpts())
+	source, err := install.RecordedSource(entry, s.parseOpts())
 	if err != nil {
 		return updateResultItem{
 			Name:    name,
@@ -562,6 +563,23 @@ func getServerUpdatableSkills(sourceDir string, store *install.MetadataStore, wa
 		return nil, err
 	}
 	return skills, nil
+}
+
+// followRepairedSources returns a function for defer: the project config
+// follows the records the request rewrote because their source did not parse
+// (config.FollowRepairedSources). Defer it after trackProjectLock, which pins
+// by the config's source.
+func (s *Server) followRepairedSources() func() {
+	if !s.IsProjectMode() {
+		return func() {}
+	}
+	sourceDir := s.cfg.EffectiveSkillsSource()
+	before := install.LoadMetadataOrNew(sourceDir)
+	return func() {
+		if err := config.FollowRepairedSources(s.projectRoot, s.projectCfg, before, install.LoadMetadataOrNew(sourceDir), s.parseOpts()); err != nil {
+			log.Printf("warning: failed to update project config: %v", err)
+		}
+	}
 }
 
 // trackProjectLock returns a function for defer: it moves the lockfile pins of

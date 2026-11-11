@@ -335,7 +335,7 @@ func resolveSkillFromName(skillName string, cfg *config.Config) (*install.Source
 		return nil, fmt.Errorf("skill '%s' has no metadata, cannot update", skillName)
 	}
 
-	source, err := install.ParseSourceWithOptions(entry.Source, parseOptsFromConfig(cfg))
+	source, err := install.RecordedSource(entry, parseOptsFromConfig(cfg))
 	if err != nil {
 		return nil, fmt.Errorf("invalid source in metadata: %w", err)
 	}

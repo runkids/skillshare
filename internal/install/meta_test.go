@@ -123,6 +123,33 @@ func TestIsDiscoverySkillSource_FormBefore859(t *testing.T) {
 	}
 }
 
+// Regression for #862: a record written before #859 holds a source that parses
+// as another repository; its recorded repository and path rebuild it.
+func TestRecordedSource(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		entry   MetadataEntry
+		wantRaw string
+	}{
+		{"file source in the old form", MetadataEntry{Source: "file:///srv/skills/pack/x", RepoURL: "file:///srv/skills", Subdir: "pack/x"}, "file:///srv/skills//pack/x"},
+		{"gitlab source in the old form", MetadataEntry{Source: "https://gitlab.com/team/skills/x", RepoURL: "https://gitlab.com/team/skills.git", Subdir: "x"}, "https://gitlab.com/team/skills.git/x"},
+		{"bitbucket source in the old form", MetadataEntry{Source: "https://bitbucket.org/team/skills/x", RepoURL: "https://bitbucket.org/team/skills.git", Subdir: "x"}, "https://bitbucket.org/team/skills.git/x"},
+		{"repository of its own at that URL", MetadataEntry{Source: "https://gitlab.com/team/skills/x", RepoURL: "https://gitlab.com/team/skills/x.git"}, "https://gitlab.com/team/skills/x"},
+		{"source that already parses", MetadataEntry{Source: "github.com/org/skills/x", RepoURL: "https://github.com/org/skills.git", Subdir: "x"}, "github.com/org/skills/x"},
+		{"record that names another repository", MetadataEntry{Source: "https://gitlab.com/team/skills/x", RepoURL: "https://gitlab.com/other/repo.git", Subdir: "x"}, "https://gitlab.com/team/skills/x"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			source, err := RecordedSource(&tt.entry, ParseOptions{})
+			if err != nil {
+				t.Fatalf("RecordedSource: %v", err)
+			}
+			if source.Raw != tt.wantRaw {
+				t.Errorf("source = %q, want %q", source.Raw, tt.wantRaw)
+			}
+		})
+	}
+}
+
 func TestBuildDiscoverySkillSource(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -80,6 +80,34 @@ func followInstalledSources(cfg *ProjectConfig, before, store *install.MetadataS
 	return changed
 }
 
+// FollowRepairedSources points config entries at the records an update
+// rewrote because their source did not parse back to what was installed
+// (#862): teammates install from the config, and that source fails for them.
+// before is the store from before the update. An entry that no longer
+// declares the old record is left alone.
+func FollowRepairedSources(projectRoot string, cfg *ProjectConfig, before, store *install.MetadataStore, opts install.ParseOptions) error {
+	changed := false
+	for i := range cfg.Skills {
+		skill := &cfg.Skills[i]
+		was, now := before.GetExact(skill.FullName()), store.GetExact(skill.FullName())
+		if skill.EffectiveKind() != "skill" || was == nil || now == nil || skill.Source != was.Source || now.Source == was.Source {
+			continue
+		}
+		if install.RecordedSourceString(was, opts) == was.Source {
+			continue
+		}
+		skill.Source = now.Source
+		changed = true
+	}
+	if !changed {
+		return nil
+	}
+	if err := cfg.Save(projectRoot); err != nil {
+		return fmt.Errorf("failed to save project config: %w", err)
+	}
+	return nil
+}
+
 // ForgetProjectSkills drops the config entries and lock pins of uninstalled
 // skills, so a later `install -p`, here or on a teammate's machine, does not
 // bring them back. A name is a skill, or a group folder with every skill
