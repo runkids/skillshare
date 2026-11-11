@@ -29,7 +29,7 @@ Skillshare 将源资源与 target 配置分开，再同步到各工具。除了 
 | **发现** | skills.sh 与 `skills find` | CLI 搜索与本地 Web dashboard |
 | **多 agent 与范围** | 多 agent；项目与全局安装 | 配置中的 targets；项目与全局模式 |
 | **共享 skill 文件** | 指向共享副本的符号链接；可选 copy | 源目录搭配 merge、copy 或整个目录的 symlink 模式 |
-| **更新** | `skills check`（有更新或本地修改时以退出码 1 结束）与 `skills update` | `skillshare check` 与 `skillshare update` |
+| **更新** | `skills check`（有更新或本地修改时以退出码 1 结束）与 `skills update` | `skillshare check`（加上 `--exit-code` 后，有项目不是最新时以退出码 1 结束）与 `skillshare update` |
 | **项目恢复** | 实验性 `skills experimental_install`（或不带来源的 `skills install`）从 `skills-lock.json` 恢复支持的来源 | 声明式 skill 配置与源资源；见 [manifest](/docs/understand/declarative-manifest) |
 | **npm 项目同步** | 实验性 `skills experimental_sync` 读取已安装依赖与 `package.json` 的 skill 声明 | 源到 target 的同步；不是相同的 npm 依赖工作流 |
 | **跨机器工作流** | 项目 lock 恢复与 npm 同步可协助重建项目 skills | Git `push` / `pull`，范围由 `git_root` 决定 |

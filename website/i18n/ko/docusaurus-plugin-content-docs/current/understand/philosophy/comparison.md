@@ -29,7 +29,7 @@ Skillshare는 source 리소스와 target 설정을 분리한 뒤 각 도구에 �
 | **발견** | skills.sh 및 `skills find` | CLI 검색 및 로컬 Web dashboard |
 | **여러 agent와 범위** | 여러 agent, 프로젝트 및 전역 설치 | 설정된 targets, 프로젝트 및 전역 모드 |
 | **Skill 파일 공유** | 공통 복사본을 가리키는 symlink, copy 옵션 | Source 디렉터리와 merge, copy, 전체 디렉터리 symlink 모드 |
-| **업데이트** | `skills check`(업데이트나 로컬 변경이 있으면 종료 코드 1) 및 `skills update` | `skillshare check` 및 `skillshare update` |
+| **업데이트** | `skills check`(업데이트나 로컬 변경이 있으면 종료 코드 1) 및 `skills update` | `skillshare check`(`--exit-code`를 붙이면 최신이 아닌 항목이 있을 때 종료 코드 1) 및 `skillshare update` |
 | **프로젝트 복원** | 실험적 `skills experimental_install`(소스 없이 `skills install`로도 실행)이 `skills-lock.json`의 지원 소스를 복원 | 선언적 skill 설정과 source 리소스. [manifest](/docs/understand/declarative-manifest) 참고 |
 | **npm 프로젝트 동기화** | 실험적 `skills experimental_sync`가 설치된 의존성과 `package.json`의 skill 선언을 읽음 | Source에서 target으로 동기화. 동일한 npm 의존성 워크플로우는 아님 |
 | **머신 간 워크플로우** | 프로젝트 lock 복원과 npm 동기화로 프로젝트 skills 재구성 지원 | Git `push` / `pull`, 범위는 `git_root`로 결정 |
