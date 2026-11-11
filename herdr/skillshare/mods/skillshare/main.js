@@ -11,7 +11,7 @@ import { v_flex, h_flex, InputState, Input, TextView, HoverCard } from "gpui-bas
 import { exec, hc, run, spaces, agents, focused, machines, shared, setShared, theme, settings, layout, openOverlay, closeOverlay, nextCommand, readTextFile, knownAgents, props as blockProps } from "herdr";
 import {
   KINDS, SCOPES, DISCOVER, AUDIT,
-  parseJSON, lastLine, failure, flag, sourceLine, buildItems, shownRows, endedRequests, afterRead, afterChecks, hookArgs, toggleArgs, rowState, previewTargets, eligibleTargets, targetList, waitsForSync, syncScopes, overviewAnswer, remoteLine, waitingNames, mapLanes, needsBothWays, filterItems, groupItems, sourceGroups, counts,
+  parseJSON, lastLine, failure, flag, sourceLine, buildItems, shownRows, endedRequests, afterRead, afterChecks, hookArgs, toggleArgs, rowState, previewTargets, eligibleTargets, targetList, waitsForSync, syncScopes, overviewAnswer, resourceProgress, remoteLine, waitingNames, mapLanes, needsBothWays, filterItems, groupItems, sourceGroups, counts,
   cloneUrl, installResult, newerVersion, panelUpdate, updateState, ago, auditMessage, parseDiscover, parseAudit,
 } from "./model.js";
 import { createRunner } from "./jobs.js";
@@ -317,9 +317,13 @@ export default class Skillshare extends View {
         if (token !== this.token) return;
         this.project = project; this.projectKnown = true; cx.notify();
         const wantCheck = network || Date.now() - this.checkedAt > CHECK_EVERY || this.checkKey !== `${on}:${project}`;
-        const res = await loadResources(io, on, project, network);
+        const res = await loadResources(io, on, project, network, (partial) => {
+          if (token !== this.token) return;
+          this.raw = partial.raw; this.git = partial.git; this.version = partial.version ?? this.version; this.error = null;
+          this.rebuild(); cx.notify();
+        }, this.raw);
         if (token !== this.token) return;
-        this.raw = res.raw; this.git = res.git; this.version = res.version ?? this.version; this.error = res.error;
+        this.raw = res.raw; this.git = res.git; this.version = res.version ?? this.version; this.error = null;
         const { pending, late } = afterRead(this.pending, ended, wantCheck);
         this.pending = pending;
         this.rebuild(); this.loadedAt = Date.now();
@@ -331,7 +335,7 @@ export default class Skillshare extends View {
           this.checks = checks; this.pending = afterChecks(this.pending, late);
           this.rebuild(); cx.notify();
         }
-      } catch (e) { this.error = String(e?.message ?? e); this.pending = afterRead(this.pending, ended, false).pending; this.rebuild(); cx.notify(); } finally {
+      } catch (e) { if (token !== this.token) return; this.error = String(e?.message ?? e); this.pending = afterRead(this.pending, ended, false).pending; this.rebuild(); cx.notify(); } finally {
         if (token === this.token) this.loading = false;
         // A request that ended while this read ran is not in it: read again, or its rows stay a guess.
         if (token === this.token && endedRequests(this.pending).length) this.refresh(cx, false);
@@ -433,7 +437,7 @@ export default class Skillshare extends View {
     // Follow the shown space; a new place starts over.
     const ctx = this.context(), key = ctx ? `${ctx.on}|${ctx.folder}|${ctx.spaceFolder}` : null;
     if (key !== this.ctxKey) {
-      this.ctxKey = key; this.ctx = ctx; this.token++; this.items = []; this.raw = {}; this.loadedAt = 0; this.projectKnown = false; this.checks = {}; this.checkKey = null; this.git = null; this.project = null; this.loading = false;
+      this.ctxKey = key; this.ctx = ctx; this.token++; this.items = []; this.raw = {}; this.loadedAt = 0; this.projectKnown = false; this.checks = {}; this.checkKey = null; this.git = null; this.project = null; this.loading = false; this.error = null;
       if (ctx) later(cx, (cx) => this.refresh(cx, false));
     }
     const req = this.nextRequest();
@@ -483,14 +487,16 @@ export default class Skillshare extends View {
   renderOverview(t, ctx) {
     if (!ctx) return v_flex().flex_1().p(16).child(note(t, "Open a space to see its skills."));
     const scope = this.project ? this.scope : "global", all = filterItems(this.items, { scope, kind: null, query: "" }), kc = counts(all), showScope = Boolean(this.project) && scope === "all";
-    const loading = !this.loadedAt && !Object.keys(this.raw).length, failed = Boolean(this.error) && !this.items.length;
+    const progress = resourceProgress(this.raw, scope);
+    const loading = !this.loadedAt && !progress.available && !this.error && !progress.errors.length;
+    const failed = Boolean(this.error || progress.errors.length) && !progress.available && !progress.pending.length;
     const byLabel = (a, b) => a.label.localeCompare(b.label);
     const waiting = all.filter((i) => !i.notice && (i.state === "sync" || i.state === "missing")).sort(byLabel);
     const updates = all.filter((i) => !i.notice && i.state === "update").sort(byLabel), notices = all.filter((i) => i.notice);
     const pending = [...waiting, ...notices.filter((i) => i.pending)];
     const targets = targetList(this.raw, scope, this.items), lag = targets.list.filter((x) => x.n);
     const busy = this.busyAt(ctx.on), moving = Boolean(busy) && /^Sync/.test(channel.textAt(ctx.on) ?? "");
-    const { kind: answer, headline, sub } = overviewAnswer({ loading, failed, error: this.error, moving, pending: pending.length, lag, total: kc.all, targets: targets.list.length });
+    const { kind: answer, headline, sub } = overviewAnswer({ loading, failed, error: this.error, moving, reading: progress.pending, incomplete: progress.incomplete, pending: pending.length, lag, total: kc.all, targets: targets.list.length });
     const mark = { loading: () => icon("ring", 20, t.muted).spin(900), failed: () => icon("alert", 20, t.ansi1), moving: () => icon("ring", 20, t.blocked).spin(900),
       waiting: () => icon("alert", 20, t.blocked), ok: () => icon("check", 20, t.ansi2) }[answer]();
     const hot = new Set(pending.map((x) => x.kind));
@@ -501,8 +507,8 @@ export default class Skillshare extends View {
         .child(v_flex().flex_1().min_w(0).gap(3)
           .child(div().truncate().text_size(S().dialog + 2).font_semibold().child(headline))
           .child(div().truncate().text_size(S().label).text_color(t.muted).child(sub)))
-        .children([(pending.length || lag.length) && !loading ? (busy ? disabledButton("sync-busy", "Working…", t, { h: 30 }) : primary("sync-all", "Sync", t, sync, { h: 30, px: 14 })) : null].filter(Boolean)))
-      .children([loading || targets.known ? this.syncMap(t, targets.list, kc, moving, loading, hot) : null].filter(Boolean));
+        .children([(pending.length || lag.length) && !loading ? (busy || progress.incomplete ? disabledButton("sync-busy", busy ? "Working…" : "Unconfirmed", t, { h: 30 }) : primary("sync-all", "Sync", t, sync, { h: 30, px: 14 })) : null].filter(Boolean)))
+      .children([loading || progress.available || targets.known ? this.syncMap(t, targets.list, kc, moving, loading, hot, progress) : null].filter(Boolean));
 
     let list;
     if (loading) list = skeleton(t, 4);
@@ -520,7 +526,9 @@ export default class Skillshare extends View {
         (_e, cx) => { this.view = "machines"; this.machinesAt = 0; cx.notify(); })));
       list = v_flex().pb(16).children(sections);
     }
-    return v_flex().flex_1().min_h(0).child(hero).child(div().id("overview").flex_1().min_h(0).overflow_y_scrollbar().child(list));
+    return v_flex().flex_1().min_h(0).child(hero)
+      .children(progress.errors.map((message) => div().px(14).py(6).child(note(t, message, t.ansi1))))
+      .child(div().id("overview").flex_1().min_h(0).overflow_y_scrollbar().child(list));
   }
 
   renderLibrary(t, ctx) {
@@ -532,13 +540,14 @@ export default class Skillshare extends View {
     const live = groups.ok.filter((i) => i.state !== "off"), off = groups.ok.filter((i) => i.state === "off");
     const showScope = Boolean(this.project) && scope === "all";
 
+    const progress = resourceProgress(this.raw, scope);
     const kinds = h_flex().flex_none().px(14).pt(6).border_b(1).border_color(t.border)
-      .children(KINDS.map(([k, label]) => tab(t, `kind-${k}`, `${label} ${kc[k]}`, this.kind === k, (_e, cx) => { this.kind = k; cx.notify(); }, { h: 30, gap: 14, size: S().secondary })));
+      .children(KINDS.map(([k, label]) => tab(t, `kind-${k}`, `${label} ${progress.unknown.has(k) ? "…" : kc[k]}`, this.kind === k, (_e, cx) => { this.kind = k; cx.notify(); }, { h: 30, gap: 14, size: S().secondary })));
     // Sync is always here: it syncs the scopes with something waiting in the shown scope, or the shown scope itself.
     const waits = filterItems(all, { scope, kind: null, query: "" }).filter(waitsForSync), due = waits.length || targetList(this.raw, scope).scopes.length;
     const sync = () => request({ op: "sync", on: ctx.on, project: this.project, scopes: syncScopes(all, this.raw, scope), plugins: waits.some((i) => i.kind === "plugins") });
     // Nothing is read yet: there is no scope to sync.
-    const syncButton = !Object.keys(this.raw).length ? disabledButton("sync-wait", "Sync", t, { h: 30 })
+    const syncButton = !Object.keys(this.raw).length || progress.incomplete ? disabledButton("sync-wait", progress.incomplete ? "Unconfirmed" : "Sync", t, { h: 30 })
       : this.busyAt(ctx.on) ? disabledButton("sync-busy", "Working…", t, { h: 30 }) : (due ? primary : secondary)("sync-library", "Sync", t, sync, { h: 30, px: 12 });
     const tools = h_flex().flex_none().px(14).pt(10).pb(2).gap(6)
       .child(h_flex().flex_1().min_w(0).h(30).px(10).gap(8).items_center().rounded(6).border_1().border_color(t.border).bg(t.chrome)
@@ -549,7 +558,7 @@ export default class Skillshare extends View {
         .hover((s) => s.bg(t.hover)).active((s) => s.bg(t.selected)).on_mouse_down("left", stop).on_click(() => this.openInstall(ctx)).child(icon("plus", 13, t.foreground)));
 
     let list;
-    if (!this.loadedAt && !Object.keys(this.raw).length) list = skeleton(t, 6);
+    if (!this.loadedAt && !progress.available && !this.error) list = skeleton(t, 6);
     else if (this.error && !all.length) {
       list = v_flex().p(16).gap(8).child(h_flex().gap(7).items_center().text_color(t.ansi1).child(icon("alert", 14, t.ansi1)).child("skillshare could not be read")).child(note(t, this.error));
     } else {
@@ -573,16 +582,19 @@ export default class Skillshare extends View {
         sections.push(...rows(single));
       } else sections.push(...rows(live));
       if (off.length) sections.push(this.groupHeader(t, "off", `OFF · ${off.length}`, t.muted, null), ...rows(off));
-      if (!listed.length) sections.push(div().px(18).py(14).child(note(t, this.query ? "Nothing matches the filter." : `No ${KINDS.find(([k]) => k === this.kind)[1].toLowerCase()} here yet.`)));
+      if (!listed.length) sections.push(div().px(18).py(14).child(note(t, progress.unknown.has(this.kind) ? "This inventory is not confirmed yet." : this.query ? "Nothing matches the filter." : `No ${KINDS.find(([k]) => k === this.kind)[1].toLowerCase()} here yet.`)));
       list = v_flex().pb(16).children(sections);
     }
-    return v_flex().flex_1().min_h(0).child(kinds).child(tools).child(div().id("list").flex_1().min_h(0).overflow_y_scrollbar().child(list));
+    return v_flex().flex_1().min_h(0).child(kinds).child(tools)
+      .children(progress.pending.length ? [div().px(14).py(6).child(note(t, `Still reading ${progress.pending.join(", ")}…`))] : [])
+      .children(progress.errors.map((message) => div().px(14).py(6).child(note(t, message, t.ansi1))))
+      .child(div().id("list").flex_1().min_h(0).overflow_y_scrollbar().child(list));
   }
 
   // The source on top as what it holds, and one line down to each target: what waits first by
   // name, the rest by name or as a count. A count that has something waiting turns amber, so the
   // map agrees with the headline for every kind. Loading draws the same shape empty.
-  syncMap(t, targets, kc, moving, loading, hot = new Set()) {
+  syncMap(t, targets, kc, moving, loading, hot = new Set(), progress = { unknown: new Set(), incomplete: false }) {
     const small = (text, color) => div().flex_none().text_size(S().label).text_color(color).child(text);
     const lane = (last, line, rest) => mapLane(t, last, t.background, line, rest);
     const frame = (cells, lanes) => v_flex().id("sync-map").flex_none()
@@ -599,9 +611,9 @@ export default class Skillshare extends View {
       ? { name: r.name ?? `+${r.more} more`, text: moving ? "syncing" : r.name ? `${r.n} to sync` : "to sync", wait: true, quiet: !r.name, rest: r.rest }
       : { name: r.name ?? plural(r.more, "other"), text: r.name ? null : "in sync", quiet: !r.name, rest: r.rest });
     const rows = mapLanes(targets).map(say);
-    const cells = (r) => [dot(r.wait ? t.blocked : t.ansi2), r.quiet ? null : agentIcon(t, r.name, 16),
+    const cells = (r) => [dot(progress.incomplete ? t.muted : r.wait ? t.blocked : t.ansi2), r.quiet ? null : agentIcon(t, r.name, 16),
       div().flex_1().min_w(0).truncate().text_size(S().body).font_medium().text_color(r.quiet ? t.muted : t.foreground).child(r.name),
-      r.text ? small(r.text, r.wait ? t.blocked : t.muted) : icon("check", 13, t.muted)].filter(Boolean);
+      progress.incomplete ? small("unconfirmed", t.muted) : r.text ? small(r.text, r.wait ? t.blocked : t.muted) : icon("check", 13, t.muted)].filter(Boolean);
     // A collapsed line names its targets when the pointer rests on it, drawn as the lines they
     // would have been. The card hangs under the line, inset so its dots continue the column above.
     const others = (r, el) => HoverCard.new(`map-rest-${r.wait ? "wait" : "ok"}`).anchor("top_left").open_delay(250).trigger(el)
@@ -609,10 +621,10 @@ export default class Skillshare extends View {
         .children(r.rest.map((x) => h_flex().h(28).px(12).gap(9).items_center().children(cells(say({ ...x, wait: Boolean(x.n) })))))));
     return frame(KINDS.map(([k, label], i) => cell(i, v_flex().id(`have-${k}`)).cursor_pointer().hover((s) => s.bg(t.hover)).active((s) => s.bg(t.selected))
       .on_mouse_down("left", stop).on_click((_e, cx) => { this.view = "library"; this.kind = k; cx.notify(); })
-      .child(div().text_size(S().dialog + 2).font_semibold().text_color(hot.has(k) ? t.blocked : kc[k] ? t.foreground : t.muted).child(String(kc[k])))
+      .child(div().text_size(S().dialog + 2).font_semibold().text_color(hot.has(k) ? t.blocked : kc[k] ? t.foreground : t.muted).child(progress.unknown.has(k) ? "…" : String(kc[k])))
       .child(div().text_size(S().label).text_color(hot.has(k) ? t.blocked : t.muted).child(label))),
     rows.map((r, i) => {
-      const el = lane(i === rows.length - 1, syncLine(t, r.wait ? state : "ok"), cells(r));
+      const el = lane(i === rows.length - 1, syncLine(t, !progress.incomplete && r.wait ? state : "ok"), cells(r));
       return r.rest ? others(r, el) : el;
     }));
 
@@ -686,7 +698,11 @@ export default class Skillshare extends View {
             const newer = m.update && m.latest ? m.latest : latest && m.version && newerVersion(latest, m.version) !== m.version ? latest : null;
       // Two lines in the Overview map's grammar: Remote into Source, Source into Targets. Each
       // says its state at the right, waits dashed, and flows while that step runs.
-      const doing = this.busyAt(m.on) ? channel.textAt(m.on) ?? "" : "", pulling = /^Pull|both ways/.test(doing), syncing = pulling || /^Sync/.test(doing);
+      const busy = this.busyAt(m.on), doing = busy ? channel.textAt(m.on) ?? "" : "";
+      const active = this.pending.find((r) => !r.ended && (r.on ?? null) === (m.on ?? null));
+      const upgrading = busy && (active?.op === "upgrade" || /^Updating skillshare/.test(doing));
+      const pulling = /^Pull|both ways/.test(doing), syncing = pulling || /^Sync/.test(doing);
+      const syncingHere = busy && !upgrading && (syncing || ["pullsync", "syncboth", "pull", "resolve", "sync"].includes(active?.op));
       const waits = m.pending ?? [], drift = m.drift > 0, late = Boolean(m.git?.behind);
       // Uncommitted or unpushed work on that machine: a plain pull would refuse, so the card offers both ways.
       const dirty = m.git?.files?.length ?? 0, ahead = m.git?.ahead ?? 0, local = Boolean(dirty || ahead);
@@ -717,9 +733,11 @@ export default class Skillshare extends View {
             .child(lane("Source", plural(m.targets ?? 0, "target"), drift ? `${m.drift} to sync` : "in sync", drift, syncing))
             .when(waits.length > 0, (el) => el.child(div().pl(60).pb(4).truncate().text_size(S().label).text_color(t.muted).child(who))))
           .child(h_flex().h(44).px(12).gap(6).items_center().border_t(1).border_color(t.border)
-            .child(this.busyAt(m.on) ? disabledButton(`ps-${m.label}`, "Working…", t, { h: 26, px: 10, size: S().label, spin: true })
+            .child(busy ? disabledButton(`ps-${m.label}`, syncingHere ? "Working…" : label, t, { h: 26, px: 10, size: S().label, spin: syncingHere })
               : attention ? primary(`ps-${m.label}`, label, t, act, { h: 26, px: 10, size: S().label }) : secondary(`ps-${m.label}`, label, t, act, { h: 26, px: 10, size: S().label }))
-            .when(Boolean(newer), (el) => el.child(secondary(`up-${m.label}`, `Update to ${String(newer).replace(/^v/, "")}`, t, () => openDialog({ width: 440, height: 220, props: { role: "upgrade", on: m.on, label: m.label, from: m.version, to: newer } }), { h: 26, px: 10, size: S().label })))
+            .when(Boolean(newer) || upgrading, (el) => el.child(busy
+              ? disabledButton(`up-${m.label}`, upgrading ? "Updating…" : `Update to ${String(newer).replace(/^v/, "")}`, t, { h: 26, px: 10, size: S().label, spin: upgrading })
+              : secondary(`up-${m.label}`, `Update to ${String(newer).replace(/^v/, "")}`, t, () => openDialog({ width: 440, height: 220, props: { role: "upgrade", on: m.on, label: m.label, from: m.version, to: newer } }), { h: 26, px: 10, size: S().label })))
             .child(div().flex_1())
             .children(health ? [div().flex_none().text_size(S().label).text_color(health[1]).child(`doctor · ${health[0]}`)] : [])));
     });
@@ -881,13 +899,13 @@ export default class Skillshare extends View {
         it.blocker ? quietNote("Resolve with the CLI or the dashboard. Sync validates again before it applies anything.") : null]))];
     } else if (pane === "targets") {
       // The Overview map's grammar, for this one thing: it on top, a line down to each place it goes.
-      const lane = (r, i) => mapLane(t, i === targets.length - 1, t.popover, syncLine(t, r.warn ? "wait" : "ok"), [dot(r.warn ? t.blocked : t.ansi2), agentIcon(t, r.name, 16),
+      const lane = (r, i) => mapLane(t, i === targets.length - 1, t.popover, syncLine(t, r.warn ? "wait" : "ok"), [dot(it.state === "unknown" ? t.muted : r.warn ? t.blocked : t.ansi2), agentIcon(t, r.name, 16),
         div().flex_1().min_w(0).truncate().font_medium().child(r.name),
         r.text !== "in sync" ? div().flex_none().text_size(S().label).text_color(r.warn ? t.blocked : t.muted).child(r.text) : icon("check", 13, t.muted)]);
-      const said = it.state === "off" ? "Disabled, so it is not sent anywhere" : !targets.length ? `No ${whom}s yet` : waiting.length ? `${waiting.length} of ${plural(targets.length, whom)} waiting for a sync` : `In sync with ${plural(targets.length, whom)}`;
+      const said = it.state === "unknown" ? "Sync status unconfirmed" : it.state === "off" ? "Disabled, so it is not sent anywhere" : !targets.length ? `No ${whom}s yet` : waiting.length ? `${waiting.length} of ${plural(targets.length, whom)} waiting for a sync` : `In sync with ${plural(targets.length, whom)}`;
       const how = { mcp: "Sync writes this server into each target's own MCP file.", hooks: "One definition. Sync writes each agent's native hook file.", plugins: "Each agent installs the plugin; skillshare keeps them the same." }[it.kind];
       body = [scroll("pane", page([
-        h_flex().gap(8).items_center().child(waiting.length ? icon("alert", 16, t.blocked) : icon("check", 16, targets.length && it.state !== "off" ? t.ansi2 : t.muted)).child(div().text_size(S().dialog).font_semibold().child(said)),
+        h_flex().gap(8).items_center().child(it.state === "unknown" ? icon("alert", 16, t.muted) : waiting.length ? icon("alert", 16, t.blocked) : icon("check", 16, targets.length && it.state !== "off" ? t.ansi2 : t.muted)).child(div().text_size(S().dialog).font_semibold().child(said)),
         targets.length ? v_flex().pt(6)
           .child(h_flex().h(52).px(14).gap(10).items_center().rounded(10).border_1().border_color(t.border).bg(t.chrome)
             .child(dot(color, 9, it.state === "missing" || it.state === "off")).child(div().flex_1().min_w(0).truncate().font_semibold().child(it.label)).child(quietNote([kindName, it.scope].join(" · "))))
@@ -911,7 +929,7 @@ export default class Skillshare extends View {
       body = [scroll("pane", page([card([{ key: "description", value: it.description }, { key: "agents", value: it.src }, { key: "state", value: it.disabled ? "disabled: agents don't get it" : it.state === "sync" ? "changed since the last sync" : it.state }]),
         it.lines?.length ? sectionLabel(t, "NATIVE FILES") : null, it.lines?.length ? monoBox(t, "native", it.lines.join("\n")) : null]))];
     } else {
-      body = [scroll("pane", page([card([{ key: "source", value: it.src }, { key: "version", value: it.version }, { key: "state", value: it.state === "sync" ? it.reason || "changed" : it.state === "missing" ? "not installed in any agent yet" : "in sync" }])]))];
+      body = [scroll("pane", page([card([{ key: "source", value: it.src }, { key: "version", value: it.version }, { key: "state", value: it.state === "unknown" ? "sync status unknown" : it.state === "sync" ? it.reason || "changed" : it.state === "missing" ? "not installed in any agent yet" : "in sync" }])]))];
     }
     const tabs = panes.length ? h_flex().flex_none().px(20).border_b(1).border_color(t.border)
       .children(panes.map(([k, label]) => tab(t, `pane-${k}`, label, pane === k, (_e, cx) => { this.pane = k; cx.notify(); }, { h: 36, gap: 22, under: t.popover }))) : null;
@@ -993,7 +1011,7 @@ export default class Skillshare extends View {
     }
     if (p.role === "source") {
       const g = p.git ?? {}, dirty = g.files?.length ?? 0, ahead = g.ahead ?? 0, behind = g.behind ?? 0;
-      if (!g.repo) return dialogFrame(t, "source", this.handle, "Source repository", [note(t, "The source is not in a git repository.", t.foreground)], [dialogButton("close", "Close", t, close, "primary")], close, close);
+      if (!g.repo) return dialogFrame(t, "source", this.handle, "Source repository", [note(t, g.error ?? (p.git ? "The source is not in a git repository." : "Source state is still being read."), g.error ? t.ansi1 : t.foreground)], [dialogButton("close", "Close", t, close, "primary")], close, close);
       const tag = (text, warn) => h_flex().h(22).px(8).flex_none().items_center().rounded(11).bg(t.selected).text_size(S().label).text_color(warn ? t.blocked : t.muted).child(text);
       const tags = [dirty && tag(plural(dirty, "uncommitted change"), true), ahead && tag(`${plural(ahead, "commit")} to push`, false), behind && tag(`${plural(behind, "commit")} to pull`, true)].filter(Boolean);
       const files = (g.files ?? []).slice(0, 40).map((f) => `${f.code.padEnd(2)} ${f.path}`).join("\n");
