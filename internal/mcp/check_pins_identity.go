@@ -3,9 +3,33 @@ package mcp
 import (
 	"encoding/json"
 	"errors"
+	"os"
 	"path/filepath"
 	"unicode/utf8"
 )
+
+// canonicalLiveDirectory binds the launch and its recorded identity to the same directory.
+func canonicalLiveDirectory(path string) (string, error) {
+	if path == "" {
+		return "", errors.New("working directory is unavailable")
+	}
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	dir, err := filepath.EvalSymlinks(absolute)
+	if err != nil {
+		return "", err
+	}
+	info, err := os.Stat(dir)
+	if err != nil {
+		return "", err
+	}
+	if !info.IsDir() || !utf8.ValidString(dir) {
+		return "", errors.New("working directory is unavailable")
+	}
+	return dir, nil
+}
 
 // Canonical filesystem paths identify the configuration and its selected source;
 // source bytes may contain credentials, so no source-content digest is exposed.

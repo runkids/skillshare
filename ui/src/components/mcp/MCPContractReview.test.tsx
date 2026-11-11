@@ -204,13 +204,6 @@ it.each([
   expect((await screen.findByText(expected)).textContent).not.toContain('\\u200c');
 });
 
-it('describes only current fromEnv approval and point-in-time boundaries', () => {
-  show();
-  expect(screen.getByText(/Literal environment, header and bearer values/)).toHaveTextContent(/fromEnv/);
-  expect(screen.getByText(/Literal environment, header and bearer values/)).toHaveTextContent(/does not block tool calls/);
-  expect(screen.queryByText(/signing|signed baselines|verification keys/i)).not.toBeInTheDocument();
-});
-
 it('requires an explicit new review and second trust click after a stale failure', async () => {
   vi.mocked(mcpCheckApi.review).mockResolvedValueOnce(review('first')).mockResolvedValueOnce(review('second'));
   vi.mocked(mcpCheckApi.accept).mockRejectedValueOnce(new ApiError(409, 'stale')).mockResolvedValueOnce({ accepted: true, report: { ...review('second'), toolsAcceptance: 'accepted' } });

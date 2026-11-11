@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"mime"
 	"net"
 	"net/http"
 	"os"
@@ -706,9 +707,11 @@ func (p *liveProbe) stdio(ctx context.Context) (*CheckLive, error) {
 	if err != nil {
 		return nil, err
 	}
-	if p.dir == "" {
+	dir, err := canonicalLiveDirectory(p.dir)
+	if err != nil {
 		return nil, badReply("cannot determine the server working directory")
 	}
+	p.dir = dir
 	if !filepath.IsAbs(command) {
 		if strings.ContainsAny(command, "/\\") {
 			command = filepath.Join(p.dir, command)
@@ -1055,9 +1058,10 @@ func (c *httpConn) call(ctx context.Context, method string, params any) (json.Ra
 	body := &io.LimitedReader{R: resp.Body, N: liveMaxMessage + 1}
 	status := &httpStatusError{code: resp.StatusCode}
 	var msg *rpcMessage
+	mediaType, _, _ := mime.ParseMediaType(resp.Header.Get("Content-Type"))
 	switch {
 	case resp.StatusCode >= 200 && resp.StatusCode < 300:
-		if strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream") {
+		if mediaType == "text/event-stream" {
 			msg, err = readSSE(body, strconv.Itoa(c.nextID))
 		} else {
 			var raw []byte
@@ -1077,7 +1081,7 @@ func (c *httpConn) call(ctx context.Context, method string, params any) (json.Ra
 		}
 		msg, err = decodeRPCMessage(raw)
 		if readErr != nil || err != nil {
-			if strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") || bytes.HasPrefix(bytes.TrimSpace(raw), []byte("{")) || bytes.HasPrefix(bytes.TrimSpace(raw), []byte("[")) {
+			if mediaType == "application/json" || bytes.HasPrefix(bytes.TrimSpace(raw), []byte("{")) || bytes.HasPrefix(bytes.TrimSpace(raw), []byte("[")) {
 				return nil, badReply("invalid discovery response")
 			}
 			return nil, status

@@ -282,7 +282,7 @@ func TestLiveMalformedDiscoveryCannotFallBackToTrust(t *testing.T) {
 			Method string
 		}
 		_ = json.NewDecoder(r.Body).Decode(&req)
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "Application/JSON; charset=utf-8")
 		if req.Method == "server/discover" {
 			w.WriteHeader(400)
 			fmt.Fprint(w, "null")
