@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -156,5 +157,44 @@ func TestPluginRetainedImportListAndDoctor(t *testing.T) {
 	captureStdout(t, func() { checkPluginPackages(s, result) })
 	if len(result.checks) != 1 || result.checks[0].Status != "warning" {
 		t.Fatalf("doctor claimed in sync: %+v", result.checks)
+	}
+}
+
+func TestPluginUpdateAllDryRunReportsFailures(t *testing.T) {
+	for _, jsonOutput := range []bool{false, true} {
+		t.Run(map[bool]string{false: "text", true: "json"}[jsonOutput], func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			s := &plugin.Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+			raw := "plugins:\n  version: 2\n  packages:\n    demo:\n      source: /missing-fixture-source\n      plugin: demo\n      bindings:\n        claude: {}\n"
+			if err := os.WriteFile(s.ConfigPath, []byte(raw), 0600); err != nil {
+				t.Fatal(err)
+			}
+			s.Run = func(context.Context, string, []string, string, ...string) ([]byte, error) {
+				return nil, errors.New("fixture agent unavailable")
+			}
+			var runErr error
+			output := captureStdout(t, func() {
+				runErr = executePlugin(s, pluginOptions{request: plugin.Request{Action: "update", All: true}, dryRun: true, json: jsonOutput, noTUI: true})
+			})
+			if runErr == nil {
+				t.Fatal("failed dry run returned success")
+			}
+			if jsonOutput {
+				var plan plugin.Plan
+				if err := json.Unmarshal([]byte(output), &plan); err != nil || plan.Blocked || len(plan.Changes) != 1 || !plan.Changes[0].Failed || plan.Changes[0].Message == "" {
+					t.Fatalf("bad JSON preview: %s %v", output, err)
+				}
+			} else if !strings.Contains(output, "failed") || !strings.Contains(output, "demo") {
+				t.Fatalf("missing failure: %s", output)
+			}
+			after, err := os.ReadFile(s.ConfigPath)
+			if err != nil || string(after) != raw {
+				t.Fatalf("dry run changed config: %v", err)
+			}
+			if _, err := os.Stat(s.StateDir); !os.IsNotExist(err) {
+				t.Fatalf("dry run wrote state: %v", err)
+			}
+		})
 	}
 }

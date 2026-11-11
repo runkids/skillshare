@@ -58,7 +58,7 @@ Bare commands prompt for missing inputs in a terminal. Noninteractive mutation
 commands require explicit inputs. `sync` and `check` may operate on all packages;
 `update` updates all managed packages when passed `--all` (`-a`).
 Updating one package for several Agents (no `--target`, or more than one) works the
-same way per Agent: an Agent that cannot update is reported as failed with its reason,
+same way per Agent: a failed Agent is reported with its reason,
 the others still update, and the command exits non-zero. When no other Agent has
 anything to update, or the update names a single `--target`, it is blocked instead.
 `sync --all` does **not** include plugins; use `sync plugins` explicitly.
@@ -172,7 +172,7 @@ The runtime package name comes from the reviewed source, not just the marketplac
 name. Existing module directories or links block installation rather than being
 replaced; the destination is bound to the preview and checked again before install.
 The adapter keeps the plugin tree together,
-uses native marketplace installation, and verifies the resulting registration. Catalogs can use
+uses native marketplace installation. Catalogs can use
 `.omp-plugin/marketplace.json`, with `.claude-plugin/marketplace.json` as a fallback
 only when no OMP catalog exists. An OMP catalog entry can point to a package with
 `omp.extensions` or `pi.extensions` in `package.json`; its marketplace name identifies the plugin even
@@ -499,9 +499,9 @@ never supplies native trust approval flags.
   skipped. An imported Codex plugin is updated with
   `codex plugin marketplace upgrade NAME`, which reinstalls every plugin Codex
   installed from that marketplace, as Codex also does when it starts.
-- An update skips a target it cannot reach and says why; the plugin's other
-  Agents still update, and a skipped update stays pending for a later sync. An
-  unverifiable OMP replacement is reported as failed instead.
+- An update reports a failed target and its reason while continuing healthy targets;
+  intentional skips remain pending for a later sync. A dry run prints the complete
+  plan and exits nonzero on failure; JSON changes include `failed: true`.
 - Imported plugins retain their original marketplace identity. `check` cannot
   infer release availability for an imported plugin without a source, except an npm
   package in Pi, which it checks against npm. If an

@@ -49,10 +49,12 @@ target 会保存该选择。下一次 `sync plugins` 会移除其受管理的安
 | `remove [NAME]` | Uninstall managed bindings and remove their definitions |
 
 裸命令会在终端中提示缺失的输入。非交互式的变更命令需要显式输入。
-`sync` 和 `check` 可以对所有 packages 进行操作；`update` 传入 `--all`（`-a`）时会更新所有受管理的 packages。为多个 Agent 更新单个 package 时（不带 `--target`，或指定多个），各个 Agent 也按同样的方式处理：无法更新的 Agent 会连同原因报告为失败，其他 Agent 照常更新，命令以非零状态退出。没有其他 Agent 需要更新，或只指定一个 `--target` 时，更新会被阻止。`sync --all` **不**包含 plugins；请显式使用
+`sync` 和 `check` 可以对所有 packages 进行操作；`update` 传入 `--all`（`-a`）时会更新所有受管理的 packages。为多个 Agent 更新单个 package 时（不带 `--target`，或指定多个），各个 Agent 也按同样的方式处理：失败的 Agent 会连同原因报告，其他 Agent 照常更新，命令以非零状态退出。没有其他 Agent 需要更新，或只指定一个 `--target` 时，更新会被阻止。`sync --all` **不**包含 plugins；请显式使用
 `sync plugins`。
 
 ## 选项
+
+包含失败的预演会输出完整计划并以非零状态退出；JSON 变更包含 `failed: true`。有意跳过的目标仍保持待处理。
 
 | Option | Meaning |
 |---|---|
@@ -151,7 +153,7 @@ skillshare plugin import demo@my-market --from omp --dry-run --json -g
 安装需要 OMP **18.6.1+**、经审核的本地/Git 来源、一个经过验证且从未使用过的 cache 目标位置，
 以及一个尚不存在的作用域本地运行时目标位置。运行时 package 名称来自经审核的来源，而不仅仅是
 marketplace 名称。已存在的模块目录或链接会阻止安装，而不会被替换；目标位置会绑定到预览，并在
-安装前再次检查。适配器会让 plugin 树保持完整，使用原生 marketplace 安装，并验证产生的注册。
+安装前再次检查。适配器会让 plugin 树保持完整，使用原生 marketplace 安装。
 Catalog 优先使用 `.omp-plugin/marketplace.json`，仅在 OMP catalog 不存在时回退到
 `.claude-plugin/marketplace.json`。OMP entry 可以指向在 `package.json` 中声明 `omp.extensions` 或 `pi.extensions`
 的包；即使 npm 名称不同或缺失，也会使用 marketplace 的 plugin 名称。

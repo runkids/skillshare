@@ -38,7 +38,7 @@ func TestPluginHostStateDetachedAccountRetainsReceipt(t *testing.T) {
 	}
 	request := Request{Action: "update", All: true}
 	p, err = s.Preview(context.Background(), request)
-	if err != nil || p.Blocked || len(p.Changes) != 1 || p.Changes[0].Action != "skip" || !p.Changes[0].batchError {
+	if err != nil || p.Blocked || len(p.Changes) != 1 || p.Changes[0].Action != "skip" || !p.Changes[0].Failed {
 		t.Fatalf("--all did not isolate the detached account: %+v %v", p, err)
 	}
 	same := unchanged(t, s.ConfigPath, s.statePath())

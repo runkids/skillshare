@@ -45,9 +45,11 @@ skillshare plugin remove review --no-tui
 | `enable / disable [NAME]` | 次の sync に target を含める / 除外する |
 | `remove [NAME]` | 管理下のバインディングをアンインストールし、その定義を削除 |
 
-引数なしのコマンドはターミナルで不足している入力をプロンプトします。非インタラクティブな変更コマンドには明示的な入力が必要です。`sync` と `check` はすべての package を対象に動作でき、`update` は `--all`（`-a`）を指定するとすべての管理下 package を更新します。1 つの package を複数の Agent で更新する場合（`--target` なし、または 2 つ以上）も Agent ごとに同じように動作します。更新できない Agent は理由とともに失敗として報告され、ほかの Agent は更新され、コマンドは 0 以外で終了します。ほかに更新する Agent がない場合や、`--target` を 1 つだけ指定した場合は、更新はブロックされます。`sync --all` は plugin を含み**ません** — `sync plugins` を明示的に使ってください。
+引数なしのコマンドはターミナルで不足している入力をプロンプトします。非インタラクティブな変更コマンドには明示的な入力が必要です。`sync` と `check` はすべての package を対象に動作でき、`update` は `--all`（`-a`）を指定するとすべての管理下 package を更新します。1 つの package を複数の Agent で更新する場合（`--target` なし、または 2 つ以上）も Agent ごとに同じように動作します。失敗した Agent は理由とともに報告され、ほかの Agent は更新され、コマンドは 0 以外で終了します。ほかに更新する Agent がない場合や、`--target` を 1 つだけ指定した場合は、更新はブロックされます。`sync --all` は plugin を含み**ません** — `sync plugins` を明示的に使ってください。
 
 ## オプション
+
+失敗を含むドライランは全プランを表示して 0 以外で終了し、JSON の変更には `failed: true` が付きます。意図的なスキップは保留のままです。
 
 | オプション | 意味 |
 |---|---|
@@ -136,7 +138,7 @@ skillshare plugin import demo@my-market --from omp --dry-run --json -g
 ランタイムの package 名は、マーケットプレイス名だけでなく、レビュー済みの source から決まります。既存のモジュールディレクトリやリンクは
 置き換えられずにインストールをブロックします。配置先はプレビューに紐付けられ、インストール前に再確認されます。
 アダプタは plugin のツリーをまとめて保ち、
-ネイティブのマーケットプレイスインストールを使い、結果の登録を検証します。カタログは `.omp-plugin/marketplace.json` を優先し、OMP カタログが存在しない場合に限り
+ネイティブのマーケットプレイスインストールを使います。カタログは `.omp-plugin/marketplace.json` を優先し、OMP カタログが存在しない場合に限り
 `.claude-plugin/marketplace.json` にフォールバックします。OMP entry は `package.json` に
 `omp.extensions` または `pi.extensions` を宣言した package を参照でき、npm 名が異なる場合や未指定でも marketplace の
 plugin 名を使います。各カタログが同名 plugin を別のフォルダに置く場合、OMP は独自のパス、

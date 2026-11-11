@@ -461,40 +461,89 @@ func TestOMPSourceChangeRetriesFailedInstall(t *testing.T) {
 }
 
 func TestOMPStaleCatalogRecovery(t *testing.T) {
-	s, _, _, _ := ompSourceChangeFixture(t, false, "demo-runtime")
-	receiveOMPSource(t, s, ompReplacementSource(t, "demo-runtime"))
-	run := s.Run
-	s.Run = func(ctx context.Context, dir string, env []string, bin string, args ...string) ([]byte, error) {
-		if len(args) > 2 && args[1] == "install" && !slices.Contains(args, "--help") {
-			return nil, errors.New("fixture install failed")
-		}
-		return run(ctx, dir, env, bin, args...)
+	s, _, root, _ := ompSourceChangeFixture(t, false, "demo-runtime")
+	source := ompReplacementSource(t, "demo-runtime")
+	setVersion := func(version string) {
+		writeFile(t, source, "package.json", `{"name":"demo-runtime","version":"`+version+`"}`)
+		writeFile(t, source, ".claude-plugin/plugin.json", `{"name":"demo","version":"`+version+`"}`)
 	}
-	applyFailure(t, s, Request{Action: "sync", Name: "demo"})
-	refreshed := false
-	adds := 0
+	setVersion("2.9.1")
+	receiveOMPSource(t, s, source)
+	cacheDir := t.TempDir()
+	writeFile(t, cacheDir, "catalog.json", `{"version":"2.6.0"}`)
+	run := s.Run
+	failInstall, failRefresh, adds, installs := true, true, 0, 0
 	s.Run = func(ctx context.Context, dir string, env []string, bin string, args ...string) ([]byte, error) {
 		if bin == "omp" && len(args) > 2 && args[1] == "marketplace" && args[2] == "add" {
 			adds++
+			if adds > 1 {
+				raw, err := os.ReadFile(filepath.Join(source, "package.json"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(cacheDir, "catalog.json"), raw, 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
 		}
 		if bin == "omp" && len(args) > 2 && args[1] == "marketplace" && args[2] == "update" {
-			refreshed = true
+			if failRefresh {
+				return nil, errors.New("catalog refresh failed")
+			}
+			raw, err := os.ReadFile(filepath.Join(source, "package.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(cacheDir, "catalog.json"), raw, 0600); err != nil {
+				t.Fatal(err)
+			}
 		}
-		if bin == "omp" && len(args) > 1 && args[1] == "install" && !slices.Contains(args, "--help") && !refreshed {
-			return nil, errors.New("stale catalog used on retry")
+		if bin == "omp" && len(args) > 2 && args[1] == "install" && !slices.Contains(args, "--help") {
+			if failInstall {
+				return nil, errors.New("initial install interrupted")
+			}
+			installs++
+			var cached struct{ Version string }
+			raw, err := os.ReadFile(filepath.Join(cacheDir, "catalog.json"))
+			if err != nil || json.Unmarshal(raw, &cached) != nil || cached.Version != "2.9.1" && cached.Version != "2.9.2" {
+				t.Fatalf("native install used stale catalog: %s %v", raw, err)
+			}
 		}
 		return run(ctx, dir, env, bin, args...)
 	}
-	applyPluginRequest(t, s, Request{Action: "sync", Name: "demo"})
-	if adds != 0 {
-		t.Fatalf("retry registered %d new marketplaces", adds)
+	r := Request{Action: "sync", Name: "demo"}
+	applyFailure(t, s, r)
+	failInstall = false
+	applyFailure(t, s, r)
+	if installs != 0 {
+		t.Fatal("installed after failed catalog refresh")
+	}
+	addsBeforeRetry := adds
+	failRefresh = false
+	applyPluginRequest(t, s, r)
+	if adds != addsBeforeRetry {
+		t.Fatal("retry added another marketplace")
+	}
+	b := hostPackages(t, s)["demo"].Bindings["omp"]
+	reg := readJSON(t, filepath.Join(root, "installed_plugins.json"))
+	entry := reg["plugins"].(map[string]any)[b.ID].([]any)[0].(map[string]any)
+	if b.Version != "2.9.1" || entry["version"] != "2.9.1" || entry["installPath"] != ompCachePath(filepath.Join(os.Getenv("HOME"), ".omp/plugins/cache/plugins"), b.ID, "2.9.1") {
+		t.Fatalf("wrong reviewed/native version: %+v %+v", b, entry)
+	}
+	setVersion("2.9.2")
+	applyPluginRequest(t, s, Request{Action: "update", Name: "demo"})
+	b = hostPackages(t, s)["demo"].Bindings["omp"]
+	reg = readJSON(t, filepath.Join(root, "installed_plugins.json"))
+	entry = reg["plugins"].(map[string]any)[b.ID].([]any)[0].(map[string]any)
+	if b.Version != "2.9.2" || entry["version"] != "2.9.2" {
+		t.Fatalf("update lost native version: %+v %+v", b, entry)
 	}
 }
 
 func TestOMPMismatchedNativeVersionRemoval(t *testing.T) {
 	for _, project := range []bool{false, true} {
-		for _, interrupted := range []bool{false, true} {
-			t.Run(fmt.Sprintf("project=%t/interrupted=%t", project, interrupted), func(t *testing.T) {
+		for _, mode := range []string{"normal", "interrupted", "pending-only"} {
+			t.Run(fmt.Sprintf("project=%t/mode=%s", project, mode), func(t *testing.T) {
 				s, _, root, old := ompSourceChangeFixture(t, project, "demo-runtime")
 				cacheRoot := filepath.Join(os.Getenv("HOME"), ".omp/plugins/cache/plugins")
 				oldCache := ompCachePath(cacheRoot, old.ID, old.Version)
@@ -517,27 +566,43 @@ func TestOMPMismatchedNativeVersionRemoval(t *testing.T) {
 				entry["version"], entry["installPath"] = "0.9.0", nativeCache
 				raw, _ := json.Marshal(reg)
 				writeFile(t, root, "installed_plugins.json", string(raw))
+				if mode == "pending-only" {
+					d := readState(t, s)
+					local := d.state.Bindings["demo"]["omp"]
+					local.Pending, local.Applied = local.Applied, nil
+					local.Pending.Action = "install"
+					d.putLocal("demo", "omp", local)
+					if err := s.saveState(d); err != nil {
+						t.Fatal(err)
+					}
+				}
 				receiveOMPSource(t, s, ompReplacementSource(t, "demo-runtime"))
 				r := Request{Action: "sync", Name: "demo"}
 				p, err := s.Preview(context.Background(), r)
 				if err != nil || p.Blocked || len(p.Changes) != 2 {
 					t.Fatalf("preview: %+v %v", p, err)
 				}
-				if interrupted {
-					d := readState(t, s)
-					local := d.state.Bindings["demo"]["omp"]
-					b := local.Applied.Binding
-					b.Version = "0.9.0"
-					local.Pending = &receipt{Intent: local.Applied.Intent, Store: local.Applied.Store, Binding: b, Action: "remove"}
-					d.putLocal("demo", "omp", local)
-					if err := s.saveState(d); err != nil {
+				if mode != "normal" {
+					release, err := ompAcquireLock(filepath.Join(root, "installed_plugins.json"))
+					if err != nil {
 						t.Fatal(err)
 					}
+					_, applyErr := s.Apply(context.Background(), r, p.Revision)
+					if err := release(); err != nil {
+						t.Fatal(err)
+					}
+					if applyErr == nil {
+						t.Fatal("locked removal unexpectedly succeeded")
+					}
+					local := readState(t, s).state.Bindings["demo"]["omp"]
+					if local.Pending == nil || local.Pending.Binding.Version != old.Version || local.Pending.OMPRemovalVersion != "0.9.0" {
+						t.Fatalf("pending receipt mixed reviewed and native versions: %+v", local.Pending)
+					}
+					// Simulate registry-first progress after the pending receipt was written.
 					writeFile(t, root, "installed_plugins.json", `{"version":2,"plugins":{}}`)
-					writeFile(t, root, "omp-plugins.lock.json", `{"plugins":{},"settings":{"unrelated":"KEEP"}}`)
 					p, err = s.Preview(context.Background(), r)
-					if err != nil || p.Blocked || len(p.Changes) != 2 {
-						t.Fatalf("retry preview: %+v %v", p, err)
+					if err != nil || p.Blocked || len(p.Changes) != 2 || p.Changes[0].Binding.Version != old.Version {
+						t.Fatalf("retry preview lost reviewed identity: %+v %v", p, err)
 					}
 				}
 				if _, err := s.Apply(context.Background(), r, p.Revision); err != nil {
@@ -632,6 +697,14 @@ func TestOMPSourceChangeBatchPreservesBlockedTarget(t *testing.T) {
 		t.Run(fmt.Sprintf("all=%v/name=%q", r.All, r.Name), func(t *testing.T) {
 			s, root, old := setup(t)
 			same := unchanged(t, s.ConfigPath, filepath.Join(root, "installed_plugins.json"), filepath.Join(root, "omp-plugins.lock.json"))
+			plan, err := s.Preview(context.Background(), r)
+			if err != nil || plan.Blocked || !slices.ContainsFunc(plan.Changes, func(c Change) bool { return c.Target == "omp" && c.Failed && c.Message != "" }) {
+				t.Fatalf("failed target missing from preview: %+v %v", plan, err)
+			}
+			encoded, err := json.Marshal(plan)
+			if err != nil || !strings.Contains(string(encoded), `"failed":true`) {
+				t.Fatalf("failure missing from JSON: %s %v", encoded, err)
+			}
 			result := applyFailure(t, s, r)
 			if len(result.Results) != 2 || result.Results[0].Target != "claude" || result.Results[0].Status != "installed" || result.Results[1].Target != "omp" || result.Results[1].Status != "failed" {
 				t.Fatalf("update did not preserve blocked replacement and install valid sibling: %+v", result)

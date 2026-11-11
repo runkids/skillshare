@@ -29,10 +29,11 @@ type packageDeclaration struct {
 	Bindings  map[string]declaration `yaml:"bindings"`
 }
 type receipt struct {
-	Intent  string  `json:"intent"`
-	Store   string  `json:"store"`
-	Binding Binding `json:"binding"`
-	Action  string  `json:"action,omitempty"`
+	Intent            string  `json:"intent"`
+	Store             string  `json:"store"`
+	Binding           Binding `json:"binding"`
+	Action            string  `json:"action,omitempty"`
+	OMPRemovalVersion string  `json:"ompRemovalVersion,omitempty"`
 }
 type localBinding struct {
 	Applied *receipt `json:"applied,omitempty"`
@@ -453,7 +454,7 @@ func sourceChangeFailure(name, target string, all bool, err error) (Change, erro
 		return Change{}, err
 	}
 	key, args := ErrorKey(err)
-	return Change{Name: name, Target: target, Action: "skip", batchError: true, Message: err.Error(), MessageKey: key, MessageArgs: args}, nil
+	return Change{Name: name, Target: target, Action: "skip", Failed: true, Message: err.Error(), MessageKey: key, MessageArgs: args}, nil
 }
 
 // Prepare the replacement before scheduling cleanup, so a failed batch target
@@ -466,9 +467,9 @@ func (s *Service) sourceReplacementChanges(ctx context.Context, r Request, name,
 			return nil, err
 		}
 		if r.isolatesTargets() && c.Action == "blocked" {
-			c.Action, c.batchError = "skip", true
+			c.Action, c.Failed = "skip", true
 		}
-		if c.batchError {
+		if c.Failed {
 			return []Change{c}, nil
 		}
 		changes = append(changes, c)

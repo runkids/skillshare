@@ -149,7 +149,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 		outcome := Outcome{Name: c.Name, Target: c.Target, Guidance: c.Guidance}
 		if c.Action == "skip" {
 			outcome.Status = "skipped"
-			if c.batchError {
+			if c.Failed {
 				outcome.Status, failed[key] = "failed", true
 				failures = append(failures, errors.New(c.Message))
 			}
@@ -216,10 +216,10 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 		}
 		b := c.Binding
 		b.Cleanup, b.ContextChanged, b.RefChanged, b.ImportRetained = false, false, false, false
-		if c.ompRemoval != nil {
-			b.Version = c.ompRemoval.version
-		}
 		local.Pending = &receipt{Intent: intent, Store: s.storeIdentity(c.Target), Binding: b, Action: c.Action}
+		if c.ompRemoval != nil {
+			local.Pending.OMPRemovalVersion = c.ompRemoval.version
+		}
 		d.putLocal(c.Name, c.Target, local)
 		if err := s.saveState(d); err != nil {
 			return result, errors.Join(append(failures, err)...)
