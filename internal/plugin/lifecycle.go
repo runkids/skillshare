@@ -216,6 +216,9 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 		}
 		b := c.Binding
 		b.Cleanup, b.ContextChanged, b.RefChanged, b.ImportRetained = false, false, false, false
+		if c.ompRemoval != nil {
+			b.Version = c.ompRemoval.version
+		}
 		local.Pending = &receipt{Intent: intent, Store: s.storeIdentity(c.Target), Binding: b, Action: c.Action}
 		d.putLocal(c.Name, c.Target, local)
 		if err := s.saveState(d); err != nil {

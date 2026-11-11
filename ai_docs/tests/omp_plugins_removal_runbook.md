@@ -4,7 +4,7 @@
 
 Use native OMP 18.6.1 or later and an inert plugin to verify scoped removal, retained
 shared cache used by an invisible project, and reinstall into a new cache
-identity. No Agent session, extension code or real user configuration is used.
+identity. A scope-matching native registry version may differ from the recorded binding when its cache path is verified. An unverifiable batch update reports failure while continuing other targets. No Agent session, extension code or real user configuration is used.
 
 ## Environment
 

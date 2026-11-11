@@ -460,6 +460,97 @@ func TestOMPSourceChangeRetriesFailedInstall(t *testing.T) {
 	}
 }
 
+func TestOMPStaleCatalogRecovery(t *testing.T) {
+	s, _, _, _ := ompSourceChangeFixture(t, false, "demo-runtime")
+	receiveOMPSource(t, s, ompReplacementSource(t, "demo-runtime"))
+	run := s.Run
+	s.Run = func(ctx context.Context, dir string, env []string, bin string, args ...string) ([]byte, error) {
+		if len(args) > 2 && args[1] == "install" && !slices.Contains(args, "--help") {
+			return nil, errors.New("fixture install failed")
+		}
+		return run(ctx, dir, env, bin, args...)
+	}
+	applyFailure(t, s, Request{Action: "sync", Name: "demo"})
+	refreshed := false
+	adds := 0
+	s.Run = func(ctx context.Context, dir string, env []string, bin string, args ...string) ([]byte, error) {
+		if bin == "omp" && len(args) > 2 && args[1] == "marketplace" && args[2] == "add" {
+			adds++
+		}
+		if bin == "omp" && len(args) > 2 && args[1] == "marketplace" && args[2] == "update" {
+			refreshed = true
+		}
+		if bin == "omp" && len(args) > 1 && args[1] == "install" && !slices.Contains(args, "--help") && !refreshed {
+			return nil, errors.New("stale catalog used on retry")
+		}
+		return run(ctx, dir, env, bin, args...)
+	}
+	applyPluginRequest(t, s, Request{Action: "sync", Name: "demo"})
+	if adds != 0 {
+		t.Fatalf("retry registered %d new marketplaces", adds)
+	}
+}
+
+func TestOMPMismatchedNativeVersionRemoval(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, interrupted := range []bool{false, true} {
+			t.Run(fmt.Sprintf("project=%t/interrupted=%t", project, interrupted), func(t *testing.T) {
+				s, _, root, old := ompSourceChangeFixture(t, project, "demo-runtime")
+				cacheRoot := filepath.Join(os.Getenv("HOME"), ".omp/plugins/cache/plugins")
+				oldCache := ompCachePath(cacheRoot, old.ID, old.Version)
+				nativeCache := ompCachePath(cacheRoot, old.ID, "0.9.0")
+				if err := os.MkdirAll(filepath.Dir(nativeCache), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Rename(oldCache, nativeCache); err != nil {
+					t.Fatal(err)
+				}
+				link := filepath.Join(root, "node_modules", "demo-runtime")
+				if err := os.Remove(link); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(nativeCache, link); err != nil {
+					t.Fatal(err)
+				}
+				reg := readJSON(t, filepath.Join(root, "installed_plugins.json"))
+				entry := reg["plugins"].(map[string]any)[old.ID].([]any)[0].(map[string]any)
+				entry["version"], entry["installPath"] = "0.9.0", nativeCache
+				raw, _ := json.Marshal(reg)
+				writeFile(t, root, "installed_plugins.json", string(raw))
+				receiveOMPSource(t, s, ompReplacementSource(t, "demo-runtime"))
+				r := Request{Action: "sync", Name: "demo"}
+				p, err := s.Preview(context.Background(), r)
+				if err != nil || p.Blocked || len(p.Changes) != 2 {
+					t.Fatalf("preview: %+v %v", p, err)
+				}
+				if interrupted {
+					d := readState(t, s)
+					local := d.state.Bindings["demo"]["omp"]
+					b := local.Applied.Binding
+					b.Version = "0.9.0"
+					local.Pending = &receipt{Intent: local.Applied.Intent, Store: local.Applied.Store, Binding: b, Action: "remove"}
+					d.putLocal("demo", "omp", local)
+					if err := s.saveState(d); err != nil {
+						t.Fatal(err)
+					}
+					writeFile(t, root, "installed_plugins.json", `{"version":2,"plugins":{}}`)
+					writeFile(t, root, "omp-plugins.lock.json", `{"plugins":{},"settings":{"unrelated":"KEEP"}}`)
+					p, err = s.Preview(context.Background(), r)
+					if err != nil || p.Blocked || len(p.Changes) != 2 {
+						t.Fatalf("retry preview: %+v %v", p, err)
+					}
+				}
+				if _, err := s.Apply(context.Background(), r, p.Revision); err != nil {
+					t.Fatalf("apply: %v", err)
+				}
+				if _, err := os.Stat(filepath.Join(nativeCache, "package.json")); err != nil {
+					t.Fatalf("shared cache lost: %v", err)
+				}
+			})
+		}
+	}
+}
+
 func TestOMPSourceChangeKeepsOrdinaryAddBlocked(t *testing.T) {
 	s, _, _, _ := ompSourceChangeFixture(t, false, "demo-runtime")
 	source := ompReplacementSource(t, "demo-runtime")

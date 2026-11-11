@@ -169,9 +169,9 @@ skillshare plugin import demo@my-market --from omp --dry-run --json -g
 runtime 選取以及經過驗證的 `node_modules` 連結。Plugin 會從該 scope 解除安裝，而不只是停用。
 共用 cache、marketplaces 與 plugin 設定會保留；不會嘗試清理 cache。舊 cache 仍存在時，
 重新安裝會自動選擇新的 marketplace/cache 身分，不會取代其他 project 可能使用的檔案。
-無法讀取、被連結或不是目錄的 cache 目的地仍會被擋下。
+無法讀取、被連結或不是目錄的 cache 目的地仍會被擋下。安裝至已註冊且歸屬已驗證的 marketplace 前會重新整理目錄。
 
-移除需要經過驗證的 18.6.1+ metadata 契約、相符的已安裝版本、明確的 JSON，以及可證明的
+移除需要經過驗證的 18.6.1+ metadata 契約、scope 相符且版本與 cache 路徑經過驗證的原生註冊、明確的 JSON，以及可證明的
 runtime 連結所有權。真實的 module 資料夾、外部連結、npm 依賴衝突或不明確的 runtime 擁有者
 都會被拒絕。若缺少 cache manifest，adapter 需要一個唯一的 runtime-lock 鍵，且其 scope 本機
 連結指向該安裝的 cache；它絕不猜測 marketplace 名稱，也不會在實際 runtime 連結仍在時回報成功。
@@ -185,7 +185,7 @@ Adapter 會將 Skillshare 的移除操作序列化並檢查原生檔案的版本
 不參與它的鎖；請勿同時執行原生 plugin 變更。這不是原子性的多檔案原生交易。
 更新絕不會執行 OMP 原生的 upgrade：它用同一個 adapter 移除這個 scope 的註冊，再把已審閱的 commit
 安裝到全新的 cache identity，因此保留的 cache 會繼續留給其他專案。無法驗證移除時，更新會被擋下；
-`update --all` 會略過它並說明原因。匯入的程式碼絕不會在沒有已審閱 source 的情況下升級。
+`update --all` 會回報失敗與原因，並繼續處理其他目標。匯入的程式碼絕不會在沒有已審閱 source 的情況下升級。
 
 Project 操作要求所選的根目錄與 OMP 原生的 project anchor 相符；絕不會默默改為全域安裝或
 安裝到上層 project。原生 profile/config 根目錄覆寫（`PI_CONFIG_DIR`、`PI_CODING_AGENT_DIR`、

@@ -815,11 +815,11 @@ func (s *Service) prepareChange(ctx context.Context, r Request, d *document, hos
 			s.prepareOMPInstall(ctx, h, &c, cleanup)
 		}
 		if c.Action == "remove" || c.Action == "uninstall" || c.Action == "forget" {
+			local := d.state.Bindings[c.Name][c.Target]
+			if local.Pending != nil && (local.Pending.Action == "remove" || local.Pending.Action == "forget" || local.Pending.Action == "uninstall") && local.Pending.Store == s.storeIdentity(c.Target) && local.Pending.Binding.ID == c.Binding.ID {
+				c.Binding.Version = local.Pending.Binding.Version
+			}
 			s.prepareOMPRemoval(h, &c)
-		}
-		// update --all has always passed over OMP updates it cannot make; keep that for a refresh it cannot verify.
-		if r.All && c.Action == "blocked" && (c.MessageKey == "plugins.error.ompNativeDestructive" || c.ompRefresh) && len(r.Targets) == 0 {
-			c.Action = "skip"
 		}
 	}
 	if r.isolatesTargets() && c.Action == "blocked" {

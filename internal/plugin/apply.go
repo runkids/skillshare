@@ -188,11 +188,12 @@ func (s *Service) applyChange(ctx context.Context, c Change, b *Binding) (result
 		if err != nil {
 			return err
 		}
+		registered := false
 		if c.Action == "install" || c.Action == "update" {
 			// Re-adding our own marketplace is unnecessary on retry, and an update needs it back
 			// if it went missing. Query native registration first, and refuse a same-name
 			// registration owned elsewhere.
-			registered, err := s.registered(ctx, c.Target, b.ID, path)
+			registered, err = s.registered(ctx, c.Target, b.ID, path)
 			if err != nil {
 				return err
 			}
@@ -218,7 +219,7 @@ func (s *Service) applyChange(ctx context.Context, c Change, b *Binding) (result
 		}
 		// Codex reads a local marketplace in place; its marketplace upgrade is for Git ones.
 		// omp installs from the catalog it cached when the marketplace was added.
-		if c.Action == "update" && (agent == "claude" || agent == "omp") {
+		if c.Action == "update" && (agent == "claude" || agent == "omp") || c.Action == "install" && agent == "omp" && registered {
 			_, market, _ := strings.Cut(b.ID, "@")
 			if err := s.checkApplyIntent(); err != nil {
 				return err

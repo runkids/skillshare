@@ -169,9 +169,9 @@ Catalog 优先使用 `.omp-plugin/marketplace.json`，仅在 OMP catalog 不存�
 适配器，删除该安装的注册表条目、运行时选择和经过验证的 `node_modules` 链接。plugin 会从该作用域
 卸载，而不只是停用。共享 cache、marketplace 和 plugin 设置会保留；不会尝试 cache 垃圾回收。
 当旧 cache 仍存在时，重新安装会自动选择新的 marketplace/cache 身份，不会替换其他项目可能使用的
-文件。无法读取、是链接或不是目录的 cache 目标位置仍会被阻止。
+文件。无法读取、是链接或不是目录的 cache 目标位置仍会被阻止。安装到已注册且归属已验证的 marketplace 前会刷新目录。
 
-移除需要经过验证的 18.6.1+ 元数据契约、相符的已安装版本、无歧义的 JSON，以及已证实的运行时链接
+移除需要经过验证的 18.6.1+ 元数据契约、作用域相符且版本和 cache 路径经过验证的原生注册、无歧义的 JSON，以及已证实的运行时链接
 所有权。真实的模块文件夹、外部链接、npm 依赖冲突或无法确定的运行时拥有者都会被拒绝。如果 cache
 manifest 缺失，适配器会要求一个唯一的 runtime-lock key，且其作用域本地链接指向该安装的 cache；
 它绝不会猜测 marketplace 名称，也不会在实际运行时链接仍然安装的情况下报告成功。无法验证的有效
@@ -184,7 +184,7 @@ Skillshare 绑定；另一个 plugin 的 `node_modules` 目录不会阻止它。
 它的锁；请不要同时运行原生 plugin 变更操作。这不是一个原子的多文件原生事务。
 更新从不运行 OMP 原生的 upgrade：它用同一个适配器移除这个 scope 的注册，再把经审核的 commit
 安装到新的 cache identity，因此保留的 cache 会继续留给其他项目。无法验证移除时，更新会被阻止；
-`update --all` 会跳过它并说明原因。没有经审核的来源，导入的代码永远不会被升级。
+`update --all` 会报告失败及原因，并继续处理其他目标。没有经审核的来源，导入的代码永远不会被升级。
 
 项目操作要求所选的根目录与 OMP 原生的项目锚点相符；它们绝不会悄悄地安装到 global 或某个上层项目中。
 原生 profile/config-root 覆盖（`PI_CONFIG_DIR`、`PI_CODING_AGENT_DIR`、`OMP_PROFILE` 或
