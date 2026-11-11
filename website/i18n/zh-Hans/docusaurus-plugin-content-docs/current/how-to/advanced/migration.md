@@ -88,7 +88,7 @@ skillshare sync
 
 **目前没有自动导入 npx lock 或移交管理权的功能。** Collect 保留本地 skill 文件，不会导入上游跟踪信息。从仓库重新安装会建立 Skillshare 的跟踪信息，但获取的内容可能与现有安装不同。
 
-以下路径与 lock 字段依据 **skills v1.7.6**：[全局 lock 源码](https://github.com/vercel-labs/skills/blob/7a5e920bead4b1039a6d6df5d7e1163b7b09423a/src/skill-lock.ts)、[项目 lock 源码](https://github.com/vercel-labs/skills/blob/7a5e920bead4b1039a6d6df5d7e1163b7b09423a/src/local-lock.ts)及 [CLI 文档](https://github.com/vercel-labs/skills/blob/7a5e920bead4b1039a6d6df5d7e1163b7b09423a/docs/commands.md)。
+以下路径与 lock 字段依据 **skills v1.8.1**：[全局 lock 源码](https://github.com/vercel-labs/skills/blob/e781cb4d07433dfe1d19e924ed45cc61738c55ec/src/skill-lock.ts)、[项目 lock 源码](https://github.com/vercel-labs/skills/blob/e781cb4d07433dfe1d19e924ed45cc61738c55ec/src/local-lock.ts)及 [CLI 文档](https://github.com/vercel-labs/skills/blob/e781cb4d07433dfe1d19e924ed45cc61738c55ec/docs/commands.md)。
 
 | 项目 | Global | Project |
 |------|--------|---------|

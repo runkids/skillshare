@@ -6,7 +6,7 @@ sidebar_position: 9
 
 **Vercel の `npx skills`** と **Skillshare** は、どちらも複数の AI ツールで skills を管理できます。違いは「一方はインストールだけ、もう一方は同期できる」ではありません。skills を管理したいのか、より広い AI 作業環境を管理したいのかで選びましょう。
 
-本ページは、公開済みの **skills v1.7.6** の[パッケージ情報](https://registry.npmjs.org/skills/1.7.6)と[公式 CLI リファレンス](https://github.com/vercel-labs/skills/blob/7a5e920bead4b1039a6d6df5d7e1163b7b09423a/docs/commands.md)に基づきます。実験的なコマンドは変更・削除される可能性があります。すべてのインストーラーについての一般論ではなく、特定バージョンの比較です。
+本ページは、公開済みの **skills v1.8.1** の[パッケージ情報](https://registry.npmjs.org/skills/1.8.1)と[公式 CLI リファレンス](https://github.com/vercel-labs/skills/blob/e781cb4d07433dfe1d19e924ed45cc61738c55ec/docs/commands.md)に基づきます。実験的なコマンドは変更・削除される可能性があります。すべてのインストーラーについての一般論ではなく、特定バージョンの比較です。
 
 ## アーキテクチャの概要
 
@@ -24,13 +24,13 @@ Skillshare は source リソースと target 設定を分け、各ツールへ�
 
 ## 機能比較
 
-| 機能 | npx skills v1.7.6 | Skillshare |
+| 機能 | npx skills v1.8.1 | Skillshare |
 |------|------------------|------------|
 | **発見** | skills.sh と `skills find` | CLI 検索とローカル Web dashboard |
 | **複数 agent とスコープ** | 複数 agent、プロジェクト／グローバルのインストール | 設定済み targets、プロジェクト／グローバルモード |
 | **Skill ファイルの共有** | 共通コピーへの symlink、copy オプション | Source ディレクトリと merge、copy、ディレクトリ全体の symlink モード |
-| **更新** | `skills check` と `skills update` | `skillshare check` と `skillshare update` |
-| **プロジェクト復元** | 実験的な `skills experimental_install` が `skills-lock.json` の対応ソースを復元 | 宣言的な skill 設定と source リソース。[manifest](/docs/understand/declarative-manifest) を参照 |
+| **更新** | `skills check`（更新またはローカル変更があれば終了コード 1）と `skills update` | `skillshare check` と `skillshare update` |
+| **プロジェクト復元** | 実験的な `skills experimental_install`（ソースなしの `skills install` でも実行可能）が `skills-lock.json` の対応ソースを復元 | 宣言的な skill 設定と source リソース。[manifest](/docs/understand/declarative-manifest) を参照 |
 | **npm プロジェクト同期** | 実験的な `skills experimental_sync` がインストール済み依存関係と `package.json` の skill 宣言を読む | Source から target への同期。同じ npm 依存関係ワークフローではない |
 | **マシン間のワークフロー** | プロジェクト lock の復元と npm 同期でプロジェクト skills の再構築を支援 | Git の `push` / `pull`。範囲は `git_root` で決定 |
 | **Skills 以外** | 引用した CLI 文書は skills が中心 | Agent 定義、rules などの extras、MCP 設定、対応クライアントの hooks |
@@ -39,7 +39,7 @@ Skillshare は source リソースと target 設定を分け、各ツールへ�
 
 ### 実験的なコマンドの範囲
 
-- **`experimental_install`** は対応する lock エントリーを `.agents/skills/` に復元します。npm 依存関係のインストールや、復元した skills の agent 専用リンクの作成は行いません。明示的に再インストールしない限り既存 skills は保持されます。Frozen-lock モードでは内容の hash を検証し、CI ではこれがデフォルトです。
+- **`experimental_install`**（ソースなしの `skills install` でも実行可能）は対応する lock エントリーを `.agents/skills/` に復元し、agent ディレクトリにリンクします（copy モードで記録された skills はコピー）。対象は `--agent` で指定した agent、指定がなければ前回選択した agent、それもなければ検出された agent です。npm 依存関係のインストールは行いません。インストール済みでファイルが lock の内容 hash と一致する skills は再取得されず、不足している agent リンクだけが追加されます。内容が異なる skills はソースから復元され、`--force` はすべての skills を再インストールします。Frozen-lock モードでは内容の hash を検証し、CI ではこれがデフォルトです。
 - **`experimental_sync`** はインストール済み npm 依存関係に含まれる skills をリンクし、`package.json` の skill 宣言を解決します。`skills-lock.json` で追跡し、提供されなくなった skills を削除し、別途追加した skills は保持します。Copy の場合、依存関係の更新後に再同期が必要です。
 
 これらは実際の同期・復元機能ですが、AI ツール設定全体のバックアップではありません。
