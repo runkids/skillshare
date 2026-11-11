@@ -79,6 +79,19 @@ test("cached positive drift is unconfirmed while its refresh is pending or faile
   }
 });
 
+test("Overview keeps previously actionable rows visible during pending or failed refreshes", async () => {
+  const { view } = await panel();
+  view.loadedAt = 1;
+  for (const state of [{ pending: ["diff"], errors: {} }, { pending: [], errors: { diff: "offline" } }]) {
+    view.raw = { global: { list: [{ name: "cached-skill" }], diff: { targets: [{ name: "codex", items: [{ name: "cached-skill", kind: "skill", action: "modify", is_sync: true }] }] }, ...state } };
+    view.rebuild();
+    const text = label(view.renderOverview({}, view.ctx));
+    assert.match(text, /cached-skill/);
+    assert.match(text, /sync status unknown/);
+    assert.doesNotMatch(text, /WAITING TO SYNC/);
+  }
+});
+
 test("another scope's failure never overrides an empty successful selected scope", async () => {
   const raw = { global: { list: [], pending: [], errors: {} }, project: { pending: [], errors: { plugins: "offline" } } };
   const { view } = await panel({}, { findProject: async () => "/work/app", loadChecks: async () => ({}),

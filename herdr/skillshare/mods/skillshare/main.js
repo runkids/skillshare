@@ -516,6 +516,8 @@ export default class Skillshare extends View {
     else {
       const sections = [];
       const group = (id, label, color, rows) => { if (rows.length) sections.push(this.groupHeader(t, id, `${label} · ${rows.length}`, color, null), ...rows); };
+      const unconfirmed = all.filter((i) => i.state === "unknown" && ["sync", "missing", "update"].includes(i.cachedState)).sort(byLabel);
+      group("unconfirmed", "SYNC STATUS UNCONFIRMED", t.muted, unconfirmed.map((i) => this.row(t, i, showScope, ctx)));
       group("waiting", "WAITING TO SYNC", t.blocked, waiting.map((i) => this.row(t, i, showScope, ctx)));
       group("update", "UPDATE AVAILABLE", t.accent, updates.map((i) => this.row(t, i, showScope, ctx)));
       group("notices", "HOOKS NEED A LOOK", t.muted, notices.map((i) => this.row(t, i, showScope, ctx)));

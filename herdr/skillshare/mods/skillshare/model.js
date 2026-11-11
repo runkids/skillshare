@@ -406,7 +406,10 @@ export function buildItems(scope, raw) {
   if (raw.pending || raw.errors) {
     for (const item of items) {
       const keys = item.kind === "skills" || item.kind === "agents" ? ["list", "diff", "status"] : [item.kind];
-      if (!item.notice && item.state !== "off" && keys.some((key) => raw.pending?.includes(key) || raw.errors?.[key])) item.state = "unknown";
+      if (!item.notice && item.state !== "off" && keys.some((key) => raw.pending?.includes(key) || raw.errors?.[key])) {
+        item.cachedState = item.state;
+        item.state = "unknown";
+      }
     }
   }
   return items;
