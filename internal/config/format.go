@@ -20,7 +20,7 @@ import (
 var configSections = []string{
 	"sources", "source", "agents_source", "extras_source", "git_root", "mode", "target_naming",
 	"targets", "skills", "agents", "extras", "mcp", "plugins", "hooks",
-	"projects", "hub", "log", "context_budget", "tui", "gitlab_hosts", "azure_hosts", "ignore", "audit",
+	"updates", "projects", "hub", "log", "context_budget", "tui", "gitlab_hosts", "azure_hosts", "ignore", "audit",
 }
 
 // marshalConfig encodes v the way the dashboard's Beautify lays out a config:

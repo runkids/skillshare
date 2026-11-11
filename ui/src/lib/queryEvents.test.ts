@@ -9,6 +9,7 @@ import { queryKeys as k } from './queryKeys';
 const cached = {
   overview: k.overview,
   version: k.versionCheck,
+  policy: k.updatePolicy,
   skills: k.skills.all,
   skill: k.skills.detailOfKind('a', 'skill'),
   targets: k.targets.all,
@@ -94,8 +95,8 @@ const stale: Record<QueryEvent, Label[] | { args: string[]; stale: Label[] }> = 
   targetFilesChanged: { args: ['claude'], stale: ['targetFiles', 'targetFile'] },
   targetFileRemoved: { args: ['claude'], stale: ['targetFiles'] },
 
-  configSaved: ['config', ...M, 'overview', ...T, ...S, ...X, 'extrasDiff', 'diff', 'syncMatrix', 'doctor', 'instructions', 'memory', 'memoryOverview'],
-  settingsSaved: ['config'],
+  configSaved: ['policy', 'version', 'config', ...M, 'overview', ...T, ...S, ...X, 'extrasDiff', 'diff', 'syncMatrix', 'doctor', 'instructions', 'memory', 'memoryOverview'],
+  settingsSaved: ['policy', 'config', 'version', 'doctor'],
   skillignoreSaved: ['skillignore', 'diff', 'overview', ...S, 'doctor'],
   agentignoreSaved: ['agentignore', 'diff', 'overview', ...S, 'doctor'],
   extensionsChanged: ['extensions', 'extrasExtensions'],

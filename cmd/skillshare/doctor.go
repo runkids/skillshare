@@ -118,7 +118,7 @@ func cmdDoctorGlobal(jsonMode bool) error {
 	updateCh := make(chan *versioncheck.CheckResult, 1)
 	go func() { updateCh <- fetchDoctorUpdateResult() }()
 	skillCh := make(chan string, 1)
-	go func() { skillCh <- versioncheck.CachedRemoteSkillVersion() }()
+	go func() { skillCh <- fetchDoctorSkillVersion() }()
 
 	var restoreUI func()
 	if jsonMode {
@@ -174,7 +174,7 @@ func cmdDoctorProject(root string, jsonMode bool) error {
 	updateCh := make(chan *versioncheck.CheckResult, 1)
 	go func() { updateCh <- fetchDoctorUpdateResult() }()
 	skillCh := make(chan string, 1)
-	go func() { skillCh <- versioncheck.CachedRemoteSkillVersion() }()
+	go func() { skillCh <- fetchDoctorSkillVersion() }()
 
 	var restoreUI func()
 	if jsonMode {
@@ -1535,7 +1535,17 @@ func checkVersionDoctor(cfg *config.Config, result *doctorResult, isProject bool
 // fetchDoctorUpdateResult checks if a newer version is available.
 // Uses the shared versioncheck.Check which handles caching, auth, and
 // proper semver comparison. Safe to call from a goroutine.
+func fetchDoctorSkillVersion() string {
+	if !config.AutoUpdateCheckEnabled() {
+		return ""
+	}
+	return versioncheck.CachedRemoteSkillVersion()
+}
+
 func fetchDoctorUpdateResult() *versioncheck.CheckResult {
+	if !config.AutoUpdateCheckEnabled() {
+		return nil
+	}
 	method := versioncheck.DetectCurrentInstallMethod()
 	if version == "" || version == "dev" {
 		return &versioncheck.CheckResult{

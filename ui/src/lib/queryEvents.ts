@@ -46,8 +46,8 @@ const events = {
   targetFileRemoved: (target: string): InvalidateQueryFilters[] => [{ queryKey: k.targetFiles.list(target), exact: true }],
 
   // Config
-  configSaved: () => keys(k.config, k.mcp, k.overview, k.targets.all, k.skills.all, k.extras, k.extrasDiff(), k.diff(), k.syncMatrix(), k.doctor, k.instructions.all, k.memory.all),
-  settingsSaved: () => keys(k.config),
+  configSaved: () => keys(k.updatePolicy, k.versionCheck, k.config, k.mcp, k.overview, k.targets.all, k.skills.all, k.extras, k.extrasDiff(), k.diff(), k.syncMatrix(), k.doctor, k.instructions.all, k.memory.all),
+  settingsSaved: () => keys(k.updatePolicy, k.config, k.versionCheck, k.doctor),
   skillignoreSaved: () => keys(k.skillignore, ...ignoreFile),
   agentignoreSaved: () => keys(k.agentignore, ...ignoreFile),
   extensionsChanged: () => keys(k.extensions, k.extrasExtensions),

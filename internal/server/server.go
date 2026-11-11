@@ -384,7 +384,7 @@ func (s *Server) shouldAutoReloadConfig(path string) bool {
 	if !strings.HasPrefix(path, "/api/") {
 		return false
 	}
-	if path == "/api/health" {
+	if path == "/api/health" || path == "/api/update-settings" {
 		return false
 	}
 	// Project handlers reload without persisting legacy migrations, after taking
@@ -479,6 +479,7 @@ func (s *Server) StartWithContext(ctx context.Context) error {
 func (s *Server) registerRoutes() {
 	// Health check
 	s.mux.HandleFunc("GET /api/health", s.handleHealth)
+	s.mux.HandleFunc("GET /api/update-settings", s.handleUpdatePolicy)
 
 	// Overview
 	s.mux.HandleFunc("GET /api/overview", s.handleOverview)

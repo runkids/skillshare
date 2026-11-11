@@ -27,6 +27,7 @@ def "nu-complete skillshare commands" [] {
         { value: "doctor", description: "Check environment and diagnose issues" }
         { value: "target", description: "Manage targets" }
         { value: "project", description: "Manage project folders" }
+        { value: "updates", description: "Control automatic version checks" }
         { value: "upgrade", description: "Upgrade CLI and/or skillshare skill" }
         { value: "update", description: "Update skills/agents or tracked repositories" }
         { value: "check", description: "Check for available updates" }
@@ -46,6 +47,14 @@ def "nu-complete skillshare commands" [] {
         { value: "help", description: "Show help" }
     ]
 }
+
+# Update preferences
+def "nu-complete skillshare updates" [] { [on off check] }
+export extern "skillshare updates" [
+    action?: string@"nu-complete skillshare updates"
+    --json
+    --help(-h)
+]
 
 # Project command
 def "nu-complete skillshare project" [] { [list show add edit sync remove localize share] }

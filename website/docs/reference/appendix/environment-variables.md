@@ -8,6 +8,21 @@ All environment variables recognized by skillshare.
 
 ## Configuration
 
+### SKILLSHARE_AUTO_UPDATE_CHECK {#skillshare_auto_update_check}
+
+Override global `updates.auto_check` for automatic release-version checks and notifications.
+
+```bash
+SKILLSHARE_AUTO_UPDATE_CHECK=false skillshare status
+```
+
+**Default:** `updates.auto_check` in config.yaml, or `true` when unset.
+Accepts `true`/`false`, `1`/`0`, `t`/`f` and Go boolean case variants; empty or
+invalid values are ignored. The environment takes precedence without rewriting config.
+CLI, web UI and desktop app version notifications are suppressed when false;
+explicit checks and upgrades remain available. GUI apps must inherit this variable
+when launched. See [updates](/docs/reference/commands/updates).
+
 ### SKILLSHARE_CONFIG
 
 Override the config file path.

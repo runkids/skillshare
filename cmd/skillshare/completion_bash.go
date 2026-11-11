@@ -14,7 +14,7 @@ _skillshare() {
         cword=$COMP_CWORD
     fi
 
-    local commands="init install uninstall link unlink move list search sync mcp hooks plugin status diff backup restore collect pull push commit doctor target project upgrade update check new trash analyze audit hub log ui tui extras enable disable completion version help"
+    local commands="init install uninstall link unlink move list search sync mcp hooks plugin status diff backup restore collect pull push commit doctor target project upgrade updates update check new trash analyze audit hub log ui tui extras enable disable completion version help"
 
     local global_flags="--project -p --global -g"
 
@@ -289,6 +289,7 @@ _skillshare() {
         commit)     COMPREPLY=($(compgen -W "${commit_flags}" -- "${cur}")) ;;
         doctor)     COMPREPLY=($(compgen -W "${doctor_flags} ${global_flags}" -- "${cur}")) ;;
         target)     COMPREPLY=($(compgen -W "${target_flags} ${global_flags}" -- "${cur}")) ;;
+        updates)    COMPREPLY=($(compgen -W "on off check --json --help -h" -- "${cur}")) ;;
         upgrade)    COMPREPLY=($(compgen -W "${upgrade_flags} ${global_flags}" -- "${cur}")) ;;
         update)     COMPREPLY=($(compgen -W "${update_flags} ${global_flags}" -- "${cur}")) ;;
         check)      COMPREPLY=($(compgen -W "${check_flags} ${global_flags}" -- "${cur}")) ;;

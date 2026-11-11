@@ -67,6 +67,7 @@ skillshare 全部命令的完整参考。
 | [new](./new.md) | 创建一个新的 Skill |
 | [check](./check.md) | 检查是否有可用更新 |
 | [update](./update.md) | 更新一个 Skill 或 tracked repo |
+| [updates](/docs/reference/commands/updates) | 控制自动版本检查与更新通知 |
 | [upgrade](./upgrade.md) | 升级 CLI 或内置 Skill |
 | [enable / disable](./enable.md) | 临时启用或禁用 Skill |
 

@@ -70,6 +70,7 @@ Complete reference for all skillshare commands.
 | [new](./new.md) | Create a new skill |
 | [check](./check.md) | Check for available updates |
 | [update](./update.md) | Update a skill or tracked repo |
+| [updates](/docs/reference/commands/updates) | Control automatic version checks and notifications |
 | [upgrade](./upgrade.md) | Upgrade CLI or built-in skill |
 | [enable / disable](./enable.md) | Temporarily enable or disable skills |
 | [move](./move.md) | Move installed skills or folders without losing install records |

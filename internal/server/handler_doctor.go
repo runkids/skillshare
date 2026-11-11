@@ -7,6 +7,9 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strconv"
+
+	"skillshare/internal/config"
 
 	"skillshare/internal/theme"
 )
@@ -38,6 +41,7 @@ func (s *Server) handleDoctor(w http.ResponseWriter, r *http.Request) {
 	tm := theme.Get()
 	cmd.Env = append(os.Environ(),
 		"SKILLSHARE_CONFIG="+s.configPath(),
+		config.AutoUpdateCheckEnv+"="+strconv.FormatBool(config.AutoUpdateCheckEnabled()),
 		"_SKILLSHARE_THEME_FORWARDED="+string(tm.Mode),
 	)
 

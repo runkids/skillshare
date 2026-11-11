@@ -87,8 +87,10 @@ func finalizeDoctorJSON(restoreUI func(), result *doctorResult, updateCh <-chan 
 	}
 	if version == "" || version == "dev" {
 		output.Version.DevMode = true
-		output.Version.Latest = "dev-ui-flow"
-		output.Version.UpdateAvailable = true
+		if updateResult != nil {
+			output.Version.Latest = "dev-ui-flow"
+			output.Version.UpdateAvailable = true
+		}
 	}
 	if result.errors > 0 {
 		return writeJSONResult(output, fmt.Errorf("doctor found %d error(s)", result.errors))

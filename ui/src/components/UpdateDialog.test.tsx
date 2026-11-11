@@ -12,6 +12,7 @@ vi.mock('../api/client', async (importOriginal) => {
     ...actual,
     api: {
       ...actual.api,
+      getUpdatePolicy: vi.fn().mockResolvedValue({ enabled: true, configured: true, envOverride: false }),
       getVersionCheck: vi.fn().mockResolvedValue({
         cliVersion: '0.21.12',
         cliLatest: '0.21.13',

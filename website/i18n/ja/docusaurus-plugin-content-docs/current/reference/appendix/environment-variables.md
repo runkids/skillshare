@@ -8,6 +8,16 @@ skillshare が認識するすべての環境変数です。
 
 ## 設定
 
+### SKILLSHARE_AUTO_UPDATE_CHECK {#skillshare_auto_update_check}
+
+グローバル config.yaml の `updates.auto_check` より優先されます。`false` にすると CLI、Web UI、デスクトップアプリの自動バージョン確認、更新通知とバージョンバッジを無効にします。手動確認とアップグレードは利用できます。設定ファイルへの書き戻しは行いません。未設定時は設定ファイルを使い、既定値は `true` です。`true/false`、`1/0`、`t/f` と Go の真偽値の大文字小文字表記を受け付け、空または無効な値は無視します。GUI アプリは起動時にこの環境変数を継承する必要があります。
+
+```bash
+SKILLSHARE_AUTO_UPDATE_CHECK=false skillshare status
+```
+
+[updates](/docs/reference/commands/updates)
+
 ### SKILLSHARE_CONFIG
 
 Config ファイルのパスを上書きします。

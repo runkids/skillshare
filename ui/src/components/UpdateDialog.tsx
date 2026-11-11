@@ -7,6 +7,7 @@ import type { VersionCheck } from '../api/client';
 import DialogShell from './DialogShell';
 import Button from './Button';
 import { useT } from '../i18n';
+import { useUpdatePolicy } from '../hooks/useUpdatePolicy';
 import { nixUpdateNote, upgradeErrorMessage } from '../lib/upgradeError';
 
 const DISMISSED_KEY = 'ss-update-dialog-dismissed';
@@ -23,6 +24,7 @@ const mockData: VersionCheck = {
 
 export default function UpdateDialog() {
   const t = useT();
+  const policy = useUpdatePolicy();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -39,7 +41,7 @@ export default function UpdateDialog() {
 
   const data = isMockMode ? mockData : realData;
   // Dev builds always report a simulated update; stay quiet unless ?update-test asks for the flow.
-  const hasUpdate = !data?.cliDevMode && (data?.cliUpdateAvailable || data?.skillUpdateAvailable);
+  const hasUpdate = (isMockMode || policy.data?.enabled === true) && data?.autoCheckEnabled !== false && !data?.cliDevMode && (data?.cliUpdateAvailable || data?.skillUpdateAvailable);
 
   useEffect(() => {
     if (!hasUpdate) return;

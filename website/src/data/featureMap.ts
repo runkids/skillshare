@@ -21,7 +21,7 @@ export type FeatureGroup = {
 const C = '/docs/reference/commands/';
 const D = '/docs/';
 
-export const COMMAND_COUNT = 39;
+export const COMMAND_COUNT = 40;
 export const TARGET_COUNT = 79;
 
 export const FEATURE_GROUPS: FeatureGroup[] = [
@@ -39,6 +39,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
       {cmd: 'doctor', what: 'Check config, targets and symlink health', kw: 'diagnose broken health fix', href: C + 'doctor'},
       {cmd: 'completion', what: 'Shell completions for zsh, bash and fish', kw: 'shell tab autocomplete', href: C + 'completion'},
       {cmd: 'upgrade', what: 'Upgrade the skillshare binary itself', kw: 'version latest self update', href: C + 'upgrade'},
+      {cmd: 'updates', what: 'Control automatic version checks and notifications', kw: 'release version opt out config environment', href: C + 'updates'},
     ],
     guides: [
       {label: 'First sync in 5 minutes', href: D + 'getting-started/first-sync'},

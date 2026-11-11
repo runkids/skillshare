@@ -16,6 +16,16 @@ import (
 	"skillshare/internal/testutil"
 )
 
+func TestCompletion_Updates_AllShells(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	for _, shell := range []string{"bash", "zsh", "fish", "powershell", "nushell"} {
+		result := sb.RunCLI("completion", shell)
+		result.AssertSuccess(t)
+		result.AssertOutputContains(t, "updates")
+	}
+}
+
 func TestCompletion_Bash_OutputsScript(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
