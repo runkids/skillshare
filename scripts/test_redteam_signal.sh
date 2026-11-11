@@ -2,81 +2,58 @@
 # Verify red_team_test.sh has real detection signal.
 #
 # Strategy:
-# 1) Run baseline red team test (must pass).
-# 2) Introduce a temporary mutation that bypasses HIGH/CRITICAL rollback gate.
-# 3) Rebuild binary and run red team test again (must fail).
-# 4) Restore original source and rebuild.
+# 1) Build a private baseline binary and run red team (must pass).
+# 2) Build with a Go overlay that bypasses the HIGH/CRITICAL gate.
+# 3) Require the mutated run to fail the single and batch update gate tests.
+# Source and bin/skillshare are never modified, even on failure or interruption.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 GATE_GO="$PROJECT_ROOT/internal/install/install_audit.go"
-BACKUP_FILE=""
-BACKUP_READY=false
-RESTORED=false
-
-backup_source() {
-  BACKUP_FILE="$(mktemp "${TMPDIR:-/tmp}/install_audit.go.backup.XXXXXX")"
-  cp "$GATE_GO" "$BACKUP_FILE"
-  BACKUP_READY=true
-}
-
-restore_source() {
-  if [ "$RESTORED" = false ] && [ "$BACKUP_READY" = true ] && [ -f "$BACKUP_FILE" ]; then
-    cp "$BACKUP_FILE" "$GATE_GO"
-    RESTORED=true
-  fi
-  if [ -n "$BACKUP_FILE" ]; then
-    rm -f "$BACKUP_FILE"
-  fi
-}
+TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/redteam-signal.XXXXXX")"
+TEST_BIN="$TMP_DIR/skillshare"
 
 cleanup() {
-  restore_source
+  rm -rf "$TMP_DIR"
 }
 trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
-echo "==> [1/4] Baseline: running make test-redteam (should pass)"
-(cd "$PROJECT_ROOT" && make test-redteam)
+echo "==> [1/3] Baseline: build private binary and run red team (should pass)"
+(cd "$PROJECT_ROOT" && go build -o "$TEST_BIN" ./cmd/skillshare)
+SKILLSHARE_TEST_BINARY="$TEST_BIN" "$SCRIPT_DIR/red_team_test.sh"
 
-echo "==> [2/4] Injecting mutation: bypass rollback on HIGH/CRITICAL findings"
-backup_source
-
-# install and update both decide through AuditGate.Run; skip its threshold check.
-perl -0pi -e 's@if !scanResult\.HasSeverityAtOrAbove\(threshold\) \{@if true { // MUTATION: bypass rollback gate@g' "$GATE_GO"
-
-if command -v rg >/dev/null 2>&1; then
-  MUTATION_COUNT="$(rg -c "MUTATION: bypass rollback gate" "$GATE_GO" || true)"
-else
-  MUTATION_COUNT="$(grep -c "MUTATION: bypass rollback gate" "$GATE_GO" || true)"
-fi
-MUTATION_COUNT="${MUTATION_COUNT:-0}"
-if ! [[ "$MUTATION_COUNT" =~ ^[0-9]+$ ]]; then
-  echo "ERROR: mutation count is not numeric: $MUTATION_COUNT"
-  exit 2
-fi
+echo "==> [2/3] Build mutation: bypass HIGH/CRITICAL gate through a Go overlay"
+# Keep the mutation in a private copy, not the working tree.
+perl -0pe 's@if !scanResult\.HasSeverityAtOrAbove\(threshold\) \{@if true { // MUTATION: bypass rollback gate@g' \
+  "$GATE_GO" > "$TMP_DIR/install_audit.go"
+MUTATION_COUNT="$(grep -c 'MUTATION: bypass rollback gate' "$TMP_DIR/install_audit.go" || true)"
 if [ "$MUTATION_COUNT" -ne 1 ]; then
   echo "ERROR: expected to inject 1 mutation point, got $MUTATION_COUNT"
   exit 2
 fi
+jq -n --arg original "$GATE_GO" --arg mutated "$TMP_DIR/install_audit.go" \
+  '{Replace: {($original): $mutated}}' > "$TMP_DIR/overlay.json"
+(cd "$PROJECT_ROOT" && go build -overlay "$TMP_DIR/overlay.json" -o "$TEST_BIN" ./cmd/skillshare)
 
-echo "==> [3/4] Rebuild mutated binary and run red team (should fail)"
-(cd "$PROJECT_ROOT" && go build -o bin/skillshare ./cmd/skillshare)
+echo "==> [3/3] Run mutated red team (must fail the single and batch update gates)"
+MUTATED_EXIT=0
+SKILLSHARE_TEST_BINARY="$TEST_BIN" "$SCRIPT_DIR/red_team_test.sh" > "$TMP_DIR/output.log" 2>&1 || MUTATED_EXIT=$?
+cat "$TMP_DIR/output.log"
+perl -pe 's/\e\[[0-9;]*m//g' "$TMP_DIR/output.log" > "$TMP_DIR/plain.log"
 
-set +e
-(cd "$PROJECT_ROOT" && ./scripts/red_team_test.sh)
-MUTATED_EXIT=$?
-set -e
-
-if [ "$MUTATED_EXIT" -eq 0 ]; then
-  echo "ERROR: mutated run unexpectedly passed; red team signal check failed"
+if [ "$MUTATED_EXIT" -ne 1 ]; then
+  echo "ERROR: expected completed test failure (exit=1), got exit=$MUTATED_EXIT"
   exit 1
 fi
-echo "PASS: mutated run failed as expected (exit=$MUTATED_EXIT)"
+for expected in 'FAIL: TC-21a:' 'FAIL: TC-29:' 'Red Team Test Results'; do
+  if ! grep -qF "$expected" "$TMP_DIR/plain.log"; then
+    echo "ERROR: expected mutation signal not observed: $expected"
+    exit 1
+  fi
+done
 
-echo "==> [4/4] Restoring original source and rebuilding"
-restore_source
-(cd "$PROJECT_ROOT" && go build -o bin/skillshare ./cmd/skillshare)
-
-echo "PASS: test-redteam signal verified (baseline pass + mutation fail)"
+echo "PASS: test-redteam signal verified (baseline pass + expected gate failures)"
