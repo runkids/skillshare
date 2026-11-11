@@ -168,6 +168,7 @@ func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *
 		uc := &updateContext{
 			sourcePath:  agentsDir,
 			projectRoot: projectRoot,
+			parseOpts:   parseOpts,
 			opts: &updateOptions{
 				force:     opts.force,
 				skipAudit: opts.skipAudit,

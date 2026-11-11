@@ -10,9 +10,9 @@ Run each step inside the isolated Linux devcontainer with the checkout at `/work
 
 ## Steps
 
-### 1. Credential authorization and browser preview origins
+### 1. Credential authorization and browser remote-read origins
 
-Provider-looking names and nondefault ports must not receive provider tokens. Explicit configured Gitea/CNB hosts and the generic HTTPS fallback remain supported. GitHub clients must not forward authorization across origins, and cross-site browser previews must be rejected before fetching.
+Provider-looking names and nondefault ports must not receive provider tokens. Explicit configured Gitea/CNB hosts and the generic HTTPS fallback remain supported, including grouped skill updates and tracked agent updates. GitHub clients must not forward authorization across origins, and cross-site browser searches and previews must be rejected before fetching.
 
 ```bash
 set -eu
@@ -23,6 +23,7 @@ go test -count=1 -v ./internal/install -run '^(TestProviderCredentialsRejectUntr
 go test -count=1 -v ./internal/github -run '^(TestNewRequestScopesGitHubCredentials|TestClientDoesNotForwardCredentialsAcrossOrigins)$'
 go test -count=1 -v ./internal/search -run '^(TestFetchPreviewDoesNotAuthorizeProviderLookalikes|TestBuildHubRequest_GitHubHeaders)$'
 go test -count=1 -v ./internal/server -run '^(TestCrossSitePreviewIsRefused|TestCrossSiteHubSearchIsRefused)$'
+go test -count=1 -v ./internal/install ./cmd/skillshare -run '^(TestUpdateSkillsFromRepo_ConfiguredHosts|TestBatchUpdateTrackedAgents_ConfiguredHosts)$'
 ```
 
 **Expected**
@@ -37,6 +38,8 @@ go test -count=1 -v ./internal/server -run '^(TestCrossSitePreviewIsRefused|Test
 - --- PASS: TestBuildHubRequest_GitHubHeaders
 - --- PASS: TestCrossSitePreviewIsRefused
 - --- PASS: TestCrossSiteHubSearchIsRefused
+- --- PASS: TestUpdateSkillsFromRepo_ConfiguredHosts
+- --- PASS: TestBatchUpdateTrackedAgents_ConfiguredHosts
 
 ### 2. Real-directory fallback discovery
 
