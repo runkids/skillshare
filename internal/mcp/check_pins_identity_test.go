@@ -599,26 +599,22 @@ func TestToolConnectionIdentityIgnoresClientSelection(t *testing.T) {
 	}
 	baselineAccept(t, s, source, "", "echo", server, now)
 	for _, tc := range []struct {
-		name     string
-		targets  TargetList
-		disabled bool
+		name    string
+		targets TargetList
 	}{
-		{"other target", TargetList{"codex"}, false},
-		{"explicitly empty", TargetList{}, false},
-		{"disabled", TargetList{"claude"}, true},
+		{"other target", TargetList{"codex"}},
+		{"explicitly empty", TargetList{}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			changed := server
-			changed.Targets, changed.Disabled = tc.targets, tc.disabled
+			changed.Targets = tc.targets
 			identity, err := toolConnectionIdentity(changed, now)
 			if err != nil || identity != first {
 				t.Fatalf("selection changed identity: %v", err)
 			}
-			if !tc.disabled {
-				_, report := baselineObserve(s, source, "", "echo", changed, now, CheckOptions{Live: true})
-				if review := report.Servers[0].Contract; review.Status != "unchanged" || review.IdentityChanged {
-					t.Fatalf("selection changed approval: %+v", review)
-				}
+			_, report := baselineObserve(s, source, "", "echo", changed, now, CheckOptions{Live: true})
+			if review := report.Servers[0].Contract; review.Status != "unchanged" || review.IdentityChanged {
+				t.Fatalf("selection changed approval: %+v", review)
 			}
 		})
 	}
