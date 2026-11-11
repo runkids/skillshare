@@ -11,13 +11,15 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ## [0.30.5] - 2026-11-11
 
-
-* release as 0.30.5 ([0d97002](https://github.com/runkids/skillshare/commit/0d970022f7fb3991b223f0fdc8967feb2beb6537))
-
-
 ### New Features
 
-* **updates:** allow opting out of automatic version checks ([#847](https://github.com/runkids/skillshare/issues/847)) ([adf6c9e](https://github.com/runkids/skillshare/commit/adf6c9ecb3983d392a1bbb0b54afb4e24921f39b))
+- **Choose when Skillshare checks for new versions** — `skillshare updates off` stops automatic CLI and built-in skill version checks and their notifications, including cached notices, web update dialogs and version badges. In global mode, the switch under Web **Settings → General → Updates** saves the same preference. The global preference also applies to projects; the project-mode Web switch is read-only. Manual checks and upgrades remain available, and upstream checks for installed resource sources are unchanged. Automatic checks remain enabled by default. Thanks to @LloydPowell771 for explaining the monthly update workflow and requesting this option. Refs: #846, #847.
+  ```bash
+  skillshare updates off          # Disable automatic checks and notices
+  skillshare updates check        # Explicitly check the CLI version now
+  skillshare updates on           # Restore automatic checks
+  ```
+  The global `config.yaml` setting is `updates.auto_check: false`. `SKILLSHARE_AUTO_UPDATE_CHECK=false` overrides it for a process and its children without changing the saved preference.
 
 ## [0.30.4] - 2026-11-10
 
