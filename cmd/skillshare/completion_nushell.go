@@ -616,7 +616,7 @@ export extern "skillshare check" [
     --json                   # JSON output
     --diff                   # Show changes since install
     --exit-code              # Exit 1 when anything is not up to date
-    --all                    # Check all
+    --all                    # Check skills and agents
     --group(-G): string      # Check by group
     --project(-p)            # Use project-level config
     --global(-g)             # Use global config

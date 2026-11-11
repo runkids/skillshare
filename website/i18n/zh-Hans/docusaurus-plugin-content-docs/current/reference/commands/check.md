@@ -41,7 +41,7 @@ result=$(skillshare check --json)
 
 只要任一检查项的状态为 `error`（例如无法连接远程仓库或本地来源不存在），`check` 就会以代码 `1` 退出。仅有可用更新、过时项目或本地修改不会导致失败。使用 `--json` 时，stdout 仍包含完整结果；请查看各项的 `status` 和 `message`。
 
-传入 `--exit-code` 后，即使所有项目都能完成检查，只要有项目不是最新，也会以退出码 `1` 结束：有可用更新、stale 或本地被修改的 skill，或者落后、有未提交更改、缺失的追踪仓库。只有状态为 `local`（没有可比较的对象）的项目不计入；从本地路径安装的 skill 若来源已变更，属于可用更新，会计入。`check agents` 同样适用，安装后文件被修改的 agent 也计入。可与 `--json` 一起使用，不能与 `--diff` 同时使用。
+传入 `--exit-code` 后，即使所有项目都能完成检查，只要有项目不是最新，也会以退出码 `1` 结束：有可用更新、stale 或本地被修改的 skill，或者落后、有未提交更改、缺失的追踪仓库。只有状态为 `local`（没有可比较的对象）的项目不计入；从本地路径安装的 skill 若来源已变更，属于可用更新，会计入。`check agents` 与 `check --all` 同样适用，安装后文件被修改的 agent 也计入。可与 `--json` 一起使用，不能与 `--diff` 同时使用。
 
 ## 它做了什么
 
@@ -127,6 +127,7 @@ skillshare check frontend               # 自动识别为 group
 
 | 标志 | 描述 |
 |------|-------------|
+| `--all` | 同时检查 skills 和 agents。不能与名称或 `--group` 同时使用 |
 | `--group`, `-G` `<name>` | 检查某个 group 中所有可更新的 skills（可重复使用） |
 | `--project`, `-p` | 检查 project 级别的 skills（`.skillshare/`） |
 | `--global`, `-g` | 检查 global skills（`~/.config/skillshare`） |
@@ -220,11 +221,14 @@ skillshare check -p --json             # project 的 JSON 输出
 skillshare check agents              # 检查所有 agents
 skillshare check agents --json       # agents 的 JSON 输出
 skillshare check agents -p           # 检查 project agents
+skillshare check --all               # 同时检查 skills 和 agents
 ```
 
 每个 agent 都会与安装时的分支比较。记录的 source 被之前的 `update agents` 弄丢的 agent 会报告 `error` 并提示重新安装，参见[故障排除](/docs/troubleshooting/common-errors#agent-source-lost)。
 
-不带 `agents` 参数时，`check` 仅对 skills 起作用（默认行为）。关于背景信息，参见 [Agents](/docs/understand/agents)。
+不带 `agents` 参数或 `--all` 时，`check` 仅对 skills 起作用（默认行为）。关于背景信息，参见 [Agents](/docs/understand/agents)。
+
+传入 `--all` 可一次检查 skills 和 agents。文本输出分为 Skills 和 Agents 两个区块，`--json` 会在 `tracked_repos` 和 `skills` 之外加上 `agents` 数组，`--exit-code` 两者都计入。`--all` 不能与名称或 `--group` 同时使用。
 
 ## 另请参阅
 

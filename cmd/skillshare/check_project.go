@@ -24,16 +24,22 @@ func cmdCheckProject(root string, opts *checkOptions) error {
 	}
 
 	sourcePath := projectCfg.EffectiveSkillsSource(root)
-	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+	// --all still has the agents to check when the project has no skills.
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) && !opts.allKinds {
 		return fmt.Errorf("no project skills directory found")
 	}
 
+	opts.parseOpts = parseOptsFromProjectConfig(projectCfg)
+
 	// No names and no groups → check all (existing behavior)
 	if len(opts.names) == 0 && len(opts.groups) == 0 {
-		return runCheck(sourcePath, root, opts.json, opts.exitCode, extraNames, projectSkillsWalk(root, projectCfg), parseOptsFromProjectConfig(projectCfg))
+		agentsDir := ""
+		if opts.allKinds {
+			agentsDir = projectCfg.EffectiveAgentsSource(root)
+		}
+		return runCheck(sourcePath, agentsDir, root, opts, extraNames, projectSkillsWalk(root, projectCfg))
 	}
 
 	// Filtered check
-	opts.parseOpts = parseOptsFromProjectConfig(projectCfg)
 	return runCheckFiltered(sourcePath, root, opts, projectSkillsWalk(root, projectCfg))
 }

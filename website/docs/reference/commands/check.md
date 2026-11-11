@@ -41,7 +41,7 @@ result=$(skillshare check --json)
 
 `check` exits with code `1` if any checked item has status `error` (for example, an unreachable remote or a missing local source). Available updates, stale items, and local modifications alone do not cause failure. With `--json`, stdout still contains the complete results; inspect each item's `status` and `message` for details.
 
-Pass `--exit-code` to also exit with code `1` when every item could be checked but something is not up to date: an available update, a stale or locally modified skill, or a tracked repository that is behind, has uncommitted changes, or is missing. Only items whose status is `local` (nothing to compare) are left out; a skill installed from a local path whose source has changed is an available update and does count. The same applies to `check agents`, where an agent whose file changed since install also counts. It works with `--json` and cannot be combined with `--diff`.
+Pass `--exit-code` to also exit with code `1` when every item could be checked but something is not up to date: an available update, a stale or locally modified skill, or a tracked repository that is behind, has uncommitted changes, or is missing. Only items whose status is `local` (nothing to compare) are left out; a skill installed from a local path whose source has changed is an available update and does count. The same applies to `check agents` and `check --all`, where an agent whose file changed since install also counts. It works with `--json` and cannot be combined with `--diff`.
 
 ## What It Does
 
@@ -127,6 +127,7 @@ Skills without metadata (local-only) are skipped when expanding groups.
 
 | Flag | Description |
 |------|-------------|
+| `--all` | Check agents as well as skills. Cannot be combined with names or `--group` |
 | `--group`, `-G` `<name>` | Check all updatable skills in a group (repeatable) |
 | `--project`, `-p` | Check project-level skills (`.skillshare/`) |
 | `--global`, `-g` | Check global skills (`~/.config/skillshare`) |
@@ -220,11 +221,14 @@ skillshare check -p --json             # JSON output for project
 skillshare check agents              # Check all agents
 skillshare check agents --json       # JSON output for agents
 skillshare check agents -p           # Check project agents
+skillshare check --all               # Check skills and agents together
 ```
 
 Each agent is compared with the branch it was installed from. An agent whose recorded source was lost by an earlier `update agents` reports `error` and asks you to reinstall it; see [Troubleshooting](/docs/troubleshooting/common-errors#agent-source-lost).
 
-Without the `agents` argument, `check` operates on skills only (default behavior). See [Agents](/docs/understand/agents) for background.
+Without the `agents` argument or `--all`, `check` operates on skills only (default behavior). See [Agents](/docs/understand/agents) for background.
+
+Pass `--all` to check skills and agents in one run. The text output has a Skills and an Agents section, `--json` adds an `agents` array beside `tracked_repos` and `skills`, and `--exit-code` counts both. `--all` cannot be combined with names or `--group`.
 
 ## See Also
 

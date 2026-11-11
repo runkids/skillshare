@@ -41,7 +41,7 @@ result=$(skillshare check --json)
 
 검사한 항목 중 하나라도 상태가 `error`이면(예: 원격 저장소에 연결할 수 없거나 로컬 소스가 없음) `check`는 코드 `1`로 종료합니다. 사용 가능한 업데이트, 오래된 항목, 로컬 수정만으로는 실패하지 않습니다. `--json`을 사용해도 stdout에 전체 결과가 출력됩니다. 각 항목의 `status`와 `message`를 확인하세요.
 
-`--exit-code`를 지정하면 모든 항목을 확인할 수 있었더라도 최신이 아닌 항목이 있을 때 종료 코드 `1`로 종료합니다. 사용 가능한 업데이트, stale이거나 로컬에서 수정된 skill, 뒤처졌거나 커밋되지 않은 변경이 있거나 없어진 추적 저장소가 해당합니다. 제외되는 것은 상태가 `local`(비교 대상 없음)인 항목뿐입니다. 로컬 경로에서 설치한 skill의 소스가 변경되면 사용 가능한 업데이트로 셉니다. `check agents`에도 동일하게 적용되며, 설치 이후 파일이 변경된 agent도 해당합니다. `--json`과 함께 사용할 수 있으며 `--diff`와는 함께 사용할 수 없습니다.
+`--exit-code`를 지정하면 모든 항목을 확인할 수 있었더라도 최신이 아닌 항목이 있을 때 종료 코드 `1`로 종료합니다. 사용 가능한 업데이트, stale이거나 로컬에서 수정된 skill, 뒤처졌거나 커밋되지 않은 변경이 있거나 없어진 추적 저장소가 해당합니다. 제외되는 것은 상태가 `local`(비교 대상 없음)인 항목뿐입니다. 로컬 경로에서 설치한 skill의 소스가 변경되면 사용 가능한 업데이트로 셉니다. `check agents`와 `check --all`에도 동일하게 적용되며, 설치 이후 파일이 변경된 agent도 해당합니다. `--json`과 함께 사용할 수 있으며 `--diff`와는 함께 사용할 수 없습니다.
 
 ## 동작 내용
 
@@ -127,6 +127,7 @@ skillshare check frontend               # Auto-detected as group
 
 | Flag | Description |
 |------|-------------|
+| `--all` | skill과 함께 agent도 확인. 이름이나 `--group`과 함께 사용할 수 없음 |
 | `--group`, `-G` `<name>` | group 안의 업데이트 가능한 모든 skill 확인(반복 가능) |
 | `--project`, `-p` | project 수준 skill 확인(`.skillshare/`) |
 | `--global`, `-g` | global skill 확인(`~/.config/skillshare`) |
@@ -220,11 +221,14 @@ skillshare check -p --json             # JSON output for project
 skillshare check agents              # Check all agents
 skillshare check agents --json       # JSON output for agents
 skillshare check agents -p           # Check project agents
+skillshare check --all               # Check skills and agents together
 ```
 
 각 agent는 설치한 branch와 비교됩니다. 이전 `update agents`로 기록된 source를 잃은 agent는 `error`를 보고하고 다시 설치하라고 안내합니다. [문제 해결](/docs/troubleshooting/common-errors#agent-source-lost)을 참고하세요.
 
-`agents` 인자 없이 실행하면 `check`는 skill에 대해서만 동작합니다(기본 동작). 배경 지식은 [Agents](/docs/understand/agents)를 참고하세요.
+`agents` 인자나 `--all` 없이 실행하면 `check`는 skill에 대해서만 동작합니다(기본 동작). 배경 지식은 [Agents](/docs/understand/agents)를 참고하세요.
+
+`--all`을 지정하면 skill과 agent를 한 번에 확인합니다. 텍스트 출력은 Skills와 Agents 섹션으로 나뉘고, `--json`은 `tracked_repos`와 `skills` 옆에 `agents` 배열을 추가하며, `--exit-code`는 둘 다 셉니다. `--all`은 이름이나 `--group`과 함께 사용할 수 없습니다.
 
 ## 참고 항목
 

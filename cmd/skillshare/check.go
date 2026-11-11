@@ -42,6 +42,8 @@ type checkSkillResult struct {
 type checkOutput struct {
 	TrackedRepos []checkRepoResult  `json:"tracked_repos"`
 	Skills       []checkSkillResult `json:"skills"`
+	// Agents is set only by --all, so check --json keeps its shape.
+	Agents *[]check.AgentCheckResult `json:"agents,omitempty"`
 }
 
 // checkOptions holds parsed arguments for check command
@@ -54,6 +56,8 @@ type checkOptions struct {
 	// exitCode (--exit-code) makes a check that found anything not up to date
 	// exit 1, so CI can gate on it without parsing --json.
 	exitCode bool
+	// allKinds (--all) checks agents as well as skills.
+	allKinds bool
 
 	parseOpts install.ParseOptions // source parsing and remote credential authorization
 }
@@ -209,6 +213,10 @@ func cmdCheck(args []string) error {
 	if opts.diff && kind == kindAgents {
 		return fmt.Errorf("--diff compares skills only")
 	}
+	opts.allKinds = kind == kindAll
+	if opts.allKinds && (len(opts.names) > 0 || len(opts.groups) > 0) {
+		return fmt.Errorf("--all cannot be combined with names or --group; it checks every skill and agent")
+	}
 
 	cfgPath := config.ConfigPath()
 	if mode == modeProject {
@@ -242,15 +250,20 @@ func cmdCheck(args []string) error {
 		return cmdErr
 	}
 
+	opts.parseOpts = parseOptsFromConfig(cfg)
+
 	// No names and no groups → check all (existing behavior)
 	if len(opts.names) == 0 && len(opts.groups) == 0 {
-		cmdErr := runCheck(cfg.EffectiveSkillsSource(), "", opts.json, opts.exitCode, targetNamesFromConfig(cfg.Targets), cfg.SkillsWalk(), parseOptsFromConfig(cfg))
+		agentsDir := ""
+		if opts.allKinds {
+			agentsDir = cfg.EffectiveAgentsSource()
+		}
+		cmdErr := runCheck(cfg.EffectiveSkillsSource(), agentsDir, "", opts, targetNamesFromConfig(cfg.Targets), cfg.SkillsWalk())
 		logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, cmdErr)
 		return cmdErr
 	}
 
 	// Filtered check: resolve targets then check only those
-	opts.parseOpts = parseOptsFromConfig(cfg)
 	cmdErr := runCheckFiltered(cfg.EffectiveSkillsSource(), "", opts, cfg.SkillsWalk())
 	logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, cmdErr)
 	return cmdErr
@@ -275,8 +288,14 @@ func logCheckOp(cfgPath string, repos, skills, updatesAvailable, errors int, sco
 	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
 
-func runCheck(sourceDir, projectRoot string, jsonOutput, exitCode bool, extraTargetNames []string, walk sourcewalk.Options, parseOpts install.ParseOptions) error {
+// runCheck checks every tracked repo and updatable skill in sourceDir, and
+// every agent in agentsDir when it is set (--all).
+func runCheck(sourceDir, agentsDir, projectRoot string, opts *checkOptions, extraTargetNames []string, walk sourcewalk.Options) error {
 	start := time.Now()
+	jsonOutput, parseOpts := opts.json, opts.parseOpts
+	if agentsDir != "" && !jsonOutput {
+		ui.Section("Skills")
+	}
 
 	var scanSpinner *ui.Spinner
 	if !jsonOutput {
@@ -301,17 +320,11 @@ func runCheck(sourceDir, projectRoot string, jsonOutput, exitCode bool, extraTar
 		if scanSpinner != nil {
 			scanSpinner.Stop()
 		}
-		if jsonOutput {
-			out, _ := json.MarshalIndent(checkOutput{
-				TrackedRepos: []checkRepoResult{},
-				Skills:       []checkSkillResult{},
-			}, "", "  ")
-			fmt.Println(string(out))
-			return nil
+		if !jsonOutput {
+			ui.Done(ui.MarkNone, "No tracked repositories or updatable skills found", 0)
+			ui.Next("skillshare install <repo> --track", "add a tracked repository")
 		}
-		ui.Done(ui.MarkNone, "No tracked repositories or updatable skills found", 0)
-		ui.Next("skillshare install <repo> --track", "add a tracked repository")
-		return nil
+		return finishCheck(nil, nil, agentsDir, opts)
 	}
 
 	// Collect & group
@@ -353,27 +366,53 @@ func runCheck(sourceDir, projectRoot string, jsonOutput, exitCode bool, extraTar
 		})
 	}
 
-	// JSON output
-	if jsonOutput {
-		output := checkOutput{
-			TrackedRepos: repoResults,
-			Skills:       skillResults,
-		}
-		if output.TrackedRepos == nil {
-			output.TrackedRepos = []checkRepoResult{}
-		}
-		if output.Skills == nil {
-			output.Skills = []checkSkillResult{}
-		}
-		return writeJSONResult(output, checkResultsError(repoResults, skillResults, exitCode))
+	if !jsonOutput {
+		// Display results + summary, with unknown target names in skill-level
+		// targets fields among the warnings
+		warnings := unknownSkillTargetWarnings(sourceDir, extraTargetNames, walk)
+		renderCheckResults(repoResults, skillResults, false, warnings, start)
+	}
+	return finishCheck(repoResults, skillResults, agentsDir, opts)
+}
+
+// finishCheck closes a whole-source check: it checks the agents when agentsDir
+// is set (--all), writes the JSON result, and decides the exit status from
+// everything that was checked.
+func finishCheck(repos []checkRepoResult, skills []checkSkillResult, agentsDir string, opts *checkOptions) error {
+	tally := tallyCheck(repos, skills)
+	output := checkOutput{TrackedRepos: repos, Skills: skills}
+	if output.TrackedRepos == nil {
+		output.TrackedRepos = []checkRepoResult{}
+	}
+	if output.Skills == nil {
+		output.Skills = []checkSkillResult{}
 	}
 
-	// Display results + summary, with unknown target names in skill-level
-	// targets fields among the warnings
-	warnings := unknownSkillTargetWarnings(sourceDir, extraTargetNames, walk)
-	renderCheckResults(repoResults, skillResults, false, warnings, start)
+	if agentsDir != "" {
+		if !opts.json {
+			ui.Section("Agents")
+		}
+		agents, err := collectAgentCheck(agentsDir, nil, opts.json, opts.parseOpts)
+		if err != nil {
+			return err
+		}
+		for _, a := range agents {
+			tally.add(a.Status)
+		}
+		if opts.json {
+			if agents == nil {
+				agents = []check.AgentCheckResult{}
+			}
+			output.Agents = &agents
+		} else {
+			renderAgentResults(agents)
+		}
+	}
 
-	return checkResultsError(repoResults, skillResults, exitCode)
+	if opts.json {
+		return writeJSONResult(output, tally.err(opts.exitCode))
+	}
+	return tally.err(opts.exitCode)
 }
 
 // renderCheckResults lists the repos and skills that need attention, then
@@ -697,6 +736,10 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, walks .
 }
 
 func checkResultsError(repos []checkRepoResult, skills []checkSkillResult, exitCode bool) error {
+	return tallyCheck(repos, skills).err(exitCode)
+}
+
+func tallyCheck(repos []checkRepoResult, skills []checkSkillResult) checkTally {
 	var tally checkTally
 	for _, r := range repos {
 		tally.add(r.Status)
@@ -704,7 +747,7 @@ func checkResultsError(repos []checkRepoResult, skills []checkSkillResult, exitC
 	for _, s := range skills {
 		tally.add(s.Status)
 	}
-	return tally.err(exitCode)
+	return tally
 }
 
 // checkOutdatedError is what --exit-code returns when every item could be
@@ -821,18 +864,38 @@ func formatSourceShort(source string) string {
 	return source
 }
 
-// renderAgentCheck runs CheckAgents and displays results (text or JSON).
-// If groups is non-empty, only agents in those group subdirectories are shown.
+// renderAgentCheck checks the agents in agentsDir and displays the results
+// (text or JSON).
 func renderAgentCheck(agentsDir string, groups []string, jsonMode, exitCode bool, parseOpts install.ParseOptions) error {
+	agentResults, err := collectAgentCheck(agentsDir, groups, jsonMode, parseOpts)
+	if err != nil {
+		if jsonMode {
+			return writeJSONError(err)
+		}
+		return err
+	}
+
+	var tally checkTally
+	for _, r := range agentResults {
+		tally.add(r.Status)
+	}
+	if jsonMode {
+		return writeJSONResult(agentResults, tally.err(exitCode))
+	}
+	renderAgentResults(agentResults)
+	return tally.err(exitCode)
+}
+
+// collectAgentCheck checks the agents in agentsDir against their recorded
+// sources. If groups is non-empty, only agents in those group subdirectories
+// are checked. quiet leaves the spinner out.
+func collectAgentCheck(agentsDir string, groups []string, quiet bool, parseOpts install.ParseOptions) ([]check.AgentCheckResult, error) {
 	agentResults := check.CheckAgents(agentsDir)
 
 	if len(groups) > 0 {
 		filtered, err := filterAgentResultsByGroups(agentResults, groups, agentsDir)
 		if err != nil {
-			if jsonMode {
-				return writeJSONError(err)
-			}
-			return err
+			return nil, err
 		}
 		agentResults = filtered
 	}
@@ -846,7 +909,7 @@ func renderAgentCheck(agentsDir string, groups []string, jsonMode, exitCode bool
 		}
 	}
 	if len(tracked) > 0 {
-		if jsonMode {
+		if quiet {
 			check.EnrichAgentResultsWithRemote(tracked, nil, parseOpts)
 		} else {
 			sp := ui.StartSpinner(fmt.Sprintf("Checking %s...", plural(len(tracked), "tracked agent")))
@@ -858,16 +921,14 @@ func renderAgentCheck(agentsDir string, groups []string, jsonMode, exitCode bool
 		}
 	}
 
-	var tally checkTally
-	for _, r := range agentResults {
-		tally.add(r.Status)
-	}
-	if jsonMode {
-		return writeJSONResult(agentResults, tally.err(exitCode))
-	}
+	return agentResults, nil
+}
+
+// renderAgentResults prints one row per agent and the closing line.
+func renderAgentResults(agentResults []check.AgentCheckResult) {
 	if len(agentResults) == 0 {
 		ui.Done(ui.MarkNone, "No agents found", 0)
-		return nil
+		return
 	}
 	names := make([]string, len(agentResults))
 	for i, r := range agentResults {
@@ -905,7 +966,6 @@ func renderAgentCheck(agentsDir string, groups []string, jsonMode, exitCode bool
 	default:
 		ui.Done(ui.MarkNone, "No tracked agents to compare", 0)
 	}
-	return tally.err(exitCode)
 }
 
 func printCheckHelp() {

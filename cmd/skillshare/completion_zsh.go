@@ -509,7 +509,7 @@ _skillshare() {
                         '--json[JSON output]' \
                         '--diff[Show changes since install]' \
                         '--exit-code[Exit 1 when anything is not up to date]' \
-                        '--all[Check all]' \
+                        '--all[Check skills and agents]' \
                         '--group[Check by group]:group:' \
                         '-G[Check by group]:group:' \
                         $global_flags \

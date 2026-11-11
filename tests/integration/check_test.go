@@ -172,10 +172,10 @@ func TestCheckProject_ExitCode_FailsOnceSourceChanges(t *testing.T) {
 	sb.RunCLIInDir(projectRoot, "check", "-p", "--exit-code").AssertExitCode(t, 1)
 }
 
-func TestCheck_Agents_ExitCode_FailsWhenDrifted(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-
+// driftedAgent leaves the sandbox with one installed agent, tutor, whose file
+// no longer matches the hash recorded at install.
+func driftedAgent(t *testing.T, sb *testutil.Sandbox) {
+	t.Helper()
 	sb.WriteConfig(`source: ` + sb.SourcePath + `
 targets: {}
 `)
@@ -194,12 +194,128 @@ targets: {}
 	if err := store.Save(agentsDir); err != nil {
 		t.Fatalf("save agent metadata: %v", err)
 	}
+}
+
+func TestCheck_Agents_ExitCode_FailsWhenDrifted(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	driftedAgent(t, sb)
 
 	sb.RunCLI("check", "agents").AssertSuccess(t)
 
 	result := sb.RunCLI("check", "agents", "--exit-code")
 	result.AssertExitCode(t, 1)
 	result.AssertAnyOutputContains(t, "1 item not up to date")
+}
+
+func TestCheck_All_ExitCode_FailsWhenAgentDrifted(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	driftedAgent(t, sb)
+
+	result := sb.RunCLI("check", "--all", "--exit-code")
+	result.AssertExitCode(t, 1)
+	result.AssertAnyOutputContains(t, "1 item not up to date")
+}
+
+func TestCheck_All_ExitCode_CountsSkillsAndAgents(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	behindTrackedRepo(t, sb)
+	driftedAgent(t, sb)
+
+	result := sb.RunCLI("check", "--all", "--exit-code")
+	result.AssertExitCode(t, 1)
+	result.AssertAnyOutputContains(t, "2 items not up to date")
+}
+
+func TestCheck_All_JSON_ListsAgentsBesideSkills(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	driftedAgent(t, sb)
+
+	result := sb.RunCLI("check", "--all", "--json")
+	result.AssertSuccess(t)
+	var out struct {
+		TrackedRepos []any `json:"tracked_repos"`
+		Skills       []any `json:"skills"`
+		Agents       []struct {
+			Name   string `json:"name"`
+			Status string `json:"status"`
+		} `json:"agents"`
+	}
+	if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil {
+		t.Fatalf("check --all --json is not one JSON object: %v\n%s", err, result.Stdout)
+	}
+	if len(out.Agents) != 1 || out.Agents[0].Name != "tutor" || out.Agents[0].Status != "drifted" {
+		t.Errorf("agents = %+v, want tutor drifted", out.Agents)
+	}
+}
+
+func TestCheck_All_JSON_NoAgents_ListsNone(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("check", "--all", "--json")
+	result.AssertSuccess(t)
+	if !strings.Contains(result.Stdout, `"agents": []`) {
+		t.Errorf("want an empty agents array, got:\n%s", result.Stdout)
+	}
+}
+
+func TestCheck_JSON_WithoutAll_HasNoAgentsKey(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	driftedAgent(t, sb)
+
+	result := sb.RunCLI("check", "--json")
+	result.AssertSuccess(t)
+	if strings.Contains(result.Stdout, `"agents"`) {
+		t.Errorf("check --json should keep its shape, got:\n%s", result.Stdout)
+	}
+}
+
+func TestCheck_All_RejectsNames(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	driftedAgent(t, sb)
+
+	result := sb.RunCLI("check", "--all", "tutor")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "--all cannot be combined with names or --group")
+}
+
+func TestCheckProject_All_ReportsAgents(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+	sb.CreateProjectSkill(projectRoot, "local-skill", map[string]string{
+		"SKILL.md": "---\nname: local-skill\n---\n# Local",
+	})
+	agentsDir := filepath.Join(projectRoot, ".skillshare", "agents")
+	os.MkdirAll(agentsDir, 0755)
+	os.WriteFile(filepath.Join(agentsDir, "reviewer.md"), []byte("# Reviewer"), 0644)
+
+	result := sb.RunCLIInDir(projectRoot, "check", "-p", "--all")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "reviewer")
+}
+
+func TestCheckProject_All_ChecksAgentsWithoutSkillsDir(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+	os.RemoveAll(filepath.Join(projectRoot, ".skillshare", "skills"))
+	agentsDir := filepath.Join(projectRoot, ".skillshare", "agents")
+	os.MkdirAll(agentsDir, 0755)
+	os.WriteFile(filepath.Join(agentsDir, "reviewer.md"), []byte("# Reviewer"), 0644)
+
+	result := sb.RunCLIInDir(projectRoot, "check", "-p", "--all")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "reviewer")
 }
 
 func TestCheck_ExitCode_RejectsDiff(t *testing.T) {
