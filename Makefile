@@ -11,6 +11,7 @@ help:
 	@echo "  make test-docker    # docker offline sandbox (build + unit + integration)"
 	@echo "  make test-docker-online  # docker online install/update tests"
 	@echo "  make test-redteam   # red team supply-chain security tests"
+	@echo "  make test-redteam-harness  # regression tests for red team assertions and signal checks"
 	@echo "  make test-redteam-signal  # verify red team test fails on intentional mutation"
 	@echo "  make test-redteam-rules-signal  # verify red team test fails when critical builtin rules are disabled"
 	@echo "  make playground     # start playground + enter shell (one step)"
@@ -71,13 +72,18 @@ test-docker:
 test-docker-online:
 	./scripts/test_docker_online.sh
 
-test-redteam: build
+.PHONY: test-redteam-harness
+
+test-redteam-harness:
+	bash ./scripts/test_redteam_harness.sh
+
+test-redteam: build test-redteam-harness
 	./scripts/red_team_test.sh
 
-test-redteam-signal:
+test-redteam-signal: test-redteam-harness
 	./scripts/test_redteam_signal.sh
 
-test-redteam-rules-signal:
+test-redteam-rules-signal: test-redteam-harness
 	./scripts/test_redteam_rules_signal.sh
 
 playground:

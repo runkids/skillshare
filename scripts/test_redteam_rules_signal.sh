@@ -62,19 +62,16 @@ printf "%s\n" "$MUTATED_OUTPUT"
 
 SANITIZED_OUTPUT="$(printf "%s\n" "$MUTATED_OUTPUT" | perl -pe 's/\e\[[0-9;]*m//g')"
 
-if [ "$MUTATED_EXIT" -eq 0 ]; then
-  echo "ERROR: rules-disabled run unexpectedly passed; signal check failed"
+if [ "$MUTATED_EXIT" -ne 1 ]; then
+  echo "ERROR: expected completed test failure (exit=1), got exit=$MUTATED_EXIT"
   exit 1
 fi
 
-if ! printf "%s\n" "$SANITIZED_OUTPUT" | grep -qF "FAIL: TC-21a"; then
-  echo "ERROR: expected TC-21a failure was not observed"
-  exit 1
-fi
-
-if ! printf "%s\n" "$SANITIZED_OUTPUT" | grep -qF "FAIL: TC-29"; then
-  echo "ERROR: expected TC-29 failure was not observed"
-  exit 1
-fi
+for expected in 'FAIL: TC-21a:' 'FAIL: TC-29:' 'Red Team Test Results'; do
+  if ! grep -qF "$expected" <<< "$SANITIZED_OUTPUT"; then
+    echo "ERROR: expected mutation signal not observed: $expected"
+    exit 1
+  fi
+done
 
 echo "==> [3/3] PASS: rules-level signal verified (baseline pass + rules-disabled fail)"
