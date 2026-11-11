@@ -66,6 +66,63 @@ func TestInstallFromDiscovery_FullSubdirUsesForwardSlashes(t *testing.T) {
 	}
 }
 
+// Regression for #859: the source recorded for a skill picked out of a whole
+// repository must parse back into that repository and the skill's path.
+func TestBuildDiscoverySkillSource_RoundTrips(t *testing.T) {
+	opts := ParseOptions{GitLabHosts: []string{"code.example.com"}}
+	for _, typed := range []string{
+		"org/skills",
+		"https://github.com/org/skills",
+		"https://git.example.com/team/skills",
+		"https://git.example.com/team/skills.git",
+		"gitlab.com/team/skills",
+		"https://gitlab.com/group/sub/skills/",
+		"https://gitlab.com/team/skills.git",
+		"https://gitlab.com/team/skills/-/tree/main",
+		"https://code.example.com/group/sub/skills",
+		"https://bitbucket.org/team/skills",
+		"https://bitbucket.org/team/skills/src/main",
+		"https://bitbucket.org/src/skills",
+		"https://dev.azure.com/org/project/_git/skills",
+		"git@gitlab.com:team/skills.git",
+		"ssh://git@gitlab.com/team/skills.git",
+		"file:///srv/skills",
+	} {
+		t.Run(typed, func(t *testing.T) {
+			source, err := ParseSourceWithOptions(typed, opts)
+			if err != nil {
+				t.Fatalf("parse typed source: %v", err)
+			}
+			recorded := buildDiscoverySkillSource(source, "pack/x")
+			got, err := ParseSourceWithOptions(recorded, opts)
+			if err != nil {
+				t.Fatalf("parse recorded source %q: %v", recorded, err)
+			}
+			if got.CloneURL != source.CloneURL || got.Subdir != "pack/x" || got.Branch != source.Branch {
+				t.Errorf("recorded %q parsed as repo %q subdir %q branch %q, want repo %q subdir %q branch %q",
+					recorded, got.CloneURL, got.Subdir, got.Branch, source.CloneURL, "pack/x", source.Branch)
+			}
+		})
+	}
+}
+
+// An install recorded in the single-slash form from before #859 is still
+// recognized as the same skill, so `install --update` keeps updating it. A
+// repository of its own at that URL is a different install.
+func TestIsDiscoverySkillSource_FormBefore859(t *testing.T) {
+	source, err := ParseSource("file:///srv/skills")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const recorded = "file:///srv/skills/x"
+	if !isDiscoverySkillSource(&MetadataEntry{Source: recorded, RepoURL: "file:///srv/skills", Subdir: "x"}, source, "x") {
+		t.Error("single-slash source of the same repository not recognized")
+	}
+	if isDiscoverySkillSource(&MetadataEntry{Source: recorded, RepoURL: recorded}, source, "x") {
+		t.Error("a repository installed from the same URL was taken for the skill")
+	}
+}
+
 func TestBuildDiscoverySkillSource(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -263,7 +320,7 @@ func TestAgentRepoSource_RoundTripsAgentSource(t *testing.T) {
 		{"github repo subdir", "github.com/you/repo/pack/agents/demo.md", "agents/demo.md", "pack"},
 		{"ssh whole repo", "git@github.com:you/repo.git//agents/demo.md", "agents/demo.md", ""},
 		{"ssh repo subdir", "git@github.com:you/repo.git//pack/agents/demo.md", "agents/demo.md", "pack"},
-		{"file whole repo", "file:///tmp/repo/agents/demo.md", "agents/demo.md", ""},
+		{"file whole repo", "file:///tmp/repo//agents/demo.md", "agents/demo.md", ""},
 		{"file repo subdir", "file:///tmp/repo//pack/agents/demo.md", "agents/demo.md", "pack"},
 	}
 	for _, tt := range tests {

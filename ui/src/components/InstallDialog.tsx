@@ -92,9 +92,13 @@ function sourceKey(source: string): string {
   return github ? `github:${github.replace(/\.git(?=\/|$)/i, '').toLowerCase()}` : value;
 }
 
-function discoveredSource(source: string, path: string): string {
-  if (path === '.') return source;
-  return `${source}${/^(?:git@|ssh:\/\/).+\.git$/i.test(source) ? '//' : '/'}${path}`;
+// The sources a skill found in `source` may be recorded under: the server joins
+// with "/", "//" (SSH, file://) or ".git/" (GitLab, Bitbucket), and joined
+// every non-SSH source with "/" before #859.
+function discoveredSources(source: string, path: string): string[] {
+  if (path === '.') return [source];
+  const repo = source.trim().replace(/\/+$/, '');
+  return [`${repo}/${path}`, `${repo}//${path}`, `${repo}.git/${path}`];
 }
 
 function mergeHubs(hubs: HubSavedEntry[]): HubSavedEntry[] {
@@ -155,6 +159,7 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   const folders = useMemo(() => existingFolders(ofKind), [ofKind]);
   const installedKeys = useMemo(() => new Set((skillsData?.resources ?? []).filter((r) => r.source).map((r) => `${r.kind}:${sourceKey(r.source!)}`)), [skillsData]);
   const isInstalled = (k: Kind, source: string) => installedKeys.has(`${k}:${sourceKey(source)}`);
+  const isDiscoveredInstalled = (from: string, item: DiscoveredSkill) => discoveredSources(from, item.path).some((s) => isInstalled(item.kind ?? 'skill', s));
   const isInstalledResult = (result: SearchResult) => {
     if (!result.skill) return isInstalled(kind, result.source);
     const source = sourceKey(result.source);
@@ -332,7 +337,7 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
     const show = (items: DiscoveredSkill[]) => {
       setSource(from);
       setFound({ source: from, items });
-      const preselected = requestedSkills(wanted, from, items) ?? items.filter((i) => !isInstalled(i.kind ?? 'skill', discoveredSource(from, i.path)));
+      const preselected = requestedSkills(wanted, from, items) ?? items.filter((i) => !isDiscoveredInstalled(from, i));
       setSelected(new Set(preselected.map((i) => i.path)));
       setFilter('');
       setTab('url');
@@ -817,7 +822,7 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
                     <Checkbox label={item.name} hideLabel checked={selected.has(item.path)} onChange={() => toggle(item.path)} />
                     <span className="nm m w-[170px] shrink-0 truncate">{item.name}</span>
                     <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">{item.description}</span>
-                    {isInstalled(item.kind ?? 'skill', discoveredSource(found.source, item.path)) && <span className="ss-st ok shrink-0 text-ok">Installed</span>}
+                    {isDiscoveredInstalled(found.source, item) && <span className="ss-st ok shrink-0 text-ok">Installed</span>}
                   </div>
                 ))}
               </div>

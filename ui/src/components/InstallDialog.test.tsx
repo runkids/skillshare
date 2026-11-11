@@ -63,6 +63,21 @@ describe('InstallDialog', () => {
     ));
   });
 
+  it('leaves a skill unselected when it is installed under the source the server records for its host', async () => {
+    vi.mocked(api.listSkills).mockResolvedValue({
+      resources: [{ name: 'pdf', kind: 'skill', flatName: 'pdf', relPath: 'pdf', sourcePath: '/s/pdf', isInRepo: false, source: 'https://gitlab.com/team/skills.git/pdf' }],
+    });
+    vi.mocked(api.discover).mockResolvedValue({ needsSelection: true, skills: [{ name: 'pdf', path: 'pdf' }, { name: 'docx', path: 'docx' }], agents: [] });
+    const user = userEvent.setup();
+    renderDialog('url');
+
+    await user.type(screen.getByLabelText(/git url/i), 'https://gitlab.com/team/skills');
+    await user.click(screen.getByRole('button', { name: /find skills/i }));
+
+    expect(await screen.findByRole('checkbox', { name: 'pdf' })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'docx' })).toBeChecked();
+  });
+
   it('force installs only the skill the audit blocked', async () => {
     vi.mocked(api.discover).mockResolvedValue({ needsSelection: true, skills: [{ name: 'deploy', path: 'deploy' }], agents: [] });
     vi.mocked(api.installBatch)
