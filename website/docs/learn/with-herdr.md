@@ -15,6 +15,16 @@ sidebar_position: 8
 
 ## Setup
 
+### Mod: keep your current layout (recommended)
+
+Use the standalone [Mod package](https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod) to add the panel without replacing your window. Paste this prompt into an agent in Herdr:
+
+```text
+Read ~/.config/herdr-app/AGENTS.md, then add this mod from https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod. Follow its RECIPE.md: add only the skillshare toggle and panel to my current layout, preserving my status bar, usage meters and all other customizations. Reuse existing skillshare nodes instead of duplicating them.
+```
+
+The package has no `layouts/` folder. Its recipe adds or reuses only the skillshare toggle and panel, preserving your status bar, CLI usage meters, theme and other customizations. A Herdr-shipped layout is cloned before editing.
+
 ### From Herdr layouts
 
 The layout is listed at [Herdr layouts](https://herdr.dev/layouts/runkids/skillshare--herdr--skillshare/). Paste this prompt into an agent in Herdr:
@@ -36,6 +46,8 @@ The panel ships in the skillshare repository under [`herdr/skillshare`](https://
 A **skillshare** button appears in the tab bar. It shows and hides the panel, and the panel stays open or closed as you switch spaces.
 
 ## Updating the Panel
+
+For either installation option, an agent-assisted update should back up and replace only the installed skillshare mod. Keep the current layout selected; preserve every layout, custom status bar, usage meter, setting, key binding and unrelated mod. If a layout adjustment is necessary, merge only skillshare's own nodes instead of reapplying the complete layout.
 
 While it is shown, the panel asks GitHub once an hour for the latest skillshare release. When a newer one is published, its header shows **Update panel**. It asks first, replaces the files in `~/.config/herdr-app/mods/skillshare/` with the ones that release ships, and Herdr reloads the panel. The files it replaced are kept in that folder's `.bak-update-<version>`; changes you made to them are not carried over. Your layout is not touched.
 

@@ -6,6 +6,20 @@ skillshare beside your agents. Herdr's default window gains a skillshare button 
 
 skillshare keeps one source of skills, agents, MCP servers, plugins and hooks and syncs it to Claude Code, Codex, Gemini CLI and the other AI coding tools you use. New to it? Start with the [main README](../../README.md); this folder's [README](README.md) covers installing the panel.
 
+## Installation and updates
+
+This folder is the optional **complete Layout**, not an update payload. To add the panel to
+an existing window, use the standalone [Mod package](../skillshare-mod/RECIPE.md) instead.
+Keep the user's original layout intact; install this layout separately, under a new name if
+`herdr-skillshare` already exists. If this panel is already installed, update its mod rather
+than adding another copy.
+
+For an update requested by an agent, back up and replace only `mods/skillshare/`. Preserve
+all layouts, custom status bars and CLI usage meters, settings, keys, unrelated mods and the
+selected layout. If a new panel version needs a layout change, merge only its skillshare
+nodes into the existing tree. Reuse existing skillshare nodes; a panel update does not
+replace or switch layouts.
+
 ## What you see
 
 Left to right, everything as in Herdr's `main` layout, plus two blocks:
@@ -114,7 +128,7 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
 - The dialog's role is `panelupdate`: `panel` is the role a block without one gets, so a dialog with it would draw a second panel.
 - `enable` and `disable` exit 0 once the entry's own line in `.skillignore` or `.agentignore` is written or was not there. A glob, a folder pattern or a negation in the `.local` file can still decide the other way, so the panel reads `list --all --json` afterwards and reports an entry that did not change.
 - The dialog role for enabling or disabling a skill or agent is `able`, not `toggle`: `toggle` is the tab-bar button's role.
-- A layout clone is never updated: rebuild from this recipe on a new Herdr version.
+- Herdr does not update layout clones. On a new Herdr version, preserve the user's clone and merge only necessary compatibility changes; rebuilding this entire example is an explicit choice, not part of a panel update.
 
 ## Done when
 
