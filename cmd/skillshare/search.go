@@ -468,7 +468,7 @@ func installFromSearchResultProject(result search.SearchResult, cwd string) (err
 	}
 
 	// Reconcile project config with installed skills
-	if err := reconcileProjectRemoteSkills(runtime); err != nil {
+	if err := reconcileProjectInstalledSkills(runtime); err != nil {
 		return err
 	}
 

@@ -249,3 +249,58 @@ skills:
 		t.Errorf("config.yaml lost the skills entry after install -p:\n%s", cfg)
 	}
 }
+
+// Issue #858: installing a skill again from another source, after an uninstall
+// or over the existing copy, must leave the new source in config.yaml and the
+// lockfile, since those are what teammates install from.
+func TestInstallProject_NewSource_ReplacesConfigSource(t *testing.T) {
+	for _, viaUninstall := range []bool{true, false} {
+		sb := testutil.NewSandbox(t)
+		projectRoot := sb.SetupProjectDir("claude")
+		oldRepo := createMultiSkillGitRepo(t, sb, "old-skills", []string{"dev-testy"})
+		newRepo := createMultiSkillGitRepo(t, sb, "new-skills", []string{"dev-testy"})
+		configPath := filepath.Join(projectRoot, ".skillshare", "config.yaml")
+
+		sb.RunCLIInDir(projectRoot, "install", "file://"+oldRepo+"//dev-testy", "-p").AssertSuccess(t)
+		reinstall := []string{"install", "file://" + newRepo, "-s", "dev-testy", "-p"}
+		if viaUninstall {
+			sb.RunCLIInDir(projectRoot, "uninstall", "dev-testy", "-p", "--force").AssertSuccess(t)
+			if cfg := sb.ReadFile(configPath); strings.Contains(cfg, "dev-testy") {
+				t.Errorf("uninstall left the skill in config.yaml:\n%s", cfg)
+			}
+		} else {
+			reinstall = append(reinstall, "--force")
+		}
+		sb.RunCLIInDir(projectRoot, reinstall...).AssertSuccess(t)
+
+		for _, file := range []string{configPath, filepath.Join(projectRoot, ".skillshare", "skills.lock.json")} {
+			content := sb.ReadFile(file)
+			if strings.Contains(content, oldRepo) || !strings.Contains(content, newRepo) {
+				t.Errorf("viaUninstall=%v: %s should name only the new source:\n%s", viaUninstall, filepath.Base(file), content)
+			}
+		}
+		sb.Cleanup()
+	}
+}
+
+// On a fresh clone the config lists skills that are not installed yet. An
+// install from a named source must not drop them from config.yaml.
+func TestInstallProject_NamedSource_KeepsSkillsNotInstalledYet(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+	repo := createMultiSkillGitRepo(t, sb, "team-skills", []string{"pending", "added"})
+	sb.WriteProjectConfig(projectRoot, `targets:
+  - claude
+skills:
+  - name: pending
+    source: file://`+repo+`//pending
+`)
+
+	sb.RunCLIInDir(projectRoot, "install", "file://"+repo+"//added", "-p").AssertSuccess(t)
+
+	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
+	if !strings.Contains(cfg, "name: pending") || !strings.Contains(cfg, "name: added") {
+		t.Errorf("config.yaml should list both skills:\n%s", cfg)
+	}
+}

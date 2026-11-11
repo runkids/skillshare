@@ -251,6 +251,35 @@ func TestHandleInstall_ProjectRootRejected(t *testing.T) {
 	}
 }
 
+// Issue #858: the dashboard's project config must follow a skill installed
+// again from another source.
+func TestHandleInstall_ProjectNewSourceReplacesConfigSource(t *testing.T) {
+	s, _ := newProjectTargetServer(t, nil)
+
+	var sources []string
+	for _, dir := range []string{"old", "new"} {
+		src := filepath.Join(t.TempDir(), dir, "demo")
+		if err := os.MkdirAll(src, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("---\nname: demo\ndescription: "+dir+"\n---\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		sources = append(sources, src)
+
+		payload, _ := json.Marshal(map[string]any{"source": src, "name": "demo", "force": true})
+		rr := httptest.NewRecorder()
+		s.mux.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/install", bytes.NewReader(payload)))
+		if rr.Code != http.StatusOK {
+			t.Fatalf("install from %s: %d body=%s", dir, rr.Code, rr.Body.String())
+		}
+	}
+
+	if len(s.projectCfg.Skills) != 1 || s.projectCfg.Skills[0].Source != sources[1] {
+		t.Errorf("config skills = %+v, want one entry from %s", s.projectCfg.Skills, sources[1])
+	}
+}
+
 func TestHandleInstall_TrackPureAgentRepoInstallsIntoAgentsSource(t *testing.T) {
 	s, skillsDir := newTestServer(t)
 

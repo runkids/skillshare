@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"skillshare/internal/config"
 	"skillshare/internal/skillmove"
 	ssync "skillshare/internal/sync"
 )
@@ -66,7 +67,12 @@ func (s *Server) handleBatchMove(w http.ResponseWriter, r *http.Request) {
 		Targets:   skillmove.EnabledTargets(s.cfg.Targets),
 		Force:     body.Force,
 		DryRun:    body.DryRun,
-		Reconcile: func() error { return s.reconcileSkills(source, true) },
+		Reconcile: func(moved map[string]string) error {
+			if s.IsProjectMode() {
+				return config.ReconcileProjectMove(s.projectRoot, s.projectCfg, s.skillsStore, source, moved)
+			}
+			return s.reconcileSkills(source, true)
+		},
 	}
 	if s.IsProjectMode() {
 		opts.ProjectRoot = s.projectRoot

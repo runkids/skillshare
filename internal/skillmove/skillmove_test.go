@@ -572,7 +572,7 @@ func TestRun_ReconcileRunsAfterRecordsAreSaved(t *testing.T) {
 	f.skill(t, "demo")
 	f.record("demo")
 	calls := 0
-	f.opts.Reconcile = func() error {
+	f.opts.Reconcile = func(map[string]string) error {
 		calls++
 		saved, err := install.LoadMetadata(f.source)
 		if err != nil || !saved.Has("grp/demo") {
@@ -622,7 +622,9 @@ func TestRun_ProjectModeCarriesPinGroupAndGitignore(t *testing.T) {
 	o := Options{
 		SourceDir: source, Store: store, ProjectRoot: root,
 		GitignoreDir: gitDir, GitignorePrefix: prefix,
-		Reconcile: func() error { return config.ReconcileProjectSkills(root, cfg, store, source) },
+		Reconcile: func(moved map[string]string) error {
+			return config.ReconcileProjectMove(root, cfg, store, source, moved)
+		},
 	}
 	discovered, err := sync.DiscoverSourceSkillsAll(source)
 	if err != nil {
@@ -661,7 +663,7 @@ func TestRun_NestedRecordsSurviveReconcileUnderMovedParent(t *testing.T) {
 	f.record("foo/sub")
 	f.store.AuditAccepted = map[string][]string{"foo/sub": {"nested-key"}}
 	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(t.TempDir(), "config.yaml"))
-	f.opts.Reconcile = func() error {
+	f.opts.Reconcile = func(map[string]string) error {
 		return config.ReconcileGlobalSkills(&config.Config{Source: f.source}, f.store)
 	}
 

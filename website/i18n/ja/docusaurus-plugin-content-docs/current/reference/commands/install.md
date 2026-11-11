@@ -270,6 +270,8 @@ skillshare install ./my-skill -p
 | Config の更新 | `config.yaml` の `skills:` を自動調整 | `.skillshare/config.yaml` の `skills:` を自動調整 |
 | 引数なし install | config に記載された全 Skill をインストール | config に記載された全 Skill をインストール |
 
+別の source やブランチから同じ Skill を再インストールすると（アンインストール後、または `--force` で既存のコピーを上書き）、`.skillshare/config.yaml` のエントリと `skills.lock.json` の pin が置き換えられ、チームメンバーは新しい source からインストールします。それ以外のエントリが、このマシンのインストール記録から書き換えられることはありません。
+
 **プロジェクトモードでのトラック対象リポジトリ** はグローバルと同様に動作します — リポジトリは `.git` を保持したままクローンされ、`.skillshare/.gitignore`（デフォルトで `.skillshare/logs/`、`.skillshare/trash/`、`.skillshare/backups/`、`.metadata.json` ファイルも無視）に追加されます。`tracked: true` フラグは `.skillshare/config.yaml` に自動的に記録されます。
 
 ```bash
