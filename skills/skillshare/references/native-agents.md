@@ -10,6 +10,7 @@ skillshare install org/agents --kind agent --all
 skillshare install org/agents --agent reviewer,tutor
 skillshare list agents --json
 skillshare check agents --json
+skillshare check agents --exit-code   # exit 1 when an agent is not up to date
 skillshare update agents reviewer
 skillshare collect agents claude --dry-run
 skillshare sync agents --dry-run
