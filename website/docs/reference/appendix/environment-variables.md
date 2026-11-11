@@ -19,9 +19,11 @@ SKILLSHARE_AUTO_UPDATE_CHECK=false skillshare status
 **Default:** `updates.auto_check` in config.yaml, or `true` when unset.
 Accepts `true`/`false`, `1`/`0`, `t`/`f` and Go boolean case variants; empty or
 invalid values are ignored. The environment takes precedence without rewriting config.
-CLI, web UI and desktop app version notifications are suppressed when false;
+CLI, web UI and compatible desktop app version notifications are suppressed when false;
 explicit checks and upgrades remain available. GUI apps must inherit this variable
-when launched. See [updates](/docs/reference/commands/updates).
+when launched. Desktop support requires an app release that includes
+[skillshare-app#126](https://github.com/runkids/skillshare-app/pull/126); upgrading
+the CLI alone does not disable checks in older desktop builds. See [updates](/docs/reference/commands/updates).
 
 ### SKILLSHARE_CONFIG
 

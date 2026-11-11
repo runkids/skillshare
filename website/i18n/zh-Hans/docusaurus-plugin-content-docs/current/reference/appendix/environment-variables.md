@@ -10,11 +10,13 @@ skillshare 识别的所有环境变量。
 
 ### SKILLSHARE_AUTO_UPDATE_CHECK {#skillshare_auto_update_check}
 
-覆盖全局 config.yaml 的 `updates.auto_check`。设为 `false` 时，CLI、Web UI 和桌面 App 停止自动版本检查，不显示更新通知或版本徽章；仍可手动检查与升级。环境变量优先于配置文件，不会回写。未设置时使用配置文件，默认为 `true`。接受 `true/false`、`1/0`、`t/f` 及 Go 布尔值大小写变体；空值或无效值忽略。GUI App 必须在启动时继承此环境变量。
+覆盖全局 config.yaml 的 `updates.auto_check`。设为 `false` 时，CLI、Web UI 和支持此设置的桌面 App 停止自动版本检查，不显示更新通知或版本徽章；仍可手动检查与升级。环境变量优先于配置文件，不会回写。未设置时使用配置文件，默认为 `true`。接受 `true/false`、`1/0`、`t/f` 及 Go 布尔值大小写变体；空值或无效值忽略。GUI App 必须在启动时继承此环境变量。
 
 ```bash
 SKILLSHARE_AUTO_UPDATE_CHECK=false skillshare status
 ```
+
+桌面支持需要包含 [skillshare-app#126](https://github.com/runkids/skillshare-app/pull/126) 的 App 版本；只升级 CLI 不会关闭旧版桌面 App 的自动检查。
 
 [updates](/docs/reference/commands/updates)
 

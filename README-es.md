@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Última versión**: v0.30.0 — El dashboard web rechaza los cambios que otro sitio web envía a través de tu navegador y responde solo en `localhost`, una dirección IP y las direcciones en las que confías, así que una página de DNS rebinding tampoco puede alcanzarlo. Detrás de un proxy inverso, inícialo con [`--trusted-origin`](https://skillshare.runkids.cc/docs/reference/commands/ui#reverse-proxy) y todas las páginas funcionan a través de tu dominio, incluidos MCP, Hooks y Plugins; un dashboard abierto con cualquier otro nombre de dominio ahora necesita este ajuste. [`skillshare plugin`](https://skillshare.runkids.cc/docs/reference/commands/plugin) también ofrece a Codex los plugins que solo traen un manifiesto de Claude, con los skills y servidores MCP que Codex puede usar. [Todas las versiones →](https://github.com/runkids/skillshare/releases)
+> **Última versión**: v0.30.5 — Elige cuándo actualizar: `skillshare updates off` desactiva las comprobaciones automáticas de versión y las notificaciones en la CLI y el dashboard web. Las comprobaciones y actualizaciones manuales siguen disponibles. [Configuración y variable de entorno →](https://skillshare.runkids.cc/docs/reference/commands/updates) · [Todas las versiones →](https://github.com/runkids/skillshare/releases)
 
 ## Por qué skillshare
 

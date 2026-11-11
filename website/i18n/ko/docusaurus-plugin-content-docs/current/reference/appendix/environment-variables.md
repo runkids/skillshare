@@ -10,11 +10,13 @@ skillshare가 인식하는 모든 환경 변수입니다.
 
 ### SKILLSHARE_AUTO_UPDATE_CHECK {#skillshare_auto_update_check}
 
-전역 config.yaml의 `updates.auto_check`보다 우선합니다. `false`이면 CLI, Web UI 및 데스크톱 앱의 자동 버전 확인, 업데이트 알림과 버전 배지를 끕니다. 수동 확인과 업그레이드는 계속 사용할 수 있습니다. 설정 파일은 변경하지 않습니다. 미설정 시 설정 파일을 따르며 기본값은 `true`입니다. `true/false`, `1/0`, `t/f` 및 Go 불리언 대소문자 표기를 허용하고 빈 값이나 잘못된 값은 무시합니다. GUI 앱은 시작할 때 이 환경 변수를 상속해야 합니다.
+전역 config.yaml의 `updates.auto_check`보다 우선합니다. `false`이면 CLI, Web UI 및 이 설정을 지원하는 데스크톱 앱의 자동 버전 확인, 업데이트 알림과 버전 배지를 끕니다. 수동 확인과 업그레이드는 계속 사용할 수 있습니다. 설정 파일은 변경하지 않습니다. 미설정 시 설정 파일을 따르며 기본값은 `true`입니다. `true/false`, `1/0`, `t/f` 및 Go 불리언 대소문자 표기를 허용하고 빈 값이나 잘못된 값은 무시합니다. GUI 앱은 시작할 때 이 환경 변수를 상속해야 합니다.
 
 ```bash
 SKILLSHARE_AUTO_UPDATE_CHECK=false skillshare status
 ```
+
+데스크톱 지원에는 [skillshare-app#126](https://github.com/runkids/skillshare-app/pull/126)이 포함된 앱 릴리스가 필요합니다. CLI만 업그레이드해도 이전 데스크톱 버전의 자동 확인은 꺼지지 않습니다.
 
 [updates](/docs/reference/commands/updates)
 
