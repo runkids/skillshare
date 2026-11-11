@@ -37,6 +37,28 @@ func (s *Server) reconcileSkillsConfig(sourceDir string) {
 	}
 }
 
+// skillsStoreOnDisk reads the store an install is about to change. The cached
+// one may lag a CLI command run while the dashboard is open.
+func (s *Server) skillsStoreOnDisk() *install.MetadataStore {
+	if st, err := install.LoadMetadataWithMigration(s.cfg.EffectiveSkillsSource(), ""); err == nil && st != nil {
+		return st
+	}
+	return s.skillsStore
+}
+
+// reconcileInstalledSkills is reconcileSkillsConfig after an install. before
+// is the store as it was before the install, so a project config entry follows
+// a skill installed from another source (config.ReconcileProjectInstall).
+func (s *Server) reconcileInstalledSkills(before *install.MetadataStore, sourceDir string) {
+	if !s.IsProjectMode() {
+		s.reconcileSkillsConfig(sourceDir)
+		return
+	}
+	if err := config.ReconcileProjectInstall(s.projectRoot, s.projectCfg, before, s.skillsStore, sourceDir); err != nil {
+		log.Printf("warning: failed to reconcile skills config: %v", err)
+	}
+}
+
 // reconcileSkills is reconcileSkillsConfig for a caller that reports the error.
 // Without prune it only adopts moved records.
 func (s *Server) reconcileSkills(sourceDir string, prune bool) error {
@@ -156,6 +178,7 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	defer s.trackProjectLock()()
+	before := s.skillsStoreOnDisk()
 
 	var body struct {
 		Source string `json:"source"`
@@ -365,7 +388,7 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		} else {
 			s.reloadSkillsStore()
 		}
-		s.reconcileSkillsConfig(s.cfg.EffectiveSkillsSource())
+		s.reconcileInstalledSkills(before, s.cfg.EffectiveSkillsSource())
 	}
 
 	writeJSON(w, map[string]any{
@@ -379,6 +402,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	defer s.trackProjectLock()()
+	before := s.skillsStoreOnDisk()
 
 	var body struct {
 		Source    string `json:"source"`
@@ -498,7 +522,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		// Reconcile config after tracked repo install
 		if trackedKind == "skill" {
 			s.reloadSkillsStore()
-			s.reconcileSkillsConfig(s.cfg.EffectiveSkillsSource())
+			s.reconcileInstalledSkills(before, s.cfg.EffectiveSkillsSource())
 		}
 
 		args := map[string]any{
@@ -581,7 +605,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 
 	// Reconcile config after single install
 	s.reloadSkillsStore()
-	s.reconcileSkillsConfig(s.cfg.EffectiveSkillsSource())
+	s.reconcileInstalledSkills(before, s.cfg.EffectiveSkillsSource())
 
 	okArgs := map[string]any{
 		"source":           body.Source,

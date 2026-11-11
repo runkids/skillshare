@@ -23,7 +23,7 @@ type moveMode struct {
 
 	projectRoot                   string // "" in global mode
 	gitignoreDir, gitignorePrefix string
-	reconcile                     func() error
+	reconcile                     func(moved map[string]string) error
 }
 
 // options returns the core's view of the mode.
@@ -59,7 +59,7 @@ func globalMoveMode() (*moveMode, error) {
 		store:     store,
 		targets:   cfg.Targets,
 		cfgPath:   config.ConfigPath(),
-		reconcile: func() error { return config.ReconcileGlobalSkills(cfg, store) },
+		reconcile: func(map[string]string) error { return config.ReconcileGlobalSkills(cfg, store) },
 	}, nil
 }
 
