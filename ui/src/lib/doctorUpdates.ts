@@ -1,4 +1,4 @@
-import type { DoctorResponse } from '../api/client';
+import type { DoctorCheck, DoctorResponse } from '../api/client';
 
 /** Remove cached update notices without hiding unrelated diagnostic warnings. */
 export function doctorWithUpdatePolicy(data: DoctorResponse, enabled: boolean): DoctorResponse {
@@ -6,6 +6,14 @@ export function doctorWithUpdatePolicy(data: DoctorResponse, enabled: boolean): 
   const checks = data.checks.filter((check) => !check.update_available);
   return {
     ...data,
+    ...doctorFromChecks(checks),
+    version: data.version ? { current: data.version.current, dev_mode: data.version.dev_mode, update_available: false } : undefined,
+  };
+}
+
+/** A result for the checks found so far, counted the way doctor counts them. */
+export function doctorFromChecks(checks: DoctorCheck[]): DoctorResponse {
+  return {
     checks,
     summary: {
       total: checks.length,
@@ -14,6 +22,5 @@ export function doctorWithUpdatePolicy(data: DoctorResponse, enabled: boolean): 
       errors: checks.filter((check) => check.status === 'error').length,
       info: checks.filter((check) => check.status === 'info').length,
     },
-    version: data.version ? { current: data.version.current, dev_mode: data.version.dev_mode, update_available: false } : undefined,
   };
 }

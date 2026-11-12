@@ -32,6 +32,7 @@ type doctorResult struct {
 	start          time.Time
 	next           []string // command and reason pairs for the closing Next
 	updateCommands []string // Suggestions belonging to automatic version notices.
+	stream         func(doctorCheck)
 }
 
 // doctorWidth aligns the labels of doctor's fixed rows.
@@ -50,9 +51,11 @@ func (r *doctorResult) addCheck(name, status, message string, details []string) 
 }
 
 func (r *doctorResult) addCheckWithSuggestions(name, status, message string, details []string, suggestions []string) {
-	r.checks = append(r.checks, doctorCheck{
-		Name: name, Status: status, Message: message, Details: details, Suggestions: suggestions,
-	})
+	check := doctorCheck{Name: name, Status: status, Message: message, Details: details, Suggestions: suggestions}
+	r.checks = append(r.checks, check)
+	if r.stream != nil {
+		r.stream(check)
+	}
 }
 
 func (r *doctorResult) addInfo(name, message string) {
@@ -126,13 +129,14 @@ func cmdDoctorGlobal(jsonMode bool) error {
 	skillCh := make(chan string, 1)
 	go func() { skillCh <- fetchDoctorSkillVersion() }()
 
+	result := &doctorResult{start: time.Now()}
 	var restoreUI func()
 	if jsonMode {
+		result.stream = doctorCheckStream(os.Stdout)
 		restoreUI = suppressUIToDevnull()
 	}
 
 	fmt.Println(theme.Primary().Bold(true).Render(ui.WithModeLabel("Environment")))
-	result := &doctorResult{start: time.Now()}
 
 	// Check config exists
 	if _, err := os.Stat(config.ConfigPath()); os.IsNotExist(err) {
@@ -182,13 +186,14 @@ func cmdDoctorProject(root string, jsonMode bool) error {
 	skillCh := make(chan string, 1)
 	go func() { skillCh <- fetchDoctorSkillVersion() }()
 
+	result := &doctorResult{start: time.Now()}
 	var restoreUI func()
 	if jsonMode {
+		result.stream = doctorCheckStream(os.Stdout)
 		restoreUI = suppressUIToDevnull()
 	}
 
 	fmt.Println(theme.Primary().Bold(true).Render(ui.WithModeLabel("Environment")))
-	result := &doctorResult{start: time.Now()}
 
 	cfgPath := config.ProjectConfigPath(root)
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {

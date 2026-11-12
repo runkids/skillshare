@@ -607,6 +607,7 @@ func (s *Server) registerRoutes() {
 
 	// Doctor (health check)
 	s.mux.HandleFunc("GET /api/doctor", s.handleDoctor)
+	s.mux.HandleFunc("GET /api/doctor/stream", s.handleDoctorStream)
 
 	// Backups
 	s.mux.HandleFunc("GET /api/backups", s.handleListBackups)

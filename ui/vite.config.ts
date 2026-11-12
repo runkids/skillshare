@@ -39,6 +39,7 @@ export default defineConfig({
       '/api/update/stream': SSE_PROXY,
       '/api/check/stream': SSE_PROXY,
       '/api/diff/stream': SSE_PROXY,
+      '/api/doctor/stream': SSE_PROXY,
       '/api/plugins/check/stream': SSE_PROXY,
       '/api/plugins/update/stream': SSE_PROXY,
       // Keep the browser's Host header: the MCP endpoints compare it against Origin,
