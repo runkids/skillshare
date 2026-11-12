@@ -560,10 +560,12 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 					c.Message = "Imported installation has no reinstall source; install it in the native client, then sync again."
 					c.MessageKey = "plugins.note.importInstallRequired"
 				}
+				local := d.state.Bindings[name][target]
+				pendingRemoval := local.Pending != nil && (local.Pending.Action == "remove" || local.Pending.Action == "forget" || local.Pending.Action == "uninstall") && local.Pending.Store == s.storeIdentity(target) && local.Pending.Binding.ID == b.ID
 				switch {
 				case c.Action == "forget" && agent != "omp" || c.Action == "selection":
 					p.Changes = append(p.Changes, c)
-				case c.Action == "update" && agent == "omp" && exists && b.Source != "":
+				case agent == "omp" && b.Source != "" && (c.Action == "update" && exists || r.Action == "update" && c.Action == "install" && pendingRemoval):
 					// OMP's native upgrade replaces cache another project may still use.
 					// Refresh the way a source change does: remove only this scope's
 					// registration, keep the cache, and install the new commit under a
@@ -608,8 +610,8 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 	// anything to do, the update is blocked as it was before isolation.
 	if !r.All && r.isolatesTargets() && !slices.ContainsFunc(p.Changes, func(c Change) bool { return c.Action != "noop" && c.Action != "skip" }) {
 		for i, c := range p.Changes {
-			if c.batchError {
-				p.Changes[i].Action, p.Changes[i].batchError = "blocked", false
+			if c.Failed {
+				p.Changes[i].Action, p.Changes[i].Failed = "blocked", false
 				p.Blocked = true
 			}
 		}
@@ -624,16 +626,12 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 	}
 	ompRemovals := map[string]string{}
 	ompRuntimePaths := map[string]string{}
-	batchErrors := map[string]bool{}
 	for _, c := range p.Changes {
 		if c.ompRuntimePath != "" {
 			ompRuntimePaths[c.Target+"\x00"+c.ID] = c.ompRuntimePath
 		}
 		if c.ompRemoval != nil {
 			ompRemovals[c.Target+"\x00"+c.ID] = c.ompRemoval.revision
-		}
-		if c.batchError {
-			batchErrors[c.Name+"\x00"+c.Target+"\x00"+c.ID] = true
 		}
 	}
 	stores := map[string]string{}
@@ -650,8 +648,7 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 		OMPCacheRoots   map[string]string
 		OMPRemovals     map[string]string
 		OMPRuntimePaths map[string]string
-		BatchErrors     map[string]bool
-	}{r, string(d.raw), string(d.stateRaw), stores, reviewedChanges(p.Changes), hosts, ompRoots, ompRemovals, ompRuntimePaths, batchErrors})
+	}{r, string(d.raw), string(d.stateRaw), stores, reviewedChanges(p.Changes), hosts, ompRoots, ompRemovals, ompRuntimePaths})
 	p.hosts = hosts
 	p.Revision = hash(fingerprint)
 	return p, nil
@@ -698,7 +695,7 @@ func (s *Service) prepareChange(ctx context.Context, r Request, d *document, hos
 	agent := s.agentOf(c.Target)
 	failChange := func(message, key string, args map[string]string) {
 		if r.isolatesTargets() {
-			c.Action, c.batchError = "skip", true
+			c.Action, c.Failed = "skip", true
 		} else {
 			c.Action = "blocked"
 		}
@@ -713,7 +710,9 @@ func (s *Service) prepareChange(ctx context.Context, r Request, d *document, hos
 	if h.Error != "" && c.Action != "blocked" && c.Action != "skip" {
 		failChange(h.Error, h.ErrorKey, h.ErrorArgs)
 	}
-	if c.Action != "blocked" && c.Action != "noop" && c.Action != "forget" && c.Action != "skip" && c.Action != "import" && c.Action != "update-available" && c.Action != "native-check" {
+	// Source-less OMP updates are skipped below; they do not need native upgrade support.
+	importedOMPUpdate := agent == "omp" && c.Action == "update" && c.Binding.Source == ""
+	if !importedOMPUpdate && c.Action != "blocked" && c.Action != "noop" && c.Action != "forget" && c.Action != "skip" && c.Action != "import" && c.Action != "update-available" && c.Action != "native-check" {
 		if err := s.verifyCommand(ctx, c.Target, c.Action, c.ID); err != nil {
 			failChange(err.Error(), "", nil)
 		}
@@ -815,15 +814,17 @@ func (s *Service) prepareChange(ctx context.Context, r Request, d *document, hos
 			s.prepareOMPInstall(ctx, h, &c, cleanup)
 		}
 		if c.Action == "remove" || c.Action == "uninstall" || c.Action == "forget" {
+			local := d.state.Bindings[c.Name][c.Target]
+			reviewedVersion := c.Binding.Version
+			if local.Pending != nil && (local.Pending.Action == "remove" || local.Pending.Action == "forget" || local.Pending.Action == "uninstall") && local.Pending.Store == s.storeIdentity(c.Target) && local.Pending.Binding.ID == c.Binding.ID && local.Pending.OMPRemovalVersion != "" {
+				c.Binding.Version = local.Pending.OMPRemovalVersion
+			}
 			s.prepareOMPRemoval(h, &c)
-		}
-		// update --all has always passed over OMP updates it cannot make; keep that for a refresh it cannot verify.
-		if r.All && c.Action == "blocked" && (c.MessageKey == "plugins.error.ompNativeDestructive" || c.ompRefresh) && len(r.Targets) == 0 {
-			c.Action = "skip"
+			c.Binding.Version = reviewedVersion
 		}
 	}
 	if r.isolatesTargets() && c.Action == "blocked" {
-		c.Action, c.batchError = "skip", true
+		c.Action, c.Failed = "skip", true
 	}
 	return c
 }
@@ -882,7 +883,7 @@ func (s *Service) checkOrUpdate(ctx context.Context, r Request, c Change, action
 			return c, err
 		}
 		key, args := ErrorKey(err)
-		c.Action, c.batchError = "skip", true
+		c.Action, c.Failed = "skip", true
 		c.Message, c.MessageKey, c.MessageArgs = err.Error(), key, args
 		return c, nil
 	}
@@ -894,7 +895,7 @@ func (s *Service) checkOrUpdate(ctx context.Context, r Request, c Change, action
 		}
 		c.Action = "blocked"
 		if r.isolatesTargets() {
-			c.Action, c.batchError = "skip", true
+			c.Action, c.Failed = "skip", true
 		}
 		c.Message = candidateErr.Error()
 		return c, nil

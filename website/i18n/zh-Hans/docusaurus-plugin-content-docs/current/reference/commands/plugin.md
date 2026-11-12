@@ -49,7 +49,7 @@ target 会保存该选择。下一次 `sync plugins` 会移除其受管理的安
 | `remove [NAME]` | Uninstall managed bindings and remove their definitions |
 
 裸命令会在终端中提示缺失的输入。非交互式的变更命令需要显式输入。
-`sync` 和 `check` 可以对所有 packages 进行操作；`update` 传入 `--all`（`-a`）时会更新所有受管理的 packages。为多个 Agent 更新单个 package 时（不带 `--target`，或指定多个），各个 Agent 也按同样的方式处理：无法更新的 Agent 会连同原因报告为失败，其他 Agent 照常更新，命令以非零状态退出。没有其他 Agent 需要更新，或只指定一个 `--target` 时，更新会被阻止。`sync --all` **不**包含 plugins；请显式使用
+`sync` 和 `check` 可以对所有 packages 进行操作；`update` 传入 `--all`（`-a`）时会更新所有受管理的 packages。为多个 Agent 更新单个 package 时（不带 `--target`，或指定多个），各个 Agent 也按同样的方式处理：失败的 Agent 会连同原因报告，其他 Agent 照常更新，命令以非零状态退出。没有其他 Agent 需要更新，或只指定一个 `--target` 时，更新会被阻止。`sync --all` **不**包含 plugins；请显式使用
 `sync plugins`。
 
 ## 选项
@@ -169,9 +169,9 @@ Catalog 优先使用 `.omp-plugin/marketplace.json`，仅在 OMP catalog 不存�
 适配器，删除该安装的注册表条目、运行时选择和经过验证的 `node_modules` 链接。plugin 会从该作用域
 卸载，而不只是停用。共享 cache、marketplace 和 plugin 设置会保留；不会尝试 cache 垃圾回收。
 当旧 cache 仍存在时，重新安装会自动选择新的 marketplace/cache 身份，不会替换其他项目可能使用的
-文件。无法读取、是链接或不是目录的 cache 目标位置仍会被阻止。
+文件。无法读取、是链接或不是目录的 cache 目标位置仍会被阻止。安装到已注册且归属已验证的 marketplace 前会刷新目录。
 
-移除需要经过验证的 18.6.1+ 元数据契约、相符的已安装版本、无歧义的 JSON，以及已证实的运行时链接
+移除需要经过验证的 18.6.1+ 元数据契约、作用域相符且版本和 cache 路径经过验证的原生注册（即使绑定版本不同）、无歧义的 JSON，以及已证实的运行时链接
 所有权。真实的模块文件夹、外部链接、npm 依赖冲突或无法确定的运行时拥有者都会被拒绝。如果 cache
 manifest 缺失，适配器会要求一个唯一的 runtime-lock key，且其作用域本地链接指向该安装的 cache；
 它绝不会猜测 marketplace 名称，也不会在实际运行时链接仍然安装的情况下报告成功。无法验证的有效
@@ -184,7 +184,7 @@ Skillshare 绑定；另一个 plugin 的 `node_modules` 目录不会阻止它。
 它的锁；请不要同时运行原生 plugin 变更操作。这不是一个原子的多文件原生事务。
 更新从不运行 OMP 原生的 upgrade：它用同一个适配器移除这个 scope 的注册，再把经审核的 commit
 安装到新的 cache identity，因此保留的 cache 会继续留给其他项目。无法验证移除时，更新会被阻止；
-`update --all` 会跳过它并说明原因。没有经审核的来源，导入的代码永远不会被升级。
+`update --all` 会报告失败及原因，并继续处理其他目标。没有经审核的来源，导入的代码永远不会被升级。
 
 项目操作要求所选的根目录与 OMP 原生的项目锚点相符；它们绝不会悄悄地安装到 global 或某个上层项目中。
 原生 profile/config-root 覆盖（`PI_CONFIG_DIR`、`PI_CODING_AGENT_DIR`、`OMP_PROFILE` 或
@@ -323,8 +323,7 @@ Skillshare 从不提供原生信任的批准 flags。
   add 总会启用它，所以在 Codex 中被停用的 plugin 会被跳过。导入的 Codex
   plugin 会用 `codex plugin marketplace upgrade NAME` 更新，这会重新安装 Codex
   从该 marketplace 安装的所有 plugin，Codex 启动时也会这样做。
-- 更新遇到无法处理的 target 时会跳过并说明原因；该 plugin 的其他 Agent 仍会照常更新，
-  被跳过的更新会保留为待处理，留给之后的 sync。
+- 更新会报告失败的 target 及其原因，同时继续处理正常的 target；有意跳过的目标仍待后续 sync 处理。预演会输出完整计划，失败时以非零状态退出；隔离的失败在 JSON 中包含 `failed: true`。
 - 已导入的 plugins 保留其原始的 marketplace 身份。`check` 无法为没有 source 的
   已导入 plugin 推断发布可用性，但 Pi 的 npm 包会向 npm 检查。若已导入的 Claude 或 Codex plugin 的原生
   marketplace 已经不在，sync 和 update 会跳过该 target 并说明原因。新机器即使有同名 marketplace，仍需要明确在本机导入。请在 Agent

@@ -249,7 +249,7 @@ type Change struct {
 	ompRuntimePath string
 	// piRecordAfter records the entry Pi writes on install, which keeps another version's filters.
 	piRecordAfter bool
-	batchError    bool
+	Failed        bool   `json:"failed,omitempty"`
 	ompRefresh    bool   // either half of an OMP update's removal and fresh reinstall
 	Name          string `json:"name"`
 	Target        string `json:"target"`

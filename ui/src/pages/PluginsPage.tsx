@@ -263,7 +263,7 @@ export default function PluginsPage() {
                     {!!c.preservedKeys?.length && <span className="text-xs text-ink-3"><span>{t('plugins.preservedKeys')}</span>{' '}{c.preservedKeys.join(' · ')}</span>}
                     {c.action === 'record' ? <span className="text-xs text-ink-3">{t('plugins.recordHelp')}</span> : (c.message || c.components?.length) && <span className="text-xs text-ink-3">{c.message ? keyedMessage(t, c) : c.components!.join(' · ')}</span>}
                   </span>
-                  <span className={`ss-tag ${actionTone(c.action)}`}>{actionText(c.action)}</span>
+                  <span className={`ss-tag ${c.failed ? 'bad' : actionTone(c.action)}`}>{c.failed ? t('plugins.outcome.failed') : actionText(c.action)}</span>
                 </div>
               ))}
             </div>}

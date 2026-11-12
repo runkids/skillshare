@@ -49,7 +49,7 @@ target 會儲存這個選擇。下一次 `sync plugins` 會移除其受管理的
 | `remove [NAME]` | 解除安裝受管理的綁定並移除其定義 |
 
 在終端機中執行不帶參數的指令會提示輸入缺少的內容。非互動式的異動指令則需要明確的輸入。
-`sync` 和 `check` 可以對所有套件操作；`update` 傳入 `--all`（`-a`）時會更新所有受管理的套件。為多個 Agent 更新單一套件時（不帶 `--target`，或指定多個），各個 Agent 也以同樣方式處理：無法更新的 Agent 會連同原因回報為失敗，其他 Agent 照常更新，指令以非零狀態結束。沒有其他 Agent 需要更新，或只指定一個 `--target` 時，更新會被擋下。`sync --all` **不會**包含 plugin；請明確使用 `sync plugins`。
+`sync` 和 `check` 可以對所有套件操作；`update` 傳入 `--all`（`-a`）時會更新所有受管理的套件。為多個 Agent 更新單一套件時（不帶 `--target`，或指定多個），各個 Agent 也以同樣方式處理：失敗的 Agent 會連同原因回報，其他 Agent 照常更新，指令以非零狀態結束。沒有其他 Agent 需要更新，或只指定一個 `--target` 時，更新會被擋下。`sync --all` **不會**包含 plugin；請明確使用 `sync plugins`。
 
 ## Options
 
@@ -151,8 +151,7 @@ skillshare plugin import demo@my-market --from omp --dry-run --json -g
 安裝需要 OMP **18.6.1+**、已審閱的本機/Git source、一個經過驗證且先前未使用過的 cache
 目的地，以及尚不存在的 scope 本機 runtime 目的地。Runtime 套件名稱來自已審閱的 source，
 而不只是 marketplace 名稱。既有的 module 目錄或連結會擋下安裝，而不會被取代；目的地會綁定
-到預覽，並在安裝前再次檢查。Adapter 會讓 plugin 樹保持完整，使用原生 marketplace 安裝，
-並驗證產生的註冊結果。Catalog 優先使用 `.omp-plugin/marketplace.json`，只有在 OMP catalog 不存在時才退回
+到預覽，並在安裝前再次檢查。Adapter 會讓 plugin 樹保持完整，使用原生 marketplace 安裝，並驗證產生的註冊結果。Catalog 優先使用 `.omp-plugin/marketplace.json`，只有在 OMP catalog 不存在時才退回
 `.claude-plugin/marketplace.json`。OMP entry 可以指向在 `package.json` 宣告 `omp.extensions` 或 `pi.extensions`
 的套件；即使 npm 名稱不同或未提供，也會使用 marketplace 的 plugin 名稱。
 不同 catalog 將同名 plugin 放在不同目錄時，OMP 會保留自己的路徑、版本與 components。
@@ -169,9 +168,9 @@ skillshare plugin import demo@my-market --from omp --dry-run --json -g
 runtime 選取以及經過驗證的 `node_modules` 連結。Plugin 會從該 scope 解除安裝，而不只是停用。
 共用 cache、marketplaces 與 plugin 設定會保留；不會嘗試清理 cache。舊 cache 仍存在時，
 重新安裝會自動選擇新的 marketplace/cache 身分，不會取代其他 project 可能使用的檔案。
-無法讀取、被連結或不是目錄的 cache 目的地仍會被擋下。
+無法讀取、被連結或不是目錄的 cache 目的地仍會被擋下。安裝至已註冊且歸屬已驗證的 marketplace 前會重新整理目錄。
 
-移除需要經過驗證的 18.6.1+ metadata 契約、相符的已安裝版本、明確的 JSON，以及可證明的
+移除需要經過驗證的 18.6.1+ metadata 契約、scope 相符且版本與 cache 路徑經過驗證的原生註冊（即使綁定版本不同）、明確的 JSON，以及可證明的
 runtime 連結所有權。真實的 module 資料夾、外部連結、npm 依賴衝突或不明確的 runtime 擁有者
 都會被拒絕。若缺少 cache manifest，adapter 需要一個唯一的 runtime-lock 鍵，且其 scope 本機
 連結指向該安裝的 cache；它絕不猜測 marketplace 名稱，也不會在實際 runtime 連結仍在時回報成功。
@@ -185,7 +184,7 @@ Adapter 會將 Skillshare 的移除操作序列化並檢查原生檔案的版本
 不參與它的鎖；請勿同時執行原生 plugin 變更。這不是原子性的多檔案原生交易。
 更新絕不會執行 OMP 原生的 upgrade：它用同一個 adapter 移除這個 scope 的註冊，再把已審閱的 commit
 安裝到全新的 cache identity，因此保留的 cache 會繼續留給其他專案。無法驗證移除時，更新會被擋下；
-`update --all` 會略過它並說明原因。匯入的程式碼絕不會在沒有已審閱 source 的情況下升級。
+`update --all` 會回報失敗與原因，並繼續處理其他目標。匯入的程式碼絕不會在沒有已審閱 source 的情況下升級。
 
 Project 操作要求所選的根目錄與 OMP 原生的 project anchor 相符；絕不會默默改為全域安裝或
 安裝到上層 project。原生 profile/config 根目錄覆寫（`PI_CONFIG_DIR`、`PI_CODING_AGENT_DIR`、
@@ -319,7 +318,7 @@ Copilot 與 Antigravity CLI 的安裝使用已檢視過的本機快照。匯入�
   請設定 [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli)。自己設了 `cli` 的帳號不會進行搜尋。
 - 此 adapter 不提供 Codex 原生的專案安裝。全域 Codex 安裝的 sync 選擇仍然可用。
 - Codex 沒有 update 指令，因此更新會以重新整理後的快照再次 add 該 plugin。add 一定會啟用它，所以在 Codex 中被停用的 plugin 會被略過。匯入的 Codex plugin 會以 `codex plugin marketplace upgrade NAME` 更新，這會重新安裝 Codex 從該 marketplace 安裝的所有 plugin，Codex 啟動時也會這麼做。
-- 更新遇到無法處理的 target 時會略過並說明原因；該 plugin 的其他 Agent 仍會照常更新，被略過的更新會保留為待處理，留待之後的 sync。
+- 更新會回報失敗的 target 及其原因，同時繼續處理正常的 target；有意略過的目標仍待後續 sync 處理。預演會輸出完整計畫，失敗時以非零狀態結束；隔離的失敗在 JSON 中包含 `failed: true`。
 - 匯入的 plugin 會保留其原始的 marketplace 身分。對於沒有 source 的匯入 plugin，`check` 無法
   推斷是否有新版本可用，但 Pi 的 npm 套件會向 npm 檢查。若匯入的 Claude 或 Codex plugin 的原生 marketplace 已經不在，
   sync 和 update 會略過該 target 並說明原因。新機器即使有同名 marketplace，仍需要明確在本機匯入。請在 Agent 中恢復該 marketplace，或移除該

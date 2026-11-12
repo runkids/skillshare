@@ -122,6 +122,18 @@ func (s *Service) ompRemovalPlan(b Binding, cacheRoot string) (*ompRemoval, erro
 	if err != nil {
 		return nil, err
 	}
+	if raw, exists := plugins[b.ID]; exists {
+		var entries []struct{ Scope, InstallPath, Version string }
+		if json.Unmarshal(raw, &entries) != nil || len(entries) != 1 {
+			return nil, fmt.Errorf("ambiguous OMP installed entries")
+		}
+		e := entries[0]
+		v := e.Version
+		if e.Scope != scope || v == "" || filepath.Base(v) != v || strings.ContainsAny(v, "\\/\r\n\x00") || !filepath.IsAbs(e.InstallPath) || filepath.Clean(e.InstallPath) != ompCachePath(cacheRoot, b.ID, v) || ompSafePath(e.InstallPath) != nil {
+			return nil, fmt.Errorf("OMP installation identity cannot be verified")
+		}
+		b.Version, p.version = v, v
+	}
 	cache := ompCachePath(cacheRoot, b.ID, b.Version)
 	// Even when native registration is already absent, the retained cache proves
 	// which runtime key/link a partially completed removal still owns.
@@ -187,17 +199,14 @@ func (s *Service) ompRemovalPlan(b Binding, cacheRoot string) (*ompRemoval, erro
 		}
 	}
 	for id, raw := range plugins {
+		if id == b.ID {
+			continue // This entry was validated before choosing the cache.
+		}
 		var entries []struct{ Scope, InstallPath, Version string }
 		if json.Unmarshal(raw, &entries) != nil || len(entries) != 1 {
 			return nil, fmt.Errorf("ambiguous OMP installed entries")
 		}
 		e := entries[0]
-		if id == b.ID {
-			if e.Scope != scope || filepath.Clean(e.InstallPath) != cache || e.Version != b.Version {
-				return nil, fmt.Errorf("OMP installation changed; import its current version before removing")
-			}
-			continue
-		}
 		other, _, valid := strings.Cut(id, "@")
 		if !valid || !filepath.IsAbs(e.InstallPath) || ompSafePath(e.InstallPath) != nil {
 			return nil, fmt.Errorf("another OMP runtime owner cannot be verified")

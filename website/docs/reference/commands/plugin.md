@@ -58,7 +58,7 @@ Bare commands prompt for missing inputs in a terminal. Noninteractive mutation
 commands require explicit inputs. `sync` and `check` may operate on all packages;
 `update` updates all managed packages when passed `--all` (`-a`).
 Updating one package for several Agents (no `--target`, or more than one) works the
-same way per Agent: an Agent that cannot update is reported as failed with its reason,
+same way per Agent: a failed Agent is reported with its reason,
 the others still update, and the command exits non-zero. When no other Agent has
 anything to update, or the update names a single `--target`, it is blocked instead.
 `sync --all` does **not** include plugins; use `sync plugins` explicitly.
@@ -199,10 +199,13 @@ is uninstalled from that scope, not merely disabled. Shared cache, marketplaces
 and plugin settings are retained; no cache garbage collection is attempted.
 Reinstall automatically chooses a fresh marketplace/cache identity when the old
 cache still exists, without replacing files another project may use. Unreadable,
-linked or non-directory cache destinations remain blocked.
+linked or non-directory cache destinations remain blocked. When an owned marketplace
+is already registered, its catalog is refreshed before installation.
 
-Removal requires the verified 18.6.1+ metadata contract, matching installed
-version, unambiguous JSON and proven runtime-link ownership. A real module folder,
+Removal requires the verified 18.6.1+ metadata contract, unambiguous JSON and
+proven runtime-link ownership. A present native registry entry must match the
+scope and have a verified version and cache path, even if the binding version
+differs. A real module folder,
 foreign link, npm dependency collision or ambiguous runtime owner is refused.
 If the cache manifest is missing, the adapter requires a unique runtime-lock key
 whose scope-local link points to that installation's cache; it never guesses the
@@ -221,7 +224,8 @@ mutations concurrently. This is not an atomic multi-file native transaction.
 An update never runs OMP's native upgrade. It removes this scope's registration with
 the same adapter, then installs the reviewed commit under a fresh cache identity, so
 the retained cache stays for other projects. When the removal cannot be verified,
-the update is blocked; `update --all` skips it with the reason. Imported code is
+the update is blocked; `update --all` reports it as failed with the reason and
+continues other targets. Imported code is
 never upgraded without a reviewed source.
 
 Project operations require the selected root to match OMP's native project
@@ -495,8 +499,9 @@ never supplies native trust approval flags.
   skipped. An imported Codex plugin is updated with
   `codex plugin marketplace upgrade NAME`, which reinstalls every plugin Codex
   installed from that marketplace, as Codex also does when it starts.
-- An update skips a target it cannot reach and says why; the plugin's other
-  Agents still update, and a skipped update stays pending for a later sync.
+- An update reports a failed target and its reason while continuing healthy targets;
+  intentional skips remain pending for a later sync. A dry run prints the complete
+  plan and exits nonzero on failure; isolated failures include `failed: true` in JSON.
 - Imported plugins retain their original marketplace identity. `check` cannot
   infer release availability for an imported plugin without a source, except an npm
   package in Pi, which it checks against npm. If an

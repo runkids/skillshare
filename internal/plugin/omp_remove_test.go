@@ -198,6 +198,46 @@ func TestOMPRemovalRefusesUnsafeMetadata(t *testing.T) {
 	}
 }
 
+func TestOMPRemovalRejectsUnverifiedNativeIdentity(t *testing.T) {
+	for _, variant := range []string{"scope", "relative", "foreign path", "unsafe version", "duplicate"} {
+		t.Run(variant, func(t *testing.T) {
+			s, b, root, cache := ompRemovalFixture(t, false)
+			scope, path, version := "user", cache, "1.0.0"
+			switch variant {
+			case "scope":
+				scope = "project"
+			case "relative":
+				path = "relative"
+			case "foreign path":
+				path = filepath.Join(t.TempDir(), "foreign")
+			case "unsafe version":
+				version = "nested/other"
+				path = ompCachePath(filepath.Join(os.Getenv("HOME"), ".omp/plugins/cache/plugins"), b.ID, version)
+				writeFile(t, path, "package.json", `{"name":"demo-runtime","version":"nested/other"}`)
+				link := filepath.Join(root, "node_modules", "demo-runtime")
+				if err := os.Remove(link); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(path, link); err != nil {
+					t.Fatal(err)
+				}
+			}
+			entry := map[string]string{"scope": scope, "installPath": path, "version": version}
+			entries := []any{entry}
+			if variant == "duplicate" {
+				entries = append(entries, entry)
+			}
+			raw, _ := json.Marshal(map[string]any{"version": 2, "plugins": map[string]any{b.ID: entries}})
+			writeFile(t, root, "installed_plugins.json", string(raw))
+			same := unchanged(t, filepath.Join(root, "installed_plugins.json"), filepath.Join(root, "omp-plugins.lock.json"))
+			if _, err := s.ompRemovalPlan(b, filepath.Join(os.Getenv("HOME"), ".omp/plugins/cache/plugins")); err == nil {
+				t.Fatal("unverified identity accepted")
+			}
+			same()
+		})
+	}
+}
+
 func TestOMPReinstallAllocatesFreshIdentityWithoutTouchingRetainedCache(t *testing.T) {
 	agents := &fakeAgents{version: "1.0.0"}
 	s := agents.service(t)
