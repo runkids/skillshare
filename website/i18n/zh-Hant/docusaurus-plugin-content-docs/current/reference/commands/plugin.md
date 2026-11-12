@@ -170,8 +170,8 @@ runtime 選取以及經過驗證的 `node_modules` 連結。Plugin 會從該 sco
 重新安裝會自動選擇新的 marketplace/cache 身分，不會取代其他 project 可能使用的檔案。
 無法讀取、被連結或不是目錄的 cache 目的地仍會被擋下。安裝至已註冊且歸屬已驗證的 marketplace 前會重新整理目錄。
 
-移除需要經過驗證的 18.6.1+ metadata 契約、scope 相符且版本與 cache 路徑經過驗證的原生註冊（即使綁定版本不同）、明確的 JSON，以及可證明的
-runtime 連結所有權。真實的 module 資料夾、外部連結、npm 依賴衝突或不明確的 runtime 擁有者
+移除需要經過驗證的 18.6.1+ metadata 契約、明確的 JSON，以及可證明的 runtime 連結所有權。
+若存在原生註冊，即使綁定版本不同，它也必須 scope 相符，且版本與 cache 路徑經過驗證。真實的 module 資料夾、外部連結、npm 依賴衝突或不明確的 runtime 擁有者
 都會被拒絕。若缺少 cache manifest，adapter 需要一個唯一的 runtime-lock 鍵，且其 scope 本機
 連結指向該安裝的 cache；它絕不猜測 marketplace 名稱，也不會在實際 runtime 連結仍在時回報成功。
 無法驗證的作用中安裝仍會被擋下。若原生解除安裝已經移除 cache、註冊以及 runtime 連結/選取，

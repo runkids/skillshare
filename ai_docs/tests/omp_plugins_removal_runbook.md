@@ -280,3 +280,5 @@ foreign registrations, links and cache bytes remain unchanged. Reinstall uses a
 fresh identity, and no extension executes during management.
 
 A second machine completes a source replacement in one reviewed sync; direct source edits also reconcile through update. Shared intent and retained cache remain intact.
+
+Removal follows a verified native registry version that differs from the binding and keeps both caches. A batch update reports the unverifiable OMP target as failed, exits nonzero in dry run and apply, and still updates the healthy target without changing OMP's registry.
