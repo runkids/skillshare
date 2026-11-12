@@ -1006,3 +1006,33 @@ func TestDoctorBundledReferencesCleanJSON(t *testing.T) {
 	}
 	t.Fatalf("clean bundled references pass missing: %+v", checks)
 }
+
+// The dashboard asks doctor to print each check as it is found, so it can show
+// checks while slower ones run; the full result must still follow.
+func TestDoctor_JSON_StreamPrintsEachCheckBeforeResult(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.CreateSkill("skill1", map[string]string{"SKILL.md": "# Skill 1"})
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets:\n  claude:\n    path: " + sb.CreateTarget("claude") + "\n")
+
+	stdout := sb.RunCLIEnv(map[string]string{"_SKILLSHARE_DOCTOR_STREAM": "1"}, "doctor", "--json").Stdout
+
+	var streamed []string
+	rest := stdout
+	for strings.HasPrefix(rest, `{"check":`) {
+		line, after, _ := strings.Cut(rest, "\n")
+		var l struct{ Check doctorJSONCheck }
+		if err := json.Unmarshal([]byte(line), &l); err != nil {
+			t.Fatalf("bad check line %q: %v", line, err)
+		}
+		streamed = append(streamed, l.Check.Name)
+		rest = after
+	}
+	var final []string
+	for _, c := range parseDoctorJSON(t, rest).Checks {
+		final = append(final, c.Name)
+	}
+	if strings.Join(streamed, ",") != strings.Join(final, ",") {
+		t.Fatalf("streamed checks %v, want the result's checks %v", streamed, final)
+	}
+}

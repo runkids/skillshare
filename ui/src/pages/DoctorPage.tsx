@@ -7,7 +7,7 @@ import Button from '../components/Button';
 import CopyButton from '../components/CopyButton';
 import { upgradeErrorMessage } from '../lib/upgradeError';
 import PageHeader from '../components/PageHeader';
-import { PageSkeleton } from '../components/Skeleton';
+import Skeleton, { PageSkeleton } from '../components/Skeleton';
 import { useAppContext } from '../context/AppContext';
 import { useT, plural } from '../i18n';
 import { shortenHome } from '../lib/paths';
@@ -17,7 +17,7 @@ import { useOverviewQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
 import { segSlide } from '../lib/segSlide';
 import { useUpdatePolicy } from '../hooks/useUpdatePolicy';
-import { doctorWithUpdatePolicy } from '../lib/doctorUpdates';
+import { doctorFromChecks, doctorWithUpdatePolicy } from '../lib/doctorUpdates';
 
 type Filter = 'all' | 'error' | 'warning' | 'pass';
 
@@ -36,11 +36,21 @@ export default function DoctorPage() {
   const [open, setOpen] = useState<string | null>(null);
   const [upgrading, setUpgrading] = useState(false);
   const [upgradeMessage, setUpgradeMessage] = useState<string | null>(null);
+  // Checks already found while the first run is still going.
+  const [streamed, setStreamed] = useState<DoctorCheck[]>([]);
 
   const overview = useOverviewQuery();
   const policy = useUpdatePolicy();
-  const { data: rawData, isPending, error, isFetching, refetch } = useQuery({ queryKey: queryKeys.doctor, queryFn: () => api.doctor(), staleTime: staleTimes.doctor });
-  const data = useMemo(() => rawData && doctorWithUpdatePolicy(rawData, policy.data?.enabled === true), [rawData, policy.data?.enabled]);
+  const { data: rawData, isPending, error, isFetching, refetch } = useQuery({
+    queryKey: queryKeys.doctor,
+    queryFn: ({ signal }) => {
+      setStreamed([]);
+      return api.doctorStream((check) => setStreamed((prev) => [...prev, check]), signal);
+    },
+    staleTime: staleTimes.doctor,
+  });
+  const shown = useMemo(() => rawData ?? (streamed.length > 0 ? doctorFromChecks(streamed) : undefined), [rawData, streamed]);
+  const data = useMemo(() => shown && doctorWithUpdatePolicy(shown, policy.data?.enabled === true), [shown, policy.data?.enabled]);
 
   const checks = useMemo(() => {
     const all = data?.checks ?? [];
@@ -96,7 +106,7 @@ export default function DoctorPage() {
     </>
   );
 
-  if (isPending) return <div className="ss-wrap animate-page-in">{header}<PageSkeleton /></div>;
+  if (isPending && !data) return <div className="ss-wrap animate-page-in">{header}<PageSkeleton /></div>;
   if (error) {
     return (
       <div className="ss-wrap animate-page-in">
@@ -147,10 +157,17 @@ export default function DoctorPage() {
       </div>
 
       <div className="ss-list">
-        {checks.length === 0 ? (
+        {checks.length === 0 && !isPending ? (
           <p className="px-4 py-8 text-center text-[13px] text-ink-3">{t('doctor.filter.noMatch')}</p>
         ) : (
           checks.map((check, i) => <CheckRow key={`${check.name}-${i}`} check={check} open={open === `${check.name}-${i}`} onToggle={() => setOpen(open === `${check.name}-${i}` ? null : `${check.name}-${i}`)} />)
+        )}
+        {isPending && (
+          <div className="ss-r" aria-hidden="true">
+            <Skeleton className="h-4 w-4 shrink-0" />
+            <Skeleton className="h-4 w-[160px] shrink-0" />
+            <Skeleton className="h-4 flex-1" />
+          </div>
         )}
       </div>
 

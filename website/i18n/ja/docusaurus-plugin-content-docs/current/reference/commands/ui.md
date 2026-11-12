@@ -188,6 +188,7 @@ Web ダッシュボードは `/api/` に REST API を公開しています。す
 | GET | `/api/skillignore` | `.skillignore` の内容、ある場合は `.skillignore.local` の内容、ignore の統計を取得 |
 | PUT | `/api/skillignore` | `.skillignore` の内容を更新 |
 | GET | `/api/doctor` | すべてのヘルスチェックを実行（JSON） |
+| GET | `/api/doctor/stream` | すべてのヘルスチェックを Server-Sent Events で実行。チェックが見つかるたびに `check` イベントを送り、最後に `/api/doctor` と同じ JSON を `done` で送る |
 | GET | `/api/health` | 死活監視プローブ。サーバーの準備ができると `200` を返す |
 | GET | `/api/version` | 現在/最新バージョン、アップグレードの可否、Nix でのインストールでは CLI を更新するコマンド（`nixUpgradeCommand`） |
 | POST | `/api/upgrade` | `skillshare upgrade` をその場で実行（バイナリが開発ビルドの場合は `devMode: true` を返し、Nix でのインストールで新しい CLI が待機中の場合はコード `upgrade.nix` の `409` を返す） |
