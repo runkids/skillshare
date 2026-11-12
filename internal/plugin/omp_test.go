@@ -287,6 +287,22 @@ func TestOMPImportOfAPackagePluginIsRefusedWithItsReason(t *testing.T) {
 	if len(agents.commands) != 0 {
 		t.Fatalf("imported update ran native commands: %q", agents.commands)
 	}
+	run := s.Run
+	s.Run = func(ctx context.Context, dir string, env []string, bin string, args ...string) ([]byte, error) {
+		if bin == "omp" && strings.Join(args, " ") == "plugin upgrade --help" {
+			return []byte("upgrade unavailable"), nil
+		}
+		return run(ctx, dir, env, bin, args...)
+	}
+	batch := Request{Action: "update", All: true}
+	p, err = s.Preview(context.Background(), batch)
+	if err != nil || p.Blocked || len(p.Changes) != 1 || p.Changes[0].Action != "skip" || p.Changes[0].Failed {
+		t.Fatalf("imported batch update should be a safe skip: %+v %v", p, err)
+	}
+	result, err := s.Apply(context.Background(), batch, p.Revision)
+	if err != nil || result == nil || len(result.Results) != 1 || result.Results[0].Status != "skipped" || len(agents.commands) != 0 {
+		t.Fatalf("imported batch update changed native state or failed: %+v %v commands=%q", result, err, agents.commands)
+	}
 	if p, err := s.Preview(context.Background(), Request{Action: "check", Name: "demo"}); err != nil || p.Changes[0].Action != "native-check" {
 		t.Fatalf("imported check: %+v %v", p, err)
 	}

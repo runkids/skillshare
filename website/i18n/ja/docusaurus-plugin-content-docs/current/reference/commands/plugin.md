@@ -49,8 +49,6 @@ skillshare plugin remove review --no-tui
 
 ## オプション
 
-失敗を含むドライランは全プランを表示して 0 以外で終了し、分離された失敗には JSON で `failed: true` が付きます。意図的なスキップは保留のままです。
-
 | オプション | 意味 |
 |---|---|
 | `--target TARGET` | 繰り返し指定可能な選択: `claude`、`codex`、`cursor`、`antigravity`（エイリアス `agy`）、`antigravity-cli`、`copilot`、`grok`、`pi`、`omp`、`opencode`、または [Agent の別のアカウント](#accounts)の名前。下の capability 表を参照 |
@@ -163,7 +161,7 @@ plugin 設定は保持され、cache のガベージコレクションは行い�
 別の project が使っている可能性のあるファイルは置き換えられません。読み取れない、
 リンクである、またはディレクトリでない cache の配置先は引き続きブロックされます。登録済みの所有 marketplace へのインストール前にはカタログを更新します。
 
-削除には、検証済みの 18.6.1+ メタデータ契約、検証済みのバージョンと cache パスを持つスコープ一致のネイティブ登録、
+削除には、検証済みの 18.6.1+ メタデータ契約、binding のバージョンが異なる場合でも、検証済みのバージョンと cache パスを持つスコープ一致のネイティブ登録、
 曖昧さのない JSON、そして証明されたランタイムリンクの所有権が必要です。実際のモジュールフォルダー、
 他者のリンク、npm 依存関係の衝突、曖昧なランタイム所有者は拒否されます。
 cache のマニフェストがない場合、アダプタは、スコープ内のリンクがそのインストールの cache を指す一意のランタイムロックキーを要求します。
@@ -297,7 +295,7 @@ Copilot と Antigravity CLI のインストールは、reviewed されたロー�
   [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli) を設定してください。独自の `cli` を持つ account は検索されません。
 - Codex のネイティブな project インストールは、このアダプタでは提供されません。global の Codex インストールに対する sync 選択は引き続き機能します。
 - Codex には update コマンドがないため、update は更新後のスナップショットからプラグインを再度 add します。add は常にプラグインを有効にするため、Codex で無効化されたプラグインはスキップされます。Import した Codex プラグインは `codex plugin marketplace upgrade NAME` で更新されます。これは Codex がその marketplace からインストールしたすべてのプラグインを再インストールするもので、Codex も起動時に同じことを行います。
-- update は対応できない Target を理由を示してスキップし、そのプラグインのほかの Agent は通常どおり更新されます。スキップされた update は保留のまま残り、後の sync で処理されます。
+- update は失敗した Target とその理由を報告し、正常な Target の処理を続けます。意図的なスキップは後の sync まで保留されます。ドライランは全プランを表示し、失敗時は 0 以外で終了します。分離された失敗には JSON で `failed: true` が付きます。
 - インポートされた plugin は元のマーケットプレイス identity を保持します。`check` は、source のないインポート済み plugin についてリリースの有無を推測できません。ただし Pi の npm パッケージは npm で確認します。インポートした Claude または Codex の plugin のネイティブ marketplace がなくなった場合、sync と update はその Target をスキップして理由を示します。新しいマシンでは、同名の marketplace があっても明示的なローカル import が必要です。Agent で marketplace を復元するか、その Target を削除して source から plugin を追加し直してください。Skillshare がインポート済み plugin を勝手に別の source へ移すことはありません。
 - Skillshare は管理下の Claude/Codex plugin ごとに marketplace を 1 つ登録し、`skillshare-<plugin>-<hash>` と名付けます（以前のインストールは `skillshare-<hash>` のまま）。plugin を削除または除外すると、plugin がすでになくてもその marketplace も削除し、失敗したクリーンアップは次回の sync で再試行します。marketplace がなくなっていた場合、update で再登録します。別のパスにある同名の登録とインポート済み plugin の marketplace には触れません。スナップショットとネイティブキャッシュは保持されます。
 - これらの登録は、user 設定でも project 設定でも、このマシンの Skillshare 状態ディレクトリを指します。Git や dotfile マネージャーで Agent の設定を共有すると、ほかのマシンには存在しないパスが持ち込まれます。各マシンで source から plugin を追加してください。

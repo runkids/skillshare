@@ -186,6 +186,93 @@ printf '{"sourceReplaced":true,"sharedIntentUnchanged":true,"cacheRetained":true
 - exit_code: 0
 - jq: .sourceReplaced and .sharedIntentUnchanged and .cacheRetained and .directEditReplaced
 
+### 4. Remove an installation whose native registry version differs
+
+This constructs a second native cache version in the isolated HOME, preserving the
+binding recorded by Skillshare. It changes only the fixture's native registration.
+
+```bash
+set -eu
+cd /workspace
+go build -o "$HOME/version-removal-skillshare" ./cmd/skillshare
+ss="$HOME/version-removal-skillshare"
+source="$HOME/version-removal-source"
+mkdir -p "$source/.claude-plugin" "$source/skills/probe"
+printf '%s\n' '{"name":"version-probe","version":"1.0.0"}' > "$source/.claude-plugin/plugin.json"
+printf '%s\n' '{"name":"version-runtime","version":"1.0.0"}' > "$source/package.json"
+printf '%s\n' '---' 'name: probe' 'description: Inert fixture' '---' 'No executable resources.' > "$source/skills/probe/SKILL.md"
+cd "$HOME"
+"$ss" plugin add "$source" --target omp --no-tui -g > "$HOME/version-add.log"
+registry="$HOME/.omp/plugins/installed_plugins.json"
+omp plugin list --json > "$HOME/version-native.json"
+id=$(jq -r '.marketplace[] | select(.scope == "user" and (.id | startswith("version-probe@"))) | .id' "$HOME/version-native.json")
+old=$(jq -r --arg id "$id" '.plugins[$id][0].installPath' "$registry")
+test -n "$id" && test -d "$old"
+new="${old%___*}___2.0.0"
+cp -R "$old" "$new"
+link="$HOME/.omp/plugins/node_modules/version-runtime"
+test "$(readlink "$link")" = "$old"
+rm "$link"
+ln -s "$new" "$link"
+jq --arg id "$id" --arg path "$new" '.plugins[$id][0].version = "2.0.0" | .plugins[$id][0].installPath = $path' "$registry" > "$registry.tmp"
+mv "$registry.tmp" "$registry"
+"$ss" plugin remove version-probe --dry-run --json -g > "$HOME/version-plan.json"
+jq -e '.blocked == false and .changes[0].action == "remove" and .changes[0].binding.version == "1.0.0"' "$HOME/version-plan.json" > /dev/null
+revision=$(jq -r '.revision' "$HOME/version-plan.json")
+"$ss" plugin remove version-probe --revision "$revision" --no-tui -g > "$HOME/version-remove.log"
+jq -e --arg id "$id" '.plugins | has($id) | not' "$registry" > /dev/null
+test ! -e "$link" && test -d "$new" && test -d "$old"
+printf '{"removed":true,"bothCachesRetained":true}\n'
+```
+
+**Expected:**
+- exit_code: 0
+- jq: .removed and .bothCachesRetained
+
+### 5. Report an unverifiable OMP update while updating a healthy target
+
+Replacing the fixture's runtime link with a directory makes ownership unverifiable. Both
+targets use an inert source in the isolated HOME.
+
+```bash
+set -eu
+cd /workspace
+go build -o "$HOME/batch-failure-skillshare" ./cmd/skillshare
+ss="$HOME/batch-failure-skillshare"
+source="$HOME/batch-failure-source"
+mkdir -p "$source/.claude-plugin" "$source/.cursor-plugin" "$source/skills/probe"
+printf '%s\n' '{"name":"batch-probe","version":"1.0.0"}' > "$source/.claude-plugin/plugin.json"
+printf '%s\n' '{"name":"batch-probe","version":"1.0.0"}' > "$source/.cursor-plugin/plugin.json"
+printf '%s\n' '{"name":"batch-runtime","version":"1.0.0"}' > "$source/package.json"
+printf '%s\n' '---' 'name: probe' 'description: Inert fixture' '---' 'No executable resources.' > "$source/skills/probe/SKILL.md"
+cd "$HOME"
+"$ss" plugin add "$source" --target omp --target cursor --no-tui -g > "$HOME/batch-add.log"
+registry="$HOME/.omp/plugins/installed_plugins.json"
+cp "$registry" "$HOME/batch-registry-before.json"
+link="$HOME/.omp/plugins/node_modules/batch-runtime"
+test -L "$link"
+rm "$link"
+mkdir "$link"
+printf '%s\n' '{"name":"batch-probe","version":"2.0.0"}' > "$source/.claude-plugin/plugin.json"
+printf '%s\n' '{"name":"batch-probe","version":"2.0.0"}' > "$source/.cursor-plugin/plugin.json"
+printf '%s\n' '---' 'name: probe' 'description: Inert fixture' '---' 'Updated fixture.' > "$source/skills/probe/SKILL.md"
+set +e
+"$ss" plugin update --all --dry-run --json -g > "$HOME/batch-plan.json" 2> "$HOME/batch-plan.err"
+plan_status=$?
+"$ss" plugin update --all --json -g > "$HOME/batch-result.json" 2> "$HOME/batch-result.err"
+update_status=$?
+set -e
+test "$plan_status" -ne 0 && test "$update_status" -ne 0
+jq -e '.changes | any(.target == "omp" and .failed == true and (.message | length > 0))' "$HOME/batch-plan.json" > /dev/null
+jq -e '.results | any(.target == "omp" and .status == "failed") and any(.target == "cursor" and .status == "installed")' "$HOME/batch-result.json" > /dev/null
+cmp "$HOME/batch-registry-before.json" "$registry"
+printf '{"dryRunFailed":true,"ompFailed":true,"cursorUpdated":true}\n'
+```
+
+**Expected:**
+- exit_code: 0
+- jq: .dryRunFailed and .ompFailed and .cursorUpdated
+
 ## Pass Criteria
 
 The scoped registry, runtime selection and link are removed rather than disabled;

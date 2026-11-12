@@ -53,8 +53,6 @@ target 會儲存這個選擇。下一次 `sync plugins` 會移除其受管理的
 
 ## Options
 
-包含失敗的預演會輸出完整計畫並以非零狀態結束；隔離的失敗在 JSON 中包含 `failed: true`。有意略過的目標仍保持待處理。
-
 | Option | Meaning |
 |---|---|
 | `--target TARGET` | 可重複指定：`claude`、`codex`、`cursor`、`antigravity`（別名 `agy`）、`antigravity-cli`、`copilot`、`grok`、`pi`、`omp`、`opencode`，或[某個 Agent 的另一個帳號](#accounts)的名稱；請參閱下方的 capability 表 |
@@ -172,7 +170,7 @@ runtime 選取以及經過驗證的 `node_modules` 連結。Plugin 會從該 sco
 重新安裝會自動選擇新的 marketplace/cache 身分，不會取代其他 project 可能使用的檔案。
 無法讀取、被連結或不是目錄的 cache 目的地仍會被擋下。安裝至已註冊且歸屬已驗證的 marketplace 前會重新整理目錄。
 
-移除需要經過驗證的 18.6.1+ metadata 契約、scope 相符且版本與 cache 路徑經過驗證的原生註冊、明確的 JSON，以及可證明的
+移除需要經過驗證的 18.6.1+ metadata 契約、scope 相符且版本與 cache 路徑經過驗證的原生註冊（即使綁定版本不同）、明確的 JSON，以及可證明的
 runtime 連結所有權。真實的 module 資料夾、外部連結、npm 依賴衝突或不明確的 runtime 擁有者
 都會被拒絕。若缺少 cache manifest，adapter 需要一個唯一的 runtime-lock 鍵，且其 scope 本機
 連結指向該安裝的 cache；它絕不猜測 marketplace 名稱，也不會在實際 runtime 連結仍在時回報成功。
@@ -320,7 +318,7 @@ Copilot 與 Antigravity CLI 的安裝使用已檢視過的本機快照。匯入�
   請設定 [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli)。自己設了 `cli` 的帳號不會進行搜尋。
 - 此 adapter 不提供 Codex 原生的專案安裝。全域 Codex 安裝的 sync 選擇仍然可用。
 - Codex 沒有 update 指令，因此更新會以重新整理後的快照再次 add 該 plugin。add 一定會啟用它，所以在 Codex 中被停用的 plugin 會被略過。匯入的 Codex plugin 會以 `codex plugin marketplace upgrade NAME` 更新，這會重新安裝 Codex 從該 marketplace 安裝的所有 plugin，Codex 啟動時也會這麼做。
-- 更新遇到無法處理的 target 時會略過並說明原因；該 plugin 的其他 Agent 仍會照常更新，被略過的更新會保留為待處理，留待之後的 sync。
+- 更新會回報失敗的 target 及其原因，同時繼續處理正常的 target；有意略過的目標仍待後續 sync 處理。預演會輸出完整計畫，失敗時以非零狀態結束；隔離的失敗在 JSON 中包含 `failed: true`。
 - 匯入的 plugin 會保留其原始的 marketplace 身分。對於沒有 source 的匯入 plugin，`check` 無法
   推斷是否有新版本可用，但 Pi 的 npm 套件會向 npm 檢查。若匯入的 Claude 或 Codex plugin 的原生 marketplace 已經不在，
   sync 和 update 會略過該 target 並說明原因。新機器即使有同名 marketplace，仍需要明確在本機匯入。請在 Agent 中恢復該 marketplace，或移除該

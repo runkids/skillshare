@@ -191,3 +191,40 @@ func TestPluginUpdateAllDryRunReportsFailures(t *testing.T) {
 		})
 	}
 }
+
+func TestPluginUpdateAllDryRunReportsOMPFailure(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	for _, key := range []string{"PI_CONFIG_DIR", "PI_CODING_AGENT_DIR", "OMP_PROFILE", "PI_PROFILE"} {
+		t.Setenv(key, "")
+	}
+	source := filepath.Join(home, "source")
+	if err := os.MkdirAll(filepath.Join(source, ".claude-plugin"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, ".claude-plugin", "plugin.json"), []byte(`{"name":"demo","version":"1.0.0"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(source, "skills", "demo"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, "skills", "demo", "SKILL.md"), []byte("---\nname: demo\ndescription: fixture\n---\nFixture"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	s := &plugin.Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+	raw := "plugins:\n  version: 2\n  packages:\n    demo:\n      source: " + source + "\n      plugin: demo\n      bindings:\n        omp: {}\n"
+	if err := os.WriteFile(s.ConfigPath, []byte(raw), 0600); err != nil {
+		t.Fatal(err)
+	}
+	s.Run = func(context.Context, string, []string, string, ...string) ([]byte, error) {
+		return nil, errors.New("fixture OMP unavailable")
+	}
+	var runErr error
+	output := captureStdout(t, func() {
+		runErr = executePlugin(s, pluginOptions{request: plugin.Request{Action: "update", All: true}, dryRun: true, json: true, noTUI: true})
+	})
+	var plan plugin.Plan
+	if err := json.Unmarshal([]byte(output), &plan); runErr == nil || err != nil || len(plan.Changes) != 1 || plan.Changes[0].Target != "omp" || !plan.Changes[0].Failed || !strings.Contains(plan.Changes[0].Message, "OMP") {
+		t.Fatalf("OMP dry-run failure missing: %s error=%v json=%v", output, runErr, err)
+	}
+}
