@@ -14,6 +14,8 @@ export interface AuditFinding {
   fingerprint?: string;
   /** Why severity is below the rule's own; 'python-inert' lowers CRITICAL to HIGH. */
   severityContext?: string;
+  /** Accepted earlier with --force; no longer blocks. */
+  acknowledged?: boolean;
 }
 
 export interface AuditResult {
@@ -43,6 +45,8 @@ export interface AuditSummary {
   medium: number;
   low: number;
   info: number;
+  /** Findings accepted earlier with --force; left out of the severity counts. */
+  accepted?: number;
   threshold: string;
   riskScore: number;
   riskLabel: 'clean' | 'low' | 'medium' | 'high' | 'critical';

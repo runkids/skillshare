@@ -39,6 +39,26 @@ skillshare audit --format markdown --min-severity medium
 
 In the dashboard, choose **Minimum severity** in the severity filter, then select a severity count to show that level and above. **Exact severity** preserves the previous selection behavior. Click the selected severity again to clear it. Without a selection, LOW/INFO findings retain their per-resource expander; visible/hidden counts include collapsed findings. Filtering never rescans or changes policy, scores or blocked status.
 
+## Accepted findings {#accepted-findings}
+
+```bash
+skillshare audit --respect-accepted
+skillshare audit --respect-accepted --threshold high --format json
+```
+
+Findings you accepted with `--force` during `install` or `update` are recorded in `.metadata.json` (see [Accepted Findings](/docs/reference/commands/update#accepted-findings)). A plain `audit` still fails on them. With `--respect-accepted`, audit applies those acceptances the way the update gate does: the findings stay in the report, but they no longer fail it. A resource whose other findings are below the threshold counts as a warning, and the exit code is `0` unless another finding reaches the threshold. A changed finding needs a new acceptance.
+
+Accepted findings are marked in every output format:
+
+| Format | Mark |
+|--------|------|
+| Text and TUI | `accepted earlier with --force` under the finding; the text summary adds an **Accepted** row |
+| JSON | `"acknowledged": true` on the finding; `summary.accepted` counts them, and the severity counts such as `summary.critical` leave them out |
+| Markdown | `(accepted earlier)` after the message; the summary table adds an **Accepted** row |
+| SARIF | a `suppressions` entry with kind `external` |
+
+A skill inside a tracked repository also matches the acceptances recorded for the whole repository. Bundled hook and settings findings are the exception: their evidence names the file as the repository scan saw it, so they still fail a single-skill audit.
+
 ## When to Use
 
 - Review security findings after installing a new skill
@@ -301,6 +321,8 @@ skillshare ui
 
 The Dashboard page includes a Security Audit section with a quick-scan summary.
 
+The Audit page always applies [accepted findings](#accepted-findings): it shows them muted with the note accepted earlier with `--force`, counts them under **Accepted** instead of their severity, and does not count them as blocked. Clear **Show accepted** to hide them. A skill's Audit tab collapses them behind their own expander, and the Dashboard's attention card leaves them out of the high-risk count.
+
 ### Custom Rules Editor
 
 The web dashboard includes a dedicated **Audit Rules** page at `/audit/rules` for creating and editing custom rules directly in the browser:
@@ -319,7 +341,7 @@ Access it from the Audit page via the "Custom Rules" button.
 | `1` | One or more findings at or above active threshold, with no scan errors |
 | `2` | Audit execution, usage, or configuration error, including a failed scan |
 
-Declining the large-scan confirmation exits `0` without scanning. Audits launched from `list` use the same exit codes.
+With `--respect-accepted`, findings accepted earlier with `--force` do not count toward `1`. Declining the large-scan confirmation exits `0` without scanning. Audits launched from `list` use the same exit codes.
 
 Scan errors take precedence over findings. Partial structured reports are still emitted when available.
 
@@ -353,6 +375,7 @@ Before text filtering, audit checks the first 512 bytes of each regular file (an
 | `--yes`, `-y` | Skip large-scan confirmation prompt (auto-confirms) |
 | `--quiet`, `-q` | Only show skills with findings + summary (suppress clean ✓ lines) |
 | `--no-tui` | Disable interactive TUI, print plain text output |
+| `--respect-accepted` | Do not fail on findings accepted earlier with `--force`; they are marked as accepted. See [Accepted findings](#accepted-findings) |
 | `--init-rules` | Create a starter `audit-rules.yaml` (respects `-p`/`-g`) |
 | `-h`, `--help` | Show help |
 

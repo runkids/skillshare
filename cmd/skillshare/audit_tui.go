@@ -565,7 +565,15 @@ func (m auditTUIModel) findingNote() string {
 	f := m.findings[m.finding]
 	return theme.Dim().Render(fmt.Sprintf("%d/%d ", m.finding+1, len(m.findings))) +
 		theme.SeverityStyle(f.Severity).Render(strings.ToUpper(f.Severity)) + " " +
-		theme.Primary().Bold(true).Render(f.Pattern) + theme.Dim().Render(" · "+f.ExplainedMessage())
+		theme.Primary().Bold(true).Render(f.Pattern) + acceptedSuffixTUI(f) + theme.Dim().Render(" · "+f.ExplainedMessage())
+}
+
+// acceptedSuffixTUI marks a finding accepted earlier with --force.
+func acceptedSuffixTUI(f audit.Finding) string {
+	if !f.Acknowledged {
+		return ""
+	}
+	return theme.Dim().Render(" · " + acceptedFindingNote)
 }
 
 func (m auditTUIModel) View() string {
@@ -851,7 +859,7 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 			sevBadge := theme.SeverityStyle(f.Severity).Render(strings.ToUpper(f.Severity))
 			header := theme.Dim().Render(fmt.Sprintf("[%d] ", idx+1))
 			patternText := theme.Primary().Bold(true).Render(f.Pattern)
-			b.WriteString(header + sevBadge + "  " + patternText + "\n")
+			b.WriteString(header + sevBadge + "  " + patternText + acceptedSuffixTUI(f) + "\n")
 
 			// Message
 			b.WriteString(theme.Dim().Render("    "))

@@ -39,6 +39,26 @@ skillshare audit --format markdown --min-severity medium
 
 在仪表板中，将严重程度筛选切换为**最低严重程度**，再点击严重程度计数，显示该级别及以上。**指定严重程度**保留原有的精确匹配。再次点击选中级别可清除选择。未选择级别时，LOW/INFO 保留逐资源展开功能，折叠项计入隐藏数量。筛选不会重新扫描或改变策略、分数和阻止状态。
 
+## 已接受的 findings {#accepted-findings}
+
+```bash
+skillshare audit --respect-accepted
+skillshare audit --respect-accepted --threshold high --format json
+```
+
+你在 `install` 或 `update` 时用 `--force` 接受的 findings 会记录在 `.metadata.json` 中（见 [Accepted Findings](/docs/reference/commands/update#accepted-findings)）。普通的 `audit` 仍会因它们而失败。加上 `--respect-accepted` 后，audit 会像 update 的 gate 一样套用这些接受记录：findings 仍留在报告中，但不再导致失败。其余 findings 都低于阈值的资源计为警告；只要没有其他 finding 达到阈值，退出码就是 `0`。内容改变的 finding 需要重新接受。
+
+已接受的 findings 在每种输出格式中都有标记：
+
+| 格式 | 标记 |
+|------|------|
+| 文本与 TUI | finding 下方显示 `accepted earlier with --force`；文本摘要会多一行 **Accepted** |
+| JSON | finding 带有 `"acknowledged": true`；`summary.accepted` 统计其数量，`summary.critical` 等严重程度计数不包含它们 |
+| Markdown | 消息后加上 `(accepted earlier)`；摘要表会多一行 **Accepted** |
+| SARIF | 一条 kind 为 `external` 的 `suppressions` |
+
+tracked 仓库中的 skill 也会比对为整个仓库记录的接受记录。例外是 bundled 的 hook 与 settings findings：它们的证据包含整个仓库扫描时看到的文件名，因此单独 audit 一个 skill 时仍会失败。
+
 ## 何时使用
 
 - 在安装新 skill 后查看安全性发现结果
@@ -301,6 +321,8 @@ skillshare ui
 
 Dashboard 页面包含一个 Security Audit 区块，提供快速扫描摘要。
 
+Audit 页面始终套用[已接受的 findings](#accepted-findings)：以淡化样式显示并注明之前已用 `--force` 接受，计入 **已接受** 而非原本的严重程度，且不计为已阻止。取消勾选 **显示已接受** 即可隐藏。skill 的 Audit 标签页会把它们收合在单独的展开按钮后面，仪表板的“需要处理”卡片不把它们计入高风险数量。
+
 ### 自定义规则编辑器
 
 web dashboard 在 `/audit/rules` 提供了专门的 **Audit Rules** 页面，可直接在浏览器中创建和编辑自定义规则：
@@ -319,7 +341,7 @@ web dashboard 在 `/audit/rules` 提供了专门的 **Audit Rules** 页面，可
 | `1` | 存在一个或多个达到或超过当前阈值的发现结果，且没有扫描错误 |
 | `2` | 审计执行、用法或配置错误，包括扫描失败 |
 
-拒绝大型扫描确认会以 `0` 退出，不执行扫描。从 `list` 启动的审计使用相同的退出码。
+使用 `--respect-accepted` 时，先前用 `--force` 接受的 findings 不计入 `1`。拒绝大型扫描确认会以 `0` 退出，不执行扫描。从 `list` 启动的审计使用相同的退出码。
 
 扫描错误优先于发现结果；有可用结果时仍会输出部分结构化报告。
 
@@ -353,6 +375,7 @@ audit 会扫描 skill 目录中的文本类文件：
 | `--yes`, `-y` | 跳过大规模扫描确认提示（自动确认） |
 | `--quiet`, `-q` | 仅显示有发现结果的 skills 及摘要（隐藏干净的 ✓ 行） |
 | `--no-tui` | 禁用交互式 TUI，打印纯文本输出 |
+| `--respect-accepted` | 不因先前用 `--force` 接受的 findings 而失败，并将其标记为已接受。见 [已接受的 findings](#accepted-findings) |
 | `--init-rules` | 创建一个初始 `audit-rules.yaml`（遵循 `-p`/`-g`） |
 | `-h`, `--help` | 显示帮助 |
 

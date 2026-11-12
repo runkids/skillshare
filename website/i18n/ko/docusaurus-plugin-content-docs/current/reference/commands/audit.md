@@ -39,6 +39,26 @@ skillshare audit --format markdown --min-severity medium
 
 대시보드에서 심각도 필터를 **최소 심각도**로 바꾸고 심각도 개수를 선택하면 해당 수준 이상을 표시합니다. **정확한 심각도**는 기존의 정확히 일치하는 선택을 유지합니다. 선택한 심각도를 다시 클릭하면 선택이 해제됩니다. 선택이 없으면 LOW/INFO 접기가 유지되며 숨김 개수에 포함됩니다. 필터는 재스캔하거나 정책, 점수, 차단 상태를 변경하지 않습니다.
 
+## 수락된 Findings {#accepted-findings}
+
+```bash
+skillshare audit --respect-accepted
+skillshare audit --respect-accepted --threshold high --format json
+```
+
+`install`이나 `update`에서 `--force`로 수락한 findings는 `.metadata.json`에 기록됩니다([Accepted Findings](/docs/reference/commands/update#accepted-findings) 참고). 일반 `audit`은 여전히 이 findings로 실패합니다. `--respect-accepted`를 사용하면 audit이 update gate와 같은 방식으로 이 수락을 적용합니다. findings는 보고서에 남지만 더 이상 실패 원인이 되지 않습니다. 나머지 findings가 임계값 미만인 리소스는 경고로 집계되며, 다른 finding이 임계값에 도달하지 않으면 종료 코드는 `0`입니다. 내용이 바뀐 finding은 다시 수락해야 합니다.
+
+수락된 findings는 모든 출력 형식에서 다음과 같이 표시됩니다.
+
+| 형식 | 표시 |
+|------|------|
+| 텍스트와 TUI | finding 아래에 `accepted earlier with --force`. 텍스트 요약에 **Accepted** 행이 추가됩니다 |
+| JSON | finding에 `"acknowledged": true`. `summary.accepted`가 개수를 세고, `summary.critical` 같은 심각도 개수에서는 제외합니다 |
+| Markdown | 메시지 뒤에 `(accepted earlier)`. 요약 표에 **Accepted** 행이 추가됩니다 |
+| SARIF | kind가 `external`인 `suppressions` 항목 |
+
+tracked 저장소 안의 skill도 저장소 전체에 기록된 수락과 대조됩니다. 예외는 bundled hook과 settings findings입니다. 이 증거에는 저장소 전체 스캔에서 본 파일 이름이 들어 있으므로, skill 하나만 audit하면 여전히 실패합니다.
+
 ## 사용 시점
 
 - 새 skill 설치 후 보안 findings 검토
@@ -301,6 +321,8 @@ skillshare ui
 
 Dashboard 페이지에는 빠른 스캔 요약이 포함된 Security Audit 섹션이 있습니다.
 
+Audit 페이지는 항상 [수락된 findings](#accepted-findings)를 적용합니다. 이전에 `--force`로 승인했다는 안내와 함께 흐리게 표시하고, 심각도 대신 **승인됨**으로 집계하며, 차단으로 집계하지 않습니다. **승인된 항목 표시**를 해제하면 숨겨집니다. skill의 Audit 탭에서는 별도의 펼치기 버튼 뒤에 접혀 있고, 대시보드의 확인 필요 카드는 고위험 개수에서 제외합니다.
+
 ### 커스텀 규칙 에디터
 
 web dashboard에는 브라우저에서 직접 커스텀 규칙을 생성하고 편집할 수 있는 전용 **Audit Rules** 페이지가 `/audit/rules`에 있습니다:
@@ -319,7 +341,7 @@ Audit 페이지의 "Custom Rules" 버튼에서 접근할 수 있습니다.
 | `1` | 활성 threshold 이상의 findings가 하나 이상 있고 스캔 오류는 없음 |
 | `2` | 스캔 실패를 포함한 audit 실행, 사용 또는 설정 오류 |
 
-대규모 스캔 확인을 거절하면 스캔 없이 `0`으로 종료합니다. `list`에서 시작한 audit도 같은 종료 코드를 사용합니다.
+`--respect-accepted`를 사용하면 `--force`로 이미 수락한 findings는 `1`에 포함되지 않습니다.대규모 스캔 확인을 거절하면 스캔 없이 `0`으로 종료합니다. `list`에서 시작한 audit도 같은 종료 코드를 사용합니다.
 
 스캔 오류는 findings보다 우선합니다. 가능한 경우 부분 구조화 보고서도 출력됩니다.
 
@@ -353,6 +375,7 @@ audit는 skill 디렉터리 내 텍스트 기반 파일을 스캔합니다:
 | `--yes`, `-y` | 대규모 스캔 확인 프롬프트 건너뛰기 (자동 확인) |
 | `--quiet`, `-q` | findings가 있는 skill과 요약만 표시 (정상 ✓ 줄 숨김) |
 | `--no-tui` | 대화형 TUI 비활성화, 일반 텍스트 출력 |
+| `--respect-accepted` | `--force`로 이미 수락한 findings로는 실패하지 않으며, 수락됨으로 표시됩니다. [수락된 Findings](#accepted-findings) 참고 |
 | `--init-rules` | 시작용 `audit-rules.yaml` 생성 (`-p`/`-g` 반영) |
 | `-h`, `--help` | 도움말 표시 |
 

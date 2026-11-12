@@ -77,6 +77,8 @@ function formatAuditDetail(args: Record<string, any>): string {
     .filter(([, n]) => n > 0)
     .map(([name, n]) => `${n} ${name}`);
   if (findings.length > 0) parts.push(findings.join(', '));
+  const accepted = asInt(args.accepted);
+  if (accepted != null && accepted > 0) parts.push(`${accepted} accepted`);
   const riskScore = asInt(args.risk_score);
   const riskLabel = asString(args.risk_label);
   if (riskScore != null) {

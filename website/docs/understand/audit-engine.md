@@ -44,7 +44,7 @@ flowchart TD
 
 The `audit` command acts as a **gatekeeper** — scanning skill content for known threat patterns before they reach your AI assistant. It runs automatically during `install` and can be invoked manually at any time.
 
-Overriding a block with `--force` records the accepted findings (rule, file, matched text, and any detector-specific evidence) in `.metadata.json`, so later `update` runs skip the same evidence while still catching changed findings. For `whitespace-padding`, density findings use all eligible content in the file as evidence. Identical occurrences have separate acceptance keys; previously accepted padding findings require acceptance again after this change. See [update — Accepted Findings](/docs/reference/commands/update#accepted-findings).
+Overriding a block with `--force` records the accepted findings (rule, file, matched text, and any detector-specific evidence) in `.metadata.json`, so later `update` runs skip the same evidence while still catching changed findings. For `whitespace-padding`, density findings use all eligible content in the file as evidence. Identical occurrences have separate acceptance keys; previously accepted padding findings require acceptance again after this change. See [update — Accepted Findings](/docs/reference/commands/update#accepted-findings). A plain `skillshare audit` still fails on them; `--respect-accepted` applies them, and the dashboard always does. See [audit — Accepted findings](/docs/reference/commands/audit#accepted-findings).
 
 ## What It Detects
 

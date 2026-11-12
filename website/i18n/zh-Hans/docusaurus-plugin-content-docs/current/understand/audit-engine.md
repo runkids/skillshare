@@ -44,7 +44,7 @@ flowchart TD
 
 `audit` 命令充当**看门人**——在 skill 内容到达你的 AI 助手之前，扫描其中已知的威胁模式。它会在 `install` 期间自动运行，也可以随时手动调用。
 
-用 `--force` 覆盖阻止行为会将接受的发现结果（规则、文件、匹配文本及检测器专属证据）记录到 `.metadata.json` 中。后续 `update` 会跳过证据相同的 finding，同时继续检测证据已变化的 finding。对于 `whitespace-padding`，密度 finding 使用文件中所有符合条件的内容作为证据。详情见 [update — Accepted Findings](/docs/reference/commands/update#accepted-findings)。
+用 `--force` 覆盖阻止行为会将接受的发现结果（规则、文件、匹配文本及检测器专属证据）记录到 `.metadata.json` 中。后续 `update` 会跳过证据相同的 finding，同时继续检测证据已变化的 finding。对于 `whitespace-padding`，密度 finding 使用文件中所有符合条件的内容作为证据。详情见 [update — Accepted Findings](/docs/reference/commands/update#accepted-findings)。一般的 `skillshare audit` 仍会因这些 finding 失败；加上 `--respect-accepted` 才会套用，仪表板则始终套用。详见 [audit — Accepted findings](/docs/reference/commands/audit#accepted-findings)。
 
 ## 它能检测什么
 

@@ -48,13 +48,20 @@ type sarifRuleProps struct {
 }
 
 type sarifResult struct {
-	RuleID       string            `json:"ruleId"`
-	RuleIndex    int               `json:"ruleIndex"`
-	Level        string            `json:"level"`
-	Message      sarifMessage      `json:"message"`
-	Locations    []sarifLocation   `json:"locations"`
-	Fingerprints map[string]string `json:"fingerprints,omitempty"`
-	Properties   map[string]any    `json:"properties,omitempty"`
+	RuleID       string             `json:"ruleId"`
+	RuleIndex    int                `json:"ruleIndex"`
+	Level        string             `json:"level"`
+	Message      sarifMessage       `json:"message"`
+	Locations    []sarifLocation    `json:"locations"`
+	Fingerprints map[string]string  `json:"fingerprints,omitempty"`
+	Suppressions []sarifSuppression `json:"suppressions,omitempty"`
+	Properties   map[string]any     `json:"properties,omitempty"`
+}
+
+// sarifSuppression records a finding accepted earlier with --force.
+type sarifSuppression struct {
+	Kind          string `json:"kind"`
+	Justification string `json:"justification,omitempty"`
 }
 
 type sarifMessage struct {
@@ -155,6 +162,9 @@ func ToSARIF(results []*Result, opts SARIFOptions) *sarifLog {
 
 			if f.Fingerprint != "" {
 				sr.Fingerprints = map[string]string{"skillshare/v1": f.Fingerprint}
+			}
+			if f.Acknowledged {
+				sr.Suppressions = []sarifSuppression{{Kind: "external", Justification: "accepted earlier with --force"}}
 			}
 
 			props := map[string]any{}

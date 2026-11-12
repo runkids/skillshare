@@ -39,6 +39,26 @@ skillshare audit --format markdown --min-severity medium
 
 ダッシュボードでは重大度フィルターを「最低重大度」に切り替え、重大度の件数を選択すると、その値以上を表示します。「指定した重大度のみ」は従来の完全一致選択です。選択中の重大度を再度クリックすると解除されます。未選択時は LOW/INFO の折りたたみを維持し、非表示件数に含めます。フィルターは再スキャンやポリシー、スコア、ブロック状態を変更しません。
 
+## 承認済みの検出結果 {#accepted-findings}
+
+```bash
+skillshare audit --respect-accepted
+skillshare audit --respect-accepted --threshold high --format json
+```
+
+`install` や `update` で `--force` を使って受け入れた検出結果は `.metadata.json` に記録されます（[Accepted Findings](/docs/reference/commands/update#accepted-findings) を参照）。通常の `audit` では、これらは引き続き失敗として扱われます。`--respect-accepted` を付けると、audit は update の gate と同じようにこれらの承認を適用します。検出結果はレポートに残りますが、失敗の原因にはなりません。ほかの検出結果がしきい値未満のリソースは警告として数えられ、ほかにしきい値に達する検出結果がなければ終了コードは `0` になります。内容が変わった検出結果は、改めて承認が必要です。
+
+承認済みの検出結果は、すべての出力形式で次のように示されます。
+
+| 形式 | 表示 |
+|------|------|
+| テキストと TUI | 検出結果の下に `accepted earlier with --force`。テキストのサマリーには **Accepted** 行が追加されます |
+| JSON | 検出結果に `"acknowledged": true`。`summary.accepted` がその件数で、`summary.critical` などの重大度の件数には含めません |
+| Markdown | メッセージの後ろに `(accepted earlier)`。サマリー表には **Accepted** 行が追加されます |
+| SARIF | kind が `external` の `suppressions` エントリ |
+
+tracked リポジトリ内の skill も、リポジトリ全体に対して記録された承認と照合されます。例外は bundled の hook と settings の検出結果です。その根拠にはリポジトリ全体のスキャンで見たファイル名が含まれるため、skill 単体の audit では引き続き失敗します。
+
 ## 使うタイミング
 
 - 新しい Skill をインストールした後にセキュリティの findings を確認する
@@ -301,6 +321,8 @@ skillshare ui
 
 Dashboard ページには、クイックスキャンのサマリーを含む Security Audit セクションがあります。
 
+Audit ページは常に[承認済みの検出結果](#accepted-findings)を適用します。以前に `--force` で承認済みという注記付きで薄く表示し、重大度ではなく **承認済み** として数え、ブロック済みには数えません。**承認済みを表示** を外すと非表示になります。Skill の Audit タブでは専用の展開ボタンの後ろに折りたたまれ、ダッシュボードの要対応カードでは高リスクの件数に含めません。
+
 ### カスタムルールエディタ
 
 Web ダッシュボードには、ブラウザ上で直接カスタムルールを作成・編集するための専用の **Audit Rules** ページが `/audit/rules` にあります。
@@ -319,7 +341,7 @@ Audit ページの「Custom Rules」ボタンからアクセスできます。
 | `1` | 有効な閾値以上の findings が 1 件以上あり、スキャンエラーはない |
 | `2` | スキャン失敗を含む audit の実行、使用方法、設定のエラー |
 
-大規模スキャンの確認で No を選ぶと、スキャンせずに `0` で終了します。`list` から開始した audit も同じ終了コードを使用します。
+`--respect-accepted` を付けると、`--force` で承認済みの検出結果は `1` の判定に数えられません。大規模スキャンの確認で No を選ぶと、スキャンせずに `0` で終了します。`list` から開始した audit も同じ終了コードを使用します。
 
 スキャンエラーは findings より優先されます。利用可能な場合は部分的な構造化レポートも出力されます。
 
@@ -353,6 +375,7 @@ audit は Skill ディレクトリ内のテキストベースのファイルを�
 | `--yes`, `-y` | 大規模スキャンの確認プロンプトをスキップ（自動確認） |
 | `--quiet`, `-q` | findings のある Skill とサマリーのみ表示（クリーンな ✓ 行を抑制） |
 | `--no-tui` | インタラクティブ TUI を無効化し、プレーンテキストを出力 |
+| `--respect-accepted` | `--force` で承認済みの検出結果では失敗しない。承認済みとして表示されます。[承認済みの検出結果](#accepted-findings) を参照 |
 | `--init-rules` | スターター用の `audit-rules.yaml` を作成（`-p`/`-g` に対応） |
 | `-h`, `--help` | ヘルプを表示 |
 

@@ -321,7 +321,7 @@ skillshare update --all --skip-audit
 
 ### 已接受的發現 {#accepted-findings}
 
-當你以 `--force`（或在提示中回答 `y`）覆寫關卡時，你所接受的發現會記錄在 `.metadata.json` 的 `audit_accepted` 下。同一個 skill 之後的更新不會再對這些完全相同的發現封鎖，因此你不需要在每次 `update --all` 都重複 `--force`。dashboard **Updates** 分頁的 Force Retry 也會以相同方式記錄，兩者都會沿用在任一處接受的發現。
+當你以 `--force`（或在提示中回答 `y`）覆寫關卡時，你所接受的發現會記錄在 `.metadata.json` 的 `audit_accepted` 下。同一個 skill 之後的更新不會再對這些完全相同的發現封鎖，因此你不需要在每次 `update --all` 都重複 `--force`。dashboard **Updates** 分頁的 Force Retry 也會以相同方式記錄，兩者都會沿用在任一處接受的發現。`skillshare audit --respect-accepted` 和 dashboard 的 **Audit** 頁面也會沿用它們；見 [audit — 已接受的發現](/docs/reference/commands/audit#accepted-findings)。
 
 ```
   1 previously accepted finding skipped

@@ -591,6 +591,7 @@ _skillshare() {
                         '--yes[Skip confirmation]' \
                         '-y[Skip confirmation]' \
                         '--no-tui[Skip interactive TUI]' \
+                        '--respect-accepted[Do not fail on findings accepted earlier]' \
                         '--threshold[Block threshold]:level:(low medium high critical)' \
                         '-T[Block threshold]:level:(low medium high critical)' \
                         '--group[Filter by group]:group:' \

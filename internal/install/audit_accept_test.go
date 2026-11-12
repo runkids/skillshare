@@ -51,6 +51,20 @@ func TestRecordAcceptedFindings_RoundTrip(t *testing.T) {
 	}
 }
 
+func TestApplyAcceptedFindings_HonorsTrackedRepoAcceptance(t *testing.T) {
+	sourceDir := t.TempDir()
+	repo := criticalResult("Ignore previous instructions")
+	repo.Findings[0].File = "group/my-skill/SKILL.md"
+	if _, err := RecordAcceptedFindings(sourceDir, filepath.Join(sourceDir, "_team"), repo, audit.SeverityCritical); err != nil {
+		t.Fatal(err)
+	}
+
+	skill := criticalResult("Ignore previous instructions")
+	if n := ApplyAcceptedFindings(sourceDir, filepath.Join(sourceDir, "_team", "group", "my-skill"), skill); n != 1 {
+		t.Fatalf("want 1 acknowledged, got %d", n)
+	}
+}
+
 func TestRecordAcceptedFindings_SkipsBelowThreshold(t *testing.T) {
 	sourceDir := t.TempDir()
 	res := &audit.Result{Findings: []audit.Finding{{Severity: audit.SeverityHigh, Pattern: "x", File: "SKILL.md"}}}

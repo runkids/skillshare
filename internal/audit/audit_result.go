@@ -94,7 +94,22 @@ func (r *Result) CountBySeverity() (critical, high, medium int) {
 
 // CountBySeverityAll returns the count of findings at each severity level.
 func (r *Result) CountBySeverityAll() (critical, high, medium, low, info int) {
+	critical, high, medium, low, info, _ = r.countSeverities(false)
+	return
+}
+
+// CountOpenBySeverity is CountBySeverityAll for the findings that still count:
+// those accepted earlier with --force are counted as accepted instead.
+func (r *Result) CountOpenBySeverity() (critical, high, medium, low, info, accepted int) {
+	return r.countSeverities(true)
+}
+
+func (r *Result) countSeverities(skipAccepted bool) (critical, high, medium, low, info, accepted int) {
 	for _, f := range r.Findings {
+		if skipAccepted && f.Acknowledged {
+			accepted++
+			continue
+		}
 		switch f.Severity {
 		case SeverityCritical:
 			critical++

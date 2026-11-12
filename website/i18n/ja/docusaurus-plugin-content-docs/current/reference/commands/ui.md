@@ -174,7 +174,7 @@ Web ダッシュボードは `/api/` に REST API を公開しています。す
 | GET | `/api/diff` | Source と Target 間の差分 |
 | GET | `/api/search?q=` | GitHub で Skill を検索 |
 | POST | `/api/install` | ソースから Skill をインストール |
-| GET | `/api/audit` | すべての Skill をセキュリティ脅威についてスキャン。たどる source link を読み取れなかった場合は、`audit --format json` と同じく `warnings` と `incomplete: true` を加える |
+| GET | `/api/audit` | すべての Skill をセキュリティ脅威についてスキャン。たどる source link を読み取れなかった場合は、`audit --format json` と同じく `warnings` と `incomplete: true` を加える。以前に `--force` で承認した検出結果は `acknowledged: true` を持ち、重大度ではなく `summary.accepted` に数える |
 | GET | `/api/audit/rules` | カスタム監査ルールの YAML を取得 |
 | PUT | `/api/audit/rules` | カスタム監査ルールを保存（正規表現を検証） |
 | POST | `/api/audit/rules` | スターター用の audit-rules.yaml を作成 |

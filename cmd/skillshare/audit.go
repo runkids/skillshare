@@ -11,6 +11,7 @@ import (
 
 	"skillshare/internal/audit"
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 	"skillshare/internal/oplog"
 	"skillshare/internal/resource"
 	"skillshare/internal/sourcewalk"
@@ -57,7 +58,22 @@ type auditOptions struct {
 	PolicyProfile   string   // resolved profile name (for summary/TUI)
 	PolicyDedupe    string   // resolved dedupe mode (for summary/TUI)
 	PolicyAnalyzers []string // resolved enabled analyzers (for summary/TUI)
+	RespectAccepted bool     // --respect-accepted: findings accepted with --force do not fail the audit
 	skillsWalk      sourcewalk.Options
+	acceptRoots     []string // skills and agents sources whose .metadata.json records acceptances
+}
+
+// markAccepted flags the findings accepted with --force when
+// --respect-accepted is set, so they show as accepted and stop failing.
+func (o auditOptions) markAccepted(r *audit.Result) {
+	if !o.RespectAccepted {
+		return
+	}
+	for _, root := range o.acceptRoots {
+		if root != "" {
+			install.ApplyAcceptedFindings(root, r.ScanTarget, r)
+		}
+	}
 }
 
 // isStructured returns true if the output format is machine-readable (json/sarif/markdown).
@@ -78,6 +94,7 @@ type auditRunSummary struct {
 	Medium           int            `json:"medium"`
 	Low              int            `json:"low"`
 	Info             int            `json:"info"`
+	Accepted         int            `json:"accepted,omitempty"` // findings --respect-accepted no longer fails
 	WarnSkills       []string       `json:"warningSkills,omitempty"`
 	FailSkills       []string       `json:"failedSkills,omitempty"`
 	LowSkills        []string       `json:"lowSkills,omitempty"`
@@ -120,6 +137,7 @@ func (s auditRunSummary) toMarkdownOptions() audit.MarkdownOptions {
 		Medium:           s.Medium,
 		Low:              s.Low,
 		Info:             s.Info,
+		Accepted:         s.Accepted,
 		ScanErrors:       s.ScanErrors,
 		RiskScore:        s.RiskScore,
 		RiskLabel:        s.RiskLabel,
@@ -217,11 +235,13 @@ func cmdAudit(args []string) (err error) {
 			cfgPath = config.ProjectConfigPath(cwd)
 			if cfg, err := config.LoadProject(cwd); err == nil {
 				opts.skillsWalk = projectSkillsWalk(cwd, cfg)
+				opts.acceptRoots = []string{cfg.EffectiveSkillsSource(cwd), cfg.EffectiveAgentsSource(cwd)}
 			}
 		} else {
 			cfgPath = config.ConfigPath()
 			if cfg, err := config.Load(); err == nil {
 				opts.skillsWalk = cfg.SkillsWalk()
+				opts.acceptRoots = []string{cfg.EffectiveSkillsSource(), cfg.EffectiveAgentsSource()}
 			}
 		}
 	} else if mode == modeProject {
@@ -251,6 +271,9 @@ func cmdAudit(args []string) (err error) {
 		configDedupe = cfg.Audit.DedupeMode
 		configAnalyzers = cfg.Audit.EnabledAnalyzers
 		cfgPath = config.ConfigPath()
+	}
+	if !isSinglePath {
+		opts.acceptRoots = []string{sourcePath, agentsSourcePath}
 	}
 
 	policy := audit.ResolvePolicy(audit.PolicyInputs{
@@ -282,9 +305,9 @@ func cmdAudit(args []string) (err error) {
 	case !hasTargets:
 		results, summary, err = auditInstalled(sourcePath, agentsSourcePath, modeString(mode), projectRoot, threshold, kind, opts, registry)
 	case isSinglePath:
-		results, summary, err = auditPath(opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, opts.PolicyLine, opts.MinSeverity, registry, opts.skillsWalk.Follow)
+		results, summary, err = auditPath(opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, opts.PolicyLine, opts.MinSeverity, registry, opts.markAccepted, opts.skillsWalk.Follow)
 	case isSingleName:
-		results, summary, err = auditSkillByName(auditScanRoot(kind, sourcePath, agentsSourcePath), opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, opts.PolicyLine, kind, registry, opts.skillsWalk, opts.MinSeverity)
+		results, summary, err = auditSkillByName(auditScanRoot(kind, sourcePath, agentsSourcePath), opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, opts.PolicyLine, kind, registry, opts.skillsWalk, opts.MinSeverity, opts.markAccepted)
 	default:
 		results, summary, err = auditFiltered(sourcePath, agentsSourcePath, opts.Targets, opts.Groups, modeString(mode), projectRoot, threshold, kind, opts, registry)
 	}
@@ -372,6 +395,8 @@ func parseAuditArgs(args []string) (auditOptions, bool, error) {
 			opts.Yes = true
 		case "--no-tui":
 			opts.NoTUI = true
+		case "--respect-accepted":
+			opts.RespectAccepted = true
 		case "--min-severity":
 			if i+1 >= len(args) {
 				return opts, false, fmt.Errorf("%s requires a value", arg)
@@ -673,6 +698,7 @@ func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold s
 			continue
 		}
 		sr.Result.Threshold = threshold
+		opts.markAccepted(sr.Result)
 		sr.Result.IsBlocked = sr.Result.HasSeverityAtOrAbove(threshold)
 		sr.Result.Kind = kind.SingularNoun()
 		// Use relative path so TUI shows group hierarchy (e.g. "frontend/vue/skill").
@@ -704,6 +730,7 @@ func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold s
 		threshold:        threshold,
 		registry:         reg,
 		mode:             mode,
+		markAccepted:     opts.markAccepted,
 	}
 	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, time.Since(scanStart), tuiCtx); err != nil {
 		return results, summary, err
@@ -817,6 +844,7 @@ func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, 
 			continue
 		}
 		sr.Result.Threshold = threshold
+		opts.markAccepted(sr.Result)
 		sr.Result.IsBlocked = sr.Result.HasSeverityAtOrAbove(threshold)
 		sr.Result.Kind = kind.SingularNoun()
 		if rel, err := filepath.Rel(scanRoot, sr.Result.ScanTarget); err == nil && rel != sr.Result.SkillName {
@@ -847,6 +875,7 @@ func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, 
 		threshold:        threshold,
 		registry:         reg,
 		mode:             mode,
+		markAccepted:     opts.markAccepted,
 	}
 	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, time.Since(scanStart), tuiCtx); err != nil {
 		return results, summary, err
@@ -855,7 +884,7 @@ func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, 
 	return results, summary, nil
 }
 
-func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format, policyLine string, kind resourceKindFilter, reg *audit.Registry, skillsWalk sourcewalk.Options, minSeverity string) ([]*audit.Result, auditRunSummary, error) {
+func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format, policyLine string, kind resourceKindFilter, reg *audit.Registry, skillsWalk sourcewalk.Options, minSeverity string, markAccepted func(*audit.Result)) ([]*audit.Result, auditRunSummary, error) {
 	summary := auditRunSummary{
 		Scope:     "single",
 		Skill:     name,
@@ -880,6 +909,7 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format, po
 	}
 	elapsed := time.Since(start)
 	result.Threshold = threshold
+	markAccepted(result)
 	result.IsBlocked = result.HasSeverityAtOrAbove(threshold)
 	result.Kind = kind.SingularNoun()
 	if rel, err := filepath.Rel(sourcePath, result.ScanTarget); err == nil && rel != result.SkillName {
@@ -898,7 +928,7 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format, po
 	return []*audit.Result{result}, summary, nil
 }
 
-func auditPath(rawPath, mode, projectRoot, threshold, format, policyLine, minSeverity string, reg *audit.Registry, follow ...*sourcewalk.Follow) ([]*audit.Result, auditRunSummary, error) {
+func auditPath(rawPath, mode, projectRoot, threshold, format, policyLine, minSeverity string, reg *audit.Registry, markAccepted func(*audit.Result), follow ...*sourcewalk.Follow) ([]*audit.Result, auditRunSummary, error) {
 	absPath, err := filepath.Abs(rawPath)
 	if err != nil {
 		absPath = rawPath
@@ -919,6 +949,7 @@ func auditPath(rawPath, mode, projectRoot, threshold, format, policyLine, minSev
 	elapsed := time.Since(start)
 	result.ScanTarget = absPath
 	result.Threshold = threshold
+	markAccepted(result)
 	result.IsBlocked = result.HasSeverityAtOrAbove(threshold)
 
 	summary = summarizeAuditResults(1, []*audit.Result{result}, threshold)
@@ -969,6 +1000,9 @@ func logAuditOp(cfgPath string, args []string, summary auditRunSummary, start ti
 		fields["medium"] = summary.Medium
 		fields["low"] = summary.Low
 		fields["info"] = summary.Info
+		if summary.Accepted > 0 {
+			fields["accepted"] = summary.Accepted
+		}
 		fields["risk_score"] = summary.RiskScore
 		fields["risk_label"] = summary.RiskLabel
 		if len(summary.WarnSkills) > 0 {
@@ -1012,21 +1046,22 @@ func summarizeAuditResults(total int, results []*audit.Result, threshold string)
 	sumAnalyzability := 0.0
 	catCounts := make(map[string]int)
 	for _, r := range results {
-		c, h, m, l, i := r.CountBySeverityAll()
+		c, h, m, l, i, accepted := r.CountOpenBySeverity()
 		summary.Critical += c
 		summary.High += h
 		summary.Medium += m
 		summary.Low += l
 		summary.Info += i
+		summary.Accepted += accepted
 
 		for cat, n := range r.CountByCategory() {
 			catCounts[cat] += n
 		}
 
-		if containsSeverity(r.Findings, audit.SeverityLow) {
+		if l > 0 {
 			summary.LowSkills = append(summary.LowSkills, r.SkillName)
 		}
-		if containsSeverity(r.Findings, audit.SeverityInfo) {
+		if i > 0 {
 			summary.InfoSkills = append(summary.InfoSkills, r.SkillName)
 		}
 
@@ -1065,15 +1100,6 @@ func summarizeAuditResults(total int, results []*audit.Result, threshold string)
 	return summary
 }
 
-func containsSeverity(findings []audit.Finding, severity string) bool {
-	for _, f := range findings {
-		if f.Severity == severity {
-			return true
-		}
-	}
-	return false
-}
-
 // recountSummary recalculates finding counts after deduplication.
 // It preserves fields not affected by dedupe (Scope, Mode, Path, Skill, ScanErrors, AvgAnalyzability).
 func recountSummary(results []*audit.Result, threshold string, prev auditRunSummary) auditRunSummary {
@@ -1105,20 +1131,13 @@ func recountSummary(results []*audit.Result, threshold string, prev auditRunSumm
 		} else {
 			s.Passed++
 		}
-		for _, f := range r.Findings {
-			switch f.Severity {
-			case audit.SeverityCritical:
-				s.Critical++
-			case audit.SeverityHigh:
-				s.High++
-			case audit.SeverityMedium:
-				s.Medium++
-			case audit.SeverityLow:
-				s.Low++
-			case audit.SeverityInfo:
-				s.Info++
-			}
-		}
+		c, h, m, l, i, accepted := r.CountOpenBySeverity()
+		s.Critical += c
+		s.High += h
+		s.Medium += m
+		s.Low += l
+		s.Info += i
+		s.Accepted += accepted
 		if r.RiskScore > maxRisk {
 			maxRisk = r.RiskScore
 		}

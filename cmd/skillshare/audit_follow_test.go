@@ -26,7 +26,7 @@ func TestAuditFollowedRoots(t *testing.T) {
 				}
 				for _, enabled := range []bool{false, true} {
 					walk := config.SkillsWalk(enabled, source, nil)
-					results, _, err := auditSkillByName(source, name, mode, projectRoot, "critical", formatJSON, "", kindSkills, audit.DefaultRegistry(), walk, "")
+					results, _, err := auditSkillByName(source, name, mode, projectRoot, "critical", formatJSON, "", kindSkills, audit.DefaultRegistry(), walk, "", auditOptions{}.markAccepted)
 					if err != nil {
 						t.Fatal(err)
 					}

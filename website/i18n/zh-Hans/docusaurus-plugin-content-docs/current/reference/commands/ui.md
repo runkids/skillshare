@@ -174,7 +174,7 @@ web dashboard 在 `/api/` 下暴露一个 REST API。所有端点都返回 JSON�
 | GET | `/api/diff` | source 与 targets 之间的差异 |
 | GET | `/api/search?q=` | 在 GitHub 上搜索 skills |
 | POST | `/api/install` | 从来源安装一个 skill |
-| GET | `/api/audit` | 扫描所有 skills 的安全威胁；跟随的 source 链接无法读取时，会像 `audit --format json` 一样加上 `warnings` 和 `incomplete: true` |
+| GET | `/api/audit` | 扫描所有 skills 的安全威胁；跟随的 source 链接无法读取时，会像 `audit --format json` 一样加上 `warnings` 和 `incomplete: true`。之前已用 `--force` 接受的 findings 带有 `acknowledged: true`，计入 `summary.accepted` 而非原本的严重程度 |
 | GET | `/api/audit/rules` | 获取自定义 audit rules YAML |
 | PUT | `/api/audit/rules` | 保存自定义 audit rules（会校验正则表达式） |
 | POST | `/api/audit/rules` | 创建初始的 audit-rules.yaml |

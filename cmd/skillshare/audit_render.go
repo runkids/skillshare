@@ -33,6 +33,7 @@ type auditTUIContext struct {
 	registry         *audit.Registry
 	mode             string
 	minSeverity      string
+	markAccepted     func(*audit.Result)
 }
 
 // presentAuditResults handles the common output path for audit scans:
@@ -142,6 +143,7 @@ func launchAuditTUIWithTabs(results []*audit.Result, scanOutputs []audit.ScanOut
 						continue
 					}
 					sr.Result.Threshold = ctx.threshold
+					ctx.markAccepted(sr.Result)
 					sr.Result.IsBlocked = sr.Result.HasSeverityAtOrAbove(ctx.threshold)
 					sr.Result.Kind = otherKindFilter.SingularNoun()
 					if rel, relErr := filepath.Rel(otherSource, sr.Result.ScanTarget); relErr == nil {
@@ -231,6 +233,9 @@ func printSkillResult(result *audit.Result, kind resourceKindFilter, elapsed tim
 		if note := audit.SeverityContextNote(f.SeverityContext); note != "" {
 			ui.Note(note)
 		}
+		if f.Acknowledged {
+			ui.Note(acceptedFindingNote)
+		}
 		fmt.Println()
 	}
 
@@ -246,7 +251,8 @@ func printSkillResult(result *audit.Result, kind resourceKindFilter, elapsed tim
 		ui.Row(ui.MarkNone, "Commands", result.TierProfile.String(), width)
 	}
 
-	summary := auditRunSummary{Threshold: result.Threshold}
+	_, _, _, _, _, accepted := result.CountOpenBySeverity()
+	summary := auditRunSummary{Threshold: result.Threshold, Accepted: accepted}
 	if result.IsBlocked {
 		summary.Failed = 1
 	} else {
@@ -294,6 +300,9 @@ func printAuditSummary(summary auditRunSummary, kind resourceKindFilter) {
 	if len(severities) > 0 {
 		ui.Row(ui.MarkNone, "Severity", strings.Join(severities, ", "), width)
 	}
+	if summary.Accepted > 0 {
+		ui.Row(ui.MarkNone, "Accepted", plural(summary.Accepted, "finding")+ui.DimText(" · accepted earlier with --force"), width)
+	}
 	if threats := formatCategoryBreakdown(summary.ByCategory, false); threats != "" {
 		ui.Row(ui.MarkNone, "Threats", threats, width)
 	}
@@ -319,15 +328,22 @@ func printAuditDone(summary auditRunSummary, kind resourceKindFilter, name strin
 		ui.Done(ui.MarkFail, text, took)
 		ui.Note("The risk score is informational; only the severity blocks")
 	case summary.Warning > 0:
-		text := fmt.Sprintf("%s has findings below %s", scanned, summary.Threshold)
+		below := "below " + summary.Threshold
+		if summary.Accepted > 0 {
+			below += " or accepted"
+		}
+		text := fmt.Sprintf("%s has findings %s", scanned, below)
 		if name == "" {
-			text = fmt.Sprintf("%d of %s with findings below %s", summary.Warning, scanned, summary.Threshold)
+			text = fmt.Sprintf("%d of %s with findings %s", summary.Warning, scanned, below)
 		}
 		ui.Done(ui.MarkWarn, text, took)
 	default:
 		ui.Done(ui.MarkOK, "No issues found in "+scanned, took)
 	}
 }
+
+// acceptedFindingNote marks a finding --respect-accepted no longer fails.
+const acceptedFindingNote = "accepted earlier with --force"
 
 // formatSeverity returns an ANSI-colored uppercase severity label.
 func formatSeverity(sev string) string {
@@ -446,6 +462,7 @@ func printAuditHelp() {
 			{"-g, --global", "Use global skills"},
 			{"-T, --threshold <t>", "Block by severity at/above: critical|high|medium|low|info\n(also supports c|h|m|l|i)"},
 			{"--min-severity <level>", "Display findings at/above: critical|high|medium|low|info\nDoes not change scores, gates, JSON or SARIF"},
+			{"--respect-accepted", "Do not fail on findings accepted earlier with --force\n(install/update); they are shown as accepted"},
 			{"--profile <p>", "Audit profile preset: default, strict, permissive"},
 			{"--dedupe <mode>", "Dedup mode: legacy, global (default)"},
 			{"--analyzer <id>", "Only run specified analyzer (repeatable)\nIDs: static, dataflow, tier, integrity, structure, cross-skill"},
@@ -469,6 +486,7 @@ func printAuditHelp() {
 			helpRow{"skillshare audit ./skills/foo/SKILL.md", "Scan a single file"},
 			helpRow{"skillshare audit --threshold high", "Block on HIGH+ findings"},
 			helpRow{"skillshare audit -T h", "Same, with shorthand alias"},
+			helpRow{"skillshare audit --respect-accepted", "Gate on findings not yet accepted"},
 			helpRow{"skillshare audit --format json", "Output machine-readable JSON"},
 			helpRow{"skillshare audit --format sarif", "Output SARIF 2.1.0 for GitHub Code Scanning"},
 			helpRow{"skillshare audit --format markdown", "Output Markdown report (for GitHub Issues/PRs)"},
