@@ -1,6 +1,7 @@
 package install
 
 import (
+	"os"
 	"path"
 	"path/filepath"
 	"sort"
@@ -37,11 +38,22 @@ func ApplyAcceptedFindings(sourceDir, target string, res *audit.Result) int {
 		return 0
 	}
 	n := res.MarkAcknowledged(store.AuditAccepted[rel])
-	// A tracked repository records the acceptances of its whole-repo scan, so
-	// a skill inside it also matches those, named relative to the repo.
+	// Findings name files relative to the scanned directory; a single-file
+	// scan names them relative to the file's own directory.
+	scanned := rel
+	if info, err := os.Stat(target); err == nil && !info.IsDir() {
+		scanned = path.Dir(rel)
+	}
+	// A tracked repository records the acceptances of its whole-repo scan, and
+	// a skill directory those of its own scan, so a resource inside either also
+	// matches those, named relative to where they were recorded.
 	for parent := path.Dir(rel); parent != "."; parent = path.Dir(parent) {
 		if keys := store.AuditAccepted[parent]; len(keys) > 0 {
-			n += res.MarkAcknowledgedUnder(keys, strings.TrimPrefix(rel, parent+"/"))
+			prefix := ""
+			if scanned != parent {
+				prefix = strings.TrimPrefix(scanned, parent+"/")
+			}
+			n += res.MarkAcknowledgedUnder(keys, prefix)
 		}
 	}
 	return n

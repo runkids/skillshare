@@ -1,6 +1,7 @@
 package install
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -62,6 +63,49 @@ func TestApplyAcceptedFindings_HonorsTrackedRepoAcceptance(t *testing.T) {
 	skill := criticalResult("Ignore previous instructions")
 	if n := ApplyAcceptedFindings(sourceDir, filepath.Join(sourceDir, "_team", "group", "my-skill"), skill); n != 1 {
 		t.Fatalf("want 1 acknowledged, got %d", n)
+	}
+}
+
+// A single-file scan names findings by the file's base name, so the file's own
+// directory is the prefix that matches acceptances recorded above it.
+func TestApplyAcceptedFindings_FileScanMatchesSkillAcceptance(t *testing.T) {
+	sourceDir := t.TempDir()
+	skillDir := filepath.Join(sourceDir, "evil")
+	writeTestFile(t, filepath.Join(skillDir, "SKILL.md"))
+	if _, err := RecordAcceptedFindings(sourceDir, skillDir, criticalResult("Ignore previous instructions"), audit.SeverityCritical); err != nil {
+		t.Fatal(err)
+	}
+
+	file := criticalResult("Ignore previous instructions")
+	if n := ApplyAcceptedFindings(sourceDir, filepath.Join(skillDir, "SKILL.md"), file); n != 1 {
+		t.Fatalf("want 1 acknowledged, got %d", n)
+	}
+}
+
+func TestApplyAcceptedFindings_TrackedAgentFileMatchesRepoAcceptance(t *testing.T) {
+	sourceDir := t.TempDir()
+	agent := filepath.Join(sourceDir, "_team", "agents", "reviewer.md")
+	writeTestFile(t, agent)
+	repo := criticalResult("Ignore previous instructions")
+	repo.Findings[0].File = "agents/reviewer.md"
+	if _, err := RecordAcceptedFindings(sourceDir, filepath.Join(sourceDir, "_team"), repo, audit.SeverityCritical); err != nil {
+		t.Fatal(err)
+	}
+
+	file := criticalResult("Ignore previous instructions")
+	file.Findings[0].File = "reviewer.md"
+	if n := ApplyAcceptedFindings(sourceDir, agent, file); n != 1 {
+		t.Fatalf("want 1 acknowledged, got %d", n)
+	}
+}
+
+func writeTestFile(t *testing.T, p string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }
 
