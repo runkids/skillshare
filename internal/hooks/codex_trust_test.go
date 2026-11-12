@@ -429,10 +429,11 @@ func TestCodexTrustCoalescesSymlinkedHomes(t *testing.T) {
 	if starts != 1 {
 		t.Fatalf("Codex app-server starts = %d, want 1", starts)
 	}
-	must(t, json.Unmarshal([]byte(read(t, e.service.codexTrustPath())), &saved))
+	var reconciled codexTrustState
+	must(t, json.Unmarshal([]byte(read(t, e.service.codexTrustPath())), &reconciled))
 	canonicalPathKey := codexTrustHomeKey(owner, canonical)
-	if len(saved.Homes) != 1 || saved.Homes[canonicalPathKey].Path != canonical {
-		t.Fatalf("symlinked trust homes were not coalesced: %+v", saved.Homes)
+	if len(reconciled.Homes) != 1 || reconciled.Homes[canonicalPathKey].Path != canonical {
+		t.Fatalf("symlinked trust homes were not coalesced: %+v", reconciled.Homes)
 	}
 }
 
