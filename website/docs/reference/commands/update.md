@@ -321,7 +321,7 @@ skillshare update --all --skip-audit
 
 ### Accepted Findings {#accepted-findings}
 
-When you override the gate with `--force` (or answer `y` at the prompt), the findings you accepted are recorded in `.metadata.json` under `audit_accepted`. Later updates of the same skill no longer block on those exact findings, so you do not have to repeat `--force` on every `update --all`. Force Retry on the dashboard's **Updates** tab records them the same way, and both honor findings accepted from either one.
+When you override the gate with `--force` (or answer `y` at the prompt), the findings you accepted are recorded in `.metadata.json` under `audit_accepted`. Later updates of the same skill no longer block on those exact findings, so you do not have to repeat `--force` on every `update --all`. Force Retry on the dashboard's **Updates** tab records them the same way, and both honor findings accepted from either one. `skillshare audit --respect-accepted` and the dashboard's **Audit** page honor them too; see [audit — Accepted findings](/docs/reference/commands/audit#accepted-findings).
 
 ```
   1 previously accepted finding skipped

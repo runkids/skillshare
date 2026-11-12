@@ -6,6 +6,8 @@ sidebar_position: 1
 
 視覚的な Skill 管理のための Web ダッシュボードを起動します。
 
+リモート検索（`GET /api/search`）とインストールのプレビュー（`GET /api/preview`）は変更操作と同じ origin チェックを使い、別サイトからのブラウザー要求は取得前に拒否します。ブラウザーの origin/fetch ヘッダーを持たない直接クライアントは引き続き対応します。GitHub API の認証情報は HTTPS の `api.github.com` と `raw.githubusercontent.com`（既定ポートまたは 443）に限定され、別 origin へのリダイレクト時は認証情報を削除します。
+
 ```bash
 skillshare ui                  # フォアグラウンドで実行
 skillshare ui start            # バックグラウンドサーバーを起動（既存があれば再利用）
@@ -172,7 +174,7 @@ Web ダッシュボードは `/api/` に REST API を公開しています。す
 | GET | `/api/diff` | Source と Target 間の差分 |
 | GET | `/api/search?q=` | GitHub で Skill を検索 |
 | POST | `/api/install` | ソースから Skill をインストール |
-| GET | `/api/audit` | すべての Skill をセキュリティ脅威についてスキャン。たどる source link を読み取れなかった場合は、`audit --format json` と同じく `warnings` と `incomplete: true` を加える |
+| GET | `/api/audit` | すべての Skill をセキュリティ脅威についてスキャン。たどる source link を読み取れなかった場合は、`audit --format json` と同じく `warnings` と `incomplete: true` を加える。以前に `--force` で承認した検出結果は `acknowledged: true` を持ち、重大度ではなく `summary.accepted` に数える |
 | GET | `/api/audit/rules` | カスタム監査ルールの YAML を取得 |
 | PUT | `/api/audit/rules` | カスタム監査ルールを保存（正規表現を検証） |
 | POST | `/api/audit/rules` | スターター用の audit-rules.yaml を作成 |
@@ -186,6 +188,7 @@ Web ダッシュボードは `/api/` に REST API を公開しています。す
 | GET | `/api/skillignore` | `.skillignore` の内容、ある場合は `.skillignore.local` の内容、ignore の統計を取得 |
 | PUT | `/api/skillignore` | `.skillignore` の内容を更新 |
 | GET | `/api/doctor` | すべてのヘルスチェックを実行（JSON） |
+| GET | `/api/doctor/stream` | すべてのヘルスチェックを Server-Sent Events で実行。チェックが見つかるたびに `check` イベントを送り、最後に `/api/doctor` と同じ JSON を `done` で送る |
 | GET | `/api/health` | 死活監視プローブ。サーバーの準備ができると `200` を返す |
 | GET | `/api/version` | 現在/最新バージョン、アップグレードの可否、Nix でのインストールでは CLI を更新するコマンド（`nixUpgradeCommand`） |
 | POST | `/api/upgrade` | `skillshare upgrade` をその場で実行（バイナリが開発ビルドの場合は `devMode: true` を返し、Nix でのインストールで新しい CLI が待機中の場合はコード `upgrade.nix` の `409` を返す） |

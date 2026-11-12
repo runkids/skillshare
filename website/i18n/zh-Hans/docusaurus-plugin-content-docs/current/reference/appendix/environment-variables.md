@@ -8,6 +8,18 @@ skillshare 识别的所有环境变量。
 
 ## Configuration
 
+### SKILLSHARE_AUTO_UPDATE_CHECK {#skillshare_auto_update_check}
+
+覆盖全局 config.yaml 的 `updates.auto_check`。设为 `false` 时，CLI、Web UI 和支持此设置的桌面 App 停止自动版本检查，不显示更新通知或版本徽章；仍可手动检查与升级。环境变量优先于配置文件，不会回写。未设置时使用配置文件，默认为 `true`。接受 `true/false`、`1/0`、`t/f` 及 Go 布尔值大小写变体；空值或无效值忽略。GUI App 必须在启动时继承此环境变量。
+
+```bash
+SKILLSHARE_AUTO_UPDATE_CHECK=false skillshare status
+```
+
+桌面支持需要包含 [skillshare-app#126](https://github.com/runkids/skillshare-app/pull/126) 的 App 版本；只升级 CLI 不会关闭旧版桌面 App 的自动检查。
+
+[updates](/docs/reference/commands/updates)
+
 ### SKILLSHARE_CONFIG
 
 覆盖配置文件路径。
@@ -178,6 +190,8 @@ SKILLSHARE_UI_TRUSTED_ORIGINS=https://tools.example.com skillshare ui --host 0.0
 
 ### GITHUB_TOKEN
 
+平台令牌仅发送到使用 HTTPS 默认端口（或 443）的 `github.com`、`gitlab.com`、`bitbucket.org`、`dev.azure.com`、`*.visualstudio.com`、`gitea.com` 和 `cnb.cool`。自建 Gitea/CNB 即使名称包含平台名，也必须在 `gitea_hosts`/`cnb_hosts` 中配置准确主机名。自建 GitHub/GitLab 等主机应使用按主机配置的 Git credential helper，或仅为目标调用设置 `SKILLSHARE_GIT_TOKEN`。此通用回退可发送给**任何 HTTPS 来源**；类似平台的名称不会授权发送平台令牌。
+
 GitHub 个人访问令牌（personal access token）。
 
 **用途：**
@@ -336,7 +350,7 @@ skillshare install https://gitea.com/org/skills.git --track
 $env:GITEA_TOKEN = "your_token"
 ```
 
-该令牌只会发送给你安装所用的主机。名称中不含 `gitea` 的自建实例需要配置 [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts)，否则将改用 `SKILLSHARE_GIT_TOKEN`。
+自建 Gitea 即使名称包含 `gitea`，也必须在 [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts) 中配置准确主机名才能发送 `GITEA_TOKEN`。平台认证仅支持 HTTPS 默认端口或 443。
 
 ### CNB_TOKEN
 

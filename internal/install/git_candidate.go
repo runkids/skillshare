@@ -3,10 +3,10 @@ package install
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"skillshare/internal/gitenv"
 	"skillshare/internal/sourcewalk"
 )
 
@@ -26,7 +26,7 @@ type GitUpdateCandidate struct {
 
 // StageGitUpdate clones the current branch and preserves the pull's local Git
 // configuration. discard omits local edits for the update command's force mode.
-func StageGitUpdate(repoPath string, discard bool) (_ *GitUpdateCandidate, err error) {
+func StageGitUpdate(repoPath string, discard bool, opts ParseOptions) (_ *GitUpdateCandidate, err error) {
 	repoPath, err = filepath.Abs(repoPath)
 	if err != nil {
 		return nil, err
@@ -48,7 +48,7 @@ func StageGitUpdate(repoPath string, discard bool) (_ *GitUpdateCandidate, err e
 	}
 	// Partial clones lack intermediate blobs; git >= 2.45.1 refuses to
 	// lazy-fetch them through a local upload-pack unless re-enabled.
-	env := append(AuthEnvForURL(getRemoteURL(repoPath)), "GIT_NO_LAZY_FETCH=0")
+	env := append(AuthEnvForURL(getRemoteURL(repoPath), opts), "GIT_NO_LAZY_FETCH=0")
 	c := &GitUpdateCandidate{Path: filepath.Join(temp, filepath.Base(repoPath)), BeforeHash: before, repoPath: repoPath, tempDir: temp, discard: discard, state: state, env: env}
 	defer func() {
 		if err != nil {
@@ -120,7 +120,7 @@ func StageGitUpdate(repoPath string, discard bool) (_ *GitUpdateCandidate, err e
 	}
 	files := make(map[string]bool)
 	for _, args := range commands {
-		cmd := exec.Command("git", args...)
+		cmd := gitenv.Command(args...)
 		cmd.Dir = repoPath
 		out, e := cmd.Output()
 		if e != nil {
@@ -217,7 +217,7 @@ func applyGitCandidatePatches(repoPath string, patches []string) error {
 		if i == 0 {
 			args = append(args, "--index")
 		}
-		cmd := exec.Command("git", args...)
+		cmd := gitenv.Command(args...)
 		cmd.Dir, cmd.Stdin = repoPath, strings.NewReader(patch)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("cannot apply local edits: %w: %s", err, out)
@@ -232,7 +232,7 @@ func gitCandidateState(repoPath string) (state [3]string, err error) {
 		{"diff", "--binary", "--cached", "HEAD"},
 		{"diff", "--binary"},
 	} {
-		cmd := exec.Command("git", args...)
+		cmd := gitenv.Command(args...)
 		cmd.Dir = repoPath
 		out, e := cmd.Output()
 		if e != nil {

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/sourcefs"
 	"skillshare/internal/sourcewalk"
@@ -31,6 +32,7 @@ func (uc *updateContext) isProject() bool {
 
 func (uc *updateContext) makeInstallOpts() install.InstallOptions {
 	opts := install.InstallOptions{
+		ParseOptions:   uc.parseOpts,
 		Force:          true,
 		AuditOverride:  uc.opts.force,
 		Reinstall:      uc.opts.force,
@@ -417,6 +419,15 @@ func pruneRegistry(prunedNames []string, uc *updateContext) {
 		if store.Has(name) {
 			store.Remove(name)
 			changed = true
+		}
+	}
+
+	if uc.isProject() {
+		// The config must not keep declaring a skill its source no longer has.
+		if cfg, cfgErr := config.LoadProject(uc.projectRoot); cfgErr != nil {
+			ui.Warning("Failed to update the project config after prune: %v", cfgErr)
+		} else if forgetErr := config.ForgetProjectSkills(uc.projectRoot, cfg, prunedNames); forgetErr != nil {
+			ui.Warning("Failed to update the project config after prune: %v", forgetErr)
 		}
 	}
 

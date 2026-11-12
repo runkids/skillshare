@@ -129,27 +129,45 @@ ignore:
 ~/.config/skillshare/skills/.metadata.json
 ```
 
-存储已安装及被追踪 skill 的元数据。它位于来源目录内，方便通过 git 同步以支持多机使用。由 `install`、`uninstall`、`update` **自动管理** — 请勿手动编辑。
+存储已安装及被追踪 skill 的元数据。它位于来源目录内，方便通过 git 同步以支持多机使用。Agents 来源目录也有一份同格式的 `.metadata.json`。在 project 模式下，`.skillshare/skills/.metadata.json` 与 `.skillshare/agents/.metadata.json` 会被加入 `.gitignore`：它们记录的是本机的安装状态，团队成员之间改以 `config.yaml` 与 `skills.lock.json` 共享。由 `install`、`uninstall`、`update` **自动管理** — 请勿手动编辑。
 
 ### Contents
 
 ```json
 {
-  "skills": [
-    {
-      "name": "pdf",
-      "source": "anthropics/skills/skills/pdf"
+  "version": 1,
+  "entries": {
+    "pdf": {
+      "source": "anthropics/skills/skills/pdf",
+      "type": "github-subdir",
+      "installed_at": "2026-11-01T10:00:00Z",
+      "repo_url": "https://github.com/anthropics/skills.git",
+      "subdir": "skills/pdf",
+      "version": "a1b2c3d",
+      "commit": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+      "file_hashes": { "SKILL.md": "sha256:…" }
     },
-    {
-      "name": "_team-skills",
+    "_team-skills": {
       "source": "github.com/team/skills",
       "tracked": true
     }
-  ]
+  },
+  "audit_accepted": { "pdf": ["…"] },
+  "target_overrides": { "_team-skills/frontend/ui": ["claude"] }
 }
 ```
 
-每个条目记录 skill 名称及其安装来源。被追踪的仓库（以 `_` 为前缀）会包含完整仓库 URL，供 `update` 与 `check` 操作使用。
+`entries` 下的每个 key 是 skill 相对于来源目录的路径。
+
+| 字段 | 用途 |
+|---|---|
+| `source`、`type`、`repo_url`、`subdir`、`branch` | Skill 的来源，让 `update` 与 `check` 知道要从哪里获取 |
+| `kind`、`tracked`、`group` | `kind` 在 agent 条目中为 `agent`，skill 条目省略；`tracked` 标记被追踪的仓库（以 `_` 为前缀）；`group` 是条目安装到的文件夹 |
+| `version`、`commit`、`tree_hash` | 已安装的版本；`commit` 是完整 SHA，project 模式会把它锁定在 `skills.lock.json` |
+| `file_hashes` | 各文件的 hash，`audit` 用来检测文件是否被修改 |
+| `installed_at`、`layout` | 安装时间，以及本地安装是单个文件还是目录 |
+| `audit_accepted` | 通过 `--force` 接受的 audit findings，条目被改写时仍会保留 |
+| `target_overrides` | 在 dashboard 为被追踪仓库内的 skill 设置的 targets，让该仓库的 `SKILL.md` 保持不变 |
 
 ---
 

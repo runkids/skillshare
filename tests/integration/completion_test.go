@@ -16,6 +16,16 @@ import (
 	"skillshare/internal/testutil"
 )
 
+func TestCompletion_Updates_AllShells(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	for _, shell := range []string{"bash", "zsh", "fish", "powershell", "nushell"} {
+		result := sb.RunCLI("completion", shell)
+		result.AssertSuccess(t)
+		result.AssertOutputContains(t, "updates")
+	}
+}
+
 func TestCompletion_Bash_OutputsScript(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
@@ -144,6 +154,40 @@ func TestCompletion_CheckDiff_AllShells(t *testing.T) {
 		"fish":       "check' -l diff",
 		"powershell": "'check' = '--json', '--diff'",
 		"nushell":    "--diff                   # Show changes since install",
+	} {
+		result := sb.RunCLI("completion", shell)
+		result.AssertSuccess(t)
+		result.AssertOutputContains(t, flag)
+	}
+}
+
+func TestCompletion_CheckExitCode_AllShells(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	for shell, flag := range map[string]string{
+		"bash":       `--diff --exit-code `,
+		"zsh":        "'--exit-code[Exit 1 when anything is not up to date]'",
+		"fish":       "check' -l exit-code",
+		"powershell": "'--diff', '--exit-code'",
+		"nushell":    "--exit-code              # Exit 1 when anything is not up to date",
+	} {
+		result := sb.RunCLI("completion", shell)
+		result.AssertSuccess(t)
+		result.AssertOutputContains(t, flag)
+	}
+}
+
+func TestCompletion_AuditRespectAccepted_AllShells(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	for shell, flag := range map[string]string{
+		"bash":       `--no-tui --respect-accepted `,
+		"zsh":        "'--respect-accepted[Do not fail on findings accepted earlier]'",
+		"fish":       "audit' -l respect-accepted",
+		"powershell": "'--no-tui', '--respect-accepted'",
+		"nushell":    "--respect-accepted       # Do not fail on findings accepted earlier",
 	} {
 		result := sb.RunCLI("completion", shell)
 		result.AssertSuccess(t)

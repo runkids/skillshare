@@ -130,29 +130,49 @@ ignore:
 ```
 
 インストール済み・Tracked された Skill に関するメタデータを保存します。マルチマシン構成で git 経由の
-Sync ができるよう、Source ディレクトリ内に置かれます。`install`、`uninstall`、`update` によって
+Sync ができるよう、Source ディレクトリ内に置かれます。Agents の Source にも同じ形式の `.metadata.json` があります。
+Project モードでは `.skillshare/skills/.metadata.json` と `.skillshare/agents/.metadata.json` が `.gitignore` に
+追加されます。これらはこのマシンのインストール状態を記録するもので、チームでは代わりに `config.yaml` と
+`skills.lock.json` を共有します。`install`、`uninstall`、`update` によって
 **自動管理**されます — 手動で編集しないでください。
 
 ### 内容
 
 ```json
 {
-  "skills": [
-    {
-      "name": "pdf",
-      "source": "anthropics/skills/skills/pdf"
+  "version": 1,
+  "entries": {
+    "pdf": {
+      "source": "anthropics/skills/skills/pdf",
+      "type": "github-subdir",
+      "installed_at": "2026-11-01T10:00:00Z",
+      "repo_url": "https://github.com/anthropics/skills.git",
+      "subdir": "skills/pdf",
+      "version": "a1b2c3d",
+      "commit": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+      "file_hashes": { "SKILL.md": "sha256:…" }
     },
-    {
-      "name": "_team-skills",
+    "_team-skills": {
       "source": "github.com/team/skills",
       "tracked": true
     }
-  ]
+  },
+  "audit_accepted": { "pdf": ["…"] },
+  "target_overrides": { "_team-skills/frontend/ui": ["claude"] }
 }
 ```
 
-各エントリは Skill の名前とそのインストール Source を記録します。Tracked repos（`_` プレフィックス
-付き）は `update` と `check` の操作のためにリポジトリの完全な URL を含みます。
+`entries` の各キーは Source ディレクトリからの Skill の相対パスです。
+
+| フィールド | 用途 |
+|---|---|
+| `source`、`type`、`repo_url`、`subdir`、`branch` | Skill の取得元。`update` と `check` が取得先を判断するために使います |
+| `kind`、`tracked`、`group` | `kind` は Agent のエントリでは `agent`、Skill では省略されます。`tracked` は Tracked repo（`_` プレフィックス付き）を示し、`group` はエントリのインストール先フォルダです |
+| `version`、`commit`、`tree_hash` | インストール済みのリビジョン。`commit` は完全な SHA で、Project モードでは `skills.lock.json` に固定されます |
+| `file_hashes` | ファイルごとの hash。`audit` がファイルの変更を検出するために使います |
+| `installed_at`、`layout` | インストール日時と、ローカルインストールが単一ファイルかディレクトリか |
+| `audit_accepted` | `--force` で受け入れた audit の検出結果。エントリが書き換えられても保持されます |
+| `target_overrides` | Tracked repo 内の Skill に Dashboard から設定した Targets。repo の `SKILL.md` は変更されません |
 
 ---
 

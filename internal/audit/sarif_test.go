@@ -302,3 +302,17 @@ func TestHeaderSARIFRuleDescriptionDoesNotDependOnFirstFormat(t *testing.T) {
 		t.Fatalf("rule description depends on first format: %q != %q", first, second)
 	}
 }
+
+func TestToSARIF_SuppressesAcceptedFinding(t *testing.T) {
+	t.Parallel()
+
+	log := ToSARIF([]*Result{{SkillName: "s", Findings: []Finding{
+		{Severity: SeverityHigh, Pattern: "p", File: "SKILL.md", Acknowledged: true},
+		{Severity: SeverityHigh, Pattern: "q", File: "SKILL.md"},
+	}}}, SARIFOptions{})
+
+	got := log.Runs[0].Results
+	if len(got) != 2 || len(got[0].Suppressions) != 1 || got[0].Suppressions[0].Kind != "external" || got[1].Suppressions != nil {
+		t.Fatalf("suppressions = %+v", got)
+	}
+}

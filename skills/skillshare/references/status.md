@@ -88,6 +88,18 @@ Use `skillshare analyze --json` to inspect description/body size and estimated c
 cost per target. Estimates describe loaded skill text, not measured billing or cache savings.
 Use `--no-tui` for plain terminal output.
 
+## updates
+
+Automatic release-version checks and notifications are enabled by default.
+Use `skillshare updates off` / `on` to save global `updates.auto_check`, even from
+a project directory. `skillshare updates --json` reports `enabled`, `configured`
+and `envOverride`. `SKILLSHARE_AUTO_UPDATE_CHECK=false` overrides the saved value
+without writing it. The CLI, dashboard and compatible desktop app releases share the preference; desktop
+support requires an app release that includes skillshare-app#126.
+Disabled checks suppress cached notifications, dialogs and desktop version badges.
+Manual `skillshare updates check` (CLI version), UI check buttons and upgrades remain
+available. Source updates for installed resources are unaffected.
+
 ## upgrade
 
 Upgrade CLI binary and/or built-in skillshare skill.

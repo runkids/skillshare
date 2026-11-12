@@ -67,6 +67,7 @@ skillshare のすべてのコマンドに関する完全なリファレンスで
 | [new](./new.md) | 新しい Skill を作成 |
 | [check](./check.md) | 利用可能な更新を確認 |
 | [update](./update.md) | Skill またはトラック対象リポジトリを更新 |
+| [updates](/docs/reference/commands/updates) | 自動バージョン確認と更新通知を制御 |
 | [upgrade](./upgrade.md) | CLI または組み込み Skill をアップグレード |
 | [enable / disable](./enable.md) | Skill を一時的に有効化/無効化 |
 

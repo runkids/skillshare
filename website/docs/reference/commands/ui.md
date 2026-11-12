@@ -6,6 +6,8 @@ sidebar_position: 1
 
 Launch the web dashboard for visual skill management.
 
+Remote searches (`GET /api/search`) and install previews (`GET /api/preview`) use the same origin checks as mutations: cross-site browser requests are refused before fetching. Direct clients without browser origin/fetch headers remain supported. GitHub API credentials are restricted to HTTPS `api.github.com` and `raw.githubusercontent.com` on the default port or 443; authorization is removed on cross-origin redirects.
+
 ```bash
 skillshare ui                  # Run in the foreground
 skillshare ui start            # Start (or reuse) a background server
@@ -172,7 +174,7 @@ The web dashboard exposes a REST API at `/api/`. All endpoints return JSON.
 | GET | `/api/diff` | Diff between source and targets |
 | GET | `/api/search?q=` | Search GitHub for skills |
 | POST | `/api/install` | Install a skill from source |
-| GET | `/api/audit` | Scan all skills for security threats; adds `warnings` and `incomplete: true` when a followed source link could not be read, as `audit --format json` does |
+| GET | `/api/audit` | Scan all skills for security threats; adds `warnings` and `incomplete: true` when a followed source link could not be read, as `audit --format json` does. Findings accepted earlier with `--force` carry `acknowledged: true` and are counted in `summary.accepted` instead of their severity |
 | GET | `/api/audit/rules` | Get custom audit rules YAML |
 | PUT | `/api/audit/rules` | Save custom audit rules (validates regex) |
 | POST | `/api/audit/rules` | Create starter audit-rules.yaml |
@@ -186,6 +188,7 @@ The web dashboard exposes a REST API at `/api/`. All endpoints return JSON.
 | GET | `/api/skillignore` | Get `.skillignore` content, `.skillignore.local` content when present, and ignore stats |
 | PUT | `/api/skillignore` | Update `.skillignore` content |
 | GET | `/api/doctor` | Run all health checks (JSON) |
+| GET | `/api/doctor/stream` | Run all health checks as Server-Sent Events: a `check` event for each check as it is found, then `done` with the same JSON as `/api/doctor` |
 | GET | `/api/health` | Liveness probe; returns `200` once the server is ready |
 | GET | `/api/version` | Current/latest version, whether an upgrade is available, and, for a Nix install, the command that updates the CLI (`nixUpgradeCommand`) |
 | POST | `/api/upgrade` | Run `skillshare upgrade` in place (returns `devMode: true` when the binary is a dev build, and `409` with code `upgrade.nix` when a Nix install has a newer CLI waiting) |

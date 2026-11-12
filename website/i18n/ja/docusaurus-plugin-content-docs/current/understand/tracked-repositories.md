@@ -183,18 +183,13 @@ skillshare uninstall _team-skills
 
 追跡リポジトリは Project mode でも動作します。リポジトリは `.skillshare/skills/` にクローンされ、`.skillshare/.gitignore` に追加されます（これにより、追跡リポジトリの git 履歴がプロジェクトの git と競合しなくなります）。プロジェクトのログ（`.skillshare/logs/`）、trash（`.skillshare/trash/`）、バックアップ（`.skillshare/backups/`）、インストールメタデータ（`.skillshare/skills/.metadata.json`）もデフォルトで無視されます。
 
-追跡リポジトリをインストールすると、`.skillshare/.metadata.json` に `tracked: true` が自動的に記録されるため、新しいチームメンバーは `skillshare install -p` を通じて正しいクローン動作を得られます。
+追跡リポジトリをインストールすると、`.skillshare/config.yaml` に `tracked: true` が自動的に記録されるため、新しいチームメンバーは `skillshare install -p` を通じて正しいクローン動作を得られます。
 
-```json
-{
-  "skills": [
-    {
-      "name": "_team-shared-skills",
-      "source": "github.com/team/shared-skills",
-      "tracked": true
-    }
-  ]
-}
+```yaml
+skills:
+  - name: _team-shared-skills
+    source: github.com/team/shared-skills
+    tracked: true
 ```
 
 ```bash

@@ -6,7 +6,7 @@ sidebar_position: 9
 
 **Vercel의 `npx skills`**와 **Skillshare**는 모두 여러 AI 도구에서 skills를 관리합니다. 차이는 “하나는 설치만, 다른 하나는 동기화”가 아닙니다. Skills를 관리할지, 더 넓은 AI 작업 환경을 관리할지에 따라 선택하세요.
 
-이 비교는 배포된 **skills v1.7.6**의 [패키지 정보](https://registry.npmjs.org/skills/1.7.6)와 [공식 CLI 문서](https://github.com/vercel-labs/skills/blob/7a5e920bead4b1039a6d6df5d7e1163b7b09423a/docs/commands.md)를 기준으로 합니다. 실험적 명령은 변경되거나 사라질 수 있습니다. 모든 설치 도구에 대한 일반화가 아니라 특정 버전의 비교입니다.
+이 비교는 배포된 **skills v1.8.1**의 [패키지 정보](https://registry.npmjs.org/skills/1.8.1)와 [공식 CLI 문서](https://github.com/vercel-labs/skills/blob/e781cb4d07433dfe1d19e924ed45cc61738c55ec/docs/commands.md)를 기준으로 합니다. 실험적 명령은 변경되거나 사라질 수 있습니다. 모든 설치 도구에 대한 일반화가 아니라 특정 버전의 비교입니다.
 
 ## 아키텍처 개요
 
@@ -24,13 +24,13 @@ Skillshare는 source 리소스와 target 설정을 분리한 뒤 각 도구에 �
 
 ## 기능 비교
 
-| 기능 | npx skills v1.7.6 | Skillshare |
+| 기능 | npx skills v1.8.1 | Skillshare |
 |------|------------------|------------|
 | **발견** | skills.sh 및 `skills find` | CLI 검색 및 로컬 Web dashboard |
 | **여러 agent와 범위** | 여러 agent, 프로젝트 및 전역 설치 | 설정된 targets, 프로젝트 및 전역 모드 |
 | **Skill 파일 공유** | 공통 복사본을 가리키는 symlink, copy 옵션 | Source 디렉터리와 merge, copy, 전체 디렉터리 symlink 모드 |
-| **업데이트** | `skills check` 및 `skills update` | `skillshare check` 및 `skillshare update` |
-| **프로젝트 복원** | 실험적 `skills experimental_install`이 `skills-lock.json`의 지원 소스를 복원 | 선언적 skill 설정과 source 리소스. [manifest](/docs/understand/declarative-manifest) 참고 |
+| **업데이트** | `skills check`(업데이트나 로컬 변경이 있으면 종료 코드 1) 및 `skills update` | `skillshare check`(`--exit-code`를 붙이면 최신이 아닌 항목이 있을 때 종료 코드 1) 및 `skillshare update` |
+| **프로젝트 복원** | 실험적 `skills experimental_install`(소스 없이 `skills install`로도 실행)이 `skills-lock.json`의 지원 소스를 복원 | 선언적 skill 설정과 source 리소스. [manifest](/docs/understand/declarative-manifest) 참고 |
 | **npm 프로젝트 동기화** | 실험적 `skills experimental_sync`가 설치된 의존성과 `package.json`의 skill 선언을 읽음 | Source에서 target으로 동기화. 동일한 npm 의존성 워크플로우는 아님 |
 | **머신 간 워크플로우** | 프로젝트 lock 복원과 npm 동기화로 프로젝트 skills 재구성 지원 | Git `push` / `pull`, 범위는 `git_root`로 결정 |
 | **Skills 외 리소스** | 인용한 CLI 문서는 skills 중심 | Agent 정의, rules 같은 extras, MCP 설정, 지원 클라이언트의 hooks |
@@ -39,7 +39,7 @@ Skillshare는 source 리소스와 target 설정을 분리한 뒤 각 도구에 �
 
 ### 실험적 명령의 범위
 
-- **`experimental_install`**은 지원하는 lock 항목을 `.agents/skills/`에 복원합니다. npm 의존성을 설치하거나 복원한 skills에 agent 전용 링크를 만들지는 않습니다. 명시적으로 재설치하지 않으면 기존 skills는 유지됩니다. Frozen-lock 모드는 콘텐츠 hash를 검사하며 CI에서 기본값입니다.
+- **`experimental_install`**(소스 없이 `skills install`로도 실행)은 지원하는 lock 항목을 `.agents/skills/`에 복원하고 agent 디렉터리에 링크합니다(copy 모드로 기록된 skills는 복사). 대상은 `--agent`로 지정한 agent이며, 지정하지 않으면 마지막으로 선택한 agent, 그것도 없으면 감지된 agent입니다. npm 의존성은 설치하지 않습니다. 이미 설치되어 있고 파일이 lock의 콘텐츠 hash와 일치하는 skills는 다시 가져오지 않고 빠진 agent 링크만 추가합니다. 내용이 다른 skills는 소스에서 복원하며, `--force`는 모든 skills를 재설치합니다. Frozen-lock 모드는 콘텐츠 hash를 검사하며 CI에서 기본값입니다.
 - **`experimental_sync`**는 설치된 npm 의존성에 포함된 skills를 연결하고 `package.json`의 skill 선언을 처리합니다. `skills-lock.json`으로 추적하고 더 이상 제공되지 않는 skills를 제거하며 별도로 추가한 skills는 보존합니다. Copy를 사용하면 의존성 업데이트 후 다시 동기화해야 합니다.
 
 이는 실제 동기화 및 복원 기능이지만 AI 도구 설정 전체의 백업은 아닙니다.

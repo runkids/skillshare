@@ -4,14 +4,16 @@ import (
 	"sync"
 
 	"skillshare/internal/git"
+	"skillshare/internal/install"
 )
 
 const maxWorkers = 8
 
 // RepoCheckInput describes a tracked repo to check.
 type RepoCheckInput struct {
-	Name     string
-	RepoPath string
+	Name         string
+	RepoPath     string
+	ParseOptions install.ParseOptions
 }
 
 // RepoCheckOutput holds the result of checking a single repo.
@@ -25,8 +27,9 @@ type RepoCheckOutput struct {
 
 // URLCheckInput describes a remote URL to probe.
 type URLCheckInput struct {
-	RepoURL string
-	Branch  string
+	RepoURL      string
+	Branch       string
+	ParseOptions install.ParseOptions
 }
 
 // URLCheckOutput holds the result of probing a remote URL.
@@ -85,7 +88,7 @@ func checkOneRepo(r RepoCheckInput) RepoCheckOutput {
 		return out
 	}
 
-	behind, err := git.GetBehindCountWithAuth(r.RepoPath)
+	behind, err := git.GetBehindCountWithAuth(r.RepoPath, r.ParseOptions)
 	if err != nil {
 		out.Status = "error"
 		out.Message = err.Error()
@@ -120,7 +123,7 @@ func ParallelCheckURLs(urls []URLCheckInput, onDone func()) []URLCheckOutput {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			hash, err := GitRemote{}.Hash(input.RepoURL, input.Branch)
+			hash, err := (GitRemote{ParseOptions: input.ParseOptions}).Hash(input.RepoURL, input.Branch)
 			outputs[idx] = URLCheckOutput{
 				RepoURL:    input.RepoURL,
 				RemoteHash: hash,

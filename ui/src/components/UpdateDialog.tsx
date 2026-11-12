@@ -7,6 +7,7 @@ import type { VersionCheck } from '../api/client';
 import DialogShell from './DialogShell';
 import Button from './Button';
 import { useT } from '../i18n';
+import { useUpdatePolicy } from '../hooks/useUpdatePolicy';
 import { nixUpdateNote, upgradeErrorMessage } from '../lib/upgradeError';
 
 const DISMISSED_KEY = 'ss-update-dialog-dismissed';
@@ -21,8 +22,9 @@ const mockData: VersionCheck = {
   skillUpdateAvailable: true,
 };
 
-export default function UpdateDialog() {
+export default function UpdateDialog({ manualData, onDismiss }: { manualData?: VersionCheck; onDismiss?: () => void } = {}) {
   const t = useT();
+  const policy = useUpdatePolicy();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -34,28 +36,30 @@ export default function UpdateDialog() {
     queryKey: queryKeys.versionCheck,
     queryFn: () => api.getVersionCheck(),
     staleTime: staleTimes.version,
-    enabled: !isMockMode,
+    enabled: !isMockMode && !manualData,
   });
 
-  const data = isMockMode ? mockData : realData;
+  const data = manualData ?? (isMockMode ? mockData : realData);
   // Dev builds always report a simulated update; stay quiet unless ?update-test asks for the flow.
-  const hasUpdate = !data?.cliDevMode && (data?.cliUpdateAvailable || data?.skillUpdateAvailable);
+  const hasUpdate = (!!manualData || isMockMode || policy.data?.enabled === true) && (!!manualData || data?.autoCheckEnabled !== false) && (!!manualData || !data?.cliDevMode) && (data?.cliUpdateAvailable || data?.skillUpdateAvailable);
 
   useEffect(() => {
     if (!hasUpdate) return;
-    if (!isMockMode) {
+    if (!isMockMode && !manualData) {
       try {
         if (sessionStorage.getItem(DISMISSED_KEY)) return;
       } catch { /* storage unavailable */ }
     }
     setOpen(true);
-  }, [hasUpdate, isMockMode]);
+  }, [hasUpdate, isMockMode, manualData]);
 
   if (!data || !hasUpdate) return null;
   const nixNote = nixUpdateNote(data, t);
 
   const dismiss = () => {
     setOpen(false);
+    onDismiss?.();
+    if (manualData) return;
     try { sessionStorage.setItem(DISMISSED_KEY, '1'); } catch {
       // Ignore storage access failures.
     }
@@ -96,6 +100,7 @@ export default function UpdateDialog() {
         await new Promise((resolve) => setTimeout(resolve, 900));
         setUpdating(false);
         setOpen(false);
+        onDismiss?.();
         return;
       }
       setStatus(t('updateDialog.restarting', {}, 'Restarting local UI server…'));

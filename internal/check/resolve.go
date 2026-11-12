@@ -42,21 +42,24 @@ type Remote interface {
 }
 
 // GitRemote is the Remote backed by git, with token auth for private repos.
-type GitRemote struct{}
-
-func (GitRemote) Hash(repoURL, branch string) (string, error) {
-	if branch != "" {
-		return git.GetRemoteRefHashWithAuth(repoURL, branch)
-	}
-	return git.GetRemoteHeadHashWithAuth(repoURL)
+type GitRemote struct {
+	ParseOptions install.ParseOptions
 }
 
-func (GitRemote) TreeHashes(repoURL, branch string) map[string]string {
-	return FetchRemoteTreeHashesForRef(repoURL, branch)
+func (r GitRemote) Hash(repoURL, branch string) (string, error) {
+	if branch != "" {
+		return git.GetRemoteRefHashWithAuth(repoURL, branch, r.ParseOptions)
+	}
+	return git.GetRemoteHeadHashWithAuth(repoURL, r.ParseOptions)
+}
+
+func (r GitRemote) TreeHashes(repoURL, branch string) map[string]string {
+	return FetchRemoteTreeHashesForRef(repoURL, branch, r.ParseOptions)
 }
 
 // Options configures Resolution.Run.
 type Options struct {
+	ParseOptions install.ParseOptions
 	// Remote is the source of remote hashes; nil means GitRemote.
 	Remote Remote
 	// Parallel checks up to maxWorkers remotes at once instead of one by one.
@@ -126,7 +129,7 @@ func (r *Resolution) RemoteSkills() int {
 func (r *Resolution) Run(ctx context.Context, opts Options) ([]SkillResult, error) {
 	remote := opts.Remote
 	if remote == nil {
-		remote = GitRemote{}
+		remote = GitRemote{ParseOptions: opts.ParseOptions}
 	}
 
 	resolved := make([][]SkillResult, len(r.groups))

@@ -3,6 +3,7 @@ package audit
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"path"
 	"strings"
 )
 
@@ -26,6 +27,13 @@ func AcceptKey(f Finding) string {
 // findings stay in the result for display but no longer count toward blocking.
 // Returns the number of findings marked.
 func (r *Result) MarkAcknowledged(keys []string) int {
+	return r.MarkAcknowledgedUnder(keys, "")
+}
+
+// MarkAcknowledgedUnder is MarkAcknowledged for keys recorded by a scan of an
+// enclosing directory, such as a whole tracked repository: dir is this
+// result's path relative to that directory, as that scan named its files.
+func (r *Result) MarkAcknowledgedUnder(keys []string, dir string) int {
 	if r == nil || len(keys) == 0 {
 		return 0
 	}
@@ -35,7 +43,11 @@ func (r *Result) MarkAcknowledged(keys []string) int {
 	}
 	n := 0
 	for i := range r.Findings {
-		if set[AcceptKey(r.Findings[i])] {
+		f := r.Findings[i]
+		if dir != "" {
+			f.File = path.Join(dir, f.File)
+		}
+		if !f.Acknowledged && set[AcceptKey(f)] {
 			r.Findings[i].Acknowledged = true
 			n++
 		}

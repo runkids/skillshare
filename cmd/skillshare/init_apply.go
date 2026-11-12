@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"skillshare/internal/config"
 	gitops "skillshare/internal/git"
+	"skillshare/internal/gitenv"
 	"skillshare/internal/install"
 	"skillshare/internal/sourcefs"
 	ssync "skillshare/internal/sync"
@@ -160,7 +160,7 @@ func applyRemote(p *initPlan, res *initResult, hadRepo bool) {
 		res.warnings = append(res.warnings, fmt.Sprintf("%s already had a git repo, so the remote's skills were not pulled. Run: skillshare pull", utils.FoldHomePath(res.gitRoot)))
 		return
 	}
-	if err := pullRemote(res.gitRoot, p.remoteURL); err != nil {
+	if err := pullRemote(res.gitRoot, p.remoteURL, parseOptsFromConfig(res.cfg)); err != nil {
 		res.pullErr = err
 		return
 	}
@@ -170,7 +170,7 @@ func applyRemote(p *initPlan, res *initResult, hadRepo bool) {
 }
 
 func gitOutput(dir string, args ...string) (string, error) {
-	cmd := exec.Command("git", args...)
+	cmd := gitenv.Command(args...)
 	cmd.Dir = dir
 	out, err := cmd.Output()
 	return strings.TrimSpace(string(out)), err

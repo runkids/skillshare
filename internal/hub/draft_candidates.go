@@ -69,7 +69,7 @@ func DraftCandidates(sourcePath string, walk ...sourcewalk.Options) ([]DraftEntr
 // parseInstalled parses the entry's source as it was installed, so a web URL
 // whose ref contains "/" splits into ref and subdir as the install did.
 func parseInstalled(entry *install.MetadataEntry) (*install.Source, error) {
-	parsed, err := install.ParseSource(entry.Source)
+	parsed, err := install.RecordedSource(entry, install.ParseOptions{})
 	if err == nil && entry.Branch != "" {
 		parsed.ApplyRecordedBranch(entry.Branch)
 	}
@@ -79,15 +79,16 @@ func parseInstalled(entry *install.MetadataEntry) (*install.Source, error) {
 // installedSource returns the entry's source pinned at the ref it was
 // installed from, so the hub entry installs the same version.
 func installedSource(entry *install.MetadataEntry) string {
+	source := install.RecordedSourceString(entry, install.ParseOptions{})
 	if entry.Branch == "" {
-		return entry.Source
+		return source
 	}
 	parsed, err := parseInstalled(entry)
 	if err != nil {
-		return entry.Source
+		return source
 	}
 	if pinned, err := parsed.AtRef(entry.Branch); err == nil {
 		return pinned
 	}
-	return entry.Source
+	return source
 }

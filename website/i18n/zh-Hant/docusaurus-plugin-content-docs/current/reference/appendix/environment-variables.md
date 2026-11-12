@@ -8,6 +8,18 @@ skillshare 所辨識的所有環境變數。
 
 ## 設定
 
+### SKILLSHARE_AUTO_UPDATE_CHECK {#skillshare_auto_update_check}
+
+覆蓋全域 config.yaml 的 `updates.auto_check`。設為 `false` 時，CLI、Web UI 和支援此設定的桌面 App 停止自動版本檢查，不顯示更新通知或版本徽章；仍可手動檢查與升級。環境變數優先於設定檔，不會回寫。未設定時採用設定檔，預設為 `true`。接受 `true/false`、`1/0`、`t/f` 及 Go 布林值大小寫變體；空值或無效值忽略。GUI App 必須在啟動時繼承此環境變數。
+
+```bash
+SKILLSHARE_AUTO_UPDATE_CHECK=false skillshare status
+```
+
+桌面支援需要包含 [skillshare-app#126](https://github.com/runkids/skillshare-app/pull/126) 的 App 版本；只升級 CLI 不會關閉舊版桌面 App 的自動檢查。
+
+[updates](/docs/reference/commands/updates)
+
 ### SKILLSHARE_CONFIG
 
 覆寫設定檔路徑。
@@ -178,6 +190,8 @@ SKILLSHARE_UI_TRUSTED_ORIGINS=https://tools.example.com skillshare ui --host 0.0
 
 ### GITHUB_TOKEN
 
+平台權杖僅傳送至使用 HTTPS 預設連接埠（或 443）的 `github.com`、`gitlab.com`、`bitbucket.org`、`dev.azure.com`、`*.visualstudio.com`、`gitea.com` 和 `cnb.cool`。自架 Gitea/CNB 即使名稱包含平台名，也必須在 `gitea_hosts`/`cnb_hosts` 中設定完整相符的主機名稱。自架 GitHub/GitLab 等主機應使用依主機設定的 Git credential helper，或僅為目標呼叫設定 `SKILLSHARE_GIT_TOKEN`。此通用 fallback 可傳送給**任何 HTTPS 來源**；類似平台的名稱不會授權傳送平台權杖。
+
 GitHub 個人存取權杖（personal access token）。
 
 **用途：**
@@ -336,7 +350,7 @@ skillshare install https://gitea.com/org/skills.git --track
 $env:GITEA_TOKEN = "your_token"
 ```
 
-此 token 只會傳送給你安裝來源的主機。若自架的執行個體位於名稱中不含 `gitea` 的網域，需要設定 [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts)，否則會改用 `SKILLSHARE_GIT_TOKEN`。
+自架 Gitea 即使名稱包含 `gitea`，也必須在 [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts) 中設定完整相符的主機名稱才能傳送 `GITEA_TOKEN`。平台認證僅支援 HTTPS 預設連接埠或 443。
 
 ### CNB_TOKEN
 

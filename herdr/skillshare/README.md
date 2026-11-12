@@ -26,18 +26,43 @@ New to skillshare? Start with the [main README](../../README.md) or the
 
 ## Install
 
+Choose **Mod** to add the panel to your current window (recommended), or **Layout** for a
+separate complete window. Both use the same panel and updater.
+
+### Mod: keep your current window
+
+The standalone package is [`herdr/skillshare-mod`](../skillshare-mod/RECIPE.md). Paste this
+prompt into an agent in Herdr:
+
+```text
+Read ~/.config/herdr-app/AGENTS.md, then add this mod from https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod. Follow its RECIPE.md: add only the skillshare toggle and panel to my current layout, preserving my status bar, usage meters and all other customizations. Reuse existing skillshare nodes instead of duplicating them.
+```
+
+It contains no layout file. The agent clones a Herdr-shipped layout before editing it, or
+adds just the two nodes to your existing custom layout. It does not switch to the complete
+skillshare layout. The recipe explains network access, commands and files to review first.
+
+### Layout: a separate complete window
+
 From [Herdr layouts](https://herdr.dev/layouts/runkids/skillshare--herdr--skillshare/), paste this prompt into an agent in Herdr:
 
 ```text
 Read ~/.config/herdr-app/AGENTS.md, then add this layout: herdr.dev/layouts/runkids/skillshare--herdr--skillshare
 ```
 
-By hand:
+### By hand
+
+For either option, review every mod file before copying it. Preserve an unrelated installed
+mod of the same name by following Herdr's rename procedure; for this panel already installed,
+use the update instructions below instead.
 
 1. Copy `mods/skillshare/` to `~/.config/herdr-app/mods/skillshare/`.
 2. Copy `layouts/herdr-skillshare.json` and `layouts/herdr-skillshare.png` to
    `~/.config/herdr-app/layouts/` and switch to it (`layout.switch {name: "herdr-skillshare"}`).
-   `RECIPE.md` describes it in full and `preview.png` shows it. Or, in your own layout, add:
+   `RECIPE.md` describes it in full and `preview.png` shows it. Keep any existing layout of
+   that name: add the new layout under another name instead of replacing it.
+   For the **Mod** option, skip copying layouts. Clone a Herdr-shipped layout first, or edit
+   your existing custom layout, preserving all unrelated nodes and properties. Add or reuse:
    - a toggle block to the tab bar row:
      `{ "id": "skillshare-toggle", "type": "block", "content": { "mod": "skillshare", "props": { "role": "toggle" } }, "size": { "px": 118 } }`
    - a column beside the work area:
@@ -54,13 +79,20 @@ When a newer skillshare release is published, the panel's header shows **Update 
 first, then replaces the files in `~/.config/herdr-app/mods/skillshare/` with the ones that release
 ships, and Herdr reloads the panel. The files it replaced are kept in that folder's
 `.bak-update-<version>`; changes you made to them are not carried over. The layout is not touched.
+This is the same update path for both the Mod and Layout options.
+
+For an agent-assisted update, use this prompt instead of the installation prompt:
+
+```text
+Read ~/.config/herdr-app/AGENTS.md, then update only the installed skillshare mod from herdr/skillshare/mods/skillshare of the latest published release of https://github.com/runkids/skillshare. Back up the mod first. Preserve every layout, including custom status bars and CLI usage meters, plus settings, keys and unrelated mods. Keep the current layout selected. If skillshare needs a layout change, merge only its own nodes; do not replace the layout.
+```
 
 A panel installed before this button existed has no update check. Update it once by hand: copy
 `mods/skillshare/` from the latest release over `~/.config/herdr-app/mods/skillshare/`, or paste this prompt into an
 agent in Herdr:
 
 ```text
-Read ~/.config/herdr-app/AGENTS.md, then replace the files in mods/skillshare with the ones in herdr/skillshare/mods/skillshare of the latest release of https://github.com/runkids/skillshare (the tag that /releases/latest lands on), overwriting the mod that is there.
+Read ~/.config/herdr-app/AGENTS.md, then update only the installed skillshare mod using the Update section of https://github.com/runkids/skillshare/blob/main/herdr/skillshare/README.md. Preserve my current layout and all customizations.
 ```
 
 ## How it reads
@@ -68,8 +100,12 @@ Read ~/.config/herdr-app/AGENTS.md, then replace the files in mods/skillshare wi
 - It runs on the shown space's machine (`exec` with `on`), in the focused terminal's folder.
 - A folder with `.skillshare/config.yaml` or `skillshare/config.yaml` is a project; both
   scopes show and the All · Project · Global switch appears beside the tabs.
-- Per scope, one detached script runs `list --all`, `diff`, `mcp list`, `plugin list` and `hooks list`
-  with `--json`. `check` and `check agents` run every 10 minutes. Git state comes from `git status` in the
+- Per scope, independent detached reads run `list --all`, `diff`, `mcp list`, `plugin list` and
+  `hooks list` with `--json`. Each result appears as soon as it is ready; a slow plugin inventory
+  does not hold up other resources or the source's Git state. Refreshes keep existing rows visible.
+  Pending or failed inventories show `…` instead of zero, and sync states remain unconfirmed until
+  the reads succeed. Read errors stay visible beside the available data; the next refresh retries.
+  `check` and `check agents` run every 10 minutes. Git state comes from `git status` in the
   source repository, because the CLI has no JSON for it.
 - The install dialog reads canonical names and repository-relative paths from
   `skillshare install <source> --dry-run --json --kind skill` (`planned`), so its pick list
@@ -108,6 +144,17 @@ cleanup, excluding diagnostic notices, which get rows of their own. When a previ
 fails, named entries stay listed as “sync status unknown”; they do not count as pending or in
 sync. Hook conflicts block `sync --all` for every resource kind; resolve them with the CLI or
 dashboard, then Sync again.
+
+## Maintaining the gallery packages
+
+`herdr/skillshare/` remains the Layout package and canonical mod source. `herdr/skillshare-mod/`
+is the standalone Mod package, with no `layouts/`. After changing the canonical mod or
+`panels.png`, run `python3 scripts/herdr/package-mod.py` inside the devcontainer to refresh the
+standalone files; `make test-herdr` checks that both packages match. Release Please updates
+both copies of `version.js`.
+
+Gallery discovery uses the public repository topics `herdr-layout` and `herdr-mod`, respectively.
+Keep both topics to offer both packages. Adding a topic or publishing is a separate maintainer action.
 
 ## Tests
 

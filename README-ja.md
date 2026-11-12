@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新バージョン**：v0.30.0 — Web ダッシュボードは、別の Web サイトがブラウザー経由で送ってくる変更を拒否し、`localhost`、IP アドレス、信頼したアドレスだけに応答するため、DNS rebinding を使ったページからも届きません。リバースプロキシの背後では [`--trusted-origin`](https://skillshare.runkids.cc/ja/docs/reference/commands/ui#reverse-proxy) を付けて起動すると、MCP、Hooks、Plugins を含むすべてのページがドメイン経由で動作します。それ以外のドメイン名で開いたダッシュボードには、この設定が必要になりました。[`skillshare plugin`](https://skillshare.runkids.cc/ja/docs/reference/commands/plugin) は、Claude のマニフェストだけを同梱するプラグインも Codex に提供し、Codex が使える Skill と MCP サーバーを添えます。[変更履歴](https://skillshare.runkids.cc/changelog)をご覧ください。
+> **最新バージョン**：v0.30.6 — CI で古いスキルを検出できます。`skillshare check --exit-code` は、確認対象のいずれかが最新でないとき終了コード 1 を返します。`check --all` はスキルに加えてエージェントも確認するようになり、1 つの CI ステップで両方をカバーできます。[check リファレンス →](https://skillshare.runkids.cc/ja/docs/reference/commands/check) · [変更履歴 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare を使う理由
 

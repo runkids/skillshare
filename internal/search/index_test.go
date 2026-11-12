@@ -28,7 +28,7 @@ func TestSearchFromIndexURL_LocalFile(t *testing.T) {
 		]
 	}`)
 
-	results, err := SearchFromIndexURL("react", 20, indexPath)
+	results, err := SearchFromIndexURL("react", 20, indexPath, install.ParseOptions{})
 	if err != nil {
 		t.Fatalf("SearchFromIndexURL: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestSearchFromIndexURL_EmptyQuery(t *testing.T) {
 		]
 	}`)
 
-	results, err := SearchFromIndexURL("", 20, indexPath)
+	results, err := SearchFromIndexURL("", 20, indexPath, install.ParseOptions{})
 	if err != nil {
 		t.Fatalf("SearchFromIndexURL: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestSearchFromIndexURL_MalformedJSON(t *testing.T) {
 	dir := t.TempDir()
 	indexPath := writeTestIndex(t, dir, "index.json", `{not valid json}`)
 
-	_, err := SearchFromIndexURL("test", 20, indexPath)
+	_, err := SearchFromIndexURL("test", 20, indexPath, install.ParseOptions{})
 	if err == nil {
 		t.Fatal("expected error for malformed JSON")
 	}
@@ -83,7 +83,7 @@ func TestSearchFromIndexURL_LimitRespected(t *testing.T) {
 		]
 	}`)
 
-	results, err := SearchFromIndexURL("", 2, indexPath)
+	results, err := SearchFromIndexURL("", 2, indexPath, install.ParseOptions{})
 	if err != nil {
 		t.Fatalf("SearchFromIndexURL: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestSearchFromIndexURL_SourcePathJoin(t *testing.T) {
 		]
 	}`)
 
-	results, err := SearchFromIndexURL("", 20, indexPath)
+	results, err := SearchFromIndexURL("", 20, indexPath, install.ParseOptions{})
 	if err != nil {
 		t.Fatalf("SearchFromIndexURL: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestSearchFromIndexURL_NoSourcePath(t *testing.T) {
 		]
 	}`)
 
-	results, err := SearchFromIndexURL("", 20, indexPath)
+	results, err := SearchFromIndexURL("", 20, indexPath, install.ParseOptions{})
 	if err != nil {
 		t.Fatalf("SearchFromIndexURL: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestSearchFromIndexURL_NoSourcePath(t *testing.T) {
 }
 
 func TestSearchFromIndexURL_EmptyURL(t *testing.T) {
-	_, err := SearchFromIndexURL("test", 20, "")
+	_, err := SearchFromIndexURL("test", 20, "", install.ParseOptions{})
 	if err == nil {
 		t.Fatal("expected error for empty URL")
 	}
@@ -153,7 +153,7 @@ func TestSearchFromIndexURL_SkipsEmptyName(t *testing.T) {
 		]
 	}`)
 
-	results, err := SearchFromIndexURL("", 20, indexPath)
+	results, err := SearchFromIndexURL("", 20, indexPath, install.ParseOptions{})
 	if err != nil {
 		t.Fatalf("SearchFromIndexURL: %v", err)
 	}
@@ -173,7 +173,7 @@ func TestSearchFromIndexURL_RiskFields(t *testing.T) {
 		]
 	}`)
 
-	results, err := SearchFromIndexURL("", 20, indexPath)
+	results, err := SearchFromIndexURL("", 20, indexPath, install.ParseOptions{})
 	if err != nil {
 		t.Fatalf("SearchFromIndexURL: %v", err)
 	}
@@ -445,7 +445,7 @@ func TestBuildHubRequest_GitLabHeaders(t *testing.T) {
 	t.Setenv("GITLAB_TOKEN", "glpat_test")
 	t.Setenv("SKILLSHARE_GIT_TOKEN", "")
 
-	req, err := buildHubRequest("https://gitlab.com/runkids/demo_empty/-/blob/main/skillshare-hub.json")
+	req, err := buildHubRequest("https://gitlab.com/runkids/demo_empty/-/blob/main/skillshare-hub.json", install.ParseOptions{})
 	if err != nil {
 		t.Fatalf("buildHubRequest() error = %v", err)
 	}
@@ -465,7 +465,7 @@ func TestBuildHubRequest_GitHubHeaders(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "ghp_test")
 	t.Setenv("SKILLSHARE_GIT_TOKEN", "")
 
-	req, err := buildHubRequest("https://github.com/acme/skills/blob/main/skillshare-hub.json")
+	req, err := buildHubRequest("https://github.com/acme/skills/blob/main/skillshare-hub.json", install.ParseOptions{})
 	if err != nil {
 		t.Fatalf("buildHubRequest() error = %v", err)
 	}
@@ -483,7 +483,7 @@ func TestBuildHubRequest_BitbucketBasicAuth(t *testing.T) {
 	t.Setenv("BITBUCKET_USERNAME", "willie0903")
 	t.Setenv("SKILLSHARE_GIT_TOKEN", "")
 
-	req, err := buildHubRequest("https://bitbucket.org/team/repo/raw/main/skillshare-hub.json")
+	req, err := buildHubRequest("https://bitbucket.org/team/repo/raw/main/skillshare-hub.json", install.ParseOptions{})
 	if err != nil {
 		t.Fatalf("buildHubRequest() error = %v", err)
 	}
@@ -503,7 +503,7 @@ func TestBuildHubRequest_NoToken_NoAuthHeader(t *testing.T) {
 	t.Setenv("BITBUCKET_TOKEN", "")
 	t.Setenv("SKILLSHARE_GIT_TOKEN", "")
 
-	req, err := buildHubRequest("https://gitlab.com/group/repo/-/raw/main/skillshare-hub.json")
+	req, err := buildHubRequest("https://gitlab.com/group/repo/-/raw/main/skillshare-hub.json", install.ParseOptions{})
 	if err != nil {
 		t.Fatalf("buildHubRequest() error = %v", err)
 	}
@@ -600,7 +600,7 @@ func TestSearchFromIndexURL_PinnedSourceKeepsRef(t *testing.T) {
 		}]
 	}`)
 
-	results, err := SearchFromIndexURL("", 0, indexPath)
+	results, err := SearchFromIndexURL("", 0, indexPath, install.ParseOptions{})
 	if err != nil {
 		t.Fatalf("SearchFromIndexURL: %v", err)
 	}
@@ -617,5 +617,34 @@ func TestSearchFromIndexURL_PinnedSourceKeepsRef(t *testing.T) {
 	}
 	if src.Subdir != "skills/productivity/writing-for-agents" {
 		t.Errorf("Subdir = %q", src.Subdir)
+	}
+}
+
+func TestBuildHubRequest_ConfiguredHostAuthorization(t *testing.T) {
+	t.Setenv("CNB_TOKEN", "cnb-test-token")
+	t.Setenv("GITEA_TOKEN", "gitea-test-token")
+	t.Setenv("SKILLSHARE_GIT_TOKEN", "")
+	opts := install.ParseOptions{
+		CNBHosts:   []string{"cnb.corp.example"},
+		GiteaHosts: []string{"forge.corp.example"},
+	}
+	for _, tt := range []struct {
+		url, auth string
+	}{
+		{"https://cnb.corp.example/org/repo/raw/main/skillshare-hub.json", "Bearer cnb-test-token"},
+		{"https://forge.corp.example/org/repo/raw/main/skillshare-hub.json", "Bearer gitea-test-token"},
+		{"https://cnb.attacker.invalid/org/repo/raw/main/skillshare-hub.json", ""},
+		{"https://gitea.attacker.invalid/org/repo/raw/main/skillshare-hub.json", ""},
+		{"https://forge.corp.example.attacker.invalid/org/repo/raw/main/skillshare-hub.json", ""},
+	} {
+		t.Run(tt.url, func(t *testing.T) {
+			req, err := buildHubRequest(tt.url, opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := req.Header.Get("Authorization"); got != tt.auth {
+				t.Fatalf("Authorization = %q, want %q", got, tt.auth)
+			}
+		})
 	}
 }

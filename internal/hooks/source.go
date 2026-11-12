@@ -97,6 +97,9 @@ func digest(data []byte) string { return fmt.Sprintf("%x", sha256.Sum256(data)) 
 // LoadSource reads hooks.entries. A config without a hooks section has no entries.
 func LoadSource(configPath string) (*Source, error) { return loadSource(configPath, nil) }
 
+// Source reads this service's hooks section without scanning native files or Git.
+func (s *Service) Source() (*Source, error) { return s.loadSource() }
+
 func (s *Service) loadSource() (*Source, error) {
 	source, err := loadSource(s.ConfigPath, s.accountAgents())
 	if err == nil && s.ProjectRoot != "" && len(source.Projects) > 0 {

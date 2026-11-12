@@ -115,23 +115,25 @@ func checkMCPServers(service *mcp.Service, result *doctorResult) {
 
 // checkHooksEntries reports what `hooks sync` would still change or refuse.
 func checkHooksEntries(service *hooks.Service, result *doctorResult) {
-	inv, err := service.List()
+	// Read the section first: with nothing configured there is no plan to check,
+	// so doctor skips the native file and Git reads a preview makes.
+	source, err := service.Source()
 	if err != nil {
 		ui.Row(ui.MarkFail, "Hooks", err.Error(), doctorWidth)
 		addResourceCheck(result, "hooks", "Hooks", "", []string{err.Error()}, nil)
 		return
 	}
-	if len(inv.Source.Entries) == 0 && len(inv.Source.Projects) == 0 {
+	if len(source.Entries) == 0 && len(source.Projects) == 0 {
 		ui.Row(ui.MarkNone, "Hooks", "none configured", doctorWidth)
 		result.addInfo("hooks", "No hooks configured")
 		return
 	}
 	var errors, warnings []string
 	syncable := false
-	if inv.PreviewError != "" {
-		errors = append(errors, "sync preview failed: "+inv.PreviewError)
-	} else if inv.Plan != nil {
-		for _, c := range inv.Plan.Changes {
+	if plan, err := service.Preview(); err != nil {
+		errors = append(errors, "sync preview failed: "+err.Error())
+	} else {
+		for _, c := range plan.Changes {
 			line := c.Name + " → " + c.Target
 			switch c.Action {
 			case "unchanged":
@@ -146,11 +148,11 @@ func checkHooksEntries(service *hooks.Service, result *doctorResult) {
 				warnings = append(warnings, line+": not synced ("+c.Action+")")
 			}
 		}
-		warnings = append(warnings, inv.Plan.Warnings...)
+		warnings = append(warnings, plan.Warnings...)
 	}
-	ok := fmt.Sprintf("All %d hook(s) in sync", len(inv.Source.Entries))
+	ok := fmt.Sprintf("All %d hook(s) in sync", len(source.Entries))
 	if len(errors)+len(warnings) == 0 {
-		ui.Row(ui.MarkOK, "Hooks", "all "+plural(len(inv.Source.Entries), "hook")+" in sync", doctorWidth)
+		ui.Row(ui.MarkOK, "Hooks", "all "+plural(len(source.Entries), "hook")+" in sync", doctorWidth)
 	}
 	printResourceFindings("Hooks", doctorWidth, errors, warnings)
 	if syncable {

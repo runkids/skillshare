@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.30.0 — Web dashboard 會拒絕其他網站透過你的瀏覽器送來的變更，而且只回應 `localhost`、IP 位址以及你信任的位址，因此 DNS rebinding 頁面同樣無法存取它。在 reverse proxy 後面，用 [`--trusted-origin`](https://skillshare.runkids.cc/zh-Hant/docs/reference/commands/ui#reverse-proxy) 啟動，所有頁面（包括 MCP、Hooks 和 Plugins）都能透過你的網域正常使用；用其他任何網域名稱開啟的 dashboard 現在需要這項設定。[`skillshare plugin`](https://skillshare.runkids.cc/zh-Hant/docs/reference/commands/plugin) 也會把只附帶 Claude 清單的 plugin 提供給 Codex，並附上 Codex 能使用的 skill 和 MCP 伺服器。[更新紀錄](https://skillshare.runkids.cc/changelog)。
+> **最新版本**：v0.30.6 — 在 CI 中抓出過期的 skill：`skillshare check --exit-code` 在檢查到任何項目不是最新時以代碼 1 結束，`check --all` 現在會同時檢查 skill 與 agent，一個 CI 步驟就能涵蓋兩者。[check 參考 →](https://skillshare.runkids.cc/zh-Hant/docs/reference/commands/check) · [更新紀錄 →](https://skillshare.runkids.cc/changelog)
 
 ## 為什麼用 skillshare
 

@@ -3,11 +3,11 @@ package config
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
 
+	"skillshare/internal/gitenv"
 	"skillshare/internal/install"
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
@@ -247,7 +247,7 @@ func pruneStaleEntries(store *install.MetadataStore, live map[string]bool) bool 
 
 // gitCurrentBranch returns the current branch name for a git repo, or "" on failure.
 func gitCurrentBranch(repoPath string) string {
-	cmd := exec.Command("git", "-C", repoPath, "rev-parse", "--abbrev-ref", "HEAD")
+	cmd := gitenv.Command("-C", repoPath, "rev-parse", "--abbrev-ref", "HEAD")
 	out, err := cmd.Output()
 	if err != nil {
 		return ""
@@ -257,7 +257,7 @@ func gitCurrentBranch(repoPath string) string {
 
 // gitRemoteOrigin returns the "origin" remote URL for a git repo, or "" on failure.
 func gitRemoteOrigin(repoPath string) string {
-	cmd := exec.Command("git", "-C", repoPath, "remote", "get-url", "origin")
+	cmd := gitenv.Command("-C", repoPath, "remote", "get-url", "origin")
 	out, err := cmd.Output()
 	if err != nil {
 		return ""

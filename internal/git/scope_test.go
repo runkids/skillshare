@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"skillshare/internal/install"
 )
 
 func TestCheckUnpushedConfigHistory(t *testing.T) {
@@ -56,7 +58,7 @@ func TestCheckUnpushedConfigHistory(t *testing.T) {
 				gitExec(t, dir, "add", "--", tc.path)
 				gitExec(t, dir, "commit", "-m", "modify config")
 			}
-			err := CheckUnpushedConfigHistory(dir)
+			err := CheckUnpushedConfigHistory(dir, install.ParseOptions{})
 			var historyErr *UnpushedConfigHistoryError
 			if errors.As(err, &historyErr) != tc.wantUnsafe {
 				t.Fatalf("CheckUnpushedConfigHistory() = %v; wantUnsafe=%t", err, tc.wantUnsafe)
@@ -74,7 +76,7 @@ func TestCheckUnpushedConfigHistory(t *testing.T) {
 func TestCheckUnpushedConfigHistory_FirstPush(t *testing.T) {
 	dir := t.TempDir()
 	gitExec(t, dir, "init")
-	if err := CheckUnpushedConfigHistory(dir); err != nil {
+	if err := CheckUnpushedConfigHistory(dir, install.ParseOptions{}); err != nil {
 		t.Fatalf("unborn branch: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("local\n"), 0o644); err != nil {
@@ -83,7 +85,7 @@ func TestCheckUnpushedConfigHistory_FirstPush(t *testing.T) {
 	gitExec(t, dir, "add", "config.yaml")
 	gitExec(t, dir, "commit", "-m", "initial config")
 	var historyErr *UnpushedConfigHistoryError
-	if err := CheckUnpushedConfigHistory(dir); !errors.As(err, &historyErr) || historyErr.HasUpstream || len(historyErr.Commits) != 1 {
+	if err := CheckUnpushedConfigHistory(dir, install.ParseOptions{}); !errors.As(err, &historyErr) || historyErr.HasUpstream || len(historyErr.Commits) != 1 {
 		t.Fatalf("first push = %v; want initial commit refused without upstream", err)
 	}
 }
@@ -101,7 +103,7 @@ func TestCheckUnpushedConfigHistory_Renames(t *testing.T) {
 	gitExec(t, dir, "mv", "config.yaml", "note.yaml")
 	gitExec(t, dir, "commit", "-m", "rename away from config")
 	var historyErr *UnpushedConfigHistoryError
-	if err := CheckUnpushedConfigHistory(dir); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
+	if err := CheckUnpushedConfigHistory(dir, install.ParseOptions{}); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
 		t.Fatalf("renames = %v; want only rename into config refused", err)
 	}
 }
@@ -120,7 +122,7 @@ func TestCheckUnpushedConfigHistory_MergeAddsConfig(t *testing.T) {
 	gitExec(t, dir, "add", "config.yaml")
 	gitExec(t, dir, "commit", "-m", "merge with config")
 	var historyErr *UnpushedConfigHistoryError
-	if err := CheckUnpushedConfigHistory(dir); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
+	if err := CheckUnpushedConfigHistory(dir, install.ParseOptions{}); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
 		t.Fatalf("merge = %v; want config introduced by merge refused", err)
 	}
 }
@@ -139,7 +141,7 @@ func TestCheckUnpushedConfigHistory_NoUpstreamIgnoresPublishedConfig(t *testing.
 	gitExec(t, dir, "push", "origin", "main")
 	gitExec(t, dir, "rm", "--cached", "config.yaml")
 	gitExec(t, dir, "commit", "-m", "Keep config.yaml out of version control")
-	if err := CheckUnpushedConfigHistory(dir); err != nil {
+	if err := CheckUnpushedConfigHistory(dir, install.ParseOptions{}); err != nil {
 		t.Fatalf("published config with only a local deletion = %v; want allowed", err)
 	}
 }
@@ -162,7 +164,7 @@ func TestCheckUnpushedConfigHistory_StaleRemoteRefAfterRewrite(t *testing.T) {
 	gitExec(t, dir, "commit", "--allow-empty", "-m", "later work")
 
 	var historyErr *UnpushedConfigHistoryError
-	if err := CheckUnpushedConfigHistory(dir); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
+	if err := CheckUnpushedConfigHistory(dir, install.ParseOptions{}); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
 		t.Fatalf("stale remote-tracking ref = %v; want the leaked commit refused", err)
 	}
 }
@@ -186,7 +188,7 @@ func TestCheckUnpushedConfigHistory_ChecksEveryPushURL(t *testing.T) {
 	gitExec(t, dir, "remote", "set-url", "--add", "--push", "origin", mirror)
 
 	var historyErr *UnpushedConfigHistoryError
-	if err := CheckUnpushedConfigHistory(dir); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
+	if err := CheckUnpushedConfigHistory(dir, install.ParseOptions{}); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
 		t.Fatalf("push URL without the commit = %v; want the leaked commit refused", err)
 	}
 }
@@ -208,7 +210,7 @@ func TestCheckUnpushedConfigHistory_IgnoresReplaceRefs(t *testing.T) {
 	gitExec(t, dir, "replace", "main", "clean")
 
 	var historyErr *UnpushedConfigHistoryError
-	if err := CheckUnpushedConfigHistory(dir); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
+	if err := CheckUnpushedConfigHistory(dir, install.ParseOptions{}); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
 		t.Fatalf("replaced commit = %v; want the original leaked commit refused", err)
 	}
 }
@@ -235,7 +237,7 @@ func TestCheckUnpushedConfigHistory_BehindRemoteAllowsPublishedConfig(t *testing
 
 	// The remote tip is unknown here, so the push is rejected as non-fast-forward
 	// and `push --pull` must be allowed to pull first.
-	if err := CheckUnpushedConfigHistory(dir); err != nil {
+	if err := CheckUnpushedConfigHistory(dir, install.ParseOptions{}); err != nil {
 		t.Fatalf("behind remote with published config = %v; want allowed", err)
 	}
 }
@@ -259,7 +261,7 @@ func TestCheckUnpushedConfigHistory_GoneUpstreamChecksOrigin(t *testing.T) {
 	gitExec(t, dir, "update-ref", "-d", "refs/remotes/fork/main")
 
 	var historyErr *UnpushedConfigHistoryError
-	if err := CheckUnpushedConfigHistory(dir); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
+	if err := CheckUnpushedConfigHistory(dir, install.ParseOptions{}); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
 		t.Fatalf("gone upstream = %v; want the commit refused because origin lacks it", err)
 	}
 }

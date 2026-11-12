@@ -44,3 +44,4 @@ video/node_modules/
 /specs/
 .archify/
 .playwright-mcp
+.feature-radar/

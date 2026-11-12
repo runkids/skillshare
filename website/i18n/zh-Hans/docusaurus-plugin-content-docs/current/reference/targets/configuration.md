@@ -842,7 +842,7 @@ SKILLSHARE_AZURE_HOSTS=azuredevops.mycompany.com skillshare install \
 
 ### `gitea_hosts`
 
-自建 Gitea 实例的主机名。名称中包含 `gitea` 的主机，例如 `gitea.com` 或 `gitea.company.com`，会被自动检测。此字段仅在使用其他自定义域名时才需要。
+自建 Gitea 即使名称包含 `gitea`，也必须在 [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts) 中配置准确主机名才能发送 `GITEA_TOKEN`。平台认证仅支持 HTTPS 默认端口或 443。
 
 ```yaml
 gitea_hosts:
@@ -1176,17 +1176,17 @@ SKILLSHARE_CONFIG=~/custom-config.yaml skillshare status
 
 ```json
 {
-  "skills": [
-    {
-      "name": "pdf",
+  "version": 1,
+  "entries": {
+    "pdf": {
       "source": "anthropics/skills/skills/pdf",
-      "type": "github",
+      "type": "github-subdir",
       "installed_at": "2026-01-20T15:30:00Z",
       "repo_url": "https://github.com/anthropics/skills.git",
       "subdir": "skills/pdf",
       "version": "abc1234"
     }
-  ]
+  }
 }
 ```
 
@@ -1194,7 +1194,7 @@ SKILLSHARE_CONFIG=~/custom-config.yaml skillshare status
 
 | 字段 | 说明 |
 |-------|-------------|
-| `name` | Skill 目录名称 |
+| 条目 key | Skill 相对于来源目录的路径（例如 `pdf`、`frontend/react-skill`） |
 | `source` | 原始安装来源输入 |
 | `type` | Source 类型（`github`、`local` 等） |
 | `installed_at` | 安装时间戳 |

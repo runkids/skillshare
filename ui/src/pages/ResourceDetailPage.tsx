@@ -290,7 +290,7 @@ export default function ResourceDetailPage() {
     },
   };
 
-  const findingCount = audit?.findings.length ?? 0;
+  const findingCount = audit?.findings.filter((f) => !f.acknowledged).length ?? 0;
   const tabs = (
     <nav className="ss-tabs" aria-label={t('resourceDetail.tabs.label')}>
       <Link to={tabSearch('doc')} className={tab === 'doc' ? 'on' : ''}>{docName}</Link>
@@ -494,7 +494,8 @@ function MetaBox({ resource, frontmatter, body, fileCount, check, audit, auditPe
   const updateNote = behind || check.status === 'update-available'
     ? (behind && check.behind ? t('update.check.behind', { count: check.behind }) : t('update.check.updateAvailable'))
     : '';
-  const findings = audit?.findings.length ?? 0;
+  const findings = audit?.findings.filter((f) => !f.acknowledged).length ?? 0;
+  const accepted = (audit?.findings.length ?? 0) - findings;
 
   const rows: [string, React.ReactNode][] = [];
   if (isAgent && str(frontmatter.model)) rows.push([t('resourceDetail.meta.model'), <span className="font-mono">{str(frontmatter.model)}</span>]);
@@ -546,6 +547,7 @@ function MetaBox({ resource, frontmatter, body, fileCount, check, audit, auditPe
     auditPending ? <span className="ss-st off">{t('resourceDetail.security.scanning')}</span> : audit ? (
       <Link to={auditHref} className={`ss-st hover:underline ${findings === 0 ? 'ok' : audit.isBlocked ? 'bad' : 'warn'}`}>
         {findings === 0 ? t('resourceDetail.audit.noFindings') : t(findings === 1 ? 'resourceDetail.audit.finding' : 'resourceDetail.audit.findings', { count: findings })}
+        {accepted > 0 && ` · ${t(plural('audit.acceptedTag', accepted), { count: accepted })}`}
       </Link>
     ) : <span className="ss-st off">—</span>,
   ]);
@@ -829,6 +831,7 @@ function AuditTab({ query, files, tabSearch }: {
   const { toast } = useToast();
   const [toggled, setToggled] = useState<Set<number>>(new Set());
   const [rescanning, setRescanning] = useState(false);
+  const [showAccepted, setShowAccepted] = useState(false);
 
   if (query.isPending) return <div className="grid min-h-40 place-items-center"><Spinner /></div>;
   if (query.error) {
@@ -845,7 +848,7 @@ function AuditTab({ query, files, tabSearch }: {
       toast(res.error.message, 'error');
       return;
     }
-    const count = res.data?.result.findings.length ?? 0;
+    const count = res.data?.result.findings.filter((f) => !f.acknowledged).length ?? 0;
     const key = count === 0 ? 'rescanClean' : count === 1 ? 'rescanFinding' : 'rescanFindings';
     toast(t(`resourceDetail.audit.${key}`, { count }), count === 0 ? 'success' : 'warning');
   };
@@ -862,9 +865,13 @@ function AuditTab({ query, files, tabSearch }: {
     return <EmptyState icon={ShieldCheck} title={t('resourceDetail.audit.noFindings')} description={scanned} action={rescan} />;
   }
 
-  const sorted = [...findings].sort((a, b) => SEV_RANK[a.severity] - SEV_RANK[b.severity]);
+  // Findings accepted earlier with --force no longer block, so they wait behind their own expander.
+  const bySeverity = [...findings].sort((a, b) => SEV_RANK[a.severity] - SEV_RANK[b.severity]);
+  const openCount = bySeverity.filter((f) => !f.acknowledged).length;
+  const sorted = [...bySeverity.filter((f) => !f.acknowledged), ...bySeverity.filter((f) => f.acknowledged)];
+  const accepted = sorted.length - openCount;
   // At or above the block threshold starts open; toggling flips that default
-  const defaultOpen = (i: number) => i === 0 || SEV_RANK[sorted[i].severity] <= (SEV_RANK[threshold.toUpperCase()] ?? -1);
+  const defaultOpen = (i: number) => !sorted[i].acknowledged && (i === 0 || SEV_RANK[sorted[i].severity] <= (SEV_RANK[threshold.toUpperCase()] ?? -1));
   const flip = (i: number) => setToggled((prev) => {
     const next = new Set(prev);
     if (!next.delete(i)) next.add(i);
@@ -880,14 +887,29 @@ function AuditTab({ query, files, tabSearch }: {
           {rescan}
         </div>
       )}
+      {!isBlocked && accepted > 0 && (
+        <div className="ss-note ok">
+          <ShieldCheck size={16} />
+          <div className="flex-1">{t(plural('resourceDetail.audit.acceptedNote', accepted), { count: accepted, threshold })}</div>
+        </div>
+      )}
       <div className="ss-list">
         {sorted.map((f, i) => {
           const open = defaultOpen(i) !== toggled.has(i);
           const where = [f.file && (f.line ? `${f.file}:${f.line}` : f.file), f.ruleId && t('resourceDetail.audit.rule', { id: f.ruleId })].filter(Boolean).join(' · ');
-          return (
-            <div key={i} className="ss-r !items-start !py-3.5">
-              <button type="button" aria-expanded={open} className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 text-left" onClick={() => flip(i)}>
-                <span className="w-[74px] shrink-0 pt-px"><span className={`ss-sev ${SEV[f.severity]}`}>{f.severity}</span></span>
+          const expander = i === openCount && (
+            <button key="accepted" type="button" className="ss-r w-full cursor-pointer gap-2 text-left text-[13px] font-semibold text-ok" aria-expanded={showAccepted} onClick={() => setShowAccepted((v) => !v)}>
+              {showAccepted ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
+              {showAccepted ? t('resourceDetail.audit.hideAccepted') : t(plural('resourceDetail.audit.showAccepted', accepted), { count: accepted })}
+            </button>
+          );
+          if (f.acknowledged && !showAccepted) return expander;
+          return [expander, (
+            <div key={i} className={`ss-r !items-start !py-3.5 ${f.acknowledged ? 'bg-sunken/40' : ''}`}>
+              <button type="button" aria-expanded={open} className={`flex min-w-0 flex-1 cursor-pointer items-start gap-3 text-left ${f.acknowledged ? 'opacity-75' : ''}`} onClick={() => flip(i)}>
+                <span className="w-[74px] shrink-0 pt-px">
+                  <span className={`ss-sev ${f.acknowledged ? '!bg-sunken !text-ink-3 line-through' : SEV[f.severity]}`}>{f.severity}</span>
+                </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-2">
                   <span className="font-semibold">{f.message}</span>
                   {open && f.snippet && (
@@ -902,6 +924,12 @@ function AuditTab({ query, files, tabSearch }: {
                       {t('audit.severityContext.pythonInert')}
                     </span>
                   )}
+                  {f.acknowledged && (
+                    <span className="flex items-start gap-1.5 text-xs font-medium text-ok">
+                      <ShieldCheck size={14} aria-hidden="true" className="mt-0.5 shrink-0" />
+                      {t('audit.accepted')}
+                    </span>
+                  )}
                   {where && <span className="truncate font-mono text-xs text-ink-3">{where}</span>}
                 </span>
                 {!open && <ChevronDown size={16} className="mt-0.5 shrink-0 text-ink-3" />}
@@ -912,7 +940,7 @@ function AuditTab({ query, files, tabSearch }: {
                 </Link>
               )}
             </div>
-          );
+          )];
         })}
       </div>
       <div className="flex items-center gap-3">

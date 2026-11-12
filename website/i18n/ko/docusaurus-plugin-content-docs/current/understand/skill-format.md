@@ -269,17 +269,17 @@ skill을 설치하면 skillshare는 그 메타데이터를 `.metadata.json`에 �
 
 ```json
 {
-  "skills": [
-    {
-      "name": "pdf",
+  "version": 1,
+  "entries": {
+    "pdf": {
       "source": "anthropics/skills/skills/pdf",
-      "type": "github",
+      "type": "github-subdir",
       "installed_at": "2026-01-20T15:30:00Z",
       "repo_url": "https://github.com/anthropics/skills.git",
       "subdir": "skills/pdf",
       "version": "abc1234"
     }
-  ]
+  }
 }
 ```
 
@@ -287,7 +287,7 @@ skill을 설치하면 skillshare는 그 메타데이터를 `.metadata.json`에 �
 
 | 필드 | 설명 |
 |-------|-------------|
-| `name` | skill 디렉터리 이름 |
+| 항목 키 | Source 디렉터리 기준 Skill의 상대 경로 (예: `pdf`, `frontend/react-skill`) |
 | `source` | 원래 install 소스 입력값 |
 | `type` | 소스 유형 (`github`, `local` 등) |
 | `installed_at` | 설치 타임스탬프 |

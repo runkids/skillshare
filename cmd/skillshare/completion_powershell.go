@@ -30,6 +30,7 @@ $_skillshareCompleter = {
             @{ Name = 'doctor'; Desc = 'Check environment and diagnose issues' }
             @{ Name = 'target'; Desc = 'Manage targets' }
             @{ Name = 'project'; Desc = 'Manage project folders' }
+            @{ Name = 'updates'; Desc = 'Control automatic version checks' }
             @{ Name = 'upgrade'; Desc = 'Upgrade CLI and/or skillshare skill' }
             @{ Name = 'update'; Desc = 'Update skills/agents or tracked repositories' }
             @{ Name = 'check'; Desc = 'Check for available updates' }
@@ -177,6 +178,11 @@ $_skillshareCompleter = {
         'update' = @(
             @{ Name = 'agents'; Desc = 'Update agents' }
         )
+        'updates' = @(
+            @{ Name = 'on'; Desc = 'Enable automatic version checks' }
+            @{ Name = 'off'; Desc = 'Disable automatic version checks' }
+            @{ Name = 'check'; Desc = 'Check the CLI version now' }
+        )
         'tui' = @(
             @{ Name = 'on'; Desc = 'Enable TUI mode' }
             @{ Name = 'off'; Desc = 'Disable TUI mode' }
@@ -203,9 +209,9 @@ $_skillshareCompleter = {
         'target' = '--json', '--no-tui', '--help', '-h', '--mode', '-m', '--agent-mode', '--target-naming', '--add-include', '--add-exclude', '--remove-include', '--remove-exclude', '--add-agent-include', '--add-agent-exclude', '--remove-agent-include', '--remove-agent-exclude', '--agent', '--config-dir', '--cli', '--skills', '--no-skills', '--all', '-a', '--dry-run', '-n', '--project', '-p', '--global', '-g'
         'upgrade' = '--dry-run', '-n', '--force', '-f', '--skill', '--cli', '--help', '-h'
         'update' = '--all', '-a', '--dry-run', '-n', '--force', '-f', '--skip-audit', '--audit-threshold', '--threshold', '-T', '--diff', '--audit-verbose', '--prune', '--json', '--group', '-G', '--help', '-h', '--project', '-p', '--global', '-g'
-        'check' = '--json', '--diff', '--all', '--group', '-G', '--help', '-h', '--project', '-p', '--global', '-g'
+        'check' = '--json', '--diff', '--exit-code', '--all', '--group', '-G', '--help', '-h', '--project', '-p', '--global', '-g'
         'trash' = '--all', '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'
-        'audit' = '--min-severity', '--init-rules', '--json', '--format', '--quiet', '-q', '--yes', '-y', '--no-tui', '--threshold', '-T', '--group', '-G', '--profile', '--dedupe', '--analyzer', '--pattern', '--severity', '--disabled', '--help', '-h', '--project', '-p', '--global', '-g'
+        'audit' = '--min-severity', '--init-rules', '--json', '--format', '--quiet', '-q', '--yes', '-y', '--no-tui', '--respect-accepted', '--threshold', '-T', '--group', '-G', '--profile', '--dedupe', '--analyzer', '--pattern', '--severity', '--disabled', '--help', '-h', '--project', '-p', '--global', '-g'
         'hub' = '--source', '-s', '--output', '-o', '--full', '--audit', '--label', '-l', '--reset', '--help', '-h', '--project', '-p', '--global', '-g'
         'log' = '--audit', '-a', '--clear', '-c', '--json', '--no-tui', '--stats', '--cmd', '--status', '--since', '--tail', '-t', '--help', '-h', '--project', '-p', '--global', '-g'
         'ui' = '--port', '--host', '--base-path', '-b', '--trusted-origin', '--no-open', '--clear-cache', '--app', '--help', '-h', '--project', '-p', '--global', '-g'
@@ -219,6 +225,7 @@ $_skillshareCompleter = {
         'status' = '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'new' = '--pattern', '-P', '--dry-run', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
         'search' = '--json', '--list', '-l', '--hub', '--limit', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
+        'updates' = '--json', '--help', '-h'
         'tui' = '--help', '-h'
         'hooks' = '--file', '--from', '--sync', '--replace', '--keep-files', '--trust', '--revision', '--dry-run', '-n', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'completion' = '--install', '--help', '-h'

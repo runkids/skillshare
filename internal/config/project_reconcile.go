@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"skillshare/internal/install"
@@ -17,7 +19,28 @@ import (
 // It also updates the project directory's .gitignore for each tracked skill
 // and for the skills and agents metadata files.
 func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store *install.MetadataStore, sourcePath string) error {
-	if err := reconcileProjectSkills(projectRoot, projectCfg, store, sourcePath, true); err != nil {
+	return ReconcileProjectInstall(projectRoot, projectCfg, nil, store, sourcePath)
+}
+
+// ReconcileProjectInstall is ReconcileProjectSkills for a command that just
+// installed skills from a source the user named. before is the store as it was
+// when the command started. A config entry whose skill the command installed
+// from another source, branch or mode takes the new record, so teammates
+// install what this machine has (#858). Every other entry keeps what the
+// config declares: a teammate may have changed it since this copy was installed.
+func ReconcileProjectInstall(projectRoot string, projectCfg *ProjectConfig, before, store *install.MetadataStore, sourcePath string) error {
+	return reconcileProjectFull(projectRoot, projectCfg, before, nil, store, sourcePath)
+}
+
+// ReconcileProjectMove is ReconcileProjectSkills after a command moved skills:
+// moved maps each old source-relative path to its new one, so the config
+// entry of the old path goes.
+func ReconcileProjectMove(projectRoot string, projectCfg *ProjectConfig, store *install.MetadataStore, sourcePath string, moved map[string]string) error {
+	return reconcileProjectFull(projectRoot, projectCfg, nil, moved, store, sourcePath)
+}
+
+func reconcileProjectFull(projectRoot string, projectCfg *ProjectConfig, before *install.MetadataStore, moved map[string]string, store *install.MetadataStore, sourcePath string) error {
+	if err := reconcileProjectSkills(projectRoot, projectCfg, before, moved, store, sourcePath, true); err != nil {
 		return err
 	}
 	agentsSource := filepath.Join(projectdir.Resolve(projectRoot), "agents")
@@ -25,6 +48,95 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store
 		agentsSource = projectCfg.EffectiveAgentsSource(projectRoot)
 	}
 	return ignoreProjectMetadata(projectRoot, sourcePath, agentsSource)
+}
+
+// skillOrigin is what a config entry declares and an install record holds.
+type skillOrigin struct {
+	source  string
+	tracked bool
+	branch  string
+}
+
+// followInstalledSources points config entries at the records that changed
+// since before. It reports whether the config changed.
+func followInstalledSources(cfg *ProjectConfig, before, store *install.MetadataStore) bool {
+	changed := false
+	for i := range cfg.Skills {
+		skill := &cfg.Skills[i]
+		now := store.GetExact(skill.FullName())
+		if skill.EffectiveKind() != "skill" || now == nil || now.Source == "" || now.Kind == "agent" {
+			continue
+		}
+		installed := skillOrigin{now.Source, now.Tracked, now.Branch}
+		if was := before.GetExact(skill.FullName()); was != nil && installed == (skillOrigin{was.Source, was.Tracked, was.Branch}) {
+			continue
+		}
+		if installed == (skillOrigin{skill.Source, skill.Tracked, skill.Branch}) {
+			continue
+		}
+		skill.Source, skill.Tracked, skill.Branch = installed.source, installed.tracked, installed.branch
+		changed = true
+	}
+	return changed
+}
+
+// FollowRepairedSources points config entries at the records an update
+// rewrote because their source did not parse back to what was installed
+// (#862): teammates install from the config, and that source fails for them.
+// before is the store from before the update. An entry that no longer
+// declares the old record is left alone.
+func FollowRepairedSources(projectRoot string, cfg *ProjectConfig, before, store *install.MetadataStore, opts install.ParseOptions) error {
+	changed := false
+	for i := range cfg.Skills {
+		skill := &cfg.Skills[i]
+		was, now := before.GetExact(skill.FullName()), store.GetExact(skill.FullName())
+		if skill.EffectiveKind() != "skill" || was == nil || now == nil || skill.Source != was.Source || now.Source == was.Source {
+			continue
+		}
+		if install.RecordedSourceString(was, opts) == was.Source {
+			continue
+		}
+		skill.Source = now.Source
+		changed = true
+	}
+	if !changed {
+		return nil
+	}
+	if err := cfg.Save(projectRoot); err != nil {
+		return fmt.Errorf("failed to save project config: %w", err)
+	}
+	return nil
+}
+
+// ForgetProjectSkills drops the config entries and lock pins of uninstalled
+// skills, so a later `install -p`, here or on a teammate's machine, does not
+// bring them back. A name is a skill, or a group folder with every skill
+// below it.
+func ForgetProjectSkills(projectRoot string, cfg *ProjectConfig, removed []string) error {
+	gone := func(name string) bool {
+		for _, r := range removed {
+			if name == r || strings.HasPrefix(name, r+"/") {
+				return true
+			}
+		}
+		return false
+	}
+	declared := len(cfg.Skills)
+	cfg.Skills = slices.DeleteFunc(cfg.Skills, func(s SkillEntry) bool {
+		return s.EffectiveKind() == "skill" && gone(s.FullName())
+	})
+	if len(cfg.Skills) != declared {
+		if err := cfg.Save(projectRoot); err != nil {
+			return fmt.Errorf("failed to save project config: %w", err)
+		}
+	}
+	dir := projectdir.Resolve(projectRoot)
+	lock, err := install.LoadLock(dir)
+	if err != nil {
+		return err
+	}
+	maps.DeleteFunc(lock.Skills, func(name string, _ install.LockEntry) bool { return gone(name) })
+	return lock.Save(dir)
 }
 
 // ignoreProjectMetadata keeps each source's .metadata.json out of Git. It
@@ -49,16 +161,20 @@ func ignoreProjectMetadata(projectRoot string, sourcePaths ...string) error {
 // AdoptMovedProjectSkills follows hand-moved declared skills without pruning
 // records or reconciling unrelated project entries.
 func AdoptMovedProjectSkills(projectRoot string, projectCfg *ProjectConfig, store *install.MetadataStore, sourcePath string) error {
-	return reconcileProjectSkills(projectRoot, projectCfg, store, sourcePath, false)
+	return reconcileProjectSkills(projectRoot, projectCfg, nil, nil, store, sourcePath, false)
 }
 
-func reconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store *install.MetadataStore, sourcePath string, prune bool) error {
+// reconcileProjectSkills with a non-nil before also runs followInstalledSources.
+// movedByCommand holds the old paths of skills the calling command moved.
+func reconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, before *install.MetadataStore, movedByCommand map[string]string, store *install.MetadataStore, sourcePath string, prune bool) error {
 	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
 		return nil
 	}
 	if !prune && !anyRecordGone(sourcePath, store) {
 		return nil
 	}
+	// First, so the walk below compares records with what the config now declares.
+	configChanged := before != nil && projectCfg != nil && followInstalledSources(projectCfg, before, store)
 
 	gitignoreDir, prefix := ProjectGitignoreTarget(projectRoot, sourcePath)
 
@@ -105,8 +221,25 @@ func reconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store
 		}
 	}
 
-	if prune && !result.incomplete && pruneStaleEntries(store, result.live) {
-		result.changed = true
+	// Config entries go only for skills that were installed here and are now
+	// gone or moved. An entry with no record is one this machine has not
+	// installed yet (a fresh clone), and stays for `install -p`.
+	gone := map[string]bool{}
+	for old := range movedByCommand {
+		gone[old] = true
+	}
+	for old := range result.moved {
+		gone[old] = true
+	}
+	if prune && !result.incomplete {
+		for _, key := range store.List() {
+			if !result.live[key] {
+				gone[filepath.ToSlash(install.KeyToRelPath(key, store.Get(key)))] = true
+			}
+		}
+		if pruneStaleEntries(store, result.live) {
+			result.changed = true
+		}
 	}
 
 	// A moved skill's old ignore rule would keep ignoring whatever lands there.
@@ -132,15 +265,9 @@ func reconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store
 		}
 	}
 
-	if result.incomplete && projectCfg != nil {
-		for _, sk := range projectCfg.Skills {
-			result.live[sk.FullName()] = true
-		}
-	}
-	configChanged := false
 	if projectCfg != nil {
 		if prune {
-			configChanged = reconcileProjectConfigSkills(projectCfg, store, result.live)
+			configChanged = reconcileProjectConfigSkills(projectCfg, store, gone) || configChanged
 		} else {
 			kept := projectCfg.Skills[:0]
 			for _, skill := range projectCfg.Skills {
@@ -244,8 +371,9 @@ func writeProjectLock(projectRoot string, cfg *ProjectConfig, store *install.Met
 
 // reconcileProjectConfigSkills syncs MetadataStore entries into ProjectConfig.Skills
 // so the declarative skill list in config.yaml stays in sync with installed skills.
+// gone holds the paths of skills that were removed or moved away.
 // Returns true if ProjectConfig.Skills was modified.
-func reconcileProjectConfigSkills(cfg *ProjectConfig, store *install.MetadataStore, live map[string]bool) bool {
+func reconcileProjectConfigSkills(cfg *ProjectConfig, store *install.MetadataStore, gone map[string]bool) bool {
 	existing := make(map[string]int, len(cfg.Skills))
 	for i, s := range cfg.Skills {
 		existing[s.FullName()] = i
@@ -275,22 +403,13 @@ func reconcileProjectConfigSkills(cfg *ProjectConfig, store *install.MetadataSto
 		changed = true
 	}
 
-	// Remove config entries whose skills no longer exist on disk.
-	if len(live) > 0 || len(cfg.Skills) > 0 {
-		kept := cfg.Skills[:0]
-		for _, s := range cfg.Skills {
-			if live[s.FullName()] {
-				kept = append(kept, s)
-			} else if !storeHasSource(store, s.FullName()) {
-				changed = true
-			} else {
-				kept = append(kept, s)
-			}
-		}
-		cfg.Skills = kept
-	}
+	// Drop the entries of skills that are gone, unless a record took the path.
+	kept := len(cfg.Skills)
+	cfg.Skills = slices.DeleteFunc(cfg.Skills, func(s SkillEntry) bool {
+		return s.EffectiveKind() == "skill" && gone[s.FullName()] && !storeHasSource(store, s.FullName())
+	})
 
-	return changed
+	return changed || len(cfg.Skills) != kept
 }
 
 func skillBaseName(fullPath string) string {

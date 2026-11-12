@@ -52,6 +52,7 @@ func (s *Server) handlePatchConfig(w http.ResponseWriter, r *http.Request) {
 		LogMaxEntries   *int    `json:"logMaxEntries"`
 		BackupMaxCount  *int    `json:"backupMaxCount"`
 		BackupMaxSizeMB *int64  `json:"backupMaxSizeMB"`
+		AutoUpdateCheck *bool   `json:"autoUpdateCheck"`
 	}
 	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
 		if !errors.Is(err, errBodyTooLarge) {
@@ -59,8 +60,8 @@ func (s *Server) handlePatchConfig(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	if body.Mode == nil && body.LogMaxEntries == nil && body.BackupMaxCount == nil && body.BackupMaxSizeMB == nil {
-		writeError(w, http.StatusBadRequest, "mode, logMaxEntries, backupMaxCount or backupMaxSizeMB is required")
+	if body.Mode == nil && body.LogMaxEntries == nil && body.BackupMaxCount == nil && body.BackupMaxSizeMB == nil && body.AutoUpdateCheck == nil {
+		writeError(w, http.StatusBadRequest, "mode, logMaxEntries, backupMaxCount, backupMaxSizeMB or autoUpdateCheck is required")
 		return
 	}
 	if body.Mode != nil && !slices.Contains(syncModes, *body.Mode) {
@@ -84,6 +85,10 @@ func (s *Server) handlePatchConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	// /api/config skips the auto-reload middleware, so pick up outside edits before writing.
 	_ = s.reloadConfig()
+	if body.AutoUpdateCheck != nil && s.cfg.Updates.Policy().EnvOverride {
+		writeError(w, http.StatusConflict, "automatic update checks are controlled by "+config.AutoUpdateCheckEnv)
+		return
+	}
 	args := map[string]any{"scope": "ui"}
 	if body.Mode != nil {
 		// Targets that inherit the mode must still be able to honour their naming.
@@ -100,6 +105,10 @@ func (s *Server) handlePatchConfig(w http.ResponseWriter, r *http.Request) {
 		}
 		s.cfg.Mode = *body.Mode
 		args["mode"] = *body.Mode
+	}
+	if body.AutoUpdateCheck != nil {
+		s.cfg.Updates.AutoCheck = body.AutoUpdateCheck
+		args["auto_check"] = *body.AutoUpdateCheck
 	}
 	if body.LogMaxEntries != nil {
 		s.cfg.Log.MaxEntries = body.LogMaxEntries

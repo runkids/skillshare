@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	ghclient "skillshare/internal/github"
 )
 
 type giteaContentItem struct {
@@ -67,8 +69,9 @@ func downloadGiteaDir(owner, repo, path, destDir string, source *Source, onProgr
 		onProgress("Downloading via Gitea API...")
 	}
 
-	client := &http.Client{Timeout: 30 * time.Second}
-	if err := giteaDownloadDirRecursive(client, apiBase, owner, repo, strings.Trim(path, "/"), destDir, onProgress); err != nil {
+	client := ghclient.NewClient()
+	client.Timeout = 30 * time.Second
+	if err := giteaDownloadDirRecursive(client, source.GiteaHosts, apiBase, owner, repo, strings.Trim(path, "/"), destDir, onProgress); err != nil {
 		return "", err
 	}
 
@@ -81,21 +84,14 @@ func downloadGiteaDir(owner, repo, path, destDir string, source *Source, onProgr
 
 // giteaAPIBase returns the base API URL for a Gitea instance.
 func giteaAPIBase(source *Source) string {
-	host := strings.ToLower(extractHost(source.CloneURL))
-	scheme := "https"
-	// For standard gitea.com, use api.gitea.com convention
-	// For self-hosted, use https://{host}/api/v1
-	if host == "gitea.com" {
-		return "https://gitea.com/api/v1"
-	}
-	return fmt.Sprintf("%s://%s/api/v1", scheme, host)
+	return forgeAPIOrigin(source) + "/api/v1"
 }
 
 // giteaDownloadDirRecursive recursively downloads a directory via the Gitea Contents API.
-func giteaDownloadDirRecursive(client *http.Client, apiBase, owner, repo, path, destDir string, onProgress ProgressCallback) error {
+func giteaDownloadDirRecursive(client *http.Client, hosts []string, apiBase, owner, repo, path, destDir string, onProgress ProgressCallback) error {
 	contentsURL := buildGiteaContentsURL(apiBase, owner, repo, path)
 
-	req, err := giteaNewRequest(contentsURL)
+	req, err := giteaNewRequest(contentsURL, hosts)
 	if err != nil {
 		return err
 	}
@@ -137,7 +133,7 @@ func giteaDownloadDirRecursive(client *http.Client, apiBase, owner, repo, path, 
 		if onProgress != nil {
 			onProgress(fmt.Sprintf("Downloading %s", item.Path))
 		}
-		return giteaDownloadFile(client, apiBase, item.DownloadURL, target)
+		return giteaDownloadFile(client, hosts, apiBase, item.DownloadURL, target)
 	}
 
 	// Directory listing response: [{type, name, path, download_url, ...}]
@@ -157,7 +153,7 @@ func giteaDownloadDirRecursive(client *http.Client, apiBase, owner, repo, path, 
 				if err := os.MkdirAll(childDir, 0755); err != nil {
 					return err
 				}
-				if err := giteaDownloadDirRecursive(client, apiBase, owner, repo, item.Path, childDir, onProgress); err != nil {
+				if err := giteaDownloadDirRecursive(client, hosts, apiBase, owner, repo, item.Path, childDir, onProgress); err != nil {
 					return err
 				}
 			case "file":
@@ -165,7 +161,7 @@ func giteaDownloadDirRecursive(client *http.Client, apiBase, owner, repo, path, 
 				if onProgress != nil {
 					onProgress(fmt.Sprintf("Downloading %s", item.Path))
 				}
-				if err := giteaDownloadFile(client, apiBase, item.DownloadURL, target); err != nil {
+				if err := giteaDownloadFile(client, hosts, apiBase, item.DownloadURL, target); err != nil {
 					return err
 				}
 			}
@@ -179,11 +175,11 @@ func giteaDownloadDirRecursive(client *http.Client, apiBase, owner, repo, path, 
 // giteaDownloadFile downloads a single file from a URL the server named.
 // The request carries the token, so a URL on another origin is refused; the
 // caller then falls back to a git clone, which only talks to the source host.
-func giteaDownloadFile(client *http.Client, apiBase, fileURL, destPath string) error {
+func giteaDownloadFile(client *http.Client, hosts []string, apiBase, fileURL, destPath string) error {
 	if !sameOrigin(apiBase, fileURL) {
 		return fmt.Errorf("download URL %q is not on the API host", fileURL)
 	}
-	req, err := giteaNewRequest(fileURL)
+	req, err := giteaNewRequest(fileURL, hosts)
 	if err != nil {
 		return err
 	}
@@ -203,7 +199,7 @@ func giteaDownloadFile(client *http.Client, apiBase, fileURL, destPath string) e
 
 // giteaNewRequest creates a GET request with Gitea API headers and optional
 // token authentication (GITEA_TOKEN or platform-resolved token).
-func giteaNewRequest(reqURL string) (*http.Request, error) {
+func giteaNewRequest(reqURL string, hosts []string) (*http.Request, error) {
 	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, err
@@ -211,11 +207,7 @@ func giteaNewRequest(reqURL string) (*http.Request, error) {
 
 	req.Header.Set("Accept", "application/json")
 
-	// Try GITEA_TOKEN first, then SKILLSHARE_GIT_TOKEN
-	token := os.Getenv("GITEA_TOKEN")
-	if token == "" {
-		token = os.Getenv("SKILLSHARE_GIT_TOKEN")
-	}
+	token, _ := resolveTokenWithOptions(reqURL, nil, hosts)
 	if token != "" {
 		req.Header.Set("Authorization", "token "+token)
 	}
@@ -228,12 +220,16 @@ func giteaFetchLatestCommitHash(apiBase, owner, repo string, source *Source) (st
 	commitsURL := fmt.Sprintf("%s/repos/%s/%s/commits?per_page=1",
 		strings.TrimRight(apiBase, "/"), url.PathEscape(owner), url.PathEscape(repo))
 
-	req, err := giteaNewRequest(commitsURL)
+	var hosts []string
+	if source != nil {
+		hosts = source.GiteaHosts
+	}
+	req, err := giteaNewRequest(commitsURL, hosts)
 	if err != nil {
 		return "", err
 	}
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := ghclient.NewClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -249,7 +245,7 @@ func giteaFetchLatestCommitHash(apiBase, owner, repo string, source *Source) (st
 
 	// Fallback: use git ls-remote
 	if source != nil && source.CloneURL != "" {
-		return getRemoteHeadCommit(source.CloneURL)
+		return getRemoteHeadCommit(source.CloneURL, source.authEnv())
 	}
 
 	return "", fmt.Errorf("failed to fetch latest commit hash")
@@ -311,15 +307,16 @@ func downloadCNBDir(repo, path, destDir string, source *Source, onProgress Progr
 	if repo == "" {
 		return "", fmt.Errorf("cnb download requires repo")
 	}
-	apiBase := cnbAPIBase(source)
+	apiBase := forgeAPIOrigin(source)
 	if err := os.MkdirAll(destDir, 0755); err != nil {
 		return "", err
 	}
 	if onProgress != nil {
 		onProgress("Downloading via CNB API...")
 	}
-	client := &http.Client{Timeout: 30 * time.Second}
-	if err := cnbDownloadDirRecursive(client, apiBase, repo, strings.Trim(path, "/"), destDir, onProgress); err != nil {
+	client := ghclient.NewClient()
+	client.Timeout = 30 * time.Second
+	if err := cnbDownloadDirRecursive(client, source.CNBHosts, apiBase, repo, strings.Trim(path, "/"), destDir, onProgress); err != nil {
 		return "", err
 	}
 	commitHash, err := cnbFetchLatestCommitHash(apiBase, repo, source)
@@ -329,14 +326,19 @@ func downloadCNBDir(repo, path, destDir string, source *Source, onProgress Progr
 	return shortCommitHash(commitHash), nil
 }
 
-func cnbAPIBase(source *Source) string {
-	host := strings.ToLower(extractHost(source.CloneURL))
-	return fmt.Sprintf("https://%s", host)
+func forgeAPIOrigin(source *Source) string {
+	u, err := url.Parse(source.CloneURL)
+	if err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != "" {
+		// An API fallback must not upgrade an untrusted scheme or erase a
+		// nondefault port before the credential authorization check.
+		return u.Scheme + "://" + u.Host
+	}
+	return "https://" + strings.ToLower(extractHost(source.CloneURL))
 }
 
-func cnbDownloadDirRecursive(client *http.Client, apiBase, repo, path, destDir string, onProgress ProgressCallback) error {
+func cnbDownloadDirRecursive(client *http.Client, hosts []string, apiBase, repo, path, destDir string, onProgress ProgressCallback) error {
 	contentsURL := buildCNBContentsURL(apiBase, repo, path)
-	req, err := cnbNewRequest(contentsURL)
+	req, err := cnbNewRequest(contentsURL, hosts)
 	if err != nil {
 		return err
 	}
@@ -352,10 +354,10 @@ func cnbDownloadDirRecursive(client *http.Client, apiBase, repo, path, destDir s
 	if err := json.NewDecoder(resp.Body).Decode(&item); err != nil {
 		return fmt.Errorf("failed to parse CNB contents response: %w", err)
 	}
-	return cnbWriteContentItem(client, apiBase, repo, item, destDir, onProgress)
+	return cnbWriteContentItem(client, hosts, apiBase, repo, item, destDir, onProgress)
 }
 
-func cnbWriteContentItem(client *http.Client, apiBase, repo string, item cnbContentItem, destDir string, onProgress ProgressCallback) error {
+func cnbWriteContentItem(client *http.Client, hosts []string, apiBase, repo string, item cnbContentItem, destDir string, onProgress ProgressCallback) error {
 	switch item.Type {
 	case "tree":
 		entries := item.Entries
@@ -370,14 +372,14 @@ func cnbWriteContentItem(client *http.Client, apiBase, repo string, item cnbCont
 				if err := os.MkdirAll(target, 0755); err != nil {
 					return err
 				}
-				if err := cnbDownloadDirRecursive(client, apiBase, repo, entry.Path, target, onProgress); err != nil {
+				if err := cnbDownloadDirRecursive(client, hosts, apiBase, repo, entry.Path, target, onProgress); err != nil {
 					return err
 				}
 			case "blob":
 				if onProgress != nil {
 					onProgress(fmt.Sprintf("Downloading %s", entry.Path))
 				}
-				if err := cnbDownloadFile(client, apiBase, repo, entry.Path, target); err != nil {
+				if err := cnbDownloadFile(client, hosts, apiBase, repo, entry.Path, target); err != nil {
 					return err
 				}
 			case "empty":
@@ -406,8 +408,8 @@ func cnbWriteContentItem(client *http.Client, apiBase, repo string, item cnbCont
 	return fmt.Errorf("unsupported CNB content type %q", item.Type)
 }
 
-func cnbDownloadFile(client *http.Client, apiBase, repo, filePath, destPath string) error {
-	req, err := cnbNewRequest(buildCNBContentsURL(apiBase, repo, filePath))
+func cnbDownloadFile(client *http.Client, hosts []string, apiBase, repo, filePath, destPath string) error {
+	req, err := cnbNewRequest(buildCNBContentsURL(apiBase, repo, filePath), hosts)
 	if err != nil {
 		return err
 	}
@@ -441,16 +443,13 @@ func cnbWriteBlob(item cnbContentItem, destPath string) error {
 	return writeDownloadedFile(destPath, bytes.NewReader(data))
 }
 
-func cnbNewRequest(reqURL string) (*http.Request, error) {
+func cnbNewRequest(reqURL string, hosts []string) (*http.Request, error) {
 	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/vnd.cnb.api+json")
-	token := os.Getenv("CNB_TOKEN")
-	if token == "" {
-		token = os.Getenv("SKILLSHARE_GIT_TOKEN")
-	}
+	token, _ := resolveTokenWithOptions(reqURL, hosts, nil)
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
@@ -459,11 +458,15 @@ func cnbNewRequest(reqURL string) (*http.Request, error) {
 
 func cnbFetchLatestCommitHash(apiBase, repo string, source *Source) (string, error) {
 	commitsURL := fmt.Sprintf("%s/%s/-/git/commits?page=1&page_size=1", strings.TrimRight(apiBase, "/"), escapeRepoPath(repo))
-	req, err := cnbNewRequest(commitsURL)
+	var hosts []string
+	if source != nil {
+		hosts = source.CNBHosts
+	}
+	req, err := cnbNewRequest(commitsURL, hosts)
 	if err != nil {
 		return "", err
 	}
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := ghclient.NewClient()
 	resp, err := client.Do(req)
 	if err == nil {
 		defer resp.Body.Close()
@@ -475,7 +478,7 @@ func cnbFetchLatestCommitHash(apiBase, repo string, source *Source) (string, err
 		}
 	}
 	if source != nil && source.CloneURL != "" {
-		return getRemoteHeadCommit(source.CloneURL)
+		return getRemoteHeadCommit(source.CloneURL, source.authEnv())
 	}
 	return "", fmt.Errorf("failed to fetch latest commit hash")
 }

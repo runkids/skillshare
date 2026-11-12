@@ -440,7 +440,16 @@ func checkSkillVersion(cfg *config.Config) {
 	}
 
 	skill := cli + theme.Dim().Render(" · ") + "skill " + localVersion
-	switch remoteVersion := versioncheck.CachedRemoteSkillVersion(); {
+	if !config.AutoUpdateCheckEnabled() {
+		fmt.Println(statusLine("Version", skill))
+		return
+	}
+	remoteVersion := versioncheck.CachedRemoteSkillVersion()
+	if !config.AutoUpdateCheckEnabled() {
+		fmt.Println(statusLine("Version", skill))
+		return
+	}
+	switch {
 	case remoteVersion == "":
 		// Offline: show the local version only.
 		fmt.Println(statusLine("Version", skill))

@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
-	"strings"
 	"time"
 
 	"skillshare/internal/config"
@@ -80,29 +81,12 @@ func cmdUninstallProject(args []string, root string) error {
 		gitignoreEntry: func(t *uninstallTarget) string {
 			return gitignorePrefix + "/" + t.name
 		},
-		afterRemove: func(removed map[string]bool) { pruneProjectLock(root, removed) },
-		preflight:   projectUninstallPreflight,
+		afterRemove: func(removed map[string]bool) {
+			if err := config.ForgetProjectSkills(root, projectCfg, slices.Collect(maps.Keys(removed))); err != nil {
+				ui.Warning("Failed to update the project config and %s: %v", install.LockFileName, err)
+			}
+		},
+		preflight: projectUninstallPreflight,
 	}
 	return runUninstallSkills(opts, mode, args, start)
-}
-
-// pruneProjectLock drops lock pins for removed skills. The config keeps the
-// entry until the next reconcile; the pin goes now.
-func pruneProjectLock(root string, removed map[string]bool) {
-	lockDir := projectdir.Resolve(root)
-	lock, lockErr := install.LoadLock(lockDir)
-	if lockErr != nil {
-		return
-	}
-	for name := range lock.Skills {
-		for r := range removed {
-			// A group uninstall names the folder; its pins are "folder/skill".
-			if name == r || strings.HasPrefix(name, r+"/") {
-				delete(lock.Skills, name)
-			}
-		}
-	}
-	if saveErr := lock.Save(lockDir); saveErr != nil {
-		ui.Warning("Failed to update %s: %v", install.LockFileName, saveErr)
-	}
 }

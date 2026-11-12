@@ -44,7 +44,7 @@ flowchart TD
 
 `audit` 命令扮演**守門員**的角色 — 在 skill 內容抵達你的 AI assistant 之前，先掃描已知的威脅模式。它會在 `install` 期間自動執行，也可以隨時手動呼叫。
 
-用 `--force` 覆寫封鎖時，會將已接受的發現（規則、檔案、比對文字及偵測器專屬證據）記錄在 `.metadata.json` 中。之後的 `update` 會略過證據相同的 finding，並繼續偵測證據已改變的 finding。對 `whitespace-padding` 而言，密度 finding 會以檔案中所有符合條件的內容作為證據。詳見 [update — Accepted Findings](/docs/reference/commands/update#accepted-findings)。
+用 `--force` 覆寫封鎖時，會將已接受的發現（規則、檔案、比對文字及偵測器專屬證據）記錄在 `.metadata.json` 中。之後的 `update` 會略過證據相同的 finding，並繼續偵測證據已改變的 finding。對 `whitespace-padding` 而言，密度 finding 會以檔案中所有符合條件的內容作為證據。詳見 [update — Accepted Findings](/docs/reference/commands/update#accepted-findings)。一般的 `skillshare audit` 仍會因這些 finding 失敗；加上 `--respect-accepted` 才會套用，儀表板則一律套用。詳見 [audit — Accepted findings](/docs/reference/commands/audit#accepted-findings)。
 
 ## 偵測範圍
 

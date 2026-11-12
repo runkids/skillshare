@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.30.6] - 2026-11-11
+
+### New Features
+
+- **Fail CI when something is not up to date** — `skillshare check --exit-code` exits with code `1` when a check ran cleanly but finds an available update, a stale or locally modified skill, or a tracked repository that is behind, has uncommitted changes or is missing. Without the flag, `check` still fails only when an item could not be checked. Items with nothing to compare (status `local`) are left out. It works with `--json` and `check agents`, and cannot be combined with `--diff`. Refs: #865.
+  ```bash
+  skillshare check --all --exit-code          # Skills and agents in one CI step
+  skillshare check --exit-code --json > check.json
+  ```
+- **Herdr panel as a standalone mod** — the panel now also ships as a Mod package that adds only the skillshare toggle and panel to your current Herdr layout, keeping your status bar, usage meters, theme and other customizations. The complete layout is still available, and the update instructions for both now tell your agent to replace only the installed skillshare mod. See [Herdr](https://skillshare.runkids.cc/docs/learn/with-herdr). Refs: #857.
+- **Update check results in the Settings version row** — in Web **Settings → General → Updates**, the row now shows the installed CLI and skill versions, the result of a manual check with its time, and the next action (**Update now**, **Check again** or **Retry**) together, instead of a separate note below the card. Refs: #849.
+
+### Bug Fixes
+
+- **Provider tokens go only to their own hosts** — `GITHUB_TOKEN`, `GITLAB_TOKEN`, `BITBUCKET_TOKEN`, `AZURE_DEVOPS_TOKEN`, `GITEA_TOKEN` and `CNB_TOKEN` are now sent only over HTTPS on the default port (or 443) to `github.com`, `gitlab.com`, `bitbucket.org`, `dev.azure.com`, `*.visualstudio.com`, `gitea.com` and `cnb.cool`. A host whose name merely contains a provider name no longer receives that provider's token. GitHub API credentials stay on `api.github.com` and `raw.githubusercontent.com` and are dropped on cross-origin redirects. The web dashboard's remote search and install preview now refuse cross-site browser requests, as its other actions already did. Refs: #861.
+
+  **If you install from a self-hosted server**: add a self-hosted Gitea or CNB server's exact hostname to `gitea_hosts` or `cnb_hosts`, even when the name contains `gitea`. For GitHub Enterprise, self-hosted GitLab and other hosts, use a host-scoped Git credential helper, or set `SKILLSHARE_GIT_TOKEN` only for that command, since it is sent to any HTTPS source.
+- **Linked folders cannot redirect agent installs** — a repository's `.agents/skills/` fallback is used only when `.agents` and `skills` are real folders, not symlinks or junctions, even with `follow_source_links: true`. Installing or updating discovered agents refuses a destination reached through a link, and an audit that blocks the update leaves the existing agent files unchanged. Refs: #861.
+- **`check --all` checks agents too** — `check --all` ran only the skills check, so `check --all --exit-code` passed while an agent had drifted. It now prints a Skills and an Agents section, and `--json` adds an `agents` array beside `tracked_repos` and `skills`. `--all` is now rejected together with names or `--group` instead of being ignored. Refs: #867.
+- **`check --json` stays valid JSON** — `check <name> --json` printed warnings before the JSON, and when no name or group matched it printed an empty result and exited 0, so a mistyped name passed a CI gate. With `--json`, a run where nothing matches now exits 1 with an `{"error": "..."}` object, skipped names go in a `warnings` array, and other failures such as an invalid flag combination use the same error object. Refs: #868.
+- **Project `config.yaml` matches what is installed** — in project mode, `uninstall -p` and removing a skill or tracked repository in the dashboard left its entry in `.skillshare/config.yaml`, so the next `install -p` brought it back; they now remove the entry and its lock pin. Reinstalling a skill from another source or branch updated only local records, so teammates kept installing the old source; the config entry now follows. On a fresh clone, `install <source> -p` no longer deletes the other declared skills that are not installed yet. Thanks to @ErykJakubik for the report. Refs: #858, #860.
+- **Skills installed with `-s` from GitLab, Bitbucket or `file://` install again** — `install <repo> -s <skill>` recorded a source that these hosts parsed as a different repository, so `install -p` on a fresh clone tried to clone one that does not exist. New installs record a source every host can install from, and the dashboard still marks those skills as installed. Skills recorded the old way are repaired on their next `update`, `install <name> --update` or dashboard update, and in project mode the `config.yaml` entry follows unless a teammate changed it. `hub draft` and `hub index` now publish the installable source. Refs: #859, #862, #863, #866.
+- **Running skillshare from a Git hook no longer touches the hook's repository** — Git exports `GIT_DIR`, `GIT_WORK_TREE` and related variables to hooks in a linked worktree, and skillshare's own Git commands inherited them. From a `post-checkout` or `post-merge` hook, an install could turn on sparse checkout in your repository (a later merge then removed files outside the skill's path), and `push` could commit into it. skillshare's Git commands now ignore those variables; `GIT_CONFIG_COUNT` and `GIT_CONFIG_PARAMETERS` still apply. Thanks to @tomerzcod7 for the report. Refs: #852, #854.
+- **The Herdr panel shows results as they load** — a slow plugin inventory no longer holds up the whole panel. Each list appears when its read finishes, and rows that needed attention stay visible as unconfirmed while a refresh is pending or has failed. Refs: #855.
+
+## [0.30.5] - 2026-11-11
+
+### New Features
+
+- **Choose when Skillshare checks for new versions** — `skillshare updates off` stops automatic CLI and built-in skill version checks and their notifications, including cached notices, web update dialogs and version badges. In global mode, the switch under Web **Settings → General → Updates** saves the same preference. The global preference also applies to projects; the project-mode Web switch is read-only. Manual checks and upgrades remain available, and upstream checks for installed resource sources are unchanged. Automatic checks remain enabled by default. Thanks to @LloydPowell771 for explaining the monthly update workflow and requesting this option. Refs: #846, #847.
+  ```bash
+  skillshare updates off          # Disable automatic checks and notices
+  skillshare updates check        # Explicitly check the CLI version now
+  skillshare updates on           # Restore automatic checks
+  ```
+  The global `config.yaml` setting is `updates.auto_check: false`. `SKILLSHARE_AUTO_UPDATE_CHECK=false` overrides it for a process and its children without changing the saved preference.
+
 ## [0.30.4] - 2026-11-10
 
 ### New Features

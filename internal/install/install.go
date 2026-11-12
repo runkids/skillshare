@@ -33,6 +33,9 @@ type InstallOptions struct {
 	Branch           string   // Git branch to clone from (empty = remote default)
 	SourceDir        string   // Skills root dir for centralized metadata (set by caller)
 	Lock             *Lock    // Pinned commits for InstallFromConfig (project mode); nil = follow the branch
+
+	ParseOptions ParseOptions // Explicit credential host policy for existing checkouts
+
 	// AuditOverride lets an install proceed despite audit findings at/above the
 	// block threshold. Deliberately separate from Force, which only means
 	// "overwrite what is already there" and is set unconditionally by update and

@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **최신 버전**: v0.30.0 — 웹 대시보드는 다른 웹사이트가 브라우저를 통해 보내는 변경을 거부하고, `localhost`, IP 주소, 신뢰하는 주소에서만 응답하므로 DNS rebinding 페이지도 접근할 수 없습니다. 리버스 프록시 뒤에서는 [`--trusted-origin`](https://skillshare.runkids.cc/ko/docs/reference/commands/ui#reverse-proxy)으로 시작하면 MCP, Hooks, Plugins를 포함한 모든 페이지가 내 도메인을 통해 동작합니다. 그 밖의 도메인 이름으로 연 대시보드에는 이제 이 설정이 필요합니다. [`skillshare plugin`](https://skillshare.runkids.cc/ko/docs/reference/commands/plugin)은 Claude 매니페스트만 담은 플러그인도 Codex에 제공하며, Codex가 사용할 수 있는 skill과 MCP 서버를 함께 보여 줍니다. [변경 기록](https://skillshare.runkids.cc/changelog)을 확인하세요.
+> **최신 버전**: v0.30.6 — CI에서 오래된 스킬을 잡아내세요. `skillshare check --exit-code`는 확인한 항목 중 하나라도 최신이 아니면 종료 코드 1을 반환하고, `check --all`은 이제 스킬과 함께 에이전트도 확인하므로 CI 단계 하나로 둘 다 다룰 수 있습니다. [check 레퍼런스 →](https://skillshare.runkids.cc/ko/docs/reference/commands/check) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare를 쓰는 이유
 

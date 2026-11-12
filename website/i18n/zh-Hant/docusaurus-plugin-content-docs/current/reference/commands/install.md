@@ -129,6 +129,8 @@ $ skillshare install anthropics/skills
 
 Discovery 會掃描所有目錄尋找 `SKILL.md` 檔案，但會跳過 `.git` 以及 `.claude/`、`.agents/` 等 target 目錄，這些目錄通常放的是 repo 中 skills 的副本。其他隱藏目錄（如 `.curated/` 或 `.system/`）會被掃描，其中的 skills 也會被自動發現。如果 repo 沒有其他 skills，則改為掃描根目錄的 `.agents/skills/`。當找到多個 skills 時，選擇提示會把同一個資料夾的 skills 排在一起，並顯示每個 skill 的說明與所在資料夾；清單很長時按 `/` 篩選。
 
+`.agents/skills/` fallback 要求 `.agents` 和 `skills` 均為實際目錄，即使啟用 `follow_source_links: true` 也不接受符號連結或 junction。仍支援刻意跟隨的儲存庫根目錄。探索到的 agent 在安裝及更新時會拒絕目標路徑中間或末尾的連結，並在發佈前稽核；稽核阻擋操作時，現有 agent 內容保持不變。
+
 如果 repository 根目錄有 `.skillignore` 檔案，符合的 skills 會自動從 discovery 中排除。見下方 [.skillignore](#skillignore)。
 
 如果某個 skill 的 `SKILL.md` 包含 `license:` frontmatter 欄位，該授權會顯示在選擇提示中（例如 `my-skill (MIT)`），單一 skill 安裝時也會顯示在確認畫面上。
@@ -267,6 +269,8 @@ skillshare install ./my-skill -p
 | `--track` | 支援 | 支援 |
 | 設定檔更新 | 自動協調 `config.yaml` 的 `skills:` | 自動協調 `.skillshare/config.yaml` 的 `skills:` |
 | 無參數 install | 安裝設定檔中列出的所有 skills | 安裝設定檔中列出的所有 skills |
+
+從另一個 source 或分支重新安裝同一個 skill 時（解除安裝之後，或用 `--force` 覆蓋現有副本），它在 `.skillshare/config.yaml` 的項目和 `skills.lock.json` 的 pin 會被換掉，隊友因此會從新的 source 安裝。其他項目不會被這台機器的安裝紀錄改寫。
 
 **Project mode 中的 tracked repos** 運作方式與 global 相同 — repo 會保留 `.git` 進行 clone，並加入 `.skillshare/.gitignore`（預設也會忽略 `.skillshare/logs/`、`.skillshare/trash/`、`.skillshare/backups/` 與 `.metadata.json` 檔案）。`tracked: true` 旗標會自動記錄到 `.skillshare/config.yaml`：
 
@@ -541,11 +545,13 @@ skillshare install https://github.com/org/private-skills.git --track
 
 | 平台 | 環境變數 | Token 類型 |
 |----------|---------|------------|
-| GitHub | `GITHUB_TOKEN` | Personal access token（`repo` scope） |
-| GitLab | `GITLAB_TOKEN` | Personal access 或 CI job token |
+| `github.com` | `GITHUB_TOKEN` | Personal access token（`repo` scope） |
+| `gitlab.com` | `GITLAB_TOKEN` | Personal access 或 CI job token |
 | Bitbucket | `BITBUCKET_TOKEN` | Repository token，或 app password（搭配 `BITBUCKET_USERNAME`） |
 | Azure DevOps | `AZURE_DEVOPS_TOKEN` | Personal Access Token（Code: Read scope） |
 | 任何主機 | `SKILLSHARE_GIT_TOKEN` | 通用後備方案 |
+
+平台權杖僅傳送至使用 HTTPS 預設連接埠（或 443）的 `github.com`、`gitlab.com`、`bitbucket.org`、`dev.azure.com`、`*.visualstudio.com`、`gitea.com` 和 `cnb.cool`。自架 Gitea/CNB 即使名稱包含平台名，也必須在 `gitea_hosts`/`cnb_hosts` 中設定完整相符的主機名稱。自架 GitHub/GitLab 等主機應使用依主機設定的 Git credential helper，或僅為目標呼叫設定 `SKILLSHARE_GIT_TOKEN`。此通用 fallback 可傳送給**任何 HTTPS 來源**；類似平台的名稱不會授權傳送平台權杖。
 
 平台專屬的變數優先於 `SKILLSHARE_GIT_TOKEN`。
 

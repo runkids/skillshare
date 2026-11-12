@@ -67,6 +67,7 @@ sidebar_position: 1
 | [new](./new.md) | 새 skill 생성 |
 | [check](./check.md) | 사용 가능한 업데이트 확인 |
 | [update](./update.md) | skill 또는 tracked 저장소 업데이트 |
+| [updates](/docs/reference/commands/updates) | 자동 버전 확인과 업데이트 알림 제어 |
 | [upgrade](./upgrade.md) | CLI 또는 built-in skill 업그레이드 |
 | [enable / disable](./enable.md) | skill을 임시로 활성화/비활성화 |
 

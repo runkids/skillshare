@@ -1,10 +1,14 @@
 package search
 
 import (
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"skillshare/internal/install"
+	"skillshare/internal/testutil"
 )
 
 const sampleHubIndex = `{"schemaVersion":1,"skills":[{"name":"alpha","description":"A skill","source":"o/r"}]}`
@@ -49,7 +53,7 @@ func runGitT(t *testing.T, dir string, args ...string) {
 func TestReadIndexFromGitClone_DefaultFile(t *testing.T) {
 	repo := initGitRepoWithFile(t, defaultHubIndexFile, sampleHubIndex)
 
-	doc, err := readIndexFromGitClone(repo, defaultHubIndexFile)
+	doc, err := readIndexFromGitClone(repo, defaultHubIndexFile, install.ParseOptions{})
 	if err != nil {
 		t.Fatalf("readIndexFromGitClone: %v", err)
 	}
@@ -61,7 +65,7 @@ func TestReadIndexFromGitClone_DefaultFile(t *testing.T) {
 func TestReadIndexFromGitClone_CustomSubdir(t *testing.T) {
 	repo := initGitRepoWithFile(t, "hubs/team.json", sampleHubIndex)
 
-	doc, err := readIndexFromGitClone(repo, "hubs/team.json")
+	doc, err := readIndexFromGitClone(repo, "hubs/team.json", install.ParseOptions{})
 	if err != nil {
 		t.Fatalf("readIndexFromGitClone: %v", err)
 	}
@@ -73,7 +77,7 @@ func TestReadIndexFromGitClone_CustomSubdir(t *testing.T) {
 func TestReadIndexFromGitClone_MissingFile(t *testing.T) {
 	repo := initGitRepoWithFile(t, defaultHubIndexFile, sampleHubIndex)
 
-	if _, err := readIndexFromGitClone(repo, "nope.json"); err == nil {
+	if _, err := readIndexFromGitClone(repo, "nope.json", install.ParseOptions{}); err == nil {
 		t.Fatal("expected error for missing index file")
 	}
 }
@@ -82,8 +86,39 @@ func TestReadIndexFromGitClone_PathTraversalRejected(t *testing.T) {
 	repo := initGitRepoWithFile(t, defaultHubIndexFile, sampleHubIndex)
 
 	for _, rel := range []string{"../escape.json", "../../etc/passwd", "/etc/passwd"} {
-		if _, err := readIndexFromGitClone(repo, rel); err == nil {
+		if _, err := readIndexFromGitClone(repo, rel, install.ParseOptions{}); err == nil {
 			t.Errorf("expected error for traversal path %q", rel)
 		}
+	}
+}
+
+func TestFetchPreview_ConfiguredCloneAuthorization(t *testing.T) {
+	repo := initGitRepoWithFile(t, "skills/foo/SKILL.md", sampleSkillMD)
+	for _, tt := range []struct {
+		name, host, username, tokenVar string
+		opts                           install.ParseOptions
+	}{
+		{"cnb", "cnb.corp.example", "cnb", "CNB_TOKEN", install.ParseOptions{CNBHosts: []string{"cnb.corp.example"}}},
+		{"gitea", "forge.corp.example", "x-access-token", "GITEA_TOKEN", install.ParseOptions{GiteaHosts: []string{"forge.corp.example"}}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(tt.tokenVar, "private-repo-token")
+			testutil.ServePrivateGit(t, repo, tt.username, "private-repo-token")
+			source := "https://" + tt.host + "/org/repo.git/skills/foo"
+			preview, err := FetchPreview(http.DefaultClient, source, "", tt.opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if preview.Content != sampleSkillMD {
+				t.Fatal("authenticated clone did not return the private skill")
+			}
+			if _, err := FetchPreview(http.DefaultClient, source, "", install.ParseOptions{}); err == nil {
+				t.Fatal("unconfigured host unexpectedly accessed the private skill")
+			}
+			lookalike := "https://" + tt.name + ".attacker.invalid/org/repo.git/skills/foo"
+			if _, err := FetchPreview(http.DefaultClient, lookalike, "", tt.opts); err == nil {
+				t.Fatal("lookalike host unexpectedly accessed the private skill")
+			}
+		})
 	}
 }

@@ -847,7 +847,7 @@ SKILLSHARE_AZURE_HOSTS=azuredevops.mycompany.com skillshare install \
 
 ### `gitea_hosts`
 
-Self-hosted Gitea 인스턴스의 호스트명. `gitea.com`이나 `gitea.company.com`처럼 이름에 `gitea`가 포함된 호스트는 자동으로 감지됩니다. 이 필드는 다른 custom 도메인에만 필요합니다.
+자체 호스팅 Gitea는 이름에 `gitea`가 포함되어도 `GITEA_TOKEN` 전송을 위해 [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts)에 정확한 호스트명을 등록해야 합니다. 공급자 인증은 HTTPS 기본 포트 또는 443으로 제한됩니다.
 
 ```yaml
 gitea_hosts:
@@ -1181,17 +1181,17 @@ Skill을 설치하면, skillshare는 중앙화된 `.metadata.json` 파일에 해
 
 ```json
 {
-  "skills": [
-    {
-      "name": "pdf",
+  "version": 1,
+  "entries": {
+    "pdf": {
       "source": "anthropics/skills/skills/pdf",
-      "type": "github",
+      "type": "github-subdir",
       "installed_at": "2026-01-20T15:30:00Z",
       "repo_url": "https://github.com/anthropics/skills.git",
       "subdir": "skills/pdf",
       "version": "abc1234"
     }
-  ]
+  }
 }
 ```
 
@@ -1199,7 +1199,7 @@ Skill을 설치하면, skillshare는 중앙화된 `.metadata.json` 파일에 해
 
 | Field | Description |
 |-------|-------------|
-| `name` | Skill 디렉터리 이름 |
+| 항목 키 | Source 디렉터리 기준 Skill의 상대 경로 (예: `pdf`, `frontend/react-skill`) |
 | `source` | 원래 install source 입력값 |
 | `type` | Source 유형 (`github`, `local` 등) |
 | `installed_at` | 설치 타임스탬프 |

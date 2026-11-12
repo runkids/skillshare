@@ -852,7 +852,7 @@ SKILLSHARE_AZURE_HOSTS=azuredevops.mycompany.com skillshare install \
 
 ### `gitea_hosts`
 
-Hostnames of self-hosted Gitea instances. Hosts containing `gitea` in the name, such as `gitea.com` or `gitea.company.com`, are detected automatically. This field is only needed for other custom domains.
+Self-hosted Gitea requires an exact hostname in [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts) to authorize `GITEA_TOKEN`, even when the name contains `gitea`. Provider authentication requires HTTPS on the default port or 443.
 
 ```yaml
 gitea_hosts:
@@ -1187,17 +1187,17 @@ When you install a skill, skillshare records its metadata in the centralized `.m
 
 ```json
 {
-  "skills": [
-    {
-      "name": "pdf",
+  "version": 1,
+  "entries": {
+    "pdf": {
       "source": "anthropics/skills/skills/pdf",
-      "type": "github",
+      "type": "github-subdir",
       "installed_at": "2026-01-20T15:30:00Z",
       "repo_url": "https://github.com/anthropics/skills.git",
       "subdir": "skills/pdf",
       "version": "abc1234"
     }
-  ]
+  }
 }
 ```
 
@@ -1205,7 +1205,7 @@ Each skill entry includes:
 
 | Field | Description |
 |-------|-------------|
-| `name` | Skill directory name |
+| Entry key | Skill path relative to the source directory (for example `pdf` or `frontend/react-skill`) |
 | `source` | Original install source input |
 | `type` | Source type (`github`, `local`, etc.) |
 | `installed_at` | Installation timestamp |

@@ -269,17 +269,17 @@ When you install a skill, skillshare records its metadata in `.metadata.json` (c
 
 ```json
 {
-  "skills": [
-    {
-      "name": "pdf",
+  "version": 1,
+  "entries": {
+    "pdf": {
       "source": "anthropics/skills/skills/pdf",
-      "type": "github",
+      "type": "github-subdir",
       "installed_at": "2026-01-20T15:30:00Z",
       "repo_url": "https://github.com/anthropics/skills.git",
       "subdir": "skills/pdf",
       "version": "abc1234"
     }
-  ]
+  }
 }
 ```
 
@@ -287,7 +287,7 @@ Each skill entry includes:
 
 | Field | Description |
 |-------|-------------|
-| `name` | Skill directory name |
+| Entry key | Skill path relative to the source directory (for example `pdf` or `frontend/react-skill`) |
 | `source` | Original install source input |
 | `type` | Source type (`github`, `local`, etc.) |
 | `installed_at` | Installation timestamp |

@@ -14,7 +14,7 @@ _skillshare() {
         cword=$COMP_CWORD
     fi
 
-    local commands="init install uninstall link unlink move list search sync mcp hooks plugin status diff backup restore collect pull push commit doctor target project upgrade update check new trash analyze audit hub log ui tui extras enable disable completion version help"
+    local commands="init install uninstall link unlink move list search sync mcp hooks plugin status diff backup restore collect pull push commit doctor target project upgrade updates update check new trash analyze audit hub log ui tui extras enable disable completion version help"
 
     local global_flags="--project -p --global -g"
 
@@ -55,11 +55,11 @@ _skillshare() {
     local target_remove_flags="--all -a --dry-run -n"
     local upgrade_flags="--dry-run -n --force -f --skill --cli --help -h"
     local update_flags="--all -a --dry-run -n --force -f --skip-audit --audit-threshold --threshold -T --diff --audit-verbose --prune --json --group -G --help -h"
-    local check_flags="--json --diff --all --group -G --help -h"
+    local check_flags="--json --diff --exit-code --all --group -G --help -h"
     local new_flags="--pattern -P --dry-run -n --help -h"
     local search_flags="--json --list -l --hub --limit -n --help -h"
     local trash_flags="--all --no-tui --help -h"
-    local audit_flags="--min-severity --init-rules --json --format --quiet -q --yes -y --no-tui --threshold -T --group -G --profile --dedupe --analyzer --help -h"
+    local audit_flags="--min-severity --init-rules --json --format --quiet -q --yes -y --no-tui --respect-accepted --threshold -T --group -G --profile --dedupe --analyzer --help -h"
     local audit_rules_flags="--pattern --severity --disabled --format --no-tui --help -h"
     local hub_flags="--help -h"
     local hub_index_flags="--source -s --output -o --full --audit --help -h"
@@ -289,6 +289,7 @@ _skillshare() {
         commit)     COMPREPLY=($(compgen -W "${commit_flags}" -- "${cur}")) ;;
         doctor)     COMPREPLY=($(compgen -W "${doctor_flags} ${global_flags}" -- "${cur}")) ;;
         target)     COMPREPLY=($(compgen -W "${target_flags} ${global_flags}" -- "${cur}")) ;;
+        updates)    COMPREPLY=($(compgen -W "on off check --json --help -h" -- "${cur}")) ;;
         upgrade)    COMPREPLY=($(compgen -W "${upgrade_flags} ${global_flags}" -- "${cur}")) ;;
         update)     COMPREPLY=($(compgen -W "${update_flags} ${global_flags}" -- "${cur}")) ;;
         check)      COMPREPLY=($(compgen -W "${check_flags} ${global_flags}" -- "${cur}")) ;;

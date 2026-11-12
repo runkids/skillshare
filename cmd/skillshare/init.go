@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -13,6 +12,7 @@ import (
 
 	"skillshare/internal/config"
 	gitops "skillshare/internal/git"
+	"skillshare/internal/gitenv"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
 	ssync "skillshare/internal/sync"
@@ -310,7 +310,7 @@ func handleExistingInit(opts *initOptions) (bool, error) {
 				}
 			}
 		}
-		setupGitRemote(gitRoot, opts.remoteURL, opts.dryRun, opts.noGit)
+		setupGitRemote(gitRoot, opts.remoteURL, opts.dryRun, opts.noGit, parseOptsFromConfig(cfg))
 		if opts.dryRun {
 			fmt.Println()
 			ui.DryRun()
@@ -577,7 +577,7 @@ func commitSourceFiles(sourcePath, skills string) error {
 	}
 
 	printSourceLinkWarnings(sourcePath, skills, "init", nil)
-	addCmd := exec.Command("git", "add", ".")
+	addCmd := gitenv.Command("add", ".")
 	addCmd.Dir = sourcePath
 	if out, err := addCmd.CombinedOutput(); err != nil {
 		trimmed := strings.TrimSpace(string(out))
@@ -604,11 +604,11 @@ func commitSourceFiles(sourcePath, skills string) error {
 	if hasSkills {
 		msg = "Initial skills"
 	}
-	commitCmd := exec.Command("git", "commit", "-m", msg)
+	commitCmd := gitenv.Command("commit", "-m", msg)
 	commitCmd.Dir = sourcePath
 	// A repo the user created may have no identity; commit with a fallback
 	// for this one commit instead of writing one into their repo config.
-	commitCmd.Env = append(append(os.Environ(), "LC_ALL=C"), gitops.FallbackIdentityEnv(sourcePath)...)
+	commitCmd.Env = append(append(commitCmd.Env, "LC_ALL=C"), gitops.FallbackIdentityEnv(sourcePath)...)
 	if out, err := commitCmd.CombinedOutput(); err != nil {
 		trimmed := strings.TrimSpace(string(out))
 		if strings.Contains(trimmed, "nothing to commit") || strings.Contains(trimmed, "no changes added to commit") {
@@ -622,7 +622,7 @@ func commitSourceFiles(sourcePath, skills string) error {
 	return nil
 }
 
-func setupGitRemote(sourcePath, remoteURL string, dryRun, noGit bool) bool {
+func setupGitRemote(sourcePath, remoteURL string, dryRun, noGit bool, parseOpts install.ParseOptions) bool {
 	// Check if git is initialized
 	gitDir := filepath.Join(sourcePath, ".git")
 	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
@@ -642,7 +642,7 @@ func setupGitRemote(sourcePath, remoteURL string, dryRun, noGit bool) bool {
 	}
 
 	// Check if remote already exists
-	cmd := exec.Command("git", "remote", "get-url", "origin")
+	cmd := gitenv.Command("remote", "get-url", "origin")
 	cmd.Dir = sourcePath
 	output, err := cmd.Output()
 	if err == nil && strings.TrimSpace(string(output)) != "" {
@@ -660,10 +660,10 @@ func setupGitRemote(sourcePath, remoteURL string, dryRun, noGit bool) bool {
 		ui.Row(ui.MarkNone, "Remote", "would add origin → "+remoteURL, gitRowWidth)
 		return false
 	}
-	return addRemote(sourcePath, remoteURL)
+	return addRemote(sourcePath, remoteURL, parseOpts)
 }
 
-func addRemote(sourcePath, remoteURL string) bool {
+func addRemote(sourcePath, remoteURL string, parseOpts install.ParseOptions) bool {
 	// SetOrAddRemote validates the URL (rejecting flag-smuggling values that
 	// begin with "-") and passes "--" before positional args. setupGitRemote
 	// has already confirmed origin is absent, so this takes the add path.
@@ -675,7 +675,7 @@ func addRemote(sourcePath, remoteURL string) bool {
 	ui.Row(ui.MarkOK, "Remote", "origin → "+remoteURL, gitRowWidth)
 
 	// Try to fetch and auto-pull if remote has existing skills
-	hadSkills := tryPullAfterRemoteSetup(sourcePath, remoteURL)
+	hadSkills := tryPullAfterRemoteSetup(sourcePath, remoteURL, parseOpts)
 	if !hadSkills {
 		ui.Next("skillshare push", "share your skills")
 	}
@@ -683,8 +683,8 @@ func addRemote(sourcePath, remoteURL string) bool {
 }
 
 // remoteFetchEnv returns env vars for non-interactive remote checks.
-func remoteFetchEnv(remoteURL string) []string {
-	env := append([]string{}, os.Environ()...)
+func remoteFetchEnv(remoteURL string, parseOpts install.ParseOptions) []string {
+	env := gitenv.Environ()
 	env = append(env,
 		"GIT_TERMINAL_PROMPT=0",
 		"GIT_ASKPASS=",
@@ -695,7 +695,7 @@ func remoteFetchEnv(remoteURL string) []string {
 	if v, ok := os.LookupEnv("GIT_SSH_COMMAND"); !ok || strings.TrimSpace(v) == "" {
 		env = append(env, "GIT_SSH_COMMAND=ssh -o BatchMode=yes -o ConnectTimeout=8")
 	}
-	if authEnv := install.AuthEnvForURL(remoteURL); len(authEnv) > 0 {
+	if authEnv := install.AuthEnvForURL(remoteURL, parseOpts); len(authEnv) > 0 {
 		env = append(env, authEnv...)
 	}
 	return env
@@ -703,15 +703,15 @@ func remoteFetchEnv(remoteURL string) []string {
 
 // tryPullAfterRemoteSetup attempts to fetch from remote and pull if it has content.
 // Returns true if remote had content (pulled or warned), false if remote is empty/unreachable.
-func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
+func tryPullAfterRemoteSetup(sourcePath, remoteURL string, parseOpts install.ParseOptions) bool {
 	spinner := ui.StartSpinner("Checking remote for existing skills...")
 
 	// Try to fetch (inject HTTPS token auth when available)
 	fetchCtx, cancel := context.WithTimeout(context.Background(), remoteFetchTimeout)
 	defer cancel()
-	fetchCmd := exec.CommandContext(fetchCtx, "git", "fetch", "origin")
+	fetchCmd := gitenv.CommandContext(fetchCtx, "fetch", "origin")
 	fetchCmd.Dir = sourcePath
-	fetchCmd.Env = remoteFetchEnv(remoteURL)
+	fetchCmd.Env = remoteFetchEnv(remoteURL, parseOpts)
 	if output, err := fetchCmd.CombinedOutput(); err != nil {
 		spinner.Stop()
 		if errors.Is(fetchCtx.Err(), context.DeadlineExceeded) {
@@ -779,7 +779,7 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 	// This is safe because we verified hasLocalSkills is false above.
 	spinner.Update("Pulling skills from remote...")
 
-	resetCmd := exec.Command("git", "reset", "--hard", "origin/"+remoteBranch)
+	resetCmd := gitenv.Command("reset", "--hard", "origin/"+remoteBranch)
 	resetCmd.Dir = sourcePath
 	if output, err := resetCmd.CombinedOutput(); err != nil {
 		spinner.Stop()
@@ -791,14 +791,14 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 
 	// Set up tracking so push/pull work without specifying remote
 	localBranch := "main"
-	branchCmd := exec.Command("git", "branch", "--show-current")
+	branchCmd := gitenv.Command("branch", "--show-current")
 	branchCmd.Dir = sourcePath
 	if out, err := branchCmd.Output(); err == nil {
 		if b := strings.TrimSpace(string(out)); b != "" {
 			localBranch = b
 		}
 	}
-	trackCmd := exec.Command("git", "branch", "--set-upstream-to=origin/"+remoteBranch, localBranch)
+	trackCmd := gitenv.Command("branch", "--set-upstream-to=origin/"+remoteBranch, localBranch)
 	trackCmd.Dir = sourcePath
 	trackCmd.Run() // best-effort
 

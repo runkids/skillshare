@@ -35,6 +35,7 @@ skillshare audit --analyzer static # Run only the static analyzer
 | `--json` | Same as `--format json` (deprecated) |
 | `--quiet, -q` | Only show skills with findings + summary |
 | `--no-tui` | Disable interactive TUI, print plain text |
+| `--respect-accepted` | Do not fail on findings accepted earlier with `--force`; JSON marks them `acknowledged`, SARIF adds `suppressions` |
 | `--yes, -y` | Skip large-scan confirmation prompt |
 | `--init-rules` | Create a starter `audit-rules.yaml` |
 | `-h, --help` | Show help |
@@ -141,7 +142,7 @@ skillshare audit rules reset                    # Restore built-in defaults
 skillshare audit rules init                     # Create starter audit-rules.yaml
 ```
 
-Audit exits `0` when findings are below the threshold, `1` for threshold findings, and `2` for execution, usage, configuration, or scan errors. Scan errors take precedence over findings. Declining the large-scan confirmation exits `0` without scanning. Audits launched from `list` use the same exit codes.
+Audit exits `0` when findings are below the threshold, `1` for threshold findings, and `2` for execution, usage, configuration, or scan errors. Scan errors take precedence over findings. With `--respect-accepted`, findings accepted earlier with `--force` do not count toward `1`. Declining the large-scan confirmation exits `0` without scanning. Audits launched from `list` use the same exit codes.
 
 ## Custom Audit Rules
 

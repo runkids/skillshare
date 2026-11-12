@@ -8,6 +8,23 @@ All environment variables recognized by skillshare.
 
 ## Configuration
 
+### SKILLSHARE_AUTO_UPDATE_CHECK {#skillshare_auto_update_check}
+
+Override global `updates.auto_check` for automatic release-version checks and notifications.
+
+```bash
+SKILLSHARE_AUTO_UPDATE_CHECK=false skillshare status
+```
+
+**Default:** `updates.auto_check` in config.yaml, or `true` when unset.
+Accepts `true`/`false`, `1`/`0`, `t`/`f` and Go boolean case variants; empty or
+invalid values are ignored. The environment takes precedence without rewriting config.
+CLI, web UI and compatible desktop app version notifications are suppressed when false;
+explicit checks and upgrades remain available. GUI apps must inherit this variable
+when launched. Desktop support requires an app release that includes
+[skillshare-app#126](https://github.com/runkids/skillshare-app/pull/126); upgrading
+the CLI alone does not disable checks in older desktop builds. See [updates](/docs/reference/commands/updates).
+
 ### SKILLSHARE_CONFIG
 
 Override the config file path.
@@ -180,6 +197,8 @@ See [Reverse Proxy](/docs/reference/commands/ui#reverse-proxy).
 
 GitHub personal access token.
 
+Provider tokens are sent only over HTTPS on the default port (or 443): `github.com`, `gitlab.com`, `bitbucket.org`, `dev.azure.com`, `*.visualstudio.com`, `gitea.com`, and `cnb.cool`. Self-hosted Gitea/CNB requires an exact hostname in `gitea_hosts`/`cnb_hosts`, even if its name contains the provider name. For self-hosted GitHub/GitLab or other hosts, use a host-scoped Git credential helper, or set `SKILLSHARE_GIT_TOKEN` only for the intended invocation. That generic fallback can be sent to **any HTTPS source**; provider-looking names do not authorize provider tokens.
+
 **Used for:**
 - GitHub API requests (`skillshare search`, `skillshare upgrade`, version check)
 - **Git clone authentication** — automatically injected when installing private repos via HTTPS
@@ -336,7 +355,7 @@ skillshare install https://gitea.com/org/skills.git --track
 $env:GITEA_TOKEN = "your_token"
 ```
 
-The token is sent only to the host you install from. A self-hosted instance on a domain without `gitea` in its name needs [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts), otherwise `SKILLSHARE_GIT_TOKEN` is used for it.
+Self-hosted Gitea requires an exact hostname in [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts) to authorize `GITEA_TOKEN`, even when the name contains `gitea`. Provider authentication requires HTTPS on the default port or 443.
 
 ### CNB_TOKEN
 

@@ -8,6 +8,18 @@ skillshare が認識するすべての環境変数です。
 
 ## 設定
 
+### SKILLSHARE_AUTO_UPDATE_CHECK {#skillshare_auto_update_check}
+
+グローバル config.yaml の `updates.auto_check` より優先されます。`false` にすると CLI、Web UI、この設定に対応したデスクトップアプリの自動バージョン確認、更新通知とバージョンバッジを無効にします。手動確認とアップグレードは利用できます。設定ファイルへの書き戻しは行いません。未設定時は設定ファイルを使い、既定値は `true` です。`true/false`、`1/0`、`t/f` と Go の真偽値の大文字小文字表記を受け付け、空または無効な値は無視します。GUI アプリは起動時にこの環境変数を継承する必要があります。
+
+```bash
+SKILLSHARE_AUTO_UPDATE_CHECK=false skillshare status
+```
+
+デスクトップでの対応には [skillshare-app#126](https://github.com/runkids/skillshare-app/pull/126) を含むアプリのリリースが必要です。CLI だけを更新しても、古いデスクトップ版の自動確認は無効になりません。
+
+[updates](/docs/reference/commands/updates)
+
 ### SKILLSHARE_CONFIG
 
 Config ファイルのパスを上書きします。
@@ -189,6 +201,8 @@ SKILLSHARE_UI_TRUSTED_ORIGINS=https://tools.example.com skillshare ui --host 0.0
 
 ### GITHUB_TOKEN
 
+プロバイダーのトークンは HTTPS の既定ポート（または 443）でのみ送信されます。対象は `github.com`、`gitlab.com`、`bitbucket.org`、`dev.azure.com`、`*.visualstudio.com`、`gitea.com`、`cnb.cool` です。セルフホストの Gitea/CNB は、名前にプロバイダー名を含む場合も `gitea_hosts`/`cnb_hosts` に正確なホスト名の登録が必要です。セルフホストの GitHub/GitLab などにはホスト別の Git credential helper を使うか、対象の実行時だけ `SKILLSHARE_GIT_TOKEN` を設定してください。この汎用フォールバックは**任意の HTTPS ソース**に送信されます。名前による判定だけではプロバイダートークンの送信は許可されません。
+
 GitHub の personal access token です。
 
 **用途:**
@@ -358,8 +372,7 @@ skillshare install https://gitea.com/org/skills.git --track
 $env:GITEA_TOKEN = "your_token"
 ```
 
-トークンはインストール元のホストにのみ送信されます。名前に `gitea` を含まないドメイン上のセルフ
-ホストインスタンスには [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts) が必要で、
+セルフホストの Gitea は、名前に `gitea` を含む場合も `GITEA_TOKEN` の送信に [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts) への正確なホスト名の登録が必要です。プロバイダー認証は HTTPS の既定ポートまたは 443 に限定されます。
 それがなければ代わりに `SKILLSHARE_GIT_TOKEN` が使われます。
 
 ### CNB_TOKEN

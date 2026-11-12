@@ -1,12 +1,14 @@
 package server
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"sync"
 	"time"
 
 	ghclient "skillshare/internal/github"
+	"skillshare/internal/install"
 	"skillshare/internal/search"
 )
 
@@ -21,6 +23,15 @@ type previewCacheEntry struct {
 	expiresAt time.Time
 }
 
+type previewCacheKey struct {
+	source, branch, policy string
+}
+
+func previewKey(source, branch string, opts install.ParseOptions) previewCacheKey {
+	policy, _ := json.Marshal(opts)
+	return previewCacheKey{source: source, branch: branch, policy: string(policy)}
+}
+
 func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 	source := r.URL.Query().Get("source")
 	if source == "" {
@@ -29,8 +40,12 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 	}
 	branch := r.URL.Query().Get("branch")
 
-	// Check cache (include branch in key to avoid cross-branch collisions)
-	cacheKey := source + "@" + branch
+	s.mu.RLock()
+	parseOpts := s.parseOpts()
+	s.mu.RUnlock()
+
+	// Bind cached content to both the requested ref and configured host scope.
+	cacheKey := previewKey(source, branch, parseOpts)
 	if entry, ok := previewCache.Load(cacheKey); ok {
 		ce := entry.(*previewCacheEntry)
 		if time.Now().Before(ce.expiresAt) {
@@ -41,7 +56,7 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := ghclient.NewClient()
-	preview, err := search.FetchPreview(client, source, branch)
+	preview, err := search.FetchPreview(client, source, branch, parseOpts)
 	if err != nil {
 		var rlErr *ghclient.RateLimitError
 		if errors.As(err, &rlErr) {

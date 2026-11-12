@@ -2,7 +2,8 @@ package git
 
 import (
 	"fmt"
-	"os/exec"
+
+	"skillshare/internal/gitenv"
 )
 
 // DiscardChanges restores tracked files and the index to HEAD, and removes
@@ -19,7 +20,7 @@ func DiscardChanges(dir string, preserveConfig bool) error {
 	// Check both diffs: staged and unstaged edits can cancel each other out.
 	// Skip restore when neither has changes, including an empty initial commit.
 	for _, args := range [][]string{{"diff", "--name-only", "HEAD"}, {"diff", "--cached", "--name-only", "HEAD"}} {
-		cmd := exec.Command("git", append(append(args, "--"), paths...)...)
+		cmd := gitenv.Command(append(append(args, "--"), paths...)...)
 		cmd.Dir = dir
 		out, err := cmd.Output()
 		if err != nil {
@@ -34,7 +35,7 @@ func DiscardChanges(dir string, preserveConfig bool) error {
 		commands = append(commands, append([]string{"restore", "--source=HEAD", "--staged", "--worktree", "--no-recurse-submodules", "--"}, paths...))
 	}
 	for _, args := range commands {
-		cmd := exec.Command("git", args...)
+		cmd := gitenv.Command(args...)
 		cmd.Dir = dir
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to discard changes: %w: %s", err, out)

@@ -106,8 +106,9 @@ type Options struct {
 	// refused by sourcefs, so a path below one is not refused here.
 	Install bool
 	// Reconcile runs after the records are saved: it sets groups, prunes and,
-	// in project mode, rewrites config.yaml and the lockfile. May be nil.
-	Reconcile func() error
+	// in project mode, rewrites config.yaml and the lockfile. moved maps each
+	// old source-relative path to its new one. May be nil.
+	Reconcile func(moved map[string]string) error
 }
 
 // Skill is one discovered skill that moves with its root.
@@ -683,7 +684,7 @@ func followUp(root *sourcefs.Root, moved []*Planned, o Options) error {
 		note("read .skillignore", err)
 	}
 	if o.Reconcile != nil {
-		note("reconcile install records", o.Reconcile())
+		note("reconcile install records", o.Reconcile(pins))
 	}
 	return errors.Join(errs...)
 }

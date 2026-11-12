@@ -3,11 +3,16 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import PageHeader from '../components/PageHeader';
+import Button from '../components/Button';
+import UpdateDialog from '../components/UpdateDialog';
+import type { VersionCheck } from '../api/client';
+import { useUpdatePolicy } from '../hooks/useUpdatePolicy';
 import { Select } from '../components/Select';
 import { useToast } from '../components/Toast';
 import { useAppContext } from '../context/AppContext';
 import { useTheme, type ModePreference, type Style } from '../context/ThemeContext';
-import { supportedLocales, useI18n, useT, type Locale } from '../i18n';
+import { Download, RotateCw } from 'lucide-react';
+import { formatDateTime, supportedLocales, useI18n, useT, type Locale } from '../i18n';
 import { shortenHome } from '../lib/paths';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useOverviewQuery } from '../hooks/useSharedQueries';
@@ -59,9 +64,10 @@ export default function SettingsPage() {
   const config = useQuery({ queryKey: queryKeys.config, queryFn: () => api.getConfig(), staleTime: staleTimes.config });
   const cfg = (config.data?.config ?? {}) as ConfigShape;
   const [threshold, setThreshold] = useState<string | null>(null);
+  const [manualUpgrade, setManualUpgrade] = useState<VersionCheck | null>(null);
 
   const patch = useMutation({
-    mutationFn: (body: { mode?: string; logMaxEntries?: number }) => api.patchConfig(body),
+    mutationFn: (body: { mode?: string; logMaxEntries?: number; autoUpdateCheck?: boolean }) => api.patchConfig(body),
     onSuccess: () => { void invalidate(queryClient, 'settingsSaved'); toast(t('settings.toast.saved'), 'success'); },
     onError: (e: Error) => toast(e.message, 'error'),
   });
@@ -73,6 +79,16 @@ export default function SettingsPage() {
 
   const home = isProjectMode ? projectRoot : overview.data?.configDir;
   const logLimit = cfg.Log?.MaxEntries ?? 1000;
+  const updatePolicy = useUpdatePolicy();
+  const manualCheck = useQuery({ queryKey: queryKeys.manualVersionCheck, queryFn: () => api.getVersionCheck(true), enabled: false, retry: false });
+  const policy = updatePolicy.data;
+  const manualResult = manualCheck.error ? undefined : manualCheck.data;
+  // Installed versions come from the shared local check, so they show before any manual check.
+  const versionCheck = useQuery({ queryKey: queryKeys.versionCheck, queryFn: () => api.getVersionCheck(), staleTime: staleTimes.version });
+  const installed = manualResult ?? versionCheck.data;
+  const updateAvailable = !!manualResult && (manualResult.cliUpdateAvailable || manualResult.skillUpdateAvailable);
+  const ver = (s?: string) => (s && /^\d/.test(s) ? `v${s}` : s);
+
 
   return (
     <div className="ss-wrap animate-page-in">
@@ -114,6 +130,61 @@ export default function SettingsPage() {
               </div>
             )}
           </div>
+        </section>
+
+        <section>
+          <div className="ss-sec"><h2 className="ss-h2">{t('settings.updates.title')}</h2></div>
+          <div className="ss-list">
+            <div className="ss-setrow">
+              <div className="l">
+                <b id="auto-update-label">{t('settings.updates.auto')}</b>
+                <span>{t(policy?.envOverride ? 'settings.updates.environment' : isProjectMode ? 'settings.updates.global' : 'settings.updates.hint')}</span>
+              </div>
+              <button type="button" role="switch" aria-labelledby="auto-update-label" aria-checked={policy?.enabled ?? true}
+                className={`ss-sw ${policy?.enabled !== false ? 'on' : ''}`}
+                disabled={!policy || isProjectMode || policy.envOverride || patch.isPending}
+                onClick={() => patch.mutate({ autoUpdateCheck: !policy?.enabled })}><i /></button>
+            </div>
+            <div className="ss-setrow flex-wrap gap-y-3">
+              <div className="l basis-64 gap-1.5">
+                <b>{t('settings.updates.version')}</b>
+                {installed && (
+                  <div className="flex flex-wrap gap-1.5">
+                    <code className={`ss-tag${manualResult?.cliUpdateAvailable ? ' warn' : ''}`}>
+                      CLI {ver(installed.cliVersion)}{manualResult?.cliUpdateAvailable && manualResult.cliLatest ? ` → ${ver(manualResult.cliLatest)}` : ''}
+                    </code>
+                    {installed.skillVersion && (
+                      <code className={`ss-tag${manualResult?.skillUpdateAvailable ? ' warn' : ''}`}>
+                        Skill {ver(installed.skillVersion)}{manualResult?.skillUpdateAvailable && manualResult.skillLatest ? ` → ${ver(manualResult.skillLatest)}` : ''}
+                      </code>
+                    )}
+                  </div>
+                )}
+                {manualCheck.error ? (
+                  <div className="ss-st bad wrap" role="status">{t('settings.updates.error')}</div>
+                ) : manualResult ? (
+                  <div className={`ss-st wrap ${updateAvailable ? 'warn' : 'ok'}`} role="status">
+                    <div>
+                      {t(updateAvailable ? 'settings.updates.available' : 'settings.updates.current')}
+                      <small className="text-[13px] font-normal text-ink-3"> · {t('settings.updates.checkedAt', { time: formatDateTime(manualCheck.dataUpdatedAt, locale, { hour: '2-digit', minute: '2-digit', hour12: false }) })}</small>
+                    </div>
+                  </div>
+                ) : (
+                  <span>{t('settings.updates.manualHint')}</span>
+                )}
+              </div>
+              <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                <Button variant="secondary" loading={manualCheck.isFetching} onClick={() => { void manualCheck.refetch(); }}>
+                  {!manualCheck.isFetching && <RotateCw size={14} />}
+                  {t(manualCheck.error ? 'settings.updates.retry' : manualResult ? 'settings.updates.recheck' : 'settings.updates.check')}
+                </Button>
+                {manualResult && updateAvailable && (
+                  <Button variant="primary" onClick={() => setManualUpgrade(manualResult)}><Download size={14} />{t('updateDialog.updateNow')}</Button>
+                )}
+              </div>
+            </div>
+          </div>
+          {manualUpgrade && <UpdateDialog manualData={manualUpgrade} onDismiss={() => setManualUpgrade(null)} />}
         </section>
 
         <section>

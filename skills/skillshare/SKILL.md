@@ -9,7 +9,7 @@ description: |
   noninteractive automation, and guidance for the terminal UI.
 argument-hint: "[command] [target] [--json] [--dry-run] [-p|-g]"
 metadata:
-  version: v0.30.4
+  version: v0.30.6
 ---
 
 # Skillshare CLI
@@ -88,6 +88,11 @@ skillshare mcp --json
 
 `doctor` exits 1 when it finds errors. Audit uses `--format json`; JSON flags and
 TUI availability vary by command. See the relevant reference rather than assuming parity.
+
+For automatic release checks and notices, use `skillshare updates off` / `on`.
+`skillshare updates check` explicitly checks the CLI version even when automatic
+checks are off; see [status.md](references/status.md#updates) for the shared preference
+and environment override. Installed resource-source checks are separate.
 
 ### Track an upstream repository or install selected skills
 
@@ -210,7 +215,7 @@ references for a single task.
 | Init flags | [init.md](references/init.md) |
 | Sync/collect/commit/push/pull | [sync.md](references/sync.md) |
 | Install/update/uninstall/move/new | [install.md](references/install.md) |
-| Status/diff/list/search/check | [status.md](references/status.md) |
+| Status/diff/list/search/check/updates | [status.md](references/status.md) |
 | Security audit | [audit.md](references/audit.md) |
 | Reviewing an untrusted skill before install | [audit-review.md](references/audit-review.md) |
 | Trash | [trash.md](references/trash.md) |

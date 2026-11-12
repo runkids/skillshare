@@ -79,3 +79,21 @@ func TestDoctorCheckSuggestionsJSON(t *testing.T) {
 		t.Fatalf("doctor JSON suggestions = %v", got)
 	}
 }
+
+func TestDoctorCheckStreamWritesEachCheckAsItIsAdded(t *testing.T) {
+	t.Setenv(doctorStreamEnv, "1")
+	var out strings.Builder
+	result := &doctorResult{stream: doctorCheckStream(&out)}
+
+	result.addCheck("source", checkPass, "Source: ok", nil)
+
+	if got, want := out.String(), `{"check":{"name":"source","status":"pass","message":"Source: ok"}}`+"\n"; got != want {
+		t.Fatalf("stream = %q, want %q", got, want)
+	}
+}
+
+func TestDoctorCheckStreamOffWithoutEnv(t *testing.T) {
+	if stream := doctorCheckStream(&strings.Builder{}); stream != nil {
+		t.Fatal("doctor streamed checks without being asked to")
+	}
+}

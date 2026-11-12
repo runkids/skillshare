@@ -415,6 +415,7 @@ type Config struct {
 	Hub            HubConfig           `yaml:"hub,omitempty"`
 	Log            LogConfig           `yaml:"log,omitempty"`
 	Backup         BackupConfig        `yaml:"backup,omitempty"`
+	Updates        UpdatesConfig       `yaml:"updates,omitempty"`
 	ContextBudget  ContextBudgetConfig `yaml:"context_budget,omitempty"`
 	TUI            *bool               `yaml:"tui,omitempty"` // nil = default true
 	GitLabHosts    []string            `yaml:"gitlab_hosts,omitempty"`

@@ -28,6 +28,7 @@ _skillshare() {
         'doctor:Check environment and diagnose issues'
         'target:Manage targets'
         'project:Manage project folders'
+        'updates:Control automatic version checks'
         'upgrade:Upgrade CLI and/or skillshare skill'
         'update:Update skills/agents or tracked repositories'
         'check:Check for available updates'
@@ -65,6 +66,9 @@ _skillshare() {
             ;;
         args)
             case ${words[1]} in
+                updates)
+                    _arguments '1:action:(on off check)' '--json[Output JSON]' '--help[Show help]' '-h[Show help]'
+                    ;;
                 init)
                     _arguments \
                         '--source[Set source directory]:path:_files -/' \
@@ -505,7 +509,8 @@ _skillshare() {
                         '1:scope:(agents)' \
                         '--json[JSON output]' \
                         '--diff[Show changes since install]' \
-                        '--all[Check all]' \
+                        '--exit-code[Exit 1 when anything is not up to date]' \
+                        '--all[Check skills and agents]' \
                         '--group[Check by group]:group:' \
                         '-G[Check by group]:group:' \
                         $global_flags \
@@ -587,6 +592,7 @@ _skillshare() {
                         '--yes[Skip confirmation]' \
                         '-y[Skip confirmation]' \
                         '--no-tui[Skip interactive TUI]' \
+                        '--respect-accepted[Do not fail on findings accepted earlier]' \
                         '--threshold[Block threshold]:level:(low medium high critical)' \
                         '-T[Block threshold]:level:(low medium high critical)' \
                         '--group[Filter by group]:group:' \

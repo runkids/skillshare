@@ -83,7 +83,7 @@ func cmdInstallProjectParsed(parsed *installArgs, root string) (installLogSummar
 			return summary, err
 		}
 		if !parsed.opts.DryRun {
-			return summary, reconcileProjectRemoteSkills(runtime)
+			return summary, reconcileProjectInstalledSkills(runtime)
 		}
 		return summary, nil
 	}
@@ -98,7 +98,7 @@ func cmdInstallProjectParsed(parsed *installArgs, root string) (installLogSummar
 		return summary, nil
 	}
 
-	return summary, reconcileProjectRemoteSkills(runtime)
+	return summary, reconcileProjectInstalledSkills(runtime)
 }
 
 func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptions) (installLogSummary, error) {

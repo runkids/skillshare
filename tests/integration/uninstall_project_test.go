@@ -5,6 +5,7 @@ package integration
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/install"
@@ -164,6 +165,16 @@ func TestUninstallProject_GroupDir_RemovesConfigEntries(t *testing.T) {
 
 	sb.WriteProjectConfig(projectRoot, `targets:
   - claude
+skills:
+  - name: skill-a
+    source: github.com/org/repo/skill-a
+    group: mygroup
+  - name: skill-b
+    source: github.com/org/repo/skill-b
+    group: mygroup
+  - name: skill-c
+    source: github.com/org/repo/skill-c
+    group: other
 `)
 	// Write metadata directly
 	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
@@ -194,6 +205,11 @@ func TestUninstallProject_GroupDir_RemovesConfigEntries(t *testing.T) {
 	}
 	if !store2.Has("skill-c") {
 		t.Error("metadata should still contain skill-c from other group")
+	}
+
+	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
+	if strings.Contains(cfg, "skill-a") || strings.Contains(cfg, "skill-b") || !strings.Contains(cfg, "skill-c") {
+		t.Errorf("config.yaml should keep only skill-c:\n%s", cfg)
 	}
 }
 

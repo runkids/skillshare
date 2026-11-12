@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"skillshare/internal/config"
 	"skillshare/internal/install"
 )
 
@@ -221,5 +222,25 @@ func TestHandleUninstallRepo_FollowedLinkRootSkillRefused(t *testing.T) {
 	}
 	if _, err := os.Lstat(link); err != nil {
 		t.Fatalf("the link must stay: %v", err)
+	}
+}
+
+// In project mode the single-skill route must also drop the config entry, or
+// the next `install -p` brings the skill back.
+func TestHandleUninstallSkill_ProjectDropsConfigEntry(t *testing.T) {
+	s, projectRoot := newProjectTargetServer(t, nil)
+	addSkill(t, filepath.Join(projectRoot, ".skillshare", "skills"), "demo")
+	s.projectCfg.Skills = []config.SkillEntry{{Name: "demo", Source: pruneSource}}
+
+	if rr := deleteSkill(t, s, "demo"); rr.Code != http.StatusOK {
+		t.Fatalf("uninstall failed: %d %s", rr.Code, rr.Body.String())
+	}
+
+	loaded, err := config.LoadProject(projectRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(loaded.Skills) != 0 {
+		t.Errorf("config skills = %+v, want none", loaded.Skills)
 	}
 }

@@ -66,7 +66,7 @@ func TestPushRemoteWithEnv_TokenNotInError(t *testing.T) {
 	t.Setenv("PATH", fakeBin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("GITHUB_TOKEN", token)
 
-	extraEnv := install.AuthEnvForURL("https://github.com/org/repo.git")
+	extraEnv := install.AuthEnvForURL("https://github.com/org/repo.git", install.ParseOptions{})
 
 	err := PushRemoteWithEnv(t.TempDir(), extraEnv)
 	if err == nil {
@@ -105,7 +105,7 @@ func TestPushRemoteWithEnv_PreservesStdoutDiagnostics(t *testing.T) {
 	t.Setenv("PATH", fakeBin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("GITHUB_TOKEN", token)
 
-	extraEnv := install.AuthEnvForURL("https://github.com/org/repo.git")
+	extraEnv := install.AuthEnvForURL("https://github.com/org/repo.git", install.ParseOptions{})
 
 	err := PushRemoteWithEnv(t.TempDir(), extraEnv)
 	if err == nil {
@@ -273,7 +273,7 @@ func TestAuthEnvForRepo_UsesGitHubToken(t *testing.T) {
 	addRemote(t, repo, "https://github.com/org/private-repo.git")
 	t.Setenv("GITHUB_TOKEN", "ghp_test_token_123")
 
-	env := AuthEnvForRepo(repo)
+	env := AuthEnvForRepo(repo, install.ParseOptions{})
 	for _, want := range []string{
 		"GIT_CONFIG_KEY_0=credential.https://github.com.helper",
 		"SKILLSHARE_GIT_AUTH_USERNAME=x-access-token",
@@ -290,7 +290,7 @@ func TestAuthEnvForRepo_UsesGitLabToken(t *testing.T) {
 	addRemote(t, repo, "https://gitlab.com/group/private-repo.git")
 	t.Setenv("GITLAB_TOKEN", "glpat_test_token_123")
 
-	env := AuthEnvForRepo(repo)
+	env := AuthEnvForRepo(repo, install.ParseOptions{})
 	for _, want := range []string{
 		"GIT_CONFIG_KEY_0=credential.https://gitlab.com.helper",
 		"SKILLSHARE_GIT_AUTH_USERNAME=oauth2",
@@ -308,7 +308,7 @@ func TestAuthEnvForRepo_NoTokenReturnsNil(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
 	t.Setenv("SKILLSHARE_GIT_TOKEN", "")
 
-	env := AuthEnvForRepo(repo)
+	env := AuthEnvForRepo(repo, install.ParseOptions{})
 	if env != nil {
 		t.Fatalf("expected nil auth env without tokens, got: %v", env)
 	}
@@ -320,7 +320,7 @@ func TestAuthEnvForRepo_SSHRemote_ReturnsNil(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "ghp_test_token_123")
 	t.Setenv("SKILLSHARE_GIT_TOKEN", "generic-token")
 
-	env := AuthEnvForRepo(repo)
+	env := AuthEnvForRepo(repo, install.ParseOptions{})
 	if env != nil {
 		t.Fatalf("expected nil auth env for SSH remote, got: %v", env)
 	}
@@ -985,7 +985,7 @@ func TestFirstPull_MergesUnrelatedRemoteHistory(t *testing.T) {
 	}
 	runGit(t, repo, "remote", "add", "origin", remote)
 
-	if _, err := FirstPull(repo, false); err != nil {
+	if _, err := FirstPull(repo, false, install.ParseOptions{}); err != nil {
 		t.Fatalf("FirstPull() error: %v", err)
 	}
 	_, statErr := os.Stat(filepath.Join(repo, "remote-skill", "SKILL.md"))
@@ -999,7 +999,7 @@ func TestFirstPull_KeepsFilesOnlyLocalCommits(t *testing.T) {
 	repo := initTestRepo(t) // commits README.md at the root, no directories
 	runGit(t, repo, "remote", "add", "origin", remote)
 
-	if _, err := FirstPull(repo, false); err != nil {
+	if _, err := FirstPull(repo, false, install.ParseOptions{}); err != nil {
 		t.Fatalf("FirstPull() error: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(repo, "README.md")); err != nil {
@@ -1026,7 +1026,7 @@ func TestFirstPull_RootScopeScaffoldMergesAndStaysClean(t *testing.T) {
 	}
 	runGit(t, repo, "remote", "add", "origin", remote)
 
-	if _, err := FirstPull(repo, false); err != nil {
+	if _, err := FirstPull(repo, false, install.ParseOptions{}); err != nil {
 		t.Fatalf("FirstPull() error: %v", err)
 	}
 	if dirty, err := IsDirty(repo); err != nil || dirty {
@@ -1057,7 +1057,7 @@ func TestFirstPull_RootScopeRemoteTracksConfig_Refused(t *testing.T) {
 	runGit(t, repo, "remote", "add", "origin", remote)
 
 	// Merge path (force=false) must refuse
-	_, err := FirstPull(repo, false)
+	_, err := FirstPull(repo, false, install.ParseOptions{})
 	if !errors.Is(err, ErrRemoteTracksConfig) {
 		t.Fatalf("FirstPull(force=false) err = %v, want ErrRemoteTracksConfig", err)
 	}
@@ -1070,7 +1070,7 @@ func TestFirstPull_RootScopeRemoteTracksConfig_Refused(t *testing.T) {
 	}
 
 	// Reset path (force=true) must also refuse
-	_, err = FirstPull(repo, true)
+	_, err = FirstPull(repo, true, install.ParseOptions{})
 	if !errors.Is(err, ErrRemoteTracksConfig) {
 		t.Fatalf("FirstPull(force=true) err = %v, want ErrRemoteTracksConfig", err)
 	}
@@ -1095,7 +1095,7 @@ func TestFirstPull_NonRootScopeRemoteTracksConfig_Allowed(t *testing.T) {
 	runGit(t, repo, "config", "user.name", "test")
 	runGit(t, repo, "remote", "add", "origin", remote)
 
-	if _, err := FirstPull(repo, false); err != nil {
+	if _, err := FirstPull(repo, false, install.ParseOptions{}); err != nil {
 		t.Fatalf("FirstPull() error: %v", err)
 	}
 }
@@ -1106,7 +1106,56 @@ func TestFirstPull_EmptyRemoteReportsNoBranches(t *testing.T) {
 	repo := initTestRepo(t)
 	runGit(t, repo, "remote", "add", "origin", remote)
 
-	if _, err := FirstPull(repo, false); !errors.Is(err, ErrNoRemoteBranches) {
+	if _, err := FirstPull(repo, false, install.ParseOptions{}); !errors.Is(err, ErrNoRemoteBranches) {
 		t.Fatalf("FirstPull() error = %v, want ErrNoRemoteBranches", err)
+	}
+}
+
+// Git exports GIT_DIR to hooks; commands on a skillshare repo must still act
+// on that repo (#852).
+func TestGetCurrentFullHash_IgnoresCallerGitDir(t *testing.T) {
+	repo := initTestRepo(t)
+	caller := initTestRepo(t)
+	runGit(t, caller, "commit", "--allow-empty", "-m", "caller")
+	want := runGit(t, repo, "rev-parse", "HEAD")
+
+	t.Setenv("GIT_DIR", filepath.Join(caller, ".git"))
+	got, err := GetCurrentFullHash(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Errorf("GetCurrentFullHash() = %s, want %s from the repo, not GIT_DIR", got, want)
+	}
+}
+
+func TestAuthEnvForRepo_ConfiguredProviderOrigins(t *testing.T) {
+	for _, provider := range []struct {
+		name  string
+		token string
+		opts  install.ParseOptions
+	}{
+		{"gitea", "GITEA_TOKEN", install.ParseOptions{GiteaHosts: []string{"forge.example"}}},
+		{"cnb", "CNB_TOKEN", install.ParseOptions{CNBHosts: []string{"forge.example"}}},
+	} {
+		t.Run(provider.name, func(t *testing.T) {
+			t.Setenv("SKILLSHARE_GIT_TOKEN", "")
+			t.Setenv(provider.token, "private-provider-token")
+			for _, host := range []string{"forge.example", "forge.example.attacker.test"} {
+				repo := initTestRepo(t)
+				addRemote(t, repo, "https://"+host+"/org/repo.git")
+				env := AuthEnvForRepo(repo, provider.opts)
+				if host == "forge.example" {
+					if !slices.Contains(env, "SKILLSHARE_GIT_AUTH_PASSWORD=private-provider-token") {
+						t.Fatalf("configured provider origin missing credentials: %v", env)
+					}
+				} else if env != nil {
+					t.Fatalf("lookalike origin received credentials: %v", env)
+				}
+				if env := AuthEnvForRepo(repo, install.ParseOptions{}); env != nil {
+					t.Fatalf("unconfigured provider origin received credentials: %v", env)
+				}
+			}
+		})
 	}
 }

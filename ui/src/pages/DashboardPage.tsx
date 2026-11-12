@@ -16,6 +16,7 @@ import {
   Puzzle,
   RefreshCw,
   ShieldAlert,
+  ShieldCheck,
   Star,
   Trash2,
   TriangleAlert,
@@ -38,6 +39,7 @@ import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { useAppContext } from '../context/AppContext';
 import { useRepoUpdate } from '../hooks/useRepoUpdate';
+import { useUpdatePolicy } from '../hooks/useUpdatePolicy';
 import { useHooksQuery, useMcpQuery, useOverviewQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
 import MemoryOverview from '../components/memory/MemoryOverview';
@@ -332,7 +334,10 @@ function NeedsAttention({ targets, healths }: { targets: Target[]; healths: Heal
       queryClient.setQueryData(queryKeys.audit.all('skills'), res);
       const note = auditSourceLinkNote(res);
       if (res.incomplete && note) toast(t(note.key, { count: note.count }), 'warning');
-      else if (res.summary.critical + res.summary.high === 0) toast(t('dashboard.security.allClear'), 'success');
+      else if (res.summary.critical + res.summary.high === 0) {
+        const accepted = res.summary.accepted ?? 0;
+        toast(accepted > 0 ? t(plural('dashboard.security.allClearAccepted', accepted), { count: accepted }) : t('dashboard.security.allClear'), 'success');
+      }
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
     } finally {
@@ -355,7 +360,8 @@ function NeedsAttention({ targets, healths }: { targets: Target[]; healths: Heal
     }
   }
   if (audit && audit.summary.critical + audit.summary.high > 0) {
-    const names = audit.results.filter((r) => r.riskLabel === 'high' || r.riskLabel === 'critical').map((r) => r.skillName);
+    // Findings accepted earlier with --force are left out of the summary counts, so leave their resources out too.
+    const names = audit.results.filter((r) => r.findings.some((f) => !f.acknowledged && (f.severity === 'CRITICAL' || f.severity === 'HIGH'))).map((r) => r.skillName);
     rows.push({ key: 'audit', kind: 'bad', icon: ShieldAlert, title: t('dashboard.attention.audit', { count: audit.summary.critical + audit.summary.high }), sub: names.join(', '), action: t('dashboard.attention.review'), to: '/audit' });
   }
   const sourceLinkNote = audit?.incomplete && auditSourceLinkNote(audit);
@@ -398,6 +404,13 @@ function NeedsAttention({ targets, healths }: { targets: Target[]; healths: Heal
             <Link to={to} className="ss-btn sm">{action}</Link>
           </div>
         ))}
+        {(audit?.summary.accepted ?? 0) > 0 && (
+          <div className="ss-r !min-h-[40px] bg-sunken text-[12.5px] text-ink-2">
+            <ShieldCheck size={14} className="shrink-0 text-ok" aria-hidden="true" />
+            <span className="flex-1">{t(plural('dashboard.attention.accepted', audit?.summary.accepted ?? 0), { count: audit?.summary.accepted ?? 0 })}</span>
+            <Link to="/audit" className="font-semibold text-accent hover:underline">{t('dashboard.attention.viewAudit')}</Link>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -556,6 +569,7 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
 
 function Versions({ data }: { data: Overview }) {
   const t = useT();
+  const policy = useUpdatePolicy();
   const { data: v, isPending } = useQuery({
     queryKey: queryKeys.versionCheck,
     queryFn: () => api.getVersionCheck(),
@@ -578,20 +592,20 @@ function Versions({ data }: { data: Overview }) {
             <div className="ss-r">
               <span className="w-[120px] font-semibold">{t('dashboard.version.cli')}</span>
               <span className="flex-1 font-mono text-[13px]">{ver(v.cliVersion)}</span>
-              {v.cliUpdateAvailable
+              {policy.data?.enabled === true && (v.cliUpdateAvailable
                 ? <span className="ss-st warn">{t('dashboard.version.update', { version: ver(v.cliLatest) })}</span>
-                : <span className="ss-st ok">{t('dashboard.version.upToDate')}</span>}
+                : <span className="ss-st ok">{t('dashboard.version.upToDate')}</span>)}
             </div>
             <div className="ss-r">
               <span className="w-[120px] font-semibold">{t('dashboard.version.builtInSkill')}</span>
               <span className="flex-1 font-mono text-[13px]">{ver(v.skillVersion) || '—'}</span>
-              {!v.skillVersion
+              {policy.data?.enabled === true && (!v.skillVersion
                 ? <span className="ss-st off">{t('dashboard.version.notInstalled')}</span>
                 : v.skillUpdateAvailable
                   ? <span className="ss-st warn">{t('dashboard.version.update', { version: ver(v.skillLatest) })}</span>
                   : v.skillLatest
                     ? <span className="ss-st ok">{t('dashboard.version.upToDate')}</span>
-                    : <span className="ss-st off">{t('dashboard.version.checkFailed')}</span>}
+                    : <span className="ss-st off">{t('dashboard.version.checkFailed')}</span>)}
             </div>
           </>
         )}
