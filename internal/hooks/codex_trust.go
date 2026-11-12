@@ -101,7 +101,7 @@ func (s *Service) TrustCodex() ([]CodexTrust, error) {
 		if r.Root != "" || s.agentOf(r.Target) != "codex" {
 			continue
 		}
-		file := canonicalPath(r.Path)
+		file := canonicalCodexHooksPath(r.Path)
 		if perFile[file] == nil {
 			perFile[file] = map[string]record{}
 		}
@@ -110,7 +110,7 @@ func (s *Service) TrustCodex() ([]CodexTrust, error) {
 			continue
 		}
 		sc, _ := s.forTarget(r.Target)
-		if path, err := sc.nativePath("codex"); err != nil || !samePath(path, r.Path) {
+		if path, err := sc.nativePath("codex"); err != nil || canonicalCodexHooksPath(path) != file {
 			if parked[file] == nil {
 				parked[file] = map[string]record{}
 			}
@@ -127,7 +127,7 @@ func (s *Service) TrustCodex() ([]CodexTrust, error) {
 	}
 	for _, home := range saved.Homes {
 		if home.Owner == owner {
-			path := canonicalPath(home.Path)
+			path := canonicalCodexHooksPath(home.Path)
 			if _, ok := homes[path]; !ok {
 				homes[path] = home.Target
 			}
@@ -139,7 +139,7 @@ func (s *Service) TrustCodex() ([]CodexTrust, error) {
 			continue // A missing account home is skipped, as sync skips it.
 		}
 		homeKey := codexTrustHomeKey(owner, path)
-		file := canonicalPath(path)
+		file := canonicalCodexHooksPath(path)
 		results, keys, err := s.trustCodexHome(homes[path], path, perFile[file], owned[file], parked[file], saved.Homes[homeKey].Keys)
 		out = append(out, results...)
 		if err != nil {
@@ -200,6 +200,14 @@ func (s *Service) TrustCodex() ([]CodexTrust, error) {
 
 func codexTrustHomeKey(owner, path string) string { return owner + "\x00" + path }
 
+// Resolve the file itself when present, or its home when cleanup removed the file.
+func canonicalCodexHooksPath(path string) string {
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		return resolved
+	}
+	return filepath.Join(canonicalPath(filepath.Dir(path)), filepath.Base(path))
+}
+
 // coalesceCodexTrustHomes migrates active-owner receipts to the physical hooks.json
 // path, so a real path and its symlink cannot trigger duplicate app-server runs.
 func coalesceCodexTrustHomes(homes map[string]codexTrustHome, owner string) {
@@ -216,7 +224,7 @@ func coalesceCodexTrustHomes(homes map[string]codexTrustHome, owner string) {
 		if path == "" {
 			continue
 		}
-		path = canonicalPath(path)
+		path = canonicalCodexHooksPath(path)
 		grouped[path] = append(grouped[path], home)
 		delete(homes, key)
 	}

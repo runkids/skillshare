@@ -123,7 +123,7 @@ func trustedHash(t *testing.T, home, key string) string {
 	t.Helper()
 	hashes, err := codexTrustedHashes(filepath.Join(home, "config.toml"))
 	must(t, err)
-	return hashes[filepath.Join(home, "hooks.json")+":"+key]
+	return hashes[canonicalCodexHooksPath(filepath.Join(home, "hooks.json"))+":"+key]
 }
 
 func TestCodexTrustRecordsOnlyOwnedHooksInEachHome(t *testing.T) {
@@ -177,7 +177,7 @@ func TestCodexTrustFollowsMovesAndClearsWhatItWrote(t *testing.T) {
 
 	// Trust the user recorded themselves stays when Skillshare's hook leaves.
 	server, _ := f.start(codex)
-	must(t, server.SetTrust(map[string]string{path + ":session_start:0:0": "sha256:user"}))
+	must(t, server.SetTrust(map[string]string{canonicalCodexHooksPath(path) + ":session_start:0:0": "sha256:user"}))
 	save(t, e.service, Mutation{Name: "k", Remove: true})
 	if got := trustActions(t, e.service); got != "codex::session_start:1:0:cleared" {
 		t.Fatalf("after remove = %s", got)
@@ -194,7 +194,7 @@ func TestCodexTrustKeepsTrustChangedSinceAndReportsDisabled(t *testing.T) {
 	e, f := trustEnv(t)
 	codex := filepath.Join(e.home, ".codex")
 	save(t, e.service, Mutation{Name: "k", Entry: accountEntry(t, "codex")})
-	key := filepath.Join(codex, "hooks.json") + ":session_start:0:0"
+	key := canonicalCodexHooksPath(filepath.Join(codex, "hooks.json")) + ":session_start:0:0"
 	f.disabled[key] = true
 	trust, err := e.service.TrustCodex()
 	must(t, err)
@@ -314,7 +314,6 @@ func TestCodexTrustLocatesIdenticalHooksAcrossConfigOwners(t *testing.T) {
 					t.Skipf("symlink unavailable: %v", err)
 				}
 				second.ConfigDirs = map[string]string{"codex": alias}
-				hooksPath = filepath.Join(alias, "hooks.json")
 			}
 
 			save(t, first, Mutation{Name: "first", Entry: codexTrustEntry(t, "echo shared")})
@@ -343,6 +342,7 @@ func TestCodexTrustLocatesIdenticalHooksAcrossConfigOwners(t *testing.T) {
 			if firstIndex < 0 || secondIndex < 0 || firstIndex == secondIndex {
 				t.Fatalf("hook indexes = first:%d second:%d", firstIndex, secondIndex)
 			}
+			hooksPath = canonicalCodexHooksPath(hooksPath)
 			firstKey := fmt.Sprintf("%s:session_start:%d:0", hooksPath, firstIndex)
 			secondKey := fmt.Sprintf("%s:session_start:%d:0", hooksPath, secondIndex)
 			if trust[0].Key != secondKey {
@@ -362,7 +362,7 @@ func TestCodexTrustKeepsReceiptsForParkedHomes(t *testing.T) {
 	codex := filepath.Join(e.home, ".codex")
 	save(t, e.service, Mutation{Name: "owned", Entry: codexTrustEntry(t, "echo owned")})
 	trustActions(t, e.service)
-	key := filepath.Join(codex, "hooks.json") + ":session_start:0:0"
+	key := canonicalCodexHooksPath(filepath.Join(codex, "hooks.json")) + ":session_start:0:0"
 	ownedHash := trustedHash(t, codex, "session_start:0:0")
 
 	// Switching CODEX_HOME parks the existing registration until the old home is active again.
@@ -374,7 +374,7 @@ func TestCodexTrustKeepsReceiptsForParkedHomes(t *testing.T) {
 	}
 	var saved codexTrustState
 	must(t, json.Unmarshal([]byte(read(t, e.service.codexTrustPath())), &saved))
-	if saved.Homes[codexTrustHomeKey(e.service.ConfigPath, filepath.Join(codex, "hooks.json"))].Keys[key] != ownedHash {
+	if saved.Homes[codexTrustHomeKey(e.service.ConfigPath, canonicalCodexHooksPath(filepath.Join(codex, "hooks.json")))].Keys[key] != ownedHash {
 		t.Fatalf("parked receipt was discarded: %+v", saved.Homes)
 	}
 
@@ -402,9 +402,10 @@ func TestCodexTrustCoalescesSymlinkedHomes(t *testing.T) {
 	must(t, err)
 	var saved codexTrustState
 	must(t, json.Unmarshal([]byte(read(t, e.service.codexTrustPath())), &saved))
-	pathKey := codexTrustHomeKey(owner, path)
+	canonical := canonicalCodexHooksPath(path)
+	pathKey := codexTrustHomeKey(owner, canonical)
 	home := saved.Homes[pathKey]
-	if home.Path != path || len(saved.Homes) != 1 {
+	if home.Path != canonical || len(saved.Homes) != 1 {
 		t.Fatalf("initial trust homes = %+v", saved.Homes)
 	}
 	aliasPath := filepath.Join(alias, "hooks.json")
@@ -414,9 +415,8 @@ func TestCodexTrustCoalescesSymlinkedHomes(t *testing.T) {
 	must(t, err)
 	write(t, e.service.codexTrustPath(), string(data))
 
-	// A later sync through CODEX_HOME's symlink stores the alias spelling in the ledger.
+	// Trust reconciliation sees the same home through CODEX_HOME's symlink.
 	e.service.ConfigDirs["codex"] = alias
-	save(t, e.service, Mutation{Name: "owned", Entry: codexTrustEntry(t, "echo owned")})
 	starts := 0
 	e.service.CodexAppServer = func(home string) (CodexAppServer, error) {
 		starts++
@@ -430,8 +430,8 @@ func TestCodexTrustCoalescesSymlinkedHomes(t *testing.T) {
 		t.Fatalf("Codex app-server starts = %d, want 1", starts)
 	}
 	must(t, json.Unmarshal([]byte(read(t, e.service.codexTrustPath())), &saved))
-	canonicalPathKey := codexTrustHomeKey(owner, canonicalPath(path))
-	if len(saved.Homes) != 1 || saved.Homes[canonicalPathKey].Path != canonicalPath(path) {
+	canonicalPathKey := codexTrustHomeKey(owner, canonical)
+	if len(saved.Homes) != 1 || saved.Homes[canonicalPathKey].Path != canonical {
 		t.Fatalf("symlinked trust homes were not coalesced: %+v", saved.Homes)
 	}
 }
@@ -442,7 +442,7 @@ func TestCodexTrustKeepsParkedReceiptsWhenDuplicateCountsAreAmbiguous(t *testing
 	path := filepath.Join(codex, "hooks.json")
 	save(t, e.service, Mutation{Name: "owned", Entry: codexTrustEntry(t, "echo owned")})
 	trustActions(t, e.service)
-	key := path + ":session_start:0:0"
+	key := canonicalCodexHooksPath(path) + ":session_start:0:0"
 	ownedHash := trustedHash(t, codex, "session_start:0:0")
 
 	groups := events(t, path, true)["SessionStart"]
@@ -460,7 +460,7 @@ func TestCodexTrustKeepsParkedReceiptsWhenDuplicateCountsAreAmbiguous(t *testing
 	}
 	var saved codexTrustState
 	must(t, json.Unmarshal([]byte(read(t, e.service.codexTrustPath())), &saved))
-	if saved.Homes[codexTrustHomeKey(e.service.ConfigPath, path)].Keys[key] != ownedHash {
+	if saved.Homes[codexTrustHomeKey(e.service.ConfigPath, canonicalCodexHooksPath(path))].Keys[key] != ownedHash {
 		t.Fatalf("ambiguous parked receipt was discarded: %+v", saved.Homes)
 	}
 
@@ -570,7 +570,7 @@ func TestCodexTrustMigratesLegacyStateForRemovedHooks(t *testing.T) {
 	e, f := trustEnv(t)
 	codex := filepath.Join(e.home, ".codex")
 	save(t, e.service, Mutation{Name: "owned", Entry: codexTrustEntry(t, "echo owned")})
-	server, err := f.start(codex)
+	server, err := f.start(canonicalPath(codex))
 	must(t, err)
 	listed, err := server.ListHooks()
 	must(t, err)
@@ -613,7 +613,7 @@ func TestCodexTrustCoalescesLegacySymlinkedHomesForRemovedHooks(t *testing.T) {
 		t.Skipf("symlink unavailable: %v", err)
 	}
 	save(t, e.service, Mutation{Name: "owned", Entry: codexTrustEntry(t, "echo owned")})
-	server, err := f.start(codex)
+	server, err := f.start(canonicalPath(codex))
 	must(t, err)
 	listed, err := server.ListHooks()
 	must(t, err)
