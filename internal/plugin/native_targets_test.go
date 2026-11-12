@@ -318,3 +318,51 @@ func TestNativeReplacementPreservesDisabledInstallation(t *testing.T) {
 		}
 	}
 }
+
+func TestImportedGrokPluginIsSkippedByUpdateAll(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+	s.Run = func(_ context.Context, _ string, _ []string, _ string, args ...string) ([]byte, error) {
+		switch command := strings.Join(args, " "); command {
+		case "--version":
+			return []byte("1.0.0"), nil
+		case "plugin list --json":
+			return []byte(`[{"name":"demo","enabled":true,"version":"1.0.0"}]`), nil
+		default:
+			return nil, fmt.Errorf("unexpected command: %s", command)
+		}
+	}
+	applyPluginRequest(t, s, Request{Action: "import", From: "grok", Plugin: "demo"})
+
+	// Grok updates natively, so an imported plugin is an intentional skip, not a failed target.
+	r := Request{Action: "update", All: true}
+	plan, err := s.Preview(context.Background(), r)
+	if err != nil || len(plan.Changes) != 1 || plan.Changes[0].Action != "skip" || plan.Changes[0].Failed || plan.Changes[0].MessageKey != "plugins.skip.imported" {
+		t.Fatalf("imported Grok update should be an intentional skip: %+v %v", plan.Changes, err)
+	}
+	result, err := s.Apply(context.Background(), r, plan.Revision)
+	if err != nil || len(result.Results) != 1 || result.Results[0].Status != "skipped" {
+		t.Fatalf("imported Grok update failed: %+v %v", result, err)
+	}
+}
+
+func TestGrokInstallStillRequiresNativeTrust(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+	s.Run = func(_ context.Context, _ string, _ []string, _ string, args ...string) ([]byte, error) {
+		switch command := strings.Join(args, " "); command {
+		case "--version":
+			return []byte("1.0.0"), nil
+		case "plugin list --json":
+			return []byte(`[]`), nil
+		default:
+			return nil, fmt.Errorf("unexpected command: %s", command)
+		}
+	}
+	plan, err := s.Preview(context.Background(), Request{Action: "add", Source: fixture(t), Targets: []string{"grok"}})
+	if err != nil || !plan.Blocked || len(plan.Changes) != 1 || plan.Changes[0].Action != "blocked" || !strings.Contains(plan.Changes[0].Message, "native trust") {
+		t.Fatalf("a Grok install that runs a native command must still be verified: %+v %v", plan.Changes, err)
+	}
+}

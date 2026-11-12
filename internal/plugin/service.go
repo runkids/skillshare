@@ -710,13 +710,6 @@ func (s *Service) prepareChange(ctx context.Context, r Request, d *document, hos
 	if h.Error != "" && c.Action != "blocked" && c.Action != "skip" {
 		failChange(h.Error, h.ErrorKey, h.ErrorArgs)
 	}
-	// Source-less OMP updates are skipped below; they do not need native upgrade support.
-	importedOMPUpdate := agent == "omp" && c.Action == "update" && c.Binding.Source == ""
-	if !importedOMPUpdate && c.Action != "blocked" && c.Action != "noop" && c.Action != "forget" && c.Action != "skip" && c.Action != "import" && c.Action != "update-available" && c.Action != "native-check" {
-		if err := s.verifyCommand(ctx, c.Target, c.Action, c.ID); err != nil {
-			failChange(err.Error(), "", nil)
-		}
-	}
 	// An update that cannot reach a target skips it, so the plugin's other Agents still update.
 	skip := func(key, message string, args map[string]string) {
 		c.Action = "skip"
@@ -805,6 +798,13 @@ func (s *Service) prepareChange(ctx context.Context, r Request, d *document, hos
 			if item.ID == c.ID && !item.Enabled {
 				skip("plugins.skip.codexDisabled", "Enable the plugin in Codex before updating it; updating would turn it back on.", nil)
 			}
+		}
+	}
+	// Only changes that will run a native command need native support; an intentional skip above
+	// is not a failed target.
+	if c.Action != "blocked" && c.Action != "noop" && c.Action != "forget" && c.Action != "skip" && c.Action != "import" && c.Action != "update-available" && c.Action != "native-check" {
+		if err := s.verifyCommand(ctx, c.Target, c.Action, c.ID); err != nil {
+			failChange(err.Error(), "", nil)
 		}
 	}
 	// Skips above are not native commands; what is left for omp must not destroy a shared cache.
