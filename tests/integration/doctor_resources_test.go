@@ -4,7 +4,9 @@ package integration
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -202,5 +204,34 @@ func TestDoctor_JSON_ProjectModeChecksMCP(t *testing.T) {
 	c := doctorCheckNamed(t, out, "mcp")
 	if c.Status != "error" || !strings.Contains(strings.Join(c.Details, "\n"), "local") {
 		t.Fatalf("want a project MCP error naming the server, got %+v", c)
+	}
+}
+
+func TestDoctor_HooksNotConfiguredRunsNoGit(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the logging git stand-in is a shell script")
+	}
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+	bin := filepath.Join(sb.Home, "logbin")
+	calls := filepath.Join(sb.Home, "git-calls.log")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	realGit, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("git not installed")
+	}
+	script := "#!/bin/sh\necho \"$*\" >> " + calls + "\nexec " + realGit + " \"$@\"\n"
+	if err := os.WriteFile(filepath.Join(bin, "git"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	sb.RunCLIEnv(map[string]string{"PATH": bin + string(os.PathListSeparator) + os.Getenv("PATH")}, "doctor", "--json")
+
+	logged, _ := os.ReadFile(calls)
+	if strings.Contains(string(logged), "hook") {
+		t.Fatalf("doctor read Git hook settings with no hooks configured:\n%s", logged)
 	}
 }
