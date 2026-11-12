@@ -321,7 +321,7 @@ skillshare update --all --skip-audit
 
 ### Accepted Findings {#accepted-findings}
 
-当你用 `--force`（或在提示时回答 `y`）覆盖 gate 时，你所接受的 findings 会被记录在 `.metadata.json` 的 `audit_accepted` 下。同一个 skill 之后的更新不会再因这些完全相同的 findings 而被阻止，因此你不必在每次 `update --all` 时都重复使用 `--force`。dashboard **Updates** 标签页的 Force Retry 也会以相同方式记录，两者都会沿用在任一处接受的 findings。
+当你用 `--force`（或在提示时回答 `y`）覆盖 gate 时，你所接受的 findings 会被记录在 `.metadata.json` 的 `audit_accepted` 下。同一个 skill 之后的更新不会再因这些完全相同的 findings 而被阻止，因此你不必在每次 `update --all` 时都重复使用 `--force`。dashboard **Updates** 标签页的 Force Retry 也会以相同方式记录，两者都会沿用在任一处接受的 findings。`skillshare audit --respect-accepted` 和 dashboard 的 **Audit** 页面也会沿用它们；见 [audit — 已接受的 findings](/docs/reference/commands/audit#accepted-findings)。
 
 ```
   1 previously accepted finding skipped

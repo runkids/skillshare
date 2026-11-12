@@ -174,7 +174,7 @@ Web dashboard 在 `/api/` 上提供 REST API。所有端點皆回傳 JSON。
 | GET | `/api/diff` | Source 與 targets 之間的差異 |
 | GET | `/api/search?q=` | 在 GitHub 上搜尋 skills |
 | POST | `/api/install` | 從來源安裝一個 skill |
-| GET | `/api/audit` | 掃描所有 skills 是否存在安全威脅；跟進的 source 連結無法讀取時，會像 `audit --format json` 一樣加上 `warnings` 與 `incomplete: true` |
+| GET | `/api/audit` | 掃描所有 skills 是否存在安全威脅；跟進的 source 連結無法讀取時，會像 `audit --format json` 一樣加上 `warnings` 與 `incomplete: true`。先前已用 `--force` 接受的發現帶有 `acknowledged: true`，計入 `summary.accepted` 而非原本的嚴重程度 |
 | GET | `/api/audit/rules` | 取得自訂稽核規則 YAML |
 | PUT | `/api/audit/rules` | 儲存自訂稽核規則（驗證正規表示式） |
 | POST | `/api/audit/rules` | 建立起始 audit-rules.yaml |

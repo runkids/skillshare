@@ -91,3 +91,11 @@ func TestLoweredFindingExplainsItself(t *testing.T) {
 		t.Errorf("update warning no longer parses its location: %+v", groups)
 	}
 }
+
+func TestSummarizeAuditResults_LeavesAcceptedOutOfSeverityLists(t *testing.T) {
+	r := &audit.Result{SkillName: "s", Findings: []audit.Finding{{Severity: audit.SeverityLow, Acknowledged: true}}}
+	s := summarizeAuditResults(1, []*audit.Result{r}, audit.SeverityCritical)
+	if len(s.LowSkills) != 0 || s.Low != 0 || s.Accepted != 1 {
+		t.Fatalf("an accepted LOW finding must count as accepted only: %+v", s)
+	}
+}

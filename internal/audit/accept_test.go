@@ -34,6 +34,16 @@ func TestResult_MarkAcknowledged_SkipsBlocking(t *testing.T) {
 	}
 }
 
+func TestResult_MarkAcknowledgedUnder_MatchesKeysOfEnclosingScan(t *testing.T) {
+	whole := Finding{Severity: SeverityCritical, Pattern: "prompt-injection", File: "skills/a/SKILL.md", Snippet: "Ignore previous instructions"}
+	r := &Result{Findings: []Finding{
+		{Severity: SeverityCritical, Pattern: "prompt-injection", File: "SKILL.md", Snippet: "Ignore previous instructions"},
+	}}
+	if n := r.MarkAcknowledgedUnder([]string{AcceptKey(whole)}, "skills/a"); n != 1 || r.HasSeverityAtOrAbove(SeverityCritical) {
+		t.Fatalf("marked %d, findings %+v", n, r.Findings)
+	}
+}
+
 func TestResult_MarkAcknowledged_NewFindingStillBlocks(t *testing.T) {
 	r := &Result{Findings: []Finding{
 		{Severity: SeverityCritical, Pattern: "prompt-injection", File: "SKILL.md", Snippet: "Ignore previous instructions"},

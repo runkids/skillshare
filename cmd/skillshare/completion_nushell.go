@@ -666,6 +666,7 @@ export extern "skillshare audit" [
     --quiet(-q)              # Suppress output
     --yes(-y)                # Skip confirmation
     --no-tui                 # Skip interactive TUI
+    --respect-accepted       # Do not fail on findings accepted earlier
     --threshold(-T): string@"nu-complete skillshare audit-threshold"
     --group(-G): string      # Filter by group
     --profile: string@"nu-complete skillshare audit-profile"

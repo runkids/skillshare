@@ -270,6 +270,25 @@ func TestFormatAuditLogDetail_IncludesExtendedFields(t *testing.T) {
 	}
 }
 
+func TestFormatAuditLogDetail_ShowsAcceptedCount(t *testing.T) {
+	args := map[string]any{"scope": "all", "scanned": 2, "passed": 1, "accepted": 3}
+
+	if detail := formatAuditLogDetail(args); !strings.Contains(detail, "accepted=3") {
+		t.Fatalf("expected accepted count in detail, got: %s", detail)
+	}
+}
+
+func TestFormatAuditLogPairs_ShowsAcceptedCount(t *testing.T) {
+	args := map[string]any{"scope": "all", "scanned": 2, "passed": 1, "accepted": 3}
+
+	for _, p := range formatAuditLogPairs(args) {
+		if p.key == "accepted" && p.value == "3" {
+			return
+		}
+	}
+	t.Fatalf("expected accepted pair, got: %+v", formatAuditLogPairs(args))
+}
+
 func TestRenderLogDetailPanel_BulletListShort(t *testing.T) {
 	// ≤5 items: all shown as bullets, no "... and N more"
 	item := logItem{

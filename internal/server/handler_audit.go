@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"skillshare/internal/audit"
+	"skillshare/internal/install"
 	"skillshare/internal/resource"
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
@@ -30,6 +31,7 @@ type auditFindingResponse struct {
 	Fingerprint string  `json:"fingerprint,omitempty"`
 
 	SeverityContext string `json:"severityContext,omitempty"`
+	Acknowledged    bool   `json:"acknowledged,omitempty"` // accepted earlier with --force; does not block
 }
 
 type auditResultResponse struct {
@@ -63,6 +65,7 @@ type auditSummary struct {
 	Medium           int            `json:"medium"`
 	Low              int            `json:"low"`
 	Info             int            `json:"info"`
+	Accepted         int            `json:"accepted,omitempty"` // accepted earlier with --force; left out of the severity counts
 	Threshold        string         `json:"threshold"`
 	RiskScore        int            `json:"riskScore"`
 	RiskLabel        string         `json:"riskLabel"`
@@ -146,8 +149,9 @@ type auditAggregation struct {
 
 // processAuditResults aggregates scan outputs into results, summary, and log args.
 // projectRoot selects which audit-rules.yaml layers apply to cross-skill findings
-// ("" = global mode).
-func processAuditResults(skills []skillEntry, scanned []audit.ScanOutput, policy audit.Policy, projectRoot string) auditAggregation {
+// ("" = global mode). source is the root whose .metadata.json records the
+// findings accepted earlier with --force.
+func processAuditResults(skills []skillEntry, scanned []audit.ScanOutput, policy audit.Policy, projectRoot, source string) auditAggregation {
 	threshold := policy.Threshold
 	var results []auditResultResponse
 	var rawResults []*audit.Result
@@ -178,6 +182,7 @@ func processAuditResults(skills []skillEntry, scanned []audit.ScanOutput, policy
 		}
 		result := se.Result
 		result.Threshold = threshold
+		install.ApplyAcceptedFindings(source, result.ScanTarget, result)
 		result.IsBlocked = result.HasSeverityAtOrAbove(threshold)
 
 		rawResults = append(rawResults, result)
@@ -194,7 +199,8 @@ func processAuditResults(skills []skillEntry, scanned []audit.ScanOutput, policy
 			warningSkills = append(warningSkills, result.SkillName)
 		}
 
-		c, h, m, l, i := result.CountBySeverityAll()
+		c, h, m, l, i, accepted := result.CountOpenBySeverity()
+		summary.Accepted += accepted
 		criticalCount += c
 		highCount += h
 		mediumCount += m
@@ -262,6 +268,9 @@ func processAuditResults(skills []skillEntry, scanned []audit.ScanOutput, policy
 		"risk_score":  summary.RiskScore,
 		"risk_label":  summary.RiskLabel,
 		"scan_errors": scanErrors,
+	}
+	if summary.Accepted > 0 {
+		args["accepted"] = summary.Accepted
 	}
 	if len(failedSkills) > 0 {
 		args["failed_skills"] = failedSkills
@@ -343,7 +352,7 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	}
 	scanned := audit.ParallelScan(inputs, auditProjectRoot, nil, nil, walk.Follow)
 
-	agg := processAuditResults(skills, scanned, policy, auditProjectRoot)
+	agg := processAuditResults(skills, scanned, policy, auditProjectRoot, source)
 	for i := range agg.Results {
 		agg.Results[i].Kind = resultKind
 	}
@@ -433,9 +442,14 @@ func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result.Threshold = threshold
+	if kind == "agent" {
+		install.ApplyAcceptedFindings(agentsSource, result.ScanTarget, result)
+	} else {
+		install.ApplyAcceptedFindings(source, result.ScanTarget, result)
+	}
 	result.IsBlocked = result.HasSeverityAtOrAbove(threshold)
 
-	c, h, m, l, i := result.CountBySeverityAll()
+	c, h, m, l, i, accepted := result.CountOpenBySeverity()
 	warningCount := 0
 	failedCount := 0
 	failedSkills := []string{}
@@ -481,6 +495,9 @@ func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
 		"risk_score": result.RiskScore,
 		"risk_label": result.RiskLabel,
 	}
+	if accepted > 0 {
+		args["accepted"] = accepted
+	}
 	if len(failedSkills) > 0 {
 		args["failed_skills"] = failedSkills
 	}
@@ -512,6 +529,7 @@ func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
 			Medium:           m,
 			Low:              l,
 			Info:             i,
+			Accepted:         accepted,
 			Threshold:        threshold,
 			RiskScore:        result.RiskScore,
 			RiskLabel:        result.RiskLabel,
@@ -834,6 +852,7 @@ func toAuditResponse(result *audit.Result) auditResultResponse {
 			Confidence:      f.Confidence,
 			Fingerprint:     f.Fingerprint,
 			SeverityContext: f.SeverityContext,
+			Acknowledged:    f.Acknowledged,
 		})
 	}
 	return auditResultResponse{

@@ -386,6 +386,7 @@ complete -c skillshare -n '__fish_skillshare_using_command audit' -l format -r -
 complete -c skillshare -n '__fish_skillshare_using_command audit' -l quiet -s q -d 'Suppress output'
 complete -c skillshare -n '__fish_skillshare_using_command audit' -l yes -s y -d 'Skip confirmation'
 complete -c skillshare -n '__fish_skillshare_using_command audit' -l no-tui -d 'Skip interactive TUI'
+complete -c skillshare -n '__fish_skillshare_using_command audit' -l respect-accepted -d 'Do not fail on findings accepted earlier'
 complete -c skillshare -n '__fish_skillshare_using_command audit' -l threshold -s T -r -a 'low medium high critical' -d 'Block threshold'
 complete -c skillshare -n '__fish_skillshare_using_command audit' -l min-severity -r -a 'critical high medium low info' -d 'Display minimum severity'
 complete -c skillshare -n '__fish_skillshare_using_command audit' -l group -s G -r -d 'Filter by group'

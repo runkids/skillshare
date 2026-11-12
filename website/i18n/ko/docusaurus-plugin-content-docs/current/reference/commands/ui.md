@@ -174,7 +174,7 @@ project mode(`-p`)로 실행할 때 대시보드는 다음과 같이 달라집�
 | GET | `/api/diff` | source와 target 간의 diff |
 | GET | `/api/search?q=` | GitHub에서 skill 검색 |
 | POST | `/api/install` | source에서 skill 설치 |
-| GET | `/api/audit` | 모든 skill에 대해 보안 위협 스캔. 따라가는 source link를 읽지 못하면 `audit --format json`처럼 `warnings`와 `incomplete: true`를 추가 |
+| GET | `/api/audit` | 모든 skill에 대해 보안 위협 스캔. 따라가는 source link를 읽지 못하면 `audit --format json`처럼 `warnings`와 `incomplete: true`를 추가. 이전에 `--force`로 승인한 발견 항목은 `acknowledged: true`를 갖고, 심각도 대신 `summary.accepted`에 집계 |
 | GET | `/api/audit/rules` | 사용자 지정 audit rules YAML 조회 |
 | PUT | `/api/audit/rules` | 사용자 지정 audit rules 저장(regex 검증) |
 | POST | `/api/audit/rules` | 초기 audit-rules.yaml 생성 |

@@ -44,7 +44,7 @@ flowchart TD
 
 `audit` コマンドは **ゲートキーパー**として機能し、AI アシスタントに届く前に skill の内容を既知の脅威パターンに照らしてスキャンします。`install` 実行時に自動的に動作するほか、いつでも手動で実行できます。
 
-`--force` でブロックを上書きすると、承認された findings（ルール、ファイル、一致したテキスト、検出器固有の証拠）が `.metadata.json` に記録されます。以降の `update` は同じ証拠の finding をスキップし、変化した finding を引き続き検出します。`whitespace-padding` の密度 finding では、ファイル内の対象コンテンツ全体が証拠になります。詳しくは [update — Accepted Findings](/docs/reference/commands/update#accepted-findings) を参照してください。
+`--force` でブロックを上書きすると、承認された findings（ルール、ファイル、一致したテキスト、検出器固有の証拠）が `.metadata.json` に記録されます。以降の `update` は同じ証拠の finding をスキップし、変化した finding を引き続き検出します。`whitespace-padding` の密度 finding では、ファイル内の対象コンテンツ全体が証拠になります。詳しくは [update — Accepted Findings](/docs/reference/commands/update#accepted-findings) を参照してください。 通常の `skillshare audit` はこれらでも失敗します。`--respect-accepted` を付けると承認が適用され、ダッシュボードは常に適用します。[audit — Accepted findings](/docs/reference/commands/audit#accepted-findings) を参照してください。
 
 ## 検出対象
 

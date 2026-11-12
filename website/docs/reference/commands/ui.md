@@ -174,7 +174,7 @@ The web dashboard exposes a REST API at `/api/`. All endpoints return JSON.
 | GET | `/api/diff` | Diff between source and targets |
 | GET | `/api/search?q=` | Search GitHub for skills |
 | POST | `/api/install` | Install a skill from source |
-| GET | `/api/audit` | Scan all skills for security threats; adds `warnings` and `incomplete: true` when a followed source link could not be read, as `audit --format json` does |
+| GET | `/api/audit` | Scan all skills for security threats; adds `warnings` and `incomplete: true` when a followed source link could not be read, as `audit --format json` does. Findings accepted earlier with `--force` carry `acknowledged: true` and are counted in `summary.accepted` instead of their severity |
 | GET | `/api/audit/rules` | Get custom audit rules YAML |
 | PUT | `/api/audit/rules` | Save custom audit rules (validates regex) |
 | POST | `/api/audit/rules` | Create starter audit-rules.yaml |
