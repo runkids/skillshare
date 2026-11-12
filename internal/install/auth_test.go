@@ -196,7 +196,7 @@ func TestResolveToken(t *testing.T) {
 		},
 		{
 			name:     "gitea token",
-			url:      "https://gitea.example.com/org/repo.git",
+			url:      "https://gitea.com/org/repo.git",
 			envVars:  map[string]string{"GITEA_TOKEN": "gitea_pat"},
 			wantTok:  "gitea_pat",
 			wantUser: "x-access-token",
@@ -553,6 +553,34 @@ func TestSanitizeTokens(t *testing.T) {
 			got := sanitizeTokens(tt.text)
 			if got != tt.want {
 				t.Errorf("sanitizeTokens() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestProviderCredentialsRejectUntrustedOrigins(t *testing.T) {
+	tests := []struct {
+		url, variable string
+	}{
+		{"https://github.attacker.invalid/o/r.git", "GITHUB_TOKEN"},
+		{"https://github.attacker.invalid/o/r.git", "GH_TOKEN"},
+		{"https://gitlab.attacker.invalid/o/r.git", "GITLAB_TOKEN"},
+		{"https://bitbucket.attacker.invalid/o/r.git", "BITBUCKET_TOKEN"},
+		{"https://cnb.cool.attacker.invalid/o/r.git", "CNB_TOKEN"},
+		{"https://gitea.attacker.invalid/o/r.git", "GITEA_TOKEN"},
+		{"https://github.com:8443/o/r.git", "GITHUB_TOKEN"},
+		{"https://github.company.invalid/o/r.git", "GITHUB_TOKEN"},
+		{"https://gitlab.company.invalid/o/r.git", "GITLAB_TOKEN"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.variable+"/"+tt.url, func(t *testing.T) {
+			resetAuthTestEnv(t)
+			t.Setenv(tt.variable, "audit-dummy-provider-token")
+			if token, _ := resolveToken(tt.url); token != "" {
+				t.Fatal("provider credential selected for an untrusted origin")
+			}
+			if got := authEnv(tt.url); got != nil {
+				t.Fatal("Git credential helper exposes a provider credential to an untrusted origin")
 			}
 		})
 	}

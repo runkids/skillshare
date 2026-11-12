@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/testutil"
 )
@@ -468,5 +469,124 @@ func TestUpdateProject_NamedCheckoutUsesTrackedRule(t *testing.T) {
 		result := sb.RunCLIInDir(projectRoot, "update", name, "--dry-run", "-p")
 		result.AssertSuccess(t)
 		result.AssertAnyOutputContains(t, want)
+	}
+}
+
+// Regression for #862: a skill installed with -s before #859 recorded a source
+// that file:// (and GitLab, Bitbucket) parse as another repository. Update
+// reinstalls it from the recorded repository and path, and the config entry
+// teammates install from follows.
+func TestUpdateProject_RepairsSourceRecordedBefore859(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+
+	remoteRepo := filepath.Join(sb.Root, "old-form.git")
+	workClone := filepath.Join(sb.Root, "old-form-work")
+	gitInit(t, remoteRepo, true)
+	gitClone(t, remoteRepo, workClone)
+	skillFile := filepath.Join(workClone, "x", "SKILL.md")
+	os.MkdirAll(filepath.Dir(skillFile), 0755)
+	os.WriteFile(skillFile, []byte("---\nname: x\n---\n# x v1"), 0644)
+	gitAddCommit(t, workClone, "add x")
+	gitPush(t, workClone)
+
+	repoURL := "file://" + remoteRepo
+	sb.RunCLIInDir(projectRoot, "install", repoURL, "-s", "x", "-p", "--skip-audit").AssertSuccess(t)
+
+	// What 0.30.5 wrote for this install.
+	oldSource := repoURL + "/x"
+	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
+	store, err := install.LoadMetadata(skillsDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.Get("x").Source = oldSource
+	if err := store.Save(skillsDir); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.LoadProject(projectRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Skills[0].Source = oldSource
+	if err := cfg.Save(projectRoot); err != nil {
+		t.Fatal(err)
+	}
+
+	os.WriteFile(skillFile, []byte("---\nname: x\n---\n# x v2"), 0644)
+	gitAddCommit(t, workClone, "update x")
+	gitPush(t, workClone)
+
+	sb.RunCLIInDir(projectRoot, "update", "x", "-p", "--skip-audit").AssertSuccess(t)
+
+	if content := sb.ReadFile(filepath.Join(skillsDir, "x", "SKILL.md")); !contains(content, "x v2") {
+		t.Errorf("skill was not updated: %q", content)
+	}
+	cfg, err = config.LoadProject(projectRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := cfg.Skills[0].Source, repoURL+"//x"; got != want {
+		t.Errorf("config source = %q, want %q", got, want)
+	}
+}
+
+// The config update that follows a repaired source must not bring back the
+// entry of a skill the same update pruned.
+func TestUpdateProject_RepairedSourceKeepsPrunedSkillOut(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+
+	remoteRepo := filepath.Join(sb.Root, "old-form-prune.git")
+	workClone := filepath.Join(sb.Root, "old-form-prune-work")
+	gitInit(t, remoteRepo, true)
+	gitClone(t, remoteRepo, workClone)
+	for _, name := range []string{"x", "gone"} {
+		os.MkdirAll(filepath.Join(workClone, name), 0755)
+		os.WriteFile(filepath.Join(workClone, name, "SKILL.md"), []byte("---\nname: "+name+"\n---\n# "+name+" v1"), 0644)
+	}
+	gitAddCommit(t, workClone, "add skills")
+	gitPush(t, workClone)
+
+	repoURL := "file://" + remoteRepo
+	sb.RunCLIInDir(projectRoot, "install", repoURL, "-s", "x,gone", "-p", "--skip-audit").AssertSuccess(t)
+
+	// What 0.30.5 wrote for these installs.
+	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
+	store, err := install.LoadMetadata(skillsDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.LoadProject(projectRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range cfg.Skills {
+		name := cfg.Skills[i].Name
+		store.Get(name).Source = repoURL + "/" + name
+		cfg.Skills[i].Source = repoURL + "/" + name
+	}
+	if err := store.Save(skillsDir); err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.Save(projectRoot); err != nil {
+		t.Fatal(err)
+	}
+
+	os.RemoveAll(filepath.Join(workClone, "gone"))
+	os.WriteFile(filepath.Join(workClone, "x", "SKILL.md"), []byte("---\nname: x\n---\n# x v2"), 0644)
+	gitAddCommit(t, workClone, "remove gone, update x")
+	gitPush(t, workClone)
+
+	sb.RunCLIInDir(projectRoot, "update", "--all", "--prune", "--skip-audit", "-p").AssertSuccess(t)
+
+	cfg, err = config.LoadProject(projectRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Skills) != 1 || cfg.Skills[0].Name != "x" || cfg.Skills[0].Source != repoURL+"//x" {
+		t.Errorf("config skills = %+v, want only x from %s", cfg.Skills, repoURL+"//x")
 	}
 }

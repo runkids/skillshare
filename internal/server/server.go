@@ -580,8 +580,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("DELETE /api/hub/saved/{label}", s.handleDeleteHubSaved)
 
 	// Search & Install
-	s.mux.HandleFunc("GET /api/search", s.handleSearch)
-	s.mux.HandleFunc("GET /api/preview", s.handlePreview)
+	s.mux.HandleFunc("GET /api/search", requireSameOrigin(s.handleSearch))
+	s.mux.HandleFunc("GET /api/preview", requireSameOrigin(s.handlePreview))
 	s.mux.HandleFunc("POST /api/discover", s.handleDiscover)
 	s.mux.HandleFunc("POST /api/install", s.handleInstall)
 	s.mux.HandleFunc("POST /api/install/batch", s.handleInstallBatch)
@@ -607,6 +607,7 @@ func (s *Server) registerRoutes() {
 
 	// Doctor (health check)
 	s.mux.HandleFunc("GET /api/doctor", s.handleDoctor)
+	s.mux.HandleFunc("GET /api/doctor/stream", s.handleDoctorStream)
 
 	// Backups
 	s.mux.HandleFunc("GET /api/backups", s.handleListBackups)

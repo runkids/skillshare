@@ -10,6 +10,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"skillshare/internal/gitenv"
+	"skillshare/internal/install"
 )
 
 // WriteScopeGitignore ensures a .gitignore at dir. If none exists it writes a
@@ -54,18 +57,18 @@ func gitignoreHasEntry(content, entry string) bool {
 // identity is configured (global or local), so commits succeed in fresh
 // environments. Returns true if the fallback was applied.
 func EnsureLocalIdentity(dir string) (bool, error) {
-	cmd := exec.Command("git", "config", "user.name")
+	cmd := gitenv.Command("config", "user.name")
 	cmd.Dir = dir
 	if out, err := cmd.Output(); err == nil && strings.TrimSpace(string(out)) != "" {
 		return false, nil // already configured
 	}
 
-	nameCmd := exec.Command("git", "config", "user.name", "skillshare")
+	nameCmd := gitenv.Command("config", "user.name", "skillshare")
 	nameCmd.Dir = dir
 	if err := nameCmd.Run(); err != nil {
 		return false, err
 	}
-	emailCmd := exec.Command("git", "config", "user.email", "skillshare@local")
+	emailCmd := gitenv.Command("config", "user.email", "skillshare@local")
 	emailCmd.Dir = dir
 	if err := emailCmd.Run(); err != nil {
 		return false, err
@@ -96,7 +99,7 @@ func FallbackIdentityEnv(dir string) []string {
 }
 
 func gitConfigValue(dir, key string) string {
-	cmd := exec.Command("git", "config", key)
+	cmd := gitenv.Command("config", key)
 	cmd.Dir = dir
 	out, err := cmd.Output()
 	if err != nil {
@@ -117,7 +120,7 @@ func InitScopeRepo(dir, scope string) (identitySet bool, err error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return false, err
 	}
-	cmd := exec.Command("git", "init")
+	cmd := gitenv.Command("init")
 	cmd.Dir = dir
 	if err := cmd.Run(); err != nil {
 		return false, err
@@ -161,7 +164,7 @@ func ConfigGitignoreNeedsRepair(dir string) bool {
 
 // isIgnored reports whether .gitignore rules ignore path, even if it is tracked.
 func isIgnored(dir, path string) bool {
-	cmd := exec.Command("git", "check-ignore", "-q", "--no-index", "--", path)
+	cmd := gitenv.Command("check-ignore", "-q", "--no-index", "--", path)
 	cmd.Dir = dir
 	return cmd.Run() == nil
 }
@@ -190,7 +193,7 @@ func IsConfigTracked(dir string) bool {
 
 // isTracked reports whether path (relative to dir) is tracked in the repo at dir.
 func isTracked(dir, path string) bool {
-	cmd := exec.Command("git", "ls-files", "--", path)
+	cmd := gitenv.Command("ls-files", "--", path)
 	cmd.Dir = dir
 	out, err := cmd.Output()
 	return err == nil && strings.TrimSpace(string(out)) != ""
@@ -199,7 +202,7 @@ func isTracked(dir, path string) bool {
 // RemoteTracksConfig reports whether the remote ref (e.g. "origin/main")
 // tracks config.yaml at its root.
 func RemoteTracksConfig(dir, remoteRef string) bool {
-	cmd := exec.Command("git", "ls-tree", remoteRef, "--", "config.yaml")
+	cmd := gitenv.Command("ls-tree", remoteRef, "--", "config.yaml")
 	cmd.Dir = dir
 	out, err := cmd.Output()
 	return err == nil && strings.TrimSpace(string(out)) != ""
@@ -241,8 +244,8 @@ func (e *UnpushedConfigHistoryError) Error() string {
 // `push --pull` can integrate first. Deletions alone are safe; combined merge
 // diffs check new resolutions without treating config inherited from upstream
 // as a new local change. The check never changes the index, worktree, or refs.
-func CheckUnpushedConfigHistory(dir string) error {
-	head := exec.Command("git", "rev-parse", "--verify", "--quiet", "HEAD")
+func CheckUnpushedConfigHistory(dir string, opts install.ParseOptions) error {
+	head := gitenv.Command("rev-parse", "--verify", "--quiet", "HEAD")
 	head.Dir = dir
 	if err := head.Run(); err != nil {
 		var exit *exec.ExitError
@@ -255,8 +258,8 @@ func CheckUnpushedConfigHistory(dir string) error {
 	// Replacement refs change what log reads but not what push uploads.
 	args := []string{"--no-replace-objects", "log", "--format=%x00%h", "--full-history", "--root",
 		"-c", "--diff-filter=AMT", "--no-renames", "--no-show-signature", "--raw"}
-	cmd := exec.Command("git")
-	live, rejected, ok := liveRemoteCommits(dir, remote, branch)
+	cmd := gitenv.Command()
+	live, rejected, ok := liveRemoteCommits(dir, remote, branch, opts)
 	if rejected {
 		return nil
 	}
@@ -290,7 +293,7 @@ func CheckUnpushedConfigHistory(dir string) error {
 	}
 	if len(commits) > 0 {
 		histErr := &UnpushedConfigHistoryError{Commits: commits, HasUpstream: HasUpstream(dir)}
-		parent := exec.Command("git", "--no-replace-objects", "rev-parse", "--verify", "--quiet", "--short", commits[len(commits)-1]+"^")
+		parent := gitenv.Command("--no-replace-objects", "rev-parse", "--verify", "--quiet", "--short", commits[len(commits)-1]+"^")
 		parent.Dir = dir
 		if out, err := parent.Output(); err == nil {
 			histErr.Base = strings.TrimSpace(string(out))
@@ -311,8 +314,8 @@ func CheckUnpushedConfigHistory(dir string) error {
 // remote-tracking refs can be stale after the remote was rewritten to drop a
 // leaked config.yaml, so they are only the fallback (ok=false) when the remote
 // cannot be reached, in which case the push itself fails too.
-func liveRemoteCommits(dir, remote, branch string) (objects []string, rejected, ok bool) {
-	getURLs := exec.Command("git", "remote", "get-url", "--push", "--all", remote)
+func liveRemoteCommits(dir, remote, branch string, opts install.ParseOptions) (objects []string, rejected, ok bool) {
+	getURLs := gitenv.Command("remote", "get-url", "--push", "--all", remote)
 	getURLs.Dir = dir
 	out, err := getURLs.Output()
 	if err != nil {
@@ -322,9 +325,9 @@ func liveRemoteCommits(dir, remote, branch string) (objects []string, rejected, 
 	var ids []string
 	usable := 0
 	for _, url := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		lsRemote := exec.Command("git", "ls-remote", "--symref", url)
+		lsRemote := gitenv.Command("ls-remote", "--symref", url)
 		lsRemote.Dir = dir
-		lsRemote.Env = append(os.Environ(), AuthEnvForRepo(dir)...)
+		lsRemote.Env = append(lsRemote.Env, install.AuthEnvForURL(url, opts)...)
 		refs, err := lsRemote.Output()
 		if err != nil {
 			return nil, false, false
@@ -354,7 +357,7 @@ func liveRemoteCommits(dir, remote, branch string) (objects []string, rejected, 
 			dest = local
 		}
 		if tip := tips["refs/heads/"+dest]; tip != "" {
-			known := exec.Command("git", "cat-file", "-e", tip+"^{commit}")
+			known := gitenv.Command("cat-file", "-e", tip+"^{commit}")
 			known.Dir = dir
 			if known.Run() != nil {
 				continue // non-fast-forward: this URL rejects the push
@@ -381,7 +384,7 @@ func liveRemoteCommits(dir, remote, branch string) (objects []string, rejected, 
 	if len(ids) == 0 {
 		return nil, false, true
 	}
-	check := exec.Command("git", "cat-file", "--batch-check=%(objectname) %(objecttype)")
+	check := gitenv.Command("cat-file", "--batch-check=%(objectname) %(objecttype)")
 	check.Dir = dir
 	check.Stdin = strings.NewReader(strings.Join(ids, "\n") + "\n")
 	out, err = check.Output()
@@ -419,7 +422,7 @@ func EnsureConfigUntracked(dir string) (removed bool, err error) {
 	if !isTracked(dir, "config.yaml") {
 		return false, nil
 	}
-	cmd := exec.Command("git", "rm", "-r", "--cached", "--", "config.yaml")
+	cmd := gitenv.Command("rm", "-r", "--cached", "--", "config.yaml")
 	cmd.Dir = dir
 	if err := cmd.Run(); err != nil {
 		return false, fmt.Errorf("untrack config.yaml: %w", err)
@@ -472,7 +475,7 @@ func editedAfterCheckout(dir, entry string) bool {
 	if err != nil {
 		return false
 	}
-	cmd := exec.Command("git", "hash-object", "--stdin")
+	cmd := gitenv.Command("hash-object", "--stdin")
 	cmd.Dir = dir
 	switch {
 	case info.Mode()&fs.ModeSymlink != 0 && fields[0] == "120000":
@@ -484,7 +487,7 @@ func editedAfterCheckout(dir, entry string) bool {
 	case info.Mode()&fs.ModeSymlink != 0:
 		return true // Git checks out a regular entry as a file, not a link
 	case info.Mode().IsRegular() && (fields[0] == "100644" || fields[0] == "100755"):
-		cmd = exec.Command("git", "hash-object", "--", "config.yaml")
+		cmd = gitenv.Command("hash-object", "--", "config.yaml")
 		cmd.Dir = dir
 	default:
 		return false
@@ -497,7 +500,7 @@ func editedAfterCheckout(dir, entry string) bool {
 // "" when it is untracked. A merge, reset or conflict that touches the file
 // changes this value.
 func configIndexEntry(dir string) string {
-	cmd := exec.Command("git", "ls-files", "-s", "--", "config.yaml")
+	cmd := gitenv.Command("ls-files", "-s", "--", "config.yaml")
 	cmd.Dir = dir
 	out, err := cmd.Output()
 	if err != nil {
@@ -609,7 +612,7 @@ func NestedRepos(dir string) ([]string, error) {
 // Each path is checked on its own: git refuses the whole query when one path
 // lies inside a gitlink. Any error counts as not ignored, keeping the warning.
 func isIgnoredUntracked(dir, path string) bool {
-	cmd := exec.Command("git", "check-ignore", "-q", "--", filepath.ToSlash(path))
+	cmd := gitenv.Command("check-ignore", "-q", "--", filepath.ToSlash(path))
 	cmd.Dir = dir
 	return cmd.Run() == nil
 }
@@ -639,7 +642,7 @@ func DisableNestedRepo(dir, sub string) error {
 	// re-tracked as blobs on the next add. Best-effort: a repo that never
 	// committed the gitlink has no such entry.
 	if IsRepo(dir) && isGitlink(dir, sub) {
-		cmd := exec.Command("git", "rm", "--cached", "-q", "--", sub)
+		cmd := gitenv.Command("rm", "--cached", "-q", "--", sub)
 		cmd.Dir = dir
 		_ = cmd.Run()
 	}
@@ -649,7 +652,7 @@ func DisableNestedRepo(dir, sub string) error {
 // isGitlink reports whether the repo at dir records sub as a gitlink (an
 // embedded submodule pointer, index mode 160000) rather than tracked files.
 func isGitlink(dir, sub string) bool {
-	cmd := exec.Command("git", "ls-files", "-s", "--", sub)
+	cmd := gitenv.Command("ls-files", "-s", "--", sub)
 	cmd.Dir = dir
 	out, err := cmd.Output()
 	if err != nil {

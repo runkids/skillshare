@@ -15,6 +15,16 @@ sidebar_position: 8
 
 ## 设置
 
+### Mod：保留当前 layout（推荐）
+
+使用独立的 [Mod 分享包](https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod)，添加面板而不替换整个窗口。把下面这段 prompt 贴给 Herdr 里的 agent：
+
+```text
+Read ~/.config/herdr-app/AGENTS.md, then add this mod from https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod. Follow its RECIPE.md: add only the skillshare toggle and panel to my current layout, preserving my status bar, usage meters and all other customizations. Reuse existing skillshare nodes instead of duplicating them.
+```
+
+这个分享包没有 `layouts/` 文件夹。Recipe 只添加或复用 skillshare 开关和面板，保留你的状态栏、CLI 额度、主题及其他自定义设置。Herdr 内置的 layout 会先复制再修改。
+
 ### 从 Herdr layouts 安装
 
 这个 layout 已上架到 [Herdr layouts](https://herdr.dev/layouts/runkids/skillshare--herdr--skillshare/)。把下面这段 prompt 贴给 Herdr 里的 agent：
@@ -36,6 +46,8 @@ agent 会先读完所有文件再添加 layout，你自己的 layout 不会被�
 tab bar 会出现 **skillshare** 按钮，用来显示或隐藏面板。切换 space 时，面板会保持原来的开关状态。
 
 ## 更新面板
+
+无论使用哪种安装方式，请 agent 更新时，都只备份并替换已安装的 skillshare mod。保持当前选中的 layout，保留所有 layout、自定义状态栏、额度显示、设置、快捷键及其他 mod。如需调整 layout，只合并 skillshare 自己的节点，不重新应用完整 layout。
 
 面板显示时，每小时向 GitHub 查询一次最新的 skillshare release。有新的 release 发布时，面板标题栏会出现 **Update panel**。它会先询问，再用该 release 附带的文件替换 `~/.config/herdr-app/mods/skillshare/` 里的文件，随后 Herdr 会重新加载面板。被替换的文件保留在该文件夹的 `.bak-update-<version>`；你对这些文件做的修改不会保留。你的 layout 不会被改动。
 

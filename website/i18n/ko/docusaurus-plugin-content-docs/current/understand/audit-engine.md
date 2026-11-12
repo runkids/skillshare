@@ -44,7 +44,7 @@ flowchart TD
 
 `audit` 명령은 **게이트키퍼** 역할을 합니다 — skill 콘텐츠가 AI assistant에 도달하기 전에 알려진 위협 패턴을 스캔합니다. `install` 중 자동으로 실행되며 언제든 수동으로 호출할 수도 있습니다.
 
-`--force`로 차단을 무시하면 승인된 발견 사항(규칙, 파일, 일치한 텍스트와 탐지기별 증거)이 `.metadata.json`에 기록됩니다. 이후 `update`는 같은 증거의 finding을 건너뛰고 변경된 finding은 계속 탐지합니다. `whitespace-padding` 밀도 finding은 파일의 조건에 맞는 전체 내용을 증거로 사용합니다. 자세한 내용은 [update — Accepted Findings](/docs/reference/commands/update#accepted-findings)를 참고하세요.
+`--force`로 차단을 무시하면 승인된 발견 사항(규칙, 파일, 일치한 텍스트와 탐지기별 증거)이 `.metadata.json`에 기록됩니다. 이후 `update`는 같은 증거의 finding을 건너뛰고 변경된 finding은 계속 탐지합니다. `whitespace-padding` 밀도 finding은 파일의 조건에 맞는 전체 내용을 증거로 사용합니다. 자세한 내용은 [update — Accepted Findings](/docs/reference/commands/update#accepted-findings)를 참고하세요. 일반 `skillshare audit`은 여전히 이 finding으로 실패합니다. `--respect-accepted`를 붙이면 승인이 적용되며, 대시보드는 항상 적용합니다. [audit — Accepted findings](/docs/reference/commands/audit#accepted-findings)를 참고하세요.
 
 ## 탐지하는 것
 

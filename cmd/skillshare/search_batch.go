@@ -246,13 +246,13 @@ type sourceGroup struct {
 // repoSourceForGroupedClone converts a subdir source into a repo-root source.
 // This keeps provider-specific details (GitLab/Bitbucket/Azure/GitHub) by
 // parsing CloneURL directly, then ensures Subdir is cleared for whole-repo clone.
-func repoSourceForGroupedClone(src *install.Source) install.Source {
+func repoSourceForGroupedClone(src *install.Source, opts install.ParseOptions) install.Source {
 	repoSource := *src
 	repoSource.Subdir = ""
 	repoSource.Raw = repoSource.CloneURL
 
 	// Re-parse CloneURL to get a canonical root-level name/type.
-	if root, err := install.ParseSource(repoSource.CloneURL); err == nil {
+	if root, err := install.ParseSourceWithOptions(repoSource.CloneURL, opts); err == nil {
 		repoSource.Type = root.Type
 		repoSource.Raw = root.Raw
 		repoSource.Name = root.Name
@@ -266,12 +266,12 @@ func repoSourceForGroupedClone(src *install.Source) install.Source {
 // Web URLs whose ref may contain "/" are settled with resolveRef first.
 // Results that cannot be grouped (parse failure, local path, non-subdir singles)
 // are returned in the singles slice to be installed individually.
-func groupByRepo(selected []search.SearchResult, resolveRef func(*install.Source) error) (groups []sourceGroup, singles []search.SearchResult) {
+func groupByRepo(selected []search.SearchResult, opts install.ParseOptions, resolveRef func(*install.Source) error) (groups []sourceGroup, singles []search.SearchResult) {
 	buckets := make(map[string]*sourceGroup) // keyed by CloneURL and ref
 	var order []string                       // preserve insertion order
 
 	for _, sr := range selected {
-		src, err := install.ParseSource(sr.Source)
+		src, err := install.ParseSourceWithOptions(sr.Source, opts)
 		if err == nil && src.HasAmbiguousWebRef() {
 			err = resolveRef(src)
 		}
@@ -313,8 +313,8 @@ func groupByRepo(selected []search.SearchResult, resolveRef func(*install.Source
 
 // matchDiscoveredSkill finds a SkillInfo in the discovery result that matches
 // the given search result's expected subdir path.
-func matchDiscoveredSkill(discovery *install.DiscoveryResult, sr search.SearchResult) (install.SkillInfo, bool) {
-	src, err := install.ParseSource(sr.Source)
+func matchDiscoveredSkill(discovery *install.DiscoveryResult, sr search.SearchResult, opts install.ParseOptions) (install.SkillInfo, bool) {
+	src, err := install.ParseSourceWithOptions(sr.Source, opts)
 	if err != nil {
 		return install.SkillInfo{}, false
 	}
@@ -355,7 +355,7 @@ func collectSearchInstallGlobal(result search.SearchResult, cfg *config.Config, 
 		return r
 	}
 
-	opts := install.InstallOptions{OnProgress: onProgress}
+	opts := install.InstallOptions{OnProgress: onProgress, ParseOptions: parseOptsFromConfig(cfg)}
 	if result.Skill != "" {
 		opts.Skills = []string{result.Skill}
 	}
@@ -408,7 +408,7 @@ func collectSearchInstallProject(result search.SearchResult, cwd string, onProgr
 		return r
 	}
 
-	opts := install.InstallOptions{OnProgress: onProgress}
+	opts := install.InstallOptions{OnProgress: onProgress, ParseOptions: parseOptsFromProjectConfig(runtime.config)}
 	if result.Skill != "" {
 		opts.Skills = []string{result.Skill}
 	}
@@ -450,7 +450,7 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 	resultMap := make(map[string]searchInstallResult, len(selected))
 
 	// Resolve source directory for the current mode.
-	sourceDir, err := resolveBatchSourceDir(mode, cfg, cwd)
+	sourceDir, parseOpts, err := resolveBatchSource(mode, cfg, cwd)
 	if err != nil {
 		progress.stop()
 		return err
@@ -458,19 +458,22 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 
 	modeStr := "global"
 	cfgPath := config.ConfigPath()
+	// Loaded before the installs, so the reconcile sees what they changed.
+	var projectRT *projectRuntime
 	if mode == modeProject {
 		modeStr = "project"
 		cfgPath = config.ProjectConfigPath(cwd)
+		projectRT, _ = loadProjectRuntime(cwd)
 	}
 
 	// Group by repo: skills sharing the same CloneURL are cloned once.
 	var refs install.RemoteRefs
-	groups, singles := groupByRepo(selected, refs.Resolve)
+	groups, singles := groupByRepo(selected, parseOpts, refs.Resolve)
 
 	// Phase 1: grouped install — clone each repo once, install multiple skills.
 	for _, group := range groups {
 		// Build a whole-repo source (no Subdir) for cloning.
-		repoSource := repoSourceForGroupedClone(group.source)
+		repoSource := repoSourceForGroupedClone(group.source, parseOpts)
 
 		// Use the first skill's name for clone progress display.
 		cloneLabel := group.results[0].Name
@@ -504,7 +507,7 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 		for _, sr := range group.results {
 			progress.updateStatus(sr.Name, "installing...")
 
-			r := installFromDiscoveryResult(discovery, sr, sourceDir)
+			r := installFromDiscoveryResult(discovery, sr, sourceDir, parseOpts)
 			if r.status == "failed" && r.detail == "skill not found in repo" {
 				// Can't match in whole-repo discovery — fall back to per-skill install.
 				fallback = append(fallback, sr)
@@ -545,8 +548,8 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 
 	// Phase 3: reconcile once after all installs.
 	if mode == modeProject {
-		if runtime, err := loadProjectRuntime(cwd); err == nil {
-			_ = reconcileProjectRemoteSkills(runtime)
+		if projectRT != nil {
+			_ = reconcileProjectInstalledSkills(projectRT)
 		}
 	} else {
 		store, _ := install.LoadMetadataWithMigration(cfg.EffectiveSkillsSource(), "")
@@ -571,24 +574,24 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 	return nil
 }
 
-// resolveBatchSourceDir returns the skill source directory for the given mode.
+// resolveBatchSource returns the skill source directory and host policy for the mode.
 // For project mode, it requires an initialized project config.
-func resolveBatchSourceDir(mode runMode, cfg *config.Config, cwd string) (string, error) {
+func resolveBatchSource(mode runMode, cfg *config.Config, cwd string) (string, install.ParseOptions, error) {
 	if mode == modeProject {
 		if err := ensureProjectConfig(cwd); err != nil {
-			return "", fmt.Errorf("project config: %w", err)
+			return "", install.ParseOptions{}, fmt.Errorf("project config: %w", err)
 		}
 		runtime, err := loadProjectRuntime(cwd)
 		if err != nil {
-			return "", fmt.Errorf("load config: %w", err)
+			return "", install.ParseOptions{}, fmt.Errorf("load config: %w", err)
 		}
-		return runtime.sourcePath, nil
+		return runtime.sourcePath, parseOptsFromProjectConfig(runtime.config), nil
 	}
-	return cfg.EffectiveSkillsSource(), nil
+	return cfg.EffectiveSkillsSource(), parseOptsFromConfig(cfg), nil
 }
 
 // installFromDiscoveryResult installs a single skill from a pre-cloned discovery result.
-func installFromDiscoveryResult(discovery *install.DiscoveryResult, sr search.SearchResult, sourceDir string) searchInstallResult {
+func installFromDiscoveryResult(discovery *install.DiscoveryResult, sr search.SearchResult, sourceDir string, opts install.ParseOptions) searchInstallResult {
 	r := searchInstallResult{
 		name:   sr.Name,
 		source: sr.Source,
@@ -603,14 +606,14 @@ func installFromDiscoveryResult(discovery *install.DiscoveryResult, sr search.Se
 		return r
 	}
 
-	skill, found := matchDiscoveredSkill(discovery, sr)
+	skill, found := matchDiscoveredSkill(discovery, sr, opts)
 	if !found {
 		r.status = "failed"
 		r.detail = "skill not found in repo"
 		return r
 	}
 
-	installResult, err := install.InstallFromDiscovery(discovery, skill, destPath, install.InstallOptions{})
+	installResult, err := install.InstallFromDiscovery(discovery, skill, destPath, install.InstallOptions{ParseOptions: opts})
 	if err != nil {
 		r.status = "failed"
 		r.detail = err.Error()

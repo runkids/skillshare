@@ -17,6 +17,7 @@ type MarkdownOptions struct {
 	Medium         int
 	Low            int
 	Info           int
+	Accepted       int // accepted earlier with --force; left out of the severity counts
 	BinaryFiles    int
 	SkippedFiles   int
 	OversizedFiles int
@@ -118,6 +119,9 @@ func writeSummaryTable(b *strings.Builder, opts MarkdownOptions) {
 	fmt.Fprintf(b, "| Failed | %d |\n", opts.Failed)
 	fmt.Fprintf(b, "| Severity | C:%d H:%d M:%d L:%d I:%d |\n",
 		opts.Critical, opts.High, opts.Medium, opts.Low, opts.Info)
+	if opts.Accepted > 0 {
+		fmt.Fprintf(b, "| Accepted | %d |\n", opts.Accepted)
+	}
 	if threatsLine := formatCategoryBreakdownPlain(opts.ByCategory); threatsLine != "" {
 		fmt.Fprintf(b, "| Threats | %s |\n", threatsLine)
 	}
@@ -233,7 +237,7 @@ func writeSkillSection(b *strings.Builder, r *Result, blocked bool, minSeverity 
 			escapeMarkdownTable(f.Pattern),
 			escapeMarkdownTable(analyzer),
 			escapeMarkdownTable(category),
-			escapeMarkdownTable(f.ExplainedMessage()),
+			escapeMarkdownTable(markdownMessage(f)),
 			escapeMarkdownTable(findingLocation(f)),
 		)
 	}
@@ -261,6 +265,14 @@ func writeSkillSection(b *strings.Builder, r *Result, blocked bool, minSeverity 
 	}
 
 	b.WriteString("\n---\n")
+}
+
+// markdownMessage is a finding's message, marked when it was accepted earlier.
+func markdownMessage(f Finding) string {
+	if f.Acknowledged {
+		return f.ExplainedMessage() + " (accepted earlier)"
+	}
+	return f.ExplainedMessage()
 }
 
 // escapeSnippetLine replaces newlines so that indented code blocks stay single-line.

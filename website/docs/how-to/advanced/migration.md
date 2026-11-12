@@ -88,7 +88,7 @@ You can keep using `npx skills` for skills it already manages, or hand selected 
 
 **There is no automatic npx lock import or ownership transfer.** Collecting preserves local skill files, not their upstream tracking. Reinstalling from a repository creates Skillshare tracking, but may fetch different content from your existing installation.
 
-The paths and lock fields below refer to **skills v1.7.6**: [global lock source](https://github.com/vercel-labs/skills/blob/7a5e920bead4b1039a6d6df5d7e1163b7b09423a/src/skill-lock.ts), [project lock source](https://github.com/vercel-labs/skills/blob/7a5e920bead4b1039a6d6df5d7e1163b7b09423a/src/local-lock.ts), and [CLI reference](https://github.com/vercel-labs/skills/blob/7a5e920bead4b1039a6d6df5d7e1163b7b09423a/docs/commands.md).
+The paths and lock fields below refer to **skills v1.8.1**: [global lock source](https://github.com/vercel-labs/skills/blob/e781cb4d07433dfe1d19e924ed45cc61738c55ec/src/skill-lock.ts), [project lock source](https://github.com/vercel-labs/skills/blob/e781cb4d07433dfe1d19e924ed45cc61738c55ec/src/local-lock.ts), and [CLI reference](https://github.com/vercel-labs/skills/blob/e781cb4d07433dfe1d19e924ed45cc61738c55ec/docs/commands.md).
 
 | Item | Global | Project |
 |------|--------|---------|

@@ -111,20 +111,49 @@ func cmdSearch(args []string) error {
 		limit = 0
 	}
 
+	var parseOpts install.ParseOptions
+	if indexURL != "" {
+		parseOpts, err = searchParseOptions(mode, cwd)
+		if err != nil {
+			return err
+		}
+	}
+
 	// JSON mode: silent search, output JSON
 	if jsonOutput {
-		return searchJSON(query, limit, indexURL)
+		return searchJSON(query, limit, indexURL, parseOpts)
 	}
 
 	// Interactive mode
-	return searchInteractive(query, limit, listOnly, indexURL, mode, cwd)
+	return searchInteractive(query, limit, listOnly, indexURL, mode, cwd, parseOpts)
 }
 
-func searchJSON(query string, limit int, indexURL string) error {
+func searchParseOptions(mode runMode, cwd string) (install.ParseOptions, error) {
+	if mode == modeProject {
+		if _, err := os.Stat(config.ProjectConfigPath(cwd)); os.IsNotExist(err) {
+			return parseOptsFromProjectConfig(&config.ProjectConfig{}), nil
+		}
+		cfg, err := config.LoadProject(cwd)
+		if err != nil {
+			return install.ParseOptions{}, err
+		}
+		return parseOptsFromProjectConfig(cfg), nil
+	}
+	if _, err := os.Stat(config.ConfigPath()); os.IsNotExist(err) {
+		return parseOptsFromConfig(&config.Config{}), nil
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		return install.ParseOptions{}, err
+	}
+	return parseOptsFromConfig(cfg), nil
+}
+
+func searchJSON(query string, limit int, indexURL string, opts install.ParseOptions) error {
 	var results []search.SearchResult
 	var err error
 	if indexURL != "" {
-		results, err = search.SearchFromIndexURL(query, limit, indexURL)
+		results, err = search.SearchFromIndexURL(query, limit, indexURL, opts)
 	} else {
 		results, err = search.Search(query, limit)
 	}
@@ -143,7 +172,7 @@ func searchJSON(query string, limit int, indexURL string) error {
 	return nil
 }
 
-func searchInteractive(query string, limit int, listOnly bool, indexURL string, mode runMode, cwd string) error {
+func searchInteractive(query string, limit int, listOnly bool, indexURL string, mode runMode, cwd string, opts install.ParseOptions) error {
 	// No query provided: prompt for one
 	isHub := indexURL != ""
 	if query == "" {
@@ -156,14 +185,14 @@ func searchInteractive(query string, limit int, listOnly bool, indexURL string, 
 
 	// List-only mode: single search and exit
 	if listOnly {
-		_, err := doSearch(query, limit, true, indexURL, mode, cwd)
+		_, err := doSearch(query, limit, true, indexURL, mode, cwd, opts)
 		return err
 	}
 
 	// Interactive loop mode
 	currentQuery := query
 	for {
-		searchAgain, err := doSearch(currentQuery, limit, false, indexURL, mode, cwd)
+		searchAgain, err := doSearch(currentQuery, limit, false, indexURL, mode, cwd, opts)
 		if err != nil {
 			return err
 		}
@@ -188,7 +217,7 @@ func searchInteractive(query string, limit int, listOnly bool, indexURL string, 
 }
 
 // doSearch performs a search and returns (searchAgain, error)
-func doSearch(query string, limit int, listOnly bool, indexURL string, mode runMode, cwd string) (bool, error) {
+func doSearch(query string, limit int, listOnly bool, indexURL string, mode runMode, cwd string, opts install.ParseOptions) (bool, error) {
 	where := "GitHub"
 	if indexURL != "" {
 		where = "the index"
@@ -202,7 +231,7 @@ func doSearch(query string, limit int, listOnly bool, indexURL string, mode runM
 	var results []search.SearchResult
 	var err error
 	if indexURL != "" {
-		results, err = search.SearchFromIndexURL(query, limit, indexURL)
+		results, err = search.SearchFromIndexURL(query, limit, indexURL, opts)
 	} else {
 		results, err = search.Search(query, limit)
 	}
@@ -403,7 +432,7 @@ func installFromSearchResultProject(result search.SearchResult, cwd string) (err
 	// Install
 	spinner := ui.StartSpinner(fmt.Sprintf("Installing %s...", result.Source))
 
-	opts := install.InstallOptions{}
+	opts := install.InstallOptions{ParseOptions: parseOptsFromProjectConfig(runtime.config)}
 	if result.Skill != "" {
 		opts.Skills = []string{result.Skill}
 	}
@@ -439,7 +468,7 @@ func installFromSearchResultProject(result search.SearchResult, cwd string) (err
 	}
 
 	// Reconcile project config with installed skills
-	if err := reconcileProjectRemoteSkills(runtime); err != nil {
+	if err := reconcileProjectInstalledSkills(runtime); err != nil {
 		return err
 	}
 
@@ -478,7 +507,7 @@ func installFromSearchResult(result search.SearchResult, cfg *config.Config) (er
 	// Install
 	spinner := ui.StartSpinner(fmt.Sprintf("Installing %s...", result.Source))
 
-	opts := install.InstallOptions{}
+	opts := install.InstallOptions{ParseOptions: parseOptsFromConfig(cfg)}
 	if result.Skill != "" {
 		opts.Skills = []string{result.Skill}
 	}

@@ -6,6 +6,8 @@ sidebar_position: 1
 
 시각적인 Skill 관리를 위한 웹 대시보드를 실행합니다.
 
+원격 검색(`GET /api/search`)과 설치 미리 보기(`GET /api/preview`)는 변경 작업과 같은 origin 검사를 사용하며, cross-site 브라우저 요청은 가져오기 전에 거부합니다. 브라우저 origin/fetch 헤더가 없는 직접 클라이언트는 계속 지원됩니다. GitHub API 인증 정보는 HTTPS `api.github.com`, `raw.githubusercontent.com`의 기본 포트 또는 443으로 제한되며 cross-origin 리디렉션에서는 제거됩니다.
+
 ```bash
 skillshare ui                  # 포그라운드에서 실행
 skillshare ui start            # 백그라운드 서버 시작(또는 기존 서버 재사용)
@@ -172,7 +174,7 @@ project mode(`-p`)로 실행할 때 대시보드는 다음과 같이 달라집�
 | GET | `/api/diff` | source와 target 간의 diff |
 | GET | `/api/search?q=` | GitHub에서 skill 검색 |
 | POST | `/api/install` | source에서 skill 설치 |
-| GET | `/api/audit` | 모든 skill에 대해 보안 위협 스캔. 따라가는 source link를 읽지 못하면 `audit --format json`처럼 `warnings`와 `incomplete: true`를 추가 |
+| GET | `/api/audit` | 모든 skill에 대해 보안 위협 스캔. 따라가는 source link를 읽지 못하면 `audit --format json`처럼 `warnings`와 `incomplete: true`를 추가. 이전에 `--force`로 승인한 발견 항목은 `acknowledged: true`를 갖고, 심각도 대신 `summary.accepted`에 집계 |
 | GET | `/api/audit/rules` | 사용자 지정 audit rules YAML 조회 |
 | PUT | `/api/audit/rules` | 사용자 지정 audit rules 저장(regex 검증) |
 | POST | `/api/audit/rules` | 초기 audit-rules.yaml 생성 |
@@ -186,6 +188,7 @@ project mode(`-p`)로 실행할 때 대시보드는 다음과 같이 달라집�
 | GET | `/api/skillignore` | `.skillignore` 내용, 있으면 `.skillignore.local` 내용, ignore 통계 조회 |
 | PUT | `/api/skillignore` | `.skillignore` 내용 업데이트 |
 | GET | `/api/doctor` | 모든 상태 검사 실행(JSON) |
+| GET | `/api/doctor/stream` | 모든 상태 검사를 Server-Sent Events로 실행: 검사가 끝날 때마다 `check` 이벤트를 보내고, 마지막에 `/api/doctor`와 같은 JSON을 담은 `done`을 보냅니다 |
 | GET | `/api/health` | liveness probe. 서버가 준비되면 `200`을 반환합니다 |
 | GET | `/api/version` | 현재/최신 버전 + 업그레이드 가능 여부 + Nix 설치의 경우 CLI를 업데이트하는 명령(`nixUpgradeCommand`) |
 | POST | `/api/upgrade` | 제자리에서 `skillshare upgrade` 실행(바이너리가 dev build인 경우 `devMode: true` 반환, Nix 설치에서 새 CLI가 대기 중이면 코드 `upgrade.nix`와 함께 `409` 반환) |

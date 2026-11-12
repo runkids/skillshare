@@ -129,6 +129,8 @@ $ skillshare install anthropics/skills
 
 Discovery는 `.git`과, 보통 저장소 skill의 복사본을 담는 `.claude/`, `.agents/` 같은 타깃 디렉터리를 제외한 모든 디렉터리에서 `SKILL.md` 파일을 스캔합니다. `.curated/`나 `.system/`과 같은 그 밖의 숨김 디렉터리는 스캔되므로 그 안의 skill도 자동으로 발견됩니다. 다른 skill이 없는 저장소는 대신 루트의 `.agents/skills/`를 스캔합니다. 여러 skill이 발견되면, 선택 화면은 같은 폴더의 skill을 함께 나열하고 각 skill의 설명과 폴더를 보여 줍니다. 목록이 길면 `/`로 필터링할 수 있습니다.
 
+`.agents/skills/` 폴백은 `.agents`와 `skills` 모두 실제 디렉터리여야 하며, `follow_source_links: true`여도 symlink나 junction은 허용하지 않습니다. 의도적으로 따라가는 저장소 루트는 계속 지원됩니다. 발견한 agent 설치 및 업데이트는 중간 또는 최종 대상 링크를 거부하고 게시 전에 감사합니다. 감사가 차단되면 기존 agent 내용은 유지됩니다.
+
 repository 루트에 `.skillignore` 파일이 있으면, 일치하는 skill은 discovery에서 자동으로 제외됩니다. 아래 [.skillignore](#skillignore)를 참고하세요.
 
 skill의 `SKILL.md`에 `license:` frontmatter 필드가 있으면, 선택 화면(예: `my-skill (MIT)`)과 단일 skill 설치의 확인 화면에 라이선스가 표시됩니다.
@@ -267,6 +269,8 @@ skillshare install ./my-skill -p
 | `--track` | 지원됨 | 지원됨 |
 | Config 업데이트 | `config.yaml`의 `skills:`를 자동으로 재조정 | `.skillshare/config.yaml`의 `skills:`를 자동으로 재조정 |
 | 인자 없는 install | config에 나열된 모든 skill 설치 | config에 나열된 모든 skill 설치 |
+
+다른 source나 브랜치에서 같은 skill을 다시 설치하면(제거한 뒤, 또는 `--force`로 기존 복사본 위에) `.skillshare/config.yaml`의 항목과 `skills.lock.json`의 pin이 교체되어 팀원도 새 source에서 설치합니다. 그 밖의 항목은 이 머신의 설치 기록으로 다시 쓰이지 않습니다.
 
 **project 모드의 tracked repo**는 global과 동일하게 동작합니다 — repo는 `.git`이 보존된 채 clone되고 `.skillshare/.gitignore`에 추가됩니다(기본적으로 `.skillshare/logs/`, `.skillshare/trash/`, `.skillshare/backups/`, `.metadata.json` 파일도 함께 무시됩니다). `tracked: true` 플래그는 `.skillshare/config.yaml`에 자동으로 기록됩니다.
 
@@ -541,11 +545,13 @@ skillshare install https://github.com/org/private-skills.git --track
 
 | 플랫폼 | 환경 변수 | 토큰 종류 |
 |----------|---------|------------|
-| GitHub | `GITHUB_TOKEN` | Personal access token (`repo` scope) |
-| GitLab | `GITLAB_TOKEN` | Personal access 또는 CI job token |
+| `github.com` | `GITHUB_TOKEN` | Personal access token (`repo` scope) |
+| `gitlab.com` | `GITLAB_TOKEN` | Personal access 또는 CI job token |
 | Bitbucket | `BITBUCKET_TOKEN` | Repository token, 또는 app password (`BITBUCKET_USERNAME`과 함께) |
 | Azure DevOps | `AZURE_DEVOPS_TOKEN` | Personal Access Token (Code: Read scope) |
 | 모든 호스트 | `SKILLSHARE_GIT_TOKEN` | 범용 폴백 |
+
+공급자 토큰은 HTTPS 기본 포트(또는 443)의 `github.com`, `gitlab.com`, `bitbucket.org`, `dev.azure.com`, `*.visualstudio.com`, `gitea.com`, `cnb.cool`에만 전송됩니다. 자체 호스팅 Gitea/CNB는 이름에 공급자 이름이 포함되어도 `gitea_hosts`/`cnb_hosts`에 정확한 호스트명을 등록해야 합니다. 자체 호스팅 GitHub/GitLab 등에는 호스트별 Git credential helper를 사용하거나 해당 실행에만 `SKILLSHARE_GIT_TOKEN`을 설정하세요. 이 범용 폴백은 **모든 HTTPS 소스**에 전송될 수 있습니다. 공급자처럼 보이는 이름만으로는 공급자 토큰 전송이 허용되지 않습니다.
 
 플랫폼별 변수가 `SKILLSHARE_GIT_TOKEN`보다 우선합니다.
 

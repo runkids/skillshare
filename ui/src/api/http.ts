@@ -137,10 +137,17 @@ export function createSSEStream(
       });
     }
   }
-  es.addEventListener('error', () => {
+  // The server's own `error` event carries {"error": reason}; a dropped
+  // connection fires a plain Event without data.
+  es.addEventListener('error', (e) => {
     if (completed) return;
     es.close();
-    onError(new Error(errorMessage));
+    const data = (e as MessageEvent).data;
+    let reason: unknown;
+    if (typeof data === 'string') {
+      try { reason = JSON.parse(data)?.error; } catch { /* not JSON: use the fallback message */ }
+    }
+    onError(new Error(typeof reason === 'string' && reason ? reason : errorMessage));
   });
   return es;
 }

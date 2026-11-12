@@ -7,12 +7,15 @@ import (
 	"path/filepath"
 	"strings"
 
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
 
 // buildDiscoverySkillSource constructs metadata Source string for a skill
-// selected from a discovery result.
+// selected from a discovery result. The string is shared through the project
+// config, so ParseSource must split it back into the same repository and
+// subdirectory (#859).
 func buildDiscoverySkillSource(source *Source, skillPath string) string {
 	if skillPath == "." {
 		return source.Raw
@@ -20,11 +23,78 @@ func buildDiscoverySkillSource(source *Source, skillPath string) string {
 	if source.HasSubdir() {
 		return source.Raw + "/" + skillPath
 	}
-	// Whole-repo SSH sources encode subdir using //path.
-	if source.Type == SourceTypeGitSSH {
-		return source.Raw + "//" + skillPath
+	repo := strings.TrimRight(source.Raw, "/")
+	switch {
+	// Whole-repo SSH and file:// sources encode subdir using //path.
+	case source.Type == SourceTypeGitSSH, strings.HasPrefix(source.CloneURL, "file://"):
+		return repo + "//" + skillPath
+	// GitLab and Bitbucket paths have no fixed depth: without ".git" or a web
+	// URL marker the parser takes every segment as the repository.
+	case source.webHost != "" && !strings.HasSuffix(repo, ".git") && !hasWebURLMarker(source.webHost, repo):
+		return repo + ".git/" + skillPath
 	}
-	return source.Raw + "/" + skillPath
+	return repo + "/" + skillPath
+}
+
+// hasWebURLMarker reports whether raw is a GitLab (/-/tree/ref) or Bitbucket
+// (/src/ref) web URL, which parseGitHTTPS splits at the marker in the path.
+func hasWebURLMarker(webHost, raw string) bool {
+	m := gitHTTPSPattern.FindStringSubmatch(raw)
+	if m == nil {
+		return false
+	}
+	return strings.Contains(m[3], "/-/") || webHost == "bitbucket" && strings.Contains(m[3], "/src/")
+}
+
+// isDiscoverySkillSource reports whether entry records skillPath of source.
+// Installs from before #859 recorded a single-slash source, which GitLab,
+// Bitbucket and file:// hosts also use for a repository of its own, so that
+// form counts only when the recorded repository and path agree.
+func isDiscoverySkillSource(entry *MetadataEntry, source *Source, skillPath string) bool {
+	if entry.Source == buildDiscoverySkillSource(source, skillPath) {
+		return true
+	}
+	return entry.Source == source.Raw+"/"+skillPath &&
+		repoURLsMatch(entry.RepoURL, source.CloneURL) && entry.Subdir == filepath.ToSlash(skillPath)
+}
+
+// RecordedSource parses the source a skill's entry was installed from.
+// Installs from before #859 recorded a skill picked out of a repository as
+// "<repo>/<path>", which GitLab, Bitbucket and file:// sources parse as a
+// repository of its own. The entry's recorded repository and path then say
+// what was installed, and the source is rebuilt in the form that parses back.
+func RecordedSource(entry *MetadataEntry, opts ParseOptions) (*Source, error) {
+	source, _, err := recordedSource(entry, opts)
+	return source, err
+}
+
+// RecordedSourceString is the source string that installs what entry
+// records: entry.Source, or the rebuilt one when RecordedSource repairs it.
+func RecordedSourceString(entry *MetadataEntry, opts ParseOptions) string {
+	if source, repaired, err := recordedSource(entry, opts); err == nil && repaired {
+		return source.Raw
+	}
+	return entry.Source
+}
+
+func recordedSource(entry *MetadataEntry, opts ParseOptions) (source *Source, repaired bool, err error) {
+	source, err = ParseSourceWithOptions(entry.Source, opts)
+	if err != nil || entry.Subdir == "" || source.Subdir != "" || repoURLsMatch(source.CloneURL, entry.RepoURL) {
+		return source, false, err
+	}
+	repoRaw, ok := strings.CutSuffix(entry.Source, "/"+entry.Subdir)
+	if !ok {
+		return source, false, nil
+	}
+	repo, err := ParseSourceWithOptions(repoRaw, opts)
+	if err != nil || repo.HasSubdir() || !repoURLsMatch(repo.CloneURL, entry.RepoURL) {
+		return source, false, nil
+	}
+	rebuilt, err := ParseSourceWithOptions(buildDiscoverySkillSource(repo, entry.Subdir), opts)
+	if err != nil || rebuilt.Subdir != entry.Subdir {
+		return source, false, nil
+	}
+	return rebuilt, true, nil
 }
 
 func discoverySourceRoot(discovery *DiscoveryResult) string {
@@ -127,7 +197,7 @@ func AgentRepoSource(entry *MetadataEntry, opts ParseOptions) (*Source, error) {
 		if !ok {
 			break
 		}
-		// Whole-repo SSH sources join the path with "//".
+		// Whole-repo SSH and file:// sources join the path with "//".
 		raw = strings.TrimSuffix(root, "/")
 	}
 	source, err := ParseSourceWithOptions(raw, opts)
@@ -151,7 +221,7 @@ func writeDiscoveredAgentMetadata(discovery *DiscoveryResult, agent AgentInfo, d
 	return WriteMetaToStore(sourceDir, destFile, meta)
 }
 
-func installAgentFromDiscoveryInternal(discovery *DiscoveryResult, agent AgentInfo, destFile string, opts InstallOptions, writeMeta bool) (*InstallResult, error) {
+func installAgentFromDiscoveryInternal(discovery *DiscoveryResult, agent AgentInfo, destFile string, opts InstallOptions, update bool) (*InstallResult, error) {
 	result := &InstallResult{
 		SkillName: agent.Name,
 		Source:    buildDiscoverySkillSource(discovery.Source, agent.Path),
@@ -160,17 +230,32 @@ func installAgentFromDiscoveryInternal(discovery *DiscoveryResult, agent AgentIn
 
 	if opts.DryRun {
 		result.Action = "would install"
+		if update {
+			result.Action = "would reinstall from source"
+		}
 		return result, nil
 	}
 
-	if err := os.MkdirAll(filepath.Dir(destFile), 0755); err != nil {
-		return nil, fmt.Errorf("failed to create agents directory: %w", err)
+	src, err := sourcefs.Create(opts.SourceDir, opts.SourceFollow)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open agents directory: %w", err)
 	}
-
-	if _, err := os.Stat(destFile); err == nil && !opts.Force {
-		result.Action = "skipped"
-		result.Warnings = append(result.Warnings, "agent already exists (use --force to overwrite)")
-		return result, nil
+	defer src.Close()
+	rel, err := src.Rel(destFile)
+	if err != nil {
+		return nil, err
+	}
+	if err := src.CheckNoLink(rel); err != nil {
+		return nil, fmt.Errorf("unsafe agent destination: %w", err)
+	}
+	if _, err := src.Lstat(rel); err == nil {
+		if !update && !opts.Force {
+			result.Action = "skipped"
+			result.Warnings = append(result.Warnings, "agent already exists (use --force to overwrite)")
+			return result, nil
+		}
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to check agent destination: %w", err)
 	}
 
 	data, err := os.ReadFile(resolveDiscoveredAgentSourcePath(discovery, agent))
@@ -178,21 +263,45 @@ func installAgentFromDiscoveryInternal(discovery *DiscoveryResult, agent AgentIn
 		return nil, fmt.Errorf("failed to read agent %s: %w", agent.FileName, err)
 	}
 
-	if err := os.WriteFile(destFile, data, 0644); err != nil {
-		return nil, fmt.Errorf("failed to write agent %s: %w", agent.FileName, err)
+	// Audit an isolated file before publishing, including forced installs.
+	// A rejected audit can only clean up this temporary tree, never the
+	// existing agent or a file reached through a destination link.
+	tempDir, err := os.MkdirTemp("", "skillshare-agent-*")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
-
-	if err := auditInstalledAgent(destFile, result, opts); err != nil {
+	defer os.RemoveAll(tempDir)
+	stage, err := sourcefs.Open(tempDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open staged agent directory: %w", err)
+	}
+	defer stage.Close()
+	tempName := filepath.Base(destFile)
+	if err := stage.WriteFile(tempName, data, 0o644); err != nil {
+		return nil, fmt.Errorf("failed to stage agent %s: %w", agent.FileName, err)
+	}
+	auditOpts := opts
+	auditOpts.AuditAcceptRoot, auditOpts.AuditAcceptPath = opts.auditAcceptTarget(destFile)
+	auditOpts.SourceDir = tempDir
+	auditOpts.SourceFollow = nil
+	if err := auditInstalledAgent(filepath.Join(tempDir, tempName), result, auditOpts); err != nil {
 		return nil, err
 	}
 
-	if writeMeta {
-		if err := writeDiscoveredAgentMetadata(discovery, agent, destFile, opts.SourceDir); err != nil {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("failed to write metadata: %v", err))
-		}
+	if err := src.MkdirAll(filepath.Dir(rel), 0o755); err != nil {
+		return nil, fmt.Errorf("failed to create agents directory: %w", err)
+	}
+	if err := src.WriteFileAtomic(rel, data, 0o644); err != nil {
+		return nil, fmt.Errorf("failed to write agent %s: %w", agent.FileName, err)
+	}
+	if err := writeDiscoveredAgentMetadata(discovery, agent, destFile, opts.SourceDir); err != nil {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("failed to write metadata: %v", err))
 	}
 
 	result.Action = "installed"
+	if update {
+		result.Action = "updated"
+	}
 	return result, nil
 }
 
@@ -213,6 +322,7 @@ func skillsRootFor(destPath string, opts InstallOptions) string {
 }
 
 func installImpl(source *Source, destPath string, opts InstallOptions) (*InstallResult, error) {
+	opts.ParseOptions.CNBHosts, opts.ParseOptions.GiteaHosts = source.CNBHosts, source.GiteaHosts
 	opts.SourceDir = skillsRootFor(destPath, opts)
 
 	result := &InstallResult{
@@ -403,7 +513,7 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 			// fullSource URL (which isn't a valid install target).
 			hint := buildForceHint(discovery.Source.Raw, opts.Into)
 			meta := LoadMetadataOrNew(opts.SourceDir).GetByPath(filepath.Join(opts.Into, filepath.Base(destPath)))
-			knownUpdate := opts.Update && meta != nil && meta.Source == fullSource && meta.Group == opts.Into && !meta.Tracked && meta.EffectiveKind() == "skill"
+			knownUpdate := opts.Update && meta != nil && isDiscoverySkillSource(meta, discovery.Source, skill.Path) && meta.Group == opts.Into && !meta.Tracked && meta.EffectiveKind() == "skill"
 			if !knownUpdate {
 				if err := checkExistingConflict(destPath, discovery.Source.CloneURL, hint); err != nil {
 					return nil, err
@@ -696,65 +806,17 @@ func checkSkillFile(skillPath string, result *InstallResult) {
 // InstallAgentFromDiscovery installs a single agent (.md file) from a discovery result.
 // Unlike skill install (directory copy), agent install copies a single file.
 func InstallAgentFromDiscovery(discovery *DiscoveryResult, agent AgentInfo, destDir string, opts InstallOptions) (*InstallResult, error) {
+	// Derive the source root from destDir + Into, not the agent's nested
+	// relative path, so callers without SourceDir retain stable metadata keys.
+	opts.SourceDir = skillsRootFor(filepath.Join(destDir, filepath.Base(agent.Path)), opts)
 	destFile := filepath.Join(destDir, filepath.FromSlash(installAgentRelativePath(agent)))
-	return installAgentFromDiscoveryInternal(discovery, agent, destFile, opts, true)
+	return installAgentFromDiscoveryInternal(discovery, agent, destFile, opts, false)
 }
 
 func UpdateAgentFromDiscovery(discovery *DiscoveryResult, agent AgentInfo, destDir string, opts InstallOptions) (*InstallResult, error) {
-	relPath := installAgentRelativePath(agent)
-	destFile := filepath.Join(destDir, filepath.FromSlash(relPath))
-	result := &InstallResult{
-		SkillName: agent.Name,
-		Source:    buildDiscoverySkillSource(discovery.Source, agent.Path),
-		SkillPath: destFile,
-	}
-
-	if opts.DryRun {
-		result.Action = "would reinstall from source"
-		return result, nil
-	}
-
-	tempDir, err := os.MkdirTemp("", "skillshare-agent-update-*")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create temp directory: %w", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	tempFile := filepath.Join(tempDir, filepath.FromSlash(relPath))
-	innerOpts := opts
-	innerOpts.DryRun = false
-	innerOpts.Update = false
-	innerOpts.SourceDir = tempDir
-	innerOpts.AuditAcceptRoot = opts.SourceDir
-	innerOpts.AuditAcceptPath = destFile
-
-	innerResult, err := installAgentFromDiscoveryInternal(discovery, agent, tempFile, innerOpts, false)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := os.MkdirAll(filepath.Dir(destFile), 0755); err != nil {
-		return nil, fmt.Errorf("failed to create agents directory: %w", err)
-	}
-	// os.Rename is atomic on POSIX and overwrites the destination. If it
-	// fails (e.g. cross-device EXDEV on exotic setups), fall back to copy.
-	if err := os.Rename(tempFile, destFile); err != nil {
-		data, readErr := os.ReadFile(tempFile)
-		if readErr != nil {
-			return nil, fmt.Errorf("failed to read staged agent: %w", readErr)
-		}
-		if writeErr := os.WriteFile(destFile, data, 0644); writeErr != nil {
-			return nil, fmt.Errorf("failed to move updated agent: %w", writeErr)
-		}
-	}
-
-	if err := writeDiscoveredAgentMetadata(discovery, agent, destFile, opts.SourceDir); err != nil {
-		innerResult.Warnings = append(innerResult.Warnings, fmt.Sprintf("failed to write metadata: %v", err))
-	}
-
-	innerResult.SkillPath = destFile
-	innerResult.Action = "updated"
-	return innerResult, nil
+	opts.SourceDir = skillsRootFor(filepath.Join(destDir, filepath.Base(agent.Path)), opts)
+	destFile := filepath.Join(destDir, filepath.FromSlash(installAgentRelativePath(agent)))
+	return installAgentFromDiscoveryInternal(discovery, agent, destFile, opts, true)
 }
 
 // computeSingleFileHash computes the sha256 hash for a single file.

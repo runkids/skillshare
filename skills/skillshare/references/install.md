@@ -17,6 +17,8 @@ Discovery skips target directories such as `.claude/` and `.agents/`, which usua
 hold copies of a repository's skills. A repository with no other skills has its
 root `.agents/skills/` discovered instead.
 
+The `.agents/skills/` fallback requires both `.agents` and `skills` to be real directories, not symlinks or junctions, even with `follow_source_links: true`. An intentionally followed repository root remains supported. Discovered agent installs and updates reject intermediate or final destination links; audits run before publication, and a blocked audit leaves existing agent contents unchanged.
+
 For an explicit, untracked skill source, `install <source> --dry-run --json`
 returns `planned: [{name, path}]`: canonical install names and repository-relative
 Git paths (including a selected subdirectory), or `.` for a local skill. Use this
@@ -162,7 +164,7 @@ Tracked custom names must not contain path separators (`/`, `\`) or `..`.
 
 **Security audit:** Install auto-scans skills after download. Blocking follows the active threshold (default `CRITICAL`), while aggregate risk is reported separately for context. Use `--force` to override blocking, `--skip-audit` to skip scanning, or `--audit-threshold` / `--threshold` / `-T` to override threshold per command.
 
-**Private repos (HTTPS):** `install` and `update` auto-detect `GITHUB_TOKEN`, `GITLAB_TOKEN`, `BITBUCKET_TOKEN`, `AZURE_DEVOPS_TOKEN`, `GITEA_TOKEN`, `CNB_TOKEN`, or `SKILLSHARE_GIT_TOKEN` for HTTPS clone/pull. No manual git config needed. SSH works as usual.
+**Private repos (HTTPS):** Provider tokens are sent only over HTTPS on the default port (or 443): `github.com`, `gitlab.com`, `bitbucket.org`, `dev.azure.com`, `*.visualstudio.com`, `gitea.com`, and `cnb.cool`. Self-hosted Gitea/CNB requires an exact hostname in `gitea_hosts`/`cnb_hosts`, even if its name contains the provider name. For self-hosted GitHub/GitLab or other hosts, use a host-scoped Git credential helper, or set `SKILLSHARE_GIT_TOKEN` only for the intended invocation. That generic fallback can be sent to **any HTTPS source**; provider-looking names do not authorize provider tokens. SSH and host-scoped Git credential helpers work as usual.
 
 **After install:** `skillshare sync`
 
@@ -173,9 +175,15 @@ Check for available updates and validate skill metadata.
 ```bash
 skillshare check             # Show update status for all repos/skills
 skillshare check --json      # JSON output (CI-friendly)
+skillshare check --exit-code # Exit 1 when anything is not up to date (CI gate)
 skillshare check -p          # Check project skills
 skillshare check my-skill --diff  # Show local edits vs the installed version
 ```
+
+With `--json`, a failure is one object on stdout, `{"error": "..."}`, with exit
+code 1: a name or group that matches nothing to check, an invalid flag
+combination, or a missing config. When some names match and others do not, the
+result lists the skipped ones in `warnings`.
 
 - **Tracked repos:** Fetches from origin, shows commits behind
 - **Remote skills:** Compares installed version with remote HEAD

@@ -1,6 +1,8 @@
 package install
 
 import (
+	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -23,11 +25,11 @@ func acceptedKeyPath(sourceDir, path string) (string, string, bool) {
 
 // ApplyAcceptedFindings marks findings previously accepted via --force for the
 // resource at path so they no longer block. No-op when nothing was recorded.
-func ApplyAcceptedFindings(sourceDir, path string, res *audit.Result) int {
+func ApplyAcceptedFindings(sourceDir, target string, res *audit.Result) int {
 	if res == nil {
 		return 0
 	}
-	dir, rel, ok := acceptedKeyPath(sourceDir, path)
+	dir, rel, ok := acceptedKeyPath(sourceDir, target)
 	if !ok {
 		return 0
 	}
@@ -35,7 +37,26 @@ func ApplyAcceptedFindings(sourceDir, path string, res *audit.Result) int {
 	if err != nil {
 		return 0
 	}
-	return res.MarkAcknowledged(store.AuditAccepted[rel])
+	n := res.MarkAcknowledged(store.AuditAccepted[rel])
+	// Findings name files relative to the scanned directory; a single-file
+	// scan names them relative to the file's own directory.
+	scanned := rel
+	if info, err := os.Stat(target); err == nil && !info.IsDir() {
+		scanned = path.Dir(rel)
+	}
+	// A tracked repository records the acceptances of its whole-repo scan, and
+	// a skill directory those of its own scan, so a resource inside either also
+	// matches those, named relative to where they were recorded.
+	for parent := path.Dir(rel); parent != "."; parent = path.Dir(parent) {
+		if keys := store.AuditAccepted[parent]; len(keys) > 0 {
+			prefix := ""
+			if scanned != parent {
+				prefix = strings.TrimPrefix(scanned, parent+"/")
+			}
+			n += res.MarkAcknowledgedUnder(keys, prefix)
+		}
+	}
+	return n
 }
 
 // RecordAcceptedFindings persists the keys of unacknowledged findings at/above

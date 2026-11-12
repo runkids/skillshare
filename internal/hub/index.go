@@ -79,7 +79,7 @@ func BuildIndex(sourcePath string, full bool, auditSkills bool, walk ...sourcewa
 		source := d.RelPath
 		if entry := store.GetByPath(d.RelPath); entry != nil {
 			if entry.Source != "" {
-				source = entry.Source
+				source = install.RecordedSourceString(entry, install.ParseOptions{})
 			}
 			if full {
 				item.Type = entry.Type

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"skillshare/internal/install"
 )
 
 func envValue(env []string, key string) (string, bool) {
@@ -79,7 +81,7 @@ func TestCommitSourceFiles_NoChangesReturnsNil(t *testing.T) {
 
 func TestRemoteFetchEnv_DisablesInteractivePrompts(t *testing.T) {
 	t.Setenv("GIT_SSH_COMMAND", "")
-	env := remoteFetchEnv("https://github.com/org/repo.git")
+	env := remoteFetchEnv("https://github.com/org/repo.git", install.ParseOptions{})
 
 	if v, ok := envValue(env, "GIT_TERMINAL_PROMPT"); !ok || v != "0" {
 		t.Fatalf("expected GIT_TERMINAL_PROMPT=0, got %q (present=%v)", v, ok)
@@ -102,7 +104,7 @@ func TestRemoteFetchEnv_RespectsExistingSSHCommand(t *testing.T) {
 	custom := "ssh -i /tmp/custom-key"
 	t.Setenv("GIT_SSH_COMMAND", custom)
 
-	env := remoteFetchEnv("https://github.com/org/repo.git")
+	env := remoteFetchEnv("https://github.com/org/repo.git", install.ParseOptions{})
 	if v, ok := envValue(env, "GIT_SSH_COMMAND"); !ok || v != custom {
 		t.Fatalf("expected existing GIT_SSH_COMMAND to be preserved, got %q (present=%v)", v, ok)
 	}

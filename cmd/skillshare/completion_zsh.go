@@ -508,7 +508,8 @@ _skillshare() {
                         '1:scope:(agents)' \
                         '--json[JSON output]' \
                         '--diff[Show changes since install]' \
-                        '--all[Check all]' \
+                        '--exit-code[Exit 1 when anything is not up to date]' \
+                        '--all[Check skills and agents]' \
                         '--group[Check by group]:group:' \
                         '-G[Check by group]:group:' \
                         $global_flags \
@@ -590,6 +591,7 @@ _skillshare() {
                         '--yes[Skip confirmation]' \
                         '-y[Skip confirmation]' \
                         '--no-tui[Skip interactive TUI]' \
+                        '--respect-accepted[Do not fail on findings accepted earlier]' \
                         '--threshold[Block threshold]:level:(low medium high critical)' \
                         '-T[Block threshold]:level:(low medium high critical)' \
                         '--group[Filter by group]:group:' \

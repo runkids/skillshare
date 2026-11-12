@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **최신 버전**: v0.30.5 — 업데이트 시기를 직접 정하세요. `skillshare updates off`로 CLI와 웹 대시보드의 자동 버전 확인 및 알림을 끌 수 있습니다. 수동 확인과 업그레이드는 계속 사용할 수 있습니다. [설정과 환경 변수 →](https://skillshare.runkids.cc/ko/docs/reference/commands/updates) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
+> **최신 버전**: v0.30.6 — CI에서 오래된 스킬을 잡아내세요. `skillshare check --exit-code`는 확인한 항목 중 하나라도 최신이 아니면 종료 코드 1을 반환하고, `check --all`은 이제 스킬과 함께 에이전트도 확인하므로 CI 단계 하나로 둘 다 다룰 수 있습니다. [check 레퍼런스 →](https://skillshare.runkids.cc/ko/docs/reference/commands/check) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare를 쓰는 이유
 

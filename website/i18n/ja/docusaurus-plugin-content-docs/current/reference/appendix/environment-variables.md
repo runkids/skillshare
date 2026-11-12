@@ -201,6 +201,8 @@ SKILLSHARE_UI_TRUSTED_ORIGINS=https://tools.example.com skillshare ui --host 0.0
 
 ### GITHUB_TOKEN
 
+プロバイダーのトークンは HTTPS の既定ポート（または 443）でのみ送信されます。対象は `github.com`、`gitlab.com`、`bitbucket.org`、`dev.azure.com`、`*.visualstudio.com`、`gitea.com`、`cnb.cool` です。セルフホストの Gitea/CNB は、名前にプロバイダー名を含む場合も `gitea_hosts`/`cnb_hosts` に正確なホスト名の登録が必要です。セルフホストの GitHub/GitLab などにはホスト別の Git credential helper を使うか、対象の実行時だけ `SKILLSHARE_GIT_TOKEN` を設定してください。この汎用フォールバックは**任意の HTTPS ソース**に送信されます。名前による判定だけではプロバイダートークンの送信は許可されません。
+
 GitHub の personal access token です。
 
 **用途:**
@@ -370,8 +372,7 @@ skillshare install https://gitea.com/org/skills.git --track
 $env:GITEA_TOKEN = "your_token"
 ```
 
-トークンはインストール元のホストにのみ送信されます。名前に `gitea` を含まないドメイン上のセルフ
-ホストインスタンスには [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts) が必要で、
+セルフホストの Gitea は、名前に `gitea` を含む場合も `GITEA_TOKEN` の送信に [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts) への正確なホスト名の登録が必要です。プロバイダー認証は HTTPS の既定ポートまたは 443 に限定されます。
 それがなければ代わりに `SKILLSHARE_GIT_TOKEN` が使われます。
 
 ### CNB_TOKEN

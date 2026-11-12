@@ -144,6 +144,20 @@ func TestRunCommandKeepsAnAnswerWhenAHelperOutlivesTheCLI(t *testing.T) {
 	}
 }
 
+// Git exports GIT_DIR to hooks; a plugin clone, or a native CLI that runs git itself,
+// must not act on the hook's repository (#852).
+func TestRunCommandDropsTheCallersRepository(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "claude"), []byte("#!/bin/sh\necho \"[$GIT_DIR]\"\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_DIR", "/caller/.git")
+	out, err := runCommand(context.Background(), dir, nil, filepath.Join(dir, "claude"), "--version")
+	if err != nil || strings.TrimSpace(string(out)) != "[]" {
+		t.Fatalf("child saw GIT_DIR = %q %v", out, err)
+	}
+}
+
 func TestHostReportsReadyWhenTheCLIAnswers(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

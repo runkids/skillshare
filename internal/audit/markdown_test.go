@@ -321,3 +321,10 @@ func TestToMarkdown_ExplainsLoweredSeverity(t *testing.T) {
 	}
 	t.Fatalf("no findings table row:\n%s", md)
 }
+
+func TestToMarkdown_SummaryCountsAccepted(t *testing.T) {
+	md := ToMarkdown(nil, MarkdownOptions{Accepted: 2})
+	if !strings.Contains(md, "| Accepted | 2 |") {
+		t.Errorf("summary table must count accepted findings:\n%s", md)
+	}
+}

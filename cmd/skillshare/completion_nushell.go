@@ -615,7 +615,8 @@ export extern "skillshare check" [
     scope?: string@"nu-complete skillshare kind"
     --json                   # JSON output
     --diff                   # Show changes since install
-    --all                    # Check all
+    --exit-code              # Exit 1 when anything is not up to date
+    --all                    # Check skills and agents
     --group(-G): string      # Check by group
     --project(-p)            # Use project-level config
     --global(-g)             # Use global config
@@ -665,6 +666,7 @@ export extern "skillshare audit" [
     --quiet(-q)              # Suppress output
     --yes(-y)                # Skip confirmation
     --no-tui                 # Skip interactive TUI
+    --respect-accepted       # Do not fail on findings accepted earlier
     --threshold(-T): string@"nu-complete skillshare audit-threshold"
     --group(-G): string      # Filter by group
     --profile: string@"nu-complete skillshare audit-profile"

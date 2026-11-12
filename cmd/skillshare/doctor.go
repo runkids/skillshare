@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -12,6 +11,7 @@ import (
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
+	"skillshare/internal/gitenv"
 	"skillshare/internal/install"
 	"skillshare/internal/resource"
 	"skillshare/internal/skillignore"
@@ -32,6 +32,7 @@ type doctorResult struct {
 	start          time.Time
 	next           []string // command and reason pairs for the closing Next
 	updateCommands []string // Suggestions belonging to automatic version notices.
+	stream         func(doctorCheck)
 }
 
 // doctorWidth aligns the labels of doctor's fixed rows.
@@ -50,9 +51,11 @@ func (r *doctorResult) addCheck(name, status, message string, details []string) 
 }
 
 func (r *doctorResult) addCheckWithSuggestions(name, status, message string, details []string, suggestions []string) {
-	r.checks = append(r.checks, doctorCheck{
-		Name: name, Status: status, Message: message, Details: details, Suggestions: suggestions,
-	})
+	check := doctorCheck{Name: name, Status: status, Message: message, Details: details, Suggestions: suggestions}
+	r.checks = append(r.checks, check)
+	if r.stream != nil {
+		r.stream(check)
+	}
 }
 
 func (r *doctorResult) addInfo(name, message string) {
@@ -126,13 +129,14 @@ func cmdDoctorGlobal(jsonMode bool) error {
 	skillCh := make(chan string, 1)
 	go func() { skillCh <- fetchDoctorSkillVersion() }()
 
+	result := &doctorResult{start: time.Now()}
 	var restoreUI func()
 	if jsonMode {
+		result.stream = doctorCheckStream(os.Stdout)
 		restoreUI = suppressUIToDevnull()
 	}
 
 	fmt.Println(theme.Primary().Bold(true).Render(ui.WithModeLabel("Environment")))
-	result := &doctorResult{start: time.Now()}
 
 	// Check config exists
 	if _, err := os.Stat(config.ConfigPath()); os.IsNotExist(err) {
@@ -182,13 +186,14 @@ func cmdDoctorProject(root string, jsonMode bool) error {
 	skillCh := make(chan string, 1)
 	go func() { skillCh <- fetchDoctorSkillVersion() }()
 
+	result := &doctorResult{start: time.Now()}
 	var restoreUI func()
 	if jsonMode {
+		result.stream = doctorCheckStream(os.Stdout)
 		restoreUI = suppressUIToDevnull()
 	}
 
 	fmt.Println(theme.Primary().Bold(true).Render(ui.WithModeLabel("Environment")))
-	result := &doctorResult{start: time.Now()}
 
 	cfgPath := config.ProjectConfigPath(root)
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
@@ -830,7 +835,7 @@ func checkSyncDrift(cfg *config.Config, result *doctorResult, discovered []sync.
 
 // checkGitStatus checks if source is a git repo and its status
 func checkGitStatus(source string, result *doctorResult) {
-	cmd := exec.Command("git", "rev-parse", "--is-inside-work-tree")
+	cmd := gitenv.Command("rev-parse", "--is-inside-work-tree")
 	cmd.Dir = source
 	if err := cmd.Run(); err != nil {
 		ui.Row(ui.MarkWarn, "Git", "not initialized (recommended for backup)", doctorWidth)
@@ -840,7 +845,7 @@ func checkGitStatus(source string, result *doctorResult) {
 	}
 
 	// Check for uncommitted changes
-	cmd = exec.Command("git", "status", "--porcelain")
+	cmd = gitenv.Command("status", "--porcelain")
 	cmd.Dir = source
 	output, err := cmd.Output()
 	if err != nil {
@@ -859,7 +864,7 @@ func checkGitStatus(source string, result *doctorResult) {
 	}
 
 	// Check for remote
-	cmd = exec.Command("git", "remote")
+	cmd = gitenv.Command("remote")
 	cmd.Dir = source
 	output, err = cmd.Output()
 	if err == nil && len(strings.TrimSpace(string(output))) == 0 {

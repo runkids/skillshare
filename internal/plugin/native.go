@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"skillshare/internal/gitenv"
 )
 
 // ErrCLIMissing marks the one host failure fixed by installing something rather than
@@ -88,7 +90,8 @@ func runCommand(ctx context.Context, dir string, env []string, bin string, args 
 	cmd.WaitDelay = 2 * time.Second
 	cmd.Dir = dir
 	// No shell, inherited stdin, or automatic native trust/command confirmation.
-	cmd.Env = append(append(os.Environ(), "GIT_TERMINAL_PROMPT=0"), env...)
+	// Native CLIs run git too, so none of them inherits a hook's repository (#852).
+	cmd.Env = append(append(gitenv.Environ(), "GIT_TERMINAL_PROMPT=0"), env...)
 	if bin == "git" {
 		cmd.Env = append(cmd.Env, "LC_ALL=C")
 	}

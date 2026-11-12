@@ -106,11 +106,11 @@ func TestCheck_All_CombinedOutput(t *testing.T) {
 	})
 	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
 
-	// "check --all" should show both skills and agents
-	// Currently "check" defaults to skills-only, "check agents" is agents-only
-	// "check --all" should combine both
+	// "check" is skills-only and "check agents" is agents-only; "check --all"
+	// reports both.
 	result := sb.RunCLI("check", "--all")
 	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "tutor")
 }
 
 // --- multi-target agent config ---

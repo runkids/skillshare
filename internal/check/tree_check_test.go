@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"skillshare/internal/install"
 )
 
 func TestParseLsTreeOutput(t *testing.T) {
@@ -50,7 +52,7 @@ func TestFetchRemoteTreeHashes_Valid(t *testing.T) {
 	// Set up a bare remote repo with a subdir
 	remote := setupBareRepoWithSubdir(t, "skills/my-skill", "SKILL.md", "# Test Skill")
 
-	result := FetchRemoteTreeHashes("file://" + remote)
+	result := FetchRemoteTreeHashes("file://"+remote, install.ParseOptions{})
 	if result == nil {
 		t.Fatal("expected non-nil result")
 	}
@@ -70,7 +72,7 @@ func TestFetchRemoteTreeHashes_Valid(t *testing.T) {
 }
 
 func TestFetchRemoteTreeHashes_InvalidURL(t *testing.T) {
-	result := FetchRemoteTreeHashes("file:///nonexistent/repo")
+	result := FetchRemoteTreeHashes("file:///nonexistent/repo", install.ParseOptions{})
 	if result != nil {
 		t.Errorf("expected nil for invalid URL, got %v", result)
 	}
@@ -79,7 +81,7 @@ func TestFetchRemoteTreeHashes_InvalidURL(t *testing.T) {
 func TestFetchRemoteTreeHashes_SubdirNotFound(t *testing.T) {
 	remote := setupBareRepoWithSubdir(t, "skills/exists", "SKILL.md", "# Exists")
 
-	result := FetchRemoteTreeHashes("file://" + remote)
+	result := FetchRemoteTreeHashes("file://"+remote, install.ParseOptions{})
 	if result == nil {
 		t.Fatal("expected non-nil result")
 	}
@@ -107,7 +109,7 @@ func TestFetchRemoteTreeHashes_StableAfterUnrelatedChange(t *testing.T) {
 	gitRun(t, work, "commit", "-m", "add stable skill")
 	gitRun(t, work, "push", "origin", "HEAD")
 
-	hash1 := FetchRemoteTreeHashes("file://" + bare)
+	hash1 := FetchRemoteTreeHashes("file://"+bare, install.ParseOptions{})
 	if hash1 == nil {
 		t.Fatal("expected non-nil result for first fetch")
 	}
@@ -119,7 +121,7 @@ func TestFetchRemoteTreeHashes_StableAfterUnrelatedChange(t *testing.T) {
 	gitRun(t, work, "commit", "-m", "unrelated change")
 	gitRun(t, work, "push", "origin", "HEAD")
 
-	hash2 := FetchRemoteTreeHashes("file://" + bare)
+	hash2 := FetchRemoteTreeHashes("file://"+bare, install.ParseOptions{})
 	if hash2 == nil {
 		t.Fatal("expected non-nil result for second fetch")
 	}
@@ -155,7 +157,7 @@ func TestFetchRemoteTreeHashes_SymlinkBlanksContainingDirs(t *testing.T) {
 	gitRun(t, work, "commit", "-m", "add skills")
 	gitRun(t, work, "push", "origin", "HEAD")
 
-	result := FetchRemoteTreeHashes("file://" + bare)
+	result := FetchRemoteTreeHashes("file://"+bare, install.ParseOptions{})
 	if result == nil {
 		t.Fatal("expected non-nil result")
 	}
@@ -217,5 +219,23 @@ func gitRun(t *testing.T, dir string, args ...string) {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("git %v failed: %s\n%s", args, err, out)
+	}
+}
+
+// Git exports GIT_DIR to hooks; `git init --bare` honors it and would turn the
+// caller's repository bare (#852).
+func TestFetchRemoteTreeHashes_IgnoresCallerGitDir(t *testing.T) {
+	remote := setupBareRepoWithSubdir(t, "skills/my-skill", "SKILL.md", "# Test Skill")
+	host := filepath.Join(t.TempDir(), "host")
+	if out, err := exec.Command("git", "init", "-q", host).CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+
+	t.Setenv("GIT_DIR", filepath.Join(host, ".git"))
+	FetchRemoteTreeHashes("file://"+remote, install.ParseOptions{})
+
+	out, _ := exec.Command("git", "config", "--file", filepath.Join(host, ".git", "config"), "core.bare").Output()
+	if string(out) != "false\n" {
+		t.Errorf("caller repository core.bare = %q, want false", out)
 	}
 }

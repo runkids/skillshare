@@ -39,7 +39,9 @@ result=$(skillshare check --json)
 
 ## 終了ステータス
 
-確認した項目のいずれかが `error` の場合（リモートに接続できない、ローカルのソースが存在しないなど）、`check` はコード `1` で終了します。更新あり、Stale、ローカルの変更だけでは失敗になりません。`--json` 使用時も stdout にすべての結果を出力します。各項目の `status` と `message` を確認してください。
+確認した項目のいずれかが `error` の場合（リモートに接続できない、ローカルのソースが存在しないなど）、`check` はコード `1` で終了します。更新あり、Stale、ローカルの変更だけでは失敗になりません。`--json` 使用時も stdout にすべての結果を出力します。各項目の `status` と `message` を確認してください。指定した名前やグループに確認対象がひとつもない場合、`check` はコード `1` で終了し、`--json` では結果の代わりに `{"error": "..."}` を出力します。`--json` 使用時、一部の名前だけがスキップされた場合、その名前は結果の `warnings` 配列に含まれます。`--json` 使用時のその他の失敗（無効なフラグの組み合わせや設定ファイルがない場合など）も、同じ `error` オブジェクトで報告されます。
+
+`--exit-code` を指定すると、すべての項目を確認できた場合でも、最新でないものがあれば終了コード `1` で終了します。対象は、利用可能な更新、stale またはローカルで変更された Skill、遅れている・未コミットの変更がある・存在しない追跡リポジトリです。除外されるのは状態が `local`（比較対象なし）の項目だけです。ローカルパスからインストールした Skill のソースが変更された場合は利用可能な更新として数えます。`check agents` と `check --all` でも同様で、インストール後にファイルが変更された agent も対象です。`--json` と併用でき、`--diff` とは併用できません。
 
 ## 実行内容
 
@@ -125,11 +127,13 @@ skillshare check frontend               # グループとして自動検出
 
 | フラグ | 説明 |
 |------|-------------|
+| `--all` | Skill に加えて Agent も確認。名前や `--group` とは併用不可 |
 | `--group`, `-G` `<name>` | グループ内の更新可能な Skill をすべて確認（繰り返し指定可） |
 | `--project`, `-p` | Project レベルの Skill（`.skillshare/`）を確認 |
 | `--global`, `-g` | グローバルの Skill（`~/.config/skillshare`）を確認 |
 | `--json` | JSON として出力（スクリプト/CI 向け） |
 | `--diff` | 指定した Skill について、インストール後に変更された各ファイルを、インストール済みバージョンとの行 diff で表示します。名前または `--group` が必要で、`--json` とは併用できません |
+| `--exit-code` | 最新でない項目が 1 つでもあれば終了コード `1` で終了します（CI 向け）。`--diff` とは併用できません |
 | `--help`, `-h` | ヘルプを表示 |
 
 :::tip 自動検出
@@ -217,11 +221,14 @@ skillshare check -p --json             # Project 向けの JSON 出力
 skillshare check agents              # すべての Agent を確認
 skillshare check agents --json       # Agent 向けの JSON 出力
 skillshare check agents -p           # Project の Agent を確認
+skillshare check --all               # Skill と Agent をまとめて確認
 ```
 
 各 Agent はインストール元のブランチと比較されます。以前の `update agents` によって記録された source が失われた Agent は `error` を報告し、再インストールを求めます。[トラブルシューティング](/docs/troubleshooting/common-errors#agent-source-lost)を参照してください。
 
-`agents` 引数を指定しない場合、`check` は Skill のみを対象にします（デフォルトの挙動）。背景については [Agents](/docs/understand/agents) を参照してください。
+`agents` 引数も `--all` も指定しない場合、`check` は Skill のみを対象にします（デフォルトの挙動）。背景については [Agents](/docs/understand/agents) を参照してください。
+
+`--all` を指定すると、Skill と Agent を一度に確認します。テキスト出力は Skills と Agents のセクションに分かれ、`--json` では `tracked_repos` と `skills` に加えて `agents` 配列が出力され、`--exit-code` は両方を数えます。`--all` は名前や `--group` と併用できません。
 
 ## 関連項目
 

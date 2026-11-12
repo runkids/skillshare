@@ -185,6 +185,9 @@ func formatAuditLogPairs(args map[string]any) []logDetailPair {
 	if (hasCritical && critical > 0) || (hasHigh && high > 0) || (hasMedium && medium > 0) || (hasLow && low > 0) || (hasInfo && info > 0) {
 		pairs = append(pairs, logDetailPair{key: "severity(c/h/m/l/i)", value: fmt.Sprintf("%d/%d/%d/%d/%d", critical, high, medium, low, info)})
 	}
+	if accepted, ok := logArgInt(args, "accepted"); ok && accepted > 0 {
+		pairs = append(pairs, logDetailPair{key: "accepted", value: fmt.Sprintf("%d", accepted)})
+	}
 
 	riskScore, hasRiskScore := logArgInt(args, "risk_score")
 	riskLabel, hasRiskLabel := logArgString(args, "risk_label")
@@ -680,6 +683,9 @@ func formatAuditLogDetail(args map[string]any) string {
 	info, hasInfo := logArgInt(args, "info")
 	if (hasCritical && critical > 0) || (hasHigh && high > 0) || (hasMedium && medium > 0) || (hasLow && low > 0) || (hasInfo && info > 0) {
 		parts = append(parts, fmt.Sprintf("sev(c/h/m/l/i)=%d/%d/%d/%d/%d", critical, high, medium, low, info))
+	}
+	if accepted, ok := logArgInt(args, "accepted"); ok && accepted > 0 {
+		parts = append(parts, fmt.Sprintf("accepted=%d", accepted))
 	}
 
 	if riskScore, ok := logArgInt(args, "risk_score"); ok {

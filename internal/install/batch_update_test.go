@@ -12,6 +12,55 @@ import (
 	"skillshare/internal/testutil"
 )
 
+func TestUpdateSkillsFromRepo_ConfiguredHosts(t *testing.T) {
+	for _, tt := range []struct {
+		host, username, tokenVar string
+		opts                     ParseOptions
+	}{
+		{"cnb.corp.example", "cnb", "CNB_TOKEN", ParseOptions{CNBHosts: []string{"cnb.corp.example"}}},
+		{"gitea.corp.example", "x-access-token", "GITEA_TOKEN", ParseOptions{GiteaHosts: []string{"gitea.corp.example"}}},
+	} {
+		t.Run(tt.host, func(t *testing.T) {
+			base := t.TempDir()
+			repo := testutil.SetupBareRemoteRepo(t, base)
+			files := map[string]string{
+				"skills/a/SKILL.md": "---\nname: a\n---\n# Updated first skill\n",
+				"skills/b/SKILL.md": "---\nname: b\n---\n# Updated second skill\n",
+			}
+			testutil.SeedRemoteBranch(t, base, repo, "main", files)
+			t.Setenv(tt.tokenVar, "grouped-update-token")
+			testutil.ServePrivateGit(t, repo, tt.username, "grouped-update-token")
+			root := t.TempDir()
+			targets := make(map[string]string)
+			for _, name := range []string{"a", "b"} {
+				dest := filepath.Join(root, name)
+				if err := os.MkdirAll(dest, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(dest, "SKILL.md"), []byte("# Old skill\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				targets["skills/"+name] = dest
+			}
+			result, err := UpdateSkillsFromRepo("https://"+tt.host+"/org/repo.git", "main", targets, InstallOptions{
+				ParseOptions: tt.opts, SourceDir: root, Update: true, Force: true,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(result.Errors) != 0 {
+				t.Fatalf("grouped update failed: %v", result.Errors)
+			}
+			for subdir, dest := range targets {
+				body, err := os.ReadFile(filepath.Join(dest, "SKILL.md"))
+				if err != nil || string(body) != files[subdir+"/SKILL.md"] {
+					t.Fatalf("updated %s content = %q, error = %v", subdir, body, err)
+				}
+			}
+		})
+	}
+}
+
 func TestIsSkillCurrentAtRepoState_RootSkillCommitMatch(t *testing.T) {
 	repo := initTestRepo(t)
 	if err := os.WriteFile(filepath.Join(repo, "SKILL.md"), []byte("# Root"), 0644); err != nil {

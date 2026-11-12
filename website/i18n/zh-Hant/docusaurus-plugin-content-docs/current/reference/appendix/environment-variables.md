@@ -190,6 +190,8 @@ SKILLSHARE_UI_TRUSTED_ORIGINS=https://tools.example.com skillshare ui --host 0.0
 
 ### GITHUB_TOKEN
 
+平台權杖僅傳送至使用 HTTPS 預設連接埠（或 443）的 `github.com`、`gitlab.com`、`bitbucket.org`、`dev.azure.com`、`*.visualstudio.com`、`gitea.com` 和 `cnb.cool`。自架 Gitea/CNB 即使名稱包含平台名，也必須在 `gitea_hosts`/`cnb_hosts` 中設定完整相符的主機名稱。自架 GitHub/GitLab 等主機應使用依主機設定的 Git credential helper，或僅為目標呼叫設定 `SKILLSHARE_GIT_TOKEN`。此通用 fallback 可傳送給**任何 HTTPS 來源**；類似平台的名稱不會授權傳送平台權杖。
+
 GitHub 個人存取權杖（personal access token）。
 
 **用途：**
@@ -348,7 +350,7 @@ skillshare install https://gitea.com/org/skills.git --track
 $env:GITEA_TOKEN = "your_token"
 ```
 
-此 token 只會傳送給你安裝來源的主機。若自架的執行個體位於名稱中不含 `gitea` 的網域，需要設定 [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts)，否則會改用 `SKILLSHARE_GIT_TOKEN`。
+自架 Gitea 即使名稱包含 `gitea`，也必須在 [`gitea_hosts`](/docs/reference/targets/configuration#gitea_hosts) 中設定完整相符的主機名稱才能傳送 `GITEA_TOKEN`。平台認證僅支援 HTTPS 預設連接埠或 443。
 
 ### CNB_TOKEN
 

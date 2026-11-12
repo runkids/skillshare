@@ -129,6 +129,8 @@ $ skillshare install anthropics/skills
 
 Discovery 会扫描所有目录以查找 `SKILL.md` 文件，但会跳过 `.git` 以及 `.claude/`、`.agents/` 等目标目录，这些目录通常存放仓库中 Skill 的副本。其他隐藏目录（如 `.curated/` 或 `.system/`）会被扫描，其中的 Skill 也会被自动发现。如果仓库没有其他 Skill，则改为扫描根目录的 `.agents/skills/`。当发现多个 Skill 时，选择提示会把同一文件夹中的 Skill 排在一起，并显示每个 Skill 的描述和所在文件夹；列表较长时按 `/` 筛选。
 
+`.agents/skills/` 回退要求 `.agents` 和 `skills` 均为真实目录，即使启用 `follow_source_links: true` 也不接受符号链接或 junction。仍支持有意跟随的仓库根目录。发现的 agent 在安装和更新时会拒绝目标路径中间或末尾的链接，并在发布前审核；审核阻止操作时，现有 agent 内容保持不变。
+
 如果仓库根目录下存在 `.skillignore` 文件，匹配的 Skill 会被自动从 discovery 中排除。参见下方的 [.skillignore](#skillignore)。
 
 如果某个 Skill 的 `SKILL.md` 包含 `license:` frontmatter 字段，该 license 会显示在选择提示中（例如 `my-skill (MIT)`），以及单 Skill 安装的确认界面中。
@@ -267,6 +269,8 @@ skillshare install ./my-skill -p
 | `--track` | 支持 | 支持 |
 | Config update | 自动协调 `config.yaml` 中的 `skills:` | 自动协调 `.skillshare/config.yaml` 中的 `skills:` |
 | No-arg install | 安装配置中列出的所有 Skill | 安装配置中列出的所有 Skill |
+
+从另一个 source 或分支重新安装同一个 Skill 时（卸载之后，或用 `--force` 覆盖现有副本），它在 `.skillshare/config.yaml` 中的条目和 `skills.lock.json` 中的 pin 会被替换，队友因此会从新的 source 安装。其他条目不会被这台机器的安装记录改写。
 
 **Project mode 下的 tracked repo** 与 global 模式工作方式相同 —— 仓库会保留 `.git` 克隆下来，并添加到 `.skillshare/.gitignore` 中（该文件默认还会忽略 `.skillshare/logs/`、`.skillshare/trash/`、`.skillshare/backups/` 和 `.metadata.json` 文件）。`tracked: true` 标记会自动记录到 `.skillshare/config.yaml` 中：
 
@@ -541,11 +545,13 @@ skillshare install https://github.com/org/private-skills.git --track
 
 | Platform | Env Var | Token Type |
 |----------|---------|------------|
-| GitHub | `GITHUB_TOKEN` | Personal access token（`repo` scope） |
-| GitLab | `GITLAB_TOKEN` | Personal access 或 CI job token |
+| `github.com` | `GITHUB_TOKEN` | Personal access token（`repo` scope） |
+| `gitlab.com` | `GITLAB_TOKEN` | Personal access 或 CI job token |
 | Bitbucket | `BITBUCKET_TOKEN` | Repository token，或 app password（配合 `BITBUCKET_USERNAME`） |
 | Azure DevOps | `AZURE_DEVOPS_TOKEN` | Personal Access Token（Code: Read scope） |
 | Any host | `SKILLSHARE_GIT_TOKEN` | 通用兜底方案 |
+
+平台令牌仅发送到使用 HTTPS 默认端口（或 443）的 `github.com`、`gitlab.com`、`bitbucket.org`、`dev.azure.com`、`*.visualstudio.com`、`gitea.com` 和 `cnb.cool`。自建 Gitea/CNB 即使名称包含平台名，也必须在 `gitea_hosts`/`cnb_hosts` 中配置准确主机名。自建 GitHub/GitLab 等主机应使用按主机配置的 Git credential helper，或仅为目标调用设置 `SKILLSHARE_GIT_TOKEN`。此通用回退可发送给**任何 HTTPS 来源**；类似平台的名称不会授权发送平台令牌。
 
 平台专属变量的优先级高于 `SKILLSHARE_GIT_TOKEN`。
 

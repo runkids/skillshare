@@ -350,7 +350,8 @@ complete -c skillshare -n '__fish_skillshare_using_command update' -l help -s h 
 complete -c skillshare -n '__fish_skillshare_using_command check' -a agents -d 'Check agents'
 complete -c skillshare -n '__fish_skillshare_using_command check' -l json -d 'JSON output'
 complete -c skillshare -n '__fish_skillshare_using_command check' -l diff -d 'Show changes since install'
-complete -c skillshare -n '__fish_skillshare_using_command check' -l all -d 'Check all'
+complete -c skillshare -n '__fish_skillshare_using_command check' -l exit-code -d 'Exit 1 when anything is not up to date'
+complete -c skillshare -n '__fish_skillshare_using_command check' -l all -d 'Check skills and agents'
 complete -c skillshare -n '__fish_skillshare_using_command check' -l group -s G -r -d 'Check by group'
 complete -c skillshare -n '__fish_skillshare_using_command check' -l help -s h -d 'Show help'
 
@@ -385,6 +386,7 @@ complete -c skillshare -n '__fish_skillshare_using_command audit' -l format -r -
 complete -c skillshare -n '__fish_skillshare_using_command audit' -l quiet -s q -d 'Suppress output'
 complete -c skillshare -n '__fish_skillshare_using_command audit' -l yes -s y -d 'Skip confirmation'
 complete -c skillshare -n '__fish_skillshare_using_command audit' -l no-tui -d 'Skip interactive TUI'
+complete -c skillshare -n '__fish_skillshare_using_command audit' -l respect-accepted -d 'Do not fail on findings accepted earlier'
 complete -c skillshare -n '__fish_skillshare_using_command audit' -l threshold -s T -r -a 'low medium high critical' -d 'Block threshold'
 complete -c skillshare -n '__fish_skillshare_using_command audit' -l min-severity -r -a 'critical high medium low info' -d 'Display minimum severity'
 complete -c skillshare -n '__fish_skillshare_using_command audit' -l group -s G -r -d 'Filter by group'

@@ -3,11 +3,11 @@ package install
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"skillshare/internal/audit"
+	"skillshare/internal/gitenv"
 )
 
 func handleUpdate(source *Source, destPath string, result *InstallResult, opts InstallOptions) (*InstallResult, error) {
@@ -61,7 +61,7 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 		if _, followed := opts.SourceFollow.Resolve(destPath); opts.Reinstall && !followed {
 			pull = gitForcePull
 		}
-		if err := pull(destPath, opts.OnProgress); err != nil {
+		if err := pull(destPath, source.authEnv(), opts.OnProgress); err != nil {
 			return nil, fmt.Errorf("failed to update: %w", err)
 		}
 
@@ -305,6 +305,6 @@ func checkoutOnBranch(repoPath, branch string) bool {
 	if branch == "" || IsCommitSHA(branch) {
 		return true
 	}
-	out, err := exec.Command("git", "-C", repoPath, "rev-parse", "--abbrev-ref", "HEAD").Output()
+	out, err := gitenv.Command("-C", repoPath, "rev-parse", "--abbrev-ref", "HEAD").Output()
 	return err == nil && strings.TrimSpace(string(out)) == branch
 }

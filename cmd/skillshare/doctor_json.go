@@ -1,7 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 
 	"skillshare/internal/config"
 
@@ -45,6 +48,23 @@ type doctorVersion struct {
 	Latest          string `json:"latest,omitempty"`
 	UpdateAvailable bool   `json:"update_available"`
 	DevMode         bool   `json:"dev_mode,omitempty"`
+}
+
+// doctorStreamEnv makes doctor --json also print each check as one
+// {"check": ...} line the moment it is found, before the full result. The
+// dashboard sets it to show checks while slower ones still run.
+const doctorStreamEnv = "_SKILLSHARE_DOCTOR_STREAM"
+
+func doctorCheckStream(out io.Writer) func(doctorCheck) {
+	if os.Getenv(doctorStreamEnv) != "1" {
+		return nil
+	}
+	enc := json.NewEncoder(out)
+	return func(check doctorCheck) {
+		_ = enc.Encode(struct {
+			Check doctorCheck `json:"check"`
+		}{check})
+	}
 }
 
 // buildDoctorOutput assembles the final JSON from collected checks.

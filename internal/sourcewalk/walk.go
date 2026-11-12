@@ -38,17 +38,25 @@ var errSkillFound = errors.New("skill found")
 // only when no SKILL.md exists elsewhere in the repository outside .git and
 // the target dot dirs in dotDirs. Ignore rules are not applied: a repository
 // whose authored skills are all ignored must not fall back to its copies.
+// The repository root may be linked, but both fallback components must be real
+// directories so the fallback cannot follow a nested link out of the repository.
 func AgentsSkillsDir(repoRoot string, dotDirs map[string]bool) (string, bool) {
 	if !dotDirs[".agents"] {
 		return "", false
 	}
-	dir := filepath.Join(repoRoot, ".agents", "skills")
-	if info, err := os.Lstat(dir); err != nil || !info.IsDir() {
-		return "", false
+	// Resolve only the intentionally allowed repository root, then inspect each
+	// fallback component without following links.
+	root := utils.ResolveSymlink(repoRoot)
+	dir := root
+	for _, component := range [...]string{".agents", "skills"} {
+		dir = filepath.Join(dir, component)
+		info, err := os.Lstat(dir)
+		if err != nil || !info.IsDir() || utils.IsLinkMode(dir, info.Mode()) {
+			return "", false
+		}
 	}
 	// Scan the resolved root: filepath.Walk does not descend into a root that
 	// is a link, which would hide the authored skills of a linked repository.
-	root := utils.ResolveSymlink(repoRoot)
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
@@ -64,7 +72,7 @@ func AgentsSkillsDir(repoRoot string, dotDirs map[string]bool) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	return dir, true
+	return filepath.Join(repoRoot, ".agents", "skills"), true
 }
 
 // Options is the operation's traversal policy. The zero value follows no links.

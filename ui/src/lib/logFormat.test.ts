@@ -19,4 +19,9 @@ describe('formatLogDetail', () => {
     expect(formatLogDetail(entry('sync', { action: 'sync', root: '~/work/app', targets_total: 2, scope: 'cli' })))
       .toBe('root=~/work/app, targets=2, scope=cli');
   });
+
+  it('counts findings accepted earlier with --force apart from the severities', () => {
+    expect(formatLogDetail(entry('audit', { scope: 'all', scanned: 2, passed: 2, critical: 0, accepted: 3 })))
+      .toBe('all-skills, scanned=2, passed=2, 3 accepted');
+  });
 });

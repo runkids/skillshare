@@ -22,7 +22,7 @@
   ],
   "packages": {
     ".": {
-      "extra-files": ["herdr/skillshare/mods/skillshare/version.js"]
+      "extra-files": ["herdr/skillshare/mods/skillshare/version.js", "herdr/skillshare-mod/mods/skillshare/version.js"]
     }
   }
 }

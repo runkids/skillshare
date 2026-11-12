@@ -6,6 +6,20 @@ skillshare beside your agents. Herdr's default window gains a skillshare button 
 
 skillshare keeps one source of skills, agents, MCP servers, plugins and hooks and syncs it to Claude Code, Codex, Gemini CLI and the other AI coding tools you use. New to it? Start with the [main README](../../README.md); this folder's [README](README.md) covers installing the panel.
 
+## Installation and updates
+
+This folder is the optional **complete Layout**, not an update payload. To add the panel to
+an existing window, use the standalone [Mod package](../skillshare-mod/RECIPE.md) instead.
+Keep the user's original layout intact; install this layout separately, under a new name if
+`herdr-skillshare` already exists. If this panel is already installed, update its mod rather
+than adding another copy.
+
+For an update requested by an agent, back up and replace only `mods/skillshare/`. Preserve
+all layouts, custom status bars and CLI usage meters, settings, keys, unrelated mods and the
+selected layout. If a new panel version needs a layout change, merge only its skillshare
+nodes into the existing tree. Reuse existing skillshare nodes; a panel update does not
+replace or switch layouts.
+
 ## What you see
 
 Left to right, everything as in Herdr's `main` layout, plus two blocks:
@@ -25,10 +39,10 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
     - a filter field, a Sync button (primary while something waits) and a 30px install button;
     - the list, the only part that scrolls: rows whose sync state is unknown, then "NEED A LOOK · n" (hook notices), "NEEDS SYNC · n" in `blocked`, "UPDATE AVAILABLE · n" in `accent` with Update all when there are several, "IN SYNC · n", and "OFF · n" for disabled rows. For skills and agents "IN SYNC" has a List · By source switch, By source by default and kept in `shared`: rows sharing a repository (a tracked repo, or host/owner/repo of the source URL, with github.com left out) or the local source fold under a collapsed row with a chevron, a `git` or `folder` icon, the source and a count. A source with one row stays a plain row, and a filter opens every group.
     - Each row is 46px: a dot (filled `accent`, `blocked` or `ansi2`; hollow `ansi1` when never synced or `muted` when disabled), the name, one short state, and a chevron. A row with an update also has Update. Clicking a row opens its preview; rows do not open in place.
-  - Machines: one card per Herdr machine. Its header has a status dot, the name, "this computer" and the version (a pill when a newer skillshare exists). Two lines follow in the map's grammar, Remote to Source and Source to its targets, each with its state at the right, and the targets that wait by name, three at most. The footer has Pull and sync, or Sync both ways when that machine has uncommitted or unpushed work and an upstream (a plain pull would refuse), "Update to …" when a newer skillshare exists, and the doctor's errors or warnings. While the first check runs, two card-shaped placeholders pulse.
+  - Machines: one card per Herdr machine. Its header has a status dot, the name, "this computer" and the version (a pill when a newer skillshare exists). Two lines follow in the map's grammar, Remote to Source and Source to its targets, each with its state at the right, and the targets that wait by name, three at most. The footer has Pull and sync, or Sync both ways when that machine has uncommitted or unpushed work and an upstream (a plain pull would refuse), "Update to …" when a newer skillshare exists, and the doctor's errors or warnings. Updating skillshare puts the spinner on "Updating…" in the version button; pulling/syncing puts it on the sync button. Other actions are disabled without a spinner while the machine is busy. While the first check runs, two card-shaped placeholders pulse.
   - a 34px status line while work runs (work, installs included, runs one at a time per machine; machines run side by side), with a spinning ring in `working`, or a notice: a done notice clears after 4 s and a warning or error after 8 s, and a stopped pull keeps a "Review conflicts" bar;
   - a 40px footer: the source state, such as "Source · n uncommitted · ↑n ↓n", "up to date" or "no remote" (`blocked` when it needs attention), and Sync both ways when the repository has an upstream.
-- Loading draws the content's own shape: the map with empty counts and four lines, list rows, machine cards. Each pulses once every 1.2 s.
+- Initial loading draws the content's own shape: the map with empty counts and four lines, list rows, machine cards. Each pulses once every 1.2 s. Resource reads run independently per scope and appear as each finishes; Source reads independently too. Refreshes keep existing rows visible; previously actionable Overview rows move to a neutral "SYNC STATUS UNCONFIRMED" section until their reads succeed. Pending or failed inventory counts show `…`, not zero; target lines and cached rows remain unconfirmed while their reads are pending or failed, and Overview does not claim everything is in sync. Library names the reads still running. Errors stay visible beside available data and retry on the next refresh.
 - Motion is Herdr's native kind: the status line's height slides (180 ms) so the list does not jump, a waiting line breathes and a syncing one flows, a dialog fades in and rises 8px (200 ms) and fades out (150 ms) before it closes, and buttons and rows show a pressed state.
 - Dialogs open as Herdr overlays with `frame: "none"`, so each draws its own card: a 56px header (title, one line under it, an Esc keycap and a close button), the body, and a 54px footer with quiet actions at the left and one primary button at the right. They are: preview, install, hook change, enable or disable, uninstall, audit hand-off, source repository, sync both ways, pull conflicts, update skillshare, update the panel, command output.
   - Preview (760×560) has one tab per question, so no pane shares its width:
@@ -114,7 +128,7 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
 - The dialog's role is `panelupdate`: `panel` is the role a block without one gets, so a dialog with it would draw a second panel.
 - `enable` and `disable` exit 0 once the entry's own line in `.skillignore` or `.agentignore` is written or was not there. A glob, a folder pattern or a negation in the `.local` file can still decide the other way, so the panel reads `list --all --json` afterwards and reports an entry that did not change.
 - The dialog role for enabling or disabling a skill or agent is `able`, not `toggle`: `toggle` is the tab-bar button's role.
-- A layout clone is never updated: rebuild from this recipe on a new Herdr version.
+- Herdr does not update layout clones. On a new Herdr version, preserve the user's clone and merge only necessary compatibility changes; rebuilding this entire example is an explicit choice, not part of a panel update.
 
 ## Done when
 

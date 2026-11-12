@@ -88,7 +88,7 @@ skillshare sync
 
 **npx lock 자동 가져오기나 자동 관리권 이전 기능은 없습니다.** Collect는 로컬 skill 파일을 보존하지만 원본 추적 정보는 가져오지 않습니다. 저장소에서 다시 설치하면 Skillshare 추적 정보가 생기지만 기존 설치와 다른 콘텐츠를 받을 수 있습니다.
 
-아래 경로와 lock 필드는 **skills v1.7.6** 기준입니다: [전역 lock 소스](https://github.com/vercel-labs/skills/blob/7a5e920bead4b1039a6d6df5d7e1163b7b09423a/src/skill-lock.ts), [프로젝트 lock 소스](https://github.com/vercel-labs/skills/blob/7a5e920bead4b1039a6d6df5d7e1163b7b09423a/src/local-lock.ts), [CLI 문서](https://github.com/vercel-labs/skills/blob/7a5e920bead4b1039a6d6df5d7e1163b7b09423a/docs/commands.md).
+아래 경로와 lock 필드는 **skills v1.8.1** 기준입니다: [전역 lock 소스](https://github.com/vercel-labs/skills/blob/e781cb4d07433dfe1d19e924ed45cc61738c55ec/src/skill-lock.ts), [프로젝트 lock 소스](https://github.com/vercel-labs/skills/blob/e781cb4d07433dfe1d19e924ed45cc61738c55ec/src/local-lock.ts), [CLI 문서](https://github.com/vercel-labs/skills/blob/e781cb4d07433dfe1d19e924ed45cc61738c55ec/docs/commands.md).
 
 | 항목 | Global | Project |
 |------|--------|---------|

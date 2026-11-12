@@ -6,6 +6,8 @@ sidebar_position: 1
 
 啟動用於視覺化 skill 管理的 Web dashboard。
 
+遠端搜尋（`GET /api/search`）和安裝預覽（`GET /api/preview`）使用與修改操作相同的來源檢查，在擷取前拒絕跨站瀏覽器要求。仍支援不帶瀏覽器 origin/fetch 標頭的直接用戶端。GitHub API 憑證僅用於 HTTPS `api.github.com` 和 `raw.githubusercontent.com` 的預設連接埠或 443；跨來源重新導向會移除認證資訊。
+
 ```bash
 skillshare ui                  # 在前景執行
 skillshare ui start            # 啟動（或重用）背景伺服器
@@ -172,7 +174,7 @@ Web dashboard 在 `/api/` 上提供 REST API。所有端點皆回傳 JSON。
 | GET | `/api/diff` | Source 與 targets 之間的差異 |
 | GET | `/api/search?q=` | 在 GitHub 上搜尋 skills |
 | POST | `/api/install` | 從來源安裝一個 skill |
-| GET | `/api/audit` | 掃描所有 skills 是否存在安全威脅；跟進的 source 連結無法讀取時，會像 `audit --format json` 一樣加上 `warnings` 與 `incomplete: true` |
+| GET | `/api/audit` | 掃描所有 skills 是否存在安全威脅；跟進的 source 連結無法讀取時，會像 `audit --format json` 一樣加上 `warnings` 與 `incomplete: true`。先前已用 `--force` 接受的發現帶有 `acknowledged: true`，計入 `summary.accepted` 而非原本的嚴重程度 |
 | GET | `/api/audit/rules` | 取得自訂稽核規則 YAML |
 | PUT | `/api/audit/rules` | 儲存自訂稽核規則（驗證正規表示式） |
 | POST | `/api/audit/rules` | 建立起始 audit-rules.yaml |
@@ -186,6 +188,7 @@ Web dashboard 在 `/api/` 上提供 REST API。所有端點皆回傳 JSON。
 | GET | `/api/skillignore` | 取得 `.skillignore` 內容、存在時的 `.skillignore.local` 內容，以及忽略統計 |
 | PUT | `/api/skillignore` | 更新 `.skillignore` 內容 |
 | GET | `/api/doctor` | 執行所有健康檢查（JSON） |
+| GET | `/api/doctor/stream` | 以 Server-Sent Events 執行所有健康檢查：每完成一項送出一個 `check` 事件，最後以 `done` 送出與 `/api/doctor` 相同的 JSON |
 | GET | `/api/health` | 存活探測；伺服器就緒後回傳 `200` |
 | GET | `/api/version` | 目前/最新版本 + 是否有可用升級 + Nix 安裝時更新 CLI 的指令（`nixUpgradeCommand`） |
 | POST | `/api/upgrade` | 就地執行 `skillshare upgrade`（若執行檔為開發版本則回傳 `devMode: true`；透過 Nix 安裝且有較新的 CLI 待安裝時回傳 `409`，錯誤碼為 `upgrade.nix`） |

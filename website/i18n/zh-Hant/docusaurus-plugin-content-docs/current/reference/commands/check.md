@@ -39,7 +39,9 @@ result=$(skillshare check --json)
 
 ## 結束狀態
 
-只要任一受檢項目的狀態為 `error`（例如無法連線遠端或本機來源不存在），`check` 就會以代碼 `1` 結束。僅有可用更新、過期項目或本機修改不會造成失敗。使用 `--json` 時，stdout 仍會包含完整結果；請查看各項目的 `status` 與 `message`。
+只要任一受檢項目的狀態為 `error`（例如無法連線遠端或本機來源不存在），`check` 就會以代碼 `1` 結束。僅有可用更新、過期項目或本機修改不會造成失敗。使用 `--json` 時，stdout 仍會包含完整結果；請查看各項目的 `status` 與 `message`。指定的名稱或群組沒有任何可檢查的對象時，`check` 以代碼 `1` 結束；使用 `--json` 時輸出 `{"error": "..."}` 而不是結果。使用 `--json` 且只有部分名稱被略過時，這些名稱會列在結果的 `warnings` 陣列中。使用 `--json` 時的其他失敗（例如無效的旗標組合或缺少設定檔）也以同樣的 `error` 物件回報。
+
+傳入 `--exit-code` 後，即使所有項目都能完成檢查，只要有項目不是最新，也會以結束代碼 `1` 結束：有可用更新、stale 或本地被修改的 skill，或者落後、有未提交變更、遺失的追蹤儲存庫。只有狀態為 `local`（沒有可比較的對象）的項目不計入；從本地路徑安裝的 skill 若來源已變更，屬於可用更新，會計入。`check agents` 與 `check --all` 同樣適用，安裝後檔案被修改的 agent 也計入。可與 `--json` 一起使用，不能與 `--diff` 同時使用。
 
 ## 執行內容
 
@@ -125,11 +127,13 @@ skillshare check frontend               # 自動偵測為群組
 
 | Flag | 說明 |
 |------|-------------|
+| `--all` | 同時檢查 skills 與 agents。不能與名稱或 `--group` 同時使用 |
 | `--group`, `-G` `<name>` | 檢查群組中所有可更新的 skills（可重複指定） |
 | `--project`, `-p` | 檢查 project 層級的 skills（`.skillshare/`） |
 | `--global`, `-g` | 檢查 global skills（`~/.config/skillshare`） |
 | `--json` | 以 JSON 輸出（供 scripting/CI 使用） |
 | `--diff` | 針對指定的 skills，以行 diff 的形式顯示自安裝以來每個被修改的檔案（與已安裝版本比較）。需要指定名稱或 `--group`；不能與 `--json` 同時使用 |
+| `--exit-code` | 只要有任何項目不是最新，就以結束代碼 `1` 結束（供 CI 使用）。不能與 `--diff` 同時使用 |
 | `--help`, `-h` | 顯示說明 |
 
 :::tip 自動偵測
@@ -217,11 +221,14 @@ skillshare check -p --json             # project 的 JSON 輸出
 skillshare check agents              # 檢查所有 agents
 skillshare check agents --json       # agents 的 JSON 輸出
 skillshare check agents -p           # 檢查 project agents
+skillshare check --all               # 同時檢查 skills 與 agents
 ```
 
 每個 agent 都會與安裝時的分支比對。記錄的 source 被先前的 `update agents` 弄丟的 agent 會回報 `error` 並提示重新安裝，請參閱[疑難排解](/docs/troubleshooting/common-errors#agent-source-lost)。
 
-若不加 `agents` 參數，`check` 僅針對 skills 運作（預設行為）。詳見 [Agents](/docs/understand/agents) 了解背景概念。
+若不加 `agents` 參數或 `--all`，`check` 僅針對 skills 運作（預設行為）。詳見 [Agents](/docs/understand/agents) 了解背景概念。
+
+傳入 `--all` 可一次檢查 skills 與 agents。文字輸出分為 Skills 與 Agents 兩個區塊，`--json` 會在 `tracked_repos` 與 `skills` 之外加上 `agents` 陣列，`--exit-code` 兩者都計入。`--all` 不能與名稱或 `--group` 同時使用。
 
 ## 另請參閱
 

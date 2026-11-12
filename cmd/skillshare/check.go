@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -41,6 +41,10 @@ type checkSkillResult struct {
 type checkOutput struct {
 	TrackedRepos []checkRepoResult  `json:"tracked_repos"`
 	Skills       []checkSkillResult `json:"skills"`
+	// Agents is set only by --all, so check --json keeps its shape.
+	Agents *[]check.AgentCheckResult `json:"agents,omitempty"`
+	// Warnings names the requested names and groups that were skipped.
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 // checkOptions holds parsed arguments for check command
@@ -50,7 +54,13 @@ type checkOptions struct {
 	json   bool
 	diff   bool // --diff: show each skill's changes since install
 
-	parseOpts install.ParseOptions // how --diff parses recorded sources
+	// exitCode (--exit-code) makes a check that found anything not up to date
+	// exit 1, so CI can gate on it without parsing --json.
+	exitCode bool
+	// allKinds (--all) checks agents as well as skills.
+	allKinds bool
+
+	parseOpts install.ParseOptions // source parsing and remote credential authorization
 }
 
 // collectCheckItems reads metadata and partitions items for parallel checking.
@@ -58,12 +68,13 @@ type checkOptions struct {
 // without a remote are already resolved (no network needed).
 // projectRoot is the base of relative local sources; "" in global mode.
 // follow resolves linked skill directories before they are hashed.
-func collectCheckItems(sourceDir, projectRoot string, repos []string, skills []string, follow *sourcewalk.Follow) ([]check.RepoCheckInput, *check.Resolution) {
+func collectCheckItems(sourceDir, projectRoot string, repos []string, skills []string, follow *sourcewalk.Follow, parseOpts install.ParseOptions) ([]check.RepoCheckInput, *check.Resolution) {
 	var repoInputs []check.RepoCheckInput
 	for _, repo := range repos {
 		repoInputs = append(repoInputs, check.RepoCheckInput{
-			Name:     repo,
-			RepoPath: filepath.Join(sourceDir, repo),
+			Name:         repo,
+			RepoPath:     filepath.Join(sourceDir, repo),
+			ParseOptions: parseOpts,
 		})
 	}
 
@@ -80,10 +91,11 @@ func collectCheckItems(sourceDir, projectRoot string, repos []string, skills []s
 
 // resolveCheckSkills asks the remotes of a planned skill check in parallel,
 // reporting the skill count of each finished remote to progressBar (may be nil).
-func resolveCheckSkills(plan *check.Resolution, progressBar *ui.ProgressBar) []checkSkillResult {
+func resolveCheckSkills(plan *check.Resolution, progressBar *ui.ProgressBar, parseOpts install.ParseOptions) []checkSkillResult {
 	// Without a context the check runs to completion, so the error is always nil.
 	resolved, _ := plan.Run(context.Background(), check.Options{
-		Parallel: true,
+		ParseOptions: parseOpts,
+		Parallel:     true,
 		OnRemoteDone: func(skills int) {
 			if progressBar != nil {
 				progressBar.Add(skills)
@@ -116,6 +128,8 @@ func parseCheckArgs(args []string) (*checkOptions, bool, error) {
 			opts.json = true
 		case arg == "--diff":
 			opts.diff = true
+		case arg == "--exit-code":
+			opts.exitCode = true
 		case arg == "--group" || arg == "-G":
 			i++
 			if i >= len(args) {
@@ -132,6 +146,9 @@ func parseCheckArgs(args []string) (*checkOptions, bool, error) {
 	}
 	if opts.diff && opts.json {
 		return nil, false, fmt.Errorf("--diff cannot be combined with --json")
+	}
+	if opts.diff && opts.exitCode {
+		return nil, false, fmt.Errorf("--exit-code cannot be combined with --diff")
 	}
 	if opts.diff && len(opts.names) == 0 && len(opts.groups) == 0 {
 		return nil, false, fmt.Errorf("--diff needs a skill name or --group")
@@ -161,6 +178,17 @@ func splitURLBranch(key string) (url, branch string) {
 }
 
 func cmdCheck(args []string) error {
+	err := runCheckCommand(args)
+	// With --json every failure is a JSON object on stdout, including the
+	// ones found before any check ran (bad flags, missing config).
+	var silent *jsonSilentError
+	if err != nil && isStructuredOutput(args) && !errors.As(err, &silent) {
+		return writeJSONError(err)
+	}
+	return err
+}
+
+func runCheckCommand(args []string) error {
 	start := time.Now()
 
 	mode, rest, err := parseModeArgs(args, "--group", "-G")
@@ -197,6 +225,10 @@ func cmdCheck(args []string) error {
 	if opts.diff && kind == kindAgents {
 		return fmt.Errorf("--diff compares skills only")
 	}
+	opts.allKinds = kind == kindAll
+	if opts.allKinds && (len(opts.names) > 0 || len(opts.groups) > 0) {
+		return fmt.Errorf("--all cannot be combined with names or --group; it checks every skill and agent")
+	}
 
 	cfgPath := config.ConfigPath()
 	if mode == modeProject {
@@ -208,7 +240,7 @@ func cmdCheck(args []string) error {
 				logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, err)
 				return err
 			}
-			cmdErr := renderAgentCheck(projectCfg.EffectiveAgentsSource(cwd), opts.groups, opts.json)
+			cmdErr := renderAgentCheck(projectCfg.EffectiveAgentsSource(cwd), opts.groups, opts.json, opts.exitCode, parseOptsFromProjectConfig(projectCfg))
 			logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, cmdErr)
 			return cmdErr
 		}
@@ -225,26 +257,35 @@ func cmdCheck(args []string) error {
 	// Agent-only check: scan agents source directory and skip repo checks.
 	if kind == kindAgents {
 		agentsDir := cfg.EffectiveAgentsSource()
-		cmdErr := renderAgentCheck(agentsDir, opts.groups, opts.json)
+		cmdErr := renderAgentCheck(agentsDir, opts.groups, opts.json, opts.exitCode, parseOptsFromConfig(cfg))
 		logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, cmdErr)
 		return cmdErr
 	}
 
+	opts.parseOpts = parseOptsFromConfig(cfg)
+
 	// No names and no groups → check all (existing behavior)
 	if len(opts.names) == 0 && len(opts.groups) == 0 {
-		cmdErr := runCheck(cfg.EffectiveSkillsSource(), "", opts.json, targetNamesFromConfig(cfg.Targets), cfg.SkillsWalk())
+		agentsDir := ""
+		if opts.allKinds {
+			agentsDir = cfg.EffectiveAgentsSource()
+		}
+		cmdErr := runCheck(cfg.EffectiveSkillsSource(), agentsDir, "", opts, targetNamesFromConfig(cfg.Targets), cfg.SkillsWalk())
 		logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, cmdErr)
 		return cmdErr
 	}
 
 	// Filtered check: resolve targets then check only those
-	opts.parseOpts = parseOptsFromConfig(cfg)
 	cmdErr := runCheckFiltered(cfg.EffectiveSkillsSource(), "", opts, cfg.SkillsWalk())
 	logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, cmdErr)
 	return cmdErr
 }
 
 func logCheckOp(cfgPath string, repos, skills, updatesAvailable, errors int, scope string, start time.Time, cmdErr error) {
+	// --exit-code reporting outdated items is a finding, not a failed check.
+	if isCheckOutdated(cmdErr) {
+		cmdErr = nil
+	}
 	e := oplog.NewEntry("check", statusFromErr(cmdErr), time.Since(start))
 	e.Args = map[string]any{
 		"repos_checked":     repos,
@@ -259,8 +300,14 @@ func logCheckOp(cfgPath string, repos, skills, updatesAvailable, errors int, sco
 	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
 
-func runCheck(sourceDir, projectRoot string, jsonOutput bool, extraTargetNames []string, walk sourcewalk.Options) error {
+// runCheck checks every tracked repo and updatable skill in sourceDir, and
+// every agent in agentsDir when it is set (--all).
+func runCheck(sourceDir, agentsDir, projectRoot string, opts *checkOptions, extraTargetNames []string, walk sourcewalk.Options) error {
 	start := time.Now()
+	jsonOutput, parseOpts := opts.json, opts.parseOpts
+	if agentsDir != "" && !jsonOutput {
+		ui.Section("Skills")
+	}
 
 	var scanSpinner *ui.Spinner
 	if !jsonOutput {
@@ -285,21 +332,15 @@ func runCheck(sourceDir, projectRoot string, jsonOutput bool, extraTargetNames [
 		if scanSpinner != nil {
 			scanSpinner.Stop()
 		}
-		if jsonOutput {
-			out, _ := json.MarshalIndent(checkOutput{
-				TrackedRepos: []checkRepoResult{},
-				Skills:       []checkSkillResult{},
-			}, "", "  ")
-			fmt.Println(string(out))
-			return nil
+		if !jsonOutput {
+			ui.Done(ui.MarkNone, "No tracked repositories or updatable skills found", 0)
+			ui.Next("skillshare install <repo> --track", "add a tracked repository")
 		}
-		ui.Done(ui.MarkNone, "No tracked repositories or updatable skills found", 0)
-		ui.Next("skillshare install <repo> --track", "add a tracked repository")
-		return nil
+		return finishCheck(nil, nil, agentsDir, opts)
 	}
 
 	// Collect & group
-	repoInputs, plan := collectCheckItems(sourceDir, projectRoot, repos, skills, walk.Follow)
+	repoInputs, plan := collectCheckItems(sourceDir, projectRoot, repos, skills, walk.Follow, parseOpts)
 
 	if scanSpinner != nil {
 		scanSpinner.Stop()
@@ -321,7 +362,7 @@ func runCheck(sourceDir, projectRoot string, jsonOutput bool, extraTargetNames [
 	}
 
 	repoOutputs := check.ParallelCheckRepos(repoInputs, repoOnDone)
-	skillResults := resolveCheckSkills(plan, progressBar)
+	skillResults := resolveCheckSkills(plan, progressBar, parseOpts)
 
 	if progressBar != nil {
 		progressBar.Stop()
@@ -337,27 +378,53 @@ func runCheck(sourceDir, projectRoot string, jsonOutput bool, extraTargetNames [
 		})
 	}
 
-	// JSON output
-	if jsonOutput {
-		output := checkOutput{
-			TrackedRepos: repoResults,
-			Skills:       skillResults,
-		}
-		if output.TrackedRepos == nil {
-			output.TrackedRepos = []checkRepoResult{}
-		}
-		if output.Skills == nil {
-			output.Skills = []checkSkillResult{}
-		}
-		return writeJSONResult(output, checkResultsError(repoResults, skillResults))
+	if !jsonOutput {
+		// Display results + summary, with unknown target names in skill-level
+		// targets fields among the warnings
+		warnings := unknownSkillTargetWarnings(sourceDir, extraTargetNames, walk)
+		renderCheckResults(repoResults, skillResults, false, warnings, start)
+	}
+	return finishCheck(repoResults, skillResults, agentsDir, opts)
+}
+
+// finishCheck closes a whole-source check: it checks the agents when agentsDir
+// is set (--all), writes the JSON result, and decides the exit status from
+// everything that was checked.
+func finishCheck(repos []checkRepoResult, skills []checkSkillResult, agentsDir string, opts *checkOptions) error {
+	tally := tallyCheck(repos, skills)
+	output := checkOutput{TrackedRepos: repos, Skills: skills}
+	if output.TrackedRepos == nil {
+		output.TrackedRepos = []checkRepoResult{}
+	}
+	if output.Skills == nil {
+		output.Skills = []checkSkillResult{}
 	}
 
-	// Display results + summary, with unknown target names in skill-level
-	// targets fields among the warnings
-	warnings := unknownSkillTargetWarnings(sourceDir, extraTargetNames, walk)
-	renderCheckResults(repoResults, skillResults, false, warnings, start)
+	if agentsDir != "" {
+		if !opts.json {
+			ui.Section("Agents")
+		}
+		agents, err := collectAgentCheck(agentsDir, nil, opts.json, opts.parseOpts)
+		if err != nil {
+			return err
+		}
+		for _, a := range agents {
+			tally.add(a.Status)
+		}
+		if opts.json {
+			if agents == nil {
+				agents = []check.AgentCheckResult{}
+			}
+			output.Agents = &agents
+		} else {
+			renderAgentResults(agents)
+		}
+	}
 
-	return checkResultsError(repoResults, skillResults)
+	if opts.json {
+		return writeJSONResult(output, tally.err(opts.exitCode))
+	}
+	return tally.err(opts.exitCode)
 }
 
 // renderCheckResults lists the repos and skills that need attention, then
@@ -535,7 +602,9 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, walks .
 				resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: no updatable skills in group", name))
 				continue
 			}
-			ui.Note(fmt.Sprintf("'%s' is a group — expanding to %s", name, plural(len(groupMatches), "updatable skill")))
+			if !opts.json {
+				ui.Note(fmt.Sprintf("'%s' is a group — expanding to %s", name, plural(len(groupMatches), "updatable skill")))
+			}
 			for _, m := range groupMatches {
 				if !seen[m.name] {
 					seen[m.name] = true
@@ -578,23 +647,27 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, walks .
 		resolveSpinner.Stop()
 	}
 
-	for _, w := range resolveWarnings {
-		ui.Warning("%s", w)
+	// With --json stdout carries the result only: skipped names go in its
+	// warnings field, or in the error when nothing is left to check.
+	if !opts.json {
+		for _, w := range resolveWarnings {
+			ui.Warning("%s", w)
+		}
 	}
 
 	if len(targets) == 0 {
-		if opts.json {
-			out, _ := json.MarshalIndent(checkOutput{
-				TrackedRepos: []checkRepoResult{},
-				Skills:       []checkSkillResult{},
-			}, "", "  ")
-			fmt.Println(string(out))
-			return nil
-		}
+		err := fmt.Errorf("no skills found")
 		if len(resolveWarnings) > 0 {
-			return fmt.Errorf("no valid skills to check")
+			err = fmt.Errorf("no valid skills to check")
 		}
-		return fmt.Errorf("no skills found")
+		if opts.json {
+			// An empty result would read as "all clear".
+			if len(resolveWarnings) > 0 {
+				err = fmt.Errorf("%w: %s", err, strings.Join(resolveWarnings, "; "))
+			}
+			return writeJSONError(err)
+		}
+		return err
 	}
 
 	var follow *sourcewalk.Follow
@@ -616,7 +689,7 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, walks .
 		}
 	}
 
-	repoInputs, plan := collectCheckItems(sourceDir, projectRoot, repoNames, skillNames, follow)
+	repoInputs, plan := collectCheckItems(sourceDir, projectRoot, repoNames, skillNames, follow, opts.parseOpts)
 
 	total := len(repoInputs) + plan.RemoteSkills()
 	isSingle := len(targets) == 1
@@ -639,7 +712,7 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, walks .
 	}
 
 	repoOutputs := check.ParallelCheckRepos(repoInputs, repoOnDone)
-	skillResults := resolveCheckSkills(plan, progressBar)
+	skillResults := resolveCheckSkills(plan, progressBar, opts.parseOpts)
 
 	if progressBar != nil {
 		progressBar.Stop()
@@ -654,6 +727,7 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, walks .
 		output := checkOutput{
 			TrackedRepos: repoResults,
 			Skills:       skillResults,
+			Warnings:     resolveWarnings,
 		}
 		if output.TrackedRepos == nil {
 			output.TrackedRepos = []checkRepoResult{}
@@ -661,7 +735,7 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, walks .
 		if output.Skills == nil {
 			output.Skills = []checkSkillResult{}
 		}
-		return writeJSONResult(output, checkResultsError(repoResults, skillResults))
+		return writeJSONResult(output, checkResultsError(repoResults, skillResults, opts.exitCode))
 	}
 
 	// Single target: one row, like update
@@ -671,33 +745,64 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, walks .
 		if r.next != "" {
 			ui.Next(r.next, r.why)
 		}
-		return checkResultsError(repoResults, skillResults)
+		return checkResultsError(repoResults, skillResults, opts.exitCode)
 	}
 
 	// Display results + summary (filtered: show local skills individually)
 	renderCheckResults(repoResults, skillResults, true, nil, start)
 
-	return checkResultsError(repoResults, skillResults)
+	return checkResultsError(repoResults, skillResults, opts.exitCode)
 }
 
-func checkResultsError(repos []checkRepoResult, skills []checkSkillResult) error {
-	failed := 0
+func checkResultsError(repos []checkRepoResult, skills []checkSkillResult, exitCode bool) error {
+	return tallyCheck(repos, skills).err(exitCode)
+}
+
+func tallyCheck(repos []checkRepoResult, skills []checkSkillResult) checkTally {
+	var tally checkTally
 	for _, r := range repos {
-		if r.Status == "error" {
-			failed++
-		}
+		tally.add(r.Status)
 	}
 	for _, s := range skills {
-		if s.Status == "error" {
-			failed++
-		}
+		tally.add(s.Status)
 	}
-	return checkFailureError(failed)
+	return tally
 }
 
-func checkFailureError(failed int) error {
-	if failed > 0 {
-		return fmt.Errorf("%s failed to check", plural(failed, "item"))
+// checkOutdatedError is what --exit-code returns when every item could be
+// checked but some are not up to date.
+type checkOutdatedError struct{ count int }
+
+func (e *checkOutdatedError) Error() string {
+	return plural(e.count, "item") + " not up to date"
+}
+
+func isCheckOutdated(err error) bool {
+	var outdated *checkOutdatedError
+	return errors.As(err, &outdated)
+}
+
+// checkTally counts check statuses for the exit code.
+type checkTally struct{ failed, outdated int }
+
+func (c *checkTally) add(status string) {
+	switch status {
+	case "error":
+		c.failed++
+	case "up_to_date", "local":
+	default:
+		c.outdated++
+	}
+}
+
+// err reports items that failed to check; with exitCode it also reports
+// items that are not up to date.
+func (c checkTally) err(exitCode bool) error {
+	if c.failed > 0 {
+		return fmt.Errorf("%s failed to check", plural(c.failed, "item"))
+	}
+	if exitCode && c.outdated > 0 {
+		return &checkOutdatedError{count: c.outdated}
 	}
 	return nil
 }
@@ -778,18 +883,38 @@ func formatSourceShort(source string) string {
 	return source
 }
 
-// renderAgentCheck runs CheckAgents and displays results (text or JSON).
-// If groups is non-empty, only agents in those group subdirectories are shown.
-func renderAgentCheck(agentsDir string, groups []string, jsonMode bool) error {
+// renderAgentCheck checks the agents in agentsDir and displays the results
+// (text or JSON).
+func renderAgentCheck(agentsDir string, groups []string, jsonMode, exitCode bool, parseOpts install.ParseOptions) error {
+	agentResults, err := collectAgentCheck(agentsDir, groups, jsonMode, parseOpts)
+	if err != nil {
+		if jsonMode {
+			return writeJSONError(err)
+		}
+		return err
+	}
+
+	var tally checkTally
+	for _, r := range agentResults {
+		tally.add(r.Status)
+	}
+	if jsonMode {
+		return writeJSONResult(agentResults, tally.err(exitCode))
+	}
+	renderAgentResults(agentResults)
+	return tally.err(exitCode)
+}
+
+// collectAgentCheck checks the agents in agentsDir against their recorded
+// sources. If groups is non-empty, only agents in those group subdirectories
+// are checked. quiet leaves the spinner out.
+func collectAgentCheck(agentsDir string, groups []string, quiet bool, parseOpts install.ParseOptions) ([]check.AgentCheckResult, error) {
 	agentResults := check.CheckAgents(agentsDir)
 
 	if len(groups) > 0 {
 		filtered, err := filterAgentResultsByGroups(agentResults, groups, agentsDir)
 		if err != nil {
-			if jsonMode {
-				return writeJSONError(err)
-			}
-			return err
+			return nil, err
 		}
 		agentResults = filtered
 	}
@@ -803,11 +928,11 @@ func renderAgentCheck(agentsDir string, groups []string, jsonMode bool) error {
 		}
 	}
 	if len(tracked) > 0 {
-		if jsonMode {
-			check.EnrichAgentResultsWithRemote(tracked, nil)
+		if quiet {
+			check.EnrichAgentResultsWithRemote(tracked, nil, parseOpts)
 		} else {
 			sp := ui.StartSpinner(fmt.Sprintf("Checking %s...", plural(len(tracked), "tracked agent")))
-			check.EnrichAgentResultsWithRemote(tracked, nil)
+			check.EnrichAgentResultsWithRemote(tracked, nil, parseOpts)
 			sp.Stop()
 		}
 		for i, idx := range trackedIndices {
@@ -815,18 +940,14 @@ func renderAgentCheck(agentsDir string, groups []string, jsonMode bool) error {
 		}
 	}
 
-	failed := 0
-	for _, r := range agentResults {
-		if r.Status == "error" {
-			failed++
-		}
-	}
-	if jsonMode {
-		return writeJSONResult(agentResults, checkFailureError(failed))
-	}
+	return agentResults, nil
+}
+
+// renderAgentResults prints one row per agent and the closing line.
+func renderAgentResults(agentResults []check.AgentCheckResult) {
 	if len(agentResults) == 0 {
 		ui.Done(ui.MarkNone, "No agents found", 0)
-		return nil
+		return
 	}
 	names := make([]string, len(agentResults))
 	for i, r := range agentResults {
@@ -864,7 +985,6 @@ func renderAgentCheck(agentsDir string, groups []string, jsonMode bool) error {
 	default:
 		ui.Done(ui.MarkNone, "No tracked agents to compare", 0)
 	}
-	return checkFailureError(failed)
 }
 
 func printCheckHelp() {
@@ -879,6 +999,7 @@ func printCheckHelp() {
 			{"-g, --global", "Check global skills (~/.config/skillshare)"},
 			{"--json", "Output results as JSON"},
 			{"--diff", "Show what changed in named skills since install"},
+			{"--exit-code", "Exit 1 when anything is not up to date (for CI)"},
 		}},
 		helpExamples(
 			helpRow{"skillshare check", "Check all items"},
@@ -887,6 +1008,7 @@ func printCheckHelp() {
 			helpRow{"skillshare check --group frontend", "Check all skills in frontend/"},
 			helpRow{"skillshare check x -G backend", "Mix names and groups"},
 			helpRow{"skillshare check --json", "Output as JSON (for CI)"},
+			helpRow{"skillshare check --exit-code", "Fail a CI job when updates are pending"},
 			helpRow{"skillshare check my-skill --diff", "Show local edits to a skill"},
 			helpRow{"skillshare check -p", "Check project skills"},
 			helpRow{"skillshare check agents", "Check all agents"},

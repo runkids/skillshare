@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.30.5 — 按自己的时间安排更新：`skillshare updates off` 可关闭 CLI 与 Web dashboard 的自动版本检查和通知，手动检查与升级仍然可用。[配置与环境变量 →](https://skillshare.runkids.cc/zh-Hans/docs/reference/commands/updates) · [更新记录 →](https://skillshare.runkids.cc/changelog)
+> **最新版本**：v0.30.6 — 在 CI 中发现过期的 skill：`skillshare check --exit-code` 在检查到任何项目不是最新时以代码 1 退出，`check --all` 现在会同时检查 skill 与 agent，一个 CI 步骤即可涵盖两者。[check 参考 →](https://skillshare.runkids.cc/zh-Hans/docs/reference/commands/check) · [更新记录 →](https://skillshare.runkids.cc/changelog)
 
 ## 为什么用 skillshare
 

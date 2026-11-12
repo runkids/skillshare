@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, ArrowDown, Bot, Puzzle, ShieldCheck } from 'lucide-react';
 import { api, type AuditFinding, type AuditResult } from '../api/client';
 import Button from '../components/Button';
+import { Checkbox } from '../components/Checkbox';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
@@ -24,6 +25,8 @@ type Severity = AuditFinding['severity'];
 const SEV_CLASS: Record<Severity, string> = { CRITICAL: 'c', HIGH: 'h', MEDIUM: 'md', LOW: 'l', INFO: 'n' };
 // Cross-skill analysis is a derived insight, not a scanned resource.
 const CROSS_SKILL = '_cross-skill';
+// Findings accepted earlier with --force sort after every open one.
+const order = (f: AuditFinding) => rank(f.severity) + (f.acknowledged ? SEVERITIES.length : 0);
 
 export default function AuditPage() {
   const t = useT();
@@ -35,6 +38,7 @@ export default function AuditPage() {
   const [kind, setKind] = useState<Kind>('skills');
   const [only, setOnly] = useState<Severity | null>(null);
   const [minimum, setMinimum] = useState(false);
+  const [showAccepted, setShowAccepted] = useState(true);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [scanning, setScanning] = useState(false);
   const [progress, setProgress] = useState<{ scanned: number; total: number } | null>(null);
@@ -99,11 +103,12 @@ export default function AuditPage() {
 
   const results = (data?.results ?? [])
     .filter((r) => r.skillName !== CROSS_SKILL && (r.findings.length > 0 || (r.skippedFiles ?? 0) > 0))
-    .map((r) => ({ ...r, findings: displayAuditFindings(r.findings, only, minimum)
-      .sort((a, b) => rank(a.severity) - rank(b.severity)) }))
+    .map((r) => ({ ...r, findings: displayAuditFindings(r.findings.filter((f) => showAccepted || !f.acknowledged), only, minimum)
+      .sort((a, b) => order(a) - order(b)) }))
     .filter((r) => (minimum && only !== null && r.isBlocked) || r.findings.length > 0 || (!only && (r.skippedFiles ?? 0) > 0))
-    .sort((a, b) => (a.findings[0] ? rank(a.findings[0].severity) : SEVERITIES.length) - (b.findings[0] ? rank(b.findings[0].severity) : SEVERITIES.length) || b.riskScore - a.riskScore);
+    .sort((a, b) => (a.findings[0] ? order(a.findings[0]) : 2 * SEVERITIES.length) - (b.findings[0] ? order(b.findings[0]) : 2 * SEVERITIES.length) || b.riskScore - a.riskScore);
   const findingCount = (data?.results ?? []).reduce((n, r) => n + (r.skillName === CROSS_SKILL ? 0 : r.findings.length), 0);
+  const accepted = data?.summary.accepted ?? 0;
 
   const visibleCount = results.reduce((n, r) => n + displayAuditFindings(r.findings, null, false, !!only || open.has(r.skillName)).length, 0);
 
@@ -189,7 +194,7 @@ export default function AuditPage() {
       {data && (
         <>
           <div className="flex items-stretch gap-6">
-            <div className="ss-counts flex-1 !grid-cols-5">
+            <div className={`ss-counts flex-1 ${accepted > 0 ? '!grid-cols-6' : '!grid-cols-5'}`}>
               {SEVERITIES.map((s) => {
                 const n = data.summary[s.toLowerCase() as 'critical' | 'high' | 'medium' | 'low' | 'info'];
                 return (
@@ -210,6 +215,14 @@ export default function AuditPage() {
                   </button>
                 );
               })}
+              {accepted > 0 && (
+                <div className="!py-3.5 rounded-r-[10px] bg-ok-bg">
+                  <span className="flex flex-col items-start gap-1.5">
+                    <b className="text-ok">{accepted}</b>
+                    <span className="ss-tag ok"><ShieldCheck size={12} aria-hidden="true" />{t('audit.acceptedCount')}</span>
+                  </span>
+                </div>
+              )}
             </div>
             <div className="ss-box flex w-[300px] flex-col justify-center gap-2 !py-3.5">
               <span className="text-[13px] text-ink-2">{t('audit.threshold.label')}</span>
@@ -233,13 +246,14 @@ export default function AuditPage() {
                 { value: 'minimum', label: t('audit.filter.minimum') },
               ]}
             />
+            {accepted > 0 && <Checkbox size="sm" label={t('audit.filter.showAccepted')} checked={showAccepted} onChange={setShowAccepted} />}
             <span className="text-[13px] text-ink-2" aria-live="polite">{t('audit.filter.counts', { visible: visibleCount, hidden: findingCount - visibleCount })}</span>
           </div>
 
           {findingCount === 0 && results.length === 0 ? (
 
             <EmptyState icon={ShieldCheck} title={t(kind === 'agents' ? 'audit.empty.clean.agents' : 'audit.empty.clean.skills')} description={t('audit.empty.clean.hint', { threshold: data.summary.threshold })} />
-          ) : (
+          ) : results.length > 0 && (
             <div className="ss-list">
               {results.map((r) => (
                 <ResultGroup
@@ -257,6 +271,7 @@ export default function AuditPage() {
 
           <p className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-ink-2">
             {data.summary.passed > 0 && <span className="ss-st ok">{t(plural(`audit.passed.${kind === 'agents' ? 'agents' : 'skills'}`, data.summary.passed), { count: data.summary.passed })}</span>}
+            {accepted > 0 && <span className="ss-st ok">{t(plural('audit.acceptedSummary', accepted), { count: accepted })}</span>}
             {(data.summary.scanErrors ?? 0) > 0 && (
               <span className="ss-st bad">{t(plural('audit.scanErrors', data.summary.scanErrors ?? 0), { count: data.summary.scanErrors })}</span>
             )}
@@ -303,10 +318,13 @@ function ResultGroup({ result, kind, only, expanded, onToggle, onIgnore }: {
   // A severity filter shows every match; otherwise LOW and INFO wait behind the expander and grow in under the rest.
   const major = displayAuditFindings(result.findings, null, false, !!only);
   const minor = result.findings.filter((f) => !major.includes(f));
+  const accepted = result.findings.filter((f) => f.acknowledged).length;
   const row = (f: AuditFinding, i: number) => (
-    <div key={`${f.file}:${f.line}:${i}`} className="ss-r !items-start !py-3.5">
-      <span className="w-[74px] shrink-0 pt-px"><span className={`ss-sev ${SEV_CLASS[f.severity]}`}>{f.severity}</span></span>
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
+    <div key={`${f.file}:${f.line}:${i}`} className={`ss-r !items-start !py-3.5 ${f.acknowledged ? 'bg-sunken/40' : ''}`}>
+      <span className="w-[74px] shrink-0 pt-px">
+        <span className={`ss-sev ${f.acknowledged ? '!bg-sunken !text-ink-3 line-through' : SEV_CLASS[f.severity]}`}>{f.severity}</span>
+      </span>
+      <div className={`flex min-w-0 flex-1 flex-col gap-2 ${f.acknowledged ? 'opacity-75' : ''}`}>
         <span className="text-[13.5px] font-semibold">{f.message}</span>
         {f.snippet && (
           <div className="ss-code max-w-full overflow-x-auto !px-3.5 !py-2.5">
@@ -317,6 +335,12 @@ function ResultGroup({ result, kind, only, expanded, onToggle, onIgnore }: {
           <span className="flex items-start gap-1.5 text-[12px] text-ink-2">
             <ArrowDown size={14} aria-hidden="true" className="mt-0.5 shrink-0" />
             {t('audit.severityContext.pythonInert')}
+          </span>
+        )}
+        {f.acknowledged && (
+          <span className="flex items-start gap-1.5 text-[12px] font-medium text-ok">
+            <ShieldCheck size={14} aria-hidden="true" className="mt-0.5 shrink-0" />
+            {t('audit.accepted')}
           </span>
         )}
         <span className="truncate font-mono text-[12px] text-ink-3" title={f.file}>
@@ -339,6 +363,7 @@ function ResultGroup({ result, kind, only, expanded, onToggle, onIgnore }: {
         {(result.skippedFiles ?? 0) > 0 && <span className="text-[12px] text-ink-2">{t(plural('audit.coverage', result.skippedFiles ?? 0), { skipped: result.skippedFiles ?? 0, binary: result.binaryFiles ?? 0, oversized: result.oversizedFiles ?? 0 })}</span>}
         <span className="font-mono text-[12px] text-ink-3">{t('audit.risk', { score: result.riskScore })}</span>
         {result.isBlocked && <span className="ss-st bad">{t('audit.blocked')}</span>}
+        {accepted > 0 && <span className="ss-tag ok">{t(plural('audit.acceptedTag', accepted), { count: accepted })}</span>}
       </div>
       {major.map(row)}
       {/* Keyed by the filter so a filter change swaps the rows at once instead of shrinking away a copy of them. */}
