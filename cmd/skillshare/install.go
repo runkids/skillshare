@@ -88,6 +88,7 @@ func allSkillsFailedError(succeeded int, failures []install.SkillFailure) error 
 // parseInstallArgs parses install command arguments
 func parseInstallArgs(args []string) (*installArgs, bool, error) {
 	result := &installArgs{}
+	extraRequested := false
 
 	i := 0
 	for i < len(args) {
@@ -134,13 +135,14 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 			result.opts.Track = true
 		case arg == "--kind":
 			if i+1 >= len(args) {
-				return nil, false, fmt.Errorf("--kind requires a value (skill or agent)")
+				return nil, false, fmt.Errorf("--kind requires a value (skill, agent, or extra)")
 			}
 			i++
 			kind := strings.ToLower(args[i])
-			if kind != "skill" && kind != "agent" {
-				return nil, false, fmt.Errorf("--kind must be 'skill' or 'agent', got %q", args[i])
+			if kind != "skill" && kind != "agent" && kind != "extra" {
+				return nil, false, fmt.Errorf("--kind must be 'skill', 'agent', or 'extra', got %q", args[i])
 			}
+			extraRequested = extraRequested || kind == "extra"
 			result.opts.Kind = kind
 		case arg == "--agent" || arg == "-a":
 			if i+1 >= len(args) {
@@ -187,6 +189,12 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 		}
 		i++
 	}
+	if extraRequested {
+		if result.opts.Track || result.opts.Into != "" || len(result.opts.Skills) != 0 || len(result.opts.AgentNames) != 0 || len(result.opts.Exclude) != 0 || result.opts.All || result.opts.Yes {
+			return nil, false, fmt.Errorf("--kind extra cannot be combined with --track, --into, --skill, --agent, --exclude, --all or --yes")
+		}
+		result.opts.Kind = "extra"
+	}
 
 	// Clean --skill input
 	if len(result.opts.Skills) > 0 {
@@ -232,7 +240,7 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 		return nil, false, fmt.Errorf("--all/--yes cannot be used with --track")
 	}
 
-	if result.opts.Branch != "" && result.sourceArg != "" {
+	if result.opts.Kind != "extra" && result.opts.Branch != "" && result.sourceArg != "" {
 		source, parseErr := install.ParseSource(result.sourceArg)
 		trackableLocal := result.opts.Track && source != nil &&
 			source.Type == install.SourceTypeLocalPath && install.IsLocalGitRepo(source.Path)
@@ -409,7 +417,13 @@ func cmdInstall(args []string) error {
 			return parseErr
 		}
 		if parseErr != nil {
+			if extraJSONRequested(rest) {
+				return writeJSONError(parseErr)
+			}
 			return parseErr
+		}
+		if parsed.opts.Kind == "extra" {
+			return cmdInstallExtra(parsed, mode, cwd, start)
 		}
 		applyInstallJSONDefaults(parsed)
 
@@ -438,7 +452,13 @@ func cmdInstall(args []string) error {
 		return parseErr
 	}
 	if parseErr != nil {
+		if extraJSONRequested(rest) {
+			return writeJSONError(parseErr)
+		}
 		return parseErr
+	}
+	if parsed.opts.Kind == "extra" {
+		return cmdInstallExtra(parsed, mode, cwd, start)
 	}
 	applyInstallJSONDefaults(parsed)
 
@@ -659,7 +679,7 @@ func printInstallHelp() {
 		}},
 		helpGroup{title: "Options", rows: []helpRow{
 			{"--name <name>", "Override installed name when exactly one skill is installed"},
-			{"--kind <kind>", "Restrict discovery/install to skill or agent"},
+			{"--kind <kind>", "Restrict discovery/install to skill, agent, or remote extra"},
 			{"--into <dir>", "Install into subdirectory (e.g. \"frontend\" or \"frontend/react\")"},
 			{"-f, --force", "Overwrite existing skill; also continue if audit would block"},
 			{"-u, --update", "Update existing (git pull if possible, else reinstall)"},
@@ -682,6 +702,7 @@ func printInstallHelp() {
 		helpExamples(
 			helpRow{"skillshare install anthropics/skills", ""},
 			helpRow{"skillshare install anthropics/skills/skills/pdf", ""},
+			helpRow{"skillshare install owner/repo/rules --kind extra --name rules -p", "Install a remote extra"},
 			helpRow{"skillshare install ComposioHQ/awesome-claude-skills", ""},
 			helpRow{"skillshare install ~/my-skill", ""},
 			helpRow{"skillshare install github.com/user/repo --force", ""},
