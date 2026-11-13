@@ -230,6 +230,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 			if errors.Is(err, install.ErrSkipSameRepo) {
 				ui.Warning("%s: %s", skill.Name, firstWarningLine(err.Error()))
 				logSummary.SkippedSkills = append(logSummary.SkippedSkills, skill.Name)
+				installDiscoveredAgents(discovery, cfg, opts, &logSummary)
 				return logSummary, nil
 			}
 			if errors.Is(err, audit.ErrBlocked) {
@@ -315,6 +316,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 			if errors.Is(err, install.ErrSkipSameRepo) {
 				ui.Warning("%s: %s", skill.Name, firstWarningLine(err.Error()))
 				logSummary.SkippedSkills = append(logSummary.SkippedSkills, skill.Name)
+				installDiscoveredAgents(discovery, cfg, opts, &logSummary)
 				return logSummary, nil
 			}
 			if errors.Is(err, audit.ErrBlocked) {

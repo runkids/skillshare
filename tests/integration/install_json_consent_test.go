@@ -53,6 +53,32 @@ func TestInstall_JSON_ReportsKeptAgentsOfSkillRepo(t *testing.T) {
 	}
 }
 
+// Skipping the only skill of a repo must not skip the agents requested with it.
+func TestInstall_SkippedSingleSkillStillInstallsRequestedAgent(t *testing.T) {
+	for _, subdir := range []string{"", "pack"} {
+		t.Run("subdir="+subdir, func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+			repo := filepath.Join(sb.Root, "single")
+			sb.WriteFile(filepath.Join(repo, subdir, "skills", "alpha", "SKILL.md"), "# alpha")
+			sb.WriteFile(filepath.Join(repo, subdir, "agents", "helper.md"), "# Helper")
+			initGitRepo(t, repo)
+			source := "file://" + repo
+			if subdir != "" {
+				source += "//" + subdir
+			}
+			sb.RunCLI("install", source, "-s", "alpha", "--json", "-g").AssertSuccess(t)
+
+			result := sb.RunCLI("install", source, "-s", "alpha", "-a", "helper", "--json", "-g")
+			result.AssertSuccess(t)
+			if !sb.FileExists(filepath.Join(filepath.Dir(sb.SourcePath), "agents", "helper.md")) {
+				t.Errorf("requested agent helper was not installed: %s", result.Stdout)
+			}
+		})
+	}
+}
+
 // JSON output must never grant permission to replace locally edited installs.
 func TestInstall_JSON_OverwriteConsent(t *testing.T) {
 	for _, mode := range []string{"global", "project"} {
