@@ -18,6 +18,7 @@ import (
 // syncTargetResult captures all output data for one target's sync operation.
 // Collected during parallel sync, rendered after all targets finish.
 type syncTargetResult struct {
+	keptModified []sync.EntryChange
 	name     string
 	mode     string // "merge", "copy", "symlink"
 	stats    syncModeStats

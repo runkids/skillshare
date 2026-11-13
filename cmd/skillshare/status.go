@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -14,6 +15,8 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/git"
 	"skillshare/internal/install"
+	"skillshare/internal/profileapply"
+	"skillshare/internal/profile"
 	"skillshare/internal/resource"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sourcewalk"
@@ -26,6 +29,7 @@ import (
 
 // statusJSONOutput is the JSON representation for status --json output.
 type statusJSONOutput struct {
+	Profile *profileapply.Info `json:"profile,omitempty"`
 	Source       statusJSONSource   `json:"source"`
 	SkillCount   int                `json:"skill_count"`
 	VariantCount int                `json:"variant_count"`
@@ -132,6 +136,7 @@ func cmdStatus(args []string) error {
 		printSkippedSourceLinkWarnings(walk, false)
 
 		counts := sync.CountSkills(discovered)
+		if v, err := profileapply.Load(profileapply.Scope{}); err == nil { printProfileInfo(v.Info(discovered)) }
 		printSourceStatus(cfg.EffectiveSkillsSource(), cfg.EffectiveAgentsSource(), utils.FoldHomePath, counts.Skills, countSourceAgents(cfg.EffectiveAgentsSource()), stats, counts.Variants)
 		printTrackedReposStatus(cfg.EffectiveSkillsSource(), discovered, trackedRepos)
 		if err := printTargetsStatus(cfg, discovered); err != nil {
@@ -155,6 +160,7 @@ func cmdStatus(args []string) error {
 	}
 
 	discovered, stats, _ := sync.DiscoverSourceSkillsWithStats(cfg.EffectiveSkillsSource(), walk)
+	if v, err := profileapply.Load(profileapply.Scope{}); err == nil { output.Profile = v.Info(discovered) }
 	trackedRepos := extractTrackedRepos(cfg.EffectiveSkillsSource(), walk)
 
 	printSkippedSourceLinkWarnings(walk, true)
@@ -339,7 +345,7 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 		if sc.IsEnabled() && (mode == "merge" || mode == "copy") {
 			var err error
 			expected, err = sync.ExpectedSkillCount(name, sc, discovered)
-			if err != nil {
+			if errors.Is(err, profile.ErrProfileUnavailable) { warnings = append(warnings, err.Error()); expected = res.syncedCount } else if err != nil {
 				return fmt.Errorf("target %s has invalid include/exclude config: %w", name, err)
 			}
 			notSynced = max(notSynced, expected-res.syncedCount)

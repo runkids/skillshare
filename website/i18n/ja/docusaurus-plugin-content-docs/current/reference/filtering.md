@@ -4,7 +4,7 @@ sidebar_position: 3
 
 # フィルタリングリファレンス
 
-どの Skill がどの Target に届くかを制御する3つのフィルタリングレイヤーの完全な仕様です。
+どの Skill がどの Target に届くかを制御するフィルタリングレイヤーの完全な仕様です。
 
 :::tip 手っ取り早いガイダンスをお探しですか？
 シナリオ駆動のガイドは [Skill のフィルタリング](/docs/how-to/daily-tasks/filtering-skills) を
@@ -148,3 +148,11 @@ Agent 用の `targets.<name>.agents.include` / `targets.<name>.agents.exclude`�
 ## 関連項目
 
 - [Skill のフィルタリング](/docs/how-to/daily-tasks/filtering-skills) — シナリオ駆動の How-to ガイド
+
+## プロファイル {#profiles}
+
+名前付き Skill 選択は [profile](/docs/reference/commands/profile) で作成・表示・編集・切り替えできます。`-g` / `-p` に対応します。
+
+アクティブなプロファイルは discovery と Target フィルターの間で AND 条件として適用され、flat な Source 名に一致します。`.skillignore`、Target フィルター、metadata の制限を広げません。agents、登録された `projects:`、symlink モードには適用しません。
+
+`skills` キーがなければ制限なし、`skills: {}` と空・空白のみの include は選択なしです。exclude には include キーが必要です。明示的な `include: []` と exclude は有効ですが除外は無効です。

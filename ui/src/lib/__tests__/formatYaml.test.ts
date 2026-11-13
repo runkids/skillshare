@@ -40,6 +40,15 @@ describe('formatYaml', () => {
     expect(formatted).toContain('*shared');
     expect(formatYaml(formatted, { organizeConfig: true })).toBe(formatted);
   });
+  it('orders profiles after targets without dropping future fields or comments', () => {
+    const source = '# named selections\nprofiles:\n  work:\n    skills: {include: [web*]}\n    future: {enabled: true}\nextras: []\ntargets: [claude]\n';
+    const formatted = formatYaml(source, { organizeConfig: true });
+    expect(Object.keys(parse(formatted))).toEqual(['targets', 'profiles', 'extras']);
+    expect(parse(formatted)).toEqual(parse(source));
+    expect(formatted).toContain('# named selections');
+    expect(formatted).toContain('future: {enabled: true}');
+    expect(formatYaml(formatted, { organizeConfig: true })).toBe(formatted);
+  });
   it.each([
     '# yaml-language-server: $schema=https://example.com/config.schema.json\n# MCP servers\nmcp: {}\nsources: {skills: /skills}\n',
     'sources: {skills: /skills}\n\n# yaml-language-server: $schema=https://example.com/config.schema.json\n# MCP servers\nmcp: {}\n',

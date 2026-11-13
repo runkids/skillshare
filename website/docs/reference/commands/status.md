@@ -220,3 +220,7 @@ Project status does not show Tracked Repositories or Version sections (these are
 - [diff](/docs/reference/commands/diff) — Show detailed differences
 - [doctor](/docs/reference/commands/doctor) — Diagnose issues
 - [Project Skills](/docs/understand/project-skills) — Project mode concepts
+
+## Active profile {#profiles}
+
+Status adds a [profile](/docs/reference/commands/profile) row and an optional JSON `profile: {name,state,selected,total,pending}` object when definitions or local state exist. `state` is `none`, `active` or `unavailable`. It reports missing/unusable/unreadable state and `switch not fully applied` while pending. Repair with `profile use <name>` or `profile use --none`. The profile selected count is desired selection; target `synced_count` remains observed on disk, so these can differ after `--no-sync`, an incomplete switch or a kept local entry.

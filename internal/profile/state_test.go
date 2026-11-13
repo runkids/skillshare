@@ -118,3 +118,19 @@ func TestProfileSelector_FailsClosed(t *testing.T) {
 		}
 	}
 }
+
+func TestProfileLock_NeverUnlinked(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "profiles", "config.lock")
+	release, err := Lock(context.Background(), path)
+	if err != nil { t.Fatal(err) }
+	first, err := os.Stat(path)
+	if err != nil { release(); t.Fatal(err) }
+	release()
+	after, err := os.Stat(path)
+	if err != nil || !os.SameFile(first, after) || after.Size() != 0 { t.Fatalf("lock path was replaced or removed: %v", err) }
+	release, err = Lock(context.Background(), path)
+	if err != nil { t.Fatal(err) }
+	defer release()
+	second, err := os.Stat(path)
+	if err != nil || !os.SameFile(first, second) { t.Fatalf("relock changed the lock file: %v", err) }
+}
