@@ -36,8 +36,8 @@ func TestMatch(t *testing.T) {
 		want             bool
 	}{
 		{"team__one", nil, nil, true},
-		{"team__one", []string{"team__*"}, []string{"*-old"}, true},
-		{"team__old", []string{"team__*"}, []string{"*-old"}, false},
+		{"team__one", []string{"team__*"}, []string{"*__old"}, true},
+		{"team__old", []string{"team__*"}, []string{"*__old"}, false},
 		{"other", []string{"team__*"}, nil, false},
 		{"team" + string(os.PathSeparator) + "one", []string{"team*"}, nil, false},
 	} {
