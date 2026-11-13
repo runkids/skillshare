@@ -108,6 +108,65 @@ func TestInstallRemoteExtra_InstallAndProtectEdits(t *testing.T) {
 	}
 }
 
+// Root aliases are supported, but a linked per-extra destination is never
+// acquired as managed content, even with an explicit overwrite request.
+func TestInstallRemoteExtra_RootAliasAndDestinationLink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires symlink privilege")
+	}
+	for _, linkedDestination := range []bool{false, true} {
+		t.Run(fmt.Sprint(linkedDestination), func(t *testing.T) {
+			req := newRemoteExtraRequest(t)
+			realRoot := req.ExtrasRoot
+			if err := os.MkdirAll(realRoot, 0755); err != nil {
+				t.Fatal(err)
+			}
+			alias := filepath.Join(t.TempDir(), "extras-alias")
+			if err := os.Symlink(realRoot, alias); err != nil {
+				t.Fatal(err)
+			}
+			req.ExtrasRoot = alias
+			if linkedDestination {
+				outside := t.TempDir()
+				sentinel := filepath.Join(outside, "sentinel")
+				if err := os.WriteFile(sentinel, []byte("outside bytes"), 0644); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(outside, filepath.Join(realRoot, req.Name)); err != nil {
+					t.Fatal(err)
+				}
+				req.Opts.AuditOverride = true
+				if _, err := InstallRemoteExtra(req); err == nil || !strings.Contains(err.Error(), "unsafe extra destination") {
+					t.Fatalf("linked destination accepted: %v", err)
+				}
+				if body, err := os.ReadFile(sentinel); err != nil || string(body) != "outside bytes" {
+					t.Fatalf("outside bytes changed: %q %v", body, err)
+				}
+				if body, err := os.ReadFile(req.ConfigPath); err != nil || string(body) != "before" {
+					t.Fatalf("refusal wrote config: %q %v", body, err)
+				}
+				if _, err := os.Lstat(filepath.Join(realRoot, MetadataFileName)); !os.IsNotExist(err) {
+					t.Fatalf("refusal wrote metadata: %v", err)
+				}
+				return
+			}
+			result, err := InstallRemoteExtra(req)
+			if err != nil || result == nil {
+				t.Fatalf("root alias install: %+v %v", result, err)
+			}
+			if _, err := os.Stat(filepath.Join(realRoot, req.Name, "SKILL.md")); err != nil {
+				t.Fatal(err)
+			}
+			if info, err := os.Lstat(alias); err != nil || info.Mode()&os.ModeSymlink == 0 {
+				t.Fatalf("root alias replaced: %v %v", info, err)
+			}
+			if state := InspectRemoteExtra(alias, req.Name); state.Err != nil || state.Modified || state.Interrupted {
+				t.Fatalf("aliased root state: %+v", state)
+			}
+		})
+	}
+}
+
 func TestInstallRemoteExtra_ProtectsEditDuringFetch(t *testing.T) {
 	req := newRemoteExtraRequest(t)
 	if _, err := InstallRemoteExtra(req); err != nil {

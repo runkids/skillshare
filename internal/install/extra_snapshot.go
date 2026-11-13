@@ -35,7 +35,8 @@ func snapshotExtraFile(path string) (extraFileSnapshot, error) {
 	return s, nil
 }
 
-// restoreExtraSnapshotIfUnchanged preserves a concurrent writer's contents.
+// restoreExtraSnapshotIfUnchanged compares against the observed read-back.
+// Unrelated writers are not locked across comparison and replacement.
 func restoreExtraSnapshotIfUnchanged(path string, before, written extraFileSnapshot) (bool, error) {
 	now, err := snapshotExtraFile(path)
 	if err != nil {

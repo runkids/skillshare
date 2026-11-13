@@ -44,7 +44,7 @@ func TestLockMovePin(t *testing.T) {
 func TestExtraPinsSurviveSkillPinChanges(t *testing.T) {
 	dir := t.TempDir()
 	sha := strings.Repeat("a", 40)
-	lock := &Lock{Skills: map[string]LockEntry{"old": {Source: "skill", Commit: sha}}}
+	lock := &Lock{Skills: map[string]LockEntry{"old": {Source: "skill", Commit: sha}, "rules": {Source: "same-name-skill", Commit: strings.Repeat("b", 40)}}}
 	lock.SetExtraPin("rules", LockEntry{Source: "remote", Commit: sha})
 	if err := lock.Save(dir); err != nil {
 		t.Fatal(err)
@@ -59,6 +59,17 @@ func TestExtraPinsSurviveSkillPinChanges(t *testing.T) {
 	if got.ExtraCommitFor("rules", "remote") != sha || got.ExtraCommitFor("rules", "other") != "" {
 		t.Fatalf("bad extra pin: %+v", got.Extras)
 	}
+	if got.CommitFor("rules", "same-name-skill") != strings.Repeat("b", 40) || got.ExtraCommitFor("rules", "remote") != sha {
+		t.Fatal("same-named skill and extra pins collided")
+	}
+	for _, commit := range []string{sha[:7], "--upload-pack=synthetic", strings.Repeat("z", 40)} {
+		got.SetExtraPin("invalid", LockEntry{Source: "remote", Commit: commit})
+		if got.ExtraCommitFor("invalid", "remote") != "" {
+			t.Fatalf("invalid extra pin accepted: %q", commit)
+		}
+	}
+	got.DropExtraPin("invalid")
+	delete(got.Skills, "rules")
 	delete(got.Skills, "new")
 	if err := got.Save(dir); err != nil {
 		t.Fatal(err)
