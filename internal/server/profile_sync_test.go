@@ -13,8 +13,95 @@ import (
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
+	"skillshare/internal/profile"
 	"skillshare/internal/profileapply"
 )
+
+func TestProfiles_APISyncRefusalTransport(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, scenario := range []string{"locked", "unavailable", "legacy_discard"} {
+			t.Run(fmt.Sprintf("project=%v/%s", project, scenario), func(t *testing.T) {
+				t.Setenv("HOME", t.TempDir())
+				for _, key := range []string{"XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME"} {
+					t.Setenv(key, t.TempDir())
+				}
+				for _, key := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR"} {
+					t.Setenv(key, "")
+				}
+				dest := t.TempDir()
+				var s *Server
+				var source, path, text string
+				if project {
+					var root string
+					s, root = newProjectTargetServer(t, []config.ProjectTargetEntry{{Name: "custom", Skills: &config.ResourceTargetConfig{Path: dest, Mode: "copy"}}})
+					source, path = filepath.Join(root, ".skillshare", "skills"), config.ProjectConfigPath(root)
+					text = "targets:\n  - name: custom\n    skills:\n      path: " + dest + "\n      mode: copy\n"
+				} else {
+					s, source = newTestServerWithTargets(t, map[string]string{"custom": dest})
+					path = config.ConfigPath()
+					text = "source: " + source + "\nmode: copy\ntargets:\n  custom:\n    skills:\n      path: " + dest + "\n"
+				}
+				addSkill(t, source, "alpha")
+				if scenario != "legacy_discard" {
+					text += "profiles:\n  all: {}\n"
+				}
+				if err := os.WriteFile(path, []byte(text), 0600); err != nil {
+					t.Fatal(err)
+				}
+				statePath, lockPath, err := config.ProfilePaths(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if scenario == "unavailable" {
+					if err := profile.WriteState(statePath, profile.State{Version: 1, Active: "missing"}); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if err := s.reloadConfig(); err != nil {
+					t.Fatal(err)
+				}
+				body := `{"kind":"skill"}`
+				wantCode := "profile_locked"
+				wantMessage := fmt.Sprintf("another sync or profile switch is running for this config (lock %s): context deadline exceeded", lockPath)
+				if scenario == "legacy_discard" {
+					body = `{"kind":"skill","discardEdits":true}`
+					wantCode, wantMessage = "profile_refused", "discardEdits requires an active profile or pending switch"
+				} else {
+					unlock, err := profile.Lock(context.Background(), lockPath)
+					if err != nil {
+						t.Fatal(err)
+					}
+					t.Cleanup(unlock)
+					if scenario == "unavailable" {
+						// Availability wins even when the real profile lock is held.
+						err := s.activeProfileError()
+						if err == nil {
+							t.Fatal("fixture did not make the active profile unavailable")
+						}
+						wantCode, wantMessage = "profile_unavailable", err.Error()
+					}
+				}
+				rr := httptest.NewRecorder()
+				s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(body)))
+				var out struct {
+					Error  string            `json:"error"`
+					Code   string            `json:"error_code"`
+					Params map[string]string `json:"error_params"`
+				}
+				if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+					t.Fatal(err)
+				}
+				if rr.Code != http.StatusConflict || out.Code != wantCode || out.Error != wantMessage || out.Params != nil {
+					t.Errorf("refusal transport: %d %s; want 409 %s: %s, no params", rr.Code, rr.Body.String(), wantCode, wantMessage)
+				}
+				entries, err := os.ReadDir(dest)
+				if err != nil || len(entries) != 0 {
+					t.Fatalf("refused sync touched target: %v %v", entries, err)
+				}
+			})
+		}
+	}
+}
 
 func TestProfiles_APIOrdinarySyncAgreement(t *testing.T) {
 	for _, project := range []bool{false, true} {
