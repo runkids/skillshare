@@ -120,7 +120,7 @@ export default function ProfileEditor({ profile, active = false, onCreated }: {
           </>}
       </div>
       </div>
-      <div className="rp">
+      <div className="rp !flex-none md:!flex-1">
         <section aria-label={t('profileEdit.selected')} className="flex flex-col gap-2">
           <h2 className="ss-h2">{t('profileEdit.selected')}</h2>
           {previewing && <p className="text-sm text-ink-3">{t('targetDetail.loadingPreview')}</p>}
