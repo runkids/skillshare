@@ -9,14 +9,17 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/profile"
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/testutil"
+	"skillshare/internal/utils"
 )
 
 type profileFixture struct {
@@ -82,6 +85,181 @@ func TestProfileCRUD(t *testing.T) {
 			f.run("profile", "delete", "renamed").AssertSuccess(t)
 			for _, args := range [][]string{{"create", "none"}, {"create", "Upper"}, {"create", "bad", "--add-include", "["}, {"create", "exclude", "--add-exclude", "x"}} {
 				f.run(append([]string{"profile"}, args...)...).AssertFailure(t)
+			}
+		})
+	}
+}
+
+func TestProfiles_ProjectSourceAvailability(t *testing.T) {
+	for _, action := range []string{"use", "sync"} {
+		for _, sourceState := range []string{"missing", "empty"} {
+			t.Run(action+"/"+sourceState, func(t *testing.T) {
+				f := newProfileFixture(t, true, "copy")
+				f.run("profile", "use", "a").AssertSuccess(t)
+				f.run("profile", "use", "a", "--no-sync").AssertSuccess(t)
+				statePath, _, err := config.ProfilePaths(f.config)
+				if err != nil {
+					t.Fatal(err)
+				}
+				beforeState := f.sb.ReadFile(statePath)
+				state, err := profile.ReadState(statePath)
+				if err != nil || state.Active != "a" || !state.Pending {
+					t.Fatalf("setup requires pending a: %+v, %v", state, err)
+				}
+				entry := filepath.Join(f.target, "alpha", "SKILL.md")
+				beforeBytes := f.sb.ReadFile(entry)
+				manifest := filepath.Join(f.target, ssync.ManifestFile)
+				beforeManifest := f.sb.ReadFile(manifest)
+				beforeConfig := f.sb.ReadFile(f.config)
+				if err := os.Rename(f.source, f.source+"-offline"); err != nil {
+					t.Fatal(err)
+				}
+				if sourceState == "empty" {
+					if err := os.Mkdir(f.source, 0755); err != nil {
+						t.Fatal(err)
+					}
+				}
+				args := []string{"sync", "--json"}
+				if action == "use" {
+					args = []string{"profile", "use", "b", "--json"}
+				}
+				out := f.run(args...)
+				afterBytes, readErr := os.ReadFile(entry)
+				if sourceState == "missing" {
+					out.AssertFailure(t)
+					if readErr != nil || string(afterBytes) != beforeBytes {
+						t.Errorf("missing source changed managed copy: %q, %v", afterBytes, readErr)
+					}
+					if f.sb.ReadFile(manifest) != beforeManifest || f.sb.ReadFile(statePath) != beforeState {
+						t.Error("missing source changed manifest or settled pending state")
+					}
+				} else {
+					out.AssertSuccess(t)
+					if !os.IsNotExist(readErr) {
+						t.Errorf("readable empty source did not prune managed copy: %v", readErr)
+					}
+					wantActive := "a"
+					if action == "use" {
+						wantActive = "b"
+					}
+					state, err = profile.ReadState(statePath)
+					if err != nil || state.Active != wantActive || state.Pending {
+						t.Errorf("empty-source sync did not settle %s: %+v, %v", wantActive, state, err)
+					}
+				}
+				if f.sb.ReadFile(f.config) != beforeConfig || f.sb.ReadFile(filepath.Join(f.source+"-offline", "alpha", "SKILL.md")) != beforeBytes {
+					t.Error("source availability check changed config or offline source")
+				}
+			})
+		}
+	}
+}
+
+func TestProfiles_DotfilesTargetRoot(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, mode := range []string{"copy", "merge"} {
+			t.Run(fmt.Sprintf("%v/%s", project, mode), func(t *testing.T) {
+				f := newProfileFixture(t, project, mode)
+				realTarget := filepath.Join(f.root, "dotfiles-target")
+				if err := os.MkdirAll(realTarget, 0755); err != nil {
+					t.Fatal(err)
+				}
+				if runtime.GOOS == "windows" {
+					if err := utils.CreateJunction(f.target, realTarget); err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					f.sb.CreateSymlink(realTarget, f.target)
+				}
+				rootLink, err := os.Readlink(f.target)
+				if err != nil {
+					t.Fatal(err)
+				}
+				local := filepath.Join(realTarget, "local", "SKILL.md")
+				f.sb.WriteFile(local, "unmanaged local content")
+				f.run("sync", "--json").AssertSuccess(t)
+				if f.sb.ReadFile(filepath.Join(realTarget, "beta", "SKILL.md")) != f.sb.ReadFile(filepath.Join(f.source, "beta", "SKILL.md")) {
+					t.Fatal("ordinary sync did not populate configured alias")
+				}
+				f.run("profile", "use", "a", "--json").AssertSuccess(t)
+				if _, err := os.Lstat(filepath.Join(realTarget, "beta")); !os.IsNotExist(err) {
+					t.Errorf("profile did not prune managed beta through alias: %v", err)
+				}
+				if f.sb.ReadFile(filepath.Join(realTarget, "alpha", "SKILL.md")) != f.sb.ReadFile(filepath.Join(f.source, "alpha", "SKILL.md")) || f.sb.ReadFile(local) != "unmanaged local content" {
+					t.Error("alias switch lost selected or unmanaged child content")
+				}
+				if after, err := os.Readlink(f.target); err != nil || after != rootLink || !utils.IsSymlinkOrJunction(f.target) {
+					t.Errorf("configured root alias changed: %q, %v", after, err)
+				}
+			})
+		}
+	}
+}
+
+func TestProfiles_UseJSON(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, mode := range []string{"copy", "merge"} {
+			t.Run(fmt.Sprintf("%v/%s", project, mode), func(t *testing.T) {
+				f := newProfileFixture(t, project, mode)
+				f.run("profile", "use", "a", "--json").AssertSuccess(t)
+				for _, preview := range []bool{true, false} {
+					t.Run(fmt.Sprintf("preview=%v", preview), func(t *testing.T) {
+						args := []string{"profile", "use", "b", "--json"}
+						if preview {
+							args = append(args, "--dry-run")
+						}
+						out := f.run(args...)
+						out.AssertSuccess(t)
+						var body struct {
+							Complete bool
+							Profile  struct {
+								Previous, Active string
+								Pending          bool
+							}
+						}
+						// Unmarshal consumes the whole stdout, rejecting chatter or a second response.
+						if err := json.Unmarshal([]byte(out.Stdout), &body); err != nil {
+							t.Errorf("profile use must emit one JSON response: %v; stdout=%q", err, out.Stdout)
+						} else if !body.Complete || body.Profile.Previous != "a" || body.Profile.Active != "b" || body.Profile.Pending {
+							t.Errorf("switch result lost selection/outcome: %s", out.Stdout)
+						}
+						if strings.TrimSpace(out.Stderr) != "" {
+							t.Errorf("JSON switch leaked diagnostics: %s", out.Stderr)
+						}
+						want, absent := "beta", "alpha"
+						if preview {
+							want, absent = absent, want
+						}
+						if f.sb.ReadFile(filepath.Join(f.target, want, "SKILL.md")) != f.sb.ReadFile(filepath.Join(f.source, want, "SKILL.md")) {
+							t.Error("JSON switch changed selected contents")
+						}
+						if _, err := os.Lstat(filepath.Join(f.target, absent)); !os.IsNotExist(err) {
+							t.Errorf("preview/apply left wrong deployment: %s, %v", absent, err)
+						}
+					})
+				}
+			})
+		}
+	}
+}
+
+func TestProfiles_UseJSONRefusal(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(fmt.Sprint(project), func(t *testing.T) {
+			f := newProfileFixture(t, project, "copy")
+			out := f.run("profile", "use", "missing", "--json")
+			out.AssertFailure(t)
+			var body struct{ Error string }
+			if err := json.Unmarshal([]byte(out.Stdout), &body); err != nil {
+				t.Fatalf("refusal must emit one JSON response: %v; stdout=%q", err, out.Stdout)
+			}
+			for _, detail := range []string{"missing", "not defined", f.config, "skillshare profile use <name>", "skillshare profile use --none"} {
+				if !strings.Contains(body.Error, detail) {
+					t.Errorf("JSON error lost refusal/repair %q: %s", detail, out.Stdout)
+				}
+			}
+			if strings.TrimSpace(out.Stderr) != "" {
+				t.Errorf("JSON refusal also emitted plain diagnostics: %s", out.Stderr)
 			}
 		})
 	}
