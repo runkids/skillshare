@@ -131,15 +131,6 @@ func TestUnlink_OptionTerminator(t *testing.T) {
 			sb, checkout := linkSandbox(t)
 			defer sb.Cleanup()
 			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
-			run := func(args ...string) *testutil.Result {
-				return sb.RunCLIEnv(map[string]string{
-					"CLAUDE_CONFIG_DIR":   filepath.Join(sb.Home, "clients", "claude"),
-					"CODEX_HOME":          filepath.Join(sb.Home, "clients", "codex"),
-					"COPILOT_HOME":        filepath.Join(sb.Home, "clients", "copilot"),
-					"OPENCODE_CONFIG_DIR": filepath.Join(sb.Home, "clients", "opencode"),
-					"PI_CODING_AGENT_DIR": filepath.Join(sb.Home, "clients", "pi"),
-				}, args...)
-			}
 			sb.RunCLIInDir(sb.Root, "link", checkout).AssertSuccess(t)
 			if err := os.Rename(filepath.Join(sb.SourcePath, "_dev-skills"), filepath.Join(sb.SourcePath, name)); err != nil {
 				t.Fatal(err)
@@ -230,6 +221,15 @@ func TestLink_CollisionKeepsTrackedDeclaration(t *testing.T) {
 			sb, checkout := linkSandbox(t)
 			defer sb.Cleanup()
 			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+			run := func(args ...string) *testutil.Result {
+				return sb.RunCLIEnv(map[string]string{
+					"CLAUDE_CONFIG_DIR":   filepath.Join(sb.Home, "clients", "claude"),
+					"CODEX_HOME":          filepath.Join(sb.Home, "clients", "codex"),
+					"COPILOT_HOME":        filepath.Join(sb.Home, "clients", "copilot"),
+					"OPENCODE_CONFIG_DIR": filepath.Join(sb.Home, "clients", "opencode"),
+					"PI_CODING_AGENT_DIR": filepath.Join(sb.Home, "clients", "pi"),
+				}, args...)
+			}
 			args := []string{"link", checkout, "--name", "_team", "-g"}
 			if follow {
 				args = append(args, "--enable")
