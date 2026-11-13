@@ -146,7 +146,7 @@ func TestMutate_AddRemoveSkills(t *testing.T) {
 		name, before, op, after, result, blocked string
 	}{
 		{"pass-through add", `{}`, "add-skills", `{}`, "already-in", ""},
-		{"pass-through remove", `{}`, "remove-skills", `{skills: {include: ["*"], exclude: [x]}}`, "removed", ""},
+		{"pass-through remove", `{}`, "remove-skills", `{skills: {include: ['*'], exclude: [x]}}`, "removed", ""},
 		{"last include", `{skills: {include: [x], exclude: [y, "z-*"]}}`, "remove-skills", `{skills: {include: [], exclude: [y, "z-*"]}}`, "removed", ""},
 		{"empty include blocked", `{skills: {include: [], exclude: ["x*"]}}`, "add-skills", "", "", "x*"},
 		{"empty skills", `{skills: {}}`, "add-skills", `{skills: {include: [x]}}`, "added", ""},
