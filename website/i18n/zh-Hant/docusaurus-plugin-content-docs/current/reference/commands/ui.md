@@ -188,7 +188,7 @@ Web dashboard 在 `/api/` 上提供 REST API。所有端點皆回傳 JSON。
 | GET | `/api/skillignore` | 取得 `.skillignore` 內容、存在時的 `.skillignore.local` 內容，以及忽略統計 |
 | PUT | `/api/skillignore` | 更新 `.skillignore` 內容 |
 | GET | `/api/doctor` | 執行所有健康檢查（JSON） |
-| GET | `/api/doctor/stream` | 以 Server-Sent Events 執行所有健康檢查：每完成一項送出一個 `check` 事件。較慢的檢查會先以狀態 `pending` 送出，之後同名的 `check` 事件會取代它，後面的檢查不必等它；最後以 `done` 送出與 `/api/doctor` 相同的 JSON |
+| GET | `/api/doctor/stream` | 以 Server-Sent Events 執行所有健康檢查：每完成一項送出一個 `check` 事件。較慢的檢查會先以狀態 `pending` 送出，之後同名的 `check` 事件會取代它，不需要它結果的檢查會先送出；最後以 `done` 送出與 `/api/doctor` 相同的 JSON |
 | GET | `/api/health` | 存活探測；伺服器就緒後回傳 `200` |
 | GET | `/api/version` | 目前/最新版本 + 是否有可用升級 + Nix 安裝時更新 CLI 的指令（`nixUpgradeCommand`） |
 | POST | `/api/upgrade` | 就地執行 `skillshare upgrade`（若執行檔為開發版本則回傳 `devMode: true`；透過 Nix 安裝且有較新的 CLI 待安裝時回傳 `409`，錯誤碼為 `upgrade.nix`） |
