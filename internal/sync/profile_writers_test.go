@@ -1072,3 +1072,162 @@ func TestProfileAwareWriters_MovedLegacyReplay(t *testing.T) {
 		})
 	}
 }
+
+func TestProfileAwareWriters_LegacyDuplicateBasenameIdentity(t *testing.T) {
+	for _, output := range []string{"missing", "bare"} {
+		for _, producer := range []string{"a", "z"} {
+			for _, scenario := range []string{"selected_merge", "copy_orphan", "merge_orphan", "moved", "edited_copy", "changed_source"} {
+				t.Run(output+"/"+producer+"/"+scenario, func(t *testing.T) {
+					root := t.TempDir()
+					source := filepath.Join(root, "source")
+					contents := map[string]string{
+						"a": "---\nname: demo\n---\nfirst candidate bytes\n",
+						"z": "---\nname: demo\n---\nlast candidate bytes\n",
+					}
+					for _, prefix := range []string{"a", "z"} {
+						writeSkillMD(t, filepath.Join(source, prefix, "demo"), contents[prefix])
+					}
+					skills, err := DiscoverSourceSkills(source)
+					if err != nil || len(skills) != 2 || skills[0].RelPath != "a/demo" || skills[1].RelPath != "z/demo" {
+						t.Fatalf("duplicate basenames must have deterministic source order: %+v, %v", skills, err)
+					}
+					dir := filepath.Join(root, ".goose", "skills")
+					entry := filepath.Join(dir, "demo")
+					chosen := filepath.Join(source, producer, "demo")
+					target := config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: dir, TargetNaming: "standard", Include: []string{producer + "__demo"}}}
+					// The ordinary copy writer produces the source checksum, naming, and deployed bytes.
+					seed, err := SyncTargetCopy("goose", target, source, false, false)
+					if err != nil || !reflect.DeepEqual(seed.Copied, []string{"demo"}) {
+						t.Fatalf("default writer did not publish the selected source: %+v, %v", seed, err)
+					}
+					manifest, err := ReadManifest(dir)
+					if err != nil {
+						t.Fatal(err)
+					}
+					sourceSum, err := DirChecksumWithIgnore(chosen, DefaultFileIgnorePatterns())
+					if err != nil || manifest.Managed["demo"] != sourceSum || manifest.Naming["demo"] != "standard" {
+						t.Fatalf("default manifest lost producing source identity: %+v, %v", manifest, err)
+					}
+					if data, err := os.ReadFile(filepath.Join(entry, "SKILL.md")); err != nil || string(data) != contents[producer] {
+						t.Fatalf("default writer deployed the wrong source bytes: %q, %v", data, err)
+					}
+					// Model the supported pre-output and pre-tag upgrade records; retain writer metadata.
+					delete(manifest.Outputs, "demo")
+					if output == "bare" {
+						legacy, err := DirChecksumWithIgnore(entry, DefaultFileIgnorePatterns())
+						if err != nil {
+							t.Fatal(err)
+						}
+						manifest.Outputs["demo"] = legacy
+					}
+					if err := WriteManifest(dir, manifest); err != nil {
+						t.Fatal(err)
+					}
+					manifest, err = ReadManifest(dir)
+					if err != nil || !manifest.OwnsCopy("demo", entry) {
+						t.Fatalf("supported legacy upgrade record is not owned: %+v, %v", manifest, err)
+					}
+					wantBytes := contents[producer]
+					if scenario == "edited_copy" {
+						wantBytes = "authored deployed bytes\n"
+						writeSkillMD(t, entry, wantBytes)
+					} else if scenario == "changed_source" {
+						writeSkillMD(t, chosen, "---\nname: demo\n---\nchanged source bytes\n")
+					}
+					clean := scenario != "edited_copy" && scenario != "changed_source"
+					resolution, err := ResolveTargetSkillsForTarget("goose", target.SkillsConfig(), skills)
+					if err != nil || len(resolution.Skills) != 1 || resolution.Skills[0].Skill.SourcePath != chosen {
+						t.Fatalf("selected writer resolved the wrong duplicate basename: %+v, %v", resolution, err)
+					}
+					if scenario == "copy_orphan" || scenario == "merge_orphan" || scenario == "moved" {
+						resolution, err = ResolveTargetSkillsForTarget("goose", target.SkillsConfig(), nil)
+						if err != nil {
+							t.Fatal(err)
+						}
+					}
+					before := snapshotDetachTree(t, root)
+					classification, allowed := PreviewEntry("demo", dir, source, skills, manifest, nil)
+					wantClass := EntryModifiedCopy
+					if clean {
+						wantClass = EntryCleanCopy
+					}
+					if classification.Class != wantClass || allowed != clean {
+						t.Errorf("preview did not resolve recorded source and reproduce deployed bytes: %+v allowed=%v, want %s/%v", classification, allowed, wantClass, clean)
+					}
+					keptPreview := PreviewPreservedEntries("goose", dir, source, "merge", resolution, skills, manifest, nil)
+					if clean && len(keptPreview) != 0 || !clean && (len(keptPreview) != 1 || keptPreview[0].Class != EntryModifiedCopy) {
+						t.Errorf("preview preservation disagrees with legacy reproducibility: %+v", keptPreview)
+					}
+					if !reflect.DeepEqual(before, snapshotDetachTree(t, root)) {
+						t.Error("legacy preview changed source, deployed copy, or manifest")
+					}
+					sourceBefore := snapshotDetachTree(t, source)
+					var removed, converted []string
+					var kept []EntryChange
+					switch scenario {
+					case "copy_orphan":
+						out, err := pruneOrphanCopiesWithPolicy("goose", target.SkillsConfig(), nil, false, source, true, nil, nil, PruneOptions{Skills: skills})
+						if err != nil {
+							t.Fatal(err)
+						}
+						removed, kept = out.Removed, out.KeptModified
+					case "merge_orphan":
+						out, err := PruneOrphanLinksWithSkills(PruneOptions{TargetName: "goose", TargetPath: dir, SourcePath: source, TargetNaming: "standard", Skills: []DiscoveredSkill{}, VerificationSkills: skills, ProfileAware: true})
+						if err != nil {
+							t.Fatal(err)
+						}
+						removed, kept = out.Removed, out.KeptModified
+					case "moved":
+						moved := []MovedTarget{{Name: "goose", Path: filepath.Join(root, ".agents", "skills"), TargetNaming: "standard"}}
+						if preview := PreviewMovedProjectEntries(root, source, moved, skills, nil); len(preview) != 0 {
+							t.Errorf("moved preview falsely preserves reproducible legacy copy: %+v", preview)
+						}
+						out := cleanMovedProjectDirsWithPolicy(root, source, moved, false, true, nil, PruneOptions{Skills: skills})
+						if len(out.Outcomes) != 0 || len(out.Messages) != 1 {
+							t.Errorf("moved owner did not clean exactly the verified copy: %+v", out)
+						}
+					default:
+						out, err := SyncTargetMergeWithPolicy("goose", target, skills, source, false, false, "", true, nil)
+						if err != nil {
+							t.Fatal(err)
+						}
+						converted, kept = out.Updated, out.KeptModified
+						if len(out.Blocked) != 0 {
+							t.Errorf("legacy copy unexpectedly blocked: %+v", out)
+						}
+					}
+					if !reflect.DeepEqual(sourceBefore, snapshotDetachTree(t, source)) {
+						t.Error("legacy operation changed either candidate source")
+					}
+					if !clean {
+						if len(kept) != 1 || kept[0].Class != EntryModifiedCopy || len(converted)+len(removed) != 0 {
+							t.Errorf("unreproducible legacy copy was not preserved: kept=%+v converted=%v removed=%v", kept, converted, removed)
+						}
+						if data, err := os.ReadFile(filepath.Join(entry, "SKILL.md")); err != nil || string(data) != wantBytes || utils.IsSymlinkOrJunction(entry) {
+							t.Errorf("legacy verification lost deployed bytes: %q, %v", data, err)
+						}
+						after, err := ReadManifest(dir)
+						if err != nil || !reflect.DeepEqual(after.Managed, manifest.Managed) || !reflect.DeepEqual(after.Outputs, manifest.Outputs) || !reflect.DeepEqual(after.Naming, manifest.Naming) || !reflect.DeepEqual(after.Mtimes, manifest.Mtimes) || !reflect.DeepEqual(after.Sources, manifest.Sources) {
+							t.Errorf("denied legacy operation changed ownership records: %+v, %v", after, err)
+						}
+					} else if scenario == "selected_merge" {
+						if !reflect.DeepEqual(converted, []string{"demo"}) || len(kept) != 0 || !utils.IsSymlinkOrJunction(entry) {
+							t.Errorf("selected writer disagrees with clean legacy preview: converted=%v kept=%+v", converted, kept)
+						}
+						link, err := utils.ResolveLinkTarget(entry)
+						if err != nil || !utils.PathsEqual(utils.ResolveSymlink(link), utils.ResolveSymlink(chosen)) {
+							t.Errorf("selected writer converted to wrong duplicate source: %q, %v", link, err)
+						}
+					} else {
+						if _, err := os.Lstat(entry); !os.IsNotExist(err) || len(kept) != 0 {
+							t.Errorf("reproducible orphan was preserved: kept=%+v, %v", kept, err)
+						}
+						if scenario != "moved" && !reflect.DeepEqual(removed, []string{"demo"}) {
+							t.Errorf("orphan owner failed to report removal: %v", removed)
+						}
+					}
+				})
+			}
+		}
+	}
+}

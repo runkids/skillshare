@@ -283,3 +283,64 @@ func TestCollectTargetDiff_ConfiguredRootAlias(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderGroupedDiffs_PreservedInventoryIdentity(t *testing.T) {
+	for _, layout := range []string{"targets", "current_former"} {
+		for _, mode := range []string{"stat", "patch"} {
+			t.Run(layout+"/"+mode, func(t *testing.T) {
+				root := t.TempDir()
+				dirs := []string{filepath.Join(root, "current"), filepath.Join(root, "former")}
+				files := []string{"current-only.md", "former-only.md"}
+				contents := []string{"authored current bytes", "different authored former bytes"}
+				const reason = "kept: copy was edited or could not be verified; collect or remove manually, or use verified --discard-edits"
+				items := make([]copyDiffEntry, 2)
+				for i := range items {
+					writeTestFile(t, dirs[i], files[i], contents[i])
+					items[i] = copyDiffEntry{name: "alpha", action: "kept", reason: reason, dstDir: dirs[i]}
+				}
+				results := []targetDiffResult{
+					{name: "first", mode: "copy", items: items[:1]},
+					{name: "second", mode: "copy", items: items[1:]},
+				}
+				if layout == "current_former" {
+					items[0].reason += " (in " + dirs[0] + ")"
+					items[1].reason += " (in " + dirs[1] + ")"
+					results = []targetDiffResult{{name: "goose", mode: "copy", items: items}}
+				}
+				opts := diffRenderOpts{showStat: mode == "stat", showPatch: mode == "patch"}
+				output := stripANSIWarnings(captureStdout(t, func() {
+					renderGroupedDiffs(results, nil, opts)
+				}))
+				for i, file := range files {
+					if strings.Count(output, "· "+file) != 1 || strings.Contains(output, "- "+file) {
+						t.Errorf("inventory %s must appear once and stay neutral:\n%s", dirs[i], output)
+					}
+					if !strings.Contains(output, items[i].reason) {
+						t.Errorf("lost full preservation reason %q:\n%s", items[i].reason, output)
+					}
+					if wire := diffItemToJSON(items[i]); wire.Action != "kept" || wire.Name != "alpha" || wire.IsSync || wire.Reason != items[i].reason {
+						t.Errorf("inventory changed raw identity/reason: %+v", wire)
+					}
+					if data, err := os.ReadFile(filepath.Join(dirs[i], file)); err != nil || string(data) != contents[i] {
+						t.Errorf("preview changed authored inventory %s: %q, %v", dirs[i], data, err)
+					}
+				}
+				firstFile, secondFile := strings.Index(output, files[0]), strings.Index(output, files[1])
+				if layout == "targets" {
+					firstTarget, secondTarget := strings.Index(output, "first\n"), strings.Index(output, "second\n")
+					if firstTarget < 0 || secondTarget < 0 || !(firstTarget < firstFile && firstFile < secondTarget && secondTarget < secondFile) {
+						t.Errorf("detailed inventories lost their owning target association:\n%s", output)
+					}
+				} else {
+					firstReason, secondReason := strings.Index(output, items[0].reason), strings.Index(output, items[1].reason)
+					if firstFile < 0 || secondFile < 0 || !(firstFile < firstReason && firstReason < secondFile && secondFile < secondReason) {
+						t.Errorf("same-name inventories were attributed to the wrong current/former reason:\n%s", output)
+					}
+				}
+				if strings.Contains(output, "to sync") {
+					t.Errorf("preserved inventories became executable work:\n%s", output)
+				}
+			})
+		}
+	}
+}

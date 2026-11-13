@@ -273,3 +273,40 @@ func TestDiffTUI_PreservationPresentation(t *testing.T) {
 		}
 	})
 }
+
+func TestDiffTUI_PreservedInventoryExpansionIdentity(t *testing.T) {
+	root := t.TempDir()
+	files := []string{"current-only.md", "former-only.md"}
+	entries := make([]copyDiffEntry, 2)
+	for i, dir := range []string{"current", "former"} {
+		path := filepath.Join(root, dir)
+		writeTestFile(t, path, files[i], "authored "+dir)
+		entries[i] = copyDiffEntry{name: "alpha", action: "kept", reason: "kept: edited copy (in " + path + ")", dstDir: path}
+	}
+	m := newDiffTUIModel([]targetDiffResult{{name: "goose", mode: "copy", items: entries}})
+	m.refreshDetailCache()
+	for i := range entries {
+		msg, ok := expandDiffCmd(&entries[i])().(diffExpandMsg)
+		if !ok || msg.skill != "alpha" || msg.diff != "" || len(msg.files) != 1 || msg.files[0].RelPath != files[i] {
+			t.Fatalf("expansion lost actual destination inventory: %+v", msg)
+		}
+		m.loading = true
+		updated, _ := m.Update(msg)
+		m = updated.(diffTUIModel)
+		detail := stripANSIWarnings(m.buildDiffDetail())
+		if !strings.Contains(detail, "· "+files[i]) || strings.Contains(detail, "- "+files[i]) || strings.Contains(detail, files[1-i]) {
+			t.Errorf("expansion reused a same-name inventory from another directory:\n%s", detail)
+		}
+		for _, entry := range entries {
+			if !strings.Contains(detail, strings.TrimPrefix(entry.reason, "kept: ")) {
+				t.Errorf("expansion lost distinct directory reason %q:\n%s", entry.reason, detail)
+			}
+		}
+		if strings.Contains(m.renderTitleLine(), "to sync") {
+			t.Error("expanded preservation became sync work")
+		}
+		if data, err := os.ReadFile(filepath.Join(entries[i].dstDir, files[i])); err != nil || string(data) != "authored "+filepath.Base(entries[i].dstDir) {
+			t.Errorf("expansion wrote authored destination: %q, %v", data, err)
+		}
+	}
+}
