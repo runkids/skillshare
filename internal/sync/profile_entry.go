@@ -79,12 +79,24 @@ func entryMutationAllowed(target string, input EntryInput, discard []DiscardEntr
 func legacyCopySources(name string, skills []DiscoveredSkill, manifest *Manifest, ignore []string) []CopySource {
 	var sources []CopySource
 	for _, skill := range skills {
-		outputs := make(map[string]bool)
-		for _, candidate := range targetNameCandidates(skill) {
-			if candidate.name != name {
-				continue
+		candidates := targetNameCandidates(skill)
+		matchesName := false
+		for _, candidate := range candidates {
+			if candidate.name == name {
+				matchesName = true
 			}
-			if manifest != nil && manifest.Naming[name] != "" && manifest.Naming[name] != candidate.naming {
+		}
+		if !matchesName {
+			continue
+		}
+		outputs := make(map[string]bool)
+		for _, candidate := range candidates {
+			// A migrated folder can retain its original naming's rewritten bytes.
+			if manifest != nil && manifest.Naming[name] != "" {
+				if manifest.Naming[name] != candidate.naming {
+					continue
+				}
+			} else if candidate.name != name {
 				continue
 			}
 			source := CopySource{Path: skill.SourcePath, IgnorePatterns: ignore}
