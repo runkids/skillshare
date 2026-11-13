@@ -375,7 +375,7 @@ audit 會掃描 skill 目錄中的文字型檔案：
 | `--yes`, `-y` | Skip large-scan confirmation prompt (auto-confirms) |
 | `--quiet`, `-q` | Only show skills with findings + summary (suppress clean ✓ lines) |
 | `--no-tui` | Disable interactive TUI, print plain text output |
-| `--respect-accepted` | Do not fail on findings accepted earlier with `--force`; they are marked as accepted. See [Accepted findings](#accepted-findings) |
+| `--respect-accepted` | 不因先前用 `--force` 接受的發現而失敗，並將其標示為已接受。見 [已接受的發現](#accepted-findings) |
 | `--init-rules` | Create a starter `audit-rules.yaml` (respects `-p`/`-g`) |
 | `-h`, `--help` | Show help |
 

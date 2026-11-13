@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Dernière version** : v0.30.6 — Repérez les skills obsolètes en CI : `skillshare check --exit-code` se termine avec le code 1 dès qu’un élément vérifié n’est pas à jour, et `check --all` vérifie désormais les agents en plus des skills : une seule étape CI couvre les deux. [Référence de check →](https://skillshare.runkids.cc/docs/reference/commands/check) · [Toutes les versions →](https://github.com/runkids/skillshare/releases)
+> **Dernière version** : v0.30.7 — Laissez passer en CI les constats acceptés : `skillshare audit --respect-accepted` n’échoue plus sur les constats que vous avez acceptés avec `--force` lors d’un `install` ou d’un `update`, comme le contrôle de mise à jour. Ils restent dans le rapport, marqués comme acceptés. [Référence d’audit →](https://skillshare.runkids.cc/docs/reference/commands/audit#accepted-findings) · [Toutes les versions →](https://github.com/runkids/skillshare/releases)
 
 ## Pourquoi skillshare
 
