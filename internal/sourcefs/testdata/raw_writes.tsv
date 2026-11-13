@@ -550,3 +550,5 @@ internal/install/extra_snapshot.go	restoreExtraSnapshotIfUnchanged	os.Remove	pat
 internal/install/extra_snapshot.go	restoreExtraSnapshotIfUnchanged	os.CreateTemp	filepath.Dir(path)	config
 internal/install/extra_snapshot.go	restoreExtraSnapshotIfUnchanged	os.Remove	tmp	config
 internal/install/extra_snapshot.go	restoreExtraSnapshotIfUnchanged	os.Rename	tmp, path	config
+internal/install/extra_candidate.go	removeExtraCandidateTemp	os.RemoveAll	dir	tmp
+internal/install/extra_candidate.go	prepareExtraCandidate	os.MkdirTemp	""	tmp
