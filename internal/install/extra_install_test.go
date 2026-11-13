@@ -1111,3 +1111,44 @@ func TestInstallRemoteExtra_RollbackCompareFailureKeepsMarker(t *testing.T) {
 		t.Fatalf("sentinel: %q %v", got, err)
 	}
 }
+
+func TestInstallRemoteExtra_StaleOriginMetadataMissingVersusLive(t *testing.T) {
+	for _, missing := range []bool{false, true} {
+		t.Run(fmt.Sprintf("missing=%t", missing), func(t *testing.T) {
+			req := newRemoteExtraRequest(t)
+			initial, err := InstallRemoteExtra(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			store, _, err := ReadMetadata(req.ExtrasRoot)
+			if err != nil {
+				t.Fatal(err)
+			}
+			entry := store.GetExact(req.Name)
+			entry.Source = "example-org/previous-hub"
+			entry.Commit = strings.Repeat("f", 40)
+			if err := store.Save(req.ExtrasRoot); err != nil {
+				t.Fatal(err)
+			}
+			if missing {
+				if err := os.RemoveAll(filepath.Join(req.ExtrasRoot, req.Name)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			result, err := InstallRemoteExtra(req)
+			if !missing {
+				if err == nil || !strings.Contains(err.Error(), "different origin") {
+					t.Fatalf("live origin conflict: %+v %v", result, err)
+				}
+				return
+			}
+			if err != nil || result.Commit != initial.Commit {
+				t.Fatalf("stale missing metadata used as pin: %+v %v", result, err)
+			}
+			got, _, err := ReadMetadata(req.ExtrasRoot)
+			if err != nil || got.GetExact(req.Name).Source != req.RawSource {
+				t.Fatalf("fresh metadata: %+v %v", got, err)
+			}
+		})
+	}
+}

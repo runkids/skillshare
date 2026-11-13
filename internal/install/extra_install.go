@@ -108,7 +108,7 @@ func InstallRemoteExtra(req RemoteExtraRequest) (*RemoteExtraResult, error) {
 		return nil, err
 	}
 	entry := store.GetExact(req.Name)
-	if entry != nil && entry.Source != "" && entry.Source != req.RawSource {
+	if !state.Missing && entry != nil && entry.Source != "" && entry.Source != req.RawSource {
 		return nil, fmt.Errorf("extra %q has a different origin; remove it before reinstalling", req.Name)
 	}
 	source := *req.Source
