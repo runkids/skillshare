@@ -184,7 +184,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 
 	// Cross-path duplicate detection: block if same repo is already installed
 	// at a different location (e.g. user forgot they used --into before).
-	if !opts.Force && source.CloneURL != "" {
+	if !opts.Force && !opts.DryRun && source.CloneURL != "" {
 		if err := install.CheckCrossPathDuplicate(cfg.EffectiveSkillsSource(), source.CloneURL, opts.Into); err != nil {
 			return logSummary, err
 		}
@@ -877,7 +877,7 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 	}
 
 	// Cross-path duplicate detection (same as handleGitInstall)
-	if !opts.Force && source.CloneURL != "" {
+	if !opts.Force && !opts.DryRun && source.CloneURL != "" {
 		if err := install.CheckCrossPathDuplicate(cfg.EffectiveSkillsSource(), source.CloneURL, opts.Into); err != nil {
 			return logSummary, err
 		}

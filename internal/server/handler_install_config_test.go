@@ -12,7 +12,49 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
+	"skillshare/internal/testutil"
 )
+
+func TestHandleInstallFromConfig_FollowsAdvancedProjectLock(t *testing.T) {
+	s, project := newTestProjectServerWithExtras(t, nil)
+	base := t.TempDir()
+	remote := testutil.SetupBareRemoteRepo(t, base)
+	testutil.SeedRemoteBranch(t, base, remote, "main", map[string]string{"demo/SKILL.md": "# Original\n"})
+	source := "file://" + remote + "//demo"
+	s.projectCfg.Skills = []config.SkillEntry{{Name: "demo", Source: source}}
+	if err := s.projectCfg.Save(project); err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	s.handleInstallFromConfig(rr, httptest.NewRequest(http.MethodPost, "/api/install/from-config", nil))
+	installed := filepath.Join(s.skillsSource(), "demo", "SKILL.md")
+	if body, err := os.ReadFile(installed); err != nil || string(body) != "# Original\n" {
+		t.Fatalf("initial install: %q, %v; response: %s", body, err, rr.Body.String())
+	}
+
+	seed := filepath.Join(base, "seed-main")
+	if err := os.WriteFile(filepath.Join(seed, "demo", "SKILL.md"), []byte("# New pin\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.RunGit(t, seed, "commit", "-am", "advance skill")
+	testutil.RunGit(t, seed, "push", "origin", "HEAD:main")
+	lockDir := filepath.Join(project, ".skillshare")
+	lock, err := install.LoadLock(lockDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pin := lock.Skills["demo"]
+	pin.Commit = strings.TrimSpace(testutil.RunGit(t, seed, "rev-parse", "HEAD"))
+	lock.Skills["demo"] = pin
+	if err := lock.Save(lockDir); err != nil {
+		t.Fatal(err)
+	}
+	rr = httptest.NewRecorder()
+	s.handleInstallFromConfig(rr, httptest.NewRequest(http.MethodPost, "/api/install/from-config", nil))
+	if body, err := os.ReadFile(installed); err != nil || string(body) != "# New pin\n" {
+		t.Fatalf("dashboard did not follow advanced lock: %q, %v; response: %s", body, err, rr.Body.String())
+	}
+}
 
 func TestHandleMissingConfigEntries_ListsAbsentEntries(t *testing.T) {
 	s, src := newTestServer(t)

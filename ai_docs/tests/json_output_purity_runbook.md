@@ -16,7 +16,7 @@ Validates that `--json` mode outputs pure JSON to stdout (no UI noise) and that 
 
 ## Environment
 
-Run inside devcontainer. Setup hook in `runbook.json` handles `ss init -g`.
+Run inside devcontainer. Setup hook in `mdproof.json` handles `ss init -g`.
 Requires: `jq`
 
 ## Steps
@@ -33,7 +33,7 @@ ss sync
 
 Expected:
 - exit_code: 0
-- merged
+- Synced
 
 ### Step 2: status --json outputs pure JSON
 
@@ -140,7 +140,7 @@ Expected:
 - SKILLS=OK
 - PURE_JSON=OK
 
-### Step 7a: install JSON requires explicit overwrite consent
+### Step 8: install JSON requires explicit overwrite consent
 
 ```bash
 printf '# Local edit\n' > ~/.config/skillshare/skills/ext-skill/SKILL.md
@@ -158,7 +158,7 @@ cmp /tmp/ext-skill/SKILL.md ~/.config/skillshare/skills/ext-skill/SKILL.md
 Expected:
 - exit_code: 0
 
-### Step 8: uninstall --json outputs pure JSON
+### Step 9: uninstall --json outputs pure JSON
 
 ```bash
 OUTPUT=$(ss uninstall ext-skill --json)
@@ -172,7 +172,7 @@ Expected:
 - REMOVED=OK
 - PURE_JSON=OK
 
-### Step 9: uninstall --json error path returns JSON error envelope
+### Step 10: uninstall --json error path returns JSON error envelope
 
 ```bash
 OUTPUT=$(ss uninstall nonexistent-skill --json 2>&1) || true
@@ -186,7 +186,7 @@ Expected:
 - ERROR_FIELD=OK
 - PURE_JSON=OK
 
-### Step 10: collect --json outputs pure JSON (no local skills)
+### Step 11: collect --json outputs pure JSON (no local skills)
 
 ```bash
 OUTPUT=$(ss collect --json --all)
@@ -202,7 +202,7 @@ Expected:
 - PULLED=OK
 - PURE_JSON=OK
 
-### Step 11: update --json --dry-run outputs pure JSON
+### Step 12: update --json --dry-run outputs pure JSON
 
 ```bash
 OUTPUT=$(ss update --all --json --dry-run)
@@ -218,7 +218,7 @@ Expected:
 - SKIPPED=OK
 - PURE_JSON=OK
 
-### Step 12: Non-JSON regression — status still shows human-readable output
+### Step 13: Non-JSON regression — status still shows human-readable output
 
 ```bash
 OUTPUT=$(ss status 2>&1)
@@ -237,7 +237,7 @@ Expected:
 - TARGET=OK
 - NOT_JSON=OK
 
-### Step 13: Non-JSON regression — sync still shows human-readable output
+### Step 14: Non-JSON regression — sync still shows human-readable output
 
 ```bash
 OUTPUT=$(ss sync 2>&1)
@@ -251,7 +251,7 @@ Expected:
 - NOT_JSON=OK
 - READABLE=OK
 
-### Step 14: Non-JSON regression — list still shows human-readable output
+### Step 15: Non-JSON regression — list still shows human-readable output
 
 ```bash
 OUTPUT=$(ss list 2>&1)
@@ -265,7 +265,7 @@ Expected:
 - NOT_JSON=OK
 - SKILLS_SHOWN=OK
 
-### Step 15: status --project --json in project mode
+### Step 16: status --project --json in project mode
 
 ```bash
 SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1
@@ -291,7 +291,7 @@ Expected:
 - VERSION=OK
 - PURE_JSON=OK
 
-### Step 16: target list --json outputs pure JSON
+### Step 17: target list --json outputs pure JSON
 
 ```bash
 OUTPUT=$(ss target list --json)
@@ -305,7 +305,7 @@ Expected:
 - HAS_TARGETS=OK
 - PURE_JSON=OK
 
-### Step 17: uninstall -p --json outputs pure JSON on a fresh project
+### Step 18: uninstall -p --json outputs pure JSON on a fresh project
 
 The first `-p` command initializes the project; its banner must stay off stdout.
 
@@ -322,7 +322,7 @@ Expected:
 - ERROR_FIELD=OK
 - PURE_JSON=OK
 
-### Step 18: uninstall agents --json reports a missing agent
+### Step 19: uninstall agents --json reports a missing agent
 
 ```bash
 OUTPUT=$(ss uninstall agents nosuch --json -g 2>/dev/null) || true
@@ -338,7 +338,7 @@ Expected:
 
 ## Pass Criteria
 
-- All 18 steps PASS
+- All 19 steps PASS
 - All `--json` outputs start with `{` or `[` (pure JSON)
 - Error paths return JSON error envelope with non-zero exit code
 - Non-JSON commands still produce human-readable output

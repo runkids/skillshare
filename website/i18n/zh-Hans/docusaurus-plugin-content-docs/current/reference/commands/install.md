@@ -227,7 +227,7 @@ skillshare install -p    # 从 project 配置安装所有远程 Skill
 skillshare sync
 ```
 
-标记为 `tracked: true` 的 Skill 会以完整 git 历史克隆（与 `--track` 相同），因此 `skillshare update` 能正常工作。磁盘上已存在的 Skill 会被跳过。当 tracked repo 目录被 gitignore 掉、克隆后本地缺失时，这就是恢复用的命令。
+标记为 `tracked: true` 的 Skill 会以完整 git 历史克隆（与 `--track` 相同），因此 `skillshare update` 能正常工作。磁盘上已存在的 Skill 会被跳过，除非项目的固定版本已更改。当 tracked repo 目录被 gitignore 掉、克隆后本地缺失时，这就是恢复用的命令。 使用 `--json` 时，即使项目锁定文件指向不同的 commit，也会跳过现有副本；加上 `--force` 才会更新到该固定版本。
 
 :::tip push/pull 与 install from config 的区别
 `push`/`pull` 通过 git 同步实际的 Skill **文件**。`install` from config 则从 **source URL** 重新下载。两者是互补的 —— 具体该用哪个，参见 [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync#alternative-install-from-config)。
@@ -313,7 +313,7 @@ skillshare install anthropics/skills --json
 
 仅使用 JSON 输出会保留已有的 skill 和 agent。覆盖时请显式添加 `--force`。`skipped` 数组报告因重复检查而跳过的名称；其他冲突会返回 `error` 或列在 `failed` 中。`skills` 数组仅包含已安装的名称。
 
-对明确指定、非跟踪的 skill 来源，加上 `--dry-run --json` 可取得 `planned` 数组，包含 `{name, path}`，不会安装。名称是 CLI 的安装名称；Git 路径相对于仓库根目录（包含选取的子目录），本地 skill 使用 `.`。列表遵循发现、`.skillignore` 和选择规则；JSON 模式未指定筛选条件时会全选。`skills` 仍只报告已安装名称，在 dry-run 中保持空数组。发现后没有选中的 skill 时返回 `planned: []`；跟踪与配置文件安装不提供此字段。
+对明确指定、非跟踪的 skill 来源，加上 `--dry-run --json` 可取得 `planned` 数组，包含 `{name, path}`，不会安装。名称是 CLI 的安装名称；Git 路径相对于仓库根目录（包含选取的子目录），本地 skill 使用 `.`。列表遵循发现、`.skillignore` 和选择规则；JSON 模式未指定筛选条件时会全选。`skills` 仍只报告已安装名称，在 dry-run 中保持空数组。发现后没有选中的 skill 时返回 `planned: []`；跟踪与配置文件安装不提供此字段。 现有目标和跨路径的重复安装不会阻止此只读预览。
 
 ```json
 {

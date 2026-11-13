@@ -24,9 +24,11 @@ returns `planned: [{name, path}]`: canonical install names and repository-relati
 Git paths (including a selected subdirectory), or `.` for a local skill. Use this
 instead of scanning for `SKILL.md` or guessing names. Discovery, `.skillignore`, and
 selection rules apply; without a filter JSON mode selects all. `skills` remains
-empty during dry-run. An empty discovered selection returns `planned: []`;
+empty during dry-run, and existing destinations do not block the preview. An empty discovered selection returns `planned: []`;
 tracked and config-based installs omit the field. Check the exit status as well
 as `error`, including when consuming JSON from older CLIs.
+
+With `--json`, existing copies are skipped even when the project lock points to a different commit; add `--force` to follow that pin.
 
 ### Source Formats
 

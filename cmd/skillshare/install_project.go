@@ -56,6 +56,11 @@ func cmdInstallProjectParsed(parsed *installArgs, root string) (installLogSummar
 			return summary, fmt.Errorf("flags --name, --into, --track, --skill, --agent, --kind, --exclude, --all, --yes, --branch, and --update require a source argument")
 		}
 		summary.Source = "project-config"
+		// Ordinary config installs follow lock advances; JSON alone preserves
+		// installed copies until the caller explicitly requests --force.
+		if !parsed.jsonOutput {
+			parsed.opts.Update = true
+		}
 		return installFromProjectConfig(runtime, parsed.opts)
 	}
 

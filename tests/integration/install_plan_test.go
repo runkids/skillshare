@@ -11,6 +11,79 @@ import (
 	"skillshare/internal/testutil"
 )
 
+func TestInstall_JSON_PreviewExistingSkill(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		mode := "global"
+		if project {
+			mode = "project"
+		}
+		for _, layout := range []string{"root", "subdir", "local"} {
+			for _, existing := range []string{"same-source", "other-source", "cross-path"} {
+				if layout == "local" && existing == "cross-path" {
+					continue
+				}
+				t.Run(mode+"/"+layout+"/"+existing, func(t *testing.T) {
+					sb := testutil.NewSandbox(t)
+					defer sb.Cleanup()
+					sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+					cwd, dest, flag := sb.Root, sb.SourcePath, "-g"
+					if project {
+						cwd = sb.SetupProjectDir("claude")
+						dest, flag = filepath.Join(cwd, ".skillshare", "skills"), "-p"
+					}
+					sources := make([]string, 0, 2)
+					wantPath := "."
+					for _, owner := range []string{"installed", "incoming"} {
+						repo := filepath.Join(sb.Root, owner, "demo")
+						skillPath := repo
+						if layout == "subdir" {
+							wantPath = "skills/demo"
+							skillPath = filepath.Join(repo, wantPath)
+						}
+						sb.WriteFile(filepath.Join(skillPath, "SKILL.md"), "# Demo\n")
+						initGitRepo(t, repo)
+						source := "file://" + repo
+						if layout == "subdir" {
+							source += "//" + wantPath
+						} else if layout == "local" {
+							source = repo
+						}
+						sources = append(sources, source)
+					}
+					args := []string{"install", sources[0], "--json", "--kind", "skill", flag}
+					if existing == "cross-path" {
+						args = append(args, "--into", "library")
+						dest = filepath.Join(dest, "library")
+					}
+					sb.RunCLIInDir(cwd, args...).AssertSuccess(t)
+					installedFile := filepath.Join(dest, "demo", "SKILL.md")
+					const edited = "# Local edit\n"
+					sb.WriteFile(installedFile, edited)
+					source := sources[0]
+					if existing == "other-source" {
+						source = sources[1]
+					}
+					result := sb.RunCLIInDir(cwd, "install", source, "--dry-run", "--json", "--kind", "skill", flag)
+					if got := sb.ReadFile(installedFile); got != edited {
+						t.Fatalf("preview changed installed content: %q", got)
+					}
+					result.AssertSuccess(t)
+					var out struct {
+						Planned []struct{ Name, Path string }
+						Skills  []string
+					}
+					if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil {
+						t.Fatal(err)
+					}
+					if len(out.Planned) != 1 || out.Planned[0].Name != "demo" || out.Planned[0].Path != wantPath || len(out.Skills) != 0 {
+						t.Fatalf("existing destination prevented preview: %s", result.Stdout)
+					}
+				})
+			}
+		}
+	}
+}
+
 func TestInstall_JSON_PlannedFromMetadata(t *testing.T) {
 	for _, project := range []bool{false, true} {
 		mode := "global"
