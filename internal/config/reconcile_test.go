@@ -574,10 +574,10 @@ func TestReconcileGlobalSkills_KeepsMetadataOfUnavailableSourceLink(t *testing.T
 		if err := ReconcileGlobalSkills(cfg, store); err != nil {
 			t.Fatalf("ReconcileGlobalSkills: %v", err)
 		}
-		// Off, the link is invisible and its entry goes, as before; on, the
-		// walk knows it missed the link and keeps the entry.
-		if store.Has("_dev-skills") != follow {
-			t.Errorf("follow=%v: entry kept = %v", follow, store.Has("_dev-skills"))
+		// A sourced tracked declaration survives whether or not the walk
+		// follows the unavailable link.
+		if !store.Has("_dev-skills") {
+			t.Errorf("follow=%v: tracked entry was pruned", follow)
 		}
 	}
 }
