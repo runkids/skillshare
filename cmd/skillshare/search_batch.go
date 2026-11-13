@@ -641,6 +641,8 @@ func logSkillInstallOp(cfgPath string, sr search.SearchResult, r searchInstallRe
 		logSummary.InstalledSkills = []string{r.name}
 	} else if r.status == "failed" {
 		logSummary.FailedSkills = []string{r.name}
+	} else if r.status == "skipped" {
+		logSummary.SkippedSkills = []string{r.name}
 	}
 	logInstallOp(cfgPath, sr.Source, start, opErr, logSummary)
 }

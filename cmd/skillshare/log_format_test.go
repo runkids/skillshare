@@ -217,6 +217,7 @@ func TestFormatInstallLogDetail_IncludesInstalledSkills(t *testing.T) {
 		"skill_count":      2,
 		"installed_skills": []string{"skill-a", "skill-b"},
 		"failed_skills":    []string{"skill-c"},
+		"skipped_skills":   []string{"skill-d"},
 	}
 
 	detail := formatInstallLogDetail(args)
@@ -237,6 +238,18 @@ func TestFormatInstallLogDetail_IncludesInstalledSkills(t *testing.T) {
 	}
 	if !strings.Contains(detail, "failed=skill-c") {
 		t.Fatalf("expected failed skills in detail, got: %s", detail)
+	}
+	if !strings.Contains(detail, "skipped=skill-d") {
+		t.Fatalf("expected skipped skills in detail, got: %s", detail)
+	}
+	var skipped []string
+	for _, p := range formatInstallLogPairs(args) {
+		if p.key == "skipped" {
+			skipped = p.listValues
+		}
+	}
+	if strings.Join(skipped, ",") != "skill-d" {
+		t.Fatalf("expected skipped pair listing skill-d, got: %v", skipped)
 	}
 }
 
