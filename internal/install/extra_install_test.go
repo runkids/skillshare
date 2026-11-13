@@ -995,3 +995,59 @@ func TestInstallRemoteExtra_RepairConflictLeavesOldLiveTree(t *testing.T) {
 		t.Fatalf("marker lost: %v", err)
 	}
 }
+
+func TestInstallRemoteExtra_RepairRefusesLinkedStateFiles(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires symlink privilege")
+	}
+	for _, target := range []string{"metadata", "lock", "ignore"} {
+		t.Run(target, func(t *testing.T) {
+			req := newRemoteExtraRequest(t)
+			req.ProjectRoot = t.TempDir()
+			req.LockDir = filepath.Join(req.ProjectRoot, ".skillshare")
+			req.ExtrasRoot = filepath.Join(req.LockDir, "extras")
+			if err := os.MkdirAll(req.LockDir, 0755); err != nil {
+				t.Fatal(err)
+			}
+			old := extraBoundary
+			extraBoundary = func(step string) error {
+				if step == "live" {
+					return errSimulatedDeath
+				}
+				return nil
+			}
+			_, err := InstallRemoteExtra(req)
+			extraBoundary = old
+			if !errors.Is(err, errSimulatedDeath) {
+				t.Fatal(err)
+			}
+			stateFile := filepath.Join(req.ExtrasRoot, MetadataFileName)
+			if target == "lock" {
+				stateFile = filepath.Join(req.LockDir, LockFileName)
+			}
+			if target == "ignore" {
+				stateFile = filepath.Join(req.LockDir, ".gitignore")
+			}
+			if err := os.Remove(stateFile); err != nil && !os.IsNotExist(err) {
+				t.Fatal(err)
+			}
+			sentinel := filepath.Join(t.TempDir(), "sentinel")
+			if err := os.WriteFile(sentinel, []byte("do not touch"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(sentinel, stateFile); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := InstallRemoteExtra(req); err == nil {
+				t.Fatal("linked state accepted")
+			}
+			got, err := os.ReadFile(sentinel)
+			if err != nil || string(got) != "do not touch" {
+				t.Fatalf("sentinel changed: %q %v", got, err)
+			}
+			if _, err := os.Lstat(extraJournalPath(req.ExtrasRoot, req.Name)); err != nil {
+				t.Fatalf("marker lost: %v", err)
+			}
+		})
+	}
+}

@@ -13,6 +13,18 @@ func repairRemoteExtra(req RemoteExtraRequest, result *RemoteExtraResult) error 
 	if err != nil {
 		return fmt.Errorf("interrupted extra %q has missing or invalid marker; preserve staging paths: %w", req.Name, err)
 	}
+	paths := []string{req.ConfigPath, filepath.Join(req.ExtrasRoot, MetadataFileName)}
+	if req.ProjectRoot != "" {
+		paths = append(paths, filepath.Join(req.LockDir, LockFileName))
+		if dir, _ := extraIgnoreTarget(req); dir != "" {
+			paths = append(paths, filepath.Join(dir, ".gitignore"))
+		}
+	}
+	for _, path := range paths {
+		if _, err := snapshotExtraFile(path); err != nil {
+			return fmt.Errorf("repair state: %w", err)
+		}
+	}
 	source, err := ParseSourceWithOptions(j.Remote, req.Opts.ParseOptions)
 	if err != nil || source == nil || !source.IsGit() {
 		return fmt.Errorf("invalid journaled Git source for %q", req.Name)
