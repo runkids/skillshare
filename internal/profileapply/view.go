@@ -4,13 +4,13 @@ package profileapply
 import (
 	"fmt"
 	"maps"
-	"os"
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/profile"
+	"skillshare/internal/sourcewalk"
 	ssync "skillshare/internal/sync"
 )
 
@@ -104,7 +104,7 @@ func (v *View) Definitions() *yaml.Node {
 func (v *View) Discover() (ssync.TargetDiscovery, error) {
 	source := v.Config.EffectiveSkillsSource()
 	// A missing or unreadable root is not an empty selection safe to prune.
-	if _, err := os.ReadDir(source); err != nil {
+	if _, err := sourcewalk.ReadDir(source, sourcewalk.Options{}); err != nil {
 		return ssync.TargetDiscovery{}, fmt.Errorf("read skills source %s: %w", source, err)
 	}
 	walk := v.Config.SkillsWalk()
