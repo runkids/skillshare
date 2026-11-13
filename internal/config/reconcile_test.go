@@ -17,19 +17,29 @@ func TestReconcileGlobalSkills_KeepsTrackedRecordWithoutClone(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 	sourceDir := sb.SourcePath
+	remote := testutil.SetupBareRemoteRepo(t, sb.Root)
+	testutil.SeedRemoteBranch(t, sb.Root, remote, "main", map[string]string{"README.md": "# team"})
+	testutil.RunGit(t, "", "clone", remote, filepath.Join(sourceDir, "org", "_team"))
 	if err := os.MkdirAll(filepath.Join(sourceDir, "live"), 0755); err != nil {
 		t.Fatal(err)
 	}
 	store := install.NewMetadataStore()
 	want := map[string]*install.MetadataEntry{
-		"_team":         {Source: "https://example.com/team.git", Tracked: true, Branch: "main", FileHashes: map[string]string{"SKILL.md": "hash"}},
+		"_team":         {Source: remote, Tracked: true, Branch: "other", FileHashes: map[string]string{"SKILL.md": "hash"}},
 		"frontend/_web": {Source: "https://example.com/web.git", Tracked: true, Group: "frontend"},
 		"_api":          {Source: "https://example.com/api.git", Tracked: true, Group: "backend"},
+		"team-legacy":   {Source: "https://example.com/legacy.git", Tracked: true, Group: "team"},
 	}
 	for key, entry := range want {
-		store.Set(key, entry)
+		copy := *entry
+		if entry.FileHashes != nil {
+			copy.FileHashes = make(map[string]string, len(entry.FileHashes))
+			for path, hash := range entry.FileHashes {
+				copy.FileHashes[path] = hash
+			}
+		}
+		store.Set(key, &copy)
 	}
-	store.Set("team-legacy", &install.MetadataEntry{Source: "https://example.com/legacy.git", Tracked: true, Group: "team"})
 	store.Set("_nosrc", &install.MetadataEntry{Tracked: true})
 	store.Set("gone-plain", &install.MetadataEntry{Source: "https://example.com/plain.git"})
 	store.Set("live", &install.MetadataEntry{Source: "https://example.com/live.git"})
@@ -44,38 +54,50 @@ func TestReconcileGlobalSkills_KeepsTrackedRecordWithoutClone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for label, got := range map[string]*install.MetadataStore{"memory": store, "disk": loaded} {
-		for key, entry := range want {
-			if !reflect.DeepEqual(got.Get(key), entry) {
-				t.Errorf("%s: %s = %+v, want %+v", label, key, got.Get(key), entry)
-			}
+	for key, entry := range want {
+		if !reflect.DeepEqual(loaded.Get(key), entry) {
+			t.Errorf("%s = %+v, want %+v", key, loaded.Get(key), entry)
 		}
-		if !reflect.DeepEqual(got.AuditAccepted["_team"], []string{"accepted-finding"}) {
-			t.Errorf("%s: tracked acceptance = %v", label, got.AuditAccepted["_team"])
+	}
+	if !reflect.DeepEqual(loaded.AuditAccepted["_team"], []string{"accepted-finding"}) {
+		t.Errorf("tracked acceptance = %v", loaded.AuditAccepted["_team"])
+	}
+	for _, key := range []string{"_nosrc", "gone-plain"} {
+		if loaded.Has(key) {
+			t.Errorf("stale record %s survived", key)
 		}
-		for _, key := range []string{"team-legacy", "_nosrc", "gone-plain"} {
-			if got.Has(key) {
-				t.Errorf("%s: stale record %s survived", label, key)
-			}
-		}
-		if !got.Has("live") {
-			t.Errorf("%s: live plain record was removed", label)
-		}
+	}
+	if !loaded.Has("live") {
+		t.Error("live plain record was removed")
+	}
+	if live := loaded.Get("org/_team"); live == nil || !live.Tracked || live.Source != remote {
+		t.Errorf("live alias = %+v", live)
 	}
 }
 
-func TestReconcileGlobalSkills_KeepsMissingAliasOfLiveTrackedClone(t *testing.T) {
+func TestReconcileGlobalSkills_KeepsMigratedTrackedMembers(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 	sourceDir := sb.SourcePath
-	remote := testutil.SetupBareRemoteRepo(t, sb.Root)
-	testutil.SeedRemoteBranch(t, sb.Root, remote, "main", map[string]string{"README.md": "# team"})
-	testutil.RunGit(t, "", "clone", remote, filepath.Join(sourceDir, "org", "_team"))
-	store := install.NewMetadataStore()
-	want := &install.MetadataEntry{Source: remote, Tracked: true, Branch: "other"}
-	store.Set("_team", want)
-	store.AuditAccepted = map[string][]string{"_team": {"accepted-finding"}}
+	sb.WriteFile(filepath.Join(sourceDir, "_team", "skill", install.MetaFileName), `{"source":"https://example.com/team.git","branch":"main"}`)
+	sb.WriteFile(filepath.Join(sourceDir, "registry.yaml"), "skills:\n  - name: legacy\n    source: https://example.com/legacy.git\n    tracked: true\n    group: _team\n")
+	store, err := install.LoadMetadataWithMigration(sourceDir, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"_team/skill", "legacy"} {
+		entry := store.Get(key)
+		if entry == nil || !entry.Tracked || entry.Source == "" || entry.Group != "_team" {
+			t.Fatalf("migration %s = %+v", key, entry)
+		}
+	}
+	want := map[string]install.MetadataEntry{"_team/skill": *store.Get("_team/skill"), "legacy": *store.Get("legacy")}
+	store.AuditAccepted = map[string][]string{"_team/skill": {"member-accepted"}, "legacy": {"legacy-accepted"}}
 	if err := store.Save(sourceDir); err != nil {
+		t.Fatal(err)
+	}
+	// Simulate pulling the metadata without the ignored checkout.
+	if err := os.RemoveAll(filepath.Join(sourceDir, "_team")); err != nil {
 		t.Fatal(err)
 	}
 	if err := ReconcileGlobalSkills(&Config{Source: sourceDir}, store); err != nil {
@@ -85,15 +107,29 @@ func TestReconcileGlobalSkills_KeepsMissingAliasOfLiveTrackedClone(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for label, got := range map[string]*install.MetadataStore{"memory": store, "disk": loaded} {
-		if !reflect.DeepEqual(got.Get("_team"), want) {
-			t.Errorf("%s: missing alias = %+v, want %+v", label, got.Get("_team"), want)
+	for key, acceptance := range map[string]string{"_team/skill": "member-accepted", "legacy": "legacy-accepted"} {
+		expected := want[key]
+		if !reflect.DeepEqual(loaded.Get(key), &expected) {
+			t.Errorf("migrated record %s lost or changed: %+v", key, loaded.Get(key))
 		}
-		if !reflect.DeepEqual(got.AuditAccepted["_team"], []string{"accepted-finding"}) {
-			t.Errorf("%s: missing alias acceptance = %v", label, got.AuditAccepted["_team"])
+		if !reflect.DeepEqual(loaded.AuditAccepted[key], []string{acceptance}) {
+			t.Errorf("acceptance %s = %v", key, loaded.AuditAccepted[key])
 		}
-		if live := got.Get("org/_team"); live == nil || !live.Tracked || live.Source != remote {
-			t.Errorf("%s: live alias = %+v", label, live)
+	}
+	loaded.RemoveByNames(map[string]bool{"_team": true})
+	if err := loaded.Save(sourceDir); err != nil {
+		t.Fatal(err)
+	}
+	if err := ReconcileGlobalSkills(&Config{Source: sourceDir}, loaded); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err = install.LoadMetadata(sourceDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"_team/skill", "legacy"} {
+		if loaded.Has(key) || len(loaded.AuditAccepted[key]) != 0 {
+			t.Errorf("removed record or acceptance survived: %s", key)
 		}
 	}
 }

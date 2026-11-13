@@ -78,7 +78,7 @@ Manifest 会与你实际的 Skill 集合保持同步:
 
 在 Project mode 中,更新的是 `config.yaml` 和 `skills.lock.json`。在 Global mode 中,更新的是 `.metadata.json`。你永远不需要手动编辑 manifest(不过你也可以这样做)。
 
-这台机器尚未安装的 Skill(例如刚 clone 下来时)其条目会保留,`skillshare install` 仍然可以安装它;只有卸载该 Skill 或删除已安装的文件夹时,条目才会从 manifest 中移除。
+Global 的追踪声明及其审计接受记录会在 checkout 不存在时保留，因此可以使用 `skillshare install` 恢复。要移除声明，请在 checkout 存在时使用 `skillshare uninstall <name>`；如果 checkout 不存在，请先使用 `skillshare install` 恢复，再卸载。普通文件夹和 project mode 的行为不变。
 
 ## Skill 条目字段
 

@@ -3,10 +3,8 @@ package config
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"skillshare/internal/install"
-	"skillshare/internal/utils"
 )
 
 // ReconcileGlobalSkills scans the global source directory for remotely-installed
@@ -38,7 +36,7 @@ func reconcileGlobalSkills(cfg *Config, store *install.MetadataStore, prune bool
 	}
 
 	if prune && !result.incomplete {
-		keepUnclonedTrackedRecords(sourcePath, store, result.live)
+		keepTrackedRecords(store, result.live)
 		if pruneStaleEntries(store, result.live) {
 			result.changed = true
 		}
@@ -53,18 +51,12 @@ func reconcileGlobalSkills(cfg *Config, store *install.MetadataStore, prune bool
 	return nil
 }
 
-// A pull brings tracked records from other machines without their ignored clones.
-func keepUnclonedTrackedRecords(sourcePath string, store *install.MetadataStore, live map[string]bool) {
+// Tracked records with a source are declarations, including when this machine
+// has no checkout or discovery skips the occupied path.
+func keepTrackedRecords(store *install.MetadataStore, live map[string]bool) {
 	for _, key := range store.List() {
 		entry := store.Get(key)
-		if live[key] || entry == nil || !entry.Tracked || entry.Source == "" {
-			continue
-		}
-		rel := install.KeyToRelPath(key, entry)
-		if !utils.IsTrackedRepoDir(filepath.Base(rel)) {
-			continue
-		}
-		if _, err := os.Lstat(filepath.Join(sourcePath, filepath.FromSlash(rel))); os.IsNotExist(err) {
+		if entry != nil && entry.Tracked && entry.Source != "" {
 			live[key] = true
 		}
 	}

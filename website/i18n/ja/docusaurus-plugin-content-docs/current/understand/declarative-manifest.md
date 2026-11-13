@@ -78,7 +78,7 @@ skillshare install --dry-run
 
 Project mode では `config.yaml` と `skills.lock.json` が更新されます。Global mode では `.metadata.json` が更新されます。マニフェストを手動で編集する必要は（可能ではありますが）ありません。
 
-このマシンにまだインストールされていない Skill のエントリ（クローン直後など）は残るため、`skillshare install` で引き続きインストールできます。エントリがマニフェストから消えるのは、その Skill をアンインストールしたとき、またはインストール済みのフォルダを削除したときだけです。
+Global の tracked 宣言と監査の承認記録は checkout がなくても残るため、`skillshare install` で復元できます。宣言を削除するには checkout が存在する間に `skillshare uninstall <name>` を使います。存在しない場合は、まず `skillshare install` で復元してからアンインストールします。通常のフォルダと project mode の動作は変わりません。
 
 ## Skill エントリのフィールド
 

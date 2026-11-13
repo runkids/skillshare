@@ -78,7 +78,7 @@ Manifest 會與你實際的 skill 收藏保持同步：
 
 在 project mode 中，更新的是 `config.yaml` 與 `skills.lock.json`。在 global mode 中，更新的是 `.metadata.json`。你永遠不需要手動編輯 manifest（雖然你也可以這麼做）。
 
-這台機器尚未安裝的 skill（例如剛 clone 下來時）其項目會保留，`skillshare install` 仍然可以安裝它；只有解除安裝該 skill 或刪除已安裝的資料夾時，項目才會從 manifest 移除。
+Global 的追蹤宣告及其稽核接受紀錄會在 checkout 不存在時保留，因此可用 `skillshare install` 還原。若要移除宣告，請在 checkout 存在時使用 `skillshare uninstall <name>`；若 checkout 不存在，請先用 `skillshare install` 還原，再解除安裝。一般資料夾和 project mode 的行為不變。
 
 ## Skill 項目欄位
 

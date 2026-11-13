@@ -79,7 +79,7 @@ The manifest stays in sync with your actual skill collection:
 
 In project mode, `config.yaml` and `skills.lock.json` are updated. In global mode, `.metadata.json` is updated. You never need to edit the manifest manually (though you can).
 
-An entry for a skill this machine has not installed yet (for example on a fresh clone) is kept, so `skillshare install` can still install it; it leaves the manifest only when you uninstall the skill or delete its installed folder.
+Global tracked declarations and their audit acceptances remain even when the checkout is missing, so `skillshare install` can restore it. To remove the declaration, use `skillshare uninstall <name>` while the checkout exists; if it is missing, first run `skillshare install` to restore it, then uninstall it. Plain-folder and project-mode behavior is unchanged.
 
 ## Skill Entry Fields
 

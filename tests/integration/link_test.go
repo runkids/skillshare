@@ -5,9 +5,11 @@ package integration
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"testing"
 
+	"skillshare/internal/install"
 	"skillshare/internal/testutil"
 	"skillshare/internal/utils"
 )
@@ -209,5 +211,33 @@ func TestLink_ProjectUsesProjectSourceAndTargets(t *testing.T) {
 	sb.RunCLIInDir(projectRoot, "unlink", "_dev-skills", "-p").AssertSuccess(t)
 	if sb.FileExists(filepath.Join(source, "_dev-skills")) || !sb.FileExists(filepath.Join(checkout, "foo", "SKILL.md")) {
 		t.Fatal("project unlink did not remove only the link")
+	}
+}
+
+// A source link can occupy a pulled tracked declaration's path without being followed.
+func TestLink_UnfollowedCollisionKeepsTrackedDeclaration(t *testing.T) {
+	sb, checkout := linkSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+	want := &install.MetadataEntry{Source: "https://example.com/team.git", Tracked: true, Branch: "main"}
+	store := install.NewMetadataStore()
+	store.Set("_team", want)
+	store.AuditAccepted = map[string][]string{"_team": {"accepted-finding"}}
+	if err := store.Save(sb.SourcePath); err != nil {
+		t.Fatal(err)
+	}
+	sb.RunCLI("link", checkout, "--name", "_team", "-g").AssertSuccess(t)
+	other := filepath.Join(sb.Root, "other")
+	sb.WriteFile(filepath.Join(other, "SKILL.md"), "---\nname: other\n---\n# Other\n")
+	sb.RunCLI("install", other, "-g").AssertSuccess(t)
+	loaded, err := install.LoadMetadata(sb.SourcePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(loaded.Get("_team"), want) {
+		t.Errorf("tracked declaration = %+v, want %+v", loaded.Get("_team"), want)
+	}
+	if !reflect.DeepEqual(loaded.AuditAccepted["_team"], []string{"accepted-finding"}) {
+		t.Errorf("acceptance = %v", loaded.AuditAccepted["_team"])
 	}
 }

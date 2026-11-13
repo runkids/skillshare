@@ -78,7 +78,7 @@ manifest는 실제 skill 컬렉션과 동기화 상태를 유지합니다:
 
 project mode에서는 `config.yaml`과 `skills.lock.json`이 업데이트됩니다. global mode에서는 `.metadata.json`이 업데이트됩니다. manifest를 수동으로 편집할 필요는 없습니다 (물론 할 수는 있습니다).
 
-이 머신에 아직 설치되지 않은 skill의 항목(예: 방금 clone한 경우)은 그대로 유지되므로 `skillshare install`로 계속 설치할 수 있습니다. 항목은 해당 skill을 제거하거나 설치된 폴더를 삭제했을 때만 manifest에서 사라집니다.
+Global tracked 선언과 감사 승인 기록은 checkout이 없어도 유지되므로 `skillshare install`로 복원할 수 있습니다. 선언을 제거하려면 checkout이 있을 때 `skillshare uninstall <name>`을 사용하세요. checkout이 없다면 먼저 `skillshare install`로 복원한 다음 제거하세요. 일반 폴더와 project mode의 동작은 변경되지 않습니다.
 
 ## Skill 항목 필드
 
