@@ -92,9 +92,18 @@ The proposed acquisition contract is:
   boundary of first install or replacement is detectable. On in-process
   failure, restore the previous directory and written files, clean up staging
   and report the failed step. The proposed `check extras` reports an
-  interruption, never clean; the next explicit install or update repairs it
-  before conflict checks and tells the user. Recovery restores a missing
-  destination from the previous directory and removes stale incoming files.
+  interruption, never clean; the next explicit install or update identifies
+  and repairs it under the lock before ordinary conflict checks and tells the
+  user. Recovery reconciles the live directory even when both it and the
+  previous directory exist, and finishes coherent metadata, pin and config
+  from fresh state before removing the marker. It checks live and backup content
+  against the recorded old state and a freshly fetched, link-checked and audited
+  candidate at the journaled commit (or explicitly skipped audit); later edits
+  are preserved unless the user
+  explicitly supplies `--force`. If recovery cannot establish a safe state, it
+  retains the marker and reports the interruption. Permission-only changes
+  remain outside the content-edit check. Deterministic death tests cover every
+  first-install and replacement boundary, partial records and later edits.
   Publication coordinates with removal and supported remote-extra target,
   mode, collect and dashboard edits. Merge shared records from fresh state;
   rollback restores only this operation's changes when still applicable,
