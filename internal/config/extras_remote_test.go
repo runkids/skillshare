@@ -16,6 +16,8 @@ func TestValidateExtraRemote(t *testing.T) {
 		{ExtraConfig{Name: "rules", Remote: "file:///tmp/fixture", Branch: "main"}, true},
 		{ExtraConfig{Name: "rules", Remote: "git@example.com:org/repo"}, true},
 		{ExtraConfig{Name: "rules", Remote: "https://user:secret@example.com/repo"}, false},
+		{ExtraConfig{Name: "rules", Remote: "https://example.com/%zz?token=secret"}, false},
+		{ExtraConfig{Name: "rules", Remote: "https://example.com/%zz#secret"}, false},
 		{ExtraConfig{Name: "rules", Remote: "/tmp/repo"}, false},
 		{ExtraConfig{Name: "rules", Remote: "C:\\repo"}, false},
 		{ExtraConfig{Name: "rules", Branch: "main"}, false},

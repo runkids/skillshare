@@ -396,3 +396,44 @@ func TestConfigRejectsRemoteCredentialsWithoutEcho(t *testing.T) {
 		t.Fatalf("GET: %d %s", rr.Code, rr.Body.String())
 	}
 }
+
+func TestConfigRejectsMalformedRemoteWithoutDisclosure(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for i, remote := range []string{"https://example.com/%zz?token=secret", "https://example.com/%zz#secret"} {
+			t.Run(fmt.Sprintf("project=%t/case=%d", project, i), func(t *testing.T) {
+				var s *Server
+				if project {
+					s, _ = newTestProjectServerWithExtras(t, nil)
+				} else {
+					s, _ = newTestServer(t)
+				}
+				before, err := os.ReadFile(s.configPath())
+				if err != nil {
+					t.Fatal(err)
+				}
+				raw := "extras:\n  - name: rules\n    remote: " + remote + "\n    targets: []\n"
+				body, err := json.Marshal(map[string]string{"raw": raw})
+				if err != nil {
+					t.Fatal(err)
+				}
+				rr := httptest.NewRecorder()
+				s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(string(body))))
+				if rr.Code != http.StatusBadRequest || strings.Contains(rr.Body.String(), "secret") {
+					t.Fatalf("PUT: %d %s", rr.Code, rr.Body.String())
+				}
+				after, err := os.ReadFile(s.configPath())
+				if err != nil || string(after) != string(before) {
+					t.Fatalf("PUT changed config: %v", err)
+				}
+				if err := os.WriteFile(s.configPath(), []byte(raw), 0644); err != nil {
+					t.Fatal(err)
+				}
+				rr = httptest.NewRecorder()
+				s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/config", nil))
+				if rr.Code == http.StatusOK || strings.Contains(rr.Body.String(), "secret") {
+					t.Fatalf("GET: %d %s", rr.Code, rr.Body.String())
+				}
+			})
+		}
+	}
+}

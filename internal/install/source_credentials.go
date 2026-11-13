@@ -21,7 +21,9 @@ func RejectSourceCredentials(raw string) error {
 		if strings.Contains(authority, "@") {
 			return fmt.Errorf("%w (userinfo)", ErrSourceCredentials)
 		}
-		return nil
+		// Parsing errors can hide query or fragment credentials. Do not return
+		// the parser's error: it may contain the complete source URL.
+		return fmt.Errorf("%w (invalid URL)", ErrSourceCredentials)
 	}
 	rule := ""
 	switch strings.ToLower(u.Scheme) {
