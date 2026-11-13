@@ -109,7 +109,7 @@ func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 	taken := resolution.ValidTargetNames()
 	for i, resolved := range resolution.Skills {
 		skill := resolved.Skill
-		activeName, err := selectActiveTargetNameForSync("copy", sc.Path, resolved, taken, manifest, dryRun, opts.ProfileAware && !force, ignorePatterns)
+		activeName, err := selectActiveTargetNameForSync("copy", sc.Path, resolved, taken, manifest, dryRun, opts.ProfileAware && !force, ignorePatterns, PruneOptions{SourcePath: sourcePath, Skills: allSkills})
 		if err != nil {
 			return nil, err
 		}
@@ -155,12 +155,18 @@ func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 			}
 			result.Skipped = append(result.Skipped, activeName)
 		}
-		input := EntryInput{Name: activeName, Path: targetSkillPath, SourceRoot: sourcePath, Manifest: manifest, Source: &copySource}
+		input := EntryInput{Name: activeName, Path: targetSkillPath, SourceRoot: sourcePath, Manifest: manifest}
+		var originals []CopySource
+		if opts.ProfileAware && !force {
+			originals = legacyCopySources(activeName, allSkills, manifest, ignorePatterns)
+		}
+		var verified []EntryClassification
 		checkBeforeWrite := func() bool {
 			if !opts.ProfileAware || force {
 				return true
 			}
-			entry, allowed := entryMutationAllowed(name, input, opts.Discard)
+			entry, allowed := entryMutationAllowed(name, input, opts.Discard, originals...)
+			verified = []EntryClassification{entry}
 			if !allowed {
 				reportKept(entry)
 			}
@@ -170,7 +176,7 @@ func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 			if !opts.ProfileAware || force {
 				return false
 			}
-			entry := ClassifyEntry(input)
+			entry := verified[0]
 			return entry.Class == EntryModifiedCopy && discardAllowed(name, cleanEntryDir(sc.Path), activeName, entry, opts.Discard)
 		}
 		copyCurrent := func() (bool, error) {
@@ -180,7 +186,7 @@ func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 			if opts.ProfileAware && !force {
 				// Permission to remove an entry does not permit overlaying one
 				// that appeared after removal, even with the same discard grant.
-				entry := ClassifyEntry(input)
+				entry := classifyEntry(input, originals...)
 				switch entry.Class {
 				case EntryAbsent:
 				case EntryModifiedCopy, EntryUnmanaged:
@@ -203,14 +209,14 @@ func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 			manifest.Outputs[activeName] = fingerprint
 			return nil
 		}
-		if mtimeErr == nil && isManaged && !force && !namingChanged && oldMtime > 0 && currentMtime == oldMtime {
+		if !opts.ProfileAware && mtimeErr == nil && isManaged && !force && !namingChanged && oldMtime > 0 && currentMtime == oldMtime {
 			// Verify target still exists as a directory (user may have replaced it)
 			if ti, err := os.Lstat(targetSkillPath); err == nil && ti.IsDir() {
 				if !checkBeforeWrite() {
 					continue
 				}
 				if !owesReplacement() {
-					backfillCopyOutput(manifest, activeName, targetSkillPath, copySource, dryRun)
+					backfillCopyOutput(manifest, activeName, targetSkillPath, copySource, dryRun, verified...)
 					recordNaming()
 					result.Skipped = append(result.Skipped, activeName)
 					continue
@@ -300,7 +306,7 @@ func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 					if mtimeErr == nil && currentMtime != oldMtime && !dryRun {
 						manifest.Mtimes[activeName] = currentMtime
 					}
-					backfillCopyOutput(manifest, activeName, targetSkillPath, copySource, dryRun)
+					backfillCopyOutput(manifest, activeName, targetSkillPath, copySource, dryRun, verified...)
 					recordNaming()
 					result.Skipped = append(result.Skipped, activeName)
 					continue
@@ -394,11 +400,16 @@ func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 }
 
 // Only a verified legacy copy can be backfilled; an mtime match alone is not proof.
-func backfillCopyOutput(manifest *Manifest, name, dir string, source CopySource, dryRun bool) {
+func backfillCopyOutput(manifest *Manifest, name, dir string, source CopySource, dryRun bool, verified ...EntryClassification) {
 	if output, present := manifest.Outputs[name]; dryRun || (present && !legacyOutput(output)) {
 		return
 	}
-	entry := ClassifyEntry(EntryInput{Name: name, Path: dir, Manifest: manifest, Source: &source})
+	var entry EntryClassification
+	if len(verified) > 0 {
+		entry = verified[0]
+	} else {
+		entry = ClassifyEntry(EntryInput{Name: name, Path: dir, Manifest: manifest, Source: &source})
+	}
 	if entry.Class != EntryCleanCopy {
 		return
 	}
@@ -482,7 +493,7 @@ func pruneOrphanCopiesWithPolicy(targetName string, sc config.ResourceTargetConf
 			if len(verification) > 0 {
 				verificationSkills = verification[0].Skills
 			}
-			entry := ClassifyEntry(EntryInput{Name: entryName, Path: entryPath, SourceRoot: sourceRoot, Manifest: manifest, Source: legacyCopySource(entryName, entryPath, verificationSkills, manifest, ignore)})
+			entry := classifyEntry(EntryInput{Name: entryName, Path: entryPath, SourceRoot: sourceRoot, Manifest: manifest}, legacyCopySources(entryName, verificationSkills, manifest, ignore)...)
 			if entry.Class == EntryModifiedCopy && !discardAllowed(targetName, cleanEntryDir(targetPath), entryName, entry, discard) {
 				result.KeptModified = append(result.KeptModified, EntryChange{Target: targetName, Dir: cleanEntryDir(targetPath), Entry: entryName, Step: "prune", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint})
 				continue

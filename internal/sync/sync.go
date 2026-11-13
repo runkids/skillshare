@@ -631,23 +631,20 @@ func syncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkill
 	taken := resolution.ValidTargetNames()
 	for _, resolved := range resolution.Skills {
 		skill := resolved.Skill
-		activeName, err := selectActiveTargetNameForSync("merge", sc.Path, resolved, taken, manifest, dryRun, profileAware && !force, ignore)
+		activeName, err := selectActiveTargetNameForSync("merge", sc.Path, resolved, taken, manifest, dryRun, profileAware && !force, ignore, PruneOptions{SourcePath: sourcePath, Skills: allSkills})
 		if err != nil {
 			return nil, err
 		}
 		targetSkillPath := filepath.Join(sc.Path, activeName)
-		copySource := CopySource{Path: skill.SourcePath, IgnorePatterns: ignore}
-		if manifest.Naming[activeName] == "prefixed" {
-			prefixed := PrefixedTargetName(skill, resolved.SkillName)
-			if prefixed != resolved.SkillName {
-				copySource.OutputName = prefixed
-			}
+		var originals []CopySource
+		if profileAware && !force {
+			originals = legacyCopySources(activeName, allSkills, manifest, ignore)
 		}
 		checkBeforeWrite := func() bool {
 			if !profileAware || force {
 				return true
 			}
-			entry, allowed := entryMutationAllowed(name, EntryInput{Name: activeName, Path: targetSkillPath, SourceRoot: sourcePath, Manifest: manifest, Source: &copySource}, discard)
+			entry, allowed := entryMutationAllowed(name, EntryInput{Name: activeName, Path: targetSkillPath, SourceRoot: sourcePath, Manifest: manifest}, discard, originals...)
 			if !allowed {
 				change := EntryChange{Target: name, Dir: cleanEntryDir(filepath.Dir(targetSkillPath)), Entry: activeName, Step: "convert", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint}
 				if entry.Class == EntryModifiedCopy {
@@ -948,7 +945,7 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 			continue // Still exists in source, keep it
 		}
 		if opts.ProfileAware {
-			entry := ClassifyEntry(EntryInput{Name: name, Path: entryPath, SourceRoot: sourcePath, Manifest: manifest, Source: legacyCopySource(name, entryPath, verificationSkills, manifest, opts.IgnorePatterns)})
+			entry := classifyEntry(EntryInput{Name: name, Path: entryPath, SourceRoot: sourcePath, Manifest: manifest}, legacyCopySources(name, verificationSkills, manifest, opts.IgnorePatterns)...)
 			if entry.Class == EntryModifiedCopy && !discardAllowed(targetName, cleanEntryDir(targetPath), name, entry, opts.Discard) {
 				result.KeptModified = append(result.KeptModified, EntryChange{Target: targetName, Dir: cleanEntryDir(targetPath), Entry: name, Step: "prune", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint})
 				continue

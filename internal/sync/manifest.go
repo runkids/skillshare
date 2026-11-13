@@ -145,29 +145,34 @@ func (m *Manifest) verifiedCopyFingerprint(name, dir string, strict bool, source
 			return sum, present || old == recorded
 		}
 	}
-	if len(source) == 0 || source[0].Path == "" {
-		return sum, false
+	for _, input := range source {
+		if input.Path == "" {
+			continue
+		}
+		ignore := input.IgnorePatterns
+		if ignore == nil {
+			ignore = DefaultFileIgnorePatterns()
+		}
+		sourceSum, err := DirChecksumWithIgnore(input.Path, ignore)
+		if err != nil || sourceSum != recorded {
+			continue
+		}
+		scratch, err := os.MkdirTemp("", "skillshare-copy-replay-*")
+		if err != nil {
+			return sum, false
+		}
+		replay := filepath.Join(scratch, "copy")
+		err = copySkillToTarget(input.Path, replay, input.OutputName, ignore)
+		expected := ""
+		if err == nil {
+			expected, err = CopyOutputFingerprint(replay)
+		}
+		os.RemoveAll(scratch)
+		if err == nil && sum == expected {
+			return sum, true
+		}
 	}
-	input := source[0]
-	ignore := input.IgnorePatterns
-	if ignore == nil {
-		ignore = DefaultFileIgnorePatterns()
-	}
-	sourceSum, err := DirChecksumWithIgnore(input.Path, ignore)
-	if err != nil || sourceSum != recorded {
-		return "", false
-	}
-	scratch, err := os.MkdirTemp("", "skillshare-copy-replay-*")
-	if err != nil {
-		return "", false
-	}
-	defer os.RemoveAll(scratch)
-	replay := filepath.Join(scratch, "copy")
-	if err := copySkillToTarget(input.Path, replay, input.OutputName, ignore); err != nil {
-		return "", false
-	}
-	expected, err := CopyOutputFingerprint(replay)
-	return sum, err == nil && sum == expected
+	return sum, false
 }
 
 // SkipsHidden reports whether a target scan should skip name. Hidden entries

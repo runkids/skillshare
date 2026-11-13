@@ -12,7 +12,7 @@ import (
 // the skill still has a managed entry under the name an earlier target naming
 // gave it, that entry is renamed in place, unless the new name is taken.
 // taken holds the names other skills sync to in this run.
-func selectActiveTargetNameForSync(mode, targetPath string, skill ResolvedTargetSkill, taken map[string]bool, manifest *Manifest, dryRun, profileAware bool, ignore []string) (string, error) {
+func selectActiveTargetNameForSync(mode, targetPath string, skill ResolvedTargetSkill, taken map[string]bool, manifest *Manifest, dryRun, profileAware bool, ignore []string, verification ...PruneOptions) (string, error) {
 	desiredName := skill.TargetName
 	legacy, err := findLegacyTargetEntry(mode, targetPath, skill, taken, manifest)
 	if err != nil || legacy.name == "" {
@@ -26,7 +26,14 @@ func selectActiveTargetNameForSync(mode, targetPath string, skill ResolvedTarget
 		if legacyNaming == "prefixed" && legacyName != skill.SkillName {
 			input.OutputName = legacyName
 		}
-		entry := ClassifyEntry(EntryInput{Name: legacyName, Path: legacyPath, SourceRoot: filepath.Dir(skill.Skill.SourcePath), Manifest: manifest, Source: &input})
+		entryInput := EntryInput{Name: legacyName, Path: legacyPath, SourceRoot: filepath.Dir(skill.Skill.SourcePath), Manifest: manifest, Source: &input}
+		var originals []CopySource
+		if len(verification) > 0 {
+			entryInput.SourceRoot = verification[0].SourcePath
+			entryInput.Source = nil
+			originals = legacyCopySources(legacyName, verification[0].Skills, manifest, ignore)
+		}
+		entry := classifyEntry(entryInput, originals...)
 		if entry.Class != EntryCleanCopy && entry.Class != EntryManagedLink {
 			return legacyName, nil
 		}

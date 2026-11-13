@@ -647,7 +647,7 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 	}
 	legacyNames := resolution.LegacyNames(mode, sc.Path, manifest)
 	if mode == "copy" {
-		collectCopyDiff(&r, name, sc.Path, resolution.Skills, resolution.Naming, sourceSkills, legacyNames, manifest, ignorePatterns, dp)
+		collectCopyDiff(&r, name, sc.Path, resolution.Skills, resolution.Naming, sourceSkills, legacyNames, manifest, ignorePatterns, dp, len(preview) > 0 && preview[0].aware)
 	} else {
 		// Merge mode (instant)
 		collectMergeDiff(&r, sc.Path, sourceSkills, sourceMap, legacyNames)
@@ -723,7 +723,7 @@ func collectSymlinkDiff(r *targetDiffResult, targetPath, source string) {
 	}
 }
 
-func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtered []sync.ResolvedTargetSkill, naming string, sourceSkills map[string]bool, legacyNames map[string]sync.ResolvedTargetSkill, manifest *sync.Manifest, ignorePatterns []string, dp *diffProgress) {
+func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtered []sync.ResolvedTargetSkill, naming string, sourceSkills map[string]bool, legacyNames map[string]sync.ResolvedTargetSkill, manifest *sync.Manifest, ignorePatterns []string, dp *diffProgress, profileAware bool) {
 	renamedFrom := sync.RenamedFrom(legacyNames)
 	for _, resolved := range filtered {
 		skill := resolved.Skill
@@ -771,7 +771,7 @@ func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtere
 		// mtime fast-path
 		oldMtime := manifest.Mtimes[resolved.TargetName]
 		currentMtime, mtimeErr := sync.DirMaxMtimeWithIgnore(skill.SourcePath, ignorePatterns)
-		if mtimeErr == nil && oldMtime > 0 && currentMtime == oldMtime {
+		if !profileAware && mtimeErr == nil && oldMtime > 0 && currentMtime == oldMtime {
 			continue
 		}
 		srcChecksum, err := sync.DirChecksumWithIgnore(skill.SourcePath, ignorePatterns)

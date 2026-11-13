@@ -63,8 +63,8 @@ func cleanEntryDir(dir string) string {
 	return absolute
 }
 
-func entryMutationAllowed(target string, input EntryInput, discard []DiscardEntry) (EntryClassification, bool) {
-	entry := ClassifyEntry(input)
+func entryMutationAllowed(target string, input EntryInput, discard []DiscardEntry, sources ...CopySource) (EntryClassification, bool) {
+	entry := classifyEntry(input, sources...)
 	switch entry.Class {
 	case EntryAbsent, EntryManagedLink, EntryCleanCopy:
 		return entry, true
@@ -75,9 +75,11 @@ func entryMutationAllowed(target string, input EntryInput, discard []DiscardEntr
 	}
 }
 
-// legacyCopySource selects original inputs by recorded checksum and deployed-byte replay.
-func legacyCopySource(name, path string, skills []DiscoveredSkill, manifest *Manifest, ignore []string) *CopySource {
+// legacyCopySources enumerates naming-compatible originals without verifying the copy.
+func legacyCopySources(name string, skills []DiscoveredSkill, manifest *Manifest, ignore []string) []CopySource {
+	var sources []CopySource
 	for _, skill := range skills {
+		outputs := make(map[string]bool)
 		for _, candidate := range targetNameCandidates(skill) {
 			if candidate.name != name {
 				continue
@@ -85,20 +87,26 @@ func legacyCopySource(name, path string, skills []DiscoveredSkill, manifest *Man
 			if manifest != nil && manifest.Naming[name] != "" && manifest.Naming[name] != candidate.naming {
 				continue
 			}
-			source := &CopySource{Path: skill.SourcePath, IgnorePatterns: ignore}
+			source := CopySource{Path: skill.SourcePath, IgnorePatterns: ignore}
 			if candidate.naming == "prefixed" && candidate.name != filepath.Base(skill.SourcePath) {
 				source.OutputName = candidate.name
 			}
-			if _, clean := manifest.verifiedCopyFingerprint(name, path, true, *source); clean {
-				return source
+			if outputs[source.OutputName] {
+				continue
 			}
+			outputs[source.OutputName] = true
+			sources = append(sources, source)
 		}
 	}
-	return nil
+	return sources
 }
 
 // ClassifyEntry determines ownership from the actual entry and manifest, not target mode.
 func ClassifyEntry(in EntryInput) EntryClassification {
+	return classifyEntry(in)
+}
+
+func classifyEntry(in EntryInput, sources ...CopySource) EntryClassification {
 	info, err := os.Lstat(in.Path)
 	if os.IsNotExist(err) {
 		return EntryClassification{Class: EntryAbsent}
@@ -130,7 +138,6 @@ func ClassifyEntry(in EntryInput) EntryClassification {
 	if !info.IsDir() || managed == "" || managed == manifestSymlink {
 		return EntryClassification{Class: EntryUnmanaged, Reason: "entry is not a recorded copy"}
 	}
-	var sources []CopySource
 	if in.Source != nil {
 		sources = append(sources, *in.Source)
 	}
@@ -138,13 +145,12 @@ func ClassifyEntry(in EntryInput) EntryClassification {
 	if clean {
 		return EntryClassification{Class: EntryCleanCopy, Fingerprint: sum}
 	}
-	sum, _ = CopyOutputFingerprint(in.Path)
 	return EntryClassification{Class: EntryModifiedCopy, Fingerprint: sum, Reason: "copy was edited or could not be verified"}
 }
 
 // PreviewEntry resolves original copy inputs and shares the writer's grant-free check.
 func PreviewEntry(name, dir, root string, skills []DiscoveredSkill, manifest *Manifest, ignore []string) (EntryClassification, bool) {
-	return entryMutationAllowed("", EntryInput{Name: name, Path: filepath.Join(dir, name), SourceRoot: root, Manifest: manifest, Source: legacyCopySource(name, filepath.Join(dir, name), skills, manifest, ignore)}, nil)
+	return entryMutationAllowed("", EntryInput{Name: name, Path: filepath.Join(dir, name), SourceRoot: root, Manifest: manifest}, nil, legacyCopySources(name, skills, manifest, ignore)...)
 }
 
 // PreviewPreservedEntries uses the writer's ownership checks without grants or writes.

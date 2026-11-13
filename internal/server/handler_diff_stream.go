@@ -214,7 +214,7 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 				} else {
 					oldMtime := manifest.Mtimes[resolved.TargetName]
 					currentMtime, mtimeErr := ssync.DirMaxMtimeWithIgnore(skill.SourcePath, ignorePatterns)
-					if mtimeErr == nil && oldMtime > 0 && currentMtime == oldMtime {
+					if !(len(preview) > 0 && preview[0].aware) && mtimeErr == nil && oldMtime > 0 && currentMtime == oldMtime {
 						continue
 					}
 					srcChecksum, checksumErr := ssync.DirChecksumWithIgnore(skill.SourcePath, ignorePatterns)
