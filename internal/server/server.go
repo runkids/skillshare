@@ -491,6 +491,11 @@ func (s *Server) registerRoutes() {
 	// Profiles use the same skills-only switch adapter as the CLI.
 	s.mux.HandleFunc("GET /api/profiles", s.handleListProfiles)
 	s.mux.HandleFunc("POST /api/profiles/active", s.handleSetActiveProfile)
+	s.mux.HandleFunc("POST /api/profiles/preview", s.handlePreviewProfile)
+	s.mux.HandleFunc("POST /api/profiles", s.handleMutateProfile)
+	s.mux.HandleFunc("PUT /api/profiles/{name}", s.handleMutateProfile)
+	s.mux.HandleFunc("DELETE /api/profiles/{name}", s.handleMutateProfile)
+	s.mux.HandleFunc("POST /api/profiles/{name}/skills", s.handleProfileSkills)
 
 	// Resources (skills + agents)
 	s.mux.HandleFunc("GET /api/resources", s.handleListSkills)
