@@ -70,8 +70,9 @@ func TestSearchInstallProfileHints(t *testing.T) {
 
 func TestSearchBatchProfileHints(t *testing.T) {
 	for _, project := range []bool{false, true} {
-		for _, scenario := range []string{"success", "mixed", "skip", "failure", "none", "empty"} {
+		for _, scenario := range []string{"success", "mixed", "skip", "failure", "none", "empty", "duplicate-grouped", "duplicate-local"} {
 			t.Run(fmt.Sprintf("project=%t/%s", project, scenario), func(t *testing.T) {
+				duplicate := strings.HasPrefix(scenario, "duplicate-")
 				active := "work"
 				if scenario == "none" {
 					active = ""
@@ -90,35 +91,40 @@ func TestSearchBatchProfileHints(t *testing.T) {
 				origin := writeHintSkill(t, t.TempDir(), "origin")
 				writeHintSkill(t, origin, "nested/review")
 				var selected []search.SearchResult
-				published := scenario == "success" || scenario == "mixed" || scenario == "none"
+				published := scenario == "success" || scenario == "mixed" || scenario == "none" || duplicate
 				if published {
 					repo := t.TempDir()
 					writeHintSkill(t, repo, "skills/a")
 					writeHintSkill(t, repo, "skills/b")
+					if scenario == "duplicate-grouped" {
+						writeHintSkill(t, repo, "extras/a")
+						writeHintSkill(t, repo, "extras/a/skipped-only")
+					}
 					initGitRepoForTest(t, repo)
 					for _, name := range []string{"a", "b"} {
 						selected = append(selected, search.SearchResult{Name: name, Source: "file://" + filepath.ToSlash(repo) + "//skills/" + name})
 					}
+					if scenario == "duplicate-grouped" {
+						selected = append(selected, search.SearchResult{Name: "a", Source: "file://" + filepath.ToSlash(repo) + "//extras/a"})
+					}
 					selected = append(selected, search.SearchResult{Name: "published", Source: origin})
 				}
-				if scenario == "mixed" || scenario == "skip" {
+				if scenario == "duplicate-local" {
+					skipped := writeHintSkill(t, t.TempDir(), "origin")
+					writeHintSkill(t, skipped, "skipped-only")
+					selected = append(selected, search.SearchResult{Name: "published", Source: skipped})
+				}
+				if scenario == "mixed" || scenario == "skip" || duplicate {
 					selected = append(selected, search.SearchResult{Name: "edit", Source: origin})
 				}
-				if scenario == "mixed" || scenario == "failure" {
+				if scenario == "mixed" || scenario == "failure" || duplicate {
 					selected = append(selected, search.SearchResult{Name: "broken", Source: filepath.Join(root, "absent")})
 				}
 				var commandErr error
 				output := captureStdout(t, func() { commandErr = batchInstallFromSearchWithProgress(selected, mode, root) })
 				output = stripANSIWarnings(output)
-				if (commandErr != nil) != (scenario == "mixed" || scenario == "failure") {
+				if (commandErr != nil) != (scenario == "mixed" || scenario == "failure" || duplicate) {
 					t.Fatalf("unexpected batch result: %v: %s", commandErr, output)
-				}
-				wantHint := scenario == "success" || scenario == "mixed"
-				if count := strings.Count(output, `Not in active profile "work"`); (wantHint && count != 1) || (!wantHint && count != 0) {
-					t.Fatalf("batch hint count = %d: %s", count, output)
-				}
-				if wantHint && !strings.Contains(output, "skillshare profile add work a b published published__nested__review\n") {
-					t.Fatal("batch hint must name only successful final skills once", output)
 				}
 				for _, name := range []string{"a", "b", "published", "published/nested/review"} {
 					_, err := os.Stat(filepath.Join(cfg.Source, filepath.FromSlash(name), "SKILL.md"))
@@ -128,6 +134,18 @@ func TestSearchBatchProfileHints(t *testing.T) {
 				}
 				if _, err := os.Stat(filepath.Join(cfg.Source, "broken")); !os.IsNotExist(err) {
 					t.Fatal("failed result published a root", err)
+				}
+				for _, name := range []string{"a/skipped-only", "published/skipped-only"} {
+					if _, err := os.Stat(filepath.Join(cfg.Source, filepath.FromSlash(name))); !os.IsNotExist(err) {
+						t.Fatal("skipped content was published", name, err)
+					}
+				}
+				wantHint := scenario == "success" || scenario == "mixed" || duplicate
+				if count := strings.Count(output, `Not in active profile "work"`); (wantHint && count != 1) || (!wantHint && count != 0) {
+					t.Fatalf("batch hint count = %d: %s", count, output)
+				}
+				if wantHint && !strings.Contains(output, "skillshare profile add work a b published published__nested__review\n") {
+					t.Fatal("batch hint must name only successful final skills once", output)
 				}
 			})
 		}
