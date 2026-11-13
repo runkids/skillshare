@@ -27,7 +27,7 @@ func TestParseSelectionAndValidation(t *testing.T) {
   nullskills: {skills: null}
   blank: {skills: {include: [" ", ""]}}
   inert: {skills: {include: [], exclude: [old]}}
-  selected: {skills: {include: ["team__*"], exclude: ["*-old"]}}
+  selected: {skills: {include: ["team__*"], exclude: ["*__old"]}}
   invalid: {skills: {exclude: [old]}}
   invalidglob: {skills: {include: ["["]}}
   future: {future_key: true}
@@ -128,7 +128,7 @@ func TestMutatePreservesUnrelatedYAML(t *testing.T) {
 
 func TestPreview(t *testing.T) {
 	d := Parse(section(t, `profiles:
-  work: {skills: {include: ["team__*", missing], exclude: ["*-old"]}}
+  work: {skills: {include: ["team__*", missing], exclude: ["*__old"]}}
 `)).Definitions["work"]
 	p, err := Preview(d, []string{"team__new", "team__old", "other"})
 	if err != nil || len(p.Selected) != 1 || p.Selected[0] != "team__new" || len(p.Unmatched) != 1 || p.Unmatched[0] != "missing" {
