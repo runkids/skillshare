@@ -233,6 +233,9 @@ func TestHandleOverview_DeclarationWithoutCheckout(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.skillsStore.Set("_checkout-link", &install.MetadataEntry{Source: "checkout", Tracked: true})
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
 	rr := httptest.NewRecorder()
 	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/overview", nil))
 	var body struct{ TrackedRepos []trackedRepoItem }
