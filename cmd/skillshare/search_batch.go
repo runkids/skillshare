@@ -472,6 +472,7 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 	// Group by repo: skills sharing the same CloneURL are cloned once.
 	var refs install.RemoteRefs
 	groups, singles := groupByRepo(selected, parseOpts, refs.Resolve)
+	var installedPaths []string
 
 	// Phase 1: grouped install — clone each repo once, install multiple skills.
 	for _, group := range groups {
@@ -516,6 +517,9 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 				fallback = append(fallback, sr)
 				continue
 			}
+			if r.status == "installed" && r.path != "" {
+				installedPaths = append(installedPaths, r.path)
+			}
 			resultMap[sr.Name] = r
 			logSkillInstallOp(cfgPath, sr, r, modeStr)
 			progress.doneSkill(sr.Name, r)
@@ -536,6 +540,9 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 		} else {
 			r = collectSearchInstallGlobal(sr, cfg, onProgress)
 		}
+		if r.status == "installed" && r.path != "" {
+			installedPaths = append(installedPaths, r.path)
+		}
 		resultMap[sr.Name] = r
 		logSkillInstallOp(cfgPath, sr, r, modeStr)
 		progress.doneSkill(sr.Name, r)
@@ -545,12 +552,8 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 
 	// Build ordered results slice matching the original selection order.
 	results := make([]searchInstallResult, len(selected))
-	var installedPaths []string
 	for i, sr := range selected {
 		results[i] = resultMap[sr.Name]
-		if results[i].status == "installed" && results[i].path != "" {
-			installedPaths = append(installedPaths, results[i].path)
-		}
 	}
 
 	// Phase 3: reconcile once after all installs.
