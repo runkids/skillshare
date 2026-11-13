@@ -723,6 +723,9 @@ func (s *Server) syncExtras(name string, dryRun, force bool) []extraSyncResult {
 		}
 		if run.SourceMissing {
 			result.Warnings = []string{fmt.Sprintf("Source directory does not exist: %s. Create it to start syncing %s", sourceDir, extra.Name)}
+			if extra.Remote != "" {
+				result.Warnings = []string{"source missing; run: " + config.ExtraRestoreCommand(extra, projectRoot != "")}
+			}
 		}
 
 		for _, tr := range run.Targets {

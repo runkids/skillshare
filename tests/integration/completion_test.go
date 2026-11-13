@@ -664,3 +664,13 @@ func TestCompletion_AuditDisplayFloor_AllShells(t *testing.T) {
 		}
 	}
 }
+
+func TestCompletion_KindExtra(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	for shell, want := range map[string]string{"bash": `compgen -W "skill agent extra"`, "zsh": `:kind:(skill agent extra)`, "fish": `-a 'skill agent extra'`, "powershell": `@('skill', 'agent', 'extra')`, "nushell": `["skill" "agent" "extra"]`} {
+		result := sb.RunCLI("completion", shell)
+		result.AssertSuccess(t)
+		result.AssertOutputContains(t, want)
+	}
+}

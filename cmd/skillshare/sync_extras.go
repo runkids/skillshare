@@ -20,8 +20,9 @@ type syncExtrasJSONOutput struct {
 }
 
 type syncExtrasJSONEntry struct {
-	Name    string                 `json:"name"`
-	Targets []syncExtrasJSONTarget `json:"targets"`
+	Name     string                 `json:"name"`
+	Targets  []syncExtrasJSONTarget `json:"targets"`
+	Warnings []string               `json:"warnings,omitempty"`
 }
 
 type syncExtrasJSONTarget struct {
@@ -135,9 +136,9 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput, partOfAll bool, start time.T
 
 		run := sync.RunExtraTargets(extra, extraSource, opts)
 		if run.SourceMissing {
-			printMissingExtraSource(extra.Name, extraSource, jsonOutput)
+			printMissingExtraSource(extra, extraSource, false, jsonOutput)
 			if jsonOutput {
-				jsonEntries = append(jsonEntries, syncExtrasJSONEntry{Name: extra.Name, Targets: []syncExtrasJSONTarget{}})
+				jsonEntries = append(jsonEntries, syncExtrasJSONEntry{Name: extra.Name, Targets: []syncExtrasJSONTarget{}, Warnings: missingRemoteExtraWarnings(extra, false)})
 			}
 			continue
 		}
@@ -247,9 +248,9 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput, partOfAll bool,
 
 		run := sync.RunExtraTargets(extra, extraSource, opts)
 		if run.SourceMissing {
-			printMissingExtraSource(extra.Name, extraSource, jsonOutput)
+			printMissingExtraSource(extra, extraSource, true, jsonOutput)
 			if jsonOutput {
-				jsonEntries = append(jsonEntries, syncExtrasJSONEntry{Name: extra.Name, Targets: []syncExtrasJSONTarget{}})
+				jsonEntries = append(jsonEntries, syncExtrasJSONEntry{Name: extra.Name, Targets: []syncExtrasJSONTarget{}, Warnings: missingRemoteExtraWarnings(extra, true)})
 			}
 			continue
 		}
@@ -374,6 +375,7 @@ func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.Ex
 		run := sync.RunExtraTargets(extra, sourceFunc(extra), opts)
 		if run.SourceMissing {
 			entry.Targets = []syncExtrasJSONTarget{}
+			entry.Warnings = missingRemoteExtraWarnings(extra, projectRoot != "")
 		}
 		for _, tr := range run.Targets {
 			reportExtraTarget(extra.Name, tr, true, &totals)
@@ -389,12 +391,23 @@ func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.Ex
 
 // printMissingExtraSource tells the user, unless jsonOutput, that an extra was
 // skipped because its source directory does not exist.
-func printMissingExtraSource(name, sourceDir string, jsonOutput bool) {
+func printMissingExtraSource(extra config.ExtraConfig, sourceDir string, project, jsonOutput bool) {
 	if jsonOutput {
 		return
 	}
-	ui.Row(ui.MarkWarn, name, "source folder not found: "+shortenPath(sourceDir), ui.RowWidth(name))
-	ui.Note("Create it to start syncing " + name)
+	ui.Row(ui.MarkWarn, extra.Name, "source folder not found: "+shortenPath(sourceDir), ui.RowWidth(extra.Name))
+	if extra.Remote != "" {
+		ui.Note(missingRemoteExtraWarnings(extra, project)[0])
+	} else {
+		ui.Note("Create it to start syncing " + extra.Name)
+	}
+}
+
+func missingRemoteExtraWarnings(extra config.ExtraConfig, project bool) []string {
+	if extra.Remote == "" {
+		return nil
+	}
+	return []string{"source missing; run: " + config.ExtraRestoreCommand(extra, project)}
 }
 
 // extrasSyncTotals accumulates target outcomes for the summary and oplog.

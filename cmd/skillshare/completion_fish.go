@@ -179,7 +179,7 @@ complete -c skillshare -n '__fish_skillshare_using_command install' -l audit-thr
 complete -c skillshare -n '__fish_skillshare_using_command install' -l threshold -s T -r -a 'low medium high critical' -d 'Set audit threshold'
 complete -c skillshare -n '__fish_skillshare_using_command install' -l branch -s b -r -d 'Checkout specific branch'
 complete -c skillshare -n '__fish_skillshare_using_command install' -l track -s t -d 'Track the repository'
-complete -c skillshare -n '__fish_skillshare_using_command install' -l kind -r -a 'skill agent' -d 'Filter by kind'
+complete -c skillshare -n '__fish_skillshare_using_command install' -l kind -r -a 'skill agent extra' -d 'Filter by kind'
 complete -c skillshare -n '__fish_skillshare_using_command install' -l agent -s a -r -d 'Install specific agents'
 complete -c skillshare -n '__fish_skillshare_using_command install' -l skill -s s -r -d 'Install specific skills'
 complete -c skillshare -n '__fish_skillshare_using_command install' -l exclude -r -d 'Exclude items'
@@ -348,6 +348,7 @@ complete -c skillshare -n '__fish_skillshare_using_command update' -l help -s h 
 
 # check
 complete -c skillshare -n '__fish_skillshare_using_command check' -a agents -d 'Check agents'
+complete -c skillshare -n '__fish_skillshare_using_command check' -a extras -d 'Check local extra integrity'
 complete -c skillshare -n '__fish_skillshare_using_command check' -l json -d 'JSON output'
 complete -c skillshare -n '__fish_skillshare_using_command check' -l diff -d 'Show changes since install'
 complete -c skillshare -n '__fish_skillshare_using_command check' -l exit-code -d 'Exit 1 when anything is not up to date'

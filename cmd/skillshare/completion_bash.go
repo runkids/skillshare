@@ -87,6 +87,11 @@ _skillshare() {
 
     local cmd="${words[1]}"
 
+    if [[ "${cmd}" == install && "${prev}" == --kind ]]; then
+        COMPREPLY=($(compgen -W "skill agent extra" -- "${cur}"))
+        return
+    fi
+
     # Project command
     if [[ "${cmd}" == project ]]; then
         local project_subcmds="list show add edit sync remove localize share"
@@ -168,7 +173,7 @@ _skillshare() {
             restore)   COMPREPLY=($(compgen -W "agents ${restore_flags} ${global_flags}" -- "${cur}")); return ;;
             collect)   COMPREPLY=($(compgen -W "agents ${collect_flags} ${global_flags}" -- "${cur}")); return ;;
             update)    COMPREPLY=($(compgen -W "agents ${update_flags} ${global_flags}" -- "${cur}")); return ;;
-            check)     COMPREPLY=($(compgen -W "agents ${check_flags} ${global_flags}" -- "${cur}")); return ;;
+            check)     COMPREPLY=($(compgen -W "agents extras ${check_flags} ${global_flags}" -- "${cur}")); return ;;
         esac
     fi
 

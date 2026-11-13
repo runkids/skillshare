@@ -221,3 +221,23 @@ func TestExtrasList_RemoteFieldsAndZeroTargets(t *testing.T) {
 		}
 	}
 }
+
+func TestExtrasSync_RemoteMissingGuidance(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		extra := config.ExtraConfig{Name: "rules", Remote: "example-org/ai-hub", Branch: "main"}
+		var s *Server
+		if project {
+			s, _ = newTestProjectServerWithExtras(t, []config.ExtraConfig{extra})
+		} else {
+			s, _ = newTestServerWithExtras(t, []config.ExtraConfig{extra}, "")
+		}
+		source := s.extrasSourceDir(extra)
+		if err := os.Rename(source, source+"-kept"); err != nil {
+			t.Fatal(err)
+		}
+		results := s.syncExtras("rules", false, false)
+		if len(results) != 1 || len(results[0].Warnings) != 1 || !strings.Contains(results[0].Warnings[0], config.ExtraRestoreCommand(extra, project)) {
+			t.Fatalf("missing guidance %+v", results)
+		}
+	}
+}

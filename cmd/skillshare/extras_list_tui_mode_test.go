@@ -86,3 +86,30 @@ func TestExtrasListTUI_CollectUsesFreshSource(t *testing.T) {
 		}
 	}
 }
+
+func TestExtrasListTUI_SyncUsesFreshTargetsAndSource(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "target")
+	source := filepath.Join(root, "new", "rules")
+	if err := os.MkdirAll(source, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, "rule.md"), []byte("fresh"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	pc := &config.ProjectConfig{Extras: []config.ExtraConfig{{Name: "rules", Remote: "example-org/ai-hub", Targets: []config.ExtraTargetConfig{{Path: target, Mode: "copy"}}}}}
+	pc.Sources.Extras = filepath.Dir(source)
+	if err := pc.Save(root); err != nil {
+		t.Fatal(err)
+	}
+	model := extrasListTUIModel{projCfg: &config.ProjectConfig{}, cwd: root, sourceFunc: func(config.ExtraConfig) string { return filepath.Join(root, "old", "rules") }}
+	if _, err := model.doSync("rules", filepath.Join(root, "removed-target")); err == nil {
+		t.Fatal("removed target fell back to sync all")
+	}
+	if _, err := model.doSync("rules", ""); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := os.ReadFile(filepath.Join(target, "rule.md")); err != nil || string(data) != "fresh" {
+		t.Fatal("stale source/target used", err)
+	}
+}

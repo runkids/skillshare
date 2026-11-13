@@ -186,7 +186,7 @@ _skillshare() {
                         '-b[Checkout specific branch]:branch:' \
                         '--track[Track the repository]' \
                         '-t[Track the repository]' \
-                        '--kind[Filter by kind]:kind:(skill agent)' \
+                        '--kind[Filter by kind]:kind:(skill agent extra)' \
                         '--agent[Install specific agents]:agents:' \
                         '-a[Install specific agents]:agents:' \
                         '--skill[Install specific skills]:skills:' \
@@ -505,7 +505,7 @@ _skillshare() {
                     ;;
                 check)
                     _arguments \
-                        '1:scope:(agents)' \
+                        '1:scope:(agents extras)' \
                         '--json[JSON output]' \
                         '--diff[Show changes since install]' \
                         '--exit-code[Exit 1 when anything is not up to date]' \

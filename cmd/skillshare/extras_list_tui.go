@@ -1044,7 +1044,7 @@ func (m extrasListTUIModel) resolveExtraWithTargets(name, targetPath string) (*c
 			return extra, []config.ExtraTargetConfig{t}, nil
 		}
 	}
-	return extra, extra.Targets, nil
+	return nil, nil, fmt.Errorf("target %q no longer belongs to extra %q; refresh the list", targetPath, name)
 }
 
 func (m extrasListTUIModel) projectRoot() string {
@@ -1055,12 +1055,18 @@ func (m extrasListTUIModel) projectRoot() string {
 }
 
 func (m extrasListTUIModel) doSync(name, targetPath string) (string, error) {
+	if err := m.refreshConfigForAction(); err != nil {
+		return "", err
+	}
 	extra, targets, err := m.resolveExtraWithTargets(name, targetPath)
 	if err != nil {
 		return "", err
 	}
 
-	sourceDir := m.sourceFunc(*extra)
+	sourceDir := m.extraSourceDir(*extra)
+	if _, err := os.Stat(sourceDir); os.IsNotExist(err) && extra.Remote != "" {
+		return "", fmt.Errorf("source missing; run: %s", config.ExtraRestoreCommand(*extra, m.projCfg != nil))
+	}
 	projectRoot := m.projectRoot()
 	synced := 0
 	for _, t := range targets {
@@ -1100,18 +1106,8 @@ func (m extrasListTUIModel) doCollect(name, targetPath string) (string, error) {
 		return "", lockErr
 	}
 	defer unlock()
-	if m.projCfg != nil {
-		fresh, err := config.LoadProjectReadOnly(m.cwd)
-		if err != nil {
-			return "", err
-		}
-		m.projCfg = fresh
-	} else {
-		fresh, err := config.LoadReadOnly()
-		if err != nil {
-			return "", err
-		}
-		m.cfg = fresh
+	if err := m.refreshConfigForAction(); err != nil {
+		return "", err
 	}
 
 	extra, targets, err := m.resolveExtraWithTargets(name, targetPath)
@@ -1122,12 +1118,7 @@ func (m extrasListTUIModel) doCollect(name, targetPath string) (string, error) {
 	if extra.File != "" {
 		return "", errSingleFileCollect
 	}
-	var sourceDir string
-	if m.projCfg != nil {
-		sourceDir = config.ResolveExtrasSourceDirProject(*extra, m.projCfg.EffectiveExtrasSource(m.cwd), m.cwd)
-	} else {
-		sourceDir = config.ResolveExtrasSourceDir(*extra, m.cfg.EffectiveExtrasSource(), m.cfg.EffectiveSkillsSource())
-	}
+	sourceDir := m.extraSourceDir(*extra)
 	collected := 0
 	for _, t := range targets {
 		resolved := config.ExpandPath(t.Path)
@@ -1139,6 +1130,30 @@ func (m extrasListTUIModel) doCollect(name, targetPath string) (string, error) {
 	}
 
 	return fmt.Sprintf("✓ Collected %d file(s) into %q", collected, name), nil
+}
+
+func (m *extrasListTUIModel) refreshConfigForAction() error {
+	if m.projCfg != nil {
+		fresh, err := config.LoadProjectReadOnly(m.cwd)
+		if err != nil {
+			return err
+		}
+		m.projCfg = fresh
+	} else {
+		fresh, err := config.LoadReadOnly()
+		if err != nil {
+			return err
+		}
+		m.cfg = fresh
+	}
+	return nil
+}
+
+func (m extrasListTUIModel) extraSourceDir(extra config.ExtraConfig) string {
+	if m.projCfg != nil {
+		return config.ResolveExtrasSourceDirProject(extra, m.projCfg.EffectiveExtrasSource(m.cwd), m.cwd)
+	}
+	return config.ResolveExtrasSourceDir(extra, m.cfg.EffectiveExtrasSource(), m.cfg.EffectiveSkillsSource())
 }
 
 func (m extrasListTUIModel) doFlattenToggle(name string, t extrasTargetInfo) tea.Cmd {
