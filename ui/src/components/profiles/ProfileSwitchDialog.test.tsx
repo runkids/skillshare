@@ -132,6 +132,8 @@ it('requires fresh consent when the real apply discovers a newly edited copy', a
 });
 
 it('offers both unavailable repairs and opens the shared skills-only sync preview when pending', async () => {
+  // jsdom has no scrollIntoView, which the dropdown calls on its focused option.
+  HTMLElement.prototype.scrollIntoView = vi.fn();
   const choose = vi.fn();
   const { rerender } = render(<ProfileBanners data={{ ...data, state: 'unavailable', active: 'lost' }} onChoose={choose} />);
   fireEvent.click(screen.getByRole('button', { name: 'profiles.all' }));
