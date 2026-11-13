@@ -10,7 +10,7 @@ const skills: Skill[] = ['team__review', 'local__alpha'].map((flatName) => ({
 function resources(kind: 'skill' | 'agent' = 'skill') {
   vi.spyOn(api, 'listSkills').mockResolvedValue({ resources: skills.map((s) => ({ ...s, kind })) });
   vi.spyOn(api, 'getSyncMatrix').mockResolvedValue({ entries: [] });
-  vi.spyOn(api, 'listTrash').mockResolvedValue({ items: [] } as Awaited<ReturnType<typeof api.listTrash>>);
+  vi.spyOn(api, 'listTrash').mockResolvedValue({ items: [], totalSize: 0 } as Awaited<ReturnType<typeof api.listTrash>>);
 }
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
