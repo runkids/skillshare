@@ -50,6 +50,8 @@ func TestCopyFingerprint_LegacyReplay(t *testing.T) {
 		src, dst, m := fingerprintFixture(t)
 		scratch := t.TempDir()
 		t.Setenv("TMPDIR", scratch)
+		t.Setenv("TMP", scratch)
+		t.Setenv("TEMP", scratch)
 		if !m.OwnsCopy("repo-demo", dst, CopySource{Path: src, OutputName: "repo-demo"}) {
 			t.Fatal("unchanged legacy rewritten copy not recognized")
 		}
@@ -103,7 +105,10 @@ func TestCopyFingerprint_LegacyReplay(t *testing.T) {
 	})
 	t.Run("replay_failure", func(t *testing.T) {
 		src, dst, m := fingerprintFixture(t)
-		t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "missing"))
+		badTemp := filepath.Join(t.TempDir(), "missing")
+		t.Setenv("TMPDIR", badTemp)
+		t.Setenv("TMP", badTemp)
+		t.Setenv("TEMP", badTemp)
 		if m.OwnsCopy("repo-demo", dst, CopySource{Path: src, OutputName: "repo-demo"}) {
 			t.Fatal("copy verified without replay scratch")
 		}
