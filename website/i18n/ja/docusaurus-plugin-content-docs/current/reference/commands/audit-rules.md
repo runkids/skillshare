@@ -269,6 +269,8 @@ skillshare audit <name>              # 特定の Skill をチェック
 skillshare audit --json | jq '.skills[].findings'  # findings をプログラムから確認
 ```
 
+ルールファイルを読み込み・解析・コンパイルできない場合（例えば無効な正規表現）、そのファイルを使うすべてのスキャンがファイル名を示すスキャンエラーを報告し、`audit` は `2` で終了します。ファイルを修正するまでインストールはブロックされます。
+
 サマリーの解釈:
 
 - `Failed` は、有効な閾値以上の findings を持つ Skill を数える。

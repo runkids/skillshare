@@ -269,6 +269,8 @@ skillshare audit <name>              # 특정 skill 확인
 skillshare audit --json | jq '.skills[].findings'  # findings를 프로그래밍 방식으로 검사
 ```
 
+규칙 파일을 읽거나 파싱하거나 컴파일할 수 없으면(예: 잘못된 정규식), 그 파일을 사용하는 모든 스캔이 파일 경로를 포함한 스캔 오류를 보고하고 `audit`는 `2`로 종료합니다. 파일을 고칠 때까지 설치는 차단됩니다.
+
 요약 해석:
 
 - `Failed`는 활성 threshold 이상의 findings가 있는 skill 수입니다.

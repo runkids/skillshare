@@ -18,7 +18,7 @@ func TestDigestInstallWarnings_ClassifiesAuditAndNonAudit(t *testing.T) {
 		"audit HIGH: Python shell execution detected (SKILL.md:10)\n       \"subprocess.run(\"",
 		"audit LOW: External URL in markdown link (README.md:4)",
 		"audit findings detected, but none at/above block threshold (CRITICAL)",
-		"audit scan error: timeout",
+		"audit skipped (--skip-audit)",
 		"some non-audit warning",
 	}
 
@@ -79,7 +79,6 @@ func TestSummarizeBatchInstallWarnings_AggregatesAcrossSkills(t *testing.T) {
 			warnings: []string{
 				"audit HIGH: finding-3 (b.md:1)",
 				"audit HIGH: finding-4 (b.md:2)",
-				"audit scan error: timeout",
 			},
 		},
 		{
@@ -107,9 +106,6 @@ func TestSummarizeBatchInstallWarnings_AggregatesAcrossSkills(t *testing.T) {
 	}
 	if summary.belowThresholdSkillCount != 1 {
 		t.Fatalf("expected belowThresholdSkillCount=1, got %d", summary.belowThresholdSkillCount)
-	}
-	if summary.scanErrorSkillCount != 1 {
-		t.Fatalf("expected scanErrorSkillCount=1, got %d", summary.scanErrorSkillCount)
 	}
 	if summary.skippedAuditSkillCount != 1 {
 		t.Fatalf("expected skippedAuditSkillCount=1, got %d", summary.skippedAuditSkillCount)

@@ -287,7 +287,7 @@ skillshare sync
 |------|-------|-------------|
 | `--name <name>` | | 정확히 하나의 skill이 설치될 때 설치된 이름을 재정의 |
 | `--into <dir>` | | 하위 디렉터리에 설치 (예: `--into frontend` 또는 `--into frontend/react`) |
-| `--force` | `-f` | 기존 skill을 덮어쓰기; audit 차단 및 cross-path 중복 검사를 재정의 |
+| `--force` | `-f` | 기존 skill을 덮어쓰기; audit findings 차단(스캔 실패 제외) 및 cross-path 중복 검사를 재정의 |
 | `--update` | `-u` | 존재하면 업데이트 (git pull 또는 재설치) |
 | `--branch <ref>` | `-b` | 설치할 git branch, tag 또는 commit SHA (기본값: remote 기본 브랜치) |
 | `--track` | `-t` | tracked repo용으로 `.git`을 유지. `--all`, `--yes`, `--skill`, `--agent`와 함께 사용할 수 없습니다. |
@@ -617,6 +617,7 @@ install-skills:
 모든 skill은 설치 중에 보안 위협에 대해 자동으로 스캔됩니다.
 
 - `audit.block_threshold` 이상의 findings는 **설치를 차단합니다** (기본값: `CRITICAL`)
+- 스캔을 실행할 수 없으면(예: `audit-rules.yaml`에 잘못된 정규식이 있음) 설치가 차단되고 제거됩니다. `--force`로는 무시할 수 없으니 원인을 고치거나 `--skip-audit`을 사용하세요
 - 그보다 낮은 findings는 경고로 표시되며 위험 점수 컨텍스트를 포함합니다
 - `audit.block_threshold`는 차단 레벨만 제어합니다; 스캔 자체를 비활성화하지는 **않습니다**
 - audit을 항상 건너뛰는 config 스위치는 없습니다; 필요할 때는 명령별로 `--skip-audit`을 사용하세요
@@ -646,7 +647,7 @@ skillshare install suspicious-skill --threshold high
 skillshare install suspicious-skill -T h
 ```
 
-차단 결정을 재정의하려면 `--force`를, 스캔 자체를 우회하려면 `--skip-audit`을 사용하세요. 스캐닝에 대한 자세한 내용은 [audit](/docs/reference/commands/audit)을 참고하세요.
+findings로 인한 차단 결정을 재정의하려면 `--force`를, 스캔 자체를 우회하려면 `--skip-audit`을 사용하세요. 스캐닝에 대한 자세한 내용은 [audit](/docs/reference/commands/audit)을 참고하세요.
 
 install 결정은 **finding severity vs threshold**를 기준으로 합니다. Risk score/label은 컨텍스트로 보고될 뿐 그 자체로 설치를 차단하지 않습니다. 기본적으로 audit findings는 (severity와 메시지로 그룹화된) 요약으로 표시됩니다. 전체 목록을 보려면 `--audit-verbose`를 사용하세요.
 
@@ -656,6 +657,7 @@ Tracked repo는 동일한 threshold 모델을 사용하지만, 스캔 범위와 
 
 - 신규 `--track` 설치는 (skill 폴더 하나가 아니라) **clone된 repository 전체**를 스캔합니다
 - threshold 이상의 findings는 `--force`가 사용되지 않는 한 설치를 차단합니다
+- 스캔을 실행할 수 없는 경우에도 `--force`와 관계없이 설치를 차단합니다
 - 신규 설치가 차단되면, skillshare는 source에서 clone된 repo를 자동으로 제거합니다
 - 자동 정리가 실패하면, install은 명시적인 오류를 반환하고 경로를 수동으로 제거하라고 안내합니다
 
