@@ -745,9 +745,11 @@ extras:
 | フィールド | 必須 | 説明 |
 |-------|----------|--------------|
 | `name` | はい | Extra の識別子 |
-| `source` | いいえ | この Extra 用のカスタム Source ディレクトリ（`extras_source` とデフォルトを上書き） |
+| `source` | いいえ | Local source の上書き。`remote` と併用不可 |
+| `remote` | いいえ | Git source。`install --kind extra` で取得し、パスとして展開しない |
+| `branch` | いいえ | 任意の Git ref。`remote` が必要 |
 | `file` | いいえ | Source ディレクトリからこのファイルだけを Sync する: `system.md` や `AGENTS.md` のような単純なファイル名。[単一ファイルの Extras](../commands/extras.md#single-file-extras) を参照 |
-| `targets` | はい | Target パスのリスト |
+| `targets` | はい | Target パスのリスト。リモート extra は空でも可 |
 | `targets[].path` | はい | 宛先ディレクトリ |
 | `targets[].mode` | いいえ | `merge`（デフォルト）、`copy`、または `symlink`。`import` は単一ファイルの Extras でのみ使用可 |
 | `targets[].as` | いいえ | 単一ファイルの Extra における Target 内のファイル名（デフォルト: `file` の名前） |
@@ -1307,3 +1309,26 @@ targets:
 - [Source と Targets](/docs/understand/source-and-targets) — コアコンセプト
 - [Sync モード](/docs/understand/sync-modes) — merge、copy、symlink
 - [環境変数](/docs/reference/appendix/environment-variables) — すべての変数
+
+
+### リモート extra の宣言 {#remote-extras}
+
+Global/Project 両方の `extras:` で使えます。
+
+```yaml
+extras:
+  - name: team-rules
+    remote: example-org/ai-hub/rules
+    branch: main
+    targets: []
+```
+
+作成・復元は `install <remote> --kind extra --name team-rules -p|-g` です。`source` と
+`remote` は排他的で、`branch` には `remote` が必要です。`remote` の `~` は展開しません。
+不正 URL・認証情報入り remote は値を表示せず拒否します。Local は `extras init --source`
+を使います。target/mode/filter 編集は origin を保持し、名前・source・削除は lifecycle
+コマンドで扱います。Project lock は version 1 のまま別の `extras` map を持ち、書込前に
+全員のバイナリ更新が必要です。宣言だけ、引数なし install、pull、sync では取得しません。
+[install](../commands/install.md#remote-extras) と [extras](../commands/extras.md#remote-extras)
+の制限を確認してください。構文が壊れた raw YAML はそのまま返され、修復 PUT は古い
+最後の読込 baseline を使う可能性があります。

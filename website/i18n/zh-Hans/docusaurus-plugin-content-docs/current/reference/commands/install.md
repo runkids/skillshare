@@ -291,7 +291,7 @@ skillshare sync
 | `--update` | `-u` | 如果已存在则更新（git pull 或重新安装） |
 | `--branch <ref>` | `-b` | 要安装的 git branch、tag 或 commit SHA（默认：远程默认分支） |
 | `--track` | `-t` | 为 tracked repo 保留 `.git`。不能与 `--all`、`--yes`、`--skill` 或 `--agent` 同时使用。 |
-| `--kind <skill\|agent>` | | 限制只安装某一种资源类型 |
+| `--kind <skill\|agent\|extra>` | | 限制只安装某一种资源类型 |
 | `--agent <names>` | `-a` | 从仓库中选择指定的 agent（逗号分隔） |
 | `--skill` | `-s` | 从多 Skill 仓库中选择指定的 Skill（逗号分隔；支持像 `core-*` 这样的 glob 模式）。不能与 `--all` 或 `--yes` 同时使用。 |
 | `--exclude` | | 安装时跳过特定的 Skill（逗号分隔；支持像 `test-*` 这样的 glob 模式） |
@@ -431,7 +431,7 @@ skillshare install google-gemini/gemini-cli/.../skill-creator --name my-creator
 # Installed as: ~/.config/skillshare/skills/my-creator/
 ```
 
-`--name` 仅在安装解析为单个 Skill 时有效。
+Skill 安装的 `--name` 仅在解析出单个 skill 时有效；远程 extra 用它指定托管名称。
 在 `--track` 模式下，自定义名称会作为 tracked repo 目录存储（自动加上 `_` 前缀），且不能包含路径分隔符或 `..`。
 `--track` 也接受本地路径，前提是该路径是 git 仓库的根目录（会像 `file:///path` 一样被 clone）；其他本地文件夹请不要加 `--track` 安装。使用 `--track --force` 时，只有在新的 clone 成功后才会替换现有的 tracked repo，因此重新安装失败时旧的 repo 会保留；若本地来源（路径或 `file://` URL）就是该 tracked repo 或位于其中，会被拒绝。
 
@@ -843,3 +843,54 @@ skillshare sync  # ← 别忘了这一步！
 - [uninstall](/docs/reference/commands/uninstall) — 移除 Skill
 - [sync](/docs/reference/commands/sync) — 将 Skill 同步到 target
 - [Organization-Wide Skills](/docs/how-to/sharing/organization-sharing) — 使用 tracked repo 进行组织级共享
+
+
+## 从远程来源安装 extra {#remote-extras}
+
+不需要 `SKILL.md`，直接获取仓库中的准确目录。
+
+```bash
+skillshare install example-org/ai-hub/rules --kind extra --name team-rules -p
+skillshare extras team-rules --add-target .claude/rules -p
+skillshare sync extras team-rules -p
+```
+
+Global 使用 `-g`。仅通过 Git 获取，不回退到托管 API，也不模糊匹配子目录。
+可选择整个仓库；排除 `.git`，拒绝 submodule 内的路径。本地目录使用
+`skillshare extras init team-rules --source <path> --target <target>`。
+`--kind extra` 不能与 `--track`、`--into`、`--skill`、`--agent`、`--exclude`、
+`--all`、`--yes` 组合。使用 `--name`，而不是提案中的 `--as`。
+
+安装目录为 `<extras root>/team-rules/`。配置记录 `remote`、可选 `branch`，初始为
+`targets: []`。`--branch <ref>` 选择分支、标签或 commit，显式标志优先于 URL ref。
+Project 的 **version 1** lockfile 在 `extras` map 中记录完整 40 位 commit；Global
+重装使用相同 origin 的 metadata pin。`--update` 将 pin 前移至所选分支的最新 commit。
+无法获取 pin 时失败，不回退到分支。origin 不匹配的 metadata 不是 pin；若实际目录
+存在且 origin 不同，必须先移除再重装。
+
+提交 Project config 和 `skills.lock.json`。**每位**写入 lockfile 的贡献者都须升级到
+能够保留 `extras` map 的版本。项目内的获取目录、staging 和 metadata 会被 ignore。
+队友必须显式恢复；仅在要前移 pin 时添加 `--update`。
+
+```bash
+skillshare install example-org/ai-hub/rules --kind extra --name team-rules -p
+skillshare install example-org/ai-hub/rules --kind extra --name team-rules --update -p
+```
+
+无参数的 `skillshare install` 不恢复远程 extras。`sync extras` 仅分发本地副本，
+不获取远程内容；缺少来源时会显示显式恢复命令。丢弃本地内容编辑须显式 `--force`，
+`--json` 不代表同意覆盖。仅模式变化不算内容编辑。本地 extra 同名或不同 origin 的
+条目，即使用 `--force` 也须先移除再安装。
+
+发布前会暂存并审计候选内容。达到阈值的发现会阻止安装；`--force` 可接受发现，但不能
+绕过 scanner/rules 错误。`--skip-audit` 会明确报告跳过。现有 scanner 仅检查深度 6、
+不超过 1,000,000 bytes 且通过扩展名 filter 的文件，跳过 `.mdc` 和 `.cursorrules`。
+审计通过不保证安全。内部文件链接会实体化；拒绝绝对、越界、失效、目录链接及特殊文件。
+保留 Unix 可执行 bit，Windows 不提供该保证。使用 Git 凭据或 SSH，不在 URL 中放凭据。
+
+通过 `.skillshare-staging/` journal 检测中断，list/status/doctor/`check extras` 会显示。
+下次显式 install 先获取并审计 **journal 记录的 commit**，比较 live/previous hash，
+修复记录后才处理本次请求的 source/ref。中断后的内容编辑须显式 `--force` 才能替换。
+候选无法获取或审计失败会保留 marker，请保留 staging 路径。`--dry-run` 不写入任何
+migration、config、lock、metadata 或 oplog。
+请参阅[生命周期和并发限制](extras.md#remote-extras)。

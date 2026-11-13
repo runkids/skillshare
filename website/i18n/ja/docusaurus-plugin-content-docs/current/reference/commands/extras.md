@@ -733,3 +733,54 @@ skillshare extras source ~/company-shared/extras
 - [sync](/docs/reference/commands/sync#sync-extras) — Extras を Target へ sync
 - [status](/docs/reference/commands/status) — Extras のファイル数と Target 数を表示
 - [Configuration](/docs/reference/targets/configuration#extras) — Extras の設定リファレンス
+
+
+## リモート extras {#remote-extras}
+
+`install <remote> --kind extra --name <name> -p|-g` を使います。Dashboard には
+install/update フローを追加しません。`remote` と任意の `branch` を持ち、`source` は持ちません。
+
+```yaml
+extras:
+  - name: team-rules
+    remote: example-org/ai-hub/rules
+    branch: main
+    targets: []
+```
+
+リモート extra はターゲット 0 件で開始できます。`extras team-rules --add-target
+.claude/rules -p` で追加し、`sync extras team-rules -p` で配布します。ターゲットの
+パス・モード・filter は編集できます。CLI plain/JSON/TUI、status、dashboard は origin、
+commit とローカル状態 `intact` / `modified` / `interrupted` / `missing` / `error`
+を表示し、リモートの最新性を保証しません。`check extras` は取得しません。
+
+名前・source の変更や raw config からの削除・origin 変更は拒否します。
+`skillshare extras remove team-rules -p --force` の後、希望する名前/source で
+明示 install してください。この削除の `--force` は確認を省くだけで、編集済み内容の
+削除を許可しません。エントリ、pin、metadata、承認済み検出を削除し、未編集の取得
+ディレクトリは削除、編集済み・未検証の内容は ignore とともに保持します。既にない
+ソースは欠落として報告します。所有リンクは清掃し、コピー・変換済み・非所有の出力は
+パスを示して保持します。API は `remote`、`commit`、`deleted_dir`、`kept_edited_dir`、
+`missing_dir`、`kept_outputs`、`warnings` を返します。Local の動作は変わりません。
+削除失敗時は記録とソースを復元しますが、既に清掃したターゲットは再リンクしません。
+`skillshare sync extras` で復元してください。
+
+`extras collect` は利用でき、origin/pin を変えずローカル変更になります。破棄する
+再インストールには `--force` が必要です。Global の `extras source <path>` はエントリ
+を保持しますがファイルは移動しません。install がない時に `.metadata.json` を含む
+**ルート全体**を移動してください。Project の `extras source` は未対応です。
+
+同じ extras root の remote install と対応 CLI/TUI/dashboard writer は root lock
+で直列化し、取得後に再読込・対象エントリだけを merge します。raw config PUT、手編集、
+skill/agent コマンドなど他の config/lock/ignore writer は直列化しません。rollback の
+read-back 検出は best effort で、write/read-back 間と compare/restore 間には窓があり、
+一般的な transaction isolation ではありません。install 中に `extras source` を変えず、
+失敗後は config/lock diff を確認し、欠落した別変更を適用し直してください。検出した
+他 writer の変更はパスを報告して保持し marker を残します。
+
+raw editor は解析可能な認証情報付き remote と型が読めない extras を非表示にします。
+一方、構文が壊れた YAML は復旧用に**そのまま**返し、認証情報も含み得ます。PUT は
+読める disk extras、読めなければ最後に読み込んだ baseline を使います。その読込後から
+構文破損までに CLI install が追加したエントリは、修復 PUT で失われたり名前を変えられたり
+する可能性があります。保存前にバックアップを確認してください。PUT は公開 lock を共有しません。
+[インストールと中断修復](install.md#remote-extras)も参照してください。

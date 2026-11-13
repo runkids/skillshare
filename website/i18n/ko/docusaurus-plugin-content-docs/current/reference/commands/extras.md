@@ -758,3 +758,52 @@ skillshare extras source ~/company-shared/extras
 - [sync](/docs/reference/commands/sync#sync-extras) — extras를 target에 동기화
 - [status](/docs/reference/commands/status) — extras 파일 및 target 수 표시
 - [Configuration](/docs/reference/targets/configuration#extras) — Extras config 레퍼런스
+
+
+## 원격 extras {#remote-extras}
+
+`install <remote> --kind extra --name <name> -p|-g`를 사용합니다. Dashboard에는
+install/update 흐름을 추가하지 않습니다. `remote`, 선택적 `branch`가 있고 `source`는 없습니다.
+
+```yaml
+extras:
+  - name: team-rules
+    remote: example-org/ai-hub/rules
+    branch: main
+    targets: []
+```
+
+원격 extra는 대상 0개로 시작할 수 있습니다. `extras team-rules --add-target .claude/rules
+-p`로 추가한 뒤 `sync extras team-rules -p`를 실행합니다. 대상 경로·모드·filter는 편집할
+수 있습니다. CLI plain/JSON/TUI, status, dashboard는 origin, commit과 로컬 상태
+`intact`, `modified`, `interrupted`, `missing`, `error`를 표시하며 원격 최신성은 확인하지
+않습니다. `check extras`는 가져오지 않습니다.
+
+이름·source 수정 및 raw config를 통한 제거·origin 변경은 거부합니다.
+`skillshare extras remove team-rules -p --force` 후 원하는 이름/source로 명시적 install을
+실행하세요. 제거의 `--force`는 확인만 생략하며 수정된 내용 삭제를 허용하지 않습니다.
+항목·pin·metadata·수락한 탐지를 제거합니다. 수정하지 않은 가져온 디렉터리는 삭제하고
+수정되거나 확인되지 않은 내용은 ignore 규칙과 함께 유지합니다. 이미 없는 소스는 없다고
+보고합니다. 소유한 링크는 정리하며 복사·변환·소유하지 않은 출력은 경로와 함께 유지합니다.
+API 결과는 `remote`, `commit`, `deleted_dir`, `kept_edited_dir`, `missing_dir`,
+`kept_outputs`, `warnings`입니다. Local 동작은 그대로입니다. 제거 실패 시 기록과 소스는
+복원하지만 이미 정리한 대상은 다시 연결하지 않습니다. `skillshare sync extras`로 복원하세요.
+
+`extras collect`는 허용되며 origin/pin을 유지한 채 로컬 수정 상태가 됩니다. 버리려면 재설치에
+`--force`가 필요합니다. Global `extras source <path>`는 항목을 보존하지만 파일은 옮기지
+않습니다. install이 실행되지 않을 때 `.metadata.json`을 포함한 **전체 루트**를 옮기세요.
+Project `extras source`는 지원하지 않습니다.
+
+같은 extras root의 원격 install과 지원되는 CLI/TUI/dashboard writer는 root lock을 공유하고
+획득 후 다시 읽어 해당 항목만 merge합니다. raw config PUT, 수동 편집, skill/agent 명령 등
+다른 config/lock/ignore writer는 직렬화하지 않습니다. rollback read-back 감지는 best effort이며
+write/read-back 및 compare/restore 사이에 창이 남으므로 일반 transaction isolation이 아닙니다.
+install 중 `extras source`를 바꾸지 말고 실패 후 config/lock diff에서 누락된 다른 변경을 다시
+적용하세요. 관찰된 다른 writer의 변경은 경로를 보고하고 marker와 함께 유지합니다.
+
+raw editor는 파싱 가능한 자격 증명 remote나 타입을 읽을 수 없는 extras를 숨깁니다. 그러나
+문법이 깨진 YAML은 복구를 위해 **그대로** 제공하므로 자격 증명도 포함될 수 있습니다. PUT은
+읽을 수 있는 disk extras, 그렇지 않으면 마지막으로 읽은 baseline을 사용합니다. 그 로드 후
+파일이 깨지기 전에 CLI install로 추가한 항목은 복구 PUT에서 삭제되거나 이름이 바뀔 수
+있습니다. 저장 전에 백업을 확인하세요. PUT은 게시 lock을 공유하지 않습니다.
+[설치와 중단 복구](install.md#remote-extras)를 참고하세요.

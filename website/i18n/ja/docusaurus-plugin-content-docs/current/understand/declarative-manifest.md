@@ -186,3 +186,14 @@ extras:
 - [Install command](/docs/reference/commands/install) — 引数あり・なしの `skillshare install`
 - [Push/Pull](/docs/reference/commands/push) — git 経由での config のバックアップと復元
 - [Project Skills](./project-skills.md) — プロジェクトレベルのマニフェスト
+
+
+### リモート extra の復元
+
+`remote: example-org/ai-hub/rules`、任意の `branch: main`、`targets: []` を宣言できます。
+`source` と `remote` は排他的です。`skillshare install example-org/ai-hub/rules --kind extra
+--name team-rules -p` を一行で明示し、target を追加して sync します。Project の version 1
+lockfile の `extras` map を保持できるバイナリに全員を更新してください。引数なし install、
+pull、sync は extras を取得しません。明示 install の `--update` で pin を進め、Global は
+同一 origin の metadata pin を使います。[監査範囲・中断修復・platform 制限](/docs/reference/commands/install#remote-extras)
+と [sync extras](/docs/reference/commands/sync#sync-extras) を参照してください。

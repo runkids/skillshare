@@ -728,3 +728,49 @@ skillshare extras source ~/company-shared/extras
 - [sync](/docs/reference/commands/sync#sync-extras) — 把 extras 同步到 target
 - [status](/docs/reference/commands/status) — 顯示 extras 的檔案與 target 數量
 - [Configuration](/docs/reference/targets/configuration#extras) — Extras 設定參考
+
+
+## 遠端 extras {#remote-extras}
+
+使用 `install <remote> --kind extra --name <name> -p|-g`；dashboard 不新增安裝或更新
+流程。項目含 `remote`、選用的 `branch`，不含 `source`。
+
+```yaml
+extras:
+  - name: team-rules
+    remote: example-org/ai-hub/rules
+    branch: main
+    targets: []
+```
+
+遠端 extra 可從零個 target 開始。執行 `extras team-rules --add-target .claude/rules -p`
+後再執行 `sync extras team-rules -p`。target 路徑、mode 和 filter 仍可編輯。
+CLI plain/JSON/TUI、status、dashboard 顯示 origin、commit 和本機狀態
+`intact`、`modified`、`interrupted`、`missing`、`error`，不代表遠端是否最新。
+`check extras` 不擷取內容。
+
+拒絕重新命名、source 修改，以及 raw config 中的移除或 origin 修改。先執行
+`skillshare extras remove team-rules -p --force`，再按所需名稱和來源明確安裝。
+此處 `--force` 僅略過確認，不授權刪除已編輯內容。移除項目、pin、metadata 和已接受
+發現；刪除未編輯的擷取目錄，保留編輯過或未驗證的內容及 ignore 規則。來源已缺少時
+明確回報缺少。清理自有連結；複製、轉換或非自有輸出會保留並列出路徑。API 回傳
+`remote`、`commit`、`deleted_dir`、`kept_edited_dir`、`missing_dir`、`kept_outputs`、
+`warnings`。本機 extra 行為不變。移除失敗會復原記錄和來源，但已清理的 target 不會
+重新連結；執行 `skillshare sync extras` 還原這些輸出。
+
+允許 `extras collect`，會在保留 origin/pin 的同時標記本機修改。重裝捨棄修改須
+`--force`。Global `extras source <path>` 保留項目但不移動檔案；須在沒有 install
+執行時自行移動包含 `.metadata.json` 的**整個根目錄**。Project 仍不支援 `extras source`。
+
+同一 extras root 的遠端 install 和支援的 CLI/TUI/dashboard 寫入者共用 root lock，
+取得鎖後重新讀取並只合併自身項目。其他 config/lock/ignore 寫入者，包括 raw config PUT、
+手動編輯和 skill/agent 命令，不會序列化。rollback read-back 偵測只是 best effort，
+write/read-back 與 compare/restore 之間仍有窗口，不是一般交易隔離。install 期間不要
+改 `extras source`；失敗後檢查 config/lock diff 並重新套用缺少的其他修改。偵測到其他
+寫入者變更時保留檔案、回報路徑並留下 marker。
+
+raw editor 拒絕回傳可解析且含憑證的 remote 或型別無法讀取的 extras。但為了復原，語法
+損壞的 YAML 會**原樣回傳**，可能包含憑證。PUT 使用可讀的磁碟 extras，否則退回最後
+載入的 baseline：該載入後、檔案損壞前由 CLI install 新增的項目，可能在修復 PUT 時
+被捨棄或重新命名。儲存前備份並檢查檔案。PUT 不共用發布鎖。
+參閱[安裝與中斷修復](install.md#remote-extras)。

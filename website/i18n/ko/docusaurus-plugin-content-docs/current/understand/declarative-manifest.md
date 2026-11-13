@@ -186,3 +186,15 @@ extras:
 - [Install command](/docs/reference/commands/install) — 인자가 있는/없는 `skillshare install`
 - [Push/Pull](/docs/reference/commands/push) — git을 통한 config 백업 및 복원
 - [Project Skills](./project-skills.md) — 프로젝트 레벨 manifest
+
+
+### 원격 extra 복원
+
+`remote: example-org/ai-hub/rules`, 선택적 `branch: main`, `targets: []`를 선언할 수 있습니다.
+`source`와 `remote`는 함께 사용할 수 없습니다. `skillshare install example-org/ai-hub/rules
+--kind extra --name team-rules -p`를 한 줄로 명시하고 대상을 추가한 뒤 sync합니다. Project의
+version 1 lockfile `extras` map을 보존하는 바이너리로 모든 기여자를 업그레이드하세요.
+인자 없는 install, pull, sync는 가져오지 않습니다. 명시적 install의 `--update`로 pin을
+진행시키며 Global은 같은 origin의 metadata pin을 사용합니다.
+[감사 범위·중단 복구·platform 제한](/docs/reference/commands/install#remote-extras)과
+[sync extras](/docs/reference/commands/sync#sync-extras)를 참고하세요.

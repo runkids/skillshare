@@ -236,3 +236,19 @@ skillshare check --all               # 同时检查 skills 和 agents
 - [list](/docs/reference/commands/list) — 查看已安装的 skills
 - [status](/docs/reference/commands/status) — 显示同步状态
 - [Agents](/docs/understand/agents) — Agent 概念
+
+
+## 本地检查远程 extras {#extras}
+
+```bash
+skillshare check extras -p
+skillshare check extras team-rules -g --json --exit-code
+```
+
+这是只读完整性检查，不获取内容，始终报告 “remote revision not checked”。结果包含
+origin、可选 branch、commit 及 `intact`、`modified`、`interrupted`、`missing`、`error`。
+`intact` 不表示与 upstream 一样新。`--exit-code` 将非 intact 视为现有 outdated 退出，
+读取错误仍失败。仅接受名称、`--json`、`--exit-code`，不支持 `--all`、`--group`、
+`--diff`。`check --all` 范围不变，不含 extras。缺失或中断须使用相同 `-p`/`-g` 的
+[`install <remote> --kind extra --name <name>`](install.md#remote-extras) 显式恢复，
+无参数 install 不会恢复。

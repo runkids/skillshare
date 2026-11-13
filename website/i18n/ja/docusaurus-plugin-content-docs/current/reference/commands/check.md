@@ -236,3 +236,20 @@ skillshare check --all               # Skill と Agent をまとめて確認
 - [list](/docs/reference/commands/list) — インストール済みの Skill を表示
 - [status](/docs/reference/commands/status) — sync 状態を表示
 - [Agents](/docs/understand/agents) — Agent の概念
+
+
+## リモート extras のローカル検査 {#extras}
+
+```bash
+skillshare check extras -p
+skillshare check extras team-rules -g --json --exit-code
+```
+
+読み取り専用の整合性検査で、取得せず常に “remote revision not checked” と報告します。
+origin、任意 branch、commit と `intact` / `modified` / `interrupted` / `missing` /
+`error` を返します。`intact` は upstream と同じ意味ではありません。`--exit-code` は
+非 intact を既存の outdated 終了として扱い、読取エラーは失敗します。名前、`--json`、
+`--exit-code` のみ対応し、`--all`、`--group`、`--diff` は使えません。`check --all`
+の範囲は変わらず extras を含みません。欠落・中断は同じ `-p`/`-g` で
+[`install <remote> --kind extra --name <name>`](install.md#remote-extras) を明示して復元します。
+引数なし install では復元しません。
