@@ -52,7 +52,10 @@ The proposed acquisition contract is:
 - A matching pin selects the commit fetched by the explicit install command.
   An unavailable pinned commit is an error. The existing `--update` flag on
   the proposed command follows the branch head and replaces the pin.
-  Project copies are gitignored; commit the declaration and lock instead.
+  In projects, ignore the fetched directory, extras metadata and staging
+  directory; commit the declaration and lock instead. If the configured root
+  is outside the project, proceed with a warning that no project ignore rule
+  can be written for it.
 - Reject HTTP(S) URL userinfo, query strings and fragments, and SSH URL
   passwords, before output or persistence can expose the value. Plain SSH
   usernames remain valid. Private sources use Git credential helpers or the
@@ -67,39 +70,57 @@ The proposed acquisition contract is:
   threshold block installation unless the user supplies `--force`; record
   that override. A scan error blocks even with `--force`. Only the existing
   `--skip-audit` flag bypasses scanning, and the result reports the skip.
-  Validate `-T` before fetching. Scanning has depth 6 and a 1 MB per-file
-  limit; passing a scan does not prove content is safe.
+  Validate `-T` before fetching. Scanning has depth 6, a 1 MB per-file limit
+  and an extension filter; for example, `.mdc` and `.cursorrules` are skipped
+  by the text scans.
+  Passing a scan does not prove content is safe.
 - Preserve Git's executable bit on POSIX, including executable files without
   a shebang and non-executable files with one. Windows has no such bit.
   Permission-only local changes do not count as content edits.
-- Stage, audit, lock the extras root, reread state, copy to a staging
-  directory inside the extras root, on the destination filesystem, write the
-  project ignore entry, swap, then write metadata, lock and configuration.
-  Roll back in-process failures, including accepted findings and previous file
-  bytes. Detect leftover staging directories after process death and repair on
-  the next explicit install. This is not a crash-proof transaction.
+- Stage, audit, lock the extras root and reread state. Before the first
+  publication write, snapshot the prior files and accepted findings and retain
+  a durable per-name marker or journal. Copy to a staging directory inside the
+  extras root, on the destination filesystem, write the project ignore entry,
+  swap, then write metadata, lock and configuration. Keep the marker until all
+  writes and cleanup finish, so a death at every boundary of first install or
+  replacement is detectable. Roll back in-process failures and repair an
+  interrupted publication on the next explicit install before conflict checks.
+  This is not a crash-proof transaction.
 - Reinstall preserves existing targets. Edited or unrecorded directories need
   `--force`; a same-named local extra always blocks installation. A remote
   extra's rename or local-source edit is refused with remove-and-reinstall
-  instructions in the CLI and dashboard.
-- CLI, TUI and API removal share one operation. Restore single-file targets
-  as today, then remove declaration, pin, metadata and accepted findings.
-  Delete an unchanged fetched directory and its ignore entry; preserve edited
-  files and their ignore entry and report the path. Do not use trash. Local
-  extras retain their existing behavior.
+  instructions in the CLI and dashboard. Existing `extras collect` edits to
+  the fetched source count as local modifications. `extras source` changes
+  the global root setting without moving files; when relocating the root,
+  moving its metadata with the fetched directories retains provenance.
+- CLI, TUI and API removal share one operation. Use existing cleanup helpers
+  to detach owned merge/file links and directory symlink targets, and restore
+  single-file targets as today. Preserve copy or transformed outputs without
+  proof of ownership and warn. On cleanup failure stop before deleting the
+  source or configuration. Then remove declaration, pin, metadata and accepted
+  findings. Delete an unchanged fetched directory and its ignore entry;
+  preserve edited files and their ignore entry and report the path. Do not use
+  trash. Local extras retain their existing behavior.
 - Support the existing `--json` and `--dry-run` flags. Structured output stays
   parseable and a dry run changes nothing. Include the origin and commit in
   extras inspection and preserve both fields through dashboard edits.
 
 For a teammate restoring a project, the **proposed explicit command** above
 honors the committed pin. Bare `skillshare install -p` does not restore extras
-in this proposal. All project contributors must upgrade before relying on
-extra pins: older binaries can discard the new lock map when rewriting it.
+in this proposal. When a remote extra's source is missing, sync directs the
+user to `skillshare install <remote> --kind extra --name <name> -p` in a
+project, or the corresponding `-g` command in global mode, instead of asking
+them to create the directory. All project contributors must upgrade before
+relying on extra pins: older binaries can discard the new lock map when
+rewriting it.
 
 ## Alternatives Considered
 
-- Keep acquiring files manually. This works today but leaves onboarding and
-  provenance outside the manifest.
+- Clone a repository or add it as a submodule and point `source:` at its
+  directory. This works today but leaves acquisition and provenance outside
+  the extras manifest. Alternatively, `git_root: extras` with `pull` shares
+  the extras source as a Git scope, rather than pinning each remote extra in
+  the project manifest.
 - Put a URL in `source:`. That field already controls a local directory; a
   separate `remote:` avoids changing its meaning or writing into arbitrary
   local directories.
