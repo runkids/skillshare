@@ -135,10 +135,10 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput, partOfAll bool, start time.T
 		extraSource := config.ResolveExtrasSourceDir(extra, cfg.EffectiveExtrasSource(), cfg.EffectiveSkillsSource())
 
 		run := sync.RunExtraTargets(extra, extraSource, opts)
-		if run.SourceMissing {
-			printMissingExtraSource(extra, extraSource, false, jsonOutput)
+		if run.SourceMissing || len(run.Warnings) > 0 {
+			printExtraRunWarnings(extra, run, extraSource, false, jsonOutput)
 			if jsonOutput {
-				jsonEntries = append(jsonEntries, syncExtrasJSONEntry{Name: extra.Name, Targets: []syncExtrasJSONTarget{}, Warnings: missingRemoteExtraWarnings(extra, false)})
+				jsonEntries = append(jsonEntries, syncExtrasJSONEntry{Name: extra.Name, Targets: []syncExtrasJSONTarget{}, Warnings: extraRunWarnings(extra, run, false)})
 			}
 			continue
 		}
@@ -247,10 +247,10 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput, partOfAll bool,
 		extraSource := config.ResolveExtrasSourceDirProject(extra, projCfg.EffectiveExtrasSource(cwd), cwd)
 
 		run := sync.RunExtraTargets(extra, extraSource, opts)
-		if run.SourceMissing {
-			printMissingExtraSource(extra, extraSource, true, jsonOutput)
+		if run.SourceMissing || len(run.Warnings) > 0 {
+			printExtraRunWarnings(extra, run, extraSource, true, jsonOutput)
 			if jsonOutput {
-				jsonEntries = append(jsonEntries, syncExtrasJSONEntry{Name: extra.Name, Targets: []syncExtrasJSONTarget{}, Warnings: missingRemoteExtraWarnings(extra, true)})
+				jsonEntries = append(jsonEntries, syncExtrasJSONEntry{Name: extra.Name, Targets: []syncExtrasJSONTarget{}, Warnings: extraRunWarnings(extra, run, true)})
 			}
 			continue
 		}
@@ -371,8 +371,8 @@ func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.Ex
 	var totals extrasSyncTotals
 	entries := make([]syncExtrasJSONEntry, 0, len(extras))
 	for _, extra := range extras {
-		entry := syncExtrasJSONEntry{Name: extra.Name}
 		run := sync.RunExtraTargets(extra, sourceFunc(extra), opts)
+		entry := syncExtrasJSONEntry{Name: extra.Name, Warnings: run.Warnings}
 		if run.SourceMissing {
 			entry.Targets = []syncExtrasJSONTarget{}
 			entry.Warnings = missingRemoteExtraWarnings(extra, projectRoot != "")
@@ -387,6 +387,23 @@ func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.Ex
 		return entries, fmt.Errorf("%d extras sync error(s)", totals.errors)
 	}
 	return entries, nil
+}
+
+func extraRunWarnings(extra config.ExtraConfig, run sync.ExtraRun, project bool) []string {
+	if len(run.Warnings) > 0 {
+		return run.Warnings
+	}
+	return missingRemoteExtraWarnings(extra, project)
+}
+
+func printExtraRunWarnings(extra config.ExtraConfig, run sync.ExtraRun, source string, project, jsonOutput bool) {
+	if run.SourceMissing {
+		printMissingExtraSource(extra, source, project, jsonOutput)
+	} else if !jsonOutput {
+		for _, warning := range run.Warnings {
+			ui.Note(warning)
+		}
+	}
 }
 
 // printMissingExtraSource tells the user, unless jsonOutput, that an extra was

@@ -903,7 +903,10 @@ skillshare install example-org/ai-hub/rules --kind extra --name team-rules --upd
 表示します。scanner の検査範囲自体は広げません。
 
 ブランチが削除されても、Git が同じ commit を取得できる限り、一致する記録済み pin
-で復元できます。新規宣言、明示的な ref 変更、`--update` には要求した ref の解決が必要です。
+で復元できます。ref に `/` を含む URL は、その ref の削除後の復元に、記録済みの
+ディレクトリ選択か、一意に一致する pin 済み Git tree が必要です。選択の根拠が不足または
+曖昧な場合は拒否し、既存のインストール済みファイルと記録を保持します。
+新規宣言、明示的な ref 変更、`--update` には要求した ref の解決が必要です。
 
 ロック取得時に、取得・監査より前に空の管理用 extras root と永続的な
 `.skillshare-extras.lock` を作成する場合があります。監査拒否では管理項目、config、pin、

@@ -13,6 +13,10 @@ func repairRemoteExtra(req RemoteExtraRequest, result *RemoteExtraResult) error 
 	if err != nil {
 		return fmt.Errorf("interrupted extra %q has missing or invalid marker; preserve staging paths: %w", req.Name, err)
 	}
+	source, err := journalExtraSource(j, req.Opts.ParseOptions)
+	if err != nil {
+		return err
+	}
 	paths := []string{req.ConfigPath, filepath.Join(req.ExtrasRoot, MetadataFileName)}
 	if req.ProjectRoot != "" {
 		paths = append(paths, filepath.Join(req.LockDir, LockFileName))
@@ -42,16 +46,6 @@ func repairRemoteExtra(req RemoteExtraRequest, result *RemoteExtraResult) error 
 	} else if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("repair live: %w", err)
 	}
-	source, err := ParseSourceWithOptions(j.Remote, req.Opts.ParseOptions)
-	if err != nil || source == nil || !source.IsGit() {
-		return fmt.Errorf("invalid journaled Git source for %q", req.Name)
-	}
-	source.ApplyRecordedBranch(j.Branch)
-	source.Commit = j.Commit
-	if err := resolveWebRef(source); err != nil {
-		return err
-	}
-	source.Branch = j.Branch
 	candidate, cleanup, err := prepareExtraCandidate(source, req.ExtrasRoot, dest, req.Opts)
 	if err != nil {
 		return fmt.Errorf("repair %q: %w", req.Name, err)
@@ -72,7 +66,7 @@ func repairRemoteExtra(req RemoteExtraRequest, result *RemoteExtraResult) error 
 	if err != nil {
 		return fmt.Errorf("repair previous: %w", err)
 	}
-	liveCandidate := liveExists && sameExtraFingerprint(liveHash, candidateHash)
+	liveCandidate := liveExists && sameExtraDelivery(dest, candidate.staged, liveHash, candidateHash)
 	liveOld := liveExists && j.HadPrevious && sameExtraFingerprint(liveHash, j.Old)
 	previousOld := previousExists && j.HadPrevious && sameExtraFingerprint(previousHash, j.Old)
 	if (liveExists && !liveCandidate && !liveOld || previousExists && !previousOld) && !req.Opts.AuditOverride {
@@ -166,4 +160,27 @@ func existingExtraFingerprint(dir string) (map[string]string, bool, error) {
 	}
 	fp, err := fingerprintExtraTree(dir)
 	return fp, true, err
+}
+
+// Local edits ignore modes; recognizing an already delivered Git candidate must
+// also match its executable bits. The existing fingerprints retain path/type and
+// no-follow content checks, without changing the journal's old-tree encoding.
+func sameExtraDelivery(live, candidate string, liveHash, candidateHash map[string]string) bool {
+	if !sameExtraFingerprint(liveHash, candidateHash) {
+		return false
+	}
+	for rel := range candidateHash {
+		want, err := os.Lstat(filepath.Join(candidate, filepath.FromSlash(rel)))
+		if err != nil {
+			return false
+		}
+		if !want.Mode().IsRegular() {
+			continue
+		}
+		got, err := os.Lstat(filepath.Join(live, filepath.FromSlash(rel)))
+		if err != nil || !got.Mode().IsRegular() || got.Mode().Perm()&0111 != want.Mode().Perm()&0111 {
+			return false
+		}
+	}
+	return true
 }

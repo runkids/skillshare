@@ -117,45 +117,16 @@ func InstallRemoteExtra(req RemoteExtraRequest) (*RemoteExtraResult, error) {
 	if !state.Missing && entry != nil && entry.Source != "" && entry.Source != req.RawSource {
 		return nil, fmt.Errorf("extra %q has a different origin; remove it before reinstalling", req.Name)
 	}
-	// Repair may have changed the declaration. Read its branch only after
-	// RefreshAfterRepair and Recheck, including when local metadata is absent.
-	pinnedBranch := req.PinBranch()
-	if req.Branch == "" {
-		req.Branch = pinnedBranch
-	}
-	source := *req.Source
-	source.Branch = req.Branch
-	source.Commit = ""
-	if !req.Opts.Update && pinnedBranch == req.Branch {
-		if req.ProjectRoot != "" {
-			lock, err := LoadLock(req.LockDir)
-			if err != nil {
-				return nil, err
-			}
-			source.Commit = lock.ExtraCommitFor(req.Name, req.RawSource)
-		} else if entry != nil && entry.Source == req.RawSource && entry.Branch == req.Branch && len(entry.Commit) == 40 && IsCommitSHA(entry.Commit) {
-			source.Commit = entry.Commit
-		}
-	}
-	// An immutable pin already records the URL's branch/path selection. Do not
-	// require that branch still to be advertised by the remote to restore it.
-	if source.Commit != "" {
-		source.ApplyRecordedBranch(req.Branch)
-	}
-	if err := resolveWebRef(&source); err != nil {
+	source, treeHash, err := extraInstallSource(req, entry)
+	if err != nil {
 		return nil, err
-	}
-	// An existing empty declaration follows the default branch. Resolve the
-	// URL's directory without turning that inherited default into a URL ref.
-	if req.Branch == "" {
-		source.Branch = ""
 	}
 	req.Branch = source.Branch
 	result.Branch = req.Branch
 	// Config callbacks share the parsed source's branch, but its original
 	// subdir remains unchanged for identity validation on a later request.
 	req.Source.Branch = req.Branch
-	candidate, cleanup, err := prepareExtraCandidate(&source, req.ExtrasRoot, dest, req.Opts)
+	candidate, cleanup, err := prepareExtraCandidate(source, req.ExtrasRoot, dest, req.Opts, treeHash)
 	if err != nil {
 		return nil, err
 	}

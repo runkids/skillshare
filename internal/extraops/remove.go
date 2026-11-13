@@ -117,7 +117,7 @@ func cleanupRemoteTargets(req RemoveRequest, extra config.ExtraConfig, result *R
 				result.KeptOutputs = append(result.KeptOutputs, resolved)
 				continue
 			}
-			_, kept, errs := syncpkg.ClearExtraTarget("", req.SourceDir, resolved, target.As, target.EffectiveMode(), nil)
+			_, kept, errs := syncpkg.ClearExtraTarget("", req.SourceDir, resolved, target.As, target.EffectiveMode(), nil, true)
 			if len(errs) > 0 {
 				return fmt.Errorf("target cleanup failed: %s", strings.Join(errs, "; "))
 			}

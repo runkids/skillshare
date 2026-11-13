@@ -373,7 +373,10 @@ are excluded. Successful installs report a coverage warning when the scanner
 skips files; this does not widen the scanner's coverage.
 
 A matching recorded pin can restore content after its branch is deleted, provided
-Git can still fetch that exact commit. A new declaration, explicit ref change or
+Git can still fetch that exact commit. For a URL whose ref contains `/`, recovery
+after that ref is deleted needs a recorded directory selection or a unique matching
+pinned Git tree. Missing or ambiguous selection evidence is refused, keeping
+existing installed files and records. A new declaration, explicit ref change or
 `--update` still requires resolving the requested ref.
 
 Lock acquisition may create the empty administrative extras root and its permanent

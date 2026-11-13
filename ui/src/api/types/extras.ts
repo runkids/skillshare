@@ -62,6 +62,7 @@ export interface ExtraDiffResult {
 
 export interface ExtrasSyncResult {
   name: string;
+  warnings?: string[];
   targets: Array<{
     target: string;
     mode: string;

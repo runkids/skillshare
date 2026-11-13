@@ -717,16 +717,7 @@ func (s *Server) syncExtras(name string, dryRun, force bool) []extraSyncResult {
 		}
 
 		run := syncpkg.RunExtraTargets(extra, sourceDir, opts)
-		result := extraSyncResult{
-			Name:    extra.Name,
-			Targets: make([]extraTargetSyncResult, 0, len(extra.Targets)),
-		}
-		if run.SourceMissing {
-			result.Warnings = []string{fmt.Sprintf("Source directory does not exist: %s. Create it to start syncing %s", sourceDir, extra.Name)}
-			if extra.Remote != "" {
-				result.Warnings = []string{"source missing; run: " + config.ExtraRestoreCommand(extra, projectRoot != "")}
-			}
-		}
+		result := extraSyncRunResult(extra, sourceDir, projectRoot, run)
 
 		for _, tr := range run.Targets {
 			t := tr.Target
@@ -763,6 +754,17 @@ func (s *Server) syncExtras(name string, dryRun, force bool) []extraSyncResult {
 	}
 
 	return results
+}
+
+func extraSyncRunResult(extra config.ExtraConfig, sourceDir, projectRoot string, run syncpkg.ExtraRun) extraSyncResult {
+	result := extraSyncResult{Name: extra.Name, Targets: make([]extraTargetSyncResult, 0, len(extra.Targets)), Warnings: run.Warnings}
+	if run.SourceMissing {
+		result.Warnings = []string{fmt.Sprintf("Source directory does not exist: %s. Create it to start syncing %s", sourceDir, extra.Name)}
+		if extra.Remote != "" {
+			result.Warnings = []string{"source missing; run: " + config.ExtraRestoreCommand(extra, projectRoot != "")}
+		}
+	}
+	return result
 }
 
 // extrasAgentTargetPaths returns the agents sync target paths for

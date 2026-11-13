@@ -6,7 +6,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -138,7 +137,7 @@ func publishRemoteExtra(req RemoteExtraRequest, candidate *extraCandidate) error
 	if err != nil {
 		return err
 	}
-	journal := extraJournal{Version: 1, Name: req.Name, Remote: req.RawSource, Branch: req.Branch, Commit: candidate.fetch.Commit, HadPrevious: hadPrevious, Old: old}
+	journal := extraJournal{Version: 1, Name: req.Name, Remote: req.RawSource, Branch: req.Branch, Commit: candidate.fetch.Commit, Subdir: &candidate.fetch.Subdir, HadPrevious: hadPrevious, Old: old}
 	if err := extraWriteMarker(root, journal); err != nil {
 		return err
 	}
@@ -334,19 +333,7 @@ func writeExtraMetadata(req RemoteExtraRequest, candidate *extraCandidate, remot
 			if store.AuditAccepted == nil {
 				store.AuditAccepted = make(map[string][]string)
 			}
-			merged := make(map[string]bool)
-			for _, key := range store.AuditAccepted[req.Name] {
-				merged[key] = true
-			}
-			for _, key := range keys {
-				merged[key] = true
-			}
-			all := make([]string, 0, len(merged))
-			for key := range merged {
-				all = append(all, key)
-			}
-			sort.Strings(all)
-			store.AuditAccepted[req.Name] = all
+			store.AuditAccepted[req.Name], _ = mergeAcceptedKeys(store.AuditAccepted[req.Name], keys)
 		}
 	}
 	return extraWriteMeta(store, req.ExtrasRoot)

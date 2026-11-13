@@ -18,6 +18,7 @@ type extraJournal struct {
 	Remote      string            `json:"remote"`
 	Branch      string            `json:"branch,omitempty"`
 	Commit      string            `json:"commit"`
+	Subdir      *string           `json:"subdir,omitempty"`
 	HadPrevious bool              `json:"had_previous"`
 	Old         map[string]string `json:"old"`
 }
@@ -33,8 +34,15 @@ func validateExtraJournal(j extraJournal, name string) error {
 	if j.Version != 1 || j.Name != name || j.Remote == "" || len(j.Commit) != 40 || !IsCommitSHA(j.Commit) || (j.HadPrevious && j.Old == nil) || (!j.HadPrevious && len(j.Old) != 0) {
 		return fmt.Errorf("invalid publication marker for %q", name)
 	}
+	return validateExtraJournalSource(j, name)
+}
+
+func validateExtraJournalSource(j extraJournal, name string) error {
 	if err := RejectSourceCredentials(j.Remote); err != nil {
 		return fmt.Errorf("invalid publication marker for %q: %w", name, err)
+	}
+	if j.Subdir != nil {
+		return validateRepoSubdir(*j.Subdir)
 	}
 	return nil
 }

@@ -17,7 +17,7 @@ type extraCandidate struct {
 func removeExtraCandidateTemp(dir string) { _ = os.RemoveAll(dir) }
 
 // prepareExtraCandidate fetches and audits privately; it never publishes to root.
-func prepareExtraCandidate(source *Source, root, dest string, opts InstallOptions) (*extraCandidate, func(), error) {
+func prepareExtraCandidate(source *Source, root, dest string, opts InstallOptions, expectedTree ...string) (*extraCandidate, func(), error) {
 	if source == nil || !source.IsGit() {
 		return nil, nil, fmt.Errorf("remote extra requires a Git source")
 	}
@@ -34,7 +34,7 @@ func prepareExtraCandidate(source *Source, root, dest string, opts InstallOption
 	cleanup := func() { removeExtraCandidateTemp(tmp) }
 	working := *source
 	result := &InstallResult{}
-	fetch, err := fetchGitSubdir(&working, filepath.Join(tmp, "checkout"), result, opts, true)
+	fetch, treeHash, err := fetchExtraCandidate(&working, filepath.Join(tmp, "checkout"), result, opts, expectedTree...)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
@@ -49,8 +49,24 @@ func prepareExtraCandidate(source *Source, root, dest string, opts InstallOption
 		cleanup()
 		return nil, nil, err
 	}
-	if gate.Audit != nil && gate.Audit.SkippedFiles > 0 {
-		result.Warnings = append(result.Warnings, fmt.Sprintf("Extra audit coverage is limited: %d file(s) skipped ordinary content checks; hidden-parent files receive header checks only", gate.Audit.SkippedFiles))
+	result.Warnings = extraAuditWarnings(result.Warnings, gate)
+	return &extraCandidate{staged: staged, fetch: fetch, audit: gate, treeHash: treeHash, warnings: result.Warnings}, cleanup, nil
+}
+
+// extraAuditWarnings reports the completed gate without recording acceptance;
+// publication owns those guarded writes.
+func extraAuditWarnings(warnings []string, gate *AuditGateResult) []string {
+	if gate.Audit == nil {
+		return warnings
 	}
-	return &extraCandidate{staged: staged, fetch: fetch, audit: gate, treeHash: getSubdirTreeHash(fetch.RepoPath, fetch.Subdir), warnings: result.Warnings}, cleanup, nil
+	if gate.Audit.SkippedFiles > 0 {
+		warnings = append(warnings, fmt.Sprintf("Extra audit coverage is limited: %d file(s) skipped ordinary content checks; hidden-parent files receive header checks only", gate.Audit.SkippedFiles))
+	}
+	for _, finding := range gate.Audit.Findings {
+		warnings = append(warnings, fmt.Sprintf("%s [%s]", auditFindingWarning(finding), finding.RuleID))
+	}
+	if gate.Overridden {
+		warnings = append(warnings, fmt.Sprintf("audit findings at/above block threshold (%s); audit overridden with --force", gate.Threshold))
+	}
+	return warnings
 }

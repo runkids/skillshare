@@ -163,6 +163,11 @@ func StageGitUpdate(repoPath string, discard bool, opts ParseOptions) (_ *GitUpd
 
 // prepareCandidateAudit keeps path-sensitive scans equivalent after relocation.
 func prepareCandidateAudit(sourceDir, logicalPath, candidatePath string, readOnlyMetadata bool) error {
+	// Extras arrive as D16-validated regular staging; their previous metadata
+	// must not be migrated or snapshotted into the new candidate.
+	if readOnlyMetadata {
+		return nil
+	}
 	candidatePath, err := filepath.EvalSymlinks(candidatePath)
 	if err != nil {
 		return err
@@ -188,12 +193,6 @@ func prepareCandidateAudit(sourceDir, logicalPath, candidatePath string, readOnl
 		return nil
 	}); err != nil {
 		return err
-	}
-	// Extras are new candidates: their recorded hashes describe the previous
-	// publication, not the staged tree. Avoid migrating source metadata or
-	// writing a snapshot beside the candidate before publication.
-	if readOnlyMetadata {
-		return nil
 	}
 	if sourceDir == "" {
 		sourceDir = filepath.Dir(logicalPath)

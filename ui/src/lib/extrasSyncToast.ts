@@ -7,6 +7,7 @@ export type SyncTotals = {
   targets: number;
   errors: number;
   errorDetails: string[];
+  warnings: string[];
 };
 
 export type TFunc = (key: string, params?: TranslationParams, fallback?: string) => string;
@@ -16,13 +17,13 @@ const emptyTotals = (): SyncTotals => ({
   skipped: 0,
   targets: 0,
   errors: 0,
-  errorDetails: [],
+  errorDetails: [], warnings: [],
 });
 
 export function sumEntry(entry: ExtrasSyncResult | undefined): SyncTotals {
   if (!entry) return emptyTotals();
   const totals = emptyTotals();
-
+  totals.warnings.push(...(entry.warnings ?? []));
   for (const target of entry.targets) {
     if (target.error) {
       totals.errors++;
@@ -50,14 +51,14 @@ export function sumAll(extras: ExtrasSyncResult[]): SyncTotals {
     totals.targets += entryTotals.targets;
     totals.errors += entryTotals.errors;
     totals.errorDetails.push(...entryTotals.errorDetails);
+    totals.warnings.push(...entryTotals.warnings);
   }
-
   return totals;
 }
 
 export function syncToastType(totals: SyncTotals): 'success' | 'warning' | 'error' {
   if (totals.errors > 0 && totals.synced === 0) return 'error';
-  if (totals.errors > 0) return 'warning';
+  if (totals.errors > 0 || totals.warnings.length > 0) return 'warning';
   if (totals.skipped > 0 && totals.synced === 0) return 'warning';
   return 'success';
 }
@@ -80,10 +81,10 @@ export function buildSyncToast(label: string, failLabel: string, totals: SyncTot
   // Full failure (nothing synced): headline + count on line 1, then details.
   if (totals.errors > 0 && totals.synced === 0) {
     const [count, ...detail] = buildErrorLines(totals, t);
-    return [`${failLabel} · ${count}`, ...detail].join('\n');
+    return withSyncWarnings([`${failLabel} · ${count}`, ...detail].join('\n'), totals);
   }
   if (totals.synced === 0 && totals.skipped === 0 && totals.errors === 0)
-    return `${label} — ${t('extras.toast.noFilesInSource', {}, 'no files in source')}`;
+    return totals.warnings.length > 0 ? totals.warnings.join('\n') : `${label} — ${t('extras.toast.noFilesInSource', {}, 'no files in source')}`;
 
   // Partial success: one summary line, then any errors on following lines.
   const parts: string[] = [];
@@ -95,5 +96,9 @@ export function buildSyncToast(label: string, failLabel: string, totals: SyncTot
 
   let msg = `${label} — ${parts.join(', ')}`;
   if (totals.errors > 0) msg += `\n${buildErrorLines(totals, t).join('\n')}`;
-  return msg;
+  return withSyncWarnings(msg, totals);
+}
+
+function withSyncWarnings(message: string, totals: SyncTotals): string {
+  return [message, ...totals.warnings].join('\n');
 }

@@ -37,7 +37,7 @@ func TestInstallExtra_EarlyErrorsNeverEchoCredentials(t *testing.T) {
 					if project {
 						cwd, mode = sb.SetupProjectDir("claude"), "-p"
 					}
-					before := extraFiles(t, sb.Root)
+					before := projectTree(t, sb.Root)
 					// Put --kind after malformed inputs for half the paths: the
 					// boundary must recognize extra intent before formatting errors.
 					args := append([]string{"install"}, input...)
@@ -59,7 +59,7 @@ func TestInstallExtra_EarlyErrorsNeverEchoCredentials(t *testing.T) {
 					if output == "json" && !json.Valid([]byte(result.Stdout)) {
 						t.Errorf("early error stdout is not JSON: %s", result.Stdout)
 					}
-					if after := extraFiles(t, sb.Root); !reflect.DeepEqual(before, after) {
+					if after := projectTree(t, sb.Root); !reflect.DeepEqual(before, after) {
 						t.Error("refusal changed fixture files, including logs/config/metadata/pins")
 					}
 				})

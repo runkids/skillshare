@@ -3,8 +3,6 @@ package install
 import (
 	"errors"
 	"fmt"
-
-	"skillshare/internal/audit"
 )
 
 // scanExtraCandidate is the existing candidate audit, kept replaceable for
@@ -18,12 +16,6 @@ func gateExtraCandidate(staged, extrasRoot, destPath, commit string, opts Instal
 	threshold := opts.AuditThreshold
 	if opts.SkipAudit {
 		return &AuditGateResult{Threshold: threshold, Skipped: true}, nil
-	}
-	// Preflight global rules before entering the candidate scan.
-	if opts.AuditProjectRoot == "" {
-		if _, err := audit.Rules(); err != nil {
-			return nil, &AuditGateError{ScanErr: fmt.Errorf("load global rules: %w", err), Threshold: threshold, BeforeHash: commit, Rollback: CheckoutUnchanged}
-		}
 	}
 	if opts.OnProgress != nil {
 		opts.OnProgress("Auditing extra candidate...")

@@ -126,14 +126,14 @@ func TestInstallExtra_CredentialNeverPersisted(t *testing.T) {
 					cwd = sb.SetupProjectDir("claude")
 					mode = "-p"
 				}
-				before := extraFiles(t, sb.Root)
+				before := projectTree(t, sb.Root)
 				args := append([]string{"install", source, "--kind", "extra", "--name", "rules", mode}, flags...)
 				result := sb.RunCLIInDir(cwd, args...)
 				result.AssertFailure(t)
 				if strings.Contains(result.Stdout+result.Stderr, "SYNTHETIC") {
 					t.Fatalf("credential disclosed: %s %s", result.Stdout, result.Stderr)
 				}
-				if after := extraFiles(t, sb.Root); !reflect.DeepEqual(before, after) {
+				if after := projectTree(t, sb.Root); !reflect.DeepEqual(before, after) {
 					t.Fatal("credential refusal changed files, including oplog/config/lock/metadata")
 				}
 				sb.Cleanup()

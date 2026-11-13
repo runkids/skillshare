@@ -5,7 +5,6 @@ package integration
 import (
 	"encoding/json"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -19,37 +18,6 @@ import (
 	"skillshare/internal/testutil"
 	"skillshare/internal/utils"
 )
-
-// Snapshot both presence and bytes; dry runs must not create even empty folders.
-func extraFiles(t *testing.T, root string) map[string]string {
-	t.Helper()
-	files := map[string]string{}
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		if d.Type()&os.ModeSymlink != 0 {
-			target, err := os.Readlink(path)
-			files[rel] = "link:" + target
-			return err
-		}
-		if d.IsDir() {
-			files[rel] = "dir"
-			return nil
-		}
-		data, err := os.ReadFile(path)
-		files[rel] = string(data)
-		return err
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return files
-}
 
 // Refusal may create only the permanent administrative root lock, never records.
 func assertExtraAdministrativeRootOnly(t *testing.T, root string) {
@@ -125,11 +93,11 @@ func TestInstallExtra_PinRestoreUpdateAndIgnore(t *testing.T) {
 	if err := lock.Save(filepath.Join(other, ".skillshare")); err != nil {
 		t.Fatal(err)
 	}
-	before := extraFiles(t, filepath.Join(other, ".skillshare", "extras"))
+	before := projectTree(t, filepath.Join(other, ".skillshare", "extras"))
 	result := sb.RunCLIInDir(other, args...)
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "fffffff")
-	if after := extraFiles(t, filepath.Join(other, ".skillshare", "extras")); !reflect.DeepEqual(before, after) {
+	if after := projectTree(t, filepath.Join(other, ".skillshare", "extras")); !reflect.DeepEqual(before, after) {
 		t.Fatal("unreachable pin changed extras")
 	}
 }
@@ -261,14 +229,14 @@ func TestInstallExtra_DryRunNoWrites(t *testing.T) {
 				cwd = sb.SetupProjectDir("claude")
 				mode = "-p"
 			}
-			before := extraFiles(t, sb.Root)
+			before := projectTree(t, sb.Root)
 			result := sb.RunCLIInDir(cwd, "install", remote, "--kind", "extra", "--name", "rules", "--dry-run", "--json", mode)
 			result.AssertSuccess(t)
 			var out struct{ Action string }
 			if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil || out.Action != "would install" {
 				t.Fatalf("dry result %s %v", result.Stdout, err)
 			}
-			if after := extraFiles(t, sb.Root); !reflect.DeepEqual(before, after) {
+			if after := projectTree(t, sb.Root); !reflect.DeepEqual(before, after) {
 				t.Fatal("dry run changed sandbox files or directories")
 			}
 		})
@@ -427,7 +395,7 @@ func TestInstallExtra_LinkSentinelNeverCopied(t *testing.T) {
 			if !reflect.DeepEqual(recordsBefore, extraRefusalRecords(t, sb.ConfigPath, sb.Root)) {
 				t.Fatal("link refusal changed pin or ignore records")
 			}
-			for path, data := range extraFiles(t, sb.Root) {
+			for path, data := range projectTree(t, sb.Root) {
 				if path != "sentinel" && strings.Contains(data, "SYNTHETIC_SENTINEL_BYTES") {
 					t.Fatalf("sentinel copied to %s", path)
 				}

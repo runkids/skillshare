@@ -896,6 +896,8 @@ skillshare install example-org/ai-hub/rules --kind extra --name team-rules --upd
 会报告覆盖范围警告；这不代表扩大了扫描范围。
 
 即使分支已删除，只要 Git 仍能获取完全相同的 commit，匹配的已有 pin 仍可恢复内容。
+若 URL 的 ref 含 `/`，在该 ref 删除后恢复需要已记录的目录选择，或唯一匹配的固定
+Git tree。选择依据缺失或不明确时会拒绝恢复，并保留现有安装文件和记录。
 新建声明、显式更改 ref 或 `--update` 仍须解析所请求的 ref。
 
 获取锁时，可能在获取或审计前创建空的管理用 extras 根目录及永久

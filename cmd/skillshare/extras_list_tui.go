@@ -1064,8 +1064,8 @@ func (m extrasListTUIModel) doSync(name, targetPath string) (string, error) {
 	}
 
 	sourceDir := m.extraSourceDir(*extra)
-	if _, err := os.Stat(sourceDir); os.IsNotExist(err) && extra.Remote != "" {
-		return "", fmt.Errorf("source missing; run: %s", config.ExtraRestoreCommand(*extra, m.projCfg != nil))
+	if err := checkExtrasTUISyncSource(*extra, sourceDir, m.projectRoot()); err != nil {
+		return "", err
 	}
 	projectRoot := m.projectRoot()
 	synced := 0
@@ -1098,6 +1098,16 @@ func (m extrasListTUIModel) doSync(name, targetPath string) (string, error) {
 		synced++
 	}
 	return fmt.Sprintf("✓ Synced %q to %d target(s)", name, synced), nil
+}
+
+func checkExtrasTUISyncSource(extra config.ExtraConfig, sourceDir, projectRoot string) error {
+	if err := sync.CheckExtraSyncInterruption(extra, sourceDir, projectRoot); err != nil {
+		return err
+	}
+	if _, err := os.Stat(sourceDir); os.IsNotExist(err) && extra.Remote != "" {
+		return fmt.Errorf("source missing; run: %s", config.ExtraRestoreCommand(extra, projectRoot != ""))
+	}
+	return nil
 }
 
 func (m extrasListTUIModel) doCollect(name, targetPath string) (string, error) {

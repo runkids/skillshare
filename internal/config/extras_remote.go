@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 	"unicode"
@@ -112,15 +113,12 @@ func validateExtraRemotes(extras []ExtraConfig) error {
 
 // ExtraRestoreCommand names the explicit slice-1 restore, with shell arguments
 // quoted when needed. A bare install does not restore remote extras yet.
-func ExtraRestoreCommand(extra ExtraConfig, project bool) string {
-	word := func(s string) string {
-		if strings.IndexFunc(s, func(r rune) bool {
-			return !unicode.IsLetter(r) && !unicode.IsDigit(r) && !strings.ContainsRune("_./:@%+=,-", r)
-		}) < 0 && s != "" {
-			return s
-		}
-		return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+func ExtraRestoreCommand(extra ExtraConfig, project bool, powershell ...bool) string {
+	usePowerShell := runtime.GOOS == "windows"
+	if len(powershell) > 0 {
+		usePowerShell = powershell[0]
 	}
+	word := func(s string) string { return extraRestoreWord(s, usePowerShell) }
 	command := "skillshare install " + word(extra.Remote) + " --kind extra --name " + word(extra.Name)
 	if extra.Branch != "" {
 		command += " --branch " + word(extra.Branch)
@@ -129,4 +127,16 @@ func ExtraRestoreCommand(extra ExtraConfig, project bool) string {
 		return command + " -p"
 	}
 	return command + " -g"
+}
+
+func extraRestoreWord(s string, powershell bool) string {
+	if powershell {
+		return "'" + strings.ReplaceAll(s, "'", "''") + "'"
+	}
+	if strings.IndexFunc(s, func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r) && !strings.ContainsRune("_./:@%+=,-", r)
+	}) < 0 && s != "" {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }

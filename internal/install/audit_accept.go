@@ -81,25 +81,30 @@ func RecordAcceptedFindings(sourceDir, path string, res *audit.Result, threshold
 	if store.AuditAccepted == nil {
 		store.AuditAccepted = make(map[string][]string)
 	}
-	existing := make(map[string]bool, len(store.AuditAccepted[rel]))
-	for _, k := range store.AuditAccepted[rel] {
-		existing[k] = true
-	}
-	added := 0
-	for _, k := range keys {
-		if !existing[k] {
-			existing[k] = true
-			added++
-		}
-	}
+	merged, added := mergeAcceptedKeys(store.AuditAccepted[rel], keys)
 	if added == 0 {
 		return 0, nil
 	}
-	merged := make([]string, 0, len(existing))
-	for k := range existing {
-		merged = append(merged, k)
-	}
-	sort.Strings(merged)
 	store.AuditAccepted[rel] = merged
 	return added, store.Save(dir)
+}
+
+func mergeAcceptedKeys(previous, keys []string) ([]string, int) {
+	existing := make(map[string]bool, len(previous))
+	for _, key := range previous {
+		existing[key] = true
+	}
+	added := 0
+	for _, key := range keys {
+		if !existing[key] {
+			existing[key] = true
+			added++
+		}
+	}
+	merged := make([]string, 0, len(existing))
+	for key := range existing {
+		merged = append(merged, key)
+	}
+	sort.Strings(merged)
+	return merged, added
 }
