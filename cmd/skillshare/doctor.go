@@ -33,6 +33,7 @@ type doctorResult struct {
 	next           []string // command and reason pairs for the closing Next
 	updateCommands []string // Suggestions belonging to automatic version notices.
 	stream         func(doctorCheck)
+	waiting        []func() // checks later left running; finishLater records them
 }
 
 // doctorWidth aligns the labels of doctor's fixed rows.
@@ -56,6 +57,39 @@ func (r *doctorResult) addCheckWithSuggestions(name, status, message string, det
 	if r.stream != nil {
 		r.stream(check)
 	}
+}
+
+// later runs a slow check without holding up the checks after it while doctor
+// streams: it streams a pending row now, runs check in the background, and
+// finishLater records the result in the pending row's place. check must not touch
+// ui or r; the function it returns records the result. Without a stream it runs
+// in place.
+func (r *doctorResult) later(name, spinner string, check func() func(*doctorResult)) {
+	if r.stream == nil {
+		sp := ui.StartSpinner(spinner)
+		record := check()
+		sp.Stop()
+		record(r)
+		return
+	}
+	r.stream(doctorCheck{Name: name, Status: checkPending, Message: spinner})
+	slot := len(r.checks)
+	done := make(chan func(*doctorResult), 1)
+	go func() { done <- check() }()
+	r.waiting = append(r.waiting, func() {
+		n := len(r.checks)
+		(<-done)(r)
+		added := slices.Clone(r.checks[n:])
+		r.checks = slices.Insert(r.checks[:n], slot, added...)
+	})
+}
+
+// finishLater waits for the checks later left running and records them.
+func (r *doctorResult) finishLater() {
+	for _, finish := range r.waiting {
+		finish()
+	}
+	r.waiting = nil
 }
 
 func (r *doctorResult) addInfo(name, message string) {

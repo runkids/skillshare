@@ -97,3 +97,34 @@ func TestDoctorCheckStreamOffWithoutEnv(t *testing.T) {
 		t.Fatal("doctor streamed checks without being asked to")
 	}
 }
+
+func TestDoctorLaterStreamsPendingAndKeepsItsPlace(t *testing.T) {
+	t.Setenv(doctorStreamEnv, "1")
+	var out strings.Builder
+	result := &doctorResult{stream: doctorCheckStream(&out)}
+	release := make(chan struct{})
+
+	result.addCheck("mcp", checkPass, "MCP ok", nil)
+	result.later("plugins", "Checking plugins...", func() func(*doctorResult) {
+		<-release
+		return func(r *doctorResult) { r.addCheck("plugins", checkWarning, "Plugins: 1 warning(s)", nil) }
+	})
+	result.addCheck("backup", checkPass, "Backups ok", nil)
+	close(release)
+	result.finishLater()
+
+	want := `{"check":{"name":"mcp","status":"pass","message":"MCP ok"}}` + "\n" +
+		`{"check":{"name":"plugins","status":"pending","message":"Checking plugins..."}}` + "\n" +
+		`{"check":{"name":"backup","status":"pass","message":"Backups ok"}}` + "\n" +
+		`{"check":{"name":"plugins","status":"warning","message":"Plugins: 1 warning(s)"}}` + "\n"
+	if got := out.String(); got != want {
+		t.Fatalf("stream = %q, want %q", got, want)
+	}
+	var names []string
+	for _, c := range result.checks {
+		names = append(names, c.Name)
+	}
+	if got := strings.Join(names, ","); got != "mcp,plugins,backup" {
+		t.Fatalf("checks = %s, want mcp,plugins,backup", got)
+	}
+}

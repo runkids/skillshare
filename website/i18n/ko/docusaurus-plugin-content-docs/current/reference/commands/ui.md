@@ -188,7 +188,7 @@ project mode(`-p`)로 실행할 때 대시보드는 다음과 같이 달라집�
 | GET | `/api/skillignore` | `.skillignore` 내용, 있으면 `.skillignore.local` 내용, ignore 통계 조회 |
 | PUT | `/api/skillignore` | `.skillignore` 내용 업데이트 |
 | GET | `/api/doctor` | 모든 상태 검사 실행(JSON) |
-| GET | `/api/doctor/stream` | 모든 상태 검사를 Server-Sent Events로 실행: 검사가 끝날 때마다 `check` 이벤트를 보내고, 마지막에 `/api/doctor`와 같은 JSON을 담은 `done`을 보냅니다 |
+| GET | `/api/doctor/stream` | 모든 상태 검사를 Server-Sent Events로 실행: 검사가 끝날 때마다 `check` 이벤트를 보냅니다. 오래 걸리는 검사는 먼저 `pending` 상태로 오고, 이름이 같은 이후 `check` 이벤트가 이를 대체하며, 뒤의 검사는 기다리지 않습니다. 마지막에 `/api/doctor`와 같은 JSON을 담은 `done`을 보냅니다 |
 | GET | `/api/health` | liveness probe. 서버가 준비되면 `200`을 반환합니다 |
 | GET | `/api/version` | 현재/최신 버전 + 업그레이드 가능 여부 + Nix 설치의 경우 CLI를 업데이트하는 명령(`nixUpgradeCommand`) |
 | POST | `/api/upgrade` | 제자리에서 `skillshare upgrade` 실행(바이너리가 dev build인 경우 `devMode: true` 반환, Nix 설치에서 새 CLI가 대기 중이면 코드 `upgrade.nix`와 함께 `409` 반환) |

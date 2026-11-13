@@ -188,7 +188,7 @@ The web dashboard exposes a REST API at `/api/`. All endpoints return JSON.
 | GET | `/api/skillignore` | Get `.skillignore` content, `.skillignore.local` content when present, and ignore stats |
 | PUT | `/api/skillignore` | Update `.skillignore` content |
 | GET | `/api/doctor` | Run all health checks (JSON) |
-| GET | `/api/doctor/stream` | Run all health checks as Server-Sent Events: a `check` event for each check as it is found, then `done` with the same JSON as `/api/doctor` |
+| GET | `/api/doctor/stream` | Run all health checks as Server-Sent Events: a `check` event for each check as it is found, then `done` with the same JSON as `/api/doctor`. A slow check first arrives with status `pending`; a later `check` event with the same name replaces it, and the checks after it do not wait |
 | GET | `/api/health` | Liveness probe; returns `200` once the server is ready |
 | GET | `/api/version` | Current/latest version, whether an upgrade is available, and, for a Nix install, the command that updates the CLI (`nixUpgradeCommand`) |
 | POST | `/api/upgrade` | Run `skillshare upgrade` in place (returns `devMode: true` when the binary is a dev build, and `409` with code `upgrade.nix` when a Nix install has a newer CLI waiting) |

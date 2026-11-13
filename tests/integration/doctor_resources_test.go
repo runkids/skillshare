@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -118,6 +119,42 @@ func TestDoctor_JSON_PluginMissingCLIIsWarning(t *testing.T) {
 				t.Fatal("doctor changed shared plugin intent")
 			}
 		})
+	}
+}
+
+// The dashboard streams doctor; the plugin check calls native CLIs, so it streams
+// as pending and its result follows the faster checks after it, while the full
+// result keeps it in place.
+func TestDoctor_JSON_StreamDefersPluginCheck(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	source := filepath.Join(sb.Root, "plugin")
+	sb.WriteFile(filepath.Join(source, ".codex-plugin", "plugin.json"), `{"name":"demo","version":"1.0.0"}`)
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets:\n  codex-x: {agent: codex, config_dir: ~/.codex-x, cli: no-such-codex-cli, skills: {enabled: false}}\nplugins:\n  version: 2\n  packages:\n    demo:\n      bindings:\n        codex-x:\n          source: " + source + "\n          plugin: demo\n")
+
+	stdout := sb.RunCLIEnv(map[string]string{"_SKILLSHARE_DOCTOR_STREAM": "1"}, "doctor", "--json").Stdout
+
+	var streamed []string
+	rest := stdout
+	for strings.HasPrefix(rest, `{"check":`) {
+		line, after, _ := strings.Cut(rest, "\n")
+		var l struct{ Check doctorJSONCheck }
+		if err := json.Unmarshal([]byte(line), &l); err != nil {
+			t.Fatalf("bad check line %q: %v", line, err)
+		}
+		streamed = append(streamed, l.Check.Name+":"+l.Check.Status)
+		rest = after
+	}
+	var final []string
+	for _, c := range parseDoctorJSON(t, rest).Checks {
+		final = append(final, c.Name)
+	}
+	got, want := strings.Join(streamed, ","), "hooks:info,plugins:pending,backup:"
+	if !strings.Contains(got, want) || !strings.HasSuffix(got, "plugins:warning") {
+		t.Fatalf("streamed %s, want %q in order and the plugin result last", got, want)
+	}
+	if !strings.Contains(strings.Join(final, ","), "hooks,plugins,backup") {
+		t.Fatalf("result checks %v, want plugins kept between hooks and backup", final)
 	}
 }
 
