@@ -56,6 +56,12 @@ function TargetMark({ path, known }: { path: string; known: AvailableTarget[] })
   return <span className="ss-at">{name ? <AgentIcon target={name} size={17} /> : <Folder size={15} className="text-ink-3" />}</span>;
 }
 
+function ExtraRestoreHint({ extra, project }: { extra: Extra; project: boolean }) {
+  const t = useT();
+  const [before, after] = t('extras.remote.restore').split('{command}');
+  return <span className="w-full break-words">{before}<code className="font-mono" dir="ltr">{extraRestoreCommand(extra, project)}</code>{after}</span>;
+}
+
 interface Draft {
   id: string; // stable key: paths can be empty or repeated while editing
   path: string;
@@ -685,11 +691,12 @@ export default function ExtrasPage() {
                 </div>
                 {extra.remote && (
                   <div className="ss-r flex-wrap text-[13px] text-ink-2">
+                    <span className="font-semibold">{t('extras.remote.origin')}</span>
                     <span className="min-w-0 break-all font-mono">{extra.remote}{extra.branch ? ` · ${extra.branch}` : ''}</span>
-                    {extra.commit && <span className="font-mono" title={extra.commit}>{extra.commit.slice(0, 7)}</span>}
+                    {extra.commit && <span className="font-mono" title={extra.commit}>· {extra.commit.slice(0, 7)}</span>}
                     {extra.state && <span className={`ss-st ${extra.state === 'intact' ? 'ok' : 'warn'}`}>{t(`extras.remote.state.${extra.state}`)}</span>}
                     <span>{t('extras.remote.localOnly')}</span>
-                    {(extra.state === 'missing' || extra.state === 'interrupted') && <span className="w-full break-words">{t('extras.remote.restore', { command: extraRestoreCommand(extra, isProjectMode) })}</span>}
+                    {(extra.state === 'missing' || extra.state === 'interrupted') && <ExtraRestoreHint extra={extra} project={isProjectMode} />}
                   </div>
                 )}
                 {extra.targets.map((tg) => {

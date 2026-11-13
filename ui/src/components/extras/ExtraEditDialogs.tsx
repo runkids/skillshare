@@ -300,7 +300,7 @@ export function EditExtraDialog({ extra, sharedDir, onClose, onSaved }: {
       {remote && <div className="ss-note inf"><span className="flex-1">{t('extras.remote.identityLocked')}</span></div>}
       <div className="ss-fld">
         <label htmlFor="edit-extra-name">{t('extras.modal.name')}</label>
-        <span className="ss-inp"><input id="edit-extra-name" className="font-mono" value={name} onChange={(e) => setName(e.target.value)} disabled={saving || remote} /></span>
+        <span className={`ss-inp ${remote ? 'opacity-50 cursor-not-allowed' : ''}`}><input id="edit-extra-name" className={`font-mono ${remote ? 'cursor-not-allowed' : ''}`} value={name} onChange={(e) => setName(e.target.value)} disabled={saving || remote} /></span>
         {renamed && <span className="hp font-mono">{t('extras.edit.was', { value: extra.name })}</span>}
       </div>
       <div className="ss-fld">
@@ -315,7 +315,7 @@ export function EditExtraDialog({ extra, sharedDir, onClose, onSaved }: {
           disabled={saving || remote}
         />
         {custom ? (
-          <span className="ss-inp">
+          <span className={`ss-inp ${remote ? 'opacity-50 cursor-not-allowed' : ''}`}>
             <input className="font-mono" value={source} onChange={(e) => setSource(e.target.value)} placeholder={t('extras.modal.sourcePathPlaceholder')} aria-label={t('extras.sourceType.custom')} disabled={saving || remote} />
           </span>
         ) : (

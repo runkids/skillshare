@@ -142,6 +142,17 @@ describe('Extras page in a project', () => {
 describe('remote extra removal', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
+  it('renders the explicit restore command as code within its localized guidance', async () => {
+    vi.mocked(api.listExtras).mockResolvedValueOnce({ extras: [{
+      name: 'missing-rules', remote: 'example-org/hub/rules', branch: 'main', state: 'missing',
+      source_dir: '/fixture/extras/missing-rules', source_type: 'default', source_exists: false, file_count: 0, targets: [],
+    }] });
+    renderPage();
+    const command = await screen.findByText('skillshare install example-org/hub/rules --kind extra --name missing-rules --branch main -p');
+    expect(command.tagName).toBe('CODE');
+    expect(command.parentElement).toHaveTextContent('Restore or repair with: skillshare install');
+  });
+
   it('requires confirmation before removing a managed directory and allows cancel', async () => {
     vi.mocked(api.listExtras).mockResolvedValueOnce({ extras: [{
       name: 'remote-rules', remote: 'example-org/hub', branch: 'main', commit: 'a'.repeat(40), state: 'intact',
