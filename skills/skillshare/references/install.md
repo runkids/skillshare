@@ -378,7 +378,8 @@ Git can still fetch that exact commit. A new declaration, explicit ref change or
 
 Lock acquisition may create the empty administrative extras root and its permanent
 `.skillshare-extras.lock` before fetching or auditing. A rejected audit leaves no
-new managed entry, config, pin, metadata or ignore rule. The administrative lock
+new managed entry, config, pin, metadata or managed-extra ignore rule. Existing
+failure logging may initialize its `logs/` ignore rule. The administrative lock
 is not fetched content and remains after removal; do not delete or replace it.
 
 If interruption left no live directory, unchanged previous content is restored

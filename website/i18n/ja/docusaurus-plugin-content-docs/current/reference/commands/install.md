@@ -907,8 +907,9 @@ skillshare install example-org/ai-hub/rules --kind extra --name team-rules --upd
 
 ロック取得時に、取得・監査より前に空の管理用 extras root と永続的な
 `.skillshare-extras.lock` を作成する場合があります。監査拒否では管理項目、config、pin、
-metadata、ignore 規則を新規作成しません。管理ロックは取得内容ではなく、extra 削除後も
-残ります。削除や置き換えをしないでください。
+metadata、管理対象 extra の ignore 規則を新規作成しません。既存の失敗ログ記録により
+`logs/` の ignore 規則が初期化される場合があります。管理ロックは取得内容ではなく、
+extra 削除後も残ります。削除や置き換えをしないでください。
 
 設定済み項目の中断は list/status/doctor/`check extras` に表示します。宣言の保存前は、
 `check extras`、status、doctor が管理対象 staging 直下の公開用ファイル名から名前だけを

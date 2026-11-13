@@ -903,7 +903,8 @@ SSH를 사용하세요.
 
 잠금 획득 시 가져오기나 감사 전에 빈 관리용 extras root와 영구
 `.skillshare-extras.lock`을 만들 수 있습니다. 감사 거부는 관리 항목, config, pin, metadata,
-ignore 규칙을 새로 만들지 않습니다. 관리 잠금은 가져온 콘텐츠가 아니며 extra 제거 후에도
+관리 extra의 ignore 규칙을 새로 만들지 않습니다. 기존 실패 로그 기록은 `logs/` ignore
+규칙을 초기화할 수 있습니다. 관리 잠금은 가져온 콘텐츠가 아니며 extra 제거 후에도
 남습니다. 삭제하거나 교체하지 마세요.
 
 설정된 항목의 중단은 list/status/doctor/`check extras`에 표시됩니다. 선언 저장 전에는

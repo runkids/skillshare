@@ -899,8 +899,9 @@ skillshare install example-org/ai-hub/rules --kind extra --name team-rules --upd
 新增宣告、明確更改 ref 或 `--update` 仍須解析所要求的 ref。
 
 取得鎖時，可能在擷取或審計前建立空的管理用 extras 根目錄及永久
-`.skillshare-extras.lock`。審計拒絕不會新增受管項目、config、pin、metadata 或 ignore
-規則。管理鎖不屬於擷取內容，移除 extra 後仍保留；請勿刪除或替換。
+`.skillshare-extras.lock`。審計拒絕不會新增受管項目、config、pin、metadata 或受管 extra 的
+ignore 規則。現有失敗日誌記錄可能初始化 `logs/` ignore 規則。管理鎖不屬於擷取內容，
+移除 extra 後仍保留；請勿刪除或替換。
 
 已設定項目的中斷會顯示在 list/status/doctor/`check extras`。宣告儲存前，
 `check extras`、status 和 doctor 僅從受管 staging 直屬的發佈產物檔名報告名稱，
