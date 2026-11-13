@@ -1,19 +1,47 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"skillshare/internal/install"
 	"strings"
 	"testing"
+	"time"
 
 	"skillshare/internal/sourcewalk"
+	"skillshare/internal/uninstall"
 )
 
 func TestNormalizeUninstallName_WindowsNestedPath(t *testing.T) {
 	got := normalizeUninstallNameForSeparator(`coding\_skill`, '\\')
 	if got != "coding/_skill" {
 		t.Fatalf("normalizeUninstallNameForSeparator() = %q, want %q", got, "coding/_skill")
+	}
+}
+
+func TestUninstall_RestoredDeclarationFailureOutput(t *testing.T) {
+	src := t.TempDir()
+	store := install.NewMetadataStore()
+	store.Set("_team", &install.MetadataEntry{Source: "unreachable", Tracked: true})
+	mode := &uninstallMode{sourceDir: src, sourceLabel: "source", store: store, declarations: true}
+	target, err := resolveUninstallName("_team", mode)
+	if err != nil || !target.declaration {
+		t.Fatalf("selection = %+v %v", target, err)
+	}
+	if err := os.MkdirAll(filepath.Join(src, "_team", ".git"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	res := uninstall.Run(mode.items([]*uninstallTarget{target}), mode.options()).Results[0]
+	if res.Err == nil || !strings.Contains(res.Err.Error(), "refresh and confirm checkout removal") {
+		t.Fatalf("missing actionable text refusal: %+v", res)
+	}
+	output := captureStdout(t, func() {
+		_ = uninstallOutputJSON(nil, []string{target.name + ": " + res.Err.Error()}, 0, false, time.Now(), res.Err)
+	})
+	var body struct{ Removed, Failed []string }
+	if err := json.Unmarshal([]byte(output), &body); err != nil || len(body.Removed) != 0 || len(body.Failed) != 1 || !strings.Contains(body.Failed[0], res.Err.Error()) {
+		t.Fatalf("wrong JSON refusal: %s %v", output, err)
 	}
 }
 

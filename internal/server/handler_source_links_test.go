@@ -233,12 +233,12 @@ func TestHandleRemoveSourceLink_ForgetsNormalizedAndNestedRecords(t *testing.T) 
 			s, src := newTestServer(t)
 			target := t.TempDir()
 			addSkill(t, target, "kept")
-			if rr := postSourceLink(t, s, sourceLinkRequest{Path: target, Name: "collection", Enable: true}); rr.Code != http.StatusOK {
+			if rr := postSourceLink(t, s, sourceLinkRequest{Path: target, Name: "_collection", Enable: true}); rr.Code != http.StatusOK {
 				t.Fatal(rr.Body.String())
 			}
-			key, group, rel := "collection", "", "collection"
+			key, group, rel := "_collection", "", "_collection"
 			if nested {
-				key, group, rel = "_team", "collection", "collection/_team"
+				key, group, rel = "_team", "_collection", "_collection/_team"
 				addSkill(t, target, "_team/member")
 				initGitRepo(t, filepath.Join(target, "_team"))
 			}
@@ -254,15 +254,15 @@ func TestHandleRemoveSourceLink_ForgetsNormalizedAndNestedRecords(t *testing.T) 
 				s.skillsStore.Remove(rel)
 				s.skillsStore.Set(key, &install.MetadataEntry{Source: "file:///nonexistent/team.git", Group: group, Tracked: true})
 			}
-			addSkill(t, src, "collection-other/kept")
-			s.skillsStore.Set("collection-other", &install.MetadataEntry{Source: "keep"})
-			s.skillsStore.AuditAccepted = map[string][]string{rel: {"root"}, rel + "/member": {"child"}, "collection-other": {"keep"}}
+			addSkill(t, src, "_collection-other/kept")
+			s.skillsStore.Set("_collection-other", &install.MetadataEntry{Source: "keep"})
+			s.skillsStore.AuditAccepted = map[string][]string{rel: {"root"}, rel + "/member": {"child"}, "_collection-other": {"keep"}}
 			if err := s.skillsStore.Save(src); err != nil {
 				t.Fatal(err)
 			}
 			rr := httptest.NewRecorder()
-			s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, "/api/source-links/collection", nil))
-			if rr.Code != http.StatusOK || s.skillsStore.Has(key) || len(s.skillsStore.AuditAccepted) != 1 || s.skillsStore.AuditAccepted["collection-other"][0] != "keep" || !s.skillsStore.Has("collection-other") {
+			s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, "/api/source-links/_collection", nil))
+			if rr.Code != http.StatusOK || s.skillsStore.Has(key) || len(s.skillsStore.AuditAccepted) != 1 || s.skillsStore.AuditAccepted["_collection-other"][0] != "keep" || !s.skillsStore.Has("_collection-other") {
 				t.Fatalf("wrong namespace cleanup: %d %s %+v", rr.Code, rr.Body.String(), s.skillsStore)
 			}
 			rr = httptest.NewRecorder()
@@ -270,7 +270,7 @@ func TestHandleRemoveSourceLink_ForgetsNormalizedAndNestedRecords(t *testing.T) 
 			if rr.Code != http.StatusOK {
 				t.Fatal(rr.Body.String())
 			}
-			if _, err := os.Lstat(filepath.Join(src, "collection")); !os.IsNotExist(err) {
+			if _, err := os.Lstat(filepath.Join(src, "_collection")); !os.IsNotExist(err) {
 				t.Fatalf("bare install resurrected collection: %v", err)
 			}
 			if got, err := os.ReadFile(filepath.Join(target, "kept", "SKILL.md")); err != nil || len(got) == 0 {

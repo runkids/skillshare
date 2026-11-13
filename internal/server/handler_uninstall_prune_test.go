@@ -14,6 +14,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/uninstall"
 )
 
 // pruneCase seeds a source and a metadata store, uninstalls one name through
@@ -357,6 +358,23 @@ func TestHandleUninstallRepo_RecordOnlyRefusesRestoredCheckout(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestUninstallRecord_ExecutionRefusalResponse(t *testing.T) {
+	s, src := newTestServer(t)
+	s.skillsStore.Set("_team", &install.MetadataEntry{Source: "unreachable", Tracked: true})
+	name, _, err := install.FindTrackedDeclaration(src, s.skillsStore, "_team")
+	if err != nil || name != "_team" {
+		t.Fatalf("absent selection = %q %v", name, err)
+	}
+	if err := os.MkdirAll(filepath.Join(src, "_team", ".git"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	res := s.uninstallSkills([]uninstall.Item{{Name: name, MetadataOnly: true}}, true)[0]
+	rr := httptest.NewRecorder()
+	if !writeUninstallConflict(rr, res) || rr.Code != http.StatusConflict || !strings.Contains(rr.Body.String(), `"error_code":"repo_checkout_restored"`) || uninstallForceCode(res.Err) != "" {
+		t.Fatalf("execution refusal must require refresh, not force: %d %s", rr.Code, rr.Body.String())
 	}
 }
 

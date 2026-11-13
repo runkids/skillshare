@@ -3,6 +3,7 @@ package uninstall
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -502,6 +503,86 @@ func TestRun_MetadataOnlyWithoutDeclaration(t *testing.T) {
 	after, _ := json.Marshal(f.opts.Store)
 	if !errors.Is(out.Results[0].Err, ErrNotDeclared) || string(before) != string(after) {
 		t.Fatalf("stale removal mutated store: %+v", out)
+	}
+}
+
+func TestRun_MetadataOnlyRefusesCheckoutRestoredAfterSelection(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	for _, kind := range []string{"clean", "dirty", "checkout link", "still absent", "folder", "plain link"} {
+		for _, force := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/force=%t", kind, force), func(t *testing.T) {
+				f := newFixture(t)
+				f.opts.Store.Set("_team", &install.MetadataEntry{Source: "unreachable", Tracked: true, Group: "org"})
+				f.opts.Store.AuditAccepted = map[string][]string{"org/_team": {"root"}, "org/_team/child": {"child"}}
+				name, _, err := install.FindTrackedDeclaration(f.source, f.opts.Store, "team")
+				if err != nil || name != "org/_team" {
+					t.Fatalf("absent selection = %q %v", name, err)
+				}
+				item := Item{Name: name, Path: filepath.Join(t.TempDir(), "unused"), MetadataOnly: true, Gitignore: name}
+				if errs := Preflight([]Item{item}, f.opts); errs[0] != nil {
+					t.Fatal(errs)
+				}
+				if err := f.opts.Store.Save(f.source); err != nil {
+					t.Fatal(err)
+				}
+				before, _ := json.Marshal(f.opts.Store)
+				metadata, _ := os.ReadFile(install.MetadataPath(f.source))
+				ignore := filepath.Join(f.source, ".gitignore")
+				if err := os.WriteFile(ignore, []byte("org/_team/\n"), 0644); err != nil {
+					t.Fatal(err)
+				}
+				checkout := filepath.Join(f.source, filepath.FromSlash(name))
+				switch kind {
+				case "checkout link", "plain link":
+					target := t.TempDir()
+					if kind == "checkout link" {
+						target = newFixture(t).repo(t, "_external").Path
+					}
+					if err := os.MkdirAll(filepath.Dir(checkout), 0755); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.Symlink(target, checkout); err != nil {
+						t.Fatal(err)
+					}
+				case "folder":
+					f.skill(t, name)
+				case "still absent":
+					// The selected path remains absent through execution.
+				default:
+					f.repo(t, name)
+				}
+				file := filepath.Join(checkout, "SKILL.md")
+				if kind == "dirty" {
+					if err := os.WriteFile(file, []byte("local edits"), 0644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				content, _ := os.ReadFile(file)
+				link, _ := os.Readlink(checkout)
+				f.opts.Force = force
+				out := Run([]Item{item}, f.opts)
+				if kind == "still absent" || kind == "folder" || kind == "plain link" {
+					saved, err := install.LoadMetadata(f.source)
+					if out.Results[0].Err != nil || out.SaveErr != nil || err != nil || saved.Has("_team") || len(saved.AuditAccepted) != 0 {
+						t.Fatalf("non-checkout control refused or not forgotten: %+v %v", out, err)
+					}
+					return
+				}
+				after, _ := json.Marshal(f.opts.Store)
+				if !errors.Is(out.Results[0].Err, ErrCheckoutRestored) || out.SaveErr != nil || string(before) != string(after) {
+					t.Fatalf("restored checkout not refused without metadata mutation: %+v", out)
+				}
+				for path, want := range map[string]string{install.MetadataPath(f.source): string(metadata), ignore: "org/_team/\n", file: string(content)} {
+					if got, err := os.ReadFile(path); err != nil || string(got) != want {
+						t.Fatalf("refusal changed %s: %q %v", path, got, err)
+					}
+				}
+				if got, _ := os.Readlink(checkout); got != link || !install.IsTrackedCheckout(checkout) || len(trash.List(f.opts.TrashDir)) != 0 {
+					t.Fatal("refusal changed checkout, link or trash")
+				}
+			})
+		}
 	}
 }
 

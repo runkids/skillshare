@@ -48,6 +48,9 @@ var ErrInsideRepo = errors.New("inside a tracked repo; uninstall the repo instea
 // ErrNotDeclared refuses metadata-only removal when the declaration is gone.
 var ErrNotDeclared = errors.New("no tracked repository declaration")
 
+// ErrCheckoutRestored refuses a stale metadata-only selection, even with force.
+var ErrCheckoutRestored = errors.New("checkout now exists; refresh and confirm checkout removal")
+
 // StatusError refuses a tracked repo whose git status could not be read.
 type StatusError struct{ Err error }
 
@@ -125,7 +128,10 @@ func Run(items []Item, o Options) Outcome {
 	for i, item := range items {
 		if item.MetadataOnly {
 			out.Results[i] = Result{Item: item}
-			if o.Store.ForgetTrackedRepo(item.Name) {
+			// Recheck the resolved name after confirmation, never the caller's Path.
+			if install.IsTrackedCheckout(filepath.Join(o.SourceDir, filepath.FromSlash(item.Name))) {
+				out.Results[i].Err = ErrCheckoutRestored
+			} else if o.Store.ForgetTrackedRepo(item.Name) {
 				forgot = true
 			} else {
 				out.Results[i].Err = ErrNotDeclared

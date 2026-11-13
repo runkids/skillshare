@@ -435,7 +435,7 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 	cleanName := filepath.Clean(filepath.FromSlash(name))
 	recordOnly := r.URL.Query().Get("recordOnly") == "true"
 	if recordOnly && install.IsTrackedCheckout(filepath.Join(s.skillsSource(), cleanName)) {
-		writeCodedError(w, http.StatusConflict, "repo_checkout_restored", "checkout now exists; refresh and confirm checkout removal", nil)
+		writeUninstallConflict(w, uninstall.Result{Err: uninstall.ErrCheckoutRestored})
 		return
 	}
 
@@ -471,6 +471,9 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 		}
 		if declaration != "" {
 			res := s.uninstallSkills([]uninstall.Item{{Name: declaration, Path: filepath.Join(s.skillsSource(), filepath.FromSlash(declaration)), TrashName: declaration, MetadataOnly: true}}, false)[0]
+			if writeUninstallConflict(w, res) {
+				return
+			}
 			if res.Err != nil {
 				if errors.Is(res.Err, uninstall.ErrNotDeclared) {
 					writeError(w, http.StatusBadRequest, "not a tracked repository: "+declaration)
@@ -494,8 +497,7 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 
 	force := r.URL.Query().Get("force") == "true"
 	res := s.uninstallSkills([]uninstall.Item{s.repoUninstallItem(repoName, repoPath)}, force)[0]
-	if code := uninstallForceCode(res.Err); code != "" {
-		writeCodedError(w, http.StatusConflict, code, uninstallErrorMessage(res), nil)
+	if writeUninstallConflict(w, res) {
 		return
 	}
 	if res.Err != nil {
