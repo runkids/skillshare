@@ -207,9 +207,22 @@ func TestGitInstallPublicationRoots(t *testing.T) {
 		if hint != want {
 			t.Fatal("missing final git names", hint)
 		}
-		captureStdout(t, func() { summary, err = dispatchInstall(source, cfg, opts) })
-		if err != nil || len(summary.InstalledPaths) != 0 || len(summary.InstalledSkills) != 0 {
-			t.Fatalf("same-repo skips must not publish again: %+v (%v)", summary, err)
+		output := captureStdout(t, func() { summary, err = dispatchInstall(source, cfg, opts) })
+		if tracked {
+			if err != nil || len(summary.FailedSkills) != 0 || !strings.Contains(output, install.ErrSkipSameRepo.Error()) {
+				t.Fatalf("tracked same-repo reinstall must skip: %+v (%v): %s", summary, err, output)
+			}
+		} else {
+			// Plain --into installs use the existing-path refusal at this baseline.
+			if err == nil || strings.Join(summary.FailedSkills, ",") != "a,b" || !strings.Contains(err.Error(), "a: already exists.") || !strings.Contains(err.Error(), "b: already exists.") {
+				t.Fatalf("plain reinstall must report both existing paths: %+v (%v)", summary, err)
+			}
+		}
+		if len(summary.InstalledPaths) != 0 || len(summary.InstalledSkills) != 0 || summary.SkillCount != 0 {
+			t.Fatalf("skipped/failed reinstall must not publish again: %+v (%v)", summary, err)
+		}
+		if got := installedProfileHint(cfg, cfg.Source, cfg.SkillsWalk(), summary.InstalledPaths); got != "" {
+			t.Fatal("skipped/failed reinstall must not hint", got)
 		}
 	}
 }
