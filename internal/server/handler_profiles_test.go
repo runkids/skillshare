@@ -405,6 +405,291 @@ func TestProfilesAPI_List(t *testing.T) {
 	}
 }
 
+type profileDefinitionReply struct {
+	Changed   *bool                 `json:"changed"`
+	NeedsSync *bool                 `json:"needsSync"`
+	Skills    []profile.SkillResult `json:"skills"`
+	Error     string                `json:"error"`
+	Code      string                `json:"error_code"`
+}
+
+func profileDefinitionRequest(t *testing.T, f profileRouteFixture, method, path, body string, refused bool) profileDefinitionReply {
+	t.Helper()
+	rr := projectRequest(t, f.server, method, path, body)
+	var out profileDefinitionReply
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatalf("%s %s: %d %s: %v", method, path, rr.Code, rr.Body.String(), err)
+	}
+	if refused {
+		if (rr.Code != http.StatusBadRequest && rr.Code != http.StatusConflict) || out.Error == "" || out.Code == "" {
+			t.Fatalf("expected coded definition refusal: %d %s", rr.Code, rr.Body.String())
+		}
+	} else {
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(rr.Body.Bytes(), &fields); err != nil || rr.Code != http.StatusOK || out.Changed == nil || out.NeedsSync == nil || fields["needsSync"] == nil || fields["changed"] == nil {
+			t.Fatalf("expected mutation JSON with camelCase needsSync: %d %s", rr.Code, rr.Body.String())
+		}
+	}
+	return out
+}
+
+func TestProfilesAPI_DefinitionLifecycle(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(fmt.Sprint(project), func(t *testing.T) {
+			f := newProfileRouteFixture(t, project)
+			profileFixtureWrite(t, filepath.Join(f.target, "authored.txt"), "never sync definitions")
+			protected := profileRouteTree(t, []string{f.source, f.target})
+			for i, tc := range []struct{ method, path, body string }{
+				{http.MethodPost, "/api/profiles", `{"name":"draft","description":"Draft","skills":{"include":["alpha","missing-*"]}}`},
+				{http.MethodPost, "/api/profiles/draft/skills", `{"add":["beta","ignored","team__review"],"remove":["alpha"]}`},
+				{http.MethodPut, "/api/profiles/draft", `{"name":"saved","description":"Saved","skills":{"include":[]}}`},
+				{http.MethodDelete, "/api/profiles/saved", ""},
+			} {
+				out := profileDefinitionRequest(t, f, tc.method, tc.path, tc.body, false)
+				v, err := profileapply.Load(f.scope)
+				if err != nil || !*out.Changed || *out.NeedsSync || v.State.Active != "" || v.State.Pending || !maps.Equal(protected, profileRouteTree(t, []string{f.source, f.target})) {
+					t.Fatalf("definition route activated, synced or lost change: %+v %v", out, err)
+				}
+				switch i {
+				case 0:
+					d := v.Catalog.Definitions["draft"]
+					if !d.Usable || d.Description != "Draft" || !d.Selects("alpha") || d.Selects("beta") {
+						t.Fatalf("create lost draft: %+v", d)
+					}
+				case 1:
+					want := []profile.SkillResult{{Name: "beta", Result: "added"}, {Name: "ignored", Result: "added"}, {Name: "team__review", Result: "added"}, {Name: "alpha", Result: "removed"}}
+					d := v.Catalog.Definitions["draft"]
+					if !slices.Equal(out.Skills, want) || d.Selects("alpha") || !d.Selects("beta") || !d.Selects("ignored") || !d.Selects("team__review") {
+						t.Fatalf("flat-name membership lost ignored source or results: %+v %+v", out, d)
+					}
+				case 2:
+					d := v.Catalog.Definitions["saved"]
+					if _, old := v.Catalog.Definitions["draft"]; old || !d.Usable || d.Description != "Saved" || d.Skills == nil || len(d.Skills.Include) != 0 || d.Selects("alpha") {
+						t.Fatalf("rename/replace did not commit together: %+v", d)
+					}
+				case 3:
+					if _, exists := v.Catalog.Definitions["saved"]; exists {
+						t.Fatal("delete retained profile")
+					}
+				}
+				entries, err := oplog.Read(f.path, oplog.OpsFile, 100)
+				if err != nil || len(entries) != i+1 || entries[0].Command != "profile definitions" {
+					t.Fatalf("one shared definition oplog per request: %+v %v", entries, err)
+				}
+			}
+		})
+	}
+}
+
+func TestProfilesAPI_PutPreservesSkillsPresence(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, tc := range []struct {
+			name, body string
+			pass, work bool
+		}{
+			{"all", `{"description":"Updated"}`, true, false},
+			{"work", `{"description":"Updated"}`, false, true},
+			{"all", `{"skills":{"include":[]}}`, false, false},
+			{"work", `{"skills":{}}`, false, false},
+			{"work", `{"skills":null}`, false, false},
+		} {
+			t.Run(fmt.Sprintf("project=%v/%s/%s", project, tc.name, tc.body), func(t *testing.T) {
+				f := newProfileRouteFixture(t, project)
+				raw, err := os.ReadFile(f.path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				profileFixtureWrite(t, f.path, strings.Replace(string(raw), "  broken:\n    future: true", "  broken: # keep sibling\n    future: true # unknown retained", 1))
+				out := profileDefinitionRequest(t, f, http.MethodPut, "/api/profiles/"+tc.name, tc.body, false)
+				v, err := profileapply.Load(f.scope)
+				if err != nil || !*out.Changed || *out.NeedsSync {
+					t.Fatal(out, err)
+				}
+				d := v.Catalog.Definitions[tc.name]
+				if (d.Skills == nil) != tc.pass || d.Selects("alpha") != (tc.pass || tc.work) || d.Selects("beta") != tc.pass {
+					t.Fatalf("omitted/null/empty selection conflated: %+v", d)
+				}
+				if tc.work && (!slices.Equal(d.Skills.Include, []string{"alpha", "missing-*"}) || !slices.Equal(d.Skills.Exclude, []string{"beta"})) {
+					t.Fatal("omitted skills replaced patterns")
+				}
+				saved, err := os.ReadFile(f.path)
+				if err != nil || !strings.Contains(string(saved), "# keep sibling") || !strings.Contains(string(saved), "future: true # unknown retained") {
+					t.Fatal("PUT lost unrelated unknown node/comments", err)
+				}
+			})
+		}
+	}
+}
+
+func TestProfilesAPI_CreateEmptyDefinition(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, body := range []string{`{"name":"new"}`, `{"name":"new","skills":null}`, `{"name":"new","skills":{"include":[]}}`} {
+			t.Run(fmt.Sprintf("project=%v/%s", project, body), func(t *testing.T) {
+				f := newProfileRouteFixture(t, project)
+				profileDefinitionRequest(t, f, http.MethodPost, "/api/profiles", body, false)
+				v, err := profileapply.Load(f.scope)
+				if err != nil {
+					t.Fatal(err)
+				}
+				d := v.Catalog.Definitions["new"]
+				if !d.Usable || d.Skills == nil || d.Selects("alpha") || v.State.Active != "" {
+					t.Fatalf("new profile must be empty, never pass-through or activated: %+v", d)
+				}
+			})
+		}
+	}
+}
+
+func TestProfilesAPI_ActiveDefinitionRename(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(fmt.Sprint(project), func(t *testing.T) {
+			f := newProfileRouteFixture(t, project)
+			statePath, _, err := config.ProfilePaths(f.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := profile.WriteState(statePath, profile.State{Version: 1, Active: "work", Pending: true}); err != nil {
+				t.Fatal(err)
+			}
+			profileFixtureWrite(t, filepath.Join(f.target, "authored.txt"), "not a sync")
+			before := profileRouteTree(t, []string{f.source, f.target})
+			out := profileDefinitionRequest(t, f, http.MethodPut, "/api/profiles/work", `{"name":"renamed","skills":{"include":["beta"]}}`, false)
+			v, err := profileapply.Load(f.scope)
+			if err != nil || !*out.Changed || !*out.NeedsSync || v.State != (profile.State{Version: 1, Active: "renamed", Pending: true}) || !v.Catalog.Definitions["renamed"].Selects("beta") || !maps.Equal(before, profileRouteTree(t, []string{f.source, f.target})) {
+				t.Fatalf("active rename/needsSync lost state or applied targets: %+v %v", out, err)
+			}
+			configBefore, err := os.ReadFile(f.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			out = profileDefinitionRequest(t, f, http.MethodPut, "/api/profiles/renamed", `{"skills":{"include":["beta"]}}`, false)
+			configAfter, err := os.ReadFile(f.path)
+			if err != nil || *out.Changed || *out.NeedsSync || string(configBefore) != string(configAfter) {
+				t.Fatal("no-op edit rewrote config or requested sync", out, err)
+			}
+		})
+	}
+}
+
+func TestProfilesAPI_DefinitionRefusals(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, tc := range []struct {
+			method, path, body string
+			mutation          profile.Mutation
+		}{
+			{http.MethodPost, "/api/profiles", `{"name":"none"}`, profile.Mutation{Op: "create", Name: "none"}},
+			{http.MethodPost, "/api/profiles", `{"name":"work"}`, profile.Mutation{Op: "create", Name: "work"}},
+			{http.MethodPut, "/api/profiles/work", `{"name":"all"}`, profile.Mutation{Op: "rename", Name: "work", NewName: "all"}},
+			{http.MethodPut, "/api/profiles/work", `{"name":"new","skills":{"exclude":["beta"]}}`, profile.Mutation{Op: "replace", Name: "new", Replacement: &profile.SkillSelection{Exclude: []string{"beta"}, ExcludePresent: true}}},
+			{http.MethodDelete, "/api/profiles/work", "", profile.Mutation{Op: "delete", Name: "work"}},
+			{http.MethodDelete, "/api/profiles/absent", "", profile.Mutation{Op: "delete", Name: "absent"}},
+			{http.MethodPost, "/api/profiles/work/skills", `{"add":["alpha"],"remove":["beta"]}`, profile.Mutation{Op: "add-skills", Name: "work", Skills: []string{"alpha"}}},
+		} {
+			t.Run(fmt.Sprintf("project=%v/%s/%s", project, tc.method, tc.path+tc.body), func(t *testing.T) {
+				f := newProfileRouteFixture(t, project)
+				raw, err := os.ReadFile(f.path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				profileFixtureWrite(t, f.path, strings.Replace(string(raw), "exclude: [beta]", "exclude: [alpha*]", 1))
+				statePath, lockPath, err := config.ProfilePaths(f.path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := profile.WriteState(statePath, profile.State{Version: 1, Active: "work"}); err != nil {
+					t.Fatal(err)
+				}
+				unlock, err := profile.Lock(context.Background(), lockPath)
+				if err != nil {
+					t.Fatal(err)
+				}
+				unlock()
+				v, err := profileapply.Load(f.scope)
+				if err != nil {
+					t.Fatal(err)
+				}
+				node := v.Definitions()
+				if tc.mutation.Name == "new" {
+					node, _, err = profile.Mutate(node, "work", profile.Mutation{Op: "rename", Name: "work", NewName: "new"})
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+				_, _, wantErr := profile.Mutate(node, "work", tc.mutation)
+				if wantErr == nil {
+					t.Fatal("invalid refusal fixture")
+				}
+				before := profileRouteTree(t, f.roots)
+				out := profileDefinitionRequest(t, f, tc.method, tc.path, tc.body, true)
+				if out.Error != wantErr.Error() || !maps.Equal(before, profileRouteTree(t, f.roots)) {
+					t.Fatalf("CLI refusal text or atomicity lost: %+v, want %v", out, wantErr)
+				}
+			})
+		}
+	}
+}
+
+func TestProfilesAPI_DefinitionInvalidBodies(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, tc := range []struct{ method, path, body string }{
+			{http.MethodPost, "/api/profiles", `{`},
+			{http.MethodPost, "/api/profiles", `{"description":"no name"}`},
+			{http.MethodPost, "/api/profiles", `{"name":12}`},
+			{http.MethodPut, "/api/profiles/work", `{"name":null}`},
+			{http.MethodPut, "/api/profiles/work", `{"description":["bad"]}`},
+			{http.MethodPut, "/api/profiles/work", `{"skills":{"include":"alpha"}}`},
+			{http.MethodPut, "/api/profiles/work", `{"skills":{"include":[12]}}`},
+			{http.MethodPut, "/api/profiles/work", `{"skills":[]}`},
+			{http.MethodPost, "/api/profiles/preview", `{"skills":{"exclude":["beta"]}}`},
+			{http.MethodPost, "/api/profiles/work/skills", `{"add":["beta","missing"]}`},
+			{http.MethodPost, "/api/profiles/work/skills", `{"add":["team/review"]}`},
+			{http.MethodPost, "/api/profiles/work/skills", `{"remove":["review"]}`},
+			{http.MethodPost, "/api/profiles/work/skills", `{"add":"alpha"}`},
+		} {
+			t.Run(fmt.Sprintf("project=%v/%s/%s", project, tc.method, tc.path+tc.body), func(t *testing.T) {
+				f := newProfileRouteFixture(t, project)
+				profileFixtureWrite(t, filepath.Join(f.target, "authored.txt"), "invalid requests never sync")
+				before := profileRouteTree(t, []string{f.path, f.source, f.target})
+				profileDefinitionRequest(t, f, tc.method, tc.path, tc.body, true)
+				if !maps.Equal(before, profileRouteTree(t, []string{f.path, f.source, f.target})) {
+					t.Fatal("invalid request partly saved definitions/source/targets")
+				}
+			})
+		}
+	}
+}
+
+func TestProfilesAPI_DraftPreviewReadOnly(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, body := range []string{`{"skills":{"include":["*","missing-*"],"exclude":["beta"]}}`, `{"skills":{"include":[]}}`} {
+			t.Run(fmt.Sprintf("project=%v/%s", project, body), func(t *testing.T) {
+				f := newProfileRouteFixture(t, project)
+				statePath, _, err := config.ProfilePaths(f.path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := profile.WriteState(statePath, profile.State{Version: 1, Active: "missing", Pending: true}); err != nil {
+					t.Fatal(err)
+				}
+				var draft struct{ Skills *profile.SkillSelection }
+				if err := json.Unmarshal([]byte(body), &draft); err != nil {
+					t.Fatal(err)
+				}
+				want, err := profile.Preview(profile.Definition{Name: "draft", Skills: draft.Skills, Usable: true}, []string{"alpha", "beta", "team__review"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				before := profileRouteTree(t, f.roots)
+				rr := projectRequest(t, f.server, http.MethodPost, "/api/profiles/preview", body)
+				var out struct{ Selected, Unmatched []string }
+				if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil || rr.Code != http.StatusOK || out.Selected == nil || out.Unmatched == nil || !slices.Equal(out.Selected, want.Selected) || !slices.Equal(out.Unmatched, want.Unmatched) || !maps.Equal(before, profileRouteTree(t, f.roots)) {
+					t.Fatalf("draft preview used active state, ignored discovery or wrote retained data: %d %s %v", rr.Code, rr.Body.String(), err)
+				}
+			})
+		}
+	}
+}
+
 func TestProfiles_ReadOnlyRoutes(t *testing.T) {
 	for _, project := range []bool{false, true} {
 		for _, route := range []string{"list", "preview", "fresh-preview"} {
