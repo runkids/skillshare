@@ -151,7 +151,7 @@ skillshare audit --init-rules       # Global: ~/.config/skillshare/audit-rules.y
 skillshare audit --init-rules -p    # Project: .skillshare/audit-rules.yaml
 ```
 
-Three-layer merge (later overrides earlier): built-in → global → project. Set `confidence` from 0 to 1 by rule ID or pattern; rules without a value default to 0.95. The HIGH prose patterns `anti-refusal`, `prompt-leakage`, `memory-poisoning`, `agent-snooping`, and `persistence` detect narrowly phrased risky directives.
+Three-layer merge (later overrides earlier): built-in → global → project. A rules file that cannot be read, parsed, or compiled makes every scan using it a scan error that names the file. Set `confidence` from 0 to 1 by rule ID or pattern; rules without a value default to 0.95. The HIGH prose patterns `anti-refusal`, `prompt-leakage`, `memory-poisoning`, `agent-snooping`, and `persistence` detect narrowly phrased risky directives.
 
 ```yaml
 rules:
