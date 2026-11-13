@@ -68,7 +68,11 @@ type movedCleanupResult struct {
 	Outcomes []TargetResult
 }
 
-func cleanMovedProjectDirsWithPolicy(root, sourcePath string, targets []MovedTarget, dryRun, profileAware bool, discard []DiscardEntry) movedCleanupResult {
+func cleanMovedProjectDirsWithPolicy(root, sourcePath string, targets []MovedTarget, dryRun, profileAware bool, discard []DiscardEntry, verification ...PruneOptions) movedCleanupResult {
+	var inputs PruneOptions
+	if len(verification) > 0 {
+		inputs = verification[0]
+	}
 	owned := make(map[string]bool, len(targets))
 	for _, t := range targets {
 		if t.Path != "" {
@@ -144,19 +148,22 @@ func cleanMovedProjectDirsWithPolicy(root, sourcePath string, targets []MovedTar
 			// live link is ours only if the manifest tracks it; broken links into
 			// the source are also removed.
 			r, err := PruneOrphanLinksWithSkills(PruneOptions{
-				ProfileAware: profileAware,
-				Discard:      discard,
-				TargetPath:   dir,
-				SourcePath:   sourcePath,
-				TargetNaming: t.TargetNaming,
-				TargetName:   t.Name,
-				DryRun:       dryRun,
-				ManagedOnly:  true,
+				ProfileAware:       profileAware,
+				Skills:             []DiscoveredSkill{},
+				VerificationSkills: inputs.Skills,
+				IgnorePatterns:     inputs.IgnorePatterns,
+				Discard:            discard,
+				TargetPath:         dir,
+				SourcePath:         sourcePath,
+				TargetNaming:       t.TargetNaming,
+				TargetName:         t.Name,
+				DryRun:             dryRun,
+				ManagedOnly:        true,
 			})
 			collect(r, err)
 			// Sweeps manifest entries whose directory is already gone.
 			sc := config.ResourceTargetConfig{Path: dir, TargetNaming: t.TargetNaming}
-			r, err = pruneOrphanCopiesWithPolicy(t.Name, sc, nil, dryRun, sourcePath, profileAware, discard, nil)
+			r, err = pruneOrphanCopiesWithPolicy(t.Name, sc, nil, dryRun, sourcePath, profileAware, discard, inputs.IgnorePatterns, inputs.Skills)
 			collect(r, err)
 			if profileAware && (len(outcome.KeptModified) > 0 || len(outcome.Blocked) > 0 || len(outcome.FailedRemovals) > 0 || outcome.PruneError != "") {
 				result.Outcomes = append(result.Outcomes, outcome)

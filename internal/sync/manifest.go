@@ -1,9 +1,15 @@
 package sync
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/json"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
 	"skillshare/internal/utils"
@@ -77,17 +83,41 @@ type CopySource struct {
 
 // CopyOutputFingerprint hashes the output using the standard ignored files.
 func CopyOutputFingerprint(dir string) (string, error) {
-	return DirChecksumWithIgnore(dir, DefaultFileIgnorePatterns())
+	var entries []checksumEntry
+	if err := collectChecksumEntries(dir, "", &entries, map[string]bool{}, compileFileIgnore(DefaultFileIgnorePatterns()), true); err != nil {
+		return "", err
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].relPath < entries[j].relPath })
+	h := sha256.New()
+	io.WriteString(h, "skillshare-copy-output\x00v2\x00")
+	writeLength := func(n int) {
+		var size [8]byte
+		binary.BigEndian.PutUint64(size[:], uint64(n))
+		h.Write(size[:])
+	}
+	writeLength(len(entries))
+	for _, entry := range entries {
+		writeLength(len(entry.relPath))
+		io.WriteString(h, entry.relPath)
+		writeLength(len(entry.content))
+		h.Write(entry.content)
+	}
+	return fmt.Sprintf("sha256-v2:%x", h.Sum(nil)), nil
 }
 
 // OwnsCopy reports whether dir still matches the recorded copy, failing closed
 // when an older rewritten copy cannot be verified from its original source.
 func (m *Manifest) OwnsCopy(name, dir string, source ...CopySource) bool {
-	_, ok := m.verifiedCopyFingerprint(name, dir, source...)
+	_, ok := m.verifiedCopyFingerprint(name, dir, false, source...)
 	return ok
 }
 
-func (m *Manifest) verifiedCopyFingerprint(name, dir string, source ...CopySource) (string, bool) {
+// legacyOutput recognizes only the previous exact lowercase bare-hex encoding.
+func legacyOutput(output string) bool {
+	return len(output) == 64 && strings.Trim(output, "0123456789abcdef") == ""
+}
+
+func (m *Manifest) verifiedCopyFingerprint(name, dir string, strict bool, source ...CopySource) (string, bool) {
 	if m == nil {
 		return "", false
 	}
@@ -99,14 +129,24 @@ func (m *Manifest) verifiedCopyFingerprint(name, dir string, source ...CopySourc
 	if err != nil {
 		return "", false
 	}
-	if output, ok := m.Outputs[name]; ok {
-		return sum, sum == output
+	output, present := m.Outputs[name]
+	if present && strings.HasPrefix(output, "sha256-v2:") {
+		return sum, legacyOutput(strings.TrimPrefix(output, "sha256-v2:")) && sum == output
 	}
-	if (len(source) == 0 || source[0].OutputName == "") && sum == recorded {
-		return sum, true
+	if present && !legacyOutput(output) {
+		return sum, false // unknown, malformed and present-empty values never downgrade
 	}
-	if len(source) == 0 || source[0].Path == "" || source[0].OutputName == "" {
-		return "", false
+	if present || (!strict && len(source) == 0) {
+		old, err := DirChecksumWithIgnore(dir, DefaultFileIgnorePatterns())
+		if err != nil || (present && old != output) {
+			return sum, false
+		}
+		if !strict && len(source) == 0 {
+			return sum, present || old == recorded
+		}
+	}
+	if len(source) == 0 || source[0].Path == "" {
+		return sum, false
 	}
 	input := source[0]
 	ignore := input.IgnorePatterns

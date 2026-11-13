@@ -53,7 +53,7 @@ func selectActiveTargetNameForSync(mode, targetPath string, skill ResolvedTarget
 	if err := os.Rename(legacyPath, desiredPath); err != nil {
 		return "", fmt.Errorf("failed to rename managed target entry %s -> %s: %w", legacyName, desiredName, err)
 	}
-	if verifiedOutput != "" && manifest.Outputs[legacyName] == "" {
+	if output, present := manifest.Outputs[legacyName]; verifiedOutput != "" && (!present || legacyOutput(output)) {
 		if manifest.Outputs == nil {
 			manifest.Outputs = make(map[string]string)
 		}

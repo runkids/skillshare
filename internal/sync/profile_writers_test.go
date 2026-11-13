@@ -1035,3 +1035,40 @@ func TestProfileAwareWriters_BinaryCopyPreservation(t *testing.T) {
 		})
 	}
 }
+
+func TestProfileAwareWriters_MovedLegacyReplay(t *testing.T) {
+	for _, available := range []bool{false, true} {
+		t.Run(fmt.Sprint(available), func(t *testing.T) {
+			root := t.TempDir()
+			source := filepath.Join(root, ".skillshare", "skills")
+			skill := filepath.Join(source, "demo")
+			dir := filepath.Join(root, ".goose", "skills")
+			entry := filepath.Join(dir, "demo")
+			writeSkillMD(t, skill, "---\nname: demo\n---\nsource\n")
+			if err := copySkillToTarget(skill, entry, "", DefaultFileIgnorePatterns()); err != nil {
+				t.Fatal(err)
+			}
+			sum, err := DirChecksumWithIgnore(skill, DefaultFileIgnorePatterns())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := WriteManifest(dir, &Manifest{Managed: map[string]string{"demo": sum}}); err != nil {
+				t.Fatal(err)
+			}
+			skills := []DiscoveredSkill{{SourcePath: skill, RelPath: "demo", FlatName: "demo"}}
+			if !available {
+				skills = nil
+			}
+			moved := []MovedTarget{{Name: "goose", Path: filepath.Join(root, ".agents", "skills")}}
+			out := cleanMovedProjectDirsWithPolicy(root, source, moved, false, true, nil, PruneOptions{Skills: skills})
+			_, statErr := os.Stat(entry)
+			if available {
+				if !os.IsNotExist(statErr) || len(out.Outcomes) != 0 {
+					t.Fatalf("reproducible former copy not cleaned: %+v %v", out, statErr)
+				}
+			} else if statErr != nil || len(out.Outcomes) != 1 || len(out.Outcomes[0].KeptModified) != 1 {
+				t.Fatalf("unverifiable former copy not kept: %+v %v", out, statErr)
+			}
+		})
+	}
+}

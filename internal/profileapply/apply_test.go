@@ -798,3 +798,38 @@ func TestProfileApply_BinarySnapshotSecondEdit(t *testing.T) {
 		})
 	}
 }
+
+func TestProfileApply_BinarySnapshotVerification(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(fmt.Sprint(project), func(t *testing.T) {
+			f := newFixture(t, project, "copy")
+			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a"}); err != nil {
+				t.Fatal(err)
+			}
+			write(t, filepath.Join(f.target, "alpha", "a"), "x\x00b\x00y")
+			statePath, _, err := config.ProfilePaths(f.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			before, state := tree(t, f.target), read(t, statePath)
+			fired := false
+			req := Request{Scope: f.scope, Name: "b", DiscardEdits: true}
+			req.snapshot = func(dir, name, source string) (string, error) {
+				fired = true
+				path, err := backup.CreateInDir(dir, name, source)
+				if err == nil {
+					write(t, filepath.Join(path, "alpha", "a"), "x")
+					write(t, filepath.Join(path, "alpha", "b"), "y")
+				}
+				return path, err
+			}
+			out, err := Apply(context.Background(), req)
+			if !fired || err == nil || out.Complete {
+				t.Fatalf("different file-boundary snapshot accepted: fired=%v result=%+v err=%v", fired, out, err)
+			}
+			if !reflect.DeepEqual(before, tree(t, f.target)) || state != read(t, statePath) {
+				t.Fatal("snapshot verification failure mutated target or state")
+			}
+		})
+	}
+}

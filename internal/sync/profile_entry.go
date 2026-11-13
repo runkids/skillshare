@@ -128,15 +128,11 @@ func ClassifyEntry(in EntryInput) EntryClassification {
 	if !info.IsDir() || managed == "" || managed == manifestSymlink {
 		return EntryClassification{Class: EntryUnmanaged, Reason: "entry is not a recorded copy"}
 	}
-	if in.Source == nil && in.Manifest.Naming[in.Name] == "prefixed" && in.Manifest.Outputs[in.Name] == "" {
-		sum, _ := CopyOutputFingerprint(in.Path)
-		return EntryClassification{Class: EntryModifiedCopy, Fingerprint: sum, Reason: "legacy prefixed copy cannot be verified without its source"}
-	}
 	var sources []CopySource
 	if in.Source != nil {
 		sources = append(sources, *in.Source)
 	}
-	sum, clean := in.Manifest.verifiedCopyFingerprint(in.Name, in.Path, sources...)
+	sum, clean := in.Manifest.verifiedCopyFingerprint(in.Name, in.Path, true, sources...)
 	if clean {
 		return EntryClassification{Class: EntryCleanCopy, Fingerprint: sum}
 	}

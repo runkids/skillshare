@@ -822,21 +822,22 @@ type PruneResult struct {
 
 // PruneOptions holds parameters for PruneOrphanLinks / PruneOrphanCopies.
 type PruneOptions struct {
-	ProfileAware   bool
-	Profile        profile.Selector
-	IgnorePatterns []string
-	Discard        []DiscardEntry
-	SharedTargets  []config.SkillTargetIdentity
-	Agent          string
-	TargetPath     string
-	SourcePath     string
-	Skills         []DiscoveredSkill // pre-discovered; if nil, will be discovered from SourcePath
-	Include        []string
-	Exclude        []string
-	TargetNaming   string
-	TargetName     string
-	DryRun         bool
-	Force          bool
+	ProfileAware       bool
+	Profile            profile.Selector
+	IgnorePatterns     []string
+	Discard            []DiscardEntry
+	SharedTargets      []config.SkillTargetIdentity
+	Agent              string
+	TargetPath         string
+	SourcePath         string
+	Skills             []DiscoveredSkill // pre-discovered desired selection
+	VerificationSkills []DiscoveredSkill // full source discovery; nil reuses Skills
+	Include            []string
+	Exclude            []string
+	TargetNaming       string
+	TargetName         string
+	DryRun             bool
+	Force              bool
 	// ManagedOnly removes only entries that are provably skillshare's: broken
 	// links into the source and manifest-tracked links and directories. The name heuristic and
 	// broken-external-link cleanup are skipped. For directories that are not a
@@ -878,6 +879,10 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 	targetPath := opts.TargetPath
 	sourcePath := opts.SourcePath
 	allSourceSkills := opts.Skills
+	verificationSkills := opts.VerificationSkills
+	if verificationSkills == nil {
+		verificationSkills = allSourceSkills
+	}
 	include := opts.Include
 	exclude := opts.Exclude
 	targetNaming := opts.TargetNaming
@@ -942,7 +947,7 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 			continue // Still exists in source, keep it
 		}
 		if opts.ProfileAware {
-			entry := ClassifyEntry(EntryInput{Name: name, Path: entryPath, SourceRoot: sourcePath, Manifest: manifest, Source: legacyCopySource(name, allSourceSkills, manifest, opts.IgnorePatterns)})
+			entry := ClassifyEntry(EntryInput{Name: name, Path: entryPath, SourceRoot: sourcePath, Manifest: manifest, Source: legacyCopySource(name, verificationSkills, manifest, opts.IgnorePatterns)})
 			if entry.Class == EntryModifiedCopy && !discardAllowed(targetName, cleanEntryDir(targetPath), name, entry, opts.Discard) {
 				result.KeptModified = append(result.KeptModified, EntryChange{Target: targetName, Dir: cleanEntryDir(targetPath), Entry: name, Step: "prune", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint})
 				continue

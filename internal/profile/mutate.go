@@ -43,12 +43,12 @@ func Mutate(node *yaml.Node, active string, m Mutation) (*yaml.Node, Change, err
 	} else if index < 0 {
 		return nil, change, fmt.Errorf("profile %q does not exist", m.Name)
 	}
-	d := Parse(copy).Definitions[m.Name]
-	if !d.Usable {
-		return nil, change, fmt.Errorf("profile %q is unusable: %s", m.Name, d.Reason)
-	}
 	switch m.Op {
 	case "create", "edit":
+		d := Parse(copy).Definitions[m.Name]
+		if !d.Usable {
+			return nil, change, fmt.Errorf("profile %q is unusable: %s", m.Name, d.Reason)
+		}
 		entry := copy.Content[index+1]
 		if m.Description != nil {
 			setValue(entry, "description", scalar(*m.Description))
