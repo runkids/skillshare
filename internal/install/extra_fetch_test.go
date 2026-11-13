@@ -112,7 +112,7 @@ func TestFetchGitSubdir_GitOnlyNeverCallsAPI(t *testing.T) {
 	defer func() { http.DefaultTransport = originalTransport }()
 	for _, sparse := range []bool{false, true} {
 		old := sparseCheckoutSupported
-		sparseCheckoutSupported = func() bool { return sparse }()
+		sparseCheckoutSupported = func() bool { return sparse }
 		src := &Source{CloneURL: "https://github.com/example-org/fixture.git", Subdir: "own"}
 		_, err := fetchGitSubdir(src, filepath.Join(t.TempDir(), "repo"), &InstallResult{}, InstallOptions{}, true)
 		sparseCheckoutSupported = old
