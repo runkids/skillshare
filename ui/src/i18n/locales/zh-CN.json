@@ -3634,5 +3634,6 @@
   "extras.remote.state.modified": "已修改",
   "extras.remote.state.interrupted": "已中断",
   "extras.remote.state.missing": "缺失",
-  "extras.remote.state.error": "错误"
+  "extras.remote.state.error": "错误",
+  "extras.remote.alreadyMissing": "获取的来源目录已缺失：{path}"
 }

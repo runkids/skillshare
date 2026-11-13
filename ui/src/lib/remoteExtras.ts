@@ -12,6 +12,7 @@ export function extraRestoreCommand(extra: Extra, project: boolean): string {
 export function extraRemovalMessage(extra: Extra, result: ExtraRemoveResult, t: TFunc): string {
   const lines = [t('extras.toast.removed', { name: extra.name })];
   if (result.remote) {
+    if (result.missing_dir) lines.push(t('extras.remote.alreadyMissing', { path: extra.source_dir }));
     if (result.deleted_dir) lines.push(t('extras.remote.deleted', { path: extra.source_dir }));
     if (result.kept_edited_dir) lines.push(t('extras.remote.retained', { path: extra.source_dir }));
   }

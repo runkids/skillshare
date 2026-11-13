@@ -26,11 +26,11 @@ type RemoveRequest struct {
 	Save                                     func(remaining []config.ExtraConfig) error // fresh merge; remove only unchanged own entry
 }
 type RemoveResult struct {
-	Remaining                 []config.ExtraConfig
-	Restored                  int
-	Remote, Commit            string
-	DeletedDir, KeptEditedDir bool
-	KeptOutputs, Warnings     []string
+	Remaining                             []config.ExtraConfig
+	Restored                              int
+	Remote, Commit                        string
+	DeletedDir, KeptEditedDir, MissingDir bool
+	KeptOutputs, Warnings                 []string
 }
 
 var lockExtrasRoot = install.LockExtrasRoot
@@ -89,13 +89,28 @@ func Remove(req RemoveRequest) (result RemoveResult, retErr error) {
 		}
 		result.Remote, result.Commit = extra.Remote, state.Commit
 	}
+	result.Remaining = append(slices.Clone(req.Extras[:i]), req.Extras[i+1:]...)
+	if extra.Remote != "" {
+		return removeRemote(req, extra, result)
+	}
 	// Local extras retain their existing single-file-only cleanup behavior.
 	var err error
 	result.Restored, err = restoreFileTargets(extra, req.SourceDir, req.TargetPath)
 	if err != nil {
 		return result, fmt.Errorf("target cleanup failed; source and config retained: %w", err)
 	}
-	if extra.Remote != "" && extra.File == "" {
+	return result, req.Save(result.Remaining)
+}
+
+// Remote cleanup runs only after its fresh config merge has accepted removal.
+// A pre-write refusal must leave configured targets usable.
+func cleanupRemoteTargets(req RemoveRequest, extra config.ExtraConfig, result *RemoveResult) error {
+	var err error
+	result.Restored, err = restoreFileTargets(extra, req.SourceDir, req.TargetPath)
+	if err != nil {
+		return fmt.Errorf("target cleanup failed: %w", err)
+	}
+	if extra.File == "" {
 		for _, target := range extra.Targets {
 			resolved := req.TargetPath(target.Path)
 			if target.EffectiveMode() == "copy" || target.Extension != "" {
@@ -104,21 +119,17 @@ func Remove(req RemoveRequest) (result RemoveResult, retErr error) {
 			}
 			_, kept, errs := syncpkg.ClearExtraTarget("", req.SourceDir, resolved, target.As, target.EffectiveMode(), nil)
 			if len(errs) > 0 {
-				return result, fmt.Errorf("target cleanup failed; source and config retained: %s", strings.Join(errs, "; "))
+				return fmt.Errorf("target cleanup failed: %s", strings.Join(errs, "; "))
 			}
 			if kept {
 				result.KeptOutputs = append(result.KeptOutputs, resolved)
 			}
 		}
 	}
-	result.Remaining = append(slices.Clone(req.Extras[:i]), req.Extras[i+1:]...)
-	if extra.Remote == "" {
-		return result, req.Save(result.Remaining)
-	}
 	if len(result.KeptOutputs) > 0 {
 		result.Warnings = append(result.Warnings, "Copied, transformed or unowned target outputs were left in place")
 	}
-	return removeRemote(req, extra, result)
+	return nil
 }
 
 type removalState struct {
@@ -128,6 +139,11 @@ type removalState struct {
 }
 
 func removeRemote(req RemoveRequest, extra config.ExtraConfig, result RemoveResult) (RemoveResult, error) {
+	state := install.InspectRemoteExtra(req.ExtrasRoot, req.Name)
+	if state.Err != nil {
+		return result, state.Err
+	}
+	result.MissingDir = state.Missing
 	modified, entry, err := install.ExtraLocallyModified(req.ExtrasRoot, req.Name)
 	if err != nil {
 		return result, err
@@ -164,7 +180,7 @@ func removeRemote(req RemoveRequest, extra config.ExtraConfig, result RemoveResu
 		states[i] = removalState{path: p, before: before}
 	}
 	backup, temp := "", ""
-	if !modified {
+	if !modified && !result.MissingDir {
 		temp, err = os.MkdirTemp("", "skillshare-extra-remove-*")
 		if err != nil {
 			return result, err
@@ -228,6 +244,9 @@ func removeRemote(req RemoveRequest, extra config.ExtraConfig, result RemoveResu
 	if err := capture(0, func() error { return req.Save(result.Remaining) }); err != nil {
 		return rollback(err)
 	}
+	if err := cleanupRemoteTargets(req, extra, &result); err != nil {
+		return rollback(err)
+	}
 	if err := capture(1, func() error {
 		store, _, err := install.ReadMetadata(req.ExtrasRoot)
 		if err != nil {
@@ -250,7 +269,7 @@ func removeRemote(req RemoveRequest, extra config.ExtraConfig, result RemoveResu
 			return rollback(err)
 		}
 	}
-	if modified {
+	if modified && !result.MissingDir {
 		result.KeptEditedDir = true
 		return result, nil
 	}
@@ -258,6 +277,9 @@ func removeRemote(req RemoveRequest, extra config.ExtraConfig, result RemoveResu
 		if err := capture(len(states)-1, func() error { _, err := install.RemoveFromGitIgnore(ignoreDir, ignoreEntry); return err }); err != nil {
 			return rollback(err)
 		}
+	}
+	if result.MissingDir {
+		return result, nil
 	}
 	// A managed destination link is never followed or deleted as fetched content.
 	info, err := os.Lstat(req.SourceDir)

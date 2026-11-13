@@ -241,3 +241,33 @@ func TestExtrasSync_RemoteMissingGuidance(t *testing.T) {
 		}
 	}
 }
+
+func TestExtrasDelete_MissingSourceOutcome(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(fmt.Sprintf("project=%t", project), func(t *testing.T) {
+			extras := []config.ExtraConfig{{Name: "rules", Remote: "example-org/ai-hub", Targets: []config.ExtraTargetConfig{}}}
+			var s *Server
+			if project {
+				s, _ = newTestProjectServerWithExtras(t, extras)
+			} else {
+				s, _ = newTestServerWithExtras(t, extras, "")
+			}
+			root := s.cfg.EffectiveExtrasSource()
+			if project {
+				root = s.projectCfg.EffectiveExtrasSource(s.projectRoot)
+			}
+			if err := os.RemoveAll(filepath.Join(root, "rules")); err != nil {
+				t.Fatal(err)
+			}
+			rr := serveExtras(s, http.MethodDelete, "/api/extras/rules", "")
+			var out struct {
+				MissingDir    bool `json:"missing_dir"`
+				KeptEditedDir bool `json:"kept_edited_dir"`
+				DeletedDir    bool `json:"deleted_dir"`
+			}
+			if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil || rr.Code != http.StatusOK || !out.MissingDir || out.KeptEditedDir || out.DeletedDir {
+				t.Fatalf("missing outcome: %d %s %v", rr.Code, rr.Body.String(), err)
+			}
+		})
+	}
+}

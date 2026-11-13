@@ -3634,5 +3634,6 @@
   "extras.remote.state.modified": "Diubah",
   "extras.remote.state.interrupted": "Terhenti",
   "extras.remote.state.missing": "Tidak ada",
-  "extras.remote.state.error": "Kesalahan"
+  "extras.remote.state.error": "Kesalahan",
+  "extras.remote.alreadyMissing": "Sumber yang diambil sudah tidak ada: {path}"
 }

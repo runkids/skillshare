@@ -3634,5 +3634,6 @@
   "extras.remote.state.modified": "已修改",
   "extras.remote.state.interrupted": "已中斷",
   "extras.remote.state.missing": "缺少",
-  "extras.remote.state.error": "錯誤"
+  "extras.remote.state.error": "錯誤",
+  "extras.remote.alreadyMissing": "擷取的來源目錄已缺少：{path}"
 }

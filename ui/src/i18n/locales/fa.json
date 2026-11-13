@@ -3634,5 +3634,6 @@
   "extras.remote.state.modified": "تغییریافته",
   "extras.remote.state.interrupted": "قطع‌شده",
   "extras.remote.state.missing": "مفقود",
-  "extras.remote.state.error": "خطا"
+  "extras.remote.state.error": "خطا",
+  "extras.remote.alreadyMissing": "منبع دریافت‌شده از قبل مفقود بود: {path}"
 }

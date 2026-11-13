@@ -79,6 +79,7 @@ export interface ExtraRemoveResult {
   remote?: string;
   commit?: string;
   deleted_dir?: boolean;
+  missing_dir?: boolean;
   kept_edited_dir?: boolean;
   kept_outputs?: string[];
   warnings?: string[];

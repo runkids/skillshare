@@ -164,7 +164,7 @@ func TestRemove_CleanupFailureRetainsRecords(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Remove(req); err == nil || !strings.Contains(err.Error(), "source and config retained") {
+	if _, err := Remove(req); err == nil || !strings.Contains(err.Error(), "target cleanup failed") {
 		t.Fatalf("error: %v", err)
 	}
 	after, err := os.ReadFile(config.ReadOnlyConfigPath())
@@ -350,5 +350,80 @@ func TestRemove_ChangedEntryAtSaveRetained(t *testing.T) {
 	}
 	if _, err := os.Stat(req.SourceDir); err != nil {
 		t.Fatal("source removed", err)
+	}
+}
+
+func TestRemove_PreWriteRefusalLeavesOwnedOutputs(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires symlink privilege")
+	}
+	for _, mode := range []string{"merge", "symlink"} {
+		t.Run(mode, func(t *testing.T) {
+			req := removalFixture(t)
+			target := filepath.Join(filepath.Dir(req.ExtrasRoot), "target")
+			link, source := target, req.SourceDir
+			if mode == "merge" {
+				if err := os.Mkdir(target, 0755); err != nil {
+					t.Fatal(err)
+				}
+				link, source = filepath.Join(target, "rule.md"), filepath.Join(req.SourceDir, "rule.md")
+			}
+			if err := os.Symlink(source, link); err != nil {
+				t.Fatal(err)
+			}
+			cfg, err := config.LoadReadOnly()
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg.Extras[0].Targets = []config.ExtraTargetConfig{{Path: target, Mode: mode}}
+			if err := cfg.Save(); err != nil {
+				t.Fatal(err)
+			}
+			req.Extras = cfg.Extras
+			expected := cfg.Extras[0]
+			req.Save = func([]config.ExtraConfig) error {
+				fresh, err := config.LoadReadOnly()
+				if err != nil {
+					return err
+				}
+				fresh.Extras[0].Branch = "intervening-edit"
+				if err := fresh.Save(); err != nil {
+					return err
+				}
+				_, err = WithoutUnchangedExtra(fresh.Extras, expected)
+				return err
+			}
+			if _, err := Remove(req); !errors.Is(err, install.ErrExtraConfigNotWritten) {
+				t.Fatalf("refusal: %v", err)
+			}
+			if dest, err := os.Readlink(link); err != nil || dest != source {
+				t.Fatalf("owned output changed: %q %v", dest, err)
+			}
+			if data, err := os.ReadFile(filepath.Join(target, "rule.md")); err != nil || string(data) != "rules" {
+				t.Fatal("configured output lost", err)
+			}
+		})
+	}
+}
+
+func TestRemove_MissingSourceIsNotRetained(t *testing.T) {
+	req := removalFixture(t)
+	if err := os.RemoveAll(req.SourceDir); err != nil {
+		t.Fatal(err)
+	}
+	result, err := Remove(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.MissingDir || result.KeptEditedDir || result.DeletedDir {
+		t.Fatalf("missing source misreported: %+v", result)
+	}
+	fresh, err := config.LoadReadOnly()
+	if err != nil || len(fresh.Extras) != 1 || fresh.Extras[0].Name != "other" {
+		t.Fatalf("entry not removed: %+v %v", fresh, err)
+	}
+	store, _, err := install.ReadMetadata(req.ExtrasRoot)
+	if err != nil || store.GetExact("rules") != nil {
+		t.Fatal("stale metadata", err)
 	}
 }

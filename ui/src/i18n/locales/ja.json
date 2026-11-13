@@ -3634,5 +3634,6 @@
   "extras.remote.state.modified": "変更あり",
   "extras.remote.state.interrupted": "中断",
   "extras.remote.state.missing": "未存在",
-  "extras.remote.state.error": "エラー"
+  "extras.remote.state.error": "エラー",
+  "extras.remote.alreadyMissing": "取得元のディレクトリは既に存在しませんでした: {path}"
 }

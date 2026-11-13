@@ -3634,5 +3634,6 @@
   "extras.remote.state.modified": "Modificado",
   "extras.remote.state.interrupted": "Interrompido",
   "extras.remote.state.missing": "Ausente",
-  "extras.remote.state.error": "Erro"
+  "extras.remote.state.error": "Erro",
+  "extras.remote.alreadyMissing": "A origem baixada já estava ausente: {path}"
 }

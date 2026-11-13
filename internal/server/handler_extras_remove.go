@@ -78,7 +78,7 @@ func (s *Server) handleExtrasDelete(w http.ResponseWriter, r *http.Request) {
 	s.writeOpsLog("extras-remove", status, start, map[string]any{
 		"name": name, "scope": "ui", "restored": result.Restored,
 		"remote": result.Remote, "commit": result.Commit, "deleted_dir": result.DeletedDir,
-		"kept_edited_dir": result.KeptEditedDir, "kept_outputs": result.KeptOutputs,
+		"missing_dir": result.MissingDir, "kept_edited_dir": result.KeptEditedDir, "kept_outputs": result.KeptOutputs,
 	}, msg)
 	if err != nil {
 		writeCodedError(w, http.StatusInternalServerError, "instructions_restore_failed", err.Error(), map[string]string{"name": name, "detail": err.Error()})
@@ -86,7 +86,7 @@ func (s *Server) handleExtrasDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, map[string]any{
 		"success": true, "name": name, "restored": result.Restored, "remote": result.Remote,
-		"commit": result.Commit, "deleted_dir": result.DeletedDir, "kept_edited_dir": result.KeptEditedDir,
+		"commit": result.Commit, "deleted_dir": result.DeletedDir, "missing_dir": result.MissingDir, "kept_edited_dir": result.KeptEditedDir,
 		"kept_outputs": result.KeptOutputs, "warnings": result.Warnings,
 	})
 }

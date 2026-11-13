@@ -19,6 +19,7 @@ describe('remote extra guidance', () => {
     expect(msg).toContain('/fixture/output');
     expect(msg).not.toContain('backend prose');
     expect(extraRemovalMessage(extra, { success: true, remote: 'org/hub', deleted_dir: true }, t)).toContain('extras.remote.deleted:');
+    expect(extraRemovalMessage(extra, { success: true, remote: 'org/hub', missing_dir: true }, t)).toContain('extras.remote.alreadyMissing:');
     expect(extraRemovalMessage(extra, { success: true }, t)).toContain('extras.toast.removed:');
   });
 });

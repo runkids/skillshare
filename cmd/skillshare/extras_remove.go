@@ -127,7 +127,7 @@ func removeExtraFromProjectConfig(cfg *config.ProjectConfig, cwd, name string) (
 
 func logExtraRemoval(configPath, name, scope string, result extraops.RemoveResult, err error) {
 	entry := oplog.NewEntry("extras-remove", statusFromErr(err), 0)
-	entry.Args = map[string]any{"name": name, "scope": scope, "restored": result.Restored, "deleted_dir": result.DeletedDir, "kept_edited_dir": result.KeptEditedDir, "kept_outputs": result.KeptOutputs}
+	entry.Args = map[string]any{"name": name, "scope": scope, "restored": result.Restored, "deleted_dir": result.DeletedDir, "missing_dir": result.MissingDir, "kept_edited_dir": result.KeptEditedDir, "kept_outputs": result.KeptOutputs}
 	if result.Remote != "" {
 		entry.Args["remote"] = result.Remote
 		entry.Args["commit"] = result.Commit
@@ -145,6 +145,9 @@ func extraRemovalMessage(result extraops.RemoveResult, source string) string {
 	commit := result.Commit
 	if len(commit) > 7 {
 		commit = commit[:7]
+	}
+	if result.MissingDir {
+		return "Fetched source was already missing: " + shortenPath(source)
 	}
 	if result.DeletedDir {
 		return fmt.Sprintf("Deleted fetched copy from %s at %s", result.Remote, commit)

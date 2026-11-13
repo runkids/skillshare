@@ -3634,5 +3634,6 @@
   "extras.remote.state.modified": "Geändert",
   "extras.remote.state.interrupted": "Unterbrochen",
   "extras.remote.state.missing": "Fehlt",
-  "extras.remote.state.error": "Fehler"
+  "extras.remote.state.error": "Fehler",
+  "extras.remote.alreadyMissing": "Die abgerufene Quelle fehlte bereits: {path}"
 }
