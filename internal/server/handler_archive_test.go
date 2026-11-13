@@ -149,7 +149,7 @@ func TestArchiveSourceEdits(t *testing.T) {
 			entry := install.LoadMetadataOrNew(src).Get("pack")
 			if strings.HasPrefix(tc.name, "zip-local") {
 				afterContent, err := os.ReadFile(filepath.Join(dir, "SKILL.md"))
-				if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), "reinstall") || !strings.Contains(rr.Body.String(), "Save") {
+				if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), "reinstall") || !strings.Contains(rr.Body.String(), "separate from the installed destination") {
 					t.Fatalf("ZIP-to-local refusal/guidance: %d %s", rr.Code, rr.Body)
 				}
 				if err != nil || !bytes.Equal(beforeContent, afterContent) || !reflect.DeepEqual(entry, &before) {
