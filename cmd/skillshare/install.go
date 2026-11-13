@@ -352,8 +352,8 @@ func resolveInstallSource(sourceArg string, opts install.InstallOptions, cfg *co
 		return source, false, nil
 	}
 
-	// Try resolving from installed skill metadata if update/force
-	if opts.Update || opts.Force {
+	// Try resolving from installed skill metadata if update/force/dry-run
+	if opts.Update || opts.Force || opts.DryRun {
 		resolvedSource, resolveErr := resolveSkillFromName(sourceArg, cfg)
 		if resolveErr != nil {
 			return nil, false, fmt.Errorf("invalid source: %w", err)
