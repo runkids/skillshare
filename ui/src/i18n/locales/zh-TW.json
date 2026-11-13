@@ -3622,5 +3622,19 @@
   "plugins.error.importRecipeIdentityRequired": "此遠端安裝配方沒有外掛識別資訊。匯入前，請將共用宣告中的 plugin: 設為原生套件名稱；匯入不會下載原始碼。",
   "plugins.error.unimportTargetRequired": "unimport 需要 --target 來選取本機匯入紀錄",
   "plugins.error.unimportTargetMissing": "{name} 沒有目標 {target} 的綁定",
-  "plugins.error.unimportReceiptRequired": "{name}/{target} 沒有共用來源設定支持的本機匯入"
+  "plugins.error.unimportReceiptRequired": "{name}/{target} 沒有共用來源設定支持的本機匯入",
+  "extras.remote.origin": "遠端",
+  "extras.remote.identityLocked": "無法在此重新命名或移動遠端 extra。請先移除項目，再以所需名稱和來源重新安裝。請從各目標的選單編輯目標和模式。",
+  "extras.remote.removeConfirm": "移除 extra {name}？未編輯的受管理目錄將被刪除，已編輯的目錄會保留。將清理自有連結，並保留複製、轉換或非自有的輸出。",
+  "extras.remote.deleted": "已刪除受管理目錄：{path}",
+  "extras.remote.retained": "已保留編輯過或未經驗證的目錄：{path}",
+  "extras.remote.keptOutputs": "已保留複製、轉換或非自有的輸出：\n{paths}",
+  "extras.remote.localOnly": "僅檢查本機完整性；未檢查遠端版本。",
+  "extras.remote.restore": "使用以下命令還原或修復：{command}",
+  "extras.remote.state.intact": "完整",
+  "extras.remote.state.modified": "已修改",
+  "extras.remote.state.interrupted": "已中斷",
+  "extras.remote.state.missing": "缺少",
+  "extras.remote.state.error": "錯誤",
+  "extras.remote.alreadyMissing": "擷取的來源目錄已缺少：{path}"
 }

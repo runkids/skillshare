@@ -243,6 +243,11 @@ func (s *Server) handlePutTargetInstructions(w http.ResponseWriter, r *http.Requ
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock := s.lockInstructionWrite(w, s.targetInstructionMutation([]string{name}))
+	if unlock == nil {
+		return
+	}
+	defer unlock()
 	it, found, ok := s.targetInstructions(name)
 	if !found {
 		writeCodedError(w, http.StatusNotFound, "instructions_target_not_found", "target not found: "+name, map[string]string{"target": name})
@@ -299,6 +304,13 @@ func (s *Server) handleConvertTargetInstructions(w http.ResponseWriter, r *http.
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if body.Apply {
+		unlock := s.lockInstructionWrite(w, s.targetInstructionMutation([]string{name}, body.ShareInto))
+		if unlock == nil {
+			return
+		}
+		defer unlock()
+	}
 	it, found, ok := s.targetInstructions(name)
 	if !found {
 		writeCodedError(w, http.StatusNotFound, "instructions_target_not_found", "target not found: "+name, map[string]string{"target": name})
@@ -362,6 +374,9 @@ func (s *Server) handleConvertTargetInstructions(w http.ResponseWriter, r *http.
 		writeJSON(w, map[string]any{"changes": changes})
 		return
 	}
+	if !s.checkInstructionChanges(w, changes) {
+		return
+	}
 
 	args := map[string]any{"target": name, "method": body.Method, "share_as": body.ShareAs, "share_into": body.ShareInto, "scope": "ui"}
 	if err := instructions.Apply(changes); err != nil {
@@ -370,16 +385,7 @@ func (s *Server) handleConvertTargetInstructions(w http.ResponseWriter, r *http.
 		return
 	}
 	if body.ShareAs != "" || into != -1 {
-		if into != -1 {
-			tc := config.ExtraTargetConfig{Path: filepath.Dir(it.Path), Mode: "import"}
-			if base := filepath.Base(it.Path); base != shared.File {
-				tc.As = base
-			}
-			s.cfg.Extras[into].Targets = append(s.cfg.Extras[into].Targets, tc)
-		} else {
-			s.cfg.Extras = append(s.cfg.Extras, shared)
-		}
-		if err := s.saveAndReloadConfig(); err != nil {
+		if err := s.saveConvertedShared(it.Path, shared, into); err != nil {
 			s.writeOpsLog("instructions-convert", "error", start, args, err.Error())
 			writeCodedError(w, http.StatusInternalServerError, "instructions_convert_failed", err.Error(), map[string]string{"detail": err.Error()})
 			return
@@ -387,4 +393,17 @@ func (s *Server) handleConvertTargetInstructions(w http.ResponseWriter, r *http.
 	}
 	s.writeOpsLog("instructions-convert", "ok", start, args, "")
 	writeJSON(w, map[string]any{"success": true, "changes": changes})
+}
+
+func (s *Server) saveConvertedShared(path string, shared config.ExtraConfig, into int) error {
+	if into != -1 {
+		tc := config.ExtraTargetConfig{Path: filepath.Dir(path), Mode: "import"}
+		if base := filepath.Base(path); base != shared.File {
+			tc.As = base
+		}
+		s.cfg.Extras[into].Targets = append(s.cfg.Extras[into].Targets, tc)
+	} else {
+		s.cfg.Extras = append(s.cfg.Extras, shared)
+	}
+	return s.saveAndReloadConfig()
 }

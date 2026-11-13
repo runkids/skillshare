@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../i18n';
 import { ToastProvider } from '../components/Toast';
 import { api } from '../api/client';
@@ -27,6 +27,7 @@ vi.mock('../api/client', async (load) => {
             targets: [{ path: String.raw`C:\Users\me\.pi\agent`, mode: 'copy', flatten: false, as: 'APPEND_SYSTEM.md', status: 'synced' }] },
         ],
       }),
+      deleteExtra: vi.fn().mockResolvedValue({ success: true, remote: 'example-org/hub', deleted_dir: true }),
       createExtra: vi.fn().mockResolvedValue({ success: true }),
       previewExtraFilter: vi.fn().mockResolvedValue({ files: [{ file: 'index.md', status: 'synced' }, { file: 'draft.md', status: 'synced' }], unmatched: null }),
       editExtraTarget: vi.fn().mockResolvedValue({ success: true }),
@@ -135,4 +136,42 @@ describe('Extras page in a project', () => {
     expect(api.editExtra).toHaveBeenCalledWith('rules', { name: 'docs' });
   });
 
+});
+
+
+describe('remote extra removal', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('renders the explicit restore command as code within its localized guidance', async () => {
+    vi.mocked(api.listExtras).mockResolvedValueOnce({ extras: [{
+      name: 'missing-rules', remote: 'example-org/hub/rules', branch: 'main', state: 'missing',
+      source_dir: '/fixture/extras/missing-rules', source_type: 'default', source_exists: false, file_count: 0, targets: [],
+    }] });
+    renderPage();
+    const command = await screen.findByText('skillshare install example-org/hub/rules --kind extra --name missing-rules --branch main -p');
+    expect(command.tagName).toBe('CODE');
+    expect(command.parentElement).toHaveTextContent('Restore or repair with: skillshare install');
+  });
+
+  it('requires confirmation before removing a managed directory and allows cancel', async () => {
+    vi.mocked(api.listExtras).mockResolvedValueOnce({ extras: [{
+      name: 'remote-rules', remote: 'example-org/hub', branch: 'main', commit: 'a'.repeat(40), state: 'intact',
+      source_dir: '/fixture/extras/remote-rules', source_type: 'default', source_exists: true, file_count: 1, targets: [],
+    }] });
+    const user = userEvent.setup();
+    renderPage();
+    const openRemoval = async () => {
+      await user.click(await screen.findByRole('button', { name: 'More actions for remote-rules' }));
+      await user.click(screen.getByRole('menuitem', { name: 'Remove extra' }));
+    };
+    await openRemoval();
+    expect(api.deleteExtra).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText(/unedited.*deleted.*edited.*kept/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(api.deleteExtra).not.toHaveBeenCalled();
+    await openRemoval();
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remove' }));
+    expect(api.deleteExtra).toHaveBeenCalledExactlyOnceWith('remote-rules');
+  });
 });

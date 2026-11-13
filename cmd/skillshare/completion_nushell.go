@@ -282,6 +282,14 @@ def "nu-complete skillshare kind" [] {
     ["agents"]
 }
 
+def "nu-complete skillshare install-kind" [] {
+    ["skill" "agent" "extra"]
+}
+
+def "nu-complete skillshare check-scope" [] {
+    ["agents" "extras"]
+}
+
 def "nu-complete skillshare kind-flag" [] {
     ["skill" "agent"]
 }
@@ -369,7 +377,7 @@ export extern "skillshare install" [
     --threshold(-T): string@"nu-complete skillshare audit-threshold"
     --branch(-b): string     # Checkout specific branch
     --track(-t)              # Track the repository
-    --kind: string           # Filter by kind (skill or agent)
+    --kind: string@"nu-complete skillshare install-kind" # Install skill, agent or extra
     --agent(-a): string      # Install specific agents
     --skill(-s): string      # Install specific skills
     --exclude: string        # Exclude items
@@ -612,7 +620,7 @@ export extern "skillshare update" [
 
 # Check
 export extern "skillshare check" [
-    scope?: string@"nu-complete skillshare kind"
+    scope?: string@"nu-complete skillshare check-scope"
     --json                   # JSON output
     --diff                   # Show changes since install
     --exit-code              # Exit 1 when anything is not up to date

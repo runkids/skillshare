@@ -75,35 +75,32 @@ func checkGitRepo(sourcePath string, spinner *ui.Spinner) error {
 }
 
 // getGitChanges returns uncommitted changes
-func getGitChanges(sourcePath string) (string, error) {
-	cmd := gitenv.Command("status", "--porcelain")
-	cmd.Dir = sourcePath
-	output, err := cmd.Output()
+func getGitChanges(sourcePath string, extrasRoots ...string) (string, error) {
+	status, err := gitops.GetStatus(sourcePath, extrasRoots...)
 	if err != nil {
 		return "", fmt.Errorf("failed to check git status: %w", err)
 	}
-	return strings.TrimSpace(string(output)), nil
+	return status, nil
 }
 
-// stageAndCommit stages all changes and commits
-func stageAndCommit(sourcePath, skills, operation, message string, spinner *ui.Spinner) error {
-	printSourceLinkWarnings(sourcePath, skills, operation, spinner)
+// stageAndCommit stages all changes and commits.
+func stageAndCommit(sourcePath, skills, operation, message string, spinner *ui.Spinner, extrasRoots ...string) error {
 	spinner.Update("Staging changes...")
-	cmd := gitenv.Command("add", "-A")
-	cmd.Dir = sourcePath
-	if err := cmd.Run(); err != nil {
+	if err := gitops.StageAll(sourcePath, skills, operation, func(warning string) {
+		spinner.Stop()
+		ui.Warning("%s", warning)
+	}, extrasRoots...); err != nil {
 		spinner.Fail("Failed to stage changes")
 		return fmt.Errorf("failed to stage changes: %w", err)
 	}
 
 	spinner.Update("Committing...")
-	cmd = gitenv.Command("commit", "-m", message)
+	cmd := gitenv.Command("commit", "-m", message)
 	cmd.Dir = sourcePath
 	if err := cmd.Run(); err != nil {
 		spinner.Fail("Failed to commit")
 		return fmt.Errorf("failed to commit: %w", err)
 	}
-
 	return nil
 }
 
@@ -267,7 +264,7 @@ func cmdPush(args []string) (err error) {
 		spinner = ui.StartSpinner("Checking changes...")
 	}
 
-	changes, err := getGitChanges(source)
+	changes, err := getGitChanges(source, cfg.EffectiveExtrasSource())
 	if err != nil {
 		spinner.Fail("Failed to check git status")
 		return err
@@ -305,7 +302,7 @@ func cmdPush(args []string) (err error) {
 	}
 
 	if hasChanges {
-		if err := stageAndCommit(source, cfg.EffectiveSkillsSource(), "push", opts.message, spinner); err != nil {
+		if err := stageAndCommit(source, cfg.EffectiveSkillsSource(), "push", opts.message, spinner, cfg.EffectiveExtrasSource()); err != nil {
 			return err
 		}
 		spinner.Stop()

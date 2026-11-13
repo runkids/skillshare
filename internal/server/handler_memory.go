@@ -95,6 +95,13 @@ func (s *Server) handleMemoryIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock, lockErr := s.lockRemoteMemoryMutation()
+	if lockErr != nil {
+		err := lockErr
+		writeMemoryError(w, err)
+		return
+	}
+	defer unlock()
 	root, err := s.memoryRoot()
 	if err != nil {
 		writeMemoryError(w, err)
@@ -114,6 +121,13 @@ func (s *Server) handleMemoryInit(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock, lockErr := s.lockRemoteMemoryMutation()
+	if lockErr != nil {
+		err := lockErr
+		writeMemoryError(w, err)
+		return
+	}
+	defer unlock()
 	root, err := s.memoryRoot()
 	defer func() {
 		status, msg := "ok", ""
@@ -179,6 +193,13 @@ func (s *Server) handleMemoryWrite(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock, lockErr := s.lockRemoteMemoryMutation()
+	if lockErr != nil {
+		err := lockErr
+		writeMemoryError(w, err)
+		return
+	}
+	defer unlock()
 	root, err := s.memoryRoot()
 	if err != nil {
 		writeMemoryError(w, err)
@@ -208,6 +229,13 @@ func (s *Server) handleMemoryDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock, lockErr := s.lockRemoteMemoryMutation()
+	if lockErr != nil {
+		err := lockErr
+		writeMemoryError(w, err)
+		return
+	}
+	defer unlock()
 	root, err := s.memoryRoot()
 	if err != nil {
 		writeMemoryError(w, err)

@@ -732,3 +732,66 @@ skillshare extras source ~/company-shared/extras
 - [sync](/docs/reference/commands/sync#sync-extras) — 将 extras 同步到 target
 - [status](/docs/reference/commands/status) — 显示 extras 的文件和 target 数量
 - [Configuration](/docs/reference/targets/configuration#extras) — Extras 配置参考
+
+
+## 远程 extras {#remote-extras}
+
+使用 `install <remote> --kind extra --name <name> -p|-g`；dashboard 不新增安装或更新
+流程。条目含 `remote`、可选 `branch`，不含 `source`。
+
+```yaml
+extras:
+  - name: team-rules
+    remote: example-org/ai-hub/rules
+    branch: main
+    targets: []
+```
+
+远程 extra 可从零个 target 开始。运行 `extras team-rules --add-target .claude/rules -p`
+后再运行 `sync extras -p`。target 路径、mode 和 filter 仍可编辑。
+CLI plain/JSON/TUI、status、dashboard 显示 origin、commit 和本地状态
+`intact`、`modified`、`interrupted`、`missing`、`error`，不表示远程是否最新。
+`check extras` 不获取内容。
+
+拒绝重命名、source 修改，以及 raw config 中的移除或 origin 修改。先运行
+`skillshare extras remove team-rules -p --force`，再按所需名称和来源显式安装。
+此处 `--force` 仅跳过确认，不授权删除已编辑内容。移除条目、pin、metadata 和已接受
+发现；删除未编辑的获取目录，保留编辑过或未验证的内容及 ignore 规则。来源已缺失时
+明确报告缺失。清理自有链接；复制、转换或非自有输出会保留并列出路径。API 返回
+`remote`、`commit`、`deleted_dir`、`kept_edited_dir`、`missing_dir`、`kept_outputs`、
+`warnings`。本地 extra 行为不变。移除失败会恢复记录和来源，但已清理的 target 不会
+重新链接；运行 `skillshare sync extras` 恢复这些输出。
+
+允许 `extras collect`，会在保留 origin/pin 的同时标记本地修改。重装丢弃修改须
+`--force`。Global `extras source <path>` 保留条目但不移动文件；须在没有远程写入者
+运行时自行移动包含 `.metadata.json` 的**整个根目录**。Project 仍不支持 `extras source`。
+
+同一 extras root 的远程 install 和受支持 CLI/TUI/dashboard 写入者共用 root lock，
+获取锁后重新读取并只合并自身条目。其他 config/lock/ignore 写入者，包括 raw config PUT、
+手动编辑和 skill/agent 命令，不被串行化。rollback read-back 检测只是 best effort，
+write/read-back 与 compare/restore 之间仍有窗口，不是通用事务隔离。install 期间不要
+改 `extras source`；失败后检查 config/lock diff 并重新应用缺失的其他修改。检测到其他
+写入者更改时保留文件、报告路径并留下 marker。
+
+支持的 memory 初始化、写入、删除、index、移动，以及共享指令的内容、转换、guidance、
+分配和设置写入，在根目录含相关远程 extra 时也使用此锁。只读视图及转换预览不获取锁；
+普通 sync 和外部编辑器不会被串行化。锁是 canonical root 内永久且为空的普通文件
+`.skillshare-extras.lock`，不同 HOME/XDG 位置及根目录别名共用同一把锁。可写的自定义 root
+不要求 parent 可写。即使最后一个远程 extra 已移除，也不要删除或替换锁。sync 和 audit
+只跳过遍历根目录直属的空白普通锁文件；嵌套、非空或非普通文件的同名内容沿用普通策略。
+Skillshare 的 Git status/staging 仅在当次调用排除已知 root 的空锁；成功发布到 project
+时，若 root 位于 project 内，也记录其精确 ignore 路径。
+
+删除来源前会再次比对已保存的来源完整性记录，保留观察到的编辑及 ignore 规则。已知
+安装内容为空的目录属于 intact；缺少哈希仍属未验证。此比对不会锁定外部编辑器，也不
+保证比对与删除之间的隔离。
+
+raw editor 拒绝返回可解析且含凭据的 remote 或类型不可读的 extras。但为了恢复，语法
+损坏的 YAML 会**原样返回**，可能包含凭据。PUT 使用可读的磁盘 extras，否则回退到最后
+加载的 baseline：该加载后、文件损坏前由 CLI install 新增的条目，可能在修复 PUT 时
+被丢弃或重命名。保存前备份并检查文件。PUT 不共用发布锁。
+参阅[安装与中断修复](install.md#remote-extras)。
+
+首次 install 在声明保存前中断时，也会根据受管 staging 的发布产物名称报告
+`interrupted`，不会读取 marker 的 origin/branch。status 和 doctor 也会报告。
+请用相同 `--name` 重跑原来的 install；list 和 dashboard 仍只显示已配置的 extras。

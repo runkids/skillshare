@@ -186,3 +186,14 @@ extras:
 - [Install command](/docs/reference/commands/install) — 有無參數的 `skillshare install`
 - [Push/Pull](/docs/reference/commands/push) — 透過 git 備份與還原 config
 - [Project Skills](./project-skills.md) — Project 層級的 manifest
+
+
+### 復原遠端 extra
+
+可宣告 `remote: example-org/ai-hub/rules`、選用的 `branch: main` 和 `targets: []`。
+`remote` 與 `source` 互斥。明確執行 `skillshare install example-org/ai-hub/rules --kind extra
+--name team-rules -p`（一行），新增 target 後 sync。Project version 1 lockfile 的 `extras`
+map 需要每位貢獻者升級至能保留它的二進位檔。無參數 install、pull、sync 不擷取 extras。
+明確 install 的 `--update` 前移 pin；Global 使用相同 origin 的 metadata pin。參閱
+[稽核涵蓋範圍、中斷修復與平台限制](/docs/reference/commands/install#remote-extras) 和
+[sync extras](/docs/reference/commands/sync#sync-extras)。

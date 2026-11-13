@@ -97,10 +97,10 @@ internal/config/migrate.go	migrateDir	os.MkdirAll	filepath.Dir(newPath)	source-r
 internal/config/migrate.go	migrateDir	os.Rename	oldPath, newPath	source-root
 internal/config/project.go	(*ProjectConfig).SaveIn	os.MkdirAll	dir	config
 internal/config/project.go	(*ProjectConfig).SaveIn	os.WriteFile	path	config
-internal/config/project.go	LoadProject	os.Chmod	f.Name()	config
-internal/config/project.go	LoadProject	os.CreateTemp	filepath.Dir(dest)	config
-internal/config/project.go	LoadProject	os.Remove	f.Name()	config
-internal/config/project.go	LoadProject	os.Rename	f.Name(), dest	config
+internal/config/project.go	loadProject	os.Chmod	f.Name()	config
+internal/config/project.go	loadProject	os.CreateTemp	filepath.Dir(dest)	config
+internal/config/project.go	loadProject	os.Remove	f.Name()	config
+internal/config/project.go	loadProject	os.Rename	f.Name(), dest	config
 internal/config/registry.go	(*Registry).Save	os.MkdirAll	dir	source-unmigrated
 internal/config/registry.go	(*Registry).Save	os.WriteFile	path	source-unmigrated
 internal/config/registry.go	MigrateRegistryToSource	os.Remove	oldPath	source-unmigrated
@@ -173,8 +173,8 @@ internal/install/install_apply.go	installFromDiscoveryInternal	os.MkdirAll	workD
 internal/install/install_apply.go	installFromDiscoveryInternal	os.MkdirTemp	""	tmp
 internal/install/install_apply.go	installFromDiscoveryInternal	os.RemoveAll	tempDir	tmp
 internal/install/install_apply.go	installFromGitSubdir	os.MkdirTemp	""	tmp
-internal/install/install_apply.go	installFromGitSubdir	os.RemoveAll	tempRepoPath	tmp
-internal/install/install_apply.go	installFromGitSubdir	os.RemoveAll	tempRepoPath	tmp
+internal/install/install_apply.go	fetchGitSubdir	os.RemoveAll	tempRepoPath	tmp
+internal/install/install_apply.go	fetchGitSubdir	os.RemoveAll	tempRepoPath	tmp
 internal/install/install_apply.go	installFromLocal	os.MkdirAll	destPath	source-unmigrated
 internal/install/install_audit.go	cleanEmptyInstallParents	os.Remove	dir	agents
 internal/install/install_discovery.go	discoverFromGitSubdirWithProgressImpl	os.MkdirTemp	""	tmp
@@ -539,3 +539,28 @@ internal/config/config.go	(*Config).Save	os.MkdirAll	dir	config
 internal/config/config.go	(*Config).Save	os.WriteFile	path	config
 internal/plugin/state.go	(*Service).saveState	os.MkdirAll	s.managedRoot()	config
 internal/testutil/private_git.go	ServePrivateGit	os.Mkdir	filepath.Join(root, "org")	test-helper
+internal/install/extra_stage.go	stageFetchedTree	os.Mkdir	dest	extras
+internal/install/extra_stage.go	copyStagedExtraFile	os.OpenFile	dest	extras
+internal/install/extra_lock.go	LockExtrasRoot	os.MkdirAll	canonical	extras
+internal/install/extra_journal.go	writeExtraJournal	os.MkdirAll	stage	extras
+internal/install/extra_journal.go	writeExtraJournal	os.CreateTemp	stage	extras
+internal/install/extra_journal.go	writeExtraJournal	os.Remove	tmp	extras
+internal/install/extra_journal.go	writeExtraJournal	os.Rename	tmp, extraJournalPath(root, j.Name)	extras
+internal/install/extra_snapshot.go	restoreExtraSnapshotIfUnchanged	os.Remove	path	config
+internal/install/extra_snapshot.go	restoreExtraSnapshotIfUnchanged	os.CreateTemp	filepath.Dir(path)	config
+internal/install/extra_snapshot.go	restoreExtraSnapshotIfUnchanged	os.Remove	tmp	config
+internal/install/extra_snapshot.go	restoreExtraSnapshotIfUnchanged	os.Rename	tmp, path	config
+internal/install/extra_candidate.go	removeExtraCandidateTemp	os.RemoveAll	dir	tmp
+internal/install/extra_candidate.go	prepareExtraCandidate	os.MkdirTemp	""	tmp
+internal/install/extra_publish.go	<package>	os.Rename	<ref>	extras
+internal/install/extra_publish.go	<package>	os.RemoveAll	<ref>	extras
+internal/install/extra_publish.go	publishRemoteExtra	os.Remove	marker	extras
+internal/install/extra_publish.go	publishRemoteExtra	os.Remove	marker	extras
+internal/install/extra_publish.go	publishRemoteExtra	os.Remove	stage	extras
+internal/install/extra_repair.go	repairRemoteExtra	os.Remove	extraJournalPath(req.ExtrasRoot, req.Name)	extras
+internal/install/extra_repair.go	repairRemoteExtra	os.Remove	stage	extras
+internal/extraops/remove.go	<package>	os.RemoveAll	<ref>	extras
+internal/extraops/remove.go	removeRemote	os.MkdirTemp	""	tmp
+internal/extraops/remove.go	removeRemote	os.RemoveAll	temp	tmp
+internal/extraops/remove.go	removeRemote	os.RemoveAll	temp	tmp
+internal/extraops/remove.go	removeRemote	os.RemoveAll	req.SourceDir	extras

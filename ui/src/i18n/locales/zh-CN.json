@@ -3622,5 +3622,19 @@
   "plugins.error.importRecipeIdentityRequired": "此远程安装配方没有插件标识。导入前，请将共享声明中的 plugin: 设为原生包名；导入不会下载源代码。",
   "plugins.error.unimportTargetRequired": "unimport 需要 --target 来选择本机导入记录",
   "plugins.error.unimportTargetMissing": "{name} 没有目标 {target} 的绑定",
-  "plugins.error.unimportReceiptRequired": "{name}/{target} 没有共享来源配置支持的本机导入"
+  "plugins.error.unimportReceiptRequired": "{name}/{target} 没有共享来源配置支持的本机导入",
+  "extras.remote.origin": "远程",
+  "extras.remote.identityLocked": "无法在此重命名或移动远程 extra。请先移除条目，再以所需名称和来源重新安装。请从各目标的菜单编辑目标和模式。",
+  "extras.remote.removeConfirm": "移除 extra {name}？未编辑的托管目录将被删除，已编辑的目录会保留。将清理自有链接，并保留复制、转换或非自有的输出。",
+  "extras.remote.deleted": "已删除托管目录：{path}",
+  "extras.remote.retained": "已保留编辑过或未经验证的目录：{path}",
+  "extras.remote.keptOutputs": "已保留复制、转换或非自有的输出：\n{paths}",
+  "extras.remote.localOnly": "仅检查本地完整性；未检查远程版本。",
+  "extras.remote.restore": "使用以下命令恢复或修复：{command}",
+  "extras.remote.state.intact": "完整",
+  "extras.remote.state.modified": "已修改",
+  "extras.remote.state.interrupted": "已中断",
+  "extras.remote.state.missing": "缺失",
+  "extras.remote.state.error": "错误",
+  "extras.remote.alreadyMissing": "获取的来源目录已缺失：{path}"
 }

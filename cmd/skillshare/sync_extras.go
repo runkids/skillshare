@@ -20,8 +20,9 @@ type syncExtrasJSONOutput struct {
 }
 
 type syncExtrasJSONEntry struct {
-	Name    string                 `json:"name"`
-	Targets []syncExtrasJSONTarget `json:"targets"`
+	Name     string                 `json:"name"`
+	Targets  []syncExtrasJSONTarget `json:"targets"`
+	Warnings []string               `json:"warnings,omitempty"`
 }
 
 type syncExtrasJSONTarget struct {
@@ -134,10 +135,10 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput, partOfAll bool, start time.T
 		extraSource := config.ResolveExtrasSourceDir(extra, cfg.EffectiveExtrasSource(), cfg.EffectiveSkillsSource())
 
 		run := sync.RunExtraTargets(extra, extraSource, opts)
-		if run.SourceMissing {
-			printMissingExtraSource(extra.Name, extraSource, jsonOutput)
+		if run.SourceMissing || len(run.Warnings) > 0 {
+			printExtraRunWarnings(extra, run, extraSource, false, jsonOutput)
 			if jsonOutput {
-				jsonEntries = append(jsonEntries, syncExtrasJSONEntry{Name: extra.Name, Targets: []syncExtrasJSONTarget{}})
+				jsonEntries = append(jsonEntries, syncExtrasJSONEntry{Name: extra.Name, Targets: []syncExtrasJSONTarget{}, Warnings: extraRunWarnings(extra, run, false)})
 			}
 			continue
 		}
@@ -246,10 +247,10 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput, partOfAll bool,
 		extraSource := config.ResolveExtrasSourceDirProject(extra, projCfg.EffectiveExtrasSource(cwd), cwd)
 
 		run := sync.RunExtraTargets(extra, extraSource, opts)
-		if run.SourceMissing {
-			printMissingExtraSource(extra.Name, extraSource, jsonOutput)
+		if run.SourceMissing || len(run.Warnings) > 0 {
+			printExtraRunWarnings(extra, run, extraSource, true, jsonOutput)
 			if jsonOutput {
-				jsonEntries = append(jsonEntries, syncExtrasJSONEntry{Name: extra.Name, Targets: []syncExtrasJSONTarget{}})
+				jsonEntries = append(jsonEntries, syncExtrasJSONEntry{Name: extra.Name, Targets: []syncExtrasJSONTarget{}, Warnings: extraRunWarnings(extra, run, true)})
 			}
 			continue
 		}
@@ -370,10 +371,11 @@ func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.Ex
 	var totals extrasSyncTotals
 	entries := make([]syncExtrasJSONEntry, 0, len(extras))
 	for _, extra := range extras {
-		entry := syncExtrasJSONEntry{Name: extra.Name}
 		run := sync.RunExtraTargets(extra, sourceFunc(extra), opts)
+		entry := syncExtrasJSONEntry{Name: extra.Name, Warnings: run.Warnings}
 		if run.SourceMissing {
 			entry.Targets = []syncExtrasJSONTarget{}
+			entry.Warnings = missingRemoteExtraWarnings(extra, projectRoot != "")
 		}
 		for _, tr := range run.Targets {
 			reportExtraTarget(extra.Name, tr, true, &totals)
@@ -387,14 +389,42 @@ func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.Ex
 	return entries, nil
 }
 
+func extraRunWarnings(extra config.ExtraConfig, run sync.ExtraRun, project bool) []string {
+	if len(run.Warnings) > 0 {
+		return run.Warnings
+	}
+	return missingRemoteExtraWarnings(extra, project)
+}
+
+func printExtraRunWarnings(extra config.ExtraConfig, run sync.ExtraRun, source string, project, jsonOutput bool) {
+	if run.SourceMissing {
+		printMissingExtraSource(extra, source, project, jsonOutput)
+	} else if !jsonOutput {
+		for _, warning := range run.Warnings {
+			ui.Note(warning)
+		}
+	}
+}
+
 // printMissingExtraSource tells the user, unless jsonOutput, that an extra was
 // skipped because its source directory does not exist.
-func printMissingExtraSource(name, sourceDir string, jsonOutput bool) {
+func printMissingExtraSource(extra config.ExtraConfig, sourceDir string, project, jsonOutput bool) {
 	if jsonOutput {
 		return
 	}
-	ui.Row(ui.MarkWarn, name, "source folder not found: "+shortenPath(sourceDir), ui.RowWidth(name))
-	ui.Note("Create it to start syncing " + name)
+	ui.Row(ui.MarkWarn, extra.Name, "source folder not found: "+shortenPath(sourceDir), ui.RowWidth(extra.Name))
+	if extra.Remote != "" {
+		ui.Note(missingRemoteExtraWarnings(extra, project)[0])
+	} else {
+		ui.Note("Create it to start syncing " + extra.Name)
+	}
+}
+
+func missingRemoteExtraWarnings(extra config.ExtraConfig, project bool) []string {
+	if extra.Remote == "" {
+		return nil
+	}
+	return []string{"source missing; run: " + config.ExtraRestoreCommand(extra, project)}
 }
 
 // extrasSyncTotals accumulates target outcomes for the summary and oplog.

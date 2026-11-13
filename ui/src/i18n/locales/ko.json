@@ -3622,5 +3622,19 @@
   "plugins.error.importRecipeIdentityRequired": "이 원격 설치 설정에는 플러그인 식별 정보가 없습니다. 가져오기 전에 공유 선언의 plugin:을 네이티브 패키지 이름으로 설정하세요. 가져오기는 소스를 다운로드하지 않습니다.",
   "plugins.error.unimportTargetRequired": "unimport에는 로컬 가져오기 기록을 선택하는 --target이 필요합니다",
   "plugins.error.unimportTargetMissing": "{name}에 대상 {target}의 바인딩이 없습니다",
-  "plugins.error.unimportReceiptRequired": "{name}/{target}에 공유 소스 설정에 연결된 로컬 가져오기가 없습니다"
+  "plugins.error.unimportReceiptRequired": "{name}/{target}에 공유 소스 설정에 연결된 로컬 가져오기가 없습니다",
+  "extras.remote.origin": "원격",
+  "extras.remote.identityLocked": "원격 extra의 이름이나 위치는 여기서 변경할 수 없습니다. 항목을 제거한 후 원하는 이름과 소스로 다시 설치하세요. 대상과 모드는 각 대상의 메뉴에서 편집하세요.",
+  "extras.remote.removeConfirm": "extra {name}을(를) 제거할까요? 수정하지 않은 관리 디렉터리는 삭제하고 수정한 디렉터리는 유지합니다. 소유한 링크는 정리합니다. 복사, 변환 또는 소유하지 않은 출력은 유지합니다.",
+  "extras.remote.deleted": "관리 디렉터리 삭제됨: {path}",
+  "extras.remote.retained": "수정되었거나 확인되지 않은 디렉터리 유지됨: {path}",
+  "extras.remote.keptOutputs": "복사, 변환 또는 소유하지 않은 출력 유지됨:\n{paths}",
+  "extras.remote.localOnly": "로컬 무결성만 확인하며 원격 리비전은 확인하지 않습니다.",
+  "extras.remote.restore": "복원 또는 복구: {command}",
+  "extras.remote.state.intact": "정상",
+  "extras.remote.state.modified": "수정됨",
+  "extras.remote.state.interrupted": "중단됨",
+  "extras.remote.state.missing": "없음",
+  "extras.remote.state.error": "오류",
+  "extras.remote.alreadyMissing": "가져온 소스가 이미 없습니다: {path}"
 }

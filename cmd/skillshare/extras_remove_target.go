@@ -58,6 +58,12 @@ func cmdExtrasRemoveTarget(args []string) error {
 		return fmt.Errorf("--remove-target requires a path argument")
 	}
 
+	unlock, lockErr := lockRemoteExtraMutation(mode, cwd, name)
+	if lockErr != nil {
+		return lockErr
+	}
+	defer unlock()
+
 	var extras []config.ExtraConfig
 	var configPath string
 	var saveFn func() error

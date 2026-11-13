@@ -21,6 +21,7 @@ const LockFileName = "skills.lock.json"
 type Lock struct {
 	Version int                  `json:"version"`
 	Skills  map[string]LockEntry `json:"skills"`
+	Extras  map[string]LockEntry `json:"extras,omitempty"`
 }
 
 // LockEntry is one pinned skill. Source guards against a stale pin: once the
@@ -61,6 +62,30 @@ func (l *Lock) CommitFor(name, source string) string {
 	return ""
 }
 
+// ExtraCommitFor returns a matching full-SHA extra pin.
+func (l *Lock) ExtraCommitFor(name, source string) string {
+	if l == nil {
+		return ""
+	}
+	if e, ok := l.Extras[name]; ok && e.Source == source && len(e.Commit) == 40 && IsCommitSHA(e.Commit) {
+		return e.Commit
+	}
+	return ""
+}
+
+func (l *Lock) SetExtraPin(name string, entry LockEntry) {
+	if l.Extras == nil {
+		l.Extras = make(map[string]LockEntry)
+	}
+	l.Extras[name] = entry
+}
+
+func (l *Lock) DropExtraPin(name string) bool {
+	_, ok := l.Extras[name]
+	delete(l.Extras, name)
+	return ok
+}
+
 // MovePin re-keys the pin of a skill that moved to another path and reports
 // whether there was one.
 func (l *Lock) MovePin(oldName, newName string) bool {
@@ -93,7 +118,7 @@ func MoveLockPins(dir string, moves map[string]string) error {
 // removing it when there is nothing to pin.
 func (l *Lock) Save(dir string) error {
 	path := filepath.Join(dir, LockFileName)
-	if len(l.Skills) == 0 {
+	if len(l.Skills) == 0 && len(l.Extras) == 0 {
 		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 			return err
 		}

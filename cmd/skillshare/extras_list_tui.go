@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/extraops"
 	"skillshare/internal/sync"
 	"skillshare/internal/theme"
 	"skillshare/internal/ui"
@@ -463,6 +464,9 @@ func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry) string {
 
 	b.WriteString(theme.Primary().Bold(true).Render(e.Name))
 	b.WriteString("\n\n")
+	if e.Remote != "" {
+		b.WriteString(theme.Dim().Width(8).Render("Remote") + remoteExtraSummary(e.Remote, e.Branch, e.Commit, e.State) + "\n")
+	}
 
 	label := theme.Dim().Width(8).Render("Source")
 	if e.File != "" {
@@ -697,6 +701,9 @@ func (m extrasListTUIModel) confirmText() (question, what string, danger bool) {
 	}
 	switch m.confirmAction {
 	case "remove":
+		if entry.Remote != "" {
+			return "Remove extra " + m.confirmExtra + "?", "An unedited fetched copy is deleted; an edited copy stays. Owned links are cleaned; copied outputs stay", true
+		}
 		if entry.File != "" {
 			return "Remove extra " + m.confirmExtra + "?", "Its target files are restored to what was there before", true
 		}
@@ -912,6 +919,11 @@ func (m extrasListTUIModel) renderModePicker() string {
 }
 
 func (m extrasListTUIModel) doSetMode(name, targetPath, newMode string) (string, error) {
+	unlock, lockErr := lockRemoteExtraMutation(m.mutationMode(), m.cwd, name)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	// Validate before saving so a mode the target's filters rule out (symlink)
 	// is refused instead of breaking every later sync.
 	setMode := func(extras []config.ExtraConfig) error {
@@ -974,6 +986,7 @@ func (m extrasListTUIModel) executeAction() tea.Cmd {
 func (m extrasListTUIModel) doRemove(name string) (string, error) {
 	var sourceDir string
 	var err error
+	var result extraops.RemoveResult
 
 	// Load fresh config to avoid mutating the TUI model's copy in a background goroutine.
 	if m.projCfg != nil {
@@ -981,16 +994,23 @@ func (m extrasListTUIModel) doRemove(name string) (string, error) {
 		if loadErr != nil {
 			return "", loadErr
 		}
-		sourceDir, err = removeExtraFromProjectConfig(projCfg, m.cwd, name)
+		sourceDir, result, err = removeExtraFromProjectConfig(projCfg, m.cwd, name)
 	} else {
 		cfg, loadErr := config.Load()
 		if loadErr != nil {
 			return "", loadErr
 		}
-		sourceDir, err = removeExtraFromGlobalConfig(cfg, name)
+		sourceDir, result, err = removeExtraFromGlobalConfig(cfg, name)
 	}
 	if err != nil {
 		return "", err
+	}
+	if result.Remote != "" {
+		msg := extraRemovalMessage(result, sourceDir)
+		if len(result.KeptOutputs) > 0 {
+			msg += "; kept outputs: " + strings.Join(result.KeptOutputs, ", ")
+		}
+		return msg, nil
 	}
 	cleanEmptyExtrasDirQuiet(sourceDir)
 	return fmt.Sprintf("✓ Removed %q", name), nil
@@ -1024,7 +1044,7 @@ func (m extrasListTUIModel) resolveExtraWithTargets(name, targetPath string) (*c
 			return extra, []config.ExtraTargetConfig{t}, nil
 		}
 	}
-	return extra, extra.Targets, nil
+	return nil, nil, fmt.Errorf("target %q no longer belongs to extra %q; refresh the list", targetPath, name)
 }
 
 func (m extrasListTUIModel) projectRoot() string {
@@ -1035,12 +1055,18 @@ func (m extrasListTUIModel) projectRoot() string {
 }
 
 func (m extrasListTUIModel) doSync(name, targetPath string) (string, error) {
+	if err := m.refreshConfigForAction(); err != nil {
+		return "", err
+	}
 	extra, targets, err := m.resolveExtraWithTargets(name, targetPath)
 	if err != nil {
 		return "", err
 	}
 
-	sourceDir := m.sourceFunc(*extra)
+	sourceDir := m.extraSourceDir(*extra)
+	if err := checkExtrasTUISyncSource(*extra, sourceDir, m.projectRoot()); err != nil {
+		return "", err
+	}
 	projectRoot := m.projectRoot()
 	synced := 0
 	for _, t := range targets {
@@ -1074,7 +1100,26 @@ func (m extrasListTUIModel) doSync(name, targetPath string) (string, error) {
 	return fmt.Sprintf("✓ Synced %q to %d target(s)", name, synced), nil
 }
 
+func checkExtrasTUISyncSource(extra config.ExtraConfig, sourceDir, projectRoot string) error {
+	if err := sync.CheckExtraSyncInterruption(extra, sourceDir, projectRoot); err != nil {
+		return err
+	}
+	if _, err := os.Stat(sourceDir); os.IsNotExist(err) && extra.Remote != "" {
+		return fmt.Errorf("source missing; run: %s", config.ExtraRestoreCommand(extra, projectRoot != ""))
+	}
+	return nil
+}
+
 func (m extrasListTUIModel) doCollect(name, targetPath string) (string, error) {
+	unlock, lockErr := lockRemoteExtraMutation(m.mutationMode(), m.cwd, name)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
+	if err := m.refreshConfigForAction(); err != nil {
+		return "", err
+	}
+
 	extra, targets, err := m.resolveExtraWithTargets(name, targetPath)
 	if err != nil {
 		return "", err
@@ -1083,7 +1128,7 @@ func (m extrasListTUIModel) doCollect(name, targetPath string) (string, error) {
 	if extra.File != "" {
 		return "", errSingleFileCollect
 	}
-	sourceDir := m.sourceFunc(*extra)
+	sourceDir := m.extraSourceDir(*extra)
 	collected := 0
 	for _, t := range targets {
 		resolved := config.ExpandPath(t.Path)
@@ -1097,13 +1142,50 @@ func (m extrasListTUIModel) doCollect(name, targetPath string) (string, error) {
 	return fmt.Sprintf("✓ Collected %d file(s) into %q", collected, name), nil
 }
 
+func (m *extrasListTUIModel) refreshConfigForAction() error {
+	if m.projCfg != nil {
+		fresh, err := config.LoadProjectReadOnly(m.cwd)
+		if err != nil {
+			return err
+		}
+		m.projCfg = fresh
+	} else {
+		fresh, err := config.LoadReadOnly()
+		if err != nil {
+			return err
+		}
+		m.cfg = fresh
+	}
+	return nil
+}
+
+func (m extrasListTUIModel) extraSourceDir(extra config.ExtraConfig) string {
+	if m.projCfg != nil {
+		return config.ResolveExtrasSourceDirProject(extra, m.projCfg.EffectiveExtrasSource(m.cwd), m.cwd)
+	}
+	return config.ResolveExtrasSourceDir(extra, m.cfg.EffectiveExtrasSource(), m.cfg.EffectiveSkillsSource())
+}
+
 func (m extrasListTUIModel) doFlattenToggle(name string, t extrasTargetInfo) tea.Cmd {
 	targetPath := t.Path
-	newFlatten := !t.Flatten
 
 	return func() tea.Msg {
-		if err := config.ValidateExtraFlatten(newFlatten, t.Mode); err != nil {
-			return extrasActionDoneMsg{msg: "", err: err}
+		unlock, lockErr := lockRemoteExtraMutation(m.mutationMode(), m.cwd, name)
+		if lockErr != nil {
+			return extrasActionDoneMsg{err: lockErr}
+		}
+		defer unlock()
+
+		var newFlatten bool
+		toggle := func(extras []config.ExtraConfig) error {
+			if err := applyExtraTarget(extras, name, targetPath, func(current *config.ExtraTargetConfig) {
+				newFlatten = !current.Flatten
+				current.Flatten = newFlatten
+			}); err != nil {
+				return err
+			}
+			_, extra := findExtraByName(extras, name)
+			return config.ValidateExtraConfig(extra)
 		}
 
 		if m.projCfg != nil {
@@ -1111,7 +1193,7 @@ func (m extrasListTUIModel) doFlattenToggle(name string, t extrasTargetInfo) tea
 			if loadErr != nil {
 				return extrasActionDoneMsg{err: loadErr}
 			}
-			if err := applyExtraTarget(projCfg.Extras, name, targetPath, func(et *config.ExtraTargetConfig) { et.Flatten = newFlatten }); err != nil {
+			if err := toggle(projCfg.Extras); err != nil {
 				return extrasActionDoneMsg{err: err}
 			}
 			if err := projCfg.Save(m.cwd); err != nil {
@@ -1122,7 +1204,7 @@ func (m extrasListTUIModel) doFlattenToggle(name string, t extrasTargetInfo) tea
 			if loadErr != nil {
 				return extrasActionDoneMsg{err: loadErr}
 			}
-			if err := applyExtraTarget(cfg.Extras, name, targetPath, func(et *config.ExtraTargetConfig) { et.Flatten = newFlatten }); err != nil {
+			if err := toggle(cfg.Extras); err != nil {
 				return extrasActionDoneMsg{err: err}
 			}
 			if err := cfg.Save(); err != nil {

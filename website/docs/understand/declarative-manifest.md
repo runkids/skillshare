@@ -180,7 +180,16 @@ extras:
         mode: copy
 ```
 
-See [sync extras](/docs/reference/commands/sync#sync-extras) for details.
+A remote extra instead records `remote: example-org/ai-hub/rules`, optional
+`branch: main` and `targets: []`; `source` and `remote` are mutually exclusive.
+Create or restore it explicitly with `skillshare install example-org/ai-hub/rules
+--kind extra --name team-rules -p` (one shell line), add targets, then sync.
+Project pins live in the version 1 lockfile's separate `extras` map: upgrade every
+contributor before they write the lockfile. Bare install, pull and sync do not
+fetch extras; `--update` on the explicit install advances the pin. Global installs
+use same-origin metadata pins. See [remote extras](/docs/reference/commands/install#remote-extras)
+for audit coverage, interruption repair and platform limits, and
+[sync extras](/docs/reference/commands/sync#sync-extras) for distribution.
 
 ## Related
 

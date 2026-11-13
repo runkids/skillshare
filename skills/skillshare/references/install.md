@@ -131,7 +131,7 @@ or `--kind agent` to choose which resource to manage.
 |------|-------------|
 | `-p, --project` | Install to project source |
 | `--name <n>` | Override skill name |
-| `--kind <skill\|agent>` | Restrict resource discovery |
+| `--kind <skill\|agent\|extra>` | Restrict resource discovery |
 | `--agent, -a <names>` | Select agents by name (comma-separated) |
 | `--branch, -b <name>` | Select a Git branch, tag or commit SHA (overrides a ref in a web URL) |
 | `--force, -f` | Overwrite existing and explicitly override audit blocking from findings (not a failed scan) |
@@ -343,3 +343,59 @@ Without `-P`, a terminal may offer pattern selection. Available patterns: `tool-
 `generator`, `reviewer`, `inversion`, `pipeline`, `none`.
 
 **After create:** Edit SKILL.md → `skillshare sync`
+
+
+## Remote directory extras
+
+```bash
+skillshare install example-org/ai-hub/rules --kind extra --name team-rules -p
+skillshare extras team-rules --add-target .claude/rules -p
+skillshare sync extras -p
+```
+
+No `SKILL.md` is required; selection is exact and Git-only. Whole repos work,
+submodules do not. Use `extras init --source <path> --target <path>` for local
+folders. `--track`, `--into`, `--skill`, `--agent`, `--exclude`, `--all`, `--yes`
+are refused with `--kind extra`. `--branch` chooses a ref; explicit wins over URL.
+Project version 1 locks keep separate `extras` pins; global installs use matching
+metadata pins. Pins match origin and ref: omit `--branch` to keep the declared
+ref, or change it to select the new head. Upgrade every contributor before writing a lock with extras.
+An unreachable pin fails; `--update` explicitly advances it. Bare install, pull
+and sync do not restore these extras: repeat the explicit remote install command.
+Local edits require explicit `--force`; JSON is not consent. Force may accept
+findings, never scanner/rules errors. `--skip-audit` is explicit and reported.
+Audit retains depth 6, 1,000,000-byte and extension limits (`.mdc`/`.cursorrules`
+skipped); a pass does not guarantee safety. Unix executable bits are preserved,
+without that guarantee on Windows. Unsafe links and special files are refused.
+Never embed credentials in a source URL. Dry run makes no writes.
+
+Hidden-parent files, such as `.cursor/rules/policy.md`, receive header checks but
+skip ordinary text and integrity analysis. `.git` and `.skillshare` directories
+are excluded. Successful installs report a coverage warning when the scanner
+skips files; this does not widen the scanner's coverage.
+
+A matching recorded pin can restore content after its branch is deleted, provided
+Git can still fetch that exact commit. For a URL whose ref contains `/`, recovery
+after that ref is deleted needs a recorded directory selection or a unique matching
+pinned Git tree. Missing or ambiguous selection evidence is refused, keeping
+existing installed files and records. A new declaration, explicit ref change or
+`--update` still requires resolving the requested ref.
+
+Lock acquisition may create the empty administrative extras root and its permanent
+`.skillshare-extras.lock` before fetching or auditing. A rejected audit leaves no
+new managed entry, config, pin, metadata or managed-extra ignore rule. Existing
+failure logging may initialize its `logs/` ignore rule. The administrative lock
+is not fetched content and remains after removal; do not delete or replace it.
+
+If interruption left no live directory, unchanged previous content is restored
+locally before fetching the journaled audited commit for repair and then applying
+the requested install. Undeclared publication artifacts appear by name in check,
+status and doctor; repeat the original command with the same `--name`. Later
+content edits block unless forced, failed repair keeps
+the marker. Preserve staging paths. See `extras.md` for removal and concurrency.
+
+Publication failures before final cleanup roll back subject to the concurrency
+limits in `extras.md`. If deleting the previous directory fails, coherent new
+records/content and the marker remain for forward repair. Partially deleted
+previous content requires explicit `--force` to discard; preserve remaining
+files if needed.

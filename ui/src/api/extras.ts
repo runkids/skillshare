@@ -1,5 +1,5 @@
 import { apiFetch } from './http';
-import type { ExtensionInfo, Extra, ExtraDiffResult, ExtraEditResult, ExtraFilterEntry, ExtrasSyncResult } from './types/extras';
+import type { ExtensionInfo, Extra, ExtraDiffResult, ExtraEditResult, ExtraFilterEntry, ExtraRemoveResult, ExtrasSyncResult } from './types/extras';
 
 export const extrasApi = {
   listExtras: () => apiFetch<{ extras: Extra[] }>('/extras'),
@@ -22,7 +22,7 @@ export const extrasApi = {
       body: JSON.stringify(opts ?? {}),
     }),
   deleteExtra: (name: string) =>
-    apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+    apiFetch<ExtraRemoveResult>(`/extras/${encodeURIComponent(name)}`, { method: 'DELETE' }),
   listExtraExtensions: () => apiFetch<{ extensions: string[] }>('/extras/extensions'),
   // Extensions management (Config page)
   listExtensions: () => apiFetch<{ extensions: ExtensionInfo[] }>('/extensions'),

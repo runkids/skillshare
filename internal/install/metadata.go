@@ -59,7 +59,7 @@ type MetadataEntry struct {
 	Version     string            `json:"version,omitempty"`
 	TreeHash    string            `json:"tree_hash,omitempty"`
 	Commit      string            `json:"commit,omitempty"` // full SHA; the lockfile records it
-	FileHashes  map[string]string `json:"file_hashes,omitempty"`
+	FileHashes  map[string]string `json:"file_hashes,omitzero"`
 	Layout      string            `json:"layout,omitempty"` // local installs: LayoutSkillFile or LayoutDirectory
 }
 
@@ -479,7 +479,7 @@ func loadMetadataFile(dir string) (*MetadataStore, error) {
 // from the current ones (#743).
 func (s *MetadataStore) dropOSMetadataHashes() {
 	for _, e := range s.Entries {
-		if e != nil {
+		if e != nil && e.Kind != "extra" {
 			maps.DeleteFunc(e.FileHashes, func(file, _ string) bool { return utils.IsOSMetadataFile(filepath.Base(file)) })
 		}
 	}

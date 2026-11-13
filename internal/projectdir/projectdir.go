@@ -33,6 +33,19 @@ const (
 // names lists recognized project directory names in resolution order.
 var names = []string{Default, Visible}
 
+// GitignoreTarget identifies the project file and prefix for a source directory.
+func GitignoreTarget(projectRoot, sourcePath string) (string, string) {
+	for _, root := range []string{Resolve(projectRoot), projectRoot} {
+		if rel, err := filepath.Rel(root, sourcePath); err == nil && !strings.HasPrefix(rel, "..") {
+			if rel == "." {
+				return root, ""
+			}
+			return root, filepath.ToSlash(rel)
+		}
+	}
+	return "", ""
+}
+
 // Names returns the recognized project directory names in resolution order.
 func Names() []string {
 	return append([]string(nil), names...)

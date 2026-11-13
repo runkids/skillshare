@@ -28,7 +28,7 @@ import TargetFileDialog from './TargetFileDialog';
 import { BoxHeader, InstructionsPreview } from './ViewTabs';
 import type { ConnectStep, ModeOption, RestoreStep, RowHint } from './instructionsView';
 import {
-  instructionsErrorMessage, instructionsWarningMessage, blockMode, connectExtras, connectPlan, connectedTo, modeOptions, needsSync, pickedMode, restorePlan, rowHint, saveCopiesSummary, staleLocations, statusTone, usesOf,
+  instructionsErrorMessage, instructionsWarningMessage, blockMode, connectExtras, connectPlan, connectedTo, modeOptions, needsSync, pickedMode, restorePlan, rowHint, saveCopiesSummary, sharedSyncFeedback, staleLocations, statusTone, usesOf,
 } from './instructionsView';
 import { invalidate } from '../../lib/queryEvents';
 import { bulkGhost } from '../../lib/exitGhost';
@@ -317,9 +317,8 @@ function FilePanel({ file, targets, fileLinks, onDeleted }: {
 
   const sync = () => act(async () => {
     const res = await api.syncExtras({ name });
-    const failed = res.extras.flatMap((e) => e.targets).find((r) => r.error);
-    if (failed) throw new Error(failed.error);
-    toast(t('instructions.shared.synced', { name, targets: list([...stale.map((tg) => tg.name), ...staleLoc.map((l) => shortenHome(l.file))]) }), 'success');
+    const message = t('instructions.shared.synced', { name, targets: list([...stale.map((tg) => tg.name), ...staleLoc.map((l) => shortenHome(l.file))]) });
+    toast(...sharedSyncFeedback(res.extras, message, t));
   });
 
   const remove = () => ask({

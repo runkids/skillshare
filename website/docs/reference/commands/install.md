@@ -4,7 +4,7 @@ sidebar_position: 3
 
 # install
 
-Add skills from GitHub repos, git URLs, or local paths.
+Add skills from GitHub repos, git URLs, or local paths, or install a remote directory as an extra.
 
 Tracked repositories report `Found N skills, M variants` when agent-specific copies
 represent fewer logical skills. All physical variants remain installed in the source;
@@ -297,7 +297,7 @@ See [Project Setup](/docs/how-to/sharing/project-setup) for the full guide.
 | `--update` | `-u` | Update if exists (git pull or reinstall) |
 | `--branch <ref>` | `-b` | Git branch, tag, or commit SHA to install from (default: remote default branch) |
 | `--track` | `-t` | Keep `.git` for tracked repos. Cannot combine with `--all`, `--yes`, `--skill`, or `--agent`. |
-| `--kind <skill\|agent>` | | Limit install to one resource kind |
+| `--kind <skill\|agent\|extra>` | | Limit discovery to skills or agents, or install one remote extra |
 | `--agent <names>` | `-a` | Select specific agents from a repo (comma-separated) |
 | `--skill` | `-s` | Select specific skills from multi-skill repo (comma-separated; supports glob patterns like `core-*`). Rejects `--all` and `--yes`. |
 | `--exclude` | | Skip specific skills during install (comma-separated; supports glob patterns like `test-*`) |
@@ -445,7 +445,7 @@ skillshare install google-gemini/gemini-cli/.../skill-creator --name my-creator
 # Installed as: ~/.config/skillshare/skills/my-creator/
 ```
 
-`--name` only works when install resolves to a single skill.
+For skill installs, `--name` only works when install resolves to a single skill. Remote extras use it as the managed directory name.
 In `--track` mode, custom names are stored as tracked repo directories (auto-prefixed with `_`) and must not contain path separators or `..`.
 `--track` accepts a local path when that path is the root of a git repository (it is cloned like `file:///path`); for any other local folder, install it without `--track`. With `--track --force`, the existing tracked repo is replaced only after the new clone succeeds, so a failed reinstall keeps the old one; a local source (path or `file://` URL) that is, or lies inside, that tracked repo is refused.
 
@@ -852,6 +852,99 @@ Always sync to distribute to targets:
 skillshare install anthropics/skills/skills/pdf
 skillshare sync  # ← Don't forget!
 ```
+
+
+## Install an extra from a remote source {#remote-extras}
+
+Install an exact repository directory without requiring `SKILL.md`:
+
+```bash
+skillshare install example-org/ai-hub/rules --kind extra --name team-rules -p
+skillshare extras team-rules --add-target .claude/rules -p
+skillshare sync extras -p
+```
+
+Use `-g` instead for a global extra. The repository is fetched through Git only;
+there is no hosting API fallback or fuzzy subdirectory match. A whole repository
+is supported; `.git` is excluded and submodule paths are refused. For a local
+folder, use `skillshare extras init team-rules --source <path> --target <target>`.
+`--kind extra` refuses `--track`, `--into`, `--skill`, `--agent`, `--exclude`,
+`--all` and `--yes`. `--name` replaces the proposed `--as` spelling.
+
+The installed copy lives at `<extras root>/team-rules/`. Config records `remote`
+and optional `branch`, with `targets: []` until you add a target. `--branch <ref>`
+selects a branch, tag or commit; an explicit flag wins over a source URL's ref.
+Project installs record a full 40-character commit in the **version 1** lockfile's
+`extras` map. Pins match origin and followed ref. Omitting `--branch` keeps the declared ref;
+changing it selects the new ref's head. Global reinstalls use matching metadata. `--update`
+fetches the selected branch head and moves the pin. An unreachable pin is an
+error; it never silently falls back to a branch. Mismatched-origin metadata is
+never a pin; an existing directory with that mismatch must be removed first.
+
+Commit project config and `skills.lock.json`; every contributor must upgrade to
+a binary that preserves the lockfile's `extras` map before writing that file.
+Fetched directories, staging and metadata are ignored when inside the project.
+A teammate restores a missing copy with the **explicit command**:
+
+```bash
+skillshare install example-org/ai-hub/rules --kind extra --name team-rules -p
+# Intentionally advance the pin later:
+skillshare install example-org/ai-hub/rules --kind extra --name team-rules --update -p
+```
+
+Bare `skillshare install` retains its existing scope and does not restore remote
+extras. `sync extras` distributes the local copy without fetching. If it is
+missing, sync prints the explicit restore command. Local content edits block
+reinstallation unless `--force` is explicit; `--json` never grants that permission.
+Mode-only changes do not count as content edits. A local-extra name or a different
+origin must be removed and reinstalled, even with `--force`.
+
+The candidate is staged and audited before publication. Findings at the active
+threshold block it; `--force` may accept findings but cannot bypass scanner or
+rules errors. `--skip-audit` explicitly skips the scan and is reported. The
+existing scanner examines at most depth 6 and files up to 1,000,000 bytes, using
+its extension filter: `.mdc` and `.cursorrules` are skipped. A passed audit is not
+a safety guarantee. Contained file links are materialized; escaping, absolute,
+dangling and directory links, plus special files, are refused. Unix executable
+bits are preserved; Windows does not provide this executable-bit guarantee.
+Use Git credentials or SSH, never credentials in the source URL.
+
+Hidden-parent files, such as `.cursor/rules/policy.md`, receive header checks but
+skip ordinary text and integrity analysis. `.git` and `.skillshare` directories
+are excluded. Successful installs report a coverage warning when the scanner
+skips files; this does not widen the scanner's coverage.
+
+A matching recorded pin can restore content after its branch is deleted, provided
+Git can still fetch that exact commit. For a URL whose ref contains `/`, recovery
+after that ref is deleted needs a recorded directory selection or a unique matching
+pinned Git tree. Missing or ambiguous selection evidence is refused, keeping
+existing installed files and records. A new declaration, explicit ref change or
+`--update` still requires resolving the requested ref.
+
+Lock acquisition may create the empty administrative extras root and its permanent
+`.skillshare-extras.lock` before fetching or auditing. A rejected audit leaves no
+new managed entry, config, pin, metadata or managed-extra ignore rule. Existing
+failure logging may initialize its `logs/` ignore rule. The administrative lock
+is not fetched content and remains after removal; do not delete or replace it.
+
+Publication uses a journal under `.skillshare-staging/`. Configured entries show
+interruptions in list, status, doctor and `check extras`. Before the declaration
+is saved, `check extras`, status and doctor report direct publication artifacts
+by name, without trusting an origin from the marker; rerun the original install
+with the same `--name` to repair. If the live directory is missing and the previous
+copy is unchanged, the next install restores that known content locally before
+fetching and auditing the **journaled commit**. It then checks live/previous hashes,
+repairs its records and only then processes the requested source/ref. Later content
+edits block repair without explicit `--force`; an unavailable or unsafe candidate
+leaves the marker in place. Preserve staging paths when repair fails.
+`--dry-run` makes no writes, including migration, config, lock, metadata and oplog.
+See [remote-extra lifecycle and concurrency](extras.md#remote-extras).
+
+Before final cleanup, an in-process publication failure rolls back its own changes,
+subject to the concurrency limits below. If deleting the previous directory fails,
+the new copy and records stay coherent and the journal remains for forward repair.
+A partially deleted previous copy requires explicit `--force` to discard during
+repair; preserve it if you need to recover any remaining files.
 
 ## See Also
 

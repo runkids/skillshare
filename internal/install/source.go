@@ -59,7 +59,7 @@ func checkSubdirSafety(s string) error {
 			return fmt.Errorf("contains backslash at byte %d", i)
 		}
 	}
-	if filepath.IsAbs(s) {
+	if filepath.IsAbs(s) || strings.HasPrefix(s, "/") {
 		return fmt.Errorf("is absolute path")
 	}
 	for _, seg := range strings.Split(s, "/") {
@@ -276,6 +276,13 @@ func ParseSourceWithOptions(input string, opts ParseOptions) (*Source, error) {
 
 	// Try Git HTTPS pattern (non-GitHub)
 	if matches := gitHTTPSPattern.FindStringSubmatch(input); matches != nil {
+		remoteURL, err := url.Parse(input)
+		if err != nil {
+			return nil, fmt.Errorf("invalid Git HTTPS source")
+		}
+		if strings.EqualFold(remoteURL.Hostname(), "github.com") && !strings.Contains(strings.Trim(matches[3], "/"), "/") {
+			return nil, fmt.Errorf("GitHub source requires an owner and repository")
+		}
 		return parseGitHTTPS(matches, source, opts)
 	}
 

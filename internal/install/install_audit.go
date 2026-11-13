@@ -257,14 +257,15 @@ const (
 // AuditGate is the fail-closed audit of a git checkout that has just been
 // pulled. A candidate is discarded on block; a live checkout is reset.
 type AuditGate struct {
-	SourceDir   string // root the accepted findings are stored under
-	RepoPath    string
-	AcceptPath  string // path the accepted findings are keyed on; RepoPath when empty
-	BeforeHash  string // pre-pull commit; without it nothing is let through
-	Candidate   bool   // isolated checkout: rejection must not reset the live repo
-	Threshold   string
-	ProjectRoot string // non-empty scans with the project's audit rules
-	Follow      *sourcewalk.Follow
+	SourceDir        string // root the accepted findings are stored under
+	RepoPath         string
+	AcceptPath       string // path the accepted findings are keyed on; RepoPath when empty
+	BeforeHash       string // pre-pull commit; without it nothing is let through
+	Candidate        bool   // isolated checkout: rejection must not reset the live repo
+	ReadOnlyMetadata bool   // prepare without migrating or snapshotting source metadata
+	Threshold        string
+	ProjectRoot      string // non-empty scans with the project's audit rules
+	Follow           *sourcewalk.Follow
 	// Override lets findings at/above the threshold through (--force). A scan
 	// that could not run stays blocked: "I accept these findings" is not the
 	// same as "I could not be told any".
@@ -277,6 +278,7 @@ type AuditGate struct {
 // AuditGateResult is what the scan found. It is also returned next to an
 // *AuditGateError when findings blocked.
 type AuditGateResult struct {
+	Skipped         bool // audit was explicitly bypassed
 	Audit           *audit.Result
 	Threshold       string // normalized
 	AcceptedSkipped int    // findings an earlier override accepted
@@ -343,7 +345,7 @@ func (g AuditGate) Run() (*AuditGateResult, error) {
 		acceptPath = g.RepoPath
 	}
 	if g.Candidate {
-		if err := prepareCandidateAudit(g.SourceDir, acceptPath, g.RepoPath); err != nil {
+		if err := prepareCandidateAudit(g.SourceDir, acceptPath, g.RepoPath, g.ReadOnlyMetadata); err != nil {
 			return nil, g.block(&AuditGateError{ScanErr: err, Threshold: threshold})
 		}
 	}

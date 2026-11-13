@@ -80,6 +80,12 @@ func cmdExtrasMode(args []string) error {
 		}
 	}
 
+	unlock, lockErr := lockRemoteExtraMutation(mode, cwd, name)
+	if lockErr != nil {
+		return lockErr
+	}
+	defer unlock()
+
 	// Load config to resolve target when --target is omitted
 	var extras []config.ExtraConfig
 	var configPath string

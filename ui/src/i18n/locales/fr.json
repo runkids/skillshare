@@ -3622,5 +3622,19 @@
   "plugins.error.importRecipeIdentityRequired": "Cette recette distante ne définit pas l’identité du plugin. Avant l’import, définissez plugin: avec le nom du paquet natif dans la déclaration partagée ; l’import ne télécharge pas le code source.",
   "plugins.error.unimportTargetRequired": "unimport nécessite --target pour sélectionner un enregistrement d’import local",
   "plugins.error.unimportTargetMissing": "{name} n’a aucune liaison pour la cible {target}",
-  "plugins.error.unimportReceiptRequired": "{name}/{target} n’a aucun import local associé à une recette de source partagée"
+  "plugins.error.unimportReceiptRequired": "{name}/{target} n’a aucun import local associé à une recette de source partagée",
+  "extras.remote.origin": "Distant",
+  "extras.remote.identityLocked": "Les extras distants ne peuvent pas être renommés ou déplacés ici. Supprimez l’entrée, puis réinstallez-la avec le nom et la source souhaités. Modifiez les cibles et les modes depuis le menu de chaque cible.",
+  "extras.remote.removeConfirm": "Supprimer l’extra {name} ? Son dossier géré non modifié est supprimé ; un dossier modifié est conservé. Les liens lui appartenant sont nettoyés. Les sorties copiées, transformées ou tierces sont conservées.",
+  "extras.remote.deleted": "Dossier géré supprimé : {path}",
+  "extras.remote.retained": "Dossier modifié ou non vérifié conservé : {path}",
+  "extras.remote.keptOutputs": "Sorties copiées, transformées ou tierces conservées :\n{paths}",
+  "extras.remote.localOnly": "Intégrité locale uniquement ; révision distante non vérifiée.",
+  "extras.remote.restore": "Restaurer ou réparer avec : {command}",
+  "extras.remote.state.intact": "Intact",
+  "extras.remote.state.modified": "Modifié",
+  "extras.remote.state.interrupted": "Interrompu",
+  "extras.remote.state.missing": "Absent",
+  "extras.remote.state.error": "Erreur",
+  "extras.remote.alreadyMissing": "La source téléchargée était déjà absente : {path}"
 }

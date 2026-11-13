@@ -3622,5 +3622,19 @@
   "plugins.error.importRecipeIdentityRequired": "This remote recipe has no plugin identity. Set plugin: to the native package name in the shared declaration before importing; import does not download source.",
   "plugins.error.unimportTargetRequired": "unimport requires --target to select a local import receipt",
   "plugins.error.unimportTargetMissing": "{name} has no binding for target {target}",
-  "plugins.error.unimportReceiptRequired": "{name}/{target} has no local import backed by a shared source recipe"
+  "plugins.error.unimportReceiptRequired": "{name}/{target} has no local import backed by a shared source recipe",
+  "extras.remote.origin": "Remote",
+  "extras.remote.identityLocked": "Remote extras cannot be renamed or moved here. Remove the entry, then reinstall it with the desired name and source. Edit targets and modes from each target’s menu.",
+  "extras.remote.removeConfirm": "Remove extra {name}? Its unedited managed directory is deleted; an edited directory is kept. Owned links are cleaned up. Copied, transformed or unowned outputs are kept.",
+  "extras.remote.deleted": "Deleted managed directory: {path}",
+  "extras.remote.retained": "Kept edited or unverified directory: {path}",
+  "extras.remote.keptOutputs": "Kept copied, transformed or unowned outputs:\n{paths}",
+  "extras.remote.localOnly": "Local integrity only; remote revision not checked.",
+  "extras.remote.restore": "Restore or repair with: {command}",
+  "extras.remote.state.intact": "Intact",
+  "extras.remote.state.modified": "Modified",
+  "extras.remote.state.interrupted": "Interrupted",
+  "extras.remote.state.missing": "Missing",
+  "extras.remote.state.error": "Error",
+  "extras.remote.alreadyMissing": "Fetched source was already missing: {path}"
 }

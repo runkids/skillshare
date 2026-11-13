@@ -186,3 +186,14 @@ extras:
 - [Install command](/docs/reference/commands/install) —— 带参数和不带参数的 `skillshare install`
 - [Push/Pull](/docs/reference/commands/push) —— 通过 git 备份和恢复配置
 - [Project Skills](./project-skills.md) —— 项目级别的 manifest
+
+
+### 恢复远程 extra
+
+可声明 `remote: example-org/ai-hub/rules`、可选 `branch: main` 和 `targets: []`。
+`remote` 与 `source` 互斥。显式运行 `skillshare install example-org/ai-hub/rules --kind extra
+--name team-rules -p`（一行），添加 target 后 sync。Project version 1 lockfile 的 `extras`
+map 需要每位贡献者升级到能够保留它的二进制。无参数 install、pull、sync 不获取 extras。
+显式 install 的 `--update` 前移 pin；Global 使用相同 origin 的 metadata pin。参阅
+[审计覆盖、中断修复和平台限制](/docs/reference/commands/install#remote-extras) 与
+[sync extras](/docs/reference/commands/sync#sync-extras)。

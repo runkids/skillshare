@@ -53,6 +53,11 @@ func (s *Server) handlePutSharedInstructionsMode(w http.ResponseWriter, r *http.
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock := s.lockInstructionWrite(w, s.targetInstructionMutation([]string{target}, name))
+	if unlock == nil {
+		return
+	}
+	defer unlock()
 	it, found, ok := s.targetInstructions(target)
 	if !found {
 		writeCodedError(w, http.StatusNotFound, "instructions_target_not_found", "target not found: "+target, map[string]string{"target": target})

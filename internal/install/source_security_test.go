@@ -153,6 +153,34 @@ func TestSecurity_ParseSource_SEC003_RejectsUnsafeSubdirAcrossParserBranches(t *
 		input string
 	}{
 		{
+			name:  "https rooted subdir",
+			input: "https://git.example.com/owner/repo.git//outside",
+		},
+		{
+			name:  "https encoded rooted subdir",
+			input: "https://git.example.com/owner/repo.git/%2Foutside",
+		},
+		{
+			name:  "github encoded rooted subdir",
+			input: "github.com/owner/repo/%2Foutside",
+		},
+		{
+			name:  "git ssh rooted subdir",
+			input: "git@example.com:owner/repo.git///outside",
+		},
+		{
+			name:  "ssh url rooted subdir",
+			input: "ssh://git@example.com/owner/repo.git///outside",
+		},
+		{
+			name:  "file url rooted subdir",
+			input: "file:///tmp/repo///outside",
+		},
+		{
+			name:  "azure ssh rooted subdir",
+			input: "git@ssh.dev.azure.com:v3/org/project/repo///outside",
+		},
+		{
 			name:  "git ssh scp-style",
 			input: "git@example.com:owner/repo.git//../etc/passwd",
 		},

@@ -721,9 +721,11 @@ extras:
 | Field | Required | Description |
 |-------|----------|-------------|
 | `name` | Yes | Extra 식별자 |
-| `source` | No | 이 extra를 위한 Custom source 디렉터리 (`extras_source`와 기본값을 재정의) |
+| `source` | 아니요 | Local source 재정의. `remote`와 함께 사용 불가 |
+| `remote` | 아니요 | `install --kind extra`로 가져오는 Git source; 파일 경로로 확장하지 않음 |
+| `branch` | 아니요 | 선택적 Git ref. `remote` 필요 |
 | `file` | No | source 디렉터리에서 이 파일만 동기화: `system.md`나 `AGENTS.md` 같은 단순한 파일 이름. [single-file extras](../commands/extras.md#single-file-extras) 참고 |
-| `targets` | Yes | Target 경로 목록 |
+| `targets` | 예 | 대상 경로 목록. 원격 extra는 비어 있어도 됨 |
 | `targets[].path` | Yes | 대상 디렉터리 |
 | `targets[].mode` | No | `merge` (기본값), `copy`, 또는 `symlink`. `import`는 single-file extra 전용 |
 | `targets[].as` | No | single-file extra에서 target 쪽 파일 이름 (기본값: `file` 이름) |
@@ -1244,3 +1246,26 @@ targets:
 - [Source & Targets](/docs/understand/source-and-targets) — 핵심 개념
 - [Sync Modes](/docs/understand/sync-modes) — Merge vs copy vs symlink
 - [Environment Variables](/docs/reference/appendix/environment-variables) — 모든 변수
+
+
+### 원격 extra 선언 {#remote-extras}
+
+Global과 Project `extras:` 모두 지원합니다.
+
+```yaml
+extras:
+  - name: team-rules
+    remote: example-org/ai-hub/rules
+    branch: main
+    targets: []
+```
+
+생성·복원은 `install <remote> --kind extra --name team-rules -p|-g`로 합니다. `source`와
+`remote`는 함께 사용할 수 없고 `branch`는 `remote`가 필요합니다. `remote`의 `~`는 확장하지
+않습니다. 잘못되거나 자격 증명이 포함된 URL은 값을 노출하지 않고 거부합니다. Local은
+`extras init --source`를 사용합니다. target/mode/filter 변경은 origin을 보존하며 이름·source·
+제거는 수명 주기 명령으로 처리합니다. Project lock은 version 1을 유지하고 별도 `extras`
+map을 추가하므로 쓰기 전 모든 기여자의 바이너리를 업그레이드하세요. 선언만 하거나 인자 없는
+install, pull, sync로는 가져오지 않습니다. [install](../commands/install.md#remote-extras)과
+[extras](../commands/extras.md#remote-extras)의 제한을 참고하세요. 문법이 깨진 raw YAML은
+그대로 제공하며 복구 PUT은 오래된 마지막 로드 baseline을 사용할 수 있습니다.

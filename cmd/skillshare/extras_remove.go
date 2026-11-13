@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/extraops"
 	"skillshare/internal/oplog"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
@@ -54,67 +55,124 @@ func cmdExtrasRemove(args []string) error {
 	return extrasRemoveGlobal(name, force, start)
 }
 
-func removeExtraFromGlobalConfig(cfg *config.Config, name string) (string, error) {
-	idx := -1
-	var removed config.ExtraConfig
-	for i, e := range cfg.Extras {
-		if e.Name == name {
-			idx = i
-			removed = e
-			break
-		}
-	}
-	if idx == -1 {
-		return "", fmt.Errorf("extra %q not found in config", name)
-	}
-
-	sourceDir := config.ResolveExtrasSourceDir(removed, cfg.EffectiveExtrasSource(), cfg.EffectiveSkillsSource())
-
-	restored, restoreErr := restoreExtraFileTargets(removed, sourceDir, modeGlobal, "")
-	if restoreErr == nil {
-		cfg.Extras = append(cfg.Extras[:idx], cfg.Extras[idx+1:]...)
-		if err := cfg.Save(); err != nil {
-			return "", fmt.Errorf("failed to save config: %w", err)
-		}
-	}
-
-	e := oplog.NewEntry("extras-remove", statusFromErr(restoreErr), 0)
-	e.Args = map[string]any{"name": name, "scope": "global", "restored": restored}
-	if restoreErr != nil {
-		e.Message = restoreErr.Error()
-	}
-	oplog.WriteWithLimit(config.ConfigPath(), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
-
-	return sourceDir, restoreErr
+func removeExtraFromGlobalConfig(cfg *config.Config, name string) (string, extraops.RemoveResult, error) {
+	_, extra := findExtraByName(cfg.Extras, name)
+	source := config.ResolveExtrasSourceDir(extra, cfg.EffectiveExtrasSource(), cfg.EffectiveSkillsSource())
+	baseline := cloneExtraConfig(&extra)
+	result, err := extraops.Remove(extraops.RemoveRequest{Extras: cfg.Extras, Name: name, SourceDir: source, ExtrasRoot: cfg.EffectiveExtrasSource(), TargetPath: func(p string) string { return canonicalExtraTargetPath(modeGlobal, "", p) },
+		Load: func() ([]config.ExtraConfig, error) {
+			fresh, err := config.LoadReadOnly()
+			if err != nil {
+				return nil, err
+			}
+			_, e := findExtraByName(fresh.Extras, name)
+			baseline = cloneExtraConfig(&e)
+			return fresh.Extras, nil
+		},
+		Save: func(remaining []config.ExtraConfig) error {
+			if extra.Remote == "" {
+				cfg.Extras = remaining
+				return cfg.Save()
+			}
+			fresh, err := config.LoadReadOnly()
+			if err != nil {
+				return err
+			}
+			fresh.Extras, err = extraops.WithoutUnchangedExtra(fresh.Extras, *baseline)
+			if err != nil {
+				return err
+			}
+			candidate, err := config.PrepareSave(config.ReadOnlyConfigPath(), fresh)
+			if err != nil {
+				return err
+			}
+			return candidate.Write()
+		}})
+	logExtraRemoval(config.ReadOnlyConfigPath(), name, "global", result, err)
+	return source, result, err
 }
 
-func removeExtraFromProjectConfig(projCfg *config.ProjectConfig, cwd, name string) (string, error) {
-	idx, removed := findExtraByName(projCfg.Extras, name)
-	if idx == -1 {
-		return "", fmt.Errorf("extra %q not found in project config", name)
-	}
+func removeExtraFromProjectConfig(cfg *config.ProjectConfig, cwd, name string) (string, extraops.RemoveResult, error) {
+	_, extra := findExtraByName(cfg.Extras, name)
+	source := config.ResolveExtrasSourceDirProject(extra, cfg.EffectiveExtrasSource(cwd), cwd)
+	baseline := cloneExtraConfig(&extra)
+	result, err := extraops.Remove(extraops.RemoveRequest{Extras: cfg.Extras, Name: name, SourceDir: source, ExtrasRoot: cfg.EffectiveExtrasSource(cwd), ProjectRoot: cwd, TargetPath: func(p string) string { return canonicalExtraTargetPath(modeProject, cwd, p) },
+		Load: func() ([]config.ExtraConfig, error) {
+			fresh, err := config.LoadProjectReadOnly(cwd)
+			if err != nil {
+				return nil, err
+			}
+			_, e := findExtraByName(fresh.Extras, name)
+			baseline = cloneExtraConfig(&e)
+			return fresh.Extras, nil
+		},
+		Save: func(remaining []config.ExtraConfig) error {
+			if extra.Remote == "" {
+				cfg.Extras = remaining
+				return cfg.Save(cwd)
+			}
+			fresh, err := config.LoadProjectReadOnly(cwd)
+			if err != nil {
+				return err
+			}
+			fresh.Extras, err = extraops.WithoutUnchangedExtra(fresh.Extras, *baseline)
+			if err != nil {
+				return err
+			}
+			return fresh.Save(cwd)
+		}})
+	logExtraRemoval(config.ProjectConfigPath(cwd), name, "project", result, err)
+	return source, result, err
+}
 
-	sourceDir := config.ResolveExtrasSourceDirProject(removed, projCfg.EffectiveExtrasSource(cwd), cwd)
-	restored, restoreErr := restoreExtraFileTargets(removed, sourceDir, modeProject, cwd)
-	if restoreErr == nil {
-		projCfg.Extras = append(projCfg.Extras[:idx], projCfg.Extras[idx+1:]...)
-		if err := projCfg.Save(cwd); err != nil {
-			return "", fmt.Errorf("failed to save project config: %w", err)
-		}
+func logExtraRemoval(configPath, name, scope string, result extraops.RemoveResult, err error) {
+	entry := oplog.NewEntry("extras-remove", statusFromErr(err), 0)
+	entry.Args = map[string]any{"name": name, "scope": scope, "restored": result.Restored, "deleted_dir": result.DeletedDir, "missing_dir": result.MissingDir, "kept_edited_dir": result.KeptEditedDir, "kept_outputs": result.KeptOutputs}
+	if result.Remote != "" {
+		entry.Args["remote"] = result.Remote
+		entry.Args["commit"] = result.Commit
 	}
-
-	cfgPath := config.ProjectConfigPath(cwd)
-	e := oplog.NewEntry("extras-remove", statusFromErr(restoreErr), 0)
-	e.Args = map[string]any{"name": name, "scope": "project", "restored": restored}
-	if restoreErr != nil {
-		e.Message = restoreErr.Error()
+	if err != nil {
+		entry.Message = err.Error()
 	}
-	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
+	oplog.WriteWithLimit(configPath, oplog.OpsFile, entry, logMaxEntries()) //nolint:errcheck
+}
 
-	return sourceDir, restoreErr
+func extraRemovalMessage(result extraops.RemoveResult, source string) string {
+	if result.Remote == "" {
+		return ""
+	}
+	commit := result.Commit
+	if len(commit) > 7 {
+		commit = commit[:7]
+	}
+	if result.MissingDir {
+		return "Fetched source was already missing: " + shortenPath(source)
+	}
+	if result.DeletedDir {
+		return fmt.Sprintf("Deleted fetched copy from %s at %s", result.Remote, commit)
+	}
+	return "Kept edited or unknown source in " + shortenPath(source)
+}
+
+func reportExtraRemoval(result extraops.RemoveResult, source string) {
+	if result.Remote == "" {
+		cleanEmptyExtrasDir(source)
+		return
+	}
+	ui.Note(extraRemovalMessage(result, source))
+	for _, warning := range result.Warnings {
+		ui.Warning("%s", warning)
+	}
+	for _, output := range result.KeptOutputs {
+		ui.Note("Kept output " + shortenPath(output))
+	}
 }
 
 func extraRemoveTargetNote(extra config.ExtraConfig) string {
+	if extra.Remote != "" {
+		return "An unedited fetched copy is deleted; an edited copy stays. Owned links are cleaned; copied or transformed outputs stay."
+	}
 	if extra.File != "" {
 		return "Target files will be restored to how they were before skillshare replaced them."
 	}
@@ -145,7 +203,9 @@ func extrasRemoveGlobal(name string, force bool, start time.Time) error {
 
 	if !force {
 		ui.Warning("This removes %q from the config", name)
-		ui.Note(fmt.Sprintf("Source files in %s stay", shortenPath(sourceDir)))
+		if found.Remote == "" {
+			ui.Note(fmt.Sprintf("Source files in %s stay", shortenPath(sourceDir)))
+		}
 		ui.Note(extraRemoveTargetNote(found))
 		fmt.Println()
 		ok, err := ui.ConfirmAction("Remove?", false)
@@ -158,14 +218,14 @@ func extrasRemoveGlobal(name string, force bool, start time.Time) error {
 		}
 	}
 
-	sourceDir, err = removeExtraFromGlobalConfig(cfg, name)
+	sourceDir, result, err := removeExtraFromGlobalConfig(cfg, name)
 	if err != nil {
 		return err
 	}
 
 	ui.Done(ui.MarkOK, fmt.Sprintf("Removed %q from the extras config", name), 0)
-	cleanEmptyExtrasDir(sourceDir)
-	if found.File == "" {
+	reportExtraRemoval(result, sourceDir)
+	if found.File == "" && found.Remote == "" {
 		ui.Next("skillshare sync extras", "clean up orphaned links")
 	}
 	_ = start
@@ -182,7 +242,9 @@ func extrasRemoveProject(cwd, name string, force bool, start time.Time) error {
 	if !force {
 		sourceDir := config.ResolveExtrasSourceDirProject(found, projCfg.EffectiveExtrasSource(cwd), cwd)
 		ui.Warning("This removes %q from the project config", name)
-		ui.Note(fmt.Sprintf("Source files in %s stay", shortenPath(sourceDir)))
+		if found.Remote == "" {
+			ui.Note(fmt.Sprintf("Source files in %s stay", shortenPath(sourceDir)))
+		}
 		ui.Note(extraRemoveTargetNote(found))
 		fmt.Println()
 		ok, err := ui.ConfirmAction("Remove?", false)
@@ -195,14 +257,14 @@ func extrasRemoveProject(cwd, name string, force bool, start time.Time) error {
 		}
 	}
 
-	sourceDir, err := removeExtraFromProjectConfig(projCfg, cwd, name)
+	sourceDir, result, err := removeExtraFromProjectConfig(projCfg, cwd, name)
 	if err != nil {
 		return err
 	}
 
 	ui.Done(ui.MarkOK, fmt.Sprintf("Removed %q from the project extras config", name), 0)
-	cleanEmptyExtrasDir(sourceDir)
-	if found.File == "" {
+	reportExtraRemoval(result, sourceDir)
+	if found.File == "" && found.Remote == "" {
 		ui.Next("skillshare sync extras -p", "clean up orphaned links")
 	}
 	_ = start
@@ -251,7 +313,7 @@ func findExtraByName(extras []config.ExtraConfig, name string) (int, config.Extr
 }
 
 func printExtrasRemoveHelp() {
-	printHelp("skillshare extras remove <name> [options]", "Remove an extra resource type from config.\n\nSource files are NOT deleted. Single-file targets are restored to their\npre-attach state. Directory extras leave target files in place; run\n'skillshare sync extras' to clean up their orphaned links.",
+	printHelp("skillshare extras remove <name> [options]", "Remove an extra resource type from config.\n\nRemote extras delete an unedited fetched copy; edited copies stay. Owned\nlinks are cleaned, while copied or transformed outputs stay. Local source\nfiles stay; single-file targets are restored to their pre-attach state.\nRun 'skillshare sync extras' to clean up local directory orphan links.",
 		helpGroup{title: "Arguments", rows: []helpRow{
 			{"name", "Name of the extra to remove"},
 		}},
