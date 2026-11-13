@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/profile"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sync"
 	"skillshare/internal/trash"
@@ -90,6 +91,11 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool, profileR
 	}
 	sourceIncomplete := walk.Follow.Incomplete()
 	linkWarnings := append(metaWarnings, sync.SourceLinkWarnings(walk, sourceIncomplete)...)
+	if !sourceIncomplete {
+		if warning := profileUnmatchedWarning(profile.Parse(&cfg.Profiles), cfg.ProfileState(), discoveredSkills); warning != "" {
+			linkWarnings = append(linkWarnings, warning)
+		}
+	}
 	if !jsonOutput {
 		for _, w := range linkWarnings {
 			ui.Warning("%s", w)
