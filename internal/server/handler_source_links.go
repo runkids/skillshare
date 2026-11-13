@@ -130,7 +130,7 @@ func (s *Server) handleRemoveSourceLink(w http.ResponseWriter, r *http.Request) 
 	if !s.IsProjectMode() {
 		err := s.reloadSkillsStore()
 		if err == nil {
-			err = s.forgetUnlinkedDeclaration(name)
+			err = s.forgetUnlinkedRecords(name)
 		}
 		if err != nil {
 			warning = fmt.Sprintf("Unlinked, but could not update metadata: %v", err)
@@ -146,10 +146,10 @@ func (s *Server) handleRemoveSourceLink(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, map[string]any{"success": true, "name": name, "warning": warning})
 }
 
-// forgetUnlinkedDeclaration persists cleanup against the store just reloaded
+// forgetUnlinkedRecords persists cleanup against the store just reloaded
 // by the handler. Refresh the cache if persistence fails, as for uninstall.
-func (s *Server) forgetUnlinkedDeclaration(name string) error {
-	if !s.skillsStore.ForgetTrackedRepo(name) {
+func (s *Server) forgetUnlinkedRecords(name string) error {
+	if !s.skillsStore.ForgetUnlinkedName(name) {
 		return nil
 	}
 	if err := s.skillsStore.Save(s.skillsSource()); err != nil {

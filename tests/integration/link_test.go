@@ -282,3 +282,57 @@ func TestUnlink_MetadataReloadFailureLogsPartial(t *testing.T) {
 		t.Fatalf("reload failure overwrote metadata: %q", got)
 	}
 }
+
+func TestUnlink_ForgetsNormalizedAndNestedRecords(t *testing.T) {
+	for _, nested := range []bool{false, true} {
+		t.Run(map[bool]string{false: "normalized", true: "nested"}[nested], func(t *testing.T) {
+			sb, target := linkSandbox(t)
+			defer sb.Cleanup()
+			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+			for key, value := range sb.MachineEnv() {
+				t.Setenv(key, value)
+			}
+			run := func(args ...string) *testutil.Result { return sb.RunCLIEnv(sb.MachineEnv(), args...) }
+			rel := "_dev-skills"
+			store := install.NewMetadataStore()
+			if nested {
+				rel += "/_team"
+				checkout := filepath.Join(target, "_team")
+				sb.WriteFile(filepath.Join(checkout, "kept", "SKILL.md"), "---\nname: kept\n---\n# kept\n")
+				testutil.RunGit(t, checkout, "init")
+				testutil.RunGit(t, checkout, "remote", "add", "origin", "file:///nonexistent/team.git")
+			} else {
+				store.Set(rel, &install.MetadataEntry{Source: "file:///nonexistent/team.git", Tracked: true})
+			}
+			if err := store.Save(sb.SourcePath); err != nil {
+				t.Fatal(err)
+			}
+			run("link", target, "--enable", "-g").AssertSuccess(t)
+			other := filepath.Join(sb.Root, "other")
+			sb.WriteFile(filepath.Join(other, "SKILL.md"), "---\nname: other\n---\n# other\n")
+			run("install", other, "-g").AssertSuccess(t)
+			store, err := install.LoadMetadata(sb.SourcePath)
+			if err != nil || store.Get(rel) == nil || store.Get(rel).Tracked != nested {
+				t.Fatalf("reconcile did not produce expected record: %+v %v", store, err)
+			}
+			sb.CreateSkill("_dev-skills-other", map[string]string{"SKILL.md": "# sibling"})
+			store.Set("_dev-skills-other", &install.MetadataEntry{Source: "keep"})
+			store.AuditAccepted = map[string][]string{rel: {"root"}, rel + "/kept": {"child"}, "_dev-skills-other": {"keep"}}
+			if err := store.Save(sb.SourcePath); err != nil {
+				t.Fatal(err)
+			}
+			run("unlink", "_dev-skills", "-g").AssertSuccess(t)
+			store, err = install.LoadMetadata(sb.SourcePath)
+			if err != nil || store.Has(rel) || !store.Has("_dev-skills-other") || len(store.AuditAccepted) != 1 || store.AuditAccepted["_dev-skills-other"][0] != "keep" {
+				t.Fatalf("wrong unlink namespace cleanup: %+v %v", store, err)
+			}
+			run("install", "-g").AssertSuccess(t)
+			if _, err := os.Lstat(filepath.Join(sb.SourcePath, "_dev-skills")); !os.IsNotExist(err) {
+				t.Fatalf("bare install resurrected link namespace: %v", err)
+			}
+			if got := sb.ReadFile(filepath.Join(target, "foo", "SKILL.md")); got != "---\nname: foo\n---\n# foo" {
+				t.Fatalf("link referent changed: %q", got)
+			}
+		})
+	}
+}

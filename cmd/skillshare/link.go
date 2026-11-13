@@ -204,7 +204,7 @@ func cmdUnlink(args []string) error {
 	status := "ok"
 	if scope.global {
 		store, metadataErr := install.LoadMetadataWithMigration(scope.source, "")
-		if metadataErr == nil && store.ForgetTrackedRepo(name) {
+		if metadataErr == nil && store.ForgetUnlinkedName(name) {
 			metadataErr = store.Save(scope.source)
 		}
 		if metadataErr != nil {

@@ -420,15 +420,25 @@ func (s *MetadataStore) ForgetTrackedRepo(rel string) bool {
 		if filepath.ToSlash(KeyToRelPath(key, s.Get(key))) != rel {
 			continue
 		}
-		s.RemoveByNames(map[string]bool{rel: true})
-		for accepted := range s.AuditAccepted {
-			if accepted == rel || strings.HasPrefix(accepted, rel+"/") {
-				delete(s.AuditAccepted, accepted)
-			}
-		}
+		s.ForgetUnlinkedName(rel)
 		return true
 	}
 	return false
+}
+
+// ForgetUnlinkedName removes records and acceptances at or below a removed
+// source link, including ordinary records normalized by reconcile. It never
+// reads the link's referent. Removal uses the existing resolved/legacy paths.
+func (s *MetadataStore) ForgetUnlinkedName(rel string) bool {
+	rel = cleanName(rel)
+	before := len(s.Entries) + len(s.AuditAccepted) + len(s.TargetOverrides)
+	s.RemoveByNames(map[string]bool{rel: true})
+	for accepted := range s.AuditAccepted {
+		if accepted == rel || strings.HasPrefix(accepted, rel+"/") {
+			delete(s.AuditAccepted, accepted)
+		}
+	}
+	return before != len(s.Entries)+len(s.AuditAccepted)+len(s.TargetOverrides)
 }
 
 // removedWith reports whether uninstalling name removes the entry at key.
