@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
+	"skillshare/internal/uninstall"
 	"skillshare/internal/utils"
 )
 
@@ -30,12 +32,13 @@ type uninstallOptions struct {
 
 // uninstallJSONOutput is the JSON representation for uninstall --json output.
 type uninstallJSONOutput struct {
-	Removed  []string `json:"removed"`
-	Failed   []string `json:"failed"`
-	Skipped  int      `json:"skipped"`
-	DryRun   bool     `json:"dry_run"`
-	Duration string   `json:"duration"`
-	Error    string   `json:"error,omitempty"`
+	Removed    []string `json:"removed"`
+	RecordOnly []string `json:"record_only,omitempty"`
+	Failed     []string `json:"failed"`
+	Skipped    int      `json:"skipped"`
+	DryRun     bool     `json:"dry_run"`
+	Duration   string   `json:"duration"`
+	Error      string   `json:"error,omitempty"`
 }
 
 // uninstallTarget holds resolved target information
@@ -180,26 +183,28 @@ func resolveUninstallTarget(skillName, sourceDir, sourceLabel string, walk sourc
 // resolveUninstallName gives an exact declaration precedence over its occupant,
 // then preserves existing disk resolution before using declaration shorthand.
 func resolveUninstallName(name string, mode *uninstallMode) (*uninstallTarget, error) {
-	var declaration string
-	var declarationErr error
+	var store *install.MetadataStore
 	if mode.declarations {
-		var exact bool
-		declaration, exact, declarationErr = install.FindTrackedDeclaration(mode.sourceDir, mode.store, strings.TrimSpace(name))
-		if exact {
-			return &uninstallTarget{name: declaration, path: filepath.Join(mode.sourceDir, filepath.FromSlash(declaration)), declaration: true}, nil
+		store = mode.store
+	}
+	var diskErr error
+	item, err := uninstall.ResolveName(mode.sourceDir, store, name, false, func() (uninstall.Item, error) {
+		target, err := resolveUninstallTarget(name, mode.sourceDir, mode.sourceLabel, mode.walk)
+		if err != nil {
+			// CLI resolution has always tried declaration shorthand after any
+			// unsuccessful disk lookup; retain its original error if neither matches.
+			diskErr = err
+			return uninstall.Item{}, nil
 		}
+		return uninstall.Item{Name: target.name, Path: target.path, Repo: target.isTrackedRepo}, nil
+	})
+	if errors.Is(err, uninstall.ErrNotDeclared) {
+		return nil, diskErr
 	}
-	target, err := resolveUninstallTarget(name, mode.sourceDir, mode.sourceLabel, mode.walk)
-	if err == nil {
-		return target, nil
+	if err != nil {
+		return nil, err
 	}
-	if declarationErr != nil {
-		return nil, declarationErr
-	}
-	if declaration != "" {
-		return &uninstallTarget{name: declaration, path: filepath.Join(mode.sourceDir, filepath.FromSlash(declaration)), declaration: true}, nil
-	}
-	return nil, err
+	return &uninstallTarget{name: item.Name, path: item.Path, isTrackedRepo: item.Repo, declaration: item.MetadataOnly}, nil
 }
 
 // resolveUninstallByGlob scans the source directory for top-level entries
@@ -550,13 +555,14 @@ func cmdUninstall(args []string) error {
 }
 
 // uninstallOutputJSON converts uninstall results to JSON and writes to stdout.
-func uninstallOutputJSON(removed, failed []string, skipped int, dryRun bool, start time.Time, uninstallErr error) error {
+func uninstallOutputJSON(removed, recordOnly, failed []string, skipped int, dryRun bool, start time.Time, uninstallErr error) error {
 	output := uninstallJSONOutput{
-		Removed:  removed,
-		Failed:   failed,
-		Skipped:  skipped,
-		DryRun:   dryRun,
-		Duration: formatDuration(start),
+		Removed:    removed,
+		RecordOnly: recordOnly,
+		Failed:     failed,
+		Skipped:    skipped,
+		DryRun:     dryRun,
+		Duration:   formatDuration(start),
 	}
 	if uninstallErr != nil {
 		output.Error = uninstallErr.Error()
@@ -582,7 +588,7 @@ func uninstallOpNames(args []string) []string {
 	return names
 }
 
-func logUninstallOp(cfgPath string, names []string, succeeded int, start time.Time, cmdErr error) {
+func logUninstallOp(cfgPath string, names []string, succeeded int, recordOnly []string, dryRun bool, start time.Time, cmdErr error) {
 	status := statusFromErr(cmdErr)
 	if succeeded > 0 && succeeded < len(names) {
 		status = "partial"
@@ -595,6 +601,17 @@ func logUninstallOp(cfgPath string, names []string, succeeded int, start time.Ti
 	}
 	if succeeded > 0 && e.Args != nil {
 		e.Args["succeeded"] = succeeded
+	}
+	if len(recordOnly) > 0 || dryRun {
+		if e.Args == nil {
+			e.Args = map[string]any{}
+		}
+		if len(recordOnly) > 0 {
+			e.Args["record_only"] = recordOnly
+		}
+		if dryRun {
+			e.Args["dry_run"] = true
+		}
 	}
 	if cmdErr != nil {
 		e.Message = cmdErr.Error()

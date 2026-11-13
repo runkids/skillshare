@@ -73,6 +73,8 @@ skillshare uninstall my-skill another-skill --json
 }
 ```
 
+global mode에서 선택적 `record_only` 배열은 checkout 없이 선언만 제거된 이름으로, `removed`의 부분집합입니다. 이 이름에는 trash 항목이나 trash 복원이 없으며 나머지 성공한 제거 항목은 trash로 이동합니다. `dry_run: true`이면 두 배열은 예정된 작업이며 아직 제거되지 않았습니다. agent 및 project 제거를 포함해 해당 항목이 없으면 `record_only`는 생략됩니다. CLI uninstall 로그에도 선택적 `record_only` 부분집합이 기록되며 JSON 미리보기 로그에는 `dry_run: true`가 추가됩니다.
+
 `--dry-run`과 조합하여 미리보기할 수 있습니다.
 
 ```bash

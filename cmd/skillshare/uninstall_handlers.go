@@ -180,13 +180,13 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 	jsonError := func(err error) error {
 		jsonUI.Flush()
 		if len(resolveWarnings) > 0 {
-			return uninstallOutputJSON(nil, resolveWarnings, 0, opts.dryRun, start, err)
+			return uninstallOutputJSON(nil, nil, resolveWarnings, 0, opts.dryRun, start, err)
 		}
 		return writeJSONError(err)
 	}
-	jsonResult := func(removed, failed []string, skipped int, dryRun bool, err error) error {
+	jsonResult := func(removed, recordOnly, failed []string, skipped int, dryRun bool, err error) error {
 		jsonUI.Flush()
-		return uninstallOutputJSON(removed, failed, skipped, dryRun, start, err)
+		return uninstallOutputJSON(removed, recordOnly, failed, skipped, dryRun, start, err)
 	}
 	// --- Phase 1: RESOLVE ---
 	var targets []*uninstallTarget
@@ -430,12 +430,9 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 	// --- Phase 5: DRY-RUN or CONFIRM ---
 	if opts.dryRun {
 		if opts.jsonOutput {
-			dryRunNames := make([]string, len(targets))
-			for i, t := range targets {
-				dryRunNames[i] = t.name
-			}
-			logUninstallOp(mode.configPath, uninstallOpNames(rawArgs), 0, start, nil)
-			return jsonResult(dryRunNames, resolveWarnings, preflightSkipped, true, nil)
+			dryRunNames, records := uninstallNames(targets)
+			logUninstallOp(mode.configPath, uninstallOpNames(rawArgs), 0, records, true, start, nil)
+			return jsonResult(dryRunNames, records, resolveWarnings, preflightSkipped, true, nil)
 		}
 		names := make([]string, len(targets))
 		for i, t := range targets {
@@ -508,18 +505,11 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 		sp.Stop()
 	}
 
-	var succeeded []*uninstallTarget
 	failed := preflightFailed
 	if opts.jsonOutput {
 		failed = append(failed, resolveWarnings...)
 	}
-	for i, r := range out.Results {
-		if r.Err == nil {
-			succeeded = append(succeeded, targets[i])
-		} else {
-			failed = append(failed, fmt.Sprintf("%s: %v", targets[i].name, r.Err))
-		}
-	}
+	succeeded, failed := collectUninstallResults(targets, out.Results, failed)
 
 	switch {
 	case opts.jsonOutput:
@@ -567,14 +557,11 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 	}
 	// Partial failure: report but exit success (skip & continue)
 
-	logUninstallOp(mode.configPath, uninstallOpNames(rawArgs), len(succeeded), start, finalErr)
+	removedNames, records := uninstallNames(succeeded)
+	logUninstallOp(mode.configPath, uninstallOpNames(rawArgs), len(succeeded), records, false, start, finalErr)
 
 	if opts.jsonOutput {
-		removedNames := make([]string, len(succeeded))
-		for i, t := range succeeded {
-			removedNames[i] = t.name
-		}
-		return jsonResult(removedNames, failed, preflightSkipped, opts.dryRun, finalErr)
+		return jsonResult(removedNames, records, failed, preflightSkipped, opts.dryRun, finalErr)
 	}
 	return finalErr
 }
@@ -703,4 +690,31 @@ func printUninstallBatch(targets []*uninstallTarget, results []uninstall.Result,
 			"skillshare trash list"+mode.reinstallFlags, "restore any of them within 7 days",
 		)
 	}
+}
+
+// collectUninstallResults translates shared execution outcomes, including
+// late refusals, without marking failed declarations as successfully removed.
+func collectUninstallResults(targets []*uninstallTarget, results []uninstall.Result, failed []string) ([]*uninstallTarget, []string) {
+	var succeeded []*uninstallTarget
+	for i, result := range results {
+		if result.Err == nil {
+			succeeded = append(succeeded, targets[i])
+		} else {
+			failed = append(failed, fmt.Sprintf("%s: %v", targets[i].name, result.Err))
+		}
+	}
+	return succeeded, failed
+}
+
+// uninstallNames also serves dry-run output: recordOnly is the subset that
+// removes metadata without a trash entry, or would do so in a dry run.
+func uninstallNames(targets []*uninstallTarget) (names, recordOnly []string) {
+	names = make([]string, len(targets))
+	for i, target := range targets {
+		names[i] = target.name
+		if target.declaration {
+			recordOnly = append(recordOnly, target.name)
+		}
+	}
+	return names, recordOnly
 }

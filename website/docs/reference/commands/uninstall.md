@@ -73,6 +73,8 @@ skillshare uninstall my-skill another-skill --json
 }
 ```
 
+In global mode, the optional `record_only` array is the subset of `removed` names whose declarations were removed without a checkout. These names have no trash entry or trash undo; other successfully removed names move to trash. With `dry_run: true`, both arrays describe planned actions, and nothing has been removed. `record_only` is omitted when the subset is empty, including agent and project removals. CLI uninstall log entries also use the optional `record_only` subset; JSON previews add `dry_run: true` to the log.
+
 Combine with `--dry-run` to preview:
 
 ```bash

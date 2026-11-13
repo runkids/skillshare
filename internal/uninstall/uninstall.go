@@ -1,7 +1,7 @@
 // Package uninstall moves resolved skills, tracked repos and agents out of
 // their source directory into the trash and removes what the install recorded
 // about them, keeping a copy of that record beside the trash entry so restore
-// can put it back. Callers resolve names and report the results.
+// can put it back. Callers choose the mode and report the results.
 package uninstall
 
 import (
@@ -129,8 +129,8 @@ func Run(items []Item, o Options) Outcome {
 		if item.MetadataOnly {
 			out.Results[i] = Result{Item: item}
 			// Recheck the resolved name after confirmation, never the caller's Path.
-			if install.IsTrackedCheckout(filepath.Join(o.SourceDir, filepath.FromSlash(item.Name))) {
-				out.Results[i].Err = ErrCheckoutRestored
+			if err := CheckRecordOnly(o.SourceDir, item.Name); err != nil {
+				out.Results[i].Err = err
 			} else if o.Store.ForgetTrackedRepo(item.Name) {
 				forgot = true
 			} else {

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"skillshare/internal/install"
+	"skillshare/internal/oplog"
 	"skillshare/internal/testutil"
 	"skillshare/internal/trash"
 )
@@ -817,17 +818,33 @@ func TestUninstall_DeclarationOutput(t *testing.T) {
 	if strings.Contains(removed.Output(), "trash restore") {
 		t.Fatal(removed.Output())
 	}
-	result := run("uninstall", "other", "--json", "-g")
-	result.AssertSuccess(t)
-	var body struct {
-		Removed []string
-		Failed  []string
-	}
-	if err := json.Unmarshal([]byte(result.Stdout), &body); err != nil {
-		t.Fatal(err)
-	}
-	if len(body.Removed) != 1 || body.Removed[0] != "org/_other" || len(body.Failed) != 0 {
-		t.Fatalf("wrong JSON: %s", result.Stdout)
+	sb.CreateSkill("plain", map[string]string{"SKILL.md": "# plain"})
+	for _, dryRun := range []bool{true, false} {
+		args := []string{"uninstall", "other", "plain", "--json", "-g"}
+		if dryRun {
+			args = append(args, "--dry-run")
+		}
+		result := run(args...)
+		result.AssertSuccess(t)
+		var body struct {
+			Removed, Failed []string
+			RecordOnly      []string `json:"record_only"`
+			DryRun          bool     `json:"dry_run"`
+		}
+		if err := json.Unmarshal([]byte(result.Stdout), &body); err != nil {
+			t.Fatal(err)
+		}
+		if len(body.Removed) != 2 || body.Removed[0] != "org/_other" || body.Removed[1] != "plain" || len(body.Failed) != 0 || len(body.RecordOnly) != 1 || body.RecordOnly[0] != "org/_other" || body.DryRun != dryRun {
+			t.Fatalf("wrong mixed-batch JSON: %s", result.Stdout)
+		}
+		logs, err := oplog.Read(sb.ConfigPath, oplog.OpsFile, 1)
+		if err != nil || len(logs) != 1 {
+			t.Fatalf("read uninstall log: %v %v", logs, err)
+		}
+		records, ok := logs[0].Args["record_only"].([]any)
+		if !ok || len(records) != 1 || records[0] != "org/_other" || (logs[0].Args["dry_run"] == true) != dryRun {
+			t.Fatalf("wrong mixed-batch log: %+v", logs[0])
+		}
 	}
 	confirm := run("uninstall", "_one", "_two", "-g")
 	confirm.AssertSuccess(t)

@@ -73,6 +73,8 @@ skillshare uninstall my-skill another-skill --json
 }
 ```
 
+在全局模式下，可选的 `record_only` 数组是 `removed` 中没有 checkout、仅移除声明的名称子集。这些名称没有 trash 条目，无法通过 trash 撤销；其他成功移除的项目会移入 trash。`dry_run: true` 时，两个数组都表示计划操作，尚未移除任何内容。子集为空时会省略 `record_only`，包括 agent 和项目模式的移除。 CLI uninstall 日志也使用可选的 `record_only` 子集；JSON 预览会在日志中加入 `dry_run: true`。
+
 结合 `--dry-run` 进行预览：
 
 ```bash

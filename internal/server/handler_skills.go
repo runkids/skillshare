@@ -434,53 +434,41 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 	}
 	cleanName := filepath.Clean(filepath.FromSlash(name))
 	recordOnly := r.URL.Query().Get("recordOnly") == "true"
-	if recordOnly && install.IsTrackedCheckout(filepath.Join(s.skillsSource(), cleanName)) {
-		writeUninstallConflict(w, uninstall.Result{Err: uninstall.ErrCheckoutRestored})
+	if recordOnly && writeUninstallConflict(w, uninstall.Result{Err: uninstall.CheckRecordOnly(s.skillsSource(), cleanName)}) {
 		return
 	}
 
-	var declaration string
-	var exactDeclaration bool
-	var declarationErr error
+	var store *install.MetadataStore
 	if !s.IsProjectMode() {
 		if err := s.reloadSkillsStore(); err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to reload skills metadata: "+err.Error())
 			return
 		}
-		declaration, exactDeclaration, declarationErr = install.FindTrackedDeclaration(s.skillsSource(), s.skillsStore, name)
+		store = s.skillsStore
 	}
-	if recordOnly && !exactDeclaration {
-		writeError(w, http.StatusBadRequest, "no tracked repository declaration at: "+name)
+	item, err := uninstall.ResolveName(s.skillsSource(), store, name, recordOnly, func() (uninstall.Item, error) {
+		repoName, repoPath, err := s.resolveTrackedRepo(cleanName)
+		if err != nil || repoPath == "" {
+			return uninstall.Item{}, err
+		}
+		return s.repoUninstallItem(repoName, repoPath), nil
+	})
+	if writeUninstallConflict(w, uninstall.Result{Err: err}) {
 		return
 	}
-	// The dashboard sends canonical paths: an exact declaration must not
-	// select another checkout through the basename fallback.
-	var repoName, repoPath string
-	if !exactDeclaration {
-		var resolveErr error
-		repoName, repoPath, resolveErr = s.resolveTrackedRepo(cleanName)
-		if resolveErr != nil {
-			writeError(w, http.StatusBadRequest, resolveErr.Error())
-			return
+	if err != nil {
+		message := err.Error()
+		if errors.Is(err, uninstall.ErrNotDeclared) {
+			message = "not a tracked repository: " + cleanName
+			if recordOnly {
+				message = "no tracked repository declaration at: " + name
+			}
 		}
+		writeError(w, http.StatusBadRequest, message)
+		return
 	}
-	var item uninstall.Item
-	var force bool
-	if repoPath == "" {
-		if declarationErr != nil {
-			writeError(w, http.StatusBadRequest, declarationErr.Error())
-			return
-		}
-		if declaration == "" {
-			writeError(w, http.StatusBadRequest, "not a tracked repository: "+cleanName)
-			return
-		}
-		repoName = declaration
-		item = uninstall.Item{Name: repoName, Path: filepath.Join(s.skillsSource(), filepath.FromSlash(repoName)), TrashName: repoName, MetadataOnly: true}
-	} else {
-		item = s.repoUninstallItem(repoName, repoPath)
-		force = r.URL.Query().Get("force") == "true"
-	}
+	repoName := item.Name
+	force := !item.MetadataOnly && r.URL.Query().Get("force") == "true"
 
 	res := s.uninstallSkills([]uninstall.Item{item}, force)[0]
 	if writeUninstallConflict(w, res) {
@@ -500,7 +488,7 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.writeOpsLog("uninstall", "ok", start, map[string]any{"name": repoName, "type": "repo", "scope": "ui"}, "")
+	s.writeOpsLog("uninstall", "ok", start, map[string]any{"name": repoName, "type": "repo", "recordOnly": item.MetadataOnly, "movedToTrash": !item.MetadataOnly, "scope": "ui"}, "")
 	writeJSON(w, map[string]any{"success": true, "name": repoName, "movedToTrash": !item.MetadataOnly})
 }
 

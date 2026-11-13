@@ -73,6 +73,8 @@ skillshare uninstall my-skill another-skill --json
 }
 ```
 
+在 global 模式下，選填的 `record_only` 陣列是 `removed` 中沒有 checkout、僅移除宣告的名稱子集。這些名稱沒有 trash 項目，無法透過 trash 復原；其他成功移除的項目會移入 trash。`dry_run: true` 時，兩個陣列皆表示預計操作，尚未移除任何內容。子集為空時會省略 `record_only`，包括 agent 與 project 模式的移除。 CLI uninstall 日誌也使用選填的 `record_only` 子集；JSON 預覽會在日誌中加入 `dry_run: true`。
+
 搭配 `--dry-run` 可預覽：
 
 ```bash

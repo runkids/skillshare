@@ -14,6 +14,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/oplog"
 	"skillshare/internal/uninstall"
 )
 
@@ -127,6 +128,10 @@ func TestHandleUninstallRepo_PrunesMetadata(t *testing.T) {
 		t.Fatalf("uninstall failed: %d %s", rr.Code, rr.Body.String())
 	}
 	assertPruned(t, s, src, repoPrune)
+	entries, err := oplog.Read(s.configPath(), oplog.OpsFile, 1)
+	if err != nil || len(entries) != 1 || entries[0].Args["recordOnly"] != false || entries[0].Args["movedToTrash"] != true {
+		t.Fatalf("checkout oplog not distinguished: %+v %v", entries, err)
+	}
 }
 
 // A plain skill and a grouped skill may share a basename; removing one must
@@ -252,7 +257,7 @@ func TestHandleUninstallSkill_ProjectDropsConfigEntry(t *testing.T) {
 }
 
 func TestHandleUninstallRepo_DeclarationResults(t *testing.T) {
-	for _, scenario := range []string{"absent", "occupied", "record only absent", "record only occupied", "record only shorthand", "record only project", "shorthand", "save failure", "project", "unknown"} {
+	for _, scenario := range []string{"absent", "occupied", "record only absent", "record only occupied", "record only shorthand", "record only project", "shorthand", "project", "unknown"} {
 		t.Run(scenario, func(t *testing.T) {
 			var s *Server
 			var src string
@@ -269,14 +274,6 @@ func TestHandleUninstallRepo_DeclarationResults(t *testing.T) {
 			if strings.Contains(scenario, "occupied") {
 				addSkill(t, src, "org/_team/kept")
 			}
-			if scenario == "save failure" {
-				if err := os.Remove(install.MetadataPath(src)); err != nil {
-					t.Fatal(err)
-				}
-				if err := os.Mkdir(install.MetadataPath(src), 0755); err != nil {
-					t.Fatal(err)
-				}
-			}
 			name := "org/_team"
 			if strings.Contains(scenario, "shorthand") {
 				name = "team"
@@ -290,10 +287,6 @@ func TestHandleUninstallRepo_DeclarationResults(t *testing.T) {
 			}
 			rr := deleteRepo(t, s, name, query)
 			switch scenario {
-			case "save failure":
-				if rr.Code != http.StatusInternalServerError || strings.Contains(rr.Body.String(), `"success":true`) {
-					t.Fatalf("false success: %d %s", rr.Code, rr.Body.String())
-				}
 			case "project", "unknown", "record only shorthand", "record only project":
 				if rr.Code != http.StatusBadRequest || !s.skillsStore.Has("org/_team") {
 					t.Fatalf("project declaration removed: %d %s", rr.Code, rr.Body.String())
@@ -310,195 +303,35 @@ func TestHandleUninstallRepo_DeclarationResults(t *testing.T) {
 				if rr.Code != http.StatusOK || !body.Success || body.Name != "org/_team" || body.MovedToTrash == nil || *body.MovedToTrash {
 					t.Fatalf("wrong metadata-only result: %d %s", rr.Code, rr.Body.String())
 				}
-				loaded, err := install.LoadMetadata(src)
-				if err != nil || loaded.Has("org/_team") || s.skillsStore.Has("org/_team") {
-					t.Fatalf("removal not persisted: %v", err)
-				}
-				if strings.Contains(scenario, "occupied") {
-					if _, err := os.Stat(filepath.Join(src, "org/_team/kept/SKILL.md")); err != nil {
-						t.Fatal("occupant touched")
-					}
+				entries, err := oplog.Read(s.configPath(), oplog.OpsFile, 1)
+				if err != nil || len(entries) != 1 || entries[0].Args["type"] != "repo" || entries[0].Args["recordOnly"] != true || entries[0].Args["movedToTrash"] != false {
+					t.Fatalf("record-only oplog not distinguished: %+v %v", entries, err)
 				}
 			}
 		})
 	}
 }
 
-func TestHandleUninstallRepo_RecordOnlyRefusesRestoredCheckout(t *testing.T) {
-	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
-	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
-	for _, dirty := range []bool{false, true} {
-		for _, force := range []bool{false, true} {
-			t.Run(fmt.Sprintf("dirty=%t/force=%t", dirty, force), func(t *testing.T) {
-				s, src := seedPruneCase(t, repoPrune)
-				file := filepath.Join(src, "_team", "README.md")
-				if dirty {
-					if err := os.WriteFile(file, []byte("local edits"), 0644); err != nil {
-						t.Fatal(err)
-					}
-				}
-				before, err := os.ReadFile(file)
-				if err != nil {
-					t.Fatal(err)
-				}
-				metadata, err := os.ReadFile(install.MetadataPath(src))
-				if err != nil {
-					t.Fatal(err)
-				}
-				rr := httptest.NewRecorder()
-				s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/repos/_team?recordOnly=true&force=%t", force), nil))
-				if rr.Code != http.StatusConflict || !strings.Contains(rr.Body.String(), "repo_checkout_restored") {
-					t.Fatalf("record-only intent bypassed: %d %s", rr.Code, rr.Body.String())
-				}
-				if got, err := os.ReadFile(file); err != nil || !bytes.Equal(got, before) {
-					t.Fatalf("restored checkout touched: %q %v", got, err)
-				}
-				if got, err := os.ReadFile(install.MetadataPath(src)); err != nil || !bytes.Equal(got, metadata) {
-					t.Fatalf("metadata touched: %q %v", got, err)
-				}
-			})
-		}
+func TestHandleUninstallRepo_RecordOnlyIntentWiring(t *testing.T) {
+	s, src := newTestServer(t)
+	if err := os.MkdirAll(filepath.Join(src, "_team", ".git"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	// The record-only guard must run before metadata reload and force handling.
+	if err := os.WriteFile(install.MetadataPath(src), []byte("invalid"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	rr := deleteRepo(t, s, "_team", "?recordOnly=true&force=true")
+	if rr.Code != http.StatusConflict || !strings.Contains(rr.Body.String(), `"error_code":"repo_checkout_restored"`) {
+		t.Fatalf("record-only intent not forwarded: %d %s", rr.Code, rr.Body.String())
 	}
 }
 
 func TestUninstallRecord_ExecutionRefusalResponse(t *testing.T) {
-	s, src := newTestServer(t)
-	s.skillsStore.Set("_team", &install.MetadataEntry{Source: "unreachable", Tracked: true})
-	name, _, err := install.FindTrackedDeclaration(src, s.skillsStore, "_team")
-	if err != nil || name != "_team" {
-		t.Fatalf("absent selection = %q %v", name, err)
-	}
-	if err := os.MkdirAll(filepath.Join(src, "_team", ".git"), 0755); err != nil {
-		t.Fatal(err)
-	}
-	res := s.uninstallSkills([]uninstall.Item{{Name: name, MetadataOnly: true}}, true)[0]
+	res := uninstall.Result{Err: uninstall.ErrCheckoutRestored}
 	rr := httptest.NewRecorder()
 	if !writeUninstallConflict(rr, res) || rr.Code != http.StatusConflict || !strings.Contains(rr.Body.String(), `"error_code":"repo_checkout_restored"`) || uninstallForceCode(res.Err) != "" {
 		t.Fatalf("execution refusal must require refresh, not force: %d %s", rr.Code, rr.Body.String())
-	}
-}
-
-func TestHandleUninstallRepo_ExactDeclarationBeforeCheckoutShorthand(t *testing.T) {
-	for _, occupied := range []bool{false, true} {
-		t.Run(map[bool]string{false: "absent", true: "occupied"}[occupied], func(t *testing.T) {
-			s, src := newTestServer(t)
-			addSkill(t, src, "org/_team/a")
-			repoDir := filepath.Join(src, "org", "_team")
-			initGitRepo(t, repoDir)
-			if occupied {
-				addSkill(t, src, "_team/kept")
-			}
-			ignore := []byte("# managed repositories\n_team/\norg/_team/\n")
-			if err := os.WriteFile(filepath.Join(src, ".gitignore"), ignore, 0644); err != nil {
-				t.Fatal(err)
-			}
-			// Model a pull/CLI write after the dashboard loaded its cached store.
-			store := install.NewMetadataStore()
-			store.Set("_team", &install.MetadataEntry{Source: "https://example.invalid/root.git", Tracked: true})
-			store.Set("org/_team", &install.MetadataEntry{Source: "https://example.invalid/grouped.git", Tracked: true, Group: "org", Branch: "main", FileHashes: map[string]string{"a/SKILL.md": "kept-hash"}})
-			store.AuditAccepted = map[string][]string{
-				"_team":              {"remove-root"},
-				"_team/a":            {"remove-member"},
-				"org/_team":          {"keep-root"},
-				"org/_team/a":        {"keep-member"},
-				"org/_team/unlisted": {"keep-path-only"},
-			}
-			if err := store.Save(src); err != nil {
-				t.Fatal(err)
-			}
-			keptFiles := map[string][]byte{}
-			for _, rel := range []string{"README.md", "a/SKILL.md", ".git/HEAD", ".git/config", ".git/index"} {
-				file := filepath.Join(repoDir, filepath.FromSlash(rel))
-				data, err := os.ReadFile(file)
-				if err != nil {
-					t.Fatal(err)
-				}
-				keptFiles[file] = data
-			}
-			if occupied {
-				file := filepath.Join(src, "_team", "kept", "SKILL.md")
-				data, err := os.ReadFile(file)
-				if err != nil {
-					t.Fatal(err)
-				}
-				keptFiles[file] = data
-			}
-
-			rr := httptest.NewRecorder()
-			s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, "/api/repos/_team?recordOnly=true", nil))
-			var body struct {
-				Success      bool
-				Name         string
-				MovedToTrash *bool
-			}
-			if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
-				t.Fatal(err)
-			}
-			if rr.Code != http.StatusOK || !body.Success || body.Name != "_team" || body.MovedToTrash == nil || *body.MovedToTrash {
-				t.Fatalf("exact declaration selected another checkout: %d %s", rr.Code, rr.Body.String())
-			}
-			loaded, err := install.LoadMetadata(src)
-			if err != nil {
-				t.Fatal(err)
-			}
-			store.Remove("_team")
-			delete(store.AuditAccepted, "_team/a")
-			if !reflect.DeepEqual(loaded, store) || !reflect.DeepEqual(s.skillsStore, store) {
-				t.Fatalf("wrong declaration or audit removal: disk=%+v cache=%+v want=%+v", loaded, s.skillsStore, store)
-			}
-			for file, want := range keptFiles {
-				if got, err := os.ReadFile(file); err != nil || !bytes.Equal(got, want) {
-					t.Errorf("unselected checkout or occupant changed at %s: %v", file, err)
-				}
-			}
-			if got, err := os.ReadFile(filepath.Join(src, ".gitignore")); err != nil || !bytes.Equal(got, ignore) {
-				t.Errorf("ignore bytes changed: %q, %v", got, err)
-			}
-			if !occupied {
-				if _, err := os.Lstat(filepath.Join(src, "_team")); !os.IsNotExist(err) {
-					t.Errorf("absent declaration path changed: %v", err)
-				}
-			}
-		})
-	}
-}
-
-func TestHandleUninstallRepo_CheckoutBeforeDeclarationShorthand(t *testing.T) {
-	for _, tc := range []struct{ name, input, repo string }{
-		{"exact checkout", "_team", "_team"},
-		{"underscore shorthand", "team", "_team"},
-		{"basename shorthand", "team", "org/_team"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			prune := pruneCase{
-				repos: []string{tc.repo},
-				entries: map[string]*install.MetadataEntry{
-					tc.repo:   {Source: pruneSource, Tracked: true},
-					"a/_team": {Source: pruneSource, Tracked: true, Group: "a"},
-					"b/_team": {Source: pruneSource, Tracked: true, Group: "b"},
-				},
-				gone: []string{tc.repo},
-				kept: []string{"a/_team", "b/_team"},
-			}
-			s, src := seedPruneCase(t, prune)
-			rr := httptest.NewRecorder()
-			s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, "/api/repos/"+tc.input, nil))
-			var body struct {
-				Success      bool
-				Name         string
-				MovedToTrash *bool
-			}
-			if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
-				t.Fatal(err)
-			}
-			if rr.Code != http.StatusOK || !body.Success || body.Name != tc.repo || body.MovedToTrash == nil || !*body.MovedToTrash {
-				t.Fatalf("declaration shorthand displaced checkout: %d %s", rr.Code, rr.Body.String())
-			}
-			assertPruned(t, s, src, prune)
-			if _, err := os.Stat(filepath.Join(src, filepath.FromSlash(tc.repo))); !os.IsNotExist(err) {
-				t.Errorf("checkout was not moved to trash: %v", err)
-			}
-		})
 	}
 }
 
@@ -540,17 +373,32 @@ func TestHandleUninstallRepo_ReloadsDeclarations(t *testing.T) {
 }
 
 func TestHandleUninstallRepo_MetadataReloadFailure(t *testing.T) {
-	s, src := newTestServer(t)
-	s.skillsStore.Set("_team", &install.MetadataEntry{Source: "https://example.invalid/team.git", Tracked: true})
-	invalid := []byte("invalid metadata from interrupted external write")
-	if err := os.WriteFile(install.MetadataPath(src), invalid, 0644); err != nil {
-		t.Fatal(err)
-	}
-	rr := deleteRepo(t, s, "_team", "")
-	if rr.Code != http.StatusInternalServerError {
-		t.Fatalf("reload failure must fail removal: %d %s", rr.Code, rr.Body.String())
-	}
-	if got, err := os.ReadFile(install.MetadataPath(src)); err != nil || !bytes.Equal(got, invalid) || !s.skillsStore.Has("_team") {
-		t.Fatalf("reload failure saved stale metadata: %q, %v", got, err)
+	for _, directory := range []bool{false, true} {
+		t.Run(fmt.Sprintf("directory=%t", directory), func(t *testing.T) {
+			s, src := newTestServer(t)
+			s.skillsStore.Set("_team", &install.MetadataEntry{Source: "unreachable", Tracked: true})
+			invalid := []byte("invalid metadata from interrupted external write")
+			if directory {
+				if err := os.Remove(install.MetadataPath(src)); err != nil && !os.IsNotExist(err) {
+					t.Fatal(err)
+				}
+				if err := os.Mkdir(install.MetadataPath(src), 0755); err != nil {
+					t.Fatal(err)
+				}
+			} else if err := os.WriteFile(install.MetadataPath(src), invalid, 0644); err != nil {
+				t.Fatal(err)
+			}
+			rr := deleteRepo(t, s, "_team", "")
+			if rr.Code != http.StatusInternalServerError || strings.Contains(rr.Body.String(), `"success":true`) || !s.skillsStore.Has("_team") {
+				t.Fatalf("reload failure must fail removal: %d %s", rr.Code, rr.Body.String())
+			}
+			if directory {
+				if info, err := os.Stat(install.MetadataPath(src)); err != nil || !info.IsDir() {
+					t.Fatalf("blocked metadata path changed: %v", err)
+				}
+			} else if got, err := os.ReadFile(install.MetadataPath(src)); err != nil || !bytes.Equal(got, invalid) {
+				t.Fatalf("reload failure saved stale metadata: %q %v", got, err)
+			}
+		})
 	}
 }

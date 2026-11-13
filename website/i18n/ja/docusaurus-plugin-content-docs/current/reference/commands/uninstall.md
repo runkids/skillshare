@@ -73,6 +73,8 @@ skillshare uninstall my-skill another-skill --json
 }
 ```
 
+global mode では、省略可能な `record_only` 配列は、checkout なしで宣言だけを削除した名前を `removed` から抜き出したものです。これらには trash エントリがなく、trash から復元できません。その他の正常に削除された項目は trash に移動します。`dry_run: true` では両配列は予定を表し、まだ何も削除していません。agent や project の削除など、該当項目がない場合は `record_only` を省略します。 CLI の uninstall ログにも省略可能な `record_only` 部分集合が記録され、JSON プレビューではログに `dry_run: true` が付きます。
+
 `--dry-run` と組み合わせてプレビューできます。
 
 ```bash

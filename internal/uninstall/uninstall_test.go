@@ -454,6 +454,12 @@ func TestForgetUnlinkedName_FailureAndUndo(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			if fault == "none" {
+				persisted, loadErr := install.LoadMetadata(f.source)
+				if loadErr != nil || !persisted.IsEmpty() || !f.opts.Store.IsEmpty() {
+					t.Fatalf("successful unlink did not prune memory and disk before undo: %+v %+v %v", f.opts.Store, persisted, loadErr)
+				}
+			}
 			if fault == "empty" && exists(trash.MetadataFile(trashPath)) {
 				t.Fatal("empty unlink wrote a sidecar")
 			}

@@ -122,23 +122,24 @@ func (s *Server) handleRemoveSourceLink(w http.ResponseWriter, r *http.Request) 
 	defer s.mu.Unlock()
 	name := r.PathValue("name")
 	args := map[string]any{"name": name, "scope": "ui"}
-	trashPath, err := sourcelink.Remove(s.skillsSource(), s.trashBase(), name)
+	res, err := uninstall.Unlink(s.skillsSource(), s.trashBase(), name, !s.IsProjectMode())
 	if err != nil {
 		s.writeOpsLog("unlink", "error", start, args, err.Error())
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	var warning string
-	if !s.IsProjectMode() {
-		err := s.reloadSkillsStore()
-		if err == nil {
-			err = s.forgetUnlinkedRecords(name, trashPath)
-		}
-		if err != nil {
-			warning = fmt.Sprintf("Unlinked, but could not update metadata: %v", err)
-			log.Printf("warning: %s", warning)
-		}
+	if res.Store != nil {
+		s.skillsStore = res.Store
 	}
+	if res.MetadataErr != nil {
+		warning = fmt.Sprintf("Unlinked, but could not update metadata: %v", res.MetadataErr)
+		log.Printf("warning: %s", warning)
+	}
+	if res.ReloadErr != nil {
+		log.Printf("warning: failed to reload skills metadata: %v", res.ReloadErr)
+	}
+
 	s.snapshotFollow()
 	status := "ok"
 	if warning != "" {
@@ -146,16 +147,4 @@ func (s *Server) handleRemoveSourceLink(w http.ResponseWriter, r *http.Request) 
 	}
 	s.writeOpsLog("unlink", status, start, args, warning)
 	writeJSON(w, map[string]any{"success": true, "name": name, "warning": warning})
-}
-
-// forgetUnlinkedRecords persists cleanup against the store just reloaded
-// by the handler. Refresh the cache if persistence fails, as for uninstall.
-func (s *Server) forgetUnlinkedRecords(name, trashPath string) error {
-	if err := uninstall.ForgetUnlinkedName(s.skillsSource(), trashPath, name, s.skillsStore); err != nil {
-		if reloadErr := s.reloadSkillsStore(); reloadErr != nil {
-			log.Printf("warning: failed to reload skills metadata: %v", reloadErr)
-		}
-		return err
-	}
-	return nil
 }

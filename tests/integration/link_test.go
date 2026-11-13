@@ -3,7 +3,6 @@
 package integration
 
 import (
-	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -217,45 +216,6 @@ func TestLink_ProjectUsesProjectSourceAndTargets(t *testing.T) {
 	}
 }
 
-func TestUnlink_ForgetsCheckoutRecord(t *testing.T) {
-	sb, checkout := linkSandbox(t)
-	defer sb.Cleanup()
-	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
-	for key, value := range sb.MachineEnv() {
-		t.Setenv(key, value)
-	}
-	testutil.RunGit(t, checkout, "init")
-	testutil.RunGit(t, checkout, "remote", "add", "origin", "file:///nonexistent/team.git")
-	run := func(args ...string) *testutil.Result { return sb.RunCLIEnv(sb.MachineEnv(), args...) }
-	run("link", checkout, "--enable", "-g").AssertSuccess(t)
-	// Installing another skill reconciles the native checkout through its link.
-	other := filepath.Join(sb.Root, "other")
-	sb.WriteFile(filepath.Join(other, "SKILL.md"), "---\nname: other\n---\n# other\n")
-	run("install", other, "-g").AssertSuccess(t)
-	store, err := install.LoadMetadata(sb.SourcePath)
-	if err != nil || !store.Has("_dev-skills") {
-		t.Fatalf("linked checkout not recorded: %v", err)
-	}
-	if err := os.MkdirAll(filepath.Join(sb.SourcePath, "_other"), 0755); err != nil {
-		t.Fatal(err)
-	}
-	testutil.RunGit(t, filepath.Join(sb.SourcePath, "_other"), "init")
-	store.Set("_other", &install.MetadataEntry{Source: "file:///nonexistent/other.git", Tracked: true})
-	store.AuditAccepted = map[string][]string{"_dev-skills/foo": {"accepted"}, "_other": {"keep"}}
-	if err := store.Save(sb.SourcePath); err != nil {
-		t.Fatal(err)
-	}
-	run("unlink", "_dev-skills", "-g").AssertSuccess(t)
-	store, err = install.LoadMetadata(sb.SourcePath)
-	if err != nil || store.Has("_dev-skills") || !store.Has("_other") || len(store.AuditAccepted) != 1 {
-		t.Fatalf("unlink left declaration: %+v,%v", store, err)
-	}
-	run("install", "-g").AssertSuccess(t)
-	if !sb.FileExists(filepath.Join(checkout, "foo", "SKILL.md")) {
-		t.Fatal("native checkout touched")
-	}
-}
-
 func TestUnlink_MetadataReloadFailureLogsPartial(t *testing.T) {
 	sb, checkout := linkSandbox(t)
 	defer sb.Cleanup()
@@ -313,9 +273,12 @@ func TestUnlink_SidecarFailureLogsPartialAndKeepsMetadata(t *testing.T) {
 	}
 }
 
-func TestUnlink_ForgetsNormalizedAndNestedRecords(t *testing.T) {
-	for _, nested := range []bool{false, true} {
-		t.Run(map[bool]string{false: "normalized", true: "nested"}[nested], func(t *testing.T) {
+// Cross-package flow: reconcile each link kind, unlink, undo, then ensure bare
+// install does not recreate the removed declaration. Metadata matching is
+// owned by install; persistence and exact undo are owned by uninstall.
+func TestUnlink_ReconciledRecordsRoundTrip(t *testing.T) {
+	for _, kind := range []string{"normalized", "checkout", "nested"} {
+		t.Run(kind, func(t *testing.T) {
 			sb, target := linkSandbox(t)
 			defer sb.Cleanup()
 			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
@@ -325,14 +288,17 @@ func TestUnlink_ForgetsNormalizedAndNestedRecords(t *testing.T) {
 			run := func(args ...string) *testutil.Result { return sb.RunCLIEnv(sb.MachineEnv(), args...) }
 			rel := "_dev-skills"
 			store := install.NewMetadataStore()
-			if nested {
+			checkout := target
+			if kind == "nested" {
 				rel += "/_team"
-				checkout := filepath.Join(target, "_team")
-				sb.WriteFile(filepath.Join(checkout, "kept", "SKILL.md"), "---\nname: kept\n---\n# kept\n")
+				checkout = filepath.Join(target, "_team")
+				sb.WriteFile(filepath.Join(checkout, "SKILL.md"), "# nested")
+			}
+			if kind == "normalized" {
+				store.Set(rel, &install.MetadataEntry{Source: "file:///nonexistent/team.git", Tracked: true})
+			} else {
 				testutil.RunGit(t, checkout, "init")
 				testutil.RunGit(t, checkout, "remote", "add", "origin", "file:///nonexistent/team.git")
-			} else {
-				store.Set(rel, &install.MetadataEntry{Source: "file:///nonexistent/team.git", Tracked: true})
 			}
 			if err := store.Save(sb.SourcePath); err != nil {
 				t.Fatal(err)
@@ -342,60 +308,22 @@ func TestUnlink_ForgetsNormalizedAndNestedRecords(t *testing.T) {
 			sb.WriteFile(filepath.Join(other, "SKILL.md"), "---\nname: other\n---\n# other\n")
 			run("install", other, "-g").AssertSuccess(t)
 			store, err := install.LoadMetadata(sb.SourcePath)
-			if err != nil || store.Get(rel) == nil || store.Get(rel).Tracked != nested {
-				t.Fatalf("reconcile did not produce expected record: %+v %v", store, err)
-			}
-			// A declaration installed --into on another machine is independent.
-			testutil.RunGit(t, other, "init")
-			testutil.RunGit(t, other, "add", ".")
-			testutil.RunGit(t, other, "-c", "user.name=Test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false", "commit", "-m", "seed")
-			testutil.RunGit(t, other, "branch", "after-unlink")
-			run("install", "file://"+other, "--track", "--name", "repo", "--into", "dev-skills", "-g").AssertSuccess(t)
-			foreign := "dev-skills/_repo"
-			if err := os.Rename(filepath.Join(sb.SourcePath, filepath.FromSlash(foreign)), filepath.Join(sb.Root, "clone-elsewhere")); err != nil {
-				t.Fatal(err)
-			}
-			store, err = install.LoadMetadata(sb.SourcePath)
-			if err != nil {
-				t.Fatal(err)
-			}
-			wantEntry := *store.Get(rel)
-			sb.CreateSkill("_dev-skills-other", map[string]string{"SKILL.md": "# sibling"})
-			store.Set("_dev-skills-other", &install.MetadataEntry{Source: "keep"})
-			store.AuditAccepted = map[string][]string{rel: {"root"}, rel + "/kept": {"child"}, "_dev-skills-other": {"keep"}}
-			store.AuditAccepted[foreign] = []string{"foreign"}
-			store.SetTargetOverride(rel+"/kept", nil)
-			store.SetTargetOverride(foreign+"/other", []string{"codex"})
-			wantAccepted := maps.Clone(store.AuditAccepted)
-			if err := store.Save(sb.SourcePath); err != nil {
-				t.Fatal(err)
+			if err != nil || store.Get(rel) == nil || store.Get(rel).Tracked != (kind != "normalized") {
+				t.Fatalf("reconcile record: %+v %v", store, err)
 			}
 			run("unlink", "_dev-skills", "-g").AssertSuccess(t)
-			store, err = install.LoadMetadata(sb.SourcePath)
-			if err != nil || store.Has(rel) || !store.Has("_dev-skills-other") || !store.Has(foreign) || len(store.AuditAccepted) != 2 || store.AuditAccepted["_dev-skills-other"][0] != "keep" || len(store.TargetOverrides) != 1 {
-				t.Fatalf("wrong unlink namespace cleanup: %+v %v", store, err)
-			}
-			store.Get(foreign).Branch = "after-unlink"
-			store.AuditAccepted[foreign] = []string{"after-unlink"}
-			wantAccepted[foreign] = []string{"after-unlink"}
-			if err := store.Save(sb.SourcePath); err != nil {
-				t.Fatal(err)
-			}
 			run("trash", "restore", "_dev-skills", "-g").AssertSuccess(t)
-			store, err = install.LoadMetadata(sb.SourcePath)
-			if err != nil || !reflect.DeepEqual(store.Get(rel), &wantEntry) || !reflect.DeepEqual(store.AuditAccepted, wantAccepted) || store.Get(foreign).Branch != "after-unlink" {
-				t.Fatalf("undo lost or over-captured records: %+v %v", store, err)
-			}
-			if targets, ok := store.TargetOverrides[rel+"/kept"]; !ok || targets == nil || len(targets) != 0 || !reflect.DeepEqual(store.TargetOverrides[foreign+"/other"], []string{"codex"}) {
-				t.Fatalf("undo lost overrides: %+v", store.TargetOverrides)
+			restored, err := install.LoadMetadata(sb.SourcePath)
+			if err != nil || !reflect.DeepEqual(restored.Get(rel), store.Get(rel)) {
+				t.Fatalf("record round trip: %+v %v", restored, err)
 			}
 			run("unlink", "_dev-skills", "-g").AssertSuccess(t)
 			run("install", "-g").AssertSuccess(t)
 			if _, err := os.Lstat(filepath.Join(sb.SourcePath, "_dev-skills")); !os.IsNotExist(err) {
-				t.Fatalf("bare install resurrected link namespace: %v", err)
+				t.Fatalf("bare install resurrected link: %v", err)
 			}
 			if got := sb.ReadFile(filepath.Join(target, "foo", "SKILL.md")); got != "---\nname: foo\n---\n# foo" {
-				t.Fatalf("link referent changed: %q", got)
+				t.Fatalf("referent changed: %q", got)
 			}
 		})
 	}

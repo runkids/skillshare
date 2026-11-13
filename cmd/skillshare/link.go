@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"skillshare/internal/config"
-	"skillshare/internal/install"
 	"skillshare/internal/oplog"
 	"skillshare/internal/sourcelink"
 	"skillshare/internal/trash"
@@ -196,23 +195,17 @@ func cmdUnlink(args []string) error {
 	}
 
 	opArgs := map[string]any{"name": name}
-	trashPath, err := sourcelink.Remove(scope.source, scope.trashDir, name)
+	res, err := uninstall.Unlink(scope.source, scope.trashDir, name, scope.global)
 	if err != nil {
 		logLinkOp(scope.configPath, "unlink", opArgs, start, statusFromErr(err), err)
 		return fmt.Errorf("cannot unlink %s: %w", name, err)
 	}
 	name = strings.TrimRight(name, `/\`)
 	status := "ok"
-	if scope.global {
-		store, metadataErr := install.LoadMetadataWithMigration(scope.source, "")
-		if metadataErr == nil {
-			metadataErr = uninstall.ForgetUnlinkedName(scope.source, trashPath, name, store)
-		}
-		if metadataErr != nil {
-			status = "partial"
-			err = fmt.Errorf("Unlinked, but could not update metadata: %w", metadataErr)
-			ui.Warning("%v", err)
-		}
+	if res.MetadataErr != nil {
+		status = "partial"
+		err = fmt.Errorf("Unlinked, but could not update metadata: %w", res.MetadataErr)
+		ui.Warning("%v", err)
 	}
 	logLinkOp(scope.configPath, "unlink", opArgs, start, status, err)
 	fmt.Printf("%s Unlinked %s %s\n", ui.StyledMark(ui.MarkOK), name, ui.DimText("→ trash, kept 7 days; its target is untouched"))

@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"skillshare/internal/install"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"skillshare/internal/install"
+	"skillshare/internal/oplog"
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/uninstall"
 )
@@ -20,28 +22,42 @@ func TestNormalizeUninstallName_WindowsNestedPath(t *testing.T) {
 	}
 }
 
-func TestUninstall_RestoredDeclarationFailureOutput(t *testing.T) {
-	src := t.TempDir()
-	store := install.NewMetadataStore()
-	store.Set("_team", &install.MetadataEntry{Source: "unreachable", Tracked: true})
-	mode := &uninstallMode{sourceDir: src, sourceLabel: "source", store: store, declarations: true}
-	target, err := resolveUninstallName("_team", mode)
-	if err != nil || !target.declaration {
-		t.Fatalf("selection = %+v %v", target, err)
-	}
-	if err := os.MkdirAll(filepath.Join(src, "_team", ".git"), 0755); err != nil {
-		t.Fatal(err)
-	}
-	res := uninstall.Run(mode.items([]*uninstallTarget{target}), mode.options()).Results[0]
-	if res.Err == nil || !strings.Contains(res.Err.Error(), "refresh and confirm checkout removal") {
-		t.Fatalf("missing actionable text refusal: %+v", res)
-	}
+func TestUninstall_ResultOutput(t *testing.T) {
+	targets := []*uninstallTarget{{name: "_record", declaration: true}, {name: "plain"}, {name: "_restored", declaration: true}}
+	results := []uninstall.Result{{}, {}, {Err: uninstall.ErrCheckoutRestored}}
+	succeeded, failed := collectUninstallResults(targets, results, nil)
+	removed, records := uninstallNames(succeeded)
 	output := captureStdout(t, func() {
-		_ = uninstallOutputJSON(nil, []string{target.name + ": " + res.Err.Error()}, 0, false, time.Now(), res.Err)
+		_ = uninstallOutputJSON(removed, records, failed, 0, false, time.Now(), nil)
 	})
-	var body struct{ Removed, Failed []string }
-	if err := json.Unmarshal([]byte(output), &body); err != nil || len(body.Removed) != 0 || len(body.Failed) != 1 || !strings.Contains(body.Failed[0], res.Err.Error()) {
-		t.Fatalf("wrong JSON refusal: %s %v", output, err)
+	var body struct {
+		Removed, Failed []string
+		RecordOnly      []string `json:"record_only"`
+	}
+	if err := json.Unmarshal([]byte(output), &body); err != nil || !reflect.DeepEqual(body.Removed, []string{"_record", "plain"}) || !reflect.DeepEqual(body.RecordOnly, []string{"_record"}) || len(body.Failed) != 1 || !strings.Contains(body.Failed[0], "_restored: "+uninstall.ErrCheckoutRestored.Error()) {
+		t.Fatalf("wrong translated results: %s %v", output, err)
+	}
+	// The log translates the same successful subset; refused records are absent.
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	for _, dryRun := range []bool{true, false} {
+		count := len(succeeded)
+		if dryRun {
+			count = 0
+		}
+		logUninstallOp(cfgPath, []string{"_record", "plain", "_restored"}, count, records, dryRun, time.Now(), nil)
+		entries, err := oplog.Read(cfgPath, oplog.OpsFile, 1)
+		if err != nil || len(entries) != 1 {
+			t.Fatalf("read uninstall log: %v %v", entries, err)
+		}
+		args := entries[0].Args
+		if !reflect.DeepEqual(args["record_only"], []any{"_record"}) || (args["dry_run"] == true) != dryRun {
+			t.Fatalf("wrong uninstall log: %+v", entries[0])
+		}
+		if dryRun && args["succeeded"] != nil {
+			t.Fatalf("preview claims completed removal: %+v", entries[0])
+		}
 	}
 }
 
@@ -197,54 +213,20 @@ func TestResolveUninstallTarget_AmbiguousNestedName(t *testing.T) {
 	}
 }
 
-func TestResolveUninstallName(t *testing.T) {
+func TestResolveUninstallName_DeclarationWiring(t *testing.T) {
 	src := t.TempDir()
 	store := install.NewMetadataStore()
-	for _, name := range []string{"_occupied", "org/_team", "_checkout", "_checkout-link"} {
-		store.Set(name, &install.MetadataEntry{Source: "unreachable", Tracked: true})
-	}
-	for _, name := range []string{"_occupied/child", "org/team", "_checkout/.git"} {
-		if err := os.MkdirAll(filepath.Join(src, name), 0755); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := os.Symlink(filepath.Join(src, "_checkout"), filepath.Join(src, "_checkout-link")); err != nil {
-		t.Fatal(err)
-	}
+	store.Set("_team", &install.MetadataEntry{Source: "unreachable", Tracked: true})
 	mode := &uninstallMode{sourceDir: src, sourceLabel: "source", store: store, declarations: true, gitignoreEntry: func(*uninstallTarget) string { return "must-not-collect" }}
-	for _, tc := range []struct {
-		input, want       string
-		declaration, repo bool
-	}{
-		{"_occupied", "_occupied", true, false}, {"_team", "org/_team", true, false}, {"team", "org/team", false, false},
-		{"org/team", "org/team", false, false}, {"checkout", "_checkout", false, true}, {"_checkout-link", "_checkout-link", false, true},
-	} {
-		got, err := resolveUninstallName(tc.input, mode)
-		if err != nil || got.name != tc.want || got.declaration != tc.declaration || got.isTrackedRepo != tc.repo {
-			t.Fatalf("%s = %+v,%v", tc.input, got, err)
-		}
-		if got.declaration {
-			item := mode.items([]*uninstallTarget{got})[0]
-			if !item.MetadataOnly || item.Repo || item.Gitignore != "" {
-				t.Fatalf("wrong declaration item: %+v", item)
-			}
-			if summary := summarizeUninstallTargets([]*uninstallTarget{got}); summary.trackedRepos != 1 || summary.groups != 0 {
-				t.Fatalf("walked occupant: %+v", summary)
-			}
-		}
-	}
-	store.Set("other/_team", &install.MetadataEntry{Source: "unreachable", Tracked: true})
-	if err := os.Remove(filepath.Join(src, "org/team")); err != nil {
+	got, err := resolveUninstallName("_team", mode)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := resolveUninstallName("team", mode); err == nil || !strings.Contains(err.Error(), "multiple tracked repositories match") {
-		t.Fatalf("ambiguity = %v", err)
+	item := mode.items([]*uninstallTarget{got})[0]
+	if !item.MetadataOnly || item.Repo || item.Gitignore != "" || item.Name != "_team" || item.Path != filepath.Join(src, "_team") {
+		t.Fatalf("wrong shared item translation: %+v", item)
 	}
-	mode.declarations = false
-	if got, err := resolveUninstallName("_occupied", mode); err != nil || got.declaration {
-		t.Fatalf("project occupant = %+v,%v", got, err)
-	}
-	if _, err := resolveUninstallName("org/_team", mode); err == nil {
-		t.Fatal("project mode resolved a declaration")
+	if summary := summarizeUninstallTargets([]*uninstallTarget{got}); summary.trackedRepos != 1 || summary.groups != 0 {
+		t.Fatalf("wrong declaration summary: %+v", summary)
 	}
 }

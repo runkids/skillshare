@@ -68,12 +68,13 @@ func TestUnlinkedSnapshotMatchesRemoval(t *testing.T) {
 	store := NewMetadataStore()
 	for key, entry := range map[string]*MetadataEntry{
 		"_team": {Source: "normalized"}, "_team/_nested": {Source: "nested", Tracked: true},
-		"child":       {Source: "child", Group: "_team/sub"},
-		"legacy":      {Source: "legacy", Tracked: true, Group: "team"},
-		"team/member": {Source: "legacy", Tracked: true, Group: "team"},
-		"team/_repo":  {Source: "foreign", Tracked: true, Group: "team"},
-		"_other":      {Source: "foreign legacy", Tracked: true, Group: "team"},
-		"team/plain":  {Source: "plain", Group: "team"}, "_team-other": {Source: "sibling"},
+		"_legacy-nested": {Source: "nested legacy", Tracked: true, Group: "_team"},
+		"child":          {Source: "child", Group: "_team/sub"},
+		"legacy":         {Source: "legacy", Tracked: true, Group: "team"},
+		"team/member":    {Source: "legacy", Tracked: true, Group: "team"},
+		"team/_repo":     {Source: "foreign", Tracked: true, Group: "team"},
+		"_other":         {Source: "foreign legacy", Tracked: true, Group: "team"},
+		"team/plain":     {Source: "plain", Group: "team"}, "_team-other": {Source: "sibling"},
 	} {
 		store.Set(key, entry)
 	}
@@ -81,14 +82,17 @@ func TestUnlinkedSnapshotMatchesRemoval(t *testing.T) {
 	store.SetTargetOverride("_team/orphan", nil)
 	store.SetTargetOverride("team/_repo/child", []string{"codex"})
 	saved := store.ExtractUnlinkedName("./_team/")
-	if saved.Has("team/_repo") || saved.Has("_other") || len(saved.Entries) != 5 || len(saved.AuditAccepted) != 3 || len(saved.TargetOverrides) != 1 {
+	if saved.Has("team/_repo") || saved.Has("_other") || len(saved.Entries) != 6 || len(saved.AuditAccepted) != 3 || len(saved.TargetOverrides) != 1 {
 		t.Fatalf("snapshot over/under-captured: %+v", saved)
 	}
 	if !store.ForgetUnlinkedName("_team") || len(store.Entries) != 4 || len(store.AuditAccepted) != 3 || len(store.TargetOverrides) != 1 {
 		t.Fatalf("wrong removal: %+v", store)
 	}
+	// Undo must not overwrite changes made to an independent declaration.
+	store.GetExact("team/_repo").Branch = "after-unlink"
+	store.AuditAccepted["team/_repo/child"] = []string{"keep child after unlink"}
 	store.Merge(saved)
-	if store.GetExact("_team/sub/child") == nil || !store.Has("legacy") || !store.Has("team/member") || !store.Has("team/_repo") || len(store.AuditAccepted) != 6 {
+	if store.GetExact("team/_repo").Branch != "after-unlink" || store.GetExact("_team/sub/child") == nil || store.GetExact("_team/_legacy-nested") == nil || !store.Has("legacy") || !store.Has("team/member") || !store.Has("team/_repo") || len(store.AuditAccepted) != 6 {
 		t.Fatalf("restore lost records/acceptances: %+v", store)
 	}
 	if targets, ok := store.TargetOverrides["_team/orphan"]; !ok || targets == nil || len(targets) != 0 {
@@ -103,7 +107,7 @@ func TestUnlinkedSnapshotMatchesRemoval(t *testing.T) {
 	}
 	if store.GetExact("team/_repo") != independent || !store.Has("_other") ||
 		!reflect.DeepEqual(store.AuditAccepted["team/_repo"], []string{"keep"}) ||
-		!reflect.DeepEqual(store.AuditAccepted["team/_repo/child"], []string{"keep child"}) ||
+		!reflect.DeepEqual(store.AuditAccepted["team/_repo/child"], []string{"keep child after unlink"}) ||
 		!reflect.DeepEqual(store.TargetOverrides["team/_repo/child"], []string{"codex"}) {
 		t.Fatalf("independent declaration or its acceptances/override lost: %+v", store)
 	}

@@ -279,6 +279,8 @@ skillshare uninstall my-skill --json
 
 **Tracked repo names:** `uninstall org/team` accepts the shorthand for `org/_team` installed with `--into org`. An existing skill or folder at the typed path wins; use `org/_team` to explicitly remove the repo. Ambiguous short names require the full path.
 
+`uninstall --json` includes an optional `record_only` subset of `removed` for declarations removed without a checkout; these names have no trash undo. The field is omitted for an empty subset. In dry runs both arrays describe planned actions. CLI uninstall log entries also include the `record_only` subset; JSON previews carry `dry_run: true` in the log.
+
 **Declarations without checkouts (global only):** Deleting a checkout by hand leaves its tracked declaration and audit acceptances. An explicit `skillshare uninstall org/_team -g` removes that declaration and its acceptances without contacting the source, even when it is unreachable. While it remains a tracked declaration without a checkout, a plain folder or link to a non-checkout at that path is untouched; `.gitignore` is unchanged, no Git check runs, and nothing goes to trash. Use the canonical recorded name including `_` and any group: shorthand can select an existing skill or folder. Globs, `--all`, and `--group` do not select these declarations. To restore missing checkouts instead, use `skillshare install -g` with reachable sources and free destinations.
 
 **After reconcile:** If `install` or another reconcile walks a plain folder or followed link to a non-checkout at the declared path, the entry becomes an ordinary record (`Tracked=false`). Ordinary uninstall then moves the occupant to trash. An absent path or an unfollowed or unavailable link is not normalized this way.
