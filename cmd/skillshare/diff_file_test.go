@@ -3,8 +3,12 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+
+	"skillshare/internal/sync"
+	"skillshare/internal/utils"
 )
 
 func TestDiffSkillFiles_IdenticalDirs(t *testing.T) {
@@ -148,5 +152,94 @@ func writeTestFile(t *testing.T, dir, relPath, content string) {
 	}
 	if err := os.WriteFile(full, []byte(content), 0644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestCollectTargetDiff_ConfiguredRootAlias(t *testing.T) {
+	for _, mode := range []string{"copy", "merge"} {
+		for _, scenario := range []string{"profile_alias", "plain_alias", "profile_source", "plain_source"} {
+			t.Run(mode+"/"+scenario, func(t *testing.T) {
+				source, outside := t.TempDir(), t.TempDir()
+				writeSyncSkill(t, source, "alpha", "alpha")
+				sourceBytes, err := os.ReadFile(filepath.Join(source, "alpha", "SKILL.md"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				linkedDir := outside
+				if strings.HasSuffix(scenario, "_source") {
+					linkedDir = source
+				}
+				target := filepath.Join(t.TempDir(), "target")
+				if runtime.GOOS == "windows" {
+					if err := utils.CreateJunction(target, linkedDir); err != nil {
+						t.Fatal(err)
+					}
+				} else if err := os.Symlink(linkedDir, target); err != nil {
+					t.Fatal(err)
+				}
+				rootLink, err := os.Readlink(target)
+				if err != nil {
+					t.Fatal(err)
+				}
+				skills, err := sync.DiscoverSourceSkills(source)
+				if err != nil || len(skills) != 1 {
+					t.Fatalf("setup requires alpha: %+v, %v", skills, err)
+				}
+				var manifestBefore []byte
+				if linkedDir == outside {
+					out, err := sync.SyncTargetCopyWithSkills("custom", skillTarget(target, "copy", ""), skills, source, false, false, nil)
+					if err != nil || len(out.Copied) != 1 {
+						t.Fatalf("setup requires writer-managed copy: %+v, %v", out, err)
+					}
+					manifest, err := sync.ReadManifest(target)
+					if err != nil || !manifest.OwnsCopy("alpha", filepath.Join(target, "alpha")) {
+						t.Fatalf("setup copy ownership not recorded: %+v, %v", manifest, err)
+					}
+					writeTestFile(t, outside, "alpha/SKILL.md", "authored alpha")
+					manifestBefore, err = os.ReadFile(filepath.Join(outside, sync.ManifestFile))
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+				tc := skillTarget(target, mode, "")
+				resolution, err := sync.ResolveTargetSkillsForTarget("custom", tc.SkillsConfig(), skills)
+				if err != nil {
+					t.Fatal(err)
+				}
+				aware := strings.HasPrefix(scenario, "profile_")
+				r := collectTargetDiff("custom", tc, source, mode, resolution, nil, nil, profileDiffPreview{aware: aware, skills: skills})
+				switch {
+				case linkedDir == source:
+					if r.mode != "symlink" || r.errMsg != "" || !r.synced || len(r.items) != 0 {
+						t.Errorf("whole-source link behavior changed: %+v", r)
+					}
+				case !aware:
+					if r.mode != "symlink" || !strings.Contains(r.errMsg, "Symlink points to different location") {
+						t.Errorf("no-profile alias behavior changed: %+v", r)
+					}
+				default:
+					if r.mode != mode || r.errMsg != "" || r.syncCount != 0 || r.synced {
+						t.Errorf("profile alias bypassed directory preview: %+v", r)
+					}
+					if len(r.items) != 1 || r.items[0].name != "alpha" || r.items[0].action != "kept" || r.items[0].isSync || r.items[0].reason == "" {
+						t.Errorf("profile alias omitted non-executable authored copy: %+v", r.items)
+					}
+				}
+				if linkedDir == outside {
+					if data, err := os.ReadFile(filepath.Join(outside, "alpha", "SKILL.md")); err != nil || string(data) != "authored alpha" {
+						t.Errorf("preview changed authored bytes: %q, %v", data, err)
+					}
+					if data, err := os.ReadFile(filepath.Join(outside, sync.ManifestFile)); err != nil || string(data) != string(manifestBefore) {
+						t.Error("preview changed managed manifest", err)
+					}
+				}
+				if data, err := os.ReadFile(filepath.Join(source, "alpha", "SKILL.md")); err != nil || string(data) != string(sourceBytes) {
+					t.Errorf("preview changed source: %q, %v", data, err)
+				}
+				if after, err := os.Readlink(target); err != nil || after != rootLink || !utils.IsSymlinkOrJunction(target) {
+					t.Errorf("preview changed configured root link: %q, %v", after, err)
+				}
+			})
+		}
 	}
 }

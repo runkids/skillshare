@@ -868,9 +868,29 @@ func TestProfiles_BinaryCopySwitchPreservesEdits(t *testing.T) {
 func TestProfiles_DiffKeptCopyAgreement(t *testing.T) {
 	for _, project := range []bool{false, true} {
 		for _, mode := range []string{"copy", "merge"} {
-			for _, scenario := range []string{"retained", "departing", "pending_none"} {
+			for _, scenario := range []string{"retained", "departing", "pending_none", "alias_retained", "alias_pending_none"} {
 				t.Run(fmt.Sprintf("%v/%s/%s", project, mode, scenario), func(t *testing.T) {
 					f := newProfileFixture(t, project, "copy")
+					alias := strings.HasPrefix(scenario, "alias_")
+					var rootLink string
+					if alias {
+						outside := filepath.Join(f.root, "dotfiles-target")
+						if err := os.MkdirAll(outside, 0755); err != nil {
+							t.Fatal(err)
+						}
+						if runtime.GOOS == "windows" {
+							if err := utils.CreateJunction(f.target, outside); err != nil {
+								t.Fatal(err)
+							}
+						} else {
+							f.sb.CreateSymlink(outside, f.target)
+						}
+						var err error
+						rootLink, err = os.Readlink(f.target)
+						if err != nil {
+							t.Fatal(err)
+						}
+					}
 					f.run("profile", "use", "a").AssertSuccess(t)
 					configBytes, err := os.ReadFile(f.config)
 					if err != nil {
@@ -879,7 +899,7 @@ func TestProfiles_DiffKeptCopyAgreement(t *testing.T) {
 					if err := os.WriteFile(f.config, []byte(strings.ReplaceAll(string(configBytes), "mode: copy", "mode: "+mode)), 0600); err != nil {
 						t.Fatal(err)
 					}
-					if scenario == "pending_none" {
+					if scenario == "pending_none" || scenario == "alias_pending_none" {
 						f.run("profile", "use", "--none", "--no-sync").AssertSuccess(t)
 					}
 					path := filepath.Join(f.target, "alpha", "SKILL.md")
@@ -895,6 +915,13 @@ func TestProfiles_DiffKeptCopyAgreement(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
+					statePath, _, err := config.ProfilePaths(f.config)
+					if err != nil {
+						t.Fatal(err)
+					}
+					stateBefore := f.sb.ReadFile(statePath)
+					configBefore := f.sb.ReadFile(f.config)
+					sourceBefore := f.sb.ReadFile(filepath.Join(f.source, "alpha", "SKILL.md"))
 					for _, jsonOutput := range []bool{false, true} {
 						args := []string{"diff"}
 						if jsonOutput {
@@ -910,6 +937,8 @@ func TestProfiles_DiffKeptCopyAgreement(t *testing.T) {
 						}
 						var payload struct {
 							Targets []struct {
+								Mode  string
+								Error string
 								Items []struct {
 									Name   string
 									Action string
@@ -923,6 +952,9 @@ func TestProfiles_DiffKeptCopyAgreement(t *testing.T) {
 						}
 						found := false
 						for _, target := range payload.Targets {
+							if alias && (target.Mode != mode || target.Error != "") {
+								t.Errorf("configured alias mode/error mismatch: %+v", target)
+							}
 							for _, item := range target.Items {
 								if item.Name == "alpha" {
 									found = true
@@ -940,10 +972,23 @@ func TestProfiles_DiffKeptCopyAgreement(t *testing.T) {
 					if err != nil || string(manifestAfter) != string(manifestBefore) {
 						t.Fatal("read-only preview changed manifest", err)
 					}
+					if alias {
+						if after, err := os.Readlink(f.target); err != nil || after != rootLink || !utils.IsSymlinkOrJunction(f.target) {
+							t.Errorf("preview changed root alias: %q, %v", after, err)
+						}
+						if f.sb.ReadFile(path) != "authored alpha" || f.sb.ReadFile(statePath) != stateBefore || f.sb.ReadFile(f.config) != configBefore || f.sb.ReadFile(filepath.Join(f.source, "alpha", "SKILL.md")) != sourceBefore {
+							t.Error("alias preview wrote target, state, config or source")
+						}
+					}
 					out := f.run("sync", "--json")
 					out.AssertSuccess(t)
 					if !strings.Contains(out.Stdout, "kept_modified") {
 						t.Errorf("sync omitted preservation outcome: %s", out.Stdout)
+					}
+					if alias {
+						if after, err := os.Readlink(f.target); err != nil || after != rootLink || !utils.IsSymlinkOrJunction(f.target) {
+							t.Errorf("sync changed root alias: %q, %v", after, err)
+						}
 					}
 					if data, err := os.ReadFile(path); err != nil || string(data) != "authored alpha" {
 						t.Fatalf("sync disagrees with preservation: %q %v", data, err)
