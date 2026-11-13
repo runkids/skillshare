@@ -374,3 +374,25 @@ func TestHandlePutConfig_RepairsInvalidSharedFileWithLocalProjects(t *testing.T)
 		t.Fatal("repair leaked local state or changed submitted bytes")
 	}
 }
+
+func TestConfigRejectsRemoteCredentialsWithoutEcho(t *testing.T) {
+	s, _ := newTestServer(t)
+	raw := "extras:\n  - name: rules\n    remote: https://user:secret@example.com/repo\n    targets: []\n"
+	body, err := json.Marshal(map[string]string{"raw": raw})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(string(body))))
+	if rr.Code != http.StatusBadRequest || strings.Contains(rr.Body.String(), "secret") {
+		t.Fatalf("PUT: %d %s", rr.Code, rr.Body.String())
+	}
+	if err := os.WriteFile(s.configPath(), []byte(raw), 0644); err != nil {
+		t.Fatal(err)
+	}
+	rr = httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/config", nil))
+	if rr.Code == http.StatusOK || strings.Contains(rr.Body.String(), "secret") {
+		t.Fatalf("GET: %d %s", rr.Code, rr.Body.String())
+	}
+}

@@ -26,6 +26,9 @@ func ValidateImportMode(mode, name string, supportsImport bool) error {
 // ValidateExtraConnections checks ownership before any target is written. A
 // link/copy owns the whole file; imports may share only with other imports.
 func ValidateExtraConnections(extras []ExtraConfig, sourceDir func(ExtraConfig) string, targetDir func(string) string, focus ...string) error {
+	if err := validateExtraRemotes(extras); err != nil {
+		return err
+	}
 	type owner struct{ name, mode string }
 	owners := map[string]owner{}
 	for _, extra := range extras {

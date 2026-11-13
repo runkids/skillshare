@@ -17,15 +17,18 @@ import (
 )
 
 func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
-	// Best-effort refresh so UI reflects external config edits without restart.
-	// Keep endpoint usable even when config is temporarily invalid.
+	// Refresh before reading raw config so invalid remote credentials are not echoed.
 	s.mu.Lock()
-	_ = s.reloadConfig()
+	reloadErr := s.reloadConfig()
 	cfgObj := any(s.cfg)
 	if s.IsProjectMode() {
 		cfgObj = s.projectCfg
 	}
 	s.mu.Unlock()
+	if reloadErr != nil {
+		writeError(w, http.StatusBadRequest, "failed to reload config")
+		return
+	}
 
 	raw, err := os.ReadFile(s.configPath())
 	if err != nil {
@@ -146,12 +149,28 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Compare against the latest disk state before accepting a raw edit.
+	if err := s.reloadConfig(); err != nil {
+		writeError(w, http.StatusBadRequest, "failed to reload config")
+		return
+	}
+
 	// Validate YAML syntax + semantic validation before saving
 	var warnings []string
 	if s.IsProjectMode() {
 		var testCfg config.ProjectConfig
 		if err := yaml.Unmarshal([]byte(body.Raw), &testCfg); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid YAML: "+err.Error())
+			return
+		}
+		for _, extra := range testCfg.Extras {
+			if err := config.ValidateExtraRemote(extra); err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+		}
+		if err := config.ValidateRemoteExtraEdits(s.projectCfg.Extras, testCfg.Extras); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		if err := plugin.Validate([]byte(body.Raw), nil); err != nil {
@@ -174,6 +193,10 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 		testCfg, err := config.DecodeReadOnly(s.configPath(), []byte(body.Raw))
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "invalid YAML: "+err.Error())
+			return
+		}
+		if err := config.ValidateRemoteExtraEdits(s.cfg.Extras, testCfg.Extras); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		// An account of an Agent is a target for plugins under the name the config gives it.

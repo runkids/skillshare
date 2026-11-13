@@ -394,6 +394,15 @@ func ProjectConfigPath(projectRoot string) string {
 
 // LoadProject loads the project config from the given root.
 func LoadProject(projectRoot string) (*ProjectConfig, error) {
+	return loadProject(projectRoot, true)
+}
+
+// LoadProjectReadOnly loads without persisting migrations.
+func LoadProjectReadOnly(projectRoot string) (*ProjectConfig, error) {
+	return loadProject(projectRoot, false)
+}
+
+func loadProject(projectRoot string, persist bool) (*ProjectConfig, error) {
 	path := ProjectConfigPath(projectRoot)
 
 	data, err := os.ReadFile(path)
@@ -407,6 +416,10 @@ func LoadProject(projectRoot string) (*ProjectConfig, error) {
 	var cfg ProjectConfig
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse project config: %w", err)
+	}
+
+	if err := validateExtraRemotes(cfg.Extras); err != nil {
+		return nil, err
 	}
 
 	threshold, err := normalizeAuditBlockThreshold(cfg.Audit.BlockThreshold)
@@ -461,7 +474,7 @@ func LoadProject(projectRoot string) (*ProjectConfig, error) {
 			break
 		}
 	}
-	if migrated {
+	if migrated && persist {
 		if mdata, merr := marshalConfig(&cfg, projectSchemaComment, data); merr == nil {
 			// Write a symlinked config's target so the link survives. A link out of
 			// the project is left alone; the next save reports it.
@@ -497,6 +510,9 @@ func (c *ProjectConfig) Save(projectRoot string) error {
 // SaveIn writes the project config into an explicit project directory. Use it
 // during init, when the directory is chosen rather than discovered.
 func (c *ProjectConfig) SaveIn(projectDir string) error {
+	if err := validateExtraRemotes(c.Extras); err != nil {
+		return err
+	}
 	path := filepath.Join(projectDir, projectdir.ConfigFileName)
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
