@@ -66,15 +66,24 @@ it('debounces previews and refuses to replace the current selected list with a s
   }));
 });
 
-it('renames through one definition request without replacing its selection or activating it', async () => {
+it.each([
+  ['none', 'invalid profile name "none": use lowercase letters, digits, underscores or hyphens (1–64 characters); none is reserved', 'Use 1–64 lowercase letters, digits, underscores or hyphens; none is reserved.'],
+  ['focus', 'profile "focus" already exists', 'Profile focus already exists.'],
+])('keeps a refused rename to %s for an exact retry without replacing selection or activating', async (candidate, message, diagnostic) => {
   const f = profileFixtures();
   await mountProfiles('/profiles/work');
   fireEvent.click(await screen.findByRole('button', { name: 'Rename profile' }));
   const dialog = await screen.findByRole('dialog', { name: 'Rename profile' });
-  fireEvent.change(within(dialog).getByLabelText('Name'), { target: { value: 'focus' } });
+  f.replace.mockRejectedValueOnce(new Error(message));
+  fireEvent.change(within(dialog).getByLabelText('Name'), { target: { value: candidate } });
   expect(f.replace).not.toHaveBeenCalled();
   fireEvent.click(within(dialog).getByRole('button', { name: 'Rename profile' }));
-  await waitFor(() => expect(f.replace).toHaveBeenCalledExactlyOnceWith('work', { name: 'focus' }));
+  await waitFor(() => expect(f.replace).toHaveBeenCalledExactlyOnceWith('work', { name: candidate }));
+  expect(await within(dialog).findByText(diagnostic)).toBeInTheDocument();
+  expect(within(dialog).getByLabelText('Name')).toHaveValue(candidate);
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Rename profile' }));
+  await waitFor(() => expect(f.replace).toHaveBeenCalledTimes(2));
+  expect(f.replace.mock.calls[1]).toEqual(f.replace.mock.calls[0]);
   expect(f.sync).not.toHaveBeenCalled();
 });
 

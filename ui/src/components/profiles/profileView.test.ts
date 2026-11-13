@@ -37,9 +37,14 @@ it('localizes known display reasons while keeping unknown diagnostics verbatim',
 });
 
 const translated = (key: string, params?: TranslationParams) => JSON.stringify({ key, params });
-it('preserves the complete path when translating the profile target-root diagnostic', () => {
+it('preserves paths and quoted patterns when translating known native diagnostics', () => {
   const path = '/fixture/技能 folder';
   expect(profileReason(`target root ${path} is an unmanaged link; kept`, translated)).toBe(translated('profiles.targetRoot', { path }));
+  const pattern = JSON.stringify('team__技能["\\');
+  for (const kind of ['include', 'exclude']) {
+    expect(profileReason(`invalid ${kind} pattern: ${pattern}: syntax error in pattern`, translated)).toBe(translated('profileEdit.invalidPattern', { kind: translated(`profileEdit.${kind}`), pattern }));
+  }
+  for (const reason of [`invalid include pattern: ${pattern}: external EIO`, `invalid include pattern: ${pattern}: syntax error in pattern; extra`]) expect(profileReason(reason, translated)).toBe(reason);
 });
 
 it.each(['refresh', 'prune', 'convert'])('localizes profile retention warnings during %s without dropping their identifiers', (step) => {
