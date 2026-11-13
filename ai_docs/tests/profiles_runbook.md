@@ -199,6 +199,26 @@ ss status --json -p | jq -e '.profile.name == "empty"' >/dev/null
 - exit_code: 0
 - Preview writes no target content; restore recovers the authored bytes without switching the active profile. The destination is replaced as a whole. Manual `backup -p` still requires `agents`; use `backup --list -p` to find profile snapshots. Restore of a recognized moved key returns bytes to its declared former folder, leaving the current folder untouched. Save edits into source before resync.
 
+### 7. Dashboard profile switch, consent and recovery (remote browser)
+
+Use the isolated global copy fixture from step 1, or the project fixture from step 6. Start the dashboard in that same disposable environment; stop it before the fixture is removed.
+
+```bash
+ss ui --no-open --host 0.0.0.0 --port 9100 -g
+# For the project fixture instead, from its root:
+# ss ui --no-open --host 0.0.0.0 --port 9100 -p
+```
+
+**Expected**: open the parent-forwarded remote preview and check these actions in global and project mode, with Clean/Playful light/dark looks and desktop/mobile navigation:
+- No profiles and no state hides the picker. Otherwise it shows All skills or the active name; unusable choices are disabled with reasons. Mobile selection closes navigation before confirmation.
+- Select a profile. Preview lists per-target added/removed/refreshed entries and unchanged symlink-mode targets. Cancel and compare saved config, state, manifest and target bytes with the pre-preview fixture.
+- Edit a managed target copy, then switch away. Switch stays disabled until snapshot-first consent; the project label names the actual resolved configuration folder's backups directory, including visible `skillshare/` projects. Confirm, copy the returned restore command, run it in the fixture and compare the restored edited bytes.
+- Choose an empty profile: confirm Allow an empty skill selection separately; inspect unmatched patterns. Change candidate while a preview is delayed: old results and consent must not transfer.
+- Make one target fail. The incomplete result and per-target error remain visible after affected queries refresh. Fix the fixture, close the result and use the pending banner's Sync now skills preview to settle it.
+- Remove the active definition from the fixture's shared config to simulate receiving a changed configuration (the CLI only deletes inactive definitions). Both unavailable repairs work: Choose profile and All skills. Skills outside a usable active profile stay visible with a muted tag in list, tree and tiles. Inspect a non-English locale, including blocked reasons and snapshot retention text.
+
+This step requires actual parent-run browser, restore and byte-comparison evidence; authored instructions are not a PASS receipt.
+
 ## Pass Criteria
 
 All step exit codes and JSON assertions pass. The discarded bytes are present in the verified snapshot and restored. Refused switches keep edited bytes. Membership refusals leave definitions unchanged in both modes. Temporary fixture roots are removed by each step's trap. Unit/integration CI additionally owns snapshot failure, second-edit races, scope tree comparisons, lock ordering, legacy replay, live skill-server recovery and no-profile baseline comparison.
