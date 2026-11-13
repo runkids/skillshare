@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+	"skillshare/internal/profile"
 	"skillshare/internal/projectdir"
 	"skillshare/internal/utils"
 )
@@ -291,6 +292,9 @@ func ProjectDir(projectRoot string) string {
 
 // ProjectConfig holds project-level config (<project-dir>/config.yaml).
 type ProjectConfig struct {
+	profileSelector profile.Selector
+	profileState    profile.State
+	profilePath     string
 	Plugins       yaml.Node            `yaml:"plugins,omitempty"`
 	Hooks         yaml.Node            `yaml:"hooks,omitempty"`
 	Profiles      yaml.Node            `yaml:"profiles,omitempty"`
@@ -496,6 +500,7 @@ func loadProject(projectRoot string, persistMigration bool) (*ProjectConfig, err
 		}
 	}
 
+	cfg.loadProfile(path)
 	return &cfg, nil
 }
 
@@ -578,6 +583,7 @@ func ResolveValidProjectTargets(projectRoot string, cfg *ProjectConfig) (resolve
 
 		tc := TargetConfig{
 			defaultTargetNaming: cfg.TargetNaming,
+			profileSelector:     cfg.profileSelector,
 			Skills: &ResourceTargetConfig{
 				Path:         absPath,
 				Mode:         sc.Mode,

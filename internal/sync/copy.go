@@ -68,6 +68,9 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 	if !sc.IsEnabled() {
 		return result, nil
 	}
+	if _, err := sc.Profile.Selects(""); err != nil {
+		return nil, err
+	}
 	if err := checkProfileTargetRoot(sc.Path, sourcePath, opts.ProfileAware); err != nil {
 		return nil, err
 	}

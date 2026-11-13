@@ -164,6 +164,7 @@ func (s *service) catalog() (*Catalog, error) {
 	}
 	c, err := s.b.Build()
 	if err != nil {
+		s.cat = nil
 		return nil, err
 	}
 	seen := make(map[string]bool, len(c.Skipped))

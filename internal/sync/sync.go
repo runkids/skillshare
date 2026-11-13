@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/profile"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
@@ -599,6 +600,9 @@ func SyncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkill
 	if !sc.IsEnabled() {
 		return result, nil
 	}
+	if _, err := sc.Profile.Selects(""); err != nil {
+		return nil, err
+	}
 	if err := checkProfileTargetRoot(sc.Path, sourcePath, profileAware); err != nil {
 		return nil, err
 	}
@@ -831,6 +835,7 @@ type PruneResult struct {
 // PruneOptions holds parameters for PruneOrphanLinks / PruneOrphanCopies.
 type PruneOptions struct {
 	ProfileAware bool
+	Profile profile.Selector
 	IgnorePatterns []string
 	Discard []DiscardEntry
 	SharedTargets []config.SkillTargetIdentity
@@ -901,6 +906,7 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 	manifestChanged := false
 
 	resolution, err := ResolveTargetSkillsForTarget(targetName, config.ResourceTargetConfig{
+		Profile:       opts.Profile,
 		SharedTargets: opts.SharedTargets,
 		Agent:         opts.Agent,
 		Path:          targetPath,

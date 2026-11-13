@@ -18,21 +18,26 @@ import (
 //   - "result"      → diffTarget                     per-target diff result
 //   - "done"        → {"diffs":[...]}                final payload (same shape as GET /api/diff)
 func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
-	safeSend, ok := initSSE(w)
-	if !ok {
-		return
-	}
-
 	ctx := r.Context()
 
 	// Snapshot config under RLock, then release before slow I/O.
 	s.mu.RLock()
+	if s.refuseUnavailableProfile(w) {
+		s.mu.RUnlock()
+		return
+	}
 	source := s.cfg.EffectiveSkillsSource()
 	agentsSource := s.agentsSource()
 	globalMode := s.cfg.Mode
 	ignorePatterns := ssync.EffectiveFileIgnorePatterns(s.cfg.Ignore)
 	targets := s.cloneTargets()
 	s.mu.RUnlock()
+
+	safeSend, ok := initSSE(w)
+	if !ok {
+		return
+	}
+
 
 	if globalMode == "" {
 		globalMode = "merge"

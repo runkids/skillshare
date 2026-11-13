@@ -54,6 +54,12 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid kind: must be 'skill', 'agent', or empty")
 		return
 	}
+	if body.Kind != kindAgent && body.Project == "" {
+		if err := s.activeProfileError(); err != nil {
+			writeCodedError(w, http.StatusConflict, "profile_unavailable", err.Error(), nil)
+			return
+		}
+	}
 
 	if body.Project != "" {
 		root, lookupErr := lookupProjectRoot(s.cfg.Projects, body.Project)
@@ -420,6 +426,10 @@ type diffTarget struct {
 func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before slow I/O.
 	s.mu.RLock()
+	if s.refuseUnavailableProfile(w) {
+		s.mu.RUnlock()
+		return
+	}
 	source := s.cfg.EffectiveSkillsSource()
 	agentsSource := s.agentsSource()
 	globalMode := s.cfg.Mode

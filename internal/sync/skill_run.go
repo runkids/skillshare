@@ -71,6 +71,10 @@ type SkillTargetResult struct {
 func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptions) SkillTargetResult {
 	res := SkillTargetResult{Name: t.Name, Mode: t.Mode}
 	sc := t.Target.SkillsConfig()
+	if _, err := sc.Profile.Selects(""); err != nil {
+		res.Err = err
+		return res
+	}
 
 	switch t.Mode {
 	case "merge":
@@ -90,6 +94,7 @@ func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptio
 		res.UnmatchedIncludes = result.UnmatchedIncludes
 		prune, err := PruneOrphanLinksWithSkills(PruneOptions{
 			ProfileAware: opts.ProfileAware,
+			Profile:      sc.Profile,
 			IgnorePatterns: opts.IgnorePatterns,
 			Discard:      opts.Discard,
 			SharedTargets: sc.SharedTargets,

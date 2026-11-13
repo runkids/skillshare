@@ -451,10 +451,19 @@ func checkTargets(planned []Planned, discovered []sync.DiscoveredSkill, o Option
 		}
 		hard, soft := map[int]*Refusal{}, map[int]*Refusal{}
 		for _, t := range o.Targets {
-			for name, paths := range collisions(t, after) {
+			afterCollisions, err := collisions(t, after)
+			if err != nil {
+				refuseTargetSelection(planned, t.Name, err)
+				return
+			}
+			for name, paths := range afterCollisions {
 				before, ok := befores[t.Name]
 				if !ok {
-					before = collisions(t, discovered)
+					before, err = collisions(t, discovered)
+					if err != nil {
+						refuseTargetSelection(planned, t.Name, err)
+						return
+					}
 					befores[t.Name] = before
 				}
 				bucket := soft
@@ -493,6 +502,15 @@ func checkTargets(planned []Planned, discovered []sync.DiscoveredSkill, o Option
 				continue
 			}
 			for _, s := range p.Skills {
+				beforeProfile, err := t.Config.Profile.Selects(s.FlatFrom)
+				if err != nil {
+					refuseTargetSelection(planned, t.Name, err)
+					return
+				}
+				afterProfile, _ := t.Config.Profile.Selects(s.FlatTo)
+				if !beforeProfile || !afterProfile {
+					continue
+				}
 				was, _ := sync.ShouldSyncFlatName(s.FlatFrom, t.Config.Include, t.Config.Exclude)
 				now, _ := sync.ShouldSyncFlatName(s.FlatTo, t.Config.Include, t.Config.Exclude)
 				if was != now {
@@ -500,6 +518,14 @@ func checkTargets(planned []Planned, discovered []sync.DiscoveredSkill, o Option
 						t.Name, s.FlatTo, s.FlatFrom, syncedWord(was)))
 				}
 			}
+		}
+	}
+}
+
+func refuseTargetSelection(planned []Planned, target string, err error) {
+	for i := range planned {
+		if planned[i].Err == nil {
+			planned[i].Err = &Refusal{CodeMoveFailed, fmt.Sprintf("target %s selection: %v", target, err)}
 		}
 	}
 }
@@ -527,12 +553,12 @@ func joins(p *Planned, paths, members []string) bool {
 // collisions maps each target name two skills share to their relPaths. Flat
 // naming returns before sync's own detection, so equal flat names are compared
 // here.
-func collisions(t Target, skills []sync.DiscoveredSkill) map[string][]string {
+func collisions(t Target, skills []sync.DiscoveredSkill) (map[string][]string, error) {
 	out := map[string][]string{}
 	if config.EffectiveTargetNaming(t.Config.TargetNaming) == "flat" {
 		selected, err := sync.SelectTargetSkills(skills, t.Name, t.Config)
 		if err != nil {
-			return out
+			return nil, err
 		}
 		byName := map[string][]string{}
 		for _, s := range selected {
@@ -544,16 +570,16 @@ func collisions(t Target, skills []sync.DiscoveredSkill) map[string][]string {
 				out[name] = paths
 			}
 		}
-		return out
+		return out, nil
 	}
 	resolution, err := sync.ResolveTargetSkillsForTarget(t.Name, t.Config, skills)
 	if err != nil {
-		return out
+		return nil, err
 	}
 	for _, c := range resolution.Collisions {
 		out[c.Name] = c.Paths
 	}
-	return out
+	return out, nil
 }
 
 // ignoreFiles is the source's .skillignore and .skillignore.local, read once

@@ -185,8 +185,21 @@ type targetSkillSelection struct {
 }
 
 func selectTargetSkills(skills []DiscoveredSkill, targetName string, sc config.ResourceTargetConfig) (targetSkillSelection, error) {
+	if _, err := sc.Profile.Selects(""); err != nil {
+		return targetSkillSelection{}, err
+	}
 	enabled := slices.DeleteFunc(slices.Clone(skills), func(s DiscoveredSkill) bool { return s.Disabled })
-	filtered, err := FilterSkills(enabled, sc.Include, sc.Exclude)
+	profiled := make([]DiscoveredSkill, 0, len(enabled))
+	for _, skill := range enabled {
+		selected, err := sc.Profile.Selects(skill.FlatName)
+		if err != nil {
+			return targetSkillSelection{}, err
+		}
+		if selected {
+			profiled = append(profiled, skill)
+		}
+	}
+	filtered, err := FilterSkills(profiled, sc.Include, sc.Exclude)
 	if err != nil {
 		return targetSkillSelection{}, err
 	}
