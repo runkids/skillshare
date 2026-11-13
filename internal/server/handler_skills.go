@@ -434,19 +434,30 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 	}
 	cleanName := filepath.Clean(filepath.FromSlash(name))
 
-	repoName, repoPath, resolveErr := s.resolveTrackedRepo(cleanName)
-	if resolveErr != nil {
-		writeError(w, http.StatusBadRequest, resolveErr.Error())
-		return
-	}
-	if repoPath == "" && !s.IsProjectMode() {
+	var declaration string
+	var exactDeclaration bool
+	var declarationErr error
+	if !s.IsProjectMode() {
 		if err := s.reloadSkillsStore(); err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to reload skills metadata: "+err.Error())
 			return
 		}
-		declaration, _, err := install.FindTrackedDeclaration(s.skillsSource(), s.skillsStore, name)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
+		declaration, exactDeclaration, declarationErr = install.FindTrackedDeclaration(s.skillsSource(), s.skillsStore, name)
+	}
+	// The dashboard sends canonical paths: an exact declaration must not
+	// select another checkout through the basename fallback.
+	var repoName, repoPath string
+	if !exactDeclaration {
+		var resolveErr error
+		repoName, repoPath, resolveErr = s.resolveTrackedRepo(cleanName)
+		if resolveErr != nil {
+			writeError(w, http.StatusBadRequest, resolveErr.Error())
+			return
+		}
+	}
+	if repoPath == "" {
+		if declarationErr != nil {
+			writeError(w, http.StatusBadRequest, declarationErr.Error())
 			return
 		}
 		if declaration != "" {

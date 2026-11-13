@@ -55,6 +55,9 @@ func seedPruneCase(t *testing.T, tc pruneCase) (*Server, string) {
 		e := *entry
 		s.skillsStore.Set(key, &e)
 	}
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
 	return s, src
 }
 
@@ -247,7 +250,7 @@ func TestHandleUninstallSkill_ProjectDropsConfigEntry(t *testing.T) {
 }
 
 func TestHandleUninstallRepo_DeclarationResults(t *testing.T) {
-	for _, scenario := range []string{"absent", "occupied", "save failure", "project", "unknown"} {
+	for _, scenario := range []string{"absent", "occupied", "shorthand", "save failure", "project", "unknown"} {
 		t.Run(scenario, func(t *testing.T) {
 			var s *Server
 			var src string
@@ -273,6 +276,9 @@ func TestHandleUninstallRepo_DeclarationResults(t *testing.T) {
 				}
 			}
 			name := "org/_team"
+			if scenario == "shorthand" {
+				name = "team"
+			}
 			if scenario == "unknown" {
 				name = "missing"
 			}
@@ -307,6 +313,130 @@ func TestHandleUninstallRepo_DeclarationResults(t *testing.T) {
 						t.Fatal("occupant touched")
 					}
 				}
+			}
+		})
+	}
+}
+
+func TestHandleUninstallRepo_ExactDeclarationBeforeCheckoutShorthand(t *testing.T) {
+	for _, occupied := range []bool{false, true} {
+		t.Run(map[bool]string{false: "absent", true: "occupied"}[occupied], func(t *testing.T) {
+			s, src := newTestServer(t)
+			addSkill(t, src, "org/_team/a")
+			repoDir := filepath.Join(src, "org", "_team")
+			initGitRepo(t, repoDir)
+			if occupied {
+				addSkill(t, src, "_team/kept")
+			}
+			ignore := []byte("# managed repositories\n_team/\norg/_team/\n")
+			if err := os.WriteFile(filepath.Join(src, ".gitignore"), ignore, 0644); err != nil {
+				t.Fatal(err)
+			}
+			// Model a pull/CLI write after the dashboard loaded its cached store.
+			store := install.NewMetadataStore()
+			store.Set("_team", &install.MetadataEntry{Source: "https://example.invalid/root.git", Tracked: true})
+			store.Set("org/_team", &install.MetadataEntry{Source: "https://example.invalid/grouped.git", Tracked: true, Group: "org", Branch: "main", FileHashes: map[string]string{"a/SKILL.md": "kept-hash"}})
+			store.AuditAccepted = map[string][]string{
+				"_team":              {"remove-root"},
+				"_team/a":            {"remove-member"},
+				"org/_team":          {"keep-root"},
+				"org/_team/a":        {"keep-member"},
+				"org/_team/unlisted": {"keep-path-only"},
+			}
+			if err := store.Save(src); err != nil {
+				t.Fatal(err)
+			}
+			keptFiles := map[string][]byte{}
+			for _, rel := range []string{"README.md", "a/SKILL.md", ".git/HEAD", ".git/config", ".git/index"} {
+				file := filepath.Join(repoDir, filepath.FromSlash(rel))
+				data, err := os.ReadFile(file)
+				if err != nil {
+					t.Fatal(err)
+				}
+				keptFiles[file] = data
+			}
+			if occupied {
+				file := filepath.Join(src, "_team", "kept", "SKILL.md")
+				data, err := os.ReadFile(file)
+				if err != nil {
+					t.Fatal(err)
+				}
+				keptFiles[file] = data
+			}
+
+			rr := httptest.NewRecorder()
+			s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, "/api/repos/_team", nil))
+			var body struct {
+				Success      bool
+				Name         string
+				MovedToTrash *bool
+			}
+			if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+				t.Fatal(err)
+			}
+			if rr.Code != http.StatusOK || !body.Success || body.Name != "_team" || body.MovedToTrash == nil || *body.MovedToTrash {
+				t.Fatalf("exact declaration selected another checkout: %d %s", rr.Code, rr.Body.String())
+			}
+			loaded, err := install.LoadMetadata(src)
+			if err != nil {
+				t.Fatal(err)
+			}
+			store.Remove("_team")
+			delete(store.AuditAccepted, "_team/a")
+			if !reflect.DeepEqual(loaded, store) || !reflect.DeepEqual(s.skillsStore, store) {
+				t.Fatalf("wrong declaration or audit removal: disk=%+v cache=%+v want=%+v", loaded, s.skillsStore, store)
+			}
+			for file, want := range keptFiles {
+				if got, err := os.ReadFile(file); err != nil || !bytes.Equal(got, want) {
+					t.Errorf("unselected checkout or occupant changed at %s: %v", file, err)
+				}
+			}
+			if got, err := os.ReadFile(filepath.Join(src, ".gitignore")); err != nil || !bytes.Equal(got, ignore) {
+				t.Errorf("ignore bytes changed: %q, %v", got, err)
+			}
+			if !occupied {
+				if _, err := os.Lstat(filepath.Join(src, "_team")); !os.IsNotExist(err) {
+					t.Errorf("absent declaration path changed: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestHandleUninstallRepo_CheckoutBeforeDeclarationShorthand(t *testing.T) {
+	for _, tc := range []struct{ name, input, repo string }{
+		{"exact checkout", "_team", "_team"},
+		{"underscore shorthand", "team", "_team"},
+		{"basename shorthand", "team", "org/_team"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			prune := pruneCase{
+				repos: []string{tc.repo},
+				entries: map[string]*install.MetadataEntry{
+					tc.repo:   {Source: pruneSource, Tracked: true},
+					"a/_team": {Source: pruneSource, Tracked: true, Group: "a"},
+					"b/_team": {Source: pruneSource, Tracked: true, Group: "b"},
+				},
+				gone: []string{tc.repo},
+				kept: []string{"a/_team", "b/_team"},
+			}
+			s, src := seedPruneCase(t, prune)
+			rr := httptest.NewRecorder()
+			s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, "/api/repos/"+tc.input, nil))
+			var body struct {
+				Success      bool
+				Name         string
+				MovedToTrash *bool
+			}
+			if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+				t.Fatal(err)
+			}
+			if rr.Code != http.StatusOK || !body.Success || body.Name != tc.repo || body.MovedToTrash == nil || !*body.MovedToTrash {
+				t.Fatalf("declaration shorthand displaced checkout: %d %s", rr.Code, rr.Body.String())
+			}
+			assertPruned(t, s, src, prune)
+			if _, err := os.Stat(filepath.Join(src, filepath.FromSlash(tc.repo))); !os.IsNotExist(err) {
+				t.Errorf("checkout was not moved to trash: %v", err)
 			}
 		})
 	}
