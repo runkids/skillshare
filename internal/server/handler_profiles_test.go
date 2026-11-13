@@ -18,10 +18,10 @@ import (
 )
 
 type profileRouteFixture struct {
-	server                    *Server
+	server                     *Server
 	source, path, target, root string
-	scope                     profileapply.Scope
-	roots                     []string
+	scope                      profileapply.Scope
+	roots                      []string
 }
 
 func newProfileRouteFixture(t *testing.T, project bool) profileRouteFixture {
