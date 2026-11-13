@@ -31,6 +31,8 @@ func TestExtrasMutators_TakeRootLockForRemote(t *testing.T) {
 				defer func() { lockRemoteExtraRoot = old }()
 				method, path, body := http.MethodPost, "/api/extras/rules/mode", `{"target":"`+target+`","mode":"copy"}`
 				switch mutation {
+				case "mode":
+					method = http.MethodPatch
 				case "add-target":
 					path = "/api/extras/rules/targets"
 					body = `{"path":"` + t.TempDir() + `"}`
@@ -212,11 +214,13 @@ func TestExtrasList_RemoteFieldsAndZeroTargets(t *testing.T) {
 			t.Fatal(err)
 		}
 		rr := serveExtras(s, http.MethodGet, "/api/extras", "")
-		var entries []struct {
-			Remote, Branch, State string
-			Targets               []any
+		var response struct {
+			Extras []struct {
+				Remote, Branch, State string
+				Targets               []any
+			} `json:"extras"`
 		}
-		if err := json.Unmarshal(rr.Body.Bytes(), &entries); rr.Code != 200 || err != nil || len(entries) != 1 || entries[0].Remote != extras[0].Remote || entries[0].Branch != "main" || entries[0].State != "interrupted" || entries[0].Targets == nil {
+		if err := json.Unmarshal(rr.Body.Bytes(), &response); rr.Code != 200 || err != nil || len(response.Extras) != 1 || response.Extras[0].Remote != extras[0].Remote || response.Extras[0].Branch != "main" || response.Extras[0].State != "interrupted" || response.Extras[0].Targets == nil {
 			t.Fatalf("list %d: %s %v", rr.Code, rr.Body, err)
 		}
 	}

@@ -560,6 +560,30 @@
     "note": "Hash individual skill files; followed single skills deferred to step 4"
   },
   {
+    "file": "internal/install/extra_integrity.go",
+    "function": "extraTreeHashes",
+    "callee": "filepath.WalkDir",
+    "root": "dir",
+    "reason": "extras",
+    "note": "Hash a managed extra tree without following links; not the skills source"
+  },
+  {
+    "file": "internal/install/extra_journal.go",
+    "function": "fingerprintExtraTree",
+    "callee": "filepath.WalkDir",
+    "root": "root",
+    "reason": "extras",
+    "note": "Fingerprint a managed extra tree without following links for publication recovery"
+  },
+  {
+    "file": "internal/install/extra_stage.go",
+    "function": "stageFetchedTree",
+    "callee": "filepath.WalkDir",
+    "root": "selected",
+    "reason": "extras",
+    "note": "Validate private fetched or rollback extra content before staging; not the skills source"
+  },
+  {
     "file": "internal/install/metadata_migrate.go",
     "function": "migrateSkillSidecars",
     "callee": "os.ReadDir",

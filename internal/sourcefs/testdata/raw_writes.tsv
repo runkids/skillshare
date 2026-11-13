@@ -97,10 +97,10 @@ internal/config/migrate.go	migrateDir	os.MkdirAll	filepath.Dir(newPath)	source-r
 internal/config/migrate.go	migrateDir	os.Rename	oldPath, newPath	source-root
 internal/config/project.go	(*ProjectConfig).SaveIn	os.MkdirAll	dir	config
 internal/config/project.go	(*ProjectConfig).SaveIn	os.WriteFile	path	config
-internal/config/project.go	LoadProject	os.Chmod	f.Name()	config
-internal/config/project.go	LoadProject	os.CreateTemp	filepath.Dir(dest)	config
-internal/config/project.go	LoadProject	os.Remove	f.Name()	config
-internal/config/project.go	LoadProject	os.Rename	f.Name(), dest	config
+internal/config/project.go	loadProject	os.Chmod	f.Name()	config
+internal/config/project.go	loadProject	os.CreateTemp	filepath.Dir(dest)	config
+internal/config/project.go	loadProject	os.Remove	f.Name()	config
+internal/config/project.go	loadProject	os.Rename	f.Name(), dest	config
 internal/config/registry.go	(*Registry).Save	os.MkdirAll	dir	source-unmigrated
 internal/config/registry.go	(*Registry).Save	os.WriteFile	path	source-unmigrated
 internal/config/registry.go	MigrateRegistryToSource	os.Remove	oldPath	source-unmigrated
@@ -173,8 +173,8 @@ internal/install/install_apply.go	installFromDiscoveryInternal	os.MkdirAll	workD
 internal/install/install_apply.go	installFromDiscoveryInternal	os.MkdirTemp	""	tmp
 internal/install/install_apply.go	installFromDiscoveryInternal	os.RemoveAll	tempDir	tmp
 internal/install/install_apply.go	installFromGitSubdir	os.MkdirTemp	""	tmp
-internal/install/install_apply.go	installFromGitSubdir	os.RemoveAll	tempRepoPath	tmp
-internal/install/install_apply.go	installFromGitSubdir	os.RemoveAll	tempRepoPath	tmp
+internal/install/install_apply.go	fetchGitSubdir	os.RemoveAll	tempRepoPath	tmp
+internal/install/install_apply.go	fetchGitSubdir	os.RemoveAll	tempRepoPath	tmp
 internal/install/install_apply.go	installFromLocal	os.MkdirAll	destPath	source-unmigrated
 internal/install/install_audit.go	cleanEmptyInstallParents	os.Remove	dir	agents
 internal/install/install_discovery.go	discoverFromGitSubdirWithProgressImpl	os.MkdirTemp	""	tmp

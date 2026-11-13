@@ -527,6 +527,9 @@ func TestConfigRecovery_ParseAndCredentialBoundaries(t *testing.T) {
 				t.Fatalf("GET %d %s", rr.Code, rr.Body)
 			}
 			clean := "extras: [{name: rules, remote: example-org/ai-hub, targets: []}]\n"
+			if !project {
+				clean = fmt.Sprintf("source: %q\n%s", s.cfg.Source, clean)
+			}
 			body, _ = json.Marshal(map[string]string{"raw": clean})
 			rr = serveExtras(s, http.MethodPut, "/api/config", string(body))
 			if rr.Code != 200 {

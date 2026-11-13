@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -24,6 +25,9 @@ func TestSyncExtras_RemoteMissingGuidance(t *testing.T) {
 			run = func(json bool) error { return cmdSyncExtrasProject(root, false, false, json, false, time.Now()) }
 		} else {
 			cfg := &config.Config{Source: filepath.Join(root, "skills"), Extras: []config.ExtraConfig{entry}}
+			if err := os.MkdirAll(cfg.Source, 0755); err != nil {
+				t.Fatal(err)
+			}
 			if err := cfg.Save(); err != nil {
 				t.Fatal(err)
 			}
