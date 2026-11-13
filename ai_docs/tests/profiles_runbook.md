@@ -142,6 +142,8 @@ ss profile use empty --allow-empty --json -g
 
 ### 5. Recover a project skills snapshot
 
+Preview writes no target content; restore recovers the authored bytes without switching the active profile. The destination is replaced as a whole. Manual `backup -p` still requires `agents`; use `backup --list -p` to find profile snapshots. Restore of a recognized moved key returns bytes to its declared former folder, leaving the current folder untouched. Save edits into source before resync.
+
 ```bash
 set -eu
 unset CODEX_HOME CLAUDE_CONFIG_DIR PI_CODING_AGENT_DIR
@@ -158,16 +160,17 @@ printf 'authored\n' > target/alpha/SKILL.md
 ss profile use empty --allow-empty --discard-edits --json -p > result.json
 snapshotPath=$(jq -r '.snapshot[0].path' result.json)
 restoreStamp=$(basename "$(dirname "$snapshotPath")")
-ss restore custom --from "$restoreStamp" -p --dry-run >/dev/null
+ss restore custom --from "$restoreStamp" -p --dry-run --force >/dev/null
 test ! -e target/alpha
 ss restore custom --from "$restoreStamp" -p --force >/dev/null
 cmp "$snapshotPath/alpha/SKILL.md" target/alpha/SKILL.md
 ss status --json -p | jq -e '.profile.name == "empty"' >/dev/null
+printf '%s\n' 'Project snapshot recovery verified'
 ```
 
 **Expected**:
 - exit_code: 0
-- Preview writes no target content; restore recovers the authored bytes without switching the active profile. The destination is replaced as a whole. Manual `backup -p` still requires `agents`; use `backup --list -p` to find profile snapshots. Restore of a recognized moved key returns bytes to its declared former folder, leaving the current folder untouched. Save edits into source before resync.
+- Project snapshot recovery verified
 
 ## Pass Criteria
 
