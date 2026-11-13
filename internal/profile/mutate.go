@@ -68,12 +68,34 @@ func Mutate(node *yaml.Node, active string, m Mutation) (*yaml.Node, Change, err
 		return nil, change, fmt.Errorf("profile %q is unusable: %s", m.Name, d.Reason)
 	}
 	switch m.Op {
-	case "create", "edit":
+	case "create", "edit", "replace":
 		entry := copy.Content[index+1]
 		if m.Description != nil {
 			setValue(entry, "description", scalar(*m.Description))
 		}
-		if len(m.AddInclude)+len(m.RemoveInclude)+len(m.AddExclude)+len(m.RemoveExclude) > 0 {
+		if m.Op == "replace" && m.Replacement != nil {
+			replacement := *m.Replacement
+			replacement.IncludePresent = replacement.IncludePresent || replacement.Include != nil
+			replacement.ExcludePresent = replacement.ExcludePresent || replacement.Exclude != nil
+			if err := ValidateDefinition(Definition{Name: m.Name, Skills: &replacement}); err != nil {
+				return nil, change, err
+			}
+			skills := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+			for _, field := range []struct {
+				name   string
+				values []string
+			}{{"include", replacement.Include}, {"exclude", replacement.Exclude}} {
+				if field.name == "exclude" && !replacement.ExcludePresent {
+					continue
+				}
+				list := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
+				for _, value := range field.values {
+					list.Content = append(list.Content, scalar(value))
+				}
+				setValue(skills, field.name, list)
+			}
+			setValue(entry, "skills", skills)
+		} else if m.Op != "replace" && len(m.AddInclude)+len(m.RemoveInclude)+len(m.AddExclude)+len(m.RemoveExclude) > 0 {
 			si := nodeIndex(entry, "skills")
 			if si < 0 {
 				setValue(entry, "skills", &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"})
