@@ -40,6 +40,20 @@ Create without patterns makes an empty selection. A definition with no `skills` 
 
 Definition changes save without syncing. Changes affecting the active selection print `Next: skillshare sync`. Renaming the locally active definition follows its name in local state. Deleting it is refused until you switch away.
 
+## Dashboard {#dashboard}
+
+Open `skillshare ui -g` or `skillshare ui -p` in the intended project. **Profiles**
+in the Library navigation creates and edits definitions, previews selected skills,
+renames profiles and confirms deletion of inactive definitions. Skill selections
+in list, card and tree views offer **Add to profile…** / **Remove from profile…**.
+These changes save definitions without activating or syncing them. Active edits
+offer an explicit skills sync. Failed saves keep the dirty draft for retry;
+unusable definitions show their reason and cannot be overwritten by the editor.
+
+Use the header picker to switch, inspect snapshots and confirm empty selections
+or discarding edited copies. See [Work with skill profiles](/docs/how-to/daily-tasks/profiles)
+for the complete dashboard workflow and recovery steps.
+
 ## Assign skills {#assign-skills}
 
 `profile add <name> <skill>...` and `profile remove <name> <skill>...` accept flat source names, source-relative paths, or unique base names. An ambiguous base name fails with its candidates. Assignment does not activate a profile, sync a target, or override `.skillignore`, target filters or skill routing.

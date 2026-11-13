@@ -124,6 +124,8 @@ ss profile use empty --allow-empty --json -g
 
 ### 5. Assign, explain, diagnose and hint in both modes
 
+Both modes select after add and deselect after remove, explain pruning by profile, refuse glob-blocked assignment atomically, report unmatched patterns once, and hint/warn without rewriting definitions. Source skills remain installed. Runtime acceptance of this authored step is unclaimed.
+
 ```bash
 set -eu
 unset CODEX_HOME CLAUDE_CONFIG_DIR PI_CODING_AGENT_DIR
@@ -168,9 +170,10 @@ done
 
 **Expected**:
 - exit_code: 0
-- Both modes select after add and deselect after remove, explain pruning by profile, refuse glob-blocked assignment atomically, report unmatched patterns once, and hint/warn without rewriting definitions. Source skills remain installed. Runtime acceptance of this authored step is unclaimed.
 
 ### 6. Recover a project skills snapshot
+
+Preview writes no target content; restore recovers the authored bytes without switching the active profile. The destination is replaced as a whole. Manual `backup -p` still requires `agents`; use `backup --list -p` to find profile snapshots. Restore of a recognized moved key returns bytes to its declared former folder, leaving the current folder untouched. Save edits into source before resync. The dry run uses the same force authorization as the proposed restore because managed metadata can remain in the destination.
 
 ```bash
 set -eu
@@ -188,7 +191,7 @@ printf 'authored\n' > target/alpha/SKILL.md
 ss profile use empty --allow-empty --discard-edits --json -p > result.json
 snapshotPath=$(jq -r '.snapshot[0].path' result.json)
 restoreStamp=$(basename "$(dirname "$snapshotPath")")
-ss restore custom --from "$restoreStamp" -p --dry-run >/dev/null
+ss restore custom --from "$restoreStamp" -p --force --dry-run >/dev/null
 test ! -e target/alpha
 ss restore custom --from "$restoreStamp" -p --force >/dev/null
 cmp "$snapshotPath/alpha/SKILL.md" target/alpha/SKILL.md
@@ -197,19 +200,18 @@ ss status --json -p | jq -e '.profile.name == "empty"' >/dev/null
 
 **Expected**:
 - exit_code: 0
-- Preview writes no target content; restore recovers the authored bytes without switching the active profile. The destination is replaced as a whole. Manual `backup -p` still requires `agents`; use `backup --list -p` to find profile snapshots. Restore of a recognized moved key returns bytes to its declared former folder, leaving the current folder untouched. Save edits into source before resync.
 
 ### 7. Dashboard profile switch, consent and recovery (remote browser)
 
 Use the isolated global copy fixture from step 1, or the project fixture from step 6. Start the dashboard in that same disposable environment; stop it before the fixture is removed.
 
-```bash
+```text
 ss ui --no-open --host 0.0.0.0 --port 9100 -g
 # For the project fixture instead, from its root:
 # ss ui --no-open --host 0.0.0.0 --port 9100 -p
 ```
 
-**Expected**: open the parent-forwarded remote preview and check these actions in global and project mode, with Clean/Playful light/dark looks and desktop/mobile navigation:
+Manual browser checks: open the parent-forwarded remote preview and check these actions in global and project mode, with Clean/Playful light/dark looks and desktop/mobile navigation:
 - No profiles and no state hides the picker. Otherwise it shows All skills or the active name; unusable choices are disabled with reasons. Mobile selection closes navigation before confirmation.
 - Select a profile. Preview lists per-target added/removed/refreshed entries and unchanged symlink-mode targets. Cancel and compare saved config, state, manifest and target bytes with the pre-preview fixture.
 - Edit a managed target copy, then switch away. Switch stays disabled until snapshot-first consent; the project label names the actual resolved configuration folder's backups directory, including visible `skillshare/` projects. Confirm, copy the returned restore command, run it in the fixture and compare the restored edited bytes.
@@ -218,6 +220,17 @@ ss ui --no-open --host 0.0.0.0 --port 9100 -g
 - Remove the active definition from the fixture's shared config to simulate receiving a changed configuration (the CLI only deletes inactive definitions). Both unavailable repairs work: Choose profile and All skills. Skills outside a usable active profile stay visible with a muted tag in list, tree and tiles. Inspect a non-English locale, including blocked reasons and snapshot retention text.
 
 This step requires actual parent-run browser, restore and byte-comparison evidence; authored instructions are not a PASS receipt.
+
+### 8. Dashboard definitions and tree membership (manual browser)
+
+Use a retained disposable fixture from step 7 in each scope; capture config, local profile state and target bytes before each action. This manual step has no automatic executor.
+
+1. Open Profiles after Skills. With no definitions, create frontend with an explicit empty include; creation leaves activation and targets unchanged. Inspect a populated list with active counts and an unusable definition reason.
+2. Select a folder plus an overlapping child in Skills tree, choose Add to profile, then frontend. Verify each resolved source flat name appears once in the saved definition; agents offer no action. Repeat Remove from profile in list/card view. A glob-blocked batch leaves config unchanged and the selection remains available for retry.
+3. Edit patterns, inspect selected names and unmatched warnings, then save. Delay a preview and change the draft: an older response must not replace the newest list. Force a save error; confirm the draft remains and a retry submits it unchanged. Cancel resets the last saved form. Inspect empty includes with inert excludes and a pass-through description edit.
+4. Switch to frontend through the header preview. Edit the active definition; verify no target changes until explicitly opening Sync now and applying the shared skills preview. Repeat with pending state and no target changes: explicit apply must settle pending.
+5. Rename through its dialog, verify patterns retained and active state follows. Delete an inactive definition only after confirmation; active delete is disabled and a server refusal after an active race retains the editor. Source skills and targets stay intact.
+6. Inspect these states in Clean/Playful light/dark, desktop and 390px mobile, and a non-English locale including skill/glob diagnostics. Save actual screenshots and byte comparisons; this authored step claims no browser PASS.
 
 ## Pass Criteria
 

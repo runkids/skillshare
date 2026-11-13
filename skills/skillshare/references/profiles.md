@@ -46,3 +46,24 @@ A refused switch changes no state or target. An incomplete switch leaves the new
 Project `sync --discard-edits` also covers selected eligible targets’ declared former skills folders. Use each reported moved restore command to recover that folder while preserving the current one. Profile switching does not run former-folder cleanup.
 
 Reads/dry runs create no lock. Non-dry operations retain an empty local lock file and its directories even on refusal; never delete it to bypass a running command. Unavailable active state refuses skill operations; repair with `profile use <name>` or `profile use --none`. Older binaries ignore the local selection and may drop definitions when saving. No-profile behavior stays unchanged except copy output fingerprint bookkeeping.
+
+## Dashboard workflow
+
+Start `skillshare ui -g`, or `skillshare ui -p` from the intended project.
+The Library's Profiles page creates, edits, renames and deletes definitions.
+Pattern edits use a server preview of selected flat names and unmatched patterns;
+an empty include is intentional, and an omitted skills section stays unrestricted
+until the user chooses specific skills. Failed saves retain the draft for retry.
+
+List, card and tree skill selections offer Add to profile / Remove from profile.
+Folders expand to exact source flat names and overlapping selections deduplicate.
+Glob-blocked additions refuse atomically; agents have no membership action.
+Definition changes never activate or automatically sync. Active edits offer an
+explicit skills preview and apply action; inactive deletion requires confirmation,
+and active deletion is refused even if it became active after the page loaded.
+
+The header picker previews switches and requires separate consent for an empty
+selection and snapshot-first discard. Preserve returned restore commands and
+retention details. Repair incomplete targets, then explicitly sync from the pending
+banner, including when the preview shows no changes. Missing active definitions
+require choosing a usable profile or All skills; no silent fallback occurs.
