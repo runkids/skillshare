@@ -52,7 +52,7 @@ it.each([
   vi.stubGlobal('fetch', fetch);
   const invoke = Reflect.get(api.profiles, method);
   expect(invoke).toBeTypeOf('function');
-  expect(await invoke(...args)).toEqual(result);
+  expect(await Reflect.apply(invoke, undefined, args)).toEqual(result);
   expect(fetch).toHaveBeenCalledExactlyOnceWith(path, expect.objectContaining({ method: verb }));
   expect(fetch.mock.calls[0][1].body).toBe(body === undefined ? undefined : JSON.stringify(body));
 });
