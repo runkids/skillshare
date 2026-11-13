@@ -121,7 +121,7 @@ func cleanMovedProjectDirsWithPolicy(root, sourcePath string, targets []MovedTar
 				}
 				for _, change := range prune.KeptModified {
 					if !seen["kept:"+change.Entry] {
-						change.Reason = fmt.Sprintf("%s (in %s; delete this folder, --discard-edits does not cover it)", change.Reason, dir)
+						change.Reason = fmt.Sprintf("%s (in %s)", change.Reason, dir)
 						outcome.KeptModified = append(outcome.KeptModified, change)
 						seen["kept:"+change.Entry] = true
 					}

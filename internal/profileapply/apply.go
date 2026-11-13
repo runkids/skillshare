@@ -164,16 +164,14 @@ func (v *View) validate() error {
 	return err
 }
 
-func execute(ctx context.Context, v *View, targets map[string]config.TargetConfig, discovery ssync.TargetDiscovery, dryRun, force, aware bool, discard []ssync.DiscardEntry, ordinary ...bool) (ssync.ExecuteResult, error) {
+func execute(ctx context.Context, v *View, targets map[string]config.TargetConfig, discovery ssync.TargetDiscovery, dryRun, force, aware bool, discard []ssync.DiscardEntry, moved []ssync.MovedTarget) (ssync.ExecuteResult, error) {
 	// Shared-folder grouping must see exactly this frozen eligible set, not
 	// registered projects or a disabled target sharing the folder.
 	cfg := *v.Config
 	cfg.Targets = targets
 	opts := ssync.ExecuteOptions{Kinds: []string{"skill"}, Discovery: discovery,
 		ProjectMode: v.Project != nil, ProjectRoot: v.Scope.ProjectRoot, DryRun: dryRun, Force: force, ProfileAware: aware, Discard: discard}
-	if len(ordinary) > 0 && ordinary[0] {
-		opts.MovedTargets = ssync.MovedProjectTargets(v.Project, v.Config.Targets)
-	}
+	opts.MovedTargets = moved
 	return ssync.ExecuteTargets(ctx, &cfg, targets, opts)
 }
 
@@ -229,7 +227,7 @@ func Apply(ctx context.Context, req Request) (out Result, retErr error) {
 	}
 	out.Profile = candidate.Info(discovery.Skills)
 	out.Selection.Active = req.Name
-	planned, err := execute(ctx, candidate, targets, discovery, true, false, true, nil)
+	planned, err := execute(ctx, candidate, targets, discovery, true, false, true, nil, nil)
 	if err != nil {
 		return out, err
 	}
@@ -254,7 +252,7 @@ func Apply(ctx context.Context, req Request) (out Result, retErr error) {
 	}
 	var discard []ssync.DiscardEntry
 	if len(modified) > 0 {
-		out.Snapshot, discard, err = snapshots(candidate, targets, modified, req.snapshot)
+		out.Snapshot, discard, err = snapshots(candidate, targets, modified, nil, req.snapshot)
 		if err != nil {
 			return out, refusal(RefusalGeneric, err.Error())
 		}
@@ -286,7 +284,7 @@ func Apply(ctx context.Context, req Request) (out Result, retErr error) {
 		out.Complete = false
 		return out, nil
 	}
-	applied, err := execute(ctx, candidate, targets, discovery, false, false, true, discard)
+	applied, err := execute(ctx, candidate, targets, discovery, false, false, true, discard, nil)
 	out.outcome(applied, discovery.SourceIncomplete)
 	if err != nil {
 		out.Complete = false
@@ -322,6 +320,9 @@ type SyncRequest struct {
 	Scope                       Scope
 	DryRun, Force, DiscardEdits bool
 	Targets                     []string // nil means every eligible target; an explicit subset cannot settle pending
+	// Private snapshot seams mirror Request; nil preserves real execution.
+	snapshot      func(string, string, string) (string, error)
+	afterSnapshot func()
 	// Before preserves the caller's existing all-resource preflight: a native
 	// settings conflict must refuse before any skill target is written.
 	Before func(*View) error
@@ -363,6 +364,16 @@ func WithSkillSync(ctx context.Context, req SyncRequest) (out Result, retErr err
 			}
 		}
 	}
+	moved := ssync.MovedProjectTargets(v.Project, v.Config.Targets)
+	if aware {
+		for i := range moved {
+			if _, selected := targets[moved[i].Name]; !selected {
+				// Keep every configured current directory protected, even when
+				// this target cannot initiate a cleanup in the selected run.
+				moved[i].Disabled = true
+			}
+		}
+	}
 	discovery, err := v.Discover()
 	if err != nil {
 		return out, err
@@ -371,7 +382,7 @@ func WithSkillSync(ctx context.Context, req SyncRequest) (out Result, retErr err
 	out.Selection = Selection{Previous: v.State.Active, Active: v.State.Active, Pending: v.State.Pending}
 	var discard []ssync.DiscardEntry
 	if req.DiscardEdits {
-		plan, err := execute(ctx, v, targets, discovery, true, req.Force, aware, nil)
+		plan, err := execute(ctx, v, targets, discovery, true, req.Force, aware, nil, moved)
 		if err != nil {
 			return out, err
 		}
@@ -380,13 +391,16 @@ func WithSkillSync(ctx context.Context, req SyncRequest) (out Result, retErr err
 			modified = append(modified, row.KeptModified...)
 		}
 		if !req.DryRun {
-			out.Snapshot, discard, err = snapshots(v, targets, modified, nil)
+			out.Snapshot, discard, err = snapshots(v, targets, modified, moved, req.snapshot)
 			if err != nil {
 				return out, refusal(RefusalGeneric, err.Error())
 			}
 		}
 	}
-	executed, err := execute(ctx, v, targets, discovery, req.DryRun, req.Force, aware, discard, true)
+	if !req.DryRun && req.afterSnapshot != nil {
+		req.afterSnapshot()
+	}
+	executed, err := execute(ctx, v, targets, discovery, req.DryRun, req.Force, aware, discard, moved)
 	out.outcome(executed, discovery.SourceIncomplete)
 	if err != nil {
 		out.Complete = false

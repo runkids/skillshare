@@ -145,7 +145,7 @@ func (v *View) RestoreCommand(target, snapshot string) string {
 	if v.Scope.ProjectRoot != "" {
 		scope = "-p"
 	}
-	return "skillshare restore " + target + " --from " + filepath.Base(filepath.Dir(snapshot)) + " " + scope + " --force"
+	return "skillshare restore " + filepath.Base(snapshot) + " --from " + filepath.Base(filepath.Dir(snapshot)) + " " + scope + " --force"
 }
 
 // TargetCounts uses the same shared-folder grouping and selection seam as sync.
