@@ -126,8 +126,8 @@ skillshare install user/repo --force      # Override block
 skillshare install user/repo --skip-audit # Skip audit entirely
 ```
 
-`install --json` retains the audit gate even though it enables overwrite/noninteractive
-selection. Explicit `--force` and `--skip-audit` have different security effects.
+`install --json` retains the audit gate and enables noninteractive selection;
+it does not permit overwriting existing items without `--force`. Explicit `--force` and `--skip-audit` have different security effects.
 
 ## Managing Rules
 

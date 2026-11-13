@@ -38,8 +38,8 @@ type InstallOptions struct {
 
 	// AuditOverride lets an install proceed despite audit findings at/above the
 	// block threshold. Deliberately separate from Force, which only means
-	// "overwrite what is already there" and is set unconditionally by update and
-	// --json paths — routing the audit gate through Force would disable it there.
+	// "overwrite what is already there" and is set unconditionally by updates
+	// — routing the audit gate through Force would disable it there.
 	AuditOverride bool
 	// Reinstall makes a batch update copy every skill again even when its
 	// recorded commit or tree hash already matches upstream (update --force).

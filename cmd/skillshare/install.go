@@ -32,6 +32,7 @@ type installJSONOutput struct {
 	DryRun   bool                   `json:"dry_run"`
 	Into     string                 `json:"into,omitempty"`
 	Skills   []string               `json:"skills"`
+	Skipped  []string               `json:"skipped"`
 	Failed   []string               `json:"failed"`
 	Duration string                 `json:"duration"`
 	Error    string                 `json:"error,omitempty"`
@@ -43,6 +44,7 @@ type installLogSummary struct {
 	Mode            string
 	SkillCount      int
 	InstalledSkills []string
+	SkippedSkills   []string
 	FailedSkills    []string
 	PlannedSkills   []installPlannedSkill
 	DryRun          bool
@@ -55,7 +57,7 @@ type installLogSummary struct {
 
 type installBatchSummary struct {
 	InstalledSkills []string
-	SkippedSkills   int
+	SkippedSkills   []string
 	FailedSkills    []string
 	Failures        []install.SkillFailure // why each FailedSkills entry failed
 	Err             error                  // the batch could not start, e.g. a refused --into folder
@@ -254,8 +256,7 @@ func applyInstallJSONDefaults(parsed *installArgs) {
 	if !parsed.jsonOutput {
 		return
 	}
-	// Force only: --json must not silently override the audit gate.
-	parsed.opts.Force = true
+	// Output format grants neither overwrite consent nor an audit override.
 	if !parsed.opts.HasSkillFilter() && !parsed.opts.HasAgentFilter() {
 		parsed.opts.All = true
 	}
@@ -351,8 +352,8 @@ func resolveInstallSource(sourceArg string, opts install.InstallOptions, cfg *co
 		return source, false, nil
 	}
 
-	// Try resolving from installed skill metadata if update/force
-	if opts.Update || opts.Force {
+	// Try resolving from installed skill metadata if update/force/dry-run
+	if opts.Update || opts.Force || opts.DryRun {
 		resolvedSource, resolveErr := resolveSkillFromName(sourceArg, cfg)
 		if resolveErr != nil {
 			return nil, false, fmt.Errorf("invalid source: %w", err)
@@ -578,6 +579,7 @@ func installOutputJSON(summary installLogSummary, start time.Time, installErr er
 		DryRun:   summary.DryRun,
 		Into:     summary.Into,
 		Skills:   summary.InstalledSkills,
+		Skipped:  summary.SkippedSkills,
 		Failed:   summary.FailedSkills,
 		Duration: formatDuration(start),
 	}
@@ -677,7 +679,7 @@ func printInstallHelp() {
 			{"--audit-verbose", "Show full audit finding lines (default: compact summary)"},
 			{"-T, --audit-threshold, --threshold <t>", ""},
 			{"", "Block install by severity at/above: critical|high|medium|low|info\n(also supports c|h|m|l|i)"},
-			{"--json", "Noninteractive JSON; permits overwrite and selects all unless\n--skill/--agent is given. Audit blocking still applies"},
+			{"--json", "Noninteractive JSON; selects all unless --skill/--agent is given.\nExisting items require --force to overwrite; audit blocking still applies"},
 			{"-p, --project", "Use project-level config in current directory"},
 			{"-g, --global", "Use global config (~/.config/skillshare)"},
 		}},
