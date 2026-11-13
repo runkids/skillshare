@@ -1,4 +1,5 @@
 {
+  "profileEdit.invalidPattern": "{kind}: padrão {pattern} inválido.",
   "profileEdit.inert": "As exclusões ficam inativas enquanto a lista de inclusão estiver vazia. Elas voltam a valer ao adicionar um padrão de inclusão.",
   "profileEdit.title": "Perfis",
   "profileEdit.subtitle": "Defina a seleção aqui e depois troque de perfil para aplicá-la a este escopo.",

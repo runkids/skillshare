@@ -58,7 +58,7 @@ export default function ProfileEditor({ profile, active = false, onCreated }: {
     return () => { stale = true; clearTimeout(timer); };
   }, [selection, t]);
 
-  const fail = (cause: unknown) => setError(profileReason(cause instanceof Error ? cause.message : String(cause), t, name));
+  const fail = (cause: unknown, candidate = name.trim()) => setError(profileReason(cause instanceof Error ? cause.message : String(cause), t, candidate));
   const save = async () => {
     setBusy(true);
     setError('');
@@ -79,7 +79,7 @@ export default function ProfileEditor({ profile, active = false, onCreated }: {
       await invalidate(client, 'profilesChanged');
       setRenaming(false);
       navigate(`/profiles/${encodeURIComponent(newName.trim())}`);
-    } catch (cause: unknown) { fail(cause); }
+    } catch (cause: unknown) { fail(cause, newName.trim()); }
     finally { setBusy(false); }
   };
   const remove = async () => {
@@ -94,7 +94,7 @@ export default function ProfileEditor({ profile, active = false, onCreated }: {
   };
 
   return <div className="flex flex-col gap-5">
-    {error && <div className="ss-note bad" role="alert">{error}</div>}
+    {!renaming && error && <div className="ss-note bad" role="alert">{error}</div>}
     <div className="ss-split !h-auto flex-col gap-5 md:flex-row">
       <div className="lp !p-0 w-full md:w-1/2 flex flex-col gap-5">
         {creating && <Input label={t('profileEdit.name')} value={name} onChange={(e) => setName(e.target.value)} disabled={busy} autoFocus />}
@@ -115,7 +115,7 @@ export default function ProfileEditor({ profile, active = false, onCreated }: {
               setDescription(draft.description); setSpecific(!!draft.skills);
               setInclude(draft.skills?.include ?? []); setExclude(draft.skills?.exclude ?? []); setError('');
             }}>{t('common.cancel')}</Button>
-            <Button variant="secondary" onClick={() => { setNewName(name); setRenaming(true); }} disabled={busy || dirty}>{t('profileEdit.rename')}</Button>
+            <Button variant="secondary" onClick={() => { setError(''); setNewName(name); setRenaming(true); }} disabled={busy || dirty}>{t('profileEdit.rename')}</Button>
             <Button variant="danger" onClick={() => setDeleting(true)} disabled={busy || active} title={active ? t('profileEdit.activeDelete', { name }) : undefined}>{t('profileEdit.delete')}</Button>
           </>}
       </div>
@@ -137,6 +137,7 @@ export default function ProfileEditor({ profile, active = false, onCreated }: {
     {needsSync && <div className="ss-note warn flex-wrap"><span className="flex-1">{t('profileEdit.needsSync')}</span><Button variant="secondary" onClick={() => setSyncOpen(true)}>{t('profiles.syncNow')}</Button></div>}
     <DialogShell open={renaming} onClose={() => setRenaming(false)} preventClose={busy} ariaLabel={t('profileEdit.rename')} maxWidth="sm">
       <div className="flex flex-col gap-4"><h2 className="ss-h2">{t('profileEdit.rename')}</h2>
+        {error && <div className="ss-note bad" role="alert">{error}</div>}
         <Input label={t('profileEdit.name')} value={newName} onChange={(e) => setNewName(e.target.value)} disabled={busy} />
         <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setRenaming(false)} disabled={busy}>{t('common.cancel')}</Button><Button onClick={() => void rename()} disabled={busy || !newName.trim() || newName.trim() === name} loading={busy}>{t('profileEdit.rename')}</Button></div>
       </div>

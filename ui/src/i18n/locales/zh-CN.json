@@ -1,4 +1,5 @@
 {
+  "profileEdit.invalidPattern": "{kind}：模式 {pattern} 无效。",
   "profileEdit.inert": "包含列表为空时，排除规则不会生效；添加包含模式后会再次应用。",
   "profileEdit.title": "配置文件",
   "profileEdit.subtitle": "在此定义选择范围，再切换配置文件以应用到当前范围。",

@@ -46,6 +46,8 @@ export function profileReason(reason: string, t: ReturnType<typeof useT>, name =
   if (kept) return t(modified ? 'profiles.keptModified' : 'profiles.keptUnmanaged', {
     target: kept[1], entry: kept[2], step: t(`profiles.step.${kept[3]}`), reason: profileReason(kept[4], t),
   });
+  const invalidPattern = reason.match(/^invalid (include|exclude) pattern: ("(?:[^"\]|\.)*"): syntax error in pattern$/s);
+  if (invalidPattern) return t('profileEdit.invalidPattern', { kind: t(`profileEdit.${invalidPattern[1]}`), pattern: invalidPattern[2] });
   const q = JSON.stringify(name);
   const blocked = reason.match(/^profile ("(?:[^"\\]|\\.)*"): skill ("(?:[^"\\]|\\.)*") is blocked by exclude pattern ("(?:[^"\\]|\\.)*")$/s);
   if (blocked) return t('profileEdit.skillBlocked', { name: blocked[1], skill: blocked[2], pattern: blocked[3] });

@@ -1,4 +1,5 @@
 {
+  "profileEdit.invalidPattern": "{kind}: 잘못된 패턴 {pattern}.",
   "profileEdit.inert": "포함 패턴이 비어 있으면 제외 규칙은 적용되지 않습니다. 포함 패턴을 추가하면 다시 적용됩니다.",
   "profileEdit.title": "프로필",
   "profileEdit.subtitle": "여기서 선택 조건을 정의한 다음 프로필을 전환하여 현재 범위에 적용하세요.",

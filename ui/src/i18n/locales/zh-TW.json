@@ -1,4 +1,5 @@
 {
+  "profileEdit.invalidPattern": "{kind}：模式 {pattern} 無效。",
   "profileEdit.inert": "納入清單為空時，排除規則不會生效；新增納入模式後便會再次套用。",
   "profileEdit.title": "設定檔",
   "profileEdit.subtitle": "在此定義選取範圍，再切換設定檔以套用至目前範圍。",

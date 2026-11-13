@@ -1,4 +1,5 @@
 {
+  "profileEdit.invalidPattern": "{kind}: invalid pattern {pattern}.",
   "profileEdit.inert": "Excludes are inert while include is empty; they apply again when an include is added.",
   "profileEdit.title": "Profiles",
   "profileEdit.subtitle": "Define selections here, then switch profiles to apply them to this scope.",

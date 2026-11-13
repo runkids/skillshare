@@ -1,4 +1,5 @@
 {
+  "profileEdit.invalidPattern": "{kind}：パターン {pattern} は無効です。",
   "profileEdit.inert": "対象パターンが空の間、除外は無効です。対象パターンを追加すると再び適用されます。",
   "profileEdit.title": "プロファイル",
   "profileEdit.subtitle": "ここで選択条件を定義し、プロファイルを切り替えて現在のスコープに適用します。",

@@ -1,4 +1,5 @@
 {
+  "profileEdit.invalidPattern": "{kind} : motif {pattern} invalide.",
   "profileEdit.inert": "Les exclusions sont inactives si la liste d’inclusion est vide. Elles s’appliquent à nouveau dès qu’un motif d’inclusion est ajouté.",
   "profileEdit.title": "Profils",
   "profileEdit.subtitle": "Définissez la sélection ici, puis changez de profil pour l’appliquer à cette portée.",

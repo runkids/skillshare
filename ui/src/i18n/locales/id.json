@@ -1,4 +1,5 @@
 {
+  "profileEdit.invalidPattern": "{kind}: pola {pattern} tidak valid.",
   "profileEdit.inert": "Pengecualian tidak berlaku saat daftar penyertaan kosong. Aturan ini berlaku kembali setelah pola penyertaan ditambahkan.",
   "profileEdit.title": "Profil",
   "profileEdit.subtitle": "Tentukan pilihan di sini, lalu ganti profil untuk menerapkannya pada cakupan ini.",

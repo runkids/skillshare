@@ -1,4 +1,5 @@
 {
+  "profileEdit.invalidPattern": "{kind}: ungültiges Muster {pattern}.",
   "profileEdit.inert": "Bei leerer Einschlussliste sind Ausschlüsse inaktiv. Sobald ein Einschluss hinzukommt, gelten sie wieder.",
   "profileEdit.title": "Profile",
   "profileEdit.subtitle": "Definiere hier die Auswahl und wechsle dann das Profil, um sie auf diesen Bereich anzuwenden.",
