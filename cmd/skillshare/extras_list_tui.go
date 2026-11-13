@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/extraops"
 	"skillshare/internal/sync"
 	"skillshare/internal/theme"
 	"skillshare/internal/ui"
@@ -979,6 +980,7 @@ func (m extrasListTUIModel) executeAction() tea.Cmd {
 func (m extrasListTUIModel) doRemove(name string) (string, error) {
 	var sourceDir string
 	var err error
+	var result extraops.RemoveResult
 
 	// Load fresh config to avoid mutating the TUI model's copy in a background goroutine.
 	if m.projCfg != nil {
@@ -986,16 +988,23 @@ func (m extrasListTUIModel) doRemove(name string) (string, error) {
 		if loadErr != nil {
 			return "", loadErr
 		}
-		sourceDir, err = removeExtraFromProjectConfig(projCfg, m.cwd, name)
+		sourceDir, result, err = removeExtraFromProjectConfig(projCfg, m.cwd, name)
 	} else {
 		cfg, loadErr := config.Load()
 		if loadErr != nil {
 			return "", loadErr
 		}
-		sourceDir, err = removeExtraFromGlobalConfig(cfg, name)
+		sourceDir, result, err = removeExtraFromGlobalConfig(cfg, name)
 	}
 	if err != nil {
 		return "", err
+	}
+	if result.Remote != "" {
+		msg := extraRemovalMessage(result, sourceDir)
+		if len(result.KeptOutputs) > 0 {
+			msg += "; kept outputs: " + strings.Join(result.KeptOutputs, ", ")
+		}
+		return msg, nil
 	}
 	cleanEmptyExtrasDirQuiet(sourceDir)
 	return fmt.Sprintf("✓ Removed %q", name), nil

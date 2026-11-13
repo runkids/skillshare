@@ -325,3 +325,30 @@ func TestWithoutUnchangedExtra(t *testing.T) {
 		t.Fatal("changed own entry removed")
 	}
 }
+
+func TestRemove_ChangedEntryAtSaveRetained(t *testing.T) {
+	req := removalFixture(t)
+	expected := req.Extras[0]
+	req.Save = func([]config.ExtraConfig) error {
+		fresh, err := config.LoadReadOnly()
+		if err != nil {
+			return err
+		}
+		fresh.Extras[0].Branch = "changed-after-load"
+		if err := fresh.Save(); err != nil {
+			return err
+		}
+		_, err = WithoutUnchangedExtra(fresh.Extras, expected)
+		return err
+	}
+	if _, err := Remove(req); err == nil || !strings.Contains(err.Error(), "changed") {
+		t.Fatalf("conflict: %v", err)
+	}
+	fresh, err := config.LoadReadOnly()
+	if err != nil || fresh.Extras[0].Branch != "changed-after-load" {
+		t.Fatalf("conflicting entry overwritten: %+v %v", fresh, err)
+	}
+	if _, err := os.Stat(req.SourceDir); err != nil {
+		t.Fatal("source removed", err)
+	}
+}

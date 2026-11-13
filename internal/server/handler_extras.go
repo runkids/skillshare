@@ -795,6 +795,12 @@ func (s *Server) handleExtrasMode(w http.ResponseWriter, r *http.Request) {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock, lockErr := s.lockRemoteExtraMutation(name)
+	if lockErr != nil {
+		writeError(w, http.StatusConflict, lockErr.Error())
+		return
+	}
+	defer unlock()
 
 	extras := s.extrasConfig()
 
@@ -881,68 +887,6 @@ func (s *Server) handleExtrasMode(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"success": true, "name": name, "target": body.Target, "mode": body.Mode})
 }
 
-// handleExtrasDelete — DELETE /api/extras/{name}
-func (s *Server) handleExtrasDelete(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
-	name := r.PathValue("name")
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	// Find the extra
-	extras := s.extrasConfig()
-	idx := -1
-	for i, e := range extras {
-		if e.Name == name {
-			idx = i
-			break
-		}
-	}
-	if idx == -1 {
-		writeCodedError(w, http.StatusNotFound, "instructions_shared_not_found", "extra not found: "+name, map[string]string{"name": name})
-		return
-	}
-
-	removed := extras[idx]
-	sourceDir := s.extrasSourceDir(removed)
-
-	// A single-file extra's targets go back to how they were (as the CLI does).
-	projectRoot := s.projectRoot
-	restored, restoreErr := syncpkg.RestoreExtraFileTargets(removed, sourceDir, func(p string) string {
-		return resolveExtrasTargetPath(projectRoot, p)
-	})
-	if restoreErr == nil {
-		// Remove from config
-		if s.IsProjectMode() {
-			s.projectCfg.Extras = append(s.projectCfg.Extras[:idx], s.projectCfg.Extras[idx+1:]...)
-		} else {
-			s.cfg.Extras = append(s.cfg.Extras[:idx], s.cfg.Extras[idx+1:]...)
-		}
-
-		if err := s.saveAndReloadConfig(); err != nil {
-			writeCodedError(w, http.StatusInternalServerError, "instructions_save_failed", err.Error(), map[string]string{"name": name, "detail": err.Error()})
-			return
-		}
-
-	}
-
-	status, msg := "ok", ""
-	if restoreErr != nil {
-		status, msg = "partial", restoreErr.Error()
-	}
-	s.writeOpsLog("extras-remove", status, start, map[string]any{
-		"name":     name,
-		"restored": restored,
-		"scope":    "ui",
-	}, msg)
-
-	if restoreErr != nil {
-		writeCodedError(w, http.StatusInternalServerError, "instructions_restore_failed", restoreErr.Error(), map[string]string{"name": name, "detail": restoreErr.Error()})
-		return
-	}
-	writeJSON(w, map[string]any{"success": true, "name": name, "restored": restored})
-}
-
 // handleExtrasAddTarget — POST /api/extras/{name}/targets
 // Adds a new target to an existing extra. Config-only (no sync).
 func (s *Server) handleExtrasAddTarget(w http.ResponseWriter, r *http.Request) {
@@ -976,6 +920,12 @@ func (s *Server) handleExtrasAddTarget(w http.ResponseWriter, r *http.Request) {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock, lockErr := s.lockRemoteExtraMutation(name)
+	if lockErr != nil {
+		writeError(w, http.StatusConflict, lockErr.Error())
+		return
+	}
+	defer unlock()
 
 	extras := s.extrasConfig()
 	idx := -1
@@ -1063,6 +1013,12 @@ func (s *Server) handleExtrasRemoveTarget(w http.ResponseWriter, r *http.Request
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock, lockErr := s.lockRemoteExtraMutation(name)
+	if lockErr != nil {
+		writeError(w, http.StatusConflict, lockErr.Error())
+		return
+	}
+	defer unlock()
 
 	extras := s.extrasConfig()
 	idx := -1

@@ -152,3 +152,52 @@ func TestInstallExtra_ParseErrorNeverEchoesSource(t *testing.T) {
 		t.Fatalf("source disclosed: %s %s", result.Stdout, result.Stderr)
 	}
 }
+
+func TestInstallExtra_RemovalBothModes(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, edited := range []bool{false, true} {
+			sb := testutil.NewSandbox(t)
+			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+			remote := extraFixture(t, sb)
+			cwd, mode := sb.Root, "-g"
+			root := filepath.Join(filepath.Dir(sb.SourcePath), "extras")
+			if project {
+				cwd = sb.SetupProjectDir("claude")
+				mode = "-p"
+				root = filepath.Join(cwd, ".skillshare", "extras")
+			}
+			sb.RunCLIInDir(cwd, "install", remote, "--kind", "extra", "--name", "rules", "--skip-audit", mode).AssertSuccess(t)
+			source := filepath.Join(root, "rules")
+			if edited {
+				if err := os.WriteFile(filepath.Join(source, "rules.md"), []byte("local edit"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			result := sb.RunCLIInDir(cwd, "extras", "remove", "rules", "--force", mode)
+			result.AssertSuccess(t)
+			if edited {
+				result.AssertAnyOutputContains(t, "Kept edited")
+				data, err := os.ReadFile(filepath.Join(source, "rules.md"))
+				if err != nil || string(data) != "local edit" {
+					t.Fatal("edit lost", err)
+				}
+			} else {
+				result.AssertAnyOutputContains(t, "Deleted fetched copy")
+				if _, err := os.Stat(source); !os.IsNotExist(err) {
+					t.Fatal("source remains", err)
+				}
+			}
+			store, _, err := install.ReadMetadata(root)
+			if err != nil || store.GetExact("rules") != nil {
+				t.Fatal("metadata retained", err)
+			}
+			if project {
+				lock, err := install.LoadLock(filepath.Join(cwd, ".skillshare"))
+				if err != nil || lock.ExtraCommitFor("rules", remote) != "" {
+					t.Fatal("pin retained", err)
+				}
+			}
+			sb.Cleanup()
+		}
+	}
+}

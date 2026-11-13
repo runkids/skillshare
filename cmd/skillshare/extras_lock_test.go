@@ -3,10 +3,13 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/install"
+	"skillshare/internal/utils"
 )
 
 func TestRemoteExtraWritersTakeRootLock(t *testing.T) {
@@ -115,5 +118,39 @@ func TestRemoteExtraMutationReloadsAfterLock(t *testing.T) {
 	fresh, err := config.LoadProjectReadOnly(root)
 	if err != nil || fresh.Extras[0].Branch != "published" || len(fresh.Extras[0].Targets) != 1 {
 		t.Fatalf("stale config saved: %+v %v", fresh, err)
+	}
+}
+
+func TestExtrasTUI_RemoveRemote(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", filepath.Join(root, "state"))
+	pc := &config.ProjectConfig{Extras: []config.ExtraConfig{{Name: "rules", Remote: "example-org/ai-hub", Targets: []config.ExtraTargetConfig{}}}}
+	if err := pc.Save(root); err != nil {
+		t.Fatal(err)
+	}
+	source := filepath.Join(pc.EffectiveExtrasSource(root), "rules")
+	if err := os.MkdirAll(source, 0755); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(source, "rule.md")
+	if err := os.WriteFile(file, []byte("original"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hash, err := utils.FileHashFormatted(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := install.NewMetadataStore()
+	store.Set("rules", &install.MetadataEntry{Kind: "extra", Source: "example-org/ai-hub", Commit: strings.Repeat("a", 40), FileHashes: map[string]string{"rule.md": hash}})
+	if err := store.Save(pc.EffectiveExtrasSource(root)); err != nil {
+		t.Fatal(err)
+	}
+	model := extrasListTUIModel{projCfg: pc, cwd: root}
+	msg, err := model.doRemove("rules")
+	if err != nil || !strings.Contains(msg, "Deleted") || !strings.Contains(msg, "aaaaaaa") {
+		t.Fatalf("TUI removal: %q %v", msg, err)
+	}
+	if _, err := os.Stat(source); !os.IsNotExist(err) {
+		t.Fatalf("source remains: %v", err)
 	}
 }
