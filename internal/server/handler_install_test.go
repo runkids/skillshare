@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -77,6 +78,69 @@ func TestHandleInstallBatch_AgentInstallWritesMetadataToAgentsSource(t *testing.
 	}
 	if _, err := os.Stat(filepath.Join(skillsDir, install.MetadataFileName)); !os.IsNotExist(err) {
 		t.Fatalf("expected no agent metadata written to skills source, got err=%v", err)
+	}
+}
+
+// A second batch install keeps what the first one installed: the result says
+// skipped, and the log names it as skipped, not installed or failed.
+func TestHandleInstallBatch_KeptItemsAreSkipped(t *testing.T) {
+	for _, tc := range []struct{ kind, into string }{{"skill", ""}, {"skill", "grp"}, {"agent", ""}} {
+		kind := tc.kind
+		t.Run(kind+"/"+tc.into, func(t *testing.T) {
+			s, _ := newTestServer(t)
+			s.cfg.AgentsSource = filepath.Join(t.TempDir(), "agents")
+			s.agentsStore = install.NewMetadataStore()
+			repoDir := t.TempDir()
+			pick := map[string]string{"name": "demo", "path": "skills/demo"}
+			if kind == "agent" {
+				pick["path"] = "agents/demo.md"
+				if err := os.MkdirAll(filepath.Join(repoDir, "agents"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(repoDir, "agents", "demo.md"), []byte("# Demo agent"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if err := os.MkdirAll(filepath.Join(repoDir, "skills", "demo"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(repoDir, "skills", "demo", "SKILL.md"), []byte("# Demo"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			initGitRepo(t, repoDir)
+			payload, err := json.Marshal(map[string]any{"source": "file://" + repoDir, "skills": []map[string]string{pick}, "kind": kind, "into": tc.into})
+			if err != nil {
+				t.Fatal(err)
+			}
+			post := func() *httptest.ResponseRecorder {
+				rr := httptest.NewRecorder()
+				s.mux.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/install/batch", bytes.NewReader(payload)))
+				if rr.Code != http.StatusOK {
+					t.Fatalf("status %d: %s", rr.Code, rr.Body.String())
+				}
+				return rr
+			}
+			post()
+
+			rr := post()
+			var resp struct {
+				Results []struct {
+					Action string `json:"action"`
+					Error  string `json:"error"`
+				} `json:"results"`
+			}
+			if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+				t.Fatal(err)
+			}
+			if len(resp.Results) != 1 || resp.Results[0].Action != "skipped" || resp.Results[0].Error != "" {
+				t.Errorf("second install should be skipped: %s", rr.Body.String())
+			}
+			args := latestOpsEntry(t, s).Args
+			if fmt.Sprint(args["skipped_skills"]) != "[demo]" || args["installed_skills"] != nil || args["failed_skills"] != nil {
+				t.Errorf("log should name demo as skipped only: %+v", args)
+			}
+		})
 	}
 }
 
@@ -409,6 +473,35 @@ func TestHandleInstall_TrackAcceptsLocalGitPath(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(skillsDir, resp.RepoName, "SKILL.md")); err != nil {
 		t.Fatalf("expected tracked repo %q in skills source: %v", resp.RepoName, err)
+	}
+}
+
+// Installing the same tracked repo again keeps it: the request is refused as
+// a conflict, and the log names the repo as skipped, not failed.
+func TestHandleInstall_TrackSameRepoIsSkipped(t *testing.T) {
+	s, _ := newTestServer(t)
+	repoDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(repoDir, "SKILL.md"), []byte("---\nname: kept\n---\n# s"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	initGitRepo(t, repoDir)
+	payload, _ := json.Marshal(map[string]any{"source": repoDir, "track": true, "skipAudit": true})
+	post := func() *httptest.ResponseRecorder {
+		rr := httptest.NewRecorder()
+		s.mux.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/install", bytes.NewReader(payload)))
+		return rr
+	}
+	if rr := post(); rr.Code != http.StatusOK {
+		t.Fatalf("first install: %d %s", rr.Code, rr.Body.String())
+	}
+
+	rr := post()
+	if rr.Code != http.StatusConflict {
+		t.Errorf("second install: got %d, want 409: %s", rr.Code, rr.Body.String())
+	}
+	e := latestOpsEntry(t, s)
+	if e.Status != "ok" || fmt.Sprint(e.Args["skipped_skills"]) != "[_"+filepath.Base(repoDir)+"]" || e.Args["failed_skills"] != nil {
+		t.Errorf("log should name the repo as skipped: %+v", e)
 	}
 }
 

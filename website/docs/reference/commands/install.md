@@ -403,6 +403,8 @@ skillshare install anthropics/skills/skills/pdf
 
 Use `--update` to refresh, or `--force` to overwrite.
 
+Only the same skill of that repo is skipped. If another skill of the same repo would take the folder, for example through `--name`, the install fails as a conflict, as described [below](#conflict-with-different-repo).
+
 `--update` on a tracked repo behind a [followed source link](../targets/configuration.md#follow_source_links) refuses to pull while that checkout has uncommitted changes. Commit or stash first.
 
 ### Cross-path duplicate

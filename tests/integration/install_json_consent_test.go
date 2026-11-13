@@ -3,16 +3,16 @@
 package integration
 
 import (
+	"fmt"
 	"path/filepath"
-	"slices"
 	"testing"
 
 	"skillshare/internal/oplog"
 	"skillshare/internal/testutil"
 )
 
-// Agents that come with a repo's skills are kept too, and the kept names
-// reach the JSON result and the operation log.
+// Reinstalling a repo keeps its skills and the agents that come with them,
+// and the kept names reach the JSON result and the operation log.
 func TestInstall_JSON_ReportsKeptAgentsOfSkillRepo(t *testing.T) {
 	for _, mode := range []string{"global", "project"} {
 		t.Run(mode, func(t *testing.T) {
@@ -38,16 +38,16 @@ func TestInstall_JSON_ReportsKeptAgentsOfSkillRepo(t *testing.T) {
 			if got := sb.ReadFile(installed); got != "# local edit" {
 				t.Fatalf("--json overwrote the installed agent: %q", got)
 			}
-			// Only the agent is checked: the repo's skills land in failed or skipped.
-			if skipped, _ := parseJSON(t, result.Stdout)["skipped"].([]any); !slices.Contains(skipped, any("helper")) {
-				t.Errorf("skipped should name helper: %s", result.Stdout)
+			result.AssertSuccess(t)
+			if got := fmt.Sprint(parseJSON(t, result.Stdout)["skipped"]); got != "[alpha beta helper]" {
+				t.Errorf("skipped = %s, want [alpha beta helper]: %s", got, result.Stdout)
 			}
 			entries, err := oplog.Read(configPath, oplog.OpsFile, 1)
 			if err != nil || len(entries) != 1 || entries[0].Command != "install" {
 				t.Fatalf("last oplog entry = %+v, %v", entries, err)
 			}
-			if logged, _ := entries[0].Args["skipped_skills"].([]any); !slices.Contains(logged, any("helper")) {
-				t.Errorf("oplog skipped_skills should name helper: %+v", entries[0].Args)
+			if got := fmt.Sprint(entries[0].Args["skipped_skills"]); got != "[alpha beta helper]" {
+				t.Errorf("oplog skipped_skills = %s, want [alpha beta helper]", got)
 			}
 		})
 	}
@@ -100,9 +100,9 @@ func TestInstall_JSON_OverwriteConsent(t *testing.T) {
 				if installed, ok := output["skills"].([]any); !ok || len(installed) != 0 {
 					t.Errorf("existing item reported as installed: %s", result.Stdout)
 				}
-				// Plain file:// skills use the existing collision error; tracked
-				// repositories and agents use the existing skip decisions.
-				if kind == "local-skill" || kind == "git-skill" {
+				// A local folder records no repo, so it keeps the collision error;
+				// items installed from the same repo are skipped.
+				if kind == "local-skill" {
 					result.AssertFailure(t)
 					if output["error"] == nil || output["error"] == "" {
 						t.Errorf("missing collision error: %s", result.Stdout)

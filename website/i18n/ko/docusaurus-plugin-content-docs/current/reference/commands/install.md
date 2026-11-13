@@ -397,6 +397,8 @@ skillshare install anthropics/skills/skills/pdf
 
 새로고침하려면 `--update`를, 덮어쓰려면 `--force`를 사용하세요.
 
+건너뛰는 것은 같은 repo의 같은 skill뿐입니다. `--name` 등으로 같은 repo의 다른 skill이 같은 폴더를 쓰게 되면, [아래](#conflict-with-different-repo)와 같이 충돌로 실패합니다.
+
 [따라간 source 링크](../targets/configuration.md#follow_source_links) 뒤의 tracked repo에 `--update`를 사용하면, checkout에 커밋되지 않은 변경 사항이 있을 때 pull을 거부합니다. 먼저 commit하거나 stash하세요.
 
 ### Cross-path 중복
@@ -415,7 +417,7 @@ skillshare install runkids/feature-radar
 
 이는 서로 다른 경로에서의 우발적인 중복을 방지합니다. 의도적으로 허용하려면 `--force`를 사용하세요.
 
-### 다른 Repo와의 충돌
+### 다른 Repo와의 충돌 {#conflict-with-different-repo}
 
 destination 디렉터리가 존재하지만 **다른** repo에서 설치된 것이라면, 오류 메시지에 원래 source가 포함됩니다.
 

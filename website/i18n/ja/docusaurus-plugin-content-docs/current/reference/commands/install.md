@@ -397,6 +397,8 @@ skillshare install anthropics/skills/skills/pdf
 
 更新するには `--update`、上書きするには `--force` を使用します。
 
+スキップされるのは、同じリポジトリの同じ Skill だけです。`--name` などで同じリポジトリの別の Skill が同じフォルダを使う場合は、[下記](#conflict-with-different-repo)と同様に競合として失敗します。
+
 [たどられた source リンク](../targets/configuration.md#follow_source_links)の背後にある tracked repo への `--update` は、checkout に未コミットの変更がある場合 pull を拒否します。先に commit または stash してください。
 
 ### クロスパスの重複
@@ -415,7 +417,7 @@ skillshare install runkids/feature-radar
 
 これにより、異なるパスへの意図しない重複を防ぎます。意図的に許可する場合は `--force` を使用します。
 
-### 別リポジトリとの競合
+### 別リポジトリとの競合 {#conflict-with-different-repo}
 
 インストール先のディレクトリが存在するものの、**別の** リポジトリからインストールされていた場合、エラーメッセージには元のソースが含まれます。
 
