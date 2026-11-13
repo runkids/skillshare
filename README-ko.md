@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **최신 버전**: v0.30.6 — CI에서 오래된 스킬을 잡아내세요. `skillshare check --exit-code`는 확인한 항목 중 하나라도 최신이 아니면 종료 코드 1을 반환하고, `check --all`은 이제 스킬과 함께 에이전트도 확인하므로 CI 단계 하나로 둘 다 다룰 수 있습니다. [check 레퍼런스 →](https://skillshare.runkids.cc/ko/docs/reference/commands/check) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
+> **최신 버전**: v0.30.7 — 수락한 findings를 CI에서 통과시키세요. `skillshare audit --respect-accepted`는 `install`이나 `update`에서 `--force`로 수락한 findings 때문에 더 이상 실패하지 않으며, update 게이트와 같은 방식으로 처리합니다. 해당 findings는 보고서에 남고 수락됨으로 표시됩니다. [audit 레퍼런스 →](https://skillshare.runkids.cc/ko/docs/reference/commands/audit#accepted-findings) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare를 쓰는 이유
 
