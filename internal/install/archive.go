@@ -182,7 +182,7 @@ func extractArchive(file, root string, expandedLimit int64, entryLimit int) erro
 			return fmt.Errorf("unsafe archive path %q", name)
 		}
 		for _, part := range strings.Split(name, "/") {
-			if strings.EqualFold(part, ".git") {
+			if strings.EqualFold(strings.TrimRight(part, ". "), ".git") {
 				return fmt.Errorf("ZIP contains Git administrative path %q", name)
 			}
 			if part != "." {

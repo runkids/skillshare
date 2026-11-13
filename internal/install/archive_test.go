@@ -267,7 +267,10 @@ func TestArchiveInstallUpdate(t *testing.T) {
 }
 
 func TestArchiveRejectsUnsafeZIP(t *testing.T) {
-	for _, name := range []string{"../evil", "safe/../evil", "./../evil", "brief/./../../evil", "./C:/evil", "./safe\x00bad", "/evil", "C:/evil", `C:\evil`, `\\host\evil`, `safe\evil`, ".git", ".git/", ".git/config", "nested/.git", "nested/.git/", "nested/.git/config", "nested/.GIT"} {
+	for _, name := range []string{"../evil", "safe/../evil", "./../evil", "brief/./../../evil", "./C:/evil", "./safe\x00bad", "/evil", "C:/evil", `C:\evil`, `\\host\evil`, `safe\evil`, ".git", ".git/", ".git/config", "nested/.git", "nested/.git/", "nested/.git/config", "nested/.GIT",
+		".git.", ".git ", ".GiT./", ".GIT /", "nested/.GiT.", "nested/.git ",
+		"nested/.git./", "nested/.GIT /", "nested/.git. /config", ".git... /config",
+	} {
 		t.Run(name, func(t *testing.T) {
 			content := "bad"
 			if strings.HasSuffix(name, "/") {
