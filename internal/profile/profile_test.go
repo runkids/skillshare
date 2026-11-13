@@ -1,6 +1,8 @@
 package profile
 
 import (
+	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -104,5 +106,131 @@ func TestPreview(t *testing.T) {
 	p, err = Preview(empty, []string{"old"})
 	if err != nil || len(p.InertExcludes) != 1 || p.InertExcludes[0] != "old" {
 		t.Fatalf("inert excludes = %+v, %v", p, err)
+	}
+}
+
+func TestMutate_AddRemoveSkills(t *testing.T) {
+	for _, tc := range []struct {
+		name, before, op, after, result, blocked string
+	}{
+		{"pass-through add", `{}`, "add-skills", `{}`, "already-in", ""},
+		{"pass-through remove", `{}`, "remove-skills", `{skills: {include: ["*"], exclude: [x]}}`, "removed", ""},
+		{"last include", `{skills: {include: [x], exclude: [y, "z-*"]}}`, "remove-skills", `{skills: {include: [], exclude: [y, "z-*"]}}`, "removed", ""},
+		{"empty include blocked", `{skills: {include: [], exclude: ["x*"]}}`, "add-skills", "", "", "x*"},
+		{"empty skills", `{skills: {}}`, "add-skills", `{skills: {include: [x]}}`, "added", ""},
+		{"null skills", `{skills: null}`, "add-skills", `{skills: {include: [x]}}`, "added", ""},
+		{"blank include add", `{skills: {include: ["", " "]}}`, "add-skills", `{skills: {include: ["", " ", x]}}`, "added", ""},
+		{"blank include remove", `{skills: {include: ["", " "]}}`, "remove-skills", `{skills: {include: ["", " "]}}`, "not-in", ""},
+		{"exact exclude", `{skills: {include: [], exclude: [x, y]}}`, "add-skills", `{skills: {include: [x], exclude: [y]}}`, "added", ""},
+		{"included but excluded", `{skills: {include: ["*"], exclude: [x]}}`, "add-skills", `{skills: {include: ["*"], exclude: []}}`, "added", ""},
+		{"normalized exact exclude", `{skills: {include: ["*"], exclude: [" x "]}}`, "add-skills", `{skills: {include: ["*"], exclude: []}}`, "added", ""},
+		{"already selected", `{skills: {include: ["*"]}}`, "add-skills", `{skills: {include: ["*"]}}`, "already-in", ""},
+		{"not selected", `{skills: {include: [y]}}`, "remove-skills", `{skills: {include: [y]}}`, "not-in", ""},
+		{"glob include", `{skills: {include: ["*"]}}`, "remove-skills", `{skills: {include: ["*"], exclude: [x]}}`, "removed", ""},
+		{"exact and glob include", `{skills: {include: [x, "*"]}}`, "remove-skills", `{skills: {include: ["*"], exclude: [x]}}`, "removed", ""},
+		{"normalized exact include", `{skills: {include: [" x "]}}`, "remove-skills", `{skills: {include: []}}`, "removed", ""},
+		{"exact and glob exclude", `{skills: {include: ["*"], exclude: [x, "x*"]}}`, "add-skills", "", "", "x*"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			original := section(t, "profiles: {work: "+tc.before+"}")
+			before, err := yaml.Marshal(original)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, active := range []string{"work", "other"} {
+				next, change, err := Mutate(original, active, Mutation{Op: tc.op, Name: "work", Skills: []string{"x"}})
+				if tc.blocked != "" {
+					var blocked *BlockedError
+					if !errors.As(err, &blocked) || blocked.Profile != "work" || blocked.Skill != "x" || blocked.Pattern != tc.blocked || !strings.Contains(err.Error(), tc.blocked) {
+						t.Fatalf("blocked add = %v, want pattern %q", err, tc.blocked)
+					}
+					if next != nil || change.Changed || change.NeedsSync || len(change.Skills) != 0 || change.Active != active {
+						t.Fatalf("blocked add returned a change: %+v", change)
+					}
+				} else {
+					if err != nil {
+						t.Fatal(err)
+					}
+					want := section(t, "profiles: {work: "+tc.after+"}")
+					if !equalNodes(next, want) {
+						got, _ := yaml.Marshal(next)
+						t.Fatalf("result = %s, want %s", got, tc.after)
+					}
+					changed := tc.result == "added" || tc.result == "removed"
+					if change.Changed != changed || change.NeedsSync != (changed && active == "work") || change.Active != active || !slices.Equal(change.Skills, []SkillResult{{Name: "x", Result: tc.result}}) {
+						t.Fatalf("change = %+v", change)
+					}
+					d := Parse(next).Definitions["work"]
+					if !d.Usable || d.Selects("x") != (tc.op == "add-skills") {
+						t.Fatalf("membership after %s: %+v", tc.op, d)
+					}
+					if tc.name == "pass-through remove" && !d.Selects("other__skill") {
+						t.Fatal("removing x stopped selecting other skills")
+					}
+				}
+				after, err := yaml.Marshal(original)
+				if err != nil || string(after) != string(before) {
+					t.Fatal("mutation changed the input node")
+				}
+			}
+		})
+	}
+}
+
+func TestMutate_AddSkillsBatchAtomic(t *testing.T) {
+	for _, names := range [][]string{{"x", "z-new"}, {"z-new", "x"}} {
+		original := section(t, `profiles: {work: {skills: {include: [], exclude: [x, "z-*"]}}}`)
+		before, err := yaml.Marshal(original)
+		if err != nil {
+			t.Fatal(err)
+		}
+		next, change, err := Mutate(original, "work", Mutation{Op: "add-skills", Name: "work", Skills: names})
+		var blocked *BlockedError
+		if !errors.As(err, &blocked) || blocked.Profile != "work" || blocked.Skill != "z-new" || blocked.Pattern != "z-*" || !strings.Contains(err.Error(), "z-*") {
+			t.Fatalf("batch refusal = %v", err)
+		}
+		if next != nil || change.Changed || change.NeedsSync || len(change.Skills) != 0 {
+			t.Fatalf("batch partially applied: %+v", change)
+		}
+		after, err := yaml.Marshal(original)
+		if err != nil || string(after) != string(before) {
+			t.Fatal("batch refusal changed the input node")
+		}
+	}
+}
+
+func TestMutate_SkillsPreserveYAMLAndBatchResults(t *testing.T) {
+	original := section(t, `profiles:
+  future: # keep this profile
+    unknown: value
+  work:
+    description: keep description
+    skills:
+      include: # keep includes
+        - "team__*" # keep glob
+      exclude: [other] # keep excludes
+`)
+	next, change, err := Mutate(original, "work", Mutation{Op: "add-skills", Name: "work", Skills: []string{"team__new", "x", "x"}})
+	want := []SkillResult{{Name: "team__new", Result: "already-in"}, {Name: "x", Result: "added"}, {Name: "x", Result: "already-in"}}
+	if err != nil || !change.Changed || !change.NeedsSync || !slices.Equal(change.Skills, want) {
+		t.Fatalf("batch add = %+v, %v", change, err)
+	}
+	next, change, err = Mutate(next, "work", Mutation{Op: "remove-skills", Name: "work", Skills: []string{"x", "team__new", "x"}})
+	want = []SkillResult{{Name: "x", Result: "removed"}, {Name: "team__new", Result: "removed"}, {Name: "x", Result: "not-in"}}
+	if err != nil || !change.Changed || !change.NeedsSync || !slices.Equal(change.Skills, want) {
+		t.Fatalf("batch remove = %+v, %v", change, err)
+	}
+	data, err := yaml.Marshal(next)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, kept := range []string{"keep this profile", "unknown: value", "keep description", "keep includes", "keep glob", "keep excludes", "team__*", "other"} {
+		if !strings.Contains(string(data), kept) {
+			t.Errorf("lost %q in %s", kept, data)
+		}
+	}
+	d := Parse(next).Definitions["work"]
+	if !d.Usable || d.Selects("x") || d.Selects("team__new") || !d.Selects("team__kept") {
+		t.Fatalf("batch membership = %+v", d)
 	}
 }

@@ -3,6 +3,9 @@ package profile
 import (
 	"fmt"
 	"slices"
+	"strings"
+
+	"skillshare/internal/pattern"
 
 	"gopkg.in/yaml.v3"
 )
@@ -12,11 +15,27 @@ type Mutation struct {
 	Description       *string
 
 	AddInclude, RemoveInclude, AddExclude, RemoveExclude []string
+	Skills                                             []string
 }
 
 type Change struct {
 	Changed, NeedsSync bool
 	Active             string
+	Skills             []SkillResult
+}
+
+type SkillResult struct {
+	Name   string `json:"name"`
+	Result string `json:"result"`
+}
+
+// BlockedError names an exclude pattern that assigning a skill cannot remove.
+type BlockedError struct {
+	Profile, Skill, Pattern string
+}
+
+func (e *BlockedError) Error() string {
+	return fmt.Sprintf("profile %q: skill %q is blocked by exclude pattern %q", e.Profile, e.Skill, e.Pattern)
 }
 
 // Mutate returns a copy of the raw section, leaving unrelated nodes intact.
@@ -72,6 +91,59 @@ func Mutate(node *yaml.Node, active string, m Mutation) (*yaml.Node, Change, err
 		}
 		change.Changed = m.Op == "create" || !equalNodes(node, copy)
 		change.NeedsSync = change.Changed && active == m.Name
+	case "add-skills", "remove-skills":
+		// Refuse the whole batch before editing any name, even if an exact
+		// exclude also matches a name blocked by a glob.
+		if m.Op == "add-skills" && d.Skills != nil {
+			for _, name := range m.Skills {
+				for _, raw := range d.Skills.Exclude {
+					p := strings.TrimSpace(raw)
+					if _, matches := pattern.FirstMatch(name, []string{p}); p != "" && p != name && matches {
+						return nil, change, &BlockedError{Profile: m.Name, Skill: name, Pattern: p}
+					}
+				}
+			}
+		}
+		entry := copy.Content[index+1]
+		for _, name := range m.Skills {
+			d = Parse(copy).Definitions[m.Name]
+			adding := m.Op == "add-skills"
+			result := "not-in"
+			if adding {
+				result = "already-in"
+			}
+			if d.Selects(name) != adding {
+				si := nodeIndex(entry, "skills")
+				if si < 0 || entry.Content[si+1].Tag == "!!null" {
+					setValue(entry, "skills", &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"})
+					si = nodeIndex(entry, "skills")
+				}
+				skills := entry.Content[si+1]
+				if adding {
+					removeExactSkill(skills, "exclude", name)
+					if !Parse(copy).Definitions[m.Name].Selects(name) {
+						editList(skills, "include", []string{name}, nil)
+					}
+					result = "added"
+				} else {
+					if d.Skills == nil {
+						editList(skills, "include", []string{"*"}, nil)
+					}
+					removeExactSkill(skills, "include", name)
+					if Parse(copy).Definitions[m.Name].Selects(name) {
+						editList(skills, "exclude", []string{name}, nil)
+					}
+					result = "removed"
+				}
+			}
+			change.Skills = append(change.Skills, SkillResult{Name: name, Result: result})
+		}
+		updated := Parse(copy).Definitions[m.Name]
+		if !updated.Usable {
+			return nil, Change{Active: active}, fmt.Errorf("profile %q: %s", m.Name, updated.Reason)
+		}
+		change.Changed = !equalNodes(node, copy)
+		change.NeedsSync = change.Changed && active == m.Name
 	case "rename":
 		if err := ValidateName(m.NewName); err != nil {
 			return nil, change, err
@@ -97,6 +169,13 @@ func Mutate(node *yaml.Node, active string, m Mutation) (*yaml.Node, Change, err
 		return nil, change, fmt.Errorf("unknown profile operation %q", m.Op)
 	}
 	return copy, change, nil
+}
+
+func removeExactSkill(parent *yaml.Node, key, name string) {
+	if i := nodeIndex(parent, key); i >= 0 {
+		list := parent.Content[i+1]
+		list.Content = slices.DeleteFunc(list.Content, func(n *yaml.Node) bool { return strings.TrimSpace(n.Value) == name })
+	}
 }
 
 func editList(parent *yaml.Node, key string, add, remove []string) {
