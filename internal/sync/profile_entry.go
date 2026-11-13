@@ -117,7 +117,7 @@ func ClassifyEntry(in EntryInput) EntryClassification {
 			root, rootErr := filepath.Abs(in.SourceRoot)
 			if err == nil && rootErr == nil {
 				root = utils.ResolveSymlink(root)
-				link = utils.ResolveSymlink(link)
+				link = evalOrClean(link)
 				if utils.PathHasPrefix(link, strings.TrimSuffix(root, string(filepath.Separator))+string(filepath.Separator)) {
 					return EntryClassification{Class: EntryManagedLink}
 				}

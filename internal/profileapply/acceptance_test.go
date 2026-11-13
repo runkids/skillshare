@@ -289,6 +289,8 @@ func TestProfileApply_ReplayScratch(t *testing.T) {
 	}
 	scratch := t.TempDir()
 	t.Setenv("TMPDIR", scratch)
+	t.Setenv("TMP", scratch)
+	t.Setenv("TEMP", scratch)
 	before := tree(t, filepath.Dir(f.source))
 	if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "b", DryRun: true}); err != nil {
 		t.Fatal(err)
@@ -304,6 +306,8 @@ func TestProfileApply_ReplayScratch(t *testing.T) {
 	badTemp := filepath.Join(t.TempDir(), "file")
 	write(t, badTemp, "not a directory")
 	t.Setenv("TMPDIR", badTemp)
+	t.Setenv("TMP", badTemp)
+	t.Setenv("TEMP", badTemp)
 	if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "b", DryRun: true}); !errors.Is(err, ErrRefused) {
 		t.Fatalf("unverifiable legacy copy accepted: %v", err)
 	}

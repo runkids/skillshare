@@ -1,37 +1,49 @@
 package main
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+
+	"skillshare/internal/profile"
+)
 
 func TestProfileArgs(t *testing.T) {
+	description := "-p"
 	for _, tc := range []struct {
-		args   []string
-		action string
-		fail   bool
+		args []string
+		want profileOptions
+		fail bool
 	}{
-		{nil, "list", false},
-		{[]string{"show", "web", "--json"}, "show", false},
-		{[]string{"create", "web", "--description", "-p", "--add-include", "web*"}, "create", false},
-		{[]string{"rename", "web", "work"}, "rename", false},
-		{[]string{"use", "--none", "--json"}, "use", false},
-		{[]string{"use", "a", "--none"}, "", true},
-		{[]string{"use", "a", "--no-sync", "--discard-edits"}, "", true},
-		{[]string{"create", "web", "--add-include"}, "", true},
-		{[]string{"show"}, "", true},
-		{[]string{"edit", "web", "--allow-empty"}, "", true},
-		{[]string{"list", "extra"}, "", true},
-		{[]string{"add", "web", "alpha", "beta", "--json", "-p"}, "add", false},
-		{[]string{"remove", "web", "alpha"}, "remove", false},
-		{[]string{"add", "web"}, "", true},
-		{[]string{"remove"}, "", true},
-		{[]string{"add", "web", "alpha", "--no-sync"}, "", true},
-		{[]string{"add", "web", "alpha", "--add-include", "beta"}, "", true},
+		{nil, profileOptions{action: "list"}, false},
+		{[]string{"show", "web", "--json"}, profileOptions{action: "show", names: []string{"web"}, json: true}, false},
+		{[]string{"create", "web", "--description", "-p", "--add-include", "web*"}, profileOptions{
+			action: "create", names: []string{"web"},
+			mutation: profile.Mutation{Description: &description, AddInclude: []string{"web*"}},
+		}, false},
+		{[]string{"rename", "web", "work"}, profileOptions{action: "rename", names: []string{"web", "work"}}, false},
+		{[]string{"use", "--none", "--json"}, profileOptions{action: "use", names: []string{}, none: true, json: true}, false},
+		{[]string{"use", "a", "--none"}, profileOptions{}, true},
+		{[]string{"use", "a", "--no-sync", "--discard-edits"}, profileOptions{}, true},
+		{[]string{"create", "web", "--add-include"}, profileOptions{}, true},
+		{[]string{"show"}, profileOptions{}, true},
+		{[]string{"edit", "web", "--allow-empty"}, profileOptions{}, true},
+		{[]string{"list", "extra"}, profileOptions{}, true},
+		{[]string{"add", "web", "alpha"}, profileOptions{action: "add", names: []string{"web", "alpha"}}, false},
+		{[]string{"add", "web", "alpha", "beta", "--json", "-p"}, profileOptions{
+			action: "add", names: []string{"web", "alpha", "beta"}, json: true, mode: modeProject,
+		}, false},
+		{[]string{"remove", "web", "alpha"}, profileOptions{action: "remove", names: []string{"web", "alpha"}}, false},
+		{[]string{"add", "web"}, profileOptions{}, true},
+		{[]string{"remove"}, profileOptions{}, true},
+		{[]string{"add", "web", "alpha", "--no-sync"}, profileOptions{}, true},
+		{[]string{"add", "web", "alpha", "--add-include", "beta"}, profileOptions{}, true},
 	} {
 		got, err := parseProfileArgs(tc.args)
 		if (err != nil) != tc.fail {
 			t.Fatalf("%v: %v", tc.args, err)
 		}
-		if err == nil && got.action != tc.action {
-			t.Fatalf("%v: %s", tc.args, got.action)
+		if err == nil && !reflect.DeepEqual(got, tc.want) {
+			t.Fatalf("%v: got %+v, want %+v", tc.args, got, tc.want)
 		}
 	}
 }

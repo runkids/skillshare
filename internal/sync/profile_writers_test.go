@@ -75,7 +75,7 @@ func TestProfileAwareWriters_MutationBoundaries(t *testing.T) {
 					info, err := entry.Info()
 					must(err)
 					value := info.Mode().String()
-					if info.Mode()&os.ModeSymlink != 0 {
+					if utils.IsLinkMode(path, info.Mode()) {
 						link, err := os.Readlink(path)
 						must(err)
 						value += ":" + link
