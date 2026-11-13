@@ -16,7 +16,8 @@ real CLI with a trusted local HTTPS fixture; no external source is accessed.
 Run inside the devcontainer through mdproof's per-runbook HOME isolation.
 The integration test creates additional `testutil.Sandbox` homes, explicitly
 trusts only its fixture certificate and closes its local server on every exit.
-The project mdproof build hook supplies `/workspace/bin/skillshare`.
+The integration test builds current CLI sources once with a temporary fixture-only
+trust overlay. Ordinary certificate and hostname verification remain enabled.
 
 ## Steps
 
@@ -24,7 +25,7 @@ The project mdproof build hook supplies `/workspace/bin/skillshare`.
 
 ```bash
 cd /workspace
-SKILLSHARE_TEST_BINARY=/workspace/bin/skillshare GOMAXPROCS=2 GOFLAGS=-p=2 \
+GOMAXPROCS=2 GOFLAGS=-p=2 \
   go test ./tests/integration -run '^TestArchiveCLIEndToEnd$' -v -count=1
 ```
 
@@ -35,5 +36,5 @@ Expected:
 
 ## Pass Criteria
 
-- Both global and project subtests pass against the current binary
+- Both global and project subtests pass against current CLI sources
 - Temporary homes, fixture certificates and local HTTPS servers are cleaned up

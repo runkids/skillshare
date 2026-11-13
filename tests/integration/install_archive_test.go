@@ -7,10 +7,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/pem"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -19,9 +22,60 @@ import (
 )
 
 func TestArchiveCLIEndToEnd(t *testing.T) {
+	var mu sync.Mutex
+	version := "v1"
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		var body bytes.Buffer
+		z := zip.NewWriter(&body)
+		f, _ := z.Create("brief/SKILL.md")
+		_, _ = f.Write([]byte("# Brief " + version))
+		_ = z.Close()
+		_, _ = w.Write(body.Bytes())
+	}))
+	defer srv.Close()
+	// SSL_CERT_FILE is not used by Go's macOS platform verifier. Build a
+	// fixture-only CLI with explicit roots, keeping normal TLS verification.
+	projectRoot := findProjectRoot(t)
+	fixtureDir := t.TempDir()
+	binary := filepath.Join(fixtureDir, "skillshare")
+	initFile := filepath.Join(fixtureDir, "tls.go")
+	initSource := fmt.Sprintf(`package main
+import ("crypto/tls"; "crypto/x509"; "net/http")
+func init() {
+	roots := x509.NewCertPool()
+	if !roots.AppendCertsFromPEM([]byte(%q)) { panic("invalid fixture certificate") }
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{RootCAs: roots}
+	http.DefaultTransport = transport
+}
+`, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: srv.Certificate().Raw}))
+	if err := os.WriteFile(initFile, []byte(initSource), 0600); err != nil {
+		t.Fatal(err)
+	}
+	overlay, err := json.Marshal(map[string]any{"Replace": map[string]string{
+		filepath.Join(projectRoot, "cmd", "skillshare", "archive_tls_fixture.go"): initFile,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	overlayFile := filepath.Join(fixtureDir, "overlay.json")
+	if err := os.WriteFile(overlayFile, overlay, 0600); err != nil {
+		t.Fatal(err)
+	}
+	build := exec.Command("go", "build", "-overlay", overlayFile, "-o", binary, "./cmd/skillshare")
+	build.Dir = projectRoot
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build fixture CLI: %v\n%s", err, out)
+	}
 	for _, mode := range []string{"-g", "-p"} {
 		t.Run(mode, func(t *testing.T) {
+			mu.Lock()
+			version = "v1"
+			mu.Unlock()
 			sb := testutil.NewSandbox(t)
+			sb.BinaryPath = binary
 			defer sb.Cleanup()
 			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
 			cwd, source := sb.Root, sb.SourcePath
@@ -29,25 +83,14 @@ func TestArchiveCLIEndToEnd(t *testing.T) {
 				cwd = sb.SetupProjectDir("claude")
 				source = filepath.Join(cwd, ".skillshare", "skills")
 			}
-			var mu sync.Mutex
-			version := "v1"
-			srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				mu.Lock()
-				defer mu.Unlock()
-				var body bytes.Buffer
-				z := zip.NewWriter(&body)
-				f, _ := z.Create("brief/SKILL.md")
-				_, _ = f.Write([]byte("# Brief " + version))
-				_ = z.Close()
-				_, _ = w.Write(body.Bytes())
-			}))
-			defer srv.Close()
-			cert := filepath.Join(sb.Root, "fixture-ca.pem")
-			if err := os.WriteFile(cert, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: srv.Certificate().Raw}), 0600); err != nil {
-				t.Fatal(err)
-			}
-			sb.SetEnv("SSL_CERT_FILE", cert)
 			run := func(args ...string) *testutil.Result { return sb.RunCLIInDir(cwd, append(args, mode)...) }
+			wrongHost := strings.Replace(srv.URL, "127.0.0.1", "localhost", 1)
+			rejected := run("install", wrongHost+"/pack.zip", "--name", "wrong-host")
+			rejected.AssertFailure(t)
+			rejected.AssertOutputContains(t, "not localhost")
+			if _, err := os.Stat(filepath.Join(source, "wrong-host")); !os.IsNotExist(err) {
+				t.Fatal("wrong-host fixture installed a skill")
+			}
 			run("install", srv.URL+"/pack.zip", "--name", "custom", "--into", "legal").AssertSuccess(t)
 			run("check", "--json", "--exit-code").AssertSuccess(t)
 			result := run("update", "--all", "--json")
