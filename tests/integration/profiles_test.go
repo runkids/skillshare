@@ -5,14 +5,17 @@ package integration
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	ssync "skillshare/internal/sync"
 	"skillshare/internal/testutil"
 )
 
@@ -90,6 +93,54 @@ func TestProfiles_Agreement(t *testing.T) {
 			t.Run(fmt.Sprintf("%v/%s", project, mode), func(t *testing.T) {
 				f := newProfileFixture(t, project, mode)
 				before := f.sb.ReadFile(f.config)
+				captureTarget := func() map[string]string {
+					tree := make(map[string]string)
+					err := filepath.WalkDir(f.target, func(path string, entry fs.DirEntry, err error) error {
+						if err != nil {
+							return err
+						}
+						rel, err := filepath.Rel(f.target, path)
+						if err != nil {
+							return err
+						}
+						info, err := entry.Info()
+						if err != nil {
+							return err
+						}
+						value := info.Mode().String()
+						if info.Mode()&os.ModeSymlink != 0 {
+							link, err := os.Readlink(path)
+							if err != nil {
+								return err
+							}
+							value += ":" + link
+						} else if !entry.IsDir() {
+							data, err := os.ReadFile(path)
+							if err != nil {
+								return err
+							}
+							if entry.Name() == ssync.ManifestFile {
+								var manifest map[string]json.RawMessage
+								if err := json.Unmarshal(data, &manifest); err != nil {
+									return err
+								}
+								// The writer refreshes only this wall-clock field on an idle sync.
+								delete(manifest, "updated_at")
+								data, err = json.Marshal(manifest)
+								if err != nil {
+									return err
+								}
+							}
+							value += ":" + string(data)
+						}
+						tree[rel] = value
+						return nil
+					})
+					if err != nil {
+						t.Fatal(err)
+					}
+					return tree
+				}
 				for _, name := range []string{"a", "b", "a"} {
 					f.run("profile", "use", name, "--json").AssertSuccess(t)
 					want, absent := "alpha", "beta"
@@ -126,14 +177,30 @@ func TestProfiles_Agreement(t *testing.T) {
 					if err := json.Unmarshal([]byte(status.Stdout), &s); err != nil || s.Profile.Selected != 1 || s.Profile.Total != 2 || s.Profile.Pending || len(s.Targets) != 1 || s.Targets[0].SyncedCount != 1 {
 						t.Fatalf("status disagrees: %s %v", status.Stdout, err)
 					}
+					treeBefore := captureTarget()
+					if _, ok := treeBefore[ssync.ManifestFile]; !ok {
+						t.Fatal("managed manifest missing before second sync")
+					}
+					contentBefore := f.sb.ReadFile(filepath.Join(f.target, want, "SKILL.md"))
 					second := f.run("sync", "--json")
 					second.AssertSuccess(t)
 					var sync struct {
 						Linked, Updated, Pruned int
 						Profile                 struct{ Pending bool }
 					}
-					if err := json.Unmarshal([]byte(second.Stdout), &sync); err != nil || sync.Linked+sync.Updated+sync.Pruned != 0 || sync.Profile.Pending {
-						t.Fatalf("second sync not idle: %s %v", second.Stdout, err)
+					wantLinked := 0
+					if mode == "merge" {
+						// Merge counts an already correct link in Linked, as the baseline does.
+						wantLinked = 1
+					}
+					if err := json.Unmarshal([]byte(second.Stdout), &sync); err != nil || sync.Linked != wantLinked || sync.Updated != 0 || sync.Pruned != 0 || sync.Profile.Pending {
+						t.Fatalf("second sync counters disagree: %s %v", second.Stdout, err)
+					}
+					if treeAfter := captureTarget(); !reflect.DeepEqual(treeBefore, treeAfter) {
+						t.Fatalf("second sync changed target tree or managed manifest: before=%v after=%v", treeBefore, treeAfter)
+					}
+					if f.sb.ReadFile(filepath.Join(f.target, want, "SKILL.md")) != contentBefore {
+						t.Fatal("second sync changed selected content")
 					}
 				}
 				if f.sb.ReadFile(f.config) != before {
@@ -418,5 +485,56 @@ func TestProfiles_OrdinarySyncBacksUpBeforeRefresh(t *testing.T) {
 	}
 	if f.sb.ReadFile(filepath.Join(f.target, "alpha", "SKILL.md")) == old {
 		t.Fatal("fixture did not refresh")
+	}
+}
+
+func TestProfiles_SyncJSONBlockedEntries(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, mode := range []string{"copy", "merge"} {
+			t.Run(fmt.Sprintf("%v/%s", project, mode), func(t *testing.T) {
+				f := newProfileFixture(t, project, mode)
+				f.run("profile", "use", "all", "--no-sync").AssertSuccess(t)
+				path := filepath.Join(f.target, "alpha", "SKILL.md")
+				f.sb.WriteFile(path, "unmanaged bytes")
+				step := "refresh"
+				if mode == "merge" {
+					step = "convert"
+				}
+				want := ssync.EntryChange{Target: "custom", Entry: "alpha", Step: step, Class: ssync.EntryUnmanaged, Reason: "entry is not a recorded copy"}
+				for _, dryRun := range []bool{true, false} {
+					args := []string{"sync", "--json"}
+					if dryRun {
+						args = append(args, "--dry-run")
+					}
+					result := f.run(args...)
+					result.AssertSuccess(t)
+					var out struct {
+						Details []struct {
+							Blocked      []ssync.EntryChange `json:"blocked"`
+							KeptModified []ssync.EntryChange `json:"kept_modified"`
+						}
+					}
+					if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil || len(out.Details) != 1 || len(out.Details[0].Blocked) != 1 || out.Details[0].Blocked[0] != want || len(out.Details[0].KeptModified) != 0 {
+						t.Fatalf("blocked record missing or reclassified: %s, %v", result.Stdout, err)
+					}
+					if f.sb.ReadFile(path) != "unmanaged bytes" {
+						t.Fatal("sync changed unmanaged bytes")
+					}
+					if dryRun {
+						if _, err := os.Stat(filepath.Join(f.target, "beta")); !os.IsNotExist(err) {
+							t.Fatalf("preview wrote ordinary skill: %v", err)
+						}
+					} else if f.sb.ReadFile(filepath.Join(f.target, "beta", "SKILL.md")) != f.sb.ReadFile(filepath.Join(f.source, "beta", "SKILL.md")) {
+						t.Fatal("unblocked skill did not sync")
+					}
+				}
+				f.run("profile", "use", "b", "--no-sync").AssertSuccess(t)
+				result := f.run("sync", "--json")
+				result.AssertSuccess(t)
+				if strings.Contains(result.Stdout, `"blocked"`) {
+					t.Fatalf("empty blocked field was not omitted: %s", result.Stdout)
+				}
+			})
+		}
 	}
 }

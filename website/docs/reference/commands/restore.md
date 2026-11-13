@@ -40,11 +40,11 @@ flowchart TD
 
 | Flag | Description |
 |------|-------------|
-| `--all` | Restore both skills and agents |
-| `--project, -p` | Use project mode (`.skillshare/backups/`); **agents only** |
+| `--all` | Legacy global skills branch; restore agents separately |
+| `--project, -p` | Restore named skills or agents from `.skillshare/backups/` |
 | `--global, -g` | Use global mode (default for skills) |
 | `--from, -f <timestamp>` | Restore from specific backup |
-| `--force` | Overwrite without confirmation |
+| `--force` | Replace a non-empty destination folder |
 | `--dry-run, -n` | Preview without making changes |
 | `--no-tui` | Skip interactive TUI, show backup list instead |
 
@@ -132,15 +132,24 @@ Agent restore mirrors skill restore but operates on the parallel `<target>-agent
 ```bash
 skillshare restore agents claude                       # Latest agent backup for claude
 skillshare restore agents claude --from 2026-01-19_10-00-00
-skillshare restore agents -p                           # Project agents (the only project mode allowed)
-skillshare restore --all claude                        # Skills + agents in one shot
+skillshare restore agents claude -p                    # Project agents
 ```
 
-In project mode, restore — like backup — only operates on agents. Without the `agents` argument it errors:
+## Project Skills Recovery
 
+Run from the project root with an explicit entry name:
+
+```bash
+skillshare backup --list -p
+skillshare restore goose --from 2026-01-19_10-00-00 -p --dry-run
+skillshare restore goose --from 2026-01-19_10-00-00 -p --force
 ```
-restore is not supported in project mode (except for agents)
-```
+
+This restores an existing project skills snapshot; manual `backup -p` still requires `agents`. A bare skills restore and `-g` use global backups, even inside a project. `restore -p` without a name is a usage error; the interactive picker remains global. Legacy `--all` follows the global skills branch, including with `-p`; restore agents separately.
+
+A recognized moved entry such as `goose-moved-2e676f6f73652f736b696c6c73` restores `.goose/skills`, leaving the current `.agents/skills` folder alone. The suffix is the hex-encoded normalized relative directory. Recovery requires the target and former path still to be recognized; missing or ambiguous mappings refuse. Use the exact listed name with `--from`, `-p` and, when replacing non-empty content, `--force`. The existing dashboard Backup restore uses the same mapping.
+
+Restore replaces the whole destination folder and omits symlinked content. It does not change the active profile. Save authored edits into source before syncing again: sync can remove restored clean entries from former directories.
 
 When listing backups via `skillshare backup --list`, agent backups show as separate entries with the `-agents` suffix (e.g. `claude-agents`).
 

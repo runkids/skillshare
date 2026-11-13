@@ -18,7 +18,19 @@ import (
 var ErrRefused = errors.New("profile switch refused")
 var ErrIncomplete = errors.New("profile switch not fully applied")
 
-type Refusal struct{ Reason string }
+type RefusalCode string
+
+const (
+	RefusalLocked  RefusalCode = "profile_locked"
+	RefusalEmpty   RefusalCode = "profile_empty"
+	RefusalBlocked RefusalCode = "profile_blocked"
+	RefusalGeneric RefusalCode = "profile_refused"
+)
+
+type Refusal struct {
+	Code   RefusalCode
+	Reason string
+}
 
 func (e *Refusal) Error() string { return e.Reason }
 func (e *Refusal) Unwrap() error { return ErrRefused }
@@ -63,7 +75,7 @@ type Result struct {
 	Executed       ssync.ExecuteResult `json:"-"`
 }
 
-func refusal(reason string) error { return &Refusal{Reason: reason} }
+func refusal(code RefusalCode, reason string) error { return &Refusal{Code: code, Reason: reason} }
 
 func emptyResult() Result {
 	return Result{Targets: []Target{}, Blocked: []ssync.EntryChange{}, SymlinkTargets: []string{}, Snapshot: []Snapshot{}}
@@ -97,7 +109,7 @@ func lockedView(ctx context.Context, scope Scope, dryRun, required bool) (*View,
 		}
 		unlock, err = profile.Lock(ctx, lockPath)
 		if err != nil {
-			return nil, func() {}, refusal(err.Error())
+			return nil, func() {}, refusal(RefusalLocked, err.Error())
 		}
 	}
 	v, err := Load(scope)
@@ -193,7 +205,7 @@ func Apply(ctx context.Context, req Request) (out Result, retErr error) {
 	out = emptyResult()
 	start := time.Now()
 	if req.None && req.Name != "" || !req.None && req.Name == "" || req.NoSync && req.DiscardEdits {
-		return out, refusal("choose a profile name or --none; --no-sync cannot discard edits")
+		return out, refusal(RefusalGeneric, "choose a profile name or --none; --no-sync cannot discard edits")
 	}
 	v, unlock, err := lockedView(ctx, req.Scope, req.DryRun, true)
 	if err != nil {
@@ -228,12 +240,12 @@ func Apply(ctx context.Context, req Request) (out Result, retErr error) {
 			p, _ := profile.Preview(d, enabledNames(discovery.Skills))
 			unmatched = p.Unmatched
 		}
-		return out, refusal(fmt.Sprintf("profile %q selects no enabled skills; unmatched patterns: %s; use --allow-empty to confirm", req.Name, strings.Join(unmatched, ", ")))
+		return out, refusal(RefusalEmpty, fmt.Sprintf("profile %q selects no enabled skills; unmatched patterns: %s; use --allow-empty to confirm", req.Name, strings.Join(unmatched, ", ")))
 	}
 	var modified []ssync.EntryChange
 	for _, entry := range out.Blocked {
 		if entry.Class != ssync.EntryModifiedCopy || !req.DiscardEdits {
-			return out, refusal(fmt.Sprintf("%s/%s: %s; use skillshare collect, or --discard-edits for modified managed copies", entry.Target, entry.Entry, entry.Reason))
+			return out, refusal(RefusalBlocked, fmt.Sprintf("%s/%s: %s; use skillshare collect, or --discard-edits for modified managed copies", entry.Target, entry.Entry, entry.Reason))
 		}
 		modified = append(modified, entry)
 	}
@@ -244,7 +256,7 @@ func Apply(ctx context.Context, req Request) (out Result, retErr error) {
 	if len(modified) > 0 {
 		out.Snapshot, discard, err = snapshots(candidate, targets, modified, req.snapshot)
 		if err != nil {
-			return out, refusal(err.Error())
+			return out, refusal(RefusalGeneric, err.Error())
 		}
 	}
 	if req.afterSnapshot != nil {
@@ -335,7 +347,7 @@ func WithSkillSync(ctx context.Context, req SyncRequest) (out Result, retErr err
 	}
 	aware := v.State.Active != "" || v.State.Pending
 	if req.DiscardEdits && !aware {
-		return out, refusal("--discard-edits requires an active profile or a pending profile switch")
+		return out, refusal(RefusalGeneric, "--discard-edits requires an active profile or a pending profile switch")
 	}
 	if req.Before != nil {
 		if err := req.Before(v); err != nil {
@@ -370,7 +382,7 @@ func WithSkillSync(ctx context.Context, req SyncRequest) (out Result, retErr err
 		if !req.DryRun {
 			out.Snapshot, discard, err = snapshots(v, targets, modified, nil)
 			if err != nil {
-				return out, refusal(err.Error())
+				return out, refusal(RefusalGeneric, err.Error())
 			}
 		}
 	}

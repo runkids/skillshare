@@ -425,3 +425,66 @@ func TestProfileApply_IncompleteAndUnmanaged(t *testing.T) {
 		t.Fatal("other target did not apply")
 	}
 }
+
+func TestProfileApply_RefusalCodes(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(fmt.Sprint(project), func(t *testing.T) {
+			f := newFixture(t, project, "copy")
+			check := func(err error, code RefusalCode, reason string) {
+				t.Helper()
+				var refused *Refusal
+				if !errors.Is(err, ErrRefused) || !errors.As(err, &refused) || refused.Code != code || refused.Reason != reason || err.Error() != reason {
+					t.Fatalf("refusal = %#v, %v; want %s: %s", refused, err, code, reason)
+				}
+			}
+			_, err := Apply(context.Background(), Request{Scope: f.scope, Name: "empty"})
+			check(err, "profile_empty", `profile "empty" selects no enabled skills; unmatched patterns: ; use --allow-empty to confirm`)
+			_, err = WithSkillSync(context.Background(), SyncRequest{Scope: f.scope, DiscardEdits: true})
+			check(err, "profile_refused", "--discard-edits requires an active profile or a pending profile switch")
+			write(t, filepath.Join(f.target, "alpha", "SKILL.md"), "unmanaged")
+			_, err = Apply(context.Background(), Request{Scope: f.scope, Name: "a"})
+			check(err, "profile_blocked", "custom/alpha: entry is not a recorded copy; use skillshare collect, or --discard-edits for modified managed copies")
+
+			f = newFixture(t, project, "copy")
+			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a"}); err != nil {
+				t.Fatal(err)
+			}
+			write(t, filepath.Join(f.target, "alpha", "SKILL.md"), "authored")
+			_, err = Apply(context.Background(), Request{Scope: f.scope, Name: "b", DiscardEdits: true,
+				snapshot: func(_, _, _ string) (string, error) { return "", errors.New("snapshot failed") }})
+			check(err, "profile_refused", "snapshot custom failed (no edits discarded): snapshot failed")
+			_, err = Apply(context.Background(), Request{Scope: f.scope})
+			check(err, "profile_refused", "choose a profile name or --none; --no-sync cannot discard edits")
+			_, err = Apply(context.Background(), Request{Scope: f.scope, Name: "missing"})
+			var unavailable *profile.UnavailableError
+			if !errors.Is(err, profile.ErrProfileUnavailable) || !errors.As(err, &unavailable) || errors.Is(err, ErrRefused) {
+				t.Fatalf("unavailable profile changed error class: %v", err)
+			}
+			_, lockPath, _ := config.ProfilePaths(f.path)
+			unlock, err := profile.Lock(context.Background(), lockPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer unlock()
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			_, err = Apply(ctx, Request{Scope: f.scope, Name: "b"})
+			check(err, "profile_locked", fmt.Sprintf("another sync or profile switch is running for this config (lock %s): context canceled", lockPath))
+		})
+	}
+}
+
+func TestProfileRefusal_LiteralCompatibility(t *testing.T) {
+	for _, code := range []RefusalCode{"", RefusalGeneric, "future_code"} {
+		// Zero and unknown codes remain available for consumers' generic fallback.
+		err := error(&Refusal{Reason: "same reason", Code: code})
+		var refused *Refusal
+		if !errors.Is(err, ErrRefused) || !errors.As(err, &refused) || refused.Code != code || refused.Reason != "same reason" || err.Error() != "same reason" {
+			t.Fatalf("literal compatibility: %#v, %v", refused, err)
+		}
+	}
+	legacy := &Refusal{Reason: "legacy reason"}
+	if legacy.Code != "" || legacy.Error() != "legacy reason" || legacy.Unwrap() != ErrRefused {
+		t.Fatalf("legacy literal changed: %#v", legacy)
+	}
+}

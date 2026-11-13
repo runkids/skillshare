@@ -170,6 +170,35 @@ done
 - exit_code: 0
 - Both modes select after add and deselect after remove, explain pruning by profile, refuse glob-blocked assignment atomically, report unmatched patterns once, and hint/warn without rewriting definitions. Source skills remain installed. Runtime acceptance of this authored step is unclaimed.
 
+### 6. Recover a project skills snapshot
+
+```bash
+set -eu
+unset CODEX_HOME CLAUDE_CONFIG_DIR PI_CODING_AGENT_DIR
+fixtureRoot=$(mktemp -d "$HOME/profiles-project-restore.XXXXXX")
+trap 'rm -rf "$fixtureRoot"' EXIT
+mkdir -p "$fixtureRoot/.skillshare/skills/alpha"
+printf '%s\n' '---' 'name: alpha' '---' '# alpha' > "$fixtureRoot/.skillshare/skills/alpha/SKILL.md"
+printf 'targets:\n  - name: custom\n    skills:\n      path: target\n      mode: copy\n' > "$fixtureRoot/.skillshare/config.yaml"
+cd "$fixtureRoot"
+ss profile create a --add-include alpha -p >/dev/null
+ss profile create empty -p >/dev/null
+ss profile use a -p >/dev/null
+printf 'authored\n' > target/alpha/SKILL.md
+ss profile use empty --allow-empty --discard-edits --json -p > result.json
+snapshotPath=$(jq -r '.snapshot[0].path' result.json)
+restoreStamp=$(basename "$(dirname "$snapshotPath")")
+ss restore custom --from "$restoreStamp" -p --dry-run >/dev/null
+test ! -e target/alpha
+ss restore custom --from "$restoreStamp" -p --force >/dev/null
+cmp "$snapshotPath/alpha/SKILL.md" target/alpha/SKILL.md
+ss status --json -p | jq -e '.profile.name == "empty"' >/dev/null
+```
+
+**Expected**:
+- exit_code: 0
+- Preview writes no target content; restore recovers the authored bytes without switching the active profile. The destination is replaced as a whole. Manual `backup -p` still requires `agents`; use `backup --list -p` to find profile snapshots. Restore of a recognized moved key returns bytes to its declared former folder, leaving the current folder untouched. Save edits into source before resync.
+
 ## Pass Criteria
 
 All step exit codes and JSON assertions pass. The discarded bytes are present in the verified snapshot and restored. Refused switches keep edited bytes. Membership refusals leave definitions unchanged in both modes. Temporary fixture roots are removed by each step's trap. Unit/integration CI additionally owns snapshot failure, second-edit races, scope tree comparisons, lock ordering, legacy replay, live skill-server recovery and no-profile baseline comparison.
