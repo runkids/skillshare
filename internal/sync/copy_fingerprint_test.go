@@ -3,6 +3,8 @@ package sync
 import (
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"skillshare/internal/config"
@@ -339,5 +341,90 @@ func TestCopyFingerprint_CopySyncPaths(t *testing.T) {
 	run(false, false)
 	if !read().OwnsCopy("demo", entry) {
 		t.Fatal("non-directory replacement did not record output")
+	}
+}
+
+// Fixed vectors use the published byte framing, independently of the encoder.
+func TestCopyFingerprint_V2Encoding(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		files map[string]string
+		want  string
+	}{
+		{"empty", nil, "f99dda8b71f65e5f6f4d8703f2f9d92c5438456878750bbda702f350cfc2f28d"},
+		{"binary", map[string]string{"a": "x\x00b\x00y"}, "a57aa54b104007548fea118c36331ec685da6717cbac63a8d26832cad195d921"},
+		{"split", map[string]string{"b": "y", "a": "x"}, "2372c950d10181d60c151e52fe33b25af5a7e19961a9c5017a569925ba9d6d0f"},
+		{"nested", map[string]string{"a/b": "x"}, "ef8bb51afbafa9cfc9f64e9bce68f408d7e2cb58f686d33df2d9d21e70b8851c"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for name, content := range tc.files {
+				path := filepath.Join(dir, filepath.FromSlash(name))
+				if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			got, err := CopyOutputFingerprint(dir)
+			if err != nil || got != "sha256-v2:"+tc.want {
+				t.Fatalf("framed output = %q, %v", got, err)
+			}
+			if runtime.GOOS != "windows" && tc.name == "nested" {
+				literal := t.TempDir()
+				if err := os.WriteFile(filepath.Join(literal, `a\b`), []byte("x"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				got, err := CopyOutputFingerprint(literal)
+				if err != nil || got != "sha256-v2:e7dae9a1f26ade6e33a1b3a1b6743a0977ffb57e90562decc9d6ab58a67510ab" {
+					t.Fatalf("literal backslash spelling lost: %q, %v", got, err)
+				}
+			}
+		})
+	}
+}
+
+func TestCopyFingerprint_EncodingMigration(t *testing.T) {
+	for _, output := range []string{"missing", "84226a8f0c1e11bd61bdeecf916cc03c7f0982bc28a2b9a86e26da6ff547ad2a", "", "sha256-v3:" + strings.Repeat("0", 64), "sha256-v2:bad", "sha256-v2:" + strings.Repeat("0", 64), strings.Repeat("0", 64), "SHA256-V2:" + strings.Repeat("0", 64), strings.Repeat("A", 64)} {
+		t.Run(output, func(t *testing.T) {
+			src, dst, _ := fingerprintFixture(t)
+			// A real pre-v2 record: source and rewritten-output legacy digests.
+			data := `{"managed":{"repo-demo":"016b7454b31b926d56996bd534e1718a613c4dacca999b0deec3643bcd4f0b7b"},"naming":{"repo-demo":"prefixed"}}`
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, ManifestFile), []byte(data), 0600); err != nil {
+				t.Fatal(err)
+			}
+			m, err := ReadManifest(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if output != "missing" {
+				m.Outputs["repo-demo"] = output
+			}
+			input := CopySource{Path: src, OutputName: "repo-demo"}
+			wantClean := output == "missing" || output == "84226a8f0c1e11bd61bdeecf916cc03c7f0982bc28a2b9a86e26da6ff547ad2a"
+			entry := ClassifyEntry(EntryInput{Name: "repo-demo", Path: dst, Manifest: m, Source: &input})
+			if (entry.Class == EntryCleanCopy) != wantClean {
+				t.Fatalf("encoding classified as %s", entry.Class)
+			}
+			before, present := m.Outputs["repo-demo"]
+			backfillCopyOutput(m, "repo-demo", dst, input, true)
+			if got, ok := m.Outputs["repo-demo"]; got != before || ok != present {
+				t.Fatal("preview promoted output")
+			}
+			backfillCopyOutput(m, "repo-demo", dst, input, false)
+			if wantClean {
+				if !strings.HasPrefix(m.Outputs["repo-demo"], "sha256-v2:") {
+					t.Fatal("verified legacy output not promoted")
+				}
+				// The prior reader compares the whole value with its bare digest.
+				if m.Outputs["repo-demo"] == "84226a8f0c1e11bd61bdeecf916cc03c7f0982bc28a2b9a86e26da6ff547ad2a" {
+					t.Fatal("tagged output accepted by old-reader equality")
+				}
+			} else if m.Outputs["repo-demo"] != before {
+				t.Fatal("unknown output downgraded by backfill")
+			}
+		})
 	}
 }

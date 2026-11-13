@@ -298,3 +298,14 @@ func TestDirMaxMtime_NestedFiles(t *testing.T) {
 		t.Errorf("should pick nested file mtime; expected %d, got %d", nestedTime.UnixNano(), mt)
 	}
 }
+
+func TestDirChecksum_LegacyBinaryVector(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a"), []byte("x\x00b\x00y"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := DirChecksumWithIgnore(dir, DefaultFileIgnorePatterns())
+	if err != nil || got != "938fbc10036622392fd65d18a55d15b7e80ee4a3583ca4fadda2d0c1f04efbe4" {
+		t.Fatalf("source checksum encoding changed: %q, %v", got, err)
+	}
+}
