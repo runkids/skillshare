@@ -167,3 +167,28 @@ func TestNormalizeSpinnerUpdate(t *testing.T) {
 		}
 	})
 }
+
+func TestTreeSpinner_RespectsSuppressedProgress(t *testing.T) {
+	sink, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sink.Close()
+	prevStdout, prevWriter, prevSuppressed := os.Stdout, ProgressWriter, progressSuppressed
+	defer func() {
+		os.Stdout = prevStdout
+		SetProgressWriter(prevWriter)
+		progressSuppressed = prevSuppressed
+	}()
+	os.Stdout = sink
+	SetProgressWriter(sink)
+	SuppressProgress()
+	if !IsTTY() {
+		t.Fatal("fixture did not reach the character-device TTY path")
+	}
+	spinner := StartTreeSpinner("suppressed progress", true)
+	defer spinner.Stop()
+	if spinner.spinner != nil {
+		t.Fatal("suppressed progress started a live tree spinner")
+	}
+}
