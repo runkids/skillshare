@@ -809,7 +809,7 @@
   "skillEditor.toast.saved": "Gespeichert · {name}",
   "skillEditor.toast.descTooLong": "description und when_to_use haben {count} Zeichen. Bleiben Sie unter {budget}.",
   "skillEditor.sourceLabel": "Source URL",
-  "skillEditor.sourceHint": "Git repository URL used by update. Change this when the skill has moved to a new location.",
+  "skillEditor.sourceHint": "Source URL used by update. Change it when the skill moves.",
   "skillEditor.sourcePlaceholder": "https://github.com/owner/repo",
   "streamProgress.remaining": "~{eta}s verbleibend",
   "sync.ignored.one": "{count} Eintrag ignoriert",

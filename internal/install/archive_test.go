@@ -82,73 +82,115 @@ func archiveEntry(t *testing.T, root string) *MetadataEntry {
 }
 
 func TestArchiveInstallUpdate(t *testing.T) {
-	payload := archiveZIP(t, map[string]string{"pack/brief/SKILL.md": "# Brief v1", "pack/other/SKILL.md": "# Other"})
-	srv := archiveServer(t, &payload)
-	raw := srv.URL + "/pack.zip?download=1#skill=pack%2Fbrief"
-	source, err := ParseSource(raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	root := t.TempDir()
-	dest := filepath.Join(root, "legal", "custom")
-	opts := InstallOptions{SourceDir: root, Name: "custom", Into: "legal"}
-	if _, err := Install(source, dest, opts); err != nil {
-		t.Fatal(err)
-	}
-	e := archiveEntry(t, root)
-	data, _ := json.Marshal(e)
-	var fields map[string]any
-	_ = json.Unmarshal(data, &fields)
-	if e.Source != raw || e.Subdir != "pack/brief" || e.RepoURL != "" || e.Version != "" || len(e.FileHashes) == 0 || fields["archive_sha256"] == nil {
-		t.Fatalf("invalid archive metadata: %s", data)
-	}
-	recorded, err := RecordedSource(e, ParseOptions{})
-	if err != nil || recorded.Raw != raw || recorded.Subdir != "pack/brief" {
-		t.Fatalf("round-trip: %+v %v", recorded, err)
-	}
-	before, _ := os.ReadFile(filepath.Join(root, MetadataFileName))
-	info, _ := os.Stat(filepath.Join(dest, "SKILL.md"))
-	opts.Update = true
-	res, err := Install(recorded, dest, opts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	after, _ := os.ReadFile(filepath.Join(root, MetadataFileName))
-	unchanged, _ := os.Stat(filepath.Join(dest, "SKILL.md"))
-	if res.Action != "skipped" || !bytes.Equal(before, after) || info.ModTime() != unchanged.ModTime() {
-		t.Fatalf("unchanged ZIP rewrote install: %+v", res)
-	}
-	payload = archiveZIP(t, map[string]string{"pack/brief/SKILL.md": "# Brief v2", "pack/other/SKILL.md": "# Other"})
-	if _, err := Install(recorded, dest, opts); err != nil {
-		t.Fatal(err)
-	}
-	content, _ := os.ReadFile(filepath.Join(dest, "SKILL.md"))
-	if string(content) != "# Brief v2" {
-		t.Fatalf("wrong member installed: %s", content)
-	}
-	if err := os.WriteFile(filepath.Join(dest, "SKILL.md"), []byte("# Local edit"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if !archiveEntry(t, root).LocallyModified(dest) {
-		t.Fatal("archive local edits not recognized")
-	}
-	opts.Reinstall = true
-	if _, err := Install(recorded, dest, opts); err != nil {
-		t.Fatal(err)
-	}
-	content, _ = os.ReadFile(filepath.Join(dest, "SKILL.md"))
-	if string(content) != "# Brief v2" {
-		t.Fatal("force did not restore unchanged archive")
-	}
-	// A changed archive dropping the exact selected member must preserve the install.
-	payload = archiveZIP(t, map[string]string{"other/SKILL.md": "# Other"})
-	before, _ = os.ReadFile(filepath.Join(root, MetadataFileName))
-	if _, err := Install(recorded, dest, opts); err == nil {
-		t.Fatal("missing member accepted")
-	}
-	after, _ = os.ReadFile(filepath.Join(root, MetadataFileName))
-	if !bytes.Equal(before, after) {
-		t.Fatal("failed update rewrote metadata")
+	for _, member := range []string{"pack/brief", ".", "parent"} {
+		t.Run(member, func(t *testing.T) {
+			prefix := member + "/"
+			if member == "." {
+				prefix = ""
+			}
+			files := map[string]string{prefix + "SKILL.md": "# Selected v1", "other/SKILL.md": "# Other"}
+			if member != "pack/brief" {
+				files[prefix+"child/SKILL.md"] = "# Child"
+			}
+			payload := archiveZIP(t, files)
+			srv := archiveServer(t, &payload)
+			raw := srv.URL + "/pack.zip?download=1"
+			if member == "pack/brief" {
+				raw += "#skill=pack%2Fbrief"
+			}
+			source, err := ParseSource(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			root := t.TempDir()
+			dest := filepath.Join(root, "legal", "custom")
+			opts := InstallOptions{SourceDir: root, Name: "custom", Into: "legal"}
+			if member == "pack/brief" {
+				if _, err := Install(source, dest, opts); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				d, err := DiscoverArchive(source, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer CleanupDiscovery(d)
+				skill, ok := matchDiscoveredSkillBySubdir(d, member)
+				if !ok {
+					t.Fatal("member not discovered")
+				}
+				if _, err := InstallFromDiscovery(d, skill, dest, opts); err != nil {
+					t.Fatal(err)
+				}
+				raw += "#skill=" + member
+			}
+			e := archiveEntry(t, root)
+			data, _ := json.Marshal(e)
+			var fields map[string]any
+			_ = json.Unmarshal(data, &fields)
+			if e.Source != raw || e.Subdir != member || e.RepoURL != "" || e.Version != "" || len(e.FileHashes) == 0 || fields["archive_sha256"] == nil {
+				t.Fatalf("invalid archive metadata: %s", data)
+			}
+			recorded, err := RecordedSource(e, ParseOptions{})
+			if err != nil || recorded.Raw != raw || recorded.Subdir != member {
+				t.Fatalf("round-trip: %+v %v", recorded, err)
+			}
+			if member == "." {
+				fresh := t.TempDir()
+				if _, err := Install(recorded, filepath.Join(fresh, "root"), InstallOptions{SourceDir: fresh}); err != nil {
+					t.Fatalf("recorded root reinstall failed: %v", err)
+				}
+			}
+			before, _ := os.ReadFile(filepath.Join(root, MetadataFileName))
+			info, _ := os.Stat(filepath.Join(dest, "SKILL.md"))
+			opts.Update = true
+			res, err := Install(recorded, dest, opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			after, _ := os.ReadFile(filepath.Join(root, MetadataFileName))
+			unchanged, _ := os.Stat(filepath.Join(dest, "SKILL.md"))
+			if res.Action != "skipped" || !bytes.Equal(before, after) || info.ModTime() != unchanged.ModTime() {
+				t.Fatalf("unchanged ZIP rewrote install: %+v", res)
+			}
+			files[prefix+"SKILL.md"] = "# Selected v2"
+			payload = archiveZIP(t, files)
+			if _, err := Install(recorded, dest, opts); err != nil {
+				t.Fatal(err)
+			}
+			content, _ := os.ReadFile(filepath.Join(dest, "SKILL.md"))
+			if string(content) != "# Selected v2" {
+				t.Fatalf("wrong member installed: %s", content)
+			}
+			if _, err := os.Stat(filepath.Join(dest, "child")); !os.IsNotExist(err) {
+				t.Fatal("update absorbed separately discovered child skill")
+			}
+			if err := os.WriteFile(filepath.Join(dest, "SKILL.md"), []byte("# Local edit"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			if !archiveEntry(t, root).LocallyModified(dest) {
+				t.Fatal("archive local edits not recognized")
+			}
+			opts.Reinstall = true
+			if _, err := Install(recorded, dest, opts); err != nil {
+				t.Fatal(err)
+			}
+			content, _ = os.ReadFile(filepath.Join(dest, "SKILL.md"))
+			if string(content) != "# Selected v2" {
+				t.Fatal("force did not restore unchanged archive")
+			}
+			// Dropping the exact selected member must preserve files and metadata.
+			payload = archiveZIP(t, map[string]string{"other/SKILL.md": "# Other"})
+			before, _ = os.ReadFile(filepath.Join(root, MetadataFileName))
+			if _, err := Install(recorded, dest, opts); err == nil {
+				t.Fatal("missing member accepted")
+			}
+			after, _ = os.ReadFile(filepath.Join(root, MetadataFileName))
+			preserved, err := os.ReadFile(filepath.Join(dest, "SKILL.md"))
+			if err != nil || !bytes.Equal(content, preserved) || !bytes.Equal(before, after) {
+				t.Fatal("failed update altered installed state")
+			}
+		})
 	}
 }
 
@@ -189,9 +231,12 @@ func TestArchiveRejectsSymlinkAndCorruption(t *testing.T) {
 	_, _ = f.Write([]byte("outside"))
 	_ = w.Close()
 	for _, payload := range [][]byte{b.Bytes(), []byte("not a zip"), archiveZIP(t, map[string]string{"SKILL.md": strings.Repeat("x", 10)})[:12]} {
-		srv := archiveServer(t, &payload)
-		source, _ := ParseSource(srv.URL + "/pack.zip?download=1")
-		if _, err := Install(source, filepath.Join(t.TempDir(), "skill"), InstallOptions{}); err == nil {
+		dir := t.TempDir()
+		file := filepath.Join(dir, "pack.zip")
+		if err := os.WriteFile(file, payload, 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := extractArchive(file, filepath.Join(dir, "tree"), archiveExpandedLimit, archiveEntryLimit); err == nil {
 			t.Fatal("invalid ZIP accepted")
 		}
 	}
@@ -245,6 +290,8 @@ func TestArchiveDownloadLimitsRedirectsAndCleanup(t *testing.T) {
 			defer func() { http.DefaultTransport = old; srv.Close() }()
 			if _, err := ArchiveHash(srv.URL + "/pack.zip"); err == nil {
 				t.Fatal("unsafe download accepted")
+			} else if mode == "size" && !strings.Contains(err.Error(), "exceeds the maximum size (100 MB)") {
+				t.Fatalf("wrong archive size rejection: %v", err)
 			}
 			left, _ := filepath.Glob(filepath.Join(os.Getenv("TMPDIR"), "skillshare-archive-*"))
 			if len(left) != 0 {
@@ -281,37 +328,6 @@ func TestArchiveAuditAndDryRunPreserveInstall(t *testing.T) {
 	}
 }
 
-func TestArchiveUpdatePreservesNestedSkillBoundary(t *testing.T) {
-	payload := archiveZIP(t, map[string]string{"parent/SKILL.md": "# Parent", "parent/child/SKILL.md": "# Child"})
-	srv := archiveServer(t, &payload)
-	source, _ := ParseSource(srv.URL + "/pack.zip?download=1")
-	discovery, err := DiscoverArchive(source, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer CleanupDiscovery(discovery)
-	root := t.TempDir()
-	dest := filepath.Join(root, "parent")
-	parent, ok := matchDiscoveredSkillBySubdir(discovery, "parent")
-	if !ok {
-		t.Fatal("parent not discovered")
-	}
-	if _, err := InstallFromDiscovery(discovery, parent, dest, InstallOptions{SourceDir: root}); err != nil {
-		t.Fatal(err)
-	}
-	recorded, err := RecordedSource(LoadMetadataOrNew(root).Get("parent"), ParseOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	payload = archiveZIP(t, map[string]string{"parent/SKILL.md": "# Parent v2", "parent/child/SKILL.md": "# Child"})
-	if _, err := Install(recorded, dest, InstallOptions{SourceDir: root, Update: true}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(filepath.Join(dest, "child")); !os.IsNotExist(err) {
-		t.Fatal("update absorbed separately discovered child skill")
-	}
-}
-
 func TestArchiveDownloadRedactsRedirectQuery(t *testing.T) {
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/pack.zip" {
@@ -336,69 +352,6 @@ func TestArchiveDownloadRedactsRedirectQuery(t *testing.T) {
 	if strings.Contains(err.Error(), "fixture-private-query") {
 		t.Fatalf("redirect query leaked: %v", err)
 	}
-}
-
-func TestArchiveRootRoundTrip(t *testing.T) {
-	payload := archiveZIP(t, map[string]string{"SKILL.md": "# Root v1", "child/SKILL.md": "# Child"})
-	srv := archiveServer(t, &payload)
-	src, err := ParseSource(srv.URL + "/pack.zip?download=1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	d, err := DiscoverArchive(src, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer CleanupDiscovery(d)
-	var root SkillInfo
-	for _, s := range d.Skills {
-		if s.Path == "." {
-			root = s
-		}
-	}
-	if root.Path != "." {
-		t.Fatal("root not discovered")
-	}
-	sourceDir := t.TempDir()
-	dest := filepath.Join(sourceDir, "root")
-	if _, err := InstallFromDiscovery(d, root, dest, InstallOptions{SourceDir: sourceDir}); err != nil {
-		t.Fatal(err)
-	}
-	entry := LoadMetadataOrNew(sourceDir).GetByPath("root")
-	recorded, err := RecordedSource(entry, ParseOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Run("unchanged", func(t *testing.T) {
-		res, err := Install(recorded, dest, InstallOptions{SourceDir: sourceDir, Update: true})
-		if err != nil || res.Action != "skipped" {
-			t.Fatalf("unchanged: %+v %v", res, err)
-		}
-	})
-	t.Run("forced-reinstall", func(t *testing.T) {
-		if _, err := Install(recorded, dest, InstallOptions{SourceDir: sourceDir, Update: true, Reinstall: true}); err != nil {
-			t.Fatal(err)
-		}
-	})
-	t.Run("fresh-reinstall", func(t *testing.T) {
-		fresh := t.TempDir()
-		if _, err := Install(recorded, filepath.Join(fresh, "root"), InstallOptions{SourceDir: fresh}); err != nil {
-			t.Fatalf("recorded root reinstall failed: %v", err)
-		}
-	})
-	payload = archiveZIP(t, map[string]string{"SKILL.md": "# Root v2", "child/SKILL.md": "# Child"})
-	t.Run("changed-update", func(t *testing.T) {
-		if _, err := Install(recorded, dest, InstallOptions{SourceDir: sourceDir, Update: true, Force: true}); err != nil {
-			t.Fatalf("recorded root update failed: %v", err)
-		}
-		got, _ := os.ReadFile(filepath.Join(dest, "SKILL.md"))
-		if string(got) != "# Root v2" {
-			t.Fatalf("root content %q", got)
-		}
-		if _, err := os.Stat(filepath.Join(dest, "child")); !os.IsNotExist(err) {
-			t.Fatal("root absorbed child")
-		}
-	})
 }
 
 // Rejected metadata must stay bounded before archive/zip materializes File values.

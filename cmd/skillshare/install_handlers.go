@@ -242,14 +242,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		}
 
 		installSpinner.Stop()
-		renderInstallWarningsWithResult("", result.Warnings, opts.AuditVerbose, result)
-		printInstallRow(skill.Name, destPath, opts.DryRun, installStart)
-
-		if !opts.DryRun {
-			ui.Next("skillshare sync", "link it into your targets")
-			logSummary.InstalledSkills = append(logSummary.InstalledSkills, skill.Name)
-			logSummary.SkillCount = len(logSummary.InstalledSkills)
-		}
+		logSummary.finishSkillInstall(skill.Name, destPath, installStart, result)
 		installDiscoveredAgents(discovery, cfg, opts)
 		return logSummary, nil
 	}
@@ -326,14 +319,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		}
 
 		installSpinner.Stop()
-		renderInstallWarningsWithResult("", result.Warnings, opts.AuditVerbose, result)
-		printInstallRow(skill.Name, destPath, opts.DryRun, installStart)
-
-		if !opts.DryRun {
-			ui.Next("skillshare sync", "link it into your targets")
-			logSummary.InstalledSkills = append(logSummary.InstalledSkills, skill.Name)
-			logSummary.SkillCount = len(logSummary.InstalledSkills)
-		}
+		logSummary.finishSkillInstall(skill.Name, destPath, installStart, result)
 		installDiscoveredAgents(discovery, cfg, opts)
 
 		return logSummary, nil
@@ -500,7 +486,8 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 
 		results = append(results, skillInstallResult{
 			skill:          skill,
-			success:        true,
+			success:        installResult.Action != "skipped",
+			skipped:        installResult.Action == "skipped",
 			warnings:       installResult.Warnings,
 			auditRiskLabel: installResult.AuditRiskLabel,
 			auditRiskScore: installResult.AuditRiskScore,
@@ -566,12 +553,14 @@ func repoLabelFromSource(source *install.Source) string {
 // displayInstallResults shows the final install results.
 // repoLabel is used in the Skipped section header (e.g. "owner/repo").
 func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, auditVerbose bool, repoLabel string) {
-	var successes, skipped, failures []skillInstallResult
+	var successes, skipped, upToDate, failures []skillInstallResult
 	totalWarnings := 0
 	for _, r := range results {
 		switch {
 		case r.success:
 			successes = append(successes, r)
+		case r.skipped && r.result != nil && r.result.Action == "skipped":
+			upToDate = append(upToDate, r)
 		case r.skipped:
 			skipped = append(skipped, r)
 		default:
@@ -582,7 +571,7 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, au
 
 	installed := len(successes)
 	failed := len(failures)
-	skippedCount := len(skipped)
+	skippedCount := len(skipped) + len(upToDate)
 
 	var took time.Duration
 	if spinner != nil {
@@ -646,7 +635,11 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, au
 	}
 
 	// Show skipped (same-repo) — grouped by directory with repo label
-	if skippedCount > 0 {
+	if len(upToDate) > 0 {
+		ui.SectionLabel("Already up to date")
+		renderSkippedByGroup(upToDate)
+	}
+	if len(skipped) > 0 {
 		label := "Skipped (same repo)"
 		if repoLabel != "" {
 			label = fmt.Sprintf("Skipped (%s)", repoLabel)
@@ -916,14 +909,7 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 	if source.HasSubdir() {
 		ui.StepContinue("Subdir", source.Subdir)
 	}
-	renderInstallWarningsWithResult("", result.Warnings, opts.AuditVerbose, result)
-	printInstallRow(skillName, destPath, opts.DryRun, treeSpinner.Started())
-
-	if !opts.DryRun {
-		ui.Next("skillshare sync", "link it into your targets")
-		logSummary.InstalledSkills = append(logSummary.InstalledSkills, skillName)
-		logSummary.SkillCount = len(logSummary.InstalledSkills)
-	}
+	logSummary.finishSkillInstall(skillName, destPath, treeSpinner.Started(), result)
 
 	return logSummary, nil
 }
@@ -1024,6 +1010,21 @@ func sourceLabel(raw string) string {
 		return "file://" + utils.FoldHomePath(rest)
 	}
 	return utils.FoldHomePath(raw)
+}
+
+// finishSkillInstall renders a single result and counts only applied installs.
+func (s *installLogSummary) finishSkillInstall(name, dest string, start time.Time, result *install.InstallResult) {
+	if result.Action == "skipped" {
+		ui.StepSkip(name, "already up to date")
+		return
+	}
+	renderInstallWarningsWithResult("", result.Warnings, s.AuditVerbose, result)
+	printInstallRow(name, dest, s.DryRun, start)
+	if !s.DryRun {
+		ui.Next("skillshare sync", "link it into your targets")
+		s.InstalledSkills = append(s.InstalledSkills, name)
+		s.SkillCount = len(s.InstalledSkills)
+	}
 }
 
 // printInstallRow reports a skill installed into destPath, or one a dry run

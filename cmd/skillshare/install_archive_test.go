@@ -31,7 +31,7 @@ func TestArchiveCLISelectionAndNoop(t *testing.T) {
 	root := t.TempDir()
 	cfg := &config.Config{Source: root}
 	source, _ := install.ParseSource(srv.URL + "/pack.zip")
-	opts := install.InstallOptions{Skills: []string{"two"}, Into: "legal", SourceDir: root}
+	opts := install.InstallOptions{Skills: []string{"one", "two"}, Into: "legal", SourceDir: root}
 	if _, err := dispatchInstall(source, cfg, opts); err != nil {
 		t.Fatal(err)
 	}
@@ -66,6 +66,27 @@ func TestArchiveCLISelectionAndNoop(t *testing.T) {
 	if rootEntry == nil || rootEntry.Source != srv.URL+"/pack.zip#skill=." {
 		t.Fatalf("root selection = %+v", rootEntry)
 	}
+	for _, tc := range []struct {
+		name   string
+		source *install.Source
+		opts   install.InstallOptions
+		direct bool
+	}{
+		{"single-subdir", source, install.InstallOptions{Name: "custom", Into: "legal", SourceDir: root, Update: true}, false},
+		{"multi-selection", rootSource, install.InstallOptions{Skills: []string{"one", "pack"}, Into: "legal", SourceDir: root, Update: true}, false},
+		{"installed-name", source, install.InstallOptions{Name: "custom", Into: "legal", SourceDir: root, Update: true}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			run := dispatchInstall
+			if tc.direct {
+				run = handleDirectInstall
+			}
+			summary, err := run(tc.source, cfg, tc.opts)
+			if err != nil || summary.SkillCount != 0 || len(summary.InstalledSkills) != 0 {
+				t.Fatalf("unchanged install counted as installed: %+v %v", summary, err)
+			}
+		})
+	}
 	// Reinstall from portable declarations into fresh global and project roots.
 	for _, project := range []bool{false, true} {
 		fresh := t.TempDir()
@@ -96,5 +117,20 @@ func TestArchiveCLISelectionAndNoop(t *testing.T) {
 			t.Fatal("root config reinstall absorbed descendants")
 		}
 	}
-
+	// An archive with one root skill takes the non-subdir discovery branch.
+	payload.Reset()
+	z = zip.NewWriter(&payload)
+	f, _ = z.Create("SKILL.md")
+	_, _ = f.Write([]byte("# Solo"))
+	_ = z.Close()
+	solo, _ := install.ParseSource(srv.URL + "/solo.zip")
+	soloOpts := install.InstallOptions{SourceDir: root}
+	if _, err := dispatchInstall(solo, cfg, soloOpts); err != nil {
+		t.Fatal(err)
+	}
+	soloOpts.Update = true
+	summary, err := dispatchInstall(solo, cfg, soloOpts)
+	if err != nil || summary.SkillCount != 0 || len(summary.InstalledSkills) != 0 {
+		t.Fatalf("unchanged single-root install counted as installed: %+v %v", summary, err)
+	}
 }

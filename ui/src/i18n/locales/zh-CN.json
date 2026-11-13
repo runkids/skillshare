@@ -809,7 +809,7 @@
   "skillEditor.toast.saved": "已保存 · {name}",
   "skillEditor.toast.descTooLong": "description 和 when_to_use 共 {count} 个字符，请控制在 {budget} 以内。",
   "skillEditor.sourceLabel": "来源 URL",
-  "skillEditor.sourceHint": "更新时使用的 Git 仓库 URL。当 skill 迁移到新位置时可修改此字段。",
+  "skillEditor.sourceHint": "更新时使用的来源 URL。skill 迁移时可修改。",
   "skillEditor.sourcePlaceholder": "https://github.com/owner/repo",
   "streamProgress.remaining": "剩余约 {eta} 秒",
   "sync.toast.done": "同步完成",

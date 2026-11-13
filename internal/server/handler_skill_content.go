@@ -152,7 +152,7 @@ func (s *Server) handlePatchSkillSource(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if entry.IsArchive() && parsed.Type == install.SourceTypeLocalPath {
-		writeError(w, http.StatusBadRequest, "Changing a ZIP source to a local path requires reinstalling. Copy the skill and your edits to a folder separate from the installed destination, then install that folder.")
+		writeError(w, http.StatusBadRequest, "Copy the skill and edits to a new folder outside this installation. Install that copy with the same --name, --into if grouped, and --force.")
 		return
 	}
 

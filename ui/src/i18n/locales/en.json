@@ -934,7 +934,7 @@
   "skillEditor.pane.preview": "Preview",
   "skillEditor.saveButton": "Save",
   "skillEditor.sourceLabel": "Source URL",
-  "skillEditor.sourceHint": "Git repository URL used by update. Change this when the skill has moved to a new location.",
+  "skillEditor.sourceHint": "Source URL used by update. Change it when the skill moves.",
   "skillEditor.sourcePlaceholder": "https://github.com/owner/repo",
   "skillEditor.argumentsHint": "is replaced with what the user types after the skill name.",
   "skillEditor.body": "Body",

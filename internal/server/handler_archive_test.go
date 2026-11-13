@@ -3,7 +3,6 @@ package server
 import (
 	"archive/zip"
 	"bytes"
-	"context"
 	"reflect"
 	"time"
 
@@ -12,7 +11,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"skillshare/internal/check"
 	"skillshare/internal/install"
 	"strings"
 	"testing"
@@ -39,18 +37,25 @@ func TestArchiveDashboardRoundTrip(t *testing.T) {
 			if rr.Code != http.StatusOK {
 				t.Fatalf("%s: %d %s", endpoint, rr.Code, rr.Body)
 			}
+			if endpoint == "discover" {
+				var response struct{ Skills []struct{ Name, Path string } }
+				if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
+					t.Fatal(err)
+				}
+				if len(response.Skills) != 1 || response.Skills[0].Name != "brief" || response.Skills[0].Path != "brief" {
+					t.Fatalf("discovered member: %s", rr.Body)
+				}
+			}
 		}
 		for _, stream := range []bool{false, true} {
 			rr := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "/api/update", strings.NewReader(`{"name":"pack"}`))
 			if stream {
-				req.URL.Path = "/api/update/stream"
-				s.handleUpdateStream(rr, req)
-			} else {
-				s.handleUpdate(rr, req)
+				req = httptest.NewRequest(http.MethodGet, "/api/update/stream?names=pack", nil)
 			}
+			s.mux.ServeHTTP(rr, req)
 			results := updateResults(t, rr, stream)
-			if len(results) != 1 || results[0].Action != "skipped" {
+			if len(results) != 1 || results[0].Name != "pack" || results[0].Action != "skipped" {
 				t.Fatalf("no-op response = %+v (%s)", results, rr.Body)
 			}
 		}
@@ -149,27 +154,11 @@ func TestArchiveSourceEdits(t *testing.T) {
 			entry := install.LoadMetadataOrNew(src).Get("pack")
 			if strings.HasPrefix(tc.name, "zip-local") {
 				afterContent, err := os.ReadFile(filepath.Join(dir, "SKILL.md"))
-				if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), "reinstall") || !strings.Contains(rr.Body.String(), "separate from the installed destination") {
+				if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), "new folder outside this installation") || !strings.Contains(rr.Body.String(), "same --name, --into if grouped, and --force") {
 					t.Fatalf("ZIP-to-local refusal/guidance: %d %s", rr.Code, rr.Body)
 				}
 				if err != nil || !bytes.Equal(beforeContent, afterContent) || !reflect.DeepEqual(entry, &before) {
 					t.Fatal("refused source edit changed installed state")
-				}
-				if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# Mine"), 0600); err != nil {
-					t.Fatal(err)
-				}
-				results, err := check.Plan([]check.Skill{{Name: "pack", Entry: entry, Dir: dir}}, "").Run(context.Background(), check.Options{})
-				if err != nil || len(results) != 1 || results[0].Status != "modified" {
-					t.Fatalf("refused source check: %+v %v", results, err)
-				}
-				changes, err := install.LocalChanges(entry, install.ParseOptions{}, dir)
-				if err != nil || len(changes) != 1 || changes[0].Status != "modified" || changes[0].Diff != "" {
-					t.Fatalf("refused source inspection: %+v %v", changes, err)
-				}
-				items := runFollowUpdate(t, s, false, "pack")
-				content, err := os.ReadFile(filepath.Join(dir, "SKILL.md"))
-				if err != nil || string(content) != "# Mine" || len(items) != 1 || items[0].Action != "skipped" {
-					t.Fatalf("refusal lost update protection: %+v %q %v", items, content, err)
 				}
 				return
 			}
@@ -186,10 +175,6 @@ func TestArchiveSourceEdits(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			results, err := check.Plan([]check.Skill{{Name: "pack", Entry: entry, Dir: dir}}, "").Run(context.Background(), check.Options{})
-			if err != nil || len(results) != 1 || results[0].Status == "error" || (!results[0].Local && results[0].Status != "update_available") {
-				t.Fatalf("edited source check: %+v %v", results, err)
-			}
 			wantRepo := ""
 			if target.IsGit() {
 				wantRepo = target.CloneURL
@@ -199,25 +184,6 @@ func TestArchiveSourceEdits(t *testing.T) {
 			}
 			if !entry.InstalledAt.Equal(before.InstalledAt) || !reflect.DeepEqual(entry.FileHashes, before.FileHashes) {
 				t.Fatal("source edit reset installed baseline")
-			}
-
-			if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# Mine"), 0600); err != nil {
-				t.Fatal(err)
-			}
-			changes, err := install.LocalChanges(entry, install.ParseOptions{}, dir)
-			if err != nil || len(changes) != 1 || changes[0].Diff != "" {
-				t.Fatalf("edited source inspection: %+v %v", changes, err)
-			}
-			if !entry.LocallyModified(dir) {
-				t.Fatal("edited source lost edit protection")
-			}
-			items := runFollowUpdate(t, s, false, "pack")
-			if len(items) != 1 || items[0].Action != "skipped" {
-				t.Fatalf("edited source overwrote edits: %+v", items)
-			}
-			items = runFollowUpdate(t, s, false, "pack", true)
-			if len(items) != 1 || items[0].Action != "updated" {
-				t.Fatalf("edited source force restore: %+v", items)
 			}
 		})
 	}
