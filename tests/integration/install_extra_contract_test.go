@@ -178,6 +178,47 @@ func TestInstallExtra_AuditBlocksThenForceRecordsOverride(t *testing.T) {
 			if err != nil || len(store.AuditAccepted["rules"]) == 0 {
 				t.Fatalf("acceptance not recorded: %+v %v", store, err)
 			}
+			// A real remote declaration with accepted findings must not become
+			// local through the initializer's --force replacement path.
+			testutil.RunGit(t, repo, "checkout", "-b", "release")
+			sb.RunCLIInDir(cwd, "install", remote, "--kind", "extra", "--name", "rules", "--branch", "release", "--update", "--force", "--json", mode).AssertSuccess(t)
+			declared, err := os.ReadFile(configPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			extras, err := config.RawExtras(declared)
+			if err != nil || len(extras) != 1 || extras[0].Remote != remote || extras[0].Branch != "release" {
+				t.Fatalf("remote branch fixture: %+v %v", extras, err)
+			}
+			store, _, err = install.ReadMetadata(root)
+			if err != nil || len(store.AuditAccepted["rules"]) == 0 || store.Get("rules") == nil || len(store.Get("rules").Commit) != 40 {
+				t.Fatalf("remote provenance/acceptance fixture: %+v %v", store, err)
+			}
+			paths := []string{configPath, filepath.Join(root, install.MetadataFileName), filepath.Join(root, "rules", "rules.md")}
+			if projectMode {
+				lock, err := install.LoadLock(filepath.Dir(configPath))
+				if err != nil || lock.ExtraCommitFor("rules", remote) != store.Get("rules").Commit {
+					t.Fatalf("remote pin fixture: %+v %v", lock, err)
+				}
+				paths = append(paths, filepath.Join(filepath.Dir(configPath), install.LockFileName))
+			}
+			snapshots := map[string]string{}
+			for _, path := range paths {
+				data, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				snapshots[path] = string(data)
+			}
+			init := sb.RunCLIInDir(cwd, "extras", "init", "rules", "--target", filepath.Join(sb.Root, "replacement-target"), "--force", mode)
+			if init.ExitCode == 0 {
+				t.Errorf("forced initializer replaced a remote declaration: %s %s", init.Stdout, init.Stderr)
+			}
+			for path, before := range snapshots {
+				if after, err := os.ReadFile(path); err != nil || string(after) != before {
+					t.Errorf("forced initializer changed remote lifecycle participant %s: %v", path, err)
+				}
+			}
 		})
 	}
 }

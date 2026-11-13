@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type extraCandidate struct {
@@ -34,7 +35,7 @@ func prepareExtraCandidate(source *Source, root, dest string, opts InstallOption
 	cleanup := func() { removeExtraCandidateTemp(tmp) }
 	working := *source
 	result := &InstallResult{}
-	fetch, treeHash, err := fetchExtraCandidate(&working, filepath.Join(tmp, "checkout"), result, opts, expectedTree...)
+	fetch, treeHash, err := fetchExtraTree(&working, filepath.Join(tmp, "checkout"), result, opts, expectedTree...)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
@@ -51,6 +52,24 @@ func prepareExtraCandidate(source *Source, root, dest string, opts InstallOption
 	}
 	result.Warnings = extraAuditWarnings(result.Warnings, gate)
 	return &extraCandidate{staged: staged, fetch: fetch, audit: gate, treeHash: treeHash, warnings: result.Warnings}, cleanup, nil
+}
+
+// fetchExtraTree validates the final selection before staging.
+func fetchExtraTree(source *Source, checkout string, result *InstallResult, opts InstallOptions, expectedTree ...string) (gitFetch, string, error) {
+	fetch, treeHash, err := fetchExtraCandidate(source, checkout, result, opts, expectedTree...)
+	if err != nil {
+		return gitFetch{}, "", err
+	}
+	links, err := repoGitlinks(fetch.RepoPath, source.authEnv())
+	if err != nil {
+		return gitFetch{}, "", err
+	}
+	for _, link := range links {
+		if fetch.Subdir == "" || link.Path == fetch.Subdir || strings.HasPrefix(link.Path, fetch.Subdir+"/") {
+			return gitFetch{}, "", fmt.Errorf("remote extra contains git submodule %s; select a directory without submodules", link)
+		}
+	}
+	return fetch, treeHash, nil
 }
 
 // extraAuditWarnings reports the completed gate without recording acceptance;
