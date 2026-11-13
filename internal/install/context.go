@@ -80,6 +80,9 @@ type ConfigInstallResult struct {
 	InstalledRepoSkills int // skills inside InstalledRepos
 	SkippedRepos        int
 	InstalledSkills     []string
+	// InstalledPaths are successful logical publication roots, including
+	// repositories containing nested skills. They are not public display names.
+	InstalledPaths      []string `json:"-"`
 	FailedSkills        []string
 	Failures            []SkillFailure // why each FailedSkills entry failed
 }

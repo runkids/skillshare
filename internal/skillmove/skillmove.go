@@ -19,6 +19,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/profile"
 	"skillshare/internal/projectdir"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sourcefs"
@@ -91,6 +92,7 @@ type Options struct {
 	Follow    *sourcewalk.Follow
 	Store     *install.MetadataStore // re-keyed and saved to SourceDir by Run
 	Targets   []Target               // enabled skills targets, for collisions and filter warnings
+	Profiles  profile.Catalog        // all definitions, including inactive profiles
 	Force     bool                   // accept a name collision
 
 	// DryRun makes Run report the plan's results and change nothing.
@@ -193,9 +195,29 @@ func Plan(discovered []sync.DiscoveredSkill, names []string, dest string, o Opti
 	for i := range planned {
 		if planned[i].Err == nil {
 			planned[i].Warnings = append(planned[i].Warnings, ignoreWarnings(&planned[i], files, before)...)
+			planned[i].Warnings = append(planned[i].Warnings, profileWarnings(planned[i], o.Profiles)...)
 		}
 	}
 	return planned
+}
+
+func profileWarnings(p Planned, catalog profile.Catalog) []string {
+	names := slices.Sorted(maps.Keys(catalog.Definitions))
+	skills := slices.Clone(p.Skills)
+	slices.SortFunc(skills, func(a, b Skill) int { return strings.Compare(a.FlatFrom, b.FlatFrom) })
+	var warnings []string
+	for _, name := range names {
+		d := catalog.Definitions[name]
+		if !d.Usable {
+			continue
+		}
+		for _, skill := range skills {
+			if d.Selects(skill.FlatFrom) != d.Selects(skill.FlatTo) {
+				warnings = append(warnings, fmt.Sprintf("move %s → %s changes membership in profile %q; profile patterns are unchanged", skill.FlatFrom, skill.FlatTo, name))
+			}
+		}
+	}
+	return warnings
 }
 
 // normalize turns a typed name into a slash path without a trailing slash.
