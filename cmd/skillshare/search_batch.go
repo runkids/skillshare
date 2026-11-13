@@ -571,9 +571,9 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 
 	renderBatchSearchInstallSummary(results, mode, time.Since(batchStart))
 	if projectRT != nil {
-		printProfileHint(installedProfileHint(projectRT.config, sourceDir, projectRT.skillsWalk(), installedPaths), false)
+		printProfileHint(installedProfileHint(projectRT.config, mode, sourceDir, projectRT.skillsWalk(), installedPaths), false)
 	} else if cfg != nil {
-		printProfileHint(installedProfileHint(cfg, sourceDir, cfg.SkillsWalk(), installedPaths), false)
+		printProfileHint(installedProfileHint(cfg, mode, sourceDir, cfg.SkillsWalk(), installedPaths), false)
 	}
 
 	// Return error if any failed

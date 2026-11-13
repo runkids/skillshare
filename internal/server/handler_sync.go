@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/profile"
 	"skillshare/internal/profileapply"
 	"skillshare/internal/projects"
 	"skillshare/internal/resource"
@@ -255,6 +256,15 @@ func (s *Server) syncResourcesPrepared(start time.Time, dryRun, force bool, kind
 		}
 		sourceIncomplete = walk.Follow.Incomplete()
 		warnings = append(warnings, ssync.SourceLinkWarnings(walk, sourceIncomplete)...)
+		if !sourceIncomplete {
+			catalog, state := profile.Parse(&s.cfg.Profiles), s.cfg.ProfileState()
+			if s.IsProjectMode() && s.projectCfg != nil {
+				catalog, state = profile.Parse(&s.projectCfg.Profiles), s.projectCfg.ProfileState()
+			}
+			if warning := ssync.ProfileUnmatchedWarning(catalog, state, allSkills); warning != "" {
+				warnings = append(warnings, warning)
+			}
+		}
 
 		if len(allSkills) == 0 {
 			warnings = append(warnings, "source directory is empty (0 skills)")

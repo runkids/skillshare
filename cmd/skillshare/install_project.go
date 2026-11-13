@@ -41,7 +41,7 @@ func cmdInstallProjectParsed(parsed *installArgs, root string) (summary installL
 		return summary, err
 	}
 	defer func() {
-		printProfileHint(installedProfileHint(runtime.config, runtime.sourcePath, runtime.skillsWalk(), summary.InstalledPaths), parsed.jsonOutput)
+		printProfileHint(installedProfileHint(runtime.config, modeProject, runtime.sourcePath, runtime.skillsWalk(), summary.InstalledPaths), parsed.jsonOutput)
 	}()
 	if parsed.opts.AuditThreshold == "" {
 		parsed.opts.AuditThreshold = runtime.config.Audit.BlockThreshold

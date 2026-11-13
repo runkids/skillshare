@@ -33,18 +33,18 @@ func TestProfileHintFinalNames(t *testing.T) {
 	writeHintSkill(t, root, "team/_repo/skills/review")
 	writeHintSkill(t, root, "team/_repo-other/review")
 	writeHintSkill(t, root, "elsewhere/review")
-	want := `Not in active profile "work": skillshare profile add work team___repo team___repo__skills__review`
-	if got := installedProfileHint(cfg, root, cfg.SkillsWalk(), []string{repo, repo}); got != want {
+	want := `Not in active profile "work": skillshare profile add work team___repo team___repo__skills__review -g`
+	if got := installedProfileHint(cfg, modeGlobal, root, cfg.SkillsWalk(), []string{repo, repo}); got != want {
 		t.Fatalf("hint = %q, want %q", got, want)
 	}
 	for _, names := range [][]string{nil, {"keep"}} {
-		if got := profileHint(cfg, names); got != "" {
+		if got := profileHint(cfg, modeGlobal, names); got != "" {
 			t.Fatal("selected/empty input must not hint", got)
 		}
 	}
 	for _, active := range []string{"", "missing"} {
 		other := cfg.WithActiveProfile(active)
-		if got := profileHint(other, []string{"edit"}); got != "" {
+		if got := profileHint(other, modeGlobal, []string{"edit"}); got != "" {
 			t.Fatal("none/unavailable must not hint", got)
 		}
 	}
@@ -52,7 +52,7 @@ func TestProfileHintFinalNames(t *testing.T) {
 	if err := os.MkdirAll(empty, 0755); err != nil {
 		t.Fatal(err)
 	}
-	if got := installedProfileHint(cfg, root, cfg.SkillsWalk(), []string{empty}); got != "" {
+	if got := installedProfileHint(cfg, modeGlobal, root, cfg.SkillsWalk(), []string{empty}); got != "" {
 		t.Fatal("zero-skill publication must not hint", got)
 	}
 }
@@ -66,14 +66,14 @@ func TestProfileHintFollowedLogicalGroup(t *testing.T) {
 		t.Skipf("symlink unavailable: %v", err)
 	}
 	walk := config.SkillsWalk(true, cfg.Source, cfg.Targets)
-	if got := installedProfileHint(cfg, cfg.Source, walk, []string{logical}); !strings.HasSuffix(got, "work team__review") {
+	if got := installedProfileHint(cfg, modeGlobal, cfg.Source, walk, []string{logical}); !strings.HasSuffix(got, "work team__review -g") {
 		t.Fatal("hint must retain logical group", got)
 	}
 	// An incomplete traversal must not turn the visible subset into a hint.
 	if err := os.Symlink(filepath.Join(external, "absent"), filepath.Join(cfg.Source, "broken")); err != nil {
 		t.Fatal(err)
 	}
-	if got := installedProfileHint(cfg, cfg.Source, config.SkillsWalk(true, cfg.Source, cfg.Targets), []string{logical}); got != "" {
+	if got := installedProfileHint(cfg, modeGlobal, cfg.Source, config.SkillsWalk(true, cfg.Source, cfg.Targets), []string{logical}); got != "" {
 		t.Fatal("incomplete discovery must omit hint", got)
 	}
 }
@@ -225,10 +225,10 @@ func TestGitInstallPublicationRoots(t *testing.T) {
 		if err != nil || len(summary.InstalledPaths) == 0 {
 			t.Fatalf("successful git roots missing: %+v (%v)", summary, err)
 		}
-		hint := installedProfileHint(cfg, cfg.Source, sourcewalk.Options{}, summary.InstalledPaths)
-		want := `Not in active profile "work": skillshare profile add work team__a team__b`
+		hint := installedProfileHint(cfg, modeGlobal, cfg.Source, sourcewalk.Options{}, summary.InstalledPaths)
+		want := `Not in active profile "work": skillshare profile add work team__a team__b -g`
 		if tracked {
-			want = `Not in active profile "work": skillshare profile add work team___repo__one__review team___repo__two__review`
+			want = `Not in active profile "work": skillshare profile add work team___repo__one__review team___repo__two__review -g`
 		}
 		if hint != want {
 			t.Fatal("missing final git names", hint)
@@ -247,7 +247,7 @@ func TestGitInstallPublicationRoots(t *testing.T) {
 		if len(summary.InstalledPaths) != 0 || len(summary.InstalledSkills) != 0 || summary.SkillCount != 0 {
 			t.Fatalf("skipped/failed reinstall must not publish again: %+v (%v)", summary, err)
 		}
-		if got := installedProfileHint(cfg, cfg.Source, cfg.SkillsWalk(), summary.InstalledPaths); got != "" {
+		if got := installedProfileHint(cfg, modeGlobal, cfg.Source, cfg.SkillsWalk(), summary.InstalledPaths); got != "" {
 			t.Fatal("skipped/failed reinstall must not hint", got)
 		}
 	}
@@ -332,7 +332,7 @@ func TestGitBatchHintKeepsOnlySuccessfulRoots(t *testing.T) {
 	if commandErr != nil || len(summary.FailedSkills) != 1 || len(summary.InstalledSkills) != 1 || len(summary.InstalledPaths) != 1 || summary.InstalledSkills[0] != "good" {
 		t.Fatalf("batch effects/counts: %+v (%v)", summary, commandErr)
 	}
-	if got := installedProfileHint(cfg, cfg.Source, cfg.SkillsWalk(), summary.InstalledPaths); got != `Not in active profile "work": skillshare profile add work team__good` {
+	if got := installedProfileHint(cfg, modeGlobal, cfg.Source, cfg.SkillsWalk(), summary.InstalledPaths); got != `Not in active profile "work": skillshare profile add work team__good -g` {
 		t.Fatal("failed destination must not hint", got)
 	}
 }

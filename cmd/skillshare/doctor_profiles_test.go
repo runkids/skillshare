@@ -128,7 +128,7 @@ func TestProfileDoctorChecks(t *testing.T) {
 func TestProfileDiagnosticsWithoutActiveProfile(t *testing.T) {
 	cfg, pc, root := profileDiagnosticFixture(t, false, "", profile.State{Version: 1})
 	checks := profileDoctorChecks(cfg, pc, root, nil, nil)
-	if len(checks) != 0 || profileUnmatchedWarning(profile.Parse(&cfg.Profiles), cfg.ProfileState(), nil) != "" {
+	if len(checks) != 0 || ssync.ProfileUnmatchedWarning(profile.Parse(&cfg.Profiles), cfg.ProfileState(), nil) != "" {
 		t.Fatal("no-profile diagnostics changed", checks)
 	}
 }

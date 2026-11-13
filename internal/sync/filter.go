@@ -8,6 +8,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/pattern"
+	"skillshare/internal/profile"
 	"skillshare/internal/resource"
 	"skillshare/internal/utils"
 )
@@ -285,4 +286,22 @@ func FilterAgentsByTarget(agents []resource.DiscoveredResource, targetName strin
 		}
 	}
 	return filtered
+}
+
+// ProfileUnmatchedWarning reports active-profile patterns once per complete skill discovery.
+func ProfileUnmatchedWarning(catalog profile.Catalog, state profile.State, skills []DiscoveredSkill) string {
+	if state.Active == "" {
+		return ""
+	}
+	var names []string
+	for _, skill := range skills {
+		if !skill.Disabled {
+			names = append(names, skill.FlatName)
+		}
+	}
+	preview, err := profile.Preview(catalog.Definitions[state.Active], names)
+	if err != nil || len(preview.Unmatched) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("Profile %s: unmatched patterns: %s", state.Active, strings.Join(preview.Unmatched, ", "))
 }

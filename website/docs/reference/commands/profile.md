@@ -64,7 +64,7 @@ JSON assignment results contain `profile`, `changed` and per-skill `skills` rows
 
 ## Membership hints {#membership-hints}
 
-After successful `install` or `new`, skills outside the usable active profile get one hint: `Not in active profile "frontend": skillshare profile add frontend <flat-name>`. Install uses final names including groups and nested tracked/local skills. A partial install hints only for successful publications; dry runs, skips, failures and agent installs produce none. Install JSON stays unchanged, with the hint on stderr.
+After successful `install` or `new`, skills outside the usable active profile get one hint: `Not in active profile "frontend": skillshare profile add frontend <flat-name> -g` (project: `-p`). Install uses final names including groups and nested tracked/local skills. A partial install hints only for successful publications; dry runs, skips, failures and agent installs produce none. Install JSON stays unchanged, with the hint on stderr.
 
 `move` warns when a skill's old and new flat names change membership in any usable profile, including inactive definitions. Folder moves check every skill, even with no targets configured. Warnings do not rewrite profile patterns; inspect them before syncing.
 

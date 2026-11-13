@@ -91,27 +91,31 @@ func ClassifySkillForTarget(flatName string, skillTargets []string, targetName s
 }
 
 // ProfileDeselected names entries the profile removes from the target's
-// otherwise eligible selection. Resolving both views preserves target naming,
-// routing, ignores and collision handling without introducing another matcher.
+// otherwise eligible selection. Diagnostic candidates ignore target patterns so
+// profile reasons take precedence, retaining target naming, routing and ignores.
 func ProfileDeselected(name string, sc config.ResourceTargetConfig, skills []DiscoveredSkill) (map[string]string, error) {
 	if !sc.Profile.Active() {
 		return nil, nil
 	}
-	selected, err := ResolveTargetSkillsForTarget(name, sc, skills)
+	_, err := ResolveTargetSkillsForTarget(name, sc, skills)
 	if err != nil {
 		return nil, err
 	}
-	profileName := sc.Profile.Name()
+	selector := sc.Profile
 	sc.Profile = profile.Selector{}
+	sc.Include, sc.Exclude = nil, nil
 	unfiltered, err := ResolveTargetSkillsForTarget(name, sc, skills)
 	if err != nil {
 		return nil, err
 	}
-	kept := selected.ValidTargetNames()
 	deselected := make(map[string]string)
 	for _, skill := range unfiltered.Skills {
-		if !kept[skill.TargetName] {
-			deselected[skill.TargetName] = profileName
+		included, err := selector.Selects(skill.Skill.FlatName)
+		if err != nil {
+			return nil, err
+		}
+		if !included {
+			deselected[skill.TargetName] = selector.Name()
 		}
 	}
 	return deselected, nil

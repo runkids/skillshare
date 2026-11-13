@@ -158,7 +158,7 @@ func TestSearchBatchProfileHints(t *testing.T) {
 				if wantHint && !strings.Contains(output, "published__nested__review "+scope+"\n") {
 					t.Fatal("batch search hint lost originating scope", output)
 				}
-				if wantHint && !strings.Contains(output, "skillshare profile add work a b published published__nested__review\n") {
+				if wantHint && !strings.Contains(output, "skillshare profile add work a b published published__nested__review "+scope+"\n") {
 					t.Fatal("batch hint must name only successful final skills once", output)
 				}
 			})

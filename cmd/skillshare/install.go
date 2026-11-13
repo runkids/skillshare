@@ -485,7 +485,7 @@ func cmdInstall(args []string) error {
 	// No source argument: install from global config
 	if parsed.sourceArg == "" {
 		summary, err := installFromGlobalConfig(cfg, parsed.opts)
-		printProfileHint(installedProfileHint(cfg, cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), summary.InstalledPaths), parsed.jsonOutput)
+		printProfileHint(installedProfileHint(cfg, modeGlobal, cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), summary.InstalledPaths), parsed.jsonOutput)
 		logInstallOp(config.ConfigPath(), rest, start, err, summary)
 		if parsed.jsonOutput {
 			return jsonWriteResult(summary, err)
@@ -544,7 +544,7 @@ func cmdInstall(args []string) error {
 				ui.Warning("Failed to reconcile global skills config: %v", rErr)
 			}
 		}
-		printProfileHint(installedProfileHint(cfg, cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), summary.InstalledPaths), parsed.jsonOutput)
+		printProfileHint(installedProfileHint(cfg, modeGlobal, cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), summary.InstalledPaths), parsed.jsonOutput)
 		logInstallOp(config.ConfigPath(), rest, start, err, summary)
 		if parsed.jsonOutput {
 			return jsonWriteResult(summary, err)
@@ -567,7 +567,7 @@ func cmdInstall(args []string) error {
 			ui.Warning("Failed to reconcile global skills config: %v", rErr)
 		}
 	}
-	printProfileHint(installedProfileHint(cfg, cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), summary.InstalledPaths), parsed.jsonOutput)
+	printProfileHint(installedProfileHint(cfg, modeGlobal, cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), summary.InstalledPaths), parsed.jsonOutput)
 	logInstallOp(config.ConfigPath(), rest, start, err, summary)
 	if parsed.jsonOutput {
 		return jsonWriteResult(summary, err)
