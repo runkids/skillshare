@@ -63,6 +63,10 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 
 // SyncTargetCopyWithSkillsOptions is SyncTargetCopyWithSkills with explicit copy behavior options.
 func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, onProgress func(current, total int, skill string), opts CopyOptions) (*CopyResult, error) {
+	return syncTargetCopyWithSkillsOptions(name, target, allSkills, sourcePath, dryRun, force, onProgress, opts, nil)
+}
+
+func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, onProgress func(current, total int, skill string), opts CopyOptions, beforeMutation func(step string)) (*CopyResult, error) {
 	sc := target.SkillsConfig()
 	result := &CopyResult{}
 	if !sc.IsEnabled() {
@@ -206,6 +210,9 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 						fmt.Fprintf(DiagOutput, "[dry-run] Would replace symlink with copy: %s\n", activeName)
 					}
 				} else {
+					if beforeMutation != nil {
+						beforeMutation("copy_unlink")
+					}
 					if err := os.Remove(targetSkillPath); err != nil && opts.ProfileAware {
 						return nil, fmt.Errorf("failed to remove link %s: %w", activeName, err)
 					}
@@ -221,8 +228,14 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 								fmt.Fprintf(DiagOutput, "[dry-run] Would replace non-directory entry with copy: %s\n", activeName)
 							}
 						} else {
+							if beforeMutation != nil {
+								beforeMutation("copy_remove")
+							}
 							if err := os.RemoveAll(targetSkillPath); err != nil {
 								return nil, fmt.Errorf("failed to remove invalid entry %s: %w", activeName, err)
+							}
+							if beforeMutation != nil {
+								beforeMutation("copy_write")
 							}
 							if err := copySkillToTarget(skill.SourcePath, targetSkillPath, rewriteName, ignorePatterns); err != nil {
 								return nil, fmt.Errorf("failed to copy skill %s: %w", activeName, err)
@@ -264,11 +277,17 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 							fmt.Fprintf(DiagOutput, "[dry-run] Would update copy: %s\n", activeName)
 						}
 					} else {
+						if beforeMutation != nil {
+							beforeMutation("copy_remove")
+						}
 						if err := os.RemoveAll(targetSkillPath); err != nil {
 							return nil, fmt.Errorf("failed to remove old copy %s: %w", activeName, err)
 						}
 					}
 					if !dryRun {
+						if beforeMutation != nil {
+							beforeMutation("copy_write")
+						}
 						if err := copySkillToTarget(skill.SourcePath, targetSkillPath, rewriteName, ignorePatterns); err != nil {
 							return nil, fmt.Errorf("failed to copy skill %s: %w", activeName, err)
 						}
@@ -306,6 +325,9 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 				fmt.Fprintf(DiagOutput, "[dry-run] Would copy: %s -> %s\n", skill.SourcePath, dest)
 			}
 		} else {
+			if beforeMutation != nil {
+				beforeMutation("copy_write")
+			}
 			if err := copySkillToTarget(skill.SourcePath, targetSkillPath, rewriteName, ignorePatterns); err != nil {
 				return nil, fmt.Errorf("failed to copy skill %s: %w", activeName, err)
 			}

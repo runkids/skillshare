@@ -1,15 +1,282 @@
 package sync
 
 import (
+	"encoding/json"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
 	"skillshare/internal/config"
 	"skillshare/internal/utils"
 )
+
+func TestProfileAwareWriters_MutationBoundaries(t *testing.T) {
+	for _, tc := range []struct {
+		name, writer, seed, stage, mutation, outcome string
+		grant, legacy, force, dry                   bool
+	}{
+		{name: "merge_stale_clean", writer: "merge", seed: "copy", stage: "merge_replace", mutation: "edit", outcome: "kept"},
+		{name: "copy_refresh_edit", seed: "copy", stage: "copy_remove", mutation: "edit", outcome: "kept"},
+		{name: "merge_second_discard_edit", writer: "merge", seed: "copy", stage: "merge_replace", mutation: "edit", outcome: "kept", grant: true},
+		{name: "copy_second_discard_edit", seed: "copy", stage: "copy_remove", mutation: "edit", outcome: "kept", grant: true},
+		{name: "absent_directory_collision", stage: "copy_write", mutation: "edit", outcome: "blocked"},
+		{name: "absent_external_link_collision", stage: "copy_write", mutation: "external", outcome: "blocked"},
+		{name: "refresh_recreated_modified", seed: "copy", stage: "copy_write", mutation: "edit", outcome: "kept"},
+		{name: "discard_recreated_modified", seed: "copy", stage: "copy_write", mutation: "edit", outcome: "kept", grant: true},
+		{name: "discard_recreated_matching_grant", seed: "copy", stage: "copy_write", mutation: "first_edit", outcome: "kept", grant: true},
+		{name: "refresh_recreated_clean", seed: "copy", stage: "copy_write", mutation: "clean", outcome: "retry"},
+		{name: "conversion_recreated_managed_link", seed: "link", stage: "copy_write", mutation: "managed_link", outcome: "retry"},
+		{name: "merge_reformat_external", writer: "merge", seed: "reformat", stage: "merge_reformat", mutation: "external", outcome: "blocked"},
+		{name: "merge_unlink_file", writer: "merge", seed: "wrong_link", stage: "merge_unlink", mutation: "file", outcome: "blocked"},
+		{name: "copy_unlink_external", seed: "link", stage: "copy_unlink", mutation: "external", outcome: "blocked"},
+		{name: "clean_merge", writer: "merge", seed: "copy", outcome: "success"},
+		{name: "clean_refresh", seed: "copy", outcome: "success"},
+		{name: "absent_create", outcome: "success"},
+		{name: "unchanged_merge_discard", writer: "merge", seed: "copy", outcome: "success", grant: true},
+		{name: "unchanged_copy_discard", seed: "copy", outcome: "success", grant: true},
+		{name: "legacy_merge_edit", writer: "merge", seed: "copy", stage: "merge_replace", mutation: "edit", outcome: "local", legacy: true},
+		{name: "legacy_copy_edit", seed: "copy", stage: "copy_remove", mutation: "edit", outcome: "success", legacy: true},
+		{name: "force_merge_edit", writer: "merge", seed: "copy", stage: "merge_replace", mutation: "edit", outcome: "success", force: true},
+		{name: "force_copy_edit", seed: "copy", stage: "copy_remove", mutation: "edit", outcome: "success", force: true},
+		{name: "dry_merge", writer: "merge", seed: "copy", outcome: "success", dry: true},
+		{name: "dry_refresh", seed: "copy", outcome: "success", dry: true},
+		{name: "dry_create", outcome: "success", dry: true},
+		{name: "dry_modified", seed: "edited", outcome: "kept", dry: true},
+		{name: "dry_unmanaged", seed: "unmanaged", outcome: "blocked", dry: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			must := func(err error) {
+				t.Helper()
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			read := func(path string) string {
+				t.Helper()
+				data, err := os.ReadFile(path)
+				must(err)
+				return string(data)
+			}
+			snapshot := func(root string) map[string]string {
+				tree := make(map[string]string)
+				err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+					if os.IsNotExist(err) && path == root {
+						return nil
+					}
+					if err != nil {
+						return err
+					}
+					info, err := entry.Info()
+					must(err)
+					value := info.Mode().String()
+					if info.Mode()&os.ModeSymlink != 0 {
+						link, err := os.Readlink(path)
+						must(err)
+						value += ":" + link
+					} else if !entry.IsDir() {
+						value += ":" + read(path)
+					}
+					rel, err := filepath.Rel(root, path)
+					must(err)
+					tree[rel] = value
+					return nil
+				})
+				must(err)
+				return tree
+			}
+			source, target := setupMergeTest(t, "demo")
+			entry, skill := filepath.Join(target, "demo"), filepath.Join(source, "demo")
+			original := read(filepath.Join(skill, "SKILL.md"))
+			cfg := config.TargetConfig{Path: target}
+			projectRoot := ""
+			if tc.seed == "copy" || tc.seed == "edited" {
+				_, err := SyncTargetCopy("claude", cfg, source, false, false)
+				must(err)
+			} else if tc.seed == "link" || tc.seed == "reformat" || tc.seed == "wrong_link" {
+				_, err := SyncTargetMerge("claude", cfg, source, false, false, "")
+				must(err)
+				if tc.seed == "reformat" {
+					projectRoot = filepath.Dir(source)
+				}
+				if tc.seed == "wrong_link" {
+					other := filepath.Join(source, "not-a-skill")
+					must(os.MkdirAll(other, 0755))
+					must(os.Remove(entry))
+					must(os.Symlink(other, entry))
+				}
+			}
+			var discard []DiscardEntry
+			if tc.grant || tc.seed == "edited" || tc.seed == "unmanaged" {
+				writeSkillMD(t, entry, "first edit")
+				if tc.grant {
+					fingerprint, err := CopyOutputFingerprint(entry)
+					must(err)
+					discard = []DiscardEntry{{Target: "claude", Entry: "demo", Fingerprint: fingerprint}}
+				}
+			}
+			if tc.writer != "merge" && (tc.seed == "copy" || tc.seed == "edited") {
+				writeSkillMD(t, skill, "---\nname: demo\n---\nchanged source\n")
+				manifest, err := ReadManifest(target)
+				must(err)
+				delete(manifest.Mtimes, "demo") // Force the checksum path without clock assumptions.
+				must(WriteManifest(target, manifest))
+			}
+			if tc.seed == "" {
+				writeSkillMD(t, filepath.Join(source, "zeta"), "---\nname: zeta\n---\nsecond selected\n")
+			}
+			skills, err := DiscoverSourceSkills(source)
+			must(err)
+			records := func() string {
+				manifest, err := ReadManifest(target)
+				must(err)
+				manifest.Remove("zeta") // The second selected entry may complete independently.
+				data, err := json.Marshal([]any{manifest.Managed, manifest.Mtimes, manifest.Sources, manifest.Naming, manifest.Outputs})
+				must(err)
+				return string(data)
+			}
+			beforeRecords, beforeTree := records(), snapshot(target)
+			sourceBefore := snapshot(source)
+			outside := t.TempDir()
+			writeSkillMD(t, outside, "external authored content")
+			outsideBefore := snapshot(outside)
+			preserved := snapshot(entry)
+			fingerprint := ""
+			fired := false
+			callback := func(stage string) {
+				if tc.dry {
+					t.Fatal("dry-run invoked mutation callback", stage)
+				}
+				if fired || stage != tc.stage {
+					return
+				}
+				fired = true
+				switch tc.mutation {
+				case "edit", "clean", "first_edit":
+					text := "later edit"
+					if tc.mutation == "clean" {
+						text = original
+					} else if tc.mutation == "first_edit" {
+						text = "first edit"
+					}
+					writeSkillMD(t, entry, text)
+					if tc.mutation == "edit" {
+						must(os.WriteFile(filepath.Join(entry, "sentinel"), []byte("authored extra"), 0644))
+					}
+				case "external", "managed_link", "file":
+					if _, err := os.Lstat(entry); err == nil {
+						must(os.Remove(entry))
+					} else if !os.IsNotExist(err) {
+						t.Fatal(err)
+					}
+					if tc.mutation == "file" {
+						must(os.WriteFile(entry, []byte("authored file"), 0644))
+					} else {
+						dest := outside
+						if tc.mutation == "managed_link" {
+							dest = skill
+						}
+						must(os.Symlink(dest, entry))
+					}
+				}
+				preserved = snapshot(entry)
+				if tc.outcome == "kept" {
+					fingerprint, err = CopyOutputFingerprint(entry)
+					must(err)
+					if tc.mutation == "first_edit" && fingerprint != discard[0].Fingerprint {
+						t.Fatal("recreated edit no longer matches its prior discard grant")
+					}
+				}
+			}
+			var kept, blocked []EntryChange
+			var skipped, success []string
+			step := "refresh"
+			if tc.writer == "merge" {
+				step = "convert"
+				result, runErr := syncTargetMergeWithPolicy("claude", cfg, skills, source, tc.dry, tc.force, projectRoot, !tc.legacy, discard, callback)
+				err = runErr
+				if result != nil {
+					kept, blocked, skipped = result.KeptModified, result.Blocked, result.Skipped
+					success = append(append(result.Linked, result.Updated...), result.Converted...)
+				}
+			} else {
+				result, runErr := syncTargetCopyWithSkillsOptions("claude", cfg, skills, source, tc.dry, tc.force, nil, CopyOptions{ProfileAware: !tc.legacy, Discard: discard}, callback)
+				err = runErr
+				if result != nil {
+					kept, blocked, skipped = result.KeptModified, result.Blocked, result.Skipped
+					success = append(append(result.Copied, result.Updated...), result.Converted...)
+				}
+			}
+			if fired != (tc.stage != "" && !tc.dry) {
+				t.Fatal("mutation boundary not reached", tc.stage, fired, err)
+			}
+			if tc.outcome == "retry" {
+				if err == nil || !strings.Contains(err.Error(), "destination changed") || !strings.Contains(err.Error(), "retry") {
+					t.Errorf("expected contextual retry error, got %v", err)
+				}
+			} else if err != nil {
+				t.Fatal(err)
+			}
+			if tc.dry {
+				if !reflect.DeepEqual(beforeTree, snapshot(target)) {
+					t.Error("dry-run changed target or manifest")
+				}
+			} else if tc.outcome != "success" {
+				if !reflect.DeepEqual(preserved, snapshot(entry)) || records() != beforeRecords {
+					t.Error("entry bytes/topology or manifest records changed")
+				}
+			}
+			if !reflect.DeepEqual(sourceBefore, snapshot(source)) || !reflect.DeepEqual(outsideBefore, snapshot(outside)) {
+				t.Error("source or external referent changed")
+			}
+			if tc.outcome == "success" {
+				if !slices.Contains(success, "demo") || len(kept)+len(blocked) != 0 {
+					t.Fatal("successful operation not reported", success, kept, blocked)
+				}
+				if !tc.dry {
+					if tc.writer == "merge" {
+						if !utils.IsSymlinkOrJunction(entry) {
+							t.Error("clean conversion did not install link")
+						}
+					} else {
+						manifest, err := ReadManifest(target)
+						must(err)
+						if !manifest.OwnsCopy("demo", entry) || manifest.Outputs["demo"] == "" || read(filepath.Join(entry, "SKILL.md")) != read(filepath.Join(skill, "SKILL.md")) {
+							t.Error("successful copy lacks correct bytes/output ownership")
+						}
+					}
+				}
+			} else if slices.Contains(success, "demo") {
+				t.Error("denied entry reported as successful", success)
+			}
+			if tc.outcome == "kept" || tc.outcome == "blocked" {
+				changes, class := kept, EntryModifiedCopy
+				if tc.outcome == "blocked" {
+					changes, class = blocked, EntryUnmanaged
+				}
+				if tc.dry && class == EntryModifiedCopy {
+					fingerprint, err = CopyOutputFingerprint(entry)
+					must(err)
+				}
+				if len(changes) != 1 || len(kept)+len(blocked) != 1 || !reflect.DeepEqual(skipped, []string{"demo"}) {
+					t.Errorf("expected exactly one kept/blocked/skip, got %v %v %v", kept, blocked, skipped)
+				} else if c := changes[0]; c.Target != "claude" || c.Entry != "demo" || c.Step != step || c.Class != class || c.Reason == "" || c.Fingerprint != fingerprint {
+					t.Errorf("wrong current refusal: %+v; fingerprint=%s", c, fingerprint)
+				}
+			}
+			if tc.outcome == "local" && (!reflect.DeepEqual(skipped, []string{"demo"}) || len(kept)+len(blocked) != 0) {
+				t.Error("legacy merge no longer keeps an edited copy locally", skipped, kept, blocked)
+			}
+			if tc.seed == "" && !tc.dry && (!slices.Contains(success, "zeta") || read(filepath.Join(target, "zeta", "SKILL.md")) != read(filepath.Join(source, "zeta", "SKILL.md"))) {
+				t.Error("second selected entry did not complete")
+			}
+		})
+	}
+}
 
 func TestProfileAwareWriters_KeptEntryProducesWarning(t *testing.T) {
 	result := SkillTargetResult{Name: "claude", KeptModified: []EntryChange{{Target: "claude", Entry: "demo", Step: "prune", Reason: "edited"}}}

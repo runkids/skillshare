@@ -591,6 +591,10 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 }
 
 func SyncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, projectRoot string, profileAware bool, discard []DiscardEntry, copyIgnore ...[]string) (*MergeResult, error) {
+	return syncTargetMergeWithPolicy(name, target, allSkills, sourcePath, dryRun, force, projectRoot, profileAware, discard, nil, copyIgnore...)
+}
+
+func syncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, projectRoot string, profileAware bool, discard []DiscardEntry, beforeMutation func(step string), copyIgnore ...[]string) (*MergeResult, error) {
 	var ignore []string
 	if len(copyIgnore) > 0 {
 		ignore = copyIgnore[0]
@@ -685,6 +689,9 @@ func SyncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkill
 					}
 					// Correct target but wrong format (abs↔rel) — recreate
 					if !dryRun {
+						if beforeMutation != nil {
+							beforeMutation("merge_reformat")
+						}
 						if err := reformatLink(targetSkillPath, skill.SourcePath, relative, sourcePath); err != nil {
 							return nil, fmt.Errorf("failed to reformat link for %s: %w", activeName, err)
 						}
@@ -699,6 +706,9 @@ func SyncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkill
 						fmt.Fprintf(DiagOutput, "[dry-run] Would fix symlink: %s\n", activeName)
 					}
 				} else {
+					if beforeMutation != nil {
+						beforeMutation("merge_unlink")
+					}
 					if err := os.Remove(targetSkillPath); err != nil && profileAware {
 						return nil, fmt.Errorf("failed to remove link %s: %w", activeName, err)
 					}
@@ -709,6 +719,9 @@ func SyncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkill
 				result.Updated = append(result.Updated, activeName)
 			} else {
 				// It's a real directory
+				if !dryRun && beforeMutation != nil {
+					beforeMutation("merge_replace")
+				}
 				if force || manifest.OwnsCopy(activeName, targetSkillPath) || (profileAware && (entry.Class == EntryCleanCopy || discardAllowed(name, activeName, entry, discard))) {
 					// Force, or an unedited copy left by copy mode: replace it with a symlink
 					if dryRun {
