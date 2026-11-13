@@ -414,6 +414,9 @@ func installFromSearchResultProject(result search.SearchResult, cwd string) (err
 	if err != nil {
 		return fmt.Errorf("failed to load project config: %w", err)
 	}
+	defer func() {
+		printProfileHint(installedProfileHint(runtime.config, runtime.sourcePath, runtime.skillsWalk(), logSummary.InstalledPaths), false)
+	}()
 
 	source, err := install.ParseSourceWithOptions(result.Source, parseOptsFromProjectConfig(runtime.config))
 	if err != nil {
@@ -454,6 +457,7 @@ func installFromSearchResultProject(result search.SearchResult, cwd string) (err
 
 	logSummary.SkillCount = 1
 	logSummary.InstalledSkills = []string{result.Name}
+	logSummary.InstalledPaths = append(logSummary.InstalledPaths, installResult.SkillPath)
 
 	for _, warning := range installResult.Warnings {
 		ui.Warning("%s", warning)
@@ -486,6 +490,7 @@ func installFromSearchResult(result search.SearchResult, cfg *config.Config) (er
 	}
 	defer func() {
 		logInstallOp(config.ConfigPath(), []string{result.Source}, start, err, logSummary)
+		printProfileHint(installedProfileHint(cfg, cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), logSummary.InstalledPaths), false)
 	}()
 
 	// Parse source
@@ -529,6 +534,7 @@ func installFromSearchResult(result search.SearchResult, cfg *config.Config) (er
 
 	logSummary.SkillCount = 1
 	logSummary.InstalledSkills = []string{result.Name}
+	logSummary.InstalledPaths = append(logSummary.InstalledPaths, installResult.SkillPath)
 
 	// Reconcile global config with installed skills
 	store, _ := install.LoadMetadataWithMigration(cfg.EffectiveSkillsSource(), "")
