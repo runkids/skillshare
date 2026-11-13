@@ -13,6 +13,91 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func TestReconcileGlobalSkills_KeepsTrackedRecordWithoutClone(t *testing.T) {
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "skills")
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+	if err := os.MkdirAll(filepath.Join(sourceDir, "live"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	store := install.NewMetadataStore()
+	want := map[string]*install.MetadataEntry{
+		"_team":         {Source: "https://example.com/team.git", Tracked: true, Branch: "main", FileHashes: map[string]string{"SKILL.md": "hash"}},
+		"frontend/_web": {Source: "https://example.com/web.git", Tracked: true, Group: "frontend"},
+		"_api":          {Source: "https://example.com/api.git", Tracked: true, Group: "backend"},
+	}
+	for key, entry := range want {
+		store.Set(key, entry)
+	}
+	store.Set("team-legacy", &install.MetadataEntry{Source: "https://example.com/legacy.git", Tracked: true, Group: "team"})
+	store.Set("_nosrc", &install.MetadataEntry{Tracked: true})
+	store.Set("gone-plain", &install.MetadataEntry{Source: "https://example.com/plain.git"})
+	store.Set("live", &install.MetadataEntry{Source: "https://example.com/live.git"})
+	store.AuditAccepted = map[string][]string{"_team": {"accepted-finding"}}
+	if err := store.Save(sourceDir); err != nil {
+		t.Fatal(err)
+	}
+	if err := ReconcileGlobalSkills(&Config{Source: sourceDir}, store); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := install.LoadMetadata(sourceDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for label, got := range map[string]*install.MetadataStore{"memory": store, "disk": loaded} {
+		for key, entry := range want {
+			if !reflect.DeepEqual(got.Get(key), entry) {
+				t.Errorf("%s: %s = %+v, want %+v", label, key, got.Get(key), entry)
+			}
+		}
+		if !reflect.DeepEqual(got.AuditAccepted["_team"], []string{"accepted-finding"}) {
+			t.Errorf("%s: tracked acceptance = %v", label, got.AuditAccepted["_team"])
+		}
+		for _, key := range []string{"team-legacy", "_nosrc", "gone-plain"} {
+			if got.Has(key) {
+				t.Errorf("%s: stale record %s survived", label, key)
+			}
+		}
+		if !got.Has("live") {
+			t.Errorf("%s: live plain record was removed", label)
+		}
+	}
+}
+
+func TestReconcileGlobalSkills_KeepsMissingAliasOfLiveTrackedClone(t *testing.T) {
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "skills")
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+	remote := testutil.SetupBareRemoteRepo(t, root)
+	testutil.SeedRemoteBranch(t, root, remote, "main", map[string]string{"README.md": "# team"})
+	testutil.RunGit(t, "", "clone", remote, filepath.Join(sourceDir, "org", "_team"))
+	store := install.NewMetadataStore()
+	want := &install.MetadataEntry{Source: remote, Tracked: true, Branch: "other"}
+	store.Set("_team", want)
+	store.AuditAccepted = map[string][]string{"_team": {"accepted-finding"}}
+	if err := store.Save(sourceDir); err != nil {
+		t.Fatal(err)
+	}
+	if err := ReconcileGlobalSkills(&Config{Source: sourceDir}, store); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := install.LoadMetadata(sourceDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for label, got := range map[string]*install.MetadataStore{"memory": store, "disk": loaded} {
+		if !reflect.DeepEqual(got.Get("_team"), want) {
+			t.Errorf("%s: missing alias = %+v, want %+v", label, got.Get("_team"), want)
+		}
+		if !reflect.DeepEqual(got.AuditAccepted["_team"], []string{"accepted-finding"}) {
+			t.Errorf("%s: missing alias acceptance = %v", label, got.AuditAccepted["_team"])
+		}
+		if live := got.Get("org/_team"); live == nil || !live.Tracked || live.Source != remote {
+			t.Errorf("%s: live alias = %+v", label, live)
+		}
+	}
+}
+
 func TestReconcileGlobalSkills_NestedTrackedRepoWithoutEntry(t *testing.T) {
 	root := t.TempDir()
 	sourceDir := filepath.Join(root, "skills")
