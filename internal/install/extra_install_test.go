@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"skillshare/internal/audit"
-	"skillshare/internal/config"
 )
 
 func newRemoteExtraRequest(t *testing.T) RemoteExtraRequest {
@@ -1180,18 +1179,47 @@ func TestInstallRemoteExtra_ParticipantWaitsForPublication(t *testing.T) {
 		t.Run(writer, func(t *testing.T) {
 			req := newRemoteExtraRequest(t)
 			req.Branch = "feature"
-			t.Setenv("SKILLSHARE_CONFIG", req.ConfigPath)
-			cfg := &config.Config{Source: filepath.Join(filepath.Dir(req.ConfigPath), "skills"), Extras: []config.ExtraConfig{{Name: req.Name, Remote: req.RawSource, Targets: []config.ExtraTargetConfig{}}}}
-			if err := cfg.Save(); err != nil {
+			// Config is an opaque publication participant here. Real config loading
+			// and CLI/TUI adapters are exercised by cmd/skillshare's writer table;
+			// importing config into package install's own tests creates a cycle.
+			type target struct {
+				Path string `json:"path"`
+			}
+			type extra struct {
+				Name    string   `json:"name"`
+				Remote  string   `json:"remote"`
+				Branch  string   `json:"branch,omitempty"`
+				Targets []target `json:"targets"`
+			}
+			type document struct {
+				Extras []extra `json:"extras"`
+			}
+			read := func() (document, error) {
+				var cfg document
+				data, err := os.ReadFile(req.ConfigPath)
+				if err == nil {
+					err = json.Unmarshal(data, &cfg)
+				}
+				return cfg, err
+			}
+			write := func(cfg document) error {
+				data, err := json.Marshal(cfg)
+				if err != nil {
+					return err
+				}
+				return os.WriteFile(req.ConfigPath, data, 0644)
+			}
+			cfg := document{Extras: []extra{{Name: req.Name, Remote: req.RawSource, Targets: []target{}}}}
+			if err := write(cfg); err != nil {
 				t.Fatal(err)
 			}
 			req.WriteConfig = func() error {
-				fresh, err := config.LoadReadOnly()
+				fresh, err := read()
 				if err != nil {
 					return err
 				}
 				fresh.Extras[0].Branch = "feature"
-				return fresh.Save()
+				return write(fresh)
 			}
 			if _, err := InstallRemoteExtra(req); err != nil {
 				t.Fatal(err)
@@ -1217,7 +1245,7 @@ func TestInstallRemoteExtra_ParticipantWaitsForPublication(t *testing.T) {
 					return
 				}
 				defer unlock()
-				fresh, err := config.LoadReadOnly()
+				fresh, err := read()
 				if err != nil {
 					wrote <- err
 					return
@@ -1227,8 +1255,8 @@ func TestInstallRemoteExtra_ParticipantWaitsForPublication(t *testing.T) {
 					return
 				}
 				if writer == "add-target" {
-					fresh.Extras[0].Targets = append(fresh.Extras[0].Targets, config.ExtraTargetConfig{Path: "new-target"})
-					wrote <- fresh.Save()
+					fresh.Extras[0].Targets = append(fresh.Extras[0].Targets, target{Path: "new-target"})
+					wrote <- write(fresh)
 				} else {
 					// A collection writes the resolved live source only after acquisition.
 					wrote <- os.WriteFile(filepath.Join(req.ExtrasRoot, req.Name, "collected.md"), []byte("local collection"), 0644)
@@ -1247,7 +1275,7 @@ func TestInstallRemoteExtra_ParticipantWaitsForPublication(t *testing.T) {
 			if err := <-wrote; err != nil {
 				t.Fatal(err)
 			}
-			fresh, err := config.LoadReadOnly()
+			fresh, err := read()
 			if err != nil || fresh.Extras[0].Remote != req.RawSource || fresh.Extras[0].Branch != "feature" {
 				t.Fatalf("origin lost: %+v %v", fresh, err)
 			}
