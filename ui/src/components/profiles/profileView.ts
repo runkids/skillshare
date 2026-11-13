@@ -36,6 +36,8 @@ export function profileGroups(targets: ProfileTarget[] | null): ChangeGroup[] {
 
 /** Display translations only: unknown diagnostics retain the server's original text. */
 export function profileReason(reason: string, t: ReturnType<typeof useT>, name = ''): string {
+  const failed = reason.match(/^(.+): sync failed: (target root .+ is an unmanaged link; kept)$/s);
+  if (failed) return `${failed[1]}: ${t('sync.last.failed')}: ${profileReason(failed[2], t)}`;
   const root = reason.match(/^target root (.+) is an unmanaged link; kept$/s);
   if (root) return t('profiles.targetRoot', { path: root[1] });
   const modified = reason.match(/^(.+): kept modified (.+) during (refresh|prune|convert): (.+); use collect or --discard-edits$/s);
