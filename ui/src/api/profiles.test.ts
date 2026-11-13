@@ -34,3 +34,25 @@ it('retains the typed refusal and serialized blocked entries in ApiError', async
   expect(error).toBeInstanceOf(ApiError);
   expect(error).toMatchObject({ status: 409, code: 'profile_blocked', params, message: 'switch blocked' });
 });
+
+it.each([
+  ['create', [{ name: 'work' }], 'POST', '/api/profiles', { name: 'work' }],
+  ['create', [{ name: 'work', skills: { include: [] } }], 'POST', '/api/profiles', { name: 'work', skills: { include: [] } }],
+  ['replace', ['work', { description: 'Focus' }], 'PUT', '/api/profiles/work', { description: 'Focus' }],
+  ['replace', ['work', { skills: null }], 'PUT', '/api/profiles/work', { skills: null }],
+  ['replace', ['work', { name: 'renamed', skills: { include: [] } }], 'PUT', '/api/profiles/work', { name: 'renamed', skills: { include: [] } }],
+  ['delete', ['work'], 'DELETE', '/api/profiles/work', undefined],
+  ['assign', ['work', { add: ['team__review'], remove: ['alpha'] }], 'POST', '/api/profiles/work/skills', { add: ['team__review'], remove: ['alpha'] }],
+  ['preview', [{ skills: { include: ['team__*', 'missing-*'], exclude: ['old'] } }], 'POST', '/api/profiles/preview', { skills: { include: ['team__*', 'missing-*'], exclude: ['old'] } }],
+] as const)('forwards %s definition requests without collapsing selection presence', async (method, args, verb, path, body) => {
+  const result = method === 'preview'
+    ? { selected: ['team__review'], unmatched: ['missing-*'] }
+    : { changed: true, needsSync: method === 'replace' || method === 'assign', skills: method === 'assign' ? [{ name: 'team__review', result: 'added' }] : null };
+  const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify(result)));
+  vi.stubGlobal('fetch', fetch);
+  const invoke = Reflect.get(api.profiles, method);
+  expect(invoke).toBeTypeOf('function');
+  expect(await invoke(...args)).toEqual(result);
+  expect(fetch).toHaveBeenCalledExactlyOnceWith(path, expect.objectContaining({ method: verb }));
+  expect(fetch.mock.calls[0][1].body).toBe(body === undefined ? undefined : JSON.stringify(body));
+});
