@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -21,6 +22,60 @@ func TestDiffSkillFiles_IdenticalDirs(t *testing.T) {
 	diffs := diffSkillFiles(src, dst)
 	if len(diffs) != 0 {
 		t.Fatalf("expected 0 diffs for identical dirs, got %d: %+v", len(diffs), diffs)
+	}
+}
+
+func TestCollectTargetDiff_ProfileEqualMtime(t *testing.T) {
+	root := t.TempDir()
+	source, target := filepath.Join(root, "source"), filepath.Join(root, "target")
+	writeSyncSkill(t, source, "demo", "demo")
+	cfg := skillTarget(target, "copy", "standard")
+	if _, err := sync.SyncTargetCopy("custom", cfg, source, false, false); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(source, "demo", "SKILL.md")
+	info, err := os.Stat(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, source, "demo/SKILL.md", "---\nname: demo\n---\nnew selected bytes\n")
+	if err := os.Chtimes(file, info.ModTime(), info.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	skills, err := sync.DiscoverSourceSkills(source)
+	resolution, resolutionErr := sync.ResolveTargetSkillsForTarget("custom", cfg.SkillsConfig(), skills)
+	if err != nil || resolutionErr != nil {
+		t.Fatal(err, resolutionErr)
+	}
+	tree := func() map[string]string {
+		files := map[string]string{}
+		filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				t.Fatal(err)
+			}
+			data, err := os.ReadFile(path)
+			if err != nil && !info.IsDir() {
+				t.Fatal(err)
+			}
+			files[path] = info.Mode().String() + string(data)
+			return nil
+		})
+		return files
+	}
+	manifest, manifestErr := sync.ReadManifest(target)
+	stamp, stampErr := sync.DirMaxMtimeWithIgnore(filepath.Dir(file), sync.DefaultFileIgnorePatterns())
+	if manifestErr != nil || stampErr != nil || stamp != manifest.Mtimes["demo"] || !strings.HasPrefix(manifest.Outputs["demo"], "sha256-v2:") {
+		t.Fatalf("equal-mtime current-output precondition: %+v %d %v %v", manifest, stamp, manifestErr, stampErr)
+	}
+	before := fmt.Sprint(tree())
+	for _, aware := range []bool{false, true} {
+		r := collectTargetDiff("custom", cfg, source, "copy", resolution, nil, nil, profileDiffPreview{aware: aware, skills: skills})
+		if r.errMsg != "" || aware && (len(r.items) != 1 || r.items[0].action != "modify" || !r.items[0].isSync || r.items[0].reason != "content changed") || !aware && len(r.items) != 0 {
+			t.Errorf("equal-mtime selected bytes prediction aware=%v: %+v", aware, r)
+		}
+	}
+	if fmt.Sprint(tree()) != before {
+		t.Error("preview changed file paths, modes, source, copy or manifest bytes")
 	}
 }
 

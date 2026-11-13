@@ -237,9 +237,52 @@ func newProfileDiffFixture(t *testing.T, project bool, mode, scenario string) (*
 func TestProfiles_APIDiffPreservationAgreement(t *testing.T) {
 	for _, project := range []bool{false, true} {
 		for _, mode := range []string{"copy", "merge"} {
-			for _, scenario := range []string{"retained", "departing", "pending_none", "unmanaged", "no_profile", "old_name"} {
+			scenarios := []string{"retained", "departing", "pending_none", "unmanaged", "no_profile", "old_name"}
+			if mode == "copy" {
+				scenarios = append(scenarios, "equal_mtime")
+			}
+			for _, scenario := range scenarios {
 				t.Run(fmt.Sprintf("%v/%s/%s", project, mode, scenario), func(t *testing.T) {
-					s, scope, dest, _ := newProfileDiffFixture(t, project, mode, scenario)
+					s, scope, dest, source := newProfileDiffFixture(t, project, mode, scenario)
+					if scenario == "equal_mtime" {
+						if _, err := sync.SyncTargetCopy("custom", config.TargetConfig{Path: dest}, source, false, true); err != nil {
+							t.Fatal(err)
+						}
+						file := filepath.Join(source, "alpha", "SKILL.md")
+						info, err := os.Stat(file)
+						if err != nil {
+							t.Fatal(err)
+						}
+						if err := os.WriteFile(file, []byte("replacement alpha"), 0600); err != nil {
+							t.Fatal(err)
+						}
+						if err := os.Chtimes(file, info.ModTime(), info.ModTime()); err != nil {
+							t.Fatal(err)
+						}
+						manifest, manifestErr := sync.ReadManifest(dest)
+						stamp, stampErr := sync.DirMaxMtimeWithIgnore(filepath.Dir(file), sync.DefaultFileIgnorePatterns())
+						if manifestErr != nil || stampErr != nil || stamp != manifest.Mtimes["alpha"] || !strings.HasPrefix(manifest.Outputs["alpha"], "sha256-v2:") {
+							t.Fatalf("equal-mtime current-output precondition: %+v %d %v %v", manifest, stamp, manifestErr, stampErr)
+						}
+					}
+					tree := func() string {
+						files := map[string]string{}
+						for _, root := range []string{source, dest, filepath.Dir(scope.Path()), os.Getenv("HOME")} {
+							filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+								if err != nil {
+									t.Fatal(err)
+								}
+								data, err := os.ReadFile(path)
+								if err != nil && !info.IsDir() {
+									t.Fatal(err)
+								}
+								files[path] = info.Mode().String() + string(data)
+								return nil
+							})
+						}
+						return fmt.Sprint(files)
+					}
+					treeBefore := tree()
 					before, err := os.ReadFile(scope.Path())
 					if err != nil {
 						t.Fatal(err)
@@ -278,6 +321,12 @@ func TestProfiles_APIDiffPreservationAgreement(t *testing.T) {
 									if scenario == "departing" || scenario == "old_name" && mode == "merge" {
 										want = "kept"
 									}
+									if scenario == "equal_mtime" {
+										want = "update"
+									}
+									if scenario == "equal_mtime" && item.Reason != "content changed" {
+										t.Errorf("%s did not predict changed selected bytes: %+v", endpoint, item)
+									}
 									if item.Action != want || item.Reason == "" {
 										t.Errorf("%s predicts write/hides kept alpha: %+v", endpoint, item)
 									}
@@ -301,13 +350,20 @@ func TestProfiles_APIDiffPreservationAgreement(t *testing.T) {
 					if string(manifestAfter) != string(manifestBefore) {
 						t.Fatal("preview changed ownership records")
 					}
+					if tree() != treeBefore {
+						t.Error("previews changed file paths, modes, source, target or state bytes")
+					}
 					rr := httptest.NewRecorder()
 					s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader("{\"kind\":\"skill\"}")))
 					if rr.Code != http.StatusOK {
 						t.Fatal(rr.Code, rr.Body.String())
 					}
 					data, err := os.ReadFile(filepath.Join(dest, "alpha", "SKILL.md"))
-					if err != nil || string(data) != "authored alpha" {
+					wantBytes := "authored alpha"
+					if scenario == "equal_mtime" {
+						wantBytes = "replacement alpha"
+					}
+					if err != nil || string(data) != wantBytes {
 						t.Fatalf("actual sync lost previewed edit: %q %v", data, err)
 					}
 				})
