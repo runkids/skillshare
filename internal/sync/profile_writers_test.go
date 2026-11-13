@@ -18,7 +18,7 @@ import (
 func TestProfileAwareWriters_MutationBoundaries(t *testing.T) {
 	for _, tc := range []struct {
 		name, writer, seed, stage, mutation, outcome string
-		grant, legacy, force, dry                   bool
+		grant, legacy, force, dry                    bool
 	}{
 		{name: "merge_stale_clean", writer: "merge", seed: "copy", stage: "merge_replace", mutation: "edit", outcome: "kept"},
 		{name: "copy_refresh_edit", seed: "copy", stage: "copy_remove", mutation: "edit", outcome: "kept"},
