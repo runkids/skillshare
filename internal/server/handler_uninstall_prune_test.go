@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -308,5 +309,58 @@ func TestHandleUninstallRepo_DeclarationResults(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestHandleUninstallRepo_ReloadsDeclarations(t *testing.T) {
+	for _, addedAfterStart := range []bool{false, true} {
+		t.Run(map[bool]string{false: "cached declaration", true: "new declaration"}[addedAfterStart], func(t *testing.T) {
+			s, src := newTestServer(t)
+			if !addedAfterStart {
+				s.skillsStore.Set("_team", &install.MetadataEntry{Source: "https://example.invalid/team.git", Tracked: true})
+				if err := s.skillsStore.Save(src); err != nil {
+					t.Fatal(err)
+				}
+			}
+			latest, err := install.LoadMetadata(src)
+			if err != nil {
+				t.Fatal(err)
+			}
+			latest.Set("_team", &install.MetadataEntry{Source: "https://example.invalid/team.git", Tracked: true})
+			latest.Set("_cli", &install.MetadataEntry{Source: "https://example.invalid/cli.git", Tracked: true})
+			latest.AuditAccepted = map[string][]string{"_team/member": {"remove"}, "_cli/member": {"cli-accepted"}}
+			if err := latest.Save(src); err != nil {
+				t.Fatal(err)
+			}
+			rr := deleteRepo(t, s, "_team", "")
+			if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `"movedToTrash":false`) {
+				t.Fatalf("declaration not removed: %d %s", rr.Code, rr.Body.String())
+			}
+			// Verify disk before a later save, then verify the cache cannot lose CLI state.
+			loaded, err := install.LoadMetadata(src)
+			if err != nil {
+				t.Fatal(err)
+			}
+			latest.ForgetTrackedRepo("_team")
+			if !reflect.DeepEqual(loaded, latest) || !reflect.DeepEqual(s.skillsStore, latest) {
+				t.Fatalf("removal lost newer records or acceptances: disk=%+v cache=%+v", loaded, s.skillsStore)
+			}
+		})
+	}
+}
+
+func TestHandleUninstallRepo_MetadataReloadFailure(t *testing.T) {
+	s, src := newTestServer(t)
+	s.skillsStore.Set("_team", &install.MetadataEntry{Source: "https://example.invalid/team.git", Tracked: true})
+	invalid := []byte("invalid metadata from interrupted external write")
+	if err := os.WriteFile(install.MetadataPath(src), invalid, 0644); err != nil {
+		t.Fatal(err)
+	}
+	rr := deleteRepo(t, s, "_team", "")
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("reload failure must fail removal: %d %s", rr.Code, rr.Body.String())
+	}
+	if got, err := os.ReadFile(install.MetadataPath(src)); err != nil || !bytes.Equal(got, invalid) || !s.skillsStore.Has("_team") {
+		t.Fatalf("reload failure saved stale metadata: %q, %v", got, err)
 	}
 }

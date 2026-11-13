@@ -125,11 +125,15 @@ func (s *Server) handleRemoveSourceLink(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if !s.IsProjectMode() && s.skillsStore != nil && s.skillsStore.ForgetTrackedRepo(name) {
-		if err := s.skillsStore.Save(s.skillsSource()); err != nil {
-			log.Printf("warning: unlinked, but failed to update metadata: %v", err)
-			if err := s.reloadSkillsStore(); err != nil {
-				log.Printf("warning: failed to reload skills metadata: %v", err)
+	if !s.IsProjectMode() {
+		if err := s.reloadSkillsStore(); err != nil {
+			log.Printf("warning: unlinked, but failed to reload skills metadata: %v", err)
+		} else if s.skillsStore.ForgetTrackedRepo(name) {
+			if err := s.skillsStore.Save(s.skillsSource()); err != nil {
+				log.Printf("warning: unlinked, but failed to update metadata: %v", err)
+				if err := s.reloadSkillsStore(); err != nil {
+					log.Printf("warning: failed to reload skills metadata: %v", err)
+				}
 			}
 		}
 	}

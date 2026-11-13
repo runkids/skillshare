@@ -440,6 +440,10 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if repoPath == "" && !s.IsProjectMode() {
+		if err := s.reloadSkillsStore(); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to reload skills metadata: "+err.Error())
+			return
+		}
 		declaration, _, err := install.FindTrackedDeclaration(s.skillsSource(), s.skillsStore, name)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
