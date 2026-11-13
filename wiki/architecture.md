@@ -19,7 +19,11 @@ writes, unless reinstall was explicit. `check.Resolution` groups archive members
 by fragment-free URL and hashes once per group without extracting. CLI and server
 share these owners; ZIPs expose skills only. Limits are 100 MiB downloaded,
 250 MiB expanded and 10,000 entries. Archive lock pins and historical diffs are
-outside this contract.
+outside this contract. Archive identity uses the exact metadata types, independent
+of the digest. Plain-skill source edits involving ZIP reset incompatible remote
+baselines through `MetadataEntry.SetSource` while retaining installed file hashes
+and time; inspections without historical content return file statuses. Literal
+ZIP dot components are normalized only after raw traversal checks.
 
 ## Repository Map
 

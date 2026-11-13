@@ -147,16 +147,29 @@ func extractArchive(file, root string, expandedLimit int64, entryLimit int) erro
 	if err != nil {
 		return fmt.Errorf("invalid ZIP: %w", err)
 	}
-	if len(z.File) > entryLimit {
-		return fmt.Errorf("ZIP exceeds %d entries", entryLimit)
-	}
 	var expanded int64
 	for _, f := range z.File {
-		name := strings.TrimSuffix(f.Name, "/")
-		if err := archiveRelativePath(name); err != nil {
+		// Validate literal names before cleaning: dots are harmless, dot-dot is not.
+		name := f.Name
+		if name == "" || strings.HasPrefix(name, "/") || strings.Contains(name, ":") {
+			return fmt.Errorf("unsafe archive path %q", name)
+		}
+		for _, part := range strings.Split(name, "/") {
+			if part != "." {
+				if err := checkSubdirSafety(part); err != nil {
+					return err
+				}
+			}
+		}
+		name = path.Clean(name)
+		mode := f.Mode()
+		if name == "." {
+			if !mode.IsDir() {
+				return fmt.Errorf("ZIP root must be a directory")
+			}
+		} else if err := archiveRelativePath(name); err != nil {
 			return err
 		}
-		mode := f.Mode()
 		if !mode.IsRegular() && !mode.IsDir() {
 			return fmt.Errorf("ZIP contains special file %q", f.Name)
 		}

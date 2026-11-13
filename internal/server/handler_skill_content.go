@@ -155,6 +155,10 @@ func (s *Server) handlePatchSkillSource(w http.ResponseWriter, r *http.Request) 
 	// This handles both direct tracked repos (IsInRepo=true) and --into repos.
 	repoRoot := findRepoRoot(m.SourcePath, m.StoreDir)
 	isTracked := repoRoot != ""
+	if parsed.Type == install.SourceTypeArchive && (m.Kind == "agent" || isTracked) {
+		writeError(w, http.StatusBadRequest, "ZIP sources support skills only, without Git tracking")
+		return
+	}
 
 	// For tracked repos with missing metadata, infer RepoURL from git remote.
 	oldRepoURL := entry.RepoURL
@@ -207,6 +211,9 @@ func (s *Server) handlePatchSkillSource(w http.ResponseWriter, r *http.Request) 
 			entry.RepoURL = newRepoURL
 			updated++
 		}
+	} else if entry.IsArchive() || parsed.Type == install.SourceTypeArchive {
+		entry.SetSource(parsed)
+		updated = 1
 	} else {
 		entry.Source = req.Source
 		entry.RepoURL = newRepoURL

@@ -153,7 +153,7 @@ func TestArchiveInstallUpdate(t *testing.T) {
 }
 
 func TestArchiveRejectsUnsafeZIP(t *testing.T) {
-	for _, name := range []string{"../evil", "safe/../evil", "/evil", "C:/evil", `C:\evil`, `\\host\evil`, `safe\evil`} {
+	for _, name := range []string{"../evil", "safe/../evil", "./../evil", "brief/./../../evil", "./C:/evil", "./safe\x00bad", "/evil", "C:/evil", `C:\evil`, `\\host\evil`, `safe\evil`} {
 		t.Run(name, func(t *testing.T) {
 			payload := archiveZIP(t, map[string]string{"SKILL.md": "# Safe", name: "bad"})
 			srv := archiveServer(t, &payload)
@@ -490,6 +490,39 @@ func TestArchiveDirectoryPreflight(t *testing.T) {
 	for _, payload := range [][]byte{central.Bytes(), archiveZIP64(central.Bytes())} {
 		if err := preflightArchive(bytes.NewReader(payload), int64(len(payload)), 10000); err == nil || !strings.Contains(err.Error(), "entries") {
 			t.Fatalf("dishonest count bypassed limit: %v", err)
+		}
+	}
+}
+
+func TestArchiveDotPaths(t *testing.T) {
+	for _, files := range []map[string]string{
+		{"./": "", "./SKILL.md": "# Root"},
+		{"./brief/": "", "./brief/./SKILL.md": "# Brief"},
+	} {
+		root := t.TempDir()
+		file := filepath.Join(t.TempDir(), "dot.zip")
+		if err := os.WriteFile(file, archiveZIP(t, files), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := extractArchive(file, root, 1024, 10); err != nil {
+			t.Fatalf("safe dot paths rejected: %v", err)
+		}
+		matches, _ := filepath.Glob(filepath.Join(root, "*", "SKILL.md"))
+		if _, err := os.Stat(filepath.Join(root, "SKILL.md")); err != nil && len(matches) != 1 {
+			t.Fatal("dot skill not extracted")
+		}
+	}
+	for _, files := range []map[string]string{
+		{".": "not a directory"},
+		{"./SKILL.md": "# One", "SKILL.md": "# Two"},
+		{"./brief": "file", "brief/SKILL.md": "# Brief"},
+	} {
+		file := filepath.Join(t.TempDir(), "collision.zip")
+		if err := os.WriteFile(file, archiveZIP(t, files), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := extractArchive(file, t.TempDir(), 1024, 10); err == nil {
+			t.Fatal("normalized collision/root file accepted")
 		}
 	}
 }

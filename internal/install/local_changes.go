@@ -53,20 +53,18 @@ func LocalChanges(entry *MetadataEntry, parseOpts ParseOptions, dir string, foll
 		return nil, nil
 	}
 	sort.Slice(changes, func(i, j int) bool { return changes[i].Path < changes[j].Path })
-	// A ZIP has no historical checkout; its recorded hashes still identify files.
-	if entry.ArchiveSHA256 != "" {
+	// Archives and edited sources without an installed commit have file hashes only.
+	commit := installedCommit(entry)
+	needsInstalled := slices.ContainsFunc(changes, func(c FileChange) bool { return c.Status != "added" })
+	if entry.IsArchive() || needsInstalled && commit == "" {
 		return changes, nil
 	}
 
 	// An added file diffs against nothing, so the installed version is only
 	// fetched for files it had.
 	installed := ""
-	if slices.ContainsFunc(changes, func(c FileChange) bool { return c.Status != "added" }) {
+	if needsInstalled {
 		// Upstream HEAD would show its own changes as the user's.
-		commit := installedCommit(entry)
-		if commit == "" {
-			return nil, errors.New("no recorded commit to compare with")
-		}
 		source, err := RecordedSource(entry, parseOpts)
 		if err != nil {
 			return nil, fmt.Errorf("invalid source: %w", err)

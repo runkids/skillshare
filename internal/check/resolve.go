@@ -92,7 +92,7 @@ func Plan(skills []Skill, projectRoot string) *Resolution {
 	r := &Resolution{}
 	index := make(map[remoteKey]int)
 	for _, s := range skills {
-		archive := s.Entry != nil && (s.Entry.ArchiveSHA256 != "" || strings.HasPrefix(s.Entry.Type, "archive"))
+		archive := s.Entry.IsArchive()
 		if s.Entry == nil || (s.Entry.RepoURL == "" && !archive) {
 			result := baseResult(s)
 			result.Local = true

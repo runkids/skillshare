@@ -3,11 +3,17 @@ package server
 import (
 	"archive/zip"
 	"bytes"
+	"context"
+	"reflect"
+	"time"
+
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"skillshare/internal/check"
+	"skillshare/internal/install"
 	"strings"
 	"testing"
 )
@@ -63,5 +69,143 @@ func TestArchiveDashboardRoundTrip(t *testing.T) {
 			t.Fatalf("ZIP changes endpoint: %d %s", rr.Code, rr.Body)
 		}
 
+	}
+}
+
+func TestArchiveSourceEdits(t *testing.T) {
+	var payload bytes.Buffer
+	z := zip.NewWriter(&payload)
+	for _, name := range []string{"brief", "other"} {
+		f, _ := z.Create(name + "/SKILL.md")
+		_, _ = f.Write([]byte("# " + name))
+	}
+	_ = z.Close()
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(payload.Bytes()) }))
+	defer srv.Close()
+	old := http.DefaultTransport
+	http.DefaultTransport = srv.Client().Transport
+	defer func() { http.DefaultTransport = old }()
+	archive := srv.URL + "/pack.zip#skill=brief"
+	repo := t.TempDir()
+	initGitRepo(t, repo)
+	addSkill(t, repo, "brief")
+	runGit(t, repo, "add", ".")
+	runGit(t, repo, "commit", "-m", "fixture")
+	gitSource := "file://" + repo + "//brief"
+	for _, tc := range []struct{ name, from, to string }{
+		{"same", archive, archive},
+		{"zip-url", archive, srv.URL + "/new.zip#skill=brief"},
+		{"zip-member", archive, srv.URL + "/pack.zip#skill=other"},
+		{"zip-git", archive, gitSource},
+		{"zip-local", archive, repo + "/brief"},
+		{"git-zip", gitSource, archive},
+		{"local-zip", repo + "/brief", archive},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, src := newUpdateFollowServer(t, tc.name == "zip-member" || tc.name == "local-zip", false)
+			addSkill(t, src, "pack")
+			dir := filepath.Join(src, "pack")
+			parsed, err := install.ParseSource(tc.from)
+			if err != nil {
+				t.Fatal(err)
+			}
+			e := s.skillsStore.SetFromSource("pack", parsed)
+			e.InstalledAt = time.Unix(100, 0).UTC()
+			if parsed.IsGit() {
+				e.Version = "abcdef0"
+				e.Commit = "abcdef0123456789abcdef0123456789abcdef0123"
+				e.TreeHash = "old-tree"
+				e.Branch = "main"
+			}
+			if parsed.Type == install.SourceTypeLocalPath {
+				e.Layout = install.LayoutDirectory
+			}
+			if parsed.Type == install.SourceTypeArchive {
+				e.ArchiveSHA256, err = install.ArchiveHash(archive)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := e.ComputeEntryHashes(dir); err != nil {
+				t.Fatal(err)
+			}
+			before := *e
+			if err := s.skillsStore.Save(src); err != nil {
+				t.Fatal(err)
+			}
+			body, _ := json.Marshal(patchSourceRequest{Source: tc.to})
+			rr := httptest.NewRecorder()
+			s.mux.ServeHTTP(rr, httptest.NewRequest(http.MethodPatch, "/api/resources/pack/source", bytes.NewReader(body)))
+			if rr.Code != http.StatusOK {
+				t.Fatalf("patch: %d %s", rr.Code, rr.Body)
+			}
+			entry := install.LoadMetadataOrNew(src).Get("pack")
+			if tc.name == "same" {
+				if !reflect.DeepEqual(entry, &before) {
+					t.Fatalf("identical edit changed provenance: %+v", entry)
+				}
+				return
+			}
+			target, err := install.ParseSource(tc.to)
+			if err != nil {
+				t.Fatal(err)
+			}
+			results, err := check.Plan([]check.Skill{{Name: "pack", Entry: entry, Dir: dir}}, "").Run(context.Background(), check.Options{})
+			if err != nil || len(results) != 1 || results[0].Status == "error" || (!results[0].Local && results[0].Status != "update_available") {
+				t.Fatalf("edited source check: %+v %v", results, err)
+			}
+			wantRepo := ""
+			if target.IsGit() {
+				wantRepo = target.CloneURL
+			}
+			if entry.Source != tc.to || entry.Type != target.MetaType() || entry.RepoURL != wantRepo || entry.Subdir != target.Subdir || entry.ArchiveSHA256 != "" || entry.Version != "" || entry.TreeHash != "" || entry.Commit != target.Commit || entry.Branch != target.Branch || entry.Layout != "" {
+				t.Fatalf("source edit retained incompatible provenance: %+v", entry)
+			}
+			if !entry.InstalledAt.Equal(before.InstalledAt) || !reflect.DeepEqual(entry.FileHashes, before.FileHashes) {
+				t.Fatal("source edit reset installed baseline")
+			}
+			if target.Type == install.SourceTypeLocalPath {
+				return
+			}
+			if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# Mine"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			changes, err := install.LocalChanges(entry, install.ParseOptions{}, dir)
+			if err != nil || len(changes) != 1 || changes[0].Diff != "" {
+				t.Fatalf("edited source inspection: %+v %v", changes, err)
+			}
+			if !entry.LocallyModified(dir) {
+				t.Fatal("edited source lost edit protection")
+			}
+			items := runFollowUpdate(t, s, false, "pack")
+			if len(items) != 1 || items[0].Action != "skipped" {
+				t.Fatalf("edited source overwrote edits: %+v", items)
+			}
+			items = runFollowUpdate(t, s, false, "pack", true)
+			if len(items) != 1 || items[0].Action != "updated" {
+				t.Fatalf("edited source force restore: %+v", items)
+			}
+		})
+	}
+}
+
+func TestArchiveSourceEditRejectsAgent(t *testing.T) {
+	s, _ := newTestServer(t)
+	src := s.agentsSource()
+	addAgent(t, src, "helper.md")
+	addAgentMeta(t, src, "helper.md", "https://github.com/team/repo/helper.md")
+	s.agentsStore = install.LoadMetadataOrNew(src)
+	before, err := os.ReadFile(filepath.Join(src, install.MetadataFileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	s.mux.ServeHTTP(rr, httptest.NewRequest(http.MethodPatch, "/api/resources/helper/source?kind=agent", strings.NewReader(`{"source":"https://host/pack.zip"}`)))
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("agent ZIP source: %d %s", rr.Code, rr.Body)
+	}
+	after, _ := os.ReadFile(filepath.Join(src, install.MetadataFileName))
+	if !bytes.Equal(before, after) {
+		t.Fatal("agent refusal changed metadata")
 	}
 }

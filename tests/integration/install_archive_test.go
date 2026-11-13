@@ -14,6 +14,7 @@ import (
 	"sync"
 	"testing"
 
+	"skillshare/internal/install"
 	"skillshare/internal/testutil"
 )
 
@@ -73,6 +74,16 @@ func TestArchiveCLIEndToEnd(t *testing.T) {
 				t.Fatalf("changed update = %s, %v", content, err)
 			}
 			if err := os.WriteFile(file, []byte("# Local edit"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			// The dashboard source editor uses this mapping without replacing file hashes.
+			store := install.LoadMetadataOrNew(source)
+			replacement, err := install.ParseSource(srv.URL + "/new.zip#skill=brief")
+			if err != nil {
+				t.Fatal(err)
+			}
+			store.GetByPath("legal/custom").SetSource(replacement)
+			if err := store.Save(source); err != nil {
 				t.Fatal(err)
 			}
 			run("update", "legal/custom", "--json").AssertFailure(t)

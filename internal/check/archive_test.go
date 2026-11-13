@@ -30,10 +30,11 @@ func TestArchiveResolution(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := Plan([]Skill{
-		{Name: "a", Entry: &install.MetadataEntry{Source: raw + "#skill=a", ArchiveSHA256: hash}},
-		{Name: "b", Entry: &install.MetadataEntry{Source: raw + "#skill=b", ArchiveSHA256: hash}},
+		{Name: "a", Entry: &install.MetadataEntry{Source: raw + "#skill=a", Type: "archive-subdir", ArchiveSHA256: hash}},
+		{Name: "b", Entry: &install.MetadataEntry{Source: raw + "#skill=b", Type: "archive-subdir", ArchiveSHA256: hash}},
+		{Name: "no-baseline", Entry: &install.MetadataEntry{Source: raw, Type: "archive"}},
 	}, "")
-	if r.Remotes() != 1 || r.RemoteSkills() != 2 {
+	if r.Remotes() != 1 || r.RemoteSkills() != 3 {
 		t.Fatalf("archive treated as local or fetched per member: %+v", r)
 	}
 	for _, parallel := range []bool{false, true} {
@@ -48,11 +49,15 @@ func TestArchiveResolution(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if done != 2 {
+			if done != 3 {
 				t.Fatalf("progress = %d", done)
 			}
 			for _, result := range results {
-				if result.Local || result.Status != want {
+				expected := want
+				if result.Name == "no-baseline" {
+					expected = "update_available"
+				}
+				if result.Local || result.Status != expected {
 					t.Fatalf("got %+v, want remote %s", result, want)
 				}
 			}
