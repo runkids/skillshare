@@ -202,3 +202,74 @@ func TestDiffTUI_PreservationKeptIsVisible(t *testing.T) {
 		}
 	}
 }
+
+func TestDiffTUI_PreservationPresentation(t *testing.T) {
+	const reason = "kept: copy was edited or could not be verified; collect or remove manually, or use verified --discard-edits"
+	entry := copyDiffEntry{name: "alpha", action: "kept", reason: reason}
+	result := targetDiffResult{name: "custom", mode: "copy", items: []copyDiffEntry{entry}}
+	m := newDiffTUIModel([]targetDiffResult{result})
+	m.refreshDetailCache()
+	m.expandedSkill = "alpha"
+	// Destination-only expansion lists existing files with delete actions.
+	m.expandedFiles = []fileDiffEntry{{RelPath: "SKILL.md", Action: "delete"}}
+	detail := m.buildDiffDetail()
+	for _, want := range []string{
+		"Kept 1 skill", "copy was edited or could not be verified",
+		"collect or remove manually", "verified --discard-edits",
+		"alpha files (kept)", "· SKILL.md", "Next", "skillshare collect",
+	} {
+		if !strings.Contains(detail, want) {
+			t.Errorf("kept detail missing %q:\n%s", want, detail)
+		}
+	}
+	for _, wrong := range []string{"Kept: kept:", "--discard-edits 1 skill", "- SKILL.md", "sync --force"} {
+		if strings.Contains(detail, wrong) {
+			t.Errorf("kept detail has misleading action/header %q:\n%s", wrong, detail)
+		}
+	}
+	if strings.Contains(m.renderTitleLine(), "to sync") || result.inSync() {
+		t.Error("kept inventory became sync work or disappeared as in sync")
+	}
+	if wire := diffItemToJSON(entry); wire.Action != "kept" || wire.IsSync || wire.Reason != reason {
+		t.Errorf("presentation changed raw preservation data: %+v", wire)
+	}
+
+	t.Run("reason_groups", func(t *testing.T) {
+		groups := categorizeItems([]copyDiffEntry{
+			entry,
+			{name: "beta", action: "kept", reason: reason},
+			{name: "gamma", action: "kept", reason: "kept: entry is not a recorded copy; collect or remove manually"},
+		})
+		if len(groups) != 2 || len(groups[0].names) != 2 || len(groups[1].names) != 1 {
+			t.Fatalf("preservation reason grouping changed: %+v", groups)
+		}
+		for _, group := range groups {
+			if group.label != "Kept" {
+				t.Errorf("recovery prose still used as category heading: %+v", group)
+			}
+		}
+	})
+
+	t.Run("actual_changes", func(t *testing.T) {
+		m := newDiffTUIModel([]targetDiffResult{{
+			name: "custom", mode: "copy", syncCount: 1,
+			items: []copyDiffEntry{{name: "alpha", action: "modify", reason: "content changed", isSync: true}},
+		}})
+		m.refreshDetailCache()
+		m.expandedSkill = "alpha"
+		m.expandedFiles = []fileDiffEntry{
+			{RelPath: "added.md", Action: "add"},
+			{RelPath: "removed.md", Action: "delete"},
+			{RelPath: "changed.md", Action: "modify"},
+		}
+		detail := m.buildDiffDetail()
+		for _, want := range []string{"alpha files", "+ added.md", "- removed.md", "~ changed.md"} {
+			if !strings.Contains(detail, want) {
+				t.Errorf("actual change icon missing %q:\n%s", want, detail)
+			}
+		}
+		if strings.Contains(detail, "files (kept)") {
+			t.Error("actual changes relabeled as kept inventory")
+		}
+	})
+}
