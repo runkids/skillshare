@@ -258,6 +258,77 @@ func TestProfiles_PreservationAndDiscard(t *testing.T) {
 	}
 }
 
+func TestProfiles_MovedDiscardRecovery(t *testing.T) {
+	for _, jsonOutput := range []bool{false, true} {
+		t.Run(fmt.Sprintf("json=%v", jsonOutput), func(t *testing.T) {
+			f := newProfileFixture(t, true, "copy")
+			f.sb.WriteFile(f.config, strings.Replace(f.sb.ReadFile(f.config), "  - name: custom\n    skills:\n      path: "+f.target, "  - name: goose\n    skills:", 1))
+			f.target = filepath.Join(f.root, ".agents", "skills")
+			f.run("profile", "use", "a").AssertSuccess(t)
+			dir := filepath.Join(f.root, ".goose", "skills")
+			file := filepath.Join(dir, "alpha", "SKILL.md")
+			f.sb.WriteFile(file, f.sb.ReadFile(filepath.Join(f.source, "alpha", "SKILL.md")))
+			sum, err := ssync.CopyOutputFingerprint(filepath.Dir(file))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := ssync.WriteManifest(dir, &ssync.Manifest{Managed: map[string]string{"alpha": sum}, Outputs: map[string]string{"alpha": sum}}); err != nil {
+				t.Fatal(err)
+			}
+			f.sb.WriteFile(file, "authored moved edit")
+			args := []string{"sync", "--discard-edits"}
+			if jsonOutput {
+				args = append(args, "--json")
+			}
+			out := f.run(args...)
+			out.AssertSuccess(t)
+			key := backup.MovedEntryName("goose", ".goose/skills")
+			paths, err := filepath.Glob(filepath.Join(backup.ProjectBackupDir(f.root), "*", key, "alpha", "SKILL.md"))
+			if err != nil || len(paths) != 1 || f.sb.ReadFile(paths[0]) != "authored moved edit" {
+				t.Fatalf("actual-folder snapshot missing or wrong: %v, %v", paths, err)
+			}
+			if _, err := os.Lstat(filepath.Dir(file)); !os.IsNotExist(err) {
+				t.Fatalf("discard kept listed moved copy: %v", err)
+			}
+			saved := filepath.Dir(filepath.Dir(paths[0]))
+			stamp := filepath.Base(filepath.Dir(saved))
+			command := ""
+			if jsonOutput {
+				var body struct {
+					Snapshot []struct{ Target, Path, Restore string }
+				}
+				if err := json.Unmarshal([]byte(out.Stdout), &body); err != nil || len(body.Snapshot) != 1 || body.Snapshot[0].Path != saved || body.Snapshot[0].Target != "goose" {
+					t.Fatalf("snapshot JSON: %s, %v", out.Stdout, err)
+				}
+				command = body.Snapshot[0].Restore
+			} else {
+				index := strings.Index(out.Stdout, "skillshare restore ")
+				if index < 0 || len(strings.Fields(out.Stdout[index:])) < 7 {
+					t.Fatalf("missing recovery command: %s", out.Stdout)
+				}
+				command = strings.Join(strings.Fields(out.Stdout[index:])[:7], " ")
+			}
+			if command != "skillshare restore "+key+" --from "+stamp+" -p --force" {
+				t.Fatalf("wrong emitted recovery: %q", command)
+			}
+			current, err := ssync.CopyOutputFingerprint(f.target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			manifest := f.sb.ReadFile(filepath.Join(f.target, ssync.ManifestFile))
+			configBefore := f.sb.ReadFile(f.config)
+			f.sb.RunCLIInDir(f.root, strings.Fields(command)[1:]...).AssertSuccess(t)
+			after, err := ssync.CopyOutputFingerprint(f.target)
+			if err != nil || after != current || f.sb.ReadFile(filepath.Join(f.target, ssync.ManifestFile)) != manifest || f.sb.ReadFile(f.config) != configBefore || f.sb.ReadFile(file) != "authored moved edit" {
+				t.Fatalf("recovery lost edits or changed current folder/config: %v", err)
+			}
+			if f.sb.ReadFile(filepath.Join(f.source, "alpha", "SKILL.md")) != "---\nname: alpha\n---\n# alpha\n" {
+				t.Fatal("recovery changed source")
+			}
+		})
+	}
+}
+
 func TestProfiles_DesiredObserved(t *testing.T) {
 	f := newProfileFixture(t, false, "copy")
 	f.run("profile", "use", "all").AssertSuccess(t)
