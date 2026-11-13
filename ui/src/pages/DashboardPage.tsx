@@ -501,14 +501,16 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
     if (!toDelete) return;
     setDeleting(true);
     try {
-      const result = await api.deleteRepo(toDelete.name, !toDelete.noCheckout && refusal !== null);
+      const result = await api.deleteRepo(toDelete.name, !toDelete.noCheckout && refusal !== null, !!toDelete.noCheckout);
       toast(t(result.movedToTrash ? 'dashboard.toast.repoUninstalled' : 'dashboard.toast.repoRecordRemoved', { name: result.movedToTrash ? result.name.replace(/^_/, '') : result.name }), 'success');
       setToDelete(null);
       await refresh();
     } catch (e: unknown) {
-      if (e instanceof ApiError && e.code && e.code in forceableRefusals) {
-        // A CLI restore may have turned the selected declaration into a checkout.
-        setToDelete({ ...toDelete, noCheckout: false });
+      if (e instanceof ApiError && e.code === 'repo_checkout_restored') {
+        setToDelete(null);
+        toast(t('dashboard.trackedRepos.checkoutRestored'), 'warning');
+        await refresh();
+      } else if (e instanceof ApiError && e.code && e.code in forceableRefusals) {
         setRefusal(e.code as keyof typeof forceableRefusals);
       } else toast((e as Error).message, 'error');
     } finally {

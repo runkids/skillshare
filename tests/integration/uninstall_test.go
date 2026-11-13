@@ -4,6 +4,7 @@ package integration
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -840,6 +841,55 @@ func TestUninstall_DeclarationOutput(t *testing.T) {
 		t.Fatal(batch.Output())
 	}
 
+}
+
+func TestUninstall_JSONResolutionFailures(t *testing.T) {
+	for _, mixed := range []bool{false, true} {
+		for _, dryRun := range []bool{false, true} {
+			t.Run(fmt.Sprintf("mixed=%t/dryRun=%t", mixed, dryRun), func(t *testing.T) {
+				sb := testutil.NewSandbox(t)
+				defer sb.Cleanup()
+				sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+				store := install.NewMetadataStore()
+				for _, name := range []string{"a/_team", "b/_team", "_valid"} {
+					store.Set(name, &install.MetadataEntry{Source: "https://example.invalid/unreachable.git", Tracked: true})
+				}
+				if err := store.Save(sb.SourcePath); err != nil {
+					t.Fatal(err)
+				}
+				args := []string{"uninstall", "team", "--json", "-g"}
+				if mixed {
+					args = append(args, "_valid")
+				}
+				if dryRun {
+					args = append(args, "--dry-run")
+				}
+				result := sb.RunCLIEnv(sb.MachineEnv(), args...)
+				if mixed {
+					result.AssertSuccess(t) // existing partial-success exit policy
+				} else {
+					result.AssertFailure(t)
+				}
+				var body struct {
+					Removed, Failed []string
+					DryRun          bool `json:"dry_run"`
+				}
+				if err := json.Unmarshal([]byte(result.Stdout), &body); err != nil {
+					t.Fatal(err)
+				}
+				if len(body.Failed) != 1 || !strings.Contains(body.Failed[0], "team: multiple tracked repositories match: team") || !strings.Contains(body.Failed[0], "use the full path") || body.DryRun != dryRun {
+					t.Fatalf("resolution failure lost: %s", result.Stdout)
+				}
+				if mixed && (len(body.Removed) != 1 || body.Removed[0] != "_valid") {
+					t.Fatalf("valid result lost: %s", result.Stdout)
+				}
+				loaded, err := install.LoadMetadata(sb.SourcePath)
+				if err != nil || !loaded.Has("a/_team") || !loaded.Has("b/_team") || loaded.Has("_valid") != (!mixed || dryRun) {
+					t.Fatalf("wrong persisted removals: %+v, %v", loaded, err)
+				}
+			})
+		}
+	}
 }
 
 func TestUninstall_DeclarationWithUnreachableSource(t *testing.T) {

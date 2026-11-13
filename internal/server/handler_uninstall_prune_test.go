@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -250,11 +251,11 @@ func TestHandleUninstallSkill_ProjectDropsConfigEntry(t *testing.T) {
 }
 
 func TestHandleUninstallRepo_DeclarationResults(t *testing.T) {
-	for _, scenario := range []string{"absent", "occupied", "shorthand", "save failure", "project", "unknown"} {
+	for _, scenario := range []string{"absent", "occupied", "record only absent", "record only occupied", "record only shorthand", "record only project", "shorthand", "save failure", "project", "unknown"} {
 		t.Run(scenario, func(t *testing.T) {
 			var s *Server
 			var src string
-			if scenario == "project" {
+			if strings.Contains(scenario, "project") {
 				s, _ = newProjectTargetServer(t, nil)
 				src = s.skillsSource()
 			} else {
@@ -264,7 +265,7 @@ func TestHandleUninstallRepo_DeclarationResults(t *testing.T) {
 			if err := s.skillsStore.Save(src); err != nil {
 				t.Fatal(err)
 			}
-			if scenario == "occupied" {
+			if strings.Contains(scenario, "occupied") {
 				addSkill(t, src, "org/_team/kept")
 			}
 			if scenario == "save failure" {
@@ -276,19 +277,23 @@ func TestHandleUninstallRepo_DeclarationResults(t *testing.T) {
 				}
 			}
 			name := "org/_team"
-			if scenario == "shorthand" {
+			if strings.Contains(scenario, "shorthand") {
 				name = "team"
 			}
 			if scenario == "unknown" {
 				name = "missing"
 			}
-			rr := deleteRepo(t, s, name, "")
+			query := ""
+			if strings.HasPrefix(scenario, "record only") {
+				query = "?recordOnly=true"
+			}
+			rr := deleteRepo(t, s, name, query)
 			switch scenario {
 			case "save failure":
 				if rr.Code != http.StatusInternalServerError || strings.Contains(rr.Body.String(), `"success":true`) {
 					t.Fatalf("false success: %d %s", rr.Code, rr.Body.String())
 				}
-			case "project", "unknown":
+			case "project", "unknown", "record only shorthand", "record only project":
 				if rr.Code != http.StatusBadRequest || !s.skillsStore.Has("org/_team") {
 					t.Fatalf("project declaration removed: %d %s", rr.Code, rr.Body.String())
 				}
@@ -308,13 +313,50 @@ func TestHandleUninstallRepo_DeclarationResults(t *testing.T) {
 				if err != nil || loaded.Has("org/_team") || s.skillsStore.Has("org/_team") {
 					t.Fatalf("removal not persisted: %v", err)
 				}
-				if scenario == "occupied" {
+				if strings.Contains(scenario, "occupied") {
 					if _, err := os.Stat(filepath.Join(src, "org/_team/kept/SKILL.md")); err != nil {
 						t.Fatal("occupant touched")
 					}
 				}
 			}
 		})
+	}
+}
+
+func TestHandleUninstallRepo_RecordOnlyRefusesRestoredCheckout(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	for _, dirty := range []bool{false, true} {
+		for _, force := range []bool{false, true} {
+			t.Run(fmt.Sprintf("dirty=%t/force=%t", dirty, force), func(t *testing.T) {
+				s, src := seedPruneCase(t, repoPrune)
+				file := filepath.Join(src, "_team", "README.md")
+				if dirty {
+					if err := os.WriteFile(file, []byte("local edits"), 0644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				before, err := os.ReadFile(file)
+				if err != nil {
+					t.Fatal(err)
+				}
+				metadata, err := os.ReadFile(install.MetadataPath(src))
+				if err != nil {
+					t.Fatal(err)
+				}
+				rr := httptest.NewRecorder()
+				s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/repos/_team?recordOnly=true&force=%t", force), nil))
+				if rr.Code != http.StatusConflict || !strings.Contains(rr.Body.String(), "repo_checkout_restored") {
+					t.Fatalf("record-only intent bypassed: %d %s", rr.Code, rr.Body.String())
+				}
+				if got, err := os.ReadFile(file); err != nil || !bytes.Equal(got, before) {
+					t.Fatalf("restored checkout touched: %q %v", got, err)
+				}
+				if got, err := os.ReadFile(install.MetadataPath(src)); err != nil || !bytes.Equal(got, metadata) {
+					t.Fatalf("metadata touched: %q %v", got, err)
+				}
+			})
+		}
 	}
 }
 
@@ -365,7 +407,7 @@ func TestHandleUninstallRepo_ExactDeclarationBeforeCheckoutShorthand(t *testing.
 			}
 
 			rr := httptest.NewRecorder()
-			s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, "/api/repos/_team", nil))
+			s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, "/api/repos/_team?recordOnly=true", nil))
 			var body struct {
 				Success      bool
 				Name         string

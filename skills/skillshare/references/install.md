@@ -274,6 +274,7 @@ skillshare uninstall --group frontend --dry-run
 # JSON output, global or -p (skips confirmation; dirty tracked repos still require --force;
 # when every skill fails, or any agent fails, it exits non-zero and "error" gives the reasons)
 skillshare uninstall my-skill --json
+# Unresolved inputs and reasons also appear in "failed", including dry runs.
 ```
 
 **Tracked repo names:** `uninstall org/team` accepts the shorthand for `org/_team` installed with `--into org`. An existing skill or folder at the typed path wins; use `org/_team` to explicitly remove the repo. Ambiguous short names require the full path.
@@ -282,7 +283,7 @@ skillshare uninstall my-skill --json
 
 **After reconcile:** If `install` or another reconcile walks a plain folder or followed link to a non-checkout at the declared path, the entry becomes an ordinary record (`Tracked=false`). Ordinary uninstall then moves the occupant to trash. An absent path or an unfollowed or unavailable link is not normalized this way.
 
-**Unlink:** In global mode, `skillshare unlink <name>` also forgets the matching tracked-repository record and audit acceptances, while leaving the link target untouched.
+**Unlink:** In global mode, `skillshare unlink <name>` also forgets the matching tracked-repository record and audit acceptances, while leaving the link target untouched. If metadata cleanup fails, the link is already in trash and a warning says its record may remain; resolve the metadata error before installing again.
 
 **Safety:** Tracked repos with uncommitted changes are skipped, and repos whose git status cannot be read fail. Use `--force` to override both.
 

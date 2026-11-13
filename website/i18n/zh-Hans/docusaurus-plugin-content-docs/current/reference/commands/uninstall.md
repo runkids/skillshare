@@ -79,6 +79,8 @@ skillshare uninstall my-skill another-skill --json
 skillshare uninstall --all --json --dry-run
 ```
 
+无法解析的输入及其原因也会列入 `failed`，包括 dry-run 和没有任何输入可解析的请求。
+
 所有 skill 都卸载失败时，命令以非零状态退出，`error` 字段列出每个 skill 及其原因；只有部分失败时，它们会连同原因列在 `failed` 中，命令以 0 退出。`uninstall agents --json` 只要有 agent 失败就以非零状态退出，把失败的名称列在 `failed`，并在 `error` 中给出每个的原因。JSON 输出在 project mode（`-p`）中同样可用。
 
 ## 移除多个

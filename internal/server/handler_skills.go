@@ -433,6 +433,11 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cleanName := filepath.Clean(filepath.FromSlash(name))
+	recordOnly := r.URL.Query().Get("recordOnly") == "true"
+	if recordOnly && install.IsTrackedCheckout(filepath.Join(s.skillsSource(), cleanName)) {
+		writeCodedError(w, http.StatusConflict, "repo_checkout_restored", "checkout now exists; refresh and confirm checkout removal", nil)
+		return
+	}
 
 	var declaration string
 	var exactDeclaration bool
@@ -443,6 +448,10 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		declaration, exactDeclaration, declarationErr = install.FindTrackedDeclaration(s.skillsSource(), s.skillsStore, name)
+	}
+	if recordOnly && !exactDeclaration {
+		writeError(w, http.StatusBadRequest, "no tracked repository declaration at: "+name)
+		return
 	}
 	// The dashboard sends canonical paths: an exact declaration must not
 	// select another checkout through the basename fallback.

@@ -116,7 +116,8 @@ read [install.md](references/install.md) and [sync.md](references/sync.md).
 
 To use a local skills checkout in place, run `skillshare link <path> --enable`, then
 `sync`; `skillshare unlink <name>` moves only the link to trash and, in global mode,
-forgets its tracked-repository record and audit acceptances. Its target stays untouched. Read
+forgets its tracked-repository record and audit acceptances. A metadata warning means the link
+is gone but its record may remain; resolve the metadata error before installing again. Its target stays untouched. Read
 [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) for how such links are followed.
 
 ### Disable or remove

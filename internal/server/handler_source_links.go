@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -125,19 +126,37 @@ func (s *Server) handleRemoveSourceLink(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	var warning string
 	if !s.IsProjectMode() {
-		if err := s.reloadSkillsStore(); err != nil {
-			log.Printf("warning: unlinked, but failed to reload skills metadata: %v", err)
-		} else if s.skillsStore.ForgetTrackedRepo(name) {
-			if err := s.skillsStore.Save(s.skillsSource()); err != nil {
-				log.Printf("warning: unlinked, but failed to update metadata: %v", err)
-				if err := s.reloadSkillsStore(); err != nil {
-					log.Printf("warning: failed to reload skills metadata: %v", err)
-				}
-			}
+		err := s.reloadSkillsStore()
+		if err == nil {
+			err = s.forgetUnlinkedDeclaration(name)
+		}
+		if err != nil {
+			warning = fmt.Sprintf("Unlinked, but could not update metadata: %v", err)
+			log.Printf("warning: %s", warning)
 		}
 	}
 	s.snapshotFollow()
-	s.writeOpsLog("unlink", "ok", start, args, "")
-	writeJSON(w, map[string]any{"success": true, "name": name})
+	status := "ok"
+	if warning != "" {
+		status = "partial"
+	}
+	s.writeOpsLog("unlink", status, start, args, warning)
+	writeJSON(w, map[string]any{"success": true, "name": name, "warning": warning})
+}
+
+// forgetUnlinkedDeclaration persists cleanup against the store just reloaded
+// by the handler. Refresh the cache if persistence fails, as for uninstall.
+func (s *Server) forgetUnlinkedDeclaration(name string) error {
+	if !s.skillsStore.ForgetTrackedRepo(name) {
+		return nil
+	}
+	if err := s.skillsStore.Save(s.skillsSource()); err != nil {
+		if reloadErr := s.reloadSkillsStore(); reloadErr != nil {
+			log.Printf("warning: failed to reload skills metadata: %v", reloadErr)
+		}
+		return err
+	}
+	return nil
 }

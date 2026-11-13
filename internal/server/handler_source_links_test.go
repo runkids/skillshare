@@ -14,6 +14,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/oplog"
 	"skillshare/internal/sync"
 	"skillshare/internal/testutil"
 	"skillshare/internal/trash"
@@ -190,6 +191,10 @@ func TestHandleRemoveSourceLink(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(target, "kept", "SKILL.md")); err != nil {
 		t.Fatalf("target modified: %v", err)
 	}
+	var body struct{ Warning string }
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil || body.Warning != "" {
+		t.Fatalf("healthy unlink warned: %s %v", rr.Body.String(), err)
+	}
 	// A later save must not resurrect the declaration from the server cache.
 	if err := s.skillsStore.Save(src); err != nil {
 		t.Fatal(err)
@@ -258,6 +263,17 @@ func TestHandleRemoveSourceLink_MetadataReloadFailure(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("unlink already succeeded: %d %s", rr.Code, rr.Body.String())
 	}
+	var body struct {
+		Success bool
+		Warning string
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil || !body.Success || !strings.Contains(body.Warning, "Unlinked, but could not update metadata") {
+		t.Fatalf("partial unlink hidden: %s %v", rr.Body.String(), err)
+	}
+	entries, err := oplog.Read(s.configPath(), oplog.OpsFile, 10)
+	if err != nil || len(entries) == 0 || entries[0].Command != "unlink" || entries[0].Status != "partial" || entries[0].Message != body.Warning {
+		t.Fatalf("partial unlink log: %+v %v", entries, err)
+	}
 	if _, err := os.Lstat(filepath.Join(src, "_team")); !os.IsNotExist(err) {
 		t.Fatalf("link still exists: %v", err)
 	}
@@ -266,5 +282,31 @@ func TestHandleRemoveSourceLink_MetadataReloadFailure(t *testing.T) {
 	}
 	if got, err := os.ReadFile(install.MetadataPath(src)); err != nil || !bytes.Equal(got, invalid) || !s.skillsStore.Has("_team") {
 		t.Fatalf("reload failure saved stale metadata: %q, %v", got, err)
+	}
+}
+
+func TestForgetUnlinkedDeclaration_SaveFailure(t *testing.T) {
+	s, src := newTestServer(t)
+	s.skillsStore.Set("_team", &install.MetadataEntry{Source: "https://example.invalid/team.git", Tracked: true})
+	s.skillsStore.Set("_other", &install.MetadataEntry{Source: "keep", Tracked: true})
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.reloadSkillsStore(); err != nil {
+		t.Fatal(err)
+	}
+	// Fault the persistence owner after loading, without a filesystem race or
+	// an injected handler callback. The route's reload fault is covered above.
+	if err := os.Remove(install.MetadataPath(src)); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(install.MetadataPath(src), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.forgetUnlinkedDeclaration("_team"); err == nil || !s.skillsStore.Has("_other") {
+		t.Fatalf("save failure hidden or unrelated record lost: %v", err)
+	}
+	if info, err := os.Stat(install.MetadataPath(src)); err != nil || !info.IsDir() {
+		t.Fatalf("blocked metadata path modified: %v", err)
 	}
 }

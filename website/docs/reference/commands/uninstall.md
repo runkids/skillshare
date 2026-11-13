@@ -79,6 +79,8 @@ Combine with `--dry-run` to preview:
 skillshare uninstall --all --json --dry-run
 ```
 
+Unresolved inputs are included in `failed` with their reasons, including dry runs and requests where no input resolves.
+
 When every skill fails to uninstall, the command exits non-zero and the `error` field names each skill with its reason; when only some fail, they are listed in `failed` with their reasons and the command exits 0. `uninstall agents --json` exits non-zero when any agent fails, lists the failed names in `failed`, and gives each reason in `error`. JSON output works in project mode (`-p`) too.
 
 ## Multiple Skills

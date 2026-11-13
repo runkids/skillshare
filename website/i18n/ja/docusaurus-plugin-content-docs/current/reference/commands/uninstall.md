@@ -79,6 +79,8 @@ skillshare uninstall my-skill another-skill --json
 skillshare uninstall --all --json --dry-run
 ```
 
+解決できない入力とその理由も `failed` に含まれます。dry run や、どの入力も解決できない場合も同じです。
+
 すべての skill のアンインストールに失敗すると、コマンドは 0 以外で終了し、`error` フィールドに各 skill 名と理由が入ります。一部だけ失敗した場合は、`failed` に名前と理由が記録され、コマンドは 0 で終了します。`uninstall agents --json` は agent が 1 つでも失敗すると 0 以外で終了し、失敗した名前を `failed` に、それぞれの理由を `error` に入れます。JSON 出力は project mode（`-p`）でも使えます。
 
 ## 複数の Skill

@@ -173,11 +173,15 @@ func cleanupUninstallTrash(mode *uninstallMode) {
 // runUninstallSkills resolves, checks, confirms and removes skills for either
 // mode. rawArgs feed the oplog entry.
 func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []string, start time.Time) error {
+	var resolveWarnings []string
 	// In JSON mode the UI goes to /dev/null; each JSON write flushes it first.
 	jsonUI := newJSONUISuppressor(opts.jsonOutput)
 	defer jsonUI.Flush()
 	jsonError := func(err error) error {
 		jsonUI.Flush()
+		if len(resolveWarnings) > 0 {
+			return uninstallOutputJSON(nil, resolveWarnings, 0, opts.dryRun, start, err)
+		}
 		return writeJSONError(err)
 	}
 	jsonResult := func(removed, failed []string, skipped int, dryRun bool, err error) error {
@@ -187,7 +191,6 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 	// --- Phase 1: RESOLVE ---
 	var targets []*uninstallTarget
 	seen := map[string]bool{} // dedup by path
-	var resolveWarnings []string
 
 	if opts.all {
 		var sp *ui.Spinner
@@ -432,7 +435,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 				dryRunNames[i] = t.name
 			}
 			logUninstallOp(mode.configPath, uninstallOpNames(rawArgs), 0, start, nil)
-			return jsonResult(dryRunNames, nil, preflightSkipped, true, nil)
+			return jsonResult(dryRunNames, resolveWarnings, preflightSkipped, true, nil)
 		}
 		names := make([]string, len(targets))
 		for i, t := range targets {
@@ -507,6 +510,9 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 
 	var succeeded []*uninstallTarget
 	failed := preflightFailed
+	if opts.jsonOutput {
+		failed = append(failed, resolveWarnings...)
+	}
 	for i, r := range out.Results {
 		if r.Err == nil {
 			succeeded = append(succeeded, targets[i])

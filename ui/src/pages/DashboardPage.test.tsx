@@ -127,39 +127,33 @@ describe('DashboardPage', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Uninstall' }));
       expect(await screen.findByText('Removed repository record "_team"')).toBeInTheDocument();
       await waitFor(() => expect(screen.queryByText('No checkout on this machine')).not.toBeInTheDocument());
-      expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false]]);
+      expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false, true]]);
     });
 
-    it('reports a checkout moved to trash when a CLI restore changed the selected declaration', async () => {
-      vi.mocked(api.deleteRepo).mockResolvedValue({ success: true, name: '_team', movedToTrash: true });
+    it.each([false, true])('requires a fresh checkout confirmation after restore (dirty=%s)', async (dirty) => {
+      vi.mocked(api.deleteRepo).mockRejectedValueOnce(new ApiError(409, 'Checkout restored', { code: 'repo_checkout_restored' }));
       await openConfirmation();
+      vi.mocked(api.getOverview).mockResolvedValue({ skillCount: 1, agentCount: 0, source: '/home/dev/skills', trackedRepos: [{ name: '_team', skillCount: 1, dirty }] } as unknown as Overview);
       await userEvent.click(screen.getByRole('button', { name: 'Uninstall' }));
-      expect(await screen.findByText('Repository "team" uninstalled.')).toBeInTheDocument();
-      expect(screen.queryByText('Removed repository record "_team"')).not.toBeInTheDocument();
-      expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false]]);
-    });
-
-    it.each([
-      ['repo_dirty', '"team" has uncommitted changes. Uninstalling moves them to trash with the repo.'],
-      ['repo_status_failed', 'Could not read the git status of "team", so it may have uncommitted changes. Uninstalling moves the repo to trash as it is.'],
-    ])('requires checkout confirmation after a CLI restore causes %s', async (code, warning) => {
-      vi.mocked(api.deleteRepo).mockRejectedValueOnce(new ApiError(409, 'Checkout removal refused', { code })).mockImplementation(async () => {
-        vi.mocked(api.getOverview).mockResolvedValue({ skillCount: 0, agentCount: 0, source: '/home/dev/skills', trackedRepos: [] } as unknown as Overview);
-        return { success: true, name: '_team', movedToTrash: true };
-      });
-      await openConfirmation();
-      await userEvent.click(screen.getByRole('button', { name: 'Uninstall' }));
-      const retry = await screen.findByRole('button', { name: 'Retry with Force' });
-      expect(screen.getByRole('dialog')).toHaveTextContent(warning);
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+      expect(screen.queryByRole('button', { name: 'Retry with Force' })).not.toBeInTheDocument();
+      expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false, true]]);
+      await screen.findByText(dirty ? 'Modified' : 'Clean');
+      await userEvent.click(screen.getByRole('button', { name: 'Repo actions' }));
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Uninstall' }));
+      expect(screen.getByRole('dialog')).toHaveTextContent('This will move all skills in the repo to trash.');
       expect(screen.getByRole('dialog')).not.toHaveTextContent('Nothing on disk is deleted');
-      expect(screen.getByText('No checkout on this machine')).toBeInTheDocument();
-      expect(screen.queryByText('Repository "team" uninstalled.')).not.toBeInTheDocument();
-      expect(screen.queryByText('Removed repository record "_team"')).not.toBeInTheDocument();
-      expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false]]);
-      await userEvent.click(retry);
-      expect(await screen.findByText('Repository "team" uninstalled.')).toBeInTheDocument();
-      await waitFor(() => expect(screen.queryByText('No checkout on this machine')).not.toBeInTheDocument());
-      expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false], ['_team', true]]);
+      if (dirty) vi.mocked(api.deleteRepo).mockRejectedValueOnce(new ApiError(409, 'Dirty checkout', { code: 'repo_dirty' }));
+      else vi.mocked(api.deleteRepo).mockResolvedValueOnce({ success: true, name: '_team', movedToTrash: true });
+      await userEvent.click(screen.getByRole('button', { name: 'Uninstall' }));
+      if (dirty) {
+        vi.mocked(api.deleteRepo).mockResolvedValueOnce({ success: true, name: '_team', movedToTrash: true });
+        await userEvent.click(await screen.findByRole('button', { name: 'Retry with Force' }));
+      }
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+      expect(vi.mocked(api.deleteRepo).mock.calls).toEqual(dirty
+        ? [['_team', false, true], ['_team', false, false], ['_team', true, false]]
+        : [['_team', false, true], ['_team', false, false]]);
     });
 
     it('keeps a failed declaration and never offers force for a nonforceable error', async () => {
@@ -171,7 +165,7 @@ describe('DashboardPage', () => {
       expect(screen.queryByRole('button', { name: 'Retry with Force' })).not.toBeInTheDocument();
       expect(screen.queryByText('Repository "team" uninstalled.')).not.toBeInTheDocument();
       expect(screen.queryByText('Removed repository record "_team"')).not.toBeInTheDocument();
-      expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false]]);
+      expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false, true]]);
     });
   });
 
@@ -190,14 +184,14 @@ describe('DashboardPage', () => {
       vi.mocked(api.deleteRepo).mockResolvedValue({ success: true, name: '_team', movedToTrash: true });
       await confirmUninstall();
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-      expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false]]);
+      expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false, false]]);
     });
 
     it('reports record-only removal when the selected checkout is now absent', async () => {
       vi.mocked(api.deleteRepo).mockResolvedValue({ success: true, name: '_team', movedToTrash: false });
       await confirmUninstall();
       expect(await screen.findByText('Removed repository record "_team"')).toBeInTheDocument();
-      expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false]]);
+      expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false, false]]);
     });
 
     it('retries a dirty repo with force once the user confirms', async () => {
@@ -206,7 +200,7 @@ describe('DashboardPage', () => {
       expect(await screen.findByText(/"team" has uncommitted changes/)).toBeInTheDocument();
       await userEvent.click(screen.getByRole('button', { name: 'Retry with Force' }));
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-      expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false], ['_team', true]]);
+      expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false, false], ['_team', true, false]]);
     });
 
     it('leaves a dirty repo alone when the user cancels', async () => {
@@ -215,7 +209,7 @@ describe('DashboardPage', () => {
       await screen.findByRole('button', { name: 'Retry with Force' });
       await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-      expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false]]);
+      expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false, false]]);
     });
 
   });
