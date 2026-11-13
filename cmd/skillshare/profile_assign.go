@@ -34,8 +34,8 @@ func profileAssign(scope profileapply.Scope, o profileOptions) error {
 	}
 	if o.json {
 		return writeJSON(struct {
-			Profile string               `json:"profile"`
-			Changed bool                 `json:"changed"`
+			Profile string                `json:"profile"`
+			Changed bool                  `json:"changed"`
 			Skills  []profile.SkillResult `json:"skills"`
 		}{o.names[0], change.Changed, change.Skills})
 	}

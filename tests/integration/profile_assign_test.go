@@ -28,8 +28,8 @@ func TestProfileAssign(t *testing.T) {
 			out := f.run("profile", "add", "a", "beta", "--json")
 			out.AssertSuccess(t)
 			var row struct {
-				Profile string               `json:"profile"`
-				Changed bool                 `json:"changed"`
+				Profile string                `json:"profile"`
+				Changed bool                  `json:"changed"`
 				Skills  []profile.SkillResult `json:"skills"`
 			}
 			if err := json.Unmarshal([]byte(out.Stdout), &row); err != nil || row.Profile != "a" || !row.Changed || len(row.Skills) != 1 || row.Skills[0] != (profile.SkillResult{Name: "beta", Result: "added"}) {
@@ -73,7 +73,7 @@ func TestProfileAssignSelectionFixtures(t *testing.T) {
 	for _, project := range []bool{false, true} {
 		for _, tc := range []struct {
 			name, definition, op, skill, result string
-			blocked                            bool
+			blocked                             bool
 		}{
 			{"pass add", "{}", "add", "alpha", "already-in", false},
 			{"pass remove", "{}", "remove", "alpha", "removed", false},

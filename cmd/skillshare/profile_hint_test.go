@@ -287,7 +287,9 @@ func TestGitBatchHintKeepsOnlySuccessfulRoots(t *testing.T) {
 	source := &install.Source{Type: install.SourceTypeGitHTTPS, Raw: "file://" + filepath.ToSlash(repo), CloneURL: "file://" + filepath.ToSlash(repo)}
 	var summary installLogSummary
 	var commandErr error
-	captureStdout(t, func() { summary, commandErr = handleGitInstall(source, cfg, install.InstallOptions{Into: "team", All: true, SkipAudit: true}) })
+	captureStdout(t, func() {
+		summary, commandErr = handleGitInstall(source, cfg, install.InstallOptions{Into: "team", All: true, SkipAudit: true})
+	})
 	if commandErr != nil || len(summary.FailedSkills) != 1 || len(summary.InstalledSkills) != 1 || len(summary.InstalledPaths) != 1 || summary.InstalledSkills[0] != "good" {
 		t.Fatalf("batch effects/counts: %+v (%v)", summary, commandErr)
 	}

@@ -82,9 +82,9 @@ type ConfigInstallResult struct {
 	InstalledSkills     []string
 	// InstalledPaths are successful logical publication roots, including
 	// repositories containing nested skills. They are not public display names.
-	InstalledPaths      []string `json:"-"`
-	FailedSkills        []string
-	Failures            []SkillFailure // why each FailedSkills entry failed
+	InstalledPaths []string `json:"-"`
+	FailedSkills   []string
+	Failures       []SkillFailure // why each FailedSkills entry failed
 }
 
 // SkillFailure is one skill that failed to install and the reason.

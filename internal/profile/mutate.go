@@ -15,7 +15,7 @@ type Mutation struct {
 	Description       *string
 
 	AddInclude, RemoveInclude, AddExclude, RemoveExclude []string
-	Skills                                             []string
+	Skills                                               []string
 }
 
 type Change struct {
