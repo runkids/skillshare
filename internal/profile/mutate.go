@@ -81,17 +81,32 @@ func Mutate(node *yaml.Node, active string, m Mutation) (*yaml.Node, Change, err
 				return nil, change, err
 			}
 			skills := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+			if i := nodeIndex(entry, "skills"); i >= 0 && entry.Content[i+1].Kind == yaml.MappingNode {
+				skills = entry.Content[i+1]
+			}
 			for _, field := range []struct {
 				name   string
 				values []string
 			}{{"include", replacement.Include}, {"exclude", replacement.Exclude}} {
 				if field.name == "exclude" && !replacement.ExcludePresent {
+					if i := nodeIndex(skills, field.name); i >= 0 {
+						skills.Content = append(skills.Content[:i], skills.Content[i+2:]...)
+					}
 					continue
 				}
 				list := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
-				for _, value := range field.values {
-					list.Content = append(list.Content, scalar(value))
+				if i := nodeIndex(skills, field.name); i >= 0 {
+					list = skills.Content[i+1]
 				}
+				content := make([]*yaml.Node, 0, len(field.values))
+				for _, value := range field.values {
+					node := scalar(value)
+					if i := slices.IndexFunc(list.Content, func(n *yaml.Node) bool { return n.Value == value }); i >= 0 {
+						node = list.Content[i]
+					}
+					content = append(content, node)
+				}
+				list.Content = content
 				setValue(skills, field.name, list)
 			}
 			setValue(entry, "skills", skills)
