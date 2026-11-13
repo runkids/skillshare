@@ -22,7 +22,8 @@ share these owners; ZIPs expose skills only. Limits are 100 MiB downloaded,
 outside this contract. Archive identity uses the exact metadata types, independent
 of the digest. Plain-skill source edits involving ZIP reset incompatible remote
 baselines through `MetadataEntry.SetSource` while retaining installed file hashes
-and time; inspections without historical content return file statuses. Literal
+and time; archive-to-local source edits require explicit reinstall instead.
+Inspections without historical content return file statuses. Literal
 ZIP dot components are normalized only after raw traversal checks.
 
 ## Repository Map

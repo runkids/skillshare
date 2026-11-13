@@ -151,6 +151,11 @@ func (s *Server) handlePatchSkillSource(w http.ResponseWriter, r *http.Request) 
 		entry = &install.MetadataEntry{}
 	}
 
+	if entry.IsArchive() && parsed.Type == install.SourceTypeLocalPath {
+		writeError(w, http.StatusBadRequest, "Changing a ZIP source to a local path requires reinstalling. Save local edits, then install the local path with the same name and group; use --force only to replace the installed copy.")
+		return
+	}
+
 	// Detect tracked repo by walking up for .git, bounded by storeDir.
 	// This handles both direct tracked repos (IsInRepo=true) and --into repos.
 	repoRoot := findRepoRoot(m.SourcePath, m.StoreDir)

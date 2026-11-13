@@ -98,11 +98,12 @@ func TestArchiveSourceEdits(t *testing.T) {
 		{"zip-member", archive, srv.URL + "/pack.zip#skill=other"},
 		{"zip-git", archive, gitSource},
 		{"zip-local", archive, repo + "/brief"},
+		{"zip-local-project", archive, repo + "/brief"},
 		{"git-zip", gitSource, archive},
 		{"local-zip", repo + "/brief", archive},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			s, src := newUpdateFollowServer(t, tc.name == "zip-member" || tc.name == "local-zip", false)
+			s, src := newUpdateFollowServer(t, tc.name == "zip-member" || tc.name == "local-zip" || tc.name == "zip-local-project", false)
 			addSkill(t, src, "pack")
 			dir := filepath.Join(src, "pack")
 			parsed, err := install.ParseSource(tc.from)
@@ -133,13 +134,48 @@ func TestArchiveSourceEdits(t *testing.T) {
 			if err := s.skillsStore.Save(src); err != nil {
 				t.Fatal(err)
 			}
+			if tc.name == "zip-local" {
+				if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# Mine"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			beforeContent, err := os.ReadFile(filepath.Join(dir, "SKILL.md"))
+			if err != nil {
+				t.Fatal(err)
+			}
 			body, _ := json.Marshal(patchSourceRequest{Source: tc.to})
 			rr := httptest.NewRecorder()
 			s.mux.ServeHTTP(rr, httptest.NewRequest(http.MethodPatch, "/api/resources/pack/source", bytes.NewReader(body)))
+			entry := install.LoadMetadataOrNew(src).Get("pack")
+			if strings.HasPrefix(tc.name, "zip-local") {
+				afterContent, err := os.ReadFile(filepath.Join(dir, "SKILL.md"))
+				if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), "reinstall") || !strings.Contains(rr.Body.String(), "Save") {
+					t.Fatalf("ZIP-to-local refusal/guidance: %d %s", rr.Code, rr.Body)
+				}
+				if err != nil || !bytes.Equal(beforeContent, afterContent) || !reflect.DeepEqual(entry, &before) {
+					t.Fatal("refused source edit changed installed state")
+				}
+				if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# Mine"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				results, err := check.Plan([]check.Skill{{Name: "pack", Entry: entry, Dir: dir}}, "").Run(context.Background(), check.Options{})
+				if err != nil || len(results) != 1 || results[0].Status != "modified" {
+					t.Fatalf("refused source check: %+v %v", results, err)
+				}
+				changes, err := install.LocalChanges(entry, install.ParseOptions{}, dir)
+				if err != nil || len(changes) != 1 || changes[0].Status != "modified" || changes[0].Diff != "" {
+					t.Fatalf("refused source inspection: %+v %v", changes, err)
+				}
+				items := runFollowUpdate(t, s, false, "pack")
+				content, err := os.ReadFile(filepath.Join(dir, "SKILL.md"))
+				if err != nil || string(content) != "# Mine" || len(items) != 1 || items[0].Action != "skipped" {
+					t.Fatalf("refusal lost update protection: %+v %q %v", items, content, err)
+				}
+				return
+			}
 			if rr.Code != http.StatusOK {
 				t.Fatalf("patch: %d %s", rr.Code, rr.Body)
 			}
-			entry := install.LoadMetadataOrNew(src).Get("pack")
 			if tc.name == "same" {
 				if !reflect.DeepEqual(entry, &before) {
 					t.Fatalf("identical edit changed provenance: %+v", entry)
@@ -164,9 +200,7 @@ func TestArchiveSourceEdits(t *testing.T) {
 			if !entry.InstalledAt.Equal(before.InstalledAt) || !reflect.DeepEqual(entry.FileHashes, before.FileHashes) {
 				t.Fatal("source edit reset installed baseline")
 			}
-			if target.Type == install.SourceTypeLocalPath {
-				return
-			}
+
 			if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# Mine"), 0600); err != nil {
 				t.Fatal(err)
 			}
