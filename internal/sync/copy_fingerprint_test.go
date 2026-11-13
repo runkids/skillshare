@@ -46,48 +46,89 @@ func TestCopyFingerprint_OutputAndEdits(t *testing.T) {
 }
 
 func TestCopyFingerprint_LegacyReplay(t *testing.T) {
-	src, dst, m := fingerprintFixture(t)
-	scratch := t.TempDir()
-	t.Setenv("TMPDIR", scratch)
-	if !m.OwnsCopy("repo-demo", dst, CopySource{Path: src, OutputName: "repo-demo"}) {
-		t.Fatal("unchanged legacy rewritten copy not recognized")
-	}
-	entries, err := os.ReadDir(scratch)
-	if err != nil || len(entries) != 0 {
-		t.Fatalf("replay scratch retained: %v, %v", entries, err)
-	}
-	if err := os.WriteFile(filepath.Join(dst, "note"), []byte("edit"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if m.OwnsCopy("repo-demo", dst, CopySource{Path: src, OutputName: "repo-demo"}) {
-		t.Fatal("edited legacy copy recognized as clean")
-	}
-}
-
-func TestCopyFingerprint_LegacyChangedSource(t *testing.T) {
-	src, dst, m := fingerprintFixture(t)
-	if err := os.WriteFile(filepath.Join(src, "new"), []byte("changed"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if m.OwnsCopy("repo-demo", dst, CopySource{Path: src, OutputName: "repo-demo"}) {
-		t.Fatal("legacy copy with changed source recognized as clean")
-	}
-}
-
-func TestCopyFingerprint_LegacyReplayWithCustomIgnore(t *testing.T) {
-	src, dst, m := fingerprintFixture(t)
-	if err := os.WriteFile(filepath.Join(src, "private.tmp"), []byte("ignored"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	ignore := append(DefaultFileIgnorePatterns(), "private.tmp")
-	sum, err := DirChecksumWithIgnore(src, ignore)
-	if err != nil {
-		t.Fatal(err)
-	}
-	m.Managed["repo-demo"] = sum
-	if !m.OwnsCopy("repo-demo", dst, CopySource{Path: src, OutputName: "repo-demo", IgnorePatterns: ignore}) {
-		t.Fatal("legacy replay did not use the copy's ignore patterns")
-	}
+	t.Run("clean_edited_and_scratch_cleanup", func(t *testing.T) {
+		src, dst, m := fingerprintFixture(t)
+		scratch := t.TempDir()
+		t.Setenv("TMPDIR", scratch)
+		if !m.OwnsCopy("repo-demo", dst, CopySource{Path: src, OutputName: "repo-demo"}) {
+			t.Fatal("unchanged legacy rewritten copy not recognized")
+		}
+		entries, err := os.ReadDir(scratch)
+		if err != nil || len(entries) != 0 {
+			t.Fatalf("replay scratch retained: %v, %v", entries, err)
+		}
+		if err := os.WriteFile(filepath.Join(dst, "note"), []byte("edit"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if m.OwnsCopy("repo-demo", dst, CopySource{Path: src, OutputName: "repo-demo"}) {
+			t.Fatal("edited legacy copy recognized as clean")
+		}
+	})
+	t.Run("changed_source", func(t *testing.T) {
+		src, dst, m := fingerprintFixture(t)
+		if err := os.WriteFile(filepath.Join(src, "new"), []byte("changed"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if m.OwnsCopy("repo-demo", dst, CopySource{Path: src, OutputName: "repo-demo"}) {
+			t.Fatal("legacy copy with changed source recognized as clean")
+		}
+	})
+	t.Run("custom_ignore", func(t *testing.T) {
+		src, dst, m := fingerprintFixture(t)
+		if err := os.WriteFile(filepath.Join(src, "private.tmp"), []byte("ignored"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		ignore := append(DefaultFileIgnorePatterns(), "private.tmp")
+		sum, err := DirChecksumWithIgnore(src, ignore)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m.Managed["repo-demo"] = sum
+		if !m.OwnsCopy("repo-demo", dst, CopySource{Path: src, OutputName: "repo-demo", IgnorePatterns: ignore}) {
+			t.Fatal("legacy replay did not use the copy's ignore patterns")
+		}
+	})
+	t.Run("reverted_name", func(t *testing.T) {
+		src, dst, m := fingerprintFixture(t)
+		data, err := os.ReadFile(filepath.Join(src, "SKILL.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dst, "SKILL.md"), data, 0644); err != nil {
+			t.Fatal(err)
+		}
+		if m.OwnsCopy("repo-demo", dst, CopySource{Path: src, OutputName: "repo-demo"}) {
+			t.Fatal("reverted generated name recognized as clean")
+		}
+	})
+	t.Run("replay_failure", func(t *testing.T) {
+		src, dst, m := fingerprintFixture(t)
+		t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "missing"))
+		if m.OwnsCopy("repo-demo", dst, CopySource{Path: src, OutputName: "repo-demo"}) {
+			t.Fatal("copy verified without replay scratch")
+		}
+	})
+	t.Run("plain_noise_and_mode", func(t *testing.T) {
+		src, dst, m := fingerprintFixture(t)
+		if err := os.RemoveAll(dst); err != nil {
+			t.Fatal(err)
+		}
+		if err := copySkillToTarget(src, dst, "", DefaultFileIgnorePatterns()); err != nil {
+			t.Fatal(err)
+		}
+		if !m.OwnsCopy("repo-demo", dst) {
+			t.Fatal("unrewritten legacy copy not recognized")
+		}
+		if err := os.WriteFile(filepath.Join(dst, ".DS_Store"), []byte("noise"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(filepath.Join(dst, "SKILL.md"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if !m.OwnsCopy("repo-demo", dst) {
+			t.Fatal("ignored noise or mode changed ownership")
+		}
+	})
 }
 
 func TestCopyFingerprint_OldManifestRoundTrip(t *testing.T) {
@@ -109,50 +150,6 @@ func TestCopyFingerprint_OldManifestRoundTrip(t *testing.T) {
 	}
 	if m.Managed["new"] != "source" || len(m.Outputs) != 0 {
 		t.Fatalf("legacy manifest round trip: %+v", m)
-	}
-}
-
-func TestCopyFingerprint_LegacyRevertedNameIsEdited(t *testing.T) {
-	src, dst, m := fingerprintFixture(t)
-	data, err := os.ReadFile(filepath.Join(src, "SKILL.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dst, "SKILL.md"), data, 0644); err != nil {
-		t.Fatal(err)
-	}
-	if m.OwnsCopy("repo-demo", dst, CopySource{Path: src, OutputName: "repo-demo"}) {
-		t.Fatal("reverted generated name recognized as clean")
-	}
-}
-
-func TestCopyFingerprint_LegacyReplayFailure(t *testing.T) {
-	src, dst, m := fingerprintFixture(t)
-	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "missing"))
-	if m.OwnsCopy("repo-demo", dst, CopySource{Path: src, OutputName: "repo-demo"}) {
-		t.Fatal("copy verified without replay scratch")
-	}
-}
-
-func TestCopyFingerprint_LegacyPlainAndNoise(t *testing.T) {
-	src, dst, m := fingerprintFixture(t)
-	if err := os.RemoveAll(dst); err != nil {
-		t.Fatal(err)
-	}
-	if err := copySkillToTarget(src, dst, "", DefaultFileIgnorePatterns()); err != nil {
-		t.Fatal(err)
-	}
-	if !m.OwnsCopy("repo-demo", dst) {
-		t.Fatal("unrewritten legacy copy not recognized")
-	}
-	if err := os.WriteFile(filepath.Join(dst, ".DS_Store"), []byte("noise"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chmod(filepath.Join(dst, "SKILL.md"), 0755); err != nil {
-		t.Fatal(err)
-	}
-	if !m.OwnsCopy("repo-demo", dst) {
-		t.Fatal("ignored noise or mode changed ownership")
 	}
 }
 
