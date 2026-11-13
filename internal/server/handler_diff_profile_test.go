@@ -95,3 +95,105 @@ func TestDiffProfileReasons(t *testing.T) {
 		})
 	}
 }
+
+func TestDiffProfileDisambiguation(t *testing.T) {
+	for _, scope := range []string{"global", "project"} {
+		for _, scenario := range []string{"standard/include/collision", "standard/exclude/collision", "prefixed/include/collision", "prefixed/exclude/collision", "standard/include/variant", "standard/exclude/variant", "prefixed/include/variant", "prefixed/exclude/variant"} {
+			t.Run(scope+"/"+scenario, func(t *testing.T) {
+				parts := strings.Split(scenario, "/")
+				naming, filter, mode := parts[0], parts[1], "merge"
+				if naming == "prefixed" {
+					mode = "copy"
+				}
+				target := t.TempDir()
+				t.Setenv("HOME", t.TempDir())
+				for _, key := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR"} {
+					t.Setenv(key, "")
+				}
+				s, source := newTestServerWithTargets(t, map[string]string{"claude": target})
+				path := config.ConfigPath()
+				if scope == "project" {
+					var root string
+					s, root = newProjectTargetServer(t, []config.ProjectTargetEntry{{Name: "claude", Skills: &config.ResourceTargetConfig{Path: target, Mode: mode}}})
+					source, path = s.cfg.Source, config.ProjectConfigPath(root)
+				}
+				selected, rejected, want := "a/review", "b/review", "review"
+				if parts[2] == "variant" {
+					selected, rejected = "_repo/skills/claude/review", "_repo/skills/claude-code/review"
+					if naming == "prefixed" {
+						want = "repo-review"
+					}
+				}
+				for _, rel := range []string{selected, rejected} {
+					addSkill(t, filepath.Join(source, filepath.Dir(rel)), "review")
+				}
+				pattern := strings.ReplaceAll(selected, "/", "__")
+				if filter == "exclude" {
+					pattern = strings.ReplaceAll(rejected, "/", "__")
+				}
+				text := fmt.Sprintf("source: %s\nmode: %s\ntargets:\n  claude:\n    skills:\n      path: %s\n      target_naming: %s\n      %s: [%s]\n", source, mode, target, naming, filter, pattern)
+				if scope == "project" {
+					text = fmt.Sprintf("targets:\n  - name: claude\n    skills:\n      path: %s\n      mode: %s\n      target_naming: %s\n      %s: [%s]\n", target, mode, naming, filter, pattern)
+				}
+				if err := os.WriteFile(path, []byte(text+"profiles:\n  empty:\n    skills:\n      include: []\n"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				if err := s.reloadConfig(); err != nil {
+					t.Fatal(err)
+				}
+				skills, err := ssync.DiscoverSourceSkills(source)
+				if err != nil {
+					t.Fatal(err)
+				}
+				publication := ssync.SyncSkillTarget(ssync.SkillTarget{Name: "claude", Target: s.cloneTargets()["claude"], Mode: mode}, skills, ssync.SkillRunOptions{Source: source})
+				if publication.Err != nil || publication.PruneErr != nil || len(publication.Linked) != 1 || publication.Linked[0] != want {
+					t.Fatalf("managed publication: %+v", publication)
+				}
+				manifest, err := ssync.ReadManifest(target)
+				if err != nil || len(manifest.Managed) != 1 || manifest.Managed[want] == "" {
+					t.Fatalf("expected one real managed target entry: %+v, %v", manifest, err)
+				}
+				statePath, _, err := config.ProfilePaths(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := profile.WriteState(statePath, profile.State{Version: 1, Active: "empty"}); err != nil {
+					t.Fatal(err)
+				}
+				if err := s.reloadConfig(); err != nil {
+					t.Fatal(err)
+				}
+				for _, route := range []string{"/api/diff", "/api/diff/stream"} {
+					t.Run(route, func(t *testing.T) {
+						rr := httptest.NewRecorder()
+						s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, route, nil))
+						payload := rr.Body.String()
+						if strings.HasSuffix(route, "/stream") {
+							payload = ""
+							doneEvents := 0
+							for _, event := range strings.Split(rr.Body.String(), "\n\n") {
+								if strings.HasPrefix(event, "event: done\n") {
+									payload = strings.TrimPrefix(event, "event: done\ndata: ")
+									doneEvents++
+								}
+							}
+							if doneEvents != 1 || !strings.HasPrefix(rr.Header().Get("Content-Type"), "text/event-stream") {
+								t.Fatal("expected one SSE completion", rr.Body.String())
+							}
+						}
+						var out struct {
+							Diffs []diffTarget `json:"diffs"`
+						}
+						if err := json.Unmarshal([]byte(payload), &out); err != nil || rr.Code != http.StatusOK || len(out.Diffs) != 1 || len(out.Diffs[0].Items) != 1 {
+							t.Fatal(rr.Body.String(), err)
+						}
+						item, diff := out.Diffs[0].Items[0], out.Diffs[0]
+						if diff.Target != "claude" || diff.SkippedCount != 0 || diff.CollisionCount != 0 || diff.NamingSkippedCount != 0 || item.Skill != want || item.Action != "prune" || item.Reason != "not in profile empty" {
+							t.Fatalf("filtered managed removal lost identity/action/count/reason: %+v", diff)
+						}
+					})
+				}
+			})
+		}
+	}
+}

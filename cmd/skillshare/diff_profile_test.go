@@ -103,3 +103,88 @@ func TestLabelProfileDeselectedDoesNotCreateActions(t *testing.T) {
 		t.Fatal("diagnostic changed actions/counts or force affordance", r)
 	}
 }
+
+func TestDiffProfileDisambiguation(t *testing.T) {
+	for _, scope := range []string{"global", "project"} {
+		for _, scenario := range []string{"standard/include/collision", "standard/exclude/collision", "prefixed/include/collision", "prefixed/exclude/collision", "standard/include/variant", "standard/exclude/variant", "prefixed/include/variant", "prefixed/exclude/variant"} {
+			t.Run(scope+"/"+scenario, func(t *testing.T) {
+				parts := strings.Split(scenario, "/")
+				naming, filter := parts[0], parts[1]
+				root := t.TempDir()
+				t.Setenv("HOME", root)
+				for _, key := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR"} {
+					t.Setenv(key, "")
+				}
+				t.Setenv("XDG_STATE_HOME", filepath.Join(root, "state"))
+				t.Setenv("XDG_CONFIG_HOME", filepath.Join(root, "config"))
+				source, target := filepath.Join(root, "source"), filepath.Join(root, "target")
+				selected, rejected, want := "a/review", "b/review", "review"
+				if parts[2] == "variant" {
+					selected, rejected = "_repo/skills/claude/review", "_repo/skills/claude-code/review"
+					if naming == "prefixed" {
+						want = "repo-review"
+					}
+				}
+				for _, rel := range []string{selected, rejected} {
+					writeSkill(t, filepath.Join(source, filepath.Dir(rel)), "review")
+				}
+				sc := config.ResourceTargetConfig{Path: target, Mode: "copy", TargetNaming: naming}
+				pattern := strings.ReplaceAll(selected, "/", "__")
+				if filter == "include" {
+					sc.Include = []string{pattern}
+				} else {
+					pattern = strings.ReplaceAll(rejected, "/", "__")
+					sc.Exclude = []string{pattern}
+				}
+				path := filepath.Join(root, "config.yaml")
+				text := fmt.Sprintf("source: %s\nmode: copy\ntargets:\n  claude:\n    skills:\n      path: %s\n      target_naming: %s\n      %s: [%s]\n", source, target, naming, filter, pattern)
+				if scope == "project" {
+					path = config.ProjectConfigPath(root)
+					text = fmt.Sprintf("sources:\n  skills: %s\ntargets:\n  - name: claude\n    skills:\n      path: %s\n      mode: copy\n      target_naming: %s\n      %s: [%s]\n", source, target, naming, filter, pattern)
+				}
+				t.Setenv("SKILLSHARE_CONFIG", path)
+				if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, []byte(text+"profiles:\n  empty:\n    skills:\n      include: []\n"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				skills, err := ssync.DiscoverSourceSkills(source)
+				if err != nil {
+					t.Fatal(err)
+				}
+				publication := ssync.SyncSkillTarget(ssync.SkillTarget{Name: "claude", Target: config.TargetConfig{Skills: &sc}, Mode: "copy"}, skills, ssync.SkillRunOptions{Source: source})
+				if publication.Err != nil || publication.PruneErr != nil || len(publication.Linked) != 1 || publication.Linked[0] != want {
+					t.Fatalf("managed publication: %+v", publication)
+				}
+				manifest, err := ssync.ReadManifest(target)
+				if err != nil || len(manifest.Managed) != 1 || manifest.Managed[want] == "" {
+					t.Fatalf("expected one real managed target entry: %+v, %v", manifest, err)
+				}
+				statePath, _, err := config.ProfilePaths(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := profile.WriteState(statePath, profile.State{Version: 1, Active: "empty"}); err != nil {
+					t.Fatal(err)
+				}
+				var commandErr error
+				output := captureStdout(t, func() {
+					if scope == "project" {
+						commandErr = cmdDiffProject(root, "claude", kindSkills, diffRenderOpts{jsonOutput: true}, time.Now())
+					} else {
+						commandErr = cmdDiffGlobal("claude", kindSkills, diffRenderOpts{jsonOutput: true}, time.Now())
+					}
+				})
+				var out diffJSONOutput
+				if err := json.Unmarshal([]byte(output), &out); err != nil || commandErr != nil || len(out.Targets) != 1 || len(out.Targets[0].Items) != 1 {
+					t.Fatal(output, err, commandErr)
+				}
+				item := out.Targets[0].Items[0]
+				if out.Targets[0].Synced || item.Name != want || item.Action != "remove" || !item.IsSync || item.Reason != "not in profile empty" {
+					t.Fatalf("filtered managed removal lost identity/action/count/reason: %+v", out.Targets[0])
+				}
+			})
+		}
+	}
+}
