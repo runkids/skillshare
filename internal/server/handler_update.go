@@ -489,6 +489,9 @@ func (s *Server) reinstallRegularSkill(name, skillPath, branch string, force, sk
 		Action:  "updated",
 		Message: "reinstalled from source",
 	}
+	if result != nil && result.Action == "skipped" {
+		item.Action, item.Message = "skipped", "already up to date"
+	}
 	if result != nil && result.AuditRiskLabel != "" {
 		item.AuditRiskScore = result.AuditRiskScore
 		item.AuditRiskLabel = result.AuditRiskLabel

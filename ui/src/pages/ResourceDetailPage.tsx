@@ -1005,11 +1005,11 @@ function LocalChanges({ relPath }: { relPath: string }) {
       {data.files.map((f) => (
         <div key={f.path}>
           <p className="mb-1 font-mono text-[12.5px]">{f.path} <span className="text-ink-2">· {status[f.status]}</span></p>
-          <pre className="ss-code !max-h-[40vh] !overflow-auto !whitespace-pre-wrap" style={{ overflowWrap: 'anywhere' }}>
+          {f.diff && <pre className="ss-code !max-h-[40vh] !overflow-auto !whitespace-pre-wrap" style={{ overflowWrap: 'anywhere' }}>
             {f.diff.replace(/\n$/, '').split('\n').map((l, i) => (
               <span key={i} className={l.startsWith('+ ') ? 'add' : l.startsWith('- ') ? 'del' : 'block'}>{l || ' '}</span>
             ))}
-          </pre>
+          </pre>}
         </div>
       ))}
     </div>

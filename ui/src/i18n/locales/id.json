@@ -809,7 +809,7 @@
   "skillEditor.toast.saved": "Disimpan · {name}",
   "skillEditor.toast.descTooLong": "description dan when_to_use berisi {count} karakter. Jaga di bawah {budget}.",
   "skillEditor.sourceLabel": "Source URL",
-  "skillEditor.sourceHint": "Git repository URL used by update. Change this when the skill has moved to a new location.",
+  "skillEditor.sourceHint": "Source URL used by update. Change it when the skill moves.",
   "skillEditor.sourcePlaceholder": "https://github.com/owner/repo",
   "streamProgress.remaining": "~{eta}d tersisa",
   "sync.toast.done": "Sinkronisasi selesai",

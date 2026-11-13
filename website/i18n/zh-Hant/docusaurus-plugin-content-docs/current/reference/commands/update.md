@@ -15,6 +15,10 @@ skillshare update --all              # 更新全部
 skillshare update agents --all       # 更新所有 tracked/可更新的 agents
 ```
 
+### HTTPS ZIP 更新
+
+重新下載記錄的 URL，SHA256 相同時保持檔案、中繼資料和時間戳記不變。位元組改變時，稽核後將原先選取的目錄重新安裝到現有名稱和分組。下載、解壓縮、成員缺失或稽核失敗均保留既有安裝。沿用本機修改保護；即使 ZIP 未變，`--force` 也可還原上游內容。不會搜尋其他版本檔名。
+
 ## 使用時機
 
 - 某個 tracked 儲存庫有新的 commits（透過 `check` 發現）

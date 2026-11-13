@@ -106,6 +106,9 @@ func (s *Server) checkInstallInto(w http.ResponseWriter, into, kind string) bool
 }
 
 func discoverInstallSource(source *install.Source) (*install.DiscoveryResult, error) {
+	if source.Type == install.SourceTypeArchive {
+		return install.DiscoverArchive(source, nil)
+	}
 	if source.IsGit() {
 		if source.HasSubdir() {
 			return install.DiscoverFromGitSubdir(source)

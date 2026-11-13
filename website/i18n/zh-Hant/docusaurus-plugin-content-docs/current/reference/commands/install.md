@@ -8,6 +8,14 @@ sidebar_position: 3
 
 Tracked repo 的 Agent 專屬副本代表較少的邏輯 Skill 時，安裝會顯示 `Found N skills, M variants`。所有實體變體都會保留在 Source；merge/copy Sync 會選擇符合 Agent 的指令。
 
+### HTTPS ZIP
+
+可從 HTTPS `.zip` URL 安裝技能，沿用現有探索、選取（`-s`）、分組（`--into`）、命名（`--name`）和稽核流程。下載上限為 100 MiB，解壓縮總量為 250 MiB，最多 10,000 個項目。拒絕非 HTTPS 重新導向、路徑穿越、絕對路徑、反斜線、符號連結和特殊檔案。
+
+ZIP 預設名稱會正規化為可從設定重新安裝的名稱（例如 `brief-1.0.0` → `brief-1-0-0`），成員路徑維持不變。如果正規化造成名稱衝突，請用 `#skill=<跳脫後的相對路徑>` 選取單一成員。任何深度的 `.git` 檔案和目錄都會被拒絕，不區分大小寫；`.gitignore` 仍受支援。
+
+中繼資料記錄原始 URL（含查詢參數）、ZIP 位元組的 SHA256，以及表示選取目錄的 `#skill=<跳脫後的相對路徑>`；封存根目錄使用 `#skill=.`。專案設定可重新安裝同一選取項目。含私密查詢參數的 URL 應作為私密設定處理。ZIP 僅支援技能，不支援 Git 追蹤或參照、鎖定提交、tar 或新版檔名探索；檔名改變時請安裝新 URL。
+
 ## 總覽
 
 ```mermaid

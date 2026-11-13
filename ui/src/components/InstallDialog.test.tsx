@@ -63,15 +63,21 @@ describe('InstallDialog', () => {
     ));
   });
 
-  it('leaves a skill unselected when it is installed under the source the server records for its host', async () => {
+  it.each([
+    ['https://gitlab.com/team/skills', 'https://gitlab.com/team/skills.git/pdf', 'pdf'],
+    ['https://host/pack.zip?dl=1', 'https://host/pack.zip?dl=1#skill=legal%2Fpdf', 'legal/pdf'],
+    ['https://host/pack.zip?dl=1', 'https://host/pack.zip?dl=1#skill=legal%28v1%29%2Fpdf', 'legal(v1)/pdf'],
+    ['https://host/pack.zip?dl=1', 'https://host/pack.zip?dl=1#skill=.', '.'],
+    ['https://host/pack.zip?dl=1#skill=.', 'https://host/pack.zip?dl=1#skill=legal%2Fpdf', 'legal/pdf'],
+  ])('leaves an installed member unselected for source %s and recorded source %s', async (source, recorded, member) => {
     vi.mocked(api.listSkills).mockResolvedValue({
-      resources: [{ name: 'pdf', kind: 'skill', flatName: 'pdf', relPath: 'pdf', sourcePath: '/s/pdf', isInRepo: false, source: 'https://gitlab.com/team/skills.git/pdf' }],
+      resources: [{ name: 'pdf', kind: 'skill', flatName: 'pdf', relPath: 'pdf', sourcePath: '/s/pdf', isInRepo: false, source: recorded }],
     });
-    vi.mocked(api.discover).mockResolvedValue({ needsSelection: true, skills: [{ name: 'pdf', path: 'pdf' }, { name: 'docx', path: 'docx' }], agents: [] });
+    vi.mocked(api.discover).mockResolvedValue({ needsSelection: true, skills: [{ name: 'pdf', path: member }, { name: 'docx', path: 'docx' }], agents: [] });
     const user = userEvent.setup();
     renderDialog('url');
 
-    await user.type(screen.getByLabelText(/git url/i), 'https://gitlab.com/team/skills');
+    await user.type(screen.getByLabelText(/git url/i), source);
     await user.click(screen.getByRole('button', { name: /find skills/i }));
 
     expect(await screen.findByRole('checkbox', { name: 'pdf' })).not.toBeChecked();

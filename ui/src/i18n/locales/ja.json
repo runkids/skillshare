@@ -809,7 +809,7 @@
   "skillEditor.toast.saved": "保存しました · {name}",
   "skillEditor.toast.descTooLong": "description と when_to_use の合計が {count} 文字です。{budget} 文字以内にしてください。",
   "skillEditor.sourceLabel": "ソース URL",
-  "skillEditor.sourceHint": "更新時に使用する Git リポジトリ URL。skill が新しい場所に移動した場合に変更してください。",
+  "skillEditor.sourceHint": "更新に使うソース URL。skill の移動時に変更してください。",
   "skillEditor.sourcePlaceholder": "https://github.com/owner/repo",
   "streamProgress.remaining": "残り ~{eta} 秒",
   "sync.toast.done": "同期が完了しました",

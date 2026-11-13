@@ -6,6 +6,29 @@ Use when deciding which layer should own a change, tracing CLI or Web API data f
 
 skillshare's source of truth is either the global configuration directory (`~/.config/skillshare/` by default on macOS/Linux) or project-local `.skillshare/` state. The CLI transforms or synchronizes skills, agents, extras, MCP servers, hooks, and plugins into each AI tool's native locations. Never infer runtime behavior from README files or documentation alone; verify the current implementation and embedded configuration.
 
+## HTTPS ZIP Sources
+
+`install.SourceTypeArchive` is recognized before Git-host parsing. Its `Raw`
+source retains the original HTTPS URL, query and optional `#skill=` directory
+selector (`.` identifies the root); Git fields stay empty. `install/archive.go` owns bounded downloads,
+SHA256 and extraction into disposable trees, bounds central-directory records
+before the standard ZIP reader allocates entries, then delegates to local discovery
+and shared audited staging/application. Metadata v1 adds `archive_sha256` alongside
+`Source`/`Subdir` and file hashes. Equal-byte updates skip extraction and state
+writes, unless reinstall was explicit. `check.Resolution` groups archive members
+by fragment-free URL and hashes once per group without extracting. CLI and server
+share these owners; ZIPs expose skills only. Limits are 100 MiB downloaded,
+250 MiB expanded and 10,000 entries. Archive lock pins and historical diffs are
+outside this contract. Archive identity uses the exact metadata types, independent
+of the digest. Plain-skill source edits involving ZIP reset incompatible remote
+baselines through `MetadataEntry.SetSource` while retaining installed file hashes
+and time; archive-to-local source edits require explicit reinstall instead.
+Inspections without historical content return file statuses. Literal
+ZIP dot components are normalized only after raw traversal checks. Extraction
+rejects case-insensitive `.git` components at every depth, including regular gitdir files.
+Archive-only default-name normalization keeps generated declarations valid without
+changing member paths or Git/local naming; newly ambiguous names require a selector.
+
 ## Repository Map
 
 | Path | Responsibility |

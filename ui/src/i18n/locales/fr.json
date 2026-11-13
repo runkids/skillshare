@@ -809,7 +809,7 @@
   "skillEditor.toast.saved": "Enregistré · {name}",
   "skillEditor.toast.descTooLong": "description et when_to_use font {count} caractères. Restez sous {budget}.",
   "skillEditor.sourceLabel": "Source URL",
-  "skillEditor.sourceHint": "Git repository URL used by update. Change this when the skill has moved to a new location.",
+  "skillEditor.sourceHint": "Source URL used by update. Change it when the skill moves.",
   "skillEditor.sourcePlaceholder": "https://github.com/owner/repo",
   "streamProgress.remaining": "~{eta}s restantes",
   "sync.toast.done": "Synchronisation terminée",

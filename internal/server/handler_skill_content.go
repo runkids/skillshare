@@ -151,10 +151,19 @@ func (s *Server) handlePatchSkillSource(w http.ResponseWriter, r *http.Request) 
 		entry = &install.MetadataEntry{}
 	}
 
+	if entry.IsArchive() && parsed.Type == install.SourceTypeLocalPath {
+		writeError(w, http.StatusBadRequest, "Copy the skill and edits to a new folder outside this installation. Install that copy with the same --name, --into if grouped, and --force.")
+		return
+	}
+
 	// Detect tracked repo by walking up for .git, bounded by storeDir.
 	// This handles both direct tracked repos (IsInRepo=true) and --into repos.
 	repoRoot := findRepoRoot(m.SourcePath, m.StoreDir)
 	isTracked := repoRoot != ""
+	if parsed.Type == install.SourceTypeArchive && (m.Kind == "agent" || isTracked) {
+		writeError(w, http.StatusBadRequest, "ZIP sources support skills only, without Git tracking")
+		return
+	}
 
 	// For tracked repos with missing metadata, infer RepoURL from git remote.
 	oldRepoURL := entry.RepoURL
@@ -207,6 +216,9 @@ func (s *Server) handlePatchSkillSource(w http.ResponseWriter, r *http.Request) 
 			entry.RepoURL = newRepoURL
 			updated++
 		}
+	} else if entry.IsArchive() || parsed.Type == install.SourceTypeArchive {
+		entry.SetSource(parsed)
+		updated = 1
 	} else {
 		entry.Source = req.Source
 		entry.RepoURL = newRepoURL
