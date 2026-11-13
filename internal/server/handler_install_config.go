@@ -124,6 +124,7 @@ func (s *Server) handleInstallFromConfig(w http.ResponseWriter, r *http.Request)
 		"scope":            "ui",
 		"installed_skills": result.InstalledSkills,
 		"failed_skills":    result.FailedSkills,
+		"skipped_skills":   result.SkippedSkills,
 	}, msg)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
