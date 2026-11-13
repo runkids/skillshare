@@ -16,6 +16,10 @@ skillshare check --json               # 機械可読な出力
 skillshare check my-skill --diff      # インストール後に Skill へ加えた変更を表示
 ```
 
+### HTTPS ZIP の確認
+
+同じ URL（クエリを含む）を共有する Skill は一度だけダウンロードして SHA256 を比較します。同一なら `up_to_date`、変更ありなら `update_available`、取得失敗なら `error` です。取得成功後、インストール済みファイルの編集は `modified` と表示します。展開やインストール状態の書き込みは行わず、通常の `--json` と `--exit-code` に対応します。過去の ZIP 内容の差分とアーカイブのロック固定には対応しません。
+
 ## 使うタイミング
 
 ### 更新前に

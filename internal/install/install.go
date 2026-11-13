@@ -288,6 +288,9 @@ func (e *TrackKindAmbiguousError) Error() string {
 // the kind explicitly to avoid ambiguous install roots; in that case the
 // returned error is a *TrackKindAmbiguousError carrying the discovered counts.
 func InferTrackedKind(source *Source, explicitKind string) (string, error) {
+	if source.Type == SourceTypeArchive {
+		return "", fmt.Errorf("ZIP sources cannot be tracked")
+	}
 	if err := normalizeTrackSource(source); err != nil {
 		return "", err
 	}

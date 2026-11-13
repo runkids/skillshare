@@ -6,6 +6,20 @@ Use when deciding which layer should own a change, tracing CLI or Web API data f
 
 skillshare's source of truth is either the global configuration directory (`~/.config/skillshare/` by default on macOS/Linux) or project-local `.skillshare/` state. The CLI transforms or synchronizes skills, agents, extras, MCP servers, hooks, and plugins into each AI tool's native locations. Never infer runtime behavior from README files or documentation alone; verify the current implementation and embedded configuration.
 
+## HTTPS ZIP Sources
+
+`install.SourceTypeArchive` is recognized before Git-host parsing. Its `Raw`
+source retains the original HTTPS URL, query and optional `#skill=` directory
+selector; Git fields stay empty. `install/archive.go` owns bounded downloads,
+SHA256 and extraction into disposable trees, then delegates to local discovery
+and shared audited staging/application. Metadata v1 adds `archive_sha256` alongside
+`Source`/`Subdir` and file hashes. Equal-byte updates skip extraction and state
+writes, unless reinstall was explicit. `check.Resolution` groups archive members
+by fragment-free URL and hashes once per group without extracting. CLI and server
+share these owners; ZIPs expose skills only. Limits are 100 MiB downloaded,
+250 MiB expanded and 10,000 entries. Archive lock pins and historical diffs are
+outside this contract.
+
 ## Repository Map
 
 | Path | Responsibility |

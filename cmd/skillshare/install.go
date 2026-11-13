@@ -366,11 +366,14 @@ func resolveInstallSource(sourceArg string, opts install.InstallOptions, cfg *co
 
 // dispatchInstall routes to the appropriate install handler
 func dispatchInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) (installLogSummary, error) {
+	if source.Type == install.SourceTypeArchive && (opts.Track || opts.Branch != "" || opts.IsAgentMode() || opts.HasAgentFilter()) {
+		return installLogSummary{}, fmt.Errorf("ZIP sources support skills only, without Git tracking or refs")
+	}
 	if opts.Track {
 		return handleTrackedRepoInstall(source, cfg, opts)
 	}
 
-	if source.IsGit() {
+	if source.IsGit() || source.Type == install.SourceTypeArchive {
 		return handleGitInstall(source, cfg, opts)
 	}
 

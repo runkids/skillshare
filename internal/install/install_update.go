@@ -190,18 +190,19 @@ func readTempUpdateMeta(tempDir string) *SkillMeta {
 		return nil
 	}
 	return &SkillMeta{
-		Source:      entry.Source,
-		Kind:        entry.Kind,
-		Type:        entry.Type,
-		InstalledAt: entry.InstalledAt,
-		RepoURL:     entry.RepoURL,
-		Subdir:      entry.Subdir,
-		Version:     entry.Version,
-		TreeHash:    entry.TreeHash,
-		FileHashes:  entry.FileHashes,
-		Layout:      entry.Layout,
-		Branch:      entry.Branch,
-		Commit:      entry.Commit,
+		Source:        entry.Source,
+		Kind:          entry.Kind,
+		Type:          entry.Type,
+		InstalledAt:   entry.InstalledAt,
+		RepoURL:       entry.RepoURL,
+		ArchiveSHA256: entry.ArchiveSHA256,
+		Subdir:        entry.Subdir,
+		Version:       entry.Version,
+		TreeHash:      entry.TreeHash,
+		FileHashes:    entry.FileHashes,
+		Layout:        entry.Layout,
+		Branch:        entry.Branch,
+		Commit:        entry.Commit,
 	}
 }
 

@@ -143,7 +143,9 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 
 	// Clone with a spinner; the Source row follows once it is done
 	progressMsg := "Cloning " + sourceLabel(source.Raw) + "..."
-	if source.HasSubdir() && source.GitHubOwner() != "" && source.GitHubRepo() != "" {
+	if source.Type == install.SourceTypeArchive {
+		progressMsg = "Downloading archive..."
+	} else if source.HasSubdir() && source.GitHubOwner() != "" && source.GitHubRepo() != "" {
 		progressMsg = "Downloading via GitHub API..."
 	}
 	treeSpinner := ui.StartTreeSpinner(progressMsg, false)
@@ -155,13 +157,15 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 
 	var discovery *install.DiscoveryResult
 	var err error
-	if source.HasSubdir() {
+	if source.Type == install.SourceTypeArchive {
+		discovery, err = install.DiscoverArchive(source, opts.OnProgress)
+	} else if source.HasSubdir() {
 		discovery, err = install.DiscoverFromGitSubdirWithProgress(source, opts.OnProgress)
 	} else {
 		discovery, err = install.DiscoverFromGitWithProgress(source, opts.OnProgress)
 	}
 	if err != nil {
-		treeSpinner.Fail("Failed to clone")
+		treeSpinner.Fail("Failed to prepare source")
 		return logSummary, err
 	}
 	defer install.CleanupDiscovery(discovery)

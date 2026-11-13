@@ -215,6 +215,9 @@ func mergeSkillSidecar(store *MetadataStore, name, group, sidecarPath string) {
 	if !meta.InstalledAt.IsZero() {
 		entry.InstalledAt = meta.InstalledAt
 	}
+	if meta.ArchiveSHA256 != "" {
+		entry.ArchiveSHA256 = meta.ArchiveSHA256
+	}
 	if meta.RepoURL != "" {
 		entry.RepoURL = meta.RepoURL
 	}
@@ -317,6 +320,9 @@ func mergeAgentSidecar(store *MetadataStore, key, group, sidecarPath string) {
 	}
 	if !meta.InstalledAt.IsZero() {
 		entry.InstalledAt = meta.InstalledAt
+	}
+	if meta.ArchiveSHA256 != "" {
+		entry.ArchiveSHA256 = meta.ArchiveSHA256
 	}
 	if meta.RepoURL != "" {
 		entry.RepoURL = meta.RepoURL

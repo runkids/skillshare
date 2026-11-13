@@ -289,6 +289,8 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 			}
 		} else if updated {
 			result.updated++
+		} else if installRes != nil && installRes.Action == "skipped" {
+			result.upToDate++
 		} else {
 			result.skipped++
 		}

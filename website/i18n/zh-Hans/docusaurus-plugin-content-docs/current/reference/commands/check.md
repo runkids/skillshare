@@ -16,6 +16,10 @@ skillshare check --json               # 机器可读输出
 skillshare check my-skill --diff      # 显示安装后你对 skill 所做的修改
 ```
 
+### HTTPS ZIP 检查
+
+共享同一 URL（含查询参数）的技能只下载并计算一次 SHA256。相同为 `up_to_date`，改变为 `update_available`，下载失败为 `error`。远程检查成功后，本地编辑的技能显示 `modified`。检查不解压、不写入安装状态，沿用 `--json` 和 `--exit-code` 规则。不支持历史 ZIP 内容差异或归档锁定。
+
 ## 何时使用
 
 ### 更新之前

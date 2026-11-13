@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -17,6 +18,13 @@ import (
 // config, so ParseSource must split it back into the same repository and
 // subdirectory (#859).
 func buildDiscoverySkillSource(source *Source, skillPath string) string {
+	if source.Type == SourceTypeArchive {
+		member := source.Subdir
+		if skillPath != "." {
+			member = path.Join(member, skillPath)
+		}
+		return archiveSkillSource(source, member)
+	}
 	if skillPath == "." {
 		return source.Raw
 	}
@@ -222,6 +230,9 @@ func writeDiscoveredAgentMetadata(discovery *DiscoveryResult, agent AgentInfo, d
 }
 
 func installAgentFromDiscoveryInternal(discovery *DiscoveryResult, agent AgentInfo, destFile string, opts InstallOptions, update bool) (*InstallResult, error) {
+	if discovery.Source.Type == SourceTypeArchive {
+		return nil, fmt.Errorf("ZIP sources support skills only")
+	}
 	result := &InstallResult{
 		SkillName: agent.Name,
 		Source:    buildDiscoverySkillSource(discovery.Source, agent.Path),
@@ -324,6 +335,9 @@ func skillsRootFor(destPath string, opts InstallOptions) string {
 func installImpl(source *Source, destPath string, opts InstallOptions) (*InstallResult, error) {
 	opts.ParseOptions.CNBHosts, opts.ParseOptions.GiteaHosts = source.CNBHosts, source.GiteaHosts
 	opts.SourceDir = skillsRootFor(destPath, opts)
+	if source.Type == SourceTypeArchive {
+		return installArchive(source, destPath, opts)
+	}
 
 	result := &InstallResult{
 		SkillName: source.Name,
@@ -505,6 +519,16 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 		Source:    fullSource,
 	}
 
+	// Validate ZIP-only options at the shared application boundary too.
+	if discovery.Source.Type == SourceTypeArchive {
+		if opts.Track || opts.Branch != "" || discovery.Source.Branch != "" || opts.IsAgentMode() || opts.HasAgentFilter() {
+			return nil, fmt.Errorf("ZIP sources support skills only, without Git tracking or refs")
+		}
+		if archiveUnchanged(opts, destPath, fullSource, discovery.Source.ArchiveSHA256) {
+			result.SkillPath, result.Action = destPath, "skipped"
+			return result, nil
+		}
+	}
 	// Check if destination exists
 	stage := false
 	if _, err := os.Stat(destPath); err == nil {
@@ -525,7 +549,7 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 		// audit passes, so a blocked update keeps the previously installed
 		// version on disk (mirrors handleUpdate). Fresh --force installs still
 		// overwrite in place.
-		stage = opts.Update
+		stage = opts.Update || (opts.Force && discovery.Source.Type == SourceTypeArchive)
 		if !opts.DryRun && !stage {
 			if err := removeInSource(opts.SourceDir, destPath, opts.SourceFollow); err != nil {
 				return nil, fmt.Errorf("failed to remove existing skill: %w", err)
@@ -616,23 +640,26 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 
 func writeDiscoveredSkillMetadata(discovery *DiscoveryResult, skill SkillInfo, destPath, sourceDir, fullSource, fullSubdir string, follow ...*sourcewalk.Follow) error {
 	source := &Source{
-		Type:     discovery.Source.Type,
-		Raw:      fullSource,
-		CloneURL: discovery.Source.CloneURL,
-		Subdir:   fullSubdir,
-		Name:     skill.Name,
-		Branch:   discovery.Source.Branch,
-		Commit:   discovery.Source.Commit,
+		Type:          discovery.Source.Type,
+		Raw:           fullSource,
+		CloneURL:      discovery.Source.CloneURL,
+		Subdir:        fullSubdir,
+		Name:          skill.Name,
+		Branch:        discovery.Source.Branch,
+		Commit:        discovery.Source.Commit,
+		ArchiveSHA256: discovery.Source.ArchiveSHA256,
 	}
 	meta := NewMetaFromSource(source)
 	meta.Layout = discoveredLocalLayout(discovery, skill)
 	sourceRoot := discoverySourceRoot(discovery)
 	if discovery.CommitHash != "" {
 		meta.Version = discovery.CommitHash
-	} else if hash, err := getGitCommit(sourceRoot); err == nil {
-		meta.Version = hash
+	} else if discovery.Source.Type != SourceTypeArchive {
+		if hash, err := getGitCommit(sourceRoot); err == nil {
+			meta.Version = hash
+		}
 	}
-	if fullSubdir != "" {
+	if fullSubdir != "" && discovery.Source.Type != SourceTypeArchive {
 		meta.TreeHash = getSubdirTreeHash(sourceRoot, fullSubdir)
 	}
 	if hashes, hashErr := ComputeFileHashes(destPath, follow...); hashErr == nil {

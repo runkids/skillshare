@@ -53,14 +53,15 @@ type MetadataEntry struct {
 	Into    string `json:"into,omitempty"`
 
 	// Meta fields
-	InstalledAt time.Time         `json:"installed_at,omitzero"`
-	RepoURL     string            `json:"repo_url,omitempty"`
-	Subdir      string            `json:"subdir,omitempty"`
-	Version     string            `json:"version,omitempty"`
-	TreeHash    string            `json:"tree_hash,omitempty"`
-	Commit      string            `json:"commit,omitempty"` // full SHA; the lockfile records it
-	FileHashes  map[string]string `json:"file_hashes,omitempty"`
-	Layout      string            `json:"layout,omitempty"` // local installs: LayoutSkillFile or LayoutDirectory
+	InstalledAt   time.Time         `json:"installed_at,omitzero"`
+	ArchiveSHA256 string            `json:"archive_sha256,omitempty"`
+	RepoURL       string            `json:"repo_url,omitempty"`
+	Subdir        string            `json:"subdir,omitempty"`
+	Version       string            `json:"version,omitempty"`
+	TreeHash      string            `json:"tree_hash,omitempty"`
+	Commit        string            `json:"commit,omitempty"` // full SHA; the lockfile records it
+	FileHashes    map[string]string `json:"file_hashes,omitempty"`
+	Layout        string            `json:"layout,omitempty"` // local installs: LayoutSkillFile or LayoutDirectory
 }
 
 // NewMetadataStore returns an empty store with version 1.
@@ -213,7 +214,7 @@ func (s *MetadataStore) MovedEntryKey(sourcePath, relPath, dir string, follow *s
 // entries without recorded hashes and missing directories are never reported;
 // a directory that cannot be hashed is, so update does not overwrite it.
 func (e *MetadataEntry) LocallyModified(dir string, follow ...*sourcewalk.Follow) bool {
-	if e == nil || e.Tracked || e.RepoURL == "" || len(e.FileHashes) == 0 {
+	if e == nil || e.Tracked || (e.RepoURL == "" && e.ArchiveSHA256 == "") || len(e.FileHashes) == 0 {
 		return false
 	}
 	if _, err := os.Stat(dir); err != nil {
@@ -434,19 +435,20 @@ func WriteMetaToStore(sourceDir, destPath string, meta *SkillMeta) error {
 	}
 
 	store.Set(rel, &MetadataEntry{
-		Source:      meta.Source,
-		Kind:        meta.Kind,
-		Type:        meta.Type,
-		Group:       group,
-		InstalledAt: meta.InstalledAt,
-		RepoURL:     meta.RepoURL,
-		Subdir:      meta.Subdir,
-		Version:     meta.Version,
-		TreeHash:    meta.TreeHash,
-		FileHashes:  meta.FileHashes,
-		Layout:      meta.Layout,
-		Branch:      meta.Branch,
-		Commit:      meta.Commit,
+		Source:        meta.Source,
+		Kind:          meta.Kind,
+		Type:          meta.Type,
+		Group:         group,
+		InstalledAt:   meta.InstalledAt,
+		RepoURL:       meta.RepoURL,
+		ArchiveSHA256: meta.ArchiveSHA256,
+		Subdir:        meta.Subdir,
+		Version:       meta.Version,
+		TreeHash:      meta.TreeHash,
+		FileHashes:    meta.FileHashes,
+		Layout:        meta.Layout,
+		Branch:        meta.Branch,
+		Commit:        meta.Commit,
 	})
 	return store.Save(sourceDir)
 }
@@ -574,11 +576,12 @@ func MetadataPath(dir string) string {
 // SetFromSource creates an entry from a Source and stores it. Returns the entry.
 func (s *MetadataStore) SetFromSource(name string, src *Source) *MetadataEntry {
 	entry := &MetadataEntry{
-		Source:      src.Raw,
-		Type:        src.MetaType(),
-		InstalledAt: time.Now(),
-		Branch:      src.Branch,
-		Commit:      src.Commit,
+		Source:        src.Raw,
+		Type:          src.MetaType(),
+		InstalledAt:   time.Now(),
+		Branch:        src.Branch,
+		Commit:        src.Commit,
+		ArchiveSHA256: src.ArchiveSHA256,
 	}
 	if src.IsGit() {
 		entry.RepoURL = src.CloneURL

@@ -15,6 +15,10 @@ skillshare update --all              # Update everything
 skillshare update agents --all       # Update all tracked/updatable agents
 ```
 
+### HTTPS ZIP 更新
+
+重新下载记录的 URL，SHA256 相同时保持文件、元数据和时间戳不变。字节改变时，审计后将原先选择的目录重新安装到现有名称和分组。下载、解压、成员缺失或审计失败均保留已有安装。沿用本地修改保护；即使 ZIP 未变，`--force` 也可恢复上游内容。不会搜索其他版本文件名。
+
 ## 何时使用
 
 - 某个 tracked repository 有新的 commit（可通过 `check` 发现）

@@ -263,6 +263,10 @@ func updateRegularSkill(uc *updateContext, skillName string) (updateResult, erro
 	}
 
 	spinner.Stop()
+	if result.Action == "skipped" {
+		printUpdateRow(ui.MarkOK, skillName, "already up to date", time.Since(startUpdate))
+		return updateResult{upToDate: 1}, nil
+	}
 	printUpdateRow(ui.MarkOK, skillName, from, time.Since(startUpdate))
 	renderInstallWarningsWithResult("", result.Warnings, uc.opts.auditVerbose, result)
 
@@ -328,7 +332,7 @@ func updateSkillFromMeta(uc *updateContext, skillPath string, cachedMeta *instal
 		return false, nil, err
 	}
 
-	return true, result, nil
+	return result.Action != "skipped", result, nil
 }
 
 // renderDiffSummary prints the candidate's file-level changes, before publication.

@@ -79,6 +79,7 @@ const WIDTH: Record<Tab | View, string> = {
 
 function isGitSource(s: string) {
   const v = s.trim();
+  if (/^https?:\/\/[^#?]+\.zip(?:[?#]|$)/i.test(v)) return false;
   if (!v || /^[/~.]/.test(v) || /^[a-zA-Z]:\\/.test(v)) return false;
   return v.includes('/') || v.startsWith('git@') || v.includes('://');
 }
@@ -96,6 +97,14 @@ function sourceKey(source: string): string {
 // with "/", "//" (SSH, file://) or ".git/" (GitLab, Bitbucket), and joined
 // every non-SSH source with "/" before #859.
 function discoveredSources(source: string, path: string): string[] {
+  if (/^https:\/\/[^#?]+\.zip(?:[?#]|$)/i.test(source)) {
+    const [base, fragment = ''] = source.split('#');
+    const selected = new URLSearchParams(fragment).get('skill');
+    const member = path === '.' ? selected : [selected, path].filter(Boolean).join('/');
+    // Match Go's url.QueryEscape, including punctuation encodeURIComponent keeps.
+    const selector = member && encodeURIComponent(member).replace(/[!'()*]/g, ch => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`).replace(/%20/g, '+');
+    return [selector ? `${base}#skill=${selector}` : base];
+  }
   if (path === '.') return [source];
   const repo = source.trim().replace(/\/+$/, '');
   return [`${repo}/${path}`, `${repo}//${path}`, `${repo}.git/${path}`];

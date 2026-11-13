@@ -55,7 +55,15 @@ Pass `--exit-code` to also exit with code `1` when every item could be checked b
 6. **Local skills** — Marks skills without install metadata as "local source" (nothing to compare)
 7. **Skill-level `targets` validation** — Warns about unknown target names in SKILL.md `targets` frontmatter fields
 
-Unlike `update`, `check` never modifies any files.
+HTTPS ZIP skills are checked by downloading and hashing the recorded URL once
+per shared URL, including its query parameters. Identical bytes report
+`up_to_date`; changed bytes report `update_available`; download failures report
+`error`. Locally edited installed files report `modified` after a successful
+remote check. ZIP checks do not extract content or write installed state, and
+these statuses follow the normal `--json` and `--exit-code` rules. Historical
+archive content diffs and archive lock pins are unsupported.
+
+Unlike `update`, `check` never modifies installed files.
 
 ## Local-Path Installs {#local-path-installs}
 
