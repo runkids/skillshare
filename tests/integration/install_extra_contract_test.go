@@ -205,6 +205,17 @@ func TestInstallExtra_DryRunNoWrites(t *testing.T) {
 			if after := projectTree(t, sb.Root); !reflect.DeepEqual(before, after) {
 				t.Fatal("dry run changed sandbox files or directories")
 			}
+			for _, source := range []string{"https://git.example.invalid/org/repo.git//outside", "https://git.example.invalid/org/repo.git/%2Foutside"} {
+				result := sb.RunCLIInDir(cwd, "install", source, "--kind", "extra", "--name", "rules", "--dry-run", "--json", mode)
+				result.AssertFailure(t)
+				var out struct{ Action, Error string }
+				if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil || out.Error == "" || out.Action == "would install" {
+					t.Errorf("unsafe directory dry-run result: %s %v", result.Stdout, err)
+				}
+				if after := projectTree(t, sb.Root); !reflect.DeepEqual(before, after) {
+					t.Fatal("unsafe directory dry run changed sandbox files or directories")
+				}
+			}
 		})
 	}
 }

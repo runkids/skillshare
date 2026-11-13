@@ -59,7 +59,7 @@ func checkSubdirSafety(s string) error {
 			return fmt.Errorf("contains backslash at byte %d", i)
 		}
 	}
-	if filepath.IsAbs(s) {
+	if filepath.IsAbs(s) || strings.HasPrefix(s, "/") {
 		return fmt.Errorf("is absolute path")
 	}
 	for _, seg := range strings.Split(s, "/") {

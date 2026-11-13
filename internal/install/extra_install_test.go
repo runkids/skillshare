@@ -25,7 +25,10 @@ func newRemoteExtraRequest(t *testing.T) RemoteExtraRequest {
 	t.Setenv("XDG_STATE_HOME", filepath.Join(base, "state"))
 	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(base, "config", "config.yaml"))
 	remote, _, _ := setupPinRemote(t)
-	source := &Source{Type: SourceTypeGitHTTPS, Raw: remote, CloneURL: remote}
+	source, err := ParseSource(remote)
+	if err != nil {
+		t.Fatal(err)
+	}
 	config := filepath.Join(base, "config.yaml")
 	if err := os.WriteFile(config, []byte("before"), 0644); err != nil {
 		t.Fatal(err)
@@ -133,7 +136,10 @@ func TestInstallRemoteExtra_InstallAndProtectEdits(t *testing.T) {
 						if err := os.WriteFile(filepath.Join(seed, "rules", "rule.md"), []byte("pinned nested rules\n"), 0644); err != nil {
 							t.Fatal(err)
 						}
-						runGit(t, seed, "add", "rules")
+						if err := os.WriteFile(filepath.Join(seed, ".gitattributes"), []byte("rules/rule.md -text\n"), 0644); err != nil {
+							t.Fatal(err)
+						}
+						runGit(t, seed, "add", "rules", ".gitattributes")
 						runGit(t, seed, "commit", "-m", "nested host selection")
 						want, err := getGitFullHash(seed)
 						if err != nil {
@@ -408,7 +414,11 @@ func TestInstallRemoteExtra_RepairUsesJournalAndRefreshesBaseline(t *testing.T) 
 	}
 	other, _, _ := setupPinRemote(t)
 	req.RawSource = other
-	req.Source = &Source{Type: SourceTypeGitHTTPS, Raw: other, CloneURL: other, Branch: "feature"}
+	req.Source, err = ParseSource(other)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Source.Branch = "feature"
 	req.Branch = "feature"
 	baseline, refreshed := "old", false
 	req.RepairConfig = func(remote, branch string) error {
@@ -792,7 +802,11 @@ func TestInstallRemoteExtra_UnknownAndDifferentOrigin(t *testing.T) {
 	}
 	other, _, _ := setupPinRemote(t)
 	req.RawSource = other
-	req.Source = &Source{Type: SourceTypeGitHTTPS, Raw: other, CloneURL: other}
+	var err error
+	req.Source, err = ParseSource(other)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := InstallRemoteExtra(req); err == nil || !strings.Contains(err.Error(), "different origin") {
 		t.Fatalf("different origin: %v", err)
 	}
@@ -1580,7 +1594,10 @@ func TestInstallRemoteExtra_StaleOriginMetadataMissingVersusLive(t *testing.T) {
 			// from the prior origin; never forge its recorded Source or Commit.
 			other, _, _ := setupPinRemote(t)
 			req.RawSource = other
-			req.Source = &Source{Type: SourceTypeGitHTTPS, Raw: other, CloneURL: other}
+			req.Source, err = ParseSource(other)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if missing {
 				if err := os.RemoveAll(filepath.Join(req.ExtrasRoot, req.Name)); err != nil {
 					t.Fatal(err)

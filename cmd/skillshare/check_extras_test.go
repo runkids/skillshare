@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -56,6 +57,10 @@ func TestStatusDoctorExtras_RemoteMissingAndInterrupted(t *testing.T) {
 	root := t.TempDir()
 	entries := []config.ExtraConfig{{Name: "rules", Remote: "example-org/ai-hub", Branch: "main"}}
 	source := filepath.Join(root, "rules")
+	wantRestore := "--kind extra --name rules --branch main -g"
+	if runtime.GOOS == "windows" {
+		wantRestore = "--kind extra --name 'rules' --branch 'main' -g"
+	}
 	for _, interrupted := range []bool{false, true} {
 		if interrupted {
 			stage := filepath.Join(root, ".skillshare-staging")
@@ -74,7 +79,7 @@ func TestStatusDoctorExtras_RemoteMissingAndInterrupted(t *testing.T) {
 			if interrupted && !strings.Contains(output, "interrupted") {
 				t.Fatal("interruption missing", output)
 			}
-			if !interrupted && !strings.Contains(output, "--kind extra --name rules --branch main -g") {
+			if !interrupted && !strings.Contains(output, wantRestore) {
 				t.Fatal("restore command missing", output)
 			}
 		}

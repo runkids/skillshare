@@ -31,6 +31,9 @@ func TestInstallRemoteExtra_ReportsHiddenAuditCoverage(t *testing.T) {
 	if err := os.WriteFile(file, []byte("SYNTHETIC_HIDDEN_TEXT\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(seed, ".gitattributes"), []byte(".private/note.md -text\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 	runGit(t, seed, "add", ".")
 	runGit(t, seed, "commit", "-m", "hidden text policy fixture")
 	runGit(t, seed, "push", "origin", "HEAD:main")

@@ -12,6 +12,10 @@ func TestInterruptedExtraNames_OnlyDirectSafeArtifacts(t *testing.T) {
 	t.Run("baseline", func(t *testing.T) {
 		root := t.TempDir()
 		stage := filepath.Join(root, extraStagingDir)
+		if runtime.GOOS == "windows" {
+			// Keep the literal incoming-.. decoy; Win32 otherwise trims its dots.
+			stage = `\\?\` + stage
+		}
 		if err := os.MkdirAll(stage, 0755); err != nil {
 			t.Fatal(err)
 		}

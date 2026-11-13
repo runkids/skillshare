@@ -22,6 +22,8 @@ func TestExtraJournal_ResolvedSubdirValidationAndLegacy(t *testing.T) {
 			{name: "known-directory", present: true, subdir: "rules"},
 			{name: "parent-escape", present: true, subdir: "../outside", bad: true},
 			{name: "absolute", present: true, subdir: "/outside", bad: true},
+			{name: "encoded-absolute", present: true, subdir: "%2Foutside", bad: true},
+			{name: "double-encoded-absolute", present: true, subdir: "%252Foutside", bad: true},
 			{name: "encoded-escape", present: true, subdir: "%2e%2e/outside", bad: true},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
