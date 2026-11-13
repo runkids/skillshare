@@ -894,6 +894,7 @@ func diffFingerprint(items []copyDiffEntry) string {
 type actionCategory struct {
 	kind   string // "new", "modified", "restore", "override", "kept", "orphan", "local", "warn"
 	label  string // e.g. "New", "Modified", "Local Override"
+	reason string // preserved explanation, separate from the category heading
 	names  []string
 	expand bool // true = list skill names
 }
@@ -920,7 +921,7 @@ func categorizeItems(items []copyDiffEntry) []actionCategory {
 	for _, item := range items {
 		switch {
 		case item.action == "kept":
-			add("preserved:"+item.reason, "preserved", "Kept: "+item.reason, item.name)
+			add("preserved:"+item.reason, "preserved", "Kept", item.name)
 		case item.reason == "source only" || item.reason == "not in target":
 			add("new", "new", "New", item.name)
 		case item.reason == "deleted from target":
@@ -946,9 +947,14 @@ func categorizeItems(items []copyDiffEntry) []actionCategory {
 	for _, key := range order {
 		b := buckets[key]
 		expand := len(b.names) <= 15
+		reason := ""
+		if b.kind == "preserved" {
+			reason = strings.TrimPrefix(key, "preserved:")
+		}
 		cats = append(cats, actionCategory{
 			kind:   b.kind,
 			label:  b.label,
+			reason: reason,
 			names:  b.names,
 			expand: expand,
 		})
@@ -1221,6 +1227,9 @@ func renderDiffGroup(r targetDiffResult, opts diffRenderOpts, next *diffNext, wi
 
 		if !cat.expand {
 			ui.Row(ui.MarkNone, labels[i], plural(len(cat.names), "item"), width)
+			if cat.reason != "" {
+				ui.Note(cat.reason)
+			}
 			continue
 		}
 		shown := cat.names
@@ -1232,6 +1241,9 @@ func renderDiffGroup(r targetDiffResult, opts diffRenderOpts, next *diffNext, wi
 		}
 		if !opts.showStat && !opts.showPatch && cat.kind != "modified" {
 			ui.Row(ui.MarkNone, labels[i], strings.Join(shown, ", "), width)
+			if cat.reason != "" {
+				ui.Note(cat.reason)
+			}
 			continue
 		}
 		for j, name := range cat.names {
@@ -1266,6 +1278,9 @@ func renderDiffGroup(r targetDiffResult, opts diffRenderOpts, next *diffNext, wi
 					fmt.Println(fileIndent + line)
 				}
 			}
+		}
+		if cat.reason != "" {
+			ui.Note(cat.reason)
 		}
 	}
 

@@ -761,23 +761,34 @@ func (m diffTUIModel) buildDiffDetail() string {
 				b.WriteString("\n")
 			}
 		}
+		if cat.reason != "" {
+			b.WriteString(theme.Dim().Render(strings.TrimPrefix(cat.reason, "kept: ")) + "\n")
+		}
 	}
 
 	// File list + diff content (only shown after Enter toggle)
 	if m.expandedSkill != "" {
+		parent := findDiffItem(m.cachedItems, m.expandedSkill)
+		kept := parent != nil && parent.action == "kept"
 		if len(m.expandedFiles) > 0 {
 			b.WriteString("\n")
-			b.WriteString(theme.Primary().Bold(true).Render(m.expandedSkill + " files"))
+			heading := m.expandedSkill + " files"
+			if kept {
+				heading += " (kept)"
+			}
+			b.WriteString(theme.Primary().Bold(true).Render(heading))
 			b.WriteString("\n")
 			for _, f := range m.expandedFiles {
 				var icon string
 				var style lipgloss.Style
-				switch f.Action {
-				case "add":
+				switch {
+				case kept:
+					icon, style = "·", theme.Dim()
+				case f.Action == "add":
 					icon, style = "+", theme.Success()
-				case "delete":
+				case f.Action == "delete":
 					icon, style = "-", theme.Danger()
-				case "modify":
+				case f.Action == "modify":
 					icon, style = "~", theme.Accent()
 				default:
 					icon, style = "?", theme.Dim()
@@ -823,6 +834,11 @@ func (m diffTUIModel) buildDiffDetail() string {
 			hints = append(hints, "sync --force")
 		case "kept":
 			hints = append(hints, "sync  "+theme.Dim().Render(keptSyncHint))
+		case "preserved":
+			hints = append(hints, "collect  "+theme.Dim().Render("save local edits to source"))
+			if strings.Contains(cat.reason, "--discard-edits") {
+				hints = append(hints, "sync --discard-edits  "+theme.Dim().Render("optional: discard only after verified snapshots"))
+			}
 		case "local":
 			hints = append(hints, "collect")
 		}
