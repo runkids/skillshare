@@ -16,6 +16,8 @@ import (
 func TestArchiveCLISelectionAndNoop(t *testing.T) {
 	var payload bytes.Buffer
 	z := zip.NewWriter(&payload)
+	f, _ := z.Create("SKILL.md")
+	_, _ = f.Write([]byte("# Root"))
 	for _, name := range []string{"one", "two"} {
 		f, _ := z.Create("pack/" + name + "/SKILL.md")
 		_, _ = f.Write([]byte("# " + name))
@@ -56,6 +58,14 @@ func TestArchiveCLISelectionAndNoop(t *testing.T) {
 	if err != nil || result == nil || updated || result.Action != "skipped" {
 		t.Fatalf("no-op counted as update: %v %+v %v", updated, result, err)
 	}
+	rootSource, _ := install.ParseSource(srv.URL + "/pack.zip")
+	if _, err := dispatchInstall(rootSource, cfg, install.InstallOptions{Skills: []string{"pack"}, Into: "legal", SourceDir: root}); err != nil {
+		t.Fatal(err)
+	}
+	rootEntry := install.LoadMetadataOrNew(root).GetByPath("legal/pack")
+	if rootEntry == nil || rootEntry.Source != srv.URL+"/pack.zip#skill=." {
+		t.Fatalf("root selection = %+v", rootEntry)
+	}
 	// Reinstall from portable declarations into fresh global and project roots.
 	for _, project := range []bool{false, true} {
 		fresh := t.TempDir()
@@ -63,19 +73,27 @@ func TestArchiveCLISelectionAndNoop(t *testing.T) {
 		var ctx install.InstallContext
 		if project {
 			ctx = &projectInstallContext{runtime: &projectRuntime{root: fresh, sourcePath: freshSource,
-				config: &config.ProjectConfig{Skills: []config.SkillEntry{{Name: "custom", Group: "legal", Source: entry.Source}}}}}
+				config: &config.ProjectConfig{Skills: []config.SkillEntry{{Name: "custom", Group: "legal", Source: entry.Source}, {Name: "pack", Group: "legal", Source: rootEntry.Source}}}}}
 		} else {
 			declarations := install.NewMetadataStore()
 			declarations.Set("legal/custom", entry)
+			declarations.Set("legal/pack", rootEntry)
 			ctx = &globalInstallContext{cfg: &config.Config{Source: freshSource}, store: declarations}
 		}
 		res, err := install.InstallFromConfig(ctx, install.InstallOptions{Quiet: true})
-		if err != nil || res.Installed != 1 || len(res.FailedSkills) != 0 {
+		if err != nil || res.Installed != 2 || len(res.FailedSkills) != 0 {
 			t.Fatalf("config reinstall project=%v: %+v %v", project, res, err)
 		}
 		content, err := os.ReadFile(filepath.Join(freshSource, "legal", "custom", "SKILL.md"))
 		if err != nil || string(content) != "# two" {
 			t.Fatalf("config lost member: %s %v", content, err)
+		}
+		content, err = os.ReadFile(filepath.Join(freshSource, "legal", "pack", "SKILL.md"))
+		if err != nil || string(content) != "# Root" {
+			t.Fatalf("config lost root: %s %v", content, err)
+		}
+		if _, err := os.Stat(filepath.Join(freshSource, "legal", "pack", "pack")); !os.IsNotExist(err) {
+			t.Fatal("root config reinstall absorbed descendants")
 		}
 	}
 

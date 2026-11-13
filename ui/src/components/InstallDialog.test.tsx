@@ -78,12 +78,12 @@ describe('InstallDialog', () => {
     expect(screen.getByRole('checkbox', { name: 'docx' })).toBeChecked();
   });
 
-  it.each([['legal/pdf', 'legal%2Fpdf'], ['legal(v1)/pdf', 'legal%28v1%29%2Fpdf']])('keeps installed ZIP member %s unselected under its portable selector', async (member, selector) => {
+  it.each([['legal/pdf', 'legal%2Fpdf', ''], ['legal(v1)/pdf', 'legal%28v1%29%2Fpdf', ''], ['.', '.', ''], ['legal/pdf', 'legal%2Fpdf', '#skill=.']])('keeps installed ZIP member %s unselected under its portable selector', async (member, selector, fragment) => {
     vi.mocked(api.listSkills).mockResolvedValue({ resources: [{ name: 'pdf', kind: 'skill', flatName: 'pdf', relPath: 'pdf', sourcePath: '/s/pdf', isInRepo: false, source: `https://host/pack.zip?dl=1#skill=${selector}` }] });
     vi.mocked(api.discover).mockResolvedValue({ needsSelection: true, skills: [{ name: 'pdf', path: member }, { name: 'docx', path: 'legal/docx' }], agents: [] });
     const user = userEvent.setup();
     renderDialog('url');
-    await user.type(screen.getByLabelText(/git url/i), 'https://host/pack.zip?dl=1');
+    await user.type(screen.getByLabelText(/git url/i), `https://host/pack.zip?dl=1${fragment}`);
     await user.click(screen.getByRole('button', { name: /find skills/i }));
     expect(await screen.findByRole('checkbox', { name: 'pdf' })).not.toBeChecked();
     await user.click(screen.getByRole('button', { name: /install 1 skill$/i }));

@@ -61,7 +61,8 @@ per shared URL, including its query parameters. Identical bytes report
 `error`. Locally edited installed files report `modified` after a successful
 remote check. ZIP checks do not extract content or write installed state, and
 these statuses follow the normal `--json` and `--exit-code` rules. Historical
-archive content diffs and archive lock pins are unsupported.
+archive content diffs and archive lock pins are unsupported; `check <name> --diff`
+lists modified, added and deleted ZIP files using recorded hashes.
 
 Unlike `update`, `check` never modifies installed files.
 

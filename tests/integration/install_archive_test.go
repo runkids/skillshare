@@ -61,6 +61,7 @@ func TestArchiveCLIEndToEnd(t *testing.T) {
 			if counts.Updated != 0 || counts.UpToDate != 1 {
 				t.Fatalf("no-op counts = %+v", counts)
 			}
+			run("install", srv.URL+"/pack.zip", "--name", "other", "--into", "legal").AssertSuccess(t)
 			mu.Lock()
 			version = "v2"
 			mu.Unlock()
@@ -75,10 +76,23 @@ func TestArchiveCLIEndToEnd(t *testing.T) {
 				t.Fatal(err)
 			}
 			run("update", "legal/custom", "--json").AssertFailure(t)
-			run("update", "legal/custom", "--json", "--force").AssertSuccess(t)
+			mu.Lock()
+			version = "v3"
+			mu.Unlock()
+			run("update", "--all", "--json").AssertSuccess(t)
 			content, _ = os.ReadFile(file)
-			if string(content) != "# Brief v2" {
-				t.Fatal("force failed to restore unchanged archive")
+			if string(content) != "# Local edit" {
+				t.Fatalf("bulk update overwrote local edits: %s", content)
+			}
+			run("check", "legal/custom", "--diff").AssertOutputContains(t, "modified SKILL.md")
+			other, _ := os.ReadFile(filepath.Join(source, "legal", "other", "SKILL.md"))
+			if string(other) != "# Brief v3" {
+				t.Fatalf("bulk update skipped unmodified member: %s", other)
+			}
+			run("update", "--all", "--json", "--force").AssertSuccess(t)
+			content, _ = os.ReadFile(file)
+			if string(content) != "# Brief v3" {
+				t.Fatal("force failed to restore archive")
 			}
 		})
 	}

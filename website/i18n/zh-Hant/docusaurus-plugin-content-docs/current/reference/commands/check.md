@@ -18,7 +18,7 @@ skillshare check my-skill --diff      # 顯示安裝後你對 skill 所做的修
 
 ### HTTPS ZIP 檢查
 
-共用同一 URL（含查詢參數）的技能只下載並計算一次 SHA256。相同為 `up_to_date`，改變為 `update_available`，下載失敗為 `error`。遠端檢查成功後，本機編輯的技能顯示 `modified`。檢查不解壓縮、不寫入安裝狀態，沿用 `--json` 和 `--exit-code` 規則。不支援歷史 ZIP 內容差異或封存鎖定。
+共用同一 URL（含查詢參數）的技能只下載並計算一次 SHA256。相同為 `up_to_date`，改變為 `update_available`，下載失敗為 `error`。遠端檢查成功後，本機編輯的技能顯示 `modified`。檢查不解壓縮、不寫入安裝狀態，沿用 `--json` 和 `--exit-code` 規則。不支援歷史 ZIP 內容差異或封存鎖定；`check <name> --diff` 使用記錄的雜湊列出修改、新增和刪除的檔案。
 
 ## 使用時機
 

@@ -214,7 +214,7 @@ func (s *MetadataStore) MovedEntryKey(sourcePath, relPath, dir string, follow *s
 // entries without recorded hashes and missing directories are never reported;
 // a directory that cannot be hashed is, so update does not overwrite it.
 func (e *MetadataEntry) LocallyModified(dir string, follow ...*sourcewalk.Follow) bool {
-	if e == nil || e.Tracked || (e.RepoURL == "" && e.ArchiveSHA256 == "") || len(e.FileHashes) == 0 {
+	if !e.hasRemoteFileHashes() {
 		return false
 	}
 	if _, err := os.Stat(dir); err != nil {
@@ -222,6 +222,11 @@ func (e *MetadataEntry) LocallyModified(dir string, follow ...*sourcewalk.Follow
 	}
 	hashes, err := ComputeFileHashes(dir, follow...)
 	return err != nil || !maps.Equal(hashes, e.FileHashes)
+}
+
+// hasRemoteFileHashes is shared by modification detection and inspection.
+func (e *MetadataEntry) hasRemoteFileHashes() bool {
+	return e != nil && !e.Tracked && (e.RepoURL != "" || e.ArchiveSHA256 != "") && len(e.FileHashes) > 0
 }
 
 // MatchesDeclaration reports whether this plain-skill record still installs

@@ -100,7 +100,7 @@ function discoveredSources(source: string, path: string): string[] {
   if (/^https:\/\/[^#?]+\.zip(?:[?#]|$)/i.test(source)) {
     const [base, fragment = ''] = source.split('#');
     const selected = new URLSearchParams(fragment).get('skill');
-    const member = path === '.' ? selected : [selected, path].filter(Boolean).join('/');
+    const member = path === '.' ? (selected || '.') : [selected === '.' ? '' : selected, path].filter(Boolean).join('/');
     // Match Go's url.QueryEscape, including punctuation encodeURIComponent keeps.
     const selector = member && encodeURIComponent(member).replace(/[!'()*]/g, ch => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`).replace(/%20/g, '+');
     return [selector ? `${base}#skill=${selector}` : base];

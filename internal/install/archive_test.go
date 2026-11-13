@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -334,5 +335,161 @@ func TestArchiveDownloadRedactsRedirectQuery(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "fixture-private-query") {
 		t.Fatalf("redirect query leaked: %v", err)
+	}
+}
+
+func TestArchiveRootRoundTrip(t *testing.T) {
+	payload := archiveZIP(t, map[string]string{"SKILL.md": "# Root v1", "child/SKILL.md": "# Child"})
+	srv := archiveServer(t, &payload)
+	src, err := ParseSource(srv.URL + "/pack.zip?download=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := DiscoverArchive(src, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer CleanupDiscovery(d)
+	var root SkillInfo
+	for _, s := range d.Skills {
+		if s.Path == "." {
+			root = s
+		}
+	}
+	if root.Path != "." {
+		t.Fatal("root not discovered")
+	}
+	sourceDir := t.TempDir()
+	dest := filepath.Join(sourceDir, "root")
+	if _, err := InstallFromDiscovery(d, root, dest, InstallOptions{SourceDir: sourceDir}); err != nil {
+		t.Fatal(err)
+	}
+	entry := LoadMetadataOrNew(sourceDir).GetByPath("root")
+	recorded, err := RecordedSource(entry, ParseOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Run("unchanged", func(t *testing.T) {
+		res, err := Install(recorded, dest, InstallOptions{SourceDir: sourceDir, Update: true})
+		if err != nil || res.Action != "skipped" {
+			t.Fatalf("unchanged: %+v %v", res, err)
+		}
+	})
+	t.Run("forced-reinstall", func(t *testing.T) {
+		if _, err := Install(recorded, dest, InstallOptions{SourceDir: sourceDir, Update: true, Reinstall: true}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("fresh-reinstall", func(t *testing.T) {
+		fresh := t.TempDir()
+		if _, err := Install(recorded, filepath.Join(fresh, "root"), InstallOptions{SourceDir: fresh}); err != nil {
+			t.Fatalf("recorded root reinstall failed: %v", err)
+		}
+	})
+	payload = archiveZIP(t, map[string]string{"SKILL.md": "# Root v2", "child/SKILL.md": "# Child"})
+	t.Run("changed-update", func(t *testing.T) {
+		if _, err := Install(recorded, dest, InstallOptions{SourceDir: sourceDir, Update: true, Force: true}); err != nil {
+			t.Fatalf("recorded root update failed: %v", err)
+		}
+		got, _ := os.ReadFile(filepath.Join(dest, "SKILL.md"))
+		if string(got) != "# Root v2" {
+			t.Fatalf("root content %q", got)
+		}
+		if _, err := os.Stat(filepath.Join(dest, "child")); !os.IsNotExist(err) {
+			t.Fatal("root absorbed child")
+		}
+	})
+}
+
+// Rejected metadata must stay bounded before archive/zip materializes File values.
+func TestArchiveEntryLimitBoundsAllocations(t *testing.T) {
+	var b bytes.Buffer
+	z := zip.NewWriter(&b)
+	for i := 0; i < 2000; i++ {
+		if _, err := z.Create(fmt.Sprintf("f%d", i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := z.Close(); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(t.TempDir(), "many.zip")
+	if err := os.WriteFile(file, b.Bytes(), 0600); err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	for _, payload := range [][]byte{b.Bytes(), archiveZIP64(b.Bytes())} {
+		if err := os.WriteFile(file, payload, 0600); err != nil {
+			t.Fatal(err)
+		}
+		allocs := testing.AllocsPerRun(1, func() {
+			if err := extractArchive(file, root, 1<<20, 1); err == nil {
+				t.Fatal("entry limit accepted")
+			}
+		})
+		if allocs > 1000 {
+			t.Fatalf("entry limit allocated %.0f objects before rejecting 2000 records", allocs)
+		}
+	}
+}
+
+// Promote a normal generated fixture to ZIP64 without requiring multi-gigabyte data.
+func archiveZIP64(data []byte) []byte {
+	end := len(data) - 22
+	footer := append([]byte(nil), data[end:]...)
+	record := make([]byte, 76)
+	binary.LittleEndian.PutUint32(record, 0x06064b50)
+	binary.LittleEndian.PutUint64(record[4:], 44)
+	binary.LittleEndian.PutUint64(record[24:], uint64(binary.LittleEndian.Uint16(footer[10:])))
+	binary.LittleEndian.PutUint64(record[32:], uint64(binary.LittleEndian.Uint16(footer[10:])))
+	binary.LittleEndian.PutUint64(record[40:], uint64(binary.LittleEndian.Uint32(footer[12:])))
+	binary.LittleEndian.PutUint64(record[48:], uint64(binary.LittleEndian.Uint32(footer[16:])))
+	binary.LittleEndian.PutUint32(record[56:], 0x07064b50)
+	binary.LittleEndian.PutUint64(record[64:], uint64(end))
+	binary.LittleEndian.PutUint32(record[72:], 1)
+	binary.LittleEndian.PutUint16(footer[8:], 0xffff)
+	binary.LittleEndian.PutUint16(footer[10:], 0xffff)
+	binary.LittleEndian.PutUint32(footer[12:], 0xffffffff)
+	binary.LittleEndian.PutUint32(footer[16:], 0xffffffff)
+	return append(append(append([]byte(nil), data[:end]...), record...), footer...)
+}
+
+func TestArchiveDirectoryPreflight(t *testing.T) {
+	data := archiveZIP64(archiveZIP(t, map[string]string{"SKILL.md": "# Root"}))
+	file := filepath.Join(t.TempDir(), "pack.zip")
+	if err := os.WriteFile(file, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := extractArchive(file, t.TempDir(), 1024, 1); err != nil {
+		t.Fatalf("valid ZIP64: %v", err)
+	}
+	end := len(data) - 22 - 76
+	for _, field := range []int{24, 32, 40, 48, 64} {
+		bad := append([]byte(nil), data...)
+		binary.LittleEndian.PutUint64(bad[end+field:], ^uint64(0))
+		if err := preflightArchive(bytes.NewReader(bad), int64(len(bad)), 10000); err == nil {
+			t.Fatalf("accepted oversized ZIP64 field %d", field)
+		}
+	}
+	// 65,537 central headers with a claimed count of one pass Go's modulo count
+	// comparison. Enforce the actual bound before letting zip.NewReader see them.
+	var central bytes.Buffer
+	var header [47]byte
+	binary.LittleEndian.PutUint32(header[:], 0x02014b50)
+	binary.LittleEndian.PutUint16(header[28:], 1)
+	header[46] = 'x'
+	for i := 0; i < 65537; i++ {
+		central.Write(header[:])
+	}
+	var footer [22]byte
+	binary.LittleEndian.PutUint32(footer[:], 0x06054b50)
+	binary.LittleEndian.PutUint16(footer[8:], 1)
+	binary.LittleEndian.PutUint16(footer[10:], 1)
+	binary.LittleEndian.PutUint32(footer[12:], uint32(central.Len()))
+	central.Write(footer[:])
+	for _, payload := range [][]byte{central.Bytes(), archiveZIP64(central.Bytes())} {
+		if err := preflightArchive(bytes.NewReader(payload), int64(len(payload)), 10000); err == nil || !strings.Contains(err.Error(), "entries") {
+			t.Fatalf("dishonest count bypassed limit: %v", err)
+		}
 	}
 }

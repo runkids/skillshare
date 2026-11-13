@@ -47,6 +47,9 @@ func runCheckDiff(sourceDir string, targets []updateTarget, parseOpts install.Pa
 		ui.Row(ui.MarkWarn, t.name, plural(len(changes), "file")+" changed since install", width)
 		for _, c := range changes {
 			fmt.Println(indent + c.Status + " " + c.Path)
+			if c.Diff == "" {
+				continue
+			}
 			for _, line := range strings.Split(strings.TrimRight(colorizePlainDiff(c.Diff), "\n"), "\n") {
 				fmt.Println(indent + "  " + line)
 			}

@@ -498,7 +498,11 @@ func discoveredSkillSourceParts(discovery *DiscoveryResult, skill SkillInfo) (st
 	// For whole-repo discovery, skill.Path is relative to repo root.
 	if skill.Path == "." {
 		// Root skill of a subdir discovery.
-		return buildDiscoverySkillSource(discovery.Source, skill.Path), discovery.Source.Subdir
+		subdir := discovery.Source.Subdir
+		if discovery.Source.Type == SourceTypeArchive && subdir == "" {
+			subdir = "."
+		}
+		return buildDiscoverySkillSource(discovery.Source, skill.Path), subdir
 	}
 	if discovery.Source.HasSubdir() {
 		// Nested skill within subdir discovery.
@@ -598,7 +602,7 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 	// is the boundary, so sibling files in that subdir are legitimate skill
 	// content and must still be copied.
 	excludes := descendantSkillPaths(discovery, skill)
-	rootIsRepoRoot := skill.Path == "." && discovery.Source != nil && !discovery.Source.HasSubdir()
+	rootIsRepoRoot := skill.Path == "." && discovery.Source != nil && (!discovery.Source.HasSubdir() || discovery.Source.Type == SourceTypeArchive && discovery.Source.Subdir == ".")
 
 	if rootIsRepoRoot && excludes != nil {
 		// Repo-root orchestrator: copy only SKILL.md (no directory boundary).

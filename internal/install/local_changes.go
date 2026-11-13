@@ -18,18 +18,18 @@ import (
 type FileChange struct {
 	Path   string `json:"path"`
 	Status string `json:"status"` // "modified", "added" or "deleted"
-	Diff   string `json:"diff"`   // textdiff.Files from the installed version to the local file
+	Diff   string `json:"diff"`   // textdiff.Files; empty for archives without historical contents
 }
 
-// ErrNoInstallRecord means the skill was not installed from a repository with
-// recorded file hashes, so there is nothing to compare it with.
+// ErrNoInstallRecord means the skill has no remote source with recorded file
+// hashes, so there is nothing to compare it with.
 var ErrNoInstallRecord = errors.New("no install record to compare with")
 
 // LocalChanges lists the files of the skill at dir whose hashes differ from
-// the ones entry recorded, and diffs each against the skill's source checked
-// out at the recorded commit. It fetches only when a recorded file changed.
+// the ones entry recorded. Git sources include text diffs at the recorded
+// commit, fetched only when a recorded file changed; archive diffs stay empty.
 func LocalChanges(entry *MetadataEntry, parseOpts ParseOptions, dir string, follow ...*sourcewalk.Follow) ([]FileChange, error) {
-	if entry == nil || entry.Tracked || entry.RepoURL == "" || len(entry.FileHashes) == 0 {
+	if !entry.hasRemoteFileHashes() {
 		return nil, ErrNoInstallRecord
 	}
 	local, err := ComputeFileHashes(dir, follow...)
@@ -53,6 +53,10 @@ func LocalChanges(entry *MetadataEntry, parseOpts ParseOptions, dir string, foll
 		return nil, nil
 	}
 	sort.Slice(changes, func(i, j int) bool { return changes[i].Path < changes[j].Path })
+	// A ZIP has no historical checkout; its recorded hashes still identify files.
+	if entry.ArchiveSHA256 != "" {
+		return changes, nil
+	}
 
 	// An added file diffs against nothing, so the installed version is only
 	// fetched for files it had.

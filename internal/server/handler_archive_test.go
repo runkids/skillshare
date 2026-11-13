@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -46,5 +48,20 @@ func TestArchiveDashboardRoundTrip(t *testing.T) {
 				t.Fatalf("no-op response = %+v (%s)", results, rr.Body)
 			}
 		}
+		if err := os.WriteFile(filepath.Join(s.skillsSource(), "pack", "SKILL.md"), []byte("# Mine"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		rr := httptest.NewRecorder()
+		s.mux.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/resources/pack/local-changes", nil))
+		var changes struct {
+			Files []struct{ Path, Status, Diff string }
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &changes); err != nil {
+			t.Fatal(err)
+		}
+		if rr.Code != http.StatusOK || len(changes.Files) != 1 || changes.Files[0].Status != "modified" || changes.Files[0].Diff != "" {
+			t.Fatalf("ZIP changes endpoint: %d %s", rr.Code, rr.Body)
+		}
+
 	}
 }

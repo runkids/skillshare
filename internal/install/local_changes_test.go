@@ -124,3 +124,33 @@ func TestInstalledCommit(t *testing.T) {
 		}
 	}
 }
+
+func TestLocalChanges_ArchiveListsHashesWithoutFetching(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"SKILL.md", "removed.md"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("original"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	hashes, err := ComputeFileHashes(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := &MetadataEntry{Source: "https://127.0.0.1:1/missing.zip", ArchiveSHA256: "digest", FileHashes: hashes}
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("edited"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(dir, "removed.md")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "added.md"), []byte("new"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	changes, err := LocalChanges(entry, ParseOptions{}, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(changes) != 3 || changes[0] != (FileChange{Path: "SKILL.md", Status: "modified"}) || changes[1] != (FileChange{Path: "added.md", Status: "added"}) || changes[2] != (FileChange{Path: "removed.md", Status: "deleted"}) {
+		t.Fatalf("hash-only archive changes = %+v", changes)
+	}
+}

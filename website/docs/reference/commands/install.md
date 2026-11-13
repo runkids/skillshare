@@ -67,7 +67,7 @@ in total. Traversal, absolute paths, backslashes, symlinks and special files are
 ZIP sources support skills; Git tracking and branch/ref options are unavailable.
 
 Metadata records the original URL, the downloaded bytes' SHA256 and the selected
-member as `#skill=<escaped-relative-path>` (omitted for the archive root). Query
+member as `#skill=<escaped-relative-path>` (`.` selects the archive root). Query
 parameters are preserved, so treat URLs with private query parameters as private
 configuration. Project declarations can reinstall the same selection on another machine.
 [`check`](./check.md) compares bytes at that URL, and [`update`](./update.md) replaces

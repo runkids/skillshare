@@ -10,8 +10,9 @@ skillshare's source of truth is either the global configuration directory (`~/.c
 
 `install.SourceTypeArchive` is recognized before Git-host parsing. Its `Raw`
 source retains the original HTTPS URL, query and optional `#skill=` directory
-selector; Git fields stay empty. `install/archive.go` owns bounded downloads,
-SHA256 and extraction into disposable trees, then delegates to local discovery
+selector (`.` identifies the root); Git fields stay empty. `install/archive.go` owns bounded downloads,
+SHA256 and extraction into disposable trees, bounds central-directory records
+before the standard ZIP reader allocates entries, then delegates to local discovery
 and shared audited staging/application. Metadata v1 adds `archive_sha256` alongside
 `Source`/`Subdir` and file hashes. Equal-byte updates skip extraction and state
 writes, unless reinstall was explicit. `check.Resolution` groups archive members

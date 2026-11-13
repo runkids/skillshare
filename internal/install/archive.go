@@ -31,13 +31,13 @@ func parseArchiveSource(u *url.URL, source *Source) (*Source, error) {
 			return nil, fmt.Errorf("archive selector must be #skill=<relative-path>")
 		}
 		source.Subdir = values.Get("skill")
-		if err := archiveRelativePath(source.Subdir); err != nil {
+		if err := archiveRelativePath(source.Subdir); err != nil && source.Subdir != "." {
 			return nil, err
 		}
 	}
 	source.Type = SourceTypeArchive
 	source.Name = strings.TrimSuffix(path.Base(u.Path), path.Ext(u.Path))
-	if source.Subdir != "" {
+	if source.Subdir != "" && source.Subdir != "." {
 		source.Name = path.Base(source.Subdir)
 	}
 	if err := validateSourceName(source.Name); err != nil {
@@ -60,8 +60,8 @@ func archiveURL(raw string) string {
 
 func archiveSkillSource(source *Source, member string) string {
 	base := archiveURL(source.Raw)
-	if member == "" || member == "." {
-		return base
+	if member == "" {
+		member = "."
 	}
 	return base + "#skill=" + url.QueryEscape(member)
 }
@@ -131,11 +131,22 @@ func ArchiveHash(raw string) (string, error) {
 }
 
 func extractArchive(file, root string, expandedLimit int64, entryLimit int) error {
-	z, err := zip.OpenReader(file)
+	f, err := os.Open(file)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if err := preflightArchive(f, info.Size(), entryLimit); err != nil {
+		return fmt.Errorf("invalid ZIP: %w", err)
+	}
+	z, err := zip.NewReader(f, info.Size())
 	if err != nil {
 		return fmt.Errorf("invalid ZIP: %w", err)
 	}
-	defer z.Close()
 	if len(z.File) > entryLimit {
 		return fmt.Errorf("ZIP exceeds %d entries", entryLimit)
 	}
@@ -216,14 +227,14 @@ func discoverDownloadedArchive(source *Source, file, digest string) (*DiscoveryR
 	if source.Subdir != "" {
 		local.Path = filepath.Join(root, filepath.FromSlash(source.Subdir))
 	}
-	discovery, err := DiscoverLocal(local)
-	if err != nil {
-		return nil, err
-	}
 	if source.Subdir != "" {
 		if _, err := os.Stat(filepath.Join(local.Path, "SKILL.md")); err != nil {
 			return nil, fmt.Errorf("archive member %q has no SKILL.md", source.Subdir)
 		}
+	}
+	discovery, err := DiscoverLocal(local)
+	if err != nil {
+		return nil, err
 	}
 	source.ArchiveSHA256 = digest
 	discovery.RepoPath, discovery.Source, discovery.Agents = filepath.Dir(file), source, nil
