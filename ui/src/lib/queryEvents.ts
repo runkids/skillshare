@@ -64,6 +64,7 @@ const events = {
   // MCP, hooks and plugins
   mcpChanged: () => keys(k.mcp, k.config),
   mcpSynced: () => keys(k.mcp, k.logAll),
+  mcpToolsAcceptanceAttempted: () => keys(k.logAll, k.logStatsAll),
   mcpRestored: () => keys(k.mcp),
   hooksChanged: () => keys(k.hooks, k.config),
   hooksSynced: () => keys(k.hooks, k.logAll),

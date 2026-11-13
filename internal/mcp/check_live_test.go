@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -29,6 +30,12 @@ func TestMCPLiveHelperServer(t *testing.T) {
 	mode := os.Args[len(os.Args)-1]
 	if marker := os.Getenv("MCP_LIVE_MARKER"); marker != "" {
 		_ = os.WriteFile(marker, []byte("started"), 0600)
+	}
+	if marker := os.Getenv("MCP_LIVE_CWD_MARKER"); marker != "" {
+		dir, err := os.Getwd()
+		if err != nil || os.WriteFile(marker, []byte(dir), 0600) != nil {
+			os.Exit(7)
+		}
 	}
 	if os.Getenv("API_TOKEN") != liveSecret {
 		fmt.Fprintln(os.Stderr, "API_TOKEN was not passed")
@@ -76,15 +83,15 @@ func TestMCPLiveHelperServer(t *testing.T) {
 			reply(msg.ID, map[string]any{"resultType": "complete", "supportedVersions": []string{"2026-07-28"}, "capabilities": map[string]any{"tools": map[string]any{}},
 				"_meta": map[string]any{"io.modelcontextprotocol/serverInfo": map[string]string{"name": "helper", "version": "1.2.3"}}})
 		case mode == "modern" && msg.Method == "tools/list" && msg.Params.Cursor == "":
-			reply(msg.ID, map[string]any{"resultType": "complete", "tools": []map[string]string{{"name": "a"}}, "nextCursor": "page2"})
+			reply(msg.ID, map[string]any{"resultType": "complete", "tools": []map[string]any{{"name": "a", "inputSchema": map[string]any{"type": "object"}}}, "nextCursor": "page2"})
 		case mode == "modern" && msg.Method == "tools/list":
-			reply(msg.ID, map[string]any{"resultType": "complete", "tools": []map[string]string{{"name": "b"}}})
+			reply(msg.ID, map[string]any{"resultType": "complete", "tools": []map[string]any{{"name": "b", "inputSchema": map[string]any{"type": "object"}}}})
 		case msg.Method == "initialize":
 			reply(msg.ID, map[string]any{"protocolVersion": "2025-11-25", "capabilities": map[string]any{"tools": map[string]any{}}, "serverInfo": map[string]string{"name": "legacy", "version": "0.9"}})
 		case msg.Method == "notifications/initialized":
 			initialized = true
 		case msg.Method == "tools/list" && initialized:
-			reply(msg.ID, map[string]any{"tools": []map[string]string{{"name": "a"}, {"name": "b"}, {"name": "c"}}})
+			reply(msg.ID, map[string]any{"tools": []map[string]any{{"name": "a", "inputSchema": map[string]any{"type": "object"}}, {"name": "b", "inputSchema": map[string]any{"type": "object"}}, {"name": "c", "inputSchema": map[string]any{"type": "object"}}}})
 		case mode == "silent":
 			// Some legacy servers never answer a request they do not know.
 		default:
@@ -170,13 +177,13 @@ func TestLiveStdioFallsBackWhenDiscoverIsUnanswered(t *testing.T) {
 	}
 }
 
-func TestLiveStdioExitReportsRedactedStderr(t *testing.T) {
+func TestLiveStdioExitOmitsServerDiagnosticOutput(t *testing.T) {
 	report, err := checkService(t, liveConfig("crash", nil)).Check(liveCheck(10*time.Second, tokenEnv))
 	if err != nil {
 		t.Fatal(err)
 	}
 	_, f := liveOf(t, report)
-	if f.Level != "error" || !strings.Contains(f.Message, "exit status 3") || !strings.Contains(f.Message, "token [redacted] rejected") || report.Summary.Errors != 1 {
+	if f.Level != "error" || !strings.Contains(f.Message, "exit status 3") || !strings.Contains(f.Message, "server diagnostic output omitted") || report.Summary.Errors != 1 {
 		t.Fatalf("finding = %+v", f)
 	}
 	assertNoSecret(t, report)
@@ -265,7 +272,7 @@ func TestLiveHTTPDiscoverJSON(t *testing.T) {
 			t.Errorf("missing protocol version header")
 		}
 		w.Header().Set("Content-Type", "application/json")
-		result := map[string]any{"resultType": "complete", "tools": []any{map[string]string{"name": "x"}}}
+		result := map[string]any{"resultType": "complete", "tools": []any{map[string]any{"name": "x", "inputSchema": map[string]any{"type": "object"}}}}
 		if req.Method == "server/discover" {
 			result = map[string]any{"resultType": "complete", "supportedVersions": []string{"2026-07-28"}, "capabilities": map[string]any{"tools": map[string]any{}},
 				"_meta": map[string]any{"io.modelcontextprotocol/serverInfo": map[string]string{"name": "remote", "version": "2"}}}
@@ -281,7 +288,7 @@ func TestLiveHTTPDiscoverJSON(t *testing.T) {
 func TestLiveHTTPSSEResponse(t *testing.T) {
 	report, f := liveHTTP(t, func(w http.ResponseWriter, r *http.Request) {
 		req := decodeRequest(t, r)
-		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Content-Type", "Text/Event-Stream; charset=utf-8")
 		fmt.Fprint(w, ": keep-alive\n\nevent: message\ndata: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/progress\",\"params\":{}}\n\n")
 		result, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": map[string]any{"supportedVersions": []string{"2026-07-28"}, "capabilities": map[string]any{},
 			"_meta": map[string]any{"io.modelcontextprotocol/serverInfo": map[string]string{"name": "sse", "version": "1"}}}})
@@ -310,7 +317,7 @@ func TestLiveHTTPFallsBackToInitialize(t *testing.T) {
 		case r.Header.Get("MCP-Protocol-Version") != "2025-06-18":
 			http.Error(w, "wrong protocol version", http.StatusBadRequest)
 		default:
-			_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": map[string]any{"tools": []any{map[string]string{"name": "x"}, map[string]string{"name": "y"}}}})
+			_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": map[string]any{"tools": []any{map[string]any{"name": "x", "inputSchema": map[string]any{"type": "object"}}, map[string]any{"name": "y", "inputSchema": map[string]any{"type": "object"}}}}})
 		}
 	})
 	want := CheckLive{ProtocolVersion: "2025-06-18", ServerInfo: LiveServerInfo{Name: "old", Version: "1"}, Tools: 2, ToolNames: []string{"x", "y"}}
@@ -373,5 +380,74 @@ func TestProbeDraftTimesOut(t *testing.T) {
 	got, err := ProbeDraft(Server{URL: ts.URL + "/mcp"}, "", CheckOptions{Timeout: 200 * time.Millisecond})
 	if err != nil || got.ErrorKind != "timeout" {
 		t.Fatalf("got %+v, %v", got, err)
+	}
+}
+
+func TestLiveStdioCanonicalWorkingDirectoryIdentity(t *testing.T) {
+	t.Setenv("MCP_LIVE_HELPER", "1")
+	marker := filepath.Join(t.TempDir(), "cwd")
+	t.Setenv("MCP_LIVE_CWD_MARKER", marker)
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := t.TempDir()
+	first, second, alias := filepath.Join(base, "first"), filepath.Join(base, "second"), filepath.Join(base, "project")
+	for _, dir := range []string{first, second} {
+		if err := os.Mkdir(dir, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(first, alias); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	server := Server{Command: exe, Args: []string{"-test.run=^TestMCPLiveHelperServer$", "--", "modern"}, Env: map[string]Value{"API_TOKEN": {FromEnv: "LIVE_TOKEN"}}}
+	observe := func() (string, string) {
+		t.Helper()
+		p := newLiveProbe(server, alias, 10*time.Second, liveCheck(10*time.Second, tokenEnv))
+		live, err := p.probe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		actual, err := os.ReadFile(marker)
+		if err != nil {
+			t.Fatal(err)
+		}
+		actualDir, err := filepath.EvalSymlinks(string(actual))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if p.dir != actualDir {
+			t.Fatalf("recorded cwd %q differs from launched cwd %q", p.dir, actualDir)
+		}
+		identity, err := toolConnectionIdentity(server, contractObservation{Command: p.resolvedCommand, Dir: p.dir, Live: live, Secrets: p.secrets})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return identity, p.dir
+	}
+	id1, dir1 := observe()
+	if err := os.Remove(alias); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(second, alias); err != nil {
+		t.Fatal(err)
+	}
+	id2, dir2 := observe()
+	if id1 == id2 || dir1 == dir2 {
+		t.Fatal("retargeted cwd retained launch identity")
+	}
+	if err := os.Remove(alias); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(marker); err != nil {
+		t.Fatal(err)
+	}
+	p := newLiveProbe(server, alias, time.Second, liveCheck(time.Second, tokenEnv))
+	if _, err := p.stdio(context.Background()); err == nil || p.resolvedCommand != "" {
+		t.Fatal("unresolvable cwd did not fail before launch")
+	}
+	if _, err := os.Stat(marker); !os.IsNotExist(err) {
+		t.Fatal("unresolvable cwd started server")
 	}
 }

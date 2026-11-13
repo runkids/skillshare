@@ -22,7 +22,8 @@ skillshare mcp list --json
 skillshare mcp check
 skillshare mcp check docs --json --no-dns
 skillshare mcp check --live --timeout 30s
-skillshare mcp check docs --live --accept-tools
+skillshare mcp check docs --live --root "" --json
+skillshare mcp check docs --live --root "" --accept-tools --revision REVIEW_REVISION
 skillshare mcp remove docs --sync
 skillshare mcp remove docs --keep-files
 skillshare mcp restore BACKUP_ID --dry-run
@@ -53,13 +54,15 @@ skillshare sync --all
 | `--no-dns` | With `check`: skip the host lookup of remote servers. See [below](#check-servers-before-an-agent-starts-them) |
 | `--live` | With `check`: also start each local server and call each remote one. See [below](#probe-servers-live) |
 | `--timeout DURATION` | With `check --live`: time limit for each server's probe, such as `30s`; default `10s` |
-| `--accept-tools` | With `check --live`: record the tool definitions each probed server lists as its new baseline. See [below](#pin-tool-definitions) |
+| `--root PATH` | With `check`: select one exact configured `mcp.projects` root; `--root ""` selects this configuration's own server list. Omit to observe all scopes |
+| `--strict-tools` | With `check --live`: untrusted, legacy or changed contracts are errors instead of warnings |
+| `--accept-tools` | With `check --live`: approve one named server at the reviewed `--revision`; select its root when the name occurs in multiple scopes. See [below](#pin-tool-definitions) |
 | `--http ADDR` | With `serve`: listen for Streamable HTTP on `ADDR` instead of using stdio, and also serve the [Executor skill index](#executor). See [below](#serve-skills-over-mcp) |
 | `--http-allow-insecure` | With `serve --http`: allow the bearer token over plain HTTP off loopback on a trusted private network; logs a warning. Default: off |
 | `--tls-cert FILE`, `--tls-key FILE` | With `serve --http`: serve HTTPS with this PEM certificate and key; required off loopback unless explicitly opted out |
 | `--check` | With `serve`: list the skills it would skip and why, how many are editable, and what the Executor index would serve, then exit without serving |
 | `--no-tui` | Disable interactive menus; also disabled by `tui: false`, `--json`, or non-terminal input/output |
-| `--revision ID` | Require a matching preview for add/import/remove or `sync mcp` |
+| `--revision ID` | Require a matching preview for add/import/remove or `sync mcp`; with `check --live --accept-tools`, require the exact `contract.revision` from the live review |
 | `--global`, `-g` | Use global Skillshare configuration |
 | `--project`, `-p` | Use project Skillshare configuration |
 
@@ -706,7 +709,11 @@ HTTP request, runs a command or writes a file, unless you add [`--live`](#probe-
 Variable values are never printed. The command exits with 1 when any error is found
 and 0 otherwise; warnings never fail it. An unknown server name is an error that
 lists the known names. A name selects every server of that name, globally and in
-each project, and the known names include project servers.
+each project, and the known names include project servers. Use `--root ""` for this
+configuration's own list, or `--root /absolute/configured/project` for exactly that
+`mcp.projects` root. Omission observes all scopes; a nonempty root must match a
+configured root exactly. `-p` still selects a project configuration, not a root in
+the global configuration.
 
 In the terminal, a project server's heading names its project:
 
@@ -745,7 +752,7 @@ With `--json`, the report has this shape:
 ```
 
 `check` is one of `env`, `command`, `pin`, `url`, `dns`, `client-rule`, `sync`, `targets`,
-`tools`, `tool-change` or `live`.
+`tools`, `tool-change`, `tool-audit` or `live`.
 `target` names the Agent or account, and is empty when the finding is about the
 server itself.
 `subject` names the variable, command, package, image or host for `env`, `command`,
@@ -767,104 +774,156 @@ the terminal that started `skillshare ui`.
 
 ```bash
 skillshare mcp check --live
-skillshare mcp check docs --live --timeout 30s --json
+skillshare mcp check docs --live --root "" --timeout 30s --json
+skillshare mcp check docs --live --root /absolute/configured/project --json
 ```
 
-`--live` runs the static checks first, then contacts each selected server that has no
-error. A server with an error, or a disabled entry, is not contacted; an `info` finding
-says why.
+`--live` runs the static checks first, then contacts each selected server without a
+static error. Disabled entries and servers with static errors are skipped.
 
-- **Local (stdio) servers.** Skillshare starts `command` with `args` in your current
-  environment, plus the server's `env` with each `fromEnv` value read from your shell.
-  A project server starts in its project folder, a global server in the current
-  directory. This runs the server's code on your machine as an Agent would, so use
-  `--live` only for servers you trust. Skillshare sends `server/discover`. A server that
-  answers with an error that is not an MCP protocol error, or does not answer within a
-  third of the timeout, is treated as older than MCP 2026-07-28 and gets the
-  `initialize` handshake instead. Skillshare then calls `tools/list` to count the tools
-  and stops the server: it closes stdin, then sends SIGTERM and then SIGKILL to the
-  server's process group. On Windows it terminates the process.
-- **Remote (Streamable HTTP) servers.** Skillshare POSTs `server/discover` with the
-  server's `headers` and `bearerToken`, and reads a JSON or an SSE response. A `400`,
-  `404` or `405` without an MCP error falls back to `initialize`. A `401` is a warning,
-  "sign-in required", with the resource metadata URL from the `WWW-Authenticate`
-  header. Skillshare never signs in or starts OAuth.
+- **Local (stdio).** Skillshare directly executes the configured command and literal
+  argument list, with your environment plus the declared `env`. It resolves the actual
+  executable and starts in the project's root, or the current directory for a global
+  server. This runs the server's code: request a live probe only for a server you intend
+  to execute. Skillshare sends `server/discover`, falling back to `initialize` for a
+  supported legacy response or discovery timeout, then lists tools. It closes stdin
+  and terminates the probe process group (the process on Windows) afterwards.
+- **Remote (Streamable HTTP).** Skillshare POSTs to the configured endpoint with its
+  headers and bearer token and reads JSON or SSE. Supported legacy responses fall back
+  to `initialize`. Redirects are refused. HTTP 401 produces a sign-in warning;
+  Skillshare never signs in or fetches the resource metadata URL.
 
-Each server has one time limit for its whole probe: 10 seconds, or `--timeout` (such as
-`30s` or `1m`). Up to four servers are probed at once. `--timeout` without `--live` is
-an error.
+The whole probe has one timeout per server: 10 seconds by default, or `--timeout 30s`
+(for example). At most four servers are probed concurrently. `--timeout` requires
+`--live`. JSON-RPC version, response ID and result/error shape must be valid;
+duplicate decoded keys and ambiguous responses are rejected. URLs in tool metadata,
+icons and schemas are never fetched.
+
+A complete inventory may contain at most 50 pages, 4,096 tools, 4 MiB of raw descriptor
+bytes and 4 MiB of canonical descriptor bytes, 256 KiB per tool and 64 JSON nesting
+levels. A remaining cursor at page 50, a repeated cursor, duplicate tool names,
+malformed descriptors or an exceeded bound fails the probe; a prefix is never accepted.
 
 | Result | Level |
 |---|---|
-| The server answered: its name and version, protocol version and number of tools | info |
-| A remote server needs sign-in (HTTP 401) | warning |
-| The command could not start, exited early, or did not answer in time | error |
-| A protocol error, an unsupported protocol version, or any other HTTP status | error |
-| First successful probe of a server: its tool definitions are pinned | info |
-| A tool's description or input schema differs from the pin, or the server lists a tool that was not pinned | warning |
-| A pinned tool is no longer listed | info |
+| Server answered: reported identity, protocol and tool count | info |
+| HTTP 401 requires sign-in | warning |
+| No approved baseline, legacy hashes, changed inventory or connection identity | warning; error with `--strict-tools` |
+| Tool text matches an audit rule | warning; review the finding |
+| Invalid/unreadable store, failed/incomplete probe or audit, refused/stale acceptance, failed baseline write | error |
 
-When a local server fails, the message ends with up to five lines of its stderr. The
-values of `env`, `headers` and `bearerToken` are removed from every message; values
-shorter than four characters are left as they are. Values are passed as written:
-Skillshare never runs a Pi `!command` value and does not read `piOptions`. The exit
-code follows the same rule, 1 when any error is found. `--live` writes no config file
-and no operation log entry; it keeps only the [tool pins](#pin-tool-definitions) in the
-state directory.
+The CLI exits 1 on errors and 0 otherwise; warnings do not fail it. `--strict-tools`
+requires `--live` and provides a check gate, with no call-time blocking.
+Stderr payloads from failed local commands are omitted. When stderr contains diagnostic
+text, the report appends `server diagnostic output omitted`. Recognized configured
+credentials, including short values, are redacted from other diagnostics. Tool metadata
+or connection identity material containing a recognized credential is refused before
+hashes or review revisions are exposed. This does not detect arbitrary secrets absent
+from configuration.
 
-With `--json`, a server that answered also gets a `live` object:
+A successful `--json` observation includes `live: {protocolVersion, serverInfo, tools,
+toolNames}` and `contract`. The endpoint's `serverInfo` is self-reported. `contract`
+contains `status`, `policy`, the review `revision` when available, full `tools`,
+`identityChanged`, directional `changes`, audit findings and any `omitted` change count.
+Each CLI tool entry has `hash`, `inputHash`, `proseHash`, `outputHash`, `metadataHash`
+and the full canonical JSON `definition`. Review full definitions when summaries are
+omitted. Ordinary observations write no configuration, baseline or operation log.
 
-```json
-{
-  "name": "docs",
-  "ok": true,
-  "findings": [
-    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s)", "subject": "docs-server" }
-  ],
-  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12 }
-}
-```
+### Review and approve tool contracts {#pin-tool-definitions}
 
-`serverInfo` is what the server says about itself; nothing verifies it. `live` is
-omitted when the server was not probed or the probe failed.
+A first probe is **untrusted** and never writes a baseline. Old version-1 hashes remain
+**legacy** evidence until explicitly reviewed. Subsequent probes compare complete
+contracts and connection identity with an approved baseline; drift keeps that baseline
+unchanged. `add`, `sync`, ordinary checks and API GETs never approve tools.
 
-The dashboard's **Check** button runs the static check only. The dashboard probes a
-server in one place: **Load tools** in the server dialog's
-[Tools section](#tool-policy-dashboard), which starts the server once, as the dialog's
-fields describe it, to list its tools. With `--json`, `live` also holds `toolNames`, the names `tools/list` returned.
+1. Select a server and scope, then inspect its complete live report:
 
-### Pin tool definitions {#pin-tool-definitions}
+   ```bash
+   skillshare mcp check docs --live --root "" --json
+   ```
 
-A server can change what a tool says or accepts after you reviewed it, which an Agent
-then follows without asking. `--live` therefore pins each tool the first time a server
-answers, and compares every later probe with the pin.
+2. Review every snapshot, identity change, directional change and audit finding.
+   Copy that server's `contract.revision`, then explicitly approve it:
 
-- **What is pinned.** One SHA-256 hash per tool over its `name`, `description` and
-  `inputSchema`, computed from canonical JSON: key order and whitespace do not matter.
-  The hashes are stored by scope (global, the `mcp.projects` root, or the project that
-  `-p` selects) and server name in `mcp/tool-pins.json` in the Skillshare state
-  directory, next to `state.json`. No description or schema text is stored.
-- **First probe.** The baseline is recorded and one `info` finding with check `tool-change`
-  says so. No warning.
-- **Later probes.** A tool whose description or input schema changed, and a tool that is
-  new since the pin, each get a `warning` named `tool-change` that lists the tool names. A
-  tool that is no longer listed is an `info`. The baseline stays as it was, so the same
-  warning appears until you accept it. Warnings do not make the exit code 1.
-- **Accept.** Review the tools, then run `skillshare mcp check docs --live --accept-tools`.
-  Every selected server that was probed records what it listed now as its baseline, and
-  an `info` finding lists the tools that changed, were added or removed. `--accept-tools`
-  without `--live` is an error. Each acceptance is recorded in the operations log
-  (`skillshare log`) with the servers it accepted. A name selects that server globally and in each
-  `mcp.projects` root, and each of them is accepted, so review every one the report lists.
-  An unreadable `tool-pins.json` (or one a newer version wrote) is a warning on each probed
-  server and is never rewritten, not even by `--accept-tools`, since it may hold other
-  servers' pins: move it away to pin again.
+   ```bash
+   skillshare mcp check docs --live --root "" --accept-tools --revision REVIEW_REVISION
+   ```
 
-Without `--live` the pins are neither read nor written. A server you edit (another
-command, another URL), or remove and add again, keeps its pins under the same name:
-accept the new definitions once if its tools legitimately differ.
-`GET /api/mcp/check?live=1` (the endpoint behind the dashboard's **Check** button, which
-does not send `live`) also pins and compares, but cannot accept.
+   Replace `REVIEW_REVISION` with the returned 64-character lowercase hexadecimal
+   revision. Use the same root and project/global configuration as the review.
+
+Acceptance requires one explicit name, `--live` and `--revision`. If the name occurs
+in multiple scopes, select exactly one root. Acceptance probes again and checks the
+exact current inventory, connection identity and pre-probe baseline revision. Under
+the operation lock it rechecks the source and saved bytes before an atomic write.
+A stale review requires a new probe and review; it never accepts a fresh unseen inventory.
+Only a persisted acceptance (or a verified unchanged no-op) is reported as accepted.
+Explicit CLI/API approval attempts are recorded in `operations.log` (`skillshare log`)
+with their outcome. A separate `mcp contract review` entry in `audit.log`
+(`skillshare log --audit`) contains only server/tool/audit-finding counts, the accepted
+outcome and standard log metadata. That audit entry excludes server names, contract
+text, revisions, diagnostic payloads and credentials. Log writes are best effort;
+a logging failure does not undo a persisted approval.
+
+Baseline trust requires **every env/header declaration to use `fromEnv`**, including
+non-secret literals; a bearer token must also use `fromEnv`. Ordinary literal
+configuration remains valid for management, but cannot receive baseline approval.
+Resolved credential values are never included in the identity hash or baseline.
+
+The native hash policy is `skillshare-contract-v2`: object keys and whitespace are
+normalized, JSON numeric lexemes and **all array order** are preserved. Thus `1`,
+`1.0` and `1e0` can produce different hashes. `inputSchema` is a required JSON object;
+a missing description becomes empty. Omitted annotation hints default to
+`readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: false` and
+`openWorldHint: true`. All top-level fields are covered, including output schema,
+title, icons, `_meta` and unknown fields. Split hashes separate input, prose, output
+and metadata as well as the whole contract. This is a Skillshare profile, without
+RFC 8785 or RugSnare PIN-SPEC interoperability guarantees.
+
+Changes use `BREAKING`, `LOOSENED`, `EXPANDED`, `DESCRIPTION`, `NOTATION`, `METADATA`
+and `UNKNOWN` grades. These are conservative review aids, not full schema implication
+proofs. Unsupported or uncertain mixed changes are `UNKNOWN`. Description and schema
+prose changes still require review. The existing audit engine scans decoded keys and
+text, including nested descriptions, without tutorial suppression. Its budgets are
+4,096 strings/keys, 1 MiB of text, 8,192 visual lines and 200 findings; incomplete
+analysis prevents acceptance. A clean audit does not prove safety.
+
+The private `mcp/tool-pins.json` state file (0600) stores complete canonical snapshots
+and hashes, with a 16 MiB limit. Version-2 records bind canonical configuration/source
+identity, root and name, the complete server declarations (including tool policy and
+native options), the actual stdio executable and working directory, and observed
+protocol/server identity. HTTP identity does not include an irrelevant working directory.
+Version-1 hashes are retained as evidence. An unreadable, corrupt or newer-format store
+is an error and is preserved. Inspect it or restore a valid backup; do not delete or move
+trust state to bypass a failure.
+
+This is a point-in-time review of advertised contracts. It does not attest executable
+bytes, ambient environment or referenced value changes, detect malicious implementation
+behind unchanged contracts, or quarantine/block native-client calls. The store in this
+slice is unsigned and does not authenticate local edits. Signing is a separate planned
+slice and is not available through these commands.
+
+### Dashboard and API review {#contract-review-dashboard}
+
+**Check** in the MCP Sync box remains static. **Review live tools** opens a confirmation
+dialog without starting servers. Only **Probe live tools** starts the selected scope's
+servers or sends remote requests. The dialog shows identity changes, directional grades,
+audit findings and expandable full snapshots as inert text; metadata links and icons
+are not activated. **Load tools** in the server editor remains a separate draft probe
+that saves no trust.
+
+**Trust this inventory** approves one server using its exact root and returned revision.
+A stale or failed approval requires a new live review. After an approval, probe again
+before approving another server because the baseline store revision has changed.
+
+`GET /api/mcp/check?live=1&root=` observes this configuration's own list and never writes
+trust. Omitting `root` observes all scopes; a nonempty `root` selects an exact configured
+`mcp.projects` root. `POST /api/mcp/check` explicitly approves `{name, root, revision}`
+through the existing local MCP protection. A typed persisted outcome returns HTTP 200
+with `{accepted: true, report}`; stale review returns 409 and other acceptance refusal
+422. Malformed requests return 400. API tool snapshots use the exact `definitionText`
+string to preserve numeric lexemes across JavaScript; the raw `definition` object is
+for CLI/store use only.
 
 ## Stop managing a server {#stop-managing-a-server}
 

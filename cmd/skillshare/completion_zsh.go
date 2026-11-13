@@ -120,6 +120,8 @@ _skillshare() {
                         '--json[JSON output]' \
                         '--no-dns[Skip host lookups]' \
                         '--live[check: start or call each server]' \
+                        '--strict-tools[check --live: fail on untrusted or changed contracts]' \
+                        '--root[check: exact project root, empty for global]:root:_files -/' \
                         '--accept-tools[check --live: accept the tools a server lists as the new baseline]' \
                         '--timeout[check --live: per-server timeout]:duration:' \
                         '--http[serve: Streamable HTTP listen address]:address:' \

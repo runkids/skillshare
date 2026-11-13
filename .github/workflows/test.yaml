@@ -65,6 +65,12 @@ jobs:
         env:
           SKILLSHARE_TEST_BINARY: ${{ github.workspace }}/bin/skillshare
 
+      - name: MCP contract properties (latest Hegel, test-only module)
+        working-directory: tests/property
+        run: |
+          go get hegel.dev/go/hegel@latest
+          go test -mod=mod -count=1 -timeout 5m ./...
+
   integration-test:
     if: *not-release-duplicate
     runs-on: ${{ matrix.os }}

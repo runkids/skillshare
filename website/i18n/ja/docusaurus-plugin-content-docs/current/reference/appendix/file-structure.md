@@ -64,7 +64,7 @@ skillshare のディレクトリレイアウトとファイルの場所です。
 │   └── audit.log            # Security audit scans
 ├── mcp/                     # MCP sync state (auto-managed)
 │   ├── state.json           # Which native entries Skillshare owns
-│   ├── tool-pins.json       # Tool definition hashes recorded by mcp check --live
+│   ├── tool-pins.json       # mcp check --live の全ツール契約と信頼情報（機密情報を含む場合あり）
 │   └── backups/             # Agent files before each write (newest 20 per file)
 └── plugins/                 # Reviewed local copies of plugin sources
 

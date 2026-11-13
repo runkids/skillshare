@@ -36,6 +36,8 @@ type CheckServer struct {
 	Findings []CheckFinding `json:"findings"`
 	// Live is what the server reported about itself; only CheckOptions.Live probes it.
 	Live *CheckLive `json:"live,omitempty"`
+	// Contract is the complete live inventory and its explicit review state.
+	Contract *ContractReview `json:"contract,omitempty"`
 }
 
 type CheckSummary struct {
@@ -45,18 +47,25 @@ type CheckSummary struct {
 
 // CheckReport answers, per server, whether it will work as synced.
 type CheckReport struct {
-	SourcePath string        `json:"-"`
-	Servers    []CheckServer `json:"servers"`
-	Summary    CheckSummary  `json:"summary"`
+	SourcePath      string          `json:"-"`
+	Servers         []CheckServer   `json:"servers"`
+	Summary         CheckSummary    `json:"summary"`
+	ToolsAcceptance ToolsAcceptance `json:"toolsAcceptance,omitempty"`
 }
 
 // CheckOptions selects servers and supplies the lookups, which tests replace.
 type CheckOptions struct {
-	Names      []string
-	SkipDNS    bool
-	LookupEnv  func(string) (string, bool)
-	LookPath   func(string) (string, error)
-	LookupHost func(context.Context, string) ([]string, error)
+	// knownSecrets is resolved once across this source and never serialized.
+	knownSecrets []string
+	// Root nil selects all scopes; an empty root selects only this config's server list.
+	Root        *string
+	Revision    string
+	StrictTools bool
+	Names       []string
+	SkipDNS     bool
+	LookupEnv   func(string) (string, bool)
+	LookPath    func(string) (string, error)
+	LookupHost  func(context.Context, string) ([]string, error)
 	// Live starts each stdio server and sends requests to each remote one, after the
 	// static checks; nothing else in a check does either.
 	Live bool
@@ -76,6 +85,9 @@ const dnsTimeout = 3 * time.Second
 // starting them or sending requests: referenced variables are set, commands resolve, hosts
 // resolve, and the plan has each entry in sync. Only opts.Live then probes the servers.
 func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
+	if err := validateToolCheckOptions(opts); err != nil {
+		return nil, err
+	}
 	if opts.LookupEnv == nil {
 		opts.LookupEnv = os.LookupEnv
 	}
@@ -89,6 +101,10 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Resolve only declared references, before any diagnostic can include a
+	// configured label, command or hostname. Never inspect provider accounts.
+	opts.knownSecrets = sourceLiveSecrets(source, opts)
+	redactor := &liveProbe{secrets: opts.knownSecrets}
 	// Every server the plan covers: the global list, then each mcp.projects root.
 	var all []checkKey
 	for _, name := range sortedKeys(source.Servers) {
@@ -99,12 +115,28 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 			all = append(all, checkKey{root: root, name: name})
 		}
 	}
-	selected := all
+	// An explicit root filters selection, but all client rules still cover the plan.
+	scoped := all
+	if opts.Root != nil {
+		root := *opts.Root
+		if root != "" {
+			if _, ok := source.Projects[root]; !ok {
+				return nil, fmt.Errorf("unknown MCP project root")
+			}
+		}
+		scoped = nil
+		for _, k := range all {
+			if k.root == root {
+				scoped = append(scoped, k)
+			}
+		}
+	}
+	selected := scoped
 	if len(opts.Names) > 0 {
 		selected = nil
 		for _, name := range opts.Names {
 			found := false
-			for _, k := range all {
+			for _, k := range scoped {
 				if k.name == name {
 					found = true
 					if !slices.Contains(selected, k) {
@@ -113,11 +145,14 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 				}
 			}
 			if !found {
-				return nil, fmt.Errorf("unknown MCP server %q; known servers: %s", name, knownNames(all))
+				return nil, errors.New(redactor.redact(fmt.Sprintf("unknown MCP server %q; known servers: %s", name, knownNames(scoped))))
 			}
 		}
 	}
-	report := &CheckReport{SourcePath: source.Path, Servers: []CheckServer{}}
+	if opts.AcceptTools && len(selected) != 1 {
+		return nil, fmt.Errorf("accepting tool contracts requires exactly one selected server; select its root explicitly")
+	}
+	report := &CheckReport{SourcePath: redactor.redact(source.Path), Servers: []CheckServer{}}
 	// Every server's client rules count, selected or not: the plan below covers them all.
 	preflight := map[checkKey][]CheckFinding{}
 	// refused holds the targets whose rules refuse a server; an empty name means all of them.
@@ -134,7 +169,19 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 		server := k.server(source)
 		result := CheckServer{Name: k.name, Project: k.root, Findings: []CheckFinding{}}
 		result.Findings = append(result.Findings, checkEnv(server, opts.LookupEnv)...)
-		if !server.Disabled {
+		root := k.root
+		if root == "" {
+			root = s.configProjectRoot()
+		}
+		unsafeIdentity := serverHasKnownSecret(server, root, k.name, opts.knownSecrets)
+		if unsafeIdentity {
+			message := "connection identity contains a configured credential; use environment-backed references"
+			if contractHasSecret(root, opts.knownSecrets) {
+				message = "project scope contains a configured credential; no review is available"
+			}
+			result.Findings = append(result.Findings, CheckFinding{Level: "error", Check: "live", Message: message})
+		}
+		if !server.Disabled && !unsafeIdentity {
 			result.Findings = append(result.Findings, checkLaunch(server, opts)...)
 			result.Findings = append(result.Findings, checkPin(server)...)
 		}
@@ -174,7 +221,7 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 	}
 	p, err := s.previewSource(&accepted)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(redactor.redact(err.Error()))
 	}
 	var synced []Change
 	for _, c := range p.Changes {
@@ -193,6 +240,16 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 	}
 	for i := range report.Servers {
 		result := &report.Servers[i]
+		result.Name = redactor.redact(result.Name)
+		// Project is an operational scope key, so preserve its exact bytes unless
+		// it contains a credential and the review has already been refused.
+		if contractHasSecret(result.Project, opts.knownSecrets) {
+			result.Project = redactor.redact(result.Project)
+		}
+		for j := range result.Findings {
+			f := &result.Findings[j]
+			f.Message, f.Subject, f.Target = redactor.redact(f.Message), redactor.redact(f.Subject), redactor.redact(f.Target)
+		}
 		result.OK = true
 		for _, f := range result.Findings {
 			switch f.Level {
@@ -205,6 +262,21 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 		}
 	}
 	return report, nil
+}
+
+// validateToolCheckOptions applies to every caller, including the API and direct Service users.
+func validateToolCheckOptions(opts CheckOptions) error {
+	if opts.AcceptTools {
+		if !opts.Live || len(opts.Names) != 1 || opts.Names[0] == "" || !toolHashValid(opts.Revision) {
+			return fmt.Errorf("--accept-tools requires --live, one explicit server name and a 64-character lowercase hexadecimal --revision")
+		}
+	} else if opts.Revision != "" {
+		return fmt.Errorf("--revision requires --accept-tools")
+	}
+	if opts.StrictTools && !opts.Live {
+		return fmt.Errorf("--strict-tools requires --live")
+	}
+	return nil
 }
 
 // checkEnv reports each fromEnv reference whose variable is unset or empty.
