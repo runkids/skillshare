@@ -117,12 +117,85 @@ describe('Sync page last sync', () => {
       { skill: 'fresh', target: 'claude', status: 'na', reason: 'symlink mode — filters not applicable', reasonCode: 'sync_matrix.symlink_filters_not_applicable' },
       { skill: 'broken', target: 'codex', status: 'synced', reason: '' },
     ] } as never);
-    renderPage();
+    const original = renderPage();
 
     expect(await screen.findByText(/Sync 1 change/)).toBeInTheDocument();
     await waitFor(() => expect(api.getSyncMatrix).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByRole('button', { name: 'Discard all' })).toBeNull();
+    original.unmount();
+
+    // Exercise the actual /sync action, runSync and ToastProvider. An interrupted
+    // configured target can yield a targetless sync response before target IO.
+    for (const scope of ['global', 'project'] as const) {
+      for (const kind of ['entry-only', 'mixed', 'mixed-errors', 'ordinary', 'extras-off'] as const) {
+        vi.clearAllMocks();
+        const mixed = kind === 'mixed' || kind === 'mixed-errors';
+        const interrupted = kind === 'entry-only' || mixed;
+        const resourceError = kind === 'mixed-errors';
+        const remedy = `skillshare install example-org/hub/rules --kind extra --name rules ${scope === 'project' ? '-p' : '-g'}`;
+        const entryWarning = `extra "rules" has an interrupted publication; run: ${remedy}`;
+        const healthy = { name: 'notes', targets: [{ target: 'cursor', mode: 'copy', synced: 2, skipped: 1, pruned: 1 }] };
+        const extras = interrupted ? [{ name: 'rules', targets: [], warnings: [entryWarning] }, ...(mixed ? [healthy] : [])] : [healthy];
+        const resources = {
+          results: [{ target: 'cursor', linked: ['guide'], updated: ['reviewer.md'], skipped: ['local'], pruned: ['old'] }],
+          ignored_count: 0, ignored_skills: [], ignore_root: '', ignore_repos: [],
+          ...(resourceError ? {
+            warnings: ['codex: sync failed: permission denied', 'resource backup skipped'],
+            failed: [{ target: 'codex', part: 'skill' as const, error: 'permission denied', message: 'codex: sync failed: permission denied' }],
+          } : {}),
+        };
+        vi.mocked(api.listTargets).mockResolvedValue({ targets: [target('cursor'), target('codex')], sourceSkillCount: 1 });
+        vi.mocked(api.diff).mockResolvedValue({ diffs: [], ignored_count: 0, ignored_skills: [], ignore_root: '', ignore_repos: [] });
+        vi.mocked(api.diffExtras).mockResolvedValue({ extras: [
+          ...(interrupted ? [{ name: 'rules', target: '/fixture/rules', mode: 'copy', synced: true, items: [] }] : []),
+          ...(kind !== 'entry-only' ? [{ name: 'notes', target: 'cursor', mode: 'copy', synced: false, items: [
+            { action: 'create', file: 'a.md', reason: 'new file' },
+            { action: 'update', file: 'b.md', reason: 'source changed' },
+            { action: 'update', file: 'local.md', reason: 'content differs' },
+          ] }] : []),
+        ] });
+        vi.mocked(api.listLog).mockResolvedValue({ entries: [] } as never);
+        vi.mocked(api.sync).mockResolvedValue(resources);
+        vi.mocked(api.syncExtras).mockResolvedValue({ extras });
+        const user = userEvent.setup();
+        const view = renderPage();
+        try {
+          await waitFor(() => expect(api.diffExtras).toHaveBeenCalled());
+          if (kind === 'extras-off') await user.click(screen.getByRole('checkbox', { name: 'Extras' }));
+          const syncButton = await screen.findByRole('button', { name: /^Sync(?: \d+ changes?)?$/ });
+          await waitFor(() => expect(syncButton).toBeEnabled());
+          await user.click(syncButton);
+          await waitFor(() => expect(document.querySelector('[data-toast-container] > .ss-toast')).not.toBeNull());
+          const toast = document.querySelector('[data-toast-container] > .ss-toast')!;
+          expect(api.sync).toHaveBeenCalledExactlyOnceWith({ force: false });
+          if (kind === 'extras-off') expect(api.syncExtras).not.toHaveBeenCalled();
+          else expect(api.syncExtras).toHaveBeenCalledExactlyOnceWith({ force: false });
+          if (interrupted) {
+            expect.soft(toast, `${scope}/${kind} warning and remedy`).toHaveTextContent(entryWarning);
+            expect.soft(toast.querySelector('svg')?.getAttribute('class'), `${scope}/${kind} warning severity`).toContain('text-[#FFD37A]');
+            expect.soft(toast.querySelector('svg')?.getAttribute('class'), `${scope}/${kind} no success severity`).not.toContain('text-[#8FD6A4]');
+            expect.soft(toast).not.toHaveTextContent('no files in source');
+          } else {
+            expect(toast).toHaveTextContent('Sync complete');
+            expect(toast.querySelector('svg')?.getAttribute('class')).toContain('text-[#8FD6A4]');
+            expect(toast).not.toHaveTextContent(entryWarning);
+          }
+          if (mixed) {
+            expect.soft(toast, `${scope}/${kind} healthy delivery counts`).toHaveTextContent('2 file(s) to 1 target(s)');
+            expect.soft(toast, `${scope}/${kind} skipped count`).toHaveTextContent('1 skipped');
+          }
+          if (resourceError) {
+            expect(toast).toHaveTextContent('Sync finished with 1 failure');
+            expect(await screen.findByText('permission denied', { exact: true })).toBeInTheDocument();
+            expect(screen.getByText('resource backup skipped', { exact: true })).toBeInTheDocument();
+            expect(screen.getByText('1 other target synced', { exact: true })).toBeInTheDocument();
+          }
+        } finally {
+          view.unmount();
+        }
+      }
+    }
   });
 
 });
