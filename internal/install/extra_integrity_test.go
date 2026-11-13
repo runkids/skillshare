@@ -85,6 +85,38 @@ func TestExtraLocallyModified_UnknownAndUnsafe(t *testing.T) {
 	}
 }
 
+func TestExtraLocallyModified_OSMetadataIsStillPartOfExtra(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "rules")
+	if err := os.Mkdir(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(dir, ".DS_Store")
+	if err := os.WriteFile(file, []byte("tracked content"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hashes, err := extraTreeHashes(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := NewMetadataStore()
+	store.Set("rules", &MetadataEntry{Kind: "extra", FileHashes: hashes})
+	if err := store.Save(root); err != nil {
+		t.Fatal(err)
+	}
+	modified, _, err := ExtraLocallyModified(root, "rules")
+	if err != nil || modified {
+		t.Fatalf("unchanged: %v %v", modified, err)
+	}
+	if err := os.Remove(file); err != nil {
+		t.Fatal(err)
+	}
+	modified, _, err = ExtraLocallyModified(root, "rules")
+	if err != nil || !modified {
+		t.Fatalf("removed: %v %v", modified, err)
+	}
+}
+
 func TestInspectRemoteExtra_InterruptedBeforeMissing(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, ".skillshare-staging")

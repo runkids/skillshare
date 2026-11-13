@@ -479,7 +479,7 @@ func loadMetadataFile(dir string) (*MetadataStore, error) {
 // from the current ones (#743).
 func (s *MetadataStore) dropOSMetadataHashes() {
 	for _, e := range s.Entries {
-		if e != nil {
+		if e != nil && e.Kind != "extra" {
 			maps.DeleteFunc(e.FileHashes, func(file, _ string) bool { return utils.IsOSMetadataFile(filepath.Base(file)) })
 		}
 	}
