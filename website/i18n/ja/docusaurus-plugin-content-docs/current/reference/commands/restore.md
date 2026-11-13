@@ -40,11 +40,11 @@ flowchart TD
 
 | フラグ | 説明 |
 |------|-------------|
-| `--all` | skills と agents の両方を復元 |
-| `--project, -p` | project mode を使用（`.skillshare/backups/`）；**agents のみ** |
+| `--all` | Legacy global skills branch; restore agents separately |
+| `--project, -p` | Restore named skills or agents from `.skillshare/backups/` |
 | `--global, -g` | global mode を使用（skills のデフォルト） |
 | `--from, -f <timestamp>` | 特定のバックアップから復元 |
-| `--force` | 確認なしで上書き |
+| `--force` | Replace a non-empty destination folder |
 | `--dry-run, -n` | 変更を加えずにプレビュー |
 | `--no-tui` | 対話式 TUI をスキップし、バックアップ一覧を表示 |
 
@@ -132,15 +132,24 @@ Agent の restore は skill の restore と同様に動作しますが、`backup
 ```bash
 skillshare restore agents claude                       # claude の最新 agent バックアップ
 skillshare restore agents claude --from 2026-01-19_10-00-00
-skillshare restore agents -p                           # Project agents（許可されている唯一の project mode）
-skillshare restore --all claude                        # skills + agents を一度に
+skillshare restore agents claude -p                    # Project agents
 ```
 
-project mode では、restore は backup と同様に agents のみを操作します。`agents` 引数がない場合はエラーになります。
+## プロジェクトの skills を復元
 
+プロジェクトのルートから名前を明示して実行します。
+
+```bash
+skillshare backup --list -p
+skillshare restore goose --from 2026-01-19_10-00-00 -p --dry-run
+skillshare restore goose --from 2026-01-19_10-00-00 -p --force
 ```
-restore is not supported in project mode (except for agents)
-```
+
+既存のプロジェクト skills スナップショットを復元します。手動の `backup -p` は引き続き `agents` が必要です。プロジェクト内でも、通常の skills restore と `-g` はグローバルのバックアップを使います。名前なしの `restore -p` は使用法エラーとなり、対話式選択はグローバルのままです。従来の `--all` は `-p` 付きでもグローバル skills の処理を使うため、agents は別に復元してください。
+
+`goose-moved-2e676f6f73652f736b696c6c73` のような認識済みの名前は `.goose/skills` を復元し、現在の `.agents/skills` は変更しません。接尾辞は正規化した相対ディレクトリの16進表現です。target と旧パスの定義が必要で、未定義または曖昧な対応は拒否されます。一覧の正確な名前に `--from`、`-p` を指定し、空でないフォルダーには `--force` を使います。既存のダッシュボード Backup も同じ対応を使います。
+
+復元は宛先フォルダー全体を置き換え、シンボリックリンクの内容は含みません。アクティブな profile は変更しません。次の sync は旧ディレクトリの未変更項目を削除できるため、残したい編集は先に source に保存してください。
 
 `skillshare backup --list` でバックアップを一覧表示する際、agent バックアップは `-agents` サフィックス（例: `claude-agents`）付きの別エントリとして表示されます。
 

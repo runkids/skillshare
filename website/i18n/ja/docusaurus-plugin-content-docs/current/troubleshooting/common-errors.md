@@ -657,7 +657,7 @@ skillshare backup -p --all           # 上と同じ（Agent に絞り込まれ�
 ```
 
 同じルールが `restore` にも適用されます:
-`restore is not supported in project mode (except for agents)`
+Existing project skills snapshots can be recovered with `skillshare restore <entry> --from <timestamp> -p --force`; manual project skills backup creation remains unsupported. Use `skillshare backup --list -p` to find snapshots.
 
 ### `agent name 'X' has invalid characters`
 

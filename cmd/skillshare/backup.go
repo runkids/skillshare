@@ -372,14 +372,8 @@ func cmdRestore(args []string) error {
 		return err
 	}
 
-	// Extract kind filter (e.g. "skillshare restore agents").
 	// Extract kind filter (e.g. "skillshare restore agents" or "--all").
 	kind, args := parseKindArgWithAll(args)
-
-	// Project mode is only supported for agents.
-	if mode == modeProject && kind != kindAgents && kind != kindAll {
-		return fmt.Errorf("restore is not supported in project mode (except for agents)")
-	}
 
 	cwd, _ := os.Getwd()
 	if mode == modeAuto && kind == kindAgents && projectConfigExists(cwd) {
@@ -422,6 +416,10 @@ func cmdRestore(args []string) error {
 	// Agent restore uses agent-specific backup entries (name suffixed with "-agents")
 	if kind == kindAgents {
 		return restoreAgentBackup(mode, cwd, targetName, fromTimestamp, force, dryRun)
+	}
+
+	if mode == modeProject && kind == kindSkills {
+		return restoreProjectSkills(cwd, targetName, fromTimestamp, force, dryRun)
 	}
 
 	// No target specified → TUI dispatch (or plain text fallback)
@@ -472,6 +470,51 @@ func cmdRestore(args []string) error {
 	oplog.WriteWithLimit(config.ConfigPath(), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 
 	return restoreErr
+}
+
+// restoreProjectSkills resolves project recovery without initialization or metadata
+// migration. Only explicit project skills requests enter this path.
+func restoreProjectSkills(cwd, entry, timestamp string, force, dryRun bool) error {
+	if entry == "" {
+		return fmt.Errorf("usage: skillshare restore <target> -p [--from <timestamp>] [--force] [--dry-run]")
+	}
+	cfg, err := config.LoadProjectReadOnly(cwd)
+	if err != nil {
+		return err
+	}
+	targets, unresolved := config.ResolveValidProjectTargets(cwd, cfg)
+	if err := unresolved[entry]; err != nil {
+		return fmt.Errorf("target %q: %w", entry, err)
+	}
+	// Reserve unresolved names as well: they may collide with a moved alias.
+	for name := range unresolved {
+		targets[name] = config.TargetConfig{}
+	}
+	dest, err := backup.SkillsEntryDir(cwd, entry, targets)
+	if err != nil {
+		return err
+	}
+	dir := backup.ProjectBackupDir(cwd)
+	opts := backup.RestoreOptions{Force: force}
+	if dryRun {
+		if timestamp != "" {
+			return previewRestoreFromTimestampInDir(dir, entry, dest, timestamp, opts)
+		}
+		return previewRestoreFromLatestInDir(dir, entry, dest, opts)
+	}
+	start := time.Now()
+	if timestamp != "" {
+		err = restoreFromTimestampInDir(dir, entry, dest, timestamp, opts)
+	} else {
+		err = restoreFromLatestInDir(dir, entry, dest, opts)
+	}
+	e := oplog.NewEntry("restore", statusFromErr(err), time.Since(start))
+	e.Args = map[string]any{"target": entry, "from": timestamp, "force": force}
+	if err != nil {
+		e.Message = err.Error()
+	}
+	oplog.WriteWithLimit(config.ProjectConfigPath(cwd), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
+	return err
 }
 
 // restoreTUIDispatch handles the no-args TUI flow for restore.
@@ -611,7 +654,11 @@ func restoreFromLatestInDir(backupDir, targetName, targetPath string, opts backu
 }
 
 func previewRestoreFromTimestamp(targetName, targetPath, timestamp string, opts backup.RestoreOptions) error {
-	backupInfo, err := backup.GetBackupByTimestamp(timestamp)
+	return previewRestoreFromTimestampInDir(backup.BackupDir(), targetName, targetPath, timestamp, opts)
+}
+
+func previewRestoreFromTimestampInDir(backupDir, targetName, targetPath, timestamp string, opts backup.RestoreOptions) error {
+	backupInfo, err := backup.GetBackupByTimestampInDir(backupDir, timestamp)
 	if err != nil {
 		return err
 	}
@@ -627,7 +674,11 @@ func previewRestoreFromTimestamp(targetName, targetPath, timestamp string, opts 
 }
 
 func previewRestoreFromLatest(targetName, targetPath string, opts backup.RestoreOptions) error {
-	backups, err := backup.FindBackupsForTarget(targetName)
+	return previewRestoreFromLatestInDir(backup.BackupDir(), targetName, targetPath, opts)
+}
+
+func previewRestoreFromLatestInDir(backupDir, targetName, targetPath string, opts backup.RestoreOptions) error {
+	backups, err := backup.FindBackupsForTargetInDir(backupDir, targetName)
 	if err != nil {
 		return err
 	}
@@ -679,13 +730,13 @@ func printBackupHelp() {
 }
 
 func printRestoreHelp() {
-	printHelp("skillshare restore [agents] [target] [options]", "Restore target skills from a backup snapshot.\nWithout arguments, launches an interactive TUI.",
+	printHelp("skillshare restore [agents] [target] [options]", "Restore target skills from a backup snapshot.\nWithout arguments, launches the global interactive TUI.",
 		helpGroup{title: "Arguments", rows: []helpRow{
 			{"target", "Target name to restore (optional)"},
 		}},
 		helpGroup{title: "Options", rows: []helpRow{
-			{"--all", "Restore both skills and agents"},
-			{"-p, --project", "Use project mode (.skillshare/backups/); agents only"},
+			{"--all", "Legacy global skills branch; restore agents separately"},
+			{"-p, --project", "Restore named skills or agents from .skillshare/backups/"},
 			{"-g, --global", "Use global mode (default for skills)"},
 			{"-f, --from <ts>", "Restore from specific timestamp (e.g. 2024-01-15_14-30-45)"},
 			{"--force", "Overwrite non-empty target directory"},
@@ -700,7 +751,7 @@ func printRestoreHelp() {
 			helpRow{"skillshare restore --no-tui", "List backups (no TUI)"},
 			helpRow{"skillshare restore agents claude", "Restore agents claude target"},
 			helpRow{"skillshare restore agents claude -p", "Restore project agents"},
-			helpRow{"skillshare restore --all claude", "Restore skills + agents"},
+			helpRow{"skillshare restore claude -p --force", "Recover a project skills snapshot"},
 		),
 	)
 }

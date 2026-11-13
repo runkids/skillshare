@@ -40,11 +40,11 @@ flowchart TD
 
 | Flag | Description |
 |------|-------------|
-| `--all` | Restore both skills and agents |
-| `--project, -p` | Use project mode (`.skillshare/backups/`); **agents only** |
+| `--all` | Legacy global skills branch; restore agents separately |
+| `--project, -p` | Restore named skills or agents from `.skillshare/backups/` |
 | `--global, -g` | Use global mode (default for skills) |
 | `--from, -f <timestamp>` | Restore from specific backup |
-| `--force` | Overwrite without confirmation |
+| `--force` | Replace a non-empty destination folder |
 | `--dry-run, -n` | Preview without making changes |
 | `--no-tui` | Skip interactive TUI, show backup list instead |
 
@@ -132,15 +132,24 @@ Agent 還原的方式與 skill 還原相同，但操作的是由 `backup agents`
 ```bash
 skillshare restore agents claude                       # Latest agent backup for claude
 skillshare restore agents claude --from 2026-01-19_10-00-00
-skillshare restore agents -p                           # Project agents (the only project mode allowed)
-skillshare restore --all claude                        # Skills + agents in one shot
+skillshare restore agents claude -p                    # Project agents
 ```
 
-在 project mode 下，restore 和 backup 一樣，只能操作 agents。若不加上 `agents` 參數會報錯：
+## 專案 skills 復原
 
+在專案根目錄中明確指定項目名稱：
+
+```bash
+skillshare backup --list -p
+skillshare restore goose --from 2026-01-19_10-00-00 -p --dry-run
+skillshare restore goose --from 2026-01-19_10-00-00 -p --force
 ```
-restore is not supported in project mode (except for agents)
-```
+
+這會復原既有的專案 skills 快照；手動 `backup -p` 仍須使用 `agents`。即使在專案目錄中，一般 skills restore 和 `-g` 仍使用全域備份。不帶名稱的 `restore -p` 是用法錯誤；互動選擇仍僅用於全域。原有 `--all` 即使搭配 `-p` 也走全域 skills 分支，請另外復原 agents。
+
+已識別的 `goose-moved-2e676f6f73652f736b696c6c73` 項目復原到 `.goose/skills`，不改動目前的 `.agents/skills`。後綴是正規化相對目錄的十六進位編碼。target 和舊路徑定義必須仍可識別；缺失或有歧義的對應會被拒絕。使用清單中的完整名稱及 `--from`、`-p`，取代非空目錄時加上 `--force`。既有儀表板 Backup 復原使用相同對應。
+
+復原會取代整個目標資料夾，且不包含符號連結內容，不改變目前的 profile。再次 sync 前應把要保留的編輯存入 source：sync 可能清理舊目錄中復原的未修改項目。
 
 透過 `skillshare backup --list` 列出備份時，agent 備份會以帶有 `-agents` 後綴的獨立條目顯示（例如 `claude-agents`）。
 
