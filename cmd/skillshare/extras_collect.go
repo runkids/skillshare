@@ -66,6 +66,11 @@ func cmdExtrasCollect(args []string) error {
 }
 
 func extrasCollectGlobal(name, fromPath string, dryRun, force bool, start time.Time) error {
+	unlock, lockErr := lockRemoteExtraMutation(modeGlobal, "", name)
+	if lockErr != nil {
+		return lockErr
+	}
+	defer unlock()
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -87,6 +92,11 @@ func extrasCollectGlobal(name, fromPath string, dryRun, force bool, start time.T
 }
 
 func extrasCollectProject(cwd, name, fromPath string, dryRun, force bool, start time.Time) error {
+	unlock, lockErr := lockRemoteExtraMutation(modeProject, cwd, name)
+	if lockErr != nil {
+		return lockErr
+	}
+	defer unlock()
 	projCfg, err := config.LoadProject(cwd)
 	if err != nil {
 		return err

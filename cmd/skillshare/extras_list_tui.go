@@ -912,6 +912,11 @@ func (m extrasListTUIModel) renderModePicker() string {
 }
 
 func (m extrasListTUIModel) doSetMode(name, targetPath, newMode string) (string, error) {
+	unlock, lockErr := lockRemoteExtraMutation(m.mutationMode(), m.cwd, name)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
 	// Validate before saving so a mode the target's filters rule out (symlink)
 	// is refused instead of breaking every later sync.
 	setMode := func(extras []config.ExtraConfig) error {
@@ -1075,6 +1080,25 @@ func (m extrasListTUIModel) doSync(name, targetPath string) (string, error) {
 }
 
 func (m extrasListTUIModel) doCollect(name, targetPath string) (string, error) {
+	unlock, lockErr := lockRemoteExtraMutation(m.mutationMode(), m.cwd, name)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer unlock()
+	if m.projCfg != nil {
+		fresh, err := config.LoadProjectReadOnly(m.cwd)
+		if err != nil {
+			return "", err
+		}
+		m.projCfg = fresh
+	} else {
+		fresh, err := config.LoadReadOnly()
+		if err != nil {
+			return "", err
+		}
+		m.cfg = fresh
+	}
+
 	extra, targets, err := m.resolveExtraWithTargets(name, targetPath)
 	if err != nil {
 		return "", err
@@ -1102,6 +1126,12 @@ func (m extrasListTUIModel) doFlattenToggle(name string, t extrasTargetInfo) tea
 	newFlatten := !t.Flatten
 
 	return func() tea.Msg {
+		unlock, lockErr := lockRemoteExtraMutation(m.mutationMode(), m.cwd, name)
+		if lockErr != nil {
+			return extrasActionDoneMsg{err: lockErr}
+		}
+		defer unlock()
+
 		if err := config.ValidateExtraFlatten(newFlatten, t.Mode); err != nil {
 			return extrasActionDoneMsg{msg: "", err: err}
 		}

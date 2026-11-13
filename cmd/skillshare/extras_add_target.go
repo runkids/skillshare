@@ -74,6 +74,12 @@ func cmdExtrasAddTarget(args []string) error {
 		return err
 	}
 
+	unlock, lockErr := lockRemoteExtraMutation(mode, cwd, name)
+	if lockErr != nil {
+		return lockErr
+	}
+	defer unlock()
+
 	var extras []config.ExtraConfig
 	var configPath string
 	var saveFn func() error
