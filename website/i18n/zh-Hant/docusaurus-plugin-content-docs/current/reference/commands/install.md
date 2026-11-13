@@ -233,7 +233,7 @@ skillshare install -p    # 從專案設定安裝所有 remote skills
 skillshare sync
 ```
 
-標記 `tracked: true` 的 skills 會以完整 git 歷史 clone（與 `--track` 相同），讓 `skillshare update` 可以正常運作。磁碟上已存在的 skills 會被跳過。當 tracked repo 目錄被 gitignore 而在本地遺失時，這是在全新 clone 後用來復原的指令。
+標記 `tracked: true` 的 skills 會以完整 git 歷史 clone（與 `--track` 相同），讓 `skillshare update` 可以正常運作。磁碟上已存在的 skills 會被跳過，除非專案的釘選版本已變更。當 tracked repo 目錄被 gitignore 而在本地遺失時，這是在全新 clone 後用來復原的指令。 使用 `--json` 時，即使專案鎖定檔指向不同的 commit，也會跳過既有副本；加上 `--force` 才會更新到該釘選版本。
 
 :::tip push/pull 與 install from config 的差異
 `push`/`pull` 會透過 git 同步實際的 skill **檔案**。`install`（從 config）則是從 **source URLs** 重新下載。兩者是互補的 — 何時該用哪個，見 [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync#alternative-install-from-config)。
@@ -309,7 +309,7 @@ skillshare sync
 | `--project` | `-p` | 安裝到專案的 `.skillshare/skills/` |
 | `--global` | `-g` | 安裝到全域的 `~/.config/skillshare/skills/` |
 | `--dry-run` | `-n` | 只預覽 |
-| `--json` | | 以 JSON 輸出（和 `--force` 一樣允許覆寫既有 skill，但安全稽核的阻擋仍然有效；若未指定 `--skill`/`--agent` 篩選，也隱含非互動式選擇） |
+| `--json` | | 以非互動式 JSON 輸出；未指定 `--skill`/`--agent` 篩選時全選。覆寫既有 skill 或 agent 需要 `--force`；安全稽核阻擋仍然有效 |
 
 ## JSON 輸出
 
@@ -317,7 +317,9 @@ skillshare sync
 skillshare install anthropics/skills --json
 ```
 
-對明確指定、非追蹤的 skill 來源，加上 `--dry-run --json` 可取得 `planned` 陣列，內含 `{name, path}`，不會安裝。名稱是 CLI 的安裝名稱；Git 路徑相對於儲存庫根目錄（包含選取的子目錄），本機 skill 則使用 `.`。清單遵循探索、`.skillignore` 與選取規則；JSON 模式未指定篩選條件時會全選。`skills` 仍只回報已安裝名稱，在 dry-run 中保持空陣列。探索後沒有選取的 skill 時回傳 `planned: []`；追蹤與設定檔安裝不提供此欄位。
+僅使用 JSON 輸出會保留既有的 skill 與 agent。覆寫時請明確加上 `--force`。`skipped` 陣列回報因重複檢查而略過的名稱；其他衝突會傳回 `error` 或列在 `failed` 中。`skills` 陣列僅包含已安裝的名稱。
+
+對明確指定、非追蹤的 skill 來源，加上 `--dry-run --json` 可取得 `planned` 陣列，內含 `{name, path}`，不會安裝。名稱是 CLI 的安裝名稱；Git 路徑相對於儲存庫根目錄（包含選取的子目錄），本機 skill 則使用 `.`。清單遵循探索、`.skillignore` 與選取規則；JSON 模式未指定篩選條件時會全選。`skills` 仍只回報已安裝名稱，在 dry-run 中保持空陣列。探索後沒有選取的 skill 時回傳 `planned: []`；追蹤與設定檔安裝不提供此欄位。 既有目的地與跨路徑的重複安裝不會阻擋此唯讀預覽。
 
 ```json
 {
@@ -325,6 +327,7 @@ skillshare install anthropics/skills --json
   "tracked": false,
   "dry_run": false,
   "skills": ["pdf", "commit", "review"],
+  "skipped": [],
   "failed": [],
   "duration": "2.345s"
 }
@@ -343,6 +346,7 @@ skillshare install anthropics/skills --json --into frontend
   "dry_run": false,
   "into": "frontend",
   "skills": ["pdf", "commit"],
+  "skipped": [],
   "failed": [],
   "duration": "1.890s"
 }
@@ -360,6 +364,7 @@ skillshare install github.com/user/agents --kind agent --json
   "tracked": false,
   "dry_run": false,
   "skills": ["reviewer", "tutor"],
+  "skipped": [],
   "failed": [],
   "duration": "1.234s"
 }
@@ -373,6 +378,7 @@ skillshare install github.com/user/agents --kind agent --json
   "tracked": true,
   "dry_run": false,
   "skills": [],
+  "skipped": [],
   "failed": [],
   "duration": "0.412s",
   "error": "blocked by security audit (use --force to override)"

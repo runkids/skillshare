@@ -233,7 +233,7 @@ skillshare install -p    # project config의 모든 remote skill 설치
 skillshare sync
 ```
 
-`tracked: true`인 skill은 전체 git 히스토리와 함께 clone되므로(--track과 동일), `skillshare update`가 정상적으로 동작합니다. 디스크에 이미 존재하는 skill은 건너뜁니다. 이는 tracked repo 디렉터리가 gitignore되어 로컬에 없는 fresh clone 이후 실행하는 복구 명령입니다.
+`tracked: true`인 skill은 전체 git 히스토리와 함께 clone되므로(--track과 동일), `skillshare update`가 정상적으로 동작합니다. 프로젝트의 고정 커밋이 바뀐 경우를 제외하고 디스크에 이미 존재하는 skill은 건너뜁니다. 이는 tracked repo 디렉터리가 gitignore되어 로컬에 없는 fresh clone 이후 실행하는 복구 명령입니다. `--json`을 사용하면 프로젝트 잠금 파일이 다른 커밋을 가리켜도 기존 복사본을 건너뜁니다. 해당 고정 커밋으로 맞추려면 `--force`를 추가하세요.
 
 :::tip push/pull vs config에서 설치
 `push`/`pull`은 git을 통해 실제 skill **파일**을 동기화합니다. `install`은 config에서 실행 시 **source URL**로부터 다시 다운로드합니다. 이 둘은 상호 보완적입니다 — 어떤 상황에 어느 것을 써야 하는지는 [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync#alternative-install-from-config)를 참고하세요.
@@ -309,7 +309,7 @@ skillshare sync
 | `--project` | `-p` | 프로젝트 `.skillshare/skills/`에 설치 |
 | `--global` | `-g` | global `~/.config/skillshare/skills/`에 설치 |
 | `--dry-run` | `-n` | 미리보기만 |
-| `--json` | | JSON으로 출력 (`--force`처럼 기존 skill 덮어쓰기를 허용하지만 보안 감사 차단은 그대로 적용됨; `--skill`/`--agent` 필터가 없을 때는 비인터랙티브 선택도 암시함) |
+| `--json` | | 비인터랙티브 JSON 출력. `--skill`/`--agent` 필터가 없으면 모두 선택. 기존 skill과 agent를 덮어쓰려면 `--force`가 필요하며 감사 차단은 계속 적용됨 |
 
 ## JSON 출력
 
@@ -317,7 +317,9 @@ skillshare sync
 skillshare install anthropics/skills --json
 ```
 
-명시적으로 지정한 비추적 skill 소스에 `--dry-run --json`을 추가하면 설치하지 않고 `{name, path}` 객체의 `planned` 배열을 받을 수 있습니다. 이름은 CLI의 설치 이름이며, Git 경로는 선택한 하위 디렉터리를 포함한 저장소 루트 기준 상대 경로입니다. 로컬 skill은 `.`을 사용합니다. 검색, `.skillignore`, 선택 규칙이 적용되며 JSON 모드에서 필터가 없으면 모두 선택됩니다. `skills`는 계속 설치된 이름만 보고하므로 dry-run에서는 비어 있습니다. 검색 후 선택한 skill이 없으면 `planned: []`를 반환합니다. 추적 및 설정 파일 기반 설치는 이 필드를 제공하지 않습니다.
+JSON 출력만으로는 기존 skill과 agent를 덮어쓰지 않습니다. 덮어쓰려면 `--force`를 명시하세요. 중복 검사로 건너뛴 이름은 `skipped` 배열에 표시되며, 다른 충돌은 `error` 또는 `failed`로 보고됩니다. `skills` 배열에는 설치된 이름만 포함됩니다.
+
+명시적으로 지정한 비추적 skill 소스에 `--dry-run --json`을 추가하면 설치하지 않고 `{name, path}` 객체의 `planned` 배열을 받을 수 있습니다. 이름은 CLI의 설치 이름이며, Git 경로는 선택한 하위 디렉터리를 포함한 저장소 루트 기준 상대 경로입니다. 로컬 skill은 `.`을 사용합니다. 검색, `.skillignore`, 선택 규칙이 적용되며 JSON 모드에서 필터가 없으면 모두 선택됩니다. `skills`는 계속 설치된 이름만 보고하므로 dry-run에서는 비어 있습니다. 검색 후 선택한 skill이 없으면 `planned: []`를 반환합니다. 추적 및 설정 파일 기반 설치는 이 필드를 제공하지 않습니다. 기존 설치 대상과 다른 경로의 중복 설치는 이 읽기 전용 미리보기를 막지 않습니다.
 
 ```json
 {
@@ -325,6 +327,7 @@ skillshare install anthropics/skills --json
   "tracked": false,
   "dry_run": false,
   "skills": ["pdf", "commit", "review"],
+  "skipped": [],
   "failed": [],
   "duration": "2.345s"
 }
@@ -343,6 +346,7 @@ skillshare install anthropics/skills --json --into frontend
   "dry_run": false,
   "into": "frontend",
   "skills": ["pdf", "commit"],
+  "skipped": [],
   "failed": [],
   "duration": "1.890s"
 }
@@ -360,6 +364,7 @@ skillshare install github.com/user/agents --kind agent --json
   "tracked": false,
   "dry_run": false,
   "skills": ["reviewer", "tutor"],
+  "skipped": [],
   "failed": [],
   "duration": "1.234s"
 }
@@ -373,6 +378,7 @@ tracked 저장소, 단일 skill, 또는 소스나 config의 모든 skill이 보�
   "tracked": true,
   "dry_run": false,
   "skills": [],
+  "skipped": [],
   "failed": [],
   "duration": "0.412s",
   "error": "blocked by security audit (use --force to override)"

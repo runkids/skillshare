@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"skillshare/internal/config"
@@ -67,14 +68,15 @@ func TestArchiveCLISelectionAndNoop(t *testing.T) {
 		t.Fatalf("root selection = %+v", rootEntry)
 	}
 	for _, tc := range []struct {
-		name   string
-		source *install.Source
-		opts   install.InstallOptions
-		direct bool
+		name    string
+		source  *install.Source
+		opts    install.InstallOptions
+		direct  bool
+		skipped []string
 	}{
-		{"single-subdir", source, install.InstallOptions{Name: "custom", Into: "legal", SourceDir: root, Update: true}, false},
-		{"multi-selection", rootSource, install.InstallOptions{Skills: []string{"one", "pack"}, Into: "legal", SourceDir: root, Update: true}, false},
-		{"installed-name", source, install.InstallOptions{Name: "custom", Into: "legal", SourceDir: root, Update: true}, true},
+		{"single-subdir", source, install.InstallOptions{Name: "custom", Into: "legal", SourceDir: root, Update: true}, false, []string{"custom"}},
+		{"multi-selection", rootSource, install.InstallOptions{Skills: []string{"one", "pack"}, Into: "legal", SourceDir: root, Update: true}, false, []string{"one", "pack"}},
+		{"installed-name", source, install.InstallOptions{Name: "custom", Into: "legal", SourceDir: root, Update: true}, true, []string{"custom"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			run := dispatchInstall
@@ -84,6 +86,10 @@ func TestArchiveCLISelectionAndNoop(t *testing.T) {
 			summary, err := run(tc.source, cfg, tc.opts)
 			if err != nil || summary.SkillCount != 0 || len(summary.InstalledSkills) != 0 {
 				t.Fatalf("unchanged install counted as installed: %+v %v", summary, err)
+			}
+			slices.Sort(summary.SkippedSkills)
+			if !slices.Equal(summary.SkippedSkills, tc.skipped) {
+				t.Fatalf("unchanged install skipped names = %v, want %v", summary.SkippedSkills, tc.skipped)
 			}
 		})
 	}
@@ -132,5 +138,8 @@ func TestArchiveCLISelectionAndNoop(t *testing.T) {
 	summary, err := dispatchInstall(solo, cfg, soloOpts)
 	if err != nil || summary.SkillCount != 0 || len(summary.InstalledSkills) != 0 {
 		t.Fatalf("unchanged single-root install counted as installed: %+v %v", summary, err)
+	}
+	if !slices.Equal(summary.SkippedSkills, []string{"solo"}) {
+		t.Fatalf("unchanged single-root skipped names = %v, want [solo]", summary.SkippedSkills)
 	}
 }

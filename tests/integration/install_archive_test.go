@@ -148,6 +148,36 @@ func init() {
 			if string(content) != "# Brief v3" {
 				t.Fatal("force failed to restore archive")
 			}
+			// JSON output alone must not authorize replacing an edited ZIP install.
+			sb.WriteFile(file, "# Local JSON edit")
+			args := []string{"install", srv.URL + "/pack.zip", "--name", "custom", "--into", "legal", "--json"}
+			refused := run(args...)
+			refused.AssertFailure(t)
+			output := parseJSON(t, refused.Stdout)
+			if installed, ok := output["skills"].([]any); !ok || len(installed) != 0 {
+				t.Fatalf("refused ZIP reported installed: %s", refused.Stdout)
+			}
+			if got := sb.ReadFile(file); got != "# Local JSON edit" {
+				t.Fatalf("JSON overwrote local ZIP edit: %q", got)
+			}
+			forced := run(append(args, "--force")...)
+			forced.AssertSuccess(t)
+			output = parseJSON(t, forced.Stdout)
+			if installed, ok := output["skills"].([]any); !ok || len(installed) != 1 || installed[0] != "custom" {
+				t.Fatalf("forced ZIP not reported installed: %s", forced.Stdout)
+			}
+			if got := sb.ReadFile(file); got != "# Brief v3" {
+				t.Fatalf("JSON force did not replace ZIP edit: %q", got)
+			}
+			noop := run(append(args, "--update")...)
+			noop.AssertSuccess(t)
+			output = parseJSON(t, noop.Stdout)
+			if skipped, ok := output["skipped"].([]any); !ok || len(skipped) != 1 || skipped[0] != "custom" {
+				t.Fatalf("unchanged ZIP not reported skipped: %s", noop.Stdout)
+			}
+			if installed, ok := output["skills"].([]any); !ok || len(installed) != 0 {
+				t.Fatalf("unchanged ZIP reported installed: %s", noop.Stdout)
+			}
 		})
 	}
 }

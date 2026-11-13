@@ -352,7 +352,7 @@ func installImpl(source *Source, destPath string, opts InstallOptions) (*Install
 		if opts.Update {
 			return handleUpdate(source, destPath, result, opts)
 		}
-		if !opts.Force {
+		if !opts.Force && !opts.DryRun {
 			hint := buildForceHint(source.Raw, opts.Into)
 			if err := checkExistingConflict(destPath, source.CloneURL, hint); err != nil {
 				return nil, err
@@ -536,7 +536,7 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 	// Check if destination exists
 	stage := false
 	if _, err := os.Stat(destPath); err == nil {
-		if !opts.Force {
+		if !opts.Force && !opts.DryRun {
 			// Use the original repo URL for force hints, not the per-skill
 			// fullSource URL (which isn't a valid install target).
 			hint := buildForceHint(discovery.Source.Raw, opts.Into)

@@ -30,9 +30,11 @@ returns `planned: [{name, path}]`: canonical install names and repository-relati
 Git paths (including a selected subdirectory), or `.` for a local skill. Use this
 instead of scanning for `SKILL.md` or guessing names. Discovery, `.skillignore`, and
 selection rules apply; without a filter JSON mode selects all. `skills` remains
-empty during dry-run. An empty discovered selection returns `planned: []`;
+empty during dry-run, and existing destinations do not block the preview. An empty discovered selection returns `planned: []`;
 tracked and config-based installs omit the field. Check the exit status as well
 as `error`, including when consuming JSON from older CLIs.
+
+With `--json`, existing copies are skipped even when the project lock points to a different commit; add `--force` to follow that pin.
 
 ### Source Formats
 
@@ -148,7 +150,7 @@ or `--kind agent` to choose which resource to manage.
 | `--exclude <name>` | Skip specific skills during multi-skill install (repeatable) |
 | `--skip-audit` | Skip security audit for this install |
 | `--audit-threshold <t>` / `--threshold <t>` / `-T <t>` | Override block threshold for this run (`critical\|high\|medium\|low\|info`; shorthand: `c\|h\|m\|l\|i`, plus `crit`, `med`) |
-| `--json` | Noninteractive JSON; permits overwrite and selects all when no skill/agent filter is given; retains audit blocking; when every skill fails or is blocked it exits non-zero with an `error` field naming each one, while a partial failure lists names in `failed` and exits 0 |
+| `--json` | Noninteractive JSON; selects all when no skill/agent filter is given; requires `--force` to overwrite existing items; reports skipped names in `skipped`; retains audit blocking; when every skill fails or is blocked it exits non-zero with an `error` field naming each one, while a partial failure lists names in `failed` and exits 0 |
 | `--dry-run, -n` | Preview |
 
 **Fuzzy subdirectory resolution:** When a monorepo has nested skill directories, you can specify just the skill name — e.g., `user/repo/vue-best-practices` finds `skills/vue-best-practices/` automatically. Fails with an error if multiple matches exist.

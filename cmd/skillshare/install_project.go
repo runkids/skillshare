@@ -56,6 +56,11 @@ func cmdInstallProjectParsed(parsed *installArgs, root string) (installLogSummar
 			return summary, fmt.Errorf("flags --name, --into, --track, --skill, --agent, --kind, --exclude, --all, --yes, --branch, and --update require a source argument")
 		}
 		summary.Source = "project-config"
+		// Ordinary config installs follow lock advances; JSON alone preserves
+		// installed copies until the caller explicitly requests --force.
+		if !parsed.jsonOutput {
+			parsed.opts.Update = true
+		}
 		return installFromProjectConfig(runtime, parsed.opts)
 	}
 
@@ -129,12 +134,14 @@ func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptio
 		spinner.Fail("Install failed")
 		summary.InstalledSkills = result.InstalledSkills
 		summary.FailedSkills = result.FailedSkills
+		summary.SkippedSkills = result.SkippedSkills
 		summary.SkillCount = len(result.InstalledSkills)
 		return summary, err
 	}
 
 	summary.InstalledSkills = result.InstalledSkills
 	summary.FailedSkills = result.FailedSkills
+	summary.SkippedSkills = result.SkippedSkills
 	summary.SkillCount = len(result.InstalledSkills)
 
 	if opts.DryRun {
