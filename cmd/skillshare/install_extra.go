@@ -93,7 +93,7 @@ func installExtra(parsed *installArgs, mode runMode, cwd string, start time.Time
 	var opts install.ParseOptions
 	var threshold string
 	var load func() ([]config.ExtraConfig, error)
-	var save func([]config.ExtraConfig) error
+	var save func(extraConfigUpdate) error
 	if mode == modeProject {
 		if _, ok := projectdir.Find(cwd); !ok {
 			return nil, false, fmt.Errorf("project config not found: run 'skillshare init -p' first")
@@ -111,9 +111,13 @@ func installExtra(parsed *installArgs, mode runMode, cwd string, start time.Time
 			}
 			return c.Extras, nil
 		}
-		save = func(extras []config.ExtraConfig) error {
+		save = func(update extraConfigUpdate) error {
 			c, err := config.LoadProjectReadOnly(cwd)
 			if err != nil {
+				return err
+			}
+			extras, err := update(c.Extras)
+			if err != nil || extras == nil {
 				return err
 			}
 			c.Extras = extras
@@ -133,9 +137,13 @@ func installExtra(parsed *installArgs, mode runMode, cwd string, start time.Time
 			}
 			return c.Extras, nil
 		}
-		save = func(extras []config.ExtraConfig) error {
+		save = func(update extraConfigUpdate) error {
 			c, err := config.LoadReadOnly()
 			if err != nil {
+				return err
+			}
+			extras, err := update(c.Extras)
+			if err != nil || extras == nil {
 				return err
 			}
 			c.Extras = extras
@@ -161,7 +169,11 @@ func installExtra(parsed *installArgs, mode runMode, cwd string, start time.Time
 	if err := config.ValidateExtraName(name); err != nil {
 		return nil, false, err
 	}
-	callbacks, err := newExtraConfigCallbacks(name, raw, parsed.opts.Branch, load, save)
+	branch := parsed.opts.Branch
+	if branch == "" {
+		branch = source.Branch
+	}
+	callbacks, err := newExtraConfigCallbacks(name, raw, branch, load, save)
 	if err != nil {
 		return nil, false, err
 	}
@@ -193,7 +205,7 @@ func installExtra(parsed *installArgs, mode runMode, cwd string, start time.Time
 			oplog.WriteWithLimit(configPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 		}()
 	}
-	req := install.RemoteExtraRequest{Name: name, RawSource: raw, Branch: parsed.opts.Branch, Source: source, ExtrasRoot: root, LockDir: lockDir, ConfigPath: resolvedConfig, Opts: requestOpts, Recheck: callbacks.Recheck, WriteConfig: callbacks.WriteConfig, RevertConfig: callbacks.RevertConfig, RepairConfig: callbacks.RepairConfig, RefreshAfterRepair: callbacks.RefreshAfterRepair}
+	req := install.RemoteExtraRequest{Name: name, RawSource: raw, Branch: branch, Source: source, ExtrasRoot: root, LockDir: lockDir, ConfigPath: resolvedConfig, Opts: requestOpts, Recheck: callbacks.Recheck, WriteConfig: callbacks.WriteConfig, RevertConfig: callbacks.RevertConfig, RepairConfig: callbacks.RepairConfig, RefreshAfterRepair: callbacks.RefreshAfterRepair}
 	if mode == modeProject {
 		req.ProjectRoot = cwd
 	}

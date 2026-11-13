@@ -11,7 +11,7 @@ import (
 func TestExtraConfigCallbacks_RepairAndBaseline(t *testing.T) {
 	entries := []config.ExtraConfig{{Name: "rules", Remote: "journal", Branch: "old", Targets: []config.ExtraTargetConfig{{Path: "target"}}}, {Name: "other"}}
 	load := func() ([]config.ExtraConfig, error) { return append([]config.ExtraConfig(nil), entries...), nil }
-	save := func(next []config.ExtraConfig) error { entries = next; return nil }
+	save := saveExtraEntries(&entries)
 	callbacks, err := newExtraConfigCallbacks("rules", "journal", "requested", load, save)
 	if err != nil {
 		t.Fatal(err)
@@ -53,7 +53,14 @@ func TestExtraConfigCallbacks_RefuseConflictingRepair(t *testing.T) {
 		entries := []config.ExtraConfig{entry}
 		load := func() ([]config.ExtraConfig, error) { return append([]config.ExtraConfig(nil), entries...), nil }
 		saved := false
-		save := func([]config.ExtraConfig) error { saved = true; return errors.New("unexpected save") }
+		save := func(update extraConfigUpdate) error {
+			_, err := update(entries)
+			if err != nil {
+				return err
+			}
+			saved = true
+			return errors.New("unexpected save")
+		}
 		callbacks, err := newExtraConfigCallbacks("rules", "requested", "", load, save)
 		if err != nil {
 			t.Fatal(err)
@@ -67,7 +74,7 @@ func TestExtraConfigCallbacks_RefuseConflictingRepair(t *testing.T) {
 func TestExtraConfigCallbacks_RecheckDetectsConcurrentEdit(t *testing.T) {
 	entries := []config.ExtraConfig{{Name: "rules", Remote: "journal"}}
 	load := func() ([]config.ExtraConfig, error) { return append([]config.ExtraConfig(nil), entries...), nil }
-	callbacks, err := newExtraConfigCallbacks("rules", "journal", "", load, func([]config.ExtraConfig) error { return nil })
+	callbacks, err := newExtraConfigCallbacks("rules", "journal", "", load, func(extraConfigUpdate) error { return nil })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +87,7 @@ func TestExtraConfigCallbacks_RecheckDetectsConcurrentEdit(t *testing.T) {
 func TestExtraConfigCallbacks_RevertRefusesChangedEntry(t *testing.T) {
 	entries := []config.ExtraConfig{{Name: "rules", Remote: "journal"}}
 	load := func() ([]config.ExtraConfig, error) { return append([]config.ExtraConfig(nil), entries...), nil }
-	save := func(next []config.ExtraConfig) error { entries = next; return nil }
+	save := saveExtraEntries(&entries)
 	callbacks, err := newExtraConfigCallbacks("rules", "journal", "branch", load, save)
 	if err != nil {
 		t.Fatal(err)
@@ -103,7 +110,7 @@ func TestExtraConfigCallbacks_RevertRefusesChangedEntry(t *testing.T) {
 func TestExtraConfigCallbacks_RevertRemovesNewEntry(t *testing.T) {
 	entries := []config.ExtraConfig{{Name: "other"}}
 	load := func() ([]config.ExtraConfig, error) { return append([]config.ExtraConfig(nil), entries...), nil }
-	save := func(next []config.ExtraConfig) error { entries = next; return nil }
+	save := saveExtraEntries(&entries)
 	callbacks, err := newExtraConfigCallbacks("rules", "journal", "", load, save)
 	if err != nil {
 		t.Fatal(err)
@@ -133,7 +140,7 @@ func TestExtraConfigCallbacks_RevertKeepsUnrelatedChanges(t *testing.T) {
 				}
 				return out, nil
 			}
-			save := func(next []config.ExtraConfig) error { entries = next; return nil }
+			save := saveExtraEntries(&entries)
 			c, err := newExtraConfigCallbacks("rules", "journal", "after", load, save)
 			if err != nil {
 				t.Fatal(err)
@@ -168,7 +175,11 @@ func TestExtraConfigCallbacks_RevertNoops(t *testing.T) {
 		t.Run(state, func(t *testing.T) {
 			entries := []config.ExtraConfig{{Name: "other"}}
 			saves := 0
-			c, err := newExtraConfigCallbacks("rules", "journal", "", func() ([]config.ExtraConfig, error) { return append([]config.ExtraConfig(nil), entries...), nil }, func(next []config.ExtraConfig) error {
+			c, err := newExtraConfigCallbacks("rules", "journal", "", func() ([]config.ExtraConfig, error) { return append([]config.ExtraConfig(nil), entries...), nil }, func(update extraConfigUpdate) error {
+				next, err := update(entries)
+				if err != nil || next == nil {
+					return err
+				}
 				saves++
 				if state == "save failed" {
 					return errors.New("synthetic save failure")
@@ -193,5 +204,40 @@ func TestExtraConfigCallbacks_RevertNoops(t *testing.T) {
 				t.Fatalf("revert wrote or failed: saves=%d err=%v", saves, err)
 			}
 		})
+	}
+}
+
+func TestExtraConfigCallbacks_ChangesOnlyOwnOriginAtFreshSave(t *testing.T) {
+	entries := []config.ExtraConfig{{Name: "rules", Remote: "journal", Targets: []config.ExtraTargetConfig{{Path: "before"}}}, {Name: "other"}}
+	load := func() ([]config.ExtraConfig, error) { return append([]config.ExtraConfig(nil), entries...), nil }
+	save := func(update extraConfigUpdate) error {
+		// A supported fresh save observes an intervening target and another entry.
+		entries[0].Targets = append(entries[0].Targets, config.ExtraTargetConfig{Path: "concurrent"})
+		entries[1].Targets = []config.ExtraTargetConfig{{Path: "other-target"}}
+		next, err := update(entries)
+		if err == nil {
+			entries = next
+		}
+		return err
+	}
+	c, err := newExtraConfigCallbacks("rules", "journal", "main", load, save)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.WriteConfig(); err != nil {
+		t.Fatal(err)
+	}
+	if entries[0].Branch != "main" || len(entries[0].Targets) != 2 || entries[1].Targets[0].Path != "other-target" {
+		t.Fatalf("fresh save overwritten: %+v", entries)
+	}
+}
+
+func saveExtraEntries(entries *[]config.ExtraConfig) func(extraConfigUpdate) error {
+	return func(update extraConfigUpdate) error {
+		next, err := update(*entries)
+		if err == nil && next != nil {
+			*entries = next
+		}
+		return err
 	}
 }

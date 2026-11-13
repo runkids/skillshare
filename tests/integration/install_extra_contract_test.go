@@ -371,3 +371,47 @@ func TestInstallExtra_LinkSentinelNeverCopied(t *testing.T) {
 		})
 	}
 }
+
+func TestInstallExtra_WebURLBranchAndExplicitOverride(t *testing.T) {
+	for _, override := range []bool{false, true} {
+		t.Run(map[bool]string{false: "parsed", true: "explicit"}[override], func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+			bare := testutil.SetupBareRemoteRepo(t, sb.Root)
+			for _, branch := range []string{"main", "release"} {
+				testutil.SeedRemoteBranch(t, sb.Root, bare, branch, map[string]string{"rules/rule.md": branch})
+			}
+			gitConfig := filepath.Join(sb.Root, "fixture.gitconfig")
+			testutil.RunGit(t, sb.Root, "config", "--file", gitConfig, "url.file://"+filepath.ToSlash(bare)+".insteadOf", "https://github.com/example-org/ai-hub.git")
+			sb.SetEnv("GIT_CONFIG_GLOBAL", gitConfig)
+			sb.SetEnv("GIT_CONFIG_NOSYSTEM", "1")
+			sb.SetEnv("GIT_ALLOW_PROTOCOL", "file")
+			args := []string{"install", "https://github.com/example-org/ai-hub/tree/release/rules", "--kind", "extra", "--name", "rules", "--skip-audit", "--json", "-g"}
+			want := "release"
+			if override {
+				args = append(args, "--branch", "main")
+				want = "main"
+			}
+			result := sb.RunCLI(args...)
+			result.AssertSuccess(t)
+			var out struct{ Branch, Commit string }
+			if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil {
+				t.Fatal(err)
+			}
+			head := strings.TrimSpace(testutil.RunGit(t, filepath.Join(sb.Root, "seed-"+want), "rev-parse", "HEAD"))
+			if out.Branch != want || out.Commit != head {
+				t.Fatalf("effective branch: %+v want %s %s", out, want, head)
+			}
+			root := filepath.Join(filepath.Dir(sb.SourcePath), "extras")
+			store, _, err := install.ReadMetadata(root)
+			if err != nil || store.GetExact("rules").Branch != want {
+				t.Fatalf("metadata branch: %+v %v", store, err)
+			}
+			data, err := os.ReadFile(sb.ConfigPath)
+			if err != nil || !strings.Contains(string(data), "branch: "+want) {
+				t.Fatalf("config branch: %s %v", data, err)
+			}
+		})
+	}
+}

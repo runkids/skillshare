@@ -8,10 +8,12 @@ import (
 	"skillshare/internal/config"
 )
 
+type extraConfigUpdate func([]config.ExtraConfig) ([]config.ExtraConfig, error)
+
 type extraConfigCallbacks struct {
 	name, remote, branch        string
 	load                        func() ([]config.ExtraConfig, error)
-	save                        func([]config.ExtraConfig) error
+	save                        func(extraConfigUpdate) error
 	baseline, previous, written *config.ExtraConfig
 }
 
@@ -48,7 +50,7 @@ func extraConfigAt(entries []config.ExtraConfig, name string) (int, error) {
 	return index, nil
 }
 
-func newExtraConfigCallbacks(name, remote, branch string, load func() ([]config.ExtraConfig, error), save func([]config.ExtraConfig) error) (*extraConfigCallbacks, error) {
+func newExtraConfigCallbacks(name, remote, branch string, load func() ([]config.ExtraConfig, error), save func(extraConfigUpdate) error) (*extraConfigCallbacks, error) {
 	c := &extraConfigCallbacks{name: name, remote: remote, branch: branch, load: load, save: save}
 	entries, err := load()
 	if err != nil {
@@ -94,31 +96,28 @@ func (c *extraConfigCallbacks) Recheck() error {
 }
 
 func (c *extraConfigCallbacks) merge(remote, branch string, record bool) error {
-	entries, err := c.load()
-	if err != nil {
-		return err
-	}
-	i, current, err := c.entry(entries)
-	if err != nil {
-		return err
-	}
-	if current != nil && (current.Remote == "" || current.Remote != remote) {
-		return fmt.Errorf("extra %q has a local or different origin; remove it before reinstalling", c.name)
-	}
-	previous := cloneExtraConfig(current)
-	if i < 0 {
-		entries = append(entries, config.ExtraConfig{Name: c.name, Targets: []config.ExtraTargetConfig{}})
-		i = len(entries) - 1
-	}
-	entries[i].Remote, entries[i].Branch = remote, branch
-	written := cloneExtraConfig(&entries[i])
-	if err := c.save(entries); err != nil {
-		return err
-	}
-	if record {
+	var previous, written *config.ExtraConfig
+	err := c.save(func(entries []config.ExtraConfig) ([]config.ExtraConfig, error) {
+		i, current, err := c.entry(entries)
+		if err != nil {
+			return nil, err
+		}
+		if current != nil && (current.Remote == "" || current.Remote != remote) {
+			return nil, fmt.Errorf("extra %q has a local or different origin; remove it before reinstalling", c.name)
+		}
+		previous = cloneExtraConfig(current)
+		if i < 0 {
+			entries = append(entries, config.ExtraConfig{Name: c.name, Targets: []config.ExtraTargetConfig{}})
+			i = len(entries) - 1
+		}
+		entries[i].Remote, entries[i].Branch = remote, branch
+		written = cloneExtraConfig(&entries[i])
+		return entries, nil
+	})
+	if err == nil && record {
 		c.previous, c.written = previous, written
 	}
-	return nil
+	return err
 }
 
 func (c *extraConfigCallbacks) WriteConfig() error { return c.merge(c.remote, c.branch, true) }
@@ -143,24 +142,22 @@ func (c *extraConfigCallbacks) RevertConfig() error {
 	if c.written == nil {
 		return nil
 	}
-	entries, err := c.load()
-	if err != nil {
-		return err
-	}
-	i, current, err := c.entry(entries)
-	if err != nil {
-		return err
-	}
-	if current == nil {
-		return nil
-	}
-	if !reflect.DeepEqual(c.written, current) {
-		return fmt.Errorf("extra %q changed by another writer; cannot revert it", c.name)
-	}
-	if c.previous == nil {
-		entries = append(entries[:i], entries[i+1:]...)
-	} else {
-		entries[i] = *cloneExtraConfig(c.previous)
-	}
-	return c.save(entries)
+	return c.save(func(entries []config.ExtraConfig) ([]config.ExtraConfig, error) {
+		i, current, err := c.entry(entries)
+		if err != nil {
+			return nil, err
+		}
+		if current == nil {
+			return nil, nil
+		} // no write when already removed
+		if !reflect.DeepEqual(c.written, current) {
+			return nil, fmt.Errorf("extra %q changed by another writer; cannot revert it", c.name)
+		}
+		if c.previous == nil {
+			entries = append(entries[:i], entries[i+1:]...)
+		} else {
+			entries[i] = *cloneExtraConfig(c.previous)
+		}
+		return entries, nil
+	})
 }
