@@ -168,8 +168,11 @@ records/source but does not relink already-cleaned targets; use `sync extras`.
 ### 5. Observe a real kill and repair in both modes
 
 Add enough benign fixture files to leave an observable incoming-copy interval.
-The watcher kills only the subprocess it starts, after observing the marker.
-A missed interval is a failed observation, not a successful crash test.
+Establish the declaration before killing a reinstall: `check extras` enumerates
+configured entries, so a first install killed before its config write has no
+entry for that command to inspect. First-install orphan repair is covered by
+the deterministic domain tests. The watcher kills only the subprocess it starts,
+after observing the marker. A missed interval is a failed observation.
 
 ```bash
 set -euo pipefail
@@ -195,6 +198,8 @@ assert Path(ss).is_file(), 'built candidate must exist'
 for mode, extras in [('g', root/'home/.config/skillshare/extras'), ('p', root/'project/.skillshare/extras')]:
     marker = extras/'.skillshare-staging/publishing-crash-rules.json'
     command = [ss, 'install', os.environ['REMOTE'], '--kind', 'extra', '--name', 'crash-rules', '--branch', 'main', '--skip-audit', '-'+mode]
+    subprocess.run(command, cwd=root/'project', env=env, check=True)
+    assert not marker.exists(), 'baseline install must finish before the observed kill'
     with (root/f'kill-{mode}.log').open('w') as output:
         proc = subprocess.Popen(command, cwd=root/'project', env=env, stdout=output, stderr=output)
         deadline = time.monotonic() + 60
