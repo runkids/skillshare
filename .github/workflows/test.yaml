@@ -65,6 +65,30 @@ jobs:
         env:
           SKILLSHARE_TEST_BINARY: ${{ github.workspace }}/bin/skillshare
 
+  ui-test:
+    if: *not-release-duplicate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - name: UI tests and build
+        run: cd ui && pnpm install --frozen-lockfile && pnpm test && pnpm run build
+
   integration-test:
     if: *not-release-duplicate
     runs-on: ${{ matrix.os }}
