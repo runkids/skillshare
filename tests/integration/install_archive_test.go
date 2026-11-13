@@ -39,7 +39,7 @@ func TestArchiveCLIEndToEnd(t *testing.T) {
 	// fixture-only CLI with explicit roots, keeping normal TLS verification.
 	projectRoot := findProjectRoot(t)
 	fixtureDir := t.TempDir()
-	binary := filepath.Join(fixtureDir, "skillshare")
+	binary := filepath.Join(fixtureDir, "skillshare.exe")
 	initFile := filepath.Join(fixtureDir, "tls.go")
 	initSource := fmt.Sprintf(`package main
 import ("crypto/tls"; "crypto/x509"; "net/http")
