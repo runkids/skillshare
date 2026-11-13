@@ -63,7 +63,11 @@ skillshare install 'https://host/pack.zip#skill=legal%2Fbrief' --name custom -p
 ZIPs use the existing skill discovery, selection and security audit. Root-level,
 wrapped and multi-skill archives work. Downloads require HTTPS, including redirects,
 and are limited to 100 MiB; extraction allows at most 10,000 entries and 250 MiB
-in total. Traversal, absolute paths, backslashes, symlinks and special files are rejected.
+in total. Traversal, absolute paths, backslashes, symlinks, special files and `.git`
+entries at any depth (case-insensitive) are rejected; `.gitignore` remains supported.
+Default names are normalized for config reinstalls (for example, `brief-1.0.0` becomes
+`brief-1-0-0`); member paths stay unchanged. If normalization makes names ambiguous,
+select one member with `#skill=<escaped-relative-path>`.
 ZIP sources support skills; Git tracking and branch/ref options are unavailable.
 
 Metadata records the original URL, the downloaded bytes' SHA256 and the selected

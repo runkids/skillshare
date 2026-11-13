@@ -24,7 +24,10 @@ of the digest. Plain-skill source edits involving ZIP reset incompatible remote
 baselines through `MetadataEntry.SetSource` while retaining installed file hashes
 and time; archive-to-local source edits require explicit reinstall instead.
 Inspections without historical content return file statuses. Literal
-ZIP dot components are normalized only after raw traversal checks.
+ZIP dot components are normalized only after raw traversal checks. Extraction
+rejects case-insensitive `.git` components at every depth, including regular gitdir files.
+Archive-only default-name normalization keeps generated declarations valid without
+changing member paths or Git/local naming; newly ambiguous names require a selector.
 
 ## Repository Map
 

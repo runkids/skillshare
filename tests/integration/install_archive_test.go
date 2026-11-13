@@ -17,6 +17,7 @@ import (
 	"sync"
 	"testing"
 
+	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/testutil"
 )
@@ -29,7 +30,14 @@ func TestArchiveCLIEndToEnd(t *testing.T) {
 		defer mu.Unlock()
 		var body bytes.Buffer
 		z := zip.NewWriter(&body)
-		f, _ := z.Create("brief/SKILL.md")
+		member := "brief/SKILL.md"
+		switch r.URL.Path {
+		case "/brief-1.0.0.zip":
+			member = "SKILL.md"
+		case "/members.zip":
+			member = "group/brief.v2/SKILL.md"
+		}
+		f, _ := z.Create(member)
 		_, _ = f.Write([]byte("# Brief " + version))
 		_ = z.Close()
 		_, _ = w.Write(body.Bytes())
@@ -177,6 +185,65 @@ func init() {
 			}
 			if installed, ok := output["skills"].([]any); !ok || len(installed) != 0 {
 				t.Fatalf("unchanged ZIP reported installed: %s", noop.Stdout)
+			}
+			// Generated declarations must reinstall default names without --name.
+			for _, tc := range []struct{ source, member string }{
+				{"/brief-1.0.0.zip", "."},
+				{"/members.zip", "group/brief.v2"},
+				{"/members.zip#skill=group%2Fbrief.v2", "group/brief.v2"},
+			} {
+				t.Run(tc.source, func(t *testing.T) {
+					installed := run("install", srv.URL+tc.source, "--json")
+					installed.AssertSuccess(t)
+					output := parseJSON(t, installed.Stdout)
+					names, ok := output["skills"].([]any)
+					if !ok || len(names) != 1 {
+						t.Fatalf("default ZIP install = %s", installed.Stdout)
+					}
+					name := names[0].(string)
+					dest := filepath.Join(source, name)
+					if filepath.Dir(dest) != source {
+						t.Fatalf("unexpected fixture destination %q", dest)
+					}
+					entry := install.LoadMetadataOrNew(source).GetByPath(name)
+					if entry == nil || entry.Subdir != tc.member || entry.Tracked {
+						t.Fatalf("default ZIP identity = %+v", entry)
+					}
+					var declarations []install.SkillEntryDTO
+					if mode == "-p" {
+						cfg, err := config.LoadProject(cwd)
+						if err != nil {
+							t.Fatal(err)
+						}
+						declarations = config.ProjectSkillEntries(cfg.Skills)
+					} else {
+						declarations = install.MetadataSkillEntries(install.LoadMetadataOrNew(source))
+					}
+					found := false
+					for _, declaration := range declarations {
+						if declaration.Name == name {
+							found = declaration.Source == entry.Source && !declaration.Tracked
+						}
+					}
+					if !found {
+						t.Fatalf("missing generated ZIP declaration %q: %+v", name, declarations)
+					}
+					// Remove only this fixture's installed copy, leaving its declarations.
+					if err := os.RemoveAll(dest); err != nil {
+						t.Fatal(err)
+					}
+					reinstalled := run("install", "--json")
+					reinstalled.AssertSuccess(t)
+					if got, err := os.ReadFile(filepath.Join(dest, "SKILL.md")); err != nil || string(got) != "# Brief v3" {
+						t.Fatalf("generated declaration did not restore %q: %q %v; JSON=%s", name, got, err, reinstalled.Stdout)
+					}
+					if restored := install.LoadMetadataOrNew(source).GetByPath(name); restored == nil || restored.Source != entry.Source || restored.Subdir != tc.member || restored.Tracked {
+						t.Fatalf("restored ZIP identity = %+v, want %+v", restored, entry)
+					}
+					if err := os.RemoveAll(dest); err != nil {
+						t.Fatal(err)
+					}
+				})
 			}
 		})
 	}

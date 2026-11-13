@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"skillshare/internal/utils"
+	"skillshare/internal/validate"
 )
 
 const (
@@ -36,14 +37,40 @@ func parseArchiveSource(u *url.URL, source *Source) (*Source, error) {
 		}
 	}
 	source.Type = SourceTypeArchive
-	source.Name = strings.TrimSuffix(path.Base(u.Path), path.Ext(u.Path))
-	if source.Subdir != "" && source.Subdir != "." {
-		source.Name = path.Base(source.Subdir)
-	}
-	if err := validateSourceName(source.Name); err != nil {
+	name := archiveSourceName(u, source.Subdir)
+	if err := validateSourceName(name); err != nil {
 		return nil, err
 	}
+	source.Name = archiveSkillName(name)
 	return source, nil
+}
+
+func archiveSourceName(u *url.URL, member string) string {
+	if member != "" && member != "." {
+		return path.Base(member)
+	}
+	return strings.TrimSuffix(path.Base(u.Path), path.Ext(u.Path))
+}
+
+// Archive defaults must also be valid names in generated config declarations.
+func archiveSkillName(name string) string {
+	name = strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_' {
+			return r
+		}
+		return '-'
+	}, name)
+	name = strings.TrimLeft(name, "-_")
+	if len(name) > 64 {
+		name = name[:64]
+	}
+	if name == "" {
+		return "archive-skill"
+	}
+	if validate.SkillName(name) != nil {
+		return "skill-" + name
+	}
+	return name
 }
 
 func archiveRelativePath(name string) error {
@@ -155,6 +182,9 @@ func extractArchive(file, root string, expandedLimit int64, entryLimit int) erro
 			return fmt.Errorf("unsafe archive path %q", name)
 		}
 		for _, part := range strings.Split(name, "/") {
+			if strings.EqualFold(part, ".git") {
+				return fmt.Errorf("ZIP contains Git administrative path %q", name)
+			}
 			if part != "." {
 				if err := checkSubdirSafety(part); err != nil {
 					return err
@@ -236,7 +266,11 @@ func discoverDownloadedArchive(source *Source, file, digest string) (*DiscoveryR
 	if err := extractArchive(file, root, archiveExpandedLimit, archiveEntryLimit); err != nil {
 		return nil, err
 	}
-	local := &Source{Type: SourceTypeLocalPath, Path: root, Name: source.Name}
+	u, err := url.Parse(source.Raw)
+	if err != nil {
+		return nil, err
+	}
+	local := &Source{Type: SourceTypeLocalPath, Path: root, Name: archiveSourceName(u, source.Subdir)}
 	if source.Subdir != "" {
 		local.Path = filepath.Join(root, filepath.FromSlash(source.Subdir))
 	}
@@ -248,6 +282,16 @@ func discoverDownloadedArchive(source *Source, file, digest string) (*DiscoveryR
 	discovery, err := DiscoverLocal(local)
 	if err != nil {
 		return nil, err
+	}
+	names := make(map[string]string)
+	for i := range discovery.Skills {
+		skill := &discovery.Skills[i]
+		name := archiveSkillName(skill.Name)
+		key := strings.ToLower(name)
+		if previous, ok := names[key]; ok && (name != skill.Name || !strings.EqualFold(previous, name)) {
+			return nil, fmt.Errorf("archive skill names collide after normalization: %q and %q; select a member with #skill=", previous, skill.Name)
+		}
+		names[key], skill.Name = skill.Name, name
 	}
 	source.ArchiveSHA256 = digest
 	discovery.RepoPath, discovery.Source, discovery.Agents = filepath.Dir(file), source, nil

@@ -12,9 +12,24 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"skillshare/internal/validate"
 )
 
 func TestArchiveSource(t *testing.T) {
+	for _, name := range []string{"brief-1.0.0", "_tools", "agents", "---", "文件", strings.Repeat("a", 65)} {
+		t.Run("default-name/"+name, func(t *testing.T) {
+			for _, raw := range []string{"https://host/" + name + ".zip", "https://host/pack.zip#skill=group%2F" + name} {
+				source, err := ParseSource(raw)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := validate.SkillName(source.Name); err != nil {
+					t.Errorf("archive default name %q cannot be reinstalled from config: %v", source.Name, err)
+				}
+			}
+		})
+	}
 	for _, raw := range []string{
 		"https://autoglm-public-oss.z.ai/autoclaw/autoclaw-skills/case-brief-1.0.0.zip",
 		"https://github.com/acme/skills/releases/download/v1/pack.zip?download=1#skill=legal%2Fbrief",
@@ -82,13 +97,67 @@ func archiveEntry(t *testing.T, root string) *MetadataEntry {
 }
 
 func TestArchiveInstallUpdate(t *testing.T) {
+	t.Run("derived-member-names", func(t *testing.T) {
+		files := map[string]string{"brief.v2/SKILL.md": "# Dotted", "agents/SKILL.md": "# Reserved", "---/SKILL.md": "# Empty"}
+		payload := archiveZIP(t, files)
+		srv := archiveServer(t, &payload)
+		source, err := ParseSource(srv.URL + "/pack.zip?download=1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		discovery, err := DiscoverArchive(source, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		CleanupDiscovery(discovery)
+		if len(discovery.Skills) != len(files) {
+			t.Fatalf("missing archive members: %+v", discovery.Skills)
+		}
+		for _, skill := range discovery.Skills {
+			if err := validate.SkillName(skill.Name); err != nil {
+				t.Errorf("discovered archive name %q is invalid for config reinstall: %v", skill.Name, err)
+			}
+			if _, ok := files[skill.Path+"/SKILL.md"]; !ok {
+				t.Errorf("member path changed while naming skill: %+v", skill)
+			}
+		}
+		for _, files := range []map[string]string{
+			{"brief.v2/SKILL.md": "# One", "brief-v2/SKILL.md": "# Two"},
+			{"SKILL.md": "# Root", "brief-v2/SKILL.md": "# Child"},
+		} {
+			payload = archiveZIP(t, files)
+			source, err := ParseSource(srv.URL + "/brief.v2.zip?download=1")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if discovery, err := DiscoverArchive(source, nil); err == nil {
+				CleanupDiscovery(discovery)
+				t.Error("colliding derived archive names accepted")
+			}
+			source, err = ParseSource(srv.URL + "/brief.v2.zip?download=1#skill=brief-v2")
+			if err != nil {
+				t.Fatal(err)
+			}
+			discovery, err := DiscoverArchive(source, nil)
+			if err != nil {
+				t.Fatalf("explicit member cannot resolve name collision: %v", err)
+			}
+			CleanupDiscovery(discovery)
+		}
+		payload = archiveZIP(t, map[string]string{"a/brief/SKILL.md": "# One", "b/brief/SKILL.md": "# Two"})
+		if discovery, err := DiscoverArchive(source, nil); err != nil {
+			t.Fatalf("unchanged directory-name ambiguity was newly rejected: %v", err)
+		} else {
+			CleanupDiscovery(discovery)
+		}
+	})
 	for _, member := range []string{"pack/brief", ".", "parent"} {
 		t.Run(member, func(t *testing.T) {
 			prefix := member + "/"
 			if member == "." {
 				prefix = ""
 			}
-			files := map[string]string{prefix + "SKILL.md": "# Selected v1", "other/SKILL.md": "# Other"}
+			files := map[string]string{prefix + "SKILL.md": "# Selected v1", prefix + ".gitignore": "scratch\n", "other/SKILL.md": "# Other"}
 			if member != "pack/brief" {
 				files[prefix+"child/SKILL.md"] = "# Child"
 			}
@@ -123,6 +192,9 @@ func TestArchiveInstallUpdate(t *testing.T) {
 					t.Fatal(err)
 				}
 				raw += "#skill=" + member
+			}
+			if got, err := os.ReadFile(filepath.Join(dest, ".gitignore")); member != "." && (err != nil || string(got) != "scratch\n") {
+				t.Fatalf("ordinary .gitignore lost: %q %v", got, err)
 			}
 			e := archiveEntry(t, root)
 			data, _ := json.Marshal(e)
@@ -195,16 +267,20 @@ func TestArchiveInstallUpdate(t *testing.T) {
 }
 
 func TestArchiveRejectsUnsafeZIP(t *testing.T) {
-	for _, name := range []string{"../evil", "safe/../evil", "./../evil", "brief/./../../evil", "./C:/evil", "./safe\x00bad", "/evil", "C:/evil", `C:\evil`, `\\host\evil`, `safe\evil`} {
+	for _, name := range []string{"../evil", "safe/../evil", "./../evil", "brief/./../../evil", "./C:/evil", "./safe\x00bad", "/evil", "C:/evil", `C:\evil`, `\\host\evil`, `safe\evil`, ".git", ".git/", ".git/config", "nested/.git", "nested/.git/", "nested/.git/config", "nested/.GIT"} {
 		t.Run(name, func(t *testing.T) {
-			payload := archiveZIP(t, map[string]string{"SKILL.md": "# Safe", name: "bad"})
+			content := "bad"
+			if strings.HasSuffix(name, "/") {
+				content = ""
+			}
+			payload := archiveZIP(t, map[string]string{"SKILL.md": "# Safe", name: content})
 			srv := archiveServer(t, &payload)
-			source, err := ParseSource(srv.URL + "/pack.zip?download=1")
+			source, err := ParseSource(srv.URL + "/_tools.zip?download=1")
 			if err != nil {
 				t.Fatal(err)
 			}
 			root := t.TempDir()
-			dest := filepath.Join(root, "keep")
+			dest := filepath.Join(root, "_tools")
 			if err := os.Mkdir(dest, 0755); err != nil {
 				t.Fatal(err)
 			}
@@ -217,6 +293,19 @@ func TestArchiveRejectsUnsafeZIP(t *testing.T) {
 			got, _ := os.ReadFile(filepath.Join(dest, "SKILL.md"))
 			if string(got) != "# Keep" {
 				t.Fatal("bad archive destroyed installed skill")
+			}
+			if IsTrackedCheckout(dest) {
+				t.Fatal("rejected ZIP turned the existing skill into a tracked checkout")
+			}
+			fresh := filepath.Join(root, "fresh")
+			if _, err := Install(source, fresh, InstallOptions{SourceDir: root}); err == nil {
+				t.Fatal("unsafe ZIP accepted for a fresh destination")
+			}
+			if _, err := os.Stat(fresh); !os.IsNotExist(err) {
+				t.Fatal("rejected ZIP left a partial install")
+			}
+			if _, err := os.Stat(filepath.Join(root, MetadataFileName)); !os.IsNotExist(err) {
+				t.Fatal("rejected ZIP wrote install metadata")
 			}
 		})
 	}
