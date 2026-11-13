@@ -155,6 +155,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 	result := ConfigInstallResult{
 		InstalledSkills: make([]string, 0),
 		FailedSkills:    make([]string, 0),
+		SkippedSkills:   make([]string, 0),
 	}
 
 	sourcePath := ctx.SourcePath()
@@ -194,12 +195,13 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 		destPath := filepath.Join(sourcePath, filepath.FromSlash(displayName))
 		locked := opts.Lock.CommitFor(displayName, skill.Source)
 
-		// Skip skills that already exist on disk, unless the lockfile moved on
-		// (a teammate updated) and this copy has to follow.
+		// Skip existing skills unless replacement is requested and the lockfile
+		// moved on (a teammate updated). Output format never grants that intent.
 		relock := false
 		if _, err := os.Stat(destPath); err == nil {
-			if locked == "" || InstalledCommit(destPath, store.GetByPath(displayName)) == locked {
+			if (!opts.Force && !opts.Update) || locked == "" || InstalledCommit(destPath, store.GetByPath(displayName)) == locked {
 				result.Skipped++
+				result.SkippedSkills = append(result.SkippedSkills, displayName)
 				if skill.Tracked {
 					result.SkippedRepos++
 				}
@@ -230,6 +232,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 		} else if to := movedCopyOf(store, sourcePath, skill, opts.SourceFollow, locked); to != "" {
 			// Reconcile moves the record to the copy; installing would duplicate it.
 			result.Skipped++
+			result.SkippedSkills = append(result.SkippedSkills, displayName)
 			if !opts.DryRun {
 				moved++
 			}

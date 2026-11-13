@@ -630,7 +630,7 @@ export function cloneUrl(source) {
 
 // Keep exit status authoritative even with valid JSON from an older CLI.
 export function installResult(r) {
-  const j = parseJSON(r.stdout), done = j?.skills ?? [], failed = j?.failed ?? [];
+  const j = parseJSON(r.stdout), done = j?.skills ?? [], failed = j?.failed ?? [], skipped = j?.skipped ?? [];
   if (j?.error) return { done: null, error: j.error };
   if (r.code !== 0) {
     const details = [done.length ? `Installed: ${done.join(", ")}.` : "", failed.length ? `Failed: ${failed.join(", ")}.` : "", lastLine(r.stderr)].filter(Boolean);
@@ -638,6 +638,7 @@ export function installResult(r) {
     return { done: null, error: details.join(" ") };
   }
   if (failed.length) return { done: null, error: `Installed ${done.length} skill(s); ${failed.join(", ")} failed. The install's own audit can stop one.` };
+  if (skipped.length) return { done: null, error: `Installed ${done.length} skill(s); ${skipped.join(", ")} already installed and left as is.` };
   if (!j) return { done: null, error: failure(r, "skillshare install returned no JSON") };
   return { done, error: null };
 }

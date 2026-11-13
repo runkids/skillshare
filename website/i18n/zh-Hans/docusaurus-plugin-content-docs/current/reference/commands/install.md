@@ -227,7 +227,7 @@ skillshare install -p    # 从 project 配置安装所有远程 Skill
 skillshare sync
 ```
 
-标记为 `tracked: true` 的 Skill 会以完整 git 历史克隆（与 `--track` 相同），因此 `skillshare update` 能正常工作。磁盘上已存在的 Skill 会被跳过。当 tracked repo 目录被 gitignore 掉、克隆后本地缺失时，这就是恢复用的命令。
+标记为 `tracked: true` 的 Skill 会以完整 git 历史克隆（与 `--track` 相同），因此 `skillshare update` 能正常工作。磁盘上已存在的 Skill 会被跳过，除非项目的固定版本已更改。当 tracked repo 目录被 gitignore 掉、克隆后本地缺失时，这就是恢复用的命令。 使用 `--json` 时，即使项目锁定文件指向不同的 commit，也会跳过现有副本；加上 `--force` 才会更新到该固定版本。
 
 :::tip push/pull 与 install from config 的区别
 `push`/`pull` 通过 git 同步实际的 Skill **文件**。`install` from config 则从 **source URL** 重新下载。两者是互补的 —— 具体该用哪个，参见 [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync#alternative-install-from-config)。
@@ -303,7 +303,7 @@ skillshare sync
 | `--project` | `-p` | 安装到 project 的 `.skillshare/skills/` |
 | `--global` | `-g` | 安装到 global 的 `~/.config/skillshare/skills/` |
 | `--dry-run` | `-n` | 仅预览 |
-| `--json` | | 以 JSON 输出（与 `--force` 一样允许覆盖已有 skill，但安全审计拦截仍然生效；未指定 `--skill`/`--agent` 过滤条件时也隐含非交互式选择） |
+| `--json` | | 以非交互式 JSON 输出；未指定 `--skill`/`--agent` 过滤条件时全选。覆盖已有 skill 或 agent 需要 `--force`；安全审计拦截仍然生效 |
 
 ## JSON 输出
 
@@ -311,7 +311,9 @@ skillshare sync
 skillshare install anthropics/skills --json
 ```
 
-对明确指定、非跟踪的 skill 来源，加上 `--dry-run --json` 可取得 `planned` 数组，包含 `{name, path}`，不会安装。名称是 CLI 的安装名称；Git 路径相对于仓库根目录（包含选取的子目录），本地 skill 使用 `.`。列表遵循发现、`.skillignore` 和选择规则；JSON 模式未指定筛选条件时会全选。`skills` 仍只报告已安装名称，在 dry-run 中保持空数组。发现后没有选中的 skill 时返回 `planned: []`；跟踪与配置文件安装不提供此字段。
+仅使用 JSON 输出会保留已有的 skill 和 agent。覆盖时请显式添加 `--force`。`skipped` 数组报告因重复检查而跳过的名称；其他冲突会返回 `error` 或列在 `failed` 中。`skills` 数组仅包含已安装的名称。
+
+对明确指定、非跟踪的 skill 来源，加上 `--dry-run --json` 可取得 `planned` 数组，包含 `{name, path}`，不会安装。名称是 CLI 的安装名称；Git 路径相对于仓库根目录（包含选取的子目录），本地 skill 使用 `.`。列表遵循发现、`.skillignore` 和选择规则；JSON 模式未指定筛选条件时会全选。`skills` 仍只报告已安装名称，在 dry-run 中保持空数组。发现后没有选中的 skill 时返回 `planned: []`；跟踪与配置文件安装不提供此字段。 现有目标和跨路径的重复安装不会阻止此只读预览。
 
 ```json
 {
@@ -319,6 +321,7 @@ skillshare install anthropics/skills --json
   "tracked": false,
   "dry_run": false,
   "skills": ["pdf", "commit", "review"],
+  "skipped": [],
   "failed": [],
   "duration": "2.345s"
 }
@@ -337,6 +340,7 @@ skillshare install anthropics/skills --json --into frontend
   "dry_run": false,
   "into": "frontend",
   "skills": ["pdf", "commit"],
+  "skipped": [],
   "failed": [],
   "duration": "1.890s"
 }
@@ -354,6 +358,7 @@ skillshare install github.com/user/agents --kind agent --json
   "tracked": false,
   "dry_run": false,
   "skills": ["reviewer", "tutor"],
+  "skipped": [],
   "failed": [],
   "duration": "1.234s"
 }
@@ -367,6 +372,7 @@ skillshare install github.com/user/agents --kind agent --json
   "tracked": true,
   "dry_run": false,
   "skills": [],
+  "skipped": [],
   "failed": [],
   "duration": "0.412s",
   "error": "blocked by security audit (use --force to override)"
@@ -391,6 +397,8 @@ skillshare install anthropics/skills/skills/pdf
 
 使用 `--update` 刷新，或使用 `--force` 覆盖。
 
+只有同一个仓库中的同一个 Skill 会被跳过。如果同一个仓库的另一个 Skill（例如通过 `--name`）要使用同一个文件夹，安装会像[下文](#conflict-with-different-repo)所述那样以冲突失败。
+
 对位于[被跟随的 source link](../targets/configuration.md#follow_source_links)背后的 tracked repo 使用 `--update` 时，如果该 checkout 存在未提交的修改，会拒绝拉取。请先 commit 或 stash。
 
 ### 跨路径重复
@@ -409,7 +417,7 @@ skillshare install runkids/feature-radar
 
 这可以防止跨不同路径出现意外的重复安装。如果确实需要，可使用 `--force` 主动允许。
 
-### 与不同仓库冲突
+### 与不同仓库冲突 {#conflict-with-different-repo}
 
 如果目标目录已存在，但它是从**不同**的仓库安装的，错误信息会包含原始 source：
 
