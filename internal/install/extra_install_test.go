@@ -1152,3 +1152,22 @@ func TestInstallRemoteExtra_StaleOriginMetadataMissingVersusLive(t *testing.T) {
 		})
 	}
 }
+
+func TestInstallRemoteExtra_PreWriteConfigRefusalRetainsChangedEntry(t *testing.T) {
+	req := newRemoteExtraRequest(t)
+	req.WriteConfig = func() error {
+		if err := os.WriteFile(req.ConfigPath, []byte("other writer origin"), 0644); err != nil {
+			return err
+		}
+		return fmt.Errorf("%w: different origin", ErrExtraConfigNotWritten)
+	}
+	if _, err := InstallRemoteExtra(req); err == nil {
+		t.Fatal("pre-write conflict accepted")
+	}
+	if data, err := os.ReadFile(req.ConfigPath); err != nil || string(data) != "other writer origin" {
+		t.Fatal("refused entry overwritten", err)
+	}
+	if _, err := os.Lstat(filepath.Join(req.ExtrasRoot, req.Name)); !os.IsNotExist(err) {
+		t.Fatal("failed candidate retained", err)
+	}
+}

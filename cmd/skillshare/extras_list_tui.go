@@ -1116,7 +1116,12 @@ func (m extrasListTUIModel) doCollect(name, targetPath string) (string, error) {
 	if extra.File != "" {
 		return "", errSingleFileCollect
 	}
-	sourceDir := m.sourceFunc(*extra)
+	var sourceDir string
+	if m.projCfg != nil {
+		sourceDir = config.ResolveExtrasSourceDirProject(*extra, m.projCfg.EffectiveExtrasSource(m.cwd), m.cwd)
+	} else {
+		sourceDir = config.ResolveExtrasSourceDir(*extra, m.cfg.EffectiveExtrasSource(), m.cfg.EffectiveSkillsSource())
+	}
 	collected := 0
 	for _, t := range targets {
 		resolved := config.ExpandPath(t.Path)
@@ -1132,7 +1137,6 @@ func (m extrasListTUIModel) doCollect(name, targetPath string) (string, error) {
 
 func (m extrasListTUIModel) doFlattenToggle(name string, t extrasTargetInfo) tea.Cmd {
 	targetPath := t.Path
-	newFlatten := !t.Flatten
 
 	return func() tea.Msg {
 		unlock, lockErr := lockRemoteExtraMutation(m.mutationMode(), m.cwd, name)
@@ -1141,8 +1145,16 @@ func (m extrasListTUIModel) doFlattenToggle(name string, t extrasTargetInfo) tea
 		}
 		defer unlock()
 
-		if err := config.ValidateExtraFlatten(newFlatten, t.Mode); err != nil {
-			return extrasActionDoneMsg{msg: "", err: err}
+		var newFlatten bool
+		toggle := func(extras []config.ExtraConfig) error {
+			if err := applyExtraTarget(extras, name, targetPath, func(current *config.ExtraTargetConfig) {
+				newFlatten = !current.Flatten
+				current.Flatten = newFlatten
+			}); err != nil {
+				return err
+			}
+			_, extra := findExtraByName(extras, name)
+			return config.ValidateExtraConfig(extra)
 		}
 
 		if m.projCfg != nil {
@@ -1150,7 +1162,7 @@ func (m extrasListTUIModel) doFlattenToggle(name string, t extrasTargetInfo) tea
 			if loadErr != nil {
 				return extrasActionDoneMsg{err: loadErr}
 			}
-			if err := applyExtraTarget(projCfg.Extras, name, targetPath, func(et *config.ExtraTargetConfig) { et.Flatten = newFlatten }); err != nil {
+			if err := toggle(projCfg.Extras); err != nil {
 				return extrasActionDoneMsg{err: err}
 			}
 			if err := projCfg.Save(m.cwd); err != nil {
@@ -1161,7 +1173,7 @@ func (m extrasListTUIModel) doFlattenToggle(name string, t extrasTargetInfo) tea
 			if loadErr != nil {
 				return extrasActionDoneMsg{err: loadErr}
 			}
-			if err := applyExtraTarget(cfg.Extras, name, targetPath, func(et *config.ExtraTargetConfig) { et.Flatten = newFlatten }); err != nil {
+			if err := toggle(cfg.Extras); err != nil {
 				return extrasActionDoneMsg{err: err}
 			}
 			if err := cfg.Save(); err != nil {

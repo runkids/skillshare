@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 )
 
 type extraConfigUpdate func([]config.ExtraConfig) ([]config.ExtraConfig, error)
@@ -97,6 +98,7 @@ func (c *extraConfigCallbacks) Recheck() error {
 
 func (c *extraConfigCallbacks) merge(remote, branch string, record bool) error {
 	var previous, written *config.ExtraConfig
+	prepared := false
 	err := c.save(func(entries []config.ExtraConfig) ([]config.ExtraConfig, error) {
 		i, current, err := c.entry(entries)
 		if err != nil {
@@ -112,8 +114,12 @@ func (c *extraConfigCallbacks) merge(remote, branch string, record bool) error {
 		}
 		entries[i].Remote, entries[i].Branch = remote, branch
 		written = cloneExtraConfig(&entries[i])
+		prepared = true
 		return entries, nil
 	})
+	if err != nil && !prepared {
+		return fmt.Errorf("%w: %w", install.ErrExtraConfigNotWritten, err)
+	}
 	if err == nil && record {
 		c.previous, c.written = previous, written
 	}

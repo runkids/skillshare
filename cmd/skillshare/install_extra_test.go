@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 )
 
 func TestExtraConfigCallbacks_RepairAndBaseline(t *testing.T) {
@@ -65,7 +66,7 @@ func TestExtraConfigCallbacks_RefuseConflictingRepair(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := callbacks.RepairConfig("journal", "main"); err == nil || saved {
+		if err := callbacks.RepairConfig("journal", "main"); !errors.Is(err, install.ErrExtraConfigNotWritten) || saved {
 			t.Fatalf("conflicting entry accepted: %+v %v", entry, err)
 		}
 	}

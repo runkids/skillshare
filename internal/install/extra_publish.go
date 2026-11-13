@@ -14,6 +14,11 @@ import (
 )
 
 var errSimulatedDeath = errors.New("simulated process death")
+
+// ErrExtraConfigNotWritten marks a callback refusal known to precede its write.
+// A refusing fresh merge must not capture another writer's bytes for rollback.
+var ErrExtraConfigNotWritten = errors.New("extra config write refused")
+
 var extraBoundary = func(string) error { return nil }
 var extraRename = os.Rename
 var extraWriteMarker = writeExtraJournal
@@ -45,6 +50,9 @@ func (p *extraParticipant) capture() error {
 
 func (p *extraParticipant) write(fn func() error) error {
 	writeErr := fn()
+	if errors.Is(writeErr, ErrExtraConfigNotWritten) {
+		return writeErr
+	}
 	if err := p.capture(); err != nil {
 		return fmt.Errorf("capture post-write state: %w", err)
 	}

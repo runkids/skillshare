@@ -37,9 +37,6 @@ var lockExtrasRoot = install.LockExtrasRoot
 var restoreFileTargets = syncpkg.RestoreExtraFileTargets
 var removeExtraDir = os.RemoveAll
 
-// ErrExtraChanged is a pre-write refusal from the scoped config merge.
-var ErrExtraChanged = errors.New("extra changed")
-
 func namedExtra(entries []config.ExtraConfig, name string) (int, config.ExtraConfig) {
 	for i, e := range entries {
 		if e.Name == name {
@@ -188,7 +185,7 @@ func removeRemote(req RemoveRequest, extra config.ExtraConfig, result RemoveResu
 		writeErr := write()
 		// The merge refused before writing. Its fresh conflicting entry belongs
 		// to another writer and must not become our rollback read-back.
-		if index == 0 && errors.Is(writeErr, ErrExtraChanged) {
+		if index == 0 && errors.Is(writeErr, install.ErrExtraConfigNotWritten) {
 			return writeErr
 		}
 		states[index].touched = true
@@ -283,7 +280,7 @@ func removeRemote(req RemoveRequest, extra config.ExtraConfig, result RemoveResu
 func WithoutUnchangedExtra(current []config.ExtraConfig, expected config.ExtraConfig) ([]config.ExtraConfig, error) {
 	i, entry := namedExtra(current, expected.Name)
 	if i < 0 || !reflect.DeepEqual(entry, expected) {
-		return nil, fmt.Errorf("%w: %q; retry removal", ErrExtraChanged, expected.Name)
+		return nil, fmt.Errorf("%w: extra %q changed; retry removal", install.ErrExtraConfigNotWritten, expected.Name)
 	}
 	return append(slices.Clone(current[:i]), current[i+1:]...), nil
 }
