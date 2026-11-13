@@ -66,7 +66,9 @@ func TestProfileCompletions(t *testing.T) {
 				require(script, "$key = if ($elements.Count -le 1 -or ($elements.Count -eq 2 -and $wordToComplete -ne '')) { '' } else { $cmd }")
 				require(script, "$commands[$key] | Where-Object")
 				require(script, "$commands[$cmd] | Where-Object")
-				require(script, "$flags[$cmd]")
+				require(script, "$flagKey = if ($flags.ContainsKey($nested)) { $nested } elseif ($flags.ContainsKey($cmd)) { $cmd } else { '' }")
+				require(script, "if ($flags.ContainsKey($flagKey)) {")
+				require(script, "$flags[$flagKey] | Where-Object")
 			case "nushell":
 				require(section(script, `def "nu-complete skillshare commands" [] {`, "\n}"), `{ value: "profile",`)
 				require(section(script, `export extern "skillshare" [`, "\n]"), `command?: string@"nu-complete skillshare commands"`)
