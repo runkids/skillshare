@@ -303,13 +303,15 @@ skillshare sync
 | `--project` | `-p` | 프로젝트 `.skillshare/skills/`에 설치 |
 | `--global` | `-g` | global `~/.config/skillshare/skills/`에 설치 |
 | `--dry-run` | `-n` | 미리보기만 |
-| `--json` | | JSON으로 출력 (`--force`처럼 기존 skill 덮어쓰기를 허용하지만 보안 감사 차단은 그대로 적용됨; `--skill`/`--agent` 필터가 없을 때는 비인터랙티브 선택도 암시함) |
+| `--json` | | 비인터랙티브 JSON 출력. `--skill`/`--agent` 필터가 없으면 모두 선택. 기존 skill과 agent를 덮어쓰려면 `--force`가 필요하며 감사 차단은 계속 적용됨 |
 
 ## JSON 출력
 
 ```bash
 skillshare install anthropics/skills --json
 ```
+
+JSON 출력만으로는 기존 skill과 agent를 덮어쓰지 않습니다. 덮어쓰려면 `--force`를 명시하세요. 중복 검사로 건너뛴 이름은 `skipped` 배열에 표시되며, 다른 충돌은 `error` 또는 `failed`로 보고됩니다. `skills` 배열에는 설치된 이름만 포함됩니다.
 
 명시적으로 지정한 비추적 skill 소스에 `--dry-run --json`을 추가하면 설치하지 않고 `{name, path}` 객체의 `planned` 배열을 받을 수 있습니다. 이름은 CLI의 설치 이름이며, Git 경로는 선택한 하위 디렉터리를 포함한 저장소 루트 기준 상대 경로입니다. 로컬 skill은 `.`을 사용합니다. 검색, `.skillignore`, 선택 규칙이 적용되며 JSON 모드에서 필터가 없으면 모두 선택됩니다. `skills`는 계속 설치된 이름만 보고하므로 dry-run에서는 비어 있습니다. 검색 후 선택한 skill이 없으면 `planned: []`를 반환합니다. 추적 및 설정 파일 기반 설치는 이 필드를 제공하지 않습니다.
 
@@ -319,6 +321,7 @@ skillshare install anthropics/skills --json
   "tracked": false,
   "dry_run": false,
   "skills": ["pdf", "commit", "review"],
+  "skipped": [],
   "failed": [],
   "duration": "2.345s"
 }
@@ -337,6 +340,7 @@ skillshare install anthropics/skills --json --into frontend
   "dry_run": false,
   "into": "frontend",
   "skills": ["pdf", "commit"],
+  "skipped": [],
   "failed": [],
   "duration": "1.890s"
 }
@@ -354,6 +358,7 @@ skillshare install github.com/user/agents --kind agent --json
   "tracked": false,
   "dry_run": false,
   "skills": ["reviewer", "tutor"],
+  "skipped": [],
   "failed": [],
   "duration": "1.234s"
 }
@@ -367,6 +372,7 @@ tracked 저장소, 단일 skill, 또는 소스나 config의 모든 skill이 보�
   "tracked": true,
   "dry_run": false,
   "skills": [],
+  "skipped": [],
   "failed": [],
   "duration": "0.412s",
   "error": "blocked by security audit (use --force to override)"

@@ -200,6 +200,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 		if _, err := os.Stat(destPath); err == nil {
 			if locked == "" || InstalledCommit(destPath, store.GetByPath(displayName)) == locked {
 				result.Skipped++
+				result.SkippedSkills = append(result.SkippedSkills, displayName)
 				if skill.Tracked {
 					result.SkippedRepos++
 				}
@@ -230,6 +231,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 		} else if to := movedCopyOf(store, sourcePath, skill, opts.SourceFollow, locked); to != "" {
 			// Reconcile moves the record to the copy; installing would duplicate it.
 			result.Skipped++
+			result.SkippedSkills = append(result.SkippedSkills, displayName)
 			if !opts.DryRun {
 				moved++
 			}

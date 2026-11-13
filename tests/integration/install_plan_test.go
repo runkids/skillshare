@@ -31,7 +31,7 @@ func TestInstall_JSON_PlannedFromMetadata(t *testing.T) {
 			sb.WriteFile(filepath.Join(repo, "packs/skills/SKILL.md"), content)
 			initGitRepo(t, repo)
 			sb.RunCLIInDir(cwd, "install", "file://"+repo+"//packs/skills", "--name", "renamed-tool", "--json", flag).AssertSuccess(t)
-			result := sb.RunCLIInDir(cwd, "install", "renamed-tool", "--dry-run", "--json", flag)
+			result := sb.RunCLIInDir(cwd, "install", "renamed-tool", "--dry-run", "--json", "--force", flag)
 			result.AssertSuccess(t)
 			var out struct {
 				Planned []struct {

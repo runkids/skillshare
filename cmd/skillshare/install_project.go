@@ -129,12 +129,14 @@ func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptio
 		spinner.Fail("Install failed")
 		summary.InstalledSkills = result.InstalledSkills
 		summary.FailedSkills = result.FailedSkills
+		summary.SkippedSkills = result.SkippedSkills
 		summary.SkillCount = len(result.InstalledSkills)
 		return summary, err
 	}
 
 	summary.InstalledSkills = result.InstalledSkills
 	summary.FailedSkills = result.FailedSkills
+	summary.SkippedSkills = result.SkippedSkills
 	summary.SkillCount = len(result.InstalledSkills)
 
 	if opts.DryRun {

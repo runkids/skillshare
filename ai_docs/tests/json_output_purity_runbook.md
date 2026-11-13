@@ -7,6 +7,7 @@ Validates that `--json` mode outputs pure JSON to stdout (no UI noise) and that 
 - `ss status --json` / `ss status --project --json`
 - `ss sync --json` / `ss sync --all --json`
 - `ss install --json` (local path)
+- Install JSON preserves local edits unless `--force` is explicit
 - `ss uninstall --json` (success + error paths), `ss uninstall -p --json`, `ss uninstall agents --json`
 - `ss diff --json`
 - `ss collect --json`
@@ -138,6 +139,24 @@ Expected:
 - exit_code: 0
 - SKILLS=OK
 - PURE_JSON=OK
+
+### Step 7a: install JSON requires explicit overwrite consent
+
+```bash
+printf '# Local edit\n' > ~/.config/skillshare/skills/ext-skill/SKILL.md
+if OUTPUT=$(ss install /tmp/ext-skill --json); then
+  echo "Unexpected overwrite success" >&2
+  exit 1
+fi
+echo "$OUTPUT" | jq -e '.error != null and .skills == []'
+test "$(cat ~/.config/skillshare/skills/ext-skill/SKILL.md)" = '# Local edit'
+OUTPUT=$(ss install /tmp/ext-skill --json --force)
+echo "$OUTPUT" | jq -e '.skills == ["ext-skill"] and .skipped == []'
+cmp /tmp/ext-skill/SKILL.md ~/.config/skillshare/skills/ext-skill/SKILL.md
+```
+
+Expected:
+- exit_code: 0
 
 ### Step 8: uninstall --json outputs pure JSON
 

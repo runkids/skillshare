@@ -303,13 +303,15 @@ skillshare sync
 | `--project` | `-p` | 安裝到專案的 `.skillshare/skills/` |
 | `--global` | `-g` | 安裝到全域的 `~/.config/skillshare/skills/` |
 | `--dry-run` | `-n` | 只預覽 |
-| `--json` | | 以 JSON 輸出（和 `--force` 一樣允許覆寫既有 skill，但安全稽核的阻擋仍然有效；若未指定 `--skill`/`--agent` 篩選，也隱含非互動式選擇） |
+| `--json` | | 以非互動式 JSON 輸出；未指定 `--skill`/`--agent` 篩選時全選。覆寫既有 skill 或 agent 需要 `--force`；安全稽核阻擋仍然有效 |
 
 ## JSON 輸出
 
 ```bash
 skillshare install anthropics/skills --json
 ```
+
+僅使用 JSON 輸出會保留既有的 skill 與 agent。覆寫時請明確加上 `--force`。`skipped` 陣列回報因重複檢查而略過的名稱；其他衝突會傳回 `error` 或列在 `failed` 中。`skills` 陣列僅包含已安裝的名稱。
 
 對明確指定、非追蹤的 skill 來源，加上 `--dry-run --json` 可取得 `planned` 陣列，內含 `{name, path}`，不會安裝。名稱是 CLI 的安裝名稱；Git 路徑相對於儲存庫根目錄（包含選取的子目錄），本機 skill 則使用 `.`。清單遵循探索、`.skillignore` 與選取規則；JSON 模式未指定篩選條件時會全選。`skills` 仍只回報已安裝名稱，在 dry-run 中保持空陣列。探索後沒有選取的 skill 時回傳 `planned: []`；追蹤與設定檔安裝不提供此欄位。
 
@@ -319,6 +321,7 @@ skillshare install anthropics/skills --json
   "tracked": false,
   "dry_run": false,
   "skills": ["pdf", "commit", "review"],
+  "skipped": [],
   "failed": [],
   "duration": "2.345s"
 }
@@ -337,6 +340,7 @@ skillshare install anthropics/skills --json --into frontend
   "dry_run": false,
   "into": "frontend",
   "skills": ["pdf", "commit"],
+  "skipped": [],
   "failed": [],
   "duration": "1.890s"
 }
@@ -354,6 +358,7 @@ skillshare install github.com/user/agents --kind agent --json
   "tracked": false,
   "dry_run": false,
   "skills": ["reviewer", "tutor"],
+  "skipped": [],
   "failed": [],
   "duration": "1.234s"
 }
@@ -367,6 +372,7 @@ skillshare install github.com/user/agents --kind agent --json
   "tracked": true,
   "dry_run": false,
   "skills": [],
+  "skipped": [],
   "failed": [],
   "duration": "0.412s",
   "error": "blocked by security audit (use --force to override)"

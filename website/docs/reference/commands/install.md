@@ -309,13 +309,15 @@ See [Project Setup](/docs/how-to/sharing/project-setup) for the full guide.
 | `--project` | `-p` | Install into project `.skillshare/skills/` |
 | `--global` | `-g` | Install into global `~/.config/skillshare/skills/` |
 | `--dry-run` | `-n` | Preview only |
-| `--json` | | Output as JSON (permits overwriting existing skills like `--force`, but audit blocking still applies; also implies non-interactive selection when no `--skill`/`--agent` filter is given) |
+| `--json` | | Output as noninteractive JSON; selects all when no `--skill`/`--agent` filter is given. Existing skills and agents require `--force` to overwrite; audit blocking still applies |
 
 ## JSON Output
 
 ```bash
 skillshare install anthropics/skills --json
 ```
+
+JSON output alone preserves existing skills and agents. Pass `--force` explicitly to overwrite them. The `skipped` array reports names skipped by duplicate checks; other conflicts return an `error` or appear in `failed`. The `skills` array contains installed names only.
 
 For an explicit, untracked skill source, add `--dry-run --json` to read a `planned` array of `{name, path}` objects without installing. Names are the CLI's install names; Git paths are relative to the repository root (including any selected subdirectory), and a local skill uses `.`. The plan follows discovery, `.skillignore`, and selection rules. Without a selection filter, JSON mode selects all skills. `skills` still reports only installed names and stays empty in a dry run. A discovered source with no selected skills returns `planned: []`; tracked and config-based installs do not provide this field.
 
@@ -325,6 +327,7 @@ For an explicit, untracked skill source, add `--dry-run --json` to read a `plann
   "tracked": false,
   "dry_run": false,
   "skills": ["pdf", "commit", "review"],
+  "skipped": [],
   "failed": [],
   "duration": "2.345s"
 }
@@ -343,6 +346,7 @@ skillshare install anthropics/skills --json --into frontend
   "dry_run": false,
   "into": "frontend",
   "skills": ["pdf", "commit"],
+  "skipped": [],
   "failed": [],
   "duration": "1.890s"
 }
@@ -360,6 +364,7 @@ skillshare install github.com/user/agents --kind agent --json
   "tracked": false,
   "dry_run": false,
   "skills": ["reviewer", "tutor"],
+  "skipped": [],
   "failed": [],
   "duration": "1.234s"
 }
@@ -373,6 +378,7 @@ When the install fails as a whole, for example when the security audit blocks a 
   "tracked": true,
   "dry_run": false,
   "skills": [],
+  "skipped": [],
   "failed": [],
   "duration": "0.412s",
   "error": "blocked by security audit (use --force to override)"

@@ -142,7 +142,7 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 			// Tracked repos store a git remote; read it for comparison.
 			existingURL := getRemoteURL(destPath)
 			if existingURL != "" && repoURLsMatch(existingURL, source.CloneURL) {
-				return nil, fmt.Errorf("%w: tracked repo '%s'. Use 'skillshare update' or --force to overwrite", ErrSkipSameRepo, trackedName)
+				return result, fmt.Errorf("%w: tracked repo '%s'. Use 'skillshare update' or --force to overwrite", ErrSkipSameRepo, trackedName)
 			}
 			if existingURL != "" {
 				return nil, fmt.Errorf("tracked repo '%s' already exists (installed from %s). To overwrite: %s", trackedName, existingURL, hint)
