@@ -8,6 +8,16 @@ import (
 	"time"
 )
 
+func TestDirChecksum_EmptySourceEncodingCompatibility(t *testing.T) {
+	sum, err := DirChecksumWithIgnore(t.TempDir(), DefaultFileIgnorePatterns())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sum != "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" {
+		t.Fatalf("legacy source checksum changed: %s", sum)
+	}
+}
+
 func TestDirChecksum_Deterministic(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello"), 0644)

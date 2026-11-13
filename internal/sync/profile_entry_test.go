@@ -9,6 +9,34 @@ import (
 	"testing"
 )
 
+func TestProfileEntry_DiscardSeparatesBinarySecondEdit(t *testing.T) {
+	_, entry, manifest := fingerprintFixture(t)
+	clean, err := CopyOutputFingerprint(entry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest.Outputs = map[string]string{"repo-demo": clean}
+	file := filepath.Join(entry, "a")
+	if err := os.WriteFile(file, []byte("x\x00b\x00y"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	first, err := CopyOutputFingerprint(entry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	grant := []DiscardEntry{{Target: "custom", Dir: filepath.Dir(entry), Entry: "repo-demo", Fingerprint: first}}
+	if err := os.WriteFile(file, []byte("x"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(entry, "b"), []byte("y"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	got, allowed := entryMutationAllowed("custom", EntryInput{Name: "repo-demo", Path: entry, Manifest: manifest}, grant)
+	if allowed || got.Class != EntryModifiedCopy || got.Fingerprint == first {
+		t.Fatalf("first edit's grant authorized different second edit: %+v allowed=%v", got, allowed)
+	}
+}
+
 func TestProfileEntry_Classes(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "source")

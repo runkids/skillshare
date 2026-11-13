@@ -318,3 +318,20 @@ describe('skippedHintKeys', () => {
     expect(skippedHintKeys({ target: 'codex', items: [], ...counts })).toEqual(key);
   });
 });
+
+describe('profile preservation wire actions', () => {
+  it('never counts departing kept edits and counts selected skips only with force', () => {
+    const reason = 'copy was edited; collect or discard edits';
+    const rows: DiffTarget[] = [{ target: 'claude', items: [
+      { skill: 'departing', action: 'kept', reason },
+      { skill: 'selected', action: 'skip', reason },
+    ] }];
+    for (const force of [false, true]) {
+      const groups = resourceGroups(rows, [target('claude', 'copy')], new Set(['skill']), force).groups;
+      expect(countChanges(groups)).toBe(force ? 1 : 0);
+      expect(groups[0].rows.find((row) => row.name === 'departing')?.counts).toBe(false);
+      expect(groups[0].rows.find((row) => row.name === 'departing')?.detail).toBe(reason);
+      expect(groups[0].rows.map((row) => row.name)).toEqual(['departing', 'selected']);
+    }
+  });
+});

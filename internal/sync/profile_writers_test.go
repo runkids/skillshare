@@ -949,3 +949,82 @@ func TestProfileAwareWriters_DiscardDirectory(t *testing.T) {
 		}
 	}
 }
+
+func TestProfileAwareWriters_BinaryCopyPreservation(t *testing.T) {
+	for _, scenario := range []string{"copy_refresh", "merge_refresh", "copy_prune", "merge_prune", "moved_prune"} {
+		t.Run(scenario, func(t *testing.T) {
+			source, target := t.TempDir(), t.TempDir()
+			root := t.TempDir()
+			if scenario == "moved_prune" {
+				target = filepath.Join(root, ".goose", "skills")
+			}
+			writeSkillMD(t, filepath.Join(source, "demo"), "---\nname: demo\n---\nsource\n")
+			asset := filepath.Join(source, "demo", "a")
+			if err := os.WriteFile(asset, []byte("x\x00b\x00y"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			tc := config.TargetConfig{Path: target}
+			if _, err := SyncTargetCopy("goose", tc, source, false, false); err != nil {
+				t.Fatal(err)
+			}
+			entry := filepath.Join(target, "demo")
+			if err := os.WriteFile(filepath.Join(entry, "a"), []byte("x"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(entry, "b"), []byte("y"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			manifest, err := ReadManifest(target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			delete(manifest.Mtimes, "demo")
+			if err := WriteManifest(target, manifest); err != nil {
+				t.Fatal(err)
+			}
+			skills, err := DiscoverSourceSkills(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.HasSuffix(scenario, "prune") {
+				tc.Exclude = []string{"demo"}
+			}
+			kept := 0
+			switch {
+			case scenario == "moved_prune":
+				result := cleanMovedProjectDirsWithPolicy(root, source, []MovedTarget{{Name: "goose", Path: filepath.Join(root, ".agents", "skills")}}, false, true, nil)
+				for _, out := range result.Outcomes {
+					kept += len(out.KeptModified)
+				}
+			case strings.HasPrefix(scenario, "merge"):
+				out, err := SyncTargetMergeWithPolicy("goose", tc, skills, source, false, false, "", true, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				kept = len(out.KeptModified)
+			default:
+				out, err := SyncTargetCopyWithSkillsOptions("goose", tc, skills, source, false, false, nil, CopyOptions{ProfileAware: true})
+				if err != nil {
+					t.Fatal(err)
+				}
+				kept = len(out.KeptModified)
+				if strings.HasSuffix(scenario, "prune") {
+					out, err := pruneOrphanCopiesWithPolicy("goose", tc.SkillsConfig(), skills, false, source, true, nil, nil)
+					if err != nil {
+						t.Fatal(err)
+					}
+					kept += len(out.KeptModified)
+				}
+			}
+			for name, want := range map[string]string{"a": "x", "b": "y"} {
+				data, err := os.ReadFile(filepath.Join(entry, name))
+				if err != nil || string(data) != want {
+					t.Errorf("%s lost authored bytes: %q %v", name, data, err)
+				}
+			}
+			if kept != 1 {
+				t.Errorf("kept outcomes=%d, want one modified copy", kept)
+			}
+		})
+	}
+}

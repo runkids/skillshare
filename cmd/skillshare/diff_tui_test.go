@@ -165,3 +165,40 @@ func TestDiffTUI_KeptOnlyTarget(t *testing.T) {
 		}
 	}
 }
+
+func TestDiffTUI_PreservationKeptIsVisible(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "note"), []byte("authored note"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	entry := copyDiffEntry{name: "alpha", action: "kept", reason: "copy was edited; collect or discard edits", dstDir: dir}
+	result := targetDiffResult{name: "custom", mode: "copy", synced: true, items: []copyDiffEntry{entry}}
+	if result.inSync() {
+		t.Error("kept-only target hidden as in sync")
+	}
+	wire := diffItemToJSON(entry)
+	if wire.Action != "kept" || wire.IsSync || wire.Reason != entry.reason {
+		t.Errorf("kept JSON translation: %+v", wire)
+	}
+	m := newDiffTUIModel([]targetDiffResult{result})
+	m.refreshDetailCache()
+	if _, desc := (diffTargetItem{result: result}).row(); !strings.Contains(desc, "kept") {
+		t.Errorf("kept target row: %q", desc)
+	}
+	title, detail := m.renderTitleLine(), m.buildDiffDetail()
+	if !strings.Contains(title, "kept") || strings.Contains(title, "under old name") {
+		t.Errorf("preservation confused with a naming migration: %s", title)
+	}
+	if !strings.Contains(detail, "alpha") || !strings.Contains(detail, entry.reason) || strings.Contains(detail, "stays at") {
+		t.Errorf("detail omitted/misrepresented kept copy: %s", detail)
+	}
+	expanded, ok := expandDiffCmd(&entry)().(diffExpandMsg)
+	if !ok || len(expanded.files) != 1 || expanded.files[0].RelPath != "note" {
+		t.Fatalf("kept files cannot be inspected: %+v", expanded)
+	}
+	for _, category := range categorizeItems([]copyDiffEntry{entry}) {
+		if strings.Contains(category.label, "old name") || category.kind == "orphan" {
+			t.Errorf("kept copy miscategorized: %+v", category)
+		}
+	}
+}

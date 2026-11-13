@@ -17,6 +17,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/profile"
 	"skillshare/internal/profileapply"
+	ssync "skillshare/internal/sync"
 )
 
 func TestWriteProfileError_Transport(t *testing.T) {
@@ -318,5 +319,50 @@ func TestProfiles_APISyncBacksUpBeforeRefresh(t *testing.T) {
 	saved, err := os.ReadFile(paths[0])
 	if err != nil || string(saved) != string(old) {
 		t.Fatal("automatic backup captured refreshed content", err)
+	}
+}
+
+func TestProfiles_APIDiscardUnchangedSource(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, checksum := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%v/%v", project, checksum), func(t *testing.T) {
+				s, scope, dest, source := newProfileDiffFixture(t, project, "copy", "retained")
+				if checksum {
+					m, err := ssync.ReadManifest(dest)
+					if err != nil {
+						t.Fatal(err)
+					}
+					delete(m.Mtimes, "alpha")
+					if err := ssync.WriteManifest(dest, m); err != nil {
+						t.Fatal(err)
+					}
+				}
+				rr := httptest.NewRecorder()
+				s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader("{\"kind\":\"skill\",\"discardEdits\":true}")))
+				var out struct {
+					Snapshot []profileapply.Snapshot
+				}
+				if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil || rr.Code != http.StatusOK || len(out.Snapshot) != 1 {
+					t.Fatalf("discard: %d %s %v", rr.Code, rr.Body.String(), err)
+				}
+				saved, err := os.ReadFile(filepath.Join(out.Snapshot[0].Path, "alpha", "SKILL.md"))
+				if err != nil || string(saved) != "authored alpha" {
+					t.Fatal("API snapshot lost authored bytes", err)
+				}
+				original, err := os.ReadFile(filepath.Join(source, "alpha", "SKILL.md"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				actual, err := os.ReadFile(filepath.Join(dest, "alpha", "SKILL.md"))
+				if err != nil || string(actual) != string(original) {
+					t.Fatalf("successful discard retained edit: %q %v", actual, err)
+				}
+				statePath, _, _ := config.ProfilePaths(scope.Path())
+				state, err := profile.ReadState(statePath)
+				if err != nil || state.Pending || state.Active != "all" {
+					t.Fatal("API discard did not settle", state, err)
+				}
+			})
+		}
 	}
 }

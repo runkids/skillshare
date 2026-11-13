@@ -27,6 +27,83 @@ func fingerprintFixture(t *testing.T) (string, string, *Manifest) {
 	return src, dst, &Manifest{Managed: map[string]string{"repo-demo": sum}, Naming: map[string]string{"repo-demo": "prefixed"}}
 }
 
+func TestCopyFingerprint_BinaryFileBoundaries(t *testing.T) {
+	_, dst, m := fingerprintFixture(t)
+	asset := filepath.Join(dst, "a")
+	if err := os.WriteFile(asset, []byte("x\x00b\x00y"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	original, err := CopyOutputFingerprint(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Outputs = map[string]string{"repo-demo": original}
+	if err := os.WriteFile(asset, []byte("x"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dst, "b"), []byte("y"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	edited, err := CopyOutputFingerprint(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if original == edited {
+		t.Error("different authored file boundaries share output identity")
+	}
+	if got := ClassifyEntry(EntryInput{Name: "repo-demo", Path: dst, Manifest: m}); got.Class != EntryModifiedCopy {
+		t.Fatalf("binary edit classified as %s", got.Class)
+	}
+}
+
+func TestCopyFingerprint_ProfileLegacyReproducibility(t *testing.T) {
+	for _, rewritten := range []bool{false, true} {
+		for _, output := range []string{"missing", "bare"} {
+			for _, available := range []bool{false, true} {
+				name := output
+				if rewritten {
+					name += "/rewritten"
+				}
+				if available {
+					name += "/source"
+				}
+				t.Run(name, func(t *testing.T) {
+					src, dst, m := fingerprintFixture(t)
+					rewrite := "repo-demo"
+					if !rewritten {
+						rewrite = ""
+						delete(m.Naming, "repo-demo")
+						if err := copySkillToTarget(src, dst, "", DefaultFileIgnorePatterns()); err != nil {
+							t.Fatal(err)
+						}
+					}
+					if output == "bare" {
+						old, err := DirChecksumWithIgnore(dst, DefaultFileIgnorePatterns())
+						if err != nil {
+							t.Fatal(err)
+						}
+						m.Outputs = map[string]string{"repo-demo": old}
+					}
+					input := EntryInput{Name: "repo-demo", Path: dst, Manifest: m}
+					if available {
+						input.Source = &CopySource{Path: src, OutputName: rewrite}
+					}
+					want := EntryModifiedCopy
+					if available {
+						want = EntryCleanCopy
+					}
+					if got := ClassifyEntry(input); got.Class != want {
+						t.Errorf("profile legacy classification = %s, want %s", got.Class, want)
+					}
+					if !rewritten && !m.OwnsCopy("repo-demo", dst) {
+						t.Error("source-free non-profile legacy compatibility changed")
+					}
+				})
+			}
+		}
+	}
+}
+
 func TestCopyFingerprint_OutputAndEdits(t *testing.T) {
 	_, dst, m := fingerprintFixture(t)
 	sum, err := CopyOutputFingerprint(dst)

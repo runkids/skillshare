@@ -52,3 +52,49 @@ func TestProfileDefinitions_Transaction(t *testing.T) {
 		})
 	}
 }
+
+func TestProfileDefinitions_FutureRawRepair(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, active := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%v/%v", project, active), func(t *testing.T) {
+				f := newFixture(t, project, "copy")
+				write(t, f.path, read(t, f.path)+"  future: # keep future\n    new_rule: [alpha, beta]\n")
+				statePath, _, err := config.ProfilePaths(f.path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				name := "a"
+				if active {
+					name = "future"
+				}
+				if err := profile.WriteState(statePath, profile.State{Version: 1, Active: name, Pending: true}); err != nil {
+					t.Fatal(err)
+				}
+				change, err := Mutate(context.Background(), f.scope, profile.Mutation{Op: "rename", Name: "future", NewName: "renamed"})
+				if err != nil || !change.Changed {
+					t.Fatalf("raw rename: %+v %v", change, err)
+				}
+				v, err := Load(f.scope)
+				if err != nil || v.Catalog.Definitions["renamed"].Usable || !strings.Contains(read(t, f.path), "keep future") || !strings.Contains(read(t, f.path), "new_rule: [alpha, beta]") {
+					t.Fatal("future content changed", err)
+				}
+				state, err := profile.ReadState(statePath)
+				if active {
+					name = "renamed"
+				}
+				if err != nil || state.Active != name || !state.Pending {
+					t.Fatalf("rename changed pending/active incorrectly: %+v %v", state, err)
+				}
+				before := read(t, f.path)
+				_, err = Mutate(context.Background(), f.scope, profile.Mutation{Op: "delete", Name: "renamed"})
+				if active {
+					if err == nil || read(t, f.path) != before || v.ActiveProfileError() == nil {
+						t.Fatal("active unusable definition lost protection")
+					}
+				} else if err != nil || strings.Contains(read(t, f.path), "new_rule:") {
+					t.Fatal("inactive raw delete failed", err)
+				}
+			})
+		}
+	}
+}

@@ -704,3 +704,97 @@ func TestProfileRefusal_LiteralCompatibility(t *testing.T) {
 		t.Fatalf("legacy literal changed: %#v", legacy)
 	}
 }
+
+func TestProfileApply_UnchangedSourceDiscardReplacesCopy(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, action := range []string{"use", "sync"} {
+			for _, fastPath := range []string{"mtime", "checksum"} {
+				t.Run(fmt.Sprintf("%v/%s/%s", project, action, fastPath), func(t *testing.T) {
+					f := newFixture(t, project, "copy")
+					if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a"}); err != nil {
+						t.Fatal(err)
+					}
+					path := filepath.Join(f.target, "alpha", "SKILL.md")
+					source := read(t, filepath.Join(f.source, "alpha", "SKILL.md"))
+					write(t, path, "authored edit")
+					write(t, filepath.Join(f.target, "unmanaged", "notes"), "unmanaged control")
+					if fastPath == "checksum" {
+						m, err := ssync.ReadManifest(f.target)
+						if err != nil {
+							t.Fatal(err)
+						}
+						delete(m.Mtimes, "alpha")
+						if err := ssync.WriteManifest(f.target, m); err != nil {
+							t.Fatal(err)
+						}
+					}
+					configBefore := read(t, f.path)
+					var out Result
+					var err error
+					if action == "use" {
+						out, err = Apply(context.Background(), Request{Scope: f.scope, Name: "a", DiscardEdits: true})
+					} else {
+						out, err = WithSkillSync(context.Background(), SyncRequest{Scope: f.scope, DiscardEdits: true})
+					}
+					if err != nil || len(out.Snapshot) != 1 {
+						t.Fatalf("discard result: %+v %v", out, err)
+					}
+					saved := out.Snapshot[0]
+					if read(t, filepath.Join(saved.Path, "alpha", "SKILL.md")) != "authored edit" {
+						t.Error("snapshot lost authored edit")
+					}
+					if read(t, path) != source || !out.Complete || out.Selection.Pending {
+						t.Errorf("completed discard did not restore source bytes: %+v target=%q", out, read(t, path))
+					}
+					statePath, _, _ := config.ProfilePaths(f.path)
+					state, err := profile.ReadState(statePath)
+					if err != nil || state.Active != "a" || state.Pending {
+						t.Errorf("discard did not settle state: %+v %v", state, err)
+					}
+					if read(t, f.path) != configBefore || read(t, filepath.Join(f.target, "unmanaged", "notes")) != "unmanaged control" {
+						t.Fatal("discard changed config or unmanaged folder")
+					}
+					if err := backup.RestoreToPath(filepath.Dir(saved.Path), "custom", f.target, backup.RestoreOptions{Force: true}); err != nil {
+						t.Fatal(err)
+					}
+					if read(t, path) != "authored edit" {
+						t.Fatal("snapshot did not restore authored bytes")
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestProfileApply_BinarySnapshotSecondEdit(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(fmt.Sprint(project), func(t *testing.T) {
+			f := newFixture(t, project, "copy")
+			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a"}); err != nil {
+				t.Fatal(err)
+			}
+			entry := filepath.Join(f.target, "alpha")
+			write(t, filepath.Join(entry, "a"), "x\x00b\x00y")
+			req := Request{Scope: f.scope, Name: "b", DiscardEdits: true}
+			fired := false
+			req.afterSnapshot = func() {
+				fired = true
+				write(t, filepath.Join(entry, "a"), "x")
+				write(t, filepath.Join(entry, "b"), "y")
+			}
+			out, err := Apply(context.Background(), req)
+			if !fired {
+				t.Fatal("second edit did not reach the snapshot boundary", err)
+			}
+			if err == nil || out.Complete || !out.Selection.Pending {
+				t.Errorf("binary second edit completed: %+v %v", out, err)
+			}
+			if read(t, filepath.Join(entry, "a")) != "x" || read(t, filepath.Join(entry, "b")) != "y" {
+				t.Fatal("second edit lost")
+			}
+			if len(out.Snapshot) != 1 || read(t, filepath.Join(out.Snapshot[0].Path, "alpha", "a")) != "x\x00b\x00y" {
+				t.Fatal("snapshot did not preserve first edit")
+			}
+		})
+	}
+}
