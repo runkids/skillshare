@@ -850,6 +850,9 @@ func TestProfiles_DiffKeptCopyAgreement(t *testing.T) {
 					if err := os.WriteFile(f.config, []byte(strings.ReplaceAll(string(configBytes), "mode: copy", "mode: "+mode)), 0600); err != nil {
 						t.Fatal(err)
 					}
+					if scenario == "pending_none" {
+						f.run("profile", "use", "--none", "--no-sync").AssertSuccess(t)
+					}
 					path := filepath.Join(f.target, "alpha", "SKILL.md")
 					if err := os.WriteFile(path, []byte("authored alpha"), 0600); err != nil {
 						t.Fatal(err)
@@ -857,8 +860,6 @@ func TestProfiles_DiffKeptCopyAgreement(t *testing.T) {
 					switch scenario {
 					case "departing":
 						f.run("profile", "edit", "a", "--remove-include", "alpha", "--add-include", "beta").AssertSuccess(t)
-					case "pending_none":
-						f.run("profile", "use", "--none", "--no-sync").AssertSuccess(t)
 					}
 					manifestPath := filepath.Join(f.target, ssync.ManifestFile)
 					manifestBefore, err := os.ReadFile(manifestPath)

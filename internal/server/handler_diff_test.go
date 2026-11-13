@@ -205,6 +205,11 @@ func newProfileDiffFixture(t *testing.T, project bool, mode, scenario string) (*
 	} else if _, err := profileapply.Apply(context.Background(), profileapply.Request{Scope: scope, Name: "all", NoSync: scenario == "unmanaged"}); err != nil {
 		t.Fatal(err)
 	}
+	if scenario == "pending_none" {
+		if _, err := profileapply.Apply(context.Background(), profileapply.Request{Scope: scope, None: true, NoSync: true}); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if err := os.MkdirAll(filepath.Join(dest, "alpha"), 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -220,10 +225,6 @@ func newProfileDiffFixture(t *testing.T, project bool, mode, scenario string) (*
 	}
 	if scenario == "departing" {
 		if _, err := profileapply.Mutate(context.Background(), scope, profile.Mutation{Op: "edit", Name: "all", AddInclude: []string{"beta"}}); err != nil {
-			t.Fatal(err)
-		}
-	} else if scenario == "pending_none" {
-		if _, err := profileapply.Apply(context.Background(), profileapply.Request{Scope: scope, None: true, NoSync: true}); err != nil {
 			t.Fatal(err)
 		}
 	}
