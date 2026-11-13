@@ -129,6 +129,7 @@ func TestProfileDeselectedRetainsDisambiguation(t *testing.T) {
 					want := "review"
 					if strings.HasPrefix(layout, "variant") {
 						selected, rejected = "_repo/skills/claude/review", "_repo/skills/claude-code/review"
+						writeSkillMD(t, filepath.Join(source, "_repo/skills/codex/review"), "---\nname: review\n---\n# Peer")
 						if naming == "prefixed" {
 							want = "repo-review"
 						}
@@ -140,6 +141,9 @@ func TestProfileDeselectedRetainsDisambiguation(t *testing.T) {
 						writeSkillMD(t, filepath.Join(source, want), "---\nname: "+want+"\n---\n# Ordinary")
 					}
 					physicalCount := 2
+					if strings.HasPrefix(layout, "variant") {
+						physicalCount++
+					}
 					if layout == "variant-shadow" {
 						physicalCount++
 					}

@@ -121,6 +121,7 @@ func TestDiffProfileDisambiguation(t *testing.T) {
 				selected, rejected, want := "a/review", "b/review", "review"
 				if parts[2] == "variant" {
 					selected, rejected = "_repo/skills/claude/review", "_repo/skills/claude-code/review"
+					writeSkill(t, filepath.Join(source, "_repo/skills/codex"), "review")
 					if naming == "prefixed" {
 						want = "repo-review"
 					}
@@ -152,6 +153,13 @@ func TestDiffProfileDisambiguation(t *testing.T) {
 				skills, err := ssync.DiscoverSourceSkills(source)
 				if err != nil {
 					t.Fatal(err)
+				}
+				if parts[2] == "variant" {
+					for _, skill := range skills {
+						if skill.LogicalID == "" || !skill.UsesVariantRouting() {
+							t.Fatalf("fixture did not discover actual variants: %+v", skill)
+						}
+					}
 				}
 				publication := ssync.SyncSkillTarget(ssync.SkillTarget{Name: "claude", Target: config.TargetConfig{Skills: &sc}, Mode: "copy"}, skills, ssync.SkillRunOptions{Source: source})
 				if publication.Err != nil || publication.PruneErr != nil || len(publication.Linked) != 1 || publication.Linked[0] != want {
