@@ -205,7 +205,7 @@ func TestProfileSync_MovedCleanupScope(t *testing.T) {
 }
 
 func TestProfileSync_MovedSnapshotSafety(t *testing.T) {
-	for _, failure := range []string{"create", "missing", "stale", "reused", "partial", "second_edit", "frozen", "collision"} {
+	for _, failure := range []string{"create", "missing", "stale", "reused", "partial", "second_edit", "frozen", "collision", "unresolved_collision"} {
 		t.Run(failure, func(t *testing.T) {
 			f := newFixture(t, true, "copy")
 			write(t, f.path, strings.Replace(read(t, f.path), "  - name: custom\n    skills:\n      path: "+f.target, "  - name: goose\n    skills:", 1))
@@ -230,6 +230,18 @@ func TestProfileSync_MovedSnapshotSafety(t *testing.T) {
 			if err := ssync.WriteManifest(old, &ssync.Manifest{Managed: map[string]string{"alpha": sum}, Outputs: map[string]string{"alpha": sum}}); err != nil {
 				t.Fatal(err)
 			}
+			if failure == "unresolved_collision" {
+				// Seed ownership through the real writer before making an authored edit.
+				movedTarget := config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: old, Include: []string{"alpha"}}}
+				written, err := ssync.SyncTargetCopyWithOptions("goose", movedTarget, f.source, false, false, ssync.CopyOptions{ProfileAware: true})
+				if err != nil || len(written.Updated) != 1 || written.Updated[0] != "alpha" {
+					t.Fatalf("real writer did not publish the moved copy: %+v, %v", written, err)
+				}
+				managed, err := ssync.ReadManifest(old)
+				if err != nil || !managed.OwnsCopy("alpha", filepath.Join(old, "alpha")) {
+					t.Fatalf("moved fixture is not a real writer-managed copy: %+v, %v", managed, err)
+				}
+			}
 			for _, dir := range []string{current, old} {
 				write(t, filepath.Join(dir, "alpha", "SKILL.md"), "first edit "+dir)
 			}
@@ -246,10 +258,33 @@ func TestProfileSync_MovedSnapshotSafety(t *testing.T) {
 				alias := backup.MovedEntryName("goose", ".goose/skills")
 				write(t, f.path, strings.Replace(read(t, f.path), "profiles:", "  - name: "+alias+"\n    skills:\n      path: "+filepath.Join(f.scope.ProjectRoot, "collision")+"\n      enabled: false\nprofiles:", 1))
 			}
+			if failure == "unresolved_collision" {
+				alias := backup.MovedEntryName("goose", ".goose/skills")
+				// Project handleAddTarget persists this custom name without its submitted path.
+				v.Project.Targets = append(v.Project.Targets, config.ProjectTargetEntry{Name: alias})
+				if err := v.Project.Save(f.scope.ProjectRoot); err != nil {
+					t.Fatal(err)
+				}
+				pc, err := config.LoadProjectReadOnly(f.scope.ProjectRoot)
+				if err != nil {
+					t.Fatal(err)
+				}
+				entry := pc.Targets[len(pc.Targets)-1]
+				if entry.Name != alias || entry.SkillsConfig().Path != "" {
+					t.Fatalf("dashboard-shaped unresolved entry was not persisted: %+v", entry)
+				}
+				resolved, unresolved := config.ResolveValidProjectTargets(f.scope.ProjectRoot, pc)
+				if _, ok := resolved[alias]; ok || unresolved[alias] == nil {
+					t.Fatalf("collision name must be configured but unresolved: resolved=%v unresolved=%v", resolved, unresolved)
+				}
+			}
 			before := tree(t, f.scope.ProjectRoot)
 			calls, afterCalls := 0, 0
 			var captured *View
 			req := SyncRequest{Scope: f.scope, DiscardEdits: true, Before: func(v *View) error { captured = v; return nil }}
+			if failure == "unresolved_collision" {
+				req.Targets = []string{"goose"} // The unresolved configured name is outside this selected run.
+			}
 			req.snapshot = func(root, key, dir string) (string, error) {
 				calls++
 				switch failure {
@@ -301,6 +336,14 @@ func TestProfileSync_MovedSnapshotSafety(t *testing.T) {
 			}
 			if err == nil || afterCalls != 0 || failure == "collision" && calls != 0 || failure == "partial" && calls != 2 {
 				t.Fatalf("unsafe verification accepted: %+v, %v; create=%d after=%d", out, err, calls, afterCalls)
+			}
+			if failure == "unresolved_collision" {
+				if calls != 0 || !strings.Contains(err.Error(), "snapshot") || !strings.Contains(err.Error(), "ambiguous") {
+					t.Fatalf("configured unresolved key must refuse at preflight before any snapshot: %v; calls=%d", err, calls)
+				}
+				if !reflect.DeepEqual(before, tree(t, f.scope.ProjectRoot)) {
+					t.Fatal("collision preflight changed target, manifest, source, config, state, or backup tree")
+				}
 			}
 			after := tree(t, f.scope.ProjectRoot)
 			for path := range after {

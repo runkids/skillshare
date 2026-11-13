@@ -142,6 +142,46 @@ func TestRenderFileStat(t *testing.T) {
 	}
 }
 
+func TestRenderDiffGroup_PreservedFileInventory(t *testing.T) {
+	for _, mode := range []string{"stat", "patch"} {
+		t.Run(mode, func(t *testing.T) {
+			dst := t.TempDir()
+			const authored = "# Authored locally\n"
+			writeTestFile(t, dst, "SKILL.md", authored)
+			kept := copyDiffEntry{action: "kept", name: "alpha", reason: "modified managed copy preserved", dstDir: dst}
+			changes := copyDiffEntry{action: "modify", name: "beta", reason: "content changed", isSync: true, files: []fileDiffEntry{
+				{RelPath: "added.md", Action: "add", SrcSize: 10},
+				{RelPath: "changed.md", Action: "modify", DstSize: 10, SrcSize: 20},
+				{RelPath: "removed.md", Action: "delete", DstSize: 10},
+			}}
+			opts := diffRenderOpts{showStat: mode == "stat", showPatch: mode == "patch"}
+			var next, controlNext diffNext
+			output := stripANSIWarnings(captureStdout(t, func() {
+				renderDiffGroup(targetDiffResult{items: []copyDiffEntry{kept}}, opts, &next, 8)
+				renderDiffGroup(targetDiffResult{items: []copyDiffEntry{changes}}, opts, &controlNext, 8)
+			}))
+			if !strings.Contains(output, "· SKILL.md") || strings.Contains(output, "- SKILL.md") {
+				t.Errorf("kept file must be neutral inventory, not a deletion:\n%s", output)
+			}
+			for _, want := range []string{"+ added.md", "~ changed.md", "- removed.md", "alpha", kept.reason} {
+				if !strings.Contains(output, want) {
+					t.Errorf("missing real-change icon or preservation detail %q:\n%s", want, output)
+				}
+			}
+			if next != (diffNext{}) || !controlNext.skills {
+				t.Errorf("kept inventory became sync work or real work disappeared: kept=%+v changes=%+v", next, controlNext)
+			}
+			raw := diffItemToJSON(kept)
+			if raw.Action != "kept" || raw.Name != "alpha" || raw.Reason != kept.reason || raw.IsSync {
+				t.Errorf("rendering changed raw preservation semantics: %+v", raw)
+			}
+			if data, err := os.ReadFile(filepath.Join(dst, "SKILL.md")); err != nil || string(data) != authored {
+				t.Errorf("rendering changed authored bytes: %q, %v", data, err)
+			}
+		})
+	}
+}
+
 // writeTestFile creates a file relative to dir with the given content.
 func writeTestFile(t *testing.T, dir, relPath, content string) {
 	t.Helper()
