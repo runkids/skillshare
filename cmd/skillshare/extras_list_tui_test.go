@@ -70,3 +70,16 @@ func TestExtrasRemoveAsksOnTheKeyLine(t *testing.T) {
 		t.Fatalf("d should ask on the key line and say what removal does, got %q", got)
 	}
 }
+
+func TestExtrasRemoteRemoveExplainsFetchedCopy(t *testing.T) {
+	m := newExtrasListTUIModel(nil, "global", nil, nil, "", "", nil)
+	m.loading = false
+	m.allItems = []extrasListEntry{{Name: "rules", Remote: "example-org/ai-hub"}}
+	m.applyExtrasFilter()
+	m.confirmAction = "remove"
+	m.confirmExtra = "rules"
+	_, what, _ := m.confirmText()
+	if !strings.Contains(what, "unedited") || !strings.Contains(what, "edited") || !strings.Contains(what, "copied") {
+		t.Fatal(what)
+	}
+}

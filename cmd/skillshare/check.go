@@ -204,6 +204,11 @@ func runCheckCommand(args []string) error {
 	mode = resolveAutoMode(mode, cwd)
 
 	applyModeLabel(mode)
+	// Extras are a local-only report in this slice. Keep shared kind parsing
+	// and --all limited to skills and agents.
+	if len(rest) > 0 && rest[0] == "extras" {
+		return cmdCheckExtras(mode, cwd, rest[1:])
+	}
 
 	// Extract kind filter (e.g. "skillshare check agents" or "--all").
 	kind, rest := parseKindArgWithAll(rest)
@@ -988,7 +993,7 @@ func renderAgentResults(agentResults []check.AgentCheckResult) {
 }
 
 func printCheckHelp() {
-	printHelp("skillshare check [agents] [name...] [options]\n       skillshare check --group <group> [options]", "Check for available updates to tracked repositories and installed skills.\n\nFor tracked repos: fetches from origin and checks if behind\nFor regular skills: compares installed version with remote HEAD\n\nIf no names or groups are specified, all items are checked.\nIf a positional name matches a group directory, it is automatically expanded.",
+	printHelp("skillshare check [agents|extras] [name...] [options]\n       skillshare check --group <group> [options]", "Check for available updates to tracked repositories and installed skills.\n\nFor tracked repos: fetches from origin and checks if behind\nFor regular skills: compares installed version with remote HEAD\nFor extras: local integrity only; remote revision not checked\n\nIf no names or groups are specified, all items are checked.\nIf a positional name matches a group directory, it is automatically expanded.",
 		helpGroup{title: "Arguments", rows: []helpRow{
 			{"name...", "Skill name(s) or tracked repo name(s) (optional)"},
 		}},

@@ -19,6 +19,22 @@ type ExtraIntegrity struct {
 	Err                            error
 }
 
+// State reports local integrity only; it makes no claim about remote HEAD.
+func (s ExtraIntegrity) State() string {
+	switch {
+	case s.Interrupted:
+		return "interrupted"
+	case s.Err != nil:
+		return "error"
+	case s.Missing:
+		return "missing"
+	case s.Modified:
+		return "modified"
+	default:
+		return "intact"
+	}
+}
+
 // extraTreeHashes reads regular files without following links; modes are not edits.
 func extraTreeHashes(dir string) (map[string]string, error) {
 	info, err := os.Lstat(dir)
@@ -81,12 +97,23 @@ func ExtraLocallyModified(extrasRoot, name string) (bool, *MetadataEntry, error)
 }
 
 // InspectRemoteExtra checks only local state, and recognizes unfinished publication first.
-func InspectRemoteExtra(extrasRoot, name string) ExtraIntegrity {
-	out := ExtraIntegrity{Name: name}
+func InspectRemoteExtra(extrasRoot, name string) (out ExtraIntegrity) {
+	out = ExtraIntegrity{Name: name}
 	if err := validateSourceName(name); err != nil {
 		out.Err = err
 		return out
 	}
+	// Interruption and missing content remain the primary state, but an
+	// existing metadata pin can still identify the installed revision.
+	defer func() {
+		if out.Commit == "" {
+			if store, _, err := ReadMetadata(extrasRoot); err == nil {
+				if entry := store.GetExact(name); entry != nil {
+					out.Commit = entry.Commit
+				}
+			}
+		}
+	}()
 	stage := filepath.Join(extrasRoot, extraStagingDir)
 	if info, err := os.Lstat(stage); err == nil {
 		if utils.IsLinkMode(stage, info.Mode()) || !info.IsDir() {

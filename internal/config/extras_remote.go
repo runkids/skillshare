@@ -57,3 +57,24 @@ func validateExtraRemotes(extras []ExtraConfig) error {
 	}
 	return nil
 }
+
+// ExtraRestoreCommand names the explicit slice-1 restore, with shell arguments
+// quoted when needed. A bare install does not restore remote extras yet.
+func ExtraRestoreCommand(extra ExtraConfig, project bool) string {
+	word := func(s string) string {
+		if strings.IndexFunc(s, func(r rune) bool {
+			return !unicode.IsLetter(r) && !unicode.IsDigit(r) && !strings.ContainsRune("_./:@%+=,-", r)
+		}) < 0 && s != "" {
+			return s
+		}
+		return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+	}
+	command := "skillshare install " + word(extra.Remote) + " --kind extra --name " + word(extra.Name)
+	if extra.Branch != "" {
+		command += " --branch " + word(extra.Branch)
+	}
+	if project {
+		return command + " -p"
+	}
+	return command + " -g"
+}

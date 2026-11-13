@@ -190,3 +190,34 @@ func TestExtrasMutators_InterruptedRefused(t *testing.T) {
 		t.Fatal("interrupted mutation changed config")
 	}
 }
+
+func TestExtrasList_RemoteFieldsAndZeroTargets(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		extras := []config.ExtraConfig{{Name: "rules", Remote: "example-org/ai-hub", Branch: "main", Targets: []config.ExtraTargetConfig{}}}
+		var s *Server
+		if project {
+			s, _ = newTestProjectServerWithExtras(t, extras)
+		} else {
+			s, _ = newTestServerWithExtras(t, extras, "")
+		}
+		root := s.cfg.EffectiveExtrasSource()
+		if project {
+			root = s.projectCfg.EffectiveExtrasSource(s.projectRoot)
+		}
+		stage := filepath.Join(root, ".skillshare-staging")
+		if err := os.MkdirAll(stage, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(stage, "publishing-rules.json"), []byte(`{}`), 0644); err != nil {
+			t.Fatal(err)
+		}
+		rr := serveExtras(s, http.MethodGet, "/api/extras", "")
+		var entries []struct {
+			Remote, Branch, State string
+			Targets               []any
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &entries); rr.Code != 200 || err != nil || len(entries) != 1 || entries[0].Remote != extras[0].Remote || entries[0].Branch != "main" || entries[0].State != "interrupted" || entries[0].Targets == nil {
+			t.Fatalf("list %d: %s %v", rr.Code, rr.Body, err)
+		}
+	}
+}

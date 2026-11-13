@@ -201,3 +201,73 @@ func TestInstallExtra_RemovalBothModes(t *testing.T) {
 		}
 	}
 }
+
+func TestInstallExtra_LocalConsumers(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		sb := testutil.NewSandbox(t)
+		sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+		remote := extraFixture(t, sb)
+		cwd, mode := sb.Root, "-g"
+		root := filepath.Join(filepath.Dir(sb.SourcePath), "extras")
+		if project {
+			cwd = sb.SetupProjectDir("claude")
+			mode = "-p"
+			root = filepath.Join(cwd, ".skillshare", "extras")
+		}
+		sb.RunCLIInDir(cwd, "install", remote, "--kind", "extra", "--name", "rules", "--skip-audit", mode).AssertSuccess(t)
+		for _, state := range []string{"intact", "modified", "missing", "interrupted", "error"} {
+			switch state {
+			case "modified":
+				if err := os.WriteFile(filepath.Join(root, "rules", "rules.md"), []byte("edited"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			case "missing":
+				if err := os.Rename(filepath.Join(root, "rules"), filepath.Join(root, "saved")); err != nil {
+					t.Fatal(err)
+				}
+			case "interrupted":
+				if err := os.MkdirAll(filepath.Join(root, ".skillshare-staging"), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(root, ".skillshare-staging", "publishing-rules.json"), []byte(`{}`), 0644); err != nil {
+					t.Fatal(err)
+				}
+			case "error":
+				if err := os.Remove(filepath.Join(root, ".skillshare-staging", "publishing-rules.json")); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Rename(filepath.Join(root, "saved"), filepath.Join(root, "rules")); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(root, install.MetadataFileName), []byte(`{invalid`), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			result := sb.RunCLIInDir(cwd, "check", "extras", "--json", mode)
+			var rows []struct{ Name, State, Remote, Message string }
+			if err := json.Unmarshal([]byte(result.Stdout), &rows); err != nil || len(rows) != 1 || rows[0].State != state || rows[0].Remote != remote || !strings.Contains(rows[0].Message, "remote revision not checked") {
+				t.Fatalf("check %s: %s %s %v", state, result.Stdout, result.Stderr, err)
+			}
+			if strings.Contains(result.Stdout, "up_to_date") || strings.Contains(result.Stdout, "update_available") {
+				t.Fatal("local check claimed remote freshness")
+			}
+			listed := sb.RunCLIInDir(cwd, "extras", "list", "--json", mode)
+			listed.AssertSuccess(t)
+			var entries []struct {
+				Remote, State string
+				Targets       []any
+			}
+			if err := json.Unmarshal([]byte(listed.Stdout), &entries); err != nil || len(entries) != 1 || entries[0].Remote != remote || entries[0].State != state || entries[0].Targets == nil {
+				t.Fatalf("list %s: %s %v", state, listed.Stdout, err)
+			}
+			if state == "interrupted" {
+				sb.RunCLIInDir(cwd, "status", mode).AssertAnyOutputContains(t, "interrupted")
+				sb.RunCLIInDir(cwd, "doctor", mode).AssertAnyOutputContains(t, "interrupted")
+			}
+			if state == "modified" {
+				sb.RunCLIInDir(cwd, "check", "extras", "--exit-code", mode).AssertFailure(t)
+			}
+		}
+		sb.Cleanup()
+	}
+}

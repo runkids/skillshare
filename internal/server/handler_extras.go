@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 	syncpkg "skillshare/internal/sync"
 	"skillshare/internal/utils"
 )
@@ -34,6 +35,10 @@ func (s *Server) resolveExtensionSpec(ext string) (*syncpkg.ExtensionSpec, error
 
 // extrasListEntry is the JSON response shape for a single extra.
 type extrasListEntry struct {
+	Remote       string             `json:"remote,omitempty"`
+	Branch       string             `json:"branch,omitempty"`
+	Commit       string             `json:"commit,omitempty"`
+	State        string             `json:"state,omitempty"`
 	Name         string             `json:"name"`
 	File         string             `json:"file,omitempty"` // single-file extra: the synced file in source_dir
 	SourceDir    string             `json:"source_dir"`
@@ -124,6 +129,10 @@ func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 			File:       extra.File,
 			SourceDir:  sourceDir,
 			SourceType: config.ResolveExtrasSourceType(extra, resolvedExtrasSource),
+		}
+		if extra.Remote != "" {
+			state := install.InspectRemoteExtra(filepath.Dir(sourceDir), extra.Name)
+			entry.Remote, entry.Branch, entry.Commit, entry.State = extra.Remote, extra.Branch, state.Commit, state.State()
 		}
 
 		files, err := syncpkg.DiscoverExtraSource(sourceDir, extra.File)

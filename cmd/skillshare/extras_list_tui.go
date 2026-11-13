@@ -464,6 +464,9 @@ func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry) string {
 
 	b.WriteString(theme.Primary().Bold(true).Render(e.Name))
 	b.WriteString("\n\n")
+	if e.Remote != "" {
+		b.WriteString(theme.Dim().Width(8).Render("Remote") + remoteExtraSummary(e.Remote, e.Branch, e.Commit, e.State) + "\n")
+	}
 
 	label := theme.Dim().Width(8).Render("Source")
 	if e.File != "" {
@@ -698,6 +701,9 @@ func (m extrasListTUIModel) confirmText() (question, what string, danger bool) {
 	}
 	switch m.confirmAction {
 	case "remove":
+		if entry.Remote != "" {
+			return "Remove extra " + m.confirmExtra + "?", "An unedited fetched copy is deleted; an edited copy stays. Owned links are cleaned; copied outputs stay", true
+		}
 		if entry.File != "" {
 			return "Remove extra " + m.confirmExtra + "?", "Its target files are restored to what was there before", true
 		}

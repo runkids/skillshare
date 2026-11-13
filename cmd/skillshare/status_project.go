@@ -48,7 +48,7 @@ func cmdStatusProject(root string) error {
 	if len(runtime.config.Extras) > 0 {
 		printExtrasStatus(runtime.config.Extras, func(extra config.ExtraConfig) string {
 			return config.ResolveExtrasSourceDirProject(extra, runtime.config.EffectiveExtrasSource(root), root)
-		})
+		}, true)
 	}
 
 	printAuditStatus(runtime.config.Audit)
@@ -69,6 +69,7 @@ func cmdStatusProjectJSON(root string) error {
 	walk := runtime.skillsWalk()
 	output := statusJSONOutput{
 		Version: version,
+		Extras:  inspectRemoteExtras(runtime.config.Extras, runtime.config.EffectiveExtrasSource(root)),
 	}
 
 	discovered, stats, _ := sync.DiscoverSourceSkillsWithStats(runtime.sourcePath, walk)

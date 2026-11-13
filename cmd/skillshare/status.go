@@ -32,6 +32,7 @@ type statusJSONOutput struct {
 	TrackedRepos []statusJSONRepo   `json:"tracked_repos"`
 	Targets      []statusJSONTarget `json:"targets"`
 	Agents       *statusJSONAgents  `json:"agents,omitempty"`
+	Extras       []checkExtraResult `json:"extras,omitempty"`
 	Audit        statusJSONAudit    `json:"audit"`
 	Version      string             `json:"version"`
 }
@@ -141,7 +142,7 @@ func cmdStatus(args []string) error {
 		if len(cfg.Extras) > 0 {
 			printExtrasStatus(cfg.Extras, func(extra config.ExtraConfig) string {
 				return config.ResolveExtrasSourceDir(extra, cfg.EffectiveExtrasSource(), cfg.EffectiveSkillsSource())
-			})
+			}, false)
 		}
 
 		printAuditStatus(cfg.Audit)
@@ -152,6 +153,7 @@ func cmdStatus(args []string) error {
 	// JSON mode
 	output := statusJSONOutput{
 		Version: version,
+		Extras:  inspectRemoteExtras(cfg.Extras, cfg.EffectiveExtrasSource()),
 	}
 
 	discovered, stats, _ := sync.DiscoverSourceSkillsWithStats(cfg.EffectiveSkillsSource(), walk)

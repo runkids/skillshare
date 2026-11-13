@@ -1330,12 +1330,31 @@ func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bo
 		} else {
 			sourceDir = config.ResolveExtrasSourceDir(extra, extrasSource, source)
 		}
+		if extra.Remote != "" {
+			state := install.InspectRemoteExtra(filepath.Dir(sourceDir), extra.Name)
+			label := remoteExtraSummary(extra.Remote, extra.Branch, state.Commit, state.State())
+			ui.Row(ui.MarkNone, extra.Name, label, width)
+			details = append(details, extra.Name+": "+label)
+			if state.Interrupted || state.Err != nil {
+				result.addError()
+				hasIssue, hasError = true, true
+				ui.Next(config.ExtraRestoreCommand(extra, isProject), "repair source")
+				continue
+			}
+			if state.Modified {
+				result.addWarning()
+				hasIssue = true
+			}
+		}
 
 		files, err := sync.DiscoverExtraSource(sourceDir, extra.File)
 		if err != nil {
 			result.addError()
 			ui.Row(ui.MarkFail, extra.Name, "source missing · "+shortenPath(sourceDir), width)
 			details = append(details, fmt.Sprintf("%s: source directory missing", extra.Name))
+			if extra.Remote != "" {
+				ui.Next(config.ExtraRestoreCommand(extra, isProject), "restore source")
+			}
 			hasIssue = true
 			continue
 		}
