@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -84,5 +85,47 @@ func TestSaveProjectRejectsRemoteCredentialsBeforeCreatingDir(t *testing.T) {
 	}
 	if _, err := os.Stat(dir); !os.IsNotExist(err) {
 		t.Fatalf("created directory: %v", err)
+	}
+}
+
+func TestRawExtras_IgnoresOtherKeysAndTheirValidity(t *testing.T) {
+	for _, other := range []string{"gitlab_hosts: [not-valid]\n", "projects_storage: {invalid: shape}\n"} {
+		entries, err := RawExtras([]byte(other + "extras:\n  - name: rules\n    remote: example-org/ai-hub\n    targets: []\n"))
+		if err != nil || len(entries) != 1 || entries[0].Remote != "example-org/ai-hub" {
+			t.Fatal(entries, err)
+		}
+	}
+}
+
+func TestRawExtras_ErrorsCarryNoValue(t *testing.T) {
+	for _, raw := range []string{"extras: SYNTHETIC\n", "extras: [SYNTHETIC]\n", "extras:\n  - remote: [SYNTHETIC]\n", "extras: *SYNTHETIC\n", "extras: &SYNTHETIC [*SYNTHETIC]\n", "extras: [SYNTHETIC\n", "SYNTHETIC: x\nSYNTHETIC: y\n"} {
+		if _, err := RawExtras([]byte(raw)); err == nil || strings.Contains(err.Error(), "SYNTHETIC") {
+			t.Fatalf("unsafe error: %v", err)
+		}
+	}
+}
+
+func TestRawExtrasRemoteError(t *testing.T) {
+	for _, remote := range []string{"https://user:SYNTHETIC@example.com/repo", "https:/example.com/repo?token=SYNTHETIC", "user:SYNTHETIC@example.com:org/repo", "https://example.com/%zz#SYNTHETIC"} {
+		err := RawExtrasRemoteError([]byte("extras:\n  - name: rules\n    remote: " + remote + "\n"))
+		if err == nil || !strings.Contains(err.Error(), "rules") || strings.Contains(err.Error(), "SYNTHETIC") {
+			t.Fatal(err)
+		}
+	}
+	for _, raw := range []string{"extras: [SYNTHETIC\n", "extras: *SYNTHETIC\n", "extras:\n  - name: rules\n    remote: ./path\n", "extras:\n  - name: rules\n    remote: ssh://git@example.com/repo\n", "extras:\n  - name: rules\n    branch: main\n"} {
+		if err := RawExtrasRemoteError([]byte(raw)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := RawExtrasRemoteError([]byte("extras: SYNTHETIC\n")); !errors.Is(err, ErrRawExtrasUnreadable) {
+		t.Fatal(err)
+	}
+}
+
+func TestValidateRemoteExtraEdits_InvalidBaselineRepairable(t *testing.T) {
+	for _, entry := range []ExtraConfig{{Name: "rules", Remote: "https://user:SYNTHETIC@example.com/repo"}, {Name: "rules", Remote: "./path"}, {Name: "rules", Branch: "main"}} {
+		if err := ValidateRemoteExtraEdits([]ExtraConfig{entry}, nil); err != nil {
+			t.Fatal(err)
+		}
 	}
 }

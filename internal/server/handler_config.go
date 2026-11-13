@@ -3,6 +3,7 @@ package server
 import (
 	"cmp"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -17,22 +18,21 @@ import (
 )
 
 func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
-	// Refresh before reading raw config so invalid remote credentials are not echoed.
+	// Keep recovery available with the last loaded config when reload fails.
 	s.mu.Lock()
-	reloadErr := s.reloadConfig()
+	_ = s.reloadConfig()
 	cfgObj := any(s.cfg)
 	if s.IsProjectMode() {
 		cfgObj = s.projectCfg
 	}
 	s.mu.Unlock()
-	if reloadErr != nil {
-		writeError(w, http.StatusBadRequest, "failed to reload config")
-		return
-	}
-
 	raw, err := os.ReadFile(s.configPath())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to read config: "+err.Error())
+		return
+	}
+	if err := config.RawExtrasRemoteError(raw); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -43,6 +43,31 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 var syncModes = []string{"merge", "copy", "symlink"}
+
+// rawExtrasBaseline uses current disk extras even if another setting is invalid.
+// Syntax-broken files fall back to the last successful load, which can be stale.
+// Callers hold s.mu; raw editor writes do not take the remote publication lock.
+func (s *Server) rawExtrasBaseline() []config.ExtraConfig {
+	if raw, err := os.ReadFile(s.configPath()); err == nil {
+		if extras, err := config.RawExtras(raw); err == nil {
+			return extras
+		}
+	}
+	return s.extrasConfig()
+}
+
+func (s *Server) admitRawExtras(raw string) error {
+	extras, err := config.RawExtras([]byte(raw))
+	if err != nil {
+		return fmt.Errorf("invalid YAML: %w", err)
+	}
+	for _, extra := range extras {
+		if err := config.ValidateExtraRemote(extra); err != nil {
+			return err
+		}
+	}
+	return config.ValidateRemoteExtraEdits(s.rawExtrasBaseline(), extras)
+}
 
 // handlePatchConfig — PATCH /api/config
 // Sets single settings the Settings page owns, so the UI never rewrites the whole YAML.
@@ -149,9 +174,8 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Compare against the latest disk state before accepting a raw edit.
-	if err := s.reloadConfig(); err != nil {
-		writeError(w, http.StatusBadRequest, "failed to reload config")
+	if err := s.admitRawExtras(body.Raw); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -160,17 +184,7 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 	if s.IsProjectMode() {
 		var testCfg config.ProjectConfig
 		if err := yaml.Unmarshal([]byte(body.Raw), &testCfg); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid YAML: "+err.Error())
-			return
-		}
-		for _, extra := range testCfg.Extras {
-			if err := config.ValidateExtraRemote(extra); err != nil {
-				writeError(w, http.StatusBadRequest, err.Error())
-				return
-			}
-		}
-		if err := config.ValidateRemoteExtraEdits(s.projectCfg.Extras, testCfg.Extras); err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
+			writeError(w, http.StatusBadRequest, "invalid YAML: configuration is not readable")
 			return
 		}
 		if err := plugin.Validate([]byte(body.Raw), nil); err != nil {
@@ -192,11 +206,7 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 	} else {
 		testCfg, err := config.DecodeReadOnly(s.configPath(), []byte(body.Raw))
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid YAML: "+err.Error())
-			return
-		}
-		if err := config.ValidateRemoteExtraEdits(s.cfg.Extras, testCfg.Extras); err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
+			writeError(w, http.StatusBadRequest, "invalid YAML: configuration is not readable")
 			return
 		}
 		// An account of an Agent is a target for plugins under the name the config gives it.

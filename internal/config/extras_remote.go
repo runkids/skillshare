@@ -1,12 +1,50 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"unicode"
 
+	"gopkg.in/yaml.v3"
 	"skillshare/internal/install"
 )
+
+var ErrRawExtrasUnreadable = errors.New("extras section is not readable")
+
+// RawExtras decodes only extras. All parser/decode text is fixed: yaml.v3 can
+// include scalars, duplicate keys and anchor names in its original errors.
+func RawExtras(data []byte) ([]ExtraConfig, error) {
+	var document struct {
+		Extras []ExtraConfig `yaml:"extras"`
+	}
+	if err := yaml.Unmarshal(data, &document); err != nil {
+		var typeErr *yaml.TypeError
+		if errors.As(err, &typeErr) {
+			return nil, ErrRawExtrasUnreadable
+		}
+		return nil, errors.New("invalid YAML syntax")
+	}
+	return document.Extras, nil
+}
+
+// RawExtrasRemoteError withholds parseable credentials and unreadable extras.
+// Syntax-broken raw documents stay readable in the recovery editor by design.
+func RawExtrasRemoteError(data []byte) error {
+	extras, err := RawExtras(data)
+	if err != nil {
+		if errors.Is(err, ErrRawExtrasUnreadable) {
+			return err
+		}
+		return nil
+	}
+	for _, extra := range extras {
+		if err := install.RejectSourceCredentials(extra.Remote); err != nil {
+			return fmt.Errorf("extra %q: %w", extra.Name, err)
+		}
+	}
+	return nil
+}
 
 // ValidateExtraRemote checks remote-extra origin fields without exposing credentials.
 func ValidateExtraRemote(e ExtraConfig) error {
@@ -32,7 +70,7 @@ func ValidateExtraRemote(e ExtraConfig) error {
 // ValidateRemoteExtraEdits prevents bypassing the remote lifecycle through raw config.
 func ValidateRemoteExtraEdits(before, after []ExtraConfig) error {
 	for _, old := range before {
-		if old.Remote == "" {
+		if old.Remote == "" || ValidateExtraRemote(old) != nil {
 			continue
 		}
 		found := false

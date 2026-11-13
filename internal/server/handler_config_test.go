@@ -437,3 +437,122 @@ func TestConfigRejectsMalformedRemoteWithoutDisclosure(t *testing.T) {
 		}
 	}
 }
+
+func TestConfigRecovery_RemoteBaselinesAndNonDisclosure(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, broken := range []bool{false, true} {
+			t.Run(fmt.Sprintf("project=%t/broken=%t", project, broken), func(t *testing.T) {
+				entry := config.ExtraConfig{Name: "rules", Remote: "example-org/ai-hub", Branch: "main", Targets: []config.ExtraTargetConfig{}}
+				var s *Server
+				if project {
+					s, _ = newTestProjectServerWithExtras(t, []config.ExtraConfig{entry})
+				} else {
+					s, _ = newTestServerWithExtras(t, []config.ExtraConfig{entry}, "")
+				}
+				baseline, err := os.ReadFile(s.configPath())
+				if err != nil {
+					t.Fatal(err)
+				}
+				invalid := "source: " + s.cfg.EffectiveSkillsSource() + "\nextras: [{name: rules, remote: example-org/ai-hub, branch: main, targets: []}]\nprojects_storage: SYNTHETIC-invalid\n"
+				if project {
+					invalid = "extras: [{name: rules, remote: example-org/ai-hub, branch: main, targets: []}]\ntargets: SYNTHETIC-invalid\n"
+				}
+				if broken {
+					invalid = "targets: [invalid YAML\n"
+				}
+				if err := os.WriteFile(s.configPath(), []byte(invalid), 0644); err != nil {
+					t.Fatal(err)
+				}
+				rr := serveExtras(s, http.MethodGet, "/api/config", "")
+				var out struct {
+					Raw    string
+					Config any
+				}
+				if err := json.Unmarshal(rr.Body.Bytes(), &out); rr.Code != 200 || err != nil || out.Raw != invalid || out.Config == nil {
+					t.Fatalf("GET %d: %s %v", rr.Code, rr.Body, err)
+				}
+				replacements := []string{"extras: []\n", "extras: [{name: renamed, remote: example-org/ai-hub, branch: main}]\n", "extras: [{name: rules, remote: example-org/other, branch: main}]\n", "extras: [{name: rules, remote: example-org/ai-hub, source: elsewhere, branch: main}]\n"}
+				for _, raw := range replacements {
+					body, _ := json.Marshal(map[string]string{"raw": raw})
+					rr := serveExtras(s, http.MethodPut, "/api/config", string(body))
+					if rr.Code != 400 {
+						t.Fatalf("lifecycle bypass %d %s", rr.Code, rr.Body)
+					}
+					after, err := os.ReadFile(s.configPath())
+					if err != nil || string(after) != invalid {
+						t.Fatal("refusal changed bytes", err)
+					}
+				}
+				body, _ := json.Marshal(map[string]string{"raw": string(baseline)})
+				rr = serveExtras(s, http.MethodPut, "/api/config", string(body))
+				if rr.Code != 200 {
+					t.Fatalf("repair %d %s", rr.Code, rr.Body)
+				}
+			})
+		}
+	}
+}
+
+func TestConfigRecovery_ParseAndCredentialBoundaries(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, raw := range []string{"extras: SYNTHETIC\n", "extras: [SYNTHETIC]\n", "extras: *SYNTHETIC\n", "extras:\n  - name: rules\n    remote: https:/example.com/repo?token=SYNTHETIC\n"} {
+			var s *Server
+			if project {
+				s, _ = newTestProjectServerWithExtras(t, nil)
+			} else {
+				s, _ = newTestServer(t)
+			}
+			before, err := os.ReadFile(s.configPath())
+			if err != nil {
+				t.Fatal(err)
+			}
+			body, _ := json.Marshal(map[string]string{"raw": raw})
+			rr := serveExtras(s, http.MethodPut, "/api/config", string(body))
+			if rr.Code != 400 || strings.Contains(rr.Body.String(), "SYNTHETIC") {
+				t.Fatalf("PUT %d %s", rr.Code, rr.Body)
+			}
+			after, err := os.ReadFile(s.configPath())
+			if err != nil || string(after) != string(before) {
+				t.Fatal("refusal saved", err)
+			}
+			if err := os.WriteFile(s.configPath(), []byte(raw), 0644); err != nil {
+				t.Fatal(err)
+			}
+			rr = serveExtras(s, http.MethodGet, "/api/config", "")
+			if strings.Contains(raw, "*SYNTHETIC") {
+				if rr.Code != 200 {
+					t.Fatal("syntax recovery unavailable", rr.Body)
+				}
+			} else if rr.Code != 400 || strings.Contains(rr.Body.String(), "SYNTHETIC") {
+				t.Fatalf("GET %d %s", rr.Code, rr.Body)
+			}
+			clean := "extras: [{name: rules, remote: example-org/ai-hub, targets: []}]\n"
+			body, _ = json.Marshal(map[string]string{"raw": clean})
+			rr = serveExtras(s, http.MethodPut, "/api/config", string(body))
+			if rr.Code != 200 {
+				t.Fatalf("invalid baseline repair %d %s", rr.Code, rr.Body)
+			}
+		}
+	}
+}
+
+func TestConfigGet_PathAndSyntaxBrokenRecovery(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, raw := range []string{"extras: [{name: rules, remote: ./path, targets: []}]\n", "extras:\n - name: rules\n   remote: https://user:SYNTHETIC@example.com/repo\ntargets: [\n"} {
+			var s *Server
+			if project {
+				s, _ = newTestProjectServerWithExtras(t, nil)
+			} else {
+				s, _ = newTestServer(t)
+			}
+			if err := os.WriteFile(s.configPath(), []byte(raw), 0644); err != nil {
+				t.Fatal(err)
+			}
+			rr := serveExtras(s, http.MethodGet, "/api/config", "")
+			var got struct{ Raw string }
+			if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil || rr.Code != 200 || got.Raw != raw {
+				t.Fatalf("recovery %d %s %v", rr.Code, rr.Body, err)
+			}
+		}
+	}
+}
