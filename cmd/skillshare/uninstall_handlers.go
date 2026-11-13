@@ -29,6 +29,7 @@ type uninstallMode struct {
 	store       *install.MetadataStore
 
 	emptySourceErr string   // --all found no skills
+	declarations   bool     // explicit global names may remove declarations without a checkout
 	globs          bool     // expand glob patterns in skill names
 	confirmSuffix  string   // appended to confirmation questions
 	reinstallFlags string   // appended to reinstall and trash commands
@@ -48,6 +49,10 @@ type uninstallMode struct {
 func (m *uninstallMode) items(targets []*uninstallTarget) []uninstall.Item {
 	items := make([]uninstall.Item, len(targets))
 	for i, t := range targets {
+		if t.declaration {
+			items[i] = uninstall.Item{Name: t.name, Path: t.path, MetadataOnly: true}
+			continue
+		}
 		items[i] = uninstall.Item{
 			Name:      t.name,
 			Path:      t.path,
@@ -116,6 +121,9 @@ var projectUninstallPreflight = uninstallPreflightMessages{
 
 // confirmUninstall prompts user for confirmation
 func confirmUninstall(target *uninstallTarget, suffix string) (bool, error) {
+	if target.declaration {
+		return ui.ConfirmAction(fmt.Sprintf("Remove tracked repository record %s? Nothing on disk is deleted", target.name), false)
+	}
 	kind := ""
 	if target.isTrackedRepo {
 		kind = "tracked repository "
@@ -247,7 +255,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 			continue
 		}
 
-		t, err := resolveUninstallTarget(name, mode.sourceDir, mode.sourceLabel, mode.walk)
+		t, err := resolveUninstallName(name, mode)
 		if err != nil {
 			resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, err))
 			continue
@@ -433,10 +441,16 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 		width := ui.RowWidth(names...)
 		for _, t := range targets {
 			value := "would move to trash"
+			if t.declaration {
+				value = "would remove record"
+			}
 			if !single {
 				value += " " + ui.DimText("· "+batchTargetKind(t, summary))
 			}
 			ui.Row(ui.MarkNone, t.name, value, width)
+			if t.declaration {
+				continue
+			}
 			if line := mode.dryRunGitignore(t); line != "" {
 				ui.Note(line)
 			}
@@ -455,7 +469,14 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 		if single {
 			confirmed, err = confirmUninstall(targets[0], mode.confirmSuffix)
 		} else {
-			confirmed, err = ui.ConfirmAction(fmt.Sprintf("Uninstall %d %s%s? %s", len(targets), summarizeUninstallTargets(targets).noun(), mode.confirmSuffix, uninstallTrashHint()), false)
+			hint := "Nothing on disk is deleted"
+			for _, target := range targets {
+				if !target.declaration {
+					hint = uninstallTrashHint()
+					break
+				}
+			}
+			confirmed, err = ui.ConfirmAction(fmt.Sprintf("Uninstall %d %s%s? %s", len(targets), summarizeUninstallTargets(targets).noun(), mode.confirmSuffix, hint), false)
 		}
 		if err != nil {
 			return err
@@ -499,7 +520,11 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 	case batch:
 		printUninstallBatch(targets, out.Results, summary, len(failed), preflightSkipped, mode, start)
 	case out.Results[0].Err == nil:
-		fmt.Printf("%s Uninstall %s %s\n", ui.StyledMark(ui.MarkOK), targets[0].name, ui.DimText("→ trash, kept 7 days"))
+		if targets[0].declaration {
+			fmt.Printf("%s Removed record %s (nothing moved)\n", ui.StyledMark(ui.MarkOK), targets[0].name)
+		} else {
+			fmt.Printf("%s Uninstall %s %s\n", ui.StyledMark(ui.MarkOK), targets[0].name, ui.DimText("→ trash, kept 7 days"))
+		}
 		if out.GitignoreErr != nil {
 			ui.Warning("Could not update .gitignore: %v", out.GitignoreErr)
 		}
@@ -526,7 +551,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 		mode.afterRemove(removedNames)
 	}
 
-	if !batch && !opts.jsonOutput && len(succeeded) == 1 {
+	if !batch && !opts.jsonOutput && len(succeeded) == 1 && !succeeded[0].declaration {
 		printUninstallNextSteps(mode, succeeded[0].name, singleSource)
 	}
 
@@ -554,7 +579,7 @@ func displayUninstallBatch(targets []*uninstallTarget, summary uninstallTypeSumm
 	long := len(targets) > 20
 	var shown []*uninstallTarget
 	for _, t := range targets {
-		if !long || t.isTrackedRepo || summary.groupSkillCount[t.path] > 0 {
+		if !long || t.declaration || t.isTrackedRepo || summary.groupSkillCount[t.path] > 0 {
 			shown = append(shown, t)
 		}
 	}
@@ -571,6 +596,9 @@ func displayUninstallBatch(targets []*uninstallTarget, summary uninstallTypeSumm
 }
 
 func batchTargetKind(t *uninstallTarget, summary uninstallTypeSummary) string {
+	if t.declaration {
+		return "tracked repository record"
+	}
 	if t.isTrackedRepo {
 		return "tracked repository"
 	}
@@ -598,6 +626,8 @@ func printUninstallBatch(targets []*uninstallTarget, results []uninstall.Result,
 		switch c := summary.groupSkillCount[t.path]; {
 		case r.Err != nil:
 			failures = append(failures, batchResult{target: t, errMsg: r.Err.Error()})
+		case t.declaration:
+			successes = append(successes, batchResult{target: t, typeLabel: "record (nothing moved)"})
 		case t.isTrackedRepo:
 			successes = append(successes, batchResult{target: t, typeLabel: "tracked repo"})
 		case c > 0:
@@ -653,7 +683,14 @@ func printUninstallBatch(targets []*uninstallTarget, results []uninstall.Result,
 	fmt.Println()
 	ui.Done(mark, strings.Join(parts, ", "), time.Since(start))
 
-	if len(successes) > 0 {
+	trashed := false
+	for _, r := range successes {
+		if !r.target.declaration {
+			trashed = true
+			break
+		}
+	}
+	if trashed {
 		cleanupUninstallTrash(mode)
 		ui.Next(
 			"skillshare sync", mode.syncNote("them"),

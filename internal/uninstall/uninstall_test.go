@@ -1,6 +1,7 @@
 package uninstall
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -414,5 +415,107 @@ func TestRestore_LegacyKeyKeepsALiveRecordOfAnotherPath(t *testing.T) {
 	}
 	if e := f.opts.Store.GetExact("frontend/foo"); e == nil || e.Source != "github.com/acme/old" {
 		t.Errorf("frontend/foo should get its record back, got %+v", e)
+	}
+}
+
+func TestRun_MetadataOnlyLeavesOccupant(t *testing.T) {
+	for _, scenario := range []string{"absent", "folder", "link", "dangling link"} {
+		t.Run(scenario, func(t *testing.T) {
+			f := newFixture(t)
+			f.opts.Store.Set("_team", &install.MetadataEntry{Source: "file:///nonexistent/team.git", Tracked: true})
+			f.opts.Store.Set("_other", &install.MetadataEntry{Source: "keep", Tracked: true})
+			f.opts.Store.AuditAccepted = map[string][]string{"_team": {"root"}, "_team/child": {"child"}, "_other": {"keep"}}
+			item := Item{Name: "_team", Path: filepath.Join(f.source, "_team"), MetadataOnly: true, Repo: true, Gitignore: "_team"}
+			target := t.TempDir()
+			switch scenario {
+			case "folder":
+				item.Path = f.skill(t, "_team").Path
+				f.skill(t, "_team/child")
+			case "link", "dangling link":
+				if scenario == "link" {
+					if err := os.WriteFile(filepath.Join(target, "kept"), []byte("untouched"), 0644); err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					target = filepath.Join(target, "missing")
+				}
+				if err := os.Symlink(target, item.Path); err != nil {
+					t.Fatal(err)
+				}
+			}
+			before, _ := os.Lstat(item.Path)
+			beforeLink, _ := os.Readlink(item.Path)
+			if err := f.opts.Store.Save(f.source); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(f.source, ".gitignore"), []byte("_team/\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			hostile := item
+			hostile.Path = filepath.Join(t.TempDir(), "outside")
+			if errs := Preflight([]Item{item, hostile}, f.opts); errs[0] != nil || errs[1] != nil {
+				t.Fatalf("preflight touched paths: %v", errs)
+			}
+			out := Run([]Item{item}, f.opts)
+			if out.Results[0].Err != nil || out.SaveErr != nil {
+				t.Fatalf("removal = %+v", out)
+			}
+			saved, err := install.LoadMetadata(f.source)
+			if err != nil || saved.Has("_team") || !saved.Has("_other") || len(saved.AuditAccepted) != 1 {
+				t.Fatalf("wrong persisted cleanup: %+v,%v", saved, err)
+			}
+			after, _ := os.Lstat(item.Path)
+			afterLink, _ := os.Readlink(item.Path)
+			if (before == nil) != (after == nil) || before != nil && before.Mode() != after.Mode() || beforeLink != afterLink {
+				t.Fatal("occupant changed")
+			}
+			if scenario == "folder" {
+				for _, rel := range []string{"SKILL.md", "child/SKILL.md"} {
+					data, err := os.ReadFile(filepath.Join(item.Path, rel))
+					want := "# _team"
+					if rel == "child/SKILL.md" {
+						want += "/child"
+					}
+					if err != nil || string(data) != want {
+						t.Fatalf("occupant bytes changed: %s,%v", data, err)
+					}
+				}
+			}
+			if scenario == "link" {
+				if data, err := os.ReadFile(filepath.Join(target, "kept")); err != nil || string(data) != "untouched" {
+					t.Fatal("link target changed")
+				}
+			}
+			ignore, err := os.ReadFile(filepath.Join(f.source, ".gitignore"))
+			if err != nil || string(ignore) != "_team/\n" || len(trash.List(f.opts.TrashDir)) != 0 {
+				t.Fatal("metadata-only removal touched ignore or trash")
+			}
+		})
+	}
+}
+
+func TestRun_MetadataOnlyWithoutDeclaration(t *testing.T) {
+	f := newFixture(t)
+	f.opts.Store.Set("plain", &install.MetadataEntry{Source: "keep"})
+	before, _ := json.Marshal(f.opts.Store)
+	out := Run([]Item{{Name: "plain", MetadataOnly: true}}, f.opts)
+	after, _ := json.Marshal(f.opts.Store)
+	if !errors.Is(out.Results[0].Err, ErrNotDeclared) || string(before) != string(after) {
+		t.Fatalf("stale removal mutated store: %+v", out)
+	}
+}
+
+func TestRun_MetadataOnlySaveFailure(t *testing.T) {
+	f := newFixture(t)
+	for _, name := range []string{"_one", "_two"} {
+		f.opts.Store.Set(name, &install.MetadataEntry{Source: "unreachable", Tracked: true})
+	}
+	// A directory at the metadata filename makes atomic publication fail on all platforms.
+	if err := os.Mkdir(install.MetadataPath(f.source), 0755); err != nil {
+		t.Fatal(err)
+	}
+	out := Run([]Item{{Name: "_one", MetadataOnly: true}, {Name: "_two", MetadataOnly: true}, {Name: "_gone", MetadataOnly: true}}, f.opts)
+	if out.SaveErr == nil || out.Results[0].Err != out.SaveErr || out.Results[1].Err != out.SaveErr || !errors.Is(out.Results[2].Err, ErrNotDeclared) {
+		t.Fatalf("false success after save failure: %+v", out)
 	}
 }

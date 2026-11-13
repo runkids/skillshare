@@ -244,3 +244,69 @@ func TestHandleUninstallSkill_ProjectDropsConfigEntry(t *testing.T) {
 		t.Errorf("config skills = %+v, want none", loaded.Skills)
 	}
 }
+
+func TestHandleUninstallRepo_DeclarationResults(t *testing.T) {
+	for _, scenario := range []string{"absent", "occupied", "save failure", "project", "unknown"} {
+		t.Run(scenario, func(t *testing.T) {
+			var s *Server
+			var src string
+			if scenario == "project" {
+				s, _ = newProjectTargetServer(t, nil)
+				src = s.skillsSource()
+			} else {
+				s, src = newTestServer(t)
+			}
+			s.skillsStore.Set("org/_team", &install.MetadataEntry{Source: "https://example.invalid/unreachable.git", Tracked: true, Group: "org"})
+			if err := s.skillsStore.Save(src); err != nil {
+				t.Fatal(err)
+			}
+			if scenario == "occupied" {
+				addSkill(t, src, "org/_team/kept")
+			}
+			if scenario == "save failure" {
+				if err := os.Remove(install.MetadataPath(src)); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Mkdir(install.MetadataPath(src), 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			name := "org/_team"
+			if scenario == "unknown" {
+				name = "missing"
+			}
+			rr := deleteRepo(t, s, name, "")
+			switch scenario {
+			case "save failure":
+				if rr.Code != http.StatusInternalServerError || strings.Contains(rr.Body.String(), `"success":true`) {
+					t.Fatalf("false success: %d %s", rr.Code, rr.Body.String())
+				}
+			case "project", "unknown":
+				if rr.Code != http.StatusBadRequest || !s.skillsStore.Has("org/_team") {
+					t.Fatalf("project declaration removed: %d %s", rr.Code, rr.Body.String())
+				}
+			default:
+				var body struct {
+					Success      bool
+					Name         string
+					MovedToTrash *bool
+				}
+				if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+					t.Fatal(err)
+				}
+				if rr.Code != http.StatusOK || !body.Success || body.Name != "org/_team" || body.MovedToTrash == nil || *body.MovedToTrash {
+					t.Fatalf("wrong metadata-only result: %d %s", rr.Code, rr.Body.String())
+				}
+				loaded, err := install.LoadMetadata(src)
+				if err != nil || loaded.Has("org/_team") || s.skillsStore.Has("org/_team") {
+					t.Fatalf("removal not persisted: %v", err)
+				}
+				if scenario == "occupied" {
+					if _, err := os.Stat(filepath.Join(src, "org/_team/kept/SKILL.md")); err != nil {
+						t.Fatal("occupant touched")
+					}
+				}
+			}
+		})
+	}
+}

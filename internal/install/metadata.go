@@ -412,6 +412,25 @@ func (s *MetadataStore) RemoveByNames(names map[string]bool) {
 	}
 }
 
+// ForgetTrackedRepo removes a repository declaration and its source-relative
+// audit acceptances. It never reads or changes the path on disk.
+func (s *MetadataStore) ForgetTrackedRepo(rel string) bool {
+	rel = cleanName(rel)
+	for _, key := range s.TrackedDeclarations() {
+		if filepath.ToSlash(KeyToRelPath(key, s.Get(key))) != rel {
+			continue
+		}
+		s.RemoveByNames(map[string]bool{rel: true})
+		for accepted := range s.AuditAccepted {
+			if accepted == rel || strings.HasPrefix(accepted, rel+"/") {
+				delete(s.AuditAccepted, accepted)
+			}
+		}
+		return true
+	}
+	return false
+}
+
 // removedWith reports whether uninstalling name removes the entry at key.
 func removedWith(key string, entry *MetadataEntry, name string) bool {
 	full := KeyToRelPath(key, entry)

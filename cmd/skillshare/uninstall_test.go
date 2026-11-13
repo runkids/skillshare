@@ -3,6 +3,8 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"skillshare/internal/install"
+	"strings"
 	"testing"
 
 	"skillshare/internal/sourcewalk"
@@ -164,5 +166,57 @@ func TestResolveUninstallTarget_AmbiguousNestedName(t *testing.T) {
 	}
 	if _, err := resolveUninstallTarget("team", src, "source", sourcewalk.Options{}); err == nil {
 		t.Fatal("ambiguous shorthand must fail")
+	}
+}
+
+func TestResolveUninstallName(t *testing.T) {
+	src := t.TempDir()
+	store := install.NewMetadataStore()
+	for _, name := range []string{"_occupied", "org/_team", "_checkout", "_checkout-link"} {
+		store.Set(name, &install.MetadataEntry{Source: "unreachable", Tracked: true})
+	}
+	for _, name := range []string{"_occupied/child", "org/team", "_checkout/.git"} {
+		if err := os.MkdirAll(filepath.Join(src, name), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(filepath.Join(src, "_checkout"), filepath.Join(src, "_checkout-link")); err != nil {
+		t.Fatal(err)
+	}
+	mode := &uninstallMode{sourceDir: src, sourceLabel: "source", store: store, declarations: true, gitignoreEntry: func(*uninstallTarget) string { return "must-not-collect" }}
+	for _, tc := range []struct {
+		input, want       string
+		declaration, repo bool
+	}{
+		{"_occupied", "_occupied", true, false}, {"_team", "org/_team", true, false}, {"team", "org/team", false, false},
+		{"org/team", "org/team", false, false}, {"checkout", "_checkout", false, true}, {"_checkout-link", "_checkout-link", false, true},
+	} {
+		got, err := resolveUninstallName(tc.input, mode)
+		if err != nil || got.name != tc.want || got.declaration != tc.declaration || got.isTrackedRepo != tc.repo {
+			t.Fatalf("%s = %+v,%v", tc.input, got, err)
+		}
+		if got.declaration {
+			item := mode.items([]*uninstallTarget{got})[0]
+			if !item.MetadataOnly || item.Repo || item.Gitignore != "" {
+				t.Fatalf("wrong declaration item: %+v", item)
+			}
+			if summary := summarizeUninstallTargets([]*uninstallTarget{got}); summary.trackedRepos != 1 || summary.groups != 0 {
+				t.Fatalf("walked occupant: %+v", summary)
+			}
+		}
+	}
+	store.Set("other/_team", &install.MetadataEntry{Source: "unreachable", Tracked: true})
+	if err := os.Remove(filepath.Join(src, "org/team")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := resolveUninstallName("team", mode); err == nil || !strings.Contains(err.Error(), "multiple tracked repositories match") {
+		t.Fatalf("ambiguity = %v", err)
+	}
+	mode.declarations = false
+	if got, err := resolveUninstallName("_occupied", mode); err != nil || got.declaration {
+		t.Fatalf("project occupant = %+v,%v", got, err)
+	}
+	if _, err := resolveUninstallName("org/_team", mode); err == nil {
+		t.Fatal("project mode resolved a declaration")
 	}
 }

@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -123,6 +124,14 @@ func (s *Server) handleRemoveSourceLink(w http.ResponseWriter, r *http.Request) 
 		s.writeOpsLog("unlink", "error", start, args, err.Error())
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
+	}
+	if !s.IsProjectMode() && s.skillsStore != nil && s.skillsStore.ForgetTrackedRepo(name) {
+		if err := s.skillsStore.Save(s.skillsSource()); err != nil {
+			log.Printf("warning: unlinked, but failed to update metadata: %v", err)
+			if err := s.reloadSkillsStore(); err != nil {
+				log.Printf("warning: failed to reload skills metadata: %v", err)
+			}
+		}
 	}
 	s.snapshotFollow()
 	s.writeOpsLog("unlink", "ok", start, args, "")

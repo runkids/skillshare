@@ -3,12 +3,15 @@
 package integration
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/install"
 	"skillshare/internal/testutil"
+	"skillshare/internal/trash"
 )
 
 func TestUninstall_ExistingSkill_Removes(t *testing.T) {
@@ -784,6 +787,107 @@ func TestUninstall_SameBasename_KeepsOtherSkillMetadata(t *testing.T) {
 			}
 			if _, ok := store.TargetOverrides[keep]; !ok || len(store.TargetOverrides) != 1 {
 				t.Errorf("expected only the override of %q to remain, got %v", keep, store.TargetOverrides)
+			}
+		})
+	}
+}
+
+func TestUninstall_DeclarationOutput(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+	store := install.NewMetadataStore()
+	for _, name := range []string{"_team", "org/_other", "_one", "_two"} {
+		store.Set(name, &install.MetadataEntry{Source: "https://example.invalid/unreachable.git", Tracked: true})
+	}
+	if err := store.Save(sb.SourcePath); err != nil {
+		t.Fatal(err)
+	}
+	run := func(args ...string) *testutil.Result { return sb.RunCLIEnv(sb.MachineEnv(), args...) }
+	dry := run("uninstall", "_team", "--dry-run", "-g")
+	dry.AssertSuccess(t)
+	dry.AssertOutputContains(t, "would remove record")
+	if strings.Contains(dry.Output(), "reinstall with") || strings.Contains(dry.Output(), "would move to trash") {
+		t.Fatal(dry.Output())
+	}
+	removed := run("uninstall", "_team", "--force", "-g")
+	removed.AssertSuccess(t)
+	removed.AssertOutputContains(t, "Removed record _team (nothing moved)")
+	if strings.Contains(removed.Output(), "trash restore") {
+		t.Fatal(removed.Output())
+	}
+	result := run("uninstall", "other", "--json", "-g")
+	result.AssertSuccess(t)
+	var body struct {
+		Removed []string
+		Failed  []string
+	}
+	if err := json.Unmarshal([]byte(result.Stdout), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Removed) != 1 || body.Removed[0] != "org/_other" || len(body.Failed) != 0 {
+		t.Fatalf("wrong JSON: %s", result.Stdout)
+	}
+	confirm := run("uninstall", "_one", "_two", "-g")
+	confirm.AssertSuccess(t)
+	confirm.AssertOutputContains(t, "Nothing on disk is deleted")
+	if strings.Contains(confirm.Output(), "moved to trash") {
+		t.Fatal(confirm.Output())
+	}
+	batch := run("uninstall", "_one", "_two", "--force", "-g")
+	batch.AssertSuccess(t)
+	if strings.Contains(batch.Output(), "trash list") || strings.Contains(batch.Output(), "moved to trash") {
+		t.Fatal(batch.Output())
+	}
+
+}
+
+func TestUninstall_DeclarationWithUnreachableSource(t *testing.T) {
+	for _, occupied := range []bool{false, true} {
+		t.Run(map[bool]string{false: "absent", true: "occupied"}[occupied], func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+			store := install.NewMetadataStore()
+			store.Set("_team", &install.MetadataEntry{Source: "file:///nonexistent/team.git", Tracked: true})
+			store.AuditAccepted = map[string][]string{"_team": {"accepted"}, "_team/child": {"accepted-child"}}
+			if err := store.Save(sb.SourcePath); err != nil {
+				t.Fatal(err)
+			}
+			if occupied {
+				sb.CreateSkill("_team", map[string]string{"SKILL.md": "# occupant\n"})
+			}
+			sb.WriteFile(filepath.Join(sb.SourcePath, ".gitignore"), "_team/\n")
+			run := func(args ...string) *testutil.Result { return sb.RunCLIEnv(sb.MachineEnv(), args...) }
+			name := "team"
+			if occupied {
+				name = "_team"
+			}
+			result := run("uninstall", name, "--json", "-g")
+			result.AssertSuccess(t)
+			var body struct{ Removed []string }
+			if err := json.Unmarshal([]byte(result.Stdout), &body); err != nil {
+				t.Fatal(err)
+			}
+			if len(body.Removed) != 1 || body.Removed[0] != "_team" {
+				t.Fatalf("wrong JSON: %s", result.Stdout)
+			}
+			loaded, err := install.LoadMetadata(sb.SourcePath)
+			if err != nil || loaded.Has("_team") || len(loaded.AuditAccepted) != 0 {
+				t.Fatalf("record not forgotten: %+v,%v", loaded, err)
+			}
+			if occupied && sb.ReadFile(filepath.Join(sb.SourcePath, "_team", "SKILL.md")) != "# occupant\n" {
+				t.Fatal("occupant changed")
+			}
+			if sb.ReadFile(filepath.Join(sb.SourcePath, ".gitignore")) != "_team/\n" {
+				t.Fatal("gitignore changed")
+			}
+			if len(trash.List(filepath.Join(sb.Home, ".local/share/skillshare/trash"))) != 0 {
+				t.Fatal("declaration moved to trash")
+			}
+			run("install", "-g").AssertSuccess(t)
+			if !occupied && sb.FileExists(filepath.Join(sb.SourcePath, "_team")) {
+				t.Fatal("forgotten declaration restored")
 			}
 		})
 	}

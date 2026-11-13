@@ -43,6 +43,7 @@ type uninstallTarget struct {
 	name          string
 	path          string
 	isTrackedRepo bool
+	declaration   bool
 }
 
 type uninstallTypeSummary struct {
@@ -174,6 +175,31 @@ func resolveUninstallTarget(skillName, sourceDir, sourceLabel string, walk sourc
 		path:          skillPath,
 		isTrackedRepo: install.IsTrackedCheckout(skillPath),
 	}, nil
+}
+
+// resolveUninstallName gives an exact declaration precedence over its occupant,
+// then preserves existing disk resolution before using declaration shorthand.
+func resolveUninstallName(name string, mode *uninstallMode) (*uninstallTarget, error) {
+	var declaration string
+	var declarationErr error
+	if mode.declarations {
+		var exact bool
+		declaration, exact, declarationErr = install.FindTrackedDeclaration(mode.sourceDir, mode.store, strings.TrimSpace(name))
+		if exact {
+			return &uninstallTarget{name: declaration, path: filepath.Join(mode.sourceDir, filepath.FromSlash(declaration)), declaration: true}, nil
+		}
+	}
+	target, err := resolveUninstallTarget(name, mode.sourceDir, mode.sourceLabel, mode.walk)
+	if err == nil {
+		return target, nil
+	}
+	if declarationErr != nil {
+		return nil, declarationErr
+	}
+	if declaration != "" {
+		return &uninstallTarget{name: declaration, path: filepath.Join(mode.sourceDir, filepath.FromSlash(declaration)), declaration: true}, nil
+	}
+	return nil, err
 }
 
 // resolveUninstallByGlob scans the source directory for top-level entries
@@ -356,7 +382,7 @@ func summarizeUninstallTargets(targets []*uninstallTarget) uninstallTypeSummary 
 	}
 
 	for _, t := range targets {
-		if t.isTrackedRepo {
+		if t.isTrackedRepo || t.declaration {
 			s.trackedRepos++
 			continue
 		}
@@ -396,6 +422,9 @@ func displayUninstallInfo(target *uninstallTarget) {
 // uninstallTargetKind describes what a target holds: a tracked repository,
 // a group of skills or a skill's files.
 func uninstallTargetKind(target *uninstallTarget) string {
+	if target.declaration {
+		return "tracked repository record (no checkout)"
+	}
 	if target.isTrackedRepo {
 		return "tracked repository"
 	}
@@ -499,6 +528,7 @@ func cmdUninstall(args []string) error {
 		store:          skillsStore,
 		emptySourceErr: "no skills found in source",
 		globs:          true,
+		declarations:   true,
 		targetNames:    targetNames,
 		dryRunGitignore: func(t *uninstallTarget) string {
 			if t.isTrackedRepo {
@@ -573,7 +603,7 @@ func logUninstallOp(cfgPath string, names []string, succeeded int, start time.Ti
 }
 
 func printUninstallHelp() {
-	printHelp("skillshare uninstall <name>... [options]\n       skillshare uninstall [agents] <name|--all> [options]\n       skillshare uninstall --group <group> [options]\n       skillshare uninstall --all [options]", "Remove one or more skills or tracked repositories from the source directory.\nSkills are moved to trash and kept for 7 days before automatic cleanup.\nIf the skill was installed from a remote source, a reinstall command is shown.\n\nFor tracked repositories (_repo-name):\n  - Checks for uncommitted changes (requires --force to override)\n  - Fails if git status cannot be read (requires --force to override)\n  - Automatically removes the entry from .gitignore\n  - The _ prefix is optional (automatically detected)\n\nSkill names support glob patterns (e.g. \"core-*\", \"test-?\").",
+	printHelp("skillshare uninstall <name>... [options]\n       skillshare uninstall [agents] <name|--all> [options]\n       skillshare uninstall --group <group> [options]\n       skillshare uninstall --all [options]", "Remove one or more skills or tracked repositories from the source directory.\nSkills are moved to trash and kept for 7 days before automatic cleanup.\nIf the skill was installed from a remote source, a reinstall command is shown.\n\nFor tracked repositories (_repo-name):\n  - Checks for uncommitted changes (requires --force to override)\n  - Fails if git status cannot be read (requires --force to override)\n  - Automatically removes the entry from .gitignore\n  - The _ prefix is optional (automatically detected)\n  - In global mode, a declaration without a checkout removes only its record; nothing on disk is deleted\n\nSkill names support glob patterns (e.g. \"core-*\", \"test-?\").",
 		helpGroup{title: "Options", rows: []helpRow{
 			{"--all", "Remove ALL skills from source (requires confirmation)"},
 			{"-G, --group <name>", "Remove all skills in a group (prefix match, repeatable)"},

@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"testing"
 
+	"skillshare/internal/install"
 	"skillshare/internal/testutil"
 	"skillshare/internal/utils"
 )
@@ -209,5 +210,44 @@ func TestLink_ProjectUsesProjectSourceAndTargets(t *testing.T) {
 	sb.RunCLIInDir(projectRoot, "unlink", "_dev-skills", "-p").AssertSuccess(t)
 	if sb.FileExists(filepath.Join(source, "_dev-skills")) || !sb.FileExists(filepath.Join(checkout, "foo", "SKILL.md")) {
 		t.Fatal("project unlink did not remove only the link")
+	}
+}
+
+func TestUnlink_ForgetsCheckoutRecord(t *testing.T) {
+	sb, checkout := linkSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+	for key, value := range sb.MachineEnv() {
+		t.Setenv(key, value)
+	}
+	testutil.RunGit(t, checkout, "init")
+	testutil.RunGit(t, checkout, "remote", "add", "origin", "file:///nonexistent/team.git")
+	run := func(args ...string) *testutil.Result { return sb.RunCLIEnv(sb.MachineEnv(), args...) }
+	run("link", checkout, "--enable", "-g").AssertSuccess(t)
+	// Installing another skill reconciles the native checkout through its link.
+	other := filepath.Join(sb.Root, "other")
+	sb.WriteFile(filepath.Join(other, "SKILL.md"), "---\nname: other\n---\n# other\n")
+	run("install", other, "-g").AssertSuccess(t)
+	store, err := install.LoadMetadata(sb.SourcePath)
+	if err != nil || !store.Has("_dev-skills") {
+		t.Fatalf("linked checkout not recorded: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(sb.SourcePath, "_other"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	testutil.RunGit(t, filepath.Join(sb.SourcePath, "_other"), "init")
+	store.Set("_other", &install.MetadataEntry{Source: "file:///nonexistent/other.git", Tracked: true})
+	store.AuditAccepted = map[string][]string{"_dev-skills/foo": {"accepted"}, "_other": {"keep"}}
+	if err := store.Save(sb.SourcePath); err != nil {
+		t.Fatal(err)
+	}
+	run("unlink", "_dev-skills", "-g").AssertSuccess(t)
+	store, err = install.LoadMetadata(sb.SourcePath)
+	if err != nil || store.Has("_dev-skills") || !store.Has("_other") || len(store.AuditAccepted) != 1 {
+		t.Fatalf("unlink left declaration: %+v,%v", store, err)
+	}
+	run("install", "-g").AssertSuccess(t)
+	if !sb.FileExists(filepath.Join(checkout, "foo", "SKILL.md")) {
+		t.Fatal("native checkout touched")
 	}
 }

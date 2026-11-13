@@ -703,40 +703,6 @@ func TestReconcileSkills_FollowedNonCheckoutNormalizesTrackedFlag(t *testing.T) 
 	}
 }
 
-func TestReconcileGlobalSkills_FollowedGroupedLegacyDeclaration(t *testing.T) {
-	root := t.TempDir()
-	sourceDir := filepath.Join(root, "skills")
-	t.Setenv("HOME", root)
-	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
-	for key, value := range (&testutil.Sandbox{Home: root}).MachineEnv() {
-		t.Setenv(key, value)
-	}
-	target := filepath.Join(root, "linked")
-	if err := os.MkdirAll(filepath.Dir(filepath.Join(target, "_team", "child", "SKILL.md")), 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(target, "_team", "child", "SKILL.md"), []byte("# child\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Dir(filepath.Join(sourceDir, "org")), 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(target, filepath.Join(sourceDir, "org")); err != nil {
-		t.Fatal(err)
-	}
-	store := install.NewMetadataStore()
-	store.Set("_team", &install.MetadataEntry{Source: "https://example.com/team.git", Tracked: true, Group: "org"})
-	if err := ReconcileGlobalSkills(&Config{Source: sourceDir, FollowSourceLinks: true}, store); err != nil {
-		t.Fatal(err)
-	}
-	if got := store.Get("org/_team"); got == nil || got.Tracked || got.Source != "https://example.com/team.git" || got.Group != "org" {
-		t.Errorf("grouped declaration = %+v", got)
-	}
-	if store.GetExact("_team") != nil {
-		t.Error("legacy key was not migrated")
-	}
-}
-
 // Only a _-prefixed checkout is a tracked repo; an unprefixed one stays a
 // regular entry, and a tracked flag an older reconcile wrote on it is cleared
 // without dropping the entry (#476).

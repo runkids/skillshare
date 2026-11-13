@@ -101,3 +101,36 @@ func ResolveTrackedRepo(sourceRoot, input string, walk ...sourcewalk.Options) (n
 	match := matches[0]
 	return match, filepath.Join(filepath.Clean(sourceRoot), filepath.FromSlash(match)), nil
 }
+
+// DeclarationsWithoutCheckout lists declared paths that have no checkout here.
+// IsTrackedCheckout follows links: a link to a checkout keeps ordinary removal.
+func DeclarationsWithoutCheckout(sourceDir string, store *MetadataStore) []string {
+	var names []string
+	for _, key := range store.TrackedDeclarations() {
+		rel := filepath.ToSlash(KeyToRelPath(key, store.Get(key)))
+		if !IsTrackedCheckout(filepath.Join(sourceDir, filepath.FromSlash(rel))) {
+			names = append(names, rel)
+		}
+	}
+	return names
+}
+
+// FindTrackedDeclaration resolves an exact path before tracked-repo shorthand.
+// Only declarations with no checkout are returned; exact distinguishes an
+// occupied declared path from shorthand that must yield to an existing skill.
+func FindTrackedDeclaration(sourceDir string, store *MetadataStore, input string) (name string, exact bool, err error) {
+	names := DeclarationsWithoutCheckout(sourceDir, store)
+	for _, rel := range names {
+		if rel == cleanName(input) {
+			return rel, true, nil
+		}
+	}
+	matches := MatchTrackedRepos(names, input)
+	if len(matches) > 1 {
+		return "", false, fmt.Errorf("multiple tracked repositories match: %s — use the full path", input)
+	}
+	if len(matches) == 0 {
+		return "", false, nil
+	}
+	return matches[0], false, nil
+}

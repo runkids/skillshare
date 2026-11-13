@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 	"skillshare/internal/oplog"
 	"skillshare/internal/sourcelink"
 	"skillshare/internal/trash"
@@ -18,6 +19,7 @@ import (
 
 // linkScope is what link and unlink need from the global or project config.
 type linkScope struct {
+	global     bool
 	source     string
 	targets    []string // skills paths of the active sync targets
 	trashDir   string
@@ -73,6 +75,7 @@ func loadLinkScope(args []string) (*linkScope, []string, error) {
 		return nil, nil, fmt.Errorf("failed to load config: %w", err)
 	}
 	return &linkScope{
+		global:     true,
 		source:     cfg.EffectiveSkillsSource(),
 		targets:    config.SkillsTargetPaths(cfg.Targets),
 		trashDir:   trash.TrashDir(),
@@ -197,6 +200,15 @@ func cmdUnlink(args []string) error {
 		return fmt.Errorf("cannot unlink %s: %w", name, err)
 	}
 	name = strings.TrimRight(name, `/\`)
+	if scope.global {
+		store, err := install.LoadMetadataWithMigration(scope.source, "")
+		if err == nil && store.ForgetTrackedRepo(name) {
+			err = store.Save(scope.source)
+		}
+		if err != nil {
+			ui.Warning("Unlinked, but could not update metadata: %v", err)
+		}
+	}
 	fmt.Printf("%s Unlinked %s %s\n", ui.StyledMark(ui.MarkOK), name, ui.DimText("→ trash, kept 7 days; its target is untouched"))
 	ui.Next(
 		"skillshare sync"+scope.flags, "remove its skills from your targets",
@@ -233,7 +245,7 @@ func printLinkHelp() {
 }
 
 func printUnlinkHelp() {
-	printHelp("skillshare unlink <name> [options]", "Remove a link created by skillshare link, or any first-level link in the\nskills source. Only the link moves to trash; the folder it points at is kept.",
+	printHelp("skillshare unlink <name> [options]", "Remove a link created by skillshare link, or any first-level link in the\nskills source. Only the link moves to trash; the folder it points at is kept.\nIn global mode it also removes the tracked-repository record kept for that name.",
 		helpGroup{title: "Options", rows: []helpRow{
 			{"-p, --project", "Use project-level config in current directory"},
 			{"-g, --global", "Use global config (~/.config/skillshare)"},

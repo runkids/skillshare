@@ -12,7 +12,9 @@ import (
 	"testing"
 
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 	"skillshare/internal/sync"
+	"skillshare/internal/testutil"
 	"skillshare/internal/trash"
 	"skillshare/internal/utils"
 )
@@ -148,11 +150,23 @@ func TestHandleCreateSourceLink_SyncTargetRefusal(t *testing.T) {
 }
 
 func TestHandleRemoveSourceLink(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	for key, value := range (&testutil.Sandbox{Home: home}).MachineEnv() {
+		t.Setenv(key, value)
+	}
 	s, src := newTestServer(t)
 	target := t.TempDir()
 	addSkill(t, target, "kept")
 	if rr := postSourceLink(t, s, sourceLinkRequest{Path: target, Name: "_team"}); rr.Code != http.StatusOK {
 		t.Fatal(rr.Body.String())
+	}
+	initGitRepo(t, target)
+	s.skillsStore.Set("_team", &install.MetadataEntry{Source: "https://example.invalid/team.git", Tracked: true})
+	s.skillsStore.Set("_other", &install.MetadataEntry{Source: "keep", Tracked: true})
+	s.skillsStore.AuditAccepted = map[string][]string{"_team/kept": {"accepted"}, "_other": {"keep"}}
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
 	}
 	rr := httptest.NewRecorder()
 	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, "/api/source-links/_team", nil))
@@ -164,6 +178,14 @@ func TestHandleRemoveSourceLink(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(target, "kept", "SKILL.md")); err != nil {
 		t.Fatalf("target modified: %v", err)
+	}
+	// A later save must not resurrect the declaration from the server cache.
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := install.LoadMetadata(src)
+	if err != nil || saved.Has("_team") || !saved.Has("_other") || len(saved.AuditAccepted) != 1 {
+		t.Fatalf("unlink record resurrected: %+v, %v", saved, err)
 	}
 	items := trash.List(s.trashBase())
 	if len(items) != 1 {
@@ -181,5 +203,29 @@ func TestHandleRemoveSourceLink_NonLink(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(src, "plain", "SKILL.md")); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestHandleRemoveSourceLink_ProjectKeepsRecord(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	for key, value := range (&testutil.Sandbox{Home: home}).MachineEnv() {
+		t.Setenv(key, value)
+	}
+	s, root := newProjectTargetServer(t, nil)
+	target := t.TempDir()
+	if rr := postSourceLink(t, s, sourceLinkRequest{Path: target, Name: "_team"}); rr.Code != http.StatusOK {
+		t.Fatal(rr.Body.String())
+	}
+	s.skillsStore.Set("_team", &install.MetadataEntry{Source: "keep", Tracked: true})
+	source := s.projectCfg.EffectiveSkillsSource(root)
+	if err := s.skillsStore.Save(source); err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, "/api/source-links/_team", nil))
+	loaded, err := install.LoadMetadata(source)
+	if rr.Code != http.StatusOK || err != nil || !s.skillsStore.Has("_team") || !loaded.Has("_team") {
+		t.Fatalf("project record removed: %d %s %v", rr.Code, rr.Body.String(), err)
 	}
 }
