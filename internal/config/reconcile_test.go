@@ -14,9 +14,9 @@ import (
 )
 
 func TestReconcileGlobalSkills_KeepsTrackedRecordWithoutClone(t *testing.T) {
-	root := t.TempDir()
-	sourceDir := filepath.Join(root, "skills")
-	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sourceDir := sb.SourcePath
 	if err := os.MkdirAll(filepath.Join(sourceDir, "live"), 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -65,11 +65,11 @@ func TestReconcileGlobalSkills_KeepsTrackedRecordWithoutClone(t *testing.T) {
 }
 
 func TestReconcileGlobalSkills_KeepsMissingAliasOfLiveTrackedClone(t *testing.T) {
-	root := t.TempDir()
-	sourceDir := filepath.Join(root, "skills")
-	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
-	remote := testutil.SetupBareRemoteRepo(t, root)
-	testutil.SeedRemoteBranch(t, root, remote, "main", map[string]string{"README.md": "# team"})
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sourceDir := sb.SourcePath
+	remote := testutil.SetupBareRemoteRepo(t, sb.Root)
+	testutil.SeedRemoteBranch(t, sb.Root, remote, "main", map[string]string{"README.md": "# team"})
 	testutil.RunGit(t, "", "clone", remote, filepath.Join(sourceDir, "org", "_team"))
 	store := install.NewMetadataStore()
 	want := &install.MetadataEntry{Source: remote, Tracked: true, Branch: "other"}
