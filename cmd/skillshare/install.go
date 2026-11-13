@@ -89,6 +89,7 @@ func allSkillsFailedError(succeeded int, failures []install.SkillFailure) error 
 func parseInstallArgs(args []string) (*installArgs, bool, error) {
 	result := &installArgs{}
 	extraRequested := false
+	intoSet := false
 
 	i := 0
 	for i < len(args) {
@@ -164,12 +165,14 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 			i++
 			result.opts.Exclude = strings.Split(args[i], ",")
 		case arg == "--into":
+			intoSet = true
 			if i+1 >= len(args) {
 				return nil, false, fmt.Errorf("--into requires a value")
 			}
 			i++
 			result.opts.Into = args[i]
 		case strings.HasPrefix(arg, "--into="):
+			intoSet = true
 			result.opts.Into = strings.TrimPrefix(arg, "--into=")
 		case arg == "--all":
 			result.opts.All = true
@@ -190,7 +193,7 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 		i++
 	}
 	if extraRequested {
-		if result.opts.Track || result.opts.Into != "" || len(result.opts.Skills) != 0 || len(result.opts.AgentNames) != 0 || len(result.opts.Exclude) != 0 || result.opts.All || result.opts.Yes {
+		if result.opts.Track || intoSet || len(result.opts.Skills) != 0 || len(result.opts.AgentNames) != 0 || len(result.opts.Exclude) != 0 || result.opts.All || result.opts.Yes {
 			return nil, false, fmt.Errorf("--kind extra cannot be combined with --track, --into, --skill, --agent, --exclude, --all or --yes")
 		}
 		result.opts.Kind = "extra"

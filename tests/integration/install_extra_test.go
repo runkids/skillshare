@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -105,25 +106,38 @@ func TestInstallExtra_ProjectMissingAndLocalSourceRefused(t *testing.T) {
 }
 
 func TestInstallExtra_CredentialNeverPersisted(t *testing.T) {
-	for _, source := range []string{"https:/example.com/repo?token=SYNTHETIC", "owner/repo#SYNTHETIC", "user:SYNTHETIC@example.com:org/repo"} {
-		for _, flags := range [][]string{nil, {"--json"}, {"--dry-run"}} {
-			sb := testutil.NewSandbox(t)
-			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
-			before, err := os.ReadFile(sb.ConfigPath)
-			if err != nil {
-				t.Fatal(err)
+	sources := []string{
+		"https://user:SYNTHETIC@example.com/repo", "https://example.com/repo?token=SYNTHETIC", "https://example.com/repo#SYNTHETIC",
+		"https://example.com/%zz?token=SYNTHETIC", "https://example.com/%zz#SYNTHETIC",
+		"ssh://git:SYNTHETIC@example.com/repo", "git://user:SYNTHETIC@example.com/repo",
+		"https:/example.com/repo?token=SYNTHETIC", "https:example.com/repo?token=SYNTHETIC",
+		`https:\\example.com\repo?token=SYNTHETIC`, "https//example.com/repo?token=SYNTHETIC",
+		"example.com/repo?token=SYNTHETIC", "example.com/repo#SYNTHETIC", "owner/repo/sub?token=SYNTHETIC",
+		"ado:org/project/repo?token=SYNTHETIC", "user:SYNTHETIC@example.com/org/repo", "user:SYNTHETIC@example.com:org/repo",
+		"user@example.com/org/SYNTHETIC", " HTTPS://user:SYNTHETIC@example.com/repo",
+	}
+	for _, projectMode := range []bool{false, true} {
+		for _, source := range sources {
+			for _, flags := range [][]string{nil, {"--json"}, {"--dry-run"}, {"--json", "--force"}} {
+				sb := testutil.NewSandbox(t)
+				sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+				cwd, mode := sb.Root, "-g"
+				if projectMode {
+					cwd = sb.SetupProjectDir("claude")
+					mode = "-p"
+				}
+				before := extraFiles(t, sb.Root)
+				args := append([]string{"install", source, "--kind", "extra", "--name", "rules", mode}, flags...)
+				result := sb.RunCLIInDir(cwd, args...)
+				result.AssertFailure(t)
+				if strings.Contains(result.Stdout+result.Stderr, "SYNTHETIC") {
+					t.Fatalf("credential disclosed: %s %s", result.Stdout, result.Stderr)
+				}
+				if after := extraFiles(t, sb.Root); !reflect.DeepEqual(before, after) {
+					t.Fatal("credential refusal changed files, including oplog/config/lock/metadata")
+				}
+				sb.Cleanup()
 			}
-			args := append([]string{"install", source, "--kind", "extra", "--name", "rules", "-g"}, flags...)
-			result := sb.RunCLI(args...)
-			result.AssertFailure(t)
-			if strings.Contains(result.Stdout+result.Stderr, "SYNTHETIC") {
-				t.Fatalf("credential disclosed: %s %s", result.Stdout, result.Stderr)
-			}
-			after, err := os.ReadFile(sb.ConfigPath)
-			if err != nil || string(after) != string(before) {
-				t.Fatalf("config changed: %v", err)
-			}
-			sb.Cleanup()
 		}
 	}
 }

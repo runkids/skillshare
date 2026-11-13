@@ -118,3 +118,47 @@ func TestExtraConfigCallbacks_RevertRemovesNewEntry(t *testing.T) {
 		t.Fatalf("revert: %+v", entries)
 	}
 }
+
+func TestExtraConfigCallbacks_RevertKeepsUnrelatedChanges(t *testing.T) {
+	for _, existing := range []bool{false, true} {
+		t.Run(map[bool]string{false: "new", true: "existing"}[existing], func(t *testing.T) {
+			entries := []config.ExtraConfig{{Name: "other"}}
+			if existing {
+				entries = append(entries, config.ExtraConfig{Name: "rules", Remote: "journal", Branch: "before", Targets: []config.ExtraTargetConfig{{Path: "target", Include: []string{"*.md"}, Exclude: []string{"private.md"}}}})
+			}
+			load := func() ([]config.ExtraConfig, error) {
+				out := make([]config.ExtraConfig, len(entries))
+				for i := range entries {
+					out[i] = *cloneExtraConfig(&entries[i])
+				}
+				return out, nil
+			}
+			save := func(next []config.ExtraConfig) error { entries = next; return nil }
+			c, err := newExtraConfigCallbacks("rules", "journal", "after", load, save)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := c.WriteConfig(); err != nil {
+				t.Fatal(err)
+			}
+			entries[0].Targets = []config.ExtraTargetConfig{{Path: "concurrent"}}
+			entries = append(entries, config.ExtraConfig{Name: "added"})
+			if err := c.RevertConfig(); err != nil {
+				t.Fatal(err)
+			}
+			if entries[0].Targets[0].Path != "concurrent" || entries[len(entries)-1].Name != "added" {
+				t.Fatalf("unrelated save lost: %+v", entries)
+			}
+			i, err := extraConfigAt(entries, "rules")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !existing && i >= 0 {
+				t.Fatal("new entry retained")
+			}
+			if existing && (i < 0 || entries[i].Branch != "before" || entries[i].Targets[0].Include[0] != "*.md" || entries[i].Targets[0].Exclude[0] != "private.md") {
+				t.Fatalf("previous entry lost: %+v", entries)
+			}
+		})
+	}
+}

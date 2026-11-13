@@ -366,7 +366,7 @@ func TestParseInstallArgs_RejectsBadThresholdBeforeSourceHandling(t *testing.T) 
 }
 
 func TestParseInstallArgs_KindExtraRefusals(t *testing.T) {
-	for _, option := range [][]string{{"--track"}, {"--into", "nested"}, {"-s", "one"}, {"-a", "one"}, {"--exclude", "one"}, {"--all"}, {"--yes"}} {
+	for _, option := range [][]string{{"--track"}, {"--into", "nested"}, {"--into", ""}, {"--into="}, {"-s", "one"}, {"-a", "one"}, {"--exclude", "one"}, {"--all"}, {"--yes"}} {
 		for _, before := range []bool{false, true} {
 			args := []string{"example/repo"}
 			if before {
