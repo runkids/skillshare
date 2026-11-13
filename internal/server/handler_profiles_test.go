@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
@@ -13,8 +14,10 @@ import (
 	"testing"
 
 	"skillshare/internal/config"
+	"skillshare/internal/oplog"
 	"skillshare/internal/profile"
 	"skillshare/internal/profileapply"
+	ssync "skillshare/internal/sync"
 )
 
 type profileRouteFixture struct {
@@ -22,6 +25,224 @@ type profileRouteFixture struct {
 	source, path, target, root string
 	scope                      profileapply.Scope
 	roots                      []string
+}
+
+type profileRouteReply struct {
+	profileapply.Result
+	Error  string            `json:"error"`
+	Code   string            `json:"error_code"`
+	Params map[string]string `json:"error_params"`
+}
+
+func profilePost(t *testing.T, f profileRouteFixture, body string, status int) profileRouteReply {
+	t.Helper()
+	rr := projectRequest(t, f.server, http.MethodPost, "/api/profiles/active", body)
+	var out profileRouteReply
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil || rr.Code != status {
+		t.Fatalf("profile POST: %d %s, want %d: %v", rr.Code, rr.Body.String(), status, err)
+	}
+	return out
+}
+
+func profileFixtureWrite(t *testing.T, path, value string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(value), 0600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func profileFixtureTarget(t *testing.T, f profileRouteFixture, name, kind, mode, extra string) string {
+	t.Helper()
+	path := filepath.Join(f.roots[0], name)
+	data, err := os.ReadFile(f.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if kind == "agents" {
+		row := fmt.Sprintf("    agents:\n      path: %s\n      mode: %s\n    skills:\n", path, mode)
+		profileFixtureWrite(t, f.path, strings.Replace(string(data), "    skills:\n", row, 1))
+		return path
+	}
+	row := fmt.Sprintf("  %s:\n    %s:\n      path: %s\n      mode: %s\n%s", name, kind, path, mode, extra)
+	if f.scope.ProjectRoot != "" {
+		row = fmt.Sprintf("  - name: %s\n    %s:\n      path: %s\n      mode: %s\n%s", name, kind, path, mode, extra)
+	}
+	profileFixtureWrite(t, f.path, strings.Replace(string(data), "profiles:\n", row+"profiles:\n", 1))
+	return path
+}
+
+func TestProfilesAPI_Refusals(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, tc := range []struct {
+			body string
+			code string
+		}{
+			{`{"name":"empty"}`, "profile_empty"},
+			{`{"name":"missing"}`, "profile_unavailable"},
+			{`{"name":"broken"}`, "profile_unavailable"},
+			{`{"name":""}`, "profile_refused"},
+		} {
+			t.Run(fmt.Sprintf("project=%v/%s", project, tc.body), func(t *testing.T) {
+				f := newProfileRouteFixture(t, project)
+				if _, err := profileapply.Apply(context.Background(), profileapply.Request{Scope: f.scope, Name: "all"}); err != nil {
+					t.Fatal(err)
+				}
+				before := profileRouteTree(t, f.roots)
+				out := profilePost(t, f, tc.body, http.StatusConflict)
+				if out.Code != tc.code || out.Error == "" || !maps.Equal(before, profileRouteTree(t, f.roots)) {
+					t.Fatalf("refusal lost code/message or changed retained state: %+v", out)
+				}
+			})
+		}
+	}
+}
+
+func TestProfilesAPI_LockedAndInvalidJSON(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(fmt.Sprint(project), func(t *testing.T) {
+			f := newProfileRouteFixture(t, project)
+			for _, body := range []string{`{`, `{}`, `{"name":12}`} {
+				profilePost(t, f, body, http.StatusBadRequest)
+			}
+			_, lockPath, err := config.ProfilePaths(f.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			unlock, err := profile.Lock(context.Background(), lockPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer unlock()
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			rr := httptest.NewRecorder()
+			f.server.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/profiles/active", strings.NewReader(`{"name":"work"}`)).WithContext(ctx))
+			var out profileRouteReply
+			if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil || rr.Code != http.StatusConflict || out.Code != "profile_locked" {
+				t.Fatalf("lock refusal: %d %s %v", rr.Code, rr.Body.String(), err)
+			}
+		})
+	}
+}
+
+func TestProfilesAPI_ApplyEmptyAndNone(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(fmt.Sprint(project), func(t *testing.T) {
+			f := newProfileRouteFixture(t, project)
+			for i, body := range []string{`{"name":"work"}`, `{"name":"empty","allowEmpty":true}`, `{"name":null}`} {
+				out := profilePost(t, f, body, http.StatusOK)
+				want := []string{"work", "empty", ""}[i]
+				v, err := profileapply.Load(f.scope)
+				if err != nil || !out.Complete || out.Selection.Active != want || out.Selection.Pending || v.State.Active != want || v.State.Pending {
+					t.Fatalf("apply/settle: %+v %v", out, err)
+				}
+				entries, err := oplog.Read(f.path, oplog.OpsFile, 100)
+				if err != nil || len(entries) != i+1 || entries[0].Command != "profile use" {
+					t.Fatalf("one shared oplog per switch: %+v %v", entries, err)
+				}
+			}
+			for _, name := range []string{"alpha", "beta", "team__review"} {
+				if _, err := os.Stat(filepath.Join(f.target, name, "SKILL.md")); err != nil {
+					t.Fatalf("null did not restore pass-through selection: %s: %v", name, err)
+				}
+			}
+		})
+	}
+}
+
+func TestProfilesAPI_ReplansOnApply(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(fmt.Sprint(project), func(t *testing.T) {
+			f := newProfileRouteFixture(t, project)
+			profilePost(t, f, `{"name":"all"}`, http.StatusOK)
+			preview := profilePost(t, f, `{"name":"work","dryRun":true}`, http.StatusOK)
+			if len(preview.Blocked) != 0 || len(preview.Targets) != 1 || !slices.Contains(preview.Targets[0].Removed, "beta") {
+				t.Fatal("preview did not plan clean departure")
+			}
+			edited := filepath.Join(f.target, "beta", "SKILL.md")
+			profileFixtureWrite(t, edited, "authored after preview")
+			before := profileRouteTree(t, f.roots)
+			refused := profilePost(t, f, `{"name":"work"}`, http.StatusConflict)
+			var blocked []ssync.EntryChange
+			if err := json.Unmarshal([]byte(refused.Params["blocked"]), &blocked); err != nil || refused.Code != "profile_blocked" || len(blocked) != 1 || blocked[0].Target != "custom" || blocked[0].Entry != "beta" || blocked[0].Reason == "" || !maps.Equal(before, profileRouteTree(t, f.roots)) {
+				t.Fatalf("stale preview was trusted or blocked params lost: %+v %v", refused, err)
+			}
+			out := profilePost(t, f, `{"name":"work","discardEdits":true}`, http.StatusOK)
+			if !out.Complete || out.Selection.Pending || len(out.Snapshot) != 1 || out.Snapshot[0].Restore == "" || out.Snapshot[0].Retention == "" {
+				t.Fatalf("discard missing restorable snapshot: %+v", out)
+			}
+			saved, err := os.ReadFile(filepath.Join(out.Snapshot[0].Path, "beta", "SKILL.md"))
+			if err != nil || string(saved) != "authored after preview" {
+				t.Fatal("snapshot did not capture edited bytes", err)
+			}
+			if _, err := os.Lstat(edited); !os.IsNotExist(err) {
+				t.Fatal("confirmed departure not removed", err)
+			}
+			stamp := filepath.Base(filepath.Dir(out.Snapshot[0].Path))
+			body, err := json.Marshal(map[string]any{"timestamp": stamp, "target": "custom", "force": true})
+			if err != nil {
+				t.Fatal(err)
+			}
+			rr := projectRequest(t, f.server, http.MethodPost, "/api/restore", string(body))
+			restored, err := os.ReadFile(edited)
+			if rr.Code != http.StatusOK || err != nil || string(restored) != "authored after preview" {
+				t.Fatalf("actual restore: %d %s %v", rr.Code, rr.Body.String(), err)
+			}
+		})
+	}
+}
+
+func TestProfilesAPI_IncompleteAndScopeIsolation(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(fmt.Sprint(project), func(t *testing.T) {
+			f := newProfileRouteFixture(t, project)
+			protected := []string{f.source}
+			view, err := profileapply.Load(f.scope)
+			if err != nil {
+				t.Fatal(err)
+			}
+			agentsSource := view.Config.EffectiveAgentsSource()
+			profileFixtureWrite(t, filepath.Join(agentsSource, "guide.md"), "# source agent")
+			protected = append(protected, agentsSource)
+			for _, tc := range []struct{ name, kind, mode, extra string }{
+				{"off", "skills", "copy", "      enabled: false\n"},
+				{"whole", "skills", "symlink", ""},
+				{"agents", "agents", "copy", ""},
+			} {
+				path := profileFixtureTarget(t, f, tc.name, tc.kind, tc.mode, tc.extra)
+				profileFixtureWrite(t, filepath.Join(path, "sentinel"), tc.name)
+				protected = append(protected, path)
+			}
+			if !project {
+				root := filepath.Join(f.roots[0], "registered")
+				addProject(t, f.server, root)
+				protected = append(protected, root)
+			}
+			bad := profileFixtureTarget(t, f, "bad", "skills", "copy", "")
+			if err := os.Symlink(filepath.Join(f.roots[0], "missing-parent", "dest"), bad); err != nil {
+				t.Fatal(err)
+			}
+			before := profileRouteTree(t, protected)
+			out := profilePost(t, f, `{"name":"work"}`, http.StatusOK)
+			v, err := profileapply.Load(f.scope)
+			if err != nil || out.Complete || !out.Selection.Pending || v.State.Active != "work" || !v.State.Pending || !slices.Equal(out.SymlinkTargets, []string{"whole"}) {
+				t.Fatalf("incomplete transport lost pending/scope: %+v %v", out, err)
+			}
+			states := make(map[string]string)
+			for _, row := range out.Targets {
+				states[row.Name] = row.State
+			}
+			if len(states) != 2 || states["custom"] != "applied" || states["bad"] != "failed" || !maps.Equal(before, profileRouteTree(t, protected)) {
+				t.Fatalf("switch expanded beyond own skills or lost partial work: %+v", out)
+			}
+			if _, err := os.Stat(filepath.Join(f.target, "alpha", "SKILL.md")); err != nil {
+				t.Fatal("healthy target did not apply", err)
+			}
+		})
+	}
 }
 
 func newProfileRouteFixture(t *testing.T, project bool) profileRouteFixture {
