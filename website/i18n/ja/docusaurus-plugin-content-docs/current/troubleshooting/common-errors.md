@@ -656,8 +656,7 @@ skillshare backup -p agents claude   # 特定の Target
 skillshare backup -p --all           # 上と同じ（Agent に絞り込まれる）
 ```
 
-同じルールが `restore` にも適用されます:
-Existing project skills snapshots can be recovered with `skillshare restore <entry> --from <timestamp> -p --force`; manual project skills backup creation remains unsupported. Use `skillshare backup --list -p` to find snapshots.
+既存のプロジェクト skills のスナップショットは `skillshare restore <entry> --from <timestamp> -p --force` で復元できます。プロジェクト skills のバックアップを手動で作成することは、引き続きサポートされていません。`skillshare backup --list -p` でスナップショットを確認してください。
 
 ### `agent name 'X' has invalid characters`
 

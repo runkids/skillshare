@@ -40,11 +40,11 @@ flowchart TD
 
 | Flag | Description |
 |------|-------------|
-| `--all` | Legacy global skills branch; restore agents separately |
-| `--project, -p` | Restore named skills or agents from `.skillshare/backups/` |
+| `--all` | 기존 전역 skills 복원 경로 사용; agents는 별도로 복원 |
+| `--project, -p` | `.skillshare/backups/`에서 지정한 skills 또는 agents 복원 |
 | `--global, -g` | global mode 사용(skill의 기본값) |
 | `--from, -f <timestamp>` | 특정 백업에서 복원 |
-| `--force` | Replace a non-empty destination folder |
+| `--force` | 내용이 있는 대상 폴더 교체 |
 | `--dry-run, -n` | 변경 없이 미리보기 |
 | `--no-tui` | 대화형 TUI 건너뛰고 백업 목록 표시 |
 

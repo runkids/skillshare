@@ -40,11 +40,11 @@ flowchart TD
 
 | 标志 | 描述 |
 |------|-------------|
-| `--all` | Legacy global skills branch; restore agents separately |
-| `--project, -p` | Restore named skills or agents from `.skillshare/backups/` |
+| `--all` | 使用现有的全局 skills 恢复流程；agents 请单独恢复 |
+| `--project, -p` | 从 `.skillshare/backups/` 恢复指定的 skills 或 agents |
 | `--global, -g` | 使用 global mode（skills 的默认值） |
 | `--from, -f <timestamp>` | 从指定备份恢复 |
-| `--force` | Replace a non-empty destination folder |
+| `--force` | 替换非空的目标文件夹 |
 | `--dry-run, -n` | 预览而不做任何更改 |
 | `--no-tui` | 跳过交互式 TUI，改为显示备份列表 |
 
