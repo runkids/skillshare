@@ -20,6 +20,8 @@ interface SyncPreviewModalProps {
   onClose: () => void;
   /** Syncs only this kind and says so; unset syncs skills and agents together. */
   kind?: 'skill' | 'agent';
+  /** The profile banner may explicitly settle a pending skills selection even with no target changes. */
+  profilePending?: boolean;
   /** Extra classes for the dialog, e.g. a slide-in when it replaces another dialog. */
   className?: string;
 }
@@ -28,7 +30,7 @@ interface SyncPreviewModalProps {
  * Previews from /api/diff, the same data as the Sync page and the pending dots, so the counts agree:
  * a dry-run reports every existing link as linked again.
  */
-export default function SyncPreviewModal({ open, onClose, kind, className }: SyncPreviewModalProps) {
+export default function SyncPreviewModal({ open, onClose, kind, className, profilePending = false }: SyncPreviewModalProps) {
   const t = useT();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -77,7 +79,7 @@ export default function SyncPreviewModal({ open, onClose, kind, className }: Syn
   const loadError = error ?? diff.error?.message ?? targets.error?.message;
   const count = countChanges(groups);
   const noTargets = !loading && list.length === 0;
-  const canSync = !loading && !loadError && count > 0;
+  const canSync = !loading && !loadError && (count > 0 || (kind === 'skill' && profilePending));
 
   const title = synced ? t('syncPreview.titleComplete') : kind ? t(`syncPreview.title.${kind}`) : t('syncPreview.titlePreview');
   return (

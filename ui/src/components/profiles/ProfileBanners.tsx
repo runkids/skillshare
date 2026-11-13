@@ -19,6 +19,6 @@ export default function ProfileBanners({ data, onChoose }: { data?: ProfilesResp
       <span className="flex-1">{t('profiles.pending')}</span>
       <Button variant="ghost" size="sm" onClick={() => setSyncOpen(true)}>{t('profiles.syncNow')}</Button>
     </div>}
-    {syncOpen && <SyncPreviewModal open onClose={() => setSyncOpen(false)} kind="skill" />}
+    {syncOpen && <SyncPreviewModal open onClose={() => setSyncOpen(false)} kind="skill" profilePending={data?.pending} />}
   </>;
 }
