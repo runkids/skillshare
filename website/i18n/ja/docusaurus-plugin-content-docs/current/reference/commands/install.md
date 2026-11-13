@@ -897,6 +897,19 @@ skillshare install example-org/ai-hub/rules --kind extra --name team-rules --upd
 リンクや特殊ファイルは拒否します。Unix 実行 bit は保持し、Windows ではこの保証は
 ありません。URL に認証情報を埋め込まず Git 認証や SSH を使ってください。
 
+`.cursor/rules/policy.md` など隠しディレクトリ内のファイルはヘッダーだけを検査し、
+通常のテキスト・整合性分析は省略します。`.git` と `.skillshare` ディレクトリは
+対象外です。scanner がファイルを省略すると、成功した install に検査範囲の警告を
+表示します。scanner の検査範囲自体は広げません。
+
+ブランチが削除されても、Git が同じ commit を取得できる限り、一致する記録済み pin
+で復元できます。新規宣言、明示的な ref 変更、`--update` には要求した ref の解決が必要です。
+
+ロック取得時に、取得・監査より前に空の管理用 extras root と永続的な
+`.skillshare-extras.lock` を作成する場合があります。監査拒否では管理項目、config、pin、
+metadata、ignore 規則を新規作成しません。管理ロックは取得内容ではなく、extra 削除後も
+残ります。削除や置き換えをしないでください。
+
 設定済み項目の中断は list/status/doctor/`check extras` に表示します。宣言の保存前は、
 `check extras`、status、doctor が管理対象 staging 直下の公開用ファイル名から名前だけを
 報告します。marker 内の origin は信用しません。同じ `--name` の元の install を再実行してください。

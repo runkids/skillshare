@@ -894,6 +894,18 @@ skillshare install example-org/ai-hub/rules --kind extra --name team-rules --upd
 보존하지만 Windows에서는 이를 보장하지 않습니다. URL에 자격 증명을 넣지 말고 Git 인증이나
 SSH를 사용하세요.
 
+`.cursor/rules/policy.md`처럼 숨김 디렉터리 아래의 파일은 헤더만 검사하며 일반 텍스트와
+무결성 분석은 생략합니다. `.git`과 `.skillshare` 디렉터리는 제외합니다. scanner가 파일을
+건너뛰면 성공한 install에 검사 범위 경고를 표시하며, scanner의 검사 범위 자체는 넓히지 않습니다.
+
+브랜치가 삭제되어도 Git이 정확히 같은 commit을 가져올 수 있으면 일치하는 기록된 pin으로
+복원할 수 있습니다. 새 선언, 명시적 ref 변경, `--update`는 요청한 ref를 해석해야 합니다.
+
+잠금 획득 시 가져오기나 감사 전에 빈 관리용 extras root와 영구
+`.skillshare-extras.lock`을 만들 수 있습니다. 감사 거부는 관리 항목, config, pin, metadata,
+ignore 규칙을 새로 만들지 않습니다. 관리 잠금은 가져온 콘텐츠가 아니며 extra 제거 후에도
+남습니다. 삭제하거나 교체하지 마세요.
+
 설정된 항목의 중단은 list/status/doctor/`check extras`에 표시됩니다. 선언 저장 전에는
 `check extras`, status, doctor가 관리 staging 바로 아래의 게시 아티팩트 이름만 보고합니다.
 marker의 origin은 신뢰하지 않습니다. 같은 `--name`으로 원래 install을 다시 실행하세요.

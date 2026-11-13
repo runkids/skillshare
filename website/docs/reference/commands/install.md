@@ -901,6 +901,20 @@ dangling and directory links, plus special files, are refused. Unix executable
 bits are preserved; Windows does not provide this executable-bit guarantee.
 Use Git credentials or SSH, never credentials in the source URL.
 
+Hidden-parent files, such as `.cursor/rules/policy.md`, receive header checks but
+skip ordinary text and integrity analysis. `.git` and `.skillshare` directories
+are excluded. Successful installs report a coverage warning when the scanner
+skips files; this does not widen the scanner's coverage.
+
+A matching recorded pin can restore content after its branch is deleted, provided
+Git can still fetch that exact commit. A new declaration, explicit ref change or
+`--update` still requires resolving the requested ref.
+
+Lock acquisition may create the empty administrative extras root and its permanent
+`.skillshare-extras.lock` before fetching or auditing. A rejected audit leaves no
+new managed entry, config, pin, metadata or ignore rule. The administrative lock
+is not fetched content and remains after removal; do not delete or replace it.
+
 Publication uses a journal under `.skillshare-staging/`. Configured entries show
 interruptions in list, status, doctor and `check extras`. Before the declaration
 is saved, `check extras`, status and doctor report direct publication artifacts

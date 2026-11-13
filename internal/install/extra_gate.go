@@ -14,10 +14,8 @@ var scanExtraCandidate = (AuditGate).Run
 // gateExtraCandidate scans an isolated extra without publishing or recording
 // accepted findings. Only an explicit audit override accepts findings.
 func gateExtraCandidate(staged, extrasRoot, destPath, commit string, opts InstallOptions) (*AuditGateResult, error) {
-	threshold, err := audit.NormalizeThreshold(opts.AuditThreshold)
-	if err != nil {
-		return nil, fmt.Errorf("invalid audit threshold: %w", err)
-	}
+	// InstallRemoteExtra validates and normalizes this before any root or fetch work.
+	threshold := opts.AuditThreshold
 	if opts.SkipAudit {
 		return &AuditGateResult{Threshold: threshold, Skipped: true}, nil
 	}

@@ -23,6 +23,13 @@ func (s *Server) handleMemoryMove(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock, lockErr := s.lockRemoteMemoryMutation()
+	if lockErr != nil {
+		err := lockErr
+		writeMemoryError(w, err)
+		return
+	}
+	defer unlock()
 	root, err := s.memoryRoot()
 	if err != nil {
 		writeMemoryError(w, err)

@@ -59,7 +59,7 @@ type MetadataEntry struct {
 	Version     string            `json:"version,omitempty"`
 	TreeHash    string            `json:"tree_hash,omitempty"`
 	Commit      string            `json:"commit,omitempty"` // full SHA; the lockfile records it
-	FileHashes  map[string]string `json:"file_hashes,omitempty"`
+	FileHashes  map[string]string `json:"file_hashes,omitzero"`
 	Layout      string            `json:"layout,omitempty"` // local installs: LayoutSkillFile or LayoutDirectory
 }
 

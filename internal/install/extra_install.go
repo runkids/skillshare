@@ -33,9 +33,11 @@ func InstallRemoteExtra(req RemoteExtraRequest) (*RemoteExtraResult, error) {
 	if err := ValidateExtraName(req.Name); err != nil {
 		return nil, err
 	}
-	if _, err := audit.NormalizeThreshold(req.Opts.AuditThreshold); err != nil {
+	threshold, err := audit.NormalizeThreshold(req.Opts.AuditThreshold)
+	if err != nil {
 		return nil, fmt.Errorf("invalid audit threshold: %w", err)
 	}
+	req.Opts.AuditThreshold = threshold
 	if err := RejectSourceCredentials(req.RawSource); err != nil {
 		return nil, err
 	}
@@ -124,6 +126,22 @@ func InstallRemoteExtra(req RemoteExtraRequest) (*RemoteExtraResult, error) {
 	source := *req.Source
 	source.Branch = req.Branch
 	source.Commit = ""
+	if !req.Opts.Update && pinnedBranch == req.Branch {
+		if req.ProjectRoot != "" {
+			lock, err := LoadLock(req.LockDir)
+			if err != nil {
+				return nil, err
+			}
+			source.Commit = lock.ExtraCommitFor(req.Name, req.RawSource)
+		} else if entry != nil && entry.Source == req.RawSource && entry.Branch == req.Branch && len(entry.Commit) == 40 && IsCommitSHA(entry.Commit) {
+			source.Commit = entry.Commit
+		}
+	}
+	// An immutable pin already records the URL's branch/path selection. Do not
+	// require that branch still to be advertised by the remote to restore it.
+	if source.Commit != "" {
+		source.ApplyRecordedBranch(req.Branch)
+	}
 	if err := resolveWebRef(&source); err != nil {
 		return nil, err
 	}
@@ -137,17 +155,6 @@ func InstallRemoteExtra(req RemoteExtraRequest) (*RemoteExtraResult, error) {
 	// Config callbacks share the parsed source's branch, but its original
 	// subdir remains unchanged for identity validation on a later request.
 	req.Source.Branch = req.Branch
-	if !req.Opts.Update && pinnedBranch == req.Branch {
-		if req.ProjectRoot != "" {
-			lock, err := LoadLock(req.LockDir)
-			if err != nil {
-				return nil, err
-			}
-			source.Commit = lock.ExtraCommitFor(req.Name, req.RawSource)
-		} else if entry != nil && entry.Source == req.RawSource && entry.Branch == req.Branch && len(entry.Commit) == 40 && IsCommitSHA(entry.Commit) {
-			source.Commit = entry.Commit
-		}
-	}
 	candidate, cleanup, err := prepareExtraCandidate(&source, req.ExtrasRoot, dest, req.Opts)
 	if err != nil {
 		return nil, err

@@ -541,7 +541,7 @@ internal/plugin/state.go	(*Service).saveState	os.MkdirAll	s.managedRoot()	config
 internal/testutil/private_git.go	ServePrivateGit	os.Mkdir	filepath.Join(root, "org")	test-helper
 internal/install/extra_stage.go	stageFetchedTree	os.Mkdir	dest	extras
 internal/install/extra_stage.go	copyStagedExtraFile	os.OpenFile	dest	extras
-internal/install/extra_lock.go	LockExtrasRoot	os.MkdirAll	dir	config
+internal/install/extra_lock.go	LockExtrasRoot	os.MkdirAll	canonical	extras
 internal/install/extra_journal.go	writeExtraJournal	os.MkdirAll	stage	extras
 internal/install/extra_journal.go	writeExtraJournal	os.CreateTemp	stage	extras
 internal/install/extra_journal.go	writeExtraJournal	os.Remove	tmp	extras

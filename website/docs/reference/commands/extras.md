@@ -901,7 +901,7 @@ run `skillshare sync extras` to restore those outputs.
 modified without changing its origin or pin. A subsequent reinstall requires
 explicit `--force` to discard those edits. Global `extras source <path>` preserves
 entries but does not move content: move the whole extras root **including
-`.metadata.json`** yourself, while no install is running. Project `extras source`
+`.metadata.json`** yourself, while no remote writer is running. Project `extras source`
 is still unsupported.
 
 Remote installs and supported CLI/TUI/dashboard remote writers serialize under
@@ -913,6 +913,24 @@ write/read-back and compare/restore, so this is not general transaction isolatio
 Do not change `extras source` during install; after a failure inspect config/lock
 diffs and reapply any missing unrelated changes. If rollback observes changed
 participant files it preserves them, reports their paths and keeps the marker.
+
+Supported memory init/write/delete/index/move and shared-instruction content,
+conversion, guidance, assignment and settings writers participate in this lock
+when the root has a relevant remote extra. Read-only views and conversion previews
+do not acquire it; ordinary sync and external editors are not serialized.
+The lock is the permanent empty regular `.skillshare-extras.lock` inside the
+canonical root, shared across HOME/XDG locations and root aliases. A writable
+custom root does not require a writable parent. Do not remove or replace the lock,
+even after the last remote extra is removed. Sync and audit omit only an empty
+regular lock directly at their traversal root; nested, nonempty or nonregular
+same-name content follows normal policy. Skillshare Git status/staging omits only
+the known root's empty lock for that invocation; successful publication also
+records its exact ignore path when the root is inside the project.
+
+Removal compares saved provenance again before source deletion, retaining any
+observed edits and their ignore rule. A known empty installed tree is intact;
+missing hashes remain unverified. This comparison does not lock external editors
+or guarantee isolation between comparison and deletion.
 
 The raw config editor withholds parseable credential-bearing extras and unreadable
 extras types. For recovery, syntax-broken YAML is served **as written**, which may

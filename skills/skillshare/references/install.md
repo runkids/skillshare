@@ -366,6 +366,21 @@ Audit retains depth 6, 1,000,000-byte and extension limits (`.mdc`/`.cursorrules
 skipped); a pass does not guarantee safety. Unix executable bits are preserved,
 without that guarantee on Windows. Unsafe links and special files are refused.
 Never embed credentials in a source URL. Dry run makes no writes.
+
+Hidden-parent files, such as `.cursor/rules/policy.md`, receive header checks but
+skip ordinary text and integrity analysis. `.git` and `.skillshare` directories
+are excluded. Successful installs report a coverage warning when the scanner
+skips files; this does not widen the scanner's coverage.
+
+A matching recorded pin can restore content after its branch is deleted, provided
+Git can still fetch that exact commit. A new declaration, explicit ref change or
+`--update` still requires resolving the requested ref.
+
+Lock acquisition may create the empty administrative extras root and its permanent
+`.skillshare-extras.lock` before fetching or auditing. A rejected audit leaves no
+new managed entry, config, pin, metadata or ignore rule. The administrative lock
+is not fetched content and remains after removal; do not delete or replace it.
+
 If interruption left no live directory, unchanged previous content is restored
 locally before fetching the journaled audited commit for repair and then applying
 the requested install. Undeclared publication artifacts appear by name in check,

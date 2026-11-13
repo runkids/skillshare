@@ -891,6 +891,17 @@ skillshare install example-org/ai-hub/rules --kind extra --name team-rules --upd
 稽核通過不保證安全。內部檔案連結會實體化；拒絕絕對、越界、失效、目錄連結及特殊檔案。
 保留 Unix 執行 bit，Windows 不提供這項保證。使用 Git 憑證或 SSH，不在 URL 中放憑證。
 
+隱藏目錄下的檔案（例如 `.cursor/rules/policy.md`）僅接受檔頭檢查，略過一般文字與
+完整性分析。`.git` 和 `.skillshare` 目錄不納入掃描。成功安裝時，若 scanner 略過檔案，
+會回報涵蓋範圍警告；這不代表擴大了掃描範圍。
+
+即使分支已刪除，只要 Git 仍能取得完全相同的 commit，匹配的既有 pin 仍可還原內容。
+新增宣告、明確更改 ref 或 `--update` 仍須解析所要求的 ref。
+
+取得鎖時，可能在擷取或審計前建立空的管理用 extras 根目錄及永久
+`.skillshare-extras.lock`。審計拒絕不會新增受管項目、config、pin、metadata 或 ignore
+規則。管理鎖不屬於擷取內容，移除 extra 後仍保留；請勿刪除或替換。
+
 已設定項目的中斷會顯示在 list/status/doctor/`check extras`。宣告儲存前，
 `check extras`、status 和 doctor 僅從受管 staging 直屬的發佈產物檔名報告名稱，
 不信任 marker 內的 origin；請用相同 `--name` 重跑原來的 install。

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"skillshare/internal/audit"
+	"skillshare/internal/utils"
 )
 
 func newRemoteExtraRequest(t *testing.T) RemoteExtraRequest {
@@ -953,8 +954,12 @@ func TestInstallRemoteExtra_RecheckStopsBeforePublication(t *testing.T) {
 	if _, err := InstallRemoteExtra(req); err == nil || !strings.Contains(err.Error(), "config changed") {
 		t.Fatalf("recheck: %v", err)
 	}
-	if _, err := os.Lstat(req.ExtrasRoot); !os.IsNotExist(err) {
-		t.Fatalf("created extras root: %v", err)
+	entries, err := os.ReadDir(req.ExtrasRoot)
+	if err != nil || len(entries) != 1 || entries[0].Name() != utils.ExtrasRootLockFileName || !entries[0].Type().IsRegular() {
+		t.Fatalf("recheck refusal changed more than the administrative root/lock: %+v %v", entries, err)
+	}
+	if data, err := os.ReadFile(req.ConfigPath); err != nil || string(data) != "before" {
+		t.Fatalf("recheck refusal changed config: %q %v", data, err)
 	}
 }
 

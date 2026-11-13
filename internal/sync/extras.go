@@ -60,6 +60,9 @@ func DiscoverExtraFiles(sourcePath string) ([]string, error) {
 		if fi.Name() == reservedMetadataFile {
 			return nil // skillshare's internal tracking store, never sync it
 		}
+		if path == filepath.Join(sourcePath, utils.ExtrasRootLockFileName) && fi.Mode().IsRegular() && fi.Size() == 0 {
+			return nil
+		}
 		rel, relErr := filepath.Rel(sourcePath, path)
 		if relErr != nil {
 			return nil

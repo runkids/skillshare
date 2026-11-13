@@ -378,11 +378,30 @@ unowned outputs stay and are listed. Entries, pins, metadata and findings are
 removed. Failed removal restores records/source, but already-cleaned targets
 need `sync extras` to relink. Local-extra behavior remains unchanged. Collect is allowed and marks the
 copy modified. Global `extras source` preserves entries but moves no files; move
-the entire root including `.metadata.json` yourself with no install in progress.
+the entire root including `.metadata.json` yourself with no remote writer in progress.
 Same-root remote writers serialize; unrelated config/lock/ignore writers and raw
 PUT do not. Best-effort rollback has write/read-back and compare/restore windows;
 inspect diffs and reapply missing unrelated changes after failure. Observed
 changed participant paths are reported and retained with the marker.
+
+Supported memory init/write/delete/index/move and shared-instruction content,
+conversion, guidance, assignment and settings writers participate in this lock
+when the root has a relevant remote extra. Read-only views and conversion previews
+do not acquire it; ordinary sync and external editors are not serialized.
+The lock is the permanent empty regular `.skillshare-extras.lock` inside the
+canonical root, shared across HOME/XDG locations and root aliases. A writable
+custom root does not require a writable parent. Do not remove or replace the lock,
+even after the last remote extra is removed. Sync and audit omit only an empty
+regular lock directly at their traversal root; nested, nonempty or nonregular
+same-name content follows normal policy. Skillshare Git status/staging omits only
+the known root's empty lock for that invocation; successful publication also
+records its exact ignore path when the root is inside the project.
+
+Removal compares saved provenance again before source deletion, retaining any
+observed edits and their ignore rule. A known empty installed tree is intact;
+missing hashes remain unverified. This comparison does not lock external editors
+or guarantee isolation between comparison and deletion.
+
 Raw editor recovery serves syntax-broken YAML verbatim, possibly including
 credentials; parseable credential entries/type-unreadable extras are withheld.
 PUT uses disk extras or last-loaded fallback, which can miss a CLI-installed

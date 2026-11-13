@@ -759,7 +759,7 @@ CLI plain/JSON/TUI、status、dashboard 顯示 origin、commit 和本機狀態
 重新連結；執行 `skillshare sync extras` 還原這些輸出。
 
 允許 `extras collect`，會在保留 origin/pin 的同時標記本機修改。重裝捨棄修改須
-`--force`。Global `extras source <path>` 保留項目但不移動檔案；須在沒有 install
+`--force`。Global `extras source <path>` 保留項目但不移動檔案；須在沒有遠端寫入者
 執行時自行移動包含 `.metadata.json` 的**整個根目錄**。Project 仍不支援 `extras source`。
 
 同一 extras root 的遠端 install 和支援的 CLI/TUI/dashboard 寫入者共用 root lock，
@@ -768,6 +768,19 @@ CLI plain/JSON/TUI、status、dashboard 顯示 origin、commit 和本機狀態
 write/read-back 與 compare/restore 之間仍有窗口，不是一般交易隔離。install 期間不要
 改 `extras source`；失敗後檢查 config/lock diff 並重新套用缺少的其他修改。偵測到其他
 寫入者變更時保留檔案、回報路徑並留下 marker。
+
+支援的 memory 初始化、寫入、刪除、index、移動，以及共用指令的內容、轉換、guidance、
+指派和設定寫入，在根目錄含相關遠端 extra 時也使用此鎖。唯讀檢視及轉換預覽不取得鎖；
+一般 sync 和外部編輯器不會序列化。鎖是 canonical root 內永久且為空的一般檔案
+`.skillshare-extras.lock`，不同 HOME/XDG 位置及根目錄別名共用同一把鎖。可寫的自訂 root
+不要求 parent 可寫。即使最後一個遠端 extra 已移除，也不要刪除或替換鎖。sync 和 audit
+只略過遍歷根目錄直屬的空白一般鎖檔；巢狀、非空或非一般檔案的同名內容沿用一般政策。
+Skillshare 的 Git status/staging 僅在當次呼叫排除已知 root 的空鎖；成功發布到 project
+時，若 root 位於 project 內，也記錄其精確 ignore 路徑。
+
+移除來源前會再次比對已保存的來源完整性記錄，保留觀察到的編輯及 ignore 規則。已知
+安裝內容為空的目錄屬於 intact；缺少雜湊仍屬未驗證。此比對不會鎖定外部編輯器，也不
+保證比對與刪除之間的隔離。
 
 raw editor 拒絕回傳可解析且含憑證的 remote 或型別無法讀取的 extras。但為了復原，語法
 損壞的 YAML 會**原樣回傳**，可能包含憑證。PUT 使用可讀的磁碟 extras，否則退回最後

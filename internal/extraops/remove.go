@@ -269,31 +269,33 @@ func removeRemote(req RemoveRequest, extra config.ExtraConfig, result RemoveResu
 			return rollback(err)
 		}
 	}
-	if modified && !result.MissingDir {
+	// Save/cleanup callbacks can overlap an editor after the initial comparison.
+	// Metadata has already been removed, so compare against the original entry.
+	if !result.MissingDir && (modified || install.ExtraTreeModified(req.SourceDir, entry)) {
 		result.KeptEditedDir = true
 		return result, nil
 	}
+	if !result.MissingDir {
+		// A managed destination link is never followed or deleted as fetched content.
+		info, err := os.Lstat(req.SourceDir)
+		if err != nil {
+			return rollback(err)
+		}
+		if utils.IsLinkMode(req.SourceDir, info.Mode()) || !info.IsDir() {
+			return rollback(fmt.Errorf("unsafe remote extra destination %s", req.SourceDir))
+		}
+		sourceTouched = true
+		if err := removeExtraDir(req.SourceDir); err != nil {
+			return rollback(err)
+		}
+		result.DeletedDir = true
+	}
+	// Retained source edits keep their ignore rule; remove it only after cleanup.
 	if ignoreDir != "" {
 		if err := capture(len(states)-1, func() error { _, err := install.RemoveFromGitIgnore(ignoreDir, ignoreEntry); return err }); err != nil {
 			return rollback(err)
 		}
 	}
-	if result.MissingDir {
-		return result, nil
-	}
-	// A managed destination link is never followed or deleted as fetched content.
-	info, err := os.Lstat(req.SourceDir)
-	if err != nil {
-		return rollback(err)
-	}
-	if utils.IsLinkMode(req.SourceDir, info.Mode()) || !info.IsDir() {
-		return rollback(fmt.Errorf("unsafe remote extra destination %s", req.SourceDir))
-	}
-	sourceTouched = true
-	if err := removeExtraDir(req.SourceDir); err != nil {
-		return rollback(err)
-	}
-	result.DeletedDir = true
 	return result, nil
 }
 

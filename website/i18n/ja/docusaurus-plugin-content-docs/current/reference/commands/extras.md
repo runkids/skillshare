@@ -767,7 +767,7 @@ commit とローカル状態 `intact` / `modified` / `interrupted` / `missing` /
 
 `extras collect` は利用でき、origin/pin を変えずローカル変更になります。破棄する
 再インストールには `--force` が必要です。Global の `extras source <path>` はエントリ
-を保持しますがファイルは移動しません。install がない時に `.metadata.json` を含む
+を保持しますがファイルは移動しません。リモート writer が動作していない時に `.metadata.json` を含む
 **ルート全体**を移動してください。Project の `extras source` は未対応です。
 
 同じ extras root の remote install と対応 CLI/TUI/dashboard writer は root lock
@@ -777,6 +777,21 @@ read-back 検出は best effort で、write/read-back 間と compare/restore 間
 一般的な transaction isolation ではありません。install 中に `extras source` を変えず、
 失敗後は config/lock diff を確認し、欠落した別変更を適用し直してください。検出した
 他 writer の変更はパスを報告して保持し marker を残します。
+
+対応する memory の初期化・書き込み・削除・index・移動と、共有指示の内容・変換・
+guidance・割り当て・設定の書き込みも、root に関連するリモート extra がある場合は
+このロックを取得します。読み取りや変換プレビューは取得せず、通常の sync と外部
+エディターは直列化しません。ロックは canonical root 内の永続的で空の通常ファイル
+`.skillshare-extras.lock` で、HOME/XDG や root の別名が異なっても共通です。書き込み可能な
+カスタム root の親は書き込み不可でも構いません。最後のリモート extra 削除後もロックを
+削除・置換しないでください。sync と audit は走査 root 直下の空の通常ロックファイルだけを
+除外し、入れ子・空でない・通常ファイル以外の同名内容は通常の方針で扱います。
+Skillshare の Git status/staging は呼び出し時だけ既知の root の空ロックを除外し、
+project 内の root への公開成功時には正確な ignore パスも記録します。
+
+ソース削除直前に保存済みの整合性記録を再比較し、観察した編集と ignore 規則を保持します。
+空であると記録されたインストール済みツリーは intact、hash の欠落は未検証です。
+外部エディターをロックせず、比較と削除の間の分離も保証しません。
 
 raw editor は解析可能な認証情報付き remote と型が読めない extras を非表示にします。
 一方、構文が壊れた YAML は復旧用に**そのまま**返し、認証情報も含み得ます。PUT は

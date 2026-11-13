@@ -124,14 +124,17 @@ func ExtraLocallyModified(extrasRoot, name string) (bool, *MetadataEntry, error)
 		return true, nil, err
 	}
 	entry := store.GetExact(name)
-	if entry == nil || len(entry.FileHashes) == 0 {
-		return true, entry, nil
+	return ExtraTreeModified(filepath.Join(extrasRoot, name), entry), entry, nil
+}
+
+// ExtraTreeModified compares against saved provenance even after its metadata
+// entry is removed. Missing hashes and unreadable or unsafe trees are edits.
+func ExtraTreeModified(dir string, entry *MetadataEntry) bool {
+	if entry == nil || entry.FileHashes == nil {
+		return true
 	}
-	hashes, err := extraTreeHashes(filepath.Join(extrasRoot, name))
-	if err != nil {
-		return true, entry, nil
-	}
-	return !maps.Equal(entry.FileHashes, hashes), entry, nil
+	hashes, err := extraTreeHashes(dir)
+	return err != nil || !maps.Equal(entry.FileHashes, hashes)
 }
 
 // InspectRemoteExtra checks only local state, and recognizes unfinished publication first.

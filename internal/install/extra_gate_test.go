@@ -103,7 +103,7 @@ func TestGateExtraCandidate_FindingOverrideAndNoPersistence(t *testing.T) {
 	}
 }
 
-func TestGateExtraCandidate_SkipAndInvalidThreshold(t *testing.T) {
+func TestGateExtraCandidate_Skip(t *testing.T) {
 	staged, root, dest := extraGateEnvironment(t)
 	called := false
 	old := scanExtraCandidate
@@ -112,10 +112,6 @@ func TestGateExtraCandidate_SkipAndInvalidThreshold(t *testing.T) {
 	res, err := gateExtraCandidate(staged, root, dest, "", InstallOptions{SkipAudit: true})
 	if err != nil || res == nil || !res.Skipped || called {
 		t.Fatalf("skip: %+v %v called=%v", res, err, called)
-	}
-	_, err = gateExtraCandidate(staged, root, dest, "", InstallOptions{SkipAudit: true, AuditThreshold: "invalid"})
-	if err == nil || called {
-		t.Fatalf("invalid threshold: %v called=%v", err, called)
 	}
 }
 
@@ -172,7 +168,7 @@ func TestGateExtraCandidate_UsesCandidateAndExplicitOverride(t *testing.T) {
 		return &AuditGateResult{Audit: &audit.Result{}, Threshold: g.Threshold}, nil
 	}
 	defer func() { scanExtraCandidate = old }()
-	if _, err := gateExtraCandidate(staged, root, dest, strings.Repeat("a", 40), InstallOptions{Force: true, AuditThreshold: "high"}); err != nil {
+	if _, err := gateExtraCandidate(staged, root, dest, strings.Repeat("a", 40), InstallOptions{Force: true, AuditThreshold: audit.SeverityHigh}); err != nil {
 		t.Fatal(err)
 	}
 }

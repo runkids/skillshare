@@ -2,7 +2,6 @@ package install
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -56,12 +55,24 @@ func LockExtrasRoot(root string) (func(), error) {
 	if err != nil {
 		return nil, err
 	}
-	sum := sha256.Sum256([]byte(canonical))
-	dir := filepath.Join(utils.StateDir(), "extras-locks")
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	// The administrative root and permanent lock may precede audit, but no
+	// managed content or publication records are written by this acquisition.
+	if err := os.MkdirAll(canonical, 0755); err != nil {
 		return nil, err
 	}
-	lock := flock.New(filepath.Join(dir, fmt.Sprintf("%x.lock", sum[:8])))
+	resolved, err := canonicalExtraRoot(canonical)
+	if err != nil || resolved != canonical {
+		return nil, fmt.Errorf("extras root changed while acquiring its lock")
+	}
+	file := filepath.Join(canonical, utils.ExtrasRootLockFileName)
+	before, err := os.Lstat(file)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	if before != nil && (utils.IsLinkMode(file, before.Mode()) || !before.Mode().IsRegular() || before.Size() != 0) {
+		return nil, fmt.Errorf("unsafe extras root lock %s", file)
+	}
+	lock := flock.New(file, flock.SetFlag(extraLockOpenFlags))
 	ok, err := lock.TryLock()
 	if err != nil {
 		return nil, err
@@ -77,6 +88,11 @@ func LockExtrasRoot(root string) (func(), error) {
 		if !ok {
 			return nil, fmt.Errorf("another skillshare process is installing extras in %s; retry when it finishes", root)
 		}
+	}
+	after, err := os.Lstat(file)
+	if err != nil || utils.IsLinkMode(file, after.Mode()) || !after.Mode().IsRegular() || after.Size() != 0 || before != nil && !os.SameFile(before, after) {
+		_ = lock.Unlock()
+		return nil, fmt.Errorf("extras root lock changed while acquiring it")
 	}
 	return func() { _ = lock.Unlock() }, nil
 }

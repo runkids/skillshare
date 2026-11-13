@@ -46,7 +46,8 @@ func repairRemoteExtra(req RemoteExtraRequest, result *RemoteExtraResult) error 
 	if err != nil || source == nil || !source.IsGit() {
 		return fmt.Errorf("invalid journaled Git source for %q", req.Name)
 	}
-	source.Branch, source.Commit = j.Branch, j.Commit
+	source.ApplyRecordedBranch(j.Branch)
+	source.Commit = j.Commit
 	if err := resolveWebRef(source); err != nil {
 		return err
 	}

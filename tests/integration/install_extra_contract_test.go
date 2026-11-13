@@ -17,6 +17,7 @@ import (
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
 	"skillshare/internal/testutil"
+	"skillshare/internal/utils"
 )
 
 // Snapshot both presence and bytes; dry runs must not create even empty folders.
@@ -46,6 +47,44 @@ func extraFiles(t *testing.T, root string) map[string]string {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	return files
+}
+
+// Refusal may create only the permanent administrative root lock, never records.
+func assertExtraAdministrativeRootOnly(t *testing.T, root string) {
+	t.Helper()
+	info, err := os.Lstat(root)
+	if err != nil || !info.IsDir() || utils.IsLinkMode(root, info.Mode()) {
+		t.Fatalf("administrative root is not a no-follow directory: %v %v", info, err)
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil || len(entries) != 1 || entries[0].Name() != utils.ExtrasRootLockFileName {
+		t.Fatalf("refusal must leave only administrative lock, no managed tree or metadata: %+v %v", entries, err)
+	}
+	lockPath := filepath.Join(root, utils.ExtrasRootLockFileName)
+	info, err = os.Lstat(lockPath)
+	if err != nil || !info.Mode().IsRegular() || utils.IsLinkMode(lockPath, info.Mode()) || info.Size() != 0 {
+		t.Fatalf("administrative lock is not an empty no-follow regular file: %v %v", info, err)
+	}
+}
+
+func extraRefusalRecords(t *testing.T, configPath, cwd string) map[string]string {
+	t.Helper()
+	files := map[string]string{}
+	for _, path := range []string{
+		filepath.Join(filepath.Dir(configPath), install.LockFileName),
+		filepath.Join(filepath.Dir(configPath), ".gitignore"),
+		filepath.Join(cwd, ".gitignore"),
+	} {
+		data, err := os.ReadFile(path)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		files[path] = string(data)
 	}
 	return files
 }
@@ -165,11 +204,29 @@ func TestInstallExtra_AuditBlocksThenForceRecordsOverride(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			recordsBefore := extraRefusalRecords(t, configPath, cwd)
 			args := []string{"install", remote, "--kind", "extra", "--name", "rules", "--json", mode}
 			result := sb.RunCLIInDir(cwd, args...)
 			result.AssertFailure(t)
-			if _, err := os.Stat(root); !os.IsNotExist(err) {
-				t.Fatalf("audit created extras: %v", err)
+			assertExtraAdministrativeRootOnly(t, root)
+			// First-failure logging may add only its existing logs/ ignore rule.
+			if projectMode {
+				ignorePath := filepath.Join(filepath.Dir(configPath), ".gitignore")
+				if data, ok := recordsBefore[ignorePath]; !ok || data != "" {
+					t.Fatal("fixture must start with an empty project ignore file")
+				}
+				recordsBefore[ignorePath] = "# BEGIN SKILLSHARE MANAGED - DO NOT EDIT\nlogs/\n# END SKILLSHARE MANAGED\n"
+			}
+			if !reflect.DeepEqual(recordsBefore, extraRefusalRecords(t, configPath, cwd)) {
+				t.Fatalf("audit refusal changed records beyond failure logging: want=%#v got=%#v", recordsBefore, extraRefusalRecords(t, configPath, cwd))
+			}
+			entries, err := oplog.Read(configPath, oplog.OpsFile, 0)
+			if err != nil || len(entries) != 1 {
+				t.Fatalf("failed install oplog: %+v %v", entries, err)
+			}
+			entry := entries[0]
+			if entry.Command != "install" || entry.Status != "error" || entry.Message == "" || entry.Args["kind"] != "extra" || entry.Args["name"] != "rules" || entry.Args["source"] != remote || entry.Args["mode"] != map[bool]string{false: "global", true: "project"}[projectMode] {
+				t.Fatalf("failed install oplog: %+v", entry)
 			}
 			after, err := os.ReadFile(configPath)
 			if err != nil || string(after) != string(before) {
@@ -358,6 +415,7 @@ func TestInstallExtra_LinkSentinelNeverCopied(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			recordsBefore := extraRefusalRecords(t, sb.ConfigPath, sb.Root)
 			result := sb.RunCLI("install", remote, "--kind", "extra", "--name", "rules", "--json", "-g")
 			result.AssertFailure(t)
 			result.AssertAnyOutputContains(t, "unsafe")
@@ -365,8 +423,9 @@ func TestInstallExtra_LinkSentinelNeverCopied(t *testing.T) {
 			if err != nil || string(before) != string(after) {
 				t.Fatal("link refusal changed config")
 			}
-			if _, err := os.Stat(filepath.Join(filepath.Dir(sb.SourcePath), "extras")); !os.IsNotExist(err) {
-				t.Fatalf("link refusal published: %v", err)
+			assertExtraAdministrativeRootOnly(t, filepath.Join(filepath.Dir(sb.SourcePath), "extras"))
+			if !reflect.DeepEqual(recordsBefore, extraRefusalRecords(t, sb.ConfigPath, sb.Root)) {
+				t.Fatal("link refusal changed pin or ignore records")
 			}
 			for path, data := range extraFiles(t, sb.Root) {
 				if path != "sentinel" && strings.Contains(data, "SYNTHETIC_SENTINEL_BYTES") {

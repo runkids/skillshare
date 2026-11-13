@@ -113,6 +113,12 @@ func (s *Server) handleAddSharedInstructionsLocation(w http.ResponseWriter, r *h
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock, lockErr := s.lockRemoteExtraMutation()
+	if lockErr != nil {
+		writeCodedError(w, http.StatusConflict, "instructions_write_failed", lockErr.Error(), map[string]string{"detail": lockErr.Error()})
+		return
+	}
+	defer unlock()
 	i, j := s.findLocation(name, stored)
 	if i == -1 {
 		writeCodedError(w, http.StatusNotFound, "instructions_shared_not_found", "shared instruction file not found: "+name, map[string]string{"name": name})
@@ -247,6 +253,12 @@ func (s *Server) handlePutSharedInstructionsLocationMode(w http.ResponseWriter, 
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock, lockErr := s.lockRemoteExtraMutation()
+	if lockErr != nil {
+		writeCodedError(w, http.StatusConflict, "instructions_write_failed", lockErr.Error(), map[string]string{"detail": lockErr.Error()})
+		return
+	}
+	defer unlock()
 	i, j, ok := s.lookupLocation(w, name, body.Path)
 	if !ok {
 		return
@@ -264,6 +276,12 @@ func (s *Server) handleDeleteSharedInstructionsLocation(w http.ResponseWriter, r
 	name, path := r.PathValue("name"), r.URL.Query().Get("path")
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock, lockErr := s.lockRemoteExtraMutation()
+	if lockErr != nil {
+		writeCodedError(w, http.StatusConflict, "instructions_write_failed", lockErr.Error(), map[string]string{"detail": lockErr.Error()})
+		return
+	}
+	defer unlock()
 	i, j, ok := s.lookupLocation(w, name, path)
 	if !ok {
 		return

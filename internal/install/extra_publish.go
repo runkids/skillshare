@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"skillshare/internal/projectdir"
+	"skillshare/internal/utils"
 )
 
 var errSimulatedDeath = errors.New("simulated process death")
@@ -72,7 +73,7 @@ func extraIgnoreTarget(req RemoteExtraRequest) (string, []string) {
 	if dir == "" {
 		return "", nil
 	}
-	return dir, []string{path.Join(prefix, req.Name) + "/", path.Join(prefix, extraStagingDir) + "/", path.Join(prefix, MetadataFileName)}
+	return dir, []string{path.Join(prefix, req.Name) + "/", path.Join(prefix, extraStagingDir) + "/", path.Join(prefix, MetadataFileName), path.Join(prefix, utils.ExtrasRootLockFileName)}
 }
 
 func publishRemoteExtra(req RemoteExtraRequest, candidate *extraCandidate) error {

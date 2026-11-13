@@ -470,8 +470,8 @@ func GetChangedFiles(repoPath, from, to string) ([]FileChange, error) {
 }
 
 // IsDirty checks if repo has uncommitted changes
-func IsDirty(repoPath string) (bool, error) {
-	cmd := gitenv.Command("status", "--porcelain")
+func IsDirty(repoPath string, extrasRoots ...string) (bool, error) {
+	cmd := gitenv.Command(append([]string{"status", "--porcelain"}, extraRootLockPathspec(repoPath, extrasRoots...)...)...)
 	cmd.Dir = repoPath
 	out, err := cmd.Output()
 	if err != nil {
@@ -485,8 +485,8 @@ func IsDirty(repoPath string) (bool, error) {
 }
 
 // GetDirtyFiles returns list of modified files
-func GetDirtyFiles(repoPath string) ([]string, error) {
-	cmd := gitenv.Command("-c", "color.status=false", "status", "--short")
+func GetDirtyFiles(repoPath string, extrasRoots ...string) ([]string, error) {
+	cmd := gitenv.Command(append([]string{"-c", "color.status=false", "status", "--short"}, extraRootLockPathspec(repoPath, extrasRoots...)...)...)
 	cmd.Dir = repoPath
 	out, err := cmd.Output()
 	if err != nil {
@@ -537,11 +537,11 @@ func HasRemote(dir string) bool {
 }
 
 // StageAll stages all changes (git add -A)
-func StageAll(dir, skills, operation string, warn func(string)) error {
+func StageAll(dir, skills, operation string, warn func(string), extrasRoots ...string) error {
 	for _, warning := range SourceLinkWarnings(dir, skills, operation) {
 		warn(warning)
 	}
-	cmd := gitenv.Command("add", "-A")
+	cmd := gitenv.Command(append([]string{"add", "-A"}, extraRootLockPathspec(dir, extrasRoots...)...)...)
 	cmd.Dir = dir
 	return cmd.Run()
 }
@@ -744,8 +744,8 @@ func FirstPull(dir string, force bool, opts install.ParseOptions) (*UpdateInfo, 
 }
 
 // GetStatus returns git status --porcelain output
-func GetStatus(dir string) (string, error) {
-	cmd := gitenv.Command("status", "--porcelain")
+func GetStatus(dir string, extrasRoots ...string) (string, error) {
+	cmd := gitenv.Command(append([]string{"status", "--porcelain"}, extraRootLockPathspec(dir, extrasRoots...)...)...)
 	cmd.Dir = dir
 	out, err := cmd.Output()
 	if err != nil {

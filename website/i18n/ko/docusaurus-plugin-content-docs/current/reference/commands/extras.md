@@ -791,7 +791,7 @@ API 결과는 `remote`, `commit`, `deleted_dir`, `kept_edited_dir`, `missing_dir
 
 `extras collect`는 허용되며 origin/pin을 유지한 채 로컬 수정 상태가 됩니다. 버리려면 재설치에
 `--force`가 필요합니다. Global `extras source <path>`는 항목을 보존하지만 파일은 옮기지
-않습니다. install이 실행되지 않을 때 `.metadata.json`을 포함한 **전체 루트**를 옮기세요.
+않습니다. 원격 writer가 실행되지 않을 때 `.metadata.json`을 포함한 **전체 루트**를 옮기세요.
 Project `extras source`는 지원하지 않습니다.
 
 같은 extras root의 원격 install과 지원되는 CLI/TUI/dashboard writer는 root lock을 공유하고
@@ -800,6 +800,20 @@ Project `extras source`는 지원하지 않습니다.
 write/read-back 및 compare/restore 사이에 창이 남으므로 일반 transaction isolation이 아닙니다.
 install 중 `extras source`를 바꾸지 말고 실패 후 config/lock diff에서 누락된 다른 변경을 다시
 적용하세요. 관찰된 다른 writer의 변경은 경로를 보고하고 marker와 함께 유지합니다.
+
+지원되는 memory 초기화·쓰기·삭제·index·이동과 공유 지침의 내용·변환·guidance·할당·설정
+쓰기도 root에 관련 원격 extra가 있으면 이 잠금에 참여합니다. 읽기 전용 화면과 변환
+미리보기는 잠그지 않으며 일반 sync와 외부 편집기는 직렬화하지 않습니다. 잠금은 canonical
+root 안의 영구적인 빈 일반 파일 `.skillshare-extras.lock`이며 HOME/XDG 위치나 root 별칭이
+달라도 공유합니다. 쓰기 가능한 사용자 지정 root의 부모는 쓰기 불가여도 됩니다. 마지막
+원격 extra를 제거한 뒤에도 잠금을 삭제하거나 교체하지 마세요. sync와 audit는 순회 root
+바로 아래의 빈 일반 잠금 파일만 제외하며 중첩·비어 있지 않음·일반 파일 아님에 해당하는
+동명 콘텐츠는 기존 정책을 따릅니다. Skillshare Git status/staging은 호출 시에만 알려진
+root의 빈 잠금을 제외하고, project 내부 root 게시 성공 시 정확한 ignore 경로도 기록합니다.
+
+소스 삭제 직전에 저장된 무결성 기록을 다시 비교하여 관찰한 수정과 ignore 규칙을 유지합니다.
+비어 있다고 기록된 설치 트리는 intact이며 hash 누락은 여전히 미검증입니다. 외부 편집기를
+잠그지 않으며 비교와 삭제 사이의 격리를 보장하지 않습니다.
 
 raw editor는 파싱 가능한 자격 증명 remote나 타입을 읽을 수 없는 extras를 숨깁니다. 그러나
 문법이 깨진 YAML은 복구를 위해 **그대로** 제공하므로 자격 증명도 포함될 수 있습니다. PUT은

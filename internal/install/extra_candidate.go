@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"skillshare/internal/audit"
 )
 
 type extraCandidate struct {
@@ -20,9 +18,6 @@ func removeExtraCandidateTemp(dir string) { _ = os.RemoveAll(dir) }
 
 // prepareExtraCandidate fetches and audits privately; it never publishes to root.
 func prepareExtraCandidate(source *Source, root, dest string, opts InstallOptions) (*extraCandidate, func(), error) {
-	if _, err := audit.NormalizeThreshold(opts.AuditThreshold); err != nil {
-		return nil, nil, fmt.Errorf("invalid audit threshold: %w", err)
-	}
 	if source == nil || !source.IsGit() {
 		return nil, nil, fmt.Errorf("remote extra requires a Git source")
 	}
@@ -53,6 +48,9 @@ func prepareExtraCandidate(source *Source, root, dest string, opts InstallOption
 	if err != nil {
 		cleanup()
 		return nil, nil, err
+	}
+	if gate.Audit != nil && gate.Audit.SkippedFiles > 0 {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("Extra audit coverage is limited: %d file(s) skipped ordinary content checks; hidden-parent files receive header checks only", gate.Audit.SkippedFiles))
 	}
 	return &extraCandidate{staged: staged, fetch: fetch, audit: gate, treeHash: getSubdirTreeHash(fetch.RepoPath, fetch.Subdir), warnings: result.Warnings}, cleanup, nil
 }
