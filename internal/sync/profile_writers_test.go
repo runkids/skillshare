@@ -1002,6 +1002,13 @@ func TestProfileAwareWriters_BinaryCopyPreservation(t *testing.T) {
 					t.Fatal(err)
 				}
 				kept = len(out.KeptModified)
+				if scenario == "merge_prune" {
+					pruned, err := PruneOrphanLinksWithSkills(PruneOptions{TargetName: "goose", TargetPath: target, SourcePath: source, Skills: skills, Exclude: tc.Exclude, ProfileAware: true})
+					if err != nil {
+						t.Fatal(err)
+					}
+					kept += len(pruned.KeptModified)
+				}
 			default:
 				out, err := SyncTargetCopyWithSkillsOptions("goose", tc, skills, source, false, false, nil, CopyOptions{ProfileAware: true})
 				if err != nil {
