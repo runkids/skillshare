@@ -62,6 +62,38 @@ func TestParseSelectionAndValidation(t *testing.T) {
 	}
 }
 
+func TestValidateSectionPreservesUnknownKeys(t *testing.T) {
+	for _, tc := range []struct {
+		name, definition, reason string
+		valid                    bool
+	}{
+		{"profile key", "{future_key: true}", "future_key", true},
+		{"skills key", "{skills: {future_key: true, include: [alpha]}}", "future_key", true},
+		{"profile key and pattern", `{future_key: true, skills: {include: ["["]}}`, "invalid include pattern", false},
+		{"skills key and pattern", `{skills: {future_key: true, include: ["["]}}`, "invalid include pattern", false},
+		{"profile key and exclude", "{future_key: true, skills: {exclude: [old]}}", "exclude requires an include", false},
+		{"skills key and exclude", "{skills: {future_key: true, exclude: [old]}}", "exclude requires an include", false},
+		{"known field before unknown", `{skills: {include: ["["]}, future_key: true}`, "invalid include pattern", false},
+		{"unknown and wrong type", "{future_key: true, skills: {include: alpha}}", "must be a list of strings", false},
+		{"unknown and duplicate", "{future_key: true, skills: {}, skills: {}}", "duplicate profile key", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			node := section(t, "profiles: {work: "+tc.definition+"}")
+			d := Parse(node).Definitions["work"]
+			if d.Usable || !strings.Contains(d.Reason, tc.reason) {
+				t.Fatalf("definition should remain unusable: %+v", d)
+			}
+			if selected, err := Resolve(Parse(node), State{Active: "work"}, "config.yaml", nil).Selects("alpha"); selected || err == nil {
+				t.Fatal("unusable definition activated")
+			}
+			err := ValidateSection(node)
+			if tc.valid && err != nil || !tc.valid && (err == nil || !strings.Contains(err.Error(), tc.reason)) {
+				t.Fatalf("validation = %v, valid=%v, reason=%s", err, tc.valid, tc.reason)
+			}
+		})
+	}
+}
+
 func TestMutatePreservesUnrelatedYAML(t *testing.T) {
 	original := section(t, "profiles:\n  future: # keep this\n    unknown: value\n  work:\n    description: before\n    skills: {include: [old], exclude: [blocked]}\n")
 	desc := "after"

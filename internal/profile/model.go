@@ -23,6 +23,7 @@ type Definition struct {
 	Skills            *SkillSelection
 	Usable            bool
 	Reason            string
+	unknown           bool
 }
 
 type Catalog struct {

@@ -1,11 +1,14 @@
 package profile
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
 	"gopkg.in/yaml.v3"
 )
+
+var errUnknownKey = errors.New("unknown")
 
 // Parse reports unusable definitions without making configuration load fail.
 func Parse(node *yaml.Node) Catalog {
@@ -27,13 +30,14 @@ func Parse(node *yaml.Node) Catalog {
 			d.Usable, d.Reason = false, "duplicate profile name"
 		} else if err := parseDefinition(&d, value); err != nil {
 			d.Usable, d.Reason = false, err.Error()
+			d.unknown = errors.Is(err, errUnknownKey)
 		}
 		c.Definitions[d.Name] = d
 	}
 	return c
 }
 
-// ValidateSection rejects invalid definitions when a user submits new config.
+// ValidateSection rejects invalid definitions but preserves unknown future keys.
 func ValidateSection(node *yaml.Node) error {
 	c := Parse(node)
 	if c.Reason != "" {
@@ -45,7 +49,7 @@ func ValidateSection(node *yaml.Node) error {
 	}
 	slices.Sort(names)
 	for _, name := range names {
-		if d := c.Definitions[name]; !d.Usable {
+		if d := c.Definitions[name]; !d.Usable && !d.unknown {
 			return fmt.Errorf("profile %q: %s", name, d.Reason)
 		}
 	}
@@ -57,6 +61,7 @@ func parseDefinition(d *Definition, node *yaml.Node) error {
 		return fmt.Errorf("profile %q must be a mapping", d.Name)
 	}
 	seen := make(map[string]bool)
+	var unknown error
 	for i := 0; i+1 < len(node.Content); i += 2 {
 		key, value := node.Content[i].Value, node.Content[i+1]
 		if seen[key] {
@@ -72,13 +77,23 @@ func parseDefinition(d *Definition, node *yaml.Node) error {
 		case "skills":
 			d.Skills = &SkillSelection{}
 			if err := parseSkills(d.Skills, value); err != nil {
-				return err
+				if !errors.Is(err, errUnknownKey) {
+					return err
+				}
+				if unknown == nil {
+					unknown = err
+				}
 			}
 		default:
-			return fmt.Errorf("unknown profile key %q", key)
+			if unknown == nil {
+				unknown = fmt.Errorf("%w profile key %q", errUnknownKey, key)
+			}
 		}
 	}
-	return ValidateDefinition(*d)
+	if err := ValidateDefinition(*d); err != nil {
+		return err
+	}
+	return unknown
 }
 
 func parseSkills(skills *SkillSelection, node *yaml.Node) error {
@@ -89,6 +104,7 @@ func parseSkills(skills *SkillSelection, node *yaml.Node) error {
 		return fmt.Errorf("skills must be a mapping")
 	}
 	seen := make(map[string]bool)
+	var unknown error
 	for i := 0; i+1 < len(node.Content); i += 2 {
 		key, value := node.Content[i].Value, node.Content[i+1]
 		if seen[key] {
@@ -96,7 +112,10 @@ func parseSkills(skills *SkillSelection, node *yaml.Node) error {
 		}
 		seen[key] = true
 		if key != "include" && key != "exclude" {
-			return fmt.Errorf("unknown skills key %q", key)
+			if unknown == nil {
+				unknown = fmt.Errorf("%w skills key %q", errUnknownKey, key)
+			}
+			continue
 		}
 		if value.Kind != yaml.SequenceNode {
 			return fmt.Errorf("skills.%s must be a list of strings", key)
@@ -114,5 +133,5 @@ func parseSkills(skills *SkillSelection, node *yaml.Node) error {
 			skills.Exclude, skills.ExcludePresent = values, true
 		}
 	}
-	return nil
+	return unknown
 }
