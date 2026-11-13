@@ -29,7 +29,8 @@ type reconcileResult struct {
 // or tracked repos) and ensures they are present in the MetadataStore.
 // onFound is called for each discovered installed skill; pass nil to skip.
 // canMove limits which gone records may follow a moved copy; nil allows all.
-func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *install.MetadataStore, onFound func(fullPath string), canMove func(key string) bool) (reconcileResult, error) {
+// preserveTrackedIntent keeps global repository declarations when no checkout is observed.
+func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *install.MetadataStore, onFound func(fullPath string), canMove func(key string) bool, preserveTrackedIntent bool) (reconcileResult, error) {
 	result := reconcileResult{live: map[string]bool{}}
 	moves := map[string][]string{} // gone record key -> candidate destinations
 	walkFailed := false            // an unreadable directory may hide a copy
@@ -115,8 +116,9 @@ func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *inst
 				existing.Source = source
 				result.changed = true
 			}
-			if existing.Tracked != tracked {
-				existing.Tracked = tracked
+			storedTracked := tracked || (preserveTrackedIntent && existing.Tracked && existing.Source != "" && utils.IsTrackedRepoDir(filepath.Base(filepath.FromSlash(fullPath))))
+			if existing.Tracked != storedTracked {
+				existing.Tracked = storedTracked
 				result.changed = true
 			}
 			if existing.Branch != branch {

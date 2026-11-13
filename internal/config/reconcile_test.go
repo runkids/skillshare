@@ -563,6 +563,41 @@ func TestReconcileGlobalSkills_KeepsMetadataOfUnavailableSourceLink(t *testing.T
 	}
 }
 
+func TestReconcileSkills_FollowedNonCheckoutNormalizesByScope(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(map[bool]string{false: "global", true: "project"}[project], func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			target := filepath.Join(sb.Root, "linked")
+			sb.WriteFile(filepath.Join(target, "child", "SKILL.md"), "# child\n")
+			sb.CreateSymlink(target, filepath.Join(sb.SourcePath, "_team"))
+			sb.WriteFile(filepath.Join(sb.SourcePath, "legacy", "SKILL.md"), "# legacy\n")
+			store := install.NewMetadataStore()
+			store.Set("_team", &install.MetadataEntry{Source: "https://example.com/team.git", Tracked: true, Branch: "main", FileHashes: map[string]string{"SKILL.md": "old"}})
+			store.Set("legacy", &install.MetadataEntry{Source: "https://example.com/legacy.git", Tracked: true})
+			store.AuditAccepted = map[string][]string{"_team": {"accepted-finding"}}
+			var err error
+			if project {
+				err = ReconcileProjectSkills(sb.Root, &ProjectConfig{FollowSourceLinks: true}, store, sb.SourcePath)
+			} else {
+				err = ReconcileGlobalSkills(&Config{Source: sb.SourcePath, FollowSourceLinks: true}, store)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := store.Get("_team"); got == nil || got.Tracked == project || got.Source != "https://example.com/team.git" || got.Branch != "main" || !reflect.DeepEqual(got.FileHashes, map[string]string{"SKILL.md": "old"}) {
+				t.Errorf("team = %+v; project=%v", got, project)
+			}
+			if got := store.Get("legacy"); got == nil || got.Tracked {
+				t.Errorf("legacy = %+v, want untracked", got)
+			}
+			if got := store.AuditAccepted["_team"]; !reflect.DeepEqual(got, []string{"accepted-finding"}) {
+				t.Errorf("acceptance = %v", got)
+			}
+		})
+	}
+}
+
 // Only a _-prefixed checkout is a tracked repo; an unprefixed one stays a
 // regular entry, and a tracked flag an older reconcile wrote on it is cleared
 // without dropping the entry (#476).

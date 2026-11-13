@@ -203,7 +203,7 @@ func reconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, befor
 		skill, ok := declared[filepath.ToSlash(install.KeyToRelPath(key, entry))]
 		return ok && entry.MatchesDeclaration(skill)
 	}
-	result, err := reconcileSkillsWalk(sourcePath, walk, store, onFound, canMove)
+	result, err := reconcileSkillsWalk(sourcePath, walk, store, onFound, canMove, false)
 	if err != nil {
 		return fmt.Errorf("failed to scan project skills: %w", err)
 	}
