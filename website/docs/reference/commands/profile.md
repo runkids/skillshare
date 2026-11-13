@@ -14,6 +14,8 @@ skillshare profile list --json
 skillshare profile show frontend --json
 skillshare profile create frontend --description 'UI work' --add-include 'frontend__*'
 skillshare profile edit frontend --add-include design-review --add-exclude 'frontend__legacy-*'
+skillshare profile add frontend frontend/button design-review
+skillshare profile remove frontend design-review
 skillshare profile rename frontend web
 skillshare profile delete web                # Only while inactive here
 skillshare profile use frontend --dry-run
@@ -37,6 +39,34 @@ Names use 1–64 lowercase letters, digits, underscores or hyphens, starting wit
 Create without patterns makes an empty selection. A definition with no `skills` key does not limit skills; `skills: {}`, empty includes and blank-only includes select nothing. Excludes require an include key: use `include: ['*']` for everything except the exclusions. Explicit `include: []` with excludes is valid; show marks those excludes as inert. Unknown keys are preserved on save, but make that definition unusable on this version.
 
 Definition changes save without syncing. Changes affecting the active selection print `Next: skillshare sync`. Renaming the locally active definition follows its name in local state. Deleting it is refused until you switch away.
+
+## Assign skills {#assign-skills}
+
+`profile add <name> <skill>...` and `profile remove <name> <skill>...` accept flat source names, source-relative paths, or unique base names. An ambiguous base name fails with its candidates. Assignment does not activate a profile, sync a target, or override `.skillignore`, target filters or skill routing.
+
+| Operation | Rule |
+|-----------|------|
+| Add a selected skill | Report `already in`; no change |
+| Add an unselected skill | Remove its exact exclude; add an exact include if still needed |
+| Add through a matching glob exclude | Refuse the entire batch, naming the skill and pattern; nothing is saved |
+| Remove an unselected skill | Report `not in`; no change |
+| Remove a selected skill | Drop its exact include; add an exact exclude if a broader include still selects it |
+| Remove from a definition with no `skills` key | Write `include: ['*']` and exclude that exact name |
+| Remove the last exact include | Keep explicit `include: []` and all existing excludes; the selection is empty |
+
+```bash
+skillshare profile add frontend frontend/button frontend/dialog -p
+skillshare profile remove frontend frontend__button --json -p
+skillshare sync -p
+```
+
+JSON assignment results contain `profile`, `changed` and per-skill `skills` rows with `name` and `result`. Results are `added`, `removed`, `already-in` or `not-in`. Active membership changes print the next sync command in text mode.
+
+## Membership hints {#membership-hints}
+
+After successful `install` or `new`, skills outside the usable active profile get one hint: `Not in active profile "frontend": skillshare profile add frontend <flat-name>`. Install uses final names including groups and nested tracked/local skills. A partial install hints only for successful publications; dry runs, skips, failures and agent installs produce none. Install JSON stays unchanged, with the hint on stderr.
+
+`move` warns when a skill's old and new flat names change membership in any usable profile, including inactive definitions. Folder moves check every skill, even with no targets configured. Warnings do not rewrite profile patterns; inspect them before syncing.
 
 ## Switch options {#switch-options}
 
