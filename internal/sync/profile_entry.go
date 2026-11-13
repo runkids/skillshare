@@ -30,12 +30,12 @@ type EntryClassification struct {
 }
 
 type EntryChange struct {
-	Target string     `json:"target"`
-	Entry  string     `json:"entry"`
-	Step   string     `json:"step"`
-	Class  EntryClass `json:"class"`
-	Reason string     `json:"reason"`
-	Fingerprint string `json:"-"`
+	Target      string     `json:"target"`
+	Entry       string     `json:"entry"`
+	Step        string     `json:"step"`
+	Class       EntryClass `json:"class"`
+	Reason      string     `json:"reason"`
+	Fingerprint string     `json:"-"`
 }
 
 type DiscardEntry struct {

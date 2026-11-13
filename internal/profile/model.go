@@ -12,10 +12,10 @@ import (
 var validName = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,63}$`)
 
 type SkillSelection struct {
-	Include        []string
-	Exclude        []string
-	IncludePresent bool
-	ExcludePresent bool
+	Include        []string `json:"include"`
+	Exclude        []string `json:"exclude"`
+	IncludePresent bool     `json:"-"`
+	ExcludePresent bool     `json:"-"`
 }
 
 type Definition struct {
@@ -23,6 +23,7 @@ type Definition struct {
 	Skills            *SkillSelection
 	Usable            bool
 	Reason            string
+	unknown           bool
 }
 
 type Catalog struct {

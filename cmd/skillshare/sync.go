@@ -15,6 +15,7 @@ import (
 	"skillshare/internal/hooks"
 	"skillshare/internal/mcp"
 	"skillshare/internal/oplog"
+	"skillshare/internal/profileapply"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sync"
 	"skillshare/internal/theme"
@@ -34,33 +35,36 @@ type syncLogStats struct {
 
 // syncJSONOutput is the JSON representation for sync --json output.
 type syncJSONOutput struct {
-	Targets       int                    `json:"targets"`
-	Linked        int                    `json:"linked"`
-	Local         int                    `json:"local"`
-	Updated       int                    `json:"updated"`
-	Pruned        int                    `json:"pruned"`
-	IgnoredCount  int                    `json:"ignored_count"`
-	IgnoredSkills []string               `json:"ignored_skills"`
-	DryRun        bool                   `json:"dry_run"`
-	Duration      string                 `json:"duration"`
-	Details       []syncJSONTargetDetail `json:"details"`
-	Extras        []syncExtrasJSONEntry  `json:"extras,omitempty"`
-	ContextCost   *contextCostJSON       `json:"context_cost,omitempty"`
-	MCP           *mcp.Result            `json:"mcp,omitempty"`
-	Hooks         *hooks.Result          `json:"hooks,omitempty"`
+	Profile       *profileapply.Info      `json:"profile,omitempty"`
+	Snapshot      []profileapply.Snapshot `json:"snapshot,omitempty"`
+	Targets       int                     `json:"targets"`
+	Linked        int                     `json:"linked"`
+	Local         int                     `json:"local"`
+	Updated       int                     `json:"updated"`
+	Pruned        int                     `json:"pruned"`
+	IgnoredCount  int                     `json:"ignored_count"`
+	IgnoredSkills []string                `json:"ignored_skills"`
+	DryRun        bool                    `json:"dry_run"`
+	Duration      string                  `json:"duration"`
+	Details       []syncJSONTargetDetail  `json:"details"`
+	Extras        []syncExtrasJSONEntry   `json:"extras,omitempty"`
+	ContextCost   *contextCostJSON        `json:"context_cost,omitempty"`
+	MCP           *mcp.Result             `json:"mcp,omitempty"`
+	Hooks         *hooks.Result           `json:"hooks,omitempty"`
 	// Warnings lists source links the run did not follow; a run that kept
 	// target entries because a link was unavailable says so here.
 	Warnings []string `json:"warnings,omitempty"`
 }
 
 type syncJSONTargetDetail struct {
-	Name    string `json:"name"`
-	Mode    string `json:"mode"`
-	Linked  int    `json:"linked"`
-	Local   int    `json:"local"`
-	Updated int    `json:"updated"`
-	Pruned  int    `json:"pruned"`
-	Error   string `json:"error,omitempty"`
+	KeptModified []sync.EntryChange `json:"kept_modified,omitempty"`
+	Name         string             `json:"name"`
+	Mode         string             `json:"mode"`
+	Linked       int                `json:"linked"`
+	Local        int                `json:"local"`
+	Updated      int                `json:"updated"`
+	Pruned       int                `json:"pruned"`
+	Error        string             `json:"error,omitempty"`
 	// SkillsOff is true for a target with skills switched off (nothing synced).
 	SkillsOff bool `json:"skills_off,omitempty"`
 }
@@ -71,6 +75,11 @@ type syncModeStats struct {
 }
 
 func cmdSync(args []string) error {
+	return cmdSyncPrepared(args, nil)
+}
+
+func cmdSyncPrepared(args []string, prepared *profileSyncRun) error {
+	originalArgs := slices.Clone(args)
 	if i := slices.Index(args, "plugins"); i >= 0 {
 		return cmdPlugin(append([]string{"sync"}, slices.Delete(slices.Clone(args), i, i+1)...))
 	}
@@ -130,67 +139,74 @@ func cmdSync(args []string) error {
 	kind, rest := parseKindArg(rest)
 
 	dryRun, force, jsonOutput, quiet := parseSyncFlags(rest)
+	discardEdits := hasFlag(rest, "--discard-edits")
+	if discardEdits && kind == kindAgents {
+		return fmt.Errorf("--discard-edits applies to profile-aware skill sync only")
+	}
 
 	var mcpResult *mcp.Result
 	var mcpService *mcp.Service
 	var hooksResult *hooks.Result
 	var hooksService *hooks.Service
-	if hasAll {
-		preflightErr := func(err error) error {
-			if jsonOutput {
-				return writeJSONError(err)
+	prepareNative := func() error {
+		if hasAll {
+			preflightErr := func(err error) error {
+				if jsonOutput {
+					return writeJSONError(err)
+				}
+				return err
 			}
-			return err
-		}
-		// Loading can migrate legacy skill/extras configuration. Complete that
-		// existing normalization before fingerprinting the MCP source.
-		if mode == modeProject {
-			_, err = config.LoadProject(cwd)
-		} else {
-			_, err = config.Load()
-		}
-		if err != nil {
-			return preflightErr(err)
-		}
-		scope := "-g"
-		if mode == modeProject {
-			scope = "-p"
-		}
-		mcpService, _, err = mcpContext([]string{scope})
-		if err != nil {
-			return preflightErr(err)
-		}
-		plan, planErr := mcpService.Preview()
-		if planErr != nil {
-			return preflightErr(fmt.Errorf("MCP preflight: %w", planErr))
-		}
-		mcpResult = &mcp.Result{Plan: plan, Applied: []string{}, BackupIDs: []string{}}
-		if plan.Blocked {
-			err = fmt.Errorf("MCP conflicts found; no resources synchronized")
-			if jsonOutput {
-				// Changes are credential-free and tell scripts which entries conflict.
-				return writeJSONResult(map[string]any{"error": err.Error(), "mcp": mcpResult}, err)
+			// Loading can migrate legacy skill/extras configuration. Complete that
+			// existing normalization before fingerprinting the MCP source.
+			if mode == modeProject {
+				_, err = config.LoadProject(cwd)
+			} else {
+				_, err = config.Load()
 			}
-			_ = printMCPPlan(plan, false)
-			return err
-		}
-		hooksService, _, err = hooksContext([]string{scope})
-		if err != nil {
-			return preflightErr(err)
-		}
-		hooksPlan, planErr := hooksService.Preview()
-		if planErr != nil {
-			return preflightErr(fmt.Errorf("hooks preflight: %w", planErr))
-		}
-		hooksResult = &hooks.Result{Plan: hooksPlan, Applied: []string{}, BackupIDs: []string{}}
-		if hooksPlan.Blocked {
-			err = fmt.Errorf("hooks conflicts found; no resources synchronized")
-			if jsonOutput {
-				return writeJSONResult(map[string]any{"error": err.Error(), "hooks": hooksResult}, err)
+			if err != nil {
+				return preflightErr(err)
 			}
-			printHooksPlan(hooksPlan)
-			return err
+			scope := "-g"
+			if mode == modeProject {
+				scope = "-p"
+			}
+			mcpService, _, err = mcpContext([]string{scope})
+			if err != nil {
+				return preflightErr(err)
+			}
+			plan, planErr := mcpService.Preview()
+			if planErr != nil {
+				return preflightErr(fmt.Errorf("MCP preflight: %w", planErr))
+			}
+			mcpResult = &mcp.Result{Plan: plan, Applied: []string{}, BackupIDs: []string{}}
+			if plan.Blocked {
+				err = fmt.Errorf("MCP conflicts found; no resources synchronized")
+				if jsonOutput {
+					// Changes are credential-free and tell scripts which entries conflict.
+					return writeJSONResult(map[string]any{"error": err.Error(), "mcp": mcpResult}, err)
+				}
+				_ = printMCPPlan(plan, false)
+				return err
+			}
+			hooksService, _, err = hooksContext([]string{scope})
+			if err != nil {
+				return preflightErr(err)
+			}
+			hooksPlan, planErr := hooksService.Preview()
+			if planErr != nil {
+				return preflightErr(fmt.Errorf("hooks preflight: %w", planErr))
+			}
+			hooksResult = &hooks.Result{Plan: hooksPlan, Applied: []string{}, BackupIDs: []string{}}
+			if hooksPlan.Blocked {
+				err = fmt.Errorf("hooks conflicts found; no resources synchronized")
+				if jsonOutput {
+					return writeJSONResult(map[string]any{"error": err.Error(), "hooks": hooksResult}, err)
+				}
+				printHooksPlan(hooksPlan)
+				return err
+			}
 		}
+		return nil
 	}
 	finishMCP := func(previous error) error {
 		if previous != nil {
@@ -261,6 +277,61 @@ func cmdSync(args []string) error {
 		}()
 	}
 
+	if prepared == nil && kind != kindAgents {
+		scope := profileapply.Scope{}
+		if mode == modeProject {
+			scope.ProjectRoot = cwd
+		}
+		v, loadErr := profileapply.Load(scope)
+		if loadErr != nil {
+			if jsonOutput {
+				return writeJSONError(loadErr)
+			}
+			return loadErr
+		}
+		configured, probeErr := config.ProfileConfigured(scope.Path(), v.Catalog.Present)
+		if probeErr != nil {
+			return probeErr
+		}
+		if configured {
+			native := &profileSyncNative{}
+			before := func(locked *profileapply.View) error {
+				err := prepareNative()
+				native.mcpResult, native.mcpService = mcpResult, mcpService
+				native.hooksResult, native.hooksService = hooksResult, hooksService
+				if err != nil {
+					return err
+				}
+				if locked.Project == nil && !dryRun && !jsonOutput {
+					discovery, err := locked.Discover()
+					if err != nil {
+						return err
+					}
+					if len(discovery.Skills) > 0 {
+						_, invalid, _ := config.ValidateConfigForSync(locked.Config)
+						backupTargetsBeforeSync(withoutTargets(locked.Config, invalid))
+					}
+				}
+				return nil
+			}
+			return runProfileSyncCLI(originalArgs, scope, dryRun, force, discardEdits, jsonOutput, native, before)
+		}
+		if discardEdits {
+			return fmt.Errorf("--discard-edits requires an active profile or pending profile switch")
+		}
+	}
+	if prepared != nil {
+		mcpResult, mcpService = prepared.native.mcpResult, prepared.native.mcpService
+		hooksResult, hooksService = prepared.native.hooksResult, prepared.native.hooksService
+	} else if err := prepareNative(); err != nil {
+		return err
+	}
+	var profileInfo *profileapply.Info
+	var profileSnapshots []profileapply.Snapshot
+	if prepared != nil {
+		profileInfo, profileSnapshots = prepared.result.Profile, prepared.result.Snapshot
+	}
+
 	if mode == modeProject {
 		// Agent-only project sync
 		if kind == kindAgents {
@@ -270,7 +341,7 @@ func cmdSync(args []string) error {
 		if hasAll && !jsonOutput {
 			ui.Section("Skills")
 		}
-		stats, results, projIgnoreStats, projCtxCost, invalid, linkWarnings, err := cmdSyncProject(cwd, dryRun, force, jsonOutput, quiet)
+		stats, results, projIgnoreStats, projCtxCost, invalid, linkWarnings, err := cmdSyncProject(cwd, dryRun, force, jsonOutput, quiet, prepared)
 		stats.ProjectScope = true
 
 		// Append agent sync when kind=all or --all
@@ -295,10 +366,10 @@ func cmdSync(args []string) error {
 					if err == nil {
 						err = extrasErr
 					}
-					return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, projCtxCost, mcpResult, hooksResult, linkWarnings, extrasEntries)
+					return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, projCtxCost, mcpResult, hooksResult, linkWarnings, profileInfo, profileSnapshots, extrasEntries)
 				}
 			}
-			return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, projCtxCost, mcpResult, hooksResult, linkWarnings)
+			return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, projCtxCost, mcpResult, hooksResult, linkWarnings, profileInfo, profileSnapshots)
 		}
 		err = finishNative(err)
 		if hasAll {
@@ -313,7 +384,12 @@ func cmdSync(args []string) error {
 		return err
 	}
 
-	cfg, err := config.Load()
+	var cfg *config.Config
+	if prepared != nil {
+		cfg = prepared.view.Config
+	} else {
+		cfg, err = config.Load()
+	}
 	if err != nil {
 		if jsonOutput {
 			return writeJSONError(err)
@@ -397,7 +473,7 @@ func cmdSync(args []string) error {
 	}
 
 	// Backup targets before sync (only if not dry-run and there are skills)
-	if !dryRun && len(discoveredSkills) > 0 && !jsonOutput {
+	if prepared == nil && !dryRun && len(discoveredSkills) > 0 && !jsonOutput {
 		backupTargetsBeforeSync(syncCfg)
 	}
 
@@ -410,6 +486,9 @@ func cmdSync(args []string) error {
 
 	var entries []syncTargetEntry
 	for _, name := range slices.Sorted(maps.Keys(cfg.Targets)) {
+		if prepared != nil && prepared.owns(name) {
+			continue
+		}
 		target := cfg.Targets[name]
 		entries = append(entries, syncTargetEntry{name: name, target: target, mode: getTargetMode(target.SkillsConfig().Mode, cfg.Mode), configErr: invalid[name], sourceIncomplete: sourceIncomplete})
 	}
@@ -420,6 +499,16 @@ func cmdSync(args []string) error {
 		results, failedTargets = runParallelSyncQuiet(entries, cfg.EffectiveSkillsSource(), discoveredSkills, sync.EffectiveFileIgnorePatterns(cfg.Ignore), dryRun, force, "")
 	} else {
 		results, failedTargets = runParallelSync(entries, cfg.EffectiveSkillsSource(), discoveredSkills, sync.EffectiveFileIgnorePatterns(cfg.Ignore), dryRun, force, "")
+	}
+	if prepared != nil {
+		profileResults := prepared.results(dryRun)
+		results = append(results, profileResults...)
+		failedTargets += len(failedSkillTargets(profileResults))
+		if !jsonOutput {
+			printProfileInfo(prepared.result.Profile)
+			renderSyncResults(profileResults)
+			printProfileSnapshots(prepared.result.Snapshot)
+		}
 	}
 
 	var syncErr error
@@ -490,9 +579,9 @@ func cmdSync(args []string) error {
 			if syncErr == nil {
 				syncErr = extrasErr
 			}
-			return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, ctxCost, mcpResult, hooksResult, linkWarnings, extrasEntries)
+			return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, ctxCost, mcpResult, hooksResult, linkWarnings, profileInfo, profileSnapshots, extrasEntries)
 		}
-		return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, ctxCost, mcpResult, hooksResult, linkWarnings)
+		return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, ctxCost, mcpResult, hooksResult, linkWarnings, profileInfo, profileSnapshots)
 	}
 
 	var extrasErr error
@@ -634,7 +723,7 @@ func printIgnoredSkills(stats *skillignore.IgnoreStats) {
 
 // syncOutputJSON converts sync results to JSON and writes to stdout.
 // extras is optional and included when --all is used.
-func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iStats *skillignore.IgnoreStats, syncErr error, ctxCost *contextCostJSON, mcpResult *mcp.Result, hooksResult *hooks.Result, warnings []string, extras ...[]syncExtrasJSONEntry) error {
+func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iStats *skillignore.IgnoreStats, syncErr error, ctxCost *contextCostJSON, mcpResult *mcp.Result, hooksResult *hooks.Result, warnings []string, profileInfo *profileapply.Info, snapshots []profileapply.Snapshot, extras ...[]syncExtrasJSONEntry) error {
 	var totals syncModeStats
 	var details []syncJSONTargetDetail
 	for _, r := range results {
@@ -651,7 +740,8 @@ func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iS
 			Pruned:  r.stats.pruned,
 			Error:   r.errMsg,
 
-			SkillsOff: r.skillsOff,
+			SkillsOff:    r.skillsOff,
+			KeptModified: r.keptModified,
 		})
 	}
 	output := syncJSONOutput{
@@ -664,6 +754,7 @@ func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iS
 		Duration: formatDuration(start),
 		Details:  details,
 		Warnings: warnings,
+		Profile:  profileInfo, Snapshot: snapshots,
 	}
 	ignoredSkills := []string{}
 	if iStats != nil && len(iStats.IgnoredSkills) > 0 {
@@ -840,6 +931,7 @@ func printSyncHelp() {
 			{"--all", "Sync skills, agents, extras, MCP and hooks"},
 			{"-n, --dry-run", "Preview changes without applying"},
 			{"-f, --force", "Force sync (overwrite local changes)"},
+			{"--discard-edits", "Discard listed profile-managed edits after verified snapshots"},
 			{"--json", "Output results as JSON"},
 			{"-q, --quiet", "Suppress token summary and budget warnings"},
 			{"-p, --project", "Use project-level config"},

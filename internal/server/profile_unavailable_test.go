@@ -49,7 +49,10 @@ func TestProfiles_UnavailableBlocksSkillsButNotAgents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, tc := range []struct{ body string; blocked bool }{
+	for _, tc := range []struct {
+		body    string
+		blocked bool
+	}{
 		{`{"kind":"skill","dryRun":true}`, true},
 		{`{"dryRun":true}`, true},
 		{`{"kind":"agent","dryRun":true}`, false},

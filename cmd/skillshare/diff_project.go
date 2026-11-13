@@ -15,8 +15,12 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 		return diffProjectAgents(root, targetName, opts, start)
 	}
 	cfg, err := config.LoadProjectReadOnly(root)
-	if err != nil { return err }
-	if err := cfg.ActiveProfileError(); err != nil { return err }
+	if err != nil {
+		return err
+	}
+	if err := cfg.ActiveProfileError(); err != nil {
+		return err
+	}
 	if err := ensureProjectConfig(root); err != nil {
 		return err
 	}

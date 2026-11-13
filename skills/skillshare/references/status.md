@@ -6,6 +6,8 @@ Commands with auto-detection run in project mode when a project config (`.skills
 
 Overview of source, targets, and sync state.
 
+When profile definitions or local state exist, a Profile row and optional JSON `profile: {name,state,selected,total,pending}` report desired selection. Target counts stay observed, so a pending switch, failed target or kept unmanaged entry can differ from that count. Status and `profile list` report an unavailable active selection and the repairs `profile use <name>` / `profile use --none`. A pending switch is retried with `skillshare sync`. See [profiles.md](profiles.md).
+
 ```bash
 skillshare status          # Auto-detects mode
 skillshare status -g       # Force global

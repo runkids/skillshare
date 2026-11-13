@@ -76,18 +76,20 @@ internal/backup/backup.go	createInDir	os.MkdirTemp	backupDir	backup
 internal/backup/backup.go	createInDir	os.RemoveAll	stagingPath	backup
 internal/backup/backup.go	createInDir	os.Rename	stagingPath, backupPath	backup
 internal/backup/backup.go	removeDirIfEmpty	os.Remove	path	backup
+internal/backup/cleanup.go	cleanEmptyDirs	os.Remove	subPath	backup
 internal/backup/cleanup.go	cleanupInDir	os.RemoveAll	backup.Path	backup
 internal/backup/cleanup.go	cleanupInDir	os.RemoveAll	path	backup
-internal/backup/cleanup.go	cleanEmptyDirs	os.Remove	subPath	backup
 internal/backup/delete.go	DeleteInDir	os.RemoveAll	path	backup
 internal/backup/restore.go	RestoreToPath	os.Remove	destPath	target
 internal/backup/restore.go	RestoreToPath	os.RemoveAll	destPath	target
-internal/check/checktest/fixture.go	Seed	os.WriteFile	filepath.Join(seed, "skills", "changed", "SKILL.md")	test-helper
-internal/check/checktest/fixture.go	Seed	os.RemoveAll	filepath.Join(seed, "skills", "doomed")	test-helper
 internal/check/checktest/fixture.go	Seed	os.MkdirAll	dir	test-helper
+internal/check/checktest/fixture.go	Seed	os.RemoveAll	filepath.Join(seed, "skills", "doomed")	test-helper
 internal/check/checktest/fixture.go	Seed	os.WriteFile	filepath.Join(dir, "SKILL.md")	test-helper
+internal/check/checktest/fixture.go	Seed	os.WriteFile	filepath.Join(seed, "skills", "changed", "SKILL.md")	test-helper
 internal/check/tree_check.go	FetchRemoteTreeHashesForRef	os.MkdirTemp	""	tmp
 internal/check/tree_check.go	FetchRemoteTreeHashesForRef	os.RemoveAll	tmpDir	tmp
+internal/config/config.go	(*Config).Save	os.MkdirAll	dir	config
+internal/config/config.go	(*Config).Save	os.WriteFile	path	config
 internal/config/config.go	decodeConfig	os.Rename	tmpPath, dest	config
 internal/config/config.go	decodeConfig	os.WriteFile	tmpPath	config
 internal/config/config.go	migrateSkillsToRegistry	os.WriteFile	configPath	config
@@ -288,6 +290,12 @@ internal/plugin/source.go	acquireRef	os.RemoveAll	root	plugin
 internal/plugin/source.go	copyTree	os.MkdirAll	to	plugin
 internal/plugin/source.go	copyTree	os.Symlink	link, to	plugin
 internal/plugin/source.go	copyTree	os.WriteFile	to	plugin
+internal/plugin/state.go	(*Service).saveState	os.MkdirAll	s.managedRoot()	config
+internal/profile/lock.go	Lock	os.MkdirAll	filepath.Dir(path)	config
+internal/profile/state.go	WriteState	os.CreateTemp	dir	config
+internal/profile/state.go	WriteState	os.MkdirAll	dir	config
+internal/profile/state.go	WriteState	os.Remove	f.Name()	config
+internal/profile/state.go	WriteState	os.Rename	f.Name(), path	config
 internal/projects/lock.go	lockPath	os.MkdirAll	dir	config
 internal/resource/agent.go	(AgentKind).CreateLink	os.Symlink	src, dst	target
 internal/resource/skill.go	(SkillKind).CreateLink	os.Symlink	src, dst	target
@@ -346,13 +354,13 @@ internal/sync/agent_sync.go	syncAgentsMergeCopy	os.Remove	targetPath	target
 internal/sync/agent_sync.go	syncAgentsSymlink	os.MkdirAll	filepath.Dir(targetDir)	target
 internal/sync/agent_sync.go	syncAgentsSymlink	os.Remove	targetDir	target
 internal/sync/agent_sync.go	syncAgentsSymlink	os.RemoveAll	targetDir	target
-internal/sync/copy.go	pruneOrphanCopiesWithConfig	os.RemoveAll	entryPath	target
 internal/sync/copy.go	SyncTargetCopyWithSkillsOptions	os.Remove	targetSkillPath	target
 internal/sync/copy.go	SyncTargetCopyWithSkillsOptions	os.RemoveAll	targetSkillPath	target
 internal/sync/copy.go	SyncTargetCopyWithSkillsOptions	os.RemoveAll	targetSkillPath	target
 internal/sync/copy.go	copySkillToTarget	os.Chmod	skillFile	target
 internal/sync/copy.go	copySkillToTarget	os.Chmod	skillFile	target
 internal/sync/copy.go	copySkillToTarget	os.RemoveAll	dst	target
+internal/sync/copy.go	pruneOrphanCopiesWithPolicy	os.RemoveAll	entryPath	target
 internal/sync/detach_target.go	<package>	os.Remove	<ref>	target
 internal/sync/detach_target.go	copySkillDir	os.MkdirAll	dstPath	target
 internal/sync/detach_target.go	copySkillDir	os.OpenFile	dstPath	target
@@ -422,6 +430,8 @@ internal/sync/file_backups.go	RestoreFileBackup	os.Remove	path	target
 internal/sync/file_backups.go	RestoreFileBackup	os.Symlink	v.LinkTo, path	target
 internal/sync/file_backups.go	RestoreFileBackup	os.WriteFile	path	target
 internal/sync/filelink.go	(*copyTracker).pruneOrphans	os.Remove	filepath.Join(t.dir, rel)	target
+internal/sync/manifest.go	(*Manifest).verifiedCopyFingerprint	os.MkdirTemp	""	tmp
+internal/sync/manifest.go	(*Manifest).verifiedCopyFingerprint	os.RemoveAll	scratch	tmp
 internal/sync/manifest.go	RemoveManifest	os.Remove	filepath.Join(targetPath, ManifestFile)	target
 internal/sync/manifest.go	WriteManifest	os.WriteFile	filepath.Join(targetPath, ManifestFile)	target
 internal/sync/pull.go	PullSkill	os.RemoveAll	destPath	source-unmigrated
@@ -451,7 +461,7 @@ internal/sync/sync.go	MigrateToSource	os.RemoveAll	targetPath	target
 internal/sync/sync.go	MigrateToSource	os.Rename	targetPath, sourcePath	source-unmigrated
 internal/sync/sync.go	PruneOrphanLinksWithSkills	os.RemoveAll	entryPath	target
 internal/sync/sync.go	SyncTarget	os.Remove	sc.Path	target
-internal/sync/sync.go	SyncTargetMergeWithSkills	os.Remove	targetSkillPath	target
+internal/sync/sync.go	SyncTargetMergeWithPolicy	os.Remove	targetSkillPath	target
 internal/sync/sync.go	copyDirectoryWithState	os.MkdirAll	dstPath	source-unmigrated
 internal/sync/sync.go	copyFile	os.OpenFile	dst	source-unmigrated
 internal/sync/sync.go	ensureRealTargetDir	os.MkdirAll	targetPath	target
@@ -462,10 +472,11 @@ internal/sync/sync.go	replaceWithLink	os.Remove	path	target
 internal/sync/sync.go	replaceWithLink	os.RemoveAll	parked	target
 internal/sync/sync.go	replaceWithLink	os.Rename	parked, path	target
 internal/sync/sync.go	replaceWithLink	os.Rename	path, parked	target
-internal/sync/target_naming_migration.go	selectActiveTargetNameForSync	os.Rename	legacyPath, desiredPath	target
 internal/sync/target_naming_migration.go	selectActiveTargetNameForSync	os.Rename	desiredPath, legacyPath	target
+internal/sync/target_naming_migration.go	selectActiveTargetNameForSync	os.Rename	legacyPath, desiredPath	target
 internal/testutil/git_helpers.go	SeedRemoteBranch	os.MkdirAll	filepath.Dir(full)	test-helper
 internal/testutil/git_helpers.go	SeedRemoteBranch	os.WriteFile	full	test-helper
+internal/testutil/private_git.go	ServePrivateGit	os.Mkdir	filepath.Join(root, "org")	test-helper
 internal/testutil/testutil.go	(*Sandbox).CreateNestedSkill	os.MkdirAll	skillDir	test-helper
 internal/testutil/testutil.go	(*Sandbox).CreateNestedSkill	os.WriteFile	path	test-helper
 internal/testutil/testutil.go	(*Sandbox).CreateProjectSkill	os.MkdirAll	skillDir	test-helper
@@ -535,7 +546,3 @@ internal/version/check.go	cleanupLegacyCache	os.Remove	legacyPath	config
 internal/version/check.go	cleanupLegacyCache	os.Remove	parentDir	config
 internal/version/check.go	saveCacheAt	os.MkdirAll	filepath.Dir(cachePath)	config
 internal/version/check.go	saveCacheAt	os.WriteFile	cachePath	config
-internal/config/config.go	(*Config).Save	os.MkdirAll	dir	config
-internal/config/config.go	(*Config).Save	os.WriteFile	path	config
-internal/plugin/state.go	(*Service).saveState	os.MkdirAll	s.managedRoot()	config
-internal/testutil/private_git.go	ServePrivateGit	os.Mkdir	filepath.Join(root, "org")	test-helper

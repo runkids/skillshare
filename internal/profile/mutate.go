@@ -209,7 +209,9 @@ func nodeIndex(n *yaml.Node, key string) int {
 	return -1
 }
 
-func scalar(value string) *yaml.Node { return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value} }
+func scalar(value string) *yaml.Node {
+	return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value}
+}
 
 func setValue(n *yaml.Node, key string, value *yaml.Node) {
 	if i := nodeIndex(n, key); i >= 0 {

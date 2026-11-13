@@ -1,12 +1,15 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
 
 	"skillshare/internal/audit"
 	"skillshare/internal/config"
+	"skillshare/internal/profile"
+	"skillshare/internal/profileapply"
 	"skillshare/internal/resource"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
@@ -39,6 +42,9 @@ func cmdStatusProject(root string) error {
 	}
 	show := func(path string) string { return projectStatusPath(runtime.root, path) }
 	counts := sync.CountSkills(discovered)
+	if v, err := profileapply.Load(profileapply.Scope{ProjectRoot: root}); err == nil {
+		printProfileInfo(v.Info(discovered))
+	}
 	printSourceStatus(runtime.sourcePath, runtime.agentsSourcePath, show, counts.Skills, agentCount, stats, counts.Variants)
 	printTrackedReposStatus(runtime.sourcePath, discovered, trackedRepos)
 	if err := printProjectTargetsStatus(runtime, discovered); err != nil {
@@ -72,6 +78,9 @@ func cmdStatusProjectJSON(root string) error {
 	}
 
 	discovered, stats, _ := sync.DiscoverSourceSkillsWithStats(runtime.sourcePath, walk)
+	if v, err := profileapply.Load(profileapply.Scope{ProjectRoot: root}); err == nil {
+		output.Profile = v.Info(discovered)
+	}
 	trackedRepos := extractTrackedRepos(runtime.sourcePath, walk)
 
 	printSkippedSourceLinkWarnings(walk, true)
@@ -217,7 +226,10 @@ func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.Discov
 		if sc.IsEnabled() && (mode == "merge" || mode == "copy") {
 			var err error
 			expected, err = sync.ExpectedSkillCount(entry.Name, sc, discovered)
-			if err != nil {
+			if errors.Is(err, profile.ErrProfileUnavailable) {
+				warnings = append(warnings, err.Error())
+				expected = res.syncedCount
+			} else if err != nil {
 				return fmt.Errorf("target %s has invalid include/exclude config: %w", entry.Name, err)
 			}
 			notSynced = max(notSynced, expected-res.syncedCount)

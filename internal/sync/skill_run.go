@@ -40,17 +40,17 @@ type SkillRunOptions struct {
 
 // SkillTargetResult is the outcome of a skill sync for one target.
 type SkillTargetResult struct {
-	KeptModified []EntryChange
-	Blocked      []EntryChange
-	Refreshed    []string
-	Converted    []string
-	PruneErr     error
+	KeptModified   []EntryChange
+	Blocked        []EntryChange
+	Refreshed      []string
+	Converted      []string
+	PruneErr       error
 	FailedRemovals []string
-	Name    string
-	Mode    string
-	Linked  []string // merge: linked; copy: copied
-	Updated []string
-	Skipped []string
+	Name           string
+	Mode           string
+	Linked         []string // merge: linked; copy: copied
+	Updated        []string
+	Skipped        []string
 	// KeptLocal are the skipped entries that are a user's folder on a skill's name.
 	KeptLocal []string
 	Pruned    []string // nil when no prune ran or it returned nothing
@@ -93,13 +93,13 @@ func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptio
 		}
 		res.UnmatchedIncludes = result.UnmatchedIncludes
 		prune, err := PruneOrphanLinksWithSkills(PruneOptions{
-			ProfileAware: opts.ProfileAware,
-			Profile:      sc.Profile,
+			ProfileAware:   opts.ProfileAware,
+			Profile:        sc.Profile,
 			IgnorePatterns: opts.IgnorePatterns,
-			Discard:      opts.Discard,
-			SharedTargets: sc.SharedTargets,
-			Agent:         sc.Agent,
-			TargetPath:    sc.Path, SourcePath: opts.Source, Skills: skills,
+			Discard:        opts.Discard,
+			SharedTargets:  sc.SharedTargets,
+			Agent:          sc.Agent,
+			TargetPath:     sc.Path, SourcePath: opts.Source, Skills: skills,
 			Include: sc.Include, Exclude: sc.Exclude, TargetNaming: sc.TargetNaming, TargetName: t.Name,
 			DryRun: opts.DryRun, Force: opts.Force,
 		})

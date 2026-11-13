@@ -194,11 +194,13 @@ func printAnalyzeHelp() {
 
 // runAnalyze runs the analyze command in global mode.
 func runAnalyze(opts *analyzeOptions) error {
-	cfg, err := config.LoadReadOnly()
+	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
-	if err := cfg.ActiveProfileError(); err != nil { return err }
+	if err := cfg.ActiveProfileError(); err != nil {
+		return err
+	}
 	if opts.targetName == "" && !opts.json && shouldLaunchTUI(opts.noTUI, cfg) {
 		loadFn := func() analyzeLoadResult {
 			discovered, err := ssync.DiscoverSourceSkillsForAnalyze(cfg.EffectiveSkillsSource(), cfg.SkillsWalk())

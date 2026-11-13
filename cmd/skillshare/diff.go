@@ -379,13 +379,15 @@ func (dp *diffProgress) stop() {
 }
 
 func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOpts, start time.Time) error {
-	cfg, err := config.LoadReadOnly()
+	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
 
 	if kind != kindAgents {
-		if err := cfg.ActiveProfileError(); err != nil { return err }
+		if err := cfg.ActiveProfileError(); err != nil {
+			return err
+		}
 	}
 
 	// Agent-only diff

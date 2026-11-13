@@ -16,14 +16,14 @@ import (
 
 // CopyResult holds the result of a copy sync operation.
 type CopyResult struct {
-	Copied     []string // newly copied skills
-	Converted  []string // Links replaced with copies
-	Skipped    []string // checksum unchanged, or a user's folder kept
-	KeptLocal  []string // the Skipped that are a user's folder on a skill's name; --force replaces them
+	Copied       []string // newly copied skills
+	Converted    []string // Links replaced with copies
+	Skipped      []string // checksum unchanged, or a user's folder kept
+	KeptLocal    []string // the Skipped that are a user's folder on a skill's name; --force replaces them
 	KeptModified []EntryChange
-	Blocked []EntryChange
-	Updated    []string // checksum changed, overwritten
-	DirCreated string   // Non-empty if target directory was auto-created (or would be in dry-run)
+	Blocked      []EntryChange
+	Updated      []string // checksum changed, overwritten
+	DirCreated   string   // Non-empty if target directory was auto-created (or would be in dry-run)
 	// UnmatchedIncludes are the include patterns that select no skill.
 	UnmatchedIncludes []UnmatchedInclude
 }
@@ -31,8 +31,8 @@ type CopyResult struct {
 // CopyOptions controls copy-mode sync behavior.
 type CopyOptions struct {
 	IgnorePatterns []string
-	ProfileAware bool
-	Discard []DiscardEntry
+	ProfileAware   bool
+	Discard        []DiscardEntry
 }
 
 // SyncTargetCopy performs copy mode sync — copies each skill individually
@@ -108,7 +108,7 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 	taken := resolution.ValidTargetNames()
 	for i, resolved := range resolution.Skills {
 		skill := resolved.Skill
-		activeName, err := selectActiveTargetNameWithPolicy("copy", sc.Path, resolved, taken, manifest, dryRun, opts.ProfileAware && !force, ignorePatterns)
+		activeName, err := selectActiveTargetNameForSync("copy", sc.Path, resolved, taken, manifest, dryRun, opts.ProfileAware && !force, ignorePatterns)
 		if err != nil {
 			return nil, err
 		}
@@ -193,18 +193,8 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 		targetInfo, lstatErr := os.Lstat(targetSkillPath)
 		exists := lstatErr == nil
 		convertedLink := false
-		if opts.ProfileAware && exists && !force {
-			entry := ClassifyEntry(EntryInput{Name: activeName, Path: targetSkillPath, SourceRoot: sourcePath, Manifest: manifest, Source: &copySource})
-			if entry.Class == EntryModifiedCopy && !discardAllowed(name, activeName, entry, opts.Discard) {
-				result.KeptModified = append(result.KeptModified, EntryChange{Target: name, Entry: activeName, Step: "refresh", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint})
-				result.Skipped = append(result.Skipped, activeName)
-				continue
-			}
-			if entry.Class == EntryUnmanaged {
-				result.Blocked = append(result.Blocked, EntryChange{Target: name, Entry: activeName, Step: "refresh", Class: entry.Class, Reason: entry.Reason})
-				result.Skipped = append(result.Skipped, activeName)
-				continue
-			}
+		if exists && !checkBeforeWrite() {
+			continue
 		}
 
 		if exists {
@@ -216,9 +206,6 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 						fmt.Fprintf(DiagOutput, "[dry-run] Would replace symlink with copy: %s\n", activeName)
 					}
 				} else {
-					if !checkBeforeWrite() {
-						continue
-					}
 					if err := os.Remove(targetSkillPath); err != nil && opts.ProfileAware {
 						return nil, fmt.Errorf("failed to remove link %s: %w", activeName, err)
 					}
@@ -234,9 +221,6 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 								fmt.Fprintf(DiagOutput, "[dry-run] Would replace non-directory entry with copy: %s\n", activeName)
 							}
 						} else {
-							if !checkBeforeWrite() {
-								continue
-							}
 							if err := os.RemoveAll(targetSkillPath); err != nil {
 								return nil, fmt.Errorf("failed to remove invalid entry %s: %w", activeName, err)
 							}
@@ -280,9 +264,6 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 							fmt.Fprintf(DiagOutput, "[dry-run] Would update copy: %s\n", activeName)
 						}
 					} else {
-						if !checkBeforeWrite() {
-							continue
-						}
 						if err := os.RemoveAll(targetSkillPath); err != nil {
 							return nil, fmt.Errorf("failed to remove old copy %s: %w", activeName, err)
 						}
@@ -325,9 +306,6 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 				fmt.Fprintf(DiagOutput, "[dry-run] Would copy: %s -> %s\n", skill.SourcePath, dest)
 			}
 		} else {
-			if !checkBeforeWrite() {
-				continue
-			}
 			if err := copySkillToTarget(skill.SourcePath, targetSkillPath, rewriteName, ignorePatterns); err != nil {
 				return nil, fmt.Errorf("failed to copy skill %s: %w", activeName, err)
 			}
@@ -453,18 +431,6 @@ func pruneOrphanCopiesWithPolicy(targetName string, sc config.ResourceTargetConf
 		if dryRun {
 			fmt.Fprintf(DiagOutput, "[dry-run] Would remove orphan copy: %s\n", entryPath)
 		} else {
-			if profileAware {
-				input := EntryInput{Name: entryName, Path: entryPath, SourceRoot: sourceRoot, Manifest: manifest, Source: legacyCopySource(entryName, allSourceSkills, manifest, ignore)}
-				if current, allowed := entryMutationAllowed(targetName, input, discard); !allowed {
-					change := EntryChange{Target: targetName, Entry: entryName, Step: "prune", Class: current.Class, Reason: current.Reason, Fingerprint: current.Fingerprint}
-					if current.Class == EntryModifiedCopy {
-						result.KeptModified = append(result.KeptModified, change)
-					} else {
-						result.Blocked = append(result.Blocked, change)
-					}
-					continue
-				}
-			}
 			if err := os.RemoveAll(entryPath); err != nil {
 				result.FailedRemovals = append(result.FailedRemovals, entryName)
 				result.Warnings = append(result.Warnings,

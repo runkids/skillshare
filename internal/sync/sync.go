@@ -483,13 +483,13 @@ func copyFile(src, dst string) error {
 
 // MergeResult holds the result of a merge sync operation
 type MergeResult struct {
-	Linked     []string // Skills that were symlinked
-	Skipped    []string // Skills that already exist in target (kept local)
-	Updated    []string // Skills that had broken symlinks fixed
-	Converted  []string // Copies replaced with links
+	Linked       []string // Skills that were symlinked
+	Skipped      []string // Skills that already exist in target (kept local)
+	Updated      []string // Skills that had broken symlinks fixed
+	Converted    []string // Copies replaced with links
 	KeptModified []EntryChange
-	Blocked []EntryChange
-	DirCreated string   // Non-empty if target directory was auto-created (or would be in dry-run)
+	Blocked      []EntryChange
+	DirCreated   string // Non-empty if target directory was auto-created (or would be in dry-run)
 	// UnmatchedIncludes are the include patterns that select no skill.
 	UnmatchedIncludes []UnmatchedInclude
 }
@@ -637,7 +637,7 @@ func SyncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkill
 	taken := resolution.ValidTargetNames()
 	for _, resolved := range resolution.Skills {
 		skill := resolved.Skill
-		activeName, err := selectActiveTargetNameWithPolicy("merge", sc.Path, resolved, taken, manifest, dryRun, profileAware && !force, ignore)
+		activeName, err := selectActiveTargetNameForSync("merge", sc.Path, resolved, taken, manifest, dryRun, profileAware && !force, ignore)
 		if err != nil {
 			return nil, err
 		}
@@ -663,23 +663,6 @@ func SyncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkill
 				continue
 			}
 		}
-		checkBeforeWrite := func() bool {
-			if !profileAware || force {
-				return true
-			}
-			input := EntryInput{Name: activeName, Path: targetSkillPath, SourceRoot: sourcePath, Manifest: manifest, Source: &copySource}
-			current, allowed := entryMutationAllowed(name, input, discard)
-			if !allowed {
-				change := EntryChange{Target: name, Entry: activeName, Step: "convert", Class: current.Class, Reason: current.Reason, Fingerprint: current.Fingerprint}
-				if current.Class == EntryModifiedCopy {
-					result.KeptModified = append(result.KeptModified, change)
-				} else {
-					result.Blocked = append(result.Blocked, change)
-				}
-				result.Skipped = append(result.Skipped, activeName)
-			}
-			return allowed
-		}
 
 		// Check if skill exists in target
 		_, err = os.Lstat(targetSkillPath)
@@ -702,9 +685,6 @@ func SyncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkill
 					}
 					// Correct target but wrong format (abs↔rel) — recreate
 					if !dryRun {
-						if !checkBeforeWrite() {
-							continue
-						}
 						if err := reformatLink(targetSkillPath, skill.SourcePath, relative, sourcePath); err != nil {
 							return nil, fmt.Errorf("failed to reformat link for %s: %w", activeName, err)
 						}
@@ -719,9 +699,6 @@ func SyncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkill
 						fmt.Fprintf(DiagOutput, "[dry-run] Would fix symlink: %s\n", activeName)
 					}
 				} else {
-					if !checkBeforeWrite() {
-						continue
-					}
 					if err := os.Remove(targetSkillPath); err != nil && profileAware {
 						return nil, fmt.Errorf("failed to remove link %s: %w", activeName, err)
 					}
@@ -739,9 +716,6 @@ func SyncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkill
 							fmt.Fprintf(DiagOutput, "[dry-run] Would replace local copy: %s\n", activeName)
 						}
 					} else {
-						if !checkBeforeWrite() {
-							continue
-						}
 						err := replaceWithLink(targetSkillPath, func() error {
 							return createLink(targetSkillPath, skill.SourcePath, relative, sourcePath)
 						})
@@ -763,9 +737,6 @@ func SyncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkill
 					fmt.Fprintf(DiagOutput, "[dry-run] Would create link: %s -> %s\n", targetSkillPath, skill.SourcePath)
 				}
 			} else {
-				if !checkBeforeWrite() {
-					continue
-				}
 				if err := createLink(targetSkillPath, skill.SourcePath, relative, sourcePath); err != nil {
 					return nil, fmt.Errorf("failed to create link for %s: %w", activeName, err)
 				}
@@ -824,31 +795,31 @@ func replaceWithLink(path string, link func() error) error {
 
 // PruneResult holds the result of a prune operation
 type PruneResult struct {
-	Removed   []string // Items that were removed
-	Warnings  []string // Items that were kept with warnings
-	LocalDirs []string // User-created entries (directories or links) not managed by skillshare
-	KeptModified []EntryChange
-	Blocked []EntryChange
+	Removed        []string // Items that were removed
+	Warnings       []string // Items that were kept with warnings
+	LocalDirs      []string // User-created entries (directories or links) not managed by skillshare
+	KeptModified   []EntryChange
+	Blocked        []EntryChange
 	FailedRemovals []string
 }
 
 // PruneOptions holds parameters for PruneOrphanLinks / PruneOrphanCopies.
 type PruneOptions struct {
-	ProfileAware bool
-	Profile profile.Selector
+	ProfileAware   bool
+	Profile        profile.Selector
 	IgnorePatterns []string
-	Discard []DiscardEntry
-	SharedTargets []config.SkillTargetIdentity
-	Agent         string
-	TargetPath    string
-	SourcePath    string
-	Skills        []DiscoveredSkill // pre-discovered; if nil, will be discovered from SourcePath
-	Include       []string
-	Exclude       []string
-	TargetNaming  string
-	TargetName    string
-	DryRun        bool
-	Force         bool
+	Discard        []DiscardEntry
+	SharedTargets  []config.SkillTargetIdentity
+	Agent          string
+	TargetPath     string
+	SourcePath     string
+	Skills         []DiscoveredSkill // pre-discovered; if nil, will be discovered from SourcePath
+	Include        []string
+	Exclude        []string
+	TargetNaming   string
+	TargetName     string
+	DryRun         bool
+	Force          bool
 	// ManagedOnly removes only entries that are provably skillshare's: broken
 	// links into the source and manifest-tracked links and directories. The name heuristic and
 	// broken-external-link cleanup are skipped. For directories that are not a
@@ -1025,18 +996,6 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 			if dryRun {
 				fmt.Fprintf(DiagOutput, "[dry-run] Would remove %s: %s\n", reason, entryPath)
 			} else {
-				if opts.ProfileAware {
-					input := EntryInput{Name: name, Path: entryPath, SourceRoot: sourcePath, Manifest: manifest, Source: legacyCopySource(name, allSourceSkills, manifest, opts.IgnorePatterns)}
-					if current, allowed := entryMutationAllowed(targetName, input, opts.Discard); !allowed {
-						change := EntryChange{Target: targetName, Entry: name, Step: "prune", Class: current.Class, Reason: current.Reason, Fingerprint: current.Fingerprint}
-						if current.Class == EntryModifiedCopy {
-							result.KeptModified = append(result.KeptModified, change)
-						} else {
-							result.Blocked = append(result.Blocked, change)
-						}
-						continue
-					}
-				}
 				if err := os.RemoveAll(entryPath); err != nil {
 					result.FailedRemovals = append(result.FailedRemovals, name)
 					result.Warnings = append(result.Warnings,

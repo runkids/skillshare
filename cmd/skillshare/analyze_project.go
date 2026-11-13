@@ -14,8 +14,12 @@ func cmdAnalyzeProject(root string, opts *analyzeOptions) error {
 	}
 
 	cfg, err := config.LoadProjectReadOnly(root)
-	if err != nil { return err }
-	if err := cfg.ActiveProfileError(); err != nil { return err }
+	if err != nil {
+		return err
+	}
+	if err := cfg.ActiveProfileError(); err != nil {
+		return err
+	}
 	runtime, err := loadProjectRuntime(root)
 	if err != nil {
 		if opts.json {

@@ -41,7 +41,6 @@ func Resolve(c Catalog, state State, configPath string, stateErr error) Selector
 	return Selector{name: state.Active, definition: d}
 }
 
-func (s Selector) Name() string { return s.name }
 func (s Selector) Active() bool { return s.name != "" || s.err != nil }
 func (s Selector) Selects(flatName string) (bool, error) {
 	if s.err != nil {
