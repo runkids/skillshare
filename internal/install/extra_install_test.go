@@ -657,7 +657,7 @@ func TestInstallRemoteExtra_RollbackPreservesConcurrentConfig(t *testing.T) {
 	}
 	defer func() { extraBoundary = old }()
 	_, err := InstallRemoteExtra(req)
-	if err == nil || !strings.Contains(err.Error(), "concurrent save") {
+	if err == nil || !strings.Contains(err.Error(), req.ConfigPath) || !strings.Contains(err.Error(), "changed by another writer") {
 		t.Fatalf("fault: %v", err)
 	}
 	got, err := os.ReadFile(req.ConfigPath)
@@ -882,7 +882,7 @@ func TestInstallRemoteExtra_RollbackPreservesConcurrentLock(t *testing.T) {
 		return nil
 	}
 	defer func() { extraBoundary = old }()
-	if _, err := InstallRemoteExtra(req); err == nil || !strings.Contains(err.Error(), "concurrent save") {
+	if _, err := InstallRemoteExtra(req); err == nil || !strings.Contains(err.Error(), filepath.Join(req.LockDir, LockFileName)) || !strings.Contains(err.Error(), "changed by another writer") {
 		t.Fatalf("rollback: %v", err)
 	}
 	lock, err := LoadLock(req.LockDir)
@@ -918,7 +918,7 @@ func TestInstallRemoteExtra_RollbackPreservesConcurrentIgnore(t *testing.T) {
 		return nil
 	}
 	defer func() { extraBoundary = old }()
-	if _, err := InstallRemoteExtra(req); err == nil || !strings.Contains(err.Error(), "concurrent save") {
+	if _, err := InstallRemoteExtra(req); err == nil || !strings.Contains(err.Error(), filepath.Join(req.LockDir, ".gitignore")) || !strings.Contains(err.Error(), "changed by another writer") {
 		t.Fatalf("rollback: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(req.LockDir, ".gitignore"))
@@ -1049,5 +1049,65 @@ func TestInstallRemoteExtra_RepairRefusesLinkedStateFiles(t *testing.T) {
 				t.Fatalf("marker lost: %v", err)
 			}
 		})
+	}
+}
+
+func TestInstallRemoteExtra_MetadataChangedKeepsMarker(t *testing.T) {
+	req := newRemoteExtraRequest(t)
+	meta := filepath.Join(req.ExtrasRoot, MetadataFileName)
+	old := extraBoundary
+	extraBoundary = func(step string) error {
+		if step == "metadata" {
+			if err := os.WriteFile(meta, []byte("other writer"), 0644); err != nil {
+				return err
+			}
+			return errors.New("fault")
+		}
+		return nil
+	}
+	defer func() { extraBoundary = old }()
+	_, err := InstallRemoteExtra(req)
+	if err == nil || !strings.Contains(err.Error(), "metadata changed") || !strings.Contains(err.Error(), "marker retained") {
+		t.Fatalf("rollback: %v", err)
+	}
+	got, err := os.ReadFile(meta)
+	if err != nil || string(got) != "other writer" {
+		t.Fatalf("metadata overwritten: %q %v", got, err)
+	}
+	if _, err := os.Lstat(extraJournalPath(req.ExtrasRoot, req.Name)); err != nil {
+		t.Fatalf("marker lost: %v", err)
+	}
+}
+
+func TestInstallRemoteExtra_RollbackCompareFailureKeepsMarker(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires symlink privilege")
+	}
+	req := newRemoteExtraRequest(t)
+	sentinel := filepath.Join(t.TempDir(), "sentinel")
+	if err := os.WriteFile(sentinel, []byte("keep"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	old := extraBoundary
+	extraBoundary = func(step string) error {
+		if step == "config" {
+			if err := os.Remove(req.ConfigPath); err != nil {
+				return err
+			}
+			if err := os.Symlink(sentinel, req.ConfigPath); err != nil {
+				return err
+			}
+			return errors.New("fault")
+		}
+		return nil
+	}
+	defer func() { extraBoundary = old }()
+	_, err := InstallRemoteExtra(req)
+	if err == nil || !strings.Contains(err.Error(), req.ConfigPath) || !strings.Contains(err.Error(), "marker retained") {
+		t.Fatalf("rollback: %v", err)
+	}
+	got, err := os.ReadFile(sentinel)
+	if err != nil || string(got) != "keep" {
+		t.Fatalf("sentinel: %q %v", got, err)
 	}
 }

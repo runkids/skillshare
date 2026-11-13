@@ -141,7 +141,7 @@ func publishRemoteExtra(req RemoteExtraRequest, candidate *extraCandidate) error
 			return fmt.Errorf("publishing %s interrupted at %s: %w", req.Name, step, cause)
 		}
 		var failures []string
-		preserved := false
+		var preserved []string
 		for _, p := range []*extraParticipant{&configFile, &lockFile, &ignoreFile, &metaFile} {
 			if p.uncertain {
 				failures = append(failures, "cannot compare "+p.path)
@@ -158,7 +158,6 @@ func publishRemoteExtra(req RemoteExtraRequest, candidate *extraCandidate) error
 			if restored {
 				continue
 			}
-			preserved = true
 			switch p {
 			case &configFile:
 				e = req.RevertConfig()
@@ -182,10 +181,12 @@ func publishRemoteExtra(req RemoteExtraRequest, candidate *extraCandidate) error
 					}
 				}
 			case &metaFile:
-				e = fmt.Errorf("metadata changed during publication")
+				e = fmt.Errorf("%s: metadata changed during publication", p.path)
 			}
 			if e != nil {
 				failures = append(failures, e.Error())
+			} else {
+				preserved = append(preserved, p.path+" changed by another writer and was kept; only this install's change was reverted")
 			}
 		}
 		canRestoreTree := true
@@ -216,10 +217,10 @@ func publishRemoteExtra(req RemoteExtraRequest, candidate *extraCandidate) error
 			}
 		}
 		if len(failures) != 0 {
-			return fmt.Errorf("publishing %s failed at %s: %w; rollback incomplete, marker retained: %s; inspect the interrupted extra before running skillshare extras remove %s", req.Name, step, cause, strings.Join(failures, "; "), req.Name)
+			return fmt.Errorf("publishing %s failed at %s: %w; rollback incomplete, marker retained: %s; run skillshare check extras", req.Name, step, cause, strings.Join(failures, "; "))
 		}
-		if preserved {
-			return fmt.Errorf("publishing %s failed at %s: %w; preserved a concurrent save", req.Name, step, cause)
+		if len(preserved) != 0 {
+			return fmt.Errorf("publishing %s failed at %s: %w; %s", req.Name, step, cause, strings.Join(preserved, "; "))
 		}
 		return fmt.Errorf("publishing %s failed at %s: %w", req.Name, step, cause)
 	}
