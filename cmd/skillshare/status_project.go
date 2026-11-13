@@ -82,7 +82,7 @@ func cmdStatusProjectJSON(root string) error {
 	}
 	counts := sync.CountSkills(discovered)
 	output.SkillCount, output.VariantCount = counts.Skills, counts.Variants
-	output.TrackedRepos = buildTrackedRepoJSON(runtime.sourcePath, trackedRepos, discovered, walk)
+	output.TrackedRepos = buildTrackedRepoJSON(runtime.sourcePath, true, trackedRepos, discovered, walk)
 	warningSkills := variantWarningSkills(runtime.sourcePath, runtime.targets, "merge", walk, discovered)
 
 	for _, entry := range runtime.config.Targets {

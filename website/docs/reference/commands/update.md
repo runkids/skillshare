@@ -119,7 +119,7 @@ When tracked repos are declared in metadata but missing on disk, each is reporte
   ],
   "missing_tracked_repos": {
     "names": ["_team-skills"],
-    "hint": "Run 'skillshare install' to rehydrate tracked repositories"
+    "hint": "Run 'skillshare install -g' to rehydrate tracked repositories, or 'skillshare uninstall <name> -g' to remove an unwanted declaration"
   }
 }
 ```
@@ -248,10 +248,12 @@ If `.metadata.json` declares a tracked repo (`tracked: true`) but its clone dire
 ```
 ! 1 tracked repo declared in metadata but missing on disk
 ! _team-skills  clone directory absent
-  Run 'skillshare install' to rehydrate tracked repositories
+  Run 'skillshare install -g' to rehydrate tracked repositories, or 'skillshare uninstall <name> -g' to remove an unwanted declaration
 ```
 
 This applies to both global and project (`-p`) mode. To recreate the clones from metadata, run no-argument [install](/docs/reference/commands/install) (see [Rehydrating After a Fresh Clone](/docs/understand/tracked-repositories#rehydrating-after-a-fresh-clone)).
+
+In global mode, you can instead run `skillshare uninstall <name> -g` to remove an unwanted declaration without a checkout; nothing moves to trash and there is no trash undo. Project mode suggests `skillshare install -p` and does not support declaration-only removal.
 
 ## Stale Skill Cleanup (`--prune`)
 

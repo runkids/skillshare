@@ -892,10 +892,7 @@ func checkMissingTrackedRepos(source string, result *doctorResult, isProject boo
 		details = append(details, detail)
 	}
 
-	suggestion := "Run 'skillshare install' to rehydrate tracked repositories from metadata."
-	if isProject {
-		suggestion = "Run 'skillshare install -p' to rehydrate tracked repositories from project metadata."
-	}
+	suggestion := missingTrackedRepoHint(isProject) + "."
 
 	result.addWarning()
 	result.addCheckWithSuggestions(

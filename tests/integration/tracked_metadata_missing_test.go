@@ -70,8 +70,8 @@ func TestTrackedMetadataMissingClone_StatusJSONReportsMissingRepo(t *testing.T) 
 		t.Fatalf("expected missing tracked repo status, got %q", output.TrackedRepos[0].Status)
 	}
 	message := strings.ToLower(output.TrackedRepos[0].Message)
-	if !strings.Contains(message, "missing") || !strings.Contains(output.TrackedRepos[0].Message, "skillshare install") {
-		t.Fatalf("expected actionable missing-repo message with skillshare install suggestion, got %q", output.TrackedRepos[0].Message)
+	if !strings.Contains(message, "missing") || !strings.Contains(output.TrackedRepos[0].Message, "skillshare install -g") || !strings.Contains(output.TrackedRepos[0].Message, "skillshare uninstall <name> -g") {
+		t.Fatalf("expected actionable missing-repo message with install and removal suggestions, got %q", output.TrackedRepos[0].Message)
 	}
 }
 
@@ -104,8 +104,8 @@ func TestTrackedMetadataMissingClone_CheckJSONReportsMissingRepo(t *testing.T) {
 		t.Fatalf("expected missing tracked repo status, got %q", output.TrackedRepos[0].Status)
 	}
 	message := strings.ToLower(output.TrackedRepos[0].Message)
-	if !strings.Contains(message, "missing") || !strings.Contains(output.TrackedRepos[0].Message, "skillshare install") {
-		t.Fatalf("expected actionable missing-repo message with skillshare install suggestion, got %q", output.TrackedRepos[0].Message)
+	if !strings.Contains(message, "missing") || !strings.Contains(output.TrackedRepos[0].Message, "skillshare install -g") || !strings.Contains(output.TrackedRepos[0].Message, "skillshare uninstall <name> -g") {
+		t.Fatalf("expected actionable missing-repo message with install and removal suggestions, got %q", output.TrackedRepos[0].Message)
 	}
 }
 
@@ -154,8 +154,8 @@ func TestTrackedMetadataMissingClone_UpdateAllJSONSkipsMissingRepo(t *testing.T)
 	if len(output.MissingTrackedRepos.Names) != 1 || output.MissingTrackedRepos.Names[0] != missingTrackedRepoName {
 		t.Fatalf("expected summary names [%q], got %v", missingTrackedRepoName, output.MissingTrackedRepos.Names)
 	}
-	if !strings.Contains(output.MissingTrackedRepos.Hint, "skillshare install") {
-		t.Fatalf("expected summary hint with skillshare install suggestion, got %q", output.MissingTrackedRepos.Hint)
+	if !strings.Contains(output.MissingTrackedRepos.Hint, "skillshare install -g") || !strings.Contains(output.MissingTrackedRepos.Hint, "skillshare uninstall <name> -g") {
+		t.Fatalf("expected summary hint with install and removal suggestions, got %q", output.MissingTrackedRepos.Hint)
 	}
 }
 
@@ -193,11 +193,33 @@ func TestTrackedMetadataMissingClone_DoctorJSONWarnsWithInstallSuggestion(t *tes
 		if len(check.Details) == 0 || !strings.Contains(check.Details[0], missingTrackedRepoName) {
 			t.Fatalf("expected missing repo detail for %q, got %v", missingTrackedRepoName, check.Details)
 		}
-		if len(check.Suggestions) == 0 || !strings.Contains(check.Suggestions[0], "skillshare install") {
-			t.Fatalf("expected skillshare install suggestion, got %v", check.Suggestions)
+		if len(check.Suggestions) == 0 || !strings.Contains(check.Suggestions[0], "skillshare install -g") || !strings.Contains(check.Suggestions[0], "skillshare uninstall <name> -g") {
+			t.Fatalf("expected install and removal suggestions, got %v", check.Suggestions)
 		}
 		return
 	}
 
 	t.Fatalf("expected tracked_repos doctor check in output: %+v", output.Checks)
+}
+
+// The same commands must keep project recovery scoped to project install:
+// declaration-only removal is available only in global mode.
+func TestTrackedMetadataMissingClone_ProjectRecoveryHints(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	root := sb.SetupProjectDir("claude")
+	sb.CreateProjectSkill(root, "placeholder", map[string]string{"SKILL.md": "# Placeholder"})
+	writeMissingTrackedRepoMeta(t, filepath.Join(root, ".skillshare", "skills"), missingTrackedRepoName)
+	for _, args := range [][]string{
+		{"status", "--json", "-p"}, {"check", "--json", "-p"},
+		{"update", "--all", "--json", "-p"}, {"doctor", "--json", "-p"},
+	} {
+		t.Run(args[0], func(t *testing.T) {
+			result := sb.RunCLIInDir(root, args...)
+			result.AssertSuccess(t)
+			if !json.Valid([]byte(result.Stdout)) || !strings.Contains(result.Stdout, "skillshare install -p") || strings.Contains(result.Stdout, "skillshare uninstall") {
+				t.Fatalf("incorrect project recovery hint: %s", result.Stdout)
+			}
+		})
+	}
 }
