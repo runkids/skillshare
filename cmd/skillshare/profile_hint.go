@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -29,13 +30,17 @@ func profileHint(cfg profileConfigView, flatNames []string) string {
 			return ""
 		}
 		if !selected {
-			missing = append(missing, name)
+			missing = append(missing, shellArg(name))
 		}
 	}
 	if len(missing) == 0 {
 		return ""
 	}
-	return fmt.Sprintf("Not in active profile %q: skillshare profile add %s %s", selector.Name(), selector.Name(), strings.Join(missing, " "))
+	command := fmt.Sprintf("skillshare profile add %s %s", shellArg(selector.Name()), strings.Join(missing, " "))
+	if runtime.GOOS == "windows" && strings.ContainsAny(command, "$`%!") {
+		command = "PowerShell: " + command
+	}
+	return fmt.Sprintf("Not in active profile %q: %s", selector.Name(), command)
 }
 
 // installedProfileHint discovers once and keeps logical source-relative paths:
