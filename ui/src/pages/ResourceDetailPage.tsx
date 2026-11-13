@@ -615,6 +615,8 @@ function TargetsSection({ resource }: { resource: Skill }) {
         return t('resourceDetail.targets.excludedBy', { pattern: entry.reason });
       case 'not_included':
         return t('resourceDetail.targets.notIncluded');
+      case 'not_in_profile':
+        return t('resourceDetail.targets.notInProfile', { profile: entry.reason });
       case 'skipped':
         return t('sync.skipped.ambiguousVariant');
       case 'skill_target_mismatch':

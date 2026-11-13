@@ -65,6 +65,21 @@ func TestBuildDiffDetail_ShowsExpandedFilesFromModelState(t *testing.T) {
 	}
 }
 
+func TestBuildDiffDetail_ProfilePruneKeepsSyncHint(t *testing.T) {
+	m := newDiffTUIModel([]targetDiffResult{{
+		name: "claude", mode: "copy", syncCount: 1,
+		items: []copyDiffEntry{{name: "review", action: "remove", reason: "not in profile frontend", isSync: true}},
+	}})
+	m.refreshDetailCache()
+	out := m.buildDiffDetail()
+	if !strings.Contains(out, "not in profile frontend") || !strings.Contains(out, "skillshare sync") {
+		t.Fatalf("profile removal lost its reason or sync next step:\n%s", out)
+	}
+	if strings.Contains(out, "sync --force") {
+		t.Fatalf("profile removal must not suggest force:\n%s", out)
+	}
+}
+
 func TestEnterKey_TriggersLoadingForLocalOnly(t *testing.T) {
 	tmpDir := t.TempDir()
 	os.WriteFile(filepath.Join(tmpDir, "README.md"), []byte("hello"), 0o644)

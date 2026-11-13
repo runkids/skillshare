@@ -886,6 +886,8 @@ func categorizeItems(items []copyDiffEntry) []actionCategory {
 			add("renamed", "modified", "Renamed", item.name)
 		case strings.Contains(item.reason, "local copy"):
 			add("override", "override", "Local Override", item.name)
+		case strings.HasPrefix(item.reason, "not in profile "):
+			add("profile:"+item.reason, "orphan", item.reason, item.name)
 		case strings.Contains(item.reason, "orphan"):
 			add("orphan", "orphan", "Orphan", item.name)
 		case item.keptAt != "":

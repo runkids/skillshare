@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, type DiffTarget, type Target } from '../../api/client';
 import { hooksApi, type HookPlan } from '../../api/hooks';
 import { mcpApi, type MCPPlan } from '../../api/mcp';
-import { changeSets, countChanges, countEdited, discardable, extraGroups, failureExplanation, groupByFolder, groupInSync, HOOKS_CHANGED, hooksGroups, MCP_CHANGED, mcpGroups, otherWarnings, pendingCount, resourceGroups, runSync, skippedHintKeys, type SyncFailure } from './syncView';
+import { changeSets, countChanges, countEdited, discardable, extraGroups, failureExplanation, groupByFolder, groupInSync, HOOKS_CHANGED, hooksGroups, MCP_CHANGED, mcpGroups, otherWarnings, pendingCount, receivesSkill, resourceGroups, runSync, skippedHintKeys, type SyncFailure } from './syncView';
 
 vi.mock('../../api/client', async (load) => ({ ...await load<typeof import('../../api/client')>(), api: { sync: vi.fn(), syncExtras: vi.fn() } }));
 vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { preview: vi.fn(), configure: vi.fn() } }));
@@ -317,4 +317,24 @@ describe('skippedHintKeys', () => {
   ])('explains %o with %s', (counts, key) => {
     expect(skippedHintKeys({ target: 'codex', items: [], ...counts })).toEqual(key);
   });
+});
+
+it('keeps profile prune reasons and their counts independent of Force', () => {
+  const diffs: DiffTarget[] = [{ target: 'claude', items: [{ skill: 'review', action: 'prune', reason: 'not in profile frontend' }] }];
+  for (const force of [false, true]) {
+    const groups = resourceGroups(diffs, [target('claude')], new Set(['skill']), force).groups;
+    expect(groups[0].rows[0]).toMatchObject({ icon: 'remove', text: 'sync.row.pruneProfile', params: { profile: 'frontend' }, counts: true });
+    expect(countChanges(groups)).toBe(1);
+    expect(countEdited(groups)).toBe(0);
+  }
+  expect(pendingCount(diffs, [target('claude')], [], null)).toBe(1);
+  expect(receivesSkill({ skill: 'review', target: 'claude', status: 'not_in_profile', reason: 'frontend' })).toBe(false);
+});
+
+it('does not combine removals attributed to different profiles', () => {
+  const diffs: DiffTarget[] = ['frontend', 'backend'].map((profile, i) => ({
+    target: String(i), items: [{ skill: 'review', action: 'prune', reason: `not in profile ${profile}` }],
+  }));
+  const groups = resourceGroups(diffs, [], new Set(['skill']), false).groups;
+  expect(changeSets(groups)).toHaveLength(2);
 });
