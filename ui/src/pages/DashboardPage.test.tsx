@@ -130,6 +130,15 @@ describe('DashboardPage', () => {
       expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false]]);
     });
 
+    it('reports a checkout moved to trash when a CLI restore changed the selected declaration', async () => {
+      vi.mocked(api.deleteRepo).mockResolvedValue({ success: true, name: '_team', movedToTrash: true });
+      await openConfirmation();
+      await userEvent.click(screen.getByRole('button', { name: 'Uninstall' }));
+      expect(await screen.findByText('Repository "team" uninstalled.')).toBeInTheDocument();
+      expect(screen.queryByText('Removed repository record "_team"')).not.toBeInTheDocument();
+      expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false]]);
+    });
+
     it.each(['repo_dirty', 'repo_status_failed', undefined])('keeps a failed declaration and never offers force (%s)', async (code) => {
       vi.mocked(api.deleteRepo).mockRejectedValue(new ApiError(500, 'Record removal failed', { code }));
       await openConfirmation();
@@ -153,14 +162,21 @@ describe('DashboardPage', () => {
     }
 
     it('removes a clean repo in one request without force', async () => {
-      vi.mocked(api.deleteRepo).mockResolvedValue({ success: true, name: '_team' });
+      vi.mocked(api.deleteRepo).mockResolvedValue({ success: true, name: '_team', movedToTrash: true });
       await confirmUninstall();
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
       expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false]]);
     });
 
+    it('reports record-only removal when the selected checkout is now absent', async () => {
+      vi.mocked(api.deleteRepo).mockResolvedValue({ success: true, name: '_team', movedToTrash: false });
+      await confirmUninstall();
+      expect(await screen.findByText('Removed repository record "_team"')).toBeInTheDocument();
+      expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false]]);
+    });
+
     it('retries a dirty repo with force once the user confirms', async () => {
-      vi.mocked(api.deleteRepo).mockRejectedValueOnce(dirty).mockResolvedValue({ success: true, name: '_team' });
+      vi.mocked(api.deleteRepo).mockRejectedValueOnce(dirty).mockResolvedValue({ success: true, name: '_team', movedToTrash: true });
       await confirmUninstall();
       expect(await screen.findByText(/"team" has uncommitted changes/)).toBeInTheDocument();
       await userEvent.click(screen.getByRole('button', { name: 'Retry with Force' }));

@@ -6,6 +6,8 @@ sidebar_position: 3
 
 source ディレクトリから 1 つ以上の skill または tracked repository を削除します。Skill は trash に移動され、自動クリーンアップまで 7 日間保持されます。
 
+checkout のない global の tracked 宣言は、メタデータだけを削除できます。下の「トラック対象リポジトリ」を参照してください。
+
 ```bash
 skillshare uninstall my-skill              # 単一の skill を削除
 skillshare uninstall a b c --force         # 複数の skill を一度に削除
@@ -170,7 +172,7 @@ skillshare uninstall frontend/hooks -G frontend --force  # hooks は 1 回だけ
 
 ## トラック対象リポジトリ
 
-tracked repositories（`_` で始まるフォルダ）の場合:
+既存の checkout（Git checkout へのリンクを含む）の場合:
 
 - 未コミットの変更を確認します（上書きするには `--force` を使用）
 - skillshare がリポジトリの git status を読み取れない場合は `failed to check git status` で失敗します。バッチ内の他の項目は引き続き削除され、`--force` を使うとこのチェックをスキップします
@@ -187,6 +189,10 @@ skillshare uninstall _team-skills --force # 未コミットの変更があって
 skillshare uninstall devops/_team-skills # --into devops でインストールしたリポジトリ
 skillshare uninstall devops/team-skills  # 同じリポジトリ（このパスが既に存在する場合を除く）
 ```
+
+- Global mode では、checkout のない tracked 宣言（パスが存在しない、通常フォルダ、Git checkout ではないリンク）を名前で明示して削除できます。ソースへの接続は不要で、アクセスできない場合も使えます。記録と監査の承認記録だけを削除し、その場所の内容と `.gitignore` は変更しません。Git の確認も trash への移動もなく、`trash restore` では元に戻せません。`skillshare uninstall devops/_team-skills -g` のように `_` を含む正式名または記録された完全なパスを指定してください。省略名は既存の Skill やフォルダを選択することがあります。glob、`--all`、`--group` は checkout のない宣言を選択しません。
+
+checkout を手動で削除しても global の宣言は残ります。宣言の削除ではなく復元を望む場合は、ソースにアクセスでき、復元先が空いている状態で `skillshare install -g` を実行してください。その後の `install` や reconcile が宣言のパスの通常フォルダや追跡対象の非 checkout リンクを走査すると、通常の記録（`Tracked=false`）に正規化されます。その後の通常の uninstall はその場所の内容を trash に移動します。存在しないパス、追跡しないリンク、利用できないリンクはこの正規化の対象外です。
 
 ## 例
 

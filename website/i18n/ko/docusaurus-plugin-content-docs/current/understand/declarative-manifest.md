@@ -78,7 +78,13 @@ manifest는 실제 skill 컬렉션과 동기화 상태를 유지합니다:
 
 project mode에서는 `config.yaml`과 `skills.lock.json`이 업데이트됩니다. global mode에서는 `.metadata.json`이 업데이트됩니다. manifest를 수동으로 편집할 필요는 없습니다 (물론 할 수는 있습니다).
 
-Global tracked 선언과 감사 승인 기록은 checkout이 없어도 유지되므로 소스에 접근할 수 있고 대상 경로가 비어 있으면 `skillshare install`로 복원할 수 있습니다. 다른 폴더나 소스 링크가 대상 경로를 차지한다면 먼저 폴더를 옮기거나 링크를 해제하세요. 선언을 제거하려면 checkout이 있을 때 `skillshare uninstall <name>`을 사용하세요. checkout이 없다면 먼저 `skillshare install`로 복원한 다음 제거하세요. Project mode에서는 로컬 설치 기록이 없는 config 선언이 유지되어 새로 clone한 곳에서 `skillshare install -p`로 설치할 수 있습니다.
+Global tracked 선언과 감사 승인 기록은 checkout이 없어도 유지되며, checkout을 수동으로 삭제해도 사라지지 않습니다. 복원하려면 소스에 접근할 수 있고 대상 경로가 비어 있을 때 `skillshare install`을 실행하세요. 경로를 차지한 폴더는 먼저 옮기세요. 경로를 비우기 위해 `unlink`를 사용하면 해당 global tracked 기록도 제거됩니다.
+
+선언을 제거하려면 `skillshare uninstall _team-skills -g`(또는 `devops/_team-skills` 같은 기록된 전체 경로)를 실행하세요. checkout이나 소스 연결이 필요하지 않습니다. checkout이 없는 tracked 선언인 동안에는 기록과 감사 승인 기록만 제거합니다. 해당 경로의 일반 폴더나 Git checkout이 아닌 대상을 가리키는 링크와 그 대상, `.gitignore`는 그대로 유지됩니다. 휴지통으로 옮기지 않으므로 `trash restore`로 되돌릴 수 없습니다. 경로가 사용 중이면 `_`가 포함된 정식 이름을 쓰세요. 축약 이름은 기존 skill이나 폴더를 선택할 수 있습니다.
+
+이후 `install`이나 reconcile이 해당 경로의 일반 폴더 또는 따라가는 비 checkout 링크를 탐색하면 일반 기록(`Tracked=false`)으로 정규화됩니다. 그 뒤에는 일반 uninstall이 적용되어 해당 항목을 휴지통으로 옮깁니다. 없는 경로와 따라가지 않거나 사용할 수 없는 링크는 이 탐색 대상이 아닙니다.
+
+Project mode에서는 로컬 설치 기록이 없는 config 선언이 유지되어 새로 clone한 곳에서 `skillshare install -p`로 설치할 수 있습니다.
 
 ## Skill 항목 필드
 

@@ -172,10 +172,18 @@ skillshare sync
 skillshare uninstall _team-skills
 ```
 
+既存の checkout（Git checkout へのリンクを含む）の場合:
+
 **何が起こるか:**
 1. 未コミットの変更がないか確認し、変更がある場合や git status を読み取れない場合は中止します（`--force` で上書き）
 2. ディレクトリをゴミ箱に移動します（7 日間保持）
 3. 次の `sync` で Target からシンボリックリンクが削除されます
+
+Global mode では、checkout のない tracked 宣言（パスが存在しない、通常フォルダ、Git checkout ではないリンク）を名前で明示して削除できます。ソースへの接続は不要で、アクセスできない場合も使えます。記録と監査の承認記録だけを削除し、その場所の内容と `.gitignore` は変更しません。Git の確認も trash への移動もなく、`trash restore` では元に戻せません。`skillshare uninstall devops/_team-skills -g` のように `_` を含む正式名または記録された完全なパスを指定してください。省略名は既存の Skill やフォルダを選択することがあります。glob、`--all`、`--group` は checkout のない宣言を選択しません。
+
+checkout を手動で削除しても global の宣言は残ります。宣言の削除ではなく復元を望む場合は、ソースにアクセスでき、復元先が空いている状態で `skillshare install -g` を実行してください。その後の `install` や reconcile が宣言のパスの通常フォルダや追跡対象の非 checkout リンクを走査すると、通常の記録（`Tracked=false`）に正規化されます。その後の通常の uninstall はその場所の内容を trash に移動します。存在しないパス、追跡しないリンク、利用できないリンクはこの正規化の対象外です。
+
+Global mode では、`unlink` はそのリンク名に対応する tracked リポジトリの記録と監査の承認記録も削除します。リンク先の内容は変更しません。
 
 ---
 

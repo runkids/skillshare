@@ -28,7 +28,7 @@ Next
 
 ## 会发生什么
 
-`unlink` 只把链接条目移到 trash，链接文件夹本身包含 `SKILL.md` 时也适用。dashboard 的 **Unlink** 执行相同操作。trash 会把它列为 `link → <target>`，`skillshare trash restore <name>` 会重新创建链接（或 junction），绝不会变成目标的副本。之后执行 `skillshare sync`，就会把它的 skills 从 targets 中移除。
+`unlink` 只把链接条目移到 trash，链接文件夹本身包含 `SKILL.md` 时也适用。dashboard 的 **Unlink** 执行相同操作。trash 会把它列为 `link → <target>`，`skillshare trash restore <name>` 会重新创建链接（或 junction），绝不会变成目标的副本。之后执行 `skillshare sync`，就会把它的 skills 从 targets 中移除。 在 global mode 中，`unlink` 也会移除为该链接名称保留的追踪仓库记录及其审计接受记录；链接目标不受影响。
 
 不是第一层链接的名称会被拒绝，所以它绝不会移除普通的 skill 或文件夹：
 

@@ -501,8 +501,8 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
     if (!toDelete) return;
     setDeleting(true);
     try {
-      await api.deleteRepo(toDelete.name, !toDelete.noCheckout && refusal !== null);
-      toast(t(toDelete.noCheckout ? 'dashboard.toast.repoRecordRemoved' : 'dashboard.toast.repoUninstalled', { name: toDelete.noCheckout ? toDelete.name : toDelete.name.replace(/^_/, '') }), 'success');
+      const result = await api.deleteRepo(toDelete.name, !toDelete.noCheckout && refusal !== null);
+      toast(t(result.movedToTrash ? 'dashboard.toast.repoUninstalled' : 'dashboard.toast.repoRecordRemoved', { name: result.movedToTrash ? result.name.replace(/^_/, '') : result.name }), 'success');
       setToDelete(null);
       await refresh();
     } catch (e: unknown) {

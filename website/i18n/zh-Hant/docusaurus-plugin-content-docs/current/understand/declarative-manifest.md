@@ -78,7 +78,13 @@ Manifest 會與你實際的 skill 收藏保持同步：
 
 在 project mode 中，更新的是 `config.yaml` 與 `skills.lock.json`。在 global mode 中，更新的是 `.metadata.json`。你永遠不需要手動編輯 manifest（雖然你也可以這麼做）。
 
-Global 的追蹤宣告及其稽核接受紀錄會在 checkout 不存在時保留，因此只要來源可存取且目的路徑空閒，就可用 `skillshare install` 還原。如果目的路徑被其他資料夾或來源連結佔用，請先移走資料夾或解除連結。若要移除宣告，請在 checkout 存在時使用 `skillshare uninstall <name>`；若 checkout 不存在，請先用 `skillshare install` 還原，再解除安裝。在 project mode 中，沒有本機安裝紀錄的 config 宣告會保留，以便在新 clone 的儲存庫中執行 `skillshare install -p` 安裝。
+Global 的追蹤宣告及其稽核接受紀錄會在 checkout 不存在時保留，手動刪除 checkout 也不會移除它們。若要還原，請在來源可存取且目的路徑空閒時執行 `skillshare install`；先移走佔用路徑的資料夾。如果透過 `unlink` 騰出路徑，也會移除對應的 global 追蹤紀錄。
+
+若要直接移除宣告，請執行 `skillshare uninstall _team-skills -g`（或記錄的完整路徑，如 `devops/_team-skills`）。不需要 checkout，也不需要來源可存取。只要它仍是沒有 checkout 的追蹤宣告，就只移除紀錄及其稽核接受紀錄：該路徑的一般資料夾或指向非 checkout 的連結及其目標不受影響，`.gitignore` 不變，也不會移到垃圾桶，因此無法透過 `trash restore` 復原。路徑被佔用時，請使用含 `_` 的標準名稱；簡寫可能選中既有的 skill 或資料夾。
+
+後續 `install` 或 reconcile 若走訪該路徑的一般資料夾或有跟隨的非 checkout 連結，會將項目正規化為一般紀錄（`Tracked=false`）。此後適用一般解除安裝行為，會把佔用該路徑的內容移到垃圾桶。不存在的路徑、未跟隨或無法使用的連結不會被這樣走訪。
+
+在 project mode 中，沒有本機安裝紀錄的 config 宣告會保留，以便在新 clone 的儲存庫中執行 `skillshare install -p` 安裝。
 
 ## Skill 項目欄位
 

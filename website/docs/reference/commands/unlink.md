@@ -28,7 +28,7 @@ Next
 
 ## What Happens
 
-`unlink` moves only the link entry to trash, including when the linked folder itself contains `SKILL.md`. The dashboard **Unlink** action does the same. The trash lists it as `link → <target>`, and `skillshare trash restore <name>` recreates the link (or junction), never a copy of its target. Run `skillshare sync` afterwards to remove its skills from your targets.
+`unlink` moves only the link entry to trash, including when the linked folder itself contains `SKILL.md`. The dashboard **Unlink** action does the same. The trash lists it as `link → <target>`, and `skillshare trash restore <name>` recreates the link (or junction), never a copy of its target. Run `skillshare sync` afterwards to remove its skills from your targets. In global mode, `unlink` also forgets the tracked-repository record and audit acceptances kept for that link name; its target remains untouched.
 
 It refuses a name that is not a first-level link, so it never removes a regular skill or folder:
 

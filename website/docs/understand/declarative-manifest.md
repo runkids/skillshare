@@ -79,7 +79,13 @@ The manifest stays in sync with your actual skill collection:
 
 In project mode, `config.yaml` and `skills.lock.json` are updated. In global mode, `.metadata.json` is updated. You never need to edit the manifest manually (though you can).
 
-Global tracked declarations and their audit acceptances remain even when the checkout is missing, so `skillshare install` can restore it if its source is reachable and its destination is free; first move any other folder or unlink any source link occupying that destination. To remove the declaration, use `skillshare uninstall <name>` while the checkout exists; if it is missing, first run `skillshare install` to restore it, then uninstall it. In project mode, a config declaration with no local install record stays for `skillshare install -p` on a fresh clone.
+Global tracked declarations and their audit acceptances remain when the checkout is missing, including after you delete a checkout by hand. To restore missing checkouts, run `skillshare install` when their sources are reachable and their destinations are free; move any occupying folder first. If you use `unlink` to free a destination, it also forgets the matching global tracked record.
+
+To drop a global declaration instead, run `skillshare uninstall _team-skills -g` (or its full recorded path, such as `devops/_team-skills`). No checkout or reachable source is required. While it is still a tracked declaration without a checkout, removal edits only the record and its audit acceptances: a plain folder or link to a non-checkout at that path stays untouched, `.gitignore` stays unchanged, and nothing goes to trash, so `trash restore` cannot undo it. Use the canonical name with `_` for an occupied path; shorthand can select an existing skill or folder.
+
+A later `install` or reconcile that walks a plain folder or a followed link to a non-checkout at that path normalizes the entry to an ordinary record (`Tracked=false`). Ordinary uninstall then applies and moves the occupant to trash. An absent path or an unfollowed or unavailable link is not walked this way.
+
+In project mode, a config declaration with no local install record stays for `skillshare install -p` on a fresh clone.
 
 ## Skill Entry Fields
 

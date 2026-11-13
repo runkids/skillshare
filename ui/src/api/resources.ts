@@ -72,7 +72,7 @@ export const resourcesApi = {
     }),
   // Repo uninstall
   deleteRepo: (name: string, force = false) =>
-    apiFetch<{ success: boolean; name: string }>(`/repos/${encodeURIComponent(name)}${force ? '?force=true' : ''}`, { method: 'DELETE' }),
+    apiFetch<{ success: boolean; name: string; movedToTrash: boolean }>(`/repos/${encodeURIComponent(name)}${force ? '?force=true' : ''}`, { method: 'DELETE' }),
   // Skill file content
   getSkillFile: (skillName: string, filepath: string) =>
     apiFetch<SkillFileContent>(`/resources/${encodeURIComponent(skillName)}/files/${filepath}`),

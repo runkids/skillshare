@@ -6,6 +6,8 @@ sidebar_position: 3
 
 Remove one or more skills or tracked repositories from the source directory. Skills are moved to trash and kept for 7 days before automatic cleanup.
 
+A global tracked declaration without a checkout can instead be removed as metadata only; see [Tracked Repositories](#tracked-repositories).
+
 ```bash
 skillshare uninstall my-skill              # Remove a single skill
 skillshare uninstall a b c --force         # Remove multiple skills at once
@@ -170,7 +172,7 @@ skillshare uninstall frontend/hooks -G frontend --force  # hooks removed once
 
 ## Tracked Repositories
 
-For tracked repositories (folders starting with `_`):
+For existing checkouts (including links to Git checkouts):
 
 - Checks for uncommitted changes (use `--force` to override)
 - Fails with `failed to check git status` when skillshare cannot read the repo's git status; other items in the batch are still removed, and `--force` skips the check
@@ -187,6 +189,10 @@ skillshare uninstall _team-skills --force # Force remove with uncommitted change
 skillshare uninstall devops/_team-skills # Repo installed with --into devops
 skillshare uninstall devops/team-skills  # Same repo, unless this path already exists
 ```
+
+- In global mode, an explicitly named tracked declaration with no checkout here (absent, a plain folder, or a link to a non-checkout) can be removed without contacting its source, even if the source is unreachable. Only its record and audit acceptances are removed: the occupant and `.gitignore` stay untouched, no Git check runs, and nothing goes to trash. `trash restore` cannot undo this removal. Use the canonical `_` name or full recorded path, such as `skillshare uninstall devops/_team-skills -g`; shorthand can select an existing skill or folder. Globs, `--all`, and `--group` do not select declarations without checkouts.
+
+Deleting a checkout by hand leaves its global declaration. To restore missing checkouts instead of dropping their declarations, run `skillshare install -g` with reachable sources and free destinations. If a later `install` or reconcile walks a plain folder or followed link to a non-checkout at a declared path, it normalizes the entry to an ordinary record (`Tracked=false`); ordinary uninstall then moves the occupant to trash. Absent paths and unfollowed or unavailable links are not normalized this way.
 
 ## Examples
 

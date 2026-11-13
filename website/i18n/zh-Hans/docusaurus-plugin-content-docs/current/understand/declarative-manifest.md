@@ -78,7 +78,13 @@ Manifest 会与你实际的 Skill 集合保持同步:
 
 在 Project mode 中,更新的是 `config.yaml` 和 `skills.lock.json`。在 Global mode 中,更新的是 `.metadata.json`。你永远不需要手动编辑 manifest(不过你也可以这样做)。
 
-Global 的追踪声明及其审计接受记录会在 checkout 不存在时保留，因此只要源可访问且目标路径空闲，就可以使用 `skillshare install` 恢复。如果目标路径被其他文件夹或源链接占用，请先移走文件夹或解除链接。要移除声明，请在 checkout 存在时使用 `skillshare uninstall <name>`；如果 checkout 不存在，请先使用 `skillshare install` 恢复，再卸载。在 project mode 中，没有本地安装记录的 config 声明会保留，以便在新克隆的仓库中运行 `skillshare install -p` 安装。
+Global 的追踪声明及其审计接受记录会在 checkout 不存在时保留，手动删除 checkout 也不会移除它们。若要恢复，请在源可访问且目标路径空闲时运行 `skillshare install`；先移走占用路径的文件夹。如果通过 `unlink` 腾出路径，也会移除对应的 global 追踪记录。
+
+若要直接移除声明，请运行 `skillshare uninstall _team-skills -g`（或记录的完整路径，如 `devops/_team-skills`）。不需要 checkout，也不需要源可访问。只要它仍是没有 checkout 的追踪声明，就只移除记录及其审计接受记录：该路径上的普通文件夹或指向非 checkout 的链接及其目标不受影响，`.gitignore` 不变，也不会移到回收站，因此无法通过 `trash restore` 撤销。路径被占用时，请使用带 `_` 的规范名称；简写可能选中现有的 Skill 或文件夹。
+
+后续 `install` 或 reconcile 若遍历了该路径的普通文件夹或被跟随的非 checkout 链接，会将条目规范化为普通记录（`Tracked=false`）。此后适用普通卸载行为，会把占用该路径的内容移到回收站。不存在的路径、未跟随或不可用的链接不会被这样遍历。
+
+在 project mode 中，没有本地安装记录的 config 声明会保留，以便在新克隆的仓库中运行 `skillshare install -p` 安装。
 
 ## Skill 条目字段
 

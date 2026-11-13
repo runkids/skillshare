@@ -115,7 +115,8 @@ remote dependencies with `install` without a source. For full flag details and a
 read [install.md](references/install.md) and [sync.md](references/sync.md).
 
 To use a local skills checkout in place, run `skillshare link <path> --enable`, then
-`sync`; `skillshare unlink <name>` removes only the link. Read
+`sync`; `skillshare unlink <name>` moves only the link to trash and, in global mode,
+forgets its tracked-repository record and audit acceptances. Its target stays untouched. Read
 [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) for how such links are followed.
 
 ### Disable or remove
@@ -131,7 +132,10 @@ skillshare sync
 ```
 
 Run the requested operation, not this entire example sequence. Quote glob patterns so
-Skillshare receives them unchanged. Disabling uses ignore rules; uninstall uses trash.
+Skillshare receives them unchanged. Disabling uses ignore rules; uninstall of installed
+content uses trash. A global tracked declaration without a checkout is removed as
+metadata only, with no trash undo; see [install.md](references/install.md#uninstall)
+for canonical names, occupied paths, and the limit after reconcile.
 
 ### Move skills into folders
 

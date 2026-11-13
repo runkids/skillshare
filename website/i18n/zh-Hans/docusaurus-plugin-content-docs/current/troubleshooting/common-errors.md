@@ -288,6 +288,14 @@ skillshare sync -p
 
 `status`、`check`、`update --all` 和 `doctor` 都会报告这种状态，并建议执行 `skillshare install`。
 
+手动删除 global checkout 会保留声明和审计接受记录。只有需要恢复且源可访问、目标路径空闲时才进行恢复。若要直接移除声明，即使源不可访问也可以运行：
+
+```bash
+skillshare uninstall _team-skills -g
+```
+
+当普通文件夹或非 checkout 链接占用路径时，请使用带 `_` 的完整规范记录名称（如 `devops/_team-skills`）。只要追踪声明仍然存在，就只移除元数据，占用路径的内容和 `.gitignore` 不变，也没有可恢复的回收站条目。`install` 或其他 reconcile 遍历该文件夹或被跟随的非 checkout 链接后，它会成为普通记录，普通卸载会把占用路径的内容移到回收站。参见 [uninstall](../reference/commands/uninstall.md#tracked-repositories)。
+
 ### `nested git repositories must be disabled first`
 
 **原因：** 当 `git_root: root` 时，某个未被 Git 忽略的子目录（例如手动 clone 的 skill）自带 `.git`。Git 会把它当成一个**空的 submodule** 上传，导致其中的文件被悄悄丢弃，因此在每个嵌套仓库被停用之前，`commit`/`push` 会中止。用 `--track` 安装的 track 仓库会列在受管理的 `.gitignore` 区块中，因此除非已经提交过，否则会被跳过。

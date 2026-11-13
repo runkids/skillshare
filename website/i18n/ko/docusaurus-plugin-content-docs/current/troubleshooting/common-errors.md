@@ -288,6 +288,14 @@ skillshare sync -p
 
 `status`, `check`, `update --all`, `doctor`는 이 상태를 보고하고 `skillshare install`을 제안합니다.
 
+Global checkout을 수동으로 삭제해도 선언과 감사 승인 기록은 남습니다. 다시 사용하고 싶을 때만, 소스에 접근할 수 있고 대상 경로가 비어 있는 상태에서 복원하세요. 소스에 접근할 수 없어도 선언을 제거할 수 있습니다.
+
+```bash
+skillshare uninstall _team-skills -g
+```
+
+일반 폴더나 비 checkout 링크가 경로를 차지한다면 `devops/_team-skills`처럼 `_`가 포함된 기록된 전체 정식 이름을 쓰세요. tracked 선언인 동안에는 메타데이터만 제거하며 해당 항목과 `.gitignore`는 유지되고 복원할 휴지통 항목도 생기지 않습니다. `install` 등 reconcile이 해당 폴더나 따라가는 비 checkout 링크를 탐색한 후에는 일반 기록이 되어 일반 uninstall이 해당 항목을 휴지통으로 옮깁니다. [uninstall](../reference/commands/uninstall.md)을 참고하세요.
+
 ### `nested git repositories must be disabled first`
 
 **Cause:** `git_root: root`에서, Git이 무시하지 않는 하위 디렉터리(예: 직접 clone한 skill)가 자체 `.git`을 가지고 있습니다. Git은 이를 **빈 submodule**로 업로드해 조용히 파일을 누락시키므로, 각 중첩 repo가 비활성화될 때까지 `commit`/`push`가 중단됩니다. `--track`으로 설치한 tracked repo는 관리되는 `.gitignore` 블록에 등록되므로, 이미 커밋된 경우가 아니라면 건너뜁니다.
