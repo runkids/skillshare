@@ -727,3 +727,26 @@ func TestReconcileProjectSkills_KeepsDeclaredSkillsNotInstalledHere(t *testing.T
 		t.Errorf("config skills = %+v, want pending kept and added appended", cfg.Skills)
 	}
 }
+
+func TestWriteProjectLockCarriesExtras(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, ".skillshare")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	sha := strings.Repeat("a", 40)
+	lock := &install.Lock{Extras: map[string]install.LockEntry{"rules": {Source: "remote", Commit: sha}}}
+	if err := lock.Save(dir); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteProjectLock(root, &ProjectConfig{}, install.NewMetadataStore(), filepath.Join(dir, "skills")); err != nil {
+		t.Fatal(err)
+	}
+	got, err := install.LoadLock(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ExtraCommitFor("rules", "remote") != sha {
+		t.Fatalf("extra pin lost: %+v", got)
+	}
+}
