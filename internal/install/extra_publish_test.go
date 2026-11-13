@@ -23,6 +23,18 @@ func TestExtraJournal_AtomicRoundTrip(t *testing.T) {
 	}
 }
 
+func TestExtraJournal_EmptyPreviousRoundTrip(t *testing.T) {
+	root := t.TempDir()
+	j := extraJournal{Version: 1, Name: "rules", Remote: "https://example.com/repo", Commit: strings.Repeat("a", 40), HadPrevious: true, Old: map[string]string{}}
+	if err := writeExtraJournal(root, j); err != nil {
+		t.Fatal(err)
+	}
+	got, err := readExtraJournal(root, "rules")
+	if err != nil || got.Old == nil || len(got.Old) != 0 {
+		t.Fatalf("empty previous: %+v %v", got, err)
+	}
+}
+
 func TestExtraJournal_InvalidStaysInPlace(t *testing.T) {
 	root := t.TempDir()
 	stage := filepath.Join(root, extraStagingDir)

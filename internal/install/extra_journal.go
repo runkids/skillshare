@@ -19,7 +19,7 @@ type extraJournal struct {
 	Branch      string            `json:"branch,omitempty"`
 	Commit      string            `json:"commit"`
 	HadPrevious bool              `json:"had_previous"`
-	Old         map[string]string `json:"old,omitempty"`
+	Old         map[string]string `json:"old"`
 }
 
 func extraJournalPath(root, name string) string {
