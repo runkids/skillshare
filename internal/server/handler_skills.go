@@ -464,54 +464,44 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	var item uninstall.Item
+	var force bool
 	if repoPath == "" {
 		if declarationErr != nil {
 			writeError(w, http.StatusBadRequest, declarationErr.Error())
 			return
 		}
-		if declaration != "" {
-			res := s.uninstallSkills([]uninstall.Item{{Name: declaration, Path: filepath.Join(s.skillsSource(), filepath.FromSlash(declaration)), TrashName: declaration, MetadataOnly: true}}, false)[0]
-			if writeUninstallConflict(w, res) {
-				return
-			}
-			if res.Err != nil {
-				if errors.Is(res.Err, uninstall.ErrNotDeclared) {
-					writeError(w, http.StatusBadRequest, "not a tracked repository: "+declaration)
-					return
-				}
-				if err := s.reloadSkillsStore(); err != nil {
-					log.Printf("warning: failed to reload skills metadata: %v", err)
-				}
-				writeError(w, http.StatusInternalServerError, res.Err.Error())
-				return
-			}
-			s.writeOpsLog("uninstall", "ok", start, map[string]any{"name": declaration, "type": "repo", "scope": "ui"}, "")
-			writeJSON(w, map[string]any{"success": true, "name": declaration, "movedToTrash": false})
+		if declaration == "" {
+			writeError(w, http.StatusBadRequest, "not a tracked repository: "+cleanName)
 			return
 		}
-	}
-	if repoPath == "" {
-		writeError(w, http.StatusBadRequest, "not a tracked repository: "+cleanName)
-		return
+		repoName = declaration
+		item = uninstall.Item{Name: repoName, Path: filepath.Join(s.skillsSource(), filepath.FromSlash(repoName)), TrashName: repoName, MetadataOnly: true}
+	} else {
+		item = s.repoUninstallItem(repoName, repoPath)
+		force = r.URL.Query().Get("force") == "true"
 	}
 
-	force := r.URL.Query().Get("force") == "true"
-	res := s.uninstallSkills([]uninstall.Item{s.repoUninstallItem(repoName, repoPath)}, force)[0]
+	res := s.uninstallSkills([]uninstall.Item{item}, force)[0]
 	if writeUninstallConflict(w, res) {
 		return
 	}
 	if res.Err != nil {
-		writeError(w, uninstallErrorStatus(res.Err), uninstallErrorMessage(res))
+		status, message := uninstallErrorStatus(res.Err), uninstallErrorMessage(res)
+		if item.MetadataOnly {
+			status, message = http.StatusInternalServerError, res.Err.Error()
+			if errors.Is(res.Err, uninstall.ErrNotDeclared) {
+				status, message = http.StatusBadRequest, "not a tracked repository: "+repoName
+			} else if err := s.reloadSkillsStore(); err != nil {
+				log.Printf("warning: failed to reload skills metadata: %v", err)
+			}
+		}
+		writeError(w, status, message)
 		return
 	}
 
-	s.writeOpsLog("uninstall", "ok", start, map[string]any{
-		"name":  repoName,
-		"type":  "repo",
-		"scope": "ui",
-	}, "")
-
-	writeJSON(w, map[string]any{"success": true, "name": repoName, "movedToTrash": true})
+	s.writeOpsLog("uninstall", "ok", start, map[string]any{"name": repoName, "type": "repo", "scope": "ui"}, "")
+	writeJSON(w, map[string]any{"success": true, "name": repoName, "movedToTrash": !item.MetadataOnly})
 }
 
 func (s *Server) handleUninstallSkill(w http.ResponseWriter, r *http.Request) {
