@@ -162,7 +162,7 @@ func TestPushPull_InstallKeepsTrackedRecordClonedElsewhere(t *testing.T) {
 	runMachine := func(sb *testutil.Sandbox, args ...string) {
 		t.Helper()
 		env := map[string]string{
-			"HOME": sb.Home, "USERPROFILE": sb.Home, "SKILLSHARE_CONFIG": sb.ConfigPath,
+			"USERPROFILE":         sb.Home,
 			"XDG_CONFIG_HOME":     filepath.Join(sb.Home, ".config"),
 			"XDG_DATA_HOME":       filepath.Join(sb.Home, ".local", "share"),
 			"XDG_STATE_HOME":      filepath.Join(sb.Home, ".local", "state"),

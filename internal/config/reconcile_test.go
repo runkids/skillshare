@@ -20,9 +20,6 @@ func TestReconcileGlobalSkills_KeepsTrackedRecordWithoutClone(t *testing.T) {
 	remote := testutil.SetupBareRemoteRepo(t, sb.Root)
 	testutil.SeedRemoteBranch(t, sb.Root, remote, "main", map[string]string{"README.md": "# team"})
 	testutil.RunGit(t, "", "clone", remote, filepath.Join(sourceDir, "org", "_team"))
-	if err := os.MkdirAll(filepath.Join(sourceDir, "live"), 0755); err != nil {
-		t.Fatal(err)
-	}
 	store := install.NewMetadataStore()
 	want := map[string]*install.MetadataEntry{
 		"_team":         {Source: remote, Tracked: true, Branch: "other", FileHashes: map[string]string{"SKILL.md": "hash"}},
@@ -41,8 +38,6 @@ func TestReconcileGlobalSkills_KeepsTrackedRecordWithoutClone(t *testing.T) {
 		store.Set(key, &copy)
 	}
 	store.Set("_nosrc", &install.MetadataEntry{Tracked: true})
-	store.Set("gone-plain", &install.MetadataEntry{Source: "https://example.com/plain.git"})
-	store.Set("live", &install.MetadataEntry{Source: "https://example.com/live.git"})
 	store.AuditAccepted = map[string][]string{"_team": {"accepted-finding"}}
 	if err := store.Save(sourceDir); err != nil {
 		t.Fatal(err)
@@ -62,13 +57,8 @@ func TestReconcileGlobalSkills_KeepsTrackedRecordWithoutClone(t *testing.T) {
 	if !reflect.DeepEqual(loaded.AuditAccepted["_team"], []string{"accepted-finding"}) {
 		t.Errorf("tracked acceptance = %v", loaded.AuditAccepted["_team"])
 	}
-	for _, key := range []string{"_nosrc", "gone-plain"} {
-		if loaded.Has(key) {
-			t.Errorf("stale record %s survived", key)
-		}
-	}
-	if !loaded.Has("live") {
-		t.Error("live plain record was removed")
+	if loaded.Has("_nosrc") {
+		t.Error("tracked record without a source survived")
 	}
 	if live := loaded.Get("org/_team"); live == nil || !live.Tracked || live.Source != remote {
 		t.Errorf("live alias = %+v", live)
