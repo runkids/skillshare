@@ -390,6 +390,7 @@ type Config struct {
 	legacySkills yaml.Node     `yaml:"-"`
 	Plugins      yaml.Node     `yaml:"plugins,omitempty"`
 	Hooks        yaml.Node     `yaml:"hooks,omitempty"`
+	Profiles     yaml.Node     `yaml:"profiles,omitempty"`
 	MCP          *MCPConfig    `yaml:"mcp,omitempty"`
 	Source       string        `yaml:"source,omitempty"`
 	AgentsSource string        `yaml:"agents_source,omitempty"`

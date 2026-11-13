@@ -1,0 +1,108 @@
+package profile
+
+import (
+	"strings"
+	"testing"
+
+	"gopkg.in/yaml.v3"
+)
+
+func section(t *testing.T, text string) *yaml.Node {
+	t.Helper()
+	var wrapper struct {
+		Profiles yaml.Node `yaml:"profiles"`
+	}
+	if err := yaml.Unmarshal([]byte(text), &wrapper); err != nil {
+		t.Fatal(err)
+	}
+	return &wrapper.Profiles
+}
+
+func TestParseSelectionAndValidation(t *testing.T) {
+	n := section(t, `profiles:
+  all: {}
+  empty: {skills: {}}
+  nullskills: {skills: null}
+  blank: {skills: {include: [" ", ""]}}
+  inert: {skills: {include: [], exclude: [old]}}
+  selected: {skills: {include: ["team__*"], exclude: ["*-old"]}}
+  invalid: {skills: {exclude: [old]}}
+  invalidglob: {skills: {include: ["["]}}
+  future: {future_key: true}
+`)
+	c := Parse(n)
+	for _, tc := range []struct {
+		name, skill string
+		want        bool
+	}{
+		{"all", "anything", true}, {"empty", "anything", false}, {"nullskills", "anything", false},
+		{"blank", "anything", false}, {"inert", "old", false},
+		{"selected", "team__new", true}, {"selected", "team__old", false},
+	} {
+		d := c.Definitions[tc.name]
+		if !d.Usable || d.Selects(tc.skill) != tc.want {
+			t.Errorf("%s selects %s: %+v, want %v", tc.name, tc.skill, d, tc.want)
+		}
+	}
+	for _, name := range []string{"invalid", "invalidglob", "future"} {
+		if d := c.Definitions[name]; d.Usable || d.Reason == "" {
+			t.Errorf("%s should be unusable: %+v", name, d)
+		}
+	}
+	if !strings.Contains(c.Definitions["invalid"].Reason, `include: ["*"]`) {
+		t.Fatal(c.Definitions["invalid"].Reason)
+	}
+	for _, name := range []string{"none", "Bad", strings.Repeat("x", 65), ""} {
+		if ValidateName(name) == nil {
+			t.Errorf("name %q accepted", name)
+		}
+	}
+	if ValidateName("team_1-dev") != nil {
+		t.Fatal("valid profile name rejected")
+	}
+}
+
+func TestMutatePreservesUnrelatedYAML(t *testing.T) {
+	original := section(t, "profiles:\n  future: # keep this\n    unknown: value\n  work:\n    description: before\n    skills: {include: [old], exclude: [blocked]}\n")
+	desc := "after"
+	next, change, err := Mutate(original, "work", Mutation{Op: "edit", Name: "work", Description: &desc, AddInclude: []string{"new"}})
+	if err != nil || !change.Changed || !change.NeedsSync {
+		t.Fatalf("edit: %+v, %v", change, err)
+	}
+	data, err := yaml.Marshal(next)
+	if err != nil || !strings.Contains(string(data), "keep this") || !strings.Contains(string(data), "unknown: value") || !strings.Contains(string(data), "blocked") {
+		t.Fatalf("unrelated content lost: %s (%v)", data, err)
+	}
+	if Parse(original).Definitions["work"].Description != "before" {
+		t.Fatal("mutation changed original node")
+	}
+	renamed, change, err := Mutate(next, "work", Mutation{Op: "rename", Name: "work", NewName: "focus"})
+	if err != nil || change.Active != "focus" || !Parse(renamed).Definitions["focus"].Selects("new") {
+		t.Fatalf("rename: %+v, %v", change, err)
+	}
+	if _, _, err := Mutate(renamed, "focus", Mutation{Op: "delete", Name: "focus"}); err == nil {
+		t.Fatal("active deletion accepted")
+	}
+	if _, _, err := Mutate(renamed, "focus", Mutation{Op: "create", Name: "focus"}); err == nil {
+		t.Fatal("duplicate creation accepted")
+	}
+	created, _, err := Mutate(renamed, "focus", Mutation{Op: "create", Name: "empty"})
+	if err != nil || Parse(created).Definitions["empty"].Selects("anything") {
+		t.Fatalf("empty creation: %v", err)
+	}
+}
+
+func TestPreview(t *testing.T) {
+	d := Parse(section(t, `profiles:
+  work: {skills: {include: ["team__*", missing], exclude: ["*-old"]}}
+`)).Definitions["work"]
+	p, err := Preview(d, []string{"team__new", "team__old", "other"})
+	if err != nil || len(p.Selected) != 1 || p.Selected[0] != "team__new" || len(p.Unmatched) != 1 || p.Unmatched[0] != "missing" {
+		t.Fatalf("preview = %+v, %v", p, err)
+	}
+	empty := Parse(section(t, `profiles: {work: {skills: {include: [], exclude: [old]}}}`)).Definitions["work"]
+	p, err = Preview(empty, []string{"old"})
+	if err != nil || len(p.InertExcludes) != 1 || p.InertExcludes[0] != "old" {
+		t.Fatalf("inert excludes = %+v, %v", p, err)
+	}
+}

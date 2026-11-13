@@ -115,6 +115,30 @@ func TestHandlePutConfig_InvalidYAML(t *testing.T) {
 	}
 }
 
+func TestHandlePutConfig_InvalidProfile(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(fmt.Sprint(project), func(t *testing.T) {
+			var s *Server
+			var source string
+			if project {
+				s, _ = newTestProjectServerWithExtras(t, nil)
+			} else {
+				s, source = newTestServer(t)
+			}
+			targets := "source: " + source + "\ntargets: {}\n"
+			if project {
+				targets = "targets: []\n"
+			}
+			body, _ := json.Marshal(map[string]string{"raw": targets + "profiles:\n  work:\n    skills: {exclude: [old]}\n"})
+			w := httptest.NewRecorder()
+			s.handlePutConfig(w, httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(string(body))))
+			if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "exclude requires an include") {
+				t.Fatalf("expected profile validation error, got %d: %s", w.Code, w.Body)
+			}
+		})
+	}
+}
+
 func TestHandlePutConfig_ValidYAML(t *testing.T) {
 	s, sourceDir := newTestServer(t)
 	body := `{"raw":"source: ` + sourceDir + `\nmode: merge\ntargets: {}\n"}`

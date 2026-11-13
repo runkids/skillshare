@@ -19,7 +19,7 @@ import (
 // CONFIG_SECTIONS in ui/src/lib/formatYaml.ts; keep the two lists in sync.
 var configSections = []string{
 	"sources", "source", "agents_source", "extras_source", "git_root", "mode", "target_naming",
-	"targets", "skills", "agents", "extras", "mcp", "plugins", "hooks",
+	"targets", "profiles", "skills", "agents", "extras", "mcp", "plugins", "hooks",
 	"updates", "projects", "hub", "log", "context_budget", "tui", "gitlab_hosts", "azure_hosts", "ignore", "audit",
 }
 

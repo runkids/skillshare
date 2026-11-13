@@ -293,6 +293,7 @@ func ProjectDir(projectRoot string) string {
 type ProjectConfig struct {
 	Plugins       yaml.Node            `yaml:"plugins,omitempty"`
 	Hooks         yaml.Node            `yaml:"hooks,omitempty"`
+	Profiles      yaml.Node            `yaml:"profiles,omitempty"`
 	MCP           *MCPConfig           `yaml:"mcp,omitempty"`
 	Sources       ProjectSources       `yaml:"sources,omitempty"`
 	Targets       []ProjectTargetEntry `yaml:"targets"`
@@ -394,6 +395,15 @@ func ProjectConfigPath(projectRoot string) string {
 
 // LoadProject loads the project config from the given root.
 func LoadProject(projectRoot string) (*ProjectConfig, error) {
+	return loadProject(projectRoot, true)
+}
+
+// LoadProjectReadOnly loads project configuration without persisting migrations.
+func LoadProjectReadOnly(projectRoot string) (*ProjectConfig, error) {
+	return loadProject(projectRoot, false)
+}
+
+func loadProject(projectRoot string, persistMigration bool) (*ProjectConfig, error) {
 	path := ProjectConfigPath(projectRoot)
 
 	data, err := os.ReadFile(path)
@@ -461,7 +471,7 @@ func LoadProject(projectRoot string) (*ProjectConfig, error) {
 			break
 		}
 	}
-	if migrated {
+	if migrated && persistMigration {
 		if mdata, merr := marshalConfig(&cfg, projectSchemaComment, data); merr == nil {
 			// Write a symlinked config's target so the link survives. A link out of
 			// the project is left alone; the next save reports it.
