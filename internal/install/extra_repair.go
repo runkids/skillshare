@@ -45,6 +45,12 @@ func repairRemoteExtra(req RemoteExtraRequest, result *RemoteExtraResult) error 
 	if (liveExists && !liveCandidate && !liveOld || previousExists && !previousOld) && !req.Opts.AuditOverride {
 		return fmt.Errorf("interrupted extra %q has later edits; preserve them or explicitly use --force", req.Name)
 	}
+	// Refuse a now-local or different-origin config entry before touching its
+	// live directory. The marker already makes this repair write recoverable;
+	// merge again after the other records to retain later unrelated saves.
+	if err := extraWriteConfig(func() error { return req.RepairConfig(j.Remote, j.Branch) }); err != nil {
+		return err
+	}
 	if !liveCandidate {
 		// The existing incoming tree has not been trusted; only replace it after
 		// the journaled commit has passed fetch, staging, audit and comparisons.

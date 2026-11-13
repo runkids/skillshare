@@ -216,7 +216,7 @@ func publishRemoteExtra(req RemoteExtraRequest, candidate *extraCandidate) error
 			}
 		}
 		if len(failures) != 0 {
-			return fmt.Errorf("publishing %s failed at %s: %w; rollback incomplete, marker retained: %s", req.Name, step, cause, strings.Join(failures, "; "))
+			return fmt.Errorf("publishing %s failed at %s: %w; rollback incomplete, marker retained: %s; inspect the interrupted extra before running skillshare extras remove %s", req.Name, step, cause, strings.Join(failures, "; "), req.Name)
 		}
 		if preserved {
 			return fmt.Errorf("publishing %s failed at %s: %w; preserved a concurrent save", req.Name, step, cause)

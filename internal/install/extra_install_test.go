@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+
+	"skillshare/internal/audit"
 )
 
 func newRemoteExtraRequest(t *testing.T) RemoteExtraRequest {
@@ -24,6 +27,61 @@ func newRemoteExtraRequest(t *testing.T) RemoteExtraRequest {
 	return RemoteExtraRequest{Name: "rules", RawSource: remote, Source: source, ExtrasRoot: filepath.Join(base, "extras"), ConfigPath: config, Opts: InstallOptions{SkipAudit: true},
 		Recheck: func() error { return nil }, WriteConfig: func() error { return os.WriteFile(config, []byte("after"), 0644) }, RevertConfig: func() error { return os.WriteFile(config, []byte("before"), 0644) },
 		RepairConfig: func(_, _ string) error { return nil }, RefreshAfterRepair: func() error { return nil },
+	}
+}
+
+func TestInstallRemoteExtra_AcceptedFindingsPublishAndRollback(t *testing.T) {
+	req := newRemoteExtraRequest(t)
+	if err := os.MkdirAll(req.ExtrasRoot, 0755); err != nil {
+		t.Fatal(err)
+	}
+	store := NewMetadataStore()
+	store.AuditAccepted = map[string][]string{"other": {"keep"}}
+	if err := store.Save(req.ExtrasRoot); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(filepath.Join(req.ExtrasRoot, MetadataFileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Opts.SkipAudit = false
+	req.Opts.AuditProjectRoot = t.TempDir()
+	req.Opts.AuditOverride = true
+	oldScan, oldBoundary := scanExtraCandidate, extraBoundary
+	scanExtraCandidate = func(AuditGate) (*AuditGateResult, error) {
+		return &AuditGateResult{Overridden: true, Threshold: "HIGH", Audit: &audit.Result{Findings: []audit.Finding{{Severity: "HIGH", RuleID: "synthetic", File: "SKILL.md", Line: 1, Snippet: "synthetic"}}}}, nil
+	}
+	extraBoundary = func(step string) error {
+		if step == "live" {
+			got, err := os.ReadFile(filepath.Join(req.ExtrasRoot, MetadataFileName))
+			if err != nil {
+				return err
+			}
+			if string(got) != string(before) {
+				return errors.New("accepted before publication")
+			}
+		}
+		if step == "metadata" {
+			got, _, err := ReadMetadata(req.ExtrasRoot)
+			if err != nil {
+				return err
+			}
+			if len(got.AuditAccepted[req.Name]) == 0 {
+				return errors.New("accepted finding missing")
+			}
+		}
+		if step == "config" {
+			return errors.New("fault")
+		}
+		return nil
+	}
+	defer func() { scanExtraCandidate, extraBoundary = oldScan, oldBoundary }()
+	if _, err := InstallRemoteExtra(req); err == nil || !strings.Contains(err.Error(), "fault") {
+		t.Fatalf("rollback: %v", err)
+	}
+	after, err := os.ReadFile(filepath.Join(req.ExtrasRoot, MetadataFileName))
+	if err != nil || string(after) != string(before) {
+		t.Fatalf("accepted snapshot changed: %q %v", after, err)
 	}
 }
 
@@ -642,6 +700,296 @@ func TestInstallRemoteExtra_RollbackFailureKeepsMarker(t *testing.T) {
 	_, err := InstallRemoteExtra(req)
 	if err == nil || !strings.Contains(err.Error(), "rollback incomplete") {
 		t.Fatalf("rollback: %v", err)
+	}
+	if _, err := os.Lstat(extraJournalPath(req.ExtrasRoot, req.Name)); err != nil {
+		t.Fatalf("marker lost: %v", err)
+	}
+}
+
+func TestInstallRemoteExtra_InterruptedEditsAtBoundaries(t *testing.T) {
+	for _, boundary := range []string{"marker", "incoming", "ignore", "previous", "live", "metadata", "lock", "config", "cleanup", "cleaned-previous"} {
+		for _, tree := range []string{"live", "previous"} {
+			t.Run(boundary+"/"+tree, func(t *testing.T) {
+				req := newRemoteExtraRequest(t)
+				if _, err := InstallRemoteExtra(req); err != nil {
+					t.Fatal(err)
+				}
+				old := extraBoundary
+				extraBoundary = func(step string) error {
+					if step == boundary {
+						return errSimulatedDeath
+					}
+					return nil
+				}
+				_, err := InstallRemoteExtra(req)
+				extraBoundary = old
+				if !errors.Is(err, errSimulatedDeath) {
+					t.Fatal(err)
+				}
+				dir := filepath.Join(req.ExtrasRoot, req.Name)
+				if tree == "previous" {
+					dir = filepath.Join(req.ExtrasRoot, extraStagingDir, "previous-"+req.Name)
+				}
+				if _, err := os.Lstat(dir); os.IsNotExist(err) {
+					return
+				} else if err != nil {
+					t.Fatal(err)
+				}
+				file := filepath.Join(dir, "later")
+				if err := os.WriteFile(file, []byte("keep later edit"), 0644); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := InstallRemoteExtra(req); err == nil {
+					t.Fatal("later edit was overwritten")
+				}
+				got, err := os.ReadFile(file)
+				if err != nil || string(got) != "keep later edit" {
+					t.Fatalf("later edit lost: %q %v", got, err)
+				}
+				if _, err := os.Lstat(extraJournalPath(req.ExtrasRoot, req.Name)); err != nil {
+					t.Fatalf("marker lost: %v", err)
+				}
+			})
+		}
+	}
+}
+
+func TestInstallRemoteExtra_WriteHooksFailClosed(t *testing.T) {
+	for _, hook := range []string{"marker", "ignore", "previous", "live", "metadata", "lock", "config", "cleanup"} {
+		t.Run(hook, func(t *testing.T) {
+			req := newRemoteExtraRequest(t)
+			req.ProjectRoot = t.TempDir()
+			req.LockDir = filepath.Join(req.ProjectRoot, ".skillshare")
+			req.ExtrasRoot = filepath.Join(req.LockDir, "extras")
+			if err := os.MkdirAll(req.LockDir, 0755); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := InstallRemoteExtra(req); err != nil {
+				t.Fatal(err)
+			}
+			marker, rename, meta, lock, config, ignore, cleanup := extraWriteMarker, extraRename, extraWriteMeta, extraWriteLock, extraWriteConfig, extraWriteIgnore, extraCleanup
+			defer func() {
+				extraWriteMarker, extraRename, extraWriteMeta, extraWriteLock, extraWriteConfig, extraWriteIgnore, extraCleanup = marker, rename, meta, lock, config, ignore, cleanup
+			}()
+			fault := errors.New("hook failure")
+			switch hook {
+			case "marker":
+				extraWriteMarker = func(string, extraJournal) error { return fault }
+			case "ignore":
+				extraWriteIgnore = func(string, []string) error { return fault }
+			case "previous", "live":
+				count := 0
+				extraRename = func(from, to string) error {
+					count++
+					if hook == "previous" && count == 1 || hook == "live" && count == 2 {
+						return fault
+					}
+					return rename(from, to)
+				}
+			case "metadata":
+				extraWriteMeta = func(*MetadataStore, string) error { return fault }
+			case "lock":
+				extraWriteLock = func(*Lock, string) error { return fault }
+			case "config":
+				extraWriteConfig = func(func() error) error { return fault }
+			case "cleanup":
+				extraCleanup = func(name string) error {
+					if strings.HasSuffix(name, "previous-"+req.Name) {
+						return fault
+					}
+					return cleanup(name)
+				}
+			}
+			if _, err := InstallRemoteExtra(req); err == nil {
+				t.Fatal("hook failure accepted")
+			}
+			state := InspectRemoteExtra(req.ExtrasRoot, req.Name)
+			if hook == "cleanup" {
+				if !state.Interrupted {
+					t.Fatal("cleanup failure lost marker")
+				}
+				return
+			}
+			if state.Interrupted || state.Missing || state.Modified || state.Err != nil {
+				t.Fatalf("rollback state: %+v", state)
+			}
+		})
+	}
+}
+
+func TestInstallRemoteExtra_RecheckStopsBeforePublication(t *testing.T) {
+	req := newRemoteExtraRequest(t)
+	req.Recheck = func() error { return errors.New("config changed") }
+	if _, err := InstallRemoteExtra(req); err == nil || !strings.Contains(err.Error(), "config changed") {
+		t.Fatalf("recheck: %v", err)
+	}
+	if _, err := os.Lstat(req.ExtrasRoot); !os.IsNotExist(err) {
+		t.Fatalf("created extras root: %v", err)
+	}
+}
+
+func TestInstallRemoteExtra_DryRunDoesNotRepairOrWrite(t *testing.T) {
+	req := newRemoteExtraRequest(t)
+	old := extraBoundary
+	extraBoundary = func(step string) error {
+		if step == "marker" {
+			return errSimulatedDeath
+		}
+		return nil
+	}
+	_, err := InstallRemoteExtra(req)
+	extraBoundary = old
+	if !errors.Is(err, errSimulatedDeath) {
+		t.Fatal(err)
+	}
+	marker := extraJournalPath(req.ExtrasRoot, req.Name)
+	before, err := os.ReadFile(marker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Opts.DryRun = true
+	result, err := InstallRemoteExtra(req)
+	if err != nil || !result.Interrupted || result.Action != "would install" {
+		t.Fatalf("dry run: %+v %v", result, err)
+	}
+	after, err := os.ReadFile(marker)
+	if err != nil || string(after) != string(before) {
+		t.Fatalf("marker changed: %v", err)
+	}
+}
+
+func TestInstallRemoteExtra_RollbackPreservesConcurrentLock(t *testing.T) {
+	req := newRemoteExtraRequest(t)
+	req.ProjectRoot = t.TempDir()
+	req.LockDir = filepath.Join(req.ProjectRoot, ".skillshare")
+	req.ExtrasRoot = filepath.Join(req.LockDir, "extras")
+	if err := os.MkdirAll(req.LockDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	old := extraBoundary
+	extraBoundary = func(step string) error {
+		if step == "lock" {
+			lock, err := LoadLock(req.LockDir)
+			if err != nil {
+				return err
+			}
+			lock.Skills = map[string]LockEntry{"other": {Source: "other", Commit: strings.Repeat("a", 40)}}
+			if err := lock.Save(req.LockDir); err != nil {
+				return err
+			}
+			return errors.New("fault")
+		}
+		return nil
+	}
+	defer func() { extraBoundary = old }()
+	if _, err := InstallRemoteExtra(req); err == nil || !strings.Contains(err.Error(), "concurrent save") {
+		t.Fatalf("rollback: %v", err)
+	}
+	lock, err := LoadLock(req.LockDir)
+	if err != nil || lock.Skills["other"].Source != "other" || len(lock.Extras) != 0 {
+		t.Fatalf("lock: %+v %v", lock, err)
+	}
+}
+
+func TestInstallRemoteExtra_RollbackPreservesConcurrentIgnore(t *testing.T) {
+	req := newRemoteExtraRequest(t)
+	req.ProjectRoot = t.TempDir()
+	req.LockDir = filepath.Join(req.ProjectRoot, ".skillshare")
+	req.ExtrasRoot = filepath.Join(req.LockDir, "extras")
+	if err := os.MkdirAll(req.LockDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	old := extraBoundary
+	extraBoundary = func(step string) error {
+		if step == "ignore" {
+			f, err := os.OpenFile(filepath.Join(req.LockDir, ".gitignore"), os.O_APPEND|os.O_WRONLY, 0)
+			if err != nil {
+				return err
+			}
+			_, err = f.WriteString("other/\n")
+			if closeErr := f.Close(); err == nil {
+				err = closeErr
+			}
+			if err != nil {
+				return err
+			}
+			return errors.New("fault")
+		}
+		return nil
+	}
+	defer func() { extraBoundary = old }()
+	if _, err := InstallRemoteExtra(req); err == nil || !strings.Contains(err.Error(), "concurrent save") {
+		t.Fatalf("rollback: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(req.LockDir, ".gitignore"))
+	if err != nil || !strings.Contains(string(data), "other/") || strings.Contains(string(data), "extras/rules/") {
+		t.Fatalf("ignore: %q %v", data, err)
+	}
+}
+
+func TestInstallRemoteExtra_SymlinkedConfigRestored(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires symlink privilege")
+	}
+	req := newRemoteExtraRequest(t)
+	alias := filepath.Join(filepath.Dir(req.ConfigPath), "config-link.yaml")
+	if err := os.Symlink(req.ConfigPath, alias); err != nil {
+		t.Fatal(err)
+	}
+	req.WriteConfig = func() error { return os.WriteFile(alias, []byte("after"), 0644) }
+	old := extraBoundary
+	extraBoundary = func(step string) error {
+		if step == "config" {
+			return errors.New("fault")
+		}
+		return nil
+	}
+	defer func() { extraBoundary = old }()
+	if _, err := InstallRemoteExtra(req); err == nil {
+		t.Fatal("fault ignored")
+	}
+	info, err := os.Lstat(alias)
+	if err != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("config link lost: %v", err)
+	}
+	got, err := os.ReadFile(alias)
+	if err != nil || string(got) != "before" {
+		t.Fatalf("config not restored: %q %v", got, err)
+	}
+}
+
+func TestInstallRemoteExtra_RepairConflictLeavesOldLiveTree(t *testing.T) {
+	req := newRemoteExtraRequest(t)
+	req.Branch = "main"
+	if _, err := InstallRemoteExtra(req); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(req.ExtrasRoot, req.Name, "SKILL.md")
+	before, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Branch = "feature"
+	req.Opts.Update = true
+	old := extraBoundary
+	extraBoundary = func(step string) error {
+		if step == "marker" {
+			return errSimulatedDeath
+		}
+		return nil
+	}
+	_, err = InstallRemoteExtra(req)
+	extraBoundary = old
+	if !errors.Is(err, errSimulatedDeath) {
+		t.Fatal(err)
+	}
+	req.RepairConfig = func(_, _ string) error { return errors.New("local extra conflict") }
+	if _, err := InstallRemoteExtra(req); err == nil || !strings.Contains(err.Error(), "local extra conflict") {
+		t.Fatalf("conflict: %v", err)
+	}
+	after, err := os.ReadFile(file)
+	if err != nil || string(after) != string(before) {
+		t.Fatalf("conflict changed live tree: %q %v", after, err)
 	}
 	if _, err := os.Lstat(extraJournalPath(req.ExtrasRoot, req.Name)); err != nil {
 		t.Fatalf("marker lost: %v", err)
