@@ -139,7 +139,7 @@ func cmdLink(args []string) error {
 			err = fmt.Errorf("failed to enable follow_source_links: %w", err)
 		}
 	}
-	logLinkOp(scope.configPath, "link", map[string]any{"name": name, "target": path}, start, err)
+	logLinkOp(scope.configPath, "link", map[string]any{"name": name, "target": path}, start, statusFromErr(err), err)
 	if err != nil {
 		return fmt.Errorf("cannot link %s: %w", path, err)
 	}
@@ -194,21 +194,26 @@ func cmdUnlink(args []string) error {
 		return fmt.Errorf("link name is required")
 	}
 
+	opArgs := map[string]any{"name": name}
 	err = sourcelink.Remove(scope.source, scope.trashDir, name)
-	logLinkOp(scope.configPath, "unlink", map[string]any{"name": name}, start, err)
 	if err != nil {
+		logLinkOp(scope.configPath, "unlink", opArgs, start, statusFromErr(err), err)
 		return fmt.Errorf("cannot unlink %s: %w", name, err)
 	}
 	name = strings.TrimRight(name, `/\`)
+	status := "ok"
 	if scope.global {
-		store, err := install.LoadMetadataWithMigration(scope.source, "")
-		if err == nil && store.ForgetTrackedRepo(name) {
-			err = store.Save(scope.source)
+		store, metadataErr := install.LoadMetadataWithMigration(scope.source, "")
+		if metadataErr == nil && store.ForgetTrackedRepo(name) {
+			metadataErr = store.Save(scope.source)
 		}
-		if err != nil {
-			ui.Warning("Unlinked, but could not update metadata: %v", err)
+		if metadataErr != nil {
+			status = "partial"
+			err = fmt.Errorf("Unlinked, but could not update metadata: %w", metadataErr)
+			ui.Warning("%v", err)
 		}
 	}
+	logLinkOp(scope.configPath, "unlink", opArgs, start, status, err)
 	fmt.Printf("%s Unlinked %s %s\n", ui.StyledMark(ui.MarkOK), name, ui.DimText("→ trash, kept 7 days; its target is untouched"))
 	ui.Next(
 		"skillshare sync"+scope.flags, "remove its skills from your targets",
@@ -217,8 +222,8 @@ func cmdUnlink(args []string) error {
 	return nil
 }
 
-func logLinkOp(cfgPath, op string, args map[string]any, start time.Time, cmdErr error) {
-	e := oplog.NewEntry(op, statusFromErr(cmdErr), time.Since(start))
+func logLinkOp(cfgPath, op string, args map[string]any, start time.Time, status string, cmdErr error) {
+	e := oplog.NewEntry(op, status, time.Since(start))
 	e.Args = args
 	if cmdErr != nil {
 		e.Message = cmdErr.Error()

@@ -6,9 +6,11 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"skillshare/internal/install"
+	"skillshare/internal/oplog"
 	"skillshare/internal/testutil"
 	"skillshare/internal/utils"
 )
@@ -249,5 +251,34 @@ func TestUnlink_ForgetsCheckoutRecord(t *testing.T) {
 	run("install", "-g").AssertSuccess(t)
 	if !sb.FileExists(filepath.Join(checkout, "foo", "SKILL.md")) {
 		t.Fatal("native checkout touched")
+	}
+}
+
+func TestUnlink_MetadataReloadFailureLogsPartial(t *testing.T) {
+	sb, checkout := linkSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+	run := func(args ...string) *testutil.Result { return sb.RunCLIEnv(sb.MachineEnv(), args...) }
+	run("link", checkout, "-g").AssertSuccess(t)
+	invalid := "invalid metadata from interrupted external write"
+	sb.WriteFile(install.MetadataPath(sb.SourcePath), invalid)
+
+	result := run("unlink", "_dev-skills", "-g")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Unlinked _dev-skills")
+	result.AssertAnyOutputContains(t, "Unlinked, but could not update metadata")
+	entries, err := oplog.Read(sb.ConfigPath, oplog.OpsFile, 1)
+	if err != nil || len(entries) != 1 || entries[0].Command != "unlink" || entries[0].Status != "partial" ||
+		!strings.Contains(entries[0].Message, "Unlinked, but could not update metadata: failed to parse metadata") {
+		t.Fatalf("partial unlink log: %+v %v", entries, err)
+	}
+	if _, err := os.Lstat(filepath.Join(sb.SourcePath, "_dev-skills")); !os.IsNotExist(err) {
+		t.Fatalf("link still exists: %v", err)
+	}
+	if !sb.FileExists(filepath.Join(checkout, "foo", "SKILL.md")) {
+		t.Fatal("unlink touched the target")
+	}
+	if got := sb.ReadFile(install.MetadataPath(sb.SourcePath)); got != invalid {
+		t.Fatalf("reload failure overwrote metadata: %q", got)
 	}
 }
