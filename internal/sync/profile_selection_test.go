@@ -31,8 +31,8 @@ func TestProfiles_SelectionSeam(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, exists := rows["other"]; exists {
-		t.Fatal("profile-excluded skill appeared as an unrelated target status")
+	if rows["other"] != (SkillTargetClassification{Status: "not_in_profile", Reason: "web"}) {
+		t.Fatal("profile-excluded skill lost its diagnostic reason", rows["other"])
 	}
 	sc.Profile = profile.Resolve(catalog, profile.State{Version: 1, Active: "missing"}, "config.yaml", nil)
 	for _, input := range [][]DiscoveredSkill{skills, nil} {

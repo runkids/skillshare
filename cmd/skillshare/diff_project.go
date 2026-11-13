@@ -68,6 +68,7 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 		target     config.TargetConfig
 		mode       string
 		resolution *sync.TargetSkillResolution
+		deselected map[string]string
 	}
 	var resolved []resolvedTarget
 	totalSkills := 0
@@ -90,7 +91,11 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 		if mode == "" {
 			mode = "merge"
 		}
-		resolved = append(resolved, resolvedTarget{entry.Name, target, mode, resolution})
+		deselected, err := sync.ProfileDeselected(entry.Name, sc, discovered)
+		if err != nil {
+			return err
+		}
+		resolved = append(resolved, resolvedTarget{entry.Name, target, mode, resolution, deselected})
 		totalSkills += len(resolution.Skills)
 		if mode == "copy" {
 			hasCopyMode = true
@@ -118,6 +123,7 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 			defer func() { <-sem }()
 			progress.startTarget(rt.name)
 			r := collectTargetDiff(rt.name, rt.target, runtime.sourcePath, rt.mode, rt.resolution, ignorePatterns, progress)
+			labelProfileDeselected(&r, rt.deselected)
 			progress.doneTarget(rt.name, r)
 			results[idx] = r
 		}(i, rt)

@@ -448,6 +448,7 @@ func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOp
 	type filteredEntry struct {
 		targetEntry
 		resolution *sync.TargetSkillResolution
+		deselected map[string]string
 	}
 	var fentries []filteredEntry
 	totalSkills := 0
@@ -458,7 +459,11 @@ func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOp
 		if err != nil {
 			return fmt.Errorf("target %s has invalid include/exclude config: %w", e.name, err)
 		}
-		fentries = append(fentries, filteredEntry{e, resolution})
+		deselected, err := sync.ProfileDeselected(e.name, sc, discovered)
+		if err != nil {
+			return err
+		}
+		fentries = append(fentries, filteredEntry{e, resolution, deselected})
 		totalSkills += len(resolution.Skills)
 		if e.mode == "copy" {
 			hasCopyMode = true
@@ -486,6 +491,7 @@ func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOp
 			defer func() { <-sem }()
 			progress.startTarget(fe.name)
 			r := collectTargetDiff(fe.name, fe.target, cfg.EffectiveSkillsSource(), fe.mode, fe.resolution, sync.EffectiveFileIgnorePatterns(cfg.Ignore), progress)
+			labelProfileDeselected(&r, fe.deselected)
 			progress.doneTarget(fe.name, r)
 			results[idx] = r
 		}(i, fe)
@@ -1289,4 +1295,15 @@ func printDiffHelp() {
 			helpRow{"skillshare diff agents", "Diff agents targets only"},
 		),
 	)
+}
+
+// Only relabel existing sync removals. A diagnostic must not turn an unmanaged
+// entry into a sync action or change the counts that drive sync/force controls.
+func labelProfileDeselected(r *targetDiffResult, deselected map[string]string) {
+	for i := range r.items {
+		item := &r.items[i]
+		if name := deselected[item.name]; name != "" && item.action == "remove" && item.isSync {
+			item.reason = "not in profile " + name
+		}
+	}
 }

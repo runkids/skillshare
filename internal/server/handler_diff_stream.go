@@ -107,6 +107,11 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 		dt.Items = append(dt.Items, diffItem{Skill: "(target naming)", Action: "skip", Reason: err.Error(), Kind: kindSkill})
 		return dt
 	}
+	deselected, err := ssync.ProfileDeselected(name, sc, discovered)
+	if err != nil {
+		dt.Items = append(dt.Items, diffItem{Skill: "(skill selection)", Action: "skip", Reason: err.Error(), Kind: kindSkill})
+		return dt
+	}
 	// Surface collision/validation stats so the UI can show why skills were skipped
 	dt.CollisionCount = len(resolution.Collisions)
 	dt.SkippedCount = resolution.SkippedCount
@@ -175,6 +180,7 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 				dt.Items = append(dt.Items, diffItem{Skill: managedName, Action: "prune", Reason: "orphan copy", Kind: kindSkill})
 			}
 		}
+		labelProfileDeselected(&dt, deselected)
 		return dt
 	}
 
@@ -250,5 +256,15 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 		}
 	}
 
+	labelProfileDeselected(&dt, deselected)
 	return dt
+}
+
+func labelProfileDeselected(dt *diffTarget, deselected map[string]string) {
+	for i := range dt.Items {
+		item := &dt.Items[i]
+		if name := deselected[item.Skill]; name != "" && item.Action == "prune" {
+			item.Reason = "not in profile " + name
+		}
+	}
 }

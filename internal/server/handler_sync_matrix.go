@@ -31,6 +31,8 @@ func syncMatrixReason(status, reason string) (string, map[string]string) {
 		return "sync_matrix.synced", nil
 	case "excluded":
 		return "sync_matrix.excluded", map[string]string{"pattern": reason}
+	case "not_in_profile":
+		return "sync_matrix.not_in_profile", map[string]string{"profile": reason}
 	case "not_included":
 		return "sync_matrix.not_included", nil
 	case "skill_target_mismatch":

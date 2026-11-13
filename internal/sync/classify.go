@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/profile"
 )
 
 // SkillTargetClassification is a physical skill's selection result for previews.
@@ -27,6 +28,7 @@ func ClassifySkillsForTarget(skills []DiscoveredSkill, name string, sc config.Re
 			return nil, err
 		}
 		if !included {
+			rows[skill.RelPath] = SkillTargetClassification{Status: "not_in_profile", Reason: sc.Profile.Name()}
 			continue
 		}
 		targets := skill.Targets
@@ -86,4 +88,31 @@ func ClassifySkillForTarget(flatName string, skillTargets []string, targetName s
 	}
 
 	return "synced", ""
+}
+
+// ProfileDeselected names entries the profile removes from the target's
+// otherwise eligible selection. Resolving both views preserves target naming,
+// routing, ignores and collision handling without introducing another matcher.
+func ProfileDeselected(name string, sc config.ResourceTargetConfig, skills []DiscoveredSkill) (map[string]string, error) {
+	if !sc.Profile.Active() {
+		return nil, nil
+	}
+	selected, err := ResolveTargetSkillsForTarget(name, sc, skills)
+	if err != nil {
+		return nil, err
+	}
+	profileName := sc.Profile.Name()
+	sc.Profile = profile.Selector{}
+	unfiltered, err := ResolveTargetSkillsForTarget(name, sc, skills)
+	if err != nil {
+		return nil, err
+	}
+	kept := selected.ValidTargetNames()
+	deselected := make(map[string]string)
+	for _, skill := range unfiltered.Skills {
+		if !kept[skill.TargetName] {
+			deselected[skill.TargetName] = profileName
+		}
+	}
+	return deselected, nil
 }
