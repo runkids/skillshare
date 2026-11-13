@@ -598,6 +598,25 @@ func TestReconcileSkills_FollowedNonCheckoutNormalizesByScope(t *testing.T) {
 	}
 }
 
+func TestReconcileGlobalSkills_FollowedGroupedLegacyDeclaration(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	target := filepath.Join(sb.Root, "linked")
+	sb.WriteFile(filepath.Join(target, "_team", "child", "SKILL.md"), "# child\n")
+	sb.CreateSymlink(target, filepath.Join(sb.SourcePath, "org"))
+	store := install.NewMetadataStore()
+	store.Set("_team", &install.MetadataEntry{Source: "https://example.com/team.git", Tracked: true, Group: "org"})
+	if err := ReconcileGlobalSkills(&Config{Source: sb.SourcePath, FollowSourceLinks: true}, store); err != nil {
+		t.Fatal(err)
+	}
+	if got := store.Get("org/_team"); got == nil || !got.Tracked || got.Source != "https://example.com/team.git" || got.Group != "org" {
+		t.Errorf("grouped declaration = %+v", got)
+	}
+	if store.GetExact("_team") != nil {
+		t.Error("legacy key was not migrated")
+	}
+}
+
 // Only a _-prefixed checkout is a tracked repo; an unprefixed one stays a
 // regular entry, and a tracked flag an older reconcile wrote on it is cleared
 // without dropping the entry (#476).
