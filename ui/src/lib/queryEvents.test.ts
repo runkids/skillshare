@@ -8,6 +8,7 @@ import { queryKeys as k } from './queryKeys';
 // to show which events reach them by prefix.
 const cached = {
   overview: k.overview,
+  profiles: k.profiles,
   version: k.versionCheck,
   policy: k.updatePolicy,
   skills: k.skills.all,
@@ -70,6 +71,7 @@ const SM: Label[] = ['syncMatrix', 'syncMatrixClaude'];
 const TARGETS: Label[] = [...T, 'projects', 'config', 'overview', 'diff', 'syncMatrix'];
 
 const stale: Record<QueryEvent, Label[] | { args: string[]; stale: Label[] }> = {
+  profileSwitched: [...S, ...T, 'diff', 'diffClaude', ...SM, 'overview', 'profiles', 'backups'],
   skillsChanged: [...S, 'overview', 'diff'],
   skillBranchSwitched: [...S, 'overview', 'diff', 'config'],
   skillEdited: { args: ['a'], stale: S },
@@ -87,15 +89,15 @@ const stale: Record<QueryEvent, Label[] | { args: string[]; stale: Label[] }> = 
   configInstalled: ['missingConfigEntries', ...S, 'overview', ...SM, 'diff'],
 
   targetsChanged: [...TARGETS, 'instructions'],
-  synced: [...T, 'overview', 'diff'],
-  syncRan: [...TARGETS, 'extrasDiff', ...X, ...M, ...H, 'log'],
-  projectSynced: [...TARGETS, ...M, ...H, 'log'],
+  synced: [...T, 'overview', 'diff', 'profiles'],
+  syncRan: [...TARGETS, 'extrasDiff', ...X, ...M, ...H, 'log', 'profiles'],
+  projectSynced: [...TARGETS, ...M, ...H, 'log', 'profiles'],
   projectChanged: [...TARGETS, ...M, ...H],
   projectAdded: [...TARGETS, ...M],
   targetFilesChanged: { args: ['claude'], stale: ['targetFiles', 'targetFile'] },
   targetFileRemoved: { args: ['claude'], stale: ['targetFiles'] },
 
-  configSaved: ['policy', 'version', 'config', ...M, 'overview', ...T, ...S, ...X, 'extrasDiff', 'diff', 'syncMatrix', 'doctor', 'instructions', 'memory', 'memoryOverview'],
+  configSaved: ['policy', 'version', 'config', ...M, 'overview', ...T, ...S, ...X, 'extrasDiff', 'diff', 'syncMatrix', 'doctor', 'instructions', 'memory', 'memoryOverview', 'profiles'],
   updatePolicyChanged: ['version', 'doctor'],
   settingsSaved: ['policy', 'config', 'version', 'doctor'],
   skillignoreSaved: ['skillignore', 'diff', 'overview', ...S, 'doctor'],
