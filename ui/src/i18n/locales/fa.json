@@ -3622,5 +3622,17 @@
   "plugins.error.importRecipeIdentityRequired": "این دستور نصب راه دور، شناسهٔ افزونه ندارد. پیش از واردکردن، مقدار plugin: را در تعریف مشترک روی نام بستهٔ بومی تنظیم کنید؛ واردکردن، کد منبع را دانلود نمی‌کند.",
   "plugins.error.unimportTargetRequired": "unimport برای انتخاب سابقهٔ واردکردن محلی به --target نیاز دارد",
   "plugins.error.unimportTargetMissing": "{name} هیچ اتصالی برای مقصد {target} ندارد",
-  "plugins.error.unimportReceiptRequired": "{name}/{target} هیچ واردکردن محلی با دستور نصب منبع مشترک ندارد"
+  "plugins.error.unimportReceiptRequired": "{name}/{target} هیچ واردکردن محلی با دستور نصب منبع مشترک ندارد",
+  "extras.remote.identityLocked": "نام و محل افزونهٔ راه‌دور اینجا قابل تغییر نیست. ورودی را حذف و با نام و منبع دلخواه دوباره نصب کنید. مقصدها و حالت‌ها قابل ویرایش می‌مانند.",
+  "extras.remote.removeConfirm": "افزونهٔ {name} حذف شود؟ پوشهٔ مدیریت‌شدهٔ بدون تغییر حذف و پوشهٔ ویرایش‌شده حفظ می‌شود. پیوندهای متعلق به آن پاک می‌شوند. خروجی‌های کپی‌شده، تبدیل‌شده یا نامرتبط حفظ می‌شوند.",
+  "extras.remote.deleted": "پوشهٔ مدیریت‌شده حذف شد: {path}",
+  "extras.remote.retained": "پوشهٔ ویرایش‌شده یا تأییدنشده حفظ شد: {path}",
+  "extras.remote.keptOutputs": "خروجی‌های کپی‌شده، تبدیل‌شده یا نامرتبط حفظ شدند:\n{paths}",
+  "extras.remote.localOnly": "فقط یکپارچگی محلی؛ بازبینی راه‌دور بررسی نشده است.",
+  "extras.remote.restore": "بازیابی یا تعمیر با: {command}",
+  "extras.remote.state.intact": "سالم",
+  "extras.remote.state.modified": "تغییریافته",
+  "extras.remote.state.interrupted": "قطع‌شده",
+  "extras.remote.state.missing": "مفقود",
+  "extras.remote.state.error": "خطا"
 }

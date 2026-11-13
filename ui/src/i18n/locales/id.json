@@ -3622,5 +3622,17 @@
   "plugins.error.importRecipeIdentityRequired": "Resep jarak jauh ini tidak memiliki identitas plugin. Sebelum mengimpor, isi plugin: dengan nama paket native dalam deklarasi bersama; impor tidak mengunduh kode sumber.",
   "plugins.error.unimportTargetRequired": "unimport memerlukan --target untuk memilih catatan impor lokal",
   "plugins.error.unimportTargetMissing": "{name} tidak memiliki ikatan untuk target {target}",
-  "plugins.error.unimportReceiptRequired": "{name}/{target} tidak memiliki impor lokal yang didukung resep sumber bersama"
+  "plugins.error.unimportReceiptRequired": "{name}/{target} tidak memiliki impor lokal yang didukung resep sumber bersama",
+  "extras.remote.identityLocked": "Nama dan lokasi extra jarak jauh tidak dapat diubah di sini. Hapus entri lalu instal ulang dengan nama dan sumber yang diinginkan. Target dan mode tetap dapat diedit.",
+  "extras.remote.removeConfirm": "Hapus extra {name}? Direktori terkelola yang belum diedit akan dihapus; direktori yang diedit dipertahankan. Tautan miliknya dibersihkan. Keluaran salinan, transformasi, atau milik pihak lain dipertahankan.",
+  "extras.remote.deleted": "Direktori terkelola dihapus: {path}",
+  "extras.remote.retained": "Direktori yang diedit atau belum diverifikasi dipertahankan: {path}",
+  "extras.remote.keptOutputs": "Keluaran salinan, transformasi, atau milik pihak lain dipertahankan:\n{paths}",
+  "extras.remote.localOnly": "Hanya integritas lokal; revisi jarak jauh tidak diperiksa.",
+  "extras.remote.restore": "Pulihkan atau perbaiki dengan: {command}",
+  "extras.remote.state.intact": "Utuh",
+  "extras.remote.state.modified": "Diubah",
+  "extras.remote.state.interrupted": "Terhenti",
+  "extras.remote.state.missing": "Tidak ada",
+  "extras.remote.state.error": "Kesalahan"
 }

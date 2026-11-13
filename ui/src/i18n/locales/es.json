@@ -3622,5 +3622,17 @@
   "plugins.error.importRecipeIdentityRequired": "Esta receta remota no tiene una identidad de plugin. Antes de importar, establece plugin: con el nombre del paquete nativo en la declaración compartida; la importación no descarga el código fuente.",
   "plugins.error.unimportTargetRequired": "unimport requiere --target para seleccionar un registro de importación local",
   "plugins.error.unimportTargetMissing": "{name} no tiene un enlace para el destino {target}",
-  "plugins.error.unimportReceiptRequired": "{name}/{target} no tiene una importación local respaldada por una receta de fuente compartida"
+  "plugins.error.unimportReceiptRequired": "{name}/{target} no tiene una importación local respaldada por una receta de fuente compartida",
+  "extras.remote.identityLocked": "Los extras remotos no se pueden renombrar ni mover aquí. Elimina la entrada y reinstálala con el nombre y origen deseados. Los destinos y modos siguen siendo editables.",
+  "extras.remote.removeConfirm": "¿Eliminar el extra {name}? Su directorio administrado sin cambios se elimina; si está editado, se conserva. Se limpian los enlaces propios. Se conservan las salidas copiadas, transformadas o ajenas.",
+  "extras.remote.deleted": "Directorio administrado eliminado: {path}",
+  "extras.remote.retained": "Directorio editado o sin verificar conservado: {path}",
+  "extras.remote.keptOutputs": "Salidas copiadas, transformadas o ajenas conservadas:\n{paths}",
+  "extras.remote.localOnly": "Solo integridad local; revisión remota no comprobada.",
+  "extras.remote.restore": "Restaura o repara con: {command}",
+  "extras.remote.state.intact": "Íntegro",
+  "extras.remote.state.modified": "Modificado",
+  "extras.remote.state.interrupted": "Interrumpido",
+  "extras.remote.state.missing": "Ausente",
+  "extras.remote.state.error": "Error"
 }

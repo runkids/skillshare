@@ -3622,5 +3622,17 @@
   "plugins.error.importRecipeIdentityRequired": "このリモートレシピにはプラグインの識別情報がありません。インポート前に、共有宣言の plugin: にネイティブパッケージ名を設定してください。インポートではソースをダウンロードしません。",
   "plugins.error.unimportTargetRequired": "unimport にはローカルのインポート記録を選択する --target が必要です",
   "plugins.error.unimportTargetMissing": "{name} にはターゲット {target} のバインディングがありません",
-  "plugins.error.unimportReceiptRequired": "{name}/{target} には共有ソースレシピに対応するローカルのインポートがありません"
+  "plugins.error.unimportReceiptRequired": "{name}/{target} には共有ソースレシピに対応するローカルのインポートがありません",
+  "extras.remote.identityLocked": "リモート extra の名前や保存先はここでは変更できません。エントリを削除し、希望する名前とソースで再インストールしてください。ターゲットとモードは編集できます。",
+  "extras.remote.removeConfirm": "extra {name} を削除しますか？未編集の管理ディレクトリは削除し、編集済みのディレクトリは保持します。所有するリンクは削除します。コピー、変換済み、または所有していない出力は保持します。",
+  "extras.remote.deleted": "管理ディレクトリを削除しました: {path}",
+  "extras.remote.retained": "編集済みまたは未検証のディレクトリを保持しました: {path}",
+  "extras.remote.keptOutputs": "コピー、変換済み、または所有していない出力を保持しました:\n{paths}",
+  "extras.remote.localOnly": "ローカルの整合性のみ。リモートのリビジョンは未確認です。",
+  "extras.remote.restore": "復元または修復: {command}",
+  "extras.remote.state.intact": "正常",
+  "extras.remote.state.modified": "変更あり",
+  "extras.remote.state.interrupted": "中断",
+  "extras.remote.state.missing": "未存在",
+  "extras.remote.state.error": "エラー"
 }
