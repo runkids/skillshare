@@ -3,7 +3,11 @@ package main
 import "testing"
 
 func TestProfileArgs(t *testing.T) {
-	for _, tc := range []struct { args []string; action string; fail bool }{
+	for _, tc := range []struct {
+		args   []string
+		action string
+		fail   bool
+	}{
 		{nil, "list", false},
 		{[]string{"show", "web", "--json"}, "show", false},
 		{[]string{"create", "web", "--description", "-p", "--add-include", "web*"}, "create", false},
@@ -18,13 +22,20 @@ func TestProfileArgs(t *testing.T) {
 		{[]string{"add", "web", "alpha"}, "", true},
 	} {
 		got, err := parseProfileArgs(tc.args)
-		if (err != nil) != tc.fail { t.Fatalf("%v: %v", tc.args, err) }
-		if err == nil && got.action != tc.action { t.Fatalf("%v: %s", tc.args, got.action) }
+		if (err != nil) != tc.fail {
+			t.Fatalf("%v: %v", tc.args, err)
+		}
+		if err == nil && got.action != tc.action {
+			t.Fatalf("%v: %s", tc.args, got.action)
+		}
 	}
 }
 
 func TestProfileReadOnlyStartup(t *testing.T) {
-	for _, tc := range []struct { args []string; readOnly bool }{
+	for _, tc := range []struct {
+		args     []string
+		readOnly bool
+	}{
 		{nil, true}, {[]string{"list", "--json"}, true}, {[]string{"show", "a"}, true},
 		{[]string{"use", "a", "--dry-run"}, true}, {[]string{"use", "--none"}, true},
 		{[]string{"use", "missing"}, true}, {[]string{"create", "a"}, false},
@@ -33,6 +44,8 @@ func TestProfileReadOnlyStartup(t *testing.T) {
 		{[]string{"edit", "a", "--description", "x"}, false},
 		{[]string{"rename", "a", "b"}, false}, {[]string{"delete", "a"}, false},
 	} {
-		if got := profileSkipsMaintenance(tc.args); got != tc.readOnly { t.Fatalf("%v: %v", tc.args, got) }
+		if got := profileSkipsMaintenance(tc.args); got != tc.readOnly {
+			t.Fatalf("%v: %v", tc.args, got)
+		}
 	}
 }

@@ -15,7 +15,9 @@ func TestProfileSync_PreflightJSONWrittenOnce(t *testing.T) {
 	t.Setenv("HOME", root)
 	t.Setenv("XDG_STATE_HOME", filepath.Join(root, "state"))
 	path := filepath.Join(root, "config.yaml")
-	if err := os.WriteFile(path, []byte("targets: {}\nprofiles: {}\n"), 0600); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(path, []byte("targets: {}\nprofiles: {}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	var commandErr error
 	output := captureStdout(t, func() {
 		commandErr = runProfileSyncCLI(nil, profileapply.Scope{ConfigPath: path}, false, false, false, true, &profileSyncNative{}, func(_ *profileapply.View) error {
@@ -23,6 +25,10 @@ func TestProfileSync_PreflightJSONWrittenOnce(t *testing.T) {
 		})
 	})
 	var out map[string]string
-	if err := json.Unmarshal([]byte(output), &out); err != nil { t.Fatalf("preflight wrote multiple JSON documents: %s %v", output, err) }
-	if commandErr == nil || out["error"] != "native settings conflict" { t.Fatal(output, commandErr) }
+	if err := json.Unmarshal([]byte(output), &out); err != nil {
+		t.Fatalf("preflight wrote multiple JSON documents: %s %v", output, err)
+	}
+	if commandErr == nil || out["error"] != "native settings conflict" {
+		t.Fatal(output, commandErr)
+	}
 }

@@ -12,11 +12,7 @@ import (
 // the skill still has a managed entry under the name an earlier target naming
 // gave it, that entry is renamed in place, unless the new name is taken.
 // taken holds the names other skills sync to in this run.
-func selectActiveTargetNameForSync(mode, targetPath string, skill ResolvedTargetSkill, taken map[string]bool, manifest *Manifest, dryRun bool, profileAware ...bool) (string, error) {
-	return selectActiveTargetNameWithPolicy(mode, targetPath, skill, taken, manifest, dryRun, len(profileAware) > 0 && profileAware[0], nil)
-}
-
-func selectActiveTargetNameWithPolicy(mode, targetPath string, skill ResolvedTargetSkill, taken map[string]bool, manifest *Manifest, dryRun, profileAware bool, ignore []string) (string, error) {
+func selectActiveTargetNameForSync(mode, targetPath string, skill ResolvedTargetSkill, taken map[string]bool, manifest *Manifest, dryRun, profileAware bool, ignore []string) (string, error) {
 	desiredName := skill.TargetName
 	legacy, err := findLegacyTargetEntry(mode, targetPath, skill, taken, manifest)
 	if err != nil || legacy.name == "" {
@@ -25,16 +21,12 @@ func selectActiveTargetNameWithPolicy(mode, targetPath string, skill ResolvedTar
 	legacyName, legacyNaming := legacy.name, legacy.naming
 	legacyPath := filepath.Join(targetPath, legacyName)
 	verifiedOutput := ""
-	var checkedInput *EntryInput
-	var checkedEntry EntryClassification
 	if profileAware {
 		input := CopySource{Path: skill.Skill.SourcePath, IgnorePatterns: ignore}
 		if legacyNaming == "prefixed" && legacyName != skill.SkillName {
 			input.OutputName = legacyName
 		}
-		checkedInput = &EntryInput{Name: legacyName, Path: legacyPath, SourceRoot: filepath.Dir(skill.Skill.SourcePath), Manifest: manifest, Source: &input}
-		entry := ClassifyEntry(*checkedInput)
-		checkedEntry = entry
+		entry := ClassifyEntry(EntryInput{Name: legacyName, Path: legacyPath, SourceRoot: filepath.Dir(skill.Skill.SourcePath), Manifest: manifest, Source: &input})
 		if entry.Class != EntryCleanCopy && entry.Class != EntryManagedLink {
 			return legacyName, nil
 		}
@@ -58,12 +50,6 @@ func selectActiveTargetNameWithPolicy(mode, targetPath string, skill ResolvedTar
 		return legacyName, nil
 	}
 
-	if checkedInput != nil {
-		current := ClassifyEntry(*checkedInput)
-		if current.Class != checkedEntry.Class || current.Fingerprint != checkedEntry.Fingerprint {
-			return legacyName, nil
-		}
-	}
 	if err := os.Rename(legacyPath, desiredPath); err != nil {
 		return "", fmt.Errorf("failed to rename managed target entry %s -> %s: %w", legacyName, desiredName, err)
 	}

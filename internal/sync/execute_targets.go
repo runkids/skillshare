@@ -15,18 +15,18 @@ import (
 
 // TargetResult records completed skill and agent operations for a target.
 type TargetResult struct {
-	Target     string   `json:"target"`
-	Linked     []string `json:"linked"`
-	Updated    []string `json:"updated"`
-	Skipped    []string `json:"skipped"`
-	Pruned     []string `json:"pruned"`
-	DirCreated string   `json:"dir_created,omitempty"`
-	KeptModified []EntryChange `json:"kept_modified,omitempty"`
-	Blocked []EntryChange `json:"blocked,omitempty"`
-	Refreshed []string `json:"refreshed,omitempty"`
-	Converted []string `json:"converted,omitempty"`
-	PruneError string `json:"prune_error,omitempty"`
-	FailedRemovals []string `json:"failed_removals,omitempty"`
+	Target         string        `json:"target"`
+	Linked         []string      `json:"linked"`
+	Updated        []string      `json:"updated"`
+	Skipped        []string      `json:"skipped"`
+	Pruned         []string      `json:"pruned"`
+	DirCreated     string        `json:"dir_created,omitempty"`
+	KeptModified   []EntryChange `json:"kept_modified,omitempty"`
+	Blocked        []EntryChange `json:"blocked,omitempty"`
+	Refreshed      []string      `json:"refreshed,omitempty"`
+	Converted      []string      `json:"converted,omitempty"`
+	PruneError     string        `json:"prune_error,omitempty"`
+	FailedRemovals []string      `json:"failed_removals,omitempty"`
 }
 
 // TargetFailure reports one failed resource without discarding completed work.

@@ -38,35 +38,59 @@ func TestProfileApply_CLIAPIConcurrency(t *testing.T) {
 				second <- err
 			}()
 			close(release)
-			if err := <-first; err != nil { t.Fatal(err) }
-			if err := <-second; err != nil { t.Fatal(err) }
-			if blocked == nil { t.Fatal("definition mutation bypassed running switch") }
+			if err := <-first; err != nil {
+				t.Fatal(err)
+			}
+			if err := <-second; err != nil {
+				t.Fatal(err)
+			}
+			if blocked == nil {
+				t.Fatal("definition mutation bypassed running switch")
+			}
 			v, err := Load(f.scope)
-			if err != nil || v.State.Active != "b" || v.State.Pending { t.Fatalf("state not serialized: %+v %v", v, err) }
-			if _, err := os.Lstat(filepath.Join(f.target, "alpha")); !os.IsNotExist(err) { t.Fatal("first profile outlived second switch") }
-			if read(t, filepath.Join(f.target, "beta", "SKILL.md")) != read(t, filepath.Join(f.source, "beta", "SKILL.md")) { t.Fatal("state/target disagreement") }
+			if err != nil || v.State.Active != "b" || v.State.Pending {
+				t.Fatalf("state not serialized: %+v %v", v, err)
+			}
+			if _, err := os.Lstat(filepath.Join(f.target, "alpha")); !os.IsNotExist(err) {
+				t.Fatal("first profile outlived second switch")
+			}
+			if read(t, filepath.Join(f.target, "beta", "SKILL.md")) != read(t, filepath.Join(f.source, "beta", "SKILL.md")) {
+				t.Fatal("state/target disagreement")
+			}
 		})
 	}
 }
 
 func TestProfileSync_LockThroughCallback(t *testing.T) {
 	f := newFixture(t, false, "copy")
-	if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a", NoSync: true}); err != nil { t.Fatal(err) }
+	if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a", NoSync: true}); err != nil {
+		t.Fatal(err)
+	}
 	_, err := WithSkillSync(context.Background(), SyncRequest{Scope: f.scope, After: func(_ *View, _ *Result) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 		defer cancel()
-		if _, err := Mutate(ctx, f.scope, profile.Mutation{Op: "create", Name: "competing"}); err == nil { t.Fatal("ordinary sync released lock before callback") }
+		if _, err := Mutate(ctx, f.scope, profile.Mutation{Op: "create", Name: "competing"}); err == nil {
+			t.Fatal("ordinary sync released lock before callback")
+		}
 		return errors.New("remaining skill work failed")
 	}})
-	if err == nil { t.Fatal("callback failure hidden") }
+	if err == nil {
+		t.Fatal("callback failure hidden")
+	}
 	statePath, _, _ := config.ProfilePaths(f.path)
 	// Eligible skills completed; a failure of unrelated ordinary-sync work
 	// does not undo their settlement. The lock still spans that work.
 	state, err := profile.ReadState(statePath)
-	if err != nil || state.Pending { t.Fatal("eligible skills did not settle", state, err) }
-	if _, err := WithSkillSync(context.Background(), SyncRequest{Scope: f.scope}); err != nil { t.Fatal(err) }
+	if err != nil || state.Pending {
+		t.Fatal("eligible skills did not settle", state, err)
+	}
+	if _, err := WithSkillSync(context.Background(), SyncRequest{Scope: f.scope}); err != nil {
+		t.Fatal(err)
+	}
 	state, err = profile.ReadState(statePath)
-	if err != nil || state.Pending { t.Fatal("successful retry did not settle", state, err) }
+	if err != nil || state.Pending {
+		t.Fatal("successful retry did not settle", state, err)
+	}
 }
 
 func TestProfileSync_PreflightRefusesBeforeWrites(t *testing.T) {
@@ -128,11 +152,16 @@ func TestProfileApply_IncompleteOutcome(t *testing.T) {
 			row := ssync.TargetResult{Target: "custom", Linked: []string{"alpha"}}
 			executed := ssync.ExecuteResult{}
 			switch failure {
-			case "prune": row.PruneError = "cannot read manifest"
-			case "remove": row.FailedRemovals = []string{"departing"}
-			case "kept": row.KeptModified = []ssync.EntryChange{{Target: "custom", Entry: "edited", Class: ssync.EntryModifiedCopy}}
-			case "blocked": row.Blocked = []ssync.EntryChange{{Target: "custom", Entry: "local", Class: ssync.EntryUnmanaged}}
-			case "target": executed.Failed = []ssync.TargetFailure{{Target: "bad", Error: "cannot create root"}}
+			case "prune":
+				row.PruneError = "cannot read manifest"
+			case "remove":
+				row.FailedRemovals = []string{"departing"}
+			case "kept":
+				row.KeptModified = []ssync.EntryChange{{Target: "custom", Entry: "edited", Class: ssync.EntryModifiedCopy}}
+			case "blocked":
+				row.Blocked = []ssync.EntryChange{{Target: "custom", Entry: "local", Class: ssync.EntryUnmanaged}}
+			case "target":
+				executed.Failed = []ssync.TargetFailure{{Target: "bad", Error: "cannot create root"}}
 			}
 			executed.Results = []ssync.TargetResult{row}
 			var result Result
@@ -179,7 +208,10 @@ func TestProfileApply_JSONContract(t *testing.T) {
 
 func TestProfiles_StateMatrix(t *testing.T) {
 	for _, project := range []bool{false, true} {
-		for _, tc := range []struct{ name, skills string; count int }{
+		for _, tc := range []struct {
+			name, skills string
+			count        int
+		}{
 			{"unrestricted", "{}", 2},
 			{"empty", "{skills: {}}", 0},
 			{"blank", "{skills: {include: [' ', '']}}", 0},
@@ -190,13 +222,21 @@ func TestProfiles_StateMatrix(t *testing.T) {
 				f := newFixture(t, project, "copy")
 				write(t, f.path, read(t, f.path)+"  matrix: "+tc.skills+"\n")
 				out, err := Apply(context.Background(), Request{Scope: f.scope, Name: "matrix", AllowEmpty: true})
-				if err != nil || !out.Complete || out.Profile.Selected != tc.count { t.Fatalf("selection: %+v %v", out, err) }
+				if err != nil || !out.Complete || out.Profile.Selected != tc.count {
+					t.Fatalf("selection: %+v %v", out, err)
+				}
 				v, err := Load(f.scope)
-				if err != nil { t.Fatal(err) }
+				if err != nil {
+					t.Fatal(err)
+				}
 				discovery, err := v.Discover()
-				if err != nil { t.Fatal(err) }
+				if err != nil {
+					t.Fatal(err)
+				}
 				counts, err := v.TargetCounts(discovery.Skills)
-				if err != nil || counts["custom"] != tc.count { t.Fatal("show/runner disagreement", counts, err) }
+				if err != nil || counts["custom"] != tc.count {
+					t.Fatal("show/runner disagreement", counts, err)
+				}
 			})
 		}
 	}
@@ -211,9 +251,13 @@ func TestProfiles_SharedFolderExecution(t *testing.T) {
 	write(t, filepath.Join(f.source, "beta", "SKILL.md"), "---\nname: beta\nmetadata:\n  targets: [second]\n---\n# beta\n")
 	for i := 0; i < 2; i++ {
 		out, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a"})
-		if err != nil || !out.Complete { t.Fatal(out, err) }
+		if err != nil || !out.Complete {
+			t.Fatal(out, err)
+		}
 		for _, name := range []string{"alpha", "beta"} {
-			if _, err := os.Stat(filepath.Join(f.target, name, "SKILL.md")); err != nil { t.Fatalf("shared-folder peer pruned %s: %v", name, err) }
+			if _, err := os.Stat(filepath.Join(f.target, name, "SKILL.md")); err != nil {
+				t.Fatalf("shared-folder peer pruned %s: %v", name, err)
+			}
 		}
 	}
 }
@@ -225,48 +269,76 @@ func TestProfileApply_ReplayScratch(t *testing.T) {
 	write(t, f.path, text)
 	// Nested source produces a rewritten prefixed name and exercises legacy replay.
 	write(t, filepath.Join(f.source, "_team", "nested", "leaf", "SKILL.md"), "---\nname: leaf\n---\n# nested\n")
-	if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a"}); err != nil { t.Fatal(err) }
+	if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a"}); err != nil {
+		t.Fatal(err)
+	}
 	manifestPath := filepath.Join(f.target, ssync.ManifestFile)
 	// Use the existing manifest decoder so only outputs is removed; no invented metadata.
 	manifest, err := ssync.ReadManifest(f.target)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	manifest.Outputs = nil
 	data, err := json.Marshal(manifest)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	write(t, manifestPath, string(data))
-	if manifest.Managed["team-leaf"] == "" { t.Fatal("fixture did not produce a rewritten tracked copy") }
+	if manifest.Managed["team-leaf"] == "" {
+		t.Fatal("fixture did not produce a rewritten tracked copy")
+	}
 	scratch := t.TempDir()
 	t.Setenv("TMPDIR", scratch)
 	before := tree(t, filepath.Dir(f.source))
-	if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "b", DryRun: true}); err != nil { t.Fatal(err) }
-	if after := tree(t, filepath.Dir(f.source)); !reflect.DeepEqual(before, after) { t.Fatal("legacy preview changed retained tree") }
+	if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "b", DryRun: true}); err != nil {
+		t.Fatal(err)
+	}
+	if after := tree(t, filepath.Dir(f.source)); !reflect.DeepEqual(before, after) {
+		t.Fatal("legacy preview changed retained tree")
+	}
 	entries, err := os.ReadDir(scratch)
-	if err != nil || len(entries) != 0 { t.Fatal("replay scratch retained", entries, err) }
+	if err != nil || len(entries) != 0 {
+		t.Fatal("replay scratch retained", entries, err)
+	}
 	// A non-directory temp root makes replay impossible even under root CI.
 	badTemp := filepath.Join(t.TempDir(), "file")
 	write(t, badTemp, "not a directory")
 	t.Setenv("TMPDIR", badTemp)
-	if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "b", DryRun: true}); !errors.Is(err, ErrRefused) { t.Fatalf("unverifiable legacy copy accepted: %v", err) }
+	if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "b", DryRun: true}); !errors.Is(err, ErrRefused) {
+		t.Fatalf("unverifiable legacy copy accepted: %v", err)
+	}
 }
 
 func TestProfileSync_DefinitionsWithoutActiveKeepLegacyPolicy(t *testing.T) {
 	f := newFixture(t, false, "copy")
-	if _, err := WithSkillSync(context.Background(), SyncRequest{Scope: f.scope}); err != nil { t.Fatal(err) }
+	if _, err := WithSkillSync(context.Background(), SyncRequest{Scope: f.scope}); err != nil {
+		t.Fatal(err)
+	}
 	path := filepath.Join(f.target, "alpha", "SKILL.md")
 	write(t, path, "edited")
 	write(t, filepath.Join(f.source, "alpha", "SKILL.md"), "---\nname: alpha\n---\nchanged\n")
-	if _, err := WithSkillSync(context.Background(), SyncRequest{Scope: f.scope}); err != nil { t.Fatal(err) }
-	if read(t, path) == "edited" { t.Fatal("inactive definitions changed ordinary copy policy") }
+	if _, err := WithSkillSync(context.Background(), SyncRequest{Scope: f.scope}); err != nil {
+		t.Fatal(err)
+	}
+	if read(t, path) == "edited" {
+		t.Fatal("inactive definitions changed ordinary copy policy")
+	}
 	_, lock, _ := config.ProfilePaths(f.path)
-	if _, err := os.Stat(lock); err != nil { t.Fatal("definitions-only skill sync did not take lock", err) }
-	if _, err := WithSkillSync(context.Background(), SyncRequest{Scope: f.scope, DiscardEdits: true}); !errors.Is(err, ErrRefused) { t.Fatal("discard accepted without active/pending state", err) }
+	if _, err := os.Stat(lock); err != nil {
+		t.Fatal("definitions-only skill sync did not take lock", err)
+	}
+	if _, err := WithSkillSync(context.Background(), SyncRequest{Scope: f.scope, DiscardEdits: true}); !errors.Is(err, ErrRefused) {
+		t.Fatal("discard accepted without active/pending state", err)
+	}
 }
 
 func TestProfiles_PreservationTransitions(t *testing.T) {
 	for _, project := range []bool{false, true} {
 		t.Run(fmt.Sprint(project), func(t *testing.T) {
 			f := newFixture(t, project, "copy")
-			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a"}); err != nil { t.Fatal(err) }
+			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a"}); err != nil {
+				t.Fatal(err)
+			}
 			path := filepath.Join(f.target, "alpha", "SKILL.md")
 			write(t, path, "authored")
 			// Same selected skill in a second profile: changed source must not
@@ -274,22 +346,38 @@ func TestProfiles_PreservationTransitions(t *testing.T) {
 			write(t, f.path, read(t, f.path)+"  same:\n    skills:\n      include: [alpha]\n")
 			write(t, filepath.Join(f.source, "alpha", "SKILL.md"), "---\nname: alpha\n---\nchanged source\n")
 			before := tree(t, f.target)
-			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "same"}); !errors.Is(err, ErrRefused) { t.Fatal("selected edit not refused", err) }
-			if !reflect.DeepEqual(before, tree(t, f.target)) { t.Fatal("refused switch changed edited tree") }
+			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "same"}); !errors.Is(err, ErrRefused) {
+				t.Fatal("selected edit not refused", err)
+			}
+			if !reflect.DeepEqual(before, tree(t, f.target)) {
+				t.Fatal("refused switch changed edited tree")
+			}
 			// A supported target mode change is represented by the serialized
 			// mode it writes; ownership comes from the existing copy manifest.
 			write(t, f.path, strings.Replace(read(t, f.path), "mode: copy", "mode: merge", 1))
-			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "b"}); !errors.Is(err, ErrRefused) { t.Fatal("mode transition lost departing edit", err) }
+			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "b"}); !errors.Is(err, ErrRefused) {
+				t.Fatal("mode transition lost departing edit", err)
+			}
 			out, err := WithSkillSync(context.Background(), SyncRequest{Scope: f.scope})
-			if err != nil || out.Complete || read(t, path) != "authored" { t.Fatal("ordinary merge converted edited copy", out, err) }
+			if err != nil || out.Complete || read(t, path) != "authored" {
+				t.Fatal("ordinary merge converted edited copy", out, err)
+			}
 			// Literal profile edit is shipped in core; add/remove CLI comes in 3.
-			if _, err := Mutate(context.Background(), f.scope, profile.Mutation{Op: "edit", Name: "a", RemoveInclude: []string{"alpha"}}); err != nil { t.Fatal(err) }
+			if _, err := Mutate(context.Background(), f.scope, profile.Mutation{Op: "edit", Name: "a", RemoveInclude: []string{"alpha"}}); err != nil {
+				t.Fatal(err)
+			}
 			out, err = WithSkillSync(context.Background(), SyncRequest{Scope: f.scope})
-			if err != nil || out.Complete || read(t, path) != "authored" { t.Fatal("active definition removal pruned edit", out, err) }
+			if err != nil || out.Complete || read(t, path) != "authored" {
+				t.Fatal("active definition removal pruned edit", out, err)
+			}
 			// An unrecorded nested-looking folder is never heuristic ownership.
 			write(t, filepath.Join(f.target, "team__private", "SKILL.md"), "unmanaged")
-			if _, err := WithSkillSync(context.Background(), SyncRequest{Scope: f.scope}); err != nil { t.Fatal(err) }
-			if read(t, filepath.Join(f.target, "team__private", "SKILL.md")) != "unmanaged" { t.Fatal("flat-name heuristic deleted local folder") }
+			if _, err := WithSkillSync(context.Background(), SyncRequest{Scope: f.scope}); err != nil {
+				t.Fatal(err)
+			}
+			if read(t, filepath.Join(f.target, "team__private", "SKILL.md")) != "unmanaged" {
+				t.Fatal("flat-name heuristic deleted local folder")
+			}
 		})
 	}
 }
@@ -309,13 +397,17 @@ func TestProfiles_PrefixedRoundTrip(t *testing.T) {
 			}
 			path := filepath.Join(f.target, "team-leaf", "SKILL.md")
 			content := read(t, path)
-			if !strings.Contains(content, "name: team-leaf") { t.Fatal("fixture was not rewritten", content) }
+			if !strings.Contains(content, "name: team-leaf") {
+				t.Fatal("fixture was not rewritten", content)
+			}
 			write(t, path, strings.Replace(content, "name: team-leaf", "name: authored", 1))
 			before := tree(t, f.target)
 			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "b"}); !errors.Is(err, ErrRefused) {
 				t.Fatal("generated name edit was not protected", err)
 			}
-			if !reflect.DeepEqual(before, tree(t, f.target)) { t.Fatal("refusal changed edited target") }
+			if !reflect.DeepEqual(before, tree(t, f.target)) {
+				t.Fatal("refusal changed edited target")
+			}
 		})
 	}
 }
@@ -329,10 +421,18 @@ func TestProfiles_StandardNamingUsesFlatMembership(t *testing.T) {
 				text = strings.Replace(text, "include: [alpha]", "include: [nested__leaf]", 1)
 				write(t, f.path, text)
 				write(t, filepath.Join(f.source, "nested", "leaf", "SKILL.md"), "---\nname: leaf\n---\n# leaf\n")
-				if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a"}); err != nil { t.Fatal(err) }
-				if _, err := os.Stat(filepath.Join(f.target, "leaf", "SKILL.md")); err != nil { t.Fatal("flat membership was confused with output name", err) }
-				if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "b"}); err != nil { t.Fatal(err) }
-				if _, err := os.Lstat(filepath.Join(f.target, "leaf")); !os.IsNotExist(err) { t.Fatal("standard entry not pruned", err) }
+				if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a"}); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := os.Stat(filepath.Join(f.target, "leaf", "SKILL.md")); err != nil {
+					t.Fatal("flat membership was confused with output name", err)
+				}
+				if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "b"}); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := os.Lstat(filepath.Join(f.target, "leaf")); !os.IsNotExist(err) {
+					t.Fatal("standard entry not pruned", err)
+				}
 			})
 		}
 	}
@@ -353,13 +453,25 @@ func TestProfileApply_LegacyConfigAndRegisteredScope(t *testing.T) {
 	write(t, filepath.Join(root, "agents", "reviewer.md"), "pending agent bytes")
 	protected := []string{f.source, project, filepath.Join(root, "agents")}
 	before := make([]map[string]string, len(protected))
-	for i, path := range protected { before[i] = tree(t, path) }
+	for i, path := range protected {
+		before[i] = tree(t, path)
+	}
 	for _, request := range []Request{{Scope: f.scope, Name: "a", DryRun: true}, {Scope: f.scope, Name: "empty"}, {Scope: f.scope, Name: "a"}} {
 		_, err := Apply(context.Background(), request)
-		if request.Name == "empty" { if !errors.Is(err, ErrRefused) { t.Fatal(err) } } else if err != nil { t.Fatal(err) }
-		if read(t, f.path) != text { t.Fatal("switch migrated config") }
+		if request.Name == "empty" {
+			if !errors.Is(err, ErrRefused) {
+				t.Fatal(err)
+			}
+		} else if err != nil {
+			t.Fatal(err)
+		}
+		if read(t, f.path) != text {
+			t.Fatal("switch migrated config")
+		}
 		for i, path := range protected {
-			if !reflect.DeepEqual(before[i], tree(t, path)) { t.Fatalf("switch changed excluded tree %s", path) }
+			if !reflect.DeepEqual(before[i], tree(t, path)) {
+				t.Fatalf("switch changed excluded tree %s", path)
+			}
 		}
 	}
 }

@@ -255,7 +255,7 @@ func TestProfileAwareWriters_PruneLegacyRewriteWithCustomIgnore(t *testing.T) {
 	}
 	migrationManifest := &Manifest{Managed: map[string]string{"repo-demo": sum}, Naming: map[string]string{"repo-demo": "prefixed"}}
 	resolved := ResolvedTargetSkill{Skill: skills[0], SkillName: "demo", TargetName: "demo"}
-	name, err := selectActiveTargetNameWithPolicy("copy", migrationTarget, resolved, map[string]bool{"demo": true}, migrationManifest, false, true, ignore)
+	name, err := selectActiveTargetNameForSync("copy", migrationTarget, resolved, map[string]bool{"demo": true}, migrationManifest, false, true, ignore)
 	if err != nil || name != "demo" {
 		t.Fatalf("clean legacy copy with custom ignore was not renamed: %s, %v", name, err)
 	}
@@ -358,7 +358,7 @@ func TestProfileAwareWriters_NamingMigrationKeepsEditedCopy(t *testing.T) {
 		t.Fatal(err)
 	}
 	skill := ResolvedTargetSkill{Skill: DiscoveredSkill{SourcePath: source, FlatName: "_team__demo", IsInRepo: true, RepoRelPath: "_team"}, SkillName: "demo", TargetName: "demo"}
-	name, err := selectActiveTargetNameForSync("copy", target, skill, map[string]bool{"demo": true}, m, false, true)
+	name, err := selectActiveTargetNameForSync("copy", target, skill, map[string]bool{"demo": true}, m, false, true, nil)
 	if err != nil || name != "team-demo" {
 		t.Fatalf("edited legacy entry renamed: %s, %v", name, err)
 	}
@@ -387,7 +387,7 @@ func TestProfileAwareWriters_NamingMigrationRecordsVerifiedLegacyOutput(t *testi
 	}
 	m := &Manifest{Managed: map[string]string{"team-demo": sum}, Naming: map[string]string{"team-demo": "prefixed"}}
 	skill := ResolvedTargetSkill{Skill: DiscoveredSkill{SourcePath: source, FlatName: "_team__demo", IsInRepo: true, RepoRelPath: "_team"}, SkillName: "demo", TargetName: "demo"}
-	name, err := selectActiveTargetNameForSync("copy", target, skill, map[string]bool{"demo": true}, m, false, true)
+	name, err := selectActiveTargetNameForSync("copy", target, skill, map[string]bool{"demo": true}, m, false, true, nil)
 	if err != nil || name != "demo" {
 		t.Fatalf("legacy copy was not renamed: %s, %v", name, err)
 	}

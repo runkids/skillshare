@@ -36,7 +36,10 @@ func TestProfileState_StrictAndAtomic(t *testing.T) {
 	if err != nil || state != want {
 		t.Fatalf("failed write changed state: %+v, %v", state, err)
 	}
-	for _, p := range []struct{ path string; mode os.FileMode }{{dir, 0700}, {path, 0600}} {
+	for _, p := range []struct {
+		path string
+		mode os.FileMode
+	}{{dir, 0700}, {path, 0600}} {
 		info, err := os.Stat(p.path)
 		if err != nil {
 			t.Fatal(err)
@@ -92,14 +95,14 @@ func TestProfileLock_SerializesAndTimesOut(t *testing.T) {
 func TestProfileSelector_FailsClosed(t *testing.T) {
 	catalog := Catalog{Definitions: map[string]Definition{
 		"frontend": {Name: "frontend", Usable: true, Skills: &SkillSelection{Include: []string{"web*"}, IncludePresent: true}},
-		"all": {Name: "all", Usable: true},
-		"empty": {Name: "empty", Usable: true, Skills: &SkillSelection{Include: []string{}, IncludePresent: true}},
-		"future": {Name: "future", Reason: "unknown key"},
+		"all":      {Name: "all", Usable: true},
+		"empty":    {Name: "empty", Usable: true, Skills: &SkillSelection{Include: []string{}, IncludePresent: true}},
+		"future":   {Name: "future", Reason: "unknown key"},
 	}}
 	for _, tc := range []struct {
-		state State
-		err error
-		name string
+		state             State
+		err               error
+		name              string
 		want, unavailable bool
 	}{
 		{State{Version: 1}, nil, "anything", true, false},
@@ -122,15 +125,26 @@ func TestProfileSelector_FailsClosed(t *testing.T) {
 func TestProfileLock_NeverUnlinked(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "profiles", "config.lock")
 	release, err := Lock(context.Background(), path)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	first, err := os.Stat(path)
-	if err != nil { release(); t.Fatal(err) }
+	if err != nil {
+		release()
+		t.Fatal(err)
+	}
 	release()
 	after, err := os.Stat(path)
-	if err != nil || !os.SameFile(first, after) || after.Size() != 0 { t.Fatalf("lock path was replaced or removed: %v", err) }
+	if err != nil || !os.SameFile(first, after) || after.Size() != 0 {
+		t.Fatalf("lock path was replaced or removed: %v", err)
+	}
 	release, err = Lock(context.Background(), path)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer release()
 	second, err := os.Stat(path)
-	if err != nil || !os.SameFile(first, second) { t.Fatalf("relock changed the lock file: %v", err) }
+	if err != nil || !os.SameFile(first, second) {
+		t.Fatalf("relock changed the lock file: %v", err)
+	}
 }

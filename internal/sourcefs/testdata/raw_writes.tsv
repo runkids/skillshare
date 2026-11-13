@@ -472,8 +472,8 @@ internal/sync/sync.go	replaceWithLink	os.Remove	path	target
 internal/sync/sync.go	replaceWithLink	os.RemoveAll	parked	target
 internal/sync/sync.go	replaceWithLink	os.Rename	parked, path	target
 internal/sync/sync.go	replaceWithLink	os.Rename	path, parked	target
-internal/sync/target_naming_migration.go	selectActiveTargetNameWithPolicy	os.Rename	desiredPath, legacyPath	target
-internal/sync/target_naming_migration.go	selectActiveTargetNameWithPolicy	os.Rename	legacyPath, desiredPath	target
+internal/sync/target_naming_migration.go	selectActiveTargetNameForSync	os.Rename	desiredPath, legacyPath	target
+internal/sync/target_naming_migration.go	selectActiveTargetNameForSync	os.Rename	legacyPath, desiredPath	target
 internal/testutil/git_helpers.go	SeedRemoteBranch	os.MkdirAll	filepath.Dir(full)	test-helper
 internal/testutil/git_helpers.go	SeedRemoteBranch	os.WriteFile	full	test-helper
 internal/testutil/private_git.go	ServePrivateGit	os.Mkdir	filepath.Join(root, "org")	test-helper

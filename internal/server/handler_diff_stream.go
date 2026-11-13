@@ -38,7 +38,6 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-
 	if globalMode == "" {
 		globalMode = "merge"
 	}

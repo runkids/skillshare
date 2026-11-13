@@ -295,23 +295,23 @@ type ProjectConfig struct {
 	profileSelector profile.Selector
 	profileState    profile.State
 	profilePath     string
-	Plugins       yaml.Node            `yaml:"plugins,omitempty"`
-	Hooks         yaml.Node            `yaml:"hooks,omitempty"`
-	Profiles      yaml.Node            `yaml:"profiles,omitempty"`
-	MCP           *MCPConfig           `yaml:"mcp,omitempty"`
-	Sources       ProjectSources       `yaml:"sources,omitempty"`
-	Targets       []ProjectTargetEntry `yaml:"targets"`
-	Skills        []SkillEntry         `yaml:"skills,omitempty"`
-	TargetNaming  string               `yaml:"target_naming,omitempty"`
-	Extras        []ExtraConfig        `yaml:"extras,omitempty"`
-	Ignore        []string             `yaml:"ignore,omitempty"`
-	Audit         AuditConfig          `yaml:"audit,omitempty"`
-	ContextBudget ContextBudgetConfig  `yaml:"context_budget,omitempty"`
-	Hub           HubConfig            `yaml:"hub,omitempty"`
-	GitLabHosts   []string             `yaml:"gitlab_hosts,omitempty"`
-	AzureHosts    []string             `yaml:"azure_hosts,omitempty"`
-	CNBHosts      []string             `yaml:"cnb_hosts,omitempty"`
-	GiteaHosts    []string             `yaml:"gitea_hosts,omitempty"`
+	Plugins         yaml.Node            `yaml:"plugins,omitempty"`
+	Hooks           yaml.Node            `yaml:"hooks,omitempty"`
+	Profiles        yaml.Node            `yaml:"profiles,omitempty"`
+	MCP             *MCPConfig           `yaml:"mcp,omitempty"`
+	Sources         ProjectSources       `yaml:"sources,omitempty"`
+	Targets         []ProjectTargetEntry `yaml:"targets"`
+	Skills          []SkillEntry         `yaml:"skills,omitempty"`
+	TargetNaming    string               `yaml:"target_naming,omitempty"`
+	Extras          []ExtraConfig        `yaml:"extras,omitempty"`
+	Ignore          []string             `yaml:"ignore,omitempty"`
+	Audit           AuditConfig          `yaml:"audit,omitempty"`
+	ContextBudget   ContextBudgetConfig  `yaml:"context_budget,omitempty"`
+	Hub             HubConfig            `yaml:"hub,omitempty"`
+	GitLabHosts     []string             `yaml:"gitlab_hosts,omitempty"`
+	AzureHosts      []string             `yaml:"azure_hosts,omitempty"`
+	CNBHosts        []string             `yaml:"cnb_hosts,omitempty"`
+	GiteaHosts      []string             `yaml:"gitea_hosts,omitempty"`
 
 	// FollowSourceLinks is Config.FollowSourceLinks for the project's skills source.
 	FollowSourceLinks bool `yaml:"follow_source_links,omitempty"`

@@ -41,10 +41,10 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.Unlock()
 
 	var body struct {
-		DryRun bool   `json:"dryRun"`
-		Force  bool   `json:"force"`
-		DiscardEdits bool `json:"discardEdits"`
-		Kind   string `json:"kind"`
+		DryRun       bool   `json:"dryRun"`
+		Force        bool   `json:"force"`
+		DiscardEdits bool   `json:"discardEdits"`
+		Kind         string `json:"kind"`
 		// Project limits the sync to one declared project's targets.
 		Project string `json:"project"`
 	}
@@ -79,8 +79,14 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 
 	out, code, err := s.syncResources(start, body.DryRun, body.Force, body.Kind, body.Project, body.DiscardEdits)
 	if err != nil {
-		if errors.Is(err, profile.ErrProfileUnavailable) { writeCodedError(w, http.StatusConflict, "profile_unavailable", err.Error(), nil); return }
-		if errors.Is(err, profileapply.ErrRefused) { writeCodedError(w, http.StatusConflict, "profile_refused", err.Error(), nil); return }
+		if errors.Is(err, profile.ErrProfileUnavailable) {
+			writeCodedError(w, http.StatusConflict, "profile_unavailable", err.Error(), nil)
+			return
+		}
+		if errors.Is(err, profileapply.ErrRefused) {
+			writeCodedError(w, http.StatusConflict, "profile_refused", err.Error(), nil)
+			return
+		}
 		writeError(w, code, err.Error())
 		return
 	}
@@ -93,8 +99,12 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		"folder_conflicts": out.folderConflicts,
 		"path_overlap":     out.pathOverlap,
 	}
-	if out.profile != nil { resp["profile"] = out.profile }
-	if len(out.snapshots) > 0 { resp["snapshot"] = out.snapshots }
+	if out.profile != nil {
+		resp["profile"] = out.profile
+	}
+	if len(out.snapshots) > 0 {
+		resp["snapshot"] = out.snapshots
+	}
 	if len(out.skills) > 0 {
 		if contextCost := s.computeContextCost(out.skills); contextCost != nil {
 			resp["context_cost"] = contextCost
@@ -106,8 +116,8 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 }
 
 type syncOutcome struct {
-	profile *profileapply.Info
-	snapshots []profileapply.Snapshot
+	profile         *profileapply.Info
+	snapshots       []profileapply.Snapshot
 	results         []syncTargetResult
 	warnings        []string
 	unmatched       []unmatchedInclude
@@ -145,38 +155,54 @@ func (s *Server) projectTargets(root string) map[string]config.TargetConfig {
 // Callers must hold s.mu.
 func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, project string, discardEdits ...bool) (*syncOutcome, int, error) {
 	discard := len(discardEdits) > 0 && discardEdits[0]
-	if discard && (kind == kindAgent || project != "") { return nil, http.StatusBadRequest, fmt.Errorf("discardEdits applies to this config's profile-aware skill targets only") }
+	if discard && (kind == kindAgent || project != "") {
+		return nil, http.StatusBadRequest, fmt.Errorf("discardEdits applies to this config's profile-aware skill targets only")
+	}
 	if kind != kindAgent && project == "" {
 		scope := profileapply.Scope{ConfigPath: s.configPath(), ProjectRoot: s.projectRoot}
 		v, err := profileapply.Load(scope)
-		if err != nil { return nil, http.StatusInternalServerError, err }
+		if err != nil {
+			return nil, http.StatusInternalServerError, err
+		}
 		configured, err := config.ProfileConfigured(scope.Path(), v.Catalog.Present)
-		if err != nil { return nil, http.StatusInternalServerError, err }
+		if err != nil {
+			return nil, http.StatusInternalServerError, err
+		}
 		if configured {
 			var out *syncOutcome
 			var backupWarnings []string
 			code := http.StatusInternalServerError
 			_, err := profileapply.WithSkillSync(context.Background(), profileapply.SyncRequest{Scope: scope, DryRun: dryRun, Force: force, DiscardEdits: discard,
 				Before: func(_ *profileapply.View) error {
-					if err := s.reloadConfig(); err != nil { return err }
+					if err := s.reloadConfig(); err != nil {
+						return err
+					}
 					if !dryRun {
 						_, invalid, _ := config.ValidateConfigForSync(s.cfg)
 						targets := maps.Clone(s.cfg.Targets)
-						for name := range invalid { delete(targets, name) }
+						for name := range invalid {
+							delete(targets, name)
+						}
 						backupWarnings = s.backupBeforeSync(targets, true, kind != kindSkill)
 					}
 					return nil
 				},
 				After: func(v *profileapply.View, applied *profileapply.Result) error {
-					if err := s.reloadConfig(); err != nil { return err }
+					if err := s.reloadConfig(); err != nil {
+						return err
+					}
 					var err error
 					out, code, err = s.syncResourcesPrepared(start, dryRun, force, kind, project, applied)
-					if out != nil { out.warnings = append(backupWarnings, out.warnings...) }
+					if out != nil {
+						out.warnings = append(backupWarnings, out.warnings...)
+					}
 					return err
 				}})
 			return out, code, err
 		}
-		if discard { return nil, http.StatusConflict, &profileapply.Refusal{Reason: "discardEdits requires an active profile or pending switch"} }
+		if discard {
+			return nil, http.StatusConflict, &profileapply.Refusal{Reason: "discardEdits requires an active profile or pending switch"}
+		}
 	}
 	return s.syncResourcesPrepared(start, dryRun, force, kind, project, nil)
 }
@@ -259,10 +285,16 @@ func (s *Server) syncResourcesPrepared(start time.Time, dryRun, force bool, kind
 	}
 	var executed ssync.ExecuteResult
 	var err error
-	if applied == nil { executed, err = ssync.ExecuteTargets(context.Background(), s.cfg, runTargets, opts) } else {
+	if applied == nil {
+		executed, err = ssync.ExecuteTargets(context.Background(), s.cfg, runTargets, opts)
+	} else {
 		remaining := maps.Clone(runTargets)
-		for _, row := range applied.Executed.Results { delete(remaining, row.Target) }
-		for _, row := range applied.Executed.Failed { delete(remaining, row.Target) }
+		for _, row := range applied.Executed.Results {
+			delete(remaining, row.Target)
+		}
+		for _, row := range applied.Executed.Failed {
+			delete(remaining, row.Target)
+		}
 		opts.Kinds, opts.MovedTargets = []string{"skill"}, nil
 		executed, err = ssync.ExecuteTargets(context.Background(), s.cfg, remaining, opts)
 		mergeProfileExecution(&executed, applied.Executed)
@@ -307,14 +339,19 @@ func (s *Server) syncResourcesPrepared(start time.Time, dryRun, force bool, kind
 	s.writeOpsLog("sync", status, start, logArgs, "")
 
 	out := &syncOutcome{results: results, warnings: warnings, unmatched: unmatched, failed: failed, folderConflicts: executed.FolderConflicts, pathOverlap: executed.PathOverlap, skills: executed.Skills, ignoreStats: executed.IgnoreStats, allAgents: executed.AllAgents}
-	if applied != nil { out.profile, out.snapshots = applied.Profile, applied.Snapshot }
+	if applied != nil {
+		out.profile, out.snapshots = applied.Profile, applied.Snapshot
+	}
 	return out, 0, nil
 }
 
 func mergeProfileExecution(into *ssync.ExecuteResult, extra ssync.ExecuteResult) {
 	for _, row := range extra.Results {
 		index := slices.IndexFunc(into.Results, func(old ssync.TargetResult) bool { return old.Target == row.Target })
-		if index < 0 { into.Results = append(into.Results, row); continue }
+		if index < 0 {
+			into.Results = append(into.Results, row)
+			continue
+		}
 		old := &into.Results[index]
 		old.Linked = append(old.Linked, row.Linked...)
 		old.Updated = append(old.Updated, row.Updated...)
@@ -325,12 +362,16 @@ func mergeProfileExecution(into *ssync.ExecuteResult, extra ssync.ExecuteResult)
 		old.Refreshed = append(old.Refreshed, row.Refreshed...)
 		old.Converted = append(old.Converted, row.Converted...)
 		old.FailedRemovals = append(old.FailedRemovals, row.FailedRemovals...)
-		if row.PruneError != "" { old.PruneError = row.PruneError }
+		if row.PruneError != "" {
+			old.PruneError = row.PruneError
+		}
 	}
 	into.Failed = append(into.Failed, extra.Failed...)
 	into.Warnings = append(into.Warnings, extra.Warnings...)
 	into.Unmatched = append(into.Unmatched, extra.Unmatched...)
-	if extra.AllAgents != nil { into.AllAgents = extra.AllAgents }
+	if extra.AllAgents != nil {
+		into.AllAgents = extra.AllAgents
+	}
 }
 
 // failedTargetNames returns the distinct targets in failed, sorted.

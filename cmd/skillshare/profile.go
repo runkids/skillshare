@@ -13,60 +13,97 @@ import (
 var profileValueFlags = []string{"--description", "--add-include", "--remove-include", "--add-exclude", "--remove-exclude"}
 
 type profileOptions struct {
-	action string
-	names []string
-	mode runMode
+	action                                          string
+	names                                           []string
+	mode                                            runMode
 	json, dryRun, noSync, none, discard, allowEmpty bool
-	mutation profile.Mutation
+	mutation                                        profile.Mutation
 }
 
 func parseProfileArgs(args []string) (profileOptions, error) {
 	o := profileOptions{action: "list"}
 	mode, rest, err := parseModeArgs(args, profileValueFlags...)
-	if err != nil { return o, err }
+	if err != nil {
+		return o, err
+	}
 	o.mode = mode
 	var positionals []string
 	for i := 0; i < len(rest); i++ {
 		a := rest[i]
-		if a == "--" { positionals = append(positionals, rest[i+1:]...); break }
+		if a == "--" {
+			positionals = append(positionals, rest[i+1:]...)
+			break
+		}
 		switch a {
-		case "--help", "-h": o.action = "help"; return o, nil
-		case "--json": o.json = true
-		case "--dry-run", "-n": o.dryRun = true
-		case "--no-sync": o.noSync = true
-		case "--none": o.none = true
-		case "--discard-edits": o.discard = true
-		case "--allow-empty": o.allowEmpty = true
+		case "--help", "-h":
+			o.action = "help"
+			return o, nil
+		case "--json":
+			o.json = true
+		case "--dry-run", "-n":
+			o.dryRun = true
+		case "--no-sync":
+			o.noSync = true
+		case "--none":
+			o.none = true
+		case "--discard-edits":
+			o.discard = true
+		case "--allow-empty":
+			o.allowEmpty = true
 		default:
 			if slices.Contains(profileValueFlags, a) {
-				if i+1 == len(rest) { return o, fmt.Errorf("%s requires a value", a) }
+				if i+1 == len(rest) {
+					return o, fmt.Errorf("%s requires a value", a)
+				}
 				i++
 				value := rest[i]
 				switch a {
-				case "--description": o.mutation.Description = &value
-				case "--add-include": o.mutation.AddInclude = append(o.mutation.AddInclude, value)
-				case "--remove-include": o.mutation.RemoveInclude = append(o.mutation.RemoveInclude, value)
-				case "--add-exclude": o.mutation.AddExclude = append(o.mutation.AddExclude, value)
-				case "--remove-exclude": o.mutation.RemoveExclude = append(o.mutation.RemoveExclude, value)
+				case "--description":
+					o.mutation.Description = &value
+				case "--add-include":
+					o.mutation.AddInclude = append(o.mutation.AddInclude, value)
+				case "--remove-include":
+					o.mutation.RemoveInclude = append(o.mutation.RemoveInclude, value)
+				case "--add-exclude":
+					o.mutation.AddExclude = append(o.mutation.AddExclude, value)
+				case "--remove-exclude":
+					o.mutation.RemoveExclude = append(o.mutation.RemoveExclude, value)
 				}
-			} else if strings.HasPrefix(a, "-") { return o, fmt.Errorf("unknown profile flag %s", a) } else { positionals = append(positionals, a) }
+			} else if strings.HasPrefix(a, "-") {
+				return o, fmt.Errorf("unknown profile flag %s", a)
+			} else {
+				positionals = append(positionals, a)
+			}
 		}
 	}
-	if len(positionals) > 0 { o.action, o.names = positionals[0], positionals[1:] }
+	if len(positionals) > 0 {
+		o.action, o.names = positionals[0], positionals[1:]
+	}
 	patterns := len(o.mutation.AddInclude)+len(o.mutation.RemoveInclude)+len(o.mutation.AddExclude)+len(o.mutation.RemoveExclude) > 0 || o.mutation.Description != nil
-	if patterns && o.action != "create" && o.action != "edit" { return o, fmt.Errorf("definition flags require profile create or edit") }
-	if o.action != "use" && (o.dryRun || o.noSync || o.none || o.discard || o.allowEmpty) { return o, fmt.Errorf("switch flags require profile use") }
+	if patterns && o.action != "create" && o.action != "edit" {
+		return o, fmt.Errorf("definition flags require profile create or edit")
+	}
+	if o.action != "use" && (o.dryRun || o.noSync || o.none || o.discard || o.allowEmpty) {
+		return o, fmt.Errorf("switch flags require profile use")
+	}
 	want := 1
 	switch o.action {
-	case "list": want = 0
+	case "list":
+		want = 0
 	case "show", "create", "edit", "delete":
-	case "rename": want = 2
+	case "rename":
+		want = 2
 	case "use":
-		if len(o.names) > 1 || o.none && len(o.names) != 0 || o.noSync && o.discard { return o, fmt.Errorf("use takes one name or --none; --no-sync cannot discard edits") }
+		if len(o.names) > 1 || o.none && len(o.names) != 0 || o.noSync && o.discard {
+			return o, fmt.Errorf("use takes one name or --none; --no-sync cannot discard edits")
+		}
 		return o, nil
-	default: return o, fmt.Errorf("unknown profile subcommand %q", o.action)
+	default:
+		return o, fmt.Errorf("unknown profile subcommand %q", o.action)
 	}
-	if len(o.names) != want { return o, fmt.Errorf("profile %s requires %d name(s)", o.action, want) }
+	if len(o.names) != want {
+		return o, fmt.Errorf("profile %s requires %d name(s)", o.action, want)
+	}
 	return o, nil
 }
 
@@ -79,11 +116,15 @@ func profileSkipsMaintenance(args []string) bool {
 
 func profileScope(o profileOptions) (profileapply.Scope, error) {
 	cwd, err := os.Getwd()
-	if err != nil { return profileapply.Scope{}, err }
+	if err != nil {
+		return profileapply.Scope{}, err
+	}
 	mode := resolveAutoMode(o.mode, cwd)
 	applyModeLabel(mode)
 	scope := profileapply.Scope{}
-	if mode == modeProject { scope.ProjectRoot = cwd }
+	if mode == modeProject {
+		scope.ProjectRoot = cwd
+	}
 	return scope, nil
 }
 

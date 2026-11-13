@@ -18,32 +18,50 @@ func Mutate(ctx context.Context, scope Scope, mutations ...profile.Mutation) (pr
 	start := time.Now()
 	var total profile.Change
 	statePath, lockPath, err := config.ProfilePaths(scope.Path())
-	if err != nil { return total, err }
+	if err != nil {
+		return total, err
+	}
 	unlock, err := profile.Lock(ctx, lockPath)
-	if err != nil { return total, err }
+	if err != nil {
+		return total, err
+	}
 	defer unlock()
 	v, err := Load(scope)
-	if err != nil { return total, err }
+	if err != nil {
+		return total, err
+	}
 	state, err := profile.ReadState(statePath)
-	if err != nil { return total, err }
+	if err != nil {
+		return total, err
+	}
 	total.Active = state.Active
 	node := v.Definitions()
 	for _, mutation := range mutations {
 		next, change, err := profile.Mutate(node, total.Active, mutation)
-		if err != nil { return profile.Change{Active: state.Active}, err }
+		if err != nil {
+			return profile.Change{Active: state.Active}, err
+		}
 		node = next
 		total.Active = change.Active
 		total.Changed = total.Changed || change.Changed
 		total.NeedsSync = total.NeedsSync || change.NeedsSync
 	}
-	if !total.Changed { return total, nil }
+	if !total.Changed {
+		return total, nil
+	}
 	*v.Definitions() = *node
-	if v.Project != nil { err = v.Project.Save(scope.ProjectRoot) } else {
+	if v.Project != nil {
+		err = v.Project.Save(scope.ProjectRoot)
+	} else {
 		var candidate *config.SaveCandidate
 		candidate, err = config.PrepareSave(scope.Path(), v.Config)
-		if err == nil { err = candidate.Write() }
+		if err == nil {
+			err = candidate.Write()
+		}
 	}
-	if err != nil { return total, err }
+	if err != nil {
+		return total, err
+	}
 	if total.Active != state.Active {
 		state.Active = total.Active
 		if err := profile.WriteState(statePath, state); err != nil {

@@ -73,8 +73,8 @@ type Builder struct {
 	Walk   sourcewalk.Options
 	// Target names the target whose Skills selection applies. With Skills nil,
 	// every enabled skill is served.
-	Target string
-	Skills *config.ResourceTargetConfig
+	Target         string
+	Skills         *config.ResourceTargetConfig
 	ResolveProfile func() (profile.Selector, error)
 }
 

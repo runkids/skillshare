@@ -58,7 +58,7 @@ func TestProfiles_MergePruneUsesSelector(t *testing.T) {
 		"web": {Name: "web", Usable: true, Skills: &profile.SkillSelection{Include: []string{"web*"}, IncludePresent: true}},
 	}}
 	opts := PruneOptions{TargetPath: target, SourcePath: source, TargetName: "claude", ProfileAware: true,
-		Skills: []DiscoveredSkill{{FlatName: "other", RelPath: "other", SourcePath: skillPath}},
+		Skills:  []DiscoveredSkill{{FlatName: "other", RelPath: "other", SourcePath: skillPath}},
 		Profile: profile.Resolve(catalog, profile.State{Version: 1, Active: "web"}, "config.yaml", nil)}
 	result, err := PruneOrphanLinksWithSkills(opts)
 	if err != nil || len(result.Removed) != 1 || result.Removed[0] != "other" {
@@ -75,7 +75,7 @@ func TestProfiles_SharedFolderVariants(t *testing.T) {
 		"web": {Name: "web", Usable: true, Skills: &profile.SkillSelection{Include: []string{"web*"}, IncludePresent: true}},
 	}}
 	sc := config.ResourceTargetConfig{
-		Profile: profile.Resolve(catalog, profile.State{Version: 1, Active: "web"}, "config.yaml", nil),
+		Profile:       profile.Resolve(catalog, profile.State{Version: 1, Active: "web"}, "config.yaml", nil),
 		SharedTargets: []config.SkillTargetIdentity{{Name: "claude"}, {Name: "codex"}},
 	}
 	skills := []DiscoveredSkill{

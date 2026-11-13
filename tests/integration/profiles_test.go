@@ -16,24 +16,45 @@ import (
 	"skillshare/internal/testutil"
 )
 
-type profileFixture struct { sb *testutil.Sandbox; root, source, target, flag, config string }
+type profileFixture struct {
+	sb                                 *testutil.Sandbox
+	root, source, target, flag, config string
+}
 
 func newProfileFixture(t *testing.T, project bool, mode string) profileFixture {
 	t.Helper()
 	sb := testutil.NewSandbox(t)
 	t.Cleanup(sb.Cleanup)
 	// Explicit fixture homes isolate every agent override inherited by CI.
-	for _, key := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR"} { sb.SetEnv(key, "") }
+	for _, key := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR"} {
+		sb.SetEnv(key, "")
+	}
 	f := profileFixture{sb: sb, root: sb.Root, source: sb.SourcePath, target: filepath.Join(sb.Home, "target"), flag: "-g", config: sb.ConfigPath}
-	if project { f.root = sb.SetupProjectDir(); f.source = filepath.Join(f.root, ".skillshare", "skills"); f.target = filepath.Join(f.root, "target"); f.flag = "-p"; f.config = filepath.Join(f.root, ".skillshare", "config.yaml") }
+	if project {
+		f.root = sb.SetupProjectDir()
+		f.source = filepath.Join(f.root, ".skillshare", "skills")
+		f.target = filepath.Join(f.root, "target")
+		f.flag = "-p"
+		f.config = filepath.Join(f.root, ".skillshare", "config.yaml")
+	}
 	text := fmt.Sprintf("source: %s\nmode: %s\ntargets:\n  custom:\n    skills:\n      path: %s\n", f.source, mode, f.target)
-	if project { text = fmt.Sprintf("targets:\n  - name: custom\n    skills:\n      path: %s\n      mode: %s\n", f.target, mode) }
+	if project {
+		text = fmt.Sprintf("targets:\n  - name: custom\n    skills:\n      path: %s\n      mode: %s\n", f.target, mode)
+	}
 	text += "profiles:\n  a:\n    skills:\n      include: [alpha]\n  b:\n    skills:\n      include: [beta]\n  all: {}\n  empty:\n    skills:\n      include: []\n"
-	if project { sb.WriteProjectConfig(f.root, text) } else { sb.WriteConfig(text) }
+	if project {
+		sb.WriteProjectConfig(f.root, text)
+	} else {
+		sb.WriteConfig(text)
+	}
 	for _, name := range []string{"alpha", "beta"} {
 		path := filepath.Join(f.source, name)
-		if err := os.MkdirAll(path, 0755); err != nil { t.Fatal(err) }
-		if err := os.WriteFile(filepath.Join(path, "SKILL.md"), []byte("---\nname: "+name+"\n---\n# "+name+"\n"), 0644); err != nil { t.Fatal(err) }
+		if err := os.MkdirAll(path, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(path, "SKILL.md"), []byte("---\nname: "+name+"\n---\n# "+name+"\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
 	}
 	return f
 }
@@ -43,122 +64,227 @@ func (f profileFixture) run(args ...string) *testutil.Result {
 }
 
 func TestProfileCRUD(t *testing.T) {
-	for _, project := range []bool{false, true} { t.Run(fmt.Sprint(project), func(t *testing.T) {
-		f := newProfileFixture(t, project, "copy")
-		f.run("profile", "create", "work", "--add-include", "alpha").AssertSuccess(t)
-		show := f.run("profile", "show", "work", "--json")
-		show.AssertSuccess(t)
-		show.AssertOutputContains(t, "alpha")
-		f.run("profile", "use", "work", "--no-sync").AssertSuccess(t)
-		f.run("profile", "rename", "work", "renamed").AssertSuccess(t)
-		f.run("profile", "delete", "renamed").AssertFailure(t)
-		f.run("sync", "--json").AssertSuccess(t)
-		f.run("profile", "use", "--none").AssertSuccess(t)
-		f.run("profile", "delete", "renamed").AssertSuccess(t)
-		for _, args := range [][]string{{"create", "none"}, {"create", "Upper"}, {"create", "bad", "--add-include", "["}, {"create", "exclude", "--add-exclude", "x"}} { f.run(append([]string{"profile"}, args...)...).AssertFailure(t) }
-	}) }
+	for _, project := range []bool{false, true} {
+		t.Run(fmt.Sprint(project), func(t *testing.T) {
+			f := newProfileFixture(t, project, "copy")
+			f.run("profile", "create", "work", "--add-include", "alpha").AssertSuccess(t)
+			show := f.run("profile", "show", "work", "--json")
+			show.AssertSuccess(t)
+			show.AssertOutputContains(t, "alpha")
+			f.run("profile", "use", "work", "--no-sync").AssertSuccess(t)
+			f.run("profile", "rename", "work", "renamed").AssertSuccess(t)
+			f.run("profile", "delete", "renamed").AssertFailure(t)
+			f.run("sync", "--json").AssertSuccess(t)
+			f.run("profile", "use", "--none").AssertSuccess(t)
+			f.run("profile", "delete", "renamed").AssertSuccess(t)
+			for _, args := range [][]string{{"create", "none"}, {"create", "Upper"}, {"create", "bad", "--add-include", "["}, {"create", "exclude", "--add-exclude", "x"}} {
+				f.run(append([]string{"profile"}, args...)...).AssertFailure(t)
+			}
+		})
+	}
 }
 
 func TestProfiles_Agreement(t *testing.T) {
-	for _, project := range []bool{false, true} { for _, mode := range []string{"copy", "merge"} { t.Run(fmt.Sprintf("%v/%s", project, mode), func(t *testing.T) {
-		f := newProfileFixture(t, project, mode)
-		before := f.sb.ReadFile(f.config)
-		for _, name := range []string{"a", "b", "a"} {
-			f.run("profile", "use", name, "--json").AssertSuccess(t)
-			want, absent := "alpha", "beta"
-			if name == "b" { want, absent = absent, want }
-			if f.sb.ReadFile(filepath.Join(f.target, want, "SKILL.md")) != f.sb.ReadFile(filepath.Join(f.source, want, "SKILL.md")) { t.Fatal("contents differ") }
-			if _, err := os.Lstat(filepath.Join(f.target, absent)); !os.IsNotExist(err) { t.Fatalf("departure not pruned: %v", err) }
-			diff := f.run("diff", "--json"); diff.AssertSuccess(t)
-			var d struct { Targets []struct { Synced bool `json:"synced"` } `json:"targets"` }
-			if err := json.Unmarshal([]byte(diff.Stdout), &d); err != nil || len(d.Targets) != 1 || !d.Targets[0].Synced { t.Fatalf("diff disagrees: %s %v", diff.Stdout, err) }
-			status := f.run("status", "--json"); status.AssertSuccess(t)
-			var s struct { Profile struct { Selected, Total int; Pending bool }; Targets []struct { SyncedCount int `json:"synced_count"` } }
-			if err := json.Unmarshal([]byte(status.Stdout), &s); err != nil || s.Profile.Selected != 1 || s.Profile.Total != 2 || s.Profile.Pending || len(s.Targets) != 1 || s.Targets[0].SyncedCount != 1 { t.Fatalf("status disagrees: %s %v", status.Stdout, err) }
-			second := f.run("sync", "--json"); second.AssertSuccess(t)
-			var sync struct { Linked, Updated, Pruned int; Profile struct { Pending bool } }
-			if err := json.Unmarshal([]byte(second.Stdout), &sync); err != nil || sync.Linked+sync.Updated+sync.Pruned != 0 || sync.Profile.Pending { t.Fatalf("second sync not idle: %s %v", second.Stdout, err) }
+	for _, project := range []bool{false, true} {
+		for _, mode := range []string{"copy", "merge"} {
+			t.Run(fmt.Sprintf("%v/%s", project, mode), func(t *testing.T) {
+				f := newProfileFixture(t, project, mode)
+				before := f.sb.ReadFile(f.config)
+				for _, name := range []string{"a", "b", "a"} {
+					f.run("profile", "use", name, "--json").AssertSuccess(t)
+					want, absent := "alpha", "beta"
+					if name == "b" {
+						want, absent = absent, want
+					}
+					if f.sb.ReadFile(filepath.Join(f.target, want, "SKILL.md")) != f.sb.ReadFile(filepath.Join(f.source, want, "SKILL.md")) {
+						t.Fatal("contents differ")
+					}
+					if _, err := os.Lstat(filepath.Join(f.target, absent)); !os.IsNotExist(err) {
+						t.Fatalf("departure not pruned: %v", err)
+					}
+					diff := f.run("diff", "--json")
+					diff.AssertSuccess(t)
+					var d struct {
+						Targets []struct {
+							Synced bool `json:"synced"`
+						} `json:"targets"`
+					}
+					if err := json.Unmarshal([]byte(diff.Stdout), &d); err != nil || len(d.Targets) != 1 || !d.Targets[0].Synced {
+						t.Fatalf("diff disagrees: %s %v", diff.Stdout, err)
+					}
+					status := f.run("status", "--json")
+					status.AssertSuccess(t)
+					var s struct {
+						Profile struct {
+							Selected, Total int
+							Pending         bool
+						}
+						Targets []struct {
+							SyncedCount int `json:"synced_count"`
+						}
+					}
+					if err := json.Unmarshal([]byte(status.Stdout), &s); err != nil || s.Profile.Selected != 1 || s.Profile.Total != 2 || s.Profile.Pending || len(s.Targets) != 1 || s.Targets[0].SyncedCount != 1 {
+						t.Fatalf("status disagrees: %s %v", status.Stdout, err)
+					}
+					second := f.run("sync", "--json")
+					second.AssertSuccess(t)
+					var sync struct {
+						Linked, Updated, Pruned int
+						Profile                 struct{ Pending bool }
+					}
+					if err := json.Unmarshal([]byte(second.Stdout), &sync); err != nil || sync.Linked+sync.Updated+sync.Pruned != 0 || sync.Profile.Pending {
+						t.Fatalf("second sync not idle: %s %v", second.Stdout, err)
+					}
+				}
+				if f.sb.ReadFile(f.config) != before {
+					t.Fatal("switch rewrote config")
+				}
+			})
 		}
-		if f.sb.ReadFile(f.config) != before { t.Fatal("switch rewrote config") }
-	}) } }
+	}
 }
 
 func TestProfiles_PreservationAndDiscard(t *testing.T) {
-	for _, project := range []bool{false, true} { for _, jsonOutput := range []bool{false, true} { t.Run(fmt.Sprintf("%v/json=%v", project, jsonOutput), func(t *testing.T) {
-		f := newProfileFixture(t, project, "copy")
-		f.run("profile", "use", "a").AssertSuccess(t)
-		path := filepath.Join(f.target, "alpha", "SKILL.md")
-		if err := os.WriteFile(path, []byte("authored edit"), 0644); err != nil { t.Fatal(err) }
-		f.run("profile", "use", "b").AssertFailure(t)
-		f.run("sync", "--json").AssertSuccess(t)
-		if f.sb.ReadFile(path) != "authored edit" { t.Fatal("edit lost") }
-		args := []string{"profile", "use", "b", "--discard-edits"}
-		if jsonOutput { args = append(args, "--json") }
-		out := f.run(args...); out.AssertSuccess(t)
-		out.AssertOutputContains(t, "restore")
-		out.AssertOutputContains(t, "retention")
-		if _, err := os.Stat(path); !os.IsNotExist(err) { t.Fatal("discard did not remove listed copy") }
-		backupRoot := backup.BackupDir()
-		if project { backupRoot = backup.ProjectBackupDir(f.root) }
-		entries, err := filepath.Glob(filepath.Join(backupRoot, "*", "custom", "alpha", "SKILL.md"))
-		if err != nil || len(entries) != 1 { t.Fatal("discard snapshot missing", entries, err) }
-		if f.sb.ReadFile(entries[0]) != "authored edit" { t.Fatal("snapshot did not contain planned bytes") }
-		stamp := filepath.Base(filepath.Dir(filepath.Dir(filepath.Dir(entries[0]))))
-		f.run("restore", "custom", "--from", stamp, "--force").AssertSuccess(t)
-		if f.sb.ReadFile(path) != "authored edit" { t.Fatal("restore did not recover discarded bytes") }
-	}) } }
+	for _, project := range []bool{false, true} {
+		for _, jsonOutput := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%v/json=%v", project, jsonOutput), func(t *testing.T) {
+				f := newProfileFixture(t, project, "copy")
+				f.run("profile", "use", "a").AssertSuccess(t)
+				path := filepath.Join(f.target, "alpha", "SKILL.md")
+				if err := os.WriteFile(path, []byte("authored edit"), 0644); err != nil {
+					t.Fatal(err)
+				}
+				f.run("profile", "use", "b").AssertFailure(t)
+				f.run("sync", "--json").AssertSuccess(t)
+				if f.sb.ReadFile(path) != "authored edit" {
+					t.Fatal("edit lost")
+				}
+				args := []string{"profile", "use", "b", "--discard-edits"}
+				if jsonOutput {
+					args = append(args, "--json")
+				}
+				out := f.run(args...)
+				out.AssertSuccess(t)
+				out.AssertOutputContains(t, "restore")
+				out.AssertOutputContains(t, "retention")
+				if _, err := os.Stat(path); !os.IsNotExist(err) {
+					t.Fatal("discard did not remove listed copy")
+				}
+				backupRoot := backup.BackupDir()
+				if project {
+					backupRoot = backup.ProjectBackupDir(f.root)
+				}
+				entries, err := filepath.Glob(filepath.Join(backupRoot, "*", "custom", "alpha", "SKILL.md"))
+				if err != nil || len(entries) != 1 {
+					t.Fatal("discard snapshot missing", entries, err)
+				}
+				if f.sb.ReadFile(entries[0]) != "authored edit" {
+					t.Fatal("snapshot did not contain planned bytes")
+				}
+				stamp := filepath.Base(filepath.Dir(filepath.Dir(filepath.Dir(entries[0]))))
+				f.run("restore", "custom", "--from", stamp, "--force").AssertSuccess(t)
+				if f.sb.ReadFile(path) != "authored edit" {
+					t.Fatal("restore did not recover discarded bytes")
+				}
+			})
+		}
+	}
 }
 
 func TestProfiles_DesiredObserved(t *testing.T) {
 	f := newProfileFixture(t, false, "copy")
 	f.run("profile", "use", "all").AssertSuccess(t)
 	f.run("profile", "use", "a", "--no-sync").AssertSuccess(t)
-	status := f.run("status", "--json"); status.AssertSuccess(t)
-	var s struct { Profile struct { Selected int; Pending bool }; Targets []struct { SyncedCount int `json:"synced_count"` } }
-	if err := json.Unmarshal([]byte(status.Stdout), &s); err != nil || s.Profile.Selected != 1 || !s.Profile.Pending || s.Targets[0].SyncedCount != 2 { t.Fatalf("desired count replaced observed: %s %v", status.Stdout, err) }
+	status := f.run("status", "--json")
+	status.AssertSuccess(t)
+	var s struct {
+		Profile struct {
+			Selected int
+			Pending  bool
+		}
+		Targets []struct {
+			SyncedCount int `json:"synced_count"`
+		}
+	}
+	if err := json.Unmarshal([]byte(status.Stdout), &s); err != nil || s.Profile.Selected != 1 || !s.Profile.Pending || s.Targets[0].SyncedCount != 2 {
+		t.Fatalf("desired count replaced observed: %s %v", status.Stdout, err)
+	}
 	f.run("sync", "--json").AssertSuccess(t)
 	f.run("profile", "list", "--json").AssertSuccess(t)
 }
 
 func TestProfiles_UnavailableAndRepair(t *testing.T) {
-	for _, state := range []string{"missing", "unusable", "unreadable"} { t.Run(state, func(t *testing.T) {
-		f := newProfileFixture(t, false, "copy")
-		f.run("profile", "use", "a").AssertSuccess(t)
-		text := f.sb.ReadFile(f.config)
-		switch state {
-		case "missing": text = strings.Replace(text, "  a:", "  renamed:", 1)
-		case "unusable": text = strings.Replace(text, "  a:\n", "  a:\n    future: value\n", 1)
-		case "unreadable":
-			// A directory at the state path fails even under privileged CI.
-			statePath, _, err := config.ProfilePaths(f.config)
-			if err != nil { t.Fatal(err) }
-			if err := os.Remove(statePath); err != nil { t.Fatal(err) }
-			if err := os.Mkdir(statePath, 0700); err != nil { t.Fatal(err) }
-		}
-		if err := os.WriteFile(f.config, []byte(text), 0644); err != nil { t.Fatal(err) }
-		f.run("sync", "--json").AssertFailure(t)
-		f.run("diff", "--json").AssertFailure(t)
-		f.run("status").AssertSuccess(t)
-		f.run("status", "--json").AssertSuccess(t)
-		f.run("profile", "list", "--json").AssertSuccess(t)
-		if state != "unreadable" { f.run("profile", "use", "b").AssertSuccess(t) }
-	}) }
+	for _, state := range []string{"missing", "unusable", "unreadable"} {
+		t.Run(state, func(t *testing.T) {
+			f := newProfileFixture(t, false, "copy")
+			f.run("profile", "use", "a").AssertSuccess(t)
+			text := f.sb.ReadFile(f.config)
+			switch state {
+			case "missing":
+				text = strings.Replace(text, "  a:", "  renamed:", 1)
+			case "unusable":
+				text = strings.Replace(text, "  a:\n", "  a:\n    future: value\n", 1)
+			case "unreadable":
+				// A directory at the state path fails even under privileged CI.
+				statePath, _, err := config.ProfilePaths(f.config)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Remove(statePath); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Mkdir(statePath, 0700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := os.WriteFile(f.config, []byte(text), 0644); err != nil {
+				t.Fatal(err)
+			}
+			f.run("sync", "--json").AssertFailure(t)
+			f.run("diff", "--json").AssertFailure(t)
+			f.run("status").AssertSuccess(t)
+			f.run("status", "--json").AssertSuccess(t)
+			f.run("profile", "list", "--json").AssertSuccess(t)
+			if state != "unreadable" {
+				f.run("profile", "use", "b").AssertSuccess(t)
+			}
+		})
+	}
 }
 
 func TestProfiles_ShowUsesDefinitionRules(t *testing.T) {
 	for _, project := range []bool{false, true} {
 		t.Run(fmt.Sprint(project), func(t *testing.T) {
 			f := newProfileFixture(t, project, "copy")
-			text := f.sb.ReadFile(f.config)+"  inert:\n    skills:\n      include: []\n      exclude: [alpha]\n  blank:\n    skills:\n      include: [' ', '']\n"
-			if err := os.WriteFile(f.config, []byte(text), 0644); err != nil { t.Fatal(err) }
-			for _, tc := range []struct { name string; selected int; inert bool }{{"all", 2, false}, {"empty", 0, false}, {"blank", 0, false}, {"inert", 0, true}, {"a", 1, false}} {
+			text := f.sb.ReadFile(f.config) + "  inert:\n    skills:\n      include: []\n      exclude: [alpha]\n  blank:\n    skills:\n      include: [' ', '']\n"
+			if err := os.WriteFile(f.config, []byte(text), 0644); err != nil {
+				t.Fatal(err)
+			}
+			for _, tc := range []struct {
+				name     string
+				selected int
+				inert    bool
+			}{{"all", 2, false}, {"empty", 0, false}, {"blank", 0, false}, {"inert", 0, true}, {"a", 1, false}} {
 				result := f.run("profile", "show", tc.name, "--json")
 				result.AssertSuccess(t)
-				var out struct { Profiles []struct { Selected []string; Skills *struct { Include, Exclude []string }; Inert []string `json:"inert_excludes"`; Targets map[string]int } }
-				if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil || len(out.Profiles) != 1 { t.Fatal(result.Stdout, err) }
+				var out struct {
+					Profiles []struct {
+						Selected []string
+						Skills   *struct{ Include, Exclude []string }
+						Inert    []string `json:"inert_excludes"`
+						Targets  map[string]int
+					}
+				}
+				if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil || len(out.Profiles) != 1 {
+					t.Fatal(result.Stdout, err)
+				}
 				row := out.Profiles[0]
-				if len(row.Selected) != tc.selected || row.Targets["custom"] != tc.selected || (len(row.Inert) > 0) != tc.inert { t.Fatalf("show disagrees: %s", result.Stdout) }
-				if tc.name == "all" && row.Skills != nil { t.Fatal("pass-through definition lost its distinction from empty") }
+				if len(row.Selected) != tc.selected || row.Targets["custom"] != tc.selected || (len(row.Inert) > 0) != tc.inert {
+					t.Fatalf("show disagrees: %s", result.Stdout)
+				}
+				if tc.name == "all" && row.Skills != nil {
+					t.Fatal("pass-through definition lost its distinction from empty")
+				}
 			}
 		})
 	}
@@ -176,28 +302,42 @@ func TestProfiles_Composition(t *testing.T) {
 			f.run("install", "file://"+repo).AssertSuccess(t)
 			metadata := filepath.Join(f.source, install.MetadataFileName)
 			protected := []string{f.config, metadata}
-			if project { protected = append(protected, filepath.Join(f.root, ".skillshare", "skills.lock.json")) }
+			if project {
+				protected = append(protected, filepath.Join(f.root, ".skillshare", "skills.lock.json"))
+			}
 			// A fetched extra's bytes and profile-like bindings are inert input
 			// to a switch. No remote-extra transport is implemented by core2.
 			extra := filepath.Join(f.root, "fetched-extra", "bindings.yaml")
 			f.sb.WriteFile(extra, "profiles:\n  remote: {skills: {include: ['*']}}\nactive: remote\n")
 			protected = append(protected, extra)
 			before := make(map[string]string)
-			for _, path := range protected { before[path] = f.sb.ReadFile(path) }
+			for _, path := range protected {
+				before[path] = f.sb.ReadFile(path)
+			}
 			f.run("profile", "use", "all").AssertSuccess(t)
 			f.run("profile", "use", "a").AssertSuccess(t)
-			if _, err := os.Lstat(filepath.Join(f.target, "hub-skill")); !os.IsNotExist(err) { t.Fatal("hub skill was not deselected", err) }
-			if !strings.Contains(f.sb.ReadFile(filepath.Join(f.source, "hub-skill", "SKILL.md")), "Version 1") { t.Fatal("switch removed installed source") }
+			if _, err := os.Lstat(filepath.Join(f.target, "hub-skill")); !os.IsNotExist(err) {
+				t.Fatal("hub skill was not deselected", err)
+			}
+			if !strings.Contains(f.sb.ReadFile(filepath.Join(f.source, "hub-skill", "SKILL.md")), "Version 1") {
+				t.Fatal("switch removed installed source")
+			}
 			for path, content := range before {
-				if f.sb.ReadFile(path) != content { t.Fatalf("switch changed %s", path) }
+				if f.sb.ReadFile(path) != content {
+					t.Fatalf("switch changed %s", path)
+				}
 			}
 			f.sb.WriteFile(filepath.Join(repo, "SKILL.md"), "---\nname: hub-skill\n---\n# Version 2\n")
 			testutil.RunGit(t, repo, "add", "SKILL.md")
 			testutil.RunGit(t, repo, "commit", "-m", "Update fixture")
 			f.run("install", "hub-skill", "--update").AssertSuccess(t)
-			if !strings.Contains(f.sb.ReadFile(filepath.Join(f.source, "hub-skill", "SKILL.md")), "Version 2") { t.Fatal("deselected source could not update") }
+			if !strings.Contains(f.sb.ReadFile(filepath.Join(f.source, "hub-skill", "SKILL.md")), "Version 2") {
+				t.Fatal("deselected source could not update")
+			}
 			f.run("profile", "use", "all").AssertSuccess(t)
-			if !strings.Contains(f.sb.ReadFile(filepath.Join(f.target, "hub-skill", "SKILL.md")), "Version 2") { t.Fatal("updated source did not redeploy") }
+			if !strings.Contains(f.sb.ReadFile(filepath.Join(f.target, "hub-skill", "SKILL.md")), "Version 2") {
+				t.Fatal("updated source did not redeploy")
+			}
 		})
 	}
 }
@@ -222,8 +362,12 @@ func TestProfiles_SharedFolderVariants(t *testing.T) {
 					f.run("sync", "--json").AssertSuccess(t)
 					codex := filepath.Join(f.target, "_repo__internal__skills__codex__fix", "SKILL.md")
 					if name == "plain" {
-						if _, err := os.Stat(codex); !os.IsNotExist(err) { t.Fatal("departing variant retained", err) }
-					} else if f.sb.ReadFile(codex) != "# Instructions for codex" { t.Fatal("shared peer lost routed variant") }
+						if _, err := os.Stat(codex); !os.IsNotExist(err) {
+							t.Fatal("departing variant retained", err)
+						}
+					} else if f.sb.ReadFile(codex) != "# Instructions for codex" {
+						t.Fatal("shared peer lost routed variant")
+					}
 					f.run("diff", "--json").AssertSuccess(t)
 				}
 			})
@@ -241,13 +385,20 @@ func TestProfiles_DesiredObservedUnmanaged(t *testing.T) {
 			result := f.run("status", "--json")
 			result.AssertSuccess(t)
 			var out struct {
-				Profile struct { Selected int; Pending bool }
-				Targets []struct { SyncedCount int `json:"synced_count"` }
+				Profile struct {
+					Selected int
+					Pending  bool
+				}
+				Targets []struct {
+					SyncedCount int `json:"synced_count"`
+				}
 			}
 			if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil || out.Profile.Selected != 1 || !out.Profile.Pending || len(out.Targets) != 1 || out.Targets[0].SyncedCount != 0 {
 				t.Fatalf("unmanaged target was reported as deployed: %s %v", result.Stdout, err)
 			}
-			if f.sb.ReadFile(filepath.Join(f.target, "alpha", "SKILL.md")) != "unmanaged bytes" { t.Fatal("sync changed unmanaged bytes") }
+			if f.sb.ReadFile(filepath.Join(f.target, "alpha", "SKILL.md")) != "unmanaged bytes" {
+				t.Fatal("sync changed unmanaged bytes")
+			}
 		})
 	}
 }
@@ -259,7 +410,13 @@ func TestProfiles_OrdinarySyncBacksUpBeforeRefresh(t *testing.T) {
 	f.sb.WriteFile(filepath.Join(f.source, "alpha", "SKILL.md"), "---\nname: alpha\n---\n# changed source\n")
 	f.run("sync").AssertSuccess(t)
 	paths, err := filepath.Glob(filepath.Join(backup.BackupDir(), "*", "custom", "alpha", "SKILL.md"))
-	if err != nil || len(paths) != 1 { t.Fatal("pre-sync backup missing", paths, err) }
-	if f.sb.ReadFile(paths[0]) != old { t.Fatal("automatic backup captured refreshed content") }
-	if f.sb.ReadFile(filepath.Join(f.target, "alpha", "SKILL.md")) == old { t.Fatal("fixture did not refresh") }
+	if err != nil || len(paths) != 1 {
+		t.Fatal("pre-sync backup missing", paths, err)
+	}
+	if f.sb.ReadFile(paths[0]) != old {
+		t.Fatal("automatic backup captured refreshed content")
+	}
+	if f.sb.ReadFile(filepath.Join(f.target, "alpha", "SKILL.md")) == old {
+		t.Fatal("fixture did not refresh")
+	}
 }
