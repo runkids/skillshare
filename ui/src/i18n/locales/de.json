@@ -1,4 +1,10 @@
 {
+  "profiles.targetRoot": "Zielverzeichnis {path} ist ein nicht verwalteter Link und wurde beibehalten.",
+  "profiles.keptModified": "{target}: geändertes {entry} bei {step} beibehalten: {reason}; collect oder --discard-edits verwenden",
+  "profiles.keptUnmanaged": "{target}: nicht verwaltetes {entry} bei {step} beibehalten: {reason}",
+  "profiles.step.refresh": "der Aktualisierung",
+  "profiles.step.prune": "der Bereinigung",
+  "profiles.step.convert": "der Umwandlung",
   "profiles.all": "Alle Skills",
   "profiles.choose": "Profil wählen",
   "profiles.title": "Zu {name} wechseln",

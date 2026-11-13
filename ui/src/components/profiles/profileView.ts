@@ -36,6 +36,14 @@ export function profileGroups(targets: ProfileTarget[] | null): ChangeGroup[] {
 
 /** Display translations only: unknown diagnostics retain the server's original text. */
 export function profileReason(reason: string, t: ReturnType<typeof useT>, name = ''): string {
+  const root = reason.match(/^target root (.+) is an unmanaged link; kept$/s);
+  if (root) return t('profiles.targetRoot', { path: root[1] });
+  const modified = reason.match(/^(.+): kept modified (.+) during (refresh|prune|convert): (.+); use collect or --discard-edits$/s);
+  const unmanaged = reason.match(/^(.+): kept unmanaged (.+) during (refresh|prune|convert): (.+)$/s);
+  const kept = modified ?? unmanaged;
+  if (kept) return t(modified ? 'profiles.keptModified' : 'profiles.keptUnmanaged', {
+    target: kept[1], entry: kept[2], step: t(`profiles.step.${kept[3]}`), reason: profileReason(kept[4], t),
+  });
   const q = JSON.stringify(name);
   const known: Record<string, string> = {
     'copy was edited or could not be verified': 'profiles.edited',

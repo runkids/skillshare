@@ -1,4 +1,10 @@
 {
+  "profiles.targetRoot": "{path}: 대상 루트가 관리되지 않는 링크이므로 유지했습니다.",
+  "profiles.keptModified": "{target}: {step} 중 수정된 {entry} 유지: {reason}. collect 또는 --discard-edits를 사용하세요",
+  "profiles.keptUnmanaged": "{target}: {step} 중 관리되지 않는 {entry} 유지: {reason}",
+  "profiles.step.refresh": "새로 고침",
+  "profiles.step.prune": "정리",
+  "profiles.step.convert": "변환",
   "profiles.all": "모든 스킬",
   "profiles.choose": "프로필 선택",
   "profiles.title": "{name}(으)로 전환",

@@ -1,4 +1,10 @@
 {
+  "profiles.targetRoot": "La racine cible {path} est un lien non géré ; elle a été conservée.",
+  "profiles.keptModified": "{target} : {entry} modifié conservé lors de {step} : {reason} ; utilisez collect ou --discard-edits",
+  "profiles.keptUnmanaged": "{target} : {entry} non géré conservé lors de {step} : {reason}",
+  "profiles.step.refresh": "l’actualisation",
+  "profiles.step.prune": "l’élagage",
+  "profiles.step.convert": "la conversion",
   "profiles.all": "Toutes les compétences",
   "profiles.choose": "Choisir un profil",
   "profiles.title": "Passer à {name}",

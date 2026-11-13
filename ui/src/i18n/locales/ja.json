@@ -1,4 +1,10 @@
 {
+  "profiles.targetRoot": "対象ルート {path} は管理対象外のリンクのため、保持しました。",
+  "profiles.keptModified": "{target}: {step}中に変更済みの {entry} を保持しました: {reason}。collect または --discard-edits を使用してください",
+  "profiles.keptUnmanaged": "{target}: {step}中に管理対象外の {entry} を保持しました: {reason}",
+  "profiles.step.refresh": "更新",
+  "profiles.step.prune": "削除処理",
+  "profiles.step.convert": "変換",
   "profiles.all": "すべてのスキル",
   "profiles.choose": "プロファイルを選択",
   "profiles.title": "{name} に切り替え",

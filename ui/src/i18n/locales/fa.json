@@ -1,4 +1,10 @@
 {
+  "profiles.targetRoot": "ریشهٔ مقصد {path} یک پیوند مدیریت‌نشده است؛ حفظ شد.",
+  "profiles.keptModified": "{target}: {entry} تغییرکرده هنگام {step} حفظ شد: {reason}؛ از collect یا --discard-edits استفاده کنید.",
+  "profiles.keptUnmanaged": "{target}: {entry} مدیریت‌نشده هنگام {step} حفظ شد: {reason}",
+  "profiles.step.refresh": "به‌روزرسانی",
+  "profiles.step.prune": "پاک‌سازی",
+  "profiles.step.convert": "تبدیل",
   "profiles.all": "همهٔ مهارت‌ها",
   "profiles.choose": "انتخاب پروفایل",
   "profiles.title": "تغییر به {name}",

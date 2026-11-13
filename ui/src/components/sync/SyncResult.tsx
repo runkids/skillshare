@@ -5,6 +5,7 @@ import Button from '../Button';
 import { useT, plural } from '../../i18n';
 import { failureExplanation, type SyncFailure } from './syncView';
 import SyncError from './SyncError';
+import { profileReason } from '../profiles/profileView';
 
 const PART_TAG: Record<SyncFailure['part'], string> = { skill: 'Skills', agent: 'Agents', extra: 'Extras', config: 'Config' };
 
@@ -55,7 +56,7 @@ export default function SyncResult({ failures, warnings, synced, force, onForce 
       {warnings.map((w) => (
         <div key={w} className="ss-r !min-h-0 bg-warn-bg text-[13px]">
           <TriangleAlert size={16} className="text-warn" />
-          <span className="flex-1 break-words">{w}</span>
+          <span className="flex-1 break-words">{profileReason(w, t)}</span>
         </div>
       ))}
       {failures.length > 0 && synced > 0 && (

@@ -1,4 +1,10 @@
 {
+  "profiles.targetRoot": "目標根目錄 {path} 是未受管理的連結，已保留。",
+  "profiles.keptModified": "{target}：在{step}時保留已修改的 {entry}：{reason}；請使用 collect 或 --discard-edits",
+  "profiles.keptUnmanaged": "{target}：在{step}時保留未受管理的 {entry}：{reason}",
+  "profiles.step.refresh": "重新整理",
+  "profiles.step.prune": "清理",
+  "profiles.step.convert": "轉換",
   "profiles.all": "所有技能",
   "profiles.choose": "選擇設定檔",
   "profiles.title": "切換至 {name}",

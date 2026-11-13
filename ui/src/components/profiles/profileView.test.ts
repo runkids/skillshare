@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
 import { ApiError, type ProfilesResponse } from '../../api/client';
+import type { TranslationParams } from '../../i18n';
 import { blockedEntries, profileOptions, profileVisible, profileGroups, profileReason, profileError } from './profileView';
 
 const none: ProfilesResponse = { active: '', state: 'none', pending: false, profiles: [] };
@@ -33,4 +34,28 @@ it('localizes known display reasons while keeping unknown diagnostics verbatim',
   expect(profileReason('future diagnostic', t)).toBe('future diagnostic');
   expect(profileError(new ApiError(409, 'English lock message', { code: 'profile_locked' }), t)).toBe('profiles.locked');
   expect(profileError(new ApiError(409, 'snapshot EIO', { code: 'profile_refused' }), t)).toContain('snapshot EIO');
+});
+
+const translated = (key: string, params?: TranslationParams) => JSON.stringify({ key, params });
+it('preserves the complete path when translating the profile target-root diagnostic', () => {
+  const path = '/fixture/技能 folder';
+  expect(profileReason(`target root ${path} is an unmanaged link; kept`, translated)).toBe(translated('profiles.targetRoot', { path }));
+});
+
+it.each(['refresh', 'prune', 'convert'])('localizes profile retention warnings during %s without dropping their identifiers', (step) => {
+  for (const [kind, key, suffix] of [['modified', 'profiles.keptModified', '; use collect or --discard-edits'], ['unmanaged', 'profiles.keptUnmanaged', '']]) {
+    const warning = `custom: kept ${kind} team__技能 during ${step}: copy was edited or could not be verified${suffix}`;
+    expect(profileReason(warning, translated)).toBe(translated(key, {
+      target: 'custom', entry: 'team__技能', step: translated(`profiles.step.${step}`), reason: translated('profiles.edited'),
+    }));
+  }
+});
+
+it('keeps external or unrecognized diagnostics intact inside and outside known wrappers', () => {
+  for (const reason of ['EACCES: /private', 'target root failed: EIO', 'custom: kept modified a during future: EIO; use collect or --discard-edits', 'custom: kept modified a during prune: EIO']) {
+    expect(profileReason(reason, translated)).toBe(reason);
+  }
+  expect(profileReason('custom: kept unmanaged a during prune: external EIO: detail', translated)).toBe(translated('profiles.keptUnmanaged', {
+    target: 'custom', entry: 'a', step: translated('profiles.step.prune'), reason: 'external EIO: detail',
+  }));
 });

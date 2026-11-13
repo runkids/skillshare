@@ -1,4 +1,10 @@
 {
+  "profiles.targetRoot": "A raiz de destino {path} é um link não gerenciado e foi mantida.",
+  "profiles.keptModified": "{target}: {entry} modificado foi mantido durante {step}: {reason}; use collect ou --discard-edits",
+  "profiles.keptUnmanaged": "{target}: o item não gerenciado {entry} foi mantido durante {step}: {reason}",
+  "profiles.step.refresh": "a atualização",
+  "profiles.step.prune": "a limpeza",
+  "profiles.step.convert": "a conversão",
   "profiles.all": "Todas as habilidades",
   "profiles.choose": "Escolher perfil",
   "profiles.title": "Mudar para {name}",

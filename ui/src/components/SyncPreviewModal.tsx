@@ -13,6 +13,7 @@ import { countChanges, resourceGroups, type Part } from './sync/syncView';
 import { useT } from '../i18n';
 import { useDiffQuery, useSyncedTargetsQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
+import { profileReason } from './profiles/profileView';
 
 interface SyncPreviewModalProps {
   open: boolean;
@@ -97,7 +98,7 @@ export default function SyncPreviewModal({ open, onClose, kind, className }: Syn
         {synced ? (
           <>
             <div className="ss-note inf"><CircleCheck size={16} /><span className="flex-1">{t('syncPreview.completed')}</span></div>
-            {warnings.map((w) => <div key={w} className="ss-note warn"><TriangleAlert size={16} /><span className="flex-1">{w}</span></div>)}
+            {warnings.map((w) => <div key={w} className="ss-note warn"><TriangleAlert size={16} /><span className="flex-1">{profileReason(w, t)}</span></div>)}
             <UnmatchedNotices items={unmatched} />
           </>
         ) : loading ? (

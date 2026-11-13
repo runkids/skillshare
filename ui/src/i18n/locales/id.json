@@ -1,4 +1,10 @@
 {
+  "profiles.targetRoot": "Akar tujuan {path} adalah tautan yang tidak dikelola; tetap dipertahankan.",
+  "profiles.keptModified": "{target}: {entry} yang diubah dipertahankan saat {step}: {reason}; gunakan collect atau --discard-edits",
+  "profiles.keptUnmanaged": "{target}: {entry} yang tidak dikelola dipertahankan saat {step}: {reason}",
+  "profiles.step.refresh": "penyegaran",
+  "profiles.step.prune": "pemangkasan",
+  "profiles.step.convert": "konversi",
   "profiles.all": "Semua skill",
   "profiles.choose": "Pilih profil",
   "profiles.title": "Beralih ke {name}",

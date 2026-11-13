@@ -1,4 +1,10 @@
 {
+  "profiles.targetRoot": "Target root {path} is an unmanaged link; kept.",
+  "profiles.keptModified": "{target}: kept modified {entry} during {step}: {reason}; use collect or --discard-edits",
+  "profiles.keptUnmanaged": "{target}: kept unmanaged {entry} during {step}: {reason}",
+  "profiles.step.refresh": "refresh",
+  "profiles.step.prune": "pruning",
+  "profiles.step.convert": "conversion",
   "profiles.all": "All skills",
   "profiles.choose": "Choose profile",
   "profiles.title": "Switch to {name}",
