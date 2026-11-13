@@ -71,36 +71,248 @@ func read(t *testing.T, path string) string {
 	return string(b)
 }
 
-func TestProfileSync_DiscardEditsIgnoresMovedDirectory(t *testing.T) {
-	f := newFixture(t, true, "copy")
-	write(t, f.path, strings.Replace(read(t, f.path), "  - name: custom\n    skills:\n      path: "+f.target, "  - name: goose\n    skills:", 1))
-	if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a"}); err != nil {
-		t.Fatal(err)
+func TestProfileSync_DiscardEditsMovedDirectories(t *testing.T) {
+	for _, name := range []string{"goose", "cline"} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t, true, "copy")
+			write(t, f.path, strings.Replace(read(t, f.path), "  - name: custom\n    skills:\n      path: "+f.target, "  - name: "+name+"\n    skills:", 1))
+			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a"}); err != nil {
+				t.Fatal(err)
+			}
+			v, err := Load(f.scope)
+			if err != nil {
+				t.Fatal(err)
+			}
+			target := v.Config.Targets[name]
+			current := target.SkillsConfig().Path
+			dirs := map[string]string{name: current}
+			for _, rel := range config.AlsoScansProject(name) {
+				dirs[backup.MovedEntryName(name, rel)] = filepath.Join(f.scope.ProjectRoot, filepath.FromSlash(rel))
+			}
+			for key, dir := range dirs {
+				manifest := &ssync.Manifest{Managed: map[string]string{}, Outputs: map[string]string{}}
+				for _, entry := range []string{"alpha", "retired"} {
+					write(t, filepath.Join(dir, entry, "SKILL.md"), read(t, filepath.Join(f.source, "alpha", "SKILL.md")))
+					sum, err := ssync.CopyOutputFingerprint(filepath.Join(dir, entry))
+					if err != nil {
+						t.Fatal(err)
+					}
+					manifest.Managed[entry], manifest.Outputs[entry] = sum, sum
+					write(t, filepath.Join(dir, entry, "SKILL.md"), "authored "+key+"/"+entry)
+				}
+				if err := ssync.WriteManifest(dir, manifest); err != nil {
+					t.Fatal(err)
+				}
+				write(t, filepath.Join(dir, "local", "notes.txt"), "unmanaged "+key)
+			}
+			const sourceContent = "---\nname: alpha\n---\n# changed source\n"
+			write(t, filepath.Join(f.source, "alpha", "SKILL.md"), sourceContent)
+			before := tree(t, f.scope.ProjectRoot)
+			preview, err := WithSkillSync(context.Background(), SyncRequest{Scope: f.scope, DiscardEdits: true, DryRun: true})
+			if err != nil || len(preview.Snapshot) != 0 || !reflect.DeepEqual(before, tree(t, f.scope.ProjectRoot)) {
+				t.Fatalf("dry discard wrote files: %+v, %v", preview, err)
+			}
+			if len(preview.Blocked) != 2*len(dirs) {
+				t.Fatalf("dry plan omitted actual-folder edits: %+v", preview)
+			}
+			configBefore, stateBefore := read(t, f.path), read(t, v.StatePath)
+			out, err := WithSkillSync(context.Background(), SyncRequest{Scope: f.scope, DiscardEdits: true})
+			if err != nil || !out.Complete || len(out.Snapshot) != len(dirs) {
+				t.Fatalf("actual-folder snapshots: %+v, %v; want %d", out, err, len(dirs))
+			}
+			currentAfter := tree(t, current)
+			seen := make(map[string]bool)
+			for _, saved := range out.Snapshot {
+				key := filepath.Base(saved.Path)
+				dir, ok := dirs[key]
+				if !ok || seen[key] || saved.Target != name {
+					t.Fatalf("wrong or duplicate snapshot identity: %+v", saved)
+				}
+				seen[key] = true
+				if read(t, filepath.Join(saved.Path, "alpha", "SKILL.md")) != "authored "+key+"/alpha" || read(t, filepath.Join(saved.Path, "retired", "SKILL.md")) != "authored "+key+"/retired" || saved.Restore != v.RestoreCommand(key, saved.Path) {
+					t.Fatalf("snapshot bytes or recovery command: %+v", saved)
+				}
+				resolved, err := backup.SkillsEntryDir(f.scope.ProjectRoot, key, v.Config.Targets)
+				if err != nil || resolved != dir {
+					t.Fatalf("recovery destination %q: %q, %v", key, resolved, err)
+				}
+				if read(t, filepath.Join(dir, "local", "notes.txt")) != "unmanaged "+key {
+					t.Fatal("discard changed unmanaged content")
+				}
+				if dir == current {
+					if _, err := os.Lstat(filepath.Join(dir, "retired")); !os.IsNotExist(err) {
+						t.Fatalf("current departed copy remains: %v", err)
+					}
+					if read(t, filepath.Join(dir, "alpha", "SKILL.md")) != read(t, filepath.Join(f.source, "alpha", "SKILL.md")) {
+						t.Fatal("current copy was not refreshed")
+					}
+					continue
+				}
+				for _, entry := range []string{"alpha", "retired"} {
+					if _, err := os.Lstat(filepath.Join(dir, entry)); !os.IsNotExist(err) {
+						t.Fatalf("listed moved copy remains: %s, %v", entry, err)
+					}
+				}
+				if err := backup.RestoreToPath(filepath.Dir(saved.Path), key, resolved, backup.RestoreOptions{Force: true}); err != nil {
+					t.Fatal(err)
+				}
+				if read(t, filepath.Join(dir, "alpha", "SKILL.md")) != "authored "+key+"/alpha" || read(t, filepath.Join(dir, "retired", "SKILL.md")) != "authored "+key+"/retired" || !reflect.DeepEqual(currentAfter, tree(t, current)) {
+					t.Fatal("moved recovery lost bytes or changed current folder")
+				}
+			}
+			if read(t, filepath.Join(f.source, "alpha", "SKILL.md")) != sourceContent || read(t, f.path) != configBefore || read(t, v.StatePath) != stateBefore {
+				t.Fatal("discard changed source, config or settled state")
+			}
+		})
 	}
-	dir := filepath.Join(f.scope.ProjectRoot, ".goose", "skills")
-	entry := filepath.Join(dir, "alpha")
-	file := filepath.Join(entry, "SKILL.md")
-	write(t, file, "clean")
-	sum, err := ssync.CopyOutputFingerprint(entry)
-	if err != nil {
-		t.Fatal(err)
+}
+
+func TestProfileSync_MovedCleanupScope(t *testing.T) {
+	for _, action := range []string{"unselected", "owned", "switch"} {
+		t.Run(action, func(t *testing.T) {
+			f := newFixture(t, true, "copy")
+			dir := filepath.Join(f.scope.ProjectRoot, ".goose", "skills")
+			if action == "owned" {
+				write(t, f.path, strings.ReplaceAll(read(t, f.path), f.target, dir))
+			}
+			write(t, f.path, strings.Replace(read(t, f.path), "profiles:", "  - name: goose\n    skills:\n      mode: copy\nprofiles:", 1))
+			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a"}); err != nil {
+				t.Fatal(err)
+			}
+			write(t, filepath.Join(dir, "retired", "SKILL.md"), "managed leftover")
+			sum, err := ssync.CopyOutputFingerprint(filepath.Join(dir, "retired"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := ssync.WriteManifest(dir, &ssync.Manifest{Managed: map[string]string{"retired": sum}, Outputs: map[string]string{"retired": sum}}); err != nil {
+				t.Fatal(err)
+			}
+			before := tree(t, dir)
+			if action == "switch" {
+				_, err = Apply(context.Background(), Request{Scope: f.scope, Name: "a"})
+			} else {
+				selected := "custom"
+				if action == "owned" {
+					selected = "goose"
+				}
+				_, err = WithSkillSync(context.Background(), SyncRequest{Scope: f.scope, Targets: []string{selected}})
+			}
+			if err != nil || !reflect.DeepEqual(before, tree(t, dir)) {
+				t.Fatalf("%s cleanup changed protected folder: %v", action, err)
+			}
+		})
 	}
-	if err := ssync.WriteManifest(dir, &ssync.Manifest{Managed: map[string]string{"alpha": "source"}, Outputs: map[string]string{"alpha": sum}}); err != nil {
-		t.Fatal(err)
-	}
-	write(t, file, "edited")
-	out, err := WithSkillSync(context.Background(), SyncRequest{Scope: f.scope, DiscardEdits: true})
-	if err != nil || len(out.Snapshot) != 0 || out.Complete || read(t, file) != "edited" {
-		t.Fatalf("moved copy discard: %+v, %v", out, err)
-	}
-	for _, target := range out.Targets {
-		for _, kept := range target.KeptModified {
-			if target.Name == "goose" && kept.Entry == "alpha" && strings.Contains(kept.Reason, dir) {
+}
+
+func TestProfileSync_MovedSnapshotSafety(t *testing.T) {
+	for _, failure := range []string{"create", "missing", "stale", "reused", "partial", "second_edit", "frozen", "collision"} {
+		t.Run(failure, func(t *testing.T) {
+			f := newFixture(t, true, "copy")
+			write(t, f.path, strings.Replace(read(t, f.path), "  - name: custom\n    skills:\n      path: "+f.target, "  - name: goose\n    skills:", 1))
+			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a"}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a", NoSync: true}); err != nil {
+				t.Fatal(err)
+			}
+			v, err := Load(f.scope)
+			if err != nil {
+				t.Fatal(err)
+			}
+			target := v.Config.Targets["goose"]
+			current := target.SkillsConfig().Path
+			old := filepath.Join(f.scope.ProjectRoot, ".goose", "skills")
+			write(t, filepath.Join(old, "alpha", "SKILL.md"), read(t, filepath.Join(f.source, "alpha", "SKILL.md")))
+			sum, err := ssync.CopyOutputFingerprint(filepath.Join(old, "alpha"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := ssync.WriteManifest(old, &ssync.Manifest{Managed: map[string]string{"alpha": sum}, Outputs: map[string]string{"alpha": sum}}); err != nil {
+				t.Fatal(err)
+			}
+			for _, dir := range []string{current, old} {
+				write(t, filepath.Join(dir, "alpha", "SKILL.md"), "first edit "+dir)
+			}
+			manifest, err := ssync.ReadManifest(current)
+			if err != nil {
+				t.Fatal(err)
+			}
+			delete(manifest.Mtimes, "alpha")
+			if err := ssync.WriteManifest(current, manifest); err != nil {
+				t.Fatal(err)
+			}
+			write(t, filepath.Join(f.source, "alpha", "SKILL.md"), "---\nname: alpha\n---\nchanged source\n")
+			if failure == "collision" {
+				alias := backup.MovedEntryName("goose", ".goose/skills")
+				write(t, f.path, strings.Replace(read(t, f.path), "profiles:", "  - name: "+alias+"\n    skills:\n      path: "+filepath.Join(f.scope.ProjectRoot, "collision")+"\n      enabled: false\nprofiles:", 1))
+			}
+			before := tree(t, f.scope.ProjectRoot)
+			calls, afterCalls := 0, 0
+			var captured *View
+			req := SyncRequest{Scope: f.scope, DiscardEdits: true, Before: func(v *View) error { captured = v; return nil }}
+			req.snapshot = func(root, key, dir string) (string, error) {
+				calls++
+				switch failure {
+				case "create":
+					return "", errors.New("injected snapshot failure")
+				case "missing":
+					return "", nil
+				case "partial":
+					if calls == 2 {
+						return "", errors.New("second folder failed")
+					}
+				case "stale":
+					path := filepath.Join(root, "stale", key)
+					write(t, filepath.Join(path, "alpha", "SKILL.md"), "stale snapshot")
+					return path, nil
+				}
+				path, err := backup.CreateInDir(root, key, dir)
+				if failure == "reused" && err == nil {
+					// Model stale same-second reuse at the real saved key without a clock race.
+					write(t, filepath.Join(path, "alpha", "SKILL.md"), "older reused bytes")
+				}
+				return path, err
+			}
+			req.afterSnapshot = func() {
+				afterCalls++
+				if calls != 2 {
+					t.Fatalf("execution began before both folders verified: %d", calls)
+				}
+				if failure == "second_edit" {
+					write(t, filepath.Join(old, "alpha", "SKILL.md"), "second edit")
+				} else if failure == "frozen" {
+					captured.Project.Targets = nil
+				}
+			}
+			out, err := WithSkillSync(context.Background(), req)
+			if failure == "second_edit" || failure == "frozen" {
+				if err != nil || afterCalls != 1 || out.Complete != (failure == "frozen") || out.Profile.Pending != (failure == "second_edit") {
+					t.Fatalf("post-snapshot outcome: %+v, %v; callbacks %d", out, err, afterCalls)
+				}
+				if failure == "second_edit" && (read(t, filepath.Join(old, "alpha", "SKILL.md")) != "second edit" || len(out.Blocked) != 1) {
+					t.Fatal("second edit was removed or not reported")
+				}
+				if failure == "frozen" {
+					if _, err := os.Lstat(filepath.Join(old, "alpha")); !os.IsNotExist(err) {
+						t.Fatalf("execution recomputed moved inputs: %v", err)
+					}
+				}
 				return
 			}
-		}
+			if err == nil || afterCalls != 0 || failure == "collision" && calls != 0 || failure == "partial" && calls != 2 {
+				t.Fatalf("unsafe verification accepted: %+v, %v; create=%d after=%d", out, err, calls, afterCalls)
+			}
+			after := tree(t, f.scope.ProjectRoot)
+			for path := range after {
+				if rel := filepath.ToSlash(path); rel == ".skillshare/backups" || strings.HasPrefix(rel, ".skillshare/backups/") {
+					delete(after, path)
+				}
+			}
+			if !reflect.DeepEqual(before, after) {
+				t.Fatalf("failed verification changed retained data: before=%v after=%v", before, after)
+			}
+		})
 	}
-	t.Fatalf("moved copy not reported: %+v", out)
 }
 
 func TestProfileApply_RoundTripAndPending(t *testing.T) {
@@ -229,6 +441,10 @@ func TestProfileApply_SnapshotAndRestore(t *testing.T) {
 	for _, project := range []bool{false, true} {
 		t.Run(fmt.Sprint(project), func(t *testing.T) {
 			f := newFixture(t, project, "copy")
+			if !project {
+				t.Chdir(filepath.Dir(f.target))
+				write(t, f.path, strings.ReplaceAll(read(t, f.path), f.target, filepath.Base(f.target)))
+			}
 			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a"}); err != nil {
 				t.Fatal(err)
 			}
@@ -423,5 +639,68 @@ func TestProfileApply_IncompleteAndUnmanaged(t *testing.T) {
 	}
 	if read(t, filepath.Join(f.target, "beta", "SKILL.md")) != read(t, filepath.Join(f.source, "beta", "SKILL.md")) {
 		t.Fatal("other target did not apply")
+	}
+}
+
+func TestProfileApply_RefusalCodes(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(fmt.Sprint(project), func(t *testing.T) {
+			f := newFixture(t, project, "copy")
+			check := func(err error, code RefusalCode, reason string) {
+				t.Helper()
+				var refused *Refusal
+				if !errors.Is(err, ErrRefused) || !errors.As(err, &refused) || refused.Code != code || refused.Reason != reason || err.Error() != reason {
+					t.Fatalf("refusal = %#v, %v; want %s: %s", refused, err, code, reason)
+				}
+			}
+			_, err := Apply(context.Background(), Request{Scope: f.scope, Name: "empty"})
+			check(err, "profile_empty", `profile "empty" selects no enabled skills; unmatched patterns: ; use --allow-empty to confirm`)
+			_, err = WithSkillSync(context.Background(), SyncRequest{Scope: f.scope, DiscardEdits: true})
+			check(err, "profile_refused", "--discard-edits requires an active profile or a pending profile switch")
+			write(t, filepath.Join(f.target, "alpha", "SKILL.md"), "unmanaged")
+			_, err = Apply(context.Background(), Request{Scope: f.scope, Name: "a"})
+			check(err, "profile_blocked", "custom/alpha: entry is not a recorded copy; use skillshare collect, or --discard-edits for modified managed copies")
+
+			f = newFixture(t, project, "copy")
+			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a"}); err != nil {
+				t.Fatal(err)
+			}
+			write(t, filepath.Join(f.target, "alpha", "SKILL.md"), "authored")
+			_, err = Apply(context.Background(), Request{Scope: f.scope, Name: "b", DiscardEdits: true,
+				snapshot: func(_, _, _ string) (string, error) { return "", errors.New("snapshot failed") }})
+			check(err, "profile_refused", "snapshot custom failed (no edits discarded): snapshot failed")
+			_, err = Apply(context.Background(), Request{Scope: f.scope})
+			check(err, "profile_refused", "choose a profile name or --none; --no-sync cannot discard edits")
+			_, err = Apply(context.Background(), Request{Scope: f.scope, Name: "missing"})
+			var unavailable *profile.UnavailableError
+			if !errors.Is(err, profile.ErrProfileUnavailable) || !errors.As(err, &unavailable) || errors.Is(err, ErrRefused) {
+				t.Fatalf("unavailable profile changed error class: %v", err)
+			}
+			_, lockPath, _ := config.ProfilePaths(f.path)
+			unlock, err := profile.Lock(context.Background(), lockPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer unlock()
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			_, err = Apply(ctx, Request{Scope: f.scope, Name: "b"})
+			check(err, "profile_locked", fmt.Sprintf("another sync or profile switch is running for this config (lock %s): context canceled", lockPath))
+		})
+	}
+}
+
+func TestProfileRefusal_LiteralCompatibility(t *testing.T) {
+	for _, code := range []RefusalCode{"", RefusalGeneric, "future_code"} {
+		// Zero and unknown codes remain available for consumers' generic fallback.
+		err := error(&Refusal{Reason: "same reason", Code: code})
+		var refused *Refusal
+		if !errors.Is(err, ErrRefused) || !errors.As(err, &refused) || refused.Code != code || refused.Reason != "same reason" || err.Error() != "same reason" {
+			t.Fatalf("literal compatibility: %#v, %v", refused, err)
+		}
+	}
+	legacy := &Refusal{Reason: "legacy reason"}
+	if legacy.Code != "" || legacy.Error() != "legacy reason" || legacy.Unwrap() != ErrRefused {
+		t.Fatalf("legacy literal changed: %#v", legacy)
 	}
 }

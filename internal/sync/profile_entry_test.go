@@ -1,9 +1,11 @@
 package sync
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -108,9 +110,43 @@ func TestProfileEntry_DiscardRequiresCurrentFingerprint(t *testing.T) {
 	}
 	input := EntryInput{Name: "demo", Path: entry, Manifest: m}
 	first := ClassifyEntry(input)
-	discard := []DiscardEntry{{Target: "claude", Entry: "demo", Fingerprint: first.Fingerprint}}
+	discard := []DiscardEntry{{Target: "claude", Dir: filepath.Dir(entry), Entry: "demo", Fingerprint: first.Fingerprint}}
 	if _, allowed := entryMutationAllowed("claude", input, discard); !allowed {
 		t.Fatal("snapshotted edit was not permitted")
+	}
+	for _, field := range []string{"target", "dir", "empty_dir", "relative_dir", "entry", "fingerprint", "other_location"} {
+		t.Run(field, func(t *testing.T) {
+			grant, candidate := discard[0], input
+			switch field {
+			case "target":
+				grant.Target = "other"
+			case "dir":
+				grant.Dir = t.TempDir()
+			case "empty_dir":
+				grant.Dir = ""
+			case "relative_dir":
+				grant.Dir = "."
+			case "entry":
+				grant.Entry = "other"
+			case "fingerprint":
+				grant.Fingerprint = "stale"
+			case "other_location":
+				candidate.Path = filepath.Join(t.TempDir(), "demo")
+				if err := os.MkdirAll(candidate.Path, 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(candidate.Path, "SKILL.md"), []byte("first edit"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, allowed := entryMutationAllowed("claude", candidate, []DiscardEntry{grant}); allowed {
+				t.Fatalf("%s widened snapshot authorization", field)
+			}
+		})
+	}
+	encoded, err := json.Marshal(EntryChange{Target: "claude", Dir: "private-directory", Entry: "demo"})
+	if err != nil || strings.Contains(string(encoded), "private-directory") {
+		t.Fatalf("internal directory leaked into JSON: %s, %v", encoded, err)
 	}
 	if err := os.WriteFile(file, []byte("later edit"), 0644); err != nil {
 		t.Fatal(err)
@@ -179,7 +215,7 @@ func TestProfileEntry_UnreadableCopyFailsClosed(t *testing.T) {
 	defer os.Chmod(file, 0644)
 	manifest := &Manifest{Managed: map[string]string{"demo": "source"}, Outputs: map[string]string{"demo": sum}}
 	input := EntryInput{Name: "demo", Path: entry, Manifest: manifest}
-	got, allowed := entryMutationAllowed("claude", input, []DiscardEntry{{Target: "claude", Entry: "demo", Fingerprint: sum}})
+	got, allowed := entryMutationAllowed("claude", input, []DiscardEntry{{Target: "claude", Dir: filepath.Dir(entry), Entry: "demo", Fingerprint: sum}})
 	if got.Class != EntryModifiedCopy || allowed {
 		t.Fatalf("unreadable copy was permitted: %+v, %v", got, allowed)
 	}

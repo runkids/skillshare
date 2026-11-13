@@ -591,6 +591,10 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 }
 
 func SyncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, projectRoot string, profileAware bool, discard []DiscardEntry, copyIgnore ...[]string) (*MergeResult, error) {
+	return syncTargetMergeWithPolicy(name, target, allSkills, sourcePath, dryRun, force, projectRoot, profileAware, discard, nil, copyIgnore...)
+}
+
+func syncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, projectRoot string, profileAware bool, discard []DiscardEntry, beforeMutation func(step string), copyIgnore ...[]string) (*MergeResult, error) {
 	var ignore []string
 	if len(copyIgnore) > 0 {
 		ignore = copyIgnore[0]
@@ -649,19 +653,24 @@ func SyncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkill
 				copySource.OutputName = prefixed
 			}
 		}
-		entry := EntryClassification{}
-		if profileAware && !force {
-			entry = ClassifyEntry(EntryInput{Name: activeName, Path: targetSkillPath, SourceRoot: sourcePath, Manifest: manifest, Source: &copySource})
-			if entry.Class == EntryModifiedCopy && !discardAllowed(name, activeName, entry, discard) {
-				result.KeptModified = append(result.KeptModified, EntryChange{Target: name, Entry: activeName, Step: "convert", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint})
-				result.Skipped = append(result.Skipped, activeName)
-				continue
+		checkBeforeWrite := func() bool {
+			if !profileAware || force {
+				return true
 			}
-			if entry.Class == EntryUnmanaged {
-				result.Blocked = append(result.Blocked, EntryChange{Target: name, Entry: activeName, Step: "convert", Class: entry.Class, Reason: entry.Reason})
+			entry, allowed := entryMutationAllowed(name, EntryInput{Name: activeName, Path: targetSkillPath, SourceRoot: sourcePath, Manifest: manifest, Source: &copySource}, discard)
+			if !allowed {
+				change := EntryChange{Target: name, Dir: cleanEntryDir(filepath.Dir(targetSkillPath)), Entry: activeName, Step: "convert", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint}
+				if entry.Class == EntryModifiedCopy {
+					result.KeptModified = append(result.KeptModified, change)
+				} else {
+					result.Blocked = append(result.Blocked, change)
+				}
 				result.Skipped = append(result.Skipped, activeName)
-				continue
 			}
+			return allowed
+		}
+		if !checkBeforeWrite() {
+			continue
 		}
 
 		// Check if skill exists in target
@@ -684,6 +693,12 @@ func SyncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkill
 						continue
 					}
 					// Correct target but wrong format (abs↔rel) — recreate
+					if !dryRun && beforeMutation != nil {
+						beforeMutation("merge_reformat")
+					}
+					if !checkBeforeWrite() {
+						continue
+					}
 					if !dryRun {
 						if err := reformatLink(targetSkillPath, skill.SourcePath, relative, sourcePath); err != nil {
 							return nil, fmt.Errorf("failed to reformat link for %s: %w", activeName, err)
@@ -694,6 +709,12 @@ func SyncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkill
 				}
 
 				// Symlink points elsewhere - broken or wrong
+				if !dryRun && beforeMutation != nil {
+					beforeMutation("merge_unlink")
+				}
+				if !checkBeforeWrite() {
+					continue
+				}
 				if dryRun {
 					if !quietDryRun {
 						fmt.Fprintf(DiagOutput, "[dry-run] Would fix symlink: %s\n", activeName)
@@ -709,7 +730,13 @@ func SyncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkill
 				result.Updated = append(result.Updated, activeName)
 			} else {
 				// It's a real directory
-				if force || manifest.OwnsCopy(activeName, targetSkillPath) || (profileAware && (entry.Class == EntryCleanCopy || discardAllowed(name, activeName, entry, discard))) {
+				if !dryRun && beforeMutation != nil {
+					beforeMutation("merge_replace")
+				}
+				if !checkBeforeWrite() {
+					continue
+				}
+				if force || profileAware || manifest.OwnsCopy(activeName, targetSkillPath) {
 					// Force, or an unedited copy left by copy mode: replace it with a symlink
 					if dryRun {
 						if !quietDryRun {
@@ -926,8 +953,8 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 		}
 		if opts.ProfileAware {
 			entry := ClassifyEntry(EntryInput{Name: name, Path: entryPath, SourceRoot: sourcePath, Manifest: manifest, Source: legacyCopySource(name, allSourceSkills, manifest, opts.IgnorePatterns)})
-			if entry.Class == EntryModifiedCopy && !discardAllowed(targetName, name, entry, opts.Discard) {
-				result.KeptModified = append(result.KeptModified, EntryChange{Target: targetName, Entry: name, Step: "prune", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint})
+			if entry.Class == EntryModifiedCopy && !discardAllowed(targetName, cleanEntryDir(targetPath), name, entry, opts.Discard) {
+				result.KeptModified = append(result.KeptModified, EntryChange{Target: targetName, Dir: cleanEntryDir(targetPath), Entry: name, Step: "prune", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint})
 				continue
 			}
 			if entry.Class == EntryUnmanaged {

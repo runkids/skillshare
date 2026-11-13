@@ -59,6 +59,7 @@ type syncJSONOutput struct {
 
 type syncJSONTargetDetail struct {
 	KeptModified []sync.EntryChange `json:"kept_modified,omitempty"`
+	Blocked      []sync.EntryChange `json:"blocked,omitempty"`
 	Name         string             `json:"name"`
 	Mode         string             `json:"mode"`
 	Linked       int                `json:"linked"`
@@ -748,6 +749,7 @@ func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iS
 
 			SkillsOff:    r.skillsOff,
 			KeptModified: r.keptModified,
+			Blocked:      r.blocked,
 		})
 	}
 	output := syncJSONOutput{

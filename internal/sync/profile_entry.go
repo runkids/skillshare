@@ -30,6 +30,7 @@ type EntryClassification struct {
 }
 
 type EntryChange struct {
+	Dir         string     `json:"-"`
 	Target      string     `json:"target"`
 	Entry       string     `json:"entry"`
 	Step        string     `json:"step"`
@@ -39,19 +40,27 @@ type EntryChange struct {
 }
 
 type DiscardEntry struct {
-	Target, Entry, Fingerprint string
+	Target, Dir, Entry, Fingerprint string
 }
 
-func discardAllowed(target, name string, entry EntryClassification, discard []DiscardEntry) bool {
-	if entry.Class != EntryModifiedCopy || entry.Fingerprint == "" {
+func discardAllowed(target, dir, name string, entry EntryClassification, discard []DiscardEntry) bool {
+	if entry.Class != EntryModifiedCopy || entry.Fingerprint == "" || dir == "" {
 		return false
 	}
 	for _, d := range discard {
-		if d.Target == target && d.Entry == name && d.Fingerprint == entry.Fingerprint {
+		if d.Target == target && filepath.IsAbs(d.Dir) && filepath.Clean(d.Dir) == dir && d.Entry == name && d.Fingerprint == entry.Fingerprint {
 			return true
 		}
 	}
 	return false
+}
+
+func cleanEntryDir(dir string) string {
+	if dir == "" {
+		return ""
+	}
+	absolute, _ := filepath.Abs(dir)
+	return absolute
 }
 
 func entryMutationAllowed(target string, input EntryInput, discard []DiscardEntry) (EntryClassification, bool) {
@@ -60,7 +69,7 @@ func entryMutationAllowed(target string, input EntryInput, discard []DiscardEntr
 	case EntryAbsent, EntryManagedLink, EntryCleanCopy:
 		return entry, true
 	case EntryModifiedCopy:
-		return entry, discardAllowed(target, input.Name, entry, discard)
+		return entry, discardAllowed(target, cleanEntryDir(filepath.Dir(input.Path)), input.Name, entry, discard)
 	default:
 		return entry, false
 	}

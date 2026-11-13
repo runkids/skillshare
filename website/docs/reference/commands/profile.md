@@ -82,7 +82,7 @@ A switch visits this config's valid, enabled merge/copy skill targets only. Targ
 
 Edited managed copies and unmanaged entries are kept across copy/merge mode changes. A switch that would replace or prune one refuses and lists its reason. Use `skillshare collect` to retain authored changes in the source. `--discard-edits` only authorizes the listed modified managed copies; it never authorizes unmanaged content. The snapshot must contain the planned bytes, and the writer checks again before deletion. Edits made after planning remain in place.
 
-Snapshots use the existing global backup directory, or `.skillshare/backups` in project mode. Text and JSON output include their paths and restore commands. Existing backup retention applies: restore before cleanup removes the snapshot. The same snapshot rule applies to ordinary `sync --discard-edits`, independently of JSON output. `--no-sync` cannot be combined with discard.
+Snapshots use the existing global backup directory, or `.skillshare/backups` in project mode. Text and JSON output include their paths and restore commands. Existing backup retention applies: restore before cleanup removes the snapshot. The same snapshot rule applies to ordinary `sync --discard-edits`, independently of JSON output. In project mode this includes declared former skills folders of selected eligible targets; each reported moved restore command recovers its original folder without replacing the current one. `--no-sync` cannot be combined with discard.
 
 ## State and recovery {#state-and-recovery}
 
