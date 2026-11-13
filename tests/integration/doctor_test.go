@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -1017,7 +1018,8 @@ func TestDoctor_JSON_StreamPrintsEachCheckBeforeResult(t *testing.T) {
 
 	stdout := sb.RunCLIEnv(map[string]string{"_SKILLSHARE_DOCTOR_STREAM": "1"}, "doctor", "--json").Stdout
 
-	var streamed []string
+	// A slow step streams a pending row first; its result follows when ready.
+	var streamed, pending []string
 	rest := stdout
 	for strings.HasPrefix(rest, `{"check":`) {
 		line, after, _ := strings.Cut(rest, "\n")
@@ -1025,14 +1027,27 @@ func TestDoctor_JSON_StreamPrintsEachCheckBeforeResult(t *testing.T) {
 		if err := json.Unmarshal([]byte(line), &l); err != nil {
 			t.Fatalf("bad check line %q: %v", line, err)
 		}
-		streamed = append(streamed, l.Check.Name)
+		if l.Check.Status == "pending" {
+			pending = append(pending, l.Check.Name)
+		} else {
+			streamed = append(streamed, l.Check.Name)
+		}
 		rest = after
 	}
 	var final []string
 	for _, c := range parseDoctorJSON(t, rest).Checks {
 		final = append(final, c.Name)
 	}
+	// Git runs in the background, so its result streams whenever it is ready.
+	notGit := func(name string) bool { return name == "git_status" }
+	if !slices.Contains(streamed, "git_status") || !slices.Contains(final, "git_status") {
+		t.Fatalf("git_status missing: streamed %v, result %v", streamed, final)
+	}
+	streamed, final = slices.DeleteFunc(streamed, notGit), slices.DeleteFunc(final, notGit)
 	if strings.Join(streamed, ",") != strings.Join(final, ",") {
 		t.Fatalf("streamed checks %v, want the result's checks %v", streamed, final)
+	}
+	if strings.Join(pending, ",") != "source,git_status" {
+		t.Fatalf("pending rows %v, want the source scan and Git status", pending)
 	}
 }
