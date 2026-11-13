@@ -162,3 +162,36 @@ func TestExtraConfigCallbacks_RevertKeepsUnrelatedChanges(t *testing.T) {
 		})
 	}
 }
+
+func TestExtraConfigCallbacks_RevertNoops(t *testing.T) {
+	for _, state := range []string{"not saved", "save failed", "removed"} {
+		t.Run(state, func(t *testing.T) {
+			entries := []config.ExtraConfig{{Name: "other"}}
+			saves := 0
+			c, err := newExtraConfigCallbacks("rules", "journal", "", func() ([]config.ExtraConfig, error) { return append([]config.ExtraConfig(nil), entries...), nil }, func(next []config.ExtraConfig) error {
+				saves++
+				if state == "save failed" {
+					return errors.New("synthetic save failure")
+				}
+				entries = next
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if state != "not saved" {
+				err = c.WriteConfig()
+				if state == "save failed" && err == nil {
+					t.Fatal("save unexpectedly succeeded")
+				}
+			}
+			if state == "removed" {
+				entries = entries[:1]
+			}
+			before := saves
+			if err := c.RevertConfig(); err != nil || saves != before {
+				t.Fatalf("revert wrote or failed: saves=%d err=%v", saves, err)
+			}
+		})
+	}
+}

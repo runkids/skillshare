@@ -282,3 +282,92 @@ func TestInstallExtra_GlobalSaveKeepsSymlinkAndLegacySkills(t *testing.T) {
 		t.Fatalf("oplog: %+v", entry)
 	}
 }
+
+func TestInstallExtra_AddTargetSyncAndSkillLockWriters(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	remote, bump := lockRemote(t, sb)
+	project := sb.SetupProjectDir("claude")
+	args := []string{"install", remote, "--kind", "extra", "--name", "rules", "--skip-audit", "-p"}
+	sb.RunCLIInDir(project, args...).AssertSuccess(t)
+	pin := readLock(t, project).Extras["rules"]
+	sb.RunCLIInDir(project, "extras", "rules", "--add-target", ".cursor/rules", "-p").AssertSuccess(t)
+	sb.RunCLIInDir(project, "sync", "extras", "-p").AssertSuccess(t)
+	body, err := os.ReadFile(filepath.Join(project, ".cursor", "rules", "SKILL.md"))
+	if err != nil || !strings.Contains(string(body), "# v1") {
+		t.Fatalf("sync: %s %v", body, err)
+	}
+	for _, command := range [][]string{
+		{"install", remote, "--skip-audit", "-p"},
+		{"update", "demo", "--skip-audit", "-p"},
+		{"move", "demo", "group", "-p"},
+		{"uninstall", "group/demo", "--force", "-p"},
+	} {
+		if command[0] == "update" {
+			bump("v2")
+		}
+		sb.RunCLIInDir(project, command...).AssertSuccess(t)
+		lock := readLock(t, project)
+		if lock.Version != 1 || lock.Extras["rules"] != pin {
+			t.Fatalf("%v changed extra pin: %+v", command, lock)
+		}
+	}
+}
+
+func TestInstallExtra_LinkSentinelNeverCopied(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink privileges vary")
+	}
+	for _, targetKind := range []string{"absolute", "escaping", "directory", "dangling"} {
+		t.Run(targetKind, func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+			remote := extraFixture(t, sb)
+			repo := strings.TrimPrefix(remote, "file://")
+			sentinel := filepath.Join(sb.Root, "sentinel")
+			if err := os.WriteFile(sentinel, []byte("SYNTHETIC_SENTINEL_BYTES"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			target := sentinel
+			switch targetKind {
+			case "escaping":
+				target = "../sentinel"
+			case "directory":
+				target = "subdir"
+				if err := os.Mkdir(filepath.Join(repo, target), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(repo, target, "keep.md"), []byte("inside"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			case "dangling":
+				target = "absent"
+			}
+			if err := os.Symlink(target, filepath.Join(repo, "unsafe")); err != nil {
+				t.Fatal(err)
+			}
+			testutil.RunGit(t, repo, "add", ".")
+			testutil.RunGit(t, repo, "commit", "-m", "synthetic unsafe link")
+			before, err := os.ReadFile(sb.ConfigPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result := sb.RunCLI("install", remote, "--kind", "extra", "--name", "rules", "--json", "-g")
+			result.AssertFailure(t)
+			result.AssertAnyOutputContains(t, "unsafe")
+			after, err := os.ReadFile(sb.ConfigPath)
+			if err != nil || string(before) != string(after) {
+				t.Fatal("link refusal changed config")
+			}
+			if _, err := os.Stat(filepath.Join(filepath.Dir(sb.SourcePath), "extras")); !os.IsNotExist(err) {
+				t.Fatalf("link refusal published: %v", err)
+			}
+			for path, data := range extraFiles(t, sb.Root) {
+				if path != "sentinel" && strings.Contains(data, "SYNTHETIC_SENTINEL_BYTES") {
+					t.Fatalf("sentinel copied to %s", path)
+				}
+			}
+		})
+	}
+}
