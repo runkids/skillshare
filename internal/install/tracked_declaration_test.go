@@ -94,13 +94,21 @@ func TestUnlinkedSnapshotMatchesRemoval(t *testing.T) {
 	if targets, ok := store.TargetOverrides["_team/orphan"]; !ok || targets == nil || len(targets) != 0 {
 		t.Fatalf("explicit all-target override lost: %+v", store.TargetOverrides)
 	}
-	// Generic uninstall and declaration-only removal keep their legacy contract.
-	if !store.ForgetTrackedRepo("team/_repo") || store.Has("team/_repo") {
-		t.Fatal("declaration removal changed")
-	}
+	// Forget the missing checkout while the independently installed prefixed
+	// declaration and its acceptances/override are still present.
 	store.Set("_team", &MetadataEntry{Source: "repo", Tracked: true})
-	if !store.ForgetTrackedRepo("_team") || store.Has("_other") {
-		t.Fatal("legacy declaration-only matching changed")
+	independent := store.GetExact("team/_repo")
+	if !store.ForgetTrackedRepo("_team") || store.Has("_team") || store.Has("legacy") || store.Has("team/member") || store.Has("_team/sub/child") {
+		t.Fatal("declaration or genuine namespace/legacy members survived")
+	}
+	if store.GetExact("team/_repo") != independent || !store.Has("_other") ||
+		!reflect.DeepEqual(store.AuditAccepted["team/_repo"], []string{"keep"}) ||
+		!reflect.DeepEqual(store.AuditAccepted["team/_repo/child"], []string{"keep child"}) ||
+		!reflect.DeepEqual(store.TargetOverrides["team/_repo/child"], []string{"codex"}) {
+		t.Fatalf("independent declaration or its acceptances/override lost: %+v", store)
+	}
+	if !store.ForgetTrackedRepo("team/_repo") || store.Has("team/_repo") {
+		t.Fatal("exact declaration removal changed")
 	}
 }
 

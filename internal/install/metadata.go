@@ -443,7 +443,7 @@ func (s *MetadataStore) ForgetTrackedRepo(rel string) bool {
 		if filepath.ToSlash(KeyToRelPath(key, s.Get(key))) != rel {
 			continue
 		}
-		s.forgetName(rel, removedWith)
+		s.forgetName(rel, unlinkedWith)
 		return true
 	}
 	return false
@@ -468,7 +468,7 @@ func (s *MetadataStore) forgetName(rel string, matches func(string, *MetadataEnt
 	return before != len(s.Entries)+len(s.AuditAccepted)+len(s.TargetOverrides)
 }
 
-// unlinkedWith limits the legacy group fallback to members, preserving
+// unlinkedWith limits declaration/unlink legacy group cleanup to members, preserving
 // independent prefixed repo declarations such as team/_repo outside _team.
 func unlinkedWith(key string, entry *MetadataEntry, name string) bool {
 	full := filepath.ToSlash(KeyToRelPath(key, entry))
