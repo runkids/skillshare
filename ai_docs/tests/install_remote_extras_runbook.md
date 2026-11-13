@@ -15,19 +15,23 @@ removal and interrupted-publication repair in global and project mode.
 
 ## Environment
 
-Run only when authorized inside the devcontainer with `ssenv` isolation, following
-`skillshare-cli-e2e-test`. The coder's source-only authorization does not permit
-executing this runbook. `ss` means the built candidate binary. The shared mdproof
-setup already initializes its isolated HOME; this runbook uses a further fixture
-home and a unique temporary root. Keep the same ssenv for all steps. Require Git,
-Python 3 and jq already available; install nothing for this runbook.
+Run only when authorized inside the devcontainer, following
+`skillshare-cli-e2e-test` and `.mdproof/lessons-learned.md`. Invoke mdproof directly
+for this file: `mdproof --report json /workspace/ai_docs/tests/install_remote_extras_runbook.md`.
+Use mdproof's own per-runbook isolation, without nesting it inside `ssenv`.
+The coder's source-only authorization does not permit execution. The shared
+`ai_docs/tests/mdproof.json` setup initializes mdproof's HOME and may run before
+each step; the separate fixture HOME and unique root below remain independent.
+Every step reloads its variables from the env file in mdproof's HOME. Require Git,
+Python 3 and jq already available; install nothing for this runbook. All Expected
+markers are printed only after the step's executable assertions succeed.
 
 ## Steps
 
 ### 1. Create a fixture repository and isolated configuration
 
 ```bash
-set -eu
+set -euo pipefail
 TASK_ROOT=$(mktemp -d /tmp/skillshare-remote-extras.XXXXXX)
 printf 'export TASK_ROOT=%q\n' "$TASK_ROOT" > "$HOME/.remote-extras.env"
 cat >> "$HOME/.remote-extras.env" <<'SH'
@@ -53,15 +57,23 @@ git -C "$TASK_ROOT/seed" branch -M main
 git clone -q --bare "$TASK_ROOT/seed" "$TASK_ROOT/remote.git"
 ss_fixture init -g --no-copy --no-git --no-skill --targets claude
 (cd "$TASK_ROOT/project" && ss_fixture init -p --targets claude)
+test -f "$TASK_ROOT/home/.config/skillshare/config.yaml"
+test -f "$TASK_ROOT/project/.skillshare/config.yaml"
+test -d "$TASK_ROOT/remote.git"
+printf 'REMOTE_EXTRAS_FIXTURE_READY\n'
 ```
 
-**Expected**: Synthetic repo, global config and project config created under
-`TASK_ROOT`. No paths outside that root, apart from the ssenv-owned env file.
+**Expected:**
+- exit_code: 0
+- REMOTE_EXTRAS_FIXTURE_READY
+
+The repository and both configs live under `TASK_ROOT`; the env file belongs to
+mdproof's isolated HOME.
 
 ### 2. Install, add a target and sync in both modes
 
 ```bash
-set -eu
+set -euo pipefail
 . "$HOME/.remote-extras.env"
 for mode in g p; do
   cd "$TASK_ROOT/project"
@@ -72,19 +84,25 @@ for mode in g p; do
   ss_fixture sync extras team-rules "-$mode"
   cmp "$TASK_ROOT/seed/rules/team.md" "$TASK_ROOT/target-$mode/team.md"
   ss_fixture check extras team-rules "-$mode" --json | jq -e '.[] | .state == "intact" and .message == "remote revision not checked"'
+  source_dir=$(ss_fixture extras list "-$mode" --json | jq -r '.[] | select(.name == "team-rules") | .source_dir')
+  jq -e --arg remote "$REMOTE" '.entries["team-rules"] | .kind == "extra" and .source == $remote and (.commit | test("^[0-9a-f]{40}$")) and (.file_hashes["team.md"] | length > 0)' "$(dirname "$source_dir")/.metadata.json"
 done
 jq -e '.version == 1 and (.extras["team-rules"].commit | length == 40)' "$TASK_ROOT/project/.skillshare/skills.lock.json"
 git -C "$TASK_ROOT/project" check-ignore .skillshare/extras/team-rules/ .skillshare/extras/.metadata.json .skillshare/extras/.skillshare-staging/
+printf 'REMOTE_EXTRAS_DELIVERY_AND_RECORDS_OK\n'
 ```
 
-**Expected**: Both installs pin a full SHA, initially accept zero targets, then
-copy the fixture into the chosen target. Local check does not claim freshness.
-Project lock retains version 1; fetched content/staging/metadata are ignored.
+**Expected:**
+- exit_code: 0
+- REMOTE_EXTRAS_DELIVERY_AND_RECORDS_OK
+
+The inline JSON, file comparison and Git assertions verify zero-target admission,
+delivery, metadata hashes, version-1 pins and ignored fetched content.
 
 ### 3. Advance the hub, restore the pin and explicitly update
 
 ```bash
-set -eu
+set -euo pipefail
 . "$HOME/.remote-extras.env"
 printf '# Team rule v2\n' > "$TASK_ROOT/seed/rules/team.md"
 git -C "$TASK_ROOT/seed" commit -qam fixture-v2
@@ -102,16 +120,20 @@ for mode in g p; do
   ss_fixture install "$REMOTE" --kind extra --name team-rules --branch main --update "-$mode" --json > "$TASK_ROOT/updated-$mode.json"
   test "$(jq -r .commit "$TASK_ROOT/updated-$mode.json")" != "$(jq -r .commit "$TASK_ROOT/install-$mode.json")"
 done
+printf 'REMOTE_EXTRAS_PIN_RESTORE_AND_UPDATE_OK\n'
 ```
 
-**Expected**: The moved hub does not change a normal restore's pin in either
-mode. Missing-source guidance names the explicit command. Only `--update`
-advances the pin. Bare install is deliberately not used to restore extras.
+**Expected:**
+- exit_code: 0
+- REMOTE_EXTRAS_PIN_RESTORE_AND_UPDATE_OK
+
+The assertions compare the original, restored and updated commits in both modes;
+bare install is deliberately not used to restore extras.
 
 ### 4. Collect, refuse edited reinstall, force and remove
 
 ```bash
-set -eu
+set -euo pipefail
 . "$HOME/.remote-extras.env"
 for mode in g p; do
   cd "$TASK_ROOT/project"
@@ -132,13 +154,16 @@ for mode in g p; do
   test ! -e "$source_dir"
   test -f "$TASK_ROOT/target-$mode/team.md"
 done
+printf 'REMOTE_EXTRAS_EDIT_PROTECTION_AND_REMOVAL_OK\n'
 ```
 
-**Expected**: Collection makes the source modified; JSON does not grant overwrite
-permission. Explicit force reinstalls. Removal keeps edited source, deletes an
-unedited fetched copy, and leaves copy-mode outputs. Removal force only skips
-confirmation. A failed removal restores records/source but does not relink
-already-cleaned targets; use `sync extras` to repair those outputs.
+**Expected:**
+- exit_code: 0
+- REMOTE_EXTRAS_EDIT_PROTECTION_AND_REMOVAL_OK
+
+The assertions verify collection, refusal without explicit force, edited-source
+retention, unedited deletion and retained copy outputs. A failed removal restores
+records/source but does not relink already-cleaned targets; use `sync extras`.
 
 ### 5. Observe a real kill and repair in both modes
 
@@ -147,7 +172,7 @@ The watcher kills only the subprocess it starts, after observing the marker.
 A missed interval is a failed observation, not a successful crash test.
 
 ```bash
-set -eu
+set -euo pipefail
 . "$HOME/.remote-extras.env"
 python3 - <<'PY'
 import os
@@ -161,7 +186,7 @@ git -C "$TASK_ROOT/seed" add .
 git -C "$TASK_ROOT/seed" commit -qm crash-fixture
 git -C "$TASK_ROOT/seed" push -q "$TASK_ROOT/remote.git" main
 python3 - <<'PY'
-import os, subprocess, time
+import json, os, subprocess, time
 from pathlib import Path
 root = Path(os.environ['TASK_ROOT'])
 env = dict(os.environ, HOME=str(root/'home'), XDG_CONFIG_HOME=str(root/'home/.config'), XDG_STATE_HOME=str(root/'home/.local/state'), SKILLSHARE_CONFIG=str(root/'home/.config/skillshare/config.yaml'))
@@ -183,34 +208,59 @@ for mode, extras in [('g', root/'home/.config/skillshare/extras'), ('p', root/'p
             if proc.poll() is None:
                 proc.kill(); proc.wait(timeout=10)
     assert marker.exists(), 'marker must survive observed kill'
-    subprocess.run([ss, 'check', 'extras', 'crash-rules', '-'+mode], cwd=root/'project', env=env, check=True)
+    checked = subprocess.run([ss, 'check', 'extras', 'crash-rules', '-'+mode, '--json', '--exit-code'], cwd=root/'project', env=env, capture_output=True, text=True)
+    assert checked.returncode == 1, (checked.returncode, checked.stdout, checked.stderr)
+    rows = json.loads(checked.stdout)
+    assert len(rows) == 1 and rows[0]['state'] == 'interrupted', rows
+    assert rows[0]['message'] == 'remote revision not checked', rows
     # Same command audits the journaled commit before proceeding; no skip here.
     subprocess.run([arg for arg in command if arg != '--skip-audit'], cwd=root/'project', env=env, check=True)
     assert not marker.exists(), 'repair did not finish'
     assert (extras/'crash-rules/team.md').read_bytes() == (root/'seed/rules/team.md').read_bytes()
+    meta = json.loads((extras/'.metadata.json').read_text())['entries']['crash-rules']
+    assert meta['source'] == os.environ['REMOTE'] and meta['branch'] == 'main'
+    assert len(meta['commit']) == 40 and 'team.md' in meta['file_hashes']
+    listed = subprocess.run([ss, 'extras', 'list', '-'+mode, '--json'], cwd=root/'project', env=env, capture_output=True, text=True, check=True)
+    entry = next(e for e in json.loads(listed.stdout) if e['name'] == 'crash-rules')
+    assert entry['remote'] == meta['source'] and entry['branch'] == meta['branch'] and entry['commit'] == meta['commit'] and entry['state'] == 'intact', entry
+    if mode == 'p':
+        pin = json.loads((root/'project/.skillshare/skills.lock.json').read_text())['extras']['crash-rules']
+        assert pin['source'] == meta['source'] and pin['commit'] == meta['commit'], pin
+print('REMOTE_EXTRAS_OBSERVED_KILL_AND_REPAIR_OK')
 PY
 ```
 
-**Expected**: Each killed process leaves its real journal. Check reports
-`interrupted`; explicit install repairs and removes the marker. Audit failure,
-unavailable journaled commit or post-interruption content edits must retain the
-marker; those deterministic boundary cases are covered by source tests and must
-also pass CI. This polling runbook does not claim every death boundary was hit.
+**Expected:**
+- exit_code: 0
+- REMOTE_EXTRAS_OBSERVED_KILL_AND_REPAIR_OK
+
+The check subprocess intentionally exits 1 under `--exit-code` for interrupted
+state; the surrounding step succeeds only after asserting that exit and JSON.
+Repair must remove the marker and leave matching content, config, metadata and
+project pin. Audit failure, unavailable commits and later edits are covered by
+deterministic tests, not this polling interval; this step does not hit every death
+boundary.
 
 ### 6. Cleanup only the resolved fixture
 
 ```bash
-set -eu
+set -euo pipefail
 . "$HOME/.remote-extras.env"
 case "$TASK_ROOT" in /tmp/skillshare-remote-extras.??????) ;; *) exit 1 ;; esac
 test -d "$TASK_ROOT/seed/.git"
 cd "$HOME"
 rm -rf -- "$TASK_ROOT"
 rm -- "$HOME/.remote-extras.env"
+test ! -e "$TASK_ROOT"
+test ! -e "$HOME/.remote-extras.env"
+printf 'REMOTE_EXTRAS_FIXTURE_REMOVED\n'
 ```
 
-**Expected**: The unique fixture root and its environment file are removed.
-The runner deletes its ssenv after recording results. No daemon was started.
+**Expected:**
+- exit_code: 0
+- REMOTE_EXTRAS_FIXTURE_REMOVED
+
+mdproof owns the enclosing isolated HOME cleanup. No daemon was started.
 
 ## Pass Criteria
 

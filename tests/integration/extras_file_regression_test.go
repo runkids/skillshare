@@ -251,5 +251,8 @@ func TestExtrasFileDetachMessageIsAccurate(t *testing.T) {
 	if got := sb.ReadFile(filepath.Join(dir, "AGENTS.md")); got != "shared" {
 		t.Fatalf("target=%q", got)
 	}
-	sb.RunCLI("extras", "remove", "--help").AssertOutputContains(t, "Single-file targets are restored")
+	help := sb.RunCLI("extras", "remove", "--help")
+	help.AssertSuccess(t)
+	help.AssertOutputContains(t, "single-file targets are restored to their pre-attach state")
+	help.AssertOutputContains(t, "Remote extras delete an unedited fetched copy; edited copies stay")
 }
