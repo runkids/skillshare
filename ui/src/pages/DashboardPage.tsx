@@ -474,7 +474,7 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
   // The repo whose menu is still fading out after menuFor went back to null.
   const heldMenuFor = useHeldWhileClosing(menuFor, menuFor !== null);
   const menuShownFor = menu.shown ? heldMenuFor : null;
-  const [toDelete, setToDelete] = useState<string | null>(null);
+  const [toDelete, setToDelete] = useState<Overview['trackedRepos'][number] | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [refusal, setRefusal] = useState<keyof typeof forceableRefusals | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -501,12 +501,12 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
     if (!toDelete) return;
     setDeleting(true);
     try {
-      await api.deleteRepo(toDelete, refusal !== null);
-      toast(t('dashboard.toast.repoUninstalled', { name: toDelete.replace(/^_/, '') }), 'success');
+      await api.deleteRepo(toDelete.name, !toDelete.noCheckout && refusal !== null);
+      toast(t(toDelete.noCheckout ? 'dashboard.toast.repoRecordRemoved' : 'dashboard.toast.repoUninstalled', { name: toDelete.noCheckout ? toDelete.name : toDelete.name.replace(/^_/, '') }), 'success');
       setToDelete(null);
       await refresh();
     } catch (e: unknown) {
-      if (e instanceof ApiError && e.code && e.code in forceableRefusals) setRefusal(e.code as keyof typeof forceableRefusals);
+      if (!toDelete.noCheckout && e instanceof ApiError && e.code && e.code in forceableRefusals) setRefusal(e.code as keyof typeof forceableRefusals);
       else toast((e as Error).message, 'error');
     } finally {
       setDeleting(false);
@@ -525,12 +525,12 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
             <Github size={15} />
             <span className="flex flex-col min-w-0 flex-1 gap-px">
               <span className="font-mono text-[13px] font-semibold truncate">{repo.name.replace(/^_/, '')}</span>
-              <span className="text-[13px] text-ink-2">{t(plural('dashboard.trackedRepos.skillCount', repo.skillCount), { count: repo.skillCount })}{(repo.variantCount ?? repo.skillCount) > repo.skillCount && <>{', '}{t('dashboard.trackedRepos.variantCount', { count: repo.variantCount! })}</>}</span>
+              <span className="text-[13px] text-ink-2">{repo.noCheckout ? t('dashboard.trackedRepos.noCheckout') : <>{t(plural('dashboard.trackedRepos.skillCount', repo.skillCount), { count: repo.skillCount })}{(repo.variantCount ?? repo.skillCount) > repo.skillCount && <>{', '}{t('dashboard.trackedRepos.variantCount', { count: repo.variantCount! })}</>}</>}</span>
             </span>
-            <span className={`ss-st ${repo.dirty ? 'warn' : 'ok'}`}>
+            {!repo.noCheckout && <span className={`ss-st ${repo.dirty ? 'warn' : 'ok'}`}>
               {repo.dirty ? t('dashboard.trackedRepos.modified') : t('dashboard.trackedRepos.clean')}
-            </span>
-            {behind.has(repo.name) && (
+            </span>}
+            {!repo.noCheckout && behind.has(repo.name) && (
               <Button variant="secondary" size="sm" onClick={() => update(repo.name)} loading={updating === repo.name} disabled={updating !== null || deleting}>
                 {t('dashboard.trackedRepos.update')}
               </Button>
@@ -541,7 +541,7 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
               </button>
               {menuShownFor === repo.name && (
                 <div {...menu.exitProps} className={`ss-menu absolute right-0 top-full mt-1 z-20 !w-44 origin-top-right ${menu.motion}`} role="menu">
-                  <button type="button" role="menuitem" className="dng" onClick={() => { setMenuFor(null); setToDelete(repo.name); setRefusal(null); }}>
+                  <button type="button" role="menuitem" className="dng" onClick={() => { setMenuFor(null); setToDelete(repo); setRefusal(null); }}>
                     <Trash2 size={15} />
                     {t('dashboard.trackedRepos.uninstall')}
                   </button>
@@ -554,7 +554,7 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
       <ConfirmDialog
         open={toDelete !== null}
         title={t('dashboard.trackedRepos.uninstallConfirm.title')}
-        message={toDelete ? t(refusal ? forceableRefusals[refusal] : 'dashboard.trackedRepos.uninstallConfirm.message', { name: toDelete.replace(/^_/, '') }) : ''}
+        message={toDelete ? t(toDelete.noCheckout ? 'dashboard.trackedRepos.uninstallConfirm.record' : refusal ? forceableRefusals[refusal] : 'dashboard.trackedRepos.uninstallConfirm.message', { name: toDelete.noCheckout ? toDelete.name : toDelete.name.replace(/^_/, '') }) : ''}
         confirmText={t(refusal ? 'resources.uninstall.retryForce' : 'dashboard.trackedRepos.uninstall')}
         variant="danger"
         loading={deleting}

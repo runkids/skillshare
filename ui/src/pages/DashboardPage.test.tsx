@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -98,6 +98,46 @@ describe('DashboardPage', () => {
       renderPage(client);
       await screen.findByRole('button', { name: 'Repo actions' });
       expect(screen.queryByRole('button', { name: 'Update' })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('removing a tracked declaration without a checkout', () => {
+    beforeEach(() => {
+      vi.mocked(api.getOverview).mockResolvedValue({ skillCount: 0, agentCount: 0, source: '/home/dev/skills', trackedRepos: [{ name: '_team', skillCount: 0, dirty: false, noCheckout: true }] } as unknown as Overview);
+      vi.mocked(api.check).mockResolvedValue({ tracked_repos: [{ name: '_team', status: 'behind', behind: 2 }], linked_repos: [], skills: [] } as unknown as Awaited<ReturnType<typeof api.check>>);
+    });
+
+    async function openConfirmation() {
+      renderPage();
+      const row = (await screen.findByText('No checkout on this machine')).closest('.ss-r')!;
+      expect(within(row as HTMLElement).queryByText(/skills|Clean|Modified/)).not.toBeInTheDocument();
+      await userEvent.click(await screen.findByRole('button', { name: 'Check for updates' }));
+      expect(screen.queryByRole('button', { name: 'Update' })).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Repo actions' }));
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Uninstall' }));
+      expect(screen.getByRole('dialog')).toHaveTextContent('Remove the record of "_team"? Nothing on disk is deleted; a folder or link at that path stays.');
+    }
+
+    it('removes only the record, refreshes the row and reports record removal', async () => {
+      vi.mocked(api.deleteRepo).mockImplementation(async () => {
+        vi.mocked(api.getOverview).mockResolvedValue({ skillCount: 0, agentCount: 0, source: '/home/dev/skills', trackedRepos: [] } as unknown as Overview);
+        return { success: true, name: '_team', movedToTrash: false };
+      });
+      await openConfirmation();
+      await userEvent.click(screen.getByRole('button', { name: 'Uninstall' }));
+      expect(await screen.findByText('Removed repository record "_team"')).toBeInTheDocument();
+      await waitFor(() => expect(screen.queryByText('No checkout on this machine')).not.toBeInTheDocument());
+      expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false]]);
+    });
+
+    it.each(['repo_dirty', 'repo_status_failed', undefined])('keeps a failed declaration and never offers force (%s)', async (code) => {
+      vi.mocked(api.deleteRepo).mockRejectedValue(new ApiError(500, 'Record removal failed', { code }));
+      await openConfirmation();
+      await userEvent.click(screen.getByRole('button', { name: 'Uninstall' }));
+      expect(await screen.findByText('Record removal failed')).toBeInTheDocument();
+      expect(screen.getByText('No checkout on this machine')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Retry with Force' })).not.toBeInTheDocument();
+      expect(vi.mocked(api.deleteRepo).mock.calls).toEqual([['_team', false]]);
     });
   });
 
