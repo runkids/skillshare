@@ -13,6 +13,7 @@ import (
 type Mutation struct {
 	Op, Name, NewName string
 	Description       *string
+	Replacement       *SkillSelection
 
 	AddInclude, RemoveInclude, AddExclude, RemoveExclude []string
 	Skills                                               []string

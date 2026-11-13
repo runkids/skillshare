@@ -2,6 +2,7 @@ package profile
 
 import (
 	"errors"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -123,6 +124,84 @@ func TestMutatePreservesUnrelatedYAML(t *testing.T) {
 	created, _, err := Mutate(renamed, "focus", Mutation{Op: "create", Name: "empty"})
 	if err != nil || Parse(created).Definitions["empty"].Selects("anything") {
 		t.Fatalf("empty creation: %v", err)
+	}
+}
+
+func TestMutate_ReplacePreservesSkillsPresence(t *testing.T) {
+	desc := "after"
+	for _, tc := range []struct {
+		name, initial, want, wantError string
+		replacement                    *SkillSelection
+		description                    *string
+		changed                        bool
+	}{
+		{"nil keeps pass-through", "", "{}", "", nil, &desc, true},
+		{"nil keeps empty mapping", "{}", "{skills: {}}", "", nil, &desc, true},
+		{"nil keeps selection", "{include: [old], exclude: [blocked]}", "{skills: {include: [old], exclude: [blocked]}}", "", nil, &desc, true},
+		{"nil keeps explicit empty", "{include: []}", "{skills: {include: []}}", "", nil, &desc, true},
+		{"nil keeps null skills", "null", "{skills: null}", "", nil, &desc, true},
+		{"no-op", "", "{}", "", nil, nil, false},
+		{"explicit empty", "{include: [old], exclude: [blocked]}", "{skills: {include: []}}", "", &SkillSelection{Include: []string{}}, nil, true},
+		{"explicit empty from pass-through", "", "{skills: {include: []}}", "", &SkillSelection{Include: []string{}}, nil, true},
+		{"replace selection", "{include: [old], exclude: [blocked]}", "{skills: {include: [new], exclude: [other]}}", "", &SkillSelection{Include: []string{"new"}, Exclude: []string{"other"}, IncludePresent: true, ExcludePresent: true}, &desc, true},
+		{"exclude-only", "", "", `profile "work": exclude requires an include; add include: ["*"]`, &SkillSelection{Exclude: []string{"blocked"}, ExcludePresent: true}, nil, false},
+	} {
+		for _, active := range []string{"", "work"} {
+			t.Run(tc.name+"/active="+active, func(t *testing.T) {
+				skills := ""
+				if tc.initial != "" {
+					skills = "    skills: " + tc.initial + "\n"
+				}
+				original := section(t, "profiles:\n  future: # keep future\n    unknown: value # keep unknown\n  work: # keep work\n    description: before # keep description\n"+skills)
+				before, err := yaml.Marshal(original)
+				if err != nil {
+					t.Fatal(err)
+				}
+				next, change, err := Mutate(original, active, Mutation{Op: "replace", Name: "work", Description: tc.description, Replacement: tc.replacement, Skills: []string{"ignored"}})
+				after, marshalErr := yaml.Marshal(original)
+				if marshalErr != nil || string(after) != string(before) {
+					t.Fatalf("original changed: %s (%v)", after, marshalErr)
+				}
+				if tc.wantError != "" {
+					if err == nil || err.Error() != tc.wantError || next != nil || change.Changed || change.NeedsSync {
+						t.Fatalf("refusal = %+v, %v, node=%v", change, err, next)
+					}
+					return
+				}
+				if err != nil || change.Changed != tc.changed || change.NeedsSync != (tc.changed && active == "work") || change.Active != active {
+					t.Fatalf("replace = %+v, %v", change, err)
+				}
+				got := Parse(next).Definitions["work"]
+				want := Parse(section(t, "profiles: {work: "+tc.want+"}")).Definitions["work"]
+				if !got.Usable || !reflect.DeepEqual(got.Skills, want.Skills) || len(change.Skills) != 0 {
+					t.Fatalf("selection/presence = %+v, want %+v; membership results=%v", got, want, change.Skills)
+				}
+				if tc.replacement == nil && tc.initial != "" {
+					oldEntry := original.Content[nodeIndex(original, "work")+1]
+					newEntry := next.Content[nodeIndex(next, "work")+1]
+					i, j := nodeIndex(oldEntry, "skills"), nodeIndex(newEntry, "skills")
+					if j < 0 || !equalNodes(oldEntry.Content[i+1], newEntry.Content[j+1]) {
+						t.Fatal("nil replacement changed raw skills node")
+					}
+				}
+				wantDesc := "before"
+				if tc.description != nil {
+					wantDesc = *tc.description
+				}
+				if got.Description != wantDesc {
+					t.Fatalf("description = %q, want %q", got.Description, wantDesc)
+				}
+				data, err := yaml.Marshal(next)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, kept := range []string{"keep future", "unknown: value", "keep unknown", "keep work", "keep description"} {
+					if !strings.Contains(string(data), kept) {
+						t.Fatalf("lost %q: %s", kept, data)
+					}
+				}
+			})
+		}
 	}
 }
 
