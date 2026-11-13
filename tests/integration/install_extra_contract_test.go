@@ -497,3 +497,63 @@ func TestInstallExtra_BranchSwitchAndOmittedBranch(t *testing.T) {
 		}
 	}
 }
+
+func TestInstallExtra_WebURLDefaultDoesNotResetDeclaredBranch(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, missing := range []bool{false, true} {
+			t.Run(fmt.Sprintf("project=%t/missing=%t", project, missing), func(t *testing.T) {
+				sb := testutil.NewSandbox(t)
+				defer sb.Cleanup()
+				sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+				bare := testutil.SetupBareRemoteRepo(t, sb.Root)
+				for _, branch := range []string{"main", "release"} {
+					testutil.SeedRemoteBranch(t, sb.Root, bare, branch, map[string]string{"rules/rule.md": branch})
+				}
+				gitConfig := filepath.Join(sb.Root, "fixture.gitconfig")
+				testutil.RunGit(t, sb.Root, "config", "--file", gitConfig, "url.file://"+filepath.ToSlash(bare)+".insteadOf", "https://github.com/example-org/ai-hub.git")
+				sb.SetEnv("GIT_CONFIG_GLOBAL", gitConfig)
+				sb.SetEnv("GIT_CONFIG_NOSYSTEM", "1")
+				sb.SetEnv("GIT_ALLOW_PROTOCOL", "file")
+				cwd, mode := sb.Root, "-g"
+				root, configPath := filepath.Join(filepath.Dir(sb.SourcePath), "extras"), sb.ConfigPath
+				if project {
+					cwd, mode = sb.SetupProjectDir("claude"), "-p"
+					root, configPath = filepath.Join(cwd, ".skillshare", "extras"), filepath.Join(cwd, ".skillshare", "config.yaml")
+				}
+				args := []string{"install", "https://github.com/example-org/ai-hub/tree/release/rules", "--kind", "extra", "--name", "rules", "--skip-audit", "--json", mode}
+				first := sb.RunCLIInDir(cwd, append(append([]string{}, args...), "--branch", "main")...)
+				first.AssertSuccess(t)
+				var original struct{ Branch, Commit string }
+				if err := json.Unmarshal([]byte(first.Stdout), &original); err != nil || original.Branch != "main" {
+					t.Fatalf("initial override: %s %v", first.Stdout, err)
+				}
+				if missing {
+					if err := os.RemoveAll(filepath.Join(root, "rules")); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.Remove(filepath.Join(root, install.MetadataFileName)); err != nil {
+						t.Fatal(err)
+					}
+				}
+				result := sb.RunCLIInDir(cwd, args...)
+				result.AssertSuccess(t)
+				var got struct{ Branch, Commit string }
+				if err := json.Unmarshal([]byte(result.Stdout), &got); err != nil || got != original {
+					t.Fatalf("omitted flag reset URL override: %s want %+v %v", result.Stdout, original, err)
+				}
+				store, _, err := install.ReadMetadata(root)
+				if err != nil || store.GetExact("rules").Branch != "main" || store.GetExact("rules").Commit != original.Commit {
+					t.Fatalf("metadata: %+v %v", store, err)
+				}
+				data, err := os.ReadFile(configPath)
+				if err != nil || !strings.Contains(string(data), "branch: main") {
+					t.Fatalf("config: %s %v", data, err)
+				}
+				body, err := os.ReadFile(filepath.Join(root, "rules", "rule.md"))
+				if err != nil || string(body) != "main" {
+					t.Fatalf("content: %q %v", body, err)
+				}
+			})
+		}
+	}
+}

@@ -126,17 +126,19 @@ func (c *extraConfigCallbacks) merge(remote, branch string, record bool) error {
 	return err
 }
 
-func (c *extraConfigCallbacks) PinBranch() string {
+// PinBranch uses the URL ref only when there is no existing declaration.
+// An existing empty branch intentionally follows the remote's default branch.
+func (c *extraConfigCallbacks) PinBranch(urlDefault string) string {
 	if c.baseline != nil && c.baseline.Remote == c.remote {
 		return c.baseline.Branch
 	}
-	return ""
+	return urlDefault
 }
 
-func (c *extraConfigCallbacks) WriteConfig() error {
+func (c *extraConfigCallbacks) WriteConfig(urlDefault string) error {
 	branch := c.branch
 	if branch == "" {
-		branch = c.PinBranch()
+		branch = c.PinBranch(urlDefault)
 	}
 	return c.merge(c.remote, branch, true)
 }

@@ -170,9 +170,6 @@ func installExtra(parsed *installArgs, mode runMode, cwd string, start time.Time
 		return nil, false, err
 	}
 	branch := parsed.opts.Branch
-	if branch == "" {
-		branch = source.Branch
-	}
 	callbacks, err := newExtraConfigCallbacks(name, raw, branch, load, save)
 	if err != nil {
 		return nil, false, err
@@ -207,7 +204,7 @@ func installExtra(parsed *installArgs, mode runMode, cwd string, start time.Time
 			oplog.WriteWithLimit(configPath, oplog.OpsFile, e, configuredLogMaxEntries(cfg)) //nolint:errcheck
 		}()
 	}
-	req := install.RemoteExtraRequest{Name: name, RawSource: raw, Branch: branch, Source: source, ExtrasRoot: root, LockDir: lockDir, ConfigPath: resolvedConfig, Opts: requestOpts, Recheck: callbacks.Recheck, WriteConfig: callbacks.WriteConfig, RevertConfig: callbacks.RevertConfig, RepairConfig: callbacks.RepairConfig, RefreshAfterRepair: callbacks.RefreshAfterRepair, PinBranch: callbacks.PinBranch}
+	req := install.RemoteExtraRequest{Name: name, RawSource: raw, Branch: branch, Source: source, ExtrasRoot: root, LockDir: lockDir, ConfigPath: resolvedConfig, Opts: requestOpts, Recheck: callbacks.Recheck, WriteConfig: func() error { return callbacks.WriteConfig(source.Branch) }, RevertConfig: callbacks.RevertConfig, RepairConfig: callbacks.RepairConfig, RefreshAfterRepair: callbacks.RefreshAfterRepair, PinBranch: func() string { return callbacks.PinBranch(source.Branch) }}
 	if mode == modeProject {
 		req.ProjectRoot = cwd
 	}

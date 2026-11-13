@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -35,7 +36,7 @@ func TestExtraConfigCallbacks_RepairAndBaseline(t *testing.T) {
 	if err := callbacks.Recheck(); err != nil {
 		t.Fatal(err)
 	}
-	if err := callbacks.WriteConfig(); err != nil {
+	if err := callbacks.WriteConfig(""); err != nil {
 		t.Fatal(err)
 	}
 	if entries[0].Branch != "requested" {
@@ -96,7 +97,7 @@ func TestExtraConfigCallbacks_RevertRefusesChangedEntry(t *testing.T) {
 	if err := callbacks.RevertConfig(); err != nil {
 		t.Fatal(err)
 	}
-	if err := callbacks.WriteConfig(); err != nil {
+	if err := callbacks.WriteConfig(""); err != nil {
 		t.Fatal(err)
 	}
 	entries[0].Targets = []config.ExtraTargetConfig{{Path: "concurrent"}}
@@ -116,7 +117,7 @@ func TestExtraConfigCallbacks_RevertRemovesNewEntry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := callbacks.WriteConfig(); err != nil {
+	if err := callbacks.WriteConfig(""); err != nil {
 		t.Fatal(err)
 	}
 	if err := callbacks.RevertConfig(); err != nil {
@@ -146,7 +147,7 @@ func TestExtraConfigCallbacks_RevertKeepsUnrelatedChanges(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := c.WriteConfig(); err != nil {
+			if err := c.WriteConfig(""); err != nil {
 				t.Fatal(err)
 			}
 			entries[0].Targets = []config.ExtraTargetConfig{{Path: "concurrent"}}
@@ -192,7 +193,7 @@ func TestExtraConfigCallbacks_RevertNoops(t *testing.T) {
 				t.Fatal(err)
 			}
 			if state != "not saved" {
-				err = c.WriteConfig()
+				err = c.WriteConfig("")
 				if state == "save failed" && err == nil {
 					t.Fatal("save unexpectedly succeeded")
 				}
@@ -225,7 +226,7 @@ func TestExtraConfigCallbacks_ChangesOnlyOwnOriginAtFreshSave(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := c.WriteConfig(); err != nil {
+	if err := c.WriteConfig(""); err != nil {
 		t.Fatal(err)
 	}
 	if entries[0].Branch != "main" || len(entries[0].Targets) != 2 || entries[1].Targets[0].Path != "other-target" {
@@ -250,7 +251,7 @@ func TestExtraConfigCallbacks_OmittedBranchInheritsRefreshedBaseline(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if callbacks.PinBranch() != "main" {
+	if callbacks.PinBranch("") != "main" {
 		t.Fatal("initial branch not read")
 	}
 	if err := callbacks.RepairConfig("journal", "release"); err != nil {
@@ -259,13 +260,51 @@ func TestExtraConfigCallbacks_OmittedBranchInheritsRefreshedBaseline(t *testing.
 	if err := callbacks.RefreshAfterRepair(); err != nil {
 		t.Fatal(err)
 	}
-	if callbacks.PinBranch() != "release" {
+	if callbacks.PinBranch("") != "release" {
 		t.Fatal("repair branch baseline not refreshed")
 	}
-	if err := callbacks.WriteConfig(); err != nil {
+	if err := callbacks.WriteConfig(""); err != nil {
 		t.Fatal(err)
 	}
 	if entries[0].Branch != "release" {
 		t.Fatal("omitted branch erased repaired branch")
+	}
+}
+
+func TestExtraConfigCallbacks_URLBranchOnlyDefaultsNewDeclaration(t *testing.T) {
+	for _, existing := range []bool{false, true} {
+		t.Run(fmt.Sprintf("existing=%t", existing), func(t *testing.T) {
+			var entries []config.ExtraConfig
+			if existing {
+				entries = []config.ExtraConfig{{Name: "rules", Remote: "journal"}}
+			}
+			load := func() ([]config.ExtraConfig, error) { return entries, nil }
+			callbacks, err := newExtraConfigCallbacks("rules", "journal", "", load, saveExtraEntries(&entries))
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := "url-release"
+			if existing {
+				want = ""
+			}
+			if got := callbacks.PinBranch("url-release"); got != want {
+				t.Fatalf("followed branch %q want %q", got, want)
+			}
+			if err := callbacks.WriteConfig("url-release"); err != nil || entries[0].Branch != want {
+				t.Fatalf("URL default changed declaration: %+v %v", entries, err)
+			}
+			if err := callbacks.RepairConfig("journal", "repaired-main"); err != nil {
+				t.Fatal(err)
+			}
+			if err := callbacks.RefreshAfterRepair(); err != nil {
+				t.Fatal(err)
+			}
+			if got := callbacks.PinBranch("url-release"); got != "repaired-main" {
+				t.Fatalf("URL default bypassed repair refresh: %q", got)
+			}
+			if err := callbacks.WriteConfig("url-release"); err != nil || entries[0].Branch != "repaired-main" {
+				t.Fatalf("repaired declaration replaced: %+v %v", entries, err)
+			}
+		})
 	}
 }
