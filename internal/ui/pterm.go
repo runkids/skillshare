@@ -777,7 +777,7 @@ type TreeSpinner struct {
 
 // StartTreeSpinner starts a spinner in tree context
 func StartTreeSpinner(message string, isLast bool) *TreeSpinner {
-	if !IsTTY() {
+	if !isProgressTTY() {
 		return &TreeSpinner{start: time.Now(), isLast: isLast}
 	}
 
