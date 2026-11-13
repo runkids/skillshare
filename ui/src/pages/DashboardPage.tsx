@@ -506,8 +506,11 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
       setToDelete(null);
       await refresh();
     } catch (e: unknown) {
-      if (!toDelete.noCheckout && e instanceof ApiError && e.code && e.code in forceableRefusals) setRefusal(e.code as keyof typeof forceableRefusals);
-      else toast((e as Error).message, 'error');
+      if (e instanceof ApiError && e.code && e.code in forceableRefusals) {
+        // A CLI restore may have turned the selected declaration into a checkout.
+        setToDelete({ ...toDelete, noCheckout: false });
+        setRefusal(e.code as keyof typeof forceableRefusals);
+      } else toast((e as Error).message, 'error');
     } finally {
       setDeleting(false);
     }
