@@ -453,7 +453,36 @@ func TestProfiles_MovedDiscardRecovery(t *testing.T) {
 			if err := ssync.WriteManifest(dir, &ssync.Manifest{Managed: map[string]string{"alpha": sum}, Outputs: map[string]string{"alpha": sum}}); err != nil {
 				t.Fatal(err)
 			}
+			cleanPreview := f.run("diff", "--json")
+			cleanPreview.AssertSuccess(t)
+			if !json.Valid([]byte(cleanPreview.Stdout)) {
+				t.Fatalf("clean moved preview emitted diagnostics into JSON: %s", cleanPreview.Stdout)
+			}
 			f.sb.WriteFile(file, "authored moved edit")
+			manifestBefore := f.sb.ReadFile(filepath.Join(dir, ssync.ManifestFile))
+			preview := f.run("diff", "--json")
+			preview.AssertSuccess(t)
+			var diff struct {
+				Targets []struct {
+					Items []struct {
+						Action, Name, Reason string
+						IsSync               bool `json:"is_sync"`
+					}
+				}
+			}
+			if err := json.Unmarshal([]byte(preview.Stdout), &diff); err != nil || len(diff.Targets) != 1 {
+				t.Fatalf("moved preview JSON: %s %v", preview.Stdout, err)
+			}
+			found := false
+			for _, item := range diff.Targets[0].Items {
+				if item.Name == "alpha" && item.Action == "kept" && !item.IsSync && strings.Contains(item.Reason, dir) {
+					found = true
+				}
+			}
+			if !found || f.sb.ReadFile(file) != "authored moved edit" || f.sb.ReadFile(filepath.Join(dir, ssync.ManifestFile)) != manifestBefore {
+				t.Fatal("moved preview omitted kept reason or wrote target/manifest")
+			}
+
 			args := []string{"sync", "--discard-edits"}
 			if jsonOutput {
 				args = append(args, "--json")

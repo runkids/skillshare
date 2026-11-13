@@ -152,6 +152,7 @@ func cleanMovedProjectDirsWithPolicy(root, sourcePath string, targets []MovedTar
 				Skills:             []DiscoveredSkill{},
 				VerificationSkills: inputs.Skills,
 				IgnorePatterns:     inputs.IgnorePatterns,
+				Quiet:              inputs.Quiet,
 				Discard:            discard,
 				TargetPath:         dir,
 				SourcePath:         sourcePath,
@@ -163,7 +164,7 @@ func cleanMovedProjectDirsWithPolicy(root, sourcePath string, targets []MovedTar
 			collect(r, err)
 			// Sweeps manifest entries whose directory is already gone.
 			sc := config.ResourceTargetConfig{Path: dir, TargetNaming: t.TargetNaming}
-			r, err = pruneOrphanCopiesWithPolicy(t.Name, sc, nil, dryRun, sourcePath, profileAware, discard, inputs.IgnorePatterns, inputs.Skills)
+			r, err = pruneOrphanCopiesWithPolicy(t.Name, sc, nil, dryRun, sourcePath, profileAware, discard, inputs.IgnorePatterns, inputs)
 			collect(r, err)
 			if profileAware && (len(outcome.KeptModified) > 0 || len(outcome.Blocked) > 0 || len(outcome.FailedRemovals) > 0 || outcome.PruneError != "") {
 				result.Outcomes = append(result.Outcomes, outcome)

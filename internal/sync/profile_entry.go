@@ -139,3 +139,61 @@ func ClassifyEntry(in EntryInput) EntryClassification {
 	sum, _ = CopyOutputFingerprint(in.Path)
 	return EntryClassification{Class: EntryModifiedCopy, Fingerprint: sum, Reason: "copy was edited or could not be verified"}
 }
+
+// PreviewEntry resolves original copy inputs and shares the writer's grant-free check.
+func PreviewEntry(name, dir, root string, skills []DiscoveredSkill, manifest *Manifest, ignore []string) (EntryClassification, bool) {
+	return entryMutationAllowed("", EntryInput{Name: name, Path: filepath.Join(dir, name), SourceRoot: root, Manifest: manifest, Source: legacyCopySource(name, skills, manifest, ignore)}, nil)
+}
+
+// PreviewPreservedEntries uses the writer's ownership checks without grants or writes.
+// Sources come from full discovery, independently of the desired selection.
+func PreviewPreservedEntries(target, dir, root, mode string, resolution *TargetSkillResolution, skills []DiscoveredSkill, manifest *Manifest, ignore []string, orphanNames ...string) []EntryChange {
+	names := make(map[string]string)
+	if manifest != nil {
+		for name := range manifest.Managed {
+			names[name] = "prune"
+		}
+	}
+	for _, name := range orphanNames {
+		names[name] = "prune"
+	}
+	legacy := RenamedFrom(resolution.LegacyNames(mode, dir, manifest))
+	for _, skill := range resolution.Skills {
+		name := skill.TargetName
+		if old, ok := legacy[name]; ok {
+			name = old
+		}
+		names[name] = "refresh"
+	}
+	var kept []EntryChange
+	for name, step := range names {
+		entry, allowed := PreviewEntry(name, dir, root, skills, manifest, ignore)
+		if allowed {
+			continue
+		}
+		kept = append(kept, EntryChange{Target: target, Dir: cleanEntryDir(dir), Entry: name, Step: step, Class: entry.Class, Reason: previewKeptReason(entry.Class, entry.Reason)})
+	}
+	return kept
+}
+
+// PreviewMovedProjectEntries reuses the frozen cleanup plan in read-only mode.
+func PreviewMovedProjectEntries(root, source string, targets []MovedTarget, skills []DiscoveredSkill, ignore []string) []EntryChange {
+	out := cleanMovedProjectDirsWithPolicy(root, source, targets, true, true, nil, PruneOptions{Skills: skills, IgnorePatterns: ignore, Quiet: true})
+	var kept []EntryChange
+	for _, target := range out.Outcomes {
+		kept = append(kept, target.KeptModified...)
+		kept = append(kept, target.Blocked...)
+	}
+	for i := range kept {
+		kept[i].Reason = previewKeptReason(kept[i].Class, kept[i].Reason)
+	}
+	return kept
+}
+
+func previewKeptReason(class EntryClass, reason string) string {
+	recovery := "; collect or remove manually"
+	if class == EntryModifiedCopy {
+		recovery += ", or use verified --discard-edits"
+	}
+	return "kept: " + reason + recovery
+}

@@ -248,3 +248,26 @@ func TestProfileEntry_UnreadableCopyFailsClosed(t *testing.T) {
 		t.Fatalf("unreadable copy was permitted: %+v, %v", got, allowed)
 	}
 }
+
+func TestProfileEntry_UnknownOutputDiscard(t *testing.T) {
+	src, dst, m := fingerprintFixture(t)
+	m.Outputs = map[string]string{"repo-demo": "sha256-v3:future"}
+	input := EntryInput{Name: "repo-demo", Path: dst, Manifest: m, Source: &CopySource{Path: src, OutputName: "repo-demo"}}
+	entry := ClassifyEntry(input)
+	if entry.Class != EntryModifiedCopy || !strings.HasPrefix(entry.Fingerprint, "sha256-v2:") {
+		t.Fatalf("unknown output trusted or not snapshot-verifiable: %+v", entry)
+	}
+	grant := []DiscardEntry{{Target: "custom", Dir: filepath.Dir(dst), Entry: "repo-demo", Fingerprint: entry.Fingerprint}}
+	if _, allowed := entryMutationAllowed("custom", input, grant); !allowed {
+		t.Fatal("exact new snapshot cannot discard unknown output")
+	}
+	grant[0].Fingerprint = strings.TrimPrefix(entry.Fingerprint, "sha256-v2:")
+	if _, allowed := entryMutationAllowed("custom", input, grant); allowed {
+		t.Fatal("unversioned identity authorized a versioned entry")
+	}
+	grant[0].Fingerprint = entry.Fingerprint
+	m.Managed["repo-demo"] = manifestSymlink
+	if _, allowed := entryMutationAllowed("custom", input, grant); allowed {
+		t.Fatal("changed ownership inherited discard grant")
+	}
+}

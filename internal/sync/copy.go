@@ -451,7 +451,7 @@ func pruneOrphanCopiesWithConfig(targetName string, sc config.ResourceTargetConf
 	return pruneOrphanCopiesWithPolicy(targetName, sc, allSourceSkills, dryRun, "", false, nil, nil)
 }
 
-func pruneOrphanCopiesWithPolicy(targetName string, sc config.ResourceTargetConfig, allSourceSkills []DiscoveredSkill, dryRun bool, sourceRoot string, profileAware bool, discard []DiscardEntry, ignore []string, verification ...[]DiscoveredSkill) (*PruneResult, error) {
+func pruneOrphanCopiesWithPolicy(targetName string, sc config.ResourceTargetConfig, allSourceSkills []DiscoveredSkill, dryRun bool, sourceRoot string, profileAware bool, discard []DiscardEntry, ignore []string, verification ...PruneOptions) (*PruneResult, error) {
 	targetPath := sc.Path
 	result := &PruneResult{}
 
@@ -480,7 +480,7 @@ func pruneOrphanCopiesWithPolicy(targetName string, sc config.ResourceTargetConf
 		if profileAware {
 			verificationSkills := allSourceSkills
 			if len(verification) > 0 {
-				verificationSkills = verification[0]
+				verificationSkills = verification[0].Skills
 			}
 			entry := ClassifyEntry(EntryInput{Name: entryName, Path: entryPath, SourceRoot: sourceRoot, Manifest: manifest, Source: legacyCopySource(entryName, verificationSkills, manifest, ignore)})
 			if entry.Class == EntryModifiedCopy && !discardAllowed(targetName, cleanEntryDir(targetPath), entryName, entry, discard) {
@@ -492,7 +492,9 @@ func pruneOrphanCopiesWithPolicy(targetName string, sc config.ResourceTargetConf
 			}
 		}
 		if dryRun {
-			fmt.Fprintf(DiagOutput, "[dry-run] Would remove orphan copy: %s\n", entryPath)
+			if len(verification) == 0 || !verification[0].Quiet {
+				fmt.Fprintf(DiagOutput, "[dry-run] Would remove orphan copy: %s\n", entryPath)
+			}
 		} else {
 			if err := os.RemoveAll(entryPath); err != nil {
 				result.FailedRemovals = append(result.FailedRemovals, entryName)

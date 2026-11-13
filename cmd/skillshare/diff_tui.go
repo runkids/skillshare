@@ -115,7 +115,7 @@ func (i diffTargetItem) row() (string, string) {
 	switch {
 	case r.errMsg != "":
 		return theme.Danger().Render("✗") + " " + r.name, theme.Danger().Render("error")
-	case r.synced:
+	case r.fullySynced():
 		return theme.Success().Render("✓") + " " + r.name, theme.Dim().Render("in sync")
 	}
 	var parts []string
@@ -239,7 +239,7 @@ func diffSortOrder(r targetDiffResult) int {
 	if r.errMsg != "" {
 		return 0
 	}
-	if !r.synced {
+	if !r.fullySynced() {
 		return 1
 	}
 	return 2
@@ -253,7 +253,7 @@ func (m *diffTUIModel) refreshDetailCache() {
 	}
 	m.cachedIdx = idx
 	item, ok := m.targetList.SelectedItem().(diffTargetItem)
-	if !ok || item.result.synced || item.result.errMsg != "" {
+	if !ok || item.result.fullySynced() || item.result.errMsg != "" {
 		m.cachedItems = nil
 		m.cachedCats = nil
 		return
@@ -357,7 +357,7 @@ func (m diffTUIModel) handleDiffKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		r := item.result
-		if r.synced || r.errMsg != "" {
+		if r.fullySynced() || r.errMsg != "" {
 			return m, nil
 		}
 		// Toggle expand
@@ -499,13 +499,15 @@ func (m diffTUIModel) View() string {
 
 // renderTitleLine renders the target and extra counts and how many differ.
 func (m diffTUIModel) renderTitleLine() string {
-	var errN, diffN, keptN, syncN int
+	var errN, diffN, keptN, preservedN, syncN int
 	for _, r := range m.allItems {
 		switch {
 		case r.errMsg != "":
 			errN++
-		case r.synced:
+		case r.fullySynced():
 			syncN++
+		case r.syncCount == 0 && r.preservationCount() > 0:
+			preservedN++
 		case r.syncCount == 0 && r.keptCount() > 0:
 			keptN++
 		default:
@@ -525,6 +527,9 @@ func (m diffTUIModel) renderTitleLine() string {
 	}
 	if keptN > 0 {
 		facts = append(facts, theme.Warning().Render(formatNumber(keptN)+" kept under old name"))
+	}
+	if preservedN > 0 {
+		facts = append(facts, theme.Warning().Render(formatNumber(preservedN)+" kept"))
 	}
 	if errN > 0 {
 		facts = append(facts, theme.Danger().Render(countNoun(errN, "error")))
@@ -693,7 +698,7 @@ func (m diffTUIModel) buildDiffDetail() string {
 	}
 
 	// Fully synced
-	if r.synced {
+	if r.fullySynced() {
 		b.WriteString(theme.Success().Render("✓") + " In sync")
 		b.WriteString("\n")
 		return b.String()
@@ -728,7 +733,7 @@ func (m diffTUIModel) buildDiffDetail() string {
 			kindStyle = theme.Success()
 		case "modified":
 			kindStyle = theme.Accent()
-		case "override", "kept":
+		case "override", "kept", "preserved":
 			kindStyle = theme.Warning()
 		case "orphan":
 			kindStyle = theme.Danger()

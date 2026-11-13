@@ -549,11 +549,16 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 		s.mu.RUnlock()
 		return
 	}
-	source := s.cfg.EffectiveSkillsSource()
+	source := s.skillsSource()
 	agentsSource := s.agentsSource()
 	globalMode := s.cfg.Mode
 	ignorePatterns := ssync.EffectiveFileIgnorePatterns(s.cfg.Ignore)
 	targets := s.cloneTargets()
+	preview := s.snapshotProfileDiff(targets)
+	walk := s.skillsWalk()
+	if s.IsProjectMode() {
+		ignorePatterns = ssync.EffectiveFileIgnorePatterns(s.projectCfg.Ignore)
+	}
 	conflicts, _ := folderConflicts(targets, s.IsProjectMode(), globalMode, nil)
 	s.mu.RUnlock()
 
@@ -563,7 +568,7 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 
 	filterTarget := r.URL.Query().Get("target")
 
-	discovered, ignoreStats, err := ssync.DiscoverSourceSkillsWithStats(source, s.skillsWalk())
+	discovered, ignoreStats, err := ssync.DiscoverSourceSkillsWithStats(source, walk)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -574,7 +579,7 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 		if filterTarget != "" && filterTarget != name {
 			continue
 		}
-		diffs = append(diffs, s.computeTargetDiff(name, target, discovered, globalMode, source, ignorePatterns))
+		diffs = append(diffs, s.computeTargetDiff(name, target, discovered, globalMode, source, ignorePatterns, preview))
 	}
 
 	diffs = s.appendAgentDiffs(diffs, targets, agentsSource, filterTarget)

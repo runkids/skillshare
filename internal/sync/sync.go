@@ -838,6 +838,7 @@ type PruneOptions struct {
 	TargetName         string
 	DryRun             bool
 	Force              bool
+	Quiet              bool // suppress dry-run diagnostics in read-only previews
 	// ManagedOnly removes only entries that are provably skillshare's: broken
 	// links into the source and manifest-tracked links and directories. The name heuristic and
 	// broken-external-link cleanup are skipped. For directories that are not a
@@ -1016,7 +1017,9 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 
 		if shouldRemove {
 			if dryRun {
-				fmt.Fprintf(DiagOutput, "[dry-run] Would remove %s: %s\n", reason, entryPath)
+				if !opts.Quiet {
+					fmt.Fprintf(DiagOutput, "[dry-run] Would remove %s: %s\n", reason, entryPath)
+				}
 			} else {
 				if err := os.RemoveAll(entryPath); err != nil {
 					result.FailedRemovals = append(result.FailedRemovals, name)
