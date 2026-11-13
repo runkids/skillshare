@@ -31,7 +31,7 @@ func selectActiveTargetNameForSync(mode, targetPath string, skill ResolvedTarget
 		if len(verification) > 0 {
 			entryInput.SourceRoot = verification[0].SourcePath
 			entryInput.Source = nil
-			originals = legacyCopySources(legacyName, verification[0].Skills, manifest, ignore)
+			originals = legacyCopySources(legacyName, targetPath, verification[0].Skills, manifest, ignore)
 		}
 		entry := classifyEntry(entryInput, originals...)
 		if entry.Class != EntryCleanCopy && entry.Class != EntryManagedLink {

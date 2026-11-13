@@ -158,7 +158,7 @@ func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 		input := EntryInput{Name: activeName, Path: targetSkillPath, SourceRoot: sourcePath, Manifest: manifest}
 		var originals []CopySource
 		if opts.ProfileAware && !force {
-			originals = legacyCopySources(activeName, allSkills, manifest, ignorePatterns)
+			originals = legacyCopySources(activeName, sc.Path, allSkills, manifest, ignorePatterns)
 		}
 		var verified []EntryClassification
 		checkBeforeWrite := func() bool {
@@ -488,7 +488,7 @@ func pruneOrphanCopiesWithPolicy(targetName string, sc config.ResourceTargetConf
 			if len(verification) > 0 {
 				verificationSkills = verification[0].Skills
 			}
-			entry := classifyEntry(EntryInput{Name: entryName, Path: entryPath, SourceRoot: sourceRoot, Manifest: manifest}, legacyCopySources(entryName, verificationSkills, manifest, ignore)...)
+			entry := classifyEntry(EntryInput{Name: entryName, Path: entryPath, SourceRoot: sourceRoot, Manifest: manifest}, legacyCopySources(entryName, targetPath, verificationSkills, manifest, ignore)...)
 			if entry.Class == EntryModifiedCopy && !discardAllowed(targetName, cleanEntryDir(targetPath), entryName, entry, discard) {
 				result.KeptModified = append(result.KeptModified, EntryChange{Target: targetName, Dir: cleanEntryDir(targetPath), Entry: entryName, Step: "prune", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint})
 				continue

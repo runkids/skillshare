@@ -3,6 +3,7 @@ package sync
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"skillshare/internal/utils"
@@ -76,35 +77,35 @@ func entryMutationAllowed(target string, input EntryInput, discard []DiscardEntr
 }
 
 // legacyCopySources enumerates naming-compatible originals without verifying the copy.
-func legacyCopySources(name string, skills []DiscoveredSkill, manifest *Manifest, ignore []string) []CopySource {
+func legacyCopySources(name, dir string, skills []DiscoveredSkill, manifest *Manifest, ignore []string) []CopySource {
+	info, err := os.Lstat(filepath.Join(dir, name))
+	if err != nil || !info.IsDir() || utils.IsLinkMode(filepath.Join(dir, name), info.Mode()) || manifest == nil || manifest.Managed[name] == "" || manifest.Managed[name] == manifestSymlink {
+		return nil
+	}
+	if output, present := manifest.Outputs[name]; present && !legacyOutput(output) {
+		return nil
+	}
 	var sources []CopySource
 	for _, skill := range skills {
-		candidates := targetNameCandidates(skill)
-		// Prefixed copies use the declared skill name, which may differ from the folder.
-		if skillName, err := utils.ParseSkillName(skill.SourcePath); err == nil {
+		candidates := targetNameCandidates(skill)[:2]
+		skillName, err := utils.ParseSkillName(skill.SourcePath)
+		if err == nil {
 			candidates = append(candidates, namedTarget{"prefixed", PrefixedTargetName(skill, skillName)})
 		}
-		matchesName := false
-		for _, candidate := range candidates {
-			if candidate.name == name {
-				matchesName = true
-			}
-		}
-		if !matchesName {
+		if !slices.ContainsFunc(candidates, func(candidate namedTarget) bool {
+			return candidate.name == name
+		}) {
 			continue
 		}
 		outputs := make(map[string]bool)
 		for _, candidate := range candidates {
 			// A migrated folder can retain its original naming's rewritten bytes.
-			if manifest != nil && manifest.Naming[name] != "" {
-				if manifest.Naming[name] != candidate.naming {
-					continue
-				}
-			} else if candidate.name != name {
+			if recorded := manifest.Naming[name]; recorded != "" && recorded != candidate.naming || recorded == "" && candidate.name != name {
 				continue
 			}
 			source := CopySource{Path: skill.SourcePath, IgnorePatterns: ignore}
-			if candidate.naming == "prefixed" && candidate.name != filepath.Base(skill.SourcePath) {
+			// The producer compares the output name with the declared name.
+			if candidate.naming == "prefixed" && candidate.name != skillName {
 				source.OutputName = candidate.name
 			}
 			if outputs[source.OutputName] {
@@ -166,7 +167,7 @@ func classifyEntry(in EntryInput, sources ...CopySource) EntryClassification {
 
 // PreviewEntry resolves original copy inputs and shares the writer's grant-free check.
 func PreviewEntry(name, dir, root string, skills []DiscoveredSkill, manifest *Manifest, ignore []string) (EntryClassification, bool) {
-	return entryMutationAllowed("", EntryInput{Name: name, Path: filepath.Join(dir, name), SourceRoot: root, Manifest: manifest}, nil, legacyCopySources(name, skills, manifest, ignore)...)
+	return entryMutationAllowed("", EntryInput{Name: name, Path: filepath.Join(dir, name), SourceRoot: root, Manifest: manifest}, nil, legacyCopySources(name, dir, skills, manifest, ignore)...)
 }
 
 // PreviewPreservedEntries uses the writer's ownership checks without grants or writes.

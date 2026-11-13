@@ -638,7 +638,7 @@ func syncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkill
 		targetSkillPath := filepath.Join(sc.Path, activeName)
 		var originals []CopySource
 		if profileAware && !force {
-			originals = legacyCopySources(activeName, allSkills, manifest, ignore)
+			originals = legacyCopySources(activeName, sc.Path, allSkills, manifest, ignore)
 		}
 		checkBeforeWrite := func() bool {
 			if !profileAware || force {
@@ -945,7 +945,7 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 			continue // Still exists in source, keep it
 		}
 		if opts.ProfileAware {
-			entry := classifyEntry(EntryInput{Name: name, Path: entryPath, SourceRoot: sourcePath, Manifest: manifest}, legacyCopySources(name, verificationSkills, manifest, opts.IgnorePatterns)...)
+			entry := classifyEntry(EntryInput{Name: name, Path: entryPath, SourceRoot: sourcePath, Manifest: manifest}, legacyCopySources(name, targetPath, verificationSkills, manifest, opts.IgnorePatterns)...)
 			if entry.Class == EntryModifiedCopy && !discardAllowed(targetName, cleanEntryDir(targetPath), name, entry, opts.Discard) {
 				result.KeptModified = append(result.KeptModified, EntryChange{Target: targetName, Dir: cleanEntryDir(targetPath), Entry: name, Step: "prune", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint})
 				continue
