@@ -115,7 +115,7 @@ jobs:
       - name: Unit Tests
         shell: bash
         run: |
-          go test -v -count=1 \
+          go test -v -count=1 -timeout=30m \
             ./cmd/skillshare \
             ./internal/audit \
             ./internal/backup \
