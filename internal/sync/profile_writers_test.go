@@ -1572,3 +1572,141 @@ func TestProfileAwareWriters_LegacyDeclaredName(t *testing.T) {
 		}
 	}
 }
+
+func TestProfileAwareWriters_LegacyProducerTransform(t *testing.T) {
+	for _, tc := range []struct {
+		name, folder, sourceBytes, producedBytes, editedBytes, entryName string
+		tracked                                                          bool
+	}{
+		{"tracked_rewrite", "folder", "---\nname: actual\n---\nbody\n", "---\nname: repo-actual\n---\nbody\n", "---\nname: repo-folder\n---\nbody\n", "repo-actual", true},
+		{"local_quoted", "folder", "---\nname: 'actual'\n---\nbody\n", "---\nname: 'actual'\n---\nbody\n", "---\nname: actual\n---\nbody\n", "actual", false},
+		{"tracked_quoted_prefix", "folder", "---\nname: 'repo-actual'\n---\nbody\n", "---\nname: 'repo-actual'\n---\nbody\n", "---\nname: repo-actual\n---\nbody\n", "repo-actual", true},
+		{"tracked_output_is_folder", "repo-actual", "---\nname: actual\n---\nbody\n", "---\nname: repo-actual\n---\nbody\n", "---\nname: actual\n---\nbody\n", "repo-actual", true},
+	} {
+		for _, output := range []string{"missing", "bare"} {
+			for _, action := range []string{"copy", "merge", "prune_copy", "prune_merge"} {
+				for _, edited := range []bool{false, true} {
+					t.Run(fmt.Sprintf("%s/%s/%s/edited%v", tc.name, output, action, edited), func(t *testing.T) {
+						root := t.TempDir()
+						source, target := filepath.Join(root, "source"), filepath.Join(root, "target")
+						original := filepath.Join(source, tc.folder)
+						if tc.tracked {
+							original = filepath.Join(source, "_repo", tc.folder)
+						}
+						writeSkillMD(t, original, tc.sourceBytes)
+						if err := os.WriteFile(filepath.Join(original, "asset.bin"), []byte{0, 17, 255}, 0644); err != nil {
+							t.Fatal(err)
+						}
+						if tc.tracked {
+							testutil.RunGit(t, filepath.Join(source, "_repo"), "init", "--quiet")
+						}
+						cfg := config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: target, TargetNaming: "prefixed"}}
+						seed, err := SyncTargetCopy("custom", cfg, source, false, false)
+						if err != nil || !reflect.DeepEqual(seed.Copied, []string{tc.entryName}) {
+							t.Fatalf("ordinary producer target: %+v %v", seed, err)
+						}
+						entry := filepath.Join(target, tc.entryName)
+						for file, want := range map[string]string{"SKILL.md": tc.producedBytes, "asset.bin": string([]byte{0, 17, 255})} {
+							if data, err := os.ReadFile(filepath.Join(entry, file)); err != nil || string(data) != want {
+								t.Fatalf("literal ordinary producer %s: %q %v", file, data, err)
+							}
+						}
+						manifest, err := ReadManifest(target)
+						sum, sumErr := DirChecksumWithIgnore(original, DefaultFileIgnorePatterns())
+						if err != nil || sumErr != nil || manifest.Managed[tc.entryName] != sum || manifest.Naming[tc.entryName] != "prefixed" || !strings.HasPrefix(manifest.Outputs[tc.entryName], "sha256-v2:") {
+							t.Fatalf("ordinary producer evidence: %+v %v %v", manifest, err, sumErr)
+						}
+						delete(manifest.Outputs, tc.entryName)
+						if output == "bare" {
+							manifest.Outputs[tc.entryName], err = DirChecksumWithIgnore(entry, DefaultFileIgnorePatterns())
+							if err != nil {
+								t.Fatal(err)
+							}
+						}
+						if err := WriteManifest(target, manifest); err != nil {
+							t.Fatal(err)
+						}
+						wantBytes := tc.producedBytes
+						if edited {
+							wantBytes = tc.editedBytes
+							writeSkillMD(t, entry, wantBytes)
+						}
+						skills, err := DiscoverSourceSkills(source)
+						if err != nil || len(skills) != 1 || skills[0].SourcePath != original || skills[0].IsInRepo != tc.tracked {
+							t.Fatalf("ordinary discovery precondition: %+v %v", skills, err)
+						}
+						mode := "copy"
+						if strings.Contains(action, "merge") {
+							mode = "merge"
+						}
+						departing := strings.HasPrefix(action, "prune")
+						if departing {
+							cfg.Skills.Exclude = []string{"*"}
+						}
+						resolution, err := ResolveTargetSkillsForTarget("custom", cfg.SkillsConfig(), skills)
+						if err != nil || departing && len(resolution.Skills) != 0 || !departing && (len(resolution.Skills) != 1 || resolution.Skills[0].TargetName != tc.entryName) {
+							t.Fatalf("selected producer name: %+v %v", resolution, err)
+						}
+						before := snapshotDetachTree(t, root)
+						classification, allowed := PreviewEntry(tc.entryName, target, source, skills, manifest, nil)
+						wantClass := EntryCleanCopy
+						if edited {
+							wantClass = EntryModifiedCopy
+						}
+						if classification.Class != wantClass || allowed == edited || classification.Fingerprint == "" {
+							t.Errorf("producer-compatible classification: %+v allowed=%v", classification, allowed)
+						}
+						preview := PreviewPreservedEntries("custom", target, source, mode, resolution, skills, manifest, nil)
+						if edited && (len(preview) != 1 || preview[0].Entry != tc.entryName || preview[0].Class != EntryModifiedCopy) || !edited && len(preview) != 0 {
+							t.Errorf("producer-compatible preservation preview: %+v", preview)
+						}
+						if !reflect.DeepEqual(before, snapshotDetachTree(t, root)) {
+							t.Error("preview changed source, copy, metadata, modes or tracked repository")
+						}
+						sourceBefore, entryBefore := snapshotDetachTree(t, source), snapshotDetachTree(t, entry)
+						out := SyncSkillTarget(SkillTarget{Name: "custom", Target: cfg, Mode: mode}, skills, SkillRunOptions{Source: source, ProfileAware: true})
+						if out.Err != nil || out.PruneErr != nil || len(out.Blocked) != 0 {
+							t.Fatalf("producer-compatible writer: %+v", out)
+						}
+						after, err := ReadManifest(target)
+						if err != nil {
+							t.Fatal(err)
+						}
+						if edited {
+							if len(out.KeptModified) != 1 || out.KeptModified[0].Entry != tc.entryName || out.KeptModified[0].Class != EntryModifiedCopy || len(out.Updated)+len(out.Linked)+len(out.Pruned) != 0 {
+								t.Errorf("authored producer-name edit not kept: %+v", out)
+							}
+							if _, err := os.Lstat(entry); err != nil {
+								t.Fatal("authored producer copy disappeared", err)
+							}
+							if !reflect.DeepEqual(entryBefore, snapshotDetachTree(t, entry)) || !reflect.DeepEqual(after.Managed, manifest.Managed) || !reflect.DeepEqual(after.Naming, manifest.Naming) || !reflect.DeepEqual(after.Outputs, manifest.Outputs) || !reflect.DeepEqual(after.Mtimes, manifest.Mtimes) {
+								t.Error("writer changed authored copy bytes/modes/mtime or ownership evidence")
+							}
+						} else if departing {
+							if _, err := os.Lstat(entry); !os.IsNotExist(err) || !slices.Contains(out.Pruned, tc.entryName) || len(out.KeptModified) != 0 || after.Managed[tc.entryName] != "" {
+								t.Errorf("clean real producer orphan was not pruned: %+v %v", out, err)
+							}
+						} else {
+							if len(out.KeptModified) != 0 {
+								t.Errorf("clean real producer copy was preserved as edited: %+v", out)
+							}
+							if mode == "merge" {
+								link, err := utils.ResolveLinkTarget(entry)
+								if err != nil || !utils.PathsEqual(utils.ResolveSymlink(link), utils.ResolveSymlink(original)) || !slices.Contains(out.Updated, tc.entryName) {
+									t.Errorf("clean real producer was not converted to selected source: %+v %s %v", out, link, err)
+								}
+								wantBytes = tc.sourceBytes
+							}
+							if data, err := os.ReadFile(filepath.Join(entry, "SKILL.md")); err != nil || string(data) != wantBytes {
+								t.Errorf("selected literal bytes: %q %v", data, err)
+							}
+						}
+						if !reflect.DeepEqual(sourceBefore, snapshotDetachTree(t, source)) {
+							t.Error("writer changed the available original or tracked metadata")
+						}
+					})
+				}
+			}
+		}
+	}
+}
