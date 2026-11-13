@@ -1267,6 +1267,13 @@ func renderDiffGroup(r targetDiffResult, opts diffRenderOpts, next *diffNext, wi
 				continue
 			}
 			item.ensureFiles()
+			if item.action == "kept" {
+				for _, f := range item.files {
+					fmt.Println(fileIndent + ui.DimText(fmt.Sprintf("· %s (%d bytes)", f.RelPath, f.DstSize)))
+				}
+				continue
+			}
+
 			for _, line := range strings.Split(strings.TrimRight(renderFileStat(item.files), "\n"), "\n") {
 				if line = strings.TrimSpace(line); line != "" {
 					fmt.Println(fileIndent + ui.DimText(line))
