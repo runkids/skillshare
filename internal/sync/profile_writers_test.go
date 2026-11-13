@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -1410,6 +1411,163 @@ func TestProfileAwareWriters_LegacySelectedSourceSwitch(t *testing.T) {
 						}
 					})
 				}
+			}
+		}
+	}
+}
+
+func TestProfileAwareWriters_LegacyDeclaredName(t *testing.T) {
+	for _, output := range []string{"missing", "bare"} {
+		for _, action := range []string{"copy", "merge", "prune_copy", "prune_merge", "migration", "former"} {
+			for _, edited := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%s/%s/edited%v", output, action, edited), func(t *testing.T) {
+					root := t.TempDir()
+					source, target := filepath.Join(root, "source"), filepath.Join(root, ".goose", "skills")
+					for _, producer := range []string{"a", "z"} {
+						dir := filepath.Join(source, "_repo", producer+"-folder")
+						writeSkillMD(t, dir, "---\nname: actual\n---\n"+producer+" bytes\n")
+						if err := os.WriteFile(filepath.Join(dir, "asset.bin"), []byte{0, producer[0], 255}, 0644); err != nil {
+							t.Fatal(err)
+						}
+					}
+					testutil.RunGit(t, filepath.Join(source, "_repo"), "init", "--quiet")
+					cfg := config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: target, TargetNaming: "prefixed", Include: []string{"_repo__a-folder"}}}
+					seed, err := SyncTargetCopy("goose", cfg, source, false, false)
+					if err != nil || !reflect.DeepEqual(seed.Copied, []string{"repo-actual"}) {
+						t.Fatalf("ordinary producer did not honor declared name: %+v %v", seed, err)
+					}
+					entry := filepath.Join(target, "repo-actual")
+					for file, want := range map[string]string{"SKILL.md": "---\nname: repo-actual\n---\na bytes\n", "asset.bin": string([]byte{0, 'a', 255})} {
+						if data, err := os.ReadFile(filepath.Join(entry, file)); err != nil || string(data) != want {
+							t.Fatalf("default-compatible producer %s differs from literal: %q %v", file, data, err)
+						}
+					}
+					manifest, err := ReadManifest(target)
+					original := filepath.Join(source, "_repo", "a-folder")
+					sum, sumErr := DirChecksumWithIgnore(original, DefaultFileIgnorePatterns())
+					if err != nil || sumErr != nil || manifest.Managed["repo-actual"] != sum || manifest.Naming["repo-actual"] != "prefixed" || !strings.HasPrefix(manifest.Outputs["repo-actual"], "sha256-v2:") {
+						t.Fatalf("ordinary declared-name metadata: %+v %v %v", manifest, err, sumErr)
+					}
+					delete(manifest.Outputs, "repo-actual")
+					if output == "bare" {
+						manifest.Outputs["repo-actual"], err = DirChecksumWithIgnore(entry, DefaultFileIgnorePatterns())
+						if err != nil {
+							t.Fatal(err)
+						}
+					}
+					if err := WriteManifest(target, manifest); err != nil {
+						t.Fatal(err)
+					}
+					skills, err := DiscoverSourceSkills(source)
+					if err != nil || len(skills) != 2 || !skills[0].IsInRepo || skills[0].RelPath != "_repo/a-folder" || skills[1].RelPath != "_repo/z-folder" {
+						t.Fatalf("real tracked originals precondition: %+v %v", skills, err)
+					}
+					// Put the selected replacement first, independently of the original producer.
+					slices.Reverse(skills)
+					selected := filepath.Join(source, "_repo", "z-folder")
+					cfg.Skills.Include = []string{"_repo__z-folder"}
+					mode, desired := "copy", "repo-actual"
+					if strings.Contains(action, "merge") {
+						mode = "merge"
+					}
+					departing := strings.HasPrefix(action, "prune") || action == "former"
+					if departing {
+						cfg.Skills.Include, cfg.Skills.Exclude = nil, []string{"*"}
+					}
+					if action == "migration" {
+						cfg.Skills.TargetNaming, desired = "flat", "_repo__z-folder"
+					}
+					if edited {
+						writeSkillMD(t, entry, "authored deployed edit\n")
+					}
+					resolution, err := ResolveTargetSkillsForTarget("goose", cfg.SkillsConfig(), skills)
+					if err != nil || !departing && (len(resolution.Skills) != 1 || resolution.Skills[0].Skill.SourcePath != selected || resolution.Skills[0].TargetName != desired) {
+						t.Fatalf("selected declared-name resolution: %+v %v", resolution, err)
+					}
+					before := snapshotDetachTree(t, root)
+					classification, allowed := PreviewEntry("repo-actual", target, source, skills, manifest, nil)
+					wantClass := EntryCleanCopy
+					if edited {
+						wantClass = EntryModifiedCopy
+					}
+					if classification.Class != wantClass || allowed == edited {
+						t.Errorf("declared producer proof: %+v allowed=%v", classification, allowed)
+					}
+					keptPreview := PreviewPreservedEntries("goose", target, source, mode, resolution, skills, manifest, nil)
+					moved := []MovedTarget{{Name: "goose", Path: filepath.Join(root, ".agents", "skills"), TargetNaming: "prefixed"}}
+					if action == "former" {
+						keptPreview = PreviewMovedProjectEntries(root, source, moved, skills, nil)
+					}
+					if edited && len(keptPreview) != 1 || !edited && len(keptPreview) != 0 {
+						t.Errorf("declared-name preservation preview: %+v", keptPreview)
+					}
+					if !reflect.DeepEqual(before, snapshotDetachTree(t, root)) {
+						t.Error("preview changed source, tracked repository, entry or manifest")
+					}
+					sourceBefore, entryBefore := snapshotDetachTree(t, source), snapshotDetachTree(t, entry)
+					var kept []EntryChange
+					var changed, pruned []string
+					if action == "former" {
+						cfg.Skills.Path = moved[0].Path
+						targets := map[string]config.TargetConfig{"goose": cfg}
+						out, err := ExecuteTargets(context.Background(), &config.Config{Source: source, Mode: mode, Targets: targets}, targets, ExecuteOptions{Kinds: []string{"skill"}, ProjectMode: true, ProjectRoot: root, ProfileAware: true, Discovery: TargetDiscovery{Skills: skills}, MovedTargets: moved})
+						if err != nil || len(out.Failed) != 0 {
+							t.Fatalf("former-directory execution: %+v %v", out, err)
+						}
+						for _, row := range out.Results {
+							kept = append(kept, row.KeptModified...)
+						}
+					} else {
+						out := SyncSkillTarget(SkillTarget{Name: "goose", Target: cfg, Mode: mode}, skills, SkillRunOptions{Source: source, ProfileAware: true})
+						if out.Err != nil || out.PruneErr != nil || len(out.Blocked) != 0 {
+							t.Fatalf("declared-name writer failed: %+v", out)
+						}
+						kept, changed, pruned = out.KeptModified, append(out.Linked, out.Updated...), out.Pruned
+					}
+					if edited {
+						if len(kept) != 1 || kept[0].Class != EntryModifiedCopy || !reflect.DeepEqual(entryBefore, snapshotDetachTree(t, entry)) {
+							t.Errorf("authored declared-name copy not preserved: %+v", kept)
+						}
+					} else if departing {
+						if _, err := os.Lstat(entry); !os.IsNotExist(err) || len(kept) != 0 || action != "former" && !slices.Contains(pruned, "repo-actual") {
+							t.Errorf("clean declared-name orphan remains: kept=%+v pruned=%v %v", kept, pruned, err)
+						}
+					} else {
+						if len(kept) != 0 || !slices.Contains(changed, desired) {
+							t.Errorf("selected replacement not published: kept=%+v changed=%v", kept, changed)
+						}
+						if mode == "merge" {
+							link, err := utils.ResolveLinkTarget(filepath.Join(target, desired))
+							if err != nil || !utils.PathsEqual(utils.ResolveSymlink(link), utils.ResolveSymlink(selected)) {
+								t.Errorf("merge did not link selected original: %s %v", link, err)
+							}
+						}
+						wantName := "repo-actual"
+						if mode == "merge" || action == "migration" {
+							wantName = "actual"
+						}
+						for file, want := range map[string]string{"SKILL.md": "---\nname: " + wantName + "\n---\nz bytes\n", "asset.bin": string([]byte{0, 'z', 255})} {
+							if data, err := os.ReadFile(filepath.Join(target, desired, file)); err != nil || string(data) != want {
+								t.Errorf("selected literal %s: %q %v", file, data, err)
+							}
+						}
+						if mode == "copy" {
+							after, readErr := ReadManifest(target)
+							selectedSum, sumErr := DirChecksumWithIgnore(selected, DefaultFileIgnorePatterns())
+							if readErr != nil || sumErr != nil || after.Managed[desired] != selectedSum || after.Naming[desired] != cfg.Skills.TargetNaming || !strings.HasPrefix(after.Outputs[desired], "sha256-v2:") {
+								t.Errorf("replacement metadata does not describe selected original: %+v %v %v", after, readErr, sumErr)
+							}
+						}
+						if action == "migration" {
+							if _, err := os.Lstat(entry); !os.IsNotExist(err) {
+								t.Error("old declared-name output survived naming transition", err)
+							}
+						}
+					}
+					if !reflect.DeepEqual(sourceBefore, snapshotDetachTree(t, source)) {
+						t.Error("writer changed either available original or tracked metadata")
+					}
+				})
 			}
 		}
 	}

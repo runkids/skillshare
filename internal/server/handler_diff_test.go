@@ -240,13 +240,42 @@ func TestProfiles_APIDiffPreservationAgreement(t *testing.T) {
 			scenarios := []string{"retained", "departing", "pending_none", "unmanaged", "no_profile", "old_name"}
 			if mode == "copy" {
 				scenarios = append(scenarios, "equal_mtime")
+				if !project {
+					scenarios = append(scenarios, "registered_project")
+				}
 			}
 			for _, scenario := range scenarios {
 				t.Run(fmt.Sprintf("%v/%s/%s", project, mode, scenario), func(t *testing.T) {
 					s, scope, dest, source := newProfileDiffFixture(t, project, mode, scenario)
-					if scenario == "equal_mtime" {
-						if _, err := sync.SyncTargetCopy("custom", config.TargetConfig{Path: dest}, source, false, true); err != nil {
+					seedName, seedConfig, seedDest := "custom", config.TargetConfig{Path: dest}, dest
+					if scenario == "registered_project" {
+						root := filepath.Join(os.Getenv("HOME"), "registered-app")
+						if err := os.MkdirAll(root, 0755); err != nil {
 							t.Fatal(err)
+						}
+						body, err := json.Marshal(map[string]any{"create": true, "root": root, "name": "app", "targets": []string{"claude"}, "skills": map[string]any{"mode": "copy", "include": []string{"alpha"}}})
+						if err != nil {
+							t.Fatal(err)
+						}
+						if rr := projectRequest(t, s, http.MethodPut, "/api/projects", string(body)); rr.Code != http.StatusOK {
+							t.Fatal("supported project registration", rr.Code, rr.Body.String())
+						}
+						seedName = config.ProjectTargetName("app", "claude")
+						seedConfig = s.cfg.Targets[seedName]
+						if seedConfig.ProjectRoot() != root || seedConfig.Skills == nil || seedConfig.SkillsConfig().Mode != "copy" {
+							t.Fatalf("registered ordinary project target missing: %+v", seedConfig)
+						}
+						seedDest = seedConfig.SkillsConfig().Path
+					}
+					if scenario == "equal_mtime" || scenario == "registered_project" {
+						if _, err := sync.SyncTargetCopy(seedName, seedConfig, source, false, true); err != nil {
+							t.Fatal(err)
+						}
+						if scenario == "registered_project" {
+							data, err := os.ReadFile(filepath.Join(seedDest, "alpha", "SKILL.md"))
+							if err != nil || string(data) != "---\nname: alpha\n---\n# alpha" {
+								t.Fatalf("ordinary project producer bytes: %q %v", data, err)
+							}
 						}
 						file := filepath.Join(source, "alpha", "SKILL.md")
 						info, err := os.Stat(file)
@@ -259,7 +288,7 @@ func TestProfiles_APIDiffPreservationAgreement(t *testing.T) {
 						if err := os.Chtimes(file, info.ModTime(), info.ModTime()); err != nil {
 							t.Fatal(err)
 						}
-						manifest, manifestErr := sync.ReadManifest(dest)
+						manifest, manifestErr := sync.ReadManifest(seedDest)
 						stamp, stampErr := sync.DirMaxMtimeWithIgnore(filepath.Dir(file), sync.DefaultFileIgnorePatterns())
 						if manifestErr != nil || stampErr != nil || stamp != manifest.Mtimes["alpha"] || !strings.HasPrefix(manifest.Outputs["alpha"], "sha256-v2:") {
 							t.Fatalf("equal-mtime current-output precondition: %+v %d %v %v", manifest, stamp, manifestErr, stampErr)
@@ -312,6 +341,10 @@ func TestProfiles_APIDiffPreservationAgreement(t *testing.T) {
 						found := false
 						for _, target := range payload.Diffs {
 							for _, item := range target.Items {
+								if scenario == "registered_project" && target.Target == seedName {
+									t.Errorf("%s predicts ordinary project work despite equal-mtime skip: %+v", endpoint, item)
+									continue
+								}
 								if item.Skill != "alpha" && !(scenario == "old_name" && mode == "copy" && item.Skill == "emil-design-alpha") {
 									continue
 								}
@@ -357,6 +390,24 @@ func TestProfiles_APIDiffPreservationAgreement(t *testing.T) {
 					s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader("{\"kind\":\"skill\"}")))
 					if rr.Code != http.StatusOK {
 						t.Fatal(rr.Code, rr.Body.String())
+					}
+					if scenario == "registered_project" {
+						var outcome struct {
+							Results []sync.TargetResult `json:"results"`
+						}
+						if err := json.Unmarshal(rr.Body.Bytes(), &outcome); err != nil {
+							t.Fatal(err)
+						}
+						found := false
+						for _, row := range outcome.Results {
+							if row.Target == seedName {
+								found = len(row.Skipped) == 1 && row.Skipped[0] == "alpha" && len(row.Updated) == 0 && len(row.Linked) == 0 && len(row.Pruned) == 0
+							}
+						}
+						data, err := os.ReadFile(filepath.Join(seedDest, "alpha", "SKILL.md"))
+						if !found || err != nil || string(data) != "---\nname: alpha\n---\n# alpha" {
+							t.Errorf("actual project sync must skip and retain literal producer bytes: %+v %q %v", outcome, data, err)
+						}
 					}
 					data, err := os.ReadFile(filepath.Join(dest, "alpha", "SKILL.md"))
 					wantBytes := "authored alpha"
