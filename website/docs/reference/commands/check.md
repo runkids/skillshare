@@ -255,3 +255,9 @@ The extras report accepts names, `--json` and `--exit-code`, without `--all`,
 Restore missing or interrupted content through the explicit
 [`install <remote> --kind extra --name <name>`](install.md#remote-extras) command,
 using the same `-p` or `-g` mode; bare install does not restore extras.
+
+If a first install stopped before saving its declaration, direct managed staging
+artifacts still produce an `interrupted` row by name. No origin or branch is
+read from the marker for this diagnostic. Status and doctor report it too;
+rerun the original install with the same `--name`. List and dashboard rows
+continue to represent configured extras.

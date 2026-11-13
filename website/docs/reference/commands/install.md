@@ -899,10 +899,14 @@ dangling and directory links, plus special files, are refused. Unix executable
 bits are preserved; Windows does not provide this executable-bit guarantee.
 Use Git credentials or SSH, never credentials in the source URL.
 
-Publication uses a journal under `.skillshare-staging/`. If interrupted, list,
-status, doctor and `check extras` report it. The next explicit install first
-fetches and audits the **journaled commit**, checks live/previous hashes, repairs
-its records and only then processes the requested source/ref. Later content
+Publication uses a journal under `.skillshare-staging/`. Configured entries show
+interruptions in list, status, doctor and `check extras`. Before the declaration
+is saved, `check extras`, status and doctor report direct publication artifacts
+by name, without trusting an origin from the marker; rerun the original install
+with the same `--name` to repair. If the live directory is missing and the previous
+copy is unchanged, the next install restores that known content locally before
+fetching and auditing the **journaled commit**. It then checks live/previous hashes,
+repairs its records and only then processes the requested source/ref. Later content
 edits block repair without explicit `--force`; an unavailable or unsafe candidate
 leaves the marker in place. Preserve staging paths when repair fails.
 `--dry-run` makes no writes, including migration, config, lock, metadata and oplog.

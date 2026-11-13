@@ -879,7 +879,9 @@ A remote extra may start with zero targets. Add one with
 `skillshare sync extras team-rules -p`. Target paths, modes and filters remain
 editable. CLI plain/JSON/TUI, status and dashboard show origin, pinned commit and
 local state (`intact`, `modified`, `interrupted`, `missing` or `error`), never
-remote freshness. `skillshare check extras -p` does not fetch.
+remote freshness. `skillshare check extras -p` does not fetch. List and dashboard
+rows represent configured extras; before a first install saves its declaration,
+check, status and doctor report direct publication artifacts by name instead.
 
 Rename and source edits are refused for remote entries, including raw-config
 removal or origin changes. Use `skillshare extras remove team-rules -p --force`,

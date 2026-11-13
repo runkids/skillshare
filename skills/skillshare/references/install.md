@@ -366,8 +366,11 @@ Audit retains depth 6, 1,000,000-byte and extension limits (`.mdc`/`.cursorrules
 skipped); a pass does not guarantee safety. Unix executable bits are preserved,
 without that guarantee on Windows. Unsafe links and special files are refused.
 Never embed credentials in a source URL. Dry run makes no writes.
-An interrupted install is repaired using its journaled audited commit before the
-requested install; later content edits block unless forced, failed repair keeps
+If interruption left no live directory, unchanged previous content is restored
+locally before fetching the journaled audited commit for repair and then applying
+the requested install. Undeclared publication artifacts appear by name in check,
+status and doctor; repeat the original command with the same `--name`. Later
+content edits block unless forced, failed repair keeps
 the marker. Preserve staging paths. See `extras.md` for removal and concurrency.
 
 Publication failures before final cleanup roll back subject to the concurrency

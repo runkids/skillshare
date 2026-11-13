@@ -252,3 +252,7 @@ origin、選用的 branch、commit 及 `intact`、`modified`、`interrupted`、`
 `--diff`。`check --all` 範圍不變，不含 extras。缺少或中斷須使用相同 `-p`/`-g` 的
 [`install <remote> --kind extra --name <name>`](install.md#remote-extras) 明確復原，
 無參數 install 不會復原。
+
+首次 install 在宣告儲存前中斷時，也會依受管 staging 的發佈產物名稱報告
+`interrupted`，不會讀取 marker 的 origin/branch。status 與 doctor 也會報告。
+請用相同 `--name` 重跑原來的 install；list 和 dashboard 仍只顯示已設定的 extras。

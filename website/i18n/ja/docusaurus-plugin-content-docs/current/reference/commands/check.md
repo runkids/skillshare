@@ -253,3 +253,8 @@ origin、任意 branch、commit と `intact` / `modified` / `interrupted` / `mis
 の範囲は変わらず extras を含みません。欠落・中断は同じ `-p`/`-g` で
 [`install <remote> --kind extra --name <name>`](install.md#remote-extras) を明示して復元します。
 引数なし install では復元しません。
+
+初回 install が宣言の保存前に止まっても、管理対象 staging の公開用項目から
+`interrupted` と名前を報告します。marker の origin/branch は読みません。
+status と doctor も報告します。同じ `--name` の元の install を再実行してください。
+list と dashboard は設定済み extras のみを表示します。

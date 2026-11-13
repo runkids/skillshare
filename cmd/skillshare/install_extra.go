@@ -27,17 +27,24 @@ type installExtraJSON struct {
 	Error           string   `json:"error,omitempty"`
 }
 
-func extraJSONRequested(args []string) bool {
-	kind, json := false, false
+func extraInstallRequested(args []string) bool {
 	for i := 0; i < len(args); i++ {
 		if args[i] == "--kind" && i+1 < len(args) && strings.EqualFold(args[i+1], "extra") {
-			kind = true
-		}
-		if args[i] == "--json" {
-			json = true
+			return true
 		}
 	}
-	return kind && json
+	return false
+}
+
+func extraJSONRequested(args []string) bool {
+	if extraInstallRequested(args) {
+		for _, arg := range args {
+			if arg == "--json" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func cmdInstallExtra(parsed *installArgs, mode runMode, cwd string, start time.Time) error {

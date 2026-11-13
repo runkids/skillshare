@@ -25,12 +25,32 @@ func repairRemoteExtra(req RemoteExtraRequest, result *RemoteExtraResult) error 
 			return fmt.Errorf("repair state: %w", err)
 		}
 	}
+	dest := filepath.Join(req.ExtrasRoot, req.Name)
+	if _, err := os.Lstat(dest); os.IsNotExist(err) && j.HadPrevious {
+		previous := filepath.Join(req.ExtrasRoot, extraStagingDir, "previous-"+req.Name)
+		old, exists, err := existingExtraFingerprint(previous)
+		if err != nil {
+			return fmt.Errorf("repair previous: %w", err)
+		}
+		// Only the unchanged, previously active tree can be restored before
+		// fetch/audit. The marker stays until forward repair is complete.
+		if exists && sameExtraFingerprint(old, j.Old) {
+			if err := extraRename(previous, dest); err != nil {
+				return fmt.Errorf("restore previous extra: %w", err)
+			}
+		}
+	} else if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("repair live: %w", err)
+	}
 	source, err := ParseSourceWithOptions(j.Remote, req.Opts.ParseOptions)
 	if err != nil || source == nil || !source.IsGit() {
 		return fmt.Errorf("invalid journaled Git source for %q", req.Name)
 	}
 	source.Branch, source.Commit = j.Branch, j.Commit
-	dest := filepath.Join(req.ExtrasRoot, req.Name)
+	if err := resolveWebRef(source); err != nil {
+		return err
+	}
+	source.Branch = j.Branch
 	candidate, cleanup, err := prepareExtraCandidate(source, req.ExtrasRoot, dest, req.Opts)
 	if err != nil {
 		return fmt.Errorf("repair %q: %w", req.Name, err)
@@ -60,7 +80,7 @@ func repairRemoteExtra(req RemoteExtraRequest, result *RemoteExtraResult) error 
 	// Refuse a now-local or different-origin config entry before touching its
 	// live directory. The marker already makes this repair write recoverable;
 	// merge again after the other records to retain later unrelated saves.
-	if err := extraWriteConfig(func() error { return req.RepairConfig(j.Remote, j.Branch) }); err != nil {
+	if err := req.RepairConfig(j.Remote, j.Branch); err != nil {
 		return err
 	}
 	if !liveCandidate {
@@ -108,7 +128,7 @@ func repairRemoteExtra(req RemoteExtraRequest, result *RemoteExtraResult) error 
 			return err
 		}
 	}
-	if err := extraWriteConfig(func() error { return req.RepairConfig(j.Remote, j.Branch) }); err != nil {
+	if err := req.RepairConfig(j.Remote, j.Branch); err != nil {
 		return err
 	}
 	if err := extraBoundary("repair-config"); err != nil {

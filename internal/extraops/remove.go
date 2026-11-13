@@ -237,9 +237,9 @@ func removeRemote(req RemoveRequest, extra config.ExtraConfig, result RemoveResu
 		}
 		if len(errs) > 0 {
 			keepBackup = backup != ""
-			return result, fmt.Errorf("removing %s failed: %w; rollback incomplete: %s; source backup: %s", req.Name, cause, strings.Join(errs, "; "), backup)
+			return result, fmt.Errorf("removing %s failed: %w; rollback incomplete: %s; source backup: %s; run 'skillshare sync extras' after resolving the failure to restore cleaned target outputs", req.Name, cause, strings.Join(errs, "; "), backup)
 		}
-		return result, fmt.Errorf("removing %s failed; source and records restored: %w", req.Name, cause)
+		return result, fmt.Errorf("removing %s failed; source and records restored: %w; run 'skillshare sync extras' to restore cleaned target outputs", req.Name, cause)
 	}
 	if err := capture(0, func() error { return req.Save(result.Remaining) }); err != nil {
 		return rollback(err)

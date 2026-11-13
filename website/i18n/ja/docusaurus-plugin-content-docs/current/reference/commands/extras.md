@@ -784,3 +784,8 @@ raw editor は解析可能な認証情報付き remote と型が読めない ext
 構文破損までに CLI install が追加したエントリは、修復 PUT で失われたり名前を変えられたり
 する可能性があります。保存前にバックアップを確認してください。PUT は公開 lock を共有しません。
 [インストールと中断修復](install.md#remote-extras)も参照してください。
+
+初回 install が宣言の保存前に止まっても、管理対象 staging の公開用項目から
+`interrupted` と名前を報告します。marker の origin/branch は読みません。
+status と doctor も報告します。同じ `--name` の元の install を再実行してください。
+list と dashboard は設定済み extras のみを表示します。

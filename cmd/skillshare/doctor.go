@@ -1301,7 +1301,12 @@ func checkDuplicateSkills(cfg *config.Config, result *doctorResult, discovered [
 
 // checkExtras verifies extras source directories exist and targets are reachable.
 func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bool, source, extrasSource, projectRoot, projectExtrasParent string, validate func() error) {
-	if len(extras) == 0 {
+	root := extrasSource
+	if isProject {
+		root = projectExtrasParent
+	}
+	orphans := undeclaredExtraPublications(extras, root)
+	if len(extras) == 0 && len(orphans) == 0 {
 		return
 	}
 
@@ -1314,6 +1319,17 @@ func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bo
 
 	var details []string
 	hasIssue, hasError := false, false
+	for _, orphan := range orphans {
+		result.addError()
+		hasIssue, hasError = true, true
+		ui.Row(ui.MarkWarn, orphan.Name, orphan.State, width)
+		message := orphan.Message
+		if orphan.Error != "" {
+			message = orphan.Error
+		}
+		ui.Note(message)
+		details = append(details, orphan.Name+": "+message)
+	}
 
 	for _, extra := range extras {
 		if err := config.ValidateExtraConfig(extra); err != nil {

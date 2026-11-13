@@ -895,9 +895,11 @@ skillshare install example-org/ai-hub/rules --kind extra --name team-rules --upd
 リンクや特殊ファイルは拒否します。Unix 実行 bit は保持し、Windows ではこの保証は
 ありません。URL に認証情報を埋め込まず Git 認証や SSH を使ってください。
 
-中断は `.skillshare-staging/` の journal で検出し、list/status/doctor/`check extras`
-に表示します。次の明示 install は **journal に記録した commit** を取得・監査し、
-live/previous の hash を比較して記録を修復してから、今回の source/ref を処理します。
+設定済み項目の中断は list/status/doctor/`check extras` に表示します。宣言の保存前は、
+`check extras`、status、doctor が管理対象 staging 直下の公開用ファイル名から名前だけを
+報告します。marker 内の origin は信用しません。同じ `--name` の元の install を再実行してください。
+live が欠落し previous が未変更なら、ネットワーク取得の前に既知の previous をローカルで
+戻し、その後 journal の commit を取得・監査して前方修復します。
 中断後の内容編集は明示 `--force` なしでは拒否します。取得不能や監査失敗では marker
 を残すため staging パスを保持してください。`--dry-run` は移行、config、lock、metadata、
 oplog を含め何も書きません。[ライフサイクルと同時実行の制限](extras.md#remote-extras)も参照してください。

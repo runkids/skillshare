@@ -50,6 +50,7 @@ func cmdStatusProject(root string) error {
 			return config.ResolveExtrasSourceDirProject(extra, runtime.config.EffectiveExtrasSource(root), root)
 		}, true)
 	}
+	printUndeclaredExtraPublications(runtime.config.Extras, runtime.config.EffectiveExtrasSource(root))
 
 	printAuditStatus(runtime.config.Audit)
 

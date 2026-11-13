@@ -807,3 +807,8 @@ raw editor는 파싱 가능한 자격 증명 remote나 타입을 읽을 수 없�
 파일이 깨지기 전에 CLI install로 추가한 항목은 복구 PUT에서 삭제되거나 이름이 바뀔 수
 있습니다. 저장 전에 백업을 확인하세요. PUT은 게시 lock을 공유하지 않습니다.
 [설치와 중단 복구](install.md#remote-extras)를 참고하세요.
+
+첫 install이 선언 저장 전에 중단되어도 관리 staging의 게시 아티팩트 이름으로
+`interrupted`를 보고합니다. marker의 origin/branch는 읽지 않습니다.
+status와 doctor도 보고합니다. 같은 `--name`으로 원래 install을 다시 실행하세요.
+list와 dashboard는 설정된 extras만 표시합니다.

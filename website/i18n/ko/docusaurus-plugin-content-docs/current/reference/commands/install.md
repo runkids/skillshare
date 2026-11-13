@@ -892,9 +892,12 @@ skillshare install example-org/ai-hub/rules --kind extra --name team-rules --upd
 보존하지만 Windows에서는 이를 보장하지 않습니다. URL에 자격 증명을 넣지 말고 Git 인증이나
 SSH를 사용하세요.
 
-`.skillshare-staging/` journal로 중단을 감지하며 list/status/doctor/`check extras`에
-표시합니다. 다음 명시적 install은 먼저 **journal의 commit**을 가져와 감사하고 live/previous
-hash와 비교해 기록을 복구한 뒤 요청한 source/ref를 처리합니다. 중단 후 내용 수정은 명시적
+설정된 항목의 중단은 list/status/doctor/`check extras`에 표시됩니다. 선언 저장 전에는
+`check extras`, status, doctor가 관리 staging 바로 아래의 게시 아티팩트 이름만 보고합니다.
+marker의 origin은 신뢰하지 않습니다. 같은 `--name`으로 원래 install을 다시 실행하세요.
+live가 없고 previous가 변경되지 않았으면 네트워크 접근 전에 알려진 이전 내용을 로컬로
+복원한 후 journal commit을 가져와 감사하고 전방 복구합니다.
+중단 후 내용 수정은 명시적
 `--force` 없이 교체하지 않습니다. 후보를 가져오지 못하거나 감사에 실패하면 marker를
 남기므로 staging 경로를 보존하세요. `--dry-run`은 migration, config, lock, metadata,
 oplog를 포함해 아무것도 쓰지 않습니다. [수명 주기와 동시 쓰기 제한](extras.md#remote-extras)을 참고하세요.

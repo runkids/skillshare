@@ -88,7 +88,7 @@ func allSkillsFailedError(succeeded int, failures []install.SkillFailure) error 
 // parseInstallArgs parses install command arguments
 func parseInstallArgs(args []string) (*installArgs, bool, error) {
 	result := &installArgs{}
-	extraRequested := false
+	extraRequested := extraInstallRequested(args)
 	intoSet := false
 
 	i := 0
@@ -119,6 +119,9 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 			i++
 			threshold, err := normalizeInstallAuditThreshold(args[i])
 			if err != nil {
+				if extraRequested {
+					return nil, false, fmt.Errorf("invalid audit threshold (use: critical|high|medium|low|info or c|h|m|l|i)")
+				}
 				return nil, false, err
 			}
 			result.opts.AuditThreshold = threshold
@@ -141,6 +144,9 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 			i++
 			kind := strings.ToLower(args[i])
 			if kind != "skill" && kind != "agent" && kind != "extra" {
+				if extraRequested {
+					return nil, false, fmt.Errorf("--kind must be 'skill', 'agent', or 'extra'")
+				}
 				return nil, false, fmt.Errorf("--kind must be 'skill', 'agent', or 'extra', got %q", args[i])
 			}
 			extraRequested = extraRequested || kind == "extra"
@@ -183,9 +189,15 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 		case arg == "--help" || arg == "-h":
 			return nil, true, nil // showHelp = true
 		case strings.HasPrefix(arg, "-"):
+			if extraRequested {
+				return nil, false, fmt.Errorf("unknown option for extra install; see install --help")
+			}
 			return nil, false, fmt.Errorf("unknown option: %s", arg)
 		default:
 			if result.sourceArg != "" {
+				if extraRequested {
+					return nil, false, fmt.Errorf("unexpected argument for extra install; provide one remote source")
+				}
 				return nil, false, fmt.Errorf("unexpected argument: %s", arg)
 			}
 			result.sourceArg = arg

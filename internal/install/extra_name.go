@@ -16,7 +16,7 @@ func ValidateExtraName(name string) error {
 		return fmt.Errorf("extra name %q is reserved", name)
 	}
 	if !extraNamePattern.MatchString(name) {
-		return fmt.Errorf("extra name %q is invalid: must start with a letter or digit and contain only letters, digits, hyphens, or underscores", name)
+		return fmt.Errorf("extra name is invalid: must start with a letter or digit and contain only letters, digits, hyphens, or underscores")
 	}
 	return nil
 }

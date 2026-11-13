@@ -168,10 +168,9 @@ records/source but does not relink already-cleaned targets; use `sync extras`.
 ### 5. Observe a real kill and repair in both modes
 
 Add enough benign fixture files to leave an observable incoming-copy interval.
-Establish the declaration before killing a reinstall: `check extras` enumerates
-configured entries, so a first install killed before its config write has no
-entry for that command to inspect. First-install orphan repair is covered by
-the deterministic domain tests. The watcher kills only the subprocess it starts,
+Establish the declaration before killing a reinstall to exercise an update with
+previously active content. First-install orphan diagnostics and repair are covered
+by deterministic source tests. The watcher kills only the subprocess it starts,
 after observing the marker. A missed interval is a failed observation.
 
 ```bash

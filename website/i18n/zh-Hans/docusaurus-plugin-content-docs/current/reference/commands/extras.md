@@ -778,3 +778,7 @@ raw editor 拒绝返回可解析且含凭据的 remote 或类型不可读的 ext
 加载的 baseline：该加载后、文件损坏前由 CLI install 新增的条目，可能在修复 PUT 时
 被丢弃或重命名。保存前备份并检查文件。PUT 不共用发布锁。
 参阅[安装与中断修复](install.md#remote-extras)。
+
+首次 install 在声明保存前中断时，也会根据受管 staging 的发布产物名称报告
+`interrupted`，不会读取 marker 的 origin/branch。status 和 doctor 也会报告。
+请用相同 `--name` 重跑原来的 install；list 和 dashboard 仍只显示已配置的 extras。

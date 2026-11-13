@@ -889,9 +889,12 @@ skillshare install example-org/ai-hub/rules --kind extra --name team-rules --upd
 稽核通過不保證安全。內部檔案連結會實體化；拒絕絕對、越界、失效、目錄連結及特殊檔案。
 保留 Unix 執行 bit，Windows 不提供這項保證。使用 Git 憑證或 SSH，不在 URL 中放憑證。
 
-透過 `.skillshare-staging/` journal 偵測中斷，list/status/doctor/`check extras` 會顯示。
-下次明確 install 先擷取並稽核 **journal 記錄的 commit**，比較 live/previous hash，
-修復記錄後才處理本次要求的 source/ref。中斷後的內容編輯須明確 `--force` 才能取代。
+已設定項目的中斷會顯示在 list/status/doctor/`check extras`。宣告儲存前，
+`check extras`、status 和 doctor 僅從受管 staging 直屬的發佈產物檔名報告名稱，
+不信任 marker 內的 origin；請用相同 `--name` 重跑原來的 install。
+若 live 缺失且 previous 未變更，下次 install 會先在本機還原已知舊內容，
+再擷取並稽核 journal 的 commit，繼續向前修復。
+中斷後的內容編輯須明確 `--force` 才能取代。
 候選無法擷取或稽核失敗會保留 marker，請保留 staging 路徑。`--dry-run` 不會寫入任何
 migration、config、lock、metadata 或 oplog。
 請參閱[生命週期與並行限制](extras.md#remote-extras)。

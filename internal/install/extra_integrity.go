@@ -6,11 +6,49 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 
 	"skillshare/internal/utils"
 )
 
 const extraStagingDir = ".skillshare-staging"
+
+// InterruptedExtraNames lists only direct publication artifacts. Marker contents
+// are untrusted and are never read to discover an undeclared extra's identity.
+func InterruptedExtraNames(extrasRoot string) ([]string, error) {
+	stage := filepath.Join(extrasRoot, extraStagingDir)
+	info, err := os.Lstat(stage)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if utils.IsLinkMode(stage, info.Mode()) || !info.IsDir() {
+		return nil, fmt.Errorf("unsafe staging directory %s", stage)
+	}
+	entries, err := os.ReadDir(stage)
+	if err != nil {
+		return nil, err
+	}
+	names := map[string]bool{}
+	for _, entry := range entries {
+		file, name := entry.Name(), ""
+		switch {
+		case strings.HasPrefix(file, "publishing-") && strings.HasSuffix(file, ".json"):
+			name = strings.TrimSuffix(strings.TrimPrefix(file, "publishing-"), ".json")
+		case strings.HasPrefix(file, "incoming-"):
+			name = strings.TrimPrefix(file, "incoming-")
+		case strings.HasPrefix(file, "previous-"):
+			name = strings.TrimPrefix(file, "previous-")
+		}
+		if ValidateExtraName(name) == nil {
+			names[name] = true
+		}
+	}
+	return slices.Sorted(maps.Keys(names)), nil
+}
 
 // ExtraIntegrity describes local state without contacting the remote.
 type ExtraIntegrity struct {

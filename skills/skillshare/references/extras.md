@@ -367,7 +367,9 @@ implemented.
 `install <remote> --kind extra --name <name> -p|-g` creates `remote`, optional
 `branch` and an initially empty targets list. Add targets then `sync extras`.
 List/status/doctor/dashboard and `check extras` show local integrity and the pin,
-not upstream freshness. Missing copies require the explicit install command.
+not upstream freshness. List and dashboard rows represent configured extras;
+check/status/doctor also diagnose undeclared publication artifacts by name.
+Missing copies require the explicit install command.
 Target/mode/filter edits retain origin; rename/source changes require remove and
 reinstall. `extras remove <name> --force` skips confirmation, deletes an unedited
 managed copy, keeps edited/unknown content and its ignore rule, and reports an

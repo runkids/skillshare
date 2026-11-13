@@ -32,7 +32,27 @@ func inspectRemoteExtras(entries []config.ExtraConfig, root string) []checkExtra
 		}
 		results = append(results, out)
 	}
-	return results
+	return append(results, undeclaredExtraPublications(entries, root)...)
+}
+
+func undeclaredExtraPublications(entries []config.ExtraConfig, root string) []checkExtraResult {
+	names, err := install.InterruptedExtraNames(root)
+	if err != nil {
+		return []checkExtraResult{{Name: ".skillshare-staging", State: "error", Error: err.Error(), Message: "publication artifacts could not be inspected"}}
+	}
+	declared := map[string]bool{}
+	for _, entry := range entries {
+		if entry.Remote != "" {
+			declared[entry.Name] = true
+		}
+	}
+	var out []checkExtraResult
+	for _, name := range names {
+		if !declared[name] {
+			out = append(out, checkExtraResult{Name: name, State: "interrupted", Message: "publication interrupted before remote declaration; rerun the original install with the same --name to repair; remote revision not checked"})
+		}
+	}
+	return out
 }
 
 func remoteExtraSummary(remote, branch, commit, state string) string {
@@ -112,6 +132,8 @@ func cmdCheckExtras(mode runMode, cwd string, args []string) error {
 		ui.Row(mark, result.Name, remoteExtraSummary(result.Remote, result.Branch, result.Commit, result.State), ui.RowWidth(result.Name))
 		if result.Error != "" {
 			ui.Warning("%s", result.Error)
+		} else if result.Remote == "" && result.State == "interrupted" {
+			ui.Note(result.Message)
 		}
 	}
 	ui.Note("Local integrity only; remote revision not checked")

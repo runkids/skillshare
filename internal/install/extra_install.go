@@ -121,10 +121,22 @@ func InstallRemoteExtra(req RemoteExtraRequest) (*RemoteExtraResult, error) {
 	if req.Branch == "" {
 		req.Branch = pinnedBranch
 	}
-	result.Branch = req.Branch
 	source := *req.Source
 	source.Branch = req.Branch
 	source.Commit = ""
+	if err := resolveWebRef(&source); err != nil {
+		return nil, err
+	}
+	// An existing empty declaration follows the default branch. Resolve the
+	// URL's directory without turning that inherited default into a URL ref.
+	if req.Branch == "" {
+		source.Branch = ""
+	}
+	req.Branch = source.Branch
+	result.Branch = req.Branch
+	// Config callbacks share the parsed source's branch, but its original
+	// subdir remains unchanged for identity validation on a later request.
+	req.Source.Branch = req.Branch
 	if !req.Opts.Update && pinnedBranch == req.Branch {
 		if req.ProjectRoot != "" {
 			lock, err := LoadLock(req.LockDir)

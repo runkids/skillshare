@@ -276,6 +276,9 @@ func ParseSourceWithOptions(input string, opts ParseOptions) (*Source, error) {
 
 	// Try Git HTTPS pattern (non-GitHub)
 	if matches := gitHTTPSPattern.FindStringSubmatch(input); matches != nil {
+		if strings.EqualFold(matches[2], "github.com") && !strings.Contains(strings.Trim(matches[3], "/"), "/") {
+			return nil, fmt.Errorf("GitHub source requires an owner and repository")
+		}
 		return parseGitHTTPS(matches, source, opts)
 	}
 

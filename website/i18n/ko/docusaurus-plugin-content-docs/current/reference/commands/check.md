@@ -253,3 +253,8 @@ origin, 선택적 branch, commit과 `intact`, `modified`, `interrupted`, `missin
 extras를 제외합니다. 누락·중단은 같은 `-p`/`-g`의
 [`install <remote> --kind extra --name <name>`](install.md#remote-extras)로 명시적으로 복원하세요.
 인자 없는 install은 복원하지 않습니다.
+
+첫 install이 선언 저장 전에 중단되어도 관리 staging의 게시 아티팩트 이름으로
+`interrupted`를 보고합니다. marker의 origin/branch는 읽지 않습니다.
+status와 doctor도 보고합니다. 같은 `--name`으로 원래 install을 다시 실행하세요.
+list와 dashboard는 설정된 extras만 표시합니다.

@@ -826,9 +826,9 @@ func TestInstallRemoteExtra_WriteHooksFailClosed(t *testing.T) {
 			if _, err := InstallRemoteExtra(req); err != nil {
 				t.Fatal(err)
 			}
-			marker, rename, meta, lock, config, ignore, cleanup := extraWriteMarker, extraRename, extraWriteMeta, extraWriteLock, extraWriteConfig, extraWriteIgnore, extraCleanup
+			marker, rename, meta, lock, ignore, cleanup := extraWriteMarker, extraRename, extraWriteMeta, extraWriteLock, extraWriteIgnore, extraCleanup
 			defer func() {
-				extraWriteMarker, extraRename, extraWriteMeta, extraWriteLock, extraWriteConfig, extraWriteIgnore, extraCleanup = marker, rename, meta, lock, config, ignore, cleanup
+				extraWriteMarker, extraRename, extraWriteMeta, extraWriteLock, extraWriteIgnore, extraCleanup = marker, rename, meta, lock, ignore, cleanup
 			}()
 			fault := errors.New("hook failure")
 			switch hook {
@@ -850,7 +850,7 @@ func TestInstallRemoteExtra_WriteHooksFailClosed(t *testing.T) {
 			case "lock":
 				extraWriteLock = func(*Lock, string) error { return fault }
 			case "config":
-				extraWriteConfig = func(func() error) error { return fault }
+				req.WriteConfig = func() error { return fault }
 			case "cleanup":
 				extraCleanup = func(name string) error {
 					if strings.HasSuffix(name, "previous-"+req.Name) {

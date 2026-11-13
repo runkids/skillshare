@@ -561,6 +561,14 @@
   },
   {
     "file": "internal/install/extra_integrity.go",
+    "function": "InterruptedExtraNames",
+    "callee": "os.ReadDir",
+    "root": "stage",
+    "reason": "extras",
+    "note": "Inspect only direct managed extra publication artifact names after refusing a linked staging directory; never read marker contents or descend"
+  },
+  {
+    "file": "internal/install/extra_integrity.go",
     "function": "extraTreeHashes",
     "callee": "filepath.WalkDir",
     "root": "dir",

@@ -242,6 +242,22 @@ func printTrackedReposStatus(sourcePath string, discovered []sync.DiscoveredSkil
 	}
 }
 
+func printUndeclaredExtraPublications(extras []config.ExtraConfig, root string) {
+	rows := undeclaredExtraPublications(extras, root)
+	if len(rows) == 0 {
+		return
+	}
+	ui.Section("Interrupted extras")
+	for _, row := range rows {
+		ui.Row(ui.MarkWarn, row.Name, row.State, ui.RowWidth(row.Name))
+		if row.Error != "" {
+			ui.Warning("%s", row.Error)
+		} else {
+			ui.Note(row.Message)
+		}
+	}
+}
+
 // printExtrasStatus prints each extra's targets and how many files they get.
 func printExtrasStatus(extras []config.ExtraConfig, sourceDirFn func(config.ExtraConfig) string, project bool) {
 	ui.Section("Extras")

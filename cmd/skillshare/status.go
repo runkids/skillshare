@@ -144,6 +144,7 @@ func cmdStatus(args []string) error {
 				return config.ResolveExtrasSourceDir(extra, cfg.EffectiveExtrasSource(), cfg.EffectiveSkillsSource())
 			}, false)
 		}
+		printUndeclaredExtraPublications(cfg.Extras, cfg.EffectiveExtrasSource())
 
 		printAuditStatus(cfg.Audit)
 		checkSkillVersion(cfg)

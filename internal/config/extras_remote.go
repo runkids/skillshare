@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -12,8 +13,8 @@ import (
 
 var ErrRawExtrasUnreadable = errors.New("extras section is not readable")
 
-// RawExtras decodes only extras. All parser/decode text is fixed: yaml.v3 can
-// include scalars, duplicate keys and anchor names in its original errors.
+// RawExtras decodes only extras. Only a numeric syntax line can leave the
+// parser: yaml.v3 errors can include scalars, duplicate keys and anchor names.
 func RawExtras(data []byte) ([]ExtraConfig, error) {
 	var document struct {
 		Extras []ExtraConfig `yaml:"extras"`
@@ -22,6 +23,15 @@ func RawExtras(data []byte) ([]ExtraConfig, error) {
 		var typeErr *yaml.TypeError
 		if errors.As(err, &typeErr) {
 			return nil, ErrRawExtrasUnreadable
+		}
+		// yaml.v3 exposes no structured syntax error. Keep only its bounded
+		// numeric location prefix; its remaining text can contain input values.
+		if rest, ok := strings.CutPrefix(err.Error(), "yaml: line "); ok {
+			if digits, _, ok := strings.Cut(rest, ":"); ok && len(digits) <= 10 {
+				if line, err := strconv.ParseUint(digits, 10, 32); err == nil && line > 0 {
+					return nil, fmt.Errorf("invalid YAML syntax at line %d", line)
+				}
+			}
 		}
 		return nil, errors.New("invalid YAML syntax")
 	}
@@ -63,6 +73,10 @@ func ValidateExtraRemote(e ExtraConfig) error {
 	r := strings.TrimSpace(e.Remote)
 	if r == "" || !strings.HasPrefix(strings.ToLower(r), "file://") && (strings.HasPrefix(r, "/") || strings.HasPrefix(r, "~") || strings.HasPrefix(r, ".") || strings.HasPrefix(r, `\`) || len(r) >= 2 && unicode.IsLetter(rune(r[0])) && r[1] == ':') {
 		return fmt.Errorf("extra %q: remote must not be a filesystem path", e.Name)
+	}
+	source, err := install.ParseSource(r)
+	if err != nil || source == nil || !source.IsGit() {
+		return fmt.Errorf("extra %q: unsupported remote source form", e.Name)
 	}
 	return nil
 }

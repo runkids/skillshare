@@ -24,7 +24,6 @@ var extraRename = os.Rename
 var extraWriteMarker = writeExtraJournal
 var extraWriteMeta = func(store *MetadataStore, root string) error { return store.Save(root) }
 var extraWriteLock = func(lock *Lock, dir string) error { return lock.Save(dir) }
-var extraWriteConfig = func(write func() error) error { return write() }
 var extraWriteIgnore = addGitIgnoreEntries
 var extraCleanup = os.RemoveAll
 
@@ -287,7 +286,7 @@ func publishRemoteExtra(req RemoteExtraRequest, candidate *extraCandidate) error
 		return rollback(err)
 	}
 	step = "config"
-	if err := configFile.write(func() error { return extraWriteConfig(req.WriteConfig) }); err != nil {
+	if err := configFile.write(req.WriteConfig); err != nil {
 		return rollback(err)
 	}
 	if err := boundary("config"); err != nil {

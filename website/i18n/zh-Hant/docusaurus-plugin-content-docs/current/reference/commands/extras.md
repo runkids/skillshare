@@ -774,3 +774,7 @@ raw editor 拒絕回傳可解析且含憑證的 remote 或型別無法讀取的 
 載入的 baseline：該載入後、檔案損壞前由 CLI install 新增的項目，可能在修復 PUT 時
 被捨棄或重新命名。儲存前備份並檢查檔案。PUT 不共用發布鎖。
 參閱[安裝與中斷修復](install.md#remote-extras)。
+
+首次 install 在宣告儲存前中斷時，也會依受管 staging 的發佈產物名稱報告
+`interrupted`，不會讀取 marker 的 origin/branch。status 與 doctor 也會報告。
+請用相同 `--name` 重跑原來的 install；list 和 dashboard 仍只顯示已設定的 extras。
