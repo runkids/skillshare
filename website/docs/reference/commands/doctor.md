@@ -214,6 +214,14 @@ For installed skills with file hash metadata, doctor verifies that no files have
 !              1 skill missing file hashes: _old-repo__legacy-skill
 ```
 
+### Profiles {#profiles}
+
+Both global and project mode report an unavailable active profile as an error (`profile_unavailable`). Repair its definition or select another profile with `skillshare profile use <name>` / `skillshare profile use --none`.
+
+Warnings cover a pending switch (`profile_pending`), modified managed copies that will be kept (`profile_kept_modified`), include patterns matching no enabled source skills (`profile_unmatched`), excludes with an explicitly empty include (`profile_inert_excludes`), and symlink-mode targets unaffected by the active profile (`profile_symlink_target`). Pattern checks include inactive usable definitions. Failed or incomplete discovery omits speculative pattern/copy diagnostics.
+
+These names appear unchanged in `doctor --json` checks and the dashboard health results. Collect edited copies before syncing if those changes belong in the source. Ordinary sync also combines unmatched active-profile patterns into one warning per invocation, including when the desired selection is empty.
+
 ### Extras
 
 When extras are configured, verifies:

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"skillshare/internal/config"
+	"skillshare/internal/profile"
 )
 
 // projectMoveMode is the project counterpart: the source, targets, lockfile
@@ -28,6 +29,7 @@ func projectMoveMode(root string) (*moveMode, error) {
 		walk:            config.SkillsWalk(cfg.FollowSourceLinks, sourceDir, targets),
 		store:           store,
 		targets:         targets,
+		profiles:        profile.Parse(&cfg.Profiles),
 		cfgPath:         config.ProjectConfigPath(root),
 		projectRoot:     root,
 		gitignoreDir:    gitignoreDir,

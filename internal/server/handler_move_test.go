@@ -10,11 +10,59 @@ import (
 	"strings"
 	"testing"
 
+	"gopkg.in/yaml.v3"
+
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
 	"skillshare/internal/projectdir"
 )
+
+func TestHandleBatchMove_ProfileCatalogByMode(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(map[bool]string{false: "global", true: "project"}[project], func(t *testing.T) {
+			s, src := newTestServer(t)
+			const definitions = "work:\n  skills:\n    include: [team__*]\n"
+			var node yaml.Node
+			if err := yaml.Unmarshal([]byte(definitions), &node); err != nil {
+				t.Fatal(err)
+			}
+			cfgPath := s.configPath()
+			if project {
+				s.projectRoot = t.TempDir()
+				s.projectCfg = &config.ProjectConfig{Profiles: *node.Content[0]}
+				src = s.projectCfg.EffectiveSkillsSource(s.projectRoot)
+				if err := s.projectCfg.Save(s.projectRoot); err != nil {
+					t.Fatal(err)
+				}
+				cfgPath = config.ProjectConfigPath(s.projectRoot)
+			} else {
+				s.cfg.Profiles = *node.Content[0]
+				if err := s.cfg.Save(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			addSkill(t, src, "team/a")
+			addSkill(t, src, "team/deep/b")
+			before, err := os.ReadFile(cfgPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Isolate the shared consumer's catalog choice from auto-reload.
+			body := bytes.NewBufferString(`{"names":["team"],"dest":"archive","dryRun":true}`)
+			rr := httptest.NewRecorder()
+			s.handleBatchMove(rr, httptest.NewRequest(http.MethodPost, "/api/resources/batch/move", body))
+			var resp moveResponse
+			if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil || rr.Code != http.StatusOK || len(resp.Warns) != 2 || len(resp.Results) != 1 || !resp.Results[0].Success || resp.Results[0].Skills != 2 {
+				t.Fatalf("profile warnings lost in shared consumer: %s (%v)", rr.Body.String(), err)
+			}
+			after, err := os.ReadFile(cfgPath)
+			if err != nil || !bytes.Equal(before, after) || !strings.Contains(strings.Join(resp.Warns, "\n"), `profile "work"`) {
+				t.Fatal("warning must not rewrite profiles", err, resp)
+			}
+		})
+	}
+}
 
 type moveResponse struct {
 	Results []batchMoveItemResult `json:"results"`

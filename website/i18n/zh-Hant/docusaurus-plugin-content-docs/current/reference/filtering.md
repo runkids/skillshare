@@ -4,7 +4,7 @@ sidebar_position: 3
 
 # 篩選機制參考
 
-控制哪些 skills 能到達哪些 targets 的三層篩選機制完整規格說明。
+控制哪些 skills 能到達哪些 targets 的篩選機制完整規格說明。
 
 :::tip 想找快速指南？
 請參閱 [篩選 Skills](/docs/how-to/daily-tasks/filtering-skills)，取得情境導向的指南。
@@ -15,12 +15,13 @@ sidebar_position: 3
 | Layer | Scope | Where to set | Syntax | Evaluated at |
 |-------|-------|-------------|--------|-------------|
 | `.skillignore` | 對所有 targets 隱藏 | Source 目錄或 tracked repo 根目錄 | [gitignore](https://git-scm.com/docs/gitignore) | Discovery（探索階段） |
+| 使用中的設定檔 | 此設定啟用的 merge/copy Skill Target | `profiles:` 與本機選擇狀態 | 對 flat Source 名稱使用 Go `filepath.Match` | 選擇 |
 | SKILL.md `metadata.targets` | 將 skills 限制在列出的 targets | 每個 skill 的 frontmatter | YAML list | Sync（於 discovery 階段解析） |
 | Agent `targets` | 將 agent 限制在列出的 targets | 每個 agent 的 frontmatter | YAML list | Sync（於 discovery 階段解析） |
 | Target include/exclude | 依 target、依資源 | `config.yaml` 或 CLI flags | Go [`filepath.Match`](https://pkg.go.dev/path/filepath#Match) glob | Sync |
 
 :::note Sync mode 注意事項
-這三層篩選機制只適用於 **merge** 與 **copy** sync modes。
+逐個 skill 的選擇適用於 **merge** 與 **copy** sync modes。
 在 **symlink** mode 下，整個 source 目錄會被當作單一單位連結 — 逐個 skill 的篩選不會生效。
 :::
 
@@ -29,8 +30,9 @@ sidebar_position: 3
 一個 skill 必須通過**所有**層級才能到達某個 target：
 
 1. **`.skillignore`** — 在 discovery 階段評估。符合的 skills 永遠不會進入 sync pipeline。
-2. **Target include/exclude** — 在 sync 階段評估（`FilterSkills`）。Skills 會被探索到，但對不符合的 targets 會被略過。
-3. **SKILL.md `metadata.targets`** — 在 sync 階段評估（`FilterSkillsByTarget`）。Skills 會被限制在它們宣告的 targets 之內。
+2. **使用中的設定檔** — 依 flat Source 名稱，在 Target 篩選與路由之前縮小選擇範圍。
+3. **Target include/exclude** — 在 sync 階段評估（`FilterSkills`）。Skills 會被探索到，但對不符合的 targets 會被略過。
+4. **SKILL.md `metadata.targets`** — 在 sync 階段評估（`FilterSkillsByTarget`）。Skills 會被限制在它們宣告的 targets 之內。
 
 ## .skillignore
 
@@ -137,3 +139,7 @@ skillshare target claude --remove-agent-include "team-*"
 使用中的設定檔在 discovery 與 Target 篩選之間新增 AND 條件，比對 flat Source 名稱；不會擴大 `.skillignore`、Target 篩選或 metadata 路由允許的集合。不影響 agents、已登錄的 `projects:` 和 symlink 模式。
 
 `skills` 鍵省略時不限制；`skills: {}` 與空白或僅空格 include 不選擇任何技能。exclude 必須有 include 鍵；明確的 `include: []` 配合 exclude 有效，但排除不生效。
+
+`profile add` 視需要新增精確 include，並移除精確符合的 exclude。遇到符合的 glob exclude 時，整批拒絕並指出該模式。`profile remove` 移除精確 include；如果更廣的 include 仍選中該技能，就新增精確 exclude。從無限制的定義移除時，先寫入 `include: ['*']`。移除最後一個 include 後保留 `include: []` 與既有 exclude。
+
+Sync matrix 使用 `not_in_profile` 與設定檔名稱解釋未選中的技能；diff 在將被清除的受管項目上顯示原因。`doctor` 回報沒有符合技能的 include 與不起作用的 exclude；sync 每次執行會將使用中設定檔的無符合模式合併為一則警告。

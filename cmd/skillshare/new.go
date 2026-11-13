@@ -77,18 +77,21 @@ func cmdNew(args []string) error {
 
 	// Resolve source directory
 	var sourceDir string
+	var profileCfg profileConfigView
 	if mode == modeProject {
 		projectCfg, loadErr := config.LoadProject(cwd)
 		if loadErr != nil {
 			return fmt.Errorf("failed to load project config: %w", loadErr)
 		}
 		sourceDir = projectCfg.EffectiveSkillsSource(cwd)
+		profileCfg = projectCfg
 	} else {
 		cfg, err := config.Load()
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w (run 'skillshare init' first)", err)
 		}
 		sourceDir = cfg.EffectiveSkillsSource()
+		profileCfg = cfg
 	}
 
 	// Create skill directory path
@@ -173,6 +176,7 @@ func cmdNew(args []string) error {
 	ui.Row(ui.MarkOK, "Created", utils.FoldHomePath(skillFile), ui.RowWidth("Created"))
 	printScaffoldDirs(scaffold)
 	ui.Next("skillshare sync", "link it into your targets once you've edited it")
+	printProfileHint(profileHint(profileCfg, []string{skillName}), false)
 
 	return nil
 }

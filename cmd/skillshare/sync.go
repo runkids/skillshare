@@ -15,6 +15,7 @@ import (
 	"skillshare/internal/hooks"
 	"skillshare/internal/mcp"
 	"skillshare/internal/oplog"
+	"skillshare/internal/profile"
 	"skillshare/internal/profileapply"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sync"
@@ -462,6 +463,11 @@ func cmdSyncPrepared(args []string, prepared *profileSyncRun) error {
 	}
 	sourceIncomplete := walk.Follow.Incomplete()
 	linkWarnings := append(metaWarnings, sync.SourceLinkWarnings(walk, sourceIncomplete)...)
+	if !sourceIncomplete {
+		if warning := profileUnmatchedWarning(profile.Parse(&cfg.Profiles), cfg.ProfileState(), discoveredSkills); warning != "" {
+			linkWarnings = append(linkWarnings, warning)
+		}
+	}
 	if !jsonOutput {
 		for _, w := range linkWarnings {
 			ui.Warning("%s", w)

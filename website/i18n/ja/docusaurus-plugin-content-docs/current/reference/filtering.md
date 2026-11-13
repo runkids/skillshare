@@ -16,12 +16,13 @@ sidebar_position: 3
 | レイヤー | スコープ | 設定場所 | 構文 | 評価されるタイミング |
 |-------|-------|-------------|--------|-------------|
 | `.skillignore` | すべての Target から隠す | Source ディレクトリまたは Tracked repo のルート | [gitignore](https://git-scm.com/docs/gitignore) | Discovery |
+| アクティブなプロファイル | この設定の有効な merge/copy Skill Target | `profiles:` とローカル選択状態 | flat Source 名に Go `filepath.Match` | 選択 |
 | SKILL.md `metadata.targets` | Skill をリストされた Target に制限する | Skill ごとのフロントマター | YAML リスト | Sync（discovery 時にパース） |
 | Agent `targets` | Agent をリストされた Target に制限する | Agent ごとのフロントマター | YAML リスト | Sync（discovery 時にパース） |
 | Target の include/exclude | Target ごと、リソースごと | `config.yaml` または CLI フラグ | Go [`filepath.Match`](https://pkg.go.dev/path/filepath#Match) の glob | Sync |
 
 :::note Sync モードの注意点
-これら3つのレイヤーはすべて **merge** と **copy** の Sync モードにのみ適用されます。
+Skill ごとの選択は **merge** と **copy** の Sync モードに適用されます。
 **symlink** モードでは Source ディレクトリ全体が1つの単位としてリンクされるため、Skill ごとの
 フィルタリングは効果を持ちません。
 :::
@@ -31,9 +32,10 @@ sidebar_position: 3
 Skill が Target に届くには、**すべての**レイヤーを通過する必要があります。
 
 1. **`.skillignore`** — Discovery 時に評価される。一致した Skill は Sync パイプラインに入らない。
-2. **Target の include/exclude** — Sync 時に評価される（`FilterSkills`）。Skill は発見されるが、
+2. **アクティブなプロファイル** — flat な Source 名により、Target フィルターと routing の前に選択を絞ります。
+3. **Target の include/exclude** — Sync 時に評価される（`FilterSkills`）。Skill は発見されるが、
    一致しない Target ではスキップされる。
-3. **SKILL.md `metadata.targets`** — Sync 時に評価される（`FilterSkillsByTarget`）。Skill は
+4. **SKILL.md `metadata.targets`** — Sync 時に評価される（`FilterSkillsByTarget`）。Skill は
    宣言された Target に制限される。
 
 ## .skillignore
@@ -156,3 +158,7 @@ Agent 用の `targets.<name>.agents.include` / `targets.<name>.agents.exclude`�
 アクティブなプロファイルは discovery と Target フィルターの間で AND 条件として適用され、flat な Source 名に一致します。`.skillignore`、Target フィルター、metadata の制限を広げません。agents、登録された `projects:`、symlink モードには適用しません。
 
 `skills` キーがなければ制限なし、`skills: {}` と空・空白のみの include は選択なしです。exclude には include キーが必要です。明示的な `include: []` と exclude は有効ですが除外は無効です。
+
+`profile add` は必要な完全一致 include を追加し、完全一致 exclude を除去します。glob exclude に一致すると、パターン名を示してバッチ全体を拒否します。`profile remove` は完全一致 include を除去し、広い include がまだ選ぶ場合は完全一致 exclude を追加します。制限のない定義から削除する場合は、先に `include: ['*']` を書き込みます。最後の include を削除しても `include: []` と既存の exclude は残ります。
+
+Sync matrix は選択外を `not_in_profile` とプロファイル名で表示します。Diff は削除予定の管理済みエントリーに理由を表示します。`doctor` は一致しない include と無効な exclude を報告し、sync はアクティブなプロファイルの一致しないパターンを1回の警告にまとめます。

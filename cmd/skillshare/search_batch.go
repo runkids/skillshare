@@ -21,6 +21,7 @@ type searchInstallResult struct {
 	name     string
 	source   string
 	status   string // "installed", "skipped", "failed"
+	path     string
 	detail   string
 	warnings []string
 }
@@ -368,6 +369,7 @@ func collectSearchInstallGlobal(result search.SearchResult, cfg *config.Config, 
 	}
 
 	r.status = "installed"
+	r.path = installResult.SkillPath
 	r.warnings = installResult.Warnings
 	return r
 }
@@ -421,6 +423,7 @@ func collectSearchInstallProject(result search.SearchResult, cwd string, onProgr
 	}
 
 	r.status = "installed"
+	r.path = installResult.SkillPath
 	r.warnings = installResult.Warnings
 	return r
 }
@@ -542,8 +545,12 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 
 	// Build ordered results slice matching the original selection order.
 	results := make([]searchInstallResult, len(selected))
+	var installedPaths []string
 	for i, sr := range selected {
 		results[i] = resultMap[sr.Name]
+		if results[i].status == "installed" && results[i].path != "" {
+			installedPaths = append(installedPaths, results[i].path)
+		}
 	}
 
 	// Phase 3: reconcile once after all installs.
@@ -560,6 +567,11 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 	}
 
 	renderBatchSearchInstallSummary(results, mode, time.Since(batchStart))
+	if projectRT != nil {
+		printProfileHint(installedProfileHint(projectRT.config, sourceDir, projectRT.skillsWalk(), installedPaths), false)
+	} else if cfg != nil {
+		printProfileHint(installedProfileHint(cfg, sourceDir, cfg.SkillsWalk(), installedPaths), false)
+	}
 
 	// Return error if any failed
 	var failed []string
@@ -621,6 +633,7 @@ func installFromDiscoveryResult(discovery *install.DiscoveryResult, sr search.Se
 	}
 
 	r.status = "installed"
+	r.path = installResult.SkillPath
 	r.warnings = installResult.Warnings
 	return r
 }

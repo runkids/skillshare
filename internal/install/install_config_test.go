@@ -1,8 +1,134 @@
 package install
 
 import (
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 )
+
+type publicationContext struct {
+	metadataInstallContext
+	entries []SkillEntryDTO
+	err     error
+}
+
+func (c publicationContext) ConfigSkills() []SkillEntryDTO { return c.entries }
+func (c publicationContext) Reconcile() error              { return c.err }
+
+func TestConfigInstalledPublicationPaths(t *testing.T) {
+	for _, dry := range []bool{false, true} {
+		root, origin := t.TempDir(), t.TempDir()
+		if err := os.WriteFile(filepath.Join(origin, "SKILL.md"), []byte("# Fixture"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		ctx := publicationContext{metadataInstallContext{root}, []SkillEntryDTO{
+			{Name: "review", Group: "team", Source: origin},
+			{Name: "broken", Source: filepath.Join(origin, "absent")},
+		}, errors.New("reconcile failed")}
+		result, err := InstallFromConfig(ctx, InstallOptions{SkipAudit: true, Quiet: true, DryRun: dry})
+		want := []string{filepath.Join(root, "team", "review")}
+		if dry {
+			if err != nil || len(result.InstalledPaths) != 0 || result.Installed != 0 {
+				t.Fatalf("dry run published paths: %+v (%v)", result, err)
+			}
+			continue
+		}
+		if !errors.Is(err, ctx.err) || !reflect.DeepEqual(result.InstalledPaths, want) || result.Installed != 1 || len(result.FailedSkills) != 1 || !reflect.DeepEqual(result.InstalledSkills, []string{"team/review"}) {
+			t.Fatalf("partial successes lost or public names changed: %+v (%v)", result, err)
+		}
+		if _, err := os.Stat(filepath.Join(want[0], "SKILL.md")); err != nil {
+			t.Fatal("successful publication missing", err)
+		}
+		data, err := json.Marshal(result)
+		if err != nil || strings.Contains(string(data), "InstalledPaths") || strings.Contains(string(data), want[0]) {
+			t.Fatalf("internal paths leaked: %s (%v)", data, err)
+		}
+		ctx.err = nil
+		skipped, err := InstallFromConfig(ctx, InstallOptions{SkipAudit: true, Quiet: true})
+		if err != nil || skipped.Skipped != 1 || len(skipped.InstalledPaths) != 0 {
+			t.Fatalf("already-present path published again: %+v (%v)", skipped, err)
+		}
+	}
+}
+
+func TestConfigTrackedAndLockedPublicationPaths(t *testing.T) {
+	remote := makeRemote(t, "next")
+	root := t.TempDir()
+	ctx := publicationContext{metadataInstallContext{root}, []SkillEntryDTO{{Name: "_repo", Group: "team", Source: remote, Tracked: true}}, nil}
+	result, err := InstallFromConfig(ctx, InstallOptions{SkipAudit: true, Quiet: true})
+	want := filepath.Join(root, "team", "_repo")
+	if err != nil || !reflect.DeepEqual(result.InstalledPaths, []string{want}) || result.InstalledRepos != 1 || result.InstalledRepoSkills != 1 {
+		t.Fatalf("tracked publication: %+v (%v)", result, err)
+	}
+	gitOut, err := gitOutput("", "ls-remote", remote, "refs/heads/next")
+	if err != nil {
+		t.Fatal(err)
+	}
+	refs := strings.Fields(gitOut)
+	if len(refs) != 2 {
+		t.Fatal("missing fixture revision", gitOut)
+	}
+	commit := refs[0]
+	lock := &Lock{Skills: map[string]LockEntry{"team/_repo": {Source: remote, Commit: commit}}}
+	result, err = InstallFromConfig(ctx, InstallOptions{SkipAudit: true, Quiet: true, Lock: lock})
+	if err != nil || result.Installed != 1 || !reflect.DeepEqual(result.InstalledPaths, []string{want}) || InstalledCommit(want, nil) != commit {
+		t.Fatalf("locked revision publication: %+v (%v)", result, err)
+	}
+}
+
+func TestConfigGroupedAndTrackedRootsKeepPublicNames(t *testing.T) {
+	repo := initTestRepo(t)
+	for _, path := range []string{"one/review", "two/review"} {
+		dir := filepath.Join(repo, filepath.FromSlash(path))
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# Fixture"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	gitAdd(t, repo, ".")
+	gitCommit(t, repo, "fixture")
+	remote := localFileURL(repo)
+	for _, tracked := range []bool{false, true} {
+		root := t.TempDir()
+		entries := []SkillEntryDTO{{Name: "a", Group: "team", Source: remote + "//one/review"}, {Name: "b", Group: "team", Source: remote + "//two/review"}}
+		paths, names := []string{filepath.Join(root, "team", "a"), filepath.Join(root, "team", "b")}, []string{"team/a", "team/b"}
+		if tracked {
+			entries = []SkillEntryDTO{{Name: "_repo", Group: "team", Source: remote, Tracked: true}}
+			paths, names = []string{filepath.Join(root, "team", "_repo")}, []string{"review", "review"}
+		}
+		ctx := publicationContext{metadataInstallContext{root}, entries, nil}
+		result, err := InstallFromConfig(ctx, InstallOptions{SkipAudit: true, Quiet: true})
+		if err != nil || result.Installed != len(entries) || len(result.FailedSkills) != 0 || !reflect.DeepEqual(result.InstalledPaths, paths) || !reflect.DeepEqual(result.InstalledSkills, names) {
+			t.Fatalf("grouped/tracked identity changed: %+v (%v)", result, err)
+		}
+		for _, path := range paths {
+			if _, err := os.Stat(path); err != nil {
+				t.Fatal("publication root missing", err)
+			}
+		}
+	}
+	// A tracked repository with no skills still retains its display fallback.
+	if err := os.RemoveAll(filepath.Join(repo, "one")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(filepath.Join(repo, "two")); err != nil {
+		t.Fatal(err)
+	}
+	gitAdd(t, repo, ".")
+	gitCommit(t, repo, "empty repository")
+	root := t.TempDir()
+	ctx := publicationContext{metadataInstallContext{root}, []SkillEntryDTO{{Name: "_empty", Source: remote, Tracked: true}}, nil}
+	result, err := InstallFromConfig(ctx, InstallOptions{SkipAudit: true, Quiet: true})
+	if err != nil || result.InstalledRepos != 1 || result.InstalledRepoSkills != 0 || !reflect.DeepEqual(result.InstalledSkills, []string{"_empty"}) || !reflect.DeepEqual(result.InstalledPaths, []string{filepath.Join(root, "_empty")}) {
+		t.Fatalf("empty repo display semantics changed: %+v (%v)", result, err)
+	}
+}
 
 func TestGroupConfigSkillsByRepo(t *testing.T) {
 	mustParse := func(raw string) *Source {

@@ -223,6 +223,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 					ui.StepDone(displayName, "moved to locked commit "+shortHash(locked))
 				}
 				result.InstalledSkills = append(result.InstalledSkills, displayName)
+				result.InstalledPaths = append(result.InstalledPaths, destPath)
 				result.Installed++
 				continue
 			}
@@ -283,6 +284,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 			continue
 		}
 		result.InstalledSkills = append(result.InstalledSkills, installed.skills...)
+		result.InstalledPaths = append(result.InstalledPaths, installed.path)
 		result.Installed++
 		result.InstalledRepos++
 		result.InstalledRepoSkills += installed.skillCount
@@ -346,6 +348,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 				ui.StepDone(displayName, "installed")
 			}
 			result.InstalledSkills = append(result.InstalledSkills, displayName)
+			result.InstalledPaths = append(result.InstalledPaths, destPath)
 			result.Installed++
 		}
 
@@ -367,6 +370,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 			continue // StepDone already called inside installPlainFromConfig
 		}
 		result.InstalledSkills = append(result.InstalledSkills, displayName)
+		result.InstalledPaths = append(result.InstalledPaths, destPath)
 		result.Installed++
 	}
 
@@ -439,6 +443,7 @@ type trackedInstallOutcome struct {
 	err        error    // why the install failed; the caller reports it
 	action     string   // only meaningful on dry-run
 	skills     []string // skills names to record
+	path       string   // successful logical publication root
 	skillCount int      // skills discovered in the repo
 }
 
@@ -474,7 +479,7 @@ func installTrackedFromConfig(
 	if len(skills) == 0 {
 		skills = []string{displayName}
 	}
-	return trackedInstallOutcome{skills: skills, skillCount: trackedResult.SkillCount}
+	return trackedInstallOutcome{skills: skills, path: trackedResult.RepoPath, skillCount: trackedResult.SkillCount}
 }
 
 // installPlainFromConfig installs a single non-tracked skill from config.
