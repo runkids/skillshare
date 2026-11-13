@@ -663,7 +663,7 @@ func printInstallHelp() {
 			{"--name <name>", "Override installed name when exactly one skill is installed"},
 			{"--kind <kind>", "Restrict discovery/install to skill or agent"},
 			{"--into <dir>", "Install into subdirectory (e.g. \"frontend\" or \"frontend/react\")"},
-			{"-f, --force", "Overwrite existing skill; also continue if audit would block"},
+			{"-f, --force", "Overwrite existing skill; also continue if audit findings would block"},
 			{"-u, --update", "Update existing (git pull if possible, else reinstall)"},
 			{"-b, --branch <ref>", "Git branch, tag, or commit SHA to install from (default: remote default)"},
 			{"-t, --track", "Keep a Git checkout for updates; no selection prompt.\nCannot combine with --all, --yes, --skill, or --agent"},

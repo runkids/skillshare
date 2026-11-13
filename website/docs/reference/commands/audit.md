@@ -210,7 +210,7 @@ skillshare install /path/to/skill --skip-audit
 # Bypasses scanning (use with caution)
 ```
 
-`--force` overrides block decisions. `--skip-audit` disables scanning for that install command.
+`--force` overrides block decisions from findings; a scan that cannot run still blocks. `--skip-audit` disables scanning for that install command.
 
 There is no config flag to globally disable install-time audit. Use `--skip-audit` only for commands where you intentionally want to bypass scanning.
 

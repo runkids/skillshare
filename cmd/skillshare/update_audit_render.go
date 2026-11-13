@@ -184,7 +184,7 @@ func displayUpdateBlockedSection(blocked []batchBlockedEntry) {
 		label := blockedSkillLabel(b.name, digest.threshold)
 		ui.StepFail(label, compactBlockedUpdateMessage(b.errMsg))
 	}
-	ui.Note("Use --force or --skip-audit to bypass")
+	ui.Note("Use --force to override findings or --skip-audit to bypass scanning")
 }
 
 // compactBlockedUpdateMessage extracts a compact message from a blocked update error.
@@ -199,6 +199,9 @@ func compactBlockedUpdateMessage(errMsg string) string {
 		parts = append(parts, fmt.Sprintf("(%s, %d %s)", digest.threshold, digest.findingCount, suffix))
 	} else if digest.threshold != "" {
 		parts = append(parts, "("+digest.threshold+")")
+	} else {
+		// No findings: the audit itself failed, so show why.
+		return firstWarningLine(errMsg)
 	}
 	return strings.Join(parts, " ")
 }
