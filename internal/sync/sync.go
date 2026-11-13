@@ -563,13 +563,6 @@ func ensureRealTargetDir(targetPath, sourcePath, modeName string, dryRun bool) (
 	return false, nil
 }
 
-func checkProfileTargetRoot(targetPath, sourcePath string, profileAware bool) error {
-	if profileAware && utils.IsSymlinkOrJunction(targetPath) && !isSymlinkToSource(targetPath, sourcePath) {
-		return fmt.Errorf("target root %s is an unmanaged link; kept", targetPath)
-	}
-	return nil
-}
-
 // SyncTargetMerge performs merge mode sync - creates symlinks for each skill individually
 // while preserving target-specific skills.
 // Supports nested skills: source path "personal/writing/email" becomes target symlink "personal__writing__email"
@@ -605,9 +598,6 @@ func syncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkill
 		return result, nil
 	}
 	if _, err := sc.Profile.Selects(""); err != nil {
-		return nil, err
-	}
-	if err := checkProfileTargetRoot(sc.Path, sourcePath, profileAware); err != nil {
 		return nil, err
 	}
 	// Checked against sourcePath (root dir), not per-skill paths — all skills

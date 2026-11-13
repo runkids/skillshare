@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"maps"
 	"slices"
 
 	"skillshare/internal/profile"
 	"skillshare/internal/profileapply"
+	ssync "skillshare/internal/sync"
 	"skillshare/internal/ui"
 )
 
@@ -62,7 +64,11 @@ func profileUse(scope profileapply.Scope, o profileOptions) error {
 	}
 	if name == "" && !o.none {
 		if !ui.IsTTY() || o.json {
-			return fmt.Errorf("profile use requires a name or --none outside an interactive terminal")
+			err := fmt.Errorf("profile use requires a name or --none outside an interactive terminal")
+			if o.json {
+				return writeJSONError(err)
+			}
+			return err
 		}
 		v, err := profileapply.Load(scope)
 		if err != nil {
@@ -80,9 +86,24 @@ func profileUse(scope profileapply.Scope, o profileOptions) error {
 		}
 		o.none = name == ""
 	}
+	quiet := newJSONUISuppressor(o.json)
+	defer quiet.Flush()
+	if o.json {
+		previous := ssync.DiagOutput
+		ssync.DiagOutput = io.Discard
+		defer func() { ssync.DiagOutput = previous }()
+	}
 	out, err := profileapply.Apply(context.Background(), profileapply.Request{Scope: scope, Name: name, None: o.none, DryRun: o.dryRun, NoSync: o.noSync, DiscardEdits: o.discard, AllowEmpty: o.allowEmpty})
 	if o.json {
-		return writeJSONResult(out, err)
+		quiet.Flush()
+		message := ""
+		if err != nil {
+			message = err.Error()
+		}
+		return writeJSONResult(struct {
+			profileapply.Result
+			Error string `json:"error,omitempty"`
+		}{out, message}, err)
 	}
 	printProfileInfo(out.Profile)
 	for _, target := range out.Targets {

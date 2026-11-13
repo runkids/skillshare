@@ -813,18 +813,48 @@ func TestProfileAwareWriters_ManagedLinkConvertsToCopy(t *testing.T) {
 	}
 }
 
-func TestProfileAwareWriters_RefusesExternalTargetRoot(t *testing.T) {
+func TestProfileAwareWriters_ConfiguredTargetAlias(t *testing.T) {
 	source, outside := t.TempDir(), t.TempDir()
 	target := filepath.Join(t.TempDir(), "target")
-	if err := os.Symlink(outside, target); err != nil {
-		t.Skipf("symlink unavailable: %v", err)
+	if runtime.GOOS == "windows" {
+		if err := utils.CreateJunction(target, outside); err != nil {
+			t.Fatal(err)
+		}
+	} else if err := os.Symlink(outside, target); err != nil {
+		t.Fatal(err)
+	}
+	rootLink, err := os.Readlink(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for root, content := range map[string]string{source: "source content", outside: "authored content"} {
+		entry := filepath.Join(root, "demo")
+		if err := os.MkdirAll(entry, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(entry, "SKILL.md"), []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	skills, err := DiscoverSourceSkills(source)
+	if err != nil || len(skills) != 1 {
+		t.Fatalf("setup requires one source skill: %v, %v", skills, err)
 	}
 	tc := config.TargetConfig{Path: target}
-	if _, err := SyncTargetCopyWithSkillsOptions("claude", tc, nil, source, false, false, nil, CopyOptions{ProfileAware: true}); err == nil {
-		t.Fatal("copy followed unmanaged target root")
+	copyResult, err := SyncTargetCopyWithSkillsOptions("claude", tc, skills, source, false, false, nil, CopyOptions{ProfileAware: true})
+	if err != nil || len(copyResult.Blocked) != 1 || copyResult.Blocked[0].Class != EntryUnmanaged {
+		t.Fatalf("copy must accept configured alias and block unmanaged child: %+v, %v", copyResult, err)
 	}
-	if _, err := SyncTargetMergeWithPolicy("claude", tc, nil, source, false, false, "", true, nil); err == nil {
-		t.Fatal("merge followed unmanaged target root")
+	mergeResult, err := SyncTargetMergeWithPolicy("claude", tc, skills, source, false, false, "", true, nil)
+	if err != nil || len(mergeResult.Blocked) != 1 || mergeResult.Blocked[0].Class != EntryUnmanaged {
+		t.Fatalf("merge must accept configured alias and block unmanaged child: %+v, %v", mergeResult, err)
+	}
+	entry := filepath.Join(outside, "demo")
+	if data, err := os.ReadFile(filepath.Join(entry, "SKILL.md")); err != nil || string(data) != "authored content" || utils.IsSymlinkOrJunction(entry) {
+		t.Fatalf("configured alias lost unmanaged child: %q, %v", data, err)
+	}
+	if after, err := os.Readlink(target); err != nil || after != rootLink || !utils.IsSymlinkOrJunction(target) {
+		t.Fatalf("configured root alias changed: %q, %v", after, err)
 	}
 }
 
