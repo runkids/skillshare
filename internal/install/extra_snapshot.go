@@ -70,3 +70,12 @@ func restoreExtraSnapshotIfUnchanged(path string, before, written extraFileSnaps
 	}
 	return true, nil
 }
+
+// ExtraStateSnapshot is an opaque snapshot of one remote-extra state file.
+// Removal shares publication's no-follow comparison and exact-byte restore.
+type ExtraStateSnapshot = extraFileSnapshot
+
+func SnapshotExtraState(path string) (ExtraStateSnapshot, error) { return snapshotExtraFile(path) }
+func RestoreExtraStateIfUnchanged(path string, before, written ExtraStateSnapshot) (bool, error) {
+	return restoreExtraSnapshotIfUnchanged(path, before, written)
+}

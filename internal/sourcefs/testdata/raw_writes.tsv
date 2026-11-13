@@ -559,3 +559,8 @@ internal/install/extra_publish.go	publishRemoteExtra	os.Remove	marker	extras
 internal/install/extra_publish.go	publishRemoteExtra	os.Remove	stage	extras
 internal/install/extra_repair.go	repairRemoteExtra	os.Remove	extraJournalPath(req.ExtrasRoot, req.Name)	extras
 internal/install/extra_repair.go	repairRemoteExtra	os.Remove	stage	extras
+internal/extraops/remove.go	<package>	os.RemoveAll	<ref>	extras
+internal/extraops/remove.go	removeRemote	os.MkdirTemp	""	tmp
+internal/extraops/remove.go	removeRemote	os.RemoveAll	temp	tmp
+internal/extraops/remove.go	removeRemote	os.RemoveAll	temp	tmp
+internal/extraops/remove.go	removeRemote	os.RemoveAll	req.SourceDir	extras

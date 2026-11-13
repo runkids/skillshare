@@ -172,3 +172,9 @@ func copyStagedExtraFile(source, dest string, mode fs.FileMode) error {
 	}
 	return copyErr
 }
+
+// StageExtraTree gives removal the same validated, no-follow copy used by
+// publication when retaining an intact source for in-process rollback.
+func StageExtraTree(source, destination string) error {
+	return stageFetchedTree(source, "", destination)
+}
