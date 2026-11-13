@@ -15,6 +15,10 @@ import (
 // An active rename follows in local state; a state-save failure is reported
 // explicitly, since config and local state cannot be committed atomically.
 func Mutate(ctx context.Context, scope Scope, mutations ...profile.Mutation) (profile.Change, error) {
+	return mutate(ctx, scope, profile.WriteState, mutations...)
+}
+
+func mutate(ctx context.Context, scope Scope, saveState func(string, profile.State) error, mutations ...profile.Mutation) (profile.Change, error) {
 	start := time.Now()
 	var total profile.Change
 	statePath, lockPath, err := config.ProfilePaths(scope.Path())
@@ -65,7 +69,7 @@ func Mutate(ctx context.Context, scope Scope, mutations ...profile.Mutation) (pr
 	}
 	if total.Active != state.Active {
 		state.Active = total.Active
-		if err := profile.WriteState(statePath, state); err != nil {
+		if err := saveState(statePath, state); err != nil {
 			return total, fmt.Errorf("definitions saved, but local active rename failed; repair with skillshare profile use %s: %w", total.Active, err)
 		}
 	}
