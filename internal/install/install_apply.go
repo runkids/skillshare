@@ -655,6 +655,51 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 	defer cleanupTempRepo(tempDir)
 
 	tempRepoPath := filepath.Join(tempDir, "repo")
+	fetched, err := fetchGitSubdir(source, tempRepoPath, result, opts)
+	if err != nil {
+		return nil, err
+	}
+	subdirPath, resolved, commitHash := fetched.SubdirPath, fetched.Subdir, fetched.Commit
+
+	// Copy subdirectory to destination
+	if err := copyDir(subdirPath, destPath); err != nil {
+		return nil, fmt.Errorf("failed to copy skill: %w", err)
+	}
+
+	// Security audit
+	if err := auditInstalledSkill(destPath, result, opts); err != nil {
+		return nil, err
+	}
+
+	// Write metadata with file hashes
+	meta := NewMetaFromSource(source)
+	if commitHash != "" {
+		meta.Version = commitHash
+	}
+	if resolved != "" {
+		meta.TreeHash = getSubdirTreeHash(tempRepoPath, resolved)
+	}
+	if hashes, hashErr := ComputeFileHashes(destPath, opts.SourceFollow); hashErr == nil {
+		meta.FileHashes = hashes
+	}
+	if err := WriteMetaToStore(opts.SourceDir, destPath, meta); err != nil {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("failed to write metadata: %v", err))
+	}
+
+	// Check for SKILL.md
+	checkSkillFile(destPath, result)
+
+	result.Action = "cloned and extracted"
+	return result, nil
+}
+
+type gitFetch struct {
+	RepoPath, SubdirPath, Subdir, Commit string
+}
+
+var sparseCheckoutSupported = gitSupportsSparseCheckout
+
+func fetchGitSubdir(source *Source, tempRepoPath string, result *InstallResult, opts InstallOptions) (gitFetch, error) {
 	var subdirPath string
 	var resolved string
 	var commitHash string
@@ -665,11 +710,11 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 
 	// Fast path 1: sparse checkout (preferred for speed if git is modern)
 	// Works for GitHub and non-GitHub hosts.
-	if gitSupportsSparseCheckout() {
+	if sparseCheckoutSupported() {
 		resolved = source.Subdir
 		if err := sparseCloneSubdir(source.CloneURL, resolved, tempRepoPath, source.ref(), source.authEnv(), opts.OnProgress); err == nil {
 			if err := submoduleError(tempRepoPath, resolved, source.authEnv()); err != nil {
-				return nil, err
+				return gitFetch{}, err
 			}
 			subdirPath = filepath.Join(tempRepoPath, resolved)
 			if info, statErr := os.Stat(subdirPath); statErr != nil || !info.IsDir() {
@@ -742,16 +787,16 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 			opts.OnProgress("Cloning repository...")
 		}
 		if err := cloneRepoForSource(source, tempRepoPath, source.Branch, true, opts.OnProgress); err != nil {
-			return nil, fmt.Errorf("failed to clone repository: %w", err)
+			return gitFetch{}, fmt.Errorf("failed to clone repository: %w", err)
 		}
 		if err := submoduleError(tempRepoPath, source.Subdir, source.authEnv()); err != nil {
-			return nil, err
+			return gitFetch{}, err
 		}
 
 		var err error
 		resolved, err = resolveSubdir(tempRepoPath, source.Subdir)
 		if err != nil {
-			return nil, err
+			return gitFetch{}, err
 		}
 		if resolved != source.Subdir {
 			source.Subdir = resolved
@@ -764,36 +809,7 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 		}
 	}
 
-	// Copy subdirectory to destination
-	if err := copyDir(subdirPath, destPath); err != nil {
-		return nil, fmt.Errorf("failed to copy skill: %w", err)
-	}
-
-	// Security audit
-	if err := auditInstalledSkill(destPath, result, opts); err != nil {
-		return nil, err
-	}
-
-	// Write metadata with file hashes
-	meta := NewMetaFromSource(source)
-	if commitHash != "" {
-		meta.Version = commitHash
-	}
-	if resolved != "" {
-		meta.TreeHash = getSubdirTreeHash(tempRepoPath, resolved)
-	}
-	if hashes, hashErr := ComputeFileHashes(destPath, opts.SourceFollow); hashErr == nil {
-		meta.FileHashes = hashes
-	}
-	if err := WriteMetaToStore(opts.SourceDir, destPath, meta); err != nil {
-		result.Warnings = append(result.Warnings, fmt.Sprintf("failed to write metadata: %v", err))
-	}
-
-	// Check for SKILL.md
-	checkSkillFile(destPath, result)
-
-	result.Action = "cloned and extracted"
-	return result, nil
+	return gitFetch{RepoPath: tempRepoPath, SubdirPath: subdirPath, Subdir: resolved, Commit: commitHash}, nil
 }
 
 func checkSkillFile(skillPath string, result *InstallResult) {
