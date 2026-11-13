@@ -61,7 +61,7 @@ func (p *profileSyncRun) results(dryRun bool) []syncTargetResult {
 		sc := target.SkillsConfig()
 		mode := getTargetMode(sc.Mode, p.view.Config.Mode)
 		r := syncTargetResult{name: row.Target, mode: mode, include: sc.Include, exclude: sc.Exclude,
-			keptModified: row.KeptModified}
+			keptModified: row.KeptModified, blocked: row.Blocked}
 		run := sync.SkillTargetResult{Linked: row.Linked, Updated: row.Updated, Pruned: row.Pruned, Skipped: row.Skipped, DirCreated: row.DirCreated}
 		if mode == "copy" {
 			collectCopySyncResult(&r, run, dryRun)

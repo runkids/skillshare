@@ -13,6 +13,7 @@ import (
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	ssync "skillshare/internal/sync"
 	"skillshare/internal/testutil"
 )
 
@@ -418,5 +419,56 @@ func TestProfiles_OrdinarySyncBacksUpBeforeRefresh(t *testing.T) {
 	}
 	if f.sb.ReadFile(filepath.Join(f.target, "alpha", "SKILL.md")) == old {
 		t.Fatal("fixture did not refresh")
+	}
+}
+
+func TestProfiles_SyncJSONBlockedEntries(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, mode := range []string{"copy", "merge"} {
+			t.Run(fmt.Sprintf("%v/%s", project, mode), func(t *testing.T) {
+				f := newProfileFixture(t, project, mode)
+				f.run("profile", "use", "all", "--no-sync").AssertSuccess(t)
+				path := filepath.Join(f.target, "alpha", "SKILL.md")
+				f.sb.WriteFile(path, "unmanaged bytes")
+				step := "refresh"
+				if mode == "merge" {
+					step = "convert"
+				}
+				want := ssync.EntryChange{Target: "custom", Entry: "alpha", Step: step, Class: ssync.EntryUnmanaged, Reason: "entry is not a recorded copy"}
+				for _, dryRun := range []bool{true, false} {
+					args := []string{"sync", "--json"}
+					if dryRun {
+						args = append(args, "--dry-run")
+					}
+					result := f.run(args...)
+					result.AssertSuccess(t)
+					var out struct {
+						Details []struct {
+							Blocked      []ssync.EntryChange `json:"blocked"`
+							KeptModified []ssync.EntryChange `json:"kept_modified"`
+						}
+					}
+					if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil || len(out.Details) != 1 || len(out.Details[0].Blocked) != 1 || out.Details[0].Blocked[0] != want || len(out.Details[0].KeptModified) != 0 {
+						t.Fatalf("blocked record missing or reclassified: %s, %v", result.Stdout, err)
+					}
+					if f.sb.ReadFile(path) != "unmanaged bytes" {
+						t.Fatal("sync changed unmanaged bytes")
+					}
+					if dryRun {
+						if _, err := os.Stat(filepath.Join(f.target, "beta")); !os.IsNotExist(err) {
+							t.Fatalf("preview wrote ordinary skill: %v", err)
+						}
+					} else if f.sb.ReadFile(filepath.Join(f.target, "beta", "SKILL.md")) != f.sb.ReadFile(filepath.Join(f.source, "beta", "SKILL.md")) {
+						t.Fatal("unblocked skill did not sync")
+					}
+				}
+				f.run("profile", "use", "b", "--no-sync").AssertSuccess(t)
+				result := f.run("sync", "--json")
+				result.AssertSuccess(t)
+				if strings.Contains(result.Stdout, `"blocked"`) {
+					t.Fatalf("empty blocked field was not omitted: %s", result.Stdout)
+				}
+			})
+		}
 	}
 }
