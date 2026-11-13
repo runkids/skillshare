@@ -542,3 +542,11 @@ internal/testutil/private_git.go	ServePrivateGit	os.Mkdir	filepath.Join(root, "o
 internal/install/extra_stage.go	stageFetchedTree	os.Mkdir	dest	extras
 internal/install/extra_stage.go	copyStagedExtraFile	os.OpenFile	dest	extras
 internal/install/extra_lock.go	LockExtrasRoot	os.MkdirAll	dir	config
+internal/install/extra_journal.go	writeExtraJournal	os.MkdirAll	stage	extras
+internal/install/extra_journal.go	writeExtraJournal	os.CreateTemp	stage	extras
+internal/install/extra_journal.go	writeExtraJournal	os.Remove	tmp	extras
+internal/install/extra_journal.go	writeExtraJournal	os.Rename	tmp, extraJournalPath(root, j.Name)	extras
+internal/install/extra_snapshot.go	restoreExtraSnapshotIfUnchanged	os.Remove	path	config
+internal/install/extra_snapshot.go	restoreExtraSnapshotIfUnchanged	os.CreateTemp	filepath.Dir(path)	config
+internal/install/extra_snapshot.go	restoreExtraSnapshotIfUnchanged	os.Remove	tmp	config
+internal/install/extra_snapshot.go	restoreExtraSnapshotIfUnchanged	os.Rename	tmp, path	config
