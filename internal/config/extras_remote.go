@@ -60,8 +60,8 @@ func ValidateExtraRemote(e ExtraConfig) error {
 	if e.Source != "" {
 		return fmt.Errorf("extra %q: remote and source are mutually exclusive", e.Name)
 	}
-	r := e.Remote
-	if !strings.HasPrefix(strings.ToLower(r), "file://") && (strings.HasPrefix(r, "/") || strings.HasPrefix(r, "~") || strings.HasPrefix(r, ".") || strings.HasPrefix(r, `\`) || len(r) >= 2 && unicode.IsLetter(rune(r[0])) && r[1] == ':') {
+	r := strings.TrimSpace(e.Remote)
+	if r == "" || !strings.HasPrefix(strings.ToLower(r), "file://") && (strings.HasPrefix(r, "/") || strings.HasPrefix(r, "~") || strings.HasPrefix(r, ".") || strings.HasPrefix(r, `\`) || len(r) >= 2 && unicode.IsLetter(rune(r[0])) && r[1] == ':') {
 		return fmt.Errorf("extra %q: remote must not be a filesystem path", e.Name)
 	}
 	return nil

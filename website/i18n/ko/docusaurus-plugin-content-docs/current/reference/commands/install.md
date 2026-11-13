@@ -897,3 +897,8 @@ hash와 비교해 기록을 복구한 뒤 요청한 source/ref를 처리합니�
 `--force` 없이 교체하지 않습니다. 후보를 가져오지 못하거나 감사에 실패하면 marker를
 남기므로 staging 경로를 보존하세요. `--dry-run`은 migration, config, lock, metadata,
 oplog를 포함해 아무것도 쓰지 않습니다. [수명 주기와 동시 쓰기 제한](extras.md#remote-extras)을 참고하세요.
+
+최종 cleanup 전 프로세스 내 오류는 위 동시 실행 제한 안에서 이번 변경을 되돌립니다.
+previous 디렉터리 삭제가 실패하면 새 복사본과 기록의 일관성을 유지하고 journal을 남겨
+전진 복구합니다. 일부 삭제된 previous를 복구 중 버리려면 명시적 `--force`가 필요합니다.
+남은 파일을 복구해야 한다면 해당 디렉터리를 보존하세요.

@@ -368,3 +368,9 @@ Never embed credentials in a source URL. Dry run makes no writes.
 An interrupted install is repaired using its journaled audited commit before the
 requested install; later content edits block unless forced, failed repair keeps
 the marker. Preserve staging paths. See `extras.md` for removal and concurrency.
+
+Publication failures before final cleanup roll back subject to the concurrency
+limits in `extras.md`. If deleting the previous directory fails, coherent new
+records/content and the marker remain for forward repair. Partially deleted
+previous content requires explicit `--force` to discard; preserve remaining
+files if needed.

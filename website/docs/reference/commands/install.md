@@ -907,6 +907,12 @@ leaves the marker in place. Preserve staging paths when repair fails.
 `--dry-run` makes no writes, including migration, config, lock, metadata and oplog.
 See [remote-extra lifecycle and concurrency](extras.md#remote-extras).
 
+Before final cleanup, an in-process publication failure rolls back its own changes,
+subject to the concurrency limits below. If deleting the previous directory fails,
+the new copy and records stay coherent and the journal remains for forward repair.
+A partially deleted previous copy requires explicit `--force` to discard during
+repair; preserve it if you need to recover any remaining files.
+
 ## See Also
 
 - [list](/docs/reference/commands/list) — View installed skills

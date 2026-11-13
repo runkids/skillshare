@@ -894,3 +894,7 @@ skillshare install example-org/ai-hub/rules --kind extra --name team-rules --upd
 候選無法擷取或稽核失敗會保留 marker，請保留 staging 路徑。`--dry-run` 不會寫入任何
 migration、config、lock、metadata 或 oplog。
 請參閱[生命週期與並行限制](extras.md#remote-extras)。
+
+最終清理前的程序內失敗會在上述並行限制內回滾本次修改。若刪除 previous 目錄失敗，
+會保留一致的新副本與記錄以及 journal，供後續向前修復。修復時捨棄已部分刪除的
+previous 副本須明確 `--force`；若需救回剩餘檔案，請先保留該目錄。

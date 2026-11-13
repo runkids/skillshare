@@ -817,6 +817,77 @@ func TestInstallRemoteExtra_WriteHooksFailClosed(t *testing.T) {
 	}
 }
 
+func TestInstallRemoteExtra_PartialPreviousCleanupKeepsNewRecords(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(fmt.Sprint(project), func(t *testing.T) {
+			req := newRemoteExtraRequest(t)
+			if project {
+				req.ProjectRoot = t.TempDir()
+				req.LockDir = filepath.Join(req.ProjectRoot, ".skillshare")
+				req.ExtrasRoot = filepath.Join(req.LockDir, "extras")
+				if err := os.MkdirAll(req.LockDir, 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := InstallRemoteExtra(req); err != nil {
+				t.Fatal(err)
+			}
+			oldFile := filepath.Join(req.ExtrasRoot, req.Name, "SKILL.md")
+			if err := os.WriteFile(oldFile, []byte("previous edited bytes"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			req.Opts.AuditOverride = true
+			req.WriteConfig = func() error { return os.WriteFile(req.ConfigPath, []byte("new coherent config"), 0644) }
+			cleanup := extraCleanup
+			defer func() { extraCleanup = cleanup }()
+			previous := filepath.Join(req.ExtrasRoot, extraStagingDir, "previous-"+req.Name)
+			extraCleanup = func(path string) error {
+				if path == previous {
+					if err := os.Remove(filepath.Join(path, "SKILL.md")); err != nil {
+						return err
+					}
+					return errors.New("partial previous deletion")
+				}
+				return cleanup(path)
+			}
+			if _, err := InstallRemoteExtra(req); err == nil || !strings.Contains(err.Error(), "marker retained") {
+				t.Fatalf("partial cleanup did not report interruption: %v", err)
+			}
+			if _, err := os.Lstat(filepath.Join(previous, "SKILL.md")); !os.IsNotExist(err) {
+				t.Fatalf("old bytes were not actually deleted: %v", err)
+			}
+			if body, err := os.ReadFile(req.ConfigPath); err != nil || string(body) != "new coherent config" {
+				t.Fatalf("new config rolled back: %q %v", body, err)
+			}
+			modified, entry, err := ExtraLocallyModified(req.ExtrasRoot, req.Name)
+			if err != nil || modified || entry == nil || len(entry.Commit) != 40 {
+				t.Fatalf("new live content and metadata disagree: modified=%v entry=%+v err=%v", modified, entry, err)
+			}
+			if project {
+				lock, err := LoadLock(req.LockDir)
+				if err != nil || lock.ExtraCommitFor(req.Name, req.RawSource) != entry.Commit {
+					t.Fatalf("new pin lost: %+v %v", lock, err)
+				}
+			}
+			if !InspectRemoteExtra(req.ExtrasRoot, req.Name).Interrupted {
+				t.Fatal("partial cleanup reported clean")
+			}
+			// Partial previous content cannot be distinguished from a later edit.
+			// Retain the normal repair comparison: explicit force is required.
+			extraCleanup = cleanup
+			req.Opts.AuditOverride = false
+			if _, err := InstallRemoteExtra(req); err == nil || !strings.Contains(err.Error(), "later edits") {
+				t.Fatalf("partial previous was silently discarded: %v", err)
+			}
+			req.Opts.AuditOverride = true
+			result, err := InstallRemoteExtra(req)
+			if err != nil || !result.Interrupted || InspectRemoteExtra(req.ExtrasRoot, req.Name).Interrupted {
+				t.Fatalf("explicit forward repair: %+v %v", result, err)
+			}
+		})
+	}
+}
+
 func TestInstallRemoteExtra_RecheckStopsBeforePublication(t *testing.T) {
 	req := newRemoteExtraRequest(t)
 	req.Recheck = func() error { return errors.New("config changed") }
