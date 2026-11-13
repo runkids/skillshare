@@ -357,3 +357,10 @@ func TestNormalizeInstallAuditThreshold(t *testing.T) {
 		}
 	}
 }
+
+func TestParseInstallArgs_RejectsBadThresholdBeforeSourceHandling(t *testing.T) {
+	_, _, err := parseInstallArgs([]string{"-T", "invalid", "https://example.com/org/repo", "--kind", "extra"})
+	if err == nil || !strings.Contains(err.Error(), "invalid audit threshold") {
+		t.Fatalf("got %v", err)
+	}
+}
