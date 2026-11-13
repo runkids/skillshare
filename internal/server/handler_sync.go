@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"skillshare/internal/config"
-	"skillshare/internal/profile"
 	"skillshare/internal/profileapply"
 	"skillshare/internal/projects"
 	"skillshare/internal/resource"
@@ -57,11 +56,8 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid kind: must be 'skill', 'agent', or empty")
 		return
 	}
-	if body.Kind != kindAgent && body.Project == "" {
-		if err := s.activeProfileError(); err != nil {
-			writeCodedError(w, http.StatusConflict, "profile_unavailable", err.Error(), nil)
-			return
-		}
+	if body.Kind != kindAgent && body.Project == "" && s.refuseUnavailableProfile(w) {
+		return
 	}
 
 	if body.Project != "" {
@@ -79,12 +75,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 
 	out, code, err := s.syncResources(start, body.DryRun, body.Force, body.Kind, body.Project, body.DiscardEdits)
 	if err != nil {
-		if errors.Is(err, profile.ErrProfileUnavailable) {
-			writeCodedError(w, http.StatusConflict, "profile_unavailable", err.Error(), nil)
-			return
-		}
-		if errors.Is(err, profileapply.ErrRefused) {
-			writeCodedError(w, http.StatusConflict, "profile_refused", err.Error(), nil)
+		if writeProfileError(w, err, nil) {
 			return
 		}
 		writeError(w, code, err.Error())

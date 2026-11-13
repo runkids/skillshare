@@ -3,7 +3,9 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,6 +18,54 @@ import (
 	"skillshare/internal/profile"
 	"skillshare/internal/profileapply"
 )
+
+func TestWriteProfileError_Transport(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+		code string
+	}{
+		{"locked", fmt.Errorf("wrapped: %w", &profileapply.Refusal{Code: profileapply.RefusalLocked, Reason: "busy"}), "profile_locked"},
+		{"empty", fmt.Errorf("wrapped: %w", &profileapply.Refusal{Code: profileapply.RefusalEmpty, Reason: "empty"}), "profile_empty"},
+		{"blocked", fmt.Errorf("wrapped: %w", &profileapply.Refusal{Code: profileapply.RefusalBlocked, Reason: "blocked"}), "profile_blocked"},
+		{"generic", &profileapply.Refusal{Code: profileapply.RefusalGeneric, Reason: "generic"}, "profile_refused"},
+		{"zero", &profileapply.Refusal{Reason: "profile_locked"}, "profile_refused"},
+		{"unknown", &profileapply.Refusal{Code: "future_code", Reason: "profile_empty"}, "profile_refused"},
+		{"untyped", fmt.Errorf("wrapped: %w", profileapply.ErrRefused), "profile_refused"},
+		{"unavailable", fmt.Errorf("wrapped: %w", profile.ErrProfileUnavailable), "profile_unavailable"},
+		{"unavailable_priority", errors.Join(&profileapply.Refusal{Code: profileapply.RefusalLocked, Reason: "busy"}, profile.ErrProfileUnavailable), "profile_unavailable"},
+		{"unrelated", errors.New("profile_locked"), ""},
+		{"nil", nil, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, params := range []map[string]string{nil, {"target": "custom", "details": "blocked: alpha"}} {
+				rr := httptest.NewRecorder()
+				wantParams := maps.Clone(params)
+				handled := writeProfileError(rr, tc.err, params)
+				if tc.code == "" {
+					if handled || rr.Code != http.StatusOK || rr.Body.Len() != 0 || len(rr.Header()) != 0 {
+						t.Fatalf("unrelated error changed caller response: %v %+v", handled, rr)
+					}
+					continue
+				}
+				var out struct {
+					Error  string            `json:"error"`
+					Code   string            `json:"error_code"`
+					Params map[string]string `json:"error_params"`
+				}
+				if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+					t.Fatal(err)
+				}
+				if !handled || rr.Code != http.StatusConflict || out.Code != tc.code || out.Error != tc.err.Error() || !maps.Equal(out.Params, wantParams) || !maps.Equal(params, wantParams) || (out.Params == nil) != (params == nil) {
+					t.Fatalf("transport changed status/code/message/params: %v %d %s", handled, rr.Code, rr.Body.String())
+				}
+				if rr.Header().Get("Content-Type") != "application/json" {
+					t.Fatal("transport lost JSON content type")
+				}
+			}
+		})
+	}
+}
 
 func TestProfiles_APISyncRefusalTransport(t *testing.T) {
 	for _, project := range []bool{false, true} {
