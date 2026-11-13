@@ -2,6 +2,7 @@ package sync
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -116,7 +117,7 @@ func TestProfileAwareWriters_MutationBoundaries(t *testing.T) {
 				if tc.grant {
 					fingerprint, err := CopyOutputFingerprint(entry)
 					must(err)
-					discard = []DiscardEntry{{Target: "claude", Entry: "demo", Fingerprint: fingerprint}}
+					discard = []DiscardEntry{{Target: "claude", Dir: target, Entry: "demo", Fingerprint: fingerprint}}
 				}
 			}
 			if tc.writer != "merge" && (tc.seed == "copy" || tc.seed == "edited") {
@@ -710,7 +711,7 @@ func TestProfileAwareWriters_CopyBlocksUnmanagedCollision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := SyncTargetCopyWithSkillsOptions("claude", config.TargetConfig{Path: target}, skills, source, false, false, nil, CopyOptions{ProfileAware: true, Discard: []DiscardEntry{{Target: "claude", Entry: "demo", Fingerprint: "anything"}}})
+	result, err := SyncTargetCopyWithSkillsOptions("claude", config.TargetConfig{Path: target}, skills, source, false, false, nil, CopyOptions{ProfileAware: true, Discard: []DiscardEntry{{Target: "claude", Dir: target, Entry: "demo", Fingerprint: "anything"}}})
 	if err != nil || len(result.Blocked) != 1 {
 		t.Fatalf("unmanaged collision not blocked: %+v, %v", result, err)
 	}
@@ -762,7 +763,7 @@ func TestProfileAwareWriters_MergeDiscardRechecksFingerprint(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			result, err := SyncTargetMergeWithPolicy("claude", config.TargetConfig{Path: target}, skills, source, false, false, "", true, []DiscardEntry{{Target: "claude", Entry: "demo", Fingerprint: planned}})
+			result, err := SyncTargetMergeWithPolicy("claude", config.TargetConfig{Path: target}, skills, source, false, false, "", true, []DiscardEntry{{Target: "claude", Dir: target, Entry: "demo", Fingerprint: planned}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -824,5 +825,97 @@ func TestProfileAwareWriters_RefusesExternalTargetRoot(t *testing.T) {
 	}
 	if _, err := SyncTargetMergeWithPolicy("claude", tc, nil, source, false, false, "", true, nil); err == nil {
 		t.Fatal("merge followed unmanaged target root")
+	}
+}
+
+func TestProfileAwareWriters_DiscardDirectory(t *testing.T) {
+	for _, step := range []string{"refresh", "convert", "prune_links", "prune_copies", "moved"} {
+		for _, matching := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/matching=%v", step, matching), func(t *testing.T) {
+				must := func(err error) {
+					t.Helper()
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+				if step == "convert" {
+					probe := filepath.Join(t.TempDir(), "probe")
+					if err := os.Symlink(t.TempDir(), probe); err != nil {
+						t.Skipf("symlink unavailable: %v", err)
+					}
+				}
+				source, target := setupMergeTest(t, "demo")
+				root := t.TempDir()
+				if step == "moved" {
+					target = filepath.Join(root, ".goose", "skills")
+				}
+				name := "goose"
+				cfg := config.TargetConfig{Path: target}
+				_, err := SyncTargetCopy(name, cfg, source, false, false)
+				must(err)
+				manifest, err := ReadManifest(target)
+				must(err)
+				delete(manifest.Mtimes, "demo") // Force checksum refresh without a clock assumption.
+				must(WriteManifest(target, manifest))
+				entry := filepath.Join(target, "demo")
+				writeSkillMD(t, entry, "authored")
+				fingerprint, err := CopyOutputFingerprint(entry)
+				must(err)
+				dir := target
+				if !matching {
+					dir = t.TempDir()
+				}
+				grants := []DiscardEntry{{Target: name, Dir: dir, Entry: "demo", Fingerprint: fingerprint}}
+				writeSkillMD(t, filepath.Join(source, "demo"), "---\nname: demo\n---\nchanged source\n")
+				skills, err := DiscoverSourceSkills(source)
+				must(err)
+				var kept []EntryChange
+				switch step {
+				case "refresh":
+					result, err := SyncTargetCopyWithSkillsOptions(name, cfg, skills, source, false, false, nil, CopyOptions{ProfileAware: true, Discard: grants})
+					must(err)
+					kept = result.KeptModified
+				case "convert":
+					result, err := SyncTargetMergeWithPolicy(name, cfg, skills, source, false, false, "", true, grants)
+					must(err)
+					kept = result.KeptModified
+				case "prune_links":
+					result, err := PruneOrphanLinksWithSkills(PruneOptions{TargetPath: target, TargetName: name, SourcePath: source, ManagedOnly: true, ProfileAware: true, Discard: grants})
+					must(err)
+					kept = result.KeptModified
+				case "prune_copies":
+					result, err := pruneOrphanCopiesWithPolicy(name, cfg.SkillsConfig(), nil, false, source, true, grants, nil)
+					must(err)
+					kept = result.KeptModified
+				case "moved":
+					result := cleanMovedProjectDirsWithPolicy(root, source, []MovedTarget{{Name: name, Path: filepath.Join(root, ".agents", "skills")}}, false, true, grants)
+					for _, row := range result.Outcomes {
+						kept = append(kept, row.KeptModified...)
+					}
+				}
+				if !matching {
+					data, err := os.ReadFile(filepath.Join(entry, "SKILL.md"))
+					must(err)
+					if string(data) != "authored" || len(kept) != 1 || kept[0].Dir != target {
+						t.Fatalf("wrong-directory grant changed edit or lost its location: %q, %+v", data, kept)
+					}
+				} else if len(kept) != 0 {
+					t.Fatalf("verified directory was kept: %+v", kept)
+				} else if step == "convert" && !utils.IsSymlinkOrJunction(entry) {
+					t.Fatal("verified copy was not converted")
+				} else if step == "refresh" {
+					data, err := os.ReadFile(filepath.Join(entry, "SKILL.md"))
+					must(err)
+					if string(data) == "authored" {
+						t.Fatal("verified copy was not refreshed")
+					}
+				} else if step != "convert" {
+					_, err := os.Lstat(entry)
+					if !os.IsNotExist(err) {
+						t.Fatalf("verified departed copy remains: %v", err)
+					}
+				}
+			})
+		}
 	}
 }

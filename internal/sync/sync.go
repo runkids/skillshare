@@ -659,7 +659,7 @@ func syncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkill
 			}
 			entry, allowed := entryMutationAllowed(name, EntryInput{Name: activeName, Path: targetSkillPath, SourceRoot: sourcePath, Manifest: manifest, Source: &copySource}, discard)
 			if !allowed {
-				change := EntryChange{Target: name, Entry: activeName, Step: "convert", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint}
+				change := EntryChange{Target: name, Dir: cleanEntryDir(filepath.Dir(targetSkillPath)), Entry: activeName, Step: "convert", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint}
 				if entry.Class == EntryModifiedCopy {
 					result.KeptModified = append(result.KeptModified, change)
 				} else {
@@ -953,8 +953,8 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 		}
 		if opts.ProfileAware {
 			entry := ClassifyEntry(EntryInput{Name: name, Path: entryPath, SourceRoot: sourcePath, Manifest: manifest, Source: legacyCopySource(name, allSourceSkills, manifest, opts.IgnorePatterns)})
-			if entry.Class == EntryModifiedCopy && !discardAllowed(targetName, name, entry, opts.Discard) {
-				result.KeptModified = append(result.KeptModified, EntryChange{Target: targetName, Entry: name, Step: "prune", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint})
+			if entry.Class == EntryModifiedCopy && !discardAllowed(targetName, cleanEntryDir(targetPath), name, entry, opts.Discard) {
+				result.KeptModified = append(result.KeptModified, EntryChange{Target: targetName, Dir: cleanEntryDir(targetPath), Entry: name, Step: "prune", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint})
 				continue
 			}
 			if entry.Class == EntryUnmanaged {

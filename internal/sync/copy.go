@@ -150,7 +150,7 @@ func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 			copySource.OutputName = activeName
 		}
 		reportKept := func(entry EntryClassification) {
-			change := EntryChange{Target: name, Entry: activeName, Step: "refresh", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint}
+			change := EntryChange{Target: name, Dir: cleanEntryDir(filepath.Dir(targetSkillPath)), Entry: activeName, Step: "refresh", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint}
 			if entry.Class == EntryModifiedCopy {
 				result.KeptModified = append(result.KeptModified, change)
 			} else {
@@ -473,8 +473,8 @@ func pruneOrphanCopiesWithPolicy(targetName string, sc config.ResourceTargetConf
 		entryPath := filepath.Join(targetPath, entryName)
 		if profileAware {
 			entry := ClassifyEntry(EntryInput{Name: entryName, Path: entryPath, SourceRoot: sourceRoot, Manifest: manifest, Source: legacyCopySource(entryName, allSourceSkills, manifest, ignore)})
-			if entry.Class == EntryModifiedCopy && !discardAllowed(targetName, entryName, entry, discard) {
-				result.KeptModified = append(result.KeptModified, EntryChange{Target: targetName, Entry: entryName, Step: "prune", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint})
+			if entry.Class == EntryModifiedCopy && !discardAllowed(targetName, cleanEntryDir(targetPath), entryName, entry, discard) {
+				result.KeptModified = append(result.KeptModified, EntryChange{Target: targetName, Dir: cleanEntryDir(targetPath), Entry: entryName, Step: "prune", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint})
 				continue
 			}
 			if entry.Class == EntryUnmanaged {

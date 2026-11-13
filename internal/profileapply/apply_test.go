@@ -204,6 +204,117 @@ func TestProfileSync_MovedCleanupScope(t *testing.T) {
 	}
 }
 
+func TestProfileSync_MovedSnapshotSafety(t *testing.T) {
+	for _, failure := range []string{"create", "missing", "stale", "reused", "partial", "second_edit", "frozen", "collision"} {
+		t.Run(failure, func(t *testing.T) {
+			f := newFixture(t, true, "copy")
+			write(t, f.path, strings.Replace(read(t, f.path), "  - name: custom\n    skills:\n      path: "+f.target, "  - name: goose\n    skills:", 1))
+			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a"}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a", NoSync: true}); err != nil {
+				t.Fatal(err)
+			}
+			v, err := Load(f.scope)
+			if err != nil {
+				t.Fatal(err)
+			}
+			target := v.Config.Targets["goose"]
+			current := target.SkillsConfig().Path
+			old := filepath.Join(f.scope.ProjectRoot, ".goose", "skills")
+			write(t, filepath.Join(old, "alpha", "SKILL.md"), read(t, filepath.Join(f.source, "alpha", "SKILL.md")))
+			sum, err := ssync.CopyOutputFingerprint(filepath.Join(old, "alpha"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := ssync.WriteManifest(old, &ssync.Manifest{Managed: map[string]string{"alpha": sum}, Outputs: map[string]string{"alpha": sum}}); err != nil {
+				t.Fatal(err)
+			}
+			for _, dir := range []string{current, old} {
+				write(t, filepath.Join(dir, "alpha", "SKILL.md"), "first edit "+dir)
+			}
+			manifest, err := ssync.ReadManifest(current)
+			if err != nil {
+				t.Fatal(err)
+			}
+			delete(manifest.Mtimes, "alpha")
+			if err := ssync.WriteManifest(current, manifest); err != nil {
+				t.Fatal(err)
+			}
+			write(t, filepath.Join(f.source, "alpha", "SKILL.md"), "---\nname: alpha\n---\nchanged source\n")
+			if failure == "collision" {
+				alias := backup.MovedEntryName("goose", ".goose/skills")
+				write(t, f.path, strings.Replace(read(t, f.path), "profiles:", "  - name: "+alias+"\n    skills:\n      path: "+filepath.Join(f.scope.ProjectRoot, "collision")+"\n      enabled: false\nprofiles:", 1))
+			}
+			before := tree(t, f.scope.ProjectRoot)
+			calls, afterCalls := 0, 0
+			var captured *View
+			req := SyncRequest{Scope: f.scope, DiscardEdits: true, Before: func(v *View) error { captured = v; return nil }}
+			req.snapshot = func(root, key, dir string) (string, error) {
+				calls++
+				switch failure {
+				case "create":
+					return "", errors.New("injected snapshot failure")
+				case "missing":
+					return "", nil
+				case "partial":
+					if calls == 2 {
+						return "", errors.New("second folder failed")
+					}
+				case "stale":
+					path := filepath.Join(root, "stale", key)
+					write(t, filepath.Join(path, "alpha", "SKILL.md"), "stale snapshot")
+					return path, nil
+				}
+				path, err := backup.CreateInDir(root, key, dir)
+				if failure == "reused" && err == nil {
+					// Model stale same-second reuse at the real saved key without a clock race.
+					write(t, filepath.Join(path, "alpha", "SKILL.md"), "older reused bytes")
+				}
+				return path, err
+			}
+			req.afterSnapshot = func() {
+				afterCalls++
+				if calls != 2 {
+					t.Fatalf("execution began before both folders verified: %d", calls)
+				}
+				if failure == "second_edit" {
+					write(t, filepath.Join(old, "alpha", "SKILL.md"), "second edit")
+				} else if failure == "frozen" {
+					captured.Project.Targets = nil
+				}
+			}
+			out, err := WithSkillSync(context.Background(), req)
+			if failure == "second_edit" || failure == "frozen" {
+				if err != nil || afterCalls != 1 || out.Complete != (failure == "frozen") || out.Profile.Pending != (failure == "second_edit") {
+					t.Fatalf("post-snapshot outcome: %+v, %v; callbacks %d", out, err, afterCalls)
+				}
+				if failure == "second_edit" && (read(t, filepath.Join(old, "alpha", "SKILL.md")) != "second edit" || len(out.Blocked) != 1) {
+					t.Fatal("second edit was removed or not reported")
+				}
+				if failure == "frozen" {
+					if _, err := os.Lstat(filepath.Join(old, "alpha")); !os.IsNotExist(err) {
+						t.Fatalf("execution recomputed moved inputs: %v", err)
+					}
+				}
+				return
+			}
+			if err == nil || afterCalls != 0 || failure == "collision" && calls != 0 || failure == "partial" && calls != 2 {
+				t.Fatalf("unsafe verification accepted: %+v, %v; create=%d after=%d", out, err, calls, afterCalls)
+			}
+			after := tree(t, f.scope.ProjectRoot)
+			for path := range after {
+				if rel := filepath.ToSlash(path); rel == ".skillshare/backups" || strings.HasPrefix(rel, ".skillshare/backups/") {
+					delete(after, path)
+				}
+			}
+			if !reflect.DeepEqual(before, after) {
+				t.Fatalf("failed verification changed retained data: before=%v after=%v", before, after)
+			}
+		})
+	}
+}
+
 func TestProfileApply_RoundTripAndPending(t *testing.T) {
 	for _, project := range []bool{false, true} {
 		for _, mode := range []string{"merge", "copy"} {
@@ -330,6 +441,10 @@ func TestProfileApply_SnapshotAndRestore(t *testing.T) {
 	for _, project := range []bool{false, true} {
 		t.Run(fmt.Sprint(project), func(t *testing.T) {
 			f := newFixture(t, project, "copy")
+			if !project {
+				t.Chdir(filepath.Dir(f.target))
+				write(t, f.path, strings.ReplaceAll(read(t, f.path), f.target, filepath.Base(f.target)))
+			}
 			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a"}); err != nil {
 				t.Fatal(err)
 			}

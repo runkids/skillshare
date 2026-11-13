@@ -198,7 +198,7 @@ func ExecuteTargets(ctx context.Context, cfg *config.Config, targets map[string]
 		if opts.ProjectMode {
 			cleanup := cleanMovedProjectDirsWithPolicy(
 				opts.ProjectRoot, cfg.EffectiveSkillsSource(),
-				opts.MovedTargets, dryRun, opts.ProfileAware, nil)
+				opts.MovedTargets, dryRun, opts.ProfileAware, opts.Discard)
 			warnings = append(warnings, cleanup.Messages...)
 			for _, outcome := range cleanup.Outcomes {
 				warningResult := SkillTargetResult{KeptModified: outcome.KeptModified, Blocked: outcome.Blocked}

@@ -19,4 +19,6 @@ Use `-g` or `-p` to choose a config. Definitions are shared YAML under `profiles
 
 A refused switch changes no state or target. An incomplete switch leaves the new active name pending and exits nonzero; retry `skillshare sync`. Modified managed copies and unmanaged collisions are kept. `--discard-edits` snapshots and verifies each listed modified copy and rechecks before deletion; it cannot discard unmanaged content. Ordinary `sync --discard-edits` uses the same rule while a profile or pending switch exists. Text and JSON report snapshot paths, retention and restore commands. Collect authored changes when they should become source content.
 
+Project `sync --discard-edits` also covers selected eligible targets’ declared former skills folders. Use each reported moved restore command to recover that folder while preserving the current one. Profile switching does not run former-folder cleanup.
+
 Reads/dry runs create no lock. Non-dry operations retain an empty local lock file and its directories even on refusal; never delete it to bypass a running command. Unavailable active state refuses skill operations; repair with `profile use <name>` or `profile use --none`. Older binaries ignore the local selection and may drop definitions when saving. No-profile behavior stays unchanged except copy output fingerprint bookkeeping.
