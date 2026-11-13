@@ -539,3 +539,5 @@ internal/config/config.go	(*Config).Save	os.MkdirAll	dir	config
 internal/config/config.go	(*Config).Save	os.WriteFile	path	config
 internal/plugin/state.go	(*Service).saveState	os.MkdirAll	s.managedRoot()	config
 internal/testutil/private_git.go	ServePrivateGit	os.Mkdir	filepath.Join(root, "org")	test-helper
+internal/install/extra_stage.go	stageFetchedTree	os.Mkdir	dest	extras
+internal/install/extra_stage.go	copyStagedExtraFile	os.OpenFile	dest	extras
