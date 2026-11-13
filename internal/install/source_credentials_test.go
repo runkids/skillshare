@@ -40,3 +40,25 @@ func TestRejectSourceCredentials(t *testing.T) {
 		})
 	}
 }
+
+func TestRejectSourceCredentials_ShorthandClass(t *testing.T) {
+	for _, source := range []string{
+		"https:/example.com/repo?token=SYNTHETIC", "https:example.com/repo?token=SYNTHETIC", `https:\example.com\repo?token=SYNTHETIC`,
+		"https//example.com/repo?token=SYNTHETIC", "example.com/repo?token=SYNTHETIC", "example.com/repo#SYNTHETIC", "owner/repo/sub?token=SYNTHETIC",
+		"ado:org/project/repo?token=SYNTHETIC", "user:SYNTHETIC@example.com/org/repo", "user:SYNTHETIC@example.com:org/repo", "user@example.com/org/repo",
+		" HTTPS://user:SYNTHETIC@example.com/repo", "git://user:SYNTHETIC@example.com/repo",
+	} {
+		err := RejectSourceCredentials(source)
+		if !errors.Is(err, ErrSourceCredentials) || strings.Contains(err.Error(), "SYNTHETIC") || strings.Contains(err.Error(), source) {
+			t.Errorf("unsafe admission: %v", err)
+		}
+	}
+}
+
+func TestRejectSourceCredentials_ValidFormsAccepted(t *testing.T) {
+	for _, source := range []string{"owner/repo", "owner/repo/sub/dir", "owner/repo/packages/@scope/pkg", "github.com/owner/repo", "example.com/org/repo", "example.com:8443/org/repo", "https://example.com:8443/org/repo", "ssh://git@example.com:2222/org/repo", "git@example.com:org/repo.git//sub", "ado:org/project/repo", "https://dev.azure.com/org/project/_git/repo", "file:///tmp/fixture//sub"} {
+		if err := RejectSourceCredentials(source); err != nil {
+			t.Errorf("valid %q: %v", source, err)
+		}
+	}
+}

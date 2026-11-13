@@ -399,7 +399,7 @@ func TestConfigRejectsRemoteCredentialsWithoutEcho(t *testing.T) {
 
 func TestConfigRejectsMalformedRemoteWithoutDisclosure(t *testing.T) {
 	for _, project := range []bool{false, true} {
-		for i, remote := range []string{"https://example.com/%zz?token=secret", "https://example.com/%zz#secret"} {
+		for i, remote := range []string{"https://example.com/%zz?token=secret", "https://example.com/%zz#secret", "https:/example.com/repo?token=secret", "owner/repo#secret", "user:secret@example.com:org/repo"} {
 			t.Run(fmt.Sprintf("project=%t/case=%d", project, i), func(t *testing.T) {
 				var s *Server
 				if project {

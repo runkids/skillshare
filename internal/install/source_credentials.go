@@ -12,7 +12,26 @@ var ErrSourceCredentials = errors.New("remote source must not contain credential
 
 // RejectSourceCredentials checks a remote without including it in errors.
 func RejectSourceCredentials(raw string) error {
+	raw = strings.TrimSpace(raw)
+	if strings.HasPrefix(strings.ToLower(raw), "file://") || isLocalPath(raw) || gitSSHPattern.MatchString(raw) {
+		return nil
+	}
 	if !strings.Contains(raw, "://") {
+		first := strings.SplitN(raw, "/", 2)[0]
+		rule := ""
+		switch {
+		case strings.Contains(first, "@"):
+			rule = "userinfo"
+		case strings.Contains(first, ":") && !strings.HasPrefix(first, "ado:") && !extraHostPort(first):
+			rule = "invalid URL"
+		case strings.Contains(raw, "?"):
+			rule = "query"
+		case strings.Contains(raw, "#"):
+			rule = "fragment"
+		}
+		if rule != "" {
+			return fmt.Errorf("%w (%s)", ErrSourceCredentials, rule)
+		}
 		return nil
 	}
 	u, err := url.Parse(raw)
@@ -42,9 +61,29 @@ func RejectSourceCredentials(raw string) error {
 				rule = "password"
 			}
 		}
+	default:
+		if u.User != nil {
+			rule = "userinfo"
+		}
 	}
 	if rule != "" {
 		return fmt.Errorf("%w (%s)", ErrSourceCredentials, rule)
 	}
 	return nil
+}
+
+func extraHostPort(first string) bool {
+	if strings.Count(first, ":") != 1 {
+		return false
+	}
+	host, port, _ := strings.Cut(first, ":")
+	if host == "" || port == "" {
+		return false
+	}
+	for _, c := range port {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }
