@@ -158,6 +158,21 @@ func TestSkillServe_ProfileLiveRecovery(t *testing.T) {
 		if len(got.Skills) != want {
 			t.Fatalf("%s: %+v", active, got.Skills)
 		}
+		wantNames := []string{"alpha"}
+		if active == "b" {
+			wantNames = []string{"beta"}
+		} else if active == "" {
+			wantNames = []string{"alpha", "beta"}
+		}
+		for _, name := range wantNames {
+			found := false
+			for _, skill := range got.Skills {
+				found = found || skill.URI == "skill://"+name+"/SKILL.md"
+			}
+			if !found {
+				t.Fatalf("%s omitted %s: %+v", active, name, got.Skills)
+			}
+		}
 		if len(srv.svc.edit.Skills) != 1 || srv.svc.edit.Skills[0] != "alpha" || len(b.Skills.Exclude) != 1 {
 			t.Fatal("refresh changed startup settings or edit authorization")
 		}

@@ -22,11 +22,12 @@ import (
 func TestProfileAwareWriters_MutationBoundaries(t *testing.T) {
 	for _, tc := range []struct {
 		name, writer, seed, stage, mutation, outcome string
-		grant, legacy, force, dry                    bool
+		grant, legacy, force, dry, stale             bool
 	}{
 		{name: "merge_stale_clean", writer: "merge", seed: "copy", stage: "merge_replace", mutation: "edit", outcome: "kept"},
 		{name: "copy_refresh_edit", seed: "copy", stage: "copy_remove", mutation: "edit", outcome: "kept"},
 		{name: "merge_second_discard_edit", writer: "merge", seed: "copy", stage: "merge_replace", mutation: "edit", outcome: "kept", grant: true},
+		{name: "merge_pre_call_stale_grant", writer: "merge", seed: "copy", outcome: "kept", grant: true, stale: true},
 		{name: "copy_second_discard_edit", seed: "copy", stage: "copy_remove", mutation: "edit", outcome: "kept", grant: true},
 		{name: "absent_directory_collision", stage: "copy_write", mutation: "edit", outcome: "blocked"},
 		{name: "absent_external_link_collision", stage: "copy_write", mutation: "external", outcome: "blocked"},
@@ -123,6 +124,9 @@ func TestProfileAwareWriters_MutationBoundaries(t *testing.T) {
 					discard = []DiscardEntry{{Target: "claude", Dir: target, Entry: "demo", Fingerprint: fingerprint}}
 				}
 			}
+			if tc.stale {
+				writeSkillMD(t, entry, "later edit")
+			}
 			if tc.writer != "merge" && (tc.seed == "copy" || tc.seed == "edited") {
 				writeSkillMD(t, skill, "---\nname: demo\n---\nchanged source\n")
 				manifest, err := ReadManifest(target)
@@ -150,6 +154,10 @@ func TestProfileAwareWriters_MutationBoundaries(t *testing.T) {
 			outsideBefore := snapshot(outside)
 			preserved := snapshot(entry)
 			fingerprint := ""
+			if tc.stale {
+				fingerprint, err = CopyOutputFingerprint(entry)
+				must(err)
+			}
 			fired := false
 			callback := func(stage string) {
 				if tc.dry {
@@ -197,14 +205,14 @@ func TestProfileAwareWriters_MutationBoundaries(t *testing.T) {
 				}
 			}
 			var kept, blocked []EntryChange
-			var skipped, success []string
+			var skipped, success, converted []string
 			step := "refresh"
 			if tc.writer == "merge" {
 				step = "convert"
 				result, runErr := syncTargetMergeWithPolicy("claude", cfg, skills, source, tc.dry, tc.force, projectRoot, !tc.legacy, discard, callback)
 				err = runErr
 				if result != nil {
-					kept, blocked, skipped = result.KeptModified, result.Blocked, result.Skipped
+					kept, blocked, skipped, converted = result.KeptModified, result.Blocked, result.Skipped, result.Converted
 					success = append(append(result.Linked, result.Updated...), result.Converted...)
 				}
 			} else {
@@ -240,6 +248,9 @@ func TestProfileAwareWriters_MutationBoundaries(t *testing.T) {
 			if tc.outcome == "success" {
 				if !slices.Contains(success, "demo") || len(kept)+len(blocked) != 0 {
 					t.Fatal("successful operation not reported", success, kept, blocked)
+				}
+				if tc.writer == "merge" && tc.grant && !tc.dry && !reflect.DeepEqual(converted, []string{"demo"}) {
+					t.Fatalf("verified edit conversion not reported: %v", converted)
 				}
 				if !tc.dry {
 					if tc.writer == "merge" {
@@ -368,93 +379,69 @@ func TestProfileAwareWriters_MovedCleanupReportsKeptCopy(t *testing.T) {
 }
 
 func TestProfileAwareWriters_PreserveCopyRefreshAndPrune(t *testing.T) {
-	source := t.TempDir()
-	target := filepath.Join(t.TempDir(), "target")
-	for _, name := range []string{"keep", "edit"} {
-		path := filepath.Join(source, name, "SKILL.md")
-		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(path, []byte("---\nname: "+name+"\n---\noriginal\n"), 0644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	tc := config.TargetConfig{Path: target}
-	if _, err := SyncTargetCopy("claude", tc, source, false, false); err != nil {
-		t.Fatal(err)
-	}
-	entry := filepath.Join(target, "edit", "SKILL.md")
-	if err := os.WriteFile(entry, []byte("my edit"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(source, "edit", "SKILL.md"), []byte("---\nname: edit\n---\nchanged source\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	manifest, err := ReadManifest(target)
-	if err != nil {
-		t.Fatal(err)
-	}
-	delete(manifest.Mtimes, "edit")
-	if err := WriteManifest(target, manifest); err != nil {
-		t.Fatal(err)
-	}
-	skills, err := DiscoverSourceSkills(source)
-	if err != nil {
-		t.Fatal(err)
-	}
-	result, err := SyncTargetCopyWithSkillsOptions("claude", tc, skills, source, false, false, nil, CopyOptions{ProfileAware: true})
-	if err != nil || len(result.KeptModified) != 1 {
-		t.Fatalf("refresh: %+v, %v", result, err)
-	}
-	plannedFingerprint, err := CopyOutputFingerprint(filepath.Join(target, "edit"))
-	if err != nil || result.KeptModified[0].Fingerprint != plannedFingerprint {
-		t.Fatalf("plan did not retain the observed fingerprint: %+v, %v", result.KeptModified[0], err)
-	}
-	if data, err := os.ReadFile(entry); err != nil || string(data) != "my edit" {
-		t.Fatalf("edited refresh overwritten: %q, %v", data, err)
-	}
-	sc := tc.SkillsConfig()
-	sc.Exclude = []string{"edit"}
-	pruned, err := pruneOrphanCopiesWithPolicy("claude", sc, skills, false, source, true, nil, nil)
-	if err != nil || len(pruned.KeptModified) != 1 {
-		t.Fatalf("prune: %+v, %v", pruned, err)
-	}
-	if data, err := os.ReadFile(entry); err != nil || string(data) != "my edit" {
-		t.Fatalf("edited prune removed: %q, %v", data, err)
-	}
-	m, err := ReadManifest(target)
-	if err != nil || m.Managed["edit"] == "" {
-		t.Fatalf("kept entry lost manifest record: %+v, %v", m, err)
-	}
-}
-
-func TestProfileAwareWriters_ReportsEditedCopyOnMtimeFastPath(t *testing.T) {
-	source := t.TempDir()
-	target := filepath.Join(t.TempDir(), "target")
-	if err := os.MkdirAll(filepath.Join(source, "demo"), 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(source, "demo", "SKILL.md"), []byte("---\nname: demo\n---\noriginal\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	tc := config.TargetConfig{Path: target}
-	if _, err := SyncTargetCopy("claude", tc, source, false, false); err != nil {
-		t.Fatal(err)
-	}
-	entry := filepath.Join(target, "demo", "SKILL.md")
-	if err := os.WriteFile(entry, []byte("local edit"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	skills, err := DiscoverSourceSkills(source)
-	if err != nil {
-		t.Fatal(err)
-	}
-	result, err := SyncTargetCopyWithSkillsOptions("claude", tc, skills, source, false, false, nil, CopyOptions{ProfileAware: true})
-	if err != nil || len(result.KeptModified) != 1 {
-		t.Fatalf("edited fast-path entry not reported: %+v, %v", result, err)
-	}
-	if data, err := os.ReadFile(entry); err != nil || string(data) != "local edit" {
-		t.Fatalf("edited entry changed: %q, %v", data, err)
+	for _, checksum := range []bool{false, true} {
+		t.Run(fmt.Sprintf("checksum=%v", checksum), func(t *testing.T) {
+			source := t.TempDir()
+			target := filepath.Join(t.TempDir(), "target")
+			for _, name := range []string{"keep", "edit"} {
+				path := filepath.Join(source, name, "SKILL.md")
+				if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, []byte("---\nname: "+name+"\n---\noriginal\n"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			tc := config.TargetConfig{Path: target}
+			if _, err := SyncTargetCopy("claude", tc, source, false, false); err != nil {
+				t.Fatal(err)
+			}
+			entry := filepath.Join(target, "edit", "SKILL.md")
+			if err := os.WriteFile(entry, []byte("my edit"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			if checksum {
+				if err := os.WriteFile(filepath.Join(source, "edit", "SKILL.md"), []byte("---\nname: edit\n---\nchanged source\n"), 0644); err != nil {
+					t.Fatal(err)
+				}
+				manifest, err := ReadManifest(target)
+				if err != nil {
+					t.Fatal(err)
+				}
+				delete(manifest.Mtimes, "edit")
+				if err := WriteManifest(target, manifest); err != nil {
+					t.Fatal(err)
+				}
+			}
+			skills, err := DiscoverSourceSkills(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := SyncTargetCopyWithSkillsOptions("claude", tc, skills, source, false, false, nil, CopyOptions{ProfileAware: true})
+			if err != nil || len(result.KeptModified) != 1 {
+				t.Fatalf("refresh: %+v, %v", result, err)
+			}
+			plannedFingerprint, err := CopyOutputFingerprint(filepath.Join(target, "edit"))
+			if err != nil || result.KeptModified[0].Fingerprint != plannedFingerprint {
+				t.Fatalf("plan did not retain the observed fingerprint: %+v, %v", result.KeptModified[0], err)
+			}
+			if data, err := os.ReadFile(entry); err != nil || string(data) != "my edit" {
+				t.Fatalf("edited refresh overwritten: %q, %v", data, err)
+			}
+			sc := tc.SkillsConfig()
+			sc.Exclude = []string{"edit"}
+			pruned, err := pruneOrphanCopiesWithPolicy("claude", sc, skills, false, source, true, nil, nil)
+			if err != nil || len(pruned.KeptModified) != 1 {
+				t.Fatalf("prune: %+v, %v", pruned, err)
+			}
+			if data, err := os.ReadFile(entry); err != nil || string(data) != "my edit" {
+				t.Fatalf("edited prune removed: %q, %v", data, err)
+			}
+			m, err := ReadManifest(target)
+			if err != nil || m.Managed["edit"] == "" {
+				t.Fatalf("kept entry lost manifest record: %+v, %v", m, err)
+			}
+		})
 	}
 }
 
@@ -720,65 +707,6 @@ func TestProfileAwareWriters_CopyBlocksUnmanagedCollision(t *testing.T) {
 	}
 	if data, err := os.ReadFile(entry); err != nil || string(data) != "local" {
 		t.Fatalf("unmanaged file changed: %q, %v", data, err)
-	}
-}
-
-func TestProfileAwareWriters_MergeDiscardRechecksFingerprint(t *testing.T) {
-	for _, stale := range []bool{false, true} {
-		t.Run(map[bool]string{false: "unchanged", true: "changed_after_plan"}[stale], func(t *testing.T) {
-			source, target := t.TempDir(), t.TempDir()
-			probe := filepath.Join(t.TempDir(), "probe")
-			if err := os.Symlink(source, probe); err != nil {
-				t.Skipf("symlink unavailable: %v", err)
-			}
-			skill := filepath.Join(source, "demo")
-			entry := filepath.Join(target, "demo")
-			if err := os.MkdirAll(skill, 0755); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(filepath.Join(skill, "SKILL.md"), []byte("---\nname: demo\n---\nsource\n"), 0644); err != nil {
-				t.Fatal(err)
-			}
-			if err := copySkillToTarget(skill, entry, "", DefaultFileIgnorePatterns()); err != nil {
-				t.Fatal(err)
-			}
-			clean, err := CopyOutputFingerprint(entry)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := WriteManifest(target, &Manifest{Managed: map[string]string{"demo": "source"}, Outputs: map[string]string{"demo": clean}}); err != nil {
-				t.Fatal(err)
-			}
-			file := filepath.Join(entry, "SKILL.md")
-			if err := os.WriteFile(file, []byte("first edit"), 0644); err != nil {
-				t.Fatal(err)
-			}
-			planned, err := CopyOutputFingerprint(entry)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if stale {
-				if err := os.WriteFile(file, []byte("later edit"), 0644); err != nil {
-					t.Fatal(err)
-				}
-			}
-			skills, err := DiscoverSourceSkills(source)
-			if err != nil {
-				t.Fatal(err)
-			}
-			result, err := SyncTargetMergeWithPolicy("claude", config.TargetConfig{Path: target}, skills, source, false, false, "", true, []DiscardEntry{{Target: "claude", Dir: target, Entry: "demo", Fingerprint: planned}})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if stale {
-				data, err := os.ReadFile(file)
-				if err != nil || string(data) != "later edit" || len(result.KeptModified) != 1 {
-					t.Fatalf("later edit not preserved: %q, %+v, %v", data, result, err)
-				}
-			} else if !utils.IsSymlinkOrJunction(entry) || len(result.Converted) != 1 || result.Converted[0] != "demo" {
-				t.Fatalf("verified edit was not replaced: %+v", result)
-			}
-		})
 	}
 }
 

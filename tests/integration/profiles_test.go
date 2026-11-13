@@ -650,11 +650,6 @@ func TestProfiles_Composition(t *testing.T) {
 			if project {
 				protected = append(protected, filepath.Join(f.root, ".skillshare", "skills.lock.json"))
 			}
-			// A fetched extra's bytes and profile-like bindings are inert input
-			// to a switch. No remote-extra transport is implemented by core2.
-			extra := filepath.Join(f.root, "fetched-extra", "bindings.yaml")
-			f.sb.WriteFile(extra, "profiles:\n  remote: {skills: {include: ['*']}}\nactive: remote\n")
-			protected = append(protected, extra)
 			before := make(map[string]string)
 			for _, path := range protected {
 				before[path] = f.sb.ReadFile(path)

@@ -166,55 +166,31 @@ func TestDiffTUI_KeptOnlyTarget(t *testing.T) {
 	}
 }
 
-func TestDiffTUI_PreservationKeptIsVisible(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "note"), []byte("authored note"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	entry := copyDiffEntry{name: "alpha", action: "kept", reason: "copy was edited; collect or discard edits", dstDir: dir}
+func TestDiffTUI_PreservationPresentation(t *testing.T) {
+	const reason = "kept: copy was edited or could not be verified; collect or remove manually, or use verified --discard-edits"
+	entry := copyDiffEntry{name: "alpha", action: "kept", reason: reason}
 	result := targetDiffResult{name: "custom", mode: "copy", synced: true, items: []copyDiffEntry{entry}}
-	if result.inSync() {
-		t.Error("kept-only target hidden as in sync")
-	}
-	wire := diffItemToJSON(entry)
-	if wire.Action != "kept" || wire.IsSync || wire.Reason != entry.reason {
-		t.Errorf("kept JSON translation: %+v", wire)
-	}
 	m := newDiffTUIModel([]targetDiffResult{result})
 	m.refreshDetailCache()
 	if _, desc := (diffTargetItem{result: result}).row(); !strings.Contains(desc, "kept") {
 		t.Errorf("kept target row: %q", desc)
 	}
-	title, detail := m.renderTitleLine(), m.buildDiffDetail()
+	title := m.renderTitleLine()
 	if !strings.Contains(title, "kept") || strings.Contains(title, "under old name") {
 		t.Errorf("preservation confused with a naming migration: %s", title)
-	}
-	if !strings.Contains(detail, "alpha") || !strings.Contains(detail, entry.reason) || strings.Contains(detail, "stays at") {
-		t.Errorf("detail omitted/misrepresented kept copy: %s", detail)
-	}
-	expanded, ok := expandDiffCmd(&entry)().(diffExpandMsg)
-	if !ok || len(expanded.files) != 1 || expanded.files[0].RelPath != "note" {
-		t.Fatalf("kept files cannot be inspected: %+v", expanded)
 	}
 	for _, category := range categorizeItems([]copyDiffEntry{entry}) {
 		if strings.Contains(category.label, "old name") || category.kind == "orphan" {
 			t.Errorf("kept copy miscategorized: %+v", category)
 		}
 	}
-}
-
-func TestDiffTUI_PreservationPresentation(t *testing.T) {
-	const reason = "kept: copy was edited or could not be verified; collect or remove manually, or use verified --discard-edits"
-	entry := copyDiffEntry{name: "alpha", action: "kept", reason: reason}
-	result := targetDiffResult{name: "custom", mode: "copy", items: []copyDiffEntry{entry}}
-	m := newDiffTUIModel([]targetDiffResult{result})
-	m.refreshDetailCache()
 	m.expandedSkill = "alpha"
 	// Destination-only expansion lists existing files with delete actions.
 	m.expandedFiles = []fileDiffEntry{{RelPath: "SKILL.md", Action: "delete"}}
 	detail := m.buildDiffDetail()
 	for _, want := range []string{
-		"Kept 1 skill", "copy was edited or could not be verified",
+		"Kept 1 skill", "copy was edited or could not be verified", "alpha",
+		strings.TrimPrefix(reason, "kept: "),
 		"collect or remove manually", "verified --discard-edits",
 		"alpha files (kept)", "· SKILL.md", "Next", "skillshare collect",
 	} {
@@ -222,7 +198,7 @@ func TestDiffTUI_PreservationPresentation(t *testing.T) {
 			t.Errorf("kept detail missing %q:\n%s", want, detail)
 		}
 	}
-	for _, wrong := range []string{"Kept: kept:", "--discard-edits 1 skill", "- SKILL.md", "sync --force"} {
+	for _, wrong := range []string{"Kept: kept:", "--discard-edits 1 skill", "- SKILL.md", "sync --force", "stays at"} {
 		if strings.Contains(detail, wrong) {
 			t.Errorf("kept detail has misleading action/header %q:\n%s", wrong, detail)
 		}

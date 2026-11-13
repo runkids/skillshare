@@ -20,15 +20,17 @@ describe('formatYaml', () => {
     expect(() => formatYaml('mcp: [')).toThrow();
   });
   it('orders config sections and separates them without changing their contents', () => {
-    const source = '# config\naudit: {block_threshold: CRITICAL}\nhooks: {}\nplugins: {}\nmcp: {}\nextras: []\nagents: {}\nskills: {}\ntargets: [codex, claude]\nmode: merge\n# shared sources\nsources:\n  skills: /skills\n  extras: /extras\nignore: ["**/.DS_Store", "**/.git/**"]\ncustom_b: true\ncustom_a: false\n';
+    const source = '# config\naudit: {block_threshold: CRITICAL}\nhooks: {}\nplugins: {}\nmcp: {}\nextras: []\nagents: {}\nskills: {}\n# named selections\nprofiles:\n  work:\n    skills: {include: [web*]}\n    future: {enabled: true}\ntargets: [codex, claude]\nmode: merge\n# shared sources\nsources:\n  skills: /skills\n  extras: /extras\nignore: ["**/.DS_Store", "**/.git/**"]\ncustom_b: true\ncustom_a: false\n';
     const formatted = formatYaml(source, { organizeConfig: true });
     expect(Object.keys(parse(formatted))).toEqual([
-      'sources', 'mode', 'targets', 'skills', 'agents', 'extras', 'mcp', 'plugins', 'hooks',
+      'sources', 'mode', 'targets', 'profiles', 'skills', 'agents', 'extras', 'mcp', 'plugins', 'hooks',
       'ignore', 'audit', 'custom_b', 'custom_a',
     ]);
     expect(formatted).toContain('# shared sources\nsources:');
     expect(formatted).toContain('\n\nmode: merge\n\ntargets: [codex, claude]\n\n');
     expect(formatted).toContain('# config');
+    expect(formatted).toContain('# named selections');
+    expect(formatted).toContain('future: {enabled: true}');
     expect(parse(formatted)).toEqual(parse(source));
     expect(formatYaml(formatted, { organizeConfig: true })).toBe(formatted);
   });
@@ -38,15 +40,6 @@ describe('formatYaml', () => {
     expect(parse(formatted)).toEqual(parse(source));
     expect(formatted).toContain('&shared');
     expect(formatted).toContain('*shared');
-    expect(formatYaml(formatted, { organizeConfig: true })).toBe(formatted);
-  });
-  it('orders profiles after targets without dropping future fields or comments', () => {
-    const source = '# named selections\nprofiles:\n  work:\n    skills: {include: [web*]}\n    future: {enabled: true}\nextras: []\ntargets: [claude]\n';
-    const formatted = formatYaml(source, { organizeConfig: true });
-    expect(Object.keys(parse(formatted))).toEqual(['targets', 'profiles', 'extras']);
-    expect(parse(formatted)).toEqual(parse(source));
-    expect(formatted).toContain('# named selections');
-    expect(formatted).toContain('future: {enabled: true}');
     expect(formatYaml(formatted, { organizeConfig: true })).toBe(formatted);
   });
   it.each([

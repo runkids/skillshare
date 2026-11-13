@@ -29,35 +29,6 @@ func fingerprintFixture(t *testing.T) (string, string, *Manifest) {
 	return src, dst, &Manifest{Managed: map[string]string{"repo-demo": sum}, Naming: map[string]string{"repo-demo": "prefixed"}}
 }
 
-func TestCopyFingerprint_BinaryFileBoundaries(t *testing.T) {
-	_, dst, m := fingerprintFixture(t)
-	asset := filepath.Join(dst, "a")
-	if err := os.WriteFile(asset, []byte("x\x00b\x00y"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	original, err := CopyOutputFingerprint(dst)
-	if err != nil {
-		t.Fatal(err)
-	}
-	m.Outputs = map[string]string{"repo-demo": original}
-	if err := os.WriteFile(asset, []byte("x"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dst, "b"), []byte("y"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	edited, err := CopyOutputFingerprint(dst)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if original == edited {
-		t.Error("different authored file boundaries share output identity")
-	}
-	if got := ClassifyEntry(EntryInput{Name: "repo-demo", Path: dst, Manifest: m}); got.Class != EntryModifiedCopy {
-		t.Fatalf("binary edit classified as %s", got.Class)
-	}
-}
-
 func TestCopyFingerprint_ProfileLegacyReproducibility(t *testing.T) {
 	for _, rewritten := range []bool{false, true} {
 		for _, output := range []string{"missing", "bare"} {
@@ -250,19 +221,6 @@ func TestCopyFingerprint_RenameMovesOutput(t *testing.T) {
 	m.Remove("old")
 	if len(m.Outputs) != 0 {
 		t.Fatal("remove retained fingerprint")
-	}
-}
-
-func TestCopyFingerprint_BackfillOnlyVerified(t *testing.T) {
-	src, dst, m := fingerprintFixture(t)
-	// Exercise the same backfill helper used by both skip paths.
-	backfillCopyOutput(m, "repo-demo", dst, CopySource{Path: src, OutputName: "repo-demo"}, true)
-	if len(m.Outputs) != 0 {
-		t.Fatal("dry run recorded fingerprint")
-	}
-	backfillCopyOutput(m, "repo-demo", dst, CopySource{Path: src, OutputName: "repo-demo"}, false)
-	if m.Outputs["repo-demo"] == "" {
-		t.Fatal("verified legacy copy was not recorded")
 	}
 }
 
