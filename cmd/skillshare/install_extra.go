@@ -202,7 +202,9 @@ func installExtra(parsed *installArgs, mode runMode, cwd string, start time.Time
 			if retErr != nil {
 				e.Message = retErr.Error()
 			}
-			oplog.WriteWithLimit(configPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
+			// Logging must not migrate unrelated embedded skill declarations.
+			cfg, _ := config.LoadReadOnly()
+			oplog.WriteWithLimit(configPath, oplog.OpsFile, e, configuredLogMaxEntries(cfg)) //nolint:errcheck
 		}()
 	}
 	req := install.RemoteExtraRequest{Name: name, RawSource: raw, Branch: branch, Source: source, ExtrasRoot: root, LockDir: lockDir, ConfigPath: resolvedConfig, Opts: requestOpts, Recheck: callbacks.Recheck, WriteConfig: callbacks.WriteConfig, RevertConfig: callbacks.RevertConfig, RepairConfig: callbacks.RepairConfig, RefreshAfterRepair: callbacks.RefreshAfterRepair}

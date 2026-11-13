@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
 	"skillshare/internal/testutil"
@@ -272,6 +273,9 @@ func TestInstallExtra_GlobalSaveKeepsSymlinkAndLegacySkills(t *testing.T) {
 		if !strings.Contains(string(data), want) {
 			t.Fatalf("lost %q in config: %s", want, data)
 		}
+	}
+	if _, err := os.Stat(config.RegistryPath(sb.SourcePath)); !os.IsNotExist(err) {
+		t.Fatalf("extra logging migrated the skill registry: %v", err)
 	}
 	entries, err := oplog.Read(sb.ConfigPath, oplog.OpsFile, 0)
 	if err != nil || len(entries) == 0 {

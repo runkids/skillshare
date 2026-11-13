@@ -63,7 +63,7 @@ func TestInstallExtra_ProjectAndEditRefusal(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(project, ".skillshare"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(project, ".skillshare", "config.yaml"), []byte("targets: {}\n"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(project, ".skillshare", "config.yaml"), []byte("targets: []\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	args := []string{"install", remote, "--kind", "extra", "--name", "rules", "--skip-audit", "-p"}
