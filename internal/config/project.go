@@ -344,20 +344,7 @@ func (c *ProjectConfig) EffectiveExtrasSource(projectRoot string) string {
 // external path), both return values are empty — callers must skip gitignore
 // management.
 func ProjectGitignoreTarget(projectRoot, sourcePath string) (gitignoreDir, entryPrefix string) {
-	skillshareDir := projectdir.Resolve(projectRoot)
-	if rel, err := filepath.Rel(skillshareDir, sourcePath); err == nil && !strings.HasPrefix(rel, "..") {
-		if rel == "." {
-			return skillshareDir, ""
-		}
-		return skillshareDir, filepath.ToSlash(rel)
-	}
-	if rel, err := filepath.Rel(projectRoot, sourcePath); err == nil && !strings.HasPrefix(rel, "..") {
-		if rel == "." {
-			return projectRoot, ""
-		}
-		return projectRoot, filepath.ToSlash(rel)
-	}
-	return "", ""
+	return projectdir.GitignoreTarget(projectRoot, sourcePath)
 }
 
 func resolveProjectSourcePath(projectRoot, path string) string {
