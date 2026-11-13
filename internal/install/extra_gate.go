@@ -21,7 +21,7 @@ func gateExtraCandidate(staged, extrasRoot, destPath, commit string, opts Instal
 	if opts.SkipAudit {
 		return &AuditGateResult{Threshold: threshold, Skipped: true}, nil
 	}
-	// The global skill scanner otherwise ignores a rules-loading error.
+	// Preflight global rules before entering the candidate scan.
 	if opts.AuditProjectRoot == "" {
 		if _, err := audit.Rules(); err != nil {
 			return nil, &AuditGateError{ScanErr: fmt.Errorf("load global rules: %w", err), Threshold: threshold, BeforeHash: commit, Rollback: CheckoutUnchanged}

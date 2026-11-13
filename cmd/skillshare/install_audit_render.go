@@ -50,7 +50,6 @@ type batchInstallWarningDigest struct {
 	skillsWithFindings       int
 	belowThresholdSkillCount int
 	aboveThresholdSkillCount int
-	scanErrorSkillCount      int
 	skippedAuditSkillCount   int
 	highCriticalBySkill      map[string]int
 	nonAuditLines            []string
@@ -128,7 +127,7 @@ func digestInstallWarnings(warnings []string) installWarningDigest {
 		switch {
 		case strings.HasPrefix(warning, "audit findings "):
 			digest.statusLines = append(digest.statusLines, firstWarningLine(warning))
-		case strings.HasPrefix(warning, "audit scan error"), strings.HasPrefix(warning, "audit skipped"), strings.HasPrefix(warning, "audit "):
+		case strings.HasPrefix(warning, "audit skipped"), strings.HasPrefix(warning, "audit "):
 			digest.otherAuditLines = append(digest.otherAuditLines, firstWarningLine(warning))
 		default:
 			digest.nonAuditLines = append(digest.nonAuditLines, warning)
@@ -516,8 +515,6 @@ func summarizeBatchInstallWarnings(results []skillInstallResult) batchInstallWar
 
 		for _, line := range digest.otherAuditLines {
 			switch {
-			case strings.HasPrefix(line, "audit scan error"):
-				summary.scanErrorSkillCount++
 			case strings.HasPrefix(line, "audit skipped"):
 				summary.skippedAuditSkillCount++
 			default:
@@ -607,9 +604,6 @@ func renderBatchInstallWarningsCompact(results []skillInstallResult, totalWarnin
 	if summary.aboveThresholdSkillCount > 0 {
 		ui.Warning("%s had findings at/above threshold and continued due to --force", plural(summary.aboveThresholdSkillCount, "skill"))
 	}
-	if summary.scanErrorSkillCount > 0 {
-		ui.Warning("%s had audit scan errors", plural(summary.scanErrorSkillCount, "skill"))
-	}
 	if summary.skippedAuditSkillCount > 0 {
 		ui.Warning("%s skipped audit (--skip-audit)", plural(summary.skippedAuditSkillCount, "skill"))
 	}
@@ -660,9 +654,6 @@ func renderUltraCompactAuditSummary(results []skillInstallResult, _ int) {
 	}
 	if summary.aboveThresholdSkillCount > 0 {
 		statusParts = append(statusParts, fmt.Sprintf("%d above threshold (--force)", summary.aboveThresholdSkillCount))
-	}
-	if summary.scanErrorSkillCount > 0 {
-		statusParts = append(statusParts, fmt.Sprintf("%d scan errors", summary.scanErrorSkillCount))
 	}
 	if len(statusParts) > 0 {
 		ui.Warning("%s", strings.Join(statusParts, ", "))

@@ -287,7 +287,7 @@ skillshare sync
 |------|-------|-------------|
 | `--name <name>` | | 当只安装了恰好一个 Skill 时，覆盖安装后的名称 |
 | `--into <dir>` | | 安装到子目录中（例如 `--into frontend` 或 `--into frontend/react`） |
-| `--force` | `-f` | 覆盖已存在的 Skill；跳过 audit 拦截和跨路径重复检测 |
+| `--force` | `-f` | 覆盖已存在的 Skill；跳过 audit 发现项拦截（扫描失败除外）和跨路径重复检测 |
 | `--update` | `-u` | 如果已存在则更新（git pull 或重新安装） |
 | `--branch <ref>` | `-b` | 要安装的 git branch、tag 或 commit SHA（默认：远程默认分支） |
 | `--track` | `-t` | 为 tracked repo 保留 `.git`。不能与 `--all`、`--yes`、`--skill` 或 `--agent` 同时使用。 |
@@ -617,6 +617,7 @@ install-skills:
 每个 Skill 在安装期间都会自动扫描安全威胁：
 
 - 达到或超过 `audit.block_threshold` 的发现项会**阻止安装**（默认：`CRITICAL`）
+- 如果扫描无法运行（例如 `audit-rules.yaml` 含有无效的正则表达式），安装会被拦截并移除。`--force` 无法覆盖；请修正原因或使用 `--skip-audit`
 - 较低级别的发现项会以警告形式显示，并附带风险评分上下文
 - `audit.block_threshold` 只控制拦截级别；它**不会**禁用扫描本身
 - 没有可以永久跳过 audit 的配置开关；需要时请对单条命令使用 `--skip-audit`
@@ -646,7 +647,7 @@ skillshare install suspicious-skill --threshold high
 skillshare install suspicious-skill -T h
 ```
 
-使用 `--force` 覆盖拦截判定，或使用 `--skip-audit` 完全绕过扫描。扫描细节参见 [audit](/docs/reference/commands/audit)。
+使用 `--force` 覆盖由发现项造成的拦截判定，或使用 `--skip-audit` 完全绕过扫描。扫描细节参见 [audit](/docs/reference/commands/audit)。
 
 安装判定使用的是**发现项严重级别 vs 阈值**。风险评分/标签仅作为上下文提供参考，本身并不会阻止安装。默认情况下，audit 发现项会以精简摘要形式显示（按严重级别和消息分组）。使用 `--audit-verbose` 可查看完整列表。
 
@@ -656,6 +657,7 @@ Tracked repo 使用相同的阈值模型，但扫描范围和失败处理更加�
 
 - 首次 `--track` 安装会扫描**整个克隆下来的仓库**（而不仅仅是某一个 Skill 文件夹）
 - 达到/超过阈值的发现项会阻止安装，除非使用了 `--force`
+- 扫描无法运行时同样会阻止安装，即使使用了 `--force`
 - 首次安装被阻止时，skillshare 会自动从 source 中移除已克隆的仓库
 - 如果自动清理失败，install 会返回明确的错误，并提示你手动移除该路径
 

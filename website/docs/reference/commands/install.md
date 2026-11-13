@@ -293,7 +293,7 @@ See [Project Setup](/docs/how-to/sharing/project-setup) for the full guide.
 |------|-------|-------------|
 | `--name <name>` | | Override installed name when exactly one skill is installed |
 | `--into <dir>` | | Install into subdirectory (e.g. `--into frontend` or `--into frontend/react`) |
-| `--force` | `-f` | Overwrite existing skill; override audit blocking and cross-path duplicate check |
+| `--force` | `-f` | Overwrite existing skill; override audit blocking from findings (not a failed scan) and cross-path duplicate check |
 | `--update` | `-u` | Update if exists (git pull or reinstall) |
 | `--branch <ref>` | `-b` | Git branch, tag, or commit SHA to install from (default: remote default branch) |
 | `--track` | `-t` | Keep `.git` for tracked repos. Cannot combine with `--all`, `--yes`, `--skill`, or `--agent`. |
@@ -625,6 +625,7 @@ install-skills:
 Every skill is automatically scanned for security threats during installation:
 
 - Findings at or above `audit.block_threshold` **block installation** (default: `CRITICAL`)
+- If the scan cannot run (for example, `audit-rules.yaml` has an invalid regex), the install is blocked and removed. `--force` does not override this; fix the cause or use `--skip-audit`
 - Lower findings are shown as warnings and include risk score context
 - `audit.block_threshold` only controls block level; it does **not** disable scanning
 - There is no config switch to always skip audit; use `--skip-audit` per command when needed
@@ -654,7 +655,7 @@ skillshare install suspicious-skill --threshold high
 skillshare install suspicious-skill -T h
 ```
 
-Use `--force` to override block decisions, or `--skip-audit` to bypass scanning entirely. See [audit](/docs/reference/commands/audit) for scanning details.
+Use `--force` to override block decisions from findings, or `--skip-audit` to bypass scanning entirely. See [audit](/docs/reference/commands/audit) for scanning details.
 
 The install decision uses **finding severity vs threshold**. Risk score/label is reported for context and does not by itself block installs. By default, audit findings are shown as a compact summary (grouped by severity and message). Use `--audit-verbose` to see the full list.
 
@@ -664,6 +665,7 @@ Tracked repos use the same threshold model, but the scan scope and failure handl
 
 - Fresh `--track` install scans the **entire cloned repository** (not just one skill folder)
 - Findings at/above threshold block install unless `--force` is used
+- A scan that cannot run also blocks install, even with `--force`
 - On blocked fresh install, skillshare automatically removes the cloned repo from source
 - If automatic cleanup fails, install returns an explicit error and tells you to remove the path manually
 
