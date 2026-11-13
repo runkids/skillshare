@@ -552,3 +552,10 @@ internal/install/extra_snapshot.go	restoreExtraSnapshotIfUnchanged	os.Remove	tmp
 internal/install/extra_snapshot.go	restoreExtraSnapshotIfUnchanged	os.Rename	tmp, path	config
 internal/install/extra_candidate.go	removeExtraCandidateTemp	os.RemoveAll	dir	tmp
 internal/install/extra_candidate.go	prepareExtraCandidate	os.MkdirTemp	""	tmp
+internal/install/extra_publish.go	<package>	os.Rename	<ref>	extras
+internal/install/extra_publish.go	<package>	os.RemoveAll	<ref>	extras
+internal/install/extra_publish.go	publishRemoteExtra	os.Remove	marker	extras
+internal/install/extra_publish.go	publishRemoteExtra	os.Remove	marker	extras
+internal/install/extra_publish.go	publishRemoteExtra	os.Remove	stage	extras
+internal/install/extra_repair.go	repairRemoteExtra	os.Remove	extraJournalPath(req.ExtrasRoot, req.Name)	extras
+internal/install/extra_repair.go	repairRemoteExtra	os.Remove	stage	extras
