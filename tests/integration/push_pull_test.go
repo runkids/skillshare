@@ -163,16 +163,16 @@ func TestPushPull_InstallKeepsTrackedRecordClonedElsewhere(t *testing.T) {
 		t.Helper()
 		env := map[string]string{
 			"HOME": sb.Home, "USERPROFILE": sb.Home, "SKILLSHARE_CONFIG": sb.ConfigPath,
-			"XDG_CONFIG_HOME": filepath.Join(sb.Home, ".config"),
-			"XDG_DATA_HOME": filepath.Join(sb.Home, ".local", "share"),
-			"XDG_STATE_HOME": filepath.Join(sb.Home, ".local", "state"),
-			"XDG_CACHE_HOME": filepath.Join(sb.Home, ".cache"),
-			"CLAUDE_CONFIG_DIR": filepath.Join(sb.Home, "clients", "claude"),
-			"CODEX_HOME": filepath.Join(sb.Home, "clients", "codex"),
-			"COPILOT_HOME": filepath.Join(sb.Home, "clients", "copilot"),
+			"XDG_CONFIG_HOME":     filepath.Join(sb.Home, ".config"),
+			"XDG_DATA_HOME":       filepath.Join(sb.Home, ".local", "share"),
+			"XDG_STATE_HOME":      filepath.Join(sb.Home, ".local", "state"),
+			"XDG_CACHE_HOME":      filepath.Join(sb.Home, ".cache"),
+			"CLAUDE_CONFIG_DIR":   filepath.Join(sb.Home, "clients", "claude"),
+			"CODEX_HOME":          filepath.Join(sb.Home, "clients", "codex"),
+			"COPILOT_HOME":        filepath.Join(sb.Home, "clients", "copilot"),
 			"OPENCODE_CONFIG_DIR": filepath.Join(sb.Home, "clients", "opencode"),
 			"PI_CODING_AGENT_DIR": filepath.Join(sb.Home, "clients", "pi"),
-			"GIT_CONFIG_GLOBAL": filepath.Join(sb.Home, ".gitconfig"),
+			"GIT_CONFIG_GLOBAL":   filepath.Join(sb.Home, ".gitconfig"),
 			"GIT_CONFIG_NOSYSTEM": "1",
 		}
 		sb.RunCLIEnv(env, args...).AssertSuccess(t)
