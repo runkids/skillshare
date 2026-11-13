@@ -23,7 +23,8 @@ skillshare mcp restore BACKUP_ID --dry-run --json     # Preview entry-level rest
 skillshare mcp restore BACKUP_ID --no-tui            # Apply restoration; source stays unchanged
 skillshare mcp check --json                          # Static check: variables, commands, version pins, DNS, sync state
 skillshare mcp check --live --timeout 30s --json     # Also start/call each server: serverInfo, protocol, tools
-skillshare mcp check docs --live --accept-tools      # Accept the tool definitions docs lists now as the baseline
+skillshare mcp check docs --live --root "" --json    # Review full contracts; copy contract.revision
+skillshare mcp check docs --live --root "" --accept-tools --revision REVIEW_REVISION # Explicitly approve that review
 skillshare mcp serve [--target NAME] [--http ADDR [--tls-cert F --tls-key F] [--http-allow-insecure]]  # Serve skills over MCP (SEP-2640)
 skillshare mcp serve --check [--target NAME]         # List skipped, editable and Executor-index skills, then exit
 ```
@@ -55,12 +56,99 @@ skillshare mcp serve --check [--target NAME]         # List skipped, editable an
   its `env`) and POSTs to each remote one, skipping servers with a static error. A 401 is a
   warning with the resource metadata URL; it never signs in. Use it only for trusted
   servers. `--json` adds `live: {protocolVersion, serverInfo, tools, toolNames}`.
-- `mcp check --live` also pins each tool's definition (hash of name, description and input
-  schema) on a server's first probe, in `mcp/tool-pins.json` of the state directory. Later
-  probes warn (`tool-change`) about a changed or new tool and note a removed one; the pin is
-  kept until `--accept-tools` (only with `--live`) re-baselines every probed server, so
-  review the changes first; each acceptance is recorded in the operations log. An unreadable pin file is never rewritten; move it away to pin
-  again. Without `--live` the pins are untouched.
+- Scope: omit `--root` to observe all scopes; `--root ""` selects this configuration's
+  own server list; a nonempty `--root` must exactly match a configured `mcp.projects`
+  root. `-p` still selects project configuration. A name can match several scopes;
+  approval must resolve to exactly one server.
+- First live review is `untrusted` and writes nothing. Version-1 hashes remain `legacy`
+  evidence until explicit review. An ordinary check, `add`, `sync` or API GET never
+  establishes or replaces trust. `contract` includes complete snapshots, split hashes,
+  connection identity drift, directional changes, audit findings and any omitted
+  summary count; CLI snapshots use the raw canonical `definition` object.
+- Approve only after reviewing the complete inventory: one explicit name plus `--live`,
+  `--accept-tools` and `--revision REVIEW_REVISION`, using the returned `contract.revision`
+  and the same root/configuration. Approval probes again, checks exact inventory and
+  identity plus pre-probe baseline revision, then rechecks source/store under the lock
+  before an atomic save. A stale review requires a new probe; it cannot approve an
+  unseen inventory. Only persisted approval or a verified no-op reports `accepted`.
+  Explicit CLI/API attempts are logged in `operations.log` (`skillshare log`). A
+  separate `mcp contract review` entry in `audit.log` (`skillshare log --audit`)
+  records only server/tool/audit-finding counts, accepted outcome and standard log
+  metadata, without names, contracts, revisions, diagnostic payloads or credentials.
+  Logging is best effort and cannot undo a persisted approval.
+- Normal untrusted/legacy/drift findings warn. `--strict-tools` (requires `--live`)
+  promotes them to errors. Invalid/unreadable/newer stores, incomplete probes/audits,
+  refused/stale approval and write failures are errors. Never delete or move trust
+  state to bypass a failure; inspect it or restore a valid backup.
+- Baseline trust requires all env/header declarations, even non-secret literals, and
+  bearer tokens to use `fromEnv`. Ordinary configuration remains valid. Known
+  configured credentials in decoded metadata or identity material are refused before
+  hashes/revisions; this does not detect arbitrary unconfigured secrets. Diagnostic
+  redaction includes short recognized credentials. Failed local probes omit server
+  stderr payloads; captured diagnostic text produces `server diagnostic output omitted`.
+- Policy `skillshare-contract-v2` normalizes object keys/whitespace, preserves number
+  lexemes and every array order, requires an object `inputSchema`, defaults missing
+  description to empty and omitted hints to readOnly=false, destructive=true,
+  idempotent=false, openWorld=true. All top-level fields are covered, including
+  output schema, title, icons, `_meta` and unknown fields. Whole/input/prose/output/
+  metadata hashes are retained. No RFC 8785 or RugSnare PIN-SPEC interop guarantee.
+- Grades `BREAKING`, `LOOSENED`, `EXPANDED`, `DESCRIPTION`, `NOTATION`, `METADATA` and
+  `UNKNOWN` aid review; unsupported or uncertain mixed cases are UNKNOWN. This is not
+  full schema implication; description/schema prose still needs review. Existing
+  audit rules scan nested decoded text/keys without tutorial suppression; a clean
+  scan does not prove safety.
+- Bounds: 50 pages (remaining/cycled cursor fails), 4,096 tools, 4 MiB each for raw and
+  canonical inventory, 256 KiB/tool, 64 descriptor levels, 16 MiB store. Audit:
+  4,096 strings/keys, 1 MiB text, 8,192 visual lines, 200 findings. Incomplete analysis
+  prevents approval. Redirects, duplicate keys/names and invalid JSON-RPC version,
+  IDs or shapes fail; embedded URLs are not fetched. Stdio uses direct argv execution.
+- Private `mcp/tool-pins.json` (0600) now stores full snapshots. V2 records bind
+  canonical config/source identity, root/name, complete server declarations (including
+  tools/native options), actual stdio executable/cwd and reported protocol/serverInfo.
+  HTTP excludes irrelevant cwd. V1 evidence is retained. Ambient environment,
+  referenced value changes and executable bytes are not attested.
+- Dashboard **Check** stays static. **Review live tools** opens an inert confirmation;
+  **Probe live tools** explicitly connects. Expand full snapshots and inspect all
+  directional/audit findings before **Trust this inventory**. It posts the exact
+  server/root/revision; stale or failed approval requires a new probe. Re-probe before
+  approving another server after a save. Editor **Load tools** saves no trust.
+- API `GET /api/mcp/check?live=1&root=` observes only this config's list; omitted root
+  means all scopes, nonempty root an exact configured project. GET never writes trust.
+  Local-protected `POST /api/mcp/check {name,root,revision}` returns 200/accepted only
+  for typed persisted success, 409 for stale, 422 for refusal (400 for malformed
+  requests). API snapshots are exact `definitionText` strings to preserve numbers.
+- Optional signing: every protected live check supplies `--verify-key FILE` (Ed25519
+  PKIX PEM `PUBLIC KEY`). Explicit `--accept-tools --revision REVIEW_REVISION` can
+  add `--signing-key FILE` (matching Ed25519 PKCS8 PEM `PRIVATE KEY`). These inputs
+  require `--live`; a signing key requires both explicit acceptance and a verifier.
+  Skillshare never provisions keys or persists them/their paths in state/config.
+  Keep verifier distribution and its required-use policy independently trusted.
+- Missing store plus verifier permits an untrusted preview; first signed acceptance
+  requires the matching signer. Existing unsigned state plus verifier fails unless
+  `--sign-unsigned` requests explicit migration preview. Use the same flag for signed
+  acceptance with matching signer and the migration revision. Migration signs the
+  selected record and downgrades ALL unselected V2 records to `legacy-unsigned`
+  evidence, preserving data but requiring independent re-review/reacceptance.
+  Revision binds mode and the whole-store transformation; a plain unsigned review
+  token is insufficient. Migration preview is always `legacy`, including a matching
+  unsigned record; `--strict-tools` fails before signed acceptance.
+  `--sign-unsigned` refuses missing and signed stores.
+- A signed store requires the correct external verifier before comparison, then
+  verification of the locked reread before saving. Acceptance needs the matching
+  signer. Missing verifier, bad signature, unknown algorithm/fields and malformed
+  state are errors with no approval revision; migration cannot bypass them.
+  One optional signature `{algorithm: "Ed25519", value: BASE64}` shares the atomic
+  V2 envelope. Sign domain `skillshare-mcp-pins-v2\n` plus deterministic compact
+  envelope JSON excluding signature. Verified no-op preserves all bytes.
+- Keys are bounded regular files (64 KiB), one unencrypted PEM block, no symlinks.
+  Unix refuses group/other permissions on private keys; Windows needs operator
+  ACL protection because Unix mode checks do not apply. Errors omit paths/material;
+  private keys never reach probes, API/UI or reports. Signed-store API/dashboard
+  review requires CLI verification and offers no trust action.
+- This is point-in-time advertised-contract review, without call-time blocking or
+  quarantine. Unchanged contracts cannot prove implementation safety. Signatures
+  provide no rollback freshness. Stripping signature AND omitting external verifier
+  policy can look unsigned; a committed key is not automatic trust bootstrap.
 - `mcp serve` serves skills to Agents that cannot reach the synced folders (VMs, MCP
   gateways): stdio by default, global unless `-p`. `--target NAME` applies that target's
   filters. Skipped skills (`SKILL.md` a link or not starting with frontmatter, name not matching

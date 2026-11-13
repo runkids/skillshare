@@ -22,7 +22,8 @@ skillshare mcp list --json
 skillshare mcp check
 skillshare mcp check docs --json --no-dns
 skillshare mcp check --live --timeout 30s
-skillshare mcp check docs --live --accept-tools
+skillshare mcp check docs --live --root "" --json
+skillshare mcp check docs --live --root "" --accept-tools --revision REVIEW_REVISION
 skillshare mcp remove docs --sync
 skillshare mcp remove docs --keep-files
 skillshare mcp restore BACKUP_ID --dry-run
@@ -53,13 +54,18 @@ skillshare sync --all
 | `--no-dns` | 搭配 `check` 使用：略過遠端 server 的主機名稱解析。參見[下方說明](#check-servers-before-an-agent-starts-them) |
 | `--live` | 搭配 `check` 使用：另外啟動每個本機 server，並呼叫每個遠端 server。參見[下方說明](#probe-servers-live) |
 | `--timeout DURATION` | 搭配 `check --live` 使用：每個 server 探測的時間上限，例如 `30s`；預設為 `10s` |
-| `--accept-tools` | 搭配 `check --live` 使用：把每個已探測 server 列出的工具定義記錄為新的基準。參見[下方說明](#pin-tool-definitions) |
+| `--root PATH` | 搭配 `check`：精確選擇設定的 `mcp.projects` 根目錄；`--root ""` 只選目前設定清單，省略則觀察全部範圍 |
+| `--strict-tools` | 搭配 `check --live`：untrusted、legacy 或漂移視為 error |
+| `--accept-tools` | 搭配 `check --live`：以審閱所得 `--revision` 核准一個明確命名的 server；同名跨範圍時必須選擇 root。參見[工具契約](#pin-tool-definitions) |
+| `--verify-key FILE` | 搭配 `check --live`：以外部 Ed25519 PKIX PEM 公鑰驗證狀態庫；每次受保護檢查皆須提供 |
+| `--signing-key FILE` | 搭配 `check --live --accept-tools`：以符合 `--verify-key` 的 Ed25519 PKCS8 PEM 私鑰簽章 |
+| `--sign-unsigned` | 搭配 `check --live --verify-key`：明確預覽既有未簽章庫的遷移；接受另需相符簽章金鑰及遷移 revision |
 | `--http ADDR` | 搭配 `serve` 使用：在 `ADDR` 上以 Streamable HTTP 監聽，而不使用 stdio，同時提供 [Executor skill 索引](#executor)。參見[下方說明](#serve-skills-over-mcp) |
 | `--http-allow-insecure` | 使用 `serve --http` 時：明確允許可信任私有網路上的明文 HTTP，並在啟動時警告；預設關閉 |
 | `--tls-cert FILE`, `--tls-key FILE` | 搭配 `serve --http` 使用：以這組 PEM 憑證與金鑰提供 HTTPS；未明確允許時，非 loopback 位址必須設定 |
 | `--check` | 搭配 `serve` 使用：列出會被跳過的 skills 及原因、可編輯的數量，以及 Executor 索引會提供的內容，然後結束，不啟動服務 |
 | `--no-tui` | 停用互動選單；`tui: false`、`--json` 或非終端機輸入/輸出時也會停用 |
-| `--revision ID` | 要求 add、import、remove 或 `sync mcp` 使用相符的 preview |
+| `--revision ID` | add/import/remove 或 `sync mcp` 需符合預覽；`check --live --accept-tools` 需符合 `contract.revision` |
 | `--global`, `-g` | 使用 global Skillshare 設定 |
 | `--project`, `-p` | 使用 project Skillshare 設定 |
 
@@ -650,7 +656,7 @@ skillshare mcp check --no-dns
 }
 ```
 
-`check` 是 `env`、`command`、`pin`、`url`、`dns`、`client-rule`、`sync`、`targets`、`tools`、`tool-change` 或 `live` 其中之一。
+`check` 是 `env`、`command`、`pin`、`url`、`dns`、`client-rule`、`sync`、`targets`、`tools`、`tool-change`、`tool-audit` 或 `live` 其中之一。
 `target` 表示 Agent 或帳號；當該項發現是針對 server 本身時則為空。
 `subject` 在 `env`、`command`、`pin` 與 `dns` 發現中表示變數、指令、套件、映像或主機；在成功的 `live` 探測中表示 server
 回報的名稱；在 `live` 登入 warning 中表示 resource metadata URL；其他情況下省略。
@@ -663,90 +669,149 @@ global server 則省略此欄位。`summary` 會計算報告中的每個 server�
 project servers，即使與某個 global server 同名也一樣。project 的 MCP 分頁在它的 Sync 框中
 有自己的 **檢查**，會回報該 project 自己的 servers。變數是從啟動 `skillshare ui` 的終端機讀取。
 
-### 即時探測 servers {#probe-servers-live}
+### 即時探測 server {#probe-servers-live}
 
 ```bash
 skillshare mcp check --live
-skillshare mcp check docs --live --timeout 30s --json
+skillshare mcp check docs --live --root "" --timeout 30s --json
+skillshare mcp check docs --live --root /absolute/configured/project --json
 ```
 
-`--live` 會先執行靜態檢查，再連線到每個選取且沒有 error 的 server。有 error 的 server 或已停用的項目
-不會被連線；會有一則 `info` 發現說明原因。
+`--live` 先執行靜態檢查，再連線至所選且沒有靜態 error 的 server；停用項目和有 error 的 server 會略過。
 
-- **本機（stdio）servers。** Skillshare 會在你目前的環境中以 `args` 啟動 `command`，並加上該 server 的
-  `env`，其中每個 `fromEnv` 的值都從你的 shell 讀取。project server 會在其 project 資料夾中啟動，global
-  server 則在目前目錄中啟動。這會像 Agent 一樣在你的電腦上執行該 server 的程式碼，所以只對你信任的
-  servers 使用 `--live`。Skillshare 會送出 `server/discover`。若 server 回應的 error 不是 MCP protocol
-  error，或未在逾時時間的三分之一內回應，就會被視為早於 MCP 2026-07-28 的版本，改用 `initialize`
-  handshake。接著 Skillshare 會呼叫 `tools/list` 計算工具數量，然後停止該 server：先關閉 stdin，再對
-  server 的 process group 送出 SIGTERM，然後是 SIGKILL。在 Windows 上則會終止該 process。
-- **遠端（Streamable HTTP）servers。** Skillshare 會帶著該 server 的 `headers` 與 `bearerToken` 以 POST
-  送出 `server/discover`，並讀取 JSON 或 SSE 回應。沒有 MCP error 的 `400`、`404` 或 `405` 會退回使用
-  `initialize`。`401` 是一則 warning，「sign-in required」，並附上 `WWW-Authenticate` header 中的
-  resource metadata URL。Skillshare 永遠不會登入或啟動 OAuth。
+- **本機 stdio。** 直接執行設定的執行檔和原樣參數，繼承目前環境並加入宣告的 `env`。
+  會解析實際執行檔路徑；專案 server 在專案根目錄啟動，全域 server 在目前目錄啟動。
+  這會執行 server 的程式碼，只對你確實打算執行的 server 要求探測。先送出 `server/discover`，
+  對支援的舊版回應或 discovery 逾時回退至 `initialize`，接著列出工具。完成後關閉 stdin
+  並終止探測程序群組（Windows 上終止該程序）。
+- **遠端 Streamable HTTP。** 帶著設定的 headers 和 bearer token POST 至指定端點，讀取 JSON 或 SSE；
+  支援的舊版回應可回退至 `initialize`。拒絕重新導向。HTTP 401 產生登入 warning；不會登入，
+  也不會擷取資源中繼資料 URL。工具、圖示、schema 內的 URL 同樣不會被擷取。
 
-每個 server 的整個探測共用一個時間上限：10 秒，或 `--timeout` 指定的值（例如 `30s` 或 `1m`）。最多同時
-探測四個 servers。未搭配 `--live` 使用 `--timeout` 會是一個 error。
+每個 server 的完整探測預設限時 10 秒，可用 `--timeout 30s` 等覆寫；最多四個 server 同時探測。
+`--timeout` 必須搭配 `--live`。嚴格驗證 JSON-RPC 版本、回應 ID、result/error 結構；
+拒絕重複的解碼後鍵和有歧義的回應。
+
+完整清單上限為 50 頁、4,096 個工具、原始描述總量 4 MiB、正規化描述總量 4 MiB、
+單一工具 256 KiB、JSON 巢狀 64 層。第 50 頁仍有 cursor、cursor 循環、工具名稱重複、
+描述格式無效或超過限額都會使探測失敗，絕不接受清單前綴。
 
 | 結果 | 等級 |
 |---|---|
-| server 有回應：它的名稱與版本、protocol 版本以及工具數量 | info |
-| 遠端 server 需要登入（HTTP 401） | warning |
-| 指令無法啟動、提早結束，或未在時限內回應 | error |
-| protocol error、不支援的 protocol 版本，或任何其他 HTTP 狀態 | error |
-| server 的首次成功探測：它的工具定義被釘選 | info |
-| 某個工具的 description 或輸入 schema 與釘選不同，或 server 列出了未被釘選的工具 | warning |
-| 已釘選的工具不再被列出 | info |
+| server 回應：自報身分、協定、工具數量 | info |
+| HTTP 401 需要登入 | warning |
+| 沒有已核准的基線、legacy 雜湊、清單或連線身分改變 | warning；`--strict-tools` 時為 error |
+| 工具文字命中稽核規則 | warning；必須審閱 |
+| 狀態庫無效或無法讀取、探測或稽核失敗/不完整、接受遭拒/過期、寫入失敗 | error |
 
-本機 server 失敗時，訊息結尾會附上最多五行它的 stderr。`env`、`headers` 與 `bearerToken` 的值會從每則
-訊息中移除；短於四個字元的值則維持原樣。值會照原樣傳遞：Skillshare 永遠不會執行 Pi 的 `!command` 值，
-也不會讀取 `piOptions`。結束代碼遵循相同規則，只要發現任何 error 就是 1。`--live` 不會寫入任何設定檔，
-也不會留下操作紀錄項目；它只會在 state 目錄中保存[工具釘選](#pin-tool-definitions)。
+有 error 時結束碼為 1，否則為 0；warning 不導致失敗。`--strict-tools` 必須搭配 `--live`，
+它是檢查門檻，不會在工具呼叫時阻擋。失敗的本機命令不回顯 stderr 內容；若 stderr 含有診斷文字，報告會附加
+`server diagnostic output omitted`。其他診斷中的已知設定憑證（包括短值）會被遮蔽。若解碼後的工具中繼資料或連線身分材料含有已知憑證，會在揭露雜湊或 revision
+前拒絕。無法偵測未設定的任意秘密。
 
-使用 `--json` 時，有回應的 server 還會多一個 `live` 物件：
+成功的 `--json` 報告包含 `live: {protocolVersion, serverInfo, tools, toolNames}` 和 `contract`。
+`serverInfo` 由 server 自報。`contract` 包含 `status`、`policy`、可用時的 `revision`、完整 `tools`、
+`identityChanged`、具方向性的 `changes`、稽核結果及省略摘要數 `omitted`。CLI 中每個工具包含
+`hash`、`inputHash`、`proseHash`、`outputHash`、`metadataHash` 及完整正規化 JSON `definition`。
+有摘要省略時必須查看完整定義。一般觀察不寫設定、基線或操作日誌。
 
-```json
-{
-  "name": "docs",
-  "ok": true,
-  "findings": [
-    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s)", "subject": "docs-server" }
-  ],
-  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12 }
-}
-```
+### 審閱並核准工具契約 {#pin-tool-definitions}
 
-`serverInfo` 是 server 對自己的描述，沒有任何驗證。server 未被探測或探測失敗時，會省略 `live`。
+首次探測標為 **untrusted**，不寫基線。舊 version-1 雜湊在明確審閱前只是 **legacy** 證據。
+後續探測比較完整契約和連線身分；漂移不改變原基線。`add`、`sync`、一般檢查和 API GET 都不會核准工具。
 
-dashboard 的 **檢查** 按鈕只執行靜態檢查。dashboard 只在一個地方探測 server：server 對話框
-[工具區塊](#tool-policy-dashboard)中的 **載入工具**，它會依對話框目前的欄位啟動 server 一次，
-列出它的工具。搭配 `--json` 時，`live` 也會包含 `toolNames`，即 `tools/list` 回傳的名稱。
+1. 選擇 server 和範圍，檢查完整清單：
 
-### 釘選工具定義 {#pin-tool-definitions}
+   ```bash
+   skillshare mcp check docs --live --root "" --json
+   ```
 
-server 可能在你審閱之後修改某個工具的描述或它接受的輸入，而 Agent 會不經詢問就照做。因此 `--live` 會在
-server 第一次回應時釘選每個工具，並把之後每次探測都與該釘選比較。
+2. 審閱全部快照、身分變化、具方向性的變更和稽核結果，複製該 server 的 `contract.revision`：
 
-- **釘選的內容。** 每個工具一個 SHA-256 雜湊，涵蓋它的 `name`、`description` 與 `inputSchema`，
-  依正規化 JSON 計算：鍵的順序與空白不影響結果。雜湊依範圍（global、`mcp.projects` root，或 `-p` 選定
-  的 project）與 server 名稱存放在 Skillshare state 目錄的 `mcp/tool-pins.json`，位於 `state.json`
-  旁邊。不會儲存 description 或 schema 的文字。
-- **首次探測。** 記錄基準，並由一則 check 為 `tool-change` 的 `info` 發現說明。沒有 warning。
-- **之後的探測。** description 或輸入 schema 有變化的工具，以及釘選之後新增的工具，各會得到一則列出工具
-  名稱的 `tool-change` `warning`。不再被列出的工具是 `info`。基準維持不變，因此在你接受之前同樣的 warning
-  會一直出現。warning 不會讓結束代碼變成 1。
-- **接受。** 審閱這些工具後，執行 `skillshare mcp check docs --live --accept-tools`。每個被探測的已選
-  server 會把它現在列出的內容記錄為基準，並由一則 `info` 發現列出被變更、新增或移除的工具。
-  未搭配 `--live` 使用 `--accept-tools` 會是 error。每次接受都會連同被接受的 server 記錄到操作日誌
-  （`skillshare log`）。名稱會選到全域和每個 `mcp.projects` root 中的同名
-  server，並全部接受，所以請逐一審閱報告列出的每一個。無法讀取的 `tool-pins.json`（包含較新版本寫入的）
-  會在每個被探測的 server 上產生 warning，而且因為它可能含有其他 server 的釘選，連 `--accept-tools`
-  也不會改寫它；要重新釘選，請把檔案移開。
+   ```bash
+   skillshare mcp check docs --live --root "" --accept-tools --revision REVIEW_REVISION
+   ```
 
-未搭配 `--live` 時既不會讀取也不會寫入釘選。你編輯過的 server（換了指令或 URL），或刪除後再新增的
-server，會以同一名稱保留它的釘選：如果它的工具確實有變化，接受一次新定義即可。
-`GET /api/mcp/check?live=1`（dashboard **檢查** 按鈕呼叫的端點，按鈕不會送出 `live`）
-也會釘選並比較，但不能接受。
+   將 `REVIEW_REVISION` 換成傳回的 64 位小寫十六進位 revision，並使用相同 root 和專案/全域設定。
+
+接受必須提供一個明確名稱、`--live` 和 `--revision`。`--root ""` 僅選目前設定自己的 server 清單；
+非空 root 必須精確符合設定的 `mcp.projects` 根目錄。不指定 root 會觀察全部範圍；同名 server
+跨範圍時必須選定一個 root。`-p` 仍是選擇專案設定，不是選擇全域設定中的 root。
+接受時重新探測，核對目前完整清單、連線身分和探測前的基線 revision；在操作鎖內再次核對來源和狀態位元組，
+再原子寫入。過期必須重新探測和審閱，不能接受未審閱的新清單。僅成功持久化或經核對的無變化操作
+才報告 accepted。明確的 CLI/API 核准嘗試及結果記入 `operations.log`（`skillshare log`）。
+另在 `audit.log`（`skillshare log --audit`）寫入 `mcp contract review` 項目，僅含 server/工具/稽核發現數量、
+接受結果及標準日誌中繼資料，不含 server 名稱、契約文字、revision、診斷內容或憑證。
+日誌寫入採盡力方式；失敗不會撤銷已持久化的核准。
+
+核准基線要求**所有 env/header 宣告都使用 `fromEnv`**，包括非秘密字面值；bearer token 也必須使用引用。
+一般字面值設定仍可管理，但不能取得基線核准。解析後的憑證值不會進入身分雜湊或基線。
+
+原生策略 `skillshare-contract-v2` 正規化物件鍵與空白，保留 JSON 數字原始寫法及**所有陣列順序**；
+`1`、`1.0`、`1e0` 可以產生不同雜湊。`inputSchema` 必須是 JSON 物件；缺少 description 視為空。
+省略的 annotation 提示預設為 `readOnlyHint: false`、`destructiveHint: true`、`idempotentHint: false`、
+`openWorldHint: true`。所有頂層欄位都納入，包括 output schema、title、icons、`_meta` 及未知欄位。
+除完整雜湊外另有輸入、文字、輸出和中繼資料的分維度雜湊。不保證 RFC 8785 或 RugSnare PIN-SPEC 互通。
+
+變更等級為 `BREAKING`、`LOOSENED`、`EXPANDED`、`DESCRIPTION`、`NOTATION`、`METADATA`、`UNKNOWN`。
+這是保守的審閱輔助，不是完整 schema 蘊含證明；不支援或不確定的混合變更為 `UNKNOWN`，
+描述和 schema 文字變化仍須審閱。重用既有稽核引擎檢查解碼後的鍵與巢狀文字，不做教學豁免；
+預算為 4,096 個字串/鍵、1 MiB 文字、8,192 個可視行、200 項發現。不完整稽核阻止接受；乾淨結果不證明安全。
+
+私有狀態檔 `mcp/tool-pins.json`（0600，上限 16 MiB）儲存完整正規化快照與雜湊。
+Version-2 記錄綁定正規化設定/來源身分、root/name、完整 server 宣告（含工具策略和原生選項）、
+實際 stdio 執行檔與工作目錄，以及觀察到的協定/server 身分。HTTP 不綁定無關工作目錄。
+保留 version-1 雜湊作為證據。無法讀取、損毀或較新格式狀態庫是 error，原檔保留；應檢查或還原有效備份，
+不要透過刪除或移動信任狀態繞過失敗。
+
+這是對宣告契約的單次觀察，不驗證執行檔內容、環境中未宣告的值或引用值變化；無法偵測契約未變的惡意實作，
+也不會隔離或阻擋原生客戶端呼叫。未簽章狀態無法驗證本機修改；選用簽章依賴獨立信任的外部驗證公鑰，無法偵測回復到較舊的有效簽章狀態。
+
+### 驗證與簽章基準 {#signed-tool-baselines}
+
+**每次受保護的即時檢查**皆提供 `--verify-key FILE`：僅接受 Ed25519 PKIX PEM 公鑰（`PUBLIC KEY`）。
+`--signing-key FILE` 僅在明確 `--accept-tools --revision REVIEW_REVISION --verify-key FILE` 時使用，
+僅接受相符的 Ed25519 PKCS8 PEM 私鑰（`PRIVATE KEY`）。三個簽章相關參數皆要求 `--live`。
+Skillshare 不產生金鑰，不把金鑰或路徑持久化到設定/狀態。公鑰及其必用政策須獨立於可編輯的狀態庫受信任；一起提交的公鑰不會自動成為信任起點。
+
+| 既有狀態庫 | 行為 |
+|---|---|
+| 不存在 | 有驗證公鑰時可作不寫入的 untrusted 預覽；首次簽章接受需相符私鑰及已審閱 revision |
+| 未簽章、無驗證公鑰 | 保留普通未簽章流程，無法驗證蓄意本機修改 |
+| 未簽章、有驗證公鑰 | 除 `--sign-unsigned` 明確遷移預覽外皆失敗；接受另需相符私鑰及遷移 revision |
+| 有效簽章 | 每次檢查需正確外部公鑰；接受另需相符私鑰；驗證過的無變更接受保留全部位元組 |
+| 簽章庫無驗證公鑰、無效簽章、錯誤/未知格式 | 失敗並保留檔案，不發核准 revision；遷移無法繞過 |
+
+遷移**既有未簽章庫**時，在僅帶驗證公鑰的預覽及後續明確簽章接受中皆加上 `--sign-unsigned`。
+即使所選未簽章記錄未變，遷移預覽仍為 `legacy`，簽章接受前 `--strict-tools` 失敗。
+遷移簽署所選已審閱記錄，並把**所有未選取的 V2 記錄**降為 `legacy-unsigned` 證據；保留資料，
+但各自需獨立重新審閱及接受才能恢復信任。revision 綁定遷移模式及整個狀態庫轉換，普通未簽章預覽 revision 無法授權遷移。
+遷移後移除該參數：`--sign-unsigned` 也拒絕不存在或已有有效簽章的狀態庫。
+
+同一原子 V2 狀態庫內含一個選用 `signature`（`algorithm: "Ed25519"`，base64 `value`）。
+簽章輸入為 `skillshare-mcp-pins-v2\n`（末尾一個換行）加不含 signature 的整個封裝的確定性精簡 JSON。
+信任前及鎖內寫入前重讀皆驗證與解析相同的有界位元組。未知演算法/欄位及格式錯誤簽章皆失敗。
+
+金鑰須為不超過 64 KiB 的一般檔案，只含一個未加密 PEM 區塊，不接受符號連結。
+Unix 拒絕帶 group/other 權限的私鑰；Windows 無法執行該 Unix mode 檢查，應自行用 ACL 保護。
+金鑰錯誤不暴露路徑或材料；私鑰不傳給 server、API/UI 或報告。
+同時移除簽章並省略外部驗證政策會讓狀態看似未簽章，須在外部強制每次使用驗證公鑰。
+簽章不證明實作安全，不提供執行時阻擋或回復新鮮度。API/儀表板不接收金鑰輸入，簽章庫須用 CLI 驗證，不提供信任操作。
+
+
+### 儀表板與 API 審閱 {#contract-review-dashboard}
+
+Sync 區的 **檢查** 仍為靜態檢查。**檢視即時工具** 只開啟確認框；只有點擊 **探測即時工具**
+才啟動該範圍的 server 或送出遠端請求。對話框以惰性文字顯示身分變化、方向等級、稽核結果及可展開的完整快照，
+不會啟用中繼資料連結或圖示。編輯器的 **載入工具** 仍是獨立草稿探測，不儲存信任。
+
+**信任這份清單** 僅核准一個 server，送出精確 root 和 revision。過期或失敗需要重新探測；
+核准一個後，狀態庫 revision 改變，核准另一個前也要重新探測。
+
+`GET /api/mcp/check?live=1&root=` 只觀察目前設定清單，不寫信任。省略 root 觀察全部範圍；
+非空 root 選擇精確設定的專案根目錄。本機 MCP 保護下的 `POST /api/mcp/check` 接收 `{name, root, revision}`；
+僅型別化的持久化成功傳回 HTTP 200 和 `{accepted: true, report}`；過期為 409，其他接受拒絕為 422，
+請求格式錯誤為 400。API 快照用精確的 `definitionText` 字串保留數字寫法；原始 `definition` 物件僅用於 CLI/狀態庫。
 
 ## 停止管理某個 server {#stop-managing-a-server}
 

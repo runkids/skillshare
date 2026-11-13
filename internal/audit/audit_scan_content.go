@@ -17,16 +17,36 @@ func ScanContent(content []byte, filename string) []Finding {
 // ScanContentWithRules scans content using the given rules.
 // If rules is nil, the default global rules are used.
 func ScanContentWithRules(content []byte, filename string, activeRules []rule) []Finding {
+	findings, _ := scanContentWithRules(content, filename, activeRules, 0)
+	return findings
+}
+
+// ScanContentWithRulesBounded retains whole-content padding and line context
+// while capping findings during both padding analysis and regex matching. The
+// returned bool is true as soon as maxFindings is reached, or rules cannot load;
+// callers must treat that as incomplete. Input byte/line limits belong to the
+// caller. The legacy scanner remains unlimited and preserves its behavior.
+func ScanContentWithRulesBounded(content []byte, filename string, activeRules []rule, maxFindings int) ([]Finding, bool) {
+	if maxFindings <= 0 {
+		return nil, true
+	}
+	return scanContentWithRules(content, filename, activeRules, maxFindings)
+}
+
+func scanContentWithRules(content []byte, filename string, activeRules []rule, maxFindings int) ([]Finding, bool) {
 	if activeRules == nil {
 		var err error
 		activeRules, err = Rules()
 		if err != nil {
-			return nil
+			return nil, true
 		}
 	}
 
 	activeRules = rulesForFile(activeRules, filename)
-	findings := scanWhitespacePadding(content, filename, activeRules)
+	findings, exhausted := scanWhitespacePaddingBounded(content, filename, activeRules, maxFindings)
+	if exhausted {
+		return findings, true
+	}
 	// A BOM at the very start is the file's encoding mark, not a hidden character.
 	text := utils.TrimBOM(string(content))
 	// Admitted scripts need not have an extension. A first-line shebang is
@@ -80,11 +100,14 @@ func ScanContentWithRules(content []byte, filename string, activeRules []rule) [
 					Category:        categoryForPattern(r.Pattern),
 					Confidence:      r.Confidence,
 				})
+				if maxFindings > 0 && len(findings) >= maxFindings {
+					return findings, true
+				}
 			}
 		}
 	}
 
-	return findings
+	return findings, false
 }
 
 // ScanMarkdownContentWithRules scans markdown content, suppresses selected

@@ -9,7 +9,7 @@ import { ToastProvider } from '../Toast';
 import MCPProjectView from './MCPProjectView';
 
 vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { save: vi.fn().mockResolvedValue({}), import: vi.fn().mockResolvedValue({ candidates: [] }) } }));
-vi.mock('../../api/mcpCheck', () => ({ mcpCheckApi: { run: vi.fn() } }));
+vi.mock('../../api/mcpCheck', async (load) => ({ ...await load<typeof import('../../api/mcpCheck')>(), mcpCheckApi: { run: vi.fn() } }));
 
 type Data = Parameters<typeof MCPProjectView>[0]['data'];
 
