@@ -83,11 +83,12 @@ it('ignores an older preview after candidate changes and resets consent', async 
 });
 
 it.each(['failed', 'incomplete'] as const)('retains %s targets and snapshots through cache refresh', async (state) => {
+  const diagnostic = state === 'failed' ? 'EACCES' : 'prune EIO';
   const partial: ProfileApplyResult = {
     ...result, complete: false, profile: { ...result.profile, pending: true },
     targets: [{
-      name: 'claude', state, added: [], refreshed: ['a'], removed: [], converted: [], kept_modified: [],
-      error: 'EACCES', prune_error: 'prune EIO',
+      name: 'claude', state, added: [], refreshed: state === 'incomplete' ? ['a'] : [], removed: [], converted: [], kept_modified: [],
+      ...(state === 'failed' ? { error: diagnostic } : { prune_error: diagnostic }),
     }],
     snapshot: [{
       target: 'claude', path: '/snapshot', restore: 'skillshare restore claude --from stamp -p --force',
@@ -99,14 +100,13 @@ it.each(['failed', 'incomplete'] as const)('retains %s targets and snapshots thr
   await waitFor(() => expect(screen.getByRole('button', { name: 'profiles.switch' })).toBeEnabled());
   fireEvent.click(screen.getByRole('button', { name: 'profiles.switch' }));
   expect(await screen.findByText('profiles.incomplete')).toBeInTheDocument();
-  expect(screen.getByText('EACCES')).toBeInTheDocument();
-  expect(screen.getByText('prune EIO')).toBeInTheDocument();
+  expect(screen.getByText(diagnostic)).toBeInTheDocument();
   expect(screen.getByText(/skillshare restore claude/)).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'common.copy' })).toHaveAttribute('data-copy-value', partial.snapshot![0].restore);
   expect(invalidate).toHaveBeenCalledWith(expect.anything(), 'profileSwitched');
   rerender(view('work', { ...data, active: 'work', pending: true }));
   expect(screen.getByText('profiles.incomplete')).toBeInTheDocument();
-  expect(screen.getByText('EACCES')).toBeInTheDocument();
+  expect(screen.getByText(diagnostic)).toBeInTheDocument();
   expect(screen.getByRole('dialog')).toBeInTheDocument();
 });
 

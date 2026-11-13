@@ -746,7 +746,7 @@ func TestProfiles_ReadOnlyRoutes(t *testing.T) {
 						if out.Selection.Previous != "" || !slices.Equal(out.Targets[0].Added, []string{"alpha"}) || len(out.Targets[0].Removed) != 0 {
 							t.Fatalf("fresh preview: %s", rr.Body.String())
 						}
-					} else if out.Selection.Previous != "all" || !slices.Equal(out.Targets[0].Removed, []string{"beta", "team__review"}) {
+					} else if out.Selection.Previous != "all" || !slices.Equal(slices.Sorted(slices.Values(out.Targets[0].Removed)), []string{"beta", "team__review"}) {
 						t.Fatalf("existing target preview: %s", rr.Body.String())
 					}
 				}
