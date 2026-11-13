@@ -140,7 +140,8 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 	manifest, _ := ssync.ReadManifest(sc.Path)
 	legacyNames := resolution.LegacyNames(mode, sc.Path, manifest)
 	renamedFrom := ssync.RenamedFrom(legacyNames)
-	if len(preview) > 0 && preview[0].aware && target.ProjectRoot() == "" {
+	profileAware := len(preview) > 0 && preview[0].aware && target.ProjectRoot() == ""
+	if profileAware {
 		defer func() {
 			var orphans []string
 			for i, item := range dt.Items {
@@ -214,7 +215,7 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 				} else {
 					oldMtime := manifest.Mtimes[resolved.TargetName]
 					currentMtime, mtimeErr := ssync.DirMaxMtimeWithIgnore(skill.SourcePath, ignorePatterns)
-					if !(len(preview) > 0 && preview[0].aware) && mtimeErr == nil && oldMtime > 0 && currentMtime == oldMtime {
+					if !profileAware && mtimeErr == nil && oldMtime > 0 && currentMtime == oldMtime {
 						continue
 					}
 					srcChecksum, checksumErr := ssync.DirChecksumWithIgnore(skill.SourcePath, ignorePatterns)

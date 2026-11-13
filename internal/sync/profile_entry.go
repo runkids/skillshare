@@ -80,6 +80,10 @@ func legacyCopySources(name string, skills []DiscoveredSkill, manifest *Manifest
 	var sources []CopySource
 	for _, skill := range skills {
 		candidates := targetNameCandidates(skill)
+		// Prefixed copies use the declared skill name, which may differ from the folder.
+		if skillName, err := utils.ParseSkillName(skill.SourcePath); err == nil {
+			candidates = append(candidates, namedTarget{"prefixed", PrefixedTargetName(skill, skillName)})
+		}
 		matchesName := false
 		for _, candidate := range candidates {
 			if candidate.name == name {
