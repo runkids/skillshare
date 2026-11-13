@@ -151,7 +151,8 @@ func TestProfiles_APISyncBacksUpBeforeRefresh(t *testing.T) {
 		t.Setenv(key, "")
 	}
 	s, source := newTestServerWithTargets(t, map[string]string{"custom": t.TempDir()})
-	dest := s.cfg.Targets["custom"].SkillsConfig().Path
+	target := s.cfg.Targets["custom"]
+	dest := target.SkillsConfig().Path
 	addSkill(t, source, "alpha")
 	path := config.ConfigPath()
 	text := "source: " + source + "\nmode: copy\ntargets:\n  custom:\n    skills:\n      path: " + dest + "\nprofiles:\n  all: {}\n"
