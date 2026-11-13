@@ -161,21 +161,7 @@ func TestPushPull_InstallKeepsTrackedRecordClonedElsewhere(t *testing.T) {
 	// path on each child, including client overrides inherited from the caller.
 	runMachine := func(sb *testutil.Sandbox, args ...string) {
 		t.Helper()
-		env := map[string]string{
-			"USERPROFILE":         sb.Home,
-			"XDG_CONFIG_HOME":     filepath.Join(sb.Home, ".config"),
-			"XDG_DATA_HOME":       filepath.Join(sb.Home, ".local", "share"),
-			"XDG_STATE_HOME":      filepath.Join(sb.Home, ".local", "state"),
-			"XDG_CACHE_HOME":      filepath.Join(sb.Home, ".cache"),
-			"CLAUDE_CONFIG_DIR":   filepath.Join(sb.Home, "clients", "claude"),
-			"CODEX_HOME":          filepath.Join(sb.Home, "clients", "codex"),
-			"COPILOT_HOME":        filepath.Join(sb.Home, "clients", "copilot"),
-			"OPENCODE_CONFIG_DIR": filepath.Join(sb.Home, "clients", "opencode"),
-			"PI_CODING_AGENT_DIR": filepath.Join(sb.Home, "clients", "pi"),
-			"GIT_CONFIG_GLOBAL":   filepath.Join(sb.Home, ".gitconfig"),
-			"GIT_CONFIG_NOSYSTEM": "1",
-		}
-		sb.RunCLIEnv(env, args...).AssertSuccess(t)
+		sb.RunCLIEnv(sb.MachineEnv(), args...).AssertSuccess(t)
 	}
 
 	remote := setupPushPullMachine(t, a, a.CreateTarget("claude"))

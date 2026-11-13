@@ -353,6 +353,38 @@ func (s *MetadataStore) List() []string {
 	return names
 }
 
+// TrackedDeclarations lists repository declaration keys, excluding recorded members.
+// A missing checkout does not change the intent of a sourced, prefixed record.
+func (s *MetadataStore) TrackedDeclarations() []string {
+	if s == nil {
+		return nil
+	}
+	var keys []string
+	for _, key := range s.List() {
+		entry := s.Get(key)
+		if entry == nil || !entry.Tracked || entry.Source == "" {
+			continue
+		}
+		rel := filepath.ToSlash(KeyToRelPath(key, entry))
+		if !utils.IsTrackedRepoDir(path.Base(rel)) {
+			continue
+		}
+		member := false
+		for parent := path.Dir(rel); parent != "."; parent = path.Dir(parent) {
+			owner := s.GetExact(parent)
+			if owner != nil && owner.Tracked && owner.Source != "" && utils.IsTrackedRepoDir(path.Base(parent)) &&
+				filepath.ToSlash(KeyToRelPath(parent, owner)) == parent {
+				member = true
+				break
+			}
+		}
+		if !member {
+			keys = append(keys, key)
+		}
+	}
+	return keys
+}
+
 // EffectiveKind returns "skill" if Kind is empty.
 func (e *MetadataEntry) EffectiveKind() string {
 	if e.Kind == "" {

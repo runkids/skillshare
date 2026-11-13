@@ -14,11 +14,18 @@ import (
 )
 
 func TestReconcileGlobalSkills_KeepsTrackedRecordWithoutClone(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-	sourceDir := sb.SourcePath
-	remote := testutil.SetupBareRemoteRepo(t, sb.Root)
-	testutil.SeedRemoteBranch(t, sb.Root, remote, "main", map[string]string{"README.md": "# team"})
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "skills")
+	t.Setenv("HOME", root)
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+	for key, value := range (&testutil.Sandbox{Home: root}).MachineEnv() {
+		t.Setenv(key, value)
+	}
+	if err := os.MkdirAll(sourceDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	remote := testutil.SetupBareRemoteRepo(t, root)
+	testutil.SeedRemoteBranch(t, root, remote, "main", map[string]string{"README.md": "# team"})
 	testutil.RunGit(t, "", "clone", remote, filepath.Join(sourceDir, "org", "_team"))
 	store := install.NewMetadataStore()
 	want := map[string]*install.MetadataEntry{
@@ -68,11 +75,28 @@ func TestReconcileGlobalSkills_KeepsTrackedRecordWithoutClone(t *testing.T) {
 }
 
 func TestReconcileGlobalSkills_PrunesNonPrefixedMigratedTrackedMembers(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-	sourceDir := sb.SourcePath
-	sb.WriteFile(filepath.Join(sourceDir, "_team", "skill", install.MetaFileName), `{"source":"https://example.com/team.git","branch":"main"}`)
-	sb.WriteFile(filepath.Join(sourceDir, "registry.yaml"), "skills:\n  - name: legacy\n    source: https://example.com/legacy.git\n    tracked: true\n    group: _team\n")
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "skills")
+	t.Setenv("HOME", root)
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+	for key, value := range (&testutil.Sandbox{Home: root}).MachineEnv() {
+		t.Setenv(key, value)
+	}
+	if err := os.MkdirAll(sourceDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(filepath.Join(sourceDir, "_team", "skill", install.MetaFileName)), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sourceDir, "_team", "skill", install.MetaFileName), []byte(`{"source":"https://example.com/team.git","branch":"main"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(filepath.Join(sourceDir, "registry.yaml")), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sourceDir, "registry.yaml"), []byte("skills:\n  - name: legacy\n    source: https://example.com/legacy.git\n    tracked: true\n    group: _team\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 	store, err := install.LoadMetadataWithMigration(sourceDir, "")
 	if err != nil {
 		t.Fatal(err)
@@ -116,10 +140,19 @@ func TestReconcileGlobalSkills_MigratedUnderscoreMemberWithRecordedAncestor(t *t
 		{"same basename in another group", "_team/_member", "_team", "other", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			sb := testutil.NewSandbox(t)
-			defer sb.Cleanup()
-			sourceDir := sb.SourcePath
-			sb.WriteFile(filepath.Join(sourceDir, filepath.FromSlash(tc.member), install.MetaFileName), `{"source":"https://example.com/member.git","branch":"main"}`)
+			root := t.TempDir()
+			sourceDir := filepath.Join(root, "skills")
+			t.Setenv("HOME", root)
+			t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+			for key, value := range (&testutil.Sandbox{Home: root}).MachineEnv() {
+				t.Setenv(key, value)
+			}
+			if err := os.MkdirAll(filepath.Dir(filepath.Join(sourceDir, filepath.FromSlash(tc.member), install.MetaFileName)), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(sourceDir, filepath.FromSlash(tc.member), install.MetaFileName), []byte(`{"source":"https://example.com/member.git","branch":"main"}`), 0644); err != nil {
+				t.Fatal(err)
+			}
 			store, err := install.LoadMetadataWithMigration(sourceDir, "")
 			if err != nil {
 				t.Fatal(err)
@@ -615,29 +648,49 @@ func TestReconcileGlobalSkills_KeepsMetadataOfUnavailableSourceLink(t *testing.T
 	}
 }
 
-func TestReconcileSkills_FollowedNonCheckoutNormalizesByScope(t *testing.T) {
+func TestReconcileSkills_FollowedNonCheckoutNormalizesTrackedFlag(t *testing.T) {
 	for _, project := range []bool{false, true} {
 		t.Run(map[bool]string{false: "global", true: "project"}[project], func(t *testing.T) {
-			sb := testutil.NewSandbox(t)
-			defer sb.Cleanup()
-			target := filepath.Join(sb.Root, "linked")
-			sb.WriteFile(filepath.Join(target, "child", "SKILL.md"), "# child\n")
-			sb.CreateSymlink(target, filepath.Join(sb.SourcePath, "_team"))
-			sb.WriteFile(filepath.Join(sb.SourcePath, "legacy", "SKILL.md"), "# legacy\n")
+			root := t.TempDir()
+			sourceDir := filepath.Join(root, "skills")
+			t.Setenv("HOME", root)
+			t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+			for key, value := range (&testutil.Sandbox{Home: root}).MachineEnv() {
+				t.Setenv(key, value)
+			}
+			target := filepath.Join(root, "linked")
+			if err := os.MkdirAll(filepath.Dir(filepath.Join(target, "child", "SKILL.md")), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(target, "child", "SKILL.md"), []byte("# child\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.MkdirAll(filepath.Dir(filepath.Join(sourceDir, "_team")), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(target, filepath.Join(sourceDir, "_team")); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.MkdirAll(filepath.Dir(filepath.Join(sourceDir, "legacy", "SKILL.md")), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(sourceDir, "legacy", "SKILL.md"), []byte("# legacy\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
 			store := install.NewMetadataStore()
 			store.Set("_team", &install.MetadataEntry{Source: "https://example.com/team.git", Tracked: true, Branch: "main", FileHashes: map[string]string{"SKILL.md": "old"}})
 			store.Set("legacy", &install.MetadataEntry{Source: "https://example.com/legacy.git", Tracked: true})
 			store.AuditAccepted = map[string][]string{"_team": {"accepted-finding"}}
 			var err error
 			if project {
-				err = ReconcileProjectSkills(sb.Root, &ProjectConfig{FollowSourceLinks: true}, store, sb.SourcePath)
+				err = ReconcileProjectSkills(root, &ProjectConfig{FollowSourceLinks: true}, store, sourceDir)
 			} else {
-				err = ReconcileGlobalSkills(&Config{Source: sb.SourcePath, FollowSourceLinks: true}, store)
+				err = ReconcileGlobalSkills(&Config{Source: sourceDir, FollowSourceLinks: true}, store)
 			}
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := store.Get("_team"); got == nil || got.Tracked == project || got.Source != "https://example.com/team.git" || got.Branch != "main" || !reflect.DeepEqual(got.FileHashes, map[string]string{"SKILL.md": "old"}) {
+			if got := store.Get("_team"); got == nil || got.Tracked || got.Source != "https://example.com/team.git" || got.Branch != "main" || !reflect.DeepEqual(got.FileHashes, map[string]string{"SKILL.md": "old"}) {
 				t.Errorf("team = %+v; project=%v", got, project)
 			}
 			if got := store.Get("legacy"); got == nil || got.Tracked {
@@ -651,17 +704,32 @@ func TestReconcileSkills_FollowedNonCheckoutNormalizesByScope(t *testing.T) {
 }
 
 func TestReconcileGlobalSkills_FollowedGroupedLegacyDeclaration(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-	target := filepath.Join(sb.Root, "linked")
-	sb.WriteFile(filepath.Join(target, "_team", "child", "SKILL.md"), "# child\n")
-	sb.CreateSymlink(target, filepath.Join(sb.SourcePath, "org"))
-	store := install.NewMetadataStore()
-	store.Set("_team", &install.MetadataEntry{Source: "https://example.com/team.git", Tracked: true, Group: "org"})
-	if err := ReconcileGlobalSkills(&Config{Source: sb.SourcePath, FollowSourceLinks: true}, store); err != nil {
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "skills")
+	t.Setenv("HOME", root)
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+	for key, value := range (&testutil.Sandbox{Home: root}).MachineEnv() {
+		t.Setenv(key, value)
+	}
+	target := filepath.Join(root, "linked")
+	if err := os.MkdirAll(filepath.Dir(filepath.Join(target, "_team", "child", "SKILL.md")), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if got := store.Get("org/_team"); got == nil || !got.Tracked || got.Source != "https://example.com/team.git" || got.Group != "org" {
+	if err := os.WriteFile(filepath.Join(target, "_team", "child", "SKILL.md"), []byte("# child\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(filepath.Join(sourceDir, "org")), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, filepath.Join(sourceDir, "org")); err != nil {
+		t.Fatal(err)
+	}
+	store := install.NewMetadataStore()
+	store.Set("_team", &install.MetadataEntry{Source: "https://example.com/team.git", Tracked: true, Group: "org"})
+	if err := ReconcileGlobalSkills(&Config{Source: sourceDir, FollowSourceLinks: true}, store); err != nil {
+		t.Fatal(err)
+	}
+	if got := store.Get("org/_team"); got == nil || got.Tracked || got.Source != "https://example.com/team.git" || got.Group != "org" {
 		t.Errorf("grouped declaration = %+v", got)
 	}
 	if store.GetExact("_team") != nil {

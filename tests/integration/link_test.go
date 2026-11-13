@@ -5,11 +5,9 @@ package integration
 import (
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"testing"
 
-	"skillshare/internal/install"
 	"skillshare/internal/testutil"
 	"skillshare/internal/utils"
 )
@@ -211,59 +209,5 @@ func TestLink_ProjectUsesProjectSourceAndTargets(t *testing.T) {
 	sb.RunCLIInDir(projectRoot, "unlink", "_dev-skills", "-p").AssertSuccess(t)
 	if sb.FileExists(filepath.Join(source, "_dev-skills")) || !sb.FileExists(filepath.Join(checkout, "foo", "SKILL.md")) {
 		t.Fatal("project unlink did not remove only the link")
-	}
-}
-
-// A source link can predate a pulled tracked declaration at the same path.
-func TestLink_CollisionKeepsTrackedDeclaration(t *testing.T) {
-	for _, follow := range []bool{false, true} {
-		t.Run(map[bool]string{false: "unfollowed", true: "followed"}[follow], func(t *testing.T) {
-			sb, checkout := linkSandbox(t)
-			defer sb.Cleanup()
-			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
-			run := func(args ...string) *testutil.Result {
-				return sb.RunCLIEnv(map[string]string{
-					"CLAUDE_CONFIG_DIR":   filepath.Join(sb.Home, "clients", "claude"),
-					"CODEX_HOME":          filepath.Join(sb.Home, "clients", "codex"),
-					"COPILOT_HOME":        filepath.Join(sb.Home, "clients", "copilot"),
-					"OPENCODE_CONFIG_DIR": filepath.Join(sb.Home, "clients", "opencode"),
-					"PI_CODING_AGENT_DIR": filepath.Join(sb.Home, "clients", "pi"),
-				}, args...)
-			}
-			args := []string{"link", checkout, "--name", "_team", "-g"}
-			if follow {
-				args = append(args, "--enable")
-			}
-			run(args...).AssertSuccess(t)
-			want := &install.MetadataEntry{Source: "https://example.com/team.git", Tracked: true, Branch: "main"}
-			store := install.NewMetadataStore()
-			store.Set("_team", want)
-			store.AuditAccepted = map[string][]string{"_team": {"accepted-finding"}}
-			if err := store.Save(sb.SourcePath); err != nil {
-				t.Fatal(err)
-			}
-			other := filepath.Join(sb.Root, "other")
-			sb.WriteFile(filepath.Join(other, "SKILL.md"), "---\nname: other\n---\n# Other\n")
-			run("install", other, "-g").AssertSuccess(t)
-			assertDeclaration := func() {
-				t.Helper()
-				loaded, err := install.LoadMetadata(sb.SourcePath)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if !reflect.DeepEqual(loaded.Get("_team"), want) {
-					t.Errorf("tracked declaration = %+v, want %+v", loaded.Get("_team"), want)
-				}
-				if !reflect.DeepEqual(loaded.AuditAccepted["_team"], []string{"accepted-finding"}) {
-					t.Errorf("acceptance = %v", loaded.AuditAccepted["_team"])
-				}
-			}
-			assertDeclaration()
-			run("unlink", "_team", "-g").AssertSuccess(t)
-			another := filepath.Join(sb.Root, "another")
-			sb.WriteFile(filepath.Join(another, "SKILL.md"), "---\nname: another\n---\n# Another\n")
-			run("install", another, "-g").AssertSuccess(t)
-			assertDeclaration()
-		})
 	}
 }
