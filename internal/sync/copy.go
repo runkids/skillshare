@@ -212,15 +212,10 @@ func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 		if !opts.ProfileAware && mtimeErr == nil && isManaged && !force && !namingChanged && oldMtime > 0 && currentMtime == oldMtime {
 			// Verify target still exists as a directory (user may have replaced it)
 			if ti, err := os.Lstat(targetSkillPath); err == nil && ti.IsDir() {
-				if !checkBeforeWrite() {
-					continue
-				}
-				if !owesReplacement() {
-					backfillCopyOutput(manifest, activeName, targetSkillPath, copySource, dryRun, verified...)
-					recordNaming()
-					result.Skipped = append(result.Skipped, activeName)
-					continue
-				}
+				backfillCopyOutput(manifest, activeName, targetSkillPath, copySource, dryRun, verified...)
+				recordNaming()
+				result.Skipped = append(result.Skipped, activeName)
+				continue
 			}
 		}
 
