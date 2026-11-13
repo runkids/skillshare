@@ -360,3 +360,28 @@ path-keyed backup history are not rewritten; keep the root `INDEX.md` in place
 because reading guidance references it. CLI commands and flags are unchanged.
 Automatic learning, native automatic memory, and Obsidian integration are not
 implemented.
+
+
+## Remote extras
+
+`install <remote> --kind extra --name <name> -p|-g` creates `remote`, optional
+`branch` and an initially empty targets list. Add targets then `sync extras`.
+List/status/doctor/dashboard and `check extras` show local integrity and the pin,
+not upstream freshness. Missing copies require the explicit install command.
+Target/mode/filter edits retain origin; rename/source changes require remove and
+reinstall. `extras remove <name> --force` skips confirmation, deletes an unedited
+managed copy, keeps edited/unknown content and its ignore rule, and reports an
+already missing source separately. Owned links are cleaned; copied/transformed/
+unowned outputs stay and are listed. Entries, pins, metadata and findings are
+removed. Failed removal restores records/source, but already-cleaned targets
+need `sync extras` to relink. Local-extra behavior remains unchanged. Collect is allowed and marks the
+copy modified. Global `extras source` preserves entries but moves no files; move
+the entire root including `.metadata.json` yourself with no install in progress.
+Same-root remote writers serialize; unrelated config/lock/ignore writers and raw
+PUT do not. Best-effort rollback has write/read-back and compare/restore windows;
+inspect diffs and reapply missing unrelated changes after failure. Observed
+changed participant paths are reported and retained with the marker.
+Raw editor recovery serves syntax-broken YAML verbatim, possibly including
+credentials; parseable credential entries/type-unreadable extras are withheld.
+PUT uses disk extras or last-loaded fallback, which can miss a CLI-installed
+entry added after that load and before syntax breakage. Inspect before saving.

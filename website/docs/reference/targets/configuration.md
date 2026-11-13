@@ -726,9 +726,11 @@ extras:
 | Field | Required | Description |
 |-------|----------|-------------|
 | `name` | Yes | Extra identifier |
-| `source` | No | Custom source directory for this extra (overrides `extras_source` and default) |
+| `source` | No | Local source override; mutually exclusive with `remote` |
+| `remote` | No | Git source installed with `install --kind extra`; stored literally, never expanded as a filesystem path |
+| `branch` | No | Optional Git ref; requires `remote` |
 | `file` | No | Sync only this file from the source directory: a plain file name such as `system.md` or `AGENTS.md`. See [single-file extras](../commands/extras.md#single-file-extras) |
-| `targets` | Yes | List of target paths |
+| `targets` | Yes | List of target paths; may be empty for a remote extra |
 | `targets[].path` | Yes | Destination directory |
 | `targets[].mode` | No | `merge` (default), `copy`, or `symlink`; `import`, `prepend` and `append` for single-file extras only |
 | `targets[].as` | No | File name in the target for a single-file extra (default: the `file` name) |
@@ -1250,3 +1252,30 @@ Folders are linked with NTFS junctions (no admin required). Single files — age
 - [Source & Targets](/docs/understand/source-and-targets) — Core concepts
 - [Sync Modes](/docs/understand/sync-modes) — Merge vs copy vs symlink
 - [Environment Variables](/docs/reference/appendix/environment-variables) — All variables
+
+
+### Remote extra declarations {#remote-extras}
+
+The `extras:` section in both global and project config accepts remote entries:
+
+```yaml
+extras:
+  - name: team-rules
+    remote: example-org/ai-hub/rules
+    branch: main
+    targets: []
+```
+
+Use `install <remote> --kind extra --name team-rules -p|-g` to create and restore
+this entry. `remote` cannot coexist with `source`; `branch` requires `remote`.
+Remote values are not tilde-expanded. Credential-bearing or malformed remote
+URLs are refused without echoing the supplied value. Local directories belong
+in `source`, using `extras init --source`. Target mode/filter edits retain origin;
+rename, source replacement and removal must use the lifecycle commands.
+Project `skills.lock.json` stays version 1 and adds a separate `extras` pin map;
+upgrade every contributor's binary before any of them writes that lockfile.
+Declarations alone, bare `install`, pull and sync do not fetch remote extras.
+See [install](../commands/install.md#remote-extras) and
+[extras](../commands/extras.md#remote-extras), including the limited concurrency
+and raw-editor recovery guarantees. In particular, syntax-broken raw YAML is
+served as written, and repair PUT may use a stale last-loaded extras baseline.
