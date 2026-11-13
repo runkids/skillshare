@@ -151,7 +151,9 @@ func TestProfiles_DefinitionCLIAPIParity(t *testing.T) {
 				if !api {
 					out := f.run("profile", "show", "renamed", "--json")
 					out.AssertSuccess(t)
-					var rows struct{ Profiles []struct{ Selected, Unmatched []string } }
+					var rows struct {
+						Profiles []struct{ Selected, Unmatched []string }
+					}
 					if err := json.Unmarshal([]byte(out.Stdout), &rows); err != nil || len(rows.Profiles) != 1 {
 						t.Fatal("CLI preview:", out.Stdout, err)
 					}
