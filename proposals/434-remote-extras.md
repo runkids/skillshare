@@ -80,14 +80,21 @@ The proposed acquisition contract is:
 - Preserve Git's executable bit on POSIX, including executable files without
   a shebang and non-executable files with one. Windows has no such bit.
   Permission-only local changes do not count as content edits.
-- Stage, audit, lock the extras root and reread state. Before the first
-  publication write, snapshot the prior files and accepted findings and retain
-  a durable per-name marker or journal. Copy to a staging directory inside the
-  extras root, on the destination filesystem, write the project ignore entry,
+- Fetch, link-check and audit without changing the spoke on failure. The
+  following publication shape is reference implementation guidance, subject
+  to maintainer design: lock the extras root and reread state; stop if the
+  entry changed. Before the first publication write, snapshot the prior files
+  and accepted findings and retain a durable per-name marker or journal within
+  the ignored staging directory. Copy to staging inside the extras root, on
+  the destination filesystem, write the project ignore entry,
   swap, then write metadata, lock and configuration. Keep the marker until all
-  writes and cleanup finish, so a death at every boundary of first install or
-  replacement is detectable. Roll back in-process failures and repair an
-  interrupted publication on the next explicit install before conflict checks.
+  writes and cleanup finish. The required outcome is that a death at every
+  boundary of first install or replacement is detectable. On in-process
+  failure, restore the previous directory and written files, clean up staging
+  and report the failed step. The proposed `check extras` reports an
+  interruption, never clean; the next explicit install or update repairs it
+  before conflict checks and tells the user. Recovery restores a missing
+  destination from the previous directory and removes stale incoming files.
   Publication coordinates with removal and supported remote-extra target,
   mode, collect and dashboard edits. Merge shared records from fresh state;
   rollback restores only this operation's changes when still applicable,
@@ -118,9 +125,13 @@ honors the committed pin. Bare `skillshare install -p` does not restore extras
 in this proposal. When a remote extra's source is missing, sync directs the
 user to `skillshare install <remote> --kind extra --name <name> -p` in a
 project, or the corresponding `-g` command in global mode, instead of asking
-them to create the directory, in plain and JSON output and the API. All project
-contributors must upgrade before relying on extra pins: older binaries can
-discard the new lock map when rewriting it.
+them to create the directory, in plain and JSON output and the API. Upgrade
+all writers on all machines before using remote extras: older binaries can
+silently discard project pins when rewriting the lock, and old config writers
+in both global and project modes can drop `remote:` and `branch:`. Current
+lock readers ignore the version, and already released binaries cannot be made
+to refuse the new map. Restore lost declarations and pins from backups or Git;
+do not assume a missing pin can recover the previous commit.
 
 ## Alternatives Considered
 
@@ -155,11 +166,10 @@ API, lock, completion, documentation and translation work needed to make it
 usable. It is not split to meet a size guideline. Its final diff and actual
 CI results must be stated on any reference implementation PR.
 
-Not in this proposal: bare manifest restore and remote update discovery
-(slice 2), fetching a single file as the acquisition source (3), hub catalog
-selection and suggested targets (4), skill submodules (5), MCP import (6),
-routed context modules and the team hub guide (7, with router R1/R2), search discovery (8),
-or a dashboard install/update flow (optional 9). The interruption diagnostic
+Later work could add bare manifest restore and remote update discovery,
+single-file acquisition, hub catalog selection and suggested targets, skill
+submodules, MCP import, routed context modules and a team hub guide, search
+discovery, or a dashboard install/update flow. The interruption diagnostic
 required for safe acquisition is included; remote update discovery is later.
 Also excluded: bindings/profile merging, plaintext secret templates,
 `resources:` or scalar `hub:`, a server, a new transport and bidirectional
@@ -180,6 +190,14 @@ These are the proposed choices for maintainer feedback, not claims of approval:
    pinned commit come from the same checkout?
 4. Should extras fail closed when scanning cannot run, with `--skip-audit` as
    the sole bypass for that failure?
-5. Is an `extras` map in `skills.lock.json` preferable to a second lock file?
+5. Is an `extras` map in `skills.lock.json` preferable to a separate lock
+   file? Old binaries silently lose extra pins when they rewrite the existing
+   lock; a separate file avoids that lock-writer loss but adds another file.
 6. Should URL credentials be refused for extras only in this change? Should
    skill sources adopt the same rule in a separate change?
+7. Should explicit install restore a pin now, leaving bare `install` restore
+   and remote update discovery for later work?
+8. Should extras require explicit `--force` with `--json`, unlike current
+   skill installs where `--json` permits overwrite?
+9. Is the scanner's current depth, size and extension filtering sufficient,
+   including its exclusion of `.mdc` and `.cursorrules`?
