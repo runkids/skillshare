@@ -4,6 +4,7 @@ package integration
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -417,5 +418,82 @@ func TestInstallExtra_WebURLBranchAndExplicitOverride(t *testing.T) {
 				t.Fatalf("config branch: %s %v", data, err)
 			}
 		})
+	}
+}
+
+func TestInstallExtra_BranchSwitchAndOmittedBranch(t *testing.T) {
+	for _, projectMode := range []bool{false, true} {
+		for _, missing := range []bool{false, true} {
+			t.Run(fmt.Sprintf("project=%t/missing=%t", projectMode, missing), func(t *testing.T) {
+				sb := testutil.NewSandbox(t)
+				defer sb.Cleanup()
+				sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+				bare := testutil.SetupBareRemoteRepo(t, sb.Root)
+				for _, branch := range []string{"main", "release"} {
+					testutil.SeedRemoteBranch(t, sb.Root, bare, branch, map[string]string{"rules.md": branch})
+				}
+				cwd, mode := sb.Root, "-g"
+				root := filepath.Join(filepath.Dir(sb.SourcePath), "extras")
+				if projectMode {
+					cwd, mode = sb.SetupProjectDir("claude"), "-p"
+					root = filepath.Join(cwd, ".skillshare", "extras")
+				}
+				args := []string{"install", "file://" + bare, "--kind", "extra", "--name", "rules", "--skip-audit", "--json", mode}
+				run := func(branch string) (commit string) {
+					t.Helper()
+					command := append([]string(nil), args...)
+					if branch != "" {
+						command = append(command, "--branch", branch)
+					}
+					result := sb.RunCLIInDir(cwd, command...)
+					result.AssertSuccess(t)
+					var out struct{ Branch, Commit string }
+					if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil {
+						t.Fatal(err)
+					}
+					want := branch
+					if want == "" {
+						want = "release"
+					}
+					if out.Branch != want {
+						t.Fatalf("branch %q want %q", out.Branch, want)
+					}
+					store, _, err := install.ReadMetadata(root)
+					if err != nil || store.GetExact("rules").Branch != want || store.GetExact("rules").Commit != out.Commit {
+						t.Fatalf("metadata: %+v %v", store, err)
+					}
+					return out.Commit
+				}
+				main := run("main")
+				if missing {
+					if err := os.RemoveAll(filepath.Join(root, "rules")); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.Remove(filepath.Join(root, install.MetadataFileName)); err != nil {
+						t.Fatal(err)
+					}
+				}
+				release := run("release")
+				if release == main {
+					t.Fatal("branch switch reused main pin")
+				}
+				body, err := os.ReadFile(filepath.Join(root, "rules", "rules.md"))
+				if err != nil || string(body) != "release" {
+					t.Fatalf("branch content: %q %v", body, err)
+				}
+				seed := filepath.Join(sb.Root, "seed-release")
+				if err := os.WriteFile(filepath.Join(seed, "rules.md"), []byte("release advanced"), 0644); err != nil {
+					t.Fatal(err)
+				}
+				testutil.RunGit(t, seed, "commit", "-am", "advance release")
+				testutil.RunGit(t, seed, "push", "origin", "HEAD:release")
+				if got := run("release"); got != release {
+					t.Fatalf("same branch moved pin: %s", got)
+				}
+				if got := run(""); got != release {
+					t.Fatalf("omitted branch moved pin: %s", got)
+				}
+			})
+		}
 	}
 }

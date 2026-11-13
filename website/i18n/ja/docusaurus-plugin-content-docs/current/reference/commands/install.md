@@ -866,14 +866,15 @@ Global では `-g` を使います。取得は Git のみで、ホスティン�
 初期状態では `targets: []` を記録します。`--branch <ref>` はブランチ、タグ、commit
 を選び、明示フラグは URL の ref より優先されます。Project の **version 1** lockfile
 の `extras` map は 40 桁の commit を保持し、Global では同一 origin の metadata pin
-を使います。`--update` で選択ブランチの先頭へ pin を更新します。到達不能な pin は
+を使います。pin は origin と ref が一致する場合だけ使い、`--branch` の省略は設定済み
+ref を維持します。ref を変更するとその先頭を取得し、`--update` は同じ ref の pin を更新します。到達不能な pin は
 エラーとなり、ブランチへ切り替えません。origin 不一致の metadata は pin ではなく、
 既存ディレクトリの origin が異なる場合は削除してから再インストールします。
 
 Project config と `skills.lock.json` を commit してください。この lockfile を書く
 **全員**が `extras` map を保持できるバイナリへ更新する必要があります。Project 内の
 取得ディレクトリ、staging、metadata は ignore されます。別マシンの復元には明示的な
-コマンドを使い、pin を進める場合だけ `--update` を指定します。
+コマンドを使い、同じ ref の pin を進める場合だけ `--update` を指定します。
 
 ```bash
 skillshare install example-org/ai-hub/rules --kind extra --name team-rules -p

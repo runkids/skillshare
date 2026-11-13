@@ -19,6 +19,7 @@ type RemoteExtraRequest struct {
 	Recheck, WriteConfig, RevertConfig           func() error
 	RepairConfig                                 func(remote, branch string) error
 	RefreshAfterRepair                           func() error
+	PinBranch                                    func() string // followed branch from the refreshed config baseline
 }
 
 type RemoteExtraResult struct {
@@ -51,7 +52,7 @@ func InstallRemoteExtra(req RemoteExtraRequest) (*RemoteExtraResult, error) {
 	if err != nil || parsed == nil || !parsed.IsGit() || parsed.CloneURL != req.Source.CloneURL || parsed.Subdir != req.Source.Subdir {
 		return nil, fmt.Errorf("remote extra source does not match its identity")
 	}
-	if req.ExtrasRoot == "" || req.ConfigPath == "" || (req.ProjectRoot != "" && req.LockDir == "") || req.Recheck == nil || req.WriteConfig == nil || req.RevertConfig == nil || req.RepairConfig == nil || req.RefreshAfterRepair == nil {
+	if req.ExtrasRoot == "" || req.ConfigPath == "" || (req.ProjectRoot != "" && req.LockDir == "") || req.Recheck == nil || req.WriteConfig == nil || req.RevertConfig == nil || req.RepairConfig == nil || req.RefreshAfterRepair == nil || req.PinBranch == nil {
 		return nil, fmt.Errorf("remote extra request is missing required state or callbacks")
 	}
 	dest := filepath.Join(req.ExtrasRoot, req.Name)
@@ -65,6 +66,9 @@ func InstallRemoteExtra(req RemoteExtraRequest) (*RemoteExtraResult, error) {
 			return nil, state.Err
 		}
 		result.Interrupted, result.Action = state.Interrupted, "would install"
+		if result.Branch == "" {
+			result.Branch = req.PinBranch()
+		}
 		if !state.Interrupted {
 			if err := req.Recheck(); err != nil {
 				return nil, err
@@ -111,17 +115,24 @@ func InstallRemoteExtra(req RemoteExtraRequest) (*RemoteExtraResult, error) {
 	if !state.Missing && entry != nil && entry.Source != "" && entry.Source != req.RawSource {
 		return nil, fmt.Errorf("extra %q has a different origin; remove it before reinstalling", req.Name)
 	}
+	// Repair may have changed the declaration. Read its branch only after
+	// RefreshAfterRepair and Recheck, including when local metadata is absent.
+	pinnedBranch := req.PinBranch()
+	if req.Branch == "" {
+		req.Branch = pinnedBranch
+	}
+	result.Branch = req.Branch
 	source := *req.Source
 	source.Branch = req.Branch
 	source.Commit = ""
-	if !req.Opts.Update {
+	if !req.Opts.Update && pinnedBranch == req.Branch {
 		if req.ProjectRoot != "" {
 			lock, err := LoadLock(req.LockDir)
 			if err != nil {
 				return nil, err
 			}
 			source.Commit = lock.ExtraCommitFor(req.Name, req.RawSource)
-		} else if entry != nil && entry.Source == req.RawSource && len(entry.Commit) == 40 && IsCommitSHA(entry.Commit) {
+		} else if entry != nil && entry.Source == req.RawSource && entry.Branch == req.Branch && len(entry.Commit) == 40 && IsCommitSHA(entry.Commit) {
 			source.Commit = entry.Commit
 		}
 	}

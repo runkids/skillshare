@@ -864,14 +864,15 @@ Global은 `-g`를 사용합니다. Git만 사용하며 호스팅 API 대체 경�
 설치 위치는 `<extras root>/team-rules/`이며 config에 `remote`, 선택적 `branch`, 처음에는
 `targets: []`를 기록합니다. `--branch <ref>`는 브랜치·태그·commit을 선택하며 명시한 플래그가
 URL ref보다 우선합니다. Project의 **version 1** lockfile `extras` map에 40자리 commit을
-기록합니다. Global 재설치는 같은 origin의 metadata pin을 사용합니다. `--update`는 선택한
+기록합니다. pin은 origin과 ref가 일치할 때만 사용합니다. `--branch` 생략은 선언된 ref를 유지하고,
+ref 변경은 새 ref의 최신 commit을 선택합니다. Global은 일치하는 metadata pin을 사용합니다. `--update`는 같은
 브랜치의 최신 commit으로 pin을 옮깁니다. 도달할 수 없는 pin은 오류이며 브랜치로 대체하지
 않습니다. origin이 다른 metadata는 pin이 아니며, 실제 디렉터리가 있으면 먼저 제거해야 합니다.
 
 Project config와 `skills.lock.json`을 commit하고, 해당 파일을 쓰는 **모든 기여자**가
 `extras` map을 보존하는 버전으로 업그레이드해야 합니다. Project 내부의 가져온 디렉터리,
 staging, metadata는 ignore됩니다. 다른 머신에서 복원할 때는 명시적 명령을 사용하고,
-pin을 앞으로 옮길 때만 `--update`를 추가합니다.
+같은 ref의 pin을 앞으로 옮길 때만 `--update`를 추가합니다.
 
 ```bash
 skillshare install example-org/ai-hub/rules --kind extra --name team-rules -p

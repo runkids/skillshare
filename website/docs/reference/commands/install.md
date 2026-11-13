@@ -865,7 +865,8 @@ The installed copy lives at `<extras root>/team-rules/`. Config records `remote`
 and optional `branch`, with `targets: []` until you add a target. `--branch <ref>`
 selects a branch, tag or commit; an explicit flag wins over a source URL's ref.
 Project installs record a full 40-character commit in the **version 1** lockfile's
-`extras` map. Global reinstalls use the same-origin metadata pin. `--update`
+`extras` map. Pins match origin and followed ref. Omitting `--branch` keeps the declared ref;
+changing it selects the new ref's head. Global reinstalls use matching metadata. `--update`
 fetches the selected branch head and moves the pin. An unreachable pin is an
 error; it never silently falls back to a branch. Mismatched-origin metadata is
 never a pin; an existing directory with that mismatch must be removed first.

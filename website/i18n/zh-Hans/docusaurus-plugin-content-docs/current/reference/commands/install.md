@@ -864,13 +864,14 @@ Global 使用 `-g`。仅通过 Git 获取，不回退到托管 API，也不模�
 安装目录为 `<extras root>/team-rules/`。配置记录 `remote`、可选 `branch`，初始为
 `targets: []`。`--branch <ref>` 选择分支、标签或 commit，显式标志优先于 URL ref。
 Project 的 **version 1** lockfile 在 `extras` map 中记录完整 40 位 commit；Global
-重装使用相同 origin 的 metadata pin。`--update` 将 pin 前移至所选分支的最新 commit。
+重装使用匹配的 metadata pin。pin 须匹配 origin 和 ref；省略 `--branch` 保留已声明的 ref，
+更改 ref 则获取新 ref 的最新 commit。`--update` 将同一 ref 的 pin 前移至最新 commit。
 无法获取 pin 时失败，不回退到分支。origin 不匹配的 metadata 不是 pin；若实际目录
 存在且 origin 不同，必须先移除再重装。
 
 提交 Project config 和 `skills.lock.json`。**每位**写入 lockfile 的贡献者都须升级到
 能够保留 `extras` map 的版本。项目内的获取目录、staging 和 metadata 会被 ignore。
-队友必须显式恢复；仅在要前移 pin 时添加 `--update`。
+队友必须显式恢复；前移同一 ref 的 pin 时添加 `--update`。
 
 ```bash
 skillshare install example-org/ai-hub/rules --kind extra --name team-rules -p

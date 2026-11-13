@@ -126,7 +126,20 @@ func (c *extraConfigCallbacks) merge(remote, branch string, record bool) error {
 	return err
 }
 
-func (c *extraConfigCallbacks) WriteConfig() error { return c.merge(c.remote, c.branch, true) }
+func (c *extraConfigCallbacks) PinBranch() string {
+	if c.baseline != nil && c.baseline.Remote == c.remote {
+		return c.baseline.Branch
+	}
+	return ""
+}
+
+func (c *extraConfigCallbacks) WriteConfig() error {
+	branch := c.branch
+	if branch == "" {
+		branch = c.PinBranch()
+	}
+	return c.merge(c.remote, branch, true)
+}
 func (c *extraConfigCallbacks) RepairConfig(remote, branch string) error {
 	return c.merge(remote, branch, false)
 }

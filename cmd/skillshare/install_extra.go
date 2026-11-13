@@ -207,7 +207,7 @@ func installExtra(parsed *installArgs, mode runMode, cwd string, start time.Time
 			oplog.WriteWithLimit(configPath, oplog.OpsFile, e, configuredLogMaxEntries(cfg)) //nolint:errcheck
 		}()
 	}
-	req := install.RemoteExtraRequest{Name: name, RawSource: raw, Branch: branch, Source: source, ExtrasRoot: root, LockDir: lockDir, ConfigPath: resolvedConfig, Opts: requestOpts, Recheck: callbacks.Recheck, WriteConfig: callbacks.WriteConfig, RevertConfig: callbacks.RevertConfig, RepairConfig: callbacks.RepairConfig, RefreshAfterRepair: callbacks.RefreshAfterRepair}
+	req := install.RemoteExtraRequest{Name: name, RawSource: raw, Branch: branch, Source: source, ExtrasRoot: root, LockDir: lockDir, ConfigPath: resolvedConfig, Opts: requestOpts, Recheck: callbacks.Recheck, WriteConfig: callbacks.WriteConfig, RevertConfig: callbacks.RevertConfig, RepairConfig: callbacks.RepairConfig, RefreshAfterRepair: callbacks.RefreshAfterRepair, PinBranch: callbacks.PinBranch}
 	if mode == modeProject {
 		req.ProjectRoot = cwd
 	}

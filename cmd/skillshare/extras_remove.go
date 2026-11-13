@@ -313,7 +313,7 @@ func findExtraByName(extras []config.ExtraConfig, name string) (int, config.Extr
 }
 
 func printExtrasRemoveHelp() {
-	printHelp("skillshare extras remove <name> [options]", "Remove an extra resource type from config.\n\nSource files are NOT deleted. Single-file targets are restored to their\npre-attach state. Directory extras leave target files in place; run\n'skillshare sync extras' to clean up their orphaned links.",
+	printHelp("skillshare extras remove <name> [options]", "Remove an extra resource type from config.\n\nRemote extras delete an unedited fetched copy; edited copies stay. Owned\nlinks are cleaned, while copied or transformed outputs stay. Local source\nfiles stay; single-file targets are restored to their pre-attach state.\nRun 'skillshare sync extras' to clean up local directory orphan links.",
 		helpGroup{title: "Arguments", rows: []helpRow{
 			{"name", "Name of the extra to remove"},
 		}},

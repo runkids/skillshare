@@ -242,3 +242,30 @@ func saveExtraEntries(entries *[]config.ExtraConfig) func(extraConfigUpdate) err
 		return err
 	}
 }
+
+func TestExtraConfigCallbacks_OmittedBranchInheritsRefreshedBaseline(t *testing.T) {
+	entries := []config.ExtraConfig{{Name: "rules", Remote: "journal", Branch: "main"}}
+	load := func() ([]config.ExtraConfig, error) { return entries, nil }
+	callbacks, err := newExtraConfigCallbacks("rules", "journal", "", load, saveExtraEntries(&entries))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if callbacks.PinBranch() != "main" {
+		t.Fatal("initial branch not read")
+	}
+	if err := callbacks.RepairConfig("journal", "release"); err != nil {
+		t.Fatal(err)
+	}
+	if err := callbacks.RefreshAfterRepair(); err != nil {
+		t.Fatal(err)
+	}
+	if callbacks.PinBranch() != "release" {
+		t.Fatal("repair branch baseline not refreshed")
+	}
+	if err := callbacks.WriteConfig(); err != nil {
+		t.Fatal(err)
+	}
+	if entries[0].Branch != "release" {
+		t.Fatal("omitted branch erased repaired branch")
+	}
+}

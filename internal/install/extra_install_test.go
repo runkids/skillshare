@@ -26,7 +26,7 @@ func newRemoteExtraRequest(t *testing.T) RemoteExtraRequest {
 	}
 	return RemoteExtraRequest{Name: "rules", RawSource: remote, Source: source, ExtrasRoot: filepath.Join(base, "extras"), ConfigPath: config, Opts: InstallOptions{SkipAudit: true},
 		Recheck: func() error { return nil }, WriteConfig: func() error { return os.WriteFile(config, []byte("after"), 0644) }, RevertConfig: func() error { return os.WriteFile(config, []byte("before"), 0644) },
-		RepairConfig: func(_, _ string) error { return nil }, RefreshAfterRepair: func() error { return nil },
+		RepairConfig: func(_, _ string) error { return nil }, RefreshAfterRepair: func() error { return nil }, PinBranch: func() string { return "" },
 	}
 }
 
@@ -1422,5 +1422,77 @@ func TestInstallRemoteExtra_ParticipantWaitsForPublication(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestInstallRemoteExtra_PinBranchAfterRepair(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, requested := range []string{"", "main", "feature"} {
+			t.Run(fmt.Sprintf("project=%t/request=%s", project, requested), func(t *testing.T) {
+				req := newRemoteExtraRequest(t)
+				if project {
+					req.ProjectRoot = t.TempDir()
+					req.LockDir = filepath.Join(req.ProjectRoot, ".skillshare")
+					req.ExtrasRoot = filepath.Join(req.LockDir, "extras")
+				}
+				branch, diskBranch := "feature", "feature"
+				req.PinBranch = func() string { return branch }
+				req.Branch = "feature"
+				first, err := InstallRemoteExtra(req)
+				if err != nil {
+					t.Fatal(err)
+				}
+				req.Branch = "main"
+				old := extraBoundary
+				extraBoundary = func(step string) error {
+					if step == "live" {
+						return errSimulatedDeath
+					}
+					return nil
+				}
+				_, err = InstallRemoteExtra(req)
+				extraBoundary = old
+				if !errors.Is(err, errSimulatedDeath) {
+					t.Fatalf("death: %v", err)
+				}
+				journal, err := readExtraJournal(req.ExtrasRoot, req.Name)
+				if err != nil {
+					t.Fatal(err)
+				}
+				req.Branch = requested
+				req.RepairConfig = func(_, repaired string) error { diskBranch = repaired; return nil }
+				req.RefreshAfterRepair = func() error { branch = diskBranch; return nil }
+				got, err := InstallRemoteExtra(req)
+				if err != nil {
+					t.Fatal(err)
+				}
+				wantBranch, wantCommit := "main", journal.Commit
+				if requested == "feature" {
+					wantBranch, wantCommit = "feature", first.Commit
+				}
+				if !got.Interrupted || got.Branch != wantBranch || got.Commit != wantCommit {
+					t.Fatalf("after repair: %+v want %s %s", got, wantBranch, wantCommit)
+				}
+			})
+		}
+	}
+}
+
+func TestInstallRemoteExtra_GlobalPinMatchesBranch(t *testing.T) {
+	req := newRemoteExtraRequest(t)
+	req.Branch = "feature"
+	first, err := InstallRemoteExtra(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A main declaration must not adopt metadata left from a feature install.
+	req.Branch = "main"
+	req.PinBranch = func() string { return "main" }
+	got, err := InstallRemoteExtra(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Commit == first.Commit || got.Branch != "main" {
+		t.Fatalf("old branch pin reused: %+v", got)
 	}
 }

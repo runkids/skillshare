@@ -356,7 +356,8 @@ submodules do not. Use `extras init --source <path> --target <path>` for local
 folders. `--track`, `--into`, `--skill`, `--agent`, `--exclude`, `--all`, `--yes`
 are refused with `--kind extra`. `--branch` chooses a ref; explicit wins over URL.
 Project version 1 locks keep separate `extras` pins; global installs use matching
-metadata pins. Upgrade every contributor before writing a lock with extras.
+metadata pins. Pins match origin and ref: omit `--branch` to keep the declared
+ref, or change it to select the new head. Upgrade every contributor before writing a lock with extras.
 An unreachable pin fails; `--update` explicitly advances it. Bare install, pull
 and sync do not restore these extras: repeat the explicit remote install command.
 Local edits require explicit `--force`; JSON is not consent. Force may accept
