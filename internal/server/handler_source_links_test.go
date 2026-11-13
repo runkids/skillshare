@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -251,19 +252,50 @@ func TestHandleRemoveSourceLink_ForgetsNormalizedAndNestedRecords(t *testing.T) 
 			}
 			// Exercise a legacy basename/group key in the same unlink namespace.
 			if nested {
+				entry := s.skillsStore.Get(rel)
 				s.skillsStore.Remove(rel)
-				s.skillsStore.Set(key, &install.MetadataEntry{Source: "file:///nonexistent/team.git", Group: group, Tracked: true})
+				s.skillsStore.Set(key, entry)
 			}
+			wantEntry := *s.skillsStore.Get(key)
+			foreign := "collection/_repo"
+			s.skillsStore.Set(foreign, &install.MetadataEntry{Source: "file:///nonexistent/foreign.git", Group: "collection", Tracked: true})
 			addSkill(t, src, "_collection-other/kept")
 			s.skillsStore.Set("_collection-other", &install.MetadataEntry{Source: "keep"})
 			s.skillsStore.AuditAccepted = map[string][]string{rel: {"root"}, rel + "/member": {"child"}, "_collection-other": {"keep"}}
+			s.skillsStore.AuditAccepted[foreign] = []string{"foreign"}
+			s.skillsStore.SetTargetOverride(rel+"/member", nil)
+			s.skillsStore.SetTargetOverride(foreign+"/member", []string{"codex"})
+			wantAccepted := maps.Clone(s.skillsStore.AuditAccepted)
 			if err := s.skillsStore.Save(src); err != nil {
 				t.Fatal(err)
 			}
 			rr := httptest.NewRecorder()
 			s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, "/api/source-links/_collection", nil))
-			if rr.Code != http.StatusOK || s.skillsStore.Has(key) || len(s.skillsStore.AuditAccepted) != 1 || s.skillsStore.AuditAccepted["_collection-other"][0] != "keep" || !s.skillsStore.Has("_collection-other") {
+			if rr.Code != http.StatusOK || s.skillsStore.Has(key) || len(s.skillsStore.AuditAccepted) != 2 || s.skillsStore.AuditAccepted["_collection-other"][0] != "keep" || !s.skillsStore.Has("_collection-other") || !s.skillsStore.Has(foreign) || len(s.skillsStore.TargetOverrides) != 1 {
 				t.Fatalf("wrong namespace cleanup: %d %s %+v", rr.Code, rr.Body.String(), s.skillsStore)
+			}
+			s.skillsStore.Get(foreign).Branch = "changed-after-unlink"
+			s.skillsStore.AuditAccepted[foreign] = []string{"after-unlink"}
+			wantAccepted[foreign] = []string{"after-unlink"}
+			if err := s.skillsStore.Save(src); err != nil {
+				t.Fatal(err)
+			}
+			rr = httptest.NewRecorder()
+			s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/trash/_collection/restore", nil))
+			if rr.Code != http.StatusOK || !reflect.DeepEqual(s.skillsStore.GetByPath(rel), &wantEntry) || !reflect.DeepEqual(s.skillsStore.AuditAccepted, wantAccepted) || s.skillsStore.Get(foreign).Branch != "changed-after-unlink" {
+				t.Fatalf("undo lost or over-captured records: %d %s %+v", rr.Code, rr.Body.String(), s.skillsStore)
+			}
+			if targets, ok := s.skillsStore.TargetOverrides[rel+"/member"]; !ok || targets == nil || len(targets) != 0 || !reflect.DeepEqual(s.skillsStore.TargetOverrides[foreign+"/member"], []string{"codex"}) {
+				t.Fatalf("undo lost overrides: %+v", s.skillsStore.TargetOverrides)
+			}
+			rr = httptest.NewRecorder()
+			s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, "/api/source-links/_collection", nil))
+			if rr.Code != http.StatusOK {
+				t.Fatal(rr.Body.String())
+			}
+			// Occupy the foreign declaration's path so bare install stays offline.
+			if err := os.MkdirAll(filepath.Join(src, filepath.FromSlash(foreign)), 0755); err != nil {
+				t.Fatal(err)
 			}
 			rr = httptest.NewRecorder()
 			s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/install/from-config", nil))
@@ -301,6 +333,36 @@ func TestHandleRemoveSourceLink_ProjectKeepsRecord(t *testing.T) {
 	loaded, err := install.LoadMetadata(source)
 	if rr.Code != http.StatusOK || err != nil || !s.skillsStore.Has("_team") || !loaded.Has("_team") {
 		t.Fatalf("project record removed: %d %s %v", rr.Code, rr.Body.String(), err)
+	}
+	if entry := trash.FindByName(s.trashBase(), "_team"); entry == nil {
+		t.Fatal("project link not trashed")
+	} else if _, err := os.Stat(trash.MetadataFile(entry.Path)); !os.IsNotExist(err) {
+		t.Fatalf("project unlink created metadata sidecar: %v", err)
+	}
+}
+
+func TestForgetUnlinkedRecords_SidecarFailureKeepsFreshMetadata(t *testing.T) {
+	s, src := newTestServer(t)
+	s.skillsStore.Set("_team", &install.MetadataEntry{Source: "record"})
+	s.skillsStore.AuditAccepted = map[string][]string{"_team/member": {"accepted"}}
+	s.skillsStore.SetTargetOverride("_team/member", nil)
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(install.MetadataPath(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	trashPath := filepath.Join(t.TempDir(), "_team")
+	if err := os.Mkdir(trash.MetadataFile(trashPath), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.forgetUnlinkedRecords("_team", trashPath); err == nil || !strings.Contains(err.Error(), "failed to save its metadata") {
+		t.Fatalf("sidecar failure hidden: %v", err)
+	}
+	after, err := os.ReadFile(install.MetadataPath(src))
+	if err != nil || !bytes.Equal(before, after) || !s.skillsStore.Has("_team") || len(s.skillsStore.AuditAccepted) != 1 || len(s.skillsStore.TargetOverrides) != 1 {
+		t.Fatalf("sidecar failure pruned disk/cache: %+v %v", s.skillsStore, err)
 	}
 }
 
@@ -361,8 +423,12 @@ func TestForgetUnlinkedRecords_SaveFailure(t *testing.T) {
 	if err := os.Mkdir(install.MetadataPath(src), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.forgetUnlinkedRecords("_team"); err == nil || !s.skillsStore.Has("_other") {
+	trashPath := filepath.Join(t.TempDir(), "_team")
+	if err := s.forgetUnlinkedRecords("_team", trashPath); err == nil || !s.skillsStore.Has("_other") {
 		t.Fatalf("save failure hidden or unrelated record lost: %v", err)
+	}
+	if _, err := os.Stat(trash.MetadataFile(trashPath)); err != nil {
+		t.Fatalf("metadata save failure lost undo: %v", err)
 	}
 	if info, err := os.Stat(install.MetadataPath(src)); err != nil || !info.IsDir() {
 		t.Fatalf("blocked metadata path modified: %v", err)

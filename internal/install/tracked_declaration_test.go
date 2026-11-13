@@ -64,6 +64,63 @@ func TestForgetTrackedRepo(t *testing.T) {
 	}
 }
 
+func TestUnlinkedSnapshotMatchesRemoval(t *testing.T) {
+	store := NewMetadataStore()
+	for key, entry := range map[string]*MetadataEntry{
+		"_team": {Source: "normalized"}, "_team/_nested": {Source: "nested", Tracked: true},
+		"child":       {Source: "child", Group: "_team/sub"},
+		"legacy":      {Source: "legacy", Tracked: true, Group: "team"},
+		"team/member": {Source: "legacy", Tracked: true, Group: "team"},
+		"team/_repo":  {Source: "foreign", Tracked: true, Group: "team"},
+		"_other":      {Source: "foreign legacy", Tracked: true, Group: "team"},
+		"team/plain":  {Source: "plain", Group: "team"}, "_team-other": {Source: "sibling"},
+	} {
+		store.Set(key, entry)
+	}
+	store.AuditAccepted = map[string][]string{"_team/orphan": {"orphan"}, "legacy": {"old"}, "team/member": {"old path"}, "team/_repo": {"keep"}, "team/_repo/child": {"keep child"}, "_team-other": {"sibling"}}
+	store.SetTargetOverride("_team/orphan", nil)
+	store.SetTargetOverride("team/_repo/child", []string{"codex"})
+	saved := store.ExtractUnlinkedName("./_team/")
+	if saved.Has("team/_repo") || saved.Has("_other") || len(saved.Entries) != 5 || len(saved.AuditAccepted) != 3 || len(saved.TargetOverrides) != 1 {
+		t.Fatalf("snapshot over/under-captured: %+v", saved)
+	}
+	if !store.ForgetUnlinkedName("_team") || len(store.Entries) != 4 || len(store.AuditAccepted) != 3 || len(store.TargetOverrides) != 1 {
+		t.Fatalf("wrong removal: %+v", store)
+	}
+	store.Merge(saved)
+	if store.GetExact("_team/sub/child") == nil || !store.Has("legacy") || !store.Has("team/member") || !store.Has("team/_repo") || len(store.AuditAccepted) != 6 {
+		t.Fatalf("restore lost records/acceptances: %+v", store)
+	}
+	if targets, ok := store.TargetOverrides["_team/orphan"]; !ok || targets == nil || len(targets) != 0 {
+		t.Fatalf("explicit all-target override lost: %+v", store.TargetOverrides)
+	}
+	// Generic uninstall and declaration-only removal keep their legacy contract.
+	if !store.ForgetTrackedRepo("team/_repo") || store.Has("team/_repo") {
+		t.Fatal("declaration removal changed")
+	}
+	store.Set("_team", &MetadataEntry{Source: "repo", Tracked: true})
+	if !store.ForgetTrackedRepo("_team") || store.Has("_other") {
+		t.Fatal("legacy declaration-only matching changed")
+	}
+}
+
+func TestUnlinkedSnapshotWithoutEntries(t *testing.T) {
+	for _, kind := range []string{"empty", "acceptance", "override"} {
+		t.Run(kind, func(t *testing.T) {
+			store := NewMetadataStore()
+			if kind == "acceptance" {
+				store.AuditAccepted = map[string][]string{"_team/child": {"accepted"}}
+			} else if kind == "override" {
+				store.SetTargetOverride("_team/child", nil)
+			}
+			saved := store.ExtractUnlinkedName("_team")
+			if saved.IsEmpty() != (kind == "empty") || store.ForgetUnlinkedName("_team") != (kind != "empty") || !store.IsEmpty() {
+				t.Fatalf("snapshot/removal disagree: %+v %+v", saved, store)
+			}
+		})
+	}
+}
+
 func TestFindTrackedDeclaration(t *testing.T) {
 	src := t.TempDir()
 	store := NewMetadataStore()

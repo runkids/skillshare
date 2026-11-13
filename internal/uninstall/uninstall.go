@@ -211,6 +211,20 @@ func moveOut(item Item, o Options) error {
 	return nil
 }
 
+// ForgetUnlinkedName keeps undo metadata for an already trashed source link
+// before pruning its records. store must be freshly loaded from sourceDir.
+func ForgetUnlinkedName(sourceDir, trashPath, name string, store *install.MetadataStore) error {
+	saved := store.ExtractUnlinkedName(name)
+	if saved.IsEmpty() {
+		return nil
+	}
+	if err := saveMetadata(trashPath, saved); err != nil {
+		return err
+	}
+	store.ForgetUnlinkedName(name)
+	return store.Save(sourceDir)
+}
+
 // Agent is one resolved agent file.
 type Agent struct {
 	Name string // source-relative slash path without ".md"; its metadata key

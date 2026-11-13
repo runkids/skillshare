@@ -12,6 +12,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/sourcelink"
 	"skillshare/internal/sourcewalk"
+	"skillshare/internal/uninstall"
 	"skillshare/internal/utils"
 )
 
@@ -121,7 +122,8 @@ func (s *Server) handleRemoveSourceLink(w http.ResponseWriter, r *http.Request) 
 	defer s.mu.Unlock()
 	name := r.PathValue("name")
 	args := map[string]any{"name": name, "scope": "ui"}
-	if err := sourcelink.Remove(s.skillsSource(), s.trashBase(), name); err != nil {
+	trashPath, err := sourcelink.Remove(s.skillsSource(), s.trashBase(), name)
+	if err != nil {
 		s.writeOpsLog("unlink", "error", start, args, err.Error())
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -130,7 +132,7 @@ func (s *Server) handleRemoveSourceLink(w http.ResponseWriter, r *http.Request) 
 	if !s.IsProjectMode() {
 		err := s.reloadSkillsStore()
 		if err == nil {
-			err = s.forgetUnlinkedRecords(name)
+			err = s.forgetUnlinkedRecords(name, trashPath)
 		}
 		if err != nil {
 			warning = fmt.Sprintf("Unlinked, but could not update metadata: %v", err)
@@ -148,11 +150,8 @@ func (s *Server) handleRemoveSourceLink(w http.ResponseWriter, r *http.Request) 
 
 // forgetUnlinkedRecords persists cleanup against the store just reloaded
 // by the handler. Refresh the cache if persistence fails, as for uninstall.
-func (s *Server) forgetUnlinkedRecords(name string) error {
-	if !s.skillsStore.ForgetUnlinkedName(name) {
-		return nil
-	}
-	if err := s.skillsStore.Save(s.skillsSource()); err != nil {
+func (s *Server) forgetUnlinkedRecords(name, trashPath string) error {
+	if err := uninstall.ForgetUnlinkedName(s.skillsSource(), trashPath, name, s.skillsStore); err != nil {
 		if reloadErr := s.reloadSkillsStore(); reloadErr != nil {
 			log.Printf("warning: failed to reload skills metadata: %v", reloadErr)
 		}

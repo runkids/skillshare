@@ -7,12 +7,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/sourcefs"
+	"skillshare/internal/sourcelink"
 	"skillshare/internal/trash"
 )
 
@@ -394,6 +396,76 @@ func TestRestore_EntryWithoutSavedMetadataStaysLocal(t *testing.T) {
 
 	if !exists(item.Path) || f.opts.Store.Has("foo") {
 		t.Error("an item with nothing recorded should come back as local")
+	}
+}
+
+func TestForgetUnlinkedName_FailureAndUndo(t *testing.T) {
+	for _, fault := range []string{"none", "sidecar", "save", "empty"} {
+		t.Run(fault, func(t *testing.T) {
+			f := newFixture(t)
+			target := t.TempDir()
+			if _, err := sourcelink.Create(f.source, nil, target, "_team"); err != nil {
+				t.Fatal(err)
+			}
+			if fault != "empty" {
+				f.opts.Store.Set("_team", &install.MetadataEntry{Source: "normalized"})
+				f.opts.Store.AuditAccepted = map[string][]string{"_team/child": {"accepted"}}
+				f.opts.Store.SetTargetOverride("_team/child", nil)
+			}
+			if err := f.opts.Store.Save(f.source); err != nil {
+				t.Fatal(err)
+			}
+			before, _ := os.ReadFile(install.MetadataPath(f.source))
+			trashPath, err := sourcelink.Remove(f.source, f.opts.TrashDir, "_team")
+			if err != nil {
+				t.Fatal(err)
+			}
+			blocked := trash.MetadataFile(trashPath)
+			if fault == "save" {
+				blocked = install.MetadataPath(f.source)
+				if err := os.Rename(blocked, blocked+".kept"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if fault == "sidecar" || fault == "save" {
+				if err := os.Mkdir(blocked, 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			err = ForgetUnlinkedName(f.source, trashPath, "_team", f.opts.Store)
+			if (err != nil) != (fault == "sidecar" || fault == "save") {
+				t.Fatalf("fault %s: %v", fault, err)
+			}
+			if fault == "sidecar" {
+				after, readErr := os.ReadFile(install.MetadataPath(f.source))
+				if readErr != nil || string(before) != string(after) || !f.opts.Store.Has("_team") || !strings.Contains(err.Error(), "moved to trash but failed to save its metadata") {
+					t.Fatalf("sidecar failure pruned metadata: %v", err)
+				}
+				return
+			}
+			if fault == "save" {
+				if !exists(trash.MetadataFile(trashPath)) {
+					t.Fatal("save failure lost undo snapshot")
+				}
+				if err := os.Remove(blocked); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Rename(blocked+".kept", blocked); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if fault == "empty" && exists(trash.MetadataFile(trashPath)) {
+				t.Fatal("empty unlink wrote a sidecar")
+			}
+			if err := Restore(trash.FindByName(f.opts.TrashDir, "_team"), f.source, nil, nil); err != nil {
+				t.Fatal(err)
+			}
+			after, _ := os.ReadFile(install.MetadataPath(f.source))
+			var want, got install.MetadataStore
+			if json.Unmarshal(before, &want) != nil || json.Unmarshal(after, &got) != nil || !reflect.DeepEqual(want, got) {
+				t.Fatalf("undo did not recover exact metadata: %s", after)
+			}
+		})
 	}
 }
 

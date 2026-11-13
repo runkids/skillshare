@@ -14,6 +14,7 @@ import (
 	"skillshare/internal/sourcelink"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
+	"skillshare/internal/uninstall"
 	"skillshare/internal/utils"
 )
 
@@ -195,7 +196,7 @@ func cmdUnlink(args []string) error {
 	}
 
 	opArgs := map[string]any{"name": name}
-	err = sourcelink.Remove(scope.source, scope.trashDir, name)
+	trashPath, err := sourcelink.Remove(scope.source, scope.trashDir, name)
 	if err != nil {
 		logLinkOp(scope.configPath, "unlink", opArgs, start, statusFromErr(err), err)
 		return fmt.Errorf("cannot unlink %s: %w", name, err)
@@ -204,8 +205,8 @@ func cmdUnlink(args []string) error {
 	status := "ok"
 	if scope.global {
 		store, metadataErr := install.LoadMetadataWithMigration(scope.source, "")
-		if metadataErr == nil && store.ForgetUnlinkedName(name) {
-			metadataErr = store.Save(scope.source)
+		if metadataErr == nil {
+			metadataErr = uninstall.ForgetUnlinkedName(scope.source, trashPath, name, store)
 		}
 		if metadataErr != nil {
 			status = "partial"

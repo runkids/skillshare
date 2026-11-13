@@ -3,8 +3,10 @@
 package integration
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -283,6 +285,34 @@ func TestUnlink_MetadataReloadFailureLogsPartial(t *testing.T) {
 	}
 }
 
+func TestUnlink_SidecarFailureLogsPartialAndKeepsMetadata(t *testing.T) {
+	sb, target := linkSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+	run := func(args ...string) *testutil.Result { return sb.RunCLIEnv(sb.MachineEnv(), args...) }
+	// The link plus timestamp fits a filesystem component; its sidecar does not.
+	name := "_" + strings.Repeat("n", 229)
+	run("link", target, "--name", name, "-g").AssertSuccess(t)
+	store := install.NewMetadataStore()
+	store.Set(name, &install.MetadataEntry{Source: "normalized"})
+	store.AuditAccepted = map[string][]string{name + "/foo": {"accepted"}}
+	store.SetTargetOverride(name+"/foo", nil)
+	if err := store.Save(sb.SourcePath); err != nil {
+		t.Fatal(err)
+	}
+	before := sb.ReadFile(install.MetadataPath(sb.SourcePath))
+	result := run("unlink", name, "-g")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "failed to save its metadata")
+	entries, err := oplog.Read(sb.ConfigPath, oplog.OpsFile, 1)
+	if err != nil || len(entries) != 1 || entries[0].Status != "partial" || !strings.Contains(entries[0].Message, "Unlinked, but could not update metadata") {
+		t.Fatalf("sidecar failure not logged as partial: %+v %v", entries, err)
+	}
+	if _, err := os.Lstat(filepath.Join(sb.SourcePath, name)); !os.IsNotExist(err) || sb.ReadFile(install.MetadataPath(sb.SourcePath)) != before || !sb.FileExists(filepath.Join(target, "foo", "SKILL.md")) {
+		t.Fatalf("partial unlink damaged link metadata or referent: %v", err)
+	}
+}
+
 func TestUnlink_ForgetsNormalizedAndNestedRecords(t *testing.T) {
 	for _, nested := range []bool{false, true} {
 		t.Run(map[bool]string{false: "normalized", true: "nested"}[nested], func(t *testing.T) {
@@ -315,17 +345,51 @@ func TestUnlink_ForgetsNormalizedAndNestedRecords(t *testing.T) {
 			if err != nil || store.Get(rel) == nil || store.Get(rel).Tracked != nested {
 				t.Fatalf("reconcile did not produce expected record: %+v %v", store, err)
 			}
+			// A declaration installed --into on another machine is independent.
+			testutil.RunGit(t, other, "init")
+			testutil.RunGit(t, other, "add", ".")
+			testutil.RunGit(t, other, "-c", "user.name=Test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false", "commit", "-m", "seed")
+			testutil.RunGit(t, other, "branch", "after-unlink")
+			run("install", "file://"+other, "--track", "--name", "repo", "--into", "dev-skills", "-g").AssertSuccess(t)
+			foreign := "dev-skills/_repo"
+			if err := os.Rename(filepath.Join(sb.SourcePath, filepath.FromSlash(foreign)), filepath.Join(sb.Root, "clone-elsewhere")); err != nil {
+				t.Fatal(err)
+			}
+			store, err = install.LoadMetadata(sb.SourcePath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantEntry := *store.Get(rel)
 			sb.CreateSkill("_dev-skills-other", map[string]string{"SKILL.md": "# sibling"})
 			store.Set("_dev-skills-other", &install.MetadataEntry{Source: "keep"})
 			store.AuditAccepted = map[string][]string{rel: {"root"}, rel + "/kept": {"child"}, "_dev-skills-other": {"keep"}}
+			store.AuditAccepted[foreign] = []string{"foreign"}
+			store.SetTargetOverride(rel+"/kept", nil)
+			store.SetTargetOverride(foreign+"/other", []string{"codex"})
+			wantAccepted := maps.Clone(store.AuditAccepted)
 			if err := store.Save(sb.SourcePath); err != nil {
 				t.Fatal(err)
 			}
 			run("unlink", "_dev-skills", "-g").AssertSuccess(t)
 			store, err = install.LoadMetadata(sb.SourcePath)
-			if err != nil || store.Has(rel) || !store.Has("_dev-skills-other") || len(store.AuditAccepted) != 1 || store.AuditAccepted["_dev-skills-other"][0] != "keep" {
+			if err != nil || store.Has(rel) || !store.Has("_dev-skills-other") || !store.Has(foreign) || len(store.AuditAccepted) != 2 || store.AuditAccepted["_dev-skills-other"][0] != "keep" || len(store.TargetOverrides) != 1 {
 				t.Fatalf("wrong unlink namespace cleanup: %+v %v", store, err)
 			}
+			store.Get(foreign).Branch = "after-unlink"
+			store.AuditAccepted[foreign] = []string{"after-unlink"}
+			wantAccepted[foreign] = []string{"after-unlink"}
+			if err := store.Save(sb.SourcePath); err != nil {
+				t.Fatal(err)
+			}
+			run("trash", "restore", "_dev-skills", "-g").AssertSuccess(t)
+			store, err = install.LoadMetadata(sb.SourcePath)
+			if err != nil || !reflect.DeepEqual(store.Get(rel), &wantEntry) || !reflect.DeepEqual(store.AuditAccepted, wantAccepted) || store.Get(foreign).Branch != "after-unlink" {
+				t.Fatalf("undo lost or over-captured records: %+v %v", store, err)
+			}
+			if targets, ok := store.TargetOverrides[rel+"/kept"]; !ok || targets == nil || len(targets) != 0 || !reflect.DeepEqual(store.TargetOverrides[foreign+"/other"], []string{"codex"}) {
+				t.Fatalf("undo lost overrides: %+v", store.TargetOverrides)
+			}
+			run("unlink", "_dev-skills", "-g").AssertSuccess(t)
 			run("install", "-g").AssertSuccess(t)
 			if _, err := os.Lstat(filepath.Join(sb.SourcePath, "_dev-skills")); !os.IsNotExist(err) {
 				t.Fatalf("bare install resurrected link namespace: %v", err)
