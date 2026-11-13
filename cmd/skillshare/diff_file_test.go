@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"skillshare/internal/sync"
+	"skillshare/internal/testutil"
 	"skillshare/internal/utils"
 )
 
@@ -47,34 +48,19 @@ func TestCollectTargetDiff_ProfileEqualMtime(t *testing.T) {
 	if err != nil || resolutionErr != nil {
 		t.Fatal(err, resolutionErr)
 	}
-	tree := func() map[string]string {
-		files := map[string]string{}
-		filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				t.Fatal(err)
-			}
-			data, err := os.ReadFile(path)
-			if err != nil && !info.IsDir() {
-				t.Fatal(err)
-			}
-			files[path] = info.Mode().String() + string(data)
-			return nil
-		})
-		return files
-	}
 	manifest, manifestErr := sync.ReadManifest(target)
 	stamp, stampErr := sync.DirMaxMtimeWithIgnore(filepath.Dir(file), sync.DefaultFileIgnorePatterns())
 	if manifestErr != nil || stampErr != nil || stamp != manifest.Mtimes["demo"] || !strings.HasPrefix(manifest.Outputs["demo"], "sha256-v2:") {
 		t.Fatalf("equal-mtime current-output precondition: %+v %d %v %v", manifest, stamp, manifestErr, stampErr)
 	}
-	before := fmt.Sprint(tree())
+	before := fmt.Sprint(testutil.SnapshotTree(t, true, root))
 	for _, aware := range []bool{false, true} {
 		r := collectTargetDiff("custom", cfg, source, "copy", resolution, nil, nil, profileDiffPreview{aware: aware, skills: skills})
 		if r.errMsg != "" || aware && (len(r.items) != 1 || r.items[0].action != "modify" || !r.items[0].isSync || r.items[0].reason != "content changed") || !aware && len(r.items) != 0 {
 			t.Errorf("equal-mtime selected bytes prediction aware=%v: %+v", aware, r)
 		}
 	}
-	if fmt.Sprint(tree()) != before {
+	if fmt.Sprint(testutil.SnapshotTree(t, true, root)) != before {
 		t.Error("preview changed file paths, modes, source, copy or manifest bytes")
 	}
 }

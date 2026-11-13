@@ -16,6 +16,7 @@ import (
 	"skillshare/internal/profileapply"
 	"skillshare/internal/resource"
 	"skillshare/internal/sync"
+	"skillshare/internal/testutil"
 )
 
 func TestHandleDiff_Empty(t *testing.T) {
@@ -294,24 +295,8 @@ func TestProfiles_APIDiffPreservationAgreement(t *testing.T) {
 							t.Fatalf("equal-mtime current-output precondition: %+v %d %v %v", manifest, stamp, manifestErr, stampErr)
 						}
 					}
-					tree := func() string {
-						files := map[string]string{}
-						for _, root := range []string{source, dest, filepath.Dir(scope.Path()), os.Getenv("HOME")} {
-							filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-								if err != nil {
-									t.Fatal(err)
-								}
-								data, err := os.ReadFile(path)
-								if err != nil && !info.IsDir() {
-									t.Fatal(err)
-								}
-								files[path] = info.Mode().String() + string(data)
-								return nil
-							})
-						}
-						return fmt.Sprint(files)
-					}
-					treeBefore := tree()
+					snapshotRoots := []string{source, dest, filepath.Dir(scope.Path()), os.Getenv("HOME")}
+					treeBefore := fmt.Sprint(testutil.SnapshotTree(t, true, snapshotRoots...))
 					before, err := os.ReadFile(scope.Path())
 					if err != nil {
 						t.Fatal(err)
@@ -383,7 +368,7 @@ func TestProfiles_APIDiffPreservationAgreement(t *testing.T) {
 					if string(manifestAfter) != string(manifestBefore) {
 						t.Fatal("preview changed ownership records")
 					}
-					if tree() != treeBefore {
+					if fmt.Sprint(testutil.SnapshotTree(t, true, snapshotRoots...)) != treeBefore {
 						t.Error("previews changed file paths, modes, source, target or state bytes")
 					}
 					rr := httptest.NewRecorder()
