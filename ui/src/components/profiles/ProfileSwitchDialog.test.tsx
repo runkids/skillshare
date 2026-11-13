@@ -14,7 +14,7 @@ vi.mock('../../context/AppContext', () => ({ useAppContext: () => ({ isProjectMo
 vi.mock('../../hooks/useSharedQueries', () => ({ useOverviewQuery: () => ({ data: { configDir: fixture.configDir } }), useSkillsQuery: () => ({ data: { resources: [{ name: 'a' }, { name: 'b' }] } }) }));
 vi.mock('../../i18n', () => ({ useT: () => (key: string, params?: object) => key + (params ? JSON.stringify(params) : '') }));
 vi.mock('../DialogShell', () => ({ default: ({ open, children }: { open: boolean; children: React.ReactNode }) => open ? <div role="dialog">{children}</div> : null }));
-vi.mock('../CopyButton', () => ({ default: ({ value }: { value: string }) => <code>{value}</code> }));
+vi.mock('../CopyButton', () => ({ default: ({ value, title }: { value: string; title: string }) => <button type="button" aria-label={title} data-copy-value={value} /> }));
 vi.mock('../SyncPreviewModal', () => ({ default: ({ open, kind }: { open: boolean; kind: string }) => open ? <div data-testid="sync">{kind}</div> : null }));
 
 const data: ProfilesResponse = {
@@ -102,6 +102,7 @@ it.each(['failed', 'incomplete'] as const)('retains %s targets and snapshots thr
   expect(screen.getByText('EACCES')).toBeInTheDocument();
   expect(screen.getByText('prune EIO')).toBeInTheDocument();
   expect(screen.getByText(/skillshare restore claude/)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'common.copy' })).toHaveAttribute('data-copy-value', partial.snapshot![0].restore);
   expect(invalidate).toHaveBeenCalledWith(expect.anything(), 'profileSwitched');
   rerender(view('work', { ...data, active: 'work', pending: true }));
   expect(screen.getByText('profiles.incomplete')).toBeInTheDocument();
@@ -112,7 +113,7 @@ it.each(['failed', 'incomplete'] as const)('retains %s targets and snapshots thr
 it('never authorizes unknown blocked classes or malformed refusal details', async () => {
   setActive.mockRejectedValue(new ApiError(409, 'blocked', { code: 'profile_blocked', params: { blocked: JSON.stringify([{ ...entry, class: 'unmanaged' }]) } }));
   mount();
-  await screen.findByText(/edited/);
+  await screen.findByText('claude/edited', { selector: 'code' });
   expect(screen.queryByRole('checkbox')).toBeNull();
   expect(screen.getByRole('button', { name: 'profiles.switch' })).toBeDisabled();
 });

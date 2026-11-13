@@ -1,7 +1,7 @@
 import { SwatchBook } from 'lucide-react';
 import type { ProfilesResponse } from '../../api/client';
 import { useT } from '../../i18n';
-import Select from '../Select';
+import { Select } from '../Select';
 import { profileOptions, profileVisible } from './profileView';
 
 export default function ProfileSwitcher({ data, onChoose }: { data?: ProfilesResponse; onChoose: (name: string | null) => void }) {
