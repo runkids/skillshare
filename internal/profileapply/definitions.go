@@ -42,6 +42,7 @@ func Mutate(ctx context.Context, scope Scope, mutations ...profile.Mutation) (pr
 			return profile.Change{Active: state.Active}, err
 		}
 		node = next
+		total.Skills = append(total.Skills, change.Skills...)
 		total.Active = change.Active
 		total.Changed = total.Changed || change.Changed
 		total.NeedsSync = total.NeedsSync || change.NeedsSync

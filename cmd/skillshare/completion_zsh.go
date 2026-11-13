@@ -265,7 +265,7 @@ _skillshare() {
                     ;;
                 profile)
                     _arguments \
-                        '1:command:(list show create edit rename delete use)' \
+                        '1:command:(list show create edit rename delete use add remove)' \
                         '*--description[Description]:text:' \
                         '*--add-include[Append include]:pattern:' \
                         '*--remove-include[Remove exact include]:pattern:' \

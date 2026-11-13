@@ -51,7 +51,7 @@ complete -c skillshare -n '__fish_skillshare_using_command project' -l global -s
 
 # Profile command
 complete -c skillshare -n __fish_skillshare_no_subcommand -a profile -d 'Define and switch skill profiles'
-complete -c skillshare -n '__fish_skillshare_using_command profile' -a 'list show create edit rename delete use'
+complete -c skillshare -n '__fish_skillshare_using_command profile' -a 'list show create edit rename delete use add remove'
 complete -c skillshare -n '__fish_skillshare_using_command profile' -l description -r
 complete -c skillshare -n '__fish_skillshare_using_command profile' -l add-include -r
 complete -c skillshare -n '__fish_skillshare_using_command profile' -l remove-include -r

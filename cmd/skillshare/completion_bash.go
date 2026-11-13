@@ -94,7 +94,7 @@ _skillshare() {
         esac
         local profile_flags="--description --add-include --remove-include --add-exclude --remove-exclude --dry-run -n --no-sync --none --discard-edits --allow-empty --json --help -h ${global_flags}"
         if [[ ${cword} -eq 2 ]]; then
-            COMPREPLY=($(compgen -W "list show create edit rename delete use ${profile_flags}" -- "${cur}"))
+            COMPREPLY=($(compgen -W "list show create edit rename delete use add remove ${profile_flags}" -- "${cur}"))
         elif [[ "${cur}" == -* ]]; then
             COMPREPLY=($(compgen -W "${profile_flags}" -- "${cur}"))
         fi

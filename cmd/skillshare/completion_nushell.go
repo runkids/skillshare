@@ -58,7 +58,7 @@ export extern "skillshare updates" [
 ]
 
 # Profile command
-def "nu-complete skillshare profile" [] { [list show create edit rename delete use] }
+def "nu-complete skillshare profile" [] { [list show create edit rename delete use add remove] }
 export extern "skillshare profile" [
     subcommand?: string@"nu-complete skillshare profile"
     ...names: string

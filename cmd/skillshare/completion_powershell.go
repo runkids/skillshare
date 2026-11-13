@@ -266,6 +266,8 @@ $_skillshareCompleter = {
         @{ Name = 'rename'; Desc = 'Profile rename' }
         @{ Name = 'delete'; Desc = 'Profile delete' }
         @{ Name = 'use'; Desc = 'Profile use' }
+        @{ Name = 'add'; Desc = 'Profile add' }
+        @{ Name = 'remove'; Desc = 'Profile remove' }
     )
     $flags['profile'] = '--description', '--add-include', '--remove-include', '--add-exclude', '--remove-exclude', '--dry-run', '-n', '--no-sync', '--none', '--discard-edits', '--allow-empty', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
     $commands['project'] = @(

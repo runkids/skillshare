@@ -14,3 +14,17 @@ func TestProfileCompletions(t *testing.T) {
 		}
 	}
 }
+
+func TestProfileAssignCompletions(t *testing.T) {
+	for name, shell := range shells {
+		if name == "powershell" {
+			for _, command := range []string{"add", "remove"} {
+				if !strings.Contains(shell.script, "Name = '"+command+"'; Desc = 'Profile "+command+"'") {
+					t.Errorf("%s lacks profile %s", name, command)
+				}
+			}
+		} else if !strings.Contains(shell.script, "list show create edit rename delete use add remove") {
+			t.Errorf("%s lacks profile membership commands", name)
+		}
+	}
+}

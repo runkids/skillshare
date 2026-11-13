@@ -30,6 +30,9 @@ func cmdProfile(args []string) error {
 	if o.action == "use" {
 		return profileUse(scope, o)
 	}
+	if o.action == "add" || o.action == "remove" {
+		return profileAssign(scope, o)
+	}
 	o.mutation.Op, o.mutation.Name = o.action, o.names[0]
 	if o.action == "rename" {
 		o.mutation.NewName = o.names[1]

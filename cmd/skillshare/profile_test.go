@@ -19,7 +19,12 @@ func TestProfileArgs(t *testing.T) {
 		{[]string{"show"}, "", true},
 		{[]string{"edit", "web", "--allow-empty"}, "", true},
 		{[]string{"list", "extra"}, "", true},
-		{[]string{"add", "web", "alpha"}, "", true},
+		{[]string{"add", "web", "alpha", "beta", "--json", "-p"}, "add", false},
+		{[]string{"remove", "web", "alpha"}, "remove", false},
+		{[]string{"add", "web"}, "", true},
+		{[]string{"remove"}, "", true},
+		{[]string{"add", "web", "alpha", "--no-sync"}, "", true},
+		{[]string{"add", "web", "alpha", "--add-include", "beta"}, "", true},
 	} {
 		got, err := parseProfileArgs(tc.args)
 		if (err != nil) != tc.fail {
@@ -41,6 +46,7 @@ func TestProfileReadOnlyStartup(t *testing.T) {
 		{[]string{"use", "missing"}, true}, {[]string{"create", "a"}, false},
 		{[]string{"use", "a", "--no-sync"}, true}, {[]string{"use", "a", "--none"}, true},
 		{[]string{"--help"}, true},
+		{[]string{"add", "a", "alpha"}, true}, {[]string{"remove", "a", "alpha"}, true},
 		{[]string{"edit", "a", "--description", "x"}, false},
 		{[]string{"rename", "a", "b"}, false}, {[]string{"delete", "a"}, false},
 	} {

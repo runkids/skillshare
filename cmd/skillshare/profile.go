@@ -91,6 +91,11 @@ func parseProfileArgs(args []string) (profileOptions, error) {
 	case "list":
 		want = 0
 	case "show", "create", "edit", "delete":
+	case "add", "remove":
+		if len(o.names) < 2 {
+			return o, fmt.Errorf("profile %s requires a profile name and at least one skill", o.action)
+		}
+		return o, nil
 	case "rename":
 		want = 2
 	case "use":
@@ -111,7 +116,7 @@ func profileSkipsMaintenance(args []string) bool {
 	// A use refusal can follow startup. Skip directory/config maintenance and
 	// the network update check for every use, as well as reads and parse errors.
 	o, err := parseProfileArgs(args)
-	return err != nil || slices.Contains([]string{"help", "list", "show", "use"}, o.action)
+	return err != nil || slices.Contains([]string{"help", "list", "show", "use", "add", "remove"}, o.action)
 }
 
 func profileScope(o profileOptions) (profileapply.Scope, error) {
@@ -135,6 +140,8 @@ func printProfileHelp() {
 			{"show <name> [--json]", "Show patterns, selected skills and per-target counts"},
 			{"create <name>", "Create an empty selection; add patterns with --add-include"},
 			{"edit <name>", "Edit description and include/exclude patterns"},
+			{"add <name> <skill>...", "Assign skills by flat name or source path"},
+			{"remove <name> <skill>...", "Remove skills from a profile without syncing"},
 			{"rename <old> <new>", "Rename a definition and its local active state"},
 			{"delete <name>", "Delete an inactive definition"},
 			{"use <name> | --none", "Record and safely sync eligible skill targets"},
