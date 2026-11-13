@@ -51,11 +51,20 @@ func TestMemoryWriters_RemoteRootLockAndReload(t *testing.T) {
 						t.Fatal(err)
 					}
 					calls, releases := 0, 0
+					publishedRoot := filepath.Join(base, "published-extras", "memory")
 					old := lockRemoteExtraRoot
 					lockRemoteExtraRoot = func(locked string) (func(), error) {
 						calls++
 						if locked != filepath.Dir(root) {
 							t.Errorf("wrong root: %s", locked)
+						}
+						if command != "init" {
+							if err := memory.Init(publishedRoot); err != nil {
+								return nil, err
+							}
+							if _, err := memory.Write(publishedRoot, "note.md", "# Fixture\n", ""); err != nil {
+								return nil, err
+							}
 						}
 						if project {
 							fresh, err := config.LoadProjectReadOnly(base)
@@ -63,6 +72,7 @@ func TestMemoryWriters_RemoteRootLockAndReload(t *testing.T) {
 								return nil, err
 							}
 							fresh.Extras[0].Branch = "published"
+							fresh.Sources.Extras = "published-extras"
 							if err := fresh.Save(base); err != nil {
 								return nil, err
 							}
@@ -72,6 +82,7 @@ func TestMemoryWriters_RemoteRootLockAndReload(t *testing.T) {
 								return nil, err
 							}
 							fresh.Extras[0].Branch = "published"
+							fresh.Sources.Extras = filepath.Dir(publishedRoot)
 							if err := fresh.Save(); err != nil {
 								return nil, err
 							}
@@ -116,6 +127,22 @@ func TestMemoryWriters_RemoteRootLockAndReload(t *testing.T) {
 						}
 						if entries[0].Branch != "published" {
 							t.Error("stale declaration overwrote publication")
+						}
+						if command == "init" {
+							if _, err := os.Stat(filepath.Join(publishedRoot, "INDEX.md")); err != nil {
+								t.Fatalf("init ignored published root: %v", err)
+							}
+						} else if command == "write" {
+							got, err := memory.Read(publishedRoot, "note.md")
+							if err != nil || got.Content != "# Updated\n" {
+								t.Fatalf("write ignored published root: %+v %v", got, err)
+							}
+						} else if _, err := os.Stat(filepath.Join(publishedRoot, "note.md")); !os.IsNotExist(err) {
+							t.Fatalf("delete ignored published root: %v", err)
+						}
+						got, err := memory.Read(root, "note.md")
+						if err != nil || got.Content != "# Fixture\n" {
+							t.Fatalf("stale root was mutated: %+v %v", got, err)
 						}
 					}
 				})

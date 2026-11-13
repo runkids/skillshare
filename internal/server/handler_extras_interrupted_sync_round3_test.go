@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -40,6 +39,13 @@ func TestExtrasSync_InterruptedVisibilityAPI(t *testing.T) {
 				if err := os.WriteFile(marker, data, 0600); err != nil {
 					t.Fatal(err)
 				}
+				configBefore, err := os.ReadFile(s.configPath())
+				if err != nil {
+					t.Fatal(err)
+				}
+				old := lockRemoteExtraRoot
+				lockRemoteExtraRoot = func(string) (func(), error) { t.Error("read-only sync acquired mutation lock"); return func() {}, nil }
+				t.Cleanup(func() { lockRemoteExtraRoot = old })
 				body := `{}`
 				if named {
 					body = `{"name":"rules"}`
@@ -59,11 +65,20 @@ func TestExtrasSync_InterruptedVisibilityAPI(t *testing.T) {
 						messages += target.Error + strings.Join(target.Errors, "\n") + strings.Join(target.Warnings, "\n")
 					}
 				}
-				if !regexp.MustCompile(`(?i)\binterrupted\b`).MatchString(messages) {
+				if !strings.Contains(messages, "has an interrupted publication") || !strings.Contains(messages, config.ExtraRestoreCommand(entry, project)) {
 					t.Errorf("API hides interrupted provenance: %d %s", rr.Code, rr.Body.String())
 				}
 				if after, err := os.ReadFile(marker); err != nil || string(after) != string(data) {
 					t.Errorf("ordinary API sync changed marker: %q %v", after, err)
+				}
+				if after, err := os.ReadFile(s.configPath()); err != nil || string(after) != string(configBefore) {
+					t.Fatalf("API sync wrote config: %q %v", after, err)
+				}
+				if after, err := os.ReadFile(filepath.Join(source, "rule.md")); err != nil || string(after) != "candidate at live boundary" {
+					t.Fatalf("API sync wrote source: %q %v", after, err)
+				}
+				if files, err := os.ReadDir(entry.Targets[0].Path); err != nil || len(files) != 0 {
+					t.Fatalf("API sync wrote target: %+v %v", files, err)
 				}
 			})
 		}

@@ -358,13 +358,6 @@ func TestNormalizeInstallAuditThreshold(t *testing.T) {
 	}
 }
 
-func TestParseInstallArgs_RejectsBadThresholdBeforeSourceHandling(t *testing.T) {
-	_, _, err := parseInstallArgs([]string{"-T", "invalid", "https://example.com/org/repo", "--kind", "extra"})
-	if err == nil || !strings.Contains(err.Error(), "invalid audit threshold") {
-		t.Fatalf("got %v", err)
-	}
-}
-
 func TestParseInstallArgs_KindExtraRefusals(t *testing.T) {
 	for _, option := range [][]string{{"--track"}, {"--into", "nested"}, {"--into", ""}, {"--into="}, {"-s", "one"}, {"-a", "one"}, {"--exclude", "one"}, {"--all"}, {"--yes"}} {
 		for _, before := range []bool{false, true} {
@@ -384,13 +377,21 @@ func TestParseInstallArgs_KindExtraRefusals(t *testing.T) {
 }
 
 func TestParseInstallArgs_KindExtraThresholdAndJSON(t *testing.T) {
-	for _, args := range [][]string{{"example/repo", "--kind", "extra", "-T", "bad"}, {"example/repo", "-T", "bad", "--kind", "extra"}} {
-		if _, _, err := parseInstallArgs(args); err == nil {
-			t.Errorf("accepted %v", args)
+	t.Run("baseline", func(t *testing.T) {
+		for _, args := range [][]string{{"example/repo", "--kind", "extra", "-T", "bad"}, {"example/repo", "-T", "bad", "--kind", "extra"}} {
+			if _, _, err := parseInstallArgs(args); err == nil {
+				t.Errorf("accepted %v", args)
+			}
 		}
-	}
-	parsed, _, err := parseInstallArgs([]string{"example/repo", "--kind", "extra", "--json"})
-	if err != nil || !parsed.jsonOutput || parsed.opts.AuditOverride {
-		t.Fatalf("parsed=%+v err=%v", parsed, err)
-	}
+		parsed, _, err := parseInstallArgs([]string{"example/repo", "--kind", "extra", "--json"})
+		if err != nil || !parsed.jsonOutput || parsed.opts.AuditOverride {
+			t.Fatalf("parsed=%+v err=%v", parsed, err)
+		}
+	})
+	t.Run("TestParseInstallArgs_RejectsBadThresholdBeforeSourceHandling", func(t *testing.T) {
+		_, _, err := parseInstallArgs([]string{"-T", "invalid", "https://example.com/org/repo", "--kind", "extra"})
+		if err == nil || !strings.Contains(err.Error(), "invalid audit threshold") {
+			t.Fatalf("got %v", err)
+		}
+	})
 }

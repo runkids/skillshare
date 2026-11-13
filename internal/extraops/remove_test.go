@@ -12,6 +12,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	syncpkg "skillshare/internal/sync"
 	"skillshare/internal/utils"
 )
 
@@ -61,96 +62,290 @@ func removalFixture(t *testing.T) RemoveRequest {
 }
 
 func TestRemove_RemoteUneditedAndEdited(t *testing.T) {
-	for _, edited := range []bool{false, true} {
-		t.Run(fmt.Sprintf("edited=%t", edited), func(t *testing.T) {
-			req := removalFixture(t)
-			if edited {
-				if err := os.WriteFile(filepath.Join(req.SourceDir, "rule.md"), []byte("edit"), 0644); err != nil {
+	for _, project := range []bool{false, true} {
+		for _, outcome := range []string{"unedited", "edited", "missing"} {
+			t.Run(fmt.Sprintf("project=%t/%s", project, outcome), func(t *testing.T) {
+				req := removalFixture(t)
+				base := filepath.Dir(req.ExtrasRoot)
+				if project {
+					req.ProjectRoot = base
+					pc := &config.ProjectConfig{Extras: req.Extras}
+					if err := pc.Save(base); err != nil {
+						t.Fatal(err)
+					}
+					req.Load = func() ([]config.ExtraConfig, error) {
+						fresh, err := config.LoadProjectReadOnly(base)
+						if err != nil {
+							return nil, err
+						}
+						return fresh.Extras, nil
+					}
+					req.Save = func(entries []config.ExtraConfig) error {
+						fresh, err := config.LoadProjectReadOnly(base)
+						if err != nil {
+							return err
+						}
+						fresh.Extras = entries
+						return fresh.Save(base)
+					}
+					lock := &install.Lock{Version: 1, Extras: map[string]install.LockEntry{"rules": {Source: "example-org/ai-hub", Commit: strings.Repeat("a", 40)}, "other": {Source: "example-org/other", Commit: strings.Repeat("b", 40)}}}
+					if err := lock.Save(filepath.Join(base, ".skillshare")); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if outcome == "edited" {
+					if err := os.WriteFile(filepath.Join(req.SourceDir, "rule.md"), []byte("edit"), 0644); err != nil {
+						t.Fatal(err)
+					}
+				} else if outcome == "missing" {
+					if err := os.RemoveAll(req.SourceDir); err != nil {
+						t.Fatal(err)
+					}
+				}
+				result, err := Remove(req)
+				if err != nil {
 					t.Fatal(err)
 				}
-			}
-			result, err := Remove(req)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if result.Remote != "example-org/ai-hub" || result.Commit != strings.Repeat("a", 40) || result.DeletedDir == edited || result.KeptEditedDir != edited {
-				t.Fatalf("result: %+v", result)
-			}
-			_, err = os.Stat(req.SourceDir)
-			if edited && err != nil || !edited && !os.IsNotExist(err) {
-				t.Fatalf("directory: %v", err)
-			}
-			cfg, err := config.LoadReadOnly()
-			if err != nil || len(cfg.Extras) != 1 || cfg.Extras[0].Name != "other" {
-				t.Fatalf("config: %+v %v", cfg, err)
-			}
-			store, _, err := install.ReadMetadata(req.ExtrasRoot)
-			if err != nil || store.GetExact("rules") != nil || len(store.AuditAccepted["rules"]) != 0 || len(store.AuditAccepted["other"]) != 1 {
-				t.Fatalf("metadata: %+v %v", store, err)
-			}
-		})
+				if result.Remote != "example-org/ai-hub" || result.Commit != strings.Repeat("a", 40) || result.DeletedDir != (outcome == "unedited") || result.KeptEditedDir != (outcome == "edited") || result.MissingDir != (outcome == "missing") {
+					t.Fatalf("result: %+v", result)
+				}
+				_, err = os.Stat(req.SourceDir)
+				if outcome == "edited" && err != nil || outcome != "edited" && !os.IsNotExist(err) {
+					t.Fatalf("directory: %v", err)
+				}
+				if outcome == "edited" {
+					if body, err := os.ReadFile(filepath.Join(req.SourceDir, "rule.md")); err != nil || string(body) != "edit" {
+						t.Fatalf("edited bytes lost: %q %v", body, err)
+					}
+				}
+				entries, err := req.Load()
+				if err != nil || len(entries) != 1 || entries[0].Name != "other" {
+					t.Fatalf("config: %+v %v", entries, err)
+				}
+				store, _, err := install.ReadMetadata(req.ExtrasRoot)
+				if err != nil || store.GetExact("rules") != nil || len(store.AuditAccepted["rules"]) != 0 || store.GetExact("other") == nil || len(store.AuditAccepted["other"]) != 1 {
+					t.Fatalf("metadata: %+v %v", store, err)
+				}
+				if project {
+					lock, err := install.LoadLock(filepath.Join(base, ".skillshare"))
+					if err != nil || lock.ExtraCommitFor("rules", "example-org/ai-hub") != "" || lock.ExtraCommitFor("other", "example-org/other") != strings.Repeat("b", 40) {
+						t.Fatalf("pin isolation: %+v %v", lock, err)
+					}
+				}
+			})
+		}
 	}
 }
 
 func TestRemove_CleansOnlyOwnedLinksKeepsOutputs(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("symlink privileges vary")
-	}
-	req := removalFixture(t)
-	merge := filepath.Join(filepath.Dir(req.ExtrasRoot), "merge")
-	if err := os.Mkdir(merge, 0755); err != nil {
-		t.Fatal(err)
-	}
-	owned := filepath.Join(merge, "rule.md")
-	if err := os.Symlink(filepath.Join(req.SourceDir, "rule.md"), owned); err != nil {
-		t.Fatal(err)
-	}
-	sentinel := filepath.Join(filepath.Dir(merge), "sentinel")
-	if err := os.WriteFile(sentinel, []byte("keep"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	other := filepath.Join(merge, "other.md")
-	if err := os.Symlink(sentinel, other); err != nil {
-		t.Fatal(err)
-	}
-	linked := filepath.Join(filepath.Dir(merge), "linked")
-	if err := os.Symlink(req.SourceDir, linked); err != nil {
-		t.Fatal(err)
-	}
-	copyPath := filepath.Join(filepath.Dir(merge), "copied")
-	if err := os.Mkdir(copyPath, 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(copyPath, "rule.md"), []byte("keep copy"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	cfg, err := config.LoadReadOnly()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.Extras[0].Targets = []config.ExtraTargetConfig{{Path: merge}, {Path: linked, Mode: "symlink"}, {Path: copyPath, Mode: "copy"}}
-	if err := cfg.Save(); err != nil {
-		t.Fatal(err)
-	}
-	req.Extras = cfg.Extras
-	result, err := Remove(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, path := range []string{owned, linked} {
-		if _, err := os.Lstat(path); !os.IsNotExist(err) {
-			t.Fatalf("owned link kept: %s %v", path, err)
+	t.Run("copied output without symlink privilege", func(t *testing.T) {
+		req := removalFixture(t)
+		target := t.TempDir()
+		entry := req.Extras[0]
+		entry.Targets = []config.ExtraTargetConfig{{Path: target, Mode: "copy"}}
+		cfg, err := config.LoadReadOnly()
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
-	if _, err := os.Lstat(other); err != nil {
-		t.Fatal("foreign link removed")
-	}
-	if data, err := os.ReadFile(filepath.Join(copyPath, "rule.md")); err != nil || string(data) != "keep copy" {
-		t.Fatal("copy removed")
-	}
-	if !reflect.DeepEqual(result.KeptOutputs, []string{copyPath}) || len(result.Warnings) == 0 {
-		t.Fatalf("kept outputs missing: %+v", result)
-	}
+		cfg.Extras[0] = entry
+		if err := cfg.Save(); err != nil {
+			t.Fatal(err)
+		}
+		req.Extras = cfg.Extras
+		copied, err := syncpkg.SyncExtraTarget(entry, entry.Targets[0], req.SourceDir, target, "copy", nil, syncpkg.ExtraSyncOptions{})
+		if err != nil || len(copied.Errors) != 0 {
+			t.Fatalf("supported copy fixture: %+v %v", copied, err)
+		}
+		result, err := Remove(req)
+		if err != nil || !result.DeletedDir || !reflect.DeepEqual(result.KeptOutputs, []string{target}) || len(result.Warnings) == 0 {
+			t.Fatalf("copy result: %+v %v", result, err)
+		}
+		if body, err := os.ReadFile(filepath.Join(target, "rule.md")); err != nil || string(body) != "rules" {
+			t.Fatalf("copied bytes lost: %q %v", body, err)
+		}
+	})
+	t.Run("whole links and copied outputs", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("symlink privileges vary")
+		}
+		req := removalFixture(t)
+		merge := filepath.Join(filepath.Dir(req.ExtrasRoot), "merge")
+		if err := os.Mkdir(merge, 0755); err != nil {
+			t.Fatal(err)
+		}
+		owned := filepath.Join(merge, "rule.md")
+		if err := os.Symlink(filepath.Join(req.SourceDir, "rule.md"), owned); err != nil {
+			t.Fatal(err)
+		}
+		sentinel := filepath.Join(filepath.Dir(merge), "sentinel")
+		if err := os.WriteFile(sentinel, []byte("keep"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		other := filepath.Join(merge, "other.md")
+		if err := os.Symlink(sentinel, other); err != nil {
+			t.Fatal(err)
+		}
+		linked := filepath.Join(filepath.Dir(merge), "linked")
+		if err := os.Symlink(req.SourceDir, linked); err != nil {
+			t.Fatal(err)
+		}
+		copyPath := filepath.Join(filepath.Dir(merge), "copied")
+		if err := os.Mkdir(copyPath, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(copyPath, "rule.md"), []byte("keep copy"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		cfg, err := config.LoadReadOnly()
+		if err != nil {
+			t.Fatal(err)
+		}
+		cfg.Extras[0].Targets = []config.ExtraTargetConfig{{Path: merge}, {Path: linked, Mode: "symlink"}, {Path: copyPath, Mode: "copy"}}
+		if err := cfg.Save(); err != nil {
+			t.Fatal(err)
+		}
+		req.Extras = cfg.Extras
+		result, err := Remove(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, path := range []string{owned, linked} {
+			if _, err := os.Lstat(path); !os.IsNotExist(err) {
+				t.Fatalf("owned link kept: %s %v", path, err)
+			}
+		}
+		if _, err := os.Lstat(other); err != nil {
+			t.Fatal("foreign link removed")
+		}
+		if data, err := os.ReadFile(filepath.Join(copyPath, "rule.md")); err != nil || string(data) != "keep copy" {
+			t.Fatal("copy removed")
+		}
+		if !reflect.DeepEqual(result.KeptOutputs, []string{copyPath}) || len(result.Warnings) == 0 {
+			t.Fatalf("kept outputs missing: %+v", result)
+		}
+	})
+	t.Run("hidden ownership from supported sync", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("symlink privileges vary")
+		}
+		for _, project := range []bool{false, true} {
+			for _, remote := range []bool{false, true} {
+				t.Run(fmt.Sprintf("project=%t/remote=%t", project, remote), func(t *testing.T) {
+					req := removalFixture(t)
+					base := filepath.Dir(req.ExtrasRoot)
+					merge, copied := filepath.Join(base, "merge"), filepath.Join(base, "copy")
+					entry := req.Extras[0]
+					if !remote {
+						entry.Remote = ""
+					}
+					entry.Targets = []config.ExtraTargetConfig{{Path: merge, Mode: "merge"}, {Path: copied, Mode: "copy"}}
+					paths := []string{".rules.md", ".nested/.inside.md", ".nested/visible.md"}
+					hashes := map[string]string{}
+					for _, name := range append([]string{"rule.md"}, paths...) {
+						file := filepath.Join(req.SourceDir, name)
+						if err := os.MkdirAll(filepath.Dir(file), 0755); err != nil {
+							t.Fatal(err)
+						}
+						if err := os.WriteFile(file, []byte("owned fixture"), 0644); err != nil {
+							t.Fatal(err)
+						}
+						hash, err := utils.FileHashFormatted(file)
+						if err != nil {
+							t.Fatal(err)
+						}
+						hashes[filepath.ToSlash(name)] = hash
+					}
+					cfg, err := config.LoadReadOnly()
+					if err != nil {
+						t.Fatal(err)
+					}
+					cfg.Extras[0] = entry
+					req.Extras = cfg.Extras
+					if project {
+						req.ProjectRoot = base
+						pc := &config.ProjectConfig{Extras: cfg.Extras}
+						if err := pc.Save(base); err != nil {
+							t.Fatal(err)
+						}
+						req.Load = func() ([]config.ExtraConfig, error) {
+							fresh, err := config.LoadProjectReadOnly(base)
+							if err != nil {
+								return nil, err
+							}
+							return fresh.Extras, nil
+						}
+						req.Save = func(entries []config.ExtraConfig) error {
+							fresh, err := config.LoadProjectReadOnly(base)
+							if err != nil {
+								return err
+							}
+							fresh.Extras = entries
+							return fresh.Save(base)
+						}
+						req.Extras[0].Targets[0].Path, req.Extras[0].Targets[1].Path = "merge", "copy"
+						pc.Extras = req.Extras
+						if err := pc.Save(base); err != nil {
+							t.Fatal(err)
+						}
+						req.TargetPath = func(path string) string { return filepath.Join(base, path) }
+					} else if err := cfg.Save(); err != nil {
+						t.Fatal(err)
+					}
+					store := install.NewMetadataStore()
+					store.Set("rules", &install.MetadataEntry{Kind: "extra", Source: entry.Remote, Commit: strings.Repeat("a", 40), FileHashes: hashes})
+					if err := store.Save(req.ExtrasRoot); err != nil {
+						t.Fatal(err)
+					}
+					for i, target := range entry.Targets {
+						path := []string{merge, copied}[i]
+						result, err := syncpkg.SyncExtraTarget(entry, target, req.SourceDir, path, target.Mode, nil, syncpkg.ExtraSyncOptions{ProjectRoot: req.ProjectRoot})
+						if err != nil || len(result.Errors) > 0 {
+							t.Fatalf("supported sync producer: %+v %v", result, err)
+						}
+					}
+					for _, name := range paths {
+						if info, err := os.Lstat(filepath.Join(merge, name)); err != nil || info.Mode()&os.ModeSymlink == 0 {
+							t.Fatalf("sync did not create owned %s: %v", name, err)
+						}
+					}
+					foreign := filepath.Join(merge, ".foreign.md")
+					foreignLink := filepath.Join(merge, ".foreign-link.md")
+					if err := os.WriteFile(foreign, []byte("keep foreign"), 0644); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.Symlink(foreign, foreignLink); err != nil {
+						t.Fatal(err)
+					}
+					result, err := Remove(req)
+					if err != nil {
+						t.Fatal(err)
+					}
+					for _, name := range paths {
+						_, err := os.Lstat(filepath.Join(merge, name))
+						if remote && !os.IsNotExist(err) || !remote && err != nil {
+							t.Fatalf("hidden cleanup remote=%t/%s: %v", remote, name, err)
+						}
+						if body, err := os.ReadFile(filepath.Join(copied, name)); err != nil || string(body) != "owned fixture" {
+							t.Fatalf("copied output lost: %q %v", body, err)
+						}
+					}
+					if info, err := os.Lstat(foreignLink); err != nil || info.Mode()&os.ModeSymlink == 0 {
+						t.Fatalf("foreign link replaced: %v", err)
+					}
+					if body, err := os.ReadFile(foreignLink); err != nil || string(body) != "keep foreign" {
+						t.Fatalf("foreign bytes changed: %q %v", body, err)
+					}
+					_, err = os.Stat(req.SourceDir)
+					if remote && !os.IsNotExist(err) || !remote && err != nil {
+						t.Fatalf("source retention remote=%t: %v", remote, err)
+					}
+					if remote && (!result.DeletedDir || len(result.Warnings) == 0 || !reflect.DeepEqual(result.KeptOutputs, []string{copied})) {
+						t.Fatalf("cleanup outcomes: %+v", result)
+					}
+				})
+			}
+		}
+	})
 }
 
 func TestRemove_CleanupFailureRetainsRecords(t *testing.T) {
@@ -200,45 +395,46 @@ func TestRemove_SaveFailureRestoresRecords(t *testing.T) {
 }
 
 func TestRemove_ReloadsUnderOwningLock(t *testing.T) {
-	req := removalFixture(t)
-	old := lockExtrasRoot
-	lockExtrasRoot = func(root string) (func(), error) {
-		if root != req.ExtrasRoot {
-			t.Fatal("wrong root")
+	t.Run("baseline", func(t *testing.T) {
+		req := removalFixture(t)
+		old := lockExtrasRoot
+		lockExtrasRoot = func(root string) (func(), error) {
+			if root != req.ExtrasRoot {
+				t.Fatal("wrong root")
+			}
+			// Deterministic save between the caller's resolution and acquisition.
+			cfg, err := config.LoadReadOnly()
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg.Extras[0].Targets = []config.ExtraTargetConfig{{Path: filepath.Join(filepath.Dir(root), "new-copy"), Mode: "copy"}}
+			cfg.Extras = append(cfg.Extras, config.ExtraConfig{Name: "concurrent"})
+			if err := cfg.Save(); err != nil {
+				t.Fatal(err)
+			}
+			return func() {}, nil
 		}
-		// Deterministic save between the caller's resolution and acquisition.
-		cfg, err := config.LoadReadOnly()
+		defer func() { lockExtrasRoot = old }()
+		result, err := Remove(req)
 		if err != nil {
 			t.Fatal(err)
 		}
-		cfg.Extras[0].Targets = []config.ExtraTargetConfig{{Path: filepath.Join(filepath.Dir(root), "new-copy"), Mode: "copy"}}
-		cfg.Extras = append(cfg.Extras, config.ExtraConfig{Name: "concurrent"})
-		if err := cfg.Save(); err != nil {
-			t.Fatal(err)
+		if len(result.KeptOutputs) != 1 || len(result.Remaining) != 2 || result.Remaining[1].Name != "concurrent" {
+			t.Fatalf("used stale entries/targets: %+v", result)
 		}
-		return func() {}, nil
-	}
-	defer func() { lockExtrasRoot = old }()
-	result, err := Remove(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(result.KeptOutputs) != 1 || len(result.Remaining) != 2 || result.Remaining[1].Name != "concurrent" {
-		t.Fatalf("used stale entries/targets: %+v", result)
-	}
-}
-
-func TestRemove_ChangedOriginAfterLockRefused(t *testing.T) {
-	req := removalFixture(t)
-	req.Load = func() ([]config.ExtraConfig, error) {
-		return []config.ExtraConfig{{Name: "rules", Remote: "example-org/different"}}, nil
-	}
-	if _, err := Remove(req); err == nil || !strings.Contains(err.Error(), "changed") {
-		t.Fatalf("changed origin: %v", err)
-	}
-	if _, err := os.Stat(req.SourceDir); err != nil {
-		t.Fatal("source removed")
-	}
+	})
+	t.Run("TestRemove_ChangedOriginAfterLockRefused", func(t *testing.T) {
+		req := removalFixture(t)
+		req.Load = func() ([]config.ExtraConfig, error) {
+			return []config.ExtraConfig{{Name: "rules", Remote: "example-org/different"}}, nil
+		}
+		if _, err := Remove(req); err == nil || !strings.Contains(err.Error(), "changed") {
+			t.Fatalf("changed origin: %v", err)
+		}
+		if _, err := os.Stat(req.SourceDir); err != nil {
+			t.Fatal("source removed")
+		}
+	})
 }
 
 func TestRemove_LocalDoesNotLockOrDelete(t *testing.T) {
@@ -268,8 +464,16 @@ func TestRemove_PartialDeleteFailureRestoresSourceAndProjectRecords(t *testing.T
 		t.Fatal(err)
 	}
 	configPath := config.ProjectConfigPath(req.ProjectRoot)
-	if err := os.WriteFile(configPath, []byte("extras: []\n"), 0644); err != nil {
+	project := &config.ProjectConfig{Extras: req.Extras}
+	if err := project.Save(req.ProjectRoot); err != nil {
 		t.Fatal(err)
+	}
+	req.Load = func() ([]config.ExtraConfig, error) {
+		fresh, err := config.LoadProjectReadOnly(req.ProjectRoot)
+		if err != nil {
+			return nil, err
+		}
+		return fresh.Extras, nil
 	}
 	lock := &install.Lock{Version: 1, Extras: map[string]install.LockEntry{"rules": {Source: "example-org/ai-hub", Commit: strings.Repeat("a", 40)}}}
 	if err := lock.Save(lockDir); err != nil {
@@ -287,8 +491,13 @@ func TestRemove_PartialDeleteFailureRestoresSourceAndProjectRecords(t *testing.T
 		}
 		before[path] = string(data)
 	}
-	req.Save = func([]config.ExtraConfig) error {
-		return os.WriteFile(configPath, []byte("extras: []\n# saved\n"), 0644)
+	req.Save = func(remaining []config.ExtraConfig) error {
+		fresh, err := config.LoadProjectReadOnly(req.ProjectRoot)
+		if err != nil {
+			return err
+		}
+		fresh.Extras = remaining
+		return fresh.Save(req.ProjectRoot)
 	}
 	old := removeExtraDir
 	removeExtraDir = func(dir string) error {
@@ -403,27 +612,5 @@ func TestRemove_PreWriteRefusalLeavesOwnedOutputs(t *testing.T) {
 				t.Fatal("configured output lost", err)
 			}
 		})
-	}
-}
-
-func TestRemove_MissingSourceIsNotRetained(t *testing.T) {
-	req := removalFixture(t)
-	if err := os.RemoveAll(req.SourceDir); err != nil {
-		t.Fatal(err)
-	}
-	result, err := Remove(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !result.MissingDir || result.KeptEditedDir || result.DeletedDir {
-		t.Fatalf("missing source misreported: %+v", result)
-	}
-	fresh, err := config.LoadReadOnly()
-	if err != nil || len(fresh.Extras) != 1 || fresh.Extras[0].Name != "other" {
-		t.Fatalf("entry not removed: %+v %v", fresh, err)
-	}
-	store, _, err := install.ReadMetadata(req.ExtrasRoot)
-	if err != nil || store.GetExact("rules") != nil {
-		t.Fatal("stale metadata", err)
 	}
 }

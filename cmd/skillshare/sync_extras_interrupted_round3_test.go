@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -59,6 +58,14 @@ func TestSyncExtras_InterruptedVisibilityCLIAndTUI(t *testing.T) {
 				if err := os.WriteFile(marker, data, 0600); err != nil {
 					t.Fatal(err)
 				}
+				configPath := config.ReadOnlyConfigPath()
+				if project {
+					configPath = config.ProjectConfigPath(base)
+				}
+				configBefore, err := os.ReadFile(configPath)
+				if err != nil {
+					t.Fatal(err)
+				}
 				// Existing mutation seam must remain unused by ordinary sync.
 				old := lockRemoteExtraRoot
 				lockRemoteExtraRoot = func(string) (func(), error) { t.Error("sync acquired mutation lock"); return func() {}, nil }
@@ -110,11 +117,20 @@ func TestSyncExtras_InterruptedVisibilityCLIAndTUI(t *testing.T) {
 						}
 					}
 				}
-				if !regexp.MustCompile(`(?i)\binterrupted\b`).MatchString(messages) {
+				if !strings.Contains(messages, "has an interrupted publication") || !strings.Contains(messages, config.ExtraRestoreCommand(entry, project)) {
 					t.Errorf("sync hides interrupted provenance: output=%q err=%v", output, runErr)
 				}
 				if after, err := os.ReadFile(marker); err != nil || string(after) != string(data) {
 					t.Errorf("ordinary sync changed publication marker: %q %v", after, err)
+				}
+				if after, err := os.ReadFile(configPath); err != nil || string(after) != string(configBefore) {
+					t.Fatalf("sync wrote config: %q %v", after, err)
+				}
+				if after, err := os.ReadFile(filepath.Join(source, "rule.md")); err != nil || string(after) != "candidate at live boundary" {
+					t.Fatalf("sync wrote source: %q %v", after, err)
+				}
+				if _, err := os.Lstat(entry.Targets[0].Path); !os.IsNotExist(err) {
+					t.Fatalf("sync wrote target: %v", err)
 				}
 			})
 		}

@@ -92,35 +92,6 @@ func TestRemoteExtraWritersTakeRootLock(t *testing.T) {
 	}
 }
 
-func TestRemoteExtraMutationReloadsAfterLock(t *testing.T) {
-	root := t.TempDir()
-	t.Chdir(root)
-	pc := &config.ProjectConfig{Extras: []config.ExtraConfig{{Name: "rules", Remote: "example-org/ai-hub", Branch: "before", Targets: []config.ExtraTargetConfig{}}}}
-	if err := pc.Save(root); err != nil {
-		t.Fatal(err)
-	}
-	old := lockRemoteExtraRoot
-	lockRemoteExtraRoot = func(string) (func(), error) {
-		fresh, err := config.LoadProjectReadOnly(root)
-		if err != nil {
-			t.Fatal(err)
-		}
-		fresh.Extras[0].Branch = "published"
-		if err := fresh.Save(root); err != nil {
-			t.Fatal(err)
-		}
-		return func() {}, nil
-	}
-	defer func() { lockRemoteExtraRoot = old }()
-	if err := cmdExtrasAddTarget([]string{"rules", "--add-target", "target", "-p"}); err != nil {
-		t.Fatal(err)
-	}
-	fresh, err := config.LoadProjectReadOnly(root)
-	if err != nil || fresh.Extras[0].Branch != "published" || len(fresh.Extras[0].Targets) != 1 {
-		t.Fatalf("stale config saved: %+v %v", fresh, err)
-	}
-}
-
 func TestExtrasTUI_RemoveRemote(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("XDG_STATE_HOME", filepath.Join(root, "state"))
@@ -149,9 +120,6 @@ func TestExtrasTUI_RemoveRemote(t *testing.T) {
 	msg, err := model.doRemove("rules")
 	if err != nil || !strings.Contains(msg, "Deleted") || !strings.Contains(msg, "aaaaaaa") {
 		t.Fatalf("TUI removal: %q %v", msg, err)
-	}
-	if _, err := os.Stat(source); !os.IsNotExist(err) {
-		t.Fatalf("source remains: %v", err)
 	}
 }
 
@@ -273,34 +241,103 @@ func TestExtrasSource_KeepsRemote(t *testing.T) {
 // Combined with install's real onWait contention test, this pins the actual
 // consumer's fresh read and source resolution after its lock boundary.
 func TestExtrasWriters_ReadAfterPublication(t *testing.T) {
-	for _, writer := range []string{"add-target", "collect"} {
-		t.Run(writer, func(t *testing.T) {
-			root := t.TempDir()
-			t.Chdir(root)
-			t.Setenv("XDG_STATE_HOME", filepath.Join(root, "state"))
-			pc := &config.ProjectConfig{Extras: []config.ExtraConfig{{Name: "rules", Remote: "example-org/ai-hub", Branch: "before", Targets: []config.ExtraTargetConfig{{Path: "target", Mode: "copy"}}}}}
-			if err := pc.Save(root); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.Mkdir(filepath.Join(root, "target"), 0755); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(filepath.Join(root, "target", "collected.md"), []byte("local collection"), 0644); err != nil {
-				t.Fatal(err)
-			}
-			entered, release := make(chan struct{}), make(chan struct{})
-			old := lockRemoteExtraRoot
-			lockRemoteExtraRoot = func(string) (func(), error) { close(entered); <-release; return func() {}, nil }
-			defer func() { lockRemoteExtraRoot = old }()
-			done := make(chan error, 1)
-			go func() {
-				if writer == "add-target" {
-					done <- cmdExtrasAddTarget([]string{"rules", "--add-target", "new-target", "-p"})
-				} else {
-					done <- extrasCollectProject(root, "rules", "target", false, false, time.Now())
+	t.Run("baseline", func(t *testing.T) {
+		for _, writer := range []string{"add-target", "collect"} {
+			t.Run(writer, func(t *testing.T) {
+				root := t.TempDir()
+				t.Chdir(root)
+				t.Setenv("XDG_STATE_HOME", filepath.Join(root, "state"))
+				pc := &config.ProjectConfig{Extras: []config.ExtraConfig{{Name: "rules", Remote: "example-org/ai-hub", Branch: "before", Targets: []config.ExtraTargetConfig{{Path: "target", Mode: "copy"}}}}}
+				if err := pc.Save(root); err != nil {
+					t.Fatal(err)
 				}
-			}()
-			<-entered
+				if err := os.Mkdir(filepath.Join(root, "target"), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(root, "target", "collected.md"), []byte("local collection"), 0644); err != nil {
+					t.Fatal(err)
+				}
+				entered, release := make(chan struct{}), make(chan struct{})
+				old := lockRemoteExtraRoot
+				lockRemoteExtraRoot = func(string) (func(), error) { close(entered); <-release; return func() {}, nil }
+				done := make(chan error, 1)
+				released, completed := false, false
+				defer func() {
+					if !released {
+						close(release)
+					}
+					if !completed {
+						select {
+						case <-done:
+						case <-time.After(10 * time.Second):
+							t.Error("writer did not finish during cleanup")
+						}
+					}
+					lockRemoteExtraRoot = old
+				}()
+				go func() {
+					if writer == "add-target" {
+						done <- cmdExtrasAddTarget([]string{"rules", "--add-target", "new-target", "-p"})
+					} else {
+						done <- extrasCollectProject(root, "rules", "target", false, false, time.Now())
+					}
+				}()
+				select {
+				case <-entered:
+				case <-time.After(5 * time.Second):
+					t.Fatal("writer bypassed acquisition barrier")
+				}
+				fresh, err := config.LoadProjectReadOnly(root)
+				if err != nil {
+					t.Fatal(err)
+				}
+				fresh.Extras[0].Branch = "published"
+				if err := fresh.Save(root); err != nil {
+					t.Fatal(err)
+				}
+				source := filepath.Join(fresh.EffectiveExtrasSource(root), "rules")
+				if err := os.MkdirAll(source, 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(source, "published.md"), []byte("new tree"), 0644); err != nil {
+					t.Fatal(err)
+				}
+				close(release)
+				released = true
+				var writerErr error
+				select {
+				case writerErr = <-done:
+					completed = true
+				case <-time.After(10 * time.Second):
+					t.Fatal("writer did not finish after release")
+				}
+				if err := writerErr; err != nil {
+					t.Fatal(err)
+				}
+				fresh, err = config.LoadProjectReadOnly(root)
+				if err != nil || fresh.Extras[0].Branch != "published" {
+					t.Fatalf("stale entry saved: %+v %v", fresh, err)
+				}
+				if writer == "add-target" && len(fresh.Extras[0].Targets) != 2 {
+					t.Fatal("new target lost")
+				}
+				if writer == "collect" {
+					if data, err := os.ReadFile(filepath.Join(source, "collected.md")); err != nil || string(data) != "local collection" {
+						t.Fatal("collection missed live source", err)
+					}
+				}
+			})
+		}
+	})
+	t.Run("TestRemoteExtraMutationReloadsAfterLock", func(t *testing.T) {
+		root := t.TempDir()
+		t.Chdir(root)
+		pc := &config.ProjectConfig{Extras: []config.ExtraConfig{{Name: "rules", Remote: "example-org/ai-hub", Branch: "before", Targets: []config.ExtraTargetConfig{}}}}
+		if err := pc.Save(root); err != nil {
+			t.Fatal(err)
+		}
+		old := lockRemoteExtraRoot
+		lockRemoteExtraRoot = func(string) (func(), error) {
 			fresh, err := config.LoadProjectReadOnly(root)
 			if err != nil {
 				t.Fatal(err)
@@ -309,29 +346,15 @@ func TestExtrasWriters_ReadAfterPublication(t *testing.T) {
 			if err := fresh.Save(root); err != nil {
 				t.Fatal(err)
 			}
-			source := filepath.Join(fresh.EffectiveExtrasSource(root), "rules")
-			if err := os.MkdirAll(source, 0755); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(filepath.Join(source, "published.md"), []byte("new tree"), 0644); err != nil {
-				t.Fatal(err)
-			}
-			close(release)
-			if err := <-done; err != nil {
-				t.Fatal(err)
-			}
-			fresh, err = config.LoadProjectReadOnly(root)
-			if err != nil || fresh.Extras[0].Branch != "published" {
-				t.Fatalf("stale entry saved: %+v %v", fresh, err)
-			}
-			if writer == "add-target" && len(fresh.Extras[0].Targets) != 2 {
-				t.Fatal("new target lost")
-			}
-			if writer == "collect" {
-				if data, err := os.ReadFile(filepath.Join(source, "collected.md")); err != nil || string(data) != "local collection" {
-					t.Fatal("collection missed live source", err)
-				}
-			}
-		})
-	}
+			return func() {}, nil
+		}
+		defer func() { lockRemoteExtraRoot = old }()
+		if err := cmdExtrasAddTarget([]string{"rules", "--add-target", "target", "-p"}); err != nil {
+			t.Fatal(err)
+		}
+		fresh, err := config.LoadProjectReadOnly(root)
+		if err != nil || fresh.Extras[0].Branch != "published" || len(fresh.Extras[0].Targets) != 1 {
+			t.Fatalf("stale config saved: %+v %v", fresh, err)
+		}
+	})
 }

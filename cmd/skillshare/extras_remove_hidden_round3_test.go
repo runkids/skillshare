@@ -50,7 +50,8 @@ func TestExtrasRemove_HiddenOwnedLinksCLIAndTUI(t *testing.T) {
 					}
 					source := filepath.Join(root, "rules")
 					hashes := map[string]string{}
-					paths := []string{".rules.md", ".nested/.inside.md", ".nested/visible.md"}
+					// Full hidden ownership policy lives in extraops; this is the real adapter witness.
+					paths := []string{".nested/.inside.md"}
 					for _, name := range paths {
 						path := filepath.Join(source, name)
 						if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {

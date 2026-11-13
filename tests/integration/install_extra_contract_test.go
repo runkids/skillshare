@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"skillshare/internal/config"
+	"skillshare/internal/gitenv"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
 	"skillshare/internal/testutil"
@@ -86,59 +87,24 @@ func TestInstallExtra_PinRestoreUpdateAndIgnore(t *testing.T) {
 		}
 	}
 	// An unreachable pin must fail without branch fallback or publication writes.
-	lock := readLock(t, other)
-	pin := lock.Extras["rules"]
-	pin.Commit = strings.Repeat("f", 40)
-	lock.Extras["rules"] = pin
-	if err := lock.Save(filepath.Join(other, ".skillshare")); err != nil {
-		t.Fatal(err)
+	// Make the real previously recorded revision unavailable at its disposable
+	// origin, preserving the exact producer-written pin and installed tree.
+	remote := strings.TrimSuffix(strings.TrimPrefix(source, "file://"), "//skills/demo")
+	seed := filepath.Join(sb.Root, "seed-main")
+	testutil.RunGit(t, seed, "checkout", "--orphan", "replacement-history")
+	testutil.RunGit(t, seed, "commit", "--allow-empty", "-m", "replace disposable history")
+	testutil.RunGit(t, seed, "push", "--force", "origin", "HEAD:main")
+	testutil.RunGit(t, remote, "reflog", "expire", "--expire=now", "--all")
+	testutil.RunGit(t, remote, "gc", "--prune=now")
+	if err := gitenv.Command("-C", remote, "cat-file", "-e", first.Commit+"^{commit}").Run(); err == nil {
+		t.Fatal("fixture still exposes the producer's pinned revision")
 	}
 	before := projectTree(t, filepath.Join(other, ".skillshare", "extras"))
 	result := sb.RunCLIInDir(other, args...)
 	result.AssertFailure(t)
-	result.AssertAnyOutputContains(t, "fffffff")
+	result.AssertAnyOutputContains(t, first.Commit[:7])
 	if after := projectTree(t, filepath.Join(other, ".skillshare", "extras")); !reflect.DeepEqual(before, after) {
 		t.Fatal("unreachable pin changed extras")
-	}
-}
-
-func TestInstallExtra_BranchAndGlobalPin(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
-	remote := testutil.SetupBareRemoteRepo(t, sb.Root)
-	testutil.SeedRemoteBranch(t, sb.Root, remote, "main", map[string]string{"rules.md": "main"})
-	testutil.SeedRemoteBranch(t, sb.Root, remote, "release", map[string]string{"rules.md": "release"})
-	source := "file://" + remote
-	args := []string{"install", source, "--kind", "extra", "--name", "rules", "--branch", "release", "--skip-audit", "--json", "-g"}
-	result := sb.RunCLI(args...)
-	result.AssertSuccess(t)
-	var out struct{ Branch, Commit string }
-	if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil {
-		t.Fatal(err)
-	}
-	head := strings.TrimSpace(testutil.RunGit(t, filepath.Join(sb.Root, "seed-release"), "rev-parse", "HEAD"))
-	if out.Branch != "release" || out.Commit != head {
-		t.Fatalf("branch result: %+v", out)
-	}
-	configBytes, err := os.ReadFile(sb.ConfigPath)
-	if err != nil || !strings.Contains(string(configBytes), "branch: release") {
-		t.Fatalf("branch config: %s %v", configBytes, err)
-	}
-	seed := filepath.Join(sb.Root, "seed-release")
-	if err := os.WriteFile(filepath.Join(seed, "rules.md"), []byte("changed"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	testutil.RunGit(t, seed, "commit", "-am", "change release")
-	testutil.RunGit(t, seed, "push", "origin", "HEAD:release")
-	result = sb.RunCLI(args...)
-	result.AssertSuccess(t)
-	var second struct{ Action, Commit string }
-	if err := json.Unmarshal([]byte(result.Stdout), &second); err != nil {
-		t.Fatal(err)
-	}
-	if second.Commit != head || second.Action != "reinstalled" {
-		t.Fatalf("global pin: %+v", second)
 	}
 }
 
@@ -404,131 +370,125 @@ func TestInstallExtra_LinkSentinelNeverCopied(t *testing.T) {
 	}
 }
 
-func TestInstallExtra_WebURLBranchAndExplicitOverride(t *testing.T) {
-	for _, override := range []bool{false, true} {
-		t.Run(map[bool]string{false: "parsed", true: "explicit"}[override], func(t *testing.T) {
-			sb := testutil.NewSandbox(t)
-			defer sb.Cleanup()
-			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
-			bare := testutil.SetupBareRemoteRepo(t, sb.Root)
-			for _, branch := range []string{"main", "release"} {
-				testutil.SeedRemoteBranch(t, sb.Root, bare, branch, map[string]string{"rules/rule.md": branch})
-			}
-			gitConfig := filepath.Join(sb.Root, "fixture.gitconfig")
-			testutil.RunGit(t, sb.Root, "config", "--file", gitConfig, "url.file://"+filepath.ToSlash(bare)+".insteadOf", "https://github.com/example-org/ai-hub.git")
-			sb.SetEnv("GIT_CONFIG_GLOBAL", gitConfig)
-			sb.SetEnv("GIT_CONFIG_NOSYSTEM", "1")
-			sb.SetEnv("GIT_ALLOW_PROTOCOL", "file")
-			args := []string{"install", "https://github.com/example-org/ai-hub/tree/release/rules", "--kind", "extra", "--name", "rules", "--skip-audit", "--json", "-g"}
-			want := "release"
-			if override {
-				args = append(args, "--branch", "main")
-				want = "main"
-			}
-			result := sb.RunCLI(args...)
-			result.AssertSuccess(t)
-			var out struct{ Branch, Commit string }
-			if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil {
-				t.Fatal(err)
-			}
-			head := strings.TrimSpace(testutil.RunGit(t, filepath.Join(sb.Root, "seed-"+want), "rev-parse", "HEAD"))
-			if out.Branch != want || out.Commit != head {
-				t.Fatalf("effective branch: %+v want %s %s", out, want, head)
-			}
-			root := filepath.Join(filepath.Dir(sb.SourcePath), "extras")
-			store, _, err := install.ReadMetadata(root)
-			if err != nil || store.GetExact("rules").Branch != want {
-				t.Fatalf("metadata branch: %+v %v", store, err)
-			}
-			data, err := os.ReadFile(sb.ConfigPath)
-			if err != nil || !strings.Contains(string(data), "branch: "+want) {
-				t.Fatalf("config branch: %s %v", data, err)
-			}
-		})
-	}
-}
-
 func TestInstallExtra_BranchSwitchAndOmittedBranch(t *testing.T) {
-	for _, projectMode := range []bool{false, true} {
-		for _, missing := range []bool{false, true} {
-			t.Run(fmt.Sprintf("project=%t/missing=%t", projectMode, missing), func(t *testing.T) {
-				sb := testutil.NewSandbox(t)
-				defer sb.Cleanup()
-				sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
-				bare := testutil.SetupBareRemoteRepo(t, sb.Root)
-				for _, branch := range []string{"main", "release"} {
-					testutil.SeedRemoteBranch(t, sb.Root, bare, branch, map[string]string{"rules.md": branch})
-				}
-				cwd, mode := sb.Root, "-g"
-				root := filepath.Join(filepath.Dir(sb.SourcePath), "extras")
-				if projectMode {
-					cwd, mode = sb.SetupProjectDir("claude"), "-p"
-					root = filepath.Join(cwd, ".skillshare", "extras")
-				}
-				args := []string{"install", "file://" + bare, "--kind", "extra", "--name", "rules", "--skip-audit", "--json", mode}
-				run := func(branch string) (commit string) {
-					t.Helper()
-					command := append([]string(nil), args...)
-					if branch != "" {
-						command = append(command, "--branch", branch)
+	t.Run("baseline", func(t *testing.T) {
+		for _, projectMode := range []bool{false, true} {
+			for _, missing := range []bool{false, true} {
+				t.Run(fmt.Sprintf("project=%t/missing=%t", projectMode, missing), func(t *testing.T) {
+					sb := testutil.NewSandbox(t)
+					defer sb.Cleanup()
+					sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+					bare := testutil.SetupBareRemoteRepo(t, sb.Root)
+					for _, branch := range []string{"main", "release"} {
+						testutil.SeedRemoteBranch(t, sb.Root, bare, branch, map[string]string{"rules.md": branch})
 					}
-					result := sb.RunCLIInDir(cwd, command...)
-					result.AssertSuccess(t)
-					var out struct{ Branch, Commit string }
-					if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil {
+					cwd, mode := sb.Root, "-g"
+					root := filepath.Join(filepath.Dir(sb.SourcePath), "extras")
+					if projectMode {
+						cwd, mode = sb.SetupProjectDir("claude"), "-p"
+						root = filepath.Join(cwd, ".skillshare", "extras")
+					}
+					args := []string{"install", "file://" + bare, "--kind", "extra", "--name", "rules", "--skip-audit", "--json", mode}
+					run := func(branch string) (commit string) {
+						t.Helper()
+						command := append([]string(nil), args...)
+						if branch != "" {
+							command = append(command, "--branch", branch)
+						}
+						result := sb.RunCLIInDir(cwd, command...)
+						result.AssertSuccess(t)
+						var out struct{ Branch, Commit string }
+						if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil {
+							t.Fatal(err)
+						}
+						want := branch
+						if want == "" {
+							want = "release"
+						}
+						if out.Branch != want {
+							t.Fatalf("branch %q want %q", out.Branch, want)
+						}
+						store, _, err := install.ReadMetadata(root)
+						if err != nil || store.GetExact("rules").Branch != want || store.GetExact("rules").Commit != out.Commit {
+							t.Fatalf("metadata: %+v %v", store, err)
+						}
+						return out.Commit
+					}
+					main := run("main")
+					if missing {
+						if err := os.RemoveAll(filepath.Join(root, "rules")); err != nil {
+							t.Fatal(err)
+						}
+						if err := os.Remove(filepath.Join(root, install.MetadataFileName)); err != nil {
+							t.Fatal(err)
+						}
+					}
+					release := run("release")
+					if release == main {
+						t.Fatal("branch switch reused main pin")
+					}
+					body, err := os.ReadFile(filepath.Join(root, "rules", "rules.md"))
+					if err != nil || string(body) != "release" {
+						t.Fatalf("branch content: %q %v", body, err)
+					}
+					seed := filepath.Join(sb.Root, "seed-release")
+					if err := os.WriteFile(filepath.Join(seed, "rules.md"), []byte("release advanced"), 0644); err != nil {
 						t.Fatal(err)
 					}
-					want := branch
-					if want == "" {
-						want = "release"
+					testutil.RunGit(t, seed, "commit", "-am", "advance release")
+					testutil.RunGit(t, seed, "push", "origin", "HEAD:release")
+					if got := run("release"); got != release {
+						t.Fatalf("same branch moved pin: %s", got)
 					}
-					if out.Branch != want {
-						t.Fatalf("branch %q want %q", out.Branch, want)
+					if got := run(""); got != release {
+						t.Fatalf("omitted branch moved pin: %s", got)
 					}
-					store, _, err := install.ReadMetadata(root)
-					if err != nil || store.GetExact("rules").Branch != want || store.GetExact("rules").Commit != out.Commit {
-						t.Fatalf("metadata: %+v %v", store, err)
-					}
-					return out.Commit
-				}
-				main := run("main")
-				if missing {
-					if err := os.RemoveAll(filepath.Join(root, "rules")); err != nil {
-						t.Fatal(err)
-					}
-					if err := os.Remove(filepath.Join(root, install.MetadataFileName)); err != nil {
-						t.Fatal(err)
-					}
-				}
-				release := run("release")
-				if release == main {
-					t.Fatal("branch switch reused main pin")
-				}
-				body, err := os.ReadFile(filepath.Join(root, "rules", "rules.md"))
-				if err != nil || string(body) != "release" {
-					t.Fatalf("branch content: %q %v", body, err)
-				}
-				seed := filepath.Join(sb.Root, "seed-release")
-				if err := os.WriteFile(filepath.Join(seed, "rules.md"), []byte("release advanced"), 0644); err != nil {
-					t.Fatal(err)
-				}
-				testutil.RunGit(t, seed, "commit", "-am", "advance release")
-				testutil.RunGit(t, seed, "push", "origin", "HEAD:release")
-				if got := run("release"); got != release {
-					t.Fatalf("same branch moved pin: %s", got)
-				}
-				if got := run(""); got != release {
-					t.Fatalf("omitted branch moved pin: %s", got)
-				}
-			})
+				})
+			}
 		}
-	}
-}
-
-func TestInstallExtra_WebURLDefaultDoesNotResetDeclaredBranch(t *testing.T) {
-	for _, project := range []bool{false, true} {
-		for _, missing := range []bool{false, true} {
-			t.Run(fmt.Sprintf("project=%t/missing=%t", project, missing), func(t *testing.T) {
+	})
+	t.Run("TestInstallExtra_BranchAndGlobalPin", func(t *testing.T) {
+		sb := testutil.NewSandbox(t)
+		defer sb.Cleanup()
+		sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+		remote := testutil.SetupBareRemoteRepo(t, sb.Root)
+		testutil.SeedRemoteBranch(t, sb.Root, remote, "main", map[string]string{"rules.md": "main"})
+		testutil.SeedRemoteBranch(t, sb.Root, remote, "release", map[string]string{"rules.md": "release"})
+		source := "file://" + remote
+		args := []string{"install", source, "--kind", "extra", "--name", "rules", "--branch", "release", "--skip-audit", "--json", "-g"}
+		result := sb.RunCLI(args...)
+		result.AssertSuccess(t)
+		var out struct{ Branch, Commit string }
+		if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil {
+			t.Fatal(err)
+		}
+		head := strings.TrimSpace(testutil.RunGit(t, filepath.Join(sb.Root, "seed-release"), "rev-parse", "HEAD"))
+		if out.Branch != "release" || out.Commit != head {
+			t.Fatalf("branch result: %+v", out)
+		}
+		configBytes, err := os.ReadFile(sb.ConfigPath)
+		if err != nil || !strings.Contains(string(configBytes), "branch: release") {
+			t.Fatalf("branch config: %s %v", configBytes, err)
+		}
+		seed := filepath.Join(sb.Root, "seed-release")
+		if err := os.WriteFile(filepath.Join(seed, "rules.md"), []byte("changed"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		testutil.RunGit(t, seed, "commit", "-am", "change release")
+		testutil.RunGit(t, seed, "push", "origin", "HEAD:release")
+		result = sb.RunCLI(args...)
+		result.AssertSuccess(t)
+		var second struct{ Action, Commit string }
+		if err := json.Unmarshal([]byte(result.Stdout), &second); err != nil {
+			t.Fatal(err)
+		}
+		if second.Commit != head || second.Action != "reinstalled" {
+			t.Fatalf("global pin: %+v", second)
+		}
+	})
+	t.Run("TestInstallExtra_WebURLBranchAndExplicitOverride", func(t *testing.T) {
+		for _, override := range []bool{false, true} {
+			t.Run(map[bool]string{false: "parsed", true: "explicit"}[override], func(t *testing.T) {
 				sb := testutil.NewSandbox(t)
 				defer sb.Cleanup()
 				sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
@@ -541,46 +501,243 @@ func TestInstallExtra_WebURLDefaultDoesNotResetDeclaredBranch(t *testing.T) {
 				sb.SetEnv("GIT_CONFIG_GLOBAL", gitConfig)
 				sb.SetEnv("GIT_CONFIG_NOSYSTEM", "1")
 				sb.SetEnv("GIT_ALLOW_PROTOCOL", "file")
-				cwd, mode := sb.Root, "-g"
-				root, configPath := filepath.Join(filepath.Dir(sb.SourcePath), "extras"), sb.ConfigPath
-				if project {
-					cwd, mode = sb.SetupProjectDir("claude"), "-p"
-					root, configPath = filepath.Join(cwd, ".skillshare", "extras"), filepath.Join(cwd, ".skillshare", "config.yaml")
+				args := []string{"install", "https://github.com/example-org/ai-hub/tree/release/rules", "--kind", "extra", "--name", "rules", "--skip-audit", "--json", "-g"}
+				want := "release"
+				if override {
+					args = append(args, "--branch", "main")
+					want = "main"
 				}
-				args := []string{"install", "https://github.com/example-org/ai-hub/tree/release/rules", "--kind", "extra", "--name", "rules", "--skip-audit", "--json", mode}
-				first := sb.RunCLIInDir(cwd, append(append([]string{}, args...), "--branch", "main")...)
-				first.AssertSuccess(t)
-				var original struct{ Branch, Commit string }
-				if err := json.Unmarshal([]byte(first.Stdout), &original); err != nil || original.Branch != "main" {
-					t.Fatalf("initial override: %s %v", first.Stdout, err)
-				}
-				if missing {
-					if err := os.RemoveAll(filepath.Join(root, "rules")); err != nil {
-						t.Fatal(err)
-					}
-					if err := os.Remove(filepath.Join(root, install.MetadataFileName)); err != nil {
-						t.Fatal(err)
-					}
-				}
-				result := sb.RunCLIInDir(cwd, args...)
+				result := sb.RunCLI(args...)
 				result.AssertSuccess(t)
-				var got struct{ Branch, Commit string }
-				if err := json.Unmarshal([]byte(result.Stdout), &got); err != nil || got != original {
-					t.Fatalf("omitted flag reset URL override: %s want %+v %v", result.Stdout, original, err)
+				var out struct{ Branch, Commit string }
+				if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil {
+					t.Fatal(err)
 				}
+				head := strings.TrimSpace(testutil.RunGit(t, filepath.Join(sb.Root, "seed-"+want), "rev-parse", "HEAD"))
+				if out.Branch != want || out.Commit != head {
+					t.Fatalf("effective branch: %+v want %s %s", out, want, head)
+				}
+				root := filepath.Join(filepath.Dir(sb.SourcePath), "extras")
 				store, _, err := install.ReadMetadata(root)
-				if err != nil || store.GetExact("rules").Branch != "main" || store.GetExact("rules").Commit != original.Commit {
-					t.Fatalf("metadata: %+v %v", store, err)
+				if err != nil || store.GetExact("rules").Branch != want {
+					t.Fatalf("metadata branch: %+v %v", store, err)
 				}
-				data, err := os.ReadFile(configPath)
-				if err != nil || !strings.Contains(string(data), "branch: main") {
-					t.Fatalf("config: %s %v", data, err)
-				}
-				body, err := os.ReadFile(filepath.Join(root, "rules", "rule.md"))
-				if err != nil || string(body) != "main" {
-					t.Fatalf("content: %q %v", body, err)
+				data, err := os.ReadFile(sb.ConfigPath)
+				if err != nil || !strings.Contains(string(data), "branch: "+want) {
+					t.Fatalf("config branch: %s %v", data, err)
 				}
 			})
 		}
-	}
+	})
+	t.Run("TestInstallExtra_WebURLDefaultDoesNotResetDeclaredBranch", func(t *testing.T) {
+		for _, project := range []bool{false, true} {
+			for _, missing := range []bool{false, true} {
+				t.Run(fmt.Sprintf("project=%t/missing=%t", project, missing), func(t *testing.T) {
+					sb := testutil.NewSandbox(t)
+					defer sb.Cleanup()
+					sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+					bare := testutil.SetupBareRemoteRepo(t, sb.Root)
+					for _, branch := range []string{"main", "release"} {
+						testutil.SeedRemoteBranch(t, sb.Root, bare, branch, map[string]string{"rules/rule.md": branch})
+					}
+					gitConfig := filepath.Join(sb.Root, "fixture.gitconfig")
+					testutil.RunGit(t, sb.Root, "config", "--file", gitConfig, "url.file://"+filepath.ToSlash(bare)+".insteadOf", "https://github.com/example-org/ai-hub.git")
+					sb.SetEnv("GIT_CONFIG_GLOBAL", gitConfig)
+					sb.SetEnv("GIT_CONFIG_NOSYSTEM", "1")
+					sb.SetEnv("GIT_ALLOW_PROTOCOL", "file")
+					cwd, mode := sb.Root, "-g"
+					root, configPath := filepath.Join(filepath.Dir(sb.SourcePath), "extras"), sb.ConfigPath
+					if project {
+						cwd, mode = sb.SetupProjectDir("claude"), "-p"
+						root, configPath = filepath.Join(cwd, ".skillshare", "extras"), filepath.Join(cwd, ".skillshare", "config.yaml")
+					}
+					args := []string{"install", "https://github.com/example-org/ai-hub/tree/release/rules", "--kind", "extra", "--name", "rules", "--skip-audit", "--json", mode}
+					first := sb.RunCLIInDir(cwd, append(append([]string{}, args...), "--branch", "main")...)
+					first.AssertSuccess(t)
+					var original struct{ Branch, Commit string }
+					if err := json.Unmarshal([]byte(first.Stdout), &original); err != nil || original.Branch != "main" {
+						t.Fatalf("initial override: %s %v", first.Stdout, err)
+					}
+					if missing {
+						if err := os.RemoveAll(filepath.Join(root, "rules")); err != nil {
+							t.Fatal(err)
+						}
+						if err := os.Remove(filepath.Join(root, install.MetadataFileName)); err != nil {
+							t.Fatal(err)
+						}
+					}
+					result := sb.RunCLIInDir(cwd, args...)
+					result.AssertSuccess(t)
+					var got struct{ Branch, Commit string }
+					if err := json.Unmarshal([]byte(result.Stdout), &got); err != nil || got != original {
+						t.Fatalf("omitted flag reset URL override: %s want %+v %v", result.Stdout, original, err)
+					}
+					store, _, err := install.ReadMetadata(root)
+					if err != nil || store.GetExact("rules").Branch != "main" || store.GetExact("rules").Commit != original.Commit {
+						t.Fatalf("metadata: %+v %v", store, err)
+					}
+					data, err := os.ReadFile(configPath)
+					if err != nil || !strings.Contains(string(data), "branch: main") {
+						t.Fatalf("config: %s %v", data, err)
+					}
+					body, err := os.ReadFile(filepath.Join(root, "rules", "rule.md"))
+					if err != nil || string(body) != "main" {
+						t.Fatalf("content: %q %v", body, err)
+					}
+				})
+			}
+		}
+	})
+	t.Run("TestInstallExtra_DeclaredURLBranchTracksResolvedRef", func(t *testing.T) {
+		for _, project := range []bool{false, true} {
+			for _, explicit := range []bool{false, true} {
+				t.Run(fmt.Sprintf("project=%t/explicit=%t", project, explicit), func(t *testing.T) {
+					sb := testutil.NewSandbox(t)
+					defer sb.Cleanup()
+					bare := testutil.SetupBareRemoteRepo(t, sb.Root)
+					testutil.SeedRemoteBranch(t, sb.Root, bare, "feature/x", map[string]string{
+						"rules/rule.md": "correct", "x/rules/rule.md": "WRONG",
+					})
+					gitConfig := filepath.Join(sb.Root, "fixture.gitconfig")
+					testutil.RunGit(t, sb.Root, "config", "--file", gitConfig, "url.file://"+filepath.ToSlash(bare)+".insteadOf", "https://github.com/example-org/ai-hub.git")
+					sb.SetEnv("GIT_CONFIG_GLOBAL", gitConfig)
+					sb.SetEnv("GIT_CONFIG_NOSYSTEM", "1")
+					sb.SetEnv("GIT_ALLOW_PROTOCOL", "file")
+					raw := "https://github.com/example-org/ai-hub/tree/feature/x/rules"
+					// Supported raw-editor declarations can select a branch before
+					// content/metadata exists; this value needs URL-ref resolution.
+					sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\nextras:\n  - name: rules\n    remote: " + raw + "\n    branch: feature\n    targets: []\n")
+					cwd, mode, cfgPath := sb.Root, "-g", sb.ConfigPath
+					root := filepath.Join(filepath.Dir(sb.SourcePath), "extras")
+					if project {
+						cwd, mode = sb.SetupProjectDir("claude"), "-p"
+						cfg, err := config.LoadProjectReadOnly(cwd)
+						if err != nil {
+							t.Fatal(err)
+						}
+						cfg.Extras = []config.ExtraConfig{{Name: "rules", Remote: raw, Branch: "feature", Targets: []config.ExtraTargetConfig{}}}
+						if err := cfg.Save(cwd); err != nil {
+							t.Fatal(err)
+						}
+						cfgPath = config.ProjectConfigPath(cwd)
+						root = cfg.EffectiveExtrasSource(cwd)
+					}
+					args := []string{"install", raw, "--kind", "extra", "--name", "rules", "--skip-audit", "--json", mode}
+					if explicit {
+						args = append(args, "--branch", "feature/x")
+					}
+					result := sb.RunCLIInDir(cwd, args...)
+					result.AssertSuccess(t)
+					var out struct{ Branch, Commit string }
+					if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil || out.Branch != "feature/x" {
+						t.Fatalf("effective ref: %+v %v", out, err)
+					}
+					data, err := os.ReadFile(cfgPath)
+					if err != nil {
+						t.Fatal(err)
+					}
+					entries, err := config.RawExtras(data)
+					if err != nil || len(entries) != 1 || entries[0].Branch != out.Branch {
+						t.Errorf("saved branch disagrees with resolved install: %+v result=%+v error=%v", entries, out, err)
+					}
+					store, _, err := install.ReadMetadata(root)
+					if err != nil || store.GetExact("rules") == nil || store.GetExact("rules").Branch != out.Branch {
+						t.Errorf("metadata branch disagrees: %+v %v", store, err)
+					}
+					data, err = os.ReadFile(filepath.Join(root, "rules", "rule.md"))
+					if err != nil || strings.TrimSpace(string(data)) != "correct" {
+						t.Errorf("resolved directory disagrees: %s %v", data, err)
+					}
+				})
+			}
+		}
+	})
+	t.Run("TestInstallExtra_WebSlashRefResolvesDirectoryAndBranch", func(t *testing.T) {
+		providers := map[string]string{
+			"github.com":    "tree/",
+			"gitlab.com":    "-/tree/",
+			"bitbucket.org": "src/",
+		}
+		for host, marker := range providers {
+			for _, project := range []bool{false, true} {
+				for _, explicit := range []bool{false, true} {
+					t.Run(fmt.Sprintf("%s/project=%t/explicit=%t", host, project, explicit), func(t *testing.T) {
+						sb := testutil.NewSandbox(t)
+						defer sb.Cleanup()
+						sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+						bare := testutil.SetupBareRemoteRepo(t, sb.Root)
+						files := map[string]string{"rules/rule.md": "correct slash-ref directory", "x/rules/rule.md": "WRONG directory from first-segment ref split"}
+						testutil.SeedRemoteBranch(t, sb.Root, bare, "feature/x", files)
+						head := strings.TrimSpace(testutil.RunGit(t, bare, "rev-parse", "refs/heads/feature/x"))
+						gitConfig := filepath.Join(sb.Root, "fixture.gitconfig")
+						repoURL := "https://" + host + "/example-org/ai-hub"
+						testutil.RunGit(t, sb.Root, "config", "--file", gitConfig, "url.file://"+filepath.ToSlash(bare)+".insteadOf", repoURL+".git")
+						sb.SetEnv("GIT_CONFIG_GLOBAL", gitConfig)
+						sb.SetEnv("GIT_CONFIG_NOSYSTEM", "1")
+						sb.SetEnv("GIT_ALLOW_PROTOCOL", "file")
+						cwd, mode := sb.Root, "-g"
+						root := filepath.Join(filepath.Dir(sb.SourcePath), "extras")
+						if project {
+							cwd, mode = sb.SetupProjectDir("claude"), "-p"
+							root = filepath.Join(cwd, ".skillshare", "extras")
+						}
+						raw := repoURL + "/" + marker + "feature/x/rules"
+						args := []string{"install", raw, "--kind", "extra", "--name", "rules", "--skip-audit", "--json", mode}
+						if explicit {
+							args = append(args, "--branch", "feature/x")
+						}
+						result := sb.RunCLIInDir(cwd, args...)
+						result.AssertSuccess(t)
+						var out struct{ Branch, Commit string }
+						if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil {
+							t.Fatal(err)
+						}
+						if out.Branch != "feature/x" || out.Commit != head {
+							t.Errorf("effective ref lost: %+v want feature/x at%s", out, head)
+						}
+						if data, err := os.ReadFile(filepath.Join(root, "rules", "rule.md")); err != nil || string(data) != files["rules/rule.md"] {
+							t.Errorf("wrong selected directory: %s %v", data, err)
+						}
+						store, _, err := install.ReadMetadata(root)
+						if err != nil {
+							t.Fatal(err)
+						}
+						entry := store.GetExact("rules")
+						if entry == nil || entry.Branch != "feature/x" || entry.Commit != head || entry.Source != raw {
+							t.Errorf("metadata ref/identity lost: %+v", entry)
+						}
+						var extras []config.ExtraConfig
+						if project {
+							cfg, err := config.LoadProjectReadOnly(cwd)
+							if err != nil {
+								t.Fatal(err)
+							}
+							extras = cfg.Extras
+							if pin := readLock(t, cwd).Extras["rules"]; pin.Source != raw || pin.Commit != head {
+								t.Errorf("project pin lost: %+v", pin)
+							}
+						} else {
+							data, err := os.ReadFile(sb.ConfigPath)
+							if err != nil {
+								t.Fatal(err)
+							}
+							extras, err = config.RawExtras(data)
+							if err != nil {
+								t.Fatal(err)
+							}
+						}
+						if len(extras) != 1 || extras[0].Branch != "feature/x" || extras[0].Remote != raw {
+							t.Errorf("saved ref/identity lost: %+v", extras)
+						}
+						// Omitted branch on a later install must preserve the resolved
+						// declaration and the same exact pin, even when the URL is ambiguous.
+						sb.RunCLIInDir(cwd, "install", raw, "--kind", "extra", "--name", "rules", "--skip-audit", "--json", mode).AssertSuccess(t)
+						if data, err := os.ReadFile(filepath.Join(root, "rules", "rule.md")); err != nil || string(data) != files["rules/rule.md"] {
+							t.Errorf("reinstall changed selected directory: %s %v", data, err)
+						}
+					})
+				}
+			}
+		}
+	})
 }

@@ -375,69 +375,6 @@ func TestHandlePutConfig_RepairsInvalidSharedFileWithLocalProjects(t *testing.T)
 	}
 }
 
-func TestConfigRejectsRemoteCredentialsWithoutEcho(t *testing.T) {
-	s, _ := newTestServer(t)
-	raw := "extras:\n  - name: rules\n    remote: https://user:secret@example.com/repo\n    targets: []\n"
-	body, err := json.Marshal(map[string]string{"raw": raw})
-	if err != nil {
-		t.Fatal(err)
-	}
-	rr := httptest.NewRecorder()
-	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(string(body))))
-	if rr.Code != http.StatusBadRequest || strings.Contains(rr.Body.String(), "secret") {
-		t.Fatalf("PUT: %d %s", rr.Code, rr.Body.String())
-	}
-	if err := os.WriteFile(s.configPath(), []byte(raw), 0644); err != nil {
-		t.Fatal(err)
-	}
-	rr = httptest.NewRecorder()
-	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/config", nil))
-	if rr.Code == http.StatusOK || strings.Contains(rr.Body.String(), "secret") {
-		t.Fatalf("GET: %d %s", rr.Code, rr.Body.String())
-	}
-}
-
-func TestConfigRejectsMalformedRemoteWithoutDisclosure(t *testing.T) {
-	for _, project := range []bool{false, true} {
-		for i, remote := range []string{"https://example.com/%zz?token=secret", "https://example.com/%zz#secret", "https:/example.com/repo?token=secret", "owner/repo#secret", "user:secret@example.com:org/repo"} {
-			t.Run(fmt.Sprintf("project=%t/case=%d", project, i), func(t *testing.T) {
-				var s *Server
-				if project {
-					s, _ = newTestProjectServerWithExtras(t, nil)
-				} else {
-					s, _ = newTestServer(t)
-				}
-				before, err := os.ReadFile(s.configPath())
-				if err != nil {
-					t.Fatal(err)
-				}
-				raw := "extras:\n  - name: rules\n    remote: " + remote + "\n    targets: []\n"
-				body, err := json.Marshal(map[string]string{"raw": raw})
-				if err != nil {
-					t.Fatal(err)
-				}
-				rr := httptest.NewRecorder()
-				s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(string(body))))
-				if rr.Code != http.StatusBadRequest || strings.Contains(rr.Body.String(), "secret") {
-					t.Fatalf("PUT: %d %s", rr.Code, rr.Body.String())
-				}
-				after, err := os.ReadFile(s.configPath())
-				if err != nil || string(after) != string(before) {
-					t.Fatalf("PUT changed config: %v", err)
-				}
-				if err := os.WriteFile(s.configPath(), []byte(raw), 0644); err != nil {
-					t.Fatal(err)
-				}
-				rr = httptest.NewRecorder()
-				s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/config", nil))
-				if rr.Code == http.StatusOK || strings.Contains(rr.Body.String(), "secret") {
-					t.Fatalf("GET: %d %s", rr.Code, rr.Body.String())
-				}
-			})
-		}
-	}
-}
-
 func TestConfigRecovery_RemoteBaselinesAndNonDisclosure(t *testing.T) {
 	for _, project := range []bool{false, true} {
 		for _, broken := range []bool{false, true} {
@@ -494,49 +431,112 @@ func TestConfigRecovery_RemoteBaselinesAndNonDisclosure(t *testing.T) {
 }
 
 func TestConfigRecovery_ParseAndCredentialBoundaries(t *testing.T) {
-	for _, project := range []bool{false, true} {
-		for _, raw := range []string{"extras: SYNTHETIC\n", "extras: [SYNTHETIC]\n", "extras: *SYNTHETIC\n", "extras:\n  - name: rules\n    remote: https:/example.com/repo?token=SYNTHETIC\n"} {
-			var s *Server
-			if project {
-				s, _ = newTestProjectServerWithExtras(t, nil)
-			} else {
-				s, _ = newTestServer(t)
-			}
-			before, err := os.ReadFile(s.configPath())
-			if err != nil {
-				t.Fatal(err)
-			}
-			body, _ := json.Marshal(map[string]string{"raw": raw})
-			rr := serveExtras(s, http.MethodPut, "/api/config", string(body))
-			if rr.Code != 400 || strings.Contains(rr.Body.String(), "SYNTHETIC") {
-				t.Fatalf("PUT %d %s", rr.Code, rr.Body)
-			}
-			after, err := os.ReadFile(s.configPath())
-			if err != nil || string(after) != string(before) {
-				t.Fatal("refusal saved", err)
-			}
-			if err := os.WriteFile(s.configPath(), []byte(raw), 0644); err != nil {
-				t.Fatal(err)
-			}
-			rr = serveExtras(s, http.MethodGet, "/api/config", "")
-			if strings.Contains(raw, "*SYNTHETIC") {
-				if rr.Code != 200 {
-					t.Fatal("syntax recovery unavailable", rr.Body)
+	t.Run("baseline", func(t *testing.T) {
+		for _, project := range []bool{false, true} {
+			for _, raw := range []string{"extras: SYNTHETIC\n", "extras: [SYNTHETIC]\n", "extras: *SYNTHETIC\n", "extras:\n  - name: rules\n    remote: https:/example.com/repo?token=SYNTHETIC\n"} {
+				var s *Server
+				if project {
+					s, _ = newTestProjectServerWithExtras(t, nil)
+				} else {
+					s, _ = newTestServer(t)
 				}
-			} else if rr.Code != 400 || strings.Contains(rr.Body.String(), "SYNTHETIC") {
-				t.Fatalf("GET %d %s", rr.Code, rr.Body)
-			}
-			clean := "extras: [{name: rules, remote: example-org/ai-hub, targets: []}]\n"
-			if !project {
-				clean = fmt.Sprintf("source: %q\n%s", s.cfg.Source, clean)
-			}
-			body, _ = json.Marshal(map[string]string{"raw": clean})
-			rr = serveExtras(s, http.MethodPut, "/api/config", string(body))
-			if rr.Code != 200 {
-				t.Fatalf("invalid baseline repair %d %s", rr.Code, rr.Body)
+				before, err := os.ReadFile(s.configPath())
+				if err != nil {
+					t.Fatal(err)
+				}
+				body, _ := json.Marshal(map[string]string{"raw": raw})
+				rr := serveExtras(s, http.MethodPut, "/api/config", string(body))
+				if rr.Code != 400 || strings.Contains(rr.Body.String(), "SYNTHETIC") {
+					t.Fatalf("PUT %d %s", rr.Code, rr.Body)
+				}
+				after, err := os.ReadFile(s.configPath())
+				if err != nil || string(after) != string(before) {
+					t.Fatal("refusal saved", err)
+				}
+				if err := os.WriteFile(s.configPath(), []byte(raw), 0644); err != nil {
+					t.Fatal(err)
+				}
+				rr = serveExtras(s, http.MethodGet, "/api/config", "")
+				if strings.Contains(raw, "*SYNTHETIC") {
+					if rr.Code != 200 {
+						t.Fatal("syntax recovery unavailable", rr.Body)
+					}
+				} else if rr.Code != 400 || strings.Contains(rr.Body.String(), "SYNTHETIC") {
+					t.Fatalf("GET %d %s", rr.Code, rr.Body)
+				}
+				clean := "extras: [{name: rules, remote: example-org/ai-hub, targets: []}]\n"
+				if !project {
+					clean = fmt.Sprintf("source: %q\n%s", s.cfg.Source, clean)
+				}
+				body, _ = json.Marshal(map[string]string{"raw": clean})
+				rr = serveExtras(s, http.MethodPut, "/api/config", string(body))
+				if rr.Code != 200 {
+					t.Fatalf("invalid baseline repair %d %s", rr.Code, rr.Body)
+				}
 			}
 		}
-	}
+	})
+	t.Run("TestConfigRejectsRemoteCredentialsWithoutEcho", func(t *testing.T) {
+		s, _ := newTestServer(t)
+		raw := "extras:\n  - name: rules\n    remote: https://user:secret@example.com/repo\n    targets: []\n"
+		body, err := json.Marshal(map[string]string{"raw": raw})
+		if err != nil {
+			t.Fatal(err)
+		}
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(string(body))))
+		if rr.Code != http.StatusBadRequest || strings.Contains(rr.Body.String(), "secret") {
+			t.Fatalf("PUT: %d %s", rr.Code, rr.Body.String())
+		}
+		if err := os.WriteFile(s.configPath(), []byte(raw), 0644); err != nil {
+			t.Fatal(err)
+		}
+		rr = httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/config", nil))
+		if rr.Code == http.StatusOK || strings.Contains(rr.Body.String(), "secret") {
+			t.Fatalf("GET: %d %s", rr.Code, rr.Body.String())
+		}
+	})
+	t.Run("TestConfigRejectsMalformedRemoteWithoutDisclosure", func(t *testing.T) {
+		for _, project := range []bool{false, true} {
+			for i, remote := range []string{"https://example.com/%zz?token=secret", "https://example.com/%zz#secret", "https:/example.com/repo?token=secret", "owner/repo#secret", "user:secret@example.com:org/repo"} {
+				t.Run(fmt.Sprintf("project=%t/case=%d", project, i), func(t *testing.T) {
+					var s *Server
+					if project {
+						s, _ = newTestProjectServerWithExtras(t, nil)
+					} else {
+						s, _ = newTestServer(t)
+					}
+					before, err := os.ReadFile(s.configPath())
+					if err != nil {
+						t.Fatal(err)
+					}
+					raw := "extras:\n  - name: rules\n    remote: " + remote + "\n    targets: []\n"
+					body, err := json.Marshal(map[string]string{"raw": raw})
+					if err != nil {
+						t.Fatal(err)
+					}
+					rr := httptest.NewRecorder()
+					s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(string(body))))
+					if rr.Code != http.StatusBadRequest || strings.Contains(rr.Body.String(), "secret") {
+						t.Fatalf("PUT: %d %s", rr.Code, rr.Body.String())
+					}
+					after, err := os.ReadFile(s.configPath())
+					if err != nil || string(after) != string(before) {
+						t.Fatalf("PUT changed config: %v", err)
+					}
+					if err := os.WriteFile(s.configPath(), []byte(raw), 0644); err != nil {
+						t.Fatal(err)
+					}
+					rr = httptest.NewRecorder()
+					s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/config", nil))
+					if rr.Code == http.StatusOK || strings.Contains(rr.Body.String(), "secret") {
+						t.Fatalf("GET: %d %s", rr.Code, rr.Body.String())
+					}
+				})
+			}
+		}
+	})
 }
 
 func TestConfigGet_PathAndSyntaxBrokenRecovery(t *testing.T) {

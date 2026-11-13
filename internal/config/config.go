@@ -668,7 +668,18 @@ func DataDir() string {
 //  1. $XDG_STATE_HOME/skillshare  (any platform, if set)
 //  2. %AppData%/skillshare        (Windows only, via os.UserConfigDir())
 //  3. ~/.local/state/skillshare   (Linux, macOS)
-func StateDir() string { return utils.StateDir() }
+func StateDir() string {
+	if xdg := os.Getenv("XDG_STATE_HOME"); xdg != "" {
+		return filepath.Join(xdg, "skillshare")
+	}
+	if runtime.GOOS == "windows" {
+		if dir, err := os.UserConfigDir(); err == nil {
+			return filepath.Join(dir, "skillshare")
+		}
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".local", "state", "skillshare")
+}
 
 // CacheDir returns the cache directory (XDG_CACHE_HOME).
 // Priority:

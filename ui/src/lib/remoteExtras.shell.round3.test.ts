@@ -10,17 +10,25 @@ import type { Extra } from '../api/client';
 import { extraRestoreCommand } from './remoteExtras';
 
 describe('actual restore command shell arguments', () => {
-  // Compatible optional shell selection: baseline ignores it, fixed helper
-  // selects quoting explicitly without changing any argument assertions.
+  // Select the intended shell explicitly; actual grammar is checked below.
   const commandForShell = extraRestoreCommand as (extra: Extra, project: boolean, powershell?: boolean) => string;
   for (const shell of ['posix', 'powershell']) {
-    for (const branch of ['main', "release/o'brien", 'release/a\'$b`c"d']) {
+    for (const branch of [undefined, 'main', "release/o'brien", 'release/a\'$b`c"d']) {
       for (const project of [false, true]) {
         const unavailable = shell === 'powershell' ? !process.env.SKILLSHARE_TEST_PWSH : process.platform === 'win32';
         it.skipIf(unavailable)(`${shell}/${branch}/project=${project}`, () => {
           const extra = { name: 'rules', remote: 'example-org/hub', branch } as Extra;
           const command = commandForShell(extra, project, shell === 'powershell');
-          const want = ['install', extra.remote, '--kind', 'extra', '--name', extra.name, '--branch', branch, project ? '-p' : '-g'];
+          const want = ['install', extra.remote, '--kind', 'extra', '--name', extra.name, ...(branch ? ['--branch', branch] : []), project ? '-p' : '-g'];
+          if (!branch) {
+            const identity = shell === 'powershell' ? "'example-org/hub' --kind extra --name 'rules'" : 'example-org/hub --kind extra --name rules';
+            expect(command).toBe(`skillshare install ${identity} ${project ? '-p' : '-g'}`);
+            expect(command).not.toContain('--branch');
+          } else if (branch === "release/o'brien") {
+            const quoted = shell === 'powershell' ? "'release/o''brien'" : "'release/o'\"'\"'brien'";
+            const identity = shell === 'powershell' ? "'example-org/hub' --kind extra --name 'rules'" : 'example-org/hub --kind extra --name rules';
+            expect(command).toBe(`skillshare install ${identity} --branch ${quoted} ${project ? '-p' : '-g'}`);
+          }
           const home = mkdtempSync(join(tmpdir(), 'skillshare-shell-fixture-'));
           const env = { ...process.env, HOME: home, XDG_CONFIG_HOME: home, XDG_CACHE_HOME: home, POWERSHELL_TELEMETRY_OPTOUT: '1' };
           try {

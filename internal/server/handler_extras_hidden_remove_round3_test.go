@@ -34,7 +34,8 @@ func TestExtrasDelete_HiddenOwnedLinksAPI(t *testing.T) {
 					s, _ = newTestServerWithExtras(t, []config.ExtraConfig{entry}, "")
 				}
 				source := s.extrasSourceDir(entry)
-				paths := []string{".rules.md", ".nested/.inside.md", ".nested/visible.md"}
+				// Full hidden ownership policy lives in extraops; this is the real adapter witness.
+				paths := []string{".nested/.inside.md"}
 				hashes := map[string]string{}
 				for _, name := range paths {
 					path := filepath.Join(source, name)

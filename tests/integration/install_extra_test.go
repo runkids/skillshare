@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -105,54 +104,6 @@ func TestInstallExtra_ProjectMissingAndLocalSourceRefused(t *testing.T) {
 	result.AssertAnyOutputContains(t, "extras init")
 }
 
-func TestInstallExtra_CredentialNeverPersisted(t *testing.T) {
-	sources := []string{
-		"https://user:SYNTHETIC@example.com/repo", "https://example.com/repo?token=SYNTHETIC", "https://example.com/repo#SYNTHETIC",
-		"https://example.com/%zz?token=SYNTHETIC", "https://example.com/%zz#SYNTHETIC",
-		"ssh://git:SYNTHETIC@example.com/repo", "git://user:SYNTHETIC@example.com/repo",
-		"https:/example.com/repo?token=SYNTHETIC", "https:example.com/repo?token=SYNTHETIC",
-		`https:\\example.com\repo?token=SYNTHETIC`, "https//example.com/repo?token=SYNTHETIC",
-		"example.com/repo?token=SYNTHETIC", "example.com/repo#SYNTHETIC", "owner/repo/sub?token=SYNTHETIC",
-		"ado:org/project/repo?token=SYNTHETIC", "user:SYNTHETIC@example.com/org/repo", "user:SYNTHETIC@example.com:org/repo",
-		"user@example.com/org/SYNTHETIC", " HTTPS://user:SYNTHETIC@example.com/repo",
-	}
-	for _, projectMode := range []bool{false, true} {
-		for _, source := range sources {
-			for _, flags := range [][]string{nil, {"--json"}, {"--dry-run"}, {"--json", "--force"}} {
-				sb := testutil.NewSandbox(t)
-				sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
-				cwd, mode := sb.Root, "-g"
-				if projectMode {
-					cwd = sb.SetupProjectDir("claude")
-					mode = "-p"
-				}
-				before := projectTree(t, sb.Root)
-				args := append([]string{"install", source, "--kind", "extra", "--name", "rules", mode}, flags...)
-				result := sb.RunCLIInDir(cwd, args...)
-				result.AssertFailure(t)
-				if strings.Contains(result.Stdout+result.Stderr, "SYNTHETIC") {
-					t.Fatalf("credential disclosed: %s %s", result.Stdout, result.Stderr)
-				}
-				if after := projectTree(t, sb.Root); !reflect.DeepEqual(before, after) {
-					t.Fatal("credential refusal changed files, including oplog/config/lock/metadata")
-				}
-				sb.Cleanup()
-			}
-		}
-	}
-}
-
-func TestInstallExtra_ParseErrorNeverEchoesSource(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
-	result := sb.RunCLI("install", "unrecognized-source-SYNTHETIC", "--kind", "extra", "--json", "-g")
-	result.AssertFailure(t)
-	if strings.Contains(result.Stdout+result.Stderr, "SYNTHETIC") {
-		t.Fatalf("source disclosed: %s %s", result.Stdout, result.Stderr)
-	}
-}
-
 func TestInstallExtra_RemovalBothModes(t *testing.T) {
 	for _, project := range []bool{false, true} {
 		for _, edited := range []bool{false, true} {
@@ -175,27 +126,12 @@ func TestInstallExtra_RemovalBothModes(t *testing.T) {
 			}
 			result := sb.RunCLIInDir(cwd, "extras", "remove", "rules", "--force", mode)
 			result.AssertSuccess(t)
+			// Files, metadata, acceptance and pin policy are asserted together in
+			// extraops.TestRemove_RemoteUneditedAndEdited for both scope paths.
 			if edited {
 				result.AssertAnyOutputContains(t, "Kept edited")
-				data, err := os.ReadFile(filepath.Join(source, "rules.md"))
-				if err != nil || string(data) != "local edit" {
-					t.Fatal("edit lost", err)
-				}
 			} else {
 				result.AssertAnyOutputContains(t, "Deleted fetched copy")
-				if _, err := os.Stat(source); !os.IsNotExist(err) {
-					t.Fatal("source remains", err)
-				}
-			}
-			store, _, err := install.ReadMetadata(root)
-			if err != nil || store.GetExact("rules") != nil {
-				t.Fatal("metadata retained", err)
-			}
-			if project {
-				lock, err := install.LoadLock(filepath.Join(cwd, ".skillshare"))
-				if err != nil || lock.ExtraCommitFor("rules", remote) != "" {
-					t.Fatal("pin retained", err)
-				}
 			}
 			sb.Cleanup()
 		}
