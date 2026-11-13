@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"skillshare/internal/audit"
+	"skillshare/internal/config"
 )
 
 func newRemoteExtraRequest(t *testing.T) RemoteExtraRequest {
@@ -1169,5 +1170,99 @@ func TestInstallRemoteExtra_PreWriteConfigRefusalRetainsChangedEntry(t *testing.
 	}
 	if _, err := os.Lstat(filepath.Join(req.ExtrasRoot, req.Name)); !os.IsNotExist(err) {
 		t.Fatal("failed candidate retained", err)
+	}
+}
+
+// This exercises real publication/root-lock contention. The command writer table
+// separately pins that each CLI/TUI boundary acquires this lock before rereading.
+func TestInstallRemoteExtra_ParticipantWaitsForPublication(t *testing.T) {
+	for _, writer := range []string{"add-target", "collect"} {
+		t.Run(writer, func(t *testing.T) {
+			req := newRemoteExtraRequest(t)
+			req.Branch = "feature"
+			t.Setenv("SKILLSHARE_CONFIG", req.ConfigPath)
+			cfg := &config.Config{Source: filepath.Join(filepath.Dir(req.ConfigPath), "skills"), Extras: []config.ExtraConfig{{Name: req.Name, Remote: req.RawSource, Targets: []config.ExtraTargetConfig{}}}}
+			if err := cfg.Save(); err != nil {
+				t.Fatal(err)
+			}
+			req.WriteConfig = func() error {
+				fresh, err := config.LoadReadOnly()
+				if err != nil {
+					return err
+				}
+				fresh.Extras[0].Branch = "feature"
+				return fresh.Save()
+			}
+			if _, err := InstallRemoteExtra(req); err != nil {
+				t.Fatal(err)
+			}
+			entered, release, waiting := make(chan struct{}), make(chan struct{}), make(chan struct{})
+			oldBoundary, oldWait := extraBoundary, extraLockOnWait
+			extraBoundary = func(step string) error {
+				if step == "live" {
+					close(entered)
+					<-release
+				}
+				return nil
+			}
+			extraLockOnWait = func() { close(waiting) }
+			defer func() { extraBoundary, extraLockOnWait = oldBoundary, oldWait }()
+			published, wrote := make(chan error, 1), make(chan error, 1)
+			go func() { _, err := InstallRemoteExtra(req); published <- err }()
+			<-entered
+			go func() {
+				unlock, err := LockExtrasRoot(req.ExtrasRoot)
+				if err != nil {
+					wrote <- err
+					return
+				}
+				defer unlock()
+				fresh, err := config.LoadReadOnly()
+				if err != nil {
+					wrote <- err
+					return
+				}
+				if fresh.Extras[0].Branch != "feature" {
+					wrote <- errors.New("stale config")
+					return
+				}
+				if writer == "add-target" {
+					fresh.Extras[0].Targets = append(fresh.Extras[0].Targets, config.ExtraTargetConfig{Path: "new-target"})
+					wrote <- fresh.Save()
+				} else {
+					// A collection writes the resolved live source only after acquisition.
+					wrote <- os.WriteFile(filepath.Join(req.ExtrasRoot, req.Name, "collected.md"), []byte("local collection"), 0644)
+				}
+			}()
+			<-waiting
+			select {
+			case err := <-wrote:
+				t.Fatalf("writer crossed publication lock: %v", err)
+			default:
+			}
+			close(release)
+			if err := <-published; err != nil {
+				t.Fatal(err)
+			}
+			if err := <-wrote; err != nil {
+				t.Fatal(err)
+			}
+			fresh, err := config.LoadReadOnly()
+			if err != nil || fresh.Extras[0].Remote != req.RawSource || fresh.Extras[0].Branch != "feature" {
+				t.Fatalf("origin lost: %+v %v", fresh, err)
+			}
+			state := InspectRemoteExtra(req.ExtrasRoot, req.Name)
+			if state.Err != nil || state.Interrupted || state.Modified != (writer == "collect") {
+				t.Fatalf("incoherent state: %+v", state)
+			}
+			if writer == "add-target" && len(fresh.Extras[0].Targets) != 1 {
+				t.Fatal("target lost")
+			}
+			for _, prefix := range []string{"previous-", "incoming-"} {
+				if _, err := os.Lstat(filepath.Join(req.ExtrasRoot, extraStagingDir, prefix+req.Name)); !os.IsNotExist(err) {
+					t.Fatalf("temporary tree remains: %v", err)
+				}
+			}
+		})
 	}
 }
