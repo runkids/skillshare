@@ -33,6 +33,14 @@ type doctorResult struct {
 	next           []string // command and reason pairs for the closing Next
 	updateCommands []string // Suggestions belonging to automatic version notices.
 	stream         func(doctorCheck)
+	waiting        []laterCheck
+}
+
+// laterCheck is a check later runs in the background; done delivers the function
+// that records its result.
+type laterCheck struct {
+	name string
+	done chan func(*doctorResult)
 }
 
 // doctorWidth aligns the labels of doctor's fixed rows.
@@ -56,6 +64,68 @@ func (r *doctorResult) addCheckWithSuggestions(name, status, message string, det
 	if r.stream != nil {
 		r.stream(check)
 	}
+	r.recordLater(false)
+}
+
+// streamPending tells the stream which check is running before a slow step; the
+// check's result replaces the row. Without a stream it does nothing.
+func (r *doctorResult) streamPending(name, message string) {
+	if r.stream != nil {
+		r.stream(doctorCheck{Name: name, Status: checkPending, Message: message})
+	}
+}
+
+// later runs a slow check without holding up the checks after it while doctor
+// streams: a pending row holds its place, check runs in the background, and its
+// result replaces the row once a later check is added or finishLater runs. check
+// must not touch ui or r; the function it returns records the result. Without a
+// stream it runs in place.
+func (r *doctorResult) later(name, spinner string, check func() func(*doctorResult)) {
+	if r.stream == nil {
+		sp := ui.StartSpinner(spinner)
+		record := check()
+		sp.Stop()
+		record(r)
+		return
+	}
+	r.checks = append(r.checks, doctorCheck{Name: name, Status: checkPending, Message: spinner})
+	r.streamPending(name, spinner)
+	l := laterCheck{name: name, done: make(chan func(*doctorResult), 1)}
+	go func() { l.done <- check() }()
+	r.waiting = append(r.waiting, l)
+}
+
+// recordLater records the background checks that have finished, each in its
+// pending row; with wait it waits for all of them.
+func (r *doctorResult) recordLater(wait bool) {
+	// Recording adds checks, which call recordLater again; they find nothing waiting.
+	waiting := r.waiting
+	r.waiting = nil
+	var still []laterCheck
+	for _, l := range waiting {
+		var record func(*doctorResult)
+		if wait {
+			record = <-l.done
+		} else {
+			select {
+			case record = <-l.done:
+			default:
+				still = append(still, l)
+				continue
+			}
+		}
+		at := slices.IndexFunc(r.checks, func(c doctorCheck) bool { return c.Name == l.name && c.Status == checkPending })
+		n := len(r.checks)
+		record(r)
+		added := slices.Clone(r.checks[n:])
+		r.checks = slices.Replace(r.checks[:n], at, at+1, added...)
+	}
+	r.waiting = still
+}
+
+// finishLater waits for the checks later left running and records them.
+func (r *doctorResult) finishLater() {
+	r.recordLater(true)
 }
 
 func (r *doctorResult) addInfo(name, message string) {
@@ -246,6 +316,7 @@ func cmdDoctorProject(root string, jsonMode bool) error {
 func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool, projectRoots ...string) {
 	// Single discovery pass for all checks (with .skillignore stats)
 	sp := ui.StartSpinner("Discovering skills...")
+	result.streamPending("source", "Discovering skills...")
 	walk := cfg.SkillsWalk()
 	discovered, stats, discoverErr := sync.DiscoverSourceSkillsWithStats(cfg.EffectiveSkillsSource(), walk)
 	if discoverErr != nil {
@@ -833,15 +904,30 @@ func checkSyncDrift(cfg *config.Config, result *doctorResult, discovered []sync.
 	}
 }
 
-// checkGitStatus checks if source is a git repo and its status
+// checkGitStatus checks if source is a git repo and its status. Git can be slow
+// on a large source, so a streamed doctor runs it in the background.
 func checkGitStatus(source string, result *doctorResult) {
+	result.later("git_status", "Checking Git...", func() func(*doctorResult) {
+		status, row, message := gitSourceStatus(source)
+		return func(result *doctorResult) {
+			mark := ui.MarkOK
+			if status == checkWarning {
+				mark = ui.MarkWarn
+				result.addWarning()
+			}
+			ui.Row(mark, "Git", row, doctorWidth)
+			result.addCheck("git_status", status, message, nil)
+		}
+	})
+}
+
+// gitSourceStatus runs Git in source and returns the check status, the text row
+// and the JSON message.
+func gitSourceStatus(source string) (status, row, message string) {
 	cmd := gitenv.Command("rev-parse", "--is-inside-work-tree")
 	cmd.Dir = source
 	if err := cmd.Run(); err != nil {
-		ui.Row(ui.MarkWarn, "Git", "not initialized (recommended for backup)", doctorWidth)
-		result.addWarning()
-		result.addCheck("git_status", checkWarning, "Git: not initialized (recommended for backup)", nil)
-		return
+		return checkWarning, "not initialized (recommended for backup)", "Git: not initialized (recommended for backup)"
 	}
 
 	// Check for uncommitted changes
@@ -849,18 +935,12 @@ func checkGitStatus(source string, result *doctorResult) {
 	cmd.Dir = source
 	output, err := cmd.Output()
 	if err != nil {
-		ui.Row(ui.MarkWarn, "Git", "unable to check status", doctorWidth)
-		result.addWarning()
-		result.addCheck("git_status", checkWarning, "Git: unable to check status", nil)
-		return
+		return checkWarning, "unable to check status", "Git: unable to check status"
 	}
 
 	if len(output) > 0 {
 		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-		ui.Row(ui.MarkWarn, "Git", plural(len(lines), "uncommitted change"), doctorWidth)
-		result.addWarning()
-		result.addCheck("git_status", checkWarning, fmt.Sprintf("Git: %d uncommitted change(s)", len(lines)), nil)
-		return
+		return checkWarning, plural(len(lines), "uncommitted change"), fmt.Sprintf("Git: %d uncommitted change(s)", len(lines))
 	}
 
 	// Check for remote
@@ -868,12 +948,9 @@ func checkGitStatus(source string, result *doctorResult) {
 	cmd.Dir = source
 	output, err = cmd.Output()
 	if err == nil && len(strings.TrimSpace(string(output))) == 0 {
-		ui.Row(ui.MarkOK, "Git", "initialized, no remote configured", doctorWidth)
-		result.addCheck("git_status", checkPass, "Git: initialized (no remote configured)", nil)
-	} else {
-		ui.Row(ui.MarkOK, "Git", "initialized with remote", doctorWidth)
-		result.addCheck("git_status", checkPass, "Git: initialized with remote", nil)
+		return checkPass, "initialized, no remote configured", "Git: initialized (no remote configured)"
 	}
+	return checkPass, "initialized with remote", "Git: initialized with remote"
 }
 
 // checkSkillsValidity checks if all skills have valid SKILL.md files

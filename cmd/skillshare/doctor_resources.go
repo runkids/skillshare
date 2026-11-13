@@ -163,6 +163,7 @@ func checkHooksEntries(service *hooks.Service, result *doctorResult) {
 
 // checkPluginPackages previews `plugin sync` without fetching any source. It only asks
 // each bound Agent's native CLI what is installed, so nothing runs when no package exists.
+// The native CLIs are slow, so a streamed doctor runs the preview in the background.
 func checkPluginPackages(service *plugin.Service, result *doctorResult) {
 	inv, err := service.Packages()
 	if err != nil {
@@ -175,11 +176,16 @@ func checkPluginPackages(service *plugin.Service, result *doctorResult) {
 		result.addInfo("plugins", "No plugins configured")
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), doctorPluginTimeout)
-	defer cancel()
-	sp := ui.StartSpinner("Checking plugins...")
-	plan, err := service.Preview(ctx, plugin.Request{Action: "sync"})
-	sp.Stop()
+	result.later("plugins", "Checking plugins...", func() func(*doctorResult) {
+		ctx, cancel := context.WithTimeout(context.Background(), doctorPluginTimeout)
+		defer cancel()
+		plan, err := service.Preview(ctx, plugin.Request{Action: "sync"})
+		return func(result *doctorResult) { reportPluginPlan(result, len(inv.Packages), plan, err) }
+	})
+}
+
+// reportPluginPlan records the plugin check from a sync preview of count packages.
+func reportPluginPlan(result *doctorResult, count int, plan *plugin.Plan, err error) {
 	if err != nil {
 		ui.Row(ui.MarkFail, "Plugins", err.Error(), doctorWidth)
 		addResourceCheck(result, "plugins", "Plugins", "", []string{err.Error()}, nil)
@@ -199,9 +205,9 @@ func checkPluginPackages(service *plugin.Service, result *doctorResult) {
 			warnings = append(warnings, line+": not synced ("+c.Action+"): "+c.Message)
 		}
 	}
-	ok := fmt.Sprintf("All %d plugin package(s) in sync", len(inv.Packages))
+	ok := fmt.Sprintf("All %d plugin package(s) in sync", count)
 	if len(warnings) == 0 {
-		ui.Row(ui.MarkOK, "Plugins", "all "+plural(len(inv.Packages), "package")+" in sync", doctorWidth)
+		ui.Row(ui.MarkOK, "Plugins", "all "+plural(count, "package")+" in sync", doctorWidth)
 	} else {
 		result.suggest("skillshare sync plugins --dry-run", "see what plugin sync would change")
 	}
