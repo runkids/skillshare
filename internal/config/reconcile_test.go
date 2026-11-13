@@ -25,7 +25,6 @@ func TestReconcileGlobalSkills_KeepsTrackedRecordWithoutClone(t *testing.T) {
 		"_team":         {Source: remote, Tracked: true, Branch: "other", FileHashes: map[string]string{"SKILL.md": "hash"}},
 		"frontend/_web": {Source: "https://example.com/web.git", Tracked: true, Group: "frontend"},
 		"_api":          {Source: "https://example.com/api.git", Tracked: true, Group: "backend"},
-		"team-legacy":   {Source: "https://example.com/legacy.git", Tracked: true, Group: "team"},
 	}
 	for key, entry := range want {
 		copy := *entry
@@ -38,7 +37,8 @@ func TestReconcileGlobalSkills_KeepsTrackedRecordWithoutClone(t *testing.T) {
 		store.Set(key, &copy)
 	}
 	store.Set("_nosrc", &install.MetadataEntry{Tracked: true})
-	store.AuditAccepted = map[string][]string{"_team": {"accepted-finding"}}
+	store.Set("team-legacy", &install.MetadataEntry{Source: "https://example.com/legacy.git", Tracked: true, Group: "team"})
+	store.AuditAccepted = map[string][]string{"_team": {"accepted-finding"}, "team-legacy": {"legacy-accepted"}, "_nosrc": {"source-less-accepted"}}
 	if err := store.Save(sourceDir); err != nil {
 		t.Fatal(err)
 	}
@@ -57,15 +57,17 @@ func TestReconcileGlobalSkills_KeepsTrackedRecordWithoutClone(t *testing.T) {
 	if !reflect.DeepEqual(loaded.AuditAccepted["_team"], []string{"accepted-finding"}) {
 		t.Errorf("tracked acceptance = %v", loaded.AuditAccepted["_team"])
 	}
-	if loaded.Has("_nosrc") {
-		t.Error("tracked record without a source survived")
+	for _, key := range []string{"_nosrc", "team-legacy"} {
+		if loaded.Has(key) || len(loaded.AuditAccepted[key]) != 0 {
+			t.Errorf("non-declaration record or acceptance survived: %s", key)
+		}
 	}
 	if live := loaded.Get("org/_team"); live == nil || !live.Tracked || live.Source != remote {
 		t.Errorf("live alias = %+v", live)
 	}
 }
 
-func TestReconcileGlobalSkills_KeepsMigratedTrackedMembers(t *testing.T) {
+func TestReconcileGlobalSkills_PrunesMigratedTrackedMembers(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 	sourceDir := sb.SourcePath
@@ -81,7 +83,6 @@ func TestReconcileGlobalSkills_KeepsMigratedTrackedMembers(t *testing.T) {
 			t.Fatalf("migration %s = %+v", key, entry)
 		}
 	}
-	want := map[string]install.MetadataEntry{"_team/skill": *store.Get("_team/skill"), "legacy": *store.Get("legacy")}
 	store.AuditAccepted = map[string][]string{"_team/skill": {"member-accepted"}, "legacy": {"legacy-accepted"}}
 	if err := store.Save(sourceDir); err != nil {
 		t.Fatal(err)
@@ -97,29 +98,9 @@ func TestReconcileGlobalSkills_KeepsMigratedTrackedMembers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for key, acceptance := range map[string]string{"_team/skill": "member-accepted", "legacy": "legacy-accepted"} {
-		expected := want[key]
-		if !reflect.DeepEqual(loaded.Get(key), &expected) {
-			t.Errorf("migrated record %s lost or changed: %+v", key, loaded.Get(key))
-		}
-		if !reflect.DeepEqual(loaded.AuditAccepted[key], []string{acceptance}) {
-			t.Errorf("acceptance %s = %v", key, loaded.AuditAccepted[key])
-		}
-	}
-	loaded.RemoveByNames(map[string]bool{"_team": true})
-	if err := loaded.Save(sourceDir); err != nil {
-		t.Fatal(err)
-	}
-	if err := ReconcileGlobalSkills(&Config{Source: sourceDir}, loaded); err != nil {
-		t.Fatal(err)
-	}
-	loaded, err = install.LoadMetadata(sourceDir)
-	if err != nil {
-		t.Fatal(err)
-	}
 	for _, key := range []string{"_team/skill", "legacy"} {
 		if loaded.Has(key) || len(loaded.AuditAccepted[key]) != 0 {
-			t.Errorf("removed record or acceptance survived: %s", key)
+			t.Errorf("migrated member or acceptance survived: %s", key)
 		}
 	}
 }

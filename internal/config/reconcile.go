@@ -3,8 +3,10 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"skillshare/internal/install"
+	"skillshare/internal/utils"
 )
 
 // ReconcileGlobalSkills scans the global source directory for remotely-installed
@@ -36,7 +38,15 @@ func reconcileGlobalSkills(cfg *Config, store *install.MetadataStore, prune bool
 	}
 
 	if prune && !result.incomplete {
-		keepTrackedRecords(store, result.live)
+		// Repository declarations survive without a checkout, including when
+		// discovery skips an occupied path. Legacy member records do not.
+		for _, key := range store.List() {
+			entry := store.Get(key)
+			if entry != nil && entry.Tracked && entry.Source != "" &&
+				utils.IsTrackedRepoDir(filepath.Base(filepath.FromSlash(install.KeyToRelPath(key, entry)))) {
+				result.live[key] = true
+			}
+		}
 		if pruneStaleEntries(store, result.live) {
 			result.changed = true
 		}
@@ -49,15 +59,4 @@ func reconcileGlobalSkills(cfg *Config, store *install.MetadataStore, prune bool
 	}
 
 	return nil
-}
-
-// Tracked records with a source are declarations, including when this machine
-// has no checkout or discovery skips the occupied path.
-func keepTrackedRecords(store *install.MetadataStore, live map[string]bool) {
-	for _, key := range store.List() {
-		entry := store.Get(key)
-		if entry != nil && entry.Tracked && entry.Source != "" {
-			live[key] = true
-		}
-	}
 }
