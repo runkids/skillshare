@@ -177,7 +177,7 @@ func installExtra(parsed *installArgs, mode runMode, cwd string, start time.Time
 		return nil, false, err
 	}
 	branch := parsed.opts.Branch
-	callbacks, err := newExtraConfigCallbacks(name, raw, branch, load, save)
+	callbacks, err := newExtraConfigCallbacks(name, raw, load, save)
 	if err != nil {
 		return nil, false, err
 	}

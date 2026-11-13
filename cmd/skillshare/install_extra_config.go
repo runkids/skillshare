@@ -12,7 +12,7 @@ import (
 type extraConfigUpdate func([]config.ExtraConfig) ([]config.ExtraConfig, error)
 
 type extraConfigCallbacks struct {
-	name, remote, branch        string
+	name, remote                string
 	load                        func() ([]config.ExtraConfig, error)
 	save                        func(extraConfigUpdate) error
 	baseline, previous, written *config.ExtraConfig
@@ -51,8 +51,8 @@ func extraConfigAt(entries []config.ExtraConfig, name string) (int, error) {
 	return index, nil
 }
 
-func newExtraConfigCallbacks(name, remote, branch string, load func() ([]config.ExtraConfig, error), save func(extraConfigUpdate) error) (*extraConfigCallbacks, error) {
-	c := &extraConfigCallbacks{name: name, remote: remote, branch: branch, load: load, save: save}
+func newExtraConfigCallbacks(name, remote string, load func() ([]config.ExtraConfig, error), save func(extraConfigUpdate) error) (*extraConfigCallbacks, error) {
+	c := &extraConfigCallbacks{name: name, remote: remote, load: load, save: save}
 	entries, err := load()
 	if err != nil {
 		return nil, err
@@ -135,11 +135,8 @@ func (c *extraConfigCallbacks) PinBranch(urlDefault string) string {
 	return urlDefault
 }
 
-func (c *extraConfigCallbacks) WriteConfig(urlDefault string) error {
-	branch := c.branch
-	if branch == "" {
-		branch = c.PinBranch(urlDefault)
-	}
+// WriteConfig saves the domain's resolved branch without deriving it again.
+func (c *extraConfigCallbacks) WriteConfig(branch string) error {
 	return c.merge(c.remote, branch, true)
 }
 func (c *extraConfigCallbacks) RepairConfig(remote, branch string) error {

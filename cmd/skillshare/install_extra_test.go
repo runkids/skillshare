@@ -14,7 +14,7 @@ func TestExtraConfigCallbacks_RepairAndBaseline(t *testing.T) {
 	entries := []config.ExtraConfig{{Name: "rules", Remote: "journal", Branch: "old", Targets: []config.ExtraTargetConfig{{Path: "target"}}}, {Name: "other"}}
 	load := func() ([]config.ExtraConfig, error) { return append([]config.ExtraConfig(nil), entries...), nil }
 	save := saveExtraEntries(&entries)
-	callbacks, err := newExtraConfigCallbacks("rules", "journal", "requested", load, save)
+	callbacks, err := newExtraConfigCallbacks("rules", "journal", load, save)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestExtraConfigCallbacks_RepairAndBaseline(t *testing.T) {
 	if err := callbacks.Recheck(); err != nil {
 		t.Fatal(err)
 	}
-	if err := callbacks.WriteConfig(""); err != nil {
+	if err := callbacks.WriteConfig("requested"); err != nil {
 		t.Fatal(err)
 	}
 	if entries[0].Branch != "requested" {
@@ -63,7 +63,7 @@ func TestExtraConfigCallbacks_RefuseConflictingRepair(t *testing.T) {
 			saved = true
 			return errors.New("unexpected save")
 		}
-		callbacks, err := newExtraConfigCallbacks("rules", "requested", "", load, save)
+		callbacks, err := newExtraConfigCallbacks("rules", "requested", load, save)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -76,7 +76,7 @@ func TestExtraConfigCallbacks_RefuseConflictingRepair(t *testing.T) {
 func TestExtraConfigCallbacks_RecheckDetectsConcurrentEdit(t *testing.T) {
 	entries := []config.ExtraConfig{{Name: "rules", Remote: "journal"}}
 	load := func() ([]config.ExtraConfig, error) { return append([]config.ExtraConfig(nil), entries...), nil }
-	callbacks, err := newExtraConfigCallbacks("rules", "journal", "", load, func(extraConfigUpdate) error { return nil })
+	callbacks, err := newExtraConfigCallbacks("rules", "journal", load, func(extraConfigUpdate) error { return nil })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,14 +90,14 @@ func TestExtraConfigCallbacks_RevertRefusesChangedEntry(t *testing.T) {
 	entries := []config.ExtraConfig{{Name: "rules", Remote: "journal"}}
 	load := func() ([]config.ExtraConfig, error) { return append([]config.ExtraConfig(nil), entries...), nil }
 	save := saveExtraEntries(&entries)
-	callbacks, err := newExtraConfigCallbacks("rules", "journal", "branch", load, save)
+	callbacks, err := newExtraConfigCallbacks("rules", "journal", load, save)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := callbacks.RevertConfig(); err != nil {
 		t.Fatal(err)
 	}
-	if err := callbacks.WriteConfig(""); err != nil {
+	if err := callbacks.WriteConfig("branch"); err != nil {
 		t.Fatal(err)
 	}
 	entries[0].Targets = []config.ExtraTargetConfig{{Path: "concurrent"}}
@@ -113,7 +113,7 @@ func TestExtraConfigCallbacks_RevertRemovesNewEntry(t *testing.T) {
 	entries := []config.ExtraConfig{{Name: "other"}}
 	load := func() ([]config.ExtraConfig, error) { return append([]config.ExtraConfig(nil), entries...), nil }
 	save := saveExtraEntries(&entries)
-	callbacks, err := newExtraConfigCallbacks("rules", "journal", "", load, save)
+	callbacks, err := newExtraConfigCallbacks("rules", "journal", load, save)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,11 +143,11 @@ func TestExtraConfigCallbacks_RevertKeepsUnrelatedChanges(t *testing.T) {
 				return out, nil
 			}
 			save := saveExtraEntries(&entries)
-			c, err := newExtraConfigCallbacks("rules", "journal", "after", load, save)
+			c, err := newExtraConfigCallbacks("rules", "journal", load, save)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := c.WriteConfig(""); err != nil {
+			if err := c.WriteConfig("after"); err != nil {
 				t.Fatal(err)
 			}
 			entries[0].Targets = []config.ExtraTargetConfig{{Path: "concurrent"}}
@@ -177,7 +177,7 @@ func TestExtraConfigCallbacks_RevertNoops(t *testing.T) {
 		t.Run(state, func(t *testing.T) {
 			entries := []config.ExtraConfig{{Name: "other"}}
 			saves := 0
-			c, err := newExtraConfigCallbacks("rules", "journal", "", func() ([]config.ExtraConfig, error) { return append([]config.ExtraConfig(nil), entries...), nil }, func(update extraConfigUpdate) error {
+			c, err := newExtraConfigCallbacks("rules", "journal", func() ([]config.ExtraConfig, error) { return append([]config.ExtraConfig(nil), entries...), nil }, func(update extraConfigUpdate) error {
 				next, err := update(entries)
 				if err != nil || next == nil {
 					return err
@@ -222,11 +222,11 @@ func TestExtraConfigCallbacks_ChangesOnlyOwnOriginAtFreshSave(t *testing.T) {
 		}
 		return err
 	}
-	c, err := newExtraConfigCallbacks("rules", "journal", "main", load, save)
+	c, err := newExtraConfigCallbacks("rules", "journal", load, save)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := c.WriteConfig(""); err != nil {
+	if err := c.WriteConfig("main"); err != nil {
 		t.Fatal(err)
 	}
 	if entries[0].Branch != "main" || len(entries[0].Targets) != 2 || entries[1].Targets[0].Path != "other-target" {
@@ -247,7 +247,7 @@ func saveExtraEntries(entries *[]config.ExtraConfig) func(extraConfigUpdate) err
 func TestExtraConfigCallbacks_OmittedBranchInheritsRefreshedBaseline(t *testing.T) {
 	entries := []config.ExtraConfig{{Name: "rules", Remote: "journal", Branch: "main"}}
 	load := func() ([]config.ExtraConfig, error) { return entries, nil }
-	callbacks, err := newExtraConfigCallbacks("rules", "journal", "", load, saveExtraEntries(&entries))
+	callbacks, err := newExtraConfigCallbacks("rules", "journal", load, saveExtraEntries(&entries))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +263,7 @@ func TestExtraConfigCallbacks_OmittedBranchInheritsRefreshedBaseline(t *testing.
 	if callbacks.PinBranch("") != "release" {
 		t.Fatal("repair branch baseline not refreshed")
 	}
-	if err := callbacks.WriteConfig(""); err != nil {
+	if err := callbacks.WriteConfig(callbacks.PinBranch("")); err != nil {
 		t.Fatal(err)
 	}
 	if entries[0].Branch != "release" {
@@ -279,7 +279,7 @@ func TestExtraConfigCallbacks_URLBranchOnlyDefaultsNewDeclaration(t *testing.T) 
 				entries = []config.ExtraConfig{{Name: "rules", Remote: "journal"}}
 			}
 			load := func() ([]config.ExtraConfig, error) { return entries, nil }
-			callbacks, err := newExtraConfigCallbacks("rules", "journal", "", load, saveExtraEntries(&entries))
+			callbacks, err := newExtraConfigCallbacks("rules", "journal", load, saveExtraEntries(&entries))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -290,7 +290,7 @@ func TestExtraConfigCallbacks_URLBranchOnlyDefaultsNewDeclaration(t *testing.T) 
 			if got := callbacks.PinBranch("url-release"); got != want {
 				t.Fatalf("followed branch %q want %q", got, want)
 			}
-			if err := callbacks.WriteConfig("url-release"); err != nil || entries[0].Branch != want {
+			if err := callbacks.WriteConfig(callbacks.PinBranch("url-release")); err != nil || entries[0].Branch != want {
 				t.Fatalf("URL default changed declaration: %+v %v", entries, err)
 			}
 			if err := callbacks.RepairConfig("journal", "repaired-main"); err != nil {
@@ -302,7 +302,7 @@ func TestExtraConfigCallbacks_URLBranchOnlyDefaultsNewDeclaration(t *testing.T) 
 			if got := callbacks.PinBranch("url-release"); got != "repaired-main" {
 				t.Fatalf("URL default bypassed repair refresh: %q", got)
 			}
-			if err := callbacks.WriteConfig("url-release"); err != nil || entries[0].Branch != "repaired-main" {
+			if err := callbacks.WriteConfig(callbacks.PinBranch("url-release")); err != nil || entries[0].Branch != "repaired-main" {
 				t.Fatalf("repaired declaration replaced: %+v %v", entries, err)
 			}
 		})
