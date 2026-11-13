@@ -191,7 +191,8 @@ func Rules() ([]rule, error) {
 			return
 		}
 
-		userYAML, err := loadUserRules(globalAuditRulesPath())
+		path := globalAuditRulesPath()
+		userYAML, err := loadUserRules(path)
 		if err != nil {
 			globalRulesErr = fmt.Errorf("global user rules: %w", err)
 			return
@@ -203,7 +204,10 @@ func Rules() ([]rule, error) {
 		}
 
 		merged := mergeYAMLRules(builtinYAML(), userYAML)
-		globalRules, globalRulesErr = compileRules(merged)
+		globalRules, err = compileRules(merged)
+		if err != nil {
+			globalRulesErr = fmt.Errorf("global user rules: %s: %w", path, err)
+		}
 	})
 	return globalRules, globalRulesErr
 }
@@ -246,7 +250,17 @@ func RulesWithProject(projectRoot string) ([]rule, error) {
 	}
 
 	merged := mergeYAMLRules(baseYAML, projectYAML)
-	return compileRules(merged)
+	rules, err := compileRules(merged)
+	if err != nil {
+		// Blame the global file when its rules fail on their own.
+		if globalUserYAML != nil {
+			if _, globalErr := Rules(); globalErr != nil {
+				return nil, globalErr
+			}
+		}
+		return nil, fmt.Errorf("project user rules: %s: %w", projectPath, err)
+	}
+	return rules, nil
 }
 
 // builtinYAML returns the parsed (not compiled) builtin rules for merging.
@@ -378,7 +392,11 @@ func loadUserRules(path string) ([]yamlRule, error) {
 		}
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
-	return parseRulesYAML(data)
+	rules, err := parseRulesYAML(data)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	return rules, nil
 }
 
 // isPatternLevel returns true when an overlay entry targets all rules

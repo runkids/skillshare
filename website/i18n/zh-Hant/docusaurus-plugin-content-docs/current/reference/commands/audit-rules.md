@@ -269,6 +269,8 @@ skillshare audit <name>              # Check a specific skill
 skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmatically
 ```
 
+如果規則檔無法讀取、解析或編譯（例如 regex 無效），使用它的每次掃描都會回報指出該檔案的掃描錯誤，`audit` 以 `2` 結束。修正該檔案前，安裝會被阻擋。
+
 摘要解讀：
 
 - `Failed` 計算的是發現項目達到或超過目前門檻的 skills。

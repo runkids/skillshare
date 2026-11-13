@@ -132,7 +132,7 @@ or `--kind agent` to choose which resource to manage.
 | `--kind <skill\|agent>` | Restrict resource discovery |
 | `--agent, -a <names>` | Select agents by name (comma-separated) |
 | `--branch, -b <name>` | Select a Git branch, tag or commit SHA (overrides a ref in a web URL) |
-| `--force, -f` | Overwrite existing and explicitly override audit blocking |
+| `--force, -f` | Overwrite existing and explicitly override audit blocking from findings (not a failed scan) |
 | `--update, -u` | Update if exists |
 | `--track, -t` | Track for updates (preserves .git); a local path works if it is a git repository. Rejects `--all`, `--yes`, `--skill`, and `--agent` |
 | `--skill, -s <names>` | Select specific skills from multi-skill repo (comma-separated). Rejects `--track`, `--all`, and `--yes` |
@@ -162,7 +162,7 @@ Tracked custom names must not contain path separators (`/`, `\`) or `..`.
 
 **License display:** If a SKILL.md has a `license` frontmatter field, it's shown in selection prompts (e.g., `my-skill (MIT)`) and in the single-skill confirmation box.
 
-**Security audit:** Install auto-scans skills after download. Blocking follows the active threshold (default `CRITICAL`), while aggregate risk is reported separately for context. Use `--force` to override blocking, `--skip-audit` to skip scanning, or `--audit-threshold` / `--threshold` / `-T` to override threshold per command.
+**Security audit:** Install auto-scans skills after download. Blocking follows the active threshold (default `CRITICAL`), while aggregate risk is reported separately for context. Use `--force` to override blocking, `--skip-audit` to skip scanning, or `--audit-threshold` / `--threshold` / `-T` to override threshold per command. A scan that cannot run (for example, an invalid `audit-rules.yaml`) blocks the install, and `--force` does not override it.
 
 **Private repos (HTTPS):** Provider tokens are sent only over HTTPS on the default port (or 443): `github.com`, `gitlab.com`, `bitbucket.org`, `dev.azure.com`, `*.visualstudio.com`, `gitea.com`, and `cnb.cool`. Self-hosted Gitea/CNB requires an exact hostname in `gitea_hosts`/`cnb_hosts`, even if its name contains the provider name. For self-hosted GitHub/GitLab or other hosts, use a host-scoped Git credential helper, or set `SKILLSHARE_GIT_TOKEN` only for the intended invocation. That generic fallback can be sent to **any HTTPS source**; provider-looking names do not authorize provider tokens. SSH and host-scoped Git credential helpers work as usual.
 
