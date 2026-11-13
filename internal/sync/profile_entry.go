@@ -75,8 +75,8 @@ func entryMutationAllowed(target string, input EntryInput, discard []DiscardEntr
 	}
 }
 
-// legacyCopySource finds original inputs without guessing from target contents.
-func legacyCopySource(name string, skills []DiscoveredSkill, manifest *Manifest, ignore []string) *CopySource {
+// legacyCopySource selects original inputs by recorded checksum and deployed-byte replay.
+func legacyCopySource(name, path string, skills []DiscoveredSkill, manifest *Manifest, ignore []string) *CopySource {
 	for _, skill := range skills {
 		for _, candidate := range targetNameCandidates(skill) {
 			if candidate.name != name {
@@ -89,7 +89,9 @@ func legacyCopySource(name string, skills []DiscoveredSkill, manifest *Manifest,
 			if candidate.naming == "prefixed" && candidate.name != filepath.Base(skill.SourcePath) {
 				source.OutputName = candidate.name
 			}
-			return source
+			if _, clean := manifest.verifiedCopyFingerprint(name, path, true, *source); clean {
+				return source
+			}
 		}
 	}
 	return nil
@@ -142,7 +144,7 @@ func ClassifyEntry(in EntryInput) EntryClassification {
 
 // PreviewEntry resolves original copy inputs and shares the writer's grant-free check.
 func PreviewEntry(name, dir, root string, skills []DiscoveredSkill, manifest *Manifest, ignore []string) (EntryClassification, bool) {
-	return entryMutationAllowed("", EntryInput{Name: name, Path: filepath.Join(dir, name), SourceRoot: root, Manifest: manifest, Source: legacyCopySource(name, skills, manifest, ignore)}, nil)
+	return entryMutationAllowed("", EntryInput{Name: name, Path: filepath.Join(dir, name), SourceRoot: root, Manifest: manifest, Source: legacyCopySource(name, filepath.Join(dir, name), skills, manifest, ignore)}, nil)
 }
 
 // PreviewPreservedEntries uses the writer's ownership checks without grants or writes.

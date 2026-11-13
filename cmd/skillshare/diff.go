@@ -906,6 +906,7 @@ type actionCategory struct {
 	label  string // e.g. "New", "Modified", "Local Override"
 	reason string // preserved explanation, separate from the category heading
 	names  []string
+	items  []copyDiffEntry
 	expand bool // true = list skill names
 }
 
@@ -915,15 +916,18 @@ func categorizeItems(items []copyDiffEntry) []actionCategory {
 		kind  string
 		label string
 		names []string
+		items []copyDiffEntry
 	}
 	buckets := map[string]*bucket{}
 	var order []string
 
-	add := func(key, kind, label, name string) {
+	add := func(key, kind, label string, item copyDiffEntry) {
+		name := item.name
 		if b, ok := buckets[key]; ok {
 			b.names = append(b.names, name)
+			b.items = append(b.items, item)
 		} else {
-			buckets[key] = &bucket{kind: kind, label: label, names: []string{name}}
+			buckets[key] = &bucket{kind: kind, label: label, names: []string{name}, items: []copyDiffEntry{item}}
 			order = append(order, key)
 		}
 	}
@@ -931,25 +935,25 @@ func categorizeItems(items []copyDiffEntry) []actionCategory {
 	for _, item := range items {
 		switch {
 		case item.action == "kept":
-			add("preserved:"+item.reason, "preserved", "Kept", item.name)
+			add("preserved:"+item.reason, "preserved", "Kept", item)
 		case item.reason == "source only" || item.reason == "not in target":
-			add("new", "new", "New", item.name)
+			add("new", "new", "New", item)
 		case item.reason == "deleted from target":
-			add("restore", "new", "Restore", item.name)
+			add("restore", "new", "Restore", item)
 		case item.reason == "content changed" || item.reason == sync.NamingChangedReason || item.reason == sync.CopyToLinkReason:
-			add("modified", "modified", "Modified", item.name)
+			add("modified", "modified", "Modified", item)
 		case strings.HasPrefix(item.reason, "renamed from "):
-			add("renamed", "modified", "Renamed", item.name)
+			add("renamed", "modified", "Renamed", item)
 		case strings.Contains(item.reason, "local copy"):
-			add("override", "override", "Local Override", item.name)
+			add("override", "override", "Local Override", item)
 		case strings.Contains(item.reason, "orphan"):
-			add("orphan", "orphan", "Orphan", item.name)
+			add("orphan", "orphan", "Orphan", item)
 		case item.keptAt != "":
-			add("kept", "kept", "Local only, skill kept under old name", item.name)
+			add("kept", "kept", "Local only, skill kept under old name", item)
 		case item.reason == "local only" || item.reason == "not in source" || item.reason == "local file":
-			add("local", "local", "Local Only", item.name)
+			add("local", "local", "Local Only", item)
 		default:
-			add("warn:"+item.reason, "warn", item.reason, item.name)
+			add("warn:"+item.reason, "warn", item.reason, item)
 		}
 	}
 
@@ -966,6 +970,7 @@ func categorizeItems(items []copyDiffEntry) []actionCategory {
 			label:  b.label,
 			reason: reason,
 			names:  b.names,
+			items:  b.items,
 			expand: expand,
 		})
 	}
@@ -1010,6 +1015,9 @@ func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, op
 			continue
 		}
 		fp := diffFingerprint(r.items)
+		if (opts.showStat || opts.showPatch) && r.preservationCount() > 0 {
+			fp = fmt.Sprintf("%q:%s", r.name, fp)
+		}
 		if g, exists := groups[fp]; exists {
 			g.names = append(g.names, r.name)
 		} else {
@@ -1256,16 +1264,13 @@ func renderDiffGroup(r targetDiffResult, opts diffRenderOpts, next *diffNext, wi
 			}
 			continue
 		}
-		for j, name := range cat.names {
+		for j := range cat.items {
 			label := ""
 			if j == 0 {
 				label = labels[i]
 			}
 			ui.Row(ui.MarkNone, label, shown[j], width)
-			item := findDiffItem(items, name)
-			if item == nil {
-				continue
-			}
+			item := &cat.items[j]
 			item.ensureFiles()
 			if item.action == "kept" {
 				for _, f := range item.files {

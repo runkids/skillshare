@@ -482,7 +482,7 @@ func pruneOrphanCopiesWithPolicy(targetName string, sc config.ResourceTargetConf
 			if len(verification) > 0 {
 				verificationSkills = verification[0].Skills
 			}
-			entry := ClassifyEntry(EntryInput{Name: entryName, Path: entryPath, SourceRoot: sourceRoot, Manifest: manifest, Source: legacyCopySource(entryName, verificationSkills, manifest, ignore)})
+			entry := ClassifyEntry(EntryInput{Name: entryName, Path: entryPath, SourceRoot: sourceRoot, Manifest: manifest, Source: legacyCopySource(entryName, entryPath, verificationSkills, manifest, ignore)})
 			if entry.Class == EntryModifiedCopy && !discardAllowed(targetName, cleanEntryDir(targetPath), entryName, entry, discard) {
 				result.KeptModified = append(result.KeptModified, EntryChange{Target: targetName, Dir: cleanEntryDir(targetPath), Entry: entryName, Step: "prune", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint})
 				continue
