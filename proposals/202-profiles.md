@@ -1,5 +1,7 @@
 # Feature Proposal: Named skill profiles
 
+Issue: [#202](https://github.com/runkids/skillshare/issues/202)
+
 ## Problem
 
 #202 asks to assign skills to named profiles and switch between them easily. Existing target filters can express the selection, as discussed in #156. Users still have to edit filters for each target, run sync and repeat those edits when switching back. There is no named selection, and switching rewrites the config that some users share between machines.
@@ -12,7 +14,7 @@ Keep the model small:
 2. Keep one active profile per config in machine-local state, outside the config and shared settings.
 3. Apply the profile as another narrowing layer alongside ignores, target filters and skill routing; source skills stay installed and unchanged.
 4. Offer CLI definition/membership commands and `profile use`; add dashboard preview/switching first, then an editor and skill-tree assignment.
-5. Plan and apply through the existing skill target runner. Preserve modified managed copies and unmanaged entries during every sync with a profile active; discarding a listed modified managed copy requires a verified snapshot and a final fingerprint check.
+5. Plan and apply through the existing skill target runner. A switch can deselect many copies at once, making preservation of local edits important. Preserve modified managed copies and unmanaged entries during every sync with a profile active; discarding a listed modified managed copy requires a verified snapshot and a final fingerprint check.
 
 Implementation extends configuration loading/formatting, both schemas, the selection seam and existing writers, with a small profile package, a shared pattern leaf and an apply adapter. CLI and HTTP handlers call the same rules. It uses existing YAML and file-lock dependencies. No new dependency is proposed.
 
@@ -25,6 +27,7 @@ The switch touches only enabled own merge/copy skill targets. Symlink-mode, disa
 ## Alternatives Considered
 
 - Edit existing target filters: already works, but leaves the naming, repeated edits and one-step switching gap.
+- Switch separate configs with `SKILLSHARE_CONFIG`: works, but duplicates configuration and makes switching less convenient.
 - Rewrite `.skillignore`: affects discovery and source-level operations instead of only deployment to targets.
 - Store separate source trees or swap target folders: duplicates content and interferes with tracked skills.
 - Put the active name in shared config: a frequent local choice would rewrite and switch other machines.
@@ -40,11 +43,11 @@ Delivery is by usable outcome: proposal; a conditional standalone copy-fingerpri
 
 Agents, extras, MCP, hooks and plugins in profiles; multiple active profiles; inheritance; shared defaults; and per-target activation are outside this series.
 
-This is an unapproved reference implementation proposal for #202, currently labelled `pending`, not `approved`. The proposal reply is [on the issue](https://github.com/runkids/skillshare/issues/202#issuecomment-6843113583). The author has requested draft reference PRs; maintainer acceptance and merging remain undecided.
+This is an unapproved reference implementation proposal for #202, currently labelled `pending`, not `approved`. The proposal reply is [on the issue](https://github.com/runkids/skillshare/issues/202#issuecomment-6843113583). Draft reference PRs have been offered; maintainer acceptance and merging remain undecided.
 
 ## Open Questions
 
-These are the revised spec section 13's five points for the maintainer:
+These are the five points for the maintainer:
 
 1. Whether you want this at all, given your answer in #156.
 2. Delivery of the core slice: one pull request of about 5,400 lines, a stack you merge in an order you name, or a reference you implement from. CONTRIBUTING says implementation is normally yours. The author's current delivery plan is one core reference PR with ordered commits.
