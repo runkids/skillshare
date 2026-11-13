@@ -34,8 +34,8 @@ func profileAssign(scope profileapply.Scope, o profileOptions) error {
 	}
 	if o.json {
 		return writeJSON(struct {
-			Profile string                `json:"profile"`
-			Changed bool                  `json:"changed"`
+			Profile string               `json:"profile"`
+			Changed bool                 `json:"changed"`
 			Skills  []profile.SkillResult `json:"skills"`
 		}{o.names[0], change.Changed, change.Skills})
 	}
@@ -56,7 +56,7 @@ func resolveSkillFlatNames(skills []ssync.DiscoveredSkill, args []string) ([]str
 		var exact string
 		var candidates []string
 		for _, skill := range skills {
-			if arg == skill.FlatName || arg == filepath.ToSlash(skill.RelPath) {
+			if arg == skill.FlatName || filepath.ToSlash(arg) == filepath.ToSlash(skill.RelPath) {
 				exact = skill.FlatName
 				break
 			}

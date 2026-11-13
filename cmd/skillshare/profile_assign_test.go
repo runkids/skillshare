@@ -1,6 +1,7 @@
 package main
 
 import (
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -21,6 +22,7 @@ func TestResolveSkillFlatNames(t *testing.T) {
 		err        string
 	}{
 		{"flat and path", []string{"alpha", "team__review", "other/review"}, []string{"alpha", "team__review", "other__review"}, ""},
+		{"native source path", []string{filepath.FromSlash("team/review")}, []string{"team__review"}, ""},
 		{"unique basename", []string{"solo"}, []string{"team__solo"}, ""},
 		{"duplicates", []string{"alpha", "alpha"}, []string{"alpha", "alpha"}, ""},
 		{"ambiguous", []string{"review"}, nil, "other__review, team__review"},
