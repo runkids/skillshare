@@ -403,7 +403,7 @@ func installFromSearchResultProject(result search.SearchResult, cwd string) (err
 		Mode:   "project",
 	}
 	defer func() {
-		logInstallOp(config.ProjectConfigPath(cwd), []string{result.Source}, start, err, logSummary)
+		logInstallOp(config.ProjectConfigPath(cwd), result.Source, start, err, logSummary)
 	}()
 
 	if err := ensureProjectConfig(cwd); err != nil {
@@ -485,7 +485,7 @@ func installFromSearchResult(result search.SearchResult, cfg *config.Config) (er
 		Mode:   "global",
 	}
 	defer func() {
-		logInstallOp(config.ConfigPath(), []string{result.Source}, start, err, logSummary)
+		logInstallOp(config.ConfigPath(), result.Source, start, err, logSummary)
 	}()
 
 	// Parse source

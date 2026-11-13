@@ -197,6 +197,30 @@ targets:
 	logResult.AssertOutputContains(t, "installed=log-installed-skill")
 }
 
+// An install source can carry credentials, also when typed without a scheme or
+// after a flag, and git echoes a URL's query in its error (issue #878).
+func TestLog_InstallRedactsSourceCredentials(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + sb.CreateTarget("claude") + `
+`)
+
+	sb.RunCLI("install", "--into", "team", "https://someone:s3cret@127.0.0.1:1/team/skills.git?token=q-s3cret")
+	sb.RunCLI("install", "someone:s3cret@127.0.0.1:1/team/skills")
+
+	logResult := sb.RunCLI("log", "--json", "--cmd", "install")
+	logResult.AssertSuccess(t)
+	for _, leak := range []string{"s3cret", "someone"} {
+		logResult.AssertOutputNotContains(t, leak)
+	}
+	logResult.AssertOutputContains(t, `"source":"https://127.0.0.1:1/team/skills.git"`)
+	logResult.AssertOutputContains(t, `"source":"127.0.0.1:1/team/skills"`)
+}
+
 func TestLog_SyncPartialStatus(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

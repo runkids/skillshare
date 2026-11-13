@@ -425,7 +425,7 @@ func cmdInstall(args []string) error {
 		if summary.Mode == "" {
 			summary.Mode = "project"
 		}
-		logInstallOp(config.ProjectConfigPath(cwd), rest, start, err, summary)
+		logInstallOp(config.ProjectConfigPath(cwd), parsed.sourceArg, start, err, summary)
 		if parsed.jsonOutput {
 			return jsonWriteResult(summary, err)
 		}
@@ -483,7 +483,7 @@ func cmdInstall(args []string) error {
 	// No source argument: install from global config
 	if parsed.sourceArg == "" {
 		summary, err := installFromGlobalConfig(cfg, parsed.opts)
-		logInstallOp(config.ConfigPath(), rest, start, err, summary)
+		logInstallOp(config.ConfigPath(), parsed.sourceArg, start, err, summary)
 		if parsed.jsonOutput {
 			return jsonWriteResult(summary, err)
 		}
@@ -503,7 +503,7 @@ func cmdInstall(args []string) error {
 		source.Raw = source.Path
 	}
 	if err != nil {
-		logInstallOp(config.ConfigPath(), rest, start, err, installLogSummary{
+		logInstallOp(config.ConfigPath(), parsed.sourceArg, start, err, installLogSummary{
 			Source: parsed.sourceArg,
 			Mode:   "global",
 		})
@@ -541,7 +541,7 @@ func cmdInstall(args []string) error {
 				ui.Warning("Failed to reconcile global skills config: %v", rErr)
 			}
 		}
-		logInstallOp(config.ConfigPath(), rest, start, err, summary)
+		logInstallOp(config.ConfigPath(), parsed.sourceArg, start, err, summary)
 		if parsed.jsonOutput {
 			return jsonWriteResult(summary, err)
 		}
@@ -563,7 +563,7 @@ func cmdInstall(args []string) error {
 			ui.Warning("Failed to reconcile global skills config: %v", rErr)
 		}
 	}
-	logInstallOp(config.ConfigPath(), rest, start, err, summary)
+	logInstallOp(config.ConfigPath(), parsed.sourceArg, start, err, summary)
 	if parsed.jsonOutput {
 		return jsonWriteResult(summary, err)
 	}
@@ -590,7 +590,9 @@ func installOutputJSON(summary installLogSummary, start time.Time, installErr er
 	return writeJSONResult(&output, installErr)
 }
 
-func logInstallOp(cfgPath string, args []string, start time.Time, cmdErr error, summary installLogSummary) {
+// logInstallOp logs sourceArg, the source as typed, or summary.Source when
+// none was given.
+func logInstallOp(cfgPath, sourceArg string, start time.Time, cmdErr error, summary installLogSummary) {
 	status := statusFromErr(cmdErr)
 	if len(summary.InstalledSkills) > 0 && len(summary.FailedSkills) > 0 {
 		status = "partial"
@@ -598,8 +600,8 @@ func logInstallOp(cfgPath string, args []string, start time.Time, cmdErr error, 
 	e := oplog.NewEntry("install", status, time.Since(start))
 	fields := map[string]any{}
 	source := summary.Source
-	if len(args) > 0 {
-		source = args[0]
+	if sourceArg != "" {
+		source = sourceArg
 	}
 	if source != "" {
 		fields["source"] = source
