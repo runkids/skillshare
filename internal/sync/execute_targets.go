@@ -21,6 +21,12 @@ type TargetResult struct {
 	Skipped    []string `json:"skipped"`
 	Pruned     []string `json:"pruned"`
 	DirCreated string   `json:"dir_created,omitempty"`
+	KeptModified []EntryChange `json:"kept_modified,omitempty"`
+	Blocked []EntryChange `json:"blocked,omitempty"`
+	Refreshed []string `json:"refreshed,omitempty"`
+	Converted []string `json:"converted,omitempty"`
+	PruneError string `json:"prune_error,omitempty"`
+	FailedRemovals []string `json:"failed_removals,omitempty"`
 }
 
 // TargetFailure reports one failed resource without discarding completed work.
@@ -56,6 +62,8 @@ type TargetDiscovery struct {
 // Kinds accepts "skill" and "agent"; empty syncs both. Preparation, backups and logging are
 // owned by adapters; Discovery must describe the resources selected by Kinds.
 type ExecuteOptions struct {
+	ProfileAware               bool
+	Discard                    []DiscardEntry
 	Kinds                      []string
 	Force, DryRun, ProjectMode bool
 	ProjectRoot                string
@@ -124,6 +132,7 @@ func ExecuteTargets(ctx context.Context, cfg *config.Config, targets map[string]
 			failed = append(failed, TargetFailure{Target: name, Part: "skill", Error: err.Error(), Message: msg, Conflict: errors.Is(err, ErrSymlinkConflict)})
 		}
 		runOpts := SkillRunOptions{
+			ProfileAware: opts.ProfileAware, Discard: opts.Discard,
 			Source: cfg.EffectiveSkillsSource(), ProjectRoot: opts.ProjectRoot, IgnorePatterns: ignorePatterns,
 			DryRun: dryRun, Force: force, SourceIncomplete: sourceIncomplete,
 		}
@@ -155,6 +164,14 @@ func ExecuteTargets(ctx context.Context, cfg *config.Config, targets map[string]
 				continue
 			}
 			warnings = append(warnings, run.Warnings...)
+			if opts.ProfileAware {
+				res.KeptModified, res.Blocked = run.KeptModified, run.Blocked
+				res.Refreshed, res.Converted = run.Refreshed, run.Converted
+				res.FailedRemovals = run.FailedRemovals
+				if run.PruneErr != nil {
+					res.PruneError = run.PruneErr.Error()
+				}
+			}
 			if len(run.UnmatchedIncludes) > 0 {
 				u := TargetUnmatchedInclude{Target: name, Root: target.ProjectRoot(), Patterns: []string{}, All: AllIncludesUnmatched(sc.Include, run.UnmatchedIncludes)}
 				for _, m := range run.UnmatchedIncludes {
@@ -179,9 +196,41 @@ func ExecuteTargets(ctx context.Context, cfg *config.Config, targets map[string]
 		// Clean skillshare entries left in also_scans dirs a target no longer
 		// writes to, so the runtime stops seeing every skill twice.
 		if opts.ProjectMode {
-			warnings = append(warnings, CleanMovedProjectDirs(
+			cleanup := cleanMovedProjectDirsWithPolicy(
 				opts.ProjectRoot, cfg.EffectiveSkillsSource(),
-				opts.MovedTargets, dryRun)...)
+				opts.MovedTargets, dryRun, opts.ProfileAware, nil)
+			warnings = append(warnings, cleanup.Messages...)
+			for _, outcome := range cleanup.Outcomes {
+				warningResult := SkillTargetResult{KeptModified: outcome.KeptModified, Blocked: outcome.Blocked}
+				warningResult.addProfileWarnings()
+				warnings = append(warnings, warningResult.Warnings...)
+				if outcome.PruneError != "" {
+					warnings = append(warnings, fmt.Sprintf("%s: moved-directory prune failed: %s", outcome.Target, outcome.PruneError))
+				}
+				for _, entry := range outcome.FailedRemovals {
+					warnings = append(warnings, fmt.Sprintf("%s: failed to remove moved-directory entry %s", outcome.Target, entry))
+				}
+				merged := false
+				for i := range results {
+					if results[i].Target != outcome.Target {
+						continue
+					}
+					results[i].KeptModified = append(results[i].KeptModified, outcome.KeptModified...)
+					results[i].Blocked = append(results[i].Blocked, outcome.Blocked...)
+					results[i].FailedRemovals = append(results[i].FailedRemovals, outcome.FailedRemovals...)
+					if outcome.PruneError != "" {
+						if results[i].PruneError != "" {
+							results[i].PruneError += "; "
+						}
+						results[i].PruneError += outcome.PruneError
+					}
+					merged = true
+					break
+				}
+				if !merged {
+					results = append(results, outcome)
+				}
+			}
 		}
 	}
 

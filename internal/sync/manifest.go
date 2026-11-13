@@ -22,6 +22,7 @@ type Manifest struct {
 	Mtimes    map[string]int64  `json:"mtimes,omitempty"`  // flatName → source dir max mtime (UnixNano), copy mode only
 	Sources   map[string]string `json:"sources,omitempty"` // output name → SHA-256 of the source it was converted from, extension outputs only
 	Naming    map[string]string `json:"naming,omitempty"`  // entry name → target_naming that produced it, copy mode only
+	Outputs   map[string]string `json:"outputs,omitempty"` // entry name → checksum of the written copy
 	UpdatedAt time.Time         `json:"updated_at"`
 }
 
@@ -32,7 +33,7 @@ func ReadManifest(targetPath string) (*Manifest, error) {
 	data, err := os.ReadFile(p)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return &Manifest{Managed: make(map[string]string), Mtimes: make(map[string]int64), Naming: make(map[string]string)}, nil
+			return &Manifest{Managed: make(map[string]string), Mtimes: make(map[string]int64), Naming: make(map[string]string), Outputs: make(map[string]string)}, nil
 		}
 		return nil, err
 	}
@@ -40,7 +41,7 @@ func ReadManifest(targetPath string) (*Manifest, error) {
 	var m Manifest
 	if err := json.Unmarshal(data, &m); err != nil {
 		// Corrupt manifest — treat as empty so next sync rebuilds it.
-		return &Manifest{Managed: make(map[string]string), Mtimes: make(map[string]int64), Naming: make(map[string]string)}, nil
+		return &Manifest{Managed: make(map[string]string), Mtimes: make(map[string]int64), Naming: make(map[string]string), Outputs: make(map[string]string)}, nil
 	}
 	if m.Managed == nil {
 		m.Managed = make(map[string]string)
@@ -51,6 +52,9 @@ func ReadManifest(targetPath string) (*Manifest, error) {
 	if m.Naming == nil {
 		m.Naming = make(map[string]string)
 	}
+	if m.Outputs == nil {
+		m.Outputs = make(map[string]string)
+	}
 	return &m, nil
 }
 
@@ -59,24 +63,71 @@ func (m *Manifest) Remove(name string) {
 	delete(m.Managed, name)
 	delete(m.Mtimes, name)
 	delete(m.Naming, name)
+	delete(m.Outputs, name)
 }
 
 // CopyToLinkReason is the diff reason for a copy-mode copy that merge sync replaces with a link.
 const CopyToLinkReason = "copy mode copy (sync replaces with link)"
 
-// OwnsCopy reports whether dir is still the copy that copy mode made for name:
-// the manifest records a checksum (not a merge-mode link) and the folder still
-// hashes to it, so nothing the user edited is lost when it is replaced.
-func (m *Manifest) OwnsCopy(name, dir string) bool {
+// CopySource supplies the original inputs needed to verify a legacy rewrite.
+type CopySource struct {
+	Path, OutputName string
+	IgnorePatterns   []string
+}
+
+// CopyOutputFingerprint hashes the output using the standard ignored files.
+func CopyOutputFingerprint(dir string) (string, error) {
+	return DirChecksumWithIgnore(dir, DefaultFileIgnorePatterns())
+}
+
+// OwnsCopy reports whether dir still matches the recorded copy, failing closed
+// when an older rewritten copy cannot be verified from its original source.
+func (m *Manifest) OwnsCopy(name, dir string, source ...CopySource) bool {
+	_, ok := m.verifiedCopyFingerprint(name, dir, source...)
+	return ok
+}
+
+func (m *Manifest) verifiedCopyFingerprint(name, dir string, source ...CopySource) (string, bool) {
 	if m == nil {
-		return false
+		return "", false
 	}
 	recorded, ok := m.Managed[name]
 	if !ok || recorded == manifestSymlink {
-		return false
+		return "", false
 	}
-	sum, err := DirChecksumWithIgnore(dir, DefaultFileIgnorePatterns())
-	return err == nil && sum == recorded
+	sum, err := CopyOutputFingerprint(dir)
+	if err != nil {
+		return "", false
+	}
+	if output, ok := m.Outputs[name]; ok {
+		return sum, sum == output
+	}
+	if (len(source) == 0 || source[0].OutputName == "") && sum == recorded {
+		return sum, true
+	}
+	if len(source) == 0 || source[0].Path == "" || source[0].OutputName == "" {
+		return "", false
+	}
+	input := source[0]
+	ignore := input.IgnorePatterns
+	if ignore == nil {
+		ignore = DefaultFileIgnorePatterns()
+	}
+	sourceSum, err := DirChecksumWithIgnore(input.Path, ignore)
+	if err != nil || sourceSum != recorded {
+		return "", false
+	}
+	scratch, err := os.MkdirTemp("", "skillshare-copy-replay-*")
+	if err != nil {
+		return "", false
+	}
+	defer os.RemoveAll(scratch)
+	replay := filepath.Join(scratch, "copy")
+	if err := copySkillToTarget(input.Path, replay, input.OutputName, ignore); err != nil {
+		return "", false
+	}
+	expected, err := CopyOutputFingerprint(replay)
+	return sum, err == nil && sum == expected
 }
 
 // SkipsHidden reports whether a target scan should skip name. Hidden entries

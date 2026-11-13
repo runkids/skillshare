@@ -485,6 +485,9 @@ type MergeResult struct {
 	Linked     []string // Skills that were symlinked
 	Skipped    []string // Skills that already exist in target (kept local)
 	Updated    []string // Skills that had broken symlinks fixed
+	Converted  []string // Copies replaced with links
+	KeptModified []EntryChange
+	Blocked []EntryChange
 	DirCreated string   // Non-empty if target directory was auto-created (or would be in dry-run)
 	// UnmatchedIncludes are the include patterns that select no skill.
 	UnmatchedIncludes []UnmatchedInclude
@@ -559,6 +562,13 @@ func ensureRealTargetDir(targetPath, sourcePath, modeName string, dryRun bool) (
 	return false, nil
 }
 
+func checkProfileTargetRoot(targetPath, sourcePath string, profileAware bool) error {
+	if profileAware && utils.IsSymlinkOrJunction(targetPath) && !isSymlinkToSource(targetPath, sourcePath) {
+		return fmt.Errorf("target root %s is an unmanaged link; kept", targetPath)
+	}
+	return nil
+}
+
 // SyncTargetMerge performs merge mode sync - creates symlinks for each skill individually
 // while preserving target-specific skills.
 // Supports nested skills: source path "personal/writing/email" becomes target symlink "personal__writing__email"
@@ -576,10 +586,21 @@ func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string,
 // avoiding redundant filesystem walks when syncing multiple targets.
 // sourcePath is the skills source directory, used to detect symlink-mode targets.
 func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, projectRoot string) (*MergeResult, error) {
+	return SyncTargetMergeWithPolicy(name, target, allSkills, sourcePath, dryRun, force, projectRoot, false, nil)
+}
+
+func SyncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, projectRoot string, profileAware bool, discard []DiscardEntry, copyIgnore ...[]string) (*MergeResult, error) {
+	var ignore []string
+	if len(copyIgnore) > 0 {
+		ignore = copyIgnore[0]
+	}
 	sc := target.SkillsConfig()
 	result := &MergeResult{}
 	if !sc.IsEnabled() {
 		return result, nil
+	}
+	if err := checkProfileTargetRoot(sc.Path, sourcePath, profileAware); err != nil {
+		return nil, err
 	}
 	// Checked against sourcePath (root dir), not per-skill paths — all skills
 	// are children of sourcePath so the result is the same for every skill.
@@ -612,11 +633,49 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 	taken := resolution.ValidTargetNames()
 	for _, resolved := range resolution.Skills {
 		skill := resolved.Skill
-		activeName, err := selectActiveTargetNameForSync("merge", sc.Path, resolved, taken, manifest, dryRun)
+		activeName, err := selectActiveTargetNameWithPolicy("merge", sc.Path, resolved, taken, manifest, dryRun, profileAware && !force, ignore)
 		if err != nil {
 			return nil, err
 		}
 		targetSkillPath := filepath.Join(sc.Path, activeName)
+		copySource := CopySource{Path: skill.SourcePath, IgnorePatterns: ignore}
+		if manifest.Naming[activeName] == "prefixed" {
+			prefixed := PrefixedTargetName(skill, resolved.SkillName)
+			if prefixed != resolved.SkillName {
+				copySource.OutputName = prefixed
+			}
+		}
+		entry := EntryClassification{}
+		if profileAware && !force {
+			entry = ClassifyEntry(EntryInput{Name: activeName, Path: targetSkillPath, SourceRoot: sourcePath, Manifest: manifest, Source: &copySource})
+			if entry.Class == EntryModifiedCopy && !discardAllowed(name, activeName, entry, discard) {
+				result.KeptModified = append(result.KeptModified, EntryChange{Target: name, Entry: activeName, Step: "convert", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint})
+				result.Skipped = append(result.Skipped, activeName)
+				continue
+			}
+			if entry.Class == EntryUnmanaged {
+				result.Blocked = append(result.Blocked, EntryChange{Target: name, Entry: activeName, Step: "convert", Class: entry.Class, Reason: entry.Reason})
+				result.Skipped = append(result.Skipped, activeName)
+				continue
+			}
+		}
+		checkBeforeWrite := func() bool {
+			if !profileAware || force {
+				return true
+			}
+			input := EntryInput{Name: activeName, Path: targetSkillPath, SourceRoot: sourcePath, Manifest: manifest, Source: &copySource}
+			current, allowed := entryMutationAllowed(name, input, discard)
+			if !allowed {
+				change := EntryChange{Target: name, Entry: activeName, Step: "convert", Class: current.Class, Reason: current.Reason, Fingerprint: current.Fingerprint}
+				if current.Class == EntryModifiedCopy {
+					result.KeptModified = append(result.KeptModified, change)
+				} else {
+					result.Blocked = append(result.Blocked, change)
+				}
+				result.Skipped = append(result.Skipped, activeName)
+			}
+			return allowed
+		}
 
 		// Check if skill exists in target
 		_, err = os.Lstat(targetSkillPath)
@@ -639,6 +698,9 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 					}
 					// Correct target but wrong format (abs↔rel) — recreate
 					if !dryRun {
+						if !checkBeforeWrite() {
+							continue
+						}
 						if err := reformatLink(targetSkillPath, skill.SourcePath, relative, sourcePath); err != nil {
 							return nil, fmt.Errorf("failed to reformat link for %s: %w", activeName, err)
 						}
@@ -653,7 +715,12 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 						fmt.Fprintf(DiagOutput, "[dry-run] Would fix symlink: %s\n", activeName)
 					}
 				} else {
-					os.Remove(targetSkillPath)
+					if !checkBeforeWrite() {
+						continue
+					}
+					if err := os.Remove(targetSkillPath); err != nil && profileAware {
+						return nil, fmt.Errorf("failed to remove link %s: %w", activeName, err)
+					}
 					if err := createLink(targetSkillPath, skill.SourcePath, relative, sourcePath); err != nil {
 						return nil, fmt.Errorf("failed to create link for %s: %w", activeName, err)
 					}
@@ -661,13 +728,16 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 				result.Updated = append(result.Updated, activeName)
 			} else {
 				// It's a real directory
-				if force || manifest.OwnsCopy(activeName, targetSkillPath) {
+				if force || manifest.OwnsCopy(activeName, targetSkillPath) || (profileAware && (entry.Class == EntryCleanCopy || discardAllowed(name, activeName, entry, discard))) {
 					// Force, or an unedited copy left by copy mode: replace it with a symlink
 					if dryRun {
 						if !quietDryRun {
 							fmt.Fprintf(DiagOutput, "[dry-run] Would replace local copy: %s\n", activeName)
 						}
 					} else {
+						if !checkBeforeWrite() {
+							continue
+						}
 						err := replaceWithLink(targetSkillPath, func() error {
 							return createLink(targetSkillPath, skill.SourcePath, relative, sourcePath)
 						})
@@ -676,6 +746,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 						}
 					}
 					result.Updated = append(result.Updated, activeName)
+					result.Converted = append(result.Converted, activeName)
 				} else {
 					// Preserve local skill
 					result.Skipped = append(result.Skipped, activeName)
@@ -688,6 +759,9 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 					fmt.Fprintf(DiagOutput, "[dry-run] Would create link: %s -> %s\n", targetSkillPath, skill.SourcePath)
 				}
 			} else {
+				if !checkBeforeWrite() {
+					continue
+				}
 				if err := createLink(targetSkillPath, skill.SourcePath, relative, sourcePath); err != nil {
 					return nil, fmt.Errorf("failed to create link for %s: %w", activeName, err)
 				}
@@ -701,6 +775,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 	// Write manifest (additive: merge with existing entries)
 	if !dryRun {
 		for _, name := range result.Linked {
+			manifest.Remove(name)
 			manifest.Managed[name] = manifestSymlink
 		}
 		for _, name := range result.Updated {
@@ -708,7 +783,9 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 			manifest.Managed[name] = manifestSymlink
 		}
 		// Skipped items are NOT added — they are user-local copies
-		WriteManifest(sc.Path, manifest) //nolint:errcheck
+		if err := WriteManifest(sc.Path, manifest); err != nil && profileAware {
+			return nil, fmt.Errorf("failed to write manifest: %w", err)
+		}
 	}
 
 	return result, nil
@@ -746,10 +823,16 @@ type PruneResult struct {
 	Removed   []string // Items that were removed
 	Warnings  []string // Items that were kept with warnings
 	LocalDirs []string // User-created entries (directories or links) not managed by skillshare
+	KeptModified []EntryChange
+	Blocked []EntryChange
+	FailedRemovals []string
 }
 
 // PruneOptions holds parameters for PruneOrphanLinks / PruneOrphanCopies.
 type PruneOptions struct {
+	ProfileAware bool
+	IgnorePatterns []string
+	Discard []DiscardEntry
 	SharedTargets []config.SkillTargetIdentity
 	Agent         string
 	TargetPath    string
@@ -796,6 +879,9 @@ func PruneOrphanLinks(targetPath, sourcePath string, include, exclude []string, 
 // PruneOrphanLinksWithSkills is like PruneOrphanLinks but accepts pre-discovered skills
 // via PruneOptions, avoiding redundant filesystem walks.
 func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
+	if opts.ProfileAware {
+		opts.ManagedOnly = true
+	}
 	targetPath := opts.TargetPath
 	sourcePath := opts.SourcePath
 	allSourceSkills := opts.Skills
@@ -808,7 +894,10 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 	result := &PruneResult{}
 
 	// Read manifest for managed-directory detection (may be empty/absent)
-	manifest, _ := ReadManifest(targetPath)
+	manifest, manifestErr := ReadManifest(targetPath)
+	if manifestErr != nil && opts.ProfileAware {
+		return nil, fmt.Errorf("failed to read manifest: %w", manifestErr)
+	}
 	manifestChanged := false
 
 	resolution, err := ResolveTargetSkillsForTarget(targetName, config.ResourceTargetConfig{
@@ -857,6 +946,16 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 		}
 		if _, keepLegacy := legacyNames[name]; keepLegacy {
 			continue // Still exists in source, keep it
+		}
+		if opts.ProfileAware {
+			entry := ClassifyEntry(EntryInput{Name: name, Path: entryPath, SourceRoot: sourcePath, Manifest: manifest, Source: legacyCopySource(name, allSourceSkills, manifest, opts.IgnorePatterns)})
+			if entry.Class == EntryModifiedCopy && !discardAllowed(targetName, name, entry, opts.Discard) {
+				result.KeptModified = append(result.KeptModified, EntryChange{Target: targetName, Entry: name, Step: "prune", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint})
+				continue
+			}
+			if entry.Class == EntryUnmanaged {
+				continue
+			}
 		}
 
 		// Entry is orphan - determine if we should remove it
@@ -920,7 +1019,20 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 			if dryRun {
 				fmt.Fprintf(DiagOutput, "[dry-run] Would remove %s: %s\n", reason, entryPath)
 			} else {
+				if opts.ProfileAware {
+					input := EntryInput{Name: name, Path: entryPath, SourceRoot: sourcePath, Manifest: manifest, Source: legacyCopySource(name, allSourceSkills, manifest, opts.IgnorePatterns)}
+					if current, allowed := entryMutationAllowed(targetName, input, opts.Discard); !allowed {
+						change := EntryChange{Target: targetName, Entry: name, Step: "prune", Class: current.Class, Reason: current.Reason, Fingerprint: current.Fingerprint}
+						if current.Class == EntryModifiedCopy {
+							result.KeptModified = append(result.KeptModified, change)
+						} else {
+							result.Blocked = append(result.Blocked, change)
+						}
+						continue
+					}
+				}
 				if err := os.RemoveAll(entryPath); err != nil {
+					result.FailedRemovals = append(result.FailedRemovals, name)
 					result.Warnings = append(result.Warnings,
 						fmt.Sprintf("%s: failed to remove: %v", name, err))
 					continue
@@ -937,7 +1049,9 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 
 	// Write back manifest if entries were removed (skip in dry-run)
 	if manifestChanged && !dryRun {
-		WriteManifest(targetPath, manifest) //nolint:errcheck
+		if err := WriteManifest(targetPath, manifest); err != nil && opts.ProfileAware {
+			return result, fmt.Errorf("failed to write manifest: %w", err)
+		}
 	}
 
 	return result, nil

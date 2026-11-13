@@ -12,7 +12,11 @@ import (
 // the skill still has a managed entry under the name an earlier target naming
 // gave it, that entry is renamed in place, unless the new name is taken.
 // taken holds the names other skills sync to in this run.
-func selectActiveTargetNameForSync(mode, targetPath string, skill ResolvedTargetSkill, taken map[string]bool, manifest *Manifest, dryRun bool) (string, error) {
+func selectActiveTargetNameForSync(mode, targetPath string, skill ResolvedTargetSkill, taken map[string]bool, manifest *Manifest, dryRun bool, profileAware ...bool) (string, error) {
+	return selectActiveTargetNameWithPolicy(mode, targetPath, skill, taken, manifest, dryRun, len(profileAware) > 0 && profileAware[0], nil)
+}
+
+func selectActiveTargetNameWithPolicy(mode, targetPath string, skill ResolvedTargetSkill, taken map[string]bool, manifest *Manifest, dryRun, profileAware bool, ignore []string) (string, error) {
 	desiredName := skill.TargetName
 	legacy, err := findLegacyTargetEntry(mode, targetPath, skill, taken, manifest)
 	if err != nil || legacy.name == "" {
@@ -20,6 +24,24 @@ func selectActiveTargetNameForSync(mode, targetPath string, skill ResolvedTarget
 	}
 	legacyName, legacyNaming := legacy.name, legacy.naming
 	legacyPath := filepath.Join(targetPath, legacyName)
+	verifiedOutput := ""
+	var checkedInput *EntryInput
+	var checkedEntry EntryClassification
+	if profileAware {
+		input := CopySource{Path: skill.Skill.SourcePath, IgnorePatterns: ignore}
+		if legacyNaming == "prefixed" && legacyName != skill.SkillName {
+			input.OutputName = legacyName
+		}
+		checkedInput = &EntryInput{Name: legacyName, Path: legacyPath, SourceRoot: filepath.Dir(skill.Skill.SourcePath), Manifest: manifest, Source: &input}
+		entry := ClassifyEntry(*checkedInput)
+		checkedEntry = entry
+		if entry.Class != EntryCleanCopy && entry.Class != EntryManagedLink {
+			return legacyName, nil
+		}
+		if entry.Class == EntryCleanCopy {
+			verifiedOutput = entry.Fingerprint
+		}
+	}
 
 	desiredPath := filepath.Join(targetPath, desiredName)
 	if _, err := os.Lstat(desiredPath); err == nil {
@@ -36,8 +58,20 @@ func selectActiveTargetNameForSync(mode, targetPath string, skill ResolvedTarget
 		return legacyName, nil
 	}
 
+	if checkedInput != nil {
+		current := ClassifyEntry(*checkedInput)
+		if current.Class != checkedEntry.Class || current.Fingerprint != checkedEntry.Fingerprint {
+			return legacyName, nil
+		}
+	}
 	if err := os.Rename(legacyPath, desiredPath); err != nil {
 		return "", fmt.Errorf("failed to rename managed target entry %s -> %s: %w", legacyName, desiredName, err)
+	}
+	if verifiedOutput != "" && manifest.Outputs[legacyName] == "" {
+		if manifest.Outputs == nil {
+			manifest.Outputs = make(map[string]string)
+		}
+		manifest.Outputs[legacyName] = verifiedOutput
 	}
 	renameManifestEntry(manifest, legacyName, desiredName, legacyNaming)
 	// Record the rename now: if a later skill fails, the manifest must still
@@ -138,6 +172,10 @@ func renameManifestEntry(manifest *Manifest, oldName, newName, oldNaming string)
 	if mtime, ok := manifest.Mtimes[oldName]; ok {
 		manifest.Mtimes[newName] = mtime
 		delete(manifest.Mtimes, oldName)
+	}
+	if output, ok := manifest.Outputs[oldName]; ok {
+		manifest.Outputs[newName] = output
+		delete(manifest.Outputs, oldName)
 	}
 	delete(manifest.Naming, oldName)
 	manifest.Naming[newName] = oldNaming
