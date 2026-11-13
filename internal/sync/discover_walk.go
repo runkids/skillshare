@@ -305,13 +305,12 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 						return fmt.Errorf("lint skill %s: %w", relPath, err)
 					}
 					lintIssues = append(lintIssues, lintResults...)
+					ctx.Name, _ = utils.ParseSkillName(skillDir, content)
+				} else {
+					ctx.Name, _ = utils.ParseSkillName(skillDir)
 				}
 			} else if opts.parseFrontmatter {
 				targets = utils.ParseFrontmatterList(path, "targets")
-			}
-
-			// Keep the producer parser's name as a hint; proof still parses candidates freshly.
-			if opts.parseFrontmatter || opts.collectContext {
 				ctx.Name, _ = utils.ParseSkillName(skillDir)
 			}
 			variantRouting := len(targets) == 0 && (opts.parseFrontmatter || opts.collectContext) && variantAgent != ""
