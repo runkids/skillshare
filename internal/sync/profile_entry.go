@@ -3,7 +3,6 @@ package sync
 import (
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"skillshare/internal/utils"
@@ -88,16 +87,17 @@ func legacyCopySources(name, dir string, skills []DiscoveredSkill, manifest *Man
 	var sources []CopySource
 	for _, skill := range skills {
 		candidates := targetNameCandidates(skill)[:2]
+		if skill.declaredName != "" && candidates[0].name != name && candidates[1].name != name && PrefixedTargetName(skill, skill.declaredName) != name {
+			continue
+		}
 		skillName, err := utils.ParseSkillName(skill.SourcePath)
 		if err == nil {
 			candidates = append(candidates, namedTarget{"prefixed", PrefixedTargetName(skill, skillName)})
 		}
-		if !slices.ContainsFunc(candidates, func(candidate namedTarget) bool {
-			return candidate.name == name
-		}) {
+		if candidates[0].name != name && candidates[1].name != name && (len(candidates) == 2 || candidates[2].name != name) {
 			continue
 		}
-		outputs := make(map[string]bool)
+		first := len(sources)
 		for _, candidate := range candidates {
 			// A migrated folder can retain its original naming's rewritten bytes.
 			if recorded := manifest.Naming[name]; recorded != "" && recorded != candidate.naming || recorded == "" && candidate.name != name {
@@ -108,10 +108,9 @@ func legacyCopySources(name, dir string, skills []DiscoveredSkill, manifest *Man
 			if candidate.naming == "prefixed" && candidate.name != skillName {
 				source.OutputName = candidate.name
 			}
-			if outputs[source.OutputName] {
+			if len(sources) > first && sources[len(sources)-1].OutputName == source.OutputName {
 				continue
 			}
-			outputs[source.OutputName] = true
 			sources = append(sources, source)
 		}
 	}

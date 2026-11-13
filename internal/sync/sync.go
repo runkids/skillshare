@@ -29,6 +29,7 @@ type DiscoveredSkill struct {
 	LogicalID      string      // Repository + full prefix/suffix identity for recognized agent variants
 	VariantAgent   string      // Canonical agent from a tracked skills/<agent>/<suffix> layout
 	variantRouting bool        // Targets were inferred from VariantAgent rather than explicitly declared
+	declaredName   string      // Candidate hint only; empty or unavailable names use fresh parsing
 	Targets        []string    // From SKILL.md frontmatter; nil = all targets
 	DescChars      int         // Rune count of name + description (populated when collectContext)
 	BodyChars      int         // Rune count of body after frontmatter (populated when collectContext)

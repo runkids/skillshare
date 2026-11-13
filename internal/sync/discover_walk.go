@@ -281,15 +281,13 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 				}
 			}
 
-			skillFile := filepath.Join(skillDir, "SKILL.md")
-
 			var targets []string
 			var ctx skillContext
 			var lintIssues []LintIssue
 
 			if opts.collectContext {
 				// Single read: parse targets + context from one os.ReadFile
-				content, readErr := os.ReadFile(skillFile)
+				content, readErr := os.ReadFile(path)
 				if readErr == nil {
 					targets = utils.ParseFrontmatterListFromBytes(content, "targets")
 					var yamlErr error
@@ -309,17 +307,18 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 					lintIssues = append(lintIssues, lintResults...)
 				}
 			} else if opts.parseFrontmatter {
-				targets = utils.ParseFrontmatterList(skillFile, "targets")
+				targets = utils.ParseFrontmatterList(path, "targets")
 			}
 
-			variantRouting := false
-			if len(targets) == 0 && (opts.parseFrontmatter || opts.collectContext) {
-				if variantAgent != "" {
-					targets = []string{variantAgent}
-					variantRouting = true
-				} else {
-					targets = inferSkillTargetsFromRelPath(relPath)
-				}
+			// Keep the producer parser's name as a hint; proof still parses candidates freshly.
+			if opts.parseFrontmatter || opts.collectContext {
+				ctx.Name, _ = utils.ParseSkillName(skillDir)
+			}
+			variantRouting := len(targets) == 0 && (opts.parseFrontmatter || opts.collectContext) && variantAgent != ""
+			if variantRouting {
+				targets = []string{variantAgent}
+			} else if len(targets) == 0 && (opts.parseFrontmatter || opts.collectContext) {
+				targets = inferSkillTargetsFromRelPath(relPath)
 			}
 
 			// Use original sourcePath (not walkRoot) so SourcePath preserves
@@ -333,6 +332,7 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 				LogicalID:      logicalID,
 				VariantAgent:   variantAgent,
 				variantRouting: variantRouting,
+				declaredName:   ctx.Name,
 				Targets:        targets,
 				DescChars:      ctx.DescChars,
 				BodyChars:      ctx.BodyChars,
