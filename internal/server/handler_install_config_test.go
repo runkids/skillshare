@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -100,6 +101,33 @@ func TestHandleInstallFromConfig_AllFailedLogsError(t *testing.T) {
 	entries, _ := oplog.Read(s.configPath(), oplog.OpsFile, 10)
 	if len(entries) != 1 || entries[0].Status != "error" || !strings.Contains(entries[0].Message, "broken: ") {
 		t.Errorf("oplog = %+v, want one error entry naming the skill", entries)
+	}
+	// Nothing kept is an empty list, not null, which the dashboard log would print.
+	if len(entries) == 1 && entries[0].Args["skipped_skills"] == nil {
+		t.Errorf("skipped_skills = nil, want an empty list: %+v", entries[0].Args)
+	}
+}
+
+// Skills already on disk are kept; the log names them, as the CLI's does.
+func TestHandleInstallFromConfig_LogsSkippedSkills(t *testing.T) {
+	s, src := newTestServer(t)
+	store := install.LoadMetadataOrNew(src)
+	store.Set("kept", &install.MetadataEntry{Source: "https://github.com/team/kept.git"})
+	if err := store.Save(src); err != nil {
+		t.Fatalf("save metadata: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(src, "kept"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "kept", "SKILL.md"), []byte("# Kept\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	s.handleInstallFromConfig(rr, httptest.NewRequest(http.MethodPost, "/api/install/from-config", nil))
+	entries, _ := oplog.Read(s.configPath(), oplog.OpsFile, 10)
+	if len(entries) != 1 || fmt.Sprint(entries[0].Args["skipped_skills"]) != "[kept]" {
+		t.Errorf("oplog = %+v, want skipped_skills [kept]; response: %s", entries, rr.Body.String())
 	}
 }
 

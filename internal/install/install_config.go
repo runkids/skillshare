@@ -155,6 +155,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 	result := ConfigInstallResult{
 		InstalledSkills: make([]string, 0),
 		FailedSkills:    make([]string, 0),
+		SkippedSkills:   make([]string, 0),
 	}
 
 	sourcePath := ctx.SourcePath()

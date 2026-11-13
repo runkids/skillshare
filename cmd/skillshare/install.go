@@ -638,6 +638,9 @@ func logInstallOp(cfgPath, sourceArg string, start time.Time, cmdErr error, summ
 			fields["skill_count"] = len(summary.InstalledSkills)
 		}
 	}
+	if len(summary.SkippedSkills) > 0 {
+		fields["skipped_skills"] = summary.SkippedSkills
+	}
 	if len(summary.FailedSkills) > 0 {
 		fields["failed_skills"] = summary.FailedSkills
 	}
