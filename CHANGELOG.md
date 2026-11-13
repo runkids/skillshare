@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.30.7](https://github.com/runkids/skillshare/compare/v0.30.6...v0.30.7) (2026-11-13)
+
+
+* release 0.30.7 ([#874](https://github.com/runkids/skillshare/issues/874)) ([f1faa4b](https://github.com/runkids/skillshare/commit/f1faa4bdd5faa163ce50dcf9350c3a2622884486))
+
+
+### New Features
+
+* **audit:** honor findings accepted with --force via --respect-accepted ([#872](https://github.com/runkids/skillshare/issues/872)) ([9dbcd92](https://github.com/runkids/skillshare/commit/9dbcd925d8f3767d89a93da9e413aa30b5c9eaa3))
+
+
+### Bug Fixes
+
+* **audit:** report audit-rules load errors and block installs whose audit cannot run ([#882](https://github.com/runkids/skillshare/issues/882)) ([08ecb7a](https://github.com/runkids/skillshare/commit/08ecb7afad0d3f90e2efeb0bc167a8ea7ffeca14)), closes [#879](https://github.com/runkids/skillshare/issues/879)
+* **install:** log skipped skills and agents ([#886](https://github.com/runkids/skillshare/issues/886)) ([51306f4](https://github.com/runkids/skillshare/commit/51306f49fa234896c0aae1ba4ab517d5e8ea61c1))
+* **install:** report reinstalls from the same repo as skipped ([#887](https://github.com/runkids/skillshare/issues/887)) ([cfe235a](https://github.com/runkids/skillshare/commit/cfe235a84d6f4146ec711f4cf1f925f39d2933a9))
+* **install:** require explicit force for JSON overwrites ([#884](https://github.com/runkids/skillshare/issues/884)) ([4596c1e](https://github.com/runkids/skillshare/commit/4596c1e413ede0ee1c5f50a52b0c1947c53a4ade))
+* **oplog:** keep source credentials out of the operation log ([#881](https://github.com/runkids/skillshare/issues/881)) ([40697e0](https://github.com/runkids/skillshare/commit/40697e03f3adffe5e40357db675700755c9b84cf)), closes [#878](https://github.com/runkids/skillshare/issues/878)
+* **plugin:** refresh stale OMP catalog and report blocked OMP updates ([#853](https://github.com/runkids/skillshare/issues/853)) ([caa107b](https://github.com/runkids/skillshare/commit/caa107b880c89ce8e8707721a0d85d6f679657e9))
+* **plugin:** verify native support only for changes that run a command ([#873](https://github.com/runkids/skillshare/issues/873)) ([0939eb9](https://github.com/runkids/skillshare/commit/0939eb9ad9e2abcfdddc0a0003e71e6039a9bdb2))
+* **ui:** show health checks as they finish instead of after the slowest ([#870](https://github.com/runkids/skillshare/issues/870)) ([65f3c8d](https://github.com/runkids/skillshare/commit/65f3c8d1b945c56ea95f97d5b961d5dd3c4254da))
+
 ## [0.30.6] - 2026-11-11
 
 ### New Features
