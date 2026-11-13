@@ -32,10 +32,10 @@ Skill ごとの選択は **merge** と **copy** の Sync モードに適用さ�
 Skill が Target に届くには、**すべての**レイヤーを通過する必要があります。
 
 1. **`.skillignore`** — Discovery 時に評価される。一致した Skill は Sync パイプラインに入らない。
-   その後、アクティブなプロファイルが Target フィルターと routing の前に選択を絞ります。
-2. **Target の include/exclude** — Sync 時に評価される（`FilterSkills`）。Skill は発見されるが、
+2. **アクティブなプロファイル** — flat な Source 名により、Target フィルターと routing の前に選択を絞ります。
+3. **Target の include/exclude** — Sync 時に評価される（`FilterSkills`）。Skill は発見されるが、
    一致しない Target ではスキップされる。
-3. **SKILL.md `metadata.targets`** — Sync 時に評価される（`FilterSkillsByTarget`）。Skill は
+4. **SKILL.md `metadata.targets`** — Sync 時に評価される（`FilterSkillsByTarget`）。Skill は
    宣言された Target に制限される。
 
 ## .skillignore

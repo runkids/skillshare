@@ -30,9 +30,9 @@ sidebar_position: 3
 一個 skill 必須通過**所有**層級才能到達某個 target：
 
 1. **`.skillignore`** — 在 discovery 階段評估。符合的 skills 永遠不會進入 sync pipeline。
-   接著，使用中的設定檔會在 Target 篩選與路由之前縮小選擇範圍。
-2. **Target include/exclude** — 在 sync 階段評估（`FilterSkills`）。Skills 會被探索到，但對不符合的 targets 會被略過。
-3. **SKILL.md `metadata.targets`** — 在 sync 階段評估（`FilterSkillsByTarget`）。Skills 會被限制在它們宣告的 targets 之內。
+2. **使用中的設定檔** — 依 flat Source 名稱，在 Target 篩選與路由之前縮小選擇範圍。
+3. **Target include/exclude** — 在 sync 階段評估（`FilterSkills`）。Skills 會被探索到，但對不符合的 targets 會被略過。
+4. **SKILL.md `metadata.targets`** — 在 sync 階段評估（`FilterSkillsByTarget`）。Skills 會被限制在它們宣告的 targets 之內。
 
 ## .skillignore
 

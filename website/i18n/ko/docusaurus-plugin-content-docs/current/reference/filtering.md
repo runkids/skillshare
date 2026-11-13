@@ -30,9 +30,9 @@ Skill별 선택은 **merge** 및 **copy** Sync 모드에 적용됩니다.
 Skill이 Target에 도달하려면 **모든** 레이어를 통과해야 합니다:
 
 1. **`.skillignore`** — Discovery 시 평가됩니다. 일치하는 Skill은 Sync 파이프라인에 진입하지 않습니다.
-   이어서 활성 프로필이 Target 필터와 라우팅 전에 선택 범위를 좁힙니다.
-2. **Target include/exclude** — Sync 시(`FilterSkills`) 평가됩니다. Skill은 Discovery되지만 일치하지 않는 Target에서는 건너뜁니다.
-3. **SKILL.md `metadata.targets`** — Sync 시(`FilterSkillsByTarget`) 평가됩니다. Skill은 선언된 Target으로만 제한됩니다.
+2. **활성 프로필** — flat Source 이름으로 Target 필터와 라우팅 전에 선택 범위를 좁힙니다.
+3. **Target include/exclude** — Sync 시(`FilterSkills`) 평가됩니다. Skill은 Discovery되지만 일치하지 않는 Target에서는 건너뜁니다.
+4. **SKILL.md `metadata.targets`** — Sync 시(`FilterSkillsByTarget`) 평가됩니다. Skill은 선언된 Target으로만 제한됩니다.
 
 ## .skillignore
 

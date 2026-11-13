@@ -30,9 +30,9 @@ sidebar_position: 3
 一个 Skill 必须通过**所有**层级才能到达某个 Target：
 
 1. **`.skillignore`** — 在 discovery 时评估。匹配的 Skill 永远不会进入 sync 流程。
-   随后，活动配置档在 Target 过滤和路由之前缩小选择范围。
-2. **Target include/exclude** — 在 sync 时评估（`FilterSkills`）。Skill 会被发现，但对不匹配的 Target 会被跳过。
-3. **SKILL.md `metadata.targets`** — 在 sync 时评估（`FilterSkillsByTarget`）。Skill 被限制到其声明的 Target。
+2. **活动配置档** — 按 flat Source 名称，在 Target 过滤和路由之前缩小选择范围。
+3. **Target include/exclude** — 在 sync 时评估（`FilterSkills`）。Skill 会被发现，但对不匹配的 Target 会被跳过。
+4. **SKILL.md `metadata.targets`** — 在 sync 时评估（`FilterSkillsByTarget`）。Skill 被限制到其声明的 Target。
 
 ## .skillignore
 
