@@ -1,11 +1,15 @@
 package install
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -108,6 +112,174 @@ func TestInstallRemoteExtra_InstallAndProtectEdits(t *testing.T) {
 	if err != nil || string(data) != "local edit" {
 		t.Fatalf("edit lost: %q %v", data, err)
 	}
+	t.Run("nested-host-resolved-identity", func(t *testing.T) {
+		for _, project := range []bool{false, true} {
+			for _, explicit := range []bool{false, true} {
+				for _, phase := range []string{"reinstall", "missing", "marker", "live", "metadata"} {
+					t.Run(fmt.Sprintf("project=%t/explicit=%t/%s", project, explicit, phase), func(t *testing.T) {
+						req := newRemoteExtraRequest(t)
+						if project {
+							req.ProjectRoot = t.TempDir()
+							req.LockDir = filepath.Join(req.ProjectRoot, ".skillshare")
+							req.ExtrasRoot = filepath.Join(req.LockDir, "extras")
+						}
+						seed := filepath.Join(t.TempDir(), "seed")
+						runGit(t, "", "clone", "--branch", "main", req.RawSource, seed)
+						runGit(t, seed, "config", "user.name", "Fixture")
+						runGit(t, seed, "config", "user.email", "fixture@example.invalid")
+						if err := os.MkdirAll(filepath.Join(seed, "rules"), 0755); err != nil {
+							t.Fatal(err)
+						}
+						if err := os.WriteFile(filepath.Join(seed, "rules", "rule.md"), []byte("pinned nested rules\n"), 0644); err != nil {
+							t.Fatal(err)
+						}
+						runGit(t, seed, "add", "rules")
+						runGit(t, seed, "commit", "-m", "nested host selection")
+						want, err := getGitFullHash(seed)
+						if err != nil {
+							t.Fatal(err)
+						}
+						tree, err := extraGitTreeHash(seed, want, "rules")
+						if err != nil {
+							t.Fatal(err)
+						}
+						remotes := t.TempDir()
+						repo := filepath.Join(remotes, "group", "subgroup", "repo.git")
+						if err := os.MkdirAll(filepath.Dir(repo), 0755); err != nil {
+							t.Fatal(err)
+						}
+						runGit(t, "", "clone", "--bare", seed, repo)
+						gitConfig := filepath.Join(t.TempDir(), "gitconfig")
+						missing := httptest.NewServer(http.NotFoundHandler())
+						t.Cleanup(missing.Close)
+						runGit(t, "", "config", "--file", gitConfig, "url."+missing.URL+"/.insteadOf", "https://git.company.invalid/")
+						runGit(t, "", "config", "--file", gitConfig, "url.file://"+filepath.ToSlash(repo)+".insteadOf", "https://git.company.invalid/group/subgroup/repo.git")
+						t.Setenv("GIT_CONFIG_GLOBAL", gitConfig)
+						t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+						t.Setenv("GIT_ALLOW_PROTOCOL", "http:file")
+						t.Setenv("SKILLSHARE_GIT_TOKEN", "")
+						oldSparse := sparseCheckoutSupported
+						sparseCheckoutSupported = func() bool { return false }
+						t.Cleanup(func() { sparseCheckoutSupported = oldSparse })
+						req.RawSource = "https://git.company.invalid/group/subgroup/repo/rules"
+						if explicit {
+							req.RawSource = "https://git.company.invalid/group/subgroup/repo.git/rules"
+						}
+						req.Source, err = ParseSource(req.RawSource)
+						if err != nil {
+							t.Fatal(err)
+						}
+						wantParsed := "repo/rules"
+						if explicit {
+							wantParsed = "rules"
+						}
+						if req.Source.Subdir != wantParsed {
+							t.Fatalf("fixture no longer exercises intended partition: %+v", req.Source)
+						}
+						req.Branch = "main"
+						req.PinBranch = func() string { return "main" }
+						repair := phase != "reinstall" && phase != "missing"
+						oldBoundary := extraBoundary
+						t.Cleanup(func() { extraBoundary = oldBoundary })
+						if repair {
+							extraBoundary = func(step string) error {
+								if step == phase {
+									return errSimulatedDeath
+								}
+								return nil
+							}
+						}
+						first, err := InstallRemoteExtra(req)
+						extraBoundary = oldBoundary
+						if repair && !errors.Is(err, errSimulatedDeath) || !repair && err != nil {
+							t.Fatalf("real initial publication: %+v %v", first, err)
+						}
+						if !repair {
+							store, _, err := ReadMetadata(req.ExtrasRoot)
+							if err != nil {
+								t.Fatal(err)
+							}
+							entry := store.GetExact(req.Name)
+							if entry == nil || entry.RepoURL != "https://git.company.invalid/group/subgroup/repo.git" || entry.Subdir != "rules" || entry.Source != req.RawSource || entry.Commit != want || entry.TreeHash != tree {
+								t.Errorf("producer stored wrong fetched provenance: %+v", entry)
+							}
+						} else {
+							journal, err := readExtraJournal(req.ExtrasRoot, req.Name)
+							if err != nil || journal.Subdir == nil || *journal.Subdir != "rules" || journal.Remote != req.RawSource || journal.Commit != want {
+								t.Fatalf("actual producer marker: %+v %v", journal, err)
+							}
+						}
+						if err := os.WriteFile(filepath.Join(seed, "rules", "rule.md"), []byte("new default must not replace pin\n"), 0644); err != nil {
+							t.Fatal(err)
+						}
+						runGit(t, seed, "commit", "-am", "advance nested default")
+						runGit(t, seed, "push", repo, "main")
+						if phase == "missing" {
+							if err := os.RemoveAll(filepath.Join(req.ExtrasRoot, req.Name)); err != nil {
+								t.Fatal(err)
+							}
+						}
+						req.Source, err = ParseSource(req.RawSource)
+						if err != nil {
+							t.Fatal(err)
+						}
+						tracePath := filepath.Join(t.TempDir(), "second-call-git.jsonl")
+						if repair {
+							req.Branch = "missing-after-repair"
+							req.Opts.Update, req.Opts.AuditOverride = true, true
+							t.Setenv("GIT_TRACE2_EVENT", tracePath)
+						}
+						result, err := InstallRemoteExtra(req)
+						if repair {
+							trace, traceErr := os.ReadFile(tracePath)
+							if traceErr != nil {
+								t.Fatal(traceErr)
+							}
+							requestedFetch := false
+							wantArgs := []string{"clone", "--quiet", "--depth", "1", "--branch", req.Branch, "https://git.company.invalid/group/subgroup/repo.git"}
+							for _, line := range strings.Split(strings.TrimSpace(string(trace)), "\n") {
+								var event struct {
+									Event string   `json:"event"`
+									Argv  []string `json:"argv"`
+								}
+								if err := json.Unmarshal([]byte(line), &event); err != nil {
+									t.Fatal(err)
+								}
+								if event.Event == "start" && len(event.Argv) > len(wantArgs) && slices.Equal(event.Argv[1:len(wantArgs)+1], wantArgs) {
+									requestedFetch = true
+								}
+							}
+							if err == nil || !requestedFetch {
+								t.Errorf("repair did not reach subsequent requested fetch: %+v %v", result, err)
+							}
+							if _, err := os.Lstat(extraJournalPath(req.ExtrasRoot, req.Name)); !os.IsNotExist(err) {
+								t.Errorf("completed repair retained marker: %v", err)
+							}
+						} else if err != nil || result.Commit != want {
+							t.Errorf("pinned reinstall failed: %+v %v", result, err)
+						}
+						if data, err := os.ReadFile(filepath.Join(req.ExtrasRoot, req.Name, "rule.md")); err != nil || string(data) != "pinned nested rules\n" {
+							t.Errorf("pinned selection changed: %q %v", data, err)
+						}
+						store, _, err := ReadMetadata(req.ExtrasRoot)
+						if err != nil {
+							t.Fatal(err)
+						}
+						entry := store.GetExact(req.Name)
+						if entry == nil || entry.RepoURL != "https://git.company.invalid/group/subgroup/repo.git" || entry.Source != req.RawSource || entry.Subdir != "rules" || entry.Commit != want || entry.TreeHash != tree || entry.Branch != "main" {
+							t.Errorf("roundtrip provenance changed: %+v", entry)
+						}
+						if project {
+							lock, err := LoadLock(req.LockDir)
+							if err != nil || lock.ExtraCommitFor(req.Name, req.RawSource) != want || lock.Extras[req.Name].TreeHash != tree {
+								t.Errorf("raw identity/pin changed: %+v %v", lock, err)
+							}
+						}
+					})
+				}
+			}
+		}
+	})
 }
 
 // Root aliases are supported, but a linked per-extra destination is never

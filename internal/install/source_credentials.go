@@ -13,7 +13,7 @@ var ErrSourceCredentials = errors.New("remote source must not contain credential
 // RejectSourceCredentials checks a remote without including it in errors.
 func RejectSourceCredentials(raw string) error {
 	raw = strings.TrimSpace(raw)
-	if strings.HasPrefix(strings.ToLower(raw), "file://") || isLocalPath(raw) || gitSSHPattern.MatchString(raw) {
+	if credentialFreeFileSource(raw) || isLocalPath(raw) || gitSSHPattern.MatchString(raw) {
 		return nil
 	}
 	if !strings.Contains(raw, "://") {
@@ -70,6 +70,14 @@ func RejectSourceCredentials(raw string) error {
 		return fmt.Errorf("%w (%s)", ErrSourceCredentials, rule)
 	}
 	return nil
+}
+
+func credentialFreeFileSource(raw string) bool {
+	if !strings.HasPrefix(strings.ToLower(raw), "file://") {
+		return false
+	}
+	authority, _, _ := strings.Cut(raw[len("file://"):], "/")
+	return !strings.Contains(authority, "@")
 }
 
 func extraHostPort(first string) bool {

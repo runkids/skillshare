@@ -861,7 +861,7 @@ Install an exact repository directory without requiring `SKILL.md`:
 ```bash
 skillshare install example-org/ai-hub/rules --kind extra --name team-rules -p
 skillshare extras team-rules --add-target .claude/rules -p
-skillshare sync extras team-rules -p
+skillshare sync extras -p
 ```
 
 Use `-g` instead for a global extra. The repository is fetched through Git only;

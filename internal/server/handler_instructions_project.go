@@ -73,9 +73,8 @@ func (s *Server) handlePutProjectInstructions(w http.ResponseWriter, r *http.Req
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	unlock, lockErr := s.lockRemoteExtraMutation()
-	if lockErr != nil {
-		writeCodedError(w, http.StatusConflict, "instructions_write_failed", lockErr.Error(), map[string]string{"detail": lockErr.Error()})
+	unlock := s.lockInstructionWrite(w, s.projectInstructionMutation(""))
+	if unlock == nil {
 		return
 	}
 	defer unlock()
@@ -106,9 +105,8 @@ func (s *Server) handleProjectInstructionsShim(w http.ResponseWriter, r *http.Re
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	unlock, lockErr := s.lockRemoteExtraMutation()
-	if lockErr != nil {
-		writeCodedError(w, http.StatusConflict, "instructions_write_failed", lockErr.Error(), map[string]string{"detail": lockErr.Error()})
+	unlock := s.lockInstructionWrite(w, s.projectInstructionMutation(body.Target))
+	if unlock == nil {
 		return
 	}
 	defer unlock()

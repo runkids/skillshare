@@ -862,7 +862,7 @@ skillshare sync  # ← 잊지 마세요!
 ```bash
 skillshare install example-org/ai-hub/rules --kind extra --name team-rules -p
 skillshare extras team-rules --add-target .claude/rules -p
-skillshare sync extras team-rules -p
+skillshare sync extras -p
 ```
 
 Global은 `-g`를 사용합니다. Git만 사용하며 호스팅 API 대체 경로나 모호한 하위 디렉터리

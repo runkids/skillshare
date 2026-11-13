@@ -83,9 +83,8 @@ func (s *Server) handlePutTargetInstructionsSetup(w http.ResponseWriter, r *http
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	unlock, lockErr := s.lockRemoteExtraMutation()
-	if lockErr != nil {
-		writeCodedError(w, http.StatusConflict, "instructions_write_failed", lockErr.Error(), map[string]string{"detail": lockErr.Error()})
+	unlock := s.lockInstructionWrite(w, nil)
+	if unlock == nil {
 		return
 	}
 	defer unlock()
@@ -130,9 +129,8 @@ func (s *Server) handleDeleteTargetInstructionsSetup(w http.ResponseWriter, r *h
 	name := r.PathValue("name")
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	unlock, lockErr := s.lockRemoteExtraMutation()
-	if lockErr != nil {
-		writeCodedError(w, http.StatusConflict, "instructions_write_failed", lockErr.Error(), map[string]string{"detail": lockErr.Error()})
+	unlock := s.lockInstructionWrite(w, nil)
+	if unlock == nil {
 		return
 	}
 	defer unlock()

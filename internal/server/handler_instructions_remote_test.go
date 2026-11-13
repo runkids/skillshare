@@ -140,4 +140,106 @@ func TestSharedInstructionMutators_RemoteRootLockAndReload(t *testing.T) {
 			})
 		}
 	}
+	t.Run("interrupted-unrelated-extra", func(t *testing.T) {
+		for _, project := range []bool{false, true} {
+			for _, state := range []string{"local", "remote-clean", "remote-interrupted"} {
+				for _, action := range []string{"unrelated-shared", "affected-shared", "project-file"} {
+					if action == "project-file" && !project {
+						continue
+					}
+					t.Run(fmt.Sprintf("project=%t/%s/%s", project, state, action), func(t *testing.T) {
+						extra := config.ExtraConfig{Name: "rules", File: "AGENTS.md", Targets: []config.ExtraTargetConfig{}}
+						if state != "local" {
+							extra.Remote, extra.Branch = "example-org/ai-hub/rules", "main"
+						}
+						var s *Server
+						if project {
+							s, _ = newTestProjectServerWithExtras(t, []config.ExtraConfig{extra})
+						} else {
+							s, _ = newTestServerWithExtras(t, []config.ExtraConfig{extra}, "")
+						}
+						createShared(t, s, "team")
+						source := s.extrasSourceDir(extra)
+						file := filepath.Join(source, extra.File)
+						if err := os.WriteFile(file, []byte("remote candidate\n"), 0644); err != nil {
+							t.Fatal(err)
+						}
+						marker := filepath.Join(filepath.Dir(source), ".skillshare-staging", "publishing-rules.json")
+						var markerBytes []byte
+						if state == "remote-interrupted" {
+							var err error
+							markerBytes, err = json.Marshal(map[string]any{"version": 1, "name": extra.Name, "remote": extra.Remote, "branch": extra.Branch, "commit": strings.Repeat("a", 40), "had_previous": false, "old": nil})
+							if err != nil {
+								t.Fatal(err)
+							}
+							if err := os.MkdirAll(filepath.Dir(marker), 0700); err != nil {
+								t.Fatal(err)
+							}
+							if err := os.WriteFile(marker, markerBytes, 0600); err != nil {
+								t.Fatal(err)
+							}
+						}
+						before, err := os.ReadFile(s.configPath())
+						if err != nil {
+							t.Fatal(err)
+						}
+						path := "/api/instructions/team/content"
+						written := filepath.Join(s.extrasSourceDir(config.ExtraConfig{Name: "team"}), "AGENTS.md")
+						if action == "affected-shared" {
+							path, written = "/api/instructions/rules/content", file
+						} else if action == "project-file" {
+							path, written = "/api/instructions/project", filepath.Join(s.projectRoot, "AGENTS.md")
+						}
+						calls, releases := 0, 0
+						old := lockRemoteExtraRoot
+						lockRemoteExtraRoot = func(root string) (func(), error) {
+							calls++
+							unlock, err := old(root)
+							return func() {
+								releases++
+								if unlock != nil {
+									unlock()
+								}
+							}, err
+						}
+						t.Cleanup(func() { lockRemoteExtraRoot = old })
+						rr := instructionsRequest(t, s, http.MethodPut, path, `{"content":"updated unrelated file\n"}`)
+						blocked := state == "remote-interrupted" && action == "affected-shared"
+						want := http.StatusOK
+						if blocked {
+							want = http.StatusConflict
+						}
+						if rr.Code != want || blocked && !strings.Contains(rr.Body.String(), "interrupted") {
+							t.Errorf("write: %d %s; want %d", rr.Code, rr.Body, want)
+						}
+						if !blocked {
+							if data, err := os.ReadFile(written); err != nil || string(data) != "updated unrelated file\n" {
+								t.Errorf("requested write missing: %q %v", data, err)
+							}
+						}
+						if blocked || action != "affected-shared" {
+							if data, err := os.ReadFile(file); err != nil || string(data) != "remote candidate\n" {
+								t.Errorf("unrelated/blocked write changed remote bytes: %q %v", data, err)
+							}
+						}
+						wantLocks := 1
+						if state == "local" {
+							wantLocks = 0
+						}
+						if calls != wantLocks || releases != wantLocks {
+							t.Errorf("root serialization lost: %d/%d want %d", calls, releases, wantLocks)
+						}
+						if data, err := os.ReadFile(s.configPath()); err != nil || string(data) != string(before) {
+							t.Errorf("content edit changed declaration: %q %v", data, err)
+						}
+						if markerBytes != nil {
+							if data, err := os.ReadFile(marker); err != nil || string(data) != string(markerBytes) {
+								t.Errorf("edit consumed unrelated recovery evidence: %q %v", data, err)
+							}
+						}
+					})
+				}
+			}
+		}
+	})
 }

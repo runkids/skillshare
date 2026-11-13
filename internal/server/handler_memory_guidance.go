@@ -138,13 +138,11 @@ func (s *Server) handleMemoryGuidanceApply(w http.ResponseWriter, r *http.Reques
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	unlock, lockErr := s.lockRemoteExtraMutation()
-	if lockErr != nil {
-		writeCodedError(w, http.StatusConflict, "instructions_write_failed", lockErr.Error(), map[string]string{"detail": lockErr.Error()})
+	in, err, unlock := s.lockGuidanceMutation(w, body)
+	if unlock == nil {
 		return
 	}
 	defer unlock()
-	in, err := s.guidanceInput()
 	if err != nil {
 		writeCodedError(w, http.StatusBadRequest, "memory_guidance_invalid", err.Error(), map[string]string{})
 		return

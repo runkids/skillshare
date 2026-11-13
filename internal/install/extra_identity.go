@@ -80,10 +80,31 @@ func settleExtraSubdir(source *Source, subdir string) error {
 			return extraSelectionError()
 		}
 	} else if source.Subdir != subdir {
-		return extraSelectionError()
+		return settleExtraFallback(source, subdir)
 	}
 	source.Subdir, source.webRef = subdir, webRef{}
 	return nil
+}
+
+func settleExtraFallback(source *Source, subdir string) error {
+	for _, candidate := range cloneFallbackSourcesForNestedGitLabURL(source) {
+		if candidate.Subdir == subdir {
+			*source = candidate
+			return nil
+		}
+	}
+	return extraSelectionError()
+}
+
+func extraMetadataSource(remote, subdir string, opts ParseOptions) (*Source, error) {
+	source, err := ParseSourceWithOptions(remote, opts)
+	if err != nil {
+		return nil, err
+	}
+	if err := settleExtraSubdir(source, subdir); err != nil {
+		return nil, err
+	}
+	return source, nil
 }
 
 func journalExtraSource(j extraJournal, opts ParseOptions) (*Source, error) {

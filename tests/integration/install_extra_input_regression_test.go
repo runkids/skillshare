@@ -74,10 +74,13 @@ func TestInstallExtra_EarlyErrorsNeverEchoCredentials(t *testing.T) {
 			"example.com/repo?token=SYNTHETIC", "example.com/repo#SYNTHETIC", "owner/repo/sub?token=SYNTHETIC",
 			"ado:org/project/repo?token=SYNTHETIC", "user:SYNTHETIC@example.com/org/repo", "user:SYNTHETIC@example.com:org/repo",
 			"user@example.com/org/SYNTHETIC", " HTTPS://user:SYNTHETIC@example.com/repo",
+			"file://user:SYNTHETIC@localhost/repo", "file://SYNTHETIC@localhost/repo",
+			"file://user:SYNTHETIC@/tmp/repo", "file://user:SYNTHETIC@%zz/repo",
+			"file://user:SYNTHETIC@localhost/%zz", " FILE://user:SYNTHETIC@localhost/repo ",
 		}
 		for _, projectMode := range []bool{false, true} {
 			for _, source := range sources {
-				for _, flags := range [][]string{nil, {"--json"}, {"--dry-run"}, {"--json", "--force"}} {
+				for _, flags := range [][]string{nil, {"--json"}, {"--dry-run"}, {"--json", "--force"}, {"--json", "--dry-run"}} {
 					sb := testutil.NewSandbox(t)
 					sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
 					cwd, mode := sb.Root, "-g"
@@ -89,6 +92,11 @@ func TestInstallExtra_EarlyErrorsNeverEchoCredentials(t *testing.T) {
 					args := append([]string{"install", source, "--kind", "extra", "--name", "rules", mode}, flags...)
 					result := sb.RunCLIInDir(cwd, args...)
 					result.AssertFailure(t)
+					for _, flag := range flags {
+						if flag == "--json" && !json.Valid([]byte(result.Stdout)) {
+							t.Errorf("credential refusal stdout is not JSON: %s", result.Stdout)
+						}
+					}
 					if strings.Contains(result.Stdout+result.Stderr, "SYNTHETIC") {
 						t.Fatalf("credential disclosed: %s %s", result.Stdout, result.Stderr)
 					}

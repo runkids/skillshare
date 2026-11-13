@@ -749,7 +749,7 @@ extras:
 ```
 
 リモート extra はターゲット 0 件で開始できます。`extras team-rules --add-target
-.claude/rules -p` で追加し、`sync extras team-rules -p` で配布します。ターゲットの
+.claude/rules -p` で追加し、`sync extras -p` で配布します。ターゲットの
 パス・モード・filter は編集できます。CLI plain/JSON/TUI、status、dashboard は origin、
 commit とローカル状態 `intact` / `modified` / `interrupted` / `missing` / `error`
 を表示し、リモートの最新性を保証しません。`check extras` は取得しません。

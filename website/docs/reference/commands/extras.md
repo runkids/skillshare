@@ -876,7 +876,7 @@ extras:
 
 A remote extra may start with zero targets. Add one with
 `skillshare extras team-rules --add-target .claude/rules -p`, then run
-`skillshare sync extras team-rules -p`. Target paths, modes and filters remain
+`skillshare sync extras -p`. Target paths, modes and filters remain
 editable. CLI plain/JSON/TUI, status and dashboard show origin, pinned commit and
 local state (`intact`, `modified`, `interrupted`, `missing` or `error`), never
 remote freshness. `skillshare check extras -p` does not fetch. List and dashboard

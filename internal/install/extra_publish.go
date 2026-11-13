@@ -322,7 +322,7 @@ func writeExtraMetadata(req RemoteExtraRequest, candidate *extraCandidate, remot
 	}
 	store.Set(req.Name, &MetadataEntry{Kind: "extra", Source: remote, RepoURL: candidate.fetch.RepoPath, Subdir: candidate.fetch.Subdir, Branch: branch, Commit: candidate.fetch.Commit, TreeHash: candidate.treeHash, FileHashes: hashes, InstalledAt: time.Now()})
 	// RepoPath is private staging; persist the source's clone URL instead.
-	source, err := ParseSourceWithOptions(remote, req.Opts.ParseOptions)
+	source, err := extraMetadataSource(remote, candidate.fetch.Subdir, req.Opts.ParseOptions)
 	if err != nil {
 		return err
 	}

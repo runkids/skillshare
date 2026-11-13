@@ -81,7 +81,7 @@ for mode in g p; do
   jq -e '.kind == "extra" and (.commit | test("^[0-9a-f]{40}$")) and .action == "installed"' "$TASK_ROOT/install-$mode.json"
   ss_fixture extras list "-$mode" --json | jq -e '.[] | select(.name == "team-rules") | .remote != "" and .branch == "main" and .targets == []'
   ss_fixture extras team-rules --add-target "$TASK_ROOT/target-$mode" --mode copy "-$mode"
-  ss_fixture sync extras team-rules "-$mode"
+  ss_fixture sync extras "-$mode"
   cmp "$TASK_ROOT/seed/rules/team.md" "$TASK_ROOT/target-$mode/team.md"
   ss_fixture check extras team-rules "-$mode" --json | jq -e '.[] | .state == "intact" and .message == "remote revision not checked"'
   source_dir=$(ss_fixture extras list "-$mode" --json | jq -r '.[] | select(.name == "team-rules") | .source_dir')
@@ -113,7 +113,7 @@ for mode in g p; do
   source_dir=$(ss_fixture extras list "-$mode" --json | jq -r '.[] | select(.name == "team-rules") | .source_dir')
   case "$source_dir" in "$TASK_ROOT"/*/team-rules) ;; *) exit 1 ;; esac
   rm -r -- "$source_dir"
-  ss_fixture sync extras team-rules "-$mode" --json > "$TASK_ROOT/missing-$mode.json"
+  ss_fixture sync extras "-$mode" --json > "$TASK_ROOT/missing-$mode.json"
   grep -q 'install .*--kind extra --name team-rules' "$TASK_ROOT/missing-$mode.json"
   ss_fixture install "$REMOTE" --kind extra --name team-rules --branch main "-$mode" --json > "$TASK_ROOT/restored-$mode.json"
   test "$(jq -r .commit "$TASK_ROOT/restored-$mode.json")" = "$(jq -r .commit "$TASK_ROOT/install-$mode.json")"

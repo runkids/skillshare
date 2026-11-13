@@ -113,9 +113,8 @@ func (s *Server) handleAddSharedInstructionsLocation(w http.ResponseWriter, r *h
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	unlock, lockErr := s.lockRemoteExtraMutation()
-	if lockErr != nil {
-		writeCodedError(w, http.StatusConflict, "instructions_write_failed", lockErr.Error(), map[string]string{"detail": lockErr.Error()})
+	unlock := s.lockInstructionWrite(w, s.addLocationInstructionMutation(name, stored, body.As))
+	if unlock == nil {
 		return
 	}
 	defer unlock()
@@ -253,9 +252,8 @@ func (s *Server) handlePutSharedInstructionsLocationMode(w http.ResponseWriter, 
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	unlock, lockErr := s.lockRemoteExtraMutation()
-	if lockErr != nil {
-		writeCodedError(w, http.StatusConflict, "instructions_write_failed", lockErr.Error(), map[string]string{"detail": lockErr.Error()})
+	unlock := s.lockInstructionWrite(w, s.locationInstructionMutation(name, body.Path))
+	if unlock == nil {
 		return
 	}
 	defer unlock()
@@ -276,9 +274,8 @@ func (s *Server) handleDeleteSharedInstructionsLocation(w http.ResponseWriter, r
 	name, path := r.PathValue("name"), r.URL.Query().Get("path")
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	unlock, lockErr := s.lockRemoteExtraMutation()
-	if lockErr != nil {
-		writeCodedError(w, http.StatusConflict, "instructions_write_failed", lockErr.Error(), map[string]string{"detail": lockErr.Error()})
+	unlock := s.lockInstructionWrite(w, s.locationInstructionMutation(name, path))
+	if unlock == nil {
 		return
 	}
 	defer unlock()

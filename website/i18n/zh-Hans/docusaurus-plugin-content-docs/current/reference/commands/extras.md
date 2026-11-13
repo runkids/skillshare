@@ -748,7 +748,7 @@ extras:
 ```
 
 远程 extra 可从零个 target 开始。运行 `extras team-rules --add-target .claude/rules -p`
-后再运行 `sync extras team-rules -p`。target 路径、mode 和 filter 仍可编辑。
+后再运行 `sync extras -p`。target 路径、mode 和 filter 仍可编辑。
 CLI plain/JSON/TUI、status、dashboard 显示 origin、commit 和本地状态
 `intact`、`modified`、`interrupted`、`missing`、`error`，不表示远程是否最新。
 `check extras` 不获取内容。

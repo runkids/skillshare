@@ -19,6 +19,16 @@ func TestRejectSourceCredentials(t *testing.T) {
 			{"https://example.com/%zz#secret", "invalid URL"},
 			{"https://example.com/repo?token=%zzsecret", "query"},
 			{"https://example.com/repo#%zzsecret", "invalid URL"},
+			{"file://user:secret@localhost/repo", "userinfo"},
+			{"file://secret@localhost/repo", "userinfo"},
+			{"file://:secret@localhost/repo", "userinfo"},
+			{"file://user:secret@/tmp/repo", "userinfo"},
+			{"file://user:secret@%zz/repo", "userinfo"},
+			{"file://user:secret@localhost/%zz", "userinfo"},
+			{"file://user:%73ecret@localhost/repo", "userinfo"},
+			{"file://%73ecret@localhost/repo", "userinfo"},
+			{" FILE://user:secret@localhost/repo ", "userinfo"},
+			{"FiLe://user:secret@localhost/repo", "userinfo"},
 			{"ssh://git@example.com/repo", ""},
 			{"git@example.com:org/repo", ""},
 			{"file:///tmp/fixture", ""},
@@ -55,7 +65,10 @@ func TestRejectSourceCredentials(t *testing.T) {
 		}
 	})
 	t.Run("TestRejectSourceCredentials_ValidFormsAccepted", func(t *testing.T) {
-		for _, source := range []string{"owner/repo", "owner/repo/sub/dir", "owner/repo/packages/@scope/pkg", "github.com/owner/repo", "example.com/org/repo", "example.com:8443/org/repo", "https://example.com:8443/org/repo", "ssh://git@example.com:2222/org/repo", "git@example.com:org/repo.git//sub", "ado:org/project/repo", "https://dev.azure.com/org/project/_git/repo", "file:///tmp/fixture//sub"} {
+		for _, source := range []string{"owner/repo", "owner/repo/sub/dir", "owner/repo/packages/@scope/pkg", "github.com/owner/repo", "example.com/org/repo", "example.com:8443/org/repo", "https://example.com:8443/org/repo", "ssh://git@example.com:2222/org/repo", "git@example.com:org/repo.git//sub", "ado:org/project/repo", "https://dev.azure.com/org/project/_git/repo", "file:///tmp/fixture//sub",
+			"file://localhost/tmp/fixture", "file:///tmp/fixture@local", "file:///tmp/literal%value", "file:///tmp/fixture?draft#notes",
+			"/tmp/fixture@local", "./fixture@local", "../literal%value", `C:\fixture@local`,
+		} {
 			if err := RejectSourceCredentials(source); err != nil {
 				t.Errorf("valid %q: %v", source, err)
 			}

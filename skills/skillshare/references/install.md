@@ -350,7 +350,7 @@ Without `-P`, a terminal may offer pattern selection. Available patterns: `tool-
 ```bash
 skillshare install example-org/ai-hub/rules --kind extra --name team-rules -p
 skillshare extras team-rules --add-target .claude/rules -p
-skillshare sync extras team-rules -p
+skillshare sync extras -p
 ```
 
 No `SKILL.md` is required; selection is exact and Git-only. Whole repos work,

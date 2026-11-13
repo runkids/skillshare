@@ -166,9 +166,8 @@ func (s *Server) handleCreateSharedInstructions(w http.ResponseWriter, r *http.R
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	unlock, lockErr := s.lockRemoteExtraMutation()
-	if lockErr != nil {
-		writeCodedError(w, http.StatusConflict, "instructions_write_failed", lockErr.Error(), map[string]string{"detail": lockErr.Error()})
+	unlock := s.lockInstructionWrite(w, s.createInstructionMutation(body.Name, body.FromTarget))
+	if unlock == nil {
 		return
 	}
 	defer unlock()
@@ -301,9 +300,8 @@ func (s *Server) handlePutSharedInstructionsContent(w http.ResponseWriter, r *ht
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	unlock, lockErr := s.lockRemoteExtraMutation()
-	if lockErr != nil {
-		writeCodedError(w, http.StatusConflict, "instructions_write_failed", lockErr.Error(), map[string]string{"detail": lockErr.Error()})
+	unlock := s.lockInstructionWrite(w, s.sharedInstructionMutation(name))
+	if unlock == nil {
 		return
 	}
 	defer unlock()
@@ -411,9 +409,8 @@ func (s *Server) handleAssignSharedInstructions(w http.ResponseWriter, r *http.R
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	unlock, lockErr := s.lockRemoteExtraMutation()
-	if lockErr != nil {
-		writeCodedError(w, http.StatusConflict, "instructions_write_failed", lockErr.Error(), map[string]string{"detail": lockErr.Error()})
+	unlock := s.lockInstructionWrite(w, s.targetInstructionMutation(body.Targets, body.Extras...))
+	if unlock == nil {
 		return
 	}
 	defer unlock()
@@ -507,9 +504,8 @@ func (s *Server) handleRestoreSharedInstructions(w http.ResponseWriter, r *http.
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	unlock, lockErr := s.lockRemoteExtraMutation()
-	if lockErr != nil {
-		writeCodedError(w, http.StatusConflict, "instructions_write_failed", lockErr.Error(), map[string]string{"detail": lockErr.Error()})
+	unlock := s.lockInstructionWrite(w, s.targetInstructionMutation([]string{body.Target}, name))
+	if unlock == nil {
 		return
 	}
 	defer unlock()
@@ -557,9 +553,8 @@ func (s *Server) handleResolveSharedInstructions(w http.ResponseWriter, r *http.
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	unlock, lockErr := s.lockRemoteExtraMutation()
-	if lockErr != nil {
-		writeCodedError(w, http.StatusConflict, "instructions_write_failed", lockErr.Error(), map[string]string{"detail": lockErr.Error()})
+	unlock := s.lockInstructionWrite(w, s.resolveInstructionMutation(name, body.Target, body.Path))
+	if unlock == nil {
 		return
 	}
 	defer unlock()

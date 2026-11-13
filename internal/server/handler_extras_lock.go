@@ -15,8 +15,20 @@ var lockRemoteExtraRoot = install.LockExtrasRoot
 // root lock is acquired once here, followed by a fresh config read. Removal
 // instead owns this lock in extraops.Remove and must not call this wrapper.
 func (s *Server) lockRemoteExtraMutation(names ...string) (func(), error) {
-	if err := s.reloadExtrasReadOnly(); err != nil {
+	unlock, root, err := s.lockExtraMutationRoot(names)
+	if err != nil {
 		return nil, err
+	}
+	if err := s.inspectExtraMutation(root, names); err != nil {
+		unlock()
+		return nil, err
+	}
+	return unlock, nil
+}
+
+func (s *Server) lockExtraMutationRoot(names []string) (func(), string, error) {
+	if err := s.reloadExtrasReadOnly(); err != nil {
+		return nil, "", err
 	}
 	remote := false
 	for _, extra := range s.extrasConfig() {
@@ -26,7 +38,7 @@ func (s *Server) lockRemoteExtraMutation(names ...string) (func(), error) {
 		}
 	}
 	if !remote {
-		return func() {}, nil
+		return func() {}, "", nil
 	}
 	root := s.cfg.EffectiveExtrasSource()
 	if s.IsProjectMode() {
@@ -34,27 +46,29 @@ func (s *Server) lockRemoteExtraMutation(names ...string) (func(), error) {
 	}
 	unlock, err := lockRemoteExtraRoot(root)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if err := s.reloadExtrasReadOnly(); err != nil {
 		unlock()
-		return nil, err
+		return nil, "", err
 	}
+	return unlock, root, nil
+}
+
+func (s *Server) inspectExtraMutation(root string, names []string) error {
 	for _, extra := range s.extrasConfig() {
 		if extra.Remote == "" || len(names) != 0 && !slices.Contains(names, extra.Name) {
 			continue
 		}
 		state := install.InspectRemoteExtra(root, extra.Name)
 		if state.Err != nil {
-			unlock()
-			return nil, state.Err
+			return state.Err
 		}
 		if state.Interrupted {
-			unlock()
-			return nil, fmt.Errorf("extra %q is interrupted; reinstall it before editing", extra.Name)
+			return fmt.Errorf("extra %q is interrupted; reinstall it before editing", extra.Name)
 		}
 	}
-	return unlock, nil
+	return nil
 }
 
 // Memory's existing declaration lookup is case-insensitive; lock its actual

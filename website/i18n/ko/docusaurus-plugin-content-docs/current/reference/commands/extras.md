@@ -774,7 +774,7 @@ extras:
 ```
 
 원격 extra는 대상 0개로 시작할 수 있습니다. `extras team-rules --add-target .claude/rules
--p`로 추가한 뒤 `sync extras team-rules -p`를 실행합니다. 대상 경로·모드·filter는 편집할
+-p`로 추가한 뒤 `sync extras -p`를 실행합니다. 대상 경로·모드·filter는 편집할
 수 있습니다. CLI plain/JSON/TUI, status, dashboard는 origin, commit과 로컬 상태
 `intact`, `modified`, `interrupted`, `missing`, `error`를 표시하며 원격 최신성은 확인하지
 않습니다. `check extras`는 가져오지 않습니다.

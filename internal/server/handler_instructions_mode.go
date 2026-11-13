@@ -53,9 +53,8 @@ func (s *Server) handlePutSharedInstructionsMode(w http.ResponseWriter, r *http.
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	unlock, lockErr := s.lockRemoteExtraMutation()
-	if lockErr != nil {
-		writeCodedError(w, http.StatusConflict, "instructions_write_failed", lockErr.Error(), map[string]string{"detail": lockErr.Error()})
+	unlock := s.lockInstructionWrite(w, s.targetInstructionMutation([]string{target}, name))
+	if unlock == nil {
 		return
 	}
 	defer unlock()
