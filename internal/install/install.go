@@ -155,28 +155,38 @@ type TrackedRepoResult struct {
 // friendly skip, not a hard failure.
 var ErrSkipSameRepo = errors.New("already installed from same repo")
 
-// checkExistingConflict reads the meta of an existing skill and compares
-// its repo_url with the incoming source. Returns:
+// checkExistingConflict compares the repo_url and subdir recorded for an
+// existing skill with the incoming source. recorded is the skill's entry in
+// the source's .metadata.json, or nil; skills installed before that store
+// existed keep a sidecar meta file instead. Returns:
 //   - nil when the directory is empty/invalid (caller should overwrite)
-//   - ErrSkipSameRepo when the repos match (caller should skip gracefully)
-//   - a descriptive error when they differ or meta is absent (real conflict)
-func checkExistingConflict(destPath string, incomingCloneURL string, forceHint string) error {
-	meta, err := ReadMeta(destPath)
-	if err != nil || meta == nil {
-		// No meta — check if directory is truly empty.
+//   - ErrSkipSameRepo when it is the same skill of the same repo (caller should skip gracefully)
+//   - a descriptive error otherwise, or when no record is found (real conflict)
+func checkExistingConflict(destPath string, recorded *MetadataEntry, incomingCloneURL, incomingSubdir, forceHint string) error {
+	repoURL, subdir := "", ""
+	if recorded != nil {
+		repoURL, subdir = recorded.RepoURL, recorded.Subdir
+	}
+	if repoURL == "" {
+		if meta, err := ReadMeta(destPath); err == nil && meta != nil {
+			repoURL, subdir = meta.RepoURL, meta.Subdir
+		}
+	}
+	if repoURL == "" {
+		// No record — check if directory is truly empty.
 		if dirIsEmpty(destPath) {
 			return nil
 		}
-		// Non-empty directory without meta — unknown origin.
+		// Non-empty directory without a record — unknown origin.
 		return fmt.Errorf("already exists. To overwrite: %s", forceHint)
 	}
 
-	if repoURLsMatch(meta.RepoURL, incomingCloneURL) {
+	if repoURLsMatch(repoURL, incomingCloneURL) && subdir == incomingSubdir {
 		return fmt.Errorf("%w: use 'skillshare update' or --force to overwrite", ErrSkipSameRepo)
 	}
 
-	// Different repo — real conflict with provenance info.
-	return fmt.Errorf("already exists (installed from %s). To overwrite: %s", meta.RepoURL, forceHint)
+	// Another repo, or another skill of it — real conflict with provenance info.
+	return fmt.Errorf("already exists (installed from %s). To overwrite: %s", repoURL, forceHint)
 }
 
 // dirIsEmpty returns true if the directory has no entries (or only OS junk

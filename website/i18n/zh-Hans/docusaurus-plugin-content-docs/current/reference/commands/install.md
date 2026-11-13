@@ -397,6 +397,8 @@ skillshare install anthropics/skills/skills/pdf
 
 使用 `--update` 刷新，或使用 `--force` 覆盖。
 
+只有同一个仓库中的同一个 Skill 会被跳过。如果同一个仓库的另一个 Skill（例如通过 `--name`）要使用同一个文件夹，安装会像[下文](#conflict-with-different-repo)所述那样以冲突失败。
+
 对位于[被跟随的 source link](../targets/configuration.md#follow_source_links)背后的 tracked repo 使用 `--update` 时，如果该 checkout 存在未提交的修改，会拒绝拉取。请先 commit 或 stash。
 
 ### 跨路径重复
@@ -415,7 +417,7 @@ skillshare install runkids/feature-radar
 
 这可以防止跨不同路径出现意外的重复安装。如果确实需要，可使用 `--force` 主动允许。
 
-### 与不同仓库冲突
+### 与不同仓库冲突 {#conflict-with-different-repo}
 
 如果目标目录已存在，但它是从**不同**的仓库安装的，错误信息会包含原始 source：
 

@@ -68,3 +68,41 @@ func TestInstallFromSearchResult_LogsInstalledSkillDetails(t *testing.T) {
 		t.Fatalf("expected installed skill in detail, got: %s", detail)
 	}
 }
+
+// Picking an installed skill again keeps it, and the log names it.
+func TestInstallFromSearchResult_LogsSkippedSkill(t *testing.T) {
+	tmp := t.TempDir()
+	testutil.SetIsolatedXDG(t, tmp)
+	cfgPath := filepath.Join(tmp, "home", ".config", "skillshare", "config.yaml")
+	t.Setenv("SKILLSHARE_CONFIG", cfgPath)
+	sourceDir := filepath.Join(tmp, "source")
+	if err := os.MkdirAll(filepath.Join(sourceDir, "kept"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{Source: sourceDir, Targets: map[string]config.TargetConfig{}}
+
+	if err := installFromSearchResult(searchpkg.SearchResult{Name: "kept", Source: filepath.Join(tmp, "unused")}, cfg); err != nil {
+		t.Fatalf("installFromSearchResult returned error: %v", err)
+	}
+	entries, err := oplog.Read(cfgPath, oplog.OpsFile, 1)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("read log: %v, %d entries", err, len(entries))
+	}
+	if detail := formatInstallLogDetail(entries[0].Args); !strings.Contains(detail, "skipped=kept") {
+		t.Fatalf("expected skipped skill in detail, got: %s", detail)
+	}
+}
+
+func TestLogSkillInstallOp_LogsSkippedSkill(t *testing.T) {
+	tmp := t.TempDir()
+	testutil.SetIsolatedXDG(t, tmp)
+	cfgPath := filepath.Join(tmp, "config.yaml")
+	logSkillInstallOp(cfgPath, searchpkg.SearchResult{Name: "kept", Source: "owner/repo"}, searchInstallResult{name: "kept", status: "skipped"}, "global")
+	entries, err := oplog.Read(cfgPath, oplog.OpsFile, 1)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("read log: %v, %d entries", err, len(entries))
+	}
+	if detail := formatInstallLogDetail(entries[0].Args); !strings.Contains(detail, "skipped=kept") {
+		t.Fatalf("expected skipped skill in detail, got: %s", detail)
+	}
+}
