@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 
 	"skillshare/internal/install"
@@ -39,11 +40,28 @@ func reconcileGlobalSkills(cfg *Config, store *install.MetadataStore, prune bool
 
 	if prune && !result.incomplete {
 		// Repository declarations survive without a checkout, including when
-		// discovery skips an occupied path. Legacy member records do not.
+		// discovery skips an occupied path. Missing non-prefixed members and
+		// members below a recorded repository are not kept by this loop;
+		// ambiguous prefixed members without such an ancestor remain.
 		for _, key := range store.List() {
 			entry := store.Get(key)
-			if entry != nil && entry.Tracked && entry.Source != "" &&
-				utils.IsTrackedRepoDir(filepath.Base(filepath.FromSlash(install.KeyToRelPath(key, entry)))) {
+			if entry == nil || !entry.Tracked || entry.Source == "" {
+				continue
+			}
+			rel := filepath.ToSlash(install.KeyToRelPath(key, entry))
+			if !utils.IsTrackedRepoDir(path.Base(rel)) {
+				continue
+			}
+			member := false
+			for parent := path.Dir(rel); parent != "."; parent = path.Dir(parent) {
+				owner := store.GetExact(parent)
+				if owner != nil && owner.Tracked && owner.Source != "" && utils.IsTrackedRepoDir(path.Base(parent)) &&
+					filepath.ToSlash(install.KeyToRelPath(parent, owner)) == parent {
+					member = true
+					break
+				}
+			}
+			if !member {
 				result.live[key] = true
 			}
 		}

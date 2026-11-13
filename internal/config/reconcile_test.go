@@ -67,7 +67,7 @@ func TestReconcileGlobalSkills_KeepsTrackedRecordWithoutClone(t *testing.T) {
 	}
 }
 
-func TestReconcileGlobalSkills_PrunesMigratedTrackedMembers(t *testing.T) {
+func TestReconcileGlobalSkills_PrunesNonPrefixedMigratedTrackedMembers(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 	sourceDir := sb.SourcePath
@@ -102,6 +102,58 @@ func TestReconcileGlobalSkills_PrunesMigratedTrackedMembers(t *testing.T) {
 		if loaded.Has(key) || len(loaded.AuditAccepted[key]) != 0 {
 			t.Errorf("migrated member or acceptance survived: %s", key)
 		}
+	}
+}
+
+func TestReconcileGlobalSkills_MigratedUnderscoreMemberWithRecordedAncestor(t *testing.T) {
+	for _, tc := range []struct {
+		name, member, parentKey, parentGroup string
+		prune                                bool
+	}{
+		{"recorded root", "_team/_member", "_team", "", true},
+		{"recorded grouped legacy key", "_org/_team/_member", "_team", "_org", true},
+		{"plain groups", "_team/_member", "", "", false},
+		{"same basename in another group", "_team/_member", "_team", "other", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			sourceDir := sb.SourcePath
+			sb.WriteFile(filepath.Join(sourceDir, filepath.FromSlash(tc.member), install.MetaFileName), `{"source":"https://example.com/member.git","branch":"main"}`)
+			store, err := install.LoadMetadataWithMigration(sourceDir, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if entry := store.Get(tc.member); entry == nil || !entry.Tracked || entry.Source == "" {
+				t.Fatalf("migrated member = %+v", entry)
+			}
+			if tc.parentKey != "" {
+				store.Set(tc.parentKey, &install.MetadataEntry{Source: "https://example.com/team.git", Tracked: true, Group: tc.parentGroup})
+			}
+			store.AuditAccepted = map[string][]string{tc.member: {"member-accepted"}}
+			if err := store.Save(sourceDir); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.RemoveAll(filepath.Join(sourceDir, "_team")); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.RemoveAll(filepath.Join(sourceDir, "_org")); err != nil {
+				t.Fatal(err)
+			}
+			if err := ReconcileGlobalSkills(&Config{Source: sourceDir}, store); err != nil {
+				t.Fatal(err)
+			}
+			loaded, err := install.LoadMetadata(sourceDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if loaded.Has(tc.member) == tc.prune || (len(loaded.AuditAccepted[tc.member]) == 0) != tc.prune {
+				t.Errorf("member = %+v, acceptance = %v, prune = %v", loaded.Get(tc.member), loaded.AuditAccepted[tc.member], tc.prune)
+			}
+			if tc.parentKey != "" && !loaded.Has(tc.parentKey) {
+				t.Errorf("repository declaration %s was pruned", tc.parentKey)
+			}
+		})
 	}
 }
 
