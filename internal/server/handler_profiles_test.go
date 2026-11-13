@@ -575,7 +575,7 @@ func TestProfilesAPI_DefinitionRefusals(t *testing.T) {
 	for _, project := range []bool{false, true} {
 		for _, tc := range []struct {
 			method, path, body string
-			mutation          profile.Mutation
+			mutation           profile.Mutation
 		}{
 			{http.MethodPost, "/api/profiles", `{"name":"none"}`, profile.Mutation{Op: "create", Name: "none"}},
 			{http.MethodPost, "/api/profiles", `{"name":"work"}`, profile.Mutation{Op: "create", Name: "work"}},
