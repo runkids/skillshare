@@ -52,3 +52,26 @@ export interface ProfileApplyResult {
   symlink_targets: string[] | null;
   snapshot: { target: string; path: string; restore: string; retention: string }[] | null;
 }
+
+/** On replacement, omitted skills stay unchanged; null or an empty object selects none. */
+export interface ProfileDraft {
+  name?: string;
+  description?: string;
+  skills?: { include?: string[]; exclude?: string[] } | null;
+}
+
+export interface ProfileMembershipRequest {
+  add?: string[];
+  remove?: string[];
+}
+
+export interface ProfileMutationResult {
+  changed: boolean;
+  needsSync: boolean;
+  skills: { name: string; result: 'added' | 'already-in' | 'removed' | 'not-in' }[] | null;
+}
+
+export interface ProfilePreviewResult {
+  selected: string[];
+  unmatched: string[];
+}
