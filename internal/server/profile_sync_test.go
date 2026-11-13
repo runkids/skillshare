@@ -320,3 +320,74 @@ func TestProfiles_APISyncBacksUpBeforeRefresh(t *testing.T) {
 		t.Fatal("automatic backup captured refreshed content", err)
 	}
 }
+
+func TestProfiles_APIUnmatchedWarningOnce(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, scenario := range []string{"nonempty", "empty", "incomplete", "agent", "none"} {
+			t.Run(fmt.Sprintf("project=%t/%s", project, scenario), func(t *testing.T) {
+				t.Setenv("HOME", t.TempDir())
+				for _, key := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR"} {
+					t.Setenv(key, "")
+				}
+				a, b := t.TempDir(), t.TempDir()
+				s, source := newTestServerWithTargets(t, map[string]string{"first": a, "second": b})
+				path := config.ConfigPath()
+				if project {
+					var root string
+					s, root = newProjectTargetServer(t, []config.ProjectTargetEntry{
+						{Name: "first", Skills: &config.ResourceTargetConfig{Path: a, Mode: "copy"}},
+						{Name: "second", Skills: &config.ResourceTargetConfig{Path: b, Mode: "copy"}},
+					})
+					source, path = s.cfg.Source, config.ProjectConfigPath(root)
+				}
+				addSkill(t, source, "keep")
+				include, active := "[keep, gone, absent]", "work"
+				if scenario == "empty" {
+					include = "[gone, absent]"
+				} else if scenario == "none" {
+					active = ""
+				}
+				data, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, append(data, []byte("follow_source_links: true\nprofiles:\n  work:\n    skills:\n      include: "+include+"\n")...), 0600); err != nil {
+					t.Fatal(err)
+				}
+				statePath, _, err := config.ProfilePaths(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := profile.WriteState(statePath, profile.State{Version: 1, Active: active}); err != nil {
+					t.Fatal(err)
+				}
+				if scenario == "incomplete" {
+					if err := os.Symlink(filepath.Join(t.TempDir(), "absent"), filepath.Join(source, "broken")); err != nil {
+						t.Skipf("symlink unavailable: %v", err)
+					}
+				}
+				kind := "skill"
+				if scenario == "agent" {
+					kind = "agent"
+				}
+				rr := projectRequest(t, s, http.MethodPost, "/api/sync", `{"kind":"`+kind+`"}`)
+				var out struct{ Warnings []string }
+				if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil || rr.Code != http.StatusOK {
+					t.Fatal(rr.Code, rr.Body.String(), err)
+				}
+				if scenario == "nonempty" {
+					for _, target := range []string{a, b} {
+						if _, err := os.Stat(filepath.Join(target, "keep", "SKILL.md")); err != nil {
+							t.Fatal("successful sync did not publish to both targets", err)
+						}
+					}
+				}
+				warnings := strings.Join(out.Warnings, "\n")
+				want := scenario == "nonempty" || scenario == "empty"
+				if count := strings.Count(warnings, "Profile work: unmatched patterns"); want && (count != 1 || !strings.Contains(warnings, "gone, absent")) || !want && count != 0 {
+					t.Fatal("missing, duplicated, or false profile warning", warnings)
+				}
+			})
+		}
+	}
+}

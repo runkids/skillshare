@@ -94,6 +94,17 @@ func TestInstallAndNewProfileHints(t *testing.T) {
 					}
 					t.Setenv("SKILLSHARE_CONFIG", global)
 				}
+				if !project {
+					// A global command must retain its scope when copied inside a project.
+					path := config.ProjectConfigPath(root)
+					if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(path, []byte("sources:\n  skills: "+t.TempDir()+"\ntargets: []\nprofiles:\n  work: {skills: {include: []}}\n"), 0600); err != nil {
+						t.Fatal(err)
+					}
+					t.Chdir(root)
+				}
 				origin := writeHintSkill(t, t.TempDir(), "review")
 				writeHintSkill(t, origin, "nested/review")
 				args := []string{origin, mode, "--into", "team", "--skip-audit"}
@@ -154,6 +165,21 @@ func TestInstallAndNewProfileHints(t *testing.T) {
 					}
 					if _, err := os.Stat(filepath.Join(cfg.Source, filepath.FromSlash(name), "SKILL.md")); err != nil {
 						t.Fatal("publication missing", err)
+					}
+				}
+				if wantHint {
+					for _, line := range strings.Split(stripANSIWarnings(output), "\n") {
+						if i := strings.Index(line, "skillshare profile add "); i >= 0 {
+							command := strings.TrimSpace(line[i:])
+							if !strings.HasSuffix(command, " "+mode) {
+								t.Errorf("hint lost originating scope %s: %s", mode, command)
+							}
+							var copiedErr error
+							captureStdout(t, func() { copiedErr = cmdProfile(strings.Fields(command)[2:]) })
+							if copiedErr != nil {
+								t.Fatal("copied hint failed inside project", copiedErr)
+							}
+						}
 					}
 				}
 				if operation == "agent" {

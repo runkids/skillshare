@@ -77,6 +77,16 @@ func TestProfileDeselected(t *testing.T) {
 	if err != nil || len(got) != 1 || got["other"] != "frontend" {
 		t.Fatal(got, err)
 	}
+	for _, filters := range []config.ResourceTargetConfig{
+		{Exclude: []string{"other", "target-only"}},
+		{Include: []string{"keep"}},
+	} {
+		filters.Profile = sc.Profile
+		got, err := ProfileDeselected("claude", filters, skills)
+		if err != nil || len(got) != 1 || got["other"] != "frontend" {
+			t.Fatal("profile reason lost to overlapping target filter or target-only mislabeled", got, err)
+		}
+	}
 	sc.Profile = profile.Selector{}
 	if got, err := ProfileDeselected("claude", sc, skills); err != nil || len(got) != 0 {
 		t.Fatal("no-profile behavior changed", got, err)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,8 +15,9 @@ import (
 )
 
 func TestDiffProfileReasons(t *testing.T) {
-	for _, project := range []bool{false, true} {
-		t.Run(fmt.Sprint(project), func(t *testing.T) {
+	for _, scenario := range []string{"global", "project", "global-include", "project-include", "global-exclude", "project-exclude"} {
+		t.Run(scenario, func(t *testing.T) {
+			project := strings.HasPrefix(scenario, "project")
 			root := t.TempDir()
 			t.Setenv("HOME", root)
 			for _, key := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR"} {
@@ -31,6 +33,11 @@ func TestDiffProfileReasons(t *testing.T) {
 				text = fmt.Sprintf("sources:\n  skills: %s\ntargets:\n  - name: custom\n    skills:\n      path: %s\n      mode: copy\n      exclude: [target-only]\n", source, target)
 			}
 			t.Setenv("SKILLSHARE_CONFIG", path)
+			if strings.HasSuffix(scenario, "include") {
+				text = strings.ReplaceAll(text, "exclude: [target-only]", "include: [target-only]\n      exclude: [target-only]")
+			} else if strings.HasSuffix(scenario, "exclude") {
+				text = strings.ReplaceAll(text, "exclude: [target-only]", "exclude: [target-only, other]")
+			}
 			text += "profiles:\n  frontend:\n    skills:\n      include: [target-only]\n"
 			for _, name := range []string{"other", "target-only"} {
 				for _, dir := range []string{source, target} {

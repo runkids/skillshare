@@ -59,6 +59,13 @@ func TestSearchInstallProfileHints(t *testing.T) {
 				if wantHint && !strings.Contains(output, "skillshare profile add work published published__nested__review") {
 					t.Fatal("hint must use final recursive names", output)
 				}
+				mode := "-g"
+				if project {
+					mode = "-p"
+				}
+				if wantHint && !strings.Contains(output, "published__nested__review "+mode+"\n") {
+					t.Fatal("single search hint lost originating scope", output)
+				}
 				_, err := os.Stat(filepath.Join(cfg.Source, "published", "SKILL.md"))
 				if (err == nil) != (scenario != "failure") {
 					t.Fatal("publication outcome changed", err)
@@ -143,6 +150,13 @@ func TestSearchBatchProfileHints(t *testing.T) {
 				wantHint := scenario == "success" || scenario == "mixed" || duplicate
 				if count := strings.Count(output, `Not in active profile "work"`); (wantHint && count != 1) || (!wantHint && count != 0) {
 					t.Fatalf("batch hint count = %d: %s", count, output)
+				}
+				scope := "-g"
+				if project {
+					scope = "-p"
+				}
+				if wantHint && !strings.Contains(output, "published__nested__review "+scope+"\n") {
+					t.Fatal("batch search hint lost originating scope", output)
 				}
 				if wantHint && !strings.Contains(output, "skillshare profile add work a b published published__nested__review\n") {
 					t.Fatal("batch hint must name only successful final skills once", output)

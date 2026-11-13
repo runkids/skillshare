@@ -16,10 +16,17 @@ import (
 )
 
 func TestDiffProfileReasons(t *testing.T) {
-	for _, mode := range []string{"copy", "merge"} {
-		t.Run(mode, func(t *testing.T) {
+	for _, scenario := range []string{"copy/global", "merge/global", "copy/global/overlap", "merge/global/overlap", "copy/project/overlap", "merge/project/overlap"} {
+		t.Run(scenario, func(t *testing.T) {
+			mode, _, _ := strings.Cut(scenario, "/")
 			target := t.TempDir()
 			s, source := newTestServerWithTargets(t, map[string]string{"custom": target})
+			path := config.ConfigPath()
+			if strings.Contains(scenario, "/project") {
+				var root string
+				s, root = newProjectTargetServer(t, []config.ProjectTargetEntry{{Name: "custom", Skills: &config.ResourceTargetConfig{Path: target, Mode: mode}}})
+				source, path = s.cfg.Source, config.ProjectConfigPath(root)
+			}
 			for _, name := range []string{"other", "target-only"} {
 				addSkill(t, source, name)
 				addSkill(t, target, name)
@@ -27,8 +34,13 @@ func TestDiffProfileReasons(t *testing.T) {
 			if err := ssync.WriteManifest(target, &ssync.Manifest{Managed: map[string]string{"other": "fixture", "target-only": "fixture"}}); err != nil {
 				t.Fatal(err)
 			}
-			path := config.ConfigPath()
 			text := fmt.Sprintf("source: %s\nmode: %s\ntargets:\n  custom:\n    skills:\n      path: %s\n      exclude: [target-only]\nprofiles:\n  frontend:\n    skills:\n      include: [target-only]\n", source, mode, target)
+			if s.IsProjectMode() {
+				text = fmt.Sprintf("targets:\n  - name: custom\n    skills:\n      path: %s\n      mode: %s\n      exclude: [target-only]\nprofiles:\n  frontend:\n    skills:\n      include: [target-only]\n", target, mode)
+			}
+			if strings.HasSuffix(scenario, "/overlap") {
+				text = strings.ReplaceAll(text, "exclude: [target-only]", "exclude: [target-only, other]")
+			}
 			if err := os.WriteFile(path, []byte(text), 0600); err != nil {
 				t.Fatal(err)
 			}
@@ -39,8 +51,7 @@ func TestDiffProfileReasons(t *testing.T) {
 			if err := profile.WriteState(statePath, profile.State{Version: 1, Active: "frontend"}); err != nil {
 				t.Fatal(err)
 			}
-			s.cfg, err = config.LoadReadOnlyPath(path)
-			if err != nil {
+			if err := s.reloadConfig(); err != nil {
 				t.Fatal(err)
 			}
 			for _, route := range []string{"/api/diff", "/api/diff/stream"} {
