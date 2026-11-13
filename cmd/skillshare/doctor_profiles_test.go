@@ -78,10 +78,10 @@ func TestProfileDoctorChecks(t *testing.T) {
 			target := cfg.Targets["custom"]
 			sc := target.SkillsConfig()
 			sc.Profile = profile.Selector{}
-			target.Skills = &sc
+			target = config.TargetConfig{Skills: &sc}
 			initial := ssync.SyncSkillTarget(ssync.SkillTarget{Name: "custom", Target: target, Mode: "copy"}, skills, ssync.SkillRunOptions{Source: cfg.Source})
-			if initial.Err != nil {
-				t.Fatal(initial.Err)
+			if initial.Err != nil || len(initial.Linked) != 2 {
+				t.Fatal("fixture must copy both skills before activating its profile", initial)
 			}
 			edited := filepath.Join(sc.Path, "edit", "SKILL.md")
 			if err := os.WriteFile(edited, []byte("my edit"), 0600); err != nil {
