@@ -64,6 +64,7 @@ import SegmentedControl from '../components/SegmentedControl';
 import { Select } from '../components/Select';
 import { PageSkeleton } from '../components/Skeleton';
 import TargetMenu, { SkillContextMenu } from '../components/TargetMenu';
+import ProfileMembershipMenu from '../components/profiles/ProfileMembershipMenu';
 import Tooltip from '../components/Tooltip';
 import SkillTree from '../components/resources/SkillTree';
 import type { SelectMode } from '../components/resources/SkillTree';
@@ -1220,6 +1221,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
           {count > 0 && (
             <div ref={bulkGhost} className="ss-bulk" role="toolbar" aria-label={t('resources.select.count', { count })}>
               <b>{t('resources.select.count', { count })}</b>
+              {!isAgent && <ProfileMembershipMenu names={selectedItems.map((skill) => skill.flatName)} />}
               {hiddenCount > 0 && <span className="text-ink-3">{t('resources.select.hidden', { count: hiddenCount })}</span>}
               <span className="dv" />
               <Button variant="secondary" size="sm" disabled={toggleMany.isPending} onClick={() => toggleMany.mutate({ names: selectedItems.map((s) => s.flatName), enable: true })}>

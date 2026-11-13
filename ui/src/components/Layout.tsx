@@ -6,6 +6,7 @@ import {
   RefreshCw,
   GitBranch,
   Puzzle,
+  SwatchBook,
   Bot,
   FolderPlus,
   Folders,
@@ -64,6 +65,7 @@ const navGroups: { labelKey?: string; items: NavItem[] }[] = [
     labelKey: 'layout.group.library',
     items: [
       { to: '/skills', icon: Puzzle, labelKey: 'layout.nav.skills', also: ['/hubs'] },
+      { to: '/profiles', icon: SwatchBook, labelKey: 'profileEdit.title' },
       { to: '/agents', icon: Bot, labelKey: 'layout.nav.agents' },
       { to: '/extras', icon: FolderPlus, labelKey: 'layout.nav.extras' },
       { to: '/mcp', icon: Plug, labelKey: 'mcp.title' },

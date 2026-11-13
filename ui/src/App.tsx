@@ -18,6 +18,7 @@ import { useRouteReport } from './hooks/useRouteReport';
 
 const HubPage = lazy(() => import('./pages/HubPage'));
 const ResourcesPage = lazy(() => import('./pages/ResourcesPage'));
+const ProfilesPage = lazy(() => import('./pages/ProfilesPage'));
 const ResourceDetailPage = lazy(() => import('./pages/ResourceDetailPage'));
 const TargetsPage = lazy(() => import('./pages/TargetsPage'));
 const ExtrasPage = lazy(() => import('./pages/ExtrasPage'));
@@ -78,6 +79,8 @@ function AppRoutes() {
           <Route element={<Layout />}>
             <Route index element={<DashboardPage />} />
             <Route path="skills" element={<Lazy><ResourcesPage key="skill" kind="skill" /></Lazy>} />
+            <Route path="profiles" element={<Lazy><ProfilesPage /></Lazy>} />
+            <Route path="profiles/:name" element={<Lazy><ProfilesPage /></Lazy>} />
             <Route path="hubs" element={<Lazy><HubPage /></Lazy>} />
             <Route path="skills/new" element={<Lazy><NewSkillPage /></Lazy>} />
             <Route path="skills/:name" element={<Lazy><ResourceDetailPage /></Lazy>} />

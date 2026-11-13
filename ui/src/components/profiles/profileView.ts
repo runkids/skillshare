@@ -47,6 +47,15 @@ export function profileReason(reason: string, t: ReturnType<typeof useT>, name =
     target: kept[1], entry: kept[2], step: t(`profiles.step.${kept[3]}`), reason: profileReason(kept[4], t),
   });
   const q = JSON.stringify(name);
+  const blocked = reason.match(/^profile ("(?:[^"\\]|\\.)*"): skill ("(?:[^"\\]|\\.)*") is blocked by exclude pattern ("(?:[^"\\]|\\.)*")$/s);
+  if (blocked) return t('profileEdit.skillBlocked', { name: blocked[1], skill: blocked[2], pattern: blocked[3] });
+  const unknown = reason.match(/^unknown (?:profile|skills) key (".+")$/s);
+  if (unknown) return t('profileEdit.unknownKey', { key: unknown[1] });
+  const unusable = `profile ${q} is unusable: `;
+  if (reason.startsWith(unusable)) return t('profileEdit.unusable', { name, reason: profileReason(reason.slice(unusable.length), t, name) });
+  if (reason === `profile ${q} already exists`) return t('profileEdit.exists', { name });
+  if (reason === `profile ${q} does not exist`) return t('profileEdit.missing', { name });
+  if (reason === `cannot delete active profile ${q}`) return t('profileEdit.activeDelete', { name });
   const known: Record<string, string> = {
     'copy was edited or could not be verified': 'profiles.edited',
     'entry is not a recorded copy': 'profiles.unmanaged',
