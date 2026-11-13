@@ -52,7 +52,7 @@ skillshare sync
 4. Entire repo is security-audited using active install threshold (`audit.block_threshold` or `--threshold`)
 5. Nested skills are flattened for AI CLIs
 
-If findings hit the threshold, install is blocked unless `--force` is used. On block, skillshare removes the cloned repo automatically; if cleanup fails, the command reports the exact path for manual cleanup.
+If findings hit the threshold, install is blocked unless `--force` is used. A scan that cannot run also blocks it, even with `--force`. On block, skillshare removes the cloned repo automatically; if cleanup fails, the command reports the exact path for manual cleanup.
 
 ---
 

@@ -288,6 +288,51 @@ func sanitizeTokens(text string) string {
 	return text
 }
 
+// RedactRepoURL returns repoURL without its userinfo, query and fragment, plus
+// a replacer that removes those parts from text echoing the URL. Userinfo is
+// taken up to the last "@" before the first "/", so a "?" or "#" inside a
+// password cannot hide it while an "@" in the path stays. A source without a
+// scheme, such as "user:token@host/owner/repo", is cloned over HTTPS (see
+// expandGitHubShorthand) and redacted as such; scp-style URLs and local paths
+// come back unchanged.
+func RedactRepoURL(repoURL string) (string, *strings.Replacer) {
+	scheme, rest, ok := strings.Cut(repoURL, "://")
+	if !ok {
+		if isLocalPath(repoURL) || gitSSHPattern.MatchString(repoURL) {
+			return repoURL, strings.NewReplacer()
+		}
+		clean, redact := RedactRepoURL("https://" + repoURL)
+		return strings.TrimPrefix(clean, "https://"), redact
+	}
+	var pairs []string
+	host, path := rest, ""
+	if i := strings.IndexByte(rest, '/'); i >= 0 {
+		host, path = rest[:i], rest[i:]
+	}
+	if at := strings.LastIndex(host, "@"); at > 0 {
+		userinfo := host[:at]
+		host = host[at+1:]
+		pairs = append(pairs, userinfo+"@", "")
+		if _, password, ok := strings.Cut(userinfo, ":"); ok && password != "" {
+			pairs = append(pairs, password, "[REDACTED]")
+		}
+	}
+	rest = host + path
+	if i := strings.IndexByte(rest, '#'); i >= 0 {
+		if len(rest)-i > 1 {
+			pairs = append(pairs, rest[i:], "")
+		}
+		rest = rest[:i]
+	}
+	if i := strings.IndexByte(rest, '?'); i >= 0 {
+		if query := rest[i+1:]; query != "" {
+			pairs = append(pairs, rest[i:], "", query, "[REDACTED]")
+		}
+		rest = rest[:i]
+	}
+	return scheme + "://" + rest, strings.NewReplacer(pairs...)
+}
+
 // urlUsername extracts the username from an HTTPS URL, if present.
 // Returns "" for URLs without userinfo (e.g. https://github.com/...).
 func urlUsername(cloneURL string) string {

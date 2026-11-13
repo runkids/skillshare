@@ -442,45 +442,6 @@ func pruneRegistry(prunedNames []string, uc *updateContext) {
 // HTTPS repo URL can carry a token as userinfo or in its query, and git's error
 // text echoes the URL, so both are redacted before they reach the terminal.
 func fetchFailedEntry(repoURL string, err error) batchBlockedEntry {
-	name, redact := redactRepoURL(repoURL)
+	name, redact := install.RedactRepoURL(repoURL)
 	return batchBlockedEntry{name: name, errMsg: redact.Replace(err.Error())}
-}
-
-// redactRepoURL returns an http(s) repoURL without its userinfo, query and
-// fragment, plus a replacer that removes those parts from text echoing the
-// URL. Userinfo is taken up to the last "@" before the first "/", so a "?" or
-// "#" inside a password cannot hide it while an "@" in the path stays. Other
-// URLs (file, ssh, scp-style, local paths) come back unchanged.
-func redactRepoURL(repoURL string) (string, *strings.Replacer) {
-	scheme, rest, ok := strings.Cut(repoURL, "://")
-	if !ok || !strings.EqualFold(scheme, "http") && !strings.EqualFold(scheme, "https") {
-		return repoURL, strings.NewReplacer()
-	}
-	var pairs []string
-	host, path := rest, ""
-	if i := strings.IndexByte(rest, '/'); i >= 0 {
-		host, path = rest[:i], rest[i:]
-	}
-	if at := strings.LastIndex(host, "@"); at > 0 {
-		userinfo := host[:at]
-		host = host[at+1:]
-		pairs = append(pairs, userinfo+"@", "")
-		if _, password, ok := strings.Cut(userinfo, ":"); ok && password != "" {
-			pairs = append(pairs, password, "[REDACTED]")
-		}
-	}
-	rest = host + path
-	if i := strings.IndexByte(rest, '#'); i >= 0 {
-		if len(rest)-i > 1 {
-			pairs = append(pairs, rest[i:], "")
-		}
-		rest = rest[:i]
-	}
-	if i := strings.IndexByte(rest, '?'); i >= 0 {
-		if query := rest[i+1:]; query != "" {
-			pairs = append(pairs, rest[i:], "", query, "[REDACTED]")
-		}
-		rest = rest[:i]
-	}
-	return scheme + "://" + rest, strings.NewReplacer(pairs...)
 }

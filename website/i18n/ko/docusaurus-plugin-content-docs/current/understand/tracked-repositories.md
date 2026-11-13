@@ -52,7 +52,7 @@ skillshare sync
 4. 활성 install 임계값(`audit.block_threshold` 또는 `--threshold`)을 사용해 전체 repo가 보안 감사됨
 5. AI CLI를 위해 중첩된 skill이 평탄화됨
 
-발견 사항이 임계값에 도달하면 `--force`를 사용하지 않는 한 설치가 차단됩니다. 차단 시 skillshare는 clone된 repo를 자동으로 제거합니다. 정리에 실패하면 수동 정리를 위한 정확한 경로를 명령이 보고합니다.
+발견 사항이 임계값에 도달하면 `--force`를 사용하지 않는 한 설치가 차단됩니다. 스캔을 실행할 수 없는 경우에도 `--force`와 관계없이 차단됩니다. 차단 시 skillshare는 clone된 repo를 자동으로 제거합니다. 정리에 실패하면 수동 정리를 위한 정확한 경로를 명령이 보고합니다.
 
 ---
 

@@ -210,7 +210,7 @@ skillshare install /path/to/skill --skip-audit
 # Bypasses scanning (use with caution)
 ```
 
-`--force` 會覆蓋阻擋決策。`--skip-audit` 會停用該次安裝指令的掃描。
+`--force` 會覆蓋由發現項目造成的阻擋決策；掃描無法執行時仍會阻擋。`--skip-audit` 會停用該次安裝指令的掃描。
 
 沒有任何 config flag 可以全域停用安裝時的 audit。請只在你確實想略過掃描的指令上使用 `--skip-audit`。
 

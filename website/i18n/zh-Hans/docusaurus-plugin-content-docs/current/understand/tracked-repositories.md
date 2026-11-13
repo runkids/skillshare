@@ -52,7 +52,7 @@ skillshare sync
 4. 使用当前 install 阈值（`audit.block_threshold` 或 `--threshold`）对整个仓库进行安全审计
 5. 嵌套 Skill 会为 AI CLI 扁平化处理
 
-如果发现的问题达到阈值，安装会被阻止，除非使用 `--force`。被阻止时，skillshare 会自动移除已克隆的仓库；若清理失败，命令会报告确切路径以便手动清理。
+如果发现的问题达到阈值，安装会被阻止，除非使用 `--force`。扫描无法运行时同样会被阻止，即使使用了 `--force`。被阻止时，skillshare 会自动移除已克隆的仓库；若清理失败，命令会报告确切路径以便手动清理。
 
 ---
 
