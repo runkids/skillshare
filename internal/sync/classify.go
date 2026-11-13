@@ -91,25 +91,35 @@ func ClassifySkillForTarget(flatName string, skillTargets []string, targetName s
 }
 
 // ProfileDeselected names entries the profile removes from the target's
-// otherwise eligible selection. Diagnostic candidates ignore target patterns so
+// otherwise eligible selection. Filtered identities override unfiltered ones so
 // profile reasons take precedence, retaining target naming, routing and ignores.
 func ProfileDeselected(name string, sc config.ResourceTargetConfig, skills []DiscoveredSkill) (map[string]string, error) {
 	if !sc.Profile.Active() {
 		return nil, nil
 	}
-	_, err := ResolveTargetSkillsForTarget(name, sc, skills)
-	if err != nil {
+	if _, err := sc.Profile.Selects(""); err != nil {
 		return nil, err
 	}
 	selector := sc.Profile
 	sc.Profile = profile.Selector{}
+	filtered, err := ResolveTargetSkillsForTarget(name, sc, skills)
+	if err != nil {
+		return nil, err
+	}
 	sc.Include, sc.Exclude = nil, nil
 	unfiltered, err := ResolveTargetSkillsForTarget(name, sc, skills)
 	if err != nil {
 		return nil, err
 	}
-	deselected := make(map[string]string)
+	candidates := make(map[string]ResolvedTargetSkill, len(unfiltered.Skills)+len(filtered.Skills))
 	for _, skill := range unfiltered.Skills {
+		candidates[skill.TargetName] = skill
+	}
+	for _, skill := range filtered.Skills {
+		candidates[skill.TargetName] = skill
+	}
+	deselected := make(map[string]string)
+	for _, skill := range candidates {
 		included, err := selector.Selects(skill.Skill.FlatName)
 		if err != nil {
 			return nil, err
