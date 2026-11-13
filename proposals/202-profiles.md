@@ -4,7 +4,7 @@ Issue: [#202](https://github.com/runkids/skillshare/issues/202)
 
 ## Problem
 
-#202 asks to assign skills to named profiles and switch between them easily. Existing target filters can express the selection, as discussed in #156. Users still have to edit filters for each target, run sync and repeat those edits when switching back. There is no named selection, and switching rewrites the config that some users share between machines.
+#202 asks to assign skills to named profiles and switch between them easily. Existing target filters can express the selection, as discussed in #156. Users can edit each target’s filters with `skillshare target <name> --add-include` and `--remove-include`, but must run sync and repeat those edits when switching back. There is no named selection, and switching rewrites the config that some users share between machines.
 
 ## Proposed Solution
 
@@ -20,14 +20,15 @@ Implementation extends configuration loading/formatting, both schemas, the selec
 
 Definitions preserve comments and unknown keys. An unknown selection key makes that profile unusable on this binary; config loading still succeeds, and an unavailable active profile refuses skill sync rather than deploying all skills. Repair commands and unrelated resource operations remain available. The active name never comes from a shared file.
 
-No-profile installations retain their current behaviour. Copy manifests gain a fingerprint of the output after naming rewrites, separate from the source checksum. Definitions with no active profile are inert except for serializing skill sync with the profile lock. An incomplete switch records pending state and can be completed by the next sync.
+No-profile installations retain their current sync behaviour. Copy manifests gain a fingerprint of the output after naming rewrites, separate from the source checksum. Definitions with no active profile are inert except for serializing skill sync with the profile lock. An incomplete switch records pending state and can be completed by the next sync.
 
 The switch touches only enabled own merge/copy skill targets. Symlink-mode, disabled, registered-project targets and non-skill resources are excluded. Profiles never install, fetch or update anything; federation-installed skills keep their pins and source content. Adding profiles to #823's shared-section allowlist is a separate follow-up. Older binaries cannot enforce profile state and can drop definitions when saving, so users sharing config must upgrade every machine first.
 
 ## Alternatives Considered
 
 - Edit existing target filters: already works, but leaves the naming, repeated edits and one-step switching gap.
-- Switch separate configs with `SKILLSHARE_CONFIG`: works, but duplicates configuration and makes switching less convenient.
+- Store named target-filter sets and rewrite the filters on switch: avoids a separate selection layer, but rewrites shared config and leaves copy-mode pruning without the proposed edit-preservation guarantees.
+- Switch separate global configs with `SKILLSHARE_CONFIG`: duplicates configuration and makes switching less convenient; project mode still uses its project config.
 - Rewrite `.skillignore`: affects discovery and source-level operations instead of only deployment to targets.
 - Store separate source trees or swap target folders: duplicates content and interferes with tracked skills.
 - Put the active name in shared config: a frequent local choice would rewrite and switch other machines.
@@ -39,7 +40,7 @@ The switch touches only enabled own merge/copy skill targets. Symlink-mode, disa
 - [ ] Medium (3-10 files, 200-500 lines)
 - [x] Large (10+ files, 500+ lines)
 
-Delivery is by usable outcome: proposal; a conditional standalone copy-fingerprint bugfix only if reproduced; define and switch profiles in one core PR; assign skills and explain selection; dashboard see/switch; dashboard create/edit. The core is approximately 5,400 changed lines, kept together with its safety checks, lock, loaders, refusal paths and live-server behaviour. Ordered commits make it reviewable without splitting to fit a size limit. Estimates are forecasts, not measured diffs or test results.
+Delivery is by usable outcome: proposal; define and switch profiles, including the copy fingerprint, in one core PR; assign skills and explain selection; dashboard see/switch; dashboard create/edit. The core is forecast at 5,706 changed lines, potentially 5,841, kept together with its safety checks, lock, loaders, refusal paths and live-server behaviour. Ordered commits make it reviewable without splitting to fit a size limit. Estimates are forecasts, not measured diffs or test results.
 
 Agents, extras, MCP, hooks and plugins in profiles; multiple active profiles; inheritance; shared defaults; and per-target activation are outside this series.
 
@@ -49,8 +50,8 @@ This is an unapproved reference implementation proposal for #202, currently labe
 
 These are the five points for the maintainer:
 
-1. Whether you want this at all, given your answer in #156.
-2. Delivery of the core slice: one pull request of about 5,400 lines, a stack you merge in an order you name, or a reference you implement from. CONTRIBUTING says implementation is normally yours. The author's current delivery plan is one core reference PR with ordered commits.
-3. Whether the edit-preserving rule should apply to every copy-mode sync, not only when a profile is active. This proposal keeps existing behaviour for users without profiles.
+1. Whether the maintainer wants this at all, given the answer in #156.
+2. Delivery of the core slice: one pull request forecast at 5,706 lines (potentially 5,841), a stack merged in an order the maintainer names, or a reference for the maintainer to implement. CONTRIBUTING says implementation is normally the maintainer’s. The author's current delivery plan is one core reference PR with ordered commits.
+3. Whether the edit-preserving rule should apply to every copy-mode sync, not only when a profile is active. This proposal keeps existing pruning behaviour for users without profiles, while adding output fingerprint bookkeeping to their copy manifests; older binaries drop that bookkeeping when rewriting the manifest.
 4. The name `profile` beside `audit --profile`.
 5. An empty profile selecting nothing.
