@@ -692,9 +692,11 @@ export default function ExtrasPage() {
                 {extra.remote && (
                   <div className="ss-r flex-wrap text-[13px] text-ink-2">
                     <span className="font-semibold">{t('extras.remote.origin')}</span>
-                    <span className="min-w-0 break-all font-mono">{extra.remote}{extra.branch ? ` · ${extra.branch}` : ''}</span>
-                    {extra.commit && <span className="font-mono" title={extra.commit}>· {extra.commit.slice(0, 7)}</span>}
-                    {extra.state && <span className={`ss-st ${extra.state === 'intact' ? 'ok' : 'warn'}`}>{t(`extras.remote.state.${extra.state}`)}</span>}
+                    <span className="min-w-0 break-all font-mono">
+                      {extra.remote}{extra.branch ? ` · ${extra.branch}` : ''}
+                      {extra.commit && <span title={extra.commit}> · {extra.commit.slice(0, 7)}</span>}
+                    </span>
+                    {extra.state && <span className={`ss-st ${extra.state === 'intact' ? 'ok' : extra.state === 'error' ? 'bad' : 'warn'}`}>{t(`extras.remote.state.${extra.state}`)}</span>}
                     <span>{t('extras.remote.localOnly')}</span>
                     {(extra.state === 'missing' || extra.state === 'interrupted') && <ExtraRestoreHint extra={extra} project={isProjectMode} />}
                   </div>
