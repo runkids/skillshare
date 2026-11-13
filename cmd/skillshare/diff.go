@@ -625,10 +625,20 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 	}
 
 	if utils.IsSymlinkOrJunction(sc.Path) {
-		r.mode = "symlink"
-		collectSymlinkDiff(&r, sc.Path, source)
-		dp.add(len(resolution.Skills))
-		return r
+		profileAlias := false
+		if len(preview) > 0 && preview[0].aware && (mode == "copy" || mode == "merge") {
+			link, linkErr := utils.ResolveLinkTarget(sc.Path)
+			absSource, _ := filepath.Abs(source)
+			info, statErr := os.Stat(sc.Path)
+			profileAlias = linkErr == nil && statErr == nil && info.IsDir() &&
+				!utils.PathsEqual(utils.ResolveSymlink(link), utils.ResolveSymlink(absSource))
+		}
+		if !profileAlias {
+			r.mode = "symlink"
+			collectSymlinkDiff(&r, sc.Path, source)
+			dp.add(len(resolution.Skills))
+			return r
+		}
 	}
 
 	var manifest *sync.Manifest // only copy-mode legacy lookups read it
