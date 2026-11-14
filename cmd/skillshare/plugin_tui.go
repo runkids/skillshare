@@ -81,13 +81,10 @@ func pluginWizard(s *plugin.Service, o pluginOptions) error {
 
 // pluginWholePackageRequest keeps first-command updates and receipt-based removal distinct.
 func pluginWholePackageRequest(r plugin.Request, pack plugin.Package) (plugin.Request, bool) {
-	if r.Action == "update" && (pack.Source != "" || pack.Commands != nil) {
-		commands := true
-		r.Commands = &commands
-	} else if r.Action != "remove" || pack.Commands == nil {
+	if !(r.Action == "update" && (pack.Source != "" || pack.Commands != nil)) && !(r.Action == "remove" && pack.Commands != nil) {
 		return r, false
 	}
-	r.Targets = nil
+	r.Targets, r.Commands = nil, nil
 	return r, true
 }
 

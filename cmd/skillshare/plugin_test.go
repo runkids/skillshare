@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -281,8 +282,10 @@ func TestPluginUpdateAllDryRunReportsOMPFailure(t *testing.T) {
 }
 
 func TestPluginWizardFirstCommandUpdate(t *testing.T) {
-	for _, deselected := range []bool{false, true} {
-		t.Run(map[bool]string{false: "recorded", true: "deselected"}[deselected], func(t *testing.T) {
+	for _, mode := range []string{"recorded", "deselected", "commandless", "command-bearing"} {
+		t.Run(mode, func(t *testing.T) {
+			deselected := mode == "deselected"
+			native := mode == "commandless" || mode == "command-bearing"
 			home, root := t.TempDir(), t.TempDir()
 			t.Setenv("HOME", home)
 			for _, key := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR", "OMP_CONFIG_DIR"} {
@@ -299,7 +302,12 @@ func TestPluginWizardFirstCommandUpdate(t *testing.T) {
 			}
 			s := &plugin.Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
 			r := plugin.Request{Action: "add", Source: root}
-			if deselected {
+			if mode == "command-bearing" {
+				if err := os.WriteFile(filepath.Join(root, "plugin.json"), []byte(`{"name":"demo","$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","skills":"./skills","extensions":{"cc.runkids.skillshare":{"commands":{"demo-command":"run"}}}}`), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if deselected || native {
 				r.Targets = []string{"cursor"}
 			}
 			requests := []plugin.Request{r}
@@ -315,8 +323,19 @@ func TestPluginWizardFirstCommandUpdate(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if err := os.WriteFile(filepath.Join(root, "plugin.json"), []byte(`{"name":"demo","$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","skills":"./skills","extensions":{"cc.runkids.skillshare":{"commands":{"demo-command":"run"}}}}`), 0644); err != nil {
+			before, err := s.Packages()
+			if err != nil {
 				t.Fatal(err)
+			}
+			if mode != "commandless" {
+				if err := os.WriteFile(filepath.Join(root, "plugin.json"), []byte(`{"name":"demo","$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","skills":"./skills","extensions":{"cc.runkids.skillshare":{"commands":{"demo-command":"run"}}}}`), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for path, body := range map[string]string{"skills/demo/SKILL.md": "---\nname: demo\ndescription: updated\n---\n", "run": "#!/bin/sh\nprintf updated-command\n"} {
+				if err := os.WriteFile(filepath.Join(root, path), []byte(body), 0755); err != nil {
+					t.Fatal(err)
+				}
 			}
 			inventory, err := s.Packages()
 			if err != nil {
@@ -324,10 +343,10 @@ func TestPluginWizardFirstCommandUpdate(t *testing.T) {
 			}
 			pack := inventory.Packages["demo"]
 			whole, offered := pluginWholePackageRequest(plugin.Request{Action: "update", Name: "demo", Targets: []string{"cursor"}}, pack)
-			if !offered || len(whole.Targets) != 0 || whole.Commands == nil || !*whole.Commands {
+			if !offered || len(whole.Targets) != 0 {
 				t.Fatalf("wizard package choice: %+v %v", whole, offered)
 			}
-			if _, offered := pluginWholePackageRequest(plugin.Request{Action: "remove"}, pack); offered {
+			if _, offered := pluginWholePackageRequest(plugin.Request{Action: "remove"}, pack); offered && pack.Commands == nil {
 				t.Fatal("commandless removal offered command ownership")
 			}
 			p, err := s.Preview(context.Background(), whole)
@@ -340,8 +359,34 @@ func TestPluginWizardFirstCommandUpdate(t *testing.T) {
 					found = true
 				}
 			}
-			if !found {
+			if !native && !found {
 				t.Fatalf("Whole package omitted first command: %+v", p.Changes)
+			}
+			if _, err := s.Apply(context.Background(), whole, p.Revision); err != nil {
+				t.Fatal(err)
+			}
+			after, err := s.Packages()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if native {
+				b := after.Packages["demo"].Bindings["cursor"]
+				if b.Digest == "" || b.Digest == before.Packages["demo"].Bindings["cursor"].Digest {
+					t.Error("Whole package left native Cursor digest unchanged")
+				}
+				content, err := os.ReadFile(filepath.Join(home, ".cursor/plugins/local", b.ID, "skills/demo/SKILL.md"))
+				if err != nil || !strings.Contains(string(content), "description: updated") {
+					t.Errorf("Whole package left native content stale: %s %v", content, err)
+				}
+			}
+			if mode != "commandless" {
+				output, err := exec.Command(filepath.Join(after.Packages["demo"].Commands.Bin, "demo-command")).Output()
+				if err != nil || string(output) != "updated-command" {
+					t.Errorf("Whole package command output: %q %v", output, err)
+				}
+			}
+			if deselected && after.Packages["demo"].Bindings["cursor"].Selected() {
+				t.Error("Whole package enabled deselected Cursor")
 			}
 		})
 	}
