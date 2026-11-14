@@ -4,6 +4,7 @@ import (
 	"errors"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"skillshare/internal/config"
@@ -61,14 +62,10 @@ func TestHostedCatalog_ExplicitSelection(t *testing.T) {
 			}
 		}
 	}
-}
-
-func TestHostedCatalog_ContainmentAndUnavailable(t *testing.T) {
-	src := t.TempDir()
+	src = t.TempDir()
 	for _, n := range []string{"alpha", "off", "ignored", "suite", "suite/child", "_repo/skills/claude/fix", "_repo/skills/codex/fix"} {
 		writeFile(t, filepath.Join(src, n, "SKILL.md"), skillMD(filepath.Base(n)))
 	}
-	writeFile(t, filepath.Join(src, "off/.skillshare-disabled"), "")
 	writeFile(t, filepath.Join(src, ".skillignore"), "ignored\noff\n")
 	for _, tc := range []struct {
 		name          string
@@ -95,7 +92,20 @@ func TestHostedCatalog_ContainmentAndUnavailable(t *testing.T) {
 		})
 	}
 	bad := profile.Resolve(profile.Catalog{}, profile.State{Active: "missing"}, "fixture.yaml", nil)
-	if _, err := (&Builder{Source: src, Profile: &bad}).Build(); !errors.Is(err, profile.ErrProfileUnavailable) {
-		t.Fatalf("unavailable: %v", err)
+	if _, err := (&Builder{Source: src, Profile: &bad}).Build(); err != nil {
+		var unavailable *profile.UnavailableError
+		if !errors.Is(err, profile.ErrProfileUnavailable) || !errors.As(err, &unavailable) || unavailable.Name != "missing" || unavailable.ConfigPath != "fixture.yaml" || unavailable.Reason != "not defined" {
+			t.Fatalf("unavailable cause lost: %v", err)
+		}
+		if strings.Contains(err.Error(), "profile use") || !strings.Contains(err.Error(), "shared definition") || !strings.Contains(err.Error(), "compatible") {
+			t.Fatalf("hosted recovery advice: %v", err)
+		}
+	} else {
+		t.Fatal("unavailable profile accepted")
+	}
+	// The local active-profile caller keeps its existing recovery advice.
+	_, err := (&Builder{Source: src, Skills: &config.ResourceTargetConfig{}, ResolveProfile: func() (profile.Selector, error) { return bad, nil }}).Build()
+	if err == nil || !strings.Contains(err.Error(), "profile use --none") {
+		t.Fatalf("local advice changed: %v", err)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,21 +17,33 @@ import (
 	"testing"
 	"time"
 
+	"skillshare/internal/config"
+	"skillshare/internal/install"
+	"skillshare/internal/oplog"
 	"skillshare/internal/profile"
+	"skillshare/internal/utils"
+
+	"golang.org/x/net/http/httpguts"
 )
 
 const hostedMeta = `"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"test","version":"1"},"io.modelcontextprotocol/clientCapabilities":{}}`
 
-func hostedFixture(t *testing.T, edit *EditOptions) (string, *httptest.Server) {
+func hostedFixture(t *testing.T, edit *EditOptions, targeted ...bool) (string, *httptest.Server) {
 	t.Helper()
 	src := t.TempDir()
 	for _, n := range []string{"alpha", "beta", "shared"} {
 		writeFile(t, filepath.Join(src, n, "SKILL.md"), textSkill(n))
 	}
+	if len(targeted) > 0 && targeted[0] {
+		writeFile(t, filepath.Join(src, "shared/README.md"), "# Shared guide\n")
+	}
 	builders := map[string]*Builder{}
 	for name, own := range map[string]string{"writing": "alpha", "coding": "beta", "unbound": "alpha"} {
 		sel := hostedSelector(name, own, "shared")
 		builders[name] = &Builder{Source: src, Profile: &sel}
+		if len(targeted) > 0 && targeted[0] {
+			builders[name].Target, builders[name].Skills = "claude", &config.ResourceTargetConfig{}
+		}
 	}
 	h, err := NewHostedHandler(builders, []ProfileBinding{{"writing", "write-secret"}, {"coding", "code-secret"}}, Options{Version: "test", Refresh: time.Hour, Edit: edit})
 	if err != nil {
@@ -242,16 +255,27 @@ func hostedApply(t *testing.T, srv *httptest.Server, token, id string) []byte {
 }
 
 func TestHostedEdit_IsolatesAndRechecks(t *testing.T) {
+	t.Run("foreign-preview", func(t *testing.T) {
+		_, srv := hostedFixture(t, &EditOptions{Skills: []string{"*"}, PreviewTTL: time.Hour, Threshold: "CRITICAL"})
+		id := hostedPreview(t, srv, "write-secret", "skill://shared/SKILL.md", textSkill("shared")+"changed\n")
+		if data := hostedApply(t, srv, "code-secret", id); !bytes.Contains(data, []byte(`"isError":true`)) {
+			t.Fatalf("foreign preview applied: %s", data)
+		}
+		if data := hostedApply(t, srv, "write-secret", id); !bytes.Contains(data, []byte("Saved ")) {
+			t.Fatalf("foreign attempt consumed owner's preview: %s", data)
+		}
+	})
 	for _, change := range []string{"disable", "remove", "unwritable", "reroute"} {
 		t.Run(change, func(t *testing.T) {
 			edit := &EditOptions{Skills: []string{"*"}, PreviewTTL: time.Hour, Threshold: "CRITICAL"}
-			src, srv := hostedFixture(t, edit)
-			uri := "skill://shared/SKILL.md"
-			id := hostedPreview(t, srv, "write-secret", uri, textSkill("shared")+"changed\n")
-			data := hostedApply(t, srv, "code-secret", id)
-			if !bytes.Contains(data, []byte(`"isError":true`)) {
-				t.Fatalf("foreign preview applied: %s", data)
-			}
+			src, srv := hostedFixture(t, edit, true)
+			// Change routing metadata in SKILL.md while previewing a separate file:
+			// membership loss must be caught before any revision/ownership check.
+			uri := "skill://shared/README.md"
+			file := filepath.Join(src, "shared/README.md")
+			before := readFile(t, file)
+			id := hostedPreview(t, srv, "write-secret", uri, before+"changed\n")
+			want := "invalid: no skill file " + uri
 			switch change {
 			case "disable":
 				writeFile(t, filepath.Join(src, ".skillignore"), "shared\n")
@@ -260,28 +284,53 @@ func TestHostedEdit_IsolatesAndRechecks(t *testing.T) {
 					t.Fatal(err)
 				}
 			case "unwritable":
-				writeFile(t, filepath.Join(src, ".metadata.json"), `{"version":1,"entries":{"shared":{"source":"github.com/acme/skills/shared"}}}`)
+				store := install.NewMetadataStore()
+				store.Set("shared", &install.MetadataEntry{Source: "github.com/acme/skills/shared"})
+				if err := store.Save(src); err != nil {
+					t.Fatal(err)
+				}
+				want = "not_writable: shared was installed from upstream"
 			case "reroute":
-				writeFile(t, filepath.Join(src, "shared/SKILL.md"), "---\nname: shared\ndescription: fixture\ntargets: [codex]\n---\n")
+				if err := utils.SetFrontmatterList(filepath.Join(src, "shared/SKILL.md"), "metadata.targets", []string{"codex"}); err != nil {
+					t.Fatal(err)
+				}
 			}
-			before, _ := os.ReadFile(filepath.Join(src, "shared/SKILL.md"))
-			data = hostedApply(t, srv, "write-secret", id)
-			if !bytes.Contains(data, []byte(`"isError":true`)) {
-				t.Fatalf("lost authorization applied: %s", data)
+			if readFile(t, file) != before {
+				t.Fatal("fixture changed preview bytes")
 			}
-			after, _ := os.ReadFile(filepath.Join(src, "shared/SKILL.md"))
-			if !bytes.Equal(before, after) {
+			data := hostedApply(t, srv, "write-secret", id)
+			if !bytes.Contains(data, []byte(`"isError":true`)) || !bytes.Contains(data, []byte(want)) {
+				t.Fatalf("wrong apply-time refusal, want %s: %s", want, data)
+			}
+			if readFile(t, file) != before {
 				t.Fatal("rejected edit wrote source")
+			}
+			if change == "remove" {
+				if _, err := os.ReadFile(filepath.Join(src, "shared/SKILL.md")); !errors.Is(err, os.ErrNotExist) {
+					t.Fatalf("removed skill file: %v", err)
+				}
 			}
 		})
 	}
 }
 
 func TestHostedEdit_SharedRevisionConflict(t *testing.T) {
-	src, srv := hostedFixture(t, &EditOptions{Skills: []string{"shared"}, PreviewTTL: time.Hour, Threshold: "CRITICAL"})
+	firstSave, observed := make(chan struct{}), make(chan struct{})
+	var savedOnce, releaseOnce sync.Once
+	release := func() { releaseOnce.Do(func() { close(observed) }) }
+	defer release()
+	edit := &EditOptions{Skills: []string{"shared"}, PreviewTTL: time.Hour, Threshold: "CRITICAL"}
+	// Hold the winner after invalidation but before releasing the common save
+	// guard. The sibling cannot rebuild via apply before we observe its cache.
+	edit.Log = func(file string, _ oplog.Entry) {
+		if file == oplog.OpsFile {
+			savedOnce.Do(func() { close(firstSave); <-observed })
+		}
+	}
+	src, srv := hostedFixture(t, edit)
 	uri := "skill://shared/SKILL.md"
-	ids := []string{hostedPreview(t, srv, "write-secret", uri, textSkill("shared")+"writing\n"), hostedPreview(t, srv, "code-secret", uri, textSkill("shared")+"coding\n")}
-	// Populate both Executor snapshots before saving to catch missing sibling invalidation.
+	offered := []string{textSkill("shared") + "writing\n", textSkill("shared") + "coding\n"}
+	ids := []string{hostedPreview(t, srv, "write-secret", uri, offered[0]), hostedPreview(t, srv, "code-secret", uri, offered[1])}
 	for _, token := range []string{"write-secret", "code-secret"} {
 		hostedRequest(t, srv, token, "GET", IndexPath+"index.json", "")
 	}
@@ -293,6 +342,55 @@ func TestHostedEdit_SharedRevisionConflict(t *testing.T) {
 		go func() { defer wg.Done(); <-start; results[i] = hostedApply(t, srv, token, ids[i]) }()
 	}
 	close(start)
+	select {
+	case <-firstSave:
+	case <-time.After(10 * time.Second):
+		t.Fatal("no competing save reached observation point")
+	}
+	saved := readFile(t, filepath.Join(src, "shared/SKILL.md"))
+	if !slices.Contains(offered, saved) {
+		t.Fatalf("saved bytes are not an offered preview: %q", saved)
+	}
+	for _, token := range []string{"write-secret", "code-secret"} {
+		data := hostedRPC(t, srv, token, "resources/read", `"uri":"`+uri+`"`)
+		var read struct {
+			Result struct {
+				Contents []struct {
+					Text string `json:"text"`
+				} `json:"contents"`
+			} `json:"result"`
+		}
+		if err := json.Unmarshal(data, &read); err != nil || len(read.Result.Contents) != 1 || read.Result.Contents[0].Text != saved {
+			t.Fatalf("stale resource: %s (%v)", data, err)
+		}
+		data = hostedRPC(t, srv, token, "skills/get", `"uri":"`+uri+`"`)
+		if !bytes.Contains(data, []byte(skillDigest(saved))) {
+			t.Fatalf("stale resource digest: %s", data)
+		}
+		_, _, data = hostedRequest(t, srv, token, "GET", IndexPath+"index.json", "")
+		var idx testIndex
+		if err := json.Unmarshal(data, &idx); err != nil {
+			t.Fatal(err)
+		}
+		wantVersion := skillDigest("SKILL.md\x00" + skillDigest(saved) + "\n")
+		shared := 0
+		for _, entry := range idx.Skills {
+			if entry.Name == "shared" {
+				shared++
+				if entry.Version != wantVersion {
+					t.Fatalf("stale shared index version: %s want %s", entry.Version, wantVersion)
+				}
+			}
+		}
+		if shared != 1 {
+			t.Fatalf("shared index entries: %d want 1", shared)
+		}
+		_, _, data = hostedRequest(t, srv, token, "GET", IndexPath+"shared/SKILL.md", "")
+		if string(data) != saved {
+			t.Fatalf("stale index file %s want %s", data, saved)
+		}
+	}
+	release()
 	wg.Wait()
 	successes, conflicts := 0, 0
 	for _, r := range results {
@@ -306,31 +404,8 @@ func TestHostedEdit_SharedRevisionConflict(t *testing.T) {
 	if successes != 1 || conflicts != 1 {
 		t.Fatalf("want save/conflict, got %s", results)
 	}
-	saved := readFile(t, filepath.Join(src, "shared/SKILL.md"))
-	for _, token := range []string{"write-secret", "code-secret"} {
-		data := hostedRPC(t, srv, token, "resources/read", `"uri":"`+uri+`"`)
-		if bytes.Contains(data, []byte(`"error"`)) {
-			t.Fatalf("stale catalog: %s", data)
-		}
-		data = hostedRPC(t, srv, token, "skills/get", `"uri":"`+uri+`"`)
-		if !bytes.Contains(data, []byte(skillDigest(saved))) {
-			t.Fatalf("stale resource digest: %s", data)
-		}
-		_, _, data = hostedRequest(t, srv, token, "GET", IndexPath+"index.json", "")
-		var idx testIndex
-		if err := json.Unmarshal(data, &idx); err != nil {
-			t.Fatal(err)
-		}
-		wantVersion := skillDigest("SKILL.md\x00" + skillDigest(saved) + "\n")
-		for _, entry := range idx.Skills {
-			if entry.Name == "shared" && entry.Version != wantVersion {
-				t.Fatalf("stale shared index version: %s want %s", entry.Version, wantVersion)
-			}
-		}
-		_, _, data = hostedRequest(t, srv, token, "GET", IndexPath+"shared/SKILL.md", "")
-		if string(data) != saved {
-			t.Fatalf("stale index file %s want %s", data, saved)
-		}
+	if readFile(t, filepath.Join(src, "shared/SKILL.md")) != saved {
+		t.Fatal("losing apply changed winning bytes")
 	}
 }
 
@@ -345,10 +420,34 @@ func TestHostedHTTP_RejectsInvalidBindings(t *testing.T) {
 			t.Fatalf("unsafe validation error: %v", err)
 		}
 	}
+	for _, token := range []string{"secret ", "secret\t", "secret\r", "secret\n", "secret\x00", "secret\x1f", "secret\x7f"} {
+		if err := ValidateProfileBindings(builders, []ProfileBinding{{"writing", token}}); err == nil || !strings.Contains(err.Error(), "writing") || strings.Contains(err.Error(), "secret") {
+			t.Errorf("unusable credential accepted or unsafe diagnostic: %v", err)
+		}
+	}
+	// Interior whitespace, case, and visible/high bytes survive the real HTTP wire.
+	for _, token := range []string{"MiXeD+/=_-", " leading", "\tleading", "in side\tspace", "opaque\xff"} {
+		h, err := NewHostedHandler(builders, []ProfileBinding{{"writing", token}}, Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		srv := httptest.NewServer(h)
+		status, _, _ := hostedRequest(t, srv, token, "GET", IndexPath+"index.json", "")
+		srv.Close()
+		if status != 200 {
+			t.Fatalf("valid opaque credential changed: HTTP %d", status)
+		}
+	}
+	writeFile(t, filepath.Join(src, "alpha", "SKILL.md"), textSkill("alpha"))
 	bad := profile.Resolve(profile.Catalog{}, profile.State{Active: "unbound"}, "fixture.yaml", nil)
-	badBuilder := &Builder{Source: filepath.Join(src, "missing"), Profile: &bad}
+	badBuilder := &Builder{Source: src, Profile: &bad}
 	builders["unbound"] = badBuilder
-	if _, err := NewHostedHandler(builders, []ProfileBinding{{"writing", "secret"}}, Options{}); err == nil {
+	if _, err := NewHostedHandler(builders, []ProfileBinding{{"writing", "secret"}}, Options{}); err != nil {
+		var unavailable *profile.UnavailableError
+		if !errors.Is(err, profile.ErrProfileUnavailable) || !errors.As(err, &unavailable) || unavailable.Name != "unbound" {
+			t.Fatalf("wrong unavailable cause: %v", err)
+		}
+	} else {
 		t.Fatal("unusable unbound profile accepted")
 	}
 }
@@ -384,6 +483,10 @@ func FuzzHostedAuthorization(f *testing.F) {
 		f.Fatal(err)
 	}
 	f.Fuzz(func(t *testing.T, auth string) {
+		// net/http rejects control bytes and strips outer SP/HTAB before dispatch.
+		if !httpguts.ValidHeaderFieldValue(auth) || strings.Trim(auth, " \t") != auth {
+			t.Skip()
+		}
 		req := httptest.NewRequest("GET", "http://127.0.0.1"+IndexPath+"index.json", nil)
 		req.Header.Set("Authorization", auth)
 		rec := httptest.NewRecorder()

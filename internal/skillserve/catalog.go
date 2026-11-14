@@ -80,12 +80,26 @@ type Builder struct {
 	Profile *profile.Selector
 }
 
+// definitionUnavailableError preserves the profile owner's typed cause while
+// giving explicit hosted callers recovery advice for shared definitions.
+type definitionUnavailableError struct{ cause *profile.UnavailableError }
+
+func (e *definitionUnavailableError) Error() string {
+	return fmt.Sprintf("profile %q is unavailable in %s: %s; repair the shared definition or restart with a compatible reader", e.cause.Name, e.cause.ConfigPath, e.cause.Reason)
+}
+
+func (e *definitionUnavailableError) Unwrap() error { return e.cause }
+
 // Build discovers the source and returns the skills to serve. Skills that are
 // invalid, over the limits, or contain an unserved nested skill are skipped
 // with a warning.
 func (b *Builder) Build() (*Catalog, error) {
 	if b.Profile != nil {
 		if _, err := b.Profile.Selects(""); err != nil {
+			var unavailable *profile.UnavailableError
+			if errors.As(err, &unavailable) {
+				return nil, &definitionUnavailableError{unavailable}
+			}
 			return nil, err
 		}
 	} else if b.Skills != nil && b.ResolveProfile != nil {

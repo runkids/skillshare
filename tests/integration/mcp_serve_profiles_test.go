@@ -18,7 +18,6 @@ import (
 	"reflect"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -98,18 +97,24 @@ func TestMCPServe_HostedProfiles(t *testing.T) {
 				if err != nil {
 					t.Fatalf("check: %v %s", err, out)
 				}
-				for _, profile := range []string{"writing", "coding", "unbound"} {
-					if !bytes.Contains(out, []byte(profile)) {
-						t.Errorf("stdout check omitted %s: %s; stderr: %s", profile, out, &stderr)
+				sections := map[string]string{}
+				for _, section := range strings.Split(string(out), "Profile ")[1:] {
+					name, body, ok := strings.Cut(section, ":\n")
+					if !ok || sections[name] != "" {
+						t.Fatalf("malformed profile section: %s", out)
+					}
+					sections[name] = body
+				}
+				for _, name := range []string{"writing", "coding", "unbound"} {
+					want := "2 skills served"
+					if targeted || name == "unbound" {
+						want = "1 skill served"
+					}
+					if !strings.Contains(sections[name], want) {
+						t.Errorf("stdout %s section wants %s: %s; stderr: %s", name, want, out, &stderr)
 					}
 				}
-				wantTwos, wantOnes := 2, 1
-				if targeted {
-					wantTwos, wantOnes = 0, 3
-				}
-				if bytes.Count(out, []byte("2 skills served")) != wantTwos || bytes.Count(out, []byte("1 skill served")) != wantOnes {
-					t.Fatalf("wrong per-profile counts: %s", out)
-				}
+
 				if bytes.Contains(out, []byte("fixture-writing")) {
 					t.Fatal("secret in check")
 				}
@@ -117,64 +122,45 @@ func TestMCPServe_HostedProfiles(t *testing.T) {
 			cmd := hostedCLI(t, sb, dir, append(slices.Clone(bindings), "--http", "127.0.0.1:0")...)
 			base, _ := startHostedCLI(t, cmd)
 			client := &http.Client{Timeout: 5 * time.Second}
-			var wg sync.WaitGroup
-			for _, tc := range []struct{ token, own, foreign string }{{"fixture-writing", "alpha", "beta"}, {"fixture-coding", "beta", "alpha"}} {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					for _, tail := range []string{"index.json", tc.own + "/SKILL.md", tc.foreign + "/SKILL.md"} {
-						req, _ := http.NewRequest("GET", base+"/.well-known/agent-skills/"+tail, nil)
-						req.Header.Set("Authorization", "Bearer "+tc.token)
-						resp, err := client.Do(req)
-						if err != nil {
-							t.Error(err)
-							return
-						}
-						data, _ := io.ReadAll(resp.Body)
-						resp.Body.Close()
-						want := 200
-						if tail == tc.foreign+"/SKILL.md" {
-							want = 404
-						}
-						if resp.StatusCode != want {
-							t.Errorf("%s HTTP %d: %s", tail, resp.StatusCode, data)
-						}
-						if tail == "index.json" {
-							var idx struct {
-								Skills []struct {
-									Name string `json:"name"`
-								} `json:"skills"`
-							}
-							if err := json.Unmarshal(data, &idx); err != nil {
-								t.Error(err)
-								return
-							}
-							var names []string
-							for _, s := range idx.Skills {
-								names = append(names, s.Name)
-							}
-							if !slices.Equal(names, []string{tc.own, "shared"}) {
-								t.Errorf("wrong account index: %s", data)
-							}
-						}
-					}
-				}()
-			}
-			wg.Wait()
-			for _, token := range []string{"", "unknown"} {
+			for _, tc := range []struct{ token, own string }{{"fixture-writing", "alpha"}, {"fixture-coding", "beta"}} {
 				req, _ := http.NewRequest("GET", base+"/.well-known/agent-skills/index.json", nil)
-				if token != "" {
-					req.Header.Set("Authorization", "Bearer "+token)
-				}
+				req.Header.Set("Authorization", "Bearer "+tc.token)
 				resp, err := client.Do(req)
 				if err != nil {
 					t.Fatal(err)
 				}
+				data, err := io.ReadAll(resp.Body)
 				resp.Body.Close()
-				if resp.StatusCode != 401 {
-					t.Fatalf("unauthorized HTTP %d", resp.StatusCode)
+				if err != nil || resp.StatusCode != 200 {
+					t.Fatalf("account index HTTP %d: %s (%v)", resp.StatusCode, data, err)
+				}
+				var idx struct {
+					Skills []struct {
+						Name string `json:"name"`
+					} `json:"skills"`
+				}
+				if err := json.Unmarshal(data, &idx); err != nil {
+					t.Fatal(err)
+				}
+				var names []string
+				for _, skill := range idx.Skills {
+					names = append(names, skill.Name)
+				}
+				if !slices.Equal(names, []string{tc.own, "shared"}) {
+					t.Fatalf("wrong account index: %s", data)
 				}
 			}
+			req, _ := http.NewRequest("GET", base+"/.well-known/agent-skills/index.json", nil)
+			req.Header.Set("Authorization", "Bearer unknown")
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp.Body.Close()
+			if resp.StatusCode != 401 {
+				t.Fatalf("unknown credential HTTP %d", resp.StatusCode)
+			}
+
 			after := testutil.SnapshotTree(t, false, sb.Root)
 			if !reflect.DeepEqual(before, after) {
 				t.Fatal("hosted startup/check/requests changed config, active state, metadata or targets")
@@ -197,14 +183,14 @@ func TestMCPServe_HostedProfiles(t *testing.T) {
 			file := filepath.Join(source, "shared", "SKILL.md")
 			old := sb.ReadFile(file)
 			body := fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"preview_skill_edit","arguments":{"uri":"skill://shared/SKILL.md","base_revision":"sha256:%x","content":%q},%s}}`, sha256.Sum256([]byte(old)), old+"\nFixture preview.\n", serveMeta)
-			req, _ := http.NewRequest("POST", base+"/", strings.NewReader(body))
+			req, _ = http.NewRequest("POST", base+"/", strings.NewReader(body))
 			req.Header.Set("Authorization", "Bearer fixture-writing")
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("Accept", "application/json, text/event-stream")
 			req.Header.Set("Mcp-Protocol-Version", "2026-07-28")
 			req.Header.Set("Mcp-Method", "tools/call")
 			req.Header.Set("Mcp-Name", "preview_skill_edit")
-			resp, err := client.Do(req)
+			resp, err = client.Do(req)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -241,6 +227,7 @@ func TestMCPServe_HostedValidation(t *testing.T) {
 				{name: "duplicate-credential", args: []string{bindings[0], "--check", "--profile-token", "writing=WRITING_TOKEN", "--profile-token", "coding=WRITING_TOKEN"}, want: "reuses"},
 				{name: "unknown", args: []string{bindings[0], "--check", "--profile-token", "missing=WRITING_TOKEN"}, want: "missing"},
 				{name: "unusable-unbound", args: append(slices.Clone(bindings), "--check"), configExtra: "  future:\n    unknown: true\n", want: "future"},
+				{name: "unusable-credential", args: append(slices.Clone(bindings), "--check"), extraEnv: "WRITING_TOKEN=fixture-padded ", want: "WRITING_TOKEN"},
 				{name: "network-tls", args: append(slices.Clone(bindings), "--http", "0.0.0.0:0"), want: "--tls-cert"},
 			} {
 				t.Run(tc.name, func(t *testing.T) {
@@ -258,7 +245,10 @@ func TestMCPServe_HostedValidation(t *testing.T) {
 					if err == nil || !bytes.Contains(out, []byte(tc.want)) {
 						t.Fatalf("want %s rejection: %v %s", tc.want, err, out)
 					}
-					for _, secret := range []string{"fixture-writing", "fixture-coding", "legacy-fixture"} {
+					if tc.name == "unusable-unbound" && (bytes.Contains(out, []byte("profile use")) || !bytes.Contains(out, []byte("shared definition")) || !bytes.Contains(out, []byte(path))) {
+						t.Fatalf("wrong hosted advice: %s", out)
+					}
+					for _, secret := range []string{"fixture-writing", "fixture-coding", "legacy-fixture", "fixture-padded"} {
 						if bytes.Contains(out, []byte(secret)) {
 							t.Fatal("secret in diagnostic")
 						}

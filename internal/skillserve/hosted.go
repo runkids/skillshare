@@ -7,6 +7,9 @@ import (
 	"io"
 	"net/http"
 	"slices"
+	"strings"
+
+	"golang.org/x/net/http/httpguts"
 )
 
 // ProfileBinding authorizes one credential to exactly one named profile.
@@ -91,8 +94,8 @@ func ValidateProfileBindings(builders map[string]*Builder, bindings []ProfileBin
 		if profiles[b.Profile] {
 			return fmt.Errorf("duplicate profile binding %q", b.Profile)
 		}
-		if b.Token == "" {
-			return fmt.Errorf("profile %q has an empty credential", b.Profile)
+		if !ValidProfileToken(b.Token) {
+			return fmt.Errorf("profile %q requires a nonempty credential without trailing whitespace or forbidden HTTP header bytes", b.Profile)
 		}
 		hash := sha256.Sum256([]byte("Bearer " + b.Token))
 		if tokens[hash] {
@@ -101,6 +104,12 @@ func ValidateProfileBindings(builders map[string]*Builder, bindings []ProfileBin
 		profiles[b.Profile], tokens[hash] = true, true
 	}
 	return nil
+}
+
+// ValidProfileToken reports whether an opaque credential survives HTTP header
+// serialization and parsing unchanged. It never normalizes secret bytes.
+func ValidProfileToken(token string) bool {
+	return token != "" && strings.TrimRight(token, " \t") == token && httpguts.ValidHeaderFieldValue(token)
 }
 
 type profileWarnings struct {

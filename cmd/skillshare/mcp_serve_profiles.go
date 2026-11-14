@@ -23,6 +23,9 @@ func parseMCPServeProfileBindings(values []string, lookup func(string) (string, 
 		if !ok || token == "" {
 			return nil, fmt.Errorf("profile %q: environment variable %s is absent or empty", name, env)
 		}
+		if !skillserve.ValidProfileToken(token) {
+			return nil, fmt.Errorf("profile %q: environment variable %s contains an unusable HTTP credential (trailing whitespace or forbidden header bytes)", name, env)
+		}
 		bindings = append(bindings, skillserve.ProfileBinding{Profile: name, Token: token})
 	}
 	return bindings, nil
