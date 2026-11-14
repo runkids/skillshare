@@ -129,6 +129,8 @@ func (s *service) previewTool(_ context.Context, _ *mcp.CallToolRequest, in prev
 
 func (s *service) applyTool(_ context.Context, _ *mcp.CallToolRequest, in applyInput) (*mcp.CallToolResult, any, error) {
 	start := time.Now()
+	s.writes.mu.Lock()
+	defer s.writes.mu.Unlock()
 	s.editMu.Lock()
 	defer s.editMu.Unlock()
 	p := s.previews[in.PreviewID]
@@ -136,7 +138,19 @@ func (s *service) applyTool(_ context.Context, _ *mcp.CallToolRequest, in applyI
 	if p == nil || time.Now().After(p.expires) {
 		return nil, nil, fmt.Errorf("expired: no pending preview %q; it expired, was already applied, or the server restarted. Preview the change again. %s", in.PreviewID, notWritten)
 	}
-	if err := s.writable(p.skill); err != nil {
+	// Rebuild under the common save guard: a preview grants no lasting membership.
+	c, err := s.loadCatalog(true)
+	if err != nil {
+		return nil, nil, fmt.Errorf("conflict: catalog unavailable: %v. %s", err, notWritten)
+	}
+	skill, rel, err := owner(c, p.uri)
+	if err != nil {
+		return nil, nil, err
+	}
+	if skill.SourcePath != p.skill.SourcePath || skill.RelPath != p.skill.RelPath || rel != p.rel {
+		return nil, nil, fmt.Errorf("conflict: file ownership changed after the preview. %s", notWritten)
+	}
+	if err := s.writable(skill); err != nil {
 		return nil, nil, err
 	}
 	path := filepath.Join(p.skill.SourcePath, filepath.FromSlash(p.rel))
@@ -160,7 +174,7 @@ func (s *service) applyTool(_ context.Context, _ *mcp.CallToolRequest, in applyI
 		return nil, nil, err
 	}
 	defer src.Close()
-	rel, err := src.Rel(path)
+	rel, err = src.Rel(path)
 	if err == nil {
 		err = src.WriteFileAtomic(rel, p.content, info.Mode().Perm())
 	}
@@ -171,9 +185,11 @@ func (s *service) applyTool(_ context.Context, _ *mcp.CallToolRequest, in applyI
 		return nil, nil, err
 	}
 	// The cached catalog lists the old digest, which read_skill would refuse.
-	s.mu.Lock()
-	s.cat = nil
-	s.mu.Unlock()
+	for _, sibling := range s.writes.services {
+		sibling.mu.Lock()
+		sibling.cat = nil
+		sibling.mu.Unlock()
+	}
 
 	rev := skillpkg.Digest(p.content)
 	if s.edit.Log != nil {

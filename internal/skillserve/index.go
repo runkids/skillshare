@@ -177,7 +177,9 @@ func (s *service) serveIndex(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, idx.Err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Cache-Control", "no-cache")
+	if w.Header().Get("Cache-Control") == "" {
+		w.Header().Set("Cache-Control", "no-cache")
+	}
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	rel := strings.TrimPrefix(r.URL.Path, IndexPath)
 	if rel == "index.json" {

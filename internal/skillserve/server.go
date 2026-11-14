@@ -74,12 +74,20 @@ type service struct {
 	warned map[string]bool
 
 	edit     *EditOptions
-	editMu   sync.Mutex // serializes saves and guards previews
+	editMu   sync.Mutex // guards previews; acquired after writes.mu
+	writes   *sourceWrites
 	previews map[string]*preview
 
 	idxMu  sync.Mutex
 	idx    *Index
 	idxFor *Catalog // the catalog idx was built from
+}
+
+// sourceWrites serializes common-source saves; catalogs and previews stay private.
+// Lock order: writes.mu, editMu, then catalog mu. Reads never take writes.mu.
+type sourceWrites struct {
+	mu       sync.Mutex
+	services []*service
 }
 
 // Server is the MCP server, plus the Executor skill index HTTPHandler serves.
@@ -96,6 +104,7 @@ func NewServer(b *Builder, opts Options) (*Server, error) {
 		opts.Warn = io.Discard
 	}
 	svc := &service{b: b, opts: opts, edit: opts.Edit, previews: map[string]*preview{}}
+	svc.writes = &sourceWrites{services: []*service{svc}}
 	if _, err := svc.catalog(); err != nil {
 		return nil, err
 	}
@@ -152,14 +161,18 @@ func HTTPHandler(srv *Server, token string) http.Handler {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
+		// Authenticated content must never enter a shared cache.
+		w.Header().Set("Cache-Control", "private, no-cache")
 		h.ServeHTTP(w, r)
 	})
 }
 
-func (s *service) catalog() (*Catalog, error) {
+func (s *service) catalog() (*Catalog, error) { return s.loadCatalog(false) }
+
+func (s *service) loadCatalog(fresh bool) (*Catalog, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.cat != nil && time.Since(s.built) < s.opts.Refresh {
+	if !fresh && s.cat != nil && time.Since(s.built) < s.opts.Refresh {
 		return s.cat, nil
 	}
 	c, err := s.b.Build()
