@@ -46,7 +46,6 @@ type localBinding struct {
 type commandReceipt struct {
 	Intent  string            `json:"intent"`
 	Bin     string            `json:"bin"`
-	Path    string            `json:"path"`
 	Action  string            `json:"action,omitempty"`
 	Binding Binding           `json:"binding"`
 	Links   map[string]string `json:"links"`

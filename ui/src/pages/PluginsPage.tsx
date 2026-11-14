@@ -87,8 +87,10 @@ export default function PluginsPage() {
   const actionTone = (action: string) => (action === 'blocked' ? 'bad' : action === 'noop' ? '' : action === 'skip' ? 'warn' : 'inf');
   const openMenu = (e: React.MouseEvent<HTMLButtonElement>, name: string) => {
     const r = e.currentTarget.getBoundingClientRect();
-    const bindings = data?.packages[name]?.bindings ?? {};
-    const source = data?.packages[name]?.commands?.binding.source ?? Object.values(bindings).find((b) => b?.source)?.source;
+    const pack = data?.packages[name];
+    const bindings = pack?.bindings ?? {};
+    const commands = !!(pack?.source || pack?.commands);
+    const source = pack?.source ?? pack?.commands?.binding.source ?? Object.values(bindings).find((b) => b?.source)?.source;
     // Not every Agent can be updated from here, and a deselected one has nothing installed; the preview names the ones that are.
     const updatable = Object.keys(bindings).filter((key) => bindings[key]?.sync !== false && pluginTargets[key]?.operations.includes('update'));
     setMenu({
@@ -96,8 +98,8 @@ export default function PluginsPage() {
       y: r.bottom + 4,
       items: [
         { key: 'sync', label: t('plugins.syncOne'), icon: <ChevronRight size={14} />, onSelect: () => begin({ action: 'sync', name }, name) },
-        ...((updatable.length > 0 || data?.packages[name]?.commands) ? [
-          { key: 'update', label: t('plugins.updateLatest'), icon: <RefreshCw size={14} />, onSelect: () => begin({ action: 'update', name, targets: updatable, ...(data?.packages[name]?.commands ? { commands: true } : {}) }, name) },
+        ...((updatable.length > 0 || commands) ? [
+          { key: 'update', label: t('plugins.updateLatest'), icon: <RefreshCw size={14} />, onSelect: () => begin({ action: 'update', name, targets: updatable, ...(commands ? { commands: true } : {}) }, name) },
         ] : []),
         // Only a plugin added from a source has a local copy to read; an imported one lives in its Agent.
         ...(source ? [{ key: 'files', label: t('plugins.viewFiles'), icon: <FolderOpen size={14} />, onSelect: () => setBrowsing({ name, source }) }] : []),

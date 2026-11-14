@@ -79,6 +79,18 @@ func pluginWizard(s *plugin.Service, o pluginOptions) error {
 	return s.WithDiscoveryCache(func() error { return pluginWizardAction(s, o) })
 }
 
+// pluginWholePackageRequest keeps first-command updates and receipt-based removal distinct.
+func pluginWholePackageRequest(r plugin.Request, pack plugin.Package) (plugin.Request, bool) {
+	if r.Action == "update" && (pack.Source != "" || pack.Commands != nil) {
+		commands := true
+		r.Commands = &commands
+	} else if r.Action != "remove" || pack.Commands == nil {
+		return r, false
+	}
+	r.Targets = nil
+	return r, true
+}
+
 func pluginWizardAction(s *plugin.Service, o pluginOptions) error {
 	ctx := context.Background()
 	r := o.request
@@ -271,7 +283,8 @@ func pluginWizardAction(s *plugin.Service, o pluginOptions) error {
 				items = append(items, checklistItemData{label: definition.Label, desc: b.ID})
 			}
 		}
-		if inventory.Packages[r.Name].Commands != nil && (r.Action == "update" || r.Action == "remove") {
+		whole, packageChoice := pluginWholePackageRequest(r, inventory.Packages[r.Name])
+		if packageChoice {
 			targets = append(targets, "")
 			items = append(items, checklistItemData{label: "Whole package", desc: "Commands and all native bindings"})
 		}
@@ -284,7 +297,7 @@ func pluginWizardAction(s *plugin.Service, o pluginOptions) error {
 		}
 		for _, i := range selected {
 			if targets[i] == "" {
-				r.Targets = nil
+				r = whole
 				break
 			}
 			r.Targets = append(r.Targets, targets[i])

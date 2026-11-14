@@ -226,6 +226,19 @@ describe('PluginsPage', () => {
     fireEvent.mouseDown(screen.getByRole('menuitem', { name: 'plugins.updateLatest' }));
     await waitFor(() => expect(pluginsApi.preview).toHaveBeenCalledWith({ action: 'update', name: 'demo', targets: ['claude'] }));
   });
+  it.each([false, true])('reviews a first command through More Update with deselected bindings: %s', async (deselected) => {
+    vi.mocked(pluginsApi.list).mockResolvedValue({ packages: { demo: { source: 'owner/default', bindings: deselected ? { cursor: { id: 'demo', source: 'owner/alternate', sync: false } } : {} } }, hosts: [], targetDefinitions: [{ target: 'cursor', label: 'Cursor', project: false, operations: ['update'] }] });
+    vi.mocked(pluginsApi.preview).mockResolvedValue({ revision: 'first-command', blocked: false, changes: [{ name: 'demo', target: '', id: '', commands: true, action: 'install', binding: { id: '', source: 'owner/default' } }] });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'mcp.moreActions' }));
+    fireEvent.mouseDown(screen.getByRole('menuitem', { name: 'plugins.updateLatest' }));
+    const dialog = await screen.findByRole('dialog', { name: 'plugins.preview' });
+    expect(pluginsApi.preview).toHaveBeenCalledWith({ action: 'update', name: 'demo', targets: [], commands: true });
+    expect(within(dialog).getByText('plugins.commands')).toBeInTheDocument();
+    expect(pluginsApi.apply).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'plugins.apply' }));
+    await waitFor(() => expect(pluginsApi.apply).toHaveBeenCalledWith({ action: 'update', name: 'demo', targets: [], commands: true }, 'first-command'));
+  });
   it('shows command and native versions together after an independent command update', async () => {
     vi.mocked(pluginsApi.list).mockResolvedValue({ packages: { demo: { source: 'owner/repo', version: '2.0.0', bindings: { cursor: { id: '/native', version: '1.0.0' } }, commands: { bin: '/fixture/bin', names: ['demo'], binding: { id: '', version: '2.0.0' } } } }, hosts: [] });
     mount();

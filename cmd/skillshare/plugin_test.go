@@ -279,3 +279,70 @@ func TestPluginUpdateAllDryRunReportsOMPFailure(t *testing.T) {
 		t.Fatalf("OMP dry-run failure missing: %s error=%v json=%v", output, runErr, err)
 	}
 }
+
+func TestPluginWizardFirstCommandUpdate(t *testing.T) {
+	for _, deselected := range []bool{false, true} {
+		t.Run(map[bool]string{false: "recorded", true: "deselected"}[deselected], func(t *testing.T) {
+			home, root := t.TempDir(), t.TempDir()
+			t.Setenv("HOME", home)
+			for _, key := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR", "OMP_CONFIG_DIR"} {
+				t.Setenv(key, "")
+			}
+			for name, body := range map[string]string{"plugin.json": `{"name":"demo","$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","skills":"./skills"}`, "skills/demo/SKILL.md": "---\nname: demo\ndescription: fixture\n---\n", "run": "#!/bin/sh\nprintf first-command\n"} {
+				path := filepath.Join(root, name)
+				if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, []byte(body), 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			s := &plugin.Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+			r := plugin.Request{Action: "add", Source: root}
+			if deselected {
+				r.Targets = []string{"cursor"}
+			}
+			requests := []plugin.Request{r}
+			if deselected {
+				requests = append(requests, plugin.Request{Action: "disable", Name: "demo", Targets: []string{"cursor"}})
+			}
+			for _, r := range requests {
+				p, err := s.Preview(context.Background(), r)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := s.Apply(context.Background(), r, p.Revision); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := os.WriteFile(filepath.Join(root, "plugin.json"), []byte(`{"name":"demo","$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","skills":"./skills","extensions":{"cc.runkids.skillshare":{"commands":{"demo-command":"run"}}}}`), 0644); err != nil {
+				t.Fatal(err)
+			}
+			inventory, err := s.Packages()
+			if err != nil {
+				t.Fatal(err)
+			}
+			pack := inventory.Packages["demo"]
+			whole, offered := pluginWholePackageRequest(plugin.Request{Action: "update", Name: "demo", Targets: []string{"cursor"}}, pack)
+			if !offered || len(whole.Targets) != 0 || whole.Commands == nil || !*whole.Commands {
+				t.Fatalf("wizard package choice: %+v %v", whole, offered)
+			}
+			if _, offered := pluginWholePackageRequest(plugin.Request{Action: "remove"}, pack); offered {
+				t.Fatal("commandless removal offered command ownership")
+			}
+			p, err := s.Preview(context.Background(), whole)
+			if err != nil {
+				t.Fatal(err)
+			}
+			found := false
+			for _, c := range p.Changes {
+				if c.Commands && c.Action == "install" {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("Whole package omitted first command: %+v", p.Changes)
+			}
+		})
+	}
+}

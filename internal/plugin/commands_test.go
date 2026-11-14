@@ -539,3 +539,105 @@ func TestPluginCommandsSnapshotCleanupRetry(t *testing.T) {
 	}
 	commandOutput(t, bin, "demo-one", "replaced")
 }
+
+func TestPluginCommandsRemovalResolvesRotation(t *testing.T) {
+	for _, mode := range []string{"interrupted", "cleanup", "empty", "removal-fault", "modified"} {
+		t.Run(mode, func(t *testing.T) {
+			s, root, bin := commandFixture(t)
+			applyPluginRequest(t, s, Request{Action: "add", Source: root})
+			writePluginFile(t, root, "bin/one", "#!/bin/sh\nprintf recovered\n")
+			if mode == "interrupted" {
+				declareReviewCommands(t, root, `{"aaa-new":"bin/one","demo-two":"bin/two"}`)
+				cmd := exec.Command(os.Args[0], "-test.run=^TestPluginCommandsInterruptedEvidence$")
+				cmd.Env = append(os.Environ(), "SKILLSHARE_COMMAND_CRASH_HOME="+filepath.Dir(s.ConfigPath), "SKILLSHARE_COMMAND_CRASH_MODE=publish")
+				if raw, err := cmd.CombinedOutput(); err == nil || err.(*exec.ExitError).ExitCode() != 71 {
+					t.Fatalf("interruption: %s %v", raw, err)
+				}
+				if err := os.Remove(s.operationLockPath()); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				s.commandFinish = func(string, bool) error { return errors.New("injected cleanup failure") }
+				r := Request{Action: "update", Name: "demo"}
+				p, err := s.Preview(context.Background(), r)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := s.Apply(context.Background(), r, p.Revision); err == nil {
+					t.Fatal("cleanup fault lost")
+				}
+			}
+			local := readState(t, s).state.Commands["demo"]
+			snapshot := s.snapshotPath(local.Pending.Binding, "", "demo")
+			if _, err := os.Stat(snapshot + ".previous"); err != nil {
+				t.Fatal(err)
+			}
+			s.commandFinish = nil
+			if mode == "removal-fault" || mode == "modified" {
+				proof, _ := json.Marshal(local)
+				current := filepath.Join(snapshot, "content", "bin", "one")
+				raw, err := os.ReadFile(current)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if mode == "modified" {
+					writePluginFile(t, snapshot, "content/bin/one", "operator edit")
+				} else {
+					s.commandFinish = func(string, bool) error { return errors.New("removal cleanup failure") }
+				}
+				r := Request{Action: "remove", Name: "demo"}
+				p, err := s.Preview(context.Background(), r)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := s.Apply(context.Background(), r, p.Revision); err == nil {
+					t.Fatal("unsafe cleanup succeeded")
+				}
+				retained, _ := json.Marshal(readState(t, s).state.Commands["demo"])
+				if string(retained) != string(proof) {
+					t.Fatalf("cleanup failure changed original proofs: %s", retained)
+				}
+				if _, err := os.Stat(snapshot + ".previous"); err != nil {
+					t.Fatal(err)
+				}
+				if mode == "modified" {
+					if got, _ := os.ReadFile(current); string(got) != "operator edit" {
+						t.Fatal("modified content lost")
+					}
+					writePluginFile(t, snapshot, "content/bin/one", string(raw))
+				}
+				s.commandFinish = nil
+			}
+			if err := os.Remove(filepath.Join(bin, "demo-two")); err != nil {
+				t.Fatal(err)
+			}
+			writePluginFile(t, bin, "demo-two", "operator replacement")
+			r := Request{Action: "remove", Name: "demo"}
+			if mode == "empty" {
+				declareReviewCommands(t, root, `{}`)
+				r.Action = "update"
+			}
+			applyPluginRequest(t, s, r)
+			if _, exists := readState(t, s).state.Commands["demo"]; exists {
+				t.Fatal("removal retained command receipt")
+			}
+			if _, err := os.Stat(snapshot + ".previous"); !os.IsNotExist(err) {
+				t.Errorf("removal stranded rotation: %v", err)
+			}
+			if raw, _ := os.ReadFile(filepath.Join(bin, "demo-two")); string(raw) != "operator replacement" {
+				t.Fatal("operator replacement lost")
+			}
+			declareReviewCommands(t, root, `{"demo-one":"bin/one"}`)
+			if mode == "empty" {
+				r.Action = "update"
+			} else {
+				r = Request{Action: "add", Source: root}
+			}
+			applyPluginRequest(t, s, r)
+			commandOutput(t, bin, "demo-one", "recovered")
+			if state := readState(t, s).state.Commands["demo"]; state.Applied == nil || state.Pending != nil {
+				t.Fatalf("re-add lifecycle: %+v", state)
+			}
+		})
+	}
+}

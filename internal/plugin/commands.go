@@ -334,7 +334,7 @@ func (s *Service) planCommands(ctx context.Context, r Request, d *document) ([]C
 						continue
 					}
 					b := Binding{Source: disc.Source, SourceRef: disc.SourceRef, Commit: disc.Commit, Digest: disc.Digest, Plugin: candidate.Name, Entry: recipe.Entry, Version: candidate.Version}
-					after = &commandReceipt{Intent: packageFingerprint(recipe), Bin: bin, Path: candidate.Path, Binding: b, Links: map[string]string{}}
+					after = &commandReceipt{Intent: packageFingerprint(recipe), Bin: bin, Binding: b, Links: map[string]string{}}
 					for command, path := range candidate.Commands {
 						after.Links[command] = filepath.Join(s.snapshotPath(b, "", name), "content", filepath.FromSlash(candidate.Path), filepath.FromSlash(path))
 					}
@@ -430,6 +430,46 @@ func replaceCommand(path, previous, next string, exists bool) error {
 	return os.Rename(staged, path)
 }
 
+// finishCommandRotations resolves retained cleanup before its original proofs change.
+func (s *Service) finishCommandRotations(name string, local localCommands) error {
+	resolved := map[string]bool{}
+	for _, receipt := range []*commandReceipt{local.Applied, local.Pending} {
+		if receipt == nil {
+			continue
+		}
+		snapshot := s.snapshotPath(receipt.Binding, "", name)
+		if resolved[snapshot] {
+			continue
+		}
+		resolved[snapshot] = true
+		if err := noSymlink(s.managedRoot(), snapshot); err != nil {
+			return err
+		}
+		if _, err := os.Stat(snapshot + ".previous"); os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			return err
+		}
+		currentOwned := false
+		for _, proof := range []*commandReceipt{local.Applied, local.Pending} {
+			if proof != nil && s.snapshotPath(proof.Binding, "", name) == snapshot && s.ownedCommandSnapshot(name, proof.Binding) {
+				currentOwned = true
+			}
+		}
+		if !currentOwned {
+			return agentError{key: "plugins.error.commandSnapshot", message: "Unfinished command snapshot replacement; inspect before retrying"}
+		}
+		finish := s.commandFinish
+		if finish == nil {
+			finish = finishSnapshot
+		}
+		if err := finish(snapshot, true); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out Outcome, resultErr error) {
 	out = Outcome{Name: c.Name, Commands: true, Status: "failed"}
 	defer func() {
@@ -477,13 +517,15 @@ func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out
 	if err := d.checkIntent(s.ConfigPath); err != nil {
 		return out, err
 	}
+	if err := s.finishCommandRotations(c.Name, local); err != nil {
+		return out, err
+	}
 	if c.Action == "noop" {
 		out.Status = "unchanged"
 		out.Message = c.Message
 		out.MessageKey, out.MessageArgs = c.MessageKey, c.MessageArgs
 		return out, nil
 	}
-	previousPending := local.Pending
 	pending := cloneCommandReceipt(after)
 	if pending == nil {
 		pending = cloneCommandReceipt(before)
@@ -542,22 +584,7 @@ func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out
 		if err := noSymlink(s.managedRoot(), snapshot); err != nil {
 			return out, err
 		}
-		if _, err := os.Stat(snapshot + ".previous"); err == nil {
-			currentOwned := false
-			for _, receipt := range []*commandReceipt{local.Applied, previousPending} {
-				if receipt != nil && s.snapshotPath(receipt.Binding, "", c.Name) == snapshot && s.ownedCommandSnapshot(c.Name, receipt.Binding) {
-					currentOwned = true
-				}
-			}
-			if !currentOwned {
-				snapshot = ""
-				return out, agentError{key: "plugins.error.commandSnapshot", message: "Unfinished command snapshot replacement; inspect before retrying"}
-			}
-			if err := finishSnapshot(snapshot, true); err != nil {
-				snapshot = ""
-				return out, err
-			}
-		}
+
 		if _, err := s.materialize(ctx, after.Binding, "", c.Name); err != nil {
 			return out, err
 		}
