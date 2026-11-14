@@ -287,16 +287,17 @@ func TestCompletion_Hooks_AllShells(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	for shell, subcommands := range map[string]string{
-		"bash":       "add disable edit enable import list remove restore sync",
-		"zsh":        "(add disable edit enable import list remove restore sync)",
-		"fish":       "-a 'add disable edit enable import list remove restore sync'",
-		"powershell": "@{ Name = 'sync'; Desc = 'Hooks sync' }",
-		"nushell":    "[add disable edit enable import list remove restore sync]",
+	for shell, want := range map[string][2]string{
+		"bash":       {"add disable edit enable import list remove restore sync", "--keep-files --trust"},
+		"zsh":        {"(add disable edit enable import list remove restore sync)", "'--trust[sync: record Codex trust]'"},
+		"fish":       {"-a 'add disable edit enable import list remove restore sync'", "-l trust -d 'sync: record Codex trust'"},
+		"powershell": {"@{ Name = 'sync'; Desc = 'Hooks sync' }", "'--keep-files', '--trust'"},
+		"nushell":    {"[add disable edit enable import list remove restore sync]", "--trust # sync: record Codex trust"},
 	} {
 		result := sb.RunCLI("completion", shell)
 		result.AssertSuccess(t)
-		result.AssertOutputContains(t, subcommands)
+		result.AssertOutputContains(t, want[0])
+		result.AssertOutputContains(t, want[1])
 	}
 }
 

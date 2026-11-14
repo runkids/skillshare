@@ -1,5 +1,6 @@
 // Package hooks manages Agent hook declarations and their native configuration.
-// It never executes hook commands or extension code and never changes native trust.
+// It never executes hook commands or extension code, and changes native trust only
+// when asked to (Service.TrustCodex).
 package hooks
 
 import (

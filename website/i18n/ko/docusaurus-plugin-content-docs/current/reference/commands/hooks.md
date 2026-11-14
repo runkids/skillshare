@@ -22,6 +22,7 @@ skillshare hooks enable check --sync
 skillshare hooks sync --dry-run --json
 skillshare hooks sync
 skillshare hooks sync check --replace --dry-run
+skillshare hooks sync --trust -g
 skillshare sync hooks --dry-run --json
 skillshare sync hooks
 skillshare hooks remove check --sync
@@ -39,6 +40,7 @@ skillshare hooks restore BACKUP_ID
 | `--sync` | 저장 후 동기화 |
 | `--keep-files` | `remove`와 함께 사용: hook 관리를 멈추고 네이티브 항목은 그대로 둡니다. `--sync`와 함께 쓸 수 없습니다. [아래](#stop-managing-a-hook) 참고 |
 | `--replace` | 기존 소스 entry 또는 해당 entry의 충돌 출력을 명시적으로 교체 |
+| `--trust` | 전역 모드의 `hooks sync`에서만: Skillshare가 관리하는 hooks의 Codex 신뢰도 기록. [Codex 신뢰](#codex-trust) 참고 |
 | `--dry-run, -n` | 저장하거나 쓰지 않고 미리보기 |
 | `--json` | 구조화된 출력 |
 | `--revision ID` | 지정한 미리보기 revision과 일치 요구 |
@@ -178,7 +180,17 @@ command 스크립트는 `<config_dir>/hooks/skillshare/NAME/`에 기록됩니다
 
 target이 삭제되거나 홈이 이동하거나 계정 홈이 없으면 관리 중인 출력과 소유권 기록을 그대로 두고 경고합니다. target이나 디렉터리를 복원하면 다시 관리할 수 있습니다. 파일을 바꾸지 않고 특정 항목의 보류된 소유권을 해제하려면 `skillshare hooks sync NAME --replace -g`를 미리 보고 실행하세요. target 제거 시 binding이 여전히 그 이름을 쓰면 경고합니다. 다음 hooks 동기화 전에 binding도 제거하세요.
 
-`skillshare hooks import --from codex-2 -g --json`으로 계정에서 가져옵니다. 대시보드는 **codex-2 (Codex)**로 표시하고 Codex event와 편집기를 사용합니다. 각 Codex 홈에서 변경된 hooks를 `/hooks`로 검토하고 신뢰해야 합니다. 동기화는 신뢰를 바꾸거나 hooks를 실행하지 않습니다.
+`skillshare hooks import --from codex-2 -g --json`으로 계정에서 가져옵니다. 대시보드는 **codex-2 (Codex)**로 표시하고 Codex event와 편집기를 사용합니다. 각 Codex 홈에서 변경된 hooks를 `/hooks`로 검토하고 신뢰해야 합니다. `--trust`를 주지 않으면 동기화는 신뢰를 바꾸거나 hooks를 실행하지 않습니다.
+
+### Codex 신뢰 {#codex-trust}
+
+Codex는 신뢰된 사용자 수준 hook만 실행하며, 그 신뢰를 같은 홈의 `config.toml`에 `hooks.state."<hooks.json>:<event>:<group>:<handler>".trusted_hash`로 저장합니다. 키가 hook의 위치이므로 Skillshare가 추가하거나 옮긴 hook은 신뢰되지 않은 상태로 시작하고, `codex exec`는 이를 건너뜁니다.
+
+```bash
+skillshare hooks sync --trust -g
+```
+
+기록 후 `--trust`는 Skillshare가 관리하는 모든 Codex 홈(계정 홈 포함)에서 Skillshare가 소유한 hooks의 신뢰를 기록합니다. 각 hook의 hash는 `/hooks` 검토와 같은 호출로 `codex app-server`에서 받으므로 `codex`가 `PATH`에 있어야 합니다. `trusted_hash`만 바꿉니다. Codex에서 비활성화한 hook은 비활성 상태로 남고 보고되며, Skillshare가 소유하지 않은 hooks는 건드리지 않습니다. Skillshare의 hook이 옮겨지거나 제거되면 다음 `--trust` 동기화가 이전 위치에 기록한 신뢰를 지웁니다. 단, 그 뒤 신뢰가 바뀌었다면 남깁니다. Codex에 연결할 수 없으면 hook 파일은 그대로 기록되고, 명령은 신뢰를 기록하지 못했다고 알리며 실패합니다. 프로젝트 hooks는 다루지 않습니다.
 
 ## Git hooks {#git-hooks}
 
@@ -232,4 +244,4 @@ global 설정의 `hooks.projects`는 절대 프로젝트 경로를 같은 Entry 
 
 백업은 이후의 관련 없는 변경을 유지하며 네이티브 출력을 복원하고 소스 정의는 바꾸지 않습니다. **Settings → Backups → Hooks** 또는 `hooks restore`로 미리 보고 복원하세요.
 
-**Synced**는 Skillshare가 설정을 기록했다는 뜻입니다. Agent 절차에 따라 다시 시작／로딩하세요. 신뢰, hooks 활성화와 코드 호환성은 Agent가 제어합니다. 관리 작업은 hook command를 실행하거나 네이티브 신뢰를 자동 변경하지 않습니다.
+**Synced**는 Skillshare가 설정을 기록했다는 뜻입니다. Agent 절차에 따라 다시 시작／로딩하세요. 신뢰, hooks 활성화와 코드 호환성은 Agent가 제어합니다. 관리 작업은 hook command를 실행하거나 네이티브 신뢰를 자동 변경하지 않습니다. Codex 신뢰는 요청할 때 [`--trust`](#codex-trust)만 기록합니다.

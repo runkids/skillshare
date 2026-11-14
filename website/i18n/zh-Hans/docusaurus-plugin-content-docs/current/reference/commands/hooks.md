@@ -22,6 +22,7 @@ skillshare hooks enable check --sync
 skillshare hooks sync --dry-run --json
 skillshare hooks sync
 skillshare hooks sync check --replace --dry-run
+skillshare hooks sync --trust -g
 skillshare sync hooks --dry-run --json
 skillshare sync hooks
 skillshare hooks remove check --sync
@@ -39,6 +40,7 @@ skillshare hooks restore BACKUP_ID
 | `--sync` | 保存并同步 |
 | `--keep-files` | 配合 `remove` 使用：停止管理该 hook，并让它的原生条目保持原样。不能与 `--sync` 同时使用。参见[下文](#stop-managing-a-hook) |
 | `--replace` | 明确替换已有来源 entry 或该 entry 冲突的原生输出 |
+| `--trust` | 仅用于全局模式的 `hooks sync`：同时为 Skillshare 管理的 hooks 记录 Codex 信任。见 [Codex 信任](#codex-trust) |
 | `--dry-run, -n` | 仅预览，不保存或写入 |
 | `--json` | 结构化输出 |
 | `--revision ID` | 要求匹配指定预览 revision |
@@ -180,7 +182,17 @@ command 脚本写入 `<config_dir>/hooks/skillshare/NAME/`。账号仅用于 glo
 
 如果 target 已移除、目录移动或账号目录不存在，已管理的输出及其所有权记录会保留，并显示警告。恢复 target 或目录即可继续管理。要释放某个条目暂存的所有权而不修改文件，请先预览再执行 `skillshare hooks sync NAME --replace -g`。移除 target 时若 binding 仍使用该名称会显示警告；下次 hooks 同步前也要移除这些 binding。
 
-用 `skillshare hooks import --from codex-2 -g --json` 从账号导入。控制台显示 **codex-2 (Codex)**，并使用 Codex 的事件与编辑器。每个 Codex 目录都需要在 `/hooks` 中单独审核和信任变更的 hooks；同步不会修改信任或执行 hooks。
+用 `skillshare hooks import --from codex-2 -g --json` 从账号导入。控制台显示 **codex-2 (Codex)**，并使用 Codex 的事件与编辑器。每个 Codex 目录都需要在 `/hooks` 中单独审核和信任变更的 hooks；除非传入 `--trust`，同步不会修改信任或执行 hooks。
+
+### Codex 信任 {#codex-trust}
+
+Codex 只运行已信任的用户级 hook，并把信任记录在同一目录的 `config.toml` 中：`hooks.state."<hooks.json>:<event>:<group>:<handler>".trusted_hash`。键是 hook 的位置，因此 Skillshare 新增或移动的 hook 一开始都未被信任，`codex exec` 会跳过它。
+
+```bash
+skillshare hooks sync --trust -g
+```
+
+写入之后，`--trust` 会在 Skillshare 管理的每个 Codex 目录（包括账号目录）中，为 Skillshare 拥有的 hooks 记录信任。它通过 `codex app-server` 向 Codex 获取每个 hook 的 hash，与 `/hooks` 审核使用相同的调用，因此 `codex` 必须在 `PATH` 上。只修改 `trusted_hash`：你在 Codex 中停用的 hook 保持停用并会被报告，不属于 Skillshare 的 hooks 不受影响。Skillshare 的 hook 移动或删除后，下一次 `--trust` 同步会清除它为旧位置记录的信任，除非该信任此后已被修改。无法连接 Codex 时，hook 文件仍会写入，命令失败并说明未记录信任。项目 hooks 不在此范围内。
 
 ## Git hooks {#git-hooks}
 
@@ -228,4 +240,4 @@ global 配置的 `hooks.projects` 将绝对项目路径映射到相同 Entry 格
 
 备份恢复原生输出并保留后续无关改动，不改写来源定义。使用“设置 → 备份 → Hooks”或 `hooks restore` 先预览再恢复。
 
-**已同步**只表示 Skillshare 已写入配置。请按 Agent 原生流程重启／重新加载；信任、启用 hooks 和代码兼容性由 Agent 控制。管理操作不执行 hook command，也不自动改变原生信任。
+**已同步**只表示 Skillshare 已写入配置。请按 Agent 原生流程重启／重新加载；信任、启用 hooks 和代码兼容性由 Agent 控制。管理操作不执行 hook command，也不自动改变原生信任；只有在你要求时，[`--trust`](#codex-trust) 才会记录 Codex 信任。

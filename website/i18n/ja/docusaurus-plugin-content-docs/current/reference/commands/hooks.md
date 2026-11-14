@@ -22,6 +22,7 @@ skillshare hooks enable check --sync
 skillshare hooks sync --dry-run --json
 skillshare hooks sync
 skillshare hooks sync check --replace --dry-run
+skillshare hooks sync --trust -g
 skillshare sync hooks --dry-run --json
 skillshare sync hooks
 skillshare hooks remove check --sync
@@ -39,6 +40,7 @@ skillshare hooks restore BACKUP_ID
 | `--sync` | 保存して同期 |
 | `--keep-files` | `remove` と併用: hook の管理をやめ、ネイティブのエントリはそのまま残す。`--sync` とは併用できない。[下記](#stop-managing-a-hook)を参照 |
 | `--replace` | 既存ソース entry またはその entry の競合出力を明示的に置換 |
+| `--trust` | グローバルモードの `hooks sync` のみ：Skillshare が管理する hooks の Codex 信頼も記録。[Codex の信頼](#codex-trust)を参照 |
 | `--dry-run, -n` | 書き込まずプレビュー |
 | `--json` | 構造化出力 |
 | `--revision ID` | 指定プレビュー revision との一致を要求 |
@@ -182,7 +184,17 @@ command のスクリプトは `<config_dir>/hooks/skillshare/NAME/` に入りま
 
 target が削除された、ホームが移動した、またはアカウントのホームが存在しない場合、所有出力とその記録をそのまま残し、警告します。target やディレクトリを戻せば管理を再開できます。ファイルを変えずに特定エントリの保留中の所有記録を解放するには、`skillshare hooks sync NAME --replace -g` をプレビューして実行します。target の削除時に binding がまだその名前を使っていれば警告します。次の hooks 同期前に binding も外してください。
 
-`skillshare hooks import --from codex-2 -g --json` でアカウントからインポートできます。ダッシュボードには **codex-2 (Codex)** と表示され、Codex の event とエディターを使います。Codex の各ホームで変更された hooks を `/hooks` から確認し、信頼する必要があります。同期は信頼を変更せず、hooks を実行しません。
+`skillshare hooks import --from codex-2 -g --json` でアカウントからインポートできます。ダッシュボードには **codex-2 (Codex)** と表示され、Codex の event とエディターを使います。Codex の各ホームで変更された hooks を `/hooks` から確認し、信頼する必要があります。`--trust` を指定しない限り、同期は信頼を変更せず、hooks を実行しません。
+
+### Codex の信頼 {#codex-trust}
+
+Codex は信頼済みのユーザーレベル hook だけを実行し、その信頼を同じホームの `config.toml` に `hooks.state."<hooks.json>:<event>:<group>:<handler>".trusted_hash` として保存します。キーは hook の位置なので、Skillshare が追加または移動した hook は未信頼から始まり、`codex exec` はそれをスキップします。
+
+```bash
+skillshare hooks sync --trust -g
+```
+
+書き込み後、`--trust` は Skillshare が管理するすべての Codex ホーム（アカウントのホームを含む）で、Skillshare が所有する hooks の信頼を記録します。各 hook の hash は `/hooks` の確認画面と同じ呼び出しで `codex app-server` から取得するため、`codex` が `PATH` 上に必要です。変更するのは `trusted_hash` だけです。Codex で無効にした hook は無効のまま報告され、Skillshare が所有しない hooks には触れません。Skillshare の hook が移動または削除されると、次の `--trust` 同期で古い位置に記録した信頼を消去します。ただし、その後に信頼が変更されていれば残します。Codex に接続できない場合も hook ファイルは書き込まれ、コマンドは信頼を記録できなかったと伝えて失敗します。プロジェクトの hooks は対象外です。
 
 ## Git hooks {#git-hooks}
 
@@ -236,4 +248,4 @@ global 設定の `hooks.projects` は絶対プロジェクトパスを同じ Ent
 
 バックアップは後から加わった無関係な変更を保持してネイティブ出力を復元し、ソース定義は変更しません。**Settings → Backups → Hooks** または `hooks restore` でプレビューして復元します。
 
-**Synced** は Skillshare が設定を書いた状態です。Agent の手順に従って再起動／再読み込みしてください。信頼、hooks の有効化、コード互換性は Agent が制御します。管理時に hook command を実行したり、ネイティブ信頼を自動変更したりしません。
+**Synced** は Skillshare が設定を書いた状態です。Agent の手順に従って再起動／再読み込みしてください。信頼、hooks の有効化、コード互換性は Agent が制御します。管理時に hook command を実行したり、ネイティブ信頼を自動変更したりしません。Codex の信頼を記録するのは、指定したときの [`--trust`](#codex-trust) だけです。

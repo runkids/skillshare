@@ -25,6 +25,8 @@ type Service struct {
 	Git           GitRunner
 	// GitGlobalConfig is the file override Git honors in GIT_CONFIG_GLOBAL.
 	GitGlobalConfig string
+	// CodexAppServer starts Codex's app-server for one Codex home; nil runs `codex app-server`.
+	CodexAppServer func(home string) (CodexAppServer, error)
 }
 
 // Mutation is shared by CLI and dashboard preview/save/sync flows. An empty
@@ -125,6 +127,8 @@ type Result struct {
 	Plan      *Plan    `json:"plan,omitempty"`
 	Applied   []string `json:"applied"`
 	BackupIDs []string `json:"backupIds"`
+	// CodexTrust is set by sync --trust.
+	CodexTrust []CodexTrust `json:"codexTrust,omitempty"`
 }
 
 // SourceInfo is the declaration shown by List.

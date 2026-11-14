@@ -153,6 +153,7 @@ export extern "skillshare hooks" [
     --sync
     --replace
     --keep-files # remove: leave Agent entries as they are
+    --trust # sync: record Codex trust
     --dry-run(-n)
     --json
     --project(-p)
