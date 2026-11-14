@@ -51,7 +51,7 @@ Each answer has a default, so pressing <kbd>Enter</kbd> through every question g
 
 **Connect my existing repo** is for a second machine. It checks the repo first, without writing anything, and works out its layout: a repo pushed with `--git-root root` becomes the whole skillshare folder, and a repo whose skills sit in a `skills/` folder uses it as the source. Skills that exist both on this machine and in the repo use the repo version. Skills only on this machine are offered to keep, and are added to the repo on your next `skillshare push`.
 
-During the first sync, a skill folder in a tool that is byte-for-byte identical to the source copy is replaced with a link. Folders that differ are kept and listed; run `skillshare sync --force` to replace them.
+During the first sync, a skill folder in a tool that is byte-for-byte identical to the source copy is replaced with a link. The folder is moved to the trash first, so `skillshare trash list` shows it under `replaced-by-init/<tool>/` until trash cleanup removes it (7 days). Folders that differ are kept and listed; run `skillshare sync --force` to replace them.
 
 ### Without a terminal
 
