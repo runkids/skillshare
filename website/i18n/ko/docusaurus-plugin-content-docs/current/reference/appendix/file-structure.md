@@ -546,3 +546,14 @@ XDG 분리 이전 버전에서 업그레이드하는 경우, skillshare는 첫 �
 - [Skill Format](/docs/understand/skill-format) — SKILL.md 형식
 - [Agents](/docs/understand/agents) — Agent 파일 형식 및 Discovery
 - [Tracked Repositories](/docs/understand/tracked-repositories) — Tracked 저장소
+
+
+## 패키지 명령 {#plugin-command-files}
+
+`plugin add ./demo --no-tui -g`는 `--target` 없이도 선언된 명령을 설치합니다. 전역 위치는 `~/.local/bin`, 프로젝트 위치는 `<project>/.skillshare/bin`입니다. 직접 PATH에 추가하세요. 링크는 검토한 snapshot을 가리키므로 원본 source가 없어도 실행할 수 있습니다.
+
+제거는 로컬 receipt로 오프라인에서 수행하며 정확히 소유한 링크만 지웁니다. 운영자 파일과 외부·끊어진 링크는 보존합니다. 충돌 시 명령 게시는 중단합니다. 명령 실패 시에도 네이티브 성공은 유지하며 작업은 0이 아닌 코드로 종료합니다. 문제를 해결한 뒤 `sync plugins`로 재시도하세요. bin 이동 시 정리 전에 원래 위치를 복원해야 하며 이전 절대 경로를 무조건 삭제하지 않습니다. 공유 YAML은 `plugins.version: 2`, 비공개 state는 v2입니다. v1 미리보기는 파일을 쓰거나 소유권을 추론하지 않습니다. Windows 명령 게시는 지원하지 않지만 네이티브 작업은 개별 결과를 유지합니다. 새 Agent나 CLI 플래그는 없습니다.
+
+`<bin>/.skillshare-plugin-commands.lock`
+
+생성된 `.skillshare/bin/`에는 기기별 절대 링크와 lock이 있습니다. 프로젝트 루트 `.gitignore`에 `.skillshare/bin/`를 추가하고 선언만 공유하세요.

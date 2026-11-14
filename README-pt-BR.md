@@ -257,6 +257,8 @@ skillshare plugin add owner/repo --target claude --target codex --no-tui
 skillshare sync plugins --dry-run     # plugins são sincronizados à parte do sync --all
 ```
 
+No macOS/Linux, os comandos declarados do pacote são instalados mesmo sem `--target`, em `~/.local/bin` (global) ou `<project>/.skillshare/bin` (projeto). Adicione esse diretório ao PATH. Atualizações e remoções sem destino incluem os comandos; a publicação no Windows não é suportada.
+
 Instalações nativas existentes podem ser adotadas com `plugin import`.
 Veja [Gerenciar plugins entre ferramentas](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins).
 

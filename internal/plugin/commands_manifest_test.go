@@ -1,0 +1,157 @@
+package plugin
+
+import (
+	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"slices"
+	"testing"
+)
+
+func TestPluginCommandsManifest(t *testing.T) {
+	for _, tt := range []struct {
+		name, command, path string
+		bad                 bool
+	}{
+		{"valid", "demo-one", "bin/one", false},
+		{"basename", "../bad", "bin/one", true},
+		{"dot", ".", "bin/one", true},
+		{"absolute", "demo-one", "/bin/sh", true},
+		{"drive", "demo-one", "C:/bin/sh", true},
+		{"backslash", "demo-one", `bin\one`, true},
+		{"traversal", "demo-one", "../bin/one", true},
+		{"git", "demo-one", ".git/config", true},
+		{"missing", "demo-one", "missing", true},
+		{"directory", "demo-one", "bin", true},
+		{"nonexecutable", "demo-one", "skills/demo/SKILL.md", true},
+		{"escape", "demo-one", "escape", true},
+		{"internal-link", "demo-one", "inside", false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			root := fixture(t)
+			writePluginFile(t, root, "bin/one", "#!/bin/sh\ntrue\n")
+			if err := os.Chmod(filepath.Join(root, "bin/one"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink("/bin/sh", filepath.Join(root, "escape")); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink("bin/one", filepath.Join(root, "inside")); err != nil {
+				t.Fatal(err)
+			}
+			manifest := map[string]any{"name": "demo", "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json", "commands": []string{"./native"}, "extensions": map[string]any{"cc.runkids.skillshare": map[string]any{"commands": map[string]string{tt.command: tt.path}}, "other.namespace": map[string]any{"anything": true}}}
+			raw, _ := json.Marshal(manifest)
+			writePluginFile(t, root, "plugin.json", string(raw))
+			d, err := Discover(context.Background(), root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			c := d.Candidates[0]
+			if tt.bad {
+				if c.CommandProblem == "" {
+					t.Fatalf("unsafe command accepted: %+v", c)
+				}
+				if tt.name == "traversal" {
+					// Discovery transport must retain the structured validation identity.
+					raw, _ := json.Marshal(d)
+					var restored Discovery
+					if err := json.Unmarshal(raw, &restored); err != nil {
+						t.Fatal(err)
+					}
+					raw, _ = json.Marshal(restored.Candidates[0])
+					var fields map[string]any
+					if err := json.Unmarshal(raw, &fields); err != nil || fields["commandProblemKey"] != "plugins.error.commandPath" {
+						t.Fatalf("validation identity lost: %s %v", raw, err)
+					}
+				}
+				return
+			}
+			if c.CommandProblem != "" || c.Commands[tt.command] != tt.path {
+				t.Fatalf("commands not discovered: %+v", c)
+			}
+			if !slices.Contains(c.TargetInfo["codex"].Components, "commands") || !slices.Contains(c.TargetInfo["codex"].Components, "skills") {
+				t.Fatal("native components lost")
+			}
+		})
+	}
+	for _, raw := range []string{`{"name":"demo"}`, `{"name":"demo","$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","extensions":{"cc.runkids.skillshare":{"commands":[]}}}`, `{"name":"demo","$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","extensions":{"cc.runkids.skillshare":{"commands":null}}}`} {
+		root := fixture(t)
+		writePluginFile(t, root, "plugin.json", raw)
+		d, err := Discover(context.Background(), root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if raw != `{"name":"demo"}` && d.Candidates[0].CommandProblem == "" {
+			t.Fatal("malformed command map accepted")
+		}
+		if raw == `{"name":"demo"}` && (len(d.Candidates[0].Commands) > 0 || d.Candidates[0].CommandProblem != "") {
+			t.Fatal("absent metadata changed")
+		}
+	}
+	t.Run("unsupported-schema-preserves-installed-commands", func(t *testing.T) {
+		s, root, bin := commandFixture(t)
+		applyPluginRequest(t, s, Request{Action: "add", Source: root})
+		before, err := s.load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		receipt, _ := json.Marshal(before.state.Commands["demo"])
+		writePluginFile(t, root, "plugin.json", `{"name":"demo","$schema":"https://agent-plugins.org/schemas/2.0.0/plugin.schema.json","extensions":{"cc.runkids.skillshare":{"commands":{"demo-one":"bin/one"}}}}`)
+		for _, action := range []string{"check", "update"} {
+			r := Request{Action: action, All: action == "update"}
+			p, err := s.Preview(context.Background(), r)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.ContainsFunc(p.Changes, func(c Change) bool { return c.Commands && c.Failed && c.MessageKey == "plugins.problem.rootSchema" }) {
+				t.Errorf("%s treated unsupported schema as command removal: %+v", action, p.Changes)
+			}
+			if action == "update" {
+				result, err := s.Apply(context.Background(), r, p.Revision)
+				if err == nil || result == nil || !slices.ContainsFunc(result.Results, func(o Outcome) bool {
+					return o.Commands && o.Status == "failed" && o.MessageKey == "plugins.problem.rootSchema"
+				}) {
+					t.Errorf("unsupported schema update succeeded: %+v %v", result, err)
+				}
+			}
+		}
+		commandOutput(t, bin, "demo-one", "old-one")
+		after, err := s.load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		retained, _ := json.Marshal(after.state.Commands["demo"])
+		if string(retained) != string(receipt) {
+			t.Fatalf("unsupported schema changed ownership receipt: %s", retained)
+		}
+	})
+}
+
+func TestPluginCommandsCatalogPath(t *testing.T) {
+	root := t.TempDir()
+	for _, path := range []string{"primary", "alternate"} {
+		writePluginFile(t, root, path+"/plugin.json", `{"name":"demo","$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","extensions":{"cc.runkids.skillshare":{"commands":{"demo-one":"bin/one"}}}}`)
+		writePluginFile(t, root, path+"/bin/one", "#!/bin/sh\ntrue\n")
+		if err := os.Chmod(filepath.Join(root, path, "bin/one"), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writePluginFile(t, root, ".agents/plugins/marketplace.json", `{"name":"primary","plugins":[{"name":"demo","source":"./primary"}]}`)
+	writePluginFile(t, root, ".cursor-plugin/marketplace.json", `{"name":"alternate","plugins":[{"name":"demo","source":"./alternate"}]}`)
+	d, err := Discover(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(d.Candidates) != 1 || d.Candidates[0].Path != "primary" || d.Candidates[0].Commands["demo-one"] != "bin/one" || d.Candidates[0].pathFor("cursor") != "alternate" {
+		t.Fatalf("provider/path lost: %+v", d)
+	}
+	writePluginFile(t, root, "primary/plugin.json", `{"name":"demo","$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","extensions":{"cc.runkids.skillshare":{"commands":{"demo-one":"../alternate/bin/one"}}}}`)
+	d, err = Discover(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Candidates[0].CommandProblem == "" {
+		t.Fatal("nested candidate reached sibling executable")
+	}
+}

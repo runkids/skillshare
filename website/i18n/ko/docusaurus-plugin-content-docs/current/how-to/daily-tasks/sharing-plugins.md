@@ -77,7 +77,7 @@ skillshare plugin import review@team --from claude --no-tui
 - 플러그인의 행을 열면 그 Source가 패키지를 가진 다른 Agent들도 체크되지 않은
   상태로 나열됩니다. 하나를 체크하면 설치 미리보기가 열립니다. Source가 제공할 수
   없는 Agent는 행 끝에 개수로 표시되며, 그 개수를 클릭하면 이유가 열립니다.
-- Agent를 하나도 체크하지 않고 플러그인을 추가할 수 있습니다. Skillshare에 남아 **아직 Agent 없음**으로 표시되며, 행에서 Agent를 체크하기 전까지 아무것도 설치되지 않습니다.
+- Agent를 선택하지 않아도 선언된 패키지 명령은 설치됩니다. 네이티브 binding은 나중에 선택할 수 있습니다.
 - 체크 해제한 다음 동기화하면 해당 관리 설치가 제거됩니다.
 - 패키지 정의는 그대로 남아있으므로 나중에 다시 해당 Target을 선택할 수 있습니다.
 - Claude나 Codex 안에서 비활성화된 플러그인은 비활성화 상태를 유지합니다. 해당
@@ -125,3 +125,19 @@ skillshare sync plugins review --target claude --no-tui
 
 자동화, 스코프 세부 사항, 모든 플래그는 [plugin](/docs/reference/commands/plugin)을
 참고하세요.
+
+## 패키지 명령 {#package-commands}
+
+**Commands**는 패키지 단위 업데이트 선택입니다. Agent가 없어도 선택할 수 있으며 행에는 명령 이름과 bin이 표시됩니다. Agent 성공 후 명령이 실패하면 **Retry**는 실패한 선택만 재시도합니다. check 이후 source가 바뀌면 다시 확인해야 합니다.
+
+macOS/Linux에서는 루트 portable `plugin.json`에 PATH 명령을 선언할 수 있습니다. 네이티브 slash commands는 바뀌지 않습니다. 파일은 이미 실행 가능해야 하며 선택한 candidate 내부에 있어야 합니다. 이름은 영문자나 숫자로 시작하고 영숫자, `.`, `_`, `-`만 사용합니다. 경로는 상대 `/` 경로이며 외부 이동과 `.git` 접근은 금지합니다. 안전한 내부 상대 symlink는 허용합니다. chmod, 인터프리터 추측, 설치 스크립트 실행, 셸 설정 변경은 하지 않습니다.
+
+`plugin add ./demo --no-tui -g`는 `--target` 없이도 선언된 명령을 설치합니다. 전역 위치는 `~/.local/bin`, 프로젝트 위치는 `<project>/.skillshare/bin`입니다. 직접 PATH에 추가하세요. 링크는 검토한 snapshot을 가리키므로 원본 source가 없어도 실행할 수 있습니다.
+
+명령은 패키지 기본 source/ref/candidate에 따르며 별도 네이티브 배포판과 독립적입니다. 대상 없는 check/update/update --all/sync/remove에 포함됩니다. `--target` check/update도 선택한 binding이 ref를 포함한 유효 기본 recipe를 따를 때 명령을 포함합니다. 별도 배포판, 대상 지정 제거, import/unimport, 선택 토글은 네이티브 binding만 처리합니다. check는 version이 같아도 digest를 비교합니다. 기존 receipt가 있고 recipe가 같으면 sync는 검토한 내용을 유지하며 누락된 링크와 미완료 작업을 복구합니다. receipt가 없으면 sync는 현재 소스의 명령을 처음 게시할 수 있으므로 먼저 check로 검토하세요. update는 새 내용을 검토하며 공유 기본 recipe가 바뀌면 sync도 다시 검토합니다.
+
+제거는 로컬 receipt로 오프라인에서 수행하며 정확히 소유한 링크만 지웁니다. 운영자 파일과 외부·끊어진 링크는 보존합니다. 충돌 시 명령 게시는 중단합니다. 명령 실패 시에도 네이티브 성공은 유지하며 작업은 0이 아닌 코드로 종료합니다. 문제를 해결한 뒤 `sync plugins`로 재시도하세요. bin 이동 시 정리 전에 원래 위치를 복원해야 하며 이전 절대 경로를 무조건 삭제하지 않습니다. 공유 YAML은 `plugins.version: 2`, 비공개 state는 v2입니다. v1 미리보기는 파일을 쓰거나 소유권을 추론하지 않습니다. Windows 명령 게시는 지원하지 않지만 네이티브 작업은 개별 결과를 유지합니다. 새 Agent나 CLI 플래그는 없습니다.
+
+[plugin.json](/docs/reference/commands/plugin#package-commands)
+
+생성된 `.skillshare/bin/`에는 기기별 절대 링크와 lock이 있습니다. 프로젝트 루트 `.gitignore`에 `.skillshare/bin/`를 추가하고 선언만 공유하세요.

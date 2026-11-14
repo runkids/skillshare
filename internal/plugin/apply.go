@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,8 +11,8 @@ import (
 	"strings"
 )
 
-func (s *Service) materialize(ctx context.Context, b Binding, target string) (string, error) {
-	expected := s.snapshotPath(b, target)
+func (s *Service) materialize(ctx context.Context, b Binding, target string, packageName ...string) (string, error) {
+	expected := s.snapshotPath(b, target, packageName...)
 	market := filepath.Base(expected)
 	if !strings.HasPrefix(market, "skillshare-") {
 		return "", fmt.Errorf("invalid managed snapshot location; re-add the source")
@@ -142,27 +143,7 @@ func (s *Service) applyChange(ctx context.Context, c Change, b *Binding) (result
 			return fmt.Errorf("unfinished snapshot replacement; inspect previous snapshot before retrying")
 		}
 		defer func() {
-			path := s.snapshotPath(*b, c.Target)
-			backup := path + ".previous"
-			if _, err := os.Stat(backup); err != nil {
-				return
-			}
-			if resultErr == nil {
-				_ = os.RemoveAll(backup)
-				return
-			}
-			failed := path + ".failed"
-			if _, err := os.Stat(failed); err == nil {
-				return
-			}
-			if err := os.Rename(path, failed); err != nil {
-				return
-			}
-			if err := os.Rename(backup, path); err != nil {
-				_ = os.Rename(failed, path)
-				return
-			}
-			_ = os.RemoveAll(failed)
+			resultErr = errors.Join(resultErr, finishSnapshot(s.snapshotPath(*b, c.Target), resultErr == nil))
 		}()
 	}
 	if c.ompRemoval != nil && s.agentOf(c.Target) == "omp" {
@@ -408,4 +389,28 @@ func pluginEntry(c Candidate, source, target string) map[string]any {
 		entry[key] = raw
 	}
 	return entry
+}
+
+// finishSnapshot shares the existing rotation/rollback boundary with command publication.
+func finishSnapshot(path string, success bool) error {
+	backup := path + ".previous"
+	if _, err := os.Stat(backup); os.IsNotExist(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	if success {
+		return os.RemoveAll(backup)
+	}
+	failed := path + ".failed"
+	if _, err := os.Lstat(failed); !os.IsNotExist(err) {
+		return fmt.Errorf("snapshot rollback blocked at %s", failed)
+	}
+	if err := os.Rename(path, failed); err != nil {
+		return err
+	}
+	if err := os.Rename(backup, path); err != nil {
+		return errors.Join(err, os.Rename(failed, path))
+	}
+	return os.RemoveAll(failed)
 }

@@ -240,7 +240,7 @@ export default function PluginAddDialog({ onClose, onPreview, initialSource = ''
       </div>
       <div className="df">
         {(discovery || npmSource) && !extending && <Button variant="ghost" className="mr-auto" disabled={busy} onClick={() => { setDiscovery(null); setNpmSource(''); setError(''); setEntry(''); setEntryOpen(false); }}>{t('common.back')}</Button>}
-        {/* Beside the button it explains, and only while it applies: nothing ticked adds the plugin without installing it. */}
+        {/* Explain optional Agent selection beside the button. */}
         {selected && !selected.problem && !extending && !chosen.length && <span className="text-xs text-ink-3">{t('plugins.targetsOptional')}</span>}
         <Button variant="ghost" disabled={busy} onClick={onClose}>{t('common.cancel')}</Button>
         {npmSource

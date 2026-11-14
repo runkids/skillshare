@@ -74,7 +74,8 @@ Safe internal relative symlinks are preserved; escaping, absolute, broken, cycli
 and `.git` links are rejected. A malformed manifest does not hide other formats.
 
 `add` without `--target`, or an interactive picker confirmed with nothing selected,
-keeps the plugin in Skillshare and installs it nowhere; `list` shows it as `no targets`.
+keeps the plugin in Skillshare and installs its declared package commands. With no command
+metadata, it installs nothing and `list` shows `no targets`.
 Add targets later with the same source and `--name`, which installs the source as it is
 then. Such a package stays managed when its last target is removed.
 
@@ -275,7 +276,7 @@ automation must provide explicit arguments and use `--json` or `--no-tui`.
 Shared `plugins.version: 2` declares package source/ref/plugin/entry, effective
 per-target sources and selection, or `imported: true`. Native IDs, reviewed
 commit/digest/version, Pi registration references and pending actions stay in
-`<StateDir>/plugins/<config-path-hash>/state.json` (version 1). Keep StateDir local.
+`<StateDir>/plugins/<config-path-hash>/state.json` (version 2). Keep StateDir local.
 Sync, normal update and retry never rewrite shared YAML; `update --source-ref`
 changes intent only when the ref differs. Reads persist local legacy hints without changing shared YAML.
 
@@ -316,3 +317,25 @@ installation owns that exact link. Cleanup runs before the replacement installs;
 shared cache and plugin settings are retained. Foreign links, real directories,
 and competing owners still block replacement. If cleanup or installation fails,
 run sync again to retry the remaining local work.
+
+## Package commands
+
+Portable `plugin.json` with the exact schema
+`https://agent-plugins.org/schemas/1.0.0/plugin.schema.json` may declare
+`extensions.cc.runkids.skillshare.commands`, a command-name → relative executable
+map (for example `{"demo-tool":"bin/demo-tool"}`). Native slash commands are unchanged.
+On macOS/Linux, targetless add publishes to `~/.local/bin` globally or
+`<project>/.skillshare/bin` in project mode. Ask users to add the bin to PATH;
+never edit their shell profiles. Files must already be executable and contained
+inside the candidate root; do not chmod or infer an interpreter.
+Commands follow the default package recipe, not alternate native bindings.
+Untargeted check/update/update-all/sync/remove includes them; target-filtered
+check/update includes them when a selected binding follows the effective default
+recipe, including ref. Alternate distributions, target removals, imports and
+selection toggles leave them alone. With an existing receipt, sync pins reviewed
+bytes while the recipe is unchanged. Without a receipt, sync can first publish
+commands from the current source; run check first to review them. Update reviews changed content,
+even at the same version. Offline removal uses exact local receipts and preserves
+operator files/foreign links. Report command failures alongside native successes;
+retry pending work with `sync plugins`. Shared YAML stays v2; private receipts
+migrate from v1 to v2 only on writes. Windows publication reports unsupported.

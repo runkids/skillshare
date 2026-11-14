@@ -238,11 +238,11 @@ internal/oplog/oplog.go	rewriteEntries	os.Remove	tmp	config
 internal/oplog/oplog.go	rewriteEntries	os.Remove	tmp	config
 internal/oplog/oplog.go	rewriteEntries	os.Remove	tmp	config
 internal/oplog/oplog.go	rewriteEntries	os.Rename	tmp, path	config
-internal/plugin/apply.go	(*Service).applyChange	os.RemoveAll	backup	plugin
-internal/plugin/apply.go	(*Service).applyChange	os.RemoveAll	failed	plugin
-internal/plugin/apply.go	(*Service).applyChange	os.Rename	backup, path	plugin
-internal/plugin/apply.go	(*Service).applyChange	os.Rename	failed, path	plugin
-internal/plugin/apply.go	(*Service).applyChange	os.Rename	path, failed	plugin
+internal/plugin/apply.go	finishSnapshot	os.RemoveAll	backup	plugin
+internal/plugin/apply.go	finishSnapshot	os.RemoveAll	failed	plugin
+internal/plugin/apply.go	finishSnapshot	os.Rename	backup, path	plugin
+internal/plugin/apply.go	finishSnapshot	os.Rename	failed, path	plugin
+internal/plugin/apply.go	finishSnapshot	os.Rename	path, failed	plugin
 internal/plugin/apply.go	(*Service).materialize	os.MkdirAll	filepath.Dir(p)	plugin
 internal/plugin/apply.go	(*Service).materialize	os.MkdirAll	parent	plugin
 internal/plugin/apply.go	(*Service).materialize	os.MkdirTemp	parent	plugin
@@ -253,6 +253,14 @@ internal/plugin/apply.go	(*Service).materialize	os.Rename	temp, expected	plugin
 internal/plugin/apply.go	(*Service).materialize	os.WriteFile	filepath.Join(temp, ".skillshare-digest")	plugin
 internal/plugin/apply.go	(*Service).materialize	os.WriteFile	filepath.Join(temp, ".skillshare-owner")	plugin
 internal/plugin/apply.go	(*Service).materialize	os.WriteFile	p	plugin
+internal/plugin/commands.go	(*Service).applyCommands	os.MkdirAll	bin	plugin
+internal/plugin/commands.go	replaceCommand	os.CreateTemp	filepath.Dir(path)	plugin
+internal/plugin/commands.go	replaceCommand	os.Remove	path	plugin
+internal/plugin/commands.go	replaceCommand	os.Remove	staged	plugin
+internal/plugin/commands.go	replaceCommand	os.Remove	staged	plugin
+internal/plugin/commands.go	replaceCommand	os.Rename	staged, path	plugin
+internal/plugin/commands.go	replaceCommand	os.Symlink	next, path	plugin
+internal/plugin/commands.go	replaceCommand	os.Symlink	next, staged	plugin
 internal/plugin/config.go	(*Service).save	os.CreateTemp	filepath.Dir(path)	plugin
 internal/plugin/config.go	(*Service).save	os.MkdirAll	filepath.Dir(path)	plugin
 internal/plugin/config.go	(*Service).save	os.Remove	f.Name()	plugin

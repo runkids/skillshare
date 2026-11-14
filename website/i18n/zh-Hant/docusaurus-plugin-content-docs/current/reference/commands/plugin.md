@@ -30,7 +30,7 @@ skillshare plugin remove review --no-tui
 target 會儲存這個選擇。下一次 `sync plugins` 會移除其受管理的安裝，但保留定義。重新選取後，
 下一次 sync 就會重新安裝。未受管理的 plugin 不受影響。
 
-`add` 不帶 `--target`（或在互動選單中什麼都不選）會把 plugin 交給 Skillshare 管理，但不安裝到任何地方。之後可以用相同的 source 與 `--name` 加上 target，或在 dashboard 中從該 plugin 的列勾選；安裝的是當下的 source 內容。這類 plugin 在最後一個 target 被移除後仍會保留。不帶 `--target` 的 `remove NAME` 會把它從 Skillshare 移除。
+不帶 `--target` 的 `add` 會安裝宣告的命令，即使沒有原生綁定也會管理該套件。沒有命令宣告時僅記錄。之後可用相同 source 與 `--name` 新增目標。未指定目標的 `remove NAME` 移除整個套件。
 
 ## Commands
 
@@ -366,7 +366,7 @@ plugins:
         omp: {imported: true}
 ```
 
-原生 ID、已檢視的 commit/digest/version、Pi 註冊參照與待處理操作儲存在 `<StateDir>/plugins/<config-path-hash>/state.json`（本機格式 version 1）。StateDir 必須留在各機器本機。狀態以設定檔的**絕對路徑**區分：移動或重新命名專案／設定檔會建立新的狀態空間，不會自動追蹤或清理原有安裝。請先透過原設定位置移除安裝，或在新位置明確管理／匯入。
+原生 ID、已檢視的 commit/digest/version、Pi 註冊參照與待處理操作儲存在 `<StateDir>/plugins/<config-path-hash>/state.json`（本機格式 version 2）。StateDir 必須留在各機器本機。狀態以設定檔的**絕對路徑**區分：移動或重新命名專案／設定檔會建立新的狀態空間，不會自動追蹤或清理原有安裝。請先透過原設定位置移除安裝，或在新位置明確管理／匯入。
 
 sync、一般 update、驗證、失敗與重試不會改寫共用宣告。`update --source-ref` 僅在 ref 改變時更新宣告。讀取會在本機操作鎖下保存舊格式證據，不修改共用 YAML。鎖被其他操作持有時，會將保存延後至該操作或下次讀取。add、import、選擇與 remove 會儲存必要的宣告變更並檢查外部修改；這不會合併同時發生的 Syncthing 編輯。
 
@@ -394,3 +394,28 @@ skillshare plugin sync NAME --no-tui
 `unimport` 要求明確指定一個或多個 `--target`，且各目標必須已有本機匯入紀錄及共用來源設定。它透過目標的移除配接器解除本機匯入的安裝，然後清除本機紀錄。共用宣告和其他機器的安裝保持不變。下一次 sync 會從共用來源安裝。
 
 解除安裝也會移除原生用戶端中與該安裝相關的設定或登入資料。
+
+
+## 套件命令 {#package-commands}
+
+```json
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "demo",
+  "extensions": {
+    "cc.runkids.skillshare": {
+      "commands": { "demo-tool": "bin/demo-tool" }
+    }
+  }
+}
+```
+
+macOS/Linux 上，根目錄的 portable `plugin.json` 可宣告 PATH 命令，原生 slash commands 不變。檔案必須已可執行並位於所選 candidate 內。名稱以字母或數字開頭，只含字母、數字、`.`、`_`、`-`。路徑使用相對 `/` 分隔，不可跳出套件或進入 `.git`；允許安全的內部相對符號連結。Skillshare 不會 chmod、推斷直譯器、執行安裝腳本或修改 shell 設定。
+
+`plugin add ./demo --no-tui -g` 即使不帶 `--target` 也會安裝宣告的命令。全域位於 `~/.local/bin`，專案位於 `<project>/.skillshare/bin`，請自行加入 PATH。連結指向已審閱的 snapshot，執行時無需原始來源目錄。
+
+命令跟隨套件的預設 source/ref/candidate，與其他原生發行版獨立。未指定目標的 check/update/update --all/sync/remove 包含命令。`--target` check/update 在所選綁定使用有效預設 recipe（包括 ref）時也包含命令。其他發行版、指定目標的移除、import/unimport、同步選取開關僅影響原生綁定。check 即使 version 未變也比較 digest。已有 receipt 且 recipe 不變時，sync 保持已審閱內容並修復缺少連結與重試未完成工作。沒有 receipt 時，sync 可以首次發佈目前來源的命令；請先執行 check 審閱。update 審閱新內容。共享預設 recipe 改變時 sync 會重新審閱。
+
+移除使用本機 receipt，可離線執行，只刪除精確擁有的連結，保留操作者檔案、外部或懸空連結。名稱衝突會阻止發佈。命令失敗不撤銷原生成功，操作回傳非零狀態；解決原因後以 `sync plugins` 重試。bin 移動後需恢復原位置再清理，不會盲刪舊絕對路徑。共享 YAML 保持 `plugins.version: 2`，私有 state 為 v2；讀取 v1 時不推斷所有權，預覽不寫入遷移。Windows 不支援發佈命令，原生操作保留各自結果。不新增 Agent 或 CLI 參數。
+
+產生的 `.skillshare/bin/` 含本機絕對連結與 lock。請在專案根目錄的 `.gitignore` 加入 `.skillshare/bin/`，只共享 plugin 宣告。

@@ -64,7 +64,7 @@ skillshare plugin import review@team --from claude --no-tui
 
 - 勾選它，然後同步以安裝缺少的 plugin。
 - 開啟一個 plugin 的列也會列出其來源有提供套件、但尚未勾選的其他 Agents。勾選其中一個會開啟安裝預覽。來源無法提供的 Agents 會在該列末尾以數字統計，點選該數字可查看原因。
-- 新增 plugin 時可以一個 Agent 都不勾。它會留在 Skillshare 中並顯示 **尚未選擇 Agent**，直到你在該列勾選 Agent 之前都不會安裝任何東西。
+- 新增 plugin 時可以不選 Agent；宣告的套件命令仍會安裝，原生綁定可稍後選取。
 - 取消勾選它，然後同步以移除該受管理的安裝。
 - 套件定義仍會保留，因此之後可以再次選取該 target。
 - 在 Claude 或 Codex 內部被停用的 plugin 仍會維持停用；請在該工具中管理原生設定。
@@ -105,3 +105,19 @@ skillshare sync plugins review --target claude --no-tui
 來源摘要（digest）用於偵測變更；它並不保證每個原生安裝或匯入的 marketplace 在不同機器間都能重現。
 
 如需自動化、範圍細節與所有旗標，請參閱 [plugin](/docs/reference/commands/plugin)。
+
+## 套件命令 {#package-commands}
+
+**Commands** 是套件層級更新選項，沒有 Agent 也可選取。套件列顯示命令名稱與 bin。Agent 成功而命令失敗後，**Retry** 僅重試失敗選項。檢查後來源改變，必須重新檢查才能更新。
+
+macOS/Linux 上，根目錄的 portable `plugin.json` 可宣告 PATH 命令，原生 slash commands 不變。檔案必須已可執行並位於所選 candidate 內。名稱以字母或數字開頭，只含字母、數字、`.`、`_`、`-`。路徑使用相對 `/` 分隔，不可跳出套件或進入 `.git`；允許安全的內部相對符號連結。Skillshare 不會 chmod、推斷直譯器、執行安裝腳本或修改 shell 設定。
+
+`plugin add ./demo --no-tui -g` 即使不帶 `--target` 也會安裝宣告的命令。全域位於 `~/.local/bin`，專案位於 `<project>/.skillshare/bin`，請自行加入 PATH。連結指向已審閱的 snapshot，執行時無需原始來源目錄。
+
+命令跟隨套件的預設 source/ref/candidate，與其他原生發行版獨立。未指定目標的 check/update/update --all/sync/remove 包含命令。`--target` check/update 在所選綁定使用有效預設 recipe（包括 ref）時也包含命令。其他發行版、指定目標的移除、import/unimport、同步選取開關僅影響原生綁定。check 即使 version 未變也比較 digest。已有 receipt 且 recipe 不變時，sync 保持已審閱內容並修復缺少連結與重試未完成工作。沒有 receipt 時，sync 可以首次發佈目前來源的命令；請先執行 check 審閱。update 審閱新內容。共享預設 recipe 改變時 sync 會重新審閱。
+
+移除使用本機 receipt，可離線執行，只刪除精確擁有的連結，保留操作者檔案、外部或懸空連結。名稱衝突會阻止發佈。命令失敗不撤銷原生成功，操作回傳非零狀態；解決原因後以 `sync plugins` 重試。bin 移動後需恢復原位置再清理，不會盲刪舊絕對路徑。共享 YAML 保持 `plugins.version: 2`，私有 state 為 v2；讀取 v1 時不推斷所有權，預覽不寫入遷移。Windows 不支援發佈命令，原生操作保留各自結果。不新增 Agent 或 CLI 參數。
+
+[plugin.json](/docs/reference/commands/plugin#package-commands)
+
+產生的 `.skillshare/bin/` 含本機絕對連結與 lock。請在專案根目錄的 `.gitignore` 加入 `.skillshare/bin/`，只共享 plugin 宣告。

@@ -63,6 +63,9 @@ func (s *Service) snapshotDir(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if info := pack.Commands; info != nil && !info.Binding.Cleanup && !info.Binding.ContextChanged && s.ownedCommandSnapshot(name, info.Binding) {
+		return filepath.Join(s.snapshotPath(info.Binding, "", name), "content"), nil
+	}
 	for _, target := range slices.Sorted(maps.Keys(pack.Bindings)) {
 		b := pack.Bindings[target]
 		if b.Source == "" || b.ID == "" || b.Cleanup || b.ContextChanged || !s.ownedSnapshot(b, target) {
@@ -85,6 +88,15 @@ func (s *Service) discoverSnapshot(ctx context.Context, name, source, ref, entry
 	pack, err := s.snapshotPackage(ctx, name)
 	if err != nil {
 		return nil
+	}
+	if info := pack.Commands; info != nil {
+		b := info.Binding
+		if b.Source == source && b.SourceRef == ref && !b.Cleanup && !b.ContextChanged && s.ownedCommandSnapshot(name, b) {
+			if found, err := discoverRoot(filepath.Join(s.snapshotPath(b, "", name), "content"), b.Source, entry); err == nil && found.Digest == b.Digest {
+				found.SourceRef, found.Commit = b.SourceRef, b.Commit
+				return found
+			}
+		}
 	}
 	for _, target := range slices.Sorted(maps.Keys(pack.Bindings)) {
 		b := pack.Bindings[target]

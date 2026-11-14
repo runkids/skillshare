@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -127,7 +128,7 @@ func TestPluginUpdateStreamRefusesWhilePluginsAreLocked(t *testing.T) {
 func TestPluginUpdateStreamReportsEachPluginThenDone(t *testing.T) {
 	s, _ := newTestServerWithExtras(t, nil, "")
 	w := httptest.NewRecorder()
-	s.handlePluginUpdateStream(w, httptest.NewRequest(http.MethodPost, "/api/plugins/update/stream", strings.NewReader(`{"items":[{"name":"gone","targets":[]},{"name":"other","targets":[]}]}`)))
+	s.handlePluginUpdateStream(w, httptest.NewRequest(http.MethodPost, "/api/plugins/update/stream", strings.NewReader(`{"items":[{"name":"gone","targets":["claude"]},{"name":"other","targets":["claude"]}]}`)))
 	body := w.Body.String()
 	if strings.Count(body, "event: result") != 2 || !strings.Contains(body, `not found`) || !strings.HasSuffix(strings.TrimSpace(body), `data: {"failure":""}`) {
 		t.Fatalf("stream:\n%s", body)
@@ -192,5 +193,58 @@ func TestPluginPreviewPreservesLocalizedError(t *testing.T) {
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil || w.Code != 400 || body.Code != "plugins.error.ompPackageImport" {
 		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestPluginCommandsBatchStream(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	for _, key := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR", "OMP_CONFIG_DIR"} {
+		t.Setenv(key, "")
+	}
+	s, _ := newTestServerWithExtras(t, nil, "")
+	service := s.pluginService()
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "plugin.json"), []byte(`{"name":"demo","$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","extensions":{"cc.runkids.skillshare":{"commands":{"demo":"script"}}}}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "script"), []byte("#!/bin/sh\nprintf old\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	r := plugin.Request{Action: "add", Source: root}
+	p, err := service.Preview(context.Background(), r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Apply(context.Background(), r, p.Revision); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "script"), []byte("#!/bin/sh\nprintf checked\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	p, err = service.Preview(context.Background(), plugin.Request{Action: "check", Name: "demo"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var checked plugin.Binding
+	for _, c := range p.Changes {
+		if c.Commands {
+			checked = c.Binding
+		}
+	}
+	body, _ := json.Marshal(map[string]any{"items": []any{map[string]any{"name": "demo", "targets": []string{}, "commands": true, "seen": map[string]any{"": checked}}}})
+	for _, moved := range []bool{true, false} {
+		contents := "#!/bin/sh\nprintf checked\n"
+		if moved {
+			contents = "#!/bin/sh\nprintf unchecked\n"
+		}
+		if err := os.WriteFile(filepath.Join(root, "script"), []byte(contents), 0755); err != nil {
+			t.Fatal(err)
+		}
+		w := httptest.NewRecorder()
+		s.handlePluginUpdateStream(w, httptest.NewRequest(http.MethodPost, "/api/plugins/update/stream", strings.NewReader(string(body))))
+		got := w.Body.String()
+		if w.Code != 200 || !strings.Contains(got, `"stale":`+map[bool]string{true: "true", false: "false"}[moved]) || !moved && (!strings.Contains(got, `"commands":true`) || !strings.Contains(got, `"status":"installed"`)) {
+			t.Fatalf("command stream: %d %s", w.Code, got)
+		}
 	}
 }

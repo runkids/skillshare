@@ -21,7 +21,7 @@ func (d *document) packageWithVersion(name string, p packageDeclaration) Package
 }
 
 func (d *document) hasLocalState() bool {
-	return len(d.state.Bindings) > 0 || len(d.state.Versions) > 0
+	return len(d.state.Commands) > 0 || len(d.state.Bindings) > 0 || len(d.state.Versions) > 0
 }
 
 func (s *Service) captureLegacyAndVersions(d *document) {
@@ -72,10 +72,11 @@ func reviewedChanges(changes []Change) any {
 	type reviewedChange struct {
 		Change
 		SourceVersion *string
+		Commands      *commandPlan
 	}
 	out := make([]reviewedChange, 0, len(changes))
 	for _, c := range changes {
-		out = append(out, reviewedChange{c, c.sourceVersion})
+		out = append(out, reviewedChange{c, c.sourceVersion, c.command})
 	}
 	return out
 }
@@ -98,6 +99,11 @@ func (s *Service) saveAndPruneVersions(d *document) error {
 }
 
 func (d *document) hasReceipts() bool {
+	for _, c := range d.state.Commands {
+		if c.Applied != nil || c.Pending != nil {
+			return true
+		}
+	}
 	for _, targets := range d.state.Bindings {
 		for _, b := range targets {
 			if b.Applied != nil || b.Pending != nil || b.Legacy != nil {

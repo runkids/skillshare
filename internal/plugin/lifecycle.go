@@ -82,7 +82,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 			if old, exists := pack.Bindings[c.Target]; exists {
 				decl.Sync = old.Sync
 			}
-			if c.Target == "" || pack.Source == "" {
+			if pack.Source == "" || c.Target == "" && !c.Commands {
 				pack.Source, pack.SourceRef, pack.Plugin, pack.Entry = decl.Source, decl.SourceRef, decl.Plugin, decl.Entry
 			}
 			if c.Target != "" {
@@ -113,6 +113,10 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 				}
 			}
 		case "update":
+			if c.Commands && r.SourceRef != "" {
+				pack.SourceRef = r.SourceRef
+				d.intent[c.Name] = pack
+			}
 			if r.SourceRef != "" && c.Target != "" {
 				b := pack.Bindings[c.Target]
 				b.SourceRef = r.SourceRef
@@ -146,7 +150,15 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 		if failed[key] {
 			continue
 		}
-		outcome := Outcome{Name: c.Name, Target: c.Target, Guidance: c.Guidance}
+		outcome := Outcome{Name: c.Name, Target: c.Target, Guidance: c.Guidance, Commands: c.Commands}
+		if c.Commands {
+			commandOutcome, err := s.applyCommands(ctx, c, d)
+			result.Results = append(result.Results, commandOutcome)
+			if err != nil {
+				failures = append(failures, err)
+			}
+			continue
+		}
 		if c.Action == "skip" {
 			outcome.Status = "skipped"
 			if c.Failed {

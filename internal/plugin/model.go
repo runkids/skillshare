@@ -41,7 +41,14 @@ type Binding struct {
 
 // Source, SourceRef, Plugin and Entry keep a package managed while no Agent is bound,
 // so Agents can be bound later from the same source and the dashboard can still show its version.
+type CommandInfo struct {
+	Binding Binding  `json:"binding" yaml:"-"`
+	Bin     string   `json:"bin" yaml:"-"`
+	Names   []string `json:"names" yaml:"-"`
+}
+
 type Package struct {
+	Commands  *CommandInfo       `json:"commands,omitempty" yaml:"-"`
 	Version   string             `json:"version,omitempty" yaml:"version,omitempty"`
 	Source    string             `json:"source,omitempty" yaml:"source,omitempty"`
 	SourceRef string             `json:"sourceRef,omitempty" yaml:"source_ref,omitempty"`
@@ -51,15 +58,17 @@ type Package struct {
 }
 
 type Request struct {
-	Entry     string   `json:"entry,omitempty"`
-	SourceRef string   `json:"sourceRef,omitempty"`
-	Action    string   `json:"action"`
-	Name      string   `json:"name,omitempty"`
-	Source    string   `json:"source,omitempty"`
-	Plugin    string   `json:"plugin,omitempty"`
-	Targets   []string `json:"targets,omitempty"`
-	From      string   `json:"from,omitempty"`
-	All       bool     `json:"all,omitempty"`
+	nativeOnly bool
+	Commands   *bool    `json:"commands,omitempty"`
+	Entry      string   `json:"entry,omitempty"`
+	SourceRef  string   `json:"sourceRef,omitempty"`
+	Action     string   `json:"action"`
+	Name       string   `json:"name,omitempty"`
+	Source     string   `json:"source,omitempty"`
+	Plugin     string   `json:"plugin,omitempty"`
+	Targets    []string `json:"targets,omitempty"`
+	From       string   `json:"from,omitempty"`
+	All        bool     `json:"all,omitempty"`
 }
 
 // isolatesTargets reports whether a failed binding is skipped with its reason
@@ -92,18 +101,22 @@ func (p *TargetPackage) block(key, message string, args map[string]string) {
 }
 
 type Candidate struct {
-	TargetInfo  map[string]TargetPackage `json:"targetInfo,omitempty"`
-	Name        string                   `json:"name"`
-	Description string                   `json:"description"`
-	Version     string                   `json:"version"`
-	Marketplace string                   `json:"marketplace,omitempty"`
-	Path        string                   `json:"path"`
-	Entry       string                   `json:"entry,omitempty"`
-	Targets     []string                 `json:"targets"`
-	Components  []string                 `json:"components"`
-	Problem     string                   `json:"problem,omitempty"`
-	ProblemKey  string                   `json:"problemKey,omitempty"`
-	ProblemArgs map[string]string        `json:"problemArgs,omitempty"`
+	Commands           map[string]string        `json:"commands,omitempty"`
+	CommandProblem     string                   `json:"commandProblem,omitempty"`
+	CommandProblemKey  string                   `json:"commandProblemKey,omitempty"`
+	CommandProblemArgs map[string]string        `json:"commandProblemArgs,omitempty"`
+	TargetInfo         map[string]TargetPackage `json:"targetInfo,omitempty"`
+	Name               string                   `json:"name"`
+	Description        string                   `json:"description"`
+	Version            string                   `json:"version"`
+	Marketplace        string                   `json:"marketplace,omitempty"`
+	Path               string                   `json:"path"`
+	Entry              string                   `json:"entry,omitempty"`
+	Targets            []string                 `json:"targets"`
+	Components         []string                 `json:"components"`
+	Problem            string                   `json:"problem,omitempty"`
+	ProblemKey         string                   `json:"problemKey,omitempty"`
+	ProblemArgs        map[string]string        `json:"problemArgs,omitempty"`
 	// catalogEntry keeps the component fields a Claude catalog entry defines itself, for the
 	// catalog Skillshare writes at install time (strict: false plugins have nothing else).
 	catalogEntry map[string]json.RawMessage
@@ -238,6 +251,8 @@ type Inventory struct {
 }
 
 type Change struct {
+	Commands       bool `json:"commands,omitempty"`
+	command        *commandPlan
 	Guidance       bool `json:"guidance,omitempty"`
 	sourceVersion  *string
 	PreservedKeys  []string `json:"preservedKeys,omitempty"`
@@ -273,6 +288,7 @@ type Plan struct {
 }
 
 type Outcome struct {
+	Commands bool   `json:"commands,omitempty"`
 	Guidance bool   `json:"guidance,omitempty"`
 	Name     string `json:"name"`
 	Target   string `json:"target"`
@@ -292,9 +308,11 @@ type Result struct {
 type Runner func(context.Context, string, []string, string, ...string) ([]byte, error)
 
 type Service struct {
-	ConfigPath  string
-	StateDir    string
-	ProjectRoot string
+	commandPlatform string                   // Overrides platform selection in isolated publication tests.
+	commandFinish   func(string, bool) error // Snapshot-finalization fault injection.
+	ConfigPath      string
+	StateDir        string
+	ProjectRoot     string
 	// GlobalConfigPath is the global config when ConfigPath is a project's: the plugins
 	// it binds own the global Pi packages a project inherits.
 	GlobalConfigPath string
@@ -303,8 +321,9 @@ type Service struct {
 	Accounts map[string]Account
 	// ExtrasSources maps each extra to its source folder, so a Pi extension that an
 	// extra links into Pi's folder is shown as that extra's file.
-	ExtrasSources map[string]string
-	Run           Runner
+	ExtrasSources  map[string]string
+	commandPublish func(string, string, string, bool) error
+	Run            Runner
 	// findCodex stands in for the Codex CLI search in tests; nil searches this machine.
 	findCodex func() (string, []string)
 	// reads keeps what one operation read, so its plugins share one copy (see reads).

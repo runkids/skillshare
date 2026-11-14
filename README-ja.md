@@ -256,6 +256,8 @@ skillshare plugin add owner/repo --target claude --target codex --no-tui
 skillshare sync plugins --dry-run     # plugin の同期は sync --all とは別
 ```
 
+macOS/Linux では `--target` なしでも宣言されたパッケージコマンドをグローバルの `~/.local/bin` またはプロジェクトの `<project>/.skillshare/bin` にインストールします。このディレクトリを PATH に追加してください。対象を指定しない更新・削除にはコマンドも含まれます。Windows での公開は未対応です。
+
 ツールにインストール済みの plugin は `plugin import` で管理下に置けます。
 [ツールをまたいだ plugin の管理](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins)を参照してください。
 

@@ -27,7 +27,7 @@ skillshare plugin remove review --no-tui
 
 `enable`과 `disable`은 Agent의 네이티브 활성화 상태가 아니라 **Skillshare의 sync 선택**을 변경합니다. target 선택을 해제하면 그 선택이 저장됩니다. 다음 `sync plugins`는 정의는 유지한 채 관리되는 설치를 제거합니다. 다시 선택하면 다음 sync에서 재설치할 수 있습니다. 관리되지 않는 plugin은 영향을 받지 않습니다.
 
-`--target` 없이 `add`하면(또는 대화형 선택에서 아무것도 고르지 않으면) plugin을 어디에도 설치하지 않고 Skillshare에서 관리합니다. 나중에 같은 source와 `--name`으로 target을 추가하거나 dashboard에서 해당 plugin의 행에서 선택할 수 있으며, 그때의 source가 설치됩니다. 이런 plugin은 마지막 target을 제거해도 관리 대상으로 남습니다. `--target` 없는 `remove NAME`은 Skillshare에서 제거합니다.
+`--target` 없는 `add`는 선언된 명령을 설치하며 네이티브 binding 없이도 관리합니다. 명령 선언이 없으면 기록만 합니다. 나중에 같은 source와 `--name`으로 대상을 추가할 수 있습니다. 대상 없는 `remove NAME`은 전체 패키지를 제거합니다.
 
 ## 명령
 
@@ -254,7 +254,7 @@ plugins:
         omp: {imported: true}
 ```
 
-네이티브 ID, 검토한 commit/digest/version, Pi 등록 참조와 대기 작업은 `<StateDir>/plugins/<config-path-hash>/state.json`(로컬 형식 version 1)에 저장합니다. StateDir는 기기마다 따로 유지하세요. 상태는 설정 파일의 **절대 경로**로 구분됩니다. 프로젝트나 설정을 이동하거나 이름을 바꾸면 새 상태 영역이 생기며 이전 설치는 추적하거나 정리하지 않습니다. 이동 전에 이전 설정으로 제거하거나 새 위치에서 명시적으로 관리·가져오세요.
+네이티브 ID, 검토한 commit/digest/version, Pi 등록 참조와 대기 작업은 `<StateDir>/plugins/<config-path-hash>/state.json`(로컬 형식 version 2)에 저장합니다. StateDir는 기기마다 따로 유지하세요. 상태는 설정 파일의 **절대 경로**로 구분됩니다. 프로젝트나 설정을 이동하거나 이름을 바꾸면 새 상태 영역이 생기며 이전 설치는 추적하거나 정리하지 않습니다. 이동 전에 이전 설정으로 제거하거나 새 위치에서 명시적으로 관리·가져오세요.
 
 sync, 일반 update, 검증, 실패와 재시도는 공유 선언을 바꾸지 않습니다. `update --source-ref`는 ref가 달라질 때만 선언을 변경합니다. 읽기는 로컬 작업 잠금 아래 레거시 증거를 저장하며 공유 YAML은 바꾸지 않습니다. 다른 작업이 잠금을 보유하면 해당 작업이나 다음 읽기에 저장을 맡깁니다. add, import, 선택, remove는 필요한 선언 변경을 저장하고 외부 변경을 감지합니다. 동시 Syncthing 편집을 병합하지는 않습니다.
 
@@ -282,3 +282,28 @@ skillshare plugin sync NAME --no-tui
 `unimport`에는 하나 이상의 명시적인 `--target`이 필요하며, 선택한 각 대상에 기존 로컬 가져오기 기록과 공유 소스 설정이 있어야 합니다. 대상의 제거 어댑터를 사용해 이 기기에서 가져온 설치를 제거한 다음 로컬 기록을 삭제합니다. 공유 선언과 다른 기기의 설치는 그대로 유지됩니다. 다음 sync는 공유 소스에서 설치합니다.
 
 제거하면 해당 설치와 연결된 네이티브 클라이언트 설정이나 로그인 정보도 삭제됩니다.
+
+
+## 패키지 명령 {#package-commands}
+
+```json
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "demo",
+  "extensions": {
+    "cc.runkids.skillshare": {
+      "commands": { "demo-tool": "bin/demo-tool" }
+    }
+  }
+}
+```
+
+macOS/Linux에서는 루트 portable `plugin.json`에 PATH 명령을 선언할 수 있습니다. 네이티브 slash commands는 바뀌지 않습니다. 파일은 이미 실행 가능해야 하며 선택한 candidate 내부에 있어야 합니다. 이름은 영문자나 숫자로 시작하고 영숫자, `.`, `_`, `-`만 사용합니다. 경로는 상대 `/` 경로이며 외부 이동과 `.git` 접근은 금지합니다. 안전한 내부 상대 symlink는 허용합니다. chmod, 인터프리터 추측, 설치 스크립트 실행, 셸 설정 변경은 하지 않습니다.
+
+`plugin add ./demo --no-tui -g`는 `--target` 없이도 선언된 명령을 설치합니다. 전역 위치는 `~/.local/bin`, 프로젝트 위치는 `<project>/.skillshare/bin`입니다. 직접 PATH에 추가하세요. 링크는 검토한 snapshot을 가리키므로 원본 source가 없어도 실행할 수 있습니다.
+
+명령은 패키지 기본 source/ref/candidate에 따르며 별도 네이티브 배포판과 독립적입니다. 대상 없는 check/update/update --all/sync/remove에 포함됩니다. `--target` check/update도 선택한 binding이 ref를 포함한 유효 기본 recipe를 따를 때 명령을 포함합니다. 별도 배포판, 대상 지정 제거, import/unimport, 선택 토글은 네이티브 binding만 처리합니다. check는 version이 같아도 digest를 비교합니다. 기존 receipt가 있고 recipe가 같으면 sync는 검토한 내용을 유지하며 누락된 링크와 미완료 작업을 복구합니다. receipt가 없으면 sync는 현재 소스의 명령을 처음 게시할 수 있으므로 먼저 check로 검토하세요. update는 새 내용을 검토하며 공유 기본 recipe가 바뀌면 sync도 다시 검토합니다.
+
+제거는 로컬 receipt로 오프라인에서 수행하며 정확히 소유한 링크만 지웁니다. 운영자 파일과 외부·끊어진 링크는 보존합니다. 충돌 시 명령 게시는 중단합니다. 명령 실패 시에도 네이티브 성공은 유지하며 작업은 0이 아닌 코드로 종료합니다. 문제를 해결한 뒤 `sync plugins`로 재시도하세요. bin 이동 시 정리 전에 원래 위치를 복원해야 하며 이전 절대 경로를 무조건 삭제하지 않습니다. 공유 YAML은 `plugins.version: 2`, 비공개 state는 v2입니다. v1 미리보기는 파일을 쓰거나 소유권을 추론하지 않습니다. Windows 명령 게시는 지원하지 않지만 네이티브 작업은 개별 결과를 유지합니다. 새 Agent나 CLI 플래그는 없습니다.
+
+생성된 `.skillshare/bin/`에는 기기별 절대 링크와 lock이 있습니다. 프로젝트 루트 `.gitignore`에 `.skillshare/bin/`를 추가하고 선언만 공유하세요.

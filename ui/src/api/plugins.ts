@@ -6,10 +6,10 @@ export type PluginTarget = string;
 export interface PluginTargetDefinition { target: string; label: string; project: boolean; operations: string[]; reason?: string; reasonKey?: string; npm?: boolean }
 export const targetMap = (definitions: PluginTargetDefinition[] = []) => Object.fromEntries(definitions.map((d) => [d.target, d]));
 export type PluginAction = 'add' | 'import' | 'unimport' | 'sync' | 'check' | 'update' | 'remove' | 'enable' | 'disable';
-export interface PluginRequest { action: PluginAction; name?: string; source?: string; sourceRef?: string; entry?: string; plugin?: string; targets?: PluginTarget[]; from?: PluginTarget }
+export interface PluginRequest { commands?: boolean; action: PluginAction; name?: string; source?: string; sourceRef?: string; entry?: string; plugin?: string; targets?: PluginTarget[]; from?: PluginTarget }
 export interface PluginBinding { refChanged?: boolean; imported?: boolean; importRetained?: boolean; cleanup?: boolean; contextChanged?: boolean; piRegistration?: string; id: string; source?: string; sourceRef?: string; commit?: string; entry?: string; plugin?: string; digest?: string; version?: string; pending?: string; sync?: boolean; components?: string[] }
 export interface NativePlugin { id: string; version?: string; enabled: boolean; enabledKnown?: boolean; scope?: string; filtered?: boolean; importable?: boolean }
-export interface PluginPackage { version?: string; source?: string; sourceRef?: string; plugin?: string; entry?: string; bindings: Partial<Record<PluginTarget, PluginBinding>> }
+export interface PluginPackage { commands?: { binding: PluginBinding; bin: string; names: string[] }; version?: string; source?: string; sourceRef?: string; plugin?: string; entry?: string; bindings: Partial<Record<PluginTarget, PluginBinding>> }
 export interface PluginInventory {
   targetDefinitions?: PluginTargetDefinition[];
   /** `source` and the rest are set when the plugin was added, so it stays managed with no Agent bound. */
@@ -69,11 +69,11 @@ export const pluginShareCommand = (name: string, p: { source?: string; sourceRef
   const flags: [string, string | undefined][] = [['--plugin', p.plugin], ['--name', p.plugin && p.plugin !== name ? name : undefined], ['--source-ref', p.sourceRef], ['--entry', p.entry]];
   return ['skillshare plugin add', quote(p.source), ...flags.filter(([, v]) => v).map(([flag, v]) => `${flag} ${quote(v!)}`), '-g'].join(' ');
 };
-export interface PluginCandidate { name: string; description: string; version: string; targets: PluginTarget[]; components: string[]; problem?: string; problemKey?: string; problemArgs?: Record<string, string>; targetInfo?: Record<string, { manifest: string; path?: string; version?: string; logo?: string; entry?: string; components: string[]; problem?: string; problemKey?: string; problemArgs?: Record<string, string> }> }
+export interface PluginCandidate { commands?: Record<string, string>; commandProblem?: string; commandProblemKey?: string; commandProblemArgs?: Record<string, string>; name: string; description: string; version: string; targets: PluginTarget[]; components: string[]; problem?: string; problemKey?: string; problemArgs?: Record<string, string>; targetInfo?: Record<string, { manifest: string; path?: string; version?: string; logo?: string; entry?: string; components: string[]; problem?: string; problemKey?: string; problemArgs?: Record<string, string> }> }
 export interface PluginDiscovery {
   warnings?: string[]; source: string; sourceRef?: string; commit?: string; targetDefinitions?: PluginTargetDefinition[]; digest: string; candidates: PluginCandidate[] }
-export interface PluginPlan { revision: string; blocked: boolean; changes: { name: string; target: PluginTarget; id: string; action: string; failed?: boolean; guidance?: boolean; message?: string; messageKey?: string; messageArgs?: Record<string, string>; components?: string[]; preservedKeys?: string[]; logo?: string; binding?: PluginBinding }[] }
-export interface PluginOutcome { name: string; target: PluginTarget; status: string; guidance?: boolean; message?: string; messageKey?: string; messageArgs?: Record<string, string> }
+export interface PluginPlan { revision: string; blocked: boolean; changes: { commands?: boolean; name: string; target: PluginTarget; id: string; action: string; failed?: boolean; guidance?: boolean; message?: string; messageKey?: string; messageArgs?: Record<string, string>; components?: string[]; preservedKeys?: string[]; logo?: string; binding?: PluginBinding }[] }
+export interface PluginOutcome { commands?: boolean; name: string; target: PluginTarget; status: string; guidance?: boolean; message?: string; messageKey?: string; messageArgs?: Record<string, string> }
 
 export interface PluginRun { name: string; target: string; version?: string }
 
@@ -92,7 +92,7 @@ export interface PluginResult { result: { results: PluginOutcome[] } | null; fai
 /** What a check showed for one Agent of a plugin: the version an update would bring, and the source it came from. */
 export interface PluginUpdate { version: string; commit?: string; digest?: string; id?: string; source?: string; sourceRef?: string; plugin?: string; entry?: string }
 /** One plugin of a batch update, with what the check showed per Agent so a source that moved since is not installed. */
-export interface PluginUpdateItem { name: string; targets: PluginTarget[]; seen?: Record<PluginTarget, PluginUpdate> }
+export interface PluginUpdateItem { commands?: boolean; name: string; targets: PluginTarget[]; seen?: Record<PluginTarget, PluginUpdate> }
 export type PluginUpdateEvent =
   | { event: 'start'; name: string }
   | { event: 'plan'; name: string; plan: PluginPlan }

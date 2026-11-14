@@ -353,10 +353,12 @@ export function buildItems(scope, raw) {
 
   for (const [name, p] of Object.entries(raw.plugins?.packages ?? {})) {
     const bindings = Object.values(p.bindings ?? {});
+    const command = p.commands?.binding;
     const pending = Object.entries(p.bindings ?? {}).filter(([, b]) => b.pending || b.sync === false).map(([t]) => t);
+    if (command?.pending || command?.cleanup) pending.push("commands");
     items.push({ key: `${scope}:plugins:${name}`, kind: "plugins", scope, name, label: name,
-      src: shortSource(p.source ?? bindings[0]?.id ?? "") || "plugin", version: p.version ?? bindings[0]?.version ?? null,
-      state: pending.length ? "sync" : bindings.length ? "ok" : "missing", reason: pending.length ? `pending in ${pending.join(", ")}` : "", targets: Object.keys(p.bindings ?? {}) });
+      src: shortSource(p.source ?? bindings[0]?.id ?? "") || "plugin", version: p.version ?? command?.version ?? bindings[0]?.version ?? null,
+      state: pending.length ? "sync" : (p.commands || bindings.length) ? "ok" : "missing", reason: pending.length ? `pending in ${pending.join(", ")}` : "", targets: Object.keys(p.bindings ?? {}) });
   }
   const hooks = new Map();
   const status = (id, root = "") => {

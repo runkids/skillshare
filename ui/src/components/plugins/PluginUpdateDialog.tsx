@@ -34,13 +34,13 @@ export default function PluginUpdateDialog({ open, plan, pending, inventory, bat
   const t = useT();
   const changes = plan?.changes ?? [];
   const pluginTargets = targetMap(inventory.targetDefinitions);
-  const label = (target: string) => pluginTargets[target]?.label ?? target;
+  const label = (target: string) => target === '' ? t('plugins.commands') : pluginTargets[target]?.label ?? target;
   // Only what is still behind and can be updated from here gets a tick; an update applied since the check took its Agent off.
   const found = changes.filter((c) => c.action === 'update-available' && pending.some((p) => p.name === c.name && p.targets.includes(c.target)));
   const names = pending.map((p) => p.name);
   const unverified = changes.filter((c) => c.action === 'native-check' || (c.action === 'noop' && c.guidance));
   // A source that no longer offers a compatible plugin for an Agent: nothing can be updated there until that changes.
-  const blocked = changes.filter((c) => c.action === 'blocked');
+  const blocked = changes.filter((c) => c.action === 'blocked' || c.failed);
   const others = [
     { title: t('plugins.updateDialog.blockedTitle'), rows: blocked, tag: <span className="ss-tag bad">{t('plugins.blocked')}</span> },
     { title: t('plugins.updateDialog.unverifiedTitle'), rows: unverified, tag: <span className="ss-tag warn">{t('plugins.unverified')}</span> },
@@ -59,7 +59,7 @@ export default function PluginUpdateDialog({ open, plan, pending, inventory, bat
                 <div className="ss-list">
                   {g.rows.map((c) => (
                     <div key={`${c.name}:${c.target}`} className="ss-r">
-                      <span className="ss-at"><AgentIcon target={c.target} size={17} /></span>
+                      <span className="ss-at">{c.target ? <AgentIcon target={c.target} size={17} /> : <Package size={15} />}</span>
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="flex items-center gap-2"><span className="font-mono font-semibold">{c.name}</span><span className="text-[13px] text-ink-2">{label(c.target)}</span><VersionChange from={installedVersion(inventory, c.name, c.target)} /></span>
                         {(c.action !== 'noop' || c.guidance) && <span className="text-xs text-ink-3">{keyedMessage(t, c)}</span>}
@@ -107,7 +107,7 @@ function Picking({ names, attention, current, found, inventory, label, busy, onU
   const pickedOf = (name: string) => picked[name] ?? [];
   const picks: UpdatePick[] = names.map((name) => ({ name, targets: pickedOf(name) })).filter((p) => p.targets.length > 0);
   const all = picks.length === names.length;
-  const agents = picks.reduce((n, p) => n + p.targets.length, 0);
+  const agents = picks.reduce((n, p) => n + p.targets.filter(Boolean).length, 0);
   const setAll = (on: boolean) => setPicked(Object.fromEntries(names.map((name) => [name, on ? targetsOf(name) : []])));
   const toggle = (name: string, target: PluginTarget, on: boolean) => setPicked((prev) => ({ ...prev, [name]: on ? [...(prev[name] ?? []), target] : (prev[name] ?? []).filter((x) => x !== target) }));
   return (
@@ -122,7 +122,7 @@ function Picking({ names, attention, current, found, inventory, label, busy, onU
           <div className="ss-list">
             <div className="ss-gh gap-3">
               <Checkbox size="sm" label={t('plugins.updateDialog.selectAll')} checked={all} indeterminate={!all && picks.length > 0} onChange={setAll} />
-              <span className="text-xs text-ink-3">{t('plugins.updateDialog.selected', { count: picks.length, total: names.length })} · {t(plural('plugins.updateDialog.agents', agents), { count: agents })}</span>
+              <span className="text-xs text-ink-3">{t('plugins.updateDialog.selected', { count: picks.length, total: names.length })}{agents > 0 && <> · {t(plural('plugins.updateDialog.agents', agents), { count: agents })}</>}</span>
             </div>
             {names.map((name) => {
               const rows = found.filter((c) => c.name === name);
@@ -132,14 +132,14 @@ function Picking({ names, attention, current, found, inventory, label, busy, onU
               return (
                 <div key={name} className="ss-r items-start py-3">
                   <Checkbox size="sm" hideLabel label={name} checked={on} onChange={(checked) => setPicked((prev) => ({ ...prev, [name]: checked ? targetsOf(name) : [] }))} className="mt-2" />
-                  <span className="ss-at mt-0.5">{rows.length === 1 ? <AgentIcon target={rows[0].target} size={17} /> : <Package size={15} />}</span>
+                  <span className="ss-at mt-0.5">{rows.length === 1 && rows[0].target ? <AgentIcon target={rows[0].target} size={17} /> : <Package size={15} />}</span>
                   <span className="flex min-w-0 flex-1 flex-col gap-1.5">
                     {/* As tall as the icon with its margin, so the first line centers on it. */}
                     <span className="flex min-h-[34px] items-center gap-2">
                       <span className="font-mono font-semibold">{name}</span>
                       {rows.length === 1 && <span className="text-[13px] text-ink-2">{label(rows[0].target)}</span>}
                       {shared && <VersionChange {...moves[0]} />}
-                      {rows.length > 1 && <span className="text-xs text-ink-3">{t(plural('plugins.updateDialog.agents', rows.length), { count: rows.length })}</span>}
+                      {rows.filter((r) => r.target).length > 1 && <span className="text-xs text-ink-3">{t(plural('plugins.updateDialog.agents', rows.filter((r) => r.target).length), { count: rows.filter((r) => r.target).length })}</span>}
                     </span>
                     {rows.length > 1 && (
                       <span className="flex flex-wrap items-center gap-1.5">
@@ -200,7 +200,7 @@ function Running({ batch, busy, inventory, label, onRetry, onStop, onClose }: {
             const { moves, shared } = item.versions ?? { moves: [{ target: item.targets[0], from: installedVersion(inventory, item.name, item.targets[0]) }], shared: true };
             return (
               <div key={item.name} className={`ss-r items-start ${{ failed: 'bg-bad-bg', running: 'updating', waiting: 'dim', done: 'flash', skipped: '' }[item.status]}`}>
-                <span className="ss-at mt-0.5">{item.targets.length === 1 ? <AgentIcon target={item.targets[0]} size={17} /> : <Package size={15} />}</span>
+                <span className="ss-at mt-0.5">{item.targets.length === 1 && item.targets[0] ? <AgentIcon target={item.targets[0]} size={17} /> : <Package size={15} />}</span>
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="nm truncate font-mono" title={item.name}>{item.name}</span>
                   <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -218,7 +218,7 @@ function Running({ batch, busy, inventory, label, onRetry, onStop, onClose }: {
             );
           })}
         </div>
-        {!busy && <p className="text-xs text-ink-3">{t('plugins.nativeHelp')}</p>}
+        {!busy && batch.some((item) => item.targets.some(Boolean)) && <p className="text-xs text-ink-3">{t('plugins.nativeHelp')}</p>}
       </div>
       <div className="df">
         {/* The server clears an earlier stop as the batch starts, so Stop waits until a plugin is under way. */}

@@ -27,7 +27,7 @@ skillshare plugin remove review --no-tui
 
 `enable` と `disable` は **Skillshare の sync 選択**を変更するものであり、Agent 側のネイティブな enabled 状態を変更するものではありません。Target の選択を外すとその選択が保存されます。次の `sync plugins` で、定義自体は残したままその管理下インストールが削除されます。再び選択すると、次の sync で再インストールできるようになります。管理外の plugin には影響しません。
 
-`--target` なしの `add`（またはインタラクティブな選択で何も選ばない場合）は、plugin をどこにもインストールせずに Skillshare で管理します。後から同じ source と `--name` で target を追加するか、dashboard でその plugin の行から選べます。その時点の source がインストールされます。このような plugin は最後の target を外しても管理下に残ります。`--target` なしの `remove NAME` で Skillshare から削除します。
+`--target` なしの `add` は宣言されたコマンドをインストールし、ネイティブ binding なしでも管理します。コマンド宣言がなければ記録のみです。後から同じ source と `--name` で対象を追加できます。対象指定のない `remove NAME` はパッケージ全体を削除します。
 
 ## コマンド
 
@@ -328,7 +328,7 @@ plugins:
         omp: {imported: true}
 ```
 
-ネイティブ ID、確認済みの commit/digest/version、Pi 登録参照、保留中の操作は `<StateDir>/plugins/<config-path-hash>/state.json`（ローカル形式 version 1）に保存します。StateDir はマシンごとに保持してください。状態は設定ファイルの**絶対パス**で識別されます。プロジェクトや設定を移動・改名すると新しい状態領域になり、以前のインストールは追跡も削除もされません。移動前に旧設定から削除するか、移動先で明示的に管理・インポートしてください。
+ネイティブ ID、確認済みの commit/digest/version、Pi 登録参照、保留中の操作は `<StateDir>/plugins/<config-path-hash>/state.json`（ローカル形式 version 2）に保存します。StateDir はマシンごとに保持してください。状態は設定ファイルの**絶対パス**で識別されます。プロジェクトや設定を移動・改名すると新しい状態領域になり、以前のインストールは追跡も削除もされません。移動前に旧設定から削除するか、移動先で明示的に管理・インポートしてください。
 
 sync、通常の update、検証、失敗、再試行は共有宣言を書き換えません。`update --source-ref` は ref が変わったときだけ宣言を更新します。読み取りはローカルの操作ロックの下で旧形式の証拠を保存し、共有 YAML は変更しません。ロック使用中は保存を次の操作または読み取りに任せます。add、import、選択、remove は必要な宣言変更を保存し、外部変更を検出します。同時の Syncthing 編集はマージできません。
 
@@ -356,3 +356,28 @@ skillshare plugin sync NAME --no-tui
 `unimport` には 1 つ以上の明示的な `--target` と、各ターゲットの既存のローカル import 記録および共有ソース設定が必要です。ターゲットの削除アダプターを使って、このマシンのインポート済みのインストールを解除してからローカル記録を削除します。共有宣言と他のマシンのインストールは変更しません。次の sync が共有ソースからインストールします。
 
 アンインストールすると、そのインストールに関連するネイティブクライアントの設定やログイン情報も削除されます。
+
+
+## パッケージコマンド {#package-commands}
+
+```json
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "demo",
+  "extensions": {
+    "cc.runkids.skillshare": {
+      "commands": { "demo-tool": "bin/demo-tool" }
+    }
+  }
+}
+```
+
+macOS/Linux では、ルートの portable `plugin.json` に PATH コマンドを宣言できます。ネイティブの slash commands は変更しません。ファイルは最初から実行可能で、選択した candidate の内部にある必要があります。名前は英数字で始まり、英数字・`.`・`_`・`-` のみを使います。パスは相対 `/` 区切りとし、外部への移動や `.git` を禁止します。安全な内部相対 symlink は使えます。chmod、interpreter の推測、install scripts の実行、shell 設定変更は行いません。
+
+`plugin add ./demo --no-tui -g` は `--target` なしでも宣言されたコマンドをインストールします。グローバルは `~/.local/bin`、プロジェクトは `<project>/.skillshare/bin` です。PATH には自分で追加してください。リンク先はレビュー済み snapshot なので元の source がなくても実行できます。
+
+コマンドはパッケージのデフォルト source/ref/candidate に従い、別のネイティブ配布形式とは独立です。対象指定のない check/update/update --all/sync/remove に含まれます。`--target` check/update も、選択した binding が ref を含む実効デフォルト recipe に従う場合はコマンドを含みます。別の配布形式、対象指定の削除、import/unimport、選択 toggle はネイティブ binding のみを扱います。check は同じ version でも digest を比較します。既存の receipt があり recipe が変わらない場合、sync はレビュー済みの内容を保持し、欠落リンクと未完了処理を修復します。receipt がない場合、sync は現在のソースからコマンドを初めて公開できます。先に check を実行して確認してください。update は新しい内容をレビューし、共有デフォルト recipe の変更も sync で再レビューします。
+
+削除はローカル receipt からオフラインで行い、正確に所有するリンクだけを削除します。operator のファイルや外部・dangling link は保持します。競合は公開を止めます。コマンドが失敗してもネイティブの成功は維持され、操作は非ゼロで終了します。原因を解決して `sync plugins` で再試行してください。bin の移動後は元の場所を復元して cleanup します。古い絶対パスを無条件に削除しません。共有 YAML は `plugins.version: 2`、非公開 state は v2 です。v1 の preview は書き換えず所有権を推測しません。Windows のコマンド公開は未対応ですが、ネイティブ操作は個別に結果を返します。新しい Agent や CLI flag はありません。
+
+生成された `.skillshare/bin/` はマシン固有の絶対リンクと lock を含みます。プロジェクトルートの `.gitignore` に `.skillshare/bin/` を追加し、宣言のみを共有してください。

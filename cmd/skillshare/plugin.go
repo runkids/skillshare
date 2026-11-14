@@ -202,7 +202,18 @@ func executePlugin(s *plugin.Service, o pluginOptions) error {
 		width := ui.RowWidth(slices.Collect(maps.Keys(inventory.Packages))...)
 		for _, name := range slices.Sorted(maps.Keys(inventory.Packages)) {
 			p := inventory.Packages[name]
-			if len(p.Bindings) == 0 {
+			if info := p.Commands; info != nil {
+				mark, state := ui.MarkOK, "installed"
+				if info.Binding.Pending != "" {
+					mark, state = ui.MarkWarn, "pending "+info.Binding.Pending
+				}
+				if info.Binding.Cleanup {
+					mark, state = ui.MarkWarn, "local cleanup required"
+				}
+				ui.Row(mark, name, "commands · "+state, width)
+				ui.Note(strings.Join(info.Names, ", ") + " · " + info.Bin)
+			}
+			if len(p.Bindings) == 0 && p.Commands == nil {
 				ui.Row(ui.MarkNone, name, "no targets"+ui.DimText(" · "+p.Source), width)
 			}
 			for _, definition := range inventory.TargetDefinitions {
@@ -318,7 +329,7 @@ func executePlugin(s *plugin.Service, o pluginOptions) error {
 				case "failed":
 					mark = ui.MarkFail
 				}
-				ui.Row(mark, r.Name, pluginTargetLabel(r.Target)+" · "+r.Status, width)
+				ui.Row(mark, r.Name, pluginChangeLabel(r.Target, r.Commands)+" · "+r.Status, width)
 				if r.Message != "" {
 					ui.Note(r.Message)
 				}
@@ -345,7 +356,7 @@ func printPluginPlan(p *plugin.Plan) {
 		if c.Failed {
 			action = "failed"
 		}
-		value := pluginTargetLabel(c.Target) + " · " + action
+		value := pluginChangeLabel(c.Target, c.Commands) + " · " + action
 		if c.ID != "" {
 			value += ui.DimText(" · " + c.ID)
 		}
@@ -366,4 +377,11 @@ func pluginTargetLabel(target string) string {
 		return "skillshare"
 	}
 	return target
+}
+
+func pluginChangeLabel(target string, commands bool) string {
+	if commands {
+		return "commands"
+	}
+	return pluginTargetLabel(target)
 }

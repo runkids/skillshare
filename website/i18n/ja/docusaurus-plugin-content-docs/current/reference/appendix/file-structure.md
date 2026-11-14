@@ -579,3 +579,14 @@ XDG 分割前のバージョンからアップグレードする場合、skillsh
 - [Skill フォーマット](/docs/understand/skill-format) — SKILL.md フォーマット
 - [Agents](/docs/understand/agents) — Agent ファイルフォーマットと発見
 - [Tracked Repositories](/docs/understand/tracked-repositories) — Tracked repos
+
+
+## パッケージコマンド {#plugin-command-files}
+
+`plugin add ./demo --no-tui -g` は `--target` なしでも宣言されたコマンドをインストールします。グローバルは `~/.local/bin`、プロジェクトは `<project>/.skillshare/bin` です。PATH には自分で追加してください。リンク先はレビュー済み snapshot なので元の source がなくても実行できます。
+
+削除はローカル receipt からオフラインで行い、正確に所有するリンクだけを削除します。operator のファイルや外部・dangling link は保持します。競合は公開を止めます。コマンドが失敗してもネイティブの成功は維持され、操作は非ゼロで終了します。原因を解決して `sync plugins` で再試行してください。bin の移動後は元の場所を復元して cleanup します。古い絶対パスを無条件に削除しません。共有 YAML は `plugins.version: 2`、非公開 state は v2 です。v1 の preview は書き換えず所有権を推測しません。Windows のコマンド公開は未対応ですが、ネイティブ操作は個別に結果を返します。新しい Agent や CLI flag はありません。
+
+`<bin>/.skillshare-plugin-commands.lock`
+
+生成された `.skillshare/bin/` はマシン固有の絶対リンクと lock を含みます。プロジェクトルートの `.gitignore` に `.skillshare/bin/` を追加し、宣言のみを共有してください。
