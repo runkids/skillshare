@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
 
@@ -15,14 +17,11 @@ import (
 // Paths are resolved through EvalSymlinks so that symlinked ancestors
 // do not fool the prefix check.
 func shouldUseRelative(projectRoot, sourcePath, targetPath string) bool {
-	if projectRoot == "" {
+	if projectRoot == "" || !relativeLinkPathSupported(targetPath) {
 		return false
 	}
 	cleaned := evalOrClean(projectRoot)
-	prefix := cleaned
-	if prefix != string(filepath.Separator) {
-		prefix += string(filepath.Separator)
-	}
+	prefix := strings.TrimSuffix(cleaned, string(filepath.Separator)) + string(filepath.Separator)
 	src := evalOrClean(sourcePath)
 	tgt := evalOrClean(targetPath)
 
@@ -31,32 +30,11 @@ func shouldUseRelative(projectRoot, sourcePath, targetPath string) bool {
 	return srcUnder && tgtUnder
 }
 
-// evalOrClean resolves symlinks in path. When the full path does not exist yet
-// (e.g. the target directory on the first sync), it resolves the deepest
-// existing ancestor and re-appends the missing tail, so a symlinked ancestor
-// (macOS /var → /private/var) is canonicalized consistently whether or not the
-// leaf exists. Without this, shouldUseRelative would flip between runs — raw on
-// the first sync (leaf missing) and resolved on the second (leaf present) —
-// causing a needless absolute→relative reformat on every second sync.
+// evalOrClean resolves existing symlink and junction ancestors, retaining any
+// missing tail. Relative links are interpreted by the OS from the physical
+// parent; filepath.EvalSymlinks alone leaves Windows junctions unresolved.
 func evalOrClean(p string) string {
-	p = filepath.Clean(p)
-	if resolved, err := filepath.EvalSymlinks(p); err == nil {
-		return resolved
-	}
-	tail := ""
-	cur := p
-	for {
-		parent := filepath.Dir(cur)
-		if parent == cur {
-			break // reached root without an existing ancestor
-		}
-		tail = filepath.Join(filepath.Base(cur), tail)
-		if resolved, err := filepath.EvalSymlinks(parent); err == nil {
-			return filepath.Join(resolved, tail)
-		}
-		cur = parent
-	}
-	return p
+	return sourcewalk.Canonical(p)
 }
 
 // resolveReadlink converts a raw os.Readlink result to an absolute path,
@@ -65,7 +43,7 @@ func resolveReadlink(dest, linkPath string) string {
 	if filepath.IsAbs(dest) {
 		return dest
 	}
-	return filepath.Clean(filepath.Join(filepath.Dir(linkPath), dest))
+	return filepath.Clean(filepath.Join(evalOrClean(filepath.Dir(linkPath)), dest))
 }
 
 // linkNeedsReformat returns true if dest (the raw os.Readlink result)

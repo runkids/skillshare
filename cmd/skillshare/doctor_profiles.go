@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"maps"
 	"slices"
 
@@ -61,6 +62,11 @@ func profileDoctorChecks(cfg *config.Config, pc *config.ProjectConfig, root stri
 	if pc != nil {
 		ignore = pc.Ignore
 	}
+	// Doctor collects structured checks, not sync progress. DiagOutput may
+	// still point at the original stdout while JSON mode redirects os.Stdout.
+	previousDiag := sync.DiagOutput
+	sync.DiagOutput = io.Discard
+	defer func() { sync.DiagOutput = previousDiag }()
 	var kept []string
 	for _, name := range slices.Sorted(maps.Keys(targets)) {
 		target := targets[name]
