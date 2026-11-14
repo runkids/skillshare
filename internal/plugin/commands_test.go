@@ -306,7 +306,7 @@ func TestPluginCommandsNativeIndependence(t *testing.T) {
 	writePluginFile(t, other, "plugin.json", `{"name":"demo","version":"1"}`)
 	applyPluginRequest(t, s, Request{Action: "add", Name: "demo", Source: other, Targets: []string{"antigravity"}})
 	writePluginFile(t, root, "bin/one", "#!/bin/sh\nprintf moving\n")
-	applyPluginRequest(t, s, Request{Action: "update", Name: "demo", Targets: []string{"cursor"}})
+	applyPluginRequest(t, s, Request{Action: "update", Name: "demo", Targets: []string{"antigravity"}})
 	commandOutput(t, bin, "demo-one", "old-one")
 	applyPluginRequest(t, s, Request{Action: "remove", Name: "demo", Targets: []string{"antigravity", "cursor"}})
 	commandOutput(t, bin, "demo-one", "old-one")
@@ -414,7 +414,10 @@ func TestPluginCommandsV1Preview(t *testing.T) {
 func TestPluginCommandsLastDeclarationRemoved(t *testing.T) {
 	s, root, bin := commandFixture(t)
 	applyPluginRequest(t, s, Request{Action: "add", Source: root})
-	writePluginFile(t, root, "plugin.json", `{"name":"demo","$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","version":"1.0.0"}`)
+	writePluginFile(t, root, "plugin.json", `{"name":"demo","$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","version":"2.0.0"}`)
+	for _, path := range []string{".claude-plugin/plugin.json", ".codex-plugin/plugin.json"} {
+		writePluginFile(t, root, path, `{"name":"demo","version":"2.0.0"}`)
+	}
 	checked, err := s.Preview(context.Background(), Request{Action: "check", Name: "demo"})
 	if err != nil {
 		t.Fatal(err)
@@ -450,6 +453,9 @@ func TestPluginCommandsLastDeclarationRemoved(t *testing.T) {
 	inventory, err := s.Packages()
 	if err != nil {
 		t.Fatal(err)
+	}
+	if inventory.Packages["demo"].Version != "2.0.0" {
+		t.Fatalf("removed commands lost reviewed version: %+v", inventory.Packages["demo"])
 	}
 	if inventory.Packages["demo"].Commands != nil {
 		t.Fatal("empty command receipt still exposed as installed")

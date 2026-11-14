@@ -4,32 +4,20 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
-var commandName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
-
-// inspectCommands reads only Skillshare's portable extension, never native slash commands.
-func inspectCommands(root string) (map[string]string, error) {
-	raw, err := os.ReadFile(filepath.Join(root, "plugin.json"))
-	if os.IsNotExist(err) {
+// inspectCommands reads only Skillshare's decoded portable extension, never native slash commands.
+func inspectCommands(root string, manifest map[string]json.RawMessage) (map[string]string, error) {
+	raw, ok := manifest["extensions"]
+	if !ok {
 		return nil, nil
 	}
-	if err != nil {
+	var extensions map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &extensions); err != nil {
 		return nil, agentError{key: "plugins.error.commandMetadata", message: "Cannot read command metadata: " + err.Error(), args: map[string]string{"detail": err.Error()}, cause: err}
 	}
-	var manifest struct {
-		Schema     string                     `json:"$schema"`
-		Extensions map[string]json.RawMessage `json:"extensions"`
-	}
-	if err := json.Unmarshal(raw, &manifest); err != nil {
-		return nil, agentError{key: "plugins.error.commandMetadata", message: "Cannot read command metadata: " + err.Error(), args: map[string]string{"detail": err.Error()}, cause: err}
-	}
-	if manifest.Schema != "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json" {
-		return nil, nil
-	}
-	extension, ok := manifest.Extensions["cc.runkids.skillshare"]
+	extension, ok := extensions["cc.runkids.skillshare"]
 	if !ok {
 		return nil, nil
 	}
@@ -53,7 +41,7 @@ func inspectCommands(root string) (map[string]string, error) {
 
 func validateCommands(root string, commands map[string]string) error {
 	for name, rel := range commands {
-		if !commandName.MatchString(name) {
+		if !namePattern.MatchString(name) {
 			return agentError{key: "plugins.error.commandName", message: "Invalid command name: " + name, args: map[string]string{"name": name}}
 		}
 		if rel == "" || strings.HasPrefix(rel, "/") || strings.ContainsAny(rel, `\:`) {

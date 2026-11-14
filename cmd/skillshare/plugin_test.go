@@ -182,7 +182,7 @@ func TestPluginUpdateAllDryRunReportsFailures(t *testing.T) {
 			}
 			if jsonOutput {
 				var plan plugin.Plan
-				if err := json.Unmarshal([]byte(output), &plan); err != nil || len(plan.Changes) != 1 || !plan.Changes[0].Failed {
+				if err := json.Unmarshal([]byte(output), &plan); err != nil || len(plan.Changes) != 2 || plan.Changes[0].Target != "claude" || plan.Changes[0].Commands || !plan.Changes[0].Failed || plan.Changes[1].Target != "" || !plan.Changes[1].Commands || !plan.Changes[1].Failed || plan.Changes[1].MessageKey != "plugins.error.commandFailure" {
 					t.Fatalf("bad JSON preview: %s %v", output, err)
 				}
 			} else if !strings.Contains(output, "· failed") || !strings.Contains(output, "demo") {

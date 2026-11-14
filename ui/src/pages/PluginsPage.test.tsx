@@ -226,6 +226,25 @@ describe('PluginsPage', () => {
     fireEvent.mouseDown(screen.getByRole('menuitem', { name: 'plugins.updateLatest' }));
     await waitFor(() => expect(pluginsApi.preview).toHaveBeenCalledWith({ action: 'update', name: 'demo', targets: ['claude'] }));
   });
+  it('shows command and native versions together after an independent command update', async () => {
+    vi.mocked(pluginsApi.list).mockResolvedValue({ packages: { demo: { source: 'owner/repo', version: '2.0.0', bindings: { cursor: { id: '/native', version: '1.0.0' } }, commands: { bin: '/fixture/bin', names: ['demo'], binding: { id: '', version: '2.0.0' } } } }, hosts: [] });
+    mount();
+    const versions = await screen.findByText('1.0.0 / 2.0.0');
+    expect(versions).toHaveAttribute('title', expect.stringContaining('plugins.commands 2.0.0'));
+  });
+  it('keeps declaration and command preview rows distinct', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      vi.mocked(pluginsApi.list).mockResolvedValue({ packages: { demo: { source: 'owner/repo', bindings: {}, commands: { bin: '/fixture/bin', names: ['demo'], binding: { id: '' } } } }, hosts: [] });
+      vi.mocked(pluginsApi.preview).mockResolvedValue({ revision: 'remove-package', blocked: false, changes: [{ name: 'demo', target: '', id: '', action: 'forget' }, { name: 'demo', target: '', id: '', commands: true, action: 'remove' }] });
+      mount();
+      fireEvent.click(await screen.findByRole('button', { name: 'mcp.moreActions' }));
+      fireEvent.mouseDown(screen.getByRole('menuitem', { name: 'plugins.remove' }));
+      const dialog = await screen.findByRole('dialog', { name: 'plugins.preview' });
+      expect(within(dialog).getAllByText('demo')).toHaveLength(2);
+      expect(errors.mock.calls.some((args) => args.some((a) => String(a).includes('same key')))).toBe(false);
+    } finally { errors.mockRestore(); }
+  });
   const omp = (bindings: PluginInventory['packages'][string]['bindings'], installed: { id: string; enabled: boolean }[] = []): PluginInventory => ({
     targetDefinitions: [{ target: 'omp', label: 'Oh My Pi', project: true, operations: ['add', 'import', 'sync', 'check', 'update', 'remove', 'enable', 'disable'] }],
     packages: { guard: { source: 'owner/guard', bindings } },

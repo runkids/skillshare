@@ -19,6 +19,10 @@ type manifestSpec struct{ path, target string }
 func inspect(root string, explicit ...string) (Candidate, error) {
 	c := Candidate{Targets: []string{}, Components: []string{}, TargetInfo: map[string]TargetPackage{}}
 	var claudeFields map[string]json.RawMessage
+	commandProblem := func(err error) {
+		c.CommandProblem = err.Error()
+		c.CommandProblemKey, c.CommandProblemArgs = ErrorKey(err)
+	}
 	specs := []manifestSpec{{".codex-plugin/plugin.json", "codex"}, {".claude-plugin/plugin.json", "claude"}, {".omp-plugin/plugin.json", "omp"}, {".cursor-plugin/plugin.json", "cursor"}, {"package.json", "pi"}, {"package.json", "opencode"}, {".plugin/plugin.json", "copilot"}, {".github/plugin/plugin.json", "copilot"}, {".grok-plugin/plugin.json", "grok"}, {"kimi.plugin.json", "kimi"}, {".kimi-plugin/plugin.json", "kimi"}, {".devin-plugin/plugin.json", "devin"}, {".hermes-plugin/plugin.yaml", "hermes"}, {"plugin.json", "codex"}, {"package.json", "omp"}}
 	for _, spec := range specs {
 		data, err := os.ReadFile(filepath.Join(root, spec.path))
@@ -37,6 +41,9 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 			err = json.Unmarshal(data, &m)
 		}
 		if err != nil {
+			if spec.path == "plugin.json" {
+				commandProblem(agentError{key: "plugins.error.commandMetadata", message: "Cannot read command metadata: " + err.Error(), args: map[string]string{"detail": err.Error()}, cause: err})
+			}
 			info.block("plugins.problem.invalidManifest", "Invalid "+spec.path, map[string]string{"manifest": spec.path})
 			if _, exists := c.TargetInfo[spec.target]; !exists {
 				c.TargetInfo[spec.target] = info
@@ -47,10 +54,18 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 		_ = json.Unmarshal(m["name"], &name)
 		_ = json.Unmarshal(m["version"], &info.Version)
 		_ = json.Unmarshal(m["description"], &desc)
-		_ = json.Unmarshal(m["$schema"], &schema)
+		schemaErr := json.Unmarshal(m["$schema"], &schema)
 		if spec.path == "plugin.json" {
+			if m["$schema"] != nil && schemaErr != nil {
+				commandProblem(agentError{key: "plugins.error.commandMetadata", message: "Cannot read command metadata: " + schemaErr.Error(), args: map[string]string{"detail": schemaErr.Error()}, cause: schemaErr})
+			}
 			switch schema {
 			case "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json":
+				var commandErr error
+				c.Commands, commandErr = inspectCommands(root, m)
+				if commandErr != nil {
+					commandProblem(commandErr)
+				}
 			case "", "https://antigravity.google/schemas/v1/plugin.json":
 				spec.target = "antigravity"
 			default:
@@ -197,12 +212,6 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 	}
 	if info, ok := c.TargetInfo["antigravity"]; ok {
 		c.TargetInfo["antigravity-cli"] = info
-	}
-	commands, commandErr := inspectCommands(root)
-	c.Commands = commands
-	if commandErr != nil {
-		c.CommandProblem = commandErr.Error()
-		c.CommandProblemKey, c.CommandProblemArgs = ErrorKey(commandErr)
 	}
 	c.collectTargets()
 	if c.Name == "" {

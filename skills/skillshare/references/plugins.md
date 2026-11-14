@@ -329,9 +329,12 @@ On macOS/Linux, targetless add publishes to `~/.local/bin` globally or
 never edit their shell profiles. Files must already be executable and contained
 inside the candidate root; do not chmod or infer an interpreter.
 Commands follow the default package recipe, not alternate native bindings.
-Untargeted check/update/update-all/sync/remove includes them; explicit target
-updates/removals, imports and selection toggles leave them alone. Sync pins
-reviewed bytes while the recipe is unchanged; update reviews changed content,
+Untargeted check/update/update-all/sync/remove includes them; target-filtered
+check/update includes them when a selected binding follows the effective default
+recipe, including ref. Alternate distributions, target removals, imports and
+selection toggles leave them alone. With an existing receipt, sync pins reviewed
+bytes while the recipe is unchanged. Without a receipt, sync can first publish
+commands from the current source; run check first to review them. Update reviews changed content,
 even at the same version. Offline removal uses exact local receipts and preserves
 operator files/foreign links. Report command failures alongside native successes;
 retry pending work with `sync plugins`. Shared YAML stays v2; private receipts

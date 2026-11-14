@@ -173,7 +173,7 @@ func (s *Service) loadState(d *document) error {
 				return fmt.Errorf("invalid plugin command receipt")
 			}
 			for name := range receipt.Links {
-				if !commandName.MatchString(name) {
+				if !namePattern.MatchString(name) {
 					return fmt.Errorf("invalid plugin command receipt name")
 				}
 			}
@@ -410,19 +410,7 @@ func (s *Service) ownedSnapshot(b Binding, target string) bool {
 		return false
 	}
 	root := s.snapshotPath(b, target)
-	if err := noSymlink(s.managedRoot(), root); err != nil {
-		return false
-	}
-	owner, err := os.ReadFile(filepath.Join(root, ".skillshare-owner"))
-	if err != nil || string(owner) != b.Source+"\n"+b.Plugin {
-		return false
-	}
-	recorded, err := os.ReadFile(filepath.Join(root, ".skillshare-digest"))
-	if err != nil || string(recorded) != b.Digest {
-		return false
-	}
-	actual, err := treeDigest(filepath.Join(root, "content"))
-	if err != nil || actual != b.Digest {
+	if !s.ownedSnapshotContent(b, root) {
 		return false
 	}
 	agent := s.agentOf(target)
@@ -440,6 +428,29 @@ func (s *Service) ownedSnapshot(b Binding, target string) bool {
 				return b.ID == path
 			}
 		}
+		return false
+	}
+	return true
+}
+
+// ownedSnapshotContent proves the managed path and the exact reviewed bytes.
+func (s *Service) ownedSnapshotContent(b Binding, root string) bool {
+	if b.Source == "" || b.Digest == "" {
+		return false
+	}
+	if err := noSymlink(s.managedRoot(), root); err != nil {
+		return false
+	}
+	owner, err := os.ReadFile(filepath.Join(root, ".skillshare-owner"))
+	if err != nil || string(owner) != b.Source+"\n"+b.Plugin {
+		return false
+	}
+	recorded, err := os.ReadFile(filepath.Join(root, ".skillshare-digest"))
+	if err != nil || string(recorded) != b.Digest {
+		return false
+	}
+	actual, err := treeDigest(filepath.Join(root, "content"))
+	if err != nil || actual != b.Digest {
 		return false
 	}
 	return true

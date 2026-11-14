@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -234,5 +235,100 @@ func TestPluginCommandsLocalizedFailure(t *testing.T) {
 	_ = json.Unmarshal(raw, &fields)
 	if fields["commandProblemKey"] != "plugins.error.commandPath" {
 		t.Fatalf("validation identity lost: %s", raw)
+	}
+}
+
+// A CLI target filter scopes native bindings, but a default-recipe update still
+// reviews package commands. Explicit API selections remain authoritative.
+func TestPluginCommandsTargetedDefaultUpdate(t *testing.T) {
+	for _, mode := range []string{"default", "checked", "alternate", "api-native"} {
+		t.Run(mode, func(t *testing.T) {
+			s, root, bin := commandFixture(t)
+			applyPluginRequest(t, s, Request{Action: "add", Source: root, Targets: []string{"cursor"}})
+			target := "cursor"
+			if mode == "alternate" {
+				other := fixture(t)
+				writePluginFile(t, other, "plugin.json", `{"name":"demo","version":"1"}`)
+				applyPluginRequest(t, s, Request{Action: "add", Name: "demo", Source: other, Targets: []string{"antigravity"}})
+				target = "antigravity"
+			}
+			writePluginFile(t, root, "bin/one", "#!/bin/sh\nprintf targeted\n")
+			r := Request{Action: "update", Name: "demo", Targets: []string{target}}
+			if mode == "api-native" {
+				no := false
+				r.Commands = &no
+			}
+			if mode == "checked" {
+				p, err := s.Preview(context.Background(), Request{Action: "check", Name: "demo", Targets: r.Targets})
+				if err != nil {
+					t.Fatal(err)
+				}
+				seen := map[string]Seen{}
+				for _, c := range p.Changes {
+					seen[c.Target] = checkedObservation(t, c.Binding)
+				}
+				if _, ok := seen[""]; !ok {
+					t.Fatal("targeted check omitted default commands")
+				}
+				item := UpdateItem{Name: "demo", Targets: r.Targets, Commands: true, Seen: seen}
+				delete(item.Seen, "")
+				if _, result, err := s.updateLocked(context.Background(), item, func(*Plan) {}); !errors.Is(err, ErrSourceMoved) || result != nil {
+					t.Fatalf("unapproved command update: %+v %v", result, err)
+				}
+				for _, c := range p.Changes {
+					seen[c.Target] = checkedObservation(t, c.Binding)
+				}
+				if _, _, err := s.updateLocked(context.Background(), item, func(*Plan) {}); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				applyPluginRequest(t, s, r)
+			}
+			want := "targeted"
+			if mode == "alternate" || mode == "api-native" {
+				want = "old-one"
+			}
+			commandOutput(t, bin, "demo-one", want)
+			applyPluginRequest(t, s, Request{Action: "remove", Name: "demo", Targets: []string{target}})
+			commandOutput(t, bin, "demo-one", want)
+		})
+	}
+}
+
+func TestPluginCommandsTargetedRefKeepsDefault(t *testing.T) {
+	s, _, bin := commandFixture(t)
+	source, root, commit := remoteFixture(t)
+	declareReviewCommands(t, root, `{"demo-one":"bin/one"}`)
+	writePluginFile(t, root, "bin/one", "#!/bin/sh\nprintf default\n")
+	if err := os.Chmod(filepath.Join(root, "bin/one"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	commit()
+	applyPluginRequest(t, s, Request{Action: "add", Source: source, SourceRef: "main", Targets: []string{"cursor"}})
+	cmd := exec.Command("git", "checkout", "-b", "next")
+	cmd.Dir = root
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("branch: %s %v", out, err)
+	}
+	writePluginFile(t, root, "bin/one", "#!/bin/sh\nprintf alternate-ref\n")
+	commit()
+	applyPluginRequest(t, s, Request{Action: "update", Name: "demo", Targets: []string{"cursor"}, SourceRef: "next"})
+	inventory, err := s.Packages()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pack := inventory.Packages["demo"]
+	if pack.SourceRef != "main" || pack.Commands.Binding.SourceRef != "main" || pack.Bindings["cursor"].SourceRef != "next" {
+		t.Fatalf("target ref replaced default: %+v", pack)
+	}
+	commandOutput(t, bin, "demo-one", "default")
+	p, err := s.Preview(context.Background(), Request{Action: "check", Name: "demo", Targets: []string{"cursor"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range p.Changes {
+		if c.Commands {
+			t.Fatalf("alternate-ref check selected default commands: %+v", c)
+		}
 	}
 }

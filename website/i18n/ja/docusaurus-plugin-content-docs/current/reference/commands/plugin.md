@@ -376,7 +376,7 @@ macOS/Linux では、ルートの portable `plugin.json` に PATH コマンド�
 
 `plugin add ./demo --no-tui -g` は `--target` なしでも宣言されたコマンドをインストールします。グローバルは `~/.local/bin`、プロジェクトは `<project>/.skillshare/bin` です。PATH には自分で追加してください。リンク先はレビュー済み snapshot なので元の source がなくても実行できます。
 
-コマンドはパッケージのデフォルト source/ref/candidate に従い、別のネイティブ配布形式とは独立です。対象指定のない check/update/update --all/sync/remove に含まれます。明示的な `--target` 更新・削除、import/unimport、選択 toggle はネイティブ binding のみを扱います。check は同じ version でも digest を比較します。sync は recipe が変わらない限りレビュー済みの内容を保持し、欠落リンクと未完了処理を修復します。update は新しい内容をレビューし、共有デフォルト recipe の変更も sync で再レビューします。
+コマンドはパッケージのデフォルト source/ref/candidate に従い、別のネイティブ配布形式とは独立です。対象指定のない check/update/update --all/sync/remove に含まれます。`--target` check/update も、選択した binding が ref を含む実効デフォルト recipe に従う場合はコマンドを含みます。別の配布形式、対象指定の削除、import/unimport、選択 toggle はネイティブ binding のみを扱います。check は同じ version でも digest を比較します。既存の receipt があり recipe が変わらない場合、sync はレビュー済みの内容を保持し、欠落リンクと未完了処理を修復します。receipt がない場合、sync は現在のソースからコマンドを初めて公開できます。先に check を実行して確認してください。update は新しい内容をレビューし、共有デフォルト recipe の変更も sync で再レビューします。
 
 削除はローカル receipt からオフラインで行い、正確に所有するリンクだけを削除します。operator のファイルや外部・dangling link は保持します。競合は公開を止めます。コマンドが失敗してもネイティブの成功は維持され、操作は非ゼロで終了します。原因を解決して `sync plugins` で再試行してください。bin の移動後は元の場所を復元して cleanup します。古い絶対パスを無条件に削除しません。共有 YAML は `plugins.version: 2`、非公開 state は v2 です。v1 の preview は書き換えず所有権を推測しません。Windows のコマンド公開は未対応ですが、ネイティブ操作は個別に結果を返します。新しい Agent や CLI flag はありません。
 

@@ -52,7 +52,7 @@ func TestPluginCommandsCLI(t *testing.T) {
 	if _, err := os.Lstat(global); !os.IsNotExist(err) {
 		t.Fatal("dry-run published command")
 	}
-	sb.RunCLI("plugin", "add", root, "--json", "-g").AssertSuccess(t)
+	sb.RunCLI("plugin", "add", root, "--target", "cursor", "--json", "-g").AssertSuccess(t)
 	output := func(want string) {
 		t.Helper()
 		cmd := exec.Command("/bin/sh", "-c", "demo-cli")
@@ -64,7 +64,7 @@ func TestPluginCommandsCLI(t *testing.T) {
 	}
 	output("original")
 	write("bin/demo", "#!/bin/sh\nprintf updated\n", 0755)
-	sb.RunCLI("plugin", "update", "--all", "--json", "-g").AssertSuccess(t)
+	sb.RunCLI("plugin", "update", "demo", "--target", "cursor", "--json", "-g").AssertSuccess(t)
 	output("updated")
 	if err := os.Remove(global); err != nil {
 		t.Fatal(err)

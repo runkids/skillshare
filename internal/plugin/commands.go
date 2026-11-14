@@ -163,7 +163,7 @@ func (s *Service) composeCommands(d *document) {
 // planCommands operates once on the package's default recipe, independently of
 // native distribution selection. An existing sync receipt pins reviewed bytes.
 func (s *Service) planCommands(ctx context.Context, r Request, d *document) ([]Change, error) {
-	if r.nativeOnly || !slices.Contains([]string{"add", "sync", "check", "update", "remove"}, r.Action) || r.Action != "add" && (r.Commands != nil && !*r.Commands || r.Commands == nil && len(r.Targets) > 0) {
+	if r.nativeOnly || !slices.Contains([]string{"add", "sync", "check", "update", "remove"}, r.Action) || r.Action != "add" && (r.Commands != nil && !*r.Commands || r.Commands == nil && len(r.Targets) > 0 && r.Action != "check" && r.Action != "update") {
 		return nil, nil
 	}
 	bin, err := s.commandBin()
@@ -216,6 +216,20 @@ func (s *Service) planCommands(ctx context.Context, r Request, d *document) ([]C
 	changes := []Change{}
 	for _, name := range slices.Sorted(maps.Keys(names)) {
 		recipe := names[name]
+		if r.Commands == nil && len(r.Targets) > 0 && r.Action != "add" {
+			// CLI filters include package commands only when a selected native
+			// binding follows the same effective default recipe, including ref.
+			followsDefault := slices.ContainsFunc(r.Targets, func(target string) bool {
+				decl, ok := recipe.Bindings[target]
+				if r.Action == "update" && r.SourceRef != "" {
+					decl.SourceRef = r.SourceRef
+				}
+				return ok && d.packages[name].Bindings[target].Selected() && decl.fingerprint() == packageFingerprint(recipe)
+			})
+			if !followsDefault {
+				continue
+			}
+		}
 		bin, _ = s.commandBin()
 		local := d.state.Commands[name]
 		before := local.Applied
@@ -269,7 +283,7 @@ func (s *Service) planCommands(ctx context.Context, r Request, d *document) ([]C
 					disc = addDiscovery
 					candidate = addCandidate
 				} else {
-					if r.Action == "check" {
+					if r.Action == "check" || r.Action == "sync" {
 						bindings := map[string]Binding{}
 						maps.Copy(bindings, d.packages[name].Bindings)
 						if before != nil {
@@ -318,6 +332,9 @@ func (s *Service) planCommands(ctx context.Context, r Request, d *document) ([]C
 					}
 				}
 			}
+			if after != nil {
+				c.sourceVersion = &after.Binding.Version
+			}
 			if after != nil && len(after.Links) == 0 {
 				remove, c.Action, c.Binding = true, "remove", after.Binding
 				after = nil
@@ -325,7 +342,6 @@ func (s *Service) planCommands(ctx context.Context, r Request, d *document) ([]C
 			if after != nil {
 				cp.After = after
 				c.Binding = after.Binding
-				c.sourceVersion = &after.Binding.Version
 				if before != nil {
 					c.Action = "update"
 				}
@@ -629,15 +645,5 @@ func commandBindingEqual(a, b Binding) bool {
 }
 
 func (s *Service) ownedCommandSnapshot(name string, b Binding) bool {
-	// ownedSnapshot requires a native ID; command receipts intentionally have none.
-	path := s.snapshotPath(b, "", name)
-	if err := noSymlink(s.managedRoot(), path); err != nil {
-		return false
-	}
-	owner, err := os.ReadFile(filepath.Join(path, ".skillshare-owner"))
-	if err != nil || string(owner) != b.Source+"\n"+b.Plugin {
-		return false
-	}
-	digest, err := treeDigest(filepath.Join(path, "content"))
-	return err == nil && b.Digest != "" && digest == b.Digest
+	return s.ownedSnapshotContent(b, s.snapshotPath(b, "", name))
 }

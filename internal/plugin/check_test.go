@@ -57,19 +57,31 @@ func TestCheckDoesNotDownloadASourceStillAtTheInstalledCommit(t *testing.T) {
 	trace := filepath.Join(t.TempDir(), "git.trace")
 	t.Setenv("GIT_TRACE", trace)
 
-	p, err := s.Preview(context.Background(), Request{Action: "check"})
-	if err != nil || len(p.Changes) != 1 || p.Changes[0].Action != "noop" || !slices.Equal(p.Changes[0].Components, []string{"skills"}) {
-		t.Fatalf("unchanged source: %+v %v", p, err)
-	}
-	if raw, _ := os.ReadFile(trace); strings.Contains(string(raw), " clone ") {
-		t.Fatal("check downloaded a source whose commit had not moved")
+	for _, action := range []string{"check", "sync"} {
+		p, err := s.Preview(context.Background(), Request{Action: action})
+		if err != nil || len(p.Changes) != 1 || p.Changes[0].Action != "noop" || action == "check" && !slices.Equal(p.Changes[0].Components, []string{"skills"}) {
+			t.Fatalf("unchanged source %s: %+v %v", action, p, err)
+		}
+		if raw, _ := os.ReadFile(trace); strings.Contains(string(raw), " clone ") {
+			t.Fatalf("%s downloaded a source whose commit had not moved", action)
+		}
 	}
 
 	writePluginFile(t, root, ".claude-plugin/plugin.json", `{"name":"demo","version":"1.1.0"}`)
 	commit()
-	p, err = s.Preview(context.Background(), Request{Action: "check"})
+	p, err := s.Preview(context.Background(), Request{Action: "check"})
 	if err != nil || len(p.Changes) != 1 || p.Changes[0].Action != "update-available" || p.Changes[0].Binding.Version != "1.1.0" {
 		t.Fatalf("moved source: %+v %v", p, err)
+	}
+	writePluginFile(t, root, "plugin.json", `{"name":"demo","$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","version":"1.1.0","extensions":{"cc.runkids.skillshare":{"commands":{"demo-new":"bin/new"}}}}`)
+	writePluginFile(t, root, "bin/new", "#!/bin/sh\nprintf new\n")
+	if err := os.Chmod(filepath.Join(root, "bin/new"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	commit()
+	p, err = s.Preview(context.Background(), Request{Action: "sync"})
+	if err != nil || !slices.ContainsFunc(p.Changes, func(c Change) bool { return c.Commands && c.Action == "install" && !c.Failed }) {
+		t.Fatalf("moved source sync omitted new commands: %+v %v", p, err)
 	}
 }
 

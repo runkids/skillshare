@@ -67,12 +67,16 @@ snapshots, so invocation does not need the original source directory.
 
 Commands follow the package's default source/ref/candidate once, independently
 of alternate native distributions. Untargeted `check`, `update`, `update --all`,
-`sync` and `remove` include them. An explicit `--target` update/removal, native
-import/unimport, or sync-selection toggle affects native bindings only.
-`check` compares content digests even if the version stays unchanged. `sync`
-repairs missing links and retries reviewed work without fetching newer bytes
-while the default recipe is unchanged; `update` reviews newer source content.
-A changed shared default recipe is reviewed again on sync.
+`sync` and `remove` include them. A `--target` check or update also includes
+commands when a selected binding follows the effective default recipe, including
+its ref. Alternate distributions, target-scoped removals, native import/unimport,
+and sync-selection toggles affect native bindings only.
+`check` compares content digests even if the version stays unchanged. With an
+existing receipt, `sync` repairs missing links and retries reviewed work without
+fetching newer bytes while the default recipe is unchanged. Without a receipt,
+sync can first publish commands from the current source; run `check` first to
+review them. `update` reviews newer source content. A changed shared default
+recipe is reviewed again on sync.
 
 Removal works offline from machine-local receipts and unlinks only exact owned
 links. Operator files and foreign or dangling links are preserved. Conflicting

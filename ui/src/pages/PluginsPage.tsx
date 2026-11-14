@@ -256,10 +256,10 @@ export default function PluginsPage() {
             <>
             {active.length > 0 && <div className="ss-list">
               {active.map((c) => (
-                <div key={`${c.name}:${c.target}`} className="ss-r">
+                <div key={`${c.name}:${c.target}:${!!c.commands}`} className="ss-r">
                   <span className="ss-at">{c.target ? <AgentIcon target={c.target} size={17} /> : c.logo ? <img src={c.logo} alt="" className="size-full rounded-[inherit] object-cover" /> : <Package size={15} />}</span>
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="flex items-center gap-2"><span className="font-mono font-semibold">{c.name}</span><span className="text-[13px] text-ink-2">{c.commands ? t('plugins.commands') : agentLabel(c.target)}</span><VersionChange from={installedVersion(data, c.name, c.target)} to={c.action.startsWith('update') ? c.binding?.version : undefined} fromCommit={data?.packages[c.name]?.bindings[c.target]?.commit} toCommit={c.action.startsWith('update') ? c.binding?.commit : undefined} /></span>
+                    <span className="flex items-center gap-2"><span className="font-mono font-semibold">{c.name}</span><span className="text-[13px] text-ink-2">{c.commands ? t('plugins.commands') : agentLabel(c.target)}</span><VersionChange from={installedVersion(data, c.name, c.target)} to={c.action.startsWith('update') ? c.binding?.version : undefined} fromCommit={c.commands ? data?.packages[c.name]?.commands?.binding.commit : data?.packages[c.name]?.bindings[c.target]?.commit} toCommit={c.action.startsWith('update') ? c.binding?.commit : undefined} /></span>
                     {!!c.preservedKeys?.length && <span className="text-xs text-ink-3"><span>{t('plugins.preservedKeys')}</span>{' '}{c.preservedKeys.join(' · ')}</span>}
                     {c.action === 'record' ? <span className="text-xs text-ink-3">{t('plugins.recordHelp')}</span> : (c.message || c.components?.length) && <span className="text-xs text-ink-3">{c.message ? keyedMessage(t, c) : c.components!.join(' · ')}</span>}
                   </span>

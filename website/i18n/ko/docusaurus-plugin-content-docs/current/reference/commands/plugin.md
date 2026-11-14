@@ -302,7 +302,7 @@ macOS/Linux에서는 루트 portable `plugin.json`에 PATH 명령을 선언할 �
 
 `plugin add ./demo --no-tui -g`는 `--target` 없이도 선언된 명령을 설치합니다. 전역 위치는 `~/.local/bin`, 프로젝트 위치는 `<project>/.skillshare/bin`입니다. 직접 PATH에 추가하세요. 링크는 검토한 snapshot을 가리키므로 원본 source가 없어도 실행할 수 있습니다.
 
-명령은 패키지 기본 source/ref/candidate에 따르며 별도 네이티브 배포판과 독립적입니다. 대상 없는 check/update/update --all/sync/remove에 포함됩니다. 명시적 `--target` 업데이트·제거, import/unimport, 선택 토글은 네이티브 binding만 처리합니다. check는 version이 같아도 digest를 비교합니다. sync는 recipe가 같으면 검토한 내용을 유지하며 누락된 링크와 미완료 작업을 복구합니다. update는 새 내용을 검토하며 공유 기본 recipe가 바뀌면 sync도 다시 검토합니다.
+명령은 패키지 기본 source/ref/candidate에 따르며 별도 네이티브 배포판과 독립적입니다. 대상 없는 check/update/update --all/sync/remove에 포함됩니다. `--target` check/update도 선택한 binding이 ref를 포함한 유효 기본 recipe를 따를 때 명령을 포함합니다. 별도 배포판, 대상 지정 제거, import/unimport, 선택 토글은 네이티브 binding만 처리합니다. check는 version이 같아도 digest를 비교합니다. 기존 receipt가 있고 recipe가 같으면 sync는 검토한 내용을 유지하며 누락된 링크와 미완료 작업을 복구합니다. receipt가 없으면 sync는 현재 소스의 명령을 처음 게시할 수 있으므로 먼저 check로 검토하세요. update는 새 내용을 검토하며 공유 기본 recipe가 바뀌면 sync도 다시 검토합니다.
 
 제거는 로컬 receipt로 오프라인에서 수행하며 정확히 소유한 링크만 지웁니다. 운영자 파일과 외부·끊어진 링크는 보존합니다. 충돌 시 명령 게시는 중단합니다. 명령 실패 시에도 네이티브 성공은 유지하며 작업은 0이 아닌 코드로 종료합니다. 문제를 해결한 뒤 `sync plugins`로 재시도하세요. bin 이동 시 정리 전에 원래 위치를 복원해야 하며 이전 절대 경로를 무조건 삭제하지 않습니다. 공유 YAML은 `plugins.version: 2`, 비공개 state는 v2입니다. v1 미리보기는 파일을 쓰거나 소유권을 추론하지 않습니다. Windows 명령 게시는 지원하지 않지만 네이티브 작업은 개별 결과를 유지합니다. 새 Agent나 CLI 플래그는 없습니다.
 

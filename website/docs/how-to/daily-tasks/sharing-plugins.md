@@ -61,8 +61,10 @@ independently of native bindings. If an Agent succeeds and commands fail, **Retr
 keeps the failed choice and does not repeat the successful Agent. A source change
 after checking requires another check before any update for that package.
 
-`sync plugins` repairs reviewed commands; `plugin update` reviews new content even
-at the same version. Untargeted removal works offline and preserves operator
+With an existing command receipt and unchanged default recipe, `sync plugins`
+repairs reviewed commands. Without a receipt, sync can first publish commands
+from the current source; run `plugin check` first to review them. `plugin update`
+reviews new content even at the same version. Untargeted removal works offline and preserves operator
 replacements. Commands use the default package source, independent of native
 imports, target toggles, or alternate distributions. Windows publication is
 unsupported; native operations still report their own outcomes.

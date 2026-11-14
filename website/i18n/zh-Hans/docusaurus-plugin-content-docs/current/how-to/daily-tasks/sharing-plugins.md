@@ -130,7 +130,7 @@ macOS/Linux 上，根目录的 portable `plugin.json` 可以声明 PATH 命令�
 
 `plugin add ./demo --no-tui -g` 即使不带 `--target` 也会安装声明的命令。全局位于 `~/.local/bin`，项目位于 `<project>/.skillshare/bin`，请自行加入 PATH。链接指向已审阅的 snapshot，运行时无需原始来源目录。
 
-命令跟随包的默认 source/ref/candidate，与其他原生发行版独立。未指定目标的 check/update/update --all/sync/remove 包含命令。明确的 `--target` 更新和移除、import/unimport、同步选择开关仅影响原生绑定。check 即使 version 未变也比较 digest。recipe 不变时，sync 保持已审阅内容并修复缺失链接和重试未完成工作；update 审阅新内容。共享默认 recipe 改变时 sync 会重新审阅。
+命令跟随包的默认 source/ref/candidate，与其他原生发行版独立。未指定目标的 check/update/update --all/sync/remove 包含命令。`--target` check/update 在所选绑定使用有效默认 recipe（包括 ref）时也包含命令。其他发行版、指定目标的移除、import/unimport、同步选择开关仅影响原生绑定。check 即使 version 未变也比较 digest。已有 receipt 且 recipe 不变时，sync 保持已审阅内容并修复缺失链接和重试未完成工作。没有 receipt 时，sync 可以首次发布当前来源的命令；请先运行 check 审阅。update 审阅新内容。共享默认 recipe 改变时 sync 会重新审阅。
 
 移除使用本机 receipt，可离线执行，只删除精确拥有的链接，保留操作者文件、外部或悬空链接。名称冲突会阻止发布。命令失败不撤销原生成功，操作返回非零状态；解决原因后以 `sync plugins` 重试。bin 移动后需恢复原位置再清理，不会盲删旧绝对路径。共享 YAML 保持 `plugins.version: 2`，私有 state 为 v2；读取 v1 时不推断所有权，预览不写入迁移。Windows 不支持发布命令，原生操作保留各自结果。不新增 Agent 或 CLI 参数。
 

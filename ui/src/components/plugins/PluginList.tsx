@@ -61,7 +61,7 @@ function Row({ name, pi, inventory, updates, checkFailures, busy, working, onTog
   const nextCommit = Object.values(checked).find((u) => u.commit)?.commit;
   const commits = [...new Set([...bindings.map(([, b]) => b.commit), pack.commands?.binding.commit].filter(Boolean))];
   const behind = [...selected, ...('' in checked ? [''] : [])].filter((target) => target in checked && (target === '' || pluginTargets[target]?.operations.includes('update')));
-  const versions = [...new Set(bindings.map(([target, b]) => bindingVersion(inventory, target, b)).filter(Boolean))];
+  const versions = [...new Set([...bindings.map(([target, b]) => bindingVersion(inventory, target, b)), pack.commands?.binding.version].filter(Boolean))];
   // With no Agent yet, the version recorded when the plugin was added is all there is; a plugin
   // added before that was recorded asks its source, through the same query the row opens with.
   const parts = [...new Set(bindings.flatMap(([, b]) => b.components ?? []))];
@@ -86,7 +86,7 @@ function Row({ name, pi, inventory, updates, checkFailures, busy, working, onTog
   });
   const plugin = bindings.find(([, b]) => b.plugin)?.[1].plugin ?? pack.plugin;
   const candidate = found.data?.candidates.find((c) => c.name === plugin) ?? (found.data?.candidates.length === 1 ? found.data.candidates[0] : undefined);
-  if (bindings.length === 0) {
+  if (bindings.length === 0 && versions.length === 0) {
     const known = pack.version ?? candidate?.version;
     if (known) versions.push(known);
   }
@@ -114,7 +114,7 @@ function Row({ name, pi, inventory, updates, checkFailures, busy, working, onTog
             <span title={name} className="truncate font-mono font-semibold">{name}</span>
             {/* Agents at different versions, as after an update that skipped one, show each. */}
             {versions.length > 1
-              ? <span className="ss-tag shrink-0 font-mono" title={bindings.filter(([target, b]) => bindingVersion(inventory, target, b)).map(([target, b]) => `${pluginTargets[target]?.label ?? target} ${bindingVersion(inventory, target, b)}`).join(' · ')}>{versions.join(' / ')}</span>
+              ? <span className="ss-tag shrink-0 font-mono" title={[...bindings.filter(([target, b]) => bindingVersion(inventory, target, b)).map(([target, b]) => `${pluginTargets[target]?.label ?? target} ${bindingVersion(inventory, target, b)}`), ...(pack.commands?.binding.version ? [`${t('plugins.commands')} ${pack.commands.binding.version}`] : [])].join(' · ')}>{versions.join(' / ')}</span>
               : <VersionChange from={versions[0]} to={next} fromCommit={commits.length === 1 ? commits[0] : undefined} toCommit={nextCommit} />}
             {/* A check found another version: update it from here, through the same review as the menu. */}
             {behind.length > 0 && (
