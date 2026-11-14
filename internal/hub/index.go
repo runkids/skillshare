@@ -200,7 +200,7 @@ func readSkillTags(skillPath string) []string {
 		if line == "---" {
 			break
 		}
-		if !utils.IsRootFrontmatterLine(lines[i], line, &indent) {
+		if !utils.IsRootFrontmatterLine(lines[i], &indent) {
 			continue
 		}
 		if strings.HasPrefix(strings.ToLower(line), "tags:") {
@@ -243,7 +243,7 @@ func readSkillDescription(skillPath string) (string, error) {
 		if line == "---" {
 			break
 		}
-		if !utils.IsRootFrontmatterLine(lines[i], line, &indent) {
+		if !utils.IsRootFrontmatterLine(lines[i], &indent) {
 			continue
 		}
 		if strings.HasPrefix(strings.ToLower(line), "description:") {

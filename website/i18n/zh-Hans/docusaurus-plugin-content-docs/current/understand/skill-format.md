@@ -218,7 +218,7 @@ metadata:
       resource: https://agentskills.io/specification
 ```
 
-Skill 的标识使用顶层的 `name` 与 `description`；同名的嵌套字段不会替代它们。`metadata.type` 是自定义信息，不会改变 `.metadata.json` 记录的安装来源类型。同步会保留 SKILL.md 的内容，包括已有的 `last_edited` 值。各原生客户端可能有自己的元数据要求。
+Skill 的标识使用顶层的 `name` 与 `description`；同名的嵌套字段不会替代它们。`metadata.type` 是自定义信息，不会改变 `.metadata.json` 记录的安装来源类型。同步会保留 SKILL.md 的内容。各原生客户端可能有自己的元数据要求。
 
 ## 自定义字段
 

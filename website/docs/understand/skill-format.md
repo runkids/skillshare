@@ -218,7 +218,7 @@ metadata:
       resource: https://agentskills.io/specification
 ```
 
-Root `name` and `description` identify the skill; nested fields with those names do not replace them. `metadata.type` describes custom content and does not change the installation source type recorded in `.metadata.json`. Sync preserves the SKILL.md content, including existing `last_edited` values. Native clients may impose their own metadata requirements.
+Root `name` and `description` identify the skill; nested fields with those names do not replace them. `metadata.type` describes custom content and does not change the installation source type recorded in `.metadata.json`. Sync preserves the SKILL.md content. Native clients may impose their own metadata requirements.
 
 ## Custom Fields
 
