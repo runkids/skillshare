@@ -55,6 +55,7 @@ skillshare sync --all
 | `--timeout DURATION` | 搭配 `check --live` 使用：每個 server 探測的時間上限，例如 `30s`；預設為 `10s` |
 | `--accept-tools` | 搭配 `check --live` 使用：把每個已探測 server 列出的工具定義記錄為新的基準。參見[下方說明](#pin-tool-definitions) |
 | `--http ADDR` | 搭配 `serve` 使用：在 `ADDR` 上以 Streamable HTTP 監聽，而不使用 stdio，同時提供 [Executor skill 索引](#executor)。參見[下方說明](#serve-skills-over-mcp) |
+| `--profile-token NAME=ENV_VAR` | 搭配 `serve --http` 或 `serve --check`：將憑證環境變數綁定至具名設定檔，可重複指定。 [↗](#hosted-profiles) |
 | `--http-allow-insecure` | 使用 `serve --http` 時：明確允許可信任私有網路上的明文 HTTP，並在啟動時警告；預設關閉 |
 | `--tls-cert FILE`, `--tls-key FILE` | 搭配 `serve --http` 使用：以這組 PEM 憑證與金鑰提供 HTTPS；未明確允許時，非 loopback 位址必須設定 |
 | `--check` | 搭配 `serve` 使用：列出會被跳過的 skills 及原因、可編輯的數量，以及 Executor 索引會提供的內容，然後結束，不啟動服務 |
@@ -809,7 +810,7 @@ gateway。宣告支援 Skills extension 的 client 會原生載入 skills，不�
 確認的 client 或 gateway，呼叫它們時不會要求確認。透過工具讀到的內容對 Agent 而言只是一般文字：Agent 本身的
 skill 核准機制不適用。
 
-- **選取。** 不帶 `--target` 時，會提供所有啟用的 skills。`--target NAME`
+- **選取。** 沒有設定檔綁定或 `--target` 時，會提供所有啟用的 skills。指定 target 時，本機使用中的設定檔也會縮小選取範圍。 `--target NAME`
   會套用該 target 的 `include`/`exclude` 篩選與 frontmatter `targets`，不論它的
   sync mode；skills 一律來自 source。若該 target 關閉了 skills，會是錯誤。
 - **跳過的 skills。** 以下情況的 skill 會被跳過，並在 stderr 顯示警告：它的 `SKILL.md`
@@ -825,7 +826,7 @@ skill 核准機制不適用。
   project。
 - **傳輸方式。** 預設為 stdio，供會自行啟動指令的 gateway 或 Agent 使用。
   `--http ADDR` 提供 Streamable HTTP。非 loopback 位址需要
-  `SKILLSHARE_MCP_TOKEN`，以及透過 `--tls-cert` 與 `--tls-key` 提供的 HTTPS，讓 token
+  `SKILLSHARE_MCP_TOKEN`（或下方的設定檔綁定），以及透過 `--tls-cert` 與 `--tls-key` 提供的 HTTPS，讓 token
   預設不會以明文經過網路；設定 token 後，每個請求都必須送出
   `Authorization: Bearer <token>`。若要改用 TLS proxy，請綁定 loopback 位址，
   例如 `127.0.0.1:8765`，並由 proxy 終止 TLS。沒有 token 時，該 server 只回應 `Host` 為 loopback 位址的請求，
@@ -878,6 +879,26 @@ frontmatter，並檢查每個檔案的摘要：
 ```bash
 npx @modelcontextprotocol/inspector --cli skillshare mcp serve --method skills/list --verify
 ```
+
+### 託管設定檔 {#hosted-profiles}
+
+在一個程序中提供多個[具名設定檔](/docs/reference/commands/profile)。每個憑證只能存取其綁定設定檔的 MCP 工具、資源以及 Executor 索引和檔案。
+
+```bash
+skillshare mcp serve -g --http 127.0.0.1:8765 \
+  --profile-token writing=WRITING_TOKEN \
+  --profile-token coding=CODING_TOKEN
+skillshare mcp serve -g --check \
+  --profile-token writing=WRITING_TOKEN --profile-token coding=CODING_TOKEN
+```
+
+在所選設定的 `profiles` 中定義 `writing` 和 `coding`，project 定義使用 `-p`。啟動時載入所有定義；即使未綁定的定義無法使用，也會導致啟動失敗。未綁定的設定檔無法存取。必須使用 `--http` 或 `--check`，不能同時設定 `SKILLSHARE_MCP_TOKEN`。缺少或空白的環境變數、重複名稱或憑證、不存在的設定檔都會遭到拒絕。診斷只顯示設定檔或變數名稱，不輸出 token 值。
+
+在**每個** MCP、索引及檔案請求中傳送 `Authorization: Bearer <token>`，包括 loopback。沒有憑證會回傳 `401`，不會退回本機使用中的設定檔或完整目錄。URL 參數和額外標頭不能選取其他設定檔。驗證後的回應使用 private 快取政策。非 loopback 仍需 TLS 或明確允許可信網路上的 insecure HTTP。
+
+`--target` 只會進一步縮小各設定檔，不會增加 skills。忽略、停用、variant 和巢狀 skill 的包含限制仍然有效。啟動、檢查和讀取不會修改設定、使用中狀態、metadata 或 targets，本機狀態損壞時也可使用。定義和綁定是啟動快照，修改或輪替憑證後須重新啟動。source 變更會在五秒內重新整理。
+
+啟用編輯後，權限為成員範圍與 `mcp.serve.edit.skills` 的交集。preview ID 依設定檔隔離，套用時重新檢查目前的成員範圍及可寫性。共用 skill 使用同一份 source；儲存會使所有設定檔快照失效，同一 revision 的競爭儲存產生一次成功和一次 conflict。成功編輯保留稽核及操作記錄，targets 在下次明確 sync 時更新。
 
 ### 透過 MCP 編輯 skills {#edit-skills-over-mcp}
 

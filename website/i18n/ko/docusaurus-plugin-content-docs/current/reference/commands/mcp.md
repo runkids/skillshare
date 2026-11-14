@@ -55,6 +55,7 @@ skillshare sync --all
 | `--timeout DURATION` | `check --live`와 함께 사용: 서버별 프로브 제한 시간 (예: `30s`); 기본값 `10s` |
 | `--accept-tools` | `check --live`와 함께 사용: 프로브한 각 서버가 나열한 도구 정의를 새 기준선으로 기록. [아래](#pin-tool-definitions) 참고 |
 | `--http ADDR` | `serve`와 함께 사용: stdio 대신 `ADDR`에서 Streamable HTTP를 수신하고, [Executor skill index](#executor)도 제공. [아래](#serve-skills-over-mcp) 참고 |
+| `--profile-token NAME=ENV_VAR` | `serve --http` 또는 `serve --check`에서 자격 증명 환경 변수를 이름 있는 프로필에 연결합니다. 여러 번 지정할 수 있습니다. [↗](#hosted-profiles) |
 | `--http-allow-insecure` | `serve --http` 사용 시: 신뢰할 수 있는 사설 네트워크에서 평문 HTTP를 명시적으로 허용하고 시작 시 경고. 기본값: 꺼짐 |
 | `--tls-cert FILE`, `--tls-key FILE` | `serve --http`와 함께 사용: 이 PEM 인증서와 키로 HTTPS를 제공; 명시적으로 허용하지 않으면 loopback 밖에서 필수 |
 | `--check` | `serve`와 함께 사용: 건너뛸 skill과 그 이유를 나열하고, 편집 가능한 개수와 Executor index가 제공할 내용을 보여준 뒤 서버를 시작하지 않고 종료 |
@@ -860,7 +861,7 @@ Skills extension을 선언한 client는 skill을 네이티브로 로드하며 �
 두 도구 모두 `readOnlyHint`가 표시되어 있어, 데이터를 바꾸는 도구 앞에서 확인을 요청하는 client나 게이트웨이도 확인 없이 호출합니다.
 도구로 읽은 내용은 Agent에게 일반 텍스트이며, Agent 자체의 skill 승인은 적용되지 않습니다.
 
-- **선택.** `--target` 없이 실행하면 활성화된 모든 skill을 제공합니다. `--target NAME`은
+- **선택.** 프로필 바인딩과 `--target`이 없으면 활성화된 모든 skill을 제공합니다. target을 지정하면 로컬 활성 프로필도 선택을 좁힙니다. `--target NAME`은
   sync mode와 관계없이 해당 target의 `include`/`exclude` 필터와 frontmatter `targets`를 적용합니다.
   skill은 항상 source에서 가져옵니다. skills가 꺼진 target을 지정하면 오류입니다.
 - **건너뛰는 skill.** 다음 경우 skill은 stderr에 경고를 출력하고 건너뜁니다: `SKILL.md`가 링크이거나
@@ -873,7 +874,7 @@ Skills extension을 선언한 client는 skill을 네이티브로 로드하며 �
 - **범위.** 서버를 어디서 시작하든 기본값은 global입니다. `-p`는 현재 디렉터리의 project를 제공합니다.
 - **전송.** 기본값은 stdio이며, 명령을 시작하는 게이트웨이나 Agent에 사용합니다.
   `--http ADDR`은 Streamable HTTP를 제공합니다. loopback이 아닌 주소에는
-  `SKILLSHARE_MCP_TOKEN`이 필요하며, 기본적으로 `--tls-cert`, `--tls-key`를 통한 HTTPS도 필요합니다.
+  `SKILLSHARE_MCP_TOKEN`(또는 아래 프로필 바인딩)이 필요하며, 기본적으로 `--tls-cert`, `--tls-key`를 통한 HTTPS도 필요합니다.
   token이 설정되면 모든 요청은
   `Authorization: Bearer <token>`을 보내야 합니다. TLS 프록시를 대신 쓰려면 `127.0.0.1:8765` 같은
   loopback 주소에 바인딩하고 프록시가 TLS를 종료하게 하세요. 토큰이 없으면 그 서버는 `Host`가
@@ -925,6 +926,26 @@ skill을 네이티브로 로드하려면 Skills extension이 필요합니다. 20
 ```bash
 npx @modelcontextprotocol/inspector --cli skillshare mcp serve --method skills/list --verify
 ```
+
+### 호스팅 프로필 {#hosted-profiles}
+
+한 프로세스에서 여러 [이름 있는 프로필](/docs/reference/commands/profile)을 제공합니다. 각 자격 증명은 연결된 프로필의 MCP 도구·리소스와 Executor 인덱스·파일만 볼 수 있습니다.
+
+```bash
+skillshare mcp serve -g --http 127.0.0.1:8765 \
+  --profile-token writing=WRITING_TOKEN \
+  --profile-token coding=CODING_TOKEN
+skillshare mcp serve -g --check \
+  --profile-token writing=WRITING_TOKEN --profile-token coding=CODING_TOKEN
+```
+
+선택한 config의 `profiles`에 `writing`과 `coding`을 정의합니다. project 정의에는 `-p`를 사용합니다. 시작할 때 모든 정의를 읽으며, 바인딩이 없는 정의라도 사용할 수 없으면 시작에 실패합니다. 바인딩이 없는 프로필에는 접근할 수 없습니다. `--http` 또는 `--check`가 필요하며 `SKILLSHARE_MCP_TOKEN`과 함께 사용할 수 없습니다. 없거나 빈 환경 변수, 중복 이름·자격 증명, 알 수 없는 프로필은 거부됩니다. 진단에는 토큰 값이 출력되지 않습니다.
+
+루프백을 포함한 **모든** MCP·인덱스·파일 요청에 `Authorization: Bearer <token>`을 보냅니다. 자격 증명이 없으면 `401`이며 활성 프로필이나 전체 목록으로 대체하지 않습니다. URL이나 추가 헤더로 다른 프로필을 선택할 수 없습니다. 인증된 응답에는 private 캐시 정책을 적용합니다. 루프백 외부에서는 TLS 또는 신뢰할 수 있는 네트워크용 명시적 insecure 옵션이 필요합니다.
+
+`--target`은 각 프로필을 더 좁힐 뿐 skill을 추가하지 않습니다. ignore, 비활성화, variant, 중첩 skill 포함 제한도 유지됩니다. 시작·확인·읽기는 config, 활성 상태, 메타데이터, target을 변경하지 않으며 로컬 상태가 손상되어도 작동합니다. 정의나 자격 증명을 바꾸려면 재시작합니다. source 변경은 5초 이내에 반영됩니다.
+
+편집은 프로필 멤버십과 `mcp.serve.edit.skills`의 교집합에만 허용됩니다. preview ID는 프로필별로 격리되며 적용할 때 현재 멤버십과 쓰기 가능 여부를 다시 확인합니다. 공유 skill은 같은 source를 사용하고 저장하면 모든 프로필의 스냅샷을 무효화합니다. 같은 revision의 동시 저장은 하나가 성공하고 하나는 conflict가 됩니다. 감사와 작업 로그는 유지되며 target은 다음 명시적 sync 때 갱신됩니다.
 
 ### Edit skills over MCP {#edit-skills-over-mcp}
 

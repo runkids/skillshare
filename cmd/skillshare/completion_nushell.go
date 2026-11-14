@@ -156,6 +156,7 @@ export extern "skillshare mcp" [
     --accept-tools # check --live: accept the tools a server lists as the new baseline
     --timeout: string # check --live: per-server timeout, such as 10s
     --http: string # serve: Streamable HTTP listen address
+    --profile-token: string # serve: NAME=ENV_VAR credential binding (repeatable)
     --tls-cert: string # serve --http: TLS certificate file
     --tls-key: string # serve --http: TLS key file
     --http-allow-insecure # serve --http: allow plain HTTP on a trusted private network

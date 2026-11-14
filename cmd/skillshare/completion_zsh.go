@@ -124,6 +124,7 @@ _skillshare() {
                         '--accept-tools[check --live: accept the tools a server lists as the new baseline]' \
                         '--timeout[check --live: per-server timeout]:duration:' \
                         '--http[serve: Streamable HTTP listen address]:address:' \
+                        '*--profile-token[serve: bind profile to credential environment variable]:NAME=ENV_VAR:' \
                         '--tls-cert[serve --http: TLS certificate file]:file:_files' \
                         '--tls-key[serve --http: TLS key file]:file:_files' \
                         '--http-allow-insecure[serve --http: allow plain HTTP on a trusted private network]' \

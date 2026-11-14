@@ -104,6 +104,7 @@ complete -c skillshare -n '__fish_skillshare_using_command mcp' -l live -d 'chec
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l accept-tools -d 'check --live: accept the tools a server lists as the new baseline'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l timeout -r -d 'check --live: per-server timeout'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l http -r -d 'serve: Streamable HTTP listen address'
+complete -c skillshare -n '__fish_skillshare_using_command mcp' -l profile-token -r -d 'serve: NAME=ENV_VAR credential binding'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l tls-cert -r -F -d 'serve --http: TLS certificate file'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l tls-key -r -F -d 'serve --http: TLS key file'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l http-allow-insecure -d 'serve --http: allow plain HTTP on a trusted private network'

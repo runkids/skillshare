@@ -55,6 +55,7 @@ skillshare sync --all
 | `--timeout DURATION` | 与 `check --live` 一起使用：每个 server 探测的时间限制，例如 `30s`；默认 `10s` |
 | `--accept-tools` | 与 `check --live` 一起使用：把每个已探测 server 列出的工具定义记录为新的基线。参见[下文](#pin-tool-definitions) |
 | `--http ADDR` | 与 `serve` 一起使用：在 `ADDR` 上以 Streamable HTTP 监听，而不使用 stdio，同时提供 [Executor skill 索引](#executor)。参见[下文](#serve-skills-over-mcp) |
+| `--profile-token NAME=ENV_VAR` | 搭配 `serve --http` 或 `serve --check`：将凭据环境变量绑定到命名配置档，可重复指定。 [↗](#hosted-profiles) |
 | `--http-allow-insecure` | 使用 `serve --http` 时：显式允许可信私有网络上的明文 HTTP，并在启动时警告；默认关闭 |
 | `--tls-cert FILE`, `--tls-key FILE` | 与 `serve --http` 一起使用：以这个 PEM 证书和私钥提供 HTTPS；未显式允许时，监听非 loopback 地址必须提供 |
 | `--check` | 与 `serve` 一起使用：列出会被跳过的 skill 及原因、可编辑的数量，以及 Executor 索引会提供的内容，然后退出，不提供服务 |
@@ -842,7 +843,7 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
 两份 skill。两个工具都标记了 `readOnlyHint`，因此会在修改数据的工具前请求确认的 client 或
 gateway 调用它们时不会请求确认。通过工具读取的内容对 Agent 而言只是普通文本：Agent 自身的 skill 批准机制不适用。
 
-- **选择。** 不带 `--target` 时，会提供每一个已启用的 skill。`--target NAME`
+- **选择。** 没有配置档绑定或 `--target` 时，会提供所有启用的 skill。指定 target 时，本地活动配置档也会缩小选择范围。 `--target NAME`
   会应用该 target 的 `include`/`exclude` 过滤器和 frontmatter `targets`，与其 sync 模式无关；
   skill 始终来自 source。关闭了 skills 的 target 会报错。
 - **跳过的 skill。** 以下情况的 skill 会被跳过，并在 stderr 上给出 warning：其 `SKILL.md`
@@ -854,7 +855,7 @@ gateway 调用它们时不会请求确认。通过工具读取的内容对 Agent
   `disable` 无需重启即可生效。结果带有 `ttlMs: 5000`。
 - **作用范围。** 默认为 global，无论在哪里启动 server。`-p` 提供当前目录中的项目。
 - **传输。** 默认为 stdio，供启动该命令的 gateway 或 Agent 使用。`--http ADDR` 提供
-  Streamable HTTP。非 loopback 地址需要 `SKILLSHARE_MCP_TOKEN`，并通过 `--tls-cert` 和
+  Streamable HTTP。非 loopback 地址需要 `SKILLSHARE_MCP_TOKEN`（或下方的配置档绑定），并通过 `--tls-cert` 和
   `--tls-key` 使用 HTTPS，默认情况下 token 不会以明文在网络上传输；设置 token 后，每个请求都必须
   发送 `Authorization: Bearer <token>`。若要改用 TLS 代理，请绑定 loopback 地址，例如
   `127.0.0.1:8765`，由代理终止 TLS。没有 token 时，该服务器只响应 `Host` 为 loopback 地址的请求，
@@ -905,6 +906,26 @@ mcp:
 ```bash
 npx @modelcontextprotocol/inspector --cli skillshare mcp serve --method skills/list --verify
 ```
+
+### 托管配置档 {#hosted-profiles}
+
+在一个进程中提供多个[命名配置档](/docs/reference/commands/profile)。每个凭据只能访问其绑定配置档的 MCP 工具、资源以及 Executor 索引和文件。
+
+```bash
+skillshare mcp serve -g --http 127.0.0.1:8765 \
+  --profile-token writing=WRITING_TOKEN \
+  --profile-token coding=CODING_TOKEN
+skillshare mcp serve -g --check \
+  --profile-token writing=WRITING_TOKEN --profile-token coding=CODING_TOKEN
+```
+
+在所选配置的 `profiles` 中定义 `writing` 和 `coding`，项目定义使用 `-p`。启动时加载所有定义；即使未绑定的定义不可用，也会导致启动失败。未绑定的配置档无法访问。必须使用 `--http` 或 `--check`，不能同时设置 `SKILLSHARE_MCP_TOKEN`。缺失或空的环境变量、重复名称或凭据、不存在的配置档都会被拒绝。诊断只显示配置档或变量名，不输出 token 值。
+
+在**每个** MCP、索引及文件请求中发送 `Authorization: Bearer <token>`，包括 loopback。没有凭据会返回 `401`，不会回退到本地活动配置档或完整目录。URL 参数和额外标头不能选择其他配置档。认证响应使用 private 缓存策略。非 loopback 仍需 TLS 或显式允许可信网络上的 insecure HTTP。
+
+`--target` 只会进一步缩小各配置档，不会增加 skill。忽略、停用、variant 和嵌套 skill 的包含限制仍然有效。启动、检查和读取不会修改配置、活动状态、元数据或 target，本地活动状态损坏时也可使用。定义和绑定是启动快照，修改或轮换凭据后须重启。source 变化会在五秒内刷新。
+
+启用编辑后，权限为成员范围与 `mcp.serve.edit.skills` 的交集。preview ID 按配置档隔离，应用时重新检查当前成员范围和可写性。共享 skill 使用同一份 source；保存会使所有配置档快照失效，同一 revision 的竞争保存产生一次成功和一次 conflict。成功编辑保留审计和操作日志，target 在下次显式 sync 时更新。
 
 ### 通过 MCP 编辑 skill {#edit-skills-over-mcp}
 

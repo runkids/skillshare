@@ -55,6 +55,7 @@ skillshare sync --all
 | `--timeout DURATION` | With `check --live`: time limit for each server's probe, such as `30s`; default `10s` |
 | `--accept-tools` | With `check --live`: record the tool definitions each probed server lists as its new baseline. See [below](#pin-tool-definitions) |
 | `--http ADDR` | With `serve`: listen for Streamable HTTP on `ADDR` instead of using stdio, and also serve the [Executor skill index](#executor). See [below](#serve-skills-over-mcp) |
+| `--profile-token NAME=ENV_VAR` | With `serve --http` or `serve --check`: bind one credential environment variable to a named profile; repeat for more profiles. See [Hosted profiles](#hosted-profiles) |
 | `--http-allow-insecure` | With `serve --http`: allow the bearer token over plain HTTP off loopback on a trusted private network; logs a warning. Default: off |
 | `--tls-cert FILE`, `--tls-key FILE` | With `serve --http`: serve HTTPS with this PEM certificate and key; required off loopback unless explicitly opted out |
 | `--check` | With `serve`: list the skills it would skip and why, how many are editable, and what the Executor index would serve, then exit without serving |
@@ -933,7 +934,8 @@ see each skill twice. Both tools are marked `readOnlyHint`, so a client or gatew
 asks before tools that change data calls them without asking. Content read through a tool
 is ordinary text to the Agent: its own skill approval does not apply.
 
-- **Selection.** Without `--target`, every enabled skill is served. `--target NAME`
+- **Selection.** Without profile bindings or `--target`, every enabled skill is served. With
+  a target, the local active profile also narrows its selection. `--target NAME`
   applies that target's `include`/`exclude` filters and frontmatter `targets`, whatever
   its sync mode; skills always come from the source. A target with skills turned off is
   an error.
@@ -952,7 +954,7 @@ is ordinary text to the Agent: its own skill approval does not apply.
   in the current directory.
 - **Transport.** stdio by default, for a gateway or Agent that starts the command.
   `--http ADDR` serves Streamable HTTP. A non-loopback address requires
-  `SKILLSHARE_MCP_TOKEN` and, by default, HTTPS through `--tls-cert` and `--tls-key`.
+  `SKILLSHARE_MCP_TOKEN` (or the profile bindings below) and, by default, HTTPS through `--tls-cert` and `--tls-key`.
   For a trusted private network, `--http-allow-insecure` explicitly allows
   plain HTTP and prints a startup warning. The token is still required off loopback.
   When the token is set, every request must
@@ -1013,6 +1015,48 @@ frontmatter and checks each file's digest:
 ```bash
 npx @modelcontextprotocol/inspector --cli skillshare mcp serve --method skills/list --verify
 ```
+
+### Hosted profiles {#hosted-profiles}
+
+Serve several [named profiles](/docs/reference/commands/profile) in one process.
+Each credential sees only its bound profile through MCP tools/resources and the
+Executor index, including direct file requests:
+
+```bash
+# Supply WRITING_TOKEN and CODING_TOKEN through your secret environment.
+skillshare mcp serve -g --http 127.0.0.1:8765 \
+  --profile-token writing=WRITING_TOKEN \
+  --profile-token coding=CODING_TOKEN
+# Validate without listening; reports served, editable and Executor counts per profile.
+skillshare mcp serve -g --check \
+  --profile-token writing=WRITING_TOKEN --profile-token coding=CODING_TOKEN
+```
+
+Define `writing` and `coding` in the selected config's `profiles` section. Use `-p`
+for project definitions. Every configured profile is loaded at startup; an unusable
+one fails startup even without a binding. Unbound profiles remain inaccessible.
+Bindings require `--http` or `--check`; do not also set `SKILLSHARE_MCP_TOKEN`.
+Missing/empty token variables, duplicate names or credential values, and unknown
+profiles fail with diagnostics that name profiles or variables without printing tokens.
+
+Send `Authorization: Bearer <token>` on **every** MCP, Executor index and file
+request, including loopback requests. No credential means `401`, with no fallback
+to the local active profile or the full catalog. URL parameters and extra headers
+cannot select another profile. Authenticated responses use private cache policy.
+Off loopback, TLS or the explicit trusted-network insecure opt-in is still required.
+
+`--target` further narrows each profile; it cannot add skills. Ignore, disabled,
+variant and nested-skill containment rules still apply. Startup, checks and reads
+leave config, active-profile state, metadata and targets unchanged, including when
+local active state is broken. Definitions and bindings are startup snapshots:
+restart to change them or rotate credentials. Source changes refresh within five seconds.
+
+With editing enabled, membership intersects `mcp.serve.edit.skills`. Preview IDs
+are private to each profile, and apply checks current membership and writability.
+Shared skills use the same source files: one save invalidates every profile's
+snapshot, and competing saves against the same revision yield one save and one
+conflict. Successful edits retain audit and operation logs; targets change on the
+next explicit sync.
 
 ### Edit skills over MCP {#edit-skills-over-mcp}
 

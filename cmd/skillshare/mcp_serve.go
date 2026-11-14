@@ -5,12 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"slices"
-	"strings"
 	"syscall"
 	"time"
 
@@ -23,7 +21,7 @@ import (
 	"skillshare/internal/ui"
 )
 
-const mcpServeUsage = "skillshare mcp serve [--target <name>] [--http <addr> [--tls-cert <file> --tls-key <file>] [--http-allow-insecure] | --check] [-g|-p]"
+const mcpServeUsage = "skillshare mcp serve [--target <name>] [--profile-token NAME=ENV_VAR ...] [--http <addr> [--tls-cert <file> --tls-key <file>] [--http-allow-insecure] | --check] [-g|-p]"
 
 // mcpServeTokenEnv holds the bearer token HTTP clients must send.
 const mcpServeTokenEnv = "SKILLSHARE_MCP_TOKEN"
@@ -33,8 +31,9 @@ const mcpServeTokenEnv = "SKILLSHARE_MCP_TOKEN"
 // protocol, so diagnostics go to stderr.
 func cmdMCPServe(args []string) error {
 	var target, addr, certFile, keyFile string
+	var profileTokens []string
 	valueFlags := map[string]*string{"--target": &target, "--http": &addr, "--tls-cert": &certFile, "--tls-key": &keyFile}
-	mode, rest, err := parseModeArgs(args, slices.Collect(maps.Keys(valueFlags))...)
+	mode, rest, err := parseModeArgs(args, append(slices.Collect(maps.Keys(valueFlags)), "--profile-token")...)
 	if err != nil {
 		return err
 	}
@@ -47,6 +46,14 @@ func cmdMCPServe(args []string) error {
 		}
 		if a == "--check" {
 			check = true
+			continue
+		}
+		if a == "--profile-token" {
+			if i+1 == len(rest) {
+				return fmt.Errorf("--profile-token requires NAME=ENV_VAR")
+			}
+			i++
+			profileTokens = append(profileTokens, rest[i])
 			continue
 		}
 		v, ok := valueFlags[a]
@@ -74,6 +81,34 @@ func cmdMCPServe(args []string) error {
 	}
 
 	// A gateway chooses the working directory, so only -p selects project mode.
+	var handler http.Handler
+	if len(profileTokens) > 0 {
+		if addr == "" && !check {
+			return fmt.Errorf("--profile-token requires --http or --check")
+		}
+		if os.Getenv(mcpServeTokenEnv) != "" {
+			return fmt.Errorf("--profile-token cannot be combined with %s", mcpServeTokenEnv)
+		}
+		bindings, err := parseMCPServeProfileBindings(profileTokens, os.LookupEnv)
+		if err != nil {
+			return err
+		}
+		builders, edit, err := loadMCPServeProfiles(mode, target)
+		if err != nil {
+			return err
+		}
+		handler, err = skillserve.NewHostedHandler(builders, bindings, skillserve.Options{Version: version, Warn: os.Stderr, Refresh: 5 * time.Second, Edit: edit})
+		if err != nil {
+			return err
+		}
+		if check {
+			return printMCPServeProfilesCheck(builders, edit)
+		}
+		if !isLoopbackAddr(addr) && certFile == "" && !allowInsecure {
+			return fmt.Errorf("refusing hosted credentials over plain HTTP on %s: pass --tls-cert and --tls-key, bind loopback behind a TLS proxy, or pass --http-allow-insecure for a trusted private network", addr)
+		}
+		return serveMCPHTTP(handler, addr, certFile, keyFile, allowInsecure)
+	}
 	b := &skillserve.Builder{Target: target}
 	var targets map[string]config.TargetConfig
 	var edit *skillserve.EditOptions
@@ -161,24 +196,6 @@ func cmdMCPServe(args []string) error {
 		}
 		return nil
 	}
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		return err
-	}
-	httpSrv := &http.Server{Handler: skillserve.HTTPHandler(srv, token), ReadHeaderTimeout: 10 * time.Second}
-	go func() {
-		<-ctx.Done()
-		httpSrv.Close()
-	}()
-	scheme := "https"
-	if certFile == "" {
-		scheme = "http"
-	}
-	if allowInsecure && certFile == "" && !isLoopbackAddr(addr) {
-		fmt.Fprintln(os.Stderr, "warning: --http-allow-insecure sends the bearer token over plain HTTP; use only on a trusted private network")
-	}
-	fmt.Fprintf(os.Stderr, "Serving skills over MCP at %s://%s/\n", scheme, ln.Addr())
-	fmt.Fprintf(os.Stderr, "Executor skill index at %s://%s%sindex.json\n", scheme, ln.Addr(), skillserve.IndexPath)
 	if idx, err := srv.Index(); err == nil {
 		for _, s := range idx.Skipped {
 			fmt.Fprintf(os.Stderr, "warning: %s left out of the Executor index: %s\n", s.Path, s.Reason)
@@ -187,15 +204,7 @@ func cmdMCPServe(args []string) error {
 			fmt.Fprintln(os.Stderr, "warning: "+idx.Err.Error())
 		}
 	}
-	if certFile == "" {
-		err = httpSrv.Serve(ln)
-	} else {
-		err = httpSrv.ServeTLS(ln, certFile, keyFile)
-	}
-	if !errors.Is(err, http.ErrServerClosed) {
-		return err
-	}
-	return nil
+	return serveMCPHTTP(skillserve.HTTPHandler(srv, token), addr, certFile, keyFile, allowInsecure)
 }
 
 // mcpServeEdit reads mcp.serve.edit. It returns nil when editing is off.
@@ -251,18 +260,4 @@ func printMCPServeCheck(b *skillserve.Builder, edit *skillserve.EditOptions) err
 	}
 	ui.Done(mark, text, time.Since(start))
 	return nil
-}
-
-// isLoopbackAddr reports whether a listen address only accepts local
-// connections. An empty host listens on every interface.
-func isLoopbackAddr(addr string) bool {
-	host, _, err := net.SplitHostPort(addr)
-	if err != nil || host == "" {
-		return false
-	}
-	if strings.EqualFold(host, "localhost") {
-		return true
-	}
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
 }

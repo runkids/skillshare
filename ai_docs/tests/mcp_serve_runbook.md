@@ -2,7 +2,7 @@
 
 Validates the SEP-2640 skills server over stdio and Streamable HTTP, and its opt-in skill editing.
 
-**Origin**: issue #428 — Agents that only reach an MCP endpoint need the skills Skillshare manages. Editing: issue #540. Executor index: issue #574.
+**Origin**: issue #428 — Agents that only reach an MCP endpoint need the skills Skillshare manages. Editing: issue #540. Executor index: issue #574. Hosted profiles: issue #896.
 
 ## Scope
 
@@ -18,14 +18,14 @@ Validates the SEP-2640 skills server over stdio and Streamable HTTP, and its opt
 - `--http-allow-insecure` starts with exactly one warning and still requires a token
 - With `mcp.serve.edit`, a preview writes nothing, apply saves exactly the preview once, and an unlisted skill is refused
 - Over HTTP, the Executor index at `/.well-known/agent-skills/` lists text skills, leaves out one with a binary file (and `--check` says so), serves listed files, and changes a skill's `version` after `apply_skill_edit`
+- Hosted credentials isolate concurrent profile catalogs and Executor files; `--check` validates all profiles without changing persisted state
 
 ## Environment
 
-Run inside the devcontainer with a fresh ssenv HOME:
+Run inside the devcontainer; mdproof creates a fresh isolated HOME:
 
 ```bash
-ssenv create mcp-serve-e2e --init
-ssenv enter mcp-serve-e2e -- mdproof --report json /workspace/ai_docs/tests/mcp_serve_runbook.md
+mdproof --report json /workspace/ai_docs/tests/mcp_serve_runbook.md
 ```
 
 Every step works from `$HOME` and points `SKILLSHARE_CONFIG` at `$HOME/mcp-serve/config.yaml`.
@@ -188,7 +188,7 @@ Expected:
 - exit_code: 1
 - --tls-cert
 
-### Step 8a: Explicit plain HTTP opt-in warns once and keeps bearer authentication
+### Step 9: Explicit plain HTTP opt-in warns once and keeps bearer authentication
 
 ```bash
 set -eu
@@ -216,7 +216,7 @@ Expected:
 - jq: .auth == "200"
 - jq: .warnings == 1
 
-### Step 8b: Plain HTTP opt-in without a token is still refused
+### Step 10: Plain HTTP opt-in without a token is still refused
 
 ```bash
 cd "$HOME"
@@ -230,7 +230,7 @@ Expected:
 - without authentication
 - SKILLSHARE_MCP_TOKEN
 
-### Step 9: Preview and apply an edit over HTTP
+### Step 11: Preview and apply an edit over HTTP
 
 ```bash
 set -eu
@@ -272,7 +272,7 @@ Expected:
 - jq: .again | startswith("expired:")
 - jq: .notes | startswith("not_writable:")
 
-### Step 10: Executor index over HTTP
+### Step 12: Executor index over HTTP
 
 ```bash
 set -eu
@@ -319,7 +319,85 @@ Expected:
 - jq: .changed == true
 - jq: .check == true
 
+### Step 13: Hosted credentials isolate profiles without changing state
+
+```bash
+set -eu
+cd "$HOME"
+python3 - <<'HOSTED'
+import concurrent.futures, json, os, pathlib, shutil, subprocess, urllib.request, urllib.error
+case = pathlib.Path.home() / "mcp-hosted-e2e"
+if case.exists():
+    shutil.rmtree(case)  # only this fixture-owned tree
+source = case / "skills"
+for name in ("alpha", "beta", "shared"):
+    skill = source / name
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text(f"---\nname: {name}\ndescription: fixture\n---\n# {name}\n")
+config = case / "config.yaml"
+config.write_text(f"source: {source}\ntargets: {{}}\nprofiles:\n  writing:\n    skills:\n      include: [alpha, shared]\n  coding:\n    skills:\n      include: [beta, shared]\n  unbound:\n    skills:\n      include: [beta]\nmcp:\n  serve:\n    edit:\n      skills: [shared]\n")
+env = dict(os.environ)
+for key in ("CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR", "SKILLSHARE_MCP_TOKEN"):
+    env.pop(key, None)
+env.update(SKILLSHARE_CONFIG=str(config), WRITING_TOKEN="fixture-writing", CODING_TOKEN="fixture-coding")
+args = ["ss", "mcp", "serve", "-g", "--profile-token", "writing=WRITING_TOKEN", "--profile-token", "coding=CODING_TOKEN"]
+def snapshot():
+    return {str(p.relative_to(case)): p.read_bytes() for p in case.rglob("*") if p.is_file()}
+before = snapshot()
+check = subprocess.run(args + ["--check"], env=env, capture_output=True, text=True, timeout=20, check=True)
+server = subprocess.Popen(args + ["--http", "127.0.0.1:0"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+try:
+    base = None
+    for line in server.stderr:
+        if line.startswith("Serving skills over MCP at "):
+            base = line.split(" at ", 1)[1].strip().rstrip("/")
+            break
+    assert base, "listener did not start"
+    root = base + "/.well-known/agent-skills/"
+    def fetch(path, token=None):
+        request = urllib.request.Request(root + path)
+        if token:
+            request.add_header("Authorization", "Bearer " + token)
+        try:
+            with urllib.request.urlopen(request, timeout=5) as response:
+                return response.status, response.headers.get("Cache-Control", ""), response.read().decode()
+        except urllib.error.HTTPError as error:
+            return error.code, "", error.read().decode()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        writing, coding = list(pool.map(lambda token: fetch("index.json", token), ("fixture-writing", "fixture-coding")))
+    foreign = fetch("beta/SKILL.md", "fixture-writing")[0]
+    own = fetch("alpha/SKILL.md", "fixture-writing")
+    result = {
+        "writing": [s["name"] for s in json.loads(writing[2])["skills"]],
+        "coding": [s["name"] for s in json.loads(coding[2])["skills"]],
+        "foreign": foreign, "unauth": fetch("index.json")[0],
+        "private": all("private" in r[1] for r in (writing, coding, own)),
+        "own": own[0], "unchanged": before == snapshot(),
+        "check": check.stdout + check.stderr,
+        "writing_response": json.loads(writing[2]), "coding_response": json.loads(coding[2]),
+    }
+    print(json.dumps(result))
+finally:
+    server.terminate()
+    try:
+        server.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        server.kill()
+        server.wait()
+    server.stderr.close()
+    shutil.rmtree(case)
+HOSTED
+```
+
+Expected:
+- exit_code: 0
+- jq: .writing == ["alpha", "shared"]
+- jq: .coding == ["beta", "shared"]
+- jq: .foreign == 404 and .unauth == 401 and .own == 200
+- jq: .private and .unchanged
+- jq: .check | contains("Profile writing:") and contains("Profile coding:") and contains("Profile unbound:") and contains("2 skills served") and contains("1 of 2 (mcp.serve.edit.skills)")
+
 ## Pass Criteria
 
 - All steps marked PASS
-- No `ss mcp serve` process remains after Steps 6, 8a, 9 and 10
+- No `ss mcp serve` process remains after Steps 6, 9, 11, 12 and 13

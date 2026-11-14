@@ -73,7 +73,8 @@ func main() {
 
 	// Project commands must not migrate or rewrite shared config at startup,
 	// so they all skip opportunistic maintenance.
-	skipMaintenance := len(os.Args) > 1 && (os.Args[1] == "updates" || os.Args[1] == "project" && projectSkipsMaintenance(os.Args[2:]) || os.Args[1] == "profile" && profileSkipsMaintenance(os.Args[2:]))
+	hostedServing := len(os.Args) > 2 && os.Args[1] == "mcp" && os.Args[2] == "serve" && slices.Contains(os.Args[3:], "--profile-token")
+	skipMaintenance := hostedServing || len(os.Args) > 1 && (os.Args[1] == "updates" || os.Args[1] == "project" && projectSkipsMaintenance(os.Args[2:]) || os.Args[1] == "profile" && profileSkipsMaintenance(os.Args[2:]))
 	if !skipMaintenance {
 		cleanupOldBinary()
 	}

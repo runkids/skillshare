@@ -10,12 +10,13 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"skillshare/internal/profile"
 	"slices"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"skillshare/internal/profile"
 )
 
 const hostedMeta = `"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"test","version":"1"},"io.modelcontextprotocol/clientCapabilities":{}}`
@@ -304,6 +305,21 @@ func TestHostedEdit_SharedRevisionConflict(t *testing.T) {
 		data := hostedRPC(t, srv, token, "resources/read", `"uri":"`+uri+`"`)
 		if bytes.Contains(data, []byte(`"error"`)) {
 			t.Fatalf("stale catalog: %s", data)
+		}
+		data = hostedRPC(t, srv, token, "skills/get", `"uri":"`+uri+`"`)
+		if !bytes.Contains(data, []byte(skillDigest(saved))) {
+			t.Fatalf("stale resource digest: %s", data)
+		}
+		_, _, data = hostedRequest(t, srv, token, "GET", IndexPath+"index.json", "")
+		var idx testIndex
+		if err := json.Unmarshal(data, &idx); err != nil {
+			t.Fatal(err)
+		}
+		wantVersion := skillDigest("SKILL.md\x00" + skillDigest(saved) + "\n")
+		for _, entry := range idx.Skills {
+			if entry.Name == "shared" && entry.Version != wantVersion {
+				t.Fatalf("stale shared index version: %s want %s", entry.Version, wantVersion)
+			}
 		}
 		_, _, data = hostedRequest(t, srv, token, "GET", IndexPath+"shared/SKILL.md", "")
 		if string(data) != saved {

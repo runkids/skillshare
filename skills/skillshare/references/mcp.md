@@ -73,6 +73,17 @@ skillshare mcp serve --check [--target NAME]         # List skipped, editable an
   lack it and Claude Code's is off by default, so the server also offers `list_skills`
   (`query` filters) and `read_skill` tools, marked `readOnlyHint` and hidden from clients that declare the extension. Verify the server with
   `npx @modelcontextprotocol/inspector --cli skillshare mcp serve --method skills/list --verify`.
+- For hosted profiles, repeat `mcp serve --http ADDR --profile-token NAME=ENV_VAR`
+  (or use `--check` for per-profile served/editable/Executor counts). Each environment
+  credential binds one configured profile; require it on every MCP/index/file request,
+  even loopback. Unbound profiles are inaccessible; no credential has no fallback.
+  Every definition preloads, and malformed/unknown/duplicate bindings or unusable
+  definitions fail safely. Do not also set `SKILLSHARE_MCP_TOKEN`. `--target` only
+  narrows membership. Startup/check/read never switches active state or syncs targets;
+  broken local active state does not affect explicit bindings. Restart for definition
+  or credential changes. Preview IDs are profile-private; shared skills have common
+  source edits, fresh apply authorization and serialized revision conflicts.
+  Authenticated index/file responses are private; Executor must propagate credentials.
 - `mcp.serve.edit.skills` (flat-name patterns, like `include`) lets clients change
   existing files of those skills; `preview_ttl` defaults to `30m`. `preview_skill_edit`
   (uri, `read_skill`'s revision, full content) writes nothing and returns the diff, audit

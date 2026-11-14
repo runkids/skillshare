@@ -55,6 +55,7 @@ skillshare sync --all
 | `--timeout DURATION` | `check --live` で使用。各サーバーのプローブの制限時間(`30s` など)。デフォルトは `10s` |
 | `--accept-tools` | `check --live` で使用。プローブした各サーバーが一覧にしたツール定義を新しいベースラインとして記録する。[下記](#pin-tool-definitions)を参照 |
 | `--http ADDR` | `serve` で使用。stdio の代わりに `ADDR` で Streamable HTTP を待ち受け、[Executor の Skill インデックス](#executor)も提供する。[下記](#serve-skills-over-mcp)を参照 |
+| `--profile-token NAME=ENV_VAR` | `serve --http` または `serve --check` で、認証情報の環境変数を名前付きプロフィールに割り当てます。複数回指定できます。 [↗](#hosted-profiles) |
 | `--http-allow-insecure` | `serve --http` 使用時: 信頼できるプライベートネットワークで平文 HTTP を明示的に許可し、起動時に警告。デフォルトは無効 |
 | `--tls-cert FILE`, `--tls-key FILE` | `serve --http` で使用。この PEM 証明書と鍵で HTTPS を提供する。ループバック以外では明示的なオプトインがない限り必須 |
 | `--check` | `serve` で使用。スキップされる Skill とその理由、編集可能な数と Executor インデックスが提供する内容を一覧表示し、提供せずに終了する |
@@ -736,7 +737,7 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
 
 ほとんどの Agent はまだ Skills extension に対応していないため（下記参照）、サーバーは 2 つのツールも提供します。`list_skills` は名前、説明、URI を一覧表示し（`query` で絞り込み可能。1 回の応答は最大 200 件）、`read_skill` は Skill の `SKILL.md` または他のファイルを読み、`SKILL.md` の場合はその Skill の他のファイルも一覧表示します。MCP ツールを使える Agent なら、ツールを中継する gateway 経由でも、この方法で Skill を読めます。Skills extension を宣言したクライアントは Skill をネイティブに読み込み、この 2 つのツールは提供されないため、各 Skill が二重に表示されることはありません。両方のツールには `readOnlyHint` が付いているため、データを変更するツールの前に確認するクライアントや gateway も、確認なしで呼び出します。ツール経由で読んだ内容は Agent にとって通常のテキストであり、Agent 自身の Skill 承認は適用されません。
 
-- **選択。** `--target` を指定しない場合、有効なすべての Skill が提供されます。`--target NAME`
+- **選択。** プロフィールの割り当てと `--target` がない場合、有効なすべての Skill が提供されます。target を指定するとローカルのアクティブプロフィールでも絞り込みます。 `--target NAME`
   は、sync mode にかかわらず、その target の `include`/`exclude` フィルターと frontmatter の `targets` を適用します。Skill は常に source から取得されます。Skill がオフになっている target を指定するとエラーになります。
 - **スキップされる Skill。** 次の場合、Skill は stderr に警告を出してスキップされます。`SKILL.md`
   がリンクである、または frontmatter で始まっていない場合。`name` が Agent Skills の命名規則に違反している、
@@ -750,7 +751,7 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
 - **スコープ。** サーバーをどこで起動しても、デフォルトは global です。`-p` は現在のディレクトリの project を提供します。
 - **トランスポート。** デフォルトは stdio で、コマンドを起動する gateway または Agent 向けです。
   `--http ADDR` は Streamable HTTP で提供します。ループバック以外のアドレスでは
-  `SKILLSHARE_MCP_TOKEN` と、`--tls-cert` および `--tls-key` による HTTPS が必要です。デフォルトではトークンが平文でネットワークを流れることはありません。トークンが設定されている場合、すべてのリクエストは
+  `SKILLSHARE_MCP_TOKEN`（または以下のプロフィール割り当て） と、`--tls-cert` および `--tls-key` による HTTPS が必要です。デフォルトではトークンが平文でネットワークを流れることはありません。トークンが設定されている場合、すべてのリクエストは
   `Authorization: Bearer <token>` を送る必要があります。代わりに TLS プロキシを使う場合は、`127.0.0.1:8765` のようなループバックアドレスにバインドし、プロキシで TLS を終端してください。トークンがない場合、そのサーバーは `Host` がループバックアドレスのリクエストにしか応答しないため、トークンを設定するか、プロキシにそのような `Host` を送らせてください。
   信頼できるプライベートネットワークでのみ `--http-allow-insecure` を指定すると、平文 HTTP を明示的に許可できます。起動時に警告が表示され、ループバック以外ではトークンが引き続き必須です。デフォルトでは拒否され、ループバックと HTTPS の動作は変わりません。
 - **安全性。** 読み取れるのは Skill のマニフェストにあるファイルだけで、読み取りは Skill ディレクトリ内に限られます。リンクと `.git` は一覧にも表示されず、提供もされません。何も実行されず、編集をオンにしない限り何も書き込まれません。`--http` では、MCP エンドポイントへのクロスオリジンのブラウザーリクエストは拒否されます。Executor インデックスは読み取りにのみ応答し、別オリジンのページはその応答を見られません。
@@ -791,6 +792,26 @@ Skill をネイティブに読み込むには Skills extension が必要です�
 ```bash
 npx @modelcontextprotocol/inspector --cli skillshare mcp serve --method skills/list --verify
 ```
+
+### ホスト型プロフィール {#hosted-profiles}
+
+1 つのプロセスで複数の[名前付きプロフィール](/docs/reference/commands/profile)を提供します。認証情報ごとに、そのプロフィールの MCP ツール、リソース、Executor 索引とファイルだけにアクセスできます。
+
+```bash
+skillshare mcp serve -g --http 127.0.0.1:8765 \
+  --profile-token writing=WRITING_TOKEN \
+  --profile-token coding=CODING_TOKEN
+skillshare mcp serve -g --check \
+  --profile-token writing=WRITING_TOKEN --profile-token coding=CODING_TOKEN
+```
+
+選択した config の `profiles` に `writing` と `coding` を定義します。project の定義には `-p` を使います。起動時にすべての定義を読み込み、未割り当てでも使用不能な定義があれば起動に失敗します。未割り当てのプロフィールにはアクセスできません。`--http` または `--check` が必須で、`SKILLSHARE_MCP_TOKEN` との併用はできません。環境変数の欠落・空値、名前や認証情報の重複、不明なプロフィールは拒否されます。診断にトークン値は表示しません。
+
+ループバックを含む **すべての** MCP・索引・ファイルリクエストに `Authorization: Bearer <token>` を送ります。認証情報がなければ `401` となり、アクティブプロフィールや全体へのフォールバックはありません。URL や追加ヘッダーで別のプロフィールは選べません。認証済みレスポンスは private キャッシュポリシーを使います。ループバック以外では TLS または信頼されたネットワーク向けの明示的な insecure オプションが必要です。
+
+`--target` は各プロフィールをさらに絞り込み、Skill を追加しません。ignore、無効化、variant、入れ子の包含制限も維持します。起動・確認・読み取りは config、アクティブ状態、メタデータ、target を変更せず、ローカル状態が壊れていても動作します。定義や認証情報の変更には再起動が必要です。source の変更は 5 秒以内に更新されます。
+
+編集時はメンバーシップと `mcp.serve.edit.skills` の両方が必要です。preview ID はプロフィール専用で、適用時に現在のメンバーシップと書き込み権限を再確認します。共有 Skill は同じ source を使い、保存は全プロフィールのスナップショットを無効化します。同じ revision への同時保存は 1 件の成功と 1 件の conflict になります。監査と操作ログは維持され、target の更新は次の明示的な sync で行います。
 
 ### MCP で Skill を編集する {#edit-skills-over-mcp}
 

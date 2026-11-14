@@ -62,6 +62,20 @@ Operations that change configuration, sources, targets, or managed files must:
 - read the skills source through `internal/sourcewalk` and pass the same `sourcewalk.Options` the operation's discovery used, so CLI, dashboard, and reconcile agree on which first-level links are followed. The ratchet in `internal/sourcewalk/guard_test.go` fails on any new raw walk until it is listed in `allowlist.json`;
 - run git through `internal/gitenv` (`Command`, `CommandContext`, `Environ`), which drops `GIT_DIR` and the other repository variables a git hook exports, so skillshare started from a hook never works on the hook's repository (#852). `TestNoRawGitCommands` in `internal/gitenv` fails on any new `exec.Command("git", ...)` outside `internal/gitenv`, `internal/hooks` (its own sanitized environment) and `internal/testutil`.
 
+## Hosted skill serving
+
+`mcp serve --profile-token NAME=ENV_VAR` loads global/project config read-only,
+resolves named `profile.Selector` values without local active state, and preloads
+all configured catalogs through `skillserve.NewHostedHandler`. `Builder.Profile`
+applies even without a target; full discovery remains available for containment.
+Every MCP/Executor request authenticates before dispatch. Per-profile catalogs and
+previews are private; only the source save guard is shared. Lock order is the
+common save guard, preview mutex, then catalog mutex; reads never take the common
+guard. Apply rebuilds membership and invalidates sibling snapshots after saving.
+The startup maintenance classification in `main.go` also exempts explicit hosted
+serving, including rejected commands, so read-only loading cannot be preceded by
+legacy filesystem migrations. No-binding serving retains its existing behavior.
+
 ## Tests
 
 Integration tests use `internal/testutil.NewSandbox(t)` and `RunCLI` or `RunCLIInDir`:
