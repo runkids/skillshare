@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.30.8](https://github.com/runkids/skillshare/compare/v0.30.7...v0.30.8) (2026-11-14)
+
+
+### Bug Fixes
+
+* **doctor:** stop the plugin check from holding back later checks ([#889](https://github.com/runkids/skillshare/issues/889)) ([fab72f7](https://github.com/runkids/skillshare/commit/fab72f79e17d653113b5aa4621ae34206f0da31b))
+* **frontmatter:** isolate root identity and hub index tags ([#901](https://github.com/runkids/skillshare/issues/901)) ([990732b](https://github.com/runkids/skillshare/commit/990732b45439a60352648d66428ce8afb98569a2))
+* **hub:** read the same tags for drafts and the index ([#909](https://github.com/runkids/skillshare/issues/909)) ([be8f8b2](https://github.com/runkids/skillshare/commit/be8f8b28749a41e3f6b2d51d2d4328eed90d4106))
+* **mcp:** close Skills conformance gaps with directory reads and resource metadata ([#905](https://github.com/runkids/skillshare/issues/905)) ([e969ebc](https://github.com/runkids/skillshare/commit/e969ebcfb0190237e19b573acb4fb6129be48a72))
+* **reconcile:** keep tracked repo declarations this machine has not cloned ([#880](https://github.com/runkids/skillshare/issues/880)) ([3217d44](https://github.com/runkids/skillshare/commit/3217d44881d9c45c435317de9364616360aec871))
+* **ui:** let an embedding app start the dashboard with both theme axes ([#910](https://github.com/runkids/skillshare/issues/910)) ([f989f13](https://github.com/runkids/skillshare/commit/f989f1385523c73c9893ddb3b347f85dedbe0428))
+* **uninstall:** keep repos installed into a tracked repo's legacy group ([#900](https://github.com/runkids/skillshare/issues/900)) ([58ccb2b](https://github.com/runkids/skillshare/commit/58ccb2bcc5890537696a6c15d8e714fe8bcce0a5)), closes [#898](https://github.com/runkids/skillshare/issues/898)
+
 ## [0.30.7] - 2026-11-13
 
 ### New Features
