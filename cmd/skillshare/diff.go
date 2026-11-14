@@ -411,7 +411,8 @@ func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOp
 	if !opts.jsonOutput {
 		spinner = ui.StartSpinner("Discovering skills")
 	}
-	discovered, discoverErr := sync.DiscoverSourceSkills(cfg.EffectiveSkillsSource(), cfg.SkillsWalk())
+	walk := cfg.SkillsWalk()
+	discovered, discoverErr := sync.DiscoverSourceSkills(cfg.EffectiveSkillsSource(), walk)
 	if discoverErr != nil {
 		if spinner != nil {
 			spinner.Fail("Discovery failed")
@@ -502,7 +503,7 @@ func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOp
 			defer wg.Done()
 			defer func() { <-sem }()
 			progress.startTarget(fe.name)
-			r := collectTargetDiff(fe.name, fe.target, cfg.EffectiveSkillsSource(), fe.mode, fe.resolution, sync.EffectiveFileIgnorePatterns(cfg.Ignore), progress, profileDiffPreview{aware: (cfg.ProfileState().Active != "" || cfg.ProfileState().Pending) && fe.target.ProjectRoot() == "", skills: discovered})
+			r := collectTargetDiff(fe.name, fe.target, cfg.EffectiveSkillsSource(), fe.mode, fe.resolution, sync.EffectiveFileIgnorePatterns(cfg.Ignore), progress, profileDiffPreview{aware: (cfg.ProfileState().Active != "" || cfg.ProfileState().Pending) && fe.target.ProjectRoot() == "", skills: discovered, sourceIncomplete: walk.Follow.Incomplete()})
 			labelProfileDeselected(&r, fe.deselected)
 			progress.doneTarget(fe.name, r)
 			results[idx] = r
@@ -603,8 +604,9 @@ func diffOutputJSONWithExtras(results []targetDiffResult, extrasResults []extraD
 }
 
 type profileDiffPreview struct {
-	aware  bool
-	skills []sync.DiscoveredSkill
+	aware            bool
+	skills           []sync.DiscoveredSkill
+	sourceIncomplete bool
 }
 
 func collectTargetDiff(name string, target config.TargetConfig, source, mode string, resolution *sync.TargetSkillResolution, ignorePatterns []string, dp *diffProgress, preview ...profileDiffPreview) targetDiffResult {
@@ -670,6 +672,23 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 			}
 			r.items = slices.DeleteFunc(r.items, func(item copyDiffEntry) bool { return item.name == change.Entry || item.name == projected })
 			r.items = append(r.items, copyDiffEntry{action: "kept", name: change.Entry, reason: change.Reason, dstDir: filepath.Join(change.Dir, change.Entry)})
+		}
+		if mode == "merge" && !preview[0].sourceIncomplete {
+			pruned, err := sync.PruneOrphanLinksWithSkills(sync.PruneOptions{
+				TargetName: name, TargetPath: sc.Path, SourcePath: source,
+				Skills: preview[0].skills, Profile: sc.Profile,
+				Include: sc.Include, Exclude: sc.Exclude, TargetNaming: sc.TargetNaming,
+				SharedTargets: sc.SharedTargets, Agent: sc.Agent,
+				IgnorePatterns: ignorePatterns, ProfileAware: true, DryRun: true, Quiet: true,
+			})
+			if err != nil {
+				r.errMsg = fmt.Sprintf("Cannot preview target removals: %v", err)
+			} else {
+				for _, entry := range pruned.Removed {
+					r.items = slices.DeleteFunc(r.items, func(item copyDiffEntry) bool { return item.name == entry })
+					r.items = append(r.items, copyDiffEntry{action: "remove", name: entry, reason: "orphan (will be pruned)", isSync: true, dstDir: filepath.Join(sc.Path, entry)})
+				}
+			}
 		}
 		if mode == "merge" {
 			for i, item := range r.items {
