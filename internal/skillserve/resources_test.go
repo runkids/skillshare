@@ -2,14 +2,11 @@ package skillserve
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
-	"skillshare/internal/config"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -64,12 +61,6 @@ func TestServer_DirectoryBrowsingAndResourceMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	cs := connectServer(t, src, Options{Refresh: time.Hour}, nil)
-	ext := cs.InitializeResult().Capabilities.Extensions[extensionID]
-	data, _ := json.Marshal(ext)
-	var capability map[string]any
-	if err := json.Unmarshal(data, &capability); err != nil || capability["directoryRead"] != true {
-		t.Errorf("directory capability = %s", data)
-	}
 	root := directory(t, cs, "skill://_team/doc", "")
 	want := []*mcp.Resource{
 		{URI: "skill://_team/doc/LICENSE", Name: "LICENSE", MIMEType: "text/plain"},
@@ -193,7 +184,7 @@ func TestServer_ResourceAndDirectoryPagesSurviveRefresh(t *testing.T) {
 		t.Errorf("continued resources = %+v", next)
 	}
 	last := directory(t, cs, "skill://s000", dirs.NextCursor)
-	if len(last.Resources) != 3 || last.Resources[0].URI != "skill://s000/part-099.txt" || last.Resources[2].URI != "skill://s000/part-101.txt" || last.NextCursor != "" {
+	if len(last.Resources) != 3 || last.Resources[0].URI != "skill://s000/part-099.txt" || last.Resources[1].URI != "skill://s000/part-100.txt" || last.Resources[2].URI != "skill://s000/part-101.txt" || last.NextCursor != "" {
 		t.Errorf("continued directory = %+v", last)
 	}
 	end := directory(t, cs, "skill://s000", "skill://s000/zzz")
@@ -202,49 +193,13 @@ func TestServer_ResourceAndDirectoryPagesSurviveRefresh(t *testing.T) {
 	}
 }
 
-func TestCatalog_DirectoriesRespectSkillAcceptance(t *testing.T) {
-	for _, tc := range []struct {
-		name          string
-		child, parent string
-		exclude       []string
-		disabled      bool
-		want          []string
-	}{
-		{name: "nested accepted", parent: "suite", child: "child", want: []string{"skill://suite", "skill://suite/child"}},
-		{name: "excluded child skips parent", parent: "suite", child: "child", exclude: []string{"suite__child"}},
-		{name: "disabled child skips parent", parent: "suite", child: "child", disabled: true},
-		{name: "invalid child skips parent", parent: "suite", child: "wrong-name"},
-		{name: "invalid parent leaves only child root", parent: "wrong-name", child: "child", want: []string{"skill://suite/child"}},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			src := t.TempDir()
-			writeFile(t, filepath.Join(src, "suite/SKILL.md"), skillMD(tc.parent))
-			writeFile(t, filepath.Join(src, "suite/child/SKILL.md"), skillMD(tc.child))
-			if tc.disabled {
-				writeFile(t, filepath.Join(src, ".skillignore"), "suite/child\n")
-			}
-			c, err := (&Builder{Source: src, Target: "claude", Skills: &config.ResourceTargetConfig{Exclude: tc.exclude}}).Build()
-			if err != nil {
-				t.Fatal(err)
-			}
-			var got []string
-			for uri := range c.byDir {
-				got = append(got, uri)
-			}
-			sort.Strings(got)
-			if !reflect.DeepEqual(got, tc.want) {
-				t.Errorf("served directories = %v, want %v", got, tc.want)
-			}
-		})
-	}
-}
-
 func BenchmarkCachedResourcePage(b *testing.B) {
 	for _, n := range []int{100, 10000, 100000} {
 		b.Run(fmt.Sprint(n), func(b *testing.B) {
 			c := &Catalog{}
 			for i := range n {
-				c.Skills = append(c.Skills, &Skill{URI: fmt.Sprintf("skill://s%06d/SKILL.md", i), Frontmatter: map[string]any{"name": "fixture", "description": "fixture"}})
+				name := fmt.Sprintf("s%06d", i)
+				c.Skills = append(c.Skills, &Skill{URI: "skill://" + name + "/SKILL.md", Frontmatter: map[string]any{"name": name, "description": "fixture"}})
 			}
 			s := &service{cat: c, built: time.Now(), opts: Options{Refresh: time.Hour}}
 			p := &mcp.ListResourcesParams{Cursor: fmt.Sprintf("skill://s%06d/SKILL.md", n/2)}

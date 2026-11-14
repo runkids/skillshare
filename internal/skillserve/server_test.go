@@ -2,6 +2,7 @@ package skillserve
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -70,6 +71,12 @@ func TestServer_DeclaresSkillsExtension(t *testing.T) {
 	caps := cs.InitializeResult().Capabilities
 	if _, ok := caps.Extensions[extensionID]; !ok || caps.Resources == nil {
 		t.Errorf("capabilities = %+v, want resources and %s", caps, extensionID)
+	}
+	ext := caps.Extensions[extensionID]
+	data, _ := json.Marshal(ext)
+	var capability map[string]any
+	if err := json.Unmarshal(data, &capability); err != nil || capability["directoryRead"] != true {
+		t.Errorf("directory capability = %s", data)
 	}
 }
 
