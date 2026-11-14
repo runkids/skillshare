@@ -70,10 +70,6 @@ func pluginNpmTargets(s *plugin.Service, r *plugin.Request) error {
 		return errMCPCancelled
 	}
 	for _, i := range idx {
-		if targets[i] == "" {
-			r.Targets = nil
-			break
-		}
 		r.Targets = append(r.Targets, targets[i])
 	}
 	return nil
@@ -157,10 +153,6 @@ func pluginWizardAction(s *plugin.Service, o pluginOptions) error {
 				return errMCPCancelled
 			}
 			for _, i := range idx {
-				if targets[i] == "" {
-					r.Targets = nil
-					break
-				}
 				r.Targets = append(r.Targets, targets[i])
 			}
 		}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -62,6 +63,9 @@ func TestPluginCommandsBatch(t *testing.T) {
 				commandOutput(t, bin, "demo-one", "checked")
 			}
 			if scope == "native" {
+				if inventory.Packages["demo"].Bindings["cursor"].Digest != seen["cursor"].Digest || result == nil || !slices.ContainsFunc(result.Results, func(o Outcome) bool { return o.Target == "cursor" && !o.Commands && o.Status == "installed" }) {
+					t.Fatalf("selected native update did not complete: %+v", result)
+				}
 				commandOutput(t, bin, "demo-one", "old-one")
 			}
 			if _, err := os.Lstat(filepath.Join(bin, "demo-two")); err != nil {

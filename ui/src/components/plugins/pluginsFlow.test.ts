@@ -375,6 +375,9 @@ describe('plugins flow rules', () => {
       const expected = tail === 'installed' ? { demo: { claude: { version: '1.1.0' } } } : pending;
       expect.soft(updatesLeft(pending, replacing, { result: { results }, failure: tail === 'installed' ? '' : 'native failure' }), tail).toEqual(expected);
     }
+    const checked = plan('checked', { target: '', commands: true, action: 'update-available', binding: { id: '', source: 'owner/repo', digest: 'new' } });
+    const removal = plan('remove', { target: '', commands: true, action: 'remove' });
+    expect(updatesLeft(updatesFound(checked), removal, { result: { results: [{ name: 'demo', target: '', commands: true, status: 'removed' }] }, failure: '' })).toEqual({ demo: {} });
   });
   it('keeps an Agent whose update was skipped', () => {
     expect(updatesLeft(pending, updating, { result: { results: [{ name: 'demo', target: 'codex', status: 'skipped' }] }, failure: '' })).toEqual(pending);
@@ -471,20 +474,14 @@ it('keeps command-only updates selectable and retries package failure without a 
  expect(h.result.current.pendingUpdates).toEqual([]);
 });
 
-
-it('clears a checked command update when the last declaration is removed', () => {
- const checked = plan('checked', { target: '', commands: true, action: 'update-available', binding: { id: '', source: 'owner/repo', digest: 'new' } });
- const removal = plan('remove', { target: '', commands: true, action: 'remove' });
- expect(updatesLeft(updatesFound(checked), removal, { result: { results: [{ name: 'demo', target: '', commands: true, status: 'removed' }] }, failure: '' })).toEqual({ demo: {} });
-});
-
-
 it('shows failed package checks while retaining the previous checked update', async () => {
  const inventory: PluginInventory = { packages: { demo: { source: 'owner/repo', bindings: {} } }, hosts: [] };
  const found = plan('old', { target: '', commands: true, action: 'update-available', binding: { id: '', source: 'owner/repo', digest: 'checked' } });
  const failed = plan('failed', { target: '', commands: true, action: 'skip', failed: true, message: 'command conflict', messageKey: 'plugins.error.commandConflict', messageArgs: { name: 'demo', bin: '/fixture/bin' } });
- checks({ name: 'demo', plan: found }, { name: 'demo', plan: failed });
+ checks({ name: 'demo', plan: found });
+ checks({ name: 'demo', plan: failed });
  const h = renderHook(() => usePluginsFlow({ t, inventory, refresh: vi.fn(), onPreviewed: vi.fn() }));
+ await act(() => h.result.current.check());
  await act(() => h.result.current.check());
  expect(h.result.current.checkFailures.demo).toBe('plugins.error.commandConflict');
  expect(h.result.current.updates.demo[''].digest).toBe('checked');

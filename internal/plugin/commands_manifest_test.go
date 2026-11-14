@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -51,12 +52,25 @@ func TestPluginCommandsManifest(t *testing.T) {
 				if c.CommandProblem == "" {
 					t.Fatalf("unsafe command accepted: %+v", c)
 				}
+				if tt.name == "traversal" {
+					// Discovery transport must retain the structured validation identity.
+					raw, _ := json.Marshal(d)
+					var restored Discovery
+					if err := json.Unmarshal(raw, &restored); err != nil {
+						t.Fatal(err)
+					}
+					raw, _ = json.Marshal(restored.Candidates[0])
+					var fields map[string]any
+					if err := json.Unmarshal(raw, &fields); err != nil || fields["commandProblemKey"] != "plugins.error.commandPath" {
+						t.Fatalf("validation identity lost: %s %v", raw, err)
+					}
+				}
 				return
 			}
 			if c.CommandProblem != "" || c.Commands[tt.command] != tt.path {
 				t.Fatalf("commands not discovered: %+v", c)
 			}
-			if len(c.TargetInfo["codex"].Components) == 0 {
+			if !slices.Contains(c.TargetInfo["codex"].Components, "commands") || !slices.Contains(c.TargetInfo["codex"].Components, "skills") {
 				t.Fatal("native components lost")
 			}
 		})

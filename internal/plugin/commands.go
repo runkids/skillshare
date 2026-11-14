@@ -140,7 +140,11 @@ func (s *Service) composeCommands(d *document) {
 		decl, declared := d.intent[name]
 		b.Cleanup = !declared || receipt.Intent != packageFingerprint(decl)
 		if local.Pending != nil {
-			b.Pending = local.Pending.Action
+			if local.Pending.Intent == packageFingerprint(decl) {
+				b.Pending = local.Pending.Action
+			} else {
+				b.Pending = "update"
+			}
 		}
 		bin, err := s.commandBin()
 		if err != nil || bin != receipt.Bin {
@@ -215,6 +219,7 @@ func (s *Service) planCommands(ctx context.Context, r Request, d *document) ([]C
 	}
 	changes := []Change{}
 	for _, name := range slices.Sorted(maps.Keys(names)) {
+		var err error
 		recipe := names[name]
 		if r.Commands == nil && len(r.Targets) > 0 && r.Action != "add" {
 			// CLI filters include package commands only when a selected native
@@ -236,7 +241,7 @@ func (s *Service) planCommands(ctx context.Context, r Request, d *document) ([]C
 		if before == nil {
 			before = local.Pending
 		}
-		remove := r.Action == "remove" || recipe.Source == "" || local.Pending != nil && local.Pending.Action == "remove" && r.Action == "sync"
+		remove := r.Action == "remove" || recipe.Source == "" || local.Pending != nil && local.Pending.Action == "remove" && local.Pending.Intent == packageFingerprint(recipe) && r.Action == "sync"
 		c := Change{Name: name, Commands: true, Action: "install"}
 		cp := &commandPlan{Before: cloneCommandReceipt(before)}
 		c.command = cp
@@ -271,12 +276,15 @@ func (s *Service) planCommands(ctx context.Context, r Request, d *document) ([]C
 			}
 
 			var after *commandReceipt
-			if r.Action == "sync" && before != nil && before.Intent == packageFingerprint(recipe) {
-				after = cloneCommandReceipt(before)
-				if local.Pending != nil {
-					after = cloneCommandReceipt(local.Pending)
+			if r.Action == "sync" {
+				for _, receipt := range []*commandReceipt{local.Pending, local.Applied} {
+					if receipt != nil && receipt.Intent == packageFingerprint(recipe) && receipt.Action != "remove" {
+						after = cloneCommandReceipt(receipt)
+						break
+					}
 				}
-			} else {
+			}
+			if after == nil {
 				var disc *Discovery
 				var candidate *Candidate
 				if addDiscovery != nil && recipe.Source == addDiscovery.Source && recipe.SourceRef == addDiscovery.SourceRef && recipe.Plugin == addCandidate.Name {
@@ -482,6 +490,7 @@ func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out
 	pending := cloneCommandReceipt(after)
 	if pending == nil {
 		pending = cloneCommandReceipt(before)
+		pending.Intent = packageFingerprint(d.intent[c.Name])
 	}
 	pending.Action = c.Action
 	// Persist every exact prior proof before replacing the interrupted intent.

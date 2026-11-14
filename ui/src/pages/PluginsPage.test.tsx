@@ -276,5 +276,6 @@ it('shows a failed command check in the update dialog', async () => {
  mount();
  await screen.findByText('demo');
  fireEvent.click(await screen.findByRole('button', { name: 'plugins.check' }));
- expect(await screen.findByText('Command destination conflicts with an operator file.')).toBeInTheDocument();
+ const dialog = await screen.findByRole('dialog', { name: 'plugins.updateDialog.title' });
+ expect(within(dialog).getByText('Command destination conflicts with an operator file.')).toBeInTheDocument();
 });

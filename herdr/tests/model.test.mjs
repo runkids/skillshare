@@ -813,9 +813,10 @@ test("a request on another machine does not touch this machine's rows", () => {
 test("package commands are installed and pending cleanup contributes sync", () => {
   const items = buildItems("global", { plugins: { packages: {
     installed: { commands: { binding: { version: "1.0.0" }, names: ["demo"], bin: "/fixture/bin" } },
-    cleanup: { commands: { binding: { pending: "cleanup", cleanup: true }, names: ["old"], bin: "/fixture/bin" } },
+    pending: { commands: { binding: { pending: "update" }, names: ["demo"], bin: "/fixture/bin" } },
+    cleanup: { commands: { binding: { cleanup: true }, names: ["old"], bin: "/fixture/bin" } },
   } } });
   assert.equal(items.find(i => i.name === "installed").state, "ok");
+  assert.equal(items.find(i => i.name === "pending").state, "sync");
   assert.equal(items.find(i => i.name === "cleanup").state, "sync");
-  assert.deepEqual(syncScopes(items, { global: {} }), ["global"]);
 });

@@ -2,11 +2,11 @@ package plugin
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -192,52 +192,6 @@ func TestPluginCommandsFreshDiscoveryFailure(t *testing.T) {
 	}
 }
 
-func TestPluginCommandsLocalizedFailure(t *testing.T) {
-	s, root, bin := commandFixture(t)
-	applyPluginRequest(t, s, Request{Action: "add", Source: root})
-	if err := os.Remove(filepath.Join(bin, "demo-one")); err != nil {
-		t.Fatal(err)
-	}
-	writePluginFile(t, bin, "demo-one", "operator")
-	r := Request{Action: "update", All: true}
-	p, err := s.Preview(context.Background(), r)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, c := range p.Changes {
-		if c.Commands && (c.MessageKey != "plugins.error.commandConflict" || c.MessageArgs["name"] != "demo-one" || c.MessageArgs["bin"] != bin) {
-			t.Errorf("preview lost localized identity: %+v", c)
-		}
-	}
-	result, err := s.Apply(context.Background(), r, p.Revision)
-	if err == nil {
-		t.Fatal("conflict succeeded")
-	}
-	for _, o := range result.Results {
-		if o.Commands && (o.MessageKey != "plugins.error.commandConflict" || o.MessageArgs["bin"] != bin) {
-			t.Errorf("outcome lost localized identity: %+v", o)
-		}
-	}
-	declareReviewCommands(t, root, `{"demo-one":"../escape"}`)
-	d, err := Discover(context.Background(), root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Exercise discovery serialization: catalog/API transport must preserve the validation key.
-	raw, _ := json.Marshal(d)
-	var restored Discovery
-	if err := json.Unmarshal(raw, &restored); err != nil {
-		t.Fatal(err)
-	}
-	c := restored.Candidates[0]
-	raw, _ = json.Marshal(c)
-	var fields map[string]any
-	_ = json.Unmarshal(raw, &fields)
-	if fields["commandProblemKey"] != "plugins.error.commandPath" {
-		t.Fatalf("validation identity lost: %s", raw)
-	}
-}
-
 // A CLI target filter scopes native bindings, but a default-recipe update still
 // reviews package commands. Explicit API selections remain authoritative.
 func TestPluginCommandsTargetedDefaultUpdate(t *testing.T) {
@@ -330,5 +284,168 @@ func TestPluginCommandsTargetedRefKeepsDefault(t *testing.T) {
 		if c.Commands {
 			t.Fatalf("alternate-ref check selected default commands: %+v", c)
 		}
+	}
+}
+
+func TestPluginCommandsSyncIntent(t *testing.T) {
+	for _, mode := range []string{"restored-main", "reviewed-next", "pending-only", "restored-removal", "last-command-removal"} {
+		t.Run(mode, func(t *testing.T) {
+			s, _, bin := commandFixture(t)
+			url, root, commit := remoteFixture(t)
+			declareReviewCommands(t, root, `{"demo-one":"bin/one"}`)
+			writePluginFile(t, root, "bin/one", "#!/bin/sh\nprintf main\n")
+			if err := os.Chmod(filepath.Join(root, "bin/one"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			commit()
+			if mode != "pending-only" {
+				applyPluginRequest(t, s, Request{Action: "add", Source: url, SourceRef: "main"})
+			}
+			mainConfig, err := os.ReadFile(s.ConfigPath)
+			if mode != "pending-only" && err != nil {
+				t.Fatal(err)
+			}
+			git := func(args ...string) {
+				t.Helper()
+				cmd := exec.Command("git", args...)
+				cmd.Dir = root
+				if out, err := cmd.CombinedOutput(); err != nil {
+					t.Fatalf("git %v: %s %v", args, out, err)
+				}
+			}
+			r := Request{Action: "update", Name: "demo", SourceRef: "next"}
+			if mode == "restored-removal" {
+				r = Request{Action: "remove", Name: "demo"}
+			} else if mode == "last-command-removal" {
+				for _, path := range []string{"plugin.json", ".claude-plugin/plugin.json", ".codex-plugin/plugin.json"} {
+					writePluginFile(t, root, path, `{"name":"demo","version":"2.0.0","$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"}`)
+				}
+				commit()
+				r.SourceRef = ""
+			} else {
+				git("checkout", "-b", "next")
+				declareReviewCommands(t, root, `{"demo-next":"bin/one"}`)
+				writePluginFile(t, root, "bin/one", "#!/bin/sh\nprintf reviewed-next\n")
+				commit()
+				if mode == "pending-only" {
+					r = Request{Action: "add", Source: url, SourceRef: "next"}
+				}
+			}
+			p, err := s.Preview(context.Background(), r)
+			if err != nil {
+				t.Fatal(err)
+			}
+			s.commandPublish = func(string, string, string, bool) error { return errors.New("fixture publication failure") }
+			result, err := s.Apply(context.Background(), r, p.Revision)
+			if err == nil || result == nil {
+				t.Fatalf("publication fault not reported: %+v %v", result, err)
+			}
+			s.commandPublish = nil
+			if mode == "restored-main" || mode == "restored-removal" {
+				// Restore a declaration produced by the successful main add, as another machine can.
+				writePluginFile(t, filepath.Dir(s.ConfigPath), filepath.Base(s.ConfigPath), string(mainConfig))
+			}
+			if mode == "reviewed-next" || mode == "pending-only" {
+				writePluginFile(t, root, "bin/one", "#!/bin/sh\nprintf unchecked-later\n")
+				commit()
+			}
+			if mode == "restored-removal" || mode == "last-command-removal" {
+				if err := os.Rename(root, root+"-offline"); err != nil {
+					t.Fatal(err)
+				}
+				defer os.Rename(root+"-offline", root)
+			}
+			inv, err := s.Packages()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if mode == "restored-removal" && inv.Packages["demo"].Commands.Binding.Pending == "remove" {
+				t.Error("restored identical declaration still advertises removal")
+			}
+			applyPluginRequest(t, s, Request{Action: "sync"})
+			want, absent := "demo-one", "demo-next"
+			if mode == "reviewed-next" || mode == "pending-only" {
+				want, absent = absent, want
+				commandOutput(t, bin, want, "reviewed-next")
+			} else if mode != "last-command-removal" {
+				commandOutput(t, bin, want, "main")
+			}
+			if mode == "last-command-removal" {
+				absent = "demo-one"
+				inv, err := s.Packages()
+				if err != nil || inv.Packages["demo"].Commands != nil || inv.Packages["demo"].Version != "2.0.0" {
+					t.Fatalf("offline last-command removal lost version: %+v %v", inv, err)
+				}
+			}
+			if _, err := os.Lstat(filepath.Join(bin, absent)); !os.IsNotExist(err) {
+				t.Fatalf("obsolete command %s survived: %v", absent, err)
+			}
+			d, err := s.load()
+			if err != nil || d.state.Commands["demo"].Pending != nil || len(d.state.Commands["demo"].Owned) != 0 {
+				t.Fatalf("reconciliation retained pending ownership: %+v %v", d, err)
+			}
+		})
+	}
+}
+
+func TestPluginCommandsSyncPackageErrors(t *testing.T) {
+	for _, commands := range []bool{true, false} {
+		t.Run(map[bool]string{true: "commands", false: "commandless"}[commands], func(t *testing.T) {
+			s, _, bin := commandFixture(t)
+			aaa := fixture(t)
+			applyPluginRequest(t, s, Request{Action: "add", Source: aaa, Name: "aaa"})
+			url, root, commit := remoteFixture(t)
+			if commands {
+				declareReviewCommands(t, root, `{"demo-one":"bin/one"}`)
+				writePluginFile(t, root, "bin/one", "#!/bin/sh\nprintf healthy\n")
+				if err := os.Chmod(filepath.Join(root, "bin/one"), 0755); err != nil {
+					t.Fatal(err)
+				}
+				commit()
+				writePluginFile(t, bin, "demo-one", "operator")
+			} else {
+				writePluginFile(t, root, "plugin.json", `{"name":"demo","$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"}`)
+				commit()
+			}
+			r := Request{Action: "add", Source: url, Name: "zzz", Targets: []string{"cursor"}}
+			p, err := s.Preview(context.Background(), r)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := s.Apply(context.Background(), r, p.Revision)
+			if (err != nil) != commands || result == nil {
+				t.Fatalf("initial add: %+v %v", result, err)
+			}
+			inv, err := s.Packages()
+			if err != nil || inv.Packages["zzz"].Bindings["cursor"].ID == "" {
+				t.Fatalf("native installation did not complete: %+v %v", inv, err)
+			}
+			if commands {
+				if err := os.Remove(filepath.Join(bin, "demo-one")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := os.Rename(aaa, aaa+"-offline"); err != nil {
+				t.Fatal(err)
+			}
+			defer os.Rename(aaa+"-offline", aaa)
+			r = Request{Action: "sync"}
+			p, err = s.Preview(context.Background(), r)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, c := range p.Changes {
+				if c.Name == "zzz" && c.Failed {
+					t.Errorf("healthy package inherited aaa discovery error: %+v", c)
+				}
+			}
+			result, err = s.Apply(context.Background(), r, p.Revision)
+			if err == nil || result == nil || !slices.ContainsFunc(result.Results, func(o Outcome) bool { return o.Name == "aaa" && o.Commands && o.Status == "failed" }) {
+				t.Fatalf("unavailable aaa failure hidden: %+v %v", result, err)
+			}
+			if commands {
+				commandOutput(t, bin, "demo-one", "healthy")
+			}
+		})
 	}
 }

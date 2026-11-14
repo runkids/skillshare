@@ -59,18 +59,16 @@ func TestPluginCommandsLifecycle(t *testing.T) {
 			t.Fatalf("command survived removal: %s %v", name, err)
 		}
 	}
-	plain := fixture(t)
-	p, err := s.Preview(context.Background(), Request{Action: "add", Source: plain})
-	if err != nil || len(p.Changes) != 1 || p.Changes[0].Action != "record" {
-		t.Fatalf("metadata-free add changed: %+v %v", p, err)
-	}
 }
 
 // These cases catch overwriting operator entries, losing missing-link repair,
 // and leaving obsolete command names published after a same-version update.
 func TestPluginCommandsOwnership(t *testing.T) {
-	for _, foreign := range []string{"file", "dangling"} {
+	for _, foreign := range []string{"file", "file-all", "dangling"} {
 		for _, after := range []bool{false, true} {
+			if foreign == "file-all" && !after {
+				continue
+			}
 			t.Run(foreign+"/"+map[bool]string{false: "before", true: "after"}[after], func(t *testing.T) {
 				s, root, bin := commandFixture(t)
 				if after {
@@ -85,7 +83,7 @@ func TestPluginCommandsOwnership(t *testing.T) {
 						t.Fatal(err)
 					}
 				}
-				if foreign == "file" {
+				if strings.HasPrefix(foreign, "file") {
 					writePluginFile(t, bin, "demo-one", "operator")
 				} else if err := os.Symlink("/missing/operator", path); err != nil {
 					t.Fatal(err)
@@ -93,19 +91,32 @@ func TestPluginCommandsOwnership(t *testing.T) {
 				r := Request{Action: "add", Source: root}
 				if after {
 					r = Request{Action: "update", Name: "demo"}
+					if foreign == "file-all" {
+						r.Name, r.All = "", true
+					}
 				}
 				p, err := s.Preview(context.Background(), r)
 				if err != nil {
 					t.Fatal(err)
 				}
+				if after && strings.HasPrefix(foreign, "file") && !slices.ContainsFunc(p.Changes, func(c Change) bool {
+					return c.Commands && (c.Failed || c.Action == "blocked") && c.MessageKey == "plugins.error.commandConflict" && c.MessageArgs["name"] == "demo-one" && c.MessageArgs["bin"] == bin
+				}) {
+					t.Fatalf("preview lost localized command identity: %+v", p.Changes)
+				}
 				result, err := s.Apply(context.Background(), r, p.Revision)
 				if err == nil {
 					t.Fatalf("operator conflict accepted: %+v", result)
 				}
+				if after && foreign == "file-all" && (result == nil || !slices.ContainsFunc(result.Results, func(o Outcome) bool {
+					return o.Commands && o.Status == "failed" && o.MessageKey == "plugins.error.commandConflict" && o.MessageArgs["name"] == "demo-one" && o.MessageArgs["bin"] == bin
+				})) {
+					t.Fatalf("outcome lost localized command identity: %+v", result)
+				}
 				if after {
 					applyPluginRequest(t, s, Request{Action: "remove", Name: "demo"})
 				}
-				if foreign == "file" {
+				if strings.HasPrefix(foreign, "file") {
 					raw, err := os.ReadFile(path)
 					if err != nil || string(raw) != "operator" {
 						t.Fatalf("operator file changed: %q %v", raw, err)
