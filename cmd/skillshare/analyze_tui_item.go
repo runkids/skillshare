@@ -62,29 +62,18 @@ func renderTokenBar(tokens, maxTokens, maxWidth int) string {
 	return strings.Repeat("█", width)
 }
 
-// Pre-computed colored dots to avoid lipgloss.NewStyle() allocation per Render() call.
-var analyzeDots = map[string]string{
-	"1": lipgloss.NewStyle().Foreground(lipgloss.Color("1")).Render("●"), // red
-	"2": lipgloss.NewStyle().Foreground(lipgloss.Color("2")).Render("●"), // green
-	"3": lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Render("●"), // yellow
-}
-
-// Pre-computed lint icons (same pattern as analyzeDots).
-var (
-	lintIconError   = theme.Danger().Render("✗") + " "
-	lintIconWarning = theme.Warning().Render("!") + " "
-)
-
+// Resolve terminal styles only while rendering, so offline discovery does not
+// initialize the theme or terminal renderer before main can dispatch it.
 func lintIcon(issues []ssync.LintIssue) string {
 	if len(issues) == 0 {
 		return ""
 	}
 	for _, issue := range issues {
 		if issue.Severity == ssync.LintError {
-			return lintIconError
+			return theme.Danger().Render("✗") + " "
 		}
 	}
-	return lintIconWarning
+	return theme.Warning().Render("!") + " "
 }
 
 // analyzeSkillDelegate renders each skill row in the list.
@@ -105,7 +94,7 @@ func (d analyzeSkillDelegate) Render(w io.Writer, m list.Model, index int, listI
 
 	width := m.Width()
 	tokenStr := formatTokensStr(item.entry.DescriptionTokens)
-	dot := analyzeDots[tokenColorCode(item.entry.DescriptionTokens, d.thresholdLow, d.thresholdHigh)]
+	dot := lipgloss.NewStyle().Foreground(lipgloss.Color(tokenColorCode(item.entry.DescriptionTokens, d.thresholdLow, d.thresholdHigh))).Render("●")
 	left := dot + " " + lintIcon(item.entry.LintIssues) + item.entry.Name
 	renderPrefixRow(w, alignRow(left, theme.Dim().Render(tokenStr), width-rowIndent), width, index == m.Index())
 }
