@@ -1034,10 +1034,12 @@ func parseFrontmatterField(content, field string) string {
 
 	scanner := bufio.NewScanner(strings.NewReader(content))
 	inFrontmatter := false
+	indent := -1
 	prefix := field + ":"
 
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
+		raw := scanner.Text()
+		line := strings.TrimSpace(raw)
 
 		if line == "---" {
 			if inFrontmatter {
@@ -1047,7 +1049,10 @@ func parseFrontmatterField(content, field string) string {
 			continue
 		}
 
-		if inFrontmatter && strings.HasPrefix(line, prefix) {
+		if !inFrontmatter || !utils.IsRootFrontmatterLine(raw, line, &indent) {
+			continue
+		}
+		if strings.HasPrefix(line, prefix) {
 			parts := strings.SplitN(line, ":", 2)
 			if len(parts) == 2 {
 				val := strings.TrimSpace(parts[1])

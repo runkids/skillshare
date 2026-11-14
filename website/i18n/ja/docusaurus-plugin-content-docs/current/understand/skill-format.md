@@ -202,20 +202,37 @@ metadata:
 
 後方互換性のため、skillshare はトップレベルの `targets` フィールドも読み取ります。両方が存在する場合は `metadata.targets` が優先されます。
 
+来歴情報や未知のフィールドを含む、入れ子のマッピングとリストも保持されます。
+
+```yaml
+metadata:
+  type: Skill
+  status: stable
+  generated:
+    by: human:alex
+    at: "2026-11-13T00:00:00Z"
+  sources:
+    - id: agentskills
+      resource: https://agentskills.io/specification
+```
+
+Skill の識別にはトップレベルの `name` と `description` を使い、同名の入れ子フィールドでは置き換えません。`metadata.type` はカスタム情報であり、`.metadata.json` に記録されたインストール元の種類は変更しません。同期では既存の `last_edited` を含む SKILL.md の内容を保持します。各ネイティブクライアントには独自のメタデータ要件がある場合があります。
+
 ## カスタムフィールド
 
-任意のカスタムトップレベルフィールドを追加できます。
+カスタムフィールドには `metadata` を推奨します。既存のカスタムトップレベルフィールドは保持されますが、ネイティブクライアントが受け入れるフィールドを制限する場合があります。
 
 ```yaml
 ---
 name: my-skill
 description: My custom skill
-author: Your Name
-version: 1.0.0
+metadata:
+  author: Your Name
+  version: 1.0.0
 ---
 ```
 
-カスタムのトップレベルフィールドは frontmatter に保存されますが、skillshare 自体では使用されません。
+これらのカスタム値は保持されますが、skillshare が動作を割り当てることはありません。
 
 ---
 

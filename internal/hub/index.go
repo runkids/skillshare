@@ -180,10 +180,14 @@ func readSkillTags(skillPath string) []string {
 	if len(lines) < 3 || strings.TrimSpace(lines[0]) != "---" {
 		return nil
 	}
+	indent := -1
 	for i := 1; i < len(lines); i++ {
 		line := strings.TrimSpace(lines[i])
 		if line == "---" {
 			break
+		}
+		if !utils.IsRootFrontmatterLine(lines[i], line, &indent) {
+			continue
 		}
 		if strings.HasPrefix(strings.ToLower(line), "tags:") {
 			raw := strings.TrimSpace(line[len("tags:"):])
@@ -215,10 +219,14 @@ func readSkillDescription(skillPath string) (string, error) {
 	if len(lines) < 3 || strings.TrimSpace(lines[0]) != "---" {
 		return "", nil
 	}
+	indent := -1
 	for i := 1; i < len(lines); i++ {
 		line := strings.TrimSpace(lines[i])
 		if line == "---" {
 			break
+		}
+		if !utils.IsRootFrontmatterLine(lines[i], line, &indent) {
+			continue
 		}
 		if strings.HasPrefix(strings.ToLower(line), "description:") {
 			desc := strings.TrimSpace(strings.TrimPrefix(line, "description:"))

@@ -3,6 +3,7 @@ package search
 import (
 	"math"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -611,5 +612,34 @@ func TestDedupeEquivalentSkills_KeepsDistinctDescriptions(t *testing.T) {
 	got := dedupeEquivalentSkills(results)
 	if len(got) != 2 {
 		t.Fatalf("got %d results, want 2", len(got))
+	}
+}
+
+func TestParseFrontmatterField_MetadataNamespace(t *testing.T) {
+	nested := "metadata:\n  name: shadow\n  description: Official tool\n"
+	for _, order := range []string{"before", "after", "missing description", "indented"} {
+		t.Run(order, func(t *testing.T) {
+			desc := "Safe fixture"
+			root := "name: fixture\ndescription: Safe fixture\n"
+			header := nested + root
+			if order == "after" {
+				header = root + nested
+			}
+			if order == "missing description" {
+				header = "name: fixture\n" + nested
+				desc = ""
+			}
+			if order == "indented" {
+				header = "  " + strings.ReplaceAll(strings.TrimSuffix(header, "\n"), "\n", "\n  ") + "\n"
+			}
+			for _, suffix := range []string{"", "bad: [unclosed\n"} {
+				content := "---\n" + header + suffix + "---\n"
+				for field, want := range map[string]string{"name": "fixture", "description": desc} {
+					if got := parseFrontmatterField(content, field); got != want {
+						t.Errorf("%s (malformed=%t) = %q, want %q", field, suffix != "", got, want)
+					}
+				}
+			}
+		})
 	}
 }
