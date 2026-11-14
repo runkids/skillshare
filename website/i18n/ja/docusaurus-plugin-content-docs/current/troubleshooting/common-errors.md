@@ -520,6 +520,16 @@ Unicode 文字が含まれている。
 **解決策:** 隠し文字を表示できるエディタでファイルを開いて削除するか、Source を信頼する場合は
 強制インストールしてください。
 
+### `audit scan failed`
+
+**原因:** Audit を実行できなかった。たとえば `audit-rules.yaml` を解析できない、またはパターンのいずれかをコンパイルできない場合です。エラーには該当ファイルが表示されます。`install` は Skill、Agent、tracked repository のインストールを拒否し、インストールした内容を削除します。`update` と `upgrade --skill` はインストール済みのコピーを残します。`--force` では解決しません。`--force` は検出結果を承認するもので、実行されなかったスキャンには承認する検出結果がありません。
+
+**解決策:** エラーに表示されたファイルを修正してください（[audit rules](/docs/reference/commands/audit-rules) を参照）。Source を信頼する場合は、スキャンせずにインストールできます。
+
+```bash
+skillshare install <source> --skip-audit
+```
+
 ---
 
 ## Upgrade エラー

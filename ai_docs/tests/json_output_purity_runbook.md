@@ -15,7 +15,7 @@ Validates that `--json` mode outputs pure JSON to stdout (no UI noise) and that 
 
 ## Environment
 
-Run inside devcontainer. Setup hook in `runbook.json` handles `ss init -g`.
+Run inside devcontainer. Setup hook in `mdproof.json` handles `ss init -g`.
 Requires: `jq`
 
 ## Steps
@@ -32,7 +32,7 @@ ss sync
 
 Expected:
 - exit_code: 0
-- merged
+- Synced
 
 ### Step 2: status --json outputs pure JSON
 

@@ -9,7 +9,7 @@ description: |
   noninteractive automation, and guidance for the terminal UI.
 argument-hint: "[command] [target] [--json] [--dry-run] [-p|-g]"
 metadata:
-  version: v0.30.6
+  version: v0.30.7
 ---
 
 # Skillshare CLI
@@ -63,7 +63,8 @@ Check `skillshare <command> --help` if the installed version differs from these 
    skills or agents, sync the intended resource and scope. MCP and hooks mutations save source only
    unless `--sync` is supplied; `sync --all` also includes extras, MCP and hooks, but excludes plugins.
 3. **Inspect audit blocks.** Review findings before choosing an override. `install --json`
-   permits overwrite and selects all when no skill/agent filter is given, but retains
+   selects all when no skill/agent filter is given, preserves existing items unless
+   `--force` is supplied, and retains
    the audit gate; it is not merely an output format. Read [install.md](references/install.md)
    and [audit.md](references/audit.md) before using it for automation.
 4. **Use the matching recovery mechanism.** Uninstalled skills go to trash; native MCP

@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新バージョン**：v0.30.6 — CI で古いスキルを検出できます。`skillshare check --exit-code` は、確認対象のいずれかが最新でないとき終了コード 1 を返します。`check --all` はスキルに加えてエージェントも確認するようになり、1 つの CI ステップで両方をカバーできます。[check リファレンス →](https://skillshare.runkids.cc/ja/docs/reference/commands/check) · [変更履歴 →](https://skillshare.runkids.cc/changelog)
+> **最新バージョン**：v0.30.7 — 承認済みの検出結果を CI で通せます。`skillshare audit --respect-accepted` は、`install` や `update` で `--force` を付けて承認した検出結果では失敗しなくなります。update のゲートと同じ扱いです。検出結果はレポートに残り、承認済みとして表示されます。[audit リファレンス →](https://skillshare.runkids.cc/ja/docs/reference/commands/audit#accepted-findings) · [変更履歴 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare を使う理由
 

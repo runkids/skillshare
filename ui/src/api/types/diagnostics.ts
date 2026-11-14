@@ -17,7 +17,8 @@ export interface VersionCheck {
 export interface DoctorCheck {
   update_available?: boolean;
   name: string;
-  status: 'pass' | 'warning' | 'error' | 'info';
+  /** pending is only streamed, for a check still running in the background. */
+  status: 'pass' | 'warning' | 'error' | 'info' | 'pending';
   message: string;
   details?: string[];
   suggestions?: string[];

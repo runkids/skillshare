@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowUpCircle, CheckCircle2, ChevronDown, ChevronRight, Info, Pencil, RefreshCw, XCircle } from 'lucide-react';
+import { AlertTriangle, ArrowUpCircle, CheckCircle2, ChevronDown, ChevronRight, Info, Loader2, Pencil, RefreshCw, XCircle } from 'lucide-react';
 import { api, type DoctorCheck } from '../api/client';
 import Button from '../components/Button';
 import CopyButton from '../components/CopyButton';
@@ -17,13 +17,13 @@ import { useOverviewQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
 import { segSlide } from '../lib/segSlide';
 import { useUpdatePolicy } from '../hooks/useUpdatePolicy';
-import { doctorFromChecks, doctorWithUpdatePolicy } from '../lib/doctorUpdates';
+import { doctorFromChecks, doctorWithUpdatePolicy, withStreamedCheck } from '../lib/doctorUpdates';
 
 type Filter = 'all' | 'error' | 'warning' | 'pass';
 
 const FILTERS: Filter[] = ['all', 'error', 'warning', 'pass'];
-const ICON = { pass: CheckCircle2, warning: AlertTriangle, error: XCircle, info: Info } as const;
-const TONE = { pass: 'text-ok', warning: 'text-warn', error: 'text-bad', info: 'text-accent' } as const;
+const ICON = { pass: CheckCircle2, warning: AlertTriangle, error: XCircle, info: Info, pending: Loader2 } as const;
+const TONE = { pass: 'text-ok', warning: 'text-warn', error: 'text-bad', info: 'text-accent', pending: 'animate-spin text-ink-3' } as const;
 
 /** Check names come from the CLI; a missing translation still reads as a phrase. */
 const checkLabel = (name: string) => name.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
@@ -45,7 +45,7 @@ export default function DoctorPage() {
     queryKey: queryKeys.doctor,
     queryFn: ({ signal }) => {
       setStreamed([]);
-      return api.doctorStream((check) => setStreamed((prev) => [...prev, check]), signal);
+      return api.doctorStream((check) => setStreamed((prev) => withStreamedCheck(prev, check)), signal);
     },
     staleTime: staleTimes.doctor,
   });
@@ -55,8 +55,9 @@ export default function DoctorPage() {
   const checks = useMemo(() => {
     const all = data?.checks ?? [];
     if (filter === 'all') return all;
-    if (filter === 'pass') return all.filter((c) => c.status === 'pass' || c.status === 'info');
-    return all.filter((c) => c.status === filter);
+    // A check still running shows under every filter: its result may belong to any.
+    if (filter === 'pass') return all.filter((c) => c.status === 'pass' || c.status === 'info' || c.status === 'pending');
+    return all.filter((c) => c.status === filter || c.status === 'pending');
   }, [data, filter]);
 
   const report = useMemo(
@@ -162,7 +163,8 @@ export default function DoctorPage() {
         ) : (
           checks.map((check, i) => <CheckRow key={`${check.name}-${i}`} check={check} open={open === `${check.name}-${i}`} onToggle={() => setOpen(open === `${check.name}-${i}` ? null : `${check.name}-${i}`)} />)
         )}
-        {isPending && (
+        {/* A named pending row already shows what is still running. */}
+        {isPending && !data?.checks.some((c) => c.status === 'pending') && (
           <div className="ss-r" aria-hidden="true">
             <Skeleton className="h-4 w-4 shrink-0" />
             <Skeleton className="h-4 w-[160px] shrink-0" />
@@ -207,7 +209,7 @@ function CheckRow({ check, open, onToggle }: { check: DoctorCheck; open: boolean
     <>
       <Icon size={16} className={`shrink-0 ${TONE[check.status]}`} />
       <span className="nm m w-[210px] shrink-0 truncate">{label}</span>
-      <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">{check.message}</span>
+      <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">{check.status === 'pending' ? t('update.check.checking') : check.message}</span>
       {expandable && (open ? <ChevronDown size={15} className="shrink-0 text-ink-3" /> : <ChevronRight size={15} className="shrink-0 text-ink-3" />)}
     </>
   );

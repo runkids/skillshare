@@ -17,6 +17,8 @@ const (
 	checkWarning = "warning"
 	checkError   = "error"
 	checkInfo    = "info"
+	// checkPending is only streamed, for a check still running in the background.
+	checkPending = "pending"
 )
 
 // doctorCheck represents a single health check result for JSON output.
@@ -100,6 +102,8 @@ func buildDoctorOutput(result *doctorResult) doctorOutput {
 // finalizeDoctorJSON writes the JSON output and returns an appropriate error.
 // Shared by cmdDoctorGlobal and cmdDoctorProject.
 func finalizeDoctorJSON(restoreUI func(), result *doctorResult, updateCh <-chan *versioncheck.CheckResult) error {
+	// Before restoreUI: recording a check may print rows that JSON mode silences.
+	result.finishLater()
 	restoreUI()
 	updateResult := <-updateCh
 	if !config.AutoUpdateCheckEnabled() {

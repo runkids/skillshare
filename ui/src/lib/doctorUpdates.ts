@@ -24,3 +24,9 @@ export function doctorFromChecks(checks: DoctorCheck[]): DoctorResponse {
     },
   };
 }
+
+/** Adds a streamed check; a slow check streams as pending first and its result replaces that row in place. */
+export function withStreamedCheck(checks: DoctorCheck[], check: DoctorCheck): DoctorCheck[] {
+  const i = checks.findIndex((c) => c.status === 'pending' && c.name === check.name);
+  return i === -1 ? [...checks, check] : checks.map((c, j) => (j === i ? check : c));
+}

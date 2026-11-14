@@ -426,6 +426,7 @@ func installFromSearchResultProject(result search.SearchResult, cwd string) (err
 	if _, err := os.Stat(destPath); err == nil {
 		ui.StepSkip("Install", result.Name+" "+ui.DimText("already installed"))
 		ui.Next("skillshare install "+result.Source+" -p --force", "replace it")
+		logSummary.SkippedSkills = []string{result.Name}
 		return nil
 	}
 
@@ -501,6 +502,7 @@ func installFromSearchResult(result search.SearchResult, cfg *config.Config) (er
 	if _, err := os.Stat(destPath); err == nil {
 		ui.StepSkip("Install", result.Name+" "+ui.DimText("already installed"))
 		ui.Next("skillshare install "+result.Source+" --force", "replace it")
+		logSummary.SkippedSkills = []string{result.Name}
 		return nil
 	}
 

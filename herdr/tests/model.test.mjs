@@ -313,6 +313,7 @@ test("install results never report a nonzero exit as success, including older CL
   assert.deepEqual(installResult({ code: 0, stdout: '{"skills":[]}' }), { done: [], error: null });
   assert.deepEqual(installResult({ code: 0, stdout: '{"skills":["a"]}' }), { done: ["a"], error: null });
   assert.match(installResult({ code: 0, stdout: '{"skills":["a"],"failed":["b"]}' }).error, /b failed/);
+  assert.match(installResult({ code: 0, stdout: '{"skills":["a"],"skipped":["b"]}' }).error, /b already installed/);
   assert.ok(installResult({ code: 0, stdout: 'not JSON' }).error);
 });
 
