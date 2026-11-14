@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.30.8] - 2026-11-14
+
+
+### Bug Fixes
+
+* **doctor:** stop the plugin check from holding back later checks ([#889](https://github.com/runkids/skillshare/issues/889)) ([fab72f7](https://github.com/runkids/skillshare/commit/fab72f79e17d653113b5aa4621ae34206f0da31b))
+* **reconcile:** keep tracked repo declarations this machine has not cloned ([#880](https://github.com/runkids/skillshare/issues/880)) ([3217d44](https://github.com/runkids/skillshare/commit/3217d44881d9c45c435317de9364616360aec871))
+* **uninstall:** keep repos installed into a tracked repo's legacy group ([#900](https://github.com/runkids/skillshare/issues/900)) ([58ccb2b](https://github.com/runkids/skillshare/commit/58ccb2bcc5890537696a6c15d8e714fe8bcce0a5)), closes [#898](https://github.com/runkids/skillshare/issues/898)
+
 ## [0.30.7] - 2026-11-13
 
 ### New Features
