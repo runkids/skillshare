@@ -198,6 +198,9 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 	if info, ok := c.TargetInfo["antigravity"]; ok {
 		c.TargetInfo["antigravity-cli"] = info
 	}
+	commands, commandErr := inspectCommands(root)
+ c.Commands = commands
+	if commandErr != nil { c.CommandProblem = commandErr.Error() }
 	c.collectTargets()
 	if c.Name == "" {
 		return c, fmt.Errorf("no valid supported plugin manifest found; choose a plugin or marketplace directory")
