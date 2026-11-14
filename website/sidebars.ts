@@ -48,6 +48,7 @@ const sidebars: SidebarsConfig = {
             'how-to/daily-tasks/project-workflow',
             'how-to/daily-tasks/creating-skills',
             'how-to/daily-tasks/filtering-skills',
+            'how-to/daily-tasks/profiles',
             'how-to/daily-tasks/organizing-skills',
             'how-to/daily-tasks/best-practices',
           ],
@@ -165,6 +166,7 @@ const sidebars: SidebarsConfig = {
               items: [
                 'reference/commands/target',
                 'reference/commands/project',
+                'reference/commands/profile',
                 'reference/commands/diff',
               ],
             },

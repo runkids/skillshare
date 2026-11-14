@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"skillshare/internal/config"
+	"skillshare/internal/profile"
 )
 
 func TestHandleSyncMatrix_Empty(t *testing.T) {
@@ -470,5 +471,47 @@ func TestSyncMatrixPreviewRecomputesSharedVariantSelection(t *testing.T) {
 	}
 	if len(s.cfg.Targets["universal"].Exclude) != 0 {
 		t.Fatal("preview mutated saved filters")
+	}
+}
+
+func TestSyncMatrixProfileReason(t *testing.T) {
+	s, source := newTestServerWithTargets(t, map[string]string{"custom": t.TempDir()})
+	addSkill(t, source, "other")
+	path := config.ConfigPath()
+	text, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text = append(text, []byte("profiles:\n  frontend:\n    skills:\n      include: []\n")...)
+	if err := os.WriteFile(path, text, 0600); err != nil {
+		t.Fatal(err)
+	}
+	statePath, _, err := config.ProfilePaths(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := profile.WriteState(statePath, profile.State{Version: 1, Active: "frontend"}); err != nil {
+		t.Fatal(err)
+	}
+	s.cfg, err = config.LoadReadOnlyPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, request := range []*http.Request{
+		httptest.NewRequest(http.MethodGet, "/api/sync-matrix", nil),
+		httptest.NewRequest(http.MethodPost, "/api/sync-matrix/preview", strings.NewReader(`{"target":"custom","include":["not-other"],"exclude":["other"]}`)),
+	} {
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, request)
+		var out struct {
+			Entries []syncMatrixEntry `json:"entries"`
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil || rr.Code != http.StatusOK || len(out.Entries) != 1 {
+			t.Fatal(rr.Code, rr.Body.String(), err)
+		}
+		row := out.Entries[0]
+		if row.Status != "not_in_profile" || row.Reason != "frontend" || row.ReasonCode != "sync_matrix.not_in_profile" || row.ReasonParams["profile"] != "frontend" {
+			t.Fatal(row)
+		}
 	}
 }

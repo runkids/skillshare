@@ -107,6 +107,9 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 		printInstallRow(result.RepoName, result.RepoPath, false, treeSpinner.Started())
 		logSummary.SkillCount = result.SkillCount
 		logSummary.InstalledSkills = append(logSummary.InstalledSkills, result.Skills...)
+		if trackedKind == "skill" {
+			logSummary.InstalledPaths = append(logSummary.InstalledPaths, result.RepoPath)
+		}
 	}
 
 	// Show next steps. Skip the sync hint when the tracked repo had nothing
@@ -247,6 +250,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		if !opts.DryRun {
 			ui.Next("skillshare sync", "link it into your targets")
 			logSummary.InstalledSkills = append(logSummary.InstalledSkills, skill.Name)
+			logSummary.InstalledPaths = append(logSummary.InstalledPaths, result.SkillPath)
 			logSummary.SkillCount = len(logSummary.InstalledSkills)
 		}
 		installDiscoveredAgents(discovery, cfg, opts, &logSummary)
@@ -333,6 +337,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		if !opts.DryRun {
 			ui.Next("skillshare sync", "link it into your targets")
 			logSummary.InstalledSkills = append(logSummary.InstalledSkills, skill.Name)
+			logSummary.InstalledPaths = append(logSummary.InstalledPaths, result.SkillPath)
 			logSummary.SkillCount = len(logSummary.InstalledSkills)
 		}
 		installDiscoveredAgents(discovery, cfg, opts, &logSummary)
@@ -368,6 +373,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 			return logSummary, batchSummary.Err
 		}
 		logSummary.InstalledSkills = append(logSummary.InstalledSkills, batchSummary.InstalledSkills...)
+		logSummary.InstalledPaths = append(logSummary.InstalledPaths, batchSummary.InstalledPaths...)
 		logSummary.FailedSkills = append(logSummary.FailedSkills, batchSummary.FailedSkills...)
 		logSummary.SkippedSkills = append(logSummary.SkippedSkills, batchSummary.SkippedSkills...)
 		logSummary.SkillCount = len(logSummary.InstalledSkills)
@@ -411,6 +417,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		return logSummary, batchSummary.Err
 	}
 	logSummary.InstalledSkills = append(logSummary.InstalledSkills, batchSummary.InstalledSkills...)
+	logSummary.InstalledPaths = append(logSummary.InstalledPaths, batchSummary.InstalledPaths...)
 	logSummary.FailedSkills = append(logSummary.FailedSkills, batchSummary.FailedSkills...)
 	logSummary.SkippedSkills = append(logSummary.SkippedSkills, batchSummary.SkippedSkills...)
 	logSummary.SkillCount = len(logSummary.InstalledSkills)
@@ -531,6 +538,7 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 		switch {
 		case r.success:
 			summary.InstalledSkills = append(summary.InstalledSkills, r.skill.Name)
+			summary.InstalledPaths = append(summary.InstalledPaths, r.result.SkillPath)
 		case r.skipped:
 			// Same-repo skips are not failures; exclude from FailedSkills.
 			summary.SkippedSkills = append(summary.SkippedSkills, r.skill.Name)
@@ -926,6 +934,7 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 	if !opts.DryRun {
 		ui.Next("skillshare sync", "link it into your targets")
 		logSummary.InstalledSkills = append(logSummary.InstalledSkills, skillName)
+		logSummary.InstalledPaths = append(logSummary.InstalledPaths, result.SkillPath)
 		logSummary.SkillCount = len(logSummary.InstalledSkills)
 	}
 
@@ -969,6 +978,7 @@ func installFromGlobalConfig(cfg *config.Config, opts install.InstallOptions) (i
 	result, err := install.InstallFromConfig(ctx, opts)
 
 	summary.InstalledSkills = result.InstalledSkills
+	summary.InstalledPaths = result.InstalledPaths
 	summary.FailedSkills = result.FailedSkills
 	summary.SkippedSkills = result.SkippedSkills
 	summary.SkillCount = len(result.InstalledSkills)

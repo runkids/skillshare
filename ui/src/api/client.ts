@@ -7,6 +7,7 @@ import { installApi } from './install';
 import { instructionsApi } from './instructions';
 import { logApi } from './log';
 import { memoryApi } from './memory';
+import { profilesApi } from './profiles';
 import { resourcesApi } from './resources';
 import { syncApi } from './sync';
 import { systemApi } from './system';
@@ -23,6 +24,7 @@ export * from './types/git';
 export * from './types/install';
 export * from './types/instructions';
 export * from './types/log';
+export * from './types/profiles';
 export * from './types/resources';
 export * from './types/sync';
 export * from './types/targets';
@@ -42,6 +44,7 @@ export const api = {
   ...instructionsApi,
   ...logApi,
   ...memoryApi,
+  ...profilesApi,
   ...auditApi,
   ...gitApi,
 

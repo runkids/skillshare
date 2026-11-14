@@ -206,3 +206,7 @@ skillshare version
 
 - [Quick Reference](/docs/getting-started/quick-reference) — 명령어 치트 시트
 - [Workflows](/docs/how-to/daily-tasks) — 일반적인 사용 패턴
+
+## 프로필 {#profiles}
+
+[profile](/docs/reference/commands/profile)로 이름 있는 Skill 선택을 만들고 조회·편집·전환합니다. `-g` / `-p`를 지원합니다.

@@ -149,6 +149,9 @@ func variantRemovalWarning(name string, sc config.ResourceTargetConfig, skills [
 		if !skill.variantRouting || selected[skill.RelPath] || skill.Disabled {
 			continue
 		}
+		if allowed, err := sc.Profile.Selects(skill.FlatName); err != nil || !allowed {
+			continue
+		}
 		if allowed, _ := ShouldSyncFlatName(skill.FlatName, sc.Include, sc.Exclude); !allowed {
 			continue
 		}

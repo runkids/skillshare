@@ -5,11 +5,27 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"skillshare/internal/config"
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/utils"
 )
+
+type profileDiffContext struct {
+	aware bool
+	root  string
+	moved []ssync.MovedTarget
+}
+
+// Caller holds the config read lock; project state is owned by projectCfg.
+func (s *Server) snapshotProfileDiff(targets map[string]config.TargetConfig) profileDiffContext {
+	state := s.cfg.ProfileState()
+	if s.IsProjectMode() {
+		state = s.projectCfg.ProfileState()
+	}
+	return profileDiffContext{aware: state.Active != "" || state.Pending, root: s.projectRoot, moved: ssync.MovedProjectTargets(s.projectCfg, targets)}
+}
 
 // handleDiffStream serves an SSE endpoint that streams diff computation progress.
 // Events:
@@ -18,21 +34,30 @@ import (
 //   - "result"      → diffTarget                     per-target diff result
 //   - "done"        → {"diffs":[...]}                final payload (same shape as GET /api/diff)
 func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
-	safeSend, ok := initSSE(w)
-	if !ok {
-		return
-	}
-
 	ctx := r.Context()
 
 	// Snapshot config under RLock, then release before slow I/O.
 	s.mu.RLock()
-	source := s.cfg.EffectiveSkillsSource()
+	if s.refuseUnavailableProfile(w) {
+		s.mu.RUnlock()
+		return
+	}
+	source := s.skillsSource()
 	agentsSource := s.agentsSource()
 	globalMode := s.cfg.Mode
 	ignorePatterns := ssync.EffectiveFileIgnorePatterns(s.cfg.Ignore)
 	targets := s.cloneTargets()
+	preview := s.snapshotProfileDiff(targets)
+	walk := s.skillsWalk()
+	if s.IsProjectMode() {
+		ignorePatterns = ssync.EffectiveFileIgnorePatterns(s.projectCfg.Ignore)
+	}
 	s.mu.RUnlock()
+
+	safeSend, ok := initSSE(w)
+	if !ok {
+		return
+	}
 
 	if globalMode == "" {
 		globalMode = "merge"
@@ -40,7 +65,7 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 
 	safeSend("discovering", map[string]string{"phase": "scanning source directory"})
 
-	discovered, ignoreStats, err := ssync.DiscoverSourceSkillsWithStats(source, s.skillsWalk())
+	discovered, ignoreStats, err := ssync.DiscoverSourceSkillsWithStats(source, walk)
 	if err != nil {
 		safeSend("error", map[string]string{"error": err.Error()})
 		return
@@ -58,7 +83,7 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 		default:
 		}
 
-		dt := s.computeTargetDiff(name, target, discovered, globalMode, source, ignorePatterns)
+		dt := s.computeTargetDiff(name, target, discovered, globalMode, source, ignorePatterns, preview)
 		diffs = append(diffs, dt)
 		checked++
 
@@ -78,14 +103,14 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 
 // computeTargetDiff computes the diff for a single target.
 // Extracted from handleDiff to share logic with the stream handler.
-func (s *Server) computeTargetDiff(name string, target config.TargetConfig, discovered []ssync.DiscoveredSkill, globalMode, source string, ignorePatterns []string) diffTarget {
+func (s *Server) computeTargetDiff(name string, target config.TargetConfig, discovered []ssync.DiscoveredSkill, globalMode, source string, ignorePatterns []string, preview ...profileDiffContext) (dt diffTarget) {
 	sc := target.SkillsConfig()
 	mode := sc.Mode
 	if mode == "" {
 		mode = globalMode
 	}
 
-	dt := diffTarget{Target: name, Items: make([]diffItem, 0)}
+	dt = diffTarget{Target: name, Items: make([]diffItem, 0)}
 	if !sc.IsEnabled() {
 		return dt // skills off: nothing is synced, so nothing differs
 	}
@@ -103,6 +128,11 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 		dt.Items = append(dt.Items, diffItem{Skill: "(target naming)", Action: "skip", Reason: err.Error(), Kind: kindSkill})
 		return dt
 	}
+	deselected, err := ssync.ProfileDeselected(name, sc, discovered)
+	if err != nil {
+		dt.Items = append(dt.Items, diffItem{Skill: "(skill selection)", Action: "skip", Reason: err.Error(), Kind: kindSkill})
+		return dt
+	}
 	// Surface collision/validation stats so the UI can show why skills were skipped
 	dt.CollisionCount = len(resolution.Collisions)
 	dt.SkippedCount = resolution.SkippedCount
@@ -115,6 +145,45 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 	manifest, _ := ssync.ReadManifest(sc.Path)
 	legacyNames := resolution.LegacyNames(mode, sc.Path, manifest)
 	renamedFrom := ssync.RenamedFrom(legacyNames)
+	profileAware := len(preview) > 0 && preview[0].aware && target.ProjectRoot() == ""
+	if profileAware {
+		defer func() {
+			var orphans []string
+			for i, item := range dt.Items {
+				if mode == "merge" && item.Reason == "local copy (sync --force to replace)" {
+					entry, _ := ssync.PreviewEntry(item.Skill, sc.Path, source, discovered, manifest, ignorePatterns)
+					if entry.Class == ssync.EntryCleanCopy {
+						dt.Items[i].Action, dt.Items[i].Reason = "update", ssync.CopyToLinkReason
+					}
+				}
+				if item.Action == "prune" {
+					orphans = append(orphans, item.Skill)
+				}
+			}
+			kept := ssync.PreviewPreservedEntries(name, sc.Path, source, mode, resolution, discovered, manifest, ignorePatterns, orphans...)
+			if preview[0].root != "" {
+				moved := slices.Clone(preview[0].moved)
+				for i := range moved {
+					moved[i].Disabled = moved[i].Disabled || moved[i].Name != name
+				}
+				kept = append(kept, ssync.PreviewMovedProjectEntries(preview[0].root, source, moved, discovered, ignorePatterns)...)
+			}
+			currentDir, _ := filepath.Abs(sc.Path)
+			for _, change := range kept {
+				action, projected := "kept", change.Entry
+				if change.Step == "refresh" {
+					action = "skip" // selected entries retain existing Force behavior
+					if old, ok := legacyNames[change.Entry]; ok {
+						projected = old.TargetName
+					}
+				}
+				if change.Dir == currentDir {
+					dt.Items = slices.DeleteFunc(dt.Items, func(item diffItem) bool { return item.Skill == change.Entry || item.Skill == projected })
+				}
+				dt.Items = append(dt.Items, diffItem{Skill: change.Entry, Action: action, Reason: change.Reason, Kind: kindSkill})
+			}
+		}()
+	}
 
 	if mode == "copy" {
 		for _, resolved := range resolution.Skills {
@@ -151,7 +220,7 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 				} else {
 					oldMtime := manifest.Mtimes[resolved.TargetName]
 					currentMtime, mtimeErr := ssync.DirMaxMtimeWithIgnore(skill.SourcePath, ignorePatterns)
-					if mtimeErr == nil && oldMtime > 0 && currentMtime == oldMtime {
+					if !profileAware && mtimeErr == nil && oldMtime > 0 && currentMtime == oldMtime {
 						continue
 					}
 					srcChecksum, checksumErr := ssync.DirChecksumWithIgnore(skill.SourcePath, ignorePatterns)
@@ -171,6 +240,7 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 				dt.Items = append(dt.Items, diffItem{Skill: managedName, Action: "prune", Reason: "orphan copy", Kind: kindSkill})
 			}
 		}
+		labelProfileDeselected(&dt, deselected)
 		return dt
 	}
 
@@ -246,5 +316,15 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 		}
 	}
 
+	labelProfileDeselected(&dt, deselected)
 	return dt
+}
+
+func labelProfileDeselected(dt *diffTarget, deselected map[string]string) {
+	for i := range dt.Items {
+		item := &dt.Items[i]
+		if name := deselected[item.Skill]; name != "" && item.Action == "prune" {
+			item.Reason = "not in profile " + name
+		}
+	}
 }

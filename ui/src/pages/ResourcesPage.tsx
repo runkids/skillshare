@@ -64,6 +64,7 @@ import SegmentedControl from '../components/SegmentedControl';
 import { Select } from '../components/Select';
 import { PageSkeleton } from '../components/Skeleton';
 import TargetMenu, { SkillContextMenu } from '../components/TargetMenu';
+import ProfileMembershipMenu from '../components/profiles/ProfileMembershipMenu';
 import Tooltip from '../components/Tooltip';
 import SkillTree from '../components/resources/SkillTree';
 import type { SelectMode } from '../components/resources/SkillTree';
@@ -738,6 +739,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
           <span className="flex min-w-0 items-center gap-2">
             <Link to={resourceHref(s)} className={`nm m truncate hover:underline ${s.disabled || context(s) ? 'text-ink-3' : ''}`}>{hit(s.name)}</Link>
             {s.manualOnly && <span className="ss-tag shrink-0" title={t('frontmatterEditor.field.disableModelInvocation.hint')}>manual only</span>}
+            {s.inProfile === false && <span className="ss-tag shrink-0 text-ink-3">{t('profiles.notInProfile')}</span>}
             {branchTag(s)}
             {pkg && pill(s, pkg)}
           </span>
@@ -771,6 +773,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
         {selectBox(s)}
         <Link to={resourceHref(s)} className={`nm m shrink-0 hover:underline ${s.disabled || context(s) ? 'text-ink-3' : ''}`}>{hit(s.name)}</Link>
         {s.manualOnly && <span className="ss-tag shrink-0" title={t('frontmatterEditor.field.disableModelInvocation.hint')}>manual only</span>}
+        {s.inProfile === false && <span className="ss-tag shrink-0 text-ink-3">{t('profiles.notInProfile')}</span>}
         {branchTag(s)}
         {pkg && pill(s, pkg)}
         {tone !== 'ok' && <span className="ss-tag shrink-0">{label}</span>}
@@ -832,6 +835,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
           <span className="flex items-center gap-2">
             <TargetStack names={synced} reachable={reachable} max={3} />
             {s.manualOnly && <span className="ss-tag shrink-0" title={t('frontmatterEditor.field.disableModelInvocation.hint')}>manual only</span>}
+            {s.inProfile === false && <span className="ss-tag shrink-0 text-ink-3">{t('profiles.notInProfile')}</span>}
             {branchTag(s)}
           </span>
           {status$(tone, label)}
@@ -1217,6 +1221,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
           {count > 0 && (
             <div ref={bulkGhost} className="ss-bulk" role="toolbar" aria-label={t('resources.select.count', { count })}>
               <b>{t('resources.select.count', { count })}</b>
+              {!isAgent && <ProfileMembershipMenu names={selectedItems.map((skill) => skill.flatName)} />}
               {hiddenCount > 0 && <span className="text-ink-3">{t('resources.select.hidden', { count: hiddenCount })}</span>}
               <span className="dv" />
               <Button variant="secondary" size="sm" disabled={toggleMany.isPending} onClick={() => toggleMany.mutate({ names: selectedItems.map((s) => s.flatName), enable: true })}>

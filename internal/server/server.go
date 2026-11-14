@@ -392,6 +392,10 @@ func (s *Server) shouldAutoReloadConfig(path string) bool {
 	if path == "/api/projects" || strings.HasPrefix(path, "/api/projects/") {
 		return false
 	}
+	// Profile reads and previews must never persist legacy config migrations.
+	if path == "/api/profiles" || strings.HasPrefix(path, "/api/profiles/") {
+		return false
+	}
 	// Keep config editor recoverable even if config file is temporarily invalid.
 	if path == "/api/config" {
 		return false
@@ -483,6 +487,15 @@ func (s *Server) registerRoutes() {
 
 	// Overview
 	s.mux.HandleFunc("GET /api/overview", s.handleOverview)
+
+	// Profiles use the same skills-only switch adapter as the CLI.
+	s.mux.HandleFunc("GET /api/profiles", s.handleListProfiles)
+	s.mux.HandleFunc("POST /api/profiles/active", s.handleSetActiveProfile)
+	s.mux.HandleFunc("POST /api/profiles/preview", s.handlePreviewProfile)
+	s.mux.HandleFunc("POST /api/profiles", s.handleMutateProfile)
+	s.mux.HandleFunc("PUT /api/profiles/{name}", s.handleMutateProfile)
+	s.mux.HandleFunc("DELETE /api/profiles/{name}", s.handleMutateProfile)
+	s.mux.HandleFunc("POST /api/profiles/{name}/skills", s.handleProfileSkills)
 
 	// Resources (skills + agents)
 	s.mux.HandleFunc("GET /api/resources", s.handleListSkills)

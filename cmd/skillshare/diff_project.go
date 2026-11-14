@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 	gosync "sync"
 	"time"
 
@@ -13,6 +14,13 @@ import (
 func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffRenderOpts, start time.Time) error {
 	if kind == kindAgents {
 		return diffProjectAgents(root, targetName, opts, start)
+	}
+	cfg, err := config.LoadProjectReadOnly(root)
+	if err != nil {
+		return err
+	}
+	if err := cfg.ActiveProfileError(); err != nil {
+		return err
 	}
 	if err := ensureProjectConfig(root); err != nil {
 		return err
@@ -27,7 +35,8 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 	if !opts.jsonOutput {
 		spinner = ui.StartSpinner("Discovering skills")
 	}
-	discovered, err := sync.DiscoverSourceSkills(runtime.sourcePath, runtime.skillsWalk())
+	walk := runtime.skillsWalk()
+	discovered, err := sync.DiscoverSourceSkills(runtime.sourcePath, walk)
 	if err != nil {
 		if spinner != nil {
 			spinner.Fail("Discovery failed")
@@ -61,6 +70,7 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 		target     config.TargetConfig
 		mode       string
 		resolution *sync.TargetSkillResolution
+		deselected map[string]string
 	}
 	var resolved []resolvedTarget
 	totalSkills := 0
@@ -83,7 +93,11 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 		if mode == "" {
 			mode = "merge"
 		}
-		resolved = append(resolved, resolvedTarget{entry.Name, target, mode, resolution})
+		deselected, err := sync.ProfileDeselected(entry.Name, sc, discovered)
+		if err != nil {
+			return err
+		}
+		resolved = append(resolved, resolvedTarget{entry.Name, target, mode, resolution, deselected})
 		totalSkills += len(resolution.Skills)
 		if mode == "copy" {
 			hasCopyMode = true
@@ -110,12 +124,28 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 			defer wg.Done()
 			defer func() { <-sem }()
 			progress.startTarget(rt.name)
-			r := collectTargetDiff(rt.name, rt.target, runtime.sourcePath, rt.mode, rt.resolution, ignorePatterns, progress)
+			r := collectTargetDiff(rt.name, rt.target, runtime.sourcePath, rt.mode, rt.resolution, ignorePatterns, progress, profileDiffPreview{aware: cfg.ProfileState().Active != "" || cfg.ProfileState().Pending, skills: discovered, sourceIncomplete: walk.Follow.Incomplete()})
+			labelProfileDeselected(&r, rt.deselected)
 			progress.doneTarget(rt.name, r)
 			results[idx] = r
 		}(i, rt)
 	}
 	wg.Wait()
+
+	if cfg.ProfileState().Active != "" || cfg.ProfileState().Pending {
+		moved := sync.MovedProjectTargets(runtime.config, runtime.targets)
+		for i := range moved {
+			moved[i].Disabled = moved[i].Disabled || (targetName != "" && moved[i].Name != targetName)
+		}
+		for _, change := range sync.PreviewMovedProjectEntries(root, runtime.sourcePath, moved, discovered, ignorePatterns) {
+			for i := range results {
+				if results[i].name == change.Target {
+					results[i].items = append(results[i].items, copyDiffEntry{action: "kept", name: change.Entry, reason: change.Reason, dstDir: filepath.Join(change.Dir, change.Entry)})
+					results[i].synced = false
+				}
+			}
+		}
+	}
 
 	progress.stop()
 

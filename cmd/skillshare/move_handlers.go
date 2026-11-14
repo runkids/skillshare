@@ -7,6 +7,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
+	"skillshare/internal/profile"
 	"skillshare/internal/skillmove"
 	"skillshare/internal/sourcewalk"
 	ssync "skillshare/internal/sync"
@@ -19,6 +20,7 @@ type moveMode struct {
 	walk      sourcewalk.Options
 	store     *install.MetadataStore
 	targets   map[string]config.TargetConfig
+	profiles  profile.Catalog
 	cfgPath   string // the config the oplog entry is written next to
 
 	projectRoot                   string // "" in global mode
@@ -33,6 +35,7 @@ func (m *moveMode) options(o *moveOptions) skillmove.Options {
 		Follow:          m.walk.Follow,
 		Store:           m.store,
 		Targets:         skillmove.EnabledTargets(m.targets),
+		Profiles:        m.profiles,
 		Force:           o.force,
 		DryRun:          o.dryRun,
 		ProjectRoot:     m.projectRoot,
@@ -58,6 +61,7 @@ func globalMoveMode() (*moveMode, error) {
 		walk:      cfg.SkillsWalk(),
 		store:     store,
 		targets:   cfg.Targets,
+		profiles:  profile.Parse(&cfg.Profiles),
 		cfgPath:   config.ConfigPath(),
 		reconcile: func(map[string]string) error { return config.ReconcileGlobalSkills(cfg, store) },
 	}, nil

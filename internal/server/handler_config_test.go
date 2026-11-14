@@ -115,6 +115,80 @@ func TestHandlePutConfig_InvalidYAML(t *testing.T) {
 	}
 }
 
+func TestHandlePutConfig_InvalidProfile(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(fmt.Sprint(project), func(t *testing.T) {
+			var s *Server
+			var source string
+			if project {
+				s, _ = newTestProjectServerWithExtras(t, nil)
+			} else {
+				s, source = newTestServer(t)
+			}
+			targets := "source: " + source + "\ntargets: {}\n"
+			if project {
+				targets = "targets: []\n"
+			}
+			body, _ := json.Marshal(map[string]string{"raw": targets + "profiles:\n  work:\n    skills: {exclude: [old]}\n"})
+			w := httptest.NewRecorder()
+			s.handlePutConfig(w, httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(string(body))))
+			if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "exclude requires an include") {
+				t.Fatalf("expected profile validation error, got %d: %s", w.Code, w.Body)
+			}
+		})
+	}
+}
+
+func TestHandlePutConfig_PreservesUnknownProfileKeys(t *testing.T) {
+	home := t.TempDir()
+	for _, key := range []string{"HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "XDG_DATA_HOME", "XDG_CONFIG_HOME"} {
+		t.Setenv(key, home)
+	}
+	for _, key := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR"} {
+		t.Setenv(key, "")
+	}
+	for _, project := range []bool{false, true} {
+		for _, skillsKey := range []bool{false, true} {
+			t.Run(fmt.Sprintf("project=%v/skillsKey=%v", project, skillsKey), func(t *testing.T) {
+				var s *Server
+				var source string
+				if project {
+					s, _ = newTestProjectServerWithExtras(t, nil)
+				} else {
+					s, source = newTestServer(t)
+				}
+				raw := "source: " + source + "\ntargets: {}\n"
+				if project {
+					raw = "targets: []\n"
+				}
+				raw += "profiles:\n  work: # keep future setting\n"
+				if skillsKey {
+					raw += "    skills: {future_key: true, include: [alpha]}\n"
+				} else {
+					raw += "    future_key: true\n    skills: {include: [alpha]}\n"
+				}
+				body, _ := json.Marshal(map[string]string{"raw": raw})
+				rr := projectRequest(t, s, http.MethodPut, "/api/config", string(body))
+				if rr.Code != http.StatusOK {
+					t.Fatalf("unknown key save: %d %s", rr.Code, rr.Body)
+				}
+				if saved, err := os.ReadFile(s.configPath()); err != nil || string(saved) != raw {
+					t.Fatalf("submitted config changed: %q, %v", saved, err)
+				}
+				invalid := strings.Replace(raw, "[alpha]", `["["]`, 1)
+				body, _ = json.Marshal(map[string]string{"raw": invalid})
+				rr = projectRequest(t, s, http.MethodPut, "/api/config", string(body))
+				if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), "invalid include pattern") {
+					t.Fatalf("invalid known field save: %d %s", rr.Code, rr.Body)
+				}
+				if saved, err := os.ReadFile(s.configPath()); err != nil || string(saved) != raw {
+					t.Fatalf("refused config changed saved bytes: %q, %v", saved, err)
+				}
+			})
+		}
+	}
+}
+
 func TestHandlePutConfig_ValidYAML(t *testing.T) {
 	s, sourceDir := newTestServer(t)
 	body := `{"raw":"source: ` + sourceDir + `\nmode: merge\ntargets: {}\n"}`

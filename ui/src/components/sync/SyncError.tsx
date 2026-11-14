@@ -2,13 +2,14 @@ import { useId, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import CopyButton from '../CopyButton';
 import { useT } from '../../i18n';
+import { profileReason } from '../profiles/profileView';
 
 /** Keep external diagnostics intact, but do not inline an entire stack trace. */
 export default function SyncError({ error }: { error: string }) {
   const t = useT();
   const id = useId();
   const [open, setOpen] = useState(false);
-  const lines = error.trim().split(/\r?\n/);
+  const lines = profileReason(error, t).trim().split(/\r?\n/);
   const first = lines.find((line) => /^\s*[\w.]*Error:\s/.test(line))?.trim() || lines[0];
   const summary = first.length > 240 ? `${first.slice(0, 240)}…` : first;
   const condensed = summary !== error.trim();
