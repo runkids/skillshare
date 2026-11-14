@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -186,15 +187,40 @@ func TestPluginCommandsCleanupListAndInspect(t *testing.T) {
 		r    plugin.Request
 	}{{s, home, plugin.Request{Action: "add", Source: first}}, {other, otherHome, plugin.Request{Action: "remove", Name: "demo"}}, {other, otherHome, plugin.Request{Action: "add", Source: second}}} {
 		t.Setenv("HOME", step.home)
+		t.Setenv("USERPROFILE", step.home)
 		plan, err := step.s.Preview(context.Background(), step.r)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := step.s.Apply(context.Background(), step.r, plan.Revision); err != nil {
-			t.Fatal(err)
+		result, applyErr := step.s.Apply(context.Background(), step.r, plan.Revision)
+		if runtime.GOOS == "windows" {
+			preview, failed := false, false
+			for _, c := range plan.Changes {
+				preview = preview || c.Name == "demo" && c.Commands && c.Target == "" && c.Failed && c.MessageKey == "plugins.error.commandsWindows"
+			}
+			if result != nil {
+				for _, out := range result.Results {
+					failed = failed || out.Name == "demo" && out.Commands && out.Target == "" && out.Status == "failed" && out.MessageKey == "plugins.error.commandsWindows"
+				}
+			}
+			if !preview || !failed || applyErr == nil {
+				t.Fatalf("Windows command refusal: preview=%+v result=%+v error=%v", plan.Changes, result, applyErr)
+			}
+			if _, err := os.Lstat(filepath.Join(home, ".local", "bin", "demo-command")); !os.IsNotExist(err) {
+				t.Fatalf("Windows published a command: %v", err)
+			}
+			inventory, err := s.Packages()
+			if err != nil || inventory.Packages["demo"].Commands != nil {
+				t.Fatalf("Windows recorded a command receipt: %+v %v", inventory, err)
+			}
+			return
+		}
+		if applyErr != nil {
+			t.Fatalf("apply: %v preview=%+v", applyErr, plan.Changes)
 		}
 	}
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	for _, action := range []string{"list", "inspect"} {
 		if action == "inspect" {
 			if err := os.Remove(filepath.Join(home, ".local", "bin", "demo-command")); err != nil {
@@ -217,6 +243,7 @@ func TestPluginUpdateAllDryRunReportsFailures(t *testing.T) {
 		t.Run(map[bool]string{false: "text", true: "json"}[jsonOutput], func(t *testing.T) {
 			home := t.TempDir()
 			t.Setenv("HOME", home)
+			t.Setenv("USERPROFILE", home)
 			s := &plugin.Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
 			raw := "plugins:\n  version: 2\n  packages:\n    demo:\n      source: /missing-fixture-source\n      plugin: demo\n      bindings:\n        claude: {}\n"
 			if err := os.WriteFile(s.ConfigPath, []byte(raw), 0600); err != nil {
@@ -234,7 +261,11 @@ func TestPluginUpdateAllDryRunReportsFailures(t *testing.T) {
 			}
 			if jsonOutput {
 				var plan plugin.Plan
-				if err := json.Unmarshal([]byte(output), &plan); err != nil || len(plan.Changes) != 2 || plan.Changes[0].Target != "claude" || plan.Changes[0].Commands || !plan.Changes[0].Failed || plan.Changes[1].Target != "" || !plan.Changes[1].Commands || !plan.Changes[1].Failed || plan.Changes[1].MessageKey != "plugins.error.commandFailure" {
+				commandKey := "plugins.error.commandFailure"
+				if runtime.GOOS == "windows" {
+					commandKey = "plugins.error.commandsWindows"
+				}
+				if err := json.Unmarshal([]byte(output), &plan); err != nil || len(plan.Changes) != 2 || plan.Changes[0].Name != "demo" || plan.Changes[1].Name != "demo" || plan.Changes[0].Target != "claude" || plan.Changes[0].Commands || !plan.Changes[0].Failed || plan.Changes[1].Target != "" || !plan.Changes[1].Commands || !plan.Changes[1].Failed || plan.Changes[1].MessageKey != commandKey {
 					t.Fatalf("bad JSON preview: %s %v", output, err)
 				}
 			} else if !strings.Contains(output, "· failed") || !strings.Contains(output, "demo") {
@@ -288,6 +319,7 @@ func TestPluginWizardFirstCommandUpdate(t *testing.T) {
 			native := mode == "commandless" || mode == "command-bearing"
 			home, root := t.TempDir(), t.TempDir()
 			t.Setenv("HOME", home)
+			t.Setenv("USERPROFILE", home)
 			for _, key := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR", "OMP_CONFIG_DIR"} {
 				t.Setenv(key, "")
 			}
@@ -301,6 +333,29 @@ func TestPluginWizardFirstCommandUpdate(t *testing.T) {
 				}
 			}
 			s := &plugin.Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+			windowsRefusal := func(p *plugin.Plan, result *plugin.Result, applyErr error, nativeStatus string) {
+				t.Helper()
+				preview, failed, nativeOK := false, false, nativeStatus == ""
+				for _, c := range p.Changes {
+					preview = preview || c.Name == "demo" && c.Commands && c.Target == "" && c.MessageKey == "plugins.error.commandsWindows" && (c.Failed || p.Blocked && c.Action == "blocked")
+				}
+				if result != nil {
+					for _, out := range result.Results {
+						failed = failed || out.Name == "demo" && out.Commands && out.Target == "" && out.Status == "failed" && out.MessageKey == "plugins.error.commandsWindows"
+						nativeOK = nativeOK || out.Name == "demo" && !out.Commands && out.Target == "cursor" && out.Status == nativeStatus
+					}
+				}
+				if !preview || applyErr == nil || p.Blocked != (nativeStatus == "") || !nativeOK || nativeStatus != "" && !failed {
+					t.Fatalf("Windows scope outcomes: preview=%+v result=%+v error=%v", p.Changes, result, applyErr)
+				}
+				if _, err := os.Lstat(filepath.Join(home, ".local", "bin", "demo-command")); !os.IsNotExist(err) {
+					t.Fatalf("Windows published a command: %v", err)
+				}
+				inventory, err := s.Packages()
+				if err != nil || inventory.Packages["demo"].Commands != nil {
+					t.Fatalf("Windows recorded a command receipt: %+v %v", inventory, err)
+				}
+			}
 			r := plugin.Request{Action: "add", Source: root}
 			if mode == "command-bearing" {
 				if err := os.WriteFile(filepath.Join(root, "plugin.json"), []byte(`{"name":"demo","$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","skills":"./skills","extensions":{"cc.runkids.skillshare":{"commands":{"demo-command":"run"}}}}`), 0644); err != nil {
@@ -319,8 +374,11 @@ func TestPluginWizardFirstCommandUpdate(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if _, err := s.Apply(context.Background(), r, p.Revision); err != nil {
-					t.Fatal(err)
+				result, applyErr := s.Apply(context.Background(), r, p.Revision)
+				if runtime.GOOS == "windows" && mode == "command-bearing" {
+					windowsRefusal(p, result, applyErr, "installed")
+				} else if applyErr != nil {
+					t.Fatalf("initial native work: %v preview=%+v", applyErr, p.Changes)
 				}
 			}
 			before, err := s.Packages()
@@ -359,11 +417,18 @@ func TestPluginWizardFirstCommandUpdate(t *testing.T) {
 					found = true
 				}
 			}
-			if !native && !found {
+			if runtime.GOOS != "windows" && !native && !found {
 				t.Fatalf("Whole package omitted first command: %+v", p.Changes)
 			}
-			if _, err := s.Apply(context.Background(), whole, p.Revision); err != nil {
-				t.Fatal(err)
+			result, applyErr := s.Apply(context.Background(), whole, p.Revision)
+			if runtime.GOOS == "windows" && mode != "commandless" {
+				nativeStatus := ""
+				if native {
+					nativeStatus = "installed"
+				}
+				windowsRefusal(p, result, applyErr, nativeStatus)
+			} else if applyErr != nil {
+				t.Fatalf("Whole package native work: %v preview=%+v", applyErr, p.Changes)
 			}
 			after, err := s.Packages()
 			if err != nil {
@@ -379,7 +444,7 @@ func TestPluginWizardFirstCommandUpdate(t *testing.T) {
 					t.Errorf("Whole package left native content stale: %s %v", content, err)
 				}
 			}
-			if mode != "commandless" {
+			if runtime.GOOS != "windows" && mode != "commandless" {
 				output, err := exec.Command(filepath.Join(after.Packages["demo"].Commands.Bin, "demo-command")).Output()
 				if err != nil || string(output) != "updated-command" {
 					t.Errorf("Whole package command output: %q %v", output, err)
