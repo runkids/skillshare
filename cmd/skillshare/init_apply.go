@@ -16,6 +16,7 @@ import (
 	"skillshare/internal/sourcefs"
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/theme"
+	"skillshare/internal/trash"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
 )
@@ -307,7 +308,11 @@ func replaceIdenticalCopies(cfg *config.Config, skills []ssync.DiscoveredSkill) 
 				continue // missing, or already a link
 			}
 			if sameTree(s.SourcePath, dst) {
-				os.RemoveAll(dst) //nolint:errcheck // sync reports a folder it can't link
+				// Move the copy to the trash rather than deleting it, so it can be
+				// recovered. Sync reports a folder it still can't link.
+				if _, err := trash.MoveToTrash(dst, s.FlatName, filepath.Join(trash.TrashDir(), "replaced-by-init", name)); err != nil {
+					kept = append(kept, name+"/"+s.FlatName)
+				}
 			} else {
 				kept = append(kept, name+"/"+s.FlatName)
 			}
