@@ -546,3 +546,18 @@ If upgrading from a version before the XDG split, skillshare automatically migra
 - [Skill Format](/docs/understand/skill-format) — SKILL.md format
 - [Agents](/docs/understand/agents) — Agent file format and discovery
 - [Tracked Repositories](/docs/understand/tracked-repositories) — Tracked repos
+
+## Plugin command files {#plugin-command-files}
+
+On macOS/Linux, managed command links live in `~/.local/bin` globally or
+`<project>/.skillshare/bin` for a project. Add the scoped bin to PATH yourself.
+Each bin has `.skillshare-plugin-commands.lock` for cross-config publication.
+Links point into reviewed plugin snapshots. Private plugin `state.json` version 2
+records command Applied/Pending receipts beside native receipts; shared
+`plugins.version` remains 2. Older private v1 state gains no inferred ownership.
+Offline removal uses exact links and preserves operator replacements. Windows
+command publication is unsupported.
+
+Keep the generated `.skillshare/bin/` directory out of version control: add
+`.skillshare/bin/` to the project root `.gitignore`. Its absolute links and bin
+lock are machine-local; share the plugin declaration instead.

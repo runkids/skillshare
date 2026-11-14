@@ -75,7 +75,7 @@ Target**，而不是“在该 Agent 内部启用”。
 - 打开某个 plugin 的行，也会列出（未勾选）该 Source 拥有对应套件的其他
   Agent。勾选其中一个会打开安装预览。Source 无法提供服务的 Agent，会在该行
   末尾计数显示，点击该数字即可查看原因。
-- 添加 plugin 时可以一个 Agent 都不勾。它会留在 Skillshare 中并显示 **尚未选择 Agent**，在你于该行勾选 Agent 之前不会安装任何东西。
+- 添加 plugin 时可以不选择 Agent；声明的包命令仍会安装，原生绑定可稍后选择。
 - 取消勾选，然后同步以移除该受管理的安装。
 - 该套件定义仍会保留，你之后可以再次选取该 Target。
 - 在 Claude 或 Codex 内部被停用的 plugin 会保持停用状态；请在该工具中
@@ -121,3 +121,19 @@ skillshare sync plugins review --target claude --no-tui
 不同机器间可重现。
 
 如需自动化、范围细节与所有参数，请参见 [plugin](/docs/reference/commands/plugin)。
+
+## 包命令 {#package-commands}
+
+**Commands** 是包级更新选项，没有 Agent 也可以选择。包行显示命令名和 bin。Agent 成功而命令失败后，**Retry** 仅重试失败选项。检查后来源改变，必须重新检查才能更新。
+
+macOS/Linux 上，根目录的 portable `plugin.json` 可以声明 PATH 命令，原生 slash commands 不变。文件必须已可执行并位于所选 candidate 内。名称以字母或数字开头，只含字母、数字、`.`、`_`、`-`。路径使用相对 `/` 分隔，不可跳出包或进入 `.git`；允许安全的内部相对符号链接。Skillshare 不会 chmod、推断解释器、执行安装脚本或修改 shell 配置。
+
+`plugin add ./demo --no-tui -g` 即使不带 `--target` 也会安装声明的命令。全局位于 `~/.local/bin`，项目位于 `<project>/.skillshare/bin`，请自行加入 PATH。链接指向已审阅的 snapshot，运行时无需原始来源目录。
+
+命令跟随包的默认 source/ref/candidate，与其他原生发行版独立。未指定目标的 check/update/update --all/sync/remove 包含命令。明确的 `--target` 更新和移除、import/unimport、同步选择开关仅影响原生绑定。check 即使 version 未变也比较 digest。recipe 不变时，sync 保持已审阅内容并修复缺失链接和重试未完成工作；update 审阅新内容。共享默认 recipe 改变时 sync 会重新审阅。
+
+移除使用本机 receipt，可离线执行，只删除精确拥有的链接，保留操作者文件、外部或悬空链接。名称冲突会阻止发布。命令失败不撤销原生成功，操作返回非零状态；解决原因后以 `sync plugins` 重试。bin 移动后需恢复原位置再清理，不会盲删旧绝对路径。共享 YAML 保持 `plugins.version: 2`，私有 state 为 v2；读取 v1 时不推断所有权，预览不写入迁移。Windows 不支持发布命令，原生操作保留各自结果。不新增 Agent 或 CLI 参数。
+
+[plugin.json](/docs/reference/commands/plugin#package-commands)
+
+生成的 `.skillshare/bin/` 含本机绝对链接和 lock。请在项目根目录的 `.gitignore` 加入 `.skillshare/bin/`，只共享插件声明。

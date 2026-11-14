@@ -154,3 +154,12 @@ Before changing code:
 `Config` loads shared `projects` then a versioned machine-local overlay. Local entries replace whole normalized roots; exclusions hide shared entries only here. Effective `Projects` expands into targets for sync consumers. General Save/PrepareSave projects back to shared declarations; local registrations never leak into shared config. `internal/projects.Service` edits both layers through `config.PrepareProjectLayers`: a new project goes to the layer `projects_storage` or the caller picks (shared by default), and edits and removals stay in the owning layer. A change to both layers (`share`, removal of an override with `Shared`) writes `config.yaml` before the local registry, so an interrupted write keeps the project. Dashboard target conversion remains a shared single-file write and refuses hidden roots. Raw editor decoding validates the submitted shared document plus overlay.
 
 `ProjectStateDir` isolates Windows registrations from the default config Git root using LocalAppData. Registry and locks share `ProjectConfigIdentity`, keyed by the resolved config destination, including the legacy Windows migration alias. Prepared local writes check shared/local bytes and config-link destination before detach and rename. Shared-writer concurrency outside this service remains separate.
+
+## Package commands
+
+`internal/plugin/commands_manifest.go` reads the portable namespaced executable
+map independently of native slash commands. `commands.go` plans it once from the
+default recipe, publishes scoped bin links under the existing operation lock and
+a bin flock, and records Applied/Pending receipts in private state v2. The shared
+YAML remains v2. Existing snapshots, approval hashes, lifecycle, batch/API and
+dashboard consumers carry package scope through `commands: true`, never an Agent.

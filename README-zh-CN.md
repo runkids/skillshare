@@ -256,6 +256,8 @@ skillshare plugin add owner/repo --target claude --target codex --no-tui
 skillshare sync plugins --dry-run     # plugin 的同步独立于 sync --all
 ```
 
+在 macOS/Linux 上，即使不带 `--target`，也会将声明的包命令安装到全局 `~/.local/bin` 或项目 `<project>/.skillshare/bin`。请自行将目录加入 PATH。未指定目标的更新和移除包含命令；Windows 不支持发布命令。
+
 工具里已经装好的 plugin 可以用 `plugin import` 纳入管理。
 请见[跨工具管理 plugin](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins)。
 

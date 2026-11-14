@@ -46,6 +46,27 @@ between tools. Project mode supports Claude, Antigravity Desktop, Pi, and OpenCo
 Antigravity Desktop (`antigravity` or `agy`) and CLI (`antigravity-cli`) use separate
 stores. Choose the one you run.
 
+## Run bundled commands {#package-commands}
+
+A portable plugin can declare executable files in
+`plugin.json` → `extensions.cc.runkids.skillshare.commands`. See the
+[manifest and safety rules](/docs/reference/commands/plugin#package-commands).
+Adding it with no Agent selected still installs its declared commands.
+On macOS/Linux, add `~/.local/bin` (global) or `<project>/.skillshare/bin` (project)
+to PATH yourself. Skillshare never changes shell startup files.
+
+The plugin row shows command names and the bin directory. **Check updates** offers
+**Commands** as a package choice, including for packages with no Agents. Select it
+independently of native bindings. If an Agent succeeds and commands fail, **Retry**
+keeps the failed choice and does not repeat the successful Agent. A source change
+after checking requires another check before any update for that package.
+
+`sync plugins` repairs reviewed commands; `plugin update` reviews new content even
+at the same version. Untargeted removal works offline and preserves operator
+replacements. Commands use the default package source, independent of native
+imports, target toggles, or alternate distributions. Windows publication is
+unsupported; native operations still report their own outcomes.
+
 ## Already installed something?
 
 Choose **Import installed** and select a native installation. Importing records
@@ -82,7 +103,7 @@ sync**, not “enable inside the Agent.”
   for. Ticking one opens the install preview. Agents the source cannot serve are counted
   at the end of the row, and that count opens the reasons.
 - A plugin can be added with no Agent ticked. It is kept in Skillshare, shown as
-  **No Agents yet**, and nothing is installed until you tick an Agent in its row.
+  **No Agents yet**, and declared package commands are installed independently of Agent selection.
 - Uncheck it, then sync to remove that managed installation.
 - The package definition remains, so you can select the target again later.
 - A plugin disabled inside Claude or Codex stays disabled; manage native settings
@@ -165,3 +186,7 @@ digests detect changes; they are not a guarantee that every native installation
 or imported marketplace is reproducible across machines.
 
 For automation, scope details and all flags, see [plugin](/docs/reference/commands/plugin).
+
+Keep the generated `.skillshare/bin/` directory out of version control: add
+`.skillshare/bin/` to the project root `.gitignore`. Its absolute links and bin
+lock are machine-local; share the plugin declaration instead.

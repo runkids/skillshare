@@ -546,3 +546,14 @@ skillshare 在 Unix 系统上遵循 [XDG Base Directory Specification](https://s
 - [Skill Format](/docs/understand/skill-format) — SKILL.md 格式
 - [Agents](/docs/understand/agents) — Agent 文件格式与发现规则
 - [Tracked Repositories](/docs/understand/tracked-repositories) — 被追踪的仓库
+
+
+## 包命令 {#plugin-command-files}
+
+`plugin add ./demo --no-tui -g` 即使不带 `--target` 也会安装声明的命令。全局位于 `~/.local/bin`，项目位于 `<project>/.skillshare/bin`，请自行加入 PATH。链接指向已审阅的 snapshot，运行时无需原始来源目录。
+
+移除使用本机 receipt，可离线执行，只删除精确拥有的链接，保留操作者文件、外部或悬空链接。名称冲突会阻止发布。命令失败不撤销原生成功，操作返回非零状态；解决原因后以 `sync plugins` 重试。bin 移动后需恢复原位置再清理，不会盲删旧绝对路径。共享 YAML 保持 `plugins.version: 2`，私有 state 为 v2；读取 v1 时不推断所有权，预览不写入迁移。Windows 不支持发布命令，原生操作保留各自结果。不新增 Agent 或 CLI 参数。
+
+`<bin>/.skillshare-plugin-commands.lock`
+
+生成的 `.skillshare/bin/` 含本机绝对链接和 lock。请在项目根目录的 `.gitignore` 加入 `.skillshare/bin/`，只共享插件声明。

@@ -316,3 +316,22 @@ installation owns that exact link. Cleanup runs before the replacement installs;
 shared cache and plugin settings are retained. Foreign links, real directories,
 and competing owners still block replacement. If cleanup or installation fails,
 run sync again to retry the remaining local work.
+
+## Package commands
+
+Portable `plugin.json` with the exact schema
+`https://agent-plugins.org/schemas/1.0.0/plugin.schema.json` may declare
+`extensions.cc.runkids.skillshare.commands`, a command-name → relative executable
+map (for example `{"demo-tool":"bin/demo-tool"}`). Native slash commands are unchanged.
+On macOS/Linux, targetless add publishes to `~/.local/bin` globally or
+`<project>/.skillshare/bin` in project mode. Ask users to add the bin to PATH;
+never edit their shell profiles. Files must already be executable and contained
+inside the candidate root; do not chmod or infer an interpreter.
+Commands follow the default package recipe, not alternate native bindings.
+Untargeted check/update/update-all/sync/remove includes them; explicit target
+updates/removals, imports and selection toggles leave them alone. Sync pins
+reviewed bytes while the recipe is unchanged; update reviews changed content,
+even at the same version. Offline removal uses exact local receipts and preserves
+operator files/foreign links. Report command failures alongside native successes;
+retry pending work with `sync plugins`. Shared YAML stays v2; private receipts
+migrate from v1 to v2 only on writes. Windows publication reports unsupported.

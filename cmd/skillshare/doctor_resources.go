@@ -193,7 +193,7 @@ func reportPluginPlan(result *doctorResult, count int, plan *plugin.Plan, err er
 	}
 	var warnings []string
 	for _, c := range plan.Changes {
-		line := c.Name + " → " + c.Target
+		line := c.Name + " → " + pluginChangeLabel(c.Target, c.Commands)
 		switch c.Action {
 		case "noop":
 			if c.Guidance {

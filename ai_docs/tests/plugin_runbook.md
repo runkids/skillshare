@@ -82,6 +82,57 @@ pnpm exec vitest run src/components/plugins/PluginAddDialog.test.tsx
 - UI lists all six targets, with no Gemini CLI target; project restrictions apply.
 - Native runs use temporary HOME/XDG/PI_CODING_AGENT_DIR; no model calls.
 
+### 10. Portable PATH commands and operator preservation
+
+This fixture uses only the portable namespaced command map. No native CLI or
+account is required. mdproof provides an isolated HOME; all fixture paths stay under it.
+
+```bash
+set -eu
+unset CODEX_HOME CLAUDE_CONFIG_DIR PI_CODING_AGENT_DIR OMP_CONFIG_DIR
+fixture="$HOME/portable-command-fixture"
+mkdir -p "$fixture/bin"
+cat > "$fixture/plugin.json" <<'JSON'
+{"$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","name":"command-demo","version":"1.0.0","extensions":{"cc.runkids.skillshare":{"commands":{"ss-command-demo":"bin/demo"}}}}
+JSON
+printf '#!/bin/sh\nprintf "original\\n"\n' > "$fixture/bin/demo"
+chmod 755 "$fixture/bin/demo"
+/workspace/bin/skillshare plugin add "$fixture" -g --dry-run --json | jq -e 'any(.changes[]; .commands == true)' >/dev/null
+test ! -e "$HOME/.local/bin/ss-command-demo"
+/workspace/bin/skillshare plugin add "$fixture" -g --json >/dev/null
+export PATH="$HOME/.local/bin:$PATH"
+test "$(ss-command-demo)" = original
+printf '#!/bin/sh\nprintf "changed\\n"\n' > "$fixture/bin/demo"
+/workspace/bin/skillshare plugin sync command-demo -g --json >/dev/null
+test "$(ss-command-demo)" = original
+/workspace/bin/skillshare plugin update --all -g --json >/dev/null
+test "$(ss-command-demo)" = changed
+rm "$HOME/.local/bin/ss-command-demo"
+printf operator > "$HOME/.local/bin/ss-command-demo"
+if /workspace/bin/skillshare plugin update --all -g --json > "$HOME/command-conflict.json"; then
+  echo 'conflict unexpectedly succeeded' >&2
+  exit 1
+fi
+# The CLI can append a human error line after its structured result.
+jq -Rse 'split("\n") | map(fromjson?) | any(.[] | .results[]?; .commands == true and .status == "failed")' "$HOME/command-conflict.json" >/dev/null
+mv "$fixture" "$fixture-offline"
+/workspace/bin/skillshare plugin remove command-demo -g --json >/dev/null
+test "$(cat "$HOME/.local/bin/ss-command-demo")" = operator
+rm "$HOME/.local/bin/ss-command-demo"
+printf 'portable command lifecycle passed\n'
+```
+
+**Expected**:
+- exit_code: 0
+- portable command lifecycle passed
+
+Package commands use `~/.local/bin` globally and `<project>/.skillshare/bin` in
+project mode. Add that directory to PATH yourself. This fixture's chmod prepares
+an executable; Skillshare never changes its executable bit. Source-independent
+removal uses private v2 receipts, preserving foreign files and links. Native
+successes are retained when command publication fails. Windows publication is
+unsupported and is not covered by this Linux runbook.
+
 ## Pass Criteria
 
 All steps pass, including the opt-in native test (not skipped). Installing source

@@ -256,6 +256,8 @@ skillshare plugin add owner/repo --target claude --target codex --no-tui
 skillshare sync plugins --dry-run     # plugin 동기화는 sync --all과 별도
 ```
 
+macOS/Linux에서는 `--target` 없이도 선언된 패키지 명령을 전역 `~/.local/bin` 또는 프로젝트 `<project>/.skillshare/bin`에 설치합니다. 이 디렉터리를 PATH에 추가하세요. 대상을 지정하지 않은 업데이트와 제거에는 명령도 포함됩니다. Windows 명령 게시는 지원하지 않습니다.
+
 도구에 이미 설치된 plugin은 `plugin import`로 관리 대상에 포함할 수 있습니다.
 [여러 도구에서 plugin 관리하기](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins)를 참고하세요.
 

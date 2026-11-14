@@ -258,7 +258,10 @@ skillshare plugin add owner/repo --target claude --target codex --no-tui
 skillshare sync plugins --dry-run     # plugins sync separately from sync --all
 ```
 
-Existing native installations can be adopted with `plugin import`.
+On macOS/Linux, declared package commands install even without `--target`, into
+`~/.local/bin` globally or `<project>/.skillshare/bin` in project mode. Add that
+directory to PATH; untargeted updates/removal include commands. Windows publication
+is unsupported. Existing native installations can be adopted with `plugin import`.
 See [Manage plugins across tools](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins).
 
 **Shell completion** —tab-complete commands, flags, and subcommands

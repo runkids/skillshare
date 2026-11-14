@@ -76,7 +76,7 @@ Sync に含める**ことを意味し、「その Agent 内で有効にする」
 - プラグインの行を開くと、その Source がパッケージを持っている他の Agent がチェックなしで一覧表示
   されます。1つにチェックを入れると、インストールのプレビューが開きます。Source が提供できない
   Agent は行の末尾にまとめてカウントされ、その数をクリックすると理由が表示されます。
-- Agent を 1 つもチェックせずにプラグインを追加できます。Skillshare に残り **Agent 未選択** と表示され、行で Agent をチェックするまで何もインストールされません。
+- Agent を選択せずに追加しても、宣言されたパッケージコマンドはインストールされます。ネイティブ binding は後から選択できます。
 - チェックを外してから Sync すると、その管理対象のインストールが削除されます。
 - パッケージの定義は残るため、後で再び Target を選択できます。
 - Claude または Codex 内で無効化されたプラグインは無効のままです。そのツール内のネイティブな設定で
@@ -123,3 +123,19 @@ skillshare sync plugins review --target claude --no-tui
 
 自動化、scope の詳細、すべてのフラグについては [plugin](/docs/reference/commands/plugin) を参照して
 ください。
+
+## パッケージコマンド {#package-commands}
+
+**Commands** はパッケージ単位の更新選択です。Agent がなくても選択でき、行にはコマンド名と bin を表示します。Agent の成功後にコマンドが失敗した場合、**Retry** は失敗した選択だけを再試行します。check 後に source が変わった場合は再チェックが必要です。
+
+macOS/Linux では、ルートの portable `plugin.json` に PATH コマンドを宣言できます。ネイティブの slash commands は変更しません。ファイルは最初から実行可能で、選択した candidate の内部にある必要があります。名前は英数字で始まり、英数字・`.`・`_`・`-` のみを使います。パスは相対 `/` 区切りとし、外部への移動や `.git` を禁止します。安全な内部相対 symlink は使えます。chmod、interpreter の推測、install scripts の実行、shell 設定変更は行いません。
+
+`plugin add ./demo --no-tui -g` は `--target` なしでも宣言されたコマンドをインストールします。グローバルは `~/.local/bin`、プロジェクトは `<project>/.skillshare/bin` です。PATH には自分で追加してください。リンク先はレビュー済み snapshot なので元の source がなくても実行できます。
+
+コマンドはパッケージのデフォルト source/ref/candidate に従い、別のネイティブ配布形式とは独立です。対象指定のない check/update/update --all/sync/remove に含まれます。明示的な `--target` 更新・削除、import/unimport、選択 toggle はネイティブ binding のみを扱います。check は同じ version でも digest を比較します。sync は recipe が変わらない限りレビュー済みの内容を保持し、欠落リンクと未完了処理を修復します。update は新しい内容をレビューし、共有デフォルト recipe の変更も sync で再レビューします。
+
+削除はローカル receipt からオフラインで行い、正確に所有するリンクだけを削除します。operator のファイルや外部・dangling link は保持します。競合は公開を止めます。コマンドが失敗してもネイティブの成功は維持され、操作は非ゼロで終了します。原因を解決して `sync plugins` で再試行してください。bin の移動後は元の場所を復元して cleanup します。古い絶対パスを無条件に削除しません。共有 YAML は `plugins.version: 2`、非公開 state は v2 です。v1 の preview は書き換えず所有権を推測しません。Windows のコマンド公開は未対応ですが、ネイティブ操作は個別に結果を返します。新しい Agent や CLI flag はありません。
+
+[plugin.json](/docs/reference/commands/plugin#package-commands)
+
+生成された `.skillshare/bin/` はマシン固有の絶対リンクと lock を含みます。プロジェクトルートの `.gitignore` に `.skillshare/bin/` を追加し、宣言のみを共有してください。

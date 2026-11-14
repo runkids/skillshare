@@ -13,7 +13,7 @@ skillshare plugin                         # Interactive manager
 skillshare plugin add                     # Source → plugin → targets → review
 skillshare plugin discover ./my-plugin --json
 skillshare plugin add ./my-plugin --target claude --target codex --no-tui
-skillshare plugin add ./my-plugin --no-tui   # Keep it in Skillshare; choose targets later
+skillshare plugin add ./my-plugin --no-tui   # Install declared commands; choose native targets later
 skillshare plugin import review@team --from claude --no-tui
 skillshare plugin list --json
 skillshare plugin inspect review --json
@@ -32,11 +32,60 @@ enabled state. Deselecting a target saves the choice. The next `sync plugins`
 removes its managed installation while retaining the definition. Selecting it
 again allows the next sync to reinstall it. Unmanaged plugins are unaffected.
 
-`add` without `--target` (or with nothing selected in the interactive picker) keeps
-the plugin in Skillshare without installing it anywhere. Add targets later with the
-same source and `--name`, or from the plugin's row in the dashboard; that install
-uses the source as it is then. Such a plugin stays managed when its last target is
-removed. `remove NAME` without `--target` removes it from Skillshare.
+`add` without `--target` installs declared package commands and keeps the plugin
+managed without native bindings. Add native targets later with the same source
+and `--name`, or from its dashboard row. Packages without a command declaration
+remain record-only. Untargeted `remove NAME` removes the whole package.
+
+## Package commands {#package-commands}
+
+On macOS and Linux, a portable root `plugin.json` can declare PATH commands
+independently of native slash commands:
+
+```json
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "demo",
+  "extensions": {
+    "cc.runkids.skillshare": {
+      "commands": { "demo-tool": "bin/demo-tool" }
+    }
+  }
+}
+```
+
+The file must already be executable and remain inside the selected candidate's
+root. Names use letters, digits, `.`, `_`, or `-`, starting with a letter or digit.
+Paths are relative, use `/`, and cannot traverse outside the package or enter
+`.git`. Safe internal relative symlinks are allowed. Skillshare does not chmod
+files, infer interpreters, execute install scripts, or edit shell profiles.
+
+`plugin add ./demo --no-tui -g` publishes these commands even without `--target`.
+Global links go to `~/.local/bin`; project links go to `<project>/.skillshare/bin`.
+Add the appropriate directory to PATH yourself. Links point into reviewed local
+snapshots, so invocation does not need the original source directory.
+
+Commands follow the package's default source/ref/candidate once, independently
+of alternate native distributions. Untargeted `check`, `update`, `update --all`,
+`sync` and `remove` include them. An explicit `--target` update/removal, native
+import/unimport, or sync-selection toggle affects native bindings only.
+`check` compares content digests even if the version stays unchanged. `sync`
+repairs missing links and retries reviewed work without fetching newer bytes
+while the default recipe is unchanged; `update` reviews newer source content.
+A changed shared default recipe is reviewed again on sync.
+
+Removal works offline from machine-local receipts and unlinks only exact owned
+links. Operator files and foreign or dangling links are preserved. Conflicting
+names block publication; native successes remain successful if commands fail,
+and the operation exits nonzero. Retry pending work with `sync plugins` after
+resolving the reported problem. Moving the bin root requires restoring its old
+location before cleanup; Skillshare never blindly deletes old absolute paths.
+
+Shared YAML remains `plugins.version: 2`. Private `state.json` uses version 2;
+version 1 reads do not infer ownership or write a migration during preview.
+Windows command publication explicitly reports unsupported, while native
+operations retain their individual outcomes. No command target or CLI flag is added.
+
 
 ## Commands
 
@@ -565,7 +614,7 @@ plugins:
 
 Each machine keeps native IDs, reviewed commits/digests/versions, private Pi
 registration references and pending operations under
-`<StateDir>/plugins/<config-path-hash>/state.json` (local format version 1).
+`<StateDir>/plugins/<config-path-hash>/state.json` (local format version 2).
 State is keyed by the config's **absolute path**. Moving or renaming a project
 folder or config starts a new state namespace. Previous installs are not
 implicitly tracked or cleaned up; remove them through the old config location
@@ -640,3 +689,7 @@ its local receipt. Shared declarations and other machines' installations stay
 unchanged. The next sync installs the shared source recipe.
 
 Uninstalling also removes native-client configuration or login associated with that installation.
+
+Keep the generated `.skillshare/bin/` directory out of version control: add
+`.skillshare/bin/` to the project root `.gitignore`. Its absolute links and bin
+lock are machine-local; share the plugin declaration instead.

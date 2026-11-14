@@ -70,6 +70,10 @@ func pluginNpmTargets(s *plugin.Service, r *plugin.Request) error {
 		return errMCPCancelled
 	}
 	for _, i := range idx {
+		if targets[i] == "" {
+			r.Targets = nil
+			break
+		}
 		r.Targets = append(r.Targets, targets[i])
 	}
 	return nil
@@ -144,8 +148,8 @@ func pluginWizardAction(s *plugin.Service, o pluginOptions) error {
 			if len(items) == 0 {
 				return fmt.Errorf("no compatible native clients in this scope")
 			}
-			// Confirming with nothing selected adds the plugin to Skillshare without installing it.
-			idx, err := runChecklistTUI(checklistConfig{title: "2/3 · Which tools should receive this plugin? (none: add to Skillshare only)", items: items, itemName: "target"})
+			// Package commands belong to the default source, independently of native selection.
+			idx, err := runChecklistTUI(checklistConfig{title: "2/3 · Which tools should receive this plugin? (none: install declared commands only)", items: items, itemName: "target"})
 			if err != nil {
 				return err
 			}
@@ -153,6 +157,10 @@ func pluginWizardAction(s *plugin.Service, o pluginOptions) error {
 				return errMCPCancelled
 			}
 			for _, i := range idx {
+				if targets[i] == "" {
+					r.Targets = nil
+					break
+				}
 				r.Targets = append(r.Targets, targets[i])
 			}
 		}
@@ -271,6 +279,10 @@ func pluginWizardAction(s *plugin.Service, o pluginOptions) error {
 				items = append(items, checklistItemData{label: definition.Label, desc: b.ID})
 			}
 		}
+		if inventory.Packages[r.Name].Commands != nil && (r.Action == "update" || r.Action == "remove") {
+			targets = append(targets, "")
+			items = append(items, checklistItemData{label: "Whole package", desc: "Commands and all native bindings"})
+		}
 		if len(items) == 0 {
 			return fmt.Errorf("no managed targets support %s; inspect plugin capabilities and use the native client", r.Action)
 		}
@@ -279,6 +291,10 @@ func pluginWizardAction(s *plugin.Service, o pluginOptions) error {
 			return err
 		}
 		for _, i := range selected {
+			if targets[i] == "" {
+				r.Targets = nil
+				break
+			}
 			r.Targets = append(r.Targets, targets[i])
 		}
 		o.request = r

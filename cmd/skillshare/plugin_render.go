@@ -53,6 +53,12 @@ func printPluginDiscovery(d *plugin.Discovery) {
 			}
 			ui.Row(mark, c.Name, value, width)
 		}
+		if len(c.Commands) > 0 {
+			ui.Note("commands: " + strings.Join(slices.Sorted(maps.Keys(c.Commands)), ", "))
+		}
+		if c.CommandProblem != "" {
+			ui.Warning("commands: %s", c.CommandProblem)
+		}
 		if c.Problem != "" {
 			ui.Note(c.Problem)
 		}
