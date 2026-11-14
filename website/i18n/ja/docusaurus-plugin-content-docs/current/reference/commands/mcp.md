@@ -736,7 +736,7 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
 
 `resources/list` は、提供する `SKILL.md` の frontmatter の名前と説明を一覧表示します。
 `directoryRead: true` により、client は `resources/directory/read`（`uri`、任意の `cursor`）で
-Skill のルートとサブディレクトリを参照できます。応答の `resources` は直下の項目のみで、
+`skill://_team/tools/pdf` のような Skill のルートとそのサブディレクトリを参照できます。応答の `resources` は直下の項目のみで、
 MIME タイプが `inode/directory` の空ディレクトリも含みます。ディレクトリ URI に末尾の
 スラッシュは付けません。ファイルや不明なディレクトリは `-32602` を返します。
 両方の一覧は URI 順で、1 ページ最大 100 件です。`nextCursor` を `cursor` として渡すと

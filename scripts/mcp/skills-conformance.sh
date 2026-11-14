@@ -3,6 +3,8 @@
 # Usage: bash scripts/mcp/skills-conformance.sh <absolute-report-directory>
 set -euo pipefail
 
+# It builds and serves skillshare and installs npm packages: container only.
+[[ -f /.dockerenv ]] || { echo 'run this inside the devcontainer, not on the host' >&2; exit 1; }
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 REPORT=${1:?provide an absolute report directory outside the fixture HOME}
 [[ "$REPORT" = /* ]] || { echo 'report directory must be absolute' >&2; exit 1; }

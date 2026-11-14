@@ -150,6 +150,8 @@ Rules:
 
 Load `e2e-runbooks` to write or run `ai_docs/tests/*_runbook.md` runbooks or to verify on a Windows guest.
 
+For changes to what `mcp serve` exposes through the Skills extension (SEP-2640), also run `bash scripts/mcp/skills-conformance.sh <absolute-report-dir>` inside the devcontainer. It fetches the official conformance suite at a pinned commit (needs network and `npm ci`), serves a synthetic source, and fails unless every check is `SUCCESS`. It is not part of `make check` or CI.
+
 ## Frontend and Website Verification
 
 Start the dashboard through the devcontainer `ui` command. Run website package commands according to `website/AGENTS.md`. Visual changes require inspected screenshots in addition to builds and tests. Load `frontend` for design-specific checks.
