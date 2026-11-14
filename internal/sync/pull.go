@@ -73,7 +73,7 @@ func FindLocalSkills(targetPath, sourcePath, syncMode string) ([]LocalSkillInfo,
 			return nil, err
 		}
 		absSource, _ := filepath.Abs(sourcePath)
-		if utils.PathsEqual(absLink, absSource) {
+		if utils.SamePhysicalPath(absLink, absSource) {
 			return skills, nil
 		}
 		resolved, statErr := os.Stat(targetPath)

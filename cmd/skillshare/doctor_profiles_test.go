@@ -1,15 +1,18 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
 	"skillshare/internal/config"
 	"skillshare/internal/profile"
+	"skillshare/internal/testutil"
 	ssync "skillshare/internal/sync"
 )
 
@@ -130,5 +133,43 @@ func TestProfileDiagnosticsWithoutActiveProfile(t *testing.T) {
 	checks := profileDoctorChecks(cfg, pc, root, nil, nil)
 	if len(checks) != 0 || ssync.ProfileUnmatchedWarning(profile.Parse(&cfg.Profiles), cfg.ProfileState(), nil) != "" {
 		t.Fatal("no-profile diagnostics changed", checks)
+	}
+}
+
+func TestProfileDoctorChecksSuppressSyncDiagnostics(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(fmt.Sprint(project), func(t *testing.T) {
+			cfg, pc, root := profileDiagnosticFixture(t, project, "profiles:\n  subset:\n    skills:\n      include: [keep]\n", profile.State{Version: 1, Active: "subset", Pending: true})
+			skills, err := ssync.DiscoverSourceSkills(cfg.Source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			sc := cfg.Targets["custom"].SkillsConfig()
+			sc.Profile = profile.Selector{}
+			target := config.TargetConfig{Skills: &sc}
+			if r := ssync.SyncSkillTarget(ssync.SkillTarget{Name: "custom", Target: target, Mode: "copy"}, skills, ssync.SkillRunOptions{Source: cfg.Source}); r.Err != nil || len(r.Linked) != 2 {
+				t.Fatalf("seed: %+v", r)
+			}
+			before := testutil.SnapshotTree(t, false, sc.Path, cfg.Source)
+			var diagnostic bytes.Buffer
+			previous := ssync.DiagOutput
+			ssync.DiagOutput = &diagnostic
+			defer func() { ssync.DiagOutput = previous }()
+			out := captureStdout(t, func() {
+				checks := profileDoctorChecks(cfg, pc, root, skills, nil)
+				if err := json.NewEncoder(os.Stdout).Encode(buildDoctorOutput(&doctorResult{checks: checks})); err != nil {
+					t.Fatal(err)
+				}
+			})
+			if diagnostic.Len() != 0 || !json.Valid([]byte(out)) || !strings.Contains(out, "profile_pending") {
+				t.Fatalf("doctor leaked diagnostics: %q; output: %s", diagnostic.String(), out)
+			}
+			if ssync.DiagOutput != &diagnostic {
+				t.Fatal("doctor did not restore diagnostic output")
+			}
+			if !reflect.DeepEqual(before, testutil.SnapshotTree(t, false, sc.Path, cfg.Source)) {
+				t.Fatal("doctor changed deployed copies or source")
+			}
+		})
 	}
 }

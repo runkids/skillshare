@@ -211,7 +211,8 @@ func TestProfileAwareFollowedLinkOwnership(t *testing.T) {
 					t.Fatal(err)
 				}
 				if got, allowed := PreviewEntry(skills[0].FlatName, target.Target.Path, alias, skills, manifest, nil); !allowed || got.Class != EntryManagedLink {
-					t.Fatalf("followed preview ownership: %+v, %v", got, allowed)
+					dest, linkErr := utils.ResolveLinkTarget(entry)
+					t.Fatalf("followed preview ownership: %+v, %v (link=%q, err=%v, root=%q, canonical=%q)", got, allowed, dest, linkErr, alias, sourcewalk.Canonical(alias))
 				}
 				target.Mode = mode
 				for _, dry := range []bool{true, false} {
@@ -241,5 +242,28 @@ func TestProfileAwareFollowedLinkOwnership(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestLinkWithinSource_FollowedChildThroughDifferentRootAlias(t *testing.T) {
+	source := linkedRepoSource(t)
+	oldRoot := filepath.Join(t.TempDir(), "old-source")
+	newRoot := filepath.Join(t.TempDir(), "new-source")
+	for _, alias := range []string{oldRoot, newRoot} {
+		if err := os.Symlink(source, alias); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// A recorded link may still use the previous spelling of the same source
+	// root. Resolving its followed child entirely loses that source identity.
+	if !linkWithinSource(filepath.Join(oldRoot, "_dev-skills", "foo"), newRoot) {
+		t.Fatal("same source through another root alias lost ownership")
+	}
+	checkout := sourcewalk.Canonical(filepath.Join(source, "_dev-skills"))
+	if linkWithinSource(filepath.Join(checkout, "foo"), newRoot) {
+		t.Fatal("a direct external link was treated as source-owned")
+	}
+	if linkWithinSource(filepath.Join(source+"-other", "foo"), newRoot) {
+		t.Fatal("a sibling sharing the source prefix was treated as source-owned")
 	}
 }
