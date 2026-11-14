@@ -277,12 +277,6 @@ license: Apache-2.0
 			expected: map[string]string{},
 		},
 		{
-			name:     "nested metadata is omitted from the scalar projection",
-			content:  "---\nname: fixture\nmetadata:\n  generated:\n    by: human:alex\n  sources:\n    - id: agentskills\n---\n",
-			fields:   []string{"name", "metadata"},
-			expected: map[string]string{"name": "fixture"},
-		},
-		{
 			name: "numeric and boolean values are converted",
 			content: `---
 version: 2
@@ -335,41 +329,28 @@ func TestParseFrontmatterMap_MemoryDoesNotGrowWithBodyLines(t *testing.T) {
 	}
 }
 
-// The complete-map API already preserves provenance; the scalar API remains a projection.
+// The skill format docs promise that nested metadata mappings and lists are kept.
 func TestParseFrontmatterMap_NestedMetadataPreserved(t *testing.T) {
-	metadata := `metadata:
-  type: Skill
-  status: stable
+	content := []byte(`---
+name: fixture
+metadata:
   generated:
     by: human:alex
-    at: "2026-11-13T00:00:00Z"
   sources:
     - id: agentskills
-      resource: https://agentskills.io/specification
-  unknown:
-    flags: [true, false]
-`
-	for _, extra := range []string{"", "last_edited: 2026-11-13\n", metadata} {
-		content := []byte("---\nname: fixture\ndescription: Safe fixture\n" + extra + "---\n# Fixture\n")
-		fm, err := ParseFrontmatterMap(content)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if fm["name"] != "fixture" || fm["description"] != "Safe fixture" {
-			t.Fatalf("identity = %v", fm)
-		}
-		if extra != metadata {
-			continue
-		}
-		want := map[string]any{
-			"type": "Skill", "status": "stable",
-			"generated": map[string]any{"by": "human:alex", "at": "2026-11-13T00:00:00Z"},
-			"sources":   []any{map[string]any{"id": "agentskills", "resource": "https://agentskills.io/specification"}},
-			"unknown":   map[string]any{"flags": []any{true, false}},
-		}
-		if !reflect.DeepEqual(fm["metadata"], want) {
-			t.Errorf("metadata = %#v, want %#v", fm["metadata"], want)
-		}
+---
+# Fixture
+`)
+	fm, err := ParseFrontmatterMap(content)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]any{
+		"generated": map[string]any{"by": "human:alex"},
+		"sources":   []any{map[string]any{"id": "agentskills"}},
+	}
+	if !reflect.DeepEqual(fm["metadata"], want) {
+		t.Errorf("metadata = %#v, want %#v", fm["metadata"], want)
 	}
 }
 

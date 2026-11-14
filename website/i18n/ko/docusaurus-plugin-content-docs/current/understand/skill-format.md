@@ -216,7 +216,7 @@ metadata:
       resource: https://agentskills.io/specification
 ```
 
-스킬 식별에는 최상위 `name`과 `description`을 사용하며, 같은 이름의 중첩 필드는 이를 대체하지 않습니다. `metadata.type`은 사용자 정의 정보이며 `.metadata.json`에 기록된 설치 소스 유형을 변경하지 않습니다. 동기화는 기존 `last_edited` 값을 포함한 SKILL.md 내용을 보존합니다. 각 네이티브 클라이언트는 자체 메타데이터 요구 사항을 적용할 수 있습니다.
+스킬 식별에는 최상위 `name`과 `description`을 사용하며, 같은 이름의 중첩 필드는 이를 대체하지 않습니다. `metadata.type`은 사용자 정의 정보이며 `.metadata.json`에 기록된 설치 소스 유형을 변경하지 않습니다. 동기화는 SKILL.md 내용을 보존합니다. 각 네이티브 클라이언트는 자체 메타데이터 요구 사항을 적용할 수 있습니다.
 
 ## 커스텀 필드
 

@@ -161,7 +161,7 @@ func parseFrontmatterNameDesc(data []byte) (name, description string) {
 			inFrontmatter = true
 			continue
 		}
-		if !inFrontmatter || !utils.IsRootFrontmatterLine(line, trimmed, &indent) {
+		if !inFrontmatter || !utils.IsRootFrontmatterLine(line, &indent) {
 			continue
 		}
 		if strings.HasPrefix(trimmed, "name:") {
