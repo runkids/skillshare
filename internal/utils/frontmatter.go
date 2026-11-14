@@ -155,7 +155,8 @@ func ParseFrontmatterMap(content []byte) (map[string]any, error) {
 // ParseFrontmatterFields reads a SKILL.md file once and returns the values of
 // multiple frontmatter fields. This avoids opening the same file repeatedly
 // when multiple fields are needed (e.g. description + license).
-// Note: does not resolve metadata.<field> — only reads top-level fields.
+// Note: does not resolve metadata.<field> — only reads top-level scalar fields.
+// Use ParseFrontmatterMap for the complete structured frontmatter, including nested values.
 func ParseFrontmatterFields(filePath string, fields []string) map[string]string {
 	result := make(map[string]string, len(fields))
 	if len(fields) == 0 {
@@ -211,6 +212,7 @@ func ReadSkillBody(filePath string) string {
 // It supports both inline values and YAML block scalars (>, >-, |, |-).
 func ParseFrontmatterField(filePath, field string) string {
 	prefix := field + ":"
+	indent := -1
 	val := ""
 	var blockParts []string // set once val is a block scalar indicator
 	err := scanLenientBlock(filePath, func(raw []byte) bool {
@@ -223,7 +225,14 @@ func ParseFrontmatterField(filePath, field string) string {
 			return false
 		}
 		line := strings.TrimSpace(string(raw))
-		if !strings.HasPrefix(line, prefix) {
+		if line == "" || strings.HasPrefix(line, "#") {
+			return true
+		}
+		lineIndent := len(raw) - len(bytes.TrimLeft(raw, " \t"))
+		if indent < 0 {
+			indent = lineIndent
+		}
+		if lineIndent != indent || !strings.HasPrefix(line, prefix) {
 			return true
 		}
 		val = strings.TrimSpace(strings.SplitN(line, ":", 2)[1])

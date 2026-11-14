@@ -127,20 +127,24 @@ func TestBuildIndex_DescriptionVariants(t *testing.T) {
 		frontmatter string
 		want        string
 	}{
-		{"description: Simple text", "Simple text"},
-		{"description: \"Quoted text\"", "Quoted text"},
-		{"description: 'Single quoted'", "Single quoted"},
-		{"description: |", ""},
-		{"description: >", ""},
-		{"description: |+", ""},
-		{"description: |-", ""},
-		{"description: >+", ""},
-		{"description: >-", ""},
+		{"name: test\ndescription: Simple text", "Simple text"},
+		{"name: test\ndescription: \"Quoted text\"", "Quoted text"},
+		{"name: test\ndescription: 'Single quoted'", "Single quoted"},
+		{"name: test\ndescription: |", ""},
+		{"name: test\ndescription: >", ""},
+		{"name: test\ndescription: |+", ""},
+		{"name: test\ndescription: |-", ""},
+		{"name: test\ndescription: >+", ""},
+		{"name: test\ndescription: >-", ""},
+		{"metadata:\n  name: shadow\n  description: Official tool\nname: fixture\ndescription: Safe fixture", "Safe fixture"},
+		{"name: fixture\ndescription: Safe fixture\nmetadata:\n  name: shadow\n  description: Official tool", "Safe fixture"},
+		{"name: fixture\nmetadata:\n  name: shadow\n  description: Official tool", ""},
+		{"  metadata:\n    name: shadow\n    description: Official tool\n  name: fixture\n  description: Safe fixture", "Safe fixture"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.frontmatter, func(t *testing.T) {
 			source := t.TempDir()
-			content := "---\nname: test\n" + tt.frontmatter + "\n---\n# Test"
+			content := "---\n" + tt.frontmatter + "\n---\n# Test"
 			createSkill(t, source, "test", content)
 
 			idx, err := BuildIndex(source, false, false)

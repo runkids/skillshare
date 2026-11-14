@@ -202,20 +202,37 @@ metadata:
 
 为向后兼容，skillshare 也会读取顶层的 `targets` 字段。如果两者同时存在，`metadata.targets` 优先。
 
+嵌套映射与列表也会保留，包括来源信息与未知字段：
+
+```yaml
+metadata:
+  type: Skill
+  status: stable
+  generated:
+    by: human:alex
+    at: "2026-11-13T00:00:00Z"
+  sources:
+    - id: agentskills
+      resource: https://agentskills.io/specification
+```
+
+Skill 的标识使用顶层的 `name` 与 `description`；同名的嵌套字段不会替代它们。`metadata.type` 是自定义信息，不会改变 `.metadata.json` 记录的安装来源类型。同步会保留 SKILL.md 的内容，包括已有的 `last_edited` 值。各原生客户端可能有自己的元数据要求。
+
 ## 自定义字段
 
-你可以添加任意自定义的顶层字段：
+自定义字段建议放在 `metadata` 下。已有的自定义顶层字段仍会保留，但原生客户端可能限制可接受的字段：
 
 ```yaml
 ---
 name: my-skill
 description: My custom skill
-author: Your Name
-version: 1.0.0
+metadata:
+  author: Your Name
+  version: 1.0.0
 ---
 ```
 
-自定义的顶层字段会被存储在 frontmatter 中，但 skillshare 本身不会使用它们。
+Skillshare 会保留这些自定义值，但不会为它们赋予行为。
 
 ---
 

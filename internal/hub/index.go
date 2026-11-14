@@ -215,10 +215,21 @@ func readSkillDescription(skillPath string) (string, error) {
 	if len(lines) < 3 || strings.TrimSpace(lines[0]) != "---" {
 		return "", nil
 	}
+	indent := -1
 	for i := 1; i < len(lines); i++ {
 		line := strings.TrimSpace(lines[i])
 		if line == "---" {
 			break
+		}
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		lineIndent := len(lines[i]) - len(strings.TrimLeft(lines[i], " \t"))
+		if indent < 0 {
+			indent = lineIndent
+		}
+		if lineIndent != indent {
+			continue
 		}
 		if strings.HasPrefix(strings.ToLower(line), "description:") {
 			desc := strings.TrimSpace(strings.TrimPrefix(line, "description:"))

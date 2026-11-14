@@ -151,6 +151,7 @@ func readSkillFrontmatter(skillMDPath string, fileCache map[string][]byte) (name
 func parseFrontmatterNameDesc(data []byte) (name, description string) {
 	lines := strings.Split(utils.TrimBOM(string(data)), "\n")
 	inFrontmatter := false
+	indent := -1
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "---" {
@@ -161,6 +162,16 @@ func parseFrontmatterNameDesc(data []byte) (name, description string) {
 			continue
 		}
 		if !inFrontmatter {
+			continue
+		}
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		lineIndent := len(line) - len(strings.TrimLeft(line, " \t"))
+		if indent < 0 {
+			indent = lineIndent
+		}
+		if lineIndent != indent {
 			continue
 		}
 		if strings.HasPrefix(trimmed, "name:") {
