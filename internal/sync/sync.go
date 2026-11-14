@@ -254,15 +254,11 @@ func MigrateToSource(targetPath, sourcePath string) error {
 	return nil
 }
 
-// resolveLinkRoot resolves an operation root like filepath.EvalSymlinks, but a
-// root that is itself a link is first replaced by its physical target: since
-// Go 1.23 EvalSymlinks leaves a Windows junction in place, and walking the
-// junction entry would trip the cycle guard instead of copying its contents.
+// resolveLinkRoot resolves every link component before walking an operation root.
+// Since Go 1.23 a Windows junction is not a symlink to EvalSymlinks, including
+// when it is an ancestor. The final evaluation still rejects a missing root.
 func resolveLinkRoot(root string) (string, error) {
-	if info, err := os.Lstat(root); err == nil && utils.IsLinkMode(root, info.Mode()) {
-		root = sourcewalk.Canonical(root)
-	}
-	return filepath.EvalSymlinks(root)
+	return filepath.EvalSymlinks(sourcewalk.Canonical(root))
 }
 
 // CreateSymlink creates a symlink (or junction on Windows) from target to source.
