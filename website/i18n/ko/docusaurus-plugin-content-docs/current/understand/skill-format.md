@@ -202,20 +202,37 @@ metadata:
 
 하위 호환성을 위해 skillshare는 최상위 `targets` 필드도 읽습니다. 둘 다 존재하면 `metadata.targets`가 우선합니다.
 
+출처 정보와 알 수 없는 필드를 포함한 중첩 매핑과 목록도 보존됩니다.
+
+```yaml
+metadata:
+  type: Skill
+  status: stable
+  generated:
+    by: human:alex
+    at: "2026-11-13T00:00:00Z"
+  sources:
+    - id: agentskills
+      resource: https://agentskills.io/specification
+```
+
+스킬 식별에는 최상위 `name`과 `description`을 사용하며, 같은 이름의 중첩 필드는 이를 대체하지 않습니다. `metadata.type`은 사용자 정의 정보이며 `.metadata.json`에 기록된 설치 소스 유형을 변경하지 않습니다. 동기화는 기존 `last_edited` 값을 포함한 SKILL.md 내용을 보존합니다. 각 네이티브 클라이언트는 자체 메타데이터 요구 사항을 적용할 수 있습니다.
+
 ## 커스텀 필드
 
-최상위 레벨에 원하는 커스텀 필드를 추가할 수 있습니다:
+커스텀 필드에는 `metadata`를 권장합니다. 기존 커스텀 최상위 필드는 보존되지만 네이티브 클라이언트는 허용하는 필드를 제한할 수 있습니다:
 
 ```yaml
 ---
 name: my-skill
 description: My custom skill
-author: Your Name
-version: 1.0.0
+metadata:
+  author: Your Name
+  version: 1.0.0
 ---
 ```
 
-커스텀 최상위 필드는 frontmatter에 저장되지만 skillshare 자체에서는 사용되지 않습니다.
+skillshare는 이 커스텀 값을 보존하며 별도의 동작을 부여하지 않습니다.
 
 ---
 

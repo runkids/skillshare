@@ -202,20 +202,37 @@ Currently, `targets` is the only `metadata` field that skillshare processes. Oth
 
 For backward compatibility, skillshare also reads a top-level `targets` field. If both are present, `metadata.targets` takes precedence.
 
+Nested mappings and lists are preserved, including provenance and unknown fields:
+
+```yaml
+metadata:
+  type: Skill
+  status: stable
+  generated:
+    by: human:alex
+    at: "2026-11-13T00:00:00Z"
+  sources:
+    - id: agentskills
+      resource: https://agentskills.io/specification
+```
+
+Root `name` and `description` identify the skill; nested fields with those names do not replace them. `metadata.type` describes custom content and does not change the installation source type recorded in `.metadata.json`. Sync preserves the SKILL.md content, including existing `last_edited` values. Native clients may impose their own metadata requirements.
+
 ## Custom Fields
 
-You can add any custom top-level fields:
+Prefer `metadata` for custom fields. Existing custom top-level fields are preserved, but native clients may restrict which fields they accept:
 
 ```yaml
 ---
 name: my-skill
 description: My custom skill
-author: Your Name
-version: 1.0.0
+metadata:
+  author: Your Name
+  version: 1.0.0
 ---
 ```
 
-Custom top-level fields are stored in the frontmatter but not used by skillshare itself.
+Skillshare preserves these custom values without assigning behavior to them.
 
 ---
 

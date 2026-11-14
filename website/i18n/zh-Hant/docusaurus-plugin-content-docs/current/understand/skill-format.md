@@ -202,20 +202,37 @@ metadata:
 
 為了向後相容，skillshare 也會讀取頂層的 `targets` 欄位。若兩者同時存在，`metadata.targets` 優先。
 
+巢狀對應與清單也會保留，包括來源資訊與未知欄位：
+
+```yaml
+metadata:
+  type: Skill
+  status: stable
+  generated:
+    by: human:alex
+    at: "2026-11-13T00:00:00Z"
+  sources:
+    - id: agentskills
+      resource: https://agentskills.io/specification
+```
+
+Skill 的識別使用頂層的 `name` 與 `description`；同名的巢狀欄位不會取代它們。`metadata.type` 是自訂資訊，不會改變 `.metadata.json` 記錄的安裝來源類型。同步會保留 SKILL.md 的內容，包括既有的 `last_edited` 值。各原生客戶端可能有自己的中繼資料要求。
+
 ## 自訂欄位
 
-你可以新增任何自訂的頂層欄位：
+自訂欄位建議放在 `metadata` 下。既有的自訂頂層欄位仍會保留，但原生客戶端可能限制可接受的欄位：
 
 ```yaml
 ---
 name: my-skill
 description: My custom skill
-author: Your Name
-version: 1.0.0
+metadata:
+  author: Your Name
+  version: 1.0.0
 ---
 ```
 
-自訂的頂層欄位會儲存在 frontmatter 中，但 skillshare 本身不會使用它們。
+Skillshare 會保留這些自訂值，但不會為它們賦予行為。
 
 ---
 

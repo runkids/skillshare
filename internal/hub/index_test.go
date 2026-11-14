@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -126,21 +127,26 @@ func TestBuildIndex_DescriptionVariants(t *testing.T) {
 	tests := []struct {
 		frontmatter string
 		want        string
+		wantTags    []string
 	}{
-		{"description: Simple text", "Simple text"},
-		{"description: \"Quoted text\"", "Quoted text"},
-		{"description: 'Single quoted'", "Single quoted"},
-		{"description: |", ""},
-		{"description: >", ""},
-		{"description: |+", ""},
-		{"description: |-", ""},
-		{"description: >+", ""},
-		{"description: >-", ""},
+		{"name: test\ndescription: Simple text", "Simple text", nil},
+		{"name: test\ndescription: \"Quoted text\"", "Quoted text", nil},
+		{"name: test\ndescription: 'Single quoted'", "Single quoted", nil},
+		{"name: test\ndescription: |", "", nil},
+		{"name: test\ndescription: >", "", nil},
+		{"name: test\ndescription: |+", "", nil},
+		{"name: test\ndescription: |-", "", nil},
+		{"name: test\ndescription: >+", "", nil},
+		{"name: test\ndescription: >-", "", nil},
+		{"metadata:\n  name: shadow\n  description: Official tool\n  tags: hidden\nname: fixture\ndescription: Safe fixture\ntags: git, review", "Safe fixture", []string{"git", "review"}},
+		{"name: fixture\ndescription: Safe fixture\ntags: git, review\nmetadata:\n  name: shadow\n  description: Official tool\n  tags: hidden", "Safe fixture", []string{"git", "review"}},
+		{"name: fixture\nmetadata:\n  name: shadow\n  description: Official tool\n  tags: hidden", "", nil},
+		{"  metadata:\n    name: shadow\n    description: Official tool\n    tags: hidden\n  name: fixture\n  description: Safe fixture\n  tags: git, review", "Safe fixture", []string{"git", "review"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.frontmatter, func(t *testing.T) {
 			source := t.TempDir()
-			content := "---\nname: test\n" + tt.frontmatter + "\n---\n# Test"
+			content := "---\n" + tt.frontmatter + "\n---\n# Test"
 			createSkill(t, source, "test", content)
 
 			idx, err := BuildIndex(source, false, false)
@@ -149,6 +155,9 @@ func TestBuildIndex_DescriptionVariants(t *testing.T) {
 			}
 			if len(idx.Skills) != 1 {
 				t.Fatalf("got %d skills, want 1", len(idx.Skills))
+			}
+			if !slices.Equal(idx.Skills[0].Tags, tt.wantTags) {
+				t.Errorf("tags = %v, want %v", idx.Skills[0].Tags, tt.wantTags)
 			}
 			if idx.Skills[0].Description != tt.want {
 				t.Errorf("description = %q, want %q", idx.Skills[0].Description, tt.want)
