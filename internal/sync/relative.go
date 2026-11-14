@@ -17,7 +17,7 @@ import (
 // Paths are resolved through EvalSymlinks so that symlinked ancestors
 // do not fool the prefix check.
 func shouldUseRelative(projectRoot, sourcePath, targetPath string) bool {
-	if projectRoot == "" {
+	if projectRoot == "" || !relativeLinkPathSupported(targetPath) {
 		return false
 	}
 	cleaned := evalOrClean(projectRoot)
