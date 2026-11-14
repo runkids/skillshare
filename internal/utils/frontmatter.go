@@ -141,8 +141,13 @@ func ParseFrontmatterMap(content []byte) (map[string]any, error) {
 	if len(bytes.TrimSpace(block.raw)) == 0 {
 		return nil, fmt.Errorf("no frontmatter")
 	}
+	var doc yaml.Node
+	if err := yaml.Unmarshal(block.raw, &doc); err != nil {
+		return nil, fmt.Errorf("invalid frontmatter: %w", err)
+	}
+	normalizeCoreScalars(&doc)
 	var fm map[string]any
-	if err := yaml.Unmarshal(block.raw, &fm); err != nil {
+	if err := doc.Decode(&fm); err != nil {
 		return nil, fmt.Errorf("invalid frontmatter: %w", err)
 	}
 	// A non-string key decodes to map[any]any, which JSON cannot carry.

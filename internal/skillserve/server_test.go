@@ -39,6 +39,9 @@ func connectServer(t *testing.T, src string, so Options, opts *mcp.ClientOptions
 	}
 	t.Cleanup(func() { ss.Close() })
 	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "v1"}, opts)
+	if err := mcp.AddSendingCustomMethod[*directoryParams, *directoryResult](client, "resources/directory/read"); err != nil {
+		t.Fatal(err)
+	}
 	if err := mcp.AddSendingCustomMethod[*listSkillsParams, *listSkillsResult](client, methodList); err != nil {
 		t.Fatal(err)
 	}

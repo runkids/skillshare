@@ -16,6 +16,8 @@ import (
 	"skillshare/internal/skillpkg"
 	"skillshare/internal/sourcewalk"
 	ssync "skillshare/internal/sync"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // extensionID is the SEP-2640 capability key.
@@ -64,6 +66,7 @@ type Catalog struct {
 	Skipped []Skip
 	bySkill map[string]*Skill
 	byFile  map[string]servedFile
+	byDir   map[string][]*mcp.Resource
 }
 
 // Builder builds catalogs from the skills source.
@@ -128,7 +131,7 @@ func (b *Builder) build(all []ssync.DiscoveredSkill) (*Catalog, error) {
 		served[s.RelPath] = true
 	}
 	var unserved []string
-	c := &Catalog{bySkill: map[string]*Skill{}, byFile: map[string]servedFile{}}
+	c := &Catalog{bySkill: map[string]*Skill{}, byFile: map[string]servedFile{}, byDir: map[string][]*mcp.Resource{}}
 	for _, s := range all {
 		if !served[s.RelPath] && !(s.UsesVariantRouting() && !s.Disabled && routed[s.RelPath].Status == "skill_target_mismatch") {
 			unserved = append(unserved, s.RelPath)
@@ -143,7 +146,7 @@ func (b *Builder) build(all []ssync.DiscoveredSkill) (*Catalog, error) {
 	// which would otherwise publish its files as their own.
 	for i := len(selected) - 1; i >= 0; i-- {
 		s := selected[i]
-		skill, files, reason := load(s)
+		skill, files, dirs, reason := load(s)
 		if j := slices.IndexFunc(unserved, func(o string) bool { return strings.HasPrefix(o, s.RelPath+"/") }); reason == "" && j >= 0 {
 			reason = fmt.Sprintf("contains %s, which is not served", unserved[j])
 		}
@@ -162,6 +165,9 @@ func (b *Builder) build(all []ssync.DiscoveredSkill) (*Catalog, error) {
 		}
 		c.Skills = append(c.Skills, skill)
 		c.bySkill[skill.URI] = skill
+		for _, uri := range dirs {
+			c.byDir[uri] = []*mcp.Resource{}
+		}
 		for uri, f := range files {
 			// A nested skill's files are also in the outer manifest; the deepest skill owns them.
 			if old, ok := c.byFile[uri]; !ok || len(f.owner.URI) > len(old.owner.URI) {
@@ -172,16 +178,17 @@ func (b *Builder) build(all []ssync.DiscoveredSkill) (*Catalog, error) {
 	slices.Reverse(c.Skipped)
 	// By URI, which skills/list cursors continue from.
 	slices.SortFunc(c.Skills, func(x, y *Skill) int { return strings.Compare(x.URI, y.URI) })
+	c.indexDirectories()
 	return c, nil
 }
 
 // load builds one entry and its files, or returns why the skill is skipped.
 // Every build reads every file again: size and mtime cannot prove the content is
 // unchanged (cp -p, rsync -t), and a stale digest makes hosts reject the file.
-func load(s ssync.DiscoveredSkill) (*Skill, map[string]servedFile, string) {
+func load(s ssync.DiscoveredSkill) (*Skill, map[string]servedFile, []string, string) {
 	p, err := skillpkg.Load(s.SourcePath)
 	if err != nil {
-		return nil, nil, err.Error()
+		return nil, nil, nil, err.Error()
 	}
 	base := "skill://" + escapePath(s.RelPath)
 	skill := &Skill{URI: base + "/SKILL.md", Frontmatter: p.Frontmatter, src: s}
@@ -191,7 +198,15 @@ func load(s ssync.DiscoveredSkill) (*Skill, map[string]servedFile, string) {
 		files[uri] = servedFile{dir: p.Dir, rel: f.Rel, digest: f.Digest, owner: skill}
 		skill.Resources = append(skill.Resources, File{URI: uri, Digest: f.Digest, Size: f.Size, rel: f.Rel})
 	}
-	return skill, files, ""
+	dirs := make([]string, 0, len(p.Directories))
+	for _, rel := range p.Directories {
+		uri := base
+		if rel != "." {
+			uri += "/" + escapePath(rel)
+		}
+		dirs = append(dirs, uri)
+	}
+	return skill, files, dirs, ""
 }
 
 // Skill returns the served skill whose SKILL.md URI is uri.

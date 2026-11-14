@@ -42,6 +42,7 @@ type Package struct {
 	Dir         string // resolved
 	Frontmatter map[string]any
 	Files       []File
+	Directories []string // slash-relative real directories; "." is the package root
 }
 
 var errTooLarge = fmt.Errorf("is larger than %d MiB", MaxBytes>>20)
@@ -101,6 +102,11 @@ func Load(dir string) (*Package, error) {
 			if info.Name() == ".git" {
 				return filepath.SkipDir
 			}
+			rel, err := filepath.Rel(dir, path)
+			if err != nil {
+				return err
+			}
+			p.Directories = append(p.Directories, filepath.ToSlash(rel))
 			return nil
 		}
 		if !info.Mode().IsRegular() {
