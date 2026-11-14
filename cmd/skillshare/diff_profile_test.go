@@ -12,10 +12,11 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/profile"
 	ssync "skillshare/internal/sync"
+	"skillshare/internal/testutil"
 )
 
 func TestDiffProfileReasons(t *testing.T) {
-	for _, scenario := range []string{"global", "project", "global-include", "project-include", "global-exclude", "project-exclude"} {
+	for _, scenario := range []string{"global", "project", "global-include", "project-include", "global-exclude", "project-exclude", "global-merge", "project-merge", "global-copy-to-merge", "project-copy-to-merge"} {
 		t.Run(scenario, func(t *testing.T) {
 			project := strings.HasPrefix(scenario, "project")
 			root := t.TempDir()
@@ -31,6 +32,13 @@ func TestDiffProfileReasons(t *testing.T) {
 			if project {
 				path = config.ProjectConfigPath(root)
 				text = fmt.Sprintf("sources:\n  skills: %s\ntargets:\n  - name: custom\n    skills:\n      path: %s\n      mode: copy\n      exclude: [target-only]\n", source, target)
+			}
+			publicationMode := "copy"
+			if strings.HasSuffix(scenario, "merge") {
+				text = strings.ReplaceAll(text, "mode: copy", "mode: merge")
+				if !strings.Contains(scenario, "copy-to-merge") {
+					publicationMode = "merge"
+				}
 			}
 			t.Setenv("SKILLSHARE_CONFIG", path)
 			if strings.HasSuffix(scenario, "include") {
@@ -59,7 +67,7 @@ func TestDiffProfileReasons(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			publication := ssync.SyncSkillTarget(ssync.SkillTarget{Name: "custom", Target: config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: target}}, Mode: "copy"}, skills, ssync.SkillRunOptions{Source: source})
+			publication := ssync.SyncSkillTarget(ssync.SkillTarget{Name: "custom", Target: config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: target}}, Mode: publicationMode}, skills, ssync.SkillRunOptions{Source: source})
 			if publication.Err != nil || publication.PruneErr != nil || len(publication.Linked) != 2 {
 				t.Fatalf("managed publication: %+v", publication)
 			}
@@ -70,6 +78,7 @@ func TestDiffProfileReasons(t *testing.T) {
 			if err := profile.WriteState(statePath, profile.State{Version: 1, Active: "frontend"}); err != nil {
 				t.Fatal(err)
 			}
+			before := fmt.Sprint(testutil.SnapshotTree(t, true, target))
 			var commandErr error
 			output := captureStdout(t, func() {
 				if project {
@@ -81,6 +90,9 @@ func TestDiffProfileReasons(t *testing.T) {
 			var out diffJSONOutput
 			if err := json.Unmarshal([]byte(output), &out); err != nil || commandErr != nil || len(out.Targets) != 1 {
 				t.Fatal(output, err, commandErr)
+			}
+			if out.Targets[0].Synced || before != fmt.Sprint(testutil.SnapshotTree(t, true, target)) {
+				t.Fatal("preview lost removal state or changed target", out.Targets[0])
 			}
 			items := out.Targets[0].Items
 			if len(items) != 2 {
