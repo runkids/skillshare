@@ -314,7 +314,7 @@ func (s *MetadataStore) extract(relPath string, matches func(string, *MetadataEn
 	for key, entry := range s.Entries {
 		if entry != nil && matches(key, entry, relPath) {
 			e := *entry
-			if !inLegacyRepoGroup(entry, relPath) { // its Group is not its path
+			if !inLegacyRepoGroup(key, entry, relPath) { // its Group is not its path
 				key = KeyToRelPath(key, entry)
 			}
 			out.Entries[key] = &e
@@ -468,12 +468,11 @@ func (s *MetadataStore) forgetName(rel string, matches func(string, *MetadataEnt
 	return before != len(s.Entries)+len(s.AuditAccepted)+len(s.TargetOverrides)
 }
 
-// unlinkedWith limits declaration/unlink legacy group cleanup to members, preserving
-// independent prefixed repo declarations such as team/_repo outside _team.
+// unlinkedWith reports whether forgetting a declaration or unlinking name
+// removes the entry at key.
 func unlinkedWith(key string, entry *MetadataEntry, name string) bool {
 	full := filepath.ToSlash(KeyToRelPath(key, entry))
-	return full == name || strings.HasPrefix(full, name+"/") ||
-		(inLegacyRepoGroup(entry, name) && !utils.IsTrackedRepoDir(path.Base(full)))
+	return full == name || strings.HasPrefix(full, name+"/") || inLegacyRepoGroup(key, entry, name)
 }
 
 // removedWith reports whether uninstalling name removes the entry at key.
@@ -481,15 +480,17 @@ func removedWith(key string, entry *MetadataEntry, name string) bool {
 	full := KeyToRelPath(key, entry)
 	return full == name ||
 		strings.HasPrefix(key, name+"/") || strings.HasPrefix(full, name+"/") ||
-		inLegacyRepoGroup(entry, name)
+		inLegacyRepoGroup(key, entry, name)
 }
 
 // inLegacyRepoGroup matches entries written when a top-level tracked repo
 // "_team" grouped its skills as "team". Untracked entries and nested repos are
-// left out: a plain group or a sibling repo may share that name.
-func inLegacyRepoGroup(entry *MetadataEntry, repo string) bool {
+// left out: a plain group or a sibling repo may share that name. So is a repo
+// installed into the group, such as team/_b, which is independent of _team.
+func inLegacyRepoGroup(key string, entry *MetadataEntry, repo string) bool {
 	return entry != nil && entry.Tracked && entry.Group != "" &&
-		!strings.Contains(repo, "/") && repo == "_"+entry.Group
+		!strings.Contains(repo, "/") && repo == "_"+entry.Group &&
+		!utils.IsTrackedRepoDir(path.Base(filepath.ToSlash(KeyToRelPath(key, entry))))
 }
 
 // WriteMetaToStore writes a SkillMeta to the centralized .metadata.json store.
