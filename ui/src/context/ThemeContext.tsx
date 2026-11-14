@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
+import { themeFromSearch } from '../lib/themeParams';
 
 export type Style = 'clean' | 'playful';
 export type ModePreference = 'light' | 'dark' | 'system';
@@ -30,25 +31,19 @@ export function useTheme() {
   return useContext(ThemeContext);
 }
 
-/** Read ?theme= URL param and persist to localStorage (runs once on load).
- *  Values: 'dark' | 'clean' | 'playful' | 'light'
- *  'clean' implies light mode + clean style; 'playful' implies light mode + playful style. */
+/** Persist the theme the URL asks for to localStorage (runs once on load). */
 function applyUrlThemeParam(): void {
-  const p = new URLSearchParams(window.location.search).get('theme')?.toLowerCase();
-  if (!p) return;
-  if (p === 'dark') {
-    localStorage.setItem('skillshare-theme-preference', 'dark');
-  } else if (p === 'clean') {
-    localStorage.setItem('skillshare-theme-preference', 'light');
-    localStorage.setItem('skillshare-style', 'clean');
-  } else if (p === 'playful') {
-    localStorage.setItem('skillshare-theme-preference', 'light');
-    localStorage.setItem('skillshare-style', 'playful');
-  } else if (p === 'light') {
-    localStorage.setItem('skillshare-theme-preference', 'light');
-  }
+  const { style, mode } = themeFromSearch(window.location.search);
+  if (mode) localStorage.setItem('skillshare-theme-preference', mode);
+  if (style) localStorage.setItem('skillshare-style', style);
 }
 applyUrlThemeParam();
+
+// Tell an embedding app (the desktop shell) that a new page is starting. It arrives before the
+// first theme-change reports, so the app can tell this page's starting theme from a user's choice.
+if (window.parent !== window) {
+  window.parent.postMessage({ type: 'theme-init' }, '*');
+}
 
 function getInitialStyle(): Style {
   const stored = localStorage.getItem('skillshare-style');
