@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -63,7 +64,13 @@ func TestLocalImportSurvivesSharedRecipeChanges(t *testing.T) {
 			s := native.service(t)
 			source := fixture(t)
 			if kind == "ref" {
-				source = "https://fixture.invalid/imported.git"
+				var root string
+				source, root, _ = remoteFixture(t)
+				cmd := exec.Command("git", "tag", "v2")
+				cmd.Dir = root
+				if out, err := cmd.CombinedOutput(); err != nil {
+					t.Fatalf("tag fixture: %s %v", out, err)
+				}
 			}
 			raw := "plugins:\n  version: 2\n  packages:\n    review:\n      source: " + source + "\n      plugin: demo\n      bindings:\n        claude: {}\n"
 			writePluginFile(t, filepath.Dir(s.ConfigPath), filepath.Base(s.ConfigPath), raw)

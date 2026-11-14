@@ -74,7 +74,8 @@ Safe internal relative symlinks are preserved; escaping, absolute, broken, cycli
 and `.git` links are rejected. A malformed manifest does not hide other formats.
 
 `add` without `--target`, or an interactive picker confirmed with nothing selected,
-keeps the plugin in Skillshare and installs it nowhere; `list` shows it as `no targets`.
+keeps the plugin in Skillshare and installs its declared package commands. With no command
+metadata, it installs nothing and `list` shows `no targets`.
 Add targets later with the same source and `--name`, which installs the source as it is
 then. Such a package stays managed when its last target is removed.
 
@@ -275,7 +276,7 @@ automation must provide explicit arguments and use `--json` or `--no-tui`.
 Shared `plugins.version: 2` declares package source/ref/plugin/entry, effective
 per-target sources and selection, or `imported: true`. Native IDs, reviewed
 commit/digest/version, Pi registration references and pending actions stay in
-`<StateDir>/plugins/<config-path-hash>/state.json` (version 1). Keep StateDir local.
+`<StateDir>/plugins/<config-path-hash>/state.json` (version 2). Keep StateDir local.
 Sync, normal update and retry never rewrite shared YAML; `update --source-ref`
 changes intent only when the ref differs. Reads persist local legacy hints without changing shared YAML.
 

@@ -40,7 +40,7 @@ export default function PluginUpdateDialog({ open, plan, pending, inventory, bat
   const names = pending.map((p) => p.name);
   const unverified = changes.filter((c) => c.action === 'native-check' || (c.action === 'noop' && c.guidance));
   // A source that no longer offers a compatible plugin for an Agent: nothing can be updated there until that changes.
-  const blocked = changes.filter((c) => c.action === 'blocked');
+  const blocked = changes.filter((c) => c.action === 'blocked' || c.failed);
   const others = [
     { title: t('plugins.updateDialog.blockedTitle'), rows: blocked, tag: <span className="ss-tag bad">{t('plugins.blocked')}</span> },
     { title: t('plugins.updateDialog.unverifiedTitle'), rows: unverified, tag: <span className="ss-tag warn">{t('plugins.unverified')}</span> },

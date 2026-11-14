@@ -50,7 +50,7 @@ export function failureText(t: T, response: PluginResult) {
 }
 
 /** Why a plan is blocked, in the user's language. */
-const blockedText = (t: T, plan: PluginPlan) => plan.changes.filter((c) => c.action === 'blocked').map((c) => keyedMessage(t, c)).filter(Boolean).join(' ') || t('plugins.blocked');
+const blockedText = (t: T, plan: PluginPlan) => plan.changes.filter((c) => c.action === 'blocked' || c.failed).map((c) => keyedMessage(t, c)).filter(Boolean).join(' ') || t('plugins.blocked');
 
 /** What a check found to update, per plugin and Agent (version '' when the source changed without a new one). */
 export function updatesFound(plan: PluginPlan) {
@@ -78,7 +78,7 @@ export function checkedPlan(plans: Record<string, PluginPlan>, updates: Updates)
   if (names.length === 0) return null;
   const changes = names.flatMap((name) => {
     const kept = updates[name] ?? {};
-    const answered = (plans[name]?.changes ?? []).filter((c) => !((c.action === 'blocked' || c.failed) && kept[c.target]));
+    const answered = plans[name]?.changes ?? [];
     const offered = Object.entries(kept)
       .filter(([target]) => !answered.some((c) => c.target === target && c.action === 'update-available'))
       .map(([target, u]) => ({
@@ -214,7 +214,7 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
     try {
       await pluginsApi.check(({ name, plan, error, error_code, error_params }) => {
         const why = error ? pluginErrorMessage(new ApiError(200, error, { code: error_code, params: error_params }), t)
-          : plan?.blocked ? blockedText(t, plan) : '';
+          : plan && (plan.blocked || plan.changes.some((c) => c.failed)) ? blockedText(t, plan) : '';
         answered.add(name);
         if (plan) plans[name] = plan;
         if (why) failed[name] = why;

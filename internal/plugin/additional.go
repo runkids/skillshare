@@ -48,8 +48,12 @@ func validTargetID(target, id string) bool {
 	return false
 }
 
-func (s *Service) snapshotPath(b Binding, target string) string {
-	market := "skillshare-" + hash([]byte(s.ConfigPath + "\x00" + b.Source + "\x00" + b.Plugin + "\x00" + target))[:16]
+func (s *Service) snapshotPath(b Binding, target string, packageName ...string) string {
+	scope := target
+	if len(packageName) > 0 {
+		scope += "\x00" + packageName[0]
+	}
+	market := "skillshare-" + hash([]byte(s.ConfigPath + "\x00" + b.Source + "\x00" + b.Plugin + "\x00" + scope))[:16]
 	if marketplaceAgent(s.agentOf(target)) {
 		_, market, _ = strings.Cut(b.ID, "@")
 	}

@@ -52,8 +52,10 @@ type commandReceipt struct {
 	Links   map[string]string `json:"links"`
 }
 type localCommands struct {
-	Applied *commandReceipt `json:"applied,omitempty"`
-	Pending *commandReceipt `json:"pending,omitempty"`
+	// Owned retains exact links from interrupted intents until reconciliation succeeds.
+	Owned   map[string][]string `json:"owned,omitempty"`
+	Applied *commandReceipt     `json:"applied,omitempty"`
+	Pending *commandReceipt     `json:"pending,omitempty"`
 }
 type localState struct {
 	Commands map[string]localCommands           `json:"commands,omitempty"`

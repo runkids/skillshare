@@ -202,6 +202,7 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 	c.Commands = commands
 	if commandErr != nil {
 		c.CommandProblem = commandErr.Error()
+		c.CommandProblemKey, c.CommandProblemArgs = ErrorKey(commandErr)
 	}
 	c.collectTargets()
 	if c.Name == "" {

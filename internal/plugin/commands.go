@@ -45,7 +45,7 @@ func (s *Service) commandParents(bin string) error {
 		return err
 	}
 	if bin != expected {
-		return fmt.Errorf("command bin changed; restore %s before cleanup", bin)
+		return agentError{key: "plugins.error.commandBinChanged", message: "Command bin changed; restore " + bin + " before cleanup", args: map[string]string{"bin": bin}}
 	}
 	return noSymlink(root, filepath.Join(bin, ".skillshare-plugin-commands.lock"))
 }
@@ -60,11 +60,16 @@ func cloneCommandReceipt(r *commandReceipt) *commandReceipt {
 }
 
 func commandOwners(local localCommands) map[string][]string {
-	owners := map[string][]string{}
+	owners := maps.Clone(local.Owned)
+	if owners == nil {
+		owners = map[string][]string{}
+	}
 	for _, r := range []*commandReceipt{local.Applied, local.Pending} {
 		if r != nil {
 			for name, path := range r.Links {
-				owners[name] = append(owners[name], path)
+				if !slices.Contains(owners[name], path) {
+					owners[name] = append(owners[name], path)
+				}
 			}
 		}
 	}
@@ -111,7 +116,7 @@ func (s *Service) observeCommands(bin string, local localCommands, after *comman
 		}
 		observation[name] = []any{link, exists}
 		if exists && !slices.Contains(owners[name], link) && !removal {
-			conflicts = append(conflicts, fmt.Errorf("command %s conflicts with an operator entry in %s", name, bin))
+			conflicts = append(conflicts, agentError{key: "plugins.error.commandConflict", message: "Command " + name + " conflicts with an operator entry in " + bin, args: map[string]string{"name": name, "bin": bin}})
 		}
 	}
 	raw, _ := json.Marshal(observation)
@@ -226,6 +231,9 @@ func (s *Service) planCommands(ctx context.Context, r Request, d *document) ([]C
 			c.Failed = true
 			c.Message = err.Error()
 			c.MessageKey, c.MessageArgs = ErrorKey(err)
+			if c.MessageKey == "" {
+				c.MessageKey, c.MessageArgs = "plugins.error.commandFailure", map[string]string{"detail": err.Error()}
+			}
 		}
 		if remove {
 			if before == nil {
@@ -237,13 +245,15 @@ func (s *Service) planCommands(ctx context.Context, r Request, d *document) ([]C
 		} else if isNpmSource(recipe.Source) {
 			continue
 		} else {
+			localRef := ""
 			if r.Action == "update" && r.SourceRef != "" {
-				recipe.SourceRef = r.SourceRef
-			}
-			// A native preview already discovered moving sources. When it did not,
-			// inspect its owned reviewed copy before downloading a commandless recipe.
-			if before == nil && r.Action != "add" && s.reviewedWithoutCommands(d, name, recipe) {
-				continue
+				if info, statErr := os.Stat(recipe.Source); statErr == nil && info.IsDir() {
+					// A ref for an alternate native distribution does not affect a
+					// commandless local default. Inspect its current metadata first.
+					localRef = r.SourceRef
+				} else {
+					recipe.SourceRef = r.SourceRef
+				}
 			}
 
 			var after *commandReceipt
@@ -259,7 +269,22 @@ func (s *Service) planCommands(ctx context.Context, r Request, d *document) ([]C
 					disc = addDiscovery
 					candidate = addCandidate
 				} else {
-					disc, err = s.discover(ctx, recipe.Source, recipe.SourceRef, recipe.Entry)
+					if r.Action == "check" {
+						bindings := map[string]Binding{}
+						maps.Copy(bindings, d.packages[name].Bindings)
+						if before != nil {
+							bindings[""] = before.Binding
+						}
+						for _, b := range bindings {
+							if s.sourceUnmoved(ctx, b, recipe.Source, recipe.SourceRef, recipe.Plugin, recipe.Entry) {
+								disc = s.discoverSnapshot(ctx, name, recipe.Source, recipe.SourceRef, recipe.Entry)
+								break
+							}
+						}
+					}
+					if disc == nil {
+						disc, err = s.discover(ctx, recipe.Source, recipe.SourceRef, recipe.Entry)
+					}
 					if err == nil {
 						for _, found := range disc.Candidates {
 							if found.Name == recipe.Plugin || recipe.Plugin == "" && len(disc.Candidates) == 1 {
@@ -271,22 +296,25 @@ func (s *Service) planCommands(ctx context.Context, r Request, d *document) ([]C
 					}
 				}
 				if err != nil {
-					if before == nil {
-						continue
-					}
 					fail(err)
 				} else if candidate == nil {
-					fail(fmt.Errorf("command provider %s no longer exists", recipe.Plugin))
+					fail(agentError{key: "plugins.error.commandProvider", message: "Command provider " + recipe.Plugin + " no longer exists", args: map[string]string{"name": recipe.Plugin}})
 				} else if candidate.CommandProblem != "" {
-					fail(errors.New(candidate.CommandProblem))
+					fail(agentError{key: candidate.CommandProblemKey, args: candidate.CommandProblemArgs, message: candidate.CommandProblem})
 				} else {
 					if len(candidate.Commands) == 0 && before == nil {
+						continue
+					}
+					if localRef != "" {
+						_, err = s.discover(ctx, recipe.Source, localRef, recipe.Entry)
+						fail(err)
+						changes = append(changes, c)
 						continue
 					}
 					b := Binding{Source: disc.Source, SourceRef: disc.SourceRef, Commit: disc.Commit, Digest: disc.Digest, Plugin: candidate.Name, Entry: recipe.Entry, Version: candidate.Version}
 					after = &commandReceipt{Intent: packageFingerprint(recipe), Bin: bin, Path: candidate.Path, Binding: b, Links: map[string]string{}}
 					for command, path := range candidate.Commands {
-						after.Links[command] = filepath.Join(s.snapshotPath(b, ""), "content", filepath.FromSlash(candidate.Path), filepath.FromSlash(path))
+						after.Links[command] = filepath.Join(s.snapshotPath(b, "", name), "content", filepath.FromSlash(candidate.Path), filepath.FromSlash(path))
 					}
 				}
 			}
@@ -297,6 +325,7 @@ func (s *Service) planCommands(ctx context.Context, r Request, d *document) ([]C
 			if after != nil {
 				cp.After = after
 				c.Binding = after.Binding
+				c.sourceVersion = &after.Binding.Version
 				if before != nil {
 					c.Action = "update"
 				}
@@ -343,7 +372,7 @@ func replaceCommand(path, previous, next string, exists bool) error {
 		return err
 	}
 	if present != exists || present && current != previous {
-		return fmt.Errorf("command destination changed: %s", path)
+		return agentError{key: "plugins.error.commandDestination", message: "Command destination changed: " + path, args: map[string]string{"path": path}}
 	}
 	if next == "" {
 		if !present {
@@ -372,7 +401,7 @@ func replaceCommand(path, previous, next string, exists bool) error {
 		return err
 	}
 	if !present || current != previous {
-		return fmt.Errorf("command destination changed: %s", path)
+		return agentError{key: "plugins.error.commandDestination", message: "Command destination changed: " + path, args: map[string]string{"path": path}}
 	}
 	return os.Rename(staged, path)
 }
@@ -384,6 +413,9 @@ func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out
 			out.Status = "failed"
 			out.Message = resultErr.Error()
 			out.MessageKey, out.MessageArgs = ErrorKey(resultErr)
+			if out.MessageKey == "" {
+				out.MessageKey, out.MessageArgs = "plugins.error.commandFailure", map[string]string{"detail": resultErr.Error()}
+			}
 			if c.Action == "skip" {
 				out.MessageKey, out.MessageArgs = c.MessageKey, c.MessageArgs
 			}
@@ -393,7 +425,7 @@ func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out
 		return out, errors.New(c.Message)
 	}
 	if c.command == nil {
-		return out, fmt.Errorf("command review missing")
+		return out, agentError{key: "plugins.error.commandReview", message: "Command review missing; preview again"}
 	}
 	before, after := c.command.Before, c.command.After
 	bin := ""
@@ -419,7 +451,7 @@ func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out
 		return out, err
 	}
 	if revision != c.command.DestinationRevision {
-		return out, fmt.Errorf("command destinations changed; preview again")
+		return out, agentError{key: "plugins.error.commandDestination", message: "Command destinations changed; preview again", args: map[string]string{"path": bin}}
 	}
 	if err := d.checkIntent(s.ConfigPath); err != nil {
 		return out, err
@@ -430,11 +462,14 @@ func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out
 		out.MessageKey, out.MessageArgs = c.MessageKey, c.MessageArgs
 		return out, nil
 	}
+	previousPending := local.Pending
 	pending := cloneCommandReceipt(after)
 	if pending == nil {
 		pending = cloneCommandReceipt(before)
 	}
 	pending.Action = c.Action
+	// Persist every exact prior proof before replacing the interrupted intent.
+	local.Owned = commandOwners(local)
 	local.Pending = pending
 	d.state.Commands[c.Name] = local
 	if err := s.saveState(d); err != nil {
@@ -460,7 +495,7 @@ func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out
 						err = replaceCommand(filepath.Join(bin, name), link, "", true)
 					}
 				} else if err == nil {
-					err = fmt.Errorf("operator changed command during rollback: %s", name)
+					err = agentError{key: "plugins.error.commandRollback", message: "Operator changed command during rollback: " + name, args: map[string]string{"name": name}}
 				}
 				resultErr = errors.Join(resultErr, err)
 			}
@@ -481,21 +516,27 @@ func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out
 		}
 	}()
 	if after != nil {
-		snapshot = s.snapshotPath(after.Binding, "")
+		snapshot = s.snapshotPath(after.Binding, "", c.Name)
 		if err := noSymlink(s.managedRoot(), snapshot); err != nil {
 			return out, err
 		}
 		if _, err := os.Stat(snapshot + ".previous"); err == nil {
-			if local.Applied == nil || !commandBindingEqual(local.Applied.Binding, after.Binding) || !s.ownedCommandSnapshot(after.Binding) {
+			currentOwned := false
+			for _, receipt := range []*commandReceipt{local.Applied, previousPending} {
+				if receipt != nil && s.snapshotPath(receipt.Binding, "", c.Name) == snapshot && s.ownedCommandSnapshot(c.Name, receipt.Binding) {
+					currentOwned = true
+				}
+			}
+			if !currentOwned {
 				snapshot = ""
-				return out, fmt.Errorf("unfinished command snapshot replacement; inspect before retrying")
+				return out, agentError{key: "plugins.error.commandSnapshot", message: "Unfinished command snapshot replacement; inspect before retrying"}
 			}
 			if err := finishSnapshot(snapshot, true); err != nil {
 				snapshot = ""
 				return out, err
 			}
 		}
-		if _, err := s.materialize(ctx, after.Binding, ""); err != nil {
+		if _, err := s.materialize(ctx, after.Binding, "", c.Name); err != nil {
 			return out, err
 		}
 		root := filepath.Join(snapshot, "content", filepath.FromSlash(after.Path))
@@ -536,7 +577,7 @@ func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out
 				preserved = append(preserved, name)
 				continue
 			}
-			return out, fmt.Errorf("command %s was replaced by an operator", name)
+			return out, agentError{key: "plugins.error.commandConflict", message: "Command " + name + " was replaced by an operator in " + bin, args: map[string]string{"name": name, "bin": bin}}
 		}
 		next := ""
 		if after != nil {
@@ -563,7 +604,7 @@ func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out
 	}
 	if err := s.saveState(d); err != nil {
 		d.state.Commands[c.Name] = local
-		return out, fmt.Errorf("recording command result failed; pending evidence retained: %w", err)
+		return out, agentError{key: "plugins.error.commandRecord", message: "Recording command result failed; pending evidence retained: " + err.Error(), args: map[string]string{"detail": err.Error()}, cause: err}
 	}
 	out.Status = "installed"
 	out.Message = c.Message
@@ -587,9 +628,9 @@ func commandBindingEqual(a, b Binding) bool {
 	return string(left) == string(right)
 }
 
-func (s *Service) ownedCommandSnapshot(b Binding) bool {
+func (s *Service) ownedCommandSnapshot(name string, b Binding) bool {
 	// ownedSnapshot requires a native ID; command receipts intentionally have none.
-	path := s.snapshotPath(b, "")
+	path := s.snapshotPath(b, "", name)
 	if err := noSymlink(s.managedRoot(), path); err != nil {
 		return false
 	}
@@ -599,30 +640,4 @@ func (s *Service) ownedCommandSnapshot(b Binding) bool {
 	}
 	digest, err := treeDigest(filepath.Join(path, "content"))
 	return err == nil && b.Digest != "" && digest == b.Digest
-}
-
-func (s *Service) reviewedWithoutCommands(d *document, name string, p packageDeclaration) bool {
-	key := p.Source + "\x00" + p.SourceRef + "\x00" + p.Entry
-	s.reads.sources.mu.Lock()
-	_, discovered := s.reads.sources.calls[key]
-	s.reads.sources.mu.Unlock()
-	if discovered {
-		return false
-	}
-	original := d.intent[name]
-	for target, b := range d.packages[name].Bindings {
-		if b.Source != original.Source || b.SourceRef != original.SourceRef || b.Plugin != original.Plugin || b.Entry != original.Entry || !s.ownedSnapshot(b, target) {
-			continue
-		}
-		disc, err := discoverRoot(filepath.Join(s.snapshotPath(b, target), "content"), b.Source, b.Entry)
-		if err != nil {
-			continue
-		}
-		for _, candidate := range disc.Candidates {
-			if candidate.Name == b.Plugin {
-				return len(candidate.Commands) == 0 && candidate.CommandProblem == ""
-			}
-		}
-	}
-	return false
 }

@@ -249,3 +249,13 @@ describe('PluginsPage', () => {
     expect(within(again).queryByRole('checkbox')).not.toBeInTheDocument();
   });
 });
+
+
+it('shows a failed command check in the update dialog', async () => {
+ vi.mocked(pluginsApi.list).mockResolvedValue({ packages: { demo: { source: 'owner/repo', bindings: {} } }, hosts: [] });
+ vi.mocked(pluginsApi.check).mockImplementation(async (on) => { on({ name: 'demo', plan: { revision: 'failure', blocked: false, changes: [{ name: 'demo', target: '', id: '', commands: true, action: 'skip', failed: true, message: 'Command destination conflicts with an operator file.' }] } }); });
+ mount();
+ await screen.findByText('demo');
+ fireEvent.click(await screen.findByRole('button', { name: 'plugins.check' }));
+ expect(await screen.findByText('Command destination conflicts with an operator file.')).toBeInTheDocument();
+});

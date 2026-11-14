@@ -11,8 +11,8 @@ import (
 	"strings"
 )
 
-func (s *Service) materialize(ctx context.Context, b Binding, target string) (string, error) {
-	expected := s.snapshotPath(b, target)
+func (s *Service) materialize(ctx context.Context, b Binding, target string, packageName ...string) (string, error) {
+	expected := s.snapshotPath(b, target, packageName...)
 	market := filepath.Base(expected)
 	if !strings.HasPrefix(market, "skillshare-") {
 		return "", fmt.Errorf("invalid managed snapshot location; re-add the source")

@@ -101,20 +101,22 @@ func (p *TargetPackage) block(key, message string, args map[string]string) {
 }
 
 type Candidate struct {
-	Commands       map[string]string        `json:"commands,omitempty"`
-	CommandProblem string                   `json:"commandProblem,omitempty"`
-	TargetInfo     map[string]TargetPackage `json:"targetInfo,omitempty"`
-	Name           string                   `json:"name"`
-	Description    string                   `json:"description"`
-	Version        string                   `json:"version"`
-	Marketplace    string                   `json:"marketplace,omitempty"`
-	Path           string                   `json:"path"`
-	Entry          string                   `json:"entry,omitempty"`
-	Targets        []string                 `json:"targets"`
-	Components     []string                 `json:"components"`
-	Problem        string                   `json:"problem,omitempty"`
-	ProblemKey     string                   `json:"problemKey,omitempty"`
-	ProblemArgs    map[string]string        `json:"problemArgs,omitempty"`
+	Commands           map[string]string        `json:"commands,omitempty"`
+	CommandProblem     string                   `json:"commandProblem,omitempty"`
+	CommandProblemKey  string                   `json:"commandProblemKey,omitempty"`
+	CommandProblemArgs map[string]string        `json:"commandProblemArgs,omitempty"`
+	TargetInfo         map[string]TargetPackage `json:"targetInfo,omitempty"`
+	Name               string                   `json:"name"`
+	Description        string                   `json:"description"`
+	Version            string                   `json:"version"`
+	Marketplace        string                   `json:"marketplace,omitempty"`
+	Path               string                   `json:"path"`
+	Entry              string                   `json:"entry,omitempty"`
+	Targets            []string                 `json:"targets"`
+	Components         []string                 `json:"components"`
+	Problem            string                   `json:"problem,omitempty"`
+	ProblemKey         string                   `json:"problemKey,omitempty"`
+	ProblemArgs        map[string]string        `json:"problemArgs,omitempty"`
 	// catalogEntry keeps the component fields a Claude catalog entry defines itself, for the
 	// catalog Skillshare writes at install time (strict: false plugins have nothing else).
 	catalogEntry map[string]json.RawMessage
