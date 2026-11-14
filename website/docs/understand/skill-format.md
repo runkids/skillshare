@@ -99,6 +99,8 @@ Classification tags for filtering and grouping in hub indexes. When you run `ski
 tags: git, workflow
 ```
 
+A YAML list such as `tags: [git, workflow]` works too. Only the top-level field is read; `tags` under `metadata` is custom data.
+
 Tags are also searchable — `skillshare search workflow --hub ...` matches skills tagged with "workflow".
 
 ### `targets`

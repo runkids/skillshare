@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -251,5 +252,48 @@ func TestDraftCandidatesKeepInstalledRef(t *testing.T) {
 	}
 	if want := "github.com/acme/team/tree/release/2 skills/lint"; got["_team/skills/lint"] != want {
 		t.Errorf("tracked = %q, want %q", got["_team/skills/lint"], want)
+	}
+}
+
+// The draft and the index publish the same tags: the root field in either
+// documented form, never a custom field under metadata.
+func TestDraftAndIndexReadSameTags(t *testing.T) {
+	for name, tt := range map[string]struct {
+		frontmatter string
+		want        []string
+	}{
+		"comma separated":                      {"tags: git, review", []string{"git", "review"}},
+		"flow list":                            {"tags: [git, review]", []string{"git", "review"}},
+		"block list":                           {"tags:\n  - git\n  - review", []string{"git", "review"}},
+		"metadata only":                        {"metadata:\n  tags: [hidden]", nil},
+		"flow list beside a line YAML rejects": {"description: Use when: reviewing\ntags: [\"git\", review]", []string{"git", "review"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			os.MkdirAll(filepath.Join(root, "x"), 0755)
+			os.WriteFile(filepath.Join(root, "x", "SKILL.md"), []byte("---\nname: x\n"+tt.frontmatter+"\n---\n# x"), 0644)
+
+			entries, err := DraftCandidates(root)
+			if err != nil || len(entries) != 1 {
+				t.Fatalf("drafts = %v, err = %v", entries, err)
+			}
+			var draftTags []string
+			if raw, ok := entries[0].Data["tags"]; ok {
+				if err := json.Unmarshal(raw, &draftTags); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if !slices.Equal(draftTags, tt.want) {
+				t.Errorf("draft tags = %v, want %v", draftTags, tt.want)
+			}
+
+			idx, err := BuildIndex(root, false, false)
+			if err != nil || len(idx.Skills) != 1 {
+				t.Fatalf("index = %+v, err = %v", idx, err)
+			}
+			if !slices.Equal(idx.Skills[0].Tags, tt.want) {
+				t.Errorf("index tags = %v, want %v", idx.Skills[0].Tags, tt.want)
+			}
+		})
 	}
 }

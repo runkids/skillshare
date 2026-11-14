@@ -99,6 +99,8 @@ description: Reviews code for bugs, style issues, and improvements
 tags: git, workflow
 ```
 
+也可以写成 YAML 列表，例如 `tags: [git, workflow]`。只会读取顶层字段；`metadata` 下的 `tags` 属于自定义信息。
+
 Tags 同样可被搜索 —— `skillshare search workflow --hub ...` 会匹配标记为 "workflow" 的 Skill。
 
 ### `targets`
