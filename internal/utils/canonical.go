@@ -38,7 +38,7 @@ func physical(path string) (string, error) {
 	for hops := 0; hops < 64; hops++ {
 		link, ok := firstLink(resolved)
 		if !ok {
-			return resolved, nil
+			return canonicalSpelling(resolved), nil
 		}
 		// firstLink guarantees no unresolved link in this parent; bypass
 		// parent canonicalization to avoid recursing into the same chain.

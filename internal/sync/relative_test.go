@@ -260,7 +260,8 @@ func TestRelativeLinkTargetThroughDirectoryAlias(t *testing.T) {
 	actual, err := os.Stat(link)
 	want, wantErr := os.Stat(source)
 	if err != nil || wantErr != nil || !os.SameFile(actual, want) {
-		t.Fatalf("relative link through alias does not reach source: %v, %v", err, wantErr)
+		raw, readErr := os.Readlink(link)
+		t.Fatalf("relative link through alias does not reach source: %v, %v (raw=%q, read=%v, parent=%q, source=%q)", err, wantErr, raw, readErr, evalOrClean(filepath.Dir(link)), evalOrClean(source))
 	}
 	resolved, err := utils.ResolveLinkTarget(link)
 	if err != nil || !utils.PathsEqual(evalOrClean(resolved), evalOrClean(source)) {

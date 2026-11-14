@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
@@ -20,10 +21,7 @@ func shouldUseRelative(projectRoot, sourcePath, targetPath string) bool {
 		return false
 	}
 	cleaned := evalOrClean(projectRoot)
-	prefix := cleaned
-	if prefix != string(filepath.Separator) {
-		prefix += string(filepath.Separator)
-	}
+	prefix := strings.TrimSuffix(cleaned, string(filepath.Separator)) + string(filepath.Separator)
 	src := evalOrClean(sourcePath)
 	tgt := evalOrClean(targetPath)
 
