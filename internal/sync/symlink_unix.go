@@ -42,3 +42,5 @@ func isJunctionOrSymlink(path string) bool {
 	}
 	return info.Mode()&os.ModeSymlink != 0
 }
+
+func relativeLinkPathSupported(string) bool { return true }

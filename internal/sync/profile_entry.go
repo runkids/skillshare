@@ -3,9 +3,7 @@ package sync
 import (
 	"os"
 	"path/filepath"
-	"strings"
 
-	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
 
@@ -163,20 +161,7 @@ func classifyEntry(in EntryInput, sources ...CopySource) EntryClassification {
 // linkWithinSource preserves the logical descendants written by createLink.
 // Following them would move sanctioned source-directory links into external
 // checkouts and lose the identity that the manifest records.
-func linkWithinSource(link, source string) bool {
-	root, err := filepath.Abs(source)
-	if err != nil {
-		return false
-	}
-	prefix := func(path string) string {
-		return strings.TrimSuffix(path, string(filepath.Separator)) + string(filepath.Separator)
-	}
-	if utils.PathHasPrefix(link, prefix(root)) {
-		return true
-	}
-	root = sourcewalk.Canonical(root)
-	return utils.PathHasPrefix(link, prefix(root)) || utils.PathHasPrefix(sourcewalk.Canonical(link), prefix(root))
-}
+func linkWithinSource(link, source string) bool { return utils.PathWithinRoot(link, source) }
 
 // PreviewEntry resolves original copy inputs and shares the writer's grant-free check.
 func PreviewEntry(name, dir, root string, skills []DiscoveredSkill, manifest *Manifest, ignore []string) (EntryClassification, bool) {

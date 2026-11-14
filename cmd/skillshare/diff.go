@@ -741,7 +741,7 @@ func collectSymlinkDiff(r *targetDiffResult, targetPath, source string) {
 		return
 	}
 	absSource, _ := filepath.Abs(source)
-	if utils.PathsEqual(absLink, absSource) {
+	if utils.SamePhysicalPath(absLink, absSource) {
 		r.synced = true
 	} else {
 		r.errMsg = fmt.Sprintf("Symlink points to different location: %s", absLink)

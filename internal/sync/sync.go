@@ -203,7 +203,7 @@ func CheckStatus(targetPath, sourcePath string) TargetStatus {
 		// Check if link points to our source
 		absSource, _ := filepath.Abs(sourcePath)
 
-		if utils.PathsEqual(absLink, absSource) {
+		if utils.SamePhysicalPath(absLink, absSource) {
 			// Verify the link is not broken
 			if _, err := os.Stat(targetPath); err != nil {
 				return StatusBroken
@@ -492,24 +492,14 @@ type MergeResult struct {
 }
 
 // isSymlinkToSource checks whether targetPath is a symlink pointing to sourcePath.
-// Both sides are canonicalized (EvalSymlinks) so that symlink aliases of the same
+// Both sides are canonicalized so that symlink and junction aliases of the same
 // physical directory are recognized as equal.
 func isSymlinkToSource(targetPath, sourcePath string) bool {
 	absLink, err := utils.ResolveLinkTarget(targetPath)
 	if err != nil {
 		return false
 	}
-	absSource, _ := filepath.Abs(sourcePath)
-
-	// Fast path: direct string comparison covers the common case.
-	if utils.PathsEqual(absLink, absSource) {
-		return true
-	}
-
-	// Slow path: canonicalize both sides to detect symlink aliases.
-	canonLink := utils.ResolveSymlink(absLink)
-	canonSource := utils.ResolveSymlink(absSource)
-	return utils.PathsEqual(canonLink, canonSource)
+	return utils.SamePhysicalPath(absLink, sourcePath)
 }
 
 // ensureRealTargetDir handles symlink→merge/copy conversion and verifies the
@@ -678,7 +668,7 @@ func syncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkill
 				}
 				absSource, _ := filepath.Abs(skill.SourcePath)
 
-				if utils.PathsEqual(absLink, absSource) {
+				if utils.SamePhysicalPath(absLink, absSource) {
 					rawDest, _ := os.Readlink(targetSkillPath)
 					if !linkNeedsReformat(rawDest, relative) {
 						// Already correctly linked with correct format
@@ -1147,7 +1137,7 @@ func CheckStatusMerge(targetPath, sourcePath string) (TargetStatus, int, int) {
 			return StatusUnknown, 0, 0
 		}
 		absSource, _ := filepath.Abs(sourcePath)
-		if utils.PathsEqual(absLink, absSource) {
+		if utils.SamePhysicalPath(absLink, absSource) {
 			return StatusLinked, 0, 0
 		}
 		// External symlink (e.g., dotfiles manager) — follow it and treat
@@ -1183,7 +1173,7 @@ func CheckStatusMerge(targetPath, sourcePath string) (TargetStatus, int, int) {
 			absSource, _ := filepath.Abs(sourcePath)
 
 			// Check if the symlink target is within the source directory
-			if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) || utils.PathsEqual(absLink, absSource) {
+			if utils.PathWithinRoot(absLink, absSource) || utils.SamePhysicalPath(absLink, absSource) {
 				linkedCount++
 			} else {
 				localCount++
