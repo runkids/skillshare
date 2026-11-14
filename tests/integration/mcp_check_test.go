@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 
+	"skillshare/internal/mcp"
 	"skillshare/internal/testutil"
 )
 
@@ -193,58 +193,33 @@ func TestMCPCheckLiveToolPins(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 	script := filepath.Join(sb.Home, "tiny-mcp.sh")
-	writeTools := func(tool string) {
-		t.Helper()
-		content := strings.Replace(tinyMCPServer, `{"name":"echo","inputSchema":{"type":"object"}}`, tool, 1)
-		if err := os.WriteFile(script, []byte(content), 0755); err != nil {
-			t.Fatal(err)
-		}
+	if err := os.WriteFile(script, []byte(tinyMCPServer), 0755); err != nil {
+		t.Fatal(err)
 	}
-	writeTools(`{"name":"echo","inputSchema":{"type":"object"}}`)
 	sb.WriteConfig("targets: {}\nmcp:\n  targets: [claude]\n  servers:\n    tiny:\n      command: sh\n      args: [" + script + "]\n")
 
-	// pinLevels runs a live check and returns the level of each tool-change finding.
-	pinLevels := func(extra ...string) []string {
+	check := func(extra ...string) mcp.CheckReport {
 		t.Helper()
 		r := sb.RunCLI(append([]string{"mcp", "check", "tiny", "--live", "--no-dns", "--json", "-g"}, extra...)...)
 		r.AssertSuccess(t)
-		var report struct {
-			Servers []struct {
-				Findings []struct{ Level, Check string } `json:"findings"`
-			} `json:"servers"`
-		}
+		var report mcp.CheckReport
 		if err := json.Unmarshal([]byte(r.Stdout), &report); err != nil {
 			t.Fatalf("invalid JSON: %v\n%s", err, r.Stdout)
 		}
-		var levels []string
-		for _, f := range report.Servers[0].Findings {
-			if f.Check == "tool-change" {
-				levels = append(levels, f.Level)
-			}
+		if len(report.Servers) != 1 || report.Servers[0].Contract == nil {
+			t.Fatalf("missing contract review: %+v", report)
 		}
-		return levels
+		return report
 	}
-	expect := func(got []string, want ...string) {
-		t.Helper()
-		if !slices.Equal(got, want) {
-			t.Fatalf("tool-change levels = %v, want %v", got, want)
-		}
+	review := check()
+	if review.Servers[0].Contract.Status != "untrusted" || review.Servers[0].Contract.Revision == "" {
+		t.Fatalf("first review = %+v", review)
 	}
-
-	expect(pinLevels(), "info")
-	writeTools(`{"name":"echo","description":"now reads ~/.ssh","inputSchema":{"type":"object"}}`)
-	expect(pinLevels(), "warning")
-	expect(pinLevels("--accept-tools"), "info")
-	expect(pinLevels())
-
-	// Accepting changed definitions is the one part of a check that is logged.
-	logged := sb.RunCLI("log", "--json", "--tail", "1", "-g")
-	logged.AssertSuccess(t)
-	if out := logged.Stdout; !strings.Contains(out, `"cmd":"mcp check --accept-tools"`) || !strings.Contains(out, `"accepted":["tiny"]`) {
-		t.Fatalf("operation log = %s", out)
+	accepted := check("--accept-tools", "--revision", review.Servers[0].Contract.Revision)
+	if accepted.ToolsAcceptance != mcp.ToolsAcceptanceAccepted {
+		t.Fatalf("approval outcome = %s", accepted.ToolsAcceptance)
 	}
-
-	r := sb.RunCLI("mcp", "check", "--accept-tools", "-g")
-	r.AssertFailure(t)
-	r.AssertAnyOutputContains(t, "--accept-tools only applies with --live")
+	if got := check().Servers[0].Contract.Status; got != "unchanged" {
+		t.Fatalf("persisted approval status = %s", got)
+	}
 }

@@ -10,7 +10,7 @@ import Button from '../Button';
 import Spinner from '../Spinner';
 import Tooltip from '../Tooltip';
 import { InfoTip } from './PiSettingsFields';
-import { hasToolPolicy, setToolChecked, targetLabel, toolAllowed, toolBlockedBy, toolGapKey, toolNamePattern, toolOutcomes, toolRuleExample, toolRules, toolSummary } from './mcpView';
+import { describeProbeDetail, hasToolPolicy, setToolChecked, targetLabel, toolAllowed, toolBlockedBy, toolGapKey, toolNamePattern, toolOutcomes, toolRuleExample, toolRules, toolSummary, visibleMCPText } from './mcpView';
 
 interface ListProps { label: string; hint: string; placeholder: string; values: string[]; onChange: (values: string[]) => void; disabled: boolean }
 
@@ -38,8 +38,8 @@ function ToolList({ label, hint, placeholder, values, onChange, disabled }: List
         </span>
         {values.map((name) => (
           <span key={name} className="inline-flex h-6 max-w-full items-center gap-1 rounded-full bg-sunken pl-[9px] pr-1 font-mono text-xs text-ink">
-            <span className="truncate">{name}</span>
-            <button type="button" className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full text-ink-3 hover:text-ink" aria-label={t('mcp.tools.remove', { name })} onClick={() => onChange(values.filter((x) => x !== name))} disabled={disabled}><X size={11} /></button>
+            <span className="truncate">{visibleMCPText(name)}</span>
+            <button type="button" className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full text-ink-3 hover:text-ink" aria-label={visibleMCPText(t('mcp.tools.remove', { name }))} onClick={() => onChange(values.filter((x) => x !== name))} disabled={disabled}><X size={11} /></button>
           </span>
         ))}
         <input id={id} className="min-w-[120px] flex-1 bg-transparent font-mono text-[12.5px] text-ink outline-none placeholder:text-ink-3" value={text} placeholder={values.length ? '' : placeholder} disabled={disabled}
@@ -48,7 +48,7 @@ function ToolList({ label, hint, placeholder, values, onChange, disabled }: List
           onBlur={() => { if (text.trim()) add(text); }} />
         {text && <EnterHint />}
       </div>
-      {error && <span className="text-[12.5px] text-bad">{error}</span>}
+      {error && <span className="text-[12.5px] text-bad">{visibleMCPText(error)}</span>}
     </div>
   );
 }
@@ -68,7 +68,7 @@ function Outcome({ targets, text }: { targets: string[]; text: string }) {
   return (
     <span className="flex items-center gap-2.5">
       <span className="flex shrink-0 items-center gap-1.5">{targets.map((target) => <AgentIcon key={target} target={target} size={16} />)}</span>
-      {text}
+      {visibleMCPText(text)}
     </span>
   );
 }
@@ -95,6 +95,7 @@ export default function ToolPolicyFields({ tools, onChange, disabled, probe, mut
   // A result belongs to the connection it was loaded with; after an edit it may not be this server's tools, so it is dropped.
   const key = JSON.stringify(probe ?? null);
   const loaded: typeof result = result.key === key ? result : {};
+  const probeDetail = loaded.detail && describeProbeDetail(t, loaded.detail);
   const names = loaded.names;
   // The same preview the config view reads, so opening it after this costs nothing.
   const view = useQuery({ queryKey: queryKeys.mcpRender(JSON.stringify(mutation)), queryFn: () => mcpApi.render(mutation!), enabled: set && Boolean(mutation), placeholderData: keepPreviousData });
@@ -102,7 +103,7 @@ export default function ToolPolicyFields({ tools, onChange, disabled, probe, mut
   // Entries a loaded row stands for are edited by ticking it; the rest stay as rules, and before loading every entry is one.
   const rules = toolRules(tools, names ?? []);
   const backed = (entries: string[] = []) => entries.filter((entry) => names?.includes(entry));
-  const example = toolRuleExample(names ?? []);
+  const example = visibleMCPText(toolRuleExample(names ?? []));
   const shown = (names ?? []).filter((name) => name.toLowerCase().includes(query.trim().toLowerCase()));
   const summary = names
     ? t('mcp.tools.selected', { count: names.filter((name) => toolAllowed(tools, name)).length, total: names.length })
@@ -158,18 +159,18 @@ export default function ToolPolicyFields({ tools, onChange, disabled, probe, mut
                   <label className={`relative flex h-8 min-w-0 items-center gap-2.5 px-3.5 ${rule ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
                     <input type="checkbox" className="sr-only ss-chk-input" checked={on} disabled={disabled || Boolean(rule)} onChange={(e) => onChange(setToolChecked(tools, name, e.target.checked))} />
                     <span className={`ss-chk ${on ? 'on' : ''}`}>{on && <Check size={11} strokeWidth={3.2} />}</span>
-                    <span className={`truncate font-mono text-[12.5px] ${on ? 'text-ink' : 'text-ink-3'}`}>{name}</span>
+                    <span className={`truncate font-mono text-[12.5px] ${on ? 'text-ink' : 'text-ink-3'}`}>{visibleMCPText(name)}</span>
                   </label>
                 );
-                return rule ? <Tooltip key={name} block content={t('mcp.tools.blockedBy', { rule })}>{row}</Tooltip> : <div key={name}>{row}</div>;
+                return rule ? <Tooltip key={name} block content={visibleMCPText(t('mcp.tools.blockedBy', { rule }))}>{row}</Tooltip> : <div key={name}>{row}</div>;
               })}
             </div>
           </> : (
             <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
               {loaded.error ? (
                 <span className="flex items-center gap-0.5 text-[13px] text-bad">
-                  {loaded.error}
-                  {loaded.detail && <InfoTip label={t('mcp.tools.probeDetails')} content={loaded.detail} />}
+                  {visibleMCPText(loaded.error)}
+                  {probeDetail && <InfoTip label={t('mcp.tools.probeDetails')} content={visibleMCPText(probeDetail)} />}
                 </span>
               ) : <span className="text-[13px] text-ink-3">{t(probe ? 'mcp.tools.loadIntro' : 'mcp.tools.loadNeedsConnection')}</span>}
               <Button variant="secondary" size="sm" className="shrink-0" onClick={() => void load()} loading={loaded.loading} disabled={disabled || !probe}>
@@ -183,7 +184,7 @@ export default function ToolPolicyFields({ tools, onChange, disabled, probe, mut
             <ToolList label={t('mcp.tools.denyRules')} hint={t('mcp.tools.denyHint')} placeholder={example} values={rules.deny} onChange={(deny) => onChange({ ...tools, deny: [...backed(tools.deny), ...deny] })} disabled={disabled} />
           </div>
         </div>
-        {error && <span className="text-[12.5px] text-bad">{error}</span>}
+        {error && <span className="text-[12.5px] text-bad">{visibleMCPText(error)}</span>}
       </div>
       {/* What each selected Agent will actually get, grouped by outcome; empty groups are left out. */}
       {(outcomes.full.length > 0 || outcomes.partial.length > 0 || outcomes.none.length > 0) && (
