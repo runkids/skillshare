@@ -882,6 +882,7 @@
   "syncPreview.allUpToDate": "一切為最新狀態，無需同步。",
   "syncPreview.cancelButton": "取消",
   "syncPreview.closeButton": "關閉",
+  "syncPreview.incomplete": "同步未完成。請檢查警告並重試。",
   "syncPreview.completed": "同步成功完成。",
   "syncPreview.noTargets": "尚未設定目標。請檢查設定以新增目標。",
   "syncPreview.refreshPreview": "重新整理預覽",

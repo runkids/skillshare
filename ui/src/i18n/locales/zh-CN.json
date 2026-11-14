@@ -882,6 +882,7 @@
   "syncPreview.allUpToDate": "一切都是最新的，无需同步。",
   "syncPreview.cancelButton": "取消",
   "syncPreview.closeButton": "关闭",
+  "syncPreview.incomplete": "同步未完成。请检查警告并重试。",
   "syncPreview.completed": "同步成功完成。",
   "syncPreview.noTargets": "未配置任何目标，请在配置中添加目标。",
   "syncPreview.refreshPreview": "刷新预览",

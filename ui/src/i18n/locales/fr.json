@@ -882,6 +882,7 @@
   "syncPreview.allUpToDate": "Tout est à jour. Aucune synchronisation nécessaire.",
   "syncPreview.cancelButton": "Annuler",
   "syncPreview.closeButton": "Fermer",
+  "syncPreview.incomplete": "Synchronisation incomplète. Consultez les avertissements et réessayez.",
   "syncPreview.completed": "Synchronisation terminée avec succès.",
   "syncPreview.noTargets": "Aucune cible configurée. Vérifiez votre configuration pour en ajouter.",
   "syncPreview.refreshPreview": "Actualiser l'aperçu",

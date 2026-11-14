@@ -882,6 +882,7 @@
   "syncPreview.allUpToDate": "Alles ist aktuell. Kein Sync erforderlich.",
   "syncPreview.cancelButton": "Abbrechen",
   "syncPreview.closeButton": "Schließen",
+  "syncPreview.incomplete": "Synchronisierung unvollständig. Prüfe die Warnungen und versuche es erneut.",
   "syncPreview.completed": "Sync erfolgreich abgeschlossen.",
   "syncPreview.noTargets": "Keine Ziele konfiguriert. Konfiguration prüfen, um Ziele hinzuzufügen.",
   "syncPreview.refreshPreview": "Vorschau aktualisieren",

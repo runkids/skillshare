@@ -882,6 +882,7 @@
   "syncPreview.allUpToDate": "모두 최신 상태입니다. 동기화가 필요하지 않습니다.",
   "syncPreview.cancelButton": "취소",
   "syncPreview.closeButton": "닫기",
+  "syncPreview.incomplete": "동기화가 완료되지 않았습니다. 경고를 확인하고 다시 시도하세요.",
   "syncPreview.completed": "동기화가 성공적으로 완료되었습니다.",
   "syncPreview.noTargets": "설정된 대상이 없습니다. 설정에서 대상을 추가하세요.",
   "syncPreview.refreshPreview": "미리보기 새로고침",

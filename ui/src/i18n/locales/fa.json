@@ -882,6 +882,7 @@
   "syncPreview.allUpToDate": "همه چیز به‌روز است. نیازی به همگام‌سازی نیست.",
   "syncPreview.cancelButton": "لغو",
   "syncPreview.closeButton": "بستن",
+  "syncPreview.incomplete": "همگام‌سازی کامل نشد. هشدارها را بررسی کنید و دوباره تلاش کنید.",
   "syncPreview.completed": "همگام‌سازی با موفقیت کامل شد.",
   "syncPreview.noTargets": "هیچ هدفی پیکربندی نشده. پیکربندی خود را بررسی کنید تا هدف‌ها اضافه شوند.",
   "syncPreview.refreshPreview": "تازه‌سازی پیش‌نمایش",

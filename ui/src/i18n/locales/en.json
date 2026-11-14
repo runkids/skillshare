@@ -994,6 +994,7 @@
   "syncPreview.allUpToDate": "Everything is up to date. No sync needed.",
   "syncPreview.cancelButton": "Cancel",
   "syncPreview.closeButton": "Close",
+  "syncPreview.incomplete": "Sync incomplete. Review the warnings and retry.",
   "syncPreview.completed": "Sync completed successfully.",
   "syncPreview.noTargets": "No targets configured. Check your config to add targets.",
   "syncPreview.refreshPreview": "Refresh preview",
