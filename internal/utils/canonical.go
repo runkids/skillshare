@@ -76,6 +76,13 @@ func SamePhysicalPath(a, b string) bool {
 	if PathsEqual(a, b) {
 		return true
 	}
+	// Ask the filesystem when both paths exist. Windows can expose the same
+	// file through junction/symlink combinations with different path spellings.
+	if ai, err := os.Stat(a); err == nil {
+		if bi, err := os.Stat(b); err == nil && os.SameFile(ai, bi) {
+			return true
+		}
+	}
 	return PathsEqual(CanonicalPath(a), CanonicalPath(b))
 }
 

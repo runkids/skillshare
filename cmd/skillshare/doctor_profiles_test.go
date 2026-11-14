@@ -12,8 +12,8 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/profile"
-	"skillshare/internal/testutil"
 	ssync "skillshare/internal/sync"
+	"skillshare/internal/testutil"
 )
 
 func profileDiagnosticFixture(t *testing.T, project bool, definitions string, state profile.State) (*config.Config, *config.ProjectConfig, string) {
@@ -144,7 +144,8 @@ func TestProfileDoctorChecksSuppressSyncDiagnostics(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			sc := cfg.Targets["custom"].SkillsConfig()
+			configured := cfg.Targets["custom"]
+			sc := configured.SkillsConfig()
 			sc.Profile = profile.Selector{}
 			target := config.TargetConfig{Skills: &sc}
 			if r := ssync.SyncSkillTarget(ssync.SkillTarget{Name: "custom", Target: target, Mode: "copy"}, skills, ssync.SkillRunOptions{Source: cfg.Source}); r.Err != nil || len(r.Linked) != 2 {
