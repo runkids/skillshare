@@ -99,6 +99,8 @@ Hub インデックスでのフィルタリングやグルーピングに使う�
 tags: git, workflow
 ```
 
+`tags: [git, workflow]` のような YAML リストも使えます。読み取るのはトップレベルのフィールドだけで、`metadata` 配下の `tags` はカスタム情報として扱われます。
+
 タグは検索対象にもなります — `skillshare search workflow --hub ...` は "workflow" タグが付いた Skill にマッチします。
 
 ### `targets`

@@ -99,6 +99,8 @@ hub 인덱스에서 필터링과 그룹화를 위한 분류 태그입니다. `sk
 tags: git, workflow
 ```
 
+`tags: [git, workflow]` 같은 YAML 목록도 사용할 수 있습니다. 최상위 필드만 읽으며, `metadata` 아래의 `tags`는 사용자 정의 정보로 취급합니다.
+
 태그는 검색도 가능합니다 — `skillshare search workflow --hub ...`는 "workflow" 태그가 붙은 skill과 일치합니다.
 
 ### `targets`
