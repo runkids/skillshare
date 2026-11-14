@@ -34,6 +34,7 @@ type File struct {
 	Rel    string // slash-separated, relative to the package directory
 	Digest string // sha256:<hex>
 	Size   int64
+	Text   bool // whether the accepted bytes are valid UTF-8, matching resource reads
 }
 
 // Package is a valid skill directory. Its SKILL.md entry is the read the
@@ -42,6 +43,7 @@ type Package struct {
 	Dir         string // resolved
 	Frontmatter map[string]any
 	Files       []File
+	Directories []string // slash-relative real directories; "." is the package root
 }
 
 var errTooLarge = fmt.Errorf("is larger than %d MiB", MaxBytes>>20)
@@ -89,7 +91,7 @@ func Load(dir string) (*Package, error) {
 		return nil, fmt.Errorf("compatibility has %d characters; the limit is %d", n, MaxCompatibility)
 	}
 
-	p := &Package{Dir: dir, Frontmatter: fm, Files: []File{{Path: skillPath, Rel: "SKILL.md", Digest: Digest(content), Size: int64(len(content))}}}
+	p := &Package{Dir: dir, Frontmatter: fm, Files: []File{{Path: skillPath, Rel: "SKILL.md", Digest: Digest(content), Size: int64(len(content)), Text: utf8.Valid(content)}}}
 	// Every read is bounded by what is left of the package budget, so a file that
 	// grows while it is read cannot push the package past the limit.
 	left := MaxBytes - int64(len(content))
@@ -101,6 +103,11 @@ func Load(dir string) (*Package, error) {
 			if info.Name() == ".git" {
 				return filepath.SkipDir
 			}
+			rel, err := filepath.Rel(dir, path)
+			if err != nil {
+				return err
+			}
+			p.Directories = append(p.Directories, filepath.ToSlash(rel))
 			return nil
 		}
 		if !info.Mode().IsRegular() {
@@ -113,12 +120,12 @@ func Load(dir string) (*Package, error) {
 		if len(p.Files) == MaxFiles {
 			return fmt.Errorf("has more than %d files", MaxFiles)
 		}
-		sum, n, err := hashAtMost(path, info, left)
+		sum, n, text, err := hashAtMost(path, info, left)
 		if err != nil {
 			return err
 		}
 		left -= n
-		p.Files = append(p.Files, File{Path: path, Rel: filepath.ToSlash(rel), Digest: sum, Size: n})
+		p.Files = append(p.Files, File{Path: path, Rel: filepath.ToSlash(rel), Digest: sum, Size: n, Text: text})
 		return nil
 	})
 	if err != nil {
@@ -161,22 +168,53 @@ func readAtMost(path string, info os.FileInfo, limit int64) ([]byte, error) {
 	return data, nil
 }
 
-// hashAtMost streams the file into its digest and size, failing past limit bytes.
-func hashAtMost(path string, info os.FileInfo, limit int64) (string, int64, error) {
+// hashAtMost inspects the same bounded stream for digest, size and UTF-8 validity.
+func hashAtMost(path string, info os.FileInfo, limit int64) (string, int64, bool, error) {
 	f, err := openSame(path, info)
 	if err != nil {
-		return "", 0, err
+		return "", 0, false, err
 	}
 	defer f.Close()
 	h := sha256.New()
-	n, err := io.Copy(h, io.LimitReader(f, limit+1))
-	if err != nil {
-		return "", 0, err
+	r := io.LimitReader(f, limit+1)
+	var buf [32 << 10]byte
+	var n int64
+	pending, text := 0, true
+	for {
+		nr, readErr := r.Read(buf[pending:])
+		h.Write(buf[pending : pending+nr])
+		n += int64(nr)
+		if text {
+			end := pending + nr
+			cut := end
+			// Keep only a trailing incomplete rune (at most three bytes).
+			// FullRune also recognizes invalid encodings, which Valid rejects.
+			for cut > 0 && end-cut < utf8.UTFMax-1 && !utf8.RuneStart(buf[cut-1]) {
+				cut--
+			}
+			if cut > 0 && !utf8.FullRune(buf[cut-1:end]) {
+				cut--
+			} else {
+				cut = end
+			}
+			text = utf8.Valid(buf[:cut])
+			pending = copy(buf[:], buf[cut:end])
+		}
+		if readErr == io.EOF {
+			text = text && pending == 0
+			break
+		}
+		if readErr != nil {
+			return "", 0, false, readErr
+		}
+		if !text {
+			pending = 0
+		}
 	}
 	if n > limit {
-		return "", 0, errTooLarge
+		return "", 0, false, errTooLarge
 	}
-	return fmt.Sprintf("sha256:%x", h.Sum(nil)), n, nil
+	return fmt.Sprintf("sha256:%x", h.Sum(nil)), n, text, nil
 }
 
 // ValidateName returns why a SKILL.md name breaks the Agent Skills naming rules

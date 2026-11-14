@@ -794,11 +794,17 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
 `mcp serve` 是一個 MCP server，除非[開啟編輯](#edit-skills-over-mcp)，否則為唯讀，給無法存取 skills 同步資料夾的 Agent 使用，
 例如在拋棄式 VM 上或位於 MCP gateway 後方的 Agent。它實作
 [Skills extension](https://modelcontextprotocol.io/seps/2640-skills-extension)
-（`io.modelcontextprotocol/skills`，SEP-2640）：`skills/list`、`skills/get` 與
-`resources/read`。每個 skill 是一個項目，其 URI 依照它的 source 路徑，例如
+（`io.modelcontextprotocol/skills`，SEP-2640）：`skills/list`、`skills/get`、`resources/list`、`resources/read` 與 `resources/directory/read`。每個 skill 是一個項目，其 URI 依照它的 source 路徑，例如
 `skill://_team/tools/pdf/SKILL.md`，並帶有完整的 frontmatter，以及每個檔案的
 `sha256` 摘要與大小。你自己機器上的 Agents 已經透過 `sync` 取得 skills；
 若也把它們連到 `mcp serve`，每個 skill 會出現兩次。
+
+`resources/list` 列出所提供 `SKILL.md` 的 frontmatter 名稱與描述。
+`directoryRead: true` 讓 client 透過 `resources/directory/read`（`uri`、選填 `cursor`）
+瀏覽 skill 根目錄與子目錄；回應的 `resources` 只含直接子項目，包括 MIME 類型為
+`inode/directory` 的空目錄。目錄 URI 不加結尾斜線；檔案或未知目錄回傳 `-32602`。
+兩種列表都依 URI 排序，每頁最多 100 項，以 `nextCursor` 作為 `cursor` 繼續，
+並使用與 skills 相同的選取與更新規則。
 
 大多數 Agent 還不支援 Skills extension（見下方），所以 server 也提供兩個工具：
 `list_skills` 列出名稱、描述與 URI（`query` 可縮小範圍；一次回應最多列出 200 個），

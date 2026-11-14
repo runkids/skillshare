@@ -9,7 +9,6 @@ import (
 	"mime"
 	"net/http"
 	"path"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -102,10 +101,14 @@ func NewServer(b *Builder, opts Options) (*Server, error) {
 	srv := mcp.NewServer(&mcp.Implementation{Name: "skillshare", Version: opts.Version}, &mcp.ServerOptions{
 		Capabilities: &mcp.ServerCapabilities{
 			Resources:  &mcp.ResourceCapabilities{},
-			Extensions: map[string]any{extensionID: map[string]any{}},
+			Extensions: map[string]any{extensionID: map[string]any{"directoryRead": true}},
 		},
 	})
 	srv.AddResourceTemplate(&mcp.ResourceTemplate{Name: "skill-file", URITemplate: "skill://{+path}"}, svc.read)
+	srv.AddReceivingMiddleware(svc.resourceListMiddleware)
+	if err := mcp.AddReceivingCustomMethod(srv, methodReadDirectory, svc.readDirectory); err != nil {
+		return nil, err
+	}
 	if err := mcp.AddReceivingCustomMethod(srv, methodList, svc.list); err != nil {
 		return nil, err
 	}
@@ -193,19 +196,15 @@ func (s *service) list(_ context.Context, _ *mcp.ServerSession, p *listSkillsPar
 	}
 	// The cursor is the last URI returned, not an offset: the catalog may be rebuilt
 	// between pages, and skills added or removed before it must not shift the next page.
-	start := 0
+	cursor := ""
 	if p != nil && p.Cursor != "" {
 		if !strings.HasPrefix(p.Cursor, "skill://") {
 			return nil, invalidParams("invalid cursor")
 		}
-		start = sort.Search(len(c.Skills), func(i int) bool { return c.Skills[i].URI > p.Cursor })
+		cursor = p.Cursor
 	}
-	end := min(start+pageSize, len(c.Skills))
-	res := &listSkillsResult{Cacheable: s.cacheable(), ResultType: "complete", Skills: c.Skills[start:end]}
-	if end < len(c.Skills) {
-		res.NextCursor = c.Skills[end-1].URI
-	}
-	return res, nil
+	start, end, next := resourcePage(len(c.Skills), cursor, func(i int) string { return c.Skills[i].URI })
+	return &listSkillsResult{Cacheable: s.cacheable(), ResultType: "complete", Skills: c.Skills[start:end], NextCursor: next}, nil
 }
 
 func (s *service) get(_ context.Context, _ *mcp.ServerSession, p *getSkillParams) (*getSkillResult, error) {

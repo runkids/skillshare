@@ -2,6 +2,7 @@ package skillserve
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -39,6 +40,9 @@ func connectServer(t *testing.T, src string, so Options, opts *mcp.ClientOptions
 	}
 	t.Cleanup(func() { ss.Close() })
 	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "v1"}, opts)
+	if err := mcp.AddSendingCustomMethod[*directoryParams, *directoryResult](client, "resources/directory/read"); err != nil {
+		t.Fatal(err)
+	}
 	if err := mcp.AddSendingCustomMethod[*listSkillsParams, *listSkillsResult](client, methodList); err != nil {
 		t.Fatal(err)
 	}
@@ -67,6 +71,12 @@ func TestServer_DeclaresSkillsExtension(t *testing.T) {
 	caps := cs.InitializeResult().Capabilities
 	if _, ok := caps.Extensions[extensionID]; !ok || caps.Resources == nil {
 		t.Errorf("capabilities = %+v, want resources and %s", caps, extensionID)
+	}
+	ext := caps.Extensions[extensionID]
+	data, _ := json.Marshal(ext)
+	var capability map[string]any
+	if err := json.Unmarshal(data, &capability); err != nil || capability["directoryRead"] != true {
+		t.Errorf("directory capability = %s", data)
 	}
 }
 
