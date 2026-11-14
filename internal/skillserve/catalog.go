@@ -76,13 +76,19 @@ type Builder struct {
 	Target         string
 	Skills         *config.ResourceTargetConfig
 	ResolveProfile func() (profile.Selector, error)
+	// Profile explicitly selects membership independently of an optional target.
+	Profile *profile.Selector
 }
 
 // Build discovers the source and returns the skills to serve. Skills that are
 // invalid, over the limits, or contain an unserved nested skill are skipped
 // with a warning.
 func (b *Builder) Build() (*Catalog, error) {
-	if b.Skills != nil && b.ResolveProfile != nil {
+	if b.Profile != nil {
+		if _, err := b.Profile.Selects(""); err != nil {
+			return nil, err
+		}
+	} else if b.Skills != nil && b.ResolveProfile != nil {
 		selector, err := b.ResolveProfile()
 		if err != nil {
 			return nil, err
@@ -130,15 +136,33 @@ func (b *Builder) build(all []ssync.DiscoveredSkill) (*Catalog, error) {
 	var skipped map[string]string
 	var routed map[string]ssync.SkillTargetClassification
 	if b.Skills != nil {
-		if selected, skipped, err = ssync.SelectTargetSkillsWithDiagnostics(all, b.Target, *b.Skills); err != nil {
+		sc := *b.Skills
+		if b.Profile != nil {
+			sc.Profile = *b.Profile
+		}
+		if selected, skipped, err = ssync.SelectTargetSkillsWithDiagnostics(all, b.Target, sc); err != nil {
 			return nil, err
 		}
-		routed, err = ssync.ClassifySkillsForTarget(all, b.Target, *b.Skills)
+		routed, err = ssync.ClassifySkillsForTarget(all, b.Target, sc)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		selected = slices.DeleteFunc(slices.Clone(all), func(s ssync.DiscoveredSkill) bool { return s.Disabled })
+		for _, s := range all {
+			if s.Disabled {
+				continue
+			}
+			if b.Profile != nil {
+				ok, err := b.Profile.Selects(s.FlatName)
+				if err != nil {
+					return nil, err
+				}
+				if !ok {
+					continue
+				}
+			}
+			selected = append(selected, s)
+		}
 	}
 	served := make(map[string]bool, len(selected))
 	for _, s := range selected {
