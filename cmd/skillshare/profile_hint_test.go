@@ -239,9 +239,9 @@ func TestGitInstallPublicationRoots(t *testing.T) {
 				t.Fatalf("tracked same-repo reinstall must skip: %+v (%v): %s", summary, err, output)
 			}
 		} else {
-			// Plain --into installs use the existing-path refusal at this baseline.
-			if err == nil || strings.Join(summary.FailedSkills, ",") != "a,b" || !strings.Contains(err.Error(), "a: already exists.") || !strings.Contains(err.Error(), "b: already exists.") {
-				t.Fatalf("plain reinstall must report both existing paths: %+v (%v)", summary, err)
+			// Plain same-repo reinstalls skip both already-recorded skills.
+			if err != nil || len(summary.FailedSkills) != 0 || strings.Join(summary.SkippedSkills, ",") != "a,b" {
+				t.Fatalf("plain same-repo reinstall must skip both skills: %+v (%v)", summary, err)
 			}
 		}
 		if len(summary.InstalledPaths) != 0 || len(summary.InstalledSkills) != 0 || summary.SkillCount != 0 {

@@ -218,7 +218,7 @@ done
 
 **Expected**:
 - exit_code: 0
-- Both modes select after add and deselect after remove, explain pruning by profile, refuse glob-blocked assignment atomically, report unmatched patterns once, and hint/warn without rewriting definitions. Source skills remain installed. Runtime acceptance of this authored step is unclaimed.
+- skillshare profile add work fresh -p
 
 ## Pass Criteria
 
