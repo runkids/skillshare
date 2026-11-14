@@ -732,7 +732,15 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
 ```
 
 `mcp serve` は、Skill の同期先フォルダーにアクセスできない Agent（使い捨ての VM 上の Agent や MCP gateway の背後にある Agent など）向けの MCP サーバーで、[編集をオンにしない限り](#edit-skills-over-mcp)読み取り専用です。[Skills extension](https://modelcontextprotocol.io/seps/2640-skills-extension)
-（`io.modelcontextprotocol/skills`、SEP-2640）の `skills/list`、`skills/get`、`resources/read` を実装しています。各 Skill は 1 つのエントリで、その URI は `skill://_team/tools/pdf/SKILL.md` のように source 内のパスに従います。エントリには frontmatter 全体と、`sha256` ダイジェストとサイズ付きのすべてのファイルが含まれます。自分のマシン上の Agent はすでに `sync` で Skill を受け取っているため、それらを `mcp serve` にも接続すると各 Skill が二重に表示されます。
+（`io.modelcontextprotocol/skills`、SEP-2640）の `skills/list`、`skills/get`、`resources/list`、`resources/read`、`resources/directory/read` を実装しています。各 Skill は 1 つのエントリで、その URI は `skill://_team/tools/pdf/SKILL.md` のように source 内のパスに従います。エントリには frontmatter 全体と、`sha256` ダイジェストとサイズ付きのすべてのファイルが含まれます。自分のマシン上の Agent はすでに `sync` で Skill を受け取っているため、それらを `mcp serve` にも接続すると各 Skill が二重に表示されます。
+
+`resources/list` は、提供する `SKILL.md` の frontmatter の名前と説明を一覧表示します。
+`directoryRead: true` により、client は `resources/directory/read`（`uri`、任意の `cursor`）で
+Skill のルートとサブディレクトリを参照できます。応答の `resources` は直下の項目のみで、
+MIME タイプが `inode/directory` の空ディレクトリも含みます。ディレクトリ URI に末尾の
+スラッシュは付けません。ファイルや不明なディレクトリは `-32602` を返します。
+両方の一覧は URI 順で、1 ページ最大 100 件です。`nextCursor` を `cursor` として渡すと
+続きが取得でき、Skill と同じ選択・更新ルールが適用されます。
 
 ほとんどの Agent はまだ Skills extension に対応していないため（下記参照）、サーバーは 2 つのツールも提供します。`list_skills` は名前、説明、URI を一覧表示し（`query` で絞り込み可能。1 回の応答は最大 200 件）、`read_skill` は Skill の `SKILL.md` または他のファイルを読み、`SKILL.md` の場合はその Skill の他のファイルも一覧表示します。MCP ツールを使える Agent なら、ツールを中継する gateway 経由でも、この方法で Skill を読めます。Skills extension を宣言したクライアントは Skill をネイティブに読み込み、この 2 つのツールは提供されないため、各 Skill が二重に表示されることはありません。両方のツールには `readOnlyHint` が付いているため、データを変更するツールの前に確認するクライアントや gateway も、確認なしで呼び出します。ツール経由で読んだ内容は Agent にとって通常のテキストであり、Agent 自身の Skill 承認は適用されません。
 

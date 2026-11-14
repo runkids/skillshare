@@ -917,11 +917,20 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
 `mcp serve` is an MCP server, read-only unless you [turn on editing](#edit-skills-over-mcp), for an Agent that cannot reach the folder
 your skills sync to, such as one on a disposable VM or behind an MCP gateway. It
 implements the [Skills extension](https://modelcontextprotocol.io/seps/2640-skills-extension)
-(`io.modelcontextprotocol/skills`, SEP-2640): `skills/list`, `skills/get` and
-`resources/read`. Each skill is one entry whose URI follows its source path, such as
+(`io.modelcontextprotocol/skills`, SEP-2640): `skills/list`, `skills/get`,
+`resources/list`, `resources/read` and `resources/directory/read`. Each skill is one entry whose URI follows its source path, such as
 `skill://_team/tools/pdf/SKILL.md`, with its full frontmatter and every file with a
 `sha256` digest and size. Agents on your own machine already receive skills through
 `sync`; connecting them to `mcp serve` as well shows each skill twice.
+
+`resources/list` enumerates served `SKILL.md` files with their frontmatter name and
+description. With `directoryRead: true`, clients can browse a skill root such as
+`skill://_team/tools/pdf` or any of its subdirectories through
+`resources/directory/read` (`uri`, optional `cursor`). It returns direct children in
+`resources`, including empty directories with MIME type `inode/directory`.
+Directory URIs have no trailing slash; a file or unknown directory returns `-32602`.
+Both listings use URI order and at most 100 resources per page; pass `nextCursor`
+as `cursor` to continue. They use the same selection and refresh rules as skills.
 
 Most Agents do not support the Skills extension yet (see below), so the server also offers
 two tools: `list_skills` lists names, descriptions and URIs (`query` narrows them; one

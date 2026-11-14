@@ -12,6 +12,8 @@ Validates the SEP-2640 skills server over stdio and Streamable HTTP, and its opt
 - `--check` lists skipped skills and the served count without serving
 - `--target` applies that target's `exclude` filter
 - `resources/read` returns a listed file and rejects a URI that escapes the skill
+- `resources/list` returns SKILL.md name/description matching its frontmatter
+- `resources/directory/read` browses roots, subdirectories and empty directories, and rejects files
 - Over HTTP: bearer token required, a newly added skill appears without a restart
 - A non-loopback `--http` address without `SKILLSHARE_MCP_TOKEN` is refused
 - A non-loopback `--http` address with a token but no TLS or explicit opt-in is refused
@@ -30,7 +32,7 @@ ssenv enter mcp-serve-e2e -- mdproof --report json /workspace/ai_docs/tests/mcp_
 
 Every step works from `$HOME` and points `SKILLSHARE_CONFIG` at `$HOME/mcp-serve/config.yaml`.
 The server drops requests still in flight when stdin closes, so stdio steps keep stdin open
-with `sleep 1`. Step 6 listens on port 47941; pick another free port if it is taken.
+with `sleep 1`. Step 7 listens on port 47941; pick another free port if it is taken.
 
 ## Steps
 
@@ -55,7 +57,7 @@ for n in pdf notes off; do
   mkdir -p "$CASE/skills/$n"
   printf -- '---\nname: %s\ndescription: Use when testing %s\n---\n# %s\n' "$n" "$n" "$n" > "$CASE/skills/$n/SKILL.md"
 done
-mkdir -p "$CASE/skills/pdf/references" "$CASE/skills/renamed"
+mkdir -p "$CASE/skills/pdf/references" "$CASE/skills/pdf/empty" "$CASE/skills/renamed"
 echo forms > "$CASE/skills/pdf/references/FORMS.md"
 printf -- '---\nname: original\ndescription: Use when testing\n---\n# Renamed\n' > "$CASE/skills/renamed/SKILL.md"
 echo off > "$CASE/skills/.skillignore"
@@ -67,6 +69,7 @@ M='"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcont
 Expected:
 - exit_code: 0
 - jq: .["1"].capabilities.extensions | has("io.modelcontextprotocol/skills")
+- jq: .["1"].capabilities.extensions["io.modelcontextprotocol/skills"].directoryRead == true
 - jq: .["1"].capabilities.resources == {}
 - jq: [.["2"].skills[].uri] == ["skill://notes/SKILL.md", "skill://pdf/SKILL.md"]
 - jq: .["2"].resultType == "complete"
@@ -129,7 +132,38 @@ Expected:
 - jq: .["1"].result.contents[0].text == "forms\n"
 - jq: .["2"].error.code == -32602
 
-### Step 6: HTTP needs the token and picks up a new skill without a restart
+### Step 6: Browse directories and match resource metadata to SKILL.md
+
+```bash
+set -eu
+cd "$HOME"
+export SKILLSHARE_CONFIG="$HOME/mcp-serve/config.yaml"
+M='"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"e2e","version":"1"},"io.modelcontextprotocol/clientCapabilities":{}}'
+{ printf '%s\n' \
+    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"resources/list\",\"params\":{$M}}" \
+    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"resources/directory/read\",\"params\":{$M,\"uri\":\"skill://pdf\"}}" \
+    "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"resources/directory/read\",\"params\":{$M,\"uri\":\"skill://pdf/references\"}}" \
+    "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"resources/directory/read\",\"params\":{$M,\"uri\":\"skill://pdf/empty\"}}" \
+    "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"resources/directory/read\",\"params\":{$M,\"uri\":\"skill://pdf/SKILL.md\"}}" \
+    "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"skills/get\",\"params\":{$M,\"uri\":\"skill://pdf/SKILL.md\"}}" \
+    "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"resources/read\",\"params\":{$M,\"uri\":\"skill://pdf/SKILL.md\"}}"; sleep 1; } \
+  | ss mcp serve -g 2>/dev/null | jq -sc 'map({(.id|tostring): .}) | add'
+```
+
+Expected:
+- exit_code: 0
+- jq: .["1"].result.resultType == "complete"
+- jq: [.["1"].result.resources[].uri] == ["skill://notes/SKILL.md", "skill://pdf/SKILL.md"]
+- jq: (.["1"].result.resources[] | select(.uri == "skill://pdf/SKILL.md")) as $r | .["6"].result.skill.frontmatter as $f | $r.name == $f.name and $r.description == $f.description and $r.mimeType == "text/markdown"
+- jq: .["7"].result.contents[0].text | contains("name: pdf\ndescription: Use when testing pdf\n")
+- jq: [.["2"].result.resources[].uri] == ["skill://pdf/SKILL.md", "skill://pdf/empty", "skill://pdf/references"]
+- jq: .["2"].result.resources[1].mimeType == "inode/directory" and .["2"].result.resources[2].mimeType == "inode/directory"
+- jq: .["2"].result.resultType == "complete" and .["2"].result.ttlMs == 5000 and .["2"].result.cacheScope == "private"
+- jq: .["3"].result.resources[0].uri == "skill://pdf/references/FORMS.md"
+- jq: .["4"].result.resources == []
+- jq: .["5"].error.code == -32602
+
+### Step 7: HTTP needs the token and picks up a new skill without a restart
 
 ```bash
 set -eu
@@ -163,7 +197,7 @@ Expected:
 - jq: .before == 2
 - jq: .after == 3
 
-### Step 7: A network listener without a token is refused
+### Step 8: A network listener without a token is refused
 
 ```bash
 cd "$HOME"
@@ -176,7 +210,7 @@ Expected:
 - exit_code: 1
 - SKILLSHARE_MCP_TOKEN
 
-### Step 8: A network listener without TLS is refused
+### Step 9: A network listener without TLS is refused
 
 ```bash
 cd "$HOME"
@@ -188,7 +222,7 @@ Expected:
 - exit_code: 1
 - --tls-cert
 
-### Step 8a: Explicit plain HTTP opt-in warns once and keeps bearer authentication
+### Step 10: Explicit plain HTTP opt-in warns once and keeps bearer authentication
 
 ```bash
 set -eu
@@ -216,7 +250,7 @@ Expected:
 - jq: .auth == "200"
 - jq: .warnings == 1
 
-### Step 8b: Plain HTTP opt-in without a token is still refused
+### Step 11: Plain HTTP opt-in without a token is still refused
 
 ```bash
 cd "$HOME"
@@ -230,13 +264,14 @@ Expected:
 - without authentication
 - SKILLSHARE_MCP_TOKEN
 
-### Step 9: Preview and apply an edit over HTTP
+### Step 12: Preview and apply an edit over HTTP
 
 ```bash
 set -eu
 cd "$HOME"
 CASE="$HOME/mcp-serve"
 export SKILLSHARE_CONFIG="$CASE/config.yaml"
+sed -i '/^mcp:/,$d' "$SKILLSHARE_CONFIG"
 printf 'mcp:\n  serve:\n    edit:\n      skills: [pdf]\n' >> "$SKILLSHARE_CONFIG"
 ss mcp serve -g --http 127.0.0.1:47944 2>/dev/null &
 PID=$!
@@ -272,7 +307,7 @@ Expected:
 - jq: .again | startswith("expired:")
 - jq: .notes | startswith("not_writable:")
 
-### Step 10: Executor index over HTTP
+### Step 13: Executor index over HTTP
 
 ```bash
 set -eu
@@ -322,4 +357,4 @@ Expected:
 ## Pass Criteria
 
 - All steps marked PASS
-- No `ss mcp serve` process remains after Steps 6, 8a, 9 and 10
+- No `ss mcp serve` process remains after Steps 7, 10, 12 and 13
