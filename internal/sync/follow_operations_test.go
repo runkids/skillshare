@@ -35,7 +35,7 @@ func TestFollowedProjectLinkOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if dest != skills[0].SourcePath {
+	if !matchesLogicalFollowedTarget(dest, source) {
 		t.Fatalf("link points to %s, want logical %s", dest, skills[0].SourcePath)
 	}
 	raw, err := os.Readlink(link)
@@ -147,7 +147,7 @@ func TestFollowedLinkReformatKeepsIdentity(t *testing.T) {
 			t.Errorf("project link not relative: %q", raw)
 		}
 		resolved, err := utils.ResolveLinkTarget(link)
-		if err != nil || resolved != skills[0].SourcePath {
+		if err != nil || !matchesLogicalFollowedTarget(resolved, source) {
 			t.Fatalf("identity changed: %q %v", resolved, err)
 		}
 	}
@@ -175,7 +175,7 @@ func TestFollowedLinkCanonicalRootAndParent(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := filepath.Join(source, "_dev-skills", "foo")
-	if got := resolveReadlink(raw, filepath.Join(target, "foo")); got != want {
+	if got := resolveReadlink(raw, filepath.Join(target, "foo")); !matchesLogicalFollowedTarget(got, source) {
 		t.Fatalf("got %q, want %q", got, want)
 	}
 	if _, err := os.Stat(filepath.Join(link, "SKILL.md")); err != nil {
@@ -266,4 +266,11 @@ func TestLinkWithinSource_FollowedChildThroughDifferentRootAlias(t *testing.T) {
 	if linkWithinSource(filepath.Join(source+"-other", "foo"), newRoot) {
 		t.Fatal("a sibling sharing the source prefix was treated as source-owned")
 	}
+}
+
+// Root aliases may be expanded, but the followed child must stay logical. A
+// fully resolved external checkout path must not satisfy this assertion.
+func matchesLogicalFollowedTarget(path, source string) bool {
+	return filepath.Base(path) == "foo" && filepath.Base(filepath.Dir(path)) == "_dev-skills" &&
+		utils.SamePhysicalPath(filepath.Dir(filepath.Dir(path)), source)
 }

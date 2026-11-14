@@ -6,8 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"gopkg.in/yaml.v3"
+
 	"skillshare/internal/config"
-	"skillshare/internal/profile"
 )
 
 func writeAnalyzeSkill(t *testing.T, root, name, body string) {
@@ -168,9 +169,15 @@ func TestTargetSkills_IncludesProfilePreservedCopies(t *testing.T) {
 					t.Fatal(err)
 				}
 				target.Skills.Mode = mode
-				target.Skills.Profile = profile.Resolve(profile.Catalog{Definitions: map[string]profile.Definition{
-					"subset": {Name: "subset", Usable: true, Skills: &profile.SkillSelection{Include: []string{"keep"}, IncludePresent: true}},
-				}}, profile.State{Version: 1, Active: "subset"}, "config.yaml", nil)
+				var cfg config.Config
+				if err := yaml.Unmarshal([]byte("profiles:\n  subset:\n    skills:\n      include: [keep]\n"), &cfg); err != nil {
+					t.Fatal(err)
+				}
+				cfg.Targets = map[string]config.TargetConfig{"claude": target}
+				target = cfg.WithActiveProfile("subset").Targets["claude"]
+				if selected, err := target.SkillsConfig().Profile.Selects("group__edit"); err != nil || selected {
+					t.Fatalf("fixture did not activate subset: selected=%v, %v", selected, err)
+				}
 				if r := SyncSkillTarget(SkillTarget{Name: "claude", Target: target, Mode: mode}, skills, opts); r.Err != nil || r.PruneErr != nil || len(r.KeptModified) != 1 || len(r.Pruned) != 1 {
 					t.Fatalf("profile sync: %+v", r)
 				}
