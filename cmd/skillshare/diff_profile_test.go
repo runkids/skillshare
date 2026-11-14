@@ -78,7 +78,7 @@ func TestDiffProfileReasons(t *testing.T) {
 			if err := profile.WriteState(statePath, profile.State{Version: 1, Active: "frontend"}); err != nil {
 				t.Fatal(err)
 			}
-			before := fmt.Sprint(testutil.SnapshotTree(t, true, target))
+			before := fmt.Sprint(testutil.SnapshotTree(t, false, target, source))
 			var commandErr error
 			output := captureStdout(t, func() {
 				if project {
@@ -91,7 +91,7 @@ func TestDiffProfileReasons(t *testing.T) {
 			if err := json.Unmarshal([]byte(output), &out); err != nil || commandErr != nil || len(out.Targets) != 1 {
 				t.Fatal(output, err, commandErr)
 			}
-			if out.Targets[0].Synced || before != fmt.Sprint(testutil.SnapshotTree(t, true, target)) {
+			if out.Targets[0].Synced || before != fmt.Sprint(testutil.SnapshotTree(t, false, target, source)) {
 				t.Fatal("preview lost removal state or changed target", out.Targets[0])
 			}
 			items := out.Targets[0].Items

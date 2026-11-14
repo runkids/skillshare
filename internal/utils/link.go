@@ -39,10 +39,20 @@ var isJunction = platformIsJunction
 
 // ResolveLinkTarget resolves the target path of a symlink or junction.
 func ResolveLinkTarget(path string) (string, error) {
+	return resolveLinkTarget(path, true)
+}
+
+func resolveLinkTarget(path string, physicalParent bool) (string, error) {
 	link, err := os.Readlink(path)
 	if err == nil {
 		if !filepath.IsAbs(link) {
-			link = filepath.Join(filepath.Dir(path), link)
+			parent := filepath.Dir(path)
+			if physicalParent {
+				// The OS interprets a relative link from its physical directory,
+				// not from an alias used to reach that directory.
+				parent = CanonicalPath(parent)
+			}
+			link = filepath.Join(parent, link)
 		}
 		return filepath.Abs(link)
 	}
