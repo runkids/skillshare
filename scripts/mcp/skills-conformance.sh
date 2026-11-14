@@ -58,7 +58,7 @@ go build -o "$CASE/skillshare" ./cmd/skillshare
 PID=$!
 URL=
 for _ in $(seq 1 100); do
-  URL=$(sed -n 's/.*http:\/\/\(127\.0\.0\.1:[0-9]*\).*/http:\/\/\1\//p' "$REPORT/server.stderr" | head -1)
+  URL=$(sed -n '/http:\/\/127\.0\.0\.1:[0-9]*/{s/.*http:\/\/\(127\.0\.0\.1:[0-9]*\).*/http:\/\/\1\//p;q;}' "$REPORT/server.stderr")
   [[ -n "$URL" ]] && break
   kill -0 "$PID"
   sleep 0.1

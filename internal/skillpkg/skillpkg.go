@@ -120,13 +120,12 @@ func Load(dir string) (*Package, error) {
 		if len(p.Files) == MaxFiles {
 			return fmt.Errorf("has more than %d files", MaxFiles)
 		}
-		content, err := readAtMost(path, info, left)
+		sum, n, text, err := hashAtMost(path, info, left)
 		if err != nil {
 			return err
 		}
-		n := int64(len(content))
 		left -= n
-		p.Files = append(p.Files, File{Path: path, Rel: filepath.ToSlash(rel), Digest: Digest(content), Size: n, Text: utf8.Valid(content)})
+		p.Files = append(p.Files, File{Path: path, Rel: filepath.ToSlash(rel), Digest: sum, Size: n, Text: text})
 		return nil
 	})
 	if err != nil {
@@ -167,6 +166,55 @@ func readAtMost(path string, info os.FileInfo, limit int64) ([]byte, error) {
 		return nil, errTooLarge
 	}
 	return data, nil
+}
+
+// hashAtMost inspects the same bounded stream for digest, size and UTF-8 validity.
+func hashAtMost(path string, info os.FileInfo, limit int64) (string, int64, bool, error) {
+	f, err := openSame(path, info)
+	if err != nil {
+		return "", 0, false, err
+	}
+	defer f.Close()
+	h := sha256.New()
+	r := io.LimitReader(f, limit+1)
+	var buf [32 << 10]byte
+	var n int64
+	pending, text := 0, true
+	for {
+		nr, readErr := r.Read(buf[pending:])
+		h.Write(buf[pending : pending+nr])
+		n += int64(nr)
+		if text {
+			end := pending + nr
+			cut := end
+			// Keep only a trailing incomplete rune (at most three bytes).
+			// FullRune also recognizes invalid encodings, which Valid rejects.
+			for cut > 0 && end-cut < utf8.UTFMax-1 && !utf8.RuneStart(buf[cut-1]) {
+				cut--
+			}
+			if cut > 0 && !utf8.FullRune(buf[cut-1:end]) {
+				cut--
+			} else {
+				cut = end
+			}
+			text = utf8.Valid(buf[:cut])
+			pending = copy(buf[:], buf[cut:end])
+		}
+		if readErr == io.EOF {
+			text = text && pending == 0
+			break
+		}
+		if readErr != nil {
+			return "", 0, false, readErr
+		}
+		if !text {
+			pending = 0
+		}
+	}
+	if n > limit {
+		return "", 0, false, errTooLarge
+	}
+	return fmt.Sprintf("sha256:%x", h.Sum(nil)), n, text, nil
 }
 
 // ValidateName returns why a SKILL.md name breaks the Agent Skills naming rules

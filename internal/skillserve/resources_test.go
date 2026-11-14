@@ -49,12 +49,14 @@ func TestServer_DirectoryBrowsingAndResourceMetadata(t *testing.T) {
 	writeFile(t, filepath.Join(src, "_team/doc/.git/HEAD"), "hidden")
 	writeFile(t, filepath.Join(src, "_team/doc/raw.unknown-extension"), "data")
 	writeFile(t, filepath.Join(src, "_team/doc/LICENSE"), "License text\n")
-	// Valid multibyte text across the old streaming hash buffer boundary, and
+	// Valid multibyte text across the streaming hash buffer boundary, and
 	// invalid/incomplete encodings, must agree with resources/read's full bytes.
 	writeFile(t, filepath.Join(src, "_team/doc/mime/boundary"), strings.Repeat("a", 32767)+"界")
+	writeFile(t, filepath.Join(src, "_team/doc/mime/boundary-two"), strings.Repeat("a", 32767)+"é")
+	writeFile(t, filepath.Join(src, "_team/doc/mime/boundary-four"), strings.Repeat("a", 32767)+"😀")
 	writeFile(t, filepath.Join(src, "_team/doc/mime/empty"), "")
-	writeFile(t, filepath.Join(src, "_team/doc/mime/invalid"), "\xff")
-	writeFile(t, filepath.Join(src, "_team/doc/mime/truncated"), "\xe7\x95")
+	writeFile(t, filepath.Join(src, "_team/doc/mime/invalid"), "\xff"+strings.Repeat("a", 65536))
+	writeFile(t, filepath.Join(src, "_team/doc/mime/truncated"), strings.Repeat("a", 8192)+"\xe7\x95")
 	if err := os.MkdirAll(filepath.Join(src, "_team/doc/empty/deep"), 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -89,6 +91,8 @@ func TestServer_DirectoryBrowsingAndResourceMetadata(t *testing.T) {
 		"skill://_team/doc/LICENSE":               "text/plain",
 		"skill://_team/doc/raw.unknown-extension": "text/plain",
 		"skill://_team/doc/mime/boundary":         "text/plain",
+		"skill://_team/doc/mime/boundary-two":     "text/plain",
+		"skill://_team/doc/mime/boundary-four":    "text/plain",
 		"skill://_team/doc/mime/empty":            "text/plain",
 		"skill://_team/doc/mime/invalid":          "application/octet-stream",
 		"skill://_team/doc/mime/truncated":        "application/octet-stream",
