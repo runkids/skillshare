@@ -37,6 +37,49 @@ func TestPluginCommandsAliasIsolation(t *testing.T) {
 	}
 }
 
+func TestPluginCommandsTargetlessReaddEntry(t *testing.T) {
+	for _, commands := range []bool{false, true} {
+		t.Run(map[bool]string{false: "commandless", true: "commands"}[commands], func(t *testing.T) {
+			s, root, bin := commandFixture(t)
+			for _, key := range []string{"OPENCODE_CONFIG", "OPENCODE_CONFIG_DIR", "OPENCODE_CONFIG_CONTENT", "XDG_CONFIG_HOME"} {
+				t.Setenv(key, "")
+			}
+			s.Run = func(_ context.Context, _ string, _ []string, _ string, args ...string) ([]byte, error) {
+				if !slices.Equal(args, []string{"--version"}) {
+					t.Fatalf("unexpected native operation: %v", args)
+				}
+				return []byte("2.0.0"), nil
+			}
+			if !commands {
+				declareReviewCommands(t, root, `{}`)
+			}
+			writePluginFile(t, root, "package.json", `{"name":"demo","version":"1","dependencies":{"@opencode-ai/plugin":"1"}}`)
+			for _, entry := range []string{"first.js", "second.js"} {
+				writePluginFile(t, root, entry, "export default async () => ({})")
+			}
+			applyPluginRequest(t, s, Request{Action: "add", Source: root, Entry: "first.js"})
+			writePluginFile(t, root, "bin/one", "#!/bin/sh\nprintf readded\n")
+			applyPluginRequest(t, s, Request{Action: "add", Source: root, Entry: "second.js"})
+			d := readState(t, s)
+			if got := d.intent["demo"].Entry; got != "second.js" {
+				t.Errorf("re-add retained package entry %q", got)
+			}
+			if commands {
+				receipt := d.state.Commands["demo"].Applied
+				if receipt == nil || receipt.Binding.Entry != "second.js" || receipt.Intent != packageFingerprint(d.intent["demo"]) {
+					t.Errorf("re-add retained command recipe: %+v", receipt)
+				}
+				commandOutput(t, bin, "demo-one", "readded")
+			}
+			pack := d.intent["demo"]
+			applyPluginRequest(t, s, Request{Action: "add", Source: pack.Source, Plugin: pack.Plugin, Entry: pack.Entry, Targets: []string{"opencode"}})
+			if got := readState(t, s).state.Bindings["demo"]["opencode"].Applied.Binding.Entry; got != "second.js" {
+				t.Errorf("later native addition used entry %q", got)
+			}
+		})
+	}
+}
+
 func TestPluginCommandsInterruptedEvidence(t *testing.T) {
 	if home := os.Getenv("SKILLSHARE_COMMAND_CRASH_HOME"); home != "" {
 		s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}

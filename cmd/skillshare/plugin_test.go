@@ -160,6 +160,57 @@ func TestPluginRetainedImportListAndDoctor(t *testing.T) {
 	}
 }
 
+func TestPluginCommandsCleanupListAndInspect(t *testing.T) {
+	for _, key := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR", "OMP_CONFIG_DIR", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME"} {
+		t.Setenv(key, "")
+	}
+	home, otherHome := t.TempDir(), t.TempDir()
+	first, second := t.TempDir(), t.TempDir()
+	for _, root := range []string{first, second} {
+		for name, body := range map[string]string{
+			"plugin.json": `{"name":"demo","$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","extensions":{"cc.runkids.skillshare":{"commands":{"demo-command":"run"}}}}`,
+			"run":         "#!/bin/sh\nprintf fixture\n",
+		} {
+			if err := os.WriteFile(filepath.Join(root, name), []byte(body), 0755); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	s := &plugin.Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+	other := &plugin.Service{ConfigPath: s.ConfigPath, StateDir: filepath.Join(otherHome, "state")}
+	// Another machine replaces the shared declaration, retaining this machine's receipt.
+	for _, step := range []struct {
+		s    *plugin.Service
+		home string
+		r    plugin.Request
+	}{{s, home, plugin.Request{Action: "add", Source: first}}, {other, otherHome, plugin.Request{Action: "remove", Name: "demo"}}, {other, otherHome, plugin.Request{Action: "add", Source: second}}} {
+		t.Setenv("HOME", step.home)
+		plan, err := step.s.Preview(context.Background(), step.r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := step.s.Apply(context.Background(), step.r, plan.Revision); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("HOME", home)
+	for _, action := range []string{"list", "inspect"} {
+		if action == "inspect" {
+			if err := os.Remove(filepath.Join(home, ".local", "bin", "demo-command")); err != nil {
+				t.Fatal(err)
+			}
+		}
+		output := captureStdout(t, func() {
+			if err := executePlugin(s, pluginOptions{request: plugin.Request{Action: action, Name: "demo"}, noTUI: true}); err != nil {
+				t.Fatal(err)
+			}
+		})
+		if !strings.Contains(output, "commands · local cleanup required") || strings.Contains(output, "commands · pending") {
+			t.Errorf("%s hid command cleanup: %s", action, output)
+		}
+	}
+}
+
 func TestPluginUpdateAllDryRunReportsFailures(t *testing.T) {
 	for _, jsonOutput := range []bool{false, true} {
 		t.Run(map[bool]string{false: "text", true: "json"}[jsonOutput], func(t *testing.T) {

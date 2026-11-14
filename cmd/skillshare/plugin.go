@@ -207,6 +207,9 @@ func executePlugin(s *plugin.Service, o pluginOptions) error {
 				if info.Binding.Pending != "" {
 					mark, state = ui.MarkWarn, "pending "+info.Binding.Pending
 				}
+				if info.Binding.Cleanup {
+					mark, state = ui.MarkWarn, "local cleanup required"
+				}
 				ui.Row(mark, name, "commands · "+state, width)
 				ui.Note(strings.Join(info.Names, ", ") + " · " + info.Bin)
 			}

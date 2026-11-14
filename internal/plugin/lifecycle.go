@@ -82,7 +82,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 			if old, exists := pack.Bindings[c.Target]; exists {
 				decl.Sync = old.Sync
 			}
-			if pack.Source == "" {
+			if pack.Source == "" || c.Target == "" && !c.Commands {
 				pack.Source, pack.SourceRef, pack.Plugin, pack.Entry = decl.Source, decl.SourceRef, decl.Plugin, decl.Entry
 			}
 			if c.Target != "" {

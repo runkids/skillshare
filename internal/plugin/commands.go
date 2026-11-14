@@ -151,7 +151,7 @@ func (s *Service) composeCommands(d *document) {
 			b.ContextChanged = true
 		}
 		if _, err := s.observeCommands(receipt.Bin, local, receipt, false); err != nil {
-			b.Pending = "conflict"
+			b.Pending = "blocked"
 		} else {
 			for command := range receipt.Links {
 				if _, exists, _ := commandLink(filepath.Join(receipt.Bin, command)); !exists && b.Pending == "" {
@@ -212,7 +212,7 @@ func (s *Service) planCommands(ctx context.Context, r Request, d *document) ([]C
 			name = addCandidate.Name
 		}
 		p := d.intent[name]
-		if p.Source == "" {
+		if p.Source == "" || len(r.Targets) == 0 {
 			p = packageDeclaration{Source: addDiscovery.Source, SourceRef: addDiscovery.SourceRef, Plugin: addCandidate.Name, Entry: r.Entry}
 		}
 		names = map[string]packageDeclaration{name: p}
