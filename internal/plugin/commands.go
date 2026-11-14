@@ -448,9 +448,6 @@ func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out
 	if c.Action == "skip" {
 		return out, errors.New(c.Message)
 	}
-	if c.command == nil {
-		return out, agentError{key: "plugins.error.commandReview", message: "Command review missing; preview again"}
-	}
 	before, after := c.command.Before, c.command.After
 	bin := ""
 	if after != nil {
@@ -562,18 +559,6 @@ func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out
 			}
 		}
 		if _, err := s.materialize(ctx, after.Binding, "", c.Name); err != nil {
-			return out, err
-		}
-		root := filepath.Join(snapshot, "content", filepath.FromSlash(after.Path))
-		commands := map[string]string{}
-		for name, path := range after.Links {
-			rel, err := filepath.Rel(root, path)
-			if err != nil {
-				return out, err
-			}
-			commands[name] = filepath.ToSlash(rel)
-		}
-		if err := validateCommands(root, commands); err != nil {
 			return out, err
 		}
 	}

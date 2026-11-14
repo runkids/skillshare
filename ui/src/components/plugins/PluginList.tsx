@@ -141,7 +141,7 @@ function Row({ name, pi, inventory, updates, checkFailures, busy, working, onTog
           {selected.length > 0 && (
             <span className="ss-stack" aria-hidden="true">
               {selected.slice(0, STACK).map((target) => (
-                <span key={target} className="ss-at">{target ? <AgentIcon target={target} size={13} /> : <Package size={13} />}</span>
+                <span key={target} className="ss-at"><AgentIcon target={target} size={13} /></span>
               ))}
             </span>
           )}

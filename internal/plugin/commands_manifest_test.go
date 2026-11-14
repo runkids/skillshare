@@ -89,6 +89,43 @@ func TestPluginCommandsManifest(t *testing.T) {
 			t.Fatal("absent metadata changed")
 		}
 	}
+	t.Run("unsupported-schema-preserves-installed-commands", func(t *testing.T) {
+		s, root, bin := commandFixture(t)
+		applyPluginRequest(t, s, Request{Action: "add", Source: root})
+		before, err := s.load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		receipt, _ := json.Marshal(before.state.Commands["demo"])
+		writePluginFile(t, root, "plugin.json", `{"name":"demo","$schema":"https://agent-plugins.org/schemas/2.0.0/plugin.schema.json","extensions":{"cc.runkids.skillshare":{"commands":{"demo-one":"bin/one"}}}}`)
+		for _, action := range []string{"check", "update"} {
+			r := Request{Action: action, All: action == "update"}
+			p, err := s.Preview(context.Background(), r)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.ContainsFunc(p.Changes, func(c Change) bool { return c.Commands && c.Failed && c.MessageKey == "plugins.problem.rootSchema" }) {
+				t.Errorf("%s treated unsupported schema as command removal: %+v", action, p.Changes)
+			}
+			if action == "update" {
+				result, err := s.Apply(context.Background(), r, p.Revision)
+				if err == nil || result == nil || !slices.ContainsFunc(result.Results, func(o Outcome) bool {
+					return o.Commands && o.Status == "failed" && o.MessageKey == "plugins.problem.rootSchema"
+				}) {
+					t.Errorf("unsupported schema update succeeded: %+v %v", result, err)
+				}
+			}
+		}
+		commandOutput(t, bin, "demo-one", "old-one")
+		after, err := s.load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		retained, _ := json.Marshal(after.state.Commands["demo"])
+		if string(retained) != string(receipt) {
+			t.Fatalf("unsupported schema changed ownership receipt: %s", retained)
+		}
+	})
 }
 
 func TestPluginCommandsCatalogPath(t *testing.T) {

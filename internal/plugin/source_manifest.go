@@ -70,6 +70,7 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 				spec.target = "antigravity"
 			default:
 				info.block("plugins.problem.rootSchema", "Unsupported root plugin.json schema", nil)
+				commandProblem(agentError{key: info.ProblemKey, message: info.Problem, args: info.ProblemArgs})
 				c.TargetInfo[spec.target] = info
 				continue
 			}
