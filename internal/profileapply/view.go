@@ -155,13 +155,14 @@ func (v *View) RestoreCommand(target, snapshot string) string {
 	return "skillshare restore " + filepath.Base(snapshot) + " --from " + filepath.Base(filepath.Dir(snapshot)) + " " + scope + " --force"
 }
 
-// TargetCounts uses the same shared-folder grouping and selection seam as sync.
+// TargetCounts reports selected source skills after shared-folder grouping,
+// not independent local inventory already present in the target.
 func (v *View) TargetCounts(skills []ssync.DiscoveredSkill) (map[string]int, error) {
 	targets, _ := v.Eligible()
 	targets = config.WithSharedSkillsTargets(maps.Clone(targets), v.Config.Mode)
 	counts := make(map[string]int, len(targets))
 	for name, target := range targets {
-		selected, err := ssync.TargetSkills(name, target, v.Config.Mode, v.Config.EffectiveSkillsSource(), skills)
+		selected, err := ssync.SelectTargetSkills(skills, name, target.SkillsConfig())
 		if err != nil {
 			return nil, err
 		}

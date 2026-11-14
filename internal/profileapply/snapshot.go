@@ -7,6 +7,7 @@ import (
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
+	"skillshare/internal/sourcewalk"
 	ssync "skillshare/internal/sync"
 )
 
@@ -87,8 +88,10 @@ func snapshots(v *View, targets map[string]config.TargetConfig, entries []ssync.
 	for _, entry := range entries {
 		path := paths[entry.Dir]
 		if path == "" {
+			// Backup skips link roots, but configured aliases are valid writer
+			// destinations. Resolve only the operation path, not the grant key.
 			var err error
-			path, err = create(v.BackupDir, keys[entry.Dir], entry.Dir)
+			path, err = create(v.BackupDir, keys[entry.Dir], sourcewalk.Canonical(entry.Dir))
 			if err != nil || path == "" || filepath.Base(path) != keys[entry.Dir] {
 				return saved, nil, fmt.Errorf("snapshot %s failed (no edits discarded): %v", entry.Target, err)
 			}

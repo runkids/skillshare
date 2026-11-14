@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"skillshare/internal/utils"
 )
 
 // SnapshotTree records paths, modes, mtimes, raw link targets and regular-file bytes.
@@ -20,9 +22,12 @@ func SnapshotTree(t *testing.T, includeLinkedBytes bool, roots ...string) map[st
 				return err
 			}
 			value := fmt.Sprintf("%v/%d", info.Mode(), info.ModTime().UnixNano())
-			link := info.Mode()&os.ModeSymlink != 0
+			link := utils.IsLinkMode(path, info.Mode())
 			if link {
 				dest, err := os.Readlink(path)
+				if err != nil {
+					dest, err = utils.ResolveLinkTarget(path)
+				}
 				if err != nil {
 					return err
 				}
