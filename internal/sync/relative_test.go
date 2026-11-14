@@ -253,6 +253,9 @@ func TestRelativeLinkTargetThroughDirectoryAlias(t *testing.T) {
 	} else if err := os.Symlink(physical, alias); err != nil {
 		t.Fatal(err)
 	}
+	if runtime.GOOS == "windows" && shouldUseRelative(root, source, alias) {
+		t.Fatal("junction target must retain absolute-link mode across syncs")
+	}
 	link := filepath.Join(alias, "skill")
 	if err := createLink(link, source, true, source); err != nil {
 		t.Fatal(err)
@@ -268,6 +271,9 @@ func TestRelativeLinkTargetThroughDirectoryAlias(t *testing.T) {
 		t.Fatalf("resolved link = %q, %v; want %q", resolved, err, source)
 	}
 	raw, err := os.Readlink(link)
+	if runtime.GOOS == "windows" && err == nil && !filepath.IsAbs(raw) {
+		t.Fatalf("link through junction must be absolute, got %q", raw)
+	}
 	if err != nil || !utils.PathsEqual(evalOrClean(resolveReadlink(raw, link)), evalOrClean(source)) {
 		t.Fatalf("resolved raw link = %q, %v; want %q", raw, err, source)
 	}
