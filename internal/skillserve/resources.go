@@ -57,8 +57,8 @@ func (c *Catalog) indexDirectories() {
 	for uri := range c.byDir {
 		add(uri, "inode/directory")
 	}
-	for uri := range c.byFile {
-		add(uri, mimeType(uri, false))
+	for uri, file := range c.byFile {
+		add(uri, mimeType(uri, file.text))
 	}
 	for _, children := range c.byDir {
 		sort.Slice(children, func(i, j int) bool { return children[i].URI < children[j].URI })
@@ -107,10 +107,7 @@ func (s *service) resourceListMiddleware(next mcp.MethodHandler) mcp.MethodHandl
 		if method != "resources/list" {
 			return next(ctx, method, req)
 		}
-		r, ok := req.(*mcp.ListResourcesRequest)
-		if !ok {
-			return nil, invalidParams("invalid resources/list request")
-		}
+		r := req.(*mcp.ListResourcesRequest)
 		return s.listResources(r.Params)
 	}
 }

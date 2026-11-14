@@ -9,7 +9,6 @@ import (
 	"mime"
 	"net/http"
 	"path"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -197,19 +196,15 @@ func (s *service) list(_ context.Context, _ *mcp.ServerSession, p *listSkillsPar
 	}
 	// The cursor is the last URI returned, not an offset: the catalog may be rebuilt
 	// between pages, and skills added or removed before it must not shift the next page.
-	start := 0
+	cursor := ""
 	if p != nil && p.Cursor != "" {
 		if !strings.HasPrefix(p.Cursor, "skill://") {
 			return nil, invalidParams("invalid cursor")
 		}
-		start = sort.Search(len(c.Skills), func(i int) bool { return c.Skills[i].URI > p.Cursor })
+		cursor = p.Cursor
 	}
-	end := min(start+pageSize, len(c.Skills))
-	res := &listSkillsResult{Cacheable: s.cacheable(), ResultType: "complete", Skills: c.Skills[start:end]}
-	if end < len(c.Skills) {
-		res.NextCursor = c.Skills[end-1].URI
-	}
-	return res, nil
+	start, end, next := resourcePage(len(c.Skills), cursor, func(i int) string { return c.Skills[i].URI })
+	return &listSkillsResult{Cacheable: s.cacheable(), ResultType: "complete", Skills: c.Skills[start:end], NextCursor: next}, nil
 }
 
 func (s *service) get(_ context.Context, _ *mcp.ServerSession, p *getSkillParams) (*getSkillResult, error) {

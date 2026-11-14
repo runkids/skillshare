@@ -51,6 +51,7 @@ type Skill struct {
 type servedFile struct {
 	dir, rel, digest string
 	owner            *Skill // the skill whose manifest lists the file
+	text             bool   // UTF-8 classification of the same bytes as digest
 }
 
 // Skip is a skill left out of the catalog, by source path.
@@ -195,7 +196,7 @@ func load(s ssync.DiscoveredSkill) (*Skill, map[string]servedFile, []string, str
 	files := make(map[string]servedFile, len(p.Files))
 	for _, f := range p.Files {
 		uri := base + "/" + escapePath(f.Rel)
-		files[uri] = servedFile{dir: p.Dir, rel: f.Rel, digest: f.Digest, owner: skill}
+		files[uri] = servedFile{dir: p.Dir, rel: f.Rel, digest: f.Digest, owner: skill, text: f.Text}
 		skill.Resources = append(skill.Resources, File{URI: uri, Digest: f.Digest, Size: f.Size, rel: f.Rel})
 	}
 	dirs := make([]string, 0, len(p.Directories))

@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"skillshare/internal/config"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,6 +48,13 @@ func TestServer_DirectoryBrowsingAndResourceMetadata(t *testing.T) {
 	writeFile(t, filepath.Join(src, "_team/doc/child/SKILL.md"), skillMD("child"))
 	writeFile(t, filepath.Join(src, "_team/doc/.git/HEAD"), "hidden")
 	writeFile(t, filepath.Join(src, "_team/doc/raw.unknown-extension"), "data")
+	writeFile(t, filepath.Join(src, "_team/doc/LICENSE"), "License text\n")
+	// Valid multibyte text across the old streaming hash buffer boundary, and
+	// invalid/incomplete encodings, must agree with resources/read's full bytes.
+	writeFile(t, filepath.Join(src, "_team/doc/mime/boundary"), strings.Repeat("a", 32767)+"界")
+	writeFile(t, filepath.Join(src, "_team/doc/mime/empty"), "")
+	writeFile(t, filepath.Join(src, "_team/doc/mime/invalid"), "\xff")
+	writeFile(t, filepath.Join(src, "_team/doc/mime/truncated"), "\xe7\x95")
 	if err := os.MkdirAll(filepath.Join(src, "_team/doc/empty/deep"), 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -62,10 +70,12 @@ func TestServer_DirectoryBrowsingAndResourceMetadata(t *testing.T) {
 	}
 	root := directory(t, cs, "skill://_team/doc", "")
 	want := []*mcp.Resource{
+		{URI: "skill://_team/doc/LICENSE", Name: "LICENSE", MIMEType: "text/plain"},
 		{URI: "skill://_team/doc/SKILL.md", Name: "doc", Description: "Use when testing doc", MIMEType: "text/markdown"},
 		{URI: "skill://_team/doc/child", Name: "child", MIMEType: "inode/directory"},
 		{URI: "skill://_team/doc/empty", Name: "empty", MIMEType: "inode/directory"},
-		{URI: "skill://_team/doc/raw.unknown-extension", Name: "raw.unknown-extension", MIMEType: "application/octet-stream"},
+		{URI: "skill://_team/doc/mime", Name: "mime", MIMEType: "inode/directory"},
+		{URI: "skill://_team/doc/raw.unknown-extension", Name: "raw.unknown-extension", MIMEType: "text/plain"},
 		{URI: "skill://_team/doc/ref%20space", Name: "ref space", MIMEType: "inode/directory"},
 	}
 	if !reflect.DeepEqual(root.Resources, want) {
@@ -73,6 +83,32 @@ func TestServer_DirectoryBrowsingAndResourceMetadata(t *testing.T) {
 	}
 	if root.ResultType != "complete" || root.TTLMs != 3600000 || root.CacheScope != "private" {
 		t.Errorf("cache result = %+v", root)
+	}
+	mimes := directory(t, cs, "skill://_team/doc/mime", "")
+	wantMIMEs := map[string]string{
+		"skill://_team/doc/LICENSE":               "text/plain",
+		"skill://_team/doc/raw.unknown-extension": "text/plain",
+		"skill://_team/doc/mime/boundary":         "text/plain",
+		"skill://_team/doc/mime/empty":            "text/plain",
+		"skill://_team/doc/mime/invalid":          "application/octet-stream",
+		"skill://_team/doc/mime/truncated":        "application/octet-stream",
+	}
+	for _, resource := range append(root.Resources, mimes.Resources...) {
+		mime, tested := wantMIMEs[resource.URI]
+		if !tested {
+			continue
+		}
+		read, err := cs.ReadResource(context.Background(), &mcp.ReadResourceParams{URI: resource.URI})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resource.MIMEType != mime || len(read.Contents) != 1 || read.Contents[0].MIMEType != mime {
+			t.Errorf("%s directory MIME = %s, read = %+v; want %s", resource.URI, resource.MIMEType, read.Contents, mime)
+		}
+		delete(wantMIMEs, resource.URI)
+	}
+	if len(wantMIMEs) != 0 {
+		t.Errorf("MIME resources missing: %v", wantMIMEs)
 	}
 	deep := directory(t, cs, "skill://_team/doc/empty/deep", "")
 	if deep.Resources == nil || len(deep.Resources) != 0 {
@@ -94,7 +130,7 @@ func TestServer_DirectoryBrowsingAndResourceMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Resources) != 2 || !reflect.DeepEqual(listed.Resources[0], want[0]) || listed.CacheScope != "private" || listed.TTLMs != 3600000 {
+	if len(listed.Resources) != 2 || !reflect.DeepEqual(listed.Resources[0], want[1]) || listed.CacheScope != "private" || listed.TTLMs != 3600000 {
 		t.Errorf("resources/list = %+v", listed)
 	}
 }
@@ -138,6 +174,8 @@ func TestServer_ResourceAndDirectoryPagesSurviveRefresh(t *testing.T) {
 	}
 	writeFile(t, filepath.Join(src, "a000/SKILL.md"), skillMD("a000"))
 	writeFile(t, filepath.Join(src, "s000/a.txt"), "new before cursor")
+	writeFile(t, filepath.Join(src, "s101/SKILL.md"), skillMD("s101"))
+	writeFile(t, filepath.Join(src, "s000/part-101.txt"), "new after cursor")
 	for _, rel := range []string{"s001/SKILL.md", "s000/part-000.txt"} {
 		if err := os.Remove(filepath.Join(src, rel)); err != nil {
 			t.Fatal(err)
@@ -147,11 +185,11 @@ func TestServer_ResourceAndDirectoryPagesSurviveRefresh(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(next.Resources) != 1 || next.Resources[0].URI != "skill://s100/SKILL.md" || next.NextCursor != "" {
+	if len(next.Resources) != 2 || next.Resources[0].URI != "skill://s100/SKILL.md" || next.Resources[1].URI != "skill://s101/SKILL.md" || next.NextCursor != "" {
 		t.Errorf("continued resources = %+v", next)
 	}
 	last := directory(t, cs, "skill://s000", dirs.NextCursor)
-	if len(last.Resources) != 2 || last.Resources[0].URI != "skill://s000/part-099.txt" || last.NextCursor != "" {
+	if len(last.Resources) != 3 || last.Resources[0].URI != "skill://s000/part-099.txt" || last.Resources[2].URI != "skill://s000/part-101.txt" || last.NextCursor != "" {
 		t.Errorf("continued directory = %+v", last)
 	}
 	end := directory(t, cs, "skill://s000", "skill://s000/zzz")

@@ -34,6 +34,7 @@ type File struct {
 	Rel    string // slash-separated, relative to the package directory
 	Digest string // sha256:<hex>
 	Size   int64
+	Text   bool // whether the accepted bytes are valid UTF-8, matching resource reads
 }
 
 // Package is a valid skill directory. Its SKILL.md entry is the read the
@@ -90,7 +91,7 @@ func Load(dir string) (*Package, error) {
 		return nil, fmt.Errorf("compatibility has %d characters; the limit is %d", n, MaxCompatibility)
 	}
 
-	p := &Package{Dir: dir, Frontmatter: fm, Files: []File{{Path: skillPath, Rel: "SKILL.md", Digest: Digest(content), Size: int64(len(content))}}}
+	p := &Package{Dir: dir, Frontmatter: fm, Files: []File{{Path: skillPath, Rel: "SKILL.md", Digest: Digest(content), Size: int64(len(content)), Text: utf8.Valid(content)}}}
 	// Every read is bounded by what is left of the package budget, so a file that
 	// grows while it is read cannot push the package past the limit.
 	left := MaxBytes - int64(len(content))
@@ -119,12 +120,13 @@ func Load(dir string) (*Package, error) {
 		if len(p.Files) == MaxFiles {
 			return fmt.Errorf("has more than %d files", MaxFiles)
 		}
-		sum, n, err := hashAtMost(path, info, left)
+		content, err := readAtMost(path, info, left)
 		if err != nil {
 			return err
 		}
+		n := int64(len(content))
 		left -= n
-		p.Files = append(p.Files, File{Path: path, Rel: filepath.ToSlash(rel), Digest: sum, Size: n})
+		p.Files = append(p.Files, File{Path: path, Rel: filepath.ToSlash(rel), Digest: Digest(content), Size: n, Text: utf8.Valid(content)})
 		return nil
 	})
 	if err != nil {
@@ -165,24 +167,6 @@ func readAtMost(path string, info os.FileInfo, limit int64) ([]byte, error) {
 		return nil, errTooLarge
 	}
 	return data, nil
-}
-
-// hashAtMost streams the file into its digest and size, failing past limit bytes.
-func hashAtMost(path string, info os.FileInfo, limit int64) (string, int64, error) {
-	f, err := openSame(path, info)
-	if err != nil {
-		return "", 0, err
-	}
-	defer f.Close()
-	h := sha256.New()
-	n, err := io.Copy(h, io.LimitReader(f, limit+1))
-	if err != nil {
-		return "", 0, err
-	}
-	if n > limit {
-		return "", 0, errTooLarge
-	}
-	return fmt.Sprintf("sha256:%x", h.Sum(nil)), n, nil
 }
 
 // ValidateName returns why a SKILL.md name breaks the Agent Skills naming rules
