@@ -1,40 +1,28 @@
 package main
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"os"
-	"regexp"
 	"slices"
 	"strings"
 
 	"skillshare/internal/config"
+	mcpconfig "skillshare/internal/mcp"
 	"skillshare/internal/profile"
 	"skillshare/internal/skillserve"
 )
 
-var mcpTokenEnvName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
-
 func parseMCPServeProfileBindings(values []string, lookup func(string) (string, bool)) ([]skillserve.ProfileBinding, error) {
 	var bindings []skillserve.ProfileBinding
-	names, tokens := map[string]bool{}, map[[32]byte]bool{}
 	for _, value := range values {
 		name, env, ok := strings.Cut(value, "=")
-		if !ok || profile.ValidateName(name) != nil || !mcpTokenEnvName.MatchString(env) {
+		if !ok || profile.ValidateName(name) != nil || !mcpconfig.ValidEnvName(env) {
 			return nil, fmt.Errorf("--profile-token requires NAME=ENV_VAR with a valid profile name and environment variable name")
-		}
-		if names[name] {
-			return nil, fmt.Errorf("duplicate --profile-token for profile %q", name)
 		}
 		token, ok := lookup(env)
 		if !ok || token == "" {
 			return nil, fmt.Errorf("profile %q: environment variable %s is absent or empty", name, env)
 		}
-		hash := sha256.Sum256([]byte(token))
-		if tokens[hash] {
-			return nil, fmt.Errorf("profile %q: environment variable %s resolves to a duplicate credential", name, env)
-		}
-		names[name], tokens[hash] = true, true
 		bindings = append(bindings, skillserve.ProfileBinding{Profile: name, Token: token})
 	}
 	return bindings, nil
@@ -102,9 +90,6 @@ func loadMCPServeProfiles(mode runMode, target string) (map[string]*skillserve.B
 	builders := make(map[string]*skillserve.Builder, len(catalog.Definitions))
 	for name := range catalog.Definitions {
 		selector := profile.Resolve(catalog, profile.State{Version: 1, Active: name}, path, nil)
-		if _, err := selector.Selects(""); err != nil {
-			return nil, nil, err
-		}
 		copy := b
 		copy.Profile = &selector
 		builders[name] = &copy
@@ -119,7 +104,7 @@ func printMCPServeProfilesCheck(builders map[string]*skillserve.Builder, edit *s
 	}
 	slices.Sort(names)
 	for _, name := range names {
-		fmt.Fprintf(os.Stderr, "Profile %s:\n", name)
+		fmt.Printf("Profile %s:\n", name)
 		if err := printMCPServeCheck(builders[name], edit); err != nil {
 			return fmt.Errorf("profile %q: %w", name, err)
 		}

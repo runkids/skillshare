@@ -86,7 +86,13 @@ func hostedRPC(t *testing.T, srv *httptest.Server, token, method, params string)
 	if params != "" {
 		params += ","
 	}
-	status, _, data := hostedRequest(t, srv, token, "POST", "/", `{"jsonrpc":"2.0","id":1,"method":"`+method+`","params":{`+params+hostedMeta+`}}`)
+	status, headers, data := hostedRequest(t, srv, token, "POST", "/", `{"jsonrpc":"2.0","id":1,"method":"`+method+`","params":{`+params+hostedMeta+`}}`)
+	if !strings.Contains(headers.Get("Cache-Control"), "private") {
+		t.Errorf("authenticated MCP cache policy %q lacks private", headers.Get("Cache-Control"))
+	}
+	if strings.HasPrefix(headers.Get("Content-Type"), "text/event-stream") && !strings.Contains(headers.Get("Cache-Control"), "no-transform") {
+		t.Error("MCP streaming lost no-transform")
+	}
 	if status != 200 && !(status == 400 && bytes.Contains(data, []byte(`"error"`))) {
 		t.Fatalf("%s HTTP %d: %s", method, status, data)
 	}
@@ -331,9 +337,10 @@ func TestHostedEdit_SharedRevisionConflict(t *testing.T) {
 func TestHostedHTTP_RejectsInvalidBindings(t *testing.T) {
 	src := t.TempDir()
 	sel := hostedSelector("writing", "*")
-	builders := map[string]*Builder{"writing": {Source: src, Profile: &sel}}
-	for _, bindings := range [][]ProfileBinding{nil, {{"writing", ""}}, {{"missing", "secret"}}, {{"writing", "secret"}, {"writing", "other"}}} {
-		_, err := NewHostedHandler(builders, bindings, Options{})
+	coding := hostedSelector("coding", "*")
+	builders := map[string]*Builder{"writing": {Source: src, Profile: &sel}, "coding": {Source: src, Profile: &coding}}
+	for _, bindings := range [][]ProfileBinding{nil, {{"writing", ""}}, {{"missing", "secret"}}, {{"writing", "secret"}, {"writing", "other"}}, {{"writing", "secret"}, {"coding", "secret"}}} {
+		err := ValidateProfileBindings(builders, bindings)
 		if err == nil || strings.Contains(err.Error(), "secret") {
 			t.Fatalf("unsafe validation error: %v", err)
 		}
@@ -343,6 +350,26 @@ func TestHostedHTTP_RejectsInvalidBindings(t *testing.T) {
 	builders["unbound"] = badBuilder
 	if _, err := NewHostedHandler(builders, []ProfileBinding{{"writing", "secret"}}, Options{}); err == nil {
 		t.Fatal("unusable unbound profile accepted")
+	}
+}
+
+func TestHostedHTTP_ExecutorWarnings(t *testing.T) {
+	src := t.TempDir()
+	writeFile(t, filepath.Join(src, "logo", "SKILL.md"), textSkill("logo"))
+	writeFile(t, filepath.Join(src, "logo", "logo.png"), "\x89PNG\xff")
+	builders := map[string]*Builder{}
+	for _, name := range []string{"writing", "unbound"} {
+		sel := hostedSelector(name, "*")
+		builders[name] = &Builder{Source: src, Profile: &sel}
+	}
+	var warnings bytes.Buffer
+	if _, err := NewHostedHandler(builders, []ProfileBinding{{"writing", "secret"}}, Options{Warn: &warnings, Refresh: time.Hour}); err != nil {
+		t.Fatal(err)
+	}
+	for name := range builders {
+		if want := fmt.Sprintf("profile %q: warning: logo left out of the Executor index:", name); !strings.Contains(warnings.String(), want) {
+			t.Errorf("missing %s in %s", want, &warnings)
+		}
 	}
 }
 

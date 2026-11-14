@@ -287,6 +287,9 @@ type TargetList []string
 // IsZero makes yaml's omitempty drop only a missing list.
 func (t TargetList) IsZero() bool { return t == nil }
 
+// ValidEnvName reports whether name is a portable environment variable name.
+func ValidEnvName(name string) bool { return envName.MatchString(name) }
+
 var envName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 var serverName = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$`)
 

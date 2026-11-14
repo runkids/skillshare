@@ -97,15 +97,18 @@ func cmdMCPServe(args []string) error {
 		if err != nil {
 			return err
 		}
-		handler, err = skillserve.NewHostedHandler(builders, bindings, skillserve.Options{Version: version, Warn: os.Stderr, Refresh: 5 * time.Second, Edit: edit})
-		if err != nil {
-			return err
-		}
 		if check {
+			if err := skillserve.ValidateProfileBindings(builders, bindings); err != nil {
+				return err
+			}
 			return printMCPServeProfilesCheck(builders, edit)
 		}
 		if !isLoopbackAddr(addr) && certFile == "" && !allowInsecure {
 			return fmt.Errorf("refusing hosted credentials over plain HTTP on %s: pass --tls-cert and --tls-key, bind loopback behind a TLS proxy, or pass --http-allow-insecure for a trusted private network", addr)
+		}
+		handler, err = skillserve.NewHostedHandler(builders, bindings, skillserve.Options{Version: version, Warn: os.Stderr, Refresh: 5 * time.Second, Edit: edit})
+		if err != nil {
+			return err
 		}
 		return serveMCPHTTP(handler, addr, certFile, keyFile, allowInsecure)
 	}

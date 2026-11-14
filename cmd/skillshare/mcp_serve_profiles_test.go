@@ -9,7 +9,7 @@ import (
 )
 
 func TestParseMCPServeProfileBindings(t *testing.T) {
-	env := map[string]string{"WRITING_TOKEN": "fixture-writing-secret", "CODING_TOKEN": "fixture-coding-secret", "DUP": "fixture-writing-secret", "EMPTY": ""}
+	env := map[string]string{"WRITING_TOKEN": "fixture-writing-secret", "CODING_TOKEN": "fixture-coding-secret", "EMPTY": ""}
 	lookup := func(k string) (string, bool) { v, ok := env[k]; return v, ok }
 	for _, tc := range []struct {
 		name   string
@@ -24,10 +24,8 @@ func TestParseMCPServeProfileBindings(t *testing.T) {
 		{"empty-env", []string{"writing="}, true},
 		{"bad-env", []string{"writing=TOKEN-NAME"}, true},
 		{"extra-equals", []string{"writing=TOKEN=VALUE"}, true},
-		{"duplicate-profile", []string{"writing=WRITING_TOKEN", "writing=CODING_TOKEN"}, true},
 		{"absent-env", []string{"writing=MISSING"}, true},
 		{"empty-secret", []string{"writing=EMPTY"}, true},
-		{"duplicate-secret", []string{"writing=WRITING_TOKEN", "coding=DUP"}, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := parseMCPServeProfileBindings(tc.values, lookup)
@@ -63,9 +61,6 @@ func FuzzMCPServeProfileBindings(f *testing.F) {
 		if len(bindings) != 1 || bindings[0].Token != secret || bindings[0].Profile == "" {
 			t.Fatal("invalid binding accepted")
 		}
-		// One credential cannot authorize two profiles, even via different env names.
-		if _, err := parseMCPServeProfileBindings([]string{s, "another=SECOND"}, func(string) (string, bool) { return secret, true }); err == nil {
-			t.Fatal("duplicate credential accepted")
-		}
+
 	})
 }

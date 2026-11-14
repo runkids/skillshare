@@ -214,12 +214,17 @@ func (s *service) index() (*Catalog, *Index, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	return c, s.indexFor(c), nil
+}
+
+// indexFor reuses one catalog snapshot, including during hosted startup.
+func (s *service) indexFor(c *Catalog) *Index {
 	s.idxMu.Lock()
 	defer s.idxMu.Unlock()
 	if s.idxFor != c {
 		s.idx, s.idxFor = c.Index(), c
 	}
-	return c, s.idx, nil
+	return s.idx
 }
 
 // rebound reports a request that reached a loopback listener under another

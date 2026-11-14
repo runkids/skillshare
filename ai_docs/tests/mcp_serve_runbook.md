@@ -374,7 +374,6 @@ try:
         "private": all("private" in r[1] for r in (writing, coding, own)),
         "own": own[0], "unchanged": before == snapshot(),
         "check": check.stdout + check.stderr,
-        "writing_response": json.loads(writing[2]), "coding_response": json.loads(coding[2]),
     }
     print(json.dumps(result))
 finally:

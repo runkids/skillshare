@@ -40,11 +40,16 @@ func TestLogMaxEntries(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
 			cfgPath := filepath.Join(dir, "config.yaml")
-			os.WriteFile(cfgPath, []byte(tt.configYAML), 0o644)
+			original := tt.configYAML + "targets:\n  claude:\n    path: /tmp/fixture-target\n    exclude: [legacy]\n"
+			os.WriteFile(cfgPath, []byte(original), 0o644)
 
 			t.Setenv("SKILLSHARE_CONFIG", cfgPath)
 
 			got := logMaxEntries()
+			data, err := os.ReadFile(cfgPath)
+			if err != nil || string(data) != original {
+				t.Fatalf("log limit lookup migrated config: %v\n%s", err, data)
+			}
 			if got != tt.want {
 				t.Errorf("logMaxEntries() = %d, want %d", got, tt.want)
 			}

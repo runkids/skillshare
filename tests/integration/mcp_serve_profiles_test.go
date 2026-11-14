@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -22,6 +23,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/oplog"
 	"skillshare/internal/testutil"
 )
 
@@ -50,71 +52,55 @@ func hostedCLIFixture(t *testing.T, project bool) (*testutil.Sandbox, string, st
 	sb := testutil.NewSandbox(t)
 	t.Cleanup(sb.Cleanup)
 	dir, path, source, mode := sb.Root, sb.ConfigPath, sb.SourcePath, "-g"
-	targets := "targets:\n  claude:\n    path: " + filepath.Join(sb.Home, "uncreated-target") + "\n    skills:\n      exclude: [shared]\n"
+	targets := "targets:\n  claude:\n    path: " + filepath.Join(sb.Home, "uncreated-target") + "\n    exclude: [shared]\n"
 	if project {
 		dir = sb.SetupProjectDir()
 		path = config.ProjectConfigPath(dir)
 		source = filepath.Join(dir, ".skillshare", "skills")
 		mode = "-p"
+		sb.WriteFile(sb.ConfigPath, "source: "+sb.SourcePath+"\ntargets:\n  claude:\n    path: "+filepath.Join(sb.Home, "uncreated-target")+"\n    exclude: [shared]\n")
 		targets = "targets:\n  - name: claude\n    path: .claude/uncreated-skills\n    skills:\n      exclude: [shared]\n"
 	}
 	text := "source: " + source + "\n" + targets + hostedDefinitions + "mcp:\n  serve:\n    edit:\n      skills: [shared]\n"
-	if err := os.WriteFile(path, []byte(text), 0644); err != nil {
-		t.Fatal(err)
-	}
+	sb.WriteFile(path, text)
 	for _, n := range []string{"alpha", "beta", "shared"} {
-		root := filepath.Join(source, n)
-		if err := os.MkdirAll(root, 0755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(root, "SKILL.md"), []byte("---\nname: "+n+"\ndescription: fixture\n---\n# "+n+"\n"), 0644); err != nil {
-			t.Fatal(err)
-		}
+		sb.WriteFile(filepath.Join(source, n, "SKILL.md"), "---\nname: "+n+"\ndescription: fixture\n---\n# "+n+"\n")
 	}
 	state, _, err := config.ProfilePaths(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Dir(state), 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(state, []byte("[broken active state"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	sb.WriteFile(state, "[broken active state")
 	// A runtime constructor would migrate this legacy metadata; hosted loads must not.
-	if err := os.WriteFile(filepath.Join(source, "registry.yaml"), []byte("skills: {}\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	sb.WriteFile(filepath.Join(source, "registry.yaml"), "skills: {}\n")
 	if err := os.Remove(filepath.Join(sb.Home, ".local", "state", "skillshare", "logs")); err != nil {
 		t.Fatal(err)
 	}
 	legacy := filepath.Join(filepath.Dir(sb.ConfigPath), "logs")
-	if err := os.MkdirAll(legacy, 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(legacy, "fixture.log"), []byte("preserve legacy state"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	sb.WriteFile(filepath.Join(legacy, "fixture.log"), "preserve legacy state")
 	return sb, dir, path, []string{mode, "--profile-token", "writing=WRITING_TOKEN", "--profile-token", "coding=CODING_TOKEN"}
 }
 
 func TestMCPServe_HostedProfiles(t *testing.T) {
 	for _, project := range []bool{false, true} {
 		t.Run(fmt.Sprintf("project=%t", project), func(t *testing.T) {
-			sb, dir, _, bindings := hostedCLIFixture(t, project)
+			sb, dir, path, bindings := hostedCLIFixture(t, project)
 			before := testutil.SnapshotTree(t, false, sb.Root)
 			for _, targeted := range []bool{false, true} {
 				args := append(slices.Clone(bindings), "--check")
 				if targeted {
 					args = append(args, "--target", "claude")
 				}
-				out, err := hostedCLI(t, sb, dir, args...).CombinedOutput()
+				cmd := hostedCLI(t, sb, dir, args...)
+				var stderr bytes.Buffer
+				cmd.Stderr = &stderr
+				out, err := cmd.Output()
 				if err != nil {
 					t.Fatalf("check: %v %s", err, out)
 				}
 				for _, profile := range []string{"writing", "coding", "unbound"} {
 					if !bytes.Contains(out, []byte(profile)) {
-						t.Fatalf("check omitted %s: %s", profile, out)
+						t.Errorf("stdout check omitted %s: %s; stderr: %s", profile, out, &stderr)
 					}
 				}
 				wantTwos, wantOnes := 2, 1
@@ -129,25 +115,7 @@ func TestMCPServe_HostedProfiles(t *testing.T) {
 				}
 			}
 			cmd := hostedCLI(t, sb, dir, append(slices.Clone(bindings), "--http", "127.0.0.1:0")...)
-			stderr, err := cmd.StderrPipe()
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := cmd.Start(); err != nil {
-				t.Fatal(err)
-			}
-			defer func() { _ = cmd.Process.Kill(); _ = cmd.Wait() }()
-			scanner := bufio.NewScanner(stderr)
-			base := ""
-			for scanner.Scan() {
-				if strings.HasPrefix(scanner.Text(), "Serving skills over MCP at ") {
-					base = strings.TrimSuffix(strings.TrimPrefix(scanner.Text(), "Serving skills over MCP at "), "/")
-					break
-				}
-			}
-			if base == "" {
-				t.Fatal("server did not start")
-			}
+			base, _ := startHostedCLI(t, cmd)
 			client := &http.Client{Timeout: 5 * time.Second}
 			var wg sync.WaitGroup
 			for _, tc := range []struct{ token, own, foreign string }{{"fixture-writing", "alpha", "beta"}, {"fixture-coding", "beta", "alpha"}} {
@@ -211,6 +179,48 @@ func TestMCPServe_HostedProfiles(t *testing.T) {
 			if !reflect.DeepEqual(before, after) {
 				t.Fatal("hosted startup/check/requests changed config, active state, metadata or targets")
 			}
+			// A preview may append its audit record, but must not migrate supported
+			// legacy flat-target config or modify source/state before apply.
+			configBefore, globalBefore := sb.ReadFile(path), sb.ReadFile(sb.ConfigPath)
+			statePath, _, err := config.ProfilePaths(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			stateBefore := sb.ReadFile(statePath)
+			source := sb.SourcePath
+			if project {
+				source = filepath.Join(dir, ".skillshare", "skills")
+			}
+			if err := os.Remove(filepath.Join(source, "registry.yaml")); err != nil {
+				t.Fatal(err)
+			}
+			file := filepath.Join(source, "shared", "SKILL.md")
+			old := sb.ReadFile(file)
+			body := fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"preview_skill_edit","arguments":{"uri":"skill://shared/SKILL.md","base_revision":"sha256:%x","content":%q},%s}}`, sha256.Sum256([]byte(old)), old+"\nFixture preview.\n", serveMeta)
+			req, _ := http.NewRequest("POST", base+"/", strings.NewReader(body))
+			req.Header.Set("Authorization", "Bearer fixture-writing")
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Accept", "application/json, text/event-stream")
+			req.Header.Set("Mcp-Protocol-Version", "2026-07-28")
+			req.Header.Set("Mcp-Method", "tools/call")
+			req.Header.Set("Mcp-Name", "preview_skill_edit")
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			data, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if resp.StatusCode != 200 || !bytes.Contains(data, []byte("Preview ")) || bytes.Contains(data, []byte(`"isError":true`)) {
+				t.Fatalf("preview HTTP %d: %s", resp.StatusCode, data)
+			}
+			if sb.ReadFile(path) != configBefore || sb.ReadFile(sb.ConfigPath) != globalBefore || sb.ReadFile(file) != old || sb.ReadFile(statePath) != stateBefore {
+				t.Fatal("preview changed config, source or active state")
+			}
+			var audit oplog.Entry
+			if err := json.Unmarshal([]byte(sb.ReadFile(filepath.Join(oplog.LogDir(path), oplog.AuditFile))), &audit); err != nil || audit.Command != "audit" || audit.Args["mode"] != "mcp serve edit" || audit.Args["name"] != "shared" {
+				t.Fatalf("missing preview audit: %v %+v", err, audit)
+			}
+
 		})
 	}
 }
@@ -219,7 +229,7 @@ func TestMCPServe_HostedValidation(t *testing.T) {
 	for _, project := range []bool{false, true} {
 		t.Run(fmt.Sprintf("project=%t", project), func(t *testing.T) {
 			sb, dir, path, bindings := hostedCLIFixture(t, project)
-			base := readFixture(t, path)
+			base := sb.ReadFile(path)
 			for _, tc := range []struct {
 				name                        string
 				args                        []string
@@ -227,6 +237,8 @@ func TestMCPServe_HostedValidation(t *testing.T) {
 			}{
 				{name: "stdio", args: bindings, want: "--http or --check"},
 				{name: "legacy-token", args: append(slices.Clone(bindings), "--check"), extraEnv: "SKILLSHARE_MCP_TOKEN=legacy-fixture", want: "SKILLSHARE_MCP_TOKEN"},
+				{name: "duplicate-profile", args: []string{bindings[0], "--check", "--profile-token", "writing=WRITING_TOKEN", "--profile-token", "writing=CODING_TOKEN"}, want: "duplicate"},
+				{name: "duplicate-credential", args: []string{bindings[0], "--check", "--profile-token", "writing=WRITING_TOKEN", "--profile-token", "coding=WRITING_TOKEN"}, want: "reuses"},
 				{name: "unknown", args: []string{bindings[0], "--check", "--profile-token", "missing=WRITING_TOKEN"}, want: "missing"},
 				{name: "unusable-unbound", args: append(slices.Clone(bindings), "--check"), configExtra: "  future:\n    unknown: true\n", want: "future"},
 				{name: "network-tls", args: append(slices.Clone(bindings), "--http", "0.0.0.0:0"), want: "--tls-cert"},
@@ -236,9 +248,7 @@ func TestMCPServe_HostedValidation(t *testing.T) {
 					if tc.configExtra != "" {
 						text = strings.Replace(text, "mcp:\n", tc.configExtra+"mcp:\n", 1)
 					}
-					if err := os.WriteFile(path, []byte(text), 0644); err != nil {
-						t.Fatal(err)
-					}
+					sb.WriteFile(path, text)
 					before := testutil.SnapshotTree(t, false, sb.Root)
 					cmd := hostedCLI(t, sb, dir, tc.args...)
 					if tc.extraEnv != "" {
@@ -262,13 +272,27 @@ func TestMCPServe_HostedValidation(t *testing.T) {
 	}
 }
 
-func readFixture(t *testing.T, path string) string {
+func startHostedCLI(t *testing.T, cmd *exec.Cmd) (string, string) {
 	t.Helper()
-	data, err := os.ReadFile(path)
+	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return string(data)
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
+	scanner := bufio.NewScanner(stderr)
+	var diagnostics strings.Builder
+	for scanner.Scan() {
+		line := scanner.Text()
+		fmt.Fprintln(&diagnostics, line)
+		if base, ok := strings.CutPrefix(line, "Serving skills over MCP at "); ok {
+			return strings.TrimSuffix(base, "/"), diagnostics.String()
+		}
+	}
+	t.Fatalf("server did not start: %v %s", scanner.Err(), &diagnostics)
+	return "", ""
 }
 
 func TestMCPServe_HostedNetwork(t *testing.T) {
@@ -285,30 +309,8 @@ func TestMCPServe_HostedNetwork(t *testing.T) {
 				args = append(args, "--http-allow-insecure")
 			}
 			cmd := hostedCLI(t, sb, dir, args...)
-			stderr, err := cmd.StderrPipe()
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := cmd.Start(); err != nil {
-				t.Fatal(err)
-			}
-			defer func() { _ = cmd.Process.Kill(); _ = cmd.Wait() }()
-			scanner := bufio.NewScanner(stderr)
-			base := ""
-			warnings := 0
-			for scanner.Scan() {
-				line := scanner.Text()
-				if strings.HasPrefix(line, "warning: --http-allow-insecure") {
-					warnings++
-				}
-				if strings.HasPrefix(line, "Serving skills over MCP at ") {
-					base = strings.TrimSuffix(strings.TrimPrefix(line, "Serving skills over MCP at "), "/")
-					break
-				}
-			}
-			if base == "" {
-				t.Fatal("server did not start")
-			}
+			base, diagnostics := startHostedCLI(t, cmd)
+			warnings := strings.Count(diagnostics, "warning: --http-allow-insecure")
 			// Listener address may be [::]; dial the same listener over loopback.
 			i := strings.LastIndex(base, ":")
 			base = scheme + "://127.0.0.1" + base[i:]

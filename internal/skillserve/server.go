@@ -2,12 +2,10 @@ package skillserve
 
 import (
 	"context"
-	"crypto/subtle"
 	"errors"
 	"fmt"
 	"io"
 	"mime"
-	"net/http"
 	"path"
 	"sort"
 	"strings"
@@ -126,45 +124,6 @@ func NewServer(b *Builder, opts Options) (*Server, error) {
 		svc.addEditTools(srv)
 	}
 	return &Server{Server: srv, svc: svc}, nil
-}
-
-// HTTPHandler serves srv over Streamable HTTP, and the Executor skill index
-// under IndexPath. A non-empty token must be sent as a bearer token on every
-// request. Cross-origin browser requests to MCP are refused. Without a token,
-// a loopback server also refuses other host names, so a DNS rebinding page cannot
-// use it; with one, the token proves that, and a TLS proxy may keep its public Host.
-func HTTPHandler(srv *Server, token string) http.Handler {
-	mcpHandler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return srv.Server }, &mcp.StreamableHTTPOptions{
-		Stateless:                  true,
-		CrossOriginProtection:      http.NewCrossOriginProtection(),
-		DisableLocalhostProtection: token != "",
-	})
-	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasPrefix(r.URL.Path, IndexPath) {
-			mcpHandler.ServeHTTP(w, r)
-			return
-		}
-		// Reading needs no CSRF check: without CORS headers a page cannot read the answer.
-		if token == "" && rebound(r) {
-			http.Error(w, fmt.Sprintf("Forbidden: invalid Host header %q", r.Host), http.StatusForbidden)
-			return
-		}
-		srv.svc.serveIndex(w, r)
-	})
-	if token == "" {
-		return h
-	}
-	want := []byte("Bearer " + token)
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), want) != 1 {
-			w.Header().Set("WWW-Authenticate", "Bearer")
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-		// Authenticated content must never enter a shared cache.
-		w.Header().Set("Cache-Control", "private, no-cache")
-		h.ServeHTTP(w, r)
-	})
 }
 
 func (s *service) catalog() (*Catalog, error) { return s.loadCatalog(false) }
