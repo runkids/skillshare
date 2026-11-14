@@ -221,14 +221,7 @@ func readSkillDescription(skillPath string) (string, error) {
 		if line == "---" {
 			break
 		}
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		lineIndent := len(lines[i]) - len(strings.TrimLeft(lines[i], " \t"))
-		if indent < 0 {
-			indent = lineIndent
-		}
-		if lineIndent != indent {
+		if !utils.IsRootFrontmatterLine(lines[i], line, &indent) {
 			continue
 		}
 		if strings.HasPrefix(strings.ToLower(line), "description:") {
