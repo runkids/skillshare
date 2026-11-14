@@ -258,3 +258,57 @@ func TestAccountBackupRestoreFormerHomeRefused(t *testing.T) {
 		t.Fatal("former home changed")
 	}
 }
+
+// An account home can itself look like an OpenCode package directory.
+func TestAccountHomeNamedLikeOpenCodePackage(t *testing.T) {
+	for _, tc := range []struct{ agent, subdir, code string }{
+		{"pi", "extensions", "export default function() {}\n"},
+		{"opencode", "plugins", "export default {}\n"},
+	} {
+		t.Run(tc.agent, func(t *testing.T) {
+			e := newEnv(t)
+			e.service.OpenCodeVersion = func(string) (string, error) { return "1.18.31", nil }
+			old := filepath.Join(e.home, "plugins", "skillshare-lint")
+			next := filepath.Join(e.home, "other-account")
+			must(t, os.MkdirAll(old, 0755))
+			must(t, os.MkdirAll(next, 0755))
+			e.service.Accounts = map[string]Account{"work": {Agent: tc.agent, Dir: old}}
+			m := Mutation{Name: "lint", Entry: &Entry{Bindings: map[string]Binding{"work": {Code: tc.code}}}}
+			first := save(t, e.service, m)
+			path := filepath.Join(old, tc.subdir, "skillshare-lint.ts")
+			if !exists(path) || len(first.BackupIDs) == 0 {
+				t.Fatal("missing native output or backup")
+			}
+			if r := sync(t, e.service); r.Plan.Blocked || len(r.Applied) != 0 || len(r.Plan.Warnings) != 0 {
+				t.Fatalf("no-op sync parked account output: %+v", r.Plan)
+			}
+			p, err := e.service.PreviewRestore(first.BackupIDs[0])
+			must(t, err)
+			if p.Blocked {
+				t.Fatalf("backup parked: %+v", p)
+			}
+			_, err = e.service.Restore(first.BackupIDs[0], p.Revision)
+			must(t, err)
+			if exists(path) {
+				t.Fatal("restore did not undo the initial write")
+			}
+			sync(t, e.service)
+			if !exists(path) {
+				t.Fatal("sync did not recreate restored output")
+			}
+			e.service.Accounts["work"] = Account{Agent: tc.agent, Dir: next}
+			r := sync(t, e.service)
+			if !strings.Contains(strings.Join(r.Plan.Warnings, "\n"), "in "+old+" are left") || !exists(path) {
+				t.Fatalf("former home not parked correctly: %v", r.Plan.Warnings)
+			}
+			if _, err := e.service.PreviewRestore(first.BackupIDs[0]); err == nil || !strings.Contains(err.Error(), old) {
+				t.Fatalf("restore did not refuse former home: %v", err)
+			}
+			e.service.Accounts["work"] = Account{Agent: tc.agent, Dir: old}
+			save(t, e.service, Mutation{Name: "lint", Remove: true})
+			if exists(path) {
+				t.Fatal("removed binding retained")
+			}
+		})
+	}
+}

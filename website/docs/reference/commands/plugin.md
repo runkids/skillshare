@@ -395,14 +395,13 @@ folders, including files linked there by [extras](./extras.md), are listed
 read-only with where to change them; a project lists its own folder, which Pi
 reads only if it trusts the project, and the global one.
 
-OpenCode registers the managed entry as a file URL in `opencode.json` or the
+OpenCode v1 registers the managed entry file; v2 registers the package directory as a file URL in `opencode.json` or the
 existing `opencode.jsonc`, preserving comments and unrelated entries. Version 1
 uses `plugin`; version 2 uses `plugins`. `XDG_CONFIG_HOME` and an absolute global
 `OPENCODE_CONFIG` are respected; ambiguous or unsupported overrides are rejected.
 OpenCode must be on PATH so Skillshare can choose the version's schema.
 
-A local OpenCode source must already include its built entry (`main`, a string
-root export, or `index.js`) and required runtime dependencies. Skillshare does not
+A local OpenCode v1 source needs its built entry (`main`, a string root export, or `index.js`). v2 uses the directory loader: `name` plus a string root or `./server` export, or a root `server`/`index` file (`.ts`, `.tsx`, `.js`). `--entry` does not override v2 directory loading; conditional and fallback server exports are refused. Both `@opencode-ai/plugin` and `@opencode/plugin` identify OpenCode packages. Manifests and dependency requirements remain unchanged. Skillshare does not
 run build scripts or install dependencies into the source. Registration is not
 proof the module loaded successfully; check OpenCode after reload.
 
@@ -426,7 +425,7 @@ can be imported; filtered OpenCode entries are still rejected.
 Imported Pi packages are updated with `pi update SOURCE` in global mode, which
 keeps their settings entry; a project's are updated in Pi, because `pi update`
 also reaches global packages. Imported OpenCode v1 packages are updated in their
-native tool. OpenCode v2 global imports can use its native update command; project imports must be
+native tool. OpenCode v2 global package imports can use its native update command; imported local directories are left for you to update without running dependency installers; project imports must be
 updated natively because the v2 update command is global.
 
 ```bash
@@ -640,3 +639,5 @@ its local receipt. Shared declarations and other machines' installations stay
 unchanged. The next sync installs the shared source recipe.
 
 Uninstalling also removes native-client configuration or login associated with that installation.
+
+A flat-file registration left by an older Skillshare OpenCode v2 adapter is rejected for add/import/sync/update. Remove the old managed binding and add its directory package again. Removal remains available and leaves unrelated native registrations untouched. A runtime version change after preview requires a fresh preview.

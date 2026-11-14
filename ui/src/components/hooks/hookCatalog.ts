@@ -129,16 +129,8 @@ export default function (pi: ExtensionAPI) {
   });
 }
 `,
-    opencode: `import type { Plugin } from "@opencode-ai/plugin";
-
-export const SkillsharePlugin: Plugin = async ({ project, client, $, directory }) => {
-  return {
-    "tool.execute.before": async (input, output) => {
-      // Throw an error to stop the tool call.
-    },
-  };
-};
-`,
+    // OpenCode v1 and v2 APIs differ; require the user's matching code.
+    opencode: '',
   })[agent] ?? '';
 
 /** Native field names offered inside an event's entries. */

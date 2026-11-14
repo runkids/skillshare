@@ -209,11 +209,27 @@ describe('project isolation', () => {
 });
 
 describe('hookMessage', () => {
+  it.each([
+    ['OpenCode server exports must be a string (. or ./server); conditional and fallback exports cannot be verified offline', 'opencodeExports', undefined],
+    ['OpenCode v2 package requires name and exports, or a root server/index .ts, .tsx or .js file; --entry cannot override the directory loader', 'opencodeEntry', undefined],
+    ['OpenCode package file "../asset" must be a relative UTF-8 file without traversal', 'opencodePackageFile', { path: '"../asset"' }],
+    ['OpenCode package file "lib" is also a parent directory', 'opencodePackageParent', { path: '"lib"' }],
+    ['OpenCode package must not contain node_modules', 'opencodePackageExcluded', { path: 'node_modules' }],
+    ['OpenCode package must not contain .git', 'opencodePackageExcluded', { path: '.git' }],
+    ['OpenCode package.json: invalid character at byte 3', 'opencodeManifest', { detail: 'invalid character at byte 3' }],
+    ['OpenCode export "./../server.js" must stay inside the package', 'opencodeExportPath', { path: '"./../server.js"' }],
+    ['OpenCode export "./server.js" is missing: open /tmp/native/server.js: permission denied', 'opencodeExportMissing', { path: '"./server.js"', detail: 'open /tmp/native/server.js: permission denied' }],
+  ] as const)('localizes package guidance without changing diagnostic parameters: %s', (message, key, params) => {
+    const t = (key: string, params?: Record<string, string>) => JSON.stringify({ key, params });
+    expect(hookMessage(t, message)).toBe(t(`hooks.message.${key}`, params));
+  });
   it('words the known domain notes with UI keys and passes any other note through', () => {
     const t = (key: string) => `[${key}]`;
     expect(hookMessage(t, 'saving the import takes over the existing registrations in place; sync leaves them as they are instead of adding duplicates')).toBe('[hooks.message.importUnmanaged]');
     expect(hookMessage(t, 'an identical hook exists that Skillshare does not manage; import it or explicitly replace it')).toBe('[hooks.message.identicalUnmanaged]');
     expect(hookMessage(t, 'hook guard: gemini does not document the event "Stopp"; check its spelling')).toBe('[hooks.message.unknownEvent]');
+    expect(hookMessage(t, 'OpenCode v2: package files and registration only; provision the declared dependencies yourself before loading. Skillshare does not execute plugins or install dependencies.')).toBe('[hooks.message.opencodeDependencies]');
+    expect(hookMessage((key, params) => `${key}:${params?.path}`, '/home/native keeps loading; remove its original files and directory registration after syncing so the plugin does not run twice')).toBe('hooks.message.opencodeImport:/home/native');
     expect(hookMessage(t, 'something new')).toBe('something new');
   });
 });
@@ -250,5 +266,16 @@ describe('inactive Git sync decisions', () => {
     change.action = 'unchanged';
     expect(writes(change)).toBe(false);
     expect(syncState(plan, 'check', 'git')).toBe('inactive');
+  });
+});
+
+
+describe('OpenCode directory package editor', () => {
+  it('round-trips package files and rejects a malformed package map', () => {
+    const binding = { package: { 'package.json': '{"name":"demo","exports":"./index.js","dependencies":{"@opencode/plugin":"^2.0.0"}}', 'index.js': 'export default {}\n' } };
+    const draft = bindingToDraft('opencode', binding);
+    expect(draftToBinding('opencode', draft)).toEqual(binding);
+    expect(checkBinding('opencode', draft)).toMatchObject({ nativeError: false, empty: false });
+    expect(checkBinding('opencode', { ...draft, code: '{"index.js":false}' }).nativeError).toBe(true);
   });
 });

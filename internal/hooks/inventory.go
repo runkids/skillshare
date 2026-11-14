@@ -161,6 +161,19 @@ func (s *Service) unownedFiles(target, dir string, state ledger) []string {
 	for _, e := range entries {
 		name := e.Name()
 		ext := filepath.Ext(name)
+		if target == "opencode" && e.IsDir() {
+			owned := false
+			for _, r := range state.Records {
+				if strings.HasPrefix(r.Path, filepath.Join(dir, name)+string(filepath.Separator)) {
+					owned = true
+					break
+				}
+			}
+			if !owned {
+				names = append(names, name)
+			}
+			continue
+		}
 		if e.IsDir() || !(target == "copilot" && ext == ".json" || target != "copilot" && (ext == ".ts" || ext == ".js")) {
 			continue
 		}
@@ -476,6 +489,9 @@ func (s *Service) importCode(target string, req ImportRequest, state ledger) ([]
 	out := []Candidate{}
 	for _, file := range s.unownedFiles(target, dir, state) {
 		path := filepath.Join(dir, file)
+		if info, err := os.Lstat(path); err == nil && info.IsDir() {
+			continue
+		}
 		if err := checkPath(s.baseOrDir(target), path); err != nil {
 			return nil, err
 		}
@@ -490,6 +506,19 @@ func (s *Service) importCode(target string, req ImportRequest, state ledger) ([]
 			c.Warnings = append(c.Warnings, "Skillshare writes code as a .ts file; plain JavaScript is valid TypeScript for the loader, but check any CommonJS syntax")
 		}
 		out = append(out, c)
+	}
+	if target == "opencode" {
+		v2, err := s.openCode2()
+		if err != nil {
+			return nil, err
+		}
+		if v2 {
+			packages, err := s.importOpenCodePackages(state)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, packages...)
+		}
 	}
 	return out, nil
 }

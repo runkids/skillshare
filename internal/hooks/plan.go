@@ -230,6 +230,21 @@ func (s *Service) renderScope(d *desired, root string, entries map[string]Entry)
 			}
 			dirOwner[canonical] = target
 			def, _ := targetDef(agent)
+			if agent == "opencode" {
+				v2, err := sc.openCode2()
+				if err != nil {
+					return err
+				}
+				if v2 {
+					if err := sc.renderOpenCode(d, root, target, name, b, addFile); err != nil {
+						return err
+					}
+					continue
+				}
+				if b.Package != nil {
+					return fmt.Errorf("%s: directory package requires OpenCode v2", name)
+				}
+			}
 			if def.Kind == KindCode || agent == "copilot" {
 				path, err := sc.codePath(agent, name)
 				if err != nil {
@@ -551,7 +566,11 @@ func (s *Service) previewSource(source *Source, replace, adopt map[string]bool) 
 				pl.note(r.Target, r.Path, r.Root, r.Entry, "release", "left in place; Skillshare no longer manages it")
 			} else {
 				pl.parked[key] = true
-				dir := recordDir(r)
+				scope := s
+				if r.Root != "" {
+					scope = s.scoped(r.Root)
+				}
+				dir := recordDir(r, scope.agentOf(r.Target))
 				groupKey := r.Target + "\x00" + dir
 				if parked[groupKey] == nil {
 					parked[groupKey] = &parkedGroup{target: r.Target, dir: dir, reason: reason}

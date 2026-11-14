@@ -12,6 +12,8 @@ export interface HookBinding {
   /** The Agent's own event map, passed through as written. */
   events?: Record<string, unknown>;
   code?: string;
+  /** OpenCode v2 directory: relative filenames mapped to UTF-8 contents. */
+  package?: Record<string, string>;
   /** Path, relative to the config's folder, that `code` was read from. */
   codeFile?: string;
   /** Relative script filename → UTF-8 contents. */

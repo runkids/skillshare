@@ -91,7 +91,7 @@ Skillshare は `hooks` セクションをインデントした block 形式で�
 | `bindings.AGENT.codeFile` | `code` の代わりに、config のフォルダからの相対パス。ファイルの内容を `code` として使い、config を読むたびに読み込みます。パスはそのフォルダ内に限られます |
 | `bindings.AGENT.files` | 相対ファイル名を key とした任意の UTF-8 スクリプト。値は内容、または `codeFile` と同じ規則で読み込む `{from: path}` |
 
-Agent ID は `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`omp`、`amp`、`opencode`、`git`。`factory` は `droid` の、`antigravity-cli` と `agy` は `antigravity` の別名です。event、matcher、handler type、command、timeout 単位、payload はネイティブ形式のまま保持し、自動変換しません。event 名は各 command Agent のドキュメントにある event と照合します。未知の名前（例：綴り違いの `Stopp`）はプレビューと plan の `warnings` に警告として表示されますが、Agent は event を追加していくため同期は止めません。Pi、OMP、Amp、OpenCode のコードは確認しません。Pi、OMP、Amp、OpenCode のコードと imports はインストール済みバージョンに合わせ、専用の `skillshare-NAME.ts` に出力します。共通実行エンジンは生成しません。
+Agent ID は `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`omp`、`amp`、`opencode`、`git`。`factory` は `droid` の、`antigravity-cli` と `agy` は `antigravity` の別名です。event、matcher、handler type、command、timeout 単位、payload はネイティブ形式のまま保持し、自動変換しません。event 名は各 command Agent のドキュメントにある event と照合します。未知の名前（例：綴り違いの `Stopp`）はプレビューと plan の `warnings` に警告として表示されますが、Agent は event を追加していくため同期は止めません。Pi、OMP、Amp、OpenCode のコードは確認しません。Pi、OMP、Amp、OpenCode のコードと imports はインストール済みバージョンに合わせ、専用の `skillshare-NAME.ts` (OpenCode v1; v2: `skillshare-NAME/`) に出力します。共通実行エンジンは生成しません。
 
 長いコードやスクリプトは、`codeFile` または `files` の `{from: path}` で別ファイルから読み込めます。パスの基準は entry を持つ config のフォルダです（project では `.skillshare/`、global の `hooks.projects` では global config のフォルダ）。`hooks add|edit --file` でも entry ファイルの場所ではなく、選択した config が基準です。パスはそのフォルダ内に限られ、symlink を通過できません。ファイルがなければ config の読み込みは失敗します。config を読むたびに再読み込みし、プレビュー後に変更された場合は適用を拒否します。
 
@@ -140,7 +140,7 @@ command binding のスクリプトは Agent 設定ディレクトリの `hooks/s
 | [Pi](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md) | `~/.pi/agent/extensions/skillshare-NAME.ts` | `.pi/extensions/skillshare-NAME.ts` | Native extension code |
 | [Oh My Pi](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/extensions.md) | `~/.omp/agent/extensions/skillshare-NAME.ts` | `.omp/extensions/skillshare-NAME.ts` | Native OMP extension code |
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
-| [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME.ts` | `.opencode/plugins/skillshare-NAME.ts` | Supplied v1/v2 plugin code |
+| [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME[.ts]` | `.opencode/plugins/skillshare-NAME[.ts]` | v1: .ts; v2: directory (OpenCode v2) |
 
 アカウント target の `config_dir` を指す場合を除き、global scope はネイティブ設定ディレクトリの環境変数 override を使います。project scope はプロジェクト内にのみ書き込み、global にフォールバックしません。Codex inline TOML など他のソースは別のままです。Antigravity とその CLI（`agy`）は同じ `hooks.json` を読みます。各 hook は名前付きの 1 ブロックで、インポートしても名前は変わりません。CLI の `~/.gemini/antigravity-cli/settings.json` にある hooks は別のままです。Droid の独立 hooks ファイルは読み込むソースを変えるため、既存 inline hooks を先に確認してください。 Copilot は `.github/hooks` のプロジェクト hooks を信頼済みフォルダーでのみ読み込みます。
 
@@ -237,3 +237,12 @@ global 設定の `hooks.projects` は絶対プロジェクトパスを同じ Ent
 バックアップは後から加わった無関係な変更を保持してネイティブ出力を復元し、ソース定義は変更しません。**Settings → Backups → Hooks** または `hooks restore` でプレビューして復元します。
 
 **Synced** は Skillshare が設定を書いた状態です。Agent の手順に従って再起動／再読み込みしてください。信頼、hooks の有効化、コード互換性は Agent が制御します。管理時に hook command を実行したり、ネイティブ信頼を自動変更したりしません。
+
+
+### OpenCode v2
+
+OpenCode v1 は単一ファイル、v2 はディレクトリパッケージとディレクトリ URL を使います。インストール済み API に合うコードを指定してください。Skillshare はプラグインを実行せず、依存関係もインストールしません。読み込み前に宣言された依存関係を用意してください。
+
+`--version` で API を選択し、未知のメジャーバージョンは拒否します。v2 は package.json と依存関係を保持し、`name` と文字列の root／`./server` export、またはルートの server/index（.ts、.tsx、.js）を使います。条件付き・フォールバック export は推測しません。`--entry` は v2 のディレクトリ読み込みを変更しません。古い v2 単一ファイル登録は削除し、ディレクトリパッケージとして追加し直してください。
+
+v2 の `code`/`codeFile` は index.ts と @opencode/plugin ^2.0.0 の manifest を生成します。`bindings.opencode.package` には相対ファイル名と UTF-8 内容の対応を指定できます。ディレクトリの import は Skillshare の出力先にコピーし、元の登録は残ると警告します。同期後に元のファイルと登録を削除し、二重実行を避けてください。更新・削除・再同期も所有権を保護します。.git と node_modules は import せず、パスの逸脱、シンボリックリンク、ファイルとディレクトリの衝突を拒否します。

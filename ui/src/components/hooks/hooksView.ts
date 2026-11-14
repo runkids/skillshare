@@ -54,10 +54,27 @@ export const actionLabel = (t: (key: string) => string, action: string) => (KNOW
 const messageKeys: Record<string, string> = {
   'an identical hook exists that Skillshare does not manage; import it or explicitly replace it': 'hooks.message.identicalUnmanaged',
   'saving the import takes over the existing registrations in place; sync leaves them as they are instead of adding duplicates': 'hooks.message.importUnmanaged',
+  'OpenCode v2: package files and registration only; provision the declared dependencies yourself before loading. Skillshare does not execute plugins or install dependencies.': 'hooks.message.opencodeDependencies',
+  'OpenCode server exports must be a string (. or ./server); conditional and fallback exports cannot be verified offline': 'hooks.message.opencodeExports',
+  'OpenCode v2 package requires name and exports, or a root server/index .ts, .tsx or .js file; --entry cannot override the directory loader': 'hooks.message.opencodeEntry',
 };
 const UNKNOWN_EVENT = /^hook (.+): (\S+) does not document the event "(.+)"; check its spelling$/;
 export const hookMessage = (t: (key: string, params?: Record<string, string>) => string, message: string) => {
   if (messageKeys[message]) return t(messageKeys[message]);
+  const importedPackage = /^(.+) keeps loading; remove its original files and directory registration after syncing so the plugin does not run twice$/.exec(message);
+  if (importedPackage) return t('hooks.message.opencodeImport', { path: importedPackage[1] });
+  const packageFile = /^OpenCode package file (".*") must be a relative UTF-8 file without traversal$/.exec(message);
+  if (packageFile) return t('hooks.message.opencodePackageFile', { path: packageFile[1] });
+  const packageParent = /^OpenCode package file (".*") is also a parent directory$/.exec(message);
+  if (packageParent) return t('hooks.message.opencodePackageParent', { path: packageParent[1] });
+  const packageExcluded = /^OpenCode package must not contain (node_modules|\.git)$/.exec(message);
+  if (packageExcluded) return t('hooks.message.opencodePackageExcluded', { path: packageExcluded[1] });
+  const manifest = /^OpenCode package\.json: ([\s\S]+)$/.exec(message);
+  if (manifest) return t('hooks.message.opencodeManifest', { detail: manifest[1] });
+  const exportPath = /^OpenCode export (".*") must stay inside the package$/.exec(message);
+  if (exportPath) return t('hooks.message.opencodeExportPath', { path: exportPath[1] });
+  const missingExport = /^OpenCode export (".*") is missing: ([\s\S]+)$/.exec(message);
+  if (missingExport) return t('hooks.message.opencodeExportMissing', { path: missingExport[1], detail: missingExport[2] });
   const unknown = UNKNOWN_EVENT.exec(message);
   return unknown ? t('hooks.message.unknownEvent', { name: unknown[1], agent: hookLabel(unknown[2]), event: unknown[3] }) : message;
 };
@@ -215,6 +232,7 @@ export interface BindingDraft {
   /** The Agent's native event map as JSON text. */
   native: string;
   code: string;
+  package?: boolean;
   /** The codeFile the code was read from; kept on save while the code is unchanged. */
   codeFile?: { path: string; code: string };
   files: FileRow[];
@@ -230,7 +248,8 @@ export function bindingToDraft(agent: string, binding: HookEntry['bindings'][str
     mode: rows ? 'simple' : 'native',
     rows: rows ?? [],
     native: binding.events ? JSON.stringify(binding.events, null, 2) : '',
-    code: binding.code ?? '',
+    code: binding.package ? JSON.stringify(binding.package, null, 2) : binding.code ?? '',
+    ...(binding.package && { package: true }),
     ...(binding.codeFile && { codeFile: { path: binding.codeFile, code: binding.code ?? '' } }),
     files: Object.entries(binding.files ?? {}).map(([name, content]) => {
       const path = binding.filesFrom?.[name];
@@ -286,6 +305,11 @@ export function checkBinding(agent: string, d: BindingDraft): BindingCheck {
     const parsed = parseGitBinding(d.native);
     return { nativeError: Boolean(parsed.error), rowErrors: 0, fileErrors: false, codeMissing: false, empty: !isObject(parsed.value?.commands) || Object.keys(parsed.value.commands).length === 0 };
   }
+  if (agent === 'opencode' && d.package) {
+    const parsed = parseNative(d.code);
+    const invalid = !parsed.value || Object.values(parsed.value).some((v) => typeof v !== 'string');
+    return { nativeError: Boolean(parsed.error) || invalid, rowErrors: 0, fileErrors: false, codeMissing: invalid, empty: !parsed.value || Object.keys(parsed.value).length === 0 };
+  }
   if (isCodeAgent(agent)) return { nativeError: false, rowErrors: 0, fileErrors: false, codeMissing: !d.code.trim(), empty: !d.code.trim() };
   const nativeError = d.mode === 'native' && Boolean(parseNative(d.native).error);
   const active = d.rows.filter((r) => !rowBlank(r));
@@ -303,6 +327,7 @@ export function draftToBinding(agent: string, d: BindingDraft) {
   const files = Object.fromEntries(d.files.filter((f) => f.name.trim()).map((f) => [f.name.trim(), f.content]));
   const filesFrom = Object.fromEntries(d.files.filter((f) => f.from && f.name.trim() === f.from.name && f.content === f.from.content).map((f) => [f.from!.name, f.from!.path]));
   const withFiles = { ...(Object.keys(files).length > 0 && { files }), ...(Object.keys(filesFrom).length > 0 && { filesFrom }) };
+  if (agent === 'opencode' && d.package) return { package: parseNative(d.code).value as Record<string, string> };
   if (isCodeAgent(agent)) return d.codeFile && d.code === d.codeFile.code ? { codeFile: d.codeFile.path } : { code: d.code, ...withFiles };
   const events = d.mode === 'native' ? parseNative(d.native).value : rowsToEvents(d.rows);
   return { ...(events && { events }), ...withFiles };

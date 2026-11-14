@@ -130,7 +130,7 @@ no Agent holds it, drops the package from Skillshare entirely.
 
 Claude supports native updates; Codex re-adds the reviewed snapshot unless the plugin is disabled in Codex. Cursor/Antigravity replace managed
 local copies; Pi/OpenCode refresh reviewed source snapshots; OMP removes its scoped registration and reinstalls the reviewed commit. Imported Codex plugins update by upgrading their marketplace; imported Pi packages through `pi update`, global only. Imported OpenCode v1 packages must be updated natively. OpenCode v2 global
-imports may use native update; project imports may not. Copilot and Antigravity CLI source updates
+package imports may use native update; imported local directories and project imports may not. Copilot and Antigravity CLI source updates
 require known native enabled state; Grok updates natively. Project mode supports Claude, Antigravity, Pi,
 OMP and OpenCode, never falling back to global scope. An update reports failed targets and continues healthy targets; intentional skips remain pending. Dry runs print the complete plan and exit nonzero on failure; isolated failures include `failed: true` in JSON.
 
@@ -210,7 +210,7 @@ OMP and OpenCode, never falling back to global scope. An update reports failed t
   during selection management, and selected never means loaded or running.
 - OpenCode: SDK dependency, `.opencode/plugins/` convention, or explicit `--entry`,
   with an existing JS/TS entry.
-  Preserve the whole tree and register its file URL in the native JSON/JSONC config.
+  Preserve the whole tree and manifest: v1 registers the entry file URL, v2 the directory URL in native JSON/JSONC. v2 requires name plus a string root/server export or a conventional root server/index file; --entry cannot override it. Conditional/fallback server exports fail closed.
   Version 1 uses `plugin`, version 2 uses `plugins`. Runtime dependencies must already
   be available. The CLI version selects the schema; do not guess from docs alone.
 - Another account of an Agent (a target with `agent:` and `config_dir:` in the global

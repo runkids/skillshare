@@ -91,7 +91,7 @@ Skillshare 以缩进的 block 格式写入 `hooks` 区段；每次保存也会�
 | `bindings.AGENT.codeFile` | 代替 `code`：相对于 config 所在文件夹的路径，文件内容作为 `code` 使用，每次读取 config 时重新读取；路径必须位于该文件夹内 |
 | `bindings.AGENT.files` | 可选 UTF-8 脚本文件，以相对文件名为 key；值为文件内容，或按 `codeFile` 相同规则读取的 `{from: path}` |
 
-Agent ID 为 `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`omp`、`amp`、`opencode`、`git`；`factory` 是 `droid` 的别名，`antigravity-cli` 和 `agy` 是 `antigravity` 的别名。event、matcher、handler type、command、timeout 单位和 payload 均保留原生格式，不自动跨 Agent 转换。event 名称会对照各 command Agent 文档列出的事件检查：未知名称（例如拼错的 `Stopp`）在预览和 plan 的 `warnings` 中显示警告，但不阻止同步，因为 Agent 会陆续新增事件。Pi、OMP、Amp、OpenCode 的代码不检查。Pi、OMP、Amp、OpenCode 的代码及 imports 须匹配已安装版本，发布为独立的 `skillshare-NAME.ts`，不生成共享执行引擎。
+Agent ID 为 `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`omp`、`amp`、`opencode`、`git`；`factory` 是 `droid` 的别名，`antigravity-cli` 和 `agy` 是 `antigravity` 的别名。event、matcher、handler type、command、timeout 单位和 payload 均保留原生格式，不自动跨 Agent 转换。event 名称会对照各 command Agent 文档列出的事件检查：未知名称（例如拼错的 `Stopp`）在预览和 plan 的 `warnings` 中显示警告，但不阻止同步，因为 Agent 会陆续新增事件。Pi、OMP、Amp、OpenCode 的代码不检查。Pi、OMP、Amp、OpenCode 的代码及 imports 须匹配已安装版本，发布为独立的 `skillshare-NAME.ts` (OpenCode v1; v2: `skillshare-NAME/`)，不生成共享执行引擎。
 
 较长的代码和脚本可以用 `codeFile` 或 `files` 的 `{from: path}` 从独立文件读取。路径以持有该 entry 的 config 所在文件夹为准（项目是 `.skillshare/`，global 的 `hooks.projects` 则是 global config 文件夹）；`hooks add|edit --file` 也以选定的 config 为准，而不是 entry 文件所在位置。路径必须位于该文件夹内，不能经过 symlink；文件缺失会使 config 读取失败。每次读取 config 都会重新读取文件，预览后内容有变化就会拒绝应用。
 
@@ -138,7 +138,7 @@ command binding 的脚本位于 Agent 配置目录的 `hooks/skillshare/NAME/`�
 | [Pi](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md) | `~/.pi/agent/extensions/skillshare-NAME.ts` | `.pi/extensions/skillshare-NAME.ts` | Native extension code |
 | [Oh My Pi](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/extensions.md) | `~/.omp/agent/extensions/skillshare-NAME.ts` | `.omp/extensions/skillshare-NAME.ts` | Native OMP extension code |
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
-| [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME.ts` | `.opencode/plugins/skillshare-NAME.ts` | Supplied v1/v2 plugin code |
+| [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME[.ts]` | `.opencode/plugins/skillshare-NAME[.ts]` | v1: .ts; v2: directory (OpenCode v2) |
 
 global scope 使用原生配置目录的环境变量 override，但指向账号 `config_dir` 时除外；project scope 只写入项目，不回退到 global。Codex inline TOML 等其他来源仍独立存在。Antigravity 及其 CLI（`agy`）读取同一份 `hooks.json`；每个 hook 是一个以其名称命名的 block，导入时保留原名。CLI 的 `~/.gemini/antigravity-cli/settings.json` 中的 hooks 保持独立。Droid 发布独立 hooks 文件会影响原生加载来源，请先检查已有 inline hooks。Copilot 只在受信任的文件夹中加载 `.github/hooks` 的项目 hooks。
 
@@ -229,3 +229,12 @@ global 配置的 `hooks.projects` 将绝对项目路径映射到相同 Entry 格
 备份恢复原生输出并保留后续无关改动，不改写来源定义。使用“设置 → 备份 → Hooks”或 `hooks restore` 先预览再恢复。
 
 **已同步**只表示 Skillshare 已写入配置。请按 Agent 原生流程重启／重新加载；信任、启用 hooks 和代码兼容性由 Agent 控制。管理操作不执行 hook command，也不自动改变原生信任。
+
+
+### OpenCode v2
+
+OpenCode v1 使用单一文件；v2 使用目录包与目录 URL。请提供符合已安装 API 的代码。Skillshare 不执行插件或安装依赖；加载前请自行准备声明的依赖。
+
+`--version` 选择原生 API；未知主版本会拒绝。v2 保留 package.json 与依赖需求，使用 `name` 加字符串形式的根／`./server` export，或根目录的 server/index（.ts、.tsx、.js）；不猜测条件或回退 export。`--entry` 不能覆盖 v2 目录加载。旧版生成的 v2 单文件注册须移除后重新添加目录包。
+
+v2 的 `code`/`codeFile` 生成 index.ts 和依赖 @opencode/plugin ^2.0.0 的 manifest；也可改用 `bindings.opencode.package` 保存相对文件名到 UTF-8 内容的完整映射。目录导入会复制到 Skillshare 的命名输出并警告原始包仍会加载；同步后请移除原始文件及注册，避免重复执行。更新、移除和再次同步沿用所有权保护。不导入 .git 或 node_modules；不允许路径越界、符号链接或文件／目录冲突。

@@ -125,7 +125,10 @@ export default function HooksImportDialog({ data, project, onClose, onImported }
       </div>
       {list.map((row) => {
         const lines = bindingLines(row.candidate.entry.bindings[row.target]);
-        const notes = [...row.candidate.problems, ...row.candidate.warnings.filter((w) => w !== ADOPT_WARNING).map((w) => hookMessage(t, w))];
+        const notes = [
+          ...row.candidate.problems.map((message) => ({ message, problem: true })),
+          ...row.candidate.warnings.filter((w) => w !== ADOPT_WARNING).map((message) => ({ message, problem: false })),
+        ];
         const error = checked(row) ? nameError(row) : '';
         return (
           <div key={row.id} className="flex items-start gap-3 border-t border-line px-3.5 py-3">
@@ -138,7 +141,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported }
                   <span className="min-w-0 truncate" title={l.command}>{l.command}</span>
                 </span>
               )) : <span className="font-mono text-[13px]">{row.candidate.name}</span>}
-              {notes.map((n) => <span key={n} className={`text-xs leading-normal ${row.candidate.problems.includes(n) ? 'text-bad' : 'text-ink-2'}`}>{n}</span>)}
+              {notes.map(({ message, problem }) => <span key={`${problem}:${message}`} className={`text-xs leading-normal ${problem ? 'text-bad' : 'text-ink-2'}`}>{hookMessage(t, message)}</span>)}
             </span>
             <span className="flex shrink-0 flex-col items-end gap-1">
               <span className="flex items-center gap-2">

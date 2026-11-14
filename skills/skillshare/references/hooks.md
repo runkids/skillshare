@@ -119,3 +119,12 @@ Git bindings refuse `--keep-files`. Git import, scripts bindings, hookdir
 scanning/recognizers and doctor checks are not implemented in this phase.
 Inspect old hookdir copies manually before migration; Git can execute both.
 Management never executes hooks. Native Windows execution is unverified.
+
+OpenCode probes the installed major with `--version`: v1 keeps flat `.ts` output;
+v2 writes a package directory, manifest and directory URL in `opencode.json(c)`.
+Use `package` instead of `code`/`codeFile` to retain a relative-filename → UTF-8
+contents map, including package.json and dependencies. Native directory imports
+copy to Skillshare-owned output and warn to remove the original after sync.
+No code runs or dependencies install. Provision dependencies before loading.
+Only string server exports or conventional root server/index entries are verified;
+conditional/fallback server exports fail closed. Unknown majors are refused.

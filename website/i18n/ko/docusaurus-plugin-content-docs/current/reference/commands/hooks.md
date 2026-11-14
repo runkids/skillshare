@@ -91,7 +91,7 @@ Skillshare는 `hooks` 섹션을 들여쓴 block 형식으로 쓰며, 저장할 �
 | `bindings.AGENT.codeFile` | `code` 대신 config 폴더 기준 상대 경로. 파일 내용을 `code`로 사용하며 config를 읽을 때마다 다시 읽습니다. 경로는 그 폴더 안이어야 합니다 |
 | `bindings.AGENT.files` | 상대 파일명을 key로 하는 선택 UTF-8 스크립트. 값은 내용 또는 `codeFile`과 같은 규칙으로 읽는 `{from: path}` |
 
-Agent ID는 `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`, `antigravity`, `pi`, `omp`, `amp`, `opencode`, `git`입니다. `factory`는 `droid`, `antigravity-cli`와 `agy`는 `antigravity`의 별칭입니다. event, matcher, handler type, command, timeout 단위와 payload는 원래 형식을 유지하고 자동 변환하지 않습니다. event 이름은 각 command Agent 문서의 event와 대조합니다. 알 수 없는 이름(예: 철자가 틀린 `Stopp`)은 미리보기와 plan의 `warnings`에 경고로 표시되지만, Agent가 event를 계속 추가하므로 동기화를 막지 않습니다. Pi, OMP, Amp, OpenCode 코드는 확인하지 않습니다. Pi, OMP, Amp, OpenCode의 코드와 imports는 설치된 버전에 맞춰 제공하며 전용 `skillshare-NAME.ts`에 기록됩니다. 공통 실행 엔진을 생성하지 않습니다. command binding 스크립트는 Agent 설정 디렉터리의 `hooks/skillshare/NAME/`에 저장하며 command의 macro／명시 경로를 변경하지 않습니다. 미리보기에서 전체 경로를 확인하세요. global binding에는 `targets` 아래 선언한 계정 target 이름도 사용할 수 있습니다.
+Agent ID는 `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`, `antigravity`, `pi`, `omp`, `amp`, `opencode`, `git`입니다. `factory`는 `droid`, `antigravity-cli`와 `agy`는 `antigravity`의 별칭입니다. event, matcher, handler type, command, timeout 단위와 payload는 원래 형식을 유지하고 자동 변환하지 않습니다. event 이름은 각 command Agent 문서의 event와 대조합니다. 알 수 없는 이름(예: 철자가 틀린 `Stopp`)은 미리보기와 plan의 `warnings`에 경고로 표시되지만, Agent가 event를 계속 추가하므로 동기화를 막지 않습니다. Pi, OMP, Amp, OpenCode 코드는 확인하지 않습니다. Pi, OMP, Amp, OpenCode의 코드와 imports는 설치된 버전에 맞춰 제공하며 전용 `skillshare-NAME.ts` (OpenCode v1; v2: `skillshare-NAME/`)에 기록됩니다. 공통 실행 엔진을 생성하지 않습니다. command binding 스크립트는 Agent 설정 디렉터리의 `hooks/skillshare/NAME/`에 저장하며 command의 macro／명시 경로를 변경하지 않습니다. 미리보기에서 전체 경로를 확인하세요. global binding에는 `targets` 아래 선언한 계정 target 이름도 사용할 수 있습니다.
 
 긴 코드나 스크립트는 `codeFile` 또는 `files`의 `{from: path}`로 별도 파일에서 읽을 수 있습니다. 경로는 entry를 가진 config 폴더 기준입니다(project에서는 `.skillshare/`, global의 `hooks.projects`에서는 global config 폴더). `hooks add|edit --file`도 entry 파일 위치가 아닌 선택한 config가 기준입니다. 경로는 그 폴더 안에 있어야 하며 symlink를 거칠 수 없습니다. 파일이 없으면 config를 읽지 못합니다. config를 읽을 때마다 다시 읽으며 미리보기 후 바뀌면 적용을 거부합니다.
 
@@ -136,7 +136,7 @@ Pi와 OMP는 모두 `PI_CODING_AGENT_DIR`을 따릅니다. binding이 같은 출
 | [Pi](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md) | `~/.pi/agent/extensions/skillshare-NAME.ts` | `.pi/extensions/skillshare-NAME.ts` | Native extension code |
 | [Oh My Pi](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/extensions.md) | `~/.omp/agent/extensions/skillshare-NAME.ts` | `.omp/extensions/skillshare-NAME.ts` | Native OMP extension code |
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
-| [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME.ts` | `.opencode/plugins/skillshare-NAME.ts` | Supplied v1/v2 plugin code |
+| [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME[.ts]` | `.opencode/plugins/skillshare-NAME[.ts]` | v1: .ts; v2: directory (OpenCode v2) |
 
 계정 target의 `config_dir`을 가리키는 경우를 제외하고 global scope는 네이티브 설정 디렉터리 환경 변수 override를 사용합니다. project scope는 프로젝트에만 쓰며 global 경로로 대체하지 않습니다. Codex inline TOML 같은 다른 소스는 별도로 유지됩니다. Antigravity와 CLI(`agy`)는 같은 `hooks.json`을 읽습니다. 각 hook은 이름이 붙은 블록 하나이며 가져와도 이름이 유지됩니다. CLI의 `~/.gemini/antigravity-cli/settings.json`에 있는 hooks는 별도로 유지됩니다. Droid의 독립 hooks 파일은 로딩 소스를 바꿀 수 있으므로 기존 inline hooks를 먼저 확인하세요. Copilot은 신뢰된 폴더에서만 `.github/hooks`의 프로젝트 hooks를 불러옵니다.
 
@@ -233,3 +233,12 @@ global 설정의 `hooks.projects`는 절대 프로젝트 경로를 같은 Entry 
 백업은 이후의 관련 없는 변경을 유지하며 네이티브 출력을 복원하고 소스 정의는 바꾸지 않습니다. **Settings → Backups → Hooks** 또는 `hooks restore`로 미리 보고 복원하세요.
 
 **Synced**는 Skillshare가 설정을 기록했다는 뜻입니다. Agent 절차에 따라 다시 시작／로딩하세요. 신뢰, hooks 활성화와 코드 호환성은 Agent가 제어합니다. 관리 작업은 hook command를 실행하거나 네이티브 신뢰를 자동 변경하지 않습니다.
+
+
+### OpenCode v2
+
+OpenCode v1은 단일 파일, v2는 디렉터리 패키지와 디렉터리 URL을 사용합니다. 설치된 API에 맞는 코드를 제공하세요. Skillshare는 플러그인을 실행하거나 의존성을 설치하지 않습니다. 로드 전에 선언된 의존성을 준비하세요.
+
+`--version`으로 API를 선택하며 알 수 없는 주 버전은 거부합니다. v2는 package.json과 의존성을 보존하고 `name`과 문자열 root／`./server` export 또는 루트 server/index(.ts, .tsx, .js)를 사용합니다. 조건부·폴백 export는 추측하지 않습니다. `--entry`는 v2 디렉터리 로딩을 바꾸지 않습니다. 이전 v2 단일 파일 등록은 제거한 후 디렉터리 패키지로 다시 추가하세요.
+
+v2의 `code`/`codeFile`은 index.ts와 @opencode/plugin ^2.0.0 manifest를 생성합니다. `bindings.opencode.package`로 상대 파일명과 UTF-8 내용의 매핑을 제공할 수도 있습니다. 디렉터리 import는 Skillshare 출력으로 복사하며 원본 등록이 남는다고 경고합니다. 동기화 후 원본 파일과 등록을 제거해 중복 실행을 피하세요. 업데이트·제거·재동기화에서도 소유권을 보호합니다. .git과 node_modules는 가져오지 않으며 경로 이탈, 심볼릭 링크, 파일·디렉터리 충돌을 거부합니다.
