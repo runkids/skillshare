@@ -534,13 +534,19 @@ func TestCompletion_Project_AllShells(t *testing.T) {
 			}
 			block := result.Stdout[start:end]
 			registration := map[string]string{
-				"bash":       "target project upgrade",
+				"bash":       "project",
 				"zsh":        "'project:Manage project folders'",
 				"fish":       "-a project -d 'Manage project folders'",
 				"powershell": "@{ Name = 'project'; Desc = 'Manage project folders' }",
 				"nushell":    `{ value: "project", description: "Manage project folders" }`,
 			}
-			if !strings.Contains(result.Stdout, registration[shell]) {
+			registered := strings.Contains(result.Stdout, registration[shell])
+			if shell == "bash" {
+				_, commands, found := strings.Cut(result.Stdout, `local commands="`)
+				commands, _, closed := strings.Cut(commands, `"`)
+				registered = found && closed && slices.Contains(strings.Fields(commands), "project")
+			}
+			if !registered {
 				t.Error("missing top-level project command")
 			}
 			for _, flag := range []string{"target", "name", "skills", "no-skills", "agents", "no-agents", "skills-mode", "agents-mode", "skills-naming", "skills-include", "skills-exclude", "agents-include", "agents-exclude", "sync", "dry-run", "yes", "json", "help", "global"} {

@@ -4,7 +4,7 @@ description: |
   Manage skills, agents, extras, hooks, plugins, and MCP connection settings with the Skillshare CLI.
   Use when the user asks to configure or run Skillshare, install or sync resources
   across AI tools, manage shared memory notes, review a session for lessons or dream over saved memories,
-  import MCP settings, manage targets and project folders, audit skills, recover backups,
+  import MCP settings, manage targets, project folders and named skill profiles, audit skills, recover backups,
   or troubleshoot Skillshare configuration and sync. Covers global and project modes,
   noninteractive automation, and guidance for the terminal UI.
 argument-hint: "[command] [target] [--json] [--dry-run] [-p|-g]"
@@ -227,6 +227,7 @@ references for a single task.
 | Trash | [trash.md](references/trash.md) |
 | Operation log | [log.md](references/log.md) |
 | Targets | [targets.md](references/targets.md) |
+| Named skill selections, switching and edited-copy recovery | [profiles.md](references/profiles.md) |
 | Extras (rules/commands/prompts) | [extras.md](references/extras.md) |
 | Session retrospectives and Dreaming over saved notes | [memory-review.md](references/memory-review.md) |
 | Backup/restore | [backup.md](references/backup.md) |

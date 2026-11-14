@@ -1,5 +1,6 @@
 export const queryKeys = {
   overview: ['overview'] as const,
+  profiles: ['profiles'] as const,
   versionCheck: ['version-check'] as const,
   updatePolicy: ['update-policy'] as const,
   manualVersionCheck: ['manual-version-check'] as const,

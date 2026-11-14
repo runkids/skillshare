@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"skillshare/internal/config"
 	ssync "skillshare/internal/sync"
 )
 
@@ -12,6 +13,13 @@ func cmdAnalyzeProject(root string, opts *analyzeOptions) error {
 		return fmt.Errorf("no project config found in %s", root)
 	}
 
+	cfg, err := config.LoadProjectReadOnly(root)
+	if err != nil {
+		return err
+	}
+	if err := cfg.ActiveProfileError(); err != nil {
+		return err
+	}
 	runtime, err := loadProjectRuntime(root)
 	if err != nil {
 		if opts.json {

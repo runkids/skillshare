@@ -98,6 +98,7 @@ Targets with different results (e.g. due to `include`/`exclude` filters) are sti
 | Local only, skill kept under old name | A local folder holds the name the current `target_naming` gives a skill, so the skill stays under its old managed entry, shown as `name (stays at old-name)` | Rename or remove the folder, then `sync` |
 | Local override | Local copy instead of symlink (including a copy-mode copy you edited) | `sync --force` to replace |
 | Orphan | In manifest but not in source | `sync` will prune it |
+| Not in profile `<name>` | A managed target entry is outside the active profile | `sync` will prune it under profile edit protection |
 | Local only | Only in target, not in source | `collect` to import |
 
 ## File-Level Details
@@ -257,6 +258,8 @@ skillshare diff --json
 `synced` is `true` when `sync` has nothing to do for the target. Items with `"is_sync": false`, such as folders that exist only in the target, are still listed but do not make it `false`. The text output likewise counts a target with only local-only folders as in sync.
 
 `action` is `add`, `modify`, `remove`, or `kept`. `kept` means a local folder holds the name the current `target_naming` gives the skill, so the skill stays under its old name and sync leaves the folder alone.
+
+For profile-driven pruning, text, TUI and JSON use the reason `not in profile <name>`. This explains an existing removal row; it does not add pending work for every deselected source skill. The sync matrix and resource detail instead show those source skills as `not_in_profile`, with the profile name taking precedence over target-filter reasons. The label does not authorize discarding edited copies.
 
 ## See Also
 

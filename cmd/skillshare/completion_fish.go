@@ -49,6 +49,24 @@ complete -c skillshare -n '__fish_skillshare_using_command project' -l help -s h
 complete -c skillshare -n '__fish_skillshare_using_command project' -l global -s g
 # End project command
 
+# Profile command
+complete -c skillshare -n __fish_skillshare_no_subcommand -a profile -d 'Define and switch skill profiles'
+complete -c skillshare -n '__fish_skillshare_using_command profile' -a 'list show create edit rename delete use add remove'
+complete -c skillshare -n '__fish_skillshare_using_command profile' -l description -r
+complete -c skillshare -n '__fish_skillshare_using_command profile' -l add-include -r
+complete -c skillshare -n '__fish_skillshare_using_command profile' -l remove-include -r
+complete -c skillshare -n '__fish_skillshare_using_command profile' -l add-exclude -r
+complete -c skillshare -n '__fish_skillshare_using_command profile' -l remove-exclude -r
+complete -c skillshare -n '__fish_skillshare_using_command profile' -l dry-run
+complete -c skillshare -n '__fish_skillshare_using_command profile' -l no-sync
+complete -c skillshare -n '__fish_skillshare_using_command profile' -l none
+complete -c skillshare -n '__fish_skillshare_using_command profile' -l discard-edits
+complete -c skillshare -n '__fish_skillshare_using_command profile' -l allow-empty
+complete -c skillshare -n '__fish_skillshare_using_command profile' -l json
+complete -c skillshare -n '__fish_skillshare_using_command profile' -l help
+complete -c skillshare -n '__fish_skillshare_using_command profile' -l global
+complete -c skillshare -n '__fish_skillshare_using_command profile' -l project
+
 # Commands
 complete -c skillshare -n __fish_skillshare_no_subcommand -a updates -d 'Control automatic version checks'
 complete -c skillshare -n '__fish_skillshare_using_command updates' -a 'on off check'
@@ -224,6 +242,7 @@ complete -c skillshare -n '__fish_skillshare_using_command list' -l help -s h -d
 
 # sync
 complete -c skillshare -n '__fish_skillshare_using_command sync' -a 'agents extras mcp hooks plugins' -d 'Sync scope'
+complete -c skillshare -n '__fish_skillshare_using_command sync' -l discard-edits -d 'Snapshot and discard listed profile edits'
 complete -c skillshare -n '__fish_skillshare_using_command sync' -l all -d 'Sync skills + agents + extras'
 complete -c skillshare -n '__fish_skillshare_using_command sync' -l dry-run -s n -d 'Preview changes'
 complete -c skillshare -n '__fish_skillshare_using_command sync' -l force -s f -d 'Force sync'

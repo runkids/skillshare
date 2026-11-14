@@ -11,7 +11,7 @@ import ResourceDetailPage from './ResourceDetailPage';
 
 vi.mock('../api/client', async (load) => ({ ...await load<typeof import('../api/client')>(), api: {
   getSyncMatrix: vi.fn(), listTargets: vi.fn(), getResource: vi.fn(), listSkills: vi.fn(),
-  auditSkill: vi.fn(), diff: vi.fn(), batchUninstall: vi.fn(), moveResources: vi.fn(), update: vi.fn(),
+  auditSkill: vi.fn(), diff: vi.fn(), batchUninstall: vi.fn(), moveResources: vi.fn(), update: vi.fn(), updateTarget: vi.fn(),
 } }));
 vi.mock('../api/hubDrafts', () => ({ gitRefs: vi.fn() }));
 
@@ -137,4 +137,31 @@ it('reinstalls from the default branch by name only after confirming', async () 
   expect(api.update).not.toHaveBeenCalled();
   await user.click(within(dialog).getByRole('button', { name: 'Switch and reinstall' }));
   await waitFor(() => expect(api.update).toHaveBeenCalledWith({ name: 'foo', kind: 'skill', skipAudit: false, force: false, branch: 'main' }));
+});
+
+it('refuses target-filter writes for a skill outside the active profile', async () => {
+  const user = userEvent.setup();
+  const plain: Skill = { name: 'demo', kind: 'skill', flatName: 'demo', relPath: 'demo', sourcePath: '/skills/demo', isInRepo: false };
+  vi.mocked(api.updateTarget).mockClear();
+  vi.mocked(api.getResource).mockResolvedValue({ resource: plain, skillMdContent: '', files: [] });
+  vi.mocked(api.listSkills).mockResolvedValue({ resources: [plain] });
+  vi.mocked(api.listTargets).mockResolvedValue({ targets: [{
+    name: 'claude', path: '/target', mode: 'merge', targetNaming: 'flat', status: 'merged',
+    linkedCount: 0, localCount: 0, include: [], exclude: ['demo'], expectedSkillCount: 0, skillsEnabled: true,
+  }], sourceSkillCount: 1 });
+  vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [{ skill: 'demo', target: 'claude', status: 'not_in_profile', reason: 'frontend' }] } as never);
+  vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as never);
+  vi.mocked(api.auditSkill).mockResolvedValue({ result: { findings: [] } } as never);
+  render(<MemoryRouter initialEntries={['/skills/demo']}>
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <I18nProvider><ToastProvider><Routes>
+        <Route path="/skills/:name" element={<ResourceDetailPage />} />
+      </Routes></ToastProvider></I18nProvider>
+    </QueryClientProvider>
+  </MemoryRouter>);
+  expect(await screen.findByText('Not in profile frontend')).toBeInTheDocument();
+  const control = screen.getByRole('switch', { name: 'claude' });
+  expect(control).toBeDisabled();
+  await user.click(control);
+  expect(api.updateTarget).not.toHaveBeenCalled();
 });

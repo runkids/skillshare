@@ -12,6 +12,7 @@ Complete reference for all skillshare commands.
 |--------------|---------|
 | Set up skillshare for the first time | [`init`](./init.md) |
 | Manage project folders from the global config | [`project`](/docs/reference/commands/project) |
+| Save and switch named skill selections | [`profile`](/docs/reference/commands/profile) |
 | Install a skill from GitHub | [`install`](./install.md) |
 | Create my own skill | [`new`](./new.md) |
 | Sync skills to all AI CLIs | [`sync`](./sync.md) |

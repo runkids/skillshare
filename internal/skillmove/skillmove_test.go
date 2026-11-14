@@ -2,6 +2,7 @@ package skillmove
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,10 +13,40 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/profile"
 	"skillshare/internal/projectdir"
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 )
+
+func TestMoveProfileWarningsWithoutTargets(t *testing.T) {
+	f := newFixture(t)
+	f.skill(t, "team/a")
+	f.skill(t, "team/deep/b")
+	f.opts.Profiles = profile.Catalog{Definitions: map[string]profile.Definition{
+		"old":    {Name: "old", Usable: true, Skills: &profile.SkillSelection{Include: []string{"team__*"}, IncludePresent: true}},
+		"new":    {Name: "new", Usable: true, Skills: &profile.SkillSelection{Include: []string{"archive__*"}, IncludePresent: true}},
+		"broken": {Name: "broken", Skills: &profile.SkillSelection{Include: []string{"team__*"}}},
+		"all":    {Name: "all", Usable: true},
+	}}
+	before := f.opts.Profiles.Definitions["old"].Skills.Include[0]
+	planned := f.plan(t, "archive", "team")
+	if len(planned) != 1 || planned[0].Err != nil || len(planned[0].Warnings) != 4 {
+		t.Fatalf("inactive profiles with no targets must warn per moved skill: %+v", planned)
+	}
+	for i, want := range []string{"new", "new", "old", "old"} {
+		if !strings.Contains(planned[0].Warnings[i], fmt.Sprintf("profile %q", want)) {
+			t.Fatal("unstable profile order", planned[0].Warnings)
+		}
+	}
+	out := Run(planned, f.opts)
+	if out.Err != nil || !out.Items[0].Moved() || !f.exists("archive/team/deep/b/SKILL.md") || len(out.Items[0].Skills) != 2 {
+		t.Fatalf("warning must not refuse folder move: %+v", out)
+	}
+	if f.opts.Profiles.Definitions["old"].Skills.Include[0] != before {
+		t.Fatal("move rewrote profile pattern")
+	}
+}
 
 type fixture struct {
 	source string

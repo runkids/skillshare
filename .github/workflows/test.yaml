@@ -65,6 +65,30 @@ jobs:
         env:
           SKILLSHARE_TEST_BINARY: ${{ github.workspace }}/bin/skillshare
 
+  ui-test:
+    if: *not-release-duplicate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - name: UI tests and build
+        run: cd ui && pnpm install --frozen-lockfile && pnpm test && pnpm run build
+
   integration-test:
     if: *not-release-duplicate
     runs-on: ${{ matrix.os }}
@@ -85,10 +109,23 @@ jobs:
       - name: Build Binary
         run: make build
 
+      # Pin compatibility to the source against which profiles was designed.
+      # Both binaries use the repository's existing build target (no ldflags).
+      - name: Checkout profile compatibility baseline
+        uses: actions/checkout@v4
+        with:
+          ref: f1faa4bdd5faa163ce50dcf9350c3a2622884486
+          path: .profiles-baseline
+
+      - name: Build profile compatibility baseline
+        working-directory: .profiles-baseline
+        run: make build BINARY="${{ runner.temp }}/skillshare-profile-baseline"
+
       - name: Integration Tests
         run: go test -v -race ./tests/integration/...
         env:
           SKILLSHARE_TEST_BINARY: ${{ github.workspace }}/bin/skillshare
+          SKILLSHARE_PROFILE_BASELINE_BINARY: ${{ runner.temp }}/skillshare-profile-baseline
 
   windows-test:
     # Releases publish windows_amd64 and windows_arm64 archives, and `_windows.go` files are compiled
@@ -127,6 +164,9 @@ jobs:
             ./internal/instructions \
             ./internal/mcp \
             ./internal/memory \
+            ./internal/pattern \
+            ./internal/profile \
+            ./internal/profileapply \
             ./internal/projectdir \
             ./internal/projects \
             ./internal/resource \

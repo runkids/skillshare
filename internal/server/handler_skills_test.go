@@ -13,6 +13,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/profile"
 	"skillshare/internal/trash"
 )
 
@@ -54,6 +55,58 @@ func TestHandleListSkills_WithSkills(t *testing.T) {
 	json.Unmarshal(rr.Body.Bytes(), &resp)
 	if len(resp.Resources) != 2 {
 		t.Errorf("expected 2 resources, got %d", len(resp.Resources))
+	}
+}
+
+func TestHandleListSkills_InProfileJSON(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, active := range []string{"", "work", "all", "empty", "missing", "broken"} {
+			t.Run(fmt.Sprintf("project=%v/active=%s", project, active), func(t *testing.T) {
+				f := newProfileRouteFixture(t, project)
+				if active != "" {
+					statePath, _, err := config.ProfilePaths(f.path)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if err := profile.WriteState(statePath, profile.State{Version: 1, Active: active}); err != nil {
+						t.Fatal(err)
+					}
+				}
+				rr := projectRequest(t, f.server, http.MethodGet, "/api/resources?kind=skill", "")
+				if rr.Code != http.StatusOK {
+					t.Fatalf("list must remain available: %d %s", rr.Code, rr.Body.String())
+				}
+				var out struct {
+					Resources []map[string]json.RawMessage `json:"resources"`
+				}
+				if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+					t.Fatal(err)
+				}
+				wantPresent := active == "work" || active == "all" || active == "empty"
+				seen := make(map[string]bool)
+				for _, row := range out.Resources {
+					var name string
+					if err := json.Unmarshal(row["flatName"], &name); err != nil {
+						t.Fatal(err)
+					}
+					seen[name] = true
+					value, present := row["inProfile"]
+					if present != wantPresent {
+						t.Errorf("%s: inProfile presence=%v, want %v: %s", name, present, wantPresent, rr.Body.String())
+					} else if present {
+						want := active == "all" || active == "work" && name == "alpha"
+						if string(value) != fmt.Sprint(want) {
+							t.Errorf("%s: inProfile=%s, want JSON boolean %v", name, value, want)
+						}
+					}
+				}
+				for _, name := range []string{"alpha", "beta", "team__review"} {
+					if !seen[name] {
+						t.Errorf("membership must not hide source skill %q: %s", name, rr.Body.String())
+					}
+				}
+			})
+		}
 	}
 }
 

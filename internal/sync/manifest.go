@@ -1,9 +1,15 @@
 package sync
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/json"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
 	"skillshare/internal/utils"
@@ -22,6 +28,7 @@ type Manifest struct {
 	Mtimes    map[string]int64  `json:"mtimes,omitempty"`  // flatName → source dir max mtime (UnixNano), copy mode only
 	Sources   map[string]string `json:"sources,omitempty"` // output name → SHA-256 of the source it was converted from, extension outputs only
 	Naming    map[string]string `json:"naming,omitempty"`  // entry name → target_naming that produced it, copy mode only
+	Outputs   map[string]string `json:"outputs,omitempty"` // entry name → checksum of the written copy
 	UpdatedAt time.Time         `json:"updated_at"`
 }
 
@@ -32,7 +39,7 @@ func ReadManifest(targetPath string) (*Manifest, error) {
 	data, err := os.ReadFile(p)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return &Manifest{Managed: make(map[string]string), Mtimes: make(map[string]int64), Naming: make(map[string]string)}, nil
+			return &Manifest{Managed: make(map[string]string), Mtimes: make(map[string]int64), Naming: make(map[string]string), Outputs: make(map[string]string)}, nil
 		}
 		return nil, err
 	}
@@ -40,7 +47,7 @@ func ReadManifest(targetPath string) (*Manifest, error) {
 	var m Manifest
 	if err := json.Unmarshal(data, &m); err != nil {
 		// Corrupt manifest — treat as empty so next sync rebuilds it.
-		return &Manifest{Managed: make(map[string]string), Mtimes: make(map[string]int64), Naming: make(map[string]string)}, nil
+		return &Manifest{Managed: make(map[string]string), Mtimes: make(map[string]int64), Naming: make(map[string]string), Outputs: make(map[string]string)}, nil
 	}
 	if m.Managed == nil {
 		m.Managed = make(map[string]string)
@@ -51,6 +58,9 @@ func ReadManifest(targetPath string) (*Manifest, error) {
 	if m.Naming == nil {
 		m.Naming = make(map[string]string)
 	}
+	if m.Outputs == nil {
+		m.Outputs = make(map[string]string)
+	}
 	return &m, nil
 }
 
@@ -59,24 +69,110 @@ func (m *Manifest) Remove(name string) {
 	delete(m.Managed, name)
 	delete(m.Mtimes, name)
 	delete(m.Naming, name)
+	delete(m.Outputs, name)
 }
 
 // CopyToLinkReason is the diff reason for a copy-mode copy that merge sync replaces with a link.
 const CopyToLinkReason = "copy mode copy (sync replaces with link)"
 
-// OwnsCopy reports whether dir is still the copy that copy mode made for name:
-// the manifest records a checksum (not a merge-mode link) and the folder still
-// hashes to it, so nothing the user edited is lost when it is replaced.
-func (m *Manifest) OwnsCopy(name, dir string) bool {
+// CopySource supplies the original inputs needed to verify a legacy rewrite.
+type CopySource struct {
+	Path, OutputName string
+	IgnorePatterns   []string
+}
+
+// CopyOutputFingerprint hashes the output using the standard ignored files.
+func CopyOutputFingerprint(dir string) (string, error) {
+	var entries []checksumEntry
+	if err := collectChecksumEntries(dir, "", &entries, map[string]bool{}, compileFileIgnore(DefaultFileIgnorePatterns()), true); err != nil {
+		return "", err
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].relPath < entries[j].relPath })
+	h := sha256.New()
+	io.WriteString(h, "skillshare-copy-output\x00v2\x00")
+	writeLength := func(n int) {
+		var size [8]byte
+		binary.BigEndian.PutUint64(size[:], uint64(n))
+		h.Write(size[:])
+	}
+	writeLength(len(entries))
+	for _, entry := range entries {
+		writeLength(len(entry.relPath))
+		io.WriteString(h, entry.relPath)
+		writeLength(len(entry.content))
+		h.Write(entry.content)
+	}
+	return fmt.Sprintf("sha256-v2:%x", h.Sum(nil)), nil
+}
+
+// OwnsCopy reports whether dir still matches the recorded copy, failing closed
+// when an older rewritten copy cannot be verified from its original source.
+func (m *Manifest) OwnsCopy(name, dir string, source ...CopySource) bool {
+	_, ok := m.verifiedCopyFingerprint(name, dir, false, source...)
+	return ok
+}
+
+// legacyOutput recognizes only the previous exact lowercase bare-hex encoding.
+func legacyOutput(output string) bool {
+	return len(output) == 64 && strings.Trim(output, "0123456789abcdef") == ""
+}
+
+func (m *Manifest) verifiedCopyFingerprint(name, dir string, strict bool, source ...CopySource) (string, bool) {
 	if m == nil {
-		return false
+		return "", false
 	}
 	recorded, ok := m.Managed[name]
 	if !ok || recorded == manifestSymlink {
-		return false
+		return "", false
 	}
-	sum, err := DirChecksumWithIgnore(dir, DefaultFileIgnorePatterns())
-	return err == nil && sum == recorded
+	sum, err := CopyOutputFingerprint(dir)
+	if err != nil {
+		return "", false
+	}
+	output, present := m.Outputs[name]
+	if present && strings.HasPrefix(output, "sha256-v2:") {
+		return sum, legacyOutput(strings.TrimPrefix(output, "sha256-v2:")) && sum == output
+	}
+	if present && !legacyOutput(output) {
+		return sum, false // unknown, malformed and present-empty values never downgrade
+	}
+	if present || (!strict && len(source) == 0) {
+		old, err := DirChecksumWithIgnore(dir, DefaultFileIgnorePatterns())
+		if err != nil || (present && old != output) {
+			return sum, false
+		}
+		if !strict && len(source) == 0 {
+			return sum, present || old == recorded
+		}
+	}
+	for _, input := range source {
+		if input.Path == "" {
+			continue
+		}
+		ignore := input.IgnorePatterns
+		if ignore == nil {
+			ignore = DefaultFileIgnorePatterns()
+		}
+		sourceSum, err := DirChecksumWithIgnore(input.Path, ignore)
+		if err != nil || sourceSum != recorded {
+			continue
+		}
+		scratch, err := os.MkdirTemp("", "skillshare-copy-replay-*")
+		if err != nil {
+			return sum, false
+		}
+		replay := filepath.Join(scratch, "copy")
+		err = copySkillToTarget(input.Path, replay, input.OutputName, ignore)
+		expected := ""
+		if err == nil {
+			expected, err = CopyOutputFingerprint(replay)
+		}
+		os.RemoveAll(scratch)
+		if err == nil && sum == expected {
+			return sum, true
+		}
+	}
+	return sum, false
 }
 
 // SkipsHidden reports whether a target scan should skip name. Hidden entries

@@ -232,7 +232,7 @@ func cmdDoctorGlobal(jsonMode bool) error {
 		return nil
 	}
 
-	runDoctorChecks(cfg, result, false)
+	runDoctorChecks(cfg, result, nil, "")
 	checkExtras(cfg.Extras, result, false, cfg.EffectiveSkillsSource(), cfg.EffectiveExtrasSource(), "", "", func() error { return cfg.ValidateExtras() })
 	checkNativeResources(cfg, "", result)
 	ui.Section("Storage")
@@ -295,7 +295,7 @@ func cmdDoctorProject(root string, jsonMode bool) error {
 		Audit:             rt.config.Audit,
 	}
 
-	runDoctorChecks(cfg, result, true, root)
+	runDoctorChecks(cfg, result, rt.config, root)
 	checkExtras(rt.config.Extras, result, true, "", "", root, rt.config.EffectiveExtrasSource(root), func() error { return rt.config.ValidateExtras(root) })
 	checkNativeResources(nil, root, result)
 	ui.Section("Storage")
@@ -313,7 +313,8 @@ func cmdDoctorProject(root string, jsonMode bool) error {
 	return nil
 }
 
-func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool, projectRoots ...string) {
+func runDoctorChecks(cfg *config.Config, result *doctorResult, pc *config.ProjectConfig, projectRoot string) {
+	isProject := pc != nil
 	// Single discovery pass for all checks (with .skillignore stats)
 	sp := ui.StartSpinner("Discovering skills...")
 	result.streamPending("source", "Discovering skills...")
@@ -338,10 +339,6 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool, p
 
 	checkSkillsValidity(cfg.EffectiveSkillsSource(), walk, result, discovered)
 	checkSkillIntegrity(result, discovered, walk.Follow)
-	projectRoot := ""
-	if len(projectRoots) > 0 {
-		projectRoot = projectRoots[0]
-	}
 	checkSkillReferences(result, discovered, projectRoot, walk.Follow)
 	checkSkillTargetsField(result, discovered, targetNamesFromConfig(cfg.Targets))
 	targetCache := checkTargets(cfg, result, isProject)
@@ -351,6 +348,23 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool, p
 	checkSyncDrift(cfg, result, discovered, targetCache)
 	checkBrokenSymlinks(cfg, walk.Follow, result)
 	checkDuplicateSkills(cfg, result, discovered)
+	if walk.Follow.Incomplete() {
+		discoverErr = fmt.Errorf("source discovery is incomplete")
+	}
+	for _, check := range profileDoctorChecks(cfg, pc, projectRoot, discovered, discoverErr) {
+		mark := ui.MarkWarn
+		if check.Status == checkError {
+			mark = ui.MarkFail
+			result.addError()
+		} else {
+			result.addWarning()
+		}
+		ui.Row(mark, "Profile", check.Message, doctorWidth)
+		for _, detail := range check.Details {
+			ui.Note(detail)
+		}
+		result.addCheck(check.Name, check.Status, check.Message, check.Details)
+	}
 }
 
 func printDoctorSummary(result *doctorResult) {

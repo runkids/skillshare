@@ -23,6 +23,8 @@ type SkillTarget struct {
 
 // SkillRunOptions holds what differs between skill sync callers.
 type SkillRunOptions struct {
+	ProfileAware   bool
+	Discard        []DiscardEntry
 	Source         string // skills source directory
 	ProjectRoot    string // "" in global mode
 	IgnorePatterns []string
@@ -38,11 +40,17 @@ type SkillRunOptions struct {
 
 // SkillTargetResult is the outcome of a skill sync for one target.
 type SkillTargetResult struct {
-	Name    string
-	Mode    string
-	Linked  []string // merge: linked; copy: copied
-	Updated []string
-	Skipped []string
+	KeptModified   []EntryChange
+	Blocked        []EntryChange
+	Refreshed      []string
+	Converted      []string
+	PruneErr       error
+	FailedRemovals []string
+	Name           string
+	Mode           string
+	Linked         []string // merge: linked; copy: copied
+	Updated        []string
+	Skipped        []string
 	// KeptLocal are the skipped entries that are a user's folder on a skill's name.
 	KeptLocal []string
 	Pruned    []string // nil when no prune ran or it returned nothing
@@ -63,15 +71,21 @@ type SkillTargetResult struct {
 func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptions) SkillTargetResult {
 	res := SkillTargetResult{Name: t.Name, Mode: t.Mode}
 	sc := t.Target.SkillsConfig()
+	if _, err := sc.Profile.Selects(""); err != nil {
+		res.Err = err
+		return res
+	}
 
 	switch t.Mode {
 	case "merge":
-		result, err := SyncTargetMergeWithSkills(t.Name, t.Target, skills, opts.Source, opts.DryRun, opts.Force, opts.ProjectRoot)
+		result, err := SyncTargetMergeWithPolicy(t.Name, t.Target, skills, opts.Source, opts.DryRun, opts.Force, opts.ProjectRoot, opts.ProfileAware, opts.Discard, opts.IgnorePatterns)
 		if err != nil {
 			res.Err = err
 			return res
 		}
 		res.Linked, res.Updated, res.Skipped, res.DirCreated = result.Linked, result.Updated, result.Skipped, result.DirCreated
+		res.Converted = result.Converted
+		res.KeptModified, res.Blocked = result.KeptModified, result.Blocked
 		res.KeptLocal = result.Skipped // merge skips only folders the user made
 		// A partial source may hold what the filter names, so only a full one reports unmatched patterns.
 		if opts.SourceIncomplete {
@@ -79,9 +93,13 @@ func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptio
 		}
 		res.UnmatchedIncludes = result.UnmatchedIncludes
 		prune, err := PruneOrphanLinksWithSkills(PruneOptions{
-			SharedTargets: sc.SharedTargets,
-			Agent:         sc.Agent,
-			TargetPath:    sc.Path, SourcePath: opts.Source, Skills: skills,
+			ProfileAware:   opts.ProfileAware,
+			Profile:        sc.Profile,
+			IgnorePatterns: opts.IgnorePatterns,
+			Discard:        opts.Discard,
+			SharedTargets:  sc.SharedTargets,
+			Agent:          sc.Agent,
+			TargetPath:     sc.Path, SourcePath: opts.Source, Skills: skills,
 			Include: sc.Include, Exclude: sc.Exclude, TargetNaming: sc.TargetNaming, TargetName: t.Name,
 			DryRun: opts.DryRun, Force: opts.Force,
 		})
@@ -91,19 +109,22 @@ func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptio
 		}
 
 	case "copy":
-		result, err := SyncTargetCopyWithSkillsOptions(t.Name, t.Target, skills, opts.Source, opts.DryRun, opts.Force, opts.OnProgress, CopyOptions{IgnorePatterns: opts.IgnorePatterns})
+		result, err := SyncTargetCopyWithSkillsOptions(t.Name, t.Target, skills, opts.Source, opts.DryRun, opts.Force, opts.OnProgress, CopyOptions{IgnorePatterns: opts.IgnorePatterns, ProfileAware: opts.ProfileAware, Discard: opts.Discard})
 		if err != nil {
 			res.Err = err
 			return res
 		}
 		res.Linked, res.Updated, res.Skipped, res.DirCreated = result.Copied, result.Updated, result.Skipped, result.DirCreated
+		res.Refreshed = result.Updated
+		res.Converted = result.Converted
 		res.KeptLocal = result.KeptLocal
+		res.KeptModified, res.Blocked = result.KeptModified, result.Blocked
 		// A partial source may hold what the filter names, so only a full one reports unmatched patterns.
 		if opts.SourceIncomplete {
 			break
 		}
 		res.UnmatchedIncludes = result.UnmatchedIncludes
-		prune, err := pruneOrphanCopiesWithConfig(t.Name, sc, skills, opts.DryRun)
+		prune, err := pruneOrphanCopiesWithPolicy(t.Name, sc, skills, opts.DryRun, opts.Source, opts.ProfileAware, opts.Discard, opts.IgnorePatterns)
 		res.addPrune(prune, err)
 
 	default:
@@ -127,10 +148,20 @@ func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptio
 	if len(res.KeptLocal) > 0 {
 		res.Warnings = append(res.Warnings, fmt.Sprintf("%s: %s", res.Name, keptLocalWarning(res.KeptLocal)))
 	}
+	res.addProfileWarnings()
 	if warning := variantRemovalWarning(t.Name, sc, skills, res.Pruned, opts.DryRun); warning != "" {
 		res.Warnings = append(res.Warnings, warning)
 	}
 	return res
+}
+
+func (res *SkillTargetResult) addProfileWarnings() {
+	for _, entry := range res.KeptModified {
+		res.Warnings = append(res.Warnings, fmt.Sprintf("%s: kept modified %s during %s: %s; use collect or --discard-edits", entry.Target, entry.Entry, entry.Step, entry.Reason))
+	}
+	for _, entry := range res.Blocked {
+		res.Warnings = append(res.Warnings, fmt.Sprintf("%s: kept unmanaged %s during %s: %s", entry.Target, entry.Entry, entry.Step, entry.Reason))
+	}
 }
 
 // SourceLinkWarnings returns one warning per first-level source link the walk
@@ -160,10 +191,14 @@ func (res SkillTargetResult) UnmatchedWarnings() []string {
 // addPrune records a prune's removals and reports its failure and warnings.
 func (res *SkillTargetResult) addPrune(prune *PruneResult, err error) {
 	if err != nil {
+		res.PruneErr = err
 		res.Warnings = append(res.Warnings, fmt.Sprintf("%s: prune failed: %v", res.Name, err))
 	}
 	if prune != nil {
 		res.Pruned = prune.Removed
+		res.KeptModified = append(res.KeptModified, prune.KeptModified...)
+		res.Blocked = append(res.Blocked, prune.Blocked...)
+		res.FailedRemovals = append(res.FailedRemovals, prune.FailedRemovals...)
 		res.Warnings = append(res.Warnings, prune.Warnings...)
 	}
 }

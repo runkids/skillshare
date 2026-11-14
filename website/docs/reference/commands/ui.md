@@ -293,6 +293,14 @@ To clear the downloaded UI cache:
 skillshare ui --clear-cache
 ```
 
+## Switching profiles {#switching-profiles}
+
+The sidebar shows the active profile or **All skills** when profiles are available. Choose a usable profile to preview each target's added, removed and refreshed entries. Unusable profiles show their reason and cannot be selected; targets in symlink mode stay unchanged.
+
+Edited copies require explicit consent to take a snapshot before removal. In project mode the dialog names the resolved project configuration folder's `backups` directory (under `.skillshare/` or `skillshare/`). An empty selection needs separate confirmation. Cancelling a preview keeps state and targets unchanged.
+
+After switching, review every target's result. An incomplete switch stays visible and pending; **Sync now** opens the skills sync preview. Snapshot results show the saved path and a copyable restore command. Restore before backup cleanup removes the snapshot. An unavailable profile offers **Choose profile** and **All skills** as repairs. Skills outside a usable active profile remain listed with a muted tag.
+
 ## Architecture
 
 The web UI is a single-page React application downloaded at runtime from the matching GitHub Release and served from disk cache (`~/.cache/skillshare/ui/<version>/`).

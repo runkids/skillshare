@@ -7,6 +7,27 @@
   "additionalProperties": false,
   "allOf": [{"not": {"required": ["sources", "mcp"], "properties": {"sources": {"required": ["mcp"]}, "mcp": {"required": ["servers"]}}}}],
   "properties": {
+    "profiles": {
+      "type": "object",
+      "description": "Named skill selections. The active selection is machine-local.",
+      "propertyNames": {"pattern": "^[a-z0-9][a-z0-9_-]{0,63}$", "not": {"const": "none"}},
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "description": {"type": "string", "pattern": "^[^\\r\\n]*$"},
+          "skills": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "properties": {
+              "include": {"type": "array", "items": {"type": "string"}},
+              "exclude": {"type": "array", "items": {"type": "string"}}
+            },
+            "dependentRequired": {"exclude": ["include"]}
+          }
+        }
+      }
+    },
     "mcp": {"$ref": "mcp.schema.json#/$defs/globalConfiguration"},
     "hooks": {"$ref": "hooks.schema.json#/$defs/globalConfiguration"},
     "source": {

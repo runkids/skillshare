@@ -4,7 +4,7 @@ sidebar_position: 3
 
 # 필터링 레퍼런스
 
-어떤 Skill이 어떤 Target에 도달할지를 제어하는 세 가지 필터링 레이어에 대한 완전한 명세입니다.
+어떤 Skill이 어떤 Target에 도달할지를 제어하는 필터링 레이어에 대한 완전한 명세입니다.
 
 :::tip 빠른 가이드가 필요하신가요?
 시나리오 중심의 가이드는 [Filtering Skills](/docs/how-to/daily-tasks/filtering-skills)를 참고하세요.
@@ -15,12 +15,13 @@ sidebar_position: 3
 | 레이어 | 범위 | 설정 위치 | 문법 | 평가 시점 |
 |-------|-------|-------------|--------|-------------|
 | `.skillignore` | 모든 Target에서 숨김 | Source 디렉터리 또는 Tracked 저장소 루트 | [gitignore](https://git-scm.com/docs/gitignore) | Discovery |
+| 활성 프로필 | 이 설정의 활성 merge/copy Skill Target | `profiles:`와 로컬 선택 상태 | flat Source 이름에 Go `filepath.Match` | 선택 |
 | SKILL.md `metadata.targets` | 나열된 Target으로만 Skill 제한 | Skill별 frontmatter | YAML 목록 | Sync (Discovery 시 파싱) |
 | Agent `targets` | 나열된 Target으로만 Agent 제한 | Agent별 frontmatter | YAML 목록 | Sync (Discovery 시 파싱) |
 | Target include/exclude | Target별, 리소스별 | `config.yaml` 또는 CLI 플래그 | Go [`filepath.Match`](https://pkg.go.dev/path/filepath#Match) glob | Sync |
 
 :::note Sync 모드 주의사항
-이 세 가지 레이어는 모두 **merge** 및 **copy** Sync 모드에만 적용됩니다.
+Skill별 선택은 **merge** 및 **copy** Sync 모드에 적용됩니다.
 **symlink** 모드에서는 전체 Source 디렉터리가 하나의 단위로 링크되므로 — Skill별 필터링은 효과가 없습니다.
 :::
 
@@ -29,8 +30,9 @@ sidebar_position: 3
 Skill이 Target에 도달하려면 **모든** 레이어를 통과해야 합니다:
 
 1. **`.skillignore`** — Discovery 시 평가됩니다. 일치하는 Skill은 Sync 파이프라인에 진입하지 않습니다.
-2. **Target include/exclude** — Sync 시(`FilterSkills`) 평가됩니다. Skill은 Discovery되지만 일치하지 않는 Target에서는 건너뜁니다.
-3. **SKILL.md `metadata.targets`** — Sync 시(`FilterSkillsByTarget`) 평가됩니다. Skill은 선언된 Target으로만 제한됩니다.
+2. **활성 프로필** — flat Source 이름으로 Target 필터와 라우팅 전에 선택 범위를 좁힙니다.
+3. **Target include/exclude** — Sync 시(`FilterSkills`) 평가됩니다. Skill은 Discovery되지만 일치하지 않는 Target에서는 건너뜁니다.
+4. **SKILL.md `metadata.targets`** — Sync 시(`FilterSkillsByTarget`) 평가됩니다. Skill은 선언된 Target으로만 제한됩니다.
 
 ## .skillignore
 
@@ -129,3 +131,15 @@ skillshare target claude --remove-agent-include "team-*"
 ## 참고
 
 - [Filtering Skills](/docs/how-to/daily-tasks/filtering-skills) — 시나리오 중심의 how-to 가이드
+
+## 프로필 {#profiles}
+
+[profile](/docs/reference/commands/profile)로 이름 있는 Skill 선택을 만들고 조회·편집·전환합니다. `-g` / `-p`를 지원합니다.
+
+활성 프로필은 discovery와 Target 필터 사이에 AND 조건을 추가하며 flat Source 이름에 일치합니다. `.skillignore`, Target 필터 및 metadata 라우팅을 넓히지 않습니다. agents, 등록된 `projects:`, symlink 모드에는 적용하지 않습니다.
+
+`skills` 키가 없으면 제한이 없고 `skills: {}` 및 빈/공백 include는 아무것도 선택하지 않습니다. exclude에는 include 키가 필요합니다. 명시적 `include: []`와 exclude는 유효하지만 제외는 비활성입니다.
+
+`profile add`는 필요한 정확한 include를 추가하고 정확히 일치하는 exclude를 제거합니다. glob exclude에 일치하면 패턴을 표시하고 배치 전체를 거부합니다. `profile remove`는 정확한 include를 제거하고 더 넓은 include가 여전히 선택하면 정확한 exclude를 추가합니다. 제한 없는 정의에서 제거할 때는 먼저 `include: ['*']`를 씁니다. 마지막 include를 제거해도 `include: []`와 기존 exclude는 남습니다.
+
+Sync matrix는 선택 밖의 Skill을 `not_in_profile`과 프로필 이름으로 표시합니다. Diff는 삭제 예정인 관리 항목에 이유를 표시합니다. `doctor`는 일치하지 않는 include와 비활성 exclude를 보고하고 sync는 활성 프로필의 불일치 패턴을 실행당 한 번 경고합니다.
