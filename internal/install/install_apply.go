@@ -338,9 +338,13 @@ func installImpl(source *Source, destPath string, opts InstallOptions) (*Install
 		if opts.Update {
 			return handleUpdate(source, destPath, result, opts)
 		}
-		if !opts.Force {
+		if !opts.Force && !opts.DryRun {
 			hint := buildForceHint(source.Raw, opts.Into)
-			if err := checkExistingConflict(destPath, source.CloneURL, hint); err != nil {
+			var recorded *MetadataEntry
+			if rel, err := filepath.Rel(opts.SourceDir, destPath); err == nil {
+				recorded = LoadMetadataOrNew(opts.SourceDir).GetExact(rel)
+			}
+			if err := checkExistingConflict(destPath, recorded, source.CloneURL, source.Subdir, hint); err != nil {
 				return nil, err
 			}
 			// nil means empty/invalid dir — safe to overwrite, fall through.
@@ -508,14 +512,16 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 	// Check if destination exists
 	stage := false
 	if _, err := os.Stat(destPath); err == nil {
-		if !opts.Force {
+		if !opts.Force && !opts.DryRun {
 			// Use the original repo URL for force hints, not the per-skill
 			// fullSource URL (which isn't a valid install target).
 			hint := buildForceHint(discovery.Source.Raw, opts.Into)
-			meta := LoadMetadataOrNew(opts.SourceDir).GetByPath(filepath.Join(opts.Into, filepath.Base(destPath)))
+			store := LoadMetadataOrNew(opts.SourceDir)
+			key := filepath.Join(opts.Into, filepath.Base(destPath))
+			meta := store.GetByPath(key)
 			knownUpdate := opts.Update && meta != nil && isDiscoverySkillSource(meta, discovery.Source, skill.Path) && meta.Group == opts.Into && !meta.Tracked && meta.EffectiveKind() == "skill"
 			if !knownUpdate {
-				if err := checkExistingConflict(destPath, discovery.Source.CloneURL, hint); err != nil {
+				if err := checkExistingConflict(destPath, store.GetExact(key), discovery.Source.CloneURL, fullSubdir, hint); err != nil {
 					return nil, err
 				}
 			}

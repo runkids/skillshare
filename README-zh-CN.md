@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.30.6 — 在 CI 中发现过期的 skill：`skillshare check --exit-code` 在检查到任何项目不是最新时以代码 1 退出，`check --all` 现在会同时检查 skill 与 agent，一个 CI 步骤即可涵盖两者。[check 参考 →](https://skillshare.runkids.cc/zh-Hans/docs/reference/commands/check) · [更新记录 →](https://skillshare.runkids.cc/changelog)
+> **最新版本**：v0.30.7 — 让已接受的 findings 在 CI 中通过：`skillshare audit --respect-accepted` 不再因你在 `install` 或 `update` 时用 `--force` 接受的 findings 而失败，处理方式与 update 的检查关卡相同。这些 findings 仍保留在报告中，并标记为已接受。[audit 参考 →](https://skillshare.runkids.cc/zh-Hans/docs/reference/commands/audit#accepted-findings) · [更新记录 →](https://skillshare.runkids.cc/changelog)
 
 ## 为什么用 skillshare
 

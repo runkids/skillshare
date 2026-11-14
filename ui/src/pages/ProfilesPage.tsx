@@ -24,7 +24,7 @@ export default function ProfilesPage() {
   return <div className="ss-wrap animate-page-in">
     <PageHeader title={name ?? t('profileEdit.title')} subtitle={name ? profile?.description : t('profileEdit.subtitle')} backTo={name ? '/profiles' : undefined} actions={!name && (data?.profiles.length ?? 0) > 0 ? create : undefined} mono={!!name} />
     {isPending ? <PageSkeleton /> : error ? <div className="ss-note bad">{error.message}</div> : name ? (
-      profile?.usable ? <ProfileEditor key={profile.name} profile={profile} active={data?.active === name} /> : <div className="ss-note bad">{profile ? profileReason(profile.reason ?? '', t, name) : t('profileEdit.missing', { name })}</div>
+      profile ? <ProfileEditor key={profile.name} profile={profile} active={data?.active === name} /> : <div className="ss-note bad">{t('profileEdit.missing', { name })}</div>
     ) : data?.profiles.length === 0 ? (
       <EmptyState icon={SwatchBook} title={t('profileEdit.empty')} description={t('profileEdit.subtitle')} action={create} />
     ) : <div className="ss-list">
@@ -32,13 +32,13 @@ export default function ProfilesPage() {
       {[...(data?.profiles ?? [])].sort((a, b) => a.name.localeCompare(b.name)).map((p) => <div key={p.name} className="ss-r flex-wrap gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            {p.usable ? <Link className="font-mono font-semibold hover:underline" to={`/profiles/${encodeURIComponent(p.name)}`} aria-label={p.name}>{p.name}</Link> : <span className="font-mono font-semibold">{p.name}</span>}
+            <Link className="font-mono font-semibold hover:underline" to={`/profiles/${encodeURIComponent(p.name)}`} aria-label={p.name}>{p.name}</Link>
             {data?.active === p.name && <span className="ss-tag">{t('profileEdit.active')}</span>}
           </div>
           <p className="text-sm text-ink-3">{p.usable ? p.description : profileReason(p.reason ?? '', t, p.name)}</p>
         </div>
         <span className="ss-tag">{t('profiles.count', { count: p.selected })}</span>
-        {p.skills === null && <span className="text-xs text-ink-3">{t('profileEdit.passThrough')}</span>}
+        {p.usable && p.skills === null && <span className="text-xs text-ink-3">{t('profileEdit.passThrough')}</span>}
       </div>)}
     </div>}
     <DialogShell open={creating} onClose={() => setCreating(false)} ariaLabel={t('profileEdit.create')} maxWidth="2xl">

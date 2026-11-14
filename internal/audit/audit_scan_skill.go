@@ -110,11 +110,12 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 	var mdContentRules, mdLinkRules []rule
 	if resolvedRules == nil {
 		rules, err := Rules()
-		if err == nil {
-			resolvedRules = rules
+		if err != nil {
+			return nil, fmt.Errorf("load rules: %w", err)
 		}
+		resolvedRules = rules
 		// Use cached split for global rules.
-		mdContentRules, mdLinkRules = globalSplitMarkdownLinkRules()
+		mdContentRules, mdLinkRules = globalSplitMarkdownLinkRules(rules)
 	} else {
 		mdContentRules, mdLinkRules = splitMarkdownLinkRules(resolvedRules)
 	}
@@ -615,9 +616,10 @@ func scanFileImpl(filePath string, activeRules []rule, disabled map[string]bool)
 	resolvedRules := activeRules
 	if resolvedRules == nil {
 		rules, err := Rules()
-		if err == nil {
-			resolvedRules = rules
+		if err != nil {
+			return nil, fmt.Errorf("load rules: %w", err)
 		}
+		resolvedRules = rules
 	}
 
 	isMarkdown := strings.EqualFold(filepath.Ext(info.Name()), ".md")

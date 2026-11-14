@@ -1,8 +1,31 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { definition, mountProfiles, profileFixtures } from '../../test/profileFixtures';
+import { queryClient } from '../../lib/queryClient';
+import { queryKeys } from '../../lib/queryKeys';
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+it.each([false, true])('refreshes pristine forms without discarding dirty drafts, dirty=%s', async (dirty) => {
+  const f = profileFixtures();
+  await mountProfiles('/profiles/work');
+  const description = await screen.findByLabelText('Description');
+  if (dirty) fireEvent.change(description, { target: { value: 'Unsaved draft' } });
+  const refreshed = { ...f.catalog, profiles: [definition('work', { description: 'External focus', skills: { include: ['beta'], exclude: [] } })] };
+  await act(async () => { queryClient.setQueryData(queryKeys.profiles, refreshed); });
+  await waitFor(() => expect(description).toHaveValue(dirty ? 'Unsaved draft' : 'External focus'));
+  if (dirty) {
+    expect(screen.getByRole('button', { name: 'Save profile' })).toBeEnabled();
+    expect(f.replace).not.toHaveBeenCalled();
+    return;
+  }
+  expect(screen.getByRole('button', { name: 'Save profile' })).toBeDisabled();
+  fireEvent.change(description, { target: { value: 'My note' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
+  await waitFor(() => expect(f.replace).toHaveBeenCalledExactlyOnceWith('work', {
+    description: 'My note', skills: { include: ['beta'], exclude: [] },
+  }));
+});
 
 it.each([false, true])('keeps a failed dirty pass-through edit for an exact retry, project=%s', async (project) => {
   const f = profileFixtures(project, [definition('work', { skills: null })]);

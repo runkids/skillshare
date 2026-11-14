@@ -403,7 +403,7 @@ func installFromSearchResultProject(result search.SearchResult, cwd string) (err
 		Mode:   "project",
 	}
 	defer func() {
-		logInstallOp(config.ProjectConfigPath(cwd), []string{result.Source}, start, err, logSummary)
+		logInstallOp(config.ProjectConfigPath(cwd), result.Source, start, err, logSummary)
 	}()
 
 	if err := ensureProjectConfig(cwd); err != nil {
@@ -415,7 +415,7 @@ func installFromSearchResultProject(result search.SearchResult, cwd string) (err
 		return fmt.Errorf("failed to load project config: %w", err)
 	}
 	defer func() {
-		printProfileHint(installedProfileHint(runtime.config, runtime.sourcePath, runtime.skillsWalk(), logSummary.InstalledPaths), false)
+		printProfileHint(installedProfileHint(runtime.config, modeProject, runtime.sourcePath, runtime.skillsWalk(), logSummary.InstalledPaths), false)
 	}()
 
 	source, err := install.ParseSourceWithOptions(result.Source, parseOptsFromProjectConfig(runtime.config))
@@ -429,6 +429,7 @@ func installFromSearchResultProject(result search.SearchResult, cwd string) (err
 	if _, err := os.Stat(destPath); err == nil {
 		ui.StepSkip("Install", result.Name+" "+ui.DimText("already installed"))
 		ui.Next("skillshare install "+result.Source+" -p --force", "replace it")
+		logSummary.SkippedSkills = []string{result.Name}
 		return nil
 	}
 
@@ -489,8 +490,8 @@ func installFromSearchResult(result search.SearchResult, cfg *config.Config) (er
 		Mode:   "global",
 	}
 	defer func() {
-		logInstallOp(config.ConfigPath(), []string{result.Source}, start, err, logSummary)
-		printProfileHint(installedProfileHint(cfg, cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), logSummary.InstalledPaths), false)
+		logInstallOp(config.ConfigPath(), result.Source, start, err, logSummary)
+		printProfileHint(installedProfileHint(cfg, modeGlobal, cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), logSummary.InstalledPaths), false)
 	}()
 
 	// Parse source
@@ -506,6 +507,7 @@ func installFromSearchResult(result search.SearchResult, cfg *config.Config) (er
 	if _, err := os.Stat(destPath); err == nil {
 		ui.StepSkip("Install", result.Name+" "+ui.DimText("already installed"))
 		ui.Next("skillshare install "+result.Source+" --force", "replace it")
+		logSummary.SkippedSkills = []string{result.Name}
 		return nil
 	}
 

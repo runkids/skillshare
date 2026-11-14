@@ -41,7 +41,7 @@ func cmdInstallProjectParsed(parsed *installArgs, root string) (summary installL
 		return summary, err
 	}
 	defer func() {
-		printProfileHint(installedProfileHint(runtime.config, runtime.sourcePath, runtime.skillsWalk(), summary.InstalledPaths), parsed.jsonOutput)
+		printProfileHint(installedProfileHint(runtime.config, modeProject, runtime.sourcePath, runtime.skillsWalk(), summary.InstalledPaths), parsed.jsonOutput)
 	}()
 	if parsed.opts.AuditThreshold == "" {
 		parsed.opts.AuditThreshold = runtime.config.Audit.BlockThreshold
@@ -59,6 +59,11 @@ func cmdInstallProjectParsed(parsed *installArgs, root string) (summary installL
 			return summary, fmt.Errorf("flags --name, --into, --track, --skill, --agent, --kind, --exclude, --all, --yes, --branch, and --update require a source argument")
 		}
 		summary.Source = "project-config"
+		// Ordinary config installs follow lock advances; JSON alone preserves
+		// installed copies until the caller explicitly requests --force.
+		if !parsed.jsonOutput {
+			parsed.opts.Update = true
+		}
 		return installFromProjectConfig(runtime, parsed.opts)
 	}
 
@@ -133,6 +138,7 @@ func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptio
 		summary.InstalledSkills = result.InstalledSkills
 		summary.InstalledPaths = result.InstalledPaths
 		summary.FailedSkills = result.FailedSkills
+		summary.SkippedSkills = result.SkippedSkills
 		summary.SkillCount = len(result.InstalledSkills)
 		return summary, err
 	}
@@ -140,6 +146,7 @@ func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptio
 	summary.InstalledSkills = result.InstalledSkills
 	summary.InstalledPaths = result.InstalledPaths
 	summary.FailedSkills = result.FailedSkills
+	summary.SkippedSkills = result.SkippedSkills
 	summary.SkillCount = len(result.InstalledSkills)
 
 	if opts.DryRun {

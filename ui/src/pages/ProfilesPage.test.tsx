@@ -18,13 +18,37 @@ it.each([false, true])('creates an explicitly empty inactive definition from the
   expect(f.sync).not.toHaveBeenCalled();
 });
 
-it('keeps an unusable definition from being overwritten through the list', async () => {
+it('opens only raw repair actions for an unusable definition', async () => {
   const f = profileFixtures(false, [definition(), definition('future', { usable: false, reason: 'unknown profile key "future"' })]);
   await mountProfiles();
   expect(await screen.findByRole('link', { name: 'work' })).toHaveAttribute('href', '/profiles/work');
-  expect(screen.queryByRole('link', { name: 'future' })).toBeNull();
+  fireEvent.click(screen.getByRole('link', { name: 'future' }));
+  expect(await screen.findByRole('button', { name: 'Rename profile' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Delete profile' })).toBeEnabled();
+  expect(screen.queryByRole('button', { name: 'Save profile' })).toBeNull();
+  expect(screen.queryByLabelText('Description')).toBeNull();
+  expect(screen.queryByLabelText('Include patterns')).toBeNull();
+  expect(screen.queryByRole('region', { name: 'Selected skills' })).toBeNull();
+  expect(f.preview).not.toHaveBeenCalled();
   expect(f.replace).not.toHaveBeenCalled();
   expect(f.remove).not.toHaveBeenCalled();
+});
+
+it.each([false, true])('renames an unusable definition without semantic replacement, active=%s', async (active) => {
+  const f = profileFixtures(false, [definition('future', { usable: false, reason: 'unknown profile key "future"' })]);
+  if (active) Object.assign(f.catalog, { active: 'future', state: 'unavailable', pending: true });
+  await mountProfiles('/profiles/future');
+  const remove = await screen.findByRole('button', { name: 'Delete profile' });
+  if (active) expect(remove).toBeDisabled();
+  else expect(remove).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Rename profile' }));
+  const dialog = await screen.findByRole('dialog', { name: 'Rename profile' });
+  fireEvent.change(within(dialog).getByLabelText('Name'), { target: { value: 'future-renamed' } });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Rename profile' }));
+  await waitFor(() => expect(f.replace).toHaveBeenCalledExactlyOnceWith('future', { name: 'future-renamed' }));
+  expect(f.remove).not.toHaveBeenCalled();
+  expect(f.preview).not.toHaveBeenCalled();
+  expect(f.sync).not.toHaveBeenCalled();
 });
 
 it('keeps the inactive definition when a concurrent active-delete refusal arrives', async () => {

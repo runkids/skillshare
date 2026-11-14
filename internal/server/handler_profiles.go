@@ -175,10 +175,14 @@ func (s *Server) handleMutateProfile(w http.ResponseWriter, r *http.Request) {
 		mutations = nil
 		if r.Method == http.MethodPost {
 			mutations = append(mutations, profile.Mutation{Op: "create", Name: name})
-		} else if name != previous {
+		} else if len(body.Name) > 0 {
 			mutations = append(mutations, profile.Mutation{Op: "rename", Name: previous, NewName: name})
 		}
-		mutations = append(mutations, profile.Mutation{Op: "replace", Name: name, Description: body.Description, Replacement: skills})
+		// A name-only request is a raw rename, including for definitions from
+		// newer versions. Actual semantic edits still validate the definition.
+		if r.Method == http.MethodPost || len(body.Name) == 0 || body.Description != nil || len(body.Skills) > 0 {
+			mutations = append(mutations, profile.Mutation{Op: "replace", Name: name, Description: body.Description, Replacement: skills})
+		}
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()

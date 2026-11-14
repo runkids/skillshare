@@ -571,9 +571,9 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 
 	renderBatchSearchInstallSummary(results, mode, time.Since(batchStart))
 	if projectRT != nil {
-		printProfileHint(installedProfileHint(projectRT.config, sourceDir, projectRT.skillsWalk(), installedPaths), false)
+		printProfileHint(installedProfileHint(projectRT.config, mode, sourceDir, projectRT.skillsWalk(), installedPaths), false)
 	} else if cfg != nil {
-		printProfileHint(installedProfileHint(cfg, sourceDir, cfg.SkillsWalk(), installedPaths), false)
+		printProfileHint(installedProfileHint(cfg, mode, sourceDir, cfg.SkillsWalk(), installedPaths), false)
 	}
 
 	// Return error if any failed
@@ -657,8 +657,10 @@ func logSkillInstallOp(cfgPath string, sr search.SearchResult, r searchInstallRe
 		logSummary.InstalledSkills = []string{r.name}
 	} else if r.status == "failed" {
 		logSummary.FailedSkills = []string{r.name}
+	} else if r.status == "skipped" {
+		logSummary.SkippedSkills = []string{r.name}
 	}
-	logInstallOp(cfgPath, []string{sr.Source}, start, opErr, logSummary)
+	logInstallOp(cfgPath, sr.Source, start, opErr, logSummary)
 }
 
 // classifyFailureDetail parses a batch install error detail and returns:

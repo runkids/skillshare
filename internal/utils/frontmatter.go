@@ -16,7 +16,8 @@ import (
 // name : count; top-level keys share the first key's indent). Any other form YAML
 // allows (flow mapping, block scalar, alias, merge key, explicit key, ...) leaves the
 // scan without a name, and then the whole block is decoded.
-func ParseSkillName(skillPath string) (string, error) {
+// Optional non-nil content uses the same scanner without opening SKILL.md; nil uses the path.
+func ParseSkillName(skillPath string, content ...[]byte) (string, error) {
 	name, literal, indent := "", "", -1
 	path := filepath.Join(skillPath, "SKILL.md")
 	err := scanLenientBlock(path, func(raw []byte) bool {
@@ -47,11 +48,11 @@ func ParseSkillName(skillPath string) (string, error) {
 		}
 		literal = strings.Trim(strings.TrimSpace(value), `"'`)
 		return false
-	})
+	}, content...)
 	if err != nil || name != "" {
 		return name, err
 	}
-	raw, err := readLenientBlock(path)
+	raw, err := readLenientBlock(path, content...)
 	if err != nil {
 		return "", err
 	}

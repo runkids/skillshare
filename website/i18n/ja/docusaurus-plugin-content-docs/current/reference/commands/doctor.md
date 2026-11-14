@@ -214,6 +214,14 @@ OpenCode を別の環境（デスクトップのランチャーなど）から�
 !              1 skill missing file hashes: _old-repo__legacy-skill
 ```
 
+### プロファイル {#profiles}
+
+グローバルモードとプロジェクトモードの両方で、使用できないアクティブなプロファイルをエラー（`profile_unavailable`）として報告します。定義を修正するか、`skillshare profile use <name>` / `skillshare profile use --none` で選択を変更してください。
+
+警告の対象は、未完了の切り替え（`profile_pending`）、保持される変更済みの管理対象コピー（`profile_kept_modified`）、有効な Source Skill に一致しない include パターン（`profile_unmatched`）、明示的に空の include に対する excludes（`profile_inert_excludes`）、アクティブなプロファイルの影響を受けない symlink モードの Target（`profile_symlink_target`）です。パターン検査は非アクティブでも使用可能な定義を含みます。discovery が失敗または不完全な場合、推測に基づくパターンやコピーの診断は省略します。
+
+これらの名前は `doctor --json` の checks とダッシュボードの health 結果でも変わりません。編集内容を Source に反映したい場合は同期前に collect してください。通常の sync も、選択予定が空の場合を含め、一致しないアクティブなプロファイルのパターンを実行ごとに一つの警告にまとめます。
+
 ### Extras
 
 Extras が設定されている場合、以下を検証します。

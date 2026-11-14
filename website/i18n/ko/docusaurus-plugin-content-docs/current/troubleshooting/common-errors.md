@@ -472,6 +472,16 @@ skillshare install <source> --force
 
 **Solution:** 숨겨진 문자를 표시하는 에디터에서 파일을 열어 제거하거나, Source를 신뢰한다면 강제 설치하세요.
 
+### `audit scan failed`
+
+**Cause:** audit를 실행할 수 없었습니다. 예를 들어 `audit-rules.yaml`을 파싱할 수 없거나 패턴 중 하나를 컴파일할 수 없는 경우입니다. 오류 메시지에 해당 파일이 표시됩니다. `install`은 skill, agent, tracked repository 설치를 거부하고 설치한 내용을 제거합니다. `update`와 `upgrade --skill`은 설치된 복사본을 유지합니다. `--force`로는 해결되지 않습니다. `--force`는 findings를 수락하는 옵션인데, 실행되지 않은 스캔에는 수락할 findings가 없습니다.
+
+**Solution:** 오류에 표시된 파일을 수정하세요([audit rules](/docs/reference/commands/audit-rules) 참고). Source를 신뢰한다면 스캔 없이 설치할 수 있습니다.
+
+```bash
+skillshare install <source> --skip-audit
+```
+
 ---
 
 ## Upgrade Errors

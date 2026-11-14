@@ -9,14 +9,17 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/profile"
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/testutil"
+	"skillshare/internal/utils"
 )
 
 type profileFixture struct {
@@ -82,6 +85,181 @@ func TestProfileCRUD(t *testing.T) {
 			f.run("profile", "delete", "renamed").AssertSuccess(t)
 			for _, args := range [][]string{{"create", "none"}, {"create", "Upper"}, {"create", "bad", "--add-include", "["}, {"create", "exclude", "--add-exclude", "x"}} {
 				f.run(append([]string{"profile"}, args...)...).AssertFailure(t)
+			}
+		})
+	}
+}
+
+func TestProfiles_ProjectSourceAvailability(t *testing.T) {
+	for _, action := range []string{"use", "sync"} {
+		for _, sourceState := range []string{"missing", "empty"} {
+			t.Run(action+"/"+sourceState, func(t *testing.T) {
+				f := newProfileFixture(t, true, "copy")
+				f.run("profile", "use", "a").AssertSuccess(t)
+				f.run("profile", "use", "a", "--no-sync").AssertSuccess(t)
+				statePath, _, err := config.ProfilePaths(f.config)
+				if err != nil {
+					t.Fatal(err)
+				}
+				beforeState := f.sb.ReadFile(statePath)
+				state, err := profile.ReadState(statePath)
+				if err != nil || state.Active != "a" || !state.Pending {
+					t.Fatalf("setup requires pending a: %+v, %v", state, err)
+				}
+				entry := filepath.Join(f.target, "alpha", "SKILL.md")
+				beforeBytes := f.sb.ReadFile(entry)
+				manifest := filepath.Join(f.target, ssync.ManifestFile)
+				beforeManifest := f.sb.ReadFile(manifest)
+				beforeConfig := f.sb.ReadFile(f.config)
+				if err := os.Rename(f.source, f.source+"-offline"); err != nil {
+					t.Fatal(err)
+				}
+				if sourceState == "empty" {
+					if err := os.Mkdir(f.source, 0755); err != nil {
+						t.Fatal(err)
+					}
+				}
+				args := []string{"sync", "--json"}
+				if action == "use" {
+					args = []string{"profile", "use", "b", "--json"}
+				}
+				out := f.run(args...)
+				afterBytes, readErr := os.ReadFile(entry)
+				if sourceState == "missing" {
+					out.AssertFailure(t)
+					if readErr != nil || string(afterBytes) != beforeBytes {
+						t.Errorf("missing source changed managed copy: %q, %v", afterBytes, readErr)
+					}
+					if f.sb.ReadFile(manifest) != beforeManifest || f.sb.ReadFile(statePath) != beforeState {
+						t.Error("missing source changed manifest or settled pending state")
+					}
+				} else {
+					out.AssertSuccess(t)
+					if !os.IsNotExist(readErr) {
+						t.Errorf("readable empty source did not prune managed copy: %v", readErr)
+					}
+					wantActive := "a"
+					if action == "use" {
+						wantActive = "b"
+					}
+					state, err = profile.ReadState(statePath)
+					if err != nil || state.Active != wantActive || state.Pending {
+						t.Errorf("empty-source sync did not settle %s: %+v, %v", wantActive, state, err)
+					}
+				}
+				if f.sb.ReadFile(f.config) != beforeConfig || f.sb.ReadFile(filepath.Join(f.source+"-offline", "alpha", "SKILL.md")) != beforeBytes {
+					t.Error("source availability check changed config or offline source")
+				}
+			})
+		}
+	}
+}
+
+func TestProfiles_DotfilesTargetRoot(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, mode := range []string{"copy", "merge"} {
+			t.Run(fmt.Sprintf("%v/%s", project, mode), func(t *testing.T) {
+				f := newProfileFixture(t, project, mode)
+				realTarget := filepath.Join(f.root, "dotfiles-target")
+				if err := os.MkdirAll(realTarget, 0755); err != nil {
+					t.Fatal(err)
+				}
+				if runtime.GOOS == "windows" {
+					if err := utils.CreateJunction(f.target, realTarget); err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					f.sb.CreateSymlink(realTarget, f.target)
+				}
+				rootLink, err := os.Readlink(f.target)
+				if err != nil {
+					t.Fatal(err)
+				}
+				local := filepath.Join(realTarget, "local", "SKILL.md")
+				f.sb.WriteFile(local, "unmanaged local content")
+				f.run("sync", "--json").AssertSuccess(t)
+				if f.sb.ReadFile(filepath.Join(realTarget, "beta", "SKILL.md")) != f.sb.ReadFile(filepath.Join(f.source, "beta", "SKILL.md")) {
+					t.Fatal("ordinary sync did not populate configured alias")
+				}
+				f.run("profile", "use", "a", "--json").AssertSuccess(t)
+				if _, err := os.Lstat(filepath.Join(realTarget, "beta")); !os.IsNotExist(err) {
+					t.Errorf("profile did not prune managed beta through alias: %v", err)
+				}
+				if f.sb.ReadFile(filepath.Join(realTarget, "alpha", "SKILL.md")) != f.sb.ReadFile(filepath.Join(f.source, "alpha", "SKILL.md")) || f.sb.ReadFile(local) != "unmanaged local content" {
+					t.Error("alias switch lost selected or unmanaged child content")
+				}
+				if after, err := os.Readlink(f.target); err != nil || after != rootLink || !utils.IsSymlinkOrJunction(f.target) {
+					t.Errorf("configured root alias changed: %q, %v", after, err)
+				}
+			})
+		}
+	}
+}
+
+func TestProfiles_UseJSON(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, mode := range []string{"copy", "merge"} {
+			t.Run(fmt.Sprintf("%v/%s", project, mode), func(t *testing.T) {
+				f := newProfileFixture(t, project, mode)
+				f.run("profile", "use", "a", "--json").AssertSuccess(t)
+				for _, preview := range []bool{true, false} {
+					t.Run(fmt.Sprintf("preview=%v", preview), func(t *testing.T) {
+						args := []string{"profile", "use", "b", "--json"}
+						if preview {
+							args = append(args, "--dry-run")
+						}
+						out := f.run(args...)
+						out.AssertSuccess(t)
+						var body struct {
+							Complete bool
+							Profile  struct {
+								Previous, Active string
+								Pending          bool
+							}
+						}
+						// Unmarshal consumes the whole stdout, rejecting chatter or a second response.
+						if err := json.Unmarshal([]byte(out.Stdout), &body); err != nil {
+							t.Errorf("profile use must emit one JSON response: %v; stdout=%q", err, out.Stdout)
+						} else if !body.Complete || body.Profile.Previous != "a" || body.Profile.Active != "b" || body.Profile.Pending {
+							t.Errorf("switch result lost selection/outcome: %s", out.Stdout)
+						}
+						if strings.TrimSpace(out.Stderr) != "" {
+							t.Errorf("JSON switch leaked diagnostics: %s", out.Stderr)
+						}
+						want, absent := "beta", "alpha"
+						if preview {
+							want, absent = absent, want
+						}
+						if f.sb.ReadFile(filepath.Join(f.target, want, "SKILL.md")) != f.sb.ReadFile(filepath.Join(f.source, want, "SKILL.md")) {
+							t.Error("JSON switch changed selected contents")
+						}
+						if _, err := os.Lstat(filepath.Join(f.target, absent)); !os.IsNotExist(err) {
+							t.Errorf("preview/apply left wrong deployment: %s, %v", absent, err)
+						}
+					})
+				}
+			})
+		}
+	}
+}
+
+func TestProfiles_UseJSONRefusal(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(fmt.Sprint(project), func(t *testing.T) {
+			f := newProfileFixture(t, project, "copy")
+			out := f.run("profile", "use", "missing", "--json")
+			out.AssertFailure(t)
+			var body struct{ Error string }
+			if err := json.Unmarshal([]byte(out.Stdout), &body); err != nil {
+				t.Fatalf("refusal must emit one JSON response: %v; stdout=%q", err, out.Stdout)
+			}
+			for _, detail := range []string{"missing", "not defined", f.config, "skillshare profile use <name>", "skillshare profile use --none"} {
+				if !strings.Contains(body.Error, detail) {
+					t.Errorf("JSON error lost refusal/repair %q: %s", detail, out.Stdout)
+				}
+			}
+			if strings.TrimSpace(out.Stderr) != "" {
+				t.Errorf("JSON refusal also emitted plain diagnostics: %s", out.Stderr)
 			}
 		})
 	}
@@ -275,7 +453,36 @@ func TestProfiles_MovedDiscardRecovery(t *testing.T) {
 			if err := ssync.WriteManifest(dir, &ssync.Manifest{Managed: map[string]string{"alpha": sum}, Outputs: map[string]string{"alpha": sum}}); err != nil {
 				t.Fatal(err)
 			}
+			cleanPreview := f.run("diff", "--json")
+			cleanPreview.AssertSuccess(t)
+			if !json.Valid([]byte(cleanPreview.Stdout)) {
+				t.Fatalf("clean moved preview emitted diagnostics into JSON: %s", cleanPreview.Stdout)
+			}
 			f.sb.WriteFile(file, "authored moved edit")
+			manifestBefore := f.sb.ReadFile(filepath.Join(dir, ssync.ManifestFile))
+			preview := f.run("diff", "--json")
+			preview.AssertSuccess(t)
+			var diff struct {
+				Targets []struct {
+					Items []struct {
+						Action, Name, Reason string
+						IsSync               bool `json:"is_sync"`
+					}
+				}
+			}
+			if err := json.Unmarshal([]byte(preview.Stdout), &diff); err != nil || len(diff.Targets) != 1 {
+				t.Fatalf("moved preview JSON: %s %v", preview.Stdout, err)
+			}
+			found := false
+			for _, item := range diff.Targets[0].Items {
+				if item.Name == "alpha" && item.Action == "kept" && !item.IsSync && strings.Contains(item.Reason, dir) {
+					found = true
+				}
+			}
+			if !found || f.sb.ReadFile(file) != "authored moved edit" || f.sb.ReadFile(filepath.Join(dir, ssync.ManifestFile)) != manifestBefore {
+				t.Fatal("moved preview omitted kept reason or wrote target/manifest")
+			}
+
 			args := []string{"sync", "--discard-edits"}
 			if jsonOutput {
 				args = append(args, "--json")
@@ -443,11 +650,6 @@ func TestProfiles_Composition(t *testing.T) {
 			if project {
 				protected = append(protected, filepath.Join(f.root, ".skillshare", "skills.lock.json"))
 			}
-			// A fetched extra's bytes and profile-like bindings are inert input
-			// to a switch. No remote-extra transport is implemented by core2.
-			extra := filepath.Join(f.root, "fetched-extra", "bindings.yaml")
-			f.sb.WriteFile(extra, "profiles:\n  remote: {skills: {include: ['*']}}\nactive: remote\n")
-			protected = append(protected, extra)
 			before := make(map[string]string)
 			for _, path := range protected {
 				before[path] = f.sb.ReadFile(path)
@@ -607,5 +809,212 @@ func TestProfiles_SyncJSONBlockedEntries(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestProfiles_BinaryCopySwitchPreservesEdits(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, mode := range []string{"copy", "merge"} {
+			t.Run(fmt.Sprintf("%v/%s", project, mode), func(t *testing.T) {
+				f := newProfileFixture(t, project, "copy")
+				asset := filepath.Join(f.source, "alpha", "a")
+				if err := os.WriteFile(asset, []byte("x\x00b\x00y"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				f.run("profile", "use", "a").AssertSuccess(t)
+				configBytes, err := os.ReadFile(f.config)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(f.config, []byte(strings.ReplaceAll(string(configBytes), "mode: copy", "mode: "+mode)), 0600); err != nil {
+					t.Fatal(err)
+				}
+				entry := filepath.Join(f.target, "alpha")
+				for name, data := range map[string]string{"a": "x", "b": "y"} {
+					if err := os.WriteFile(filepath.Join(entry, name), []byte(data), 0600); err != nil {
+						t.Fatal(err)
+					}
+				}
+				statePath, _, _ := config.ProfilePaths(f.config)
+				before, err := os.ReadFile(statePath)
+				if err != nil {
+					t.Fatal(err)
+				}
+				out := f.run("profile", "use", "b", "--json")
+				out.AssertFailure(t)
+				for name, want := range map[string]string{"a": "x", "b": "y"} {
+					data, err := os.ReadFile(filepath.Join(entry, name))
+					if err != nil || string(data) != want {
+						t.Errorf("switch lost %s: %q %v", name, data, err)
+					}
+				}
+				after, err := os.ReadFile(statePath)
+				if err != nil || string(after) != string(before) {
+					t.Error("refused switch changed local state", err)
+				}
+				if _, err := os.Lstat(filepath.Join(f.target, "beta")); !os.IsNotExist(err) {
+					t.Error("refused switch deployed beta", err)
+				}
+			})
+		}
+	}
+}
+
+func TestProfiles_DiffKeptCopyAgreement(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, mode := range []string{"copy", "merge"} {
+			for _, scenario := range []string{"retained", "departing", "pending_none", "alias_retained", "alias_pending_none"} {
+				t.Run(fmt.Sprintf("%v/%s/%s", project, mode, scenario), func(t *testing.T) {
+					f := newProfileFixture(t, project, "copy")
+					alias := strings.HasPrefix(scenario, "alias_")
+					var rootLink string
+					if alias {
+						outside := filepath.Join(f.root, "dotfiles-target")
+						if err := os.MkdirAll(outside, 0755); err != nil {
+							t.Fatal(err)
+						}
+						if runtime.GOOS == "windows" {
+							if err := utils.CreateJunction(f.target, outside); err != nil {
+								t.Fatal(err)
+							}
+						} else {
+							f.sb.CreateSymlink(outside, f.target)
+						}
+						var err error
+						rootLink, err = os.Readlink(f.target)
+						if err != nil {
+							t.Fatal(err)
+						}
+					}
+					f.run("profile", "use", "a").AssertSuccess(t)
+					configBytes, err := os.ReadFile(f.config)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(f.config, []byte(strings.ReplaceAll(string(configBytes), "mode: copy", "mode: "+mode)), 0600); err != nil {
+						t.Fatal(err)
+					}
+					if scenario == "pending_none" || scenario == "alias_pending_none" {
+						f.run("profile", "use", "--none", "--no-sync").AssertSuccess(t)
+					}
+					path := filepath.Join(f.target, "alpha", "SKILL.md")
+					if err := os.WriteFile(path, []byte("authored alpha"), 0600); err != nil {
+						t.Fatal(err)
+					}
+					switch scenario {
+					case "departing":
+						f.run("profile", "edit", "a", "--remove-include", "alpha", "--add-include", "beta").AssertSuccess(t)
+					}
+					manifestPath := filepath.Join(f.target, ssync.ManifestFile)
+					manifestBefore, err := os.ReadFile(manifestPath)
+					if err != nil {
+						t.Fatal(err)
+					}
+					statePath, _, err := config.ProfilePaths(f.config)
+					if err != nil {
+						t.Fatal(err)
+					}
+					stateBefore := f.sb.ReadFile(statePath)
+					configBefore := f.sb.ReadFile(f.config)
+					sourceBefore := f.sb.ReadFile(filepath.Join(f.source, "alpha", "SKILL.md"))
+					for _, jsonOutput := range []bool{false, true} {
+						args := []string{"diff"}
+						if jsonOutput {
+							args = append(args, "--json")
+						}
+						preview := f.run(args...)
+						preview.AssertSuccess(t)
+						if !jsonOutput {
+							if !strings.Contains(strings.ToLower(preview.Stdout), "kept") || strings.Contains(preview.Stdout, "will be pruned") {
+								t.Errorf("text preview hides preserved edit: %s", preview.Stdout)
+							}
+							continue
+						}
+						var payload struct {
+							Targets []struct {
+								Mode  string
+								Error string
+								Items []struct {
+									Name   string
+									Action string
+									Reason string
+									IsSync bool `json:"is_sync"`
+								}
+							}
+						}
+						if err := json.Unmarshal([]byte(preview.Stdout), &payload); err != nil {
+							t.Fatal(err)
+						}
+						found := false
+						for _, target := range payload.Targets {
+							if alias && (target.Mode != mode || target.Error != "") {
+								t.Errorf("configured alias mode/error mismatch: %+v", target)
+							}
+							for _, item := range target.Items {
+								if item.Name == "alpha" {
+									found = true
+									if item.Action != "kept" || item.IsSync || item.Reason == "" {
+										t.Errorf("JSON predicts a write for preserved alpha: %+v", item)
+									}
+								}
+							}
+						}
+						if !found {
+							t.Error("JSON preview omitted kept alpha")
+						}
+					}
+					manifestAfter, err := os.ReadFile(manifestPath)
+					if err != nil || string(manifestAfter) != string(manifestBefore) {
+						t.Fatal("read-only preview changed manifest", err)
+					}
+					if alias {
+						if after, err := os.Readlink(f.target); err != nil || after != rootLink || !utils.IsSymlinkOrJunction(f.target) {
+							t.Errorf("preview changed root alias: %q, %v", after, err)
+						}
+						if f.sb.ReadFile(path) != "authored alpha" || f.sb.ReadFile(statePath) != stateBefore || f.sb.ReadFile(f.config) != configBefore || f.sb.ReadFile(filepath.Join(f.source, "alpha", "SKILL.md")) != sourceBefore {
+							t.Error("alias preview wrote target, state, config or source")
+						}
+					}
+					out := f.run("sync", "--json")
+					out.AssertSuccess(t)
+					if !strings.Contains(out.Stdout, "kept_modified") {
+						t.Errorf("sync omitted preservation outcome: %s", out.Stdout)
+					}
+					if alias {
+						if after, err := os.Readlink(f.target); err != nil || after != rootLink || !utils.IsSymlinkOrJunction(f.target) {
+							t.Errorf("sync changed root alias: %q, %v", after, err)
+						}
+					}
+					if data, err := os.ReadFile(path); err != nil || string(data) != "authored alpha" {
+						t.Fatalf("sync disagrees with preservation: %q %v", data, err)
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestProfiles_FutureDefinitionRawRepair(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(fmt.Sprint(project), func(t *testing.T) {
+			f := newProfileFixture(t, project, "copy")
+			data, err := os.ReadFile(f.config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(f.config, append(data, []byte("  future: # shared comment\n    new_rule: [alpha]\n")...), 0600); err != nil {
+				t.Fatal(err)
+			}
+			f.run("profile", "rename", "future", "renamed").AssertSuccess(t)
+			show := f.run("profile", "show", "renamed", "--json")
+			show.AssertSuccess(t)
+			f.run("profile", "use", "renamed").AssertFailure(t)
+			f.run("profile", "edit", "renamed", "--add-include", "beta").AssertFailure(t)
+			f.run("profile", "delete", "renamed").AssertSuccess(t)
+			after, err := os.ReadFile(f.config)
+			if err != nil || strings.Contains(string(after), "new_rule:") || !strings.Contains(string(after), "include: [alpha]") {
+				t.Fatal("raw delete changed unrelated definitions", err)
+			}
+		})
 	}
 }

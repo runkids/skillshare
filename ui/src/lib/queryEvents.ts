@@ -15,7 +15,7 @@ const ignoreFile = [k.diff(), k.overview, k.skills.all, k.doctor];
  * `syncMatrixAll` and `diffAll` are prefixes that reach every target; `syncMatrix()` and `diff()` are the all-targets query only.
  */
 const events = {
-  profilesChanged: () => keys(k.profiles, k.skills.all, k.diffAll, k.syncMatrixAll),
+  profilesChanged: () => keys(k.profiles, k.config, k.doctor, k.skills.all, k.diffAll, k.syncMatrixAll),
   profileSwitched: () => keys(k.skills.all, k.targets.all, k.diffAll, k.syncMatrixAll, k.overview, k.profiles, k.backups),
   // Skills and agents
   skillsChanged: () => keys(k.skills.all, k.overview, k.diff()),

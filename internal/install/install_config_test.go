@@ -74,7 +74,7 @@ func TestConfigTrackedAndLockedPublicationPaths(t *testing.T) {
 	}
 	commit := refs[0]
 	lock := &Lock{Skills: map[string]LockEntry{"team/_repo": {Source: remote, Commit: commit}}}
-	result, err = InstallFromConfig(ctx, InstallOptions{SkipAudit: true, Quiet: true, Lock: lock})
+	result, err = InstallFromConfig(ctx, InstallOptions{SkipAudit: true, Quiet: true, Lock: lock, Update: true})
 	if err != nil || result.Installed != 1 || !reflect.DeepEqual(result.InstalledPaths, []string{want}) || InstalledCommit(want, nil) != commit {
 		t.Fatalf("locked revision publication: %+v (%v)", result, err)
 	}

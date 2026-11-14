@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Versão mais recente**: v0.30.6 — Detecte skills desatualizadas no CI: `skillshare check --exit-code` termina com código 1 quando algo que ele verifica não está atualizado, e `check --all` agora verifica agentes além das skills, então uma única etapa de CI cobre ambos. [Referência do check →](https://skillshare.runkids.cc/docs/reference/commands/check) · [Todas as versões →](https://github.com/runkids/skillshare/releases)
+> **Versão mais recente**: v0.30.7 — Deixe passar no CI os achados aceitos: `skillshare audit --respect-accepted` não falha mais por achados que você aceitou com `--force` durante `install` ou `update`, do mesmo jeito que a verificação do update. Eles continuam no relatório, marcados como aceitos. [Referência do audit →](https://skillshare.runkids.cc/docs/reference/commands/audit#accepted-findings) · [Todas as versões →](https://github.com/runkids/skillshare/releases)
 
 ## Por que skillshare
 

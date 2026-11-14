@@ -18,7 +18,7 @@ type profileConfigView interface {
 	ProfileSelector() profile.Selector
 }
 
-func profileHint(cfg profileConfigView, flatNames []string) string {
+func profileHint(cfg profileConfigView, mode runMode, flatNames []string) string {
 	selector := cfg.ProfileSelector()
 	if !selector.Active() {
 		return ""
@@ -36,7 +36,11 @@ func profileHint(cfg profileConfigView, flatNames []string) string {
 	if len(missing) == 0 {
 		return ""
 	}
-	command := fmt.Sprintf("skillshare profile add %s %s", shellArg(selector.Name()), strings.Join(missing, " "))
+	scope := "-g"
+	if mode == modeProject {
+		scope = "-p"
+	}
+	command := fmt.Sprintf("skillshare profile add %s %s %s", shellArg(selector.Name()), strings.Join(missing, " "), scope)
 	if runtime.GOOS == "windows" && strings.ContainsAny(command, "$`%!") {
 		command = "PowerShell: " + command
 	}
@@ -45,7 +49,7 @@ func profileHint(cfg profileConfigView, flatNames []string) string {
 
 // installedProfileHint discovers once and keeps logical source-relative paths:
 // a repository or recursive local publication can contain several skills.
-func installedProfileHint(cfg profileConfigView, source string, walk sourcewalk.Options, roots []string) string {
+func installedProfileHint(cfg profileConfigView, mode runMode, source string, walk sourcewalk.Options, roots []string) string {
 	if len(roots) == 0 || !cfg.ProfileSelector().Active() {
 		return ""
 	}
@@ -64,7 +68,7 @@ func installedProfileHint(cfg profileConfigView, source string, walk sourcewalk.
 		}
 	}
 	slices.Sort(names)
-	return profileHint(cfg, slices.Compact(names))
+	return profileHint(cfg, mode, slices.Compact(names))
 }
 
 func printProfileHint(hint string, jsonMode bool) {

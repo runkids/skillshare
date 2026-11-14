@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, type ProfileDefinition, type ProfilePreviewResult } from '../../api/client';
@@ -23,6 +23,7 @@ export default function ProfileEditor({ profile, active = false, onCreated }: {
   const navigate = useNavigate();
   const client = useQueryClient();
   const creating = !profile;
+  const editable = creating || profile.usable;
   const [name, setName] = useState(profile?.name ?? '');
   const [description, setDescription] = useState(profile?.description ?? '');
   const [specific, setSpecific] = useState(creating || profile?.skills != null);
@@ -43,8 +44,28 @@ export default function ProfileEditor({ profile, active = false, onCreated }: {
   const [needsSync, setNeedsSync] = useState(false);
   const [syncOpen, setSyncOpen] = useState(false);
   const dirty = creating ? !!name.trim() : serialized !== saved;
+  const fetched = JSON.stringify({
+    description: profile?.description ?? '',
+    ...(profile?.skills != null && { skills: { include: profile.skills.include ?? [], exclude: profile.skills.exclude ?? [] } }),
+  });
+  const lastFetched = useRef(fetched);
 
   useEffect(() => {
+    // A refetched catalog may contain CLI/other-tab changes. Never replace a
+    // dirty draft or an in-flight save, but do not submit stale pristine fields.
+    if (creating || dirty || busy || lastFetched.current === fetched) return;
+    lastFetched.current = fetched;
+    if (serialized === fetched) return;
+    const draft: typeof body = JSON.parse(fetched);
+    setDescription(draft.description);
+    setSpecific(!!draft.skills);
+    setInclude(draft.skills?.include ?? []);
+    setExclude(draft.skills?.exclude ?? []);
+    setSaved(fetched);
+  }, [creating, dirty, busy, serialized, fetched]);
+
+  useEffect(() => {
+    if (!editable) return;
     let stale = false;
     const timer = setTimeout(() => {
       setPreviewing(true);
@@ -56,7 +77,7 @@ export default function ProfileEditor({ profile, active = false, onCreated }: {
       }).finally(() => { if (!stale) setPreviewing(false); });
     }, 250);
     return () => { stale = true; clearTimeout(timer); };
-  }, [selection, t]);
+  }, [editable, selection, t]);
 
   const fail = (cause: unknown, candidate = name.trim()) => setError(profileReason(cause instanceof Error ? cause.message : String(cause), t, candidate));
   const save = async () => {
@@ -95,32 +116,35 @@ export default function ProfileEditor({ profile, active = false, onCreated }: {
 
   return <div className="flex flex-col gap-5">
     {!renaming && error && <div className="ss-note bad" role="alert">{error}</div>}
+    {!editable && <div className="ss-note bad">{profileReason(profile?.reason ?? '', t, name)}</div>}
     <div className="ss-split !h-auto flex-col gap-5 md:flex-row">
       <div className="lp !p-0 w-full md:w-1/2 flex flex-col gap-5">
         {creating && <Input label={t('profileEdit.name')} value={name} onChange={(e) => setName(e.target.value)} disabled={busy} autoFocus />}
-        <Input label={t('profileEdit.description')} value={description} onChange={(e) => setDescription(e.target.value)} disabled={busy} />
-        {!creating && profile.skills === null && <Checkbox label={t('profileEdit.specific')} checked={specific} onChange={setSpecific} disabled={busy} />}
-        {!specific && <p className="text-sm text-ink-3">{t('profileEdit.passThrough')}</p>}
-        {specific && <>
-          <div className="ss-fld"><label htmlFor={`${id}-include`}>{t('profileEdit.include')}</label><PatternInput id={`${id}-include`} patterns={include} onChange={setInclude} disabled={busy} /></div>
-          <div className="ss-fld"><label htmlFor={`${id}-exclude`}>{t('profileEdit.exclude')}</label><PatternInput id={`${id}-exclude`} patterns={exclude} onChange={setExclude} disabled={busy} /></div>
-          <p className="text-xs text-ink-3">{t('profileEdit.patternHint')}</p>
-          {include.length === 0 && exclude.length > 0 && <div className="ss-note inf">{t('profileEdit.inert')}</div>}
+        {editable && <>
+          <Input label={t('profileEdit.description')} value={description} onChange={(e) => setDescription(e.target.value)} disabled={busy} />
+          {!creating && profile.skills === null && <Checkbox label={t('profileEdit.specific')} checked={specific} onChange={setSpecific} disabled={busy} />}
+          {!specific && <p className="text-sm text-ink-3">{t('profileEdit.passThrough')}</p>}
+          {specific && <>
+            <div className="ss-fld"><label htmlFor={`${id}-include`}>{t('profileEdit.include')}</label><PatternInput id={`${id}-include`} patterns={include} onChange={setInclude} disabled={busy} /></div>
+            <div className="ss-fld"><label htmlFor={`${id}-exclude`}>{t('profileEdit.exclude')}</label><PatternInput id={`${id}-exclude`} patterns={exclude} onChange={setExclude} disabled={busy} /></div>
+            <p className="text-xs text-ink-3">{t('profileEdit.patternHint')}</p>
+            {include.length === 0 && exclude.length > 0 && <div className="ss-note inf">{t('profileEdit.inert')}</div>}
+          </>}
         </>}
         <div className="flex flex-wrap items-center gap-2">
-          <Button onClick={() => void save()} disabled={!dirty || busy} loading={busy}>{t(creating ? 'profileEdit.create' : 'profileEdit.save')}</Button>
+          {editable && <Button onClick={() => void save()} disabled={!dirty || busy} loading={busy}>{t(creating ? 'profileEdit.create' : 'profileEdit.save')}</Button>}
           {!creating && <>
-            <Button variant="secondary" disabled={busy || !dirty} onClick={() => {
+            {editable && <Button variant="secondary" disabled={busy || !dirty} onClick={() => {
               const draft: typeof body = JSON.parse(saved);
               setDescription(draft.description); setSpecific(!!draft.skills);
               setInclude(draft.skills?.include ?? []); setExclude(draft.skills?.exclude ?? []); setError('');
-            }}>{t('common.cancel')}</Button>
-            <Button variant="secondary" onClick={() => { setError(''); setNewName(name); setRenaming(true); }} disabled={busy || dirty}>{t('profileEdit.rename')}</Button>
+            }}>{t('common.cancel')}</Button>}
+            <Button variant="secondary" onClick={() => { setError(''); setNewName(name); setRenaming(true); }} disabled={busy || (editable && dirty)}>{t('profileEdit.rename')}</Button>
             <Button variant="danger" onClick={() => setDeleting(true)} disabled={busy || active} title={active ? t('profileEdit.activeDelete', { name }) : undefined}>{t('profileEdit.delete')}</Button>
           </>}
       </div>
       </div>
-      <div className="rp !flex-none md:!flex-1">
+      {editable && <div className="rp !flex-none md:!flex-1">
         <section aria-label={t('profileEdit.selected')} className="flex flex-col gap-2">
           <h2 className="ss-h2">{t('profileEdit.selected')}</h2>
           {previewing && <p className="text-sm text-ink-3">{t('targetDetail.loadingPreview')}</p>}
@@ -132,7 +156,7 @@ export default function ProfileEditor({ profile, active = false, onCreated }: {
             {preview.unmatched.length > 0 && <div className="ss-note warn">{t('profileEdit.unmatched', { patterns: preview.unmatched.join(', ') })}</div>}
           </>}
         </section>
-      </div>
+      </div>}
     </div>
     {needsSync && <div className="ss-note warn flex-wrap"><span className="flex-1">{t('profileEdit.needsSync')}</span><Button variant="secondary" onClick={() => setSyncOpen(true)}>{t('profiles.syncNow')}</Button></div>}
     <DialogShell open={renaming} onClose={() => setRenaming(false)} preventClose={busy} ariaLabel={t('profileEdit.rename')} maxWidth="sm">

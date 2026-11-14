@@ -40,6 +40,8 @@ Create without patterns makes an empty selection. A definition with no `skills` 
 
 Definition changes save without syncing. Changes affecting the active selection print `Next: skillshare sync`. Renaming the locally active definition follows its name in local state. Deleting it is refused until you switch away.
 
+An unusable definition, including one with keys from a newer version, can still be renamed or deleted while inactive. Rename preserves its raw contents and comments, even when active; it does not make the definition usable. Active deletion, semantic edits and activation retain their validation.
+
 ## Dashboard {#dashboard}
 
 Open `skillshare ui -g` or `skillshare ui -p` in the intended project. **Profiles**
@@ -48,7 +50,8 @@ renames profiles and confirms deletion of inactive definitions. Skill selections
 in list, card and tree views offer **Add to profile…** / **Remove from profile…**.
 These changes save definitions without activating or syncing them. Active edits
 offer an explicit skills sync. Failed saves keep the dirty draft for retry;
-unusable definitions show their reason and cannot be overwritten by the editor.
+unusable definitions show their reason and offer only raw rename or inactive
+delete, never semantic edits that could overwrite unsupported contents.
 
 Use the header picker to switch, inspect snapshots and confirm empty selections
 or discarding edited copies. See [Work with skill profiles](/docs/how-to/daily-tasks/profiles)
@@ -78,7 +81,7 @@ JSON assignment results contain `profile`, `changed` and per-skill `skills` rows
 
 ## Membership hints {#membership-hints}
 
-After successful `install` or `new`, skills outside the usable active profile get one hint: `Not in active profile "frontend": skillshare profile add frontend <flat-name>`. Install uses final names including groups and nested tracked/local skills. A partial install hints only for successful publications; dry runs, skips, failures and agent installs produce none. Install JSON stays unchanged, with the hint on stderr.
+After successful `install` or `new`, skills outside the usable active profile get one hint: `Not in active profile "frontend": skillshare profile add frontend <flat-name> -g` (project: `-p`). Install uses final names including groups and nested tracked/local skills. A partial install hints only for successful publications; dry runs, skips, failures and agent installs produce none. Install JSON stays unchanged, with the hint on stderr.
 
 `move` warns when a skill's old and new flat names change membership in any usable profile, including inactive definitions. Folder moves check every skill, even with no targets configured. Warnings do not rewrite profile patterns; inspect them before syncing.
 
@@ -96,6 +99,8 @@ A switch visits this config's valid, enabled merge/copy skill targets only. Targ
 
 Edited managed copies and unmanaged entries are kept across copy/merge mode changes. A switch that would replace or prune one refuses and lists its reason. Use `skillshare collect` to retain authored changes in the source. `--discard-edits` only authorizes the listed modified managed copies; it never authorizes unmanaged content. The snapshot must contain the planned bytes, and the writer checks again before deletion. Edits made after planning remain in place.
 
+While a profile or pending switch exists, `diff` shows preserved copies with a kept reason, including copies left in former project folders. These rows are visible in text, JSON and the TUI but count as no executable changes. The API retains force-sensitive `skip` rows for selected entries; departing preservation is `kept` even with Force enabled. Collect or manually remove unmanaged content; verified discard is available only for modified managed copies.
+
 Snapshots use the existing global backup directory, or `.skillshare/backups` in project mode. Text and JSON output include their paths and restore commands. Existing backup retention applies: restore before cleanup removes the snapshot. The same snapshot rule applies to ordinary `sync --discard-edits`, independently of JSON output. In project mode this includes declared former skills folders of selected eligible targets; each reported moved restore command recovers its original folder without replacing the current one. `--no-sync` cannot be combined with discard.
 
 ## State and recovery {#state-and-recovery}
@@ -108,7 +113,11 @@ Mutations and skill sync take a bounded file lock before reloading config/state.
 
 Missing, unusable or unreadable active state blocks skill sync, diff, analyze, the sync matrix and target-bound skill serving. Status and profile list show the cause. Repair with `skillshare profile use <name>` or `skillshare profile use --none`; neither silently falls back to all skills. Filesystem permission problems may need repair first.
 
-With no profile key or state, existing commands retain their behavior. Inactive definitions are inert, apart from locking ordinary skill sync. Older binaries ignore local selection and can drop definitions when saving config. Copy manifests now record output fingerprints; only bytes and relative paths count, excluding the standard ignored files. Modes, ownership and timestamps are not preserved edits.
+With no profile key or state, existing commands retain their behavior. Inactive definitions are inert, apart from locking ordinary skill sync. Older binaries ignore local selection and can drop definitions when saving config.
+
+Copy manifests record versioned output fingerprints (`sha256-v2:`), framing each relative path and file's bytes separately. Standard ignored files, modes, ownership and timestamps do not count as preserved edits. Source checksums keep their existing meaning.
+
+During profile operations, an older copy is clean only when available source matches its recorded source checksum and reproduces the deployed bytes, including any target-name rewrite. This establishes present reproducibility, not historical provenance. Missing source or a failed replay keeps the copy protected. Unknown, malformed or explicitly empty output fingerprints are also protected; they never fall back to an older encoding. Older source-free verification remains available outside profile operations for compatibility. Binaries predating output fingerprints cannot provide this protection after a downgrade.
 
 ## JSON {#json}
 

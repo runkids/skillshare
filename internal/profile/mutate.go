@@ -63,12 +63,12 @@ func Mutate(node *yaml.Node, active string, m Mutation) (*yaml.Node, Change, err
 	} else if index < 0 {
 		return nil, change, fmt.Errorf("profile %q does not exist", m.Name)
 	}
-	d := Parse(copy).Definitions[m.Name]
-	if !d.Usable {
-		return nil, change, fmt.Errorf("profile %q is unusable: %s", m.Name, d.Reason)
-	}
 	switch m.Op {
 	case "create", "edit", "replace":
+		d := Parse(copy).Definitions[m.Name]
+		if !d.Usable {
+			return nil, change, fmt.Errorf("profile %q is unusable: %s", m.Name, d.Reason)
+		}
 		entry := copy.Content[index+1]
 		if m.Description != nil {
 			setValue(entry, "description", scalar(*m.Description))
@@ -130,13 +130,17 @@ func Mutate(node *yaml.Node, active string, m Mutation) (*yaml.Node, Change, err
 		change.Changed = m.Op == "create" || !equalNodes(node, copy)
 		change.NeedsSync = change.Changed && active == m.Name
 	case "add-skills", "remove-skills":
+		d := Parse(copy).Definitions[m.Name]
+		if !d.Usable {
+			return nil, change, fmt.Errorf("profile %q is unusable: %s", m.Name, d.Reason)
+		}
 		// Refuse the whole batch before editing any name, even if an exact
 		// exclude also matches a name blocked by a glob.
 		if m.Op == "add-skills" && d.Skills != nil {
 			for _, name := range m.Skills {
 				for _, raw := range d.Skills.Exclude {
 					p := strings.TrimSpace(raw)
-					if _, matches := pattern.FirstMatch(name, []string{p}); p != "" && p != name && matches {
+					if _, matches := pattern.FirstMatch(name, []string{p}); p != "" && p != literalSkillPattern(name) && matches {
 						return nil, change, &BlockedError{Profile: m.Name, Skill: name, Pattern: p}
 					}
 				}
@@ -160,7 +164,7 @@ func Mutate(node *yaml.Node, active string, m Mutation) (*yaml.Node, Change, err
 				if adding {
 					removeExactSkill(skills, "exclude", name)
 					if !Parse(copy).Definitions[m.Name].Selects(name) {
-						editList(skills, "include", []string{name}, nil)
+						editList(skills, "include", []string{literalSkillPattern(name)}, nil)
 					}
 					result = "added"
 				} else {
@@ -169,7 +173,7 @@ func Mutate(node *yaml.Node, active string, m Mutation) (*yaml.Node, Change, err
 					}
 					removeExactSkill(skills, "include", name)
 					if Parse(copy).Definitions[m.Name].Selects(name) {
-						editList(skills, "exclude", []string{name}, nil)
+						editList(skills, "exclude", []string{literalSkillPattern(name)}, nil)
 					}
 					result = "removed"
 				}
@@ -179,6 +183,11 @@ func Mutate(node *yaml.Node, active string, m Mutation) (*yaml.Node, Change, err
 		updated := Parse(copy).Definitions[m.Name]
 		if !updated.Usable {
 			return nil, Change{Active: active}, fmt.Errorf("profile %q: %s", m.Name, updated.Reason)
+		}
+		for _, name := range m.Skills {
+			if updated.Selects(name) != (m.Op == "add-skills") {
+				return nil, Change{Active: active}, fmt.Errorf("profile %q: could not assign literal skill %q", m.Name, name)
+			}
 		}
 		change.Changed = !equalNodes(node, copy)
 		change.NeedsSync = change.Changed && active == m.Name
@@ -209,10 +218,16 @@ func Mutate(node *yaml.Node, active string, m Mutation) (*yaml.Node, Change, err
 	return copy, change, nil
 }
 
+// literalSkillPattern uses the existing filepath.Match grammar, preserving
+// plain entries and quoting pattern syntax in discovered names.
+func literalSkillPattern(name string) string {
+	return strings.NewReplacer(`\`, `\\`, "*", "[*]", "?", "[?]", "[", "[[]").Replace(name)
+}
+
 func removeExactSkill(parent *yaml.Node, key, name string) {
 	if i := nodeIndex(parent, key); i >= 0 {
 		list := parent.Content[i+1]
-		list.Content = slices.DeleteFunc(list.Content, func(n *yaml.Node) bool { return strings.TrimSpace(n.Value) == name })
+		list.Content = slices.DeleteFunc(list.Content, func(n *yaml.Node) bool { return strings.TrimSpace(n.Value) == literalSkillPattern(name) })
 	}
 }
 

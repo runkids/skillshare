@@ -64,9 +64,48 @@ func TestCheckExistingConflict_SameRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := checkExistingConflict(skillDir, "https://github.com/owner/repo.git", "skillshare install ... --force")
+	err := checkExistingConflict(skillDir, nil, "https://github.com/owner/repo.git", "", "skillshare install ... --force")
 	if !errors.Is(err, ErrSkipSameRepo) {
 		t.Errorf("expected ErrSkipSameRepo, got: %v", err)
+	}
+}
+
+// Installs record their repo in the source's .metadata.json, not in a
+// sidecar file inside the skill.
+func TestCheckExistingConflict_SameRepoInStore(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# test"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteMetaToStore(dir, skillDir, &SkillMeta{Source: "https://github.com/owner/repo", RepoURL: "https://github.com/owner/repo.git", Subdir: "skills/my-skill"}); err != nil {
+		t.Fatal(err)
+	}
+
+	recorded := LoadMetadataOrNew(dir).GetExact("my-skill")
+	err := checkExistingConflict(skillDir, recorded, "https://github.com/owner/repo.git", "skills/my-skill", "skillshare install ... --force")
+	if !errors.Is(err, ErrSkipSameRepo) {
+		t.Errorf("expected ErrSkipSameRepo, got: %v", err)
+	}
+}
+
+// Another skill of the same repo, installed under this skill's name, is a
+// conflict: skipping it would report a skill that was never installed.
+func TestCheckExistingConflict_SameRepoOtherSkill(t *testing.T) {
+	recorded := &MetadataEntry{RepoURL: "https://github.com/owner/repo.git", Subdir: "skills/foo"}
+	skillDir := filepath.Join(t.TempDir(), "foo")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	err := checkExistingConflict(skillDir, recorded, "https://github.com/owner/repo.git", "skills/bar", "skillshare install ... --force")
+	if err == nil || errors.Is(err, ErrSkipSameRepo) {
+		t.Errorf("expected a conflict for another skill of the same repo, got: %v", err)
+	}
+	if err := checkExistingConflict(skillDir, recorded, "https://github.com/owner/repo.git", "skills/foo", "skillshare install ... --force"); !errors.Is(err, ErrSkipSameRepo) {
+		t.Errorf("expected ErrSkipSameRepo for the same skill, got: %v", err)
 	}
 }
 
@@ -85,7 +124,7 @@ func TestCheckExistingConflict_DifferentRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := checkExistingConflict(skillDir, "https://github.com/owner/repo.git", "skillshare install ... --force")
+	err := checkExistingConflict(skillDir, nil, "https://github.com/owner/repo.git", "", "skillshare install ... --force")
 	if errors.Is(err, ErrSkipSameRepo) {
 		t.Error("should not be ErrSkipSameRepo for different repo")
 	}
@@ -106,7 +145,7 @@ func TestCheckExistingConflict_EmptyDir(t *testing.T) {
 	}
 	// Empty directory — no meta, no SKILL.md
 
-	err := checkExistingConflict(skillDir, "https://github.com/owner/repo.git", "skillshare install ... --force")
+	err := checkExistingConflict(skillDir, nil, "https://github.com/owner/repo.git", "", "skillshare install ... --force")
 	if err != nil {
 		t.Errorf("empty dir should return nil (safe to overwrite), got: %v", err)
 	}
@@ -123,7 +162,7 @@ func TestCheckExistingConflict_HasSkillMdNoMeta(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := checkExistingConflict(skillDir, "https://github.com/owner/repo.git", "skillshare install ... --force")
+	err := checkExistingConflict(skillDir, nil, "https://github.com/owner/repo.git", "", "skillshare install ... --force")
 	if errors.Is(err, ErrSkipSameRepo) {
 		t.Error("should not be ErrSkipSameRepo when meta is absent")
 	}

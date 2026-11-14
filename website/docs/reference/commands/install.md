@@ -233,7 +233,7 @@ skillshare install -p    # Install all remote skills from project config
 skillshare sync
 ```
 
-Skills with `tracked: true` are cloned with full git history (same as `--track`), so `skillshare update` works correctly. Skills already present on disk are skipped. This is the recovery command to run after a fresh clone when tracked repo directories were gitignored and are missing locally.
+Skills with `tracked: true` are cloned with full git history (same as `--track`), so `skillshare update` works correctly. Skills already present on disk are skipped unless a project lock pin has changed. This is the recovery command to run after a fresh clone when tracked repo directories were gitignored and are missing locally. With `--json`, existing copies are skipped even when the project lock points to a different commit; add `--force` to follow that pin.
 
 :::tip push/pull vs install from config
 `push`/`pull` syncs actual skill **files** via git. `install` from config re-downloads from **source URLs**. They're complementary — see [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync#alternative-install-from-config) for when to use which.
@@ -293,7 +293,7 @@ See [Project Setup](/docs/how-to/sharing/project-setup) for the full guide.
 |------|-------|-------------|
 | `--name <name>` | | Override installed name when exactly one skill is installed |
 | `--into <dir>` | | Install into subdirectory (e.g. `--into frontend` or `--into frontend/react`) |
-| `--force` | `-f` | Overwrite existing skill; override audit blocking and cross-path duplicate check |
+| `--force` | `-f` | Overwrite existing skill; override audit blocking from findings (not a failed scan) and cross-path duplicate check |
 | `--update` | `-u` | Update if exists (git pull or reinstall) |
 | `--branch <ref>` | `-b` | Git branch, tag, or commit SHA to install from (default: remote default branch) |
 | `--track` | `-t` | Keep `.git` for tracked repos. Cannot combine with `--all`, `--yes`, `--skill`, or `--agent`. |
@@ -309,7 +309,7 @@ See [Project Setup](/docs/how-to/sharing/project-setup) for the full guide.
 | `--project` | `-p` | Install into project `.skillshare/skills/` |
 | `--global` | `-g` | Install into global `~/.config/skillshare/skills/` |
 | `--dry-run` | `-n` | Preview only |
-| `--json` | | Output as JSON (permits overwriting existing skills like `--force`, but audit blocking still applies; also implies non-interactive selection when no `--skill`/`--agent` filter is given) |
+| `--json` | | Output as noninteractive JSON; selects all when no `--skill`/`--agent` filter is given. Existing skills and agents require `--force` to overwrite; audit blocking still applies |
 
 ## JSON Output
 
@@ -317,7 +317,9 @@ See [Project Setup](/docs/how-to/sharing/project-setup) for the full guide.
 skillshare install anthropics/skills --json
 ```
 
-For an explicit, untracked skill source, add `--dry-run --json` to read a `planned` array of `{name, path}` objects without installing. Names are the CLI's install names; Git paths are relative to the repository root (including any selected subdirectory), and a local skill uses `.`. The plan follows discovery, `.skillignore`, and selection rules. Without a selection filter, JSON mode selects all skills. `skills` still reports only installed names and stays empty in a dry run. A discovered source with no selected skills returns `planned: []`; tracked and config-based installs do not provide this field.
+JSON output alone preserves existing skills and agents. Pass `--force` explicitly to overwrite them. The `skipped` array reports names skipped by duplicate checks; other conflicts return an `error` or appear in `failed`. The `skills` array contains installed names only.
+
+For an explicit, untracked skill source, add `--dry-run --json` to read a `planned` array of `{name, path}` objects without installing. Names are the CLI's install names; Git paths are relative to the repository root (including any selected subdirectory), and a local skill uses `.`. The plan follows discovery, `.skillignore`, and selection rules. Without a selection filter, JSON mode selects all skills. `skills` still reports only installed names and stays empty in a dry run. A discovered source with no selected skills returns `planned: []`; tracked and config-based installs do not provide this field. Existing destinations and cross-path duplicates do not block this read-only preview.
 
 ```json
 {
@@ -325,6 +327,7 @@ For an explicit, untracked skill source, add `--dry-run --json` to read a `plann
   "tracked": false,
   "dry_run": false,
   "skills": ["pdf", "commit", "review"],
+  "skipped": [],
   "failed": [],
   "duration": "2.345s"
 }
@@ -343,6 +346,7 @@ skillshare install anthropics/skills --json --into frontend
   "dry_run": false,
   "into": "frontend",
   "skills": ["pdf", "commit"],
+  "skipped": [],
   "failed": [],
   "duration": "1.890s"
 }
@@ -360,6 +364,7 @@ skillshare install github.com/user/agents --kind agent --json
   "tracked": false,
   "dry_run": false,
   "skills": ["reviewer", "tutor"],
+  "skipped": [],
   "failed": [],
   "duration": "1.234s"
 }
@@ -373,6 +378,7 @@ When the install fails as a whole, for example when the security audit blocks a 
   "tracked": true,
   "dry_run": false,
   "skills": [],
+  "skipped": [],
   "failed": [],
   "duration": "0.412s",
   "error": "blocked by security audit (use --force to override)"
@@ -396,6 +402,8 @@ skillshare install anthropics/skills/skills/pdf
 ```
 
 Use `--update` to refresh, or `--force` to overwrite.
+
+Only the same skill of that repo is skipped. If another skill of the same repo would take the folder, for example through `--name`, the install fails as a conflict, as described [below](#conflict-with-different-repo).
 
 `--update` on a tracked repo behind a [followed source link](../targets/configuration.md#follow_source_links) refuses to pull while that checkout has uncommitted changes. Commit or stash first.
 
@@ -625,6 +633,7 @@ install-skills:
 Every skill is automatically scanned for security threats during installation:
 
 - Findings at or above `audit.block_threshold` **block installation** (default: `CRITICAL`)
+- If the scan cannot run (for example, `audit-rules.yaml` has an invalid regex), the install is blocked and removed. `--force` does not override this; fix the cause or use `--skip-audit`
 - Lower findings are shown as warnings and include risk score context
 - `audit.block_threshold` only controls block level; it does **not** disable scanning
 - There is no config switch to always skip audit; use `--skip-audit` per command when needed
@@ -654,7 +663,7 @@ skillshare install suspicious-skill --threshold high
 skillshare install suspicious-skill -T h
 ```
 
-Use `--force` to override block decisions, or `--skip-audit` to bypass scanning entirely. See [audit](/docs/reference/commands/audit) for scanning details.
+Use `--force` to override block decisions from findings, or `--skip-audit` to bypass scanning entirely. See [audit](/docs/reference/commands/audit) for scanning details.
 
 The install decision uses **finding severity vs threshold**. Risk score/label is reported for context and does not by itself block installs. By default, audit findings are shown as a compact summary (grouped by severity and message). Use `--audit-verbose` to see the full list.
 
@@ -664,6 +673,7 @@ Tracked repos use the same threshold model, but the scan scope and failure handl
 
 - Fresh `--track` install scans the **entire cloned repository** (not just one skill folder)
 - Findings at/above threshold block install unless `--force` is used
+- A scan that cannot run also blocks install, even with `--force`
 - On blocked fresh install, skillshare automatically removes the cloned repo from source
 - If automatic cleanup fails, install returns an explicit error and tells you to remove the path manually
 

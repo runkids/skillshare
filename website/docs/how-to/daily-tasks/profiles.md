@@ -71,8 +71,9 @@ locally active definition follows that name in local state.
 **Delete profile** requires confirmation and is disabled for the active profile.
 Switch away first. If it becomes active elsewhere before your request arrives,
 the server refuses deletion. Deleting an inactive definition leaves installed
-source skills and target files in place. Definitions with unsupported fields are
-shown with a reason instead of opening an editor that might overwrite them.
+source skills and target files in place. Definitions with unsupported fields show
+their reason and offer only rename or inactive delete. Their unknown contents and
+comments survive rename; pattern editing and activation remain unavailable.
 
 ## Switch and recover {#switch}
 

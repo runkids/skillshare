@@ -32,6 +32,7 @@ type installJSONOutput struct {
 	DryRun   bool                   `json:"dry_run"`
 	Into     string                 `json:"into,omitempty"`
 	Skills   []string               `json:"skills"`
+	Skipped  []string               `json:"skipped"`
 	Failed   []string               `json:"failed"`
 	Duration string                 `json:"duration"`
 	Error    string                 `json:"error,omitempty"`
@@ -44,6 +45,7 @@ type installLogSummary struct {
 	SkillCount      int
 	InstalledSkills []string
 	InstalledPaths  []string `json:"-"`
+	SkippedSkills   []string
 	FailedSkills    []string
 	PlannedSkills   []installPlannedSkill
 	DryRun          bool
@@ -57,7 +59,7 @@ type installLogSummary struct {
 type installBatchSummary struct {
 	InstalledSkills []string
 	InstalledPaths  []string `json:"-"`
-	SkippedSkills   int
+	SkippedSkills   []string
 	FailedSkills    []string
 	Failures        []install.SkillFailure // why each FailedSkills entry failed
 	Err             error                  // the batch could not start, e.g. a refused --into folder
@@ -256,8 +258,7 @@ func applyInstallJSONDefaults(parsed *installArgs) {
 	if !parsed.jsonOutput {
 		return
 	}
-	// Force only: --json must not silently override the audit gate.
-	parsed.opts.Force = true
+	// Output format grants neither overwrite consent nor an audit override.
 	if !parsed.opts.HasSkillFilter() && !parsed.opts.HasAgentFilter() {
 		parsed.opts.All = true
 	}
@@ -353,8 +354,8 @@ func resolveInstallSource(sourceArg string, opts install.InstallOptions, cfg *co
 		return source, false, nil
 	}
 
-	// Try resolving from installed skill metadata if update/force
-	if opts.Update || opts.Force {
+	// Try resolving from installed skill metadata if update/force/dry-run
+	if opts.Update || opts.Force || opts.DryRun {
 		resolvedSource, resolveErr := resolveSkillFromName(sourceArg, cfg)
 		if resolveErr != nil {
 			return nil, false, fmt.Errorf("invalid source: %w", err)
@@ -427,7 +428,7 @@ func cmdInstall(args []string) error {
 		if summary.Mode == "" {
 			summary.Mode = "project"
 		}
-		logInstallOp(config.ProjectConfigPath(cwd), rest, start, err, summary)
+		logInstallOp(config.ProjectConfigPath(cwd), parsed.sourceArg, start, err, summary)
 		if parsed.jsonOutput {
 			return jsonWriteResult(summary, err)
 		}
@@ -485,8 +486,8 @@ func cmdInstall(args []string) error {
 	// No source argument: install from global config
 	if parsed.sourceArg == "" {
 		summary, err := installFromGlobalConfig(cfg, parsed.opts)
-		printProfileHint(installedProfileHint(cfg, cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), summary.InstalledPaths), parsed.jsonOutput)
-		logInstallOp(config.ConfigPath(), rest, start, err, summary)
+		printProfileHint(installedProfileHint(cfg, modeGlobal, cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), summary.InstalledPaths), parsed.jsonOutput)
+		logInstallOp(config.ConfigPath(), parsed.sourceArg, start, err, summary)
 		if parsed.jsonOutput {
 			return jsonWriteResult(summary, err)
 		}
@@ -506,7 +507,7 @@ func cmdInstall(args []string) error {
 		source.Raw = source.Path
 	}
 	if err != nil {
-		logInstallOp(config.ConfigPath(), rest, start, err, installLogSummary{
+		logInstallOp(config.ConfigPath(), parsed.sourceArg, start, err, installLogSummary{
 			Source: parsed.sourceArg,
 			Mode:   "global",
 		})
@@ -544,8 +545,8 @@ func cmdInstall(args []string) error {
 				ui.Warning("Failed to reconcile global skills config: %v", rErr)
 			}
 		}
-		printProfileHint(installedProfileHint(cfg, cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), summary.InstalledPaths), parsed.jsonOutput)
-		logInstallOp(config.ConfigPath(), rest, start, err, summary)
+		printProfileHint(installedProfileHint(cfg, modeGlobal, cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), summary.InstalledPaths), parsed.jsonOutput)
+		logInstallOp(config.ConfigPath(), parsed.sourceArg, start, err, summary)
 		if parsed.jsonOutput {
 			return jsonWriteResult(summary, err)
 		}
@@ -567,8 +568,8 @@ func cmdInstall(args []string) error {
 			ui.Warning("Failed to reconcile global skills config: %v", rErr)
 		}
 	}
-	printProfileHint(installedProfileHint(cfg, cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), summary.InstalledPaths), parsed.jsonOutput)
-	logInstallOp(config.ConfigPath(), rest, start, err, summary)
+	printProfileHint(installedProfileHint(cfg, modeGlobal, cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), summary.InstalledPaths), parsed.jsonOutput)
+	logInstallOp(config.ConfigPath(), parsed.sourceArg, start, err, summary)
 	if parsed.jsonOutput {
 		return jsonWriteResult(summary, err)
 	}
@@ -583,6 +584,7 @@ func installOutputJSON(summary installLogSummary, start time.Time, installErr er
 		DryRun:   summary.DryRun,
 		Into:     summary.Into,
 		Skills:   summary.InstalledSkills,
+		Skipped:  summary.SkippedSkills,
 		Failed:   summary.FailedSkills,
 		Duration: formatDuration(start),
 	}
@@ -595,7 +597,9 @@ func installOutputJSON(summary installLogSummary, start time.Time, installErr er
 	return writeJSONResult(&output, installErr)
 }
 
-func logInstallOp(cfgPath string, args []string, start time.Time, cmdErr error, summary installLogSummary) {
+// logInstallOp logs sourceArg, the source as typed, or summary.Source when
+// none was given.
+func logInstallOp(cfgPath, sourceArg string, start time.Time, cmdErr error, summary installLogSummary) {
 	status := statusFromErr(cmdErr)
 	if len(summary.InstalledSkills) > 0 && len(summary.FailedSkills) > 0 {
 		status = "partial"
@@ -603,8 +607,8 @@ func logInstallOp(cfgPath string, args []string, start time.Time, cmdErr error, 
 	e := oplog.NewEntry("install", status, time.Since(start))
 	fields := map[string]any{}
 	source := summary.Source
-	if len(args) > 0 {
-		source = args[0]
+	if sourceArg != "" {
+		source = sourceArg
 	}
 	if source != "" {
 		fields["source"] = source
@@ -639,6 +643,9 @@ func logInstallOp(cfgPath string, args []string, start time.Time, cmdErr error, 
 			fields["skill_count"] = len(summary.InstalledSkills)
 		}
 	}
+	if len(summary.SkippedSkills) > 0 {
+		fields["skipped_skills"] = summary.SkippedSkills
+	}
 	if len(summary.FailedSkills) > 0 {
 		fields["failed_skills"] = summary.FailedSkills
 	}
@@ -666,7 +673,7 @@ func printInstallHelp() {
 			{"--name <name>", "Override installed name when exactly one skill is installed"},
 			{"--kind <kind>", "Restrict discovery/install to skill or agent"},
 			{"--into <dir>", "Install into subdirectory (e.g. \"frontend\" or \"frontend/react\")"},
-			{"-f, --force", "Overwrite existing skill; also continue if audit would block"},
+			{"-f, --force", "Overwrite existing skill; also continue if audit findings would block"},
 			{"-u, --update", "Update existing (git pull if possible, else reinstall)"},
 			{"-b, --branch <ref>", "Git branch, tag, or commit SHA to install from (default: remote default)"},
 			{"-t, --track", "Keep a Git checkout for updates; no selection prompt.\nCannot combine with --all, --yes, --skill, or --agent"},
@@ -680,7 +687,7 @@ func printInstallHelp() {
 			{"--audit-verbose", "Show full audit finding lines (default: compact summary)"},
 			{"-T, --audit-threshold, --threshold <t>", ""},
 			{"", "Block install by severity at/above: critical|high|medium|low|info\n(also supports c|h|m|l|i)"},
-			{"--json", "Noninteractive JSON; permits overwrite and selects all unless\n--skill/--agent is given. Audit blocking still applies"},
+			{"--json", "Noninteractive JSON; selects all unless --skill/--agent is given.\nExisting items require --force to overwrite; audit blocking still applies"},
 			{"-p, --project", "Use project-level config in current directory"},
 			{"-g, --global", "Use global config (~/.config/skillshare)"},
 		}},

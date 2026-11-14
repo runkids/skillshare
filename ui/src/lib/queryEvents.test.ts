@@ -71,7 +71,7 @@ const SM: Label[] = ['syncMatrix', 'syncMatrixClaude'];
 const TARGETS: Label[] = [...T, 'projects', 'config', 'overview', 'diff', 'syncMatrix'];
 
 const stale: Record<QueryEvent | 'profilesChanged', Label[] | { args: string[]; stale: Label[] }> = {
-  profilesChanged: ['profiles', ...S, 'diff', 'diffClaude', ...SM],
+  profilesChanged: ['profiles', 'config', 'doctor', ...S, 'diff', 'diffClaude', ...SM],
   profileSwitched: [...S, ...T, 'diff', 'diffClaude', ...SM, 'overview', 'profiles', 'backups'],
   skillsChanged: [...S, 'overview', 'diff'],
   skillBranchSwitched: [...S, 'overview', 'diff', 'config'],

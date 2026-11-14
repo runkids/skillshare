@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/profile"
 	"skillshare/internal/profileapply"
 	"skillshare/internal/projects"
 	"skillshare/internal/resource"
@@ -255,6 +256,15 @@ func (s *Server) syncResourcesPrepared(start time.Time, dryRun, force bool, kind
 		}
 		sourceIncomplete = walk.Follow.Incomplete()
 		warnings = append(warnings, ssync.SourceLinkWarnings(walk, sourceIncomplete)...)
+		if !sourceIncomplete {
+			catalog, state := profile.Parse(&s.cfg.Profiles), s.cfg.ProfileState()
+			if s.IsProjectMode() && s.projectCfg != nil {
+				catalog, state = profile.Parse(&s.projectCfg.Profiles), s.projectCfg.ProfileState()
+			}
+			if warning := ssync.ProfileUnmatchedWarning(catalog, state, allSkills); warning != "" {
+				warnings = append(warnings, warning)
+			}
+		}
 
 		if len(allSkills) == 0 {
 			warnings = append(warnings, "source directory is empty (0 skills)")
@@ -549,11 +559,16 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 		s.mu.RUnlock()
 		return
 	}
-	source := s.cfg.EffectiveSkillsSource()
+	source := s.skillsSource()
 	agentsSource := s.agentsSource()
 	globalMode := s.cfg.Mode
 	ignorePatterns := ssync.EffectiveFileIgnorePatterns(s.cfg.Ignore)
 	targets := s.cloneTargets()
+	preview := s.snapshotProfileDiff(targets)
+	walk := s.skillsWalk()
+	if s.IsProjectMode() {
+		ignorePatterns = ssync.EffectiveFileIgnorePatterns(s.projectCfg.Ignore)
+	}
 	conflicts, _ := folderConflicts(targets, s.IsProjectMode(), globalMode, nil)
 	s.mu.RUnlock()
 
@@ -563,7 +578,7 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 
 	filterTarget := r.URL.Query().Get("target")
 
-	discovered, ignoreStats, err := ssync.DiscoverSourceSkillsWithStats(source, s.skillsWalk())
+	discovered, ignoreStats, err := ssync.DiscoverSourceSkillsWithStats(source, walk)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -574,7 +589,7 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 		if filterTarget != "" && filterTarget != name {
 			continue
 		}
-		diffs = append(diffs, s.computeTargetDiff(name, target, discovered, globalMode, source, ignorePatterns))
+		diffs = append(diffs, s.computeTargetDiff(name, target, discovered, globalMode, source, ignorePatterns, preview))
 	}
 
 	diffs = s.appendAgentDiffs(diffs, targets, agentsSource, filterTarget)

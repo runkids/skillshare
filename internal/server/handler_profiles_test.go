@@ -629,6 +629,77 @@ func TestProfilesAPI_DefinitionRefusals(t *testing.T) {
 	}
 }
 
+func TestProfilesAPI_FutureDefinitionRawRepair(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, active := range []bool{false, true} {
+			t.Run(fmt.Sprintf("project=%v/active=%v", project, active), func(t *testing.T) {
+				f := newProfileRouteFixture(t, project)
+				raw, err := os.ReadFile(f.path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				profileFixtureWrite(t, f.path, strings.Replace(string(raw), "future: true", "future: true # keep future", 1))
+				statePath, _, err := config.ProfilePaths(f.path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				name := "work"
+				if active {
+					name = "broken"
+				}
+				if err := profile.WriteState(statePath, profile.State{Version: 1, Active: name, Pending: true}); err != nil {
+					t.Fatal(err)
+				}
+				profileFixtureWrite(t, filepath.Join(f.target, "authored.txt"), "repair never syncs")
+				protected := profileRouteTree(t, []string{f.source, f.target})
+				out := profileDefinitionRequest(t, f, http.MethodPut, "/api/profiles/broken", `{"name":"renamed"}`, false)
+				if !*out.Changed || *out.NeedsSync {
+					t.Fatal("raw rename changed selection", out)
+				}
+				v, err := profileapply.Load(f.scope)
+				if active {
+					name = "renamed"
+				}
+				raw, readErr := os.ReadFile(f.path)
+				if err != nil || readErr != nil || v.State != (profile.State{Version: 1, Active: name, Pending: true}) || v.Catalog.Definitions["renamed"].Usable || !strings.Contains(string(raw), "future: true # keep future") {
+					t.Fatalf("raw rename lost contents/state: %+v %v %v", v, err, readErr)
+				}
+				if _, exists := v.Catalog.Definitions["broken"]; exists {
+					t.Fatal("old definition remained after rename")
+				}
+				out = profileDefinitionRequest(t, f, http.MethodPut, "/api/profiles/renamed", `{"name":"renamed"}`, false)
+				if *out.Changed || *out.NeedsSync {
+					t.Fatal("same-name raw rename was not a no-op", out)
+				}
+				for _, body := range []string{`{"description":"changed"}`, `{"skills":{"include":["alpha"]}}`, `{"name":"again","skills":{"include":["alpha"]}}`} {
+					before := profileRouteTree(t, f.roots)
+					profileDefinitionRequest(t, f, http.MethodPut, "/api/profiles/renamed", body, true)
+					if !maps.Equal(before, profileRouteTree(t, f.roots)) {
+						t.Fatal("semantic replacement changed unusable definition", body)
+					}
+				}
+				before := profileRouteTree(t, f.roots)
+				profileDefinitionRequest(t, f, http.MethodDelete, "/api/profiles/renamed", "", active)
+				if active && !maps.Equal(before, profileRouteTree(t, f.roots)) {
+					t.Fatal("active delete refusal changed state")
+				}
+				if !active {
+					v, err := profileapply.Load(f.scope)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if _, exists := v.Catalog.Definitions["renamed"]; exists {
+						t.Fatal("inactive future definition was not deleted")
+					}
+				}
+				if !maps.Equal(protected, profileRouteTree(t, []string{f.source, f.target})) {
+					t.Fatal("raw repair changed source or targets")
+				}
+			})
+		}
+	}
+}
+
 func TestProfilesAPI_DefinitionInvalidBodies(t *testing.T) {
 	for _, project := range []bool{false, true} {
 		for _, tc := range []struct{ method, path, body string }{
