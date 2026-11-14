@@ -78,7 +78,9 @@ skillshare mcp serve --check [--target NAME]         # List skipped, editable an
   credential binds one configured profile; require it on every MCP/index/file request,
   even loopback. Unbound profiles are inaccessible; no credential has no fallback.
   Every definition preloads, and malformed/unknown/duplicate bindings or unusable
-  definitions fail safely. Do not also set `SKILLSHARE_MCP_TOKEN`. `--target` only
+  definitions fail safely. Credentials ending in spaces or tabs (SP/HTAB), or containing
+  forbidden HTTP header bytes, are rejected without printing their values.
+  Do not also set `SKILLSHARE_MCP_TOKEN`. `--target` only
   narrows membership. Startup/check/read never switches active state or syncs targets;
   broken local active state does not affect explicit bindings. Restart for definition
   or credential changes. Preview IDs are profile-private; shared skills have common

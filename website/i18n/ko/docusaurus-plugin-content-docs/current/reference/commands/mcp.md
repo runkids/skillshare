@@ -939,7 +939,7 @@ skillshare mcp serve -g --check \
   --profile-token writing=WRITING_TOKEN --profile-token coding=CODING_TOKEN
 ```
 
-선택한 config의 `profiles`에 `writing`과 `coding`을 정의합니다. project 정의에는 `-p`를 사용합니다. 시작할 때 모든 정의를 읽으며, 바인딩이 없는 정의라도 사용할 수 없으면 시작에 실패합니다. 바인딩이 없는 프로필에는 접근할 수 없습니다. `--http` 또는 `--check`가 필요하며 `SKILLSHARE_MCP_TOKEN`과 함께 사용할 수 없습니다. 없거나 빈 환경 변수, 중복 이름·자격 증명, 알 수 없는 프로필은 거부됩니다. 진단에는 토큰 값이 출력되지 않습니다.
+선택한 config의 `profiles`에 `writing`과 `coding`을 정의합니다. project 정의에는 `-p`를 사용합니다. 시작할 때 모든 정의를 읽으며, 바인딩이 없는 정의라도 사용할 수 없으면 시작에 실패합니다. 바인딩이 없는 프로필에는 접근할 수 없습니다. `--http` 또는 `--check`가 필요하며 `SKILLSHARE_MCP_TOKEN`과 함께 사용할 수 없습니다. 없거나 빈 환경 변수, 중복 이름·자격 증명, 공백이나 탭(SP/HTAB)으로 끝나거나 HTTP 헤더에서 금지된 바이트를 포함하는 자격 증명, 알 수 없는 프로필은 거부됩니다. 진단에는 토큰 값이 출력되지 않습니다.
 
 루프백을 포함한 **모든** MCP·인덱스·파일 요청에 `Authorization: Bearer <token>`을 보냅니다. 자격 증명이 없으면 `401`이며 활성 프로필이나 전체 목록으로 대체하지 않습니다. URL이나 추가 헤더로 다른 프로필을 선택할 수 없습니다. 인증된 응답에는 private 캐시 정책을 적용합니다. 루프백 외부에서는 TLS 또는 신뢰할 수 있는 네트워크용 명시적 insecure 옵션이 필요합니다.
 

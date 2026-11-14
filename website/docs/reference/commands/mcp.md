@@ -1036,8 +1036,10 @@ Define `writing` and `coding` in the selected config's `profiles` section. Use `
 for project definitions. Every configured profile is loaded at startup; an unusable
 one fails startup even without a binding. Unbound profiles remain inaccessible.
 Bindings require `--http` or `--check`; do not also set `SKILLSHARE_MCP_TOKEN`.
-Missing/empty token variables, duplicate names or credential values, and unknown
-profiles fail with diagnostics that name profiles or variables without printing tokens.
+Missing/empty token variables, duplicate names or credential values, credentials
+ending in spaces or tabs (SP/HTAB) or containing forbidden HTTP header bytes, and
+unknown profiles fail with diagnostics that name profiles or variables without
+printing tokens.
 
 Send `Authorization: Bearer <token>` on **every** MCP, Executor index and file
 request, including loopback requests. No credential means `401`, with no fallback

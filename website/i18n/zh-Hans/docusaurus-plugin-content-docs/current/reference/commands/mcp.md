@@ -919,7 +919,7 @@ skillshare mcp serve -g --check \
   --profile-token writing=WRITING_TOKEN --profile-token coding=CODING_TOKEN
 ```
 
-在所选配置的 `profiles` 中定义 `writing` 和 `coding`，项目定义使用 `-p`。启动时加载所有定义；即使未绑定的定义不可用，也会导致启动失败。未绑定的配置档无法访问。必须使用 `--http` 或 `--check`，不能同时设置 `SKILLSHARE_MCP_TOKEN`。缺失或空的环境变量、重复名称或凭据、不存在的配置档都会被拒绝。诊断只显示配置档或变量名，不输出 token 值。
+在所选配置的 `profiles` 中定义 `writing` 和 `coding`，项目定义使用 `-p`。启动时加载所有定义；即使未绑定的定义不可用，也会导致启动失败。未绑定的配置档无法访问。必须使用 `--http` 或 `--check`，不能同时设置 `SKILLSHARE_MCP_TOKEN`。缺失或空的环境变量、重复名称或凭据、以空格或制表符（SP/HTAB）结尾或包含 HTTP 标头禁用字节的凭据，以及不存在的配置档都会被拒绝。诊断只显示配置档或变量名，不输出 token 值。
 
 在**每个** MCP、索引及文件请求中发送 `Authorization: Bearer <token>`，包括 loopback。没有凭据会返回 `401`，不会回退到本地活动配置档或完整目录。URL 参数和额外标头不能选择其他配置档。认证响应使用 private 缓存策略。非 loopback 仍需 TLS 或显式允许可信网络上的 insecure HTTP。
 

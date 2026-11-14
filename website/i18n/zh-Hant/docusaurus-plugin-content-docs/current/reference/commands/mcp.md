@@ -892,7 +892,7 @@ skillshare mcp serve -g --check \
   --profile-token writing=WRITING_TOKEN --profile-token coding=CODING_TOKEN
 ```
 
-在所選設定的 `profiles` 中定義 `writing` 和 `coding`，project 定義使用 `-p`。啟動時載入所有定義；即使未綁定的定義無法使用，也會導致啟動失敗。未綁定的設定檔無法存取。必須使用 `--http` 或 `--check`，不能同時設定 `SKILLSHARE_MCP_TOKEN`。缺少或空白的環境變數、重複名稱或憑證、不存在的設定檔都會遭到拒絕。診斷只顯示設定檔或變數名稱，不輸出 token 值。
+在所選設定的 `profiles` 中定義 `writing` 和 `coding`，project 定義使用 `-p`。啟動時載入所有定義；即使未綁定的定義無法使用，也會導致啟動失敗。未綁定的設定檔無法存取。必須使用 `--http` 或 `--check`，不能同時設定 `SKILLSHARE_MCP_TOKEN`。缺少或空白的環境變數、重複名稱或憑證、以空格或定位字元（SP/HTAB）結尾或包含 HTTP 標頭禁用位元組的憑證，以及不存在的設定檔都會遭到拒絕。診斷只顯示設定檔或變數名稱，不輸出 token 值。
 
 在**每個** MCP、索引及檔案請求中傳送 `Authorization: Bearer <token>`，包括 loopback。沒有憑證會回傳 `401`，不會退回本機使用中的設定檔或完整目錄。URL 參數和額外標頭不能選取其他設定檔。驗證後的回應使用 private 快取政策。非 loopback 仍需 TLS 或明確允許可信網路上的 insecure HTTP。
 
