@@ -221,7 +221,12 @@ func (s *Service) planCommands(ctx context.Context, r Request, d *document) ([]C
 		c := Change{Name: name, Commands: true, Action: "install"}
 		cp := &commandPlan{Before: cloneCommandReceipt(before)}
 		c.command = cp
-		fail := func(err error) { c.Action = "skip"; c.Failed = true; c.Message = err.Error() }
+		fail := func(err error) {
+			c.Action = "skip"
+			c.Failed = true
+			c.Message = err.Error()
+			c.MessageKey, c.MessageArgs = ErrorKey(err)
+		}
 		if remove {
 			if before == nil {
 				continue
@@ -285,6 +290,10 @@ func (s *Service) planCommands(ctx context.Context, r Request, d *document) ([]C
 					}
 				}
 			}
+			if after != nil && len(after.Links) == 0 {
+				remove, c.Action, c.Binding = true, "remove", after.Binding
+				after = nil
+			}
 			if after != nil {
 				cp.After = after
 				c.Binding = after.Binding
@@ -307,14 +316,19 @@ func (s *Service) planCommands(ctx context.Context, r Request, d *document) ([]C
 				fail(err)
 			}
 		}
-		if runtime.GOOS == "windows" {
-			fail(fmt.Errorf("plugin command publication is unsupported on Windows"))
+		platform := s.commandPlatform
+		if platform == "" {
+			platform = runtime.GOOS
 		}
-		if r.Action == "check" && (c.Action == "install" || c.Action == "update") {
+		if platform == "windows" {
+			fail(agentError{key: "plugins.error.commandsWindows", message: "plugin command publication is unsupported on Windows"})
+		}
+		if r.Action == "check" && (c.Action == "install" || c.Action == "update" || c.Action == "remove") {
 			c.Action = "update-available"
 		}
 		if c.Message == "" {
 			c.Message = fmt.Sprintf("Manage package commands in %s; add this directory to PATH to invoke them.", bin)
+			c.MessageKey, c.MessageArgs = "plugins.note.commandsBin", map[string]string{"bin": bin}
 		}
 		changes = append(changes, c)
 	}
@@ -369,6 +383,10 @@ func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out
 		if resultErr != nil {
 			out.Status = "failed"
 			out.Message = resultErr.Error()
+			out.MessageKey, out.MessageArgs = ErrorKey(resultErr)
+			if c.Action == "skip" {
+				out.MessageKey, out.MessageArgs = c.MessageKey, c.MessageArgs
+			}
 		}
 	}()
 	if c.Action == "skip" {
@@ -409,6 +427,7 @@ func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out
 	if c.Action == "noop" {
 		out.Status = "unchanged"
 		out.Message = c.Message
+		out.MessageKey, out.MessageArgs = c.MessageKey, c.MessageArgs
 		return out, nil
 	}
 	pending := cloneCommandReceipt(after)
@@ -447,7 +466,18 @@ func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out
 			}
 		}
 		if snapshot != "" {
-			resultErr = errors.Join(resultErr, finishSnapshot(snapshot, resultErr == nil))
+			finish := s.commandFinish
+			if finish == nil {
+				finish = finishSnapshot
+			}
+			cleanupErr := finish(snapshot, resultErr == nil)
+			if cleanupErr != nil && resultErr == nil {
+				saved := d.state.Commands[c.Name]
+				saved.Pending = pending
+				d.state.Commands[c.Name] = saved
+				cleanupErr = errors.Join(cleanupErr, s.saveState(d))
+			}
+			resultErr = errors.Join(resultErr, cleanupErr)
 		}
 	}()
 	if after != nil {
@@ -456,8 +486,14 @@ func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out
 			return out, err
 		}
 		if _, err := os.Stat(snapshot + ".previous"); err == nil {
-			snapshot = ""
-			return out, fmt.Errorf("unfinished command snapshot replacement; inspect before retrying")
+			if local.Applied == nil || !commandBindingEqual(local.Applied.Binding, after.Binding) || !s.ownedCommandSnapshot(after.Binding) {
+				snapshot = ""
+				return out, fmt.Errorf("unfinished command snapshot replacement; inspect before retrying")
+			}
+			if err := finishSnapshot(snapshot, true); err != nil {
+				snapshot = ""
+				return out, err
+			}
 		}
 		if _, err := s.materialize(ctx, after.Binding, ""); err != nil {
 			return out, err
@@ -531,13 +567,16 @@ func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out
 	}
 	out.Status = "installed"
 	out.Message = c.Message
+	out.MessageKey, out.MessageArgs = c.MessageKey, c.MessageArgs
 	if after == nil {
 		out.Status = "removed"
 		out.Message = "Removed owned package commands."
+		out.MessageKey, out.MessageArgs = "plugins.note.commandsRemoved", nil
 	}
 	if len(preserved) > 0 {
 		out.Message += " Preserved operator replacements: " + strings.Join(preserved, ", ") + "."
 		out.Guidance = true
+		out.MessageKey, out.MessageArgs = "plugins.note.commandsPreserved", map[string]string{"names": strings.Join(preserved, ", ")}
 	}
 	return out, nil
 }

@@ -450,3 +450,30 @@ it.each([undefined, false])('folds an incidental noop message away without guida
  expect(preview.idle).toEqual([{name: 'demo', target: 'omp'}]);
  expect(changedRuns(t, [{...note, status: 'unchanged'}])).toEqual([]);
 });
+
+it('keeps command-only updates selectable and retries package failure without a successful native target', async () => {
+ const inventory: PluginInventory = { packages: { demo: { commands: { bin: '/fixture/bin', names: ['demo'], binding: { id: '', source: 'owner/repo', digest: 'old' } }, bindings: { codex: { id: 'demo@market' } } } }, hosts: [], targetDefinitions: [{ target: 'codex', label: 'Codex', project: false, operations: ['update'] }] };
+ const reviewed = plan('checked', { target: '', commands: true, id: '', action: 'update-available', binding: { id: '', source: 'owner/repo', digest: 'new' } }, { action: 'update-available' });
+ const updates = updatesFound(reviewed);
+ expect(updatesPending(updates, inventory)).toEqual([{ name: 'demo', targets: ['', 'codex'] }]);
+ const h = renderHook(() => usePluginsFlow({ t, inventory, refresh: vi.fn(), onPreviewed: vi.fn() }));
+ checks({ name: 'demo', plan: reviewed });
+ await act(() => h.result.current.check());
+ const applying = plan('apply', { action: 'update' }, { target: '', commands: true, id: '', action: 'update' });
+ streams({ name: 'demo', plan: applying, result: { results: [{ name: 'demo', target: 'codex', status: 'installed' }, { name: 'demo', target: '', commands: true, status: 'failed', message: 'fixture conflict' }] }, failure: 'fixture conflict', stale: false });
+ await act(() => h.result.current.updateMany([{ name: 'demo', targets: ['', 'codex'] }]));
+ expect(h.result.current.pendingUpdates).toEqual([{ name: 'demo', targets: [''] }]);
+ expect(h.result.current.batch?.[0].failed).toEqual(['']);
+ expect(vi.mocked(pluginsApi.update).mock.lastCall?.[0]).toEqual([{ name: 'demo', targets: ['codex'], commands: true, seen: updates.demo }]);
+ streams({ name: 'demo', plan: plan('retry', { target: '', commands: true, id: '', action: 'update' }), result: { results: [{ name: 'demo', target: '', commands: true, status: 'installed' }] }, failure: '', stale: false });
+ await act(() => h.result.current.updateMany([{ name: 'demo', targets: [''] }]));
+ expect(vi.mocked(pluginsApi.update).mock.lastCall?.[0]).toEqual([{ name: 'demo', targets: [], commands: true, seen: { '': updates.demo[''] } }]);
+ expect(h.result.current.pendingUpdates).toEqual([]);
+});
+
+
+it('clears a checked command update when the last declaration is removed', () => {
+ const checked = plan('checked', { target: '', commands: true, action: 'update-available', binding: { id: '', source: 'owner/repo', digest: 'new' } });
+ const removal = plan('remove', { target: '', commands: true, action: 'remove' });
+ expect(updatesLeft(updatesFound(checked), removal, { result: { results: [{ name: 'demo', target: '', commands: true, status: 'removed' }] }, failure: '' })).toEqual({ demo: {} });
+});

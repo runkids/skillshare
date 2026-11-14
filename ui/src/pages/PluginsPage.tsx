@@ -88,7 +88,7 @@ export default function PluginsPage() {
   const openMenu = (e: React.MouseEvent<HTMLButtonElement>, name: string) => {
     const r = e.currentTarget.getBoundingClientRect();
     const bindings = data?.packages[name]?.bindings ?? {};
-    const source = Object.values(bindings).find((b) => b?.source)?.source;
+    const source = data?.packages[name]?.commands?.binding.source ?? Object.values(bindings).find((b) => b?.source)?.source;
     // Not every Agent can be updated from here, and a deselected one has nothing installed; the preview names the ones that are.
     const updatable = Object.keys(bindings).filter((key) => bindings[key]?.sync !== false && pluginTargets[key]?.operations.includes('update'));
     setMenu({
@@ -96,8 +96,8 @@ export default function PluginsPage() {
       y: r.bottom + 4,
       items: [
         { key: 'sync', label: t('plugins.syncOne'), icon: <ChevronRight size={14} />, onSelect: () => begin({ action: 'sync', name }, name) },
-        ...(updatable.length > 0 ? [
-          { key: 'update', label: t('plugins.updateLatest'), icon: <RefreshCw size={14} />, onSelect: () => begin({ action: 'update', name, targets: updatable }, name) },
+        ...((updatable.length > 0 || data?.packages[name]?.commands) ? [
+          { key: 'update', label: t('plugins.updateLatest'), icon: <RefreshCw size={14} />, onSelect: () => begin({ action: 'update', name, targets: updatable, ...(data?.packages[name]?.commands ? { commands: true } : {}) }, name) },
         ] : []),
         // Only a plugin added from a source has a local copy to read; an imported one lives in its Agent.
         ...(source ? [{ key: 'files', label: t('plugins.viewFiles'), icon: <FolderOpen size={14} />, onSelect: () => setBrowsing({ name, source }) }] : []),
@@ -138,7 +138,7 @@ export default function PluginsPage() {
           {pending > 0 && (
             <>
               <div className="flex flex-col gap-1">
-                {byPlugin(todo, (x) => x.word).map((x) => <PluginRunLine key={`${x.name}:${x.word}`} name={x.name} targets={x.targets} label={agentLabel} right={<span className="ss-tag inf">{x.word}</span>} />)}
+                {byPlugin(todo, (x) => x.word).map((x) => <PluginRunLine key={`${x.name}:${x.word}`} name={x.name} targets={x.targets} label={(target) => target === '' ? t('plugins.commands') : agentLabel(target)} right={<span className="ss-tag inf">{x.word}</span>} />)}
               </div>
               <Button className="w-full justify-center" loading={working === 'sync'} disabled={busy} onClick={() => begin({ action: 'sync' }, 'sync')}>{t('plugins.sync')}<ChevronRight size={15} /></Button>
               <p className="text-xs leading-normal text-ink-2">{t('plugins.syncHint')}</p>
@@ -149,7 +149,7 @@ export default function PluginsPage() {
             <div aria-live="polite" className="flex flex-col gap-1.5">
               <div className="flex items-center text-xs font-semibold text-ink-3">{t('plugins.lastRun')}<IconButton className="ml-auto" size="sm" icon={<X size={14} />} label={t('common.close')} onClick={clearResult} /></div>
               {changed.map((r) => (
-                <PluginRunLine key={`${r.name}:${r.status}:${r.note}`} name={r.name} targets={r.targets} label={agentLabel} note={r.note}
+                <PluginRunLine key={`${r.name}:${r.status}:${r.note}`} name={r.name} targets={r.targets} label={r.commands ? (target) => target === '' ? t('plugins.commands') : agentLabel(target) : agentLabel} note={r.note}
                   className={r.status === 'failed' ? 'rounded-lg bg-bad-bg px-3 py-2' : ''}
                   right={<span className={`ss-st ${r.status === 'failed' ? 'bad' : r.status === 'skipped' ? 'warn' : ''}`}>{outcomeStatus(t, r.status)}</span>} />
               ))}
@@ -259,7 +259,7 @@ export default function PluginsPage() {
                 <div key={`${c.name}:${c.target}`} className="ss-r">
                   <span className="ss-at">{c.target ? <AgentIcon target={c.target} size={17} /> : c.logo ? <img src={c.logo} alt="" className="size-full rounded-[inherit] object-cover" /> : <Package size={15} />}</span>
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="flex items-center gap-2"><span className="font-mono font-semibold">{c.name}</span><span className="text-[13px] text-ink-2">{agentLabel(c.target)}</span><VersionChange from={installedVersion(data, c.name, c.target)} to={c.action.startsWith('update') ? c.binding?.version : undefined} fromCommit={data?.packages[c.name]?.bindings[c.target]?.commit} toCommit={c.action.startsWith('update') ? c.binding?.commit : undefined} /></span>
+                    <span className="flex items-center gap-2"><span className="font-mono font-semibold">{c.name}</span><span className="text-[13px] text-ink-2">{c.commands ? t('plugins.commands') : agentLabel(c.target)}</span><VersionChange from={installedVersion(data, c.name, c.target)} to={c.action.startsWith('update') ? c.binding?.version : undefined} fromCommit={data?.packages[c.name]?.bindings[c.target]?.commit} toCommit={c.action.startsWith('update') ? c.binding?.commit : undefined} /></span>
                     {!!c.preservedKeys?.length && <span className="text-xs text-ink-3"><span>{t('plugins.preservedKeys')}</span>{' '}{c.preservedKeys.join(' · ')}</span>}
                     {c.action === 'record' ? <span className="text-xs text-ink-3">{t('plugins.recordHelp')}</span> : (c.message || c.components?.length) && <span className="text-xs text-ink-3">{c.message ? keyedMessage(t, c) : c.components!.join(' · ')}</span>}
                   </span>

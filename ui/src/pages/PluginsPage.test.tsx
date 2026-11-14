@@ -172,6 +172,16 @@ describe('PluginsPage', () => {
     await waitFor(() => expect(pluginsApi.update).toHaveBeenCalledTimes(1));
     expect(vi.mocked(pluginsApi.update).mock.calls[0][0].map(({ name, targets }) => ({ name, targets }))).toEqual([{ name: 'tail', targets: ['pi'] }]);
   });
+  it('sends a zero-binding checked command update with an explicit package selector', async () => {
+    const binding = { id: '', source: 'owner/repo', plugin: 'demo', digest: 'checked', version: '1' };
+    vi.mocked(pluginsApi.list).mockResolvedValue({ packages: { demo: { source: 'owner/repo', bindings: {}, commands: { bin: '/fixture/bin', names: ['demo'], binding: { ...binding, digest: 'old' } } } }, hosts: [] });
+    vi.mocked(pluginsApi.check).mockImplementationOnce(async (on) => { on({ name: 'demo', plan: { revision: 'commands-reviewed', blocked: false, changes: [{ name: 'demo', target: '', id: '', commands: true, action: 'update-available', binding }] } }); });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'plugins.updateCount.one' }));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'plugins.updateDialog.updateSelected.one' }));
+    await waitFor(() => expect(pluginsApi.update).toHaveBeenCalled());
+    expect(vi.mocked(pluginsApi.update).mock.lastCall?.[0]).toEqual([{ name: 'demo', targets: [], commands: true, seen: { '': binding } }]);
+  });
   it('saves sync selection independently of native enabled state', async () => {
     mount();
     fireEvent.click(await screen.findByRole('button', { name: 'mcp.chooseAgents' }));

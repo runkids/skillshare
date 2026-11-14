@@ -306,9 +306,11 @@ type Result struct {
 type Runner func(context.Context, string, []string, string, ...string) ([]byte, error)
 
 type Service struct {
-	ConfigPath  string
-	StateDir    string
-	ProjectRoot string
+	commandPlatform string                   // Overrides platform selection in isolated publication tests.
+	commandFinish   func(string, bool) error // Snapshot-finalization fault injection.
+	ConfigPath      string
+	StateDir        string
+	ProjectRoot     string
 	// GlobalConfigPath is the global config when ConfigPath is a project's: the plugins
 	// it binds own the global Pi packages a project inherits.
 	GlobalConfigPath string

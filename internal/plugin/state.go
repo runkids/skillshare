@@ -454,7 +454,6 @@ func (s *Service) sourceChange(ctx context.Context, name, target string, decl de
 	if err != nil {
 		return sourceChangeFailure(name, target, all, err)
 	}
-	p.Changes = slices.DeleteFunc(p.Changes, func(c Change) bool { return c.Commands })
 	if len(p.Changes) != 1 {
 		return Change{}, fmt.Errorf("source preview did not resolve one target")
 	}

@@ -46,7 +46,7 @@ export function UnchangedRuns({ runs, isPi, versions, expanded }: { runs: Plugin
     <div className="ss-list">
       {runs.map((r) => (
         <div key={`${r.name}:${r.target}`} className="ss-r min-h-10 py-1.5">
-          <span className="ss-at"><AgentIcon target={r.target} size={17} /></span>
+          <span className="ss-at">{r.target ? <AgentIcon target={r.target} size={17} /> : <Package size={15} />}</span>
           <span className="nm font-mono">{r.name}</span>
           <span className="text-[13px] text-ink-2">{expanded.label(r.target)}</span>
           {versions && r.version && <span className="ml-auto font-mono text-xs text-ink-3">{r.version}</span>}

@@ -358,3 +358,167 @@ func TestPluginCommandsDefaultRecipeReplacement(t *testing.T) {
 	applyPluginRequest(t, a, Request{Action: "remove", Name: "demo"})
 	applyPluginRequest(t, b, Request{Action: "remove", Name: "demo"})
 }
+
+func TestPluginCommandsWindows(t *testing.T) {
+	s, root, bin := commandFixture(t)
+	s.commandPlatform = "windows"
+	r := Request{Action: "add", Source: root, Targets: []string{"cursor"}}
+	p, err := s.Preview(context.Background(), r)
+	if err != nil || p.Blocked {
+		t.Fatalf("native add blocked: %+v %v", p, err)
+	}
+	result, err := s.Apply(context.Background(), r, p.Revision)
+	if err == nil {
+		t.Fatal("Windows publication did not report unsupported")
+	}
+	native, unsupported := false, false
+	for _, out := range result.Results {
+		native = native || out.Target == "cursor" && out.Status == "installed"
+		unsupported = unsupported || out.Commands && out.Status == "failed" && strings.Contains(out.Message, "unsupported")
+	}
+	if !native || !unsupported {
+		t.Fatalf("independent outcomes lost: %+v", result)
+	}
+	if _, err := os.Stat(bin); !os.IsNotExist(err) {
+		t.Fatal("unsupported publisher wrote bin")
+	}
+}
+
+func TestPluginCommandsV1Preview(t *testing.T) {
+	s, root, _ := commandFixture(t)
+	if err := os.MkdirAll(filepath.Dir(s.statePath()), 0700); err != nil {
+		t.Fatal(err)
+	}
+	raw := []byte(`{"version":1,"bindings":{}}`)
+	if err := os.WriteFile(s.statePath(), raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	p, err := s.Preview(context.Background(), Request{Action: "add", Source: root})
+	if err != nil || p.Blocked {
+		t.Fatalf("v1 preview: %+v %v", p, err)
+	}
+	if after, _ := os.ReadFile(s.statePath()); string(after) != string(raw) {
+		t.Fatal("preview migrated private state")
+	}
+	applyPluginRequest(t, s, Request{Action: "add", Source: root})
+	data, err := os.ReadFile(s.statePath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var state localState
+	if err := json.Unmarshal(data, &state); err != nil || state.Version != 2 || state.Commands["demo"].Applied == nil {
+		t.Fatalf("v2 command receipt missing: %s %v", data, err)
+	}
+}
+
+func TestPluginCommandsLastDeclarationRemoved(t *testing.T) {
+	s, root, bin := commandFixture(t)
+	applyPluginRequest(t, s, Request{Action: "add", Source: root})
+	writePluginFile(t, root, "plugin.json", `{"name":"demo","$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","version":"1.0.0"}`)
+	checked, err := s.Preview(context.Background(), Request{Action: "check", Name: "demo"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var command Change
+	for _, c := range checked.Changes {
+		if c.Commands {
+			command = c
+		}
+	}
+	if command.Action != "update-available" {
+		t.Fatalf("final declaration removal not offered by check: %+v", command)
+	}
+	seen := checkedObservation(t, command.Binding)
+	writePluginFile(t, root, "new-content", "unreviewed")
+	if _, result, err := s.updateLocked(context.Background(), UpdateItem{Name: "demo", Commands: true, Seen: map[string]Seen{"": seen}}, func(*Plan) {}); !errors.Is(err, ErrSourceMoved) || result != nil {
+		t.Fatalf("unchecked removal applied: %+v %v", result, err)
+	}
+	commandOutput(t, bin, "demo-one", "old-one")
+	checked, err = s.Preview(context.Background(), Request{Action: "check", Name: "demo"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range checked.Changes {
+		if c.Commands {
+			seen = checkedObservation(t, c.Binding)
+		}
+	}
+	_, result, err := s.updateLocked(context.Background(), UpdateItem{Name: "demo", Commands: true, Seen: map[string]Seen{"": seen}}, func(*Plan) {})
+	if err != nil {
+		t.Fatalf("checked removal: %+v %v", result, err)
+	}
+	inventory, err := s.Packages()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inventory.Packages["demo"].Commands != nil {
+		t.Fatal("empty command receipt still exposed as installed")
+	}
+	for _, name := range []string{"demo-one", "demo-two"} {
+		if _, err := os.Lstat(filepath.Join(bin, name)); !os.IsNotExist(err) {
+			t.Fatalf("removed declaration still published: %s %v", name, err)
+		}
+	}
+}
+
+// Opt-in native format smoke; no model invocation, login or real client profile.
+func TestPluginCommandsPortableNative(t *testing.T) {
+	if os.Getenv("SKILLSHARE_PLUGIN_COMMAND_NATIVE_E2E") != "1" {
+		t.Skip("set SKILLSHARE_PLUGIN_COMMAND_NATIVE_E2E=1 with codex on PATH")
+	}
+	s, root, bin := commandFixture(t)
+	// Keep this an exact portable root fixture rather than relying on native manifests.
+	for _, dir := range []string{".codex-plugin", ".claude-plugin", ".cursor-plugin"} {
+		if err := os.RemoveAll(filepath.Join(root, dir)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	applyPluginRequest(t, s, Request{Action: "add", Source: root, Targets: []string{"codex"}})
+	commandOutput(t, bin, "demo-one", "old-one")
+	inventory, err := s.Inventory(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, host := range inventory.Hosts {
+		if host.Target == "codex" && (host.Error != "" || len(host.Installed) != 1) {
+			t.Fatalf("native registration: %+v", host)
+		}
+	}
+	applyPluginRequest(t, s, Request{Action: "remove", Name: "demo"})
+}
+
+func TestPluginCommandsSnapshotCleanupRetry(t *testing.T) {
+	s, root, bin := commandFixture(t)
+	applyPluginRequest(t, s, Request{Action: "add", Source: root})
+	writePluginFile(t, root, "bin/one", "#!/bin/sh\nprintf replaced\n")
+	s.commandFinish = func(path string, success bool) error {
+		if success {
+			return errors.New("injected backup cleanup failure")
+		}
+		return finishSnapshot(path, success)
+	}
+	request := Request{Action: "update", Name: "demo"}
+	p, err := s.Preview(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := s.Apply(context.Background(), request, p.Revision)
+	if err == nil {
+		t.Fatalf("cleanup fault lost: %+v", result)
+	}
+	d, err := s.load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.state.Commands["demo"].Pending == nil {
+		t.Fatal("backup cleanup failure lost pending evidence")
+	}
+	commandOutput(t, bin, "demo-one", "replaced")
+	s.commandFinish = nil
+	applyPluginRequest(t, s, Request{Action: "sync", Name: "demo"})
+	d, err = s.load()
+	if err != nil || d.state.Commands["demo"].Pending != nil {
+		t.Fatalf("cleanup retry: %+v %v", d, err)
+	}
+	commandOutput(t, bin, "demo-one", "replaced")
+}

@@ -39,7 +39,7 @@ export function importRequest(from: string, plugin: string, selected?: string): 
 export function updatesPending(updates: Updates, inventory?: PluginInventory): UpdatePick[] {
   const targets = targetMap(inventory?.targetDefinitions);
   return Object.entries(updates)
-    .map(([name, u]) => ({ name, targets: Object.keys(u).filter((target) => { const b = inventory?.packages[name]?.bindings[target]; return b && b.sync !== false && targets[target]?.operations.includes('update'); }) }))
+    .map(([name, u]) => ({ name, targets: Object.keys(u).filter((target) => { if (target === '') return !!inventory?.packages[name]?.source || !!inventory?.packages[name]?.commands; const b = inventory?.packages[name]?.bindings[target]; return b && b.sync !== false && targets[target]?.operations.includes('update'); }) }))
     .filter((p) => p.targets.length > 0);
 }
 
@@ -63,7 +63,7 @@ export function updatesFound(plan: PluginPlan) {
 function withChecked(updates: Updates, name: string, plan: PluginPlan | null): Updates {
   const before = updates[name] ?? {};
   const found = plan ? updatesFound(plan)[name] ?? {} : { ...before };
-  for (const c of plan?.changes ?? []) if (c.name === name && c.action === 'blocked' && before[c.target]) found[c.target] = before[c.target];
+  for (const c of plan?.changes ?? []) if (c.name === name && (c.action === 'blocked' || c.failed) && before[c.target]) found[c.target] = before[c.target];
   const next = { ...updates };
   if (Object.keys(found).length) next[name] = found; else delete next[name];
   return next;
@@ -78,11 +78,11 @@ export function checkedPlan(plans: Record<string, PluginPlan>, updates: Updates)
   if (names.length === 0) return null;
   const changes = names.flatMap((name) => {
     const kept = updates[name] ?? {};
-    const answered = (plans[name]?.changes ?? []).filter((c) => !(c.action === 'blocked' && kept[c.target]));
+    const answered = (plans[name]?.changes ?? []).filter((c) => !((c.action === 'blocked' || c.failed) && kept[c.target]));
     const offered = Object.entries(kept)
       .filter(([target]) => !answered.some((c) => c.target === target && c.action === 'update-available'))
       .map(([target, u]) => ({
-        name, target, id: u.id ?? '', action: 'update-available',
+        name, target, ...(target === '' ? { commands: true } : {}), id: u.id ?? '', action: 'update-available',
         message: 'Source content changed; review an update before applying.', messageKey: 'plugins.note.sourceChanged',
         binding: { id: u.id ?? '', version: u.version, commit: u.commit, digest: u.digest, source: u.source, sourceRef: u.sourceRef, plugin: u.plugin, entry: u.entry },
       }));
@@ -106,17 +106,17 @@ export function updatesLeft(updates: Updates, plan: PluginPlan, response: Plugin
 }
 
 function completedUpdate(c: PluginPlan['changes'][number], plan: PluginPlan, response: PluginResult) {
-  const operations = plan.changes.filter((p) => p.name === c.name && p.target === c.target);
-  const outcomes = (response.result?.results ?? []).filter((r) => r.name === c.name && r.target === c.target);
-  return c === operations.at(-1) && ['update', 'install', 'noop'].includes(c.action)
+  const operations = plan.changes.filter((p) => p.name === c.name && p.target === c.target && !!p.commands === !!c.commands);
+  const outcomes = (response.result?.results ?? []).filter((r) => r.name === c.name && r.target === c.target && !!r.commands === !!c.commands);
+  return c === operations.at(-1) && (['update', 'install', 'noop'].includes(c.action) || c.commands && c.action === 'remove')
     && outcomes.length === operations.length
-    && outcomes.at(-1)?.status === (c.action === 'noop' ? 'unchanged' : 'installed');
+    && outcomes.at(-1)?.status === (c.action === 'noop' ? 'unchanged' : c.action === 'remove' ? 'removed' : 'installed');
 }
 
 /** What Sync would do: every binding whose tick differs from what its Agent has. */
 export function syncTodo(inventory?: PluginInventory) {
   return Object.entries(inventory?.packages ?? {})
-    .flatMap(([name, pack]) => Object.entries(pack.bindings).map(([target, b]) => ({ name, target, word: syncAction(b!, inventory?.hosts.find((h) => h.target === target)) })))
+    .flatMap(([name, pack]) => [...Object.entries(pack.bindings).map(([target, b]) => ({ name, target, word: syncAction(b!, inventory?.hosts.find((h) => h.target === target)) })), ...(pack.commands ? [{ name, target: '', word: pack.commands.binding.cleanup ? 'remove' : pack.commands.binding.pending ?? '' }] : [])])
     .filter((x) => x.word);
 }
 
@@ -146,13 +146,13 @@ export function updatedTargets(item: BatchItem) {
  * different sources, so they share one line only when every move is the same.
  */
 export function versionMoves(inventory: PluginInventory | undefined, name: string, rows: { target: PluginTarget; version?: string; commit?: string }[]) {
-  const moves = rows.map((r) => ({ target: r.target, from: installedVersion(inventory, name, r.target), to: r.version || undefined, fromCommit: inventory?.packages[name]?.bindings[r.target]?.commit, toCommit: r.commit }));
+  const moves = rows.map((r) => ({ target: r.target, from: installedVersion(inventory, name, r.target), to: r.version || undefined, fromCommit: (r.target === '' ? inventory?.packages[name]?.commands?.binding : inventory?.packages[name]?.bindings[r.target])?.commit, toCommit: r.commit }));
   const key = (m: (typeof moves)[number]) => [m.from, m.to, m.fromCommit, m.toCommit].join('\0');
   return { moves, shared: moves.every((m) => key(m) === key(moves[0])) };
 }
 
 export function installedVersion(inventory: PluginInventory | undefined, name: string, target: string) {
-  const b = inventory?.packages[name]?.bindings[target];
+  const b = target === '' ? inventory?.packages[name]?.commands?.binding : inventory?.packages[name]?.bindings[target];
   return b && inventory ? bindingVersion(inventory, target, b) : undefined;
 }
 
@@ -264,7 +264,7 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
     };
     let broken = '';
     try {
-      await pluginsApi.update(picks.map((p) => ({ ...p, seen: updates[p.name] })), (e) => {
+      await pluginsApi.update(picks.map((p) => ({ name: p.name, targets: p.targets.filter(Boolean), ...(p.targets.includes('') ? { commands: true } : {}), seen: updates[p.name] })), (e) => {
         if (e.event === 'start') set(e.name, { status: 'running' });
         // What the Agent is about to do (an npm install, say) shows while it runs.
         else if (e.event === 'plan') set(e.name, { note: e.plan.changes.filter((c) => c.action !== 'noop' || c.guidance).map((c) => keyedMessage(t, c)).filter(Boolean).join(' ') || undefined });

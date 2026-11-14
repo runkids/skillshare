@@ -39,9 +39,10 @@ func (seen Seen) matchesRecipe(b Binding) bool {
 
 // UpdateItem is one plugin of a batch update and, per Agent, what the check showed.
 type UpdateItem struct {
-	Name    string          `json:"name"`
-	Targets []string        `json:"targets"`
-	Seen    map[string]Seen `json:"seen,omitempty"`
+	Commands bool            `json:"commands,omitempty"`
+	Name     string          `json:"name"`
+	Targets  []string        `json:"targets"`
+	Seen     map[string]Seen `json:"seen,omitempty"`
 }
 
 // Batch is a batch update and how its caller follows it.
@@ -90,13 +91,13 @@ func (s *Service) UpdateBatch(ctx context.Context, b Batch) (failed int) {
 // updateLocked previews and applies one plugin's update. planned sees the plan before it
 // is applied. A blocked plan is returned with the error that stops it.
 func (s *Service) updateLocked(ctx context.Context, item UpdateItem, planned func(*Plan)) (*Plan, *Result, error) {
-	r := Request{Action: "update", Name: item.Name, Targets: item.Targets}
+	r := Request{Action: "update", Name: item.Name, Targets: item.Targets, Commands: &item.Commands}
 	p, err := s.Preview(ctx, r)
 	if err != nil {
 		return nil, nil, err
 	}
 	for _, c := range p.Changes {
-		if c.Action != "update" && c.Action != "install" {
+		if c.Action != "update" && c.Action != "install" && !(c.Commands && c.Action == "remove") {
 			continue
 		}
 		// An Agent no check showed has no version the user approved.
