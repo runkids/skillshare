@@ -2477,7 +2477,7 @@
   "plugins.commands": "指令",
   "plugins.note.commandsBin": "套件命令位於 {bin}；請將該目錄加入 PATH 以呼叫。",
   "plugins.note.commandsRemoved": "已移除擁有的套件命令。",
-  "plugins.note.commandsPreserved": "已移除擁有的套件命令。保留操作者替換項目：{names}。",
+  "plugins.note.commandsPreserved": "保留操作者替換項目：{names}。",
   "plugins.error.commandBinChanged": "命令目錄已變更；請先還原 {bin} 再清理。",
   "plugins.error.commandConflict": "命令 {name} 與 {bin} 中的操作者項目衝突。",
   "plugins.error.commandDestination": "命令目的地已變更：{path}。請重新預覽。",

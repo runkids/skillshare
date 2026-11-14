@@ -2477,7 +2477,7 @@
   "plugins.commands": "Commands",
   "plugins.note.commandsBin": "Manage package commands in {bin}; add this directory to PATH to invoke them.",
   "plugins.note.commandsRemoved": "Removed owned package commands.",
-  "plugins.note.commandsPreserved": "Removed owned package commands. Preserved operator replacements: {names}.",
+  "plugins.note.commandsPreserved": "Preserved operator replacements: {names}.",
   "plugins.error.commandBinChanged": "Command bin changed; restore {bin} before cleanup.",
   "plugins.error.commandConflict": "Command {name} conflicts with an operator entry in {bin}.",
   "plugins.error.commandDestination": "Command destination changed: {path}. Preview again.",

@@ -2477,7 +2477,7 @@
   "plugins.commands": "Perintah",
   "plugins.note.commandsBin": "Perintah paket berada di {bin}; tambahkan direktori ini ke PATH untuk menjalankannya.",
   "plugins.note.commandsRemoved": "Perintah paket yang dimiliki telah dihapus.",
-  "plugins.note.commandsPreserved": "Perintah yang dimiliki dihapus. Pengganti operator dipertahankan: {names}.",
+  "plugins.note.commandsPreserved": "Pengganti operator dipertahankan: {names}.",
   "plugins.error.commandBinChanged": "Direktori perintah berubah; pulihkan {bin} sebelum membersihkan.",
   "plugins.error.commandConflict": "Perintah {name} bertentangan dengan entri operator di {bin}.",
   "plugins.error.commandDestination": "Tujuan perintah berubah: {path}. Buka pratinjau lagi.",

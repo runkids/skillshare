@@ -2477,7 +2477,7 @@
   "plugins.commands": "명령어",
   "plugins.note.commandsBin": "패키지 명령은 {bin}에 있습니다. 실행하려면 이 디렉터리를 PATH에 추가하세요.",
   "plugins.note.commandsRemoved": "소유한 패키지 명령을 제거했습니다.",
-  "plugins.note.commandsPreserved": "소유한 명령을 제거했습니다. 운영자 대체 항목을 보존했습니다: {names}.",
+  "plugins.note.commandsPreserved": "운영자 대체 항목을 보존했습니다: {names}.",
   "plugins.error.commandBinChanged": "명령 디렉터리가 변경되었습니다. 정리 전에 {bin}을 복원하세요.",
   "plugins.error.commandConflict": "명령 {name}이(가) {bin}의 기존 항목과 충돌합니다.",
   "plugins.error.commandDestination": "명령 대상이 변경되었습니다: {path}. 다시 미리 보세요.",

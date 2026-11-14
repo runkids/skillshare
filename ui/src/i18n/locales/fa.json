@@ -2477,7 +2477,7 @@
   "plugins.commands": "فرمان‌ها",
   "plugins.note.commandsBin": "فرمان‌های بسته در {bin} هستند؛ برای اجرا این پوشه را به PATH اضافه کنید.",
   "plugins.note.commandsRemoved": "فرمان‌های تحت مالکیت بسته حذف شدند.",
-  "plugins.note.commandsPreserved": "فرمان‌های تحت مالکیت حذف شدند. جایگزین‌های کاربر حفظ شدند: {names}.",
+  "plugins.note.commandsPreserved": "جایگزین‌های کاربر حفظ شدند: {names}.",
   "plugins.error.commandBinChanged": "پوشهٔ فرمان تغییر کرده است؛ پیش از پاک‌سازی {bin} را بازیابی کنید.",
   "plugins.error.commandConflict": "فرمان {name} با ورودی کاربر در {bin} تداخل دارد.",
   "plugins.error.commandDestination": "مقصد فرمان تغییر کرده است: {path}. دوباره پیش‌نمایش بگیرید.",

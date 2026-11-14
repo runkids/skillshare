@@ -2477,7 +2477,7 @@
   "plugins.commands": "コマンド",
   "plugins.note.commandsBin": "パッケージコマンドは {bin} にあります。実行するにはこのディレクトリを PATH に追加してください。",
   "plugins.note.commandsRemoved": "所有するパッケージコマンドを削除しました。",
-  "plugins.note.commandsPreserved": "所有するコマンドを削除しました。ユーザーによる置換を保持しました: {names}。",
+  "plugins.note.commandsPreserved": "ユーザーによる置換を保持しました: {names}。",
   "plugins.error.commandBinChanged": "コマンドディレクトリが変更されました。削除前に {bin} を復元してください。",
   "plugins.error.commandConflict": "コマンド {name} は {bin} の既存項目と競合しています。",
   "plugins.error.commandDestination": "コマンドの保存先が変更されました: {path}。再プレビューしてください。",

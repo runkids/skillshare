@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { pluginsApi } from '../../api/plugins';
 import { ApiError } from '../../api/client';
+import { translate, type TranslationParams } from '../../i18n';
 import type { PluginCheckEvent, PluginInventory, PluginPlan, PluginUpdateEvent } from '../../api/plugins';
 import { changedRuns, failureText, importPackageNames, importRequest, piPackageTest, reviewChanges, syncTodo, updatesFound, updatedTargets, updatesLeft, updatesPending, usePluginsFlow, versionMoves } from './pluginsFlow';
 
@@ -274,6 +275,17 @@ describe('plugins flow', () => {
     const { now } = flow();
     await act(() => now().updateMany([{ name: 'demo', targets: ['codex'] }]));
     expect(now().batch?.[0]).toMatchObject({ status: 'done', note: 'plugins.note.importRecipeChanged' });
+  });
+
+  it('keeps localized preservation guidance neutral in single and batch results', async () => {
+    const localized = (key: string, params?: TranslationParams, fallback?: string) => translate('en', key, params, fallback);
+    const outcome = { name: 'demo', commands: true, target: '', status: 'installed', guidance: true, message: 'Manage package commands. Preserved operator replacements: demo-one.', messageKey: 'plugins.note.commandsPreserved', messageArgs: { names: 'demo-one' } };
+    const expected = 'Preserved operator replacements: demo-one.';
+    expect(changedRuns(localized, [outcome, { ...outcome, name: 'removed', status: 'removed' }]).map((r) => r.note)).toEqual([expected, expected]);
+    streams({ name: 'demo', plan: plan('u', { commands: true, target: '', action: 'update' }), result: { results: [outcome] }, failure: '', stale: false });
+    const { result } = renderHook(() => usePluginsFlow({ t: localized, refresh: vi.fn(), onPreviewed: vi.fn() }));
+    await act(() => result.current.updateMany([{ name: 'demo', targets: [''] }]));
+    expect(result.current.batch?.[0]).toMatchObject({ status: 'done', note: expected });
   });
 
 

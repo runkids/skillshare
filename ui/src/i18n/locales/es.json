@@ -2477,7 +2477,7 @@
   "plugins.commands": "Comandos",
   "plugins.note.commandsBin": "Los comandos del paquete están en {bin}; añade ese directorio a PATH para ejecutarlos.",
   "plugins.note.commandsRemoved": "Se eliminaron los comandos propios del paquete.",
-  "plugins.note.commandsPreserved": "Se eliminaron los comandos propios. Se conservaron los reemplazos del operador: {names}.",
+  "plugins.note.commandsPreserved": "Se conservaron los reemplazos del operador: {names}.",
   "plugins.error.commandBinChanged": "El directorio de comandos cambió; restaura {bin} antes de limpiar.",
   "plugins.error.commandConflict": "El comando {name} entra en conflicto con una entrada del operador en {bin}.",
   "plugins.error.commandDestination": "El destino del comando cambió: {path}. Repite la vista previa.",

@@ -31,22 +31,22 @@ func (s *Service) commandBin() (string, error) {
 	return filepath.Join(home, ".local", "bin"), nil
 }
 
-func (s *Service) commandParents(bin string) error {
-	root := s.ProjectRoot
-	if root == "" {
-		var err error
-		root, err = os.UserHomeDir()
-		if err != nil {
-			return err
-		}
-	}
+func (s *Service) commandParents(bin string, local localCommands) error {
 	expected, err := s.commandBin()
 	if err != nil {
 		return err
 	}
+	for _, receipt := range []*commandReceipt{local.Applied, local.Pending} {
+		if receipt != nil && receipt.Bin != expected {
+			bin = receipt.Bin
+			break
+		}
+	}
 	if bin != expected {
 		return agentError{key: "plugins.error.commandBinChanged", message: "Command bin changed; restore " + bin + " before cleanup", args: map[string]string{"bin": bin}}
 	}
+	// Both fixed bins are exactly two components below their scope root.
+	root := filepath.Dir(filepath.Dir(expected))
 	return noSymlink(root, filepath.Join(bin, ".skillshare-plugin-commands.lock"))
 }
 
@@ -94,7 +94,7 @@ func commandLink(path string) (string, bool, error) {
 // Observe final entries without following foreign or dangling links. Parent checks
 // keep the fixed bin from redirecting writes through a linked descendant.
 func (s *Service) observeCommands(bin string, local localCommands, after *commandReceipt, removal bool) (string, error) {
-	if err := s.commandParents(bin); err != nil {
+	if err := s.commandParents(bin, local); err != nil {
 		return "", err
 	}
 	owners := commandOwners(local)
@@ -495,7 +495,8 @@ func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out
 	} else if before != nil {
 		bin = before.Bin
 	}
-	if err := s.commandParents(bin); err != nil {
+	local := d.state.Commands[c.Name]
+	if err := s.commandParents(bin, local); err != nil {
 		return out, err
 	}
 	if err := os.MkdirAll(bin, 0755); err != nil {
@@ -506,7 +507,6 @@ func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out
 		return out, err
 	}
 	defer lock.Unlock()
-	local := d.state.Commands[c.Name]
 	revision, err := s.observeCommands(bin, local, after, c.Action == "remove")
 	if err != nil {
 		return out, err

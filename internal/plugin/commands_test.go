@@ -228,6 +228,107 @@ func TestPluginCommandsScopeAndApproval(t *testing.T) {
 	}
 }
 
+func TestPluginCommandsChangedHome(t *testing.T) {
+	for _, pending := range []bool{false, true} {
+		for _, action := range []string{"update", "add", "sync"} {
+			t.Run(map[bool]string{false: "applied", true: "pending"}[pending]+"/"+action, func(t *testing.T) {
+				s, root, bin := commandFixture(t)
+				home := filepath.Dir(s.ConfigPath)
+				t.Setenv("USERPROFILE", home)
+				if action == "sync" {
+					writePluginFile(t, root, "package.json", `{"name":"demo","main":"first.js","dependencies":{"@opencode-ai/plugin":"1"}}`)
+					for _, entry := range []string{"first.js", "second.js"} {
+						writePluginFile(t, root, entry, "export default async () => ({})")
+					}
+				}
+				if pending {
+					s.commandPublish = func(string, string, string, bool) error { return errors.New("fixture publication failure") }
+				}
+				request := Request{Action: "add", Source: root}
+				plan, err := s.Preview(context.Background(), request)
+				if err != nil {
+					t.Fatal(err)
+				}
+				result, err := s.Apply(context.Background(), request, plan.Revision)
+				if (err != nil) != pending || result == nil {
+					t.Fatalf("initial publication: %+v %v", result, err)
+				}
+				s.commandPublish = nil
+				local := readState(t, s).state.Commands["demo"]
+				if pending && (local.Applied != nil || local.Pending == nil) || !pending && local.Applied == nil {
+					t.Fatalf("missing original ownership: %+v", local)
+				}
+				proof, _ := json.Marshal(local)
+				links := map[string]string{}
+				for _, name := range []string{"demo-one", "demo-two"} {
+					link, err := os.Readlink(filepath.Join(bin, name))
+					if err != nil && !os.IsNotExist(err) {
+						t.Fatal(err)
+					}
+					links[name] = link
+				}
+				writePluginFile(t, root, "bin/one", "#!/bin/sh\nprintf changed-home\n")
+				request = Request{Action: action, Name: "demo"}
+				if action == "add" {
+					request.Source = root
+				}
+				if action == "sync" {
+					// A second machine changes the shared default through a normal add.
+					producer := *s
+					producer.StateDir = t.TempDir()
+					producerHome := t.TempDir()
+					t.Setenv("HOME", producerHome)
+					t.Setenv("USERPROFILE", producerHome)
+					applyPluginRequest(t, &producer, Request{Action: "add", Source: root, Entry: "second.js", Name: "demo"})
+				}
+				stable := unchanged(t, s.ConfigPath, s.statePath())
+				newHome := t.TempDir()
+				t.Setenv("HOME", newHome)
+				t.Setenv("USERPROFILE", newHome)
+				plan, err = s.Preview(context.Background(), request)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !slices.ContainsFunc(plan.Changes, func(c Change) bool {
+					return c.Commands && (c.Failed || c.Action == "blocked") && c.MessageKey == "plugins.error.commandBinChanged" && c.MessageArgs["bin"] == bin
+				}) {
+					t.Errorf("changed HOME omitted bin refusal: %+v", plan.Changes)
+				}
+				if result, err := s.Apply(context.Background(), request, plan.Revision); err == nil {
+					t.Errorf("changed HOME replaced ownership: %+v", result)
+				}
+				retained, _ := json.Marshal(readState(t, s).state.Commands["demo"])
+				if string(retained) != string(proof) {
+					t.Errorf("changed HOME discarded original receipts: %s", retained)
+				}
+				if _, err := os.Lstat(filepath.Join(newHome, ".local", "bin")); !os.IsNotExist(err) {
+					t.Errorf("changed HOME created a new bin: %v", err)
+				}
+				for name, want := range links {
+					link, err := os.Readlink(filepath.Join(bin, name))
+					if link != want || (err == nil) != (want != "") {
+						t.Errorf("original link %s changed: %q %v", name, link, err)
+					}
+				}
+				stable()
+				t.Setenv("HOME", home)
+				t.Setenv("USERPROFILE", home)
+				applyPluginRequest(t, s, Request{Action: "update", Name: "demo"})
+				commandOutput(t, bin, "demo-one", "changed-home")
+				applyPluginRequest(t, s, Request{Action: "remove", Name: "demo"})
+				if _, exists := readState(t, s).state.Commands["demo"]; exists {
+					t.Fatal("original HOME removal retained receipts")
+				}
+				for name := range links {
+					if _, err := os.Lstat(filepath.Join(bin, name)); !os.IsNotExist(err) {
+						t.Errorf("original HOME removal left %s: %v", name, err)
+					}
+				}
+			})
+		}
+	}
+}
+
 func TestPluginCommandsRecovery(t *testing.T) {
 	s, root, bin := commandFixture(t)
 	applyPluginRequest(t, s, Request{Action: "add", Source: root})

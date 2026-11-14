@@ -2477,7 +2477,7 @@
   "plugins.commands": "Commandes",
   "plugins.note.commandsBin": "Les commandes du paquet sont dans {bin} ; ajoutez ce dossier à PATH pour les exécuter.",
   "plugins.note.commandsRemoved": "Commandes du paquet détenues supprimées.",
-  "plugins.note.commandsPreserved": "Commandes détenues supprimées. Remplacements de l’utilisateur conservés : {names}.",
+  "plugins.note.commandsPreserved": "Remplacements de l’utilisateur conservés : {names}.",
   "plugins.error.commandBinChanged": "Le répertoire des commandes a changé ; restaurez {bin} avant le nettoyage.",
   "plugins.error.commandConflict": "La commande {name} entre en conflit avec une entrée de l’opérateur dans {bin}.",
   "plugins.error.commandDestination": "La destination de la commande a changé : {path}. Relancez l’aperçu.",

@@ -2477,7 +2477,7 @@
   "plugins.commands": "命令",
   "plugins.note.commandsBin": "包命令位于 {bin}；请将该目录加入 PATH 以调用。",
   "plugins.note.commandsRemoved": "已移除拥有的包命令。",
-  "plugins.note.commandsPreserved": "已移除拥有的包命令。保留操作者替换项：{names}。",
+  "plugins.note.commandsPreserved": "保留操作者替换项：{names}。",
   "plugins.error.commandBinChanged": "命令目录已更改；请先还原 {bin} 再清理。",
   "plugins.error.commandConflict": "命令 {name} 与 {bin} 中的操作者条目冲突。",
   "plugins.error.commandDestination": "命令目标已更改：{path}。请重新预览。",

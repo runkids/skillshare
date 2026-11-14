@@ -2477,7 +2477,7 @@
   "plugins.commands": "Befehle",
   "plugins.note.commandsBin": "Paketbefehle liegen in {bin}; füge dieses Verzeichnis zu PATH hinzu, um sie aufzurufen.",
   "plugins.note.commandsRemoved": "Eigene Paketbefehle entfernt.",
-  "plugins.note.commandsPreserved": "Eigene Paketbefehle entfernt. Ersetzungen durch den Benutzer beibehalten: {names}.",
+  "plugins.note.commandsPreserved": "Ersetzungen durch den Benutzer beibehalten: {names}.",
   "plugins.error.commandBinChanged": "Das Befehlsverzeichnis wurde geändert. Vor dem Bereinigen {bin} wiederherstellen.",
   "plugins.error.commandConflict": "Befehl {name} kollidiert mit einem vorhandenen Eintrag in {bin}.",
   "plugins.error.commandDestination": "Befehlsziel geändert: {path}. Vorschau erneut öffnen.",
