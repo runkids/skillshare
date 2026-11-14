@@ -46,6 +46,10 @@ export function profileReason(reason: string, t: ReturnType<typeof useT>, name =
   if (kept) return t(modified ? 'profiles.keptModified' : 'profiles.keptUnmanaged', {
     target: kept[1], entry: kept[2], step: t(`profiles.step.${kept[3]}`), reason: profileReason(kept[4], t),
   });
+  const unmatched = reason.match(/^Profile ([a-z0-9][a-z0-9_-]{0,63}): unmatched patterns: (.*)$/s);
+  if (unmatched) return t('profiles.unmatchedWarning', { name: unmatched[1], patterns: unmatched[2] });
+  const previewKept = reason.match(/^kept: (.+); collect or remove manually(, or use verified --discard-edits)?$/s);
+  if (previewKept) return t(previewKept[2] ? 'profiles.previewKeptModified' : 'profiles.previewKept', { reason: profileReason(previewKept[1], t) });
   const q = JSON.stringify(name);
   const known: Record<string, string> = {
     'copy was edited or could not be verified': 'profiles.edited',

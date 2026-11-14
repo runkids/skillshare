@@ -1,4 +1,7 @@
 {
+  "profiles.unmatchedWarning": "프로필 {name}: 일치하지 않는 패턴: {patterns}",
+  "profiles.previewKept": "유지됨: {reason}. collect로 수집하거나 수동으로 제거하세요",
+  "profiles.previewKeptModified": "유지됨: {reason}. collect로 수집하거나 수동으로 제거하거나 검증된 --discard-edits를 사용하세요",
   "profiles.targetRoot": "{path}: 대상 루트가 관리되지 않는 링크이므로 유지했습니다.",
   "profiles.keptModified": "{target}: {step} 중 수정된 {entry} 유지: {reason}. collect 또는 --discard-edits를 사용하세요",
   "profiles.keptUnmanaged": "{target}: {step} 중 관리되지 않는 {entry} 유지: {reason}",

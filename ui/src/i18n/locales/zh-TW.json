@@ -1,4 +1,7 @@
 {
+  "profiles.unmatchedWarning": "設定檔 {name}：未匹配的模式：{patterns}",
+  "profiles.previewKept": "已保留：{reason}；請使用 collect 收集或手動移除",
+  "profiles.previewKeptModified": "已保留：{reason}；請使用 collect 收集、手動移除，或使用經過驗證的 --discard-edits",
   "profiles.targetRoot": "目標根目錄 {path} 是未受管理的連結，已保留。",
   "profiles.keptModified": "{target}：在{step}時保留已修改的 {entry}：{reason}；請使用 collect 或 --discard-edits",
   "profiles.keptUnmanaged": "{target}：在{step}時保留未受管理的 {entry}：{reason}",

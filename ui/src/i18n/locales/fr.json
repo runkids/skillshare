@@ -1,4 +1,7 @@
 {
+  "profiles.unmatchedWarning": "Profil {name} : motifs sans correspondance : {patterns}",
+  "profiles.previewKept": "Conservé : {reason} ; utilisez collect ou supprimez manuellement",
+  "profiles.previewKeptModified": "Conservé : {reason} ; utilisez collect, supprimez manuellement ou utilisez --discard-edits après vérification",
   "profiles.targetRoot": "La racine cible {path} est un lien non géré ; elle a été conservée.",
   "profiles.keptModified": "{target} : {entry} modifié conservé lors de {step} : {reason} ; utilisez collect ou --discard-edits",
   "profiles.keptUnmanaged": "{target} : {entry} non géré conservé lors de {step} : {reason}",

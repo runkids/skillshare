@@ -1,4 +1,7 @@
 {
+  "profiles.unmatchedWarning": "Profile {name}: unmatched patterns: {patterns}",
+  "profiles.previewKept": "Kept: {reason}; collect or remove manually",
+  "profiles.previewKeptModified": "Kept: {reason}; collect or remove manually, or use verified --discard-edits",
   "profiles.targetRoot": "Target root {path} is an unmanaged link; kept.",
   "profiles.keptModified": "{target}: kept modified {entry} during {step}: {reason}; use collect or --discard-edits",
   "profiles.keptUnmanaged": "{target}: kept unmanaged {entry} during {step}: {reason}",
