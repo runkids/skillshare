@@ -220,3 +220,9 @@ Project 模式的 status 不會顯示 Tracked Repositories 或 Version 區段（
 - [diff](/docs/reference/commands/diff) — 顯示詳細差異
 - [doctor](/docs/reference/commands/doctor) — 診斷問題
 - [Project Skills](/docs/understand/project-skills) — Project 模式概念
+
+## 設定檔 {#profiles}
+
+使用 [profile](/docs/reference/commands/profile) 建立、查看、編輯及切換具名 Skill 選擇；支援 `-g` / `-p`。
+
+status 的選用 JSON `profile: {name,state,selected,total,pending}` 顯示期望選擇數量；Target 的 `synced_count` 仍是磁碟實際數量，可能在 `--no-sync`、未完成切換或保留內容時不同。pending 表示切換尚未完全套用。

@@ -1239,3 +1239,11 @@ targets:
 - [Source & Targets](/docs/understand/source-and-targets) — 核心概念
 - [Sync Modes](/docs/understand/sync-modes) — Merge vs copy vs symlink
 - [Environment Variables](/docs/reference/appendix/environment-variables) — 所有变量
+
+## 配置档 {#profiles}
+
+使用 [profile](/docs/reference/commands/profile) 创建、查看、编辑和切换命名 Skill 选择；支持 `-g` / `-p`。
+
+全局和项目配置都支持 `profiles:`。定义可以共享；active/pending 按规范化配置路径保存在本机 `ProjectStateDir()/profiles`，Windows 上也在共享 git root 之外。遵循 `SKILLSHARE_CONFIG`，指向同一配置的符号链接共享状态；移动配置或另一个 checkout 使用独立状态。注释和未知键会保留，但包含未知键的定义在此版本不可用。旧版本忽略本机选择，保存配置时可能丢失定义。
+
+`skills` 键缺省表示不限制；`skills: {}` 和空或仅空白 include 不选择任何技能。exclude 必须同时有 include 键；显式 `include: []` 配合 exclude 有效，但排除不起作用。

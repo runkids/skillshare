@@ -29,6 +29,7 @@ $_skillshareCompleter = {
             @{ Name = 'commit'; Desc = 'Create local git commit without pushing' }
             @{ Name = 'doctor'; Desc = 'Check environment and diagnose issues' }
             @{ Name = 'target'; Desc = 'Manage targets' }
+            @{ Name = 'profile'; Desc = 'Define and switch skill profiles' }
             @{ Name = 'project'; Desc = 'Manage project folders' }
             @{ Name = 'updates'; Desc = 'Control automatic version checks' }
             @{ Name = 'upgrade'; Desc = 'Upgrade CLI and/or skillshare skill' }
@@ -197,7 +198,7 @@ $_skillshareCompleter = {
         'unlink' = '--help', '-h', '--project', '-p', '--global', '-g'
         'move' = '--dry-run', '-n', '--force', '-f', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'list' = '--verbose', '-v', '--json', '-j', '--no-tui', '--type', '-t', '--status', '--sort', '-s', '--all', '--help', '-h', '--project', '-p', '--global', '-g'
-        'sync' = '--all', '--dry-run', '-n', '--force', '-f', '--json', '--quiet', '-q', '--help', '-h', '--project', '-p', '--global', '-g'
+        'sync' = '--discard-edits', '--all', '--dry-run', '-n', '--force', '-f', '--json', '--quiet', '-q', '--help', '-h', '--project', '-p', '--global', '-g'
         'diff' = '--no-tui', '--patch', '--stat', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'backup' = '--list', '-l', '--cleanup', '-c', '--delete', '--all', '--unlink', '--dry-run', '-n', '--target', '-t', '--help', '-h', '--project', '-p', '--global', '-g'
         'restore' = '--from', '-f', '--force', '--all', '--dry-run', '-n', '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'
@@ -257,6 +258,16 @@ $_skillshareCompleter = {
     }
 
     # Project command
+    $commands['profile'] = @(
+        @{ Name = 'list'; Desc = 'Profile list' }
+        @{ Name = 'show'; Desc = 'Profile show' }
+        @{ Name = 'create'; Desc = 'Profile create' }
+        @{ Name = 'edit'; Desc = 'Profile edit' }
+        @{ Name = 'rename'; Desc = 'Profile rename' }
+        @{ Name = 'delete'; Desc = 'Profile delete' }
+        @{ Name = 'use'; Desc = 'Profile use' }
+    )
+    $flags['profile'] = '--description', '--add-include', '--remove-include', '--add-exclude', '--remove-exclude', '--dry-run', '-n', '--no-sync', '--none', '--discard-edits', '--allow-empty', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
     $commands['project'] = @(
         @{ Name = 'list'; Desc = 'Project list' }
         @{ Name = 'show'; Desc = 'Project show' }

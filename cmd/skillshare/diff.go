@@ -151,7 +151,7 @@ type targetDiffResult struct {
 // inSync reports no pending work or selection diagnostics. Folders only the
 // target holds stay listed, but sync never touches them.
 func (r targetDiffResult) inSync() bool {
-	return r.errMsg == "" && r.syncCount == 0 && !slices.ContainsFunc(r.items, func(item copyDiffEntry) bool { return item.action == "skip" })
+	return r.errMsg == "" && r.syncCount == 0 && !slices.ContainsFunc(r.items, func(item copyDiffEntry) bool { return item.action == "skip" || item.action == "kept" })
 }
 
 type copyDiffEntry struct {
@@ -186,16 +186,28 @@ func (e copyDiffEntry) label() string {
 	return e.name + " (stays at " + e.keptAt + ")"
 }
 
-// keptCount counts the skills kept under their old name.
+// keptCount counts visible preservation and legacy-name kept rows.
 func (r targetDiffResult) keptCount() int {
 	n := 0
 	for _, item := range r.items {
-		if item.keptAt != "" {
+		if item.keptAt != "" || item.action == "kept" {
 			n++
 		}
 	}
 	return n
 }
+
+func (r targetDiffResult) preservationCount() int {
+	n := 0
+	for _, item := range r.items {
+		if item.action == "kept" {
+			n++
+		}
+	}
+	return n
+}
+
+func (r targetDiffResult) fullySynced() bool { return r.synced && r.preservationCount() == 0 }
 
 // latestMtime returns the newest file mtime under dir.
 func latestMtime(dir string) time.Time {
@@ -384,6 +396,12 @@ func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOp
 		return err
 	}
 
+	if kind != kindAgents {
+		if err := cfg.ActiveProfileError(); err != nil {
+			return err
+		}
+	}
+
 	// Agent-only diff
 	if kind == kindAgents {
 		return diffGlobalAgents(cfg, targetName, opts, start)
@@ -479,7 +497,7 @@ func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOp
 			defer wg.Done()
 			defer func() { <-sem }()
 			progress.startTarget(fe.name)
-			r := collectTargetDiff(fe.name, fe.target, cfg.EffectiveSkillsSource(), fe.mode, fe.resolution, sync.EffectiveFileIgnorePatterns(cfg.Ignore), progress)
+			r := collectTargetDiff(fe.name, fe.target, cfg.EffectiveSkillsSource(), fe.mode, fe.resolution, sync.EffectiveFileIgnorePatterns(cfg.Ignore), progress, profileDiffPreview{aware: (cfg.ProfileState().Active != "" || cfg.ProfileState().Pending) && fe.target.ProjectRoot() == "", skills: discovered})
 			progress.doneTarget(fe.name, r)
 			results[idx] = r
 		}(i, fe)
@@ -578,7 +596,12 @@ func diffOutputJSONWithExtras(results []targetDiffResult, extrasResults []extraD
 	return writeJSON(&o)
 }
 
-func collectTargetDiff(name string, target config.TargetConfig, source, mode string, resolution *sync.TargetSkillResolution, ignorePatterns []string, dp *diffProgress) targetDiffResult {
+type profileDiffPreview struct {
+	aware  bool
+	skills []sync.DiscoveredSkill
+}
+
+func collectTargetDiff(name string, target config.TargetConfig, source, mode string, resolution *sync.TargetSkillResolution, ignorePatterns []string, dp *diffProgress, preview ...profileDiffPreview) targetDiffResult {
 	sc := target.SkillsConfig()
 	r := targetDiffResult{
 		name:    name,
@@ -602,10 +625,20 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 	}
 
 	if utils.IsSymlinkOrJunction(sc.Path) {
-		r.mode = "symlink"
-		collectSymlinkDiff(&r, sc.Path, source)
-		dp.add(len(resolution.Skills))
-		return r
+		profileAlias := false
+		if len(preview) > 0 && preview[0].aware && (mode == "copy" || mode == "merge") {
+			link, linkErr := utils.ResolveLinkTarget(sc.Path)
+			absSource, _ := filepath.Abs(source)
+			info, statErr := os.Stat(sc.Path)
+			profileAlias = linkErr == nil && statErr == nil && info.IsDir() &&
+				!utils.PathsEqual(utils.ResolveSymlink(link), utils.ResolveSymlink(absSource))
+		}
+		if !profileAlias {
+			r.mode = "symlink"
+			collectSymlinkDiff(&r, sc.Path, source)
+			dp.add(len(resolution.Skills))
+			return r
+		}
 	}
 
 	var manifest *sync.Manifest // only copy-mode legacy lookups read it
@@ -614,11 +647,43 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 	}
 	legacyNames := resolution.LegacyNames(mode, sc.Path, manifest)
 	if mode == "copy" {
-		collectCopyDiff(&r, name, sc.Path, resolution.Skills, resolution.Naming, sourceSkills, legacyNames, manifest, ignorePatterns, dp)
+		collectCopyDiff(&r, name, sc.Path, resolution.Skills, resolution.Naming, sourceSkills, legacyNames, manifest, ignorePatterns, dp, len(preview) > 0 && preview[0].aware)
 	} else {
 		// Merge mode (instant)
 		collectMergeDiff(&r, sc.Path, sourceSkills, sourceMap, legacyNames)
 		dp.add(len(resolution.Skills))
+	}
+
+	if len(preview) > 0 && preview[0].aware {
+		manifest, _ := sync.ReadManifest(sc.Path)
+		kept := sync.PreviewPreservedEntries(name, sc.Path, source, mode, resolution, preview[0].skills, manifest, ignorePatterns)
+		for _, change := range kept {
+			projected := change.Entry
+			if old, ok := legacyNames[change.Entry]; ok && change.Step == "refresh" {
+				projected = old.TargetName
+			}
+			r.items = slices.DeleteFunc(r.items, func(item copyDiffEntry) bool { return item.name == change.Entry || item.name == projected })
+			r.items = append(r.items, copyDiffEntry{action: "kept", name: change.Entry, reason: change.Reason, dstDir: filepath.Join(change.Dir, change.Entry)})
+		}
+		if mode == "merge" {
+			for i, item := range r.items {
+				if item.reason == "local copy (sync --force to replace)" {
+					entry, _ := sync.PreviewEntry(item.name, sc.Path, source, preview[0].skills, manifest, ignorePatterns)
+					if entry.Class == sync.EntryCleanCopy {
+						r.items[i].reason = sync.CopyToLinkReason
+					}
+				}
+			}
+		}
+		r.syncCount, r.localCount = 0, 0
+		for _, item := range r.items {
+			if item.isSync {
+				r.syncCount++
+			} else if item.keptAt == "" && item.action != "kept" {
+				r.localCount++
+			}
+		}
+		r.synced = len(r.items) == 0
 	}
 
 	for _, warning := range resolution.SelectionWarnings {
@@ -658,7 +723,7 @@ func collectSymlinkDiff(r *targetDiffResult, targetPath, source string) {
 	}
 }
 
-func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtered []sync.ResolvedTargetSkill, naming string, sourceSkills map[string]bool, legacyNames map[string]sync.ResolvedTargetSkill, manifest *sync.Manifest, ignorePatterns []string, dp *diffProgress) {
+func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtered []sync.ResolvedTargetSkill, naming string, sourceSkills map[string]bool, legacyNames map[string]sync.ResolvedTargetSkill, manifest *sync.Manifest, ignorePatterns []string, dp *diffProgress, profileAware bool) {
 	renamedFrom := sync.RenamedFrom(legacyNames)
 	for _, resolved := range filtered {
 		skill := resolved.Skill
@@ -706,7 +771,7 @@ func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtere
 		// mtime fast-path
 		oldMtime := manifest.Mtimes[resolved.TargetName]
 		currentMtime, mtimeErr := sync.DirMaxMtimeWithIgnore(skill.SourcePath, ignorePatterns)
-		if mtimeErr == nil && oldMtime > 0 && currentMtime == oldMtime {
+		if !profileAware && mtimeErr == nil && oldMtime > 0 && currentMtime == oldMtime {
 			continue
 		}
 		srcChecksum, err := sync.DirChecksumWithIgnore(skill.SourcePath, ignorePatterns)
@@ -839,7 +904,9 @@ func diffFingerprint(items []copyDiffEntry) string {
 type actionCategory struct {
 	kind   string // "new", "modified", "restore", "override", "kept", "orphan", "local", "warn"
 	label  string // e.g. "New", "Modified", "Local Override"
+	reason string // preserved explanation, separate from the category heading
 	names  []string
+	items  []copyDiffEntry
 	expand bool // true = list skill names
 }
 
@@ -849,39 +916,44 @@ func categorizeItems(items []copyDiffEntry) []actionCategory {
 		kind  string
 		label string
 		names []string
+		items []copyDiffEntry
 	}
 	buckets := map[string]*bucket{}
 	var order []string
 
-	add := func(key, kind, label, name string) {
+	add := func(key, kind, label string, item copyDiffEntry) {
+		name := item.name
 		if b, ok := buckets[key]; ok {
 			b.names = append(b.names, name)
+			b.items = append(b.items, item)
 		} else {
-			buckets[key] = &bucket{kind: kind, label: label, names: []string{name}}
+			buckets[key] = &bucket{kind: kind, label: label, names: []string{name}, items: []copyDiffEntry{item}}
 			order = append(order, key)
 		}
 	}
 
 	for _, item := range items {
 		switch {
+		case item.action == "kept":
+			add("preserved:"+item.reason, "preserved", "Kept", item)
 		case item.reason == "source only" || item.reason == "not in target":
-			add("new", "new", "New", item.name)
+			add("new", "new", "New", item)
 		case item.reason == "deleted from target":
-			add("restore", "new", "Restore", item.name)
+			add("restore", "new", "Restore", item)
 		case item.reason == "content changed" || item.reason == sync.NamingChangedReason || item.reason == sync.CopyToLinkReason:
-			add("modified", "modified", "Modified", item.name)
+			add("modified", "modified", "Modified", item)
 		case strings.HasPrefix(item.reason, "renamed from "):
-			add("renamed", "modified", "Renamed", item.name)
+			add("renamed", "modified", "Renamed", item)
 		case strings.Contains(item.reason, "local copy"):
-			add("override", "override", "Local Override", item.name)
+			add("override", "override", "Local Override", item)
 		case strings.Contains(item.reason, "orphan"):
-			add("orphan", "orphan", "Orphan", item.name)
+			add("orphan", "orphan", "Orphan", item)
 		case item.keptAt != "":
-			add("kept", "kept", "Local only, skill kept under old name", item.name)
+			add("kept", "kept", "Local only, skill kept under old name", item)
 		case item.reason == "local only" || item.reason == "not in source" || item.reason == "local file":
-			add("local", "local", "Local Only", item.name)
+			add("local", "local", "Local Only", item)
 		default:
-			add("warn:"+item.reason, "warn", item.reason, item.name)
+			add("warn:"+item.reason, "warn", item.reason, item)
 		}
 	}
 
@@ -889,10 +961,16 @@ func categorizeItems(items []copyDiffEntry) []actionCategory {
 	for _, key := range order {
 		b := buckets[key]
 		expand := len(b.names) <= 15
+		reason := ""
+		if b.kind == "preserved" {
+			reason = strings.TrimPrefix(key, "preserved:")
+		}
 		cats = append(cats, actionCategory{
 			kind:   b.kind,
 			label:  b.label,
+			reason: reason,
 			names:  b.names,
+			items:  b.items,
 			expand: expand,
 		})
 	}
@@ -932,11 +1010,14 @@ func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, op
 			errorResults = append(errorResults, r)
 			continue
 		}
-		if r.synced {
+		if r.fullySynced() {
 			syncedNames = append(syncedNames, r.name)
 			continue
 		}
 		fp := diffFingerprint(r.items)
+		if (opts.showStat || opts.showPatch) && r.preservationCount() > 0 {
+			fp = fmt.Sprintf("%q:%s", r.name, fp)
+		}
 		if g, exists := groups[fp]; exists {
 			g.names = append(g.names, r.name)
 		} else {
@@ -956,13 +1037,15 @@ func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, op
 
 	out := &diffOutput{}
 	var next diffNext
-	needCount, keptCount := 0, 0
+	needCount, keptCount, preservationCount := 0, 0, 0
 	for _, fp := range groupOrder {
 		g := groups[fp]
 		sort.Strings(g.names)
 		// Kept rows need the user to move a folder first, so they are neither
 		// in sync nor something sync can apply.
 		switch {
+		case g.result.syncCount == 0 && g.result.preservationCount() > 0:
+			preservationCount += len(g.names)
 		case g.result.syncCount == 0 && g.result.keptCount() > 0:
 			keptCount += len(g.names)
 		case g.result.inSync():
@@ -1007,7 +1090,7 @@ func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, op
 		fmt.Println()
 	}
 	total := len(results)
-	if needCount == 0 && keptCount == 0 && len(errorResults) == 0 {
+	if needCount == 0 && keptCount == 0 && preservationCount == 0 && len(errorResults) == 0 {
 		text := "No differences"
 		switch {
 		case total == 1:
@@ -1035,6 +1118,9 @@ func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, op
 	}
 	if keptCount > 0 {
 		parts = append(parts, fmt.Sprintf("%d kept under old name", keptCount))
+	}
+	if preservationCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d kept", preservationCount))
 	}
 	if len(errorResults) > 0 {
 		parts = append(parts, fmt.Sprintf("%d unreadable", len(errorResults)))
@@ -1140,7 +1226,7 @@ func renderDiffGroup(r targetDiffResult, opts diffRenderOpts, next *diffNext, wi
 				agent = true
 			}
 			switch {
-			case cat.kind == "warn":
+			case cat.kind == "warn" || cat.kind == "preserved":
 				// Selection diagnostics describe skipped files, not sync work.
 			case cat.kind == "override":
 				next.force = true
@@ -1159,6 +1245,9 @@ func renderDiffGroup(r targetDiffResult, opts diffRenderOpts, next *diffNext, wi
 
 		if !cat.expand {
 			ui.Row(ui.MarkNone, labels[i], plural(len(cat.names), "item"), width)
+			if cat.reason != "" {
+				ui.Note(cat.reason)
+			}
 			continue
 		}
 		shown := cat.names
@@ -1170,19 +1259,26 @@ func renderDiffGroup(r targetDiffResult, opts diffRenderOpts, next *diffNext, wi
 		}
 		if !opts.showStat && !opts.showPatch && cat.kind != "modified" {
 			ui.Row(ui.MarkNone, labels[i], strings.Join(shown, ", "), width)
+			if cat.reason != "" {
+				ui.Note(cat.reason)
+			}
 			continue
 		}
-		for j, name := range cat.names {
+		for j := range cat.items {
 			label := ""
 			if j == 0 {
 				label = labels[i]
 			}
 			ui.Row(ui.MarkNone, label, shown[j], width)
-			item := findDiffItem(items, name)
-			if item == nil {
+			item := &cat.items[j]
+			item.ensureFiles()
+			if item.action == "kept" {
+				for _, f := range item.files {
+					fmt.Println(fileIndent + ui.DimText(fmt.Sprintf("· %s (%d bytes)", f.RelPath, f.DstSize)))
+				}
 				continue
 			}
-			item.ensureFiles()
+
 			for _, line := range strings.Split(strings.TrimRight(renderFileStat(item.files), "\n"), "\n") {
 				if line = strings.TrimSpace(line); line != "" {
 					fmt.Println(fileIndent + ui.DimText(line))
@@ -1204,6 +1300,9 @@ func renderDiffGroup(r targetDiffResult, opts diffRenderOpts, next *diffNext, wi
 					fmt.Println(fileIndent + line)
 				}
 			}
+		}
+		if cat.reason != "" {
+			ui.Note(cat.reason)
 		}
 	}
 

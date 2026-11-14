@@ -35,6 +35,19 @@ describe('resourceGroups', () => {
     const kept: DiffTarget[] = [{ target: 'claude', items: [{ skill: 'bmad-ux', action: 'kept', reason: 'local folder; the skill stays at _bmad__ux' }] }];
     const groups = resourceGroups(kept, [target('claude', 'copy')], new Set(['skill'] as const), true).groups;
     expect([countChanges(groups), groups[0].rows[0].detail]).toEqual([0, 'local folder; the skill stays at _bmad__ux']);
+    const reason = 'copy was edited; collect or discard edits';
+    const rows: DiffTarget[] = [{ target: 'claude', items: [
+      { skill: 'departing', action: 'kept', reason },
+      { skill: 'selected', action: 'skip', reason },
+    ] }];
+    for (const force of [false, true]) {
+      const mixed = resourceGroups(rows, [target('claude', 'copy')], new Set(['skill']), force).groups;
+      expect(countChanges(mixed)).toBe(force ? 1 : 0);
+      expect(mixed[0].rows.find((row) => row.name === 'departing')?.counts).toBe(false);
+      expect(mixed[0].rows.find((row) => row.name === 'selected')?.counts).toBe(force);
+      expect(mixed[0].rows.find((row) => row.name === 'departing')?.detail).toBe(reason);
+      expect(mixed[0].rows.map((row) => row.name)).toEqual(['departing', 'selected']);
+    }
   });
 
   it('keeps targets apart when their kept entries sit at different old names', () => {

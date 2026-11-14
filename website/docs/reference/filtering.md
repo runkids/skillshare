@@ -4,7 +4,7 @@ sidebar_position: 3
 
 # Filtering Reference
 
-Complete specification of the three filtering layers that control which skills reach which targets.
+Complete specification of the filtering layers that control which skills reach which targets.
 
 :::tip Looking for quick guidance?
 See [Filtering Skills](/docs/how-to/daily-tasks/filtering-skills) for a scenario-driven guide.
@@ -15,12 +15,13 @@ See [Filtering Skills](/docs/how-to/daily-tasks/filtering-skills) for a scenario
 | Layer | Scope | Where to set | Syntax | Evaluated at |
 |-------|-------|-------------|--------|-------------|
 | `.skillignore` | Hides from all targets | Source dir or tracked repo root | [gitignore](https://git-scm.com/docs/gitignore) | Discovery |
+| Active profile | This config's enabled merge/copy skill targets | `profiles:` plus local active state | Go `filepath.Match` on flat source names | Selection |
 | SKILL.md `metadata.targets` | Restricts skills to listed targets | Per skill frontmatter | YAML list | Sync (parsed at discovery) |
 | Agent `targets` | Restricts an agent to listed targets | Per agent frontmatter | YAML list | Sync (parsed at discovery) |
 | Target include/exclude | Per target, per resource | `config.yaml` or CLI flags | Go [`filepath.Match`](https://pkg.go.dev/path/filepath#Match) glob | Sync |
 
 :::note Sync mode caveat
-All three layers only apply to **merge** and **copy** sync modes.
+Per-skill selection applies to **merge** and **copy** sync modes.
 In **symlink** mode the entire source directory is linked as one unit — per-skill filtering has no effect.
 :::
 
@@ -29,6 +30,7 @@ In **symlink** mode the entire source directory is linked as one unit — per-sk
 A skill must pass **all** layers to reach a target:
 
 1. **`.skillignore`** — evaluated at discovery. Matching skills never enter the sync pipeline.
+   The active profile then narrows the discovered skill set before target filtering and routing.
 2. **Target include/exclude** — evaluated at sync (`FilterSkills`). Skills are discovered but skipped for non-matching targets.
 3. **SKILL.md `metadata.targets`** — evaluated at sync (`FilterSkillsByTarget`). Skills are restricted to their declared targets.
 
@@ -160,3 +162,7 @@ skillshare target claude --remove-agent-include "team-*"
 ## See also
 
 - [Filtering Skills](/docs/how-to/daily-tasks/filtering-skills) — scenario-driven how-to guide
+
+## Profiles {#profiles}
+
+An active [profile](/docs/reference/commands/profile) adds an AND layer between discovery and target filters. It cannot widen `.skillignore`, target include/exclude or metadata routing. It matches flat source names even with standard/prefixed target naming. No `skills` key is unrestricted; `skills: {}` and empty or blank includes select nothing. Excludes require an include key. Registered `projects:` targets, agents and symlink-mode roots are outside this layer. Unknown/missing active definitions refuse skill operations until repaired with `profile use <name>` or `profile use --none`.

@@ -4,6 +4,7 @@ package integration
 
 import (
 	"encoding/json"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -209,8 +210,9 @@ targets:
     path: ` + sb.CreateTarget("claude") + `
 `)
 
-	sb.RunCLI("install", "--into", "team", "https://someone:s3cret@127.0.0.1:1/team/skills.git?token=q-s3cret")
-	sb.RunCLI("install", "someone:s3cret@127.0.0.1:1/team/skills")
+	userinfo := url.UserPassword("someone", "s3cret").String()
+	sb.RunCLI("install", "--into", "team", "https://"+userinfo+"@127.0.0.1:1/team/skills.git?token=q-s3cret")
+	sb.RunCLI("install", userinfo+"@127.0.0.1:1/team/skills")
 
 	logResult := sb.RunCLI("log", "--json", "--cmd", "install")
 	logResult.AssertSuccess(t)

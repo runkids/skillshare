@@ -165,6 +165,7 @@ const sidebars: SidebarsConfig = {
               items: [
                 'reference/commands/target',
                 'reference/commands/project',
+                'reference/commands/profile',
                 'reference/commands/diff',
               ],
             },

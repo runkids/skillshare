@@ -129,3 +129,11 @@ skillshare target claude --remove-agent-include "team-*"
 ## 참고
 
 - [Filtering Skills](/docs/how-to/daily-tasks/filtering-skills) — 시나리오 중심의 how-to 가이드
+
+## 프로필 {#profiles}
+
+[profile](/docs/reference/commands/profile)로 이름 있는 Skill 선택을 만들고 조회·편집·전환합니다. `-g` / `-p`를 지원합니다.
+
+활성 프로필은 discovery와 Target 필터 사이에 AND 조건을 추가하며 flat Source 이름에 일치합니다. `.skillignore`, Target 필터 및 metadata 라우팅을 넓히지 않습니다. agents, 등록된 `projects:`, symlink 모드에는 적용하지 않습니다.
+
+`skills` 키가 없으면 제한이 없고 `skills: {}` 및 빈/공백 include는 아무것도 선택하지 않습니다. exclude에는 include 키가 필요합니다. 명시적 `include: []`와 exclude는 유효하지만 제외는 비활성입니다.
