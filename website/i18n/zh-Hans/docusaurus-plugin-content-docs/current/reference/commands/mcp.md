@@ -835,7 +835,7 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
 
 `resources/list` 列出所提供 `SKILL.md` 的 frontmatter 名称和描述。
 `directoryRead: true` 让 client 通过 `resources/directory/read`（`uri`、可选 `cursor`）
-浏览 skill 根目录和子目录；响应的 `resources` 只含直接子项，包括 MIME 类型为
+浏览 skill 根目录（例如 `skill://_team/tools/pdf`）及其子目录；响应的 `resources` 只含直接子项，包括 MIME 类型为
 `inode/directory` 的空目录。目录 URI 不加结尾斜线；文件或未知目录返回 `-32602`。
 两种列表都按 URI 排序，每页最多 100 项，以 `nextCursor` 作为 `cursor` 继续，
 并使用与 skills 相同的选择和刷新规则。
