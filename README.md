@@ -48,7 +48,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: v0.30.6 — Catch outdated skills in CI: `skillshare check --exit-code` exits with code 1 when anything it checks is not up to date, and `check --all` now checks agents as well as skills, so one CI step covers both. [check reference →](https://skillshare.runkids.cc/docs/reference/commands/check) · [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: v0.30.7 — Let accepted findings pass in CI: `skillshare audit --respect-accepted` no longer fails on findings you accepted with `--force` during `install` or `update`, the same way the update gate treats them. They stay in the report, marked as accepted. [audit reference →](https://skillshare.runkids.cc/docs/reference/commands/audit#accepted-findings) · [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
@@ -343,6 +343,7 @@ Thanks to everyone who helped shape skillshare.
 <a href="https://github.com/chaosky"><img src="https://github.com/chaosky.png" width="50" style="border-radius:50%" alt="chaosky"></a>
 <a href="https://github.com/iFwu"><img src="https://github.com/iFwu.png" width="50" style="border-radius:50%" alt="iFwu"></a>
 <a href="https://github.com/ildunari"><img src="https://github.com/ildunari.png" width="50" style="border-radius:50%" alt="ildunari"></a>
+<a href="https://github.com/vieGPT"><img src="https://github.com/vieGPT.png" width="50" style="border-radius:50%" alt="vieGPT"></a>
 <a href="https://github.com/aestilog"><img src="https://github.com/aestilog.png" width="50" style="border-radius:50%" alt="aestilog"></a>
 <a href="https://github.com/xarthurx"><img src="https://github.com/xarthurx.png" width="50" style="border-radius:50%" alt="xarthurx"></a>
 <a href="https://github.com/m0cun"><img src="https://github.com/m0cun.png" width="50" style="border-radius:50%" alt="m0cun"></a>

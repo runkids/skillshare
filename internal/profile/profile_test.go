@@ -2,6 +2,7 @@ package profile
 
 import (
 	"errors"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -18,6 +19,36 @@ func section(t *testing.T, text string) *yaml.Node {
 		t.Fatal(err)
 	}
 	return &wrapper.Profiles
+}
+
+func TestMutateFutureDefinitionRawRepair(t *testing.T) {
+	for _, active := range []string{"", "future"} {
+		node := section(t, "profiles:\n  future: # preserve comment\n    new_rule: [alpha, beta]\n  other: {}\n")
+		before, err := yaml.Marshal(node)
+		if err != nil {
+			t.Fatal(err)
+		}
+		renamed, change, err := Mutate(node, active, Mutation{Op: "rename", Name: "future", NewName: "renamed"})
+		if err != nil || !change.Changed || (active != "" && change.Active != "renamed") {
+			t.Errorf("raw rename: %+v %v", change, err)
+		} else if data, err := yaml.Marshal(renamed); err != nil || !strings.Contains(string(data), "preserve comment") || !strings.Contains(string(data), "new_rule: [alpha, beta]") || Parse(renamed).Definitions["renamed"].Usable {
+			t.Errorf("raw rename interpreted/lost future content: %s %v", data, err)
+		}
+		_, _, err = Mutate(node, active, Mutation{Op: "delete", Name: "future"})
+		if (err != nil) != (active == "future") {
+			t.Errorf("delete active=%q: %v", active, err)
+		}
+		if _, _, err := Mutate(node, active, Mutation{Op: "edit", Name: "future", AddInclude: []string{"alpha"}}); err == nil {
+			t.Error("semantic edit interpreted unknown definition")
+		}
+		if _, _, err := Mutate(node, active, Mutation{Op: "rename", Name: "future", NewName: "other"}); err == nil {
+			t.Error("raw rename replaced another definition")
+		}
+		after, err := yaml.Marshal(node)
+		if err != nil || string(after) != string(before) {
+			t.Fatal("raw operation mutated input node", err)
+		}
+	}
 }
 
 func TestParseSelectionAndValidation(t *testing.T) {
@@ -264,5 +295,43 @@ func TestMutate_SkillsPreserveYAMLAndBatchResults(t *testing.T) {
 	d := Parse(next).Definitions["work"]
 	if !d.Usable || d.Selects("x") || d.Selects("team__new") || !d.Selects("team__kept") {
 		t.Fatalf("batch membership = %+v", d)
+	}
+}
+
+func TestMutateLiteralSkillIdentity(t *testing.T) {
+	for _, names := range [][2]string{{"team__tool[ab]", "team__toola"}, {"tool*", "tool-extra"}, {"tool?", "toola"}, {"tool]", "tool"}, {`tool\name`, "toolname"}} {
+		if runtime.GOOS == "windows" && strings.ContainsAny(names[0], `*?\`) {
+			continue // These characters cannot be filename components on Windows.
+		}
+		for _, op := range []string{"add-skills", "remove-skills"} {
+			t.Run(op+"/"+names[0], func(t *testing.T) {
+				definition := "{skills: {include: []}}"
+				if op == "remove-skills" {
+					definition = "{}"
+				}
+				original := section(t, "profiles: {work: "+definition+"}")
+				next, change, err := Mutate(original, "work", Mutation{Op: op, Name: "work", Skills: []string{names[0]}})
+				if err != nil || !change.Changed || !change.NeedsSync || len(change.Skills) != 1 {
+					t.Fatalf("literal mutation: %+v, %v", change, err)
+				}
+				d := Parse(next).Definitions["work"]
+				want := op == "add-skills"
+				if !d.Usable || d.Selects(names[0]) != want || d.Selects(names[1]) == want {
+					t.Fatalf("literal/collateral membership changed: %+v", d)
+				}
+				if !equalNodes(original, section(t, "profiles: {work: "+definition+"}")) {
+					t.Fatal("literal mutation changed its input")
+				}
+				reverse := "remove-skills"
+				if !want {
+					reverse = "add-skills"
+				}
+				roundtrip, _, err := Mutate(next, "work", Mutation{Op: reverse, Name: "work", Skills: []string{names[0]}})
+				d = Parse(roundtrip).Definitions["work"]
+				if err != nil || !d.Usable || d.Selects(names[0]) == want || d.Selects(names[1]) == want {
+					t.Fatalf("literal roundtrip: %+v, %v", d, err)
+				}
+			})
+		}
 	}
 }

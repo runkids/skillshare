@@ -210,7 +210,7 @@ skillshare install /path/to/skill --skip-audit
 # 스캔 우회 (주의해서 사용)
 ```
 
-`--force`는 차단 결정을 무시합니다. `--skip-audit`는 해당 install 명령에 대한 스캔을 비활성화합니다.
+`--force`는 findings로 인한 차단 결정을 무시합니다. 스캔을 실행할 수 없으면 계속 차단됩니다. `--skip-audit`는 해당 install 명령에 대한 스캔을 비활성화합니다.
 
 설치 시점 audit를 전역적으로 비활성화하는 config 플래그는 없습니다. 의도적으로 스캔을 우회하려는 명령에서만 `--skip-audit`를 사용하십시오.
 

@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.30.6 — 在 CI 中抓出過期的 skill：`skillshare check --exit-code` 在檢查到任何項目不是最新時以代碼 1 結束，`check --all` 現在會同時檢查 skill 與 agent，一個 CI 步驟就能涵蓋兩者。[check 參考 →](https://skillshare.runkids.cc/zh-Hant/docs/reference/commands/check) · [更新紀錄 →](https://skillshare.runkids.cc/changelog)
+> **最新版本**：v0.30.7 — 讓已接受的發現在 CI 中通過：`skillshare audit --respect-accepted` 不再因你在 `install` 或 `update` 時用 `--force` 接受的發現而失敗，處理方式與 update 的檢查關卡相同。這些發現仍留在報告中，並標示為已接受。[audit 參考 →](https://skillshare.runkids.cc/zh-Hant/docs/reference/commands/audit#accepted-findings) · [更新紀錄 →](https://skillshare.runkids.cc/changelog)
 
 ## 為什麼用 skillshare
 

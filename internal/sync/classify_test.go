@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/config"
@@ -77,6 +78,16 @@ func TestProfileDeselected(t *testing.T) {
 	if err != nil || len(got) != 1 || got["other"] != "frontend" {
 		t.Fatal(got, err)
 	}
+	for _, filters := range []config.ResourceTargetConfig{
+		{Exclude: []string{"other", "target-only"}},
+		{Include: []string{"keep"}},
+	} {
+		filters.Profile = sc.Profile
+		got, err := ProfileDeselected("claude", filters, skills)
+		if err != nil || len(got) != 1 || got["other"] != "frontend" {
+			t.Fatal("profile reason lost to overlapping target filter or target-only mislabeled", got, err)
+		}
+	}
 	sc.Profile = profile.Selector{}
 	if got, err := ProfileDeselected("claude", sc, skills); err != nil || len(got) != 0 {
 		t.Fatal("no-profile behavior changed", got, err)
@@ -104,6 +115,91 @@ func TestProfileDeselectedUsesTargetNaming(t *testing.T) {
 		got, err := ProfileDeselected("claude", config.ResourceTargetConfig{Profile: selector, TargetNaming: naming}, skills)
 		if err != nil || len(got) != 1 || got[want] != "frontend" {
 			t.Fatal(naming, got, err)
+		}
+	}
+}
+
+func TestProfileDeselectedRetainsDisambiguation(t *testing.T) {
+	for _, naming := range []string{"standard", "prefixed"} {
+		for _, filter := range []string{"include", "exclude"} {
+			for _, layout := range []string{"collision", "variant", "variant-shadow"} {
+				t.Run(naming+"/"+filter+"/"+layout, func(t *testing.T) {
+					source := t.TempDir()
+					selected, rejected := "a/review", "b/review"
+					want := "review"
+					if strings.HasPrefix(layout, "variant") {
+						selected, rejected = "_repo/skills/claude/review", "_repo/skills/claude-code/review"
+						writeSkillMD(t, filepath.Join(source, "_repo/skills/codex/review"), "---\nname: review\n---\n# Peer")
+						if naming == "prefixed" {
+							want = "repo-review"
+						}
+					}
+					for _, rel := range []string{selected, rejected} {
+						writeSkillMD(t, filepath.Join(source, rel), "---\nname: review\n---\n# Fixture")
+					}
+					if layout == "variant-shadow" {
+						writeSkillMD(t, filepath.Join(source, want), "---\nname: "+want+"\n---\n# Ordinary")
+					}
+					physicalCount := 2
+					if strings.HasPrefix(layout, "variant") {
+						physicalCount++
+					}
+					if layout == "variant-shadow" {
+						physicalCount++
+					}
+					skills, err := DiscoverSourceSkills(source)
+					if err != nil || len(skills) != physicalCount {
+						t.Fatalf("discovery: %+v, %v", skills, err)
+					}
+					if strings.HasPrefix(layout, "variant") {
+						for _, skill := range skills {
+							if skill.RelPath != want && (skill.LogicalID == "" || !skill.variantRouting) {
+								t.Fatalf("fixture did not discover actual variants: %+v", skill)
+							}
+						}
+					}
+					sc := config.ResourceTargetConfig{TargetNaming: naming}
+					if filter == "include" {
+						sc.Include = []string{strings.ReplaceAll(selected, "/", "__")}
+					} else {
+						sc.Exclude = []string{strings.ReplaceAll(rejected, "/", "__")}
+						if layout == "variant-shadow" {
+							sc.Exclude = append(sc.Exclude, want)
+						}
+					}
+					resolved, err := ResolveTargetSkillsForTarget("claude", sc, skills)
+					if err != nil || len(resolved.Skills) != 1 || resolved.Skills[0].Skill.RelPath != selected || resolved.Skills[0].TargetName != want {
+						t.Fatalf("target filter must select the physical fixture: %+v, %v", resolved, err)
+					}
+					catalog := profile.Catalog{Definitions: map[string]profile.Definition{
+						"empty": {Name: "empty", Usable: true, Skills: &profile.SkillSelection{IncludePresent: true}},
+						"keep":  {Name: "keep", Usable: true, Skills: &profile.SkillSelection{Include: []string{strings.ReplaceAll(selected, "/", "__")}, IncludePresent: true}},
+					}}
+					for _, active := range []string{"", "keep", "empty"} {
+						sc.Profile = profile.Resolve(catalog, profile.State{Version: 1, Active: active}, "fixture.yaml", nil)
+						got, err := ProfileDeselected("claude", sc, skills)
+						if err != nil {
+							t.Fatal(err)
+						}
+						if active == "empty" {
+							if len(got) != 1 || got[want] != "empty" {
+								t.Errorf("profile removal lost filtered identity: got %v, want %s:empty", got, want)
+							}
+						} else if len(got) != 0 {
+							t.Errorf("selected/no-profile entry falsely labeled: %v", got)
+						}
+					}
+					// Unfiltered ambiguity cannot label either variant; an ordinary entry remains eligible.
+					sc.Include, sc.Exclude = nil, nil
+					wantCount := 0
+					if layout == "variant-shadow" {
+						wantCount = 1
+					}
+					if got, err := ProfileDeselected("claude", sc, skills); err != nil || len(got) != wantCount || wantCount == 1 && got[want] != "empty" {
+						t.Fatalf("ambiguous candidates falsely labeled: %v, %v", got, err)
+					}
+				})
+			}
 		}
 	}
 }

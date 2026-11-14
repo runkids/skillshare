@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"strings"
 
 	"skillshare/internal/config"
 	"skillshare/internal/profile"
@@ -88,15 +87,4 @@ func profileSkillNames(skills []sync.DiscoveredSkill) []string {
 		}
 	}
 	return names
-}
-
-func profileUnmatchedWarning(catalog profile.Catalog, state profile.State, skills []sync.DiscoveredSkill) string {
-	if state.Active == "" {
-		return ""
-	}
-	preview, err := profile.Preview(catalog.Definitions[state.Active], profileSkillNames(skills))
-	if err != nil || len(preview.Unmatched) == 0 {
-		return ""
-	}
-	return fmt.Sprintf("Profile %s: unmatched patterns: %s", state.Active, strings.Join(preview.Unmatched, ", "))
 }

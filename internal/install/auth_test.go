@@ -585,3 +585,41 @@ func TestProviderCredentialsRejectUntrustedOrigins(t *testing.T) {
 		})
 	}
 }
+
+func TestRedactRepoURL(t *testing.T) {
+	tests := []struct {
+		name, repoURL, want string
+		leaks               []string
+	}{
+		{"userinfo", "https://someone:s3cret-token@git.example.com/owner/skills.git", "https://git.example.com/owner/skills.git", []string{"s3cret-token", "someone"}},
+		{"token as username", "https://s3cret-token@git.example.com/owner/skills.git", "https://git.example.com/owner/skills.git", []string{"s3cret-token"}},
+		{"query token", "https://git.example.com/owner/skills?token=s3cret-token.git", "https://git.example.com/owner/skills", []string{"s3cret-token"}},
+		{"fragment", "https://git.example.com/owner/skills.git#s3cret-token", "https://git.example.com/owner/skills.git", []string{"s3cret-token"}},
+		{"question mark in password", "https://someone:s3cret?token@git.example.com/owner/skills.git", "https://git.example.com/owner/skills.git", []string{"s3cret?token", "someone"}},
+		{"git+https scheme", "git+https://someone:s3cret-token@git.example.com/owner/skills.git", "git+https://git.example.com/owner/skills.git", []string{"s3cret-token", "someone"}},
+		{"ssh password", "ssh://someone:s3cret-token@git.example.com/owner/skills.git", "ssh://git.example.com/owner/skills.git", []string{"s3cret-token", "someone"}},
+		{"no scheme, cloned over https", "someone:s3cret-token@git.example.com/owner/skills", "git.example.com/owner/skills", []string{"s3cret-token", "someone"}},
+		{"at sign in https path", "https://git.example.com/team@archive/skills.git", "https://git.example.com/team@archive/skills.git", nil},
+		{"at sign in file path", "file:///tmp/team@archive.git", "file:///tmp/team@archive.git", nil},
+		{"scp style", "git@github.com:owner/skills.git", "git@github.com:owner/skills.git", nil},
+		{"github shorthand", "anthropics/skills/skills/pdf", "anthropics/skills/skills/pdf", nil},
+		{"local path", "~/skills/team@archive", "~/skills/team@archive", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, redact := RedactRepoURL(tt.repoURL)
+			if got != tt.want {
+				t.Errorf("RedactRepoURL() = %q, want %q", got, tt.want)
+			}
+			echoed := redact.Replace("fatal: unable to access '" + tt.repoURL + "/': Failed to connect")
+			for _, leak := range tt.leaks {
+				if strings.Contains(echoed, leak) {
+					t.Errorf("replacer leaked %q: %q", leak, echoed)
+				}
+			}
+			if !strings.Contains(echoed, "Failed to connect") {
+				t.Errorf("replacer lost the error text: %q", echoed)
+			}
+		})
+	}
+}

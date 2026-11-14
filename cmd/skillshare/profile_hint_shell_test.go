@@ -25,7 +25,7 @@ func TestProfileHintShellRoundTrip(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg, _, _ := profileDiagnosticFixture(t, false, "profiles:\n  work:\n    skills:\n      include: [keep]\n", profile.State{Version: 1, Active: "work"})
 			writeHintSkill(t, cfg.Source, "_repo/"+tc.child)
-			hint := installedProfileHint(cfg, cfg.Source, cfg.SkillsWalk(), []string{filepath.Join(cfg.Source, "_repo")})
+			hint := installedProfileHint(cfg, modeGlobal, cfg.Source, cfg.SkillsWalk(), []string{filepath.Join(cfg.Source, "_repo")})
 			const prefix = `Not in active profile "work": `
 			if !strings.HasPrefix(hint, prefix) {
 				t.Fatal("missing hint for discovered child", hint)
@@ -50,7 +50,7 @@ func TestProfileHintShellRoundTrip(t *testing.T) {
 				t.Fatal("argument recorder did not run", err)
 			}
 			got := strings.Split(strings.TrimSuffix(string(data), "\x00"), "\x00")
-			want := []string{"profile", "add", "work", "_repo__" + tc.child}
+			want := []string{"profile", "add", "work", "_repo__" + tc.child, "-g"}
 			if !slices.Equal(got, want) {
 				t.Fatalf("copied hint arguments = %q, want %q", got, want)
 			}
@@ -74,8 +74,8 @@ func TestProfileHintWindowsShellContract(t *testing.T) {
 		t.Run(tc.child, func(t *testing.T) {
 			cfg, _, _ := profileDiagnosticFixture(t, false, "profiles:\n  work:\n    skills:\n      include: [keep]\n", profile.State{Version: 1, Active: "work"})
 			writeHintSkill(t, cfg.Source, "_repo/"+tc.child)
-			got := installedProfileHint(cfg, cfg.Source, cfg.SkillsWalk(), []string{filepath.Join(cfg.Source, "_repo")})
-			if want := `Not in active profile "work": ` + tc.command; got != want {
+			got := installedProfileHint(cfg, modeGlobal, cfg.Source, cfg.SkillsWalk(), []string{filepath.Join(cfg.Source, "_repo")})
+			if want := `Not in active profile "work": ` + tc.command + " -g"; got != want {
 				t.Fatalf("hint = %q, want %q", got, want)
 			}
 		})

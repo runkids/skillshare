@@ -56,6 +56,7 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 	if err != nil {
 		if errors.Is(err, install.ErrSkipSameRepo) {
 			treeSpinner.Warn(firstWarningLine(err.Error()))
+			logSummary.SkippedSkills = append(logSummary.SkippedSkills, result.RepoName)
 			return logSummary, nil
 		}
 		if errors.Is(err, audit.ErrBlocked) {
@@ -186,7 +187,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 
 	// Cross-path duplicate detection: block if same repo is already installed
 	// at a different location (e.g. user forgot they used --into before).
-	if !opts.Force && source.CloneURL != "" {
+	if !opts.Force && !opts.DryRun && source.CloneURL != "" {
 		if err := install.CheckCrossPathDuplicate(cfg.EffectiveSkillsSource(), source.CloneURL, opts.Into); err != nil {
 			return logSummary, err
 		}
@@ -231,6 +232,8 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 			installSpinner.Stop()
 			if errors.Is(err, install.ErrSkipSameRepo) {
 				ui.Warning("%s: %s", skill.Name, firstWarningLine(err.Error()))
+				logSummary.SkippedSkills = append(logSummary.SkippedSkills, skill.Name)
+				installDiscoveredAgents(discovery, cfg, opts, &logSummary)
 				return logSummary, nil
 			}
 			if errors.Is(err, audit.ErrBlocked) {
@@ -250,7 +253,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 			logSummary.InstalledPaths = append(logSummary.InstalledPaths, result.SkillPath)
 			logSummary.SkillCount = len(logSummary.InstalledSkills)
 		}
-		installDiscoveredAgents(discovery, cfg, opts)
+		installDiscoveredAgents(discovery, cfg, opts, &logSummary)
 		return logSummary, nil
 	}
 
@@ -316,6 +319,8 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 			installSpinner.Stop()
 			if errors.Is(err, install.ErrSkipSameRepo) {
 				ui.Warning("%s: %s", skill.Name, firstWarningLine(err.Error()))
+				logSummary.SkippedSkills = append(logSummary.SkippedSkills, skill.Name)
+				installDiscoveredAgents(discovery, cfg, opts, &logSummary)
 				return logSummary, nil
 			}
 			if errors.Is(err, audit.ErrBlocked) {
@@ -335,7 +340,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 			logSummary.InstalledPaths = append(logSummary.InstalledPaths, result.SkillPath)
 			logSummary.SkillCount = len(logSummary.InstalledSkills)
 		}
-		installDiscoveredAgents(discovery, cfg, opts)
+		installDiscoveredAgents(discovery, cfg, opts, &logSummary)
 
 		return logSummary, nil
 	}
@@ -370,9 +375,10 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		logSummary.InstalledSkills = append(logSummary.InstalledSkills, batchSummary.InstalledSkills...)
 		logSummary.InstalledPaths = append(logSummary.InstalledPaths, batchSummary.InstalledPaths...)
 		logSummary.FailedSkills = append(logSummary.FailedSkills, batchSummary.FailedSkills...)
+		logSummary.SkippedSkills = append(logSummary.SkippedSkills, batchSummary.SkippedSkills...)
 		logSummary.SkillCount = len(logSummary.InstalledSkills)
-		installDiscoveredAgents(discovery, cfg, opts)
-		return logSummary, allSkillsFailedError(len(batchSummary.InstalledSkills)+batchSummary.SkippedSkills, batchSummary.Failures)
+		installDiscoveredAgents(discovery, cfg, opts, &logSummary)
+		return logSummary, allSkillsFailedError(len(batchSummary.InstalledSkills)+len(batchSummary.SkippedSkills), batchSummary.Failures)
 	}
 
 	if opts.DryRun {
@@ -413,10 +419,11 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 	logSummary.InstalledSkills = append(logSummary.InstalledSkills, batchSummary.InstalledSkills...)
 	logSummary.InstalledPaths = append(logSummary.InstalledPaths, batchSummary.InstalledPaths...)
 	logSummary.FailedSkills = append(logSummary.FailedSkills, batchSummary.FailedSkills...)
+	logSummary.SkippedSkills = append(logSummary.SkippedSkills, batchSummary.SkippedSkills...)
 	logSummary.SkillCount = len(logSummary.InstalledSkills)
-	installDiscoveredAgents(discovery, cfg, opts)
+	installDiscoveredAgents(discovery, cfg, opts, &logSummary)
 
-	return logSummary, allSkillsFailedError(len(batchSummary.InstalledSkills)+batchSummary.SkippedSkills, batchSummary.Failures)
+	return logSummary, allSkillsFailedError(len(batchSummary.InstalledSkills)+len(batchSummary.SkippedSkills), batchSummary.Failures)
 }
 
 func resolveSkillUpdateNames(skills []install.SkillInfo, source *install.Source, cfg *config.Config, opts install.InstallOptions) error {
@@ -534,7 +541,7 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 			summary.InstalledPaths = append(summary.InstalledPaths, r.result.SkillPath)
 		case r.skipped:
 			// Same-repo skips are not failures; exclude from FailedSkills.
-			summary.SkippedSkills++
+			summary.SkippedSkills = append(summary.SkippedSkills, r.skill.Name)
 		default:
 			summary.FailedSkills = append(summary.FailedSkills, r.skill.Name)
 			summary.Failures = append(summary.Failures, install.SkillFailure{Name: r.skill.Name, Err: r.err})
@@ -880,7 +887,7 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 	}
 
 	// Cross-path duplicate detection (same as handleGitInstall)
-	if !opts.Force && source.CloneURL != "" {
+	if !opts.Force && !opts.DryRun && source.CloneURL != "" {
 		if err := install.CheckCrossPathDuplicate(cfg.EffectiveSkillsSource(), source.CloneURL, opts.Into); err != nil {
 			return logSummary, err
 		}
@@ -903,6 +910,7 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 	if err != nil {
 		if errors.Is(err, install.ErrSkipSameRepo) {
 			treeSpinner.Warn(firstWarningLine(err.Error()))
+			logSummary.SkippedSkills = append(logSummary.SkippedSkills, skillName)
 			return logSummary, nil
 		}
 		treeSpinner.Fail("Failed to install")
@@ -972,6 +980,7 @@ func installFromGlobalConfig(cfg *config.Config, opts install.InstallOptions) (i
 	summary.InstalledSkills = result.InstalledSkills
 	summary.InstalledPaths = result.InstalledPaths
 	summary.FailedSkills = result.FailedSkills
+	summary.SkippedSkills = result.SkippedSkills
 	summary.SkillCount = len(result.InstalledSkills)
 
 	if err != nil {
@@ -1085,6 +1094,7 @@ func handleAgentInstall(discovery *install.DiscoveryResult, agentsDir string, op
 		}
 		if result.Action == "skipped" {
 			ui.StepSkip(agent.Name, strings.Join(result.Warnings, "; "))
+			logSummary.SkippedSkills = append(logSummary.SkippedSkills, agent.Name)
 		} else {
 			ui.Row(ui.MarkOK, "Install", agent.Name+" "+ui.DimText("→ "+utils.FoldHomePath(filepath.Join(agentsDir, agent.FileName)))+ui.Took(time.Since(spinner.Started())), ui.RowWidth("Install"))
 			logSummary.SkillCount = 1
@@ -1124,6 +1134,7 @@ func handleAgentInstall(discovery *install.DiscoveryResult, agentsDir string, op
 		batchSummary := installSelectedAgents(selected, discovery, agentsDir, opts)
 		logSummary.InstalledSkills = append(logSummary.InstalledSkills, batchSummary.InstalledSkills...)
 		logSummary.FailedSkills = append(logSummary.FailedSkills, batchSummary.FailedSkills...)
+		logSummary.SkippedSkills = append(logSummary.SkippedSkills, batchSummary.SkippedSkills...)
 		logSummary.SkillCount = len(logSummary.InstalledSkills)
 		return logSummary, nil
 	}
@@ -1149,12 +1160,13 @@ func handleAgentInstall(discovery *install.DiscoveryResult, agentsDir string, op
 	batchSummary := installSelectedAgents(selected, discovery, agentsDir, opts)
 	logSummary.InstalledSkills = append(logSummary.InstalledSkills, batchSummary.InstalledSkills...)
 	logSummary.FailedSkills = append(logSummary.FailedSkills, batchSummary.FailedSkills...)
+	logSummary.SkippedSkills = append(logSummary.SkippedSkills, batchSummary.SkippedSkills...)
 	logSummary.SkillCount = len(logSummary.InstalledSkills)
 	return logSummary, nil
 }
 
 // installDiscoveredAgents installs agents from a mixed repo after skills have been installed.
-func installDiscoveredAgents(discovery *install.DiscoveryResult, cfg *config.Config, opts install.InstallOptions) {
+func installDiscoveredAgents(discovery *install.DiscoveryResult, cfg *config.Config, opts install.InstallOptions, summary *installLogSummary) {
 	if len(discovery.Agents) == 0 {
 		return
 	}
@@ -1190,6 +1202,7 @@ func installDiscoveredAgents(discovery *install.DiscoveryResult, cfg *config.Con
 		case err != nil:
 			ui.StepFail(agent.Name, err.Error())
 		case result.Action == "skipped":
+			summary.SkippedSkills = append(summary.SkippedSkills, agent.Name)
 			ui.StepSkip(agent.Name, strings.Join(result.Warnings, "; "))
 		case agentOpts.DryRun:
 			ui.Row(ui.MarkNone, agent.Name, "would install", ui.RowWidth(agent.Name))
@@ -1254,7 +1267,9 @@ func installSelectedAgents(selected []install.AgentInfo, discovery *install.Disc
 	for _, r := range results {
 		if r.success {
 			summary.InstalledSkills = append(summary.InstalledSkills, r.agent.Name)
-		} else if !r.skipped {
+		} else if r.skipped {
+			summary.SkippedSkills = append(summary.SkippedSkills, r.agent.Name)
+		} else {
 			summary.FailedSkills = append(summary.FailedSkills, r.agent.Name)
 		}
 	}

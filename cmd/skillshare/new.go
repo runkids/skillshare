@@ -176,7 +176,7 @@ func cmdNew(args []string) error {
 	ui.Row(ui.MarkOK, "Created", utils.FoldHomePath(skillFile), ui.RowWidth("Created"))
 	printScaffoldDirs(scaffold)
 	ui.Next("skillshare sync", "link it into your targets once you've edited it")
-	printProfileHint(profileHint(profileCfg, []string{skillName}), false)
+	printProfileHint(profileHint(profileCfg, mode, []string{skillName}), false)
 
 	return nil
 }

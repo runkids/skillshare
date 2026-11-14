@@ -121,3 +121,46 @@ func TestProfileAssignSelectionFixtures(t *testing.T) {
 		}
 	}
 }
+
+func TestProfileAssignLiteralIdentity(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, op := range []string{"add", "remove"} {
+			t.Run(fmt.Sprintf("project=%t/%s", project, op), func(t *testing.T) {
+				f := newProfileFixture(t, project, "copy")
+				for _, name := range []string{"team/tool[ab]", "team/toola"} {
+					f.sb.WriteFile(filepath.Join(f.source, name, "SKILL.md"), "# Literal fixture")
+				}
+				definition := "{skills: {include: []}}"
+				if op == "remove" {
+					definition = "{}"
+				}
+				f.sb.WriteFile(f.config, f.sb.ReadFile(f.config)+"  literal: "+definition+"\n")
+				f.run("profile", op, "literal", "team/tool[ab]").AssertSuccess(t)
+				show := f.run("profile", "show", "literal", "--json")
+				show.AssertSuccess(t)
+				var view struct{ Profiles []struct{ Selected []string } }
+				if err := json.Unmarshal([]byte(show.Stdout), &view); err != nil || len(view.Profiles) != 1 {
+					t.Fatal(show.Stdout, err)
+				}
+				for _, name := range []string{"team__tool[ab]", "team__toola"} {
+					selected := false
+					for _, got := range view.Profiles[0].Selected {
+						selected = selected || got == name
+					}
+					want := (op == "add") == (name == "team__tool[ab]")
+					if selected != want {
+						t.Fatalf("literal show selects %s=%t, want %t: %s", name, selected, want, show.Stdout)
+					}
+				}
+				f.run("profile", "use", "literal", "--no-sync", "--allow-empty").AssertSuccess(t)
+				f.run("sync").AssertSuccess(t)
+				for _, name := range []string{"team__tool[ab]", "team__toola"} {
+					_, err := os.Stat(filepath.Join(f.target, name, "SKILL.md"))
+					if (err == nil) != ((op == "add") == (name == "team__tool[ab]")) {
+						t.Fatalf("literal target %s: %v", name, err)
+					}
+				}
+			})
+		}
+	}
+}

@@ -52,7 +52,7 @@ skillshare sync
 4. 整個 repo 會用當前生效的安裝門檻（`audit.block_threshold` 或 `--threshold`）進行安全稽核
 5. 巢狀 skills 會被扁平化，供 AI CLI 使用
 
-若發現項目達到門檻，安裝會被封鎖，除非使用 `--force`。被封鎖時，skillshare 會自動移除已 clone 的 repo；若清理失敗，指令會回報確切路徑供手動清理。
+若發現項目達到門檻，安裝會被封鎖，除非使用 `--force`。掃描無法執行時同樣會被封鎖，即使使用 `--force`。被封鎖時，skillshare 會自動移除已 clone 的 repo；若清理失敗，指令會回報確切路徑供手動清理。
 
 ---
 

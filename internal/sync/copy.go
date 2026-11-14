@@ -75,9 +75,6 @@ func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 	if _, err := sc.Profile.Selects(""); err != nil {
 		return nil, err
 	}
-	if err := checkProfileTargetRoot(sc.Path, sourcePath, opts.ProfileAware); err != nil {
-		return nil, err
-	}
 	ignorePatterns := opts.IgnorePatterns
 	if ignorePatterns == nil {
 		ignorePatterns = DefaultFileIgnorePatterns()
@@ -112,7 +109,7 @@ func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 	taken := resolution.ValidTargetNames()
 	for i, resolved := range resolution.Skills {
 		skill := resolved.Skill
-		activeName, err := selectActiveTargetNameForSync("copy", sc.Path, resolved, taken, manifest, dryRun, opts.ProfileAware && !force, ignorePatterns)
+		activeName, err := selectActiveTargetNameForSync("copy", sc.Path, resolved, taken, manifest, dryRun, opts.ProfileAware && !force, ignorePatterns, PruneOptions{SourcePath: sourcePath, Skills: allSkills})
 		if err != nil {
 			return nil, err
 		}
@@ -158,16 +155,29 @@ func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 			}
 			result.Skipped = append(result.Skipped, activeName)
 		}
-		input := EntryInput{Name: activeName, Path: targetSkillPath, SourceRoot: sourcePath, Manifest: manifest, Source: &copySource}
+		input := EntryInput{Name: activeName, Path: targetSkillPath, SourceRoot: sourcePath, Manifest: manifest}
+		var originals []CopySource
+		if opts.ProfileAware && !force {
+			originals = legacyCopySources(activeName, sc.Path, allSkills, manifest, ignorePatterns)
+		}
+		var verified []EntryClassification
 		checkBeforeWrite := func() bool {
 			if !opts.ProfileAware || force {
 				return true
 			}
-			entry, allowed := entryMutationAllowed(name, input, opts.Discard)
+			entry, allowed := entryMutationAllowed(name, input, opts.Discard, originals...)
+			verified = []EntryClassification{entry}
 			if !allowed {
 				reportKept(entry)
 			}
 			return allowed
+		}
+		owesReplacement := func() bool {
+			if !opts.ProfileAware || force {
+				return false
+			}
+			entry := verified[0]
+			return entry.Class == EntryModifiedCopy && discardAllowed(name, cleanEntryDir(sc.Path), activeName, entry, opts.Discard)
 		}
 		copyCurrent := func() (bool, error) {
 			if beforeMutation != nil {
@@ -176,7 +186,7 @@ func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 			if opts.ProfileAware && !force {
 				// Permission to remove an entry does not permit overlaying one
 				// that appeared after removal, even with the same discard grant.
-				entry := ClassifyEntry(input)
+				entry := classifyEntry(input, originals...)
 				switch entry.Class {
 				case EntryAbsent:
 				case EntryModifiedCopy, EntryUnmanaged:
@@ -199,13 +209,10 @@ func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 			manifest.Outputs[activeName] = fingerprint
 			return nil
 		}
-		if mtimeErr == nil && isManaged && !force && !namingChanged && oldMtime > 0 && currentMtime == oldMtime {
+		if !opts.ProfileAware && mtimeErr == nil && isManaged && !force && !namingChanged && oldMtime > 0 && currentMtime == oldMtime {
 			// Verify target still exists as a directory (user may have replaced it)
 			if ti, err := os.Lstat(targetSkillPath); err == nil && ti.IsDir() {
-				if !checkBeforeWrite() {
-					continue
-				}
-				backfillCopyOutput(manifest, activeName, targetSkillPath, copySource, dryRun)
+				backfillCopyOutput(manifest, activeName, targetSkillPath, copySource, dryRun, verified...)
 				recordNaming()
 				result.Skipped = append(result.Skipped, activeName)
 				continue
@@ -289,12 +296,12 @@ func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 					continue
 				}
 
-				if !force && isManaged && !namingChanged && oldChecksum == srcChecksum {
+				if !force && isManaged && !namingChanged && oldChecksum == srcChecksum && !owesReplacement() {
 					// Unchanged — skip (but update mtime record if it changed)
 					if mtimeErr == nil && currentMtime != oldMtime && !dryRun {
 						manifest.Mtimes[activeName] = currentMtime
 					}
-					backfillCopyOutput(manifest, activeName, targetSkillPath, copySource, dryRun)
+					backfillCopyOutput(manifest, activeName, targetSkillPath, copySource, dryRun, verified...)
 					recordNaming()
 					result.Skipped = append(result.Skipped, activeName)
 					continue
@@ -388,11 +395,16 @@ func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 }
 
 // Only a verified legacy copy can be backfilled; an mtime match alone is not proof.
-func backfillCopyOutput(manifest *Manifest, name, dir string, source CopySource, dryRun bool) {
-	if dryRun || manifest.Outputs[name] != "" {
+func backfillCopyOutput(manifest *Manifest, name, dir string, source CopySource, dryRun bool, verified ...EntryClassification) {
+	if output, present := manifest.Outputs[name]; dryRun || (present && !legacyOutput(output)) {
 		return
 	}
-	entry := ClassifyEntry(EntryInput{Name: name, Path: dir, Manifest: manifest, Source: &source})
+	var entry EntryClassification
+	if len(verified) > 0 {
+		entry = verified[0]
+	} else {
+		entry = ClassifyEntry(EntryInput{Name: name, Path: dir, Manifest: manifest, Source: &source})
+	}
 	if entry.Class != EntryCleanCopy {
 		return
 	}
@@ -445,7 +457,7 @@ func pruneOrphanCopiesWithConfig(targetName string, sc config.ResourceTargetConf
 	return pruneOrphanCopiesWithPolicy(targetName, sc, allSourceSkills, dryRun, "", false, nil, nil)
 }
 
-func pruneOrphanCopiesWithPolicy(targetName string, sc config.ResourceTargetConfig, allSourceSkills []DiscoveredSkill, dryRun bool, sourceRoot string, profileAware bool, discard []DiscardEntry, ignore []string) (*PruneResult, error) {
+func pruneOrphanCopiesWithPolicy(targetName string, sc config.ResourceTargetConfig, allSourceSkills []DiscoveredSkill, dryRun bool, sourceRoot string, profileAware bool, discard []DiscardEntry, ignore []string, verification ...PruneOptions) (*PruneResult, error) {
 	targetPath := sc.Path
 	result := &PruneResult{}
 
@@ -472,7 +484,11 @@ func pruneOrphanCopiesWithPolicy(targetName string, sc config.ResourceTargetConf
 
 		entryPath := filepath.Join(targetPath, entryName)
 		if profileAware {
-			entry := ClassifyEntry(EntryInput{Name: entryName, Path: entryPath, SourceRoot: sourceRoot, Manifest: manifest, Source: legacyCopySource(entryName, allSourceSkills, manifest, ignore)})
+			verificationSkills := allSourceSkills
+			if len(verification) > 0 {
+				verificationSkills = verification[0].Skills
+			}
+			entry := classifyEntry(EntryInput{Name: entryName, Path: entryPath, SourceRoot: sourceRoot, Manifest: manifest}, legacyCopySources(entryName, targetPath, verificationSkills, manifest, ignore)...)
 			if entry.Class == EntryModifiedCopy && !discardAllowed(targetName, cleanEntryDir(targetPath), entryName, entry, discard) {
 				result.KeptModified = append(result.KeptModified, EntryChange{Target: targetName, Dir: cleanEntryDir(targetPath), Entry: entryName, Step: "prune", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint})
 				continue
@@ -482,7 +498,9 @@ func pruneOrphanCopiesWithPolicy(targetName string, sc config.ResourceTargetConf
 			}
 		}
 		if dryRun {
-			fmt.Fprintf(DiagOutput, "[dry-run] Would remove orphan copy: %s\n", entryPath)
+			if len(verification) == 0 || !verification[0].Quiet {
+				fmt.Fprintf(DiagOutput, "[dry-run] Would remove orphan copy: %s\n", entryPath)
+			}
 		} else {
 			if err := os.RemoveAll(entryPath); err != nil {
 				result.FailedRemovals = append(result.FailedRemovals, entryName)
@@ -649,7 +667,7 @@ type checksumEntry struct {
 
 // collectChecksumEntries recursively collects file entries for checksumming.
 // Directory symlinks are dereferenced to hash effective copied content.
-func collectChecksumEntries(root, relPrefix string, entries *[]checksumEntry, active map[string]bool, ignore *skillignore.Matcher) error {
+func collectChecksumEntries(root, relPrefix string, entries *[]checksumEntry, active map[string]bool, ignore *skillignore.Matcher, lossless ...bool) error {
 	resolvedRoot, err := resolveLinkRoot(root)
 	if err != nil {
 		return fmt.Errorf("failed to resolve checksum root %s: %w", root, err)
@@ -671,7 +689,11 @@ func collectChecksumEntries(root, relPrefix string, entries *[]checksumEntry, ac
 			return err
 		}
 		// Normalize path separators for cross-platform consistency
-		relPath = strings.ReplaceAll(relPath, "\\", "/")
+		if len(lossless) > 0 && lossless[0] {
+			relPath = filepath.ToSlash(relPath)
+		} else {
+			relPath = strings.ReplaceAll(relPath, "\\", "/")
+		}
 		if relPath == "." {
 			relPath = ""
 		}
@@ -709,7 +731,7 @@ func collectChecksumEntries(root, relPrefix string, entries *[]checksumEntry, ac
 				if resolveErr != nil {
 					return fmt.Errorf("failed to resolve symlink directory %s: %w", path, resolveErr)
 				}
-				return collectChecksumEntries(resolvedDir, fullRelPath, entries, active, ignore)
+				return collectChecksumEntries(resolvedDir, fullRelPath, entries, active, ignore, lossless...)
 			}
 		}
 

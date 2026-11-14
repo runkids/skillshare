@@ -227,7 +227,7 @@ skillshare install -p    # プロジェクト config からすべてのリモー
 skillshare sync
 ```
 
-`tracked: true` の Skill は（`--track` と同様に）完全な git 履歴付きでクローンされるため、`skillshare update` が正しく動作します。すでにディスクに存在する Skill はスキップされます。これは、トラック対象リポジトリのディレクトリが gitignore されていてローカルに存在しない状態で、クローン直後に実行する復旧コマンドです。
+`tracked: true` の Skill は（`--track` と同様に）完全な git 履歴付きでクローンされるため、`skillshare update` が正しく動作します。すでにディスクに存在する Skill は、プロジェクトの固定コミットが変わった場合を除きスキップされます。これは、トラック対象リポジトリのディレクトリが gitignore されていてローカルに存在しない状態で、クローン直後に実行する復旧コマンドです。 `--json` を使用すると、プロジェクトのロックファイルが別のコミットを指していても既存のコピーはスキップされます。その固定コミットに合わせるには `--force` を追加してください。
 
 :::tip push/pull と install from config の違い
 `push`/`pull` は実際の Skill **ファイル** を git 経由で sync します。`install`（config から）は **ソース URL** から再ダウンロードします。両者は補完関係にあります — どちらを使うべきかは [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync#alternative-install-from-config) を参照してください。
@@ -287,7 +287,7 @@ skillshare sync
 |------|-------|-------------|
 | `--name <name>` | | インストールされる Skill がちょうど 1 つの場合、インストール名を上書き |
 | `--into <dir>` | | サブディレクトリへインストール（例: `--into frontend` または `--into frontend/react`） |
-| `--force` | `-f` | 既存の Skill を上書き。監査によるブロックとクロスパス重複チェックを無視 |
+| `--force` | `-f` | 既存の Skill を上書き。監査の検出結果によるブロック（スキャン失敗は除く）とクロスパス重複チェックを無視 |
 | `--update` | `-u` | 存在する場合は更新（git pull または再インストール） |
 | `--branch <ref>` | `-b` | インストール元の git ブランチ、タグ、または commit SHA（デフォルト: リモートのデフォルトブランチ） |
 | `--track` | `-t` | トラック対象リポジトリとして `.git` を保持。`--all`、`--yes`、`--skill`、`--agent` との併用は拒否されます。 |
@@ -303,7 +303,7 @@ skillshare sync
 | `--project` | `-p` | プロジェクトの `.skillshare/skills/` へインストール |
 | `--global` | `-g` | グローバルの `~/.config/skillshare/skills/` へインストール |
 | `--dry-run` | `-n` | プレビューのみ |
-| `--json` | | JSON として出力（`--force` と同様に既存の skill を上書きできるが、監査によるブロックは引き続き適用。`--skill`/`--agent` フィルタが指定されない場合、非インタラクティブ選択も暗黙的に有効化） |
+| `--json` | | 非インタラクティブな JSON 出力。`--skill`/`--agent` フィルターがなければ全選択。既存の skill や agent の上書きには `--force` が必要。監査によるブロックは引き続き適用 |
 
 ## JSON 出力
 
@@ -311,7 +311,9 @@ skillshare sync
 skillshare install anthropics/skills --json
 ```
 
-明示的に指定した非追跡の skill ソースでは、`--dry-run --json` を追加すると、インストールせずに `{name, path}` の `planned` 配列を取得できます。名前は CLI のインストール名です。Git のパスはリポジトリのルートからの相対パス（選択したサブディレクトリを含む）で、ローカル skill は `.` を使用します。検出、`.skillignore`、選択のルールが適用され、JSON モードではフィルターがなければ全選択になります。`skills` は引き続きインストール済みの名前のみを報告し、dry-run では空です。検出後に選択された skill がなければ `planned: []` を返します。追跡および設定ファイルからのインストールでは、このフィールドは提供されません。
+JSON 出力だけでは既存の skill や agent を上書きしません。上書きするには `--force` を明示してください。重複チェックでスキップされた名前は `skipped` 配列に入り、その他の競合は `error` または `failed` で報告されます。`skills` 配列にはインストールされた名前だけが入ります。
+
+明示的に指定した非追跡の skill ソースでは、`--dry-run --json` を追加すると、インストールせずに `{name, path}` の `planned` 配列を取得できます。名前は CLI のインストール名です。Git のパスはリポジトリのルートからの相対パス（選択したサブディレクトリを含む）で、ローカル skill は `.` を使用します。検出、`.skillignore`、選択のルールが適用され、JSON モードではフィルターがなければ全選択になります。`skills` は引き続きインストール済みの名前のみを報告し、dry-run では空です。検出後に選択された skill がなければ `planned: []` を返します。追跡および設定ファイルからのインストールでは、このフィールドは提供されません。 既存のインストール先や別パスの重複は、この読み取り専用プレビューを妨げません。
 
 ```json
 {
@@ -319,6 +321,7 @@ skillshare install anthropics/skills --json
   "tracked": false,
   "dry_run": false,
   "skills": ["pdf", "commit", "review"],
+  "skipped": [],
   "failed": [],
   "duration": "2.345s"
 }
@@ -337,6 +340,7 @@ skillshare install anthropics/skills --json --into frontend
   "dry_run": false,
   "into": "frontend",
   "skills": ["pdf", "commit"],
+  "skipped": [],
   "failed": [],
   "duration": "1.890s"
 }
@@ -354,6 +358,7 @@ skillshare install github.com/user/agents --kind agent --json
   "tracked": false,
   "dry_run": false,
   "skills": ["reviewer", "tutor"],
+  "skipped": [],
   "failed": [],
   "duration": "1.234s"
 }
@@ -367,6 +372,7 @@ tracked リポジトリ、単一の skill、またはソースや config のす�
   "tracked": true,
   "dry_run": false,
   "skills": [],
+  "skipped": [],
   "failed": [],
   "duration": "0.412s",
   "error": "blocked by security audit (use --force to override)"
@@ -391,6 +397,8 @@ skillshare install anthropics/skills/skills/pdf
 
 更新するには `--update`、上書きするには `--force` を使用します。
 
+スキップされるのは、同じリポジトリの同じ Skill だけです。`--name` などで同じリポジトリの別の Skill が同じフォルダを使う場合は、[下記](#conflict-with-different-repo)と同様に競合として失敗します。
+
 [たどられた source リンク](../targets/configuration.md#follow_source_links)の背後にある tracked repo への `--update` は、checkout に未コミットの変更がある場合 pull を拒否します。先に commit または stash してください。
 
 ### クロスパスの重複
@@ -409,7 +417,7 @@ skillshare install runkids/feature-radar
 
 これにより、異なるパスへの意図しない重複を防ぎます。意図的に許可する場合は `--force` を使用します。
 
-### 別リポジトリとの競合
+### 別リポジトリとの競合 {#conflict-with-different-repo}
 
 インストール先のディレクトリが存在するものの、**別の** リポジトリからインストールされていた場合、エラーメッセージには元のソースが含まれます。
 
@@ -617,6 +625,7 @@ install-skills:
 すべての Skill は、インストール時に自動的にセキュリティ脅威をスキャンされます。
 
 - `audit.block_threshold` 以上の検出結果は **インストールをブロック** します（デフォルト: `CRITICAL`）
+- スキャンを実行できない場合（例えば `audit-rules.yaml` に無効な正規表現がある）、インストールはブロックされ削除されます。`--force` では上書きできません。原因を修正するか `--skip-audit` を使用してください
 - それより低い検出結果は警告として表示され、リスクスコアのコンテキストも含まれます
 - `audit.block_threshold` はブロックのレベルのみを制御し、スキャン自体を無効化するものでは **ありません**
 - 常時 audit をスキップする config スイッチはありません。必要な場合はコマンドごとに `--skip-audit` を使用してください
@@ -646,7 +655,7 @@ skillshare install suspicious-skill --threshold high
 skillshare install suspicious-skill -T h
 ```
 
-ブロック判定を上書きするには `--force`、スキャンを完全にバイパスするには `--skip-audit` を使用します。スキャンの詳細は [audit](/docs/reference/commands/audit) を参照してください。
+検出結果によるブロック判定を上書きするには `--force`、スキャンを完全にバイパスするには `--skip-audit` を使用します。スキャンの詳細は [audit](/docs/reference/commands/audit) を参照してください。
 
 インストールの判定は **検出結果の重大度 vs 閾値** で行われます。リスクスコア／ラベルは参考情報として報告されるだけで、それ単体でインストールをブロックすることはありません。デフォルトでは、監査結果は（重大度とメッセージでグルーピングされた）コンパクトな要約として表示されます。完全なリストを見るには `--audit-verbose` を使用してください。
 
@@ -656,6 +665,7 @@ skillshare install suspicious-skill -T h
 
 - 新規の `--track` インストールでは、（1 つの Skill フォルダだけでなく）**クローンされたリポジトリ全体** がスキャンされます
 - 閾値以上の検出結果があると、`--force` を使わない限りインストールをブロックします
+- スキャンを実行できない場合も、`--force` を使ってもインストールをブロックします
 - 新規インストールがブロックされた場合、skillshare はクローンしたリポジトリをソースから自動的に削除します
 - 自動クリーンアップが失敗した場合、install は明示的なエラーを返し、パスを手動で削除するよう案内します
 
