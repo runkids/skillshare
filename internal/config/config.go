@@ -835,7 +835,7 @@ func decodeConfig(path string, data []byte, persist bool) (*Config, error) {
 
 	// Migrate legacy flat target fields in memory, persisting only for ordinary Load.
 	if migrateTargetConfigs(cfg.Targets) && persist {
-		if migrated, err := marshalConfig(&cfg, schemaComment, data); err == nil {
+		if migrated, err := marshalConfig(&cfg, schemaComment, data, &cfg.Profiles); err == nil {
 			// Write a symlinked config's target so the link survives.
 			dest := utils.ResolveSymlink(path)
 			tmpPath := dest + ".tmp"
@@ -924,7 +924,7 @@ func (c *Config) Save() error {
 	if c.PreserveTildeOnSave {
 		payload = payload.cloneForSave()
 	}
-	data, err := marshalConfigFile(path, payload, schemaComment)
+	data, err := marshalConfigFile(path, payload, schemaComment, &payload.Profiles)
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
