@@ -47,3 +47,26 @@ func TestSearch(t *testing.T) {
 		t.Fatal("repeated query words changed ranking")
 	}
 }
+
+func TestSearchDistinguishesOnAndOff(t *testing.T) {
+	entries := []Result{
+		{Command: "skillshare disable", Summary: "Turn a skill or agent off", Usage: "skillshare disable --help"},
+		{Command: "skillshare enable", Summary: "Turn a skill or agent back on", Usage: "skillshare enable --help"},
+	}
+	for _, tt := range []struct {
+		query string
+		want  string
+	}{
+		{"turn a skill on", "skillshare enable"},
+		{"turn a skill off", "skillshare disable"},
+		{"turn an agent on", "skillshare enable"},
+		{"turn an agent off", "skillshare disable"},
+	} {
+		t.Run(tt.query, func(t *testing.T) {
+			got := Search(entries, tt.query, 1)
+			if len(got) != 1 || got[0].Command != tt.want || got[0].Usage != tt.want+" --help" {
+				t.Fatalf("Search(%q, 1) = %+v, want %s with its help hint", tt.query, got, tt.want)
+			}
+		})
+	}
+}

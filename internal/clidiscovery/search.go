@@ -62,7 +62,7 @@ func words(text string) []string {
 	out := make([]string, 0, len(tokens))
 	for _, token := range tokens {
 		switch token {
-		case "a", "an", "and", "for", "from", "i", "in", "into", "is", "it", "my", "of", "on", "the", "to", "want", "with":
+		case "a", "an", "and", "for", "from", "i", "in", "into", "is", "it", "my", "of", "the", "to", "want", "with":
 			continue
 		}
 		// Fold ordinary plurals without changing command names such as status.
