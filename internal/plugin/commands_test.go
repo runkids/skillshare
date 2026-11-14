@@ -147,6 +147,35 @@ func TestPluginCommandsOwnership(t *testing.T) {
 			}
 		}
 	})
+	for _, rename := range []bool{false, true} {
+		t.Run(map[bool]string{false: "retire-operator-entry", true: "rename-operator-entry"}[rename], func(t *testing.T) {
+			s, root, bin := commandFixture(t)
+			applyPluginRequest(t, s, Request{Action: "add", Source: root})
+			path := filepath.Join(bin, "demo-one")
+			if err := os.Remove(path); err != nil {
+				t.Fatal(err)
+			}
+			writePluginFile(t, bin, "demo-one", "operator")
+			commands := map[string]string{"demo-two": "bin/two"}
+			if rename {
+				commands["demo-new"] = "bin/one"
+			}
+			manifest, err := json.Marshal(map[string]any{"name": "demo", "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json", "extensions": map[string]any{"cc.runkids.skillshare": map[string]any{"commands": commands}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			writePluginFile(t, root, "plugin.json", string(manifest))
+			writePluginFile(t, root, "bin/two", "#!/bin/sh\nprintf retained-update\n")
+			applyPluginRequest(t, s, Request{Action: "update", Name: "demo"})
+			commandOutput(t, bin, "demo-two", "retained-update")
+			if rename {
+				commandOutput(t, bin, "demo-new", "old-one")
+			}
+			if raw, err := os.ReadFile(path); err != nil || string(raw) != "operator" {
+				t.Fatalf("retired operator entry changed: %q %v", raw, err)
+			}
+		})
+	}
 	t.Run("second-package", func(t *testing.T) {
 		s, root, bin := commandFixture(t)
 		applyPluginRequest(t, s, Request{Action: "add", Source: root})

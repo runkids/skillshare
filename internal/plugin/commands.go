@@ -115,7 +115,7 @@ func (s *Service) observeCommands(bin string, local localCommands, after *comman
 			return "", err
 		}
 		observation[name] = []any{link, exists}
-		if exists && !slices.Contains(owners[name], link) && !removal {
+		if exists && !slices.Contains(owners[name], link) && !removal && after != nil && after.Links[name] != "" {
 			conflicts = append(conflicts, agentError{key: "plugins.error.commandConflict", message: "Command " + name + " conflicts with an operator entry in " + bin, args: map[string]string{"name": name, "bin": bin}})
 		}
 	}
@@ -610,7 +610,7 @@ func (s *Service) applyCommands(ctx context.Context, c Change, d *document) (out
 			return out, err
 		}
 		if exists && !slices.Contains(owners[name], link) {
-			if after == nil {
+			if after == nil || after.Links[name] == "" {
 				preserved = append(preserved, name)
 				continue
 			}
