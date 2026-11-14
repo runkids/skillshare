@@ -1,8 +1,10 @@
 package sync
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"skillshare/internal/config"
@@ -178,5 +180,66 @@ func TestFollowedLinkCanonicalRootAndParent(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(link, "SKILL.md")); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestProfileAwareFollowedLinkOwnership(t *testing.T) {
+	for _, mode := range []string{"merge", "copy"} {
+		for _, project := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/project=%v", mode, project), func(t *testing.T) {
+				source := linkedRepoSource(t)
+				alias := filepath.Join(t.TempDir(), "source")
+				if err := os.Symlink(source, alias); err != nil {
+					t.Fatal(err)
+				}
+				skills, err := DiscoverSourceSkills(alias, sourcewalk.Options{Follow: sourcewalk.NewFollow(alias, nil)})
+				if err != nil || len(skills) != 1 {
+					t.Fatalf("discover: %v, %v", skills, err)
+				}
+				target := SkillTarget{Name: "test", Target: config.TargetConfig{Path: filepath.Join(filepath.Dir(source), "target")}, Mode: "merge"}
+				opts := SkillRunOptions{Source: alias, ProfileAware: true}
+				if project {
+					opts.ProjectRoot = filepath.Dir(source)
+				}
+				before := snapshotDetachTree(t, source)
+				if r := SyncSkillTarget(target, skills, opts); r.Err != nil || len(r.Linked) != 1 {
+					t.Fatalf("seed: %+v", r)
+				}
+				entry := filepath.Join(target.Target.Path, skills[0].FlatName)
+				manifest, err := ReadManifest(target.Target.Path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got, allowed := PreviewEntry(skills[0].FlatName, target.Target.Path, alias, skills, manifest, nil); !allowed || got.Class != EntryManagedLink {
+					t.Fatalf("followed preview ownership: %+v, %v", got, allowed)
+				}
+				target.Mode = mode
+				for _, dry := range []bool{true, false} {
+					opts.DryRun = dry
+					if r := SyncSkillTarget(target, skills, opts); r.Err != nil || len(r.Blocked)+len(r.KeptModified) != 0 || len(r.Linked)+len(r.Updated) != 1 {
+						t.Fatalf("retain dry=%v: %+v", dry, r)
+					}
+				}
+				// Return to a managed link, then exclude it using either prune owner.
+				target.Mode = "merge"
+				if r := SyncSkillTarget(target, skills, opts); r.Err != nil || len(r.Blocked) != 0 {
+					t.Fatalf("restore link: %+v", r)
+				}
+				target.Mode = mode
+				target.Target.Exclude = []string{"*"}
+				if r := SyncSkillTarget(target, skills, opts); r.Err != nil || r.PruneErr != nil || len(r.Pruned) != 1 {
+					t.Fatalf("exclude followed link: %+v", r)
+				}
+				if _, err := os.Lstat(entry); !os.IsNotExist(err) {
+					t.Fatalf("excluded link remains: %v", err)
+				}
+				if !reflect.DeepEqual(before, snapshotDetachTree(t, source)) {
+					t.Fatal("sync changed followed source link")
+				}
+				if _, err := os.Stat(filepath.Join(skills[0].SourcePath, "SKILL.md")); err != nil {
+					t.Fatalf("sync changed external checkout: %v", err)
+				}
+			})
+		}
 	}
 }

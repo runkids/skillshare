@@ -220,3 +220,9 @@ Project status는 Tracked Repositories나 Version 섹션을 표시하지 않습�
 - [diff](/docs/reference/commands/diff) — 상세한 차이점 표시
 - [doctor](/docs/reference/commands/doctor) — 문제 진단
 - [Project Skills](/docs/understand/project-skills) — project mode 개념
+
+## 프로필 {#profiles}
+
+[profile](/docs/reference/commands/profile)로 이름 있는 Skill 선택을 만들고 조회·편집·전환합니다. `-g` / `-p`를 지원합니다.
+
+status의 선택적 JSON `profile: {name,state,selected,total,pending}`은 원하는 선택 수를 표시하고 Target `synced_count`는 디스크의 실제 수를 유지합니다. `--no-sync`, 미완료 전환 및 보존된 내용 때문에 다를 수 있습니다. pending은 전환이 아직 완료되지 않았음을 뜻합니다.

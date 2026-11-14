@@ -40,11 +40,11 @@ flowchart TD
 
 | Flag | Description |
 |------|-------------|
-| `--all` | skill과 agent 모두 복원 |
-| `--project, -p` | project mode 사용(`.skillshare/backups/`); **agent 전용** |
+| `--all` | 기존 전역 skills 복원 경로 사용; agents는 별도로 복원 |
+| `--project, -p` | `.skillshare/backups/`에서 지정한 skills 또는 agents 복원 |
 | `--global, -g` | global mode 사용(skill의 기본값) |
 | `--from, -f <timestamp>` | 특정 백업에서 복원 |
-| `--force` | 확인 없이 덮어쓰기 |
+| `--force` | 내용이 있는 대상 폴더 교체 |
 | `--dry-run, -n` | 변경 없이 미리보기 |
 | `--no-tui` | 대화형 TUI 건너뛰고 백업 목록 표시 |
 
@@ -132,15 +132,24 @@ Agent 복원은 skill 복원과 유사하게 동작하며, `backup agents`(및 `
 ```bash
 skillshare restore agents claude                       # Latest agent backup for claude
 skillshare restore agents claude --from 2026-01-19_10-00-00
-skillshare restore agents -p                           # Project agents (the only project mode allowed)
-skillshare restore --all claude                        # Skills + agents in one shot
+skillshare restore agents claude -p                    # Project agents
 ```
 
-project mode에서는 restore가 — backup과 마찬가지로 — agent에 대해서만 동작합니다. `agents` 인자 없이 실행하면 오류가 발생합니다.
+## 프로젝트 skills 복원
 
+프로젝트 루트에서 항목 이름을 명시합니다.
+
+```bash
+skillshare backup --list -p
+skillshare restore goose --from 2026-01-19_10-00-00 -p --dry-run
+skillshare restore goose --from 2026-01-19_10-00-00 -p --force
 ```
-restore is not supported in project mode (except for agents)
-```
+
+기존 프로젝트 skills 스냅샷을 복원합니다. 수동 `backup -p`에는 여전히 `agents`가 필요합니다. 프로젝트 안에서도 일반 skills restore와 `-g`는 전역 백업을 사용합니다. 이름 없는 `restore -p`는 사용법 오류이며 대화형 선택기는 전역용입니다. 기존 `--all`은 `-p`와 함께 사용해도 전역 skills 경로를 따르므로 agents는 별도로 복원하세요.
+
+인식된 `goose-moved-2e676f6f73652f736b696c6c73` 항목은 `.goose/skills`를 복원하고 현재 `.agents/skills`는 그대로 둡니다. 접미사는 정규화된 상대 디렉터리의 16진수 표현입니다. target과 이전 경로가 계속 정의되어 있어야 하며, 없거나 모호한 매핑은 거부됩니다. 목록의 정확한 이름에 `--from`, `-p`를 사용하고 비어 있지 않은 폴더를 교체할 때는 `--force`를 추가하세요. 기존 대시보드 Backup 복원도 같은 매핑을 사용합니다.
+
+복원은 대상 폴더 전체를 교체하며 심볼릭 링크 내용은 제외합니다. 활성 profile은 변경하지 않습니다. 다음 sync가 이전 디렉터리의 변경되지 않은 항목을 삭제할 수 있으므로 유지할 편집은 먼저 source에 저장하세요.
 
 `skillshare backup --list`로 백업을 나열할 때, agent 백업은 `-agents` 접미사가 붙은 별도 항목으로 표시됩니다(예: `claude-agents`).
 

@@ -40,11 +40,11 @@ flowchart TD
 
 | 标志 | 描述 |
 |------|-------------|
-| `--all` | 同时恢复 skills 和 agents |
-| `--project, -p` | 使用 project mode（`.skillshare/backups/`）；**仅限 agents** |
+| `--all` | 使用现有的全局 skills 恢复流程；agents 请单独恢复 |
+| `--project, -p` | 从 `.skillshare/backups/` 恢复指定的 skills 或 agents |
 | `--global, -g` | 使用 global mode（skills 的默认值） |
 | `--from, -f <timestamp>` | 从指定备份恢复 |
-| `--force` | 覆盖而不确认 |
+| `--force` | 替换非空的目标文件夹 |
 | `--dry-run, -n` | 预览而不做任何更改 |
 | `--no-tui` | 跳过交互式 TUI，改为显示备份列表 |
 
@@ -132,15 +132,24 @@ Agent 恢复与 skill 恢复类似，但作用于由 `backup agents`（以及在
 ```bash
 skillshare restore agents claude                       # claude 的最新 agent 备份
 skillshare restore agents claude --from 2026-01-19_10-00-00
-skillshare restore agents -p                           # Project agents（唯一允许的 project mode）
-skillshare restore --all claude                        # 一次性恢复 skills + agents
+skillshare restore agents claude -p                    # Project agents
 ```
 
-在 project mode 下，restore——与 backup 一样——只对 agents 起作用。不带 `agents` 参数时会报错：
+## 项目 skills 恢复
 
+在项目根目录中明确指定条目名称：
+
+```bash
+skillshare backup --list -p
+skillshare restore goose --from 2026-01-19_10-00-00 -p --dry-run
+skillshare restore goose --from 2026-01-19_10-00-00 -p --force
 ```
-restore is not supported in project mode (except for agents)
-```
+
+这会恢复已有的项目 skills 快照；手动 `backup -p` 仍须使用 `agents`。即使在项目目录中，普通 skills restore 和 `-g` 仍使用全局备份。不带名称的 `restore -p` 是用法错误；交互选择仍仅用于全局。原有 `--all` 即使搭配 `-p` 也走全局 skills 分支，请单独恢复 agents。
+
+已识别的 `goose-moved-2e676f6f73652f736b696c6c73` 条目恢复到 `.goose/skills`，不改动当前的 `.agents/skills`。后缀是规范化相对目录的十六进制编码。target 和旧路径定义必须仍可识别；缺失或有歧义的映射会被拒绝。使用列表中的准确名称及 `--from`、`-p`，替换非空目录时加上 `--force`。现有仪表板 Backup 恢复使用同样的映射。
+
+恢复会替换整个目标文件夹，且不包含符号链接内容，不改变当前 profile。再次 sync 前应把要保留的编辑存入 source：sync 可能清理旧目录中恢复的未修改条目。
 
 通过 `skillshare backup --list` 列出备份时，agent 备份会以带 `-agents` 后缀的独立条目显示（例如 `claude-agents`）。
 

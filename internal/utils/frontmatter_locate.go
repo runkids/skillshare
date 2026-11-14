@@ -147,27 +147,28 @@ func locateFrontmatter(content []byte, p frontmatterPolicy) frontmatterBlock {
 // path read: line by line through a default bufio.Scanner (see scanLines), keeping
 // nothing, so they can stop at the key they want. A failed read ends the lines early;
 // only a failed open is an error. The line passed to fn is only valid during the call.
-func scanLenientBlock(path string, fn func(line []byte) bool) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return err
+// Optional non-nil content replaces the file input and retains default Scanner behavior.
+func scanLenientBlock(path string, fn func(line []byte) bool, content ...[]byte) error {
+	var scanner *bufio.Scanner
+	if len(content) > 0 && content[0] != nil {
+		scanner = bufio.NewScanner(bytes.NewReader(content[0]))
+	} else {
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		scanner = bufio.NewScanner(f)
 	}
-	defer f.Close()
-
 	w := blockWalk{p: lenientBlock}
-	scanner := bufio.NewScanner(f)
 	for first := true; scanner.Scan(); first = false {
 		line := scanner.Bytes()
 		if first {
 			line = bytes.TrimPrefix(line, utf8BOM)
 		}
-		switch w.next(line) {
-		case lineClose, lineNoBlock:
+		kind := w.next(line)
+		if kind == lineClose || kind == lineNoBlock || kind == lineInside && !fn(line) {
 			return nil
-		case lineInside:
-			if !fn(line) {
-				return nil
-			}
 		}
 	}
 	return nil
@@ -175,7 +176,7 @@ func scanLenientBlock(path string, fn func(line []byte) bool) error {
 
 // readLenientBlock returns the lines of a file's lenientBlock joined with "\n", which is
 // the YAML the list and fields readers have always decoded.
-func readLenientBlock(path string) ([]byte, error) {
+func readLenientBlock(path string, content ...[]byte) ([]byte, error) {
 	var raw bytes.Buffer
 	n := 0
 	err := scanLenientBlock(path, func(line []byte) bool {
@@ -184,7 +185,7 @@ func readLenientBlock(path string) ([]byte, error) {
 		}
 		raw.Write(line)
 		return true
-	})
+	}, content...)
 	return raw.Bytes(), err
 }
 

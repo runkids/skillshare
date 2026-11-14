@@ -13,6 +13,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/hooks"
 	"skillshare/internal/plugin"
+	"skillshare/internal/profile"
 	"skillshare/internal/utils"
 )
 
@@ -160,6 +161,9 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 		}
 		w2, validErr := config.ValidateProjectConfig(&testCfg, s.projectRoot)
 		if validErr == nil {
+			validErr = profile.ValidateSection(&testCfg.Profiles)
+		}
+		if validErr == nil {
 			validErr = config.ValidateMCP(testCfg.MCP, testCfg.Sources.MCP)
 		}
 		if validErr == nil {
@@ -182,6 +186,9 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w2, validErr := config.ValidateConfig(testCfg)
+		if validErr == nil {
+			validErr = profile.ValidateSection(&testCfg.Profiles)
+		}
 		if validErr == nil {
 			validErr = testCfg.ValidateProjects(testCfg.Projects)
 		}

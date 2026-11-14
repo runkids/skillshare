@@ -18,6 +18,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
+	"skillshare/internal/profile"
 	"skillshare/internal/skillserve"
 	"skillshare/internal/ui"
 )
@@ -86,6 +87,13 @@ func cmdMCPServe(args []string) error {
 			return err
 		}
 		b.Source, b.Walk, targets = rt.sourcePath, rt.skillsWalk(), rt.targets
+		b.ResolveProfile = func() (profile.Selector, error) {
+			cfg, err := config.LoadProjectReadOnly(cwd)
+			if err != nil {
+				return profile.Selector{}, err
+			}
+			return cfg.ProfileSelector(), nil
+		}
 		if edit, err = mcpServeEdit(rt.config.MCP, rt.config.Audit.BlockThreshold, config.ProjectConfigPath(cwd)); err != nil {
 			return err
 		}
@@ -98,6 +106,14 @@ func cmdMCPServe(args []string) error {
 			return err
 		}
 		b.Source, b.Walk, targets = cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), cfg.Targets
+		path := config.ReadOnlyConfigPath()
+		b.ResolveProfile = func() (profile.Selector, error) {
+			current, err := config.LoadReadOnlyPath(path)
+			if err != nil {
+				return profile.Selector{}, err
+			}
+			return current.ProfileSelector(), nil
+		}
 		if edit, err = mcpServeEdit(cfg.MCP, cfg.Audit.BlockThreshold, config.ConfigPath()); err != nil {
 			return err
 		}
@@ -112,6 +128,9 @@ func cmdMCPServe(args []string) error {
 			return fmt.Errorf("target %q has skills disabled", target)
 		}
 		b.Skills = &sc
+		if tc.ProjectRoot() != "" && mode != modeProject {
+			b.ResolveProfile = nil
+		}
 	}
 	if check {
 		return printMCPServeCheck(b, edit)

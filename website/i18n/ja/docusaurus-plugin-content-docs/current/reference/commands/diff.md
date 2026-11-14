@@ -98,6 +98,7 @@ cursor
 | Local only, skill kept under old name | 現在の `target_naming` が付ける名前をローカルフォルダーが使っているため、Skill は以前の管理対象エントリのまま（`name (stays at old-name)` と表示） | フォルダーの名前を変えるか削除してから `sync` |
 | Local override | symlink ではなくローカルコピー（編集済みの copy mode コピーを含む） | `sync --force` で置き換え |
 | Orphan | マニフェストにあるが Source にない | `sync` が刈り取る |
+| Not in profile `<name>` | 管理対象の Target エントリーがアクティブなプロファイルの対象外 | プロファイルの編集保護に従い `sync` が刈り取る |
 | Local only | Target のみに存在し、Source にない | `collect` でインポート |
 
 ## ファイル単位の詳細
@@ -257,6 +258,8 @@ skillshare diff --json
 `sync` がその target に対して行うことがない場合、`synced` は `true` です。`"is_sync": false` の項目（target にだけ存在するフォルダーなど）は引き続き一覧に表示されますが、`false` にはしません。テキスト出力でも、local-only フォルダーだけの target は同期済みとして扱われます。
 
 `action` は `add`、`modify`、`remove`、`kept` のいずれかです。`kept` は、現在の `target_naming` が付ける名前をローカルフォルダーが使っているため、Skill が以前の名前のまま残り、sync がそのフォルダーに触れないことを示します。
+
+プロファイルによる刈り取りでは、テキスト、TUI、JSON に `not in profile <name>` という理由が表示されます。既存の削除行を説明するもので、選択対象外の Source Skill すべてに同期作業を追加するわけではありません。sync matrix とリソース詳細ではそれらを `not_in_profile` と表示し、Target フィルターの理由よりプロファイル名を優先します。このラベルは編集済みコピーの破棄を許可しません。
 
 ## 関連項目
 

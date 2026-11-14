@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/profile"
 )
 
 // SkillTargetClassification is a physical skill's selection result for previews.
@@ -22,6 +23,14 @@ func ClassifySkillsForTarget(skills []DiscoveredSkill, name string, sc config.Re
 	}
 	rows := make(map[string]SkillTargetClassification, len(skills))
 	for _, skill := range skills {
+		included, err := sc.Profile.Selects(skill.FlatName)
+		if err != nil {
+			return nil, err
+		}
+		if !included {
+			rows[skill.RelPath] = SkillTargetClassification{Status: "not_in_profile", Reason: sc.Profile.Name()}
+			continue
+		}
 		targets := skill.Targets
 		// Inferred membership comes from the shared exact-agent selector below.
 		if skill.variantRouting || selected[skill.RelPath] {
@@ -79,4 +88,45 @@ func ClassifySkillForTarget(flatName string, skillTargets []string, targetName s
 	}
 
 	return "synced", ""
+}
+
+// ProfileDeselected names entries the profile removes from the target's
+// otherwise eligible selection. Filtered identities override unfiltered ones so
+// profile reasons take precedence, retaining target naming, routing and ignores.
+func ProfileDeselected(name string, sc config.ResourceTargetConfig, skills []DiscoveredSkill) (map[string]string, error) {
+	if !sc.Profile.Active() {
+		return nil, nil
+	}
+	if _, err := sc.Profile.Selects(""); err != nil {
+		return nil, err
+	}
+	selector := sc.Profile
+	sc.Profile = profile.Selector{}
+	filtered, err := ResolveTargetSkillsForTarget(name, sc, skills)
+	if err != nil {
+		return nil, err
+	}
+	sc.Include, sc.Exclude = nil, nil
+	unfiltered, err := ResolveTargetSkillsForTarget(name, sc, skills)
+	if err != nil {
+		return nil, err
+	}
+	candidates := make(map[string]ResolvedTargetSkill, len(unfiltered.Skills)+len(filtered.Skills))
+	for _, skill := range unfiltered.Skills {
+		candidates[skill.TargetName] = skill
+	}
+	for _, skill := range filtered.Skills {
+		candidates[skill.TargetName] = skill
+	}
+	deselected := make(map[string]string)
+	for _, skill := range candidates {
+		included, err := selector.Selects(skill.Skill.FlatName)
+		if err != nil {
+			return nil, err
+		}
+		if !included {
+			deselected[skill.TargetName] = selector.Name()
+		}
+	}
+	return deselected, nil
 }

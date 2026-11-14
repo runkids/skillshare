@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+	"skillshare/internal/profile"
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
@@ -98,6 +99,7 @@ func NewTargetSkillsMode(naming, mode string) string {
 
 // ResourceTargetConfig holds per-resource-kind target configuration (skills, agents, etc.).
 type ResourceTargetConfig struct {
+	Profile profile.Selector `yaml:"-" json:"-"`
 	// SharedTargets are compatible writers to the same folder, resolved at runtime.
 	SharedTargets []SkillTargetIdentity `yaml:"-" json:"-"`
 	// Agent carries the enclosing account's identity during selection; it is not configuration.
@@ -148,6 +150,7 @@ func (r ResourceTargetConfig) withExtensionMode() ResourceTargetConfig {
 // YAML reading; migrateTargetConfigs moves them into Skills on load.
 type TargetConfig struct {
 	sharedSkillTargets []SkillTargetIdentity
+	profileSelector    profile.Selector
 	Path               string   `yaml:"path,omitempty"`
 	Mode               string   `yaml:"mode,omitempty"` // merge, symlink, or copy
 	Include            []string `yaml:"include,omitempty"`
@@ -194,6 +197,7 @@ func (tc *TargetConfig) SkillsConfig() ResourceTargetConfig {
 	if tc.Skills != nil {
 		sc := *tc.Skills
 		sc.SharedTargets = tc.sharedSkillTargets
+		sc.Profile = tc.profileSelector
 		sc.Agent = tc.Agent
 		if sc.TargetNaming == "" {
 			sc.TargetNaming = tc.defaultTargetNaming
@@ -202,6 +206,7 @@ func (tc *TargetConfig) SkillsConfig() ResourceTargetConfig {
 	}
 	return ResourceTargetConfig{
 		SharedTargets: tc.sharedSkillTargets,
+		Profile:       tc.profileSelector,
 		Agent:         tc.Agent,
 		Path:          tc.Path,
 		Mode:          tc.Mode,
@@ -385,11 +390,15 @@ type GlobalSources struct {
 
 // Config holds the application configuration
 type Config struct {
+	profileSelector profile.Selector
+	profileState    profile.State
+	profilePath     string
 	// legacySkills retains unmigrated embedded metadata during read-only edits.
 	// Ordinary Load removes this section through migrateSkillsToRegistry first.
 	legacySkills yaml.Node     `yaml:"-"`
 	Plugins      yaml.Node     `yaml:"plugins,omitempty"`
 	Hooks        yaml.Node     `yaml:"hooks,omitempty"`
+	Profiles     yaml.Node     `yaml:"profiles,omitempty"`
 	MCP          *MCPConfig    `yaml:"mcp,omitempty"`
 	Source       string        `yaml:"source,omitempty"`
 	AgentsSource string        `yaml:"agents_source,omitempty"`
@@ -826,7 +835,7 @@ func decodeConfig(path string, data []byte, persist bool) (*Config, error) {
 
 	// Migrate legacy flat target fields in memory, persisting only for ordinary Load.
 	if migrateTargetConfigs(cfg.Targets) && persist {
-		if migrated, err := marshalConfig(&cfg, schemaComment, data); err == nil {
+		if migrated, err := marshalConfig(&cfg, schemaComment, data, &cfg.Profiles); err == nil {
 			// Write a symlinked config's target so the link survives.
 			dest := utils.ResolveSymlink(path)
 			tmpPath := dest + ".tmp"
@@ -874,6 +883,7 @@ func decodeConfig(path string, data []byte, persist bool) (*Config, error) {
 	if err := cfg.expandProjects(); err != nil {
 		return nil, err
 	}
+	cfg.loadProfile(path)
 	cfg.Targets = WithSharedSkillsTargets(cfg.Targets, cfg.Mode)
 	// Expand ~ in extras paths
 	for i, extra := range cfg.Extras {
@@ -914,7 +924,7 @@ func (c *Config) Save() error {
 	if c.PreserveTildeOnSave {
 		payload = payload.cloneForSave()
 	}
-	data, err := marshalConfigFile(path, payload, schemaComment)
+	data, err := marshalConfigFile(path, payload, schemaComment, &payload.Profiles)
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}

@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/profile"
 	"skillshare/internal/skillpkg"
 	"skillshare/internal/sourcewalk"
 	ssync "skillshare/internal/sync"
@@ -72,14 +73,30 @@ type Builder struct {
 	Walk   sourcewalk.Options
 	// Target names the target whose Skills selection applies. With Skills nil,
 	// every enabled skill is served.
-	Target string
-	Skills *config.ResourceTargetConfig
+	Target         string
+	Skills         *config.ResourceTargetConfig
+	ResolveProfile func() (profile.Selector, error)
 }
 
 // Build discovers the source and returns the skills to serve. Skills that are
 // invalid, over the limits, or contain an unserved nested skill are skipped
 // with a warning.
 func (b *Builder) Build() (*Catalog, error) {
+	if b.Skills != nil && b.ResolveProfile != nil {
+		selector, err := b.ResolveProfile()
+		if err != nil {
+			return nil, err
+		}
+		if _, err := selector.Selects(""); err != nil {
+			return nil, err
+		}
+		copy := *b
+		sc := *b.Skills
+		sc.Profile = selector
+		copy.Skills = &sc
+		copy.ResolveProfile = nil
+		return copy.Build()
+	}
 	all, err := ssync.DiscoverSourceSkillsAll(b.Source, b.Walk)
 	if err != nil {
 		return nil, err

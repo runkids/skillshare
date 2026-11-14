@@ -26,6 +26,7 @@ def "nu-complete skillshare commands" [] {
         { value: "commit", description: "Create local git commit without pushing" }
         { value: "doctor", description: "Check environment and diagnose issues" }
         { value: "target", description: "Manage targets" }
+        { value: "profile", description: "Define and switch skill profiles" }
         { value: "project", description: "Manage project folders" }
         { value: "updates", description: "Control automatic version checks" }
         { value: "upgrade", description: "Upgrade CLI and/or skillshare skill" }
@@ -53,6 +54,27 @@ def "nu-complete skillshare updates" [] { [on off check] }
 export extern "skillshare updates" [
     action?: string@"nu-complete skillshare updates"
     --json
+    --help(-h)
+]
+
+# Profile command
+def "nu-complete skillshare profile" [] { [list show create edit rename delete use add remove] }
+export extern "skillshare profile" [
+    subcommand?: string@"nu-complete skillshare profile"
+    ...names: string
+    --description: string
+    --add-include: string
+    --remove-include: string
+    --add-exclude: string
+    --remove-exclude: string
+    --dry-run(-n)
+    --no-sync
+    --none
+    --discard-edits
+    --allow-empty
+    --json
+    --global(-g)
+    --project(-p)
     --help(-h)
 ]
 
@@ -443,6 +465,7 @@ export extern "skillshare list" [
 # Sync
 export extern "skillshare sync" [
     scope?: string@"nu-complete skillshare sync-scope"
+    --discard-edits           # Snapshot and discard listed profile edits
     --all                    # Sync skills + agents + extras
     --dry-run(-n)            # Preview changes
     --force(-f)              # Force sync
