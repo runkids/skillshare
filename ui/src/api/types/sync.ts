@@ -69,6 +69,9 @@ export interface SyncTargetFailure {
 }
 
 export interface SyncResponse extends IgnoreSources {
+  profile?: { name: string; state: 'none' | 'active' | 'unavailable'; pending: boolean };
+  /** Authoritative profile execution result, including protected or failed target work. */
+  profileComplete?: boolean;
   results: SyncResult[];
   warnings?: string[];
   /** Targets whose include filter selects no skill */

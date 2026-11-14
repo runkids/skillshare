@@ -33,6 +33,8 @@ const cached = {
   missingConfigEntries: k.missingConfigEntries,
   syncMatrix: k.syncMatrix(),
   syncMatrixClaude: k.syncMatrix('claude'),
+  syncMatrixPreviewClaude: k.syncMatrixPreview('claude', [], [], [], []),
+  syncMatrixPreviewCodex: k.syncMatrixPreview('codex', ['work*'], [], [], []),
   extras: k.extras,
   extrasExtensions: k.extrasExtensions,
   extensions: k.extensions,
@@ -71,8 +73,8 @@ const SM: Label[] = ['syncMatrix', 'syncMatrixClaude'];
 const TARGETS: Label[] = [...T, 'projects', 'config', 'overview', 'diff', 'syncMatrix'];
 
 const stale: Record<QueryEvent | 'profilesChanged', Label[] | { args: string[]; stale: Label[] }> = {
-  profilesChanged: ['profiles', 'config', 'doctor', ...S, 'diff', 'diffClaude', ...SM],
-  profileSwitched: [...S, ...T, 'diff', 'diffClaude', ...SM, 'overview', 'profiles', 'backups'],
+  profilesChanged: ['profiles', 'config', 'doctor', ...S, 'diff', 'diffClaude', ...SM, 'syncMatrixPreviewClaude', 'syncMatrixPreviewCodex'],
+  profileSwitched: [...S, ...T, 'diff', 'diffClaude', ...SM, 'syncMatrixPreviewClaude', 'syncMatrixPreviewCodex', 'overview', 'profiles', 'backups'],
   skillsChanged: [...S, 'overview', 'diff'],
   skillBranchSwitched: [...S, 'overview', 'diff', 'config'],
   skillEdited: { args: ['a'], stale: S },

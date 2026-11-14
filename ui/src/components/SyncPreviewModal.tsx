@@ -3,7 +3,7 @@ import { AlertCircle, CircleCheck, RefreshCw, TriangleAlert } from 'lucide-react
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
-import { api, type UnmatchedInclude } from '../api/client';
+import { api, type SyncResponse, type UnmatchedInclude } from '../api/client';
 import Button from './Button';
 import DialogShell from './DialogShell';
 import Spinner from './Spinner';
@@ -18,6 +18,8 @@ import { profileReason } from './profiles/profileView';
 interface SyncPreviewModalProps {
   open: boolean;
   onClose: () => void;
+  /** Called only after complete execution, never for a partial HTTP 200 result. */
+  onComplete?: (result: SyncResponse) => void;
   /** Syncs only this kind and says so; unset syncs skills and agents together. */
   kind?: 'skill' | 'agent';
   /** The profile banner may explicitly settle a pending skills selection even with no target changes. */
@@ -30,7 +32,7 @@ interface SyncPreviewModalProps {
  * Previews from /api/diff, the same data as the Sync page and the pending dots, so the counts agree:
  * a dry-run reports every existing link as linked again.
  */
-export default function SyncPreviewModal({ open, onClose, kind, className, profilePending = false }: SyncPreviewModalProps) {
+export default function SyncPreviewModal({ open, onClose, kind, className, profilePending = false, onComplete }: SyncPreviewModalProps) {
   const t = useT();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -60,7 +62,10 @@ export default function SyncPreviewModal({ open, onClose, kind, className, profi
       const res = await api.sync({ dryRun: false, kind });
       setWarnings(res.warnings ?? []);
       setUnmatched(res.unmatched ?? []);
-      setSynced(true);
+      const complete = res.profileComplete !== false && !res.profile?.pending && !res.failed?.length && !res.folder_conflicts?.length && !res.path_overlap;
+      setSynced(complete);
+      if (complete) onComplete?.(res);
+      else setError(t('syncPreview.incomplete'));
       void invalidate(queryClient, 'synced');
     } catch (e: unknown) {
       setError((e as Error).message);
@@ -98,11 +103,7 @@ export default function SyncPreviewModal({ open, onClose, kind, className, profi
 
       <div className="db">
         {synced ? (
-          <>
-            <div className="ss-note inf"><CircleCheck size={16} /><span className="flex-1">{t('syncPreview.completed')}</span></div>
-            {warnings.map((w) => <div key={w} className="ss-note warn"><TriangleAlert size={16} /><span className="flex-1">{profileReason(w, t)}</span></div>)}
-            <UnmatchedNotices items={unmatched} />
-          </>
+          <div className="ss-note inf"><CircleCheck size={16} /><span className="flex-1">{t('syncPreview.completed')}</span></div>
         ) : loading ? (
           <div className="ss-list"><div className="ss-r gap-2 text-[13px] text-ink-2"><Spinner size="sm" />{t('sync.checking')}</div></div>
         ) : loadError ? (
@@ -119,6 +120,8 @@ export default function SyncPreviewModal({ open, onClose, kind, className, profi
           // One row per target can outgrow the dialog; scroll the list so the buttons stay reachable
           <SyncResultList groups={groups} inSync={upToDate} className="max-h-[50vh] !overflow-y-auto" />
         )}
+        {warnings.map((w) => <div key={w} className="ss-note warn"><TriangleAlert size={16} /><span className="flex-1">{profileReason(w, t)}</span></div>)}
+        <UnmatchedNotices items={unmatched} />
       </div>
 
       <div className="df">

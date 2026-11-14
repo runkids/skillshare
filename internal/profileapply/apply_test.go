@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/profile"
 	ssync "skillshare/internal/sync"
+	"skillshare/internal/utils"
 )
 
 type fixture struct {
@@ -874,5 +876,53 @@ func TestProfileApply_BinarySnapshotVerification(t *testing.T) {
 				t.Fatal("snapshot verification failure mutated target or state")
 			}
 		})
+	}
+}
+
+func TestProfileDiscard_ConfiguredTargetAlias(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, mode := range []string{"merge", "copy"} {
+			for _, switching := range []bool{false, true} {
+				t.Run(fmt.Sprintf("project=%v/%s/switch=%v", project, mode, switching), func(t *testing.T) {
+					f := newFixture(t, project, "copy")
+					physical := t.TempDir()
+					if runtime.GOOS == "windows" {
+						if err := utils.CreateJunction(f.target, physical); err != nil {
+							t.Fatal(err)
+						}
+					} else if err := os.Symlink(physical, f.target); err != nil {
+						t.Fatal(err)
+					}
+					if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a"}); err != nil {
+						t.Fatal(err)
+					}
+					write(t, filepath.Join(f.target, "alpha", "SKILL.md"), "authored through alias")
+					write(t, f.path, strings.Replace(read(t, f.path), "mode: copy", "mode: "+mode, 1))
+					var out Result
+					var err error
+					if switching {
+						out, err = Apply(context.Background(), Request{Scope: f.scope, Name: "b", DiscardEdits: true})
+					} else {
+						out, err = WithSkillSync(context.Background(), SyncRequest{Scope: f.scope, DiscardEdits: true})
+					}
+					if err != nil || !out.Complete || len(out.Snapshot) != 1 {
+						t.Fatalf("discard through alias: %+v, %v", out, err)
+					}
+					if read(t, filepath.Join(out.Snapshot[0].Path, "alpha", "SKILL.md")) != "authored through alias" {
+						t.Fatal("snapshot lost authored content")
+					}
+					if !utils.IsSymlinkOrJunction(f.target) {
+						t.Fatal("discard replaced configured alias")
+					}
+					if switching {
+						if _, err := os.Lstat(filepath.Join(physical, "alpha")); !os.IsNotExist(err) {
+							t.Fatalf("excluded edited copy remains: %v", err)
+						}
+					} else if read(t, filepath.Join(physical, "alpha", "SKILL.md")) != read(t, filepath.Join(f.source, "alpha", "SKILL.md")) {
+						t.Fatal("discard did not refresh the logical target")
+					}
+				})
+			}
+		}
 	}
 }

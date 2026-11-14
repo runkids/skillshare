@@ -93,6 +93,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	}
 	if out.profile != nil {
 		resp["profile"] = out.profile
+		resp["profileComplete"] = out.profileComplete
 	}
 	if len(out.snapshots) > 0 {
 		resp["snapshot"] = out.snapshots
@@ -109,6 +110,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 
 type syncOutcome struct {
 	profile         *profileapply.Info
+	profileComplete bool
 	snapshots       []profileapply.Snapshot
 	results         []syncTargetResult
 	warnings        []string
@@ -342,6 +344,7 @@ func (s *Server) syncResourcesPrepared(start time.Time, dryRun, force bool, kind
 	out := &syncOutcome{results: results, warnings: warnings, unmatched: unmatched, failed: failed, folderConflicts: executed.FolderConflicts, pathOverlap: executed.PathOverlap, skills: executed.Skills, ignoreStats: executed.IgnoreStats, allAgents: executed.AllAgents}
 	if applied != nil {
 		out.profile, out.snapshots = applied.Profile, applied.Snapshot
+		out.profileComplete = applied.Complete
 	}
 	return out, 0, nil
 }

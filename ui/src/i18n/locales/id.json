@@ -918,6 +918,7 @@
   "syncPreview.allUpToDate": "Semuanya sudah terbaru. Tidak perlu sinkronisasi.",
   "syncPreview.cancelButton": "Batal",
   "syncPreview.closeButton": "Tutup",
+  "syncPreview.incomplete": "Sinkronisasi belum selesai. Tinjau peringatan dan coba lagi.",
   "syncPreview.completed": "Sinkronisasi berhasil diselesaikan.",
   "syncPreview.noTargets": "Tidak ada target yang dikonfigurasi. Periksa konfigurasi Anda untuk menambahkan target.",
   "syncPreview.refreshPreview": "Segarkan pratinjau",

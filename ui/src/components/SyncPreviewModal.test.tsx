@@ -70,3 +70,22 @@ it('prevents a second pending settlement while the first explicit request is in 
   expect(sync).toHaveBeenCalledExactlyOnceWith({ dryRun: false, kind: 'skill' });
   await act(async () => resolve(response));
 });
+
+it.each([
+  { profileComplete: false, warnings: ['kept modified alpha'] },
+  { failed: [{ target: 'claude', part: 'skill' as const, error: 'permission denied', message: 'permission denied' }], warnings: ['permission denied'] },
+  { profile: { name: 'work', state: 'active' as const, pending: true } },
+])('does not settle the caller after an incomplete HTTP 200 result: %j', async (partial) => {
+  const complete = vi.fn();
+  sync.mockResolvedValueOnce({ ...response, ...partial }).mockResolvedValueOnce({ ...response, profileComplete: true });
+  mount(<SyncPreviewModal open kind="skill" profilePending onClose={vi.fn()} onComplete={complete} />);
+  fireEvent.click(screen.getByRole('button', { name: 'syncPreview.syncNowButton' }));
+  expect(await screen.findByText('syncPreview.incomplete')).toBeInTheDocument();
+  expect(screen.queryByText('syncPreview.completed')).toBeNull();
+  expect(complete).not.toHaveBeenCalled();
+  for (const warning of partial.warnings ?? []) expect(screen.getByText(warning)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'syncPreview.retryButton' }));
+  fireEvent.click(screen.getByRole('button', { name: 'syncPreview.syncNowButton' }));
+  await waitFor(() => expect(complete).toHaveBeenCalledExactlyOnceWith({ ...response, profileComplete: true }));
+  expect(sync).toHaveBeenCalledTimes(2);
+});

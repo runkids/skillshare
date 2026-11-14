@@ -918,6 +918,7 @@
   "syncPreview.allUpToDate": "Tudo está atualizado. Nenhuma sincronização necessária.",
   "syncPreview.cancelButton": "Cancelar",
   "syncPreview.closeButton": "Fechar",
+  "syncPreview.incomplete": "Sincronização incompleta. Revise os avisos e tente novamente.",
   "syncPreview.completed": "Sincronização concluída com sucesso.",
   "syncPreview.noTargets": "Nenhum destino configurado. Verifique sua configuração para adicionar destinos.",
   "syncPreview.refreshPreview": "Atualizar prévia",

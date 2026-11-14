@@ -918,6 +918,7 @@
   "syncPreview.allUpToDate": "すべて最新です。同期は不要です。",
   "syncPreview.cancelButton": "キャンセル",
   "syncPreview.closeButton": "閉じる",
+  "syncPreview.incomplete": "同期が完了していません。警告を確認して再試行してください。",
   "syncPreview.completed": "同期が正常に完了しました。",
   "syncPreview.noTargets": "ターゲットが設定されていません。設定を確認してターゲットを追加してください。",
   "syncPreview.refreshPreview": "プレビューを更新",
