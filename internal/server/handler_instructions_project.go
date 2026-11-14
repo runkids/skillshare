@@ -73,6 +73,11 @@ func (s *Server) handlePutProjectInstructions(w http.ResponseWriter, r *http.Req
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock := s.lockInstructionWrite(w, s.projectInstructionMutation(""))
+	if unlock == nil {
+		return
+	}
+	defer unlock()
 	path := filepath.Join(s.projectRoot, instructions.AgentsFile)
 	if err := writeInstructionsFile(path, body.Content); err != nil {
 		s.writeOpsLog("instructions-edit", "error", start, map[string]any{"path": path, "scope": "ui"}, err.Error())
@@ -100,6 +105,11 @@ func (s *Server) handleProjectInstructionsShim(w http.ResponseWriter, r *http.Re
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock := s.lockInstructionWrite(w, s.projectInstructionMutation(body.Target))
+	if unlock == nil {
+		return
+	}
+	defer unlock()
 	tc, found := s.cfg.Targets[body.Target]
 	if !found {
 		writeCodedError(w, http.StatusNotFound, "instructions_target_not_found", "target not found: "+body.Target, map[string]string{"target": body.Target})

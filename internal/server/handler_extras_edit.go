@@ -82,6 +82,12 @@ func (s *Server) handleExtrasEditTarget(w http.ResponseWriter, r *http.Request) 
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock, lockErr := s.lockRemoteExtraMutation(name)
+	if lockErr != nil {
+		writeError(w, http.StatusConflict, lockErr.Error())
+		return
+	}
+	defer unlock()
 
 	extras := s.extrasConfig()
 	idx := slices.IndexFunc(extras, func(e config.ExtraConfig) bool { return e.Name == name })
@@ -179,6 +185,12 @@ func (s *Server) handleExtrasEdit(w http.ResponseWriter, r *http.Request) {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock, lockErr := s.lockRemoteExtraMutation(name)
+	if lockErr != nil {
+		writeError(w, http.StatusConflict, lockErr.Error())
+		return
+	}
+	defer unlock()
 
 	extras := s.extrasConfig()
 	idx := slices.IndexFunc(extras, func(e config.ExtraConfig) bool { return e.Name == name })
@@ -187,6 +199,11 @@ func (s *Server) handleExtrasEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	extra := extras[idx]
+	if extra.Remote != "" && (body.Source != nil || body.Name != "" && body.Name != name) {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("%q comes from %s; to rename or move it run: skillshare extras remove %s && skillshare install %s --kind extra --name <new>", name, extra.Remote, name, extra.Remote))
+		return
+	}
+
 	oldSource := s.extrasSourceDir(extra)
 	next := extra
 

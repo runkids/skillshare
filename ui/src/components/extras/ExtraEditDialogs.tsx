@@ -260,14 +260,16 @@ export function EditExtraDialog({ extra, sharedDir, onClose, onSaved }: {
   const [source, setSource] = useState(wasCustom ? shortenHome(extra.source_dir) : '');
   const [saving, setSaving] = useState(false);
 
+  const remote = Boolean(extra.remote);
   const trimmedName = name.trim();
   const trimmedSource = source.trim();
   const renamed = trimmedName !== extra.name;
   // Back to the shared folder means the folder named after the extra there.
   const sourceChanged = custom ? trimmedSource !== '' && trimmedSource !== shortenHome(extra.source_dir) : wasCustom;
-  const canSave = trimmedName !== '' && (renamed || sourceChanged) && !(custom && trimmedSource === '') && !saving;
+  const canSave = !remote && trimmedName !== '' && (renamed || sourceChanged) && !(custom && trimmedSource === '') && !saving;
 
   const save = async () => {
+    if (remote || !canSave) return;
     setSaving(true);
     try {
       const res = await api.editExtra(extra.name, {
@@ -295,9 +297,10 @@ export function EditExtraDialog({ extra, sharedDir, onClose, onSaved }: {
       onClose={onClose}
       onSave={() => void save()}
     >
+      {remote && <div className="ss-note inf"><span className="flex-1">{t('extras.remote.identityLocked')}</span></div>}
       <div className="ss-fld">
         <label htmlFor="edit-extra-name">{t('extras.modal.name')}</label>
-        <span className="ss-inp"><input id="edit-extra-name" className="font-mono" value={name} onChange={(e) => setName(e.target.value)} disabled={saving} /></span>
+        <span className={`ss-inp ${remote ? 'opacity-50 cursor-not-allowed' : ''}`}><input id="edit-extra-name" className={`font-mono ${remote ? 'cursor-not-allowed' : ''}`} value={name} onChange={(e) => setName(e.target.value)} disabled={saving || remote} /></span>
         {renamed && <span className="hp font-mono">{t('extras.edit.was', { value: extra.name })}</span>}
       </div>
       <div className="ss-fld">
@@ -309,11 +312,11 @@ export function EditExtraDialog({ extra, sharedDir, onClose, onSaved }: {
             { value: 'shared', label: t('extras.sourceType.shared') },
             { value: 'custom', label: t('extras.sourceType.custom') },
           ]}
-          disabled={saving}
+          disabled={saving || remote}
         />
         {custom ? (
-          <span className="ss-inp">
-            <input className="font-mono" value={source} onChange={(e) => setSource(e.target.value)} placeholder={t('extras.modal.sourcePathPlaceholder')} aria-label={t('extras.sourceType.custom')} disabled={saving} />
+          <span className={`ss-inp ${remote ? 'opacity-50 cursor-not-allowed' : ''}`}>
+            <input className="font-mono" value={source} onChange={(e) => setSource(e.target.value)} placeholder={t('extras.modal.sourcePathPlaceholder')} aria-label={t('extras.sourceType.custom')} disabled={saving || remote} />
           </span>
         ) : (
           <span className="hp truncate font-mono">{sharedPath}</span>

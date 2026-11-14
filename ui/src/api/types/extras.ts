@@ -12,6 +12,10 @@ export interface ExtraTarget {
 }
 
 export interface Extra {
+  remote?: string;
+  branch?: string;
+  commit?: string;
+  state?: "intact" | "modified" | "interrupted" | "missing" | "error";
   name: string;
   file?: string; // single-file extra: the file in source_dir (AGENTS.md ones are shared instruction files)
   source_dir: string;
@@ -58,6 +62,7 @@ export interface ExtraDiffResult {
 
 export interface ExtrasSyncResult {
   name: string;
+  warnings?: string[];
   targets: Array<{
     target: string;
     mode: string;
@@ -67,4 +72,16 @@ export interface ExtrasSyncResult {
     errors?: string[];
     error?: string;
   }>;
+}
+
+/** Removal keeps edited source directories and copied or transformed outputs. */
+export interface ExtraRemoveResult {
+  success: boolean;
+  remote?: string;
+  commit?: string;
+  deleted_dir?: boolean;
+  missing_dir?: boolean;
+  kept_edited_dir?: boolean;
+  kept_outputs?: string[];
+  warnings?: string[];
 }

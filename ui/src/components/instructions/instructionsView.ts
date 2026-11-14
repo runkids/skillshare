@@ -1,9 +1,19 @@
 import { ApiError } from '../../api/client';
-import type { InstructionsWarning } from '../../api/client';
+import type { ExtrasSyncResult, InstructionsWarning } from '../../api/client';
 import type { useT } from '../../i18n';
 import type { InstructionLocation, InstructionsAssignment, InstructionsEntry, SharedCopyResult, SharedInstructionsFile, SharedInstructionsTarget } from '../../api/client';
 import { fileName, shortenHome } from '../../lib/paths';
 import type { LineDecor } from '../CodeEditor';
+import { buildSyncToast, sumAll } from '../../lib/extrasSyncToast';
+
+export function sharedSyncFeedback(extras: ExtrasSyncResult[], success: string, t: ReturnType<typeof useT>): [string, 'success' | 'warning'] {
+  const failed = extras.flatMap((e) => e.targets).find((r) => r.error);
+  if (failed) throw new Error(failed.error);
+  const totals = sumAll(extras);
+  return totals.warnings.length > 0
+    ? [buildSyncToast(t('extras.title'), t('extras.title'), totals, false, t), 'warning']
+    : [success, 'success'];
+}
 
 /** Why a new shared file name would be refused, checked as the user types. Same rule as the server. */
 export function sharedNameProblem(name: string, taken: string[]): 'invalid' | 'taken' | null {

@@ -23,7 +23,7 @@ targets: {}
 	// --kind with invalid value should error
 	result := sb.RunCLI("install", "--kind", "invalid", "test")
 	result.AssertFailure(t)
-	result.AssertAnyOutputContains(t, "must be 'skill' or 'agent'")
+	result.AssertAnyOutputContains(t, "must be 'skill', 'agent', or 'extra'")
 }
 
 func TestInstall_AgentFlagShort_ParsesCorrectly(t *testing.T) {

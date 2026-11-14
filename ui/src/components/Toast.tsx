@@ -88,7 +88,7 @@ function ToastItem({
 
   return (
     <div
-      className={`ss-toast relative !flex !h-auto min-h-[42px] !items-start py-2.5 overflow-hidden ${exiting ? 'animate-toast-out' : 'animate-toast-in'}`}
+      className={`ss-toast relative !flex !h-auto min-h-[42px] !items-start py-2.5 overflow-hidden ${t.message.includes('\n') ? 'w-full' : ''} ${exiting ? 'animate-toast-out' : 'animate-toast-in'}`}
       onMouseEnter={() => { setPaused(true); pauseTimer(); }}
       onMouseLeave={() => { setPaused(false); startTimer(); }}
     >

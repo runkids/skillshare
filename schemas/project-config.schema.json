@@ -481,6 +481,15 @@
           "description": "Custom source directory for this extra, relative to the project root (absolute paths and paths outside the project are rejected). Several single-file extras can share one directory. Default: <extras source>/<name>.",
           "examples": [".skillshare/extras/prompts"]
         },
+        "remote": {
+          "type": "string",
+          "description": "Git origin of a managed remote extra, with no credentials. Mutually exclusive with source; fetched content lives under the extras root.",
+          "examples": ["example-org/ai-hub/rules"]
+        },
+        "branch": {
+          "type": "string",
+          "description": "Optional Git branch or tag to follow. Requires remote; the installed revision is pinned separately."
+        },
         "file": {
           "type": "string",
           "description": "Sync one file instead of the whole source directory: a plain filename inside the extra's source directory. Each target receives <path>/<as or file>.",

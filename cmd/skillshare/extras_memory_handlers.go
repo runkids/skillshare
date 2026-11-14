@@ -19,6 +19,47 @@ func runMemory(mode runMode, opts memoryOptions) error {
 		return err
 	}
 	mode = resolveAutoMode(mode, cwd)
+	var inputData []byte
+	if opts.command == "write" {
+		// Read user input before taking the remote-extra lock.
+		var input io.ReadCloser = os.Stdin
+		if opts.from != "-" {
+			input, err = os.Open(opts.from)
+			if err != nil {
+				return err
+			}
+			defer input.Close()
+		}
+		inputData, err = io.ReadAll(io.LimitReader(input, memory.MaxNoteBytes+1))
+		if err != nil {
+			return err
+		}
+	}
+	if opts.command == "init" || opts.command == "write" || opts.command == "delete" {
+		var entries []config.ExtraConfig
+		if mode == modeProject {
+			cfg, err := config.LoadProjectReadOnly(cwd)
+			if err != nil {
+				return err
+			}
+			entries = cfg.Extras
+		} else {
+			cfg, err := config.LoadReadOnly()
+			if err != nil {
+				return err
+			}
+			entries = cfg.Extras
+		}
+		extra, _, err := memory.Extra(entries)
+		if err != nil {
+			return err
+		}
+		unlock, err := lockRemoteExtraMutation(mode, cwd, extra.Name)
+		if err != nil {
+			return err
+		}
+		defer unlock()
+	}
 	var root, cfgPath, projectRoot string
 	var initialize func() error
 	if mode == modeProject {
@@ -96,20 +137,7 @@ func runMemory(mode runMode, opts memoryOptions) error {
 			return nil
 		}
 	case "write":
-		var input io.ReadCloser = os.Stdin
-		if opts.from != "-" {
-			input, err = os.Open(opts.from)
-			if err != nil {
-				return err
-			}
-			defer input.Close()
-		}
-		var data []byte
-		data, err = io.ReadAll(io.LimitReader(input, memory.MaxNoteBytes+1))
-		if err != nil {
-			return err
-		}
-		result, err = memory.Write(root, opts.path, string(data), opts.version)
+		result, err = memory.Write(root, opts.path, string(inputData), opts.version)
 	case "delete":
 		err = memory.Delete(root, opts.path, opts.version)
 		result = map[string]any{"success": err == nil, "path": opts.path}

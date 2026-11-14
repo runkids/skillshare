@@ -291,7 +291,7 @@ skillshare sync
 | `--update` | `-u` | 若已存在則更新（git pull 或重新安裝） |
 | `--branch <ref>` | `-b` | 要安裝的 git branch、tag 或 commit SHA（預設：remote 的預設分支） |
 | `--track` | `-t` | 保留 tracked repos 的 `.git`。不能與 `--all`、`--yes`、`--skill` 或 `--agent` 同時使用。 |
-| `--kind <skill\|agent>` | | 限制只安裝一種資源類型 |
+| `--kind <skill\|agent\|extra>` | | 限制只安裝一種資源類型 |
 | `--agent <names>` | `-a` | 從 repo 中選擇特定 agents（以逗號分隔） |
 | `--skill` | `-s` | 從多 skill repo 中選擇特定 skills（以逗號分隔；支援 glob patterns，如 `core-*`）。不能與 `--all` 或 `--yes` 同時使用。 |
 | `--exclude` | | 安裝時跳過特定 skills（以逗號分隔；支援 glob patterns，如 `test-*`） |
@@ -439,7 +439,7 @@ skillshare install google-gemini/gemini-cli/.../skill-creator --name my-creator
 # 安裝為：~/.config/skillshare/skills/my-creator/
 ```
 
-`--name` 只在 install 解析出單一 skill 時才有效。
+Skill 安裝的 `--name` 只在解析出單一 skill 時有效；遠端 extra 用它指定受管理名稱。
 在 `--track` 模式下，自訂名稱會以 tracked repo 目錄儲存（自動加上 `_` 前綴），且不得包含路徑分隔符或 `..`。
 `--track` 也接受本機路徑，前提是該路徑是 git repository 的根目錄（會像 `file:///path` 一樣被 clone）；其他本機資料夾請不要加 `--track` 安裝。使用 `--track --force` 時，只有在新的 clone 成功後才會取代現有的 tracked repo，因此重新安裝失敗時舊的 repo 會保留；若本機來源（路徑或 `file://` URL）就是該 tracked repo 或位於其中，會被拒絕。
 
@@ -853,3 +853,76 @@ skillshare sync  # ← 別忘了！
 - [uninstall](/docs/reference/commands/uninstall) — 移除 skills
 - [sync](/docs/reference/commands/sync) — 把 skills 同步到 targets
 - [Organization-Wide Skills](/docs/how-to/sharing/organization-sharing) — 用 tracked repos 進行組織共享
+
+
+## 從遠端來源安裝 extra {#remote-extras}
+
+不需要 `SKILL.md`，直接擷取儲存庫中的確切目錄。
+
+```bash
+skillshare install example-org/ai-hub/rules --kind extra --name team-rules -p
+skillshare extras team-rules --add-target .claude/rules -p
+skillshare sync extras -p
+```
+
+Global 使用 `-g`。只透過 Git 擷取，不退回託管 API，也不模糊比對子目錄。
+可選取整個儲存庫；排除 `.git`，拒絕 submodule 內的路徑。本機目錄使用
+`skillshare extras init team-rules --source <path> --target <target>`。
+`--kind extra` 不能搭配 `--track`、`--into`、`--skill`、`--agent`、`--exclude`、
+`--all`、`--yes`。使用 `--name`，而非提案中的 `--as`。
+
+安裝目錄為 `<extras root>/team-rules/`。設定記錄 `remote`、選用的 `branch`，初始為
+`targets: []`。`--branch <ref>` 選取分支、標籤或 commit，明確旗標優先於 URL ref。
+Project 的 **version 1** lockfile 在 `extras` map 記錄完整 40 位 commit；Global
+重裝使用相符的 metadata pin。pin 須符合 origin 和 ref；省略 `--branch` 保留已宣告的 ref，
+變更 ref 則擷取新 ref 的最新 commit。`--update` 將同一 ref 的 pin 前移至最新 commit。
+無法取得 pin 時失敗，不退回分支。origin 不符的 metadata 不是 pin；若實際目錄存在且
+origin 不同，必須先移除再重裝。
+
+提交 Project config 和 `skills.lock.json`。**每位**寫入 lockfile 的貢獻者都須升級至
+能保留 `extras` map 的版本。專案內的擷取目錄、staging 和 metadata 會被 ignore。
+隊友必須明確復原；前移同一 ref 的 pin 時加上 `--update`。
+
+```bash
+skillshare install example-org/ai-hub/rules --kind extra --name team-rules -p
+skillshare install example-org/ai-hub/rules --kind extra --name team-rules --update -p
+```
+
+無參數的 `skillshare install` 不會復原遠端 extras。`sync extras` 僅分發本機副本，
+不擷取遠端內容；缺少來源時會顯示明確復原命令。捨棄本機內容編輯須明確 `--force`，
+`--json` 不代表同意覆寫。只有模式改變不算內容編輯。本機 extra 同名或不同 origin 的
+項目，即使用 `--force` 也須先移除再安裝。
+
+發布前會暫存並稽核候選內容。達到門檻的發現會阻止安裝；`--force` 可接受發現，但不能
+略過 scanner/rules 錯誤。`--skip-audit` 會明確回報略過。現有 scanner 只檢查深度 6、
+不超過 1,000,000 bytes 且通過副檔名 filter 的檔案，略過 `.mdc` 和 `.cursorrules`。
+稽核通過不保證安全。內部檔案連結會實體化；拒絕絕對、越界、失效、目錄連結及特殊檔案。
+保留 Unix 執行 bit，Windows 不提供這項保證。使用 Git 憑證或 SSH，不在 URL 中放憑證。
+
+隱藏目錄下的檔案（例如 `.cursor/rules/policy.md`）僅接受檔頭檢查，略過一般文字與
+完整性分析。`.git` 和 `.skillshare` 目錄不納入掃描。成功安裝時，若 scanner 略過檔案，
+會回報涵蓋範圍警告；這不代表擴大了掃描範圍。
+
+即使分支已刪除，只要 Git 仍能取得完全相同的 commit，匹配的既有 pin 仍可還原內容。
+若 URL 的 ref 含 `/`，在該 ref 刪除後還原需要已記錄的目錄選擇，或唯一匹配的固定
+Git tree。選擇依據缺失或不明確時會拒絕還原，並保留現有安裝檔案與記錄。
+新增宣告、明確更改 ref 或 `--update` 仍須解析所要求的 ref。
+
+取得鎖時，可能在擷取或審計前建立空的管理用 extras 根目錄及永久
+`.skillshare-extras.lock`。審計拒絕不會新增受管項目、config、pin、metadata 或受管 extra 的
+ignore 規則。現有失敗日誌記錄可能初始化 `logs/` ignore 規則。管理鎖不屬於擷取內容，
+移除 extra 後仍保留；請勿刪除或替換。
+
+已設定項目的中斷會顯示在 list/status/doctor/`check extras`。宣告儲存前，
+`check extras`、status 和 doctor 僅從受管 staging 直屬的發佈產物檔名報告名稱，
+不信任 marker 內的 origin；請用相同 `--name` 重跑原來的 install。
+若 live 缺失且 previous 未變更，下次 install 會先在本機還原已知舊內容，
+再擷取並稽核 journal 的 commit，繼續向前修復。
+中斷後的內容編輯須明確 `--force` 才能取代。
+候選無法擷取或稽核失敗會保留 marker，請保留 staging 路徑。`--dry-run` 不會寫入任何
+migration、config、lock、metadata 或 oplog。
+請參閱[生命週期與並行限制](extras.md#remote-extras)。
+
+最終清理前的程序內失敗會在上述並行限制內回滾本次修改。若刪除 previous 目錄失敗，
+會保留一致的新副本與記錄以及 journal，供後續向前修復。修復時捨棄已部分刪除的
+previous 副本須明確 `--force`；若需救回剩餘檔案，請先保留該目錄。

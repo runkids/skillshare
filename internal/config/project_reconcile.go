@@ -344,7 +344,7 @@ func writeProjectLock(projectRoot string, cfg *ProjectConfig, store *install.Met
 		return err
 	}
 	now := projectSkillCommits(cfg, store, sourcePath)
-	lock := &install.Lock{Skills: map[string]install.LockEntry{}}
+	lock := &install.Lock{Skills: map[string]install.LockEntry{}, Extras: old.Extras}
 	for _, s := range cfg.Skills {
 		name := s.FullName()
 		commit := now[name]

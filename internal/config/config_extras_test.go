@@ -151,3 +151,19 @@ targets:
 		t.Errorf("expected 0 extras, got %d", len(cfg.Extras))
 	}
 }
+
+func TestRemoteExtraRoundTripWithNoTargets(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	t.Setenv("SKILLSHARE_CONFIG", path)
+	cfg := &Config{Extras: []ExtraConfig{{Name: "rules", Remote: "https://example.com/org/repo", Branch: "main"}}}
+	if err := cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Extras) != 1 || got.Extras[0].Remote != cfg.Extras[0].Remote || got.Extras[0].Branch != "main" {
+		t.Fatalf("lost remote: %+v", got.Extras)
+	}
+}

@@ -166,6 +166,11 @@ func (s *Server) handleCreateSharedInstructions(w http.ResponseWriter, r *http.R
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock := s.lockInstructionWrite(w, s.createInstructionMutation(body.Name, body.FromTarget))
+	if unlock == nil {
+		return
+	}
+	defer unlock()
 	extras := s.sharedExtras()
 	if err := config.ValidateExtraNameUnique(body.Name, *extras); err != nil {
 		writeCodedError(w, http.StatusConflict, "instructions_name_taken", err.Error(), map[string]string{"name": body.Name})
@@ -295,6 +300,11 @@ func (s *Server) handlePutSharedInstructionsContent(w http.ResponseWriter, r *ht
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock := s.lockInstructionWrite(w, s.sharedInstructionMutation(name))
+	if unlock == nil {
+		return
+	}
+	defer unlock()
 	extra, ok := s.sharedExtra(name)
 	if !ok {
 		writeCodedError(w, http.StatusNotFound, "instructions_shared_not_found", "shared instruction file not found: "+name, map[string]string{"name": name})
@@ -399,6 +409,11 @@ func (s *Server) handleAssignSharedInstructions(w http.ResponseWriter, r *http.R
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock := s.lockInstructionWrite(w, s.targetInstructionMutation(body.Targets, body.Extras...))
+	if unlock == nil {
+		return
+	}
+	defer unlock()
 	// Validate every target before attaching any of them, including connect-all.
 	planned := s.cfg.Extras
 	for _, name := range body.Targets {
@@ -489,6 +504,11 @@ func (s *Server) handleRestoreSharedInstructions(w http.ResponseWriter, r *http.
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock := s.lockInstructionWrite(w, s.targetInstructionMutation([]string{body.Target}, name))
+	if unlock == nil {
+		return
+	}
+	defer unlock()
 	it, _, ok := s.targetInstructions(body.Target)
 	if !ok {
 		writeCodedError(w, http.StatusBadRequest, "instructions_no_file", body.Target+" has no instruction file", map[string]string{"target": body.Target})
@@ -533,6 +553,11 @@ func (s *Server) handleResolveSharedInstructions(w http.ResponseWriter, r *http.
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock := s.lockInstructionWrite(w, s.resolveInstructionMutation(name, body.Target, body.Path))
+	if unlock == nil {
+		return
+	}
+	defer unlock()
 	res := s.instructionsResolver()
 	var i, j int
 	if body.Path != "" {

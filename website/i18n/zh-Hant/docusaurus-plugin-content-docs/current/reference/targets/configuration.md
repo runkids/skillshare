@@ -716,9 +716,11 @@ extras:
 | 欄位 | 必要 | 說明 |
 |-------|----------|--------------|
 | `name` | 是 | Extra 識別碼 |
-| `source` | 否 | 此 Extra 的自訂 Source 目錄（覆寫 `extras_source` 與預設值） |
+| `source` | 否 | 本機來源覆寫，與 `remote` 互斥 |
+| `remote` | 否 | 透過 `install --kind extra` 擷取的 Git 來源，不按檔案路徑展開 |
+| `branch` | 否 | 選用的 Git ref，須有 `remote` |
 | `file` | 否 | 只同步 Source 目錄中的這個檔案：單純的檔名，例如 `system.md` 或 `AGENTS.md`。詳見[單一檔案 Extra](../commands/extras.md#single-file-extras) |
-| `targets` | 是 | Target 路徑清單 |
+| `targets` | 是 | target 路徑清單；遠端 extra 可以為空 |
 | `targets[].path` | 是 | 目的地目錄 |
 | `targets[].mode` | 否 | `merge`（預設）、`copy` 或 `symlink`；`import` 僅限單一檔案 Extra |
 | `targets[].as` | 否 | 單一檔案 Extra 在 Target 中的檔名（預設：`file` 的名稱） |
@@ -1238,3 +1240,25 @@ targets:
 
 - [Source 與 Targets](/docs/understand/source-and-targets) — 核心概念
 - [Sync 模式](/docs/understand/sync-modes) — Merge vs copy vs symlink
+
+
+### 遠端 extra 宣告 {#remote-extras}
+
+Global 和 Project 的 `extras:` 皆可使用：
+
+```yaml
+extras:
+  - name: team-rules
+    remote: example-org/ai-hub/rules
+    branch: main
+    targets: []
+```
+
+使用 `install <remote> --kind extra --name team-rules -p|-g` 建立或復原。`remote` 與
+`source` 互斥，`branch` 須有 `remote`。不展開 `remote` 中的 `~`。含憑證或格式錯誤
+的 URL 會被拒絕且不回顯值。本機目錄使用 `extras init --source`。target/mode/filter
+編輯保留 origin；名稱、source 和移除使用生命週期命令。Project lock 保持 version 1，
+新增獨立 `extras` map；每位貢獻者須在寫入前升級二進位檔。僅宣告、無參數 install、pull、
+sync 都不擷取 extras。請參閱 [install](../commands/install.md#remote-extras) 和
+[extras](../commands/extras.md#remote-extras) 的限制：語法損壞的 raw YAML 會原樣回傳，
+修復 PUT 可能使用過時的最後載入 baseline。

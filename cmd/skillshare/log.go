@@ -194,7 +194,11 @@ func logMaxEntries() int {
 	if err != nil {
 		return config.DefaultLogMaxEntries
 	}
-	if cfg.Log.MaxEntries == nil || *cfg.Log.MaxEntries < 0 {
+	return configuredLogMaxEntries(cfg)
+}
+
+func configuredLogMaxEntries(cfg *config.Config) int {
+	if cfg == nil || cfg.Log.MaxEntries == nil || *cfg.Log.MaxEntries < 0 {
 		return config.DefaultLogMaxEntries
 	}
 	return *cfg.Log.MaxEntries

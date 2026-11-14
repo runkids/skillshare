@@ -48,6 +48,7 @@ func (s *Server) handleGitStatus(w http.ResponseWriter, r *http.Request) {
 		s.mu.RUnlock()
 		return
 	}
+	extrasRoot := s.cfg.EffectiveExtrasSource()
 	scope := s.cfg.GitRoot
 	mScope, mDir, mismatch := s.cfg.GitRootMismatch()
 	s.mu.RUnlock()
@@ -84,11 +85,11 @@ func (s *Server) handleGitStatus(w http.ResponseWriter, r *http.Request) {
 		resp.Branch = branch
 	}
 
-	if dirty, err := git.IsDirty(src); err == nil {
+	if dirty, err := git.IsDirty(src, extrasRoot); err == nil {
 		resp.IsDirty = dirty
 	}
 
-	if files, err := git.GetDirtyFiles(src); err == nil && len(files) > 0 {
+	if files, err := git.GetDirtyFiles(src, extrasRoot); err == nil && len(files) > 0 {
 		resp.Files = files
 	}
 
@@ -211,6 +212,7 @@ func (s *Server) handleGitBranches(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
 	src, ok := s.gitSource(w)
+	extrasRoot := s.cfg.EffectiveExtrasSource()
 	s.mu.RUnlock()
 	if !ok {
 		return
@@ -247,12 +249,12 @@ func (s *Server) handleGitBranches(w http.ResponseWriter, r *http.Request) {
 		resp.Remote = remote
 	}
 
-	if dirty, err := git.IsDirty(src); err == nil {
+	if dirty, err := git.IsDirty(src, extrasRoot); err == nil {
 		resp.IsDirty = dirty
 	}
 
 	if resp.IsDirty {
-		if files, err := git.GetDirtyFiles(src); err == nil && len(files) > 0 {
+		if files, err := git.GetDirtyFiles(src, extrasRoot); err == nil && len(files) > 0 {
 			resp.DirtyFiles = files
 		}
 	}
@@ -299,13 +301,13 @@ func (s *Server) handleGitCheckout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Dirty check
-	dirty, err := git.IsDirty(src)
+	dirty, err := git.IsDirty(src, s.cfg.EffectiveExtrasSource())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to check git status: "+err.Error())
 		return
 	}
 	if dirty {
-		files, _ := git.GetDirtyFiles(src)
+		files, _ := git.GetDirtyFiles(src, s.cfg.EffectiveExtrasSource())
 		resp := map[string]any{
 			"error":      "working tree has uncommitted changes — commit or stash before switching branches",
 			"isDirty":    true,
@@ -390,7 +392,7 @@ func (s *Server) handleGitCommit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status, err := git.GetStatus(src)
+	status, err := git.GetStatus(src, s.cfg.EffectiveExtrasSource())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to get git status: "+err.Error())
 		return
@@ -417,7 +419,7 @@ func (s *Server) handleGitCommit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := git.StageAll(src, s.cfg.EffectiveSkillsSource(), "commit", func(w string) { warnings = append(warnings, w) }); err != nil {
+	if err := git.StageAll(src, s.cfg.EffectiveSkillsSource(), "commit", func(w string) { warnings = append(warnings, w) }, s.cfg.EffectiveExtrasSource()); err != nil {
 		writeError(w, http.StatusInternalServerError, stagingMessage("failed to stage changes: "+err.Error(), warnings))
 		return
 	}
@@ -476,7 +478,7 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status, err := git.GetStatus(src)
+	status, err := git.GetStatus(src, s.cfg.EffectiveExtrasSource())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to get git status: "+err.Error())
 		return
@@ -521,7 +523,7 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if status != "" {
-		if err := git.StageAll(src, s.cfg.EffectiveSkillsSource(), "push", func(w string) { warnings = append(warnings, w) }); err != nil {
+		if err := git.StageAll(src, s.cfg.EffectiveSkillsSource(), "push", func(w string) { warnings = append(warnings, w) }, s.cfg.EffectiveExtrasSource()); err != nil {
 			fail(fmt.Errorf("failed to stage changes: %w", err))
 			return
 		}
@@ -714,7 +716,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check dirty
-	dirty, err := git.IsDirty(src)
+	dirty, err := git.IsDirty(src, s.cfg.EffectiveExtrasSource())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to check git status: "+err.Error())
 		return

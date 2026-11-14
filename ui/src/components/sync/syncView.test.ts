@@ -172,6 +172,61 @@ describe('runSync', () => {
     const { failures } = await runSync(run);
     expect(failures).toEqual([{ target: 'claude', part: 'extra', extra: 'rules', error: 'permission denied' }]);
     expect(mcpApi.configure).toHaveBeenCalled();
+
+    for (const scope of ['global', 'project'] as const) {
+      for (const mixed of [false, true]) {
+        vi.clearAllMocks();
+        const warning = `extra "rules" has an interrupted publication; run: skillshare install example-org/hub/rules --kind extra --name rules ${scope === 'project' ? '-p' : '-g'}`;
+        const extras = [
+          { name: 'rules', targets: [], warnings: [warning] },
+          ...(mixed ? [{ name: 'notes', targets: [
+            { target: 'cursor', mode: 'copy', synced: 2, skipped: 1, pruned: 1 },
+            { target: 'claude', mode: 'copy', synced: 0, skipped: 0, pruned: 0, errors: ['notes.md: permission denied'] },
+          ] }] : []),
+        ];
+        const resources = {
+          results: [{ target: 'cursor', linked: ['guide'], updated: ['reviewer.md'], skipped: ['local'], pruned: ['old'] }],
+          ignored_count: 1, ignored_skills: ['private'], ignore_root: '.skillignore', ignore_repos: [],
+          warnings: ['codex: sync failed: conflict', 'resource backup skipped'],
+          failed: [{ target: 'codex', part: 'skill' as const, error: 'conflict', message: 'codex: sync failed: conflict', conflict: true }],
+        };
+        const hooks: HookPlan = { revision: 'h1', fingerprint: 'same', sourcePath: '/hooks.yaml', blocked: false, changes: [] };
+        vi.mocked(api.sync).mockResolvedValue(resources);
+        vi.mocked(api.syncExtras).mockResolvedValue({ extras });
+        vi.mocked(mcpApi.preview).mockResolvedValue(plan);
+        vi.mocked(hooksApi.preview).mockResolvedValue(hooks);
+        vi.mocked(hooksApi.configure).mockResolvedValue({ applied: [], backupIds: [] });
+
+        const result = await runSync({ ...run, resources: mixed ? 'both' : null, hooks });
+
+        expect.soft(result, `${scope}/${mixed ? 'mixed' : 'entry-only'} preserves complete extras response`).toMatchObject({ extras });
+        expect(result.resources).toBe(mixed ? resources : undefined);
+        expect(result.failures).toEqual(mixed ? [
+          { target: 'codex', part: 'skill', error: 'conflict', conflict: true },
+          { target: 'claude', part: 'extra', extra: 'notes', error: 'notes.md: permission denied' },
+        ] : []);
+        expect(api.syncExtras).toHaveBeenCalledExactlyOnceWith({ force: false });
+        if (mixed) expect(api.sync).toHaveBeenCalledExactlyOnceWith({ force: false });
+        else expect(api.sync).not.toHaveBeenCalled();
+        expect(mcpApi.preview).toHaveBeenCalledTimes(2);
+        expect(hooksApi.preview).toHaveBeenCalledTimes(2);
+        expect(mcpApi.configure).toHaveBeenCalledExactlyOnceWith({}, 'before', true);
+        expect(hooksApi.configure).toHaveBeenCalledExactlyOnceWith({}, 'h1', true);
+        expect(vi.mocked(mcpApi.preview).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(api.syncExtras).mock.invocationCallOrder[0]);
+        expect(vi.mocked(hooksApi.preview).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(api.syncExtras).mock.invocationCallOrder[0]);
+        expect(vi.mocked(api.syncExtras).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(mcpApi.configure).mock.invocationCallOrder[0]);
+        expect(vi.mocked(mcpApi.configure).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(hooksApi.configure).mock.invocationCallOrder[0]);
+      }
+    }
+
+    vi.clearAllMocks();
+    const local = await runSync({ resources: null, extras: false, mcp: null, force: false });
+    expect(local.resources).toBeUndefined();
+    expect(local.failures).toEqual([]);
+    expect(api.sync).not.toHaveBeenCalled();
+    expect(api.syncExtras).not.toHaveBeenCalled();
+    expect(mcpApi.preview).not.toHaveBeenCalled();
+    expect(hooksApi.preview).not.toHaveBeenCalled();
   });
 
   it('reports the targets the server failed to sync', async () => {

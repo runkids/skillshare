@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, ArrowDownToLine, Bot, ChevronDown, ChevronRight, CircleCheck, CircleMinus, EyeOff, Folder, FolderPlus, Gauge, Globe, Import, Minus, Plug, Plus, Puzzle, RefreshCw, TriangleAlert, Webhook } from 'lucide-react';
-import { api, formatTokenK, type SyncResponse } from '../api/client';
+import { api, formatTokenK, type ExtrasSyncResult, type SyncResponse } from '../api/client';
 import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
 import CollectDialog from '../components/CollectDialog';
@@ -30,6 +30,7 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useDiffQuery, useHooksQuery, useMcpQuery, useSkillsQuery, useSyncedTargetsQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
 import { useSyncMatrix } from '../hooks/useSyncMatrix';
+import { buildSyncToast, sumAll } from '../lib/extrasSyncToast';
 
 const ROW_ICON: Record<RowIcon, [typeof Plus, string]> = {
   add: [Plus, 'text-ok'], adopt: [Import, 'text-info'], update: [RefreshCw, 'text-info'],
@@ -69,6 +70,14 @@ function ScopeRow({ label, sub, icon, children }: { label: string; sub?: string;
       {children}
     </div>
   );
+}
+
+function syncFeedback(extras: ExtrasSyncResult[], failures: SyncFailure[], force: boolean, t: ReturnType<typeof useT>): [string, 'success' | 'warning'] {
+  const headline = failures.length > 0 ? t(plural('sync.toast.failed', failures.length), { count: failures.length }) : t('sync.toast.done');
+  const totals = sumAll(extras);
+  if (totals.warnings.length === 0) return [headline, failures.length > 0 ? 'warning' : 'success'];
+  const detail = buildSyncToast(t('extras.title'), t('extras.title'), totals, force, t);
+  return [failures.length > 0 ? `${headline}\n${detail}` : detail, 'warning'];
 }
 
 export default function SyncPage() {
@@ -155,7 +164,7 @@ export default function SyncPage() {
     setOutcome(null);
     setFailures([]);
     try {
-      const { resources: result, failures: failed } = await runSync({
+      const { resources: result, extras: extraResults, failures: failed } = await runSync({
         resources: parts.has('skill') && parts.has('agent') ? 'both' : parts.has('skill') ? 'skill' : parts.has('agent') ? 'agent' : null,
         extras: parts.has('extra') && !!extras.data?.extras.length,
         mcp: parts.has('mcp') && plan && !plan.blocked && (plan.migrates || plan.changes.some((c) => c.action !== 'unchanged')) ? plan : null,
@@ -164,8 +173,7 @@ export default function SyncPage() {
       });
       setOutcome(result ?? null);
       setFailures(failed);
-      if (failed.length > 0) toast(t(plural('sync.toast.failed', failed.length), { count: failed.length }), 'warning');
-      else toast(t('sync.toast.done'), 'success');
+      toast(...syncFeedback(extraResults ?? [], failed, force, t));
     } catch (err) {
       const message = (err as Error).message;
       setRunError(message === MCP_CHANGED ? t('sync.mcpChanged') : message === HOOKS_CHANGED ? t('sync.hooksChanged') : message);

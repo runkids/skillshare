@@ -291,7 +291,7 @@ skillshare sync
 | `--update` | `-u` | 존재하면 업데이트 (git pull 또는 재설치) |
 | `--branch <ref>` | `-b` | 설치할 git branch, tag 또는 commit SHA (기본값: remote 기본 브랜치) |
 | `--track` | `-t` | tracked repo용으로 `.git`을 유지. `--all`, `--yes`, `--skill`, `--agent`와 함께 사용할 수 없습니다. |
-| `--kind <skill\|agent>` | | 설치를 하나의 리소스 종류로 제한 |
+| `--kind <skill\|agent\|extra>` | | 설치를 하나의 리소스 종류로 제한 |
 | `--agent <names>` | `-a` | repo에서 특정 agent만 선택 (쉼표로 구분) |
 | `--skill` | `-s` | multi-skill repo에서 특정 skill 선택 (쉼표로 구분; `core-*`와 같은 glob 패턴 지원). `--all`, `--yes`와 함께 사용할 수 없습니다. |
 | `--exclude` | | 설치 중 특정 skill 건너뛰기 (쉼표로 구분; `test-*`와 같은 glob 패턴 지원) |
@@ -439,7 +439,7 @@ skillshare install google-gemini/gemini-cli/.../skill-creator --name my-creator
 # Installed as: ~/.config/skillshare/skills/my-creator/
 ```
 
-`--name`은 install이 단일 skill로 해석될 때만 동작합니다.
+Skill 설치의 `--name`은 단일 skill로 해석될 때만 유효합니다. 원격 extra에서는 관리 이름을 지정합니다.
 `--track` 모드에서는 커스텀 이름이 tracked repo 디렉터리로 저장되며(자동으로 `_`가 접두사로 붙음), path separator나 `..`를 포함할 수 없습니다.
 `--track`은 경로가 git 저장소의 루트이면 로컬 경로도 받습니다(`file:///path`처럼 clone됩니다). 그 외의 로컬 폴더는 `--track` 없이 설치하세요. `--track --force`는 새 clone이 성공한 뒤에만 기존 tracked repo를 교체하므로, 재설치가 실패해도 기존 repo는 남습니다. 그 tracked repo 자체이거나 그 안에 있는 로컬 소스(경로 또는 `file://` URL)는 거부됩니다.
 
@@ -853,3 +853,82 @@ skillshare sync  # ← 잊지 마세요!
 - [uninstall](/docs/reference/commands/uninstall) — skill 제거
 - [sync](/docs/reference/commands/sync) — skill을 target에 동기화
 - [Organization-Wide Skills](/docs/how-to/sharing/organization-sharing) — tracked repo를 이용한 조직 공유
+
+
+## 원격 소스에서 extra 설치 {#remote-extras}
+
+`SKILL.md` 없이도 저장소의 정확한 디렉터리를 설치합니다.
+
+```bash
+skillshare install example-org/ai-hub/rules --kind extra --name team-rules -p
+skillshare extras team-rules --add-target .claude/rules -p
+skillshare sync extras -p
+```
+
+Global은 `-g`를 사용합니다. Git만 사용하며 호스팅 API 대체 경로나 모호한 하위 디렉터리
+일치는 없습니다. 전체 저장소도 가능하며 `.git`은 제외하고 submodule 경로는 거부합니다.
+로컬 폴더는 `skillshare extras init team-rules --source <path> --target <target>`를
+사용하세요. `--kind extra`는 `--track`, `--into`, `--skill`, `--agent`, `--exclude`,
+`--all`, `--yes`와 함께 사용할 수 없습니다. 제안의 `--as` 대신 `--name`을 사용합니다.
+
+설치 위치는 `<extras root>/team-rules/`이며 config에 `remote`, 선택적 `branch`, 처음에는
+`targets: []`를 기록합니다. `--branch <ref>`는 브랜치·태그·commit을 선택하며 명시한 플래그가
+URL ref보다 우선합니다. Project의 **version 1** lockfile `extras` map에 40자리 commit을
+기록합니다. pin은 origin과 ref가 일치할 때만 사용합니다. `--branch` 생략은 선언된 ref를 유지하고,
+ref 변경은 새 ref의 최신 commit을 선택합니다. Global은 일치하는 metadata pin을 사용합니다. `--update`는 같은
+브랜치의 최신 commit으로 pin을 옮깁니다. 도달할 수 없는 pin은 오류이며 브랜치로 대체하지
+않습니다. origin이 다른 metadata는 pin이 아니며, 실제 디렉터리가 있으면 먼저 제거해야 합니다.
+
+Project config와 `skills.lock.json`을 commit하고, 해당 파일을 쓰는 **모든 기여자**가
+`extras` map을 보존하는 버전으로 업그레이드해야 합니다. Project 내부의 가져온 디렉터리,
+staging, metadata는 ignore됩니다. 다른 머신에서 복원할 때는 명시적 명령을 사용하고,
+같은 ref의 pin을 앞으로 옮길 때만 `--update`를 추가합니다.
+
+```bash
+skillshare install example-org/ai-hub/rules --kind extra --name team-rules -p
+skillshare install example-org/ai-hub/rules --kind extra --name team-rules --update -p
+```
+
+인자 없는 `skillshare install`은 원격 extras를 복원하지 않습니다. `sync extras`는 로컬
+복사본만 배포하며 가져오지 않습니다. 소스가 없으면 명시적 복원 명령을 안내합니다. 로컬
+내용 수정은 명시적 `--force` 없이 덮어쓸 수 없고 `--json`은 동의가 아닙니다. 모드만 바뀐
+것은 내용 수정이 아닙니다. 로컬 extra 이름이나 다른 origin은 `--force`로도 대체하지 못합니다.
+
+게시 전 후보를 staging하고 감사합니다. 임계값 이상의 탐지는 차단하며 `--force`로 탐지를
+수락할 수 있지만 scanner/rules 오류는 우회할 수 없습니다. `--skip-audit`는 명시적 생략으로
+보고합니다. 기존 scanner는 깊이 6, 1,000,000 bytes 이하와 확장자 filter 범위만 검사하며
+`.mdc`, `.cursorrules`는 제외합니다. 감사 통과는 안전 보장이 아닙니다. 내부 파일 링크는
+일반 파일로 만들고 절대·외부·끊긴·디렉터리 링크 및 특수 파일은 거부합니다. Unix 실행 bit를
+보존하지만 Windows에서는 이를 보장하지 않습니다. URL에 자격 증명을 넣지 말고 Git 인증이나
+SSH를 사용하세요.
+
+`.cursor/rules/policy.md`처럼 숨김 디렉터리 아래의 파일은 헤더만 검사하며 일반 텍스트와
+무결성 분석은 생략합니다. `.git`과 `.skillshare` 디렉터리는 제외합니다. scanner가 파일을
+건너뛰면 성공한 install에 검사 범위 경고를 표시하며, scanner의 검사 범위 자체는 넓히지 않습니다.
+
+브랜치가 삭제되어도 Git이 정확히 같은 commit을 가져올 수 있으면 일치하는 기록된 pin으로
+복원할 수 있습니다. ref에 `/`가 포함된 URL은 해당 ref가 삭제된 뒤 복원하려면 기록된
+디렉터리 선택 정보나 유일하게 일치하는 고정된 Git tree가 필요합니다. 선택 근거가 없거나
+모호하면 거부하고 기존 설치 파일과 기록을 유지합니다.
+새 선언, 명시적 ref 변경, `--update`는 요청한 ref를 해석해야 합니다.
+
+잠금 획득 시 가져오기나 감사 전에 빈 관리용 extras root와 영구
+`.skillshare-extras.lock`을 만들 수 있습니다. 감사 거부는 관리 항목, config, pin, metadata,
+관리 extra의 ignore 규칙을 새로 만들지 않습니다. 기존 실패 로그 기록은 `logs/` ignore
+규칙을 초기화할 수 있습니다. 관리 잠금은 가져온 콘텐츠가 아니며 extra 제거 후에도
+남습니다. 삭제하거나 교체하지 마세요.
+
+설정된 항목의 중단은 list/status/doctor/`check extras`에 표시됩니다. 선언 저장 전에는
+`check extras`, status, doctor가 관리 staging 바로 아래의 게시 아티팩트 이름만 보고합니다.
+marker의 origin은 신뢰하지 않습니다. 같은 `--name`으로 원래 install을 다시 실행하세요.
+live가 없고 previous가 변경되지 않았으면 네트워크 접근 전에 알려진 이전 내용을 로컬로
+복원한 후 journal commit을 가져와 감사하고 전방 복구합니다.
+중단 후 내용 수정은 명시적
+`--force` 없이 교체하지 않습니다. 후보를 가져오지 못하거나 감사에 실패하면 marker를
+남기므로 staging 경로를 보존하세요. `--dry-run`은 migration, config, lock, metadata,
+oplog를 포함해 아무것도 쓰지 않습니다. [수명 주기와 동시 쓰기 제한](extras.md#remote-extras)을 참고하세요.
+
+최종 cleanup 전 프로세스 내 오류는 위 동시 실행 제한 안에서 이번 변경을 되돌립니다.
+previous 디렉터리 삭제가 실패하면 새 복사본과 기록의 일관성을 유지하고 journal을 남겨
+전진 복구합니다. 일부 삭제된 previous를 복구 중 버리려면 명시적 `--force`가 필요합니다.
+남은 파일을 복구해야 한다면 해당 디렉터리를 보존하세요.

@@ -291,7 +291,7 @@ skillshare sync
 | `--update` | `-u` | 存在する場合は更新（git pull または再インストール） |
 | `--branch <ref>` | `-b` | インストール元の git ブランチ、タグ、または commit SHA（デフォルト: リモートのデフォルトブランチ） |
 | `--track` | `-t` | トラック対象リポジトリとして `.git` を保持。`--all`、`--yes`、`--skill`、`--agent` との併用は拒否されます。 |
-| `--kind <skill\|agent>` | | インストールを 1 種類のリソースに限定 |
+| `--kind <skill\|agent\|extra>` | | インストールを 1 種類のリソースに限定 |
 | `--agent <names>` | `-a` | リポジトリから特定の agent を選択（カンマ区切り） |
 | `--skill` | `-s` | 複数 Skill リポジトリから特定の Skill を選択（カンマ区切り。`core-*` のような glob パターンをサポート）。`--all`、`--yes` との併用は拒否されます。 |
 | `--exclude` | | インストール時に特定の Skill をスキップ（カンマ区切り。`test-*` のような glob パターンをサポート） |
@@ -439,7 +439,7 @@ skillshare install google-gemini/gemini-cli/.../skill-creator --name my-creator
 # Installed as: ~/.config/skillshare/skills/my-creator/
 ```
 
-`--name` は、インストールが単一の Skill に解決される場合にのみ機能します。
+Skill install の `--name` は単一 Skill に解決される場合だけ有効です。remote extra では管理名を指定します。
 `--track` モードでは、カスタム名はトラック対象リポジトリのディレクトリ名として保存され（自動的に `_` がプレフィックスされます）、パスセパレータや `..` を含んではいけません。
 `--track` は、パスが git リポジトリのルートであればローカルパスも受け付けます（`file:///path` と同様に clone されます）。それ以外のローカルフォルダは `--track` なしでインストールしてください。`--track --force` では、新しい clone が成功した後にのみ既存のトラッキングリポジトリを置き換えるため、再インストールに失敗しても既存のリポジトリは残ります。そのトラッキングリポジトリ自体、またはその中にあるローカルソース（パスまたは `file://` URL）は拒否されます。
 
@@ -853,3 +853,85 @@ skillshare sync  # ← 忘れずに！
 - [uninstall](/docs/reference/commands/uninstall) — Skill を削除
 - [sync](/docs/reference/commands/sync) — Skill をターゲットへ sync
 - [Organization-Wide Skills](/docs/how-to/sharing/organization-sharing) — トラック対象リポジトリによる組織共有
+
+
+## リモートソースから extra をインストールする {#remote-extras}
+
+`SKILL.md` がなくても、リポジトリ内の正確なディレクトリを取得できます。
+
+```bash
+skillshare install example-org/ai-hub/rules --kind extra --name team-rules -p
+skillshare extras team-rules --add-target .claude/rules -p
+skillshare sync extras -p
+```
+
+Global では `-g` を使います。取得は Git のみで、ホスティング API への
+フォールバックや曖昧なディレクトリ検索は行いません。リポジトリ全体も指定でき、
+`.git` は除外し、submodule 内のパスは拒否します。ローカルフォルダーには
+`skillshare extras init team-rules --source <path> --target <target>` を使います。
+`--kind extra` は `--track`、`--into`、`--skill`、`--agent`、`--exclude`、
+`--all`、`--yes` と併用できません。提案時の `--as` ではなく `--name` を使います。
+
+取得先は `<extras root>/team-rules/` です。config には `remote`、任意の `branch`、
+初期状態では `targets: []` を記録します。`--branch <ref>` はブランチ、タグ、commit
+を選び、明示フラグは URL の ref より優先されます。Project の **version 1** lockfile
+の `extras` map は 40 桁の commit を保持し、Global では同一 origin の metadata pin
+を使います。pin は origin と ref が一致する場合だけ使い、`--branch` の省略は設定済み
+ref を維持します。ref を変更するとその先頭を取得し、`--update` は同じ ref の pin を更新します。到達不能な pin は
+エラーとなり、ブランチへ切り替えません。origin 不一致の metadata は pin ではなく、
+既存ディレクトリの origin が異なる場合は削除してから再インストールします。
+
+Project config と `skills.lock.json` を commit してください。この lockfile を書く
+**全員**が `extras` map を保持できるバイナリへ更新する必要があります。Project 内の
+取得ディレクトリ、staging、metadata は ignore されます。別マシンの復元には明示的な
+コマンドを使い、同じ ref の pin を進める場合だけ `--update` を指定します。
+
+```bash
+skillshare install example-org/ai-hub/rules --kind extra --name team-rules -p
+skillshare install example-org/ai-hub/rules --kind extra --name team-rules --update -p
+```
+
+引数なしの `skillshare install` はリモート extras を復元しません。`sync extras`
+はローカルコピーを配布し、取得しません。コピーがない場合は明示的な復元コマンドを
+表示します。内容の編集を破棄するには明示的な `--force` が必要で、`--json` は同意
+になりません。モードだけの変更は内容編集に数えません。ローカル extra と同名、または
+別 origin のエントリは `--force` でも上書きできません。
+
+公開前に候補を staging し監査します。しきい値以上の検出はブロックし、`--force` は
+検出を承認できますが scanner/rules エラーは回避できません。`--skip-audit` は明示的な
+省略として報告します。既存 scanner は深さ 6、1,000,000 bytes 以下、拡張子 filter
+の範囲を調べ、`.mdc` と `.cursorrules` は対象外です。監査の通過は安全の保証では
+ありません。内部ファイルリンクは実体化し、絶対・範囲外・dangling・ディレクトリの
+リンクや特殊ファイルは拒否します。Unix 実行 bit は保持し、Windows ではこの保証は
+ありません。URL に認証情報を埋め込まず Git 認証や SSH を使ってください。
+
+`.cursor/rules/policy.md` など隠しディレクトリ内のファイルはヘッダーだけを検査し、
+通常のテキスト・整合性分析は省略します。`.git` と `.skillshare` ディレクトリは
+対象外です。scanner がファイルを省略すると、成功した install に検査範囲の警告を
+表示します。scanner の検査範囲自体は広げません。
+
+ブランチが削除されても、Git が同じ commit を取得できる限り、一致する記録済み pin
+で復元できます。ref に `/` を含む URL は、その ref の削除後の復元に、記録済みの
+ディレクトリ選択か、一意に一致する pin 済み Git tree が必要です。選択の根拠が不足または
+曖昧な場合は拒否し、既存のインストール済みファイルと記録を保持します。
+新規宣言、明示的な ref 変更、`--update` には要求した ref の解決が必要です。
+
+ロック取得時に、取得・監査より前に空の管理用 extras root と永続的な
+`.skillshare-extras.lock` を作成する場合があります。監査拒否では管理項目、config、pin、
+metadata、管理対象 extra の ignore 規則を新規作成しません。既存の失敗ログ記録により
+`logs/` の ignore 規則が初期化される場合があります。管理ロックは取得内容ではなく、
+extra 削除後も残ります。削除や置き換えをしないでください。
+
+設定済み項目の中断は list/status/doctor/`check extras` に表示します。宣言の保存前は、
+`check extras`、status、doctor が管理対象 staging 直下の公開用ファイル名から名前だけを
+報告します。marker 内の origin は信用しません。同じ `--name` の元の install を再実行してください。
+live が欠落し previous が未変更なら、ネットワーク取得の前に既知の previous をローカルで
+戻し、その後 journal の commit を取得・監査して前方修復します。
+中断後の内容編集は明示 `--force` なしでは拒否します。取得不能や監査失敗では marker
+を残すため staging パスを保持してください。`--dry-run` は移行、config、lock、metadata、
+oplog を含め何も書きません。[ライフサイクルと同時実行の制限](extras.md#remote-extras)も参照してください。
+
+最終 cleanup 前のプロセス内エラーでは、上記の同時実行制限の範囲で今回の変更を
+ロールバックします。previous ディレクトリの削除に失敗した場合、新しいコピーと記録を
+整合したまま journal を残し、前方修復を行います。一部削除済みの previous を修復時に
+破棄するには明示的な `--force` が必要です。残存ファイルを救出する場合は保持してください。

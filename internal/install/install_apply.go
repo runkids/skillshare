@@ -661,114 +661,11 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 	defer cleanupTempRepo(tempDir)
 
 	tempRepoPath := filepath.Join(tempDir, "repo")
-	var subdirPath string
-	var resolved string
-	var commitHash string
-
-	// The Contents API paths below download the default branch and ignore any
-	// branch, tag or commit, so they only run when none was asked for.
-	hasRef := source.ref() != ""
-
-	// Fast path 1: sparse checkout (preferred for speed if git is modern)
-	// Works for GitHub and non-GitHub hosts.
-	if gitSupportsSparseCheckout() {
-		resolved = source.Subdir
-		if err := sparseCloneSubdir(source.CloneURL, resolved, tempRepoPath, source.ref(), source.authEnv(), opts.OnProgress); err == nil {
-			if err := submoduleError(tempRepoPath, resolved, source.authEnv()); err != nil {
-				return nil, err
-			}
-			subdirPath = filepath.Join(tempRepoPath, resolved)
-			if info, statErr := os.Stat(subdirPath); statErr != nil || !info.IsDir() {
-				subdirPath = ""
-				result.Warnings = append(result.Warnings, "sparse checkout install fallback: subdirectory missing after checkout")
-				cleanupTempRepo(tempRepoPath)
-			} else {
-				source.recordCommit(tempRepoPath)
-				if hash, hashErr := getGitCommit(tempRepoPath); hashErr == nil {
-					commitHash = hash
-				}
-			}
-		} else {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("sparse checkout install fallback: %v", err))
-			cleanupTempRepo(tempRepoPath)
-			subdirPath = ""
-		}
+	fetched, err := fetchGitSubdir(source, tempRepoPath, result, opts, false)
+	if err != nil {
+		return nil, err
 	}
-
-	// Fast path 2: GitHub/GHE Contents API
-	// Fallback for when sparse checkout is unavailable or fails.
-	if subdirPath == "" && !hasRef && isGitHubAPISource(source) {
-		owner, repo := source.GitHubOwner(), source.GitHubRepo()
-		resolved = source.Subdir
-		subdirPath = filepath.Join(tempRepoPath, resolved)
-		hash, dlErr := downloadGitHubDir(owner, repo, source.Subdir, subdirPath, source, opts.OnProgress)
-		if dlErr == nil {
-			commitHash = hash
-		} else {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("GitHub API install fallback: %v", dlErr))
-			subdirPath = ""
-			cleanupTempRepo(tempRepoPath)
-		}
-	}
-
-	// Fast path 2b: CNB Contents API
-	if subdirPath == "" && !hasRef && isCNBAPISource(source) {
-		repo := cnbRepoPath(source.CloneURL)
-		resolved = source.Subdir
-		subdirPath = filepath.Join(tempRepoPath, resolved)
-		hash, dlErr := downloadCNBDir(repo, source.Subdir, subdirPath, source, opts.OnProgress)
-		if dlErr == nil {
-			commitHash = hash
-		} else {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("CNB API install fallback: %v", dlErr))
-			subdirPath = ""
-			_ = os.RemoveAll(tempRepoPath)
-		}
-	}
-
-	// Fast path 2b: Gitea Contents API
-	if subdirPath == "" && !hasRef && isGiteaAPISource(source) {
-		owner, repo := giteaOwnerRepo(source.CloneURL)
-		resolved = source.Subdir
-		subdirPath = filepath.Join(tempRepoPath, resolved)
-		hash, dlErr := downloadGiteaDir(owner, repo, source.Subdir, subdirPath, source, opts.OnProgress)
-		if dlErr == nil {
-			commitHash = hash
-		} else {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("Gitea API install fallback: %v", dlErr))
-			subdirPath = ""
-			_ = os.RemoveAll(tempRepoPath)
-		}
-	}
-
-	// Fallback: full clone + fuzzy subdir resolution
-	if subdirPath == "" {
-		cleanupTempRepo(tempRepoPath)
-		if opts.OnProgress != nil {
-			opts.OnProgress("Cloning repository...")
-		}
-		if err := cloneRepoForSource(source, tempRepoPath, source.Branch, true, opts.OnProgress); err != nil {
-			return nil, fmt.Errorf("failed to clone repository: %w", err)
-		}
-		if err := submoduleError(tempRepoPath, source.Subdir, source.authEnv()); err != nil {
-			return nil, err
-		}
-
-		var err error
-		resolved, err = resolveSubdir(tempRepoPath, source.Subdir)
-		if err != nil {
-			return nil, err
-		}
-		if resolved != source.Subdir {
-			source.Subdir = resolved
-			source.Name = filepath.Base(resolved)
-			result.SkillName = source.Name
-		}
-		subdirPath = filepath.Join(tempRepoPath, resolved)
-		if hash, hashErr := getGitCommit(tempRepoPath); hashErr == nil {
-			commitHash = hash
-		}
-	}
+	subdirPath, resolved, commitHash := fetched.SubdirPath, fetched.Subdir, fetched.Commit
 
 	// Copy subdirectory to destination
 	if err := copyDir(subdirPath, destPath); err != nil {
@@ -800,6 +697,159 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 
 	result.Action = "cloned and extracted"
 	return result, nil
+}
+
+type gitFetch struct {
+	RepoPath, SubdirPath, Subdir, Commit string
+}
+
+var sparseCheckoutSupported = gitSupportsSparseCheckout
+
+func fetchGitSubdir(source *Source, tempRepoPath string, result *InstallResult, opts InstallOptions, gitOnly bool) (gitFetch, error) {
+	requested := source.Commit
+	if gitOnly && source.Subdir != "" {
+		if err := validateRepoSubdir(source.Subdir); err != nil {
+			return gitFetch{}, err
+		}
+	}
+	var subdirPath string
+	var resolved string
+	var commitHash string
+
+	// The Contents API paths below download the default branch and ignore any
+	// branch, tag or commit, so they only run when none was asked for.
+	hasRef := source.ref() != ""
+
+	// Fast path 1: sparse checkout (preferred for speed if git is modern)
+	// Works for GitHub and non-GitHub hosts.
+	if sparseCheckoutSupported() && (!gitOnly || source.Subdir != "") {
+		resolved = source.Subdir
+		if err := sparseCloneSubdir(source.CloneURL, resolved, tempRepoPath, source.ref(), source.authEnv(), opts.OnProgress); err == nil {
+			if err := submoduleError(tempRepoPath, resolved, source.authEnv()); err != nil {
+				return gitFetch{}, err
+			}
+			subdirPath = filepath.Join(tempRepoPath, resolved)
+			if info, statErr := os.Stat(subdirPath); statErr != nil || !info.IsDir() {
+				subdirPath = ""
+				result.Warnings = append(result.Warnings, "sparse checkout install fallback: subdirectory missing after checkout")
+				cleanupTempRepo(tempRepoPath)
+			} else {
+				source.recordCommit(tempRepoPath)
+				if hash, hashErr := getGitCommit(tempRepoPath); hashErr == nil {
+					commitHash = hash
+				}
+			}
+		} else {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("sparse checkout install fallback: %v", err))
+			cleanupTempRepo(tempRepoPath)
+			subdirPath = ""
+		}
+	}
+
+	// Fast path 2: GitHub/GHE Contents API
+	// Fallback for when sparse checkout is unavailable or fails.
+	if subdirPath == "" && !gitOnly && !hasRef && isGitHubAPISource(source) {
+		owner, repo := source.GitHubOwner(), source.GitHubRepo()
+		resolved = source.Subdir
+		subdirPath = filepath.Join(tempRepoPath, resolved)
+		hash, dlErr := downloadGitHubDir(owner, repo, source.Subdir, subdirPath, source, opts.OnProgress)
+		if dlErr == nil {
+			commitHash = hash
+		} else {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("GitHub API install fallback: %v", dlErr))
+			subdirPath = ""
+			cleanupTempRepo(tempRepoPath)
+		}
+	}
+
+	// Fast path 2b: CNB Contents API
+	if subdirPath == "" && !gitOnly && !hasRef && isCNBAPISource(source) {
+		repo := cnbRepoPath(source.CloneURL)
+		resolved = source.Subdir
+		subdirPath = filepath.Join(tempRepoPath, resolved)
+		hash, dlErr := downloadCNBDir(repo, source.Subdir, subdirPath, source, opts.OnProgress)
+		if dlErr == nil {
+			commitHash = hash
+		} else {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("CNB API install fallback: %v", dlErr))
+			subdirPath = ""
+			_ = os.RemoveAll(tempRepoPath)
+		}
+	}
+
+	// Fast path 2b: Gitea Contents API
+	if subdirPath == "" && !gitOnly && !hasRef && isGiteaAPISource(source) {
+		owner, repo := giteaOwnerRepo(source.CloneURL)
+		resolved = source.Subdir
+		subdirPath = filepath.Join(tempRepoPath, resolved)
+		hash, dlErr := downloadGiteaDir(owner, repo, source.Subdir, subdirPath, source, opts.OnProgress)
+		if dlErr == nil {
+			commitHash = hash
+		} else {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("Gitea API install fallback: %v", dlErr))
+			subdirPath = ""
+			_ = os.RemoveAll(tempRepoPath)
+		}
+	}
+
+	// Fallback: full clone + fuzzy subdir resolution
+	if subdirPath == "" {
+		cleanupTempRepo(tempRepoPath)
+		if opts.OnProgress != nil {
+			opts.OnProgress("Cloning repository...")
+		}
+		if err := cloneRepoForSource(source, tempRepoPath, source.Branch, true, opts.OnProgress); err != nil {
+			if gitOnly && requested != "" {
+				return gitFetch{}, fmt.Errorf("locked commit %s is not available: %w", shortHash(requested), err)
+			}
+			return gitFetch{}, fmt.Errorf("failed to clone repository: %w", err)
+		}
+		if err := submoduleError(tempRepoPath, source.Subdir, source.authEnv()); err != nil {
+			return gitFetch{}, err
+		}
+
+		if gitOnly {
+			resolved = source.Subdir
+			if err := validateRepoSubdir(resolved); err != nil && resolved != "" {
+				return gitFetch{}, err
+			}
+			info, err := os.Stat(filepath.Join(tempRepoPath, resolved))
+			if err != nil || !info.IsDir() {
+				return gitFetch{}, fmt.Errorf("subdirectory %q not found", resolved)
+			}
+		} else {
+			var err error
+			resolved, err = resolveSubdir(tempRepoPath, source.Subdir)
+			if err != nil {
+				return gitFetch{}, err
+			}
+		}
+		if resolved != source.Subdir {
+			source.Subdir = resolved
+			source.Name = filepath.Base(resolved)
+			result.SkillName = source.Name
+		}
+		subdirPath = filepath.Join(tempRepoPath, resolved)
+		if hash, hashErr := getGitCommit(tempRepoPath); hashErr == nil {
+			commitHash = hash
+		}
+	}
+
+	if gitOnly {
+		full, err := getGitFullHash(tempRepoPath)
+		if err != nil {
+			return gitFetch{}, fmt.Errorf("cannot read fetched commit: %w", err)
+		}
+		if len(full) != 40 || !IsCommitSHA(full) {
+			return gitFetch{}, fmt.Errorf("fetched commit is not a full SHA-1")
+		}
+		if requested != "" && !strings.EqualFold(full, requested) {
+			return gitFetch{}, fmt.Errorf("locked commit %s is not available", shortHash(requested))
+		}
+		commitHash = full
+		source.Commit = full
+	}
+	return gitFetch{RepoPath: tempRepoPath, SubdirPath: subdirPath, Subdir: resolved, Commit: commitHash}, nil
 }
 
 func checkSkillFile(skillPath string, result *InstallResult) {

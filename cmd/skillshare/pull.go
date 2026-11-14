@@ -8,7 +8,6 @@ import (
 
 	"skillshare/internal/config"
 	gitops "skillshare/internal/git"
-	"skillshare/internal/gitenv"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
 	"skillshare/internal/ui"
@@ -67,15 +66,13 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 	}
 
 	// Check for uncommitted changes
-	cmd := gitenv.Command("status", "--porcelain")
-	cmd.Dir = source
-	output, err := cmd.Output()
+	output, err := gitops.GetStatus(source, cfg.EffectiveExtrasSource())
 	if err != nil {
 		spinner.Fail("Failed to check git status")
 		return fmt.Errorf("failed to check git status: %w", err)
 	}
 
-	if len(strings.TrimSpace(string(output))) > 0 {
+	if len(strings.TrimSpace(output)) > 0 {
 		spinner.Fail("Local changes detected")
 		ui.Note("Run: skillshare push")
 		ui.Note(fmt.Sprintf("Or:  cd %s && git stash -u", source))

@@ -10,6 +10,7 @@ import (
 	"skillshare/internal/audit"
 	"skillshare/internal/config"
 	"skillshare/internal/git"
+	"skillshare/internal/install"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sync"
 	"skillshare/internal/theme"
@@ -241,8 +242,24 @@ func printTrackedReposStatus(sourcePath string, discovered []sync.DiscoveredSkil
 	}
 }
 
+func printUndeclaredExtraPublications(extras []config.ExtraConfig, root string) {
+	rows := undeclaredExtraPublications(extras, root)
+	if len(rows) == 0 {
+		return
+	}
+	ui.Section("Interrupted extras")
+	for _, row := range rows {
+		ui.Row(ui.MarkWarn, row.Name, row.State, ui.RowWidth(row.Name))
+		if row.Error != "" {
+			ui.Warning("%s", row.Error)
+		} else {
+			ui.Note(row.Message)
+		}
+	}
+}
+
 // printExtrasStatus prints each extra's targets and how many files they get.
-func printExtrasStatus(extras []config.ExtraConfig, sourceDirFn func(config.ExtraConfig) string) {
+func printExtrasStatus(extras []config.ExtraConfig, sourceDirFn func(config.ExtraConfig) string, project bool) {
 	ui.Section("Extras")
 	width := extrasRowWidth(extras)
 	pathW := 0
@@ -253,8 +270,18 @@ func printExtrasStatus(extras []config.ExtraConfig, sourceDirFn func(config.Extr
 	}
 	for _, extra := range extras {
 		sourceDir := sourceDirFn(extra)
+		if extra.Remote != "" {
+			state := install.InspectRemoteExtra(filepath.Dir(sourceDir), extra.Name)
+			ui.Row(ui.MarkNone, extra.Name, remoteExtraSummary(extra.Remote, extra.Branch, state.Commit, state.State()), width)
+			if state.Interrupted || state.Err != nil {
+				continue
+			}
+		}
 		if _, err := sync.DiscoverExtraSource(sourceDir, extra.File); err != nil {
 			ui.Row(ui.MarkWarn, extra.Name, "source not found", width)
+			if extra.Remote != "" {
+				ui.Next(config.ExtraRestoreCommand(extra, project), "restore source")
+			}
 			continue
 		}
 		if len(extra.Targets) == 0 {

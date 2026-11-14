@@ -236,3 +236,25 @@ skillshare check --all               # Check skills and agents together
 - [list](/docs/reference/commands/list) — 설치된 skill 확인
 - [status](/docs/reference/commands/status) — 동기화 상태 표시
 - [Agents](/docs/understand/agents) — agent 개념
+
+
+## 원격 extras 로컬 검사 {#extras}
+
+```bash
+skillshare check extras -p
+skillshare check extras team-rules -g --json --exit-code
+```
+
+읽기 전용 무결성 검사이며 가져오지 않고 항상 “remote revision not checked”를 보고합니다.
+origin, 선택적 branch, commit과 `intact`, `modified`, `interrupted`, `missing`, `error`를
+반환합니다. `intact`는 upstream 최신 상태를 뜻하지 않습니다. `--exit-code`는 비 intact를
+기존 outdated 종료 동작으로 처리하고 읽기 오류는 실패합니다. 이름, `--json`, `--exit-code`만
+허용하며 `--all`, `--group`, `--diff`는 지원하지 않습니다. `check --all` 범위는 바뀌지 않고
+extras를 제외합니다. 누락·중단은 같은 `-p`/`-g`의
+[`install <remote> --kind extra --name <name>`](install.md#remote-extras)로 명시적으로 복원하세요.
+인자 없는 install은 복원하지 않습니다.
+
+첫 install이 선언 저장 전에 중단되어도 관리 staging의 게시 아티팩트 이름으로
+`interrupted`를 보고합니다. marker의 origin/branch는 읽지 않습니다.
+status와 doctor도 보고합니다. 같은 `--name`으로 원래 install을 다시 실행하세요.
+list와 dashboard는 설정된 extras만 표시합니다.

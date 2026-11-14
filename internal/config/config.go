@@ -363,6 +363,8 @@ type ExtraTargetConfig struct {
 type ExtraConfig struct {
 	Name   string `yaml:"name"`
 	Source string `yaml:"source,omitempty"`
+	Remote string `yaml:"remote,omitempty"`
+	Branch string `yaml:"branch,omitempty"`
 	// File makes this a single-file extra: a plain filename inside the
 	// resolved source directory, synced to <target path>/<as or file>.
 	File    string              `yaml:"file,omitempty"`
@@ -777,6 +779,10 @@ func decodeConfig(path string, data []byte, persist bool) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
+	if err := validateExtraRemotes(cfg.Extras); err != nil {
+		return nil, err
+	}
+
 	// Retain legacy metadata until an ordinary Load migrates it to the registry.
 	// Project candidates must not discard this raw section while loading in place.
 	var legacy struct {
@@ -898,6 +904,9 @@ func decodeConfig(path string, data []byte, persist bool) (*Config, error) {
 
 // Save writes the config to the default location
 func (c *Config) Save() error {
+	if err := validateExtraRemotes(c.Extras); err != nil {
+		return err
+	}
 	path := ConfigPath()
 
 	// Ensure directory exists

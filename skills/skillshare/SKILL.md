@@ -75,6 +75,8 @@ Check `skillshare <command> --help` if the installed version differs from these 
 6. **Respect operation scope.** Local configuration work does not imply permission to
    commit, push, or publish. Run those commands when included in the user's request.
 
+Remote extras: use `install <remote> --kind extra --name <name> -p|-g`, then add targets and `sync extras`; see `references/extras.md`. Bare install does not restore them.
+
 ## Common workflows
 
 ### Inspect and diagnose
