@@ -22,7 +22,8 @@ skillshare mcp list --json
 skillshare mcp check
 skillshare mcp check docs --json --no-dns
 skillshare mcp check --live --timeout 30s
-skillshare mcp check docs --live --accept-tools
+skillshare mcp check docs --live --root "" --json
+skillshare mcp check docs --live --root "" --accept-tools --revision REVIEW_REVISION
 skillshare mcp remove docs --sync
 skillshare mcp remove docs --keep-files
 skillshare mcp restore BACKUP_ID --dry-run
@@ -53,13 +54,15 @@ skillshare sync --all
 | `--no-dns` | `check` で使用。リモートサーバーのホスト名の名前解決をスキップする。[下記](#check-servers-before-an-agent-starts-them)を参照 |
 | `--live` | `check` で使用。各ローカルサーバーの起動と各リモートサーバーの呼び出しも行う。[下記](#probe-servers-live)を参照 |
 | `--timeout DURATION` | `check --live` で使用。各サーバーのプローブの制限時間(`30s` など)。デフォルトは `10s` |
-| `--accept-tools` | `check --live` で使用。プローブした各サーバーが一覧にしたツール定義を新しいベースラインとして記録する。[下記](#pin-tool-definitions)を参照 |
+| `--root PATH` | `check` で設定済み `mcp.projects` ルートと完全一致を選択。`--root ""` は現在の設定一覧、未指定は全スコープ |
+| `--strict-tools` | `check --live` で untrusted、legacy、変更を error にする |
+| `--accept-tools` | `check --live` で名前を明示した 1 サーバーの確認済み `--revision` を承認。同名が複数スコープにある場合は root を指定 |
 | `--http ADDR` | `serve` で使用。stdio の代わりに `ADDR` で Streamable HTTP を待ち受け、[Executor の Skill インデックス](#executor)も提供する。[下記](#serve-skills-over-mcp)を参照 |
 | `--http-allow-insecure` | `serve --http` 使用時: 信頼できるプライベートネットワークで平文 HTTP を明示的に許可し、起動時に警告。デフォルトは無効 |
 | `--tls-cert FILE`, `--tls-key FILE` | `serve --http` で使用。この PEM 証明書と鍵で HTTPS を提供する。ループバック以外では明示的なオプトインがない限り必須 |
 | `--check` | `serve` で使用。スキップされる Skill とその理由、編集可能な数と Executor インデックスが提供する内容を一覧表示し、提供せずに終了する |
 | `--no-tui` | インタラクティブメニューを無効化。`tui: false`、`--json`、または非ターミナルの入出力でも無効になる |
-| `--revision ID` | add/import/remove または `sync mcp` に一致するプレビューを要求する |
+| `--revision ID` | add/import/remove または `sync mcp` のプレビュー一致を要求。`check --live --accept-tools` では `contract.revision` 一致を要求 |
 | `--global`, `-g` | global の Skillshare 設定を使う |
 | `--project`, `-p` | project の Skillshare 設定を使う |
 
@@ -576,7 +579,7 @@ HTTP リクエストの送信、コマンドの実行、ファイルの書き込
 }
 ```
 
-`check` は `env`、`command`、`pin`、`url`、`dns`、`client-rule`、`sync`、`targets`、`tools`、`tool-change`、`live` のいずれかです。
+`check` は `env`、`command`、`pin`、`url`、`dns`、`client-rule`、`sync`、`targets`、`tools`、`tool-change`、`tool-audit`、`live` のいずれかです。
 `target` は Agent またはアカウントを示し、指摘がサーバー自体に関するものである場合は空になります。
 `subject` は `env`、`command`、`pin`、`dns` の指摘では変数、コマンド、パッケージ、イメージ、ホストを、成功した `live` プローブでは
 サーバーが報告した名前を、`live` のサインイン warning ではリソースメタデータ URL を示し、それ以外では省略されます。
@@ -594,98 +597,122 @@ project の MCP タブには Sync ボックスに専用の **チェック** が�
 
 ```bash
 skillshare mcp check --live
-skillshare mcp check docs --live --timeout 30s --json
+skillshare mcp check docs --live --root "" --timeout 30s --json
+skillshare mcp check docs --live --root /absolute/configured/project --json
 ```
 
-`--live` はまず静的チェックを実行し、その後 error のない選択された各サーバーに接続します。error のある
-サーバーや無効化されたエントリには接続せず、その理由を `info` の指摘で示します。
+`--live` は静的チェック後、選択したサーバーのうち静的 error のないものに接続します。
+無効なエントリーと error のあるサーバーはスキップします。
 
-- **ローカル (stdio) サーバー。** Skillshare は現在の環境で `command` を `args` 付きで起動し、サーバーの
-  `env` を加えます。各 `fromEnv` の値はシェルから読み込まれます。project のサーバーはその project フォルダーで、
-  global サーバーはカレントディレクトリで起動します。これは Agent と同じようにサーバーのコードをあなたの
-  マシン上で実行するため、`--live` は信頼できるサーバーにだけ使ってください。Skillshare は `server/discover` を
-  送信します。MCP プロトコルエラーではない error を返すサーバーや、タイムアウトの 3 分の 1 以内に応答しない
-  サーバーは MCP 2026-07-28 より古いものとみなされ、代わりに `initialize` ハンドシェイクが使われます。
-  その後 Skillshare は `tools/list` を呼び出してツール数を数え、サーバーを停止します。stdin を閉じ、次に
-  サーバーのプロセスグループへ SIGTERM、さらに SIGKILL を送ります。Windows ではプロセスを終了させます。
-- **リモート (Streamable HTTP) サーバー。** Skillshare はサーバーの `headers` と `bearerToken` を付けて
-  `server/discover` を POST し、JSON または SSE のレスポンスを読みます。MCP エラーを伴わない `400`、`404`、
-  `405` の場合は `initialize` にフォールバックします。`401` は warning「sign-in required」となり、
-  `WWW-Authenticate` ヘッダーから得たリソースメタデータ URL が示されます。Skillshare がサインインしたり
-  OAuth を開始したりすることはありません。
+- **ローカル stdio。** 設定した実行ファイルとリテラルな引数を直接実行し、現在の環境に宣言した `env` を加えます。
+  実際の実行ファイルを解決し、プロジェクトのサーバーはそのルート、グローバルなサーバーは現在のディレクトリーで起動します。
+  サーバーのコードが実行されるため、実行する意図のあるサーバーだけをプローブしてください。
+  `server/discover` を送り、対応する旧式応答や discovery タイムアウトでは `initialize` にフォールバックしてツールを列挙します。
+  完了後は stdin を閉じ、プローブのプロセスグループ（Windows ではプロセス）を終了します。
+- **リモート Streamable HTTP。** 設定済み headers と bearer token を付けて指定エンドポイントに POST し、JSON または SSE を読みます。
+  対応する旧式応答では `initialize` にフォールバックします。リダイレクトは拒否します。
+  HTTP 401 はサインイン warning です。ログインもリソースメタデータ URL の取得も行いません。
+  ツール、アイコン、schema 内の URL も取得しません。
 
-各サーバーには、プローブ全体に対して 1 つの制限時間があります。10 秒、または `--timeout` で指定した値
-(`30s` や `1m` など) です。同時にプローブするサーバーは最大 4 つです。`--live` なしの `--timeout` は
-error になります。
+サーバーごとにプローブ全体の制限時間はデフォルト 10 秒で、`--timeout 30s` などで変更できます。
+同時実行は最大 4 サーバー。`--timeout` には `--live` が必要です。JSON-RPC のバージョン、応答 ID、
+result/error の構造を厳密に検証し、デコード後の重複キーや曖昧な応答を拒否します。
+
+完全な一覧の上限は 50 ページ、4,096 ツール、元の記述子合計 4 MiB、正規化した記述子合計 4 MiB、
+1 ツール 256 KiB、JSON の深さ 64 段です。50 ページ目に cursor が残る場合、cursor が循環する場合、
+ツール名の重複、不正な記述子、上限超過は失敗となり、一覧の一部を受け入れることはありません。
 
 | 結果 | レベル |
 |---|---|
-| サーバーが応答した: その名前とバージョン、プロトコルバージョン、ツール数 | info |
-| リモートサーバーがサインインを必要とする (HTTP 401) | warning |
-| コマンドを起動できなかった、早期に終了した、または時間内に応答しなかった | error |
-| プロトコルエラー、未対応のプロトコルバージョン、またはその他の HTTP ステータス | error |
-| サーバーに対する最初の成功したプローブ: ツール定義が 固定される | info |
-| ツールの description または入力スキーマが 固定内容と異なる、または 固定されていないツールをサーバーが一覧にした | warning |
-| 固定されたツールが一覧に含まれなくなった | info |
+| サーバーが応答：自己申告の識別情報、プロトコル、ツール数 | info |
+| HTTP 401 でサインインが必要 | warning |
+| 承認済みベースラインなし、legacy ハッシュ、一覧または接続識別情報の変化 | warning；`--strict-tools` では error |
+| ツールのテキストが監査ルールに一致 | warning；確認が必要 |
+| ストアが不正/読み取り不能、プローブや監査が失敗/不完全、承認拒否/期限切れ、保存失敗 | error |
 
-ローカルサーバーが失敗した場合、メッセージの末尾にその stderr が最大 5 行付きます。`env`、`headers`、
-`bearerToken` の値はすべてのメッセージから取り除かれます。4 文字未満の値はそのまま残ります。値は書かれた
-とおりに渡されます。Skillshare は Pi の `!command` の値を実行せず、`piOptions` も読みません。終了コードは
-同じ規則に従い、error が 1 件でもあれば 1 です。`--live` は設定ファイルも操作ログのエントリも書き込みません。
-書き込むのは state ディレクトリの[ツール定義の固定](#pin-tool-definitions)だけです。
+error があれば終了コード 1、それ以外は 0。warning は失敗にしません。`--strict-tools` は `--live` が必要で、
+チェックのゲートとして働きますが、ツール呼び出し時のブロックはしません。失敗したローカルコマンドの stderr 本文は省略します。
+stderr に診断テキストがあれば `server diagnostic output omitted` を付けます。
+その他の診断では認識した設定済み認証情報を短い値も含めて伏せます。デコードしたメタデータや接続識別材料に既知の認証情報が含まれる場合は、
+ハッシュや revision の公開前に拒否します。未設定の任意の秘密は検出できません。
 
-`--json` を指定すると、応答したサーバーには `live` オブジェクトも付きます:
+成功時の `--json` は `live: {protocolVersion, serverInfo, tools, toolNames}` と `contract` を含みます。
+`serverInfo` は自己申告です。`contract` は `status`、`policy`、利用可能なら `revision`、完全な `tools`、
+`identityChanged`、方向付き `changes`、監査結果、省略した要約数 `omitted` を持ちます。CLI の各ツールには
+`hash`、`inputHash`、`proseHash`、`outputHash`、`metadataHash` と完全な正規化 JSON `definition` があります。
+要約が省略された場合も完全な定義を確認してください。通常の観測は設定、ベースライン、操作ログを書きません。
 
-```json
-{
-  "name": "docs",
-  "ok": true,
-  "findings": [
-    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s)", "subject": "docs-server" }
-  ],
-  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12 }
-}
-```
+### ツール契約を確認して承認する {#pin-tool-definitions}
 
-`serverInfo` はサーバーが自己申告した内容で、何も検証されていません。サーバーをプローブしなかった場合や
-プローブが失敗した場合、`live` は省略されます。
+初回プローブは **untrusted** で、ベースラインを書きません。旧 version-1 ハッシュは明示的に確認するまで **legacy** の証拠です。
+以降は完全な契約と接続識別情報を承認済みベースラインと比較し、変化しても元のベースラインは保持します。
+`add`、`sync`、通常のチェック、API GET が自動承認することはありません。
 
-ダッシュボードの **チェック** ボタンは静的チェックだけを実行します。ダッシュボードがサーバーをプローブするのは
-1 か所だけで、サーバーダイアログの[ツールセクション](#tool-policy-dashboard)にある **ツールを読み込む** です。
-これはダイアログの現在の入力内容でサーバーを一度起動してツールを一覧にします。`--json` では、`live` に `toolNames`
-（`tools/list` が返した名前）も含まれます。
+1. サーバーとスコープを選び、完全な一覧を確認します。
 
-### ツール定義を固定する {#pin-tool-definitions}
+   ```bash
+   skillshare mcp check docs --live --root "" --json
+   ```
 
-サーバーは、あなたが確認した後でツールの説明や受け付ける入力を変更できます。Agent はそれを確認なしに
-そのまま利用します。そこで `--live` は、サーバーが初めて応答したときに各ツールを固定し、以降のプローブを
-その固定内容と比較します。
+2. 全スナップショット、接続識別情報、方向付き変更、監査結果を確認し、そのサーバーの `contract.revision` をコピーします。
 
-- **固定されるもの。** ツールごとに、`name`、`description`、`inputSchema` に対する SHA-256 ハッシュを 1 つ
-  保存します。ハッシュは正規化した JSON から計算するため、キーの順序や空白は影響しません。ハッシュは
-  スコープ（global、`mcp.projects` の root、または `-p` が選ぶプロジェクト）とサーバー名ごとに、Skillshare の
-  state ディレクトリの `mcp/tool-pins.json`（`state.json` の隣）に保存されます。description やスキーマの
-  テキストは保存されません。
-- **最初のプローブ。** ベースラインを記録し、check `tool-change` の `info` の指摘を 1 件出します。warning は
-  ありません。
-- **以降のプローブ。** description や入力スキーマが変わったツール、固定以降に追加されたツールには、それぞれ
-  ツール名を列挙した `tool-change` の `warning` が付きます。一覧に含まれなくなったツールは `info` です。
-  ベースラインはそのまま残るため、受け入れるまで同じ warning が出続けます。warning で終了コードが 1 に
-  なることはありません。
-- **受け入れ。** ツールを確認してから `skillshare mcp check docs --live --accept-tools` を実行します。
-  プローブした選択済みのサーバーはそれぞれ、今回一覧にした内容を新しいベースラインとして記録し、変更・
-  追加・削除されたツールを `info` の指摘が列挙します。`--live` なしの `--accept-tools` は error です。
-  受け入れるたびに、受け入れたサーバーとともに操作ログ（`skillshare log`）に記録されます。
-  名前はグローバルと各 `mcp.projects` root にある同名のサーバーをすべて選び、そのすべてが受け入れられる
-  ため、レポートに並ぶものをそれぞれ確認してください。読み取れない `tool-pins.json`（新しいバージョンが
-  書いたものを含む）は、プローブした各サーバーの warning になり、他のサーバーの固定を含む可能性があるため
-  `--accept-tools` でも書き換えません。固定し直すにはファイルを移動してください。
+   ```bash
+   skillshare mcp check docs --live --root "" --accept-tools --revision REVIEW_REVISION
+   ```
 
-`--live` なしでは 固定内容の読み取りも書き込みも行いません。編集したサーバー（別のコマンドや別の URL）や、
-削除してから追加し直したサーバーは、同じ名前のまま 固定内容を引き継ぎます。ツールが正当に変わった場合は、
-新しい定義を一度受け入れてください。
-`GET /api/mcp/check?live=1`（ダッシュボードの **チェック** ボタンが呼ぶエンドポイントで、
-ボタンは `live` を付けません）も 固定内容と比較を行いますが、受け入れはできません。
+   `REVIEW_REVISION` を返された 64 桁の小文字 16 進数に置き換え、同じ root とプロジェクト/グローバル設定を使います。
+
+承認には明示的な 1 つの名前、`--live`、`--revision` が必要です。`--root ""` は現在の設定自身のサーバー一覧、
+空でない root は設定済み `mcp.projects` ルートとの完全一致を選択します。省略時はすべてのスコープを観測します。
+同名サーバーが複数のスコープにある場合は root を選択してください。`-p` は引き続きプロジェクト設定の選択であり、
+グローバル設定内の root の選択ではありません。承認時に再プローブし、完全な一覧、接続識別情報、プローブ前のベースライン revision を照合します。
+操作ロック内でソースと保存済みバイト列を再確認してからアトミックに保存します。古いレビューは再プローブと再確認が必要で、
+未確認の新しい一覧を承認できません。永続化の成功または照合済みの無変更操作だけを accepted と報告します。
+明示的な CLI/API 承認試行と結果は `operations.log`（`skillshare log`）に記録します。
+別途 `audit.log`（`skillshare log --audit`）の `mcp contract review` エントリーにはサーバー/ツール/監査指摘の件数、
+承認結果と標準ログメタデータだけを記録し、サーバー名、契約本文、revision、診断本文、認証情報は含めません。
+ログ書き込みはベストエフォートで、失敗しても永続化済みの承認は取り消しません。
+
+ベースライン承認には**すべての env/header 宣言で `fromEnv`** が必要で、秘密でないリテラルも対象です。bearer token も参照が必要です。
+通常のリテラル設定の管理は引き続き有効ですが、承認できません。解決済みの認証情報は識別ハッシュやベースラインに含めません。
+
+ネイティブ方針 `skillshare-contract-v2` はオブジェクトキーと空白を正規化し、JSON 数値の字句と**すべての配列順序**を保持します。
+`1`、`1.0`、`1e0` は異なるハッシュになり得ます。`inputSchema` は JSON オブジェクトが必須で、description の省略は空として扱います。
+annotation ヒント省略時は `readOnlyHint: false`、`destructiveHint: true`、`idempotentHint: false`、`openWorldHint: true`。
+output schema、title、icons、`_meta`、未知のフィールドを含む全トップレベルフィールドを対象にします。
+完全ハッシュに加え入力、文章、出力、メタデータの分割ハッシュを保持します。RFC 8785 や RugSnare PIN-SPEC との相互運用は保証しません。
+
+変更の評価は `BREAKING`、`LOOSENED`、`EXPANDED`、`DESCRIPTION`、`NOTATION`、`METADATA`、`UNKNOWN`。
+保守的な確認補助であり、完全な schema 含意の証明ではありません。未対応または不確実な混合変更は `UNKNOWN` です。
+説明や schema の文章だけの変化も確認が必要です。既存の監査エンジンでデコード済みキーと入れ子の文章を調べ、チュートリアル除外はしません。
+上限は 4,096 文字列/キー、1 MiB テキスト、8,192 表示行、200 件の指摘。不完全な監査は承認不可で、指摘なしも安全の証明ではありません。
+
+非公開状態ファイル `mcp/tool-pins.json`（0600、上限 16 MiB）は完全な正規化スナップショットとハッシュを保存します。
+Version-2 レコードは正規化設定/ソース識別、root/name、ツール方針やネイティブオプションを含む完全な宣言、
+実際の stdio 実行ファイルと作業ディレクトリー、観測したプロトコル/server 識別情報に結び付きます。
+HTTP には無関係な作業ディレクトリーを含めません。Version-1 ハッシュは証拠として保持します。
+読み取り不能、破損、新しい形式のストアは error とし保存したままにします。調査するか有効なバックアップから復元し、
+失敗を回避するために信頼状態を削除・移動しないでください。
+
+これは宣言された契約の一時点の確認です。実行ファイルの内容、周辺環境や参照値の変化は証明せず、契約不変の悪意ある実装も検出しません。
+ネイティブクライアントの呼び出しを隔離・ブロックしません。このスライスのストアは未署名で、ローカル編集を認証しません。
+署名は後続スライスの予定で、これらのコマンドにはまだありません。
+
+### ダッシュボードと API での確認 {#contract-review-dashboard}
+
+Sync ボックスの **チェック** は静的なままです。**Review live tools** は確認ダイアログを開くだけで、
+**Probe live tools** を押すまでサーバーの起動やリモート要求を行いません。識別情報の変化、方向付き評価、監査結果、
+展開可能な完全スナップショットを不活性なテキストで表示し、メタデータのリンクやアイコンは有効化しません。
+編集画面の **ツールを読み込む** は独立した下書きプローブで、信頼を保存しません。
+
+**Trust this inventory** は正確な root と返された revision で 1 サーバーだけを承認します。期限切れ・失敗時は再プローブが必要です。
+1 件承認するとストアの revision が変わるため、別のサーバーを承認する前にも再プローブしてください。
+
+`GET /api/mcp/check?live=1&root=` は現在の設定一覧だけを観測し、信頼を書きません。root の省略は全スコープ、
+空でない root は設定済みプロジェクトルートの完全一致です。既存のローカル MCP 保護下で `POST /api/mcp/check` に
+`{name, root, revision}` を送って明示承認します。型付き永続化結果が成功したときだけ HTTP 200 と `{accepted: true, report}`、
+古いレビューは 409、その他の承認拒否は 422、不正リクエストは 400。API のスナップショットは数値の字句を維持する
+正確な `definitionText` 文字列を使い、生の `definition` オブジェクトは CLI/ストアだけで使います。
 
 ## サーバーの管理をやめる {#stop-managing-a-server}
 

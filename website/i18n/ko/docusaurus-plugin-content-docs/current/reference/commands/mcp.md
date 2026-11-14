@@ -22,7 +22,8 @@ skillshare mcp list --json
 skillshare mcp check
 skillshare mcp check docs --json --no-dns
 skillshare mcp check --live --timeout 30s
-skillshare mcp check docs --live --accept-tools
+skillshare mcp check docs --live --root "" --json
+skillshare mcp check docs --live --root "" --accept-tools --revision REVIEW_REVISION
 skillshare mcp remove docs --sync
 skillshare mcp remove docs --keep-files
 skillshare mcp restore BACKUP_ID --dry-run
@@ -53,13 +54,15 @@ skillshare sync --all
 | `--no-dns` | `check`와 함께 사용: 원격 서버의 호스트 조회를 건너뜀. [아래](#check-servers-before-an-agent-starts-them) 참고 |
 | `--live` | `check`와 함께 사용: 각 로컬 서버를 시작하고 각 원격 서버를 호출하는 검사도 수행. [아래](#probe-servers-live) 참고 |
 | `--timeout DURATION` | `check --live`와 함께 사용: 서버별 프로브 제한 시간 (예: `30s`); 기본값 `10s` |
-| `--accept-tools` | `check --live`와 함께 사용: 프로브한 각 서버가 나열한 도구 정의를 새 기준선으로 기록. [아래](#pin-tool-definitions) 참고 |
+| `--root PATH` | `check`에서 설정된 `mcp.projects` 루트와 정확히 일치하는 범위 선택. `--root ""`는 현재 설정 목록, 생략은 모든 범위 |
+| `--strict-tools` | `check --live`에서 untrusted, legacy, 변경을 error로 처리 |
+| `--accept-tools` | `check --live`에서 명시된 서버 하나의 검토된 `--revision` 승인. 여러 범위에 같은 이름이 있으면 root 선택 |
 | `--http ADDR` | `serve`와 함께 사용: stdio 대신 `ADDR`에서 Streamable HTTP를 수신하고, [Executor skill index](#executor)도 제공. [아래](#serve-skills-over-mcp) 참고 |
 | `--http-allow-insecure` | `serve --http` 사용 시: 신뢰할 수 있는 사설 네트워크에서 평문 HTTP를 명시적으로 허용하고 시작 시 경고. 기본값: 꺼짐 |
 | `--tls-cert FILE`, `--tls-key FILE` | `serve --http`와 함께 사용: 이 PEM 인증서와 키로 HTTPS를 제공; 명시적으로 허용하지 않으면 loopback 밖에서 필수 |
 | `--check` | `serve`와 함께 사용: 건너뛸 skill과 그 이유를 나열하고, 편집 가능한 개수와 Executor index가 제공할 내용을 보여준 뒤 서버를 시작하지 않고 종료 |
 | `--no-tui` | 대화형 메뉴 비활성화; `tui: false`, `--json`, 또는 비터미널 입출력에서도 비활성화됨 |
-| `--revision ID` | add/import/remove 또는 `sync mcp`에 일치하는 미리보기 요구 |
+| `--revision ID` | add/import/remove 또는 `sync mcp`의 미리보기 일치 요구. `check --live --accept-tools`에서는 `contract.revision` 일치 요구 |
 | `--global`, `-g` | global Skillshare 구성 사용 |
 | `--project`, `-p` | project Skillshare 구성 사용 |
 
@@ -692,7 +695,7 @@ warning으로는 실패하지 않습니다. 알 수 없는 서버 이름은 erro
 ```
 
 `check`는 `env`, `command`, `pin`, `url`, `dns`, `client-rule`, `sync`, `targets`,
-`tools`, `tool-change`, `live` 중 하나입니다.
+`tools`, `tool-change`, `tool-audit`, `live` 중 하나입니다.
 `target`은 Agent 또는 계정을 나타내며, 결과가 서버 자체에 관한 것이면 비어 있습니다.
 `subject`는 `env`, `command`, `pin`, `dns` 결과에서 변수, 명령, 패키지, 이미지, 호스트를 나타내고, 성공한 `live` 프로브에서는
 서버가 보고한 이름을, `live` 로그인 warning에서는 resource metadata URL을 나타내며, 그 외에는 생략됩니다.
@@ -710,95 +713,119 @@ global 서버와 이름이 같은 것이라도 프로젝트 서버가 포함되�
 
 ```bash
 skillshare mcp check --live
-skillshare mcp check docs --live --timeout 30s --json
+skillshare mcp check docs --live --root "" --timeout 30s --json
+skillshare mcp check docs --live --root /absolute/configured/project --json
 ```
 
-`--live`는 먼저 정적 검사를 실행한 뒤, 선택한 서버 중 error가 없는 각 서버에 접속합니다.
-error가 있는 서버나 비활성화된 항목에는 접속하지 않으며, `info` 결과가 그 이유를 알려줍니다.
+`--live`는 정적 검사 후 선택된 서버 중 정적 error가 없는 서버에 접속합니다. 비활성 항목과 error가 있는 서버는 건너뜁니다.
 
-- **로컬 (stdio) 서버.** Skillshare는 현재 환경에 서버의 `env`를 더하고, 각 `fromEnv` 값은
-  셸에서 읽어 `command`를 `args`와 함께 시작합니다. 프로젝트 서버는 해당 프로젝트 폴더에서,
-  global 서버는 현재 디렉터리에서 시작합니다. 이는 Agent가 하는 것처럼 서버의 코드를 사용자
-  컴퓨터에서 실행하므로, 신뢰하는 서버에만 `--live`를 사용하세요. Skillshare는
-  `server/discover`를 보냅니다. MCP 프로토콜 error가 아닌 error로 응답하거나 제한 시간의
-  3분의 1 안에 응답하지 않는 서버는 MCP 2026-07-28보다 오래된 것으로 간주되어 대신
-  `initialize` 핸드셰이크를 받습니다. 그런 다음 Skillshare는 `tools/list`를 호출해 도구 수를
-  세고 서버를 중지합니다: stdin을 닫은 뒤, 서버의 프로세스 그룹에 SIGTERM, 이어서 SIGKILL을
-  보냅니다. Windows에서는 프로세스를 종료합니다.
-- **원격 (Streamable HTTP) 서버.** Skillshare는 서버의 `headers`와 `bearerToken`을 사용해
-  `server/discover`를 POST하며, JSON 또는 SSE 응답을 읽습니다. MCP error가 없는 `400`,
-  `404`, `405`는 `initialize`로 대체됩니다. `401`은 warning ("sign-in required")이며,
-  `WWW-Authenticate` 헤더의 resource metadata URL을 함께 표시합니다. Skillshare는 로그인하거나
-  OAuth를 시작하지 않습니다.
+- **로컬 stdio.** 설정된 실행 파일과 리터럴 인수를 직접 실행하며 현재 환경에 선언된 `env`를 더합니다.
+  실제 실행 파일 경로를 확인하고 프로젝트 서버는 프로젝트 루트에서, 전역 서버는 현재 디렉터리에서 시작합니다.
+  서버 코드를 실행하므로 실제로 실행할 의도가 있는 서버만 프로브하세요. `server/discover`를 보내고 지원하는
+  구형 응답이나 discovery 시간 초과에는 `initialize`로 폴백한 뒤 도구를 나열합니다.
+  이후 stdin을 닫고 프로브 프로세스 그룹을 종료합니다(Windows에서는 해당 프로세스).
+- **원격 Streamable HTTP.** 설정한 headers와 bearer token으로 지정된 엔드포인트에 POST하고 JSON 또는 SSE를 읽습니다.
+  지원하는 구형 응답은 `initialize`로 폴백합니다. 리디렉션은 거부합니다. HTTP 401은 로그인 warning이며,
+  로그인하거나 리소스 메타데이터 URL을 가져오지 않습니다. 도구, 아이콘, schema 안의 URL도 가져오지 않습니다.
 
-각 서버에는 프로브 전체에 대한 하나의 제한 시간이 있습니다: 10초, 또는 `--timeout` (예: `30s`나
-`1m`). 최대 네 개의 서버를 동시에 프로브합니다. `--live` 없이 `--timeout`을 쓰면 error입니다.
+서버마다 전체 프로브 제한 시간은 기본 10초이고 `--timeout 30s` 등으로 바꿀 수 있습니다. 최대 네 서버를 동시에 프로브합니다.
+`--timeout`에는 `--live`가 필요합니다. JSON-RPC 버전, 응답 ID, result/error 구조를 엄격히 확인하며
+디코딩 후 중복 키와 모호한 응답을 거부합니다.
+
+전체 목록 한도는 50페이지, 도구 4,096개, 원본 설명자 합계 4 MiB, 정규화 설명자 합계 4 MiB,
+도구당 256 KiB, JSON 중첩 64단계입니다. 50페이지째 cursor가 남거나 cursor 순환, 도구 이름 중복,
+잘못된 설명자, 한도 초과가 있으면 실패하며 목록의 일부만 수락하지 않습니다.
 
 | 결과 | 수준 |
 |---|---|
-| 서버가 응답함: 이름과 버전, 프로토콜 버전, 도구 수 | info |
-| 원격 서버가 로그인을 요구함 (HTTP 401) | warning |
-| 명령을 시작할 수 없거나, 일찍 종료되었거나, 제한 시간 안에 응답하지 않음 | error |
-| 프로토콜 error, 지원되지 않는 프로토콜 버전, 또는 그 밖의 HTTP 상태 | error |
-| 서버에 대한 첫 성공한 프로브: 도구 정의가 고정됨 | info |
-| 도구의 description 또는 입력 스키마가 고정 내용과 다르거나, 고정되지 않은 도구를 서버가 나열함 | warning |
-| 고정된 도구가 더 이상 나열되지 않음 | info |
+| 서버 응답: 자체 보고한 식별 정보, 프로토콜, 도구 수 | info |
+| HTTP 401 로그인 필요 | warning |
+| 승인된 기준선 없음, legacy 해시, 목록 또는 연결 식별 정보 변경 | warning; `--strict-tools`에서는 error |
+| 도구 텍스트가 감사 규칙에 일치 | warning; 검토 필요 |
+| 잘못되거나 읽을 수 없는 저장소, 프로브/감사 실패 또는 불완전, 승인 거부/오래됨, 저장 실패 | error |
 
-로컬 서버가 실패하면 메시지 끝에 해당 서버 stderr의 최대 다섯 줄이 붙습니다. `env`, `headers`,
-`bearerToken`의 값은 모든 메시지에서 제거되며, 네 글자보다 짧은 값은 그대로 남습니다. 값은 작성된
-그대로 전달됩니다: Skillshare는 Pi `!command` 값을 실행하지 않으며 `piOptions`를 읽지 않습니다.
-종료 코드는 같은 규칙을 따르며, error가 하나라도 있으면 1입니다. `--live`는 설정 파일도, 작업 로그
-항목도 쓰지 않으며, state 디렉터리에 [도구 고정](#pin-tool-definitions)만 보관합니다.
+error가 있으면 종료 코드 1, 없으면 0이며 warning은 실패시키지 않습니다. `--strict-tools`는 `--live`가 필요하고
+검사 게이트로 쓰지만 도구 호출 시 차단하지 않습니다. 실패한 로컬 명령의 stderr 본문은 생략합니다.
+stderr에 진단 텍스트가 있으면 `server diagnostic output omitted`를 덧붙입니다.
+다른 진단에서는 인식된 설정 자격 증명을 짧은 값까지 가립니다. 디코딩한 메타데이터나 연결 식별 자료에 알려진 자격 증명이 있으면
+해시나 revision을 공개하기 전에 거부합니다. 설정되지 않은 임의의 비밀을 감지하지는 못합니다.
 
-`--json`을 사용하면 응답한 서버에는 `live` 객체도 추가됩니다:
+성공한 `--json`에는 `live: {protocolVersion, serverInfo, tools, toolNames}`와 `contract`가 있습니다.
+`serverInfo`는 서버 자체 보고입니다. `contract`에는 `status`, `policy`, 사용 가능할 때의 `revision`, 전체 `tools`,
+`identityChanged`, 방향성 `changes`, 감사 결과, 생략된 요약 수 `omitted`가 있습니다. CLI 도구별 항목은
+`hash`, `inputHash`, `proseHash`, `outputHash`, `metadataHash`와 전체 정규화 JSON `definition`을 포함합니다.
+요약이 생략되면 전체 정의를 검토하세요. 일반 관찰은 설정, 기준선, 작업 로그를 쓰지 않습니다.
 
-```json
-{
-  "name": "docs",
-  "ok": true,
-  "findings": [
-    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s)", "subject": "docs-server" }
-  ],
-  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12 }
-}
-```
+### 도구 계약을 검토하고 승인하기 {#pin-tool-definitions}
 
-`serverInfo`는 서버가 스스로에 대해 밝힌 내용이며, 아무것도 이를 검증하지 않습니다. 서버를 프로브하지
-않았거나 프로브가 실패하면 `live`는 생략됩니다.
+첫 프로브는 **untrusted**이며 기준선을 쓰지 않습니다. 이전 version-1 해시는 명시적으로 검토하기 전까지 **legacy** 증거입니다.
+이후 프로브는 전체 계약과 연결 식별 정보를 승인된 기준선과 비교하며 변경되어도 기존 기준선을 유지합니다.
+`add`, `sync`, 일반 검사, API GET은 도구를 자동 승인하지 않습니다.
 
-대시보드의 **검사** 버튼은 정적 검사만 실행합니다. 대시보드가 서버를 프로브하는 곳은
-한 군데뿐입니다: 서버 대화상자의 [도구 섹션](#tool-policy-dashboard)에 있는 **도구 불러오기**로,
-대화상자의 현재 입력값으로 서버를 한 번 시작해 도구 목록을 가져옵니다. `--json`을 사용하면 `live`에는
-`tools/list`가 반환한 이름인 `toolNames`도 들어갑니다.
+1. 서버와 범위를 선택하고 전체 목록을 검토합니다.
 
-### 도구 정의 고정하기 {#pin-tool-definitions}
+   ```bash
+   skillshare mcp check docs --live --root "" --json
+   ```
 
-서버는 사용자가 검토한 뒤에 도구가 설명하는 내용이나 받아들이는 입력을 바꿀 수 있고, Agent는 이를
-묻지 않고 그대로 따릅니다. 그래서 `--live`는 서버가 처음 응답할 때 각 도구를 고정하고, 이후의 모든 프로브를
-그 고정 내용과 비교합니다.
+2. 모든 스냅샷, 식별 정보 변경, 방향성 변경, 감사 결과를 검토하고 해당 서버의 `contract.revision`을 복사합니다.
 
-- **고정되는 것.** 도구마다 `name`, `description`, `inputSchema`에 대한 SHA-256 해시 하나입니다. 해시는
-  정규화한 JSON으로 계산하므로 키 순서와 공백은 영향을 주지 않습니다. 해시는 범위(global, `mcp.projects`
-  root, 또는 `-p`가 선택하는 프로젝트)와 서버 이름별로 Skillshare state 디렉터리의 `mcp/tool-pins.json`
-  (`state.json` 옆)에 저장됩니다. description이나 스키마 텍스트는 저장되지 않습니다.
-- **첫 프로브.** 기준선을 기록하고, check가 `tool-change`인 `info` 결과 하나가 이를 알립니다. warning은
-  없습니다.
-- **이후 프로브.** description이나 입력 스키마가 바뀐 도구와 고정 이후에 새로 생긴 도구에는 각각 도구 이름을
-  나열한 `tool-change` `warning`이 붙습니다. 더 이상 나열되지 않는 도구는 `info`입니다. 기준선은 그대로
-  유지되므로, 수락할 때까지 같은 warning이 계속 나타납니다. warning 때문에 종료 코드가 1이 되지는
-  않습니다.
-- **수락.** 도구를 검토한 뒤 `skillshare mcp check docs --live --accept-tools`를 실행합니다. 프로브한 선택된
-  서버는 각각 지금 나열한 내용을 새 기준선으로 기록하며, `info` 결과가 변경, 추가, 삭제된 도구를
-  나열합니다. `--live` 없이 `--accept-tools`를 쓰면 error입니다. 수락할 때마다 수락한 서버와 함께 작업 로그(`skillshare log`)에
-  기록됩니다. 이름은 전역과 각 `mcp.projects` root의
-  같은 이름 서버를 모두 선택하고 그 모두를 수락하므로, 보고서에 나온 서버를 하나씩 검토하세요. 읽을 수 없는
-  `tool-pins.json`(새 버전이 쓴 파일 포함)은 프로브한 각 서버에 대한 warning이 되며, 다른 서버의 고정을
-  담고 있을 수 있으므로 `--accept-tools`로도 다시 쓰지 않습니다. 다시 고정하려면 파일을 옮기세요.
+   ```bash
+   skillshare mcp check docs --live --root "" --accept-tools --revision REVIEW_REVISION
+   ```
 
-`--live` 없이는 고정 내용을 읽지도 쓰지도 않습니다. 편집한 서버(다른 명령, 다른 URL)나 삭제한 뒤 다시 추가한
-서버는 같은 이름으로 고정 내용을 그대로 유지합니다. 도구가 정당하게 달라졌다면 새 정의를 한 번 수락하세요.
-`GET /api/mcp/check?live=1`(대시보드 **검사** 버튼이 호출하는 엔드포인트이며, 버튼은
-`live`를 보내지 않습니다)도 고정하고 비교하지만 수락은 할 수 없습니다.
+   `REVIEW_REVISION`을 반환된 64자리 소문자 16진수 revision으로 바꾸고 같은 root와 프로젝트/전역 설정을 사용하세요.
+
+승인에는 명시적인 이름 하나, `--live`, `--revision`이 필요합니다. `--root ""`는 현재 설정 자체의 서버 목록만,
+비어 있지 않은 root는 설정된 `mcp.projects` 루트와 정확히 일치하는 범위만 선택합니다. 생략하면 모든 범위를 관찰합니다.
+여러 범위에 같은 이름이 있으면 root 하나를 선택하세요. `-p`는 여전히 프로젝트 설정 선택이며 전역 설정의 root 선택이 아닙니다.
+승인은 다시 프로브하여 현재 전체 목록, 연결 식별 정보, 프로브 전 기준선 revision을 확인하고 작업 잠금 안에서 소스와 저장된 바이트를
+재확인한 뒤 원자적으로 저장합니다. 오래된 검토는 다시 프로브하고 검토해야 하며 보지 못한 새 목록을 승인할 수 없습니다.
+저장 성공 또는 확인된 무변경 작업만 accepted로 보고합니다.
+명시적인 CLI/API 승인 시도와 결과는 `operations.log`(`skillshare log`)에 기록합니다.
+별도로 `audit.log`(`skillshare log --audit`)의 `mcp contract review` 항목에는 서버/도구/감사 발견 수,
+승인 결과와 표준 로그 메타데이터만 기록하며 서버 이름, 계약 본문, revision, 진단 본문, 자격 증명은 제외합니다.
+로그 기록은 최선 노력 방식이며 실패해도 이미 저장된 승인을 취소하지 않습니다.
+
+기준선 승인에는 비밀이 아닌 리터럴까지 **모든 env/header 선언이 `fromEnv`**여야 하고 bearer token도 참조여야 합니다.
+일반 리터럴 설정은 계속 관리할 수 있지만 승인할 수는 없습니다. 해석된 자격 증명 값은 식별 해시나 기준선에 들어가지 않습니다.
+
+기본 정책 `skillshare-contract-v2`는 객체 키와 공백을 정규화하고 JSON 숫자 표기와 **모든 배열 순서**를 유지합니다.
+`1`, `1.0`, `1e0`은 서로 다른 해시가 될 수 있습니다. `inputSchema`는 JSON 객체가 필수이며 description 생략은 빈 값입니다.
+생략한 annotation 힌트 기본값은 `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: false`, `openWorldHint: true`입니다.
+output schema, title, icons, `_meta`, 알 수 없는 필드까지 모든 최상위 필드를 포함합니다.
+전체 해시와 별도로 입력, 산문, 출력, 메타데이터 해시를 저장하며 RFC 8785나 RugSnare PIN-SPEC 상호 운용은 보장하지 않습니다.
+
+변경 등급은 `BREAKING`, `LOOSENED`, `EXPANDED`, `DESCRIPTION`, `NOTATION`, `METADATA`, `UNKNOWN`입니다.
+이는 보수적인 검토 보조이며 전체 schema 함의 증명이 아닙니다. 미지원 또는 불확실한 혼합 변경은 `UNKNOWN`이고
+설명이나 schema 산문만 바뀌어도 검토해야 합니다. 기존 감사 엔진으로 디코딩한 키와 중첩 텍스트를 검사하며 튜토리얼 예외는 적용하지 않습니다.
+한도는 문자열/키 4,096개, 텍스트 1 MiB, 시각적 줄 8,192개, 발견 200개입니다. 불완전한 감사는 승인을 막고 깨끗한 감사도 안전을 증명하지 않습니다.
+
+비공개 상태 파일 `mcp/tool-pins.json`(0600, 최대 16 MiB)은 전체 정규화 스냅샷과 해시를 저장합니다.
+Version-2 레코드는 정규화 설정/소스 식별 정보, root/name, 도구 정책과 네이티브 옵션을 포함한 전체 선언,
+실제 stdio 실행 파일과 작업 디렉터리, 관찰한 프로토콜/server 식별 정보에 연결됩니다. HTTP는 무관한 작업 디렉터리를 포함하지 않습니다.
+Version-1 해시는 증거로 유지합니다. 읽을 수 없거나 손상되거나 더 새로운 형식인 저장소는 error이며 원본을 보존합니다.
+검사하거나 유효한 백업을 복원하세요. 실패를 우회하려고 신뢰 상태를 삭제하거나 옮기지 마세요.
+
+이는 선언된 계약의 한 시점 검토입니다. 실행 파일 바이트, 주변 환경이나 참조 값 변경을 증명하지 않고 계약이 그대로인 악성 구현도 감지하지 못합니다.
+네이티브 클라이언트 호출을 격리하거나 차단하지 않습니다. 이 슬라이스의 저장소는 서명되지 않아 로컬 편집을 인증하지 못합니다.
+서명은 다음 슬라이스 계획이며 현재 명령에서는 제공하지 않습니다.
+
+### 대시보드와 API 검토 {#contract-review-dashboard}
+
+Sync 상자의 **검사**는 계속 정적 검사입니다. **Review live tools**는 확인 대화상자만 열며
+**Probe live tools**를 눌러야 해당 범위의 서버를 시작하거나 원격 요청을 보냅니다. 식별 정보 변경, 방향성 등급, 감사 결과,
+펼칠 수 있는 전체 스냅샷은 비활성 텍스트로 표시하고 메타데이터 링크와 아이콘을 활성화하지 않습니다.
+편집기의 **도구 불러오기**는 별도의 초안 프로브로 신뢰를 저장하지 않습니다.
+
+**Trust this inventory**는 정확한 root와 반환된 revision으로 서버 하나를 승인합니다. 오래되거나 실패한 승인은 재프로브가 필요합니다.
+하나를 승인하면 저장소 revision이 바뀌므로 다른 서버를 승인하기 전에도 다시 프로브하세요.
+
+`GET /api/mcp/check?live=1&root=`는 현재 설정 목록만 관찰하며 신뢰를 쓰지 않습니다. root 생략은 모든 범위,
+비어 있지 않은 root는 설정된 프로젝트 루트와 정확히 일치하는 범위입니다. 기존 로컬 MCP 보호가 적용된
+`POST /api/mcp/check`에 `{name, root, revision}`을 보내 명시적으로 승인합니다. 타입화된 저장 결과가 성공한 경우에만
+HTTP 200과 `{accepted: true, report}`를 반환하고 오래된 검토는 409, 다른 승인 거부는 422, 잘못된 요청은 400입니다.
+API 스냅샷은 숫자 표기를 유지하는 정확한 `definitionText` 문자열을 쓰며 원본 `definition` 객체는 CLI/저장소 전용입니다.
 
 ## Stop managing a server {#stop-managing-a-server}
 

@@ -128,7 +128,7 @@ function MCPContent({ data, model, order, allFiles, onShowAll, busy, onToggle, o
     if (c.message?.startsWith('Agent configuration changed')) return t('mcp.conflict.changed', params);
     return `${params.target} · ${c.name}: ${describeMessage(t, c.message)}`;
   };
-  const actions = { check: Object.keys(servers).length > 0 ? check : undefined, onBackups: data.backups.length > 0 ? onBackups : undefined };
+  const actions = { reviewRoot: Object.keys(servers).length > 0 ? '' : undefined, check: Object.keys(servers).length > 0 ? check : undefined, onBackups: data.backups.length > 0 ? onBackups : undefined };
 
   return (
     <RailLayout rail={<>

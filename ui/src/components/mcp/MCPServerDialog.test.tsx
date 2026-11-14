@@ -15,7 +15,7 @@ vi.mock('../CodeEditor', () => ({
   default: ({ value, onChange, ariaLabel, placeholder }: { value: string; onChange: (v: string) => void; ariaLabel: string; placeholder?: string }) => <textarea aria-label={ariaLabel} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />,
 }));
 vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { save: vi.fn(), render: vi.fn() } }));
-vi.mock('../../api/mcpCheck', () => ({ mcpCheckApi: { probe: vi.fn() } }));
+vi.mock('../../api/mcpCheck', async (load) => ({ ...await load<typeof import('../../api/mcpCheck')>(), mcpCheckApi: { probe: vi.fn() } }));
 
 const renderDialog = (props: Partial<Parameters<typeof MCPServerDialog>[0]> = {}) =>
   render(<QueryClientProvider client={new QueryClient()}><I18nProvider><MCPServerDialog defaultTargets={['claude']} existingNames={[]} onClose={vi.fn()} onSaved={vi.fn()} {...props} /></I18nProvider></QueryClientProvider>);

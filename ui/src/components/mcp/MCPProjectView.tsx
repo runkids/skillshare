@@ -184,8 +184,8 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
     <div>
       <RailLayout pageScroll rail={<>
         {data.plan
-          ? <MCPSyncBox changes={changes} roots={roots} plan={data.plan} check={ownRows.length > 0 ? check : undefined} />
-          : ownRows.length > 0 && <div className="ss-box"><MCPRailActions check={check} /></div>}
+          ? <MCPSyncBox changes={changes} roots={roots} plan={data.plan} reviewRoot={ownRows.length > 0 ? root : undefined} check={ownRows.length > 0 ? check : undefined} />
+          : ownRows.length > 0 && <div className="ss-box"><MCPRailActions check={check} reviewRoot={root} /></div>}
         {files.length > 0 && (
           <RailSection title={t('layout.nav.agents')} count={files.length}>
             {files.map((target) => (

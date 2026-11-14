@@ -33,22 +33,50 @@ type paddingLine struct {
 	sourceLine, separatorBytes int
 }
 
+// paddingSeparator recognizes the same visual line units for both analysis and
+// work accounting. CRLF is one separator, even though it contains two runes.
+func paddingSeparator(source string, i int) int {
+	r, size := utf8.DecodeRuneInString(source[i:])
+	if !strings.ContainsRune("\r\n\v\f\u0085\u2028\u2029", r) {
+		return 0
+	}
+	if r == '\r' && i+1 < len(source) && source[i+1] == '\n' {
+		return 2
+	}
+	return size
+}
+
+// VisualLineCount counts the visual lines analyzed by whitespace padding,
+// including an empty final line. It allocates no per-line storage, so callers
+// can enforce a line budget before constructing the scanner's line inventory.
+func VisualLineCount(source string) int {
+	count := 1
+	for i := 0; i < len(source); {
+		if size := paddingSeparator(source, i); size > 0 {
+			count++
+			i += size
+		} else {
+			_, size := utf8.DecodeRuneInString(source[i:])
+			i += size
+		}
+	}
+	return count
+}
+
 // paddingLines recognizes visual separators without changing LF-based report
 // locations. CRLF is one separator; Unicode separators keep their original line.
 func paddingLines(source string) []paddingLine {
 	var lines []paddingLine
 	start, sourceLine := 0, 1
 	for i := 0; i < len(source); {
-		r, size := utf8.DecodeRuneInString(source[i:])
-		if !strings.ContainsRune("\r\n\v\f\u0085\u2028\u2029", r) {
+		size := paddingSeparator(source, i)
+		if size == 0 {
+			_, size = utf8.DecodeRuneInString(source[i:])
 			i += size
 			continue
 		}
-		if r == '\r' && i+1 < len(source) && source[i+1] == '\n' {
-			size = 2
-		}
 		lines = append(lines, paddingLine{source[start:i], sourceLine, size})
-		if r == '\n' || size == 2 && r == '\r' {
+		if source[i] == '\n' || size == 2 && source[i] == '\r' {
 			sourceLine++
 		}
 		i += size
@@ -120,6 +148,11 @@ func paddingExemptions(lines []paddingLine, precomputed ...[]markdownCodeBlock) 
 // scanWhitespacePadding is part of the registered static analyzer. The compiled
 // rule carries the same global/project toggles and overrides as regex rules.
 func scanWhitespacePadding(content []byte, filename string, rules []rule, blocks ...[]markdownCodeBlock) []Finding {
+	findings, _ := scanWhitespacePaddingBounded(content, filename, rules, 0, blocks...)
+	return findings
+}
+
+func scanWhitespacePaddingBounded(content []byte, filename string, rules []rule, maxFindings int, blocks ...[]markdownCodeBlock) ([]Finding, bool) {
 	var configured *rule
 	for i := range rules {
 		if rules[i].ID == ruleWhitespacePadding {
@@ -128,36 +161,40 @@ func scanWhitespacePadding(content []byte, filename string, rules []rule, blocks
 		}
 	}
 	if configured == nil {
-		return nil
+		return nil, false
 	}
 	lines := paddingLines(utils.TrimBOM(string(content)))
-	findings, whitespace := paddingLineFindings(lines, nil, filename, configured)
+	findings, whitespace, exhausted := paddingLineFindingsBounded(lines, nil, filename, configured, maxFindings)
 	if !strings.EqualFold(filepath.Ext(filename), ".md") {
-		return findings
+		return findings, exhausted
 	}
 	// With no possible Markdown exemption, the first pass is already final.
 	if !paddingMayHaveExemptions(lines) {
-		return findings
+		return findings, exhausted
 	}
 	// Exemptions can change density but cannot create horizontal/blank/repeated
 	// runs. Most files have too little whitespace to meet density even after
 	// removing exempt text, so avoid parsing their Markdown again.
 	if len(findings) == 0 && whitespace*100 <= paddingDensityBytes*paddingDensityPercent {
-		return nil
+		return nil, false
 	}
 	// Non-LF visual separators are normalized for the exemption parser; the
 	// ordinary Markdown scan does not use that normalization.
 	if strings.ContainsAny(string(content), "\r\v\f\u0085\u2028\u2029") {
 		blocks = nil
 	}
-	findings, _ = paddingLineFindings(lines, paddingExemptions(lines, blocks...), filename, configured)
-	return findings
+	findings, _, exhausted = paddingLineFindingsBounded(lines, paddingExemptions(lines, blocks...), filename, configured, maxFindings)
+	return findings, exhausted
 }
 
-func paddingLineFindings(lines []paddingLine, excluded []bool, filename string, configured *rule) ([]Finding, int) {
+func paddingLineFindingsBounded(lines []paddingLine, excluded []bool, filename string, configured *rule, maxFindings int) ([]Finding, int, bool) {
 	var findings []Finding
+	exhausted := false
 	occurrences := make(map[string]int)
 	emit := func(index int, severity, detail, acceptanceContext string) {
+		if exhausted {
+			return
+		}
 		occurrences[acceptanceContext]++
 		acceptanceContext = fmt.Sprintf("%s:occurrence:%d", acceptanceContext, occurrences[acceptanceContext])
 		if configured.severityOverridden {
@@ -167,6 +204,7 @@ func paddingLineFindings(lines []paddingLine, excluded []bool, filename string, 
 			Message: fmt.Sprintf("%s: %s", configured.Message, detail), File: filename,
 			Line: lines[index].sourceLine, Snippet: strings.TrimSpace(lines[index].text), acceptanceContext: acceptanceContext,
 			RuleID: ruleWhitespacePadding, Analyzer: AnalyzerStatic, Category: CategoryObfuscation, Confidence: configured.Confidence})
+		exhausted = maxFindings > 0 && len(findings) >= maxFindings
 	}
 	blankStart, blankCount, repeatStart, repeatCount := 0, 0, 0, 0
 	previous := ""
@@ -194,6 +232,9 @@ func paddingLineFindings(lines []paddingLine, excluded []bool, filename string, 
 	}
 	eligible, whitespace, first := 0, 0, -1
 	for i, line := range lines {
+		if exhausted {
+			return findings, whitespace, true
+		}
 		if len(excluded) > 0 && excluded[i] {
 			flushHorizontal()
 			// Code/table text can be hidden by padding outside the block.
@@ -257,11 +298,14 @@ func paddingLineFindings(lines []paddingLine, excluded []bool, filename string, 
 		}
 	}
 	flushHorizontal()
+	if exhausted {
+		return findings, whitespace, true
+	}
 	if eligible > paddingDensityBytes && whitespace*100 >= eligible*paddingDensityPercent {
 		context := paddingAcceptanceContext("density", eligible, paddingEligibleDigest(lines, excluded))
 		emit(first, SeverityMedium, fmt.Sprintf("at least %d%% whitespace in %d eligible bytes", paddingDensityPercent, eligible), context)
 	}
-	return findings, whitespace
+	return findings, whitespace, exhausted
 }
 
 func paddingAcceptanceContext(form string, count int, payloadDigest string) string {

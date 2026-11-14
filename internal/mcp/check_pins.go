@@ -3,159 +3,431 @@ package mcp
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 )
 
-// A live probe pins each tool's definition the first time a server answers and compares every
-// later probe with it, so a tool whose description or input schema changes after the user
-// reviewed it (a "rug pull") is named. The pins live in their own file beside state.json:
-// the ownership ledger is rewritten wholesale and would drop them.
+const maxToolPinBytes = 16 << 20
 
-// toolPinFile is the mcp/tool-pins.json content.
+// ToolsAcceptance is the persistence outcome, independent of report findings.
+// Only save may report accepted, including an unchanged, CAS-verified no-op.
+type ToolsAcceptance string
+
+const (
+	ToolsAcceptanceAccepted ToolsAcceptance = "accepted"
+	ToolsAcceptanceStale    ToolsAcceptance = "stale"
+	ToolsAcceptanceError    ToolsAcceptance = "error"
+)
+
+// Legacy hashes remain evidence only. Records bind complete explicitly approved
+// contracts to one canonical source/configuration, effective root and server.
 type toolPinFile struct {
-	Version int `json:"version"`
-	// Servers is, by mcp.projects root ("" for the global list) and then server name, the
-	// definition hash of each tool by name.
+	Version int                                     `json:"version"`
 	Servers map[string]map[string]map[string]string `json:"servers"`
+	Records map[string]toolPinRecord                `json:"records,omitempty"`
+}
+
+type toolPinRecord struct {
+	Config   string                  `json:"config"`
+	Root     string                  `json:"root"`
+	Name     string                  `json:"name"`
+	Policy   string                  `json:"policy"`
+	Identity string                  `json:"identity"`
+	Tools    map[string]ToolContract `json:"tools"`
 }
 
 func (s *Service) toolPinsPath() string { return filepath.Join(s.StateDir, "mcp", "tool-pins.json") }
 
-// readToolPins reads the pin file. An unreadable one is an error even for --accept-tools: it may
-// hold other servers' pins, or a newer version's, and rewriting it would drop them unseen.
-func (s *Service) readToolPins() (toolPinFile, error) {
-	pins := toolPinFile{Version: 1, Servers: map[string]map[string]map[string]string{}}
-	if s.StateDir == "" {
-		return pins, fmt.Errorf("MCP state directory is required")
+var errToolPins = errors.New("MCP tool baseline is invalid or unreadable; restore a valid backup or inspect the state file")
+var errStaleTools = errors.New("MCP review is stale; run a new live review before accepting")
+
+// Keep the original bytes for compare-and-swap. Do not use safeRead here: its
+// unbounded ReadFile would allocate before the security file limit was checked.
+func readToolPinBytes(path string) ([]byte, bool, error) {
+	before, err := os.Lstat(path)
+	if os.IsNotExist(err) {
+		return nil, false, nil
 	}
-	data, exists, _, err := safeRead(s.toolPinsPath())
-	if err != nil || !exists {
-		return pins, err
+	if err != nil || !before.Mode().IsRegular() || before.Size() > maxToolPinBytes {
+		return nil, false, errToolPins
 	}
-	var read toolPinFile
-	if json.Unmarshal(data, &read) != nil || read.Version != 1 || read.Servers == nil {
-		return toolPinFile{}, fmt.Errorf("%s is invalid", s.toolPinsPath())
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, false, errToolPins
 	}
-	return read, nil
+	defer f.Close()
+	opened, err := f.Stat()
+	if err != nil || !opened.Mode().IsRegular() || !os.SameFile(before, opened) || opened.Size() > maxToolPinBytes {
+		return nil, false, errToolPins
+	}
+	data, err := io.ReadAll(io.LimitReader(f, maxToolPinBytes+1))
+	if err != nil || len(data) > maxToolPinBytes {
+		return nil, false, errToolPins
+	}
+	after, err := os.Lstat(path)
+	if err != nil || !after.Mode().IsRegular() || !os.SameFile(opened, after) {
+		return nil, false, errToolPins
+	}
+	return data, true, nil
 }
 
-// liveTool is the part of a tools/list entry a pin covers: the text and schema a model reads.
-type liveTool struct {
-	Name        string          `json:"name"`
-	Description json.RawMessage `json:"description"`
-	InputSchema json.RawMessage `json:"inputSchema"`
+func emptyToolPins() toolPinFile {
+	return toolPinFile{Version: 2, Servers: map[string]map[string]map[string]string{}, Records: map[string]toolPinRecord{}}
 }
 
-// hash is the SHA-256 of the tool's canonical JSON: encoding sorts object keys, so only a change
-// in content, not in key order or whitespace, changes it. Numbers keep their literal text, so a
-// bound past 2^53 is not rounded into another one.
-func (t liveTool) hash() string {
-	canonical := func(raw json.RawMessage) any {
-		var v any
-		d := json.NewDecoder(bytes.NewReader(raw))
-		d.UseNumber()
-		_ = d.Decode(&v) // a missing field stays nil
-		return v
+func parseToolPins(data []byte) (toolPinFile, error) {
+	var pins toolPinFile
+	// The store adds nesting around each descriptor; each descriptor is separately
+	// recaptured at its own strict 64-level bound below.
+	var shape map[string]json.RawMessage
+	if decodeJSONBounded(data, &shape, 72) != nil || shape == nil {
+		return pins, errToolPins
 	}
-	data, _ := json.Marshal(map[string]any{"name": t.Name, "description": canonical(t.Description), "inputSchema": canonical(t.InputSchema)})
-	return digest(data)
-}
-
-// toolBaseline is the pin file read once for a live check: servers are compared with it while
-// they are probed, and the pins to record are written once afterwards.
-type toolBaseline struct {
-	pins   toolPinFile
-	err    error
-	accept bool
-	// configRoot is the project a project-mode config belongs to, "" otherwise: its own servers
-	// carry no root of their own, and the state directory is shared with the global scope.
-	configRoot string
-	// updates holds, by report.Servers index, the pins to record for a probed server.
-	updates []map[string]string
-}
-
-func (s *Service) loadToolBaseline(servers int, accept bool) *toolBaseline {
-	pins, err := s.readToolPins()
-	return &toolBaseline{pins: pins, err: err, accept: accept, configRoot: s.configProjectRoot(), updates: make([]map[string]string, servers)}
-}
-
-// scope is the pin file key for a server whose report entry names project as its root.
-func (b *toolBaseline) scope(project string) string {
-	if project == "" {
-		return b.configRoot
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&pins) != nil || pins.Servers == nil {
+		return pins, errToolPins
 	}
-	return project
-}
-
-// compare reports how a server's tools differ from its pins, and queues the pins to record.
-// Each call touches only index i of updates, so probes may run it concurrently.
-func (b *toolBaseline) compare(i int, root, name string, now map[string]string) []CheckFinding {
-	if b.err != nil {
-		return []CheckFinding{{Level: "warning", Check: "tool-change", Message: fmt.Sprintf("tool definitions were not compared: %v; move that file away to pin them again", b.err)}}
+	if pins.Version != 1 && pins.Version != 2 {
+		return pins, errToolPins
 	}
-	pinned, ok := b.pins.Servers[b.scope(root)][name]
-	if !ok {
-		b.updates[i] = now
-		return []CheckFinding{{Level: "info", Check: "tool-change", Message: fmt.Sprintf("pinned %d tool definition(s) as the baseline", len(now))}}
-	}
-	var changed, added, removed []string
-	for _, tool := range sortedKeys(now) {
-		switch old, known := pinned[tool]; {
-		case !known:
-			added = append(added, tool)
-		case old != now[tool]:
-			changed = append(changed, tool)
+	if pins.Version == 1 {
+		if _, ok := shape["records"]; ok {
+			return pins, errToolPins
+		}
+	} else {
+		// Empty v2 records are emitted explicitly, rather than omitted by omitempty.
+		if pins.Records == nil {
+			return pins, errToolPins
 		}
 	}
-	for _, tool := range sortedKeys(pinned) {
-		if _, still := now[tool]; !still {
-			removed = append(removed, tool)
+
+	envelopeKeys := []string{"version", "servers"}
+	if pins.Version == 2 {
+		envelopeKeys = append(envelopeKeys, "records")
+	}
+	if !exactToolPinFields(shape, envelopeKeys...) {
+		return pins, errToolPins
+	}
+	if pins.Version == 2 {
+		var records map[string]json.RawMessage
+		if json.Unmarshal(shape["records"], &records) != nil {
+			return pins, errToolPins
 		}
-	}
-	if len(changed)+len(added)+len(removed) == 0 {
-		return nil
-	}
-	if b.accept {
-		b.updates[i] = now
-		var parts []string
-		for label, names := range map[string][]string{"changed": changed, "added": added, "removed": removed} {
-			if len(names) > 0 {
-				parts = append(parts, label+": "+strings.Join(names, ", "))
+		for _, raw := range records {
+			var record map[string]json.RawMessage
+			if json.Unmarshal(raw, &record) != nil || !exactToolPinFields(record, "config", "root", "name", "policy", "identity", "tools") {
+				return pins, errToolPins
+			}
+			for _, key := range []string{"config", "root", "name", "policy", "identity"} {
+				if !bytes.HasPrefix(bytes.TrimSpace(record[key]), []byte{'"'}) {
+					return pins, errToolPins
+				}
+			}
+			var tools map[string]json.RawMessage
+			if json.Unmarshal(record["tools"], &tools) != nil {
+				return pins, errToolPins
+			}
+			for _, raw := range tools {
+				var tool map[string]json.RawMessage
+				if json.Unmarshal(raw, &tool) != nil || !exactToolPinFields(tool, "hash", "inputHash", "proseHash", "outputHash", "metadataHash", "definition") {
+					return pins, errToolPins
+				}
 			}
 		}
-		slices.Sort(parts)
-		return []CheckFinding{{Level: "info", Check: "tool-change", Message: "accepted the current tool definitions as the baseline (" + strings.Join(parts, "; ") + ")"}}
 	}
-	// Name the scope, so the command accepts this baseline even when run from another directory.
-	scope := "-g"
-	if b.configRoot != "" {
-		scope = "-p"
+	for _, servers := range pins.Servers {
+		if servers == nil {
+			return pins, errToolPins
+		}
+		for name, tools := range servers {
+			if !serverName.MatchString(name) || tools == nil {
+				return pins, errToolPins
+			}
+			for name, hash := range tools {
+				if strings.TrimSpace(name) == "" || !toolHashValid(hash) {
+					return pins, errToolPins
+				}
+			}
+		}
 	}
-	review := fmt.Sprintf("; review it, then run skillshare mcp check %s --live --accept-tools %s to accept", name, scope)
-	var out []CheckFinding
-	if len(changed) > 0 {
-		out = append(out, CheckFinding{Level: "warning", Check: "tool-change", Message: "description or input schema changed since it was pinned: " + strings.Join(changed, ", ") + review})
+	for key, record := range pins.Records {
+		if !toolHashValid(record.Config) || !toolHashValid(record.Identity) || !serverName.MatchString(record.Name) || record.Policy == "" || len(record.Policy) > 128 || key != toolRecordKey(record.Config, record.Root, record.Name) {
+			return pins, errToolPins
+		}
+		if validateToolSnapshot(record.Tools) != nil {
+			return pins, errToolPins
+		}
 	}
-	if len(added) > 0 {
-		out = append(out, CheckFinding{Level: "warning", Check: "tool-change", Message: "new since it was pinned: " + strings.Join(added, ", ") + review})
-	}
-	if len(removed) > 0 {
-		out = append(out, CheckFinding{Level: "info", Check: "tool-change", Message: "no longer listed: " + strings.Join(removed, ", ")})
-	}
-	return out
+	return pins, nil
 }
 
-// save records the queued pins. A failure is a finding on the servers it affects: the check
-// itself still has its answer.
-func (b *toolBaseline) save(s *Service, report *CheckReport) {
-	recorded := false
-	for _, tools := range b.updates {
-		recorded = recorded || tools != nil
+// encoding/json matches struct keys case-insensitively. The store grammar is
+// exact: aliases such as Version or Hash must not shadow supported fields.
+func exactToolPinFields(fields map[string]json.RawMessage, keys ...string) bool {
+	if len(fields) != len(keys) {
+		return false
 	}
-	if !recorded {
+	for _, key := range keys {
+		if _, ok := fields[key]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func validateToolSnapshot(tools map[string]ToolContract) error {
+	if tools == nil || len(tools) > 4096 {
+		return errToolPins
+	}
+	total := 0
+	for name, tool := range tools {
+		total += len(tool.Definition)
+		if total > 4<<20 || !toolHashValid(tool.Hash) || !toolHashValid(tool.InputHash) || !toolHashValid(tool.ProseHash) || !toolHashValid(tool.OutputHash) || !toolHashValid(tool.MetadataHash) {
+			return errToolPins
+		}
+		capturedName, actual, err := captureTool(tool.Definition, nil)
+		if err != nil || capturedName != name || actual.Hash != tool.Hash || actual.InputHash != tool.InputHash || actual.ProseHash != tool.ProseHash || actual.OutputHash != tool.OutputHash || actual.MetadataHash != tool.MetadataHash || !bytes.Equal(actual.Definition, tool.Definition) {
+			return errToolPins
+		}
+	}
+	return nil
+}
+
+// Inspect descriptor text, not stored fingerprint strings: hashes and resolved
+// credentials must never become review content or credential-derived identities.
+func toolSnapshotHasSecret(tools map[string]ToolContract, secrets []string) bool {
+	if len(secrets) == 0 {
+		return false
+	}
+	for name, tool := range tools {
+		if contractHasSecret(name, secrets) {
+			return true
+		}
+		decoded, err := contractJSON(tool.Definition)
+		if err != nil || contractHasSecret(decoded, secrets) {
+			return true
+		}
+	}
+	return false
+}
+
+func toolHashValid(hash string) bool {
+	if len(hash) != 64 {
+		return false
+	}
+	for _, c := range hash {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *Service) readToolPins() (toolPinFile, error) {
+	if s.StateDir == "" {
+		return toolPinFile{}, errToolPins
+	}
+	data, exists, err := readToolPinBytes(s.toolPinsPath())
+	if err != nil {
+		return toolPinFile{}, err
+	}
+	if !exists {
+		return emptyToolPins(), nil
+	}
+	return parseToolPins(data)
+}
+
+type contractObservation struct {
+	Tools        map[string]ToolContract
+	Command, Dir string
+	Live         *CheckLive
+	// Secrets are the current configured values, used only to refuse unsafe review
+	// material. They are never hashed, persisted, or included in report fields.
+	Secrets []string
+}
+
+type toolBaseline struct {
+	source             *Source
+	pins               toolPinFile
+	err                error
+	opts               CheckOptions
+	config, configRoot string
+	before             []byte
+	existed            bool
+	updates            []*toolPinRecord
+	stale              []bool
+}
+
+func (s *Service) loadToolBaseline(source *Source, servers int, opts CheckOptions) *toolBaseline {
+	b := &toolBaseline{source: source, opts: opts, configRoot: s.configProjectRoot(), updates: make([]*toolPinRecord, servers), stale: make([]bool, servers)}
+	if s.StateDir == "" {
+		b.err = errToolPins
+		return b
+	}
+	b.config, b.err = toolConfigIdentity(source, opts.knownSecrets)
+	if b.err != nil {
+		return b
+	}
+	b.before, b.existed, b.err = readToolPinBytes(s.toolPinsPath())
+	if b.err == nil {
+		if b.existed {
+			b.pins, b.err = parseToolPins(b.before)
+		} else {
+			b.pins = emptyToolPins()
+		}
+	}
+	return b
+}
+
+func (b *toolBaseline) scope(root string) string {
+	if root == "" {
+		return b.configRoot
+	}
+	return root
+}
+
+func (b *toolBaseline) compare(i int, root, name string, server Server, now contractObservation) (*ContractReview, []CheckFinding) {
+	review := &ContractReview{Status: "error", Policy: contractPolicy}
+	fail := func(message string) (*ContractReview, []CheckFinding) {
+		review.Status = "error"
+		review.Revision = ""
+		return review, []CheckFinding{{Level: "error", Check: "tool-change", Message: message}}
+	}
+	if b.err != nil {
+		return fail("tool contracts could not be compared: " + b.err.Error())
+	}
+	root = b.scope(root)
+	if contractHasSecret(root, now.Secrets) {
+		return fail("project scope contains a configured credential; no review is available")
+	}
+	if now.Live == nil || validateToolSnapshot(now.Tools) != nil {
+		return fail("complete valid tool contracts are required before review")
+	}
+	if toolSnapshotHasSecret(now.Tools, now.Secrets) {
+		return fail("tool contracts contain a configured credential; no review is available")
+	}
+	review.Tools = now.Tools
+	audit, err := auditContracts(now.Tools)
+	review.Audit = audit
+	if err != nil {
+		return fail("tool contract audit was incomplete; review cannot be accepted")
+	}
+	if !toolReferencesOnly(server) {
+		if b.opts.AcceptTools || b.opts.StrictTools {
+			return fail("baseline trust requires fromEnv references for every environment, header and bearer value")
+		}
+		review.Status = "untrusted"
+		fs := []CheckFinding{{Level: "warning", Check: "tool-change", Message: "baseline trust requires fromEnv references for every environment, header and bearer value"}}
+		if len(audit) > 0 {
+			fs = append(fs, CheckFinding{Level: "warning", Check: "tool-audit", Message: "tool contract text has audit findings; inspect the complete review"})
+		}
+		return review, fs
+	}
+	identity, err := toolConnectionIdentity(server, now)
+	if err != nil {
+		return fail("connection identity is unavailable; run a new complete live review")
+	}
+	key := toolRecordKey(b.config, root, name)
+	record := toolPinRecord{Config: b.config, Root: root, Name: name, Policy: contractPolicy, Identity: identity, Tools: now.Tools}
+	var fs []CheckFinding
+	if len(audit) > 0 {
+		fs = append(fs, CheckFinding{Level: "warning", Check: "tool-audit", Message: "tool contract text has audit findings; inspect the complete review"})
+	}
+	old, pinned := b.pins.Records[key]
+	// A reference's resolved value may have rotated since the baseline was saved.
+	// Validate old decoded text before compareContracts can expose removed names
+	// or schema keys and before issuing a revision bound to the old snapshot.
+	if pinned && toolSnapshotHasSecret(old.Tools, now.Secrets) {
+		return fail("stored tool contracts contain a configured credential; no review is available")
+	}
+	if !pinned {
+		for tool := range b.pins.Servers[root][name] {
+			if contractHasSecret(tool, now.Secrets) {
+				return fail("stored tool contracts contain a configured credential; no review is available")
+			}
+		}
+	}
+	switch {
+	case pinned:
+		review.IdentityChanged = old.Identity != identity || old.Policy != contractPolicy
+		review.Changes, review.Omitted = compareContracts(old.Tools, now.Tools)
+		review.Status = "unchanged"
+		if review.IdentityChanged || len(review.Changes) > 0 || review.Omitted > 0 {
+			review.Status = "drifted"
+		}
+	case b.pins.Servers[root] != nil && b.pins.Servers[root][name] != nil:
+		review.Status = "legacy"
+	default:
+		review.Status = "untrusted"
+	}
+	// Bind the complete record and the exact pre-probe store snapshot. Source
+	// bytes stay in memory for CheckUnchanged; they never become a public hash.
+	payload, _ := json.Marshal(struct {
+		Record toolPinRecord `json:"record"`
+		Store  string        `json:"store"`
+		Exists bool          `json:"exists"`
+	}{record, digest(b.before), b.existed})
+	review.Revision = digest(payload)
+	if b.opts.AcceptTools {
+		if !b.opts.Live || len(b.opts.Names) != 1 || b.opts.Names[0] != name || !toolHashValid(b.opts.Revision) {
+			return fail("accepting tool contracts requires a live review of one named server and its revision")
+		}
+		if b.opts.Revision != review.Revision {
+			b.stale[i] = true
+			return fail(errStaleTools.Error())
+		}
+		b.updates[i] = &record
+		return review, fs
+	}
+	if review.Status != "unchanged" {
+		level := "warning"
+		if b.opts.StrictTools {
+			level = "error"
+		}
+		message := "tool contracts have no approved baseline; inspect the complete inventory and revision before accepting"
+		if review.Status == "legacy" {
+			message = "legacy tool hashes require explicit review of complete contracts and connection identity"
+		}
+		if review.Status == "drifted" {
+			message = "tool contracts or connection identity changed; inspect all changes before accepting"
+		}
+		fs = append(fs, CheckFinding{Level: level, Check: "tool-change", Message: message})
+	}
+	return review, fs
+}
+
+// save is the only acceptance finalizer. Even a no-op rechecks source and exact
+// store bytes while holding the existing cross-process operation lock.
+func (b *toolBaseline) save(s *Service, report *CheckReport) {
+	if !b.opts.AcceptTools {
+		return
+	}
+	report.ToolsAcceptance = ToolsAcceptanceError
+	fail := func(status ToolsAcceptance, message string) {
+		report.ToolsAcceptance = status
+		for i := range report.Servers {
+			result := &report.Servers[i]
+			if result.Contract == nil {
+				result.Contract = &ContractReview{Policy: contractPolicy}
+			}
+			result.Contract.Status = "error"
+			result.Contract.Revision = ""
+			result.Findings = append(result.Findings, CheckFinding{Level: "error", Check: "tool-change", Message: message})
+		}
+	}
+	if len(report.Servers) != 1 || len(b.updates) != 1 || b.updates[0] == nil {
+		status := ToolsAcceptanceError
+		for _, stale := range b.stale {
+			if stale {
+				status = ToolsAcceptanceStale
+			}
+		}
+		fail(status, "tool baseline was not accepted; a complete valid live observation and current review revision are required")
 		return
 	}
 	err := func() error {
@@ -164,35 +436,74 @@ func (b *toolBaseline) save(s *Service, report *CheckReport) {
 			return err
 		}
 		defer lock.Unlock()
-		// Read again under the lock, so a concurrent check's pins are kept.
-		pins, err := s.readToolPins()
+		if b.source.CheckUnchanged() != nil {
+			return errStaleTools
+		}
+		config, err := toolConfigIdentity(b.source, b.opts.knownSecrets)
+		if err != nil || config != b.config {
+			return errStaleTools
+		}
+		current, exists, err := readToolPinBytes(s.toolPinsPath())
 		if err != nil {
 			return err
 		}
-		for i, tools := range b.updates {
-			if tools == nil {
-				continue
-			}
-			result := report.Servers[i]
-			scope := b.scope(result.Project)
-			if pins.Servers[scope] == nil {
-				pins.Servers[scope] = map[string]map[string]string{}
-			}
-			// Without --accept-tools only an unpinned server queues a pin, so one that another
-			// check pinned in the meantime keeps its baseline.
-			if _, pinned := pins.Servers[scope][result.Name]; pinned && !b.accept {
-				continue
-			}
-			pins.Servers[scope][result.Name] = tools
+		if exists != b.existed || !bytes.Equal(current, b.before) {
+			return errStaleTools
 		}
-		return writeJSONFile(s.toolPinsPath(), pins)
+		pins := emptyToolPins()
+		if exists {
+			pins, err = parseToolPins(current)
+			if err != nil {
+				return err
+			}
+		}
+		if pins.Records == nil {
+			pins.Records = map[string]toolPinRecord{}
+		}
+		record := *b.updates[0]
+		key := toolRecordKey(record.Config, record.Root, record.Name)
+		if old, ok := pins.Records[key]; ok {
+			before, _ := json.Marshal(old)
+			after, _ := json.Marshal(record)
+			if bytes.Equal(before, after) {
+				return nil
+			}
+		}
+		pins.Version = 2
+		pins.Records[key] = record
+		data, err := marshalToolPins(pins)
+		if err != nil {
+			return err
+		}
+		if len(data) > maxToolPinBytes {
+			return errToolPins
+		}
+		return atomicWrite(s.toolPinsPath(), data, 0600)
 	}()
-	if err == nil {
+	if err != nil {
+		if errors.Is(err, errStaleTools) {
+			fail(ToolsAcceptanceStale, errStaleTools.Error())
+		} else {
+			fail(ToolsAcceptanceError, "tool baseline could not be persisted; no acceptance was recorded")
+		}
 		return
 	}
-	for i, tools := range b.updates {
-		if tools != nil {
-			report.Servers[i].Findings = append(report.Servers[i].Findings, CheckFinding{Level: "warning", Check: "tool-change", Message: fmt.Sprintf("could not save the tool baseline: %v", err)})
-		}
+	report.ToolsAcceptance = ToolsAcceptanceAccepted
+	report.Servers[0].Contract.Status = "accepted"
+	report.Servers[0].Findings = append(report.Servers[0].Findings, CheckFinding{Level: "info", Check: "tool-change", Message: "accepted the reviewed complete tool contracts and connection identity"})
+}
+
+func marshalToolPins(pins toolPinFile) ([]byte, error) {
+	// Compact encoding preserves canonical RawMessage snapshots. Emit empty
+	// records explicitly for a complete v2 envelope.
+	type envelope struct {
+		Version int                                     `json:"version"`
+		Servers map[string]map[string]map[string]string `json:"servers"`
+		Records map[string]toolPinRecord                `json:"records"`
 	}
+	data, err := json.Marshal(envelope{pins.Version, pins.Servers, pins.Records})
+	if err != nil {
+		return nil, fmt.Errorf("could not encode MCP tool baseline")
+	}
+	return append(data, '\n'), nil
 }

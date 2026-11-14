@@ -111,6 +111,7 @@ const stale: Record<QueryEvent, Label[] | { args: string[]; stale: Label[] }> = 
 
   mcpChanged: [...M, 'config'],
   mcpSynced: [...M, 'log'],
+  mcpToolsAcceptanceAttempted: ['log', 'logStats'],
   mcpRestored: M,
   hooksChanged: [...H, 'config'],
   hooksSynced: [...H, 'log'],
@@ -143,4 +144,14 @@ it.each(Object.entries(stale))('%s makes exactly its queries stale', async (even
 
   const got = (Object.keys(cached) as Label[]).filter((label) => client.getQueryState(cached[label])?.isInvalidated);
   expect(got.sort()).toEqual([...labels].sort());
+});
+
+it('refreshes operation and audit log lists and filtered statistics after a tools acceptance attempt', async () => {
+  const client = new QueryClient();
+  const logs = [k.log('ops', 10), k.log('audit', 100, { status: 'error' }), k.logStats('ops', { cmd: 'mcp check --accept-tools' }), k.logStats('audit')];
+  for (const key of [...logs, k.audit.all(), k.mcp]) client.setQueryData(key, 1);
+  await invalidate(client, 'mcpToolsAcceptanceAttempted');
+  expect(logs.every((key) => client.getQueryState(key)?.isInvalidated)).toBe(true);
+  expect(client.getQueryState(k.audit.all())?.isInvalidated).toBe(false);
+  expect(client.getQueryState(k.mcp)?.isInvalidated).toBe(false);
 });

@@ -22,7 +22,8 @@ skillshare mcp list --json
 skillshare mcp check
 skillshare mcp check docs --json --no-dns
 skillshare mcp check --live --timeout 30s
-skillshare mcp check docs --live --accept-tools
+skillshare mcp check docs --live --root "" --json
+skillshare mcp check docs --live --root "" --accept-tools --revision REVIEW_REVISION
 skillshare mcp remove docs --sync
 skillshare mcp remove docs --keep-files
 skillshare mcp restore BACKUP_ID --dry-run
@@ -53,13 +54,15 @@ skillshare sync --all
 | `--no-dns` | 与 `check` 一起使用：跳过远程 server 的主机名解析。参见[下文](#check-servers-before-an-agent-starts-them) |
 | `--live` | 与 `check` 一起使用：还会启动每个本地 server，并调用每个远程 server。参见[下文](#probe-servers-live) |
 | `--timeout DURATION` | 与 `check --live` 一起使用：每个 server 探测的时间限制，例如 `30s`；默认 `10s` |
-| `--accept-tools` | 与 `check --live` 一起使用：把每个已探测 server 列出的工具定义记录为新的基线。参见[下文](#pin-tool-definitions) |
+| `--root PATH` | 与 `check` 一起使用：精确选择配置的 `mcp.projects` 根目录；`--root ""` 只选择当前配置列表，省略则观察所有作用域 |
+| `--strict-tools` | 与 `check --live` 一起使用：untrusted、legacy 或漂移视为 error |
+| `--accept-tools` | 与 `check --live` 一起使用：以审阅所得 `--revision` 批准一个明确命名的 server；同名跨作用域时必须选择 root。参见[工具契约](#pin-tool-definitions) |
 | `--http ADDR` | 与 `serve` 一起使用：在 `ADDR` 上以 Streamable HTTP 监听，而不使用 stdio，同时提供 [Executor skill 索引](#executor)。参见[下文](#serve-skills-over-mcp) |
 | `--http-allow-insecure` | 使用 `serve --http` 时：显式允许可信私有网络上的明文 HTTP，并在启动时警告；默认关闭 |
 | `--tls-cert FILE`, `--tls-key FILE` | 与 `serve --http` 一起使用：以这个 PEM 证书和私钥提供 HTTPS；未显式允许时，监听非 loopback 地址必须提供 |
 | `--check` | 与 `serve` 一起使用：列出会被跳过的 skill 及原因、可编辑的数量，以及 Executor 索引会提供的内容，然后退出，不提供服务 |
 | `--no-tui` | 禁用交互式菜单；`tui: false`、`--json` 或非终端输入/输出也会禁用它 |
-| `--revision ID` | 要求 add/import/remove 或 `sync mcp` 匹配指定的 preview |
+| `--revision ID` | add/import/remove 或 `sync mcp` 需匹配预览；`check --live --accept-tools` 需匹配 `contract.revision` |
 | `--global`, `-g` | 使用 global Skillshare 配置 |
 | `--project`, `-p` | 使用 project Skillshare 配置 |
 
@@ -681,7 +684,7 @@ skillshare mcp check --no-dns
 }
 ```
 
-`check` 是 `env`、`command`、`pin`、`url`、`dns`、`client-rule`、`sync`、`targets`、`tools`、`tool-change` 或 `live` 之一。
+`check` 是 `env`、`command`、`pin`、`url`、`dns`、`client-rule`、`sync`、`targets`、`tools`、`tool-change`、`tool-audit` 或 `live` 之一。
 `target` 表示 Agent 或账户；当该发现针对的是 server 本身时为空。
 `subject` 在 `env`、`command`、`pin` 和 `dns` 发现中表示变量、命令、包、镜像或主机；在成功的 `live` 探测中表示
 server 报告的名称；在 `live` 登录 warning 中表示资源元数据 URL；其他情况下省略。
@@ -698,88 +701,113 @@ global server 则省略此字段。`summary` 统计报告中的每个 server，�
 
 ```bash
 skillshare mcp check --live
-skillshare mcp check docs --live --timeout 30s --json
+skillshare mcp check docs --live --root "" --timeout 30s --json
+skillshare mcp check docs --live --root /absolute/configured/project --json
 ```
 
-`--live` 会先运行静态检查，然后联系每个所选且没有 error 的 server。有 error 的 server
-或已禁用的条目不会被联系；会有一条 `info` 发现说明原因。
+`--live` 先运行静态检查，再连接所选且没有静态 error 的 server；禁用项和有 error 的 server 会跳过。
 
-- **本地（stdio）server。** Skillshare 在你当前的环境中以 `args` 启动 `command`，并加上该
-  server 的 `env`，其中每个 `fromEnv` 值都从你的 shell 中读取。项目 server 在其项目文件夹中
-  启动，global server 在当前目录中启动。这会像 Agent 一样在你的机器上运行该 server 的代码，
-  因此只对你信任的 server 使用 `--live`。Skillshare 会发送 `server/discover`。如果 server
-  返回的 error 不是 MCP 协议错误，或者未在超时时间的三分之一内响应，就会被视为早于
-  MCP 2026-07-28 的版本，改用 `initialize` 握手。之后 Skillshare 调用 `tools/list` 统计
-  工具数量并停止该 server：先关闭 stdin，然后向该 server 的进程组依次发送 SIGTERM 和
-  SIGKILL。在 Windows 上则直接终止该进程。
-- **远程（Streamable HTTP）server。** Skillshare 带上该 server 的 `headers` 和 `bearerToken`
-  POST `server/discover`，并读取 JSON 或 SSE 响应。不带 MCP error 的 `400`、`404` 或 `405`
-  会回退到 `initialize`。`401` 是一个 warning，“sign-in required”，并附带
-  `WWW-Authenticate` header 中的资源元数据 URL。Skillshare 永远不会登录或启动 OAuth。
+- **本地 stdio。** 直接执行配置的可执行文件和原样参数，继承当前环境并加入声明的 `env`。
+  实际可执行文件路径会被解析；项目 server 在项目根目录启动，全局 server 在当前目录启动。
+  这会执行 server 的代码，只对你确实打算运行的 server 请求探测。先发送 `server/discover`，
+  对支持的旧版响应或 discovery 超时回退到 `initialize`，然后列出工具。完成后关闭 stdin
+  并终止探测进程组（Windows 上终止该进程）。
+- **远程 Streamable HTTP。** 携带配置的 headers 和 bearer token POST 到指定端点，读取 JSON 或 SSE；
+  支持的旧版响应可回退到 `initialize`。拒绝重定向。HTTP 401 产生登录 warning；不会登录，
+  也不会获取资源元数据 URL。工具、图标、schema 内的 URL 同样不会被获取。
 
-每个 server 的整个探测过程只有一个时间限制：10 秒，或 `--timeout`（例如 `30s` 或 `1m`）。
-最多同时探测四个 server。不带 `--live` 使用 `--timeout` 是一个 error。
+每个 server 的完整探测默认限时 10 秒，可用 `--timeout 30s` 等覆盖；最多四个 server 并发。
+`--timeout` 必须与 `--live` 使用。严格验证 JSON-RPC 版本、响应 ID、result/error 结构；
+拒绝重复的解码后键和有歧义的响应。
+
+完整清单上限为 50 页、4,096 个工具、原始描述总量 4 MiB、规范化描述总量 4 MiB、
+单个工具 256 KiB、JSON 嵌套 64 层。第 50 页仍有 cursor、cursor 循环、工具名称重复、
+描述格式无效或超过限额都会使探测失败，绝不会接受清单前缀。
 
 | 结果 | 级别 |
 |---|---|
-| server 已响应：它的名称和版本、协议版本以及工具数量 | info |
-| 远程 server 需要登录（HTTP 401） | warning |
-| 命令无法启动、提前退出，或未及时响应 | error |
-| 协议错误、不支持的协议版本，或其他任何 HTTP 状态 | error |
-| server 的首次成功探测：它的工具定义被固定（pin） | info |
-| 某个工具的 description 或输入 schema 与固定值不同，或 server 列出了未被固定的工具 | warning |
-| 已固定的工具不再被列出 | info |
+| server 响应：自报身份、协议、工具数量 | info |
+| HTTP 401 需要登录 | warning |
+| 没有批准的基线、legacy 哈希、清单或连接身份改变 | warning；`--strict-tools` 时为 error |
+| 工具文本命中审计规则 | warning；必须审阅 |
+| 状态库无效或不可读、探测或审计失败/不完整、接受被拒绝/过期、写入失败 | error |
 
-本地 server 失败时，消息末尾会附上其 stderr 的最多五行。`env`、`headers` 和 `bearerToken`
-的值会从每条消息中移除；短于四个字符的值保持原样。值按写入的原样传递：Skillshare 永远不会
-运行 Pi 的 `!command` 值，也不读取 `piOptions`。退出码遵循同样的规则，发现任何 error 时为 1。
-`--live` 不写入任何配置文件，也不写入操作日志条目；它只在 state 目录中保存[工具固定值](#pin-tool-definitions)。
+有 error 时退出 1，否则退出 0；warning 不导致失败。`--strict-tools` 必须搭配 `--live`，
+它是检查门槛，不会在工具调用时阻断。失败的本地命令不回显 stderr 内容；若 stderr 含有诊断文本，报告会附加
+`server diagnostic output omitted`。其他诊断中的已知配置凭据（包括短值）会被遮盖。若解码后的工具元数据或连接身份材料含有已知凭据，会在暴露哈希或 revision
+前拒绝。无法检测未配置的任意秘密。
 
-使用 `--json` 时，已响应的 server 还会有一个 `live` 对象：
+成功的 `--json` 报告包含 `live: {protocolVersion, serverInfo, tools, toolNames}` 和 `contract`。
+`serverInfo` 是 server 自报。`contract` 包含 `status`、`policy`、可用时的 `revision`、完整 `tools`、
+`identityChanged`、有方向的 `changes`、审计结果及省略摘要数 `omitted`。CLI 中每个工具包含
+`hash`、`inputHash`、`proseHash`、`outputHash`、`metadataHash` 及完整规范化 JSON `definition`。
+有摘要省略时必须查看完整定义。普通观察不会写配置、基线或操作日志。
 
-```json
-{
-  "name": "docs",
-  "ok": true,
-  "findings": [
-    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s)", "subject": "docs-server" }
-  ],
-  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12 }
-}
-```
+### 审阅并批准工具契约 {#pin-tool-definitions}
 
-`serverInfo` 是 server 对自己的描述，没有任何验证。当 server 未被探测或探测失败时，
-省略 `live`。
+首次探测标为 **untrusted**，不写基线。旧 version-1 哈希在明确审阅之前只是 **legacy** 证据。
+后续探测比较完整契约和连接身份；漂移不会改变原基线。`add`、`sync`、普通检查和 API GET 都不会批准工具。
 
-仪表盘的 **检查** 按钮只运行静态检查。仪表盘只在一个地方探测 server：server 对话框
-[工具区块](#tool-policy-dashboard)中的 **加载工具**，它会按对话框当前的字段启动 server
-一次，列出它的工具。使用 `--json` 时，`live` 还包含 `toolNames`，即 `tools/list` 返回的名称。
+1. 选择 server 和作用域，检查完整清单：
 
-### 固定工具定义 {#pin-tool-definitions}
+   ```bash
+   skillshare mcp check docs --live --root "" --json
+   ```
 
-server 可能在你审阅之后修改某个工具的描述或它接受的输入，而 Agent 会不加询问地照做。因此 `--live` 会在
-server 第一次响应时固定（pin）每个工具，并把之后每次探测都与该固定值比较。
+2. 审阅全部快照、身份变化、有方向的变更和审计结果，复制该 server 的 `contract.revision`：
 
-- **固定的内容。** 每个工具一个 SHA-256 哈希，覆盖它的 `name`、`description` 和 `inputSchema`，
-  按规范化 JSON 计算：键的顺序和空白不影响结果。哈希按范围（global、`mcp.projects` root，或 `-p` 选定
-  的 project）和 server 名称保存在 Skillshare state 目录的 `mcp/tool-pins.json` 中，位于 `state.json`
-  旁边。不会保存 description 或 schema 的文本。
-- **首次探测。** 记录基线，并由一条 check 为 `tool-change` 的 `info` 发现说明。没有 warning。
-- **之后的探测。** description 或输入 schema 发生变化的工具，以及固定之后新增的工具，各得到一条列出工具
-  名称的 `tool-change` `warning`。不再被列出的工具是 `info`。基线保持不变，因此在你接受之前同样的 warning
-  会一直出现。warning 不会使退出码变为 1。
-- **接受。** 审阅这些工具后，运行 `skillshare mcp check docs --live --accept-tools`。每个被探测的已选
-  server 会把它现在列出的内容记录为基线，并由一条 `info` 发现列出被更改、新增或移除的工具。
-  不带 `--live` 使用 `--accept-tools` 是 error。每次接受都会连同被接受的 server 记录到操作日志
-  （`skillshare log`）。名称会选中全局和每个 `mcp.projects` root 中的同名
-  server，并全部接受，所以请逐一审阅报告列出的每一个。无法读取的 `tool-pins.json`（包括较新版本写入的）
-  会在每个被探测的 server 上产生 warning，而且因为它可能含有其他 server 的固定，连 `--accept-tools`
-  也不会改写它；要重新固定，请把文件移走。
+   ```bash
+   skillshare mcp check docs --live --root "" --accept-tools --revision REVIEW_REVISION
+   ```
 
-不带 `--live` 时既不读取也不写入固定值。你编辑过的 server（换了命令或 URL），或删除后再添加的 server，
-会以同一名称保留它的固定值：如果它的工具确实有变化，接受一次新定义即可。
-`GET /api/mcp/check?live=1`（仪表盘 **检查** 按钮调用的端点，按钮不会发送 `live`）
-也会固定并比较，但不能接受。
+   将 `REVIEW_REVISION` 替换为返回的 64 位小写十六进制 revision，并使用相同的 root 和项目/全局配置。
+
+接受必须提供一个明确名称、`--live` 和 `--revision`。`--root ""` 仅选择当前配置自己的 server 列表；
+非空 root 必须精确匹配配置的 `mcp.projects` 根目录。不指定 root 会观察所有作用域；同名 server
+跨作用域时必须选定一个 root。`-p` 仍是选择项目配置，不是选择全局配置中的某个 root。
+接受时重新探测，核对当前完整清单、连接身份和探测前的基线 revision；在操作锁内再次核对源和状态字节，
+再原子写入。过期必须重新探测和审阅，不能接受未经审阅的新清单。仅成功持久化或经核对的无变化操作
+才报告 accepted。明确的 CLI/API 批准尝试及结果记入 `operations.log`（`skillshare log`）。
+另在 `audit.log`（`skillshare log --audit`）写入 `mcp contract review` 条目，仅含 server/工具/审计发现数量、
+接受结果及标准日志元数据，不含 server 名称、契约文本、revision、诊断内容或凭据。
+日志写入是尽力而为；失败不会撤销已持久化的批准。
+
+批准基线要求**所有 env/header 声明都使用 `fromEnv`**，包括非秘密字面值；bearer token 也必须使用引用。
+普通字面值配置仍可管理，但不能获得基线批准。已解析的凭据值不会进入身份哈希或基线。
+
+原生策略 `skillshare-contract-v2` 规范化对象键和空白，保留 JSON 数字原始写法及**所有数组顺序**；
+`1`、`1.0`、`1e0` 可以产生不同哈希。`inputSchema` 必须是 JSON 对象；缺失 description 视为空。
+省略的 annotation 提示默认 `readOnlyHint: false`、`destructiveHint: true`、`idempotentHint: false`、
+`openWorldHint: true`。所有顶层字段都被覆盖，包括 output schema、title、icons、`_meta` 及未知字段。
+除完整哈希外还有输入、文本、输出和元数据的分维度哈希。不保证 RFC 8785 或 RugSnare PIN-SPEC 互操作。
+
+变更等级为 `BREAKING`、`LOOSENED`、`EXPANDED`、`DESCRIPTION`、`NOTATION`、`METADATA`、`UNKNOWN`。
+这是保守的审阅辅助，不是完整 schema 蕴含证明；不支持或不确定的混合变更为 `UNKNOWN`，
+描述和 schema 文本变化仍须审阅。复用现有审计引擎检查解码后的键和嵌套文本，不做教程豁免；
+预算为 4,096 个字符串/键、1 MiB 文本、8,192 个可视行、200 条发现。不完整审计阻止接受；干净结果不证明安全。
+
+私有状态文件 `mcp/tool-pins.json`（0600，上限 16 MiB）保存完整规范化快照和哈希。
+Version-2 记录绑定规范化配置/源身份、root/name、完整 server 声明（含工具策略和原生选项）、
+实际 stdio 可执行文件和工作目录，以及观测到的协议/server 身份。HTTP 不绑定无关的工作目录。
+保留 version-1 哈希作为证据。不可读、损坏或较新格式状态库是 error，原文件保留；应检查或恢复有效备份，
+不要通过删除或移动信任状态绕过失败。
+
+这是对声明契约的单次观察，不验证可执行文件内容、环境中未声明的值或引用值变化；不能检测契约未变的恶意实现，
+也不会隔离或阻断原生客户端调用。本切片状态库未签名，不能认证本地修改；签名属于后续切片，当前命令不提供。
+
+### 仪表盘与 API 审阅 {#contract-review-dashboard}
+
+Sync 区的 **检查** 仍为静态检查。**Review live tools** 只打开确认框；只有点击 **Probe live tools**
+才启动该作用域的 server 或发送远程请求。对话框以惰性文本展示身份变化、方向等级、审计结果和可展开的完整快照，
+不会激活元数据链接或图标。编辑器的 **加载工具** 仍是独立草稿探测，不保存信任。
+
+**Trust this inventory** 仅批准一个 server，发送精确 root 和 revision。过期或失败需要重新探测；
+批准一个后，状态库 revision 改变，批准另一个前也要重新探测。
+
+`GET /api/mcp/check?live=1&root=` 只观察当前配置列表，不写信任。省略 root 观察全部作用域；
+非空 root 选择精确配置的项目根目录。本地 MCP 保护下的 `POST /api/mcp/check` 接收 `{name, root, revision}`；
+仅类型化的持久化成功返回 HTTP 200 和 `{accepted: true, report}`；过期为 409，其他接受拒绝为 422，
+请求格式错误为 400。API 快照用精确的 `definitionText` 字符串保留数字写法；原始 `definition` 对象仅用于 CLI/状态库。
 
 ## 停止管理某个 server {#stop-managing-a-server}
 

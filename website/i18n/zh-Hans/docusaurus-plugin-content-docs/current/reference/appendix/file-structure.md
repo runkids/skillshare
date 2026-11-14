@@ -64,7 +64,7 @@ skillshare 的目录布局与文件位置。
 │   └── audit.log            # 安全审计扫描
 ├── mcp/                     # MCP 同步状态（自动管理）
 │   ├── state.json           # 记录 Skillshare 拥有哪些原生条目
-│   ├── tool-pins.json       # mcp check --live 记录的工具定义哈希
+│   ├── tool-pins.json       # mcp check --live 保存的完整工具契约与信任记录（可能包含敏感文本）
 │   └── backups/             # 每次写入前的 agent 文件备份（每个文件保留最新 20 份）
 └── plugins/                 # 已审阅的插件来源本地副本
 
