@@ -216,7 +216,7 @@ metadata:
       resource: https://agentskills.io/specification
 ```
 
-Skill 的識別使用頂層的 `name` 與 `description`；同名的巢狀欄位不會取代它們。`metadata.type` 是自訂資訊，不會改變 `.metadata.json` 記錄的安裝來源類型。同步會保留 SKILL.md 的內容，包括既有的 `last_edited` 值。各原生客戶端可能有自己的中繼資料要求。
+Skill 的識別使用頂層的 `name` 與 `description`；同名的巢狀欄位不會取代它們。`metadata.type` 是自訂資訊，不會改變 `.metadata.json` 記錄的安裝來源類型。同步會保留 SKILL.md 的內容。各原生客戶端可能有自己的中繼資料要求。
 
 ## 自訂欄位
 

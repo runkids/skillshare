@@ -1049,7 +1049,7 @@ func parseFrontmatterField(content, field string) string {
 			continue
 		}
 
-		if !inFrontmatter || !utils.IsRootFrontmatterLine(raw, line, &indent) {
+		if !inFrontmatter || !utils.IsRootFrontmatterLine(raw, &indent) {
 			continue
 		}
 		if strings.HasPrefix(line, prefix) {

@@ -216,7 +216,7 @@ metadata:
       resource: https://agentskills.io/specification
 ```
 
-Skill の識別にはトップレベルの `name` と `description` を使い、同名の入れ子フィールドでは置き換えません。`metadata.type` はカスタム情報であり、`.metadata.json` に記録されたインストール元の種類は変更しません。同期では既存の `last_edited` を含む SKILL.md の内容を保持します。各ネイティブクライアントには独自のメタデータ要件がある場合があります。
+Skill の識別にはトップレベルの `name` と `description` を使い、同名の入れ子フィールドでは置き換えません。`metadata.type` はカスタム情報であり、`.metadata.json` に記録されたインストール元の種類は変更しません。同期では SKILL.md の内容を保持します。各ネイティブクライアントには独自のメタデータ要件がある場合があります。
 
 ## カスタムフィールド
 

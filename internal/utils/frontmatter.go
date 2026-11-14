@@ -12,9 +12,10 @@ import (
 )
 
 // IsRootFrontmatterLine reports whether a nonblank, noncomment line shares the
-// first content line's indentation. Pass the caller's trimmed content to retain
-// its whitespace policy, and initialize *indent to -1 for each frontmatter block.
-func IsRootFrontmatterLine(raw, trimmed string, indent *int) bool {
+// first content line's indentation. Initialize *indent to -1 for each
+// frontmatter block.
+func IsRootFrontmatterLine(raw string, indent *int) bool {
+	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" || trimmed[0] == '#' {
 		return false
 	}
@@ -36,7 +37,7 @@ func ParseSkillName(skillPath string) (string, error) {
 	err := scanLenientBlock(path, func(raw []byte) bool {
 		line := string(raw)
 		trimmed := strings.TrimLeft(line, " \t")
-		if !IsRootFrontmatterLine(line, trimmed, &indent) {
+		if !IsRootFrontmatterLine(line, &indent) {
 			return true
 		}
 		key, value, ok := strings.Cut(trimmed, ":")
@@ -237,7 +238,7 @@ func ParseFrontmatterField(filePath, field string) string {
 		}
 		rawLine := string(raw)
 		line := strings.TrimSpace(rawLine)
-		if !IsRootFrontmatterLine(rawLine, line, &indent) || !strings.HasPrefix(line, prefix) {
+		if !IsRootFrontmatterLine(rawLine, &indent) || !strings.HasPrefix(line, prefix) {
 			return true
 		}
 		val = strings.TrimSpace(strings.SplitN(line, ":", 2)[1])
