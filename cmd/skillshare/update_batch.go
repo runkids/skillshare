@@ -131,7 +131,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 				result.items = append(result.items, updateJSONItem{Name: t.name, Type: "repo", Status: "failed", Error: err.Error()})
 			} else {
 				result.skipped++
-				result.items = append(result.items, updateJSONItem{Name: t.name, Type: "repo", Status: "skipped", Error: updateTrackedRepoErrorMessage(t, err)})
+				result.items = append(result.items, updateJSONItem{Name: t.name, Type: "repo", Status: "skipped", Error: updateTrackedRepoErrorMessage(t, err, uc.isProject())})
 			}
 		} else if updated {
 			result.updated++
@@ -317,7 +317,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		displayPrunedSection(prunedNames)
 		displayStaleWarning(staleNames)
 		displayModifiedWarning(modifiedNames)
-		displayMissingTrackedReposWarning(missingRepoNames)
+		displayMissingTrackedReposWarning(missingRepoNames, uc.isProject())
 		displayUpdateAuditResults(auditEntries, uc.opts.auditVerbose)
 		ui.UpdateSummary(ui.UpdateStats{
 			Updated:        result.updated,

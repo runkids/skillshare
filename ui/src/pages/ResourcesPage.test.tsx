@@ -318,6 +318,20 @@ describe('Unlink folder', () => {
     expect(screen.getByText('Unlinked team')).toBeInTheDocument();
   });
 
+  it('closes and refreshes a completed unlink with a metadata warning without retrying', async () => {
+    const warning = 'Unlinked, but could not update metadata: failed to save metadata';
+    vi.mocked(api.removeSourceLink).mockResolvedValue({ success: true, name: 'team', warning });
+    mount();
+    const dialog = await openUnlink();
+    const calls = vi.mocked(api.listSkills).mock.calls.length;
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Unlink' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(vi.mocked(api.listSkills).mock.calls.length).toBeGreaterThan(calls);
+    expect(screen.getByText(/The link was removed, but its tracked repository record may remain/)).toBeInTheDocument();
+    expect(screen.queryByText('Unlinked team')).not.toBeInTheDocument();
+    expect(vi.mocked(api.removeSourceLink).mock.calls).toEqual([['team']]);
+  });
+
   it.each(['actions', 'right-click', 'cards actions', 'cards right-click', 'tree right-click'])('confirms single linked skill uninstall from %s and sends only that skill name', async (action) => {
     const user = userEvent.setup();
     vi.mocked(api.listSkills).mockResolvedValue({ resources: [

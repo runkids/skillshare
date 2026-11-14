@@ -3,6 +3,7 @@ export interface TrackedRepo {
   skillCount: number;
   variantCount: number;
   dirty: boolean;
+  noCheckout?: boolean;
 }
 
 export interface Overview {

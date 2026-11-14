@@ -119,7 +119,7 @@ skillshare update --all --json
   ],
   "missing_tracked_repos": {
     "names": ["_team-skills"],
-    "hint": "Run 'skillshare install' to rehydrate tracked repositories"
+    "hint": "Run 'skillshare install -g' to rehydrate tracked repositories, or 'skillshare uninstall <name> -g' to remove an unwanted declaration"
   }
 }
 ```
@@ -248,10 +248,12 @@ Next
 ```
 ! 1 tracked repo declared in metadata but missing on disk
 ! _team-skills  clone directory absent
-  Run 'skillshare install' to rehydrate tracked repositories
+  Run 'skillshare install -g' to rehydrate tracked repositories, or 'skillshare uninstall <name> -g' to remove an unwanted declaration
 ```
 
 這適用於 global 與 project（`-p`）模式。若要從 metadata 重新建立 clones，執行不帶參數的 [install](/docs/reference/commands/install)（詳見 [Rehydrating After a Fresh Clone](/docs/understand/tracked-repositories#rehydrating-after-a-fresh-clone)）。
+
+在 global 模式下，也可以執行 `skillshare uninstall <name> -g` 移除沒有 checkout 的多餘宣告；不會移入 trash，因此無法透過 trash 復原。project 模式僅提示 `skillshare install -p`，不支援只移除宣告。
 
 ## 清理過期 Skills（`--prune`）
 

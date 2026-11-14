@@ -262,7 +262,7 @@ func displayModifiedWarning(modified []string) {
 
 // displayMissingTrackedReposWarning warns about tracked repos declared in
 // metadata whose clone directories are absent on disk (issue #212).
-func displayMissingTrackedReposWarning(missing []string) {
+func displayMissingTrackedReposWarning(missing []string, isProject bool) {
 	if len(missing) == 0 {
 		return
 	}
@@ -272,5 +272,5 @@ func displayMissingTrackedReposWarning(missing []string) {
 	for _, name := range missing {
 		ui.Row(ui.MarkWarn, name, missingTrackedRepoShortReason, width)
 	}
-	ui.Note(missingTrackedRepoHint())
+	ui.Note(missingTrackedRepoHint(isProject))
 }

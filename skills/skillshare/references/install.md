@@ -251,7 +251,7 @@ Explicit `--force` can discard local changes and override findings, but not scan
 
 ## uninstall
 
-Remove one or more skills from source. Moves to trash (7-day retention) instead of permanent deletion.
+Remove one or more skills from source. Installed content moves to trash (7-day retention) instead of permanent deletion. A global tracked declaration without a checkout is removed as metadata only.
 
 ```bash
 # Single skill
@@ -276,15 +276,24 @@ skillshare uninstall --group frontend --dry-run
 # JSON output, global or -p (skips confirmation; dirty tracked repos still require --force;
 # when every skill fails, or any agent fails, it exits non-zero and "error" gives the reasons)
 skillshare uninstall my-skill --json
+# Unresolved inputs and reasons also appear in "failed", including dry runs.
 ```
 
 **Tracked repo names:** `uninstall org/team` accepts the shorthand for `org/_team` installed with `--into org`. An existing skill or folder at the typed path wins; use `org/_team` to explicitly remove the repo. Ambiguous short names require the full path.
+
+`uninstall --json` includes an optional `record_only` subset of `removed` for declarations removed without a checkout; these names have no trash undo. The field is omitted for an empty subset. In dry runs both arrays describe planned actions. CLI uninstall log entries also include the `record_only` subset; JSON previews carry `dry_run: true` in the log.
+
+**Declarations without checkouts (global only):** Deleting a checkout by hand leaves its tracked declaration and audit acceptances. An explicit `skillshare uninstall org/_team -g` removes that declaration and its acceptances without contacting the source, even when it is unreachable. While it remains a tracked declaration without a checkout, a plain folder or link to a non-checkout at that path is untouched; `.gitignore` is unchanged, no Git check runs, and nothing goes to trash. Use the canonical recorded name including `_` and any group: shorthand can select an existing skill or folder. Globs, `--all`, and `--group` do not select these declarations. To restore missing checkouts instead, use `skillshare install -g` with reachable sources and free destinations.
+
+**After reconcile:** If `install` or another reconcile walks a plain folder or followed link to a non-checkout at the declared path, the entry becomes an ordinary record (`Tracked=false`). Ordinary uninstall then moves the occupant to trash. An absent path or an unfollowed or unavailable link is not normalized this way.
+
+**Unlink:** In global mode, `skillshare unlink <name>` also forgets the matching tracked-repository record and audit acceptances, while leaving the link target untouched. If metadata cleanup fails, the link is already in trash and a warning says its record may remain; resolve the metadata error before installing again.
 
 **Safety:** Tracked repos with uncommitted changes are skipped, and repos whose git status cannot be read fail. Use `--force` to override both.
 
 **Group auto-detection:** When uninstalling a directory that contains sub-skills, the confirmation prompt shows `Uninstalling group (N skills)` with a list of contained skills.
 
-**Undo:** `skillshare trash restore <name>` to recover. See [trash.md](trash.md).
+**Undo:** `skillshare trash restore <name>` recovers content moved to trash; it cannot undo metadata-only declaration removal. See [trash.md](trash.md).
 
 **After uninstall:** `skillshare sync`
 

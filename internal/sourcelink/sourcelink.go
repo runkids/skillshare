@@ -75,29 +75,30 @@ func Create(source string, targets []string, target, name string) (Result, error
 
 // Remove moves the link <source>/<name> to trashDir, the way uninstall
 // removes a first-level link: only the link entry moves, its target stays.
-// It refuses a name that is not a first-level link.
-func Remove(source, trashDir, name string) error {
+// It returns the moved entry's trash path and refuses a non-first-level link.
+func Remove(source, trashDir, name string) (string, error) {
 	name = strings.TrimRight(name, `/\`)
 	if err := checkName(name); err != nil {
-		return err
+		return "", err
 	}
 	link := filepath.Join(source, name)
 	info, err := os.Lstat(link)
 	if os.IsNotExist(err) {
-		return fmt.Errorf("%s not found in source", name)
+		return "", fmt.Errorf("%s not found in source", name)
 	} else if err != nil {
-		return err
+		return "", err
 	}
 	if !utils.IsLinkMode(link, info.Mode()) {
-		return fmt.Errorf("%s is not a link", name)
+		return "", fmt.Errorf("%s is not a link", name)
 	}
 	if err := sourcefs.CheckMoveOut(source, link); err != nil {
-		return err
+		return "", err
 	}
-	if _, err := trash.MoveToTrash(link, name, trashDir); err != nil {
-		return fmt.Errorf("failed to move to trash: %w", err)
+	trashPath, err := trash.MoveToTrash(link, name, trashDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to move to trash: %w", err)
 	}
-	return nil
+	return trashPath, nil
 }
 
 // checkName refuses a name that is not a single entry directly under the

@@ -259,7 +259,7 @@ func updateAllProjectSkills(uc *updateContext, walk sourcewalk.Options) (*update
 		if t.isRepo {
 			if mr, missing := missingTrackedRepoResult(t); missing {
 				r = mr
-				displayMissingTrackedReposWarning(r.missingTrackedRepos)
+				displayMissingTrackedReposWarning(r.missingTrackedRepos, true)
 			} else {
 				r, updateErr = updateTrackedRepo(uc, t.name)
 			}

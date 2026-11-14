@@ -6,6 +6,8 @@ sidebar_position: 3
 
 Remove one or more skills or tracked repositories from the source directory. Skills are moved to trash and kept for 7 days before automatic cleanup.
 
+A global tracked declaration without a checkout can instead be removed as metadata only; see [Tracked Repositories](#tracked-repositories).
+
 ```bash
 skillshare uninstall my-skill              # Remove a single skill
 skillshare uninstall a b c --force         # Remove multiple skills at once
@@ -71,11 +73,15 @@ skillshare uninstall my-skill another-skill --json
 }
 ```
 
+In global mode, the optional `record_only` array is the subset of `removed` names whose declarations were removed without a checkout. These names have no trash entry or trash undo; other successfully removed names move to trash. With `dry_run: true`, both arrays describe planned actions, and nothing has been removed. `record_only` is omitted when the subset is empty, including agent and project removals. CLI uninstall log entries also use the optional `record_only` subset; JSON previews add `dry_run: true` to the log.
+
 Combine with `--dry-run` to preview:
 
 ```bash
 skillshare uninstall --all --json --dry-run
 ```
+
+Unresolved inputs are included in `failed` with their reasons, including dry runs and requests where no input resolves.
 
 When every skill fails to uninstall, the command exits non-zero and the `error` field names each skill with its reason; when only some fail, they are listed in `failed` with their reasons and the command exits 0. `uninstall agents --json` exits non-zero when any agent fails, lists the failed names in `failed`, and gives each reason in `error`. JSON output works in project mode (`-p`) too.
 
@@ -170,7 +176,7 @@ skillshare uninstall frontend/hooks -G frontend --force  # hooks removed once
 
 ## Tracked Repositories
 
-For tracked repositories (folders starting with `_`):
+For existing checkouts (including links to Git checkouts):
 
 - Checks for uncommitted changes (use `--force` to override)
 - Fails with `failed to check git status` when skillshare cannot read the repo's git status; other items in the batch are still removed, and `--force` skips the check
@@ -187,6 +193,10 @@ skillshare uninstall _team-skills --force # Force remove with uncommitted change
 skillshare uninstall devops/_team-skills # Repo installed with --into devops
 skillshare uninstall devops/team-skills  # Same repo, unless this path already exists
 ```
+
+- In global mode, an explicitly named tracked declaration with no checkout here (absent, a plain folder, or a link to a non-checkout) can be removed without contacting its source, even if the source is unreachable. Only its record and audit acceptances are removed: the occupant and `.gitignore` stay untouched, no Git check runs, and nothing goes to trash. `trash restore` cannot undo this removal. Use the canonical `_` name or full recorded path, such as `skillshare uninstall devops/_team-skills -g`; shorthand can select an existing skill or folder. Globs, `--all`, and `--group` do not select declarations without checkouts.
+
+Deleting a checkout by hand leaves its global declaration. To restore missing checkouts instead of dropping their declarations, run `skillshare install -g` with reachable sources and free destinations. If a later `install` or reconcile walks a plain folder or followed link to a non-checkout at a declared path, it normalizes the entry to an ordinary record (`Tracked=false`); ordinary uninstall then moves the occupant to trash. Absent paths and unfollowed or unavailable links are not normalized this way.
 
 ## Examples
 

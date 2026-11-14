@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
+	"skillshare/internal/uninstall"
 	"skillshare/internal/utils"
 )
 
@@ -30,12 +32,13 @@ type uninstallOptions struct {
 
 // uninstallJSONOutput is the JSON representation for uninstall --json output.
 type uninstallJSONOutput struct {
-	Removed  []string `json:"removed"`
-	Failed   []string `json:"failed"`
-	Skipped  int      `json:"skipped"`
-	DryRun   bool     `json:"dry_run"`
-	Duration string   `json:"duration"`
-	Error    string   `json:"error,omitempty"`
+	Removed    []string `json:"removed"`
+	RecordOnly []string `json:"record_only,omitempty"`
+	Failed     []string `json:"failed"`
+	Skipped    int      `json:"skipped"`
+	DryRun     bool     `json:"dry_run"`
+	Duration   string   `json:"duration"`
+	Error      string   `json:"error,omitempty"`
 }
 
 // uninstallTarget holds resolved target information
@@ -43,6 +46,7 @@ type uninstallTarget struct {
 	name          string
 	path          string
 	isTrackedRepo bool
+	declaration   bool
 }
 
 type uninstallTypeSummary struct {
@@ -174,6 +178,33 @@ func resolveUninstallTarget(skillName, sourceDir, sourceLabel string, walk sourc
 		path:          skillPath,
 		isTrackedRepo: install.IsTrackedCheckout(skillPath),
 	}, nil
+}
+
+// resolveUninstallName gives an exact declaration precedence over its occupant,
+// then preserves existing disk resolution before using declaration shorthand.
+func resolveUninstallName(name string, mode *uninstallMode) (*uninstallTarget, error) {
+	var store *install.MetadataStore
+	if mode.declarations {
+		store = mode.store
+	}
+	var diskErr error
+	item, err := uninstall.ResolveName(mode.sourceDir, store, name, false, func() (uninstall.Item, error) {
+		target, err := resolveUninstallTarget(name, mode.sourceDir, mode.sourceLabel, mode.walk)
+		if err != nil {
+			// CLI resolution has always tried declaration shorthand after any
+			// unsuccessful disk lookup; retain its original error if neither matches.
+			diskErr = err
+			return uninstall.Item{}, nil
+		}
+		return uninstall.Item{Name: target.name, Path: target.path, Repo: target.isTrackedRepo}, nil
+	})
+	if errors.Is(err, uninstall.ErrNotDeclared) {
+		return nil, diskErr
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &uninstallTarget{name: item.Name, path: item.Path, isTrackedRepo: item.Repo, declaration: item.MetadataOnly}, nil
 }
 
 // resolveUninstallByGlob scans the source directory for top-level entries
@@ -356,7 +387,7 @@ func summarizeUninstallTargets(targets []*uninstallTarget) uninstallTypeSummary 
 	}
 
 	for _, t := range targets {
-		if t.isTrackedRepo {
+		if t.isTrackedRepo || t.declaration {
 			s.trackedRepos++
 			continue
 		}
@@ -396,6 +427,9 @@ func displayUninstallInfo(target *uninstallTarget) {
 // uninstallTargetKind describes what a target holds: a tracked repository,
 // a group of skills or a skill's files.
 func uninstallTargetKind(target *uninstallTarget) string {
+	if target.declaration {
+		return "tracked repository record (no checkout)"
+	}
 	if target.isTrackedRepo {
 		return "tracked repository"
 	}
@@ -499,6 +533,7 @@ func cmdUninstall(args []string) error {
 		store:          skillsStore,
 		emptySourceErr: "no skills found in source",
 		globs:          true,
+		declarations:   true,
 		targetNames:    targetNames,
 		dryRunGitignore: func(t *uninstallTarget) string {
 			if t.isTrackedRepo {
@@ -520,13 +555,14 @@ func cmdUninstall(args []string) error {
 }
 
 // uninstallOutputJSON converts uninstall results to JSON and writes to stdout.
-func uninstallOutputJSON(removed, failed []string, skipped int, dryRun bool, start time.Time, uninstallErr error) error {
+func uninstallOutputJSON(removed, recordOnly, failed []string, skipped int, dryRun bool, start time.Time, uninstallErr error) error {
 	output := uninstallJSONOutput{
-		Removed:  removed,
-		Failed:   failed,
-		Skipped:  skipped,
-		DryRun:   dryRun,
-		Duration: formatDuration(start),
+		Removed:    removed,
+		RecordOnly: recordOnly,
+		Failed:     failed,
+		Skipped:    skipped,
+		DryRun:     dryRun,
+		Duration:   formatDuration(start),
 	}
 	if uninstallErr != nil {
 		output.Error = uninstallErr.Error()
@@ -552,7 +588,7 @@ func uninstallOpNames(args []string) []string {
 	return names
 }
 
-func logUninstallOp(cfgPath string, names []string, succeeded int, start time.Time, cmdErr error) {
+func logUninstallOp(cfgPath string, names []string, succeeded int, recordOnly []string, dryRun bool, start time.Time, cmdErr error) {
 	status := statusFromErr(cmdErr)
 	if succeeded > 0 && succeeded < len(names) {
 		status = "partial"
@@ -566,6 +602,17 @@ func logUninstallOp(cfgPath string, names []string, succeeded int, start time.Ti
 	if succeeded > 0 && e.Args != nil {
 		e.Args["succeeded"] = succeeded
 	}
+	if len(recordOnly) > 0 || dryRun {
+		if e.Args == nil {
+			e.Args = map[string]any{}
+		}
+		if len(recordOnly) > 0 {
+			e.Args["record_only"] = recordOnly
+		}
+		if dryRun {
+			e.Args["dry_run"] = true
+		}
+	}
 	if cmdErr != nil {
 		e.Message = cmdErr.Error()
 	}
@@ -573,7 +620,7 @@ func logUninstallOp(cfgPath string, names []string, succeeded int, start time.Ti
 }
 
 func printUninstallHelp() {
-	printHelp("skillshare uninstall <name>... [options]\n       skillshare uninstall [agents] <name|--all> [options]\n       skillshare uninstall --group <group> [options]\n       skillshare uninstall --all [options]", "Remove one or more skills or tracked repositories from the source directory.\nSkills are moved to trash and kept for 7 days before automatic cleanup.\nIf the skill was installed from a remote source, a reinstall command is shown.\n\nFor tracked repositories (_repo-name):\n  - Checks for uncommitted changes (requires --force to override)\n  - Fails if git status cannot be read (requires --force to override)\n  - Automatically removes the entry from .gitignore\n  - The _ prefix is optional (automatically detected)\n\nSkill names support glob patterns (e.g. \"core-*\", \"test-?\").",
+	printHelp("skillshare uninstall <name>... [options]\n       skillshare uninstall [agents] <name|--all> [options]\n       skillshare uninstall --group <group> [options]\n       skillshare uninstall --all [options]", "Remove one or more skills or tracked repositories from the source directory.\nSkills are moved to trash and kept for 7 days before automatic cleanup.\nIf the skill was installed from a remote source, a reinstall command is shown.\n\nFor tracked repositories (_repo-name):\n  - Checks for uncommitted changes (requires --force to override)\n  - Fails if git status cannot be read (requires --force to override)\n  - Automatically removes the entry from .gitignore\n  - The _ prefix is optional (automatically detected)\n  - In global mode, a declaration without a checkout removes only its record; nothing on disk is deleted\n\nSkill names support glob patterns (e.g. \"core-*\", \"test-?\").",
 		helpGroup{title: "Options", rows: []helpRow{
 			{"--all", "Remove ALL skills from source (requires confirmation)"},
 			{"-G, --group <name>", "Remove all skills in a group (prefix match, repeatable)"},

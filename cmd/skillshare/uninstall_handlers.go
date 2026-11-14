@@ -29,6 +29,7 @@ type uninstallMode struct {
 	store       *install.MetadataStore
 
 	emptySourceErr string   // --all found no skills
+	declarations   bool     // explicit global names may remove declarations without a checkout
 	globs          bool     // expand glob patterns in skill names
 	confirmSuffix  string   // appended to confirmation questions
 	reinstallFlags string   // appended to reinstall and trash commands
@@ -48,6 +49,10 @@ type uninstallMode struct {
 func (m *uninstallMode) items(targets []*uninstallTarget) []uninstall.Item {
 	items := make([]uninstall.Item, len(targets))
 	for i, t := range targets {
+		if t.declaration {
+			items[i] = uninstall.Item{Name: t.name, Path: t.path, MetadataOnly: true}
+			continue
+		}
 		items[i] = uninstall.Item{
 			Name:      t.name,
 			Path:      t.path,
@@ -116,6 +121,9 @@ var projectUninstallPreflight = uninstallPreflightMessages{
 
 // confirmUninstall prompts user for confirmation
 func confirmUninstall(target *uninstallTarget, suffix string) (bool, error) {
+	if target.declaration {
+		return ui.ConfirmAction(fmt.Sprintf("Remove tracked repository record %s? Nothing on disk is deleted", target.name), false)
+	}
 	kind := ""
 	if target.isTrackedRepo {
 		kind = "tracked repository "
@@ -165,21 +173,24 @@ func cleanupUninstallTrash(mode *uninstallMode) {
 // runUninstallSkills resolves, checks, confirms and removes skills for either
 // mode. rawArgs feed the oplog entry.
 func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []string, start time.Time) error {
+	var resolveWarnings []string
 	// In JSON mode the UI goes to /dev/null; each JSON write flushes it first.
 	jsonUI := newJSONUISuppressor(opts.jsonOutput)
 	defer jsonUI.Flush()
 	jsonError := func(err error) error {
 		jsonUI.Flush()
+		if len(resolveWarnings) > 0 {
+			return uninstallOutputJSON(nil, nil, resolveWarnings, 0, opts.dryRun, start, err)
+		}
 		return writeJSONError(err)
 	}
-	jsonResult := func(removed, failed []string, skipped int, dryRun bool, err error) error {
+	jsonResult := func(removed, recordOnly, failed []string, skipped int, dryRun bool, err error) error {
 		jsonUI.Flush()
-		return uninstallOutputJSON(removed, failed, skipped, dryRun, start, err)
+		return uninstallOutputJSON(removed, recordOnly, failed, skipped, dryRun, start, err)
 	}
 	// --- Phase 1: RESOLVE ---
 	var targets []*uninstallTarget
 	seen := map[string]bool{} // dedup by path
-	var resolveWarnings []string
 
 	if opts.all {
 		var sp *ui.Spinner
@@ -247,7 +258,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 			continue
 		}
 
-		t, err := resolveUninstallTarget(name, mode.sourceDir, mode.sourceLabel, mode.walk)
+		t, err := resolveUninstallName(name, mode)
 		if err != nil {
 			resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, err))
 			continue
@@ -419,12 +430,9 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 	// --- Phase 5: DRY-RUN or CONFIRM ---
 	if opts.dryRun {
 		if opts.jsonOutput {
-			dryRunNames := make([]string, len(targets))
-			for i, t := range targets {
-				dryRunNames[i] = t.name
-			}
-			logUninstallOp(mode.configPath, uninstallOpNames(rawArgs), 0, start, nil)
-			return jsonResult(dryRunNames, nil, preflightSkipped, true, nil)
+			dryRunNames, records := uninstallNames(targets)
+			logUninstallOp(mode.configPath, uninstallOpNames(rawArgs), 0, records, true, start, nil)
+			return jsonResult(dryRunNames, records, resolveWarnings, preflightSkipped, true, nil)
 		}
 		names := make([]string, len(targets))
 		for i, t := range targets {
@@ -433,10 +441,16 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 		width := ui.RowWidth(names...)
 		for _, t := range targets {
 			value := "would move to trash"
+			if t.declaration {
+				value = "would remove record"
+			}
 			if !single {
 				value += " " + ui.DimText("· "+batchTargetKind(t, summary))
 			}
 			ui.Row(ui.MarkNone, t.name, value, width)
+			if t.declaration {
+				continue
+			}
 			if line := mode.dryRunGitignore(t); line != "" {
 				ui.Note(line)
 			}
@@ -455,7 +469,14 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 		if single {
 			confirmed, err = confirmUninstall(targets[0], mode.confirmSuffix)
 		} else {
-			confirmed, err = ui.ConfirmAction(fmt.Sprintf("Uninstall %d %s%s? %s", len(targets), summarizeUninstallTargets(targets).noun(), mode.confirmSuffix, uninstallTrashHint()), false)
+			hint := "Nothing on disk is deleted"
+			for _, target := range targets {
+				if !target.declaration {
+					hint = uninstallTrashHint()
+					break
+				}
+			}
+			confirmed, err = ui.ConfirmAction(fmt.Sprintf("Uninstall %d %s%s? %s", len(targets), summarizeUninstallTargets(targets).noun(), mode.confirmSuffix, hint), false)
 		}
 		if err != nil {
 			return err
@@ -484,22 +505,22 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 		sp.Stop()
 	}
 
-	var succeeded []*uninstallTarget
 	failed := preflightFailed
-	for i, r := range out.Results {
-		if r.Err == nil {
-			succeeded = append(succeeded, targets[i])
-		} else {
-			failed = append(failed, fmt.Sprintf("%s: %v", targets[i].name, r.Err))
-		}
+	if opts.jsonOutput {
+		failed = append(failed, resolveWarnings...)
 	}
+	succeeded, failed := collectUninstallResults(targets, out.Results, failed)
 
 	switch {
 	case opts.jsonOutput:
 	case batch:
 		printUninstallBatch(targets, out.Results, summary, len(failed), preflightSkipped, mode, start)
 	case out.Results[0].Err == nil:
-		fmt.Printf("%s Uninstall %s %s\n", ui.StyledMark(ui.MarkOK), targets[0].name, ui.DimText("→ trash, kept 7 days"))
+		if targets[0].declaration {
+			fmt.Printf("%s Removed record %s (nothing moved)\n", ui.StyledMark(ui.MarkOK), targets[0].name)
+		} else {
+			fmt.Printf("%s Uninstall %s %s\n", ui.StyledMark(ui.MarkOK), targets[0].name, ui.DimText("→ trash, kept 7 days"))
+		}
 		if out.GitignoreErr != nil {
 			ui.Warning("Could not update .gitignore: %v", out.GitignoreErr)
 		}
@@ -526,7 +547,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 		mode.afterRemove(removedNames)
 	}
 
-	if !batch && !opts.jsonOutput && len(succeeded) == 1 {
+	if !batch && !opts.jsonOutput && len(succeeded) == 1 && !succeeded[0].declaration {
 		printUninstallNextSteps(mode, succeeded[0].name, singleSource)
 	}
 
@@ -536,14 +557,11 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 	}
 	// Partial failure: report but exit success (skip & continue)
 
-	logUninstallOp(mode.configPath, uninstallOpNames(rawArgs), len(succeeded), start, finalErr)
+	removedNames, records := uninstallNames(succeeded)
+	logUninstallOp(mode.configPath, uninstallOpNames(rawArgs), len(succeeded), records, false, start, finalErr)
 
 	if opts.jsonOutput {
-		removedNames := make([]string, len(succeeded))
-		for i, t := range succeeded {
-			removedNames[i] = t.name
-		}
-		return jsonResult(removedNames, failed, preflightSkipped, opts.dryRun, finalErr)
+		return jsonResult(removedNames, records, failed, preflightSkipped, opts.dryRun, finalErr)
 	}
 	return finalErr
 }
@@ -554,7 +572,7 @@ func displayUninstallBatch(targets []*uninstallTarget, summary uninstallTypeSumm
 	long := len(targets) > 20
 	var shown []*uninstallTarget
 	for _, t := range targets {
-		if !long || t.isTrackedRepo || summary.groupSkillCount[t.path] > 0 {
+		if !long || t.declaration || t.isTrackedRepo || summary.groupSkillCount[t.path] > 0 {
 			shown = append(shown, t)
 		}
 	}
@@ -571,6 +589,9 @@ func displayUninstallBatch(targets []*uninstallTarget, summary uninstallTypeSumm
 }
 
 func batchTargetKind(t *uninstallTarget, summary uninstallTypeSummary) string {
+	if t.declaration {
+		return "tracked repository record"
+	}
 	if t.isTrackedRepo {
 		return "tracked repository"
 	}
@@ -598,6 +619,8 @@ func printUninstallBatch(targets []*uninstallTarget, results []uninstall.Result,
 		switch c := summary.groupSkillCount[t.path]; {
 		case r.Err != nil:
 			failures = append(failures, batchResult{target: t, errMsg: r.Err.Error()})
+		case t.declaration:
+			successes = append(successes, batchResult{target: t, typeLabel: "record (nothing moved)"})
 		case t.isTrackedRepo:
 			successes = append(successes, batchResult{target: t, typeLabel: "tracked repo"})
 		case c > 0:
@@ -653,11 +676,45 @@ func printUninstallBatch(targets []*uninstallTarget, results []uninstall.Result,
 	fmt.Println()
 	ui.Done(mark, strings.Join(parts, ", "), time.Since(start))
 
-	if len(successes) > 0 {
+	trashed := false
+	for _, r := range successes {
+		if !r.target.declaration {
+			trashed = true
+			break
+		}
+	}
+	if trashed {
 		cleanupUninstallTrash(mode)
 		ui.Next(
 			"skillshare sync", mode.syncNote("them"),
 			"skillshare trash list"+mode.reinstallFlags, "restore any of them within 7 days",
 		)
 	}
+}
+
+// collectUninstallResults translates shared execution outcomes, including
+// late refusals, without marking failed declarations as successfully removed.
+func collectUninstallResults(targets []*uninstallTarget, results []uninstall.Result, failed []string) ([]*uninstallTarget, []string) {
+	var succeeded []*uninstallTarget
+	for i, result := range results {
+		if result.Err == nil {
+			succeeded = append(succeeded, targets[i])
+		} else {
+			failed = append(failed, fmt.Sprintf("%s: %v", targets[i].name, result.Err))
+		}
+	}
+	return succeeded, failed
+}
+
+// uninstallNames also serves dry-run output: recordOnly is the subset that
+// removes metadata without a trash entry, or would do so in a dry run.
+func uninstallNames(targets []*uninstallTarget) (names, recordOnly []string) {
+	names = make([]string, len(targets))
+	for i, target := range targets {
+		names[i] = target.name
+		if target.declaration {
+			recordOnly = append(recordOnly, target.name)
+		}
+	}
+	return names, recordOnly
 }

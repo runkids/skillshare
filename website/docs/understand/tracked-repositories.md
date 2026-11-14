@@ -172,10 +172,18 @@ Isolated candidate → git pull → audit → publish approved commit
 skillshare uninstall _team-skills
 ```
 
+For existing checkouts (including links to Git checkouts):
+
 **What happens:**
 1. Checks for uncommitted changes and stops if it finds any, or if it cannot read the git status (`--force` overrides)
 2. Moves the directory to trash (kept 7 days)
 3. Next `sync` removes the symlinks from targets
+
+In global mode, an explicitly named tracked declaration with no checkout here (absent, a plain folder, or a link to a non-checkout) can be removed without contacting its source, even if the source is unreachable. Only its record and audit acceptances are removed: the occupant and `.gitignore` stay untouched, no Git check runs, and nothing goes to trash. `trash restore` cannot undo this removal. Use the canonical `_` name or full recorded path, such as `skillshare uninstall devops/_team-skills -g`; shorthand can select an existing skill or folder. Globs, `--all`, and `--group` do not select declarations without checkouts.
+
+Deleting a checkout by hand leaves its global declaration. To restore missing checkouts instead of dropping their declarations, run `skillshare install -g` with reachable sources and free destinations. If a later `install` or reconcile walks a plain folder or followed link to a non-checkout at a declared path, it normalizes the entry to an ordinary record (`Tracked=false`); ordinary uninstall then moves the occupant to trash. Absent paths and unfollowed or unavailable links are not normalized this way.
+
+In global mode, `unlink` also forgets the tracked-repository record and audit acceptances kept for that link name; its target remains untouched.
 
 ---
 

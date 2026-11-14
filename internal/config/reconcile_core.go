@@ -233,6 +233,13 @@ func keepNestedRecords(walkRoot string, store *install.MetadataStore, live map[s
 	}
 }
 
+// keepTrackedDeclarations retains repository intent when this machine has no checkout.
+func keepTrackedDeclarations(store *install.MetadataStore, live map[string]bool) {
+	for _, key := range store.TrackedDeclarations() {
+		live[key] = true
+	}
+}
+
 // pruneStaleEntries removes store entries not present in the live set.
 func pruneStaleEntries(store *install.MetadataStore, live map[string]bool) bool {
 	changed := false

@@ -35,8 +35,11 @@ func reconcileGlobalSkills(cfg *Config, store *install.MetadataStore, prune bool
 		return fmt.Errorf("failed to scan global skills: %w", err)
 	}
 
-	if prune && !result.incomplete && pruneStaleEntries(store, result.live) {
-		result.changed = true
+	if prune && !result.incomplete {
+		keepTrackedDeclarations(store, result.live)
+		if pruneStaleEntries(store, result.live) {
+			result.changed = true
+		}
 	}
 
 	if result.changed {

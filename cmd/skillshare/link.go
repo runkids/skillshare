@@ -13,11 +13,13 @@ import (
 	"skillshare/internal/sourcelink"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
+	"skillshare/internal/uninstall"
 	"skillshare/internal/utils"
 )
 
 // linkScope is what link and unlink need from the global or project config.
 type linkScope struct {
+	global     bool
 	source     string
 	targets    []string // skills paths of the active sync targets
 	trashDir   string
@@ -73,6 +75,7 @@ func loadLinkScope(args []string) (*linkScope, []string, error) {
 		return nil, nil, fmt.Errorf("failed to load config: %w", err)
 	}
 	return &linkScope{
+		global:     true,
 		source:     cfg.EffectiveSkillsSource(),
 		targets:    config.SkillsTargetPaths(cfg.Targets),
 		trashDir:   trash.TrashDir(),
@@ -136,7 +139,7 @@ func cmdLink(args []string) error {
 			err = fmt.Errorf("failed to enable follow_source_links: %w", err)
 		}
 	}
-	logLinkOp(scope.configPath, "link", map[string]any{"name": name, "target": path}, start, err)
+	logLinkOp(scope.configPath, "link", map[string]any{"name": name, "target": path}, start, statusFromErr(err), err)
 	if err != nil {
 		return fmt.Errorf("cannot link %s: %w", path, err)
 	}
@@ -191,12 +194,20 @@ func cmdUnlink(args []string) error {
 		return fmt.Errorf("link name is required")
 	}
 
-	err = sourcelink.Remove(scope.source, scope.trashDir, name)
-	logLinkOp(scope.configPath, "unlink", map[string]any{"name": name}, start, err)
+	opArgs := map[string]any{"name": name}
+	res, err := uninstall.Unlink(scope.source, scope.trashDir, name, scope.global)
 	if err != nil {
+		logLinkOp(scope.configPath, "unlink", opArgs, start, statusFromErr(err), err)
 		return fmt.Errorf("cannot unlink %s: %w", name, err)
 	}
 	name = strings.TrimRight(name, `/\`)
+	status := "ok"
+	if res.MetadataErr != nil {
+		status = "partial"
+		err = fmt.Errorf("Unlinked, but could not update metadata: %w", res.MetadataErr)
+		ui.Warning("%v", err)
+	}
+	logLinkOp(scope.configPath, "unlink", opArgs, start, status, err)
 	fmt.Printf("%s Unlinked %s %s\n", ui.StyledMark(ui.MarkOK), name, ui.DimText("→ trash, kept 7 days; its target is untouched"))
 	ui.Next(
 		"skillshare sync"+scope.flags, "remove its skills from your targets",
@@ -205,8 +216,8 @@ func cmdUnlink(args []string) error {
 	return nil
 }
 
-func logLinkOp(cfgPath, op string, args map[string]any, start time.Time, cmdErr error) {
-	e := oplog.NewEntry(op, statusFromErr(cmdErr), time.Since(start))
+func logLinkOp(cfgPath, op string, args map[string]any, start time.Time, status string, cmdErr error) {
+	e := oplog.NewEntry(op, status, time.Since(start))
 	e.Args = args
 	if cmdErr != nil {
 		e.Message = cmdErr.Error()
@@ -233,7 +244,7 @@ func printLinkHelp() {
 }
 
 func printUnlinkHelp() {
-	printHelp("skillshare unlink <name> [options]", "Remove a link created by skillshare link, or any first-level link in the\nskills source. Only the link moves to trash; the folder it points at is kept.",
+	printHelp("skillshare unlink <name> [options]", "Remove a link created by skillshare link, or any first-level link in the\nskills source. Only the link moves to trash; the folder it points at is kept.\nIn global mode it also removes the tracked-repository record kept for that name.",
 		helpGroup{title: "Options", rows: []helpRow{
 			{"-p, --project", "Use project-level config in current directory"},
 			{"-g, --global", "Use global config (~/.config/skillshare)"},

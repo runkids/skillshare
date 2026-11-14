@@ -6,6 +6,8 @@ sidebar_position: 3
 
 從 source 目錄移除一個或多個 skills 或 tracked repositories。Skills 會先移到 trash，保留 7 天後才會自動清除。
 
+沒有 checkout 的 global 追蹤宣告可以只移除中繼資料；請參閱[追蹤儲存庫](#tracked-repositories)。
+
 ```bash
 skillshare uninstall my-skill              # 移除單一 skill
 skillshare uninstall a b c --force         # 一次移除多個 skills
@@ -71,11 +73,15 @@ skillshare uninstall my-skill another-skill --json
 }
 ```
 
+在 global 模式下，選填的 `record_only` 陣列是 `removed` 中沒有 checkout、僅移除宣告的名稱子集。這些名稱沒有 trash 項目，無法透過 trash 復原；其他成功移除的項目會移入 trash。`dry_run: true` 時，兩個陣列皆表示預計操作，尚未移除任何內容。子集為空時會省略 `record_only`，包括 agent 與 project 模式的移除。 CLI uninstall 日誌也使用選填的 `record_only` 子集；JSON 預覽會在日誌中加入 `dry_run: true`。
+
 搭配 `--dry-run` 可預覽：
 
 ```bash
 skillshare uninstall --all --json --dry-run
 ```
+
+無法解析的輸入及其原因也會列入 `failed`，包括 dry-run 和沒有任何輸入可解析的請求。
 
 所有 skill 都解除安裝失敗時，指令會以非零狀態結束，`error` 欄位列出每個 skill 及其原因；只有部分失敗時，它們會連同原因列在 `failed`，指令以 0 結束。`uninstall agents --json` 只要有 agent 失敗就會以非零狀態結束，把失敗的名稱列在 `failed`，並在 `error` 中說明每一個的原因。JSON 輸出在 project mode（`-p`）也能使用。
 
@@ -170,7 +176,7 @@ skillshare uninstall frontend/hooks -G frontend --force  # hooks 只會被移除
 
 ## Tracked Repositories
 
-對於 tracked repositories（以 `_` 開頭的資料夾）：
+對於既有 checkout（包含指向 Git checkout 的連結）：
 
 - 會檢查未提交的變更（用 `--force` 可覆蓋）
 - 當 skillshare 無法讀取該儲存庫的 git status 時，會以 `failed to check git status` 失敗；批次中的其他項目仍會被移除，`--force` 會略過此檢查
@@ -187,6 +193,10 @@ skillshare uninstall _team-skills --force # 強制移除，即使有未提交的
 skillshare uninstall devops/_team-skills # 用 --into devops 安裝的 repo
 skillshare uninstall devops/team-skills  # 同一個 repo（除非此路徑已存在）
 ```
+
+- 在 global mode 中，可以明確指定名稱來移除沒有 checkout 的追蹤宣告（路徑不存在、一般資料夾或非 checkout 連結）。不會連線至來源，因此來源無法存取時也適用。只移除紀錄及其稽核接受紀錄，佔用路徑的內容和 `.gitignore` 不變，不檢查 Git，也不移到垃圾桶，無法透過 `trash restore` 復原。請使用含 `_` 的標準名稱或記錄的完整路徑，如 `skillshare uninstall devops/_team-skills -g`；簡寫可能選中既有 skill 或資料夾。glob、`--all` 和 `--group` 不會選中沒有 checkout 的宣告。
+
+手動刪除 checkout 會保留 global 宣告。若想還原而非移除宣告，請在來源可存取且目的路徑空閒時執行 `skillshare install -g`。後續 `install` 或 reconcile 若走訪宣告路徑的一般資料夾或有跟隨的非 checkout 連結，會將它正規化為一般紀錄（`Tracked=false`），此後一般解除安裝會把佔用路徑的內容移到垃圾桶。不存在的路徑、未跟隨或無法使用的連結不會被這樣正規化。
 
 ## 範例
 

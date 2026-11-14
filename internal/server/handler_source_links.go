@@ -2,6 +2,8 @@ package server
 
 import (
 	"errors"
+	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -10,6 +12,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/sourcelink"
 	"skillshare/internal/sourcewalk"
+	"skillshare/internal/uninstall"
 	"skillshare/internal/utils"
 )
 
@@ -119,12 +122,29 @@ func (s *Server) handleRemoveSourceLink(w http.ResponseWriter, r *http.Request) 
 	defer s.mu.Unlock()
 	name := r.PathValue("name")
 	args := map[string]any{"name": name, "scope": "ui"}
-	if err := sourcelink.Remove(s.skillsSource(), s.trashBase(), name); err != nil {
+	res, err := uninstall.Unlink(s.skillsSource(), s.trashBase(), name, !s.IsProjectMode())
+	if err != nil {
 		s.writeOpsLog("unlink", "error", start, args, err.Error())
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	var warning string
+	if res.Store != nil {
+		s.skillsStore = res.Store
+	}
+	if res.MetadataErr != nil {
+		warning = fmt.Sprintf("Unlinked, but could not update metadata: %v", res.MetadataErr)
+		log.Printf("warning: %s", warning)
+	}
+	if res.ReloadErr != nil {
+		log.Printf("warning: failed to reload skills metadata: %v", res.ReloadErr)
+	}
+
 	s.snapshotFollow()
-	s.writeOpsLog("unlink", "ok", start, args, "")
-	writeJSON(w, map[string]any{"success": true, "name": name})
+	status := "ok"
+	if warning != "" {
+		status = "partial"
+	}
+	s.writeOpsLog("unlink", status, start, args, warning)
+	writeJSON(w, map[string]any{"success": true, "name": name, "warning": warning})
 }
