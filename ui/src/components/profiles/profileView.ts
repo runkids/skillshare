@@ -48,6 +48,10 @@ export function profileReason(reason: string, t: ReturnType<typeof useT>, name =
   });
   const invalidPattern = reason.match(/^invalid (include|exclude) pattern: ("(?:[^"\\]|\\.)*"): syntax error in pattern$/s);
   if (invalidPattern) return t('profileEdit.invalidPattern', { kind: t(`profileEdit.${invalidPattern[1]}`), pattern: invalidPattern[2] });
+  const unmatched = reason.match(/^Profile ([a-z0-9][a-z0-9_-]{0,63}): unmatched patterns: (.*)$/s);
+  if (unmatched) return t('profiles.unmatchedWarning', { name: unmatched[1], patterns: unmatched[2] });
+  const previewKept = reason.match(/^kept: (.+); collect or remove manually(, or use verified --discard-edits)?$/s);
+  if (previewKept) return t(previewKept[2] ? 'profiles.previewKeptModified' : 'profiles.previewKept', { reason: profileReason(previewKept[1], t) });
   const q = JSON.stringify(name);
   const blocked = reason.match(/^profile ("(?:[^"\\]|\\.)*"): skill ("(?:[^"\\]|\\.)*") is blocked by exclude pattern ("(?:[^"\\]|\\.)*")$/s);
   if (blocked) return t('profileEdit.skillBlocked', { name: blocked[1], skill: blocked[2], pattern: blocked[3] });

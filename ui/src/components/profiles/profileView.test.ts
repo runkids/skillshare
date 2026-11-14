@@ -64,3 +64,23 @@ it('keeps external or unrecognized diagnostics intact inside and outside known w
     target: 'custom', entry: 'a', step: translated('profiles.step.prune'), reason: 'external EIO: detail',
   }));
 });
+
+it('localizes unmatched patterns without rewriting their profile or pattern bytes', () => {
+  const patterns = 'team__技能*, docs[?]';
+  expect(profileReason(`Profile work: unmatched patterns: ${patterns}`, translated)).toBe(translated('profiles.unmatchedWarning', { name: 'work', patterns }));
+});
+
+it.each([
+  ['', 'profiles.previewKept'],
+  [', or use verified --discard-edits', 'profiles.previewKeptModified'],
+])('localizes the exact preview retention wrapper %s', (suffix, key) => {
+  expect(profileReason(`kept: copy was edited or could not be verified; collect or remove manually${suffix}`, translated)).toBe(translated(key, { reason: translated('profiles.edited') }));
+  const reason = 'external EIO: /fixture/技能 folder';
+  expect(profileReason(`kept: ${reason}; collect or remove manually${suffix}`, translated)).toBe(translated(key, { reason }));
+});
+
+it('leaves changed preview diagnostic templates verbatim', () => {
+  for (const reason of ['Profile work: future warning: x', 'kept: external EIO', 'kept: external EIO; collect or remove manually, unknown suffix']) {
+    expect(profileReason(reason, translated)).toBe(reason);
+  }
+});
