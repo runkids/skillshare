@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
 
@@ -140,13 +141,8 @@ func classifyEntry(in EntryInput, sources ...CopySource) EntryClassification {
 	if utils.IsLinkMode(in.Path, info.Mode()) {
 		if managed == manifestSymlink && in.SourceRoot != "" {
 			link, err := utils.ResolveLinkTarget(in.Path)
-			root, rootErr := filepath.Abs(in.SourceRoot)
-			if err == nil && rootErr == nil {
-				root = utils.ResolveSymlink(root)
-				link = evalOrClean(link)
-				if utils.PathHasPrefix(link, strings.TrimSuffix(root, string(filepath.Separator))+string(filepath.Separator)) {
-					return EntryClassification{Class: EntryManagedLink}
-				}
+			if err == nil && linkWithinSource(link, in.SourceRoot) {
+				return EntryClassification{Class: EntryManagedLink}
 			}
 		}
 		return EntryClassification{Class: EntryUnmanaged, Reason: "link is not a recorded link into the skills source"}
@@ -162,6 +158,24 @@ func classifyEntry(in EntryInput, sources ...CopySource) EntryClassification {
 		return EntryClassification{Class: EntryCleanCopy, Fingerprint: sum}
 	}
 	return EntryClassification{Class: EntryModifiedCopy, Fingerprint: sum, Reason: "copy was edited or could not be verified"}
+}
+
+// linkWithinSource preserves the logical descendants written by createLink.
+// Following them would move sanctioned source-directory links into external
+// checkouts and lose the identity that the manifest records.
+func linkWithinSource(link, source string) bool {
+	root, err := filepath.Abs(source)
+	if err != nil {
+		return false
+	}
+	prefix := func(path string) string {
+		return strings.TrimSuffix(path, string(filepath.Separator)) + string(filepath.Separator)
+	}
+	if utils.PathHasPrefix(link, prefix(root)) {
+		return true
+	}
+	root = sourcewalk.Canonical(root)
+	return utils.PathHasPrefix(link, prefix(root)) || utils.PathHasPrefix(sourcewalk.Canonical(link), prefix(root))
 }
 
 // PreviewEntry resolves original copy inputs and shares the writer's grant-free check.

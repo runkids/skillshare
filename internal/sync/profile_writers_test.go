@@ -1638,3 +1638,49 @@ func TestProfileAwareWriters_LegacyProducerTransform(t *testing.T) {
 		}
 	}
 }
+
+func TestProfileAwareWriters_PreviewRootConversion(t *testing.T) {
+	for _, mode := range []string{"merge", "copy"} {
+		t.Run(mode, func(t *testing.T) {
+			root := t.TempDir()
+			source, target := filepath.Join(root, "source"), filepath.Join(root, "target")
+			writeSkillMD(t, filepath.Join(source, "alpha"), "---\nname: alpha\n---\n# alpha")
+			writeSkillMD(t, filepath.Join(source, "beta"), "---\nname: beta\n---\n# beta")
+			skills, err := DiscoverSourceSkills(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			st := SkillTarget{Name: "test", Target: config.TargetConfig{Path: target}, Mode: "symlink"}
+			opts := SkillRunOptions{Source: source, ProfileAware: true}
+			if r := SyncSkillTarget(st, skills, opts); r.Err != nil {
+				t.Fatal(r.Err)
+			}
+			st.Mode = mode
+			st.Target.Include = []string{"alpha"}
+			before := snapshotDetachTree(t, root)
+			opts.DryRun = true
+			preview := SyncSkillTarget(st, skills, opts)
+			if preview.Err != nil || preview.PruneErr != nil || len(preview.Blocked)+len(preview.KeptModified)+len(preview.Pruned)+len(preview.Updated)+len(preview.Converted) != 0 || !reflect.DeepEqual(preview.Linked, []string{"alpha"}) {
+				t.Fatalf("root conversion preview: %+v", preview)
+			}
+			if !reflect.DeepEqual(before, snapshotDetachTree(t, root)) {
+				t.Fatal("preview wrote through source-root link")
+			}
+			sourceBefore := snapshotDetachTree(t, source)
+			opts.DryRun = false
+			actual := SyncSkillTarget(st, skills, opts)
+			if actual.Err != nil || actual.PruneErr != nil || !reflect.DeepEqual(actual.Linked, preview.Linked) || len(actual.Blocked)+len(actual.KeptModified) != 0 {
+				t.Fatalf("root conversion actual: %+v", actual)
+			}
+			if utils.IsSymlinkOrJunction(target) {
+				t.Fatal("root was not converted")
+			}
+			if _, err := os.Lstat(filepath.Join(target, "beta")); !os.IsNotExist(err) {
+				t.Fatalf("excluded skill deployed: %v", err)
+			}
+			if !reflect.DeepEqual(sourceBefore, snapshotDetachTree(t, source)) {
+				t.Fatal("conversion modified source")
+			}
+		})
+	}
+}

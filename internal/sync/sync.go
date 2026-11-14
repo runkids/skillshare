@@ -620,6 +620,15 @@ func syncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkill
 	printResolutionSummary(resolution)
 	result.UnmatchedIncludes = resolution.UnmatchedIncludes
 
+	// The real run replaces this root link with an empty directory. Do not
+	// inspect the source's entries or manifest through the old root in preview.
+	if dryRun && utils.IsSymlinkOrJunction(sc.Path) && isSymlinkToSource(sc.Path, sourcePath) {
+		for _, skill := range resolution.Skills {
+			result.Linked = append(result.Linked, skill.TargetName)
+		}
+		return result, nil
+	}
+
 	manifest, err := ReadManifest(sc.Path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read manifest: %w", err)
@@ -885,6 +894,9 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 	dryRun := opts.DryRun
 	force := opts.Force
 	result := &PruneResult{}
+	if dryRun && utils.IsSymlinkOrJunction(targetPath) && isSymlinkToSource(targetPath, sourcePath) {
+		return result, nil // root conversion leaves no old entries to prune
+	}
 
 	// Read manifest for managed-directory detection (may be empty/absent)
 	manifest, manifestErr := ReadManifest(targetPath)
@@ -917,8 +929,6 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 		}
 		return nil, fmt.Errorf("failed to read target directory: %w", err)
 	}
-
-	absSource, _ := filepath.Abs(sourcePath)
 
 	for _, entry := range entries {
 		name := entry.Name()
@@ -969,7 +979,7 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 				targetExists = true
 			}
 
-			if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) {
+			if linkWithinSource(absLink, sourcePath) {
 				if !targetExists {
 					shouldRemove = true
 					reason = "broken symlink to source"

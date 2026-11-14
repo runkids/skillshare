@@ -99,6 +99,21 @@ func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 	printResolutionSummary(resolution)
 	result.UnmatchedIncludes = resolution.UnmatchedIncludes
 
+	// Root conversion leaves an empty target, not the source visible through
+	// the old link. Still check each selected source as a real copy would.
+	if dryRun && utils.IsSymlinkOrJunction(sc.Path) && isSymlinkToSource(sc.Path, sourcePath) {
+		for i, skill := range resolution.Skills {
+			if onProgress != nil {
+				onProgress(i+1, len(resolution.Skills), skill.TargetName)
+			}
+			if _, err := DirChecksumWithIgnore(skill.Skill.SourcePath, ignorePatterns); err != nil {
+				return nil, fmt.Errorf("failed to checksum source skill %s: %w", skill.TargetName, err)
+			}
+			result.Copied = append(result.Copied, skill.TargetName)
+		}
+		return result, nil
+	}
+
 	// Read existing manifest
 	manifest, err := ReadManifest(sc.Path)
 	if err != nil {
@@ -109,9 +124,14 @@ func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 	taken := resolution.ValidTargetNames()
 	for i, resolved := range resolution.Skills {
 		skill := resolved.Skill
-		activeName, err := selectActiveTargetNameForSync("copy", sc.Path, resolved, taken, manifest, dryRun, opts.ProfileAware && !force, ignorePatterns, PruneOptions{SourcePath: sourcePath, Skills: allSkills})
+		activeName, migratedDiscard, err := selectActiveTargetNameWithDiscard("copy", sc.Path, resolved, taken, manifest, dryRun, opts.ProfileAware && !force, ignorePatterns, name, opts.Discard, PruneOptions{SourcePath: sourcePath, Skills: allSkills})
 		if err != nil {
 			return nil, err
+		}
+		skillDiscard := opts.Discard
+		if migratedDiscard != nil {
+			// Do not mutate the caller's grants shared by other target writers.
+			skillDiscard = append(append([]DiscardEntry(nil), opts.Discard...), *migratedDiscard)
 		}
 		if onProgress != nil {
 			onProgress(i+1, len(resolution.Skills), activeName)
@@ -165,7 +185,7 @@ func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 			if !opts.ProfileAware || force {
 				return true
 			}
-			entry, allowed := entryMutationAllowed(name, input, opts.Discard, originals...)
+			entry, allowed := entryMutationAllowed(name, input, skillDiscard, originals...)
 			verified = []EntryClassification{entry}
 			if !allowed {
 				reportKept(entry)
@@ -177,7 +197,7 @@ func syncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 				return false
 			}
 			entry := verified[0]
-			return entry.Class == EntryModifiedCopy && discardAllowed(name, cleanEntryDir(sc.Path), activeName, entry, opts.Discard)
+			return entry.Class == EntryModifiedCopy && discardAllowed(name, cleanEntryDir(sc.Path), activeName, entry, skillDiscard)
 		}
 		copyCurrent := func() (bool, error) {
 			if beforeMutation != nil {
@@ -460,6 +480,9 @@ func pruneOrphanCopiesWithConfig(targetName string, sc config.ResourceTargetConf
 func pruneOrphanCopiesWithPolicy(targetName string, sc config.ResourceTargetConfig, allSourceSkills []DiscoveredSkill, dryRun bool, sourceRoot string, profileAware bool, discard []DiscardEntry, ignore []string, verification ...PruneOptions) (*PruneResult, error) {
 	targetPath := sc.Path
 	result := &PruneResult{}
+	if dryRun && sourceRoot != "" && utils.IsSymlinkOrJunction(targetPath) && isSymlinkToSource(targetPath, sourceRoot) {
+		return result, nil // root conversion leaves no old entries to prune
+	}
 
 	manifest, err := ReadManifest(targetPath)
 	if err != nil {
