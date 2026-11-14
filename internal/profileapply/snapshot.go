@@ -2,6 +2,7 @@ package profileapply
 
 import (
 	"fmt"
+	"maps"
 	"path/filepath"
 
 	"skillshare/internal/backup"
@@ -20,6 +21,16 @@ func snapshots(v *View, targets map[string]config.TargetConfig, entries []ssync.
 	if create == nil {
 		create = backup.CreateInDir
 	}
+	configured := v.Config.Targets
+	if v.Project != nil {
+		configured = maps.Clone(configured)
+		_, unresolved := config.ResolveValidProjectTargets(v.Scope.ProjectRoot, v.Project)
+		// Reserve unresolved names too, matching the restore destination resolver.
+		for name := range unresolved {
+			configured[name] = config.TargetConfig{}
+		}
+	}
+
 	var saved []Snapshot
 	var discard []ssync.DiscardEntry
 	// Resolve every location and key before creating even the first backup.
@@ -61,7 +72,7 @@ func snapshots(v *View, targets map[string]config.TargetConfig, entries []ssync.
 			}
 			key = backup.MovedEntryName(entry.Target, rel)
 		}
-		resolved, err := backup.SkillsEntryDir(v.Scope.ProjectRoot, key, v.Config.Targets)
+		resolved, err := backup.SkillsEntryDir(v.Scope.ProjectRoot, key, configured)
 		if err == nil {
 			resolved, err = filepath.Abs(resolved)
 		}

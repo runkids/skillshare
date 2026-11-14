@@ -15,6 +15,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/profile"
 	ssync "skillshare/internal/sync"
+	"skillshare/internal/testutil"
 )
 
 func TestProfileApply_CLIAPIConcurrency(t *testing.T) {
@@ -411,6 +412,60 @@ func TestProfiles_PrefixedRoundTrip(t *testing.T) {
 			}
 			if !reflect.DeepEqual(before, tree(t, f.target)) {
 				t.Fatal("refusal changed edited target")
+			}
+		})
+	}
+}
+
+func TestProfiles_LegacyDeclaredNameSwitch(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(fmt.Sprint(project), func(t *testing.T) {
+			f := newFixture(t, project, "copy")
+			text := strings.Replace(read(t, f.path), "mode: copy", "mode: copy\n      target_naming: prefixed", 1)
+			write(t, f.path, strings.Replace(text, "include: [alpha]", "include: [_repo__folder]", 1))
+			write(t, filepath.Join(f.source, "_repo", "folder", "SKILL.md"), "---\nname: actual\n---\nproducer bytes\n")
+			testutil.RunGit(t, filepath.Join(f.source, "_repo"), "init", "--quiet")
+			cfg := config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: f.target, TargetNaming: "prefixed", Include: []string{"_repo__folder"}}}
+			if _, err := ssync.SyncTargetCopy("custom", cfg, f.source, false, false); err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(f.target, "repo-actual", "SKILL.md")
+			if got := read(t, path); got != "---\nname: repo-actual\n---\nproducer bytes\n" {
+				t.Fatal("ordinary producer did not rewrite declared name", got)
+			}
+			manifest, err := ssync.ReadManifest(f.target)
+			if err != nil || manifest.Managed["repo-actual"] == "" || manifest.Naming["repo-actual"] != "prefixed" {
+				t.Fatal("ordinary producer evidence missing", manifest, err)
+			}
+			delete(manifest.Outputs, "repo-actual")
+			if err := ssync.WriteManifest(f.target, manifest); err != nil {
+				t.Fatal(err)
+			}
+			sourceBefore, targetBefore := tree(t, f.source), tree(t, f.target)
+			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a", DryRun: true}); err != nil {
+				t.Fatal("clean declared-name preview refused", err)
+			}
+			if !reflect.DeepEqual(targetBefore, tree(t, f.target)) {
+				t.Fatal("switch preview changed legacy target")
+			}
+			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "a"}); err != nil {
+				t.Fatal("clean declared-name switch refused", err)
+			}
+			if got := read(t, path); got != "---\nname: repo-actual\n---\nproducer bytes\n" {
+				t.Fatal("switch changed clean rewritten producer bytes", got)
+			}
+			write(t, path, "authored declared-name edit")
+			statePath, _, _ := config.ProfilePaths(f.path)
+			configBefore, stateBefore := read(t, f.path), read(t, statePath)
+			targetBefore = tree(t, f.target)
+			if _, err := Apply(context.Background(), Request{Scope: f.scope, Name: "b"}); !errors.Is(err, ErrRefused) {
+				t.Fatal("edited declared-name switch not refused", err)
+			}
+			if !reflect.DeepEqual(targetBefore, tree(t, f.target)) || read(t, f.path) != configBefore || read(t, statePath) != stateBefore {
+				t.Fatal("refused switch changed target, definition or selection")
+			}
+			if !reflect.DeepEqual(sourceBefore, tree(t, f.source)) {
+				t.Fatal("profile operation changed original producer or tracked metadata")
 			}
 		})
 	}

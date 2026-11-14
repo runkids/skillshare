@@ -436,9 +436,10 @@ func printUpdateRow(mark, name, detail string, took time.Duration) {
 }
 
 // isSecurityError returns true if the error originated from the audit gate.
-// All security-related errors wrap audit.ErrBlocked as a sentinel.
+// Security-related errors wrap audit.ErrBlocked, or install.ErrAuditScanFailed
+// when a reinstall's audit could not run.
 func isSecurityError(err error) bool {
-	return errors.Is(err, audit.ErrBlocked)
+	return errors.Is(err, audit.ErrBlocked) || errors.Is(err, install.ErrAuditScanFailed)
 }
 
 func truncateString(s string, maxLen int) string { return truncateStr(s, maxLen) }

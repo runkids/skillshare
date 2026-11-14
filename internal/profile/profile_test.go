@@ -21,6 +21,36 @@ func section(t *testing.T, text string) *yaml.Node {
 	return &wrapper.Profiles
 }
 
+func TestMutateFutureDefinitionRawRepair(t *testing.T) {
+	for _, active := range []string{"", "future"} {
+		node := section(t, "profiles:\n  future: # preserve comment\n    new_rule: [alpha, beta]\n  other: {}\n")
+		before, err := yaml.Marshal(node)
+		if err != nil {
+			t.Fatal(err)
+		}
+		renamed, change, err := Mutate(node, active, Mutation{Op: "rename", Name: "future", NewName: "renamed"})
+		if err != nil || !change.Changed || (active != "" && change.Active != "renamed") {
+			t.Errorf("raw rename: %+v %v", change, err)
+		} else if data, err := yaml.Marshal(renamed); err != nil || !strings.Contains(string(data), "preserve comment") || !strings.Contains(string(data), "new_rule: [alpha, beta]") || Parse(renamed).Definitions["renamed"].Usable {
+			t.Errorf("raw rename interpreted/lost future content: %s %v", data, err)
+		}
+		_, _, err = Mutate(node, active, Mutation{Op: "delete", Name: "future"})
+		if (err != nil) != (active == "future") {
+			t.Errorf("delete active=%q: %v", active, err)
+		}
+		if _, _, err := Mutate(node, active, Mutation{Op: "edit", Name: "future", AddInclude: []string{"alpha"}}); err == nil {
+			t.Error("semantic edit interpreted unknown definition")
+		}
+		if _, _, err := Mutate(node, active, Mutation{Op: "rename", Name: "future", NewName: "other"}); err == nil {
+			t.Error("raw rename replaced another definition")
+		}
+		after, err := yaml.Marshal(node)
+		if err != nil || string(after) != string(before) {
+			t.Fatal("raw operation mutated input node", err)
+		}
+	}
+}
+
 func TestParseSelectionAndValidation(t *testing.T) {
 	n := section(t, `profiles:
   all: {}

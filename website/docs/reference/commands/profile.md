@@ -40,6 +40,8 @@ Create without patterns makes an empty selection. A definition with no `skills` 
 
 Definition changes save without syncing. Changes affecting the active selection print `Next: skillshare sync`. Renaming the locally active definition follows its name in local state. Deleting it is refused until you switch away.
 
+An unusable definition, including one with keys from a newer version, can still be renamed or deleted while inactive. Rename preserves its raw contents and comments, even when active; it does not make the definition usable. Active deletion, semantic edits and activation retain their validation.
+
 ## Assign skills {#assign-skills}
 
 `profile add <name> <skill>...` and `profile remove <name> <skill>...` accept flat source names, source-relative paths, or unique base names. An ambiguous base name fails with its candidates. Assignment does not activate a profile, sync a target, or override `.skillignore`, target filters or skill routing.
@@ -82,6 +84,8 @@ A switch visits this config's valid, enabled merge/copy skill targets only. Targ
 
 Edited managed copies and unmanaged entries are kept across copy/merge mode changes. A switch that would replace or prune one refuses and lists its reason. Use `skillshare collect` to retain authored changes in the source. `--discard-edits` only authorizes the listed modified managed copies; it never authorizes unmanaged content. The snapshot must contain the planned bytes, and the writer checks again before deletion. Edits made after planning remain in place.
 
+While a profile or pending switch exists, `diff` shows preserved copies with a kept reason, including copies left in former project folders. These rows are visible in text, JSON and the TUI but count as no executable changes. The API retains force-sensitive `skip` rows for selected entries; departing preservation is `kept` even with Force enabled. Collect or manually remove unmanaged content; verified discard is available only for modified managed copies.
+
 Snapshots use the existing global backup directory, or `.skillshare/backups` in project mode. Text and JSON output include their paths and restore commands. Existing backup retention applies: restore before cleanup removes the snapshot. The same snapshot rule applies to ordinary `sync --discard-edits`, independently of JSON output. In project mode this includes declared former skills folders of selected eligible targets; each reported moved restore command recovers its original folder without replacing the current one. `--no-sync` cannot be combined with discard.
 
 ## State and recovery {#state-and-recovery}
@@ -94,7 +98,11 @@ Mutations and skill sync take a bounded file lock before reloading config/state.
 
 Missing, unusable or unreadable active state blocks skill sync, diff, analyze, the sync matrix and target-bound skill serving. Status and profile list show the cause. Repair with `skillshare profile use <name>` or `skillshare profile use --none`; neither silently falls back to all skills. Filesystem permission problems may need repair first.
 
-With no profile key or state, existing commands retain their behavior. Inactive definitions are inert, apart from locking ordinary skill sync. Older binaries ignore local selection and can drop definitions when saving config. Copy manifests now record output fingerprints; only bytes and relative paths count, excluding the standard ignored files. Modes, ownership and timestamps are not preserved edits.
+With no profile key or state, existing commands retain their behavior. Inactive definitions are inert, apart from locking ordinary skill sync. Older binaries ignore local selection and can drop definitions when saving config.
+
+Copy manifests record versioned output fingerprints (`sha256-v2:`), framing each relative path and file's bytes separately. Standard ignored files, modes, ownership and timestamps do not count as preserved edits. Source checksums keep their existing meaning.
+
+During profile operations, an older copy is clean only when available source matches its recorded source checksum and reproduces the deployed bytes, including any target-name rewrite. This establishes present reproducibility, not historical provenance. Missing source or a failed replay keeps the copy protected. Unknown, malformed or explicitly empty output fingerprints are also protected; they never fall back to an older encoding. Older source-free verification remains available outside profile operations for compatibility. Binaries predating output fingerprints cannot provide this protection after a downgrade.
 
 ## JSON {#json}
 

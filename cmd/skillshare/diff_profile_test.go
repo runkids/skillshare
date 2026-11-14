@@ -40,7 +40,7 @@ func TestDiffProfileReasons(t *testing.T) {
 			}
 			text += "profiles:\n  frontend:\n    skills:\n      include: [target-only]\n"
 			for _, name := range []string{"other", "target-only"} {
-				for _, dir := range []string{source, target} {
+				for _, dir := range []string{source} {
 					if err := os.MkdirAll(filepath.Join(dir, name), 0755); err != nil {
 						t.Fatal(err)
 					}
@@ -55,8 +55,13 @@ func TestDiffProfileReasons(t *testing.T) {
 			if err := os.WriteFile(path, []byte(text), 0600); err != nil {
 				t.Fatal(err)
 			}
-			if err := ssync.WriteManifest(target, &ssync.Manifest{Managed: map[string]string{"other": "fixture", "target-only": "fixture"}}); err != nil {
+			skills, err := ssync.DiscoverSourceSkills(source)
+			if err != nil {
 				t.Fatal(err)
+			}
+			publication := ssync.SyncSkillTarget(ssync.SkillTarget{Name: "custom", Target: config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: target}}, Mode: "copy"}, skills, ssync.SkillRunOptions{Source: source})
+			if publication.Err != nil || publication.PruneErr != nil || len(publication.Linked) != 2 {
+				t.Fatalf("managed publication: %+v", publication)
 			}
 			statePath, _, err := config.ProfilePaths(path)
 			if err != nil {

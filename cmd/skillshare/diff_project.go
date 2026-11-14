@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 	gosync "sync"
 	"time"
 
@@ -122,13 +123,28 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 			defer wg.Done()
 			defer func() { <-sem }()
 			progress.startTarget(rt.name)
-			r := collectTargetDiff(rt.name, rt.target, runtime.sourcePath, rt.mode, rt.resolution, ignorePatterns, progress)
+			r := collectTargetDiff(rt.name, rt.target, runtime.sourcePath, rt.mode, rt.resolution, ignorePatterns, progress, profileDiffPreview{aware: cfg.ProfileState().Active != "" || cfg.ProfileState().Pending, skills: discovered})
 			labelProfileDeselected(&r, rt.deselected)
 			progress.doneTarget(rt.name, r)
 			results[idx] = r
 		}(i, rt)
 	}
 	wg.Wait()
+
+	if cfg.ProfileState().Active != "" || cfg.ProfileState().Pending {
+		moved := sync.MovedProjectTargets(runtime.config, runtime.targets)
+		for i := range moved {
+			moved[i].Disabled = moved[i].Disabled || (targetName != "" && moved[i].Name != targetName)
+		}
+		for _, change := range sync.PreviewMovedProjectEntries(root, runtime.sourcePath, moved, discovered, ignorePatterns) {
+			for i := range results {
+				if results[i].name == change.Target {
+					results[i].items = append(results[i].items, copyDiffEntry{action: "kept", name: change.Entry, reason: change.Reason, dstDir: filepath.Join(change.Dir, change.Entry)})
+					results[i].synced = false
+				}
+			}
+		}
+	}
 
 	progress.stop()
 

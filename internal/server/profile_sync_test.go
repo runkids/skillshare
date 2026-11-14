@@ -17,6 +17,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/profile"
 	"skillshare/internal/profileapply"
+	ssync "skillshare/internal/sync"
 )
 
 func TestWriteProfileError_Transport(t *testing.T) {
@@ -233,55 +234,6 @@ func TestProfiles_APIOrdinarySyncAgreement(t *testing.T) {
 	}
 }
 
-func TestProfiles_APIDiscardAndPendingNone(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	for _, key := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR"} {
-		t.Setenv(key, "")
-	}
-	dest := t.TempDir()
-	s, source := newTestServerWithTargets(t, map[string]string{"custom": dest})
-	addSkill(t, source, "alpha")
-	path := config.ConfigPath()
-	text := "source: " + source + "\nmode: copy\ntargets:\n  custom:\n    skills:\n      path: " + dest + "\nprofiles:\n  all: {}\n"
-	if err := os.WriteFile(path, []byte(text), 0600); err != nil {
-		t.Fatal(err)
-	}
-	scope := profileapply.Scope{ConfigPath: path}
-	if _, err := profileapply.Apply(context.Background(), profileapply.Request{Scope: scope, Name: "all"}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := profileapply.Apply(context.Background(), profileapply.Request{Scope: scope, None: true, NoSync: true}); err != nil {
-		t.Fatal(err)
-	}
-	edited := filepath.Join(dest, "alpha", "SKILL.md")
-	if err := os.WriteFile(edited, []byte("authored"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	// Change source to require refresh during the pending clear-to-none retry.
-	if err := os.WriteFile(filepath.Join(source, "alpha", "SKILL.md"), []byte("# new source"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	for _, discard := range []bool{false, true} {
-		body := `{"kind":"skill"}`
-		if discard {
-			body = `{"kind":"skill","discardEdits":true}`
-		}
-		rr := httptest.NewRecorder()
-		s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(body)))
-		if rr.Code != http.StatusOK {
-			t.Fatalf("sync: %d %s", rr.Code, rr.Body.String())
-		}
-		if !discard {
-			bytes, _ := os.ReadFile(edited)
-			if string(bytes) != "authored" || !strings.Contains(rr.Body.String(), "kept_modified") {
-				t.Fatal("pending-none lost edit or report")
-			}
-		} else if !strings.Contains(rr.Body.String(), "snapshot") {
-			t.Fatal("discard lacks snapshot")
-		}
-	}
-}
-
 func TestProfiles_APISyncBacksUpBeforeRefresh(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	for _, key := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR"} {
@@ -318,6 +270,80 @@ func TestProfiles_APISyncBacksUpBeforeRefresh(t *testing.T) {
 	saved, err := os.ReadFile(paths[0])
 	if err != nil || string(saved) != string(old) {
 		t.Fatal("automatic backup captured refreshed content", err)
+	}
+	actual, err := os.ReadFile(filepath.Join(dest, "alpha", "SKILL.md"))
+	if err != nil || string(actual) != "# changed source" {
+		t.Fatalf("API sync did not refresh after backup: %q, %v", actual, err)
+	}
+}
+
+func TestProfiles_APIDiscardUnchangedSource(t *testing.T) {
+	for _, tc := range []struct {
+		project, checksum, pending bool
+	}{
+		{},
+		{checksum: true},
+		{project: true},
+		{project: true, checksum: true},
+		{pending: true},
+	} {
+		t.Run(fmt.Sprintf("project=%v/checksum=%v/pending=%v", tc.project, tc.checksum, tc.pending), func(t *testing.T) {
+			scenario, authored, active := "retained", "authored alpha", "all"
+			if tc.pending {
+				scenario, authored, active = "pending_none", "authored", ""
+			}
+			s, scope, dest, source := newProfileDiffFixture(t, tc.project, "copy", scenario)
+			entry := filepath.Join(dest, "alpha", "SKILL.md")
+			if tc.pending {
+				if err := os.WriteFile(entry, []byte(authored), 0600); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(source, "alpha", "SKILL.md"), []byte("# new source"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				rr := httptest.NewRecorder()
+				s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{"kind":"skill"}`)))
+				data, err := os.ReadFile(entry)
+				if rr.Code != http.StatusOK || err != nil || string(data) != authored || !strings.Contains(rr.Body.String(), "kept_modified") {
+					t.Fatalf("pending-none lost edit or report: %d %s, %q %v", rr.Code, rr.Body.String(), data, err)
+				}
+			}
+			if tc.checksum {
+				m, err := ssync.ReadManifest(dest)
+				if err != nil {
+					t.Fatal(err)
+				}
+				delete(m.Mtimes, "alpha")
+				if err := ssync.WriteManifest(dest, m); err != nil {
+					t.Fatal(err)
+				}
+			}
+			rr := httptest.NewRecorder()
+			s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{"kind":"skill","discardEdits":true}`)))
+			var out struct {
+				Snapshot []profileapply.Snapshot
+			}
+			if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil || rr.Code != http.StatusOK || len(out.Snapshot) != 1 {
+				t.Fatalf("discard: %d %s %v", rr.Code, rr.Body.String(), err)
+			}
+			saved, err := os.ReadFile(filepath.Join(out.Snapshot[0].Path, "alpha", "SKILL.md"))
+			if err != nil || string(saved) != authored {
+				t.Fatal("API snapshot lost authored bytes", err)
+			}
+			original, err := os.ReadFile(filepath.Join(source, "alpha", "SKILL.md"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			actual, err := os.ReadFile(entry)
+			if err != nil || string(actual) != string(original) || (tc.pending && string(actual) != "# new source") {
+				t.Fatalf("successful discard retained edit: %q %v", actual, err)
+			}
+			statePath, _, _ := config.ProfilePaths(scope.Path())
+			state, err := profile.ReadState(statePath)
+			if err != nil || state.Pending || state.Active != active {
+				t.Fatal("API discard did not settle", state, err)
+			}
+		})
 	}
 }
 

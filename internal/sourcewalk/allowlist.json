@@ -1024,6 +1024,14 @@
     "note": "List sandbox fixture contents"
   },
   {
+    "file": "internal/testutil/testutil.go",
+    "function": "SnapshotTree",
+    "callee": "filepath.Walk",
+    "root": "root",
+    "reason": "test-fixture",
+    "note": "Snapshot fixture paths, modes, mtimes, link targets and file bytes without following directory links"
+  },
+  {
     "file": "internal/trash/trash.go",
     "function": "List",
     "callee": "filepath.WalkDir",

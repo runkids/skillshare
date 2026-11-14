@@ -508,6 +508,16 @@ skillshare install <source> --force
 
 **Solution:** Open the file in an editor that shows hidden characters and remove them, or force install if you trust the source.
 
+### `audit scan failed`
+
+**Cause:** The audit could not run, for example because `audit-rules.yaml` does not parse or one of its patterns does not compile. The error names the file. `install` refuses the skill, agent or tracked repository and removes what it installed. `update` and `upgrade --skill` keep the installed copy. `--force` does not help: it accepts findings, and a scan that did not run has none.
+
+**Solution:** Fix the file the error names (see [audit rules](/docs/reference/commands/audit-rules)). If you trust the source, you can install without scanning:
+
+```bash
+skillshare install <source> --skip-audit
+```
+
 ---
 
 ## Upgrade Errors

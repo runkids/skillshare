@@ -233,6 +233,7 @@ The file is written for you. You never edit it:
 |---------|------------------------|
 | `skillshare install <source> -p` | Pins the new skill to the commit it was installed from |
 | `skillshare install -p` | Installs every skill at its pinned commit. A skill that is already installed at another commit is moved to the pinned one |
+| `skillshare install -p --json` | With `--json`, existing copies are skipped even when the project lock points to a different commit; add `--force` to follow that pin. |
 | `skillshare update <name> -p` | Moves the skill to the latest commit and rewrites its pin, so the change shows up in code review |
 | `skillshare uninstall <name> -p` | Removes the pin |
 

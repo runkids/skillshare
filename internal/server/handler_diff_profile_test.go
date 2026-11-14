@@ -29,10 +29,14 @@ func TestDiffProfileReasons(t *testing.T) {
 			}
 			for _, name := range []string{"other", "target-only"} {
 				addSkill(t, source, name)
-				addSkill(t, target, name)
 			}
-			if err := ssync.WriteManifest(target, &ssync.Manifest{Managed: map[string]string{"other": "fixture", "target-only": "fixture"}}); err != nil {
+			skills, err := ssync.DiscoverSourceSkills(source)
+			if err != nil {
 				t.Fatal(err)
+			}
+			publication := ssync.SyncSkillTarget(ssync.SkillTarget{Name: "custom", Target: config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: target}}, Mode: "copy"}, skills, ssync.SkillRunOptions{Source: source})
+			if publication.Err != nil || publication.PruneErr != nil || len(publication.Linked) != 2 {
+				t.Fatalf("managed publication: %+v", publication)
 			}
 			text := fmt.Sprintf("source: %s\nmode: %s\ntargets:\n  custom:\n    skills:\n      path: %s\n      exclude: [target-only]\nprofiles:\n  frontend:\n    skills:\n      include: [target-only]\n", source, mode, target)
 			if s.IsProjectMode() {

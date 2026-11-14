@@ -57,6 +57,7 @@ trap 'rm -rf "$fixtureRoot"' EXIT
 mkdir -p "$fixtureRoot/.skillshare/skills/alpha"
 printf '%s\n' '---' 'name: alpha' '---' '# alpha' > "$fixtureRoot/.skillshare/skills/alpha/SKILL.md"
 printf 'targets:\n  - name: custom\n    skills:\n      path: %s/target\n      mode: merge\n' "$fixtureRoot" > "$fixtureRoot/.skillshare/config.yaml"
+printf '\nprofiles:\n  future:\n    future_selector: retained\n' >> "$fixtureRoot/.skillshare/config.yaml"
 cd "$fixtureRoot"
 ss profile create work --add-include alpha -p >/dev/null
 ss profile use work -p >/dev/null
@@ -65,6 +66,9 @@ ss profile rename work renamed -p >/dev/null
 if ss profile delete renamed -p >/dev/null 2>&1; then exit 1; fi
 ss profile use --none -p >/dev/null
 ss profile delete renamed -p >/dev/null
+ss profile rename future later -p >/dev/null
+grep -q 'future_selector: retained' "$fixtureRoot/.skillshare/config.yaml"
+ss profile delete later -p >/dev/null
 ss profile list --json -p
 ```
 
@@ -87,6 +91,11 @@ ss profile create a --add-include alpha -g >/dev/null
 ss profile create empty -g >/dev/null
 ss profile use a -g >/dev/null
 printf 'authored\n' > "$fixtureRoot/target/alpha/SKILL.md"
+ss diff --json -g > "$fixtureRoot/diff.json"
+jq -e '.targets[].items[] | select(.name == "alpha") | .action == "kept" and .is_sync == false and (.reason | contains("collect"))' "$fixtureRoot/diff.json" >/dev/null
+ss diff --no-tui -g > "$fixtureRoot/diff.txt"
+grep -qi kept "$fixtureRoot/diff.txt"
+test "$(cat "$fixtureRoot/target/alpha/SKILL.md")" = authored
 if ss profile use empty --allow-empty -g >/dev/null 2>&1; then exit 1; fi
 test "$(cat "$fixtureRoot/target/alpha/SKILL.md")" = authored
 ss profile use empty --allow-empty --discard-edits --json -g > "$fixtureRoot/result.json"
@@ -101,6 +110,15 @@ cat "$fixtureRoot/result.json"
 **Expected**:
 - exit_code: 0
 - jq: .complete == true and (.snapshot | length) == 1 and (.snapshot[0].restore | contains("restore")) and (.snapshot[0].retention | length) > 0
+
+Preservation checks for parent-owned regression execution:
+
+- Binary file boundaries produce distinct output identities even when the old checksum bytes collide.
+- Legacy clean acceptance requires available source replay; unavailable or unknown output records stay protected.
+- Source-checksum literals and the unchanged no-profile executable comparison remain passing controls.
+- All eight scope/operation/fast-path discard rows snapshot authored bytes and actually refresh unchanged source.
+- GET/SSE and CLI previews agree with subsequent writers; kept rows never claim prune work.
+- Raw future-definition rename/delete preserves unknown nodes; active delete and semantic use/edit still refuse.
 
 ### 4. Explicit-empty definitions require confirmation
 
@@ -124,6 +142,8 @@ ss profile use empty --allow-empty --json -g
 
 ### 5. Recover a project skills snapshot
 
+Preview writes no target content; restore recovers the authored bytes without switching the active profile. The destination is replaced as a whole. Manual `backup -p` still requires `agents`; use `backup --list -p` to find profile snapshots. Restore of a recognized moved key returns bytes to its declared former folder, leaving the current folder untouched. Save edits into source before resync.
+
 ```bash
 set -eu
 unset CODEX_HOME CLAUDE_CONFIG_DIR PI_CODING_AGENT_DIR
@@ -140,16 +160,17 @@ printf 'authored\n' > target/alpha/SKILL.md
 ss profile use empty --allow-empty --discard-edits --json -p > result.json
 snapshotPath=$(jq -r '.snapshot[0].path' result.json)
 restoreStamp=$(basename "$(dirname "$snapshotPath")")
-ss restore custom --from "$restoreStamp" -p --dry-run >/dev/null
+ss restore custom --from "$restoreStamp" -p --dry-run --force >/dev/null
 test ! -e target/alpha
 ss restore custom --from "$restoreStamp" -p --force >/dev/null
 cmp "$snapshotPath/alpha/SKILL.md" target/alpha/SKILL.md
 ss status --json -p | jq -e '.profile.name == "empty"' >/dev/null
+printf '%s\n' 'Project snapshot recovery verified'
 ```
 
 **Expected**:
 - exit_code: 0
-- Preview writes no target content; restore recovers the authored bytes without switching the active profile. The destination is replaced as a whole. Manual `backup -p` still requires `agents`; use `backup --list -p` to find profile snapshots. Restore of a recognized moved key returns bytes to its declared former folder, leaving the current folder untouched. Save edits into source before resync.
+- Project snapshot recovery verified
 
 ### 6. Assign, explain, diagnose and hint in both modes
 

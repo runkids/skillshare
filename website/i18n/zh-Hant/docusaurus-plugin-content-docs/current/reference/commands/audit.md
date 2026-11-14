@@ -210,7 +210,7 @@ skillshare install /path/to/skill --skip-audit
 # Bypasses scanning (use with caution)
 ```
 
-`--force` 會覆蓋阻擋決策。`--skip-audit` 會停用該次安裝指令的掃描。
+`--force` 會覆蓋由發現項目造成的阻擋決策；掃描無法執行時仍會阻擋。`--skip-audit` 會停用該次安裝指令的掃描。
 
 沒有任何 config flag 可以全域停用安裝時的 audit。請只在你確實想略過掃描的指令上使用 `--skip-audit`。
 
@@ -375,7 +375,7 @@ audit 會掃描 skill 目錄中的文字型檔案：
 | `--yes`, `-y` | Skip large-scan confirmation prompt (auto-confirms) |
 | `--quiet`, `-q` | Only show skills with findings + summary (suppress clean ✓ lines) |
 | `--no-tui` | Disable interactive TUI, print plain text output |
-| `--respect-accepted` | Do not fail on findings accepted earlier with `--force`; they are marked as accepted. See [Accepted findings](#accepted-findings) |
+| `--respect-accepted` | 不因先前用 `--force` 接受的發現而失敗，並將其標示為已接受。見 [已接受的發現](#accepted-findings) |
 | `--init-rules` | Create a starter `audit-rules.yaml` (respects `-p`/`-g`) |
 | `-h`, `--help` | Show help |
 
