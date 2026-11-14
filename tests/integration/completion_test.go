@@ -26,6 +26,26 @@ func TestCompletion_Updates_AllShells(t *testing.T) {
 	}
 }
 
+func TestCompletion_CLISearch_AllShells(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	for shell, want := range map[string][]string{
+		"bash":       {`cli_subcmds="search help"`, `cli_search_flags="--limit --json -j --help -h"`},
+		"zsh":        {"'cli:Discover CLI commands'", "'1:CLI command:(search help)'", "'--limit[Maximum results (1-20)]:count:'", "'-j[JSON output]'"},
+		"fish":       {"-a cli -d 'Discover CLI commands'", "-a 'search help'", "cli search' -l limit -r", "cli search' -l json -s j"},
+		"powershell": {"Name = 'cli'; Desc = 'Discover CLI commands'", "'cli' = @(", "'cli search' = '--limit', '--json', '-j', '--help', '-h'"},
+		"nushell":    {`export extern "skillshare cli"`, `[search help]`, `export extern "skillshare cli search"`, `--json(-j)`},
+	} {
+		t.Run(shell, func(t *testing.T) {
+			result := sb.RunCLI("completion", shell)
+			result.AssertSuccess(t)
+			for _, fragment := range want {
+				result.AssertOutputContains(t, fragment)
+			}
+		})
+	}
+}
+
 func TestCompletion_Bash_OutputsScript(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

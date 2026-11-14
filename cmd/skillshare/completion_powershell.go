@@ -14,6 +14,7 @@ $_skillshareCompleter = {
             @{ Name = 'unlink'; Desc = 'Remove a link from the source' }
             @{ Name = 'move'; Desc = 'Move skills or folders within the source' }
             @{ Name = 'list'; Desc = 'List installed skills' }
+            @{ Name = 'cli'; Desc = 'Discover CLI commands' }
             @{ Name = 'search'; Desc = 'Search or browse GitHub for skills' }
             @{ Name = 'sync'; Desc = 'Sync skills/agents/extras/MCP to targets' }
             @{ Name = 'plugin'; Desc = 'Manage complete native plugins' }
@@ -127,6 +128,10 @@ $_skillshareCompleter = {
             @{ Name = 'rules'; Desc = 'Manage security rules' }
             @{ Name = 'agents'; Desc = 'Audit agents' }
         )
+        'cli' = @(
+            @{ Name = 'search'; Desc = 'Find CLI commands for a task' }
+            @{ Name = 'help'; Desc = 'Show help' }
+        )
         'completion' = @(
             @{ Name = 'bash'; Desc = 'Generate bash completions' }
             @{ Name = 'zsh'; Desc = 'Generate zsh completions' }
@@ -224,6 +229,8 @@ $_skillshareCompleter = {
         'extras' = '--mode', '--target', '--source', '--file', '--as', '--flatten', '--no-flatten', '--include', '--exclude', '--add-include', '--add-exclude', '--remove-include', '--remove-exclude', '--add-target', '--remove-target', '--prune', '--from', '--dry-run', '--force', '-f', '--json', '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'
         'status' = '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'new' = '--pattern', '-P', '--dry-run', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
+        'cli' = '--help', '-h'
+        'cli search' = '--limit', '--json', '-j', '--help', '-h'
         'search' = '--json', '--list', '-l', '--hub', '--limit', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
         'updates' = '--json', '--help', '-h'
         'tui' = '--help', '-h'

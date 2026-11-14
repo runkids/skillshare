@@ -26,6 +26,7 @@ skillshare のすべてのコマンドに関する完全なリファレンスで
 | 単一ファイルの `.md` agent を管理する | ほとんどのコマンドは `agents` または `--kind agent` を受け付けます — [Agents](/docs/understand/agents) を参照 |
 | どの Skill が最もコンテキストトークンを使っているか確認する | [`analyze`](./analyze.md) |
 | 壊れたものを直す | [`doctor`](./doctor.md) |
+| 作業に合うコマンドを探す | [`cli search`](/docs/reference/commands/cli) |
 | シェルでタブ補完を有効にする | [`completion`](./completion.md) |
 | web ダッシュボードを開く | [`ui`](./ui.md) |
 
@@ -42,7 +43,7 @@ skillshare のすべてのコマンドに関する完全なリファレンスで
 | **ターゲット管理** | `target`, `project`, `diff` |
 | **Extras 管理** | `extras`（`init`, `list`, `remove`, `collect`） |
 | **Sync 操作** | `collect`, `backup`, `restore`, `trash`, `commit`, `push`, `pull` |
-| **セキュリティ & ユーティリティ** | `analyze`, `audit`, `hub`, `log`, `doctor`, `tui`, `ui`, `completion`, `version` |
+| **セキュリティ & ユーティリティ** | `analyze`, `audit`, `hub`, `log`, `doctor`, `tui`, `ui`, `completion`, `cli`, `version` |
 
 ---
 
@@ -116,6 +117,7 @@ skillshare のすべてのコマンドに関する完全なリファレンスで
 | [tui](./tui.md) | インタラクティブ TUI モードを切り替え |
 | [ui](./ui.md) | web ダッシュボードを起動 |
 | [hub](./hub.md) | Skill ハブのソースを管理 |
+| [cli](/docs/reference/commands/cli) | トップレベルのコマンドをオフラインで検索 |
 | [completion](./completion.md) | シェル補完スクリプトを生成 |
 | [version](./version.md) | CLI のバージョンを表示 |
 

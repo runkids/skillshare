@@ -53,6 +53,26 @@ skillshare list -g             # Force global
 
 TUI features: fuzzy filter (type to search), detail panel (description, path, files, synced targets). Use `--json` for programmatic inspection: `skillshare list --json | jq '.[] | {name, source, type}'`.
 
+## cli search
+
+Find public top-level commands by matching task words against command names and
+English help summaries. This does not search remote skills or execute a result.
+It runs offline without configuration, theme loading, migrations, or update checks.
+
+```bash
+skillshare cli search "scan security" --json
+skillshare cli search restore backup --limit 3
+```
+
+`--limit` accepts 1–20 (default 5). `--json` / `-j` returns
+`{query, results: [{command, summary, usage}]}` without scores. `usage` points to
+the command's `--help` invocation; no matches is a
+successful empty `results` array. Blank input, unknown options, and invalid limits
+exit 1; JSON usage errors contain `error.code` (`usage`), `error.message`, and
+`error.hint`. `--` ends options. Follow a match with `<command> --help` for nested
+commands and flags, which are not indexed. These error fields apply to `cli`,
+not every Skillshare command.
+
 ## search
 
 Search GitHub for skills (repos containing SKILL.md).

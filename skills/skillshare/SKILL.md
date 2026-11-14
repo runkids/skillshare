@@ -17,6 +17,9 @@ metadata:
 Use Skillshare to maintain a source and distribute resources to configured targets.
 Read only the reference relevant to the requested operation; the routing table is below.
 Check `skillshare <command> --help` if the installed version differs from these examples.
+If the command is unknown, use `skillshare cli search "task words" --json` for offline
+top-level command discovery, then read the matching command's help. This is not
+`skillshare search`, which finds remote skills.
 
 ## Scope and resource selection
 
@@ -221,7 +224,7 @@ references for a single task.
 | Init flags | [init.md](references/init.md) |
 | Sync/collect/commit/push/pull | [sync.md](references/sync.md) |
 | Install/update/uninstall/move/new | [install.md](references/install.md) |
-| Status/diff/list/search/check/updates | [status.md](references/status.md) |
+| Status/diff/list/search/cli search/check/updates | [status.md](references/status.md) |
 | Security audit | [audit.md](references/audit.md) |
 | Reviewing an untrusted skill before install | [audit-review.md](references/audit-review.md) |
 | Trash | [trash.md](references/trash.md) |

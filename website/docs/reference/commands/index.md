@@ -28,6 +28,7 @@ Complete reference for all skillshare commands.
 | Manage single-file `.md` agents | Most commands accept `agents` or `--kind agent` — see [Agents](/docs/understand/agents) |
 | See which skills use the most context tokens | [`analyze`](./analyze.md) |
 | Fix something broken | [`doctor`](./doctor.md) |
+| Find a command for a task | [`cli search`](/docs/reference/commands/cli) |
 | Enable tab-completion in my shell | [`completion`](./completion.md) |
 | Open the web dashboard | [`ui`](./ui.md) |
 
@@ -45,7 +46,7 @@ Complete reference for all skillshare commands.
 | **Target Management** | `target`, `project`, `diff` |
 | **Extras Management** | `extras` (`init`, `list`, `remove`, `collect`) |
 | **Sync Operations** | `collect`, `backup`, `restore`, `trash`, `commit`, `push`, `pull` |
-| **Security & Utilities** | `analyze`, `audit`, `hub`, `log`, `doctor`, `tui`, `ui`, `completion`, `version` |
+| **Security & Utilities** | `analyze`, `audit`, `hub`, `log`, `doctor`, `tui`, `ui`, `completion`, `cli`, `version` |
 
 ---
 
@@ -120,6 +121,7 @@ Complete reference for all skillshare commands.
 | [tui](./tui.md) | Toggle interactive TUI mode |
 | [ui](./ui.md) | Launch web dashboard |
 | [hub](./hub.md) | Manage skill hub sources |
+| [cli](/docs/reference/commands/cli) | Discover top-level commands offline |
 | [completion](./completion.md) | Generate shell completion scripts |
 | [version](./version.md) | Show CLI version |
 

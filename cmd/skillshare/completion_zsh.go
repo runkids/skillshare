@@ -12,6 +12,7 @@ _skillshare() {
         'unlink:Remove a link from the source'
         'move:Move skills or folders within the source'
         'list:List installed skills'
+        'cli:Discover CLI commands'
         'search:Search or browse GitHub for skills'
         'sync:Sync skills/agents/extras/MCP to targets'
         'plugin:Manage complete native plugins'
@@ -525,6 +526,22 @@ _skillshare() {
                         $global_flags \
                         '--help[Show help]' \
                         '-h[Show help]'
+                    ;;
+                cli)
+                    if (( CURRENT > 2 )); then
+                        if [[ ${words[2]} == search ]]; then
+                            shift words; (( CURRENT-- ))
+                            _arguments \
+                                '--limit[Maximum results (1-20)]:count:' \
+                                '--json[JSON output]' '-j[JSON output]' \
+                                '--help[Show help]' '-h[Show help]' \
+                                '*:task:'
+                        fi
+                        return
+                    fi
+                    _arguments \
+                        '1:CLI command:(search help)' \
+                        '--help[Show help]' '-h[Show help]'
                     ;;
                 search)
                     _arguments \

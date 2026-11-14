@@ -21,7 +21,7 @@ export type FeatureGroup = {
 const C = '/docs/reference/commands/';
 const D = '/docs/';
 
-export const COMMAND_COUNT = 40;
+export const COMMAND_COUNT = 41;
 export const TARGET_COUNT = 79;
 
 export const FEATURE_GROUPS: FeatureGroup[] = [
@@ -37,6 +37,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
       {cmd: 'link', what: 'Link an existing skills folder into the source', kw: 'checkout local directory follow symlink junction', href: C + 'link'},
       {cmd: 'sync', what: 'Symlink the source into every target', kw: 'link symlink apply', href: C + 'sync'},
       {cmd: 'doctor', what: 'Check config, targets and symlink health', kw: 'diagnose broken health fix', href: C + 'doctor'},
+      {cmd: 'cli search', what: 'Find top-level commands by describing a task', kw: 'discover command offline help', href: C + 'cli'},
       {cmd: 'completion', what: 'Shell completions for zsh, bash and fish', kw: 'shell tab autocomplete', href: C + 'completion'},
       {cmd: 'upgrade', what: 'Upgrade the skillshare binary itself', kw: 'version latest self update', href: C + 'upgrade'},
       {cmd: 'updates', what: 'Control automatic version checks and notifications', kw: 'release version opt out config environment', href: C + 'updates'},

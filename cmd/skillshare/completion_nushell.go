@@ -11,6 +11,7 @@ def "nu-complete skillshare commands" [] {
         { value: "unlink", description: "Remove a link from the source" }
         { value: "move", description: "Move skills or folders within the source" }
         { value: "list", description: "List installed skills" }
+        { value: "cli", description: "Discover CLI commands" }
         { value: "search", description: "Search or browse GitHub for skills" }
         { value: "sync", description: "Sync skills/agents/extras/MCP to targets" }
         { value: "plugin", description: "Manage complete native plugins" }
@@ -630,6 +631,25 @@ export extern "skillshare new" [
     --dry-run(-n)            # Preview changes
     --project(-p)            # Use project-level config
     --global(-g)             # Use global config
+    --help(-h)               # Show help
+]
+
+# CLI command discovery
+def "nu-complete skillshare cli" [] { [search help] }
+
+export extern "skillshare cli" [
+    subcommand?: string@"nu-complete skillshare cli"
+    --help(-h)               # Show help
+]
+
+export extern "skillshare cli search" [
+    ...query: string         # Task to find a command for
+    --limit: int             # Maximum results (1-20)
+    --json(-j)               # JSON output
+    --help(-h)               # Show help
+]
+
+export extern "skillshare cli help" [
     --help(-h)               # Show help
 ]
 

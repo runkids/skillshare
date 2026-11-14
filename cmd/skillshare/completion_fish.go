@@ -143,8 +143,8 @@ complete -c skillshare -n __fish_skillshare_no_subcommand -a version -d 'Show ve
 complete -c skillshare -n __fish_skillshare_no_subcommand -a help -d 'Show help'
 
 # Global flags
-complete -c skillshare -n 'not __fish_seen_subcommand_from pull push commit project' -l project -s p -d 'Use project-level config'
-complete -c skillshare -n 'not __fish_seen_subcommand_from pull push commit' -l global -s g -d 'Use global config'
+complete -c skillshare -n 'not __fish_seen_subcommand_from pull push commit project cli' -l project -s p -d 'Use project-level config'
+complete -c skillshare -n 'not __fish_seen_subcommand_from pull push commit cli' -l global -s g -d 'Use global config'
 
 # init
 complete -c skillshare -n '__fish_skillshare_using_command init' -l source -s s -r -d 'Set source directory'
@@ -359,6 +359,13 @@ complete -c skillshare -n '__fish_skillshare_using_command check' -l help -s h -
 complete -c skillshare -n '__fish_skillshare_using_command new' -l pattern -s P -r -a 'tool-wrapper generator reviewer inversion pipeline none' -d 'Use a design pattern'
 complete -c skillshare -n '__fish_skillshare_using_command new' -l dry-run -s n -d 'Preview changes'
 complete -c skillshare -n '__fish_skillshare_using_command new' -l help -s h -d 'Show help'
+
+# CLI command discovery
+complete -c skillshare -n __fish_skillshare_no_subcommand -a cli -d 'Discover CLI commands'
+complete -c skillshare -n '__fish_skillshare_using_command cli; and test (count (commandline -opc)) -eq 2' -a 'search help'
+complete -c skillshare -n '__fish_skillshare_using_command cli' -l help -s h -d 'Show help'
+complete -c skillshare -n '__fish_skillshare_using_subcommand cli search' -l limit -r -d 'Maximum results (1-20)'
+complete -c skillshare -n '__fish_skillshare_using_subcommand cli search' -l json -s j -d 'JSON output'
 
 # search
 complete -c skillshare -n '__fish_skillshare_using_command search' -l json -d 'JSON output'

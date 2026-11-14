@@ -14,7 +14,7 @@ _skillshare() {
         cword=$COMP_CWORD
     fi
 
-    local commands="init install uninstall link unlink move list search sync mcp hooks plugin status diff backup restore collect pull push commit doctor target project upgrade updates update check new trash analyze audit hub log ui tui extras enable disable completion version help"
+    local commands="init install uninstall link unlink move list search sync mcp hooks plugin status diff backup restore collect pull push commit doctor target project upgrade updates update check new trash analyze audit hub log ui tui extras enable disable cli completion version help"
 
     local global_flags="--project -p --global -g"
 
@@ -86,6 +86,18 @@ _skillshare() {
     esac
 
     local cmd="${words[1]}"
+
+    # CLI command discovery
+    if [[ "${cmd}" == cli ]]; then
+        local cli_subcmds="search help"
+        local cli_search_flags="--limit --json -j --help -h"
+        if [[ ${cword} -eq 2 ]]; then
+            COMPREPLY=($(compgen -W "${cli_subcmds} --help -h" -- "${cur}"))
+        elif [[ "${words[2]}" == search && "${prev}" != --limit && "${cur}" == -* ]]; then
+            COMPREPLY=($(compgen -W "${cli_search_flags}" -- "${cur}"))
+        fi
+        return
+    fi
 
     # Project command
     if [[ "${cmd}" == project ]]; then

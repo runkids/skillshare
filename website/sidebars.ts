@@ -193,6 +193,7 @@ const sidebars: SidebarsConfig = {
                 'reference/commands/doctor',
                 'reference/commands/tui',
                 'reference/commands/ui',
+                'reference/commands/cli',
                 'reference/commands/version',
               ],
             },

@@ -26,6 +26,15 @@ Use when adding or changing Go CLI commands, flags, handlers, interactive TUIs, 
 
 Put testable core logic in `internal/<domain>/`. Do not let the CLI, Web API, and UI implement separate versions of the same business logic.
 
+## Command Discovery
+
+`skillshare cli search` runs before startup maintenance, theme/config loading,
+and update checks. It indexes public top-level dispatch entries using the shared
+root help summaries, not command execution or nested flags. Keep new public root
+commands discoverable through that metadata; never index internal/protocol runners.
+The `cli` usage error code is owned by its parser, not inferred from other commands'
+error strings. Existing JSON error reports and audit exit codes stay unchanged.
+
 ## Global and Project Mode
 
 Most commands route through `parseModeArgs()` for global (`-g`) or project (`-p`) mode. Pass the command's value-taking option names and aliases as additional arguments (for example, `parseModeArgs(args, "--name")`) so their values cannot become mode flags. Do not include optional-value flags that reject a following flag, such as `search --hub`. The parser preserves `--` and everything after it for the command parser. Before changing behavior, verify:

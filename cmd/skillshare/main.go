@@ -65,7 +65,22 @@ var commands = map[string]func([]string) error{
 	"completion":   cmdCompletion,
 }
 
+// main handles offline CLI discovery before any startup maintenance or theme loading.
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "cli" {
+		if err := cmdCLI(os.Args[2:]); err != nil {
+			var silent *jsonSilentError
+			if !errors.As(err, &silent) {
+				fmt.Fprintln(os.Stderr, err)
+				var usage *cliUsageError
+				if errors.As(err, &usage) {
+					fmt.Fprintln(os.Stderr, usage.Hint)
+				}
+			}
+			os.Exit(1)
+		}
+		return
+	}
 	// Windows: children stop when this process is terminated, and without a
 	// console it reruns inside a hidden one so they do not each open a window.
 	relaunchInHiddenConsole(childproc.BindToProcess())
@@ -200,7 +215,15 @@ func reportMigrationResults(results []config.MigrationResult) {
 func printUsage() {
 	fmt.Println(theme.Primary().Bold(true).Render("skillshare") + " " + ui.DimText(ui.VersionLabel(version)+"  Your AI coding setup, everywhere."))
 	fmt.Println()
-	printHelp("skillshare <command> [options]", "",
+	printHelp("skillshare <command> [options]", "", rootHelpGroups()...)
+	fmt.Println()
+	fmt.Println(ui.DimText("Run 'skillshare <command> --help' for its subcommands and options."))
+	fmt.Println(ui.DimText(`Find a command with 'skillshare cli search "<task>"'.`))
+	fmt.Println(ui.DimText("Docs  https://skillshare.runkids.cc"))
+}
+
+func rootHelpGroups() []helpGroup {
+	return []helpGroup{
 		helpGroup{title: "Start", rows: []helpRow{
 			{"init", "Set up the source and pick Targets"},
 			{"status", "Show the source and every Target"},
@@ -242,8 +265,20 @@ func printUsage() {
 			{"trash", "Restore something you uninstalled"},
 			{"log", "See what ran"},
 		}},
-		helpGroup{title: "Git", rows: []helpRow{{"commit · push · pull", ""}}},
-		helpGroup{title: "CLI", rows: []helpRow{{"upgrade · updates · hub · tui · completion · version", ""}}},
+		helpGroup{title: "Git", rows: []helpRow{
+			{"commit", "Commit changes in the source"},
+			{"push", "Push the source to its remote"},
+			{"pull", "Pull the source from its remote"},
+		}},
+		helpGroup{title: "CLI", rows: []helpRow{
+			{"cli", "Discover commands for a task"},
+			{"upgrade", "Upgrade skillshare"},
+			{"updates", "Manage automatic update checks"},
+			{"hub", "Manage skill indexes"},
+			{"tui", "Toggle the interactive interface"},
+			{"completion", "Generate shell completions"},
+			{"version", "Show the installed version"},
+		}},
 		helpGroup{title: "Common options", rows: []helpRow{
 			{"-p, --project", "Use this project's config"},
 			{"-g, --global", "Use the global config"},
@@ -252,10 +287,7 @@ func printUsage() {
 			{"--no-tui", "Plain prompts, no full-screen UI"},
 			{"-h, --help", "Help for any command"},
 		}},
-	)
-	fmt.Println()
-	fmt.Println(ui.DimText("Run 'skillshare <command> --help' for its subcommands and options."))
-	fmt.Println(ui.DimText("Docs  https://skillshare.runkids.cc"))
+	}
 }
 
 // printUnknownCommand names the mistyped command, the closest real one,
@@ -266,6 +298,7 @@ func printUnknownCommand(cmd string) {
 		ui.Note(fmt.Sprintf("Did you mean %q?", s))
 	}
 	ui.Note("Run 'skillshare help' to see all commands")
+	ui.Note(`Describe a task with 'skillshare cli search "<task>"'`)
 }
 
 // cleanupOldBinary removes leftover .old files from Windows self-upgrade.

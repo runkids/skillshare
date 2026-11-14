@@ -738,19 +738,17 @@ func renderLogDetailPanel(item logItem) string {
 	return b.String()
 }
 
-// severityStyles maps the 5 severity levels (c/h/m/l/i) to lipgloss styles.
-var severityStyles = []lipgloss.Style{
-	theme.Severity("critical"), theme.Severity("high"), theme.Severity("medium"), theme.Severity("low"), theme.Severity("info"),
-}
-
 // colorizeSeverityBreakdown colors each number in "0/0/1/0/0" to match audit summary.
 func colorizeSeverityBreakdown(value string) string {
 	parts := strings.Split(value, "/")
 	if len(parts) != 5 {
 		return value
 	}
+	// Resolve styles only when rendering logs, not at package initialization:
+	// offline command discovery must never probe the terminal theme.
+	severities := []string{"critical", "high", "medium", "low", "info"}
 	for i, p := range parts {
-		parts[i] = severityStyles[i].Render(p)
+		parts[i] = theme.Severity(severities[i]).Render(p)
 	}
 	sep := theme.Dim().Render("/")
 	return strings.Join(parts, sep)

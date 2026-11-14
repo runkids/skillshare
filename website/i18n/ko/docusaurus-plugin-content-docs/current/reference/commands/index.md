@@ -26,6 +26,7 @@ sidebar_position: 1
 | 단일 파일 `.md` agent 관리하기 | 대부분의 명령어가 `agents` 또는 `--kind agent`를 지원합니다 — [Agents](/docs/understand/agents) 참고 |
 | 어떤 skill이 가장 많은 context 토큰을 사용하는지 확인하기 | [`analyze`](./analyze.md) |
 | 문제 해결하기 | [`doctor`](./doctor.md) |
+| 작업에 맞는 명령 찾기 | [`cli search`](/docs/reference/commands/cli) |
 | 셸에서 탭 완성 활성화하기 | [`completion`](./completion.md) |
 | 웹 대시보드 열기 | [`ui`](./ui.md) |
 
@@ -42,7 +43,7 @@ sidebar_position: 1
 | **Target Management** | `target`, `project`, `diff` |
 | **Extras Management** | `extras` (`init`, `list`, `remove`, `collect`) |
 | **Sync Operations** | `collect`, `backup`, `restore`, `trash`, `commit`, `push`, `pull` |
-| **Security & Utilities** | `analyze`, `audit`, `hub`, `log`, `doctor`, `tui`, `ui`, `completion`, `version` |
+| **Security & Utilities** | `analyze`, `audit`, `hub`, `log`, `doctor`, `tui`, `ui`, `completion`, `cli`, `version` |
 
 ---
 
@@ -116,6 +117,7 @@ sidebar_position: 1
 | [tui](./tui.md) | 대화형 TUI 모드 전환 |
 | [ui](./ui.md) | 웹 대시보드 실행 |
 | [hub](./hub.md) | skill hub 소스 관리 |
+| [cli](/docs/reference/commands/cli) | 최상위 명령을 오프라인으로 검색 |
 | [completion](./completion.md) | 셸 completion 스크립트 생성 |
 | [version](./version.md) | CLI 버전 표시 |
 

@@ -26,6 +26,7 @@ skillshare 所有指令的完整參考。
 | 管理單一檔案的 `.md` agents | 大多數指令都接受 `agents` 或 `--kind agent` — 見 [Agents](/docs/understand/agents) |
 | 查看哪些 skills 佔用最多 context tokens | [`analyze`](./analyze.md) |
 | 修復壞掉的東西 | [`doctor`](./doctor.md) |
+| 依任務尋找命令 | [`cli search`](/docs/reference/commands/cli) |
 | 在我的 shell 啟用 tab 自動完成 | [`completion`](./completion.md) |
 | 開啟網頁儀表板 | [`ui`](./ui.md) |
 
@@ -42,7 +43,7 @@ skillshare 所有指令的完整參考。
 | **Target 管理** | `target`, `project`, `diff` |
 | **Extras 管理** | `extras` (`init`, `list`, `remove`, `collect`) |
 | **同步操作** | `collect`, `backup`, `restore`, `trash`, `commit`, `push`, `pull` |
-| **安全與工具** | `analyze`, `audit`, `hub`, `log`, `doctor`, `tui`, `ui`, `completion`, `version` |
+| **安全與工具** | `analyze`, `audit`, `hub`, `log`, `doctor`, `tui`, `ui`, `completion`, `cli`, `version` |
 
 ---
 
@@ -116,6 +117,7 @@ skillshare 所有指令的完整參考。
 | [tui](./tui.md) | 切換互動式 TUI 模式 |
 | [ui](./ui.md) | 啟動網頁儀表板 |
 | [hub](./hub.md) | 管理 skill hub 來源 |
+| [cli](/docs/reference/commands/cli) | 離線尋找頂層命令 |
 | [completion](./completion.md) | 產生 shell 自動完成腳本 |
 | [version](./version.md) | 顯示 CLI 版本 |
 

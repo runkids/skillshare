@@ -26,6 +26,7 @@ skillshare 全部命令的完整参考。
 | 管理单文件 `.md` Agent | 大多数命令都支持 `agents` 或 `--kind agent` — 参见 [Agents](/docs/understand/agents) |
 | 查看哪些 Skill 占用最多上下文 token | [`analyze`](./analyze.md) |
 | 修复问题 | [`doctor`](./doctor.md) |
+| 按任务查找命令 | [`cli search`](/docs/reference/commands/cli) |
 | 在我的 shell 中启用 Tab 补全 | [`completion`](./completion.md) |
 | 打开 Web 控制台 | [`ui`](./ui.md) |
 
@@ -42,7 +43,7 @@ skillshare 全部命令的完整参考。
 | **Target Management** | `target`、`project`、`diff` |
 | **Extras Management** | `extras`（`init`、`list`、`remove`、`collect`） |
 | **Sync Operations** | `collect`、`backup`、`restore`、`trash`、`commit`、`push`、`pull` |
-| **Security & Utilities** | `analyze`、`audit`、`hub`、`log`、`doctor`、`tui`、`ui`、`completion`、`version` |
+| **Security & Utilities** | `analyze`、`audit`、`hub`、`log`、`doctor`、`tui`、`ui`、`completion`、`cli`、`version` |
 
 ---
 
@@ -116,6 +117,7 @@ skillshare 全部命令的完整参考。
 | [tui](./tui.md) | 切换交互式 TUI 模式 |
 | [ui](./ui.md) | 启动 Web 控制台 |
 | [hub](./hub.md) | 管理 Skill Hub 来源 |
+| [cli](/docs/reference/commands/cli) | 离线查找顶层命令 |
 | [completion](./completion.md) | 生成 shell 补全脚本 |
 | [version](./version.md) | 显示 CLI 版本 |
 
