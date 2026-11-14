@@ -9,18 +9,23 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
-## [0.30.8] - 2026-11-14
+## [0.30.8] - 2026-11-15
 
+### New Features
+
+- **MCP clients can browse skill folders** — `skillshare mcp serve` now implements the optional directory part of the MCP Skills extension. The server advertises `directoryRead: true`, and `resources/directory/read` with a URI such as `skill://_team/tools/pdf` lists that folder's direct entries, including empty folders as `inode/directory`. A file or an unknown folder returns `-32602`. `resources/list` now lists each served `SKILL.md` with the name and description from its frontmatter. Both lists are sorted by URI and return up to 100 entries per page, continued with `nextCursor`. Thanks to @salmonumbrella for the report and the implementation. Refs: #895, #905.
+  ```json
+  {"jsonrpc": "2.0", "id": 1, "method": "resources/directory/read", "params": {"uri": "skill://_team/tools/pdf"}}
+  ```
+  Frontmatter returned by the server now follows YAML 1.2 rules, the way clients read the file themselves: `updated: 2026-11-14` stays the text `"2026-11-14"` instead of becoming a timestamp, and `012` is 12 instead of octal 10. A skill with such a date under `metadata` is no longer left out of the Executor index at `/.well-known/agent-skills/`.
 
 ### Bug Fixes
 
-* **doctor:** stop the plugin check from holding back later checks ([#889](https://github.com/runkids/skillshare/issues/889)) ([fab72f7](https://github.com/runkids/skillshare/commit/fab72f79e17d653113b5aa4621ae34206f0da31b))
-* **frontmatter:** isolate root identity and hub index tags ([#901](https://github.com/runkids/skillshare/issues/901)) ([990732b](https://github.com/runkids/skillshare/commit/990732b45439a60352648d66428ce8afb98569a2))
-* **hub:** read the same tags for drafts and the index ([#909](https://github.com/runkids/skillshare/issues/909)) ([be8f8b2](https://github.com/runkids/skillshare/commit/be8f8b28749a41e3f6b2d51d2d4328eed90d4106))
-* **mcp:** close Skills conformance gaps with directory reads and resource metadata ([#905](https://github.com/runkids/skillshare/issues/905)) ([e969ebc](https://github.com/runkids/skillshare/commit/e969ebcfb0190237e19b573acb4fb6129be48a72))
-* **reconcile:** keep tracked repo declarations this machine has not cloned ([#880](https://github.com/runkids/skillshare/issues/880)) ([3217d44](https://github.com/runkids/skillshare/commit/3217d44881d9c45c435317de9364616360aec871))
-* **ui:** let an embedding app start the dashboard with both theme axes ([#910](https://github.com/runkids/skillshare/issues/910)) ([f989f13](https://github.com/runkids/skillshare/commit/f989f1385523c73c9893ddb3b347f85dedbe0428))
-* **uninstall:** keep repos installed into a tracked repo's legacy group ([#900](https://github.com/runkids/skillshare/issues/900)) ([58ccb2b](https://github.com/runkids/skillshare/commit/58ccb2bcc5890537696a6c15d8e714fe8bcce0a5)), closes [#898](https://github.com/runkids/skillshare/issues/898)
+- **Tracked repositories this machine has not cloned keep their records** — `pull` brings tracked repository records but not their checkouts, which are git-ignored. On a machine without the checkout, the next `install` dropped the record and its audit acceptances, and the next `push` removed the repository on every machine. Global reconcile now keeps those records. `skillshare install -g` restores missing checkouts, and `skillshare uninstall _team -g` drops one instead: it removes only the record and its acceptances, nothing goes to trash, and `uninstall --json` lists it under `record_only`. In global mode, `unlink` also forgets the record kept for that link name. `status`, `check`, `update` and `doctor` suggest both options. In the dashboard, such a repository shows **No checkout on this machine**, and **Uninstall** removes only its record. Thanks to @ndeybach for the request and @salmonumbrella for the fix. Refs: #823, #880.
+- **Uninstalling a tracked repository keeps repositories installed into its group** — with `_team` checked out and `team/_b` (installed with `--into team`) not cloned on this machine, `uninstall _team -g` also removed `team/_b`'s record and audit acceptances. Since reconcile keeps such records but cannot recreate them, the next `push` lost `team/_b` on every machine. Refs: #898, #900.
+- **Fields under `metadata` no longer stand in for the skill's own** — some readers scanned `SKILL.md` line by line and took a `name`, `description` or `tags` written under `metadata:` as the skill's own, so a nested value could appear in search results, audit findings or the hub index. They now read only top-level fields; custom data under `metadata` is kept as it is. `hub index` and `hub draft` now read tags the same way, and both accept `tags: git, workflow` and YAML lists such as `tags: [git, workflow]`. Thanks to @salmonumbrella for the report and the fix. Refs: #894, #901, #909.
+- **The Doctor page names the check that is still running** — a slow check, such as the plugin check that asks each agent's CLI what is installed, held back every check after it behind an unlabeled placeholder. The plugin check, the skill source scan and the Git status check now show as a row with their name and **Checking** while the later checks finish, and the result replaces the row. `GET /api/doctor/stream` sends these as `pending` rows. CLI output is unchanged. Refs: #870, #889.
+- **The desktop app can start the dashboard in your theme** — the desktop app passed its theme in one `?theme=` value, which cannot say Dark + Clean or Playful dark. On Linux, where the embedded page's storage is not kept between launches, the dashboard started in another theme and reported it back as if you had picked it. The dashboard now accepts `?mode=dark|light` and `?style=clean|playful`, which win over `?theme=`, and tells the embedding app when a page starts, so it can tell a starting theme from your choice. This needs the matching desktop app update. Refs: runkids/skillshare-app#128.
 
 ## [0.30.7] - 2026-11-13
 
