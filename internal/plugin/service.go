@@ -42,6 +42,13 @@ func updateCandidate(d *Discovery, name, agent string) (*Candidate, error) {
 }
 
 func (s *Service) validate(r Request) error {
+	if r.Commands != nil && r.Action != "update" {
+		return fmt.Errorf("commands selection is only valid for update")
+	}
+	if r.Commands != nil && !*r.Commands && len(r.Targets) == 0 {
+		return fmt.Errorf("select native targets or package commands to update")
+	}
+
 	switch r.Action {
 	case "add", "import", "unimport", "sync", "remove", "update", "check", "enable", "disable":
 	default:
@@ -414,7 +421,7 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 			}
 			for _, target := range slices.Sorted(maps.Keys(d.packages[name].Bindings)) {
 				b, ok := d.packages[name].Bindings[target]
-				if !ok || (len(r.Targets) > 0 && !slices.Contains(r.Targets, target)) {
+				if !ok || ((len(r.Targets) > 0 || r.Commands != nil) && !slices.Contains(r.Targets, target)) {
 					continue
 				}
 				agent := s.agentOf(target)
@@ -591,6 +598,12 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 			}
 		}
 	}
+
+	commandChanges, err := s.planCommands(ctx, r, d)
+	if err != nil {
+		return nil, err
+	}
+	p.Changes = append(p.Changes, commandChanges...)
 
 	// A native installation can have only one owner in this configuration.
 	for i := range p.Changes {
