@@ -1,6 +1,6 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { ApiError } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { definition, mountProfiles, profileFixtures } from '../test/profileFixtures';
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -63,4 +63,88 @@ it('keeps the inactive definition when a concurrent active-delete refusal arrive
   expect(await screen.findByText('cannot delete active profile "work"')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Save profile' })).toBeInTheDocument();
   expect(f.sync).not.toHaveBeenCalled();
+});
+
+it.each(['escape', 'backdrop'])('preserves an in-flight create through %s dismissal and keeps a failed draft retryable', async (dismissal) => {
+  const f = profileFixtures(false, []);
+  let reject!: (error: Error) => void;
+  f.create.mockImplementationOnce(() => new Promise((_, fail) => { reject = fail; }));
+  await mountProfiles();
+  fireEvent.click(await screen.findByRole('button', { name: 'Create profile' }));
+  const dialog = await screen.findByRole('dialog', { name: 'Create profile' });
+  fireEvent.change(within(dialog).getByLabelText('Name'), { target: { value: 'frontend' } });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Create profile' }));
+  await waitFor(() => expect(f.create).toHaveBeenCalledTimes(1));
+  if (dismissal === 'escape') fireEvent.keyDown(document, { key: 'Escape' });
+  else fireEvent.mouseDown(dialog);
+  expect(screen.getByRole('dialog', { name: 'Create profile' })).toBe(dialog);
+  expect(within(dialog).getByLabelText('Name')).toHaveValue('frontend');
+  await act(async () => { reject(new Error('disk full')); });
+  expect(await within(dialog).findByText('disk full')).toBeInTheDocument();
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Create profile' }));
+  await waitFor(() => expect(f.create).toHaveBeenCalledTimes(2));
+  expect(f.create.mock.calls[1]).toEqual(f.create.mock.calls[0]);
+});
+
+it('does not close a newer draft when an unmounted create finishes', async () => {
+  const f = profileFixtures(false, []);
+  let resolve!: (result: { changed: boolean; needsSync: boolean; skills: null }) => void;
+  f.create.mockImplementationOnce(() => new Promise((done) => { resolve = done; }));
+  const first = await mountProfiles();
+  fireEvent.click(await screen.findByRole('button', { name: 'Create profile' }));
+  let dialog = await screen.findByRole('dialog', { name: 'Create profile' });
+  fireEvent.change(within(dialog).getByLabelText('Name'), { target: { value: 'first' } });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Create profile' }));
+  await waitFor(() => expect(f.create).toHaveBeenCalledTimes(1));
+  first.unmount();
+  await mountProfiles();
+  fireEvent.click(await screen.findByRole('button', { name: 'Create profile' }));
+  dialog = await screen.findByRole('dialog', { name: 'Create profile' });
+  fireEvent.change(within(dialog).getByLabelText('Name'), { target: { value: 'new-draft' } });
+  await act(async () => { resolve({ changed: true, needsSync: false, skills: null }); });
+  expect(within(screen.getByRole('dialog', { name: 'Create profile' })).getByLabelText('Name')).toHaveValue('new-draft');
+  expect(f.create).toHaveBeenCalledTimes(1);
+  expect(window.location.pathname).toBe('/profiles');
+});
+
+it('releases an interrupted create after Back changes the route without unmounting its draft', async () => {
+  const f = profileFixtures();
+  let resolve!: (result: { changed: boolean; needsSync: boolean; skills: null }) => void;
+  f.create.mockImplementationOnce(() => new Promise((done) => { resolve = done; }));
+  await mountProfiles();
+  fireEvent.click(await screen.findByRole('button', { name: 'Create profile' }));
+  const dialog = await screen.findByRole('dialog', { name: 'Create profile' });
+  fireEvent.change(within(dialog).getByLabelText('Name'), { target: { value: 'frontend' } });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Create profile' }));
+  await waitFor(() => expect(f.create).toHaveBeenCalledTimes(1));
+  await act(async () => {
+    window.history.replaceState({ key: 'interrupted-create-return' }, '', '/profiles/work');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  await act(async () => { resolve({ changed: true, needsSync: false, skills: null }); });
+  const draft = within(screen.getByRole('dialog', { name: 'Create profile' })).getByLabelText('Name');
+  expect(draft).toHaveValue('frontend');
+  expect(draft).toBeEnabled();
+  expect(window.location.pathname).toBe('/profiles/work');
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(screen.queryByRole('dialog', { name: 'Create profile' })).toBeNull();
+});
+
+it.each(['rename', 'delete'])('finishes %s after its catalog refresh unmounts the old editor', async (action) => {
+  const f = profileFixtures();
+  await mountProfiles('/profiles/work');
+  await screen.findByRole('button', { name: 'Rename profile' });
+  let resolveDiff!: (value: Awaited<ReturnType<typeof api.diff>>) => void;
+  vi.mocked(api.diff).mockImplementationOnce(() => new Promise((done) => { resolveDiff = done; }));
+  f.list.mockResolvedValue({ ...f.catalog, profiles: action === 'rename' ? [definition('renamed')] : [] });
+  fireEvent.click(screen.getByRole('button', { name: action === 'rename' ? 'Rename profile' : 'Delete profile' }));
+  const dialog = await screen.findByRole('dialog');
+  if (action === 'rename') fireEvent.change(within(dialog).getByLabelText('Name'), { target: { value: 'renamed' } });
+  fireEvent.click(within(dialog).getByRole('button', { name: action === 'rename' ? 'Rename profile' : 'Delete profile' }));
+  await waitFor(() => expect(screen.queryByRole('button', { name: 'Save profile' })).toBeNull());
+  await waitFor(() => expect(resolveDiff).toBeTypeOf('function'));
+  await act(async () => { resolveDiff({ diffs: [], ignored_count: 0, ignored_skills: [], ignore_root: '', ignore_repos: [] }); });
+  await waitFor(() => expect(window.location.pathname).toBe(action === 'rename' ? '/profiles/renamed' : '/profiles'));
+  if (action === 'rename') expect(f.replace).toHaveBeenCalledExactlyOnceWith('work', { name: 'renamed' });
+  else expect(f.remove).toHaveBeenCalledExactlyOnceWith('work');
 });

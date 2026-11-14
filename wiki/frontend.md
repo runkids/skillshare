@@ -52,7 +52,7 @@ Git Sync shows both local and remote commit counts when histories diverge and of
 
 ## Localization Verification
 
-`components/profiles/`: Layout mounts the switcher; `/profiles` follows Skills. Switch attempts cancel stale previews/reset consent; results survive `profileSwitched` invalidation, including partial applies. `profileView` adapts sync rows/translates diagnostics, never policy. The dialog uses overview `configDir` for project backups, including visible `skillshare/`. Tags use only server `inProfile === false` at all three sites. Pending/active-edit sync reuses explicit `SyncPreviewModal kind="skill"`.
+`components/profiles/`: Layout mounts the switcher; `/profiles` follows Skills. Switch attempts cancel stale previews/reset consent; results survive `profileSwitched` invalidation, including partial applies. `profileView` adapts sync rows/translates diagnostics, never policy. The dialog uses overview `configDir` for project backups, including visible `skillshare/`. Tags use only server `inProfile === false` at all three sites. Pending/active-edit sync reuses explicit `SyncPreviewModal kind="skill"`. Complete sync clears edit notices; partial retries.
 
 Editor previews debounce 250ms and ignore stale replies. Refetch updates pristine idle forms, not dirty drafts/saves. Cancel restores saved input; omitted skills differ from empty. Raw rename/inactive delete support unusable definitions, never semantic edits. Membership uses deduplicated source flat names, retains failed selections and excludes agents. `profilesChanged` refreshes config/doctor too; no browser matcher/saver. Keep 11 locales aligned; runbook steps 7–8 own visual/consent/CRUD acceptance.
 

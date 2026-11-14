@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, type ProfileDefinition, type ProfilePreviewResult } from '../../api/client';
 import { useT } from '../../i18n';
@@ -13,14 +13,21 @@ import SyncPreviewModal from '../SyncPreviewModal';
 import PatternInput from '../targets/PatternInput';
 import { profileReason } from './profileView';
 
-export default function ProfileEditor({ profile, active = false, onCreated }: {
+export default function ProfileEditor({ profile, active = false, onCreated, onBusyChange }: {
   profile?: ProfileDefinition;
   active?: boolean;
   onCreated?: (name: string) => void;
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const t = useT();
   const id = useId();
   const navigate = useNavigate();
+  const location = useLocation();
+  const requestVersion = useRef(0);
+  useEffect(() => () => {
+    requestVersion.current += 1;
+    onBusyChange?.(false);
+  }, [location.key, onBusyChange]);
   const client = useQueryClient();
   const creating = !profile;
   const editable = creating || profile.usable;
@@ -81,16 +88,22 @@ export default function ProfileEditor({ profile, active = false, onCreated }: {
 
   const fail = (cause: unknown, candidate = name.trim()) => setError(profileReason(cause instanceof Error ? cause.message : String(cause), t, candidate));
   const save = async () => {
+    const version = requestVersion.current;
     setBusy(true);
+    onBusyChange?.(true);
     setError('');
     try {
       const result = creating ? await api.profiles.create({ name: name.trim(), ...body }) : await api.profiles.replace(name, body);
+      await invalidate(client, 'profilesChanged');
+      if (version !== requestVersion.current) return;
       setSaved(serialized);
       setNeedsSync(result.needsSync);
-      await invalidate(client, 'profilesChanged');
       if (creating) onCreated?.(name.trim());
-    } catch (cause: unknown) { fail(cause); }
-    finally { setBusy(false); }
+    } catch (cause: unknown) { if (version === requestVersion.current) fail(cause); }
+    finally {
+      setBusy(false);
+      if (version === requestVersion.current) onBusyChange?.(false);
+    }
   };
   const rename = async () => {
     setBusy(true);
@@ -167,6 +180,8 @@ export default function ProfileEditor({ profile, active = false, onCreated }: {
       </div>
     </DialogShell>
     <ConfirmDialog open={deleting} onCancel={() => setDeleting(false)} onConfirm={() => void remove()} loading={busy} title={t('profileEdit.delete')} confirmText={t('profileEdit.delete')} message={t('profileEdit.deleteConfirm', { name })} variant="danger" />
-    {syncOpen && <SyncPreviewModal open onClose={() => setSyncOpen(false)} kind="skill" profilePending={needsSync} />}
+    {syncOpen && <SyncPreviewModal open onClose={() => setSyncOpen(false)} kind="skill" profilePending={needsSync} onComplete={(result) => {
+      if (result.profile?.name === name && result.profileComplete) setNeedsSync(false);
+    }} />}
   </div>;
 }

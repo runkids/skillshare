@@ -18,6 +18,7 @@ export default function ProfilesPage() {
   const navigate = useNavigate();
   const { name } = useParams();
   const [creating, setCreating] = useState(false);
+  const [creatingBusy, setCreatingBusy] = useState(false);
   const { data, isPending, error } = useQuery({ queryKey: queryKeys.profiles, queryFn: () => api.profiles.list() });
   const profile = data?.profiles.find((p) => p.name === name);
   const create = <Button onClick={() => setCreating(true)}><Plus size={15} />{t('profileEdit.create')}</Button>;
@@ -41,8 +42,8 @@ export default function ProfilesPage() {
         {p.usable && p.skills === null && <span className="text-xs text-ink-3">{t('profileEdit.passThrough')}</span>}
       </div>)}
     </div>}
-    <DialogShell open={creating} onClose={() => setCreating(false)} ariaLabel={t('profileEdit.create')} maxWidth="2xl">
-      <div className="flex flex-col gap-5"><h2 className="ss-h2">{t('profileEdit.create')}</h2><ProfileEditor onCreated={(created) => { setCreating(false); navigate(`/profiles/${encodeURIComponent(created)}`); }} /></div>
+    <DialogShell open={creating} preventClose={creatingBusy} onClose={() => setCreating(false)} ariaLabel={t('profileEdit.create')} maxWidth="2xl">
+      <div className="flex flex-col gap-5"><h2 className="ss-h2">{t('profileEdit.create')}</h2><ProfileEditor onBusyChange={setCreatingBusy} onCreated={(created) => { setCreating(false); navigate(`/profiles/${encodeURIComponent(created)}`); }} /></div>
     </DialogShell>
   </div>;
 }

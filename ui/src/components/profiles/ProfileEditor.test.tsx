@@ -114,6 +114,7 @@ it('refuses active deletion and applies an active edit only after an explicit sk
   const f = profileFixtures(true);
   Object.assign(f.catalog, { active: 'work', state: 'active' });
   f.replace.mockResolvedValue({ changed: true, needsSync: true, skills: null });
+  f.sync.mockResolvedValue({ results: [], ignored_count: 0, ignored_skills: [], ignore_root: '', ignore_repos: [], profile: { name: 'work', state: 'active', pending: false }, profileComplete: true });
   await mountProfiles('/profiles/work');
   expect(await screen.findByRole('button', { name: 'Delete profile' })).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: 'Delete profile' }));
@@ -129,4 +130,7 @@ it('refuses active deletion and applies an active edit only after an explicit sk
   expect(f.sync).not.toHaveBeenCalled();
   fireEvent.click(await within(dialog).findByRole('button', { name: 'Sync Now' }));
   await waitFor(() => expect(f.sync).toHaveBeenCalledExactlyOnceWith({ dryRun: false, kind: 'skill' }));
+  fireEvent.click(await within(dialog).findByRole('button', { name: 'Close' }));
+  expect(screen.queryByRole('button', { name: 'Sync now' })).toBeNull();
+  expect(f.sync).toHaveBeenCalledTimes(1);
 });

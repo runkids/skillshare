@@ -825,3 +825,34 @@ func TestProfiles_ReadOnlyRoutes(t *testing.T) {
 		}
 	}
 }
+
+func TestProfilesAPI_SyncReportsDefinitionCompletion(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, edited := range []bool{false, true} {
+			t.Run(fmt.Sprintf("project=%v/edited=%v", project, edited), func(t *testing.T) {
+				f := newProfileRouteFixture(t, project)
+				profilePost(t, f, `{"name":"all"}`, http.StatusOK)
+				if edited {
+					profileFixtureWrite(t, filepath.Join(f.target, "beta", "SKILL.md"), "authored copy")
+				}
+				rr := projectRequest(t, f.server, http.MethodPut, "/api/profiles/all", `{"skills":{"include":["alpha"]}}`)
+				if rr.Code != http.StatusOK {
+					t.Fatalf("edit: %d %s", rr.Code, rr.Body.String())
+				}
+				rr = projectRequest(t, f.server, http.MethodPost, "/api/sync", `{"kind":"skill"}`)
+				var out struct {
+					Profile         *profileapply.Info `json:"profile"`
+					ProfileComplete *bool              `json:"profileComplete"`
+				}
+				if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil || rr.Code != http.StatusOK || out.Profile == nil || out.Profile.Name != "all" || out.ProfileComplete == nil || *out.ProfileComplete == edited {
+					t.Fatalf("definition sync completion: %d %s: %v", rr.Code, rr.Body.String(), err)
+				}
+				// Definition edits do not set the switch-pending flag, even when
+				// protected authored copies prevent the new selection applying.
+				if out.Profile.Pending {
+					t.Fatal("definition sync unexpectedly became a pending switch")
+				}
+			})
+		}
+	}
+}
