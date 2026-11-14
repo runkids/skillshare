@@ -3,7 +3,12 @@ package sync
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
+
+	"skillshare/internal/config"
+	"skillshare/internal/sourcewalk"
+	"skillshare/internal/utils"
 )
 
 func TestShouldUseRelative(t *testing.T) {
@@ -227,5 +232,132 @@ func TestReformatLink(t *testing.T) {
 	// Verify: no temp file left behind
 	if _, err := os.Lstat(link + ".ss-reformat"); err == nil {
 		t.Error("temp file should be cleaned up")
+	}
+}
+
+func TestRelativeLinkTargetThroughDirectoryAlias(t *testing.T) {
+	root := t.TempDir()
+	sourceRoot := filepath.Join(root, "source")
+	source := filepath.Join(sourceRoot, "demo")
+	physical := filepath.Join(root, "physical", "nested")
+	for _, dir := range []string{source, physical} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	alias := filepath.Join(root, "target")
+	if runtime.GOOS == "windows" {
+		if err := utils.CreateJunction(alias, physical); err != nil {
+			t.Fatal(err)
+		}
+	} else if err := os.Symlink(physical, alias); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(alias, "skill")
+	if err := createLink(link, source, true, source); err != nil {
+		t.Fatal(err)
+	}
+	actual, err := os.Stat(link)
+	want, wantErr := os.Stat(source)
+	if err != nil || wantErr != nil || !os.SameFile(actual, want) {
+		t.Fatalf("relative link through alias does not reach source: %v, %v", err, wantErr)
+	}
+	resolved, err := utils.ResolveLinkTarget(link)
+	if err != nil || !utils.PathsEqual(evalOrClean(resolved), evalOrClean(source)) {
+		t.Fatalf("resolved link = %q, %v; want %q", resolved, err, source)
+	}
+	raw, err := os.Readlink(link)
+	if err != nil || !utils.PathsEqual(evalOrClean(resolveReadlink(raw, link)), evalOrClean(source)) {
+		t.Fatalf("resolved raw link = %q, %v; want %q", raw, err, source)
+	}
+	if err := os.Remove(link); err != nil {
+		t.Fatal(err)
+	}
+	content := "---\nname: demo\n---\n# Demo\n"
+	if err := os.WriteFile(filepath.Join(source, "SKILL.md"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	skills, err := DiscoverSourceSkills(sourceRoot)
+	if err != nil || len(skills) != 1 {
+		t.Fatalf("discover: %+v, %v", skills, err)
+	}
+	target := SkillTarget{Name: "test", Target: config.TargetConfig{Path: alias}, Mode: "merge"}
+	opts := SkillRunOptions{Source: sourceRoot, ProjectRoot: root, ProfileAware: true}
+	for i := 0; i < 2; i++ {
+		if r := SyncSkillTarget(target, skills, opts); r.Err != nil || len(r.Blocked)+len(r.KeptModified)+len(r.Updated) != 0 || len(r.Linked) != 1 {
+			t.Fatalf("sync %d: %+v", i, r)
+		}
+		manifest, err := ReadManifest(alias)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got, allowed := PreviewEntry("demo", alias, sourceRoot, skills, manifest, nil); !allowed || got.Class != EntryManagedLink {
+			t.Fatalf("preview %d: %+v, %v", i, got, allowed)
+		}
+	}
+	target.Target.Exclude = []string{"*"}
+	if r := SyncSkillTarget(target, skills, opts); r.Err != nil || r.PruneErr != nil || len(r.Pruned) != 1 {
+		t.Fatalf("exclude through alias: %+v", r)
+	}
+	if _, err := os.Lstat(filepath.Join(physical, "demo")); !os.IsNotExist(err) {
+		t.Fatalf("excluded link remains: %v", err)
+	}
+	if data, err := os.ReadFile(filepath.Join(source, "SKILL.md")); err != nil || string(data) != content {
+		t.Fatalf("sync changed source: %q, %v", data, err)
+	}
+	missing := filepath.Join(alias, "not-created", "child")
+	if got := evalOrClean(missing); !utils.PathsEqual(got, filepath.Join(evalOrClean(physical), "not-created", "child")) {
+		t.Fatalf("missing tail did not retain physical ancestor: %s", got)
+	}
+}
+
+func TestRepeatSyncThroughSharedProjectAlias(t *testing.T) {
+	sourceReal := linkedRepoSource(t)
+	writeAnalyzeSkill(t, sourceReal, "demo", "body")
+	root := filepath.Dir(sourceReal)
+	alias := filepath.Join(t.TempDir(), "project")
+	if runtime.GOOS == "windows" {
+		if err := utils.CreateJunction(alias, root); err != nil {
+			t.Fatal(err)
+		}
+	} else if err := os.Symlink(root, alias); err != nil {
+		t.Fatal(err)
+	}
+	source := filepath.Join(alias, filepath.Base(sourceReal))
+	skills, err := DiscoverSourceSkills(source, sourcewalk.Options{Follow: sourcewalk.NewFollow(source, nil)})
+	if err != nil || len(skills) != 2 {
+		t.Fatalf("discovery: %+v, %v", skills, err)
+	}
+	file := ExtraFile{Source: filepath.Join(source, "demo", "SKILL.md"), Target: filepath.Join(alias, "extra-file")}
+	if platformCanCreateFileLink() {
+		if err := createLink(file.Target, file.Source, true); err != nil {
+			t.Fatal(err)
+		}
+		if !file.isOurLink() {
+			t.Fatal("single-file extra lost ownership through project alias")
+		}
+	}
+	whole := config.TargetConfig{Path: filepath.Join(alias, "whole")}
+	merged := config.TargetConfig{Path: filepath.Join(alias, "merged")}
+	for i := 0; i < 2; i++ {
+		if err := SyncTarget("whole", whole, source, false, alias); err != nil {
+			t.Fatalf("symlink sync %d: %v", i, err)
+		}
+		if !LinksTo(whole.Path, source) {
+			t.Fatal("whole-directory link lost ownership through project alias")
+		}
+		if got := CheckStatus(whole.Path, source); got != StatusLinked {
+			t.Fatalf("symlink status %d: %v", i, got)
+		}
+		if got, _, _ := CheckStatusMerge(whole.Path, source); got != StatusLinked {
+			t.Fatalf("whole-source merge status %d: %v", i, got)
+		}
+		r := SyncSkillTarget(SkillTarget{Name: "merged", Target: merged, Mode: "merge"}, skills, SkillRunOptions{Source: source, ProjectRoot: alias, ProfileAware: true})
+		if r.Err != nil || r.PruneErr != nil || len(r.Updated)+len(r.Blocked)+len(r.KeptModified) != 0 || len(r.Linked) != 2 {
+			t.Fatalf("merge sync %d: %+v", i, r)
+		}
+		if got, linked, local := CheckStatusMerge(merged.Path, source); got != StatusMerged || linked != 2 || local != 0 {
+			t.Fatalf("merge status %d: %v, linked=%d, local=%d", i, got, linked, local)
+		}
 	}
 }

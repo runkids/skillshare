@@ -259,7 +259,7 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 				continue
 			}
 			absSource, _ := filepath.Abs(skill.SourcePath)
-			if !utils.PathsEqual(absLink, absSource) {
+			if !utils.SamePhysicalPath(absLink, absSource) {
 				dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "update", Reason: "symlink points elsewhere", Kind: kindSkill})
 			}
 		} else if old, ok := renamedFrom[resolved.TargetName]; ok {
@@ -293,7 +293,7 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 					continue
 				}
 				absSource, _ := filepath.Abs(source)
-				if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) {
+				if utils.PathWithinRoot(absLink, absSource) {
 					dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "prune", Reason: "orphan symlink", Kind: kindSkill})
 				}
 			} else if info.IsDir() {
