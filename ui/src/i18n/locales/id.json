@@ -3638,6 +3638,9 @@
   "hooks.message.opencodeManifest": "Tidak dapat membaca package.json OpenCode: {detail}",
   "hooks.message.opencodeExportPath": "Export OpenCode {path} harus tetap di dalam paket.",
   "hooks.message.opencodeExportMissing": "Export OpenCode {path} tidak ditemukan: {detail}",
+  "hooks.message.opencodeUndetected": "OpenCode di {target}: versi terpasang tidak dapat dideteksi ({detail}). Binding hook-nya dilewati; keluaran yang ada dibiarkan apa adanya.",
+  "hooks.message.opencodePackageNeedsV2": "{name}: paket direktori memerlukan OpenCode v2, jadi dilewati untuk {target}.",
+  "hooks.message.opencodePackageUnreadable": "File paket OpenCode {path} tidak dapat diimpor: {detail}",
   "plugins.problem.opencodeDirectory": "OpenCode v2 memerlukan pendaftaran direktori, bukan file plugin. Hapus binding ini dan tambahkan paketnya lagi.",
   "plugins.skip.opencodeLocal": "Paket lokal yang diimpor: perbarui di sumbernya. Skillshare tidak menjalankan pemasang dependensi."
 }

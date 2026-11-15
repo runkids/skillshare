@@ -68,6 +68,7 @@ func (s *Service) RenderNative(m Mutation) ([]RenderedFile, error) {
 		return nil, err
 	}
 	entry.Enabled = nil
+	scope = scope.memoProbe()
 	out := []RenderedFile{}
 	for _, target := range sortedKeys(entry.Bindings) {
 		one := Entry{Bindings: map[string]Binding{target: entry.Bindings[target]}}

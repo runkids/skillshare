@@ -281,6 +281,13 @@ func (s *Service) openCodeInventory(target, version string) ([]Installed, string
 		if key == "plugins" && (strings.HasPrefix(id, "-") || id == "*" || strings.HasSuffix(id, ".*")) {
 			continue
 		}
+		// A hook synced to OpenCode v2 registers plugins/skillshare-NAME in this same
+		// array. Hooks owns it, so it is neither listed nor offered for import here.
+		if key == "plugins" && strings.HasPrefix(id, "file:") {
+			if hook := openCodeImportPath(id); filepath.Dir(hook) == filepath.Join(filepath.Dir(path), "plugins") && strings.HasPrefix(filepath.Base(hook), "skillshare-") {
+				continue
+			}
+		}
 		if !validTargetID("opencode", id) {
 			return nil, "", fmt.Errorf("unsupported OpenCode plugin control entry; manage it in OpenCode")
 		}

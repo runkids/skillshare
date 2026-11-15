@@ -16,38 +16,66 @@ import (
 	"skillshare/internal/opencode"
 )
 
+const openCodeDependencyWarning = "OpenCode v2: package files and registration only; provision the declared dependencies yourself before loading. Skillshare does not execute plugins or install dependencies."
+
 func (s *Service) openCode2() (bool, error) {
 	bin := "opencode"
 	if s.scopedAccount != "" && s.Accounts[s.scopedAccount].CLI != "" {
 		bin = s.Accounts[s.scopedAccount].CLI
 	}
-	probe := s.OpenCodeVersion
-	if probe == nil {
-		probe = func(bin string) (string, error) {
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-			defer cancel()
-			path, err := exec.LookPath(bin)
-			if err != nil {
-				return "", err
-			}
-			if runtime.GOOS == "windows" && strings.EqualFold(filepath.Ext(path), ".cmd") {
-				path, err = openCodeNPMExecutable(path)
-				if err != nil {
-					return "", err
-				}
-			}
-			cmd := exec.CommandContext(ctx, path, "--version")
-			cmd.WaitDelay = 100 * time.Millisecond
-			output, err := cmd.Output()
-			return string(output), err
-		}
-	}
-	version, err := probe(bin)
+	version, err := s.versionProbe()(bin)
 	if err != nil {
 		return false, fmt.Errorf("detect OpenCode API with %s --version: %w", bin, err)
 	}
 	key, err := opencode.ConfigKey(version)
 	return key == "plugins", err
+}
+
+func (s *Service) versionProbe() func(string) (string, error) {
+	if s.OpenCodeVersion != nil {
+		return s.OpenCodeVersion
+	}
+	return probeOpenCodeVersion
+}
+
+func probeOpenCodeVersion(bin string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	path, err := exec.LookPath(bin)
+	if err != nil {
+		return "", err
+	}
+	if runtime.GOOS == "windows" && strings.EqualFold(filepath.Ext(path), ".cmd") {
+		path, err = openCodeNPMExecutable(path)
+		if err != nil {
+			return "", err
+		}
+	}
+	cmd := exec.CommandContext(ctx, path, "--version")
+	cmd.WaitDelay = 100 * time.Millisecond
+	output, err := cmd.Output()
+	return string(output), err
+}
+
+// memoProbe asks each OpenCode binary once per plan, however many bindings and
+// owned outputs need the answer. The answer is not kept between plans.
+func (s *Service) memoProbe() *Service {
+	probe := s.versionProbe()
+	type answer struct {
+		version string
+		err     error
+	}
+	seen := map[string]answer{}
+	c := *s
+	c.OpenCodeVersion = func(bin string) (string, error) {
+		a, ok := seen[bin]
+		if !ok {
+			a.version, a.err = probe(bin)
+			seen[bin] = a
+		}
+		return a.version, a.err
+	}
+	return &c
 }
 
 func validateOpenCodePackage(files map[string]string) error {
@@ -120,14 +148,18 @@ func (s *Service) renderOpenCode(d *desired, root, target, name string, b Bindin
 	if err := validateOpenCodePackage(files); err != nil {
 		return err
 	}
+	if d.packageFiles == nil {
+		d.packageFiles = map[string]bool{}
+	}
 	for _, file := range sortedKeys(files) {
-		if err := addFile(wantFile{target: target, path: filepath.Join(dir, filepath.FromSlash(file)), root: root, entry: name, content: []byte(files[file]), mode: 0644}); err != nil {
+		path := filepath.Join(dir, filepath.FromSlash(file))
+		if err := addFile(wantFile{target: target, path: path, root: root, entry: name, content: []byte(files[file]), mode: 0644}); err != nil {
 			return err
 		}
+		d.packageFiles[path] = true
 	}
 	d.targets[config], d.roots[config] = target, root
 	d.elements[config] = append(d.elements[config], wantElement{target: target, path: config, root: root, entry: name, event: "plugins", value: opencode.FileURL(dir)})
-	d.warnings = append(d.warnings, "OpenCode v2: package files and registration only; provision the declared dependencies yourself before loading. Skillshare does not execute plugins or install dependencies.")
 	return nil
 }
 
@@ -152,9 +184,13 @@ func (s *Service) importOpenCodePackages(state ledger) ([]Candidate, error) {
 			return nil, err
 		}
 		files := map[string]string{}
-		err = fs.WalkDir(os.DirFS(root), ".", func(name string, item fs.DirEntry, walkErr error) error {
+		// A file that cannot be read, such as a symlink, is this package's problem
+		// only; the other packages and flat files stay importable.
+		var problems []string
+		_ = fs.WalkDir(os.DirFS(root), ".", func(name string, item fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
-				return walkErr
+				problems = append(problems, fmt.Sprintf("OpenCode package file %q cannot be imported: %v", name, walkErr))
+				return nil
 			}
 			if item.IsDir() {
 				if item.Name() == "node_modules" || item.Name() == ".git" {
@@ -164,18 +200,14 @@ func (s *Service) importOpenCodePackages(state ledger) ([]Candidate, error) {
 			}
 			data, _, _, err := safeRead(filepath.Join(root, filepath.FromSlash(name)))
 			if err != nil {
-				return err
+				problems = append(problems, fmt.Sprintf("OpenCode package file %q cannot be imported: %v", name, err))
+				return nil
 			}
 			files[name] = string(data)
 			return nil
 		})
-		if err != nil {
-			return nil, err
-		}
-		c := Candidate{Name: candidateName(strings.TrimPrefix(name, "skillshare-")), Entry: Entry{Bindings: map[string]Binding{s.targetKey("opencode"): {Package: files}}}}
-		if err := validateOpenCodePackage(files); err != nil {
-			c.Problems = []string{err.Error()}
-		}
+		// Import reports the package's own validation problems once, for every candidate.
+		c := Candidate{Name: candidateName(strings.TrimPrefix(name, "skillshare-")), Problems: problems, Entry: Entry{Bindings: map[string]Binding{s.targetKey("opencode"): {Package: files}}}}
 		c.Warnings = []string{fmt.Sprintf("%s keeps loading; remove its original files and directory registration after syncing so the plugin does not run twice", root)}
 		out = append(out, c)
 	}

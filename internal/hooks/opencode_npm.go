@@ -28,5 +28,5 @@ func openCodeNPMExecutable(shim string) (string, error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("unrecognized OpenCode npm launcher; set the account cli to the installed native opencode.exe path")
+	return "", fmt.Errorf("unrecognized OpenCode npm launcher; put the installed native opencode.exe first on PATH, or set an account target's cli to its path")
 }

@@ -128,8 +128,10 @@ type desired struct {
 	targets    map[string]string        // path -> target
 	roots      map[string]string        // path -> root
 	files      map[string]wantFile
-	warnings   []string
-	notes      []Change
+	// packageFiles are the files paths that belong to OpenCode v2 directory packages.
+	packageFiles map[string]bool
+	warnings     []string
+	notes        []Change
 }
 
 func (d *desired) addOwned(r record) {
@@ -231,9 +233,15 @@ func (s *Service) renderScope(d *desired, root string, entries map[string]Entry)
 			dirOwner[canonical] = target
 			def, _ := targetDef(agent)
 			if agent == "opencode" {
+				// The layout depends on the installed version. Without it only OpenCode
+				// waits: the other Agents sync, and parkReason keeps what is already there.
 				v2, err := sc.openCode2()
 				if err != nil {
-					return err
+					// Said once per target, however many hooks and project roots bind it.
+					if warning := fmt.Sprintf("target %s: %v; its hook bindings are skipped", target, err); !slices.Contains(d.warnings, warning) {
+						d.warnings = append(d.warnings, warning)
+					}
+					continue
 				}
 				if v2 {
 					if err := sc.renderOpenCode(d, root, target, name, b, addFile); err != nil {
@@ -242,7 +250,8 @@ func (s *Service) renderScope(d *desired, root string, entries map[string]Entry)
 					continue
 				}
 				if b.Package != nil {
-					return fmt.Errorf("%s: directory package requires OpenCode v2", name)
+					d.warnings = append(d.warnings, fmt.Sprintf("hook %s: target %s: a directory package requires OpenCode v2; this binding is skipped", name, target))
+					continue
 				}
 			}
 			if def.Kind == KindCode || agent == "copilot" {
@@ -500,6 +509,7 @@ func (s *Service) Preview() (*Plan, error) {
 
 // previewSource plans a sync; replace and adopt are root + "\x00" + entry sets.
 func (s *Service) previewSource(source *Source, replace, adopt map[string]bool) (*Plan, error) {
+	s = s.memoProbe()
 	state, stateBytes, err := s.loadLedger()
 	if err != nil {
 		return nil, err
@@ -646,6 +656,10 @@ func (s *Service) previewSource(source *Source, replace, adopt map[string]bool) 
 		p.files = append(p.files, f)
 	}
 	slices.SortStableFunc(p.files, func(a, b *filePlan) int { return gitWritePriority(a) - gitWritePriority(b) })
+	// Said when a package is written, not on every preview, so a synced hook is in sync.
+	if slices.ContainsFunc(p.files, func(f *filePlan) bool { return d.packageFiles[f.path] && f.changed() }) {
+		p.Warnings = append(p.Warnings, openCodeDependencyWarning)
+	}
 	for _, f := range p.files {
 		fingerprint += fmt.Sprintf("%s\x00%s\x00%t\x00%s\n", f.path, f.kind, f.exists, f.section)
 	}

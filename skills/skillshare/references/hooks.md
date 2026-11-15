@@ -127,7 +127,11 @@ contents map, including package.json and dependencies. Native directory imports
 copy to Skillshare-owned output and warn to remove the original after sync.
 No code runs or dependencies install. Provision dependencies before loading.
 Only string server exports or conventional root server/index entries are verified;
-conditional/fallback server exports fail closed. Unknown majors are refused.
+conditional/fallback server exports fail closed. When the version cannot be
+detected (missing or failing binary, unknown major), only OpenCode bindings are
+skipped with a warning; existing OpenCode output stays and other Agents sync.
+A `package` binding on v1 is skipped with a warning. `code` is written as given,
+not checked against the v1 or v2 API.
 
 Windows hook probes resolve standard native npm shims for `opencode-ai` (later
 v1) and `@opencode/cli` (v2), without a shell. Older v1 Node launchers and custom

@@ -177,7 +177,7 @@ Skillshare는 패키지를 실행하지 않고 읽기 때문에, 이 탭은 설�
 
 Pi로 동기화하는 프로젝트도 프로젝트 페이지에 같은 탭이 있습니다. 프로젝트 설정을 전역 설정 위에 적용했을 때 각 패키지가 무엇을 선택하는지 보여 주며, `pi (global)`에서 상속한 것인지 프로젝트 재정의인지 표시합니다. 스위치는 규칙을 프로젝트의 `.pi/settings.json`에만 저장하며, `pi config`와 같은 방식으로 씁니다. 전역 패키지에는 지정한 파일만 바꾸는 프로젝트 항목 `{"source": ..., "autoload": false, "extensions": [...]}`이 추가되고 전역 항목은 그대로 유지됩니다. 로컬 소스는 `.pi` 기준 상대 경로로, npm 또는 git 소스는 전역 설정에 적힌 그대로 씁니다. 이런 항목의 마지막 프로젝트 규칙을 제거하면 이전 등록의 filters가 활성화되지 않을 때만 항목을 제거하고, 그렇지 않으면 빈 winning override를 유지합니다. 명시적인 JSON `false`만 delta이며 `autoload: null`은 `false`가 아닙니다. 대응하는 전역 항목이 없고 `autoload: false`인 프로젝트 항목은 `+`로 지정한 파일만 로드합니다. 파일과 그 `.pi` 폴더는 적용할 때만 만들어집니다. 전역 설정과 Pi의 `trust.json`은 절대 쓰지 않으며, Skillshare가 대신 프로젝트를 신뢰하지도 않습니다. Pi는 프로젝트를 신뢰할 때만 프로젝트 설정을 사용합니다. 자격 증명이나 쿼리가 있는 전역 소스는 프로젝트에 복사하지 않으므로 그 패키지는 프로젝트에서 읽기 전용이며, 프로젝트 설정에 Skillshare가 읽을 수 없는 항목이 있으면 모든 패키지가 읽기 전용입니다. 적용 중에는 프로젝트 파일에 대한 Pi의 잠금을 유지하고, 쓰기 직전에 두 설정 파일과 패키지를 다시 확인합니다. Pi 자체의 `extensions` 폴더에 있는 extension([extras](./extras.md)가 그곳에 연결한 파일 포함)은 변경할 위치와 함께 읽기 전용으로 표시됩니다. 프로젝트는 자체 폴더(Pi는 프로젝트를 신뢰할 때만 읽음)와 전역 폴더를 표시합니다.
 
-OpenCode v1은 관리되는 entry 파일을, v2는 패키지 디렉터리를 `opencode.json` 또는 기존의 `opencode.jsonc`에 file URL로 등록하며, 주석과 관련 없는 항목은 유지합니다. Version 1은 `plugin`을 사용하고, version 2는 `plugins`를 사용합니다. `XDG_CONFIG_HOME`과 절대 경로의 global `OPENCODE_CONFIG`를 준수합니다. 모호하거나 지원되지 않는 override는 거부됩니다. Skillshare가 버전의 스키마를 선택할 수 있도록 OpenCode는 PATH에 있어야 합니다.
+OpenCode v1은 관리되는 entry 파일을, v2는 패키지 디렉터리를 `opencode.json` 또는 기존의 `opencode.jsonc`에 file URL로 등록하며, 주석과 관련 없는 항목은 유지합니다. Version 1은 `plugin`을 사용하고, version 2는 `plugins`를 사용합니다. `XDG_CONFIG_HOME`과 절대 경로의 global `OPENCODE_CONFIG`를 준수합니다. 모호하거나 지원되지 않는 override는 거부됩니다. Skillshare가 버전의 스키마를 선택할 수 있도록 OpenCode는 PATH에 있어야 합니다. [`hooks`](./hooks.md)가 같은 `plugins` 배열에 등록하는 v2 디렉터리 패키지(`plugins/skillshare-NAME`)는 hooks에 속하며, `plugin list`와 `plugin import`에는 표시되지 않습니다.
 
 로컬 OpenCode v1 source에는 빌드된 entry(`main`, 문자열 root export, 또는 `index.js`)가 필요합니다. v2는 디렉터리 로더를 사용하며, `name`과 문자열 root 또는 `./server` export, 또는 루트의 `server`/`index` 파일(`.ts`, `.tsx`, `.js`)이 필요합니다. `--entry`는 v2 디렉터리 로딩을 변경하지 않습니다. 조건부·폴백 server export는 거부합니다. `@opencode-ai/plugin`과 `@opencode/plugin` 모두 OpenCode 패키지를 식별합니다. manifest와 의존성 요구사항은 변경하지 않습니다. Skillshare는 빌드 스크립트를 실행하거나 source에 의존성을 설치하지 않습니다. 등록되었다고 해서 모듈이 성공적으로 로드되었다는 증거는 아닙니다. 다시 로드한 후 OpenCode를 확인하세요.
 
@@ -283,9 +283,4 @@ skillshare plugin sync NAME --no-tui
 
 제거하면 해당 설치와 연결된 네이티브 클라이언트 설정이나 로그인 정보도 삭제됩니다.
 
-
-### OpenCode v2
-
-OpenCode v1은 단일 파일, v2는 디렉터리 패키지와 디렉터리 URL을 사용합니다. 설치된 API에 맞는 코드를 제공하세요. Skillshare는 플러그인을 실행하거나 의존성을 설치하지 않습니다. 로드 전에 선언된 의존성을 준비하세요.
-
-`--version`으로 API를 선택하며 알 수 없는 주 버전은 거부합니다. v2는 package.json과 의존성을 보존하고 `name`과 문자열 root／`./server` export 또는 루트 server/index(.ts, .tsx, .js)를 사용합니다. 조건부·폴백 export는 추측하지 않습니다. `--entry`는 v2 디렉터리 로딩을 바꾸지 않습니다. 이전 v2 단일 파일 등록은 제거한 후 디렉터리 패키지로 다시 추가하세요.
+이전 Skillshare OpenCode v2 어댑터가 남긴 단일 파일 등록은 add/import/sync/update에서 거부됩니다. 이전의 관리되는 binding을 제거하고 해당 디렉터리 패키지를 다시 추가하세요. 제거는 계속 가능하며 관련 없는 네이티브 등록은 건드리지 않습니다. 미리보기 후 런타임 버전이 바뀌면 새 미리보기가 필요합니다.

@@ -3638,6 +3638,9 @@
   "hooks.message.opencodeManifest": "Cannot read the OpenCode package.json: {detail}",
   "hooks.message.opencodeExportPath": "OpenCode export {path} must stay inside the package.",
   "hooks.message.opencodeExportMissing": "OpenCode export {path} is missing: {detail}",
+  "hooks.message.opencodeUndetected": "OpenCode on {target}: the installed version could not be detected ({detail}). Its hook bindings are skipped; existing output is left as it is.",
+  "hooks.message.opencodePackageNeedsV2": "{name}: a directory package needs OpenCode v2, so it is skipped for {target}.",
+  "hooks.message.opencodePackageUnreadable": "OpenCode package file {path} cannot be imported: {detail}",
   "plugins.problem.opencodeDirectory": "OpenCode v2 requires a directory registration, not a plugin file. Remove this binding and add its package again.",
   "plugins.skip.opencodeLocal": "Imported local package: update it at its source. Skillshare does not run a dependency installer."
 }

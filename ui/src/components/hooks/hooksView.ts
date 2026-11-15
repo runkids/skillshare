@@ -59,7 +59,7 @@ const messageKeys: Record<string, string> = {
   'OpenCode v2 package requires name and exports, or a root server/index .ts, .tsx or .js file; --entry cannot override the directory loader': 'hooks.message.opencodeEntry',
 };
 const UNKNOWN_EVENT = /^hook (.+): (\S+) does not document the event "(.+)"; check its spelling$/;
-export const hookMessage = (t: (key: string, params?: Record<string, string>) => string, message: string) => {
+export const hookMessage = (t: (key: string, params?: Record<string, string>) => string, message: string): string => {
   if (messageKeys[message]) return t(messageKeys[message]);
   const importedPackage = /^(.+) keeps loading; remove its original files and directory registration after syncing so the plugin does not run twice$/.exec(message);
   if (importedPackage) return t('hooks.message.opencodeImport', { path: importedPackage[1] });
@@ -75,8 +75,21 @@ export const hookMessage = (t: (key: string, params?: Record<string, string>) =>
   if (exportPath) return t('hooks.message.opencodeExportPath', { path: exportPath[1] });
   const missingExport = /^OpenCode export (".*") is missing: ([\s\S]+)$/.exec(message);
   if (missingExport) return t('hooks.message.opencodeExportMissing', { path: missingExport[1], detail: missingExport[2] });
+  const unreadable = /^OpenCode package file (".*") cannot be imported: ([\s\S]+)$/.exec(message);
+  if (unreadable) return t('hooks.message.opencodePackageUnreadable', { path: unreadable[1], detail: unreadable[2] });
+  const undetected = /^target (\S+): (detect OpenCode API [\s\S]+); its hook bindings are skipped$/.exec(message);
+  if (undetected) return t('hooks.message.opencodeUndetected', { target: undetected[1], detail: undetected[2] });
+  const needsV2 = /^hook (.+): target (\S+): a directory package requires OpenCode v2; this binding is skipped$/.exec(message);
+  if (needsV2) return t('hooks.message.opencodePackageNeedsV2', { name: needsV2[1], target: needsV2[2] });
   const unknown = UNKNOWN_EVENT.exec(message);
-  return unknown ? t('hooks.message.unknownEvent', { name: unknown[1], agent: hookLabel(unknown[2]), event: unknown[3] }) : message;
+  if (unknown) return t('hooks.message.unknownEvent', { name: unknown[1], agent: hookLabel(unknown[2]), event: unknown[3] });
+  // Entry validation names its hook first; the row already shows which hook it is.
+  const named = /^hook [^:]+: ([\s\S]+)$/.exec(message);
+  if (named) {
+    const inner = hookMessage(t, named[1]);
+    if (inner !== named[1]) return inner;
+  }
+  return message;
 };
 export const needsTakeover = (change: HookChange) => change.action === 'conflict' && messageKeys[change.message ?? ''] === 'hooks.message.identicalUnmanaged';
 

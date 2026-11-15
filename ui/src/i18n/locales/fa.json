@@ -3638,6 +3638,9 @@
   "hooks.message.opencodeManifest": "خواندن package.json در OpenCode ممکن نیست: {detail}",
   "hooks.message.opencodeExportPath": "export در OpenCode به مسیر {path} باید داخل بسته بماند.",
   "hooks.message.opencodeExportMissing": "export در OpenCode به مسیر {path} یافت نشد: {detail}",
+  "hooks.message.opencodeUndetected": "OpenCode در {target}: نسخهٔ نصب‌شده تشخیص داده نشد ({detail}). بایندینگ‌های هوک آن نادیده گرفته می‌شوند؛ خروجی موجود دست‌نخورده می‌ماند.",
+  "hooks.message.opencodePackageNeedsV2": "{name}: بستهٔ پوشه‌ای به OpenCode v2 نیاز دارد، بنابراین برای {target} نادیده گرفته می‌شود.",
+  "hooks.message.opencodePackageUnreadable": "فایل {path} از بستهٔ OpenCode قابل وارد کردن نیست: {detail}",
   "plugins.problem.opencodeDirectory": "OpenCode v2 به ثبت پوشه نیاز دارد، نه فایل پلاگین. این اتصال را حذف و بستهٔ آن را دوباره اضافه کنید.",
   "plugins.skip.opencodeLocal": "بستهٔ محلی واردشده: آن را در محل اصلی به‌روز کنید. Skillshare نصب‌کنندهٔ وابستگی اجرا نمی‌کند."
 }

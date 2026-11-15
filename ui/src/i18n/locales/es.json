@@ -3638,6 +3638,9 @@
   "hooks.message.opencodeManifest": "No se puede leer package.json de OpenCode: {detail}",
   "hooks.message.opencodeExportPath": "El export de OpenCode {path} debe permanecer dentro del paquete.",
   "hooks.message.opencodeExportMissing": "Falta el export de OpenCode {path}: {detail}",
+  "hooks.message.opencodeUndetected": "OpenCode en {target}: no se pudo detectar la versión instalada ({detail}). Se omiten sus bindings de hooks; la salida existente se deja como está.",
+  "hooks.message.opencodePackageNeedsV2": "{name}: un paquete de directorio requiere OpenCode v2, así que se omite para {target}.",
+  "hooks.message.opencodePackageUnreadable": "No se puede importar el archivo {path} del paquete de OpenCode: {detail}",
   "plugins.problem.opencodeDirectory": "OpenCode v2 requiere registrar un directorio, no un archivo de plugin. Elimina esta vinculación y vuelve a añadir su paquete.",
   "plugins.skip.opencodeLocal": "Paquete local importado: actualízalo en su origen. Skillshare no ejecuta un instalador de dependencias."
 }

@@ -400,6 +400,9 @@ existing `opencode.jsonc`, preserving comments and unrelated entries. Version 1
 uses `plugin`; version 2 uses `plugins`. `XDG_CONFIG_HOME` and an absolute global
 `OPENCODE_CONFIG` are respected; ambiguous or unsupported overrides are rejected.
 OpenCode must be on PATH so Skillshare can choose the version's schema.
+A v2 directory package that [`hooks`](./hooks.md) registers in the same `plugins`
+array (`plugins/skillshare-NAME`) belongs to hooks; `plugin list` and
+`plugin import` do not show it.
 
 A local OpenCode v1 source needs its built entry (`main`, a string root export, or `index.js`). v2 uses the directory loader: `name` plus a string root or `./server` export, or a root `server`/`index` file (`.ts`, `.tsx`, `.js`). `--entry` does not override v2 directory loading; conditional and fallback server exports are refused. Both `@opencode-ai/plugin` and `@opencode/plugin` identify OpenCode packages. Manifests and dependency requirements remain unchanged. Skillshare does not
 run build scripts or install dependencies into the source. Registration is not

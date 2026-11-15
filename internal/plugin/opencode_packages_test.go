@@ -154,3 +154,33 @@ func TestOpenCodeDirectoryRejectsEscapingEntry(t *testing.T) {
 		t.Fatal("escaping directory import accepted")
 	}
 }
+
+// Hooks registers its own v2 packages in the array plugins reads.
+func TestOpenCodeInventoryLeavesHookPackagesToHooks(t *testing.T) {
+	version := "2.3.0"
+	s := openCodePackageService(t, &version)
+	file, err := s.openCodeConfigPath("opencode")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hook := filepath.Join(filepath.Dir(file), "plugins", "skillshare-guard")
+	writePluginFile(t, hook, "package.json", `{"name":"skillshare-guard","exports":"./index.ts"}`)
+	writePluginFile(t, hook, "index.ts", "export default {}")
+	writePluginFile(t, filepath.Dir(file), filepath.Base(file), `{"plugins":["`+fileURL(hook)+`","other"]}`)
+	h := s.host(context.Background(), "opencode")
+	if h.Error != "" || len(h.Installed) != 1 || h.Installed[0].ID != "other" {
+		t.Fatalf("%+v", h)
+	}
+}
+
+func TestOpenCodeV2BlocksSourceWithoutLoaderEntry(t *testing.T) {
+	version := "2.3.0"
+	s := openCodePackageService(t, &version)
+	source := t.TempDir()
+	writePluginFile(t, source, "package.json", `{"name":"demo","main":"plugins/demo.js","dependencies":{"@opencode-ai/plugin":"1"}}`)
+	writePluginFile(t, source, "plugins/demo.js", "export const Demo = async () => ({})")
+	p, err := s.Preview(context.Background(), Request{Action: "add", Name: "flat", Source: source, Targets: []string{"opencode"}})
+	if err != nil || !p.Blocked || len(p.Changes) != 1 || p.Changes[0].Action != "blocked" {
+		t.Fatalf("%+v %v", p, err)
+	}
+}

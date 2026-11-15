@@ -210,7 +210,7 @@ OMP and OpenCode, never falling back to global scope. An update reports failed t
   during selection management, and selected never means loaded or running.
 - OpenCode: SDK dependency, `.opencode/plugins/` convention, or explicit `--entry`,
   with an existing JS/TS entry.
-  Preserve the whole tree and manifest: v1 registers the entry file URL, v2 the directory URL in native JSON/JSONC. v2 requires name plus a string root/server export or a conventional root server/index file; --entry cannot override it. Conditional/fallback server exports fail closed.
+  Preserve the whole tree and manifest: v1 registers the entry file URL, v2 the directory URL in native JSON/JSONC. v2 requires name plus a string root/server export or a conventional root server/index file; --entry cannot override it. Conditional/fallback server exports fail closed. Hook packages registered as `plugins/skillshare-NAME` belong to hooks and are not listed.
   Version 1 uses `plugin`, version 2 uses `plugins`. Runtime dependencies must already
   be available. The CLI version selects the schema; do not guess from docs alone.
 - Another account of an Agent (a target with `agent:` and `config_dir:` in the global

@@ -14,6 +14,7 @@ import (
 // List reads the source, ownership and native files without writing. A plan that
 // cannot be computed is reported in PreviewError so the rest stays visible.
 func (s *Service) List() (*Inventory, error) {
+	s = s.memoProbe()
 	source, err := s.loadSource()
 	if err != nil {
 		return nil, err
@@ -158,10 +159,20 @@ func (s *Service) unownedFiles(target, dir string, state ledger) []string {
 		return nil
 	}
 	var names []string
+	var packages *bool
 	for _, e := range entries {
 		name := e.Name()
 		ext := filepath.Ext(name)
 		if target == "opencode" && e.IsDir() {
+			// Only OpenCode v2 loads a directory as a plugin.
+			if packages == nil {
+				v2, err := s.openCode2()
+				v2 = v2 && err == nil
+				packages = &v2
+			}
+			if !*packages {
+				continue
+			}
 			owned := false
 			for _, r := range state.Records {
 				if strings.HasPrefix(r.Path, filepath.Join(dir, name)+string(filepath.Separator)) {
@@ -215,6 +226,7 @@ func candidateName(parts ...string) string {
 // matches a candidate picks that one; any other Name merges everything found into one
 // candidate.
 func (s *Service) Import(req ImportRequest) ([]Candidate, error) {
+	s = s.memoProbe()
 	target := canonicalTarget(req.From)
 	if target == "git" {
 		return nil, fmt.Errorf("Git hooks import is not supported yet; define commands explicitly")

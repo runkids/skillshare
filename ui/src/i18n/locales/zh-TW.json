@@ -3638,6 +3638,9 @@
   "hooks.message.opencodeManifest": "無法讀取 OpenCode 的 package.json：{detail}",
   "hooks.message.opencodeExportPath": "OpenCode export {path} 必須位於套件內。",
   "hooks.message.opencodeExportMissing": "缺少 OpenCode export {path}：{detail}",
+  "hooks.message.opencodeUndetected": "{target} 的 OpenCode：無法偵測已安裝的版本（{detail}）。已略過其 hook 綁定；現有輸出保持不變。",
+  "hooks.message.opencodePackageNeedsV2": "{name}：目錄套件需要 OpenCode v2，因此在 {target} 上略過。",
+  "hooks.message.opencodePackageUnreadable": "無法匯入 OpenCode 套件檔案 {path}：{detail}",
   "plugins.problem.opencodeDirectory": "OpenCode v2 需要目錄註冊，而非外掛檔案。請移除此綁定，再重新加入其套件。",
   "plugins.skip.opencodeLocal": "已匯入的本機套件：請在來源位置更新。Skillshare 不會執行相依套件安裝程式。"
 }

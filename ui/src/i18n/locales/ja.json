@@ -3638,6 +3638,9 @@
   "hooks.message.opencodeManifest": "OpenCode の package.json を読み取れません：{detail}",
   "hooks.message.opencodeExportPath": "OpenCode の export {path} はパッケージ内にある必要があります。",
   "hooks.message.opencodeExportMissing": "OpenCode の export {path} が見つかりません：{detail}",
+  "hooks.message.opencodeUndetected": "{target} の OpenCode: インストールされているバージョンを検出できませんでした（{detail}）。フックのバインディングはスキップされ、既存の出力はそのまま残ります。",
+  "hooks.message.opencodePackageNeedsV2": "{name}: ディレクトリパッケージには OpenCode v2 が必要なため、{target} ではスキップされます。",
+  "hooks.message.opencodePackageUnreadable": "OpenCode パッケージのファイル {path} をインポートできません: {detail}",
   "plugins.problem.opencodeDirectory": "OpenCode v2 にはプラグインファイルではなくディレクトリの登録が必要です。このバインディングを削除してパッケージを追加し直してください。",
   "plugins.skip.opencodeLocal": "インポート済みローカルパッケージ：元の場所で更新してください。Skillshare は依存関係のインストーラーを実行しません。"
 }

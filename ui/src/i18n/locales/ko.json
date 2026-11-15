@@ -3638,6 +3638,9 @@
   "hooks.message.opencodeManifest": "OpenCode package.json을 읽을 수 없습니다: {detail}",
   "hooks.message.opencodeExportPath": "OpenCode export {path}은(는) 패키지 내부에 있어야 합니다.",
   "hooks.message.opencodeExportMissing": "OpenCode export {path}을(를) 찾을 수 없습니다: {detail}",
+  "hooks.message.opencodeUndetected": "{target}의 OpenCode: 설치된 버전을 감지할 수 없습니다({detail}). 훅 바인딩은 건너뛰며 기존 출력은 그대로 둡니다.",
+  "hooks.message.opencodePackageNeedsV2": "{name}: 디렉터리 패키지는 OpenCode v2가 필요하므로 {target}에서는 건너뜁니다.",
+  "hooks.message.opencodePackageUnreadable": "OpenCode 패키지 파일 {path}을(를) 가져올 수 없습니다: {detail}",
   "plugins.problem.opencodeDirectory": "OpenCode v2에는 플러그인 파일이 아닌 디렉터리 등록이 필요합니다. 이 바인딩을 제거한 후 패키지를 다시 추가하세요.",
   "plugins.skip.opencodeLocal": "가져온 로컬 패키지: 원본 위치에서 업데이트하세요. Skillshare는 의존성 설치 프로그램을 실행하지 않습니다."
 }

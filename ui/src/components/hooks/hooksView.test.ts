@@ -229,6 +229,12 @@ describe('hookMessage', () => {
     expect(hookMessage(t, 'an identical hook exists that Skillshare does not manage; import it or explicitly replace it')).toBe('[hooks.message.identicalUnmanaged]');
     expect(hookMessage(t, 'hook guard: gemini does not document the event "Stopp"; check its spelling')).toBe('[hooks.message.unknownEvent]');
     expect(hookMessage(t, 'OpenCode v2: package files and registration only; provision the declared dependencies yourself before loading. Skillshare does not execute plugins or install dependencies.')).toBe('[hooks.message.opencodeDependencies]');
+    expect(hookMessage(t, 'hook kata: OpenCode package must not contain node_modules')).toBe(hookMessage(t, 'OpenCode package must not contain node_modules'));
+    expect(hookMessage(t, 'hook kata: something untranslated')).toBe('hook kata: something untranslated');
+    expect(hookMessage(t, 'target opencode: detect OpenCode API with opencode --version: exec: "opencode": executable file not found in $PATH; its hook bindings are skipped')).toBe('[hooks.message.opencodeUndetected]');
+    expect(hookMessage(t, 'target work: config_dir /OpenCode does not exist on this machine; its hook bindings are skipped')).toBe('target work: config_dir /OpenCode does not exist on this machine; its hook bindings are skipped');
+    expect(hookMessage(t, 'hook kata: target opencode: a directory package requires OpenCode v2; this binding is skipped')).toBe('[hooks.message.opencodePackageNeedsV2]');
+    expect(hookMessage(t, 'OpenCode package file "bin" cannot be imported: refusing symlink')).toBe('[hooks.message.opencodePackageUnreadable]');
     expect(hookMessage((key, params) => `${key}:${params?.path}`, '/home/native keeps loading; remove its original files and directory registration after syncing so the plugin does not run twice')).toBe('hooks.message.opencodeImport:/home/native');
     expect(hookMessage(t, 'something new')).toBe('something new');
   });

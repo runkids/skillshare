@@ -118,6 +118,13 @@ func (s *Service) parkReason(r record) string {
 		}
 		return reason
 	}
+	if agent == "opencode" {
+		// The version decides the layout, so an owned output is neither rewritten
+		// nor removed while it is unknown.
+		if _, err := sc.openCode2(); err != nil {
+			return "the installed OpenCode version could not be detected"
+		}
+	}
 	return ""
 }
 

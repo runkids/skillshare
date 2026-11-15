@@ -253,6 +253,7 @@ OpenCode v1 將受管理的進入點檔案、v2 將 package 目錄作為 file UR
 並保留註解與無關的項目。Version 1 使用 `plugin`；version 2 使用 `plugins`。會遵循
 `XDG_CONFIG_HOME` 與絕對路徑的全域 `OPENCODE_CONFIG`；模糊或不支援的覆寫會被拒絕。OpenCode
 必須位於 PATH 上，Skillshare 才能選擇對應版本的 schema。
+[`hooks`](./hooks.md) 在同一個 `plugins` 陣列中註冊的 v2 目錄套件（`plugins/skillshare-NAME`）歸 hooks 所有；`plugin list` 與 `plugin import` 不會顯示它。
 
 本機 OpenCode v1 source 需要建置好的進入點（`main`、字串形式的 root export，或 `index.js`）。v2 使用目錄載入器：需要 `name` 加字串形式的 root 或 `./server` export，或根目錄的 `server`/`index` 檔案（`.ts`、`.tsx`、`.js`）。`--entry` 不會覆寫 v2 的目錄載入；條件式或後備形式的 server export 會被拒絕。`@opencode-ai/plugin` 與 `@opencode/plugin` 都能識別 OpenCode package。manifest 與依賴要求保持不變。Skillshare 不會執行建置腳本，也不會將依賴安裝進 source。
 註冊成功不代表模組已成功載入；請在重新載入後檢查 OpenCode。
@@ -394,9 +395,4 @@ skillshare plugin sync NAME --no-tui
 
 解除安裝也會移除原生用戶端中與該安裝相關的設定或登入資料。
 
-
-### OpenCode v2
-
-OpenCode v1 使用單一檔案；v2 使用目錄套件與目錄 URL。請提供符合已安裝 API 的程式碼。Skillshare 不執行外掛或安裝相依套件；載入前請自行準備宣告的相依套件。
-
-`--version` 選擇原生 API；未知主要版本會拒絕。v2 保留 package.json 與相依需求，使用 `name` 加上字串形式的根／`./server` export，或根目錄的 server/index（.ts、.tsx、.js）；不猜測條件式或後備 export。`--entry` 不能覆寫 v2 目錄載入。舊版產生的 v2 單檔註冊須移除後重新加入目錄套件。
+舊版 Skillshare OpenCode v2 配接器留下的單一檔案註冊，在 add/import/sync/update 時會被拒絕。請移除舊的受管理 binding，再重新加入其目錄套件。移除操作仍然可用，且不會更動無關的原生註冊。預覽之後執行階段版本若有變更，需要重新預覽。

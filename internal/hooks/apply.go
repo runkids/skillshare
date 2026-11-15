@@ -742,6 +742,7 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 	if !backupID.MatchString(id) {
 		return nil, fmt.Errorf("invalid hooks backup ID")
 	}
+	s = s.memoProbe()
 	data, exists, _, err := safeRead(filepath.Join(s.stateDir(), "backups", id+".json"))
 	if err != nil {
 		return nil, err
