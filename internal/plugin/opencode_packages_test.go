@@ -58,14 +58,14 @@ func TestOpenCodeDirectoryPackageLifecycle(t *testing.T) {
 	if b, err := os.ReadFile(filepath.Join(root, "index.js")); err != nil || !strings.Contains(string(b), "changed") {
 		t.Fatalf("not updated: %s %v", b, err)
 	}
+	// Removal unregisters the plugin but retains reviewed snapshots, as for v1.
+	snapshotUnchanged := unchanged(t, filepath.Join(root, "package.json"), filepath.Join(root, "index.js"))
 	applyPluginRequest(t, s, Request{Action: "remove", Name: "native"})
 	h := s.host(context.Background(), "opencode")
 	if h.Error != "" || len(h.Installed) != 0 {
 		t.Fatalf("%+v", h)
 	}
-	if _, err := os.Stat(root); !os.IsNotExist(err) {
-		t.Fatalf("snapshot remains: %v", err)
-	}
+	snapshotUnchanged()
 }
 
 func TestOpenCodeDirectoryImportAndFlatRefusal(t *testing.T) {
