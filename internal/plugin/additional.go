@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"skillshare/internal/opencode"
 )
 
 // NormalizeTarget resolves the Antigravity CLI nickname without changing stored keys.
@@ -266,5 +267,28 @@ func (s *Service) applyAdditional(ctx context.Context, c Change, b Binding) erro
 }
 
 func fileURL(path string) string {
-	return (&url.URL{Scheme: "file", Path: filepath.ToSlash(path)}).String()
+	return opencode.FileURL(path)
+}
+
+func isRegularFile(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.Mode().IsRegular()
+}
+
+// openCodeDirectory checks only native loader files, never dependencies or code.
+func openCodeDirectory(root string) error {
+	return opencode.Package(func(name string) ([]byte, error) {
+		path := filepath.Join(root, filepath.FromSlash(name))
+		if err := noSymlink(root, path); err != nil {
+			return nil, err
+		}
+		info, err := os.Lstat(path)
+		if err != nil {
+			return nil, err
+		}
+		if !info.Mode().IsRegular() {
+			return nil, fmt.Errorf("OpenCode package entry must be a regular file: %s", path)
+		}
+		return os.ReadFile(path)
+	})
 }

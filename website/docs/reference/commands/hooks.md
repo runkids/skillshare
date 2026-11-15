@@ -143,7 +143,7 @@ Agents add events over time. Pi, OMP, Amp and OpenCode code is not checked.
 
 Pi, OMP, Amp and OpenCode use their own extension/plugin APIs. Supply code matching
 the installed Agent version, including its imports. Skillshare writes it to a
-dedicated `skillshare-NAME.ts` file without generating a universal hook runtime.
+dedicated `skillshare-NAME.ts` file (OpenCode v1), or an OpenCode v2 directory package, without generating a universal hook runtime.
 
 Longer code and scripts can live in their own files, which a tsconfig, shellcheck or
 an editor can check. Use `codeFile` instead of `code`, and `{from: path}` instead of a
@@ -210,7 +210,7 @@ you provide. Inspect the exact paths in the preview.
 | [Pi](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md) | `~/.pi/agent/extensions/skillshare-NAME.ts` | `.pi/extensions/skillshare-NAME.ts` | Native extension code |
 | [Oh My Pi](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/extensions.md) | `~/.omp/agent/extensions/skillshare-NAME.ts` | `.omp/extensions/skillshare-NAME.ts` | Native OMP extension code |
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
-| [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME.ts` | `.opencode/plugins/skillshare-NAME.ts` | Supplied v1/v2 plugin code |
+| [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME[.ts]` | `.opencode/plugins/skillshare-NAME[.ts]` | v1 file; v2 directory package (see below) |
 
 Native config-directory environment overrides apply in global scope, unless
 they point at an account's `config_dir`. Project
@@ -413,3 +413,15 @@ not replace your source definition. Use **Settings → Backups → Hooks** or
 Agent as its native workflow requires; native trust, enabling hooks and code
 compatibility remain controlled by that Agent. Skillshare never executes hook
 commands during management or changes native trust automatically.
+
+### OpenCode v2 directory packages
+
+On Windows, the hook version probe resolves npm's standard native `.cmd` shims for `opencode-ai` (later v1) and `@opencode/cli` (v2) directly to their installed `bin/opencode.exe`, without a shell. Older v1 Node-based launchers and custom batch wrappers are not inferred or executed. For those installations, set the OpenCode account's `cli` to the absolute path of its installed native `opencode.exe` (for example, the matching `opencode-windows-x64-baseline` package's `bin/opencode.exe`), or put that native executable's directory first on `PATH`. Skillshare does not run postinstall scripts or repair missing binaries.
+
+Skillshare probes only `opencode --version` (or the account's `cli`). When the version cannot be detected, because the binary is missing or fails or reports a major version other than 1 or 2, only the OpenCode bindings are skipped: the preview shows a warning, existing OpenCode output is left as it is, and every other Agent syncs normally. v1 keeps the flat `.ts` file. v2 writes `plugins/skillshare-NAME/index.ts` plus `package.json`, declaring `@opencode/plugin: ^2.0.0`, and adds the directory's `file://` URL to `plugins` in `opencode.json(c)`. Project hooks use `.opencode/opencode.json(c)`. Comments and unrelated registrations remain unchanged. Conflicting JSON/JSONC files or `OPENCODE_CONFIG`/`OPENCODE_CONFIG_CONTENT` overrides are refused for hooks. A `code` binding is written as given on either version; Skillshare does not check that it matches the v1 or v2 plugin API.
+
+For a complete v2 package, use `bindings.opencode.package` instead of `code`/`codeFile`: a map of relative filenames to UTF-8 contents, including `package.json`. The manifest and its dependency requirements are preserved verbatim. Nested files are allowed; traversal, symlinks, file/directory collisions, `.git`, and `node_modules` are not package payloads. The native editor displays this file map as JSON. The server entry must be a string root or `./server` export with a package name, or a conventional root `server`/`index` file (`.ts`, `.tsx`, `.js`). Conditional and fallback server exports are refused rather than guessed. A `package` binding needs OpenCode v2; on v1 it is skipped with a warning.
+
+`hooks import --from opencode` also reads immediate package directories under the native `plugins` folder. Like flat code imports, it copies them to Skillshare's named output and warns you to remove the original files and registration after syncing to avoid duplicate loading. Installed `node_modules` and `.git` are not imported. A package holding a file that cannot be read, such as a symlink, is listed with that problem; the other packages and flat files stay importable. On OpenCode v1, directories under `plugins` are not listed as hooks. Sync, edits and removal use the same ownership checks and backups as other hooks; an externally edited package file conflicts rather than being overwritten.
+
+Provision declared dependencies yourself before loading; the preview says so whenever it writes package files. Skillshare never runs plugin code, installs dependencies, or converts v1 code to v2. Registration is not proof the plugin loaded. The dashboard intentionally supplies no OpenCode starter code because the two APIs differ.

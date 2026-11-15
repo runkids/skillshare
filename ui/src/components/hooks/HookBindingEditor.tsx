@@ -224,8 +224,8 @@ export default function HookBindingEditor({ agent, name, draft, check, onChange,
         <Expandable title={`${hookLabel(agent)} ${t('hooks.code')}`} tools={(expanded) => <span className="flex-1 text-[13px] font-semibold">{!expanded && t('hooks.code')}</span>}>
           {(expanded) => (
             <>
-              <CodeEditor value={draft.code} onChange={(code) => onChange({ ...draft, code })} lang="typescript" ariaLabel={`${hookLabel(agent)} ${t('hooks.code')}`} placeholder={t('hooks.codePlaceholder')} disabled={disabled} minHeight="240px" maxHeight="480px" fill={expanded} className={expanded ? 'min-h-0 flex-1' : ''} />
-              {check.codeMissing ? <span className="hp !text-bad">{t('hooks.codeRequired')}</span> : <span className="hp">{t('hooks.codeHint', { agent: hookLabel(agent), name: name || '<name>' })}</span>}
+              <CodeEditor value={draft.code} onChange={(code) => onChange({ ...draft, code })} lang={draft.package ? "json" : "typescript"} ariaLabel={`${hookLabel(agent)} ${t('hooks.code')}`} placeholder={t('hooks.codePlaceholder')} disabled={disabled} minHeight="240px" maxHeight="480px" fill={expanded} className={expanded ? 'min-h-0 flex-1' : ''} />
+              {check.codeMissing ? <span className="hp !text-bad">{t('hooks.codeRequired')}</span> : <span className="hp">{draft.package ? 'package.json' : t('hooks.codeHint', { agent: hookLabel(agent), name: name || '<name>' })}</span>}
             </>
           )}
         </Expandable>

@@ -112,6 +112,9 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: OpenCode version probe regression
+        run: go test ./internal/hooks -run '^TestOpenCodeDefaultProbe$' -count=1
+
       - name: Unit Tests
         shell: bash
         run: |

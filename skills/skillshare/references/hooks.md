@@ -119,3 +119,22 @@ Git bindings refuse `--keep-files`. Git import, scripts bindings, hookdir
 scanning/recognizers and doctor checks are not implemented in this phase.
 Inspect old hookdir copies manually before migration; Git can execute both.
 Management never executes hooks. Native Windows execution is unverified.
+
+OpenCode probes the installed major with `--version`: v1 keeps flat `.ts` output;
+v2 writes a package directory, manifest and directory URL in `opencode.json(c)`.
+Use `package` instead of `code`/`codeFile` to retain a relative-filename → UTF-8
+contents map, including package.json and dependencies. Native directory imports
+copy to Skillshare-owned output and warn to remove the original after sync.
+No code runs or dependencies install. Provision dependencies before loading.
+Only string server exports or conventional root server/index entries are verified;
+conditional/fallback server exports fail closed. When the version cannot be
+detected (missing or failing binary, unknown major), only OpenCode bindings are
+skipped with a warning; existing OpenCode output stays and other Agents sync.
+A `package` binding on v1 is skipped with a warning. `code` is written as given,
+not checked against the v1 or v2 API.
+
+Windows hook probes resolve standard native npm shims for `opencode-ai` (later
+v1) and `@opencode/cli` (v2), without a shell. Older v1 Node launchers and custom
+batch wrappers fail closed: set the account `cli` to the installed native
+`opencode.exe` absolute path, or put its directory first on `PATH`. No postinstall
+scripts run and missing binaries are not repaired.

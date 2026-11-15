@@ -742,6 +742,7 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 	if !backupID.MatchString(id) {
 		return nil, fmt.Errorf("invalid hooks backup ID")
 	}
+	s = s.memoProbe()
 	data, exists, _, err := safeRead(filepath.Join(s.stateDir(), "backups", id+".json"))
 	if err != nil {
 		return nil, err
@@ -786,7 +787,15 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 		}
 		oldDir := filepath.Dir(b.Path)
 		if b.Kind == kindFile {
-			oldDir = recordDir(record{Path: b.Path})
+			owned := record{Path: b.Path}
+			for _, records := range []map[string]*record{b.OwnedBefore, b.OwnedAfter} {
+				for _, r := range records {
+					if r != nil && r.Path == b.Path {
+						owned = *r
+					}
+				}
+			}
+			oldDir = recordHome(owned, dir, agent)
 		}
 		if !samePath(oldDir, dir) {
 			return nil, fmt.Errorf("backup %s belongs to %s in %s, but %s now resolves to %s; use its former config_dir to restore", id, b.Target, oldDir, b.Target, dir)

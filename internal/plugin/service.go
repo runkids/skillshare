@@ -301,7 +301,11 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 				b.ID = filepath.Join(s.snapshotPath(b, target), "content", filepath.FromSlash(c.pathFor(agent)))
 			case "opencode":
 				b.Entry = c.Entry
-				b.ID = fileURL(filepath.Join(s.snapshotPath(b, target), "content", filepath.FromSlash(c.pathFor(agent)), c.Entry))
+				path := filepath.Join(s.snapshotPath(b, target), "content", filepath.FromSlash(c.pathFor(agent)))
+				if !openCode2(host(target).Version) {
+					path = filepath.Join(path, c.Entry)
+				}
+				b.ID = fileURL(path)
 			}
 			recipe := declareBinding(b)
 			change := Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "install", Components: b.Components, recipe: &recipe, sourceVersion: &c.Version}
@@ -315,11 +319,20 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 					change.Message = "No native manifest for this target; plugin components will not be silently converted or omitted."
 				}
 			}
+			if agent == "opencode" {
+				problem := c.TargetInfo[agent].openCodeV1Error
+				if openCode2(host(target).Version) {
+					problem = c.TargetInfo[agent].openCodeV2Error
+				}
+				if problem != "" {
+					change.Action, change.Message = "blocked", problem
+				}
+			}
 			if old, ok := d.packages[name].Bindings[target]; ok && old.ID != "" && !old.Cleanup {
 				if old.Source == b.Source && old.Plugin == b.Plugin && old.SourceRef == b.SourceRef || d.intent[name].Bindings[target].Source == b.Source && d.intent[name].Bindings[target].Plugin == b.Plugin && d.intent[name].Bindings[target].SourceRef == b.SourceRef {
 					change.Binding = old
 					change.ID = old.ID
-					if _, ok := find(target, old.ID); ok {
+					if _, ok := find(target, old.ID); ok && change.Action != "blocked" {
 						change.Action = "noop"
 					}
 				} else {
@@ -710,6 +723,20 @@ func (s *Service) prepareChange(ctx context.Context, r Request, d *document, hos
 	if h.Error != "" && c.Action != "blocked" && c.Action != "skip" {
 		failChange(h.Error, h.ErrorKey, h.ErrorArgs)
 	}
+	if agent == "opencode" && openCode2(h.Version) && c.Action != "remove" && c.Action != "uninstall" && c.Action != "forget" && c.Action != "blocked" {
+		path, err := s.openCodeLocalPath(c.Target, c.ID)
+		if err != nil {
+			failChange(err.Error(), "", nil)
+		}
+		if path != "" && isRegularFile(path) {
+			failChange("OpenCode v2 requires a directory registration, not a plugin file; remove this binding and add its package again.", "plugins.problem.opencodeDirectory", nil)
+		}
+		if path != "" && c.Binding.Source == "" && c.Action != "blocked" && c.Action != "skip" {
+			if err := openCodeDirectory(path); err != nil {
+				failChange(err.Error(), "", nil)
+			}
+		}
+	}
 	// An update that cannot reach a target skips it, so the plugin's other Agents still update.
 	skip := func(key, message string, args map[string]string) {
 		c.Action = "skip"
@@ -747,6 +774,14 @@ func (s *Service) prepareChange(ctx context.Context, r Request, d *document, hos
 	// would reinstall whatever the native marketplace holds, which Skillshare never reviewed.
 	if c.Action == "update" && c.Binding.Source == "" && (s.ProjectRoot != "" && agent == "pi" || agent == "omp") || c.Action == "update" && c.Binding.Source == "" && agent == "opencode" && (s.ProjectRoot != "" || !openCode2(h.Version)) {
 		skip("plugins.skip.imported", "Update imported packages in the native client; Skillshare updates reviewed source snapshots only.", nil)
+	}
+	if c.Action == "update" && agent == "opencode" && c.Binding.Source == "" {
+		path, err := s.openCodeLocalPath(c.Target, c.ID)
+		if err != nil {
+			failChange(err.Error(), "", nil)
+		} else if path != "" {
+			skip("plugins.skip.opencodeLocal", "Imported local package: edit it at its source; Skillshare does not run a dependency installer.", nil)
+		}
 	}
 	if c.Action == "update" && agent == "opencode" && c.Binding.Source == "" {
 		help, err := s.run(ctx, c.Target, "plugin", "update", "--help")
@@ -901,6 +936,16 @@ func (s *Service) checkOrUpdate(ctx context.Context, r Request, c Change, action
 		return c, nil
 	}
 
+	if agent == "opencode" {
+		problem := candidate.TargetInfo[agent].openCodeV1Error
+		if openCode2(host.Version) {
+			problem = candidate.TargetInfo[agent].openCodeV2Error
+		}
+		if problem != "" {
+			c.Action, c.Message = "blocked", problem
+			return c, nil
+		}
+	}
 	c.Components, c.sourceVersion = candidate.TargetInfo[agent].Components, &candidate.Version
 	if disc.Digest == b.Digest && b.Pending == "" && source == b.Source && ref == b.SourceRef && plugin == b.Plugin && entry == b.Entry {
 		c.Action = "noop"

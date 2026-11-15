@@ -22,7 +22,9 @@ type Service struct {
 	ConfigDirs    map[string]string
 	Accounts      map[string]Account // global scope only
 	scopedAccount string
-	Git           GitRunner
+	// OpenCodeVersion is an injectable read-only version probe.
+	OpenCodeVersion func(string) (string, error)
+	Git             GitRunner
 	// GitGlobalConfig is the file override Git honors in GIT_CONFIG_GLOBAL.
 	GitGlobalConfig string
 }
