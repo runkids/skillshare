@@ -63,6 +63,8 @@ func TestOpenCodeDefaultProbe(t *testing.T) {
 					must(t, os.MkdirAll(binDir, 0755))
 				}
 				body := strings.ReplaceAll(string(shim), `node_modules\opencode-ai\bin\opencode.exe`, target)
+				// Git may have checked out the fixture with CRLF already.
+				body = strings.ReplaceAll(body, "\r\n", "\n")
 				if tt.invalid {
 					body = "@echo 1.18.31\n"
 				}
