@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -25,7 +26,17 @@ func (s *Service) openCode2() (bool, error) {
 		probe = func(bin string) (string, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
-			cmd := exec.CommandContext(ctx, bin, "--version")
+			path, err := exec.LookPath(bin)
+			if err != nil {
+				return "", err
+			}
+			if runtime.GOOS == "windows" && strings.EqualFold(filepath.Ext(path), ".cmd") {
+				path, err = openCodeNPMExecutable(path)
+				if err != nil {
+					return "", err
+				}
+			}
+			cmd := exec.CommandContext(ctx, path, "--version")
 			cmd.WaitDelay = 100 * time.Millisecond
 			output, err := cmd.Output()
 			return string(output), err

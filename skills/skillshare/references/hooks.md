@@ -128,3 +128,9 @@ copy to Skillshare-owned output and warn to remove the original after sync.
 No code runs or dependencies install. Provision dependencies before loading.
 Only string server exports or conventional root server/index entries are verified;
 conditional/fallback server exports fail closed. Unknown majors are refused.
+
+Windows hook probes resolve standard native npm shims for `opencode-ai` (later
+v1) and `@opencode/cli` (v2), without a shell. Older v1 Node launchers and custom
+batch wrappers fail closed: set the account `cli` to the installed native
+`opencode.exe` absolute path, or put its directory first on `PATH`. No postinstall
+scripts run and missing binaries are not repaired.

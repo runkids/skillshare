@@ -233,6 +233,8 @@ global 配置的 `hooks.projects` 将绝对项目路径映射到相同 Entry 格
 
 ### OpenCode v2
 
+Windows 上的 hook 版本探测会将 `opencode-ai`（较新 v1）和 `@opencode/cli`（v2）的标准 npm `.cmd` 启动器直接解析为已安装的 `bin/opencode.exe`，不使用 shell。不会推测或执行早期 v1 的 Node 启动器或自定义批处理包装器。此类安装请将 OpenCode 账户的 `cli` 设为已安装的原生 `opencode.exe` 的绝对路径（例如匹配的 `opencode-windows-x64-baseline` 包内的 `bin/opencode.exe`），或将其目录放在 `PATH` 最前面。Skillshare 不运行 postinstall 脚本，也不修复缺失的二进制文件。
+
 OpenCode v1 使用单一文件；v2 使用目录包与目录 URL。请提供符合已安装 API 的代码。Skillshare 不执行插件或安装依赖；加载前请自行准备声明的依赖。
 
 `--version` 选择原生 API；未知主版本会拒绝。v2 保留 package.json 与依赖需求，使用 `name` 加字符串形式的根／`./server` export，或根目录的 server/index（.ts、.tsx、.js）；不猜测条件或回退 export。`--entry` 不能覆盖 v2 目录加载。旧版生成的 v2 单文件注册须移除后重新添加目录包。

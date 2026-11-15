@@ -241,6 +241,8 @@ global 設定の `hooks.projects` は絶対プロジェクトパスを同じ Ent
 
 ### OpenCode v2
 
+Windows のフック用バージョン検出は、`opencode-ai`（後期 v1）と `@opencode/cli`（v2）の標準 npm `.cmd` ラッパーから、インストール済みの `bin/opencode.exe` をシェルなしで直接実行します。初期 v1 の Node ランチャーや独自のバッチラッパーは推測・実行しません。その場合は OpenCode アカウントの `cli` にインストール済みネイティブ `opencode.exe` の絶対パス（例：対応する `opencode-windows-x64-baseline` パッケージの `bin/opencode.exe`）を設定するか、そのディレクトリを `PATH` の先頭に置いてください。postinstall スクリプトの実行や欠落したバイナリの修復は行いません。
+
 OpenCode v1 は単一ファイル、v2 はディレクトリパッケージとディレクトリ URL を使います。インストール済み API に合うコードを指定してください。Skillshare はプラグインを実行せず、依存関係もインストールしません。読み込み前に宣言された依存関係を用意してください。
 
 `--version` で API を選択し、未知のメジャーバージョンは拒否します。v2 は package.json と依存関係を保持し、`name` と文字列の root／`./server` export、またはルートの server/index（.ts、.tsx、.js）を使います。条件付き・フォールバック export は推測しません。`--entry` は v2 のディレクトリ読み込みを変更しません。古い v2 単一ファイル登録は削除し、ディレクトリパッケージとして追加し直してください。

@@ -237,6 +237,8 @@ global 설정의 `hooks.projects`는 절대 프로젝트 경로를 같은 Entry 
 
 ### OpenCode v2
 
+Windows의 훅 버전 확인은 `opencode-ai`(후기 v1)와 `@opencode/cli`(v2)의 표준 npm `.cmd` 래퍼에서 설치된 `bin/opencode.exe`를 셸 없이 직접 실행합니다. 초기 v1의 Node 실행기나 사용자 지정 배치 래퍼는 추측하거나 실행하지 않습니다. 이 경우 OpenCode 계정의 `cli`를 설치된 네이티브 `opencode.exe`의 절대 경로(예: 해당 `opencode-windows-x64-baseline` 패키지의 `bin/opencode.exe`)로 설정하거나 해당 디렉터리를 `PATH` 맨 앞에 두세요. postinstall 스크립트를 실행하거나 누락된 바이너리를 복구하지 않습니다.
+
 OpenCode v1은 단일 파일, v2는 디렉터리 패키지와 디렉터리 URL을 사용합니다. 설치된 API에 맞는 코드를 제공하세요. Skillshare는 플러그인을 실행하거나 의존성을 설치하지 않습니다. 로드 전에 선언된 의존성을 준비하세요.
 
 `--version`으로 API를 선택하며 알 수 없는 주 버전은 거부합니다. v2는 package.json과 의존성을 보존하고 `name`과 문자열 root／`./server` export 또는 루트 server/index(.ts, .tsx, .js)를 사용합니다. 조건부·폴백 export는 추측하지 않습니다. `--entry`는 v2 디렉터리 로딩을 바꾸지 않습니다. 이전 v2 단일 파일 등록은 제거한 후 디렉터리 패키지로 다시 추가하세요.
