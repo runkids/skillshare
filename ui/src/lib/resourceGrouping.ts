@@ -1,6 +1,7 @@
 import type { Skill, SourceLink, SyncMatrixEntry } from '../api/client';
 import type { useT } from '../i18n';
 import { resolveSource, type SourceType } from '../components/SourceBadge';
+import { receivesSkill } from '../components/sync/syncView';
 import { parseRemoteURL } from './parseRemoteURL';
 import { folderOf, formatTrackedRepoName } from './resourceNames';
 
@@ -25,7 +26,7 @@ export function syncedByTarget(items: Skill[], matrix: SyncMatrixEntry[]): Map<s
   const names = new Set(items.map((s) => s.flatName));
   const byTarget = new Map<string, Set<string>>();
   for (const e of matrix) {
-    if (e.status !== 'synced' || !names.has(e.skill)) continue;
+    if (!receivesSkill(e) || !names.has(e.skill)) continue;
     let set = byTarget.get(e.target);
     if (!set) byTarget.set(e.target, (set = new Set()));
     set.add(e.skill);
@@ -35,6 +36,20 @@ export function syncedByTarget(items: Skill[], matrix: SyncMatrixEntry[]): Map<s
 
 /** The project a target name belongs to, or '' for a global target. */
 export const projectOf = (name: string) => (name.includes('@') ? name.slice(0, name.lastIndexOf('@')) : '');
+
+/**
+ * Where one item goes, from its matrix entries: the targets that get it, the projects it could
+ * sync to, and why it reaches no target: `off` when every target has skills switched off,
+ * `filtered` when filters or its own targets field keep it out.
+ */
+export function targetReach(entries: SyncMatrixEntry[]): { synced: string[]; reachable: string[]; none: 'off' | 'filtered' | null } {
+  const synced = entries.filter(receivesSkill).map((e) => e.target).sort();
+  // 'na' without the symlink reason is a target with skills off: nothing can sync there.
+  const open = entries.filter((e) => e.status !== 'na' || receivesSkill(e));
+  const reachable = [...new Set(open.map((e) => projectOf(e.target)).filter(Boolean))].sort();
+  const none = synced.length > 0 || entries.length === 0 ? null : open.length === 0 ? 'off' : 'filtered';
+  return { synced, reachable, none };
+}
 
 /**
  * Folds each project's targets into one filter entry keyed `<project>@`, holding what any of its
