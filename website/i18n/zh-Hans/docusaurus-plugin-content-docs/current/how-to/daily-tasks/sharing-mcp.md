@@ -239,7 +239,10 @@ CLI 的 `--replace`。在 Import 时，`--replace` 也会重写被导入 Agent �
 文件，因此下一次同步会重写它，并且仍能检测到期间所做的编辑。它
 绝不会覆盖其他有冲突的原生条目。在 MCP 控制台中，可以处理的
 冲突会提供一个以该 Agent 命名的导入操作，例如 **Import from
-cursor**，用于采用该版本；或 **Replace with source**，用于覆写该条目。
+cursor**，用于采用该版本；或 **Replace with source**，用于覆写该条目。Replace 会一次覆写所有在该 server 上
+有冲突的 Agent，因为 sync 要等它们全部处理完。若各 Agent 持有同一个 server 的不同
+版本，先导入你要的版本，再替换其余的：即使其他 Agent 仍有冲突，导入也会接管该 Agent
+的条目，控制台会列出剩下的 Agent。
 如果某个冲突是由另一份仍然存在的 Skillshare 配置所拥有，则这两个
 操作都不会出现，因为只有那份配置才能释放该条目。
 

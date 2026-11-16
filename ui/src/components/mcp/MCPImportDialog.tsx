@@ -15,7 +15,7 @@ import { useToast } from '../Toast';
 import { useT, plural } from '../../i18n';
 import { useAppContext } from '../../context/AppContext';
 import { shortenHome } from '../../lib/paths';
-import { describeEndpoint, describeError, hasToolPolicy, targetLabel, parsePiOptions } from './mcpView';
+import { describeEndpoint, describeError, hasToolPolicy, otherConflicts, targetLabel, parsePiOptions } from './mcpView';
 import { MCPTargetOrder } from './targetOrder';
 import type { AddMode } from './mcpServerDraft';
 import { queryKeys } from '../../lib/queryKeys';
@@ -318,6 +318,13 @@ function ImportPreview({ selection, targets, project, onPreviewName }: { selecti
 
 }
 
+/** The other Agents whose entry of the imported server still conflicts with the source. */
+async function conflictsLeft(conflict: { target: string; name: string }, project?: string) {
+  // The import itself succeeded; a preview that fails shows on the page once it reloads.
+  const plan = await mcpApi.preview().catch(() => null);
+  return otherConflicts(plan?.changes ?? [], conflict, project).map(targetLabel);
+}
+
 export default function MCPImportDialog(props: Props) {
   const { source, servers, defaultTargets, paths, conflict, project, availableTargets: offered, onMode, onClose, onImported } = props;
   const t = useT();
@@ -370,11 +377,15 @@ export default function MCPImportDialog(props: Props) {
       try {
         await mcpApi.save(mutation);
       } catch (e) {
-        failed.push(`${c.name}: ${(e as Error).message}`);
+        failed.push(`${c.name}: ${describeError(t, (e as Error).message)}`);
       }
     }
     const done = chosen.length - failed.length;
-    if (done > 0) toast(t(plural('mcp.toast.imported', done), { count: done }), 'success');
+    // Another Agent may hold a different definition of the server just imported. Say which,
+    // and how to settle it, rather than leave the next import to flip the conflict back.
+    const left = conflict && done > 0 ? await conflictsLeft(conflict, project) : [];
+    if (left.length > 0) toast(t('mcp.toast.conflictsLeft', { name: conflict!.name, from: targetLabel(conflict!.target), targets: left.join(', ') }), 'warning');
+    else if (done > 0) toast(t(plural('mcp.toast.imported', done), { count: done }), 'success');
     if (failed.length) toast(failed.join('\n'), 'error');
     onImported();
   };

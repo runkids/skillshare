@@ -903,7 +903,11 @@ and writes no files until you choose for that entry:
   An entry that matches the source is adopted as it is. For a conflict in a folder under
   `mcp.projects`, the button reads that folder's file and imports into that project.
 - Replace it with the source definition: **Replace with source** in the dashboard, or
-  `--replace` on import.
+  `--replace` on import. The dashboard button replaces every Agent's conflicting entry
+  of that server at once.
+
+If Agents hold different versions of the server, import the one you want first. The
+import adopts that Agent's entry even while others still conflict; replace those next.
 
 ## Serve skills over MCP {#serve-skills-over-mcp}
 

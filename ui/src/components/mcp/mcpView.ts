@@ -123,6 +123,7 @@ const importErrorKeys: Record<string, string> = {
   'invalid server JSON': 'mcp.importError.json',
   'invalid TOML; target was not changed': 'mcp.importError.toml',
   'no MCP entries found': 'mcp.importError.noEntries',
+  'source saved; unresolved conflicts prevented adoption': 'mcp.importError.notAdopted',
   'no MCP entries found; select the matching client format': 'mcp.importError.noEntries',
 };
 
@@ -345,6 +346,10 @@ export const isShadowed = (change: MCPChange) => change.action !== 'conflict' &&
 export const isResolvable = (change: MCPChange) =>
   change.action === 'conflict' &&
   ['mcp.conflictChanged', 'mcp.conflictUnmanaged', 'mcp.conflictOrphaned', 'mcp.conflictPiOverride'].includes(conflictKeys[conflictPrefix(change.message ?? '')]);
+
+/** The other Agents whose entry of the server still conflicts in the same scope: the global source, or one mcp.projects root. */
+export const otherConflicts = (changes: MCPChange[], conflict: { target: string; name: string }, project?: string) =>
+  [...new Set(changes.filter((c) => c.name === conflict.name && c.target !== conflict.target && (c.root ?? '') === (project ?? '') && isResolvable(c)).map((c) => c.target))];
 
 /** Whether importing can settle a conflict. It reads the Agent's global file, which never holds a project's switch,
  * and Pi's project override has no server to import. */
