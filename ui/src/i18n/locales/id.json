@@ -959,6 +959,7 @@
   "update.summary.blocked": "{count} diblokir",
   "update.summary.failed": "{count} gagal",
   "update.summary.skipped": "{count} dilewati",
+  "update.summary.upToDate": "{count} sudah terbaru",
   "update.summary.updated": "{count} diperbarui",
   "update.updating.forceRetry": "Paksa Coba Lagi",
   "update.updating.purge": "Hapus Bersih",

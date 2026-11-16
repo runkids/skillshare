@@ -959,6 +959,7 @@
   "update.summary.blocked": "{count} 个已拦截",
   "update.summary.failed": "{count} 个失败",
   "update.summary.skipped": "{count} 个已跳过",
+  "update.summary.upToDate": "{count} 个已是最新",
   "update.summary.updated": "{count} 个已更新",
   "update.updating.forceRetry": "强制重试",
   "update.updating.purge": "清除",

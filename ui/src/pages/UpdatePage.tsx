@@ -58,7 +58,7 @@ export interface UpdateUnit {
   source?: string;
 }
 
-type RunStatus = 'pending' | 'in-progress' | 'success' | 'error' | 'blocked' | 'skipped';
+type RunStatus = 'pending' | 'in-progress' | 'success' | 'up-to-date' | 'error' | 'blocked' | 'skipped';
 
 interface RunState {
   status: RunStatus;
@@ -399,10 +399,11 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
     return next;
   });
 
-  const tally = { success: 0, skipped: 0, blocked: 0, error: 0 } as Record<RunStatus, number>;
+  const tally = { success: 0, 'up-to-date': 0, skipped: 0, blocked: 0, error: 0 } as Record<RunStatus, number>;
   for (const s of run.values()) tally[s.status] = (tally[s.status] ?? 0) + 1;
   const tallyText = [
     tally.success && t('update.summary.updated', { count: tally.success }),
+    tally['up-to-date'] && t('update.summary.upToDate', { count: tally['up-to-date'] }),
     tally.skipped && t('update.summary.skipped', { count: tally.skipped }),
     tally.blocked && t('update.summary.blocked', { count: tally.blocked }),
     tally.error && t('update.summary.failed', { count: tally.error }),
@@ -467,6 +468,8 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
         return <span className="inline-flex items-center gap-2 text-[13px] font-semibold text-ink"><Loader2 size={13} className="animate-spin" />{r.message ?? t('update.status.updating')}</span>;
       case 'success':
         return <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-ok"><Check size={15} strokeWidth={2.6} className="ss-pop" />{t('update.status.updated')}</span>;
+      case 'up-to-date':
+        return <span className="ss-st ok">{t('update.check.upToDate')}</span>;
       case 'skipped':
         // A skill skipped for its local changes can be overwritten from its row.
         if (isForceRetryable(r.message)) {
@@ -887,8 +890,8 @@ function actionToStatus(action: string): RunStatus {
     case 'updated': return 'success';
     case 'error': return 'error';
     case 'blocked': return 'blocked';
-    case 'skipped':
-    case 'up-to-date': return 'skipped';
+    case 'up-to-date': return 'up-to-date';
+    case 'skipped': return 'skipped';
     default: return 'success';
   }
 }

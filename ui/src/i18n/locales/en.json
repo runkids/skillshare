@@ -881,6 +881,7 @@
   "update.summary.blocked": "{count} blocked",
   "update.summary.failed": "{count} failed",
   "update.summary.skipped": "{count} skipped",
+  "update.summary.upToDate": "{count} up to date",
   "update.summary.updated": "{count} updated",
   "update.updating.forceRetry": "Force retry",
   "update.updating.purge": "Prune",

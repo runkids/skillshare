@@ -959,6 +959,7 @@
   "update.summary.blocked": "{count} bloqueados",
   "update.summary.failed": "{count} fallidos",
   "update.summary.skipped": "{count} omitidos",
+  "update.summary.upToDate": "{count} al día",
   "update.summary.updated": "{count} actualizados",
   "update.updating.forceRetry": "Forzar reintento",
   "update.updating.purge": "Purgar",

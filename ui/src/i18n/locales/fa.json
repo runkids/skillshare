@@ -959,6 +959,7 @@
   "update.summary.blocked": "{count} مسدود شده",
   "update.summary.failed": "{count} ناموفق",
   "update.summary.skipped": "{count} رد شده",
+  "update.summary.upToDate": "{count} به‌روز",
   "update.summary.updated": "{count} به‌روز شد",
   "update.updating.forceRetry": "تلاش مجدد اجباری",
   "update.updating.purge": "پاکسازی",

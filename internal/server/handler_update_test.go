@@ -1,6 +1,8 @@
 package server
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -221,5 +223,107 @@ func TestUpdateAgent_AzureOnPrem_UsesParseOpts(t *testing.T) {
 	}
 	if source.Subdir != "agents/my-agent.md" {
 		t.Errorf("Subdir = %q, want %q", source.Subdir, "agents/my-agent.md")
+	}
+}
+
+// writeRemoteSkill commits skills/<name>/SKILL.md with body to remote.
+func writeRemoteSkill(t *testing.T, remote, name, body string) {
+	t.Helper()
+	dir := filepath.Join(remote, "skills", name)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: "+name+"\n---\n"+body+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, remote, "add", ".")
+	runGit(t, remote, "commit", "-m", name+" "+body)
+}
+
+// recordRemoteSkills creates a remote holding the named skills and records an
+// outdated local copy of each in the server's store.
+func recordRemoteSkills(t *testing.T, s *Server, src string, names ...string) string {
+	t.Helper()
+	remote := t.TempDir()
+	initGitRepo(t, remote)
+	for _, name := range names {
+		writeRemoteSkill(t, remote, name, "v1")
+		if err := os.MkdirAll(filepath.Join(src, name), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(src, name, "SKILL.md"), []byte("---\nname: "+name+"\n---\nold\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		s.skillsStore.Set(name, &install.MetadataEntry{
+			Source:  "file://" + remote + "//skills/" + name,
+			RepoURL: "file://" + remote,
+			Subdir:  "skills/" + name,
+		})
+	}
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
+	return remote
+}
+
+func streamUpdate(t *testing.T, s *Server, names string) []updateResultItem {
+	t.Helper()
+	rr := httptest.NewRecorder()
+	s.handleUpdateStream(rr, httptest.NewRequest(http.MethodGet, "/api/update/stream?skipAudit=true&names="+names, nil))
+	return updateResults(t, rr, true)
+}
+
+// Skills of one repository share a fetch, so the stream must still answer in
+// request order (the dashboard pairs results with names by position) and
+// report a skill that already matches the remote as up to date.
+func TestHandleUpdateStream_SameRepoSkillsReportInRequestOrder(t *testing.T) {
+	s, src := newTestServer(t)
+	s.skillsStore = install.NewMetadataStore()
+	shared := recordRemoteSkills(t, s, src, "a1", "a2")
+	recordRemoteSkills(t, s, src, "b")
+
+	run := func() string {
+		var got []string
+		for _, item := range streamUpdate(t, s, "a1,b,a2") {
+			got = append(got, item.Name+"="+item.Action)
+		}
+		return strings.Join(got, " ")
+	}
+
+	if got, want := run(), "a1=updated b=updated a2=updated"; got != want {
+		t.Fatalf("first update: got %q, want %q", got, want)
+	}
+	writeRemoteSkill(t, shared, "a2", "v2")
+	if got, want := run(), "a1=up-to-date b=up-to-date a2=updated"; got != want {
+		t.Fatalf("after a2 changed upstream: got %q, want %q", got, want)
+	}
+}
+
+// One skill's outcome must not change its repo-mates', and the messages the
+// dashboard matches for Force Retry and Purge must survive the shared fetch.
+func TestHandleUpdate_AllReportsEachSkillOfSharedRepo(t *testing.T) {
+	s, src := newTestServer(t)
+	s.skillsStore = install.NewMetadataStore()
+	remote := recordRemoteSkills(t, s, src, "current", "edited", "gone")
+	streamUpdate(t, s, "current,edited,gone")
+
+	if err := os.WriteFile(filepath.Join(src, "edited", "SKILL.md"), []byte("# my edit\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, remote, "rm", "-r", "skills/gone")
+	runGit(t, remote, "commit", "-m", "drop gone")
+
+	got := map[string]updateResultItem{}
+	for _, item := range updateResults(t, postUpdate(s, `{"all":true,"skipAudit":true}`), false) {
+		got[item.Name] = item
+	}
+	for name, want := range map[string]struct{ action, message string }{
+		"current": {"up-to-date", ""},
+		"edited":  {"skipped", "(try force update)"},
+		"gone":    {"error", "not found in repository"},
+	} {
+		if item := got[name]; item.Action != want.action || !strings.Contains(item.Message, want.message) {
+			t.Errorf("%s: got %q (%s), want %q containing %q", name, item.Action, item.Message, want.action, want.message)
+		}
 	}
 }
