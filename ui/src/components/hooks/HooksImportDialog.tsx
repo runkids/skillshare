@@ -199,7 +199,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
     const others = labels(targets.filter((target) => !wrote.has(target)));
     const backupNote = t(plural('hooks.importBackupNote', plan.files?.length ?? wrote.size));
     return (
-      <DialogShell open onClose={onClose} padding="none" preventClose ariaLabel={title} className="!max-w-[720px]">
+      <DialogShell open onClose={onClose} padding="none" preventClose ariaLabel={title} className="!max-w-[720px] !bg-bg">
         <div className="dh">
           <div className="flex flex-col gap-1">
             <h2 className="ss-h2">{title}</h2>
@@ -208,7 +208,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
           <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={busy}><X size={16} /></button>
         </div>
         <div className="db !gap-5">
-          <div className="overflow-hidden rounded-lg border border-line">
+          <div className="ss-list">
             {chosen.length > 0 && (
               <div className="flex min-h-[52px] items-center gap-3 px-4 py-2">
                 <span className={`${tile} bg-sunken text-ink-2`}><Download size={15} /></span>
@@ -219,7 +219,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
               </div>
             )}
             {edited.length > 0 && (
-              <div className="flex min-h-[52px] items-center gap-3 border-t border-line px-4 py-2 first:border-t-0">
+              <div className="flex min-h-[52px] items-center gap-3 px-4 py-2 [border-top:var(--sep)] first:[border-top:0]">
                 <span className={`${tile} bg-sunken text-ink-2`}><Pencil size={15} /></span>
                 <span className="flex min-w-0 flex-1 flex-col gap-px">
                   <span className="font-semibold">{t('hooks.importSum.edit', { count: String(edited.length) })}</span>
@@ -228,8 +228,8 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
               </div>
             )}
             {removed.length > 0 && (
-              <div className="flex min-h-[52px] items-center gap-3 border-t border-line px-4 py-2 first:border-t-0">
-                <span className={`${tile} bg-bad-bg text-bad`}><Trash2 size={15} /></span>
+              <div className="flex min-h-[52px] items-center gap-3 px-4 py-2 [border-top:var(--sep)] first:[border-top:0]">
+                <span className={`${tile} bg-sunken text-bad`}><Trash2 size={15} /></span>
                 <span className="flex min-w-0 flex-1 flex-col gap-px">
                   <span className="font-semibold">{t('hooks.importSum.remove', { count: String(removed.length) })}</span>
                   <span className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[13px] text-ink-2">{hooksOf(removed)}<span>{t('hooks.importSum.removeHint', { target: labels(removed.map((r) => r.target)) })}</span></span>
@@ -244,7 +244,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
           </div>
           {failure}
         </div>
-        <div className="df">
+        <div className="df !border-t-0 !bg-transparent">
           <Button variant="ghost" onClick={() => setPlan(null)} disabled={busy}>{t('common.back')}</Button>
           <Button variant="primary" loading={saving} onClick={() => void save()}>{t('hooks.importApply')}</Button>
         </div>
