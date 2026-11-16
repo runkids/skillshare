@@ -11,6 +11,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import DialogShell from '../components/DialogShell';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
+import ProgressBar from '../components/ProgressBar';
 import { Select } from '../components/Select';
 import Skeleton from '../components/Skeleton';
 import Spinner from '../components/Spinner';
@@ -173,7 +174,7 @@ function FolderBackups({ creating }: { creating: boolean }) {
         <div className="ss-note" role="status">
           <span className="flex flex-1 flex-col gap-2">
             <span>{t('backup.creating')}</span>
-            <span className="ss-bar indet"><span /></span>
+            <ProgressBar active />
           </span>
         </div>
       )}

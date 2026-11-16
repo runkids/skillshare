@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { Check, CircleAlert, CircleArrowUp, Loader2, Package, X } from 'lucide-react';
+import { Check, CircleAlert, CircleArrowUp, Package, X } from 'lucide-react';
 import { targetMap } from '../../api/plugins';
 import type { PluginInventory, PluginPlan, PluginTarget } from '../../api/plugins';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import { Checkbox } from '../Checkbox';
 import DialogShell from '../DialogShell';
+import DrawnCheck from '../DrawnCheck';
 import IconButton from '../IconButton';
+import ProgressBar from '../ProgressBar';
 import { plural, useT } from '../../i18n';
 import { keyedMessage } from './outcomeText';
 import { Toggle, VersionChange } from './PluginList';
@@ -176,7 +178,7 @@ function Running({ batch, busy, inventory, label, onRetry, onStop, onClose }: {
   const settled = batch.filter((i) => i.status !== 'waiting' && i.status !== 'running').length;
   const current = batch.find((i) => i.status === 'running');
   const status = (item: BatchItem) => {
-    if (item.status === 'running') return <span className="inline-flex items-center gap-2 text-[13px] font-semibold text-ink"><Loader2 size={13} className="animate-spin" />{t('plugins.updateDialog.updating')}</span>;
+    if (item.status === 'running') return <span className="ss-st on ss-shimmer">{t('plugins.updateDialog.updating')}</span>;
     if (item.status === 'waiting') return <span className="text-[13px] text-ink-3">{t('plugins.updateDialog.waiting')}</span>;
     if (item.status === 'done') return <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-ok"><Check size={15} strokeWidth={2.6} className="ss-pop" />{t('plugins.updateDialog.done')}</span>;
     if (item.status === 'skipped') return <span className="ss-st warn">{t('plugins.outcome.skipped')}</span>;
@@ -185,15 +187,13 @@ function Running({ batch, busy, inventory, label, onRetry, onStop, onClose }: {
   return (
     <>
       {busy
-        ? <Hero icon={<Loader2 size={20} className="animate-spin" />} busy={busy} onClose={onClose} sub={t('plugins.updateDialog.runningHelp')}
+        ? <Hero icon={<CircleArrowUp size={20} />} busy={busy} onClose={onClose} sub={t('plugins.updateDialog.runningHelp')}
             title={<>{t('plugins.updateDialog.running', { done: Math.min(settled + 1, batch.length), total: batch.length })}{current && <span className="ml-3 font-mono text-[14px] font-medium text-ink-2">{current.name}</span>}</>} />
         : failed > 0
           ? <Hero icon={<CircleAlert size={20} />} tone="warn" busy={busy} onClose={onClose} title={t('plugins.updateDialog.doneFailed', { updated: done, failed })} sub={t('plugins.updateDialog.doneHelp')} />
-          : <Hero icon={<Check size={20} strokeWidth={2.6} className="ss-pop" />} tone="ok" busy={busy} onClose={onClose} title={t(plural('plugins.updateDialog.updated', done), { count: done })} sub={t('plugins.updateDialog.doneHelp')} />}
+          : <Hero icon={<DrawnCheck />} tone="ok" busy={busy} onClose={onClose} title={t(plural('plugins.updateDialog.updated', done), { count: done })} sub={t('plugins.updateDialog.doneHelp')} />}
       <div className="db flex flex-col gap-4 overflow-y-auto">
-        <div className="ss-bar" role="progressbar" aria-valuemin={0} aria-valuemax={batch.length} aria-valuenow={settled} aria-label={t('plugins.updateDialog.title')}>
-          <span style={{ width: `${(settled / batch.length) * 100}%` }} />
-        </div>
+        <ProgressBar active={busy} value={settled} max={batch.length} label={t('plugins.updateDialog.title')} className="lead [--bar-gap:16px]" />
         <div className="ss-list">
           {batch.map((item) => {
             // A row no check showed keeps the version it has.
@@ -213,7 +213,6 @@ function Running({ batch, busy, inventory, label, onRetry, onStop, onClose }: {
                 </span>
                 <span className="shrink-0 self-center whitespace-nowrap">{status(item)}</span>
                 {(item.status === 'failed' || item.status === 'skipped') && !item.stale && !busy && <Button size="sm" variant="secondary" className="self-center" onClick={() => onRetry(item)}>{t('plugins.updateDialog.retry')}</Button>}
-                {item.status === 'running' && <span className="ss-rowbar" aria-hidden />}
               </div>
             );
           })}

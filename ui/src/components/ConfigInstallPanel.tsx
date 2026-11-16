@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
-import { Check, CircleAlert, Download, FolderDown, GitBranch, Loader2, Puzzle, X } from 'lucide-react';
+import { Check, CircleAlert, Download, FolderDown, GitBranch, Puzzle, X } from 'lucide-react';
 import Button from './Button';
+import ProgressBar from './ProgressBar';
 import { parseRemoteURL } from '../lib/parseRemoteURL';
 import { plural, useT } from '../i18n';
 import { useInstallFromConfig } from '../hooks/useInstallFromConfig';
@@ -20,7 +21,7 @@ export default function ConfigInstallPanel() {
   let sub = t('install.fromConfig.hint', { items: contents });
   let action: ReactNode = <Button variant="primary" size="sm" onClick={run}><Download size={14} />{t('install.fromConfig.installAll')}</Button>;
   if (phase === 'running') {
-    icon = <Loader2 size={16} className="animate-spin" />;
+    icon = <Download size={16} />;
     title = t('install.fromConfig.installing', { file });
     sub = t('install.audited');
     action = null;
@@ -49,7 +50,7 @@ export default function ConfigInstallPanel() {
           </div>
           {action}
         </div>
-        {phase === 'running' && <div className="ss-bar indet animate-fade-in" role="progressbar" aria-label={title}><span /></div>}
+        <ProgressBar active={phase === 'running'} label={title} className="[--bar-gap:8px]" />
         <div className="ss-list !shadow-none">
           <div className="max-h-[164px] overflow-y-auto">
             {entries.map((e, i) => {
@@ -64,12 +65,10 @@ export default function ConfigInstallPanel() {
                   {e.tracked && <span className="ss-tag">tracked</span>}
                   <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-3">{parseRemoteURL(e.source)?.ownerRepo ?? e.source}</span>
                   <span className="w-5 grid place-items-center">
-                    {phase === 'running' && <Loader2 size={14} className="animate-spin text-ink-3" />}
                     {done && (bad
                       ? <X size={15} strokeWidth={2.6} className="ss-pop text-bad" style={stagger(i)} />
                       : <Check size={15} strokeWidth={2.6} className="ss-pop text-ok" style={stagger(i)} />)}
                   </span>
-                  {phase === 'running' && <span className="ss-rowbar" aria-hidden />}
                 </div>
               );
             })}

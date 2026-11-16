@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowUpCircle, CheckCircle2, ChevronDown, ChevronRight, Info, Loader2, Pencil, RefreshCw, XCircle } from 'lucide-react';
+import { AlertTriangle, ArrowUpCircle, CheckCircle2, ChevronDown, ChevronRight, CircleDashed, Info, Pencil, RefreshCw, XCircle } from 'lucide-react';
 import { api, type DoctorCheck } from '../api/client';
 import Button from '../components/Button';
 import CopyButton from '../components/CopyButton';
@@ -22,8 +22,8 @@ import { doctorFromChecks, doctorWithUpdatePolicy, withStreamedCheck } from '../
 type Filter = 'all' | 'error' | 'warning' | 'pass';
 
 const FILTERS: Filter[] = ['all', 'error', 'warning', 'pass'];
-const ICON = { pass: CheckCircle2, warning: AlertTriangle, error: XCircle, info: Info, pending: Loader2 } as const;
-const TONE = { pass: 'text-ok', warning: 'text-warn', error: 'text-bad', info: 'text-accent', pending: 'animate-spin text-ink-3' } as const;
+const ICON = { pass: CheckCircle2, warning: AlertTriangle, error: XCircle, info: Info, pending: CircleDashed } as const;
+const TONE = { pass: 'text-ok', warning: 'text-warn', error: 'text-bad', info: 'text-accent', pending: 'text-ink-3' } as const;
 
 /** Check names come from the CLI; a missing translation still reads as a phrase. */
 const checkLabel = (name: string) => name.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
