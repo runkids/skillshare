@@ -867,7 +867,7 @@
   "syncResult.updated": "{count}개 업데이트됨",
   "syncResult.upToDate.one": "{count}개 대상은 이미 최신입니다",
   "syncResult.upToDate.other": "{count}개 대상은 이미 최신입니다",
-  "targetMenu.allTargets": "전체",
+  "targetMenu.allTargets": "제한 없음",
   "targets.addTarget": "대상 추가",
   "targets.sharedPath": "여러 Agent가 공유",
   "targets.skillsOff": "Skills 끔",

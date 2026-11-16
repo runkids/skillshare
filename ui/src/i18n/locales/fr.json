@@ -867,7 +867,7 @@
   "syncResult.updated": "{count} mis à jour",
   "syncResult.upToDate.one": "{count} cible déjà à jour",
   "syncResult.upToDate.other": "{count} cibles déjà à jour",
-  "targetMenu.allTargets": "Tous",
+  "targetMenu.allTargets": "Sans restriction",
   "targets.addTarget": "Ajouter une cible",
   "targets.sharedPath": "Partagé entre Agents",
   "targets.skillsOff": "Skills désactivés",

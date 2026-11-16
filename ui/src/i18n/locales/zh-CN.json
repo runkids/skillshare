@@ -867,7 +867,7 @@
   "syncResult.updated": "已更新 {count} 个",
   "syncResult.upToDate.one": "{count} 个目标已是最新",
   "syncResult.upToDate.other": "{count} 个目标已是最新",
-  "targetMenu.allTargets": "全部",
+  "targetMenu.allTargets": "不限定",
   "targets.addTarget": "添加目标",
   "targets.sharedPath": "多个 Agent 共用",
   "targets.skillsOff": "Skills 关闭",

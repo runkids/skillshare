@@ -867,7 +867,7 @@
   "syncResult.updated": "{count} diperbarui",
   "syncResult.upToDate.one": "{count} target sudah terbaru",
   "syncResult.upToDate.other": "{count} target sudah terbaru",
-  "targetMenu.allTargets": "Semua",
+  "targetMenu.allTargets": "Tanpa batas",
   "targets.addTarget": "Tambah Target",
   "targets.sharedPath": "Dipakai bersama antar Agent",
   "targets.skillsOff": "Skill nonaktif",

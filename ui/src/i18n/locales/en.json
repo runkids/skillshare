@@ -841,7 +841,7 @@
   "sync.result.why.config": "This target's settings are invalid, so it was skipped.",
   "sync.toast.failed.one": "Sync finished with {count} failure",
   "sync.toast.failed.other": "Sync finished with {count} failures",
-  "targetMenu.allTargets": "All",
+  "targetMenu.allTargets": "No limit",
   "targets.addTarget": "Add target",
   "targets.sharedPath": "Shared across agents",
   "targets.skillsOff": "Skills off",

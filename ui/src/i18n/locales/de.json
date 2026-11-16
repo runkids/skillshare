@@ -867,7 +867,7 @@
   "syncResult.updated": "{count} aktualisiert",
   "syncResult.upToDate.one": "{count} Ziel ist bereits aktuell",
   "syncResult.upToDate.other": "{count} Ziele sind bereits aktuell",
-  "targetMenu.allTargets": "Alle",
+  "targetMenu.allTargets": "Uneingeschränkt",
   "targets.addTarget": "Ziel hinzufügen",
   "targets.sharedPath": "Agent-übergreifend",
   "targets.skillsOff": "Skills aus",

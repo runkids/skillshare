@@ -867,7 +867,7 @@
   "syncResult.updated": "{count} actualizados",
   "syncResult.upToDate.one": "{count} destino ya está al día",
   "syncResult.upToDate.other": "{count} destinos ya están al día",
-  "targetMenu.allTargets": "Todos",
+  "targetMenu.allTargets": "Sin límite",
   "targets.addTarget": "Añadir destino",
   "targets.sharedPath": "Compartido entre Agents",
   "targets.skillsOff": "Skills desactivados",

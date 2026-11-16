@@ -867,7 +867,7 @@
   "syncResult.updated": "{count} 件更新済み",
   "syncResult.upToDate.one": "{count} 件のターゲットは最新です",
   "syncResult.upToDate.other": "{count} 件のターゲットは最新です",
-  "targetMenu.allTargets": "すべて",
+  "targetMenu.allTargets": "限定なし",
   "targets.addTarget": "ターゲットを追加",
   "targets.sharedPath": "複数の Agent で共有",
   "targets.skillsOff": "Skills オフ",

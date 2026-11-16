@@ -867,7 +867,7 @@
   "syncResult.updated": "{count} به‌روز شد",
   "syncResult.upToDate.one": "{count} هدف به‌روز است",
   "syncResult.upToDate.other": "{count} هدف به‌روز هستند",
-  "targetMenu.allTargets": "همه",
+  "targetMenu.allTargets": "بدون محدودیت",
   "targets.addTarget": "افزودن هدف",
   "targets.sharedPath": "مشترک بین Agentها",
   "targets.skillsOff": "Skills خاموش",
