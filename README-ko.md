@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **최신 버전**: v0.30.7 — 수락한 findings를 CI에서 통과시키세요. `skillshare audit --respect-accepted`는 `install`이나 `update`에서 `--force`로 수락한 findings 때문에 더 이상 실패하지 않으며, update 게이트와 같은 방식으로 처리합니다. 해당 findings는 보고서에 남고 수락됨으로 표시됩니다. [audit 레퍼런스 →](https://skillshare.runkids.cc/ko/docs/reference/commands/audit#accepted-findings) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
+> **최신 버전**: v0.30.9 — hook을 가져오지 않고도 수정하거나 삭제하세요. 대시보드의 hook 가져오기 대화상자가 이제 Agent를 하나씩 보여 주며, 설정 파일에 있는 hook을 그 자리에서 변경할 수 있습니다. 파일에 쓰기 전에 diff를 확인할 수 있고, 백업으로 되돌릴 수 있습니다. hook은 관리되지 않는 상태로 남습니다. [hooks 레퍼런스 →](https://skillshare.runkids.cc/ko/docs/reference/commands/hooks) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare를 쓰는 이유
 

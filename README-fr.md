@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Dernière version** : v0.30.7 — Laissez passer en CI les constats acceptés : `skillshare audit --respect-accepted` n’échoue plus sur les constats que vous avez acceptés avec `--force` lors d’un `install` ou d’un `update`, comme le contrôle de mise à jour. Ils restent dans le rapport, marqués comme acceptés. [Référence d’audit →](https://skillshare.runkids.cc/docs/reference/commands/audit#accepted-findings) · [Toutes les versions →](https://github.com/runkids/skillshare/releases)
+> **Dernière version** : v0.30.9 — Modifiez ou supprimez un hook sans l’importer : la boîte de dialogue d’import des hooks du tableau de bord affiche désormais un Agent à la fois et peut modifier un hook directement dans son fichier de paramètres. Vous voyez le diff du fichier avant toute écriture, et une sauvegarde permet de le restaurer. Le hook reste non géré. [Référence des hooks →](https://skillshare.runkids.cc/docs/reference/commands/hooks) · [Toutes les versions →](https://github.com/runkids/skillshare/releases)
 
 ## Pourquoi skillshare
 

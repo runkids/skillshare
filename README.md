@@ -48,7 +48,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: v0.30.7 — Let accepted findings pass in CI: `skillshare audit --respect-accepted` no longer fails on findings you accepted with `--force` during `install` or `update`, the same way the update gate treats them. They stay in the report, marked as accepted. [audit reference →](https://skillshare.runkids.cc/docs/reference/commands/audit#accepted-findings) · [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: v0.30.9 — Edit or remove a hook without importing it: the dashboard's hooks import dialog now shows one Agent at a time and can change a hook in its settings file in place. You see the file diff before anything is written, and a backup restores the file. The hook stays unmanaged. [hooks reference →](https://skillshare.runkids.cc/docs/reference/commands/hooks) · [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
@@ -406,6 +406,8 @@ Thanks to everyone who helped shape skillshare.
 <a href="https://github.com/servaasvdc"><img src="https://github.com/servaasvdc.png" width="50" style="border-radius:50%" alt="servaasvdc"></a>
 <a href="https://github.com/tomerzcod7"><img src="https://github.com/tomerzcod7.png" width="50" style="border-radius:50%" alt="tomerzcod7"></a>
 <a href="https://github.com/ErykJakubik"><img src="https://github.com/ErykJakubik.png" width="50" style="border-radius:50%" alt="ErykJakubik"></a>
+<a href="https://github.com/maciejniec"><img src="https://github.com/maciejniec.png" width="50" style="border-radius:50%" alt="maciejniec"></a>
+<a href="https://github.com/jani-nieminen-framehaus"><img src="https://github.com/jani-nieminen-framehaus.png" width="50" style="border-radius:50%" alt="jani-nieminen-framehaus"></a>
 
 ---
 

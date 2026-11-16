@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Neueste Version**: v0.30.7 — Akzeptierte Befunde im CI durchlassen: `skillshare audit --respect-accepted` schlägt bei Befunden, die du bei `install` oder `update` mit `--force` akzeptiert hast, nicht mehr fehl – genau wie das Update-Gate. Sie bleiben im Bericht und sind als akzeptiert markiert. [audit-Referenz →](https://skillshare.runkids.cc/docs/reference/commands/audit#accepted-findings) · [Alle Releases →](https://github.com/runkids/skillshare/releases)
+> **Neueste Version**: v0.30.9 — Hooks bearbeiten oder entfernen, ohne sie zu importieren: Der Import-Dialog für Hooks im Dashboard zeigt jetzt einen Agent nach dem anderen und kann einen Hook direkt in dessen Einstellungsdatei ändern. Du siehst den Datei-Diff, bevor etwas geschrieben wird, und ein Backup stellt die Datei wieder her. Der Hook bleibt unverwaltet. [hooks-Referenz →](https://skillshare.runkids.cc/docs/reference/commands/hooks) · [Alle Releases →](https://github.com/runkids/skillshare/releases)
 
 ## Warum skillshare
 
