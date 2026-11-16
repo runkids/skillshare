@@ -774,7 +774,6 @@
   "resources.toast.enabled": "{kind} {name} 已启用",
   "resources.toast.nowAvailableIn": "{name} 现已在 {target} 中可用",
   "resources.tree.filteredOut.label": "已被过滤",
-  "resources.tree.noAgentTargets.label": "无 agent 目标",
   "resources.tree.mixed": "目标不一致",
   "resources.tree.allDisabled": "全部已禁用",
   "resources.tree.someDisabled": "{count} 个已禁用",

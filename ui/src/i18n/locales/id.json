@@ -774,7 +774,6 @@
   "resources.toast.enabled": "{kind} {name} diaktifkan",
   "resources.toast.nowAvailableIn": "{name} sekarang tersedia di {target}",
   "resources.tree.filteredOut.label": "Difilter keluar",
-  "resources.tree.noAgentTargets.label": "Tidak ada target agen",
   "resources.tree.mixed": "Target campuran",
   "resources.tree.allDisabled": "semua nonaktif",
   "resources.tree.someDisabled": "{count} nonaktif",

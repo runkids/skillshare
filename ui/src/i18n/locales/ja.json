@@ -774,7 +774,6 @@
   "resources.toast.enabled": "{kind} {name} を有効化しました",
   "resources.toast.nowAvailableIn": "{name} が {target} で利用可能になりました",
   "resources.tree.filteredOut.label": "除外済み",
-  "resources.tree.noAgentTargets.label": "エージェントターゲットなし",
   "resources.tree.mixed": "ターゲットが混在",
   "resources.tree.allDisabled": "すべて無効",
   "resources.tree.someDisabled": "{count} 件無効",

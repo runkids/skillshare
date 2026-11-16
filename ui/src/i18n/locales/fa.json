@@ -774,7 +774,6 @@
   "resources.toast.enabled": "{kind} {name} فعال شد",
   "resources.toast.nowAvailableIn": "{name} اکنون در {target} در دسترس است",
   "resources.tree.filteredOut.label": "فیلتر شده",
-  "resources.tree.noAgentTargets.label": "هیچ هدف عاملی وجود ندارد",
   "resources.tree.mixed": "هدف‌های متفاوت",
   "resources.tree.allDisabled": "همه غیرفعال",
   "resources.tree.someDisabled": "{count} غیرفعال",

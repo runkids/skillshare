@@ -774,7 +774,6 @@
   "resources.toast.enabled": "{kind} {name} 활성화됨",
   "resources.toast.nowAvailableIn": "{name}이(가) {target}에서 이제 사용 가능합니다",
   "resources.tree.filteredOut.label": "필터로 제외됨",
-  "resources.tree.noAgentTargets.label": "에이전트 대상 없음",
   "resources.tree.mixed": "대상 혼합",
   "resources.tree.allDisabled": "모두 비활성화됨",
   "resources.tree.someDisabled": "{count}개 비활성화됨",

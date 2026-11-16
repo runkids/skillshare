@@ -774,7 +774,6 @@
   "resources.toast.enabled": "{kind} {name} aktiviert",
   "resources.toast.nowAvailableIn": "{name} jetzt verfügbar in {target}",
   "resources.tree.filteredOut.label": "Herausgefiltert",
-  "resources.tree.noAgentTargets.label": "Keine Agent-Ziele",
   "resources.tree.mixed": "Gemischte Ziele",
   "resources.tree.allDisabled": "alle deaktiviert",
   "resources.tree.someDisabled": "{count} deaktiviert",
