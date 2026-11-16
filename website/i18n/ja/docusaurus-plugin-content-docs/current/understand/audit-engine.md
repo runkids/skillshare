@@ -177,13 +177,14 @@ Authority language のチェックは、よく知られた組織（Anthropic、O
 **Audit が検出する内容：**
 - 直接的なインジェクションのフレーズ："ignore previous instructions"、"disregard all rules"、"you are now"
 - プロンプト上書きの接頭辞：`SYSTEM:`、`OVERRIDE:`、`IGNORE:`、`ADMIN:`、`ROOT:`（大文字小文字を区別せず、空白にも寛容）。小文字のキーに同じ行の単純な値だけを指定する行は設定とみなし、検出しません。どのキーでも真偽値や数値（`admin: false`）、`root` は空白を含まないパス（`root: ./src`）、`ignore` はインラインオブジェクトか空白を含まない引用符付き要素の配列（`ignore: { tags: ["design"] }`、`ignore: ['**/*.test.vue']`）を値にできます。`root` の型注釈付き引数（`root: Path`、`root: Path, lang: set[str] | None = None`）は検出しません
+- ソースファイル（`.sh`、`.bash`、`.zsh`、`.fish`、`.py`、`.js`、`.ts`、`.rb`、`.php`、`.php3`、`.php4`、`.php5`、`.phtml`、`.go`、`.rs`、`.swift`、`Makefile`、`Dockerfile`）では、プロンプト上書きの接頭辞は大文字（`ROOT:`）の場合のみ検出します。そこでの小文字や大文字小文字混在の `root:` は引数、フィールド、docstring の項目です（`root: Path = Path(".")`）。判定はファイル拡張子で行い、Markdown、テキスト、設定ファイル、および Markdown 内のコードブロックでは大文字小文字を区別しない照合のままです
 - agent ディレクティブタグ：`<system>`、`</instructions>`、`</override>`、`</prompt>`、`</rules>`（任意で HTML 属性付き）
 - Jailbreak のディレクティブ：`DEVELOPER MODE`、`DEV MODE`、`JAILBREAK`、`DAN MODE`（大文字小文字を区別せず、空白にも寛容）
 - HTML コメント（`<!-- ... -->`）内に隠されたインジェクション
 
 `.md` のフェンス付きコードブロック内では、SDK 形式の `system:` / `System:` パラメータによる `prompt-injection-1` の finding は削除されず、CRITICAL から HIGH に引き下げられます。認識される値は、引用符付き文字列、配列、関数呼び出し、カンマで終わる変数、YAML のブロックスカラー、および次の行にある引用符付き文字列や配列です。これは構文ヒューリスティックであり、コードの安全性を証明するものではありません。HIGH はデフォルトの CRITICAL しきい値では警告となりますが、`strict` profile（HIGH しきい値）では引き続きブロックされます。
 
-大文字の `SYSTEM:` 指示、値のないロールラベル、コードブロック外の文章、Markdown 以外のソースファイルは、設定された深刻度を維持します。他のルールもパラメータのテキストを引き続きスキャンします。インジェクションのフレーズ、出力抑制、認証情報アクセス、データ流出は、この例外では引き下げられません。
+大文字の `SYSTEM:` 指示、値のないロールラベル、コードブロック外の文章、Markdown 以外のソースファイル内の大文字ラベルは、設定された深刻度を維持します。他のルールもパラメータのテキストを引き続きスキャンします。インジェクションのフレーズ、出力抑制、認証情報アクセス、データ流出は、この例外では引き下げられません。
 
 Output suppression は Markdown の文脈とは独立して、一致した証拠によって分類されます。
 

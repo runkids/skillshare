@@ -54,6 +54,21 @@ func TestScanSkill_MaliciousFile(t *testing.T) {
 	}
 }
 
+func TestScanSkill_PythonAnnotationIsNotRoleLabel(t *testing.T) {
+	skillDir := filepath.Join(t.TempDir(), "typed-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("---\nname: typed-skill\n---\n# Typed"), 0644)
+	os.WriteFile(filepath.Join(skillDir, "locate.py"), []byte("def locate():\n    root: Path = Path(\".\")\n    return root\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Findings) != 0 {
+		t.Errorf("expected 0 findings, got %+v", result.Findings)
+	}
+}
+
 // TestScanSkill_TrackedRepoHiddenSkills checks that a whole-repo scan, as the
 // tracked install and update gates run, text-scans skills that discovery finds
 // in hidden directories, while target copies and hidden folders inside a
