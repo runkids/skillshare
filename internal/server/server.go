@@ -654,6 +654,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/hooks/preview", s.requireLocalHooks(s.handleHooksPreview))
 	s.mux.HandleFunc("POST /api/hooks/render", s.requireLocalHooks(s.handleHooksRender))
 	s.mux.HandleFunc("POST /api/hooks/import", s.requireLocalHooks(s.handleHooksImport))
+	s.mux.HandleFunc("POST /api/hooks/native", s.requireLocalHooks(s.handleHooksNativeApply))
+	s.mux.HandleFunc("POST /api/hooks/native/preview", s.requireLocalHooks(s.handleHooksNativePreview))
 	s.mux.HandleFunc("POST /api/hooks/restore", s.requireLocalHooks(s.handleHooksRestore))
 	s.mux.HandleFunc("GET /api/hooks/catalog", s.requireLocalHooks(s.handleHooksCatalog))
 	s.mux.HandleFunc("GET /api/extras", s.handleExtras)

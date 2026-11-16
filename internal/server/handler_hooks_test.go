@@ -155,7 +155,7 @@ func TestHooksAPIImportListsCandidatesWithoutExecuting(t *testing.T) {
 func TestHooksRoutesRejectRebindingHost(t *testing.T) {
 	s, _ := newTestServerWithExtras(t, nil, "")
 	s.addr = "127.0.0.1:19420"
-	for _, route := range []string{"GET /api/hooks", "POST /api/hooks", "POST /api/hooks/preview", "POST /api/hooks/render", "POST /api/hooks/import", "POST /api/hooks/restore", "GET /api/hooks/catalog"} {
+	for _, route := range []string{"GET /api/hooks", "POST /api/hooks", "POST /api/hooks/preview", "POST /api/hooks/render", "POST /api/hooks/import", "POST /api/hooks/native", "POST /api/hooks/native/preview", "POST /api/hooks/restore", "GET /api/hooks/catalog"} {
 		method, path, _ := strings.Cut(route, " ")
 		req := httptest.NewRequest(method, path, strings.NewReader(`{}`))
 		req.RemoteAddr = "127.0.0.1:5555"

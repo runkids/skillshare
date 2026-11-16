@@ -974,6 +974,18 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 			}
 		}
 		located := locate(doc, current)
+		// claimed are the elements a record owns or an earlier op already addressed, so
+		// an op on an unmanaged hook finds its element by content among the rest.
+		claimed := map[string]map[int]bool{}
+		claim := func(event string, i int) {
+			if claimed[event] == nil {
+				claimed[event] = map[int]bool{}
+			}
+			claimed[event][i] = true
+		}
+		for key, i := range located {
+			claim(current[key].Event, i)
+		}
 		for _, op := range b.Ops {
 			if r := b.OwnedAfter[op.Key]; r != nil {
 				change.Name = r.Entry
@@ -989,6 +1001,16 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 				f.ops = append(f.ops, elementOp{Key: op.Key, Event: op.Event, Index: -1, Value: op.Before})
 			default:
 				i, ok := located[op.Key]
+				if op.Key == "" {
+					ok = false
+					for at, item := range doc.events[op.Event] {
+						if !claimed[op.Event][at] && elementHash(item) == elementHash(op.Value) {
+							i, ok = at, true
+							claim(op.Event, at)
+							break
+						}
+					}
+				}
 				if !ok {
 					conflict("hook changed after the backup; restore would overwrite newer changes")
 					break
@@ -1001,6 +1023,13 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 			}
 			if change.Action == "conflict" {
 				break
+			}
+			if op.Key == "" {
+				// An unmanaged hook has no entry to name and no ownership to restore.
+				if !strings.Contains(", "+change.Name+", ", ", "+op.Event+", ") {
+					change.Name = strings.TrimPrefix(change.Name+", "+op.Event, ", ")
+				}
+				continue
 			}
 			restoreOwnership(op.Key)
 		}

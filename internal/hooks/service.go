@@ -190,6 +190,8 @@ type Candidate struct {
 	Entry    Entry    `json:"entry"`
 	Problems []string `json:"problems"`
 	Warnings []string `json:"warnings"`
+	// Editable marks unmanaged hooks a NativeEdit can change or remove in place.
+	Editable bool `json:"editable,omitempty"`
 }
 
 // ConfigDirsFromEnv reads the Agent directory overrides Agents themselves honor.
