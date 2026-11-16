@@ -81,7 +81,8 @@ export default function HooksImportRow({ row, targetLabel, change, checked, impo
             <Button variant="ghost" size="sm" onClick={onUndo} disabled={busy}>{t('hooks.importUndo')}</Button>
           </span>
         ) : onEdit && onRemove && (
-          <span className="flex shrink-0 items-center gap-0.5">
+          // An open row has the same two actions as labelled buttons below; the space stays so the chevron does not move.
+          <span className={`flex shrink-0 items-center gap-0.5 ${open ? 'invisible' : ''}`}>
             <IconButton icon={<Pencil size={15} />} label={t('hooks.importEdit', { name: row.candidate.name })} onClick={onEdit} disabled={busy} />
             <IconButton variant="danger-outline" className="!text-bad" icon={<Trash2 size={15} />} label={t('hooks.importRemove', { name: row.candidate.name })} onClick={onRemove} disabled={busy} />
           </span>
