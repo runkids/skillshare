@@ -250,3 +250,24 @@ func TestNativeEdit_RestorePreviewNamesTheEvent(t *testing.T) {
 		t.Fatalf("the restore must say which hook comes back: %+v", p.Changes)
 	}
 }
+
+// A backup stays listed after it is restored, so restoring it again must not add the hook twice.
+func TestNativeEdit_RestoringARemovalTwiceIsRefused(t *testing.T) {
+	e := newEnv(t)
+	path := filepath.Join(e.home, ".claude", "settings.json")
+	write(t, path, trialSettings)
+	stop := importOne(t, e.service, "claude", "claude-stop").Entry.Bindings["claude"].Events
+	r := nativeEdit(t, e.service, NativeEdit{Target: "claude", Before: stop})
+	p, err := e.service.PreviewRestore(r.BackupIDs[0])
+	must(t, err)
+	_, err = e.service.Restore(r.BackupIDs[0], p.Revision)
+	must(t, err)
+	again, err := e.service.PreviewRestore(r.BackupIDs[0])
+	must(t, err)
+	if !again.Blocked {
+		t.Fatalf("a second restore must be refused: %+v", again.Changes)
+	}
+	if n := strings.Count(read(t, path), "afplay"); n != 1 {
+		t.Fatalf("want the hook once, got %d", n)
+	}
+}

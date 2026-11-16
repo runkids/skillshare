@@ -171,7 +171,9 @@ describe('hooks import', () => {
     vi.mocked(hooksApi.catalog).mockResolvedValue(catalog);
     vi.mocked(hooksApi.import)
       .mockResolvedValueOnce([editable('notify', './notify.sh'), editable('format', './format.sh')])
-      .mockResolvedValue([editable('notify', './notify.sh --fast'), editable('format', './format.sh')]);
+      // Read again, the edit may sit under other rows than the one it was made in: an edit can move a
+      // command to another event, and candidates are listed per event.
+      .mockResolvedValue([editable('notify', './notify.sh'), editable('moved', './notify.sh --fast'), editable('format', './format.sh')]);
     vi.mocked(hooksApi.previewNative).mockResolvedValue(nativePlan);
     vi.mocked(hooksApi.applyNative).mockResolvedValue({ applied: [], backupIds: [] });
     vi.mocked(hooksApi.save).mockRejectedValueOnce(new Error('name taken')).mockResolvedValue({ applied: [], backupIds: [] });
@@ -185,8 +187,11 @@ describe('hooks import', () => {
     await user.click(await screen.findByRole('button', { name: 'Apply changes' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('name taken');
     expect(onChanged).toHaveBeenCalled();
-    // The file now holds the edit, so nothing is pending, and the edited hook is not picked up as an import.
-    await user.click(await screen.findByRole('button', { name: 'Import 1' }));
+    // The file now holds the edit, so nothing is pending, and neither the edited hook nor a row the edit
+    // produced is picked up as an import.
+    await screen.findByRole('checkbox', { name: 'Import moved' });
+    expect(screen.queryByRole('button', { name: 'Review changes' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Import 1' }));
     await waitFor(() => expect(onImported).toHaveBeenCalledWith(1, 0));
     expect(hooksApi.applyNative).toHaveBeenCalledTimes(1);
     expect(hooksApi.save).toHaveBeenLastCalledWith(expect.objectContaining({ entry: candidate('format', './format.sh').entry }));

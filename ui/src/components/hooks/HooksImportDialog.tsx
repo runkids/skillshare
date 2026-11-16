@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { Download, Pencil, Plus, Trash2, TriangleAlert, X } from 'lucide-react';
 import { hookAgents, hooksApi } from '../../api/hooks';
+import { ApiError } from '../../api/http';
 import type { HookCandidate, HookInventory, HookPreview } from '../../api/hooks';
 import { plural, useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
@@ -68,6 +69,8 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
   const [unchecked, setUnchecked] = useState<string[]>([]);
   const [opened, setOpened] = useState<string[]>([]);
   const [changes, setChanges] = useState<Record<string, NativeChange>>({});
+  // Per target, the only rows still picked for import after a write to its file went through.
+  const [kept, setKept] = useState<Record<string, string[]>>({});
   const [editing, setEditing] = useState('');
   const [plan, setPlan] = useState<HookPreview | null>(null);
   const [saving, setSaving] = useState(false);
@@ -102,8 +105,11 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
     return change && ('remove' in change || !sameEvents(change.events, rowEvents(row))) ? change : undefined;
   };
   // A hook with a pending edit or removal is written to its target file as it is, not imported in the same pass.
-  const checked = (row: ImportRow) => importable(row) && !changeOf(row) && !unchecked.includes(row.id);
-  const check = (ids: string[], on: boolean) => setUnchecked((prev) => (on ? prev.filter((x) => !ids.includes(x)) : [...new Set([...prev, ...ids])]));
+  const checked = (row: ImportRow) => importable(row) && !changeOf(row) && !unchecked.includes(row.id) && (!kept[row.target] || kept[row.target].includes(row.id));
+  const check = (ids: string[], on: boolean) => {
+    setUnchecked((prev) => (on ? prev.filter((x) => !ids.includes(x)) : [...new Set([...prev, ...ids])]));
+    if (on) setKept((prev) => Object.fromEntries(Object.entries(prev).map(([target, list]) => [target, [...list, ...rows.filter((r) => r.target === target && ids.includes(r.id)).map((r) => r.id)]])));
+  };
   const chosen = rows.filter(checked);
   const blocked = chosen.some((r) => nameError(r));
   const changed = rows.filter(changeOf);
@@ -141,9 +147,13 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
   const save = async () => {
     setSaving(true);
     setError('');
+    let written = false;
     try {
       // The target files first: an import changes ownership, which would outdate the revision just reviewed.
-      if (plan) await hooksApi.applyNative(edits, plan.revision);
+      if (plan) {
+        await hooksApi.applyNative(edits, plan.revision);
+        written = true;
+      }
       // One at a time: each save previews and sends its own revision, so a parallel batch would be refused.
       for (const row of chosen) {
         await hooksApi.save({ ...(project && { project }), name: nameOf(row).trim(), entry: row.candidate.entry, ...(row.adopt && { adopt: true }) });
@@ -153,10 +163,17 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
       setError((e as Error).message);
       setSaving(false);
       setPlan(null);
-      // Part of it may be written, even by a write that failed. Read the targets again: changeOf drops what
-      // their files already hold, so a retry sends only the rest. A hook the user chose to change in place
-      // stays out of the import once its change is no longer pending.
-      check(changed.map((r) => r.id), false);
+      // A write that failed after its first file reports what it already applied.
+      const partly = Boolean(plan) && !written && e instanceof ApiError && e.status === 409 && e.message.includes('already applied');
+      if (written || partly) {
+        // The files hold the changes now, so none is sent again. Read again, they may show up as other rows
+        // than they were made in (an edit can move a command to another event), so in the targets written
+        // only what was picked before stays picked: a hook changed in place was not meant to be imported.
+        const frozen = Object.fromEntries([...new Set(changed.map((r) => r.target))].map((target) => [target, chosen.filter((r) => r.target === target).map((r) => r.id)]));
+        setKept((prev) => ({ ...prev, ...frozen }));
+        setChanges({});
+      }
+      // Otherwise nothing is known to be written; changeOf drops any change the files turn out to hold.
       for (const r of reads) void r.refetch();
       onChanged();
     }
@@ -176,7 +193,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
     const labels = (list: string[]) => [...new Set(list)].map(labelOf).join(sep);
     const counts = [...new Set(chosen.map((r) => r.target))].map((target) => t('hooks.importSum.count', { target: labelOf(target), count: String(chosen.filter((r) => r.target === target).length) })).join(sep);
     const wrote = new Set(changed.map((r) => r.target));
-    const kept = labels(targets.filter((target) => !wrote.has(target)));
+    const others = labels(targets.filter((target) => !wrote.has(target)));
     const backupNote = t(plural('hooks.importBackupNote', plan.files?.length ?? wrote.size));
     return (
       <DialogShell open onClose={onClose} padding="none" preventClose ariaLabel={title} className="!max-w-[720px]">
@@ -220,7 +237,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
           <div className="flex flex-col gap-2">
             <h3 className="text-[13px] font-semibold">{t('hooks.importFiles')}</h3>
             <HooksPreview plan={plan} />
-            <p className="text-[13px] leading-normal text-ink-2">{backupNote}{kept && `${/[.!?]$/.test(backupNote) ? ' ' : ''}${t('hooks.importBackupOthers', { targets: kept })}`}</p>
+            <p className="text-[13px] leading-normal text-ink-2">{backupNote}{others && `${/[.!?]$/.test(backupNote) ? ' ' : ''}${t('hooks.importBackupOthers', { targets: others })}`}</p>
           </div>
           {failure}
         </div>

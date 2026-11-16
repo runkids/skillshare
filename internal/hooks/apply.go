@@ -986,6 +986,16 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 		for key, i := range located {
 			claim(current[key].Event, i)
 		}
+		// unowned finds, and claims, an element no record owns by its content.
+		unowned := func(event string, value any) (int, bool) {
+			for at, item := range doc.events[event] {
+				if !claimed[event][at] && elementHash(item) == elementHash(value) {
+					claim(event, at)
+					return at, true
+				}
+			}
+			return 0, false
+		}
 		for _, op := range b.Ops {
 			if r := b.OwnedAfter[op.Key]; r != nil {
 				change.Name = r.Entry
@@ -998,18 +1008,19 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 			}
 			switch {
 			case op.Value == nil: // the write removed it: add it back
+				// Nothing records that an unmanaged hook was put back, so its presence is the sign:
+				// restoring the same backup again must not add a second copy.
+				if op.Key == "" {
+					if _, back := unowned(op.Event, op.Before); back {
+						conflict("the hook is already in the file; this backup may have been restored before")
+						break
+					}
+				}
 				f.ops = append(f.ops, elementOp{Key: op.Key, Event: op.Event, Index: -1, Value: op.Before})
 			default:
 				i, ok := located[op.Key]
 				if op.Key == "" {
-					ok = false
-					for at, item := range doc.events[op.Event] {
-						if !claimed[op.Event][at] && elementHash(item) == elementHash(op.Value) {
-							i, ok = at, true
-							claim(op.Event, at)
-							break
-						}
-					}
+					i, ok = unowned(op.Event, op.Value)
 				}
 				if !ok {
 					conflict("hook changed after the backup; restore would overwrite newer changes")
