@@ -22,8 +22,8 @@ func cmdInstallProject(args []string, root string) (installLogSummary, error) {
 	return cmdInstallProjectParsed(parsed, root)
 }
 
-func cmdInstallProjectParsed(parsed *installArgs, root string) (installLogSummary, error) {
-	summary := installLogSummary{
+func cmdInstallProjectParsed(parsed *installArgs, root string) (summary installLogSummary, cmdErr error) {
+	summary = installLogSummary{
 		Mode: "project",
 	}
 	summary.DryRun = parsed.opts.DryRun
@@ -40,6 +40,9 @@ func cmdInstallProjectParsed(parsed *installArgs, root string) (installLogSummar
 	if err != nil {
 		return summary, err
 	}
+	defer func() {
+		printProfileHint(installedProfileHint(runtime.config, modeProject, runtime.sourcePath, runtime.skillsWalk(), summary.InstalledPaths), parsed.jsonOutput)
+	}()
 	if parsed.opts.AuditThreshold == "" {
 		parsed.opts.AuditThreshold = runtime.config.Audit.BlockThreshold
 	}
@@ -133,6 +136,7 @@ func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptio
 	if err != nil {
 		spinner.Fail("Install failed")
 		summary.InstalledSkills = result.InstalledSkills
+		summary.InstalledPaths = result.InstalledPaths
 		summary.FailedSkills = result.FailedSkills
 		summary.SkippedSkills = result.SkippedSkills
 		summary.SkillCount = len(result.InstalledSkills)
@@ -140,6 +144,7 @@ func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptio
 	}
 
 	summary.InstalledSkills = result.InstalledSkills
+	summary.InstalledPaths = result.InstalledPaths
 	summary.FailedSkills = result.FailedSkills
 	summary.SkippedSkills = result.SkippedSkills
 	summary.SkillCount = len(result.InstalledSkills)

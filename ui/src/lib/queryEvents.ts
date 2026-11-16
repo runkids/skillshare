@@ -15,6 +15,8 @@ const ignoreFile = [k.diff(), k.overview, k.skills.all, k.doctor];
  * `syncMatrixAll` and `diffAll` are prefixes that reach every target; `syncMatrix()` and `diff()` are the all-targets query only.
  */
 const events = {
+  profilesChanged: () => keys(k.profiles, k.config, k.doctor, k.skills.all, k.diffAll, k.syncMatrixAll, k.syncMatrixPreview()),
+  profileSwitched: () => keys(k.skills.all, k.targets.all, k.diffAll, k.syncMatrixAll, k.syncMatrixPreview(), k.overview, k.profiles, k.backups),
   // Skills and agents
   skillsChanged: () => keys(k.skills.all, k.overview, k.diff()),
   // A project's config.yaml declares the branch, so the config editor reloads too.
@@ -36,9 +38,9 @@ const events = {
 
   // Targets, projects and sync
   targetsChanged: () => keys(...targets, k.instructions.all),
-  synced: () => keys(k.targets.all, k.overview, k.diff()),
-  syncRan: () => keys(...targets, k.extrasDiff(), k.extras, k.mcp, k.hooks, k.logAll),
-  projectSynced: () => keys(...targets, k.mcp, k.hooks, k.logAll),
+  synced: () => keys(k.targets.all, k.overview, k.diff(), k.profiles),
+  syncRan: () => keys(...targets, k.extrasDiff(), k.extras, k.mcp, k.hooks, k.logAll, k.profiles),
+  projectSynced: () => keys(...targets, k.mcp, k.hooks, k.logAll, k.profiles),
   projectChanged: () => keys(...targets, k.mcp, k.hooks),
   projectAdded: () => keys(...targets, k.mcp),
   targetFilesChanged: (target: string) => keys(k.targetFiles.list(target)),
@@ -46,7 +48,7 @@ const events = {
   targetFileRemoved: (target: string): InvalidateQueryFilters[] => [{ queryKey: k.targetFiles.list(target), exact: true }],
 
   // Config
-  configSaved: () => keys(k.updatePolicy, k.versionCheck, k.config, k.mcp, k.overview, k.targets.all, k.skills.all, k.extras, k.extrasDiff(), k.diff(), k.syncMatrix(), k.doctor, k.instructions.all, k.memory.all),
+  configSaved: () => keys(k.updatePolicy, k.versionCheck, k.config, k.mcp, k.overview, k.targets.all, k.skills.all, k.extras, k.extrasDiff(), k.diff(), k.syncMatrix(), k.doctor, k.instructions.all, k.memory.all, k.profiles),
   updatePolicyChanged: () => keys(k.versionCheck, k.doctor),
   settingsSaved: () => keys(k.updatePolicy, k.config, k.versionCheck, k.doctor),
   skillignoreSaved: () => keys(k.skillignore, ...ignoreFile),

@@ -149,6 +149,10 @@ Before changing code:
 4. For state changes, inspect backup, rollback, oplog, dry-run, and audit implications.
 5. Load `documentation` for public contract changes, `cli-development` for implementation, and `testing` before execution.
 
+## Dashboard profile transport
+
+`GET /api/profiles` and `POST /api/profiles/active` load through shared read-only profile views and bypass automatic config reload. Writes hold the server mutex while the shared apply adapter owns its file lock, skill-only execution, refusal policy, snapshots and settlement. The UI client preserves typed refusal params; it never selects skills or writes profile state itself. The Layout picker/dialog/banners refresh skills, targets, every diff/matrix, overview, profiles and backups through `profileSwitched`, even when application is incomplete.
+
 ## Project registration overlay
 
 `Config` loads shared `projects` then a versioned machine-local overlay. Local entries replace whole normalized roots; exclusions hide shared entries only here. Effective `Projects` expands into targets for sync consumers. General Save/PrepareSave projects back to shared declarations; local registrations never leak into shared config. `internal/projects.Service` edits both layers through `config.PrepareProjectLayers`: a new project goes to the layer `projects_storage` or the caller picks (shared by default), and edits and removals stay in the owning layer. A change to both layers (`share`, removal of an override with `Shared`) writes `config.yaml` before the local registry, so an interrupted write keeps the project. Dashboard target conversion remains a shared single-file write and refuses hidden roots. Raw editor decoding validates the submitted shared document plus overlay.

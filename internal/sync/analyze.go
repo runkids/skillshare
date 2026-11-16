@@ -17,7 +17,8 @@ import (
 // such as DiscoverSourceSkillsForAnalyze). Any other mode gets the enabled
 // skills its include/exclude and `targets:` filters let through, plus the
 // skills that already live in the target folder without coming from the
-// source (Local), which the tool loads just the same.
+// source (Local), which the tool loads just the same. Preserved managed copies
+// outside the desired selection also count using their deployed contents.
 func TargetSkills(name string, target config.TargetConfig, defaultMode, sourcePath string, discovered []DiscoveredSkill) ([]DiscoveredSkill, error) {
 	sc := target.SkillsConfig()
 	if !sc.IsEnabled() {
@@ -32,19 +33,23 @@ func TargetSkills(name string, target config.TargetConfig, defaultMode, sourcePa
 		return discovered, nil
 	}
 
-	skills, err := SelectTargetSkills(discovered, name, sc)
+	resolution, err := ResolveTargetSkillsForTarget(name, sc, discovered)
 	if err != nil {
 		return nil, err
 	}
-	return append(skills, localTargetSkills(sc.Path, sourcePath)...), nil
+	skills := make([]DiscoveredSkill, 0, len(resolution.Skills))
+	for _, selected := range resolution.Skills {
+		skills = append(skills, selected.Skill)
+	}
+	return append(skills, localTargetSkills(sc.Path, sourcePath, resolution)...), nil
 }
 
-// localTargetSkills finds skills that sit in targetPath as real folders but are
-// not managed by skillshare: merge mode links source skills, so a real folder
-// is local; copy mode records its copies in the manifest, so anything missing
-// from it is local. Errors mean "nothing to report" — the target folder may
-// not exist yet.
-func localTargetSkills(targetPath, sourcePath string) []DiscoveredSkill {
+// localTargetSkills supplements the desired selection with real deployed folders.
+// Managed copies outside that selection can remain after profile sync preserves
+// edits; measure those target bytes too, without labelling them unmanaged or
+// double-counting selected copies. Errors mean "nothing to report" — the target
+// folder may not exist yet.
+func localTargetSkills(targetPath, sourcePath string, selected *TargetSkillResolution) []DiscoveredSkill {
 	if targetPath == "" || sourcePath == "" {
 		return nil
 	}
@@ -56,6 +61,11 @@ func localTargetSkills(targetPath, sourcePath string) []DiscoveredSkill {
 	if err != nil {
 		return nil
 	}
+	represented := selected.ValidTargetNames()
+	// A selected copy may still use its previous naming until a safe migration.
+	for name := range selected.LegacyNames("copy", targetPath, manifest) {
+		represented[name] = true
+	}
 	// filepath.Walk does not follow symlinks, so merge-mode links never yield a SKILL.md.
 	found, _, _, err := discoverSourceSkillsInternal(targetPath, discoverOptions{collectContext: true})
 	if err != nil {
@@ -64,13 +74,13 @@ func localTargetSkills(targetPath, sourcePath string) []DiscoveredSkill {
 	var local []DiscoveredSkill
 	for _, s := range found {
 		top, _, _ := strings.Cut(s.RelPath, "/")
-		if _, managed := manifest.Managed[s.RelPath]; managed {
+		_, managedPath := manifest.Managed[s.RelPath]
+		_, managedTop := manifest.Managed[top]
+		managed := managedPath || managedTop
+		if managed && (represented[s.RelPath] || represented[top]) {
 			continue
 		}
-		if _, managed := manifest.Managed[top]; managed {
-			continue
-		}
-		s.Local = true
+		s.Local = !managed
 		s.Targets = nil // a folder the tool already reads is loaded whatever its path implies
 		local = append(local, s)
 	}

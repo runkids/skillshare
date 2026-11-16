@@ -21,6 +21,7 @@ type searchInstallResult struct {
 	name     string
 	source   string
 	status   string // "installed", "skipped", "failed"
+	path     string
 	detail   string
 	warnings []string
 }
@@ -368,6 +369,7 @@ func collectSearchInstallGlobal(result search.SearchResult, cfg *config.Config, 
 	}
 
 	r.status = "installed"
+	r.path = installResult.SkillPath
 	r.warnings = installResult.Warnings
 	return r
 }
@@ -421,6 +423,7 @@ func collectSearchInstallProject(result search.SearchResult, cwd string, onProgr
 	}
 
 	r.status = "installed"
+	r.path = installResult.SkillPath
 	r.warnings = installResult.Warnings
 	return r
 }
@@ -469,6 +472,7 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 	// Group by repo: skills sharing the same CloneURL are cloned once.
 	var refs install.RemoteRefs
 	groups, singles := groupByRepo(selected, parseOpts, refs.Resolve)
+	var installedPaths []string
 
 	// Phase 1: grouped install — clone each repo once, install multiple skills.
 	for _, group := range groups {
@@ -513,6 +517,9 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 				fallback = append(fallback, sr)
 				continue
 			}
+			if r.status == "installed" && r.path != "" {
+				installedPaths = append(installedPaths, r.path)
+			}
 			resultMap[sr.Name] = r
 			logSkillInstallOp(cfgPath, sr, r, modeStr)
 			progress.doneSkill(sr.Name, r)
@@ -532,6 +539,9 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 			r = collectSearchInstallProject(sr, cwd, onProgress)
 		} else {
 			r = collectSearchInstallGlobal(sr, cfg, onProgress)
+		}
+		if r.status == "installed" && r.path != "" {
+			installedPaths = append(installedPaths, r.path)
 		}
 		resultMap[sr.Name] = r
 		logSkillInstallOp(cfgPath, sr, r, modeStr)
@@ -560,6 +570,11 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 	}
 
 	renderBatchSearchInstallSummary(results, mode, time.Since(batchStart))
+	if projectRT != nil {
+		printProfileHint(installedProfileHint(projectRT.config, mode, sourceDir, projectRT.skillsWalk(), installedPaths), false)
+	} else if cfg != nil {
+		printProfileHint(installedProfileHint(cfg, mode, sourceDir, cfg.SkillsWalk(), installedPaths), false)
+	}
 
 	// Return error if any failed
 	var failed []string
@@ -621,6 +636,7 @@ func installFromDiscoveryResult(discovery *install.DiscoveryResult, sr search.Se
 	}
 
 	r.status = "installed"
+	r.path = installResult.SkillPath
 	r.warnings = installResult.Warnings
 	return r
 }

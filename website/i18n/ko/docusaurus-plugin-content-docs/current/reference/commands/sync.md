@@ -735,3 +735,9 @@ JSON 출력(`--json`)은 `--quiet` 여부와 무관하게 항상 `context_cost`�
 - [Configuration](/docs/reference/targets/configuration#extras) — extras config 참고 자료
 
 `skillshare sync hooks`는 hooks만 동기화합니다. [hooks](./hooks.md)를 참고하세요.
+
+## 프로필 {#profiles}
+
+[profile](/docs/reference/commands/profile)로 이름 있는 Skill 선택을 만들고 조회·편집·전환합니다. `-g` / `-p`를 지원합니다.
+
+활성 또는 pending 프로필의 sync는 편집된 관리 복사본과 비관리 내용을 보존합니다. `sync --discard-edits`는 계획에 있는 관리 복사본만 검증된 스냅샷 후 폐기하며 텍스트·JSON에 snapshot 경로, restore 명령, 기존 보존 정책을 표시합니다. `--force`는 선택에서 빠진 편집 복사본의 삭제를 허용하지 않습니다. 사용할 수 없는 active 상태는 Skill sync를 거부합니다.

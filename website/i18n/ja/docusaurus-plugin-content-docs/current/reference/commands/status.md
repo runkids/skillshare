@@ -220,3 +220,9 @@ Project status では Tracked Repositories と Version のセクションは表�
 - [diff](/docs/reference/commands/diff) — 詳細な差分を表示
 - [doctor](/docs/reference/commands/doctor) — 問題を診断
 - [Project Skills](/docs/understand/project-skills) — Project mode の概念
+
+## プロファイル {#profiles}
+
+名前付き Skill 選択は [profile](/docs/reference/commands/profile) で作成・表示・編集・切り替えできます。`-g` / `-p` に対応します。
+
+status の任意 JSON `profile: {name,state,selected,total,pending}` は希望する選択数を示し、Target の `synced_count` は実際のディスク上の数です。`--no-sync`、未完了、保持された内容により異なる場合があります。pending は切り替え未完了を示します。

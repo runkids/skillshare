@@ -6,6 +6,7 @@ import {
   RefreshCw,
   GitBranch,
   Puzzle,
+  SwatchBook,
   Bot,
   FolderPlus,
   Folders,
@@ -36,6 +37,9 @@ import ThemePopover from './ThemePopover';
 import LanguagePopover from './LanguagePopover';
 import { useTour } from './tour';
 import UpdateDialog from './UpdateDialog';
+import ProfileSwitcher from './profiles/ProfileSwitcher';
+import ProfileSwitchDialog from './profiles/ProfileSwitchDialog';
+import ProfileBanners from './profiles/ProfileBanners';
 import { useT } from '../i18n';
 import { shortenHome } from '../lib/paths';
 import { useDiffQuery, useHooksQuery, useMcpQuery, useOverviewQuery, useSyncedTargetsQuery } from '../hooks/useSharedQueries';
@@ -61,6 +65,7 @@ const navGroups: { labelKey?: string; items: NavItem[] }[] = [
     labelKey: 'layout.group.library',
     items: [
       { to: '/skills', icon: Puzzle, labelKey: 'layout.nav.skills', also: ['/hubs'] },
+      { to: '/profiles', icon: SwatchBook, labelKey: 'profileEdit.title' },
       { to: '/agents', icon: Bot, labelKey: 'layout.nav.agents' },
       { to: '/extras', icon: FolderPlus, labelKey: 'layout.nav.extras' },
       { to: '/mcp', icon: Plug, labelKey: 'mcp.title' },
@@ -92,6 +97,7 @@ function isActive(item: NavItem, pathname: string): boolean {
 export default function Layout() {
   const t = useT();
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [profileCandidate, setProfileCandidate] = useState<{ name: string | null } | null>(null);
   const location = useLocation();
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [navigationLocation, setNavigationLocation] = useState(location);
@@ -112,6 +118,11 @@ export default function Layout() {
     return () => desktop.removeEventListener('change', onResize);
   }, []);
   const { isProjectMode, projectRoot } = useAppContext();
+  const profiles = useQuery({ queryKey: queryKeys.profiles, queryFn: () => api.profiles.list(), refetchInterval: 15_000 });
+  const chooseProfile = (name: string | null) => {
+    closeNavigation();
+    setProfileCandidate({ name });
+  };
   const { startTour } = useTour();
   const nav = useNavigate();
   const toggleShortcuts = useCallback(() => {
@@ -145,6 +156,7 @@ export default function Layout() {
             {/* The label is truncated, so the tooltip is the only place the full path shows — copying saves retyping it. */}
             {home && <CopyButton value={home} title={t('common.copyPath')} copiedLabel="" className="md:pointer-fine:opacity-0 group-hover:opacity-100 focus-visible:opacity-100" />}
           </div>
+          <ProfileSwitcher data={profiles.data} onChoose={chooseProfile} />
         </div>
 
         <nav className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
@@ -205,7 +217,11 @@ export default function Layout() {
 
       <main className="min-w-0 px-4 py-6 md:ml-[232px] md:px-12 md:py-10">
         <div className="max-w-[1080px] mx-auto">
-          <TargetAgents.Provider value={targetAgents}><Outlet /></TargetAgents.Provider>
+          <TargetAgents.Provider value={targetAgents}>
+            <ProfileBanners data={profiles.data} onChoose={chooseProfile} />
+            <Outlet />
+            {profileCandidate && profiles.data && <ProfileSwitchDialog candidate={profileCandidate.name} profiles={profiles.data} onClose={() => setProfileCandidate(null)} />}
+          </TargetAgents.Provider>
         </div>
       </main>
 

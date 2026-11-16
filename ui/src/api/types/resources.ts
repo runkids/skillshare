@@ -48,6 +48,8 @@ export interface Skill {
   repoUrl?: string;
   version?: string;
   disabled?: boolean;
+  /** Selection by the usable active profile; absent when none is available. */
+  inProfile?: boolean;
   /** disable-model-invocation: invocable by name, never loaded by the model on its own. */
   manualOnly?: boolean;
   /** Frontmatter description from the source file. */

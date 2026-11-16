@@ -12,32 +12,82 @@ import (
 // the skill still has a managed entry under the name an earlier target naming
 // gave it, that entry is renamed in place, unless the new name is taken.
 // taken holds the names other skills sync to in this run.
-func selectActiveTargetNameForSync(mode, targetPath string, skill ResolvedTargetSkill, taken map[string]bool, manifest *Manifest, dryRun bool) (string, error) {
+func selectActiveTargetNameForSync(mode, targetPath string, skill ResolvedTargetSkill, taken map[string]bool, manifest *Manifest, dryRun, profileAware bool, ignore []string, verification ...PruneOptions) (string, error) {
+	name, _, err := selectActiveTargetNameWithDiscard(mode, targetPath, skill, taken, manifest, dryRun, profileAware, ignore, "", nil, verification...)
+	return name, err
+}
+
+// selectActiveTargetNameWithDiscard also carries a verified discard grant across
+// a successful legacy-name migration. The caller must not reuse the new grant
+// for any other entry, and must still revalidate its bytes before replacement.
+func selectActiveTargetNameWithDiscard(mode, targetPath string, skill ResolvedTargetSkill, taken map[string]bool, manifest *Manifest, dryRun, profileAware bool, ignore []string, targetName string, discard []DiscardEntry, verification ...PruneOptions) (string, *DiscardEntry, error) {
 	desiredName := skill.TargetName
 	legacy, err := findLegacyTargetEntry(mode, targetPath, skill, taken, manifest)
 	if err != nil || legacy.name == "" {
-		return desiredName, err
+		return desiredName, nil, err
 	}
 	legacyName, legacyNaming := legacy.name, legacy.naming
 	legacyPath := filepath.Join(targetPath, legacyName)
+	verifiedOutput := ""
+	var migratedDiscard *DiscardEntry
+	var discardInput *EntryInput
+	var discardSources []CopySource
+	if profileAware {
+		input := CopySource{Path: skill.Skill.SourcePath, IgnorePatterns: ignore}
+		if legacyNaming == "prefixed" && legacyName != skill.SkillName {
+			input.OutputName = legacyName
+		}
+		entryInput := EntryInput{Name: legacyName, Path: legacyPath, SourceRoot: filepath.Dir(skill.Skill.SourcePath), Manifest: manifest, Source: &input}
+		var originals []CopySource
+		if len(verification) > 0 {
+			entryInput.SourceRoot = verification[0].SourcePath
+			entryInput.Source = nil
+			originals = legacyCopySources(legacyName, targetPath, verification[0].Skills, manifest, ignore)
+		}
+		entry := classifyEntry(entryInput, originals...)
+		if entry.Class != EntryCleanCopy && entry.Class != EntryManagedLink {
+			if !discardAllowed(targetName, cleanEntryDir(targetPath), legacyName, entry, discard) {
+				return legacyName, nil, nil
+			}
+			// Keep the verified snapshot grant tied to these exact bytes. Only
+			// the writer for this migrated entry receives its new identity.
+			migratedDiscard = &DiscardEntry{Target: targetName, Dir: cleanEntryDir(targetPath), Entry: desiredName, Fingerprint: entry.Fingerprint}
+			discardInput, discardSources = &entryInput, originals
+		}
+		if entry.Class == EntryCleanCopy {
+			verifiedOutput = entry.Fingerprint
+		}
+	}
 
 	desiredPath := filepath.Join(targetPath, desiredName)
 	if _, err := os.Lstat(desiredPath); err == nil {
 		fmt.Fprintf(DiagOutput,
 			"Warning: kept legacy managed entry %s for target name %q because %s already exists\n",
 			legacyName, desiredName, desiredName)
-		return legacyName, nil
+		return legacyName, nil, nil
 	} else if !os.IsNotExist(err) {
-		return "", fmt.Errorf("failed to inspect target entry %s: %w", desiredName, err)
+		return "", nil, fmt.Errorf("failed to inspect target entry %s: %w", desiredName, err)
 	}
 
 	if dryRun {
 		fmt.Fprintf(DiagOutput, "[dry-run] Would rename managed target entry: %s -> %s\n", legacyName, desiredName)
-		return legacyName, nil
+		return legacyName, nil, nil
 	}
 
+	if discardInput != nil {
+		entry := classifyEntry(*discardInput, discardSources...)
+		if !discardAllowed(targetName, cleanEntryDir(targetPath), legacyName, entry, discard) {
+			return legacyName, nil, nil
+		}
+	}
 	if err := os.Rename(legacyPath, desiredPath); err != nil {
-		return "", fmt.Errorf("failed to rename managed target entry %s -> %s: %w", legacyName, desiredName, err)
+		return "", nil, fmt.Errorf("failed to rename managed target entry %s -> %s: %w", legacyName, desiredName, err)
+	}
+	if output, present := manifest.Outputs[legacyName]; verifiedOutput != "" && (!present || legacyOutput(output)) {
+		if manifest.Outputs == nil {
+			manifest.Outputs = make(map[string]string)
+		}
+		manifest.Outputs[legacyName] = verifiedOutput
 	}
 	renameManifestEntry(manifest, legacyName, desiredName, legacyNaming)
 	// Record the rename now: if a later skill fails, the manifest must still
@@ -45,11 +95,11 @@ func selectActiveTargetNameForSync(mode, targetPath string, skill ResolvedTarget
 	if err := WriteManifest(targetPath, manifest); err != nil {
 		renameManifestEntry(manifest, desiredName, legacyName, legacyNaming)
 		if rbErr := os.Rename(desiredPath, legacyPath); rbErr != nil {
-			return "", fmt.Errorf("failed to record rename %s -> %s: %w (rename back also failed: %v)", legacyName, desiredName, err, rbErr)
+			return "", nil, fmt.Errorf("failed to record rename %s -> %s: %w (rename back also failed: %v)", legacyName, desiredName, err, rbErr)
 		}
-		return "", fmt.Errorf("failed to record rename %s -> %s: %w", legacyName, desiredName, err)
+		return "", nil, fmt.Errorf("failed to record rename %s -> %s: %w", legacyName, desiredName, err)
 	}
-	return desiredName, nil
+	return desiredName, migratedDiscard, nil
 }
 
 // findLegacyTargetEntry returns the managed entry a skill holds under the name
@@ -138,6 +188,10 @@ func renameManifestEntry(manifest *Manifest, oldName, newName, oldNaming string)
 	if mtime, ok := manifest.Mtimes[oldName]; ok {
 		manifest.Mtimes[newName] = mtime
 		delete(manifest.Mtimes, oldName)
+	}
+	if output, ok := manifest.Outputs[oldName]; ok {
+		manifest.Outputs[newName] = output
+		delete(manifest.Outputs, oldName)
 	}
 	delete(manifest.Naming, oldName)
 	manifest.Naming[newName] = oldNaming

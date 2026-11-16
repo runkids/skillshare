@@ -732,3 +732,9 @@ JSON 出力（`--json`）には、`--quiet` に関わらず常に `context_cost`
 - [Configuration](/docs/reference/targets/configuration#extras) — Extras 設定リファレンス
 
 `skillshare sync hooks` は hooks だけを同期します。[hooks](./hooks.md) を参照してください。
+
+## プロファイル {#profiles}
+
+名前付き Skill 選択は [profile](/docs/reference/commands/profile) で作成・表示・編集・切り替えできます。`-g` / `-p` に対応します。
+
+アクティブまたは pending のプロファイルでは、変更済みコピーと管理外の内容を保持します。`sync --discard-edits` は計画にある管理コピーだけを検証済みバックアップ後に破棄し、テキスト・JSON の両方で snapshot と restore コマンド、既存の保持期限を表示します。`--force` は選択から外れた編集済みコピーの削除を許可しません。active が使用不能なら Skill sync は拒否されます。

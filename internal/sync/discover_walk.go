@@ -281,15 +281,13 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 				}
 			}
 
-			skillFile := filepath.Join(skillDir, "SKILL.md")
-
 			var targets []string
 			var ctx skillContext
 			var lintIssues []LintIssue
 
 			if opts.collectContext {
 				// Single read: parse targets + context from one os.ReadFile
-				content, readErr := os.ReadFile(skillFile)
+				content, readErr := os.ReadFile(path)
 				if readErr == nil {
 					targets = utils.ParseFrontmatterListFromBytes(content, "targets")
 					var yamlErr error
@@ -307,19 +305,19 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 						return fmt.Errorf("lint skill %s: %w", relPath, err)
 					}
 					lintIssues = append(lintIssues, lintResults...)
+					ctx.Name, _ = utils.ParseSkillName(skillDir, content)
+				} else {
+					ctx.Name, _ = utils.ParseSkillName(skillDir)
 				}
 			} else if opts.parseFrontmatter {
-				targets = utils.ParseFrontmatterList(skillFile, "targets")
+				targets = utils.ParseFrontmatterList(path, "targets")
+				ctx.Name, _ = utils.ParseSkillName(skillDir)
 			}
-
-			variantRouting := false
-			if len(targets) == 0 && (opts.parseFrontmatter || opts.collectContext) {
-				if variantAgent != "" {
-					targets = []string{variantAgent}
-					variantRouting = true
-				} else {
-					targets = inferSkillTargetsFromRelPath(relPath)
-				}
+			variantRouting := len(targets) == 0 && (opts.parseFrontmatter || opts.collectContext) && variantAgent != ""
+			if variantRouting {
+				targets = []string{variantAgent}
+			} else if len(targets) == 0 && (opts.parseFrontmatter || opts.collectContext) {
+				targets = inferSkillTargetsFromRelPath(relPath)
 			}
 
 			// Use original sourcePath (not walkRoot) so SourcePath preserves
@@ -333,6 +331,7 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 				LogicalID:      logicalID,
 				VariantAgent:   variantAgent,
 				variantRouting: variantRouting,
+				declaredName:   ctx.Name,
 				Targets:        targets,
 				DescChars:      ctx.DescChars,
 				BodyChars:      ctx.BodyChars,

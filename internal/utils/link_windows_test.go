@@ -5,6 +5,7 @@ package utils
 import (
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 )
 
@@ -48,5 +49,39 @@ func TestCreateJunctionRefusesNetworkPath(t *testing.T) {
 	}
 	if _, err := os.Lstat(link); !os.IsNotExist(err) {
 		t.Fatalf("link was left behind: %v", err)
+	}
+}
+
+func TestCanonicalPathShortAndLongNames(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "directory with a long name")
+	if err := os.Mkdir(path, 0755); err != nil {
+		t.Fatal(err)
+	}
+	long := canonicalSpelling(path)
+	name, err := syscall.UTF16PtrFromString(long)
+	if err != nil {
+		t.Fatal(err)
+	}
+	buf := make([]uint16, 260)
+	var short string
+	for {
+		n, err := syscall.GetShortPathName(name, &buf[0], uint32(len(buf)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n < uint32(len(buf)) {
+			short = syscall.UTF16ToString(buf[:n])
+			break
+		}
+		buf = make([]uint16, n+1)
+	}
+	if PathsEqual(short, long) {
+		t.Skip("8.3 aliases are unavailable on this volume")
+	}
+	for _, tail := range []string{"", "not-created/child"} {
+		a, b := filepath.Join(short, tail), filepath.Join(long, tail)
+		if !PathsEqual(CanonicalPath(a), CanonicalPath(b)) || !SamePhysicalPath(a, b) {
+			t.Fatalf("short/long identities differ: %q -> %q, %q -> %q", a, CanonicalPath(a), b, CanonicalPath(b))
+		}
 	}
 }

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"skillshare/internal/testutil"
 )
 
 func TestDetachSkillsTarget_DryRun(t *testing.T) {
@@ -155,32 +157,7 @@ func TestDetachSkillsTarget_CleanupFailureReportsCompletedWork(t *testing.T) {
 
 func snapshotDetachTree(t *testing.T, root string) map[string]string {
 	t.Helper()
-	result := make(map[string]string)
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		value := fmt.Sprintf("%v/%d", info.Mode(), info.ModTime().UnixNano())
-		if info.Mode()&os.ModeSymlink != 0 {
-			dest, err := os.Readlink(path)
-			if err != nil {
-				return err
-			}
-			value += "/" + dest
-		} else if !info.IsDir() {
-			data, err := os.ReadFile(path)
-			if err != nil {
-				return err
-			}
-			value += "/" + string(data)
-		}
-		result[path] = value
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return result
+	return testutil.SnapshotTree(t, false, root)
 }
 
 // These cases pin target removal's copy-back semantics, which differ from

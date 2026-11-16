@@ -7,6 +7,7 @@ import { formatTrackedRepoName, resourceHref } from '../../lib/resourceNames';
 import AgentIcon from '../AgentIcon';
 import Tooltip from '../Tooltip';
 import Button from '../Button';
+import ProfileMembershipMenu from '../profiles/ProfileMembershipMenu';
 import { isRepoRoot, summarize } from './tree';
 import type { FolderNode } from './tree';
 
@@ -125,6 +126,7 @@ export default function TreeDetailPane({ kind, subject, busy, onToggleAll, onTog
         {link && <p className="break-all font-mono text-xs text-ink-3">{link.target}</p>}
       </div>
 
+      {!isAgent && skills.length > 0 && <div className="flex flex-wrap gap-2"><ProfileMembershipMenu names={skills.map((skill) => skill.flatName)} /></div>}
       <div className="ss-tree-props">
         {skills.length > 0 && <div>
           <span className="lb">{t('resources.col.status')}</span>

@@ -17,6 +17,7 @@ import { describeMessage, mcpClient, targetLabel } from '../components/mcp/mcpVi
 import { changeSets, countChanges, countEdited, discardable, receivesSkill, tally, extraGroups, groupByFolder, groupInSync, HOOKS_CHANGED, hooksGroups, MCP_CHANGED, mcpGroups, otherWarnings, resourceGroups, runSync, skippedHintKeys, type ChangeGroup, type Part, type RowIcon, type SyncFailure } from '../components/sync/syncView';
 import FolderConflictNotice from '../components/sync/FolderConflictNotice';
 import SyncResult from '../components/sync/SyncResult';
+import { profileReason } from '../components/profiles/profileView';
 import UnmatchedNotices from '../components/sync/UnmatchedNotices';
 import SyncError from '../components/sync/SyncError';
 import SkillsOffDialog from '../components/targets/SkillsOffDialog';
@@ -206,12 +207,12 @@ export default function SyncPage() {
         // A hooks reason is worded for this UI and can be long: hover shows all of it.
         <span className="min-w-0 flex-1">
           <Tooltip block content={hookMessage(t, r.detail)}>
-            <span className={`block truncate text-[13px] ${r.icon === 'conflict' ? 'text-warn' : 'text-ink-2'}`}>{r.text ? t(r.text) : hookMessage(t, r.detail)}</span>
+            <span className={`block truncate text-[13px] ${r.icon === 'conflict' ? 'text-warn' : 'text-ink-2'}`}>{r.text ? t(r.text, r.params) : hookMessage(t, r.detail)}</span>
           </Tooltip>
         </span>
       ) : (
-        <span className={`min-w-0 flex-1 truncate text-[13px] ${r.icon === 'conflict' ? 'text-warn' : 'text-ink-2'}`} title={r.detail}>
-          {r.text ? t(r.text) : r.part === 'mcp' ? describeMessage(t, r.detail) : r.detail}
+        <span className={`min-w-0 flex-1 truncate text-[13px] ${r.icon === 'conflict' ? 'text-warn' : 'text-ink-2'}`} title={r.part === 'skill' && r.detail ? profileReason(r.detail, t) : r.detail}>
+          {r.text ? t(r.text, r.params) : r.part === 'mcp' ? describeMessage(t, r.detail) : r.part === 'skill' && r.detail ? profileReason(r.detail, t) : r.detail}
         </span>
       )}
     </div>
@@ -231,7 +232,7 @@ export default function SyncPage() {
         {folder && <div className="flex items-center gap-[7px] text-[12px] font-semibold text-ink-3"><Folder size={14} className="shrink-0" /><span className="font-mono">{label}</span> · {entries.length}</div>}
         <div className={`grid grid-cols-3 gap-x-6 gap-y-1.5 font-mono text-[12.5px] ${folder ? 'pl-[21px]' : ''}`}>
           {entries.map(({ name, r }) => {
-            const why = r.text ? t(r.text) : r.detail;
+            const why = r.text ? t(r.text, r.params) : r.part === 'skill' && r.detail ? profileReason(r.detail, t) : r.detail;
             return <span key={r.key} className="flex min-w-0 items-center gap-1.5" title={why ? `${folder + name} · ${why}` : folder + name}>{icons && rowIcon(r.icon, true)}<span className="truncate">{name}</span></span>;
           })}
         </div>

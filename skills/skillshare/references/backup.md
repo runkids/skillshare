@@ -1,6 +1,6 @@
 # Backup & Restore
 
-**Skills: global mode only** (project skill targets are reproducible via `install -p && sync`). **Agents: both modes** — `backup -p agents` works in project mode; plain `backup -p` errors.
+**Manual skills backup: global mode only.** Existing profile-created project skills snapshots can be restored with explicit `-p` and a name. **Agents: both modes** — `backup -p agents` works in project mode; plain `backup -p` errors.
 
 ## backup
 
@@ -16,7 +16,7 @@ skillshare backup --cleanup [-p] # Remove old snapshots and abandoned incomplete
 skillshare backup --delete <timestamp> [-p] [--dry-run]  # Delete one backup (timestamp from --list)
 ```
 
-**Location:** `~/.local/share/skillshare/backups/<timestamp>/` (XDG data dir, not config). Project agent backups: `.skillshare/backups/`.
+**Location:** `~/.local/share/skillshare/backups/<timestamp>/` (XDG data dir, not config). Project snapshots: `.skillshare/backups/`.
 
 **Scope:** Local target content only. Merge-mode symlinks are skipped — they point into the source, which is already the source of truth, and `sync` recreates them. A target holding only symlinks produces no backup. Retention (10 snapshots / 30 days / 500 MB, newest always kept) runs automatically after every `sync`. Change the count and size in the global config with `backup.max_count` and `backup.max_size_mb` (`0` = no limit).
 
@@ -44,6 +44,16 @@ Restore target from backup.
 skillshare restore claude                            # Latest backup
 skillshare restore claude --from 2026-01-14_21-22   # Specific backup
 ```
+
+Project recovery (from the project root):
+
+```bash
+skillshare backup --list -p
+skillshare restore <entry> --from <timestamp> -p --dry-run
+skillshare restore <entry> --from <timestamp> -p --force
+```
+
+Normal names restore current skills folders. Recognized `<target>-moved-<hex-relative-directory>` keys restore former folders, leaving the current folder alone; the configured target and declared former path must still exist in the mapping. Unknown or ambiguous keys refuse. Restore replaces the whole folder, omits symlinks, and does not change the active profile. Save authored edits into source before resync. Bare skills restore and `-g` stay global; `restore -p` requires a name. Legacy `--all` follows the global skills branch, even with `-p`; restore agents separately. The dashboard Backup restore shares these project destinations.
 
 For native agents, use `restore agents <target>` (and `-p` for project agents).
 MCP recovery is separate: `mcp restore <backup-id>` restores managed native entries

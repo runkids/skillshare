@@ -129,3 +129,30 @@ func TestServer_ConfigEndpointStillWorksWhenConfigTemporarilyInvalid(t *testing.
 		t.Fatalf("expected raw config to match file content")
 	}
 }
+
+func TestServer_ProfileRoutesSkipAutoReload(t *testing.T) {
+	s, _ := newTestServer(t)
+	for _, tc := range []struct {
+		path string
+		want bool
+	}{
+		{"/api/profiles", false},
+		{"/api/profiles/active", false},
+		{"/api/profiles/work", false},
+		{"/api/profiles/preview", false},
+		{"/api/profiles/work/skills", false},
+		{"/api/profiles-extra", true},
+		{"/api/profile", true},
+		{"/api/resources", true},
+		{"/api/overview", true},
+		{"/api/config", false},
+		{"/api/projects/work", false},
+		{"/api/health", false},
+	} {
+		t.Run(tc.path, func(t *testing.T) {
+			if got := s.shouldAutoReloadConfig(tc.path); got != tc.want {
+				t.Errorf("shouldAutoReloadConfig(%q) = %v, want %v", tc.path, got, tc.want)
+			}
+		})
+	}
+}

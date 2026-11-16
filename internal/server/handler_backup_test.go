@@ -261,3 +261,91 @@ func TestHandleBackups_ProjectModeUsesProjectBackupDir(t *testing.T) {
 		t.Fatalf("delete: %d %s", rr.Code, rr.Body.String())
 	}
 }
+
+func TestHandleRestore_ProjectSkills(t *testing.T) {
+	for _, entry := range []string{"goose", "goose-moved-2e676f6f73652f736b696c6c73"} {
+		t.Run(entry, func(t *testing.T) {
+			s, root := newTestProjectServerWithExtras(t, nil)
+			cfg := &config.ProjectConfig{Targets: []config.ProjectTargetEntry{{Name: "goose"}}}
+			if err := cfg.Save(root); err != nil {
+				t.Fatal(err)
+			}
+			current := filepath.Join(root, ".agents", "skills")
+			dest := current
+			if entry != "goose" {
+				dest = filepath.Join(root, ".goose", "skills")
+				os.MkdirAll(current, 0755)
+				os.WriteFile(filepath.Join(current, "keep.md"), []byte("current"), 0644)
+			}
+			stamp := "2024-01-15_14-30-45"
+			seedSnapshot(t, backup.ProjectBackupDir(root), stamp, entry, "saved.md", "authored")
+			if rr := serveJSON(t, s, http.MethodGet, "/api/backups", ""); rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), entry) {
+				t.Fatalf("list: %d %s", rr.Code, rr.Body.String())
+			}
+			body := `{"timestamp":"` + stamp + `","target":"` + entry + `"}`
+			if rr := serveJSON(t, s, http.MethodPost, "/api/restore/validate", body); rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `"valid":true`) {
+				t.Fatalf("validate: %d %s", rr.Code, rr.Body.String())
+			}
+			if _, err := os.Stat(dest); !os.IsNotExist(err) {
+				t.Fatalf("validation created destination: %v", err)
+			}
+			if rr := serveJSON(t, s, http.MethodPost, "/api/restore", body); rr.Code != http.StatusOK {
+				t.Fatalf("restore: %d %s", rr.Code, rr.Body.String())
+			}
+			if data, err := os.ReadFile(filepath.Join(dest, "saved.md")); err != nil || string(data) != "authored" {
+				t.Fatalf("restored bytes = %q, %v", data, err)
+			}
+			if entry != "goose" {
+				if data, err := os.ReadFile(filepath.Join(current, "keep.md")); err != nil || string(data) != "current" {
+					t.Fatalf("current folder changed: %q, %v", data, err)
+				}
+			}
+		})
+	}
+}
+
+func TestBackupRestoreDest_ProjectAmbiguity(t *testing.T) {
+	s, root := newTestProjectServerWithExtras(t, nil)
+	key := backup.MovedEntryName("goose", ".goose/skills")
+	targets := map[string]config.TargetConfig{
+		"goose": {Skills: &config.ResourceTargetConfig{Path: filepath.Join(root, "current")}},
+	}
+	targets[key] = config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: filepath.Join(root, "other")}}
+	if dest, ok := s.backupRestoreDest(key, targets); ok {
+		t.Fatalf("ambiguous alias resolved to %q", dest)
+	}
+	targets["claude"] = config.TargetConfig{Agents: &config.ResourceTargetConfig{Path: filepath.Join(root, "agents")}}
+	targets["claude-agents"] = config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: filepath.Join(root, "skills")}}
+	if dest, ok := s.backupRestoreDest("claude-agents", targets); ok {
+		t.Fatalf("ambiguous agent alias resolved to %q", dest)
+	}
+}
+
+func TestHandleRestore_ProjectAmbiguousEntryRefused(t *testing.T) {
+	for _, configuredPath := range []string{"other", ""} {
+		t.Run("configured-path-"+configuredPath, func(t *testing.T) {
+			s, root := newTestProjectServerWithExtras(t, nil)
+			key := backup.MovedEntryName("goose", ".goose/skills")
+			cfg := &config.ProjectConfig{Targets: []config.ProjectTargetEntry{
+				{Name: "goose"},
+				{Name: key, Skills: &config.ResourceTargetConfig{Path: configuredPath}},
+			}}
+			if err := cfg.Save(root); err != nil {
+				t.Fatal(err)
+			}
+			stamp := "2024-01-15_14-30-45"
+			seedSnapshot(t, backup.ProjectBackupDir(root), stamp, key, "saved.md", "authored")
+			body := `{"timestamp":"` + stamp + `","target":"` + key + `","force":true}`
+			for _, route := range []string{"/api/restore/validate", "/api/restore"} {
+				if rr := serveJSON(t, s, http.MethodPost, route, body); rr.Code != http.StatusBadRequest {
+					t.Fatalf("%s: %d %s", route, rr.Code, rr.Body.String())
+				}
+			}
+			for _, rel := range []string{"other", ".goose/skills", ".agents/skills"} {
+				if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); !os.IsNotExist(err) {
+					t.Fatalf("ambiguous restore created %s: %v", rel, err)
+				}
+			}
+		})
+	}
+}

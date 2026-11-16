@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/profile"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
@@ -28,6 +29,7 @@ type DiscoveredSkill struct {
 	LogicalID      string      // Repository + full prefix/suffix identity for recognized agent variants
 	VariantAgent   string      // Canonical agent from a tracked skills/<agent>/<suffix> layout
 	variantRouting bool        // Targets were inferred from VariantAgent rather than explicitly declared
+	declaredName   string      // Candidate hint only; empty or unavailable names use fresh parsing
 	Targets        []string    // From SKILL.md frontmatter; nil = all targets
 	DescChars      int         // Rune count of name + description (populated when collectContext)
 	BodyChars      int         // Rune count of body after frontmatter (populated when collectContext)
@@ -201,7 +203,7 @@ func CheckStatus(targetPath, sourcePath string) TargetStatus {
 		// Check if link points to our source
 		absSource, _ := filepath.Abs(sourcePath)
 
-		if utils.PathsEqual(absLink, absSource) {
+		if utils.SamePhysicalPath(absLink, absSource) {
 			// Verify the link is not broken
 			if _, err := os.Stat(targetPath); err != nil {
 				return StatusBroken
@@ -252,15 +254,11 @@ func MigrateToSource(targetPath, sourcePath string) error {
 	return nil
 }
 
-// resolveLinkRoot resolves an operation root like filepath.EvalSymlinks, but a
-// root that is itself a link is first replaced by its physical target: since
-// Go 1.23 EvalSymlinks leaves a Windows junction in place, and walking the
-// junction entry would trip the cycle guard instead of copying its contents.
+// resolveLinkRoot resolves every link component before walking an operation root.
+// Since Go 1.23 a Windows junction is not a symlink to EvalSymlinks, including
+// when it is an ancestor. The final evaluation still rejects a missing root.
 func resolveLinkRoot(root string) (string, error) {
-	if info, err := os.Lstat(root); err == nil && utils.IsLinkMode(root, info.Mode()) {
-		root = sourcewalk.Canonical(root)
-	}
-	return filepath.EvalSymlinks(root)
+	return filepath.EvalSymlinks(sourcewalk.Canonical(root))
 }
 
 // CreateSymlink creates a symlink (or junction on Windows) from target to source.
@@ -482,33 +480,26 @@ func copyFile(src, dst string) error {
 
 // MergeResult holds the result of a merge sync operation
 type MergeResult struct {
-	Linked     []string // Skills that were symlinked
-	Skipped    []string // Skills that already exist in target (kept local)
-	Updated    []string // Skills that had broken symlinks fixed
-	DirCreated string   // Non-empty if target directory was auto-created (or would be in dry-run)
+	Linked       []string // Skills that were symlinked
+	Skipped      []string // Skills that already exist in target (kept local)
+	Updated      []string // Skills that had broken symlinks fixed
+	Converted    []string // Copies replaced with links
+	KeptModified []EntryChange
+	Blocked      []EntryChange
+	DirCreated   string // Non-empty if target directory was auto-created (or would be in dry-run)
 	// UnmatchedIncludes are the include patterns that select no skill.
 	UnmatchedIncludes []UnmatchedInclude
 }
 
 // isSymlinkToSource checks whether targetPath is a symlink pointing to sourcePath.
-// Both sides are canonicalized (EvalSymlinks) so that symlink aliases of the same
+// Both sides are canonicalized so that symlink and junction aliases of the same
 // physical directory are recognized as equal.
 func isSymlinkToSource(targetPath, sourcePath string) bool {
 	absLink, err := utils.ResolveLinkTarget(targetPath)
 	if err != nil {
 		return false
 	}
-	absSource, _ := filepath.Abs(sourcePath)
-
-	// Fast path: direct string comparison covers the common case.
-	if utils.PathsEqual(absLink, absSource) {
-		return true
-	}
-
-	// Slow path: canonicalize both sides to detect symlink aliases.
-	canonLink := utils.ResolveSymlink(absLink)
-	canonSource := utils.ResolveSymlink(absSource)
-	return utils.PathsEqual(canonLink, canonSource)
+	return utils.SamePhysicalPath(absLink, sourcePath)
 }
 
 // ensureRealTargetDir handles symlink→merge/copy conversion and verifies the
@@ -576,10 +567,25 @@ func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string,
 // avoiding redundant filesystem walks when syncing multiple targets.
 // sourcePath is the skills source directory, used to detect symlink-mode targets.
 func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, projectRoot string) (*MergeResult, error) {
+	return SyncTargetMergeWithPolicy(name, target, allSkills, sourcePath, dryRun, force, projectRoot, false, nil)
+}
+
+func SyncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, projectRoot string, profileAware bool, discard []DiscardEntry, copyIgnore ...[]string) (*MergeResult, error) {
+	return syncTargetMergeWithPolicy(name, target, allSkills, sourcePath, dryRun, force, projectRoot, profileAware, discard, nil, copyIgnore...)
+}
+
+func syncTargetMergeWithPolicy(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, projectRoot string, profileAware bool, discard []DiscardEntry, beforeMutation func(step string), copyIgnore ...[]string) (*MergeResult, error) {
+	var ignore []string
+	if len(copyIgnore) > 0 {
+		ignore = copyIgnore[0]
+	}
 	sc := target.SkillsConfig()
 	result := &MergeResult{}
 	if !sc.IsEnabled() {
 		return result, nil
+	}
+	if _, err := sc.Profile.Selects(""); err != nil {
+		return nil, err
 	}
 	// Checked against sourcePath (root dir), not per-skill paths — all skills
 	// are children of sourcePath so the result is the same for every skill.
@@ -604,6 +610,15 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 	printResolutionSummary(resolution)
 	result.UnmatchedIncludes = resolution.UnmatchedIncludes
 
+	// The real run replaces this root link with an empty directory. Do not
+	// inspect the source's entries or manifest through the old root in preview.
+	if dryRun && utils.IsSymlinkOrJunction(sc.Path) && isSymlinkToSource(sc.Path, sourcePath) {
+		for _, skill := range resolution.Skills {
+			result.Linked = append(result.Linked, skill.TargetName)
+		}
+		return result, nil
+	}
+
 	manifest, err := ReadManifest(sc.Path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read manifest: %w", err)
@@ -612,11 +627,34 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 	taken := resolution.ValidTargetNames()
 	for _, resolved := range resolution.Skills {
 		skill := resolved.Skill
-		activeName, err := selectActiveTargetNameForSync("merge", sc.Path, resolved, taken, manifest, dryRun)
+		activeName, err := selectActiveTargetNameForSync("merge", sc.Path, resolved, taken, manifest, dryRun, profileAware && !force, ignore, PruneOptions{SourcePath: sourcePath, Skills: allSkills})
 		if err != nil {
 			return nil, err
 		}
 		targetSkillPath := filepath.Join(sc.Path, activeName)
+		var originals []CopySource
+		if profileAware && !force {
+			originals = legacyCopySources(activeName, sc.Path, allSkills, manifest, ignore)
+		}
+		checkBeforeWrite := func() bool {
+			if !profileAware || force {
+				return true
+			}
+			entry, allowed := entryMutationAllowed(name, EntryInput{Name: activeName, Path: targetSkillPath, SourceRoot: sourcePath, Manifest: manifest}, discard, originals...)
+			if !allowed {
+				change := EntryChange{Target: name, Dir: cleanEntryDir(filepath.Dir(targetSkillPath)), Entry: activeName, Step: "convert", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint}
+				if entry.Class == EntryModifiedCopy {
+					result.KeptModified = append(result.KeptModified, change)
+				} else {
+					result.Blocked = append(result.Blocked, change)
+				}
+				result.Skipped = append(result.Skipped, activeName)
+			}
+			return allowed
+		}
+		if !checkBeforeWrite() {
+			continue
+		}
 
 		// Check if skill exists in target
 		_, err = os.Lstat(targetSkillPath)
@@ -630,7 +668,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 				}
 				absSource, _ := filepath.Abs(skill.SourcePath)
 
-				if utils.PathsEqual(absLink, absSource) {
+				if utils.SamePhysicalPath(absLink, absSource) {
 					rawDest, _ := os.Readlink(targetSkillPath)
 					if !linkNeedsReformat(rawDest, relative) {
 						// Already correctly linked with correct format
@@ -638,6 +676,12 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 						continue
 					}
 					// Correct target but wrong format (abs↔rel) — recreate
+					if !dryRun && beforeMutation != nil {
+						beforeMutation("merge_reformat")
+					}
+					if !checkBeforeWrite() {
+						continue
+					}
 					if !dryRun {
 						if err := reformatLink(targetSkillPath, skill.SourcePath, relative, sourcePath); err != nil {
 							return nil, fmt.Errorf("failed to reformat link for %s: %w", activeName, err)
@@ -648,12 +692,20 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 				}
 
 				// Symlink points elsewhere - broken or wrong
+				if !dryRun && beforeMutation != nil {
+					beforeMutation("merge_unlink")
+				}
+				if !checkBeforeWrite() {
+					continue
+				}
 				if dryRun {
 					if !quietDryRun {
 						fmt.Fprintf(DiagOutput, "[dry-run] Would fix symlink: %s\n", activeName)
 					}
 				} else {
-					os.Remove(targetSkillPath)
+					if err := os.Remove(targetSkillPath); err != nil && profileAware {
+						return nil, fmt.Errorf("failed to remove link %s: %w", activeName, err)
+					}
 					if err := createLink(targetSkillPath, skill.SourcePath, relative, sourcePath); err != nil {
 						return nil, fmt.Errorf("failed to create link for %s: %w", activeName, err)
 					}
@@ -661,7 +713,13 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 				result.Updated = append(result.Updated, activeName)
 			} else {
 				// It's a real directory
-				if force || manifest.OwnsCopy(activeName, targetSkillPath) {
+				if !dryRun && beforeMutation != nil {
+					beforeMutation("merge_replace")
+				}
+				if !checkBeforeWrite() {
+					continue
+				}
+				if force || profileAware || manifest.OwnsCopy(activeName, targetSkillPath) {
 					// Force, or an unedited copy left by copy mode: replace it with a symlink
 					if dryRun {
 						if !quietDryRun {
@@ -676,6 +734,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 						}
 					}
 					result.Updated = append(result.Updated, activeName)
+					result.Converted = append(result.Converted, activeName)
 				} else {
 					// Preserve local skill
 					result.Skipped = append(result.Skipped, activeName)
@@ -701,6 +760,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 	// Write manifest (additive: merge with existing entries)
 	if !dryRun {
 		for _, name := range result.Linked {
+			manifest.Remove(name)
 			manifest.Managed[name] = manifestSymlink
 		}
 		for _, name := range result.Updated {
@@ -708,7 +768,9 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 			manifest.Managed[name] = manifestSymlink
 		}
 		// Skipped items are NOT added — they are user-local copies
-		WriteManifest(sc.Path, manifest) //nolint:errcheck
+		if err := WriteManifest(sc.Path, manifest); err != nil && profileAware {
+			return nil, fmt.Errorf("failed to write manifest: %w", err)
+		}
 	}
 
 	return result, nil
@@ -743,24 +805,33 @@ func replaceWithLink(path string, link func() error) error {
 
 // PruneResult holds the result of a prune operation
 type PruneResult struct {
-	Removed   []string // Items that were removed
-	Warnings  []string // Items that were kept with warnings
-	LocalDirs []string // User-created entries (directories or links) not managed by skillshare
+	Removed        []string // Items that were removed
+	Warnings       []string // Items that were kept with warnings
+	LocalDirs      []string // User-created entries (directories or links) not managed by skillshare
+	KeptModified   []EntryChange
+	Blocked        []EntryChange
+	FailedRemovals []string
 }
 
 // PruneOptions holds parameters for PruneOrphanLinks / PruneOrphanCopies.
 type PruneOptions struct {
-	SharedTargets []config.SkillTargetIdentity
-	Agent         string
-	TargetPath    string
-	SourcePath    string
-	Skills        []DiscoveredSkill // pre-discovered; if nil, will be discovered from SourcePath
-	Include       []string
-	Exclude       []string
-	TargetNaming  string
-	TargetName    string
-	DryRun        bool
-	Force         bool
+	ProfileAware       bool
+	Profile            profile.Selector
+	IgnorePatterns     []string
+	Discard            []DiscardEntry
+	SharedTargets      []config.SkillTargetIdentity
+	Agent              string
+	TargetPath         string
+	SourcePath         string
+	Skills             []DiscoveredSkill // pre-discovered desired selection
+	VerificationSkills []DiscoveredSkill // full source discovery; nil reuses Skills
+	Include            []string
+	Exclude            []string
+	TargetNaming       string
+	TargetName         string
+	DryRun             bool
+	Force              bool
+	Quiet              bool // suppress dry-run diagnostics in read-only previews
 	// ManagedOnly removes only entries that are provably skillshare's: broken
 	// links into the source and manifest-tracked links and directories. The name heuristic and
 	// broken-external-link cleanup are skipped. For directories that are not a
@@ -796,9 +867,16 @@ func PruneOrphanLinks(targetPath, sourcePath string, include, exclude []string, 
 // PruneOrphanLinksWithSkills is like PruneOrphanLinks but accepts pre-discovered skills
 // via PruneOptions, avoiding redundant filesystem walks.
 func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
+	if opts.ProfileAware {
+		opts.ManagedOnly = true
+	}
 	targetPath := opts.TargetPath
 	sourcePath := opts.SourcePath
 	allSourceSkills := opts.Skills
+	verificationSkills := opts.VerificationSkills
+	if verificationSkills == nil {
+		verificationSkills = allSourceSkills
+	}
 	include := opts.Include
 	exclude := opts.Exclude
 	targetNaming := opts.TargetNaming
@@ -806,12 +884,19 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 	dryRun := opts.DryRun
 	force := opts.Force
 	result := &PruneResult{}
+	if dryRun && utils.IsSymlinkOrJunction(targetPath) && isSymlinkToSource(targetPath, sourcePath) {
+		return result, nil // root conversion leaves no old entries to prune
+	}
 
 	// Read manifest for managed-directory detection (may be empty/absent)
-	manifest, _ := ReadManifest(targetPath)
+	manifest, manifestErr := ReadManifest(targetPath)
+	if manifestErr != nil && opts.ProfileAware {
+		return nil, fmt.Errorf("failed to read manifest: %w", manifestErr)
+	}
 	manifestChanged := false
 
 	resolution, err := ResolveTargetSkillsForTarget(targetName, config.ResourceTargetConfig{
+		Profile:       opts.Profile,
 		SharedTargets: opts.SharedTargets,
 		Agent:         opts.Agent,
 		Path:          targetPath,
@@ -835,8 +920,6 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 		return nil, fmt.Errorf("failed to read target directory: %w", err)
 	}
 
-	absSource, _ := filepath.Abs(sourcePath)
-
 	for _, entry := range entries {
 		name := entry.Name()
 
@@ -858,6 +941,16 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 		if _, keepLegacy := legacyNames[name]; keepLegacy {
 			continue // Still exists in source, keep it
 		}
+		if opts.ProfileAware {
+			entry := classifyEntry(EntryInput{Name: name, Path: entryPath, SourceRoot: sourcePath, Manifest: manifest}, legacyCopySources(name, targetPath, verificationSkills, manifest, opts.IgnorePatterns)...)
+			if entry.Class == EntryModifiedCopy && !discardAllowed(targetName, cleanEntryDir(targetPath), name, entry, opts.Discard) {
+				result.KeptModified = append(result.KeptModified, EntryChange{Target: targetName, Dir: cleanEntryDir(targetPath), Entry: name, Step: "prune", Class: entry.Class, Reason: entry.Reason, Fingerprint: entry.Fingerprint})
+				continue
+			}
+			if entry.Class == EntryUnmanaged {
+				continue
+			}
+		}
 
 		// Entry is orphan - determine if we should remove it
 		shouldRemove := false
@@ -876,7 +969,7 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 				targetExists = true
 			}
 
-			if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) {
+			if linkWithinSource(absLink, sourcePath) {
 				if !targetExists {
 					shouldRemove = true
 					reason = "broken symlink to source"
@@ -918,9 +1011,12 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 
 		if shouldRemove {
 			if dryRun {
-				fmt.Fprintf(DiagOutput, "[dry-run] Would remove %s: %s\n", reason, entryPath)
+				if !opts.Quiet {
+					fmt.Fprintf(DiagOutput, "[dry-run] Would remove %s: %s\n", reason, entryPath)
+				}
 			} else {
 				if err := os.RemoveAll(entryPath); err != nil {
+					result.FailedRemovals = append(result.FailedRemovals, name)
 					result.Warnings = append(result.Warnings,
 						fmt.Sprintf("%s: failed to remove: %v", name, err))
 					continue
@@ -937,7 +1033,9 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 
 	// Write back manifest if entries were removed (skip in dry-run)
 	if manifestChanged && !dryRun {
-		WriteManifest(targetPath, manifest) //nolint:errcheck
+		if err := WriteManifest(targetPath, manifest); err != nil && opts.ProfileAware {
+			return result, fmt.Errorf("failed to write manifest: %w", err)
+		}
 	}
 
 	return result, nil
@@ -1039,7 +1137,7 @@ func CheckStatusMerge(targetPath, sourcePath string) (TargetStatus, int, int) {
 			return StatusUnknown, 0, 0
 		}
 		absSource, _ := filepath.Abs(sourcePath)
-		if utils.PathsEqual(absLink, absSource) {
+		if utils.SamePhysicalPath(absLink, absSource) {
 			return StatusLinked, 0, 0
 		}
 		// External symlink (e.g., dotfiles manager) — follow it and treat
@@ -1075,7 +1173,7 @@ func CheckStatusMerge(targetPath, sourcePath string) (TargetStatus, int, int) {
 			absSource, _ := filepath.Abs(sourcePath)
 
 			// Check if the symlink target is within the source directory
-			if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) || utils.PathsEqual(absLink, absSource) {
+			if utils.PathWithinRoot(absLink, absSource) || utils.SamePhysicalPath(absLink, absSource) {
 				linkedCount++
 			} else {
 				localCount++

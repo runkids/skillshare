@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/profile"
+	"skillshare/internal/profileapply"
 	"skillshare/internal/projects"
 	"skillshare/internal/resource"
 	"skillshare/internal/skillignore"
@@ -39,9 +41,10 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.Unlock()
 
 	var body struct {
-		DryRun bool   `json:"dryRun"`
-		Force  bool   `json:"force"`
-		Kind   string `json:"kind"`
+		DryRun       bool   `json:"dryRun"`
+		Force        bool   `json:"force"`
+		DiscardEdits bool   `json:"discardEdits"`
+		Kind         string `json:"kind"`
 		// Project limits the sync to one declared project's targets.
 		Project string `json:"project"`
 	}
@@ -52,6 +55,9 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 
 	if body.Kind != "" && body.Kind != kindSkill && body.Kind != kindAgent {
 		writeError(w, http.StatusBadRequest, "invalid kind: must be 'skill', 'agent', or empty")
+		return
+	}
+	if body.Kind != kindAgent && body.Project == "" && s.refuseUnavailableProfile(w) {
 		return
 	}
 
@@ -68,8 +74,11 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		body.Project = root
 	}
 
-	out, code, err := s.syncResources(start, body.DryRun, body.Force, body.Kind, body.Project)
+	out, code, err := s.syncResources(start, body.DryRun, body.Force, body.Kind, body.Project, body.DiscardEdits)
 	if err != nil {
+		if writeProfileError(w, err, nil) {
+			return
+		}
 		writeError(w, code, err.Error())
 		return
 	}
@@ -82,6 +91,13 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		"folder_conflicts": out.folderConflicts,
 		"path_overlap":     out.pathOverlap,
 	}
+	if out.profile != nil {
+		resp["profile"] = out.profile
+		resp["profileComplete"] = out.profileComplete
+	}
+	if len(out.snapshots) > 0 {
+		resp["snapshot"] = out.snapshots
+	}
 	if len(out.skills) > 0 {
 		if contextCost := s.computeContextCost(out.skills); contextCost != nil {
 			resp["context_cost"] = contextCost
@@ -93,6 +109,9 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 }
 
 type syncOutcome struct {
+	profile         *profileapply.Info
+	profileComplete bool
+	snapshots       []profileapply.Snapshot
 	results         []syncTargetResult
 	warnings        []string
 	unmatched       []unmatchedInclude
@@ -128,7 +147,61 @@ func (s *Server) projectTargets(root string) map[string]config.TargetConfig {
 // A failed target, even when every target fails, is reported in failed and
 // warnings; an error, with the HTTP status to report, means nothing could run.
 // Callers must hold s.mu.
-func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, project string) (*syncOutcome, int, error) {
+func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, project string, discardEdits ...bool) (*syncOutcome, int, error) {
+	discard := len(discardEdits) > 0 && discardEdits[0]
+	if discard && (kind == kindAgent || project != "") {
+		return nil, http.StatusBadRequest, fmt.Errorf("discardEdits applies to this config's profile-aware skill targets only")
+	}
+	if kind != kindAgent && project == "" {
+		scope := profileapply.Scope{ConfigPath: s.configPath(), ProjectRoot: s.projectRoot}
+		v, err := profileapply.Load(scope)
+		if err != nil {
+			return nil, http.StatusInternalServerError, err
+		}
+		configured, err := config.ProfileConfigured(scope.Path(), v.Catalog.Present)
+		if err != nil {
+			return nil, http.StatusInternalServerError, err
+		}
+		if configured {
+			var out *syncOutcome
+			var backupWarnings []string
+			code := http.StatusInternalServerError
+			_, err := profileapply.WithSkillSync(context.Background(), profileapply.SyncRequest{Scope: scope, DryRun: dryRun, Force: force, DiscardEdits: discard,
+				Before: func(_ *profileapply.View) error {
+					if err := s.reloadConfig(); err != nil {
+						return err
+					}
+					if !dryRun {
+						_, invalid, _ := config.ValidateConfigForSync(s.cfg)
+						targets := maps.Clone(s.cfg.Targets)
+						for name := range invalid {
+							delete(targets, name)
+						}
+						backupWarnings = s.backupBeforeSync(targets, true, kind != kindSkill)
+					}
+					return nil
+				},
+				After: func(v *profileapply.View, applied *profileapply.Result) error {
+					if err := s.reloadConfig(); err != nil {
+						return err
+					}
+					var err error
+					out, code, err = s.syncResourcesPrepared(start, dryRun, force, kind, project, applied)
+					if out != nil {
+						out.warnings = append(backupWarnings, out.warnings...)
+					}
+					return err
+				}})
+			return out, code, err
+		}
+		if discard {
+			return nil, http.StatusConflict, &profileapply.Refusal{Reason: "discardEdits requires an active profile or pending switch"}
+		}
+	}
+	return s.syncResourcesPrepared(start, dryRun, force, kind, project, nil)
+}
+
+func (s *Server) syncResourcesPrepared(start time.Time, dryRun, force bool, kind, project string, applied *profileapply.Result) (*syncOutcome, int, error) {
 	targets := s.cfg.Targets
 	if project != "" {
 		targets = s.projectTargets(project)
@@ -162,7 +235,7 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 		failed = append(failed, syncFailure{Target: name, Part: "config", Error: err.Error(), Message: msg})
 	}
 
-	if !dryRun {
+	if !dryRun && applied == nil {
 		warnings = append(warnings, s.backupBeforeSync(runTargets, kind != kindAgent, kind != kindSkill)...)
 	}
 
@@ -185,6 +258,15 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 		}
 		sourceIncomplete = walk.Follow.Incomplete()
 		warnings = append(warnings, ssync.SourceLinkWarnings(walk, sourceIncomplete)...)
+		if !sourceIncomplete {
+			catalog, state := profile.Parse(&s.cfg.Profiles), s.cfg.ProfileState()
+			if s.IsProjectMode() && s.projectCfg != nil {
+				catalog, state = profile.Parse(&s.projectCfg.Profiles), s.projectCfg.ProfileState()
+			}
+			if warning := ssync.ProfileUnmatchedWarning(catalog, state, allSkills); warning != "" {
+				warnings = append(warnings, warning)
+			}
+		}
 
 		if len(allSkills) == 0 {
 			warnings = append(warnings, "source directory is empty (0 skills)")
@@ -198,12 +280,34 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	if kind != "" {
 		kinds = []string{kind}
 	}
-	executed, err := ssync.ExecuteTargets(context.Background(), s.cfg, runTargets, ssync.ExecuteOptions{
+	opts := ssync.ExecuteOptions{
 		Kinds: kinds, DryRun: dryRun, Force: force, ProjectMode: s.IsProjectMode(), ProjectRoot: s.projectRoot,
 		AgentsSource: s.agentsSource(), Discovery: discovery, BuiltinAgentTargets: s.builtinAgentTargets(),
 		ResolveExtension: s.resolveExtensionSpec, DiagnosticsTargets: s.cfg.Targets,
 		MovedTargets: ssync.MovedProjectTargets(s.projectCfg, s.cfg.Targets),
-	})
+	}
+	var executed ssync.ExecuteResult
+	var err error
+	if applied == nil {
+		executed, err = ssync.ExecuteTargets(context.Background(), s.cfg, runTargets, opts)
+	} else {
+		remaining := maps.Clone(runTargets)
+		for _, row := range applied.Executed.Results {
+			delete(remaining, row.Target)
+		}
+		for _, row := range applied.Executed.Failed {
+			delete(remaining, row.Target)
+		}
+		opts.Kinds, opts.MovedTargets = []string{"skill"}, nil
+		executed, err = ssync.ExecuteTargets(context.Background(), s.cfg, remaining, opts)
+		mergeProfileExecution(&executed, applied.Executed)
+		if err == nil && kind != kindSkill {
+			opts.Kinds = []string{"agent"}
+			agents, agentErr := ssync.ExecuteTargets(context.Background(), s.cfg, runTargets, opts)
+			mergeProfileExecution(&executed, agents)
+			err = agentErr
+		}
+	}
 	if err != nil {
 		return nil, http.StatusInternalServerError, err
 	}
@@ -237,7 +341,41 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	}
 	s.writeOpsLog("sync", status, start, logArgs, "")
 
-	return &syncOutcome{results: results, warnings: warnings, unmatched: unmatched, failed: failed, folderConflicts: executed.FolderConflicts, pathOverlap: executed.PathOverlap, skills: executed.Skills, ignoreStats: executed.IgnoreStats, allAgents: executed.AllAgents}, 0, nil
+	out := &syncOutcome{results: results, warnings: warnings, unmatched: unmatched, failed: failed, folderConflicts: executed.FolderConflicts, pathOverlap: executed.PathOverlap, skills: executed.Skills, ignoreStats: executed.IgnoreStats, allAgents: executed.AllAgents}
+	if applied != nil {
+		out.profile, out.snapshots = applied.Profile, applied.Snapshot
+		out.profileComplete = applied.Complete
+	}
+	return out, 0, nil
+}
+
+func mergeProfileExecution(into *ssync.ExecuteResult, extra ssync.ExecuteResult) {
+	for _, row := range extra.Results {
+		index := slices.IndexFunc(into.Results, func(old ssync.TargetResult) bool { return old.Target == row.Target })
+		if index < 0 {
+			into.Results = append(into.Results, row)
+			continue
+		}
+		old := &into.Results[index]
+		old.Linked = append(old.Linked, row.Linked...)
+		old.Updated = append(old.Updated, row.Updated...)
+		old.Skipped = append(old.Skipped, row.Skipped...)
+		old.Pruned = append(old.Pruned, row.Pruned...)
+		old.KeptModified = append(old.KeptModified, row.KeptModified...)
+		old.Blocked = append(old.Blocked, row.Blocked...)
+		old.Refreshed = append(old.Refreshed, row.Refreshed...)
+		old.Converted = append(old.Converted, row.Converted...)
+		old.FailedRemovals = append(old.FailedRemovals, row.FailedRemovals...)
+		if row.PruneError != "" {
+			old.PruneError = row.PruneError
+		}
+	}
+	into.Failed = append(into.Failed, extra.Failed...)
+	into.Warnings = append(into.Warnings, extra.Warnings...)
+	into.Unmatched = append(into.Unmatched, extra.Unmatched...)
+	if extra.AllAgents != nil {
+		into.AllAgents = extra.AllAgents
+	}
 }
 
 // failedTargetNames returns the distinct targets in failed, sorted.
@@ -420,11 +558,20 @@ type diffTarget struct {
 func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before slow I/O.
 	s.mu.RLock()
-	source := s.cfg.EffectiveSkillsSource()
+	if s.refuseUnavailableProfile(w) {
+		s.mu.RUnlock()
+		return
+	}
+	source := s.skillsSource()
 	agentsSource := s.agentsSource()
 	globalMode := s.cfg.Mode
 	ignorePatterns := ssync.EffectiveFileIgnorePatterns(s.cfg.Ignore)
 	targets := s.cloneTargets()
+	preview := s.snapshotProfileDiff(targets)
+	walk := s.skillsWalk()
+	if s.IsProjectMode() {
+		ignorePatterns = ssync.EffectiveFileIgnorePatterns(s.projectCfg.Ignore)
+	}
 	conflicts, _ := folderConflicts(targets, s.IsProjectMode(), globalMode, nil)
 	s.mu.RUnlock()
 
@@ -434,7 +581,7 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 
 	filterTarget := r.URL.Query().Get("target")
 
-	discovered, ignoreStats, err := ssync.DiscoverSourceSkillsWithStats(source, s.skillsWalk())
+	discovered, ignoreStats, err := ssync.DiscoverSourceSkillsWithStats(source, walk)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -445,7 +592,7 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 		if filterTarget != "" && filterTarget != name {
 			continue
 		}
-		diffs = append(diffs, s.computeTargetDiff(name, target, discovered, globalMode, source, ignorePatterns))
+		diffs = append(diffs, s.computeTargetDiff(name, target, discovered, globalMode, source, ignorePatterns, preview))
 	}
 
 	diffs = s.appendAgentDiffs(diffs, targets, agentsSource, filterTarget)

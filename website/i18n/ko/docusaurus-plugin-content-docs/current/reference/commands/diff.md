@@ -98,6 +98,7 @@ cursor
 | Local only, skill kept under old name | 현재 `target_naming`이 skill에 주는 이름을 로컬 폴더가 사용 중이라 skill이 이전 관리 항목에 남음(`name (stays at old-name)`으로 표시) | 폴더 이름을 바꾸거나 삭제한 뒤 `sync` |
 | Local override | symlink 대신 local 사본(편집된 copy mode 복사본 포함) | `sync --force`로 교체 |
 | Orphan | manifest에는 있지만 source에는 없음 | `sync`가 제거함 |
+| Not in profile `<name>` | 관리 중인 target 항목이 활성 프로필에 포함되지 않음 | 프로필 편집 보호 규칙에 따라 `sync`가 제거함 |
 | Local only | target에만 존재, source에는 없음 | `collect`로 가져오기 |
 
 ## File 단위 세부 정보
@@ -257,6 +258,8 @@ skillshare diff --json
 `sync`가 해당 target에서 할 일이 없으면 `synced`는 `true`입니다. `"is_sync": false` 항목(target에만 있는 폴더 등)은 계속 목록에 표시되지만 `false`로 만들지 않습니다. 텍스트 출력에서도 local-only 폴더만 있는 target은 동기화된 것으로 취급합니다.
 
 `action`은 `add`, `modify`, `remove`, `kept` 중 하나입니다. `kept`는 현재 `target_naming`이 skill에 주는 이름을 로컬 폴더가 사용 중이라 skill이 이전 이름으로 남고 sync가 그 폴더를 건드리지 않는다는 뜻입니다.
+
+프로필에 따른 제거는 텍스트, TUI, JSON에 `not in profile <name>` 사유로 표시됩니다. 기존 제거 행을 설명하며, 선택되지 않은 모든 source skill에 동기화 작업을 추가하지 않습니다. sync matrix와 리소스 상세는 이러한 source skill을 `not_in_profile`로 표시하고 target 필터 사유보다 프로필 이름을 우선합니다. 이 표시는 편집된 복사본을 버릴 권한을 부여하지 않습니다.
 
 ## 참고
 

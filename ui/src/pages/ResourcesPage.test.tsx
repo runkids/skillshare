@@ -14,7 +14,9 @@ vi.mock('../context/AppContext', () => ({ useAppContext: () => ({ isProjectMode:
 vi.mock('../api/client', async (load) => {
   const actual = await load<typeof import('../api/client')>();
   // Anything the page asks for that a test does not set up answers with an empty object.
-  const stubs: Record<string | symbol, unknown> = {};
+  const stubs: Record<string | symbol, unknown> = {
+    profiles: { ...actual.api.profiles, list: vi.fn().mockResolvedValue({ active: '', state: 'none', pending: false, profiles: [] }), assign: vi.fn() },
+  };
   return { ...actual, api: new Proxy(stubs, { get: (t, k) => (t[k] ??= vi.fn().mockResolvedValue({})) }) };
 });
 
@@ -369,4 +371,49 @@ describe('Unlink folder', () => {
     expect(api.batchUninstall).not.toHaveBeenCalled();
   });
 
+});
+
+describe('Profile membership from the actual tree selection', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    localStorage.setItem('skillshare:skills-view', 'tree');
+    vi.clearAllMocks();
+    vi.mocked(api.listSkills).mockResolvedValue({ resources: SKILLS });
+    vi.mocked(api.diff).mockResolvedValue({ diffs: [], ignored_count: 0, ignored_skills: [], ignore_root: '', ignore_repos: [] });
+    vi.mocked(api.listTargets).mockResolvedValue({ targets: [], sourceSkillCount: 0 });
+    vi.mocked(api.listTrash).mockResolvedValue({ items: [] } as unknown as Awaited<ReturnType<typeof api.listTrash>>);
+    vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] });
+    vi.mocked(api.profiles.list).mockResolvedValue({ active: '', state: 'none', pending: false, profiles: [{
+      name: 'work', description: '', skills: { include: [], exclude: [] }, selected: 0, unmatched: [], usable: true,
+    }] });
+    vi.mocked(api.profiles.assign).mockResolvedValue({ changed: true, needsSync: false, skills: null });
+  });
+
+  it.each([
+    ['Add to profile…', 'add'], ['Remove from profile…', 'remove'],
+  ] as const)('deduplicates overlapping folder and child selections for %s', async (action, operation) => {
+    mount();
+    fireEvent.click(await row('local'));
+    fireEvent.click(await row('one'), { ctrlKey: true });
+    fireEvent.click(screen.getByRole('button', { name: action }));
+    expect(api.profiles.assign).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'work' }));
+    await waitFor(() => expect(api.profiles.assign).toHaveBeenCalledExactlyOnceWith('work', { [operation]: ['local__one', 'local__two'] }));
+  });
+
+  it('keeps a folder selection after membership fails so the exact skill batch can be retried', async () => {
+    vi.mocked(api.profiles.assign).mockRejectedValueOnce(new Error('disk full'));
+    mount();
+    fireEvent.click(await row('local'));
+    fireEvent.click(screen.getByRole('button', { name: 'Add to profile…' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'work' }));
+    expect(await screen.findByText('disk full')).toBeInTheDocument();
+    expect(await row('local')).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Add to profile…' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'work' }));
+    await waitFor(() => expect(api.profiles.assign).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(api.profiles.assign).mock.calls).toEqual([
+      ['work', { add: ['local__one', 'local__two'] }], ['work', { add: ['local__one', 'local__two'] }],
+    ]);
+  });
 });

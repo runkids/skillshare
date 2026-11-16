@@ -95,7 +95,7 @@ func computeAgentTargetDiff(targetName, targetDir string, ac config.ResourceTarg
 				continue
 			}
 			absSource, _ := filepath.Abs(agent.AbsPath)
-			if !utils.PathsEqual(absLink, absSource) {
+			if !utils.SamePhysicalPath(absLink, absSource) {
 				items = append(items, diffItem{
 					Skill:  flatName,
 					Action: "update",

@@ -96,3 +96,24 @@ func setJunctionTarget(linkPath, target string) error {
 	var returned uint32
 	return syscall.DeviceIoControl(h, fsctlSetReparsePoint, &buf[0], uint32(len(buf)), nil, 0, &returned, nil)
 }
+
+// canonicalSpelling expands DOS short names after resolving links. A junction
+// target returned by Readlink can use long names even when its caller used an
+// 8.3 alias; both sides must use one spelling before filepath.Rel or comparison.
+func canonicalSpelling(path string) string {
+	name, err := syscall.UTF16PtrFromString(path)
+	if err != nil {
+		return path
+	}
+	buf := make([]uint16, 260)
+	for {
+		n, err := syscall.GetLongPathName(name, &buf[0], uint32(len(buf)))
+		if err != nil {
+			return path
+		}
+		if n < uint32(len(buf)) {
+			return syscall.UTF16ToString(buf[:n])
+		}
+		buf = make([]uint16, n+1)
+	}
+}

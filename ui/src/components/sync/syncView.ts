@@ -16,6 +16,7 @@ export interface ChangeRow {
   icon: RowIcon;
   /** i18n key, or null when `detail` is backend text shown as is */
   text: string | null;
+  params?: Record<string, string>;
   detail?: string;
   /** False for rows sync leaves alone (kept local copies, conflicts) */
   counts: boolean;
@@ -67,6 +68,7 @@ export function resourceGroups(diffs: DiffTarget[], targets: Target[], parts: Se
       else if (item.skill === '(entire directory)') rows.push({ ...row, name: target?.path ?? item.skill, icon: 'add', text: 'sync.row.folder', counts: true });
       else if (item.action === 'link') rows.push({ ...row, icon: 'add', text: item.reason?.startsWith('missing') ? 'sync.row.recopy' : copy ? 'sync.row.newCopy' : 'sync.row.newLink', counts: true });
       else if (item.action === 'update') rows.push({ ...row, icon: 'update', text: item.reason === COPY_TO_LINK ? 'sync.row.copyToLink' : copy ? 'sync.row.updateCopy' : 'sync.row.updateLink', counts: true });
+      else if (part === 'skill' && item.action === 'prune' && item.reason?.startsWith('not in profile ')) rows.push({ ...row, icon: 'remove', text: 'sync.row.pruneProfile', params: { profile: item.reason.slice('not in profile '.length) }, counts: true });
       else if (item.action === 'prune') rows.push({ ...row, icon: 'remove', text: ignoredKeys[part].has(flatKey(item.skill)) ? 'sync.row.pruneIgnored' : 'sync.row.prune', counts: true });
       else if (item.action === 'skip') rows.push({ ...row, ...editedRow(force) });
     }
@@ -174,7 +176,7 @@ export function groupByFolder(names: string[]) {
 export function changeSets(groups: ChangeGroup[]): { key: string; targets: ChangeGroup[]; rows: ChangeRow[] }[] {
   const sets = new Map<string, { key: string; targets: ChangeGroup[]; rows: ChangeRow[] }>();
   for (const g of groups) {
-    const sig = g.rows.map((r) => `${r.part}\t${r.name}\t${r.icon}\t${r.text}\t${r.detail ?? ''}`).sort().join('\n');
+    const sig = g.rows.map((r) => `${r.part}\t${r.name}\t${r.icon}\t${r.text}\t${r.detail ?? ''}\t${JSON.stringify(r.params ?? {})}`).sort().join('\n');
     const set = sets.get(sig);
     if (set) set.targets.push(g);
     else sets.set(sig, { key: g.key, targets: [g], rows: g.rows });

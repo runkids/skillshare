@@ -72,3 +72,7 @@ describe('targetSkipHints', () => {
   expect(targetSkipHints(target({ targetNaming: 'standard', skippedSkillCount: 2, selectionSkippedSkillCount: 2 }))).toEqual(['sync.skipped.hintSelection']);
  });
 });
+
+it('does not offer a target pattern edit for a profile decision', () => {
+  expect(togglePatterns({ ...row('review', 'not_in_profile'), reason: 'frontend' }, ['core-*'], ['review'])).toBeNull();
+});
