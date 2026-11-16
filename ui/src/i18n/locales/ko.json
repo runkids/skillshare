@@ -959,6 +959,7 @@
   "update.summary.blocked": "{count}개 차단됨",
   "update.summary.failed": "{count}개 실패",
   "update.summary.skipped": "{count}개 건너뜀",
+  "update.summary.upToDate": "{count}개 최신 상태",
   "update.summary.updated": "{count}개 업데이트됨",
   "update.updating.forceRetry": "강제 재시도",
   "update.updating.purge": "제거",

@@ -168,6 +168,17 @@ describe('UpdatePage', () => {
     await waitFor(() => expect(localStorage.getItem('skillshare.updateCheckCache.global')).toContain('"sub/helper.md":{"status":"up-to-date"'));
   });
 
+  it('counts a skill that needed no change as up to date', async () => {
+    vi.mocked(api.listSkills).mockResolvedValue({ resources: [nestedSkill] });
+    streamResult({ name: nestedSkill.relPath, action: 'up-to-date', isRepo: false });
+
+    const user = userEvent.setup();
+    renderUpdatePage('skill');
+    await user.click(await screen.findByRole('button', { name: /update all/i }));
+
+    expect(await screen.findByText(/1 up to date/)).toBeInTheDocument();
+  });
+
   it('purges an agent deleted upstream as an agent', async () => {
     vi.mocked(api.listSkills).mockResolvedValue({ resources: [nestedAgent] });
     vi.mocked(api.batchUninstall).mockResolvedValue({ results: [] } as never);

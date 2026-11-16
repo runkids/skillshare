@@ -959,6 +959,7 @@
   "update.summary.blocked": "{count} 件ブロック済み",
   "update.summary.failed": "{count} 件失敗",
   "update.summary.skipped": "{count} 件スキップ済み",
+  "update.summary.upToDate": "{count} 件が最新",
   "update.summary.updated": "{count} 件更新済み",
   "update.updating.forceRetry": "強制再試行",
   "update.updating.purge": "削除",
