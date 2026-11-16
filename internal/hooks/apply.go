@@ -1006,16 +1006,23 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 				conflict("hook changed after the backup; restore would overwrite newer changes")
 				break
 			}
-			switch {
-			case op.Value == nil: // the write removed it: add it back
-				// Nothing records that an unmanaged hook was put back, so its presence is the sign:
-				// restoring the same backup again must not add a second copy.
-				if op.Key == "" {
-					if _, back := unowned(op.Event, op.Before); back {
-						conflict("the hook is already in the file; this backup may have been restored before")
-						break
+			// Nothing records that an unmanaged hook was put back, so more copies than the write
+			// left are the sign: restoring the same backup again must not add another. A copy
+			// imported since then counts too.
+			if op.Key == "" && op.Before != nil {
+				copies := 0
+				for _, item := range doc.events[op.Event] {
+					if elementHash(item) == elementHash(op.Before) {
+						copies++
 					}
 				}
+				if copies > op.Twins {
+					conflict("the hook is already in the file; this backup may have been restored before")
+					break
+				}
+			}
+			switch {
+			case op.Value == nil: // the write removed it: add it back
 				f.ops = append(f.ops, elementOp{Key: op.Key, Event: op.Event, Index: -1, Value: op.Before})
 			default:
 				i, ok := located[op.Key]

@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../../i18n';
 import { hooksApi } from '../../api/hooks';
+import { ApiError } from '../../api/http';
 import type { HookCandidate, HookInventory } from '../../api/hooks';
 import HookDialog from './HookDialog';
 import HooksImportDialog from './HooksImportDialog';
@@ -195,6 +196,30 @@ describe('hooks import', () => {
     await waitFor(() => expect(onImported).toHaveBeenCalledWith(1, 0));
     expect(hooksApi.applyNative).toHaveBeenCalledTimes(1);
     expect(hooksApi.save).toHaveBeenLastCalledWith(expect.objectContaining({ entry: candidate('format', './format.sh').entry }));
+  });
+
+  it('keeps the changes of a file a failed write did not reach', async () => {
+    const user = userEvent.setup();
+    const geminiPath = '/home/u/.gemini/settings.json';
+    const both = { ...data, paths: { ...data.paths, gemini: geminiPath }, unmanaged: [...data.unmanaged, { target: 'gemini', path: geminiPath, names: ['cleanup'] }] } as unknown as HookInventory;
+    const cleanup: HookCandidate = { name: 'cleanup', problems: [], warnings: [], editable: true, entry: { bindings: { gemini: { events: { SessionEnd: [{ hooks: [{ type: 'command', command: './cleanup.sh' }] }] } } } } };
+    let written = false;
+    vi.mocked(hooksApi.catalog).mockResolvedValue(catalog);
+    vi.mocked(hooksApi.import).mockImplementation(async ({ from }) => (from === 'gemini' ? [cleanup] : written ? [] : [editable('notify', './notify.sh')]));
+    vi.mocked(hooksApi.previewNative).mockResolvedValue(nativePlan);
+    vi.mocked(hooksApi.applyNative).mockImplementation(async () => {
+      written = true;
+      throw new ApiError(409, 'permission denied; already applied: /home/u/.claude/settings.json; backup IDs: b1', { params: { applied: ['/home/u/.claude/settings.json'] } });
+    });
+    wrap(<HooksImportDialog data={both} onClose={vi.fn()} onChanged={vi.fn()} onImported={vi.fn()} />);
+    await user.click(await screen.findByRole('button', { name: 'Remove notify from the target' }));
+    await user.click(screen.getByRole('button', { name: /Gemini/ }));
+    await user.click(await screen.findByRole('button', { name: 'Remove cleanup from the target' }));
+    await user.click(screen.getByRole('button', { name: 'Review changes' }));
+    await user.click(await screen.findByRole('button', { name: 'Apply changes' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('permission denied');
+    await user.click(await screen.findByRole('button', { name: 'Review changes' }));
+    await waitFor(() => expect(hooksApi.previewNative).toHaveBeenLastCalledWith([{ target: 'gemini', before: cleanup.entry.bindings.gemini.events }]));
   });
 });
 

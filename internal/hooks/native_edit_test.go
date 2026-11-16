@@ -271,3 +271,69 @@ func TestNativeEdit_RestoringARemovalTwiceIsRefused(t *testing.T) {
 		t.Fatalf("want the hook once, got %d", n)
 	}
 }
+
+// Removing one of two identical hooks leaves a copy behind; that copy is not a restored one.
+func TestNativeEdit_RestoresARemovedTwinOnce(t *testing.T) {
+	e := newEnv(t)
+	path := filepath.Join(e.home, ".claude", "settings.json")
+	one := `{"hooks":[{"type":"command","command":"echo twin"}]}`
+	write(t, path, `{"hooks":{"Stop":[`+one+`,`+one+`]}}`)
+	var before map[string]any
+	must(t, json.Unmarshal([]byte(`{"Stop":[`+one+`]}`), &before))
+	r := nativeEdit(t, e.service, NativeEdit{Target: "claude", Before: before})
+	p, err := e.service.PreviewRestore(r.BackupIDs[0])
+	must(t, err)
+	if p.Blocked {
+		t.Fatalf("the first restore must go through: %+v", p.Changes)
+	}
+	_, err = e.service.Restore(r.BackupIDs[0], p.Revision)
+	must(t, err)
+	if n := strings.Count(read(t, path), "echo twin"); n != 2 {
+		t.Fatalf("want both copies back, got %d", n)
+	}
+	again, err := e.service.PreviewRestore(r.BackupIDs[0])
+	must(t, err)
+	if !again.Blocked {
+		t.Fatalf("a second restore must be refused: %+v", again.Changes)
+	}
+}
+
+// Removing the first of two hooks is stored as an update and a removal; neither may run twice.
+func TestNativeEdit_RestoringAShiftedRemovalTwiceIsRefused(t *testing.T) {
+	e := newEnv(t)
+	path := filepath.Join(e.home, ".claude", "settings.json")
+	a := `{"hooks":[{"type":"command","command":"echo first"}]}`
+	b := `{"hooks":[{"type":"command","command":"echo second"}]}`
+	write(t, path, `{"hooks":{"Stop":[`+a+`,`+b+`]}}`)
+	var before, after map[string]any
+	must(t, json.Unmarshal([]byte(`{"Stop":[`+a+`,`+b+`]}`), &before))
+	must(t, json.Unmarshal([]byte(`{"Stop":[`+b+`]}`), &after))
+	r := nativeEdit(t, e.service, NativeEdit{Target: "claude", Before: before, After: after})
+	p, err := e.service.PreviewRestore(r.BackupIDs[0])
+	must(t, err)
+	_, err = e.service.Restore(r.BackupIDs[0], p.Revision)
+	must(t, err)
+	again, err := e.service.PreviewRestore(r.BackupIDs[0])
+	must(t, err)
+	if got := read(t, path); !again.Blocked || strings.Count(got, "echo first") != 1 || strings.Count(got, "echo second") != 1 {
+		t.Fatalf("want each hook once and a second restore refused: blocked=%v %s", again.Blocked, got)
+	}
+}
+
+// Importing the restored hook makes it managed; the backup must still see it is back.
+func TestNativeEdit_RestoringARemovalAfterImportingTheHookIsRefused(t *testing.T) {
+	e := newEnv(t)
+	write(t, filepath.Join(e.home, ".claude", "settings.json"), trialSettings)
+	stop := importOne(t, e.service, "claude", "claude-stop")
+	r := nativeEdit(t, e.service, NativeEdit{Target: "claude", Before: stop.Entry.Bindings["claude"].Events})
+	p, err := e.service.PreviewRestore(r.BackupIDs[0])
+	must(t, err)
+	_, err = e.service.Restore(r.BackupIDs[0], p.Revision)
+	must(t, err)
+	save(t, e.service, Mutation{Name: "stop", Entry: &stop.Entry, Adopt: true})
+	again, err := e.service.PreviewRestore(r.BackupIDs[0])
+	must(t, err)
+	if !again.Blocked {
+		t.Fatalf("a second restore must be refused: %+v", again.Changes)
+	}
+}

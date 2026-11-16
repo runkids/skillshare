@@ -299,7 +299,11 @@ func writeHooksFailure(w http.ResponseWriter, result *hooks.Result, err error) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusConflict)
-	_ = json.NewEncoder(w).Encode(map[string]any{"error": message, "result": result})
+	body := map[string]any{"error": message, "result": result}
+	if partial {
+		body["error_params"] = map[string]any{"applied": result.Applied}
+	}
+	_ = json.NewEncoder(w).Encode(body)
 }
 
 // hooksAccounts are the global targets with their own native config homes.

@@ -105,7 +105,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
     return change && ('remove' in change || !sameEvents(change.events, rowEvents(row))) ? change : undefined;
   };
   // A hook with a pending edit or removal is written to its target file as it is, not imported in the same pass.
-  const checked = (row: ImportRow) => importable(row) && !changeOf(row) && !unchecked.includes(row.id) && (!kept[row.target] || kept[row.target].includes(row.id));
+  const checked = (row: ImportRow) => importable(row) && !changeOf(row) && !unchecked.includes(row.id) && (!row.adopt || !kept[row.target] || kept[row.target].includes(row.id));
   const check = (ids: string[], on: boolean) => {
     setUnchecked((prev) => (on ? prev.filter((x) => !ids.includes(x)) : [...new Set([...prev, ...ids])]));
     if (on) setKept((prev) => Object.fromEntries(Object.entries(prev).map(([target, list]) => [target, [...list, ...rows.filter((r) => r.target === target && ids.includes(r.id)).map((r) => r.id)]])));
@@ -163,15 +163,17 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
       setError((e as Error).message);
       setSaving(false);
       setPlan(null);
-      // A write that failed after its first file reports what it already applied.
-      const partly = Boolean(plan) && !written && e instanceof ApiError && e.status === 409 && e.message.includes('already applied');
-      if (written || partly) {
-        // The files hold the changes now, so none is sent again. Read again, they may show up as other rows
-        // than they were made in (an edit can move a command to another event), so in the targets written
-        // only what was picked before stays picked: a hook changed in place was not meant to be imported.
-        const frozen = Object.fromEntries([...new Set(changed.map((r) => r.target))].map((target) => [target, chosen.filter((r) => r.target === target).map((r) => r.id)]));
+      // A write that failed after its first file names the files it already wrote.
+      const applied = !written && plan && e instanceof ApiError && Array.isArray(e.params?.applied) ? e.params.applied as string[] : [];
+      const done = changed.filter((r) => written || applied.includes(paths[r.target] ?? ''));
+      if (done.length > 0) {
+        // Those files hold their changes now, so none of them is sent again; a file the write did not reach
+        // keeps its changes pending. Read again, a change may show up as other rows than it was made in (an
+        // edit can move a command to another event), so in the targets written only what was picked before
+        // stays picked: a hook changed in place was not meant to be imported.
+        const frozen = Object.fromEntries([...new Set(done.map((r) => r.target))].map((target) => [target, chosen.filter((r) => r.target === target).map((r) => r.id)]));
         setKept((prev) => ({ ...prev, ...frozen }));
-        setChanges({});
+        setChanges((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => !done.some((r) => r.id === id))));
       }
       // Otherwise nothing is known to be written; changeOf drops any change the files turn out to hold.
       for (const r of reads) void r.refetch();

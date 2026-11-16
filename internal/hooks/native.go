@@ -175,6 +175,9 @@ type elementOp struct {
 	Index  int    `json:"index"`
 	Value  any    `json:"value,omitempty"`
 	Before any    `json:"before,omitempty"`
+	// Twins is how many elements with Before's content a change to an unmanaged element
+	// left in the event. A restore finding more knows the element is already back.
+	Twins int `json:"twins,omitempty"`
 }
 
 // edit applies ops and returns the new bytes plus the final index of each op key
