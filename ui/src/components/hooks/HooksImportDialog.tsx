@@ -67,11 +67,12 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
   const [reading, setReading] = useState(false);
   const [names, setNames] = useState<Record<string, string>>({});
   const [unchecked, setUnchecked] = useState<string[]>([]);
-  const [opened, setOpened] = useState<string[]>([]);
+  const [opened, setOpened] = useState('');
   const [changes, setChanges] = useState<Record<string, NativeChange>>({});
   // Per target, the only rows still picked for import after a write to its file went through.
   const [kept, setKept] = useState<Record<string, string[]>>({});
   const [editing, setEditing] = useState('');
+  const [footerHost, setFooterHost] = useState<HTMLElement | null>(null);
   const [plan, setPlan] = useState<HookPreview | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -261,13 +262,13 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
         change={changeOf(row)}
         checked={checked(row)}
         importable={importable(row)}
-        open={opened.includes(row.id)}
+        open={opened === row.id}
         busy={busy}
         name={nameOf(row)}
         nameFixed={fixedName(row)}
         nameError={checked(row) ? nameError(row) : ''}
         onCheck={(on) => check([row.id], on)}
-        onToggle={() => setOpened((prev) => (prev.includes(row.id) ? prev.filter((x) => x !== row.id) : [...prev, row.id]))}
+        onToggle={() => setOpened((prev) => (prev === row.id ? '' : row.id))}
         onName={(name) => setNames((prev) => ({ ...prev, [row.id]: name }))}
         onEdit={editable ? () => setEditing(row.id) : undefined}
         onRemove={editable ? () => setChanges((prev) => ({ ...prev, [row.id]: { remove: true } })) : undefined}
@@ -284,17 +285,17 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
   const ready = found.filter((r) => importable(r) && !changeOf(r));
   const title = t('hooks.importTitle');
   return (
-    <DialogShell open onClose={onClose} padding="none" preventClose={busy || pending > 0 || Boolean(row)} ariaLabel={title} className="!max-w-[980px]">
-      <div className="dh sep">
+    <DialogShell open onClose={onClose} padding="none" preventClose={busy || pending > 0 || Boolean(row)} ariaLabel={title} className="!max-w-[1120px] !bg-bg">
+      <div className="dh">
         <div className="flex flex-col gap-1">
           <h2 className="ss-h2">{title}</h2>
           <p className="text-[13px] text-ink-2">{t('hooks.importHint')}</p>
         </div>
         <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={busy}><X size={16} /></button>
       </div>
-      <div className="flex h-[580px] max-h-[calc(100vh-260px)] min-h-0">
-        <nav aria-label={t('hooks.importTargets')} className="flex w-[200px] shrink-0 flex-col gap-px overflow-y-auto border-r border-line bg-sunken p-2.5">
-          <span className="px-2.5 pb-1.5 pt-1 text-xs font-semibold text-ink-3">{t('hooks.importTargets')}</span>
+      <div className="flex h-[620px] max-h-[calc(100vh-240px)] min-h-0 gap-5 px-[22px] pt-[18px]">
+        <nav aria-label={t('hooks.importTargets')} className="flex w-[188px] shrink-0 flex-col gap-px overflow-y-auto">
+          <span className="px-2.5 pb-2 pt-0.5 text-xs font-medium text-ink-3">{t('hooks.importTargets')}</span>
           {targets.map((target, i) => {
             const mine = rows.filter((r) => r.adopt && r.target === target);
             return (
@@ -322,6 +323,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
             label={labelOf(row.target)}
             title={rowTitle(row)}
             path={paths[row.target]}
+            footerHost={footerHost}
             events={(() => { const change = changeOf(row); return change && 'events' in change ? change.events : rowEvents(row); })()}
             original={rowEvents(row)}
             onCancel={() => setEditing('')}
@@ -329,8 +331,8 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
             onRemove={() => { setChanges((prev) => ({ ...prev, [row.id]: { remove: true } })); setEditing(''); }}
           />
         ) : active === PASTE ? (
-          <section aria-label={t('hooks.importPaste')} className="flex min-w-0 flex-1 flex-col">
-            <div className="flex h-12 shrink-0 items-center border-b border-line px-4 font-semibold">{t('hooks.importPaste')}</div>
+          <section aria-label={t('hooks.importPaste')} className="ss-list flex min-w-0 flex-1 flex-col">
+            <div className="flex h-[50px] shrink-0 items-center px-4 font-semibold">{t('hooks.importPaste')}</div>
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               <div className="flex flex-col gap-2.5 p-4">
                 <Select
@@ -347,14 +349,13 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
                 </span>
                 {pasted && pasted.length === 0 && <p className="text-[13px] text-ink-2">{t('hooks.importNone')}</p>}
               </div>
-              {pasted && pasted.length > 0 && <div className="border-t border-line">{list(rows.filter((r) => !r.adopt))}</div>}
+              {pasted && pasted.length > 0 && <div>{list(rows.filter((r) => !r.adopt))}</div>}
             </div>
           </section>
         ) : (
-          <section aria-label={labelOf(active)} className="flex min-w-0 flex-1 flex-col">
-            <div className="flex h-12 shrink-0 items-center gap-3 border-b border-line px-4">
+          <section aria-label={labelOf(active)} className="ss-list flex min-w-0 flex-1 flex-col">
+            <div className="flex h-[50px] shrink-0 items-center gap-3 px-4">
               <Checkbox hideLabel label={t('hooks.importSelectAll', { target: labelOf(active) })} checked={ready.length > 0 && ready.every(checked)} indeterminate={ready.some(checked) && !ready.every(checked)} disabled={ready.length === 0 || busy} onChange={(on) => check(ready.map((r) => r.id), on)} />
-              <AgentIcon target={agentOf(active)} size={16} />
               <span className="shrink-0 font-semibold">{labelOf(active)}</span>
               {paths[active] ? <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-3" title={paths[active]}>{shortenHome(paths[active])}</span> : <span className="flex-1" />}
               <span className="shrink-0 text-xs text-ink-2">{t('hooks.importPickedOf', { picked: String(found.filter(checked).length), total: String(found.length) })}</span>
@@ -369,17 +370,22 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
         )}
       </div>
       {failure && <div className="border-t border-line px-[22px] py-3">{failure}</div>}
-      <div className="df">
-        <span className="flex-1 text-[13px] text-ink-2">
-          {pending > 0
-            ? t('hooks.importFooterPending', { count: String(chosen.length), changes: String(pending) })
-            : t(plural('hooks.importFooter', sources), { count: String(chosen.length), targets: String(sources) })}
-        </span>
-        <Button variant="ghost" onClick={onClose} disabled={busy}>{t('common.cancel')}</Button>
-        {pending > 0 && <Button variant="ghost" onClick={() => setChanges({})} disabled={busy || Boolean(row)}>{t('hooks.importDiscard')}</Button>}
-        {pending > 0
-          ? <Button variant="primary" loading={saving} disabled={blocked || reading || Boolean(row)} onClick={() => void review()}>{t('hooks.importReview')}</Button>
-          : <Button variant="primary" loading={saving} disabled={chosen.length === 0 || blocked || reading || Boolean(row)} onClick={() => void save()}><Download size={15} />{t('hooks.importSave', { count: String(chosen.length) })}</Button>}
+      {/* While a hook is being edited the footer holds the editor's actions instead. */}
+      <div className="df !border-t-0 !bg-transparent" ref={setFooterHost}>
+        {!row && (
+          <>
+            <span className="flex-1 text-[13px] text-ink-2">
+              {pending > 0
+                ? t('hooks.importFooterPending', { count: String(chosen.length), changes: String(pending) })
+                : t(plural('hooks.importFooter', sources), { count: String(chosen.length), targets: String(sources) })}
+            </span>
+            <Button variant="ghost" onClick={onClose} disabled={busy}>{t('common.cancel')}</Button>
+            {pending > 0 && <Button variant="ghost" onClick={() => setChanges({})} disabled={busy}>{t('hooks.importDiscard')}</Button>}
+            {pending > 0
+              ? <Button variant="primary" loading={saving} disabled={blocked || reading} onClick={() => void review()}>{t('hooks.importReview')}</Button>
+              : <Button variant="primary" loading={saving} disabled={chosen.length === 0 || blocked || reading} onClick={() => void save()}><Download size={15} />{t('hooks.importSave', { count: String(chosen.length) })}</Button>}
+          </>
+        )}
       </div>
     </DialogShell>
   );

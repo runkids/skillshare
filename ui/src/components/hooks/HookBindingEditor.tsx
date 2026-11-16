@@ -175,25 +175,25 @@ function CommandCards({ agent, draft, onChange, disabled, catalog }: Pick<Props,
     setOpen(row.id);
   };
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-col">
       {draft.rows.map((r, i) => {
         const problems = rowProblems(r);
         const shown = (key: 'event' | 'command' | 'timeout') => !rowBlank(r) && problems[key];
         const on = open === r.id;
         const title = t('hooks.commandN', { n: String(i + 1) });
         return (
-          <div key={r.id} className="overflow-hidden rounded-md border border-line">
-            <div className={`flex min-h-10 items-center gap-2 pl-1.5 pr-1.5 transition-colors duration-150 ${on ? 'bg-sunken' : ''}`}>
-              <button type="button" className="flex min-w-0 flex-1 items-center gap-2 self-stretch px-1.5 text-left" aria-expanded={on} onClick={() => setOpen(on ? '' : r.id)}>
+          <div key={r.id} className="[border-top:var(--sep)]">
+            <div className="flex min-h-12 items-center gap-2 pl-4 pr-3">
+              <button type="button" className="flex min-w-0 flex-1 items-center gap-2.5 self-stretch text-left" aria-expanded={on} onClick={() => setOpen(on ? '' : r.id)}>
                 <ChevronDown size={15} className={`shrink-0 text-ink-3 transition-transform duration-200 ease-[cubic-bezier(.3,.7,.3,1)] motion-reduce:transition-none ${on ? '' : '-rotate-90'}`} />
                 <span className="shrink-0 text-[13px] font-semibold">{title}</span>
-                {!on && r.matcher && <span className="ss-tag shrink-0">{r.matcher}</span>}
-                {!on && <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-2">{commandSummary(r.command)}</span>}
+                {!on && r.matcher && <span className="shrink-0 font-mono text-xs text-ink-2">{r.matcher}</span>}
+                {!on && <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-3">{commandSummary(r.command)}</span>}
               </button>
               <IconButton variant="danger-outline" icon={<Trash2 size={15} />} label={`${t('hooks.removeRow')} ${i + 1}`} onClick={() => onChange({ ...draft, rows: draft.rows.filter((x) => x.id !== r.id) })} disabled={disabled} />
             </div>
             <Reveal open={on}>
-              <div className="flex flex-col gap-3 border-t border-line p-3.5">
+              <div className="flex flex-col gap-4 pb-[18px] pl-[41px] pr-4">
                 <div className="flex items-end gap-2.5">
                   <div className="ss-fld min-w-0 flex-1">
                     <span className="text-xs font-semibold text-ink-2">{t('hooks.event')}</span>
@@ -232,7 +232,7 @@ function CommandCards({ agent, draft, onChange, disabled, catalog }: Pick<Props,
                 >
                   {(expanded) => (
                     <>
-                      <CodeEditor value={r.command} onChange={(command) => patch(r.id, { command })} ariaLabel={`${t('hooks.command')} ${i + 1}`} placeholder={commandPlaceholder(agent)} disabled={disabled} minHeight="150px" maxHeight="260px" fill={expanded} className={`${expanded ? 'min-h-0 flex-1' : ''} ${shown('command') ? '!border-bad' : ''}`} />
+                      <CodeEditor value={r.command} onChange={(command) => patch(r.id, { command })} ariaLabel={`${t('hooks.command')} ${i + 1}`} placeholder={commandPlaceholder(agent)} disabled={disabled} wrap minHeight="88px" maxHeight="260px" fill={expanded} className={`${expanded ? 'min-h-0 flex-1' : ''} ${shown('command') ? '!border-bad' : '!border-transparent'}`} />
                       <span className="hp">{t('hooks.commandHint')}</span>
                     </>
                   )}
@@ -242,9 +242,11 @@ function CommandCards({ agent, draft, onChange, disabled, catalog }: Pick<Props,
           </div>
         );
       })}
-      <button type="button" className="flex w-fit items-center gap-[7px] text-[13px] text-ink-2 hover:text-ink" onClick={add} disabled={disabled}>
-        <Plus size={14} />{t('hooks.addRow')}
-      </button>
+      <div className="flex min-h-12 items-center px-4 [border-top:var(--sep)]">
+        <button type="button" className="flex w-fit items-center gap-2 text-[13px] text-ink-2 hover:text-ink" onClick={add} disabled={disabled}>
+          <Plus size={14} />{t('hooks.addRow')}
+        </button>
+      </div>
     </div>
   );
 }
@@ -364,7 +366,7 @@ export default function HookBindingEditor({ agent, name, draft, check, onChange,
     onChange(switchMode(draft, mode));
   };
   return (
-    <div className="flex flex-col gap-3.5">
+    <div className={cards ? (native ? 'flex flex-col gap-3.5 px-4 pb-4' : 'flex flex-col') : 'flex flex-col gap-3.5'}>
       {cards ? tabsHost && createPortal(
         <SegmentedControl value={draft.mode} onChange={pick} options={[{ value: 'simple', label: t('hooks.mode.simple') }, { value: 'native', label: t('hooks.mode.native'), ...(errors.length > 0 && { count: errors.length }) }]} />,
         tabsHost,
