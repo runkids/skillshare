@@ -176,14 +176,15 @@ Markdown(`.md`) 파일에서는 펜스 및 들여쓰기 코드 블록과 파싱�
 
 **audit이 탐지하는 것:**
 - 직접적인 인젝션 문구: "ignore previous instructions", "disregard all rules", "you are now"
-- 프롬프트 재정의 접두사: `SYSTEM:`, `OVERRIDE:`, `IGNORE:`, `ADMIN:`, `ROOT:` (대소문자 구분 없음, 공백 허용). 소문자 키에 같은 줄의 단순 값만 지정한 줄은 설정으로 보고 탐지하지 않습니다. 모든 키는 불리언이나 숫자(`admin: false`), `root`는 공백 없는 경로(`root: ./src`), `ignore`는 인라인 객체나 따옴표로 감싼 공백 없는 항목의 배열(`ignore: { tags: ["design"] }`, `ignore: ['**/*.test.vue']`)을 값으로 쓸 수 있습니다. `root`의 타입 주석이 붙은 매개변수나 할당(`root: Path`, `root: Path, lang: set[str] | None = None`, `root: Path = Path(".")`)도 탐지하지 않습니다
+- 프롬프트 재정의 접두사: `SYSTEM:`, `OVERRIDE:`, `IGNORE:`, `ADMIN:`, `ROOT:` (대소문자 구분 없음, 공백 허용). 소문자 키에 같은 줄의 단순 값만 지정한 줄은 설정으로 보고 탐지하지 않습니다. 모든 키는 불리언이나 숫자(`admin: false`), `root`는 공백 없는 경로(`root: ./src`), `ignore`는 인라인 객체나 따옴표로 감싼 공백 없는 항목의 배열(`ignore: { tags: ["design"] }`, `ignore: ['**/*.test.vue']`)을 값으로 쓸 수 있습니다. `root`의 타입 주석이 붙은 매개변수(`root: Path`, `root: Path, lang: set[str] | None = None`)도 탐지하지 않습니다
+- 소스 파일(`.sh`, `.bash`, `.zsh`, `.fish`, `.py`, `.js`, `.ts`, `.rb`, `.php`, `.php3`, `.php4`, `.php5`, `.phtml`, `.go`, `.rs`, `.swift`, `Makefile`, `Dockerfile`)에서는 프롬프트 재정의 접두사를 대문자(`ROOT:`)일 때만 탐지합니다. 그 안의 소문자 또는 대소문자가 섞인 `root:`는 매개변수, 필드 또는 docstring 항목입니다(`root: Path = Path(".")`). 판단 기준은 파일 확장자이며, Markdown, 텍스트, 설정 파일과 Markdown 안의 코드 블록은 대소문자를 구분하지 않는 일치를 유지합니다
 - Agent directive tags: `<system>`, `</instructions>`, `</override>`, `</prompt>`, `</rules>` (선택적 HTML 속성 포함)
 - Jailbreak 지시문: `DEVELOPER MODE`, `DEV MODE`, `JAILBREAK`, `DAN MODE` (대소문자 구분 없음, 공백 허용)
 - HTML 주석(`<!-- ... -->`) 안에 숨겨진 인젝션
 
 `.md` fenced code block 안에서 SDK 형식의 `system:` / `System:` 매개변수로 발생한 `prompt-injection-1` finding은 제거되지 않고 CRITICAL에서 HIGH로 낮아집니다. 인식되는 값에는 따옴표로 감싼 문자열, 배열, 함수 호출, 쉼표로 끝나는 변수, YAML 블록 스칼라, 다음 줄의 따옴표로 감싼 문자열이나 배열이 포함됩니다. 이는 구문 휴리스틱이며 코드가 안전하다는 증거가 아닙니다. HIGH는 기본 CRITICAL 임계값에서 경고로 표시되지만 `strict` profile(HIGH 임계값)에서는 계속 차단됩니다.
 
-대문자 `SYSTEM:` 지시문, 값이 없는 역할 레이블, 코드 블록 밖의 일반 문장, Markdown이 아닌 소스 파일은 설정된 심각도를 유지합니다. 다른 규칙도 매개변수 텍스트를 계속 스캔합니다. 인젝션 문구, 출력 억제, 자격 증명 접근, 데이터 유출은 이 예외로 인해 낮아지지 않습니다.
+대문자 `SYSTEM:` 지시문, 값이 없는 역할 레이블, 코드 블록 밖의 일반 문장, Markdown이 아닌 소스 파일의 대문자 레이블은 설정된 심각도를 유지합니다. 다른 규칙도 매개변수 텍스트를 계속 스캔합니다. 인젝션 문구, 출력 억제, 자격 증명 접근, 데이터 유출은 이 예외로 인해 낮아지지 않습니다.
 
 Output suppression은 Markdown 문맥과 별개로 일치한 근거에 따라 분류합니다.
 

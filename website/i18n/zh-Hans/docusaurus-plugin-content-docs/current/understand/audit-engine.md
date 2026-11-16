@@ -176,14 +176,15 @@ audit engine 会用 100 多条内置规则（正则表达式模式、表驱动�
 
 **audit 检测的内容：**
 - 直接注入短语："ignore previous instructions"、"disregard all rules"、"you are now"
-- Prompt 覆盖前缀：`SYSTEM:`、`OVERRIDE:`、`IGNORE:`、`ADMIN:`、`ROOT:`（不区分大小写，容忍空白字符）。小写键在同一行只带简单值的行会视为配置，不会被检测：所有键可用布尔值或数字（`admin: false`），`root` 可用不含空格的路径（`root: ./src`），`ignore` 可用内联对象或加引号且不含空格的元素数组（`ignore: { tags: ["design"] }`、`ignore: ['**/*.test.vue']`），`root` 带类型注解的参数或赋值（`root: Path`、`root: Path, lang: set[str] | None = None`、`root: Path = Path(".")`）也不会被检测
+- Prompt 覆盖前缀：`SYSTEM:`、`OVERRIDE:`、`IGNORE:`、`ADMIN:`、`ROOT:`（不区分大小写，容忍空白字符）。小写键在同一行只带简单值的行会视为配置，不会被检测：所有键可用布尔值或数字（`admin: false`），`root` 可用不含空格的路径（`root: ./src`），`ignore` 可用内联对象或加引号且不含空格的元素数组（`ignore: { tags: ["design"] }`、`ignore: ['**/*.test.vue']`），`root` 带类型注解的参数（`root: Path`、`root: Path, lang: set[str] | None = None`）也不会被检测
+- 在源代码文件（`.sh`、`.bash`、`.zsh`、`.fish`、`.py`、`.js`、`.ts`、`.rb`、`.php`、`.php3`、`.php4`、`.php5`、`.phtml`、`.go`、`.rs`、`.swift`，以及 `Makefile`、`Dockerfile`）中，只有大写的 Prompt 覆盖前缀（`ROOT:`）会被检测。其中小写或大小写混合的 `root:` 是参数、字段或 docstring 条目（`root: Path = Path(".")`）。判断依据是文件扩展名；Markdown、文本、配置文件以及 Markdown 中的代码块仍然不区分大小写
 - Agent 指令标签：`<system>`、`</instructions>`、`</override>`、`</prompt>`、`</rules>`（带可选 HTML 属性）
 - Jailbreak 指令：`DEVELOPER MODE`、`DEV MODE`、`JAILBREAK`、`DAN MODE`（不区分大小写，容忍空白字符）
 - 隐藏在 HTML 注释（`<!-- ... -->`）中的注入
 
 在 `.md` fenced code block 中，SDK 形式的 `system:` / `System:` 参数触发的 `prompt-injection-1` 发现会从 CRITICAL 降为 HIGH，而非移除。可识别的值包括带引号的字符串、数组、Go `anthropic.String(...)`、以逗号结尾的变量、YAML 块标量，以及下一行带引号的字符串或数组。这是语法启发式判断，不代表代码安全。HIGH 在默认 CRITICAL 阈值下仅发出警告，但在 `strict` profile（HIGH 阈值）下仍会阻止操作。
 
-大写 `SYSTEM:` 指令、单独的角色标签、代码块外的叙述，以及非 Markdown 源代码文件，保持配置的严重级别。其他规则仍会扫描参数文本：注入语句、输出抑制、凭证访问与数据外泄，不会因这项例外而降级。
+大写 `SYSTEM:` 指令、单独的角色标签、代码块外的叙述，以及非 Markdown 源代码文件中的大写标签，保持配置的严重级别。其他规则仍会扫描参数文本：注入语句、输出抑制、凭证访问与数据外泄，不会因这项例外而降级。
 
 Output suppression 按匹配的证据分级，不取决于 Markdown 上下文：
 

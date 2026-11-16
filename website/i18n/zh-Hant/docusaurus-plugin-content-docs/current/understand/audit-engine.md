@@ -176,14 +176,15 @@ Audit engine 會把 skill 目錄中每個以文字為主的檔案，拿去比對
 
 **Audit 偵測的內容：**
 - 直接注入語句：「ignore previous instructions」、「disregard all rules」、「you are now」
-- Prompt 覆寫前綴：`SYSTEM:`、`OVERRIDE:`、`IGNORE:`、`ADMIN:`、`ROOT:`（不分大小寫、容許空白）。小寫鍵在同一行只帶簡單值的行會視為設定，不會被偵測：所有鍵可用布林值或數字（`admin: false`），`root` 可用不含空格的路徑（`root: ./src`），`ignore` 可用行內物件或加引號且不含空格的元素陣列（`ignore: { tags: ["design"] }`、`ignore: ['**/*.test.vue']`），`root` 帶型別註記的參數或指派（`root: Path`、`root: Path, lang: set[str] | None = None`、`root: Path = Path(".")`）也不會被偵測
+- Prompt 覆寫前綴：`SYSTEM:`、`OVERRIDE:`、`IGNORE:`、`ADMIN:`、`ROOT:`（不分大小寫、容許空白）。小寫鍵在同一行只帶簡單值的行會視為設定，不會被偵測：所有鍵可用布林值或數字（`admin: false`），`root` 可用不含空格的路徑（`root: ./src`），`ignore` 可用行內物件或加引號且不含空格的元素陣列（`ignore: { tags: ["design"] }`、`ignore: ['**/*.test.vue']`），`root` 帶型別註記的參數（`root: Path`、`root: Path, lang: set[str] | None = None`）也不會被偵測
+- 在原始碼檔案（`.sh`、`.bash`、`.zsh`、`.fish`、`.py`、`.js`、`.ts`、`.rb`、`.php`、`.php3`、`.php4`、`.php5`、`.phtml`、`.go`、`.rs`、`.swift`，以及 `Makefile`、`Dockerfile`）中，只有大寫的 Prompt 覆寫前綴（`ROOT:`）會被偵測。其中小寫或大小寫混用的 `root:` 是參數、欄位或 docstring 項目（`root: Path = Path(".")`）。判斷依據是副檔名；Markdown、文字檔、設定檔以及 Markdown 中的程式碼區塊仍然不分大小寫
 - Agent 指令標籤：`<system>`、`</instructions>`、`</override>`、`</prompt>`、`</rules>`（可帶選用 HTML 屬性）
 - Jailbreak 指令：`DEVELOPER MODE`、`DEV MODE`、`JAILBREAK`、`DAN MODE`（不分大小寫、容許空白）
 - 藏在 HTML 註解中的注入（`<!-- ... -->`）
 
 在 `.md` fenced code block 中，SDK 形式的 `system:` / `System:` 參數所觸發的 `prompt-injection-1` 發現會從 CRITICAL 降為 HIGH，而非移除。可辨識的值包含引號字串、陣列、Go `anthropic.String(...)`、以逗號結尾的變數、YAML 區塊純量，以及下一行的引號字串或陣列。這是語法啟發式判斷，不代表程式碼安全。HIGH 在預設 CRITICAL 門檻下只會警告，但在 `strict` profile（HIGH 門檻）下仍會封鎖。
 
-大寫 `SYSTEM:` 指令、單獨的角色標籤、區塊外的敘述，以及非 Markdown 原始碼檔案，維持設定的嚴重程度。其他規則仍會掃描參數文字：注入語句、輸出壓制、憑證存取與資料外洩，不會因這項例外而降級。
+大寫 `SYSTEM:` 指令、單獨的角色標籤、區塊外的敘述，以及非 Markdown 原始碼檔案中的大寫標籤，維持設定的嚴重程度。其他規則仍會掃描參數文字：注入語句、輸出壓制、憑證存取與資料外洩，不會因這項例外而降級。
 
 Output suppression 依命中的證據分級，不取決於 Markdown 上下文：
 
