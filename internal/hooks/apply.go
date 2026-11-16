@@ -500,6 +500,24 @@ func (s *Service) applyScoped(p *Plan, root *string) (*Result, error) {
 			}
 			// Settings added since the preview keep a file the plan deletes.
 			remove = f.remove && skeleton(f.agent, after)
+			// Count here, for every write: a restore's own backup can be restored as well.
+			left, err := parseNative(f.agent, after)
+			if err != nil {
+				return result, fmt.Errorf("%s: %w", f.path, err)
+			}
+			ops := append([]elementOp(nil), f.ops...)
+			for i, op := range ops {
+				ops[i].Twins = 0
+				if op.Key != "" || op.Before == nil {
+					continue
+				}
+				for _, item := range left.events[op.Event] {
+					if elementHash(item) == elementHash(op.Before) {
+						ops[i].Twins++
+					}
+				}
+			}
+			f.ops = ops
 		}
 		id := fmt.Sprintf("%d-%s", time.Now().UnixNano(), digest([]byte(f.path))[:8])
 		backup := backupRecord{ID: id, Owner: p.source.ConfigPath, Target: f.target, Path: f.path, Root: f.root, Kind: f.kind, Ops: f.ops, OwnedBefore: map[string]*record{}, OwnedAfter: map[string]*record{}, GitInclude: f.include, GitSection: f.gitSection, BeforeMode: beforeMode, AfterMode: mode}
@@ -974,6 +992,28 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 			}
 		}
 		located := locate(doc, current)
+		// claimed are the elements a record owns or an earlier op already addressed, so
+		// an op on an unmanaged hook finds its element by content among the rest.
+		claimed := map[string]map[int]bool{}
+		claim := func(event string, i int) {
+			if claimed[event] == nil {
+				claimed[event] = map[int]bool{}
+			}
+			claimed[event][i] = true
+		}
+		for key, i := range located {
+			claim(current[key].Event, i)
+		}
+		// unowned finds, and claims, an element no record owns by its content.
+		unowned := func(event string, value any) (int, bool) {
+			for at, item := range doc.events[event] {
+				if !claimed[event][at] && elementHash(item) == elementHash(value) {
+					claim(event, at)
+					return at, true
+				}
+			}
+			return 0, false
+		}
 		for _, op := range b.Ops {
 			if r := b.OwnedAfter[op.Key]; r != nil {
 				change.Name = r.Entry
@@ -984,11 +1024,29 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 				conflict("hook changed after the backup; restore would overwrite newer changes")
 				break
 			}
+			// Nothing records that an unmanaged hook was put back, so more copies than the write
+			// left are the sign: restoring the same backup again must not add another. A copy
+			// imported since then counts too.
+			if op.Key == "" && op.Before != nil {
+				copies := 0
+				for _, item := range doc.events[op.Event] {
+					if elementHash(item) == elementHash(op.Before) {
+						copies++
+					}
+				}
+				if copies > op.Twins {
+					conflict("the hook is already in the file; this backup may have been restored before")
+					break
+				}
+			}
 			switch {
 			case op.Value == nil: // the write removed it: add it back
 				f.ops = append(f.ops, elementOp{Key: op.Key, Event: op.Event, Index: -1, Value: op.Before})
 			default:
 				i, ok := located[op.Key]
+				if op.Key == "" {
+					i, ok = unowned(op.Event, op.Value)
+				}
 				if !ok {
 					conflict("hook changed after the backup; restore would overwrite newer changes")
 					break
@@ -1001,6 +1059,13 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 			}
 			if change.Action == "conflict" {
 				break
+			}
+			if op.Key == "" {
+				// An unmanaged hook has no entry to name and no ownership to restore.
+				if !strings.Contains(", "+change.Name+", ", ", "+op.Event+", ") {
+					change.Name = strings.TrimPrefix(change.Name+", "+op.Event, ", ")
+				}
+				continue
 			}
 			restoreOwnership(op.Key)
 		}

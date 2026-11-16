@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"skillshare/internal/hooks"
 	"skillshare/internal/oplog"
 )
 
@@ -155,7 +157,7 @@ func TestHooksAPIImportListsCandidatesWithoutExecuting(t *testing.T) {
 func TestHooksRoutesRejectRebindingHost(t *testing.T) {
 	s, _ := newTestServerWithExtras(t, nil, "")
 	s.addr = "127.0.0.1:19420"
-	for _, route := range []string{"GET /api/hooks", "POST /api/hooks", "POST /api/hooks/preview", "POST /api/hooks/render", "POST /api/hooks/import", "POST /api/hooks/restore", "GET /api/hooks/catalog"} {
+	for _, route := range []string{"GET /api/hooks", "POST /api/hooks", "POST /api/hooks/preview", "POST /api/hooks/render", "POST /api/hooks/import", "POST /api/hooks/native", "POST /api/hooks/native/preview", "POST /api/hooks/restore", "GET /api/hooks/catalog"} {
 		method, path, _ := strings.Cut(route, " ")
 		req := httptest.NewRequest(method, path, strings.NewReader(`{}`))
 		req.RemoteAddr = "127.0.0.1:5555"
@@ -416,5 +418,19 @@ func TestHooksAPIPreviewCarriesFileTexts(t *testing.T) {
 	}
 	if data, _ := os.ReadFile(f.Path); string(data) != f.After {
 		t.Fatalf("written file differs from the preview:\n%s", data)
+	}
+}
+
+// A write that failed part-way names the files it already wrote, so the dashboard keeps the rest pending.
+func TestWriteHooksFailure_ListsAppliedFiles(t *testing.T) {
+	w := httptest.NewRecorder()
+	writeHooksFailure(w, &hooks.Result{Applied: []string{"/a/settings.json"}, BackupIDs: []string{"b1"}}, errors.New("write failed"))
+	var body struct {
+		Params struct {
+			Applied []string `json:"applied"`
+		} `json:"error_params"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil || w.Code != http.StatusConflict || len(body.Params.Applied) != 1 || body.Params.Applied[0] != "/a/settings.json" {
+		t.Fatalf("want the applied file in error_params: %d %s", w.Code, w.Body)
 	}
 }

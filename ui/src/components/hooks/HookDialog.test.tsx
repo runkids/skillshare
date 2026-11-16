@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../../i18n';
 import { hooksApi } from '../../api/hooks';
+import { ApiError } from '../../api/http';
 import type { HookCandidate, HookInventory } from '../../api/hooks';
 import HookDialog from './HookDialog';
 import HooksImportDialog from './HooksImportDialog';
@@ -15,7 +16,7 @@ vi.mock('../CodeEditor', () => ({
 }));
 vi.mock('../../api/hooks', async (load) => ({
   ...await load<typeof import('../../api/hooks')>(),
-  hooksApi: { catalog: vi.fn(), preview: vi.fn(), save: vi.fn(), configure: vi.fn(), import: vi.fn() },
+  hooksApi: { catalog: vi.fn(), preview: vi.fn(), save: vi.fn(), configure: vi.fn(), import: vi.fn(), previewNative: vi.fn(), applyNative: vi.fn() },
 }));
 
 const catalog = { claude: { timeoutUnit: 'seconds' as const, events: [
@@ -92,13 +93,13 @@ describe('hooks import', () => {
     vi.mocked(hooksApi.import).mockResolvedValue([candidate('notify', './notify.sh'), candidate('format', './format.sh')]);
     vi.mocked(hooksApi.save).mockResolvedValue({ applied: [], backupIds: [] });
     const onImported = vi.fn();
-    wrap(<HooksImportDialog data={data} onClose={vi.fn()} onImported={onImported} />);
+    wrap(<HooksImportDialog data={data} onClose={vi.fn()} onChanged={vi.fn()} onImported={onImported} />);
     const group = await screen.findByRole('region', { name: 'Claude' });
     expect(within(group).getByTitle('/home/u/.claude/settings.json')).toBeInTheDocument();
-    await user.click(within(group).getByRole('checkbox', { name: 'format' }));
-    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    await user.click(await within(group).findByRole('checkbox', { name: 'Import format' }));
+    expect(screen.getByText('1 selected, from 1 target')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Import 1' }));
-    await waitFor(() => expect(onImported).toHaveBeenCalledWith(1));
+    await waitFor(() => expect(onImported).toHaveBeenCalledWith(1, 0));
     expect(hooksApi.import).toHaveBeenCalledWith({ from: 'claude' });
     expect(hooksApi.save).toHaveBeenCalledTimes(1);
     expect(hooksApi.save).toHaveBeenCalledWith(expect.objectContaining({ entry: candidate('notify', './notify.sh').entry, adopt: true }));
@@ -110,12 +111,115 @@ describe('hooks import', () => {
     vi.mocked(hooksApi.import).mockResolvedValue([block]);
     vi.mocked(hooksApi.save).mockResolvedValue({ applied: [], backupIds: [] });
     const agy = { ...data, paths: { antigravity: '/home/u/.gemini/config/hooks.json' }, unmanaged: [{ target: 'antigravity', path: '/home/u/.gemini/config/hooks.json', names: ['lint'] }] } as unknown as HookInventory;
-    wrap(<HooksImportDialog data={agy} onClose={vi.fn()} onImported={vi.fn()} />);
-    const name = await screen.findByRole('textbox', { name: 'Name for lint' });
+    wrap(<HooksImportDialog data={agy} onClose={vi.fn()} onChanged={vi.fn()} onImported={vi.fn()} />);
+    await user.click(await screen.findByRole('button', { expanded: false }));
+    const name = screen.getByRole('textbox', { name: 'Name for lint' });
     expect(name).toHaveValue('lint');
     expect(name).toBeDisabled();
     await user.click(screen.getByRole('button', { name: 'Import 1' }));
     await waitFor(() => expect(hooksApi.save).toHaveBeenCalledWith(expect.objectContaining({ name: 'lint', adopt: true })));
+  });
+
+  const editable = (name: string, command: string): HookCandidate => ({ ...candidate(name, command), editable: true });
+  const nativePlan = { revision: 'r1', fingerprint: 'r1', sourcePath: '/s.yaml', blocked: false, changes: [], files: [] };
+
+  it('writes a removal only after the review, and before importing the rest', async () => {
+    const user = userEvent.setup();
+    vi.mocked(hooksApi.import).mockResolvedValue([editable('notify', './notify.sh'), editable('format', './format.sh')]);
+    vi.mocked(hooksApi.previewNative).mockResolvedValue(nativePlan);
+    vi.mocked(hooksApi.applyNative).mockResolvedValue({ applied: [], backupIds: [] });
+    vi.mocked(hooksApi.save).mockResolvedValue({ applied: [], backupIds: [] });
+    const onImported = vi.fn();
+    wrap(<HooksImportDialog data={data} onClose={vi.fn()} onChanged={vi.fn()} onImported={onImported} />);
+    await user.click(await screen.findByRole('button', { name: 'Remove notify from the target' }));
+    expect(screen.getByRole('checkbox', { name: 'Import notify' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /^Import \d/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Review changes' }));
+    const edits = [{ target: 'claude', before: editable('notify', './notify.sh').entry.bindings.claude.events }];
+    await waitFor(() => expect(hooksApi.previewNative).toHaveBeenCalledWith(edits));
+    expect(hooksApi.applyNative).not.toHaveBeenCalled();
+    expect(hooksApi.save).not.toHaveBeenCalled();
+    await user.click(await screen.findByRole('button', { name: 'Apply changes' }));
+    await waitFor(() => expect(onImported).toHaveBeenCalledWith(1, 1));
+    expect(hooksApi.applyNative).toHaveBeenCalledWith(edits, 'r1');
+    expect(hooksApi.save).toHaveBeenCalledTimes(1);
+    expect(hooksApi.save).toHaveBeenCalledWith(expect.objectContaining({ entry: candidate('format', './format.sh').entry, adopt: true }));
+    expect(vi.mocked(hooksApi.applyNative).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(hooksApi.save).mock.invocationCallOrder[0]);
+  });
+
+  it('sends an edited hook as it was read and as edited, and leaves an untouched one alone', async () => {
+    const user = userEvent.setup();
+    vi.mocked(hooksApi.catalog).mockResolvedValue(catalog);
+    vi.mocked(hooksApi.import).mockResolvedValue([editable('notify', './notify.sh')]);
+    vi.mocked(hooksApi.previewNative).mockResolvedValue(nativePlan);
+    wrap(<HooksImportDialog data={data} onClose={vi.fn()} onChanged={vi.fn()} onImported={vi.fn()} />);
+    await user.click(await screen.findByRole('button', { name: 'Edit notify' }));
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    expect(screen.getByRole('button', { name: 'Import 1' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Edit notify' }));
+    await user.type(screen.getByLabelText('Command 1'), ' --fast');
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    await user.click(screen.getByRole('button', { name: 'Review changes' }));
+    await waitFor(() => expect(hooksApi.previewNative).toHaveBeenCalledWith([{
+      target: 'claude',
+      before: { Stop: [{ hooks: [{ type: 'command', command: './notify.sh' }] }] },
+      after: { Stop: [{ hooks: [{ type: 'command', command: './notify.sh --fast' }] }] },
+    }]));
+  });
+
+  it('after a write went through and an import failed, sends neither the change nor that hook again', async () => {
+    const user = userEvent.setup();
+    vi.mocked(hooksApi.catalog).mockResolvedValue(catalog);
+    vi.mocked(hooksApi.import)
+      .mockResolvedValueOnce([editable('notify', './notify.sh'), editable('format', './format.sh')])
+      // Read again, the edit may sit under other rows than the one it was made in: an edit can move a
+      // command to another event, and candidates are listed per event.
+      .mockResolvedValue([editable('notify', './notify.sh'), editable('moved', './notify.sh --fast'), editable('format', './format.sh')]);
+    vi.mocked(hooksApi.previewNative).mockResolvedValue(nativePlan);
+    vi.mocked(hooksApi.applyNative).mockResolvedValue({ applied: [], backupIds: [] });
+    vi.mocked(hooksApi.save).mockRejectedValueOnce(new Error('name taken')).mockResolvedValue({ applied: [], backupIds: [] });
+    const onChanged = vi.fn();
+    const onImported = vi.fn();
+    wrap(<HooksImportDialog data={data} onClose={vi.fn()} onChanged={onChanged} onImported={onImported} />);
+    await user.click(await screen.findByRole('button', { name: 'Edit notify' }));
+    await user.type(screen.getByLabelText('Command 1'), ' --fast');
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    await user.click(screen.getByRole('button', { name: 'Review changes' }));
+    await user.click(await screen.findByRole('button', { name: 'Apply changes' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('name taken');
+    expect(onChanged).toHaveBeenCalled();
+    // The file now holds the edit, so nothing is pending, and neither the edited hook nor a row the edit
+    // produced is picked up as an import.
+    await screen.findByRole('checkbox', { name: 'Import moved' });
+    expect(screen.queryByRole('button', { name: 'Review changes' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Import 1' }));
+    await waitFor(() => expect(onImported).toHaveBeenCalledWith(1, 0));
+    expect(hooksApi.applyNative).toHaveBeenCalledTimes(1);
+    expect(hooksApi.save).toHaveBeenLastCalledWith(expect.objectContaining({ entry: candidate('format', './format.sh').entry }));
+  });
+
+  it('keeps the changes of a file a failed write did not reach', async () => {
+    const user = userEvent.setup();
+    const geminiPath = '/home/u/.gemini/settings.json';
+    const both = { ...data, paths: { ...data.paths, gemini: geminiPath }, unmanaged: [...data.unmanaged, { target: 'gemini', path: geminiPath, names: ['cleanup'] }] } as unknown as HookInventory;
+    const cleanup: HookCandidate = { name: 'cleanup', problems: [], warnings: [], editable: true, entry: { bindings: { gemini: { events: { SessionEnd: [{ hooks: [{ type: 'command', command: './cleanup.sh' }] }] } } } } };
+    let written = false;
+    vi.mocked(hooksApi.catalog).mockResolvedValue(catalog);
+    vi.mocked(hooksApi.import).mockImplementation(async ({ from }) => (from === 'gemini' ? [cleanup] : written ? [] : [editable('notify', './notify.sh')]));
+    vi.mocked(hooksApi.previewNative).mockResolvedValue(nativePlan);
+    vi.mocked(hooksApi.applyNative).mockImplementation(async () => {
+      written = true;
+      throw new ApiError(409, 'permission denied; already applied: /home/u/.claude/settings.json; backup IDs: b1', { params: { applied: ['/home/u/.claude/settings.json'] } });
+    });
+    wrap(<HooksImportDialog data={both} onClose={vi.fn()} onChanged={vi.fn()} onImported={vi.fn()} />);
+    await user.click(await screen.findByRole('button', { name: 'Remove notify from the target' }));
+    await user.click(screen.getByRole('button', { name: /Gemini/ }));
+    await user.click(await screen.findByRole('button', { name: 'Remove cleanup from the target' }));
+    await user.click(screen.getByRole('button', { name: 'Review changes' }));
+    await user.click(await screen.findByRole('button', { name: 'Apply changes' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('permission denied');
+    await user.click(await screen.findByRole('button', { name: 'Review changes' }));
+    await waitFor(() => expect(hooksApi.previewNative).toHaveBeenLastCalledWith([{ target: 'gemini', before: cleanup.entry.bindings.gemini.events }]));
   });
 });
 

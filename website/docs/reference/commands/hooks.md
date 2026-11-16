@@ -44,6 +44,15 @@ Agent event or file; choose one name to save. Saving an import takes over the
 registrations it read in place: the next sync adopts them without `--replace`,
 and events you did not import stay unmanaged. Import only reads configuration or
 code and never runs it.
+
+The dashboard's import dialog can also edit or remove a hook in its Agent's
+settings file without importing it. This works for Agents that keep hooks as
+events in one settings file (Claude, Codex, Gemini, Cursor, Qwen, and Droid's
+`hooks.json`); hooks
+that are a whole file or a named block must be imported first. The dialog shows
+the file diff before anything is written and backs the file up; the hook stays
+unmanaged.
+
 Add, edit, import, enable, disable and remove save source only unless `--sync`
 is supplied. Sync and restore always preview again before applying.
 `sync hooks` is the resource-only alias; `sync --all` includes hooks and checks

@@ -406,6 +406,7 @@ func (s *Service) importShared(target string, req ImportRequest, state ledger) (
 			c.Warnings = warnings
 		case req.Content == "":
 			c.Warnings = []string{adoptWarning}
+			c.Editable = nativeEditable(target)
 		}
 		if target == "antigravity" {
 			c = antigravityCandidate(event, items[0].(map[string]any), c.Warnings)

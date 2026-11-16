@@ -30,7 +30,7 @@ skillshare hooks restore BACKUP_ID --dry-run
 skillshare hooks restore BACKUP_ID
 ```
 
-沒有子指令時列出 entries。`add`／`edit` 從 `--file` 讀取 Entry JSON 或 YAML；匯入不指定名稱時列出候選項目（每個 Agent event 或檔案各一項），指定名稱才儲存。儲存匯入即原地接管讀到的註冊：下次同步直接 adopt，不需 `--replace`；沒匯入的 event 維持不受管理。匯入只讀取設定或程式碼，不會執行。新增、編輯、匯入、啟用、停用與移除預設只儲存來源，加入 `--sync` 才同步。同步與還原會重新預覽。
+沒有子指令時列出 entries。`add`／`edit` 從 `--file` 讀取 Entry JSON 或 YAML；匯入不指定名稱時列出候選項目（每個 Agent event 或檔案各一項），指定名稱才儲存。儲存匯入即原地接管讀到的註冊：下次同步直接 adopt，不需 `--replace`；沒匯入的 event 維持不受管理。匯入只讀取設定或程式碼，不會執行。新增、編輯、匯入、啟用、停用與移除預設只儲存來源，加入 `--sync` 才同步。同步與還原會重新預覽。Dashboard 的匯入對話框也能直接修改或移除 Agent 設定檔裡還沒匯入的 hook（限以 event 存在同一個設定檔的 Agent：Claude、Codex、Gemini、Cursor、Qwen，以及 Droid 的 `hooks.json`；整個檔案或具名區塊的 hook 要先匯入）。寫入前會顯示檔案差異並備份，該 hook 維持不受管理。
 
 | Option | Meaning |
 |---|---|
