@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, type DiffTarget, type Target } from '../../api/client';
 import { hooksApi, type HookPlan } from '../../api/hooks';
 import { mcpApi, type MCPPlan } from '../../api/mcp';
-import { changeSets, countChanges, countEdited, discardable, extraGroups, failureExplanation, groupByFolder, groupInSync, HOOKS_CHANGED, hooksGroups, MCP_CHANGED, mcpGroups, otherWarnings, pendingCount, resourceGroups, runSync, skippedHintKeys, type SyncFailure } from './syncView';
+import { changeSets, countChanges, countEdited, discardable, extraGroups, failureExplanation, groupByFolder, groupInSync, HOOKS_CHANGED, hooksGroups, MCP_CHANGED, mcpGroups, otherWarnings, pendingCount, receivesSkill, resourceGroups, runSync, skippedHintKeys, type SyncFailure } from './syncView';
 
 vi.mock('../../api/client', async (load) => ({ ...await load<typeof import('../../api/client')>(), api: { sync: vi.fn(), syncExtras: vi.fn() } }));
 vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { preview: vi.fn(), configure: vi.fn() } }));
@@ -316,5 +316,15 @@ describe('skippedHintKeys', () => {
     [{ skippedCount: 5, collisionCount: 1, namingSkippedCount: 1, items: [{ skill: '(skill selection)', action: 'skip' }] }, ['sync.skipped.hintMixed', 'sync.skipped.hintSelection']],
   ])('explains %o with %s', (counts, key) => {
     expect(skippedHintKeys({ target: 'codex', items: [], ...counts })).toEqual(key);
+  });
+});
+
+// The matrix reports both as 'na'; only a symlinked folder carries the skill (issue #925).
+describe('receivesSkill', () => {
+  it.each([
+    ['symlink mode — filters not applicable', 'sync_matrix.symlink_filters_not_applicable', true],
+    ['skills off for this target', undefined, false],
+  ])('reads %s as %s → %s', (reason, reasonCode, expected) => {
+    expect(receivesSkill({ skill: 'pdf', target: 'copilot', status: 'na', reason, reasonCode })).toBe(expected);
   });
 });
