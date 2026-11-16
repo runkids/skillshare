@@ -108,7 +108,7 @@ type SARIFOptions struct {
 // It deduplicates rules by ID, records their maximum severity, and maps each
 // Finding to a sarifResult with the correct ruleIndex.
 func ToSARIF(results []*Result, opts SARIFOptions) *sarifLog {
-	ruleIndex := map[string]int{} // pattern → index in rules slice
+	ruleIndex := map[string]int{} // ruleID → index in rules slice
 	var rules []sarifReportingDesc
 	var sarifResults []sarifResult
 	var coverage []map[string]any
