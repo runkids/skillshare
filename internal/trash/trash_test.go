@@ -450,3 +450,30 @@ func TestParseTrashName(t *testing.T) {
 		}
 	}
 }
+
+// A folder init replaced with a link came from a tool. Restoring it would
+// plant it in the source as a new nested skill, so restore refuses it.
+func TestRestore_RefusesFolderReplacedByInit(t *testing.T) {
+	base := t.TempDir()
+	copyDir := filepath.Join(t.TempDir(), "alpha")
+	if err := os.MkdirAll(copyDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := MoveToTrash(copyDir, "alpha", filepath.Join(base, ReplacedByInitDir, "claude")); err != nil {
+		t.Fatal(err)
+	}
+	entry := FindByName(base, ReplacedByInitDir+"/claude/alpha")
+	if entry == nil {
+		t.Fatalf("entry not listed: %+v", List(base))
+	}
+	source := t.TempDir()
+
+	err := Restore(entry, source)
+
+	if err == nil || !strings.Contains(err.Error(), entry.Path) {
+		t.Fatalf("want a refusal naming the trash copy, got %v", err)
+	}
+	if left, _ := os.ReadDir(source); len(left) != 0 {
+		t.Errorf("restore wrote into the source: %v", left)
+	}
+}

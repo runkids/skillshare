@@ -55,6 +55,7 @@ skills/                         ~/.claude/skills/
 - Granular control
 - Per-target include/exclude filtering
 - Manifest-based orphan cleanup (safely removes non-symlink residue after uninstall)
+- Links that other tools put in the target are left alone: a same-name link that points outside the source and is not in the manifest is kept and reported as local (`sync --force` replaces it). Copy mode keeps such a link too
 
 :::info Relative symlinks in project mode
 In project mode (`-p`), symlinks are created as **relative paths** (e.g., `../../.skillshare/skills/my-skill`) instead of absolute paths. This makes the project portable — move or rename the directory and symlinks continue to work. In global mode, absolute paths are used since source and targets are in different locations.
@@ -306,7 +307,8 @@ In both merge and copy modes, `sync` automatically prunes orphans:
 
 - **Symlinks** pointing to deleted source skills are always removed
 - **Real directories** are removed if they appear in `.skillshare-manifest.json` (previously managed by skillshare)
-- **Unknown directories** not in the manifest are preserved with a warning (assumed to be user-created)
+- **Unknown directories** not in the manifest are preserved with a warning (assumed to be user-created). This includes folders whose names only look like skillshare's (`_repo`, `group__skill`); `sync --force` removes those
+- **Broken links pointing outside the source** are removed only when the manifest records them (for example, after the source moved); a broken link that another tool or you made is kept with a warning
 
 This means that after `uninstall` + `sync`, even non-symlink residue (e.g., directories left from a previous `copy` mode) is safely cleaned up.
 

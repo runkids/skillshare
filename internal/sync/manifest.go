@@ -79,6 +79,28 @@ func (m *Manifest) OwnsCopy(name, dir string) bool {
 	return err == nil && sum == recorded
 }
 
+// ForeignLinkReason is the diff reason for a same-name link that sync keeps
+// because skillshare did not create it.
+const ForeignLinkReason = "link from another tool (sync --force to replace)"
+
+// OwnsLink reports whether the link at path under name is skillshare's to
+// re-point or remove: the manifest records a link there, or it points into the
+// source. A link that another tool or the user made under the same name is
+// neither, also where the manifest records a copy the link has since replaced.
+func (m *Manifest) OwnsLink(name, path, sourcePath string) bool {
+	if m != nil && m.Managed[name] == manifestSymlink {
+		return true
+	}
+	return LinksIntoSource(path, sourcePath)
+}
+
+// LinksIntoSource reports whether the link at path points at the skills source
+// or inside it, however either path is spelled.
+func LinksIntoSource(path, sourcePath string) bool {
+	absSource, err := filepath.Abs(sourcePath)
+	return err == nil && linksIntoSource(path, absSource)
+}
+
 // SkipsHidden reports whether a target scan should skip name. Hidden entries
 // are skipped unless the manifest records them as managed (e.g. a source skill
 // under ".system/" synced as ".system__example").

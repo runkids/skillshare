@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"skillshare/internal/sync"
 )
 
 func TestDiffSkillFiles_IdenticalDirs(t *testing.T) {
@@ -148,5 +150,33 @@ func writeTestFile(t *testing.T, dir, relPath, content string) {
 	}
 	if err := os.WriteFile(full, []byte(content), 0644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Sync keeps another tool's link on a skill's name, so diff lists it as a
+// local override instead of reporting the target in sync or a skill to add.
+func TestDiffListsLinkFromAnotherToolAsOverride(t *testing.T) {
+	source, target := t.TempDir(), t.TempDir()
+	skill := filepath.Join(source, "alpha")
+	if err := os.MkdirAll(skill, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Broken, so a check that follows the link would see nothing there.
+	if err := os.Symlink(filepath.Join(t.TempDir(), "gone"), filepath.Join(target, "alpha")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	resolved := []sync.ResolvedTargetSkill{{Skill: sync.DiscoveredSkill{SourcePath: skill, FlatName: "alpha"}, TargetName: "alpha"}}
+	names := map[string]bool{"alpha": true}
+	manifest, _ := sync.ReadManifest(target)
+
+	var merge, copyMode targetDiffResult
+	collectMergeDiff(&merge, target, source, names, map[string]string{"alpha": skill}, nil)
+	collectCopyDiff(&copyMode, "claude", target, source, resolved, "flat", names, nil, manifest, nil, nil)
+
+	for mode, r := range map[string]targetDiffResult{"merge": merge, "copy": copyMode} {
+		cats := categorizeItems(r.items)
+		if len(cats) != 1 || cats[0].kind != "override" {
+			t.Errorf("%s: want one local override, got items %+v", mode, r.items)
+		}
 	}
 }

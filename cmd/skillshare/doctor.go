@@ -1175,8 +1175,10 @@ func checkSkillTargetsField(result *doctorResult, discovered []sync.DiscoveredSk
 // checkBrokenSymlinks finds broken symlinks in targets. Links to skills behind
 // a source link whose target is away (an unmounted drive) are expected to be
 // broken and are kept by sync, so they are reported as waiting, not as errors.
+// So are broken links skillshare did not create: sync keeps those too, and only
+// the user can say whether they should go.
 func checkBrokenSymlinks(cfg *config.Config, follow *sourcewalk.Follow, result *doctorResult) {
-	var allBroken, allWaiting []string
+	var allBroken, allWaiting, allForeign []string
 	unavailable := follow.Unavailable()
 	names := targetNamesFromConfig(cfg.Targets)
 	sort.Strings(names)
@@ -1186,12 +1188,16 @@ func checkBrokenSymlinks(cfg *config.Config, follow *sourcewalk.Follow, result *
 		if !target.SkillsConfig().IsEnabled() {
 			continue
 		}
-		var broken, waiting []string
+		var broken, waiting, foreign []string
+		manifest, _ := sync.ReadManifest(target.SkillsConfig().Path)
 		for _, b := range findBrokenSymlinks(target.SkillsConfig().Path) {
-			if behindUnavailableLink(filepath.Join(target.SkillsConfig().Path, b), cfg.EffectiveSkillsSource(), unavailable) {
+			link := filepath.Join(target.SkillsConfig().Path, b)
+			if behindUnavailableLink(link, cfg.EffectiveSkillsSource(), unavailable) {
 				waiting = append(waiting, b)
-			} else {
+			} else if manifest.OwnsLink(b, link, cfg.EffectiveSkillsSource()) {
 				broken = append(broken, b)
+			} else {
+				foreign = append(foreign, b)
 			}
 		}
 		if len(broken) > 0 {
@@ -1209,14 +1215,27 @@ func checkBrokenSymlinks(cfg *config.Config, follow *sourcewalk.Follow, result *
 				allWaiting = append(allWaiting, fmt.Sprintf("%s/%s", name, b))
 			}
 		}
+		if len(foreign) > 0 {
+			ui.Row(ui.MarkWarn, name, plural(len(foreign), "broken link")+" skillshare did not create, kept: "+strings.Join(foreign, ", ")+" (delete by hand if stale)", width)
+			result.addWarning()
+			for _, b := range foreign {
+				allForeign = append(allForeign, fmt.Sprintf("%s/%s", name, b))
+			}
+		}
 	}
 	switch {
 	case len(allBroken) > 0:
 		result.addCheck("broken_symlinks", checkError,
-			fmt.Sprintf("%d broken symlink(s) found", len(allBroken)), allBroken)
-	case len(allWaiting) > 0:
-		result.addCheck("broken_symlinks", checkWarning,
-			fmt.Sprintf("%d link(s) behind an unavailable source link", len(allWaiting)), allWaiting)
+			fmt.Sprintf("%d broken symlink(s) found", len(allBroken)), append(allBroken, allForeign...))
+	case len(allWaiting)+len(allForeign) > 0:
+		var parts []string
+		if len(allWaiting) > 0 {
+			parts = append(parts, fmt.Sprintf("%d link(s) behind an unavailable source link", len(allWaiting)))
+		}
+		if len(allForeign) > 0 {
+			parts = append(parts, fmt.Sprintf("%d broken link(s) skillshare did not create", len(allForeign)))
+		}
+		result.addCheck("broken_symlinks", checkWarning, strings.Join(parts, ", "), append(allWaiting, allForeign...))
 	default:
 		result.addCheck("broken_symlinks", checkPass, "No broken symlinks", nil)
 	}

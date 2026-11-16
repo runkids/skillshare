@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -153,5 +154,75 @@ func TestHandleDiff_AgentExtensionOutputsAreNotPending(t *testing.T) {
 	}
 	if strings.Contains(rr.Body.String(), "reviewer") {
 		t.Fatalf("converted agent should not be pending: %s", rr.Body.String())
+	}
+}
+
+// Sync keeps a same-name link from another tool, broken or not, and a folder
+// that is only named like skillshare's, so the diff must not predict an update,
+// a new copy or a prune.
+func TestComputeTargetDiff_KeepsEntriesSkillshareDidNotCreate(t *testing.T) {
+	for _, mode := range []string{"merge", "copy"} {
+		t.Run(mode, func(t *testing.T) {
+			source, target, other := t.TempDir(), t.TempDir(), t.TempDir()
+			for _, dir := range []string{filepath.Join(source, "alpha"), filepath.Join(source, "beta"), filepath.Join(other, "alpha"), filepath.Join(target, "team__shared")} {
+				if err := os.MkdirAll(dir, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: "+filepath.Base(dir)+"\n---\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := os.Symlink(filepath.Join(other, "alpha"), filepath.Join(target, "alpha")); err != nil {
+				t.Skipf("symlinks unavailable: %v", err)
+			}
+			if err := os.Symlink(filepath.Join(other, "gone"), filepath.Join(target, "beta")); err != nil {
+				t.Fatal(err)
+			}
+			discovered, err := sync.DiscoverSourceSkills(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			dt := (&Server{}).computeTargetDiff("claude", config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: target, Mode: mode}}, discovered, "merge", source, nil)
+
+			got := map[string]string{}
+			for _, item := range dt.Items {
+				got[item.Skill] = item.Action + ": " + item.Reason
+			}
+			want := map[string]string{"alpha": "skip: " + sync.ForeignLinkReason, "beta": "skip: " + sync.ForeignLinkReason}
+			if mode == "merge" { // the copy-mode diff lists only what sync changes or keeps
+				want["team__shared"] = "local: local only"
+			}
+			if !maps.Equal(got, want) {
+				t.Fatalf("items = %v, want %v", got, want)
+			}
+		})
+	}
+}
+
+// After the source moves and the old checkout stays, a link sync made earlier
+// is recorded but still resolves outside the source. Prune keeps a live
+// external link, so the diff must not count it as a removal.
+func TestComputeTargetDiff_KeepsRecordedLinkThatStillResolvesElsewhere(t *testing.T) {
+	source, target, oldSource := t.TempDir(), t.TempDir(), t.TempDir()
+	for _, name := range []string{"live", "gone"} {
+		if err := os.MkdirAll(filepath.Join(oldSource, name), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(filepath.Join(oldSource, name), filepath.Join(target, name)); err != nil {
+			t.Skipf("symlinks unavailable: %v", err)
+		}
+	}
+	if err := os.RemoveAll(filepath.Join(oldSource, "gone")); err != nil {
+		t.Fatal(err)
+	}
+	if err := sync.WriteManifest(target, &sync.Manifest{Managed: map[string]string{"live": "symlink", "gone": "symlink"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	dt := (&Server{}).computeTargetDiff("claude", config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: target, Mode: "merge"}}, nil, "merge", source, nil)
+
+	if len(dt.Items) != 1 || dt.Items[0].Skill != "gone" || dt.Items[0].Action != "prune" {
+		t.Fatalf("items = %+v, want only the broken link pruned", dt.Items)
 	}
 }

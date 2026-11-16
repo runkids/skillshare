@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"skillshare/internal/config"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
 
@@ -126,7 +127,9 @@ func DetachSkills(targets map[string]config.TargetConfig, name, sourcePath strin
 }
 
 // linksIntoSource reports whether the link at path points at the source or
-// inside it, comparing canonical paths so an aliased source still matches.
+// inside it, comparing canonical paths so an aliased source still matches. A
+// broken link is compared by where it would be: its missing tail is kept below
+// the nearest folder that exists.
 func linksIntoSource(path, absSource string) bool {
 	dest, err := utils.ResolveLinkTarget(path)
 	if err != nil {
@@ -138,5 +141,5 @@ func linksIntoSource(path, absSource string) bool {
 	if within(dest, absSource) {
 		return true
 	}
-	return within(utils.ResolveSymlink(dest), utils.ResolveSymlink(absSource))
+	return within(sourcewalk.Canonical(dest), sourcewalk.Canonical(absSource))
 }

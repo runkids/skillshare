@@ -412,14 +412,13 @@ func performFreshInit(opts *initOptions, home string) (*initResult, error) {
 			}
 		}
 		if doSync {
-			_, kept, syncErr := firstSync(res.cfg)
+			_, warnings, syncErr := firstSync(res.cfg)
 			synced = syncErr == nil
 			if syncErr != nil {
 				ui.Warning("%v", syncErr)
 			}
-			if len(kept) > 0 {
-				ui.Warning("Kept local copies that differ from the source: %s", strings.Join(kept, ", "))
-				ui.Note("Replace them with links: skillshare sync --force")
+			for _, w := range warnings {
+				ui.Warning("%s", w)
 			}
 		}
 	}

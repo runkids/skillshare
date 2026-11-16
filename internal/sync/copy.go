@@ -18,7 +18,7 @@ import (
 type CopyResult struct {
 	Copied     []string // newly copied skills
 	Skipped    []string // checksum unchanged, or a user's folder kept
-	KeptLocal  []string // the Skipped that are a user's folder on a skill's name; --force replaces them
+	KeptLocal  []string // the Skipped that are a user's folder, or a link skillshare did not create, on a skill's name; --force replaces them
 	Updated    []string // checksum changed, overwritten
 	DirCreated string   // Non-empty if target directory was auto-created (or would be in dry-run)
 	// UnmatchedIncludes are the include patterns that select no skill.
@@ -150,8 +150,14 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 		exists := lstatErr == nil
 
 		if exists {
-			// If it's a symlink (leftover from merge mode), remove it
+			// A link left from merge mode is replaced with a copy. A same-name link
+			// from another tool is kept, like a local copy, unless --force.
 			if utils.IsSymlinkOrJunction(targetSkillPath) {
+				if !force && !manifest.OwnsLink(activeName, targetSkillPath, sourcePath) {
+					result.Skipped = append(result.Skipped, activeName)
+					result.KeptLocal = append(result.KeptLocal, activeName)
+					continue
+				}
 				if dryRun {
 					if !quietDryRun {
 						fmt.Fprintf(DiagOutput, "[dry-run] Would replace symlink with copy: %s\n", activeName)

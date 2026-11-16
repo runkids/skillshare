@@ -248,7 +248,8 @@ func printListed(header string, lines []string) {
 }
 
 // keptLocalWarning tells which target entries sync left alone because a folder
-// the user made already holds the name of a source skill. Like the skipped
+// the user made, or a link skillshare did not create, already holds the name
+// of a source skill. Like the skipped
 // list, it names only the first few.
 func keptLocalWarning(names []string) string {
 	msg := "kept local: " + strings.Join(names[:min(len(names), maxListed)], ", ")
