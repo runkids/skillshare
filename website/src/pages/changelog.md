@@ -9,6 +9,26 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.30.9] - 2026-11-16
+
+
+### New Features
+
+* **hooks:** browse, edit and remove unmanaged hooks in the import dialog ([#920](https://github.com/runkids/skillshare/issues/920)) ([0dc2018](https://github.com/runkids/skillshare/commit/0dc2018747844aa1a44b9a9c2ff697c7e82d263d))
+
+
+### Bug Fixes
+
+* **audit:** match only uppercase role labels in source files ([#923](https://github.com/runkids/skillshare/issues/923)) ([94cf438](https://github.com/runkids/skillshare/commit/94cf438066af75d13408face1c02b1480511705b)), closes [#921](https://github.com/runkids/skillshare/issues/921)
+* **audit:** report maximum SARIF descriptor severity ([#916](https://github.com/runkids/skillshare/issues/916)) ([22fdb28](https://github.com/runkids/skillshare/commit/22fdb28de0e3ffd07e0c92e388897eeca5c647a9))
+* **cli:** describe Git and CLI commands in root help ([d8bac85](https://github.com/runkids/skillshare/commit/d8bac85fac74ba6b8a9da776fd50cfe09563f06c))
+* **herdr:** run the panel on Windows through Git for Windows' sh ([#924](https://github.com/runkids/skillshare/issues/924)) ([313ffde](https://github.com/runkids/skillshare/commit/313ffdeea0b53387c43fdf479f6a0ec18a59cef2)), closes [#922](https://github.com/runkids/skillshare/issues/922)
+* **mcp:** stop conflict resolution looping between Agents ([#919](https://github.com/runkids/skillshare/issues/919)) ([5a6873e](https://github.com/runkids/skillshare/commit/5a6873ec967477c5d4b6a3045de8074ec1e54e09))
+* **opencode:** preserve v2 hook and plugin directory packages ([#915](https://github.com/runkids/skillshare/issues/915)) ([43059a1](https://github.com/runkids/skillshare/commit/43059a1428fcf06e028324a4ed609e53202e4b35))
+* **ui:** count symlink-mode targets in the Skills list ([#928](https://github.com/runkids/skillshare/issues/928)) ([9ac2861](https://github.com/runkids/skillshare/commit/9ac28615db9cdf9f63c8b09bd2e82ce6dae3f378)), closes [#925](https://github.com/runkids/skillshare/issues/925)
+* **ui:** say the target limit was removed in the Skills toasts ([#929](https://github.com/runkids/skillshare/issues/929)) ([4d50226](https://github.com/runkids/skillshare/commit/4d502267d065bb030a8f65124ccf7cf15eb0ee23))
+* **ui:** show a target with skills off as off on the skill page ([#927](https://github.com/runkids/skillshare/issues/927)) ([06b72eb](https://github.com/runkids/skillshare/commit/06b72eb5b03a678fca702833c64df581aeed022d))
+
 ## [0.30.8] - 2026-11-15
 
 ### New Features
