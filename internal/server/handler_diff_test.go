@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -153,5 +154,37 @@ func TestHandleDiff_AgentExtensionOutputsAreNotPending(t *testing.T) {
 	}
 	if strings.Contains(rr.Body.String(), "reviewer") {
 		t.Fatalf("converted agent should not be pending: %s", rr.Body.String())
+	}
+}
+
+// Sync keeps a same-name link from another tool and a folder that is only
+// named like skillshare's, so the diff must not predict an update or a prune.
+func TestComputeTargetDiff_KeepsEntriesSkillshareDidNotCreate(t *testing.T) {
+	source, target, other := t.TempDir(), t.TempDir(), t.TempDir()
+	for _, dir := range []string{filepath.Join(source, "alpha"), filepath.Join(other, "alpha"), filepath.Join(target, "team__shared")} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: alpha\n---\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(filepath.Join(other, "alpha"), filepath.Join(target, "alpha")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	discovered, err := sync.DiscoverSourceSkills(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dt := (&Server{}).computeTargetDiff("claude", config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: target, Mode: "merge"}}, discovered, "merge", source, nil)
+
+	got := map[string]string{}
+	for _, item := range dt.Items {
+		got[item.Skill] = item.Action + ": " + item.Reason
+	}
+	want := map[string]string{"alpha": "skip: " + sync.ForeignLinkReason, "team__shared": "local: local only"}
+	if !maps.Equal(got, want) {
+		t.Fatalf("items = %v, want %v", got, want)
 	}
 }

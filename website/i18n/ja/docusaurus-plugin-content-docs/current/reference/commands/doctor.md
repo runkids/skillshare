@@ -304,6 +304,8 @@ skillshare sync  # 孤立したシンボリックリンクを削除します
 
 代わりに行に `behind an unavailable source link, kept until it is back` と表示される場合、その Skill はリンク先が利用できない[たどられた source リンク](../targets/configuration.md#follow_source_links)の背後にあります。prune するものはありません。ドライブをマウントするかチェックアウトを復元して、`skillshare sync` を実行してください。
 
+行に `broken link skillshare did not create, kept` と表示される場合、そのリンクは source の外を指していてマニフェストに記録がないため、他のツールかユーザー自身が作ったものです。`sync` はこれを残し、`doctor --json` の `broken_symlinks` チェックは `error` ではなく `warning` になります。不要なリンクであれば自分で削除してください。
+
 ### "Skills without SKILL.md"
 
 必須ファイルがない Skill フォルダです。

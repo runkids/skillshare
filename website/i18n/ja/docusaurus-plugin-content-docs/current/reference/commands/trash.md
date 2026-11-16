@@ -90,6 +90,8 @@ Next
 
 agent の場合、復元時のヒントには代わりに `skillshare sync agents` が提案されます。
 
+`replaced-by-init/<tool>/` 以下のフォルダは例外です。[`init`](./init.md) がツール側のフォルダをリンクに置き換えたときに移したもので、source には同じ Skill がすでにあるため、`restore` では復元できません。必要な場合は trash のフォルダから手動でコピーしてください。
+
 復元では、インストール時に記録された情報も元に戻ります。GitHub などのリモートからインストールした skill、tracked repo、agent はソースを保持したままなので、`update` と `check` も引き続き使えます。古いバージョンで trash に移動された項目は local として復元されます。
 
 trash に移動された [source リンク](../targets/configuration.md#follow_source_links)は `link → <target>` として一覧表示され、リンク先のコピーとしてではなく、再びリンク（またはジャンクション）として復元されます。たどられたリンクの背後から trash に移動された skill（`_dev-skills/foo`）は、`follow_source_links` がオンであれば実際のチェックアウトに復元されます。設定がオフの場合、またはチェックアウトの下にネストされたリンクが別の場所を指している場合、復元は失敗し、trash のエントリは保持されます。

@@ -150,3 +150,23 @@ func writeTestFile(t *testing.T, dir, relPath, content string) {
 		t.Fatal(err)
 	}
 }
+
+// Sync keeps another tool's link on a skill's name, so diff lists it as a
+// local override instead of reporting the target in sync.
+func TestCollectMergeDiffListsLinkFromAnotherToolAsOverride(t *testing.T) {
+	source, target, other := t.TempDir(), t.TempDir(), t.TempDir()
+	if err := os.MkdirAll(filepath.Join(source, "alpha"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(other, filepath.Join(target, "alpha")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	var r targetDiffResult
+
+	collectMergeDiff(&r, target, source, map[string]bool{"alpha": true}, map[string]string{"alpha": filepath.Join(source, "alpha")}, nil)
+
+	cats := categorizeItems(r.items)
+	if len(cats) != 1 || cats[0].kind != "override" {
+		t.Fatalf("want one local override, got items %+v", r.items)
+	}
+}

@@ -412,13 +412,18 @@ func performFreshInit(opts *initOptions, home string) (*initResult, error) {
 			}
 		}
 		if doSync {
-			_, kept, syncErr := firstSync(res.cfg)
+			_, kept, notTrashed, syncErr := firstSync(res.cfg)
 			synced = syncErr == nil
 			if syncErr != nil {
 				ui.Warning("%v", syncErr)
 			}
 			if len(kept) > 0 {
 				ui.Warning("Kept local copies that differ from the source: %s", strings.Join(kept, ", "))
+			}
+			for _, failure := range notTrashed {
+				ui.Warning("Kept a local copy that matches the source, because it could not be moved to the trash: %s", failure)
+			}
+			if len(kept)+len(notTrashed) > 0 {
 				ui.Note("Replace them with links: skillshare sync --force")
 			}
 		}

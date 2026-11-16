@@ -55,7 +55,7 @@ skills/                         ~/.claude/skills/
 - Granular control
 - Per-target include/exclude filtering
 - Manifest-based orphan cleanup (safely removes non-symlink residue after uninstall)
-- Links that other tools put in the target are left alone: a same-name link that points outside the source and is not in the manifest is kept and reported as local (`sync --force` replaces it)
+- Links that other tools put in the target are left alone: a same-name link that points outside the source and is not in the manifest is kept and reported as local (`sync --force` replaces it). Copy mode keeps such a link too
 
 :::info Relative symlinks in project mode
 In project mode (`-p`), symlinks are created as **relative paths** (e.g., `../../.skillshare/skills/my-skill`) instead of absolute paths. This makes the project portable — move or rename the directory and symlinks continue to work. In global mode, absolute paths are used since source and targets are in different locations.

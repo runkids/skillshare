@@ -483,7 +483,7 @@ func copyFile(src, dst string) error {
 // MergeResult holds the result of a merge sync operation
 type MergeResult struct {
 	Linked     []string // Skills that were symlinked
-	Skipped    []string // Skills that already exist in target (kept local)
+	Skipped    []string // Skills whose name a local folder or another tool's link holds (kept local)
 	Updated    []string // Skills that had broken symlinks fixed
 	DirCreated string   // Non-empty if target directory was auto-created (or would be in dry-run)
 	// UnmatchedIncludes are the include patterns that select no skill.
@@ -609,7 +609,6 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 		return nil, fmt.Errorf("failed to read manifest: %w", err)
 	}
 
-	absSourceRoot, _ := filepath.Abs(sourcePath)
 	taken := resolution.ValidTargetNames()
 	for _, resolved := range resolution.Skills {
 		skill := resolved.Skill
@@ -648,12 +647,9 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 					continue
 				}
 
-				// Symlink points elsewhere - broken or wrong.
-				// Re-point it only if skillshare made it (manifest) or it already points
-				// into the source. A same-name link from another tool is kept, like a
-				// local copy, unless --force.
-				if _, ownLink := manifest.Managed[activeName]; !ownLink && !force &&
-					!utils.PathHasPrefix(absLink, absSourceRoot+string(filepath.Separator)) {
+				// Symlink points elsewhere - broken or wrong. A same-name link from
+				// another tool is kept, like a local copy, unless --force.
+				if !force && !manifest.OwnsLink(activeName, targetSkillPath, sourcePath) {
 					result.Skipped = append(result.Skipped, activeName)
 					continue
 				}
@@ -771,9 +767,9 @@ type PruneOptions struct {
 	DryRun        bool
 	Force         bool
 	// ManagedOnly removes only entries that are provably skillshare's: broken
-	// links into the source and manifest-tracked links and directories. The name heuristic and
-	// broken-external-link cleanup are skipped. For directories that are not a
-	// configured target's own path.
+	// links into the source and manifest-tracked links and directories. The name
+	// heuristic is skipped. For directories that are not a configured target's
+	// own path.
 	ManagedOnly bool
 }
 
@@ -871,6 +867,7 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 		// Entry is orphan - determine if we should remove it
 		shouldRemove := false
 		reason := ""
+		_, inManifest := manifest.Managed[name]
 
 		if utils.IsSymlinkOrJunction(entryPath) {
 			absLink, err := utils.ResolveLinkTarget(entryPath)
@@ -885,11 +882,11 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 				targetExists = true
 			}
 
-			if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) {
+			if linksIntoSource(entryPath, absSource) {
 				if !targetExists {
 					shouldRemove = true
 					reason = "broken symlink to source"
-				} else if _, inManifest := manifest.Managed[name]; inManifest || force {
+				} else if inManifest || force {
 					shouldRemove = true
 					reason = "orphan symlink to source"
 				} else {
@@ -902,7 +899,7 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 				// External symlink whose target no longer exists (e.g. after data migration).
 				// Remove it only if skillshare made it: a broken link another tool or the
 				// user made is theirs to clean up.
-				if _, inManifest := manifest.Managed[name]; inManifest || force {
+				if inManifest || force {
 					shouldRemove = true
 					reason = "broken external symlink"
 				} else {
@@ -920,7 +917,7 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 			}
 		} else if info.IsDir() {
 			// Check manifest first (most reliable)
-			if _, inManifest := manifest.Managed[name]; inManifest {
+			if inManifest {
 				shouldRemove = true
 				reason = "orphan skillshare-managed directory (manifest)"
 			} else if naming == "flat" && !opts.ManagedOnly && (utils.HasNestedSeparator(name) || utils.IsTrackedRepoDir(name)) {
@@ -953,7 +950,7 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 			}
 			result.Removed = append(result.Removed, name)
 			// Track manifest changes for cleanup
-			if _, inManifest := manifest.Managed[name]; inManifest {
+			if inManifest {
 				manifest.Remove(name)
 				manifestChanged = true
 			}

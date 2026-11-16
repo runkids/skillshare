@@ -263,16 +263,16 @@ func printInitDone(p *initPlan, res *initResult) {
 // firstSync replaces target copies identical to the source with links, then
 // syncs skills (and agents, if any) quietly. It returns the folders left as
 // they were because they differ from the source.
-func firstSync(cfg *config.Config) (skills int, kept []string, err error) {
+func firstSync(cfg *config.Config) (skills int, kept, notTrashed []string, err error) {
 	cfg.Targets = config.WithSharedSkillsTargets(cfg.Targets, cfg.Mode)
 	start := time.Now()
 	spinner := ui.StartSpinner("Syncing…")
 	discovered, err := ssync.DiscoverSourceSkills(cfg.EffectiveSkillsSource(), cfg.SkillsWalk())
 	if err != nil {
 		spinner.Fail("Sync failed")
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
-	kept = replaceIdenticalCopies(cfg, discovered)
+	kept, notTrashed = replaceIdenticalCopies(cfg, discovered)
 
 	var entries []syncTargetEntry
 	for name, target := range cfg.Targets {
@@ -288,14 +288,15 @@ func firstSync(cfg *config.Config) (skills int, kept []string, err error) {
 	}
 	counts := ssync.CountSkills(discovered)
 	ui.Answered("Synced", fmt.Sprintf("%s to %s", sourceSkillCountText(counts.Skills, counts.Variants), plural(len(cfg.Targets), "tool"))+ui.Took(time.Since(start)))
-	return counts.Skills, kept, err
+	return counts.Skills, kept, notTrashed, err
 }
 
-// replaceIdenticalCopies removes real skill folders in merge-mode targets
-// whose content matches the source byte for byte, so sync can link them.
-// Folders that differ are kept and returned as "tool/name".
-func replaceIdenticalCopies(cfg *config.Config, skills []ssync.DiscoveredSkill) []string {
-	var kept []string
+// replaceIdenticalCopies moves real skill folders in merge-mode targets whose
+// content matches the source byte for byte to the trash, so sync can link them.
+// Folders that differ are kept and returned as "tool/name". notTrashed holds
+// "tool/name: error" for identical folders the trash could not take; sync
+// keeps those as local copies.
+func replaceIdenticalCopies(cfg *config.Config, skills []ssync.DiscoveredSkill) (kept, notTrashed []string) {
 	for name, target := range cfg.Targets {
 		sc := target.SkillsConfig()
 		if getTargetMode(sc.Mode, cfg.Mode) != "merge" {
@@ -309,16 +310,16 @@ func replaceIdenticalCopies(cfg *config.Config, skills []ssync.DiscoveredSkill) 
 			}
 			if sameTree(s.SourcePath, dst) {
 				// Move the copy to the trash rather than deleting it, so it can be
-				// recovered. Sync reports a folder it still can't link.
-				if _, err := trash.MoveToTrash(dst, s.FlatName, filepath.Join(trash.TrashDir(), "replaced-by-init", name)); err != nil {
-					kept = append(kept, name+"/"+s.FlatName)
+				// copied back by hand.
+				if _, err := trash.MoveToTrash(dst, s.FlatName, filepath.Join(trash.TrashDir(), trash.ReplacedByInitDir, name)); err != nil {
+					notTrashed = append(notTrashed, fmt.Sprintf("%s/%s: %v", name, s.FlatName, err))
 				}
 			} else {
 				kept = append(kept, name+"/"+s.FlatName)
 			}
 		}
 	}
-	return kept
+	return kept, notTrashed
 }
 
 // sameTree reports whether two folders hold the same files with the same

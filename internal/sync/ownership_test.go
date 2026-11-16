@@ -159,3 +159,181 @@ func TestSyncMergeForceReplacesSameNameLinkFromAnotherTool(t *testing.T) {
 		t.Errorf("the other tool's files must survive a re-point: %v", err)
 	}
 }
+
+// A link into the source is skillshare's even when the manifest is gone and
+// the source is reached through an alias, so it is still repaired.
+func TestSyncMergeRepointsUnrecordedLinkIntoAliasedSource(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha")
+	alias := filepath.Join(t.TempDir(), "alias")
+	if err := os.Symlink(src, alias); err != nil {
+		t.Skipf("directory symlinks unavailable: %v", err)
+	}
+	link := filepath.Join(tgt, "alpha")
+	dirLink(t, link, filepath.Join(src, "renamed-away"))
+
+	res, err := SyncTargetMerge("test", config.TargetConfig{Path: tgt, Mode: "merge"}, alias, false, false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(res.Updated, "alpha") {
+		t.Errorf("want alpha re-pointed, got updated=%v skipped=%v", res.Updated, res.Skipped)
+	}
+}
+
+// Project mode writes relative links. One that predates the manifest and now
+// points at a skill that moved inside the source is still skillshare's.
+func TestSyncMergeRepointsUnrecordedRelativeLinkIntoSource(t *testing.T) {
+	root := t.TempDir()
+	src := filepath.Join(root, ".skillshare", "skills")
+	tgt := filepath.Join(root, ".claude", "skills")
+	writeSkillMD(t, filepath.Join(src, "alpha"), "---\nname: alpha\n---\n# alpha")
+	if err := os.MkdirAll(tgt, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(tgt, "alpha")
+	if err := os.Symlink(filepath.Join("..", "..", ".skillshare", "skills", "old-alpha"), link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	res, err := SyncTargetMerge("test", config.TargetConfig{Path: tgt, Mode: "merge"}, src, false, false, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(res.Updated, "alpha") {
+		t.Fatalf("want alpha re-pointed, got updated=%v skipped=%v", res.Updated, res.Skipped)
+	}
+	if _, err := os.Stat(filepath.Join(link, "SKILL.md")); err != nil {
+		t.Errorf("alpha does not resolve to the source skill: %v", err)
+	}
+}
+
+func TestSyncCopyKeepsSameNameLinkFromAnotherTool(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha")
+	other := filepath.Join(t.TempDir(), "other-store", "alpha")
+	writeSkillMD(t, other, "---\nname: alpha\n---\nanother manager's copy")
+	link := filepath.Join(tgt, "alpha")
+	dirLink(t, link, other)
+
+	res, err := SyncTargetCopy("test", config.TargetConfig{Path: tgt, Mode: "copy"}, src, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(res.KeptLocal, "alpha") {
+		t.Errorf("want alpha kept local, got %+v", res)
+	}
+	if got, err := utils.ResolveLinkTarget(link); err != nil || !utils.PathsEqual(got, other) {
+		t.Errorf("link was replaced: %q (%v), want a link to %q", got, err, other)
+	}
+}
+
+func TestSyncCopyForceReplacesSameNameLinkFromAnotherTool(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha")
+	other := filepath.Join(t.TempDir(), "other-store", "alpha")
+	writeSkillMD(t, other, "---\nname: alpha\n---\nanother manager's copy")
+	link := filepath.Join(tgt, "alpha")
+	dirLink(t, link, other)
+
+	if _, err := SyncTargetCopy("test", config.TargetConfig{Path: tgt, Mode: "copy"}, src, false, true); err != nil {
+		t.Fatal(err)
+	}
+	if utils.IsSymlinkOrJunction(link) {
+		t.Error("--force should replace the link with a copy")
+	}
+	if _, err := os.Stat(filepath.Join(other, "SKILL.md")); err != nil {
+		t.Errorf("the other tool's files must survive: %v", err)
+	}
+}
+
+// ManagedOnly cleans directories that belong to another tool: the manifest is
+// the only proof an external broken link is skillshare's.
+func TestPruneManagedOnlyRemovesOnlyRecordedBrokenLinks(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha")
+	gone := filepath.Join(t.TempDir(), "gone")
+	for _, name := range []string{"ours", "theirs"} {
+		if err := os.MkdirAll(filepath.Join(gone, name), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		dirLink(t, filepath.Join(tgt, name), filepath.Join(gone, name))
+	}
+	recordInManifest(t, tgt, "ours")
+	if err := os.RemoveAll(gone); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := PruneOrphanLinksWithSkills(PruneOptions{TargetPath: tgt, SourcePath: src, TargetName: "test", ManagedOnly: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(res.Removed, []string{"ours"}) {
+		t.Errorf("removed %v, want only the recorded link", res.Removed)
+	}
+	if _, err := os.Lstat(filepath.Join(tgt, "theirs")); err != nil {
+		t.Errorf("unrecorded broken link was removed: %v", err)
+	}
+}
+
+// Only flat naming produces names like team__x, so under standard naming such
+// a folder is an ordinary local folder: kept, and not worth a warning.
+func TestPruneStandardNamingKeepsLookAlikeFolderQuietly(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha")
+	writeSkillMD(t, filepath.Join(tgt, "team__shared"), "---\nname: team__shared\n---\nmine")
+
+	res, err := PruneOrphanLinks(tgt, src, nil, nil, "test", "standard", false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Removed) != 0 || len(res.Warnings) != 0 || !slices.Contains(res.LocalDirs, "team__shared") {
+		t.Errorf("want kept as local without a warning, got %+v", res)
+	}
+}
+
+func TestPruneDryRunForceReportsButKeepsUnownedEntries(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha")
+	writeSkillMD(t, filepath.Join(tgt, "team__old"), "---\nname: old\n---\nold")
+	gone := filepath.Join(t.TempDir(), "gone")
+	if err := os.MkdirAll(gone, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dirLink(t, filepath.Join(tgt, "broken-link"), gone)
+	if err := os.RemoveAll(gone); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := PruneOrphanLinks(tgt, src, nil, nil, "test", "", true, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	slices.Sort(res.Removed)
+	if !slices.Equal(res.Removed, []string{"broken-link", "team__old"}) {
+		t.Errorf("dry run should report both, got %v", res.Removed)
+	}
+	for _, name := range []string{"broken-link", "team__old"} {
+		if _, err := os.Lstat(filepath.Join(tgt, name)); err != nil {
+			t.Errorf("dry run removed %s: %v", name, err)
+		}
+	}
+}
+
+// The manifest still records the copy that copy mode made, but the user has
+// since replaced it with a link of their own. That link is not skillshare's.
+func TestSyncCopyKeepsLinkThatReplacedARecordedCopy(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha")
+	target := config.TargetConfig{Path: tgt, Mode: "copy"}
+	if _, err := SyncTargetCopy("test", target, src, false, false); err != nil {
+		t.Fatal(err)
+	}
+	other := filepath.Join(t.TempDir(), "other-store", "alpha")
+	writeSkillMD(t, other, "---\nname: alpha\n---\nanother manager's copy")
+	link := filepath.Join(tgt, "alpha")
+	if err := os.RemoveAll(link); err != nil {
+		t.Fatal(err)
+	}
+	dirLink(t, link, other)
+
+	if _, err := SyncTargetCopy("test", target, src, false, false); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := utils.ResolveLinkTarget(link); err != nil || !utils.PathsEqual(got, other) {
+		t.Errorf("link was replaced: %q (%v), want a link to %q", got, err, other)
+	}
+}

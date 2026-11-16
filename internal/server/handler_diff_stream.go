@@ -196,7 +196,11 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 			}
 			absSource, _ := filepath.Abs(skill.SourcePath)
 			if !utils.PathsEqual(absLink, absSource) {
-				dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "update", Reason: "symlink points elsewhere", Kind: kindSkill})
+				if manifest.OwnsLink(resolved.TargetName, targetSkillPath, source) {
+					dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "update", Reason: "symlink points elsewhere", Kind: kindSkill})
+				} else {
+					dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "skip", Reason: ssync.ForeignLinkReason, Kind: kindSkill})
+				}
 			}
 		} else if old, ok := renamedFrom[resolved.TargetName]; ok {
 			dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "kept", Reason: ssync.KeptLegacyReason(old), Kind: kindSkill})
@@ -224,23 +228,19 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 				continue
 			}
 			if utils.IsSymlinkOrJunction(entryPath) {
-				absLink, linkErr := utils.ResolveLinkTarget(entryPath)
-				if linkErr != nil {
-					continue
-				}
-				absSource, _ := filepath.Abs(source)
-				if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) {
+				// Sync removes a link of its own once it is broken, or while the
+				// manifest still records it.
+				_, statErr := os.Stat(entryPath)
+				_, inManifest := manifest.Managed[eName]
+				if manifest.OwnsLink(eName, entryPath, source) && (os.IsNotExist(statErr) || inManifest) {
 					dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "prune", Reason: "orphan symlink", Kind: kindSkill})
 				}
 			} else if info.IsDir() {
 				if _, inManifest := manifest.Managed[eName]; inManifest {
 					dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "prune", Reason: "orphan managed directory (manifest)", Kind: kindSkill})
 				} else {
-					if resolution.Naming == "flat" && (utils.HasNestedSeparator(eName) || utils.IsTrackedRepoDir(eName)) {
-						dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "prune", Reason: "orphan managed directory", Kind: kindSkill})
-					} else {
-						dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "local", Reason: "local only", Kind: kindSkill})
-					}
+					// Sync keeps a folder the manifest does not record, whatever its name.
+					dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "local", Reason: "local only", Kind: kindSkill})
 				}
 			}
 		}

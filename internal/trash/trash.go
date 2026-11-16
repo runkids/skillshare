@@ -22,6 +22,11 @@ const defaultMaxAge = 7 * 24 * time.Hour // 7 days
 
 const reservedAgentTrashDir = "agents"
 
+// ReplacedByInitDir is the skills trash subfolder, one folder per tool, for
+// target folders that init replaced with links. They came from a tool, not the
+// source, so restore refuses them: the trash copy is for copying back by hand.
+const ReplacedByInitDir = "replaced-by-init"
+
 // validateTrashName rejects names that could cause path traversal when joined
 // with a base directory.  Allowed: plain names ("skill"), nested names
 // ("org/team-skill").  Rejected: empty, absolute, ".", "..", any segment
@@ -405,6 +410,9 @@ func Restore(entry *TrashEntry, destDir string, follow ...*sourcewalk.Follow) er
 func restore(entry *TrashEntry, destDir string, rename func(string, string) error, follow ...*sourcewalk.Follow) error {
 	if err := validateTrashName(entry.Name); err != nil {
 		return fmt.Errorf("invalid trash entry name: %w", err)
+	}
+	if strings.HasPrefix(entry.Name, ReplacedByInitDir+"/") {
+		return fmt.Errorf("%s is a tool's folder that init replaced with a link, and the source already holds the same skill; copy it back by hand from %s if you need it", entry.Name, entry.Path)
 	}
 
 	destPath := filepath.Join(destDir, entry.Name)

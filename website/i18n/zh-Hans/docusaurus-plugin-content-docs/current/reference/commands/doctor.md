@@ -308,6 +308,8 @@ skillshare sync  # Will prune orphaned symlinks
 
 如果该行显示的是 `behind an unavailable source link, kept until it is back`，说明这个 skill 位于某个[被跟随的 source link](../targets/configuration.md#follow_source_links) 背后，而该链接的目标暂时不可用。无需清理：挂载硬盘或恢复 checkout 后运行 `skillshare sync` 即可。
 
+如果该行显示的是 `broken link skillshare did not create, kept`，说明这个链接指向 source 之外，且 manifest 没有记录，是其他工具或你自己建立的。`sync` 会保留它，`doctor --json` 中的 `broken_symlinks` 检查为 `warning` 而不是 `error`。如果这个链接已经没用，请自行删除。
+
 ### "Skills without SKILL.md"
 
 Skill 文件夹缺少必需的文件：
