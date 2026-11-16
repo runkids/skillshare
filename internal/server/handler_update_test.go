@@ -327,3 +327,55 @@ func TestHandleUpdate_AllReportsEachSkillOfSharedRepo(t *testing.T) {
 		}
 	}
 }
+
+// A root skill kept as a Git checkout updates by pulling, so the shared fetch
+// must not swap a plain copy over it and drop its .git directory.
+func TestHandleUpdateStream_RootSkillCheckoutKeepsItsRepository(t *testing.T) {
+	s, src := newTestServer(t)
+	s.skillsStore = install.NewMetadataStore()
+	remote := t.TempDir()
+	initGitRepo(t, remote)
+	writeRootSkill := func(body string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(remote, "SKILL.md"), []byte("---\nname: solo\n---\n"+body+"\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		runGit(t, remote, "add", ".")
+		runGit(t, remote, "commit", "-m", body)
+	}
+	writeRootSkill("v1")
+	runGit(t, src, "clone", "file://"+remote, "solo")
+	s.skillsStore.Set("solo", &install.MetadataEntry{Source: "file://" + remote, RepoURL: "file://" + remote})
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
+	writeRootSkill("v2")
+
+	if got := streamUpdate(t, s, "solo"); len(got) != 1 || got[0].Action != "updated" {
+		t.Fatalf("update: got %+v, want one updated item", got)
+	}
+	if !install.IsGitRepo(filepath.Join(src, "solo")) {
+		t.Fatal("the checkout lost its .git directory")
+	}
+}
+
+// The shared fetch records the source in the repository's canonical spelling.
+// A project declares the skill by the spelling it was installed with, so the
+// record must keep that spelling or the declaration stops matching.
+func TestHandleUpdateStream_KeepsRecordedSourceSpelling(t *testing.T) {
+	s, src := newTestServer(t)
+	s.skillsStore = install.NewMetadataStore()
+	remote := recordRemoteSkills(t, s, src, "demo")
+	spelling := "file://" + remote + "/.//skills/demo"
+	s.skillsStore.GetByPath("demo").Source = spelling
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := streamUpdate(t, s, "demo"); len(got) != 1 || got[0].Action != "updated" {
+		t.Fatalf("update: got %+v, want one updated item", got)
+	}
+	if got := s.skillsStore.GetByPath("demo").Source; got != spelling {
+		t.Fatalf("recorded source = %q, want %q", got, spelling)
+	}
+}

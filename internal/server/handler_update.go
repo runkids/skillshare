@@ -571,6 +571,7 @@ func (b *skillBatch) updateRepo(repoURL, branch string) {
 	sourceDir := s.cfg.EffectiveSkillsSource()
 	targets := make(map[string]string) // repo subdir → skill path
 	owners := make(map[string]string)  // repo subdir → skill name
+	sources := make(map[string]string) // skill name → the source its record keeps
 	for _, name := range b.names {
 		if _, ok := b.done[name]; ok {
 			continue
@@ -580,6 +581,12 @@ func (b *skillBatch) updateRepo(repoURL, branch string) {
 			continue
 		}
 		skillPath := filepath.Join(sourceDir, name)
+		if install.IsGitRepo(skillPath) {
+			// A skill kept as a checkout updates by pulling; a copy from the
+			// shared fetch would replace its repository.
+			b.done[name] = s.updateRegularSkill(name, skillPath, b.force, b.skipAudit, b.follow)
+			continue
+		}
 		if refusal := s.refuseFollowedCheckout(name, skillPath, []*sourcewalk.Follow{b.follow}); refusal != nil {
 			b.done[name] = *refusal
 			continue
@@ -602,6 +609,7 @@ func (b *skillBatch) updateRepo(repoURL, branch string) {
 		}
 		targets[subdir] = skillPath
 		owners[subdir] = name
+		sources[name] = install.RecordedSourceString(entry, s.parseOpts())
 	}
 	if len(targets) == 0 {
 		return
@@ -630,8 +638,23 @@ func (b *skillBatch) updateRepo(repoURL, branch string) {
 		}
 		b.done[name] = item
 	}
-	if err == nil {
-		s.reloadSkillsStore()
+	if err != nil || s.reloadSkillsStore() != nil {
+		return
+	}
+	// The shared fetch records each source in the repository's canonical
+	// spelling. Declarations match the spelling a skill was installed with, so
+	// the record keeps it, as updating one skill does.
+	respelled := false
+	for name, source := range sources {
+		if entry := s.skillsStore.GetByPath(name); entry != nil && entry.Source != source && b.done[name].Action == "updated" {
+			entry.Source = source
+			respelled = true
+		}
+	}
+	if respelled {
+		if saveErr := s.skillsStore.Save(sourceDir); saveErr != nil {
+			log.Printf("warning: failed to keep recorded sources: %v", saveErr)
+		}
 	}
 }
 
