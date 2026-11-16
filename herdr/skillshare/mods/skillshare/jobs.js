@@ -3,6 +3,31 @@
 // reads in, and the tests pass real sh and fs.
 import { START, START_SCRIPT, ALIVE, SWEEP, JOB_MINUTES, lastLine } from "./model.js";
 
+// withShell(program) turns program(command, args, on), which rejects when the command can't
+// start, into shell(args, on), which runs `sh args` on machine `on`. Windows has no sh on PATH,
+// but Git for Windows' default install puts git there: `git --exec-path` prints
+// <root>/<mingw64|ucrt64>/libexec/git-core, and <root>/bin/sh.exe sets up the MSYS PATH itself
+// (usr/bin/sh.exe would find Windows' own find.exe). The shell that started is kept per machine;
+// a failure is not, because the machine may only be unreachable for now.
+export function withShell(program) {
+  const shells = new Map();
+  const gitShell = async (on) => {
+    const git = await program("git", ["--exec-path"], on).catch(() => null);
+    const m = /^([A-Za-z]:\/.*)\/[^/]+\/libexec\/git-core\/?$/.exec(git?.code === 0 ? git.stdout.trim().replace(/\\/g, "/") : "");
+    return m ? `${m[1]}/bin/sh.exe` : null;
+  };
+  return async (args, on = null) => {
+    const known = shells.get(on);
+    if (known) return program(known, args, on);
+    const run = async (sh) => { const r = await program(sh, args, on); shells.set(on, sh); return r; };
+    return run("sh").catch(async (e) => {
+      const sh = await gitShell(on);
+      if (!sh) throw e;
+      return run(sh);
+    });
+  };
+}
+
 // createRunner({ exec, readText }):
 //   exec(script, args, on) runs `sh -c script` on machine `on` (null: this computer) and resolves
 //     to { code, stdout, stderr }; it must not reject. Herdr stops an exec after 30 s.

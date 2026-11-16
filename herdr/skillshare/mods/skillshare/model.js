@@ -15,7 +15,9 @@ export const SCOPES = [["all", "All"], ["project", "Project"], ["global", "Globa
 const DETACH = 'unset HC_SCOPE; if command -v setsid >/dev/null 2>&1; then bg() { exec setsid "$@"; }; else set -m; bg() { exec "$@"; }; fi';
 // Named so SWEEP can tell the panel's job folders from anything else in the temp folder.
 const TEMP = 'd=$(mktemp -d "${TMPDIR:-/tmp}/skillshare-panel.XXXXXX")';
-const READY = 'i=0; while [ ! -s "$d/pid" ] && [ $i -lt 50 ]; do sleep 0.1; i=$((i+1)); done; printf %s "$d"';
+// The panel reads the folder's files with Herdr, not sh, so under Git for Windows' sh it gets
+// the Windows path (cygpath -m: C:/...), which that sh accepts too.
+const READY = 'i=0; while [ ! -s "$d/pid" ] && [ $i -lt 50 ]; do sleep 0.1; i=$((i+1)); done; command -v cygpath >/dev/null 2>&1 && d=$(cygpath -m "$d"); printf %s "$d"';
 // sh -c START <name> <dir> <args...>: runs skillshare <args> in <dir>; prints the temp folder.
 export const START = `${DETACH}; ${TEMP}; dir=$1; shift
 bg sh -c 'echo $$ >"$2/pid"; cd "$1" 2>/dev/null || cd; d=$2; shift 2; skillshare "$@" >"$d/out" 2>"$d/err" </dev/null; echo $? >"$d/code"' job "$dir" "$d" "$@" >/dev/null 2>&1 </dev/null &
