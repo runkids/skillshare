@@ -780,7 +780,10 @@ dashboard 會讀取目前範圍的 Agent 設定檔，以及 `mcp.projects` 底�
   **Import from** 按鈕，例如 **Import from Cursor**。與 source 相符的項目會直接被採用。若 conflict 位於
   `mcp.projects` 底下的資料夾，按鈕會讀取該資料夾的檔案，並匯入到那個 project。
 - 以 source 定義取代它：dashboard 中的 **Replace with source**，或匯入時加上
-  `--replace`。
+  `--replace`。dashboard 的按鈕會一次取代該伺服器所有有衝突的 Agent 項目。
+
+若各 Agent 的伺服器版本不同，先匯入你要的那個。即使其他 Agent 仍有衝突，匯入也會
+接管該 Agent 的項目；之後再取代其餘的。
 
 ## 透過 MCP 提供 skills {#serve-skills-over-mcp}
 

@@ -835,6 +835,10 @@ plan은 `existing entry is not managed` 충돌을 보고하고, 그 항목에 �
   그대로 채택됩니다. `mcp.projects` 아래 폴더의 충돌이라면 버튼은 그 폴더의 파일을 읽고
   해당 project로 가져옵니다.
 - source 정의로 교체: 대시보드의 **Replace with source**, 또는 import의 `--replace`.
+  대시보드 버튼은 그 서버에서 충돌하는 모든 Agent의 항목을 한 번에 교체합니다.
+
+Agent마다 서버 버전이 다르면 원하는 것을 먼저 import하세요. import는 다른 Agent가 아직
+충돌 중이어도 그 Agent의 항목을 채택합니다. 나머지는 그다음에 교체하세요.
 
 ## Serve skills over MCP {#serve-skills-over-mcp}
 

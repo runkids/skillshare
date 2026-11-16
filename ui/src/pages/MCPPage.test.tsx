@@ -35,6 +35,27 @@ describe('MCP page', () => {
     await waitFor(() => expect(mcpApi.import).toHaveBeenCalledWith({ from: 'cursor', root: '/work/app' }));
   });
 
+  // Replacing one Agent at a time left the other conflict blocking the sync, so the dialog could never apply.
+  it('replaces every conflicting entry of the server at once', async () => {
+    const user = userEvent.setup();
+    const unmanaged = 'existing entry is not managed; import it to explicitly adopt it';
+    vi.mocked(mcpApi.list).mockResolvedValue({
+      source: { path: '', configPath: '', targets: ['claude', 'codex'], servers: { docs: { command: 'npx' } } },
+      projectConfigs: [], paths: { claude: '/.claude.json', codex: '/.codex/config.toml' }, detected: ['claude', 'codex'], local: false, openable: [], projectPaths: {}, projectExisting: {}, previewError: '', backups: [], unmanaged: [],
+      plan: { revision: '', sourcePath: '', blocked: true, changes: [
+        { target: 'claude', path: '/.claude.json', name: 'docs', action: 'conflict', message: unmanaged },
+        { target: 'codex', path: '/.codex/config.toml', name: 'docs', action: 'conflict', message: unmanaged },
+      ] },
+    } as Awaited<ReturnType<typeof mcpApi.list>>);
+    vi.mocked(mcpApi.preview).mockResolvedValue({ revision: '', sourcePath: '', blocked: false, changes: [] });
+    render(<MemoryRouter><QueryClientProvider client={new QueryClient()}><I18nProvider><ToastProvider><MCPPage /></ToastProvider></I18nProvider></QueryClientProvider></MemoryRouter>);
+    await user.click((await screen.findAllByRole('button', { name: 'Replace with source' }))[0]);
+    expect(mcpApi.preview).toHaveBeenCalledWith({ resolutions: [
+      { target: 'claude', name: 'docs', action: 'replace' },
+      { target: 'codex', name: 'docs', action: 'replace' },
+    ] });
+  });
+
   // Each save sends the revision it previewed; a second one racing it would be refused.
   it('holds the other toggles while a save is on its way', async () => {
     const user = userEvent.setup();

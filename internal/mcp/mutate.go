@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 	"skillshare/internal/utils"
@@ -171,6 +172,14 @@ func (s *Service) PreviewMutations(mutations []Mutation) (*Plan, error) {
 		return nil, err
 	}
 	return s.previewResolved(source, batchResolutions(mutations))
+}
+
+// ResolutionConflicts reports whether an entry one of resolutions names is still a conflict.
+// Other entries may conflict without stopping a save that only adopts or replaces these.
+func (p *Plan) ResolutionConflicts(resolutions []Resolution) bool {
+	return slices.ContainsFunc(p.Changes, func(c Change) bool {
+		return c.Action == "conflict" && slices.ContainsFunc(resolutions, func(r Resolution) bool { return r.Target == c.Target && r.Name == c.Name })
+	})
 }
 
 func batchResolutions(mutations []Mutation) []Resolution {
@@ -419,7 +428,9 @@ func (s *Service) MutateBatch(mutations []Mutation, revision string, sync bool) 
 	if !sync {
 		// Saving an explicit import also records the native baseline. The next
 		// sync can update it, but still detects any edits made in the meantime.
-		if len(resolutions) > 0 && preview.Blocked {
+		// Only the resolved entries have to settle: another Agent that holds a
+		// different definition of the server stays a conflict of its own.
+		if len(resolutions) > 0 && preview.ResolutionConflicts(resolutions) {
 			return nil, fmt.Errorf("source saved; unresolved conflicts prevented adoption")
 		}
 		// Stopping to manage a server drops those records instead, so sync leaves its entries be.
