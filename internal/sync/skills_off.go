@@ -132,11 +132,5 @@ func linksIntoSource(path, absSource string) bool {
 	if err != nil {
 		return false
 	}
-	within := func(p, root string) bool {
-		return utils.PathsEqual(p, root) || utils.PathHasPrefix(p, root+string(filepath.Separator))
-	}
-	if within(dest, absSource) {
-		return true
-	}
-	return within(utils.ResolveSymlink(dest), utils.ResolveSymlink(absSource))
+	return utils.SamePhysicalPath(dest, absSource) || utils.PathWithinRoot(dest, absSource)
 }

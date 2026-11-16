@@ -1,7 +1,7 @@
 export interface SyncMatrixEntry {
   skill: string;
   target: string;
-  status: 'synced' | 'excluded' | 'not_included' | 'skill_target_mismatch' | 'skipped' | 'na';
+  status: 'synced' | 'excluded' | 'not_included' | 'not_in_profile' | 'skill_target_mismatch' | 'skipped' | 'na';
   reason: string;
   reasonCode?: string;
   reasonParams?: Record<string, string>;
@@ -69,6 +69,9 @@ export interface SyncTargetFailure {
 }
 
 export interface SyncResponse extends IgnoreSources {
+  profile?: { name: string; state: 'none' | 'active' | 'unavailable'; pending: boolean };
+  /** Authoritative profile execution result, including protected or failed target work. */
+  profileComplete?: boolean;
   results: SyncResult[];
   warnings?: string[];
   /** Targets whose include filter selects no skill */

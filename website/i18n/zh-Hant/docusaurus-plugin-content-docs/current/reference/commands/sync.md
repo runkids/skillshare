@@ -732,3 +732,9 @@ JSON 輸出（`--json`）不論是否加 `--quiet`，都一律包含 `context_co
 - [Configuration](/docs/reference/targets/configuration#extras) — Extras 設定參考
 
 `skillshare sync hooks` 只同步 hooks。請見 [hooks](./hooks.md)。
+
+## 設定檔 {#profiles}
+
+使用 [profile](/docs/reference/commands/profile) 建立、查看、編輯及切換具名 Skill 選擇；支援 `-g` / `-p`。
+
+使用中或 pending 設定檔的 sync 會保留已編輯的受管副本及非受管內容。`sync --discard-edits` 僅在驗證快照後捨棄計畫列出的受管副本，文字與 JSON 都報告 snapshot 路徑、restore 指令及現有保留政策。`--force` 不授權刪除離開選擇的已編輯副本。使用中狀態無法使用時會拒絕 Skill sync。

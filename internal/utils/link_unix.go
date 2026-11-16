@@ -11,3 +11,5 @@ func platformIsJunction(string) bool { return false }
 func CreateJunction(linkPath, sourcePath string) error {
 	return fmt.Errorf("cannot restore Windows junction %s to %s on this platform", linkPath, sourcePath)
 }
+
+func canonicalSpelling(path string) string { return path }

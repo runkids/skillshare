@@ -198,6 +198,9 @@ func runAnalyze(opts *analyzeOptions) error {
 	if err != nil {
 		return err
 	}
+	if err := cfg.ActiveProfileError(); err != nil {
+		return err
+	}
 	if opts.targetName == "" && !opts.json && shouldLaunchTUI(opts.noTUI, cfg) {
 		loadFn := func() analyzeLoadResult {
 			discovered, err := ssync.DiscoverSourceSkillsForAnalyze(cfg.EffectiveSkillsSource(), cfg.SkillsWalk())

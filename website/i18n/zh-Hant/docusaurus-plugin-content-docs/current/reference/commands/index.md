@@ -206,3 +206,7 @@ skillshare version
 
 - [Quick Reference](/docs/getting-started/quick-reference) — 指令速查表
 - [Workflows](/docs/how-to/daily-tasks) — 常見使用模式
+
+## 設定檔 {#profiles}
+
+使用 [profile](/docs/reference/commands/profile) 建立、查看、編輯及切換具名 Skill 選擇；支援 `-g` / `-p`。

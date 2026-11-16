@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { expect, it, vi } from 'vitest';
 import { api } from '../api/client';
@@ -8,7 +8,7 @@ import Layout from './Layout';
 
 vi.mock('../api/client', async (load) => {
   const actual = await load<typeof import('../api/client')>();
-  return { ...actual, api: { ...actual.api, listTargets: vi.fn(), diffExtras: vi.fn(() => new Promise(() => {})), gitStatus: vi.fn(() => new Promise(() => {})) } };
+  return { ...actual, api: { ...actual.api, profiles: { list: vi.fn().mockResolvedValue({ active: '', state: 'none', pending: false, profiles: [] }) }, listTargets: vi.fn(), diffExtras: vi.fn(() => new Promise(() => {})), gitStatus: vi.fn(() => new Promise(() => {})) } };
 });
 vi.mock('../hooks/useSharedQueries', async (load) => ({
   ...await load<typeof import('../hooks/useSharedQueries')>(),
@@ -19,7 +19,10 @@ vi.mock('../hooks/useGlobalShortcuts', () => ({ useGlobalShortcuts: () => ({ mod
 vi.mock('../i18n', () => ({ useT: () => (key: string) => key }));
 vi.mock('./tour', () => ({ useTour: () => ({ startTour: vi.fn() }) }));
 vi.mock('./KeyboardShortcutsModal', () => ({ default: () => null }));
-vi.mock('./DialogShell', () => ({ default: () => null }));
+vi.mock('./DialogShell', () => ({ default: ({ open, children }: { open: boolean; children: React.ReactNode }) => open ? <div data-testid="navigation">{children}</div> : null }));
+vi.mock('./profiles/ProfileSwitcher', () => ({ default: ({ onChoose }: { onChoose: (name: string) => void }) => <button onClick={() => onChoose('work')}>choose-work</button> }));
+vi.mock('./profiles/ProfileSwitchDialog', () => ({ default: () => <div data-testid="profile-dialog" /> }));
+vi.mock('./profiles/ProfileBanners', () => ({ default: () => null }));
 vi.mock('./ThemePopover', () => ({ default: () => null }));
 vi.mock('./LanguagePopover', () => ({ default: () => null }));
 vi.mock('./ScrollToTop', () => ({ default: () => null }));
@@ -54,5 +57,17 @@ it('shows account logos from default targets while all targets are pending', asy
   const claudeLogo = screen.getByTestId('claude').querySelector('img')!.getAttribute('src');
   await waitFor(() => expect(screen.getByTestId('other').querySelector('img')).toHaveAttribute('src', claudeLogo));
   expect(screen.getByTestId('account').querySelector('img')).toHaveAttribute('src', logo);
+  vi.unstubAllGlobals();
+});
+
+it('closes mobile navigation before showing the profile confirmation', async () => {
+  vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(<QueryClientProvider client={client}><MemoryRouter><Routes><Route element={<Layout />}><Route path="/" element={<div />} /></Route></Routes></MemoryRouter></QueryClientProvider>);
+  fireEvent.click(screen.getByRole('button', { name: 'layout.navigation' }));
+  const menu = screen.getByTestId('navigation');
+  fireEvent.click(within(menu).getByRole('button', { name: 'choose-work' }));
+  expect(screen.queryByTestId('navigation')).toBeNull();
+  expect(await screen.findByTestId('profile-dialog')).toBeInTheDocument();
   vi.unstubAllGlobals();
 });

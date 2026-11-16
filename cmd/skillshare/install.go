@@ -44,6 +44,7 @@ type installLogSummary struct {
 	Mode            string
 	SkillCount      int
 	InstalledSkills []string
+	InstalledPaths  []string `json:"-"`
 	SkippedSkills   []string
 	FailedSkills    []string
 	PlannedSkills   []installPlannedSkill
@@ -57,6 +58,7 @@ type installLogSummary struct {
 
 type installBatchSummary struct {
 	InstalledSkills []string
+	InstalledPaths  []string `json:"-"`
 	SkippedSkills   []string
 	FailedSkills    []string
 	Failures        []install.SkillFailure // why each FailedSkills entry failed
@@ -484,6 +486,7 @@ func cmdInstall(args []string) error {
 	// No source argument: install from global config
 	if parsed.sourceArg == "" {
 		summary, err := installFromGlobalConfig(cfg, parsed.opts)
+		printProfileHint(installedProfileHint(cfg, modeGlobal, cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), summary.InstalledPaths), parsed.jsonOutput)
 		logInstallOp(config.ConfigPath(), parsed.sourceArg, start, err, summary)
 		if parsed.jsonOutput {
 			return jsonWriteResult(summary, err)
@@ -542,6 +545,7 @@ func cmdInstall(args []string) error {
 				ui.Warning("Failed to reconcile global skills config: %v", rErr)
 			}
 		}
+		printProfileHint(installedProfileHint(cfg, modeGlobal, cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), summary.InstalledPaths), parsed.jsonOutput)
 		logInstallOp(config.ConfigPath(), parsed.sourceArg, start, err, summary)
 		if parsed.jsonOutput {
 			return jsonWriteResult(summary, err)
@@ -564,6 +568,7 @@ func cmdInstall(args []string) error {
 			ui.Warning("Failed to reconcile global skills config: %v", rErr)
 		}
 	}
+	printProfileHint(installedProfileHint(cfg, modeGlobal, cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), summary.InstalledPaths), parsed.jsonOutput)
 	logInstallOp(config.ConfigPath(), parsed.sourceArg, start, err, summary)
 	if parsed.jsonOutput {
 		return jsonWriteResult(summary, err)

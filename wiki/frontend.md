@@ -52,6 +52,10 @@ Git Sync shows both local and remote commit counts when histories diverge and of
 
 ## Localization Verification
 
+Profile switching lives in `components/profiles/`, mounted by `Layout` in the shared desktop/mobile header. `ProfileSwitchDialog` keys each attempt by candidate, cancels stale previews and resets consent; `profileView` adapts API entries to shared sync row shapes and localizes known display diagnostics without deciding server policy. Results remain visible while `profileSwitched` invalidates affected query prefixes, including partial applies. Pending state reuses `SyncPreviewModal kind="skill"`. Resource tags use only server-computed `inProfile === false` at all three render sites.
+
+The dialog reads the existing overview's `configDir` to name the actual project snapshot folder, including visible `skillshare/` projects. Keep all eleven UI locales and the existing translated UI command pages aligned. Remote visual/consent/recovery checks are in `ai_docs/tests/profiles_runbook.md` step 7.
+
 - Check rendered non-English UI, not just locale-key parity. Skillshare-owned API reasons, notes, warnings and guidance are UI copy too; do not display their English messages directly merely because they originate in Go.
 - Trace each changed message from its producer to every visible consumer, including file rows, Details, tooltips and dialogs. Reuse existing translation mappings; preserve paths, names, identifiers, native terms and unknown external diagnostics.
 - Inspect representative populated states in the requested locale, including read-only/managed rows. A translated heading or a successful build does not establish that backend guidance is translated.
@@ -73,6 +77,12 @@ This topic also loads `website/AGENTS.md` for website-specific commands, structu
 - Load `documentation` for content changes. Verify public behavior against Go source before writing it.
 
 ## Verification
+
+The sync matrix status `not_in_profile` carries the active profile name as its
+reason. Keep the API status union, resource-detail label, target filter reason
+and every locale aligned. A diagnostic-only profile row is not pending work;
+the shared sync view helpers own pending counts. Doctor profile checks reuse
+the health page's generic check-name fallback and need no parallel UI schema.
 
 Run all package commands inside the devcontainer. Select checks according to scope:
 

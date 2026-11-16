@@ -4,7 +4,7 @@ sidebar_position: 3
 
 # 过滤参考
 
-三层过滤机制的完整规范，用于控制哪些 Skill 到达哪些 Target。
+过滤机制的完整规范，用于控制哪些 Skill 到达哪些 Target。
 
 :::tip 需要快速指南？
 参见 [Filtering Skills](/docs/how-to/daily-tasks/filtering-skills) 获取场景驱动的指南。
@@ -15,12 +15,13 @@ sidebar_position: 3
 | 层级 | 范围 | 设置位置 | 语法 | 评估时机 |
 |-------|-------|-------------|--------|-------------|
 | `.skillignore` | 对所有 Target 隐藏 | Source 目录或已 track 的仓库根目录 | [gitignore](https://git-scm.com/docs/gitignore) | Discovery |
+| 活动配置档 | 此配置启用的 merge/copy Skill Target | `profiles:` 和本机选择状态 | 对 flat Source 名称使用 Go `filepath.Match` | 选择 |
 | SKILL.md `metadata.targets` | 将 Skill 限制到列出的 Target | 各 Skill frontmatter | YAML 列表 | Sync（在 discovery 时解析） |
 | Agent `targets` | 将 Agent 限制到列出的 Target | 各 Agent frontmatter | YAML 列表 | Sync（在 discovery 时解析） |
 | Target include/exclude | 按 Target、按资源 | `config.yaml` 或 CLI flag | Go [`filepath.Match`](https://pkg.go.dev/path/filepath#Match) glob | Sync |
 
 :::note Sync mode 注意事项
-以上三层过滤只适用于 **merge** 和 **copy** Sync 模式。
+逐个 Skill 的选择适用于 **merge** 和 **copy** Sync 模式。
 在 **symlink** 模式下，整个 Source 目录作为一个整体被链接——逐个 Skill 的过滤不会生效。
 :::
 
@@ -29,8 +30,9 @@ sidebar_position: 3
 一个 Skill 必须通过**所有**层级才能到达某个 Target：
 
 1. **`.skillignore`** — 在 discovery 时评估。匹配的 Skill 永远不会进入 sync 流程。
-2. **Target include/exclude** — 在 sync 时评估（`FilterSkills`）。Skill 会被发现，但对不匹配的 Target 会被跳过。
-3. **SKILL.md `metadata.targets`** — 在 sync 时评估（`FilterSkillsByTarget`）。Skill 被限制到其声明的 Target。
+2. **活动配置档** — 按 flat Source 名称，在 Target 过滤和路由之前缩小选择范围。
+3. **Target include/exclude** — 在 sync 时评估（`FilterSkills`）。Skill 会被发现，但对不匹配的 Target 会被跳过。
+4. **SKILL.md `metadata.targets`** — 在 sync 时评估（`FilterSkillsByTarget`）。Skill 被限制到其声明的 Target。
 
 ## .skillignore
 
@@ -129,3 +131,15 @@ skillshare target claude --remove-agent-include "team-*"
 ## 另请参阅
 
 - [Filtering Skills](/docs/how-to/daily-tasks/filtering-skills) — 场景驱动的操作指南
+
+## 配置档 {#profiles}
+
+使用 [profile](/docs/reference/commands/profile) 创建、查看、编辑和切换命名 Skill 选择；支持 `-g` / `-p`。
+
+活动配置档在 discovery 与 Target 过滤之间增加 AND 条件，匹配 flat Source 名称；不会扩大 `.skillignore`、Target 过滤或 metadata 路由允许的集合。不影响 agents、已注册 `projects:` 和 symlink 模式。
+
+`skills` 键缺省表示不限制；`skills: {}` 和空或仅空白 include 不选择任何技能。exclude 必须同时有 include 键；显式 `include: []` 配合 exclude 有效，但排除不起作用。
+
+`profile add` 按需添加精确 include，并移除精确匹配的 exclude。遇到匹配的 glob exclude 时，整批拒绝并指出该模式。`profile remove` 移除精确 include；如果更宽的 include 仍选中该技能，就添加精确 exclude。从无限制的定义中移除时，先写入 `include: ['*']`。移除最后一个 include 后保留 `include: []` 和已有 exclude。
+
+Sync matrix 使用 `not_in_profile` 和配置档名称解释未选中的技能；diff 在将被清理的受管条目上显示原因。`doctor` 报告无匹配的 include 和不起作用的 exclude；sync 每次运行将活动配置档的无匹配模式合并为一条警告。

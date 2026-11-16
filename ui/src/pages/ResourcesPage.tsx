@@ -738,6 +738,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
           <span className="flex min-w-0 items-center gap-2">
             <Link to={resourceHref(s)} className={`nm m truncate hover:underline ${s.disabled || context(s) ? 'text-ink-3' : ''}`}>{hit(s.name)}</Link>
             {s.manualOnly && <span className="ss-tag shrink-0" title={t('frontmatterEditor.field.disableModelInvocation.hint')}>manual only</span>}
+            {s.inProfile === false && <span className="ss-tag shrink-0 text-ink-3">{t('profiles.notInProfile')}</span>}
             {branchTag(s)}
             {pkg && pill(s, pkg)}
           </span>
@@ -771,6 +772,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
         {selectBox(s)}
         <Link to={resourceHref(s)} className={`nm m shrink-0 hover:underline ${s.disabled || context(s) ? 'text-ink-3' : ''}`}>{hit(s.name)}</Link>
         {s.manualOnly && <span className="ss-tag shrink-0" title={t('frontmatterEditor.field.disableModelInvocation.hint')}>manual only</span>}
+        {s.inProfile === false && <span className="ss-tag shrink-0 text-ink-3">{t('profiles.notInProfile')}</span>}
         {branchTag(s)}
         {pkg && pill(s, pkg)}
         {tone !== 'ok' && <span className="ss-tag shrink-0">{label}</span>}
@@ -832,6 +834,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
           <span className="flex items-center gap-2">
             <TargetStack names={synced} reachable={reachable} max={3} />
             {s.manualOnly && <span className="ss-tag shrink-0" title={t('frontmatterEditor.field.disableModelInvocation.hint')}>manual only</span>}
+            {s.inProfile === false && <span className="ss-tag shrink-0 text-ink-3">{t('profiles.notInProfile')}</span>}
             {branchTag(s)}
           </span>
           {status$(tone, label)}

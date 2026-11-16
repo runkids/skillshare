@@ -261,7 +261,7 @@ func syncExtraSymlinkMode(sourcePath, targetPath string, dryRun, force bool, pro
 			dest, readErr := os.Readlink(targetPath)
 			if readErr == nil {
 				absDest := resolveReadlink(dest, targetPath)
-				if absDest == absSrc {
+				if utils.SamePhysicalPath(absDest, absSrc) {
 					relative := shouldUseRelative(projectRoot, absSrc, targetPath)
 					if !linkNeedsReformat(dest, relative) {
 						result.Synced = 1
@@ -436,7 +436,7 @@ func syncOneExtraFile(srcFile, tgtFile, mode string, dryRun, force, relative boo
 			dest, readErr := os.Readlink(tgtFile)
 			if readErr == nil {
 				absDest := resolveReadlink(dest, tgtFile)
-				if absDest == srcFile {
+				if utils.SamePhysicalPath(absDest, srcFile) {
 					if !linkNeedsReformat(dest, relative) {
 						return 1, 0, nil
 					}
@@ -642,12 +642,7 @@ func LinksTo(link, dir string) bool {
 	if err != nil {
 		return false
 	}
-	if abs, absErr := filepath.Abs(dir); absErr == nil && utils.PathsEqual(dest, filepath.Clean(abs)) {
-		return true
-	}
-	real, err := filepath.EvalSymlinks(link)
-	src, srcErr := filepath.EvalSymlinks(dir)
-	return err == nil && srcErr == nil && utils.PathsEqual(real, src)
+	return utils.SamePhysicalPath(dest, dir)
 }
 
 func pruneExtraManagedFiles(targetPath string, managedFiles map[string]bool) (pruned int, errors []string) {
@@ -799,7 +794,7 @@ func CheckSyncStatus(sourceFiles []string, sourceDir, targetDir, mode string, fl
 		case "symlink", "merge":
 			if utils.IsSymlinkOrJunction(targetFile) {
 				link, readErr := os.Readlink(targetFile)
-				if readErr != nil || filepath.Clean(resolveReadlink(link, targetFile)) != filepath.Clean(sourceFile) || !fileLinkUsable(targetFile) {
+				if readErr != nil || !utils.SamePhysicalPath(resolveReadlink(link, targetFile), sourceFile) || !fileLinkUsable(targetFile) {
 					return "drift"
 				}
 			} else {

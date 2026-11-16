@@ -534,7 +534,6 @@ func unlinkMergeMode(targetPath, sourcePath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to resolve source path: %w", err)
 	}
-	absSourcePrefix := absSource + string(filepath.Separator)
 
 	for _, entry := range entries {
 		skillPath := filepath.Join(targetPath, entry.Name())
@@ -549,7 +548,7 @@ func unlinkMergeMode(targetPath, sourcePath string) error {
 		}
 
 		// Check if symlink points to anywhere under source directory
-		if !utils.PathHasPrefix(absLink, absSourcePrefix) {
+		if !utils.PathWithinRoot(absLink, absSource) {
 			continue // Not managed by skillshare — skip
 		}
 

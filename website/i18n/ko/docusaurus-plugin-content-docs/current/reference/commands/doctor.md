@@ -214,6 +214,14 @@ OpenCode를 다른 환경(예: 데스크톱 런처)에서 실행한다면 그쪽
 !              1 skill missing file hashes: _old-repo__legacy-skill
 ```
 
+### 프로필 {#profiles}
+
+전역 모드와 프로젝트 모드 모두 사용할 수 없는 활성 프로필을 오류(`profile_unavailable`)로 보고합니다. 정의를 수정하거나 `skillshare profile use <name>` / `skillshare profile use --none`으로 선택을 바꾸세요.
+
+경고는 미완료 전환(`profile_pending`), 보존될 수정된 관리 복사본(`profile_kept_modified`), 활성화된 source skill과 일치하지 않는 include 패턴(`profile_unmatched`), 명시적으로 빈 include의 exclude(`profile_inert_excludes`), 활성 프로필의 영향을 받지 않는 symlink 모드 target(`profile_symlink_target`)을 다룹니다. 패턴 검사는 비활성이어도 사용 가능한 정의를 포함합니다. discovery가 실패하거나 불완전하면 추측에 따른 패턴 및 복사본 진단을 생략합니다.
+
+이 이름은 `doctor --json`의 checks와 대시보드 health 결과에서도 그대로 사용됩니다. 편집 내용을 source에 반영하려면 동기화 전에 복사본을 collect하세요. 일반 sync도 원하는 선택이 비어 있는 경우를 포함해 일치하지 않는 활성 프로필 패턴을 호출당 하나의 경고로 묶습니다.
+
 ### Extras
 
 extras가 구성된 경우 다음을 검증합니다:

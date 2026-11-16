@@ -37,6 +37,7 @@ type skillItem struct {
 	Version     string   `json:"version,omitempty"`
 	Branch      string   `json:"branch,omitempty"`
 	Disabled    bool     `json:"disabled"`
+	InProfile   *bool    `json:"inProfile,omitempty"`
 	// ManualOnly mirrors disable-model-invocation: installed and invocable by name, but the
 	// model does not load it on its own. The list TUI toggles it with M.
 	ManualOnly bool `json:"manualOnly,omitempty"`
@@ -91,6 +92,10 @@ func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
 	source := s.skillsSource()
 	agentsSource := s.agentsSource()
 	walk := s.skillsWalk()
+	selector := s.cfg.ProfileSelector()
+	if s.IsProjectMode() && s.projectCfg != nil {
+		selector = s.projectCfg.ProfileSelector()
+	}
 	s.mu.RUnlock()
 
 	var items []skillItem
@@ -122,6 +127,9 @@ func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
 				RepoPath:   d.RepoRelPath,
 				Targets:    d.Targets,
 				Disabled:   d.Disabled,
+			}
+			if selected, err := selector.Selects(d.FlatName); selector.Active() && err == nil {
+				item.InProfile = &selected
 			}
 			item.ManualOnly, item.Description = listMeta(filepath.Join(d.SourcePath, "SKILL.md"))
 			enrichSkillLink(&item, source, walk, linkTargets)

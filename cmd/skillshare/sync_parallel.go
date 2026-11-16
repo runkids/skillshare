@@ -18,15 +18,17 @@ import (
 // syncTargetResult captures all output data for one target's sync operation.
 // Collected during parallel sync, rendered after all targets finish.
 type syncTargetResult struct {
-	name     string
-	mode     string // "merge", "copy", "symlink"
-	stats    syncModeStats
-	message  string   // primary success message
-	include  []string // target filter display
-	exclude  []string
-	warnings []string // prune warnings etc.
-	infos    []string // extra info lines (symlink mode hints)
-	errMsg   string   // non-empty if target failed
+	keptModified []sync.EntryChange
+	blocked      []sync.EntryChange
+	name         string
+	mode         string // "merge", "copy", "symlink"
+	stats        syncModeStats
+	message      string   // primary success message
+	include      []string // target filter display
+	exclude      []string
+	warnings     []string // prune warnings etc.
+	infos        []string // extra info lines (symlink mode hints)
+	errMsg       string   // non-empty if target failed
 	// skillsOff marks a target with skills switched off: nothing was synced.
 	skillsOff bool
 }

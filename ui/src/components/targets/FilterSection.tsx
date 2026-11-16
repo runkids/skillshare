@@ -62,6 +62,7 @@ export default function FilterSection({ kind, mode, name, include, exclude, onCh
       case 'synced': return t(include.length ? 'targetDetail.reason.included' : 'targetDetail.reason.noFilter');
       case 'excluded': return t('targetDetail.reason.excluded', { pattern: e.reason });
       case 'not_included': return t('targetDetail.reason.notIncluded');
+      case 'not_in_profile': return t('targetDetail.reason.notInProfile', { profile: e.reason });
       case 'skill_target_mismatch': return t('targetDetail.reason.declared', { targets: e.reason });
       default: return e.reason;
     }

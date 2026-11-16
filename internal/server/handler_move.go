@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/profile"
 	"skillshare/internal/skillmove"
 	ssync "skillshare/internal/sync"
 )
@@ -65,6 +66,7 @@ func (s *Server) handleBatchMove(w http.ResponseWriter, r *http.Request) {
 		Follow:    walk.Follow,
 		Store:     s.skillsStore,
 		Targets:   skillmove.EnabledTargets(s.cfg.Targets),
+		Profiles:  profile.Parse(&s.cfg.Profiles),
 		Force:     body.Force,
 		DryRun:    body.DryRun,
 		Reconcile: func(moved map[string]string) error {
@@ -75,6 +77,7 @@ func (s *Server) handleBatchMove(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	if s.IsProjectMode() {
+		opts.Profiles = profile.Parse(&s.projectCfg.Profiles)
 		opts.ProjectRoot = s.projectRoot
 		opts.GitignoreDir, opts.GitignorePrefix = s.gitignoreDir(), s.projectGitignorePrefix()
 	}

@@ -33,3 +33,10 @@ describe('targetFilterPatch', () => {
     expect(targetFilterPatch(entry('na'), target({}), 'skill', 'pdf')).toBeNull();
   });
 });
+
+it('does not rewrite target filters for a skill excluded by its profile', () => {
+  const filters = target({ include: ['docx'], exclude: ['pdf'] });
+  expect(targetFilterPatch(entry('not_in_profile'), filters, 'skill', 'pdf')).toBeNull();
+  expect(filters.include).toEqual(['docx']);
+  expect(filters.exclude).toEqual(['pdf']);
+});
