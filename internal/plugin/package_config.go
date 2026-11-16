@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"skillshare/internal/opencode"
+
 	"github.com/gofrs/flock"
 	"github.com/tailscale/hujson"
 )
@@ -203,17 +205,7 @@ func openCode2(version string) bool {
 
 // openCodeKey reads `opencode --version`: OpenCode 1 prints 1.x, OpenCode 2 "opencode v2.x".
 func openCodeKey(version string) (string, error) {
-	v := ""
-	if fields := strings.Fields(version); len(fields) > 0 {
-		v = strings.TrimPrefix(fields[len(fields)-1], "v")
-	}
-	if strings.HasPrefix(v, "1.") {
-		return "plugin", nil
-	}
-	if strings.HasPrefix(v, "2.") {
-		return "plugins", nil
-	}
-	return "", fmt.Errorf("unrecognized OpenCode version; plugin config adapter supports versions 1.x and 2.x")
+	return opencode.ConfigKey(version)
 }
 
 func readPackageConfig(root, path, key string) ([]byte, *hujson.Value, []json.RawMessage, error) {
@@ -289,6 +281,13 @@ func (s *Service) openCodeInventory(target, version string) ([]Installed, string
 		if key == "plugins" && (strings.HasPrefix(id, "-") || id == "*" || strings.HasSuffix(id, ".*")) {
 			continue
 		}
+		// A hook synced to OpenCode v2 registers plugins/skillshare-NAME in this same
+		// array. Hooks owns it, so it is neither listed nor offered for import here.
+		if key == "plugins" && strings.HasPrefix(id, "file:") {
+			if hook := openCodeImportPath(id); filepath.Dir(hook) == filepath.Join(filepath.Dir(path), "plugins") && strings.HasPrefix(filepath.Base(hook), "skillshare-") {
+				continue
+			}
+		}
 		if !validTargetID("opencode", id) {
 			return nil, "", fmt.Errorf("unsupported OpenCode plugin control entry; manage it in OpenCode")
 		}
@@ -313,6 +312,21 @@ func (s *Service) applyOpenCode(ctx context.Context, c Change, b Binding) error 
 		}
 		_, err := s.run(ctx, c.Target, "plugin", "update", b.ID)
 		return err
+	}
+	if b.Source != "" && (c.Action == "install" || c.Action == "update") {
+		root := openCodeImportPath(b.ID)
+		info, err := os.Stat(root)
+		if err != nil {
+			return err
+		}
+		if (key == "plugins") != info.IsDir() {
+			return fmt.Errorf("OpenCode API changed or registration has the wrong layout; preview again")
+		}
+		if key == "plugins" {
+			if err := openCodeDirectory(root); err != nil {
+				return err
+			}
+		}
 	}
 	path, err := s.openCodeConfigPath(c.Target)
 	if err != nil {

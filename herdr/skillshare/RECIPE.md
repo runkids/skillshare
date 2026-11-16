@@ -106,7 +106,7 @@ Left to right, everything as in Herdr's `main` layout, plus two blocks:
   - `git`, which clones the install URL you type from the network, and the skillshare repository for a panel update;
   - `curl`, which asks GitHub for the latest release;
   - `find`, `sed`, `sort` and `head` to list a previewed skill's files and read the first 60 kB of one;
-  - `sh`, `mktemp`, `find` and `rm` for temp folders (`rm -rf` only on folders it made with `mktemp -d`, named `skillshare-panel.*`, and on an unfinished `.bak-update-<version>.tmp` in its own folder);
+  - `sh` (on Windows, which has none on PATH, Git for Windows' `bin/sh.exe`, found through `git --exec-path`; `cygpath` there turns a job's temp folder into the `C:/...` path `readTextFile` can open), `mktemp`, `find` and `rm` for temp folders (`rm -rf` only on folders it made with `mktemp -d`, named `skillshare-panel.*`, and on an unfinished `.bak-update-<version>.tmp` in its own folder);
   - `cp`, `mkdir`, `mv` and `grep` for a panel update;
   - `setsid` where it exists, `sleep`, `cat`, `kill -0`, `ps` and `grep` to run long commands detached and check they still run;
   - `hc send` for the audit hand-off.

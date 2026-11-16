@@ -346,7 +346,11 @@ export default function MCPPage() {
       setImporting({ conflict: { target, name }, project });
       return;
     }
-    const mutation: MCPMutation = { resolutions: [{ target, name, action: 'replace' }] };
+    // The source holds one definition, so replacing settles every Agent that conflicts on this
+    // server at once. One at a time, the others would keep the sync blocked.
+    // A conflict row offers this only when it is resolvable, so the clicked target is among them.
+    const targets = new Set(model.conflicts.filter((c) => c.name === name && isResolvable(c)).map((c) => c.target));
+    const mutation: MCPMutation = { resolutions: [...targets].map((x) => ({ target: x, name, action: 'replace' })) };
     setBusy(true);
     try {
       setReplace({ plan: await mcpApi.preview(mutation), mutation });

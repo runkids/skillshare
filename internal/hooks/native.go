@@ -44,7 +44,9 @@ func skeleton(target string, data []byte) bool {
 }
 
 // wrapped reports whether the event map sits under a "hooks" key.
-func wrapped(target string) bool { return target != "droid" && target != "antigravity" }
+func wrapped(target string) bool {
+	return target != "droid" && target != "antigravity" && target != "opencode"
+}
 
 func uniqueJSON(v *hujson.Value) error {
 	switch value := v.Value.(type) {
@@ -97,6 +99,18 @@ func parseNative(target string, data []byte) (*nativeDoc, error) {
 	var document map[string]any
 	if err := json.Unmarshal(standard.Pack(), &document); err != nil || document == nil {
 		return nil, fmt.Errorf("configuration must be a JSON object")
+	}
+	if target == "opencode" {
+		raw, has := document["plugins"]
+		n.hasSection = has
+		if has {
+			items, ok := raw.([]any)
+			if !ok {
+				return nil, fmt.Errorf("OpenCode plugins must be an array")
+			}
+			n.events["plugins"] = items
+		}
+		return n, nil
 	}
 	if target == "cursor" {
 		if version, ok := document["version"]; ok && version != float64(1) {
@@ -161,6 +175,9 @@ type elementOp struct {
 	Index  int    `json:"index"`
 	Value  any    `json:"value,omitempty"`
 	Before any    `json:"before,omitempty"`
+	// Twins is how many elements with Before's content a change to an unmanaged element
+	// left in the event. A restore finding more knows the element is already back.
+	Twins int `json:"twins,omitempty"`
 }
 
 // edit applies ops and returns the new bytes plus the final index of each op key

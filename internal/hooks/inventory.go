@@ -14,6 +14,7 @@ import (
 // List reads the source, ownership and native files without writing. A plan that
 // cannot be computed is reported in PreviewError so the rest stays visible.
 func (s *Service) List() (*Inventory, error) {
+	s = s.memoProbe()
 	source, err := s.loadSource()
 	if err != nil {
 		return nil, err
@@ -158,9 +159,32 @@ func (s *Service) unownedFiles(target, dir string, state ledger) []string {
 		return nil
 	}
 	var names []string
+	var packages *bool
 	for _, e := range entries {
 		name := e.Name()
 		ext := filepath.Ext(name)
+		if target == "opencode" && e.IsDir() {
+			// Only OpenCode v2 loads a directory as a plugin.
+			if packages == nil {
+				v2, err := s.openCode2()
+				v2 = v2 && err == nil
+				packages = &v2
+			}
+			if !*packages {
+				continue
+			}
+			owned := false
+			for _, r := range state.Records {
+				if strings.HasPrefix(r.Path, filepath.Join(dir, name)+string(filepath.Separator)) {
+					owned = true
+					break
+				}
+			}
+			if !owned {
+				names = append(names, name)
+			}
+			continue
+		}
 		if e.IsDir() || !(target == "copilot" && ext == ".json" || target != "copilot" && (ext == ".ts" || ext == ".js")) {
 			continue
 		}
@@ -202,6 +226,7 @@ func candidateName(parts ...string) string {
 // matches a candidate picks that one; any other Name merges everything found into one
 // candidate.
 func (s *Service) Import(req ImportRequest) ([]Candidate, error) {
+	s = s.memoProbe()
 	target := canonicalTarget(req.From)
 	if target == "git" {
 		return nil, fmt.Errorf("Git hooks import is not supported yet; define commands explicitly")
@@ -381,6 +406,7 @@ func (s *Service) importShared(target string, req ImportRequest, state ledger) (
 			c.Warnings = warnings
 		case req.Content == "":
 			c.Warnings = []string{adoptWarning}
+			c.Editable = nativeEditable(target)
 		}
 		if target == "antigravity" {
 			c = antigravityCandidate(event, items[0].(map[string]any), c.Warnings)
@@ -476,6 +502,9 @@ func (s *Service) importCode(target string, req ImportRequest, state ledger) ([]
 	out := []Candidate{}
 	for _, file := range s.unownedFiles(target, dir, state) {
 		path := filepath.Join(dir, file)
+		if info, err := os.Lstat(path); err == nil && info.IsDir() {
+			continue
+		}
 		if err := checkPath(s.baseOrDir(target), path); err != nil {
 			return nil, err
 		}
@@ -490,6 +519,19 @@ func (s *Service) importCode(target string, req ImportRequest, state ledger) ([]
 			c.Warnings = append(c.Warnings, "Skillshare writes code as a .ts file; plain JavaScript is valid TypeScript for the loader, but check any CommonJS syntax")
 		}
 		out = append(out, c)
+	}
+	if target == "opencode" {
+		v2, err := s.openCode2()
+		if err != nil {
+			return nil, err
+		}
+		if v2 {
+			packages, err := s.importOpenCodePackages(state)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, packages...)
+		}
 	}
 	return out, nil
 }

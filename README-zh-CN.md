@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.30.7 — 让已接受的 findings 在 CI 中通过：`skillshare audit --respect-accepted` 不再因你在 `install` 或 `update` 时用 `--force` 接受的 findings 而失败，处理方式与 update 的检查关卡相同。这些 findings 仍保留在报告中，并标记为已接受。[audit 参考 →](https://skillshare.runkids.cc/zh-Hans/docs/reference/commands/audit#accepted-findings) · [更新记录 →](https://skillshare.runkids.cc/changelog)
+> **最新版本**：v0.30.9 — 无需导入即可编辑或移除 hook：dashboard 的 hooks 导入对话框现在一次显示一个 Agent，并可直接修改其设置文件中的 hook。写入前会先显示文件 diff，并留有可还原的备份。该 hook 仍保持未托管。 [hooks 参考 →](https://skillshare.runkids.cc/zh-Hans/docs/reference/commands/hooks) · [更新记录 →](https://skillshare.runkids.cc/changelog)
 
 ## 为什么用 skillshare
 

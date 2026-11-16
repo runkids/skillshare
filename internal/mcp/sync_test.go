@@ -171,6 +171,40 @@ func TestTickingTheImportedAgentLaterTakesItsEntryOver(t *testing.T) {
 	}
 }
 
+// Two Agents hold different definitions of one server. Importing one of them takes that
+// entry over even though the other is still a conflict, so the user can replace the other
+// next instead of importing back and forth.
+func TestImportAdoptsDespiteAnotherAgentsConflict(t *testing.T) {
+	s := testService(t)
+	claude := filepath.Join(s.Home, ".claude.json")
+	// Laid out as sync writes it, so taking it over leaves nothing else to do.
+	if err := os.WriteFile(claude, []byte("{\n  \"mcpServers\": {\n    \"docs\": {\n      \"command\": \"a\"\n    }\n  }\n}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	codex := filepath.Join(s.Home, ".codex", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(codex), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(codex, []byte("[mcp_servers.docs]\ncommand = \"b\"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	server := Server{Command: "a"}
+	adopt := []Resolution{{Target: "claude", Name: "docs", Action: "adopt"}}
+	if _, err := s.Mutate(Mutation{Name: "docs", Server: &server, Replace: true, Resolutions: adopt}, "", false); err != nil {
+		t.Fatalf("another Agent's conflict refused the import: %v", err)
+	}
+	plan, err := s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := changeFor(plan, claude, "docs"); c == nil || c.Action != "unchanged" {
+		t.Fatalf("the imported entry was not taken over: %+v", c)
+	}
+	if c := changeFor(plan, codex, "docs"); c == nil || c.Action != "conflict" {
+		t.Fatalf("the other Agent's entry must stay a conflict: %+v", c)
+	}
+}
+
 func TestAgentDefaultsAreNotDrift(t *testing.T) {
 	s := testService(t)
 	if _, err := s.Apply(""); err != nil {

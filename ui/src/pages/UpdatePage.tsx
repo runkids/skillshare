@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bot, Check, CircleAlert, CircleArrowUp, CircleCheck, Download, FolderX, GitBranch, Link, Loader2, Puzzle, RefreshCw, ShieldAlert, Trash2, X } from 'lucide-react';
+import { Bot, Check, CircleAlert, CircleArrowUp, CircleCheck, Download, FolderX, GitBranch, Link, Puzzle, RefreshCw, ShieldAlert, Trash2, X } from 'lucide-react';
 import { Link as RouterLink } from 'react-router-dom';
 import { resourceHref } from '../lib/resourceNames';
 import { api } from '../api/client';
@@ -13,6 +13,8 @@ import { folderOf, formatTrackedRepoName } from '../lib/resourceNames';
 import { repoOf } from '../lib/resourceGrouping';
 import { formatRelativeTime, plural, useI18n, useT } from '../i18n';
 import Button from '../components/Button';
+import DrawnCheck from '../components/DrawnCheck';
+import ProgressBar from '../components/ProgressBar';
 import { Checkbox } from '../components/Checkbox';
 import EmptyState from '../components/EmptyState';
 import SyncPreviewModal from '../components/SyncPreviewModal';
@@ -58,7 +60,7 @@ export interface UpdateUnit {
   source?: string;
 }
 
-type RunStatus = 'pending' | 'in-progress' | 'success' | 'error' | 'blocked' | 'skipped';
+type RunStatus = 'pending' | 'in-progress' | 'success' | 'up-to-date' | 'error' | 'blocked' | 'skipped';
 
 interface RunState {
   status: RunStatus;
@@ -399,10 +401,11 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
     return next;
   });
 
-  const tally = { success: 0, skipped: 0, blocked: 0, error: 0 } as Record<RunStatus, number>;
+  const tally = { success: 0, 'up-to-date': 0, skipped: 0, blocked: 0, error: 0 } as Record<RunStatus, number>;
   for (const s of run.values()) tally[s.status] = (tally[s.status] ?? 0) + 1;
   const tallyText = [
     tally.success && t('update.summary.updated', { count: tally.success }),
+    tally['up-to-date'] && t('update.summary.upToDate', { count: tally['up-to-date'] }),
     tally.skipped && t('update.summary.skipped', { count: tally.skipped }),
     tally.blocked && t('update.summary.blocked', { count: tally.blocked }),
     tally.error && t('update.summary.failed', { count: tally.error }),
@@ -433,7 +436,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
     const c = unitCheck(statuses, unit);
     switch (c.status) {
       case 'checking':
-        return <span className="inline-flex items-center gap-2 text-[13px] text-ink-3"><Loader2 size={13} className="animate-spin" />{t('update.check.checking')}</span>;
+        return <span className="ss-st off">{t('update.check.checking')}</span>;
       case 'behind':
         return <span className="ss-st warn">{c.behind ? t('update.check.behind', { count: c.behind }) : t('update.check.behindFallback')}</span>;
       case 'update-available':
@@ -464,9 +467,11 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
       case 'pending':
         return <span className="ss-st off">{t('update.status.pending')}</span>;
       case 'in-progress':
-        return <span className="inline-flex items-center gap-2 text-[13px] font-semibold text-ink"><Loader2 size={13} className="animate-spin" />{r.message ?? t('update.status.updating')}</span>;
+        return <span className="ss-st on ss-shimmer">{r.message ?? t('update.status.updating')}</span>;
       case 'success':
         return <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-ok"><Check size={15} strokeWidth={2.6} className="ss-pop" />{t('update.status.updated')}</span>;
+      case 'up-to-date':
+        return <span className="ss-st ok">{t('update.check.upToDate')}</span>;
       case 'skipped':
         // A skill skipped for its local changes can be overwritten from its row.
         if (isForceRetryable(r.message)) {
@@ -512,10 +517,10 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
 
   let hero: { icon: ReactNode; tone: string; title: ReactNode; sub: ReactNode };
   if (checking) {
-    hero = { icon: <Loader2 size={20} className="animate-spin" />, tone: '', title: t('update.tab.checking'), sub: t('update.tab.audited') };
+    hero = { icon: <CircleArrowUp size={20} />, tone: '', title: t('update.tab.checking'), sub: t('update.tab.audited') };
   } else if (running) {
     hero = {
-      icon: <Loader2 size={20} className="animate-spin" />,
+      icon: <CircleArrowUp size={20} />,
       tone: '',
       title: <>{t('update.hero.running', { current: Math.min(runDone + 1, run.size), total: run.size })}{current && <span className="ml-3 font-mono text-[14px] font-medium text-ink-2">{current.label}</span>}</>,
       sub: tallyText || t('update.tab.audited'),
@@ -523,7 +528,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
   } else if (showDone) {
     const troubled = tally.blocked + tally.error > 0;
     hero = {
-      icon: troubled ? <CircleAlert size={20} /> : <Check size={20} strokeWidth={2.6} className="ss-pop" />,
+      icon: troubled ? <CircleAlert size={20} /> : <DrawnCheck />,
       tone: troubled ? 'warn' : 'ok',
       title: <>{t('update.done.subtitle')} {tallyText}</>,
       sub: !checkSync || diff.isError ? t('update.tab.audited')
@@ -580,11 +585,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
               <Button variant="secondary" size="sm" onClick={() => void diff.refetch()}>{t('syncPreview.retryButton')}</Button>
             </div>
           )}
-          {busy && (
-            <div className={`ss-bar ${checking ? 'indet' : ''}`} role="progressbar" aria-valuemin={0} aria-valuemax={run.size} aria-valuenow={checking ? undefined : runDone}>
-              <span style={checking ? undefined : { width: `${run.size ? (runDone / run.size) * 100 : 0}%` }} />
-            </div>
-          )}
+          <ProgressBar active={busy} value={checking ? undefined : runDone} max={run.size} label={checking ? t('update.tab.checking') : t('update.status.updating')} className="[--bar-gap:16px]" />
         </section>
       )}
 
@@ -594,12 +595,12 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
         return (
           <div className={`ss-collapse ${missing.phase === 'closing' ? 'shut' : ''}`}>
             <div className={`ss-note live items-center ${done && !failed ? 'ok' : 'warn'}`} aria-live="polite">
-              {missing.phase === 'running' ? <Loader2 size={16} className="animate-spin" />
+              {missing.phase === 'running' ? <Download size={16} />
                 : done ? (failed ? <CircleAlert size={16} className="ss-pop" /> : <Check size={16} strokeWidth={2.6} className="ss-pop" />)
                 : <FolderX size={16} />}
               <div key={missing.phase} className="flex-1 min-w-0 animate-fade-in">
                 {missing.phase === 'running' ? (
-                  <><b>{t('install.fromConfig.installing', { file: missing.file })}</b> {t('install.audited')}</>
+                  <><b className="ss-shimmer">{t('install.fromConfig.installing', { file: missing.file })}</b> {t('install.audited')}</>
                 ) : done ? (
                   <><b>{summary}.</b> {t(failed ? 'install.fromConfig.failedHint' : 'install.fromConfig.syncHint', { file: missing.file })}</>
                 ) : (
@@ -615,7 +616,6 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
                   <Download size={14} />{t(done ? 'install.preview.retry' : 'update.missingEntries.install')}
                 </Button>
               )}
-              {missing.phase === 'running' && <span className="ss-rowbar" aria-hidden />}
             </div>
           </div>
         );
@@ -649,7 +649,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
                       {unitName(unit)}
                       <div className="w-full flex flex-wrap items-center gap-2 pl-[38px] md:contents">
                       {p ? (
-                        <span className="inline-flex items-center gap-2 text-[13px] text-ink-2 animate-fade-in"><Loader2 size={13} className="animate-spin" />{t('update.updating.purging')}</span>
+                        <span className="ss-st on ss-shimmer">{t('update.updating.purging')}</span>
                       ) : (
                         <>
                           <span className="ss-st warn">{t('update.check.stale')}</span>
@@ -657,7 +657,6 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
                         </>
                       )}
                       </div>
-                      {p && <span className="ss-rowbar" aria-hidden />}
                     </div>
                   </div>
                 );
@@ -777,7 +776,6 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
                 )}
                 <span className="max-w-full md:max-w-none md:min-w-[140px] md:shrink-0 flex justify-end ml-auto md:ml-0">{statusCell(unit)}</span>
                 </div>
-                {rowState === 'updating' && <span className="ss-rowbar" aria-hidden />}
               </div>
             );
           })}
@@ -887,8 +885,8 @@ function actionToStatus(action: string): RunStatus {
     case 'updated': return 'success';
     case 'error': return 'error';
     case 'blocked': return 'blocked';
-    case 'skipped':
-    case 'up-to-date': return 'skipped';
+    case 'up-to-date': return 'up-to-date';
+    case 'skipped': return 'skipped';
     default: return 'success';
   }
 }

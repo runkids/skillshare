@@ -94,13 +94,20 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 				for _, key := range []string{"dependencies", "peerDependencies", "devDependencies"} {
 					var deps map[string]json.RawMessage
 					_ = json.Unmarshal(m[key], &deps)
-					sdk = sdk || deps["@opencode-ai/plugin"] != nil
+					sdk = sdk || deps["@opencode-ai/plugin"] != nil || deps["@opencode/plugin"] != nil
 				}
 				if !sdk && (len(explicit) == 0 || explicit[0] == "") && !strings.HasPrefix(filepath.ToSlash(filepath.Clean(main)), ".opencode/plugins/") {
 					continue
 				}
 				info.Entry, err = openCodeEntry(root, explicit...)
 				if err != nil {
+					info.openCodeV1Error = err.Error()
+				}
+				v2Err := openCodeDirectory(root)
+				if v2Err != nil {
+					info.openCodeV2Error = v2Err.Error()
+				}
+				if err != nil && v2Err != nil {
 					var keyed agentError
 					errors.As(err, &keyed)
 					info.block(keyed.key, err.Error(), keyed.args)

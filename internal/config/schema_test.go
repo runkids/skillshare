@@ -442,7 +442,7 @@ func TestSchema_HooksAllowAccountBindings(t *testing.T) {
 		t.Fatalf("%v", patterns)
 	}
 	refs := patterns[pattern].(map[string]any)["anyOf"].([]any)
-	if len(refs) != 2 || refs[0].(map[string]any)["$ref"] != "#/$defs/commandBinding" || refs[1].(map[string]any)["$ref"] != "#/$defs/codeBinding" {
+	if len(refs) != 2 || refs[0].(map[string]any)["$ref"] != "#/$defs/commandBinding" || refs[1].(map[string]any)["$ref"] != "#/$defs/openCodeBinding" {
 		t.Fatalf("%v", refs)
 	}
 	global := defs["globalConfiguration"].(map[string]any)["properties"].(map[string]any)

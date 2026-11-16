@@ -12,7 +12,7 @@ import { MCPTargetOrder } from './targetOrder';
 vi.mock('../CodeEditor', () => ({
   default: ({ value, onChange, ariaLabel }: { value: string; onChange: (v: string) => void; ariaLabel: string }) => <textarea aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)} />,
 }));
-vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { import: vi.fn(), save: vi.fn(), render: vi.fn().mockResolvedValue({ rendered: [] }) } }));
+vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { import: vi.fn(), save: vi.fn(), preview: vi.fn(), render: vi.fn().mockResolvedValue({ rendered: [] }) } }));
 
 const renderDialog = (props: Partial<Parameters<typeof MCPImportDialog>[0]> = {}, order: readonly string[] = mcpTargets) =>
   render(<QueryClientProvider client={new QueryClient()}><I18nProvider><ToastProvider><MCPTargetOrder.Provider value={order}><MCPImportDialog source="target" servers={{ github: { command: 'npx' } }} defaultTargets={['claude', 'cursor']} paths={{ claude: '/home/me/.claude.json', codex: '/home/me/.codex/config.toml' }} detected={['claude']} onClose={vi.fn()} onImported={vi.fn()} {...props} /></MCPTargetOrder.Provider></ToastProvider></I18nProvider></QueryClientProvider>);
@@ -22,6 +22,7 @@ describe('MCP import dialog', () => {
     vi.clearAllMocks(); localStorage.clear();
     HTMLElement.prototype.scrollIntoView = vi.fn();
     vi.mocked(mcpApi.save).mockResolvedValue({ applied: [], backupIds: [] });
+    vi.mocked(mcpApi.preview).mockResolvedValue({ revision: '', sourcePath: '', blocked: false, changes: [] });
   });
 
   it('imports every new server from a target and adopts the entries that target keeps', async () => {

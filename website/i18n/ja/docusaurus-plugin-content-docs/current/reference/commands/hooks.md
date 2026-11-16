@@ -30,7 +30,7 @@ skillshare hooks restore BACKUP_ID --dry-run
 skillshare hooks restore BACKUP_ID
 ```
 
-サブコマンドなしでは entries を一覧表示します。`add`／`edit` は `--file` の Entry JSON/YAML を読み込みます。インポートで名前を省略すると候補（Agent の event またはファイルごとに 1 件）を表示し、名前を指定すると保存します。インポートを保存すると、読み取った登録をその場で引き継ぎます。次回の同期は `--replace` なしで adopt し、インポートしなかった event は管理外のままです。設定とコードを読むだけで実行しません。追加、編集、インポート、有効化、無効化、削除はソースのみを保存し、`--sync` で同期します。同期と復元は適用前に再プレビューします。
+サブコマンドなしでは entries を一覧表示します。`add`／`edit` は `--file` の Entry JSON/YAML を読み込みます。インポートで名前を省略すると候補（Agent の event またはファイルごとに 1 件）を表示し、名前を指定すると保存します。インポートを保存すると、読み取った登録をその場で引き継ぎます。次回の同期は `--replace` なしで adopt し、インポートしなかった event は管理外のままです。設定とコードを読むだけで実行しません。追加、編集、インポート、有効化、無効化、削除はソースのみを保存し、`--sync` で同期します。同期と復元は適用前に再プレビューします。Dashboard のインポートダイアログでは、インポートしていない hook を Agent の設定ファイル内で直接編集・削除することもできます（hooks を 1 つの設定ファイルの event として持つ Agent のみ：Claude、Codex、Gemini、Cursor、Qwen、および Droid の `hooks.json`。ファイル単位や名前付きブロックの hook は先にインポートが必要です）。書き込み前にファイルの差分を表示してバックアップを取り、hook は管理外のままです。
 
 | Option | Meaning |
 |---|---|
@@ -91,7 +91,7 @@ Skillshare は `hooks` セクションをインデントした block 形式で�
 | `bindings.AGENT.codeFile` | `code` の代わりに、config のフォルダからの相対パス。ファイルの内容を `code` として使い、config を読むたびに読み込みます。パスはそのフォルダ内に限られます |
 | `bindings.AGENT.files` | 相対ファイル名を key とした任意の UTF-8 スクリプト。値は内容、または `codeFile` と同じ規則で読み込む `{from: path}` |
 
-Agent ID は `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`omp`、`amp`、`opencode`、`git`。`factory` は `droid` の、`antigravity-cli` と `agy` は `antigravity` の別名です。event、matcher、handler type、command、timeout 単位、payload はネイティブ形式のまま保持し、自動変換しません。event 名は各 command Agent のドキュメントにある event と照合します。未知の名前（例：綴り違いの `Stopp`）はプレビューと plan の `warnings` に警告として表示されますが、Agent は event を追加していくため同期は止めません。Pi、OMP、Amp、OpenCode のコードは確認しません。Pi、OMP、Amp、OpenCode のコードと imports はインストール済みバージョンに合わせ、専用の `skillshare-NAME.ts` に出力します。共通実行エンジンは生成しません。
+Agent ID は `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`omp`、`amp`、`opencode`、`git`。`factory` は `droid` の、`antigravity-cli` と `agy` は `antigravity` の別名です。event、matcher、handler type、command、timeout 単位、payload はネイティブ形式のまま保持し、自動変換しません。event 名は各 command Agent のドキュメントにある event と照合します。未知の名前（例：綴り違いの `Stopp`）はプレビューと plan の `warnings` に警告として表示されますが、Agent は event を追加していくため同期は止めません。Pi、OMP、Amp、OpenCode のコードは確認しません。Pi、OMP、Amp、OpenCode のコードと imports はインストール済みバージョンに合わせ、専用の `skillshare-NAME.ts` ファイル（OpenCode v1）または OpenCode v2 のディレクトリパッケージに出力します。共通実行エンジンは生成しません。
 
 長いコードやスクリプトは、`codeFile` または `files` の `{from: path}` で別ファイルから読み込めます。パスの基準は entry を持つ config のフォルダです（project では `.skillshare/`、global の `hooks.projects` では global config のフォルダ）。`hooks add|edit --file` でも entry ファイルの場所ではなく、選択した config が基準です。パスはそのフォルダ内に限られ、symlink を通過できません。ファイルがなければ config の読み込みは失敗します。config を読むたびに再読み込みし、プレビュー後に変更された場合は適用を拒否します。
 
@@ -140,7 +140,7 @@ command binding のスクリプトは Agent 設定ディレクトリの `hooks/s
 | [Pi](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md) | `~/.pi/agent/extensions/skillshare-NAME.ts` | `.pi/extensions/skillshare-NAME.ts` | Native extension code |
 | [Oh My Pi](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/extensions.md) | `~/.omp/agent/extensions/skillshare-NAME.ts` | `.omp/extensions/skillshare-NAME.ts` | Native OMP extension code |
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
-| [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME.ts` | `.opencode/plugins/skillshare-NAME.ts` | Supplied v1/v2 plugin code |
+| [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME[.ts]` | `.opencode/plugins/skillshare-NAME[.ts]` | v1 file; v2 directory package (see below) |
 
 アカウント target の `config_dir` を指す場合を除き、global scope はネイティブ設定ディレクトリの環境変数 override を使います。project scope はプロジェクト内にのみ書き込み、global にフォールバックしません。Codex inline TOML など他のソースは別のままです。Antigravity とその CLI（`agy`）は同じ `hooks.json` を読みます。各 hook は名前付きの 1 ブロックで、インポートしても名前は変わりません。CLI の `~/.gemini/antigravity-cli/settings.json` にある hooks は別のままです。Droid の独立 hooks ファイルは読み込むソースを変えるため、既存 inline hooks を先に確認してください。 Copilot は `.github/hooks` のプロジェクト hooks を信頼済みフォルダーでのみ読み込みます。
 
@@ -237,3 +237,16 @@ global 設定の `hooks.projects` は絶対プロジェクトパスを同じ Ent
 バックアップは後から加わった無関係な変更を保持してネイティブ出力を復元し、ソース定義は変更しません。**Settings → Backups → Hooks** または `hooks restore` でプレビューして復元します。
 
 **Synced** は Skillshare が設定を書いた状態です。Agent の手順に従って再起動／再読み込みしてください。信頼、hooks の有効化、コード互換性は Agent が制御します。管理時に hook command を実行したり、ネイティブ信頼を自動変更したりしません。
+
+
+### OpenCode v2 ディレクトリパッケージ
+
+Windows のフック用バージョン検出は、`opencode-ai`（後期 v1）と `@opencode/cli`（v2）の標準 npm `.cmd` ラッパーから、インストール済みの `bin/opencode.exe` をシェルなしで直接実行します。初期 v1 の Node ランチャーや独自のバッチラッパーは推測・実行しません。その場合は OpenCode アカウントの `cli` にインストール済みネイティブ `opencode.exe` の絶対パス（例：対応する `opencode-windows-x64-baseline` パッケージの `bin/opencode.exe`）を設定するか、そのディレクトリを `PATH` の先頭に置いてください。postinstall スクリプトの実行や欠落したバイナリの修復は行いません。
+
+Skillshare が実行するのは `opencode --version`（またはアカウントの `cli`）のみです。バイナリが見つからない、失敗する、またはメジャーバージョンが 1 でも 2 でもないなどでバージョンを検出できない場合、スキップされるのは OpenCode の binding だけです。プレビューに警告が表示され、既存の OpenCode の出力はそのまま残り、他の Agent は通常どおり同期されます。v1 は単一の `.ts` ファイルのままです。v2 は `plugins/skillshare-NAME/index.ts` と `package.json`（`@opencode/plugin: ^2.0.0` を宣言）を書き出し、そのディレクトリの `file://` URL を `opencode.json(c)` の `plugins` に追加します。プロジェクトの hook は `.opencode/opencode.json(c)` を使います。コメントと無関係な登録は変更しません。競合する JSON/JSONC ファイルや `OPENCODE_CONFIG`/`OPENCODE_CONFIG_CONTENT` の override は、hooks では拒否されます。`code` binding はどちらのバージョンでも指定どおりに書き出され、v1 と v2 のどちらのプラグイン API に合うかは確認しません。
+
+完全な v2 パッケージには、`code`/`codeFile` の代わりに `bindings.opencode.package` を使います。`package.json` を含め、相対ファイル名を UTF-8 の内容に対応させたマップです。manifest と依存関係の要件はそのまま保持されます。ネストしたファイルは使えますが、パスの逸脱、シンボリックリンク、ファイルとディレクトリの衝突、`.git`、`node_modules` はパッケージの内容になりません。ネイティブエディタはこのファイルマップを JSON として表示します。server entry は、パッケージ名を持つ文字列の root または `./server` export、もしくはルートの `server`/`index` ファイル（`.ts`、`.tsx`、`.js`）である必要があります。条件付き・フォールバックの server export は推測せず拒否します。`package` binding には OpenCode v2 が必要で、v1 では警告を出してスキップされます。
+
+`hooks import --from opencode` は、ネイティブの `plugins` フォルダ直下のパッケージディレクトリも読み込みます。単一ファイルのコードの import と同様に Skillshare の名前付き出力へコピーし、同期後に元のファイルと登録を削除して二重読み込みを避けるよう警告します。インストール済みの `node_modules` と `.git` は import しません。読み込めないファイル（シンボリックリンクなど）を含むパッケージは、その問題とともに一覧に表示され、他のパッケージや単一ファイルは引き続き import できます。OpenCode v1 では、`plugins` 配下のディレクトリは hook として一覧表示されません。同期、編集、削除は他の hook と同じ所有権チェックとバックアップを使い、外部で編集されたパッケージファイルは上書きされず競合になります。
+
+宣言された依存関係は、読み込む前にご自身で用意してください。パッケージファイルを書き出すときは、プレビューにもその旨が表示されます。Skillshare はプラグインコードを実行せず、依存関係もインストールせず、v1 コードを v2 に変換することもありません。登録されていても、プラグインが読み込まれた証拠にはなりません。2 つの API が異なるため、ダッシュボードは OpenCode のスターターコードを意図的に提供しません。

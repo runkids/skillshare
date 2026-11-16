@@ -252,7 +252,11 @@ entry; **Save only** then records that entry as the baseline without changing th
 file, so the next sync rewrites it and still detects edits made in the meantime.
 It never overrides other conflicting native entries. In the MCP dashboard, a conflict
 you can settle offers an import action named after the Agent, such as **Import from
-cursor**, to adopt that version, or **Replace with source** to overwrite that entry.
+cursor**, to adopt that version, or **Replace with source** to overwrite it. Replace
+overwrites every Agent whose entry of that server conflicts, since sync waits until
+all of them are settled. When Agents hold different versions of one server, import the
+version you want, then replace the rest: the import adopts that Agent's entry even
+while other Agents still conflict, and the dashboard names the Agents that are left.
 A conflict held by another Skillshare configuration that still exists offers neither,
 because only that configuration can release the entry.
 

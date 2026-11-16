@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Archive, Copy, Download, Eye, Info, Pencil, Plus, Trash2, Webhook } from 'lucide-react';
 import { hooksApi, type HookChange, type HookEntry, type HookInventory } from '../../api/hooks';
-import { useT } from '../../i18n';
+import { plural, useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import Button from '../Button';
 import EmptyState from '../EmptyState';
@@ -153,7 +153,7 @@ export default function HooksScope({ data, project, header }: Props) {
       {editing !== null && (
         <HookDialog accounts={accounts} initial={editing ? { name: editing, entry: entries[editing] } : undefined} existingNames={names} project={project} unmanaged={unmanaged} onClose={() => setEditing(null)} onSaved={(synced) => done(t(synced ? 'hooks.toast.savedSynced' : 'hooks.toast.saved'))} />
       )}
-      {importing && <HooksImportDialog data={data} project={project} onClose={() => setImporting(false)} onImported={(count) => done(t('hooks.toast.imported', { count }))} />}
+      {importing && <HooksImportDialog data={data} project={project} onClose={() => setImporting(false)} onChanged={refresh} onImported={(count, changed) => done(count > 0 || changed === 0 ? t('hooks.toast.imported', { count }) : t(plural('hooks.toast.nativeChanged', changed), { count: changed }))} />}
       {removing && <HooksRemoveDialog name={removing} project={project} canUnmanage={!entries[removing]?.bindings.git} onClose={() => setRemoving('')} onSaved={(unmanaged) => done(t(unmanaged ? 'hooks.toast.unmanaged' : 'hooks.toast.removed', { name: removing }))} />}
       {viewing && entries[viewing] && <HooksConfigDialog mutation={{ ...(project && { project }), name: viewing, entry: entries[viewing] }} sourcePath={data.source.path} onClose={() => setViewing('')} />}
       {takingOver && entries[takingOver] && <HooksSyncDialog project={project} takeover={{ name: takingOver, entry: entries[takingOver] }} onClose={() => { setTakingOver(''); refresh(); }} />}

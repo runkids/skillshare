@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -172,6 +173,58 @@ func (s *Server) handleHooksConfigure(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, result)
 }
 
+type hooksNativeRequest struct {
+	Edits    []hooks.NativeEdit `json:"edits"`
+	Revision string             `json:"revision"`
+}
+
+// handleHooksNativePreview plans changes to hooks Skillshare does not manage.
+func (s *Server) handleHooksNativePreview(w http.ResponseWriter, r *http.Request) {
+	var body hooksNativeRequest
+	if !decodeHooksRequest(w, r, &body) {
+		return
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	p, err := s.hooksService().PreviewNativeEdits(body.Edits)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, struct {
+		*hooks.Plan
+		Files []hooks.FileDiff `json:"files"`
+	}{p, p.Files()})
+}
+
+// handleHooksNativeApply writes previewed changes to hooks Skillshare does not manage.
+func (s *Server) handleHooksNativeApply(w http.ResponseWriter, r *http.Request) {
+	var body hooksNativeRequest
+	if !decodeHooksRequest(w, r, &body) {
+		return
+	}
+	if body.Revision == "" {
+		writeError(w, http.StatusBadRequest, "preview the hooks changes before saving")
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	start := time.Now()
+	result, err := s.hooksService().ApplyNativeEdits(body.Edits, body.Revision)
+	targets := []string{}
+	for _, e := range body.Edits {
+		if at := e.Target + "@" + e.Root; !slices.Contains(targets, strings.TrimSuffix(at, "@")) {
+			targets = append(targets, strings.TrimSuffix(at, "@"))
+		}
+	}
+	s.writeOpsLog("hooks edit-native", opStatus(err), start, map[string]any{"scope": "ui", "edits": len(body.Edits), "targets": strings.Join(targets, ", ")}, "")
+	if err != nil {
+		writeHooksFailure(w, result, err)
+		return
+	}
+	writeJSON(w, result)
+}
+
 func (s *Server) handleHooksImport(w http.ResponseWriter, r *http.Request) {
 	var body hooks.ImportRequest
 	if !decodeHooksRequest(w, r, &body) {
@@ -246,7 +299,11 @@ func writeHooksFailure(w http.ResponseWriter, result *hooks.Result, err error) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusConflict)
-	_ = json.NewEncoder(w).Encode(map[string]any{"error": message, "result": result})
+	body := map[string]any{"error": message, "result": result}
+	if partial {
+		body["error_params"] = map[string]any{"applied": result.Applied}
+	}
+	_ = json.NewEncoder(w).Encode(body)
 }
 
 // hooksAccounts are the global targets with their own native config homes.
@@ -254,7 +311,7 @@ func hooksAccounts(cfg *config.Config) map[string]hooks.Account {
 	accounts := map[string]hooks.Account{}
 	for name, target := range cfg.Targets {
 		if target.Agent != "" && target.ConfigDir != "" {
-			accounts[name] = hooks.Account{Agent: target.Agent, Dir: target.ConfigDir}
+			accounts[name] = hooks.Account{Agent: target.Agent, Dir: target.ConfigDir, CLI: target.CLI}
 		}
 	}
 	return accounts

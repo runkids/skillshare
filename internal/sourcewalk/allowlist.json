@@ -1070,5 +1070,13 @@
     "root": "uiDir",
     "reason": "assets",
     "note": "Clean old extracted UI distributions"
+  },
+  {
+    "file": "internal/hooks/opencode.go",
+    "function": "(*Service).importOpenCodePackages",
+    "callee": "fs.WalkDir",
+    "root": "\".\"",
+    "reason": "hooks",
+    "note": "Read native package files without following symlinks; dependencies excluded"
   }
 ]

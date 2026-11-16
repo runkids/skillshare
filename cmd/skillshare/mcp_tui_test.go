@@ -113,6 +113,30 @@ func TestMCPBatchImportCancelAndSaveOnly(t *testing.T) {
 	}
 }
 
+// Codex holds a different docs than Claude. Importing Claude's still saves, so the user can
+// replace Codex's next instead of being told to resolve a conflict the import cannot settle.
+func TestMCPImportSavesDespiteAnotherAgentsConflict(t *testing.T) {
+	s := mcpTUIService(t)
+	if err := os.WriteFile(s.ConfigPath, []byte("mcp: {targets: [claude, codex], servers: {}}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(s.Home, ".claude.json"), []byte(`{"mcpServers":{"docs":{"command":"a"}}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(s.Home, ".codex"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(s.Home, ".codex", "config.toml"), []byte("[mcp_servers.docs]\ncommand = \"b\"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	candidates := []mcp.Candidate{{Name: "docs", Server: mcp.Server{Command: "a"}, From: "claude"}}
+	// The server, both Agents, then Save only: the one choice a blocked plan offers.
+	prompts := &scriptedMCPPrompts{choices: [][]int{{0}, {0, 1}, {0}}}
+	if err := mcpBatchImportWizard(s, candidates, mcpOptions{}, prompts); err != nil {
+		t.Fatalf("another Agent's conflict refused the import: %v", err)
+	}
+}
+
 func TestMCPReviewDryRunNeverPromptsOrWrites(t *testing.T) {
 	s := mcpTUIService(t)
 	before, _ := os.ReadFile(s.ConfigPath)

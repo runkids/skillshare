@@ -814,7 +814,10 @@ server，反之亦然。若要重新管理某个条目，请 import 它。
   **Import from** 按钮，例如 **Import from Cursor**。与 source 相符的条目会按原样被接管。若 conflict 位于
   `mcp.projects` 下的文件夹，按钮会读取该文件夹的文件，并导入到那个 project。
 - 用 source 定义替换它：仪表盘中的 **Replace with source**，或在 import 时使用
-  `--replace`。
+  `--replace`。仪表盘按钮会一次替换该 server 所有有冲突的 Agent 条目。
+
+若各 Agent 的 server 版本不同，先导入你要的那个。即使其他 Agent 仍有冲突，导入也会
+接管该 Agent 的条目；之后再替换其余的。
 
 ## 通过 MCP 提供 skill {#serve-skills-over-mcp}
 

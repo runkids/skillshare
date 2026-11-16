@@ -14,7 +14,7 @@ import CopyButton from '../CopyButton';
 import DialogShell from '../DialogShell';
 import IconButton from '../IconButton';
 import Spinner from '../Spinner';
-import { hookLabel } from './hooksView';
+import { hookLabel, hookMessage } from './hooksView';
 
 /** The list item for the Skillshare source; every native file is numbered after it. */
 const SOURCE = -1;
@@ -85,7 +85,7 @@ export function HooksConfigView({ mutation, sourcePath }: { mutation: HookMutati
             {content !== undefined && <CopyButton value={content} />}
           </div>
           {view.isPending && <Spinner size="sm" />}
-          {file?.error && <div className="ss-note warn"><span className="flex-1">{file.error}</span></div>}
+          {file?.error && <div className="ss-note warn"><span className="flex-1">{hookMessage(t, file.error)}</span></div>}
           {content !== undefined && <CodeView content={content} lang={shown === SOURCE ? 'json' : path ?? ''} className="max-h-[420px]" />}
         </div>
       </div>
