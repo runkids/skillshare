@@ -161,30 +161,38 @@ func TestSyncMergeForceReplacesSameNameLinkFromAnotherTool(t *testing.T) {
 }
 
 // A link into the source is skillshare's even when the manifest is gone and
-// the source is reached through an alias, so it is still repaired.
+// the source is reached through an alias, so it is still repaired. The link is
+// broken, as a link to a renamed skill is, so its own path cannot be resolved.
 func TestSyncMergeRepointsUnrecordedLinkIntoAliasedSource(t *testing.T) {
-	src, tgt := setupMergeTest(t, "alpha")
-	alias := filepath.Join(t.TempDir(), "alias")
-	if err := os.Symlink(src, alias); err != nil {
-		t.Skipf("directory symlinks unavailable: %v", err)
-	}
-	// The link is made while its destination exists: Windows cannot make a
-	// junction to a missing folder.
-	renamed := filepath.Join(src, "renamed-away")
-	if err := os.MkdirAll(renamed, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	dirLink(t, filepath.Join(tgt, "alpha"), renamed)
-	if err := os.RemoveAll(renamed); err != nil {
-		t.Fatal(err)
-	}
+	for _, linkThroughAlias := range []bool{false, true} {
+		src, tgt := setupMergeTest(t, "alpha")
+		alias := filepath.Join(t.TempDir(), "alias")
+		if err := os.Symlink(src, alias); err != nil {
+			t.Skipf("directory symlinks unavailable: %v", err)
+		}
+		// One spelling of the source goes into the link, the other to sync.
+		linked, synced := src, alias
+		if linkThroughAlias {
+			linked, synced = alias, src
+		}
+		// The link is made while its destination exists: Windows cannot make a
+		// junction to a missing folder.
+		renamed := filepath.Join(linked, "renamed-away")
+		if err := os.MkdirAll(renamed, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		dirLink(t, filepath.Join(tgt, "alpha"), renamed)
+		if err := os.RemoveAll(renamed); err != nil {
+			t.Fatal(err)
+		}
 
-	res, err := SyncTargetMerge("test", config.TargetConfig{Path: tgt, Mode: "merge"}, alias, false, false, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !slices.Contains(res.Updated, "alpha") {
-		t.Errorf("want alpha re-pointed, got updated=%v skipped=%v", res.Updated, res.Skipped)
+		res, err := SyncTargetMerge("test", config.TargetConfig{Path: tgt, Mode: "merge"}, synced, false, false, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Contains(res.Updated, "alpha") {
+			t.Errorf("link through alias=%v: want alpha re-pointed, got updated=%v skipped=%v", linkThroughAlias, res.Updated, res.Skipped)
+		}
 	}
 }
 
