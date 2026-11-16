@@ -337,3 +337,30 @@ func TestNativeEdit_RestoringARemovalAfterImportingTheHookIsRefused(t *testing.T
 		t.Fatalf("a second restore must be refused: %+v", again.Changes)
 	}
 }
+
+// A restore writes its own backup, and that one must be restorable too: undoing the undo.
+func TestNativeEdit_RestoreCanBeUndoneWhenATwinSurvives(t *testing.T) {
+	e := newEnv(t)
+	path := filepath.Join(e.home, ".claude", "settings.json")
+	a := `{"hooks":[{"type":"command","command":"echo first"}]}`
+	b := `{"hooks":[{"type":"command","command":"echo second"}]}`
+	write(t, path, `{"hooks":{"Stop":[`+a+`,`+b+`]}}`)
+	var before, after map[string]any
+	must(t, json.Unmarshal([]byte(`{"Stop":[`+a+`]}`), &before))
+	must(t, json.Unmarshal([]byte(`{"Stop":[`+b+`]}`), &after))
+	r := nativeEdit(t, e.service, NativeEdit{Target: "claude", Before: before, After: after})
+	p, err := e.service.PreviewRestore(r.BackupIDs[0])
+	must(t, err)
+	restored, err := e.service.Restore(r.BackupIDs[0], p.Revision)
+	must(t, err)
+	undo, err := e.service.PreviewRestore(restored.BackupIDs[0])
+	must(t, err)
+	if undo.Blocked {
+		t.Fatalf("the restore's own backup must restore: %+v", undo.Changes)
+	}
+	_, err = e.service.Restore(restored.BackupIDs[0], undo.Revision)
+	must(t, err)
+	if got := read(t, path); strings.Contains(got, "echo first") || strings.Count(got, "echo second") != 2 {
+		t.Fatalf("want the edit back: %s", got)
+	}
+}

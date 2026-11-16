@@ -500,6 +500,24 @@ func (s *Service) applyScoped(p *Plan, root *string) (*Result, error) {
 			}
 			// Settings added since the preview keep a file the plan deletes.
 			remove = f.remove && skeleton(f.agent, after)
+			// Count here, for every write: a restore's own backup can be restored as well.
+			left, err := parseNative(f.agent, after)
+			if err != nil {
+				return result, fmt.Errorf("%s: %w", f.path, err)
+			}
+			ops := append([]elementOp(nil), f.ops...)
+			for i, op := range ops {
+				ops[i].Twins = 0
+				if op.Key != "" || op.Before == nil {
+					continue
+				}
+				for _, item := range left.events[op.Event] {
+					if elementHash(item) == elementHash(op.Before) {
+						ops[i].Twins++
+					}
+				}
+			}
+			f.ops = ops
 		}
 		id := fmt.Sprintf("%d-%s", time.Now().UnixNano(), digest([]byte(f.path))[:8])
 		backup := backupRecord{ID: id, Owner: p.source.ConfigPath, Target: f.target, Path: f.path, Root: f.root, Kind: f.kind, Ops: f.ops, OwnedBefore: map[string]*record{}, OwnedAfter: map[string]*record{}, GitInclude: f.include, GitSection: f.gitSection, BeforeMode: beforeMode, AfterMode: mode}

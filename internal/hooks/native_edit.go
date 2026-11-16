@@ -147,21 +147,6 @@ func (s *Service) PreviewNativeEdits(edits []NativeEdit) (*Plan, error) {
 			return nil, fmt.Errorf("%s: %w", f.path, err)
 		}
 		f.after = after
-		left, err := parseNative(f.agent, after)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", f.path, err)
-		}
-		for i, op := range f.ops {
-			if op.Before == nil {
-				continue
-			}
-			// A managed element never has this content: find refused it.
-			for _, item := range left.events[op.Event] {
-				if elementHash(item) == elementHash(op.Before) {
-					f.ops[i].Twins++
-				}
-			}
-		}
 		revision += digest([]byte(f.path + "\x00" + f.section))
 	}
 	p.Revision = digest([]byte(revision))
