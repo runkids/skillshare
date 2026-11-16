@@ -475,7 +475,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   const setTargets = useMutation({
     mutationFn: ({ name, target }: { name: string; target: string | null }) => api.setSkillTargets(name, target),
     onMutate: ({ name, target }) => patch((list) => list.map((x) => (x.flatName === name ? { ...x, targets: target ? [target] : undefined } : x))),
-    onSuccess: (_, { name, target }) => toast(t('resources.toast.nowAvailableIn', { name, target: target ?? t('resources.targets.all') }), 'success'),
+    onSuccess: (_, { name, target }) => toast(target ? t('resources.toast.nowAvailableIn', { name, target }) : t('resources.toast.limitRemoved', { name }), 'success'),
     onError: rollback,
     onSettled: refreshAfterTargets,
   });
@@ -485,7 +485,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
     onSuccess: (res, { folder: path, target }) => {
       const folder = formatTrackedRepoName(path);
       if (res.updated === 0 && res.skipped > 0) toast(t('resources.folder.noEditableSkills', { folder }), 'error');
-      else toast(t('resources.folder.skillsUpdated', { count: res.updated, folder, target: target ?? t('resources.targets.all') }), 'success');
+      else toast(target ? t('resources.folder.skillsUpdated', { count: res.updated, folder, target }) : t('resources.folder.limitRemoved', { count: res.updated, folder }), 'success');
     },
     onError: (err: Error) => toast(err.message, 'error'),
     onSettled: refreshAfterTargets,
@@ -494,7 +494,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   const setManyTargets = async (names: string[], target: string | null) => {
     const results = await Promise.allSettled(names.map((n) => api.setSkillTargets(n, target)));
     const failed = results.filter((r) => r.status === 'rejected').length;
-    if (failed === 0) toast(t(plural('resources.bulk.targetsSet', names.length), { count: names.length, target: target ?? t('resources.targets.all') }), 'success');
+    if (failed === 0) toast(target ? t(plural('resources.bulk.targetsSet', names.length), { count: names.length, target }) : t(plural('resources.bulk.limitRemoved', names.length), { count: names.length }), 'success');
     else toast(t('resources.batchToggle.toast.partial', { updated: names.length - failed, failed }), failed === names.length ? 'error' : 'warning');
     refreshAfterTargets();
   };
