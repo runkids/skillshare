@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -261,24 +262,27 @@ func printInitDone(p *initPlan, res *initResult) {
 }
 
 // firstSync replaces target copies identical to the source with links, then
-// syncs skills (and agents, if any) quietly. It returns the folders left as
-// they were because they differ from the source.
-func firstSync(cfg *config.Config) (skills int, kept, notTrashed []string, err error) {
+// syncs skills (and agents, if any) quietly. warnings are what a plain sync
+// would have printed under each tool, such as the entries it kept because
+// skillshare did not create them, plus the copies the trash could not take.
+func firstSync(cfg *config.Config) (skills int, warnings []string, err error) {
 	cfg.Targets = config.WithSharedSkillsTargets(cfg.Targets, cfg.Mode)
 	start := time.Now()
 	spinner := ui.StartSpinner("Syncing…")
 	discovered, err := ssync.DiscoverSourceSkills(cfg.EffectiveSkillsSource(), cfg.SkillsWalk())
 	if err != nil {
 		spinner.Fail("Sync failed")
-		return 0, nil, nil, err
+		return 0, nil, err
 	}
-	kept, notTrashed = replaceIdenticalCopies(cfg, discovered)
+	for _, failure := range replaceIdenticalCopies(cfg, discovered) {
+		warnings = append(warnings, "kept a local copy that matches the source, because it could not be moved to the trash: "+failure)
+	}
 
 	var entries []syncTargetEntry
 	for name, target := range cfg.Targets {
 		entries = append(entries, syncTargetEntry{name: name, target: target, mode: getTargetMode(target.SkillsConfig().Mode, cfg.Mode)})
 	}
-	_, failed := runParallelSyncQuiet(entries, cfg.EffectiveSkillsSource(), discovered, ssync.EffectiveFileIgnorePatterns(cfg.Ignore), false, false, "")
+	results, failed := runParallelSyncQuiet(entries, cfg.EffectiveSkillsSource(), discovered, ssync.EffectiveFileIgnorePatterns(cfg.Ignore), false, false, "")
 	if _, agentErr := syncAgentsGlobal(cfg, false, false, true, start); agentErr != nil && err == nil {
 		err = agentErr
 	}
@@ -288,15 +292,24 @@ func firstSync(cfg *config.Config) (skills int, kept, notTrashed []string, err e
 	}
 	counts := ssync.CountSkills(discovered)
 	ui.Answered("Synced", fmt.Sprintf("%s to %s", sourceSkillCountText(counts.Skills, counts.Variants), plural(len(cfg.Targets), "tool"))+ui.Took(time.Since(start)))
-	return counts.Skills, kept, notTrashed, err
+	sort.Slice(results, func(i, j int) bool { return results[i].name < results[j].name })
+	for _, r := range results {
+		for _, w := range r.warnings {
+			if !strings.HasPrefix(w, r.name+": ") {
+				w = r.name + ": " + w
+			}
+			warnings = append(warnings, w)
+		}
+	}
+	return counts.Skills, warnings, err
 }
 
 // replaceIdenticalCopies moves real skill folders in merge-mode targets whose
 // content matches the source byte for byte to the trash, so sync can link them.
-// Folders that differ are kept and returned as "tool/name". notTrashed holds
-// "tool/name: error" for identical folders the trash could not take; sync
-// keeps those as local copies.
-func replaceIdenticalCopies(cfg *config.Config, skills []ssync.DiscoveredSkill) (kept, notTrashed []string) {
+// Folders that differ are left for sync, which keeps and reports them.
+// notTrashed holds "tool/name: error" for identical folders the trash could
+// not take; sync keeps those as local copies too.
+func replaceIdenticalCopies(cfg *config.Config, skills []ssync.DiscoveredSkill) (notTrashed []string) {
 	for name, target := range cfg.Targets {
 		sc := target.SkillsConfig()
 		if getTargetMode(sc.Mode, cfg.Mode) != "merge" {
@@ -308,18 +321,17 @@ func replaceIdenticalCopies(cfg *config.Config, skills []ssync.DiscoveredSkill) 
 			if err != nil || !info.IsDir() {
 				continue // missing, or already a link
 			}
-			if sameTree(s.SourcePath, dst) {
-				// Move the copy to the trash rather than deleting it, so it can be
-				// copied back by hand.
-				if _, err := trash.MoveToTrash(dst, s.FlatName, filepath.Join(trash.TrashDir(), trash.ReplacedByInitDir, name)); err != nil {
-					notTrashed = append(notTrashed, fmt.Sprintf("%s/%s: %v", name, s.FlatName, err))
-				}
-			} else {
-				kept = append(kept, name+"/"+s.FlatName)
+			if !sameTree(s.SourcePath, dst) {
+				continue
+			}
+			// Move the copy to the trash rather than deleting it, so it can be
+			// copied back by hand.
+			if _, err := trash.MoveToTrash(dst, s.FlatName, filepath.Join(trash.TrashDir(), trash.ReplacedByInitDir, name)); err != nil {
+				notTrashed = append(notTrashed, fmt.Sprintf("%s/%s: %v", name, s.FlatName, err))
 			}
 		}
 	}
-	return kept, notTrashed
+	return notTrashed
 }
 
 // sameTree reports whether two folders hold the same files with the same

@@ -233,11 +233,13 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 				continue
 			}
 			if utils.IsSymlinkOrJunction(entryPath) {
-				// Sync removes a link of its own once it is broken, or while the
-				// manifest still records it.
+				// As prune does: a link into the source goes once it is broken or
+				// while the manifest records it; a link to anywhere else only when
+				// it is both broken and recorded.
 				_, statErr := os.Stat(entryPath)
+				broken := os.IsNotExist(statErr)
 				_, inManifest := manifest.Managed[eName]
-				if manifest.OwnsLink(eName, entryPath, source) && (os.IsNotExist(statErr) || inManifest) {
+				if inSource := ssync.LinksIntoSource(entryPath, source); (inSource && (broken || inManifest)) || (!inSource && broken && inManifest) {
 					dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "prune", Reason: "orphan symlink", Kind: kindSkill})
 				}
 			} else if info.IsDir() {

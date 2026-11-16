@@ -199,3 +199,30 @@ func TestComputeTargetDiff_KeepsEntriesSkillshareDidNotCreate(t *testing.T) {
 		})
 	}
 }
+
+// After the source moves and the old checkout stays, a link sync made earlier
+// is recorded but still resolves outside the source. Prune keeps a live
+// external link, so the diff must not count it as a removal.
+func TestComputeTargetDiff_KeepsRecordedLinkThatStillResolvesElsewhere(t *testing.T) {
+	source, target, oldSource := t.TempDir(), t.TempDir(), t.TempDir()
+	for _, name := range []string{"live", "gone"} {
+		if err := os.MkdirAll(filepath.Join(oldSource, name), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(filepath.Join(oldSource, name), filepath.Join(target, name)); err != nil {
+			t.Skipf("symlinks unavailable: %v", err)
+		}
+	}
+	if err := os.RemoveAll(filepath.Join(oldSource, "gone")); err != nil {
+		t.Fatal(err)
+	}
+	if err := sync.WriteManifest(target, &sync.Manifest{Managed: map[string]string{"live": "symlink", "gone": "symlink"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	dt := (&Server{}).computeTargetDiff("claude", config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: target, Mode: "merge"}}, nil, "merge", source, nil)
+
+	if len(dt.Items) != 1 || dt.Items[0].Skill != "gone" || dt.Items[0].Action != "prune" {
+		t.Fatalf("items = %+v, want only the broken link pruned", dt.Items)
+	}
+}

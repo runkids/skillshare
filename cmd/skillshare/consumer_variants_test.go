@@ -44,7 +44,7 @@ func TestConsumerVariantInventorySummaries(t *testing.T) {
 	}
 	cfg := &config.Config{Source: source, AgentsSource: t.TempDir(), Mode: "merge", Targets: map[string]config.TargetConfig{}}
 	output = captureStdout(t, func() {
-		count, _, _, err := firstSync(cfg)
+		count, _, err := firstSync(cfg)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -171,7 +171,7 @@ func TestFirstSyncSharedVariants(t *testing.T) {
 				"codex": {Path: dest}, "universal": {Path: dest},
 			}}
 			captureStdout(t, func() {
-				if _, _, _, err := firstSync(cfg); err != nil {
+				if _, _, err := firstSync(cfg); err != nil {
 					t.Fatal(err)
 				}
 			})

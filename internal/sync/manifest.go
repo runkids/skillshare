@@ -91,6 +91,12 @@ func (m *Manifest) OwnsLink(name, path, sourcePath string) bool {
 	if m != nil && m.Managed[name] == manifestSymlink {
 		return true
 	}
+	return LinksIntoSource(path, sourcePath)
+}
+
+// LinksIntoSource reports whether the link at path points at the skills source
+// or inside it, however either path is spelled.
+func LinksIntoSource(path, sourcePath string) bool {
 	absSource, err := filepath.Abs(sourcePath)
 	return err == nil && linksIntoSource(path, absSource)
 }

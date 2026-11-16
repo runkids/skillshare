@@ -36,10 +36,8 @@ func identicalCopySetup(t *testing.T) (cfg *config.Config, skills []ssync.Discov
 func TestReplaceIdenticalCopiesMovesCopiesToTrash(t *testing.T) {
 	cfg, skills, tgt := identicalCopySetup(t)
 
-	kept, notTrashed := replaceIdenticalCopies(cfg, skills)
-
-	if len(kept) != 0 || len(notTrashed) != 0 {
-		t.Errorf("identical copy reported as kept=%v notTrashed=%v", kept, notTrashed)
+	if notTrashed := replaceIdenticalCopies(cfg, skills); len(notTrashed) != 0 {
+		t.Errorf("identical copy reported as not trashed: %v", notTrashed)
 	}
 	if _, err := os.Lstat(filepath.Join(tgt, "alpha")); !os.IsNotExist(err) {
 		t.Fatalf("identical copy still in the target: %v", err)
@@ -62,12 +60,41 @@ func TestReplaceIdenticalCopiesReportsFailedMove(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	kept, notTrashed := replaceIdenticalCopies(cfg, skills)
+	notTrashed := replaceIdenticalCopies(cfg, skills)
 
-	if len(kept) != 0 || len(notTrashed) != 1 || !strings.HasPrefix(notTrashed[0], "claude/alpha: ") {
-		t.Errorf("want one failed move for claude/alpha, got kept=%v notTrashed=%v", kept, notTrashed)
+	if len(notTrashed) != 1 || !strings.HasPrefix(notTrashed[0], "claude/alpha: ") {
+		t.Errorf("want one failed move for claude/alpha, got %v", notTrashed)
 	}
 	if _, err := os.Stat(filepath.Join(tgt, "alpha", "SKILL.md")); err != nil {
 		t.Errorf("the folder must stay in the target: %v", err)
+	}
+}
+
+// The first sync keeps a link another tool put on a skill's name. init must
+// say so instead of only reporting the skill as synced.
+func TestFirstSyncReportsLinkKeptFromAnotherTool(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	source, tgt, other := t.TempDir(), t.TempDir(), t.TempDir()
+	if err := os.MkdirAll(filepath.Join(source, "alpha"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, "alpha", "SKILL.md"), []byte("---\nname: alpha\n---\nours"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(other, filepath.Join(tgt, "alpha")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	cfg := &config.Config{Source: source, Mode: "merge", Targets: map[string]config.TargetConfig{"claude": {Path: tgt}}}
+
+	var warnings []string
+	captureStdout(t, func() {
+		var err error
+		if _, warnings, err = firstSync(cfg); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "claude: kept local: alpha") {
+		t.Fatalf("want the kept link reported, got %v", warnings)
 	}
 }

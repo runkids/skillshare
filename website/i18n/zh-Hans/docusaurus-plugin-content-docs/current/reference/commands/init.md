@@ -51,7 +51,7 @@ flowchart TD
 
 **Connect my existing repo** 用于第二台机器。它会先检查 repo（不写入任何东西）并判断结构：用 `--git-root root` 推送的 repo 会成为整个 skillshare 文件夹；skills 放在 `skills/` 文件夹的 repo 会以该文件夹作为 source。这台机器和 repo 都有的同名 skill 使用 repo 版本。只存在于这台机器的 skills 会询问是否保留，并在下次 `skillshare push` 时加入 repo。
 
-第一次 sync 时，工具中与 source 逐字节相同的 skill 文件夹会替换为链接。文件夹会先移到 trash，在 trash 清理将其删除之前（7 天），`skillshare trash list` 会把它列在 `replaced-by-init/<tool>/` 之下。`trash restore` 会恢复到 source，而 source 中已有相同的 skill，所以它拒绝恢复这些条目；需要时请从 trash 文件夹手动复制回去。内容不同的文件夹会保留并列出；运行 `skillshare sync --force` 可以替换它们。
+第一次 sync 时，工具中与 source 逐字节相同的 skill 文件夹会替换为链接。文件夹会先移到 trash，在 trash 清理将其删除之前（7 天），`skillshare trash list` 会把它列在 `replaced-by-init/<tool>/` 之下。`trash restore` 会恢复到 source，而 source 中已有相同的 skill，所以它拒绝恢复这些条目；需要时请从 trash 文件夹手动复制回去。内容不同的文件夹，以及其他工具以同名放置的链接，会保留并列出；运行 `skillshare sync --force` 可以替换它们。
 
 ### 没有终端时
 
