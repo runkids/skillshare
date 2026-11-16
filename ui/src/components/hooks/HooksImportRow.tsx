@@ -4,6 +4,7 @@ import Button from '../Button';
 import { Checkbox } from '../Checkbox';
 import IconButton from '../IconButton';
 import Reveal from '../Reveal';
+import Tooltip from '../Tooltip';
 import { bindingLines } from './hookCatalog';
 import { commandSummary, describeChange, rowEvents, rowTitle } from './hooksImport';
 import type { ImportRow, NativeChange } from './hooksImport';
@@ -81,10 +82,13 @@ export default function HooksImportRow({ row, targetLabel, change, checked, impo
             <Button variant="ghost" size="sm" onClick={onUndo} disabled={busy}>{t('hooks.importUndo')}</Button>
           </span>
         ) : onEdit && onRemove && (
-          // An open row has the same two actions as labelled buttons below; the space stays so the chevron does not move.
-          <span className={`flex shrink-0 items-center gap-0.5 ${open ? 'invisible' : ''}`}>
-            <IconButton icon={<Pencil size={15} />} label={t('hooks.importEdit', { name: row.candidate.name })} onClick={onEdit} disabled={busy} />
-            <IconButton variant="danger-outline" className="!text-bad" icon={<Trash2 size={15} />} label={t('hooks.importRemove', { name: row.candidate.name })} onClick={onRemove} disabled={busy} />
+          <span className="flex shrink-0 items-center gap-0.5">
+            <Tooltip content={t('hooks.importEditAction')}>
+              <IconButton title={undefined} icon={<Pencil size={15} />} label={t('hooks.importEdit', { name: row.candidate.name })} onClick={onEdit} disabled={busy} />
+            </Tooltip>
+            <Tooltip content={t('hooks.importRemoveAction')}>
+              <IconButton title={undefined} variant="danger-outline" className="!text-bad" icon={<Trash2 size={15} />} label={t('hooks.importRemove', { name: row.candidate.name })} onClick={onRemove} disabled={busy} />
+            </Tooltip>
           </span>
         )}
       </div>
@@ -114,12 +118,6 @@ export default function HooksImportRow({ row, targetLabel, change, checked, impo
               </span>
               {nameError && <span className="text-xs text-bad">{nameError}</span>}
             </label>
-          )}
-          {!change && onEdit && onRemove && (
-            <span className="flex items-center gap-2">
-              <Button variant="secondary" size="sm" onClick={onEdit} disabled={busy}><Pencil size={14} />{t('hooks.importEditAction')}</Button>
-              <Button variant="danger" size="sm" onClick={onRemove} disabled={busy}><Trash2 size={14} />{t('hooks.importRemoveAction')}</Button>
-            </span>
           )}
           {!change && row.adopt && !onEdit && <span className="text-xs text-ink-3">{t('hooks.importNotEditable')}</span>}
         </div>
