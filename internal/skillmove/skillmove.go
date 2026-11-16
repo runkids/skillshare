@@ -493,6 +493,11 @@ func checkTargets(planned []Planned, discovered []sync.DiscoveredSkill, o Option
 				continue
 			}
 			for _, s := range p.Skills {
+				beforeProfile, _ := t.Config.Profile.Selects(s.FlatFrom)
+				afterProfile, _ := t.Config.Profile.Selects(s.FlatTo)
+				if !beforeProfile || !afterProfile {
+					continue
+				}
 				was, _ := sync.ShouldSyncFlatName(s.FlatFrom, t.Config.Include, t.Config.Exclude)
 				now, _ := sync.ShouldSyncFlatName(s.FlatTo, t.Config.Include, t.Config.Exclude)
 				if was != now {

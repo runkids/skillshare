@@ -206,3 +206,7 @@ skillshare version
 
 - [Quick Reference](/docs/getting-started/quick-reference) — コマンドチートシート
 - [Workflows](/docs/how-to/daily-tasks) — よくある使用パターン
+
+## プロファイル {#profiles}
+
+名前付き Skill 選択は [profile](/docs/reference/commands/profile) で作成・表示・編集・切り替えできます。`-g` / `-p` に対応します。

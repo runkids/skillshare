@@ -19,7 +19,7 @@ import (
 // CONFIG_SECTIONS in ui/src/lib/formatYaml.ts; keep the two lists in sync.
 var configSections = []string{
 	"sources", "source", "agents_source", "extras_source", "git_root", "mode", "target_naming",
-	"targets", "skills", "agents", "extras", "mcp", "plugins", "hooks",
+	"targets", "profiles", "skills", "agents", "extras", "mcp", "plugins", "hooks",
 	"updates", "projects", "hub", "log", "context_budget", "tui", "gitlab_hosts", "azure_hosts", "ignore", "audit",
 }
 
@@ -28,14 +28,14 @@ var configSections = []string{
 // keys last, in their encoded order), and a blank line between sections.
 // existing is the file being replaced, or nil; its comments are kept on every
 // key that is still present.
-func marshalConfig(v any, header []byte, existing []byte) ([]byte, error) {
+func marshalConfig(v any, header []byte, existing []byte, rawProfiles ...*yaml.Node) ([]byte, error) {
 	var doc yaml.Node
 	if err := doc.Encode(v); err != nil {
 		return nil, err
 	}
 	if doc.Kind == yaml.MappingNode {
 		sortSections(&doc)
-		keepComments(&doc, existing)
+		keepComments(&doc, existing, rawProfiles...)
 	}
 	data, err := utils.MarshalYAML(&doc)
 	if err != nil {
@@ -76,12 +76,12 @@ func sortSections(m *yaml.Node) {
 // marshalConfigFile encodes v to replace the file at path, keeping that file's
 // comments. A file that cannot be read for any reason other than being absent
 // is an error: writing over it would silently drop its comments.
-func marshalConfigFile(path string, v any, header []byte) ([]byte, error) {
+func marshalConfigFile(path string, v any, header []byte, rawProfiles ...*yaml.Node) ([]byte, error) {
 	existing, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
-	return marshalConfig(v, header, existing)
+	return marshalConfig(v, header, existing, rawProfiles...)
 }
 
 // keepComments copies the comments of existing onto the same keys of m. No
@@ -90,12 +90,15 @@ func marshalConfigFile(path string, v any, header []byte) ([]byte, error) {
 // carries (raw sections such as hooks) win, and the schema directive is
 // dropped, since marshalConfig writes its own header. Anchors, aliases and
 // merge keys are restored the same way, by relinkAliases.
-func keepComments(m *yaml.Node, existing []byte) {
+func keepComments(m *yaml.Node, existing []byte, rawProfiles ...*yaml.Node) {
 	var old yaml.Node
 	if yaml.Unmarshal(existing, &old) != nil || len(old.Content) == 0 || old.Content[0].Kind != yaml.MappingNode {
 		return
 	}
 	top := old.Content[0]
+	if len(rawProfiles) > 0 && rawProfiles[0] != nil {
+		alignRawProfileNames(top, rawProfiles[0])
+	}
 	fixAnchorComments(top)
 	top.HeadComment = withoutSchemaDirective(joinComments(old.HeadComment, top.HeadComment))
 	for i := 0; i < len(top.Content); i += 2 {
@@ -106,6 +109,46 @@ func keepComments(m *yaml.Node, existing []byte) {
 	copyComments(top, m, l)
 	relinkAliases(m, l)
 	settleLineComments(m, false)
+}
+
+// Node.Encode discards comments and source positions. Profile mutations retain
+// positions on copied keys, so align renamed keys before the normal comment and
+// alias merge. Only this authoritative raw section participates; ordinary
+// encoded keys never match by position. Keep old values for alias comparisons.
+func alignRawProfileNames(old, raw *yaml.Node) {
+	if raw.Kind != yaml.MappingNode {
+		return
+	}
+	var previous *yaml.Node
+	for i := 0; i+1 < len(old.Content); i += 2 {
+		if old.Content[i].Value == "profiles" {
+			previous = old.Content[i+1]
+			break
+		}
+	}
+	if previous == nil || previous.Kind != yaml.MappingNode {
+		return
+	}
+	for i := 0; i+1 < len(previous.Content); i += 2 {
+		key := previous.Content[i]
+		if key.Line == 0 || key.Column == 0 {
+			continue
+		}
+		found := false
+		for j := 0; j+1 < len(raw.Content); j += 2 {
+			found = found || raw.Content[j].Value == key.Value
+		}
+		if found {
+			continue
+		}
+		for j := 0; j+1 < len(raw.Content); j += 2 {
+			candidate := raw.Content[j]
+			if candidate.Line == key.Line && candidate.Column == key.Column {
+				key.Value = candidate.Value
+				break
+			}
+		}
+	}
 }
 
 // fixAnchorComments gives the comment that follows an anchor on a block mapping

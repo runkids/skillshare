@@ -2,10 +2,53 @@
 package testutil
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"skillshare/internal/utils"
 )
+
+// SnapshotTree records paths, modes, mtimes, raw link targets and regular-file bytes.
+// includeLinkedBytes also reads file links; broken links and directory links then
+// fail the snapshot instead of being recorded only by their raw target.
+func SnapshotTree(t *testing.T, includeLinkedBytes bool, roots ...string) map[string]string {
+	t.Helper()
+	result := make(map[string]string)
+	for _, root := range roots {
+		err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			value := fmt.Sprintf("%v/%d", info.Mode(), info.ModTime().UnixNano())
+			link := utils.IsLinkMode(path, info.Mode())
+			if link {
+				dest, err := os.Readlink(path)
+				if err != nil {
+					dest, err = utils.ResolveLinkTarget(path)
+				}
+				if err != nil {
+					return err
+				}
+				value += "/" + dest
+			}
+			if !info.IsDir() && (!link || includeLinkedBytes) {
+				data, err := os.ReadFile(path)
+				if err != nil {
+					return err
+				}
+				value += "/" + string(data)
+			}
+			result[path] = value
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	return result
+}
 
 // Sandbox represents an isolated test environment
 type Sandbox struct {

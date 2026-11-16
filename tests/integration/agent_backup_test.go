@@ -230,14 +230,14 @@ func TestBackup_Agents_ProjectMode_RestoreRoundTrip(t *testing.T) {
 	}
 }
 
-func TestRestore_Agents_SkillsProjectModeRejected(t *testing.T) {
+func TestRestore_SkillsProjectRequiresConfig(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
 	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
 
-	// Skills restore in project mode should still be rejected
+	// Explicit project recovery must not initialize a missing project.
 	result := sb.RunCLI("restore", "-p", "claude")
 	result.AssertFailure(t)
-	result.AssertAnyOutputContains(t, "not supported in project mode")
+	result.AssertAnyOutputContains(t, "project config not found")
 }

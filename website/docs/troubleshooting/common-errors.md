@@ -645,7 +645,7 @@ Then re-run `skillshare sync agents`.
 
 ### `backup is not supported in project mode (except for agents)`
 
-**Cause:** You ran `skillshare backup -p` (or `skillshare backup -p <target>`) without the `agents` filter. In project mode, only agent backups are supported — skill backups are global-only.
+**Cause:** You ran `skillshare backup -p` (or `skillshare backup -p <target>`) without the `agents` filter. Manual project backups support agents only; profiles can create project skills recovery snapshots.
 
 **Solution:** Add the `agents` positional argument or use `--all`:
 
@@ -655,7 +655,7 @@ skillshare backup -p agents claude   # Specific target
 skillshare backup -p --all           # Same as above (narrows to agents)
 ```
 
-The same rule applies to `restore`: `restore is not supported in project mode (except for agents)`.
+Existing project skills snapshots can be recovered with `skillshare restore <entry> --from <timestamp> -p --force`; manual project skills backup creation remains unsupported. Use `skillshare backup --list -p` to find snapshots.
 
 ### `agent name 'X' has invalid characters`
 

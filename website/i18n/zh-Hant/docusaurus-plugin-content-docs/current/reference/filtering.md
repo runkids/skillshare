@@ -129,3 +129,11 @@ skillshare target claude --remove-agent-include "team-*"
 ## 另請參閱
 
 - [篩選 Skills](/docs/how-to/daily-tasks/filtering-skills) — 情境導向的操作指南
+
+## 設定檔 {#profiles}
+
+使用 [profile](/docs/reference/commands/profile) 建立、查看、編輯及切換具名 Skill 選擇；支援 `-g` / `-p`。
+
+使用中的設定檔在 discovery 與 Target 篩選之間新增 AND 條件，比對 flat Source 名稱；不會擴大 `.skillignore`、Target 篩選或 metadata 路由允許的集合。不影響 agents、已登錄的 `projects:` 和 symlink 模式。
+
+`skills` 鍵省略時不限制；`skills: {}` 與空白或僅空格 include 不選擇任何技能。exclude 必須有 include 鍵；明確的 `include: []` 配合 exclude 有效，但排除不生效。

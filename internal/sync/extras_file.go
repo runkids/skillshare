@@ -84,7 +84,7 @@ func (f ExtraFile) sourceExists() bool {
 // isOurLink reports whether target is a symlink pointing at the source file.
 func (f ExtraFile) isOurLink() bool {
 	dest, err := os.Readlink(f.Target)
-	return err == nil && filepath.Clean(resolveReadlink(dest, f.Target)) == filepath.Clean(f.Source)
+	return err == nil && utils.SamePhysicalPath(resolveReadlink(dest, f.Target), f.Source)
 }
 
 // SyncExtraFile writes one single-file extra target. A real target file that

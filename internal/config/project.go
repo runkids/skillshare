@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+	"skillshare/internal/profile"
 	"skillshare/internal/projectdir"
 	"skillshare/internal/utils"
 )
@@ -291,22 +292,26 @@ func ProjectDir(projectRoot string) string {
 
 // ProjectConfig holds project-level config (<project-dir>/config.yaml).
 type ProjectConfig struct {
-	Plugins       yaml.Node            `yaml:"plugins,omitempty"`
-	Hooks         yaml.Node            `yaml:"hooks,omitempty"`
-	MCP           *MCPConfig           `yaml:"mcp,omitempty"`
-	Sources       ProjectSources       `yaml:"sources,omitempty"`
-	Targets       []ProjectTargetEntry `yaml:"targets"`
-	Skills        []SkillEntry         `yaml:"skills,omitempty"`
-	TargetNaming  string               `yaml:"target_naming,omitempty"`
-	Extras        []ExtraConfig        `yaml:"extras,omitempty"`
-	Ignore        []string             `yaml:"ignore,omitempty"`
-	Audit         AuditConfig          `yaml:"audit,omitempty"`
-	ContextBudget ContextBudgetConfig  `yaml:"context_budget,omitempty"`
-	Hub           HubConfig            `yaml:"hub,omitempty"`
-	GitLabHosts   []string             `yaml:"gitlab_hosts,omitempty"`
-	AzureHosts    []string             `yaml:"azure_hosts,omitempty"`
-	CNBHosts      []string             `yaml:"cnb_hosts,omitempty"`
-	GiteaHosts    []string             `yaml:"gitea_hosts,omitempty"`
+	profileSelector profile.Selector
+	profileState    profile.State
+	profilePath     string
+	Plugins         yaml.Node            `yaml:"plugins,omitempty"`
+	Hooks           yaml.Node            `yaml:"hooks,omitempty"`
+	Profiles        yaml.Node            `yaml:"profiles,omitempty"`
+	MCP             *MCPConfig           `yaml:"mcp,omitempty"`
+	Sources         ProjectSources       `yaml:"sources,omitempty"`
+	Targets         []ProjectTargetEntry `yaml:"targets"`
+	Skills          []SkillEntry         `yaml:"skills,omitempty"`
+	TargetNaming    string               `yaml:"target_naming,omitempty"`
+	Extras          []ExtraConfig        `yaml:"extras,omitempty"`
+	Ignore          []string             `yaml:"ignore,omitempty"`
+	Audit           AuditConfig          `yaml:"audit,omitempty"`
+	ContextBudget   ContextBudgetConfig  `yaml:"context_budget,omitempty"`
+	Hub             HubConfig            `yaml:"hub,omitempty"`
+	GitLabHosts     []string             `yaml:"gitlab_hosts,omitempty"`
+	AzureHosts      []string             `yaml:"azure_hosts,omitempty"`
+	CNBHosts        []string             `yaml:"cnb_hosts,omitempty"`
+	GiteaHosts      []string             `yaml:"gitea_hosts,omitempty"`
 
 	// FollowSourceLinks is Config.FollowSourceLinks for the project's skills source.
 	FollowSourceLinks bool `yaml:"follow_source_links,omitempty"`
@@ -394,6 +399,15 @@ func ProjectConfigPath(projectRoot string) string {
 
 // LoadProject loads the project config from the given root.
 func LoadProject(projectRoot string) (*ProjectConfig, error) {
+	return loadProject(projectRoot, true)
+}
+
+// LoadProjectReadOnly loads project configuration without persisting migrations.
+func LoadProjectReadOnly(projectRoot string) (*ProjectConfig, error) {
+	return loadProject(projectRoot, false)
+}
+
+func loadProject(projectRoot string, persistMigration bool) (*ProjectConfig, error) {
 	path := ProjectConfigPath(projectRoot)
 
 	data, err := os.ReadFile(path)
@@ -461,8 +475,8 @@ func LoadProject(projectRoot string) (*ProjectConfig, error) {
 			break
 		}
 	}
-	if migrated {
-		if mdata, merr := marshalConfig(&cfg, projectSchemaComment, data); merr == nil {
+	if migrated && persistMigration {
+		if mdata, merr := marshalConfig(&cfg, projectSchemaComment, data, &cfg.Profiles); merr == nil {
 			// Write a symlinked config's target so the link survives. A link out of
 			// the project is left alone; the next save reports it.
 			if dest, err := utils.ConfigWritePath(path, true); err == nil {
@@ -486,6 +500,7 @@ func LoadProject(projectRoot string) (*ProjectConfig, error) {
 		}
 	}
 
+	cfg.loadProfile(path)
 	return &cfg, nil
 }
 
@@ -503,7 +518,7 @@ func (c *ProjectConfig) SaveIn(projectDir string) error {
 		return fmt.Errorf("failed to create project config directory: %w", err)
 	}
 
-	data, err := marshalConfigFile(path, c, projectSchemaComment)
+	data, err := marshalConfigFile(path, c, projectSchemaComment, &c.Profiles)
 	if err != nil {
 		return fmt.Errorf("failed to marshal project config: %w", err)
 	}
@@ -568,6 +583,7 @@ func ResolveValidProjectTargets(projectRoot string, cfg *ProjectConfig) (resolve
 
 		tc := TargetConfig{
 			defaultTargetNaming: cfg.TargetNaming,
+			profileSelector:     cfg.profileSelector,
 			Skills: &ResourceTargetConfig{
 				Path:         absPath,
 				Mode:         sc.Mode,

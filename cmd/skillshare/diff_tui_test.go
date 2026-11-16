@@ -165,3 +165,124 @@ func TestDiffTUI_KeptOnlyTarget(t *testing.T) {
 		}
 	}
 }
+
+func TestDiffTUI_PreservationPresentation(t *testing.T) {
+	const reason = "kept: copy was edited or could not be verified; collect or remove manually, or use verified --discard-edits"
+	entry := copyDiffEntry{name: "alpha", action: "kept", reason: reason}
+	result := targetDiffResult{name: "custom", mode: "copy", synced: true, items: []copyDiffEntry{entry}}
+	m := newDiffTUIModel([]targetDiffResult{result})
+	m.refreshDetailCache()
+	if _, desc := (diffTargetItem{result: result}).row(); !strings.Contains(desc, "kept") {
+		t.Errorf("kept target row: %q", desc)
+	}
+	title := m.renderTitleLine()
+	if !strings.Contains(title, "kept") || strings.Contains(title, "under old name") {
+		t.Errorf("preservation confused with a naming migration: %s", title)
+	}
+	for _, category := range categorizeItems([]copyDiffEntry{entry}) {
+		if strings.Contains(category.label, "old name") || category.kind == "orphan" {
+			t.Errorf("kept copy miscategorized: %+v", category)
+		}
+	}
+	m.expandedSkill = "alpha"
+	// Destination-only expansion lists existing files with delete actions.
+	m.expandedFiles = []fileDiffEntry{{RelPath: "SKILL.md", Action: "delete"}}
+	detail := m.buildDiffDetail()
+	for _, want := range []string{
+		"Kept 1 skill", "copy was edited or could not be verified", "alpha",
+		strings.TrimPrefix(reason, "kept: "),
+		"collect or remove manually", "verified --discard-edits",
+		"alpha files (kept)", "· SKILL.md", "Next", "skillshare collect",
+	} {
+		if !strings.Contains(detail, want) {
+			t.Errorf("kept detail missing %q:\n%s", want, detail)
+		}
+	}
+	for _, wrong := range []string{"Kept: kept:", "--discard-edits 1 skill", "- SKILL.md", "sync --force", "stays at"} {
+		if strings.Contains(detail, wrong) {
+			t.Errorf("kept detail has misleading action/header %q:\n%s", wrong, detail)
+		}
+	}
+	if strings.Contains(m.renderTitleLine(), "to sync") || result.inSync() {
+		t.Error("kept inventory became sync work or disappeared as in sync")
+	}
+	if wire := diffItemToJSON(entry); wire.Action != "kept" || wire.IsSync || wire.Reason != reason {
+		t.Errorf("presentation changed raw preservation data: %+v", wire)
+	}
+
+	t.Run("reason_groups", func(t *testing.T) {
+		groups := categorizeItems([]copyDiffEntry{
+			entry,
+			{name: "beta", action: "kept", reason: reason},
+			{name: "gamma", action: "kept", reason: "kept: entry is not a recorded copy; collect or remove manually"},
+		})
+		if len(groups) != 2 || len(groups[0].names) != 2 || len(groups[1].names) != 1 {
+			t.Fatalf("preservation reason grouping changed: %+v", groups)
+		}
+		for _, group := range groups {
+			if group.label != "Kept" {
+				t.Errorf("recovery prose still used as category heading: %+v", group)
+			}
+		}
+	})
+
+	t.Run("actual_changes", func(t *testing.T) {
+		m := newDiffTUIModel([]targetDiffResult{{
+			name: "custom", mode: "copy", syncCount: 1,
+			items: []copyDiffEntry{{name: "alpha", action: "modify", reason: "content changed", isSync: true}},
+		}})
+		m.refreshDetailCache()
+		m.expandedSkill = "alpha"
+		m.expandedFiles = []fileDiffEntry{
+			{RelPath: "added.md", Action: "add"},
+			{RelPath: "removed.md", Action: "delete"},
+			{RelPath: "changed.md", Action: "modify"},
+		}
+		detail := m.buildDiffDetail()
+		for _, want := range []string{"alpha files", "+ added.md", "- removed.md", "~ changed.md"} {
+			if !strings.Contains(detail, want) {
+				t.Errorf("actual change icon missing %q:\n%s", want, detail)
+			}
+		}
+		if strings.Contains(detail, "files (kept)") {
+			t.Error("actual changes relabeled as kept inventory")
+		}
+	})
+}
+
+func TestDiffTUI_PreservedInventoryExpansionIdentity(t *testing.T) {
+	root := t.TempDir()
+	files := []string{"current-only.md", "former-only.md"}
+	entries := make([]copyDiffEntry, 2)
+	for i, dir := range []string{"current", "former"} {
+		path := filepath.Join(root, dir)
+		writeTestFile(t, path, files[i], "authored "+dir)
+		entries[i] = copyDiffEntry{name: "alpha", action: "kept", reason: "kept: edited copy (in " + path + ")", dstDir: path}
+	}
+	m := newDiffTUIModel([]targetDiffResult{{name: "goose", mode: "copy", items: entries}})
+	m.refreshDetailCache()
+	for i := range entries {
+		msg, ok := expandDiffCmd(&entries[i])().(diffExpandMsg)
+		if !ok || msg.skill != "alpha" || msg.diff != "" || len(msg.files) != 1 || msg.files[0].RelPath != files[i] {
+			t.Fatalf("expansion lost actual destination inventory: %+v", msg)
+		}
+		m.loading = true
+		updated, _ := m.Update(msg)
+		m = updated.(diffTUIModel)
+		detail := stripANSIWarnings(m.buildDiffDetail())
+		if !strings.Contains(detail, "· "+files[i]) || strings.Contains(detail, "- "+files[i]) || strings.Contains(detail, files[1-i]) {
+			t.Errorf("expansion reused a same-name inventory from another directory:\n%s", detail)
+		}
+		for _, entry := range entries {
+			if !strings.Contains(detail, strings.TrimPrefix(entry.reason, "kept: ")) {
+				t.Errorf("expansion lost distinct directory reason %q:\n%s", entry.reason, detail)
+			}
+		}
+		if strings.Contains(m.renderTitleLine(), "to sync") {
+			t.Error("expanded preservation became sync work")
+		}
+		if data, err := os.ReadFile(filepath.Join(entries[i].dstDir, files[i])); err != nil || string(data) != "authored "+filepath.Base(entries[i].dstDir) {
+			t.Errorf("expansion wrote authored destination: %q, %v", data, err)
+		}
+	}
+}

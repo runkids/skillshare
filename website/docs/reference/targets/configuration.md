@@ -1250,3 +1250,18 @@ Folders are linked with NTFS junctions (no admin required). Single files — age
 - [Source & Targets](/docs/understand/source-and-targets) — Core concepts
 - [Sync Modes](/docs/understand/sync-modes) — Merge vs copy vs symlink
 - [Environment Variables](/docs/reference/appendix/environment-variables) — All variables
+
+## Profiles {#profiles}
+
+Global and project configs accept the same raw `profiles` section; comments and unknown keys survive unrelated saves. An unknown key makes only that definition unusable on this version. Names start with a lowercase letter or digit and contain 1–64 lowercase letters, digits, underscores or hyphens; `none` is reserved.
+
+```yaml
+profiles:
+  frontend:
+    description: UI work
+    skills:
+      include: ['frontend__*', design-review]
+      exclude: ['frontend__legacy-*']
+```
+
+[Profile commands](/docs/reference/commands/profile) save definitions here, but never the active name. Active/pending selection is local to the canonical config path under `ProjectStateDir()/profiles`, outside a shared config git root on Windows. A symlinked config shares its identity; another config path or checkout has separate state. `SKILLSHARE_CONFIG` is respected. No `skills` key means unrestricted; explicit empty/blank includes select nothing. Excludes without an include key are invalid; `include: []` with excludes is valid and inert. Older binaries ignore local selection and can drop definitions on save. No profile key/state retains existing behavior, except copy manifests record output fingerprints.

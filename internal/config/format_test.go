@@ -148,6 +148,99 @@ targets:
 	}
 }
 
+func TestMarshalConfig_RenamedRawProfileKeepsOwnComments(t *testing.T) {
+	const existing = "# catalog note\nprofiles:\n  broken: # profile note\n    future: true # keep future\n  empty: {} # sibling note\n"
+	for _, project := range []bool{false, true} {
+		name := "global"
+		if project {
+			name = "project"
+		}
+		t.Run(name, func(t *testing.T) {
+			var value any
+			var profiles *yaml.Node
+			header := schemaComment
+			if project {
+				cfg := new(ProjectConfig)
+				if err := yaml.Unmarshal([]byte(existing), cfg); err != nil {
+					t.Fatal(err)
+				}
+				value, profiles, header = cfg, &cfg.Profiles, projectSchemaComment
+			} else {
+				cfg := new(Config)
+				if err := yaml.Unmarshal([]byte(existing), cfg); err != nil {
+					t.Fatal(err)
+				}
+				value, profiles = cfg, &cfg.Profiles
+			}
+			profiles.Content[0].Value = "renamed"
+			before, err := yaml.Marshal(profiles)
+			if err != nil {
+				t.Fatal(err)
+			}
+			data, err := marshalConfig(value, header, []byte(existing), profiles)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var saved struct {
+				Profiles yaml.Node `yaml:"profiles"`
+			}
+			if err := yaml.Unmarshal(data, &saved); err != nil {
+				t.Fatal(err)
+			}
+			after, err := yaml.Marshal(&saved.Profiles)
+			if err != nil || string(after) != string(before) {
+				t.Fatalf("renamed raw subtree changed: %v\ngot:\n%s\nwant:\n%s", err, after, before)
+			}
+			for _, marker := range []string{"# catalog note", "# profile note", "# keep future", "# sibling note"} {
+				if strings.Count(string(data), marker) != 1 {
+					t.Fatalf("comment %q must remain exactly once:\n%s", marker, data)
+				}
+			}
+			unchanged, err := yaml.Marshal(profiles)
+			if err != nil || string(unchanged) != string(before) {
+				t.Fatalf("serialization changed input raw node: %v\n%s", err, unchanged)
+			}
+		})
+	}
+}
+
+func TestMarshalConfig_RenamedRawProfilePreservesCrossSectionAlias(t *testing.T) {
+	const existing = "profiles:\n  broken:\n    future: &shared [alpha] # keep future\n  empty: {}\ntargets:\n  custom:\n    skills:\n      include: *shared # target note\n"
+	var cfg Config
+	if err := yaml.Unmarshal([]byte(existing), &cfg); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Profiles.Content[0].Value = "renamed"
+	before, err := yaml.Marshal(&cfg.Profiles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := marshalConfig(&cfg, schemaComment, []byte(existing), &cfg.Profiles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var saved Config
+	if err := yaml.Unmarshal(data, &saved); err != nil {
+		t.Fatalf("written alias does not load: %v\n%s", err, data)
+	}
+	if !slices.Equal(saved.Targets["custom"].Skills.Include, []string{"alpha"}) {
+		t.Fatalf("target alias changed selection:\n%s", data)
+	}
+	future := saved.Profiles.Content[1].Content[1]
+	if saved.Profiles.Content[0].Value != "renamed" || future.Kind != yaml.AliasNode || future.Value != "shared" || future.LineComment != "# keep future" {
+		t.Fatalf("profile lost relocated alias or its own comment: %+v\n%s", future, data)
+	}
+	for _, marker := range []string{"&shared", "*shared", "# keep future", "# target note"} {
+		if strings.Count(string(data), marker) != 1 {
+			t.Fatalf("%q must remain exactly once:\n%s", marker, data)
+		}
+	}
+	after, err := yaml.Marshal(&cfg.Profiles)
+	if err != nil || string(after) != string(before) {
+		t.Fatalf("serialization changed input raw node: %v\n%s", err, after)
+	}
+}
+
 func TestMarshalConfig_CommentOnReorderedKeyFollowsIt(t *testing.T) {
 	existing := []byte(string(schemaComment) + "\n# kept on mode\nmode: merge\nsources:\n  skills: /src\n")
 	cfg := Config{Mode: "merge", Sources: GlobalSources{Skills: "/src"}}

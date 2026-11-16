@@ -39,8 +39,10 @@ func createLink(linkPath, sourcePath string, relative bool, sourceRoot ...string
 		return fmt.Errorf("target already exists: %s", absTarget)
 	}
 
-	// If relative requested, try os.Symlink with relative path first
-	if relative {
+	// Windows resolves relative links reached through a junction using the
+	// alias route, not the physical parent used by filepath.Rel. Use an
+	// absolute link there; shouldUseRelative applies the same policy on reruns.
+	if relative && relativeLinkPathSupported(filepath.Dir(absTarget)) {
 		// Resolve real paths: OS resolves relative symlinks from the
 		// real parent directory, not the lexical one.
 		linkDir := evalOrClean(filepath.Dir(absTarget))
@@ -142,4 +144,17 @@ func fileLinkUsable(path string) bool {
 // only symlinks have ModeSymlink; junctions are reported as ModeIrregular.
 func isJunctionOrSymlink(path string) bool {
 	return utils.IsSymlinkOrJunction(path)
+}
+
+// relativeLinkPathSupported rejects junction ancestors, including a configured
+// target directory itself. Absolute links remain valid through either route.
+func relativeLinkPathSupported(path string) bool {
+	for path = filepath.Clean(path); ; path = filepath.Dir(path) {
+		if utils.IsJunction(path) {
+			return false
+		}
+		if filepath.Dir(path) == path {
+			return true
+		}
+	}
 }

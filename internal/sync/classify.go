@@ -22,6 +22,13 @@ func ClassifySkillsForTarget(skills []DiscoveredSkill, name string, sc config.Re
 	}
 	rows := make(map[string]SkillTargetClassification, len(skills))
 	for _, skill := range skills {
+		included, err := sc.Profile.Selects(skill.FlatName)
+		if err != nil {
+			return nil, err
+		}
+		if !included {
+			continue
+		}
 		targets := skill.Targets
 		// Inferred membership comes from the shared exact-agent selector below.
 		if skill.variantRouting || selected[skill.RelPath] {

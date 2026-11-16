@@ -38,6 +38,10 @@ type analyzeTargetResponse struct {
 
 func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
+	if s.refuseUnavailableProfile(w) {
+		s.mu.RUnlock()
+		return
+	}
 	source := s.cfg.EffectiveSkillsSource()
 	targets := s.cfg.Targets
 	defaultMode := s.cfg.Mode
@@ -52,7 +56,13 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	entries := make([]analyzeTargetResponse, 0)
 	for name, target := range targets {
 		filtered, ferr := ssync.TargetSkills(name, target, defaultMode, source, discovered)
-		if ferr != nil || len(filtered) == 0 {
+		if ferr != nil {
+			if !writeProfileError(w, ferr, nil) {
+				writeError(w, http.StatusInternalServerError, ferr.Error())
+			}
+			return
+		}
+		if len(filtered) == 0 {
 			continue
 		}
 

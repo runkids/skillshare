@@ -61,6 +61,10 @@ func newSyncMatrixEntry(skill, target, status, reason, kind string) syncMatrixEn
 func (s *Server) handleSyncMatrix(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
+	if s.refuseUnavailableProfile(w) {
+		s.mu.RUnlock()
+		return
+	}
 	source := s.cfg.EffectiveSkillsSource()
 	agentsSource := s.agentsSource()
 	targets := s.cloneTargets()
@@ -108,7 +112,10 @@ func (s *Server) handleSyncMatrix(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			for _, skill := range skills {
-				row := classified[skill.RelPath]
+				row, ok := classified[skill.RelPath]
+				if !ok {
+					continue
+				}
 				entries = append(entries, newSyncMatrixEntry(skill.FlatName, name, row.Status, row.Reason, ""))
 			}
 		}
@@ -145,6 +152,10 @@ func (s *Server) handleSyncMatrix(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSyncMatrixPreview(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
+	if s.refuseUnavailableProfile(w) {
+		s.mu.RUnlock()
+		return
+	}
 	source := s.cfg.EffectiveSkillsSource()
 	agentsSource := s.agentsSource()
 	targets := s.cloneTargets()
@@ -208,7 +219,10 @@ func (s *Server) handleSyncMatrixPreview(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	for _, skill := range skills {
-		row := classified[skill.RelPath]
+		row, ok := classified[skill.RelPath]
+		if !ok {
+			continue
+		}
 		entries = append(entries, newSyncMatrixEntry(skill.FlatName, body.Target, row.Status, row.Reason, ""))
 	}
 

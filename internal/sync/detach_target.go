@@ -82,7 +82,6 @@ func unlinkMergeSymlinks(targetPath string, opts DetachOptions, report *DetachRe
 	if err != nil {
 		return err
 	}
-	absSourcePrefix := absSource + string(filepath.Separator)
 
 	for _, entry := range entries {
 		// The manifest is already accounted for, but remains present in previews.
@@ -102,7 +101,7 @@ func unlinkMergeSymlinks(targetPath string, opts DetachOptions, report *DetachRe
 			continue
 		}
 
-		if !utils.PathHasPrefix(absLink, absSourcePrefix) {
+		if !utils.PathWithinRoot(absLink, absSource) {
 			report.Retained = append(report.Retained, skillPath)
 			continue
 		}

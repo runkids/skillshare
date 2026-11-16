@@ -24,6 +24,10 @@ skillshare sync -g             # Force global mode
 
 Before linking, `sync` adopts the install record of a skill moved by hand (`mv`) when exactly one unchanged copy with that name exists; it never removes a record. `--dry-run` adopts nothing.
 
+An active skill profile adds an AND selection layer before target filters and routing. Sync reports its desired selection separately from observed target counts. With active or pending profile state, modified managed copies and unmanaged content are kept across target mode changes. Warnings identify kept entries; a full eligible-target sync clears pending only when every eligible target completes. `sync --discard-edits` requires active or pending profile state and verifies a snapshot of the listed edits before writers may remove them. Text and JSON report snapshot paths, restore commands and retention. `--force` does not authorize pruning a departing modified copy. Missing or unusable active state refuses skill sync; repair with `profile use <name>` or `profile use --none`. See [profiles.md](profiles.md).
+
+Project `sync --discard-edits` also covers selected eligible targets’ declared former skills folders. Use each reported moved restore command to recover that folder while preserving the current one. Profile switching does not run former-folder cleanup.
+
 In project mode, adoption updates only the moved declared skill's config entry,
 ignore rule and existing lock pin. A stale record without a move leaves those
 files unchanged; unrelated remote installs are not added to the project manifest.

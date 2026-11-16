@@ -27,6 +27,7 @@ _skillshare() {
         'commit:Create local git commit without pushing'
         'doctor:Check environment and diagnose issues'
         'target:Manage targets'
+        'profile:Define and switch skill profiles'
         'project:Manage project folders'
         'updates:Control automatic version checks'
         'upgrade:Upgrade CLI and/or skillshare skill'
@@ -262,9 +263,24 @@ _skillshare() {
                         '--help[Show help]' \
                         '-h[Show help]'
                     ;;
+                profile)
+                    _arguments \
+                        '1:command:(list show create edit rename delete use)' \
+                        '*--description[Description]:text:' \
+                        '*--add-include[Append include]:pattern:' \
+                        '*--remove-include[Remove exact include]:pattern:' \
+                        '*--add-exclude[Append exclude]:pattern:' \
+                        '*--remove-exclude[Remove exact exclude]:pattern:' \
+                        '--dry-run[Preview only]' '-n[Preview only]' \
+                        '--no-sync[Record pending only]' '--none[Clear active profile]' \
+                        '--discard-edits[Snapshot and discard listed edits]' \
+                        '--allow-empty[Confirm empty selection]' '--json[JSON output]' \
+                        $global_flags '--help[Show help]' '-h[Show help]'
+                    ;;
                 sync)
                     _arguments \
                         '1:scope:(agents extras mcp hooks plugins)' \
+                        '--discard-edits[Snapshot and discard listed profile edits]' \
                         '--all[Sync skills + agents + extras]' \
                         '--dry-run[Preview changes]' \
                         '-n[Preview changes]' \
