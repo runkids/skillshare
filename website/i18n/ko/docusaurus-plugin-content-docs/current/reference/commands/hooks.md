@@ -30,7 +30,7 @@ skillshare hooks restore BACKUP_ID --dry-run
 skillshare hooks restore BACKUP_ID
 ```
 
-하위 명령이 없으면 entries를 나열합니다. `add`／`edit`는 `--file`의 Entry JSON/YAML을 읽습니다. 이름 없는 가져오기는 후보(Agent event 또는 파일마다 하나)를 나열하고 이름을 지정하면 저장합니다. 가져오기를 저장하면 읽은 등록을 그 자리에서 인수합니다. 다음 동기화는 `--replace` 없이 adopt하며, 가져오지 않은 event는 관리되지 않은 채 남습니다. 설정과 코드만 읽고 실행하지 않습니다. 추가, 편집, 가져오기, 활성화, 비활성화, 제거는 소스만 저장하며 `--sync`를 붙이면 동기화합니다. 동기화와 복원은 적용 전 다시 미리 봅니다. Dashboard의 가져오기 대화상자에서는 가져오지 않은 hook을 Agent 설정 파일에서 바로 편집하거나 제거할 수도 있습니다(hooks를 하나의 설정 파일 안 event로 두는 Agent만 해당: Claude, Codex, Gemini, Cursor, Qwen, 그리고 Droid의 `hooks.json`. 파일 전체이거나 이름 있는 블록인 hook은 먼저 가져와야 합니다). 쓰기 전에 파일 diff를 보여 주고 백업하며, hook은 관리되지 않은 상태로 남습니다.
+하위 명령이 없으면 entries를 나열합니다. `add`／`edit`는 `--file`의 Entry JSON/YAML을 읽습니다. 이름 없는 가져오기는 후보(Agent event 또는 파일마다 하나)를 나열하고 이름을 지정하면 저장합니다. 가져오기를 저장하면 읽은 등록을 그 자리에서 인수합니다. 다음 동기화는 `--replace` 없이 adopt하며, 가져오지 않은 event는 관리되지 않은 채 남습니다. 설정과 코드만 읽고 실행하지 않습니다. 추가, 편집, 가져오기, 활성화, 비활성화, 제거는 소스만 저장하며 `--sync`를 붙이면 동기화합니다. 동기화와 복원은 적용 전 다시 미리 봅니다. Dashboard의 「대상에 있는 hook」 대화상자는 아무것도 선택하지 않은 상태로 열리며, 가져올 hook을 체크합니다. 가져오지 않은 hook을 Agent 설정 파일에서 바로 편집하거나 제거할 수도 있습니다(hooks를 하나의 설정 파일 안 event로 두는 Agent만 해당: Claude, Codex, Gemini, Cursor, Qwen, 그리고 Droid의 `hooks.json`. 파일 전체이거나 이름 있는 블록인 hook은 먼저 가져와야 합니다). 쓰기 전에 파일 diff를 보여 주고 백업하며, hook은 관리되지 않은 상태로 남습니다.
 
 | Option | Meaning |
 |---|---|

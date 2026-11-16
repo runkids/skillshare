@@ -20,7 +20,7 @@ import HooksImportRow from './HooksImportRow';
 import { nativeEdits, rowEvents, rowTitle, sameEvents } from './hooksImport';
 import type { ImportRow, NativeChange } from './hooksImport';
 import HooksPreview from './HooksPreview';
-import { HOOK_NAME, hookAccounts, agentOfKey, keyLabel, isCodeAgent, scopeEntries, scopePaths, scopeUnmanaged } from './hooksView';
+import { HOOK_NAME, hookAccounts, hookMessage, agentOfKey, keyLabel, isCodeAgent, scopeEntries, scopePaths, scopeUnmanaged } from './hooksView';
 
 interface Props {
   data: HookInventory;
@@ -66,7 +66,8 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
   const [pasted, setPasted] = useState<HookCandidate[] | null>(null);
   const [reading, setReading] = useState(false);
   const [names, setNames] = useState<Record<string, string>>({});
-  const [unchecked, setUnchecked] = useState<string[]>([]);
+  // Nothing is picked until the user picks it: the dialog is also where hooks are only edited or removed.
+  const [selected, setSelected] = useState<string[]>([]);
   const [opened, setOpened] = useState('');
   const [changes, setChanges] = useState<Record<string, NativeChange>>({});
   // Per target, the only rows still picked for import after a write to its file went through.
@@ -106,9 +107,9 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
     return change && ('remove' in change || !sameEvents(change.events, rowEvents(row))) ? change : undefined;
   };
   // A hook with a pending edit or removal is written to its target file as it is, not imported in the same pass.
-  const checked = (row: ImportRow) => importable(row) && !changeOf(row) && !unchecked.includes(row.id) && (!row.adopt || !kept[row.target] || kept[row.target].includes(row.id));
+  const checked = (row: ImportRow) => importable(row) && !changeOf(row) && selected.includes(row.id) && (!row.adopt || !kept[row.target] || kept[row.target].includes(row.id));
   const check = (ids: string[], on: boolean) => {
-    setUnchecked((prev) => (on ? prev.filter((x) => !ids.includes(x)) : [...new Set([...prev, ...ids])]));
+    setSelected((prev) => (on ? [...new Set([...prev, ...ids])] : prev.filter((x) => !ids.includes(x))));
     if (on) setKept((prev) => Object.fromEntries(Object.entries(prev).map(([target, list]) => [target, [...list, ...rows.filter((r) => r.target === target && ids.includes(r.id)).map((r) => r.id)]])));
   };
   const chosen = rows.filter(checked);
@@ -125,7 +126,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
     try {
       setPasted(await hooksApi.import({ from: pasteFrom, content, ...(project && { root: project }) }));
     } catch (e) {
-      setError((e as Error).message);
+      setError(hookMessage(t, (e as Error).message));
     } finally {
       setReading(false);
     }
@@ -190,7 +191,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
     const edited = changed.filter((r) => 'events' in changeOf(r)!);
     const tile = 'grid h-[26px] w-[26px] shrink-0 place-items-center rounded-sm';
     const hooksOf = (list: ImportRow[]) => list.map((r) => (
-      <span key={r.id} className="inline-flex items-center gap-1.5"><AgentIcon target={agentOf(r.target)} size={13} /><span className="font-mono text-ink">{rowTitle(r)}</span></span>
+      <span key={r.id} className="ss-tag !text-ink"><AgentIcon target={agentOf(r.target)} size={11} />{rowTitle(r)}</span>
     ));
     const sep = t('hooks.importSum.listSep');
     const labels = (list: string[]) => [...new Set(list)].map(labelOf).join(sep);
@@ -200,7 +201,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
     const backupNote = t(plural('hooks.importBackupNote', plan.files?.length ?? wrote.size));
     return (
       <DialogShell open onClose={onClose} padding="none" preventClose ariaLabel={title} className="!max-w-[720px] !bg-bg">
-        <div className="dh">
+        <div className="dh sep">
           <div className="flex flex-col gap-1">
             <h2 className="ss-h2">{title}</h2>
             <p className="text-[13px] text-ink-2">{t('hooks.importReviewHint')}</p>
@@ -223,7 +224,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
                 <span className={`${tile} bg-sunken text-ink-2`}><Pencil size={15} /></span>
                 <span className="flex min-w-0 flex-1 flex-col gap-px">
                   <span className="font-semibold">{t('hooks.importSum.edit', { count: String(edited.length) })}</span>
-                  <span className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[13px] text-ink-2">{hooksOf(edited)}</span>
+                  <span className="mt-1 flex flex-wrap gap-1.5">{hooksOf(edited)}</span>
                 </span>
               </div>
             )}
@@ -232,19 +233,20 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
                 <span className={`${tile} bg-sunken text-bad`}><Trash2 size={15} /></span>
                 <span className="flex min-w-0 flex-1 flex-col gap-px">
                   <span className="font-semibold">{t('hooks.importSum.remove', { count: String(removed.length) })}</span>
-                  <span className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[13px] text-ink-2">{hooksOf(removed)}<span>{t('hooks.importSum.removeHint', { target: labels(removed.map((r) => r.target)) })}</span></span>
+                  <span className="text-[13px] text-ink-2">{t('hooks.importSum.removeHint', { target: labels(removed.map((r) => r.target)) })}</span>
+                  <span className="mt-1 flex flex-wrap gap-1.5">{hooksOf(removed)}</span>
                 </span>
               </div>
             )}
           </div>
           <div className="flex flex-col gap-2">
             <h3 className="text-[13px] font-semibold">{t('hooks.importFiles')}</h3>
-            <HooksPreview plan={plan} />
+            <HooksPreview plan={plan} compact />
             <p className="text-[13px] leading-normal text-ink-2">{backupNote}{others && `${/[.!?]$/.test(backupNote) ? ' ' : ''}${t('hooks.importBackupOthers', { targets: others })}`}</p>
           </div>
           {failure}
         </div>
-        <div className="df !border-t-0 !bg-transparent">
+        <div className="df">
           <Button variant="ghost" onClick={() => setPlan(null)} disabled={busy}>{t('common.back')}</Button>
           <Button variant="primary" loading={saving} onClick={() => void save()}>{t('hooks.importApply')}</Button>
         </div>
@@ -362,7 +364,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               {reads[at]?.isPending && <div className="p-4"><Spinner size="sm" /></div>}
-              {reads[at]?.error && <div className="p-4"><div className="ss-note bad"><span className="flex-1">{(reads[at].error as Error).message}</span></div></div>}
+              {reads[at]?.error && <div className="p-4"><div className="ss-note bad"><span className="flex-1">{hookMessage(t, (reads[at].error as Error).message)}</span></div></div>}
               {reads[at]?.isSuccess && found.length === 0 && <p className="p-4 text-[13px] text-ink-2">{t('hooks.importNone')}</p>}
               {list(found)}
             </div>
@@ -377,6 +379,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
             <span className="flex-1 text-[13px] text-ink-2">
               {pending > 0
                 ? t('hooks.importFooterPending', { count: String(chosen.length), changes: String(pending) })
+                : chosen.length === 0 ? t('hooks.importFooterNone')
                 : t(plural('hooks.importFooter', sources), { count: String(chosen.length), targets: String(sources) })}
             </span>
             <Button variant="ghost" onClick={onClose} disabled={busy}>{t('common.cancel')}</Button>
