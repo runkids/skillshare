@@ -96,7 +96,10 @@ describe('hooks import', () => {
     wrap(<HooksImportDialog data={data} onClose={vi.fn()} onChanged={vi.fn()} onImported={onImported} />);
     const group = await screen.findByRole('region', { name: 'Claude' });
     expect(within(group).getByTitle('/home/u/.claude/settings.json')).toBeInTheDocument();
-    await user.click(await within(group).findByRole('checkbox', { name: 'Import format' }));
+    // Nothing is imported unless it was picked.
+    expect(await within(group).findByRole('checkbox', { name: 'Import format' })).not.toBeChecked();
+    expect(screen.getByRole('button', { name: 'Import 0' })).toBeDisabled();
+    await user.click(within(group).getByRole('checkbox', { name: 'Import notify' }));
     expect(screen.getByText('1 selected, from 1 target')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Import 1' }));
     await waitFor(() => expect(onImported).toHaveBeenCalledWith(1, 0));
@@ -116,6 +119,7 @@ describe('hooks import', () => {
     const name = screen.getByRole('textbox', { name: 'Name for lint' });
     expect(name).toHaveValue('lint');
     expect(name).toBeDisabled();
+    await user.click(screen.getByRole('checkbox', { name: 'Import lint' }));
     await user.click(screen.getByRole('button', { name: 'Import 1' }));
     await waitFor(() => expect(hooksApi.save).toHaveBeenCalledWith(expect.objectContaining({ name: 'lint', adopt: true })));
   });
@@ -131,7 +135,8 @@ describe('hooks import', () => {
     vi.mocked(hooksApi.save).mockResolvedValue({ applied: [], backupIds: [] });
     const onImported = vi.fn();
     wrap(<HooksImportDialog data={data} onClose={vi.fn()} onChanged={vi.fn()} onImported={onImported} />);
-    await user.click(await screen.findByRole('button', { name: 'Remove notify from the target' }));
+    await user.click(await screen.findByRole('checkbox', { name: 'Import format' }));
+    await user.click(screen.getByRole('button', { name: 'Remove notify from the target' }));
     expect(screen.getByRole('checkbox', { name: 'Import notify' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: /^Import \d/ })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Review changes' }));
@@ -153,7 +158,8 @@ describe('hooks import', () => {
     vi.mocked(hooksApi.import).mockResolvedValue([editable('notify', './notify.sh')]);
     vi.mocked(hooksApi.previewNative).mockResolvedValue(nativePlan);
     wrap(<HooksImportDialog data={data} onClose={vi.fn()} onChanged={vi.fn()} onImported={vi.fn()} />);
-    await user.click(await screen.findByRole('button', { name: 'Edit notify' }));
+    await user.click(await screen.findByRole('checkbox', { name: 'Import notify' }));
+    await user.click(screen.getByRole('button', { name: 'Edit notify' }));
     await user.click(screen.getByRole('button', { name: 'Done' }));
     expect(screen.getByRole('button', { name: 'Import 1' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Edit notify' }));
@@ -181,7 +187,8 @@ describe('hooks import', () => {
     const onChanged = vi.fn();
     const onImported = vi.fn();
     wrap(<HooksImportDialog data={data} onClose={vi.fn()} onChanged={onChanged} onImported={onImported} />);
-    await user.click(await screen.findByRole('button', { name: 'Edit notify' }));
+    await user.click(await screen.findByRole('checkbox', { name: 'Import format' }));
+    await user.click(screen.getByRole('button', { name: 'Edit notify' }));
     await user.type(screen.getByLabelText('Command 1'), ' --fast');
     await user.click(screen.getByRole('button', { name: 'Done' }));
     await user.click(screen.getByRole('button', { name: 'Review changes' }));

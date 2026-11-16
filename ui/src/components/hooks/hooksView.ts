@@ -77,6 +77,11 @@ export const hookMessage = (t: (key: string, params?: Record<string, string>) =>
   if (missingExport) return t('hooks.message.opencodeExportMissing', { path: missingExport[1], detail: missingExport[2] });
   const unreadable = /^OpenCode package file (".*") cannot be imported: ([\s\S]+)$/.exec(message);
   if (unreadable) return t('hooks.message.opencodePackageUnreadable', { path: unreadable[1], detail: unreadable[2] });
+  const noCli = /^(?:target (\S+): )?detect OpenCode API with (.+) --version: exec: "[^"]*": executable file not found in [$%]PATH%?(; its hook bindings are skipped)?$/.exec(message);
+  if (noCli && !noCli[1] && !noCli[3]) return t('hooks.message.opencodeNotInstalled', { cli: noCli[2] });
+  if (noCli && noCli[1] && noCli[3]) return t('hooks.message.opencodeUndetectedNoCli', { target: noCli[1], cli: noCli[2] });
+  const noVersion = /^detect OpenCode API with (.+) --version: ([\s\S]+)$/.exec(message);
+  if (noVersion) return t('hooks.message.opencodeNoVersion', { cli: noVersion[1], detail: noVersion[2] });
   const undetected = /^target (\S+): (detect OpenCode API [\s\S]+); its hook bindings are skipped$/.exec(message);
   if (undetected) return t('hooks.message.opencodeUndetected', { target: undetected[1], detail: undetected[2] });
   const needsV2 = /^hook (.+): target (\S+): a directory package requires OpenCode v2; this binding is skipped$/.exec(message);

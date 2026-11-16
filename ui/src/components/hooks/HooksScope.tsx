@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Archive, Copy, Download, Eye, Info, Pencil, Plus, Trash2, Webhook } from 'lucide-react';
+import { AlertCircle, Archive, Copy, Download, Eye, Info, Pencil, Plus, Target, Trash2, Webhook } from 'lucide-react';
 import { hooksApi, type HookChange, type HookEntry, type HookInventory } from '../../api/hooks';
 import { plural, useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
@@ -102,7 +102,7 @@ export default function HooksScope({ data, project, header }: Props) {
     <span className="flex flex-wrap items-center justify-end gap-2.5">
       {!project && <SourcePathButton path={data.source.path} configPath={data.source.configPath} section="hooks" />}
       {backups.length > 0 ? <Button variant="ghost" onClick={() => setBackupsOpen(true)}><Archive size={15} />{t('hooks.backupsButton')}</Button> : null}
-      <Button variant="secondary" onClick={() => setImporting(true)}><Download size={15} />{t('hooks.import')}</Button>
+      <Button variant="secondary" onClick={() => setImporting(true)}><Target size={15} />{t('hooks.import')}</Button>
       <Button variant="primary" onClick={add}><Plus size={15} />{t('hooks.add')}</Button>
     </span>
   );
@@ -143,7 +143,7 @@ export default function HooksScope({ data, project, header }: Props) {
             title={t('hooks.empty')}
             description={t('hooks.emptyHint')}
             action={<div className="flex gap-2">
-              <Button variant="secondary" onClick={() => setImporting(true)}><Download size={15} />{t('hooks.import')}</Button>
+              <Button variant="secondary" onClick={() => setImporting(true)}><Target size={15} />{t('hooks.import')}</Button>
               <Button variant="primary" onClick={add}><Plus size={15} />{t('hooks.add')}</Button>
             </div>}
           />

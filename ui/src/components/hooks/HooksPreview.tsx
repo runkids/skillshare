@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, TriangleAlert } from 'lucide-react';
+import { AlertTriangle, ChevronDown, TriangleAlert } from 'lucide-react';
 import type { HookChange, HookFileDiff, HookPreview, HookUnmanaged } from '../../api/hooks';
 import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
@@ -13,13 +13,16 @@ import { diffLines, eventLabels, foldDiff, lineEvent } from './hookCatalog';
 const lineTone = { ' ': 'text-ink-3', '+': 'bg-diff-add-bg text-ink', '-': 'bg-diff-del-bg text-ink' };
 const signTone = { ' ': '', '+': 'text-diff-add', '-': 'text-diff-del' };
 
-/** A real line diff of one file; unchanged runs fold, long lines wrap, and a user's own hooks are marked as untouched on a line of their own. */
+/**
+ * A real line diff of one file; unchanged runs fold, long lines wrap, and a user's own hooks are marked as untouched on a line of their own.
+ * It has no height of its own: the dialog body around it is the one thing that scrolls.
+ */
 function FileDiff({ file, untouched, index, total }: { file: HookFileDiff; untouched: string[]; index: number; total: number }) {
   const t = useT();
   const lines = foldDiff(diffLines(file.before, file.after));
   const label = t('hooks.preview.diff', { path: file.path });
   return (
-    <div role="region" className="max-h-[320px] overflow-y-auto border-t border-line py-1.5 font-mono text-[12px] leading-[1.7]" aria-label={total > 1 ? `${label} (${index + 1}/${total})` : label}>
+    <div role="region" className="border-t border-line py-1.5 font-mono text-[12px] leading-[1.7]" aria-label={total > 1 ? `${label} (${index + 1}/${total})` : label}>
       {lines.map((line, i) => {
         if ('skip' in line) return <div key={i} className="px-3.5 text-ink-3">{t('hooks.preview.folded', { count: String(line.skip) })}</div>;
         // An event line of the user's own shows as added only when it just gained or lost a comma; mark its new text.
@@ -41,11 +44,15 @@ function FileDiff({ file, untouched, index, total }: { file: HookFileDiff; untou
 /**
  * What a sync would write, one card per native file: the action, the events it changes and the file's
  * diff when the plan carries its contents. Nothing here has been written or executed. `onTakeover`
- * offers the take-over preview on conflicts `canTakeOver` accepts.
+ * offers the take-over preview on conflicts `canTakeOver` accepts. `compact` is for a caller that already lists
+ * the changes itself: a file says how many of each action it gets instead of a row per change, and its diff
+ * starts closed.
  */
-export default function HooksPreview({ plan, unmanaged = [], canTakeOver, onTakeover }: { plan: HookPreview; unmanaged?: HookUnmanaged[]; canTakeOver?: (c: HookChange) => boolean; onTakeover?: (name: string) => void }) {
+export default function HooksPreview({ plan, unmanaged = [], compact = false, canTakeOver, onTakeover }: { plan: HookPreview; unmanaged?: HookUnmanaged[]; compact?: boolean; canTakeOver?: (c: HookChange) => boolean; onTakeover?: (name: string) => void }) {
   const t = useT();
   const [hideSynced, setHideSynced] = useState(true);
+  // Files whose diff was switched away from how it starts.
+  const [toggled, setToggled] = useState<string[]>([]);
   const unchanged = plan.changes.filter((c) => c.action === 'unchanged').length;
   const canHide = unchanged > 0 && unchanged < plan.changes.length;
   const files = groupByFile(plan.changes.filter((c) => !(canHide && hideSynced && c.action === 'unchanged')));
@@ -61,11 +68,13 @@ export default function HooksPreview({ plan, unmanaged = [], canTakeOver, onTake
       {plan.warnings?.map((w) => <div key={w} className="flex items-start gap-2 text-[13px] text-ink-2"><TriangleAlert size={14} className="mt-0.5 shrink-0" /><span className="flex-1">{hookMessage(t, w)}</span></div>)}
       {plan.changes.length === 0 && <p className="text-[13px] text-ink-2">{t('hooks.preview.nothing')}</p>}
       {canHide && <Checkbox size="sm" label={t('mcp.hideSynced')} checked={hideSynced} onChange={setHideSynced} />}
-      <div className="flex max-h-[55vh] flex-col gap-3 overflow-auto">
+      <div className="flex flex-col gap-3">
         {files.map((file) => {
           const single = file.changes.length === 1 ? file.changes[0] : undefined;
           const diffs = plan.files?.filter((f) => f.path === file.path) ?? [];
           const untouched = unmanaged.filter((u) => u.path === file.path).flatMap((u) => u.names);
+          const open = toggled.includes(file.path) === compact;
+          const counts = compact && !single ? [...new Set(file.changes.map(action))].map((label) => `${label} ${file.changes.filter((c) => action(c) === label).length}`) : [];
           return (
             <section key={file.path} aria-label={file.path} className="shrink-0 overflow-hidden rounded-[12px] border border-line">
               <div className="flex min-h-11 items-center gap-2.5 bg-sunken px-3.5 py-2">
@@ -76,8 +85,15 @@ export default function HooksPreview({ plan, unmanaged = [], canTakeOver, onTake
                 {mixed && <span className="ss-tag shrink-0 !font-sans">{file.root ? t('hooks.preview.project', { name: file.root.split(/[\\/]/).pop() ?? file.root }) : t('hooks.preview.global')}</span>}
                 {single && <span className="shrink-0 text-xs text-ink-2">{action(single)}</span>}
                 {single && eventLabels(single).map((l) => <span key={l} className="shrink-0 font-mono text-xs text-ink-2">{l}</span>)}
+                {counts.map((l) => <span key={l} className="shrink-0 text-xs text-ink-2">{l}</span>)}
+                {diffs.length > 0 && (
+                  <button type="button" className="flex min-h-6 shrink-0 items-center gap-1 text-xs font-semibold text-ink-2 hover:text-ink" aria-expanded={open} aria-label={`${t(open ? 'hooks.preview.hideDiff' : 'hooks.preview.showDiff')} · ${shortenHome(file.path)}`} onClick={() => setToggled((prev) => (prev.includes(file.path) ? prev.filter((p) => p !== file.path) : [...prev, file.path]))}>
+                    {t(open ? 'hooks.preview.hideDiff' : 'hooks.preview.showDiff')}
+                    <ChevronDown size={14} className={`transition-transform duration-200 motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} />
+                  </button>
+                )}
               </div>
-              {file.changes.filter((c) => !single || c.message || c.action === 'conflict').map((c) => (
+              {file.changes.filter((c) => (!single && !compact) || c.message || c.action === 'conflict').map((c) => (
                 <div key={`${c.name}:${c.action}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line px-3.5 py-2">
                   {!single && <span className="min-w-[80px] shrink-0 text-xs text-ink-2">{action(c)}</span>}
                   {!single && <span className="min-w-0 truncate font-mono text-[13px]">{c.name}</span>}
@@ -88,7 +104,7 @@ export default function HooksPreview({ plan, unmanaged = [], canTakeOver, onTake
                   {c.message && <span className={c.action === 'conflict' ? 'w-full' : 'min-w-0 max-w-[55%]'}><Tooltip block content={hookMessage(t, c.message)}><span className={`block text-xs text-ink-2 ${c.action === 'conflict' ? 'w-full break-words leading-normal' : 'truncate'}`}>{hookMessage(t, c.message)}</span></Tooltip></span>}
                 </div>
               ))}
-              {diffs.map((diff, i) => <FileDiff key={i} file={diff} untouched={untouched} index={i} total={diffs.length} />)}
+              {open && diffs.map((diff, i) => <FileDiff key={i} file={diff} untouched={untouched} index={i} total={diffs.length} />)}
             </section>
           );
         })}

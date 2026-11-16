@@ -1,9 +1,9 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import type { Diagnostic } from '@codemirror/lint';
-import { AlertCircle, ChevronDown, Maximize2, Minimize2, Plus, SquareTerminal, Trash2, WandSparkles, X } from 'lucide-react';
+import { AlertCircle, ChevronDown, Maximize2, Minimize2, Plus, Trash2, WandSparkles, X } from 'lucide-react';
 import { useT } from '../../i18n';
 import CodeEditor from '../CodeEditor';
 import IconButton from '../IconButton';
@@ -29,7 +29,7 @@ interface Props {
   onChange: (draft: BindingDraft) => void;
   disabled: boolean;
   catalog?: HookCatalog;
-  /** One collapsible card per command with a multi-line command editor, and no script files: for a hook edited in its target file. */
+  /** The command cards edge to edge, and no script files: for a hook edited in its target file. */
   cards?: boolean;
   /** With `cards`: where the fields / native JSON switch is rendered, outside the editor's own body. */
   tabsHost?: HTMLElement | null;
@@ -82,86 +82,10 @@ function useRowFields(agent: string, catalog: HookCatalog | undefined) {
   };
 }
 
-/** Event, matcher, command and timeout as plain fields. Everything else in the native entry is carried along untouched. */
-function SimpleEvents({ agent, draft, onChange, disabled, catalog }: Pick<Props, 'agent' | 'draft' | 'onChange' | 'disabled' | 'catalog'>) {
-  const t = useT();
-  const commands = useRef<Record<string, HTMLInputElement | null>>({});
-  const patch = (id: string, change: Partial<Row>) => onChange({ ...draft, rows: draft.rows.map((r) => (r.id === id ? { ...r, ...change } : r)) });
-  const fields = useRowFields(agent, catalog);
-  const unit = fields.unit;
-  const variables = commandVariables(agent);
-  const insert = (id: string, command: string, text: string) => {
-    const input = commands.current[id];
-    const at = input?.selectionStart ?? command.length;
-    patch(id, { command: command.slice(0, at) + text + command.slice(input?.selectionEnd ?? at) });
-    requestAnimationFrame(() => { input?.focus(); input?.setSelectionRange(at + text.length, at + text.length); });
-  };
-  return (
-    <div className="flex flex-col gap-2.5">
-      {draft.rows.map((r, i) => {
-        const problems = rowProblems(r);
-        const shown = (key: 'event' | 'command' | 'timeout') => !rowBlank(r) && problems[key];
-        const options = fields.options(r);
-        const matcher = fields.hasMatcher(r);
-        return (
-          <div key={r.id} className="flex flex-col gap-3 rounded-[10px] border border-line p-3.5">
-            <div className="flex items-end gap-2.5">
-              <div className="ss-fld min-w-0 flex-1">
-                <span className="text-xs font-semibold text-ink-2">{t('hooks.event')}</span>
-                <Select
-                  columns
-                  invalid={shown('event')}
-                  ariaLabel={`${t('hooks.event')} ${i + 1}`}
-                  value={r.event}
-                  placeholder={t('hooks.pickEvent')}
-                  disabled={disabled}
-                  options={options}
-                  onChange={(event) => patch(r.id, fields.pickEvent(r, event))}
-                />
-              </div>
-              {matcher && (
-                <div className="ss-fld min-w-0 flex-1">
-                  <span className="text-xs font-semibold text-ink-2">{t('hooks.matcher')}</span>
-                  <span className="ss-inp font-mono">
-                    <input value={r.matcher} onChange={(e) => patch(r.id, { matcher: e.target.value })} placeholder={t('hooks.matcherPlaceholder')} aria-label={`${t('hooks.matcher')} ${i + 1}`} disabled={disabled} />
-                  </span>
-                </div>
-              )}
-              <div className="ss-fld w-[130px] shrink-0">
-                <span className="text-xs font-semibold text-ink-2">{t('hooks.timeout')}</span>
-                <span className={`ss-inp font-mono ${shown('timeout') ? 'err' : ''}`}>
-                  <input inputMode="numeric" value={r.timeout} onChange={(e) => patch(r.id, { timeout: e.target.value })} aria-label={`${t('hooks.timeout')} ${i + 1}`} disabled={disabled} />
-                  <span className="shrink-0 font-sans text-xs text-ink-3">{unit}</span>
-                </span>
-              </div>
-              <button type="button" className="ss-ib mb-1 shrink-0" aria-label={`${t('hooks.removeRow')} ${i + 1}`} onClick={() => onChange({ ...draft, rows: draft.rows.filter((x) => x.id !== r.id) })} disabled={disabled}><X size={16} /></button>
-            </div>
-            <div className="ss-fld">
-              <span className="text-xs font-semibold text-ink-2">{t('hooks.command')}</span>
-              <span className={`ss-inp font-mono ${shown('command') ? 'err' : ''}`}>
-                <SquareTerminal size={15} className="shrink-0 text-ink-3" />
-                <input ref={(el) => { commands.current[r.id] = el; }} value={r.command} onChange={(e) => patch(r.id, { command: e.target.value })} placeholder={commandPlaceholder(agent)} aria-label={`${t('hooks.command')} ${i + 1}`} disabled={disabled} />
-              </span>
-              {variables.length > 0 && (
-                <span className="flex flex-wrap items-center gap-1.5 text-xs text-ink-3">
-                  {t('hooks.insertVariable')}
-                  {variables.map((v) => <button key={v} type="button" className="ss-tag hover:text-ink" onClick={() => insert(r.id, r.command, v)} disabled={disabled}>{v}</button>)}
-                </span>
-              )}
-            </div>
-          </div>
-        );
-      })}
-      <button type="button" className="flex w-fit items-center gap-[7px] text-[13px] text-ink-2 hover:text-ink" onClick={() => onChange({ ...draft, rows: [...draft.rows, newRow(agent)] })} disabled={disabled}>
-        <Plus size={14} />{t('hooks.addRow')}
-      </button>
-    </div>
-  );
-}
-
 /**
- * The same fields as SimpleEvents, one collapsible card per command, with the command in a multi-line editor
- * that can be laid out one statement per line. One card is open at a time.
+ * Event, matcher, command and timeout, one collapsible card per command, with the command in a multi-line editor
+ * that can be laid out one statement per line. Everything else in the native entry is carried along untouched.
+ * One card is open at a time.
  */
 function CommandCards({ agent, draft, onChange, disabled, catalog }: Pick<Props, 'agent' | 'draft' | 'onChange' | 'disabled' | 'catalog'>) {
   const t = useT();
@@ -187,6 +111,7 @@ function CommandCards({ agent, draft, onChange, disabled, catalog }: Pick<Props,
               <button type="button" className="flex min-w-0 flex-1 items-center gap-2.5 self-stretch text-left" aria-expanded={on} onClick={() => setOpen(on ? '' : r.id)}>
                 <ChevronDown size={15} className={`shrink-0 text-ink-3 transition-transform duration-200 ease-[cubic-bezier(.3,.7,.3,1)] motion-reduce:transition-none ${on ? '' : '-rotate-90'}`} />
                 <span className="shrink-0 text-[13px] font-semibold">{title}</span>
+                {!on && !rowBlank(r) && Object.values(problems).some(Boolean) && <span className="ss-tag bad shrink-0" aria-label={t('hooks.tabInvalid')}>!</span>}
                 {!on && r.matcher && <span className="shrink-0 font-mono text-xs text-ink-2">{r.matcher}</span>}
                 {!on && <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-3">{commandSummary(r.command)}</span>}
               </button>
@@ -416,7 +341,12 @@ export default function HookBindingEditor({ agent, name, draft, check, onChange,
             </>
           )}
         </Expandable>
-      ) : cards ? <CommandCards agent={agent} draft={draft} onChange={onChange} disabled={disabled} catalog={catalog} /> : <SimpleEvents agent={agent} draft={draft} onChange={onChange} disabled={disabled} catalog={catalog} />}
+      ) : cards ? <CommandCards agent={agent} draft={draft} onChange={onChange} disabled={disabled} catalog={catalog} /> : (
+        // The frame's own border stands in for the first card's separator.
+        <div className="overflow-hidden rounded-[10px] border border-line">
+          <div className="-mt-px"><CommandCards agent={agent} draft={draft} onChange={onChange} disabled={disabled} catalog={catalog} /></div>
+        </div>
+      )}
       {!cards && <ScriptFiles name={name} draft={draft} onChange={onChange} disabled={disabled} />}
     </div>
   );

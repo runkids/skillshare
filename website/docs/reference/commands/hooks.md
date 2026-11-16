@@ -45,7 +45,8 @@ registrations it read in place: the next sync adopts them without `--replace`,
 and events you did not import stay unmanaged. Import only reads configuration or
 code and never runs it.
 
-The dashboard's import dialog can also edit or remove a hook in its Agent's
+The dashboard's **Hooks in targets** dialog opens with no hook selected; tick the ones to
+import. It can also edit or remove a hook in its Agent's
 settings file without importing it. This works for Agents that keep hooks as
 events in one settings file (Claude, Codex, Gemini, Cursor, Qwen, and Droid's
 `hooks.json`); hooks

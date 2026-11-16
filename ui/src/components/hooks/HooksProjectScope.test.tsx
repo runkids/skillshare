@@ -11,6 +11,9 @@ import HookDialog from './HookDialog';
 import HooksRemoveDialog from './HooksRemoveDialog';
 import { HooksSyncDialog } from './HooksSyncBox';
 
+vi.mock('../CodeEditor', () => ({
+  default: ({ value, onChange, ariaLabel }: { value: string; onChange: (v: string) => void; ariaLabel: string }) => <textarea aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)} />,
+}));
 vi.mock('../../api/hooks', async (load) => ({
   ...await load<typeof import('../../api/hooks')>(),
   hooksApi: { list: vi.fn(), catalog: vi.fn(), preview: vi.fn(), save: vi.fn(), configure: vi.fn(), syncProject: vi.fn(), render: vi.fn() },
@@ -67,7 +70,7 @@ describe('project scope in hooks dialogs', () => {
     expect(hooksApi.syncProject).not.toHaveBeenCalled();
   });
 
-  it('keeps a matcher-only extra row, marks what it is missing and blocks saving', async () => {
+  it('keeps an extra command that has no command text and blocks saving', async () => {
     const user = userEvent.setup();
     wrap(<HookDialog existingNames={[]} project={APP} onClose={vi.fn()} onSaved={vi.fn()} />);
     await user.type(screen.getByLabelText('Name'), 'lint');
@@ -75,12 +78,9 @@ describe('project scope in hooks dialogs', () => {
     await pickEvent(user, 1, 'Stop');
     await user.type(screen.getByLabelText('Command 1'), 'true');
     await user.click(screen.getByRole('button', { name: 'Add command' }));
-    await user.type(screen.getByLabelText('Tool filter 2'), 'Bash');
+    expect(screen.getByLabelText('Command 2')).toHaveValue('');
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Preview' })).toBeDisabled();
-    expect(screen.getByRole('combobox', { name: 'Event 2' })).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByLabelText('Command 2').parentElement).toHaveClass('err');
-    expect(screen.getByLabelText('Tool filter 2')).toHaveValue('Bash');
   });
 
   it('keeps the preview current while its Save and sync is in flight', async () => {
