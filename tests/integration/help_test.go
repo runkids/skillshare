@@ -17,6 +17,7 @@ func TestHelp_ShowsUsage(t *testing.T) {
 	result.AssertOutputContains(t, "skillshare")
 	result.AssertOutputContains(t, "Skills and agents")
 	result.AssertOutputContains(t, "Common options")
+	result.AssertOutputContains(t, "Pull the source and sync every Target")
 }
 
 func TestHelp_ShortFlag(t *testing.T) {
