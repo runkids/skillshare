@@ -214,6 +214,14 @@ opencode skips ~/.claude/skills: OPENCODE_DISABLE_CLAUDE_CODE_SKILLS is set in t
 !              1 skill missing file hashes: _old-repo__legacy-skill
 ```
 
+### 設定檔 {#profiles}
+
+全域和專案模式都會將無法使用的使用中設定檔回報為錯誤（`profile_unavailable`）。請修復定義，或透過 `skillshare profile use <name>` / `skillshare profile use --none` 變更選取。
+
+警告涵蓋尚未完成的切換（`profile_pending`）、將保留的已修改受管副本（`profile_kept_modified`）、未符合任何已啟用 source skill 的 include 模式（`profile_unmatched`）、include 明確為空時的 excludes（`profile_inert_excludes`），以及不受使用中設定檔影響的 symlink 模式 targets（`profile_symlink_target`）。模式檢查也包含未啟用但可使用的定義。discovery 失敗或不完整時，會省略推測性的模式和副本診斷。
+
+這些名稱在 `doctor --json` 的 checks 和儀表板 health 結果中維持不變。如果編輯內容應回到 source，請先 collect 再同步。一般 sync 也會將未符合的使用中設定檔模式合併為每次呼叫一則警告，包括預期選取為空的情況。
+
 ### Extras
 
 當有設定 extras 時，會驗證：

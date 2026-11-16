@@ -79,14 +79,11 @@ func SyncAgents(agents []resource.DiscoveredResource, sourceDir, targetDir, mode
 
 // linkResolvesToSource reports whether a resolved symlink target (absLink) and a
 // source path (absSource) reference the same file. The fast path is a direct
-// string compare; the slow path canonicalizes both sides through EvalSymlinks so
+// string compare; the slow path canonicalizes symlinks and junctions so
 // symlinked ancestors (e.g. macOS /var → /private/var) do not make a stable
 // relative link look like it points elsewhere. Mirrors isSymlinkToSource in sync.go.
 func linkResolvesToSource(absLink, absSource string) bool {
-	if utils.PathsEqual(absLink, absSource) {
-		return true
-	}
-	return utils.PathsEqual(utils.ResolveSymlink(absLink), utils.ResolveSymlink(absSource))
+	return utils.SamePhysicalPath(absLink, absSource)
 }
 
 // prunableLink reports whether an orphan link at path may be removed: it is
@@ -102,10 +99,7 @@ func prunableLink(path, sourceDir string) bool {
 	if err != nil {
 		return false
 	}
-	sep := string(filepath.Separator)
-	under := func(p string) bool {
-		return utils.PathHasPrefix(p, absDir+sep) || utils.PathHasPrefix(p, utils.ResolveSymlink(absDir)+sep)
-	}
+	under := func(p string) bool { return utils.PathWithinRoot(p, absDir) }
 	if absLink, err := utils.ResolveLinkTarget(path); err == nil && (under(absLink) || under(utils.ResolveSymlink(absLink))) {
 		return true
 	}

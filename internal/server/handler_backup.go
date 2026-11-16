@@ -49,7 +49,7 @@ func toBackupJSON(b backup.BackupInfo) backupInfoJSON {
 }
 
 // backupDir returns the snapshot directory for the current mode: the global
-// one, or <project>/.skillshare/backups (agents only) in project mode.
+// one, or <project>/.skillshare/backups in project mode.
 func (s *Server) backupDir() string {
 	if s.IsProjectMode() {
 		return backup.ProjectBackupDir(s.projectRoot)
@@ -68,8 +68,18 @@ func (s *Server) backupRetention() backup.CleanupConfig {
 
 // backupRestoreDest maps a snapshot entry to the directory it restores into:
 // "<target>-agents" is that target's agents directory, a bare target name its
-// skills directory (global mode only; project snapshots hold agents only).
+// skills directory. Project moved keys resolve through the same CLI mapping.
 func (s *Server) backupRestoreDest(entry string, targets map[string]config.TargetConfig) (string, bool) {
+	if s.IsProjectMode() {
+		dir, err := backup.SkillsEntryDir(s.projectRoot, entry, targets)
+		if err == nil {
+			return dir, true
+		}
+		if errors.Is(err, backup.ErrAmbiguousEntry) {
+			return "", false
+		}
+	}
+
 	if name, ok := backup.AgentsEntryTarget(entry); ok {
 		if t, found := targets[name]; found {
 			if p := resolveAgentPath(t, s.builtinAgentTargets(), name, s.IsProjectMode()); p != "" {
@@ -84,6 +94,16 @@ func (s *Server) backupRestoreDest(entry string, targets map[string]config.Targe
 		return t.SkillsConfig().Path, true
 	}
 	return "", false
+}
+
+// cloneBackupTargets reserves unresolved configured names too. Call under s.mu,
+// before releasing the configuration snapshot used for destination validation.
+func (s *Server) cloneBackupTargets() map[string]config.TargetConfig {
+	targets := s.cloneTargets()
+	for name := range s.unresolvedTargets {
+		targets[name] = config.TargetConfig{}
+	}
+	return targets
 }
 
 // handleListBackups returns all backups
@@ -240,7 +260,7 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Resolve where the snapshot entry restores to
-	targetPath, ok := s.backupRestoreDest(body.Target, s.cfg.Targets)
+	targetPath, ok := s.backupRestoreDest(body.Target, s.cloneBackupTargets())
 	if !ok {
 		writeError(w, http.StatusBadRequest, "target not found: "+body.Target)
 		return
@@ -285,7 +305,7 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleValidateRestore(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	targets := s.cloneTargets()
+	targets := s.cloneBackupTargets()
 	s.mu.RUnlock()
 
 	var body struct {

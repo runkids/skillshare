@@ -1244,3 +1244,11 @@ targets:
 - [Source & Targets](/docs/understand/source-and-targets) — 핵심 개념
 - [Sync Modes](/docs/understand/sync-modes) — Merge vs copy vs symlink
 - [Environment Variables](/docs/reference/appendix/environment-variables) — 모든 변수
+
+## 프로필 {#profiles}
+
+[profile](/docs/reference/commands/profile)로 이름 있는 Skill 선택을 만들고 조회·편집·전환합니다. `-g` / `-p`를 지원합니다.
+
+`profiles:` 정의는 글로벌·프로젝트 설정에서 공유할 수 있지만 active/pending은 정규 설정 경로를 키로 `ProjectStateDir()/profiles`에 로컬 저장됩니다. Windows에서도 공유 git root 밖입니다. `SKILLSHARE_CONFIG`를 따르며 같은 설정의 심볼릭 링크는 상태를 공유합니다. 다른 checkout이나 이동한 설정은 별도 상태입니다. 주석과 알 수 없는 키는 보존되지만 그런 키가 있는 정의는 이 버전에서 사용할 수 없습니다. 이전 바이너리는 로컬 선택을 무시하며 저장할 때 정의를 잃을 수 있습니다.
+
+`skills` 키가 없으면 제한이 없고 `skills: {}` 및 빈/공백 include는 아무것도 선택하지 않습니다. exclude에는 include 키가 필요합니다. 명시적 `include: []`와 exclude는 유효하지만 제외는 비활성입니다.

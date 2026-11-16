@@ -40,6 +40,7 @@ var commands = map[string]func([]string) error{
 	"commit":       cmdCommit,
 	"doctor":       cmdDoctor,
 	"target":       cmdTarget,
+	"profile":      cmdProfile,
 	"project":      cmdProject,
 	"upgrade":      cmdUpgrade,
 	"updates":      cmdUpdates,
@@ -72,7 +73,7 @@ func main() {
 
 	// Project commands must not migrate or rewrite shared config at startup,
 	// so they all skip opportunistic maintenance.
-	skipMaintenance := len(os.Args) > 1 && (os.Args[1] == "updates" || os.Args[1] == "project" && projectSkipsMaintenance(os.Args[2:]))
+	skipMaintenance := len(os.Args) > 1 && (os.Args[1] == "updates" || os.Args[1] == "project" && projectSkipsMaintenance(os.Args[2:]) || os.Args[1] == "profile" && profileSkipsMaintenance(os.Args[2:]))
 	if !skipMaintenance {
 		cleanupOldBinary()
 	}
@@ -233,6 +234,7 @@ func printUsage() {
 		}},
 		helpGroup{title: "Targets", rows: []helpRow{
 			{"target", "Add, remove and list Targets"},
+			{"profile", "Define and switch named skill selections"},
 			{"project", "Manage shared and local project folders"},
 			{"diff", "Compare the source with a Target"},
 		}},

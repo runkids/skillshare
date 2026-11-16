@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/profile"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sync"
 	"skillshare/internal/trash"
@@ -13,7 +14,11 @@ import (
 )
 
 // The returned map holds the targets skipped for invalid settings.
-func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLogStats, []syncTargetResult, *skillignore.IgnoreStats, *contextCostJSON, map[string]error, []string, error) {
+func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool, profileRuns ...*profileSyncRun) (syncLogStats, []syncTargetResult, *skillignore.IgnoreStats, *contextCostJSON, map[string]error, []string, error) {
+	var prepared *profileSyncRun
+	if len(profileRuns) > 0 {
+		prepared = profileRuns[0]
+	}
 	start := time.Now()
 	stats := syncLogStats{
 		DryRun:       dryRun,
@@ -25,7 +30,13 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 		return stats, nil, nil, nil, nil, nil, err
 	}
 
-	cfg, err := config.LoadProject(root)
+	var cfg *config.ProjectConfig
+	var err error
+	if prepared != nil {
+		cfg = prepared.view.Project
+	} else {
+		cfg, err = config.LoadProject(root)
+	}
 	if err != nil {
 		return stats, nil, nil, nil, nil, nil, err
 	}
@@ -80,6 +91,11 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 	}
 	sourceIncomplete := walk.Follow.Incomplete()
 	linkWarnings := append(metaWarnings, sync.SourceLinkWarnings(walk, sourceIncomplete)...)
+	if !sourceIncomplete {
+		if warning := sync.ProfileUnmatchedWarning(profile.Parse(&cfg.Profiles), cfg.ProfileState(), discoveredSkills); warning != "" {
+			linkWarnings = append(linkWarnings, warning)
+		}
+	}
 	if !jsonOutput {
 		for _, w := range linkWarnings {
 			ui.Warning("%s", w)
@@ -90,6 +106,9 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 	var notFound []string
 	for _, entry := range runtime.config.Targets {
 		name := entry.Name
+		if prepared != nil && prepared.owns(name) {
+			continue
+		}
 		target, ok := runtime.targets[name]
 		if !ok && invalid[name] == nil {
 			if !jsonOutput {
@@ -112,11 +131,22 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 	} else {
 		results, _ = runParallelSync(entries, runtime.sourcePath, discoveredSkills, ignorePatterns, dryRun, force, root)
 	}
+	if prepared != nil {
+		profileResults := prepared.results(dryRun)
+		results = append(results, profileResults...)
+		if !jsonOutput {
+			printProfileInfo(prepared.result.Profile)
+			renderSyncResults(profileResults)
+			printProfileSnapshots(prepared.result.Snapshot)
+		}
+	}
 
 	movedTargets := sync.MovedProjectTargets(runtime.config, runtime.targets)
-	for _, msg := range sync.CleanMovedProjectDirs(root, runtime.sourcePath, movedTargets, dryRun) {
-		if !jsonOutput {
-			ui.Note(msg)
+	if prepared == nil {
+		for _, msg := range sync.CleanMovedProjectDirs(root, runtime.sourcePath, movedTargets, dryRun) {
+			if !jsonOutput {
+				ui.Note(msg)
+			}
 		}
 	}
 

@@ -1307,3 +1307,11 @@ targets:
 - [Source と Targets](/docs/understand/source-and-targets) — コアコンセプト
 - [Sync モード](/docs/understand/sync-modes) — merge、copy、symlink
 - [環境変数](/docs/reference/appendix/environment-variables) — すべての変数
+
+## プロファイル {#profiles}
+
+名前付き Skill 選択は [profile](/docs/reference/commands/profile) で作成・表示・編集・切り替えできます。`-g` / `-p` に対応します。
+
+`profiles:` はグローバル・プロジェクト設定で共通です。定義は共有できますが、active/pending は正規化された設定パスをキーに `ProjectStateDir()/profiles` にローカル保存されます。Windows でも共有 git root の外です。`SKILLSHARE_CONFIG` を尊重し、同じ設定へのシンボリックリンクは同じ状態を使います。設定を移動したり別 checkout を使うと状態は別になります。未知キーとコメントは保存されますが、未知キーを持つ定義はこのバージョンで使用できません。古いバイナリはローカル選択を無視し、保存時に定義を失う場合があります。
+
+`skills` キーがなければ制限なし、`skills: {}` と空・空白のみの include は選択なしです。exclude には include キーが必要です。明示的な `include: []` と exclude は有効ですが除外は無効です。

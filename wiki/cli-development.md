@@ -103,6 +103,17 @@ Updating one tracked repo is another: both call `update.TrackedRepo` (`internal/
 
 ## Completion Criteria
 
+Profiles keep one rule and write path: `profile.Mutate` implements membership,
+`profileapply.Mutate` owns the locked definition transaction, and selectors
+come from the actual loaded global/project config. The project install adapter
+is synthetic and carries no selector. Successful logical publication roots
+travel through `ConfigInstallResult.InstalledPaths` and the existing summaries;
+one `DiscoverSourceSkillsAll` resolves final names for the outer install hint.
+Display names and public install JSON are separate from those internal roots.
+Move warnings use `skillmove.Options.Profiles` in both CLI modes and the shared
+server consumer, including inactive profiles and plans with zero targets.
+Doctor check names are generic JSON data; reuse its existing rendering paths.
+
 - The failing test now passes, along with proportionate neighboring tests.
 - Handler split, dual-mode behavior, structured output, oplog, Web API, and all five shell completions were reviewed.
 - Public behavior changes were synchronized after loading `documentation`.

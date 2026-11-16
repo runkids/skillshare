@@ -61,7 +61,7 @@ func serializeConfig(path string, next *Config) ([]byte, error) {
 			Skills yaml.Node `yaml:"skills,omitempty"`
 		}{(*plain)(payload), payload.legacySkills}
 	}
-	data, err := marshalConfigFile(path, value, schemaComment)
+	data, err := marshalConfigFile(path, value, schemaComment, &payload.Profiles)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal config: %w", err)
 	}

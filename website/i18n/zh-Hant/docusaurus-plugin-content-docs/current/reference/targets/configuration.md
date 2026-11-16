@@ -1238,3 +1238,11 @@ targets:
 
 - [Source 與 Targets](/docs/understand/source-and-targets) — 核心概念
 - [Sync 模式](/docs/understand/sync-modes) — Merge vs copy vs symlink
+
+## 設定檔 {#profiles}
+
+使用 [profile](/docs/reference/commands/profile) 建立、查看、編輯及切換具名 Skill 選擇；支援 `-g` / `-p`。
+
+全域與專案設定都支援 `profiles:`。定義可共享；active/pending 依正規化設定路徑存於本機 `ProjectStateDir()/profiles`，Windows 上也在共享 git root 之外。遵循 `SKILLSHARE_CONFIG`，指向同一設定的符號連結共用狀態；移動設定或另一個 checkout 使用獨立狀態。註解及未知鍵會保留，但包含未知鍵的定義在此版本無法使用。舊版本忽略本機選擇，儲存設定時可能遺失定義。
+
+`skills` 鍵省略時不限制；`skills: {}` 與空白或僅空格 include 不選擇任何技能。exclude 必須有 include 鍵；明確的 `include: []` 配合 exclude 有效，但排除不生效。

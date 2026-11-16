@@ -98,6 +98,7 @@ cursor
 | Local only, skill kept under old name | 本機資料夾佔用了目前 `target_naming` 給 skill 的名稱，skill 留在舊的受管理項目，顯示為 `name (stays at old-name)` | 重新命名或刪除該資料夾後 `sync` |
 | Local override | 本機複本而非 symlink（包含被編輯過的 copy mode 副本） | `sync --force` 以取代 |
 | Orphan | 存在於 manifest 但不在 source 中 | `sync` 會清除它 |
+| Not in profile `<name>` | 受管理的 target 項目不在使用中的設定檔內 | `sync` 依設定檔編輯保護規則清除它 |
 | Local only | 只存在於 target，不在 source 中 | 用 `collect` 匯入 |
 
 ## 檔案層級細節
@@ -257,6 +258,8 @@ skillshare diff --json
 當 `sync` 對該 target 無事可做時，`synced` 為 `true`。`"is_sync": false` 的項目（例如只存在於 target 的資料夾）仍會列出，但不會讓它變成 `false`。文字輸出同樣把只有 local-only 資料夾的 target 視為已同步。
 
 `action` 為 `add`、`modify`、`remove` 或 `kept`。`kept` 表示本機資料夾佔用了目前 `target_naming` 給 skill 的名稱，skill 留在舊名稱下，sync 不會變動該資料夾。
+
+設定檔觸發的清除在文字、TUI 和 JSON 中使用 `not in profile <name>` 作為原因。這只說明既有的移除列，不會為每個未選取的 source skill 新增待同步作業。sync matrix 和資源詳細資料則將這些 source skills 顯示為 `not_in_profile`，設定檔名稱優先於 target 篩選原因。此標籤不授權捨棄已編輯的副本。
 
 ## 另請參閱
 

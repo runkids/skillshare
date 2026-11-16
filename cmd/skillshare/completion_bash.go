@@ -14,7 +14,7 @@ _skillshare() {
         cword=$COMP_CWORD
     fi
 
-    local commands="init install uninstall link unlink move list search sync mcp hooks plugin status diff backup restore collect pull push commit doctor target project upgrade updates update check new trash analyze audit hub log ui tui extras enable disable completion version help"
+    local commands="init install uninstall link unlink move list search sync mcp hooks plugin status diff backup restore collect pull push commit doctor target project profile upgrade updates update check new trash analyze audit hub log ui tui extras enable disable completion version help"
 
     local global_flags="--project -p --global -g"
 
@@ -38,7 +38,7 @@ _skillshare() {
     local unlink_flags="--help -h"
     local move_flags="--dry-run -n --force -f --json --help -h"
     local list_flags="--verbose -v --json -j --no-tui --type -t --status --sort -s --all --help -h"
-    local sync_flags="--all --dry-run -n --force -f --json --quiet -q --help -h"
+    local sync_flags="--discard-edits --all --dry-run -n --force -f --json --quiet -q --help -h"
     local mcp_flags="--tools-allow --tools-deny --pi-options --url --target --from --file --sync --replace --disabled --keep-files --revision --dry-run -n --json --no-tui --no-dns --live --accept-tools --timeout --http --tls-cert --tls-key --http-allow-insecure --check --help -h"
     local status_flags="--json --help -h"
     local hooks_flags="--file --from --sync --replace --keep-files --revision --dry-run -n --json --help -h"
@@ -86,6 +86,20 @@ _skillshare() {
     esac
 
     local cmd="${words[1]}"
+
+    # Profile definitions and switching
+    if [[ "${cmd}" == profile ]]; then
+        case "${prev}" in
+            --description|--add-include|--remove-include|--add-exclude|--remove-exclude) return ;;
+        esac
+        local profile_flags="--description --add-include --remove-include --add-exclude --remove-exclude --dry-run -n --no-sync --none --discard-edits --allow-empty --json --help -h ${global_flags}"
+        if [[ ${cword} -eq 2 ]]; then
+            COMPREPLY=($(compgen -W "list show create edit rename delete use add remove ${profile_flags}" -- "${cur}"))
+        elif [[ "${cur}" == -* ]]; then
+            COMPREPLY=($(compgen -W "${profile_flags}" -- "${cur}"))
+        fi
+        return
+    fi
 
     # Project command
     if [[ "${cmd}" == project ]]; then

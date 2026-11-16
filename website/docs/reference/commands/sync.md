@@ -746,3 +746,9 @@ JSON output (`--json`) always includes `context_cost` regardless of `--quiet`.
 - [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync) — Sync across computers
 - [install](/docs/reference/commands/install) — Install skills
 - [Configuration](/docs/reference/targets/configuration#extras) — Extras config reference
+
+## Active skill profiles {#profiles}
+
+With an active [profile](/docs/reference/commands/profile), sync narrows skills using that profile, then target filters and metadata routing. It reports `Profile  <name> (<selected> of <total> skills)`; JSON gains optional `profile: {name,state,selected,total,pending}` and per-target `kept_modified`. Configs without definitions or state keep the existing output.
+
+Profile-aware sync keeps modified managed copies and unmanaged content across mode changes and reports skipped work. It continues its other work; a completed full eligible-target run clears pending. Pending `profile use --none` retries retain this protection. `--force` keeps its selected-entry meaning and never authorizes pruning a departing modified copy. `sync --discard-edits` requires an active or pending profile, snapshots and verifies the listed edits before deletion, and prints snapshot paths and restore commands in text and JSON. Existing backup retention applies. An edit made after the plan is kept. Missing/unusable/unreadable active state refuses skill sync; other resource-only syncs remain available.

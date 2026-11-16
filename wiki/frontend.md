@@ -74,6 +74,12 @@ This topic also loads `website/AGENTS.md` for website-specific commands, structu
 
 ## Verification
 
+The sync matrix status `not_in_profile` carries the active profile name as its
+reason. Keep the API status union, resource-detail label, target filter reason
+and every locale aligned. A diagnostic-only profile row is not pending work;
+the shared sync view helpers own pending counts. Doctor profile checks reuse
+the health page's generic check-name fallback and need no parallel UI schema.
+
 Run all package commands inside the devcontainer. Select checks according to scope:
 
 - Dashboard: targeted Vitest, `pnpm run lint`, `pnpm run build`, and visual screenshots.
