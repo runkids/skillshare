@@ -121,6 +121,11 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 			skill := resolved.Skill
 			oldChecksum, isManaged := manifest.Managed[resolved.TargetName]
 			targetSkillPath := filepath.Join(sc.Path, resolved.TargetName)
+			// Another tool's link on the skill's name: sync keeps it, like a local copy.
+			if utils.IsSymlinkOrJunction(targetSkillPath) && !manifest.OwnsLink(resolved.TargetName, targetSkillPath, source) {
+				dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "skip", Reason: ssync.ForeignLinkReason, Kind: kindSkill})
+				continue
+			}
 			if !isManaged {
 				if info, statErr := os.Stat(targetSkillPath); statErr == nil {
 					if old, ok := renamedFrom[resolved.TargetName]; ok {
