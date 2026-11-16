@@ -168,8 +168,16 @@ func TestSyncMergeRepointsUnrecordedLinkIntoAliasedSource(t *testing.T) {
 	if err := os.Symlink(src, alias); err != nil {
 		t.Skipf("directory symlinks unavailable: %v", err)
 	}
-	link := filepath.Join(tgt, "alpha")
-	dirLink(t, link, filepath.Join(src, "renamed-away"))
+	// The link is made while its destination exists: Windows cannot make a
+	// junction to a missing folder.
+	renamed := filepath.Join(src, "renamed-away")
+	if err := os.MkdirAll(renamed, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dirLink(t, filepath.Join(tgt, "alpha"), renamed)
+	if err := os.RemoveAll(renamed); err != nil {
+		t.Fatal(err)
+	}
 
 	res, err := SyncTargetMerge("test", config.TargetConfig{Path: tgt, Mode: "merge"}, alias, false, false, "")
 	if err != nil {
