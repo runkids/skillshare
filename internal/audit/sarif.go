@@ -105,7 +105,7 @@ type SARIFOptions struct {
 }
 
 // ToSARIF converts audit results into a SARIF 2.1.0 log.
-// It deduplicates rules by pattern (first occurrence wins) and maps each
+// It deduplicates rules by ID, records their maximum severity, and maps each
 // Finding to a sarifResult with the correct ruleIndex.
 func ToSARIF(results []*Result, opts SARIFOptions) *sarifLog {
 	ruleIndex := map[string]int{} // pattern → index in rules slice
@@ -122,13 +122,13 @@ func ToSARIF(results []*Result, opts SARIFOptions) *sarifLog {
 				ruleID = f.Pattern
 			}
 
+			mapping := severityToSARIF[f.Severity]
 			// Deduplicate rules by ruleID
 			idx, exists := ruleIndex[ruleID]
 			if !exists {
 				idx = len(rules)
 				ruleIndex[ruleID] = idx
 
-				mapping := severityToSARIF[f.Severity]
 				description := f.Message
 				switch ruleID {
 				case "executable-artifact":
@@ -148,9 +148,10 @@ func ToSARIF(results []*Result, opts SARIFOptions) *sarifLog {
 					DefaultConfig:    sarifDefaultConf{Level: mapping.level},
 					Properties:       sarifRuleProps{SecuritySeverity: mapping.secSev},
 				})
+			} else if mapping.secSev > rules[idx].Properties.SecuritySeverity {
+				rules[idx].DefaultConfig.Level = mapping.level
+				rules[idx].Properties.SecuritySeverity = mapping.secSev
 			}
-
-			mapping := severityToSARIF[f.Severity]
 
 			sr := sarifResult{
 				RuleID:    ruleID,
