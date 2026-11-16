@@ -176,7 +176,7 @@ Audit engine 會把 skill 目錄中每個以文字為主的檔案，拿去比對
 
 **Audit 偵測的內容：**
 - 直接注入語句：「ignore previous instructions」、「disregard all rules」、「you are now」
-- Prompt 覆寫前綴：`SYSTEM:`、`OVERRIDE:`、`IGNORE:`、`ADMIN:`、`ROOT:`（不分大小寫、容許空白）。小寫鍵在同一行只帶簡單值的行會視為設定，不會被偵測：所有鍵可用布林值或數字（`admin: false`），`root` 可用不含空格的路徑（`root: ./src`），`ignore` 可用行內物件或加引號且不含空格的元素陣列（`ignore: { tags: ["design"] }`、`ignore: ['**/*.test.vue']`），`root` 帶型別註記的參數（`root: Path`、`root: Path, lang: set[str] | None = None`）也不會被偵測
+- Prompt 覆寫前綴：`SYSTEM:`、`OVERRIDE:`、`IGNORE:`、`ADMIN:`、`ROOT:`（不分大小寫、容許空白）。小寫鍵在同一行只帶簡單值的行會視為設定，不會被偵測：所有鍵可用布林值或數字（`admin: false`），`root` 可用不含空格的路徑（`root: ./src`），`ignore` 可用行內物件或加引號且不含空格的元素陣列（`ignore: { tags: ["design"] }`、`ignore: ['**/*.test.vue']`），`root` 帶型別註記的參數或指派（`root: Path`、`root: Path, lang: set[str] | None = None`、`root: Path = Path(".")`）也不會被偵測
 - Agent 指令標籤：`<system>`、`</instructions>`、`</override>`、`</prompt>`、`</rules>`（可帶選用 HTML 屬性）
 - Jailbreak 指令：`DEVELOPER MODE`、`DEV MODE`、`JAILBREAK`、`DAN MODE`（不分大小寫、容許空白）
 - 藏在 HTML 註解中的注入（`<!-- ... -->`）

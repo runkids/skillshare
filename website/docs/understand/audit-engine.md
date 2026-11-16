@@ -175,7 +175,7 @@ All three rule IDs support `enabled: false` in `audit-rules.yaml`, using the sam
 
 **What the audit detects:**
 - Direct injection phrases: "ignore previous instructions", "disregard all rules", "you are now"
-- Prompt override prefixes: `SYSTEM:`, `OVERRIDE:`, `IGNORE:`, `ADMIN:`, `ROOT:` (case-insensitive, whitespace-tolerant). A lowercase key with a plain value on the same line is treated as configuration and not flagged: a boolean or number for any of these keys (`admin: false`), a path without spaces for `root` (`root: ./src`), an inline object or an array of quoted items without spaces for `ignore` (`ignore: { tags: ["design"] }`, `ignore: ['**/*.test.vue']`), or a typed parameter for `root` (`root: Path`, `root: Path, lang: set[str] | None = None`)
+- Prompt override prefixes: `SYSTEM:`, `OVERRIDE:`, `IGNORE:`, `ADMIN:`, `ROOT:` (case-insensitive, whitespace-tolerant). A lowercase key with a plain value on the same line is treated as configuration and not flagged: a boolean or number for any of these keys (`admin: false`), a path without spaces for `root` (`root: ./src`), an inline object or an array of quoted items without spaces for `ignore` (`ignore: { tags: ["design"] }`, `ignore: ['**/*.test.vue']`), or a typed parameter or annotated assignment for `root` (`root: Path`, `root: Path, lang: set[str] | None = None`, `root: Path = Path(".")`)
 - Agent directive tags: `<system>`, `</instructions>`, `</override>`, `</prompt>`, `</rules>` (with optional HTML attributes)
 - Jailbreak directives: `DEVELOPER MODE`, `DEV MODE`, `JAILBREAK`, `DAN MODE` (case-insensitive, whitespace-tolerant)
 - Injection hidden inside HTML comments (`<!-- ... -->`)

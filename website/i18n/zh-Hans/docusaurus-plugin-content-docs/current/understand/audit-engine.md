@@ -176,7 +176,7 @@ audit engine 会用 100 多条内置规则（正则表达式模式、表驱动�
 
 **audit 检测的内容：**
 - 直接注入短语："ignore previous instructions"、"disregard all rules"、"you are now"
-- Prompt 覆盖前缀：`SYSTEM:`、`OVERRIDE:`、`IGNORE:`、`ADMIN:`、`ROOT:`（不区分大小写，容忍空白字符）。小写键在同一行只带简单值的行会视为配置，不会被检测：所有键可用布尔值或数字（`admin: false`），`root` 可用不含空格的路径（`root: ./src`），`ignore` 可用内联对象或加引号且不含空格的元素数组（`ignore: { tags: ["design"] }`、`ignore: ['**/*.test.vue']`），`root` 带类型注解的参数（`root: Path`、`root: Path, lang: set[str] | None = None`）也不会被检测
+- Prompt 覆盖前缀：`SYSTEM:`、`OVERRIDE:`、`IGNORE:`、`ADMIN:`、`ROOT:`（不区分大小写，容忍空白字符）。小写键在同一行只带简单值的行会视为配置，不会被检测：所有键可用布尔值或数字（`admin: false`），`root` 可用不含空格的路径（`root: ./src`），`ignore` 可用内联对象或加引号且不含空格的元素数组（`ignore: { tags: ["design"] }`、`ignore: ['**/*.test.vue']`），`root` 带类型注解的参数或赋值（`root: Path`、`root: Path, lang: set[str] | None = None`、`root: Path = Path(".")`）也不会被检测
 - Agent 指令标签：`<system>`、`</instructions>`、`</override>`、`</prompt>`、`</rules>`（带可选 HTML 属性）
 - Jailbreak 指令：`DEVELOPER MODE`、`DEV MODE`、`JAILBREAK`、`DAN MODE`（不区分大小写，容忍空白字符）
 - 隐藏在 HTML 注释（`<!-- ... -->`）中的注入
