@@ -282,20 +282,44 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 .ss-list.stick { overflow: clip; }
 .ss-list.stick>.ss-lh { position: sticky; top: var(--stick, 0px); z-index: 3; }
 .ss-list.stick>.ss-gh { position: sticky; top: calc(var(--stick, 0px) + 34px); z-index: 2; }
-/* Update progress: a bar on the status card, a moving line under the row being updated, and a pop when a row finishes */
-.ss-update-icon { width: 40px; height: 40px; flex-shrink: 0; display: grid; place-items: center; border-radius: 11px; background: var(--sunken); color: var(--ink); }
+/* Update progress: a bar on the status card, a light that sweeps the status text of the row being updated, and a pop when a row finishes.
+   Those two are the only things that keep moving; icons stay still. */
+.ss-update-icon { width: 40px; height: 40px; flex-shrink: 0; display: grid; place-items: center; border-radius: 11px; background: var(--sunken); color: var(--ink); transition: background-color .3s, color .3s; }
 .ss-update-icon.ok { background: var(--ok-bg); color: var(--ok); }
 .ss-update-icon.warn { background: var(--warn-bg); color: var(--warn); }
-.ss-bar { position: relative; height: 6px; border-radius: 99px; background: var(--sunken); overflow: hidden; }
-.ss-bar>span { display: block; height: 100%; border-radius: inherit; background: var(--ink); transition: width .45s cubic-bezier(.3,.7,.3,1); }
-.ss-bar.indet>span { width: 35%; animation: ss-indet 1.1s ease-in-out infinite; }
+/* ProgressBar.tsx: ::before is a faint runner that shows work even at zero, <i> the fill that covers it. */
+.ss-bar { position: relative; display: block; height: 6px; border-radius: 99px; background: var(--sunken); overflow: hidden; transition: opacity .2s ease-out; }
+.ss-bar::before { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 30%; border-radius: inherit; background: var(--ink); opacity: .18; transition: opacity .2s ease-out; animation: ss-indet 1.8s ease-in-out infinite; }
+.ss-bar>i { position: absolute; inset: 0; border-radius: inherit; background: var(--ink); transition: transform .45s cubic-bezier(.3,.7,.3,1); }
+/* Nothing to count: the runner alone, at full strength. */
+.ss-bar.indet::before { width: 35%; opacity: 1; }
+/* Ended: the runner stops, the fill gets .6s to arrive and be seen, then the bar fades and its slot closes. */
+.ss-bar.end { opacity: 0; transition-delay: .6s; }
+.ss-bar.end::before { opacity: 0; animation: none; }
+.ss-bar.indet.end { transition-delay: 0s; }
+.ss-barslot { display: grid; grid-template-rows: 1fr; margin-top: calc(-1 * var(--bar-gap, 0px)); transition: grid-template-rows .25s cubic-bezier(.3,.7,.3,1); }
+.ss-barslot>span { display: block; min-height: 0; overflow: hidden; }
+.ss-barslot .ss-bar { margin-top: var(--bar-gap, 0px); }
+/* First in its column: the gap it takes back is the one below it. */
+.ss-barslot.lead { margin-top: 0; margin-bottom: calc(-1 * var(--bar-gap, 0px)); }
+.ss-barslot.lead .ss-bar { margin-top: 0; margin-bottom: var(--bar-gap, 0px); }
+.ss-barslot.shut { grid-template-rows: 0fr; transition-delay: .8s; }
+.ss-barslot.shut:has(.indet) { transition-delay: .2s; }
+/* A row status that is under way: an ink dot, no spinner. */
+.ss-st.on { font-weight: 600; }
+.ss-st.on::before { background: var(--ink); }
 .ss-r.dim .nm { color: var(--ink-3); }
 .ss-r.updating { background: var(--sunken); }
-.ss-rowbar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; overflow: hidden; }
-.ss-rowbar::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 30%; background: var(--ink); animation: ss-indet 1s ease-in-out infinite; }
+/* Text of something under way: a light sweeps across it, in step with the bar's runner. */
+.ss-shimmer { background: linear-gradient(90deg, var(--ink-2) 0 40%, var(--ink) 50%, var(--ink-2) 60% 100%) 0 0 / 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: ss-shimmer 1.8s linear infinite; }
 .ss-r.flash { animation: ss-flash 1.1s ease-out; }
 .ss-pop { animation: ss-pop .32s cubic-bezier(.22,.9,.24,1); }
-@keyframes ss-indet { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+/* DrawnCheck.tsx: the check that ends a run draws itself once. */
+.ss-draw path { stroke-dasharray: 24; stroke-dashoffset: 24; animation: ss-draw .32s cubic-bezier(.23,1,.32,1) .12s forwards; }
+@keyframes ss-draw { to { stroke-dashoffset: 0; } }
+@keyframes ss-indet { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+@keyframes ss-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+@keyframes ss-breathe { 0%, 100% { opacity: .08; } 50% { opacity: .24; } }
 @keyframes ss-flash { from { background: var(--ok-bg); } to { background: transparent; } }
 @keyframes ss-pop { from { transform: scale(.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 /* Collapse a block to nothing: wrap it in .ss-collapse and add .shut */
@@ -316,8 +340,14 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 .ss-note.ok>svg { color: var(--ok); }
 .ss-note.live { position: relative; overflow: hidden; transition: background .45s; }
 @media (prefers-reduced-motion: reduce) {
-  .ss-bar.indet>span, .ss-rowbar::after, .ss-r.flash, .ss-pop { animation: none; }
-  .ss-bar>span, .ss-prog i, .ss-collapse, .ss-collapse .ss-r, .ss-note.live { transition: none; }
+  .ss-r.flash, .ss-pop { animation: none; }
+  .ss-shimmer { background: none; color: var(--ink); animation: none; }
+  /* Nothing travels: the track breathes instead, and the fill steps. */
+  .ss-bar:not(.end)::before { width: 100%; animation: ss-breathe 1.4s ease-in-out infinite; }
+  .ss-draw path { stroke-dashoffset: 0; animation: none; }
+  /* The slot keeps its delay, so the finished bar is still seen before it goes. */
+  .ss-barslot { transition-duration: 0s; }
+  .ss-bar>i, .ss-prog i, .ss-collapse, .ss-collapse .ss-r, .ss-note.live { transition: none; }
 }
 .ss-note { display: flex; align-items: flex-start; gap: 10px; padding: 11px 14px; border-radius: 10px; background: var(--sunken); border: 1px solid var(--line); font-size: 13px; line-height: 1.5; }
 :root[data-theme="playful"] .ss-note { border: 2px solid var(--line); border-radius: 12px; }
