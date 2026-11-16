@@ -3691,6 +3691,7 @@
   "hooks.message.opencodeUndetected": "OpenCode در {target}: نسخهٔ نصب‌شده تشخیص داده نشد ({detail}). بایندینگ‌های هوک آن نادیده گرفته می‌شوند؛ خروجی موجود دست‌نخورده می‌ماند.",
   "hooks.message.opencodeNotInstalled": "فرمان {cli} پیدا نشد، بنابراین هوک‌های OpenCode خوانده نمی‌شوند. OpenCode را نصب کنید یا مطمئن شوید {cli} در ترمینال شما اجرا می‌شود.",
   "hooks.message.opencodeNoVersion": "اجرای {cli} --version ناموفق بود، بنابراین هوک‌های OpenCode خوانده نمی‌شوند. جزئیات: {detail}",
+  "hooks.message.opencodeUndetectedNoCli": "OpenCode در {target}: فرمان {cli} پیدا نشد، بنابراین بایندینگ‌های هوک آن نادیده گرفته می‌شوند؛ خروجی موجود دست‌نخورده می‌ماند. OpenCode را نصب کنید یا مطمئن شوید {cli} در ترمینال شما اجرا می‌شود.",
   "hooks.message.opencodePackageNeedsV2": "{name}: بستهٔ پوشه‌ای به OpenCode v2 نیاز دارد، بنابراین برای {target} نادیده گرفته می‌شود.",
   "hooks.message.opencodePackageUnreadable": "فایل {path} از بستهٔ OpenCode قابل وارد کردن نیست: {detail}",
   "plugins.problem.opencodeDirectory": "OpenCode v2 به ثبت پوشه نیاز دارد، نه فایل پلاگین. این اتصال را حذف و بستهٔ آن را دوباره اضافه کنید.",

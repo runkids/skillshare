@@ -3691,6 +3691,7 @@
   "hooks.message.opencodeUndetected": "{target} 的 OpenCode：无法检测已安装的版本（{detail}）。已跳过其 hook 绑定；现有输出保持不变。",
   "hooks.message.opencodeNotInstalled": "找不到 {cli} 命令，所以读不到 OpenCode 的 hook。请先安装 OpenCode，或确认终端里可以运行 {cli}。",
   "hooks.message.opencodeNoVersion": "运行 {cli} --version 失败，所以读不到 OpenCode 的 hook。详细信息：{detail}",
+  "hooks.message.opencodeUndetectedNoCli": "{target} 的 OpenCode：找不到 {cli} 命令，所以跳过其 hook 绑定；现有输出保持不变。请先安装 OpenCode，或确认终端里可以运行 {cli}。",
   "hooks.message.opencodePackageNeedsV2": "{name}：目录包需要 OpenCode v2，因此在 {target} 上跳过。",
   "hooks.message.opencodePackageUnreadable": "无法导入 OpenCode 包文件 {path}：{detail}",
   "plugins.problem.opencodeDirectory": "OpenCode v2 需要目录注册，而非插件文件。请移除此绑定，再重新添加其包。",

@@ -3691,6 +3691,7 @@
   "hooks.message.opencodeUndetected": "OpenCode sur {target} : la version installée n'a pas pu être détectée ({detail}). Ses bindings de hooks sont ignorés ; la sortie existante est laissée telle quelle.",
   "hooks.message.opencodeNotInstalled": "La commande {cli} est introuvable, les hooks d'OpenCode ne peuvent donc pas être lus. Installez OpenCode ou vérifiez que {cli} peut être exécuté depuis votre terminal.",
   "hooks.message.opencodeNoVersion": "L'exécution de {cli} --version a échoué, les hooks d'OpenCode ne peuvent donc pas être lus. Détails : {detail}",
+  "hooks.message.opencodeUndetectedNoCli": "OpenCode sur {target} : la commande {cli} est introuvable, ses bindings de hooks sont donc ignorés ; la sortie existante est laissée telle quelle. Installez OpenCode ou vérifiez que {cli} peut être exécuté depuis votre terminal.",
   "hooks.message.opencodePackageNeedsV2": "{name} : un paquet de répertoire nécessite OpenCode v2 ; il est donc ignoré pour {target}.",
   "hooks.message.opencodePackageUnreadable": "Le fichier {path} du paquet OpenCode ne peut pas être importé : {detail}",
   "plugins.problem.opencodeDirectory": "OpenCode v2 exige l’inscription d’un répertoire, pas d’un fichier de plugin. Supprimez cette liaison, puis ajoutez à nouveau son paquet.",

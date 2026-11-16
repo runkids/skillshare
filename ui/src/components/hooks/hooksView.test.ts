@@ -231,7 +231,8 @@ describe('hookMessage', () => {
     expect(hookMessage(t, 'OpenCode v2: package files and registration only; provision the declared dependencies yourself before loading. Skillshare does not execute plugins or install dependencies.')).toBe('[hooks.message.opencodeDependencies]');
     expect(hookMessage(t, 'hook kata: OpenCode package must not contain node_modules')).toBe(hookMessage(t, 'OpenCode package must not contain node_modules'));
     expect(hookMessage(t, 'hook kata: something untranslated')).toBe('hook kata: something untranslated');
-    expect(hookMessage(t, 'target opencode: detect OpenCode API with opencode --version: exec: "opencode": executable file not found in $PATH; its hook bindings are skipped')).toBe('[hooks.message.opencodeUndetected]');
+    expect(hookMessage(t, 'target opencode: detect OpenCode API with opencode --version: exec: "opencode": executable file not found in $PATH; its hook bindings are skipped')).toBe('[hooks.message.opencodeUndetectedNoCli]');
+    expect(hookMessage(t, 'target opencode: detect OpenCode API with opencode --version: exit status 1; its hook bindings are skipped')).toBe('[hooks.message.opencodeUndetected]');
     expect(hookMessage(t, 'detect OpenCode API with opencode --version: exec: "opencode": executable file not found in $PATH')).toBe('[hooks.message.opencodeNotInstalled]');
     expect(hookMessage(t, 'detect OpenCode API with opencode.exe --version: exec: "opencode.exe": executable file not found in %PATH%')).toBe('[hooks.message.opencodeNotInstalled]');
     expect(hookMessage(t, 'detect OpenCode API with opencode --version: exit status 1')).toBe('[hooks.message.opencodeNoVersion]');

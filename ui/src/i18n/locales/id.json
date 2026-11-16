@@ -3691,6 +3691,7 @@
   "hooks.message.opencodeUndetected": "OpenCode di {target}: versi terpasang tidak dapat dideteksi ({detail}). Binding hook-nya dilewati; keluaran yang ada dibiarkan apa adanya.",
   "hooks.message.opencodeNotInstalled": "Perintah {cli} tidak ditemukan, jadi hook OpenCode tidak dapat dibaca. Pasang OpenCode, atau pastikan {cli} dapat dijalankan dari terminal Anda.",
   "hooks.message.opencodeNoVersion": "Menjalankan {cli} --version gagal, jadi hook OpenCode tidak dapat dibaca. Detail: {detail}",
+  "hooks.message.opencodeUndetectedNoCli": "OpenCode di {target}: perintah {cli} tidak ditemukan, jadi binding hook-nya dilewati; keluaran yang ada dibiarkan apa adanya. Pasang OpenCode, atau pastikan {cli} dapat dijalankan dari terminal Anda.",
   "hooks.message.opencodePackageNeedsV2": "{name}: paket direktori memerlukan OpenCode v2, jadi dilewati untuk {target}.",
   "hooks.message.opencodePackageUnreadable": "File paket OpenCode {path} tidak dapat diimpor: {detail}",
   "plugins.problem.opencodeDirectory": "OpenCode v2 memerlukan pendaftaran direktori, bukan file plugin. Hapus binding ini dan tambahkan paketnya lagi.",

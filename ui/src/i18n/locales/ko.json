@@ -3691,6 +3691,7 @@
   "hooks.message.opencodeUndetected": "{target}의 OpenCode: 설치된 버전을 감지할 수 없습니다({detail}). 훅 바인딩은 건너뛰며 기존 출력은 그대로 둡니다.",
   "hooks.message.opencodeNotInstalled": "{cli} 명령을 찾을 수 없어 OpenCode의 훅을 읽을 수 없습니다. OpenCode를 설치하거나 터미널에서 {cli}를 실행할 수 있는지 확인하세요.",
   "hooks.message.opencodeNoVersion": "{cli} --version 실행에 실패하여 OpenCode의 훅을 읽을 수 없습니다. 자세한 내용: {detail}",
+  "hooks.message.opencodeUndetectedNoCli": "{target}의 OpenCode: {cli} 명령을 찾을 수 없어 훅 바인딩은 건너뛰며 기존 출력은 그대로 둡니다. OpenCode를 설치하거나 터미널에서 {cli}를 실행할 수 있는지 확인하세요.",
   "hooks.message.opencodePackageNeedsV2": "{name}: 디렉터리 패키지는 OpenCode v2가 필요하므로 {target}에서는 건너뜁니다.",
   "hooks.message.opencodePackageUnreadable": "OpenCode 패키지 파일 {path}을(를) 가져올 수 없습니다: {detail}",
   "plugins.problem.opencodeDirectory": "OpenCode v2에는 플러그인 파일이 아닌 디렉터리 등록이 필요합니다. 이 바인딩을 제거한 후 패키지를 다시 추가하세요.",

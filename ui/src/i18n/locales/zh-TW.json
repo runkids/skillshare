@@ -3691,6 +3691,7 @@
   "hooks.message.opencodeUndetected": "{target} 的 OpenCode：無法偵測已安裝的版本（{detail}）。已略過其 hook 綁定；現有輸出保持不變。",
   "hooks.message.opencodeNotInstalled": "找不到 {cli} 指令，所以讀不到 OpenCode 的 hook。請先安裝 OpenCode，或確認終端機裡可以執行 {cli}。",
   "hooks.message.opencodeNoVersion": "執行 {cli} --version 失敗，所以讀不到 OpenCode 的 hook。詳細訊息：{detail}",
+  "hooks.message.opencodeUndetectedNoCli": "{target} 的 OpenCode：找不到 {cli} 指令，所以略過其 hook 綁定；現有輸出保持不變。請先安裝 OpenCode，或確認終端機裡可以執行 {cli}。",
   "hooks.message.opencodePackageNeedsV2": "{name}：目錄套件需要 OpenCode v2，因此在 {target} 上略過。",
   "hooks.message.opencodePackageUnreadable": "無法匯入 OpenCode 套件檔案 {path}：{detail}",
   "plugins.problem.opencodeDirectory": "OpenCode v2 需要目錄註冊，而非外掛檔案。請移除此綁定，再重新加入其套件。",
