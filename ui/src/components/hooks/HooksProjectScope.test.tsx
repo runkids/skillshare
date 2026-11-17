@@ -9,7 +9,7 @@ import { ToastProvider } from '../Toast';
 import HooksScope from './HooksScope';
 import HookDialog from './HookDialog';
 import HooksRemoveDialog from './HooksRemoveDialog';
-import { HooksSyncDialog } from './HooksSyncBox';
+import HooksSyncBox, { HooksSyncDialog } from './HooksSyncBox';
 
 vi.mock('../CodeEditor', () => ({
   default: ({ value, onChange, ariaLabel }: { value: string; onChange: (v: string) => void; ariaLabel: string }) => <textarea aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)} />,
@@ -205,4 +205,9 @@ describe('project row preview', () => {
     await waitFor(() => expect(hooksApi.configure).toHaveBeenCalledWith(takeover, 'rev-all', true));
   });
 
+  it('offers no Codex trust in a project, even with a Codex hook', () => {
+    wrap(<HooksSyncBox project={APP} plan={{ ...plan([]), blocked: false, changes: [change({ target: 'codex', name: 'lint', root: APP, action: 'add' })] }} />);
+    expect(screen.getByRole('button', { name: 'Sync hooks' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Trust Codex hooks' })).not.toBeInTheDocument();
+  });
 });

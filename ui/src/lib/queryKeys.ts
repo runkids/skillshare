@@ -114,6 +114,7 @@ export const queryKeys = {
   hooksCatalog: ['hooks', 'catalog'] as const,
   hooksImport: (project: string, from: string) => ['hooks', 'import', project, from] as const,
   hooksRender: (mutation: string) => ['hooks', 'render', mutation] as const,
+  hooksCodexTrustPreview: () => ['hooks-codex-trust-preview'] as const,
   hooksSyncPreview: (project: string, takeover: string) => ['hooks-sync-preview', project, takeover] as const,
   hooksRemovePreview: (project: string | undefined, name: string) => ['hooks-remove-preview', project, name] as const,
   hooksRestorePreview: (id: string) => ['hooks-restore-preview', id] as const,

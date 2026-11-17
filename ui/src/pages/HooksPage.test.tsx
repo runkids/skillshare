@@ -10,7 +10,7 @@ import HooksPage from './HooksPage';
 
 vi.mock('../api/hooks', async (load) => ({
   ...await load<typeof import('../api/hooks')>(),
-  hooksApi: { list: vi.fn(), catalog: vi.fn(), preview: vi.fn(), render: vi.fn(), save: vi.fn(), configure: vi.fn(), import: vi.fn(), previewRestore: vi.fn(), restore: vi.fn() },
+  hooksApi: { list: vi.fn(), catalog: vi.fn(), preview: vi.fn(), render: vi.fn(), save: vi.fn(), configure: vi.fn(), import: vi.fn(), previewRestore: vi.fn(), restore: vi.fn(), previewCodexTrust: vi.fn(), trustCodex: vi.fn() },
 }));
 
 const plan = (changes: HookPlan['changes']) => ({ revision: 'rev-1', fingerprint: 'fp', sourcePath: '/s.yaml', blocked: false, changes });
@@ -119,4 +119,30 @@ describe('Hooks page', () => {
     await waitFor(() => expect(hooksApi.configure).toHaveBeenCalledWith({}, 'rev-fresh', true));
   });
 
+  it('shows a Codex hook command before trusting and sends the preview revision', async () => {
+    const user = userEvent.setup();
+    const hook = { target: 'codex-2', entry: 'guard', key: 'k', command: 'echo "a long one-liner" && ./guard.sh', action: 'needed' as const };
+    vi.mocked(hooksApi.list).mockResolvedValue(inventory({
+      targets: [{ name: 'claude', kind: 'command', note: '' }, { name: 'codex-2', agent: 'codex', kind: 'command', note: '' }],
+      plan: plan([{ target: 'codex-2', path: '/home/u/.codex-2/hooks.json', name: 'guard', action: 'unchanged' }]),
+    }));
+    vi.mocked(hooksApi.previewCodexTrust).mockResolvedValue({ hooks: [hook], revision: 'rev-trust' });
+    vi.mocked(hooksApi.trustCodex).mockResolvedValue({ hooks: [{ ...hook, action: 'trusted' }], revision: 'rev-trust' });
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Trust Codex hooks' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Trust Codex hooks' });
+    expect(await within(dialog).findByText(hook.command)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Trust these hooks' }));
+    await waitFor(() => expect(hooksApi.trustCodex).toHaveBeenCalledWith('rev-trust'));
+  });
+
+  it('holds Codex trust back until pending changes are synced', async () => {
+    vi.mocked(hooksApi.list).mockResolvedValue(inventory({
+      targets: [{ name: 'claude', kind: 'command', note: '' }, { name: 'codex', kind: 'command', note: '' }],
+      plan: plan([{ target: 'codex', path: '/home/u/.codex/hooks.json', name: 'guard', action: 'update' }]),
+    }));
+    renderPage();
+    expect(await screen.findByRole('button', { name: 'Sync hooks' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Trust Codex hooks' })).not.toBeInTheDocument();
+  });
 });

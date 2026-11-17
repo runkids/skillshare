@@ -113,7 +113,7 @@ export default function HooksScope({ data, project, header }: Props) {
       {data.previewError && <div className="ss-note bad mb-4"><AlertCircle size={16} /><span className="flex-1">{data.previewError}</span></div>}
       <RailLayout className="max-[900px]:grid-cols-1 max-[900px]:[&>*]:static max-[900px]:[&>*]:max-h-none [&>aside]:static [&>aside]:max-h-none" pageScroll rail={<>
         {/* Removing the last hook leaves native changes pending, so the box also shows without a source entry. */}
-        {railPlan && (names.length > 0 || railPlan.changes.some((c) => writes(c) || c.action === 'conflict')) && <HooksSyncBox plan={railPlan} project={project} canTakeOver={canTakeOver} onTakeover={setTakingOver} />}
+        {railPlan && (names.length > 0 || railPlan.changes.some((c) => writes(c) || c.action === 'conflict')) && <HooksSyncBox plan={railPlan} project={project} accounts={accounts} canTakeOver={canTakeOver} onTakeover={setTakingOver} />}
         <HooksUnmanagedNote entries={unmanaged} onImport={() => setImporting(true)} />
         {!project && (
           <RailSection title={t('hooks.targets')} count={targets.length} action={<Tooltip content={t('hooks.targetsInfo')}><Info size={14} className="text-ink-3" aria-label={t('hooks.targetsInfo')} /></Tooltip>}>

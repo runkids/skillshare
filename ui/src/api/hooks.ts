@@ -88,6 +88,10 @@ export interface HookGitInfo {
   hooksPath: { value: string; origin: string }; reason?: string;
 }
 
+/** One Codex hook Skillshare owns. `needed`: not trusted yet or its command changed; `unchanged`: already trusted; `trusted`: recorded by this call. */
+export interface CodexTrustHook { target: string; entry: string; key: string; command?: string; action: 'needed' | 'unchanged' | 'trusted'; disabled?: boolean }
+export interface CodexTrustPlan { hooks: CodexTrustHook[]; revision: string }
+
 const post = <T,>(path: string, body: unknown) => apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) });
 
 export const hooksApi = {
@@ -112,6 +116,10 @@ export const hooksApi = {
   previewNative: (edits: HookNativeEdit[]) => post<HookPreview>('/hooks/native/preview', { edits }),
   /** Writes previewed edits, with a backup per file. The hooks stay unmanaged. */
   applyNative: (edits: HookNativeEdit[], revision: string) => post<HookResult>('/hooks/native', { edits, revision }),
+  /** Starts a Codex process to list the hooks, so call it only when the user asks. Global scope only. */
+  previewCodexTrust: () => post<CodexTrustPlan>('/hooks/codex-trust/preview', {}),
+  /** Records trust for the previewed hooks. Refused (409) when they changed since the preview. */
+  trustCodex: (revision: string) => post<CodexTrustPlan>('/hooks/codex-trust', { revision }),
   previewRestore: (backupId: string) => post<HookPlan>('/hooks/restore', { backupId, preview: true }),
   restore: (backupId: string, revision: string) => post<HookResult>('/hooks/restore', { backupId, revision }),
 };
