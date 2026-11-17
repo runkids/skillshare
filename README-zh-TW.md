@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.30.10 — 信任 skillshare 寫入的 Codex hooks：`skillshare hooks sync --trust -g` 會列出新增或變更的 hooks 及其指令，在你確認後記錄 Codex 的信任，Codex 就不會再略過它們。腳本可用 `--yes` 略過詢問，dashboard 的 Hooks 頁面也有相同的操作。 [hooks 參考 →](https://skillshare.runkids.cc/zh-Hant/docs/reference/commands/hooks) · [更新紀錄 →](https://skillshare.runkids.cc/changelog)
+> **最新版本**：v0.30.11 — 從 dashboard 分享你的 Pi 套件：Plugins 頁面的「分享」現在會在 plugin 之後列出 Pi 從 npm 安裝的套件，並複製一行把它們全部加入的指令，例如 `skillshare plugin add npm:<package> --target pi -g --no-tui`。「目標裡的 hook」對話框也能直接修改或移除 Antigravity 和 Copilot 的 hook，不需要先匯入。 [plugin 指南 →](https://skillshare.runkids.cc/zh-Hant/docs/how-to/daily-tasks/sharing-plugins) · [更新紀錄 →](https://skillshare.runkids.cc/changelog)
 
 ## 為什麼用 skillshare
 

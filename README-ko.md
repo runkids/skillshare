@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **최신 버전**: v0.30.10 — skillshare가 기록한 Codex hook을 신뢰하세요. `skillshare hooks sync --trust -g`는 새로 추가되거나 변경된 hook을 command와 함께 나열하고, 확인하면 Codex의 신뢰를 기록하므로 Codex가 더 이상 건너뛰지 않습니다. 스크립트에서는 `--yes`로 질문을 건너뛸 수 있고, 대시보드의 Hooks 페이지에도 같은 동작이 있습니다. [hooks 레퍼런스 →](https://skillshare.runkids.cc/ko/docs/reference/commands/hooks) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
+> **최신 버전**: v0.30.11 — 대시보드에서 Pi 패키지를 공유하세요. Plugins 페이지의 「공유」는 이제 플러그인 다음에 Pi가 npm에서 설치한 패키지도 나열하고, `skillshare plugin add npm:<package> --target pi -g --no-tui`처럼 모두 추가하는 명령 하나를 복사합니다. 「대상에 있는 hook」 대화상자는 Antigravity와 Copilot hook도 가져오지 않고 편집하거나 제거할 수 있습니다. [플러그인 가이드 →](https://skillshare.runkids.cc/ko/docs/how-to/daily-tasks/sharing-plugins) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare를 쓰는 이유
 
