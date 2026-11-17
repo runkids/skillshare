@@ -252,11 +252,17 @@ func printListed(header string, lines []string) {
 // of a source skill. Like the skipped
 // list, it names only the first few.
 func keptLocalWarning(names []string) string {
-	msg := "kept local: " + strings.Join(names[:min(len(names), maxListed)], ", ")
+	return "kept local: " + ListNames(names) + " (sync --force replaces them)"
+}
+
+// ListNames joins names for a one-line summary, spelling out only the first
+// few so a long list does not flood the output.
+func ListNames(names []string) string {
+	listed := strings.Join(names[:min(len(names), maxListed)], ", ")
 	if n := len(names) - maxListed; n > 0 {
-		msg += fmt.Sprintf(" ... and %d more", n)
+		listed += fmt.Sprintf(" ... and %d more", n)
 	}
-	return msg + " (sync --force replaces them)"
+	return listed
 }
 
 // RenamedFrom inverts LegacyNames: for each target name sync will move a

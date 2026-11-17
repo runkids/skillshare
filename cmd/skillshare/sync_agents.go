@@ -31,12 +31,7 @@ type agentSyncStats struct {
 // keptLocalAgentsWarning names the agent files a target kept, and the flag
 // that replaces them. Like the skills line, it lists only the first few.
 func keptLocalAgentsWarning(target string, names []string) string {
-	const maxListed = 5
-	msg := target + ": kept local agents: " + strings.Join(names[:min(len(names), maxListed)], ", ")
-	if n := len(names) - maxListed; n > 0 {
-		msg += fmt.Sprintf(" ... and %d more", n)
-	}
-	return msg + " (sync agents --force replaces them)"
+	return target + ": kept local agents: " + sync.ListNames(names) + " (sync agents --force replaces them)"
 }
 
 // syncAgentsGlobal discovers agents and syncs them to all agent-capable targets.

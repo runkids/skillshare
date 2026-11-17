@@ -230,11 +230,19 @@ func syncAgentsMergeCopy(agents []resource.DiscoveredResource, targetDir string,
 			result.Skipped = append(result.Skipped, name)
 			continue
 		case contentEqual(agent.AbsPath, targetPath):
-			if !copies.owns(name) {
+			switch {
+			case copies.owns(name):
+				result.Linked = append(result.Linked, name)
+			case force:
+				// Already the source's content: taking it over needs no rewrite,
+				// only the record that lets later syncs update it.
+				if !dryRun {
+					copies.record(name)
+				}
+				result.Updated = append(result.Updated, name)
+			default:
 				result.Skipped = append(result.Skipped, name)
-				continue
 			}
-			result.Linked = append(result.Linked, name)
 			continue
 		case !force && !copies.owns(name):
 			result.Skipped = append(result.Skipped, name)
