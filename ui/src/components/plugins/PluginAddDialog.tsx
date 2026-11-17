@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
-import { pluginsApi, targetMap, type PluginBinding, type PluginDiscovery, type PluginPackage, type PluginRequest, type PluginTarget, type PluginTargetDefinition } from '../../api/plugins';
+import { pluginsApi, targetMap, type PluginBinding, type PluginDiscovery, type PluginPackage, type PluginRequest, type PluginTarget, type PluginTargetDefinition, npmDefaultName } from '../../api/plugins';
 import { Check, ChevronDown, ChevronRight, Search, X } from 'lucide-react';
 import AgentIcon from '../AgentIcon';
 import { agentReasons } from './agentReasons';
@@ -38,15 +38,6 @@ function npmFromPi(value: string) {
   if (command) return command[1];
   if (!page) return value;
   try { return `npm:${decodeURIComponent(page[1])}`; } catch { return value; }
-}
-
-// The name recorded when none is typed, as the server derives it (npmSpec): the package name
-// without its version or @scope.
-function npmDefaultName(source: string) {
-  const spec = source.slice('npm:'.length).trim();
-  const at = spec.indexOf('@', 1);
-  const name = at > 0 ? spec.slice(0, at) : spec;
-  return name.slice(name.lastIndexOf('/') + 1);
 }
 
 export default function PluginAddDialog({ onClose, onPreview, initialSource = '', initialName = '', initialTargets = [], definitions = [], bound, recorded }: Props) {

@@ -63,11 +63,28 @@ export const bindingVersion = (inventory: Pick<PluginInventory, 'hosts' | 'targe
  * local directory, which only exists here. Agents are left for whoever runs it to choose. It always
  * adds globally: run inside a project with its own config, it would otherwise land in that project.
  */
+const quote = (s: string) => (/^[\w@%+=:,./-]+$/.test(s) ? s : `'${s.replace(/'/g, `'"'"'`)}'`);
 export const pluginShareCommand = (name: string, p: { source?: string; sourceRef?: string; plugin?: string; entry?: string }) => {
   if (!p.source?.startsWith('https://')) return '';
-  const quote = (s: string) => (/^[\w@%+=:,./-]+$/.test(s) ? s : `'${s.replace(/'/g, `'"'"'`)}'`);
   const flags: [string, string | undefined][] = [['--plugin', p.plugin], ['--name', p.plugin && p.plugin !== name ? name : undefined], ['--source-ref', p.sourceRef], ['--entry', p.entry]];
   return ['skillshare plugin add', quote(p.source), ...flags.filter(([, v]) => v).map(([flag, v]) => `${flag} ${quote(v!)}`), '-g'].join(' ');
+};
+/** The name an npm source is recorded under when none is given, as the server derives it (npmSpec): the package name without its version or @scope. */
+export function npmDefaultName(source: string) {
+  const spec = source.slice('npm:'.length).trim();
+  const at = spec.indexOf('@', 1);
+  const name = at > 0 ? spec.slice(0, at) : spec;
+  return name.slice(name.lastIndexOf('/') + 1);
+}
+/**
+ * The command that has Pi install an npm package on another machine, '' for a package Pi has from
+ * Git or a local path. Pi downloads the package, so an add needs a Pi target: `ask` leaves it to the
+ * prompt, otherwise the built-in one is named, since the sharer's own may be an account of theirs.
+ */
+export const piShareCommand = (name: string, id: string, ask: boolean) => {
+  if (!/^npm:\S+$/.test(id)) return '';
+  const named = npmDefaultName(id) === name ? [] : [`--name ${quote(name)}`];
+  return ['skillshare plugin add', quote(id), ...named, ...(ask ? [] : ['--target pi']), '-g'].join(' ');
 };
 export interface PluginCandidate { name: string; description: string; version: string; targets: PluginTarget[]; components: string[]; problem?: string; problemKey?: string; problemArgs?: Record<string, string>; targetInfo?: Record<string, { manifest: string; path?: string; version?: string; logo?: string; entry?: string; components: string[]; problem?: string; problemKey?: string; problemArgs?: Record<string, string> }> }
 export interface PluginDiscovery {

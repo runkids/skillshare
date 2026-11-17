@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Download, FolderOpen, Package, Plus, RefreshCw, Share2, Trash2, X } from 'lucide-react';
-import { byPlugin, pluginShareCommand, pluginsApi, targetMap, type PluginTarget, type PluginInventory } from '../api/plugins';
+import { byPlugin, piShareCommand, pluginShareCommand, pluginsApi, targetMap, type PluginTarget, type PluginInventory } from '../api/plugins';
 import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
 import { Checkbox } from '../components/Checkbox';
@@ -81,7 +81,15 @@ export default function PluginsPage() {
   const pluginTargets = targetMap(data?.targetDefinitions);
   const packages = Object.entries(data?.packages ?? {});
   // A plugin with no Agent yet has only what was recorded when it was added.
-  const shareable = packages.map(([name, pack]) => ({ name, command: pluginShareCommand(name, Object.values(pack.bindings).find((b) => b?.source) ?? pack) })).filter((p) => p.command);
+  // Plugins first: a machine without Pi stops the pasted list at the first Pi package, with every plugin already added.
+  const shareable = packages.map(([name, pack]) => {
+    const bound = Object.values(pack.bindings);
+    const command = pluginShareCommand(name, bound.find((b) => b?.source) ?? pack);
+    if (command) return { name, pi: false, command, quiet: `${command} --no-tui` };
+    // Pi's own source for the package: recorded as the source when Skillshare added it, as the binding's id when it was imported.
+    const npm = [pack.source, ...bound.flatMap((b) => [b?.source, b?.id])].find((s) => s?.startsWith('npm:')) ?? '';
+    return { name, pi: true, command: piShareCommand(name, npm, true), quiet: `${piShareCommand(name, npm, false)} --no-tui` };
+  }).filter((p) => p.command).sort((a, b) => Number(a.pi) - Number(b.pi));
   const pending = todo.length;
   const updatable = pendingUpdates.length;
   const actionTone = (action: string) => (action === 'blocked' ? 'bad' : action === 'noop' ? '' : action === 'skip' ? 'warn' : 'inf');

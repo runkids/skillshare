@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { apiFetch } from './client';
-import { type PluginBinding, bindingStatus, pluginShareCommand, pluginsApi, syncAction } from './plugins';
+import { type PluginBinding, bindingStatus, piShareCommand, pluginShareCommand, pluginsApi, syncAction } from './plugins';
 
 vi.mock('./client', () => ({ apiFetch: vi.fn() }));
 
@@ -25,6 +25,21 @@ describe('pluginShareCommand', () => {
   });
   it('offers nothing for a local directory', () => {
     expect(pluginShareCommand('demo', { source: '/Users/me/plugins/demo' })).toBe('');
+  });
+});
+
+describe('piShareCommand', () => {
+  it('names the built-in Pi target when nobody is asked', () => {
+    expect(piShareCommand('pi-subagents', 'npm:pi-subagents', false)).toBe('skillshare plugin add npm:pi-subagents --target pi -g');
+  });
+  it('leaves the target to the prompt when asking', () => {
+    expect(piShareCommand('tools', 'npm:@acme/tools@1.2.0', true)).toBe('skillshare plugin add npm:@acme/tools@1.2.0 -g');
+  });
+  it('keeps a name the package would not get by itself', () => {
+    expect(piShareCommand('mine', 'npm:@acme/tools', false)).toBe('skillshare plugin add npm:@acme/tools --name mine --target pi -g');
+  });
+  it('offers nothing for a package that is not from npm', () => {
+    expect(piShareCommand('demo', '/Users/me/pkgs/demo', false)).toBe('');
   });
 });
 
