@@ -2,7 +2,9 @@ import { Fragment, useEffect, useRef, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronRight, Target } from 'lucide-react';
 import { useT } from '../i18n';
-import { useAvailableTargetsQuery } from '../hooks/useSharedQueries';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../api/client';
+import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useHeldWhileClosing, useMenuPresence } from '../hooks/usePresence';
 
 /* ------------------------------------------------------------------ */
@@ -298,9 +300,10 @@ export default function TargetMenu({
   onClose,
 }: TargetMenuProps) {
   const t = useT();
-  const { data: availableData } = useAvailableTargetsQuery({ enabled: open });
+  // The configured targets, not the known tools: a custom target is in no built-in list.
+  const { data } = useQuery({ queryKey: queryKeys.targets.all, queryFn: () => api.listTargets(), staleTime: staleTimes.targets, enabled: open });
 
-  const targets = (availableData?.targets ?? []).filter((t) => t.installed);
+  const targets = [...(data?.targets ?? [])].sort((a, b) => a.name.localeCompare(b.name));
   const isAllSelected = isUniform && (!currentTargets || currentTargets.length === 0);
 
   const targetItems: ContextMenuSubItem[] = [
