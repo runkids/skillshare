@@ -410,6 +410,9 @@ func (s *Service) importShared(target string, req ImportRequest, state ledger) (
 		}
 		if target == "antigravity" {
 			c = antigravityCandidate(event, items[0].(map[string]any), c.Warnings)
+			if req.Content == "" {
+				c.Editable, c.Source = true, event
+			}
 		}
 		out = append(out, c)
 	}
@@ -419,13 +422,7 @@ func (s *Service) importShared(target string, req ImportRequest, state ledger) (
 // antigravityCandidate offers one named block. The hook keeps the block's name, so
 // saving the import takes that block over in place.
 func antigravityCandidate(name string, block map[string]any, warnings []string) Candidate {
-	events := map[string]any{}
-	for event, value := range block {
-		if event != "enabled" {
-			events[event] = value
-		}
-	}
-	c := Candidate{Name: name, Entry: Entry{Bindings: map[string]Binding{"antigravity": {Events: events}}}, Warnings: warnings}
+	c := Candidate{Name: name, Entry: Entry{Bindings: map[string]Binding{"antigravity": {Events: blockEvents(block)}}}, Warnings: warnings}
 	if !entryName.MatchString(name) {
 		c.Name = candidateName(name)
 		c.Warnings = []string{fmt.Sprintf("%q is not a valid hook name, so the import is written as %q next to it; remove the original afterwards", name, c.Name)}
@@ -434,6 +431,29 @@ func antigravityCandidate(name string, block map[string]any, warnings []string) 
 		c.Problems = []string{"this hook is disabled in Antigravity (enabled: false); enable it there to import it"}
 	}
 	return c
+}
+
+// blockEvents is an Antigravity block without its enabled switch: the hook's events.
+func blockEvents(block map[string]any) map[string]any {
+	events := map[string]any{}
+	for event, value := range block {
+		if event != "enabled" {
+			events[event] = value
+		}
+	}
+	return events
+}
+
+// copilotHooks reads a Copilot hooks file's event map.
+func copilotHooks(name string, data []byte) (map[string]any, error) {
+	var doc struct {
+		Version any            `json:"version"`
+		Hooks   map[string]any `json:"hooks"`
+	}
+	if err := json.Unmarshal(data, &doc); err != nil || doc.Version != float64(1) {
+		return nil, fmt.Errorf("%s: Copilot hooks files need version 1 and a hooks object", name)
+	}
+	return doc.Hooks, nil
 }
 
 func (s *Service) baseOrDir(target string) string {
@@ -446,14 +466,8 @@ func (s *Service) baseOrDir(target string) string {
 
 func (s *Service) importCopilot(req ImportRequest, state ledger) ([]Candidate, error) {
 	parse := func(name string, data []byte) (Candidate, error) {
-		var doc struct {
-			Version any            `json:"version"`
-			Hooks   map[string]any `json:"hooks"`
-		}
-		if err := json.Unmarshal(data, &doc); err != nil || doc.Version != float64(1) {
-			return Candidate{}, fmt.Errorf("%s: Copilot hooks files need version 1 and a hooks object", name)
-		}
-		return Candidate{Name: name, Entry: Entry{Bindings: map[string]Binding{"copilot": {Events: doc.Hooks}}}}, nil
+		hooks, err := copilotHooks(name, data)
+		return Candidate{Name: name, Entry: Entry{Bindings: map[string]Binding{"copilot": {Events: hooks}}}}, err
 	}
 	if req.Content != "" {
 		c, err := parse("copilot-hooks", []byte(req.Content))
@@ -482,6 +496,8 @@ func (s *Service) importCopilot(req ImportRequest, state ledger) ([]Candidate, e
 			continue
 		}
 		c.Warnings = []string{fmt.Sprintf("%s keeps loading; remove it after syncing so Copilot does not run these hooks twice", path)}
+		// A file without hooks has nothing NativeEdit could name.
+		c.Editable, c.Source = len(c.Entry.Bindings["copilot"].Events) > 0, file
 		out = append(out, c)
 	}
 	return out, nil

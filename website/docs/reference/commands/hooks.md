@@ -50,12 +50,12 @@ code and never runs it.
 
 The dashboard's **Hooks in targets** dialog opens with no hook selected; tick the ones to
 import. It can also edit or remove a hook in its Agent's
-settings file without importing it. This works for Agents that keep hooks as
-events in one settings file (Claude, Codex, Gemini, Cursor, Qwen, and Droid's
-`hooks.json`); hooks
-that are a whole file or a named block must be imported first. The dialog shows
-the file diff before anything is written and backs the file up; the hook stays
-unmanaged.
+settings file without importing it. This works for every Agent whose hooks are
+configuration: events in one settings file (Claude, Codex, Gemini, Cursor, Qwen,
+and Droid's `hooks.json`), an Antigravity named block, or a Copilot hooks file,
+where removing the hook deletes that file. Hooks that are code (Pi, Oh My Pi,
+Amp, OpenCode) must be imported first. The dialog shows the file diff before
+anything is written and backs the file up; the hook stays unmanaged.
 
 Add, edit, import, enable, disable and remove save source only unless `--sync`
 is supplied. Sync and restore always preview again before applying.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { commandSummary, describeChange, formatCommand, nativeEdits, sameEvents } from './hooksImport';
+import { commandSummary, describeChange, formatCommand, nativeEdits, rowPath, rowTitle, sameEvents } from './hooksImport';
 
 const group = (matcher: string, command: string) => ({ matcher, hooks: [{ type: 'command', command }] });
 
@@ -32,6 +32,20 @@ describe('nativeEdits', () => {
       { target: 'claude', before, change: { remove: true } },
       { target: 'codex', root: '/repo', before, change: { events: after } },
     ])).toEqual([{ target: 'claude', before }, { target: 'codex', root: '/repo', before, after }]);
+  });
+  it('names the block or file a hook was read from', () => {
+    const before = { Stop: [{ command: 'a' }] };
+    expect(nativeEdits([{ target: 'antigravity', source: 'lint', before, change: { remove: true } }])).toEqual([{ target: 'antigravity', source: 'lint', before }]);
+  });
+});
+
+describe('rowTitle and rowPath', () => {
+  const row = { id: 'copilot:team.json', target: 'copilot', adopt: true, candidate: { name: 'team', source: 'team.json', problems: [], warnings: [], entry: { bindings: { copilot: { events: { sessionStart: [] } } } } } };
+  it('names a Copilot hook by its file, even with one event', () => {
+    expect(rowTitle(row)).toBe('team.json');
+  });
+  it('points an edit at the Copilot file, not its folder', () => {
+    expect(rowPath(row, '/home/u/.copilot/hooks')).toBe('/home/u/.copilot/hooks/team.json');
   });
 });
 

@@ -33,7 +33,7 @@ skillshare hooks restore BACKUP_ID --dry-run
 skillshare hooks restore BACKUP_ID
 ```
 
-サブコマンドなしでは entries を一覧表示します。`add`／`edit` は `--file` の Entry JSON/YAML を読み込みます。インポートで名前を省略すると候補（Agent の event またはファイルごとに 1 件）を表示し、名前を指定すると保存します。インポートを保存すると、読み取った登録をその場で引き継ぎます。次回の同期は `--replace` なしで adopt し、インポートしなかった event は管理外のままです。設定とコードを読むだけで実行しません。追加、編集、インポート、有効化、無効化、削除はソースのみを保存し、`--sync` で同期します。同期と復元は適用前に再プレビューします。Dashboard の「ターゲット内の hook」ダイアログは何も選択していない状態で開き、インポートする hook にチェックを入れます。インポートしていない hook を Agent の設定ファイル内で直接編集・削除することもできます（hooks を 1 つの設定ファイルの event として持つ Agent のみ：Claude、Codex、Gemini、Cursor、Qwen、および Droid の `hooks.json`。ファイル単位や名前付きブロックの hook は先にインポートが必要です）。書き込み前にファイルの差分を表示してバックアップを取り、hook は管理外のままです。
+サブコマンドなしでは entries を一覧表示します。`add`／`edit` は `--file` の Entry JSON/YAML を読み込みます。インポートで名前を省略すると候補（Agent の event またはファイルごとに 1 件）を表示し、名前を指定すると保存します。インポートを保存すると、読み取った登録をその場で引き継ぎます。次回の同期は `--replace` なしで adopt し、インポートしなかった event は管理外のままです。設定とコードを読むだけで実行しません。追加、編集、インポート、有効化、無効化、削除はソースのみを保存し、`--sync` で同期します。同期と復元は適用前に再プレビューします。Dashboard の「ターゲット内の hook」ダイアログは何も選択していない状態で開き、インポートする hook にチェックを入れます。インポートしていない hook を Agent の設定ファイル内で直接編集・削除することもできます（hook が設定である Agent すべて：1 つの設定ファイルの event（Claude、Codex、Gemini、Cursor、Qwen、および Droid の `hooks.json`）、Antigravity の名前付きブロック、Copilot の hook ファイル。Copilot の hook を削除するとそのファイルを削除します。コードの hook（Pi、Oh My Pi、Amp、OpenCode）は先にインポートが必要です）。書き込み前にファイルの差分を表示してバックアップを取り、hook は管理外のままです。
 
 | Option | Meaning |
 |---|---|
