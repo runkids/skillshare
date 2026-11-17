@@ -112,9 +112,15 @@ HTTPS Git source. Tick several and copy one command that adds them all in order,
 with the same source, plugin, name, ref, and entry. Every add passes `-g`, so the
 plugins go to the global configuration even when the command runs inside a project.
 By default the command also passes `--no-tui`, so it adds every plugin to Skillshare
-without prompting; whoever runs it then ticks Agents on the Plugins page to install. Tick **Ask which Agents to install each
-plugin to** to leave out `--no-tui`, so each add opens its Agent picker instead. Plugins from a local directory are not listed, because the path
+without prompting; whoever runs it then ticks Agents on the Plugins page to install. Tick **Ask where to install each
+one** to leave out `--no-tui`, so each add opens its Agent picker instead. Plugins from a local directory are not listed, because the path
 only exists on your machine.
+
+The same dialog lists the Pi packages that Pi installed from npm, after the plugins. Pi
+downloads an npm package itself, so its add names a target: `skillshare plugin add
+npm:<package> --target pi -g --no-tui` installs it into Pi right away. With **Ask where
+to install each one** ticked, the command leaves out `--target pi` and asks which Pi
+targets to use. Pi packages from Git or a local path are not listed.
 
 Plugins are separate from ordinary skills and MCP synchronization. Their bundled
 components are not also copied into standalone Skillshare sources.
