@@ -288,11 +288,11 @@ func TestCompletion_Hooks_AllShells(t *testing.T) {
 	defer sb.Cleanup()
 
 	for shell, want := range map[string][2]string{
-		"bash":       {"add disable edit enable import list remove restore sync", "--keep-files --trust"},
-		"zsh":        {"(add disable edit enable import list remove restore sync)", "'--trust[sync: record Codex trust]'"},
-		"fish":       {"-a 'add disable edit enable import list remove restore sync'", "-l trust -d 'sync: record Codex trust'"},
-		"powershell": {"@{ Name = 'sync'; Desc = 'Hooks sync' }", "'--keep-files', '--trust'"},
-		"nushell":    {"[add disable edit enable import list remove restore sync]", "--trust # sync: record Codex trust"},
+		"bash":       {"add disable edit enable import list remove restore sync", "--keep-files --trust --yes -y"},
+		"zsh":        {"(add disable edit enable import list remove restore sync)", "'(-y --yes)'{-y,--yes}'[sync --trust: record trust without asking]'"},
+		"fish":       {"-a 'add disable edit enable import list remove restore sync'", "-s y -l yes -d 'sync --trust: record trust without asking'"},
+		"powershell": {"@{ Name = 'sync'; Desc = 'Hooks sync' }", "'--keep-files', '--trust', '--yes', '-y'"},
+		"nushell":    {"[add disable edit enable import list remove restore sync]", "--yes(-y) # sync --trust: record trust without asking"},
 	} {
 		result := sb.RunCLI("completion", shell)
 		result.AssertSuccess(t)

@@ -28,7 +28,8 @@ type Service struct {
 	// GitGlobalConfig is the file override Git honors in GIT_CONFIG_GLOBAL.
 	GitGlobalConfig string
 	// CodexAppServer starts Codex's app-server for one Codex home; nil runs `codex app-server`.
-	CodexAppServer func(home string) (CodexAppServer, error)
+	// defaultHome is true when the user's Codex finds that home as ~/.codex, not CODEX_HOME.
+	CodexAppServer func(home string, defaultHome bool) (CodexAppServer, error)
 }
 
 // Mutation is shared by CLI and dashboard preview/save/sync flows. An empty

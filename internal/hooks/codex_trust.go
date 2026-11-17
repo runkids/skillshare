@@ -10,24 +10,43 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 	"unicode"
-
-	"github.com/pelletier/go-toml/v2"
 )
 
-// CodexTrust is one Codex hook position that sync --trust looked at.
+// CodexTrust is one Codex hook Skillshare owns, as sync --trust sees it.
 type CodexTrust struct {
 	Target string `json:"target"`
 	Entry  string `json:"entry,omitempty"`
 	Key    string `json:"key"`
-	// Action is trusted (recorded now), unchanged (already trusted) or cleared (trust
-	// Skillshare recorded for a position its hook no longer holds).
+	// Command is what the hook runs, shown for review before trust is recorded.
+	Command string `json:"command,omitempty"`
+	// Action is needed (not trusted yet, or changed since it was), trusted (recorded
+	// now) or unchanged (already trusted).
 	Action string `json:"action"`
 	// Disabled reports a hook switched off in Codex, which sync --trust leaves off.
 	Disabled bool `json:"disabled,omitempty"`
+}
+
+// CodexTrustPlan is what sync --trust looked at. Revision names the hooks that need
+// trust and their hashes, so trust is recorded only for what was shown.
+type CodexTrustPlan struct {
+	Hooks    []CodexTrust `json:"hooks"`
+	Revision string       `json:"revision"`
+}
+
+// Needed are the hooks that would be newly trusted.
+func (p *CodexTrustPlan) Needed() []CodexTrust {
+	var out []CodexTrust
+	for _, h := range p.Hooks {
+		if h.Action == "needed" {
+			out = append(out, h)
+		}
+	}
+	return out
 }
 
 // CodexHook is the part of a Codex app-server hooks/list entry trust needs.
@@ -43,31 +62,31 @@ type CodexHook struct {
 // each hook's hash and writes config.toml itself, exactly as its /hooks review does.
 type CodexAppServer interface {
 	ListHooks() ([]CodexHook, error)
-	// SetTrust writes hooks.state.<key>.trusted_hash for each key; "" clears it.
+	// SetTrust writes hooks.state.<key>.trusted_hash for each key.
 	SetTrust(hashes map[string]string) error
 	Close() error
 }
 
-// codexTrustState remembers the trust sync --trust recorded, by hooks.json path, so
-// a later run clears only what it wrote.
-type codexTrustState struct {
-	Version int                       `json:"version"`
-	Homes   map[string]codexTrustHome `json:"homes"`
+// codexHome is one physical hooks.json: every record written to it, and the active
+// config's own among them.
+type codexHome struct {
+	target, path   string
+	records, owned map[string]record
 }
 
-type codexTrustHome struct {
-	Owner  string            `json:"owner"`
-	Path   string            `json:"path"`
-	Target string            `json:"target"`
-	Keys   map[string]string `json:"keys"`
+// PreviewCodexTrust lists the Codex hooks Skillshare owns in each global Codex home
+// and which of them need trust. It writes nothing and never runs a hook.
+func (s *Service) PreviewCodexTrust() (*CodexTrustPlan, error) { return s.codexTrust("", false) }
+
+// TrustCodex records Codex trust for the hooks a preview with this revision listed
+// as needed. Only trusted_hash changes; enabled and the rest of config.toml stay as
+// they are, and trust recorded earlier for a hook that moved or left stays too: it
+// matches only a hook with the same event, matcher and handler at that position.
+func (s *Service) TrustCodex(revision string) (*CodexTrustPlan, error) {
+	return s.codexTrust(revision, true)
 }
 
-func (s *Service) codexTrustPath() string { return filepath.Join(s.stateDir(), "codex-trust.json") }
-
-// TrustCodex records Codex trust for the hooks Skillshare owns in each global Codex
-// home, after a sync. Only trusted_hash changes; enabled and the rest of config.toml
-// stay as they are. It never runs a hook.
-func (s *Service) TrustCodex() ([]CodexTrust, error) {
+func (s *Service) codexTrust(revision string, apply bool) (*CodexTrustPlan, error) {
 	if s.ProjectRoot != "" {
 		return nil, fmt.Errorf("--trust records trust in global Codex homes only; run it with -g")
 	}
@@ -75,8 +94,14 @@ func (s *Service) TrustCodex() ([]CodexTrust, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer lock.Unlock()
+	// A preview lets go before it asks Codex, which can take a while: a hooks.json that
+	// changes meanwhile fails the listing or the revision, so nothing is trusted unseen.
 	state, _, err := s.loadLedger()
+	if !apply || err != nil {
+		lock.Unlock()
+	} else {
+		defer lock.Unlock()
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -84,123 +109,95 @@ func (s *Service) TrustCodex() ([]CodexTrust, error) {
 	if err != nil {
 		return nil, fmt.Errorf("resolve hooks config owner: %w", err)
 	}
-	saved := codexTrustState{Version: 2, Homes: map[string]codexTrustHome{}}
-	if data, exists, _, err := safeRead(s.codexTrustPath()); err != nil {
-		return nil, err
-	} else if exists && (json.Unmarshal(data, &saved) != nil || saved.Homes == nil) {
-		return nil, fmt.Errorf("Codex trust state is invalid: %s", s.codexTrustPath())
-	}
-	saved.Version = 2
-	coalesceCodexTrustHomes(saved.Homes, owner)
-	coalesceCodexTrustHomes(saved.Homes, "")
-	homes := map[string]string{}
-	perFile := map[string]map[string]record{}
-	owned := map[string]map[string]record{}
-	parked := map[string]map[string]record{}
+	// Two targets that name one hooks.json, by a symlink or not, share one Codex run.
+	homes := map[string]*codexHome{}
 	for key, r := range state.Records {
 		if r.Root != "" || s.agentOf(r.Target) != "codex" {
 			continue
 		}
 		file := canonicalCodexHooksPath(r.Path)
-		if perFile[file] == nil {
-			perFile[file] = map[string]record{}
+		h := homes[file]
+		if h == nil {
+			h = &codexHome{records: map[string]record{}, owned: map[string]record{}}
+			homes[file] = h
 		}
-		perFile[file][key] = r
+		h.records[key] = r
 		if r.Owner != owner {
 			continue
 		}
 		sc, _ := s.forTarget(r.Target)
-		if path, err := sc.nativePath("codex"); err != nil || canonicalCodexHooksPath(path) != file {
-			if parked[file] == nil {
-				parked[file] = map[string]record{}
-			}
-			parked[file][key] = r
-			continue // A parked record's home moved or is missing.
+		path, err := sc.nativePath("codex")
+		if err != nil || canonicalCodexHooksPath(path) != file {
+			continue // The record's home moved or is missing; there is nothing to trust there.
 		}
-		if target, ok := homes[file]; !ok || r.Target < target {
-			homes[file] = r.Target
+		if h.target == "" || r.Target < h.target {
+			h.target, h.path = r.Target, path
 		}
-		if owned[file] == nil {
-			owned[file] = map[string]record{}
-		}
-		owned[file][key] = r
+		h.owned[key] = r
 	}
-	for _, home := range saved.Homes {
-		if home.Owner == owner {
-			path := canonicalCodexHooksPath(home.Path)
-			if _, ok := homes[path]; !ok {
-				homes[path] = home.Target
-			}
-		}
+	plan := &CodexTrustPlan{Hooks: []CodexTrust{}}
+	type write struct {
+		target string
+		server CodexAppServer
+		edits  map[string]string
 	}
-	out := []CodexTrust{}
-	for _, path := range sortedKeys(homes) {
-		if info, err := os.Stat(filepath.Dir(path)); err != nil || !info.IsDir() {
+	var writes []write
+	defer func() {
+		for _, w := range writes {
+			w.server.Close()
+		}
+	}()
+	var needed []string
+	for _, file := range sortedKeys(homes) {
+		h := homes[file]
+		if info, err := os.Stat(filepath.Dir(h.path)); len(h.owned) == 0 || err != nil || !info.IsDir() {
 			continue // A missing account home is skipped, as sync skips it.
 		}
-		homeKey := codexTrustHomeKey(owner, path)
-		file := canonicalCodexHooksPath(path)
-		results, keys, err := s.trustCodexHome(homes[path], path, perFile[file], owned[file], parked[file], saved.Homes[homeKey].Keys)
-		out = append(out, results...)
+		server, hooks, edits, err := s.listCodexHome(h)
+		if server != nil {
+			writes = append(writes, write{h.target, server, edits})
+		}
 		if err != nil {
-			return out, fmt.Errorf("%s: %w", homes[path], err)
+			return plan, fmt.Errorf("%s: %w", h.target, err)
 		}
-		if len(keys) == 0 {
-			delete(saved.Homes, homeKey)
-		} else {
-			saved.Homes[homeKey] = codexTrustHome{Owner: owner, Path: path, Target: homes[path], Keys: keys}
-		}
-		if err := writeJSONFile(s.codexTrustPath(), saved); err != nil {
-			return out, err
+		plan.Hooks = append(plan.Hooks, hooks...)
+		for key, hash := range edits {
+			needed = append(needed, key+"\x00"+hash)
 		}
 	}
-	// Version 1 did not store config ownership. Reconcile those entries only as
-	// stale trust to clear; never use them to select a hook that should be trusted.
-	legacyChanged := false
-	for _, key := range sortedKeys(saved.Homes) {
-		home := saved.Homes[key]
-		if home.Owner != "" {
+	slices.Sort(needed)
+	plan.Revision = digest([]byte(strings.Join(needed, "\n")))
+	if !apply {
+		return plan, nil
+	}
+	if revision != plan.Revision {
+		return plan, fmt.Errorf("Codex hooks changed since they were listed: %w", ErrStaleRevision)
+	}
+	// One home that fails does not stop the others, and the error says which is which.
+	var done []string
+	var failed []error
+	for _, w := range writes {
+		if len(w.edits) == 0 {
 			continue
 		}
-		path := key
-		if home.Path != "" {
-			path = home.Path
-		}
-		if info, err := os.Stat(filepath.Dir(path)); err != nil || !info.IsDir() {
+		if err := w.server.SetTrust(w.edits); err != nil {
+			failed = append(failed, fmt.Errorf("%s: %w", w.target, err))
 			continue
 		}
-		results, _, err := s.trustCodexHome(home.Target, path, nil, nil, nil, home.Keys)
-		out = append(out, results...)
-		if err != nil {
-			return out, fmt.Errorf("%s: %w", home.Target, err)
-		}
-		current, err := codexTrustedHashes(filepath.Join(filepath.Dir(path), "config.toml"))
-		if err != nil {
-			return out, err
-		}
-		for hookKey, hash := range home.Keys {
-			if current[hookKey] != hash {
-				delete(home.Keys, hookKey)
+		done = append(done, w.target)
+		for i, h := range plan.Hooks {
+			if _, ok := w.edits[h.Key]; ok {
+				plan.Hooks[i].Action = "trusted"
 			}
 		}
-		if len(home.Keys) == 0 {
-			delete(saved.Homes, key)
-		} else {
-			saved.Homes[key] = home
-		}
-		legacyChanged = true
 	}
-	if legacyChanged {
-		if err := writeJSONFile(s.codexTrustPath(), saved); err != nil {
-			return out, err
-		}
+	if len(failed) > 0 && len(done) > 0 {
+		return plan, fmt.Errorf("Codex trust was recorded for %s, but not for every home: %w", strings.Join(done, ", "), errors.Join(failed...))
 	}
-	return out, nil
+	return plan, errors.Join(failed...)
 }
 
-func codexTrustHomeKey(owner, path string) string { return owner + "\x00" + path }
-
-// Resolve the file itself when present, or its home when cleanup removed the file.
+// canonicalCodexHooksPath resolves the home's symlinks even when hooks.json is absent.
 func canonicalCodexHooksPath(path string) string {
 	if resolved, err := filepath.EvalSymlinks(path); err == nil {
 		return resolved
@@ -208,169 +205,96 @@ func canonicalCodexHooksPath(path string) string {
 	return filepath.Join(canonicalPath(filepath.Dir(path)), filepath.Base(path))
 }
 
-// coalesceCodexTrustHomes migrates active-owner receipts to the physical hooks.json
-// path, so a real path and its symlink cannot trigger duplicate app-server runs.
-func coalesceCodexTrustHomes(homes map[string]codexTrustHome, owner string) {
-	grouped := map[string][]codexTrustHome{}
-	for _, key := range sortedKeys(homes) {
-		home := homes[key]
-		if home.Owner != owner {
-			continue
-		}
-		path := home.Path
-		if path == "" && owner == "" {
-			path = key
-		}
-		if path == "" {
-			continue
-		}
-		path = canonicalCodexHooksPath(path)
-		grouped[path] = append(grouped[path], home)
-		delete(homes, key)
+// listCodexHome asks Codex about one hooks.json. It locates groups against every
+// record for the file, then reports only the active owner's; edits are the hashes
+// that would make the needed ones trusted. The server is returned open for the write.
+func (s *Service) listCodexHome(h *codexHome) (CodexAppServer, []CodexTrust, map[string]string, error) {
+	data, exists, _, err := safeRead(h.path)
+	if err != nil || !exists {
+		return nil, nil, nil, err
 	}
-	for _, path := range sortedKeys(grouped) {
-		group := grouped[path]
-		merged := group[0]
-		merged.Owner = owner
-		merged.Path = path
-		merged.Keys = map[string]string{}
-		conflicts := map[string]bool{}
-		for _, home := range group {
-			if home.Target < merged.Target {
-				merged.Target = home.Target
-			}
-			for key, hash := range home.Keys {
-				if conflicts[key] {
-					continue
-				}
-				if existing, ok := merged.Keys[key]; ok && existing != hash {
-					delete(merged.Keys, key)
-					conflicts[key] = true
-					continue
-				}
-				merged.Keys[key] = hash
-			}
-		}
-		key := codexTrustHomeKey(owner, path)
-		if owner == "" {
-			key = path
-		}
-		homes[key] = merged
-	}
-}
-
-// trustCodexHome locates groups against all records for one hooks.json, then trusts
-// only the active owner's groups. It clears trust recorded earlier for positions they
-// left and keeps receipts for still-owned registrations parked at this path.
-func (s *Service) trustCodexHome(target, path string, records, owned, parked map[string]record, written map[string]string) ([]CodexTrust, map[string]string, error) {
-	positions := map[string]string{}
-	parkedPositions := map[string]bool{}
-	data, exists, _, err := safeRead(path)
+	doc, err := parseNative("codex", data)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	if exists && len(records) > 0 {
-		doc, err := parseNative("codex", data)
-		if err != nil {
-			return nil, nil, err
+	type group struct {
+		entry string
+		item  any
+	}
+	groups := map[string]group{}
+	for key, index := range locate(doc, h.records) {
+		if r, ok := h.owned[key]; ok {
+			groups[codexEventKey(r.Event)+":"+strconv.Itoa(index)] = group{r.Entry, doc.events[r.Event][index]}
 		}
-		for key, index := range locate(doc, records) {
-			position := codexEventKey(records[key].Event) + ":" + strconv.Itoa(index)
-			if _, ok := owned[key]; ok {
-				positions[position] = records[key].Entry
-			}
-		}
-		// Duplicate counts can make locate reject an otherwise matching parked
-		// registration. Keep its receipt only at positions with the same group hash.
-		for _, r := range parked {
-			for index, item := range doc.events[r.Event] {
-				if elementHash(item) == r.Hash {
-					parkedPositions[codexEventKey(r.Event)+":"+strconv.Itoa(index)] = true
-				}
-			}
-		}
+	}
+	if len(groups) == 0 {
+		return nil, nil, nil, nil
 	}
 	start := s.CodexAppServer
 	if start == nil {
 		start = startCodexAppServer
 	}
-	server, err := start(filepath.Dir(path))
+	dir := filepath.Dir(h.path)
+	server, err := start(dir, s.codexDefaultHome(dir))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	defer server.Close()
 	listed, err := server.ListHooks()
 	if err != nil {
-		return nil, nil, err
+		return server, nil, nil, err
 	}
-	current, currentExists, _, err := safeRead(path)
+	current, currentExists, _, err := safeRead(h.path)
 	if err != nil {
-		return nil, nil, err
+		return server, nil, nil, err
 	}
-	if exists != currentExists || !bytes.Equal(data, current) {
-		return nil, nil, fmt.Errorf("%s changed while Codex hooks were being listed; run hooks sync --trust again", path)
+	if !currentExists || !bytes.Equal(data, current) {
+		return server, nil, nil, fmt.Errorf("%s changed while Codex hooks were being listed; run hooks sync --trust again", h.path)
 	}
-	results := []CodexTrust{}
-	edits, keep, here := map[string]string{}, map[string]string{}, map[string]CodexHook{}
-	for _, h := range listed {
-		if !samePath(h.SourcePath, path) {
+	var results []CodexTrust
+	edits := map[string]string{}
+	for _, hook := range listed {
+		if !samePath(hook.SourcePath, h.path) {
 			continue
 		}
-		here[h.Key] = h
-		position := codexPosition(h.Key)
-		entry, ok := positions[position]
+		position, handler := codexPosition(hook.Key)
+		g, ok := groups[position]
 		if !ok {
-			if parkedPositions[position] && written[h.Key] == h.CurrentHash {
-				keep[h.Key] = h.CurrentHash
-			}
 			continue
 		}
-		result := CodexTrust{Target: target, Entry: entry, Key: h.Key, Action: "unchanged", Disabled: !h.Enabled}
-		switch {
-		case h.TrustStatus == "untrusted" || h.TrustStatus == "modified":
-			edits[h.Key], keep[h.Key], result.Action = h.CurrentHash, h.CurrentHash, "trusted"
-		case h.TrustStatus != "trusted":
+		result := CodexTrust{Target: h.target, Entry: g.entry, Key: hook.Key, Command: codexHandlerCommand(g.item, handler), Action: "unchanged", Disabled: !hook.Enabled}
+		switch hook.TrustStatus {
+		case "untrusted", "modified":
+			result.Action, edits[hook.Key] = "needed", hook.CurrentHash
+		case "trusted":
+		default:
 			continue // Managed hooks are trusted by policy, not config.toml.
-		case written[h.Key] == h.CurrentHash:
-			keep[h.Key] = h.CurrentHash
 		}
 		results = append(results, result)
 	}
-	if stale := staleKeys(written, keep); len(stale) > 0 {
-		current, err := codexTrustedHashes(filepath.Join(filepath.Dir(path), "config.toml"))
-		if err != nil {
-			return results, written, err
-		}
-		for _, key := range stale {
-			// Trust someone changed since, or that an identical hook now uses, stays.
-			if current[key] == written[key] && here[key].CurrentHash != written[key] {
-				edits[key] = ""
-				results = append(results, CodexTrust{Target: target, Key: key, Action: "cleared"})
-			}
-		}
-	}
-	if len(edits) > 0 {
-		if err := server.SetTrust(edits); err != nil {
-			unchanged := results[:0]
-			for _, result := range results {
-				if result.Action == "unchanged" {
-					unchanged = append(unchanged, result)
-				}
-			}
-			return unchanged, written, err
-		}
-	}
-	return results, keep, nil
+	return server, results, edits, nil
 }
 
-func staleKeys(written, keep map[string]string) []string {
-	var out []string
-	for _, key := range sortedKeys(written) {
-		if _, ok := keep[key]; !ok {
-			out = append(out, key)
-		}
+// codexDefaultHome reports whether the user's Codex finds dir as ~/.codex rather than
+// through CODEX_HOME. Codex resolves CODEX_HOME's symlinks but not ~/.codex's, and the
+// trust key holds that path, so the app-server must find the home the same way.
+func (s *Service) codexDefaultHome(dir string) bool {
+	if env := s.ConfigDirs["codex"]; env != "" && samePath(env, dir) {
+		return false
 	}
-	return out
+	home, err := os.UserHomeDir()
+	return err == nil && filepath.Clean(dir) == filepath.Join(home, ".codex")
+}
+
+// codexHandlerCommand is the command of one handler of a hooks.json group.
+func codexHandlerCommand(item any, handler int) string {
+	group, _ := item.(map[string]any)
+	handlers, _ := group["hooks"].([]any)
+	if handler < 0 || handler >= len(handlers) {
+		return ""
+	}
+	h, _ := handlers[handler].(map[string]any)
+	command, _ := h["command"].(string)
+	return command
 }
 
 // codexEventKey is Codex's snake_case event label for a hooks.json event name.
@@ -388,37 +312,19 @@ func codexEventKey(event string) string {
 	return b.String()
 }
 
-// codexPosition is "<event>:<group>" from a hook key "<source>:<event>:<group>:<handler>";
-// every handler of a group Skillshare owns is its own.
-func codexPosition(key string) string {
+// codexPosition splits a hook key "<source>:<event>:<group>:<handler>" into
+// "<event>:<group>" and the handler index; every handler of a group Skillshare owns
+// is its own.
+func codexPosition(key string) (string, int) {
 	parts := strings.Split(key, ":")
 	if len(parts) < 4 {
-		return ""
+		return "", -1
 	}
-	return parts[len(parts)-3] + ":" + parts[len(parts)-2]
-}
-
-// codexTrustedHashes reads hooks.state.<key>.trusted_hash from a Codex config.toml.
-func codexTrustedHashes(path string) (map[string]string, error) {
-	data, exists, _, err := safeRead(path)
-	if err != nil || !exists {
-		return map[string]string{}, err
+	handler, err := strconv.Atoi(parts[len(parts)-1])
+	if err != nil {
+		return "", -1
 	}
-	var doc struct {
-		Hooks struct {
-			State map[string]struct {
-				TrustedHash string `toml:"trusted_hash"`
-			} `toml:"state"`
-		} `toml:"hooks"`
-	}
-	if err := toml.Unmarshal(data, &doc); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
-	}
-	out := map[string]string{}
-	for key, state := range doc.Hooks.State {
-		out[key] = state.TrustedHash
-	}
-	return out, nil
+	return parts[len(parts)-3] + ":" + parts[len(parts)-2], handler
 }
 
 // codexRPCTimeout bounds each app-server request.
@@ -431,15 +337,19 @@ type codexProcess struct {
 	next  int
 }
 
-// startCodexAppServer runs `codex app-server` with CODEX_HOME set to home.
-func startCodexAppServer(home string) (CodexAppServer, error) {
+// startCodexAppServer runs `codex app-server` for one Codex home: with CODEX_HOME set
+// to it, or for the default home with CODEX_HOME unset so Codex finds ~/.codex itself.
+func startCodexAppServer(home string, defaultHome bool) (CodexAppServer, error) {
 	bin, err := exec.LookPath("codex")
 	if err != nil {
 		return nil, errors.New("codex is not on PATH")
 	}
 	cmd := exec.Command(bin, "app-server")
 	cmd.Dir = home
-	cmd.Env = append(os.Environ(), "CODEX_HOME="+home)
+	cmd.Env = slices.DeleteFunc(os.Environ(), func(v string) bool { return strings.HasPrefix(v, "CODEX_HOME=") })
+	if !defaultHome {
+		cmd.Env = append(cmd.Env, "CODEX_HOME="+home)
+	}
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -536,12 +446,8 @@ func (p *codexProcess) ListHooks() ([]CodexHook, error) {
 func (p *codexProcess) SetTrust(hashes map[string]string) error {
 	edits := []map[string]any{}
 	for _, key := range sortedKeys(hashes) {
-		var value any
-		if hashes[key] != "" {
-			value = hashes[key]
-		}
 		escaped := strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(key)
-		edits = append(edits, map[string]any{"keyPath": `hooks.state."` + escaped + `".trusted_hash`, "value": value, "mergeStrategy": "replace"})
+		edits = append(edits, map[string]any{"keyPath": `hooks.state."` + escaped + `".trusted_hash`, "value": hashes[key], "mergeStrategy": "replace"})
 	}
 	_, err := p.call("config/batchWrite", map[string]any{"edits": edits})
 	return err

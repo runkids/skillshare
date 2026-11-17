@@ -23,6 +23,8 @@ skillshare hooks sync --dry-run --json
 skillshare hooks sync
 skillshare hooks sync check --replace --dry-run
 skillshare hooks sync --trust -g
+skillshare hooks sync --trust --yes -g
+skillshare hooks sync --trust --yes --json -g
 skillshare sync hooks --dry-run --json
 skillshare sync hooks
 skillshare hooks remove check --sync
@@ -41,6 +43,7 @@ skillshare hooks restore BACKUP_ID
 | `--keep-files` | 配合 `remove` 使用：停止管理该 hook，并让它的原生条目保持原样。不能与 `--sync` 同时使用。参见[下文](#stop-managing-a-hook) |
 | `--replace` | 明确替换已有来源 entry 或该 entry 冲突的原生输出 |
 | `--trust` | 仅用于全局模式的 `hooks sync`：同时为 Skillshare 管理的 hooks 记录 Codex 信任。见 [Codex 信任](#codex-trust) |
+| `--yes`, `-y` | 与 `--trust` 一起使用：跳过询问并信任列出的 hooks。见 [Codex 信任](#codex-trust) |
 | `--dry-run, -n` | 仅预览，不保存或写入 |
 | `--json` | 结构化输出 |
 | `--revision ID` | 要求匹配指定预览 revision |
@@ -190,9 +193,34 @@ Codex 只运行已信任的用户级 hook，并把信任记录在同一目录的
 
 ```bash
 skillshare hooks sync --trust -g
+skillshare hooks sync --trust --yes -g
+skillshare hooks sync --trust --yes --json -g
 ```
 
-写入之后，`--trust` 会在 Skillshare 管理的每个 Codex 目录（包括账号目录）中，为 Skillshare 拥有的 hooks 记录信任。它通过 `codex app-server` 向 Codex 获取每个 hook 的 hash，与 `/hooks` 审核使用相同的调用，因此 `codex` 必须在 `PATH` 上。只修改 `trusted_hash`：你在 Codex 中停用的 hook 保持停用并会被报告，不属于 Skillshare 的 hooks 不受影响。Skillshare 的 hook 移动或删除后，下一次 `--trust` 同步会清除它为旧位置记录的信任，除非该信任此后已被修改。无法连接 Codex 时，hook 文件仍会写入，命令失败并说明未记录信任。项目 hooks 不在此范围内。
+`--trust` 先像普通同步一样写入 hook 文件。然后它在 Skillshare 管理的每个 Codex 目录（包括账号目录）中，向 Codex 询问 Skillshare 拥有的 hooks 里哪些需要信任。它通过 `codex app-server` 获取每个 hook 的 hash，与 `/hooks` 审核使用相同的调用，因此 `codex` 必须在 `PATH` 上。Skillshare 自己不计算 hash。
+
+已经信任的 hook 会报告为 `unchanged`，无需回答。如果 hook 是新的，或在信任之后 command 发生了变化，命令会列出这些 hooks 及其 command，并只询问一次。没有需要信任的 hook 时不会询问。
+
+```
+Codex trust
+  stop  needs trust  codex  /home/me/.codex/hooks.json:stop:1:0
+  /usr/local/bin/notify-done
+
+? Trust 1 hook in Codex?  Yes  No
+```
+
+确认之后：
+
+```
+Codex trust
+✓ stop  trusted  codex  /home/me/.codex/hooks.json:stop:1:0
+```
+
+`--yes`（`-y`）跳过询问。Codex 的审核存在的原因，是让人在 command 运行之前看到它。没有终端且没有 `--yes` 时，不会信任任何 hook：命令会列出这些 hooks，并以提到 `--yes` 的错误退出。`--json` 同样不会询问：没有 `--yes` 时，它把这些 hooks 输出为 `needed`，并以非零状态退出，不输出错误文字。`--yes` 只能与 `--trust` 一起使用。`--json` 输出包含 `codexTrust` 列表。每一项有 `target`、`entry`、`key`、`command`、`action`（`needed`、`trusted` 或 `unchanged`），为 true 时还有 `disabled`。
+
+只写入 `trusted_hash`，而且只会新增。你在 Codex 中停用的 hook 保持停用并会被报告。`enabled`、`config.toml` 的其余部分以及不属于 Skillshare 的 hooks 都不会改动。hook 移动或删除后，旧条目仍留在 `config.toml` 中。它只匹配该位置上 event、matcher 和 handler 都相同的 hook，因此不会让另一个 hook 变成已信任。
+
+`codex` 不在 `PATH` 上或 Codex 失败时，hook 文件仍会写入，命令以 "hook files were written, but Codex trust was not recorded" 失败。有多个 Codex home 时，一个 home 失败不会中止其他 home：错误会列出已记录和未记录的 home。不带 `--trust` 的 `hooks sync` 不会启动 Codex，也不会改变信任。`--trust` 只能用于全局模式；`sync hooks`、`hooks list` 和项目模式会拒绝它。Dashboard 的 Hooks 页面（global scope）有相同的操作：它列出需要信任的 hooks 及其 command，只有在你于对话框中确认后才记录信任。
 
 ## Git hooks {#git-hooks}
 

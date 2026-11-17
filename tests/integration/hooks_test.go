@@ -211,6 +211,7 @@ func TestHooksRejectsInapplicableArguments(t *testing.T) {
 		{"hooks", "edit", "bash-log", "--keep-files"},
 		{"hooks", "list", "--trust"},
 		{"sync", "hooks", "--trust"},
+		{"hooks", "sync", "--yes"},
 	} {
 		sb.RunCLI(append(args, "-g")...).AssertFailure(t)
 	}
@@ -447,9 +448,13 @@ func TestHooksAccountTargets_ReportsConfigLoadError(t *testing.T) {
 }
 
 // fakeCodexAppServer answers initialize, hooks/list (one untrusted handler at
-// SessionStart group 0) and config/batchWrite, logging each batch to batch.log.
+// SessionStart group 0) and config/batchWrite, logging each batch to batch.log and
+// the CODEX_HOME it was started with to env.log. Like Codex, it falls back to ~/.codex.
 const fakeCodexAppServer = `#!/bin/sh
 [ "$1" = app-server ] || exit 2
+env="${CODEX_HOME:-unset}"
+CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
+echo "$env" >> "$CODEX_HOME/env.log"
 while IFS= read -r line; do
   case "$line" in
     *'"method":"initialize"'*) echo '{"id":1,"result":{}}' ;;
@@ -487,16 +492,29 @@ func TestHooksSyncTrustRecordsCodexTrust(t *testing.T) {
 		t.Fatal(err)
 	}
 	os.Setenv("PATH", bin+string(os.PathListSeparator)+path) // Cleanup restores the original PATH.
-	r = sb.RunCLI("hooks", "sync", "--trust", "--json", "-g")
+	// Without a terminal nobody saw the command: it is listed, and nothing is trusted.
+	r = sb.RunCLI("hooks", "sync", "--trust", "-g")
+	r.AssertFailure(t)
+	r.AssertAnyOutputContains(t, "echo trust-test")
+	r.AssertAnyOutputContains(t, "--yes")
+	if _, err := os.Stat(filepath.Join(codexHome, "batch.log")); !os.IsNotExist(err) {
+		t.Fatal("trust was recorded without --yes")
+	}
+
+	r = sb.RunCLI("hooks", "sync", "--trust", "--yes", "--json", "-g")
 	r.AssertSuccess(t)
 	var result struct {
-		CodexTrust []struct{ Target, Entry, Key, Action string } `json:"codexTrust"`
+		CodexTrust []struct{ Target, Entry, Key, Command, Action string } `json:"codexTrust"`
 	}
 	if err := json.Unmarshal([]byte(r.Stdout), &result); err != nil || len(result.CodexTrust) != 1 {
 		t.Fatalf("result: %v\n%s", err, r.Stdout)
 	}
-	if got := result.CodexTrust[0]; got.Target != "codex" || got.Entry != "start" || got.Action != "trusted" {
+	if got := result.CodexTrust[0]; got.Target != "codex" || got.Entry != "start" || got.Action != "trusted" || got.Command != "echo trust-test" {
 		t.Fatalf("trust = %+v", got)
+	}
+	// The default home is found the way the user's Codex finds it: without CODEX_HOME.
+	if env := sb.ReadFile(filepath.Join(codexHome, "env.log")); strings.Contains(env, codexHome) || !strings.Contains(env, "unset") {
+		t.Fatalf("default home was started with CODEX_HOME set: %s", env)
 	}
 	batch := sb.ReadFile(filepath.Join(codexHome, "batch.log"))
 	want := `"keyPath":"hooks.state.\"` + codexHome + `/hooks.json:session_start:0:0\".trusted_hash","mergeStrategy":"replace","value":"sha256:fake"`

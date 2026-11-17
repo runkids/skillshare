@@ -82,9 +82,22 @@ keep their ownership and files with a warning; explicitly preview and run
 `hooks sync NAME --replace -g` to release parked ownership without editing files.
 Import uses the account key: `hooks import --from codex-2 -g --json`.
 Each Codex home must trust its own changed hooks through `/hooks`, or run
-`hooks sync --trust -g` (needs `codex` on PATH) to record trust for the hooks
-Skillshare owns in every global Codex home; it only sets `trusted_hash`, and clears
-the trust it recorded when a hook moves or is removed.
+`hooks sync --trust -g` (needs `codex` on PATH). It writes the hook files, then
+asks Codex which owned hooks need trust (`unchanged` = already trusted, no answer
+needed). New or command-changed hooks are listed with their commands and confirmed
+once; nothing to trust means no question. `--yes`/`-y` (only with `--trust`) skips
+the question. Without a terminal and without `--yes`, nothing is trusted: it lists
+the hooks and exits with an error naming `--yes`, because Codex's review exists so a
+person sees the command before it runs. `--json` never asks: without `--yes` it
+reports the hooks as `needed` and exits non-zero with no error text. Only `trusted_hash` is
+added (disabled hooks are reported, not enabled). A moved or removed hook leaves its
+old entry in `config.toml`; it matches only the same event, matcher and handler at
+that position, so it cannot trust another hook. Global mode only; `sync hooks`,
+`hooks list` and project mode reject `--trust`. `--json` has a `codexTrust` list
+(`target`, `entry`, `key`, `command`, `action`, `disabled`). If Codex fails, files
+are still written and it errors "hook files were written, but Codex trust was not
+recorded". Plain `hooks sync` never touches trust. The dashboard Hooks page
+(global) does the same after a confirm dialog.
 
 ## Git config hooks
 

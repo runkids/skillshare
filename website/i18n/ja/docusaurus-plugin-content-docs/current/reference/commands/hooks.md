@@ -23,6 +23,8 @@ skillshare hooks sync --dry-run --json
 skillshare hooks sync
 skillshare hooks sync check --replace --dry-run
 skillshare hooks sync --trust -g
+skillshare hooks sync --trust --yes -g
+skillshare hooks sync --trust --yes --json -g
 skillshare sync hooks --dry-run --json
 skillshare sync hooks
 skillshare hooks remove check --sync
@@ -41,6 +43,7 @@ skillshare hooks restore BACKUP_ID
 | `--keep-files` | `remove` と併用: hook の管理をやめ、ネイティブのエントリはそのまま残す。`--sync` とは併用できない。[下記](#stop-managing-a-hook)を参照 |
 | `--replace` | 既存ソース entry またはその entry の競合出力を明示的に置換 |
 | `--trust` | グローバルモードの `hooks sync` のみ：Skillshare が管理する hooks の Codex 信頼も記録。[Codex の信頼](#codex-trust)を参照 |
+| `--yes`, `-y` | `--trust` と併用：確認を省略し、一覧の hooks を信頼。[Codex の信頼](#codex-trust)を参照 |
 | `--dry-run, -n` | 書き込まずプレビュー |
 | `--json` | 構造化出力 |
 | `--revision ID` | 指定プレビュー revision との一致を要求 |
@@ -192,9 +195,34 @@ Codex は信頼済みのユーザーレベル hook だけを実行し、その�
 
 ```bash
 skillshare hooks sync --trust -g
+skillshare hooks sync --trust --yes -g
+skillshare hooks sync --trust --yes --json -g
 ```
 
-書き込み後、`--trust` は Skillshare が管理するすべての Codex ホーム（アカウントのホームを含む）で、Skillshare が所有する hooks の信頼を記録します。各 hook の hash は `/hooks` の確認画面と同じ呼び出しで `codex app-server` から取得するため、`codex` が `PATH` 上に必要です。変更するのは `trusted_hash` だけです。Codex で無効にした hook は無効のまま報告され、Skillshare が所有しない hooks には触れません。Skillshare の hook が移動または削除されると、次の `--trust` 同期で古い位置に記録した信頼を消去します。ただし、その後に信頼が変更されていれば残します。Codex に接続できない場合も hook ファイルは書き込まれ、コマンドは信頼を記録できなかったと伝えて失敗します。プロジェクトの hooks は対象外です。
+`--trust` はまず通常の同期と同じように hook ファイルを書き込みます。次に、Skillshare が管理するすべての Codex ホーム（アカウントのホームを含む）で、Skillshare が所有する hooks のうち信頼が必要なものを Codex に問い合わせます。各 hook の hash は `/hooks` の確認画面と同じ呼び出しで `codex app-server` から取得するため、`codex` が `PATH` 上に必要です。Skillshare 自身は hash を計算しません。
+
+すでに信頼済みの hook は `unchanged` と報告され、回答は不要です。hook が新しい場合、または信頼した後に command が変わった場合は、該当する hooks を command とともに一覧表示し、1 回だけ確認します。信頼が必要な hook がなければ確認しません。
+
+```
+Codex trust
+  stop  needs trust  codex  /home/me/.codex/hooks.json:stop:1:0
+  /usr/local/bin/notify-done
+
+? Trust 1 hook in Codex?  Yes  No
+```
+
+確認後：
+
+```
+Codex trust
+✓ stop  trusted  codex  /home/me/.codex/hooks.json:stop:1:0
+```
+
+`--yes`（`-y`）は確認を省略します。Codex の確認は、実行前に人が command を目にするためにあります。端末がない場合に `--yes` がなければ、何も信頼せず、hooks を一覧表示して `--yes` を示すエラーで終了します。`--json` も確認を行いません。`--yes` がなければ hooks を `needed` として出力し、エラー文なしで非ゼロ終了します。`--yes` は `--trust` と併用する場合のみ有効です。`--json` の出力には `codexTrust` のリストがあります。各項目は `target`、`entry`、`key`、`command`、`action`（`needed`、`trusted`、`unchanged`）を持ち、無効の場合は `disabled` も持ちます。
+
+書き込むのは `trusted_hash` だけで、追加のみです。Codex で無効にした hook は無効のまま報告されます。`enabled`、`config.toml` のその他の部分、Skillshare が所有しない hooks には触れません。hook が移動または削除されると、古いエントリは `config.toml` に残ります。このエントリは、その位置で event、matcher、handler が同じ hook にしか一致しないため、別の hook を信頼することはありません。
+
+`codex` が `PATH` にない場合や Codex が失敗した場合も hook ファイルは書き込まれ、コマンドは "hook files were written, but Codex trust was not recorded" で失敗します。Codex home が複数ある場合、1 つの home が失敗しても他の home の記録は続行され、エラーには記録できた home とできなかった home が示されます。`--trust` なしの `hooks sync` は Codex を起動せず、信頼も変更しません。`--trust` はグローバルモードのみで、`sync hooks`、`hooks list`、プロジェクトモードでは拒否されます。Dashboard の Hooks ページ（global scope）にも同じ操作があり、信頼が必要な hooks を command とともに一覧表示し、ダイアログで確認した後にのみ信頼を記録します。
 
 ## Git hooks {#git-hooks}
 

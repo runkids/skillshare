@@ -154,10 +154,29 @@ func TestHooksAPIImportListsCandidatesWithoutExecuting(t *testing.T) {
 	}
 }
 
+// Trust is recorded only for a reviewed list, and only in global Codex homes.
+func TestHooksCodexTrustNeedsAReviewedRevisionAndGlobalScope(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	hooksTestHome(t)
+	if w := hooksPost(s, s.handleHooksCodexTrust, "/api/hooks/codex-trust", `{}`); w.Code != http.StatusBadRequest {
+		t.Fatalf("trust without revision: %d %s", w.Code, w.Body)
+	}
+	if w := hooksPost(s, s.handleHooksCodexTrust, "/api/hooks/codex-trust", `{"revision":"stale"}`); w.Code != http.StatusConflict {
+		t.Fatalf("stale revision: %d %s", w.Code, w.Body)
+	}
+	s.projectRoot = t.TempDir()
+	if w := hooksPost(s, s.handleHooksCodexTrustPreview, "/api/hooks/codex-trust/preview", `{}`); w.Code != http.StatusBadRequest {
+		t.Fatalf("project preview: %d %s", w.Code, w.Body)
+	}
+	if w := hooksPost(s, s.handleHooksCodexTrust, "/api/hooks/codex-trust", `{"revision":"x"}`); w.Code != http.StatusBadRequest {
+		t.Fatalf("project trust: %d %s", w.Code, w.Body)
+	}
+}
+
 func TestHooksRoutesRejectRebindingHost(t *testing.T) {
 	s, _ := newTestServerWithExtras(t, nil, "")
 	s.addr = "127.0.0.1:19420"
-	for _, route := range []string{"GET /api/hooks", "POST /api/hooks", "POST /api/hooks/preview", "POST /api/hooks/render", "POST /api/hooks/import", "POST /api/hooks/native", "POST /api/hooks/native/preview", "POST /api/hooks/restore", "GET /api/hooks/catalog"} {
+	for _, route := range []string{"GET /api/hooks", "POST /api/hooks", "POST /api/hooks/preview", "POST /api/hooks/render", "POST /api/hooks/import", "POST /api/hooks/native", "POST /api/hooks/native/preview", "POST /api/hooks/restore", "POST /api/hooks/codex-trust/preview", "POST /api/hooks/codex-trust", "GET /api/hooks/catalog"} {
 		method, path, _ := strings.Cut(route, " ")
 		req := httptest.NewRequest(method, path, strings.NewReader(`{}`))
 		req.RemoteAddr = "127.0.0.1:5555"

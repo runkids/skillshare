@@ -212,13 +212,77 @@ func finishHooksMutation(service *hooks.Service, command string, mutation hooks.
 	}
 	start := time.Now()
 	result, err := service.Mutate(mutation, p.Revision, o.sync)
-	if err == nil && o.trust {
-		if result.CodexTrust, err = service.TrustCodex(); err != nil {
+	logHooksOp(service.ConfigPath, command, start, err)
+	if err != nil || !o.trust {
+		return printHooksResult(result, err, o)
+	}
+	// The sync result prints first, so the question comes after what was written.
+	if !o.json {
+		if err := printHooksResult(result, nil, o); err != nil {
+			return err
+		}
+	}
+	trust, declined, err := trustCodexHooks(service, o)
+	result.CodexTrust = trust
+	if err != nil {
+		// A home that was written says so in the error itself.
+		if slices.ContainsFunc(trust, func(h hooks.CodexTrust) bool { return h.Action == "trusted" }) {
+			err = fmt.Errorf("hook files were written: %w", err)
+		} else {
 			err = fmt.Errorf("hook files were written, but Codex trust was not recorded: %w", err)
 		}
 	}
-	logHooksOp(service.ConfigPath, command, start, err)
-	return printHooksResult(result, err, o)
+	if o.json {
+		return writeJSONResult(result, err)
+	}
+	if !declined {
+		printHooksTrust(trust)
+	}
+	return err
+}
+
+// trustCodexHooks lists the Codex hooks that need trust and records it once the user
+// agrees. A person has to see each command first, so without a terminal only --yes
+// is consent; a hook that is already trusted needs no answer.
+func trustCodexHooks(service *hooks.Service, o hooksOptions) (trust []hooks.CodexTrust, declined bool, err error) {
+	plan, err := service.PreviewCodexTrust()
+	if plan == nil || err != nil {
+		return nil, false, err
+	}
+	needed := plan.Needed()
+	if len(needed) == 0 {
+		return plan.Hooks, false, nil
+	}
+	if !o.yes {
+		if o.json || !runningInInteractiveTTY() {
+			return plan.Hooks, false, fmt.Errorf("%s trust; review the commands and pass --yes to record it", needVerb(len(needed), "Codex hook"))
+		}
+		printHooksTrust(needed)
+		fmt.Println()
+		ok, err := ui.ConfirmAction("Trust "+plural(len(needed), "hook")+" in Codex?", false)
+		if err != nil {
+			return plan.Hooks, false, err
+		}
+		if !ok {
+			ui.Cancelled("trusted")
+			return plan.Hooks, true, nil
+		}
+	}
+	start := time.Now()
+	plan, err = service.TrustCodex(plan.Revision)
+	logHooksOp(service.ConfigPath, "hooks trust", start, err)
+	if plan == nil {
+		return nil, false, err
+	}
+	return plan.Hooks, false, err
+}
+
+// needVerb is "1 Codex hook needs" or "2 Codex hooks need".
+func needVerb(n int, noun string) string {
+	if n == 1 {
+		return plural(n, noun) + " needs"
+	}
+	return plural(n, noun) + " need"
 }
 
 // applyHooksSync previews the whole source and applies with that revision, so sync
@@ -365,7 +429,6 @@ func printHooksResult(result *hooks.Result, err error, o hooksOptions) error {
 		for _, id := range result.BackupIDs {
 			ui.Note("backup " + id)
 		}
-		printHooksTrust(result.CodexTrust)
 		if err == nil && !o.sync {
 			fmt.Println()
 			ui.Done(ui.MarkOK, "Saved the hooks source", 0)
@@ -379,7 +442,8 @@ func printHooksResult(result *hooks.Result, err error, o hooksOptions) error {
 	return err
 }
 
-// printHooksTrust prints one row per Codex hook sync --trust looked at.
+// printHooksTrust prints one row per Codex hook sync --trust looked at, and the
+// command of each one that needs trust.
 func printHooksTrust(trust []hooks.CodexTrust) {
 	if len(trust) == 0 {
 		return
@@ -392,13 +456,16 @@ func printHooksTrust(trust []hooks.CodexTrust) {
 	width := ui.RowWidth(labels...)
 	for _, t := range trust {
 		mark, value := ui.MarkOK, t.Action
-		if t.Action == "cleared" {
-			mark = ui.MarkNone
+		if t.Action == "needed" {
+			mark, value = ui.MarkNone, "needs trust"
 		}
 		if t.Disabled {
 			mark, value = ui.MarkWarn, value+", disabled in Codex"
 		}
 		ui.Row(mark, hooksTrustLabel(t), value+"  "+ui.DimText(t.Target+"  "+t.Key), width)
+		if t.Action == "needed" && t.Command != "" {
+			ui.Note(t.Command)
+		}
 	}
 	for _, t := range trust {
 		if t.Disabled {
