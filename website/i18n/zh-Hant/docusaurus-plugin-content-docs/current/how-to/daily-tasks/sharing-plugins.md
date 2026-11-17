@@ -83,6 +83,17 @@ skillshare sync plugins --no-tui
 plugin 的選單中有 **View files**：即已審閱過的來源本機副本，唯讀，並以 Markdown 格式呈現。
 匯入的 plugin 沒有本機副本，因此也沒有這個項目。
 
+頁面標題列或 plugin 選單中的 **Share** 會列出從 HTTPS Git Source 加入的 plugin。勾選幾個後，
+複製一行指令即可依序把它們全部加入。每個 add 都帶 `-g`，所以即使在專案裡執行，也會加到全域設定。
+指令預設還帶 `--no-tui`，加入時不會詢問；執行的人之後再到 Plugins 頁面勾選 Agent 安裝。
+勾選「每個項目都詢問要裝到哪裡」會拿掉 `--no-tui`，每次加入都會開啟 Agent 選擇畫面。
+來自本機目錄的 plugin 不會列出，因為那個路徑只存在你的機器上。
+
+同一個對話框還會在 plugin 之後列出 Pi 從 npm 安裝的 Pi 套件。npm 套件由 Pi 自己下載，所以指令會指定 target：
+`skillshare plugin add npm:<package> --target pi -g --no-tui` 會直接裝進 Pi。
+勾選「每個項目都詢問要裝到哪裡」時，指令不帶 `--target pi`，改為詢問要用哪些 Pi target。
+來自 Git 或本機路徑的 Pi 套件不會列出。
+
 plugin 與一般的 Skill 及 MCP 同步是分開的。它們所包含的元件不會同時複製到獨立的
 Skillshare Source 中。
 

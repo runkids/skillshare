@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新バージョン**：v0.30.10 — skillshare が書き込んだ Codex のフックを信頼できます。`skillshare hooks sync --trust -g` は新規または変更されたフックをコマンド付きで一覧表示し、確認後に Codex の信頼を記録するので、Codex がフックをスキップしなくなります。スクリプト向けに `--yes` で確認を省略でき、ダッシュボードの Hooks ページにも同じ操作があります。 [hooks リファレンス →](https://skillshare.runkids.cc/ja/docs/reference/commands/hooks) · [変更履歴 →](https://skillshare.runkids.cc/changelog)
+> **最新バージョン**：v0.30.11 — ダッシュボードから Pi パッケージを共有できます。Plugins ページの「共有」は、プラグインに続けて Pi が npm からインストールしたパッケージも一覧表示し、`skillshare plugin add npm:<package> --target pi -g --no-tui` のようにすべてを追加するコマンドを 1 つコピーします。「ターゲット内の hook」ダイアログでは、Antigravity と Copilot の hook もインポートせずに編集・削除できます。 [プラグインガイド →](https://skillshare.runkids.cc/ja/docs/how-to/daily-tasks/sharing-plugins) · [変更履歴 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare を使う理由
 

@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Neueste Version**: v0.30.10 — Den Codex-Hooks vertrauen, die skillshare schreibt: `skillshare hooks sync --trust -g` listet die neuen oder geänderten Hooks mit ihren Befehlen auf und trägt nach deiner Bestätigung das Vertrauen in Codex ein, sodass Codex sie nicht mehr überspringt. `--yes` überspringt die Rückfrage für Skripte, und die Hooks-Seite im Dashboard bietet dieselbe Aktion. [hooks-Referenz →](https://skillshare.runkids.cc/docs/reference/commands/hooks) · [Alle Releases →](https://github.com/runkids/skillshare/releases)
+> **Neueste Version**: v0.30.11 — Pi-Pakete aus dem Dashboard teilen: **Teilen** auf der Plugins-Seite listet jetzt nach deinen Plugins auch die npm-Pakete auf, die Pi installiert hat, und kopiert einen Befehl, der alle hinzufügt, etwa `skillshare plugin add npm:<package> --target pi -g --no-tui`. Der Dialog **Hooks in Zielen** kann außerdem Antigravity- und Copilot-Hooks bearbeiten oder entfernen, ohne sie zu importieren. [Plugins-Anleitung →](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins) · [Alle Releases →](https://github.com/runkids/skillshare/releases)
 
 ## Warum skillshare
 
